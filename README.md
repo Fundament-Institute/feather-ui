@@ -1,0 +1,2 @@
+# Feather GUI
+Feather is a lightweight GUI abstraction layer that separates functionality from implementation. By internalizing all GUI behavior, implementations of Feather need only to render widget components properly and handle any OS-specific needs. This allows Feather layouts to be opened as both native executables or embedded in games without needing any special treatment. Written in minimal C, Feather is simple to integrate into higher-level languages.
