@@ -18,7 +18,7 @@ void FG_FASTCALL fgGrid_Destroy(fgGrid* self)
   fgWindow_Destroy(&self->window);
 }
 
-/*void FG_FASTCALL fgGrid_FixUp(fgGrid* self, int start)
+/*void FG_FASTCALL fgGrid_FixUp(fgGrid* self, int start) //
 {
   int i = self->items.l;
   fgChild** items = (fgChild**)self->items.p;

@@ -65,6 +65,9 @@
     <ClInclude Include="fgSkin.h">
       <Filter>include</Filter>
     </ClInclude>
+    <ClInclude Include="..\include\fgImplementation.h">
+      <Filter>include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="fgButton.c">
@@ -92,6 +95,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="fgSkin.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgImplementation.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

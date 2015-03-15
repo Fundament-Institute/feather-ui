@@ -155,3 +155,4 @@ fgRoot* FG_FASTCALL fgSingleton()
 {
   return _fgroot;
 }
+char FG_FASTCALL fgLoadExtension(void* fg, const char* extname) { return -1; }

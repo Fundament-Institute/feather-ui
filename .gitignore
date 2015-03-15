@@ -1,0 +1,15 @@
+*.sdf
+*.suo
+*.opensdf
+*.bak
+bin/
+feathergui/x64/
+feathergui/Win32/
+fgLayoutEditor/x64/
+fgLayoutEditor/Win32/
+fgNull/x64/
+fgNull/Win32/
+fgTest/x64/
+fgTest/Win32/
+fgWinAPI/x64/
+fgWinAPI/Win32/

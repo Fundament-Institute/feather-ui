@@ -72,6 +72,7 @@
     <OutDir>$(SolutionDir)bin\</OutDir>
     <TargetName>$(ProjectName)_d</TargetName>
     <TargetExt>.lib</TargetExt>
+    <IntDir>$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <TargetName>$(ProjectName)64_d</TargetName>
@@ -83,6 +84,7 @@
     <LinkIncremental>false</LinkIncremental>
     <OutDir>$(SolutionDir)bin\</OutDir>
     <TargetExt>.lib</TargetExt>
+    <IntDir>$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <TargetExt>.lib</TargetExt>
@@ -216,6 +218,7 @@
     <ClInclude Include="..\include\fgButton.h" />
     <ClInclude Include="..\include\fgCombobox.h" />
     <ClInclude Include="..\include\fgGrid.h" />
+    <ClInclude Include="..\include\fgImplementation.h" />
     <ClInclude Include="..\include\fgList.h" />
     <ClInclude Include="..\include\fgMenu.h" />
     <ClInclude Include="..\include\fgScrollbar.h" />
@@ -231,6 +234,7 @@
     <ClCompile Include="feathergui.c" />
     <ClCompile Include="fgButton.c" />
     <ClCompile Include="fgGrid.c" />
+    <ClCompile Include="fgImplementation.c" />
     <ClCompile Include="fgMenu.c" />
     <ClCompile Include="fgSkin.c" />
     <ClCompile Include="fgStatic.c" />
