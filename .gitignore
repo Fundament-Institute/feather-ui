@@ -7,6 +7,7 @@ feathergui/x64/
 feathergui/Win32/
 fgLayoutEditor/x64/
 fgLayoutEditor/Win32/
+fgLayoutEditor/res/
 fgNull/x64/
 fgNull/Win32/
 fgTest/x64/
