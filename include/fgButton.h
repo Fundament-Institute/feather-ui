@@ -14,18 +14,7 @@ extern "C" {
 typedef struct _FG_BUTTON {
   fgWindow window;
   fgStatic* item; // item displayed in button
-  fgStatic* neutral; // normal background for when button isn't in hover or active (being clicked) state
-  fgStatic* hover; // background for hovering
-  fgStatic* active; // background for being clicked
 } fgButton;
-
-struct FG_BUTTONSKIN {
-  struct FG_WINDOWSKIN base;
-  fgElement item; // Defines how the item appears in the button
-  fgStatic* nuetral; // normal background for when button isn't in hover or active (being clicked) state
-  fgStatic* hover; // background for hovering
-  fgStatic* active; // background while being clicked
-};
 
 FG_EXTERN fgWindow* FG_FASTCALL fgButton_Create(fgStatic* item, fgWindow* parent, const fgElement* element, FG_UINT id, fgFlag flags);
 FG_EXTERN void FG_FASTCALL fgButton_Init(fgButton* self, fgWindow* parent, const fgElement* element, FG_UINT id, fgFlag flags);

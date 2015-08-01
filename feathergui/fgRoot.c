@@ -45,7 +45,7 @@ char FG_FASTCALL fgRoot_RInject(fgRoot* root, fgWindow* self, const FG_Msg* msg,
   while(cur && (cur->flags&FGWIN_NOCLIP)!=0) // Go through all our children that aren't being clipped
   {
     if(!fgRoot_RInject(root,(fgWindow*)cur,msg,area)) //pass through the parent area because these aren't clipped
-      return 0; // If the message is NOT rejected, return 0 immediately.
+      return 0; // If the message is NOT rejected, return 0 immediately to indicate we ate the message.
     cur=cur->next; // Otherwise the child rejected the message.
   }
   assert(msg!=0 && area!=0);

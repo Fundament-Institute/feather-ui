@@ -20,13 +20,6 @@ typedef struct FG_MENU {
   fgDeferAction* dropdown; // Keeps track of our dropdown action in fgRoot
 } fgMenu;
 
-struct FG_MENUSKIN {
-  struct FG_GRIDSKIN base;
-  fgStatic* highlight;
-  fgStatic* seperator;
-  fgStatic* arrow;
-};
-
 FG_EXTERN fgWindow* FG_FASTCALL fgMenu_Create(fgWindow* parent, const fgElement* element, FG_UINT id, fgFlag flags);
 FG_EXTERN void FG_FASTCALL fgMenu_Init(fgMenu* self, fgWindow* parent, const fgElement* element, FG_UINT id, fgFlag flags);
 FG_EXTERN void FG_FASTCALL fgMenu_Destroy(fgMenu* self);

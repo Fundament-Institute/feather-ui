@@ -19,13 +19,6 @@ typedef struct {
   fgStatic* highlighter;
 } fgList;
 
-struct FG_LISTSKIN {
-  struct FG_GRIDSKIN base;
-  struct FG_GRIDSKIN column;
-  fgStatic* selector;
-  fgStatic* highlighter;
-};
-
 FG_EXTERN fgWindow* FG_FASTCALL fgList_Create(fgWindow* parent, const fgElement* element, FG_UINT id, fgFlag flags);
 FG_EXTERN void FG_FASTCALL fgList_Init(fgList* self, fgWindow* parent, const fgElement* element, FG_UINT id, fgFlag flags);
 FG_EXTERN char FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg);

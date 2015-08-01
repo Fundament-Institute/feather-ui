@@ -10,13 +10,6 @@
 extern "C" {
 #endif
 
-#define STATIC_SET_PIECE(n,y,x) if(self->##x) (*self->##x##->message)(self->##x,FG_RSHOW,(void*)(n==y),0)
-#define STATIC_SET_ENABLE1(n,a) STATIC_SET_PIECE(n,0,a)
-#define STATIC_SET_ENABLE2(n,a,b) STATIC_SET_PIECE(n,1,b); STATIC_SET_ENABLE1(n,a)
-#define STATIC_SET_ENABLE3(n,a,b,c) STATIC_SET_PIECE(n,2,c); STATIC_SET_ENABLE2(n,a,b)
-#define STATIC_SET_ENABLE4(n,a,b,c,d) STATIC_SET_PIECE(n,3,d); STATIC_SET_ENABLE3(n,a,b,c)
-#define STATIC_SET_ENABLE5(n,a,b,c,d,e) STATIC_SET_PIECE(n,4,e); STATIC_SET_ENABLE4(n,a,b,c,d)
-
 // Message types for statics only
 enum FG_RENDERMSG
 {
@@ -90,6 +83,7 @@ FG_EXTERN fgStatic* FG_FASTCALL fgLoadDefaultText(const char* text);
 //FG_EXTERN fgStatic* FG_FASTCALL fgLoadVectorData(const void* data, size_t length);
 FG_EXTERN fgStatic* FG_FASTCALL fgEmptyStatic(fgFlag flags);
 FG_EXTERN fgStatic* FG_FASTCALL fgLoadDef(void* def, const fgElement* element, int order);
+FG_EXTERN void* FG_FASTCALL fgCloneDef(void* def);
 FG_EXTERN void FG_FASTCALL fgDestroyDef(void* def);
 
 #ifdef  __cplusplus

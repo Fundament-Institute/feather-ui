@@ -18,6 +18,8 @@ enum FG_WINFLAGS
   FGGRID_EXPANDY=8,
   FGGRID_TILEX=16,
   FGGRID_TILEY=32,
+  FGGRID_FIXEDX = 64,
+  FGGRID_FIXEDY = 128,
   FGSCROLLBAR_VERT=16,
   FGSCROLLBAR_HORZ=32,
   FGSCROLLBAR_HIDEX=64,
@@ -30,10 +32,7 @@ enum FG_WINFLAGS
 };
 
 struct FG_MENU;
-
-struct FG_WINDOWSKIN {
-  fgStatic* root; // Holds all statics that should be added to a window and have no logic associated with them.
-};
+struct __FG_SKIN;
 
 // Defines the base GUI element, a window. This is not an actual top level window.
 typedef struct __WINDOW {
@@ -43,7 +42,9 @@ typedef struct __WINDOW {
   fgStatic* rlist; // root node for statics
   fgStatic* rlast; // last node for statics 
   struct FG_MENU* contextmenu;
-  const struct FG_WINDOWSKIN* skin; // skin reference
+  const struct __FG_SKIN* skin; // skin reference
+  fgVector skinstatics; // array of statics that belong to the skin and are referenced by it
+  char* name; // Optional name used for mapping to skin collections
   void* userdata;
 } fgWindow;
 
@@ -61,6 +62,7 @@ FG_EXTERN char FG_FASTCALL fgWindow_VoidAuxMessage(fgWindow* self, unsigned char
 FG_EXTERN char FG_FASTCALL fgWindow_IntMessage(fgWindow* self, unsigned char type, int data); // Shortcut for sending int messages
 FG_EXTERN void FG_FASTCALL fgWindow_SetParent(fgWindow* BSS_RESTRICT self, fgChild* BSS_RESTRICT parent);
 FG_EXTERN char FG_FASTCALL fgWindow_HoverProcess(fgWindow* self, const FG_Msg* msg);
+FG_EXTERN void FG_FASTCALL fgWindow_TriggerStyle(fgWindow* self, FG_UINT index);
 
 #ifdef  __cplusplus
 }

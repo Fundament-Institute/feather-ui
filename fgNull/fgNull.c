@@ -124,7 +124,7 @@ fgWindow* FG_FASTCALL fgButton_Create(fgStatic* item, fgWindow* parent, const fg
   fgButton* r = (fgButton*)malloc(sizeof(fgButton));
   r->window.message=&fgdebug_Message_fgButton;
   fgButton_Init(r,parent,element,id,flags);
-  return r;
+  return (fgWindow*)r;
 }
 fgWindow* FG_FASTCALL fgMenu_Create(fgWindow* parent, const fgElement* element, FG_UINT id, fgFlag flags)
 {
@@ -132,7 +132,7 @@ fgWindow* FG_FASTCALL fgMenu_Create(fgWindow* parent, const fgElement* element, 
   //r->grid.window.message=&fgdebug_Message_fgMenu;
   //fgMenu_Init(r,parent,element,id,flags);
   fgGrid_Init(0,0,0,0,0);
-  return r;
+  return (fgWindow*)r;
 }
 fgWindow* FG_FASTCALL fgTopWindow_Create(const char* caption, const fgElement* element, FG_UINT id, fgFlag flags)
 {
@@ -141,7 +141,7 @@ fgWindow* FG_FASTCALL fgTopWindow_Create(const char* caption, const fgElement* e
   r->window.message=&fgdebug_Message_fgTopWindow;
   r->region.message=&fgdebug_Message_fgWindow;
   fgWindow_VoidMessage((fgWindow*)r,FG_SETPARENT,fgSingleton());
-  return r;
+  return (fgWindow*)r;
 }
 
 fgRoot* FG_FASTCALL fgInitialize()

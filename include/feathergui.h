@@ -95,7 +95,8 @@ FG_EXTERN void FG_FASTCALL fgVector_Remove(fgVector* self, FG_UINT index, FG_UIN
 
 #define fgVector_Add(self, item, TYPE) fgVector_CheckSize(&self,sizeof(TYPE)); ((TYPE*)self.p)[self.l++]=item;
 #define fgVector_Insert(self, item, index, TYPE) fgVector_CheckSize(&self,sizeof(TYPE)); if(self.l-index>0) { memmove(((TYPE*)self.p)+(index+1),((TYPE*)self.p)+index,((self.l++)-index)*sizeof(TYPE)); } ((TYPE*)self.p)[index]=item;
-#define fgVector_Get(self, index, TYPE) ((TYPE*)self.p)[index]
+#define fgVector_Get(self, index, TYPE) ((TYPE*)(self).p)[index]
+#define fgVector_GetP(self, index, TYPE) (((TYPE*)(self).p)+(index))
 
 typedef struct {
   CRect area;
@@ -112,7 +113,7 @@ typedef struct _FG_CHILD {
   struct _FG_CHILD* last; // children list last
   struct _FG_CHILD* next;
   struct _FG_CHILD* prev;
-  AbsRect margin; // defines the amount of internal margin. Bottom and right are not automatically negated, so a 5 pixel margin would be 5,5,-5,-5
+  AbsRect margin; // defines the amount of external margin. Bottom and right are not automatically negated, so a 5 pixel margin would be 5,5,-5,-5
   int order; // order relative to other windows or statics
   fgFlag flags;
 } fgChild;
@@ -144,7 +145,11 @@ enum FG_MSGTYPE
   FG_SETALPHA, // Used so an entire widget can be made to fade in or out. (Support is not guaranteed)
   FG_SETMARGIN,
   FG_SETCOLUMNS, // If the second pointer is 0, the number of columns is set to the first int. Otherwise, the first int is treated as a column index number, which has it's width set to the Coord pointer to by the second pointer
+  FG_SETSKIN,
+  FG_SETNAME, // Sets the unique name for this object for skin collection mapping. Can be null.
+  FG_SETSTYLE,
   FG_GETCLASSNAME, // Returns a unique string identifier for the class
+  FG_GETNAME, // May return a unique string for this object, or will return NULL.
   FG_GETITEM, // If the control has columns, the column number is specified in the high-order word
   FG_GETROW,
   FG_ADDITEM, // Used for anything involving items (menus, lists, etc)
@@ -157,7 +162,6 @@ enum FG_MSGTYPE
   FG_ACTIVE, // Sent when a hover-enabled control switches to its active state
   FG_CLICKED, // Sent when a hover-enabled control recieves a valid click event (a MOUSEUP inside the control while it has focus)
   FG_DESTROY, // Represents a request for the window to be destroyed. This request can be ignored, so it should not be used as a destructor.
-  FG_APPLYSKIN,
   FG_CUSTOMEVENT
 };
 

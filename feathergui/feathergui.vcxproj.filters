@@ -62,10 +62,10 @@
     <ClInclude Include="..\include\fgTextbox.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="fgSkin.h">
+    <ClInclude Include="..\include\fgImplementation.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgImplementation.h">
+    <ClInclude Include="..\include\fgSkin.h">
       <Filter>include</Filter>
     </ClInclude>
   </ItemGroup>

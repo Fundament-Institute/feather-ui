@@ -3,6 +3,7 @@
 
 #include "fgWindow.h"
 #include "fgRoot.h"
+#include "fgSkin.h"
 
 fgWindow* fgFocusedWindow = 0;
 fgWindow* fgLastHover = 0;
@@ -27,6 +28,8 @@ void FG_FASTCALL fgWindow_Destroy(fgWindow* self)
   while((cur=self->rlist)!=0)
     VirtualFreeChild((fgChild*)cur); // Removes static from rlist
 
+  fgVector_Destroy(&self->skinstatics);
+  if(self->name) free(self->name);
   fgChild_Destroy(&self->element);
 }
 
@@ -154,18 +157,37 @@ char FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
       }
     }
     break;
-  case FG_APPLYSKIN:
-    self->skin=(struct FG_WINDOWSKIN*)msg->other;
+  case FG_SETSKIN:
+    if(self->skin != 0)
+    {
+      for(FG_UINT i = 0; i < self->skinstatics.l; ++i)
+        fgWindow_VoidMessage(self, FG_REMOVECHILD, fgVector_GetP(self->skinstatics, i, fgStatic*));
+    }
+    self->skinstatics.l = 0;
+    self->skin=(struct __FG_SKIN*)msg->other;
     if(self->skin!=0)
     {
-      fgStatic* cur=self->skin->root;
       FG_Msg aux = {0};
       aux.type=FG_ADDCHILD;
+      fgFullDef* def = (fgFullDef*)self->skin->statics.p;
+      for(FG_UINT i = 0; i < self->skin->statics.l; ++i)
+      {
+        aux.other = fgLoadDef(def[i].def, &def[i].element, def[i].order);
+        (*fgSingleton()->behaviorhook)(self,&aux);
+        fgVector_Add(self->skinstatics, aux.other, fgStatic*);
+      }
+    }
+    fgWindow_TriggerStyle((fgWindow*)self, 0);
+    break;
+  case FG_SETSTYLE:
+    if(msg->other != 0)
+    {
+      fgStyleMsg* cur = ((fgStyle*)msg->other)->styles;
       while(cur)
       {
-        aux.other=(*cur->clone)(cur);
-        (*fgSingleton()->behaviorhook)(self,&aux);
-        cur=(fgStatic*)cur->element.next;
+        if(cur->index >= 0 && cur->index < self->skinstatics.l) // the index can be negative to represent a style that is manually applied by a message overload.
+          (*fgSingleton()->behaviorhook)((fgWindow*)fgVector_Get(self->skinstatics, cur->index, fgStatic*), &cur->msg);
+        cur = cur->next;
       }
     }
     break;
@@ -174,7 +196,20 @@ char FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
     break;
   case FG_GETCLASSNAME:
     (*(const char**)msg->other) = "fgWindow";
-    return 0;
+    break;
+  case FG_SETNAME:
+    if(self->name) free(self->name);
+    self->name = 0;
+    if(msg->other)
+    {
+      size_t len = strlen(msg->other)+1;
+      self->name = malloc(len);
+      memcpy(self->name, msg->other, len);
+    }
+    break;
+  case FG_GETNAME:
+    (*(const char**)msg->other) = self->name;
+    break;
   }
   return 0;
 }
@@ -278,6 +313,12 @@ void FG_FASTCALL fgWindow_SetParent(fgWindow* BSS_RESTRICT self, fgChild* BSS_RE
 {
   fgChild_SetParent((fgChild*)self,parent,FGWIN_NOCLIP);
   fgWindow_BasicMessage(self,FG_MOVE);
+}
+
+void FG_FASTCALL fgWindow_TriggerStyle(fgWindow* self, FG_UINT index)
+{
+  if(self->skin && index < self->skin->statics.l)
+    fgWindow_VoidMessage(self, FG_SETSTYLE, fgSkin_GetStyle(self->skin, index));
 }
 
 //void FG_FASTCALL DoSkinCheck(fgWindow* self, fgStatic** skins, const FG_Msg* msg)

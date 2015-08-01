@@ -1,4 +1,4 @@
-﻿// Copyright ©2014 Black Sphere Studios
+﻿// Copyright ©2015 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "bss_util.h"
 
 #ifndef __BSS_DEFINES_H__
@@ -9,7 +9,7 @@
 // Version numbers
 #define BSS_VERSION_MAJOR 0
 #define BSS_VERSION_MINOR 4
-#define BSS_VERSION_REVISION 2
+#define BSS_VERSION_REVISION 4
 
 //sometimes the std versions of these are a bit overboard, so this redefines the MS version, except it will no longer cause conflicts everywhere
 #define bssmax(a,b)            (((a) > (b)) ? (a) : (b))
@@ -31,7 +31,7 @@
 #define CONCAT(...) __VA_ARGS__
 
     
-// These yield float/int ranges using rand(). However, rand() is a horrible RNG, so if you need a real one, use the C++11 mersenne twister
+// These yield float/int ranges using rand(). However, rand() is a horrible RNG, so unless you have a good reason, use bssrand() instead.
 #ifndef RANDFLOATGEN
 #define RANDFLOATGEN(min,max) (((max) - (min)) * (rand()/(RAND_MAX+1.0)) + (min))
 #endif
@@ -54,7 +54,9 @@
 // Round x up to next highest multiple of (t+1), which must be a multiple of 2. For example, to get the next multiple of 8: T_NEXTMULTIPLE(x,7)
 #define T_NEXTMULTIPLE(x,t) ((x+t)&(~t))
 #define T_SETBIT(w,b,f) (((w) & (~(b))) | ((-(char)f) & (b)))
+#define T_FBNEXT(x) (x + 1 + (x>>1) + (x>>3) - (x>>7))
 #define DYNARRAY(Type,Name,n) Type* Name = (Type*)ALLOCA(n*sizeof(Type))
+#define ISPOW2(x) (x && !( (x-1) & x ))
 
 #if defined(BSS_PLATFORM_POSIX) || defined(BSS_PLATFORM_MINGW)
 #define BSSPOSIX_WCHAR(s) s
@@ -97,6 +99,18 @@ typedef unsigned long ulong;
 #define BSS_DLLEXPORT
 #endif
 
+// This is used to implement a check to see if a given function exists in a class
+#define DEFINE_MEMBER_CHECKER(Member)   \
+  template<class T> class bss_has_member_##Member \
+{ \
+struct big { char a[2]; }; \
+  template<class C> static big  probe(decltype(&C::Member)); \
+  template<class C> static char probe(...); \
+public: \
+  static const bool value = sizeof(probe<T>(nullptr)) > 1; \
+}
+
+#define HAS_MEMBER(Class, Member)           bss_has_member_##Member<Class>::value
 
 #ifdef BSS_COMPILER_MSC
 #define TIME64(ptime) _time64(ptime)

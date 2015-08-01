@@ -2,6 +2,7 @@
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #include "fgButton.h"
+#include "fgSkin.h"
 
 void FG_FASTCALL fgButton_Init(fgButton* self, fgWindow* parent, const fgElement* element, FG_UINT id, fgFlag flags)
 {
@@ -28,17 +29,17 @@ char FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
   case FG_ADDITEM:
     if(self->item)
       VirtualFreeChild((fgChild*)self->item);
-    self->item=fgLoadDef(msg->other,!self->window.skin?&defelem:&((struct FG_BUTTONSKIN*)self->window.skin)->item,1);
+    self->item=fgLoadDef(msg->other,&defelem,1);
     fgWindow_VoidMessage((fgWindow*)self,FG_ADDCHILD,self->item);
     return 0;
   case FG_NUETRAL:
-    STATIC_SET_ENABLE3(0,neutral,hover,active);
+    fgWindow_TriggerStyle((fgWindow*)self, 1);
     return 0;
   case FG_HOVER:
-    STATIC_SET_ENABLE3(1,neutral,hover,active);
+    fgWindow_TriggerStyle((fgWindow*)self, 2);
     return 0;
   case FG_ACTIVE:
-    STATIC_SET_ENABLE3(2,neutral,hover,active);
+    fgWindow_TriggerStyle((fgWindow*)self, 3);
     return 0;
   case FG_GETCLASSNAME:
     (*(const char**)msg->other) = "fgButton";

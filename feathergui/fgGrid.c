@@ -62,9 +62,9 @@ char fgGrid_RemoveItem(fgGrid* self, char* skip, FG_Msg* aux)
   i=hold->order;
   char b = hold->element.area.bottom.abs>(self->window.element.element.area.bottom.abs-1) || hold->element.area.right.abs>(self->window.element.element.area.right.abs-1);
   hold=hold->next; // First we save the image afterwards
-  if(!fgWindow_Message((fgWindow*)self, &aux)) // Then we have the window remove the image
+  if(!fgWindow_Message((fgWindow*)self, aux)) // Then we have the window remove the image
   {
-    skip=1;
+    *skip=1;
     fgVector_Remove(&self->items, i, sizeof(fgChild*));
     //fgGrid_FixUp(self,hold->order);
     // When not tiling, if one of the removed windows borders are exactly equal to the bounds, then we have to re-calculate everything
@@ -72,7 +72,7 @@ char fgGrid_RemoveItem(fgGrid* self, char* skip, FG_Msg* aux)
       fgGrid_Reposition(self, 0);
     else if(hold!=0) // Otherwise we just reposition the image afterwards, if there is one, which will fix the grid.
       fgGrid_Reposition(self, hold);
-    skip=0;
+    *skip=0;
     return 0;
   }
   return 1;
