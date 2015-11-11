@@ -38,9 +38,6 @@
     <ClInclude Include="..\include\fgWindow.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgGrid.h">
-      <Filter>include</Filter>
-    </ClInclude>
     <ClInclude Include="..\include\fgRoot.h">
       <Filter>include</Filter>
     </ClInclude>
@@ -68,6 +65,12 @@
     <ClInclude Include="..\include\fgSkin.h">
       <Filter>include</Filter>
     </ClInclude>
+    <ClInclude Include="..\include\fgChild.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\fgLayout.h">
+      <Filter>include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="fgButton.c">
@@ -82,12 +85,6 @@
     <ClCompile Include="fgRoot.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="fgGrid.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="fgStatic.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="fgTopWindow.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -98,6 +95,15 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="fgImplementation.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgChild.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ubjson.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgLayout.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -4,19 +4,26 @@
 #ifndef __FG_LIST_H__
 #define __FG_LIST_H__
 
-#include "fgGrid.h"
 #include "fgScrollbar.h"
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
+enum FGLIST_FLAGS
+{
+  FGLIST_TILEX = (1 << 11),
+  FGLIST_TILEY = (1 << 12),
+  FGLIST_DISTRIBUTEX = (1 << 13), // when combined with TILEX and TILEY, simply makes the tiles expand along the X direction
+  FGLIST_DISTRIBUTEY = (1 << 14), // same as above but for the Y direction
+};
+
 // A List is a list of items that can be sorted into any number of columns and optionally have column headers.
 typedef struct {
   fgScrollbar window;
-  fgGrid grid;
-  fgStatic* selector;
-  fgStatic* highlighter;
+  fgChild region;
+  fgChild* selector;
+  fgChild* highlighter;
 } fgList;
 
 FG_EXTERN fgWindow* FG_FASTCALL fgList_Create(fgWindow* parent, const fgElement* element, FG_UINT id, fgFlag flags);

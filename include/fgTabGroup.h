@@ -13,7 +13,7 @@ extern "C" {
 
 // A Tab group is a collection of tab pages that can be switched between by clicking on "tabs".
 typedef struct {
-  fgContainer window; // Each tab is a button added as a non-region child to the container
+  fgContainer window;
   fgStatic* skin[1]; // 0 - background
 } fgTabGroup;
 

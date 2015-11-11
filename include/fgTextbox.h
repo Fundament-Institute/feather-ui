@@ -12,9 +12,8 @@ extern "C" {
 
 // A Textbox is really just a text static inside an optional Scrollbar. It can be single or multi-line.
 typedef struct {
-  fgScrollbar window; // Each tab is a button added as a non-region child to the container
-  fgStatic* text;
-  fgStatic* skin[2]; // 0 - background, 1 - cursor
+  fgScrollbar window;
+  fgChild text;
 } fgTextbox;
 
 FG_EXTERN fgWindow* FG_FASTCALL fgTextbox_Create(fgWindow* parent, const fgElement* element, FG_UINT id, fgFlag flags);

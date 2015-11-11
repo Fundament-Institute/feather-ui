@@ -21,14 +21,6 @@ HRESULT (__stdcall *dwmextend)(HWND, const MARGINS*) = 0;
 WinAPIfgRoot* _fgroot=0; // fgRoot singleton variable
 HBRUSH hbrBlack;
 
-fgStatic* FG_FASTCALL fgLoadVector(const char* path)
-{
-  return 0;
-}
-fgStatic* FG_FASTCALL fgLoadVectorData(const void* data, size_t length)
-{
-  return 0;
-}
 void FG_FASTCALL fgRoot_destroy(fgRoot* self)
 {
   (*self->mouse.element.destroy)(&self->mouse);

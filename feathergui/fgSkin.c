@@ -8,16 +8,16 @@ KHASH_INIT(fgSkins, const char*, fgSkin, 1, kh_str_hash_funcins, kh_str_hash_ins
 
 FG_EXTERN void FG_FASTCALL fgSkin_Init(fgSkin* self)
 {
-  fgVector_Init(&self->statics);
+  fgVector_Init(&self->defs);
   fgVector_Init(&self->styles);
   fgVector_Init(&self->subskins);
 }
 
 FG_EXTERN void FG_FASTCALL fgSkin_Destroy(fgSkin* self)
 {
-  for(FG_UINT i = 0; i < self->statics.l; ++i)
-    fgDestroyDef(fgVector_Get(self->statics, i, fgFullDef).def);
-  fgVector_Destroy(&self->statics);
+  for(FG_UINT i = 0; i < self->defs.l; ++i)
+    fgDestroyDef(fgVector_Get(self->defs, i, fgFullDef).def);
+  fgVector_Destroy(&self->defs);
 
   for(FG_UINT i = self->styles.l; i > 0;)
     fgStyle_RemoveStyle(&self->styles, --i);
@@ -76,17 +76,17 @@ FG_EXTERN void FG_FASTCALL fgStyle_RemoveStyleMsg(fgStyle* self, fgStyleMsg* msg
 }
 FG_EXTERN FG_UINT FG_FASTCALL fgSkin_AddStatic(fgSkin* self, void* def, const fgElement* elem, int order)
 {
-  fgVector_CheckSize(&self->statics, sizeof(fgFullDef));
-  fgFullDef* item = ((fgFullDef*)self->statics.p) + (self->statics.l++);
+  fgVector_CheckSize(&self->defs, sizeof(fgFullDef));
+  fgFullDef* item = ((fgFullDef*)self->defs.p) + (self->defs.l++);
   item->def = fgCloneDef(def);
   item->element = *elem;
   item->order = order;
-  return self->statics.l-1;
+  return self->defs.l-1;
 }
 FG_EXTERN void FG_FASTCALL fgSkin_RemoveStatic(fgSkin* self, size_t index)
 {
-  fgDestroyDef(fgVector_Get(self->statics, index, fgFullDef).def);
-  fgVector_Remove(&self->statics, index, sizeof(fgFullDef));
+  fgDestroyDef(fgVector_Get(self->defs, index, fgFullDef).def);
+  fgVector_Remove(&self->defs, index, sizeof(fgFullDef));
 }
 
 FG_EXTERN FG_UINT FG_FASTCALL fgSkin_AddSkin(fgSkin* self)
@@ -149,25 +149,25 @@ FG_EXTERN void FG_FASTCALL fgSkins_Destroy(struct __kh_fgSkins_t* self)
   while(cur != kh_end(self)) fgSkins_RemoveElement(self, cur++);
   kh_destroy_fgSkins(self);
 }
-FG_EXTERN void FG_FASTCALL fgSkins_Apply(struct __kh_fgSkins_t* self, fgWindow* window)
+FG_EXTERN void FG_FASTCALL fgSkins_Apply(struct __kh_fgSkins_t* self, fgChild* child)
 {
   char* name = 0;
-  if(!window) return;
+  if(!child) return;
 
-  fgWindow_VoidMessage(window, FG_GETNAME, &name);
-  fgSkin* skin = fgSkins_Get(self, name);
+  fgChild* cur = child->root; // Set all the children skins first, because a skin can override potential child skins.
+  while(cur)
+  {
+    fgSkins_Apply(self, cur);
+    cur = cur->next;
+  }
+
+  fgChild_VoidMessage(child, FG_GETNAME, &name);
+  fgSkin* skin = !name?0:fgSkins_Get(self, name);
 
   if(!skin)
   {
-    fgWindow_VoidMessage(window, FG_GETCLASSNAME, &name);
+    fgChild_VoidMessage(child, FG_GETCLASSNAME, &name);
     skin = fgSkins_Get(self, name);
   }
-  fgWindow_VoidMessage(window, FG_SETSKIN, skin); // IF we can't find a skin we deliberately set the skin to NULL.
-
-  fgChild* cur = window->element.root;
-  while(cur)
-  {
-    fgSkins_Apply(self, (fgWindow*)cur);
-    cur = cur->next;
-  }
+  fgChild_VoidMessage(child, FG_SETSKIN, skin); // IF we can't find a skin we deliberately set the skin to NULL.
 }

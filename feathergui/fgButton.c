@@ -4,42 +4,48 @@
 #include "fgButton.h"
 #include "fgSkin.h"
 
-void FG_FASTCALL fgButton_Init(fgButton* self, fgWindow* parent, const fgElement* element, FG_UINT id, fgFlag flags)
+void FG_FASTCALL fgButton_Init(fgButton* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, const fgElement* element)
 {
   assert(self!=0);
   memset(self,0,sizeof(fgButton));
-  fgWindow_Init(&self->window,parent,element,id,flags);
-  self->window.message=&fgButton_Message;
+  fgWindow_Init(&self->window,flags,parent,element);
+  self->window.element.destroy = &fgButton_Destroy;
+  self->window.element.message = &fgButton_Message;
+
+  fgChild_Init(&self->item, FGCHILD_NOCLIP, (fgChild*)self, &fgElement_DEFAULT);
+  fgChild_AddPreChild((fgChild*)self, &self->item);
 }
-char FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
+void FG_FASTCALL fgButton_Destroy(fgButton* self)
 {
-  static fgElement defelem = { 0,0,0,0,0,0,0,0,0,0,0.5f,0,0.5f };
+  assert(self != 0);
+  fgChild_Destroy(&self->item);
+  fgWindow_Destroy((fgWindow*)self);
+}
+size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
+{
+  static const fgElement defelem = { 0,0,0,0,0,0,0,0,0,0,0.5f,0,0.5f };
 
   assert(self!=0 && msg!=0);
   switch(msg->type)
   {
   case FG_SETCAPTION:
-    if(!self->item) {
-      self->item=fgLoadDefaultText(msg->other);
-      fgWindow_VoidMessage((fgWindow*)self,FG_ADDCHILD,self->item);
-    }
-    else
-      (*self->item->message)(self->item,FG_RSETTEXT,msg->other,0);
+    fgChild_Clear(&self->item);
+    fgChild_VoidMessage((fgChild*)self, FG_ADDCHILD, fgLoadDef(fgDefaultTextDef(0, msg->other), &defelem, 1));
+    fgChild_TriggerStyle((fgChild*)self, 0);
     return 0;
   case FG_ADDITEM:
-    if(self->item)
-      VirtualFreeChild((fgChild*)self->item);
-    self->item=fgLoadDef(msg->other,&defelem,1);
-    fgWindow_VoidMessage((fgWindow*)self,FG_ADDCHILD,self->item);
+    fgChild_Clear(&self->item);
+    fgChild_VoidMessage((fgChild*)self, FG_ADDCHILD, fgLoadDef(msg->other, &defelem, 1));
+    fgChild_TriggerStyle((fgChild*)self, 0);
     return 0;
   case FG_NUETRAL:
-    fgWindow_TriggerStyle((fgWindow*)self, 1);
+    fgChild_TriggerStyle((fgChild*)self, 0);
     return 0;
   case FG_HOVER:
-    fgWindow_TriggerStyle((fgWindow*)self, 2);
+    fgChild_TriggerStyle((fgChild*)self, 1);
     return 0;
   case FG_ACTIVE:
-    fgWindow_TriggerStyle((fgWindow*)self, 3);
+    fgChild_TriggerStyle((fgChild*)self, 2);
     return 0;
   case FG_GETCLASSNAME:
     (*(const char**)msg->other) = "fgButton";

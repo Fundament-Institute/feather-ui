@@ -1,12 +1,12 @@
 // Copyright ©2013 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
-#include "fgMenu.h"
+/*#include "fgMenu.h"
 #include <time.h>
 
 static const double DROPDOWN_TIME=0.4; // 400 milliseconds for dropdown
 
-/*
+
 void FG_FASTCALL fgMenu_Init(fgMenu* self, fgWindow* parent, const fgElement* element, FG_UINT id, fgFlag flags)
 {
   FG_Msg msg = {0};

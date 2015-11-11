@@ -12,13 +12,13 @@ extern "C" {
 
 typedef struct __FG_STYLE_MSG
 {
-  ptrdiff_t index; // Index of the child this applies to, if applicable. Defaults to 0. Negative numbers are valid but map to custom statics, so they must be applied manually by the control.
   FG_Msg msg;
   struct __FG_STYLE_MSG* next;
 } fgStyleMsg;
 
 typedef struct __FG_STYLE
 {
+  ptrdiff_t index; // Index of the child this applies to (only used for substyles). Negative numbers map to existing statics, equal to index + prechild.
   fgStyleMsg* styles;
   fgVector substyles; // type: fgStyle
 } fgStyle;
@@ -32,7 +32,8 @@ typedef struct __FG_FULL_DEF
 
 typedef struct __FG_SKIN
 {
-  fgVector statics; // type: fgFullDef
+  int index; // index of the subskin, also equal to index + prechild.
+  fgVector defs; // type: fgFullDef
   fgVector styles; // type: fgStyle
   fgVector subskins; // type: fgSkin
 } fgSkin;
@@ -57,7 +58,9 @@ FG_EXTERN fgSkin* FG_FASTCALL fgSkins_Add(struct __kh_fgSkins_t* self, const cha
 FG_EXTERN fgSkin* FG_FASTCALL fgSkins_Get(struct __kh_fgSkins_t* self, const char* name);
 FG_EXTERN void FG_FASTCALL fgSkins_Remove(struct __kh_fgSkins_t* self, const char* name);
 FG_EXTERN void FG_FASTCALL fgSkins_Destroy(struct __kh_fgSkins_t* self);
-FG_EXTERN void FG_FASTCALL fgSkins_Apply(struct __kh_fgSkins_t* self, fgWindow* window);
+FG_EXTERN void FG_FASTCALL fgSkins_Apply(struct __kh_fgSkins_t* self, fgChild* window);
+FG_EXTERN fgSkin* FG_FASTCALL fgSkins_LoadFileUBJSON(struct __kh_fgSkins_t* self, const char* file);
+FG_EXTERN fgSkin* FG_FASTCALL fgSkins_LoadUBJSON(struct __kh_fgSkins_t* self, const void* data, FG_UINT length);
 
 #ifdef  __cplusplus
 }

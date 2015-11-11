@@ -3,22 +3,60 @@
 
 #include "fgTopWindow.h"
 
-void FG_FASTCALL fgTopWindow_Init(fgTopWindow* self, const fgElement* element, FG_UINT id, fgFlag flags)
+size_t FG_FASTCALL fgTopWindow_CloseMessage(fgButton* self, const FG_Msg* msg)
+{
+  if(msg->type == FG_ACTION)
+    fgChild_IntMessage(self->window.element.parent, FG_ACTION, FGTOPWINDOW_CLOSE, 0);
+  return fgButton_Message(self, msg);
+}
+
+size_t FG_FASTCALL fgTopWindow_MaximizeMessage(fgButton* self, const FG_Msg* msg)
+{
+  if(msg->type == FG_ACTION)
+    fgChild_IntMessage(self->window.element.parent, FG_ACTION, !memcmp(&self->window.element.parent->element, &fgElement_DEFAULT, sizeof(fgElement))? FGTOPWINDOW_RESTORE : FGTOPWINDOW_MAXIMIZE, 0);
+  return fgButton_Message(self, msg);
+}
+
+size_t FG_FASTCALL fgTopWindow_MinimizeMessage(fgButton* self, const FG_Msg* msg)
+{
+  if(msg->type == FG_ACTION)
+    fgChild_IntMessage(self->window.element.parent, FG_ACTION, (self->window.element.parent->flags&FGCHILD_HIDDEN)? FGTOPWINDOW_UNMINIMIZE : FGTOPWINDOW_MINIMIZE, 0);
+  return fgButton_Message(self, msg);
+}
+
+void FG_FASTCALL fgTopWindow_Init(fgTopWindow* self, fgFlag flags, const fgElement* element)
 {
   assert(self!=0);
-  fgWindow_Init((fgWindow*)self,0,element,id,flags);
-  fgWindow_Init(&self->region,(fgWindow*)self,element,0,0);
-  self->window.element.destroy=&fgTopWindow_Destroy;
-  self->window.message=&fgTopWindow_Message;
+  fgWindow_Init((fgWindow*)self, flags, 0, element);
+  self->window.element.destroy = &fgTopWindow_Destroy;
+  self->window.element.message = &fgTopWindow_Message;
+
+  fgChild_Init(&self->region, 0, (fgChild*)self, &fgElement_DEFAULT);
+  fgChild_Init(&self->titlebar, FGCHILD_BACKGROUND, (fgChild*)self, 0);
+  fgButton_Init(&self->controls[0], FGCHILD_BACKGROUND, (fgChild*)self, 0);
+  fgButton_Init(&self->controls[1], FGCHILD_BACKGROUND, (fgChild*)self, 0);
+  fgButton_Init(&self->controls[2], FGCHILD_BACKGROUND, (fgChild*)self, 0);
+  fgChild_AddPreChild((fgChild*)self, &self->region);
+  fgChild_AddPreChild((fgChild*)self, &self->titlebar);
+  fgChild_AddPreChild((fgChild*)self, (fgChild*)&self->controls[0]);
+  fgChild_AddPreChild((fgChild*)self, (fgChild*)&self->controls[1]);
+  fgChild_AddPreChild((fgChild*)self, (fgChild*)&self->controls[2]);
+  self->controls[0].window.element.message = &fgTopWindow_CloseMessage;
+  self->controls[1].window.element.message = &fgTopWindow_MaximizeMessage;
+  self->controls[2].window.element.message = &fgTopWindow_MinimizeMessage;
 }
 void FG_FASTCALL fgTopWindow_Destroy(fgTopWindow* self)
 {  
   assert(self!=0);
-  fgWindow_Destroy(&self->region); // If we don't do this our destructor will attempt to deallocate our object... on the stack
+  fgChild_Destroy(&self->region);
+  fgChild_Destroy(&self->titlebar);
+  fgButton_Destroy(&self->controls[0]);
+  fgButton_Destroy(&self->controls[1]);
+  fgButton_Destroy(&self->controls[2]);
   fgWindow_Destroy((fgWindow*)self);
 }
 
-char FG_FASTCALL fgTopWindow_Message(fgTopWindow* self, const FG_Msg* msg)
+size_t FG_FASTCALL fgTopWindow_Message(fgTopWindow* self, const FG_Msg* msg)
 {
   assert(self!=0 && msg!=0);
 
@@ -27,11 +65,36 @@ char FG_FASTCALL fgTopWindow_Message(fgTopWindow* self, const FG_Msg* msg)
   case FG_REMOVECHILD:
     if(((fgChild*)msg->other)->parent==(fgChild*)self)
       return fgWindow_Message(&self->window,msg);
-    return fgWindow_Message(&self->region,msg);
+    return fgChild_Message(&self->region,msg);
   case FG_ADDCHILD:
-    if(msg->otheraux==1)
+    if(!(((fgChild*)msg->other)->flags&FGCHILD_BACKGROUND))
       return fgWindow_Message(&self->window,msg);
-    return fgWindow_Message(&self->region,msg);
+    return fgChild_Message(&self->region,msg);
+  case FG_SETCAPTION:
+    fgChild_Clear(&self->titlebar);
+    fgChild_VoidMessage((fgChild*)self, FG_ADDCHILD, fgLoadDef(fgDefaultTextDef(0, msg->other), 0, 1));
+    fgChild_TriggerStyle((fgChild*)self, 0);
+    break;
+  case FG_ACTION:
+    switch(msg->otherint)
+    {
+    case FGTOPWINDOW_MINIMIZE:
+      fgChild_IntMessage((fgChild*)self, FG_SETFLAG, FGCHILD_HIDDEN, 1);
+      break;
+    case FGTOPWINDOW_UNMINIMIZE:
+      fgChild_IntMessage((fgChild*)self, FG_SETFLAG, FGCHILD_HIDDEN, 0);
+      break;
+    case FGTOPWINDOW_MAXIMIZE:
+      self->prevrect = self->window.element.element.area;
+      fgChild_VoidMessage((fgChild*)self, FG_SETAREA, &fgElement_DEFAULT.area);
+      break;
+    case FGTOPWINDOW_RESTORE:
+      fgChild_VoidMessage((fgChild*)self, FG_SETAREA, &self->prevrect);
+      break;
+    case FGTOPWINDOW_CLOSE:
+      VirtualFreeChild((fgChild*)self);
+      return 0;
+    }
   case FG_GETCLASSNAME:
     (*(const char**)msg->other) = "fgTopWindow";
     return 0;

@@ -5,6 +5,8 @@
 #include <intrin.h>
 #include <limits.h>
 
+const fgElement fgElement_DEFAULT = { {0, 0, 0, 0, 0, 1, 0, 1 }, 0, {0, 0, 0, 0} };
+
 void FG_FASTCALL fgVector_Init(fgVector* self)
 {
   memset(self,0,sizeof(fgVector));
@@ -41,68 +43,6 @@ AbsVec FG_FASTCALL ResolveVec(const CVec* v, const AbsRect* last)
   return r; 
 }
 
-void FG_FASTCALL ResolveRect(const fgChild* self, AbsRect* out)
-{
-  //static const fgChild* plast=0; // This uses a simple memoization scheme so that repeated calls using the same child don't recalculate everything
-  //static AbsRect last;
-  AbsRect last;
-  AbsVec center = { self->element.center.x.abs,self->element.center.y.abs };
-  const CRect* v=&self->element.area;
-  assert(out!=0);
-  out->left = v->left.abs;
-  out->top = v->top.abs;
-  out->right = v->right.abs;
-  out->bottom = v->bottom.abs;
-
-  if(!self->parent)
-    return;
-  //if(plast!=self->parent)
-  //{
-    ResolveRect(self->parent,&last);
-  //  plast=self->parent;
-  //}
-
-  out->left += lerp(last.left,last.right,v->left.rel);
-  out->top += lerp(last.top,last.bottom,v->top.rel);
-  out->right += lerp(last.left,last.right,v->right.rel);
-  out->bottom += lerp(last.top,last.bottom,v->bottom.rel);
-  
-  center.x += (v->right.abs-v->left.abs)*self->element.center.x.rel;
-  center.y += (v->bottom.abs-v->top.abs)*self->element.center.y.rel;
-  //center = ResolveVec(&,r); // We can't use this because the center is relative to the DIMENSIONS, not the actual position.
-  out->left -= center.x;
-  out->top -= center.y;
-  out->right -= center.x;
-  out->bottom -= center.y;
-  out->left += self->margin.left;
-  out->top += self->margin.top;
-  out->right += self->margin.right;
-  out->bottom += self->margin.bottom;
-}
-
-void FG_FASTCALL ResolveRectCache(AbsRect* BSS_RESTRICT out, const fgChild* elem, const AbsRect* BSS_RESTRICT last)
-{
-  AbsVec center = { elem->element.center.x.abs, elem->element.center.y.abs };
-  const CRect* v=&elem->element.area;
-  assert(out!=0 && elem!=0 && last!=0);
-  out->left = lerp(last->left, last->right, v->left.rel)+v->left.abs;
-  out->top = lerp(last->top, last->bottom, v->top.rel)+v->top.abs;
-  out->right = lerp(last->left, last->right, v->right.rel)+v->right.abs;
-  out->bottom = lerp(last->top, last->bottom, v->bottom.rel)+v->bottom.abs;
-  
-  center.x += (v->right.abs-v->left.abs)*elem->element.center.x.rel;
-  center.y += (v->bottom.abs-v->top.abs)*elem->element.center.y.rel;
-  //center = ResolveVec(&,r); // We can't use this because the center is relative to the DIMENSIONS, not the actual position.
-  out->left -= center.x;
-  out->top -= center.y;
-  out->right -= center.x;
-  out->bottom -= center.y;
-  out->left += elem->margin.left;
-  out->top += elem->margin.top;
-  out->right += elem->margin.right;
-  out->bottom += elem->margin.bottom;
-}
-
 // This uses a standard inclusive-exclusive rectangle interpretation.
 char FG_FASTCALL HitAbsRect(const AbsRect* r, FABS x, FABS y)
 {
@@ -116,140 +56,35 @@ char FG_FASTCALL MsgHitAbsRect(const FG_Msg* msg, const AbsRect* r)
   return HitAbsRect(r,(FABS)msg->x,(FABS)msg->y);
 }
 
-char FG_FASTCALL MsgHitCRect(const FG_Msg* msg, const fgChild* child)
+char FG_FASTCALL CompareAbsRects(const AbsRect* l, const AbsRect* r)
 {
-  AbsRect r;
-  assert(msg!=0 && child!=0);
-  ResolveRect(child,&r);
-  return MsgHitAbsRect(msg,&r);
+  assert(l != 0 && r != 0);
+  return ((((l->left - r->left) != (l->right - r->right))) << 1)
+    | ((((l->top - r->top) != (l->bottom - r->bottom))) << 2)
+    | ((((l->left != r->left) || (l->right != r->right))) << 3)
+    | ((((l->top != r->top) || (l->bottom != r->bottom))) << 4);
 }
-
-void FG_FASTCALL LList_Remove(fgChild* self, fgChild** root, fgChild** last)
-{
-  assert(self!=0);
-	if(self->prev != 0) self->prev->next = self->next;
-  else *root = self->next;
-	if(self->next != 0) self->next->prev = self->prev;
-  else *last = self->prev;
-}
-
-void FG_FASTCALL LList_ChangeOrder(fgChild* self, fgChild** root, fgChild** last, fgFlag flag)
-{
-  fgChild* cur = self->next;
-  fgChild* prev = self->prev;
-  while(cur != 0 && (((self->flags&flag) < (cur->flags&flag)) || ((self->order < cur->order) && (self->flags&flag) == (cur->flags&flag))))
-  {
-      prev = cur;
-      cur = cur->next;
-  }
-  while(prev != 0 && !(((self->flags&flag) < (prev->flags&flag)) || ((self->order < prev->order) && (self->flags&flag) == (prev->flags&flag))))
-  {
-      cur = prev;
-      prev = prev->prev;
-  }
-  
-  if(cur==self->next) { assert(prev==self->prev); return; } // we didn't move anywhere
-  LList_Remove(self,root,last);
-  self->next = cur;
-  self->prev = prev;
-  if(prev) prev->next=self;
-  else *root=self; // Prev is only null if we're inserting before the root, which means we must reassign the root.
-  if(cur) cur->prev=self; 
-  else *last=self; // Cur is null if we are at the end of the list, so update last
-}
-
-//me cur
-//y  y  | order<order
-//y  n  | false
-//n  y  | true
-//n  n  | order<order
-
-void FG_FASTCALL LList_Add(fgChild* self, fgChild** root, fgChild** last, fgFlag flag)
-{
-  fgChild* cur = *root;
-  fgChild* prev = 0; // Sadly the elegant pointer to pointer method doesn't work for doubly linked lists.
-  assert(self!=0 && root!=0);
-  if(!cur) // We do this check up here because we'd have to do it for the end append check below anyway so we might as well utilize it!
-    (*last)=(*root)=self;
-  //else if(self->order<(*last)->order) { // shortcut for appending to the end of the list
-  else if(((self->flags&flag) < ((*last)->flags&flag)) || ((self->order < (*last)->order) && (self->flags&flag) == ((*last)->flags&flag))) {
-    cur=0;
-    prev=*last;
-  } else {
-    while(cur != 0 && (((self->flags&flag) < (cur->flags&flag)) || ((self->order < cur->order) && (self->flags&flag) == (cur->flags&flag))))
-    {
-       prev = cur;
-       cur = cur->next;
-    }
-  }
-  self->next = cur;
-  self->prev = prev;
-  if(prev) prev->next=self;
-  else *root=self; // Prev is only null if we're inserting before the root, which means we must reassign the root.
-  if(cur) cur->prev=self; 
-  else *last=self; // Cur is null if we are at the end of the list, so update last
-}
-
-void FG_FASTCALL fgChild_Init(fgChild* self) 
-{ 
-  assert(self!=0);
-  memset(self,0,sizeof(fgChild));
-  self->destroy=&fgChild_Destroy; 
-  self->free=&free; 
-}
-void FG_FASTCALL fgChild_Destroy(fgChild* self) 
-{
-  assert(self!=0);
-  while(self->root) // Destroy all children
-    VirtualFreeChild(self->root);
-    //fgChild_SetParent(self->root, 0);
-  
-  if(self->parent!=0)
-    LList_Remove(self,&self->parent->root,&self->parent->last); // Remove ourselves from our parent
-}
-
-void FG_FASTCALL fgChild_SetParent(fgChild* BSS_RESTRICT self, fgChild* BSS_RESTRICT parent, fgFlag flag)
-{
-  assert(self!=0);
-  if(self->parent==parent) { // If this is true, we just need to make sure the ordering is valid
-    LList_ChangeOrder(self,&parent->root,&parent->last,flag);
-    return;
-  }
-
-  if(self->parent!=0)
-    LList_Remove(self,&self->parent->root,&self->parent->last); // Remove ourselves from our parent
-
-  self->next=0;
-  self->prev=0;
-  self->parent=parent;
-
-  if(parent)
-    LList_Add(self,&parent->root,&parent->last,flag);
-}
-
-//void FG_FASTCALL fgChild_ExpandX(fgChild* self, fgElement* elem)
-//{
-//  CRect* area=(CRect*)elem; // we can do this because CRect is on top of the fgElement struct and therefore fgElement "inherits" it.
-//  CRect* selfarea=(CRect*)self;
-//  FABS d = selfarea->right.abs-selfarea->left.abs;
-//  if(area->right.rel==0.0 && area->right.abs>d) // Only expand on stuff that isn't relatively positioned for obvious reasons.
-//    selfarea->right.abs=selfarea->left.abs+area->right.abs;
-//}
-//void FG_FASTCALL fgChild_ExpandY(fgChild* self, fgElement* elem)
-//{
-//  CRect* area=(CRect*)elem; 
-//  CRect* selfarea=(CRect*)self;
-//  FABS d = selfarea->bottom.abs-selfarea->top.abs;
-//  if(area->bottom.rel==0.0 && area->bottom.abs>d)
-//    selfarea->bottom.abs=selfarea->top.abs+area->bottom.abs;
-//}
-
 char FG_FASTCALL CompareCRects(const CRect* l, const CRect* r)
 {
   assert(l!=0 && r!=0);
-  if(l->left.abs!=r->left.abs) return 1; // Optimization to catch a whole ton of move situations where almost all abs coords change.
-  return memcmp(l,r,sizeof(CRect))!=0;
+  return ((((l->left.abs - r->left.abs) != (l->right.abs - r->right.abs))) << 1)
+    | ((((l->top.abs - r->top.abs) != (l->bottom.abs - r->bottom.abs))) << 2)
+    | ((((l->left.abs != r->left.abs) || (l->right.abs != r->right.abs))) << 3)
+    | ((((l->top.abs != r->top.abs) || (l->bottom.abs != r->bottom.abs))) << 4)
+    | ((((l->left.rel - r->left.rel) != (l->right.rel - r->right.rel))) << 1)
+    | ((((l->top.rel - r->top.rel) != (l->bottom.rel - r->bottom.rel))) << 2)
+    | ((((l->left.rel != r->left.rel) || (l->right.rel != r->right.rel))) << 3)
+    | ((((l->top.rel != r->top.rel) || (l->bottom.rel != r->bottom.rel))) << 4);
 }
+char FG_FASTCALL CompareElements(const fgElement* l, const fgElement* r)
+{
+  assert(l != 0 && r != 0);
+  return CompareCRects(&l->area, &r->area)
+    | (((l->center.x.abs != r->center.x.abs) || (l->center.x.rel != r->center.x.rel)) << 5)
+    | (((l->center.y.abs != r->center.y.abs) || (l->center.y.rel != r->center.y.rel)) << 6)
+    | ((l->rotation != r->rotation) << 7);
+}
+
 void FG_FASTCALL MoveCRect(AbsVec v, CRect* r)
 {
   FABS dx,dy;
@@ -287,12 +122,6 @@ void FG_FASTCALL MoveCRect(AbsVec v, CRect* r)
   return (l->order>r->order) - (l->order<r->order);
 }*/
 
-void FG_FASTCALL VirtualFreeChild(fgChild* self)
-{
-  assert(self!=0);
-  (*self->destroy)(self);
-  (*self->free)(self);
-}
 //void FG_FASTCALL ToIntAbsRect(const AbsRect* r, int target[static 4]) // Gotta love VC++ not supporting C99 which is 14 FUCKING YEARS OLD
 void FG_FASTCALL ToIntAbsRect(const AbsRect* r, int target[4])
 {

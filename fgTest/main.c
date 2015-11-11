@@ -128,7 +128,7 @@ RETPAIR test_feathergui()
   TEST(v.l==0);
   fgVector_Destroy(&v);
 
-  fgChild_Init(&ch); // Basic initialization test
+  fgChild_Init(&ch, 0, 0, 0); // Basic initialization test
   memset(&zeroelement,0,sizeof(fgElement));
   TEST(!memcmp(&ch.element,&zeroelement,sizeof(fgElement)));
   //TEST(ch.destroy==&fgChild_Destroy); // Once upon a time, these tests worked, but VS2012 likes having different function pointers to the same function, which is technically legal, so we can't check this. Luckily it would be really weird if it broke anyway.
@@ -140,8 +140,8 @@ RETPAIR test_feathergui()
   TEST(ch.root==0);
   TEST(ch.last==0);
 
-  fgChild_Init(&top); // Basic inheritance test
-  fgChild_SetParent(&ch,&top,0);
+  fgChild_Init(&top, 0, 0, 0); // Basic inheritance test
+  fgChild_SetParent(&ch,&top);
   TEST(ch.next==0);
   TEST(ch.prev==0);
   TEST(ch.parent==&top);
@@ -152,21 +152,21 @@ RETPAIR test_feathergui()
   TEST(top.root==0);
   TEST(top.last==0);
 
-  fgChild_Init(&ch); // Inheritance ordering test.
-  fgChild_Init(&ch2);
-  fgChild_Init(&ch3);
+  fgChild_Init(&ch, 0, 0, 0); // Inheritance ordering test.
+  fgChild_Init(&ch2, 0, 0, 0);
+  fgChild_Init(&ch3, 0, 0, 0);
   ch.order=1;
   ch2.order=2;
   ch3.order=3;
 
-  fgChild_SetParent(&ch,&top,0);
+  fgChild_SetParent(&ch,&top);
   TEST(top.root==&ch);
   TEST(top.last==&ch);
-  fgChild_SetParent(&ch2,&top,0);
+  fgChild_SetParent(&ch2,&top);
   TEST(top.root==&ch2);
   TEST(top.root->next==&ch);
   TEST(top.last==&ch);
-  fgChild_SetParent(&ch3,&top,0);
+  fgChild_SetParent(&ch3,&top);
   TEST(top.root==&ch3);
   TEST(top.root->next==&ch2);
   TEST(top.root->next->next==&ch);
@@ -182,7 +182,7 @@ RETPAIR test_feathergui()
   TEST(top.root->next->next==0);
   TEST(top.last==&ch2);
 
-  fgChild_SetParent(&ch2,&ch3,0);
+  fgChild_SetParent(&ch2,&ch3);
   TEST(top.root==&ch3);
   TEST(top.root->next==0);
   TEST(top.last==&ch3);
@@ -190,15 +190,15 @@ RETPAIR test_feathergui()
   TEST(ch2.parent==&ch3);
   TEST(ch3.parent==&top);
 
-  fgChild_SetParent(&ch2,0,0);
+  fgChild_SetParent(&ch2,0);
   TEST(ch3.root==0);
   TEST(ch3.last==0);
 
-  fgChild_Init(&ch);
+  fgChild_Init(&ch, 0, 0, 0);
   ch.order=1;
 
-  fgChild_SetParent(&ch2,&top,0);
-  fgChild_SetParent(&ch,&top,0);
+  fgChild_SetParent(&ch2,&top);
+  fgChild_SetParent(&ch,&top);
   TEST(top.root==&ch3);
   TEST(top.root->next==&ch2);
   TEST(top.root->next->next==&ch);
@@ -211,19 +211,19 @@ RETPAIR test_feathergui()
   TEST(top.root->next->next==0);
   TEST(top.last==&ch);
   
-  fgChild_Init(&ch2);
+  fgChild_Init(&ch2, 0, 0, 0);
   ch2.order=2;
 
-  fgChild_SetParent(&ch2,&top,0);
+  fgChild_SetParent(&ch2,&top);
   TEST(top.root==&ch3);
   TEST(top.root->next==&ch2);
   TEST(top.root->next->next==&ch);
   TEST(top.root->next->next->next==0);
   TEST(top.last==&ch);
 
-  fgChild_SetParent(&ch2,0,0);
+  fgChild_SetParent(&ch2,0);
   ch2.order=1;
-  fgChild_SetParent(&ch2,&top,0);
+  fgChild_SetParent(&ch2,&top);
   TEST(top.root==&ch3);
   TEST(top.root->next==&ch2); // Equal orders should be appended before the first one encountered.
   TEST(top.root->next->next==&ch);
@@ -331,8 +331,8 @@ RETPAIR test_feathergui()
   msg.y=4;
   TEST(MsgHitAbsRect(&msg,&last)==0); 
 
-  fgChild_SetParent(&ch3,&ch2,0);
-  fgChild_SetParent(&ch2,&ch,0);
+  fgChild_SetParent(&ch3,&ch2);
+  fgChild_SetParent(&ch2,&ch);
   top.element.area.left.abs=0;
   top.element.area.top.abs=1;
   top.element.area.right.abs=1;
@@ -452,29 +452,12 @@ RETPAIR test_Root()
   (*gui->update)(gui,10);
   TEST(test_root_STAGE==2);
   fgWindow_VoidMessage((fgWindow*)top,FG_ADDCHILD,fgButton_Create(fgLoadImage("fake"),0,0,2,0));
-  fgWindow_VoidMessage((fgWindow*)top,FG_ADDCHILD,top->region.element.root->root);
+  fgWindow_VoidMessage((fgWindow*)top,FG_ADDCHILD,top->region.root->root);
   fgWindow_VoidMessage((fgWindow*)top,FG_ADDCHILD,fgButton_Create(fgLoadText("fake",0,"arial.ttf",14,0),0,0,4,0));
   fgWindow_VoidMessage((fgWindow*)top,FG_ADDCHILD,fgLoadImage("fake"));
-  fgStatic_Message(top->region.rlist,FG_RADDCHILD,fgLoadText("fake",0,"arial.ttf",14,0),0);
-  fgWindow_VoidMessage((fgWindow*)top,FG_ADDCHILD,top->region.rlist->element.root);
+  //fgStatic_Message(top->region.rlist,FG_RADDCHILD,fgLoadText("fake",0,"arial.ttf",14,0),0);
+  //fgWindow_VoidMessage((fgWindow*)top,FG_ADDCHILD,top->region.rlist->element.root);
   fgRoot_Render(gui);
-  ENDTEST;
-}
-
-RETPAIR test_Grid()
-{
-  BEGINTEST;
-  fgWindow win[4] = {0};
-  fgStatic* statics[2] = { fgEmptyStatic(0), fgEmptyStatic(0) };
-  fgGrid grid;
-
-  int i;
-  for(i=0; i < 4; ++i) fgWindow_Init(win+i,0,0,0,0);
-  win[3].element.flags|=FGWIN_NOCLIP;
-  
-  fgGrid_Init(&grid,0,0,0,0);
-
-
   ENDTEST;
 }
 
@@ -594,7 +577,6 @@ int main(int argc, char** argv)
     { "fgStatic.h", &test_Static },
     { "fgWindow.h", &test_Window },
     { "fgRoot.h", &test_Root },
-    { "fgGrid.h", &test_Grid },
     { "fgTopWindow.h", &test_TopWindow },
     { "fgButton.h", &test_Button },
     { "fgList.h", &test_List },

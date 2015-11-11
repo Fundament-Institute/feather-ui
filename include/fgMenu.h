@@ -4,7 +4,7 @@
 #ifndef __FG_MENU_H__
 #define __FG_MENU_H__
 
-#include "fgList.h"
+#include "fgScrollbar.h"
 #include "fgRoot.h"
 
 #ifdef  __cplusplus
@@ -13,15 +13,15 @@ extern "C" {
 
 // A Menu is either a window menu or a context menu. Turns into a menubar if made the child of a top-level window
 typedef struct FG_MENU {
-  fgList list; 
-  fgStatic* highlight;
-  fgStatic* seperator;
-  fgStatic* arrow;
+  fgScrollbar window;
+  fgChild* highlight;
+  fgChild* seperator;
+  fgChild* arrow;
   fgDeferAction* dropdown; // Keeps track of our dropdown action in fgRoot
 } fgMenu;
 
-FG_EXTERN fgWindow* FG_FASTCALL fgMenu_Create(fgWindow* parent, const fgElement* element, FG_UINT id, fgFlag flags);
-FG_EXTERN void FG_FASTCALL fgMenu_Init(fgMenu* self, fgWindow* parent, const fgElement* element, FG_UINT id, fgFlag flags);
+FG_EXTERN fgChild* FG_FASTCALL fgMenu_Create(fgChild* parent, const fgElement* element, FG_UINT id, fgFlag flags);
+FG_EXTERN void FG_FASTCALL fgMenu_Init(fgMenu* self, fgChild* parent, const fgElement* element, FG_UINT id, fgFlag flags);
 FG_EXTERN void FG_FASTCALL fgMenu_Destroy(fgMenu* self);
 FG_EXTERN char FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg);
 FG_EXTERN char FG_FASTCALL fgMenu_DoDropdown(fgMenu* self);

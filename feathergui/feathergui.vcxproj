@@ -217,9 +217,10 @@
     <ClInclude Include="..\include\bss_compiler.h" />
     <ClInclude Include="..\include\feathergui.h" />
     <ClInclude Include="..\include\fgButton.h" />
+    <ClInclude Include="..\include\fgChild.h" />
     <ClInclude Include="..\include\fgCombobox.h" />
-    <ClInclude Include="..\include\fgGrid.h" />
     <ClInclude Include="..\include\fgImplementation.h" />
+    <ClInclude Include="..\include\fgLayout.h" />
     <ClInclude Include="..\include\fgList.h" />
     <ClInclude Include="..\include\fgMenu.h" />
     <ClInclude Include="..\include\fgScrollbar.h" />
@@ -234,14 +235,15 @@
   <ItemGroup>
     <ClCompile Include="feathergui.c" />
     <ClCompile Include="fgButton.c" />
-    <ClCompile Include="fgGrid.c" />
+    <ClCompile Include="fgChild.c" />
     <ClCompile Include="fgImplementation.c" />
+    <ClCompile Include="fgLayout.c" />
     <ClCompile Include="fgMenu.c" />
     <ClCompile Include="fgSkin.c" />
-    <ClCompile Include="fgStatic.c" />
     <ClCompile Include="fgRoot.c" />
     <ClCompile Include="fgTopWindow.c" />
     <ClCompile Include="fgWindow.c" />
+    <ClCompile Include="ubjson.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
