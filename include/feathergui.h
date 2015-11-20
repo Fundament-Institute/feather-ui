@@ -1,5 +1,5 @@
 /* Feather - Lightweight GUI Abstraction Layer
-   Copyright ©2013 Black Sphere Studios
+   Copyright ©2015 Black Sphere Studios
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ extern "C" {
 typedef float FREL; // Change this to double for double precision (why on earth you would need that for a GUI, however, is beyond me)
 typedef float FABS; // We seperate both of these types because then you don't have to guess if a float is relative or absolute
 typedef unsigned int FG_UINT; 
-typedef unsigned short fgFlag;
+typedef unsigned int fgFlag;
 
 #define FGUI_VERSION_MAJOR 0
 #define FGUI_VERSION_MINOR 1
@@ -128,7 +128,11 @@ enum FG_MSGTYPE
   FG_LAYOUTREORDER, // Called when any child is reordered
   FG_LAYOUTLOAD, // Loads a layout passed in the first pointer with an optional custom class name resolution function passed into the second pointer of type fgChild* (*)(const char*, fgElement*, fgFlag)
   FG_DRAW,
-  FG_CLONE, // Initializes an empty fgStatic passed in as a clone of this static. If NULL is passed in, returns a pointer to an internally allocated one.
+  FG_CLONE, // Clones the fgChild
+  FG_SETSKIN,
+  FG_GETSKIN,
+  FG_SETSTYLE,
+  FG_GETCLASSNAME, // Returns a unique string identifier for the class
   // fgWindow
   FG_MOUSEDOWN,
   //FG_MOUSEDBLCLICK,
@@ -145,13 +149,9 @@ enum FG_MSGTYPE
   FG_JOYAXIS,
   FG_GOTFOCUS,
   FG_LOSTFOCUS,
-  FG_SETSKIN,
   FG_SETNAME, // Sets the unique name for this object for skin collection mapping. Can be null.
-  FG_SETSTYLE,
-  FG_GETCLASSNAME, // Returns a unique string identifier for the class
   FG_GETNAME, // May return a unique string for this object, or will return NULL.
   // fgButton and others
-  FG_SETCAPTION, 
   FG_NUETRAL, // Sent when a button or other hover-enabled control switches to it's nuetral state
   FG_HOVER, // Sent when a hover-enabled control switches to its hover state
   FG_ACTIVE, // Sent when a hover-enabled control switches to its active state
@@ -162,11 +162,19 @@ enum FG_MSGTYPE
   FG_GETROW,
   FG_ADDITEM, // Used for anything involving items (menus, lists, etc)
   FG_REMOVEITEM,
-  // fgImage or fgText
+  // fgResource or fgText
+  FG_SETRESOURCE,
   FG_SETUV,
   FG_SETCOLOR,
-  FG_SETFONT, //arg should point to a string that contains the name of the font, other should be the size of the font. Optionally, the top 16-bits of other can specify the line-height.
+  FG_SETFONT,
   FG_SETFONTCOLOR, // split from SETCOLOR so it can be propagated down seperately from setting image colors
+  FG_SETTEXT,
+  FG_GETRESOURCE,
+  FG_GETUV,
+  FG_GETCOLOR,
+  FG_GETFONT,
+  FG_GETFONTCOLOR,
+  FG_GETTEXT,
   FG_CUSTOMEVENT
 };
 

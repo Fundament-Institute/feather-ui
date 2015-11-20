@@ -1,7 +1,8 @@
-// Copyright ©2013 Black Sphere Studios
+// Copyright ©2015 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #include "fgTopWindow.h"
+#include "fgText.h"
 
 size_t FG_FASTCALL fgTopWindow_CloseMessage(fgButton* self, const FG_Msg* msg)
 {
@@ -70,9 +71,9 @@ size_t FG_FASTCALL fgTopWindow_Message(fgTopWindow* self, const FG_Msg* msg)
     if(!(((fgChild*)msg->other)->flags&FGCHILD_BACKGROUND))
       return fgWindow_Message(&self->window,msg);
     return fgChild_Message(&self->region,msg);
-  case FG_SETCAPTION:
+  case FG_SETTEXT:
     fgChild_Clear(&self->titlebar);
-    fgChild_VoidMessage((fgChild*)self, FG_ADDCHILD, fgLoadDef(fgDefaultTextDef(0, msg->other), 0, 1));
+    fgText_Create(msg->other, (void*)fgChild_VoidMessage((fgChild*)self, FG_GETFONT, 0), fgChild_VoidMessage((fgChild*)self, FG_GETFONTCOLOR, 0), FGCHILD_EXPANDX|FGCHILD_EXPANDY, (fgChild*)self, 0);
     fgChild_TriggerStyle((fgChild*)self, 0);
     break;
   case FG_ACTION:
@@ -86,7 +87,7 @@ size_t FG_FASTCALL fgTopWindow_Message(fgTopWindow* self, const FG_Msg* msg)
       break;
     case FGTOPWINDOW_MAXIMIZE:
       self->prevrect = self->window.element.element.area;
-      fgChild_VoidMessage((fgChild*)self, FG_SETAREA, &fgElement_DEFAULT.area);
+      fgChild_VoidMessage((fgChild*)self, FG_SETAREA, (void*)&fgElement_DEFAULT.area);
       break;
     case FGTOPWINDOW_RESTORE:
       fgChild_VoidMessage((fgChild*)self, FG_SETAREA, &self->prevrect);
@@ -96,8 +97,7 @@ size_t FG_FASTCALL fgTopWindow_Message(fgTopWindow* self, const FG_Msg* msg)
       return 0;
     }
   case FG_GETCLASSNAME:
-    (*(const char**)msg->other) = "fgTopWindow";
-    return 0;
+    return (size_t)"fgTopWindow";
   }
   return fgWindow_Message((fgWindow*)self,msg);
 }

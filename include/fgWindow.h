@@ -1,10 +1,10 @@
-// Copyright ©2013 Black Sphere Studios
+// Copyright ©2015 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #ifndef __FG_WINDOW_H__
 #define __FG_WINDOW_H__
 
-#include "fgStatic.h"
+#include "fgChild.h"
 
 #ifdef  __cplusplus
 extern "C" {

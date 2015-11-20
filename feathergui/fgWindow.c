@@ -1,4 +1,4 @@
-// Copyright ©2013 Black Sphere Studios
+// Copyright ©2015 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #include "fgWindow.h"
@@ -78,21 +78,13 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
   }
     break;
   case FG_GETCLASSNAME:
-    (*(const char**)msg->other) = "fgWindow";
-    return 0;
+    return (size_t)"fgWindow";
   case FG_SETNAME:
     if(self->name) free(self->name);
-    self->name = 0;
-    if(msg->other)
-    {
-      size_t len = strlen(msg->other)+1;
-      self->name = malloc(len);
-      memcpy(self->name, msg->other, len);
-    }
+    self->name = fgCopyText(msg->other);
     return 0;
   case FG_GETNAME:
-    (*(const char**)msg->other) = self->name;
-    return 0;
+    return (size_t)self->name;
   }
   return fgChild_Message((fgChild*)self, msg);
 }
@@ -127,13 +119,6 @@ size_t FG_FASTCALL fgWindow_HoverProcess(fgWindow* self, const FG_Msg* msg)
   }
   return fgWindow_Message(self,msg);
 }
-
-//void FG_FASTCALL DoSkinCheck(fgWindow* self, fgStatic** skins, const FG_Msg* msg)
-//{
-//  if(skins[msg->otheraux]!=0)
-//    fgChild_VoidMessage(self,FG_REMOVESTATIC,skins[msg->otheraux]);
-//  skins[msg->otheraux]=(fgStatic*)msg->other;
-//}
 
 
       /*if(active && flip!=0) // Enable clipping, remove from nonclipping array

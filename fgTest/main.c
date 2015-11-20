@@ -415,12 +415,6 @@ RETPAIR test_feathergui()
   ENDTEST;
 }
 
-RETPAIR test_Static()
-{
-  BEGINTEST;
-  ENDTEST;
-}
-
 RETPAIR test_Window()
 {
   BEGINTEST;
@@ -574,7 +568,6 @@ int main(int argc, char** argv)
   static const int COLUMNS[3] = { 24, 11, 8 };
   static TESTDEF tests[] = {
     { "feathergui.h", &test_feathergui },
-    { "fgStatic.h", &test_Static },
     { "fgWindow.h", &test_Window },
     { "fgRoot.h", &test_Root },
     { "fgTopWindow.h", &test_TopWindow },

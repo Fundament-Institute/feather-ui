@@ -13,6 +13,9 @@
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{3419f061-47c7-4594-ba31-a2d3014c4de8}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="feathergui.rc">
@@ -41,9 +44,6 @@
     <ClInclude Include="..\include\fgRoot.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgStatic.h">
-      <Filter>include</Filter>
-    </ClInclude>
     <ClInclude Include="..\include\fgList.h">
       <Filter>include</Filter>
     </ClInclude>
@@ -70,6 +70,15 @@
     </ClInclude>
     <ClInclude Include="..\include\fgLayout.h">
       <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\fgText.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\fgResource.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="helper.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -104,6 +113,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="fgLayout.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgText.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgResource.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

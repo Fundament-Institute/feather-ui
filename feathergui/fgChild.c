@@ -1,4 +1,4 @@
-// Copyright ©2013 Black Sphere Studios
+// Copyright ©2015 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #include "fgChild.h"
@@ -109,15 +109,8 @@ char FG_FASTCALL fgChild_PotentialResize(fgChild* self)
 
 fgChild* FG_FASTCALL fgChild_LoadLayout(fgChild* parent, fgClassLayout* layout, fgChild* (*mapping)(const char*, fgFlag, fgChild*, fgElement*))
 {
-  fgChild* child = (*mapping)(layout->name, layout->flags, parent, &layout->element);
-
-  for(FG_UINT i = 0; i < layout->statics.l; ++i)
-  {
-    fgFullDef* def = fgVector_GetP(layout->statics, i, fgFullDef);
-    fgChild_VoidMessage(child, FG_ADDCHILD, fgLoadDef(def->def, &def->element, def->order));
-  }
-
-  fgChild_VoidMessage(child, FG_SETSTYLE, &layout->style);
+  fgChild* child = (*mapping)(layout->style.name, layout->style.flags, parent, &layout->style.element);
+  fgChild_VoidMessage(child, FG_SETSTYLE, &layout->style.style);
 
   for(FG_UINT i = 0; i < layout->children.l; ++i)
     fgChild_LoadLayout(child, fgVector_GetP(layout->children, i, fgClassLayout), mapping);
@@ -242,6 +235,7 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
     break; // Otherwise it's just a notification
   case FG_SETPARENT:
     fgChild_SetParent(self, msg->other);
+    fgChild_VoidMessage(self, FG_SETSKIN, 0); // re-evaluate our skin
     fgChild_VoidAuxMessage(msg->other, FG_MOVE, 0, fgChild_PotentialResize(self));
     break;
   case FG_ADDCHILD:
@@ -307,38 +301,89 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
       (*fgSingleton()->behaviorhook)(hold, msg);
       hold = hold->next;
     }
+  case FG_GETFONTCOLOR:
+  case FG_GETFONT: // propagate this upwards if possible
+    if(self->parent)
+      return (*fgSingleton()->behaviorhook)(self->parent, msg);
+    return 0;
   case FG_GETCLASSNAME:
-    (*(const char**)msg->other) = "fgChild";
+    return (size_t)"fgChild";
+  case FG_GETSKIN:
+    if(!msg->other) // If NULL this wasn't a propagation.
+    {
+      if(!self->parent)
+        return (size_t)self->skin;
+      
+      int index; // First we check if we're a prechild, and if we are, check if there is a skin for us.
+      for(index = 0; index < self->parent->prechild; ++index)
+        if(fgVector_Get(self->parent->skinrefs, index, fgChild*) == self)
+          break;
+      index -= self->parent->prechild;
+      if(index < 0 && self->parent->skin != 0)
+      {
+        for(FG_UINT i = 0; i < self->parent->skin->subskins.l; ++i)
+        {
+          fgSkin* skin = fgVector_GetP(self->parent->skin->subskins, index, fgSkin);
+          if(skin->index == index)
+            return (size_t)skin;
+        }
+      }
+
+      // If not we start propagating up
+      return fgChild_VoidMessage(self->parent, FG_GETSKIN, self);
+    }
+    else
+    {
+      hold = (fgChild*)msg->other;
+      const char* name = (const char*)fgChild_VoidMessage(hold, FG_GETNAME, 0);
+      if(name)
+      {
+        fgSkin* skin = fgSkin_GetSkin(self->skin, name);
+        if(skin != 0)
+          return (size_t)skin;
+      }
+      name = (const char*)fgChild_VoidMessage(hold, FG_GETCLASSNAME, 0);
+      
+      fgSkin* skin = fgSkin_GetSkin(self->skin, name);
+      if(skin != 0)
+        return (size_t)skin;
+      if(self->parent != 0)
+        return (*fgSingleton()->behaviorhook)(self->parent, msg);
+    }
     return 0;
   case FG_SETSKIN:
+  {
+    fgSkin* skin = (fgSkin*)(!msg->other ? (void*)fgChild_VoidMessage(self, FG_GETSKIN, 0) : msg->other);
+    if(self->skin == skin) break; // no change in skin
     if(self->skin != 0)
     {
       for(FG_UINT i = self->prechild; i < self->skinrefs.l; ++i)
         fgChild_VoidMessage(self, FG_REMOVECHILD, fgVector_Get(self->skinrefs, i, fgChild*));
     }
     self->skinrefs.l = self->prechild;
-    self->skin = (struct __FG_SKIN*)msg->other;
+    self->skin = skin;
     if(self->skin != 0)
     {
-      FG_Msg aux = { 0 };
-      aux.type = FG_ADDCHILD;
-      fgFullDef* def = (fgFullDef*)self->skin->defs.p;
-      for(FG_UINT i = 0; i < self->skin->defs.l; ++i)
+      fgChild* (*mapping)(const char*, fgFlag, fgChild*, fgElement*) = msg->other2;
+      if(!mapping) mapping = &fgLayoutLoadMapping;
+
+      for(FG_UINT i = 0; i < self->skin->children.l; ++i)
       {
-        aux.other = fgLoadDef(def[i].def, &def[i].element, def[i].order);
-        (*fgSingleton()->behaviorhook)(self, &aux);
-        fgVector_Add(self->skinrefs, aux.other, fgChild*);
+        fgStyleLayout* layout = fgVector_GetP(self->skin->children, i, fgStyleLayout);
+        fgChild* child = (*mapping)(layout->name, layout->flags, self, &layout->element);
+        fgChild_VoidMessage(child, FG_SETSTYLE, &layout->style);
+        fgVector_Add(self->skinrefs, child, fgChild*);
       }
 
-      fgSkin* subskins = (fgSkin*)self->skin->subskins.p;
-      for(FG_UINT i = 0; i < self->skin->subskins.l; ++i)
+      fgChild* cur = self->root;
+      while(cur)
       {
-        FG_UINT ind = subskins[i].index + self->prechild;
-        if(ind < self->skinrefs.l)
-          fgChild_VoidMessage(fgVector_Get(self->skinrefs, ind, fgChild*), FG_SETSKIN, subskins + i);
+        fgChild_VoidMessage(cur, FG_SETSKIN, 0); // This will automatically set any subskins we have if necessary.
+        cur = cur->next;
       }
     }
     fgChild_TriggerStyle(self, 0);
+  }
     break;
   case FG_SETSTYLE:
     if(msg->other != 0)
@@ -357,7 +402,11 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
         fgStyle* substyle = fgVector_GetP(style->substyles, i, fgStyle);
         ind = substyle->index + self->prechild; // if this becomes an illegal negative number, it will wrap to an enormous positive number and fail the check below.
         if(ind < self->skinrefs.l)
-          fgChild_VoidMessage(fgVector_Get(self->skinrefs, ind, fgChild*), FG_SETSTYLE, substyle);
+        {
+          hold = fgVector_Get(self->skinrefs, ind, fgChild*);
+          if(hold != 0)
+            fgChild_VoidMessage(hold, FG_SETSTYLE, substyle);
+        }
         cur = cur->next;
       }
     }
@@ -653,4 +702,13 @@ void FG_FASTCALL fgChild_AddPreChild(fgChild* self, fgChild* child)
 {
   fgVector_Insert(self->skinrefs, child, self->prechild, fgChild*);
   ++self->prechild;
+}
+
+FG_EXTERN char* FG_FASTCALL fgCopyText(const char* text)
+{
+  if(!text) return 0;
+  size_t len = strlen(text) + 1;
+  char* ret = malloc(len);
+  memcpy(ret, text, len);
+  return ret;
 }

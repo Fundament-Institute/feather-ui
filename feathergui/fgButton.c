@@ -1,8 +1,9 @@
-// Copyright ©2013 Black Sphere Studios
+// Copyright ©2015 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #include "fgButton.h"
 #include "fgSkin.h"
+#include "fgText.h"
 
 void FG_FASTCALL fgButton_Init(fgButton* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, const fgElement* element)
 {
@@ -28,14 +29,15 @@ size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
   assert(self!=0 && msg!=0);
   switch(msg->type)
   {
-  case FG_SETCAPTION:
+  case FG_SETTEXT:
     fgChild_Clear(&self->item);
-    fgChild_VoidMessage((fgChild*)self, FG_ADDCHILD, fgLoadDef(fgDefaultTextDef(0, msg->other), &defelem, 1));
+    fgText_Create(msg->other, (void*)fgChild_VoidMessage((fgChild*)self, FG_GETFONT, 0), fgChild_VoidMessage((fgChild*)self, FG_GETFONTCOLOR, 0), FGCHILD_EXPANDX | FGCHILD_EXPANDY, (fgChild*)self, 0);
     fgChild_TriggerStyle((fgChild*)self, 0);
     return 0;
   case FG_ADDITEM:
     fgChild_Clear(&self->item);
-    fgChild_VoidMessage((fgChild*)self, FG_ADDCHILD, fgLoadDef(msg->other, &defelem, 1));
+    if(msg->other)
+      fgChild_VoidMessage((fgChild*)self, FG_ADDCHILD, msg->other);
     fgChild_TriggerStyle((fgChild*)self, 0);
     return 0;
   case FG_NUETRAL:
@@ -48,8 +50,7 @@ size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
     fgChild_TriggerStyle((fgChild*)self, 2);
     return 0;
   case FG_GETCLASSNAME:
-    (*(const char**)msg->other) = "fgButton";
-    return 0;
+    return (size_t)"fgButton";
   }
   return fgWindow_HoverProcess(&self->window,msg);
 }

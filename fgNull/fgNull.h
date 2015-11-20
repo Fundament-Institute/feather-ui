@@ -12,7 +12,6 @@ extern "C" {
 #endif
 
 FG_EXTERN void (FG_FASTCALL *debugmsghook)(fgWindow* self, const FG_Msg* msg);
-//FG_EXTERN void FG_FASTCALL FreeStatic(fgStatic* p);
 
 #ifdef  __cplusplus
 }

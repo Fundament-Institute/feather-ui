@@ -12,12 +12,12 @@ extern "C" {
 
 enum FGCHILD_FLAGS
 {
-  FGCHILD_BACKGROUND = 1, // "Background" children do not have padding applied to them. They are still sorted along with all non-background elements, however.
-  FGCHILD_NOCLIP = 2, // By default, children are clipped by their parents. When set on a control, it will not be clipped by its parent.
-  FGCHILD_IGNORE = 4, // When this flag is set, no mouse events will be sent to the control.
-  FGCHILD_HIDDEN = 8, // Signals that this control and it's children should not be rendered. However, they will still be laid out as if they existed.
-  FGCHILD_EXPANDX = 16, // Signals to the layout that the control should expand to include all it's elements
-  FGCHILD_EXPANDY = 32,
+  FGCHILD_BACKGROUND = (1 << 0), // "Background" children do not have padding applied to them. They are still sorted along with all non-background elements, however.
+  FGCHILD_NOCLIP = (1 << 1), // By default, children are clipped by their parents. When set on a control, it will not be clipped by its parent.
+  FGCHILD_IGNORE = (1 << 2), // When this flag is set, no mouse events will be sent to the control.
+  FGCHILD_HIDDEN = (1 << 3), // Signals that this control and it's children should not be rendered. However, they will still be laid out as if they existed.
+  FGCHILD_EXPANDX = (1 << 4), // Signals to the layout that the control should expand to include all it's elements
+  FGCHILD_EXPANDY = (1 << 5),
 };
 
 typedef struct _FG_CHILD {
@@ -64,6 +64,7 @@ FG_EXTERN void FG_FASTCALL LList_ChangeOrder(fgChild* self, fgChild** root, fgCh
 FG_EXTERN void FG_FASTCALL VirtualFreeChild(fgChild* self);
 FG_EXTERN void FG_FASTCALL fgChild_Clear(fgChild* self);
 FG_EXTERN void FG_FASTCALL fgChild_AddPreChild(fgChild* self, fgChild* child);
+FG_EXTERN char* FG_FASTCALL fgCopyText(const char* text);
 
 #ifdef  __cplusplus
 }

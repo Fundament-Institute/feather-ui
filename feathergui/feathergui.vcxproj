@@ -223,14 +223,16 @@
     <ClInclude Include="..\include\fgLayout.h" />
     <ClInclude Include="..\include\fgList.h" />
     <ClInclude Include="..\include\fgMenu.h" />
+    <ClInclude Include="..\include\fgResource.h" />
     <ClInclude Include="..\include\fgScrollbar.h" />
     <ClInclude Include="..\include\fgSkin.h" />
-    <ClInclude Include="..\include\fgStatic.h" />
     <ClInclude Include="..\include\fgRoot.h" />
     <ClInclude Include="..\include\fgTabGroup.h" />
+    <ClInclude Include="..\include\fgText.h" />
     <ClInclude Include="..\include\fgTextbox.h" />
     <ClInclude Include="..\include\fgTopWindow.h" />
     <ClInclude Include="..\include\fgWindow.h" />
+    <ClInclude Include="helper.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="feathergui.c" />
@@ -239,8 +241,10 @@
     <ClCompile Include="fgImplementation.c" />
     <ClCompile Include="fgLayout.c" />
     <ClCompile Include="fgMenu.c" />
+    <ClCompile Include="fgResource.c" />
     <ClCompile Include="fgSkin.c" />
     <ClCompile Include="fgRoot.c" />
+    <ClCompile Include="fgText.c" />
     <ClCompile Include="fgTopWindow.c" />
     <ClCompile Include="fgWindow.c" />
     <ClCompile Include="ubjson.cpp" />

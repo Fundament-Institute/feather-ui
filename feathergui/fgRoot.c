@@ -1,4 +1,4 @@
-// Copyright ©2013 Black Sphere Studios
+// Copyright ©2015 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #include "fgRoot.h"
@@ -30,8 +30,7 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
   case FG_GOTFOCUS:
     return 1; //Root cannot have focus
   case FG_GETCLASSNAME:
-    (*(const char**)msg->other) = "fgRoot";
-    return 0;
+    return (size_t)"fgRoot";
   }
   return fgWindow_Message((fgWindow*)self,msg);
 }

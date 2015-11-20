@@ -13,12 +13,12 @@ extern "C" {
 
 enum FGSCROLLBAR_FLAGS
 {
-  FGSCROLLBAR_VERT = (1 << 5),
-  FGSCROLLBAR_HORZ = (1 << 6),
-  FGSCROLLBAR_HIDEX = (1 << 7),
-  FGSCROLLBAR_HIDEY = (1 << 8),
-  FGSCROLLBAR_PUSHX = (1 << 9),
-  FGSCROLLBAR_PUSHY = (1 << 10),
+  FGSCROLLBAR_VERT = (1 << 6),
+  FGSCROLLBAR_HORZ = (1 << 7),
+  FGSCROLLBAR_HIDEX = (1 << 8),
+  FGSCROLLBAR_HIDEY = (1 << 9),
+  FGSCROLLBAR_PUSHX = (1 << 10),
+  FGSCROLLBAR_PUSHY = (1 << 11),
 };
 
 // A Scrollbar area acts as a clipping area for a single fgChild.

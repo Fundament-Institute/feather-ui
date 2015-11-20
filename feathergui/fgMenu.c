@@ -1,4 +1,4 @@
-// Copyright ©2013 Black Sphere Studios
+// Copyright ©2015 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 /*#include "fgMenu.h"
@@ -70,8 +70,7 @@ char FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
     fgWindow_IntMessage((fgWindow*)self,FG_SHOW,0);
     break;
   case FG_GETCLASSNAME:
-    (*(const char**)msg->other) = "fgMenu";
-    return 0;
+    return "fgMenu";
   }
   return fgWindow_Message((fgWindow*)self,msg);
 }

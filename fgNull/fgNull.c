@@ -2,7 +2,8 @@
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #include "fgNull.h"
-#include "fgStatic.h"
+#include "fgText.h"
+#include "fgResource.h"
 #include "fgRoot.h"
 #include "fgButton.h"
 #include "fgMenu.h"
@@ -114,7 +115,7 @@ fgChild* FG_FASTCALL fgTopWindow_Create(const char* caption, fgFlag flags, const
   r->window.element.message=&fgdebug_Message_fgTopWindow;
   r->region.message=&fgdebug_Message_fgWindow;
   fgChild_VoidMessage((fgChild*)r, FG_SETPARENT, fgSingleton());
-  fgChild_VoidMessage((fgChild*)r, FG_SETCAPTION, caption);
+  fgChild_VoidMessage((fgChild*)r, FG_SETTEXT, caption);
   return (fgChild*)r;
 }
 
