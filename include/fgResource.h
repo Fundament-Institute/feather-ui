@@ -34,8 +34,8 @@ FG_EXTERN void* FG_FASTCALL fgCreateResourceFile(fgFlag flags, const char* file)
 FG_EXTERN void* FG_FASTCALL fgCreateResource(fgFlag flags, const char* data, size_t length);
 FG_EXTERN void* FG_FASTCALL fgCloneResource(void* res);
 FG_EXTERN void FG_FASTCALL fgDestroyResource(void* res);
-FG_EXTERN void FG_FASTCALL fgDrawResource(void* res, const CRect* uv, unsigned int color, const AbsRect* area, fgFlag flags);
-FG_EXTERN void FG_FASTCALL fgResourceSize(void* res, const CRect* uv, AbsRect* area, fgFlag flags);
+FG_EXTERN void FG_FASTCALL fgDrawResource(void* res, const CRect* uv, unsigned int color, const AbsRect* area, FABS rotation, AbsVec* center, fgFlag flags);
+FG_EXTERN void FG_FASTCALL fgResourceSize(void* res, const CRect* uv, AbsVec* dim, fgFlag flags);
 
 #ifdef  __cplusplus
 }

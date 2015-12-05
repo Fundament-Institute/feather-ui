@@ -5,7 +5,8 @@
 #include <intrin.h>
 #include <limits.h>
 
-const fgElement fgElement_DEFAULT = { {0, 0, 0, 0, 0, 1, 0, 1 }, 0, {0, 0, 0, 0} };
+const fgElement fgElement_DEFAULT = { { 0, 0, 0, 0, 0, 1, 0, 1 }, 0, { 0, 0, 0, 0 } };
+const fgElement fgElement_CENTER = { {0, 0.5, 0, 0.5, 0, 0.5, 0, 0.5 }, 0, {0, 0.5, 0, 0.5} };
 
 void FG_FASTCALL fgVector_Init(fgVector* self)
 {
@@ -15,7 +16,6 @@ void FG_FASTCALL fgVector_Destroy(fgVector* self)
 {
   if(self->p) free(self->p);
 }
-// TODO: Speed this up using a custom simplistic heap allocator
 void FG_FASTCALL fgVector_SetSize(fgVector* self, FG_UINT length, FG_UINT size)
 {
   self->s=length*size;
@@ -87,13 +87,19 @@ char FG_FASTCALL CompareElements(const fgElement* l, const fgElement* r)
 
 void FG_FASTCALL MoveCRect(AbsVec v, CRect* r)
 {
-  FABS dx,dy;
-  dx=r->right.abs-r->left.abs;
-  dy=r->bottom.abs-r->top.abs;
-  r->left.abs=v.x;
-  r->top.abs=v.y;
-  r->right.abs=v.x+dx;
-  r->right.abs=v.y+dy;
+  AbsVec d = { r->right.abs - r->left.abs, r->bottom.abs - r->top.abs };
+  r->left.abs = v.x;
+  r->top.abs = v.y;
+  r->right.abs = v.x + d.x;
+  r->bottom.abs = v.y + d.y;
+}
+void FG_FASTCALL MoveCRectInv(AbsVec v, CRect* r)
+{
+  AbsVec d = { r->bottom.abs - r->top.abs, r->right.abs - r->left.abs };
+  r->left.abs = v.y;
+  r->top.abs = v.x;
+  r->right.abs = v.y + d.x;
+  r->bottom.abs = v.x + d.y;
 }
 
 /*char FG_FASTCALL CompChildOrder(const fgChild* l, const fgChild* r)

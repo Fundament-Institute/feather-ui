@@ -21,10 +21,8 @@ typedef struct FG_DEFER_ACTION {
 // Defines the root interface to the GUI. This object should be returned by the implementation at some point
 typedef struct _FG_ROOT {
   fgWindow gui;
-  size_t (FG_FASTCALL *keymsghook)(const FG_Msg* msg);
   size_t (FG_FASTCALL *behaviorhook)(struct _FG_CHILD* self, const FG_Msg* msg);
-  void (FG_FASTCALL *update)(struct _FG_ROOT* self, double delta);
-  fgChild mouse; // Add children to this to have them follow the mouse around.
+  fgChild* drag;
   fgDeferAction* updateroot;
   double time; // In seconds
 } fgRoot;
@@ -39,15 +37,16 @@ FG_EXTERN void FG_FASTCALL fgRoot_Destroy(fgRoot* self);
 FG_EXTERN size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg);
 FG_EXTERN size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg); // Returns 0 if handled, 1 otherwise
 FG_EXTERN size_t FG_FASTCALL fgRoot_BehaviorDefault(fgChild* self, const FG_Msg* msg);
-FG_EXTERN size_t FG_FASTCALL fgRoot_CallBehavior(fgChild* self, const FG_Msg* msg); // Calls the appropriate fgroot behavior function
-FG_EXTERN size_t FG_FASTCALL fgRoot_KeyMsgHook(const FG_Msg* msg);
 FG_EXTERN void FG_FASTCALL fgRoot_Update(fgRoot* self, double delta);
 FG_EXTERN fgDeferAction* FG_FASTCALL fgRoot_AllocAction(char (FG_FASTCALL *action)(void*), void* arg, double time);
 FG_EXTERN void FG_FASTCALL fgRoot_DeallocAction(fgRoot* self, fgDeferAction* action); // Removes action from the list if necessary
 FG_EXTERN void FG_FASTCALL fgRoot_AddAction(fgRoot* self, fgDeferAction* action); // Adds an action. Action can't already be in list.
 FG_EXTERN void FG_FASTCALL fgRoot_RemoveAction(fgRoot* self, fgDeferAction* action); // Removes an action. Action must be in list.
 FG_EXTERN void FG_FASTCALL fgRoot_ModifyAction(fgRoot* self, fgDeferAction* action); // Moves action if it needs to be moved, or inserts it if it isn't already in the list.
-fgChild* fgLayoutLoadMapping(const char* name, fgFlag flags, fgChild* parent, fgElement* element);
+FG_EXTERN fgChild* fgLayoutLoadMapping(const char* name, fgFlag flags, fgChild* parent, fgElement* element);
+FG_EXTERN void FG_FASTCALL fgStandardDraw(fgChild* self, AbsRect* area, int max);
+FG_EXTERN void fgPushClipRect(AbsRect* clip);
+FG_EXTERN void fgPopClipRect();
 
 #ifdef  __cplusplus
 }

@@ -33,7 +33,7 @@ void FG_FASTCALL fgTopWindow_Init(fgTopWindow* self, fgFlag flags, const fgEleme
   self->window.element.message = &fgTopWindow_Message;
 
   fgChild_Init(&self->region, 0, (fgChild*)self, &fgElement_DEFAULT);
-  fgChild_Init(&self->titlebar, FGCHILD_BACKGROUND, (fgChild*)self, 0);
+  fgChild_Init(&self->titlebar, FGCHILD_BACKGROUND|FGCHILD_IGNORE, (fgChild*)self, 0);
   fgButton_Init(&self->controls[0], FGCHILD_BACKGROUND, (fgChild*)self, 0);
   fgButton_Init(&self->controls[1], FGCHILD_BACKGROUND, (fgChild*)self, 0);
   fgButton_Init(&self->controls[2], FGCHILD_BACKGROUND, (fgChild*)self, 0);
@@ -74,7 +74,6 @@ size_t FG_FASTCALL fgTopWindow_Message(fgTopWindow* self, const FG_Msg* msg)
   case FG_SETTEXT:
     fgChild_Clear(&self->titlebar);
     fgText_Create(msg->other, (void*)fgChild_VoidMessage((fgChild*)self, FG_GETFONT, 0), fgChild_VoidMessage((fgChild*)self, FG_GETFONTCOLOR, 0), FGCHILD_EXPANDX|FGCHILD_EXPANDY, (fgChild*)self, 0);
-    fgChild_TriggerStyle((fgChild*)self, 0);
     break;
   case FG_ACTION:
     switch(msg->otherint)

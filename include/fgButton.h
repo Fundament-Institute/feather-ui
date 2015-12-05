@@ -10,10 +10,17 @@
 extern "C" {
 #endif
 
+enum FGBUTTON_FLAGS
+{
+  FGBUTTON_NOFOCUS = (1 << 5),
+  FGBUTTON_TOGGLE = (1 << 6),
+};
+
 // A button is usually implemented as a simple background design that takes a static and displays it in the center of the button.
 typedef struct _FG_BUTTON {
   fgWindow window;
   fgChild item; // item displayed in button
+  char state; // tracks if the button is down.
 } fgButton;
 
 FG_EXTERN fgChild* FG_FASTCALL fgButton_Create(fgChild* item, fgFlag flags, fgChild* parent, const fgElement* element);

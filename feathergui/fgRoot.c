@@ -4,22 +4,21 @@
 #include "fgRoot.h"
 #include <stdlib.h>
 
+fgRoot* fgroot_instance = 0;
+
 void FG_FASTCALL fgRoot_Init(fgRoot* self)
 {
   fgWindow_Init((fgWindow*)self,0,0,0);
   self->gui.element.destroy=&fgRoot_Destroy;
   self->gui.element.message=&fgRoot_Message;
   self->behaviorhook=&fgRoot_BehaviorDefault;
-  self->update=&fgRoot_Update;
   self->updateroot=0;
-  self->keymsghook=&fgRoot_KeyMsgHook;
   self->time=0;
-  fgChild_Init(&self->mouse, FGCHILD_BACKGROUND|FGCHILD_IGNORE|FGCHILD_NOCLIP, (fgChild*)self, 0);
+  fgroot_instance = self;
 }
 
 void FG_FASTCALL fgRoot_Destroy(fgRoot* self)
 {
-  (*self->mouse.destroy)(&self->mouse);
   fgWindow_Destroy((fgWindow*)self);
 }
 
@@ -27,10 +26,27 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
 {
   switch(msg->type)
   {
-  case FG_GOTFOCUS:
-    return 1; //Root cannot have focus
+  case FG_KEYCHAR: // If these messages get sent to the root, they have been rejected from everything else.
+  case FG_KEYUP:
+  case FG_KEYDOWN:
+  case FG_MOUSEON:
+  case FG_MOUSEOFF:
+  case FG_MOUSEDOWN:
+  case FG_MOUSEUP:
+  case FG_MOUSEMOVE:
+  case FG_MOUSESCROLL:
+  case FG_GOTFOCUS: //Root cannot have focus
+    return 1; 
   case FG_GETCLASSNAME:
     return (size_t)"fgRoot";
+  case FG_DRAW:
+  {
+    CRect* rootarea = &self->gui.element.element.area;
+    AbsRect area = { rootarea->left.abs, rootarea->top.abs, rootarea->right.abs, rootarea->bottom.abs };
+    FG_Msg m = *msg;
+    m.other = &area;
+    return fgWindow_Message((fgWindow*)self, &m);
+  }
   }
   return fgWindow_Message((fgWindow*)self,msg);
 }
@@ -39,11 +55,11 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
 size_t FG_FASTCALL fgRoot_RInject(fgRoot* root, fgChild* self, const FG_Msg* msg, AbsRect* area)
 {
   AbsRect curarea;
-  fgChild* cur = self->root;
-  while(cur && (cur->flags&FGCHILD_NOCLIP)!=0) // Go through all our children that aren't being clipped
+  fgChild* cur = self->rootnoclip;
+  while(cur) // Go through all our children that aren't being clipped
   {
     if(!fgRoot_RInject(root,cur,msg,area)) //pass through the parent area because these aren't clipped
-      return 0; // If the message is NOT rejected, return 0 immediately to indicate we ate the message.
+      return 0; // If the message is NOT rejected, return 0 immediately to indicate we accepted the message.
     cur=cur->next; // Otherwise the child rejected the message.
   }
   assert(msg!=0 && area!=0);
@@ -51,100 +67,105 @@ size_t FG_FASTCALL fgRoot_RInject(fgRoot* root, fgChild* self, const FG_Msg* msg
   if((self->flags&FGCHILD_HIDDEN)!=0 || !MsgHitAbsRect(msg,&curarea)) //If the event completely misses us, or we're hidden, we must reject it
     return 1;
 
+  cur = self->rootclip;
   while(cur) // Try to inject to any children we have
   {
     if(!fgRoot_RInject(root,cur,msg,&curarea)) // If the message is NOT rejected, return 0 immediately.
       return 0;
     cur=cur->next; // Otherwise the child rejected the message.
-  } // If we get this far either we have no children, the event missed them all, or they all rejected the event.
+  }
 
-  return (*root->behaviorhook)(self,msg);
+  // If we get this far either we have no children, the event missed them all, or they all rejected the event...
+  return (*root->behaviorhook)(self,msg); // So we give the event to ourselves
 }
 
-void FG_FASTCALL fgRoot_DrawChild(fgChild* self, AbsRect* area)
+void FG_FASTCALL fgStandardDraw(fgChild* self, AbsRect* area, int max)
 {
-  fgChild_VoidMessage(self, FG_DRAW, area);
   fgChild* hold = self->last; // we draw backwards through our list.
   AbsRect curarea;
+  char clipping = 0;
 
-  while(hold)
+  while(hold && hold->order <= max)
   {
     if(!(hold->flags&FGCHILD_HIDDEN))
     {
+      if(!clipping && !(hold->flags&FGCHILD_NOCLIP))
+      {
+        clipping = 1;
+        fgPushClipRect(area);
+      }
+      else if(clipping && (hold->flags&FGCHILD_NOCLIP))
+      {
+        clipping = 0;
+        fgPopClipRect();
+      }
+
       ResolveRectCache(&curarea, hold, area);
-      fgRoot_DrawChild(hold, &curarea);
+      fgChild_VoidMessage(hold, FG_DRAW, &curarea);
     }
     hold = hold->prev;
   }
+
+  if(clipping)
+    fgPopClipRect();
 }
 
 size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
 {
-  static AbsRect absarea = { 0,0,0,0 };
-  CRect* mousearea;
-  assert(self!=0);
+  assert(self != 0);
+  CRect* rootarea = &self->gui.element.element.area;
+  AbsRect absarea = { rootarea->left.abs, rootarea->top.abs, rootarea->right.abs, rootarea->bottom.abs };
 
   switch(msg->type)
   {
+  case FG_JOYBUTTONDOWN:
+  case FG_JOYBUTTONUP:
+  case FG_JOYAXIS:
   case FG_KEYCHAR:
   case FG_KEYUP:
   case FG_KEYDOWN:
-    if(!(*self->keymsghook)(msg))
-      return 0;
-    if(fgFocusedWindow)
-      return (*self->behaviorhook)((fgChild*)fgFocusedWindow,msg);
-    break;
+  {
+    fgChild* cur = !fgFocusedWindow ? (fgChild*)self : fgFocusedWindow;
+    do
+    {
+      if(!(*self->behaviorhook)(cur, msg))
+        return 0;
+      cur = cur->parent;
+    } while(cur);
+    return 1;
+  }
+  case FG_MOUSESCROLL:
   case FG_MOUSEDOWN:
   case FG_MOUSEUP:
   case FG_MOUSEMOVE:
-    mousearea=&self->mouse.element.area; // Update our mouse-tracking static
-    mousearea->left.abs=mousearea->right.abs=(FABS)msg->x;
-    mousearea->top.abs=mousearea->bottom.abs=(FABS)msg->y;
-
-  case FG_MOUSESCROLL:
-    if(fgFocusedWindow)
-      if(!(*self->behaviorhook)((fgChild*)fgFocusedWindow,msg))
-        return 1;
-
-    if(!fgRoot_RInject(self,(fgChild*)self,msg,&absarea))
-      break; // it's important to break, not return, because we need to reset nonclip
-    
-    if(msg->type==FG_MOUSEMOVE && fgLastHover!=0) // If we STILL haven't accepted a mousemove event, send a MOUSEOFF message if lasthover exists
+    if(self->drag && self->drag->parent == (fgChild*)self)
     {
-      fgChild_VoidMessage((fgChild*)fgLastHover, FG_MOUSEOFF, 0);
+      AbsVec pos = { (FABS)msg->x, (FABS)msg->y };
+      MoveCRect(pos, &self->drag->element.area);
+    }
+    if(fgCaptureWindow)
+      if(!(*self->behaviorhook)(fgCaptureWindow,msg))
+        return 0;
+
+    if(!fgRoot_RInject(self, (fgChild*)self, msg, &absarea))
+      return 0;
+    if(msg->type != FG_MOUSEMOVE)
+      break;
+  case FG_MOUSELEAVE:
+    if(fgLastHover!=0) // If we STILL haven't accepted a mousemove event, send a MOUSEOFF message if lasthover exists
+    {
+      fgChild_VoidMessage(fgLastHover, FG_MOUSEOFF, 0);
       fgLastHover=0;
     }
-    return 1;
-  case FG_DRAW:
-  {
-    fgChild* hold = self->gui.element.last; // we draw backwards through our list.
-    CRect* rootarea = &self->gui.element.element.area;
-    AbsRect area = { rootarea->left.abs, rootarea->top.abs, rootarea->right.abs, rootarea->bottom.abs };
-    AbsRect curarea;
-
-    while(hold)
-    {
-      if(!(hold->flags&FGCHILD_HIDDEN))
-      {
-        ResolveRectCache(&curarea, hold, &area);
-        fgRoot_DrawChild(hold, &curarea);
-      }
-      hold = hold->prev;
-    }
+    break;
   }
-    return 0;
-  }
-  return 0;
+  return 1;
 }
 
 size_t FG_FASTCALL fgRoot_BehaviorDefault(fgChild* self, const FG_Msg* msg)
 {
   assert(self!=0);
   return (*self->message)(self,msg);
-}
-size_t FG_FASTCALL fgRoot_CallBehavior(fgChild* self, const FG_Msg* msg)
-{
-  return (*fgSingleton()->behaviorhook)(self,msg);
 }
 
 void FG_FASTCALL fgTerminate(fgRoot* root)
@@ -216,7 +237,7 @@ void FG_FASTCALL fgRoot_ModifyAction(fgRoot* self, fgDeferAction* action)
   else if(!action->prev && action!=self->updateroot) // If true you aren't in the list so we need to add you
     fgRoot_AddAction(self,action);
 }
-size_t FG_FASTCALL fgRoot_KeyMsgHook(const FG_Msg* msg)
+fgRoot* FG_FASTCALL fgSingleton()
 {
-  return 1;
+  return fgroot_instance;
 }

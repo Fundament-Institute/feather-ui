@@ -1,4 +1,4 @@
-// Copyright ©2012 Black Sphere Studios
+// Copyright ©2015 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #ifndef __FG_LIST_H__
@@ -21,13 +21,15 @@ enum FGLIST_FLAGS
 // A List is a list of items that can be sorted into any number of columns and optionally have column headers.
 typedef struct {
   fgScrollbar window;
-  fgChild region;
-  fgChild* selector;
-  fgChild* highlighter;
+  fgChild selector;
+  fgChild highlight;
+  fgChild* hover;
+  fgChild* selected;
 } fgList;
 
 FG_EXTERN fgChild* FG_FASTCALL fgList_Create(fgChild* parent, const fgElement* element, FG_UINT id, fgFlag flags);
 FG_EXTERN void FG_FASTCALL fgList_Init(fgList* self, fgChild* parent, const fgElement* element, FG_UINT id, fgFlag flags);
+FG_EXTERN void FG_FASTCALL fgList_Destroy(fgList* self);
 FG_EXTERN char FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg);
 
 #ifdef  __cplusplus

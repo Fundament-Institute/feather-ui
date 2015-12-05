@@ -1,4 +1,4 @@
-// Copyright ©2012 Black Sphere Studios
+// Copyright ©2015 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #include "fgTest.h"
@@ -445,12 +445,12 @@ RETPAIR test_Root()
   TEST(test_root_STAGE==1);
   (*gui->update)(gui,10);
   TEST(test_root_STAGE==2);
-  fgWindow_VoidMessage((fgWindow*)top,FG_ADDCHILD,fgButton_Create(fgLoadImage("fake"),0,0,2,0));
-  fgWindow_VoidMessage((fgWindow*)top,FG_ADDCHILD,top->region.root->root);
-  fgWindow_VoidMessage((fgWindow*)top,FG_ADDCHILD,fgButton_Create(fgLoadText("fake",0,"arial.ttf",14,0),0,0,4,0));
-  fgWindow_VoidMessage((fgWindow*)top,FG_ADDCHILD,fgLoadImage("fake"));
+  fgChild_VoidMessage((fgWindow*)top,FG_ADDCHILD,fgButton_Create(fgResource_Create("fake"),0,0,2,0));
+  fgChild_VoidMessage((fgWindow*)top,FG_ADDCHILD,top->region.root->root);
+  fgChild_VoidMessage((fgWindow*)top,FG_ADDCHILD,fgButton_Create(fgLoadText("fake",0,"arial.ttf",14,0),0,0,4,0));
+  fgChild_VoidMessage((fgWindow*)top,FG_ADDCHILD,fgLoadImage("fake"));
   //fgStatic_Message(top->region.rlist,FG_RADDCHILD,fgLoadText("fake",0,"arial.ttf",14,0),0);
-  //fgWindow_VoidMessage((fgWindow*)top,FG_ADDCHILD,top->region.rlist->element.root);
+  //fgChild_VoidMessage((fgWindow*)top,FG_ADDCHILD,top->region.rlist->element.root);
   fgRoot_Render(gui);
   ENDTEST;
 }

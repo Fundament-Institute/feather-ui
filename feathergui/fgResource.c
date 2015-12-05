@@ -8,6 +8,10 @@ void FG_FASTCALL fgResource_Init(fgResource* self, void* res, const CRect* uv, u
 {
   memset(self, 0, sizeof(fgResource));
   fgChild_Init(&self->element, flags, parent, element);
+  self->element.destroy = &fgResource_Destroy;
+  self->element.message = &fgResource_Message;
+  self->uv.right.rel = 1.0f;
+  self->uv.bottom.rel = 1.0f;
   fgChild_IntMessage((fgChild*)self, FG_SETCOLOR, color, 0);
   fgChild_VoidMessage((fgChild*)self, FG_SETUV, (void*)uv);
   fgChild_VoidMessage((fgChild*)self, FG_SETRESOURCE, res);
@@ -47,7 +51,10 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
       fgResource_Recalc(self);
     break;
   case FG_DRAW:
-    fgDrawResource(self->res, &self->uv, self->color, (AbsRect*)msg->other, self->element.flags);
+  {
+    AbsVec center = ResolveVec(&self->element.element.center, (AbsRect*)msg->other);
+    fgDrawResource(self->res, &self->uv, self->color, (AbsRect*)msg->other, self->element.element.rotation, &center, self->element.flags);
+  }
     break;
   case FG_GETCLASSNAME:
     return (size_t)"fgResource";
@@ -72,22 +79,15 @@ void* FG_FASTCALL fgCreateResourceFile(fgFlag flags, const char* file)
 
 void FG_FASTCALL fgResource_Recalc(fgResource* self)
 {
-  if(self->res && (self->element.flags&(FGCHILD_EXPANDX | FGCHILD_EXPANDY)))
+  if(self->res && (self->element.flags&FGCHILD_EXPAND))
   {
-    AbsRect area;
-    ResolveRect((fgChild*)self, &area);
-    fgResourceSize(self->res, &self->uv, &area, self->element.flags);
+    AbsVec dim;
+    fgResourceSize(self->res, &self->uv, &dim, self->element.flags);
     CRect adjust = self->element.element.area;
     if(self->element.flags&FGCHILD_EXPANDX)
-    {
-      adjust.left.abs = area.left;
-      adjust.right.abs = area.right;
-    }
+      adjust.right.abs = adjust.left.abs + dim.x;
     if(self->element.flags&FGCHILD_EXPANDY)
-    {
-      adjust.top.abs = area.left;
-      adjust.bottom.abs = area.right;
-    }
+      adjust.bottom.abs = adjust.top.abs + dim.y;
     fgChild_VoidMessage((fgChild*)self, FG_SETAREA, &adjust);
   }
 }

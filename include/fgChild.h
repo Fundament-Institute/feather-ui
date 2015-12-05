@@ -18,6 +18,7 @@ enum FGCHILD_FLAGS
   FGCHILD_HIDDEN = (1 << 3), // Signals that this control and it's children should not be rendered. However, they will still be laid out as if they existed.
   FGCHILD_EXPANDX = (1 << 4), // Signals to the layout that the control should expand to include all it's elements
   FGCHILD_EXPANDY = (1 << 5),
+  FGCHILD_EXPAND = FGCHILD_EXPANDX | FGCHILD_EXPANDY,
 };
 
 typedef struct _FG_CHILD {
@@ -30,6 +31,13 @@ typedef struct _FG_CHILD {
   struct _FG_CHILD* last; // children list last
   struct _FG_CHILD* next;
   struct _FG_CHILD* prev;
+  struct _FG_CHILD* rootclip; // children with clipping list root
+  struct _FG_CHILD* lastclip; // children with clipping list last
+  struct _FG_CHILD* rootnoclip; // children with clipping list root
+  struct _FG_CHILD* lastnoclip; // children with clipping list last
+  struct _FG_CHILD* nextclip;
+  struct _FG_CHILD* prevclip;
+  struct _FG_CHILD* lastfocus; // Stores the last child that had focus, if any. This never points to the child that CURRENTLY has focus, only to the child that HAD focus.
   AbsRect margin; // defines the amount of external margin.
   AbsRect padding; // Defines the amount of internal padding. Only affects children that DON'T have FGCHILD_BACKGROUND set.
   int order; // order relative to other windows or statics
@@ -37,6 +45,8 @@ typedef struct _FG_CHILD {
   const struct __FG_SKIN* skin; // skin reference
   fgVector skinrefs; // Type: fgChild* - References to skin children or subcontrols.
   int prechild; // stores where the last preallocated subcontrol reference is in skinrefs.
+  FG_UINT style; // Set to -1 if no style has been assigned, in which case the style from its parent will be used.
+  FG_UINT userid;
   void* userdata;
 } fgChild;
 
@@ -44,7 +54,6 @@ FG_EXTERN void FG_FASTCALL fgChild_Init(fgChild* BSS_RESTRICT self, fgFlag flags
 FG_EXTERN void FG_FASTCALL fgChild_Destroy(fgChild* self);
 FG_EXTERN void FG_FASTCALL fgChild_SetParent(fgChild* BSS_RESTRICT self, fgChild* BSS_RESTRICT parent);
 FG_EXTERN size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg);
-FG_EXTERN void FG_FASTCALL fgChild_TriggerStyle(fgChild* self, FG_UINT index);
 
 FG_EXTERN size_t FG_FASTCALL fgLayout_Default(fgChild* self, const FG_Msg* msg);
 FG_EXTERN size_t FG_FASTCALL fgLayout_Distribute(fgChild* self, const FG_Msg* msg, char axis);
@@ -57,9 +66,11 @@ FG_EXTERN void FG_FASTCALL ResolveRect(const fgChild* self, AbsRect* out);
 FG_EXTERN void FG_FASTCALL ResolveRectCache(AbsRect* BSS_RESTRICT r, const fgChild* elem, const AbsRect* BSS_RESTRICT last);
 //FG_EXTERN char FG_FASTCALL CompChildOrder(const fgChild* l, const fgChild* r);
 FG_EXTERN char FG_FASTCALL MsgHitCRect(const FG_Msg* msg, const fgChild* child);
+FG_EXTERN void FG_FASTCALL LList_RemoveAll(fgChild* self);
 FG_EXTERN void FG_FASTCALL LList_Remove(fgChild* self, fgChild** root, fgChild** last);
+FG_EXTERN void FG_FASTCALL LList_AddAll(fgChild* self);
 FG_EXTERN void FG_FASTCALL LList_Add(fgChild* self, fgChild** root, fgChild** last);
-FG_EXTERN void FG_FASTCALL LList_Insert(fgChild* self, fgChild* target, fgChild** last);
+FG_EXTERN void FG_FASTCALL LList_ChangeOrderAll(fgChild* self);
 FG_EXTERN void FG_FASTCALL LList_ChangeOrder(fgChild* self, fgChild** root, fgChild** last);
 FG_EXTERN void FG_FASTCALL VirtualFreeChild(fgChild* self);
 FG_EXTERN void FG_FASTCALL fgChild_Clear(fgChild* self);

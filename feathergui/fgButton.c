@@ -13,7 +13,7 @@ void FG_FASTCALL fgButton_Init(fgButton* BSS_RESTRICT self, fgFlag flags, fgChil
   self->window.element.destroy = &fgButton_Destroy;
   self->window.element.message = &fgButton_Message;
 
-  fgChild_Init(&self->item, FGCHILD_NOCLIP, (fgChild*)self, &fgElement_DEFAULT);
+  fgChild_Init(&self->item, FGCHILD_EXPAND, (fgChild*)self, &fgElement_CENTER);
   fgChild_AddPreChild((fgChild*)self, &self->item);
 }
 void FG_FASTCALL fgButton_Destroy(fgButton* self)
@@ -31,23 +31,21 @@ size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
   {
   case FG_SETTEXT:
     fgChild_Clear(&self->item);
-    fgText_Create(msg->other, (void*)fgChild_VoidMessage((fgChild*)self, FG_GETFONT, 0), fgChild_VoidMessage((fgChild*)self, FG_GETFONTCOLOR, 0), FGCHILD_EXPANDX | FGCHILD_EXPANDY, (fgChild*)self, 0);
-    fgChild_TriggerStyle((fgChild*)self, 0);
+    fgText_Create(msg->other, (void*)fgChild_VoidMessage((fgChild*)self, FG_GETFONT, 0), fgChild_VoidMessage((fgChild*)self, FG_GETFONTCOLOR, 0), FGCHILD_EXPANDX | FGCHILD_EXPANDY, &self->item, 0);
     return 0;
   case FG_ADDITEM:
     fgChild_Clear(&self->item);
     if(msg->other)
-      fgChild_VoidMessage((fgChild*)self, FG_ADDCHILD, msg->other);
-    fgChild_TriggerStyle((fgChild*)self, 0);
+      fgChild_VoidMessage(&self->item, FG_ADDCHILD, msg->other);
     return 0;
   case FG_NUETRAL:
-    fgChild_TriggerStyle((fgChild*)self, 0);
+    fgChild_IntMessage((fgChild*)self, FG_SETSTYLE, 0, 0);
     return 0;
   case FG_HOVER:
-    fgChild_TriggerStyle((fgChild*)self, 1);
+    fgChild_IntMessage((fgChild*)self, FG_SETSTYLE, 1, 0);
     return 0;
   case FG_ACTIVE:
-    fgChild_TriggerStyle((fgChild*)self, 2);
+    fgChild_IntMessage((fgChild*)self, FG_SETSTYLE, 2, 0);
     return 0;
   case FG_GETCLASSNAME:
     return (size_t)"fgButton";

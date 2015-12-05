@@ -215,22 +215,28 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\bss_compiler.h" />
+    <ClInclude Include="..\include\bss_defines.h" />
     <ClInclude Include="..\include\feathergui.h" />
     <ClInclude Include="..\include\fgButton.h" />
+    <ClInclude Include="..\include\fgCheckbox.h" />
     <ClInclude Include="..\include\fgChild.h" />
     <ClInclude Include="..\include\fgCombobox.h" />
     <ClInclude Include="..\include\fgImplementation.h" />
     <ClInclude Include="..\include\fgLayout.h" />
     <ClInclude Include="..\include\fgList.h" />
     <ClInclude Include="..\include\fgMenu.h" />
+    <ClInclude Include="..\include\fgProgressbar.h" />
+    <ClInclude Include="..\include\fgRadioButton.h" />
     <ClInclude Include="..\include\fgResource.h" />
     <ClInclude Include="..\include\fgScrollbar.h" />
     <ClInclude Include="..\include\fgSkin.h" />
     <ClInclude Include="..\include\fgRoot.h" />
+    <ClInclude Include="..\include\fgSlider.h" />
     <ClInclude Include="..\include\fgTabGroup.h" />
     <ClInclude Include="..\include\fgText.h" />
     <ClInclude Include="..\include\fgTextbox.h" />
     <ClInclude Include="..\include\fgTopWindow.h" />
+    <ClInclude Include="..\include\fgTree.h" />
     <ClInclude Include="..\include\fgWindow.h" />
     <ClInclude Include="helper.h" />
   </ItemGroup>

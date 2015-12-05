@@ -58,7 +58,10 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
       fgText_Recalc(self);
     break;
   case FG_DRAW:
-    fgDrawFont(self->font, !self->text ? "" : self->text, self->color, (AbsRect*)msg->other, self->element.flags);
+  {
+    AbsVec center = ResolveVec(&self->element.element.center, (AbsRect*)msg->other);
+    fgDrawFont(self->font, !self->text ? "" : self->text, self->color, (AbsRect*)msg->other, self->element.element.rotation, &center, self->element.flags);
+  }
     break;
   case FG_GETCLASSNAME:
     return (size_t)"fgText";
@@ -68,22 +71,16 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
 
 FG_EXTERN void FG_FASTCALL fgText_Recalc(fgText* self)
 {
-  if(self->font && (self->element.flags&(FGCHILD_EXPANDX|FGCHILD_EXPANDY)))
+  if(self->font && (self->element.flags&FGCHILD_EXPAND))
   {
     AbsRect area;
     ResolveRect((fgChild*)self, &area);
     fgFontSize(self->font, !self->text ? "" : self->text, &area, self->element.flags);
     CRect adjust = self->element.element.area;
     if(self->element.flags&FGCHILD_EXPANDX)
-    {
-      adjust.left.abs = area.left;
-      adjust.right.abs = area.right;
-    }
+      adjust.right.abs = adjust.left.abs + area.right - area.left;
     if(self->element.flags&FGCHILD_EXPANDY)
-    {
-      adjust.top.abs = area.left;
-      adjust.bottom.abs = area.right;
-    }
+      adjust.bottom.abs = adjust.top.abs + area.right - area.left;
     fgChild_VoidMessage((fgChild*)self, FG_SETAREA, &adjust);
   }
 }

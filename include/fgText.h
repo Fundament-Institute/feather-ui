@@ -19,6 +19,7 @@ enum FGTEXT_FLAGS
   FGTEXT_RIGHTALIGN = (1 << 10),
   FGTEXT_CENTER = (1 << 11), // Text horizontal centering behaves differently, because it centers each individual line.
   FGTEXT_STRETCH = (1 << 12), // Stretches the text to fill the area.
+  FGTEXT_SUBPIXEL = (1 << 13), // Indicates this text should try to render with LCD subpixel hinting.
 };
 
 // fgText stores a string and renders it according to the font and fontcolor that it has.
@@ -38,7 +39,7 @@ FG_EXTERN void FG_FASTCALL fgText_Recalc(fgText* self);
 FG_EXTERN void* FG_FASTCALL fgCreateFont(fgFlag flags, const char* font, unsigned int fontsize, float lineheight, float letterspacing);
 FG_EXTERN void* FG_FASTCALL fgCloneFont(void* font);
 FG_EXTERN void FG_FASTCALL fgDestroyFont(void* font);
-FG_EXTERN void FG_FASTCALL fgDrawFont(void* font, const char* text, unsigned int color, const AbsRect* area, fgFlag flags);
+FG_EXTERN void FG_FASTCALL fgDrawFont(void* font, const char* text, unsigned int color, const AbsRect* area, FABS rotation, AbsVec* center, fgFlag flags);
 FG_EXTERN void FG_FASTCALL fgFontSize(void* font, const char* text, AbsRect* area, fgFlag flags);
 
 #ifdef  __cplusplus
