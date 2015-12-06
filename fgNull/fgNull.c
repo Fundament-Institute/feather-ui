@@ -38,6 +38,7 @@ void FG_FASTCALL fgResourceSize(void* res, const CRect* uv, AbsVec* dim, fgFlag 
 #define DEFAULT_CREATE(type, init, ...) \
   type* r = (type*)malloc(sizeof(type)); \
   init(r, __VA_ARGS__); \
+  ((fgChild*)r)->free = &free; \
   return (fgChild*)r
 
 fgChild* FG_FASTCALL fgResource_Create(void* res, const CRect* uv, unsigned int color, fgFlag flags, fgChild* parent, const fgElement* element)

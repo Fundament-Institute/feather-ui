@@ -4,6 +4,7 @@
 #ifndef __FG_BUTTON_H__
 #define __FG_BUTTON_H__
 
+#include "fgText.h"
 #include "fgWindow.h"
 
 #ifdef  __cplusplus
@@ -20,6 +21,7 @@ enum FGBUTTON_FLAGS
 typedef struct _FG_BUTTON {
   fgWindow window;
   fgChild item; // item displayed in button
+  fgText text; // text displayed in button
   char state; // tracks if the button is down.
 } fgButton;
 

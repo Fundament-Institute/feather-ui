@@ -9,16 +9,10 @@ fgChild* fgLastHover = 0;
 fgChild* fgCaptureWindow = 0;
 
 void FG_FASTCALL fgWindow_Init(fgWindow* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, const fgElement* element)
-{ 
-  assert(self!=0);
-  memset(self,0,sizeof(fgWindow));
-  fgChild_Init(&self->element, flags, parent, element);
-  self->element.destroy=&fgWindow_Destroy;
-  self->element.message=&fgWindow_Message;
-  self->element.flags=flags;
-  self->tabnext = self->tabprev = self; // This creates an infinite loop of tabbing
-  if(element) self->element.element=*element;
+{
+  fgChild_InternalSetup(&self->element, flags, parent, element, &fgWindow_Destroy, &fgWindow_Message);
 }
+
 void FG_FASTCALL fgWindow_Destroy(fgWindow* self)
 {
   assert(self!=0);
@@ -49,6 +43,12 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
   
   switch(msg->type)
   {
+  case FG_CONSTRUCT:
+    fgChild_Message((fgChild*)self, msg);
+    self->contextmenu = 0;
+    self->name = 0;
+    self->tabnext = self->tabprev = self; // This creates an infinite loop of tabbing
+    return 0;
   case FG_KEYDOWN:
     if(msg->keycode == FG_KEY_TAB && !(msg->sigkeys&(2|4)))
     {

@@ -2,6 +2,7 @@
 *.suo
 *.opensdf
 *.bak
+*.opendb
 bin/
 feathergui/x64/
 feathergui/Win32/

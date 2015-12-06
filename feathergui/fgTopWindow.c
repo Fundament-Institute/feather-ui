@@ -27,24 +27,7 @@ size_t FG_FASTCALL fgTopWindow_MinimizeMessage(fgButton* self, const FG_Msg* msg
 
 void FG_FASTCALL fgTopWindow_Init(fgTopWindow* self, fgFlag flags, const fgElement* element)
 {
-  assert(self!=0);
-  fgWindow_Init((fgWindow*)self, flags, 0, element);
-  self->window.element.destroy = &fgTopWindow_Destroy;
-  self->window.element.message = &fgTopWindow_Message;
-
-  fgChild_Init(&self->region, 0, (fgChild*)self, &fgElement_DEFAULT);
-  fgChild_Init(&self->titlebar, FGCHILD_BACKGROUND|FGCHILD_IGNORE, (fgChild*)self, 0);
-  fgButton_Init(&self->controls[0], FGCHILD_BACKGROUND, (fgChild*)self, 0);
-  fgButton_Init(&self->controls[1], FGCHILD_BACKGROUND, (fgChild*)self, 0);
-  fgButton_Init(&self->controls[2], FGCHILD_BACKGROUND, (fgChild*)self, 0);
-  fgChild_AddPreChild((fgChild*)self, &self->region);
-  fgChild_AddPreChild((fgChild*)self, &self->titlebar);
-  fgChild_AddPreChild((fgChild*)self, (fgChild*)&self->controls[0]);
-  fgChild_AddPreChild((fgChild*)self, (fgChild*)&self->controls[1]);
-  fgChild_AddPreChild((fgChild*)self, (fgChild*)&self->controls[2]);
-  self->controls[0].window.element.message = &fgTopWindow_CloseMessage;
-  self->controls[1].window.element.message = &fgTopWindow_MaximizeMessage;
-  self->controls[2].window.element.message = &fgTopWindow_MinimizeMessage;
+  fgChild_InternalSetup((fgChild*)self, flags, 0, element, &fgTopWindow_Destroy, &fgTopWindow_Message);
 }
 void FG_FASTCALL fgTopWindow_Destroy(fgTopWindow* self)
 {  
@@ -63,6 +46,22 @@ size_t FG_FASTCALL fgTopWindow_Message(fgTopWindow* self, const FG_Msg* msg)
 
   switch(msg->type)
   {
+  case FG_CONSTRUCT:
+    fgWindow_Message((fgWindow*)self, msg);
+    fgChild_Init(&self->region, 0, (fgChild*)self, &fgElement_DEFAULT);
+    fgChild_Init(&self->titlebar, FGCHILD_BACKGROUND | FGCHILD_IGNORE, (fgChild*)self, 0);
+    fgButton_Init(&self->controls[0], FGCHILD_BACKGROUND, (fgChild*)self, 0);
+    fgButton_Init(&self->controls[1], FGCHILD_BACKGROUND, (fgChild*)self, 0);
+    fgButton_Init(&self->controls[2], FGCHILD_BACKGROUND, (fgChild*)self, 0);
+    fgChild_AddPreChild((fgChild*)self, &self->region);
+    fgChild_AddPreChild((fgChild*)self, &self->titlebar);
+    fgChild_AddPreChild((fgChild*)self, (fgChild*)&self->controls[0]);
+    fgChild_AddPreChild((fgChild*)self, (fgChild*)&self->controls[1]);
+    fgChild_AddPreChild((fgChild*)self, (fgChild*)&self->controls[2]);
+    self->controls[0].window.element.message = &fgTopWindow_CloseMessage;
+    self->controls[1].window.element.message = &fgTopWindow_MaximizeMessage;
+    self->controls[2].window.element.message = &fgTopWindow_MinimizeMessage;
+    return 0;
   case FG_REMOVECHILD:
     if(((fgChild*)msg->other)->parent==(fgChild*)self)
       return fgWindow_Message(&self->window,msg);
@@ -73,7 +72,7 @@ size_t FG_FASTCALL fgTopWindow_Message(fgTopWindow* self, const FG_Msg* msg)
     return fgChild_Message(&self->region,msg);
   case FG_SETTEXT:
     fgChild_Clear(&self->titlebar);
-    fgText_Create(msg->other, (void*)fgChild_VoidMessage((fgChild*)self, FG_GETFONT, 0), fgChild_VoidMessage((fgChild*)self, FG_GETFONTCOLOR, 0), FGCHILD_EXPANDX|FGCHILD_EXPANDY, (fgChild*)self, 0);
+    fgText_Create(msg->other, 0, 0, FGCHILD_EXPANDX|FGCHILD_EXPANDY, (fgChild*)self, 0);
     break;
   case FG_ACTION:
     switch(msg->otherint)

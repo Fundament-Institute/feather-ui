@@ -7,18 +7,25 @@
 #include <math.h>
 #include <limits.h>
 
-void FG_FASTCALL fgChild_Init(fgChild* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, const fgElement* element)
+void FG_FASTCALL fgChild_InternalSetup(fgChild* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, const fgElement* element, void (FG_FASTCALL *destroy)(void*), size_t(FG_FASTCALL *message)(void*, const FG_Msg*))
 {
   assert(self != 0);
   memset(self, 0, sizeof(fgChild));
-  self->destroy = &fgChild_Destroy;
-  self->free = &free;
-  self->message = &fgChild_Message;
+  self->destroy = destroy;
+  self->free = 0;
+  self->message = message;
   self->flags = flags;
   self->style = (FG_UINT)-1;
-  fgChild_SetParent(self, parent);
   if(element) self->element = *element;
+  fgChild_VoidMessage(self, FG_CONSTRUCT, 0);
+  fgChild_VoidMessage(self, FG_SETPARENT, parent);
 }
+
+void FG_FASTCALL fgChild_Init(fgChild* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, const fgElement* element)
+{
+  fgChild_InternalSetup(self, flags, parent, element, &fgChild_Destroy, &fgChild_Message);
+}
+
 void FG_FASTCALL fgChild_Destroy(fgChild* self)
 {
   assert(self != 0);
@@ -132,6 +139,8 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
 
   switch(msg->type)
   {
+  case FG_CONSTRUCT:
+    return 0;
   case FG_MOVE:
     if(!msg->other && self->parent != 0) // This is internal, so we must always propagate it up
       fgChild_VoidAuxMessage(self->parent, FG_MOVE, self, msg->otheraux | 1);
@@ -236,14 +245,14 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
         m.type = FG_SETORDER;
         m.other1 = self;
         m.other2 = old;
-        (*fgSingleton()->behaviorhook)(self->parent, &m);
+        fgChild_PassMessage(self->parent, &m);
       }
     }
     else
     {
       FG_Msg m = *msg;
       m.type = FG_LAYOUTREORDER;
-      (*fgSingleton()->behaviorhook)(self, &m);
+      fgChild_PassMessage(self, &m);
     }
     return 0; // Otherwise it's just a notification
   case FG_SETPARENT:
@@ -309,20 +318,6 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
       return (size_t)hold;
   }
     return 0;
-  case FG_SETFONTCOLOR:
-  case FG_SETFONT: // propagate this to all children
-    hold = self->root;
-    while(hold)
-    {
-      (*fgSingleton()->behaviorhook)(hold, msg);
-      hold = hold->next;
-    }
-    return 0;
-  case FG_GETFONTCOLOR:
-  case FG_GETFONT: // propagate this upwards if possible
-    if(self->parent)
-      return (*fgSingleton()->behaviorhook)(self->parent, msg);
-    return 0;
   case FG_GETCLASSNAME:
     return (size_t)"fgChild";
   case FG_GETSKIN:
@@ -366,7 +361,7 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
         return (size_t)skin;
     }
     if(self->parent != 0)
-      return (*fgSingleton()->behaviorhook)(self->parent, msg);
+      return fgChild_PassMessage(self->parent, msg);
     return 0;
   case FG_SETSKIN:
   {
@@ -420,7 +415,7 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
       fgStyleMsg* cur = style->styles;
       while(cur)
       {
-        (*fgSingleton()->behaviorhook)(self, &cur->msg);
+        fgChild_PassMessage(self, &cur->msg);
         cur = cur->next;
       }
 
@@ -464,7 +459,8 @@ void FG_FASTCALL VirtualFreeChild(fgChild* self)
 {
   assert(self != 0);
   (*self->destroy)(self);
-  (*self->free)(self);
+  if(self->free)
+    (*self->free)(self);
 }
 
 void FG_FASTCALL ResolveRect(const fgChild* self, AbsRect* out)
@@ -675,6 +671,11 @@ size_t FG_FASTCALL fgChild_IntMessage(fgChild* self, unsigned char type, ptrdiff
   msg.otherintaux = aux;
   assert(self != 0);
   return (*fgSingleton()->behaviorhook)(self, &msg);
+}
+
+FG_EXTERN size_t FG_FASTCALL fgChild_PassMessage(fgChild* self, const FG_Msg* msg)
+{
+  return (*fgSingleton()->behaviorhook)(self, msg);
 }
 
 size_t FG_FASTCALL fgLayout_Default(fgChild* self, const FG_Msg* msg)

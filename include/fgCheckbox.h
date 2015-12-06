@@ -14,7 +14,6 @@ extern "C" {
 typedef struct _FG_CHECKBOX {
   fgWindow window;
   fgChild box;
-  fgChild check;
   fgChild text; // Set this using SETTEXT or ADDITEM for arbitrary things.
   char checked;
 } fgCheckbox;

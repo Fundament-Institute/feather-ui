@@ -6,16 +6,14 @@
 void FG_FASTCALL fgText_Init(fgText* self, char* text, void* font, unsigned int color, fgFlag flags, fgChild* parent, const fgElement* element)
 {
   assert(self != 0);
+  memset(self, 0, sizeof(fgText));
   fgChild_Init(&self->element, flags, parent, element);
-  self->text = 0;
-  self->color = 0;
-  self->font = 0;
   self->element.destroy = &fgText_Destroy;
   self->element.message = &fgText_Message;
 
-  fgChild_IntMessage((fgChild*)self, FG_SETFONTCOLOR, color, 0);
-  fgChild_VoidMessage((fgChild*)self, FG_SETTEXT, text);
-  fgChild_VoidMessage((fgChild*)self, FG_SETFONT, font);
+  if(color) fgChild_IntMessage((fgChild*)self, FG_SETCOLOR, color, 0);
+  if(text) fgChild_VoidMessage((fgChild*)self, FG_SETTEXT, text);
+  if(font) fgChild_VoidMessage((fgChild*)self, FG_SETFONT, font);
 }
 
 void FG_FASTCALL fgText_Destroy(fgText* self)
@@ -42,16 +40,14 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
     if(msg->other) self->font = fgCloneFont(msg->other);
     fgText_Recalc(self);
     break;
-  case FG_SETFONTCOLOR:
+  case FG_SETCOLOR:
     self->color = msg->otherint;
     break;
   case FG_GETTEXT:
     return (size_t)self->text;
   case FG_GETFONT:
-    if(self->font)
-      return (size_t)self->font;
-    break;
-  case FG_GETFONTCOLOR:
+    return (size_t)self->font;
+  case FG_GETCOLOR:
     return self->color;
   case FG_MOVE:
     if(!(msg->otheraux & 1) && (msg->otheraux&(2 | 4)))

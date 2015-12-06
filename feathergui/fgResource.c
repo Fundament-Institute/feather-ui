@@ -7,14 +7,14 @@
 void FG_FASTCALL fgResource_Init(fgResource* self, void* res, const CRect* uv, unsigned int color, fgFlag flags, fgChild* parent, const fgElement* element)
 {
   memset(self, 0, sizeof(fgResource));
+  self->uv.right.rel = 1.0f;
+  self->uv.bottom.rel = 1.0f;
   fgChild_Init(&self->element, flags, parent, element);
   self->element.destroy = &fgResource_Destroy;
   self->element.message = &fgResource_Message;
-  self->uv.right.rel = 1.0f;
-  self->uv.bottom.rel = 1.0f;
-  fgChild_IntMessage((fgChild*)self, FG_SETCOLOR, color, 0);
-  fgChild_VoidMessage((fgChild*)self, FG_SETUV, (void*)uv);
-  fgChild_VoidMessage((fgChild*)self, FG_SETRESOURCE, res);
+  if(color) fgChild_IntMessage((fgChild*)self, FG_SETCOLOR, color, 0);
+  if(uv) fgChild_VoidMessage((fgChild*)self, FG_SETUV, (void*)uv);
+  if(res) fgChild_VoidMessage((fgChild*)self, FG_SETRESOURCE, res);
 }
 void FG_FASTCALL fgResource_Destroy(fgResource* self)
 {

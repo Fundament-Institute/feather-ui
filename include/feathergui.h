@@ -109,7 +109,7 @@ extern const fgElement fgElement_CENTER;
 
 enum FG_MSGTYPE
 {
-  // fgChild
+  FG_CONSTRUCT = 1,
   FG_MOVE, // Passed when any change is made to an element. 1: propagating up, 2: x-axis resize, 4: y-axis resize, 8: x-axis move, 16: y-axis move, 32: zorder change
   FG_SETALPHA, // Used so an entire widget can be made to fade in or out. (Support is not guaranteed)
   FG_SETAREA,
@@ -177,13 +177,11 @@ enum FG_MSGTYPE
   FG_SETUV,
   FG_SETCOLOR,
   FG_SETFONT,
-  FG_SETFONTCOLOR, // split from SETCOLOR so it can be propagated down seperately from setting image colors
   FG_SETTEXT,
   FG_GETRESOURCE,
   FG_GETUV,
   FG_GETCOLOR,
   FG_GETFONT,
-  FG_GETFONTCOLOR,
   FG_GETTEXT,
   FG_CUSTOMEVENT
 };

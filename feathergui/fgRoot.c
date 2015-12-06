@@ -8,12 +8,11 @@ fgRoot* fgroot_instance = 0;
 
 void FG_FASTCALL fgRoot_Init(fgRoot* self)
 {
+  memset(self, 0, sizeof(fgRoot));
+  self->behaviorhook = &fgRoot_BehaviorDefault;
   fgWindow_Init((fgWindow*)self,0,0,0);
   self->gui.element.destroy=&fgRoot_Destroy;
   self->gui.element.message=&fgRoot_Message;
-  self->behaviorhook=&fgRoot_BehaviorDefault;
-  self->updateroot=0;
-  self->time=0;
   fgroot_instance = self;
 }
 
