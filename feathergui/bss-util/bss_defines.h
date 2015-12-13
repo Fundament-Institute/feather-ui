@@ -9,7 +9,7 @@
 // Version numbers
 #define BSS_VERSION_MAJOR 0
 #define BSS_VERSION_MINOR 4
-#define BSS_VERSION_REVISION 4
+#define BSS_VERSION_REVISION 5
 
 //sometimes the std versions of these are a bit overboard, so this redefines the MS version, except it will no longer cause conflicts everywhere
 #define bssmax(a,b)            (((a) > (b)) ? (a) : (b))
@@ -55,7 +55,7 @@
 #define T_NEXTMULTIPLE(x,t) ((x+t)&(~t))
 #define T_SETBIT(w,b,f) (((w) & (~(b))) | ((-(char)f) & (b)))
 #define T_FBNEXT(x) (x + 1 + (x>>1) + (x>>3) - (x>>7))
-#define DYNARRAY(Type,Name,n) Type* Name = (Type*)ALLOCA(n*sizeof(Type))
+#define DYNARRAY(Type,Name,n) Type* Name = (Type*)ALLOCA((n)*sizeof(Type))
 #define ISPOW2(x) (x && !( (x-1) & x ))
 
 #if defined(BSS_PLATFORM_POSIX) || defined(BSS_PLATFORM_MINGW)
@@ -141,7 +141,7 @@ public: \
 #define ITOA(v,buf,bufsize,r) _itoa_s(v,buf,bufsize,r)
 #define ATOLL(s) _atoi64(s)
 #define STRTOULL(s,e,r) _strtoui64(s,e,r)
-#define ALLOCA(x) _malloca(x)
+#define ALLOCA(x) _alloca(x) // _malloca requires using _freea so we can't use it
 #else
 #ifdef BSS_PLATFORM_MINGW
 #define TIME64(ptime) _time64(ptime)

@@ -2,37 +2,12 @@
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #include "feathergui.h"
+#include "feathercpp.h"
 #include <intrin.h>
 #include <limits.h>
 
 const fgElement fgElement_DEFAULT = { { 0, 0, 0, 0, 0, 1, 0, 1 }, 0, { 0, 0, 0, 0 } };
 const fgElement fgElement_CENTER = { {0, 0.5, 0, 0.5, 0, 0.5, 0, 0.5 }, 0, {0, 0.5, 0, 0.5} };
-
-void FG_FASTCALL fgVector_Init(fgVector* self)
-{
-  memset(self,0,sizeof(fgVector));
-}
-void FG_FASTCALL fgVector_Destroy(fgVector* self)
-{
-  if(self->p) free(self->p);
-}
-void FG_FASTCALL fgVector_SetSize(fgVector* self, FG_UINT length, FG_UINT size)
-{
-  self->s=length*size;
-  self->p=realloc(self->p,self->s);
-  if(self->l>length) self->l = length;
-}
-void FG_FASTCALL fgVector_CheckSize(fgVector* self, FG_UINT size)
-{
-  if((self->l*size)>=self->s)
-    fgVector_SetSize(self,fbnext(self->l),size);
-  assert((self->l*size)<self->s);
-}
-void FG_FASTCALL fgVector_Remove(fgVector* self, FG_UINT index, FG_UINT size)
-{
-  assert(index<self->l);
-  memmove(((char*)self->p)+(index*size),((char*)self->p)+((index+1)*size),((--self->l)-index)*size);
-}
 
 AbsVec FG_FASTCALL ResolveVec(const CVec* v, const AbsRect* last)
 {
@@ -102,33 +77,6 @@ void FG_FASTCALL MoveCRectInv(AbsVec v, CRect* r)
   r->bottom.abs = v.x + d.y;
 }
 
-/*char FG_FASTCALL CompChildOrder(const fgChild* l, const fgChild* r)
-{
-  const fgChild* cur;
-  unsigned int ldepth=0,rdepth=0,diff;
-  assert(l!=0 && r!=0);
-  if(l==r) return 0;
-  cur=l;
-  while((cur=cur->parent)!=0) ++ldepth;
-  cur=r;
-  while((cur=cur->parent)!=0) ++rdepth;
-
-  diff=(ldepth<rdepth) - (ldepth>rdepth);
-  while(ldepth<rdepth) { r=r->parent; --rdepth; }
-  while(ldepth>rdepth) { l=l->parent; --ldepth; }
-
-  if(l==r) return diff;
-
-  while(l->parent!=r->parent)
-  {
-    r=r->parent;
-    l=l->parent;
-  }
-
-  return (l->order>r->order) - (l->order<r->order);
-}*/
-
-//void FG_FASTCALL ToIntAbsRect(const AbsRect* r, int target[static 4]) // Gotta love VC++ not supporting C99 which is 14 FUCKING YEARS OLD
 void FG_FASTCALL ToIntAbsRect(const AbsRect* r, int target[4])
 {
   _mm_storeu_si128((__m128i*)target,_mm_cvttps_epi32(_mm_loadu_ps(&r->left)));
@@ -147,4 +95,13 @@ void FG_FASTCALL ToLongAbsRect(const AbsRect* r, long target[4])
   target[3]=hold[3];
 #endif
 
+}
+
+FG_EXTERN char* FG_FASTCALL fgCopyText(const char* text)
+{
+  if(!text) return 0;
+  size_t len = strlen(text) + 1;
+  char* ret = (char*)malloc(len);
+  memcpy(ret, text, len);
+  return ret;
 }

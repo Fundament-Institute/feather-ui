@@ -14,12 +14,12 @@ struct FG_MENU;
 struct __FG_SKIN;
 
 // Defines the base GUI element, a window. This is not an actual top level window.
-typedef struct __WINDOW {
+typedef struct __FG_WINDOW {
   fgChild element;
   struct FG_MENU* contextmenu;
   char* name; // Optional name used for mapping to skin collections
-  struct __WINDOW* tabnext;
-  struct __WINDOW* tabprev;
+  struct __FG_WINDOW* tabnext;
+  struct __FG_WINDOW* tabprev;
 } fgWindow;
 
 FG_EXTERN fgChild* fgFocusedWindow;

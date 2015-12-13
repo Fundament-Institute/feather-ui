@@ -221,6 +221,7 @@
     <ClInclude Include="..\include\fgCheckbox.h" />
     <ClInclude Include="..\include\fgChild.h" />
     <ClInclude Include="..\include\fgCombobox.h" />
+    <ClInclude Include="..\include\fgDropdown.h" />
     <ClInclude Include="..\include\fgImplementation.h" />
     <ClInclude Include="..\include\fgLayout.h" />
     <ClInclude Include="..\include\fgList.h" />
@@ -236,23 +237,28 @@
     <ClInclude Include="..\include\fgText.h" />
     <ClInclude Include="..\include\fgTextbox.h" />
     <ClInclude Include="..\include\fgTopWindow.h" />
-    <ClInclude Include="..\include\fgTree.h" />
+    <ClInclude Include="..\include\fgTreeView.h" />
     <ClInclude Include="..\include\fgWindow.h" />
-    <ClInclude Include="helper.h" />
+    <ClInclude Include="feathercpp.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="feathergui.c" />
-    <ClCompile Include="fgButton.c" />
-    <ClCompile Include="fgChild.c" />
-    <ClCompile Include="fgImplementation.c" />
-    <ClCompile Include="fgLayout.c" />
-    <ClCompile Include="fgMenu.c" />
-    <ClCompile Include="fgResource.c" />
-    <ClCompile Include="fgSkin.c" />
-    <ClCompile Include="fgRoot.c" />
-    <ClCompile Include="fgText.c" />
-    <ClCompile Include="fgTopWindow.c" />
-    <ClCompile Include="fgWindow.c" />
+    <ClCompile Include="feathergui.cpp" />
+    <ClCompile Include="fgButton.cpp" />
+    <ClCompile Include="fgCheckbox.cpp" />
+    <ClCompile Include="fgChild.cpp" />
+    <ClCompile Include="fgImplementation.cpp" />
+    <ClCompile Include="fgLayout.cpp" />
+    <ClCompile Include="fgMenu.cpp" />
+    <ClCompile Include="fgProgressbar.cpp" />
+    <ClCompile Include="fgRadioButton.cpp" />
+    <ClCompile Include="fgResource.cpp" />
+    <ClCompile Include="fgScrollbar.cpp" />
+    <ClCompile Include="fgSkin.cpp" />
+    <ClCompile Include="fgRoot.cpp" />
+    <ClCompile Include="fgSlider.cpp" />
+    <ClCompile Include="fgText.cpp" />
+    <ClCompile Include="fgTopWindow.cpp" />
+    <ClCompile Include="fgWindow.cpp" />
     <ClCompile Include="ubjson.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

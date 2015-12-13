@@ -6,12 +6,7 @@
 
 void FG_FASTCALL fgResource_Init(fgResource* self, void* res, const CRect* uv, unsigned int color, fgFlag flags, fgChild* parent, const fgElement* element)
 {
-  memset(self, 0, sizeof(fgResource));
-  self->uv.right.rel = 1.0f;
-  self->uv.bottom.rel = 1.0f;
-  fgChild_Init(&self->element, flags, parent, element);
-  self->element.destroy = &fgResource_Destroy;
-  self->element.message = &fgResource_Message;
+  fgChild_InternalSetup((fgChild*)self, flags, parent, element, (FN_DESTROY)&fgResource_Destroy, (FN_MESSAGE)&fgResource_Message);
   if(color) fgChild_IntMessage((fgChild*)self, FG_SETCOLOR, color, 0);
   if(uv) fgChild_VoidMessage((fgChild*)self, FG_SETUV, (void*)uv);
   if(res) fgChild_VoidMessage((fgChild*)self, FG_SETRESOURCE, res);
@@ -26,6 +21,14 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
   assert(self != 0 && msg != 0);
   switch(msg->type)
   {
+  case FG_CONSTRUCT:
+    fgChild_Message(&self->element, msg);
+    memset(&self->uv, 0, sizeof(CRect));
+    self->uv.right.rel = 1.0f;
+    self->uv.bottom.rel = 1.0f;
+    self->color = 0;
+    self->res = 0;
+    return 0;
   case FG_SETUV:
     if(msg->other)
       self->uv = *((CRect*)msg->other);
@@ -69,7 +72,7 @@ void* FG_FASTCALL fgCreateResourceFile(fgFlag flags, const char* file)
   fseek(f, 0, SEEK_END);
   long len = ftell(f);
   fseek(f, 0, SEEK_SET);
-  char* buf = malloc(len);
+  char* buf = (char*)malloc(len);
   fread(buf, 1, len, f);
   fclose(f);
   void* r = fgCreateResource(flags, buf, len);

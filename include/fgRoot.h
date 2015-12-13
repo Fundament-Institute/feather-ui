@@ -10,6 +10,8 @@
 extern "C" {
 #endif
 
+struct __kh_fgRadioGroup_t;
+
 typedef struct FG_DEFER_ACTION {
   struct FG_DEFER_ACTION* next; // It's crucial that this is the first element
   struct FG_DEFER_ACTION* prev;
@@ -24,6 +26,7 @@ typedef struct _FG_ROOT {
   size_t (FG_FASTCALL *behaviorhook)(struct _FG_CHILD* self, const FG_Msg* msg);
   fgChild* drag;
   fgDeferAction* updateroot;
+  struct __kh_fgRadioGroup_t* radiohash;
   double time; // In seconds
 } fgRoot;
 
@@ -43,7 +46,6 @@ FG_EXTERN void FG_FASTCALL fgRoot_DeallocAction(fgRoot* self, fgDeferAction* act
 FG_EXTERN void FG_FASTCALL fgRoot_AddAction(fgRoot* self, fgDeferAction* action); // Adds an action. Action can't already be in list.
 FG_EXTERN void FG_FASTCALL fgRoot_RemoveAction(fgRoot* self, fgDeferAction* action); // Removes an action. Action must be in list.
 FG_EXTERN void FG_FASTCALL fgRoot_ModifyAction(fgRoot* self, fgDeferAction* action); // Moves action if it needs to be moved, or inserts it if it isn't already in the list.
-FG_EXTERN fgChild* fgLayoutLoadMapping(const char* name, fgFlag flags, fgChild* parent, fgElement* element);
 FG_EXTERN void FG_FASTCALL fgStandardDraw(fgChild* self, AbsRect* area, int max);
 FG_EXTERN void fgPushClipRect(AbsRect* clip);
 FG_EXTERN void fgPopClipRect();

@@ -1,22 +1,28 @@
 // Copyright ©2015 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
+#include "bss-util/khash.h"
 #include "fgSkin.h"
-#include "khash.h"
 #include "fgResource.h"
 #include "fgText.h"
+#include "feathercpp.h"
 
 KHASH_INIT(fgSkins, const char*, fgSkin, 1, kh_str_hash_funcins, kh_str_hash_insequal);
 
-fgVector resources; // type: void*
-fgVector children; // type: fgStyleLayout
-fgVector styles; // type: fgStyle
-fgVector subskins; // type: fgSkin (should be used for prechildren ONLY)
-struct __kh_fgSkins_t* skinmap;
+static_assert(sizeof(fgStyleLayoutArray) == sizeof(fgVector), "mismatch between vector sizes");
+static_assert(sizeof(fgStyleArray) == sizeof(fgVector), "mismatch between vector sizes");
+static_assert(sizeof(fgSubskinArray) == sizeof(fgVector), "mismatch between vector sizes");
+static_assert(sizeof(fgClassLayoutArray) == sizeof(fgVector), "mismatch between vector sizes");
 
 void FG_FASTCALL fgSkin_Init(fgSkin* self)
 {
   memset(self, 0, sizeof(fgSkin));
+}
+
+void FG_FASTCALL fgSubskin_Init(fgSkin* self, int index)
+{
+  memset(self, 0, sizeof(fgSkin));
+  self->index = index;
 }
 
 char FG_FASTCALL fgSkin_DestroySkinElement(fgSkin* self, khiter_t iter)
@@ -33,26 +39,13 @@ char FG_FASTCALL fgSkin_DestroySkinElement(fgSkin* self, khiter_t iter)
 
 void FG_FASTCALL fgSkin_Destroy(fgSkin* self)
 {
-  for(FG_UINT i = 0; i < self->resources.l; ++i)
-    fgDestroyResource(fgVector_Get(self->resources, i, void*));
-  fgVector_Destroy(&self->resources);
-
-  for(FG_UINT i = 0; i < self->fonts.l; ++i)
-    fgDestroyFont(fgVector_Get(self->fonts, i, void*));
-  fgVector_Destroy(&self->fonts);
-
-  for(FG_UINT i = 0; i < self->children.l; ++i)
-    fgStyleLayout_Destroy(fgVector_GetP(self->children, i, fgStyleLayout));
-  fgVector_Destroy(&self->children);
-
-  for(FG_UINT i = 0; i < self->styles.l; ++i)
-    fgStyle_Destroy(fgVector_GetP(self->styles, i, fgStyle));
-  fgVector_Destroy(&self->styles);
-
-  for(FG_UINT i = 0; i < self->subskins.l; ++i)
-    fgSkin_Destroy(fgVector_GetP(self->subskins, i, fgSkin));
-  fgVector_Destroy(&self->subskins);
-
+  fgStyle_Destroy(&self->style);
+  ((fgResourceArray&)self->resources).~cDynArray();
+  ((fgFontArray&)self->fonts).~cDynArray();
+  ((fgStyleLayoutArray&)self->children).~cDynArray();
+  ((fgStyleArray&)self->styles).~cDynArray();
+  ((fgSubskinArray&)self->subskins).~cDynArray();
+  
   if(self->skinmap)
   {
     khiter_t cur = kh_begin(self->skinmap);
@@ -62,105 +55,66 @@ void FG_FASTCALL fgSkin_Destroy(fgSkin* self)
 }
 FG_UINT FG_FASTCALL fgSkin_AddResource(fgSkin* self, void* resource)
 {
-  fgVector_Add(self->resources, resource, void*);
-  return self->resources.l - 1;
+  return ((fgResourceArray&)self->resources).Add(resource);
 }
 char FG_FASTCALL fgSkin_RemoveResource(fgSkin* self, FG_UINT resource)
 {
-  if(resource >= self->resources.l)
-    return 0;
-  fgDestroyResource(fgSkin_GetResource(self, resource));
-  fgVector_Remove(&self->resources, resource, sizeof(void*));
-  return 1;
+  return DynArrayRemove((fgResourceArray&)self->resources, resource);
 }
 void* FG_FASTCALL fgSkin_GetResource(const fgSkin* self, FG_UINT resource)
 {
-  return fgVector_Get(self->resources, resource, void*);
+  return DynGet<fgResourceArray>(self->resources, resource).ref;
 }
 FG_UINT FG_FASTCALL fgSkin_AddFont(fgSkin* self, void* font)
 {
-  fgVector_Add(self->fonts, font, void*);
-  return self->fonts.l - 1;
+  return ((fgFontArray&)self->fonts).Add(font);
 }
 char FG_FASTCALL fgSkin_RemoveFont(fgSkin* self, FG_UINT font)
 {
-  if(font >= self->fonts.l)
-    return 0;
-  fgDestroyFont(fgSkin_GetFont(self, font));
-  fgVector_Remove(&self->fonts, font, sizeof(void*));
-  return 1;
+  return DynArrayRemove((fgFontArray&)self->fonts, font);
 }
 void* FG_FASTCALL fgSkin_GetFont(const fgSkin* self, FG_UINT font)
 {
-  return fgVector_Get(self->fonts, font, void*);
+  return DynGet<fgFontArray>(self->fonts, font).ref;
 }
 FG_UINT FG_FASTCALL fgSkin_AddChild(fgSkin* self, const char* name, fgElement* element, fgFlag flags)
 {
-  fgVector_CheckSize(&self->children, sizeof(fgStyleLayout));
-  FG_UINT r = self->children.l++;
-  fgStyleLayout_Init(fgSkin_GetChild(self, r), name, element, flags);
-  return r;
+  return ((fgStyleLayoutArray&)self->children).AddConstruct(name, element, flags);
 }
 char FG_FASTCALL fgSkin_RemoveChild(fgSkin* self, FG_UINT child)
 {
-  if(child >= self->children.l)
-    return 0;
-  fgStyleLayout_Destroy(fgSkin_GetChild(self, child));
-  fgVector_Remove(&self->children, child, sizeof(fgStyleLayout));
-  return 1;
+  return DynArrayRemove((fgFontArray&)self->children, child);
 }
 fgStyleLayout* FG_FASTCALL fgSkin_GetChild(const fgSkin* self, FG_UINT child)
 {
-  return fgVector_GetP(self->children, child, fgStyleLayout);
-}
-
-FG_UINT fgVector_AddStyle(fgVector* self, ptrdiff_t index)
-{
-  fgVector_CheckSize(self, sizeof(fgStyle));
-  FG_UINT r = self->l++;
-  fgStyle_Init(((fgStyle*)self->p) + (self->l));
-  return r;
-}
-FG_UINT fgVector_RemoveStyle(fgVector* self, FG_UINT style)
-{
-  if(style >= self->l)
-    return 0;
-  fgStyle_Destroy(((fgStyle*)self->p) + style);
-  fgVector_Remove(self, style, sizeof(fgStyle));
-  return 1;
+  return DynGetP<fgStyleLayoutArray>(self->children, child);
 }
 
 FG_UINT FG_FASTCALL fgSkin_AddStyle(fgSkin* self)
 {
-  return fgVector_AddStyle(&self->styles, 0);
+  return ((fgStyleArray&)self->styles).AddConstruct();
 }
 char FG_FASTCALL fgSkin_RemoveStyle(fgSkin* self, FG_UINT style)
 {
-  return fgVector_RemoveStyle(&self->styles, style);
+  return DynArrayRemove((fgStyleArray&)self->styles, style);
 }
 fgStyle* FG_FASTCALL fgSkin_GetStyle(const fgSkin* self, FG_UINT style)
 {
-  return fgVector_GetP(self->styles, style, fgStyle);
+  return ((fgStyleArray&)self->styles).begin() + style;
 }
 
 FG_UINT FG_FASTCALL fgSkin_AddSubSkin(fgSkin* self, int index)
 {
-  fgVector_CheckSize(&self->subskins, sizeof(fgSkin));
-  FG_UINT r = self->subskins.l++;
-  fgSkin_Init(fgSkin_GetSubSkin(self, r));
-  return r;
+  return ((fgSubskinArray&)self->subskins).AddConstruct(index);
 }
+
 char FG_FASTCALL fgSkin_RemoveSubSkin(fgSkin* self, FG_UINT subskin)
 {
-  if(subskin >= self->subskins.l)
-    return 0;
-  fgSkin_Destroy(fgSkin_GetSubSkin(self, subskin));
-  fgVector_Remove(&self->subskins, subskin, sizeof(fgSkin));
-  return 1;
+  return DynArrayRemove((fgSubskinArray&)self->subskins, subskin);
 }
 fgSkin* FG_FASTCALL fgSkin_GetSubSkin(const fgSkin* self, FG_UINT subskin)
 {
-  return fgVector_GetP(self->subskins, subskin, fgSkin);
+  return DynGetP<fgSubskinArray>(self->subskins, subskin);
 }
 
 fgSkin* FG_FASTCALL fgSkin_AddSkin(fgSkin* self, const char* name)
@@ -188,7 +142,8 @@ char FG_FASTCALL fgSkin_RemoveSkin(fgSkin* self, const char* name)
 }
 fgSkin* FG_FASTCALL fgSkin_GetSkin(const fgSkin* self, const char* name)
 {
-  return &kh_val(self->skinmap, kh_get(fgSkins, self->skinmap, name));
+  khiter_t iter = kh_get(fgSkins, self->skinmap, name);
+  return (iter != kh_end(self->skinmap) && kh_exist(self->skinmap, iter)) ? (&kh_val(self->skinmap, iter)) : 0;
 }
 
 void FG_FASTCALL fgStyleLayout_Init(fgStyleLayout* self, const char* name, fgElement* element, fgFlag flags)
@@ -206,36 +161,18 @@ void FG_FASTCALL fgStyleLayout_Destroy(fgStyleLayout* self)
 
 void FG_FASTCALL fgStyle_Init(fgStyle* self)
 {
-  memset(&self, 0, sizeof(fgStyle));
+  memset(self, 0, sizeof(fgStyle));
 }
 
 void FG_FASTCALL fgStyle_Destroy(fgStyle* self)
 {
-  for(FG_UINT i = 0; i < self->substyles.l; ++i)
-    fgStyle_Destroy(fgVector_GetP(self->substyles, i, fgStyle));
-  fgVector_Destroy(&self->substyles);
   while(self->styles)
     fgStyle_RemoveStyleMsg(self, self->styles);
 }
 
-FG_UINT FG_FASTCALL fgStyle_AddSubstyle(fgStyle* self, ptrdiff_t index)
-{
-  return fgVector_AddStyle(&self->substyles, index);
-}
-
-char FG_FASTCALL fgStyle_RemoveSubstyle(fgStyle* self, FG_UINT substyle)
-{
-  return fgVector_RemoveStyle(&self->substyles, substyle);
-}
-
-fgStyle* FG_FASTCALL fgStyle_GetSubstyle(fgStyle* self, FG_UINT substyle)
-{
-  return fgVector_GetP(self->substyles, substyle, fgStyle);
-}
-
 fgStyleMsg* FG_FASTCALL fgStyle_AddStyleMsg(fgStyle* self, const FG_Msg* msg, const void* arg1, size_t arglen1, const void* arg2, size_t arglen2)
 {
-  fgStyleMsg* r = malloc(sizeof(fgStyleMsg) + arglen1 + arglen2);
+  fgStyleMsg* r = (fgStyleMsg*)malloc(sizeof(fgStyleMsg) + arglen1 + arglen2);
   memcpy(&r->msg, msg, sizeof(FG_Msg));
 
   if(arg1)

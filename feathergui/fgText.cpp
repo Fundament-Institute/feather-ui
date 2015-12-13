@@ -5,11 +5,7 @@
 
 void FG_FASTCALL fgText_Init(fgText* self, char* text, void* font, unsigned int color, fgFlag flags, fgChild* parent, const fgElement* element)
 {
-  assert(self != 0);
-  memset(self, 0, sizeof(fgText));
-  fgChild_Init(&self->element, flags, parent, element);
-  self->element.destroy = &fgText_Destroy;
-  self->element.message = &fgText_Message;
+  fgChild_InternalSetup((fgChild*)self, flags, parent, element, (FN_DESTROY)&fgText_Destroy, (FN_MESSAGE)&fgText_Message);
 
   if(color) fgChild_IntMessage((fgChild*)self, FG_SETCOLOR, color, 0);
   if(text) fgChild_VoidMessage((fgChild*)self, FG_SETTEXT, text);
@@ -29,9 +25,15 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
   assert(self != 0 && msg != 0);
   switch(msg->type)
   {
+  case FG_CONSTRUCT:
+    fgChild_Message(&self->element, msg);
+    self->text = 0;
+    self->color = 0;
+    self->font = 0;
+    return 0;
   case FG_SETTEXT:
     if(self->text) free(self->text);
-    self->text = fgCopyText(msg->other);
+    self->text = fgCopyText((const char*)msg->other);
     fgText_Recalc(self);
     return 0;
   case FG_SETFONT:
@@ -54,10 +56,11 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
       fgText_Recalc(self);
     break;
   case FG_DRAW:
-  {
-    AbsVec center = ResolveVec(&self->element.element.center, (AbsRect*)msg->other);
-    fgDrawFont(self->font, !self->text ? "" : self->text, self->color, (AbsRect*)msg->other, self->element.element.rotation, &center, self->element.flags);
-  }
+    if(self->font != 0)
+    {
+      AbsVec center = ResolveVec(&self->element.element.center, (AbsRect*)msg->other);
+      fgDrawFont(self->font, !self->text ? "" : self->text, self->color, (AbsRect*)msg->other, self->element.element.rotation, &center, self->element.flags);
+    }
     break;
   case FG_GETCLASSNAME:
     return (size_t)"fgText";
@@ -76,7 +79,7 @@ FG_EXTERN void FG_FASTCALL fgText_Recalc(fgText* self)
     if(self->element.flags&FGCHILD_EXPANDX)
       adjust.right.abs = adjust.left.abs + area.right - area.left;
     if(self->element.flags&FGCHILD_EXPANDY)
-      adjust.bottom.abs = adjust.top.abs + area.right - area.left;
+      adjust.bottom.abs = adjust.top.abs + area.bottom - area.top;
     fgChild_VoidMessage((fgChild*)self, FG_SETAREA, &adjust);
   }
 }

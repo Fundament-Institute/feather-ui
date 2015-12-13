@@ -36,6 +36,7 @@ FG_EXTERN void* FG_FASTCALL fgCloneResource(void* res);
 FG_EXTERN void FG_FASTCALL fgDestroyResource(void* res);
 FG_EXTERN void FG_FASTCALL fgDrawResource(void* res, const CRect* uv, unsigned int color, const AbsRect* area, FABS rotation, AbsVec* center, fgFlag flags);
 FG_EXTERN void FG_FASTCALL fgResourceSize(void* res, const CRect* uv, AbsVec* dim, fgFlag flags);
+FG_EXTERN void FG_FASTCALL fgDrawLine(AbsVec p1, AbsVec p2, unsigned int color);
 
 #ifdef  __cplusplus
 }

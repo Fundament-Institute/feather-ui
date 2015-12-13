@@ -12,15 +12,20 @@
 extern "C" {
 #endif
 
-// A combobox is a dropdown that can optionally let the user enter their own choice into the box.
+enum FGCOMBOBOX_FLAGS
+{
+  FGCOMBOBOX_EDITBOX = (1 << 16),
+};
+
+// A combobox is a text-only dropdown that can optionally let the user edit the text.
 typedef struct {
   fgTextbox box; // GETSELECTEDITEM returns either the selected item or the text typed into the combobox.
   fgButton button;
   fgList dropdown; // ADDITEM is used to add an arbitrary object to the list. 
 } fgCombobox;
 
-FG_EXTERN fgWindow* FG_FASTCALL fgCombobox_Create(fgWindow* parent, const fgElement* element, FG_UINT id, fgFlag flags);
-FG_EXTERN void FG_FASTCALL fgCombobox_Init(fgCombobox* self, fgWindow* parent, const fgElement* element, FG_UINT id, fgFlag flags);
+FG_EXTERN fgWindow* FG_FASTCALL fgCombobox_Create(fgWindow* parent, const fgElement* element, fgFlag flags);
+FG_EXTERN void FG_FASTCALL fgCombobox_Init(fgCombobox* self, fgWindow* parent, const fgElement* element, fgFlag flags);
 FG_EXTERN char FG_FASTCALL fgCombobox_Message(fgCombobox* self, const FG_Msg* msg);
 
 #ifdef  __cplusplus

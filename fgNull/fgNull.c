@@ -8,7 +8,6 @@
 #include "fgButton.h"
 #include "fgMenu.h"
 #include "fgTopWindow.h"
-#include "bss_defines.h"
 
 #if defined(BSS_DEBUG) && defined(BSS_CPU_x86_64)
 #pragma comment(lib, "../bin/feathergui64_d.lib")

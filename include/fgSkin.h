@@ -18,9 +18,7 @@ typedef struct __FG_STYLE_MSG
 
 typedef struct __FG_STYLE
 {
-  ptrdiff_t index; // Index of the child this applies to (only used for substyles). Negative numbers map to existing statics, equal to index + prechild.
   fgStyleMsg* styles;
-  fgVector substyles; // type: fgStyle
 } fgStyle;
 
 typedef struct FG_STYLE_LAYOUT {
@@ -32,17 +30,19 @@ typedef struct FG_STYLE_LAYOUT {
 
 typedef struct __FG_SKIN
 {
-  int index; // index of the subskin, also equal to index + prechild. Should never be positive.
+  ptrdiff_t index; // Index of the child this applies to (only used for subskins). Negative numbers map to existing children, equal to index + prechild.
+  fgStyle style; // style overrides
   fgVector resources; // type: void*
   fgVector fonts;
   fgVector children; // type: fgStyleLayout
   fgVector styles; // type: fgStyle
-  fgVector subskins; // type: fgSkin (should be used for prechildren ONLY)
+  fgVector subskins; // type: fgSkin
   struct __kh_fgSkins_t* skinmap;
 } fgSkin;
 
 struct __kh_fgSkins_t;
 
+FG_EXTERN void FG_FASTCALL fgSubskin_Init(fgSkin* self, int index);
 FG_EXTERN void FG_FASTCALL fgSkin_Init(fgSkin* self);
 FG_EXTERN void FG_FASTCALL fgSkin_Destroy(fgSkin* self);
 FG_EXTERN FG_UINT FG_FASTCALL fgSkin_AddResource(fgSkin* self, void* resource);
@@ -69,9 +69,6 @@ FG_EXTERN void FG_FASTCALL fgStyleLayout_Destroy(fgStyleLayout* self);
 
 FG_EXTERN void FG_FASTCALL fgStyle_Init(fgStyle* self);
 FG_EXTERN void FG_FASTCALL fgStyle_Destroy(fgStyle* self);
-FG_EXTERN FG_UINT FG_FASTCALL fgStyle_AddSubstyle(fgStyle* self, ptrdiff_t index);
-FG_EXTERN char FG_FASTCALL fgStyle_RemoveSubstyle(fgStyle* self, FG_UINT substyle);
-FG_EXTERN fgStyle* FG_FASTCALL fgStyle_GetSubstyle(fgStyle* self, FG_UINT substyle);
 
 FG_EXTERN fgStyleMsg* FG_FASTCALL fgStyle_AddStyleMsg(fgStyle* self, const FG_Msg* msg, const void* arg1, size_t arglen1, const void* arg2, size_t arglen2);
 FG_EXTERN void FG_FASTCALL fgStyle_RemoveStyleMsg(fgStyle* self, fgStyleMsg* msg);

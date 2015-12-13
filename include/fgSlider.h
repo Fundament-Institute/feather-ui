@@ -14,7 +14,7 @@ extern "C" {
 typedef struct _FG_SLIDER {
   fgWindow window;
   fgChild slider; //Slider object centered around the current value
-  size_t range;
+  size_t range; // Represents a range from [0,range], INCLUSIVE. Set with FG_SETSTATE and a second argument set to 1
   size_t value;
 } fgSlider;
 

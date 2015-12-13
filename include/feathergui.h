@@ -44,7 +44,6 @@ typedef struct {
   FREL rel;
 } Coord;
 
-#define T_SETBIT(w,b,f) (((w) & (~(b))) | ((-(char)f) & (b)))
 #define MAKE_VEC(_T,_N) typedef struct { _T x; _T y; } _N
 
 MAKE_VEC(FREL,RelVec);
@@ -83,20 +82,9 @@ static BSS_FORCEINLINE FABS FG_FASTCALL lerp(FABS a, FABS b, FREL amt)
 
 typedef struct __VECTOR {
   void* p;
-  FG_UINT s; // This is the total size of the array in BYTES.
-  FG_UINT l; // This is how much of the array is being used in ELEMENTS.
+  size_t s; // This is the total size of the array in BYTES.
+  size_t l; // This is how much of the array is being used in ELEMENTS.
 } fgVector;
-
-FG_EXTERN void FG_FASTCALL fgVector_Init(fgVector* self); // Zeros everything
-FG_EXTERN void FG_FASTCALL fgVector_Destroy(fgVector* self);
-FG_EXTERN void FG_FASTCALL fgVector_SetSize(fgVector* self, FG_UINT length, FG_UINT size); // Grows or shrinks the array. self.l is shrunk if necessary.
-FG_EXTERN void FG_FASTCALL fgVector_CheckSize(fgVector* self, FG_UINT size); // Ensures the vector is large enough to hold at least one more item.
-FG_EXTERN void FG_FASTCALL fgVector_Remove(fgVector* self, FG_UINT index, FG_UINT size); // Removes element at the given index.
-
-#define fgVector_Add(self, item, TYPE) fgVector_CheckSize(&self,sizeof(TYPE)); ((TYPE*)self.p)[self.l++]=item;
-#define fgVector_Insert(self, item, index, TYPE) fgVector_CheckSize(&self,sizeof(TYPE)); if(self.l-index>0) { memmove(((TYPE*)self.p)+(index+1),((TYPE*)self.p)+index,((self.l++)-index)*sizeof(TYPE)); } ((TYPE*)self.p)[index]=item;
-#define fgVector_Get(self, index, TYPE) ((TYPE*)(self).p)[index]
-#define fgVector_GetP(self, index, TYPE) (((TYPE*)(self).p)+(index))
 
 typedef struct {
   CRect area;
@@ -104,8 +92,8 @@ typedef struct {
   CVec center;
 } fgElement;
 
-extern const fgElement fgElement_DEFAULT;
-extern const fgElement fgElement_CENTER;
+FG_EXTERN const fgElement fgElement_DEFAULT;
+FG_EXTERN const fgElement fgElement_CENTER;
 
 enum FG_MSGTYPE
 {
@@ -140,7 +128,7 @@ enum FG_MSGTYPE
   FG_GETCLASSNAME, // Returns a unique string identifier for the class
   // fgWindow
   FG_MOUSEDOWN,
-  //FG_MOUSEDBLCLICK,
+  FG_MOUSEDBLCLICK,
   FG_MOUSEUP, 
   FG_MOUSEON,
   FG_MOUSEOFF,
@@ -357,10 +345,10 @@ typedef struct __FG_MSG {
     struct { void* other; size_t otheraux; }; // Used by any generic messages (FG_SETPARENT, etc.)
     struct { void* other1; void* other2; }; // Used by anything requiring 2 pointers, possibly for a return value.
     struct { ptrdiff_t otherint; ptrdiff_t otherintaux; }; // Used by any generic message that want an int (FG_SETORDER, etc.)
+    struct { FABS otherf; FABS otherfaux; };
   };
   unsigned char type;
 } FG_Msg;
-
 
 FG_EXTERN AbsVec FG_FASTCALL ResolveVec(const CVec* v, const AbsRect* last);
 FG_EXTERN char FG_FASTCALL CompareAbsRects(const AbsRect* l, const AbsRect* r); // Returns 0 if both are the same or a difference bitset otherwise.
@@ -373,6 +361,7 @@ FG_EXTERN char FG_FASTCALL HitAbsRect(const AbsRect* r, FABS x, FABS y);
 FG_EXTERN void FG_FASTCALL ToIntAbsRect(const AbsRect* r, int target[4]);
 FG_EXTERN void FG_FASTCALL ToLongAbsRect(const AbsRect* r, long target[4]);
 FG_EXTERN char FG_FASTCALL MsgHitAbsRect(const FG_Msg* msg, const AbsRect* r);
+FG_EXTERN char* FG_FASTCALL fgCopyText(const char* text);
 
 #ifdef  __cplusplus
 }

@@ -77,16 +77,10 @@
     <ClInclude Include="..\include\fgResource.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="helper.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\include\fgCheckbox.h">
       <Filter>include</Filter>
     </ClInclude>
     <ClInclude Include="..\include\fgRadioButton.h">
-      <Filter>include</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\fgTree.h">
       <Filter>include</Filter>
     </ClInclude>
     <ClInclude Include="..\include\bss_defines.h">
@@ -98,45 +92,69 @@
     <ClInclude Include="..\include\fgProgressbar.h">
       <Filter>include</Filter>
     </ClInclude>
+    <ClInclude Include="feathercpp.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\fgTreeView.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\fgDropdown.h">
+      <Filter>include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="fgButton.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="fgMenu.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="fgWindow.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="fgRoot.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="fgTopWindow.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="feathergui.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="fgSkin.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="fgImplementation.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="fgChild.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="ubjson.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="fgLayout.c">
+    <ClCompile Include="feathergui.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="fgText.c">
+    <ClCompile Include="fgButton.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="fgResource.c">
+    <ClCompile Include="fgChild.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgImplementation.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgLayout.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgMenu.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgResource.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgRoot.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgSkin.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgText.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgTopWindow.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgWindow.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgProgressbar.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgCheckbox.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgRadioButton.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgSlider.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgScrollbar.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

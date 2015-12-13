@@ -5,6 +5,7 @@
 #define __FG_PROGRESSBAR_H__
 
 #include "fgWindow.h"
+#include "fgText.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -13,11 +14,12 @@ extern "C" {
 // A slider can be dragged along either a smooth value or between integer increments
 typedef struct _FG_PROGRESSBAR {
   fgWindow window;
-  fgChild slider; // Slider object centered around the current value
+  fgText text; // Text displayed in the center of the progress bar
+  fgChild bar; // bar object whose [left,right] coordinates are set to [0.0,value] by default
   FREL value;
 } fgProgressbar;
 
-FG_EXTERN fgChild* FG_FASTCALL fgProgressbar_Create(fgFlag flags, fgChild* parent, const fgElement* element);
+FG_EXTERN fgChild* FG_FASTCALL fgProgressbar_Create(FREL value, fgFlag flags, fgChild* parent, const fgElement* element);
 FG_EXTERN void FG_FASTCALL fgProgressbar_Init(fgProgressbar* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, const fgElement* element);
 FG_EXTERN void FG_FASTCALL fgProgressbar_Destroy(fgProgressbar* self);
 FG_EXTERN size_t FG_FASTCALL fgProgressbar_Message(fgProgressbar* self, const FG_Msg* msg);

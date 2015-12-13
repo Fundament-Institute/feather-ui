@@ -14,9 +14,8 @@ extern "C" {
 // A Menu is either a window menu or a context menu. Turns into a menubar if made the child of a top-level window
 typedef struct FG_MENU {
   fgScrollbar window;
-  fgChild* highlight;
-  fgChild* seperator;
-  fgChild* arrow;
+  fgChild highlight;
+  fgChild arrow;
   fgDeferAction* dropdown; // Keeps track of our dropdown action in fgRoot
 } fgMenu;
 

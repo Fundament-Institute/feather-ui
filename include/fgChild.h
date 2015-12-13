@@ -21,11 +21,14 @@ enum FGCHILD_FLAGS
   FGCHILD_EXPAND = FGCHILD_EXPANDX | FGCHILD_EXPANDY,
 };
 
+typedef void (FG_FASTCALL *FN_DESTROY)(void*);
+typedef size_t(FG_FASTCALL *FN_MESSAGE)(void*, const FG_Msg*);
+
 typedef struct _FG_CHILD {
   fgElement element;
-  void (FG_FASTCALL *destroy)(void* self); // virtual destructor
+  FN_DESTROY destroy;
   void (*free)(void* self); // pointer to deallocation function
-  size_t (FG_FASTCALL *message)(void* self, const FG_Msg* msg);
+  FN_MESSAGE message;
   struct _FG_CHILD* parent;
   struct _FG_CHILD* root; // children list root
   struct _FG_CHILD* last; // children list last
@@ -69,15 +72,11 @@ FG_EXTERN void FG_FASTCALL ResolveRectCache(AbsRect* BSS_RESTRICT r, const fgChi
 //FG_EXTERN char FG_FASTCALL CompChildOrder(const fgChild* l, const fgChild* r);
 FG_EXTERN char FG_FASTCALL MsgHitCRect(const FG_Msg* msg, const fgChild* child);
 FG_EXTERN void FG_FASTCALL LList_RemoveAll(fgChild* self);
-FG_EXTERN void FG_FASTCALL LList_Remove(fgChild* self, fgChild** root, fgChild** last);
 FG_EXTERN void FG_FASTCALL LList_AddAll(fgChild* self);
-FG_EXTERN void FG_FASTCALL LList_Add(fgChild* self, fgChild** root, fgChild** last);
-FG_EXTERN void FG_FASTCALL LList_ChangeOrderAll(fgChild* self);
-FG_EXTERN void FG_FASTCALL LList_ChangeOrder(fgChild* self, fgChild** root, fgChild** last);
+FG_EXTERN char FG_FASTCALL LList_ChangeOrderAll(fgChild* self);
 FG_EXTERN void FG_FASTCALL VirtualFreeChild(fgChild* self);
 FG_EXTERN void FG_FASTCALL fgChild_Clear(fgChild* self);
 FG_EXTERN void FG_FASTCALL fgChild_AddPreChild(fgChild* self, fgChild* child);
-FG_EXTERN char* FG_FASTCALL fgCopyText(const char* text);
 
 #ifdef  __cplusplus
 }

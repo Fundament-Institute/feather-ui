@@ -3,21 +3,24 @@
 
 #include "fgRoot.h"
 #include <stdlib.h>
+#include "feathercpp.h"
 
 fgRoot* fgroot_instance = 0;
 
 void FG_FASTCALL fgRoot_Init(fgRoot* self)
 {
-  memset(self, 0, sizeof(fgRoot));
   self->behaviorhook = &fgRoot_BehaviorDefault;
-  fgWindow_Init((fgWindow*)self,0,0,0);
-  self->gui.element.destroy=&fgRoot_Destroy;
-  self->gui.element.message=&fgRoot_Message;
+  self->drag = 0;
+  self->time = 0.0;
+  self->updateroot = 0;
+  self->radiohash = fgRadioGroup_init();
   fgroot_instance = self;
+  fgChild_InternalSetup((fgChild*)self, 0, 0, 0, (FN_DESTROY)&fgRoot_Destroy, (FN_MESSAGE)&fgRoot_Message);
 }
 
 void FG_FASTCALL fgRoot_Destroy(fgRoot* self)
 {
+  fgRadioGroup_destroy(self->radiohash);
   fgWindow_Destroy((fgWindow*)self);
 }
 
