@@ -1,4 +1,4 @@
-// Copyright ©2015 Black Sphere Studios
+// Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #include "fgButton.h"
@@ -24,7 +24,7 @@ size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
     fgChild_AddPreChild((fgChild*)self, (fgChild*)&self->text);
     fgChild_Init(&self->item, FGCHILD_EXPAND | FGCHILD_IGNORE, (fgChild*)self, &fgElement_CENTER);
     fgChild_AddPreChild((fgChild*)self, &self->item);
-    fgChild_IntMessage((fgChild*)self, FG_SETSTYLE, 0, 0);
+    fgChild_VoidMessage((fgChild*)self, FG_SETSTYLE, "nuetral");
     return 0;
   case FG_ADDITEM:
     if(msg->other)
@@ -33,13 +33,13 @@ size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
       fgChild_Clear(&self->item);
     return 0;
   case FG_NUETRAL:
-    fgChild_IntMessage((fgChild*)self, FG_SETSTYLE, 0, 0);
+    fgChild_VoidMessage((fgChild*)self, FG_SETSTYLE, "nuetral");
     return 0;
   case FG_HOVER:
-    fgChild_IntMessage((fgChild*)self, FG_SETSTYLE, 1, 0);
+    fgChild_VoidMessage((fgChild*)self, FG_SETSTYLE, "hover");
     return 0;
   case FG_ACTIVE:
-    fgChild_IntMessage((fgChild*)self, FG_SETSTYLE, 2, 0);
+    fgChild_VoidMessage((fgChild*)self, FG_SETSTYLE, "active");
     return 0;
   case FG_GOTFOCUS:
     if(self->window.element.flags&FGBUTTON_NOFOCUS)

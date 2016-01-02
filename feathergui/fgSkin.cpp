@@ -1,4 +1,4 @@
-// Copyright ©2015 Black Sphere Studios
+// Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #include "bss-util/khash.h"
@@ -8,10 +8,11 @@
 #include "feathercpp.h"
 
 KHASH_INIT(fgSkins, const char*, fgSkin, 1, kh_str_hash_funcins, kh_str_hash_insequal);
+KHASH_INIT(fgStyles, const char*, FG_UINT, 1, kh_str_hash_funcins, kh_str_hash_insequal);
 
 static_assert(sizeof(fgStyleLayoutArray) == sizeof(fgVector), "mismatch between vector sizes");
-static_assert(sizeof(fgStyleArray) == sizeof(fgVector), "mismatch between vector sizes");
 static_assert(sizeof(fgSubskinArray) == sizeof(fgVector), "mismatch between vector sizes");
+static_assert(sizeof(fgStyleArray) == sizeof(fgVector), "mismatch between vector sizes");
 static_assert(sizeof(fgClassLayoutArray) == sizeof(fgVector), "mismatch between vector sizes");
 
 void FG_FASTCALL fgSkin_Init(fgSkin* self)
@@ -25,16 +26,28 @@ void FG_FASTCALL fgSubskin_Init(fgSkin* self, int index)
   self->index = index;
 }
 
-char FG_FASTCALL fgSkin_DestroySkinElement(fgSkin* self, khiter_t iter)
+template<class HASH, class T, void (*DESTROY)(T*), void (*DEL)(HASH*, khint_t)>
+char FG_FASTCALL DestroyHashElement(HASH* self, khiter_t iter)
 {
-  if(kh_exist(self->skinmap, iter))
+  if(kh_exist(self, iter))
   {
-    fgSkin_Destroy(&kh_val(self->skinmap, iter));
-    free((char*)kh_key(self->skinmap, iter));
-    kh_del(fgSkins, self->skinmap, iter);
+    (*DESTROY)(&kh_val(self, iter));
+    free((char*)kh_key(self, iter));
+    (*DEL)(self, iter);
     return 1;
   }
   return 0;
+}
+
+template<class HASH, class T, void(*DESTROYELEM)(T*), void(*DEL)(HASH*, khint_t), void(*DESTROYHASH)(HASH*)>
+void FG_FASTCALL DestroyHash(HASH* self)
+{
+  if(self)
+  {
+    khiter_t cur = kh_begin(self);
+    while(cur != kh_end(self)) DestroyHashElement<HASH, T, DESTROYELEM, DEL>(self, cur++);
+    (*DESTROYHASH)(self);
+  }
 }
 
 void FG_FASTCALL fgSkin_Destroy(fgSkin* self)
@@ -43,17 +56,11 @@ void FG_FASTCALL fgSkin_Destroy(fgSkin* self)
   ((fgResourceArray&)self->resources).~cDynArray();
   ((fgFontArray&)self->fonts).~cDynArray();
   ((fgStyleLayoutArray&)self->children).~cDynArray();
-  ((fgStyleArray&)self->styles).~cDynArray();
   ((fgSubskinArray&)self->subskins).~cDynArray();
-  
-  if(self->skinmap)
-  {
-    khiter_t cur = kh_begin(self->skinmap);
-    while(cur != kh_end(self->skinmap)) fgSkin_DestroySkinElement(self, cur++);
-    kh_destroy_fgSkins(self->skinmap);
-  }
+  ((fgStyleArray&)self->styles).~cDynArray();
+  DestroyHash<struct __kh_fgSkins_t, fgSkin, &fgSkin_Destroy, &kh_del_fgSkins, &kh_destroy_fgSkins>(self->skinmap);
 }
-FG_UINT FG_FASTCALL fgSkin_AddResource(fgSkin* self, void* resource)
+size_t FG_FASTCALL fgSkin_AddResource(fgSkin* self, void* resource)
 {
   return ((fgResourceArray&)self->resources).Add(resource);
 }
@@ -65,7 +72,7 @@ void* FG_FASTCALL fgSkin_GetResource(const fgSkin* self, FG_UINT resource)
 {
   return DynGet<fgResourceArray>(self->resources, resource).ref;
 }
-FG_UINT FG_FASTCALL fgSkin_AddFont(fgSkin* self, void* font)
+size_t FG_FASTCALL fgSkin_AddFont(fgSkin* self, void* font)
 {
   return ((fgFontArray&)self->fonts).Add(font);
 }
@@ -77,7 +84,7 @@ void* FG_FASTCALL fgSkin_GetFont(const fgSkin* self, FG_UINT font)
 {
   return DynGet<fgFontArray>(self->fonts, font).ref;
 }
-FG_UINT FG_FASTCALL fgSkin_AddChild(fgSkin* self, const char* name, fgElement* element, fgFlag flags)
+size_t FG_FASTCALL fgSkin_AddChild(fgSkin* self, const char* name, fgElement* element, fgFlag flags)
 {
   return ((fgStyleLayoutArray&)self->children).AddConstruct(name, element, flags);
 }
@@ -90,9 +97,12 @@ fgStyleLayout* FG_FASTCALL fgSkin_GetChild(const fgSkin* self, FG_UINT child)
   return DynGetP<fgStyleLayoutArray>(self->children, child);
 }
 
-FG_UINT FG_FASTCALL fgSkin_AddStyle(fgSkin* self)
+size_t FG_FASTCALL fgSkin_AddStyle(fgSkin* self, const char* name)
 {
-  return ((fgStyleArray&)self->styles).AddConstruct();
+  FG_UINT r = fgStyle_GetName(name);
+  if(r >= ((fgStyleArray&)self->styles).Length())
+    ((fgStyleArray&)self->styles).SetLength(r + 1);
+  return r;
 }
 char FG_FASTCALL fgSkin_RemoveStyle(fgSkin* self, FG_UINT style)
 {
@@ -103,7 +113,7 @@ fgStyle* FG_FASTCALL fgSkin_GetStyle(const fgSkin* self, FG_UINT style)
   return ((fgStyleArray&)self->styles).begin() + style;
 }
 
-FG_UINT FG_FASTCALL fgSkin_AddSubSkin(fgSkin* self, int index)
+size_t FG_FASTCALL fgSkin_AddSubSkin(fgSkin* self, int index)
 {
   return ((fgSubskinArray&)self->subskins).AddConstruct(index);
 }
@@ -138,7 +148,7 @@ char FG_FASTCALL fgSkin_RemoveSkin(fgSkin* self, const char* name)
   if(!self->skinmap || !name)
     return 0;
 
-  return fgSkin_DestroySkinElement(self, kh_get(fgSkins, self->skinmap, name));
+  return DestroyHashElement<struct __kh_fgSkins_t, fgSkin, &fgSkin_Destroy, &kh_del_fgSkins>(self->skinmap, kh_get(fgSkins, self->skinmap, name));
 }
 fgSkin* FG_FASTCALL fgSkin_GetSkin(const fgSkin* self, const char* name)
 {
@@ -203,4 +213,16 @@ void FG_FASTCALL fgStyle_RemoveStyleMsg(fgStyle* self, fgStyleMsg* msg)
     if(cur) cur->next = msg->next;
   }
   free(msg);
+}
+
+FG_UINT FG_FASTCALL fgStyle_GetName(const char* name)
+{
+  static kh_fgStyles_t* h = kh_init_fgStyles();
+  static FG_UINT count = 0;
+
+  int r;
+  khiter_t iter = kh_put_fgStyles(h, name, &r);
+  if(r) // if it wasn't in there before, we need to initialize the index
+    kh_val(h, iter) = count++;
+  return kh_val(h, iter);
 }

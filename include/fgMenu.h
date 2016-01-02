@@ -1,4 +1,4 @@
-// Copyright ©2015 Black Sphere Studios
+// Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #ifndef __FG_MENU_H__
@@ -17,6 +17,7 @@ typedef struct FG_MENU {
   fgChild highlight;
   fgChild arrow;
   fgDeferAction* dropdown; // Keeps track of our dropdown action in fgRoot
+  fgVector* members; // ordered list of menu items. Null values indicate a seperator.
 } fgMenu;
 
 FG_EXTERN fgChild* FG_FASTCALL fgMenu_Create(fgChild* parent, const fgElement* element, FG_UINT id, fgFlag flags);

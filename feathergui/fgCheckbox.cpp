@@ -1,4 +1,4 @@
-// Copyright ©2015 Black Sphere Studios
+// Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #include "fgCheckbox.h"
@@ -28,7 +28,7 @@ FG_EXTERN size_t FG_FASTCALL fgCheckbox_Message(fgCheckbox* self, const FG_Msg* 
     fgChild_AddPreChild((fgChild*)self, (fgChild*)&self->text);
     fgChild_Init(&self->item, FGCHILD_EXPAND | FGCHILD_IGNORE, (fgChild*)self, &fgElement_CENTER);
     fgChild_AddPreChild((fgChild*)self, &self->item);
-    fgChild_IntMessage((fgChild*)self, FG_SETSTYLE, 0, 0);
+    fgChild_VoidMessage((fgChild*)self, FG_SETSTYLE, "nuetral");
     self->checked = 0;
     return 0;
   case FG_ADDITEM:
@@ -38,13 +38,13 @@ FG_EXTERN size_t FG_FASTCALL fgCheckbox_Message(fgCheckbox* self, const FG_Msg* 
       fgChild_Clear(&self->item);
     return 0;
   case FG_NUETRAL:
-    fgChild_IntMessage((fgChild*)self, FG_SETSTYLE, 0, 0);
+    fgChild_VoidMessage((fgChild*)self, FG_SETSTYLE, "nuetral");
     return 0;
   case FG_HOVER:
-    fgChild_IntMessage((fgChild*)self, FG_SETSTYLE, 1, 0);
+    fgChild_VoidMessage((fgChild*)self, FG_SETSTYLE, "hover");
     return 0;
   case FG_ACTIVE:
-    fgChild_IntMessage((fgChild*)self, FG_SETSTYLE, 2, 0);
+    fgChild_VoidMessage((fgChild*)self, FG_SETSTYLE, "active");
     return 0;
   case FG_ACTION:
     fgChild_IntMessage((fgChild*)self, FG_SETSTATE, !fgChild_VoidMessage((fgChild*)self, FG_GETSTATE, 0), 0);

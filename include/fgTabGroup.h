@@ -1,4 +1,4 @@
-// Copyright ©2015 Black Sphere Studios
+// Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #ifndef __FG_TABGROUP_H__
@@ -13,7 +13,7 @@ extern "C" {
 // A Tab group is a collection of tab pages that can be switched between by clicking on "tabs".
 typedef struct {
   fgWindow window; // use FG_ADDITEM to add a panel and a name to the tabs. It returns a pointer to the added element you can then use with REMOVEITEM.
-  fgChild header; // This is where the buttons are added, allowing the "fgButton" class to be skinned. Uses FG_BACKGROUND so padding can be applied to the panels.
+  fgChild header; // This is where the radiobuttons are added, allowing the "fgReadioButton" class to be skinned. Uses FG_BACKGROUND so padding can be applied to the panels.
 } fgTabGroup;
 
 FG_EXTERN fgWindow* FG_FASTCALL fgTabGroup_Create(fgWindow* parent, const fgElement* element, FG_UINT id, fgFlag flags);

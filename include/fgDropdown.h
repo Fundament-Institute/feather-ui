@@ -1,4 +1,4 @@
-// Copyright ©2015 Black Sphere Studios
+// Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #ifndef __FG_DROPDOWN_H__
@@ -13,7 +13,6 @@ extern "C" {
 // A dropdown contains a list of arbitrary items and allows the user to select one.
 typedef struct {
   fgList window; // ADDITEM is used to add an arbitrary object to the list. 
-  fgChild* selected; // points to the selected child, if any.
 } fgDropdown;
 
 FG_EXTERN fgWindow* FG_FASTCALL fgDropdown_Create(fgWindow* parent, const fgElement* element, fgFlag flags);

@@ -1,4 +1,4 @@
-// Copyright ©2015 Black Sphere Studios
+// Copyright ©2016 Black Sphere Studios
 // FgNull - A null-implementation of Feather GUI
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 

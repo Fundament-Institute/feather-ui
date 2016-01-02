@@ -1,4 +1,4 @@
-// Copyright ©2015 Black Sphere Studios
+// Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #include "fgChild.h"
@@ -125,7 +125,7 @@ char FG_FASTCALL fgChild_PotentialResize(fgChild* self)
 fgChild* FG_FASTCALL fgChild_LoadLayout(fgChild* parent, fgClassLayout* layout, fgChild* (*mapping)(const char*, fgFlag, fgChild*, fgElement*))
 {
   fgChild* child = (*mapping)(layout->style.name, layout->style.flags, parent, &layout->style.element);
-  fgChild_VoidAuxMessage(child, FG_SETSTYLE, 0, (ptrdiff_t)&layout->style.style);
+  fgChild_VoidAuxMessage(child, FG_SETSTYLE, &layout->style.style, 2);
 
   for(FG_UINT i = 0; i < layout->children.l; ++i)
     fgChild_LoadLayout(child, DynGetP<fgClassLayoutArray>(layout->children, i), mapping);
@@ -392,7 +392,7 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
       {
         fgStyleLayout* layout = DynGetP<fgStyleLayoutArray>(self->skin->children, i);
         fgChild* child = (*mapping)(layout->name, layout->flags, self, &layout->element);
-        fgChild_VoidAuxMessage(child, FG_SETSTYLE, 0, (ptrdiff_t)&layout->style);
+        fgChild_VoidAuxMessage(child, FG_SETSTYLE, &layout->style, 2);
         ((fgSkinRefArray&)self->skinrefs).Add(child);
       }
 
@@ -402,17 +402,17 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
         fgChild_VoidMessage(cur, FG_SETSKIN, 0); // This will automatically set any subskins we have if necessary.
         cur = cur->next;
       }
-      fgChild_VoidAuxMessage(self, FG_SETSTYLE, 0, (ptrdiff_t)&self->skin->style);
+      fgChild_VoidAuxMessage(self, FG_SETSTYLE, (void*)&self->skin->style, 2);
     }
-    fgChild_IntMessage(self, FG_SETSTYLE, -1, 0);
+    fgChild_IntMessage(self, FG_SETSTYLE, -1, 1);
   }
     return 0;
   case FG_SETSTYLE:
   {
-    fgStyle* style = (fgStyle*)msg->other2;
-    if(!style)
+    fgStyle* style = 0;
+    if(msg->otheraux != 2)
     {
-      FG_UINT index = msg->otherint;
+      FG_UINT index = (!msg->otheraux ? fgStyle_GetName((const char*)msg->other) : msg->otherint);
 
       if(index == -1)
         index = fgChild_VoidMessage(self, FG_GETSTYLE, 0);
@@ -425,19 +425,21 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
       fgChild* cur = self->root;
       while(cur)
       {
-        fgChild_IntMessage(cur, FG_SETSTYLE, -1, 0); // Forces the child to recalculate the style inheritance
+        fgChild_IntMessage(cur, FG_SETSTYLE, -1, 1); // Forces the child to recalculate the style inheritance
         cur = cur->next;
       }
     }
+    else
+      style = (fgStyle*)msg->other;
 
-    if(style)
+    if(!style)
+      return 1;
+
+    fgStyleMsg* cur = style->styles;
+    while(cur)
     {
-      fgStyleMsg* cur = style->styles;
-      while(cur)
-      {
-        (*fgroot_instance->behaviorhook)(self, &cur->msg);
-        cur = cur->next;
-      }
+      (*fgroot_instance->behaviorhook)(self, &cur->msg);
+      cur = cur->next;
     }
   }
     return 0;
