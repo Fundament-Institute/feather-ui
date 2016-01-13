@@ -1,4 +1,4 @@
-// Copyright ©2015 Black Sphere Studios
+// Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "bss_util.h"
 
 #ifndef __BSS_UTIL_C_H__
@@ -19,7 +19,7 @@ struct VersionType
       unsigned char Minor;
       unsigned short Revision;
     };
-    unsigned __int32 Version;
+    unsigned int Version;
   };
 };
 
@@ -29,7 +29,7 @@ union bssCPUInfo {
     unsigned char SSE; // 1: Supports MMX, 2: Supports SSE+MMX, 3: up to SSE2, 4: SSE3, 5: SSSE3, 6: SSE4.1, 7: SSE4.2, 8: AVX, 9: AVX2
     unsigned int flags; // 1 - supports CMPXCHG8b, 2 - supports CMPXCHG16b, 4 - supports AMD SSE4a, 8 - supports CMOV, 16 - supports CFLUSH, 32 - supports POPCNT
   };
-  unsigned __int64 _raw;
+  unsigned long long _raw;
 };
 
 struct tm;

@@ -1,4 +1,4 @@
-// Copyright ©2015 Black Sphere Studios
+// Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "bss_util.h"
 
 #ifndef __C_DYN_ARRAY_H__BSS__
@@ -24,6 +24,7 @@ namespace bss_util {
   public:
     inline cDynArray(const cDynArray& copy) : AT_(copy._capacity), _length(copy._length) { BASE::_copy(_array, copy._array, _length); }
     inline cDynArray(cDynArray&& mov) : AT_(std::move(mov)), _length(mov._length) { mov._length = 0; }
+    inline cDynArray(const cArraySlice<const T, CType>& slice) : AT_(slice.length), _length(slice.length) { BASE::_copy(_array, slice.begin, slice.length); }
     inline explicit cDynArray(CT_ capacity=0) : AT_(capacity), _length(0) {}
     inline cDynArray(const std::initializer_list<T> list) : AT_(list.size()), _length(0)
     {
@@ -90,7 +91,16 @@ namespace bss_util {
       return *this;
     }
     inline cDynArray& operator=(cDynArray&& mov) { BASE::_setlength(_array, _length, 0); AT_::operator=(std::move(mov)); _length = mov._length; mov._length = 0; return *this; }
-    inline cDynArray& operator +=(const cDynArray& add)
+    inline cDynArray& operator=(const cArraySlice<const T, CType>& copy)
+    {
+      BASE::_setlength(_array, _length, 0);
+      if(copy.length > _capacity)
+        AT_::SetCapacityDiscard(copy.length);
+      BASE::_copy(_array, copy.begin, copy.length);
+      _length = copy.length;
+      return *this;
+    }
+      inline cDynArray& operator +=(const cDynArray& add)
     { 
       BASE::_setcapacity(*this, _length + add._length);
       BASE::_copy(_array + _length, add._array, add._length);

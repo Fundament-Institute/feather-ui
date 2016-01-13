@@ -1,5 +1,5 @@
 /* Black Sphere Studios Utility Library
-   Copyright ©2015 Black Sphere Studios
+   Copyright ©2016 Black Sphere Studios
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -52,8 +52,8 @@ namespace bss_util {
   const float SQRT_TWOf = 1.414213562373095048801688724209f;
   const float FLT_EPS = 1.192092896e-07F;
   const double DBL_EPS = 2.2204460492503131e-016;
-  const __int32 FLT_INTEPS = *(__int32*)(&FLT_EPS);
-  const __int64 DBL_INTEPS = *(__int64*)(&DBL_EPS);
+  const int32_t FLT_INTEPS = *(int32_t*)(&FLT_EPS);
+  const int64_t DBL_INTEPS = *(int64_t*)(&DBL_EPS);
 
   // Get max size of an arbitrary number of bits, either signed or unsigned (assuming one's or two's complement implementation)
   template<unsigned char BITS>
@@ -63,7 +63,7 @@ namespace bss_util {
     typedef typename std::conditional<sizeof(char) == BYTES, char,  //rounds the type up if necessary.
       typename std::conditional<sizeof(short) == BYTES, short,
       typename std::conditional<sizeof(int) == BYTES, int,
-      typename std::conditional<sizeof(__int64) == BYTES, __int64,
+      typename std::conditional<sizeof(int64_t) == BYTES, int64_t,
 #if defined(BSS_COMPILER_GCC) && defined(BSS_64BIT)
       typename std::conditional<sizeof(__int128) == BYTES, __int128, void>::type>::type>::type>::type>::type SIGNED;
 #else
@@ -331,22 +331,22 @@ namespace bss_util {
 
   // Smart compilers will use SSE2 instructions to eliminate the massive overhead of int -> float conversions. This uses SSE2 instructions
   // to round a float to an integer using whatever the rounding mode currently is (usually it will be round-to-nearest)
-  BSS_FORCEINLINE static __int32 fFastRound(float f)
+  BSS_FORCEINLINE static int32_t fFastRound(float f)
   {
     return _mm_cvt_ss2si(_mm_load_ss(&f));
   }
 
-  BSS_FORCEINLINE static __int32 fFastRound(double f)
+  BSS_FORCEINLINE static int32_t fFastRound(double f)
   {
     return _mm_cvtsd_si32(_mm_load_sd(&f));
   }
 
-  BSS_FORCEINLINE static __int32 fFastTruncate(float f)
+  BSS_FORCEINLINE static int32_t fFastTruncate(float f)
   {
     return _mm_cvtt_ss2si(_mm_load_ss(&f));
   }
 
-  BSS_FORCEINLINE static __int32 fFastTruncate(double f)
+  BSS_FORCEINLINE static int32_t fFastTruncate(double f)
   {
     return _mm_cvttsd_si32(_mm_load_sd(&f));
   }
@@ -393,32 +393,32 @@ namespace bss_util {
   }
 
   // Extremely fast rounding function that truncates properly, but only works in double precision mode; see http://stereopsis.com/FPU.html
-  /*BSS_FORCEINLINE static __int32 fFastDoubleRound(double val)
+  /*BSS_FORCEINLINE static int32_t fFastDoubleRound(double val)
   {
     const double _double2fixmagic = 4503599627370496.0*1.5; //2^52 for 52 bits of mantissa
     assert(!FPUsingle());
 	  val		= val + _double2fixmagic;
-	  return ((__int32*)&val)[0]; 
+	  return ((int32_t*)&val)[0]; 
   }
-  BSS_FORCEINLINE static __int32 fFastDoubleRound(float val) { return fFastDoubleRound((double)val); }
+  BSS_FORCEINLINE static int32_t fFastDoubleRound(float val) { return fFastDoubleRound((double)val); }
 
   // Single precision version of the above function. While precision problems are mostly masked in the above function by limiting it to
-  // __int32, in this function they are far more profound due to there only being 24 bits of mantissa to work with. Use with caution. 
-  BSS_FORCEINLINE static __int32 fFastSingleRound(double val)
+  // int32_t, in this function they are far more profound due to there only being 24 bits of mantissa to work with. Use with caution. 
+  BSS_FORCEINLINE static int32_t fFastSingleRound(double val)
   {
     const double _single2fixmagic = 16777216.0*1.5; //2^24 for 24 bits of mantissa
     assert(FPUsingle());
 	  val		= val + _single2fixmagic;
-	  return (__int32)(((((unsigned __int64*)&val)[0])&0xFFFFF0000000)>>28);
+	  return (int32_t)(((((uint64_t*)&val)[0])&0xFFFFF0000000)>>28);
   }
-  BSS_FORCEINLINE static __int32 fFastSingleRound(float val) { return fFastSingleRound((double)val); } */
+  BSS_FORCEINLINE static int32_t fFastSingleRound(float val) { return fFastSingleRound((double)val); } */
 
 	// This is a super fast floating point comparison function with a significantly higher tolerance and no
 	// regard towards the size of the floats.
 	inline static bool BSS_FASTCALL fwidecompare(float fleft, float fright)
 	{
-		__int32 left = *(__int32*)(&fleft); //This maps our float to an int so we can do bitshifting operations on it
-		__int32 right = *(__int32*)(&fright); //see above
+		int32_t left = *(int32_t*)(&fleft); //This maps our float to an int so we can do bitshifting operations on it
+		int32_t right = *(int32_t*)(&fright); //see above
 		unsigned char dif = abs((0x7F800000&left)-(0x7F800000&right))>>23; // This grabs the 8 exponent bits and subtracts them.
 		if(dif>1) // An exponent difference of 2 or greater means the numbers are different.
 			return false;
@@ -426,56 +426,56 @@ namespace bss_util {
 	}
 
   // Highly optimized traditional tolerance based approach to comparing floating point numbers, found here: http://www.randydillon.org/Papers/2007/everfast.htm
-  inline static bool BSS_FASTCALL fcompare(float af, float bf, __int32 maxDiff=1)
+  inline static bool BSS_FASTCALL fcompare(float af, float bf, int32_t maxDiff=1)
   { 
     //assert(af!=0.0f && bf!=0.0f); // Use fsmall for this
-    __int32 ai = *reinterpret_cast<__int32*>(&af);
-    __int32 bi = *reinterpret_cast<__int32*>(&bf);
-    __int32 test = (-(__int32)(((unsigned __int32)(ai^bi))>>31));
-    assert((0 == test) || (0xFFFFFFFF == (unsigned __int32)test));
-    __int32 diff = ((ai + test) ^ (test & 0x7fffffff)) - bi;
-    __int32 v1 = maxDiff + diff;
-    __int32 v2 = maxDiff - diff;
+    int32_t ai = *reinterpret_cast<int32_t*>(&af);
+    int32_t bi = *reinterpret_cast<int32_t*>(&bf);
+    int32_t test = (-(int32_t)(((uint32_t)(ai^bi))>>31));
+    assert((0 == test) || (0xFFFFFFFF == (uint32_t)test));
+    int32_t diff = ((ai + test) ^ (test & 0x7fffffff)) - bi;
+    int32_t v1 = maxDiff + diff;
+    int32_t v2 = maxDiff - diff;
     return (v1|v2) >= 0;
   }
 
-  inline static bool BSS_FASTCALL fcompare(double af, double bf, __int64 maxDiff=1)
+  inline static bool BSS_FASTCALL fcompare(double af, double bf, int64_t maxDiff=1)
   { 
     //assert(af!=0.0 && bf!=0.0); // Use fsmall for this
-    __int64 ai = *reinterpret_cast<__int64*>(&af);
-    __int64 bi = *reinterpret_cast<__int64*>(&bf);
-    __int64 test = (-(__int64)(((unsigned __int64)(ai^bi))>>63));
-    assert((0 == test) || (0xFFFFFFFFFFFFFFFF == (unsigned __int64)test));
-    __int64 diff = ((ai + test) ^ (test & 0x7fffffffffffffff)) - bi;
-    __int64 v1 = maxDiff + diff;
-    __int64 v2 = maxDiff - diff;
+    int64_t ai = *reinterpret_cast<int64_t*>(&af);
+    int64_t bi = *reinterpret_cast<int64_t*>(&bf);
+    int64_t test = (-(int64_t)(((uint64_t)(ai^bi))>>63));
+    assert((0 == test) || (0xFFFFFFFFFFFFFFFF == (uint64_t)test));
+    int64_t diff = ((ai + test) ^ (test & 0x7fffffffffffffff)) - bi;
+    int64_t v1 = maxDiff + diff;
+    int64_t v2 = maxDiff - diff;
     return (v1|v2) >= 0;
   }
 
   // This determines if a float is sufficiently close to 0
   BSS_FORCEINLINE static bool BSS_FASTCALL fsmall(float f, float eps=FLT_EPS)
   {
-    unsigned __int32 i=((*((unsigned __int32*)&f))&0x7FFFFFFF); //0x7FFFFFFF strips off the sign bit (which is always the highest bit)
-    unsigned __int32 e=((*((unsigned __int32*)&eps)));
+    uint32_t i=((*((uint32_t*)&f))&0x7FFFFFFF); //0x7FFFFFFF strips off the sign bit (which is always the highest bit)
+    uint32_t e=((*((uint32_t*)&eps)));
     return i<=e; 
   }
 
   // This determines if a double is sufficiently close to 0
   BSS_FORCEINLINE static bool BSS_FASTCALL fsmall(double f, double eps=DBL_EPS)
   {
-    unsigned __int64 i=((*((unsigned __int64*)&f))&0x7FFFFFFFFFFFFFFF); //0x7FFFFFFFFFFFFFFF strips off the sign bit (which is always the highest bit)
-    unsigned __int64 e=((*((unsigned __int64*)&eps)));
+    uint64_t i=((*((uint64_t*)&f))&0x7FFFFFFFFFFFFFFF); //0x7FFFFFFFFFFFFFFF strips off the sign bit (which is always the highest bit)
+    uint64_t e=((*((uint64_t*)&eps)));
     return i<=e; 
   }
 
-  inline static bool BSS_FASTCALL fcomparesmall(float af, float bf, __int32 maxDiff=1, float eps = FLT_EPS)
+  inline static bool BSS_FASTCALL fcomparesmall(float af, float bf, int32_t maxDiff=1, float eps = FLT_EPS)
   {
     if(af==0.0) return fsmall(bf, eps);
     if(bf==0.0) return fsmall(af, eps);
     return fcompare(af, bf, maxDiff);
   }
 
-  inline static bool BSS_FASTCALL fcomparesmall(double af, double bf, __int64 maxDiff=1, double eps = DBL_EPS)
+  inline static bool BSS_FASTCALL fcomparesmall(double af, double bf, int64_t maxDiff=1, double eps = DBL_EPS)
   {
     if(af==0.0) return fsmall(bf, eps);
     if(bf==0.0) return fsmall(af, eps);
@@ -496,12 +496,12 @@ namespace bss_util {
   inline static float BSS_FASTCALL fFastSqrt(float number)
   {
     const float f = 1.5F;
-    __int32 i;
+    int32_t i;
     float x, y;
 
     x = number * 0.5F;
     y  = number;
-    i  = * ( __int32 * ) &y;
+    i  = * ( int32_t * ) &y;
     i  = 0x5f3759df - ( i >> 1 );
     y  = * ( float * ) &i;
     y  = y * ( f - ( x * y * y ) );
@@ -513,12 +513,12 @@ namespace bss_util {
   inline static double BSS_FASTCALL dFastSqrt(double number)
   {
     const double f = 1.5;
-    unsigned __int32* i;
+    uint32_t* i;
     double x, y;
 
     x = number*0.5;
 	  y = number;
-    i = ((unsigned __int32 *)&y) + 1;
+    i = ((uint32_t *)&y) + 1;
 	  *i = (0xbfcdd90a - *i)>>1; // estimate of 1/sqrt(number)
 
     y = y * ( f - ( x * y * y ) );
@@ -646,7 +646,7 @@ namespace bss_util {
   //}
 
   // Round a number up to the next power of 2 (32 -> 32, 33 -> 64, etc.)
-  inline static unsigned __int64 BSS_FASTCALL nextpow2(unsigned __int64 v)
+  inline static uint64_t BSS_FASTCALL nextpow2(uint64_t v)
   {
 	  v -= 1;
 	  v |= (v >> 1);
@@ -742,16 +742,16 @@ namespace bss_util {
     return r;
   }
 #endif
-  inline static unsigned int BSS_FASTCALL log2(unsigned __int64 v)
+  inline static unsigned int BSS_FASTCALL log2(uint64_t v)
   {
 #if defined(BSS_COMPILER_MSC) && defined(BSS_64BIT)
     if(!v) return 0;
     unsigned long r; 
     _BitScanReverse64(&r, v); 
 #elif defined(BSS_COMPILER_GCC) && defined(BSS_64BIT)
-    unsigned int r = !v?0:((sizeof(unsigned __int64)<<3)-1-__builtin_clz(v));
+    unsigned int r = !v?0:((sizeof(uint64_t)<<3)-1-__builtin_clz(v));
 #else
-    const unsigned __int64 b[] = {0x2, 0xC, 0xF0, 0xFF00, 0xFFFF0000, 0xFFFFFFFF00000000};
+    const uint64_t b[] = {0x2, 0xC, 0xF0, 0xFF00, 0xFFFF0000, 0xFFFFFFFF00000000};
     const unsigned int S[] = {1, 2, 4, 8, 16, 32};
 
     register unsigned int r = 0; // result of log2(v) will go here
@@ -837,10 +837,10 @@ namespace bss_util {
 //  {
 //    inline static int128& BSS_FASTCALL operator+=(const int128& right) { _add(right.ints[0],right.ints[1],right.ints[2],right.ints[3]); return *this; }
 //
-//    __int32 ints[4];
+//    int32_t ints[4];
 //
 //  private:
-//    inline static void BSS_FASTCALL _add(__int32 a,__int32 b,__int32 c,__int32 d) //Done because I suck with assembly :D
+//    inline static void BSS_FASTCALL _add(int32_t a,int32_t b,int32_t c,int32_t d) //Done because I suck with assembly :D
 //    {
 //      __asm {
 //#ifdef BSS_NO_FASTCALL //if we are using fastcall we don't need these instructions
@@ -860,10 +860,10 @@ namespace bss_util {
 //  {
 //    inline static uint128& BSS_FASTCALL operator+=(const uint128& right) { _add(right.ints[0],right.ints[1],right.ints[2],right.ints[3]); return *this; }
 //
-//    unsigned __int32 ints[4];
+//    uint32_t ints[4];
 //
 //  private:
-//    inline static void BSS_FASTCALL _add(unsigned __int32 a,unsigned __int32 b,unsigned __int32 c,unsigned __int32 d) //Done because I suck with assembly :D
+//    inline static void BSS_FASTCALL _add(uint32_t a,uint32_t b,uint32_t c,uint32_t d) //Done because I suck with assembly :D
 //    {
 //      __asm {
 //#ifdef BSS_NO_FASTCALL //if we are using fastcall we don't need these instructions

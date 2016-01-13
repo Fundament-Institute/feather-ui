@@ -1,4 +1,4 @@
-// Copyright ©2015 Black Sphere Studios
+// Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "bss_util.h"
 
 #ifndef __C_ARRAY_H__BSS__
@@ -9,6 +9,31 @@
 #include <initializer_list>
 
 namespace bss_util {
+  template<class T, typename CType = size_t>
+  struct BSS_COMPILER_DLLEXPORT cArraySlice
+  {
+    cArraySlice(const cArraySlice& copy) : begin(copy.begin), length(copy.length) {}
+    cArraySlice(T* b, CType l) : begin(b), length(l) { }
+    inline cArraySlice& operator=(const cArraySlice& right) { begin = right.begin; length = right.length; return *this; }
+    inline cArraySlice& operator++() { assert(length > 0); ++begin; --length; return *this; }
+    inline cArraySlice operator++(int) { assert(length > 0); return cArraySlice(begin + 1, length - 1); }
+    inline cArraySlice operator()(CType start) { return operator()(start, length); }
+    inline cArraySlice operator()(CType start, CType end)
+    { 
+      assert(abs(start) < length);
+      assert(end <= length);
+      start = bssmod(start, length);
+      if(end <= 0) end = length - end;
+      assert(end >= start);
+      return cArraySlice(begin + start, end - start);
+    }
+
+    inline operator cArraySlice<const T, CType>() const { return cArraySlice<const T, CType>(begin, length); }
+
+    T* begin;
+    CType length;
+  };
+
   enum ARRAY_TYPE : unsigned char { CARRAY_SIMPLE=0, CARRAY_CONSTRUCT=1, CARRAY_SAFE=2 };
 
   // Handles the very basic operations of an array. Constructor management is done by classes that inherit this class.
@@ -47,6 +72,7 @@ namespace bss_util {
       mov._capacity = 0;
       return *this;
     }
+    inline cArraySlice<T, CType> GetSlice() const { return cArraySlice<T, CType>(_array, _capacity); }
 
   protected:
     static inline T* _getalloc(CT_ n, T* prev = 0)
@@ -160,6 +186,7 @@ namespace bss_util {
       _capacity = c;
     }
     inline explicit cArray(CT_ capacity = 0) : AT_(capacity) { BASE::_setlength(_array, 0, _capacity); }
+    inline cArray(const cArraySlice<const T, CType>& slice) : AT_(slice.length) { BASE::_copy(_array, slice.begin, slice.length); }
     inline ~cArray() { BASE::_setlength(_array, _capacity, 0); }
     BSS_FORCEINLINE CT_ Add(const T_& t) { _insert(t, _capacity); return _capacity - 1; }
     BSS_FORCEINLINE CT_ Add(T_&& t) { _insert(std::move(t), _capacity); return _capacity - 1; }
@@ -173,6 +200,7 @@ namespace bss_util {
     BSS_FORCEINLINE void Insert(T_&& t, CT_ index = 0) { _insert(std::move(t), index); }
     BSS_FORCEINLINE bool Empty() const { return !_capacity; }
     BSS_FORCEINLINE void Clear() { SetCapacity(0); }
+    inline cArraySlice<T, CType> GetSlice() const { return cArraySlice<T, CType>(_array, _capacity); }
     BSS_FORCEINLINE void SetCapacity(CT_ capacity)
     { 
       if(capacity == _capacity) return;
@@ -208,6 +236,13 @@ namespace bss_util {
       return *this;
     }
     BSS_FORCEINLINE cArray& operator=(cArray&& mov) { BASE::_setlength(_array, _capacity, 0); AT_::operator=(std::move(mov)); return *this; }
+    BSS_FORCEINLINE cArray& operator=(const cArraySlice<const T, CType>& copy)
+    {
+      BASE::_setlength(_array, _capacity, 0);
+      AT_::SetCapacityDiscard(copy.length);
+      BASE::_copy(_array, copy.begin, _capacity);
+      return *this;
+    }
     BSS_FORCEINLINE cArray& operator +=(const cArray& add)
     { 
       CType old = _capacity;
