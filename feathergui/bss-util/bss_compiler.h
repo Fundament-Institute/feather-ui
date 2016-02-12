@@ -39,6 +39,7 @@
 #define BSS_COMPILER_INTEL
 #define BSS_COMPILER_DLLEXPORT __declspec(dllexport)
 #define BSS_COMPILER_DLLIMPORT __declspec(dllimport)
+#define BSS_TEMPLATE_DLLEXPORT
 #define MEMBARRIER_READWRITE __memory_barrier()
 #define MEMBARRIER_READ MEMBARRIER_READWRITE
 #define MEMBARRIER_WRITE MEMBARRIER_READWRITE
@@ -60,11 +61,12 @@
 #define BSS_COMPILER_CLANG
 #define BSS_COMPILER_DLLEXPORT __attribute__((dllexport))
 #define BSS_COMPILER_DLLIMPORT __attribute__((dllimport))
+#define BSS_TEMPLATE_DLLEXPORT
 #define MEMBARRIER_READWRITE __asm__ __volatile__ ("" ::: "memory");
 #define MEMBARRIER_READ MEMBARRIER_READWRITE
 #define MEMBARRIER_WRITE MEMBARRIER_READWRITE
 #define BSS_COMPILER_FASTCALL __attribute__((fastcall))
-#define BSS_COMPILER_STDCALL __attribute__((BSS_COMPILER_STDCALL__))
+#define BSS_COMPILER_STDCALL __attribute__((stdcall))
 #define BSS_COMPILER_NAKED __attribute__((naked)) // Will only work on ARM, AVR, MCORE, RX and SPU. 
 #define BSS_FORCEINLINE __attribute__((always_inline))
 #define BSS_RESTRICT __restrict__
@@ -82,11 +84,12 @@
 #define BSS_COMPILER_GCC
 #define BSS_COMPILER_DLLEXPORT __attribute__((dllexport))
 #define BSS_COMPILER_DLLIMPORT __attribute__((dllimport))
+#define BSS_TEMPLATE_DLLEXPORT
 #define MEMBARRIER_READWRITE __asm__ __volatile__ ("" ::: "memory");
 #define MEMBARRIER_READ MEMBARRIER_READWRITE
 #define MEMBARRIER_WRITE MEMBARRIER_READWRITE
 #define BSS_COMPILER_FASTCALL __attribute__((fastcall))
-#define BSS_COMPILER_STDCALL __attribute__((BSS_COMPILER_STDCALL__))
+#define BSS_COMPILER_STDCALL __attribute__((stdcall))
 #define BSS_COMPILER_NAKED __attribute__((naked)) // Will only work on ARM, AVR, MCORE, RX and SPU. 
 #define BSS_FORCEINLINE __attribute__((always_inline))
 #define BSS_RESTRICT __restrict__
@@ -113,6 +116,7 @@
 #define BSS_COMPILER_MSC
 #define BSS_COMPILER_DLLEXPORT __declspec(dllexport)
 #define BSS_COMPILER_DLLIMPORT __declspec(dllimport)
+#define BSS_TEMPLATE_DLLEXPORT BSS_COMPILER_DLLEXPORT
 #define MEMBARRIER_READWRITE _ReadWriteBarrier()
 #define MEMBARRIER_READ _ReadBarrier()
 #define MEMBARRIER_WRITE _WriteBarrier()

@@ -95,7 +95,7 @@ public: \
 
 #define HAS_MEMBER(Class, Member)           bss_has_member_##Member<Class>::value
 
-#ifdef BSS_COMPILER_MSC
+#ifdef BSS_PLATFORM_WIN32
 #define TIME64(ptime) _time64(ptime)
 #define GMTIMEFUNC(time, tm) _gmtime64_s(tm, time)
 #define VSNPRINTF(dst,size,format,list) _vsnprintf_s(dst,size,size,format,list)

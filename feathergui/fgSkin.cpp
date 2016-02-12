@@ -26,7 +26,7 @@ void FG_FASTCALL fgSubskin_Init(fgSkin* self, int index)
   self->index = index;
 }
 
-template<class HASH, class T, void (*DESTROY)(T*), void (*DEL)(HASH*, khint_t)>
+template<class HASH, class T, void (FG_FASTCALL *DESTROY)(T*), void (*DEL)(HASH*, khint_t)>
 char FG_FASTCALL DestroyHashElement(HASH* self, khiter_t iter)
 {
   if(kh_exist(self, iter))
@@ -39,7 +39,7 @@ char FG_FASTCALL DestroyHashElement(HASH* self, khiter_t iter)
   return 0;
 }
 
-template<class HASH, class T, void(*DESTROYELEM)(T*), void(*DEL)(HASH*, khint_t), void(*DESTROYHASH)(HASH*)>
+template<class HASH, class T, void(FG_FASTCALL *DESTROYELEM)(T*), void(*DEL)(HASH*, khint_t), void(*DESTROYHASH)(HASH*)>
 void FG_FASTCALL DestroyHash(HASH* self)
 {
   if(self)
@@ -58,7 +58,7 @@ void FG_FASTCALL fgSkin_Destroy(fgSkin* self)
   ((fgStyleLayoutArray&)self->children).~cDynArray();
   ((fgSubskinArray&)self->subskins).~cDynArray();
   ((fgStyleArray&)self->styles).~cDynArray();
-  DestroyHash<struct __kh_fgSkins_t, fgSkin, &fgSkin_Destroy, &kh_del_fgSkins, &kh_destroy_fgSkins>(self->skinmap);
+  DestroyHash<kh_fgSkins_t, fgSkin, &fgSkin_Destroy, &kh_del_fgSkins, &kh_destroy_fgSkins>(self->skinmap);
 }
 size_t FG_FASTCALL fgSkin_AddResource(fgSkin* self, void* resource)
 {

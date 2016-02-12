@@ -53,34 +53,6 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
   return fgWindow_Message((fgWindow*)self,msg);
 }
 
-// Recursive event injection function
-size_t FG_FASTCALL fgRoot_RInject(fgRoot* root, fgChild* self, const FG_Msg* msg, AbsRect* area)
-{
-  AbsRect curarea;
-  fgChild* cur = self->rootnoclip;
-  while(cur) // Go through all our children that aren't being clipped
-  {
-    if(!fgRoot_RInject(root,cur,msg,area)) //pass through the parent area because these aren't clipped
-      return 0; // If the message is NOT rejected, return 0 immediately to indicate we accepted the message.
-    cur=cur->next; // Otherwise the child rejected the message.
-  }
-  assert(msg!=0 && area!=0);
-  ResolveRectCache(&curarea,self,area);
-  if((self->flags&FGCHILD_HIDDEN)!=0 || !MsgHitAbsRect(msg,&curarea)) //If the event completely misses us, or we're hidden, we must reject it
-    return 1;
-
-  cur = self->rootclip;
-  while(cur) // Try to inject to any children we have
-  {
-    if(!fgRoot_RInject(root,cur,msg,&curarea)) // If the message is NOT rejected, return 0 immediately.
-      return 0;
-    cur=cur->next; // Otherwise the child rejected the message.
-  }
-
-  // If we get this far either we have no children, the event missed them all, or they all rejected the event...
-  return (*root->behaviorhook)(self,msg); // So we give the event to ourselves
-}
-
 void FG_FASTCALL fgStandardDraw(fgChild* self, AbsRect* area, int max)
 {
   fgChild* hold = self->last; // we draw backwards through our list.
@@ -110,6 +82,34 @@ void FG_FASTCALL fgStandardDraw(fgChild* self, AbsRect* area, int max)
 
   if(clipping)
     fgPopClipRect();
+}
+
+// Recursive event injection function
+size_t FG_FASTCALL fgRoot_RInject(fgRoot* root, fgChild* self, const FG_Msg* msg, AbsRect* area)
+{
+  AbsRect curarea;
+  fgChild* cur = self->rootnoclip;
+  while(cur) // Go through all our children that aren't being clipped
+  {
+    if(!fgRoot_RInject(root,cur,msg,area)) //pass through the parent area because these aren't clipped
+      return 0; // If the message is NOT rejected, return 0 immediately to indicate we accepted the message.
+    cur=cur->next; // Otherwise the child rejected the message.
+  }
+  assert(msg!=0 && area!=0);
+  ResolveRectCache(&curarea,self,area);
+  if((self->flags&FGCHILD_HIDDEN)!=0 || !MsgHitAbsRect(msg,&curarea)) //If the event completely misses us, or we're hidden, we must reject it
+    return 1;
+
+  cur = self->rootclip;
+  while(cur) // Try to inject to any children we have
+  {
+    if(!fgRoot_RInject(root,cur,msg,&curarea)) // If the message is NOT rejected, return 0 immediately.
+      return 0;
+    cur=cur->next; // Otherwise the child rejected the message.
+  }
+
+  // If we get this far either we have no children, the event missed them all, or they all rejected the event...
+  return (*root->behaviorhook)(self,msg); // So we give the event to ourselves
 }
 
 size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)

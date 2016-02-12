@@ -48,7 +48,7 @@ void FG_FASTCALL fgChild_SetParent(fgChild* BSS_RESTRICT self, fgChild* BSS_REST
 
   if(self->parent != 0)
   {
-    fgChild_VoidMessage(self->parent, FG_LAYOUTREMOVE, self);
+    fgChild_SubMessage(self->parent, FG_LAYOUTCHANGE, FGCHILD_LAYOUTREMOVE, self, 0);
     if(self->parent->lastfocus == self)
       self->parent->lastfocus = 0;
     LList_RemoveAll(self); // Remove ourselves from our parent
@@ -60,7 +60,7 @@ void FG_FASTCALL fgChild_SetParent(fgChild* BSS_RESTRICT self, fgChild* BSS_REST
   if(parent)
   {
     LList_AddAll(self);
-    fgChild_VoidMessage(parent, FG_LAYOUTADD, self);
+    fgChild_SubMessage(parent, FG_LAYOUTCHANGE, FGCHILD_LAYOUTADD, self, 0);
   }
 }
 
@@ -86,32 +86,6 @@ char FG_FASTCALL fgLayout_ExpandY(CRect* selfarea, fgChild* child)
     return 4;
   }
   return 0;
-}
-
-void FG_FASTCALL fgLayout_ResetLayout(fgChild* self, fgChild* exclude)
-{
-  CRect area = self->element.area;
-  fgChild* hold = self->root;
-  if(self->flags & FGCHILD_EXPANDX)
-    area.right.abs = area.left.abs; // Reset area to smallest possible, then re-add everything other than the removed child
-  if(self->flags & FGCHILD_EXPANDY)
-    area.bottom.abs = area.top.abs;
-  char dim = 0;
-
-  while(hold)
-  {
-    if(hold != exclude)
-    {
-      if(self->flags & FGCHILD_EXPANDX)
-        dim |= fgLayout_ExpandX(&area, hold);
-      if(self->flags & FGCHILD_EXPANDY)
-        dim |= fgLayout_ExpandY(&area, hold);
-    }
-    hold = hold->next;
-  }
-
-  if(dim)
-    fgChild_VoidMessage(self, FG_SETAREA, &area);
 }
 
 char FG_FASTCALL fgChild_PotentialResize(fgChild* self)
@@ -150,7 +124,7 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
     if(!msg->other && self->parent != 0) // This is internal, so we must always propagate it up
       fgChild_VoidAuxMessage(self->parent, FG_MOVE, self, msg->otheraux | 1);
     if(msg->otheraux & 1) // A child moved, so recalculate any layouts
-      fgChild_VoidAuxMessage(self, FG_LAYOUTMOVE, msg->other, msg->otheraux);
+      fgChild_SubMessage(self, FG_LAYOUTCHANGE, FGCHILD_LAYOUTMOVE, msg->other, msg->otheraux);
     else if(msg->otheraux) // This was either internal or propagated down, in which case we must keep propagating it down so long as something changed.
     {
       fgChild* ref = !msg->other ? self : (fgChild*)msg->other;
@@ -165,7 +139,7 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
       }
 
       if(msg->otheraux & 0b10000110)
-        fgChild_IntMessage(self, FG_LAYOUTRESIZE, msg->otheraux, 0);
+        fgChild_SubMessage(self, FG_LAYOUTCHANGE, FGCHILD_LAYOUTRESIZE, (void*)msg->otheraux, 0);
     }
     return 0;
   case FG_SETALPHA:
@@ -209,9 +183,9 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
       LList_AddAll(self);
     }
     if(change&FGCHILD_BACKGROUND && self->parent != 0) // If we change the background we either have to add or remove this from the layout
-      fgChild_VoidMessage(self->parent, (self->flags & FGCHILD_BACKGROUND) ? FG_LAYOUTADD : FG_LAYOUTREMOVE, self);
+      fgChild_SubMessage(self->parent, FG_LAYOUTCHANGE, (self->flags & FGCHILD_BACKGROUND) ? FGCHILD_LAYOUTADD : FGCHILD_LAYOUTREMOVE, self, 0);
     if((change&FGCHILD_EXPAND)&self->flags) // If we change the expansion flags, we must recalculate every single child in our layout provided one of the expansion flags is actually set
-      fgLayout_ResetLayout(self, 0);
+      fgChild_SubMessage(self, FG_LAYOUTCHANGE, FGCHILD_LAYOUTRESET, 0, 0);
   }
     return 0;
   case FG_SETMARGIN:
@@ -259,7 +233,8 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
     else
     {
       FG_Msg m = *msg;
-      m.type = FG_LAYOUTREORDER;
+      m.type = FG_LAYOUTCHANGE;
+      m.subtype = FGCHILD_LAYOUTREORDER;
       (*fgroot_instance->behaviorhook)(self, &m);
     }
     return 0; // Otherwise it's just a notification
@@ -279,12 +254,19 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
     if(!msg->other || hold->parent != self)
       return 1;
     return fgChild_VoidMessage((fgChild*)msg->other, FG_SETPARENT, 0);
-  case FG_LAYOUTRESIZE:
-  case FG_LAYOUTADD:
-  case FG_LAYOUTREMOVE:
-  case FG_LAYOUTMOVE:
-  case FG_LAYOUTREORDER:
-    return fgLayout_Default(self, msg);
+  case FG_LAYOUTCHANGE:
+  {
+    CRect area = self->element.area;
+    FG_Msg m = { 0 };
+    m.type = FG_LAYOUTFUNCTION;
+    m.other1 = (void*)msg;
+    m.other2 = &area;
+    if(fgChild_PassMessage(self, &m) != 0)
+      fgChild_VoidMessage(self, FG_SETAREA, &area);
+    return 0;
+  }
+  case FG_LAYOUTFUNCTION:
+    return fgLayout_Default(self, (const FG_Msg*)msg->other1, (CRect*)msg->other2);
   case FG_LAYOUTLOAD:
   {
     fgLayout* layout = (fgLayout*)msg->other1;
@@ -701,42 +683,50 @@ FG_EXTERN size_t FG_FASTCALL fgChild_PassMessage(fgChild* self, const FG_Msg* ms
   return (*fgroot_instance->behaviorhook)(self, msg);
 }
 
-size_t FG_FASTCALL fgLayout_Default(fgChild* self, const FG_Msg* msg)
+FG_EXTERN size_t FG_FASTCALL fgChild_SubMessage(fgChild* self, unsigned char type, unsigned char subtype, void* data, ptrdiff_t aux)
+{
+  FG_Msg msg = { 0 };
+  msg.type = type;
+  msg.subtype = subtype;
+  msg.other = data;
+  msg.otheraux = aux;
+  assert(self != 0);
+  return (*fgroot_instance->behaviorhook)(self, &msg);
+}
+
+size_t FG_FASTCALL fgLayout_Default(fgChild* self, const FG_Msg* msg, CRect* area)
 {
   if(!(self->flags & FGCHILD_EXPAND))
     return 0;
 
   fgChild* child = (fgChild*)msg->other;
 
-  switch(msg->type)
+  switch(msg->subtype)
   {
-  case FG_LAYOUTREORDER:
-  case FG_LAYOUTRESIZE:
+  case FGCHILD_LAYOUTREORDER:
+  case FGCHILD_LAYOUTRESIZE:
     break;
-  case FG_LAYOUTMOVE:
+  case FGCHILD_LAYOUTMOVE:
   {
     FG_Msg m = *msg;
-    m.type = FG_LAYOUTREMOVE;
-    fgLayout_Default(self, &m);
-    m.type = FG_LAYOUTADD;
-    fgLayout_Default(self, &m);
-    break;
+    m.subtype = FGCHILD_LAYOUTREMOVE;
+    size_t dim = fgLayout_Default(self, &m, area);
+    m.subtype = FGCHILD_LAYOUTADD;
+    dim |= fgLayout_Default(self, &m, area);
+    return dim;
   }
-  case FG_LAYOUTADD:
+  case FGCHILD_LAYOUTADD:
   {
     if(child->flags & FGCHILD_BACKGROUND)
       break;
-    CRect area = self->element.area;
     char dim = 0;
     if(self->flags & FGCHILD_EXPANDX)
-      dim |= fgLayout_ExpandX(&area, child);
+      dim |= fgLayout_ExpandX(area, child);
     if(self->flags & FGCHILD_EXPANDY)
-      dim |= fgLayout_ExpandY(&area, child);
-    if(dim)
-      fgChild_VoidMessage(self, FG_SETAREA, &area);
-    break;
+      dim |= fgLayout_ExpandY(area, child);
+    return dim;
   }
-  case FG_LAYOUTREMOVE:
+  case FGCHILD_LAYOUTREMOVE:
   {
     if(child->flags & FGCHILD_BACKGROUND)
       break;
@@ -744,14 +734,41 @@ size_t FG_FASTCALL fgLayout_Default(fgChild* self, const FG_Msg* msg)
     FABS dx = self->element.area.right.abs - self->element.area.left.abs;
     FABS dy = self->element.area.bottom.abs - self->element.area.top.abs;
     if(((self->flags & FGCHILD_EXPANDX) &&
-        childarea->right.rel == childarea->left.rel &&
-        childarea->right.abs >= dx) ||
+      childarea->right.rel == childarea->left.rel &&
+      childarea->right.abs >= dx) ||
       ((self->flags & FGCHILD_EXPANDY) &&
         childarea->bottom.rel == childarea->top.rel &&
         childarea->bottom.abs >= dy))
-      fgLayout_ResetLayout(self, child);
+    {
+      FG_Msg m = *msg;
+      m.subtype = FGCHILD_LAYOUTRESET;
+      m.other = child;
+      return fgLayout_Default(self, &m, area);
+    }
   }
-    break;
+  case FGCHILD_LAYOUTRESET:
+  {
+    fgChild* hold = self->root;
+    if(self->flags & FGCHILD_EXPANDX)
+      area->right.abs = area->left.abs; // Reset area to smallest possible, then re-add everything other than the removed child
+    if(self->flags & FGCHILD_EXPANDY)
+      area->bottom.abs = area->top.abs;
+    char dim = 0;
+
+    while(hold)
+    {
+      if(hold != child)
+      {
+        if(self->flags & FGCHILD_EXPANDX)
+          dim |= fgLayout_ExpandX(area, hold);
+        if(self->flags & FGCHILD_EXPANDY)
+          dim |= fgLayout_ExpandY(area, hold);
+      }
+      hold = hold->next;
+    }
+
+    return dim;
+  }
   }
 
   return 0;
@@ -829,25 +846,25 @@ size_t FG_FASTCALL fgLayout_Tile(fgChild* self, const FG_Msg* msg, char axes)
     else if(!(self->flags & FGCHILD_EXPANDX)) max = out.right - out.left;
   }
 
-  switch(msg->type)
+  switch(msg->subtype)
   {
-  case FG_LAYOUTMOVE:
+  case FGCHILD_LAYOUTMOVE:
     break;
-  case FG_LAYOUTRESIZE:
+  case FGCHILD_LAYOUTRESIZE:
     if((((msg->otherint&0b10) && !(self->flags&FGCHILD_EXPANDX)) || ((msg->otherint & 0b100) && !(self->flags&FGCHILD_EXPANDY))) && (axes & 3))
       fgLayout_TileReorder(0, self->root, axis, max, 0.0f);
     break;
-  case FG_LAYOUTREORDER:
+  case FGCHILD_LAYOUTREORDER:
   {
     fgChild* old = (fgChild*)msg->other2;
     child = child->order < old->order ? child : old; // Get lowest child
     fgLayout_TileReorder(child->prev, child, axis, max, (axes & 3) ? fgLayout_TileGetPitch(child->prev, axis) : 0.0f);
   }
     break;
-  case FG_LAYOUTADD:
+  case FGCHILD_LAYOUTADD:
     fgLayout_TileReorder(child->prev, child, axis, max, (axes & 3) ? fgLayout_TileGetPitch(child->prev, axis) : 0.0f);
     break;
-  case FG_LAYOUTREMOVE:
+  case FGCHILD_LAYOUTREMOVE:
     fgLayout_TileReorder(child->prev, child->next, axis, max, (axes & 3) ? fgLayout_TileGetPitch(child->prev, axis) : 0.0f);
     break;
   }
@@ -859,17 +876,17 @@ size_t FG_FASTCALL fgLayout_Distribute(fgChild* self, const FG_Msg* msg, char ax
 {
   /*switch(msg->type)
   {
-  case FG_LAYOUTMOVE: // we don't handle moving or resizing because we use relative coordinates, so the resize is done for us.
-  case FG_LAYOUTRESIZE:
+  case FGCHILD_LAYOUTMOVE: // we don't handle moving or resizing because we use relative coordinates, so the resize is done for us.
+  case FGCHILD_LAYOUTRESIZE:
     break;
-  case FG_LAYOUTREORDER:
+  case FGCHILD_LAYOUTREORDER:
     //child = child->order<msg->other->order?child:msg->other; // Get lowest child
     fgLayout_DistributeReorder(child->prev, child, axis, num);
     break;
-  case FG_LAYOUTADD:
+  case FGCHILD_LAYOUTADD:
     fgLayout_DistributeReorder(child->prev, child, axis, num);
     break;
-  case FG_LAYOUTREMOVE:
+  case FGCHILD_LAYOUTREMOVE:
     fgLayout_DistributeReorder(child->prev, child->next, axis, num);
     break;
   }*/

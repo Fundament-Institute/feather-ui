@@ -19,13 +19,24 @@ enum FGSCROLLBAR_FLAGS
   FGSCROLLBAR_SHOWY = (1 << 9),
 };
 
+enum FGSCROLLBAR_ACTIONS
+{
+  FGSCROLLBAR_CHANGE = 0, // Triggered by the actual amount shifted
+  FGSCROLLBAR_VDELTA, // vertical mouse wheel
+  FGSCROLLBAR_HDELTA, // horizontal mouse wheel
+  FGSCROLLBAR_PAGE, // PageUp, PageDown, and click on the spaces between the scrollbars. 0 1 2 3 - left top right bottom
+  FGSCROLLBAR_BUTTON, // Clicking the actual buttons. 0 1 2 3 - left top right bottom
+};
+
 // A Scrollbar area acts as a clipping area for a single fgChild.
 typedef struct {
   fgWindow window;
-  fgChild region; // This is the child that gets clipped by the window. This allows us to move it around via the scrollbars.
   fgButton btn[6]; // 0 - up arrow, 1 - down arrow, 2 - vertical slider, 3 - right arrow, 4 - left arrow, 6 - horz slider
-  fgChild bg[3]; // 0 - vertical background, 1 - horizontal background, 2 - corner background
+  fgChild bg[2]; // 0 - vertical background, 1 - horizontal background
   CVec maxdim;
+  AbsRect realpadding; // We have to intercept and store padding amounts here because we hijack the padding to perform scrolling
+  AbsVec barcache; // Stores scrollbar width/height
+  AbsVec realsize; // Stores the total size of the children calculated from the layout.
 } fgScrollbar;
 
 FG_EXTERN void FG_FASTCALL fgScrollbar_Init(fgScrollbar* self, fgChild* parent, const fgElement* element, FG_UINT id, fgFlag flags);

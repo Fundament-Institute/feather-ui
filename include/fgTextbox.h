@@ -5,6 +5,7 @@
 #define __FG_TEXTBOX_H__
 
 #include "fgScrollbar.h"
+#include "fgText.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -13,8 +14,8 @@ extern "C" {
 // A Textbox is really just a text static inside an optional Scrollbar. It can be single or multi-line.
 typedef struct {
   fgScrollbar window;
-  fgChild text; // Get or set the text using GETTEXT or SETTEXT messages
-  fgChild placeholder; // placeholder text displayed when textbox is empty. Use SETTEXT or GETTEXT with the second argument set to 1.
+  fgText text; // Get or set the text using GETTEXT or SETTEXT messages
+  char* placeholder; // placeholder text displayed when textbox is empty. Use SETTEXT or GETTEXT with the second argument set to 1.
   void* selector; // The selector is set using the SETRESOURCE message.
   size_t start; // start of text selection
   size_t end; // end of text selection (or just where the cursor is)

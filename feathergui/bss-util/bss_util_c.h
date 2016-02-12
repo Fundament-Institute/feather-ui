@@ -34,7 +34,7 @@ union bssCPUInfo {
 
 struct tm;
 
-BSS_COMPILER_DLLEXPORT extern union bssCPUInfo BSS_FASTCALL bssGetCPUInfo();
+BSS_COMPILER_DLLEXPORT extern union bssCPUInfo bssGetCPUInfo();
 BSS_COMPILER_DLLEXPORT extern size_t BSS_FASTCALL UTF8toUTF16(const char*BSS_RESTRICT input,wchar_t*BSS_RESTRICT output, size_t buflen);
 BSS_COMPILER_DLLEXPORT extern size_t BSS_FASTCALL UTF16toUTF8(const wchar_t*BSS_RESTRICT input, char*BSS_RESTRICT output, size_t buflen);
 BSS_COMPILER_DLLEXPORT extern size_t BSS_FASTCALL UTF8toUTF32(const char*BSS_RESTRICT input, int*BSS_RESTRICT output, size_t buflen);

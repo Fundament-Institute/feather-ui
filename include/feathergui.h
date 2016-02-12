@@ -110,11 +110,8 @@ enum FG_MSGTYPE
   FG_SETPARENT,
   FG_ADDCHILD, // Pass an FG_Msg with this type and set the other pointer to the child that should be added.
   FG_REMOVECHILD, // Verifies child's parent is this, then sets the child's parent to NULL.
-  FG_LAYOUTRESIZE, // Called when the element is resized
-  FG_LAYOUTADD, // Called when any child is added that needs to have the layout applied to it.
-  FG_LAYOUTREMOVE, // Called when any child is removed that needs to have the layout applied to it.
-  FG_LAYOUTMOVE, // Called when any child is moved so the layout can adjust as necessary.
-  FG_LAYOUTREORDER, // Called when any child is reordered
+  FG_LAYOUTCHANGE, 
+  FG_LAYOUTFUNCTION,
   FG_LAYOUTLOAD, // Loads a layout passed in the first pointer with an optional custom class name resolution function passed into the second pointer of type fgChild* (*)(const char*, fgElement*, fgFlag)
   FG_DRAG, // Sent to initiate a drag&drop
   FG_DRAGGING, // Sent to any element a dragged element is hovering over so it can set the cursor icon.
@@ -347,7 +344,8 @@ typedef struct __FG_MSG {
     struct { ptrdiff_t otherint; ptrdiff_t otherintaux; }; // Used by any generic message that want an int (FG_SETORDER, etc.)
     struct { FABS otherf; FABS otherfaux; };
   };
-  unsigned char type;
+  unsigned short type;
+  unsigned char subtype;
 } FG_Msg;
 
 FG_EXTERN AbsVec FG_FASTCALL ResolveVec(const CVec* v, const AbsRect* last);

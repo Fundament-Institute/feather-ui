@@ -25,13 +25,13 @@
 #include <emmintrin.h> // for SSE intrinsics
 #include <float.h>
 #include <string>
-#ifdef BSS_COMPILER_GCC
-#include <stdlib.h> // For abs(int) on GCC
-#include <fpu_control.h> // for CPU control on GCC
+#ifdef BSS_PLATFORM_POSIX
+#include <stdlib.h> // For abs(int) on POSIX systems
+#include <fpu_control.h> // for FPU control on POSIX systems
 #endif
 
 namespace bss_util { 
-  static const VersionType BSSUTIL_VERSION = { BSS_VERSION_MAJOR,BSS_VERSION_MINOR,BSS_VERSION_REVISION };
+  static const VersionType BSSUTIL_VERSION = { { { BSS_VERSION_MAJOR,BSS_VERSION_MINOR,BSS_VERSION_REVISION } } };
   
   BSS_COMPILER_DLLEXPORT extern void BSS_FASTCALL SetWorkDirToCur(); //Sets the working directory to the actual goddamn location of the EXE instead of the freaking start menu, or possibly the desktop. The possibilities are endless! Fuck you, windows.
   BSS_COMPILER_DLLEXPORT extern void BSS_FASTCALL ForceWin64Crash(); // I can't believe this function exists (forces 64-bit windows to not silently ignore fatal errors)
@@ -351,11 +351,12 @@ namespace bss_util {
     return _mm_cvttsd_si32(_mm_load_sd(&f));
   }
 
+#if defined(BSS_CPU_x86) || defined(BSS_CPU_x86_64) || defined(BSS_CPU_IA_64)
 #ifndef MSC_MANAGED
   BSS_FORCEINLINE static void fSetRounding(bool nearest)
   {
     unsigned int a;
-#ifdef BSS_COMPILER_MSC
+#ifdef BSS_PLATFORM_WIN32
     _controlfp_s(&a, nearest?_RC_NEAR:_RC_CHOP, _MCW_RC);
 #else
     _FPU_GETCW(a);
@@ -366,7 +367,7 @@ namespace bss_util {
   BSS_FORCEINLINE static void fSetDenormal(bool on)
   {
     unsigned int a;
-#ifdef BSS_COMPILER_MSC
+#ifdef BSS_PLATFORM_WIN32
     _controlfp_s(&a, on?_DN_SAVE:_DN_FLUSH, _MCW_DN);
 #else
     _FPU_GETCW(a); // Linux doesn't know what the denormal flags are, so we just hardcode the values in from windows' flags.
@@ -379,18 +380,15 @@ namespace bss_util {
   // Returns true if FPU is in single precision mode and false otherwise (false for both double and extended precision)
   BSS_FORCEINLINE static bool FPUsingle()
   { 
-#if defined(BSS_CPU_x86) || defined(BSS_CPU_x86_64) || defined(BSS_CPU_IA_64)
     unsigned int i;
-#ifdef BSS_COMPILER_GCC
+#ifdef BSS_PLATFORM_WIN32
+    i = _mm_getcsr();
+#else
     _FPU_GETCW(i);
-#elif defined(BSS_COMPILER_MSC)
-    i=_mm_getcsr();
 #endif
     return ((i&(0x0300))==0); //0x0300 is the mask for the precision bits, 0 indicates single precision
-#else
-    return false;
-#endif
   }
+#endif
 
   // Extremely fast rounding function that truncates properly, but only works in double precision mode; see http://stereopsis.com/FPU.html
   /*BSS_FORCEINLINE static int32_t fFastDoubleRound(double val)
@@ -689,7 +687,7 @@ namespace bss_util {
 	  return v + 1;
   }
 
-#ifdef BSS_COMPILER_MSC
+#ifdef BSS_PLATFORM_WIN32
   inline static unsigned int BSS_FASTCALL log2(unsigned int v)
   {
     if(!v) return 0;
@@ -786,9 +784,10 @@ namespace bss_util {
 
   // Basic lerp function with no bounds checking
   template<class T>
-  BSS_FORCEINLINE static T BSS_FASTCALL lerp(T a, T b, double amt)
+  BSS_FORCEINLINE static T BSS_FASTCALL lerp(T a, T b, double t)
   {
-	  return a+((T)((b-a)*amt));
+    return T((1.0 - t)*a) + T(t*b);
+	  //return a+((T)((b-a)*t)); // This is susceptible to floating point errors when t = 1
   }
   
 #ifdef BSS_VARIADIC_TEMPLATES
