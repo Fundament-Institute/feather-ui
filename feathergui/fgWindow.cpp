@@ -9,9 +9,9 @@ fgChild* fgFocusedWindow = 0;
 fgChild* fgLastHover = 0;
 fgChild* fgCaptureWindow = 0;
 
-void FG_FASTCALL fgWindow_Init(fgWindow* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, const fgElement* element)
+void FG_FASTCALL fgWindow_Init(fgWindow* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
 {
-  fgChild_InternalSetup(&self->element, flags, parent, element, (FN_DESTROY)&fgWindow_Destroy, (FN_MESSAGE)&fgWindow_Message);
+  fgChild_InternalSetup(&self->element, flags, parent, prev, element, (FN_DESTROY)&fgWindow_Destroy, (FN_MESSAGE)&fgWindow_Message);
 }
 
 void FG_FASTCALL fgWindow_Destroy(fgWindow* self)

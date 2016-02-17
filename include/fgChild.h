@@ -49,7 +49,7 @@ typedef struct _FG_CHILD {
   struct _FG_CHILD* lastfocus; // Stores the last child that had focus, if any. This never points to the child that CURRENTLY has focus, only to the child that HAD focus.
   AbsRect margin; // defines the amount of external margin.
   AbsRect padding; // Defines the amount of internal padding. Only affects children that DON'T have FGCHILD_BACKGROUND set.
-  int order; // order relative to other windows or statics
+  int index; // Internal index used for layout ordering or vector mapping.
   fgFlag flags;
   const struct __FG_SKIN* skin; // skin reference
   fgVector skinrefs; // Type: fgChild* - References to skin children or subcontrols.
@@ -59,10 +59,10 @@ typedef struct _FG_CHILD {
   void* userdata;
 } fgChild;
 
-FG_EXTERN void FG_FASTCALL fgChild_InternalSetup(fgChild* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, const fgElement* element, void (FG_FASTCALL *destroy)(void*), size_t(FG_FASTCALL *message)(void*, const FG_Msg*));
-FG_EXTERN void FG_FASTCALL fgChild_Init(fgChild* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, const fgElement* element);
+FG_EXTERN void FG_FASTCALL fgChild_InternalSetup(fgChild* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element, void (FG_FASTCALL *destroy)(void*), size_t(FG_FASTCALL *message)(void*, const FG_Msg*));
+FG_EXTERN void FG_FASTCALL fgChild_Init(fgChild* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element);
 FG_EXTERN void FG_FASTCALL fgChild_Destroy(fgChild* self);
-FG_EXTERN void FG_FASTCALL fgChild_SetParent(fgChild* BSS_RESTRICT self, fgChild* BSS_RESTRICT parent);
+FG_EXTERN void FG_FASTCALL fgChild_SetParent(fgChild* BSS_RESTRICT self, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev);
 FG_EXTERN size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg);
 
 FG_EXTERN size_t FG_FASTCALL fgLayout_Default(fgChild* self, const FG_Msg* msg, CRect* area);
@@ -76,11 +76,9 @@ FG_EXTERN size_t FG_FASTCALL fgChild_SubMessage(fgChild* self, unsigned char typ
 
 FG_EXTERN void FG_FASTCALL ResolveRect(const fgChild* self, AbsRect* out);
 FG_EXTERN void FG_FASTCALL ResolveRectCache(AbsRect* BSS_RESTRICT r, const fgChild* elem, const AbsRect* BSS_RESTRICT last);
-//FG_EXTERN char FG_FASTCALL CompChildOrder(const fgChild* l, const fgChild* r);
 FG_EXTERN char FG_FASTCALL MsgHitCRect(const FG_Msg* msg, const fgChild* child);
 FG_EXTERN void FG_FASTCALL LList_RemoveAll(fgChild* self);
-FG_EXTERN void FG_FASTCALL LList_AddAll(fgChild* self);
-FG_EXTERN char FG_FASTCALL LList_ChangeOrderAll(fgChild* self);
+FG_EXTERN void FG_FASTCALL LList_InsertAll(fgChild* BSS_RESTRICT self, fgChild* BSS_RESTRICT prev);
 FG_EXTERN void FG_FASTCALL VirtualFreeChild(fgChild* self);
 FG_EXTERN void FG_FASTCALL fgChild_Clear(fgChild* self);
 FG_EXTERN void FG_FASTCALL fgChild_AddPreChild(fgChild* self, fgChild* child);

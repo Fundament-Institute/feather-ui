@@ -157,5 +157,11 @@
     <ClCompile Include="fgScrollbar.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="fgList.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgTreeView.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

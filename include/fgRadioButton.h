@@ -17,8 +17,8 @@ typedef struct _FG_RADIOBUTTON {
   struct _FG_RADIOBUTTON* radioprev;
 } fgRadiobutton;
 
-FG_EXTERN fgChild* FG_FASTCALL fgRadiobutton_Create(const char* text, fgFlag flags, fgChild* parent, const fgElement* element);
-FG_EXTERN void FG_FASTCALL fgRadiobutton_Init(fgRadiobutton* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, const fgElement* element);
+FG_EXTERN fgChild* FG_FASTCALL fgRadiobutton_Create(const char* text, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element);
+FG_EXTERN void FG_FASTCALL fgRadiobutton_Init(fgRadiobutton* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element);
 FG_EXTERN void FG_FASTCALL fgRadiobutton_Destroy(fgRadiobutton* self);
 FG_EXTERN size_t FG_FASTCALL fgRadiobutton_Message(fgRadiobutton* self, const FG_Msg* msg);
 

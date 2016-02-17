@@ -19,9 +19,11 @@ enum FGLIST_FLAGS
   FGLIST_SINGLESELECT = (1 << 16),
   FGLIST_MULTISELECT = (1 << 17),
   FGLIST_DRAGGABLE = (1 << 18),
+  FGLIST_FIXEDSIZE = (1 << 19), // This is a flag set for you by fgList that tells it that all elements are the same size, which allows for lookup optimizations.
+  FGLIST_LAYOUTMASK = FGLIST_TILEX | FGLIST_TILEY | FGLIST_DISTRIBUTEX | FGLIST_DISTRIBUTEY,
 };
 
-// A List is a list of items that can be sorted into any number of columns and optionally have column headers.
+// A List is an arbitrary list of items with a number of different layout options that are selectable and/or draggable.
 typedef struct {
   fgScrollbar window;
   fgChild selector;
@@ -29,10 +31,10 @@ typedef struct {
   fgChild* selected; // points to current selected item
 } fgList;
 
-FG_EXTERN fgChild* FG_FASTCALL fgList_Create(fgChild* parent, const fgElement* element, FG_UINT id, fgFlag flags);
-FG_EXTERN void FG_FASTCALL fgList_Init(fgList* self, fgChild* parent, const fgElement* element, FG_UINT id, fgFlag flags);
+FG_EXTERN fgChild* FG_FASTCALL fgList_Create(fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element, FG_UINT id, fgFlag flags);
+FG_EXTERN void FG_FASTCALL fgList_Init(fgList* self, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element, FG_UINT id, fgFlag flags);
 FG_EXTERN void FG_FASTCALL fgList_Destroy(fgList* self);
-FG_EXTERN char FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg);
+FG_EXTERN size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg);
 
 #ifdef  __cplusplus
 }

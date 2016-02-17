@@ -19,8 +19,8 @@ typedef struct _FG_PROGRESSBAR {
   FREL value;
 } fgProgressbar;
 
-FG_EXTERN fgChild* FG_FASTCALL fgProgressbar_Create(FREL value, fgFlag flags, fgChild* parent, const fgElement* element);
-FG_EXTERN void FG_FASTCALL fgProgressbar_Init(fgProgressbar* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, const fgElement* element);
+FG_EXTERN fgChild* FG_FASTCALL fgProgressbar_Create(FREL value, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element);
+FG_EXTERN void FG_FASTCALL fgProgressbar_Init(fgProgressbar* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element);
 FG_EXTERN void FG_FASTCALL fgProgressbar_Destroy(fgProgressbar* self);
 FG_EXTERN size_t FG_FASTCALL fgProgressbar_Message(fgProgressbar* self, const FG_Msg* msg);
 

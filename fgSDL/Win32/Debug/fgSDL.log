@@ -1,0 +1,23 @@
+﻿  fgSDL.c
+fgSDL.c(59): warning C4244: 'initializing': conversion from 'const FREL' to 'int', possible loss of data
+fgSDL.c(66): warning C4244: 'initializing': conversion from 'const FABS' to 'int', possible loss of data
+fgSDL.c(67): warning C4244: 'initializing': conversion from 'FABS' to 'int', possible loss of data
+fgSDL.c(78): warning C4244: '=': conversion from 'int' to 'FABS', possible loss of data
+fgSDL.c(79): warning C4244: '=': conversion from 'int' to 'FABS', possible loss of data
+fgSDL.c(97): warning C4028: formal parameter 1 different from declaration
+fgSDL.c(97): warning C4028: formal parameter 3 different from declaration
+fgSDL.c(138): warning C4133: 'return': incompatible types - from 'fgRootSDL *' to 'fgRoot *'
+fgSDL.c(149): warning C4244: 'initializing': conversion from 'FABS' to 'int', possible loss of data
+     Creating library D:\Erik Documents\Visual Studio 2015\Projects\feathergui\bin\fgSDL_d.lib and object D:\Erik Documents\Visual Studio 2015\Projects\feathergui\bin\fgSDL_d.exp
+fgSDL.obj : error LNK2019: unresolved external symbol _SDL_CreateWindow referenced in function @fgInitialize@0
+fgSDL.obj : error LNK2019: unresolved external symbol _SDL_DestroyWindow referenced in function @fgInitialize@0
+fgSDL.obj : error LNK2019: unresolved external symbol _SDL_CreateRenderer referenced in function @fgInitialize@0
+fgSDL.obj : error LNK2019: unresolved external symbol _SDL_QueryTexture referenced in function @fgCreateResource@12
+fgSDL.obj : error LNK2019: unresolved external symbol _SDL_RenderSetClipRect referenced in function _fgPushClipRect
+fgSDL.obj : error LNK2019: unresolved external symbol _SDL_RenderCopy referenced in function @fgDrawResource@28
+fgSDL.obj : error LNK2019: unresolved external symbol _SDL_RenderCopyEx referenced in function @fgDrawResource@28
+fgSDL.obj : error LNK2019: unresolved external symbol _SDL_DestroyTexture referenced in function @fgDestroyResource@4
+fgSDL.obj : error LNK2019: unresolved external symbol _SDL_Init referenced in function @fgInitialize@0
+fgSDL.obj : error LNK2019: unresolved external symbol _SDL_Quit referenced in function @fgInitialize@0
+LIBCMTD.lib(exe_winmain.obj) : error LNK2019: unresolved external symbol _WinMain@16 referenced in function "int __cdecl invoke_main(void)" (?invoke_main@@YAHXZ)
+D:\Erik Documents\Visual Studio 2015\Projects\feathergui\bin\fgSDL_d.exe : fatal error LNK1120: 11 unresolved externals

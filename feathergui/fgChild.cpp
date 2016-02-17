@@ -10,7 +10,7 @@
 
 typedef bss_util::cDynArray<fgChild*, FG_UINT> fgSkinRefArray;
 
-void FG_FASTCALL fgChild_InternalSetup(fgChild* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, const fgElement* element, void (FG_FASTCALL *destroy)(void*), size_t(FG_FASTCALL *message)(void*, const FG_Msg*))
+void FG_FASTCALL fgChild_InternalSetup(fgChild* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element, void (FG_FASTCALL *destroy)(void*), size_t(FG_FASTCALL *message)(void*, const FG_Msg*))
 {
   assert(self != 0);
   memset(self, 0, sizeof(fgChild));
@@ -21,12 +21,12 @@ void FG_FASTCALL fgChild_InternalSetup(fgChild* BSS_RESTRICT self, fgFlag flags,
   self->style = (FG_UINT)-1;
   if(element) self->element = *element;
   fgChild_VoidMessage(self, FG_CONSTRUCT, 0);
-  fgChild_VoidMessage(self, FG_SETPARENT, parent);
+  fgChild_VoidAuxMessage(self, FG_SETPARENT, parent, (ptrdiff_t)prev);
 }
 
-void FG_FASTCALL fgChild_Init(fgChild* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, const fgElement* element)
+void FG_FASTCALL fgChild_Init(fgChild* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
 {
-  fgChild_InternalSetup(self, flags, parent, element, (FN_DESTROY)&fgChild_Destroy, (FN_MESSAGE)&fgChild_Message);
+  fgChild_InternalSetup(self, flags, parent, prev, element, (FN_DESTROY)&fgChild_Destroy, (FN_MESSAGE)&fgChild_Message);
 }
 
 void FG_FASTCALL fgChild_Destroy(fgChild* self)
@@ -36,16 +36,26 @@ void FG_FASTCALL fgChild_Destroy(fgChild* self)
     fgChild_VoidMessage(self, FG_LOSTFOCUS, 0);
 
   fgChild_Clear(self);
-  fgChild_SetParent(self->root, 0);
+  fgChild_SetParent(self->root, 0, 0);
   ((fgSkinRefArray&)self->skinrefs).~cDynArray();
 }
 
-void FG_FASTCALL fgChild_SetParent(fgChild* BSS_RESTRICT self, fgChild* BSS_RESTRICT parent)
+void FG_FASTCALL fgChild_SetParent(fgChild* BSS_RESTRICT self, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev)
 {
   assert(self != 0);
   if(self->parent == parent)
+  {
+    if(self->prev != prev)
+    {
+      assert(self->parent != 0);
+      assert(prev->parent == self->parent);
+      fgChild* old = self->prev;
+      LList_RemoveAll(self);
+      LList_InsertAll(self, prev);
+      fgChild_SubMessage(self->parent, FG_LAYOUTCHANGE, FGCHILD_LAYOUTREORDER, self, (ptrdiff_t)old);
+    }
     return;
-
+  }
   if(self->parent != 0)
   {
     fgChild_SubMessage(self->parent, FG_LAYOUTCHANGE, FGCHILD_LAYOUTREMOVE, self, 0);
@@ -59,7 +69,7 @@ void FG_FASTCALL fgChild_SetParent(fgChild* BSS_RESTRICT self, fgChild* BSS_REST
 
   if(parent)
   {
-    LList_AddAll(self);
+    LList_InsertAll(self, prev);
     fgChild_SubMessage(parent, FG_LAYOUTCHANGE, FGCHILD_LAYOUTADD, self, 0);
   }
 }
@@ -96,18 +106,19 @@ char FG_FASTCALL fgChild_PotentialResize(fgChild* self)
     | ((self->element.area.top.rel != self->element.area.bottom.rel) << 2);
 }
 
-fgChild* FG_FASTCALL fgChild_LoadLayout(fgChild* parent, fgClassLayout* layout, fgChild* (*mapping)(const char*, fgFlag, fgChild*, fgElement*))
+typedef fgChild* (*FN_MAPPING)(const char*, fgFlag, fgChild*, fgChild*, fgElement*);
+
+fgChild* FG_FASTCALL fgChild_LoadLayout(fgChild* parent, fgChild* prev, fgClassLayout* layout, FN_MAPPING mapping)
 {
-  fgChild* child = (*mapping)(layout->style.name, layout->style.flags, parent, &layout->style.element);
+  fgChild* child = (*mapping)(layout->style.name, layout->style.flags, parent, prev, &layout->style.element);
   fgChild_VoidAuxMessage(child, FG_SETSTYLE, &layout->style.style, 2);
 
+  fgChild* p = 0;
   for(FG_UINT i = 0; i < layout->children.l; ++i)
-    fgChild_LoadLayout(child, DynGetP<fgClassLayoutArray>(layout->children, i), mapping);
+    p = fgChild_LoadLayout(child, p, DynGetP<fgClassLayoutArray>(layout->children, i), mapping);
 
   return child;
 }
-
-typedef fgChild* (*FN_MAPPING)(const char*, fgFlag, fgChild*, fgElement*);
 
 size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
 {
@@ -178,9 +189,10 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
     if(change&FGCHILD_IGNORE || change&FGCHILD_NOCLIP)
     {
       self->flags = oldflags;
+      fgChild* old = self->prev;
       LList_RemoveAll(self);
       self->flags = (fgFlag)otherint;
-      LList_AddAll(self);
+      LList_InsertAll(self, old);
     }
     if(change&FGCHILD_BACKGROUND && self->parent != 0) // If we change the background we either have to add or remove this from the layout
       fgChild_SubMessage(self->parent, FG_LAYOUTCHANGE, (self->flags & FGCHILD_BACKGROUND) ? FGCHILD_LAYOUTADD : FGCHILD_LAYOUTREMOVE, self, 0);
@@ -212,34 +224,8 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
         fgChild_VoidAuxMessage(self, FG_MOVE, 0, diff);
     }
     return 0;
-  case FG_SETORDER:
-    if(!msg->other2) // if NULL this isn't a propagation.
-    {
-      self->order = msg->otherint;
-      if(self->parent)
-      {
-        fgChild* old = !self->prev ? self->next : self->prev; // self->next is always valid if we switched places and self->prev is 0.
-        if(!LList_ChangeOrderAll(self)) // Only send a notification if we actually swapped places.
-        {
-          assert(old != 0);
-          FG_Msg m;
-          m.type = FG_SETORDER;
-          m.other1 = self;
-          m.other2 = old;
-          (*fgroot_instance->behaviorhook)(self->parent, &m);
-        }
-      }
-    }
-    else
-    {
-      FG_Msg m = *msg;
-      m.type = FG_LAYOUTCHANGE;
-      m.subtype = FGCHILD_LAYOUTREORDER;
-      (*fgroot_instance->behaviorhook)(self, &m);
-    }
-    return 0; // Otherwise it's just a notification
   case FG_SETPARENT:
-    fgChild_SetParent(self, (fgChild*)msg->other);
+    fgChild_SetParent(self, (fgChild*)msg->other, (fgChild*)msg->other2);
     fgChild_VoidMessage(self, FG_SETSKIN, 0); // re-evaluate our skin
     if(msg->other)
       fgChild_VoidAuxMessage((fgChild*)msg->other, FG_MOVE, 0, fgChild_PotentialResize(self));
@@ -276,8 +262,9 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
     FN_MAPPING mapping = (FN_MAPPING)msg->other2;
     if(!mapping) mapping = &fgLayoutLoadMapping;
 
+    fgChild* prev = 0;
     for(FG_UINT i = 0; i < layout->layout.l; ++i)
-      fgChild_LoadLayout(self, DynGetP<fgClassLayoutArray>(layout->layout, i), mapping);
+      prev = fgChild_LoadLayout(self, prev, DynGetP<fgClassLayoutArray>(layout->layout, i), mapping);
   }
     return 0;
   case FG_CLONE:
@@ -370,10 +357,11 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
       FN_MAPPING mapping = (FN_MAPPING)msg->other2;
       if(!mapping) mapping = &fgLayoutLoadMapping;
 
+      fgChild* child = 0;
       for(FG_UINT i = 0; i < self->skin->children.l; ++i)
       {
         fgStyleLayout* layout = DynGetP<fgStyleLayoutArray>(self->skin->children, i);
-        fgChild* child = (*mapping)(layout->name, layout->flags, self, &layout->element);
+        child = (*mapping)(layout->name, layout->flags, self, child, &layout->element);
         fgChild_VoidAuxMessage(child, FG_SETSTYLE, &layout->style, 2);
         ((fgSkinRefArray&)self->skinrefs).Add(child);
       }
@@ -581,72 +569,17 @@ void FG_FASTCALL LList_Insert(fgChild* self, fgChild* cur, fgChild* prev, fgChil
   else *last = self; // Cur is null if we are at the end of the list, so update last
 }
 
-template<fgChild*&(*PREV)(fgChild*), fgChild*&(*NEXT)(fgChild*)>
-void FG_FASTCALL LList_Add(fgChild* self, fgChild** root, fgChild** last)
+void FG_FASTCALL LList_InsertAll(fgChild* BSS_RESTRICT self, fgChild* BSS_RESTRICT prev)
 {
-  fgChild* cur = *root;
-  fgChild* prev = 0; // Sadly the elegant pointer to pointer method doesn't work for doubly linked lists.
-  assert(self != 0 && root != 0);
-  if(!cur) // We do this check up here because we'd have to do it for the end append check below anyway so we might as well utilize it!
-    LList_Insert<PREV, NEXT>(self, 0, 0, root, last);
-  else if(self->order < (*last)->order) // shortcut for appending to the end of the list
-    LList_Insert<PREV, NEXT>(self, 0, *last, root, last);
-  else
-  {
-    while(cur != 0 && (self->order < cur->order))
-    {
-      prev = cur;
-      cur = NEXT(cur);
-    }
-    LList_Insert<PREV, NEXT>(self, cur, prev, root, last);
-  }
-}
-
-void FG_FASTCALL LList_AddAll(fgChild* self)
-{
-  LList_Add<fgChild_prev, fgChild_next>(self, &self->parent->root, &self->parent->last);
+  fgChild* next = !prev ? self->parent->root : prev->next;
+  LList_Insert<fgChild_prev, fgChild_next>(self, next, prev, &self->parent->root, &self->parent->last);
   if(!(self->flags&FGCHILD_IGNORE))
   {
     if(self->flags&FGCHILD_NOCLIP)
-      LList_Add<fgChild_prevclip, fgChild_nextclip>(self, &self->parent->rootnoclip, &self->parent->lastnoclip);
+      LList_Insert<fgChild_prevclip, fgChild_nextclip>(self, next, prev, &self->parent->rootnoclip, &self->parent->lastnoclip);
     else
-      LList_Add<fgChild_prevclip, fgChild_nextclip>(self, &self->parent->rootclip, &self->parent->lastclip);
+      LList_Insert<fgChild_prevclip, fgChild_nextclip>(self, next, prev, &self->parent->rootclip, &self->parent->lastclip);
   }
-}
-
-template<fgChild*&(*PREV)(fgChild*), fgChild*&(*NEXT)(fgChild*)>
-char FG_FASTCALL LList_ChangeOrder(fgChild* self, fgChild** root, fgChild** last)
-{
-  fgChild* cur = NEXT(self);
-  fgChild* prev = PREV(self);
-  while(cur != 0 && (self->order < cur->order))
-  {
-    prev = cur;
-    cur = NEXT(cur);
-  }
-  while(prev != 0 && (self->order > prev->order))
-  {
-    cur = prev;
-    prev = PREV(prev);
-  }
-
-  if(cur == NEXT(self)) { assert(prev == PREV(self)); return 1; } // we didn't move anywhere
-  LList_Remove<PREV, NEXT>(self, root, last);
-  LList_Insert<PREV, NEXT>(self, cur, prev, root, last);
-  return 0;
-}
-
-char FG_FASTCALL LList_ChangeOrderAll(fgChild* self)
-{
-  char r = LList_ChangeOrder<fgChild_prev, fgChild_next>(self, &self->parent->root, &self->parent->last);
-  if(!(self->flags&FGCHILD_IGNORE))
-  {
-    if(self->flags&FGCHILD_NOCLIP)
-      LList_ChangeOrder<fgChild_prevclip, fgChild_nextclip>(self, &self->parent->rootnoclip, &self->parent->lastnoclip);
-    else
-      LList_ChangeOrder<fgChild_prevclip, fgChild_nextclip>(self, &self->parent->rootclip, &self->parent->lastclip);
-  }
-  return r;
 }
 
 size_t FG_FASTCALL fgChild_VoidMessage(fgChild* self, unsigned char type, void* data)
@@ -755,7 +688,7 @@ size_t FG_FASTCALL fgLayout_Default(fgChild* self, const FG_Msg* msg, CRect* are
       area->bottom.abs = area->top.abs;
     char dim = 0;
 
-    while(hold)
+    while(hold) // O(n) by necessity
     {
       if(hold != child)
       {
@@ -790,7 +723,7 @@ void fgLayout_TileReorder(fgChild* prev, fgChild* child, char axis, FABS max, FA
   fgChild* cur = child;
   char rowbump = 0; // Used to keep track if we've gone down at least one row - this is required for our same position optimization to be valid.
 
-  while(cur)
+  while(cur) // O(n) complexity, but should break after re-ordering becomes unnecessary.
   {
     if(!(cur->flags&FGCHILD_BACKGROUND))
     {
@@ -857,7 +790,7 @@ size_t FG_FASTCALL fgLayout_Tile(fgChild* self, const FG_Msg* msg, char axes)
   case FGCHILD_LAYOUTREORDER:
   {
     fgChild* old = (fgChild*)msg->other2;
-    child = child->order < old->order ? child : old; // Get lowest child
+    child = child->index < old->index ? child : old; // Get lowest child
     fgLayout_TileReorder(child->prev, child, axis, max, (axes & 3) ? fgLayout_TileGetPitch(child->prev, axis) : 0.0f);
   }
     break;

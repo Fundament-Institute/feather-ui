@@ -27,7 +27,7 @@ size_t FG_FASTCALL fgTopWindow_MinimizeMessage(fgButton* self, const FG_Msg* msg
 
 void FG_FASTCALL fgTopWindow_Init(fgTopWindow* self, fgFlag flags, const fgElement* element)
 {
-  fgChild_InternalSetup((fgChild*)self, flags, 0, element, (FN_DESTROY)&fgTopWindow_Destroy, (FN_MESSAGE)&fgTopWindow_Message);
+  fgChild_InternalSetup((fgChild*)self, flags, 0, 0, element, (FN_DESTROY)&fgTopWindow_Destroy, (FN_MESSAGE)&fgTopWindow_Message);
 }
 void FG_FASTCALL fgTopWindow_Destroy(fgTopWindow* self)
 {  
@@ -43,10 +43,10 @@ size_t FG_FASTCALL fgTopWindow_Message(fgTopWindow* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     fgWindow_Message((fgWindow*)self, msg);
     self->dragged = 0;
-    fgText_Init(&self->caption, 0, 0, 0, FGCHILD_BACKGROUND | FGCHILD_IGNORE | FGCHILD_EXPAND, (fgChild*)self, 0);
-    fgButton_Init(&self->controls[0], FGCHILD_BACKGROUND, (fgChild*)self, 0);
-    fgButton_Init(&self->controls[1], FGCHILD_BACKGROUND, (fgChild*)self, 0);
-    fgButton_Init(&self->controls[2], FGCHILD_BACKGROUND, (fgChild*)self, 0);
+    fgText_Init(&self->caption, 0, 0, 0, FGCHILD_BACKGROUND | FGCHILD_IGNORE | FGCHILD_EXPAND, (fgChild*)self, 0, 0);
+    fgButton_Init(&self->controls[0], FGCHILD_BACKGROUND, (fgChild*)self, 0, 0);
+    fgButton_Init(&self->controls[1], FGCHILD_BACKGROUND, (fgChild*)self, 0, 0);
+    fgButton_Init(&self->controls[2], FGCHILD_BACKGROUND, (fgChild*)self, 0, 0);
     fgChild_AddPreChild((fgChild*)self, (fgChild*)&self->caption);
     fgChild_AddPreChild((fgChild*)self, (fgChild*)&self->controls[0]);
     fgChild_AddPreChild((fgChild*)self, (fgChild*)&self->controls[1]);

@@ -21,8 +21,8 @@ typedef struct _FG_CHECKBOX {
   char checked;
 } fgCheckbox;
 
-FG_EXTERN fgChild* FG_FASTCALL fgCheckbox_Create(const char* text, fgFlag flags, fgChild* parent, const fgElement* element);
-FG_EXTERN void FG_FASTCALL fgCheckbox_Init(fgCheckbox* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, const fgElement* element);
+FG_EXTERN fgChild* FG_FASTCALL fgCheckbox_Create(const char* text, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element);
+FG_EXTERN void FG_FASTCALL fgCheckbox_Init(fgCheckbox* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element);
 FG_EXTERN void FG_FASTCALL fgCheckbox_Destroy(fgCheckbox* self);
 FG_EXTERN size_t FG_FASTCALL fgCheckbox_Message(fgCheckbox* self, const FG_Msg* msg);
 

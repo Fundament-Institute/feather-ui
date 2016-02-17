@@ -4,9 +4,9 @@
 #include "fgResource.h"
 #include <stdio.h>
 
-void FG_FASTCALL fgResource_Init(fgResource* self, void* res, const CRect* uv, unsigned int color, fgFlag flags, fgChild* parent, const fgElement* element)
+void FG_FASTCALL fgResource_Init(fgResource* self, void* res, const CRect* uv, unsigned int color, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
 {
-  fgChild_InternalSetup((fgChild*)self, flags, parent, element, (FN_DESTROY)&fgResource_Destroy, (FN_MESSAGE)&fgResource_Message);
+  fgChild_InternalSetup((fgChild*)self, flags, parent, prev, element, (FN_DESTROY)&fgResource_Destroy, (FN_MESSAGE)&fgResource_Message);
   if(color) fgChild_IntMessage((fgChild*)self, FG_SETCOLOR, color, 0);
   if(uv) fgChild_VoidMessage((fgChild*)self, FG_SETUV, (void*)uv);
   if(res) fgChild_VoidMessage((fgChild*)self, FG_SETRESOURCE, res);

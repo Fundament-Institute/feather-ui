@@ -8,30 +8,30 @@
 #include "fgResource.h"
 #include "feathercpp.h"
 
-fgChild* fgLayoutLoadMapping(const char* name, fgFlag flags, fgChild* parent, fgElement* element)
+fgChild* fgLayoutLoadMapping(const char* name, fgFlag flags, fgChild* parent, fgChild* prev, fgElement* element)
 {
   if(!strcmp(name, "fgChild")) { // This could be a hash, but this is low priority as this is never called in a performance critical loop.
     fgChild* r = (fgChild*)malloc(sizeof(fgChild));
-    fgChild_Init(r, flags, parent, element);
+    fgChild_Init(r, flags, parent, prev, element);
     return r;
   }
   else if(!strcmp(name, "fgWindow")) {
     fgWindow* r = (fgWindow*)malloc(sizeof(fgWindow));
-    fgWindow_Init(r, flags, parent, element);
+    fgWindow_Init(r, flags, parent, prev, element);
     return (fgChild*)r;
   }
   else if(!strcmp(name, "fgTopWindow"))
   {
     fgChild* r = fgTopWindow_Create(0, flags, element);
-    fgChild_VoidMessage(r, FG_SETPARENT, parent);
+    fgChild_VoidAuxMessage(r, FG_SETPARENT, parent, (ptrdiff_t)prev);
     return r;
   }
   else if(!strcmp(name, "fgButton"))
-    return fgButton_Create(0, flags, parent, element);
+    return fgButton_Create(0, flags, parent, prev, element);
   else if(!strcmp(name, "fgText"))
-    return fgText_Create(0, 0, 0xFFFFFFFF, flags, parent, element);
+    return fgText_Create(0, 0, 0xFFFFFFFF, flags, parent, prev, element);
   else if(!strcmp(name, "fgResource"))
-    return fgResource_Create(0, 0, 0xFFFFFFFF, flags, parent, element);
+    return fgResource_Create(0, 0, 0xFFFFFFFF, flags, parent, prev, element);
 
   return 0;
 }

@@ -23,8 +23,8 @@ typedef struct _FG_BUTTON {
   fgText text; // text displayed in button
 } fgButton;
 
-FG_EXTERN fgChild* FG_FASTCALL fgButton_Create(const char* text, fgFlag flags, fgChild* parent, const fgElement* element);
-FG_EXTERN void FG_FASTCALL fgButton_Init(fgButton* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, const fgElement* element);
+FG_EXTERN fgChild* FG_FASTCALL fgButton_Create(const char* text, fgFlag flags, fgChild* parent, fgChild* BSS_RESTRICT prev, const fgElement* element);
+FG_EXTERN void FG_FASTCALL fgButton_Init(fgButton* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element);
 FG_EXTERN void FG_FASTCALL fgButton_Destroy(fgButton* self);
 FG_EXTERN size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg);
 

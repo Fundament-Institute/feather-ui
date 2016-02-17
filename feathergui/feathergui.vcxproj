@@ -248,6 +248,7 @@
     <ClCompile Include="fgChild.cpp" />
     <ClCompile Include="fgImplementation.cpp" />
     <ClCompile Include="fgLayout.cpp" />
+    <ClCompile Include="fgList.cpp" />
     <ClCompile Include="fgMenu.cpp" />
     <ClCompile Include="fgProgressbar.cpp" />
     <ClCompile Include="fgRadioButton.cpp" />
@@ -258,6 +259,7 @@
     <ClCompile Include="fgSlider.cpp" />
     <ClCompile Include="fgText.cpp" />
     <ClCompile Include="fgTopWindow.cpp" />
+    <ClCompile Include="fgTreeView.cpp" />
     <ClCompile Include="fgWindow.cpp" />
     <ClCompile Include="ubjson.cpp" />
   </ItemGroup>

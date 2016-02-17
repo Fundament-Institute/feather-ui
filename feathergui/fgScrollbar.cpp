@@ -4,9 +4,9 @@
 #include "fgScrollbar.h"
 #include "bss-util\bss_util.h"
 
-void FG_FASTCALL fgScrollbar_Init(fgScrollbar* self, fgChild* parent, const fgElement* element, FG_UINT id, fgFlag flags)
+void FG_FASTCALL fgScrollbar_Init(fgScrollbar* self, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element, FG_UINT id, fgFlag flags)
 {
-  fgChild_InternalSetup((fgChild*)self, flags, parent, element, (FN_DESTROY)&fgScrollbar_Destroy, (FN_MESSAGE)&fgScrollbar_Message);
+  fgChild_InternalSetup((fgChild*)self, flags, parent, prev, element, (FN_DESTROY)&fgScrollbar_Destroy, (FN_MESSAGE)&fgScrollbar_Message);
 }
 void FG_FASTCALL fgScrollbar_Destroy(fgScrollbar* self)
 {
@@ -26,10 +26,35 @@ void FG_FASTCALL fgScrollbar_Redim(fgScrollbar* self, CRect& area)
 
 void FG_FASTCALL fgScrollbar_Recalc(fgScrollbar* self)
 {
-  // must take it account if the other scrollbar is visible
+  AbsRect r;
+  ResolveRect((fgChild*)self, &r);
+  AbsVec dim = { r.right - r.left, r.bottom - r.top };
 
-  // Append scrollbar - we will already have attempted to increase the area as necessary.
+  bool hideh = !!(self->window.element.flags&FGSCROLLBAR_HIDEH);
+  bool hidev = !!(self->window.element.flags&FGSCROLLBAR_HIDEV);
+
+  // We have to figure out which scrollbars are visible based on flags and our dimensions
+  bool scrollx = !hideh && ((dim.x < self->realsize.x) || self->window.element.flags&FGSCROLLBAR_SHOWH);
+  bool scrolly = !hidev && ((dim.y < self->realsize.y) || self->window.element.flags&FGSCROLLBAR_SHOWV);
+
+  // Now things get tricky - we have to detect if enabling a scrollbar just caused us to shrink past the point where we need the other scrollbar
+  scrollx = scrollx || (!hideh && scrolly && (dim.x < self->realsize.x + self->barcache.x));
+  scrolly = scrolly || (!hidev && scrollx && (dim.y < self->realsize.y + self->barcache.y));
+
+  // If we are appending a scrollbar that didn't exist before, this requires a padding change. This could change everything else (e.g. for textboxes)
+  //if()
+  {
+    
+  }
+  
+  // If we get this far, the padding has already been taken care of - append or remove scrollbars.
+
+
+  // Set bar dimensions appropriately based on dimensions
+
+  // Set bar positions appropriately based on padding
 }
+
 size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
 {
   assert(self != 0 && msg != 0);
@@ -40,14 +65,8 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
     memset(&self->maxdim, 0, sizeof(CVec));
     return 0;
   case FG_MOVE:
-    if(!(msg->otheraux) && (msg->otheraux & 6)) // detect an area change
-    {
-      CRect area = self->window.element.element.area;
-      area.right.abs = area.left.abs + self->realsize.x;
-      area.bottom.abs = area.top.abs + self->realsize.y;
-      fgScrollbar_Redim(self, area); // This appropriately removes the realsize if we aren't using the EXPAND flags, then calls SETAREA
-      fgScrollbar_Recalc(self);
-    }
+    if(!msg->other && (msg->otheraux & 6)) // detect an INTERNAL area change (every other area change will be handled elsewhere)
+      fgScrollbar_Recalc(self); // If we have an actual area change, the scrollbars need to be repositioned or possibly removed entirely.
     break;
   case FG_SETAREA: // The set area only tries to enforce maxdim on the ABS portion. Consequently, responding to dimension changes must be done in FG_MOVE
     if(!msg->other)
@@ -77,8 +96,11 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
       char diff = CompareAbsRects(&self->realpadding, padding);
       memcpy(&self->realpadding, padding, sizeof(AbsRect));
 
-      if(diff)
+      if(diff) // Only send a move message if the change in padding could have resulted in an actual area change (this ensures a scroll delta change will NOT trigger an FG_MOVE)
         fgChild_VoidAuxMessage((fgChild*)self, FG_MOVE, 0, diff);
+      else
+        fgScrollbar_Recalc(self); // Recalculate scrollbar positions
+
     }
     return 0;
   case FG_LAYOUTCHANGE:
@@ -105,7 +127,7 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
     case FGSCROLLBAR_CHANGE: // corresponds to an actual change amount. First argument is x axis, second argument is y axis.
       // apply change to padding
       // clamp
-      // derive new scrollbar positions
+      // Set new padding (which will recalculate scrollbar positions)
       return 0;
     case FGSCROLLBAR_PAGE: // By default a page scroll (clicking on the area outside of the bar or hitting pageup/pagedown) attempts to scroll by the width of the container in that direction.
     {
@@ -118,13 +140,13 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
       if(msg->otherint & 1) m.otherfaux = (r.bottom - r.top)*(msg->otherint == 1 ? -1 : 1);
       return fgChild_PassMessage((fgChild*)self, &m);
     }
-    case FGSCROLLBAR_HDELTA:
-    case FGSCROLLBAR_VDELTA:
+    case FGSCROLLBAR_DELTAH:
+    case FGSCROLLBAR_DELTAV:
     {
       FG_Msg m { 0 };
       m.type = FG_ACTION;
       m.subtype = FGSCROLLBAR_CHANGE;
-      if(msg->subtype == FGSCROLLBAR_HDELTA)
+      if(msg->subtype == FGSCROLLBAR_DELTAH)
         m.otherfaux = msg->otherint;
       else
         m.otherf = msg->otherint;

@@ -20,9 +20,9 @@ KHASH_INIT(fgRadioGroup, fgChild*, fgRadiobutton*, 1, kh_ptr_hash_func, kh_ptr_h
 __inline struct __kh_fgRadioGroup_t* fgRadioGroup_init() { return kh_init_fgRadioGroup(); }
 __inline void fgRadioGroup_destroy(struct __kh_fgRadioGroup_t* p) { kh_destroy_fgRadioGroup(p); }
 
-void FG_FASTCALL fgRadiobutton_Init(fgRadiobutton* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, const fgElement* element)
+void FG_FASTCALL fgRadiobutton_Init(fgRadiobutton* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
 {
-  fgChild_InternalSetup((fgChild*)self, flags, parent, element, (FN_DESTROY)&fgRadiobutton_Destroy, (FN_MESSAGE)&fgRadiobutton_Message);
+  fgChild_InternalSetup((fgChild*)self, flags, parent, prev, element, (FN_DESTROY)&fgRadiobutton_Destroy, (FN_MESSAGE)&fgRadiobutton_Message);
 }
 void FG_FASTCALL fgRadiobutton_Destroy(fgRadiobutton* self)
 {

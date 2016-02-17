@@ -1,6 +1,8 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2012
+# Visual Studio 14
+VisualStudioVersion = 14.0.24720.0
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "feathergui", "feathergui\feathergui.vcxproj", "{65FDFEE1-D190-4A98-B590-55D9FA97E86B}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fgNull", "fgNull\fgNull.vcxproj", "{C967A806-EC07-4800-8C55-7B6CD0066BC8}"
@@ -22,6 +24,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fgLayoutEditor", "fgLayoutE
 	ProjectSection(ProjectDependencies) = postProject
 		{A8D060DE-D5D6-40B1-9F96-401562E8DACD} = {A8D060DE-D5D6-40B1-9F96-401562E8DACD}
 	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fgSDL", "fgSDL\fgSDL.vcxproj", "{987462C6-C518-42F3-938E-C693E8F1644B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -71,6 +75,14 @@ Global
 		{D3B96E3C-5586-49B0-ABA7-09E4F3734A3E}.Release|Win32.Build.0 = Release|Win32
 		{D3B96E3C-5586-49B0-ABA7-09E4F3734A3E}.Release|x64.ActiveCfg = Release|x64
 		{D3B96E3C-5586-49B0-ABA7-09E4F3734A3E}.Release|x64.Build.0 = Release|x64
+		{987462C6-C518-42F3-938E-C693E8F1644B}.Debug|Win32.ActiveCfg = Debug|Win32
+		{987462C6-C518-42F3-938E-C693E8F1644B}.Debug|Win32.Build.0 = Debug|Win32
+		{987462C6-C518-42F3-938E-C693E8F1644B}.Debug|x64.ActiveCfg = Debug|x64
+		{987462C6-C518-42F3-938E-C693E8F1644B}.Debug|x64.Build.0 = Debug|x64
+		{987462C6-C518-42F3-938E-C693E8F1644B}.Release|Win32.ActiveCfg = Release|Win32
+		{987462C6-C518-42F3-938E-C693E8F1644B}.Release|Win32.Build.0 = Release|Win32
+		{987462C6-C518-42F3-938E-C693E8F1644B}.Release|x64.ActiveCfg = Release|x64
+		{987462C6-C518-42F3-938E-C693E8F1644B}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

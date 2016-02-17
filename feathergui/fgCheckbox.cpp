@@ -4,9 +4,9 @@
 #include "fgCheckbox.h"
 #include "fgSkin.h"
 
-FG_EXTERN void FG_FASTCALL fgCheckbox_Init(fgCheckbox* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, const fgElement* element)
+FG_EXTERN void FG_FASTCALL fgCheckbox_Init(fgCheckbox* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
 {
-  fgChild_InternalSetup((fgChild*)self, flags, parent, element, (FN_DESTROY)&fgCheckbox_Destroy, (FN_MESSAGE)&fgCheckbox_Message);
+  fgChild_InternalSetup((fgChild*)self, flags, parent, prev, element, (FN_DESTROY)&fgCheckbox_Destroy, (FN_MESSAGE)&fgCheckbox_Message);
 }
 FG_EXTERN void FG_FASTCALL fgCheckbox_Destroy(fgCheckbox* self)
 {
@@ -19,14 +19,13 @@ FG_EXTERN size_t FG_FASTCALL fgCheckbox_Message(fgCheckbox* self, const FG_Msg* 
   {
   case FG_CONSTRUCT:
     fgWindow_HoverProcess(&self->window, msg);
-    fgChild_Init(&self->check, FGCHILD_EXPAND | FGCHILD_IGNORE | FGCHILD_BACKGROUND, (fgChild*)self, 0);
+    fgChild_Init(&self->check, FGCHILD_EXPAND | FGCHILD_IGNORE | FGCHILD_BACKGROUND, (fgChild*)self, 0, 0);
     fgChild_AddPreChild((fgChild*)self, &self->check);
-    fgChild_Init(&self->indeterminate, FGCHILD_EXPAND | FGCHILD_IGNORE | FGCHILD_BACKGROUND, (fgChild*)self, 0);
+    fgChild_Init(&self->indeterminate, FGCHILD_EXPAND | FGCHILD_IGNORE | FGCHILD_BACKGROUND, (fgChild*)self, 0, 0);
     fgChild_AddPreChild((fgChild*)self, &self->indeterminate);
-    fgText_Init(&self->text, 0, 0, 0, FGCHILD_EXPAND | FGCHILD_IGNORE, (fgChild*)self, &fgElement_CENTER);
-    fgChild_IntMessage((fgChild*)&self->text, FG_SETORDER, 1, 0);
+    fgText_Init(&self->text, 0, 0, 0, FGCHILD_EXPAND | FGCHILD_IGNORE, (fgChild*)self, 0, &fgElement_CENTER);
     fgChild_AddPreChild((fgChild*)self, (fgChild*)&self->text);
-    fgChild_Init(&self->item, FGCHILD_EXPAND | FGCHILD_IGNORE, (fgChild*)self, &fgElement_CENTER);
+    fgChild_Init(&self->item, FGCHILD_EXPAND | FGCHILD_IGNORE, (fgChild*)self, 0, &fgElement_CENTER);
     fgChild_AddPreChild((fgChild*)self, &self->item);
     fgChild_VoidMessage((fgChild*)self, FG_SETSTYLE, "nuetral");
     self->checked = 0;

@@ -15,7 +15,7 @@ void FG_FASTCALL fgRoot_Init(fgRoot* self)
   self->updateroot = 0;
   self->radiohash = fgRadioGroup_init();
   fgroot_instance = self;
-  fgChild_InternalSetup((fgChild*)self, 0, 0, 0, (FN_DESTROY)&fgRoot_Destroy, (FN_MESSAGE)&fgRoot_Message);
+  fgChild_InternalSetup((fgChild*)self, 0, 0, 0, 0, (FN_DESTROY)&fgRoot_Destroy, (FN_MESSAGE)&fgRoot_Message);
 }
 
 void FG_FASTCALL fgRoot_Destroy(fgRoot* self)
@@ -59,7 +59,7 @@ void FG_FASTCALL fgStandardDraw(fgChild* self, AbsRect* area, int max)
   AbsRect curarea;
   char clipping = 0;
 
-  while(hold && hold->order <= max)
+  while(hold && hold->index <= max)
   {
     if(!(hold->flags&FGCHILD_HIDDEN))
     {

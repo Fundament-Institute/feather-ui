@@ -22,7 +22,7 @@ typedef struct FG_IMPLEMENTATION {
   void* (FG_FASTCALL *fgCloneDef)(void* def);
   void (FG_FASTCALL *fgDestroyDef)(void* def);
 
-  fgChild* (FG_FASTCALL *fgButton_Create)(fgChild* item, fgFlag flags, fgChild* parent, const fgElement* element);
+  fgChild* (FG_FASTCALL *fgButton_Create)(fgChild* item, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element);
   fgChild* (FG_FASTCALL *fgTopWindow_Create)(const char* caption, fgFlag flags, const fgElement* element);
   fgRoot* (FG_FASTCALL *fgInitialize)();
   fgRoot* (FG_FASTCALL *fgSingleton)();
@@ -30,7 +30,7 @@ typedef struct FG_IMPLEMENTATION {
   char (FG_FASTCALL *fgLoadExtension)(void* fg, const char* extname);
 
   void (FG_FASTCALL *fgTerminate)(fgRoot* root);
-  void (FG_FASTCALL *fgChild_Init)(fgChild* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, const fgElement* element);
+  void (FG_FASTCALL *fgChild_Init)(fgChild* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element);
   void (FG_FASTCALL *fgChild_Destroy)(fgChild* self);
 } fgImplementation;
 

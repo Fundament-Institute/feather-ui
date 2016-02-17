@@ -106,8 +106,7 @@ enum FG_MSGTYPE
   FG_SETFLAGS, // Sets all the flags to the first int arg.
   FG_SETMARGIN,
   FG_SETPADDING,
-  FG_SETORDER, // Sets the order of a window in the otherint argument
-  FG_SETPARENT,
+  FG_SETPARENT, // Adds this element to the parent in the first argument, inserting it after the child in the second argument, or before the root if the second argument is NULL.
   FG_ADDCHILD, // Pass an FG_Msg with this type and set the other pointer to the child that should be added.
   FG_REMOVECHILD, // Verifies child's parent is this, then sets the child's parent to NULL.
   FG_LAYOUTCHANGE, 

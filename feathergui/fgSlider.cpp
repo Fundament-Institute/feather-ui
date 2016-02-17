@@ -4,9 +4,9 @@
 #include "fgSlider.h"
 #include "bss-util\bss_util.h"
 
-void FG_FASTCALL fgSlider_Init(fgSlider* BSS_RESTRICT self, size_t range, fgFlag flags, fgChild* BSS_RESTRICT parent, const fgElement* element)
+void FG_FASTCALL fgSlider_Init(fgSlider* BSS_RESTRICT self, size_t range, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
 {
-  fgChild_InternalSetup((fgChild*)self, flags, parent, element, (FN_DESTROY)&fgSlider_Destroy, (FN_MESSAGE)&fgSlider_Message);
+  fgChild_InternalSetup((fgChild*)self, flags, parent, prev, element, (FN_DESTROY)&fgSlider_Destroy, (FN_MESSAGE)&fgSlider_Message);
 }
 void FG_FASTCALL fgSlider_Destroy(fgSlider* self)
 {
@@ -19,7 +19,7 @@ size_t FG_FASTCALL fgSlider_Message(fgSlider* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgWindow_Message(&self->window, msg);
-    fgChild_Init(&self->slider, FGCHILD_BACKGROUND, (fgChild*)self, &fgElement_CENTER);
+    fgChild_Init(&self->slider, FGCHILD_BACKGROUND, (fgChild*)self, 0, &fgElement_CENTER);
     fgChild_AddPreChild((fgChild*)self, &self->slider);
     self->value = 0;
     self->range = 0;

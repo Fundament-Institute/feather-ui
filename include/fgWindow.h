@@ -26,7 +26,7 @@ FG_EXTERN fgChild* fgFocusedWindow;
 FG_EXTERN fgChild* fgLastHover; // Last window the mouse moved over, used to generate MOUSEON and MOUSEOFF events
 FG_EXTERN fgChild* fgCaptureWindow;
 
-FG_EXTERN void FG_FASTCALL fgWindow_Init(fgWindow* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, const fgElement* element);
+FG_EXTERN void FG_FASTCALL fgWindow_Init(fgWindow* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element);
 FG_EXTERN void FG_FASTCALL fgWindow_Destroy(fgWindow* self);
 FG_EXTERN size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg);
 FG_EXTERN size_t FG_FASTCALL fgWindow_HoverProcess(fgWindow* self, const FG_Msg* msg);

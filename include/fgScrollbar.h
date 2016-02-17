@@ -13,17 +13,17 @@ extern "C" {
 
 enum FGSCROLLBAR_FLAGS
 {
-  FGSCROLLBAR_VERT = (1 << 6),
-  FGSCROLLBAR_HORZ = (1 << 7),
-  FGSCROLLBAR_SHOWX = (1 << 8),
-  FGSCROLLBAR_SHOWY = (1 << 9),
+  FGSCROLLBAR_HIDEH = (1 << 6), // Never shows the Vertical or Horizontal scrollbar. Overrides SHOWV/SHOWH
+  FGSCROLLBAR_HIDEV = (1 << 7),
+  FGSCROLLBAR_SHOWH = (1 << 8), // Always show the Vertical or Horizontal scrollbar, even if not needed.
+  FGSCROLLBAR_SHOWV = (1 << 9),
 };
 
 enum FGSCROLLBAR_ACTIONS
 {
   FGSCROLLBAR_CHANGE = 0, // Triggered by the actual amount shifted
-  FGSCROLLBAR_VDELTA, // vertical mouse wheel
-  FGSCROLLBAR_HDELTA, // horizontal mouse wheel
+  FGSCROLLBAR_DELTAH, // horizontal mouse wheel
+  FGSCROLLBAR_DELTAV, // vertical mouse wheel
   FGSCROLLBAR_PAGE, // PageUp, PageDown, and click on the spaces between the scrollbars. 0 1 2 3 - left top right bottom
   FGSCROLLBAR_BUTTON, // Clicking the actual buttons. 0 1 2 3 - left top right bottom
 };
@@ -39,7 +39,7 @@ typedef struct {
   AbsVec realsize; // Stores the total size of the children calculated from the layout.
 } fgScrollbar;
 
-FG_EXTERN void FG_FASTCALL fgScrollbar_Init(fgScrollbar* self, fgChild* parent, const fgElement* element, FG_UINT id, fgFlag flags);
+FG_EXTERN void FG_FASTCALL fgScrollbar_Init(fgScrollbar* self, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element, FG_UINT id, fgFlag flags);
 FG_EXTERN void FG_FASTCALL fgScrollbar_Destroy(fgScrollbar* self);
 FG_EXTERN size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg);
 

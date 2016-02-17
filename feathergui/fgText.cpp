@@ -3,9 +3,9 @@
 
 #include "fgText.h"
 
-void FG_FASTCALL fgText_Init(fgText* self, char* text, void* font, unsigned int color, fgFlag flags, fgChild* parent, const fgElement* element)
+void FG_FASTCALL fgText_Init(fgText* self, char* text, void* font, unsigned int color, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
 {
-  fgChild_InternalSetup((fgChild*)self, flags, parent, element, (FN_DESTROY)&fgText_Destroy, (FN_MESSAGE)&fgText_Message);
+  fgChild_InternalSetup((fgChild*)self, flags, parent, prev, element, (FN_DESTROY)&fgText_Destroy, (FN_MESSAGE)&fgText_Message);
 
   if(color) fgChild_IntMessage((fgChild*)self, FG_SETCOLOR, color, 0);
   if(text) fgChild_VoidMessage((fgChild*)self, FG_SETTEXT, text);

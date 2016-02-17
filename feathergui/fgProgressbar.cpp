@@ -4,9 +4,9 @@
 #include "fgProgressbar.h"
 #include "fgSkin.h"
 
-FG_EXTERN void FG_FASTCALL fgProgressbar_Init(fgProgressbar* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, const fgElement* element)
+FG_EXTERN void FG_FASTCALL fgProgressbar_Init(fgProgressbar* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
 {
-  fgChild_InternalSetup((fgChild*)self, flags, parent, element, (FN_DESTROY)&fgProgressbar_Destroy, (FN_MESSAGE)&fgProgressbar_Message);
+  fgChild_InternalSetup((fgChild*)self, flags, parent, prev, element, (FN_DESTROY)&fgProgressbar_Destroy, (FN_MESSAGE)&fgProgressbar_Message);
 }
 
 FG_EXTERN void FG_FASTCALL fgProgressbar_Destroy(fgProgressbar* self)
@@ -23,11 +23,10 @@ FG_EXTERN size_t FG_FASTCALL fgProgressbar_Message(fgProgressbar* self, const FG
   {
   case FG_CONSTRUCT:
     fgWindow_Message(&self->window, msg);
-    fgText_Init(&self->text, 0, 0, 0, FGCHILD_EXPAND | FGCHILD_IGNORE, (fgChild*)self, &fgElement_CENTER);
-    fgChild_IntMessage((fgChild*)&self->text, FG_SETORDER, 1, 0);
-    fgChild_AddPreChild((fgChild*)self, (fgChild*)&self->text);
-    fgChild_Init(&self->bar, FGCHILD_EXPAND | FGCHILD_IGNORE, (fgChild*)self, &fgElement_CENTER);
+    fgChild_Init(&self->bar, FGCHILD_EXPAND | FGCHILD_IGNORE, (fgChild*)self, 0, &fgElement_CENTER);
     fgChild_AddPreChild((fgChild*)self, &self->bar);
+    fgText_Init(&self->text, 0, 0, 0, FGCHILD_EXPAND | FGCHILD_IGNORE, (fgChild*)self, &self->bar, &fgElement_CENTER);
+    fgChild_AddPreChild((fgChild*)self, (fgChild*)&self->text);
     self->value = 0.0f;
     return 0;
   case FG_ADDITEM:
