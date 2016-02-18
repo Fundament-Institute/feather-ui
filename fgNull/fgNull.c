@@ -10,13 +10,13 @@
 #include "fgTopWindow.h"
 
 #if defined(BSS_DEBUG) && defined(BSS_CPU_x86_64)
-#pragma comment(lib, "../bin/feathergui64_d.lib")
-#elif defined(BSS_CPU_x86_64)
-#pragma comment(lib, "../bin/feathergui64.lib")
-#elif defined(BSS_DEBUG)
 #pragma comment(lib, "../bin/feathergui_d.lib")
-#else
+#elif defined(BSS_CPU_x86_64)
 #pragma comment(lib, "../bin/feathergui.lib")
+#elif defined(BSS_DEBUG)
+#pragma comment(lib, "../bin32/feathergui32_d.lib")
+#else
+#pragma comment(lib, "../bin32/feathergui32.lib")
 #endif
 
 fgRoot* _fgroot=0; // fgRoot singleton variable
@@ -42,15 +42,15 @@ void FG_FASTCALL fgResourceSize(void* res, const CRect* uv, AbsVec* dim, fgFlag 
 
 fgChild* FG_FASTCALL fgResource_Create(void* res, const CRect* uv, unsigned int color, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
 {
-  DEFAULT_CREATE(fgResource, fgResource_Init, res, uv, color, flags, parent, element);
+  DEFAULT_CREATE(fgResource, fgResource_Init, res, uv, color, flags, parent, prev, element);
 }
 fgChild* FG_FASTCALL fgText_Create(char* text, void* font, unsigned int color, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
 {
-  DEFAULT_CREATE(fgText, fgText_Init, text, font, color, flags, parent, element);
+  DEFAULT_CREATE(fgText, fgText_Init, text, font, color, flags, parent, prev, element);
 }
 fgChild* FG_FASTCALL fgButton_Create(fgChild* item, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
 {
-  DEFAULT_CREATE(fgButton, fgButton_Init, flags, parent, element);
+  DEFAULT_CREATE(fgButton, fgButton_Init, flags, parent, prev, element);
 }
 fgChild* FG_FASTCALL fgTopWindow_Create(const char* caption, fgFlag flags, const fgElement* element)
 {

@@ -10,13 +10,17 @@
 #include "fgTopWindow.h"
 
 #if defined(BSS_DEBUG) && defined(BSS_CPU_x86_64)
-#pragma comment(lib, "../bin/feathergui64_d.lib")
-#elif defined(BSS_CPU_x86_64)
-#pragma comment(lib, "../bin/feathergui64.lib")
-#elif defined(BSS_DEBUG)
 #pragma comment(lib, "../bin/feathergui_d.lib")
-#else
+#pragma comment(lib, "lib/SDL2_d.lib")
+#elif defined(BSS_CPU_x86_64)
 #pragma comment(lib, "../bin/feathergui.lib")
+#pragma comment(lib, "lib/SDL2.lib")
+#elif defined(BSS_DEBUG)
+#pragma comment(lib, "../bin32/feathergui32_d.lib")
+#pragma comment(lib, "lib/SDL2_32_d.lib")
+#else
+#pragma comment(lib, "../bin32/feathergui32.lib")
+#pragma comment(lib, "lib/SDL2_32.lib")
 #endif
 
 fgRootSDL* _fgroot = 0; // fgRoot singleton variable

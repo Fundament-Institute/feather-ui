@@ -4,6 +4,8 @@
 *.bak
 *.opendb
 bin/
+bin32/
+media/editor/
 feathergui/x64/
 feathergui/Win32/
 fgLayoutEditor/x64/
@@ -15,3 +17,6 @@ fgTest/x64/
 fgTest/Win32/
 fgWinAPI/x64/
 fgWinAPI/Win32/
+fgSDL/x64/
+fgSDL/Win32/
+fgSDL/lib/
