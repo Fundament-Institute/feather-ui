@@ -7,7 +7,7 @@
 #include "fgText.h"
 #include "feathercpp.h"
 
-KHASH_INIT(fgSkins, const char*, fgSkin, 1, kh_str_hash_funcins, kh_str_hash_insequal);
+KHASH_INIT(fgSkins, const char*, fgSkin*, 1, kh_str_hash_funcins, kh_str_hash_insequal);
 KHASH_INIT(fgStyles, const char*, FG_UINT, 1, kh_str_hash_funcins, kh_str_hash_insequal);
 
 static_assert(sizeof(fgStyleLayoutArray) == sizeof(fgVector), "mismatch between vector sizes");
@@ -31,7 +31,8 @@ char FG_FASTCALL DestroyHashElement(HASH* self, khiter_t iter)
 {
   if(kh_exist(self, iter))
   {
-    (*DESTROY)(&kh_val(self, iter));
+    (*DESTROY)(kh_val(self, iter));
+    free(kh_val(self, iter));
     free((char*)kh_key(self, iter));
     (*DEL)(self, iter);
     return 1;
@@ -53,11 +54,11 @@ void FG_FASTCALL DestroyHash(HASH* self)
 void FG_FASTCALL fgSkin_Destroy(fgSkin* self)
 {
   fgStyle_Destroy(&self->style);
-  ((fgResourceArray&)self->resources).~cDynArray();
-  ((fgFontArray&)self->fonts).~cDynArray();
-  ((fgStyleLayoutArray&)self->children).~cDynArray();
-  ((fgSubskinArray&)self->subskins).~cDynArray();
-  ((fgStyleArray&)self->styles).~cDynArray();
+  reinterpret_cast<fgResourceArray&>(self->resources).~cDynArray();
+  reinterpret_cast<fgFontArray&>(self->fonts).~cDynArray();
+  reinterpret_cast<fgStyleLayoutArray&>(self->children).~cDynArray();
+  reinterpret_cast<fgSubskinArray&>(self->subskins).~cDynArray();
+  reinterpret_cast<fgStyleArray&>(self->styles).~cDynArray();
   DestroyHash<kh_fgSkins_t, fgSkin, &fgSkin_Destroy, &kh_del_fgSkins, &kh_destroy_fgSkins>(self->skinmap);
 }
 size_t FG_FASTCALL fgSkin_AddResource(fgSkin* self, void* resource)
@@ -84,7 +85,7 @@ void* FG_FASTCALL fgSkin_GetFont(const fgSkin* self, FG_UINT font)
 {
   return DynGet<fgFontArray>(self->fonts, font).ref;
 }
-size_t FG_FASTCALL fgSkin_AddChild(fgSkin* self, const char* name, fgElement* element, fgFlag flags)
+size_t FG_FASTCALL fgSkin_AddChild(fgSkin* self, const char* name, const fgElement* element, fgFlag flags)
 {
   return ((fgStyleLayoutArray&)self->children).AddConstruct(name, element, flags);
 }
@@ -94,7 +95,7 @@ char FG_FASTCALL fgSkin_RemoveChild(fgSkin* self, FG_UINT child)
 }
 fgStyleLayout* FG_FASTCALL fgSkin_GetChild(const fgSkin* self, FG_UINT child)
 {
-  return DynGetP<fgStyleLayoutArray>(self->children, child);
+  return self->children.p + child;
 }
 
 size_t FG_FASTCALL fgSkin_AddStyle(fgSkin* self, const char* name)
@@ -124,7 +125,7 @@ char FG_FASTCALL fgSkin_RemoveSubSkin(fgSkin* self, FG_UINT subskin)
 }
 fgSkin* FG_FASTCALL fgSkin_GetSubSkin(const fgSkin* self, FG_UINT subskin)
 {
-  return DynGetP<fgSubskinArray>(self->subskins, subskin);
+  return self->subskins.p + subskin;
 }
 
 fgSkin* FG_FASTCALL fgSkin_AddSkin(fgSkin* self, const char* name)
@@ -137,11 +138,12 @@ fgSkin* FG_FASTCALL fgSkin_AddSkin(fgSkin* self, const char* name)
   khiter_t iter = kh_put(fgSkins, self->skinmap, name, &r);
   if(r != 0) // If r is 0 the element already exists so we don't want to re-initialize it
   {
-    fgSkin_Init(&kh_val(self->skinmap, iter));
+    kh_val(self->skinmap, iter) = (fgSkin*)malloc(sizeof(fgSkin));
+    fgSkin_Init(kh_val(self->skinmap, iter));
     kh_key(self->skinmap, iter) = fgCopyText(name);
   }
 
-  return &kh_val(self->skinmap, iter);
+  return kh_val(self->skinmap, iter);
 }
 char FG_FASTCALL fgSkin_RemoveSkin(fgSkin* self, const char* name)
 {
@@ -152,11 +154,13 @@ char FG_FASTCALL fgSkin_RemoveSkin(fgSkin* self, const char* name)
 }
 fgSkin* FG_FASTCALL fgSkin_GetSkin(const fgSkin* self, const char* name)
 {
+  if(!self->skinmap || !name)
+    return 0;
   khiter_t iter = kh_get(fgSkins, self->skinmap, name);
-  return (iter != kh_end(self->skinmap) && kh_exist(self->skinmap, iter)) ? (&kh_val(self->skinmap, iter)) : 0;
+  return (iter != kh_end(self->skinmap) && kh_exist(self->skinmap, iter)) ? kh_val(self->skinmap, iter) : 0;
 }
 
-void FG_FASTCALL fgStyleLayout_Init(fgStyleLayout* self, const char* name, fgElement* element, fgFlag flags)
+void FG_FASTCALL fgStyleLayout_Init(fgStyleLayout* self, const char* name, const fgElement* element, fgFlag flags)
 {
   self->name = fgCopyText(name);
   self->element = *element;
@@ -165,7 +169,7 @@ void FG_FASTCALL fgStyleLayout_Init(fgStyleLayout* self, const char* name, fgEle
 }
 void FG_FASTCALL fgStyleLayout_Destroy(fgStyleLayout* self)
 {
-  free(self->name);
+  if(self->name) free(self->name);
   fgStyle_Destroy(&self->style);
 }
 
@@ -187,8 +191,8 @@ fgStyleMsg* FG_FASTCALL fgStyle_AddStyleMsg(fgStyle* self, const FG_Msg* msg, co
 
   if(arg1)
   {
-    r->msg.other1 = r + 1;
-    memcpy(r->msg.other1, arg1, arglen1);
+    r->msg.other = r + 1;
+    memcpy(r->msg.other, arg1, arglen1);
   }
 
   if(arg2)

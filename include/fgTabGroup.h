@@ -1,8 +1,8 @@
 // Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
-#ifndef __FG_TABGROUP_H__
-#define __FG_TABGROUP_H__
+#ifndef _FG_TABGROUP_H__
+#define _FG_TABGROUP_H__
 
 #include "fgButton.h"
 
@@ -14,6 +14,10 @@ extern "C" {
 typedef struct {
   fgWindow window; // use FG_ADDITEM to add a panel and a name to the tabs. It returns a pointer to the added element you can then use with REMOVEITEM.
   fgChild header; // This is where the radiobuttons are added, allowing the "fgReadioButton" class to be skinned. Uses FG_BACKGROUND so padding can be applied to the panels.
+#ifdef  __cplusplus
+  inline operator fgChild*() { return &window.element; }
+  inline fgChild* operator->() { return operator fgChild*(); }
+#endif
 } fgTabGroup;
 
 FG_EXTERN fgWindow* FG_FASTCALL fgTabGroup_Create(fgWindow* parent, const fgElement* element, FG_UINT id, fgFlag flags);

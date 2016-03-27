@@ -3,6 +3,7 @@
 
 #include "fgTreeView.h"
 #include "bss-util\bss_util.h"
+#include "feathercpp.h"
 
 FG_EXTERN void FG_FASTCALL fgTreeView_Init(fgTreeView* self, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element, FG_UINT id, fgFlag flags)
 {
@@ -29,8 +30,7 @@ FG_EXTERN size_t FG_FASTCALL fgTreeView_Message(fgTreeView* self, const FG_Msg* 
 
     break;
   case FG_ADDITEM:
-    hold->flags &= ~(FGCHILD_EXPANDY);
-    return fgChild_VoidMessage(hold, FG_SETPARENT, self);
+    return fgSendMsg<FG_SETPARENT, void*>(hold, self);
   }
   return fgScrollbar_Message(&self->window, msg);
 }

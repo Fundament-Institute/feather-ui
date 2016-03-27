@@ -15,7 +15,7 @@ void FG_FASTCALL fgRoot_Init(fgRoot* self)
   self->updateroot = 0;
   self->radiohash = fgRadioGroup_init();
   fgroot_instance = self;
-  fgChild_InternalSetup((fgChild*)self, 0, 0, 0, 0, (FN_DESTROY)&fgRoot_Destroy, (FN_MESSAGE)&fgRoot_Message);
+  fgChild_InternalSetup(*self, 0, 0, 0, 0, (FN_DESTROY)&fgRoot_Destroy, (FN_MESSAGE)&fgRoot_Message);
 }
 
 void FG_FASTCALL fgRoot_Destroy(fgRoot* self)
@@ -24,8 +24,28 @@ void FG_FASTCALL fgRoot_Destroy(fgRoot* self)
   fgWindow_Destroy((fgWindow*)self);
 }
 
+void fgRoot_BuildMouseMove(fgRoot* self, FG_Msg* msg)
+{
+}
+
+void FG_FASTCALL fgRoot_CheckMouseMove(fgRoot* self)
+{
+  if(self->mouse.state&FGMOUSE_SEND_MOUSEMOVE)
+  {
+    self->mouse.state &= ~FGMOUSE_SEND_MOUSEMOVE;
+    FG_Msg m = { 0 };
+    m.type = FG_MOUSEMOVE;
+    m.x = self->mouse.x;
+    m.y = self->mouse.y;
+    m.allbtn = self->mouse.buttons;
+    fgRoot_Inject(self, &m);
+  }
+}
+
 size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
 {
+  fgRoot_CheckMouseMove(self);
+
   switch(msg->type)
   {
   case FG_KEYCHAR: // If these messages get sent to the root, they have been rejected from everything else.
@@ -74,8 +94,8 @@ void FG_FASTCALL fgStandardDraw(fgChild* self, AbsRect* area, int max)
         fgPopClipRect();
       }
 
-      ResolveRectCache(&curarea, hold, area);
-      fgChild_VoidMessage(hold, FG_DRAW, &curarea);
+      ResolveRectCache(hold, &curarea, area, (hold->flags & FGCHILD_BACKGROUND) ? 0 : &hold->padding);
+      fgSendMsg<FG_DRAW, void*>(hold, &curarea);
     }
     hold = hold->prev;
   }
@@ -87,6 +107,11 @@ void FG_FASTCALL fgStandardDraw(fgChild* self, AbsRect* area, int max)
 // Recursive event injection function
 size_t FG_FASTCALL fgRoot_RInject(fgRoot* root, fgChild* self, const FG_Msg* msg, AbsRect* area)
 {
+  assert(msg != 0);
+
+  if((self->flags&FGCHILD_HIDDEN) != 0) // If we're hidden we always reject messages no matter what.
+    return 1;
+
   AbsRect curarea;
   fgChild* cur = self->rootnoclip;
   while(cur) // Go through all our children that aren't being clipped
@@ -95,10 +120,13 @@ size_t FG_FASTCALL fgRoot_RInject(fgRoot* root, fgChild* self, const FG_Msg* msg
       return 0; // If the message is NOT rejected, return 0 immediately to indicate we accepted the message.
     cur=cur->next; // Otherwise the child rejected the message.
   }
-  assert(msg!=0 && area!=0);
-  ResolveRectCache(&curarea,self,area);
-  if((self->flags&FGCHILD_HIDDEN)!=0 || !MsgHitAbsRect(msg,&curarea)) //If the event completely misses us, or we're hidden, we must reject it
-    return 1;
+
+  if(area != 0) // If area is null, this was a captured message that is ALWAYS sent to us no matter what.
+  {
+    ResolveRectCache(self, &curarea, area, (self->flags & FGCHILD_BACKGROUND) ? 0 : &self->padding);
+    if(!MsgHitAbsRect(msg, &curarea)) // If the event completely misses us, we must reject it
+      return 1;
+  }
 
   cur = self->rootclip;
   while(cur) // Try to inject to any children we have
@@ -115,8 +143,10 @@ size_t FG_FASTCALL fgRoot_RInject(fgRoot* root, fgChild* self, const FG_Msg* msg
 size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
 {
   assert(self != 0);
+
   CRect* rootarea = &self->gui.element.element.area;
   AbsRect absarea = { rootarea->left.abs, rootarea->top.abs, rootarea->right.abs, rootarea->bottom.abs };
+  fgUpdateMouseState(&self->mouse, msg);
 
   switch(msg->type)
   {
@@ -127,7 +157,7 @@ size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
   case FG_KEYUP:
   case FG_KEYDOWN:
   {
-    fgChild* cur = !fgFocusedWindow ? (fgChild*)self : fgFocusedWindow;
+    fgChild* cur = !fgFocusedWindow ? *self : fgFocusedWindow;
     do
     {
       if(!(*self->behaviorhook)(cur, msg))
@@ -140,23 +170,23 @@ size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
   case FG_MOUSEDOWN:
   case FG_MOUSEUP:
   case FG_MOUSEMOVE:
-    if(self->drag && self->drag->parent == (fgChild*)self)
+    if(self->drag != 0 && self->drag->parent == *self)
     {
       AbsVec pos = { (FABS)msg->x, (FABS)msg->y };
       MoveCRect(pos, &self->drag->element.area);
     }
     if(fgCaptureWindow)
-      if(!(*self->behaviorhook)(fgCaptureWindow,msg))
+      if(!fgRoot_RInject(self, fgCaptureWindow, msg, 0)) // If it's captured, send the message to the captured window with NULL area.
         return 0;
 
-    if(!fgRoot_RInject(self, (fgChild*)self, msg, &absarea))
+    if(!fgRoot_RInject(self, *self, msg, &absarea))
       return 0;
     if(msg->type != FG_MOUSEMOVE)
       break;
   case FG_MOUSELEAVE:
     if(fgLastHover!=0) // If we STILL haven't accepted a mousemove event, send a MOUSEOFF message if lasthover exists
     {
-      fgChild_VoidMessage(fgLastHover, FG_MOUSEOFF, 0);
+      fgSendMsg<FG_MOUSEOFF>(fgLastHover);
       fgLastHover=0;
     }
     break;
@@ -168,6 +198,16 @@ size_t FG_FASTCALL fgRoot_BehaviorDefault(fgChild* self, const FG_Msg* msg)
 {
   assert(self!=0);
   return (*self->message)(self,msg);
+}
+
+FG_EXTERN size_t FG_FASTCALL fgRoot_BehaviorListener(fgChild* self, const FG_Msg* msg)
+{
+  assert(self != 0);
+  size_t ret = (*self->message)(self, msg);
+  khiter_t iter = fgListenerHash.Iterator(std::pair<fgChild*, unsigned short>(self, msg->type));
+  if(fgListenerHash.ExistsIter(iter))
+    fgListenerHash.GetValue(iter)(self, msg);
+  return ret;
 }
 
 void FG_FASTCALL fgTerminate(fgRoot* root)

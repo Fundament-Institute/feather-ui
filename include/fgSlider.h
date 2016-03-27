@@ -1,8 +1,8 @@
 // Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
-#ifndef __FG_SLIDER_H__
-#define __FG_SLIDER_H__
+#ifndef _FG_SLIDER_H__
+#define _FG_SLIDER_H__
 
 #include "fgWindow.h"
 
@@ -16,6 +16,10 @@ typedef struct _FG_SLIDER {
   fgChild slider; //Slider object centered around the current value
   size_t range; // Represents a range from [0,range], INCLUSIVE. Set with FG_SETSTATE and a second argument set to 1
   size_t value;
+#ifdef  __cplusplus
+  inline operator fgChild*() { return &window.element; }
+  inline fgChild* operator->() { return operator fgChild*(); }
+#endif
 } fgSlider;
 
 FG_EXTERN fgChild* FG_FASTCALL fgSlider_Create(size_t range, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element);

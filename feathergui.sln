@@ -26,6 +26,9 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fgLayoutEditor", "fgLayoutE
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fgSDL", "fgSDL\fgSDL.vcxproj", "{987462C6-C518-42F3-938E-C693E8F1644B}"
+	ProjectSection(ProjectDependencies) = postProject
+		{65FDFEE1-D190-4A98-B590-55D9FA97E86B} = {65FDFEE1-D190-4A98-B590-55D9FA97E86B}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

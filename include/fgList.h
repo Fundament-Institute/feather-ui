@@ -1,8 +1,8 @@
 // Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
-#ifndef __FG_LIST_H__
-#define __FG_LIST_H__
+#ifndef _FG_LIST_H__
+#define _FG_LIST_H__
 
 #include "fgScrollbar.h"
 
@@ -29,6 +29,11 @@ typedef struct {
   fgChild selector;
   fgChild hover;
   fgChild* selected; // points to current selected item
+  fgMouseState mouse;
+#ifdef  __cplusplus
+  inline operator fgChild*() { return &window.window.element; }
+  inline fgChild* operator->() { return operator fgChild*(); }
+#endif
 } fgList;
 
 FG_EXTERN fgChild* FG_FASTCALL fgList_Create(fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element, FG_UINT id, fgFlag flags);

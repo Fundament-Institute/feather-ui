@@ -1,8 +1,8 @@
 // Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
-#ifndef __FG_RADIOBUTTON_H__
-#define __FG_RADIOBUTTON_H__
+#ifndef _FG_RADIOBUTTON_H__
+#define _FG_RADIOBUTTON_H__
 
 #include "fgCheckbox.h"
 
@@ -15,6 +15,10 @@ typedef struct _FG_RADIOBUTTON {
   fgCheckbox window; // A radio buton must be a different class for styling purposes.
   struct _FG_RADIOBUTTON* radionext; // Used for the list of radiobuttons in a given fgChild grouping
   struct _FG_RADIOBUTTON* radioprev;
+#ifdef  __cplusplus
+  inline operator fgChild*() { return &window.window.element; }
+  inline fgChild* operator->() { return operator fgChild*(); }
+#endif
 } fgRadiobutton;
 
 FG_EXTERN fgChild* FG_FASTCALL fgRadiobutton_Create(const char* text, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element);

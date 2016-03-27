@@ -1,8 +1,8 @@
 // Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
-#ifndef __FG_CHECKBOX_H__
-#define __FG_CHECKBOX_H__
+#ifndef _FG_CHECKBOX_H__
+#define _FG_CHECKBOX_H__
 
 #include "fgWindow.h"
 #include "fgText.h"
@@ -19,6 +19,10 @@ typedef struct _FG_CHECKBOX {
   fgChild item; // item displayed
   fgText text; // text displayed
   char checked;
+#ifdef  __cplusplus
+  inline operator fgChild*() { return &window.element; }
+  inline fgChild* operator->() { return operator fgChild*(); }
+#endif
 } fgCheckbox;
 
 FG_EXTERN fgChild* FG_FASTCALL fgCheckbox_Create(const char* text, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element);

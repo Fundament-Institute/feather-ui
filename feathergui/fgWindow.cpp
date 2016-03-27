@@ -27,25 +27,24 @@ void FG_FASTCALL fgWindow_Destroy(fgWindow* self)
 
 void FG_FASTCALL fgWindow_DoHoverCalc(fgWindow* self) // This is a seperate function so some controls can force a focus event to instead activate hover instead.
 {
-  if(fgLastHover != (fgChild*)self)
+  if(fgLastHover != *self)
   {
     if(fgLastHover != 0)
-      fgChild_VoidMessage((fgChild*)fgLastHover, FG_MOUSEOFF, 0);
-    fgLastHover = (fgChild*)self;
-    fgChild_VoidMessage((fgChild*)self, FG_MOUSEON, 0);
+      fgSendMsg<FG_MOUSEOFF>(fgLastHover);
+    fgLastHover = *self;
+    fgSendMsg<FG_MOUSEON>(*self);
   }
 }
 
 size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
 {
-  int otherint = msg->otherint;
   assert(self!=0);
   assert(msg!=0);
   
   switch(msg->type)
   {
   case FG_CONSTRUCT:
-    fgChild_Message((fgChild*)self, msg);
+    fgChild_Message(*self, msg);
     self->contextmenu = 0;
     self->name = 0;
     self->tabnext = self->tabprev = self; // This creates an infinite loop of tabbing
@@ -55,16 +54,16 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
     {
       fgWindow* target = (msg->sigkeys & 1) ? self->tabprev : self->tabnext;
       if(target != self)
-        fgChild_VoidMessage((fgChild*)self, FG_GOTFOCUS, 0);
+        fgSendMsg<FG_GOTFOCUS>(*self);
       return 0;
     }
     break;
   case FG_MOUSEDOWN:
     fgWindow_DoHoverCalc(self);
-    if(fgFocusedWindow != (fgChild*)self)
-      fgChild_VoidMessage((fgChild*)self, FG_GOTFOCUS, 0);
+    if(fgFocusedWindow != *self)
+      fgSendMsg<FG_GOTFOCUS>(*self);
     //if(msg->button == FG_MOUSERBUTTON && self->contextmenu != 0)
-    //  fgChild_VoidMessage((fgChild*)self->contextmenu, FG_GOTFOCUS, 0);
+    //  fgSendMsg<FG_GOTFOCUS>(*self->contextmenu);
     return 0;
   case FG_MOUSESCROLL:
     fgWindow_DoHoverCalc(self);
@@ -72,7 +71,11 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
   case FG_MOUSEMOVE:
     fgWindow_DoHoverCalc(self);
     if(fgroot_instance->drag) // Send a dragging message if necessary. Does not initiate a drag for you (this is because some drags are initiated via click and drag, and some are just clicking).
-      fgChild_VoidMessage((fgChild*)self, FG_DRAGGING, fgroot_instance->drag);
+    {
+      FG_Msg m = *msg;
+      m.type = FG_DRAGGING;
+      fgChild_PassMessage(*self, &m);
+    }
     return 0;
   case FG_MOUSEUP: 
   { // Any control that gets a MOUSEUP event immediately fires a MOUSEMOVE event at that location, which will force the focus to shift to a different control if the mouseup occured elsewhere.
@@ -81,26 +84,29 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
     fgRoot_Inject(fgroot_instance, &m);
   }
     if(fgroot_instance->drag != 0) // If necessary, send a drop message to the current control we're hovering over.
-      fgChild_VoidMessage(fgLastHover, FG_DROP, fgroot_instance->drag);
+    {
+      fgSendMsg<FG_DROP, void*>(fgLastHover, fgroot_instance->drag);
+      fgroot_instance->drag = 0; // Ensure the drag pointer is set to NULL even if the target window doesn't understand the FG_DROP message.
+    }
     return 0;
   case FG_GOTFOCUS:
-    if(!fgChild_Message((fgChild*)self, msg)) // checks if we resolved via lastfocus.
+    if(!fgChild_Message(*self, msg)) // checks if we resolved via lastfocus.
       return 0;
     if(fgFocusedWindow) // We do this here so you can disable getting focus by blocking this message without messing things up
-      fgChild_VoidMessage((fgChild*)fgFocusedWindow, FG_LOSTFOCUS, self);
-    fgFocusedWindow = (fgChild*)self;
+      fgSendMsg<FG_LOSTFOCUS, void*>(fgFocusedWindow, self);
+    fgFocusedWindow = *self;
     return 0;
   case FG_LOSTFOCUS:
-    assert(fgFocusedWindow == (fgChild*)self);
-    if(fgFocusedWindow == (fgChild*)self)
+    assert(fgFocusedWindow == *self);
+    if(fgFocusedWindow == *self)
     {
       fgFocusedWindow = 0;
       if(self->element.parent)
       {
         if(!msg->other)
-          fgChild_VoidMessage(self->element.parent, FG_GOTFOCUS, 0);
+          fgSendMsg<FG_GOTFOCUS>(self->element.parent);
         else
-          self->element.parent->lastfocus = (fgChild*)self;
+          self->element.parent->lastfocus = *self;
       }
     }
     return 0;
@@ -110,11 +116,11 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
     if(!hold)
       hold = (fgWindow*)malloc(sizeof(fgWindow));
     hold->contextmenu = hold->contextmenu;
-    fgChild_VoidMessage((fgChild*)hold, FG_SETNAME, self->name);
+    fgSendMsg<FG_SETNAME, void*>(*hold, self->name);
 
     FG_Msg m = *msg;
     m.other = hold;
-    return fgChild_Message((fgChild*)self, msg);
+    return fgChild_Message(*self, msg);
   }
     return 0;
   case FG_GETCLASSNAME:
@@ -122,11 +128,12 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
   case FG_SETNAME:
     if(self->name) free(self->name);
     self->name = fgCopyText((const char*)msg->other);
+    fgSendMsg<FG_SETSKIN, void*>(*self, 0); // force the skin to be recalculated
     return 0;
   case FG_GETNAME:
     return (size_t)self->name;
   }
-  return fgChild_Message((fgChild*)self, msg);
+  return fgChild_Message(*self, msg);
 }
 
 size_t FG_FASTCALL fgWindow_HoverProcess(fgWindow* self, const FG_Msg* msg)
@@ -135,23 +142,23 @@ size_t FG_FASTCALL fgWindow_HoverProcess(fgWindow* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_MOUSEON:
-    fgChild_VoidMessage((fgChild*)self,FG_HOVER,0);
+    fgSendMsg<FG_HOVER>(*self);
     break;
   case FG_MOUSEUP:
     if(MsgHitCRect(msg, &self->element)) // We can get a MOUSEUP when the mouse is outside of the control but we DO NOT fire it unless it's actually in the control.
-      fgChild_VoidMessage((fgChild*)self, FG_ACTION, 0);
-    fgChild_VoidMessage((fgChild*)self, FG_HOVER, 0); // Revert to hover no matter what. The other handler will fire off a mousemove for us that will handle the hover change event.
-    if(fgCaptureWindow == (fgChild*)self) // Remove our control hold on mouse messages.
+      fgSendMsg<FG_ACTION>(*self);
+    fgSendMsg<FG_HOVER>(*self); // Revert to hover no matter what. The other handler will fire off a mousemove for us that will handle the hover change event.
+    if(fgCaptureWindow == *self) // Remove our control hold on mouse messages.
       fgCaptureWindow = 0;
     break;
   case FG_MOUSEOFF:
-    fgChild_VoidMessage((fgChild*)self,FG_NUETRAL, 0);
+    fgSendMsg<FG_NUETRAL>(*self);
     break;
   case FG_MOUSEDOWN:
     if(msg->button == FG_MOUSELBUTTON)
     {
-      fgCaptureWindow = (fgChild*)self;
-      fgChild_VoidMessage((fgChild*)self, FG_ACTIVE, 0);
+      fgCaptureWindow = *self;
+      fgSendMsg<FG_ACTIVE>(*self);
     }
     break;
   }

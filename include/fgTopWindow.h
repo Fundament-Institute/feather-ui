@@ -1,8 +1,8 @@
 // Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
-#ifndef __FG_TOPWINDOW_H__
-#define __FG_TOPWINDOW_H__
+#ifndef _FG_TOPWINDOW_H__
+#define _FG_TOPWINDOW_H__
 
 #include "fgButton.h"
 
@@ -38,6 +38,10 @@ typedef struct {
   CRect prevrect; // Stores where the window was before being maximized
   AbsVec offset; // offset from the mouse cursor for movement
   char dragged; // 1 if currently being dragged by mouse
+#ifdef  __cplusplus
+  inline operator fgChild*() { return &window.element; }
+  inline fgChild* operator->() { return operator fgChild*(); }
+#endif
 } fgTopWindow;
 
 FG_EXTERN fgChild* FG_FASTCALL fgTopWindow_Create(const char* caption, fgFlag flags, const fgElement* element);

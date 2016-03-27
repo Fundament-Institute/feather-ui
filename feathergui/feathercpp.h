@@ -6,8 +6,11 @@
 
 #include "fgResource.h"
 #include "fgText.h"
+#include "fgRoot.h"
 #include "bss-util\cDynArray.h"
 #include "fgLayout.h"
+#include "bss-util\cHash.h"
+#include "bss-util\cAVLtree.h"
 
 template<void* (FG_FASTCALL *CLONE)(void*), void (FG_FASTCALL *DESTROY)(void*)>
 struct fgArbitraryRef
@@ -68,10 +71,10 @@ char DynArrayRemove(T& a, FG_UINT index)
   return 1;
 }
 
-typedef bss_util::cDynArray<typename fgConstruct<fgStyleLayout, const char*, fgElement*, fgFlag>::fgConstructor<fgStyleLayout_Destroy, fgStyleLayout_Init>, size_t, bss_util::CARRAY_CONSTRUCT> fgStyleLayoutArray;
+typedef bss_util::cDynArray<typename fgConstruct<fgStyleLayout, const char*, const fgElement*, fgFlag>::fgConstructor<fgStyleLayout_Destroy, fgStyleLayout_Init>, size_t, bss_util::CARRAY_CONSTRUCT> fgStyleLayoutArray;
 typedef bss_util::cDynArray<typename fgConstruct<fgSkin, int>::fgConstructor<fgSkin_Destroy, fgSubskin_Init>, size_t, bss_util::CARRAY_CONSTRUCT> fgSubskinArray;
 typedef bss_util::cDynArray<typename fgConstruct<fgStyle>::fgConstructor<fgStyle_Destroy, fgStyle_Init>, size_t, bss_util::CARRAY_CONSTRUCT> fgStyleArray;
-typedef bss_util::cDynArray<typename fgConstruct<fgClassLayout, const char*, fgElement*, fgFlag>::fgConstructor<fgClassLayout_Destroy, fgClassLayout_Init>, size_t, bss_util::CARRAY_CONSTRUCT> fgClassLayoutArray;
+typedef bss_util::cDynArray<typename fgConstruct<fgClassLayout, const char*, const fgElement*, fgFlag>::fgConstructor<fgClassLayout_Destroy, fgClassLayout_Init>, size_t, bss_util::CARRAY_CONSTRUCT> fgClassLayoutArray;
 
 struct __kh_fgRadioGroup_t;
 extern __inline struct __kh_fgRadioGroup_t* fgRadioGroup_init();
@@ -80,4 +83,48 @@ extern void fgRadioGroup_destroy(struct __kh_fgRadioGroup_t*);
 struct _FG_ROOT;
 extern struct _FG_ROOT* fgroot_instance;
 
+template<int I, typename T>
+void BSS_FORCEINLINE static fgSendMsgArg(FG_Msg&, T) = delete;
+
+template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<1, const void*>(FG_Msg& msg, const void* p) { msg.other = const_cast<void*>(p); }
+template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<1, void*>(FG_Msg& msg, void* p) { msg.other = p; }
+template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<1, float>(FG_Msg& msg, float p) { msg.otherf = p; }
+template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<1, ptrdiff_t>(FG_Msg& msg, ptrdiff_t p) { msg.otherint = p; }
+
+template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<2, const void*>(FG_Msg& msg, const void* p) { msg.other2 = const_cast<void*>(p); }
+template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<2, void*>(FG_Msg& msg, void* p) { msg.other2 = p; }
+template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<2, float>(FG_Msg& msg, float p) { msg.otherfaux = p; }
+template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<2, size_t>(FG_Msg& msg, size_t p) { msg.otheraux = p; }
+
+template<int I, typename... Args> struct fgSendMsgCall;
+template<int I, typename Arg, typename... Args>
+struct fgSendMsgCall<I, Arg, Args...> {
+  BSS_FORCEINLINE static void F(FG_Msg& msg, Arg arg, Args... args) {
+    fgSendMsgArg<I, Arg>(msg, arg);
+    fgSendMsgCall<I + 1, Args...>::F(msg, args...);
+  }
+};
+template<int I>
+struct fgSendMsgCall<I> { BSS_FORCEINLINE static void F(FG_Msg& msg) {} };
+
+template<FG_MSGTYPE type, typename... Args>
+inline size_t fgSendMsg(fgChild* self, Args... args)
+{
+  FG_Msg msg = { 0 };
+  msg.type = type;
+  fgSendMsgCall<1, Args...>::F(msg, args...);
+  return (*fgroot_instance->behaviorhook)(self, &msg);
+}
+
+template<FG_MSGTYPE type, typename... Args>
+inline size_t fgSendSubMsg(fgChild* self, unsigned char sub, Args... args)
+{
+  FG_Msg msg = { 0 };
+  msg.type = type;
+  msg.subtype = sub;
+  fgSendMsgCall<1, Args...>::F(msg, args...);
+  return (*fgroot_instance->behaviorhook)(self, &msg);
+}
+
+FG_EXTERN bss_util::cHash<std::pair<fgChild*, unsigned short>, void(FG_FASTCALL *)(struct _FG_CHILD*, const FG_Msg*)> fgListenerHash;
 #endif

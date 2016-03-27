@@ -1,8 +1,8 @@
 // Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
-#ifndef __FG_SCROLLBAR_H__
-#define __FG_SCROLLBAR_H__
+#ifndef _FG_SCROLLBAR_H__
+#define _FG_SCROLLBAR_H__
 
 #include "fgWindow.h"
 #include "fgButton.h"
@@ -37,6 +37,10 @@ typedef struct {
   AbsRect realpadding; // We have to intercept and store padding amounts here because we hijack the padding to perform scrolling
   AbsVec barcache; // Stores scrollbar width/height
   AbsVec realsize; // Stores the total size of the children calculated from the layout.
+#ifdef  __cplusplus
+  inline operator fgChild*() { return &window.element; }
+  inline fgChild* operator->() { return operator fgChild*(); }
+#endif
 } fgScrollbar;
 
 FG_EXTERN void FG_FASTCALL fgScrollbar_Init(fgScrollbar* self, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element, FG_UINT id, fgFlag flags);

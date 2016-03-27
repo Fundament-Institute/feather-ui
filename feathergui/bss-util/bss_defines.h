@@ -52,7 +52,7 @@
 // i |= i >> 1; i |= i >> 2; i |= i >> 4; i -= i >> 1; so that it happens during compile time.
 #define T_CHARGETMSB(i) ((((i | (i>>1)) | ((i | (i>>1))>>2)) | (((i | (i>>1)) | ((i | (i>>1))>>2))>>4)) - ((((i | (i>>1)) | ((i | (i>>1))>>2)) | (((i | (i>>1)) | ((i | (i>>1))>>2))>>4))>>1)) // I CAN'T BELIEVE THIS WORKS（ ﾟДﾟ）
 // Round x up to next highest multiple of (t+1), which must be a multiple of 2. For example, to get the next multiple of 8: T_NEXTMULTIPLE(x,7)
-#define T_NEXTMULTIPLE(x,t) ((x+t)&(~t))
+#define T_NEXTMULTIPLE(x,t) (((x)+(t))&(~(t)))
 #define T_SETBIT(w,b,f) (((w) & (~(b))) | ((-(char)f) & (b)))
 #define T_FBNEXT(x) (x + 1 + (x>>1) + (x>>3) - (x>>7))
 #define DYNARRAY(Type,Name,n) Type* Name = (Type*)ALLOCA((n)*sizeof(Type))

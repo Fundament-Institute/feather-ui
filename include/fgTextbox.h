@@ -1,8 +1,8 @@
 // Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
-#ifndef __FG_TEXTBOX_H__
-#define __FG_TEXTBOX_H__
+#ifndef _FG_TEXTBOX_H__
+#define _FG_TEXTBOX_H__
 
 #include "fgScrollbar.h"
 #include "fgText.h"
@@ -16,9 +16,14 @@ typedef struct {
   fgScrollbar window;
   fgText text; // Get or set the text using GETTEXT or SETTEXT messages
   char* placeholder; // placeholder text displayed when textbox is empty. Use SETTEXT or GETTEXT with the second argument set to 1.
-  void* selector; // The selector is set using the SETRESOURCE message.
+  fgColor selector; // Color of the selector rectangle
+  fgColor placecolor; // placeholder text color. Use SETCOLOR with the second argument set to 1.
   size_t start; // start of text selection
   size_t end; // end of text selection (or just where the cursor is)
+#ifdef  __cplusplus
+  inline operator fgChild*() { return &window.window.element; }
+  inline fgChild* operator->() { return operator fgChild*(); }
+#endif
 } fgTextbox;
 
 FG_EXTERN fgWindow* FG_FASTCALL fgTextbox_Create(fgWindow* parent, const fgElement* element, FG_UINT id, fgFlag flags);

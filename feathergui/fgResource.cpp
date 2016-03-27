@@ -3,13 +3,14 @@
 
 #include "fgResource.h"
 #include <stdio.h>
+#include "feathercpp.h"
 
 void FG_FASTCALL fgResource_Init(fgResource* self, void* res, const CRect* uv, unsigned int color, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
 {
-  fgChild_InternalSetup((fgChild*)self, flags, parent, prev, element, (FN_DESTROY)&fgResource_Destroy, (FN_MESSAGE)&fgResource_Message);
-  if(color) fgChild_IntMessage((fgChild*)self, FG_SETCOLOR, color, 0);
-  if(uv) fgChild_VoidMessage((fgChild*)self, FG_SETUV, (void*)uv);
-  if(res) fgChild_VoidMessage((fgChild*)self, FG_SETRESOURCE, res);
+  fgChild_InternalSetup(*self, flags, parent, prev, element, (FN_DESTROY)&fgResource_Destroy, (FN_MESSAGE)&fgResource_Message);
+  if(color) fgChild_IntMessage(*self, FG_SETCOLOR, color, 0);
+  if(uv) fgSendMsg<FG_SETUV, void*>(*self, (void*)uv);
+  if(res) fgSendMsg<FG_SETRESOURCE, void*>(*self, res);
 }
 void FG_FASTCALL fgResource_Destroy(fgResource* self)
 {
@@ -26,8 +27,10 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
     memset(&self->uv, 0, sizeof(CRect));
     self->uv.right.rel = 1.0f;
     self->uv.bottom.rel = 1.0f;
-    self->color = 0;
+    self->color.color = 0;
+    self->edge.color = 0;
     self->res = 0;
+    self->outline = 0;
     return 0;
   case FG_SETUV:
     if(msg->other)
@@ -41,14 +44,25 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
     fgResource_Recalc(self);
     break;
   case FG_SETCOLOR:
-    self->color = msg->otherint;
+    if(msg->otheraux != 0)
+      self->edge.color = msg->otherint;
+    else
+      self->color.color = msg->otherint;
+    break;
+  case FG_SETOUTLINE:
+    self->outline = msg->otherf;
     break;
   case FG_GETUV:
     return (size_t)(&self->uv);
   case FG_GETRESOURCE:
     return (size_t)self->res;
   case FG_GETCOLOR:
-    return self->color;
+    if(msg->otherint != 0)
+      return self->edge.color;
+    else
+      return self->color.color;
+  case FG_GETOUTLINE:
+    return *reinterpret_cast<size_t*>(&self->outline);
   case FG_MOVE:
     if(!(msg->otheraux & 1) && (msg->otheraux&(2 | 4)))
       fgResource_Recalc(self);
@@ -56,7 +70,17 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
   case FG_DRAW:
   {
     AbsVec center = ResolveVec(&self->element.element.center, (AbsRect*)msg->other);
-    fgDrawResource(self->res, &self->uv, self->color, (AbsRect*)msg->other, self->element.element.rotation, &center, self->element.flags);
+    if(self->element.flags&FGRESOURCE_LINE)
+    {
+      AbsRect area = *(AbsRect*)msg->other;
+      area.bottom -= 1;
+      area.right -= 1;
+
+      // TODO: correctly center and rotate the resulting line.
+      fgDrawLine(area.topleft, area.bottomright, self->color.color);
+    }
+    else
+      fgDrawResource(self->res, &self->uv, self->color.color, self->edge.color, self->outline, (AbsRect*)msg->other, self->element.element.rotation, &center, self->element.flags);
   }
     break;
   case FG_GETCLASSNAME:
@@ -91,6 +115,6 @@ void FG_FASTCALL fgResource_Recalc(fgResource* self)
       adjust.right.abs = adjust.left.abs + dim.x;
     if(self->element.flags&FGCHILD_EXPANDY)
       adjust.bottom.abs = adjust.top.abs + dim.y;
-    fgChild_VoidMessage((fgChild*)self, FG_SETAREA, &adjust);
+    fgSendMsg<FG_SETAREA, void*>(*self, &adjust);
   }
 }

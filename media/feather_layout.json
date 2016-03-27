@@ -1,0 +1,24 @@
+{
+  "res": [
+    { "name": "img", "file": "../image.png" }
+  ],
+  "fonts": [
+    { "name": "arial", "font": "Arial", "flags": 0, "size": 14, "line": 14, "spacing": 0 }
+  ],
+  "layout": [
+    { "class": "fgTopWindow",
+      "element": [0,0,0,0,0,1,0,1,0,0,0,0,0],
+      "flags": 0,
+      "styles": [ {"type": 62, "data": ["Test Window"] } ],
+      "children": [
+        { "class": "fgButton",
+          "element": [0,0,0,0,0,1,0,1,0,0,0,0,0],
+          "flags": 0
+        }
+      ]
+    }
+  ],
+  "skin": [
+    
+  ]
+}

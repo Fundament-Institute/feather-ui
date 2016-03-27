@@ -8,7 +8,7 @@
 #include "fgResource.h"
 #include "feathercpp.h"
 
-fgChild* fgLayoutLoadMapping(const char* name, fgFlag flags, fgChild* parent, fgChild* prev, fgElement* element)
+fgChild* fgLayoutLoadMapping(const char* name, fgFlag flags, fgChild* parent, fgChild* prev, const fgElement* element)
 {
   if(!strcmp(name, "fgChild")) { // This could be a hash, but this is low priority as this is never called in a performance critical loop.
     fgChild* r = (fgChild*)malloc(sizeof(fgChild));
@@ -23,7 +23,7 @@ fgChild* fgLayoutLoadMapping(const char* name, fgFlag flags, fgChild* parent, fg
   else if(!strcmp(name, "fgTopWindow"))
   {
     fgChild* r = fgTopWindow_Create(0, flags, element);
-    fgChild_VoidAuxMessage(r, FG_SETPARENT, parent, (ptrdiff_t)prev);
+    fgSendMsg<FG_SETPARENT, void*, void*>(r, parent, prev);
     return r;
   }
   else if(!strcmp(name, "fgButton"))
@@ -42,9 +42,9 @@ void FG_FASTCALL fgLayout_Init(fgLayout* self)
 }
 void FG_FASTCALL fgLayout_Destroy(fgLayout* self)
 {
-  ((fgResourceArray&)self->resources).~cDynArray();
-  ((fgFontArray&)self->fonts).~cDynArray();
-  ((fgClassLayoutArray&)self->layout).~cDynArray();
+  reinterpret_cast<fgResourceArray&>(self->resources).~cDynArray();
+  reinterpret_cast<fgFontArray&>(self->fonts).~cDynArray();
+  reinterpret_cast<fgClassLayoutArray&>(self->layout).~cDynArray();
 }
 FG_UINT FG_FASTCALL fgLayout_AddResource(fgLayout* self, void* resource)
 {
@@ -70,7 +70,7 @@ void* FG_FASTCALL fgLayout_GetFont(fgLayout* self, FG_UINT font)
 {
   return ((fgFontArray&)self->fonts)[font].ref;
 }
-FG_UINT FG_FASTCALL fgLayout_AddLayout(fgLayout* self, const char* name, fgElement* element, fgFlag flags)
+FG_UINT FG_FASTCALL fgLayout_AddLayout(fgLayout* self, const char* name, const fgElement* element, fgFlag flags)
 {
   return ((fgClassLayoutArray&)self->layout).AddConstruct(name, element, flags);
 }
@@ -80,10 +80,10 @@ char FG_FASTCALL fgLayout_RemoveLayout(fgLayout* self, FG_UINT layout)
 }
 fgClassLayout* FG_FASTCALL fgLayout_GetLayout(fgLayout* self, FG_UINT layout)
 {
-  return DynGetP<fgClassLayoutArray>(self->layout, layout);
+  return self->layout.p + layout;
 }
 
-void FG_FASTCALL fgClassLayout_Init(fgClassLayout* self, const char* name, fgElement* element, fgFlag flags)
+void FG_FASTCALL fgClassLayout_Init(fgClassLayout* self, const char* name, const fgElement* element, fgFlag flags)
 {
   fgStyleLayout_Init(&self->style, name, element, flags);
   memset(&self->children, 0, sizeof(fgVector));
@@ -91,10 +91,10 @@ void FG_FASTCALL fgClassLayout_Init(fgClassLayout* self, const char* name, fgEle
 void FG_FASTCALL fgClassLayout_Destroy(fgClassLayout* self)
 {
   fgStyleLayout_Destroy(&self->style);
-  ((fgClassLayoutArray&)self->children).~cDynArray();
+  reinterpret_cast<fgClassLayoutArray&>(self->children).~cDynArray();
 }
 
-FG_UINT FG_FASTCALL fgClassLayout_AddChild(fgClassLayout* self, const char* name, fgElement* element, fgFlag flags)
+FG_UINT FG_FASTCALL fgClassLayout_AddChild(fgClassLayout* self, const char* name, const fgElement* element, fgFlag flags)
 {
   return ((fgClassLayoutArray&)self->children).AddConstruct(name, element, flags);
 }
@@ -104,5 +104,5 @@ char FG_FASTCALL fgClassLayout_RemoveChild(fgClassLayout* self, FG_UINT child)
 }
 fgClassLayout* FG_FASTCALL fgClassLayout_GetChild(fgClassLayout* self, FG_UINT child)
 {
-  return DynGetP<fgClassLayoutArray>(self->children, child);
+  return self->children.p + child;
 }

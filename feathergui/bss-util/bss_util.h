@@ -87,15 +87,15 @@ namespace bss_util {
 
   // template inferred version of T_GETBIT and T_GETBITRANGE
   template<class T>
-  inline static T BSS_FASTCALL GetBitMask(int bit) { return T_GETBIT(T,bit); }
+  inline static T BSS_FASTCALL GetBitMask(int bit) noexcept { return T_GETBIT(T,bit); }
   template<class T>
-  inline static T BSS_FASTCALL GetBitMask(int low, int high) { return T_GETBITRANGE(T,low,high); }
+  inline static T BSS_FASTCALL GetBitMask(int low, int high) noexcept { return T_GETBITRANGE(T,low,high); }
   template<class T>
-  inline static T BSS_FASTCALL bssSetBit(T word, T bit, bool value) { return T_SETBIT(word,bit,value); }
+  inline static T BSS_FASTCALL bssSetBit(T word, T bit, bool value) noexcept { return T_SETBIT(word,bit,value); }
 
   // Replaces one character with another in a string
   template<typename T>
-  inline static T* BSS_FASTCALL strreplace(T* string, const T find, const T replace)
+  inline static T* BSS_FASTCALL strreplace(T* string, const T find, const T replace) noexcept
 	{
     static_assert(std::is_integral<T>::value,"T must be integral");
 		if(!string) return 0;
@@ -115,7 +115,7 @@ namespace bss_util {
 
   // Counts number of occurences of character c in string, up to the null terminator
   template<typename T>
-  inline static size_t BSS_FASTCALL strccount(const T* string, T c)
+  inline static size_t BSS_FASTCALL strccount(const T* string, T c) noexcept
   {
     static_assert(std::is_integral<T>::value,"T must be integral");
     size_t ret=0;
@@ -125,7 +125,7 @@ namespace bss_util {
   
   // Counts number of occurences of character c in string, up to length characters
   template<typename T>
-  inline static size_t BSS_FASTCALL strccount(const T* string, T c, size_t length)
+  inline static size_t BSS_FASTCALL strccount(const T* string, T c, size_t length) noexcept
   {
     static_assert(std::is_integral<T>::value,"T must be integral");
     size_t ret=0;
@@ -136,7 +136,7 @@ namespace bss_util {
 
   // template swap function, h should be optimized out by the compiler
   template<typename T>
-  BSS_FORCEINLINE static void BSS_FASTCALL rswap(T& p, T& q)
+  BSS_FORCEINLINE static void BSS_FASTCALL rswap(T& p, T& q) noexcept
   {
     T h(std::move(p));
     p=std::move(q);
@@ -146,7 +146,7 @@ namespace bss_util {
   // This yields mathematically correct integer division (i/div) towards negative infinity, but only if div is a positive integer. This
   // implementation obviously must have integral types for T and D, but can be explicitely specialized to handle vectors or other structs.
   template<typename T, typename D>
-  inline static T BSS_FASTCALL intdiv(T i, D div) 
+  inline static T BSS_FASTCALL intdiv(T i, D div) noexcept
   { 
     static_assert(std::is_integral<T>::value,"T must be integral");
     static_assert(std::is_integral<D>::value,"D must be integral");
@@ -156,7 +156,7 @@ namespace bss_util {
 
   // Performs a mathematically correct modulo, unlike the modulo operator, which doesn't actually perform modulo, it performs a remainder operation. THANKS GUYS!
   template<typename T> //T must be integral
-  BSS_FORCEINLINE static T BSS_FASTCALL bssmod(T x, T m)
+  BSS_FORCEINLINE static T BSS_FASTCALL bssmod(T x, T m) noexcept
   {
 		static_assert(std::is_signed<T>::value && std::is_integral<T>::value,"T must be a signed integral type or this function is pointless");
     x%=m;
@@ -166,26 +166,26 @@ namespace bss_util {
 
   // Performs a mathematically correct floating point modulo, unlike fmod, which performs a remainder operation, not a modulo operation.
   template<typename T> //T must be floating point
-  BSS_FORCEINLINE static T BSS_FASTCALL bssfmod(T x, T m)
+  BSS_FORCEINLINE static T BSS_FASTCALL bssfmod(T x, T m) noexcept
   {
     static_assert(std::is_floating_point<T>::value, "T must be a floating point type");
     return x - floor(x/m)*m;
   }
   // Uses rswap to reverse the order of an array
   template<typename T>
-  inline static void BSS_FASTCALL bssreverse(T* src, size_t length)
+  inline static void BSS_FASTCALL bssreverse(T* src, size_t length) noexcept
   {
     assert(length>0);
     for(size_t i = 0, j=(--length); i < j; j=length-(++i)) // Equivelent to: for(size_t i = 0,j=length-1; i < j; j=length-1-(++i))
       rswap(src[i],src[j]);
   }
   template<typename T, size_t size>
-  BSS_FORCEINLINE static void BSS_FASTCALL bssreverse(T (&p)[size]) { bssreverse(p,size); }
+  BSS_FORCEINLINE static void BSS_FASTCALL bssreverse(T (&p)[size]) noexcept { bssreverse(p,size); }
 
   /* Trims space from left end of string by returning a different pointer. It is possible to use const char or const wchar_t as a type
      here because the string itself is not modified. */
   template<typename T>
-  inline static T* BSS_FASTCALL strltrim(T* str)
+  inline static T* BSS_FASTCALL strltrim(T* str) noexcept
   {
     static_assert(std::is_integral<T>::value,"T must be integral");
     for(;*str>0 && *str<33;++str);
@@ -194,7 +194,7 @@ namespace bss_util {
   
   // Trims space from right end of string by inserting a null terminator in the appropriate location
   template<typename T>
-  inline static T* BSS_FASTCALL strrtrim(T* str)
+  inline static T* BSS_FASTCALL strrtrim(T* str) noexcept
   {
     static_assert(std::is_integral<T>::value,"T must be integral");
     T* inter=str+strlen(str);
@@ -206,7 +206,7 @@ namespace bss_util {
 
   // Trims space from left and right ends of a string
   template<typename T>
-  BSS_FORCEINLINE static T* BSS_FASTCALL strtrim(T* str)
+  BSS_FORCEINLINE static T* BSS_FASTCALL strtrim(T* str) noexcept
   {
     return strrtrim(strltrim(str));
   }
@@ -258,7 +258,7 @@ namespace bss_util {
   }
 
   // Converts 32-bit unicode int to a series of utf8 encoded characters, appending them to the string
-  inline static void BSS_FASTCALL OutputUnicode(std::string& s, int c)
+  inline static void BSS_FASTCALL OutputUnicode(std::string& s, int c) noexcept
   {
     if(c < 0x0080) s += c;
     else if(c < 0x0800) { s += (0xC0 | c >> (6 * 1)); s += (0x80 | (c & 0x3F)); }
@@ -268,7 +268,7 @@ namespace bss_util {
   }
 
   // Flips the endianness of a memory location
-  BSS_FORCEINLINE static void BSS_FASTCALL flipendian(char* target, char n)
+  BSS_FORCEINLINE static void BSS_FASTCALL flipendian(char* target, char n) noexcept
   {
     char t;
     char end = (n>>1);
@@ -282,17 +282,17 @@ namespace bss_util {
   }
 
   template<int I>
-  BSS_FORCEINLINE static void BSS_FASTCALL flipendian(char* target) { flipendian((char*)target, I); }
-  template<> BSS_FORCEINLINE BSS_EXPLICITSTATIC void BSS_FASTCALL flipendian<0>(char* target) { }
-  template<> BSS_FORCEINLINE BSS_EXPLICITSTATIC void BSS_FASTCALL flipendian<1>(char* target) { }
-  template<> BSS_FORCEINLINE BSS_EXPLICITSTATIC void BSS_FASTCALL flipendian<2>(char* target) { char t = target[0]; target[0] = target[1]; target[1] = t; }
+  BSS_FORCEINLINE static void BSS_FASTCALL flipendian(char* target) noexcept { flipendian((char*)target, I); }
+  template<> BSS_FORCEINLINE BSS_EXPLICITSTATIC void BSS_FASTCALL flipendian<0>(char* target) noexcept { }
+  template<> BSS_FORCEINLINE BSS_EXPLICITSTATIC void BSS_FASTCALL flipendian<1>(char* target) noexcept { }
+  template<> BSS_FORCEINLINE BSS_EXPLICITSTATIC void BSS_FASTCALL flipendian<2>(char* target) noexcept { char t = target[0]; target[0] = target[1]; target[1] = t; }
 
   template<typename T>
-  BSS_FORCEINLINE static void BSS_FASTCALL flipendian(T* target) { flipendian<sizeof(T)>((char*)target); }
+  BSS_FORCEINLINE static void BSS_FASTCALL flipendian(T* target) noexcept { flipendian<sizeof(T)>((char*)target); }
 
     // This is a bit-shift method of calculating the next number in the fibonacci sequence by approximating the golden ratio with 0.6171875 (1/2 + 1/8 - 1/128)
   template<typename T>
-  BSS_FORCEINLINE static T BSS_FASTCALL fbnext(T x)
+  BSS_FORCEINLINE static T BSS_FASTCALL fbnext(T x) noexcept
   {
     static_assert(std::is_integral<T>::value,"T must be integral");
     return T_FBNEXT(x);
@@ -301,21 +301,21 @@ namespace bss_util {
 
   // Gets the sign of any number (0 is assumed to be positive)
   template<typename T>
-  BSS_FORCEINLINE static char BSS_FASTCALL tsign(T n)
+  BSS_FORCEINLINE static char BSS_FASTCALL tsign(T n) noexcept
   {
     return (n >= 0) - (n < 0);
   }
 
   // Gets the sign of any number, where a value of 0 returns 0
   template<typename T>
-  BSS_FORCEINLINE static char BSS_FASTCALL tsignzero(T n)
+  BSS_FORCEINLINE static char BSS_FASTCALL tsignzero(T n) noexcept
   {
     return (n > 0) - (n < 0);
   }
   
   // Gets the shortest distance between two angles in radians
   template<typename T>
-  BSS_FORCEINLINE static T BSS_FASTCALL angledist(T a, T b)
+  BSS_FORCEINLINE static T BSS_FASTCALL angledist(T a, T b) noexcept
   {
     static_assert(std::is_floating_point<T>::value,"T must be float, double, or long double");
     return ((T)PI) - fabs(fmod(fabs(a - b), ((T)PI_DOUBLE)) - ((T)PI));
@@ -323,7 +323,7 @@ namespace bss_util {
   
   // Gets the SIGNED shortest distance between two angles starting with (a - b) in radians
   template<typename T>
-  BSS_FORCEINLINE static T BSS_FASTCALL angledistsgn(T a, T b)
+  BSS_FORCEINLINE static T BSS_FASTCALL angledistsgn(T a, T b) noexcept
   {
     static_assert(std::is_floating_point<T>::value,"T must be float, double, or long double");
     return fmod(bssfmod(b - a, (T)PI_DOUBLE) + ((T)PI), (T)PI_DOUBLE) - ((T)PI);
@@ -331,29 +331,29 @@ namespace bss_util {
 
   // Smart compilers will use SSE2 instructions to eliminate the massive overhead of int -> float conversions. This uses SSE2 instructions
   // to round a float to an integer using whatever the rounding mode currently is (usually it will be round-to-nearest)
-  BSS_FORCEINLINE static int32_t fFastRound(float f)
+  BSS_FORCEINLINE static int32_t fFastRound(float f) noexcept
   {
     return _mm_cvt_ss2si(_mm_load_ss(&f));
   }
 
-  BSS_FORCEINLINE static int32_t fFastRound(double f)
+  BSS_FORCEINLINE static int32_t fFastRound(double f) noexcept
   {
     return _mm_cvtsd_si32(_mm_load_sd(&f));
   }
 
-  BSS_FORCEINLINE static int32_t fFastTruncate(float f)
+  BSS_FORCEINLINE static int32_t fFastTruncate(float f) noexcept
   {
     return _mm_cvtt_ss2si(_mm_load_ss(&f));
   }
 
-  BSS_FORCEINLINE static int32_t fFastTruncate(double f)
+  BSS_FORCEINLINE static int32_t fFastTruncate(double f) noexcept
   {
     return _mm_cvttsd_si32(_mm_load_sd(&f));
   }
 
 #if defined(BSS_CPU_x86) || defined(BSS_CPU_x86_64) || defined(BSS_CPU_IA_64)
 #ifndef MSC_MANAGED
-  BSS_FORCEINLINE static void fSetRounding(bool nearest)
+  BSS_FORCEINLINE static void fSetRounding(bool nearest) noexcept
   {
     unsigned int a;
 #ifdef BSS_PLATFORM_WIN32
@@ -364,7 +364,7 @@ namespace bss_util {
     _FPU_SETCW(a);
 #endif
   }
-  BSS_FORCEINLINE static void fSetDenormal(bool on)
+  BSS_FORCEINLINE static void fSetDenormal(bool on) noexcept
   {
     unsigned int a;
 #ifdef BSS_PLATFORM_WIN32
@@ -378,7 +378,7 @@ namespace bss_util {
 #endif
 
   // Returns true if FPU is in single precision mode and false otherwise (false for both double and extended precision)
-  BSS_FORCEINLINE static bool FPUsingle()
+  BSS_FORCEINLINE static bool FPUsingle() noexcept
   { 
     unsigned int i;
 #ifdef BSS_PLATFORM_WIN32
@@ -413,10 +413,10 @@ namespace bss_util {
 
 	// This is a super fast floating point comparison function with a significantly higher tolerance and no
 	// regard towards the size of the floats.
-	inline static bool BSS_FASTCALL fwidecompare(float fleft, float fright)
+	inline static bool BSS_FASTCALL fwidecompare(float fleft, float fright) noexcept
 	{
-		int32_t left = *(int32_t*)(&fleft); //This maps our float to an int so we can do bitshifting operations on it
-		int32_t right = *(int32_t*)(&fright); //see above
+		int32_t left = *reinterpret_cast<int32_t*>(&fleft); //This maps our float to an int so we can do bitshifting operations on it
+		int32_t right = *reinterpret_cast<int32_t*>(&fright); //see above
 		unsigned char dif = abs((0x7F800000&left)-(0x7F800000&right))>>23; // This grabs the 8 exponent bits and subtracts them.
 		if(dif>1) // An exponent difference of 2 or greater means the numbers are different.
 			return false;
@@ -424,7 +424,7 @@ namespace bss_util {
 	}
 
   // Highly optimized traditional tolerance based approach to comparing floating point numbers, found here: http://www.randydillon.org/Papers/2007/everfast.htm
-  inline static bool BSS_FASTCALL fcompare(float af, float bf, int32_t maxDiff=1)
+  inline static bool BSS_FASTCALL fcompare(float af, float bf, int32_t maxDiff=1) noexcept
   { 
     //assert(af!=0.0f && bf!=0.0f); // Use fsmall for this
     int32_t ai = *reinterpret_cast<int32_t*>(&af);
@@ -437,7 +437,7 @@ namespace bss_util {
     return (v1|v2) >= 0;
   }
 
-  inline static bool BSS_FASTCALL fcompare(double af, double bf, int64_t maxDiff=1)
+  inline static bool BSS_FASTCALL fcompare(double af, double bf, int64_t maxDiff=1) noexcept
   { 
     //assert(af!=0.0 && bf!=0.0); // Use fsmall for this
     int64_t ai = *reinterpret_cast<int64_t*>(&af);
@@ -451,29 +451,29 @@ namespace bss_util {
   }
 
   // This determines if a float is sufficiently close to 0
-  BSS_FORCEINLINE static bool BSS_FASTCALL fsmall(float f, float eps=FLT_EPS)
+  BSS_FORCEINLINE static bool BSS_FASTCALL fsmall(float f, float eps = FLT_EPS) noexcept
   {
-    uint32_t i=((*((uint32_t*)&f))&0x7FFFFFFF); //0x7FFFFFFF strips off the sign bit (which is always the highest bit)
-    uint32_t e=((*((uint32_t*)&eps)));
-    return i<=e; 
+    uint32_t i = ((*reinterpret_cast<uint32_t*>(&f)) & 0x7FFFFFFF); //0x7FFFFFFF strips off the sign bit (which is always the highest bit)
+    uint32_t e = *reinterpret_cast<uint32_t*>(&eps);
+    return i <= e;
   }
 
   // This determines if a double is sufficiently close to 0
-  BSS_FORCEINLINE static bool BSS_FASTCALL fsmall(double f, double eps=DBL_EPS)
+  BSS_FORCEINLINE static bool BSS_FASTCALL fsmall(double f, double eps = DBL_EPS) noexcept
   {
-    uint64_t i=((*((uint64_t*)&f))&0x7FFFFFFFFFFFFFFF); //0x7FFFFFFFFFFFFFFF strips off the sign bit (which is always the highest bit)
-    uint64_t e=((*((uint64_t*)&eps)));
-    return i<=e; 
+    uint64_t i = ((*reinterpret_cast<uint64_t*>(&f)) & 0x7FFFFFFFFFFFFFFF); //0x7FFFFFFFFFFFFFFF strips off the sign bit (which is always the highest bit)
+    uint64_t e = *reinterpret_cast<uint64_t*>(&eps);
+    return i <= e;
   }
 
-  inline static bool BSS_FASTCALL fcomparesmall(float af, float bf, int32_t maxDiff=1, float eps = FLT_EPS)
+  inline static bool BSS_FASTCALL fcomparesmall(float af, float bf, int32_t maxDiff=1, float eps = FLT_EPS) noexcept
   {
     if(af==0.0) return fsmall(bf, eps);
     if(bf==0.0) return fsmall(af, eps);
     return fcompare(af, bf, maxDiff);
   }
 
-  inline static bool BSS_FASTCALL fcomparesmall(double af, double bf, int64_t maxDiff=1, double eps = DBL_EPS)
+  inline static bool BSS_FASTCALL fcomparesmall(double af, double bf, int64_t maxDiff=1, double eps = DBL_EPS) noexcept
   {
     if(af==0.0) return fsmall(bf, eps);
     if(bf==0.0) return fsmall(af, eps);
@@ -481,7 +481,7 @@ namespace bss_util {
   }
 
   // This is a super fast length approximation for 2D coordinates; See http://www.azillionmonkeys.com/qed/sqroot.html for details (Algorithm by Paul Hsieh)
-  inline static float BSS_FASTCALL flength(float x, float y)
+  inline static float BSS_FASTCALL flength(float x, float y) noexcept
   {
     x = fabs(x);
     y = fabs(y);
@@ -491,44 +491,44 @@ namespace bss_util {
   }
   
   // The classic fast square root approximation, which is often mistakenly attributed to John Carmack. The algorithm is in fact over 15 years old and no one knows where it came from.
-  inline static float BSS_FASTCALL fFastSqrt(float number)
+  inline static float BSS_FASTCALL fFastSqrt(float number) noexcept
   {
     const float f = 1.5F;
     int32_t i;
     float x, y;
 
     x = number * 0.5F;
-    y  = number;
-    i  = * ( int32_t * ) &y;
-    i  = 0x5f3759df - ( i >> 1 );
-    y  = * ( float * ) &i;
-    y  = y * ( f - ( x * y * y ) );
-    y  = y * ( f - ( x * y * y ) ); //extra iteration for added accuracy
+    y = number;
+    i = *reinterpret_cast<int32_t*>(&y);
+    i = 0x5f3759df - (i >> 1);
+    y = *(float *)&i;
+    y = y * (f - (x * y * y));
+    y = y * (f - (x * y * y)); //extra iteration for added accuracy
     return number * y;
   }
 
   // Adaptation of the class fast square root approximation for double precision, based on http://www.azillionmonkeys.com/qed/sqroot.html
-  inline static double BSS_FASTCALL dFastSqrt(double number)
+  inline static double BSS_FASTCALL dFastSqrt(double number) noexcept
   {
     const double f = 1.5;
     uint32_t* i;
     double x, y;
 
     x = number*0.5;
-	  y = number;
-    i = ((uint32_t *)&y) + 1;
-	  *i = (0xbfcdd90a - *i)>>1; // estimate of 1/sqrt(number)
+    y = number;
+    i = reinterpret_cast<uint32_t*>(&y) + 1;
+    *i = (0xbfcdd90a - *i) >> 1; // estimate of 1/sqrt(number)
 
-    y = y * ( f - ( x * y * y ) );
-    y = y * ( f - ( x * y * y ) );
-    y = y * ( f - ( x * y * y ) ); //Newton raphson converges quadratically, so one additional iteration doubles the precision
+    y = y * (f - (x * y * y));
+    y = y * (f - (x * y * y));
+    y = y * (f - (x * y * y)); //Newton raphson converges quadratically, so one additional iteration doubles the precision
     //y = y * ( f - ( x * y * y ) ); 
     return number * y;
   }
 
   // bit-twiddling based method of calculating an integral square root from Wilco Dijkstra - http://www.finesse.demon.co.uk/steven/sqrt.html
   template<typename T, size_t bits> // WARNING: bits should be HALF the actual number of bits in (T)!
-  inline static T BSS_FASTCALL IntFastSqrt(T n)
+  inline static T BSS_FASTCALL IntFastSqrt(T n) noexcept
   {
     static_assert(std::is_integral<T>::value,"T must be integral");
     T root = 0, t;
@@ -545,34 +545,34 @@ namespace bss_util {
     return root >> 1;
   }
   template<typename T>
-  BSS_FORCEINLINE static T BSS_FASTCALL IntFastSqrt(T n)
+  BSS_FORCEINLINE static T BSS_FASTCALL IntFastSqrt(T n) noexcept
   {
     return IntFastSqrt<T,sizeof(T)<<2>(n); //done to ensure loop gets unwound (the bit conversion here is <<2 because the function wants HALF the bits in T, so <<3 >>1 -> <<2)
   }
   
   template<typename T> //assumes integer type if not one of the floating point types
-  BSS_FORCEINLINE static T BSS_FASTCALL FastSqrt(T n) { return IntFastSqrt(n); } //Picks correct method for calculating any square root quickly
-  template<> BSS_FORCEINLINE float BSS_FASTCALL FastSqrt(float n) { return fFastSqrt(n); }
-  template<> BSS_FORCEINLINE double BSS_FASTCALL FastSqrt(double n) { return dFastSqrt(n); }
-  template<> BSS_FORCEINLINE long double BSS_FASTCALL FastSqrt(long double n) { return dFastSqrt((double)n); }
+  BSS_FORCEINLINE static T BSS_FASTCALL FastSqrt(T n) noexcept { return IntFastSqrt(n); } //Picks correct method for calculating any square root quickly
+  template<> BSS_FORCEINLINE float BSS_FASTCALL FastSqrt(float n) noexcept { return fFastSqrt(n); }
+  template<> BSS_FORCEINLINE double BSS_FASTCALL FastSqrt(double n) noexcept { return dFastSqrt(n); }
+  template<> BSS_FORCEINLINE long double BSS_FASTCALL FastSqrt(long double n) noexcept { return dFastSqrt((double)n); }
 
   // Distance calculation (squared)
   template<typename T>
-  BSS_FORCEINLINE static T BSS_FASTCALL distsqr(T X, T Y, T x, T y)
+  BSS_FORCEINLINE static T BSS_FASTCALL distsqr(T X, T Y, T x, T y) noexcept
   {
     T tx=X-x,ty=Y-y; return (tx*tx)+(ty*ty); //It doesn't matter if you use temporary values for floats, but it does if you use ints (for unknown reasons)
   }
 
   // Distance calculation
   template<typename T>
-  BSS_FORCEINLINE static T BSS_FASTCALL dist(T X, T Y, T x, T y)
+  BSS_FORCEINLINE static T BSS_FASTCALL dist(T X, T Y, T x, T y) noexcept
   {
     return FastSqrt<T>(distsqr<T>(X,Y,x,y));
   }
 
   // Average aggregation without requiring a total variable that can overflow. Nextnum should be the current avg count incremented by 1.
   template<typename T, typename CT_> // T must be float or double, CT_ must be integral
-  BSS_FORCEINLINE static T BSS_FASTCALL bssavg(T curavg, T nvalue, CT_ nextnum)
+  BSS_FORCEINLINE static T BSS_FASTCALL bssavg(T curavg, T nvalue, CT_ nextnum) noexcept
   { // USAGE: avg = bssavg<double, int>(avg, value, ++total);
     static_assert(std::is_integral<CT_>::value,"CT_ must be integral");
     static_assert(std::is_floating_point<T>::value,"T must be float, double, or long double");
@@ -581,7 +581,7 @@ namespace bss_util {
 
   // Sum of squares of differences aggregation using an algorithm by Knuth. Nextnum should be the current avg count incremented by 1.
   template<typename T, typename CT_> // T must be float or double, CT_ must be integral
-  BSS_FORCEINLINE static void BSS_FASTCALL bssvariance(T& curvariance, T& avg, T nvalue, CT_ nextnum)
+  BSS_FORCEINLINE static void BSS_FASTCALL bssvariance(T& curvariance, T& avg, T nvalue, CT_ nextnum) noexcept
   { // USAGE: bssvariance<double, int>(variance, avg, value, ++total); Then use sqrt(variance/(n-1)) to get the actual standard deviation
     static_assert(std::is_integral<CT_>::value, "CT_ must be integral");
     static_assert(std::is_floating_point<T>::value, "T must be float, double, or long double");
@@ -591,7 +591,7 @@ namespace bss_util {
   }
 
   // Searches an arbitrary series of bytes for another arbitrary series of bytes
-  inline static const void* bytesearch(const void* search, size_t length, const void* find, size_t flength)
+  inline static const void* bytesearch(const void* search, size_t length, const void* find, size_t flength) noexcept
   {
     if(!search || !length || !find || !flength || length < flength) return 0;
 
@@ -606,14 +606,14 @@ namespace bss_util {
     return 0;
   }
 
-  BSS_FORCEINLINE static void* bytesearch(void* search, size_t length, void* find, size_t flength)
+  BSS_FORCEINLINE static void* bytesearch(void* search, size_t length, void* find, size_t flength) noexcept
   {
     return const_cast<void*>(bytesearch((const void*)search,length,(const void*)find,flength));
   }
 
   // Counts the number of bits in v (up to 128-bit types) using the parallel method detailed here: http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
   template<typename T>
-  inline static unsigned char BSS_FASTCALL bitcount(T v)
+  inline static unsigned char BSS_FASTCALL bitcount(T v) noexcept
   {
     static_assert(std::is_integral<T>::value,"T must be integral");
     v = v - ((v >> 1) & (T)~(T)0/3);                           // temp
@@ -644,7 +644,7 @@ namespace bss_util {
   //}
 
   // Round a number up to the next power of 2 (32 -> 32, 33 -> 64, etc.)
-  inline static uint64_t BSS_FASTCALL nextpow2(uint64_t v)
+  inline static uint64_t BSS_FASTCALL nextpow2(uint64_t v) noexcept
   {
 	  v -= 1;
 	  v |= (v >> 1);
@@ -656,7 +656,7 @@ namespace bss_util {
 	
 	  return v + 1;
   }
-  inline static unsigned int BSS_FASTCALL nextpow2(unsigned int v)
+  inline static unsigned int BSS_FASTCALL nextpow2(unsigned int v) noexcept
   {
 	  v -= 1;
 	  v |= (v >> 1);
@@ -667,7 +667,7 @@ namespace bss_util {
 	
 	  return v + 1;
   }
-  inline static unsigned short BSS_FASTCALL nextpow2(unsigned short v)
+  inline static unsigned short BSS_FASTCALL nextpow2(unsigned short v) noexcept
   {
 	  v -= 1;
 	  v |= (v >> 1);
@@ -677,7 +677,7 @@ namespace bss_util {
 	
 	  return v + 1;
   }
-  inline static unsigned char BSS_FASTCALL nextpow2(unsigned char v)
+  inline static unsigned char BSS_FASTCALL nextpow2(unsigned char v) noexcept
   {
 	  v -= 1;
 	  v |= (v >> 1);
@@ -688,7 +688,7 @@ namespace bss_util {
   }
 
 #ifdef BSS_PLATFORM_WIN32
-  inline static unsigned int BSS_FASTCALL log2(unsigned int v)
+  inline static unsigned int BSS_FASTCALL log2(unsigned int v) noexcept
   {
     if(!v) return 0;
     unsigned long r; 
@@ -696,10 +696,10 @@ namespace bss_util {
     return r; 
   }
 #elif defined(BSS_COMPILER_GCC)
-  inline static unsigned int BSS_FASTCALL log2(unsigned int v) { return !v?0:((sizeof(unsigned int)<<3)-1-__builtin_clz(v)); }
+  inline static unsigned int BSS_FASTCALL log2(unsigned int v) noexcept { return !v?0:((sizeof(unsigned int)<<3)-1-__builtin_clz(v)); }
 #else
   // Bit-twiddling hack for base 2 log by Sean Eron Anderson
-  inline static unsigned int BSS_FASTCALL log2(unsigned char v)
+  inline static unsigned int BSS_FASTCALL log2(unsigned char v) noexcept
   {
     const unsigned int b[] = {0x2, 0xC, 0xF0};
     const unsigned int S[] = {1, 2, 4};
@@ -711,7 +711,7 @@ namespace bss_util {
 
     return r;
   }
-  inline static unsigned int BSS_FASTCALL log2(unsigned short v)
+  inline static unsigned int BSS_FASTCALL log2(unsigned short v) noexcept
   {
     const unsigned int b[] = {0x2, 0xC, 0xF0, 0xFF00};
     const unsigned int S[] = {1, 2, 4, 8};
@@ -725,7 +725,7 @@ namespace bss_util {
     return r;
   }
 
-  inline static unsigned int BSS_FASTCALL log2(unsigned int v)
+  inline static unsigned int BSS_FASTCALL log2(unsigned int v) noexcept
   {
     const unsigned int b[] = {0x2, 0xC, 0xF0, 0xFF00, 0xFFFF0000};
     const unsigned int S[] = {1, 2, 4, 8, 16};
@@ -740,7 +740,7 @@ namespace bss_util {
     return r;
   }
 #endif
-  inline static unsigned int BSS_FASTCALL log2(uint64_t v)
+  inline static unsigned int BSS_FASTCALL log2(uint64_t v) noexcept
   {
 #if defined(BSS_COMPILER_MSC) && defined(BSS_64BIT)
     if(!v) return 0;
@@ -763,7 +763,7 @@ namespace bss_util {
 
     return r;
   }
-  inline static unsigned int BSS_FASTCALL log2_p2(unsigned int v) //Works only if v is a power of 2
+  inline static unsigned int BSS_FASTCALL log2_p2(unsigned int v) noexcept //Works only if v is a power of 2
   {
     assert(v && !(v & (v - 1))); //debug version checks to ensure its a power of two
 #ifdef BSS_COMPILER_MSC
@@ -784,7 +784,7 @@ namespace bss_util {
 
   // Basic lerp function with no bounds checking
   template<class T>
-  BSS_FORCEINLINE static T BSS_FASTCALL lerp(T a, T b, double t)
+  BSS_FORCEINLINE static T BSS_FASTCALL lerp(T a, T b, double t) noexcept
   {
     return T((1.0 - t)*a) + T(t*b);
 	  //return a+((T)((b-a)*t)); // This is susceptible to floating point errors when t = 1

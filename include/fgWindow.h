@@ -1,8 +1,8 @@
 // Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
-#ifndef __FG_WINDOW_H__
-#define __FG_WINDOW_H__
+#ifndef _FG_WINDOW_H__
+#define _FG_WINDOW_H__
 
 #include "fgChild.h"
 
@@ -10,16 +10,20 @@
 extern "C" {
 #endif
 
-struct FG_MENU;
-struct __FG_SKIN;
+struct _FG_MENU;
+struct _FG_SKIN;
 
 // Defines the base GUI element, a window. This is not an actual top level window.
-typedef struct __FG_WINDOW {
+typedef struct _FG_WINDOW {
   fgChild element;
-  struct FG_MENU* contextmenu;
+  struct _FG_MENU* contextmenu;
   char* name; // Optional name used for mapping to skin collections
-  struct __FG_WINDOW* tabnext;
-  struct __FG_WINDOW* tabprev;
+  struct _FG_WINDOW* tabnext;
+  struct _FG_WINDOW* tabprev;
+#ifdef  __cplusplus
+  inline operator fgChild*() { return &element; }
+  inline fgChild* operator->() { return operator fgChild*(); }
+#endif
 } fgWindow;
 
 FG_EXTERN fgChild* fgFocusedWindow;

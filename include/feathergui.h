@@ -38,6 +38,17 @@ typedef unsigned int fgFlag;
 #define FG_FASTCALL BSS_COMPILER_FASTCALL
 #define FG_EXTERN extern BSS_COMPILER_DLLEXPORT
 
+#ifndef FG_STATIC_LIB
+#ifdef feathergui_EXPORTS
+#pragma warning(disable:4251)
+#define FG_DLLEXPORT BSS_COMPILER_DLLEXPORT
+#else
+#define FG_DLLEXPORT BSS_COMPILER_DLLIMPORT
+#endif
+#else
+#define FG_DLLEXPORT
+#endif
+
 // A unified coordinate specifies things in terms of absolute and relative positions.
 typedef struct {
   FABS abs; // Absolute coordinates are added to relative coordinates, which specify a point from a linear interpolation of the parent's dimensions
@@ -80,11 +91,13 @@ static BSS_FORCEINLINE FABS FG_FASTCALL lerp(FABS a, FABS b, FREL amt)
 	return a+((FABS)((b-a)*amt));
 }
 
-typedef struct __VECTOR {
-  void* p;
-  size_t s; // This is the total size of the array in BYTES.
-  size_t l; // This is how much of the array is being used in ELEMENTS.
-} fgVector;
+#define fgDeclareVector(type, n) struct __VECTOR__ ## n { \
+  type* p; \
+  size_t s; /* This is the total size of the array in BYTES. */ \
+  size_t l; /* This is how much of the array is being used in ELEMENTS. */ \
+}
+
+typedef fgDeclareVector(void, void) fgVector;
 
 typedef struct {
   CRect area;
@@ -92,6 +105,21 @@ typedef struct {
   CVec center;
 } fgElement;
 
+typedef union
+{
+  unsigned int color;
+  unsigned char colors[4];
+  struct {
+    unsigned char r;
+    unsigned char g;
+    unsigned char b;
+    unsigned char a;
+  };
+} fgColor;
+
+FG_EXTERN const fgColor fgColor_NONE; // Fully transparent
+FG_EXTERN const fgColor fgColor_BLACK;
+FG_EXTERN const fgColor fgColor_WHITE;
 FG_EXTERN const fgElement fgElement_DEFAULT;
 FG_EXTERN const fgElement fgElement_CENTER;
 
@@ -110,6 +138,7 @@ enum FG_MSGTYPE
   FG_ADDCHILD, // Pass an FG_Msg with this type and set the other pointer to the child that should be added.
   FG_REMOVECHILD, // Verifies child's parent is this, then sets the child's parent to NULL.
   FG_LAYOUTCHANGE, 
+  FG_LAYOUTINDEX,
   FG_LAYOUTFUNCTION,
   FG_LAYOUTLOAD, // Loads a layout passed in the first pointer with an optional custom class name resolution function passed into the second pointer of type fgChild* (*)(const char*, fgElement*, fgFlag)
   FG_DRAG, // Sent to initiate a drag&drop
@@ -160,11 +189,13 @@ enum FG_MSGTYPE
   FG_SETRESOURCE,
   FG_SETUV,
   FG_SETCOLOR,
+  FG_SETOUTLINE,
   FG_SETFONT,
   FG_SETTEXT,
   FG_GETRESOURCE,
   FG_GETUV,
   FG_GETCOLOR,
+  FG_GETOUTLINE,
   FG_GETFONT,
   FG_GETTEXT,
   FG_CUSTOMEVENT
@@ -325,23 +356,67 @@ enum FG_MOUSEBUTTON // Used in FG_Msg.button and FG_Msg.allbtn
   FG_MOUSEXBUTTON2=16,
 };
 
+enum FG_CURSOR
+{
+  FGCURSOR_CUSTOM = 0,
+  FGCURSOR_ARROW,
+  FGCURSOR_IBEAM,
+  FGCURSOR_CROSS,
+  FGCURSOR_WAIT,
+  FGCURSOR_HAND,
+  FGCURSOR_RESIZENS, // up down
+  FGCURSOR_RESIZEWE, // left right
+  FGCURSOR_RESIZENWSE, // upper left to lower right
+  FGCURSOR_RESIZENESW , // upper right to lower left
+  FGCURSOR_RESIZEALL,
+  FGCURSOR_NO,
+  FGCURSOR_HELP, // contextual menu cursor on mac
+  // FGCURSOR_DRAG, // Mac has a default drag cursor, but windows doesn't
+};
+
+enum FG_CLIPBOARD
+{
+  FGCLIPBOARD_TEXT = 0,
+  FGCLIPBOARD_WAVE,
+  FGCLIPBOARD_BITMAP,
+  FGCLIPBOARD_CUSTOM,
+  FGCLIPBOARD_ALL,
+};
+
+enum FG_MOUSEFLAGS {
+  FGMOUSE_INSIDE = 1, // True if the current button was pushed down while inside this control
+  FGMOUSE_HOVER = 2,  // True only if the mouse is currently inside the control
+  FGMOUSE_DRAG = 4, // True if the last mouse event recieved was dragging something
+  FGMOUSE_SEND_MOUSEMOVE = 32, // Used on the root only, schedules another mousemove event to be sent to compensate for a moving control.
+};
+
+typedef struct _FG_MOUSESTATE
+{
+  int x, y; // Last known position of the mouse for this control
+  unsigned char buttons; // Last known configuration of mouse buttons recieved by this control
+  unsigned char state;
+} fgMouseState;
+
 // General message structure which contains the message type and then various kinds of information depending on the type.
-typedef struct __FG_MSG {
+typedef struct _FG_MSG {
   union {
-    struct { int x; int y; unsigned char button; unsigned char allbtn; }; // Mouse events
-    struct { short scrolldelta; }; // Mouse scroll
+    struct { int x; int y; // Mouse events
+      union { 
+        struct { unsigned char button; unsigned char allbtn; }; 
+        short scrolldelta; 
+      };
+    }; 
     struct {  // Keys
         int keychar; //Only used by KEYCHAR, represents a utf32 character
         unsigned char keycode; //only used by KEYDOWN/KEYUP, represents an actual keycode, not a character
-        char keydown;
         char sigkeys; // 1: shift, 2: ctrl, 4: alt, 8: held
     };
     struct { float joyvalue; short joyaxis; }; // JOYAXIS
     struct { char joydown; short joybutton; }; // JOYBUTTON
-    struct { void* other; size_t otheraux; }; // Used by any generic messages (FG_SETPARENT, etc.)
-    struct { void* other1; void* other2; }; // Used by anything requiring 2 pointers, possibly for a return value.
-    struct { ptrdiff_t otherint; ptrdiff_t otherintaux; }; // Used by any generic message that want an int (FG_SETORDER, etc.)
-    struct { FABS otherf; FABS otherfaux; };
+    struct {
+      union { void* other; ptrdiff_t otherint; FABS otherf; };
+      union { void* other2; size_t otheraux; FABS otherfaux; };
+    };
   };
   unsigned short type;
   unsigned char subtype;
@@ -359,6 +434,7 @@ FG_EXTERN void FG_FASTCALL ToIntAbsRect(const AbsRect* r, int target[4]);
 FG_EXTERN void FG_FASTCALL ToLongAbsRect(const AbsRect* r, long target[4]);
 FG_EXTERN char FG_FASTCALL MsgHitAbsRect(const FG_Msg* msg, const AbsRect* r);
 FG_EXTERN char* FG_FASTCALL fgCopyText(const char* text);
+FG_EXTERN void FG_FASTCALL fgUpdateMouseState(fgMouseState* state, const FG_Msg* msg);
 
 #ifdef  __cplusplus
 }

@@ -236,21 +236,21 @@ RETPAIR test_feathergui()
   elem.area.left.abs=0.3f;
   elem.area.right.abs=0.4f;
   elem.area.bottom.abs=0.5f;
-  ResolveRectCache(&out, &elem, &last);
+  ResolveRectCache(&elem, &out, &last);
   TEST(out.top==0.2f && // Surprisingly, this works with floats but may break in single-precision mode. Replace with fcompare if that happens.
         out.left==0.3f &&
         out.right==0.4f &&
         out.bottom==0.5f);
 
   elem.area.top.rel=1;
-  ResolveRectCache(&out, &elem, &last);
+  ResolveRectCache(&elem, &out, &last);
   TEST(out.top==1.2f &&
         out.left==0.3f &&
         out.right==0.4f &&
         out.bottom==0.5f);
 
   elem.area.left.rel=1;
-  ResolveRectCache(&out, &elem, &last);
+  ResolveRectCache(&elem, &out, &last);
   TEST(out.top==1.2f &&
         out.left==1.3f &&
         out.right==0.4f &&
@@ -258,7 +258,7 @@ RETPAIR test_feathergui()
   
   elem.area.right.rel=2;
   elem.area.bottom.rel=0.5;
-  ResolveRectCache(&out, &elem, &last);
+  ResolveRectCache(&elem, &out, &last);
   TEST(out.top==1.2f &&
         out.left==1.3f &&
         out.right==2.4f &&
@@ -268,14 +268,14 @@ RETPAIR test_feathergui()
   elem.area.left.abs=0;
   elem.area.right.abs=0;
   elem.area.bottom.abs=0;
-  ResolveRectCache(&out, &elem, &last);
+  ResolveRectCache(&elem, &out, &last);
   TEST(out.top==1.0f &&
         out.left==1.0f &&
         out.right==2.0f &&
         out.bottom==0.5f);
 
   last.top=last.left=1.0f;
-  ResolveRectCache(&out, &elem, &last);
+  ResolveRectCache(&elem, &out, &last);
   TEST(out.top==1.0f &&
         out.left==1.0f &&
         out.right==1.0f &&

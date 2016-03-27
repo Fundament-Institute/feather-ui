@@ -1,8 +1,8 @@
 // Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
-#ifndef __FG_COMBOBOX_H__
-#define __FG_COMBOBOX_H__
+#ifndef _FG_COMBOBOX_H__
+#define _FG_COMBOBOX_H__
 
 #include "fgTextbox.h"
 #include "fgButton.h"
@@ -22,6 +22,9 @@ typedef struct {
   fgTextbox box; // GETSELECTEDITEM returns either the selected item or the text typed into the combobox.
   fgButton button;
   fgList dropdown; // ADDITEM is used to add an arbitrary object to the list. 
+#ifdef  __cplusplus
+  inline operator fgChild*() { return &box.window.window.element; }
+#endif
 } fgCombobox;
 
 FG_EXTERN fgWindow* FG_FASTCALL fgCombobox_Create(fgWindow* parent, const fgElement* element, fgFlag flags);

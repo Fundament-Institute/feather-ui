@@ -83,9 +83,6 @@
     <ClInclude Include="..\include\fgRadioButton.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\bss_defines.h">
-      <Filter>include</Filter>
-    </ClInclude>
     <ClInclude Include="..\include\fgSlider.h">
       <Filter>include</Filter>
     </ClInclude>

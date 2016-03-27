@@ -3,11 +3,19 @@
 
 #include "feathergui.h"
 #include "feathercpp.h"
+#include "fgRoot.h"
 #include <intrin.h>
 #include <limits.h>
 
 const fgElement fgElement_DEFAULT = { { 0, 0, 0, 0, 0, 1, 0, 1 }, 0, { 0, 0, 0, 0 } };
 const fgElement fgElement_CENTER = { {0, 0.5, 0, 0.5, 0, 0.5, 0, 0.5 }, 0, {0, 0.5, 0, 0.5} };
+const fgColor fgColor_NONE = { 0 };
+const fgColor fgColor_BLACK = { 0xFF000000 };
+const fgColor fgColor_WHITE = { 0xFFFFFFFF };
+bss_util::cHash<std::pair<fgChild*, unsigned short>, void(FG_FASTCALL *)(struct _FG_CHILD*, const FG_Msg*)> fgListenerHash;
+
+static_assert(sizeof(unsigned int) == sizeof(fgColor), "ERROR: fgColor not size of 32-bit int!");
+static_assert(sizeof(FG_Msg) <= sizeof(uint64_t) * 3, "FG_Msg is too big!");
 
 AbsVec FG_FASTCALL ResolveVec(const CVec* v, const AbsRect* last)
 {
@@ -97,11 +105,42 @@ void FG_FASTCALL ToLongAbsRect(const AbsRect* r, long target[4])
 
 }
 
-FG_EXTERN char* FG_FASTCALL fgCopyText(const char* text)
+char* FG_FASTCALL fgCopyText(const char* text)
 {
   if(!text) return 0;
   size_t len = strlen(text) + 1;
   char* ret = (char*)malloc(len);
   memcpy(ret, text, len);
   return ret;
+}
+
+void FG_FASTCALL fgUpdateMouseState(fgMouseState* state, const FG_Msg* msg)
+{
+  assert(msg != 0);
+  switch(msg->type)
+  {
+  case FG_MOUSEDOWN:
+    state->state |= FGMOUSE_HOVER;
+    state->state |= FGMOUSE_INSIDE;
+    break;
+  case FG_MOUSEUP:
+    state->state |= FGMOUSE_HOVER;
+    state->state &= ~FGMOUSE_INSIDE;
+    break;
+  case FG_MOUSEMOVE:
+    state->state |= FGMOUSE_HOVER;
+    break;
+  case FG_MOUSELEAVE:
+    state->state &= ~FGMOUSE_HOVER;
+    break;
+  default:
+    return;
+  }
+  state->x = msg->x;
+  state->y = msg->y;
+  state->buttons = msg->allbtn;
+  if(fgroot_instance->drag != 0)
+    state->state |= FGMOUSE_DRAG;
+  if(msg->type == FG_MOUSELEAVE)
+    state->state &= ~FGMOUSE_DRAG;
 }

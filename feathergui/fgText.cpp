@@ -2,14 +2,15 @@
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #include "fgText.h"
+#include "feathercpp.h"
 
 void FG_FASTCALL fgText_Init(fgText* self, char* text, void* font, unsigned int color, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
 {
-  fgChild_InternalSetup((fgChild*)self, flags, parent, prev, element, (FN_DESTROY)&fgText_Destroy, (FN_MESSAGE)&fgText_Message);
+  fgChild_InternalSetup(*self, flags, parent, prev, element, (FN_DESTROY)&fgText_Destroy, (FN_MESSAGE)&fgText_Message);
 
-  if(color) fgChild_IntMessage((fgChild*)self, FG_SETCOLOR, color, 0);
-  if(text) fgChild_VoidMessage((fgChild*)self, FG_SETTEXT, text);
-  if(font) fgChild_VoidMessage((fgChild*)self, FG_SETFONT, font);
+  if(color) fgChild_IntMessage(*self, FG_SETCOLOR, color, 0);
+  if(text) fgSendMsg<FG_SETTEXT, void*>(*self, text);
+  if(font) fgSendMsg<FG_SETFONT, void*>(*self, font);
 }
 
 void FG_FASTCALL fgText_Destroy(fgText* self)
@@ -28,7 +29,7 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     fgChild_Message(&self->element, msg);
     self->text = 0;
-    self->color = 0;
+    self->color.color = 0;
     self->font = 0;
     return 0;
   case FG_SETTEXT:
@@ -43,14 +44,14 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
     fgText_Recalc(self);
     break;
   case FG_SETCOLOR:
-    self->color = msg->otherint;
+    self->color.color = msg->otherint;
     break;
   case FG_GETTEXT:
     return (size_t)self->text;
   case FG_GETFONT:
     return (size_t)self->font;
   case FG_GETCOLOR:
-    return self->color;
+    return self->color.color;
   case FG_MOVE:
     if(!(msg->otheraux & 1) && (msg->otheraux&(2 | 4)))
       fgText_Recalc(self);
@@ -59,7 +60,7 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
     if(self->font != 0)
     {
       AbsVec center = ResolveVec(&self->element.element.center, (AbsRect*)msg->other);
-      fgDrawFont(self->font, !self->text ? "" : self->text, self->color, (AbsRect*)msg->other, self->element.element.rotation, &center, self->element.flags);
+      fgDrawFont(self->font, !self->text ? "" : self->text, self->color.color, (AbsRect*)msg->other, self->element.element.rotation, &center, self->element.flags);
     }
     break;
   case FG_GETCLASSNAME:
@@ -73,13 +74,13 @@ FG_EXTERN void FG_FASTCALL fgText_Recalc(fgText* self)
   if(self->font && (self->element.flags&FGCHILD_EXPAND))
   {
     AbsRect area;
-    ResolveRect((fgChild*)self, &area);
+    ResolveRect(*self, &area);
     fgFontSize(self->font, !self->text ? "" : self->text, &area, self->element.flags);
     CRect adjust = self->element.element.area;
     if(self->element.flags&FGCHILD_EXPANDX)
       adjust.right.abs = adjust.left.abs + area.right - area.left;
     if(self->element.flags&FGCHILD_EXPANDY)
       adjust.bottom.abs = adjust.top.abs + area.bottom - area.top;
-    fgChild_VoidMessage((fgChild*)self, FG_SETAREA, &adjust);
+    fgSendMsg<FG_SETAREA, void*>(*self, &adjust);
   }
 }

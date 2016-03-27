@@ -1,83 +1,134 @@
 // Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
-/*#include "fgMenu.h"
-#include <time.h>
+#include "fgMenu.h"
+#include "feathercpp.h"
 
-static const double DROPDOWN_TIME=0.4; // 400 milliseconds for dropdown
+typedef bss_util::cDynArray<fgMenu*> fgSubmenuArray;
+typedef bss_util::cDynArray<fgChild*> fgMenuArray;
 
-
-void FG_FASTCALL fgMenu_Init(fgMenu* self, fgWindow* parent, const fgElement* element, FG_UINT id, fgFlag flags)
+void FG_FASTCALL fgMenu_Init(fgMenu* self, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element, FG_UINT id, fgFlag flags, char submenu)
 {
-  FG_Msg msg = {0};
   assert(self!=0);
-  fgWindow_Init(&self->window,parent,element,id,flags);
-  self->window.window.message=&fgMenu_Message;
-  self->window.window.element.destroy=&fgMenu_Destroy;
-  self->dropdown=fgRoot_AllocAction(&fgMenu_DoDropdown,0,0);
-  fgGrid_Init(&self->grid,(fgWindow*)self,element,id,flags);
-  //fgWindow_Init(&self->overlay,(fgWindow*)self,0,0,0);
-  self->expanded=0;
-  msg.type=FG_SETFLAG;
-  msg.otherint=FGWIN_NOCLIP;
-  msg.otherintaux=1;
-  fgMenu_Message(self,&msg); // All menus are nonclipping by necessity unless it morphs into a menubar
+  memset(&self->members, 0, sizeof(fgVector));
+  memset(&self->submenus, 0, sizeof(fgVector));
+  fgChild_InternalSetup(*self, flags, parent, prev, element, (FN_DESTROY)&fgMenu_Destroy, (FN_MESSAGE)(submenu ? &fgSubmenu_Message : &fgMenu_Message));
 }
 void FG_FASTCALL fgMenu_Destroy(fgMenu* self)
 {
-  fgRoot_DeallocAction(fgSingleton(),self->dropdown);
-  //fgWindow_Destroy(&self->overlay);
-  fgWindow_Destroy((fgWindow*)&self->grid);
-  fgWindow_Destroy(&self->window);
+  fgScrollbar_Destroy(&self->window); // this will destroy our prechildren for us.
+  //fgRoot_DeallocAction(fgSingleton(),self->dropdown);
 }
 
-char FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
+inline void FG_FASTCALL fgMenu_Show(fgMenu* self, bool show)
 {
-  long long curtime;
-  struct FG_MENUITEM* item;
-  AbsVec loc={0};
+  fgFlag set = show ? (self->window.window.element.flags & ~(FGCHILD_HIDDEN | FGCHILD_IGNORE)) : (self->window.window.element.flags | FGCHILD_HIDDEN | FGCHILD_IGNORE);
+  fgChild_IntMessage(*self, FG_SETFLAGS, set, 0);
+}
+
+size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
+{
   assert(self!=0 && msg!=0);
 
   switch(msg->type)
   {
-  case FG_MOUSEMOVE:
-    if(self->expanded!=0) break;
-    curtime = clock()/(CLOCKS_PER_SEC/1000);
-    item=(struct FG_MENUITEM*)fgGrid_HitElement(&self->grid,msg->x,msg->y);
-    if(!item || item->submenu==(void*)-1) // if it didn't hit anything, or it hit a divider, hide highlight
-      (*self->highlight->message)(self->highlight,FG_RSHOW,0,0);
-    else if(self->dropdown->arg!=item) // Otherwise reposition highlight properly, if position actually changed
+  case FG_CONSTRUCT:
+    fgScrollbar_Message((fgScrollbar*)self, msg);
+    fgChild_Init(&self->highlight, FGCHILD_HIDDEN | FGCHILD_IGNORE, *self, 0, &fgElement_DEFAULT);
+    fgChild_AddPreChild(*self, &self->highlight);
+    fgChild_Init(&self->arrow, FGCHILD_IGNORE | FGCHILD_EXPAND, 0, 0, 0);
+    fgChild_AddPreChild(*self, &self->arrow);
+    fgChild_Init(&self->seperator, FGCHILD_IGNORE | FGCHILD_EXPAND, 0, 0, 0);
+    fgChild_AddPreChild(*self, &self->seperator);
+    return 0;
+  case FG_MOUSEDOWN:
+  {
+    char hit = MsgHitCRect(msg, *self);
+    fgChild* child;
+    AbsRect cache;
+    if(hit)
+      child = fgChild_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
+    if(!hit || !child) // check if we are outside and need to close the menu
     {
-      self->dropdown->arg=item;
-      self->dropdown->time=fgSingleton()->time+DROPDOWN_TIME;
-      fgRoot_ModifyAction(fgSingleton(),self->dropdown);
-      loc.y=item->render.element.element.area.top.abs; // This works because the parent's the same, so both locations are relative to the same thing.
-      MoveCRect(loc,&self->highlight->element.element.area);
-      (*self->highlight->message)(self->highlight,FG_MOVE,0,0);
-      (*self->highlight->message)(self->highlight,FG_RSHOW,(void*)1,0);
+      if(self->expanded)
+        fgMenu_Show(self->expanded, false);
+      self->expanded = 0;
+      return 0;
     }
+    size_t index = 0;
+    if(((fgSubmenuArray&)self->submenus)[index]) // if this exists open the submenu
+      fgMenu_Show(self->expanded = ((fgSubmenuArray&)self->submenus)[index], true);
+    else // otherwise send an action message to this control (because what you clicked on may just be an image or text).
+      fgSendMsg<FG_ACTION, void*>(*self, ((fgMenuArray&)self->members)[index]);
+    return 0;
+  }
+    break;
+  case FG_MOUSEUP:
+    break;
+  case FG_MOUSEMOVE:
+  {
+    AbsRect cache;
+    fgChild* child = fgChild_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
+    if(child)
+    {
+      CRect r = { child->element.area.left.abs, 0, 0, 0, child->element.area.right.abs, 0, 0, 1 };
+      fgSendMsg<FG_SETAREA, void*>(&self->highlight, &r);
+    }
+  }
     break;
   case FG_MOUSEOFF:
-    if(self->expanded!=0) break;
-    (*self->highlight->message)(self->highlight,FG_RSHOW,0,0);
+    if(!self->expanded) // Turn off the hover, but ONLY if a submenu isn't expanded.
+      fgChild_IntMessage(&self->highlight, FG_SETFLAG, FGCHILD_HIDDEN, 1);
     break;
   case FG_ADDITEM:
     return 0;
-  case FG_GOTFOCUS:
-    fgWindow_IntMessage((fgWindow*)self,FG_SHOW,1);
-    break;
-  case FG_LOSTFOCUS:
-    fgWindow_IntMessage((fgWindow*)self,FG_SHOW,0);
-    break;
   case FG_GETCLASSNAME:
-    return "fgMenu";
+    return (size_t)"fgMenu";
   }
-  return fgWindow_Message((fgWindow*)self,msg);
+  return fgScrollbar_Message((fgScrollbar*)self,msg);
 }
 
-FG_EXTERN char FG_FASTCALL fgMenu_DoDropdown(fgMenu* self)
+size_t FG_FASTCALL fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
 {
-  fgWindow_BasicMessage((fgWindow*)self,FG_GOTFOCUS); // By transfering focus to our child menu it will show itself.
-  return 0;
+  switch(msg->type)
+  {
+  case FG_MOUSEDOWN: // submenus respond to mouseup, however if the mousedown misses the control entirely we must propagate upwards
+    return fgScrollbar_Message((fgScrollbar*)self, msg);
+  case FG_MOUSEUP:
+  {
+    char hit = MsgHitCRect(msg, *self);
+    fgChild* child;
+    AbsRect cache;
+    if(hit)
+      child = fgChild_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
+    if(!hit || !child) // check if we are outside and need to close the menu
+    {
+      fgMenu_Show(self, false);
+      return 0;
+    }
+    size_t index = 0;
+    if(((fgSubmenuArray&)self->submenus)[index]) // if this exists open the submenu
+      fgMenu_Show(self->expanded = ((fgSubmenuArray&)self->submenus)[index], true);
+    else // otherwise send an action message to this control (because what you clicked on may just be an image or text).
+    {
+      fgSendMsg<FG_ACTION, void*>(*self, ((fgMenuArray&)self->members)[index]);
+      fgMenu_Show(self, false);
+    }
+    return 0;
+  }
+  case FG_MOUSEMOVE:
+  {
+    AbsRect cache;
+    fgChild* child = fgChild_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
+    if(child)
+    {
+      CRect r = { 0, 0, child->element.area.top.abs, 0, 0, 1, child->element.area.bottom.abs, 0 };
+      fgSendMsg<FG_SETAREA, void*>(&self->highlight, &r);
+    }
+    return 0;
+  }
+  case FG_GETCLASSNAME:
+    return (size_t)"fgSubmenu"; // This allows you to properly differentiate a top level menu glued to the top of a window from a submenu, like a context menu.
+  }
+  return fgMenu_Message(self, msg);
 }
-//*/

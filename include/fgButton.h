@@ -1,8 +1,8 @@
 // Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
-#ifndef __FG_BUTTON_H__
-#define __FG_BUTTON_H__
+#ifndef _FG_BUTTON_H__
+#define _FG_BUTTON_H__
 
 #include "fgWindow.h"
 #include "fgText.h"
@@ -21,6 +21,10 @@ typedef struct _FG_BUTTON {
   fgWindow window;
   fgChild item; // item displayed in button
   fgText text; // text displayed in button
+#ifdef  __cplusplus
+  inline operator fgChild*() { return &window.element; }
+  inline fgChild* operator->() { return operator fgChild*(); }
+#endif
 } fgButton;
 
 FG_EXTERN fgChild* FG_FASTCALL fgButton_Create(const char* text, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element);

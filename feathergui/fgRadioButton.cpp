@@ -22,11 +22,11 @@ __inline void fgRadioGroup_destroy(struct __kh_fgRadioGroup_t* p) { kh_destroy_f
 
 void FG_FASTCALL fgRadiobutton_Init(fgRadiobutton* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
 {
-  fgChild_InternalSetup((fgChild*)self, flags, parent, prev, element, (FN_DESTROY)&fgRadiobutton_Destroy, (FN_MESSAGE)&fgRadiobutton_Message);
+  fgChild_InternalSetup(*self, flags, parent, prev, element, (FN_DESTROY)&fgRadiobutton_Destroy, (FN_MESSAGE)&fgRadiobutton_Message);
 }
 void FG_FASTCALL fgRadiobutton_Destroy(fgRadiobutton* self)
 {
-  fgChild_VoidMessage((fgChild*)self, FG_SETPARENT, 0); // Ensure we remove ourselves from the hash
+  fgSendMsg<FG_SETPARENT>(*self); // Ensure we remove ourselves from the hash
   fgWindow_Destroy(&self->window.window);
 }
 
@@ -95,7 +95,7 @@ size_t FG_FASTCALL fgRadiobutton_Message(fgRadiobutton* self, const FG_Msg* msg)
     return 0;
   case FG_ACTION:
     if(!self->window.checked)
-      fgChild_IntMessage((fgChild*)self, FG_SETSTATE, 1, 0);
+      fgChild_IntMessage(*self, FG_SETSTATE, 1, 0);
     return 0;
   case FG_GETCLASSNAME:
     return (size_t)"fgRadioButton";

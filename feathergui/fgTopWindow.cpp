@@ -3,6 +3,7 @@
 
 #include "fgTopWindow.h"
 #include "fgText.h"
+#include "feathercpp.h"
 
 size_t FG_FASTCALL fgTopWindow_CloseMessage(fgButton* self, const FG_Msg* msg)
 {
@@ -27,7 +28,7 @@ size_t FG_FASTCALL fgTopWindow_MinimizeMessage(fgButton* self, const FG_Msg* msg
 
 void FG_FASTCALL fgTopWindow_Init(fgTopWindow* self, fgFlag flags, const fgElement* element)
 {
-  fgChild_InternalSetup((fgChild*)self, flags, 0, 0, element, (FN_DESTROY)&fgTopWindow_Destroy, (FN_MESSAGE)&fgTopWindow_Message);
+  fgChild_InternalSetup(*self, flags, 0, 0, element, (FN_DESTROY)&fgTopWindow_Destroy, (FN_MESSAGE)&fgTopWindow_Message);
 }
 void FG_FASTCALL fgTopWindow_Destroy(fgTopWindow* self)
 {  
@@ -43,14 +44,14 @@ size_t FG_FASTCALL fgTopWindow_Message(fgTopWindow* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     fgWindow_Message((fgWindow*)self, msg);
     self->dragged = 0;
-    fgText_Init(&self->caption, 0, 0, 0, FGCHILD_BACKGROUND | FGCHILD_IGNORE | FGCHILD_EXPAND, (fgChild*)self, 0, 0);
-    fgButton_Init(&self->controls[0], FGCHILD_BACKGROUND, (fgChild*)self, 0, 0);
-    fgButton_Init(&self->controls[1], FGCHILD_BACKGROUND, (fgChild*)self, 0, 0);
-    fgButton_Init(&self->controls[2], FGCHILD_BACKGROUND, (fgChild*)self, 0, 0);
-    fgChild_AddPreChild((fgChild*)self, (fgChild*)&self->caption);
-    fgChild_AddPreChild((fgChild*)self, (fgChild*)&self->controls[0]);
-    fgChild_AddPreChild((fgChild*)self, (fgChild*)&self->controls[1]);
-    fgChild_AddPreChild((fgChild*)self, (fgChild*)&self->controls[2]);
+    fgText_Init(&self->caption, 0, 0, 0, FGCHILD_BACKGROUND | FGCHILD_IGNORE | FGCHILD_EXPAND, *self, 0, 0);
+    fgButton_Init(&self->controls[0], FGCHILD_BACKGROUND, *self, 0, 0);
+    fgButton_Init(&self->controls[1], FGCHILD_BACKGROUND, *self, 0, 0);
+    fgButton_Init(&self->controls[2], FGCHILD_BACKGROUND, *self, 0, 0);
+    fgChild_AddPreChild(*self, self->caption);
+    fgChild_AddPreChild(*self, self->controls[0]);
+    fgChild_AddPreChild(*self, self->controls[1]);
+    fgChild_AddPreChild(*self, self->controls[2]);
     self->controls[0].window.element.message = (FN_MESSAGE)&fgTopWindow_CloseMessage;
     self->controls[1].window.element.message = (FN_MESSAGE)&fgTopWindow_MaximizeMessage;
     self->controls[2].window.element.message = (FN_MESSAGE)&fgTopWindow_MinimizeMessage;
@@ -61,14 +62,14 @@ size_t FG_FASTCALL fgTopWindow_Message(fgTopWindow* self, const FG_Msg* msg)
   case FG_GETTEXT:
   case FG_GETFONT:
   case FG_GETCOLOR:
-    return fgChild_PassMessage((fgChild*)&self->caption, msg);
+    return fgChild_PassMessage(self->caption, msg);
   case FG_MOUSEDBLCLICK:
     if(msg->button == FG_MOUSELBUTTON)
     {
       AbsRect out;
-      ResolveRect((fgChild*)self, &out);
+      ResolveRect(*self, &out);
       if(msg->y < out.top + self->window.element.padding.top)
-        fgChild_IntMessage((fgChild*)self, FG_ACTION, FGTOPWINDOW_MAXIMIZE, 0);
+        fgChild_IntMessage(*self, FG_ACTION, FGTOPWINDOW_MAXIMIZE, 0);
       return 0;
     }
     break;
@@ -76,7 +77,7 @@ size_t FG_FASTCALL fgTopWindow_Message(fgTopWindow* self, const FG_Msg* msg)
     if(msg->button == FG_MOUSELBUTTON)
     {
       AbsRect out;
-      ResolveRect((fgChild*)self, &out);
+      ResolveRect(*self, &out);
 
       // Check for resize
 
@@ -90,8 +91,8 @@ size_t FG_FASTCALL fgTopWindow_Message(fgTopWindow* self, const FG_Msg* msg)
 
       if(self->dragged)
       {
-        fgCaptureWindow = (fgChild*)self;
-        fgChild_VoidMessage((fgChild*)self, FG_ACTIVE, 0);
+        fgCaptureWindow = *self;
+        fgSendMsg<FG_ACTIVE>(*self);
       }
     }
     break;
@@ -103,7 +104,8 @@ size_t FG_FASTCALL fgTopWindow_Message(fgTopWindow* self, const FG_Msg* msg)
       AbsVec dv = { v.x - self->offset.x + area.left.abs, v.y - self->offset.y + area.top.abs };
       MoveCRect(dv, &area);
       self->offset = v;
-      fgChild_VoidMessage((fgChild*)self, FG_SETAREA, &area);
+      fgSendMsg<FG_SETAREA, void*>(*self, &area);
+      fgSendMsg<FG_SETAREA, void*>(*self, &area);
     }
     if(self->dragged & 2) {} // resize on left
     if(self->dragged & 4) {} // resize on top
@@ -112,27 +114,27 @@ size_t FG_FASTCALL fgTopWindow_Message(fgTopWindow* self, const FG_Msg* msg)
     break;
   case FG_MOUSEUP:
     self->dragged = 0;
-    if(fgCaptureWindow == (fgChild*)self) // Remove our control hold on mouse messages.
+    if(fgCaptureWindow == *self) // Remove our control hold on mouse messages.
       fgCaptureWindow = 0;
     break;
   case FG_ACTION:
     switch(msg->otherint)
     {
     case FGTOPWINDOW_MINIMIZE:
-      fgChild_IntMessage((fgChild*)self, FG_SETFLAG, FGCHILD_HIDDEN, 1);
+      fgChild_IntMessage(*self, FG_SETFLAG, FGCHILD_HIDDEN, 1);
       break;
     case FGTOPWINDOW_UNMINIMIZE:
-      fgChild_IntMessage((fgChild*)self, FG_SETFLAG, FGCHILD_HIDDEN, 0);
+      fgChild_IntMessage(*self, FG_SETFLAG, FGCHILD_HIDDEN, 0);
       break;
     case FGTOPWINDOW_MAXIMIZE:
       self->prevrect = self->window.element.element.area;
-      fgChild_VoidMessage((fgChild*)self, FG_SETAREA, (void*)&fgElement_DEFAULT.area);
+      fgSendMsg<FG_SETAREA, void*>(*self, (void*)&fgElement_DEFAULT.area);
       break;
     case FGTOPWINDOW_RESTORE:
-      fgChild_VoidMessage((fgChild*)self, FG_SETAREA, &self->prevrect);
+      fgSendMsg<FG_SETAREA, void*>(*self, &self->prevrect);
       break;
     case FGTOPWINDOW_CLOSE:
-      VirtualFreeChild((fgChild*)self);
+      VirtualFreeChild(*self);
       return 0;
     }
   case FG_GETCLASSNAME:

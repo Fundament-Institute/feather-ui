@@ -3,10 +3,11 @@
 
 #include "fgSlider.h"
 #include "bss-util\bss_util.h"
+#include "feathercpp.h"
 
 void FG_FASTCALL fgSlider_Init(fgSlider* BSS_RESTRICT self, size_t range, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
 {
-  fgChild_InternalSetup((fgChild*)self, flags, parent, prev, element, (FN_DESTROY)&fgSlider_Destroy, (FN_MESSAGE)&fgSlider_Message);
+  fgChild_InternalSetup(*self, flags, parent, prev, element, (FN_DESTROY)&fgSlider_Destroy, (FN_MESSAGE)&fgSlider_Message);
 }
 void FG_FASTCALL fgSlider_Destroy(fgSlider* self)
 {
@@ -19,13 +20,13 @@ size_t FG_FASTCALL fgSlider_Message(fgSlider* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgWindow_Message(&self->window, msg);
-    fgChild_Init(&self->slider, FGCHILD_BACKGROUND, (fgChild*)self, 0, &fgElement_CENTER);
-    fgChild_AddPreChild((fgChild*)self, &self->slider);
+    fgChild_Init(&self->slider, FGCHILD_BACKGROUND, *self, 0, &fgElement_CENTER);
+    fgChild_AddPreChild(*self, &self->slider);
     self->value = 0;
     self->range = 0;
     return 0;
   case FG_SETSTATE:
-    if(msg->otherintaux)
+    if(msg->otheraux)
     {
       if(self->range == msg->otherint)
         return 0;
@@ -39,13 +40,13 @@ size_t FG_FASTCALL fgSlider_Message(fgSlider* self, const FG_Msg* msg)
     }
     CRect area = self->slider.element.area;
     area.left.rel = area.right.rel = !self->range ? 0.0 : ((FREL)self->value / (FREL)self->range);
-    fgChild_VoidMessage(&self->slider, FG_SETAREA, &area);
+    fgSendMsg<FG_SETAREA, void*>(&self->slider, &area);
     return 0;
   case FG_MOUSEMOVE:
-    if(fgCaptureWindow == (fgChild*)self)
+    if(fgCaptureWindow == *self)
     {
       AbsRect out;
-      ResolveRect((fgChild*)self, &out);
+      ResolveRect(*self, &out);
       double x = (out.left - msg->x)/(out.right - out.left); // we need all the precision in a double here
       size_t value = bss_util::fFastRound(bssclamp(x, 0.0, 1.0)*self->range); // Clamp to [0,1], multiply into [0, range], then round to nearest integer.
       fgChild_IntMessage(&self->slider, FG_SETSTATE, value, 0);

@@ -1,8 +1,8 @@
 // Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
-#ifndef __FG_SKIN_H__
-#define __FG_SKIN_H__
+#ifndef _FG_SKIN_H__
+#define _FG_SKIN_H__
 
 #include "fgWindow.h"
 
@@ -10,18 +10,18 @@
 extern "C" {
 #endif
 
-typedef struct __FG_STYLE_MSG
+typedef struct _FG_STYLE_MSG
 {
   FG_Msg msg;
-  struct __FG_STYLE_MSG* next;
+  struct _FG_STYLE_MSG* next;
 } fgStyleMsg;
 
-typedef struct __FG_STYLE
+typedef struct _FG_STYLE
 {
   fgStyleMsg* styles;
 } fgStyle;
 
-typedef struct FG_STYLE_LAYOUT {
+typedef struct _FG_STYLE_LAYOUT {
   char* name;
   fgElement element;
   fgFlag flags;
@@ -31,15 +31,15 @@ typedef struct FG_STYLE_LAYOUT {
 struct __kh_fgSkins_t;
 struct __kh_fgStyles_t;
 
-typedef struct __FG_SKIN
+typedef struct _FG_SKIN
 {
   ptrdiff_t index; // Index of the child this applies to (only used for subskins). Negative numbers map to existing children, equal to index + prechild.
   fgStyle style; // style overrides
   fgVector resources; // type: void*
   fgVector fonts;
-  fgVector children; // type: fgStyleLayout
-  fgVector styles; // type: fgStyle
-  fgVector subskins; // type: fgSkin
+  fgDeclareVector(fgStyleLayout, StyleLayout) children; // type: fgStyleLayout
+  fgDeclareVector(fgStyle, Style) styles; // type: fgStyle
+  fgDeclareVector(struct _FG_SKIN, Skin) subskins; // type: fgSkin
   struct __kh_fgSkins_t* skinmap;
 } fgSkin;
 
@@ -53,7 +53,7 @@ FG_EXTERN void* FG_FASTCALL fgSkin_GetResource(const fgSkin* self, FG_UINT resou
 FG_EXTERN size_t FG_FASTCALL fgSkin_AddFont(fgSkin* self, void* font);
 FG_EXTERN char FG_FASTCALL fgSkin_RemoveFont(fgSkin* self, FG_UINT font);
 FG_EXTERN void* FG_FASTCALL fgSkin_GetFont(const fgSkin* self, FG_UINT font);
-FG_EXTERN size_t FG_FASTCALL fgSkin_AddChild(fgSkin* self, const char* name, fgElement* element, fgFlag flags);
+FG_EXTERN size_t FG_FASTCALL fgSkin_AddChild(fgSkin* self, const char* name, const fgElement* element, fgFlag flags);
 FG_EXTERN char FG_FASTCALL fgSkin_RemoveChild(fgSkin* self, FG_UINT child);
 FG_EXTERN fgStyleLayout* FG_FASTCALL fgSkin_GetChild(const fgSkin* self, FG_UINT child);
 FG_EXTERN size_t FG_FASTCALL fgSkin_AddStyle(fgSkin* self, const char* name);
@@ -66,7 +66,7 @@ FG_EXTERN fgSkin* FG_FASTCALL fgSkin_AddSkin(fgSkin* self, const char* name);
 FG_EXTERN char FG_FASTCALL fgSkin_RemoveSkin(fgSkin* self, const char* name);
 FG_EXTERN fgSkin* FG_FASTCALL fgSkin_GetSkin(const fgSkin* self, const char* name);
 
-FG_EXTERN void FG_FASTCALL fgStyleLayout_Init(fgStyleLayout* self, const char* name, fgElement* element, fgFlag flags);
+FG_EXTERN void FG_FASTCALL fgStyleLayout_Init(fgStyleLayout* self, const char* name, const fgElement* element, fgFlag flags);
 FG_EXTERN void FG_FASTCALL fgStyleLayout_Destroy(fgStyleLayout* self);
 
 FG_EXTERN void FG_FASTCALL fgStyle_Init(fgStyle* self);
