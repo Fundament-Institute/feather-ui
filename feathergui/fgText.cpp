@@ -8,6 +8,7 @@ void FG_FASTCALL fgText_Init(fgText* self, char* text, void* font, unsigned int 
 {
   fgChild_InternalSetup(*self, flags, parent, prev, element, (FN_DESTROY)&fgText_Destroy, (FN_MESSAGE)&fgText_Message);
 
+  self->cache = 0;
   if(color) fgChild_IntMessage(*self, FG_SETCOLOR, color, 0);
   if(text) fgSendMsg<FG_SETTEXT, void*>(*self, text);
   if(font) fgSendMsg<FG_SETFONT, void*>(*self, font);
@@ -60,7 +61,7 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
     if(self->font != 0)
     {
       AbsVec center = ResolveVec(&self->element.element.center, (AbsRect*)msg->other);
-      fgDrawFont(self->font, !self->text ? "" : self->text, self->color.color, (AbsRect*)msg->other, self->element.element.rotation, &center, self->element.flags);
+      self->cache = fgDrawFont(self->font, !self->text ? "" : self->text, self->color.color, (AbsRect*)msg->other, self->element.element.rotation, &center, self->element.flags, self->cache);
     }
     break;
   case FG_GETCLASSNAME:

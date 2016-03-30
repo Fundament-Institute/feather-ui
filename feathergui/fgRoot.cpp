@@ -2,20 +2,23 @@
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #include "fgRoot.h"
-#include <stdlib.h>
+#include "fgMonitor.h"
 #include "feathercpp.h"
+#include <stdlib.h>
 
 fgRoot* fgroot_instance = 0;
 
-void FG_FASTCALL fgRoot_Init(fgRoot* self)
+void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, size_t dpi)
 {
   self->behaviorhook = &fgRoot_BehaviorDefault;
+  self->dpi = dpi;
   self->drag = 0;
   self->time = 0.0;
   self->updateroot = 0;
   self->radiohash = fgRadioGroup_init();
   fgroot_instance = self;
-  fgChild_InternalSetup(*self, 0, 0, 0, 0, (FN_DESTROY)&fgRoot_Destroy, (FN_MESSAGE)&fgRoot_Message);
+  fgElement element = { area->left, 0, area->top, 0, area->right, 0, area->bottom, 0, 0, 0, 0 };
+  fgChild_InternalSetup(*self, 0, 0, 0, &element, (FN_DESTROY)&fgRoot_Destroy, (FN_MESSAGE)&fgRoot_Message);
 }
 
 void FG_FASTCALL fgRoot_Destroy(fgRoot* self)
@@ -69,11 +72,22 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
     m.other = &area;
     return fgWindow_Message((fgWindow*)self, &m);
   }
+  case FG_GETDPI:
+    return self->dpi;
+  case FG_SETDPI:
+  {
+    float scale = !self->dpi ? 1.0 : (msg->otherint / (float)self->dpi);
+    CRect* rootarea = &self->gui.element.element.area;
+    CRect area = { rootarea->left.abs*scale, 0, rootarea->top.abs*scale, 0, rootarea->right.abs*scale, 0, rootarea->bottom.abs*scale, 0 };
+    self->dpi = (size_t)msg->otherint;
+    return self->gui.element.SetArea(area);
+  }
+    return 0;
   }
   return fgWindow_Message((fgWindow*)self,msg);
 }
 
-void FG_FASTCALL fgStandardDraw(fgChild* self, AbsRect* area, int max)
+void FG_FASTCALL fgStandardDraw(fgChild* self, AbsRect* area, size_t dpi, int max)
 {
   fgChild* hold = self->last; // we draw backwards through our list.
   AbsRect curarea;
@@ -95,7 +109,7 @@ void FG_FASTCALL fgStandardDraw(fgChild* self, AbsRect* area, int max)
       }
 
       ResolveRectCache(hold, &curarea, area, (hold->flags & FGCHILD_BACKGROUND) ? 0 : &hold->padding);
-      fgSendMsg<FG_DRAW, void*>(hold, &curarea);
+      fgSendMsg<FG_DRAW, void*, size_t>(hold, &curarea, dpi);
     }
     hold = hold->prev;
   }
@@ -227,6 +241,34 @@ void FG_FASTCALL fgRoot_Update(fgRoot* self, double delta)
       free(cur);
   }
 }
+
+FG_EXTERN fgMonitor* FG_FASTCALL fgRoot_GetMonitor(const fgRoot* self, const AbsRect* rect)
+{
+  fgMonitor* cur = self->monitors;
+  float largest = 0;
+  fgMonitor* last = 0; // it is possible for all intersections ot have an area of zero, meaning the element is not on ANY monitors and is thus not visible.
+
+  while(cur)
+  {
+    CRect& area = cur->element.element.area;
+    AbsRect monitor = { area.left.abs > rect->left ? area.left.abs : rect->left,
+      area.top.abs > rect->top ? area.top.abs : rect->top,
+      area.right.abs < rect->right ? area.right.abs : rect->right,
+      area.bottom.abs < rect->bottom ? area.bottom.abs : rect->bottom };
+    
+    float total = (monitor.right - monitor.left)*(monitor.bottom - monitor.top);
+    if(total > largest) // This must be GREATER THAN to ensure that a value of "0" is not ever assigned a monitor.
+    {
+      largest = total;
+      last = cur;
+    }
+
+    cur = cur->mnext;
+  }
+
+  return last;
+}
+
 fgDeferAction* FG_FASTCALL fgRoot_AllocAction(char (FG_FASTCALL *action)(void*), void* arg, double time)
 {
   fgDeferAction* r = (fgDeferAction*)malloc(sizeof(fgDeferAction));

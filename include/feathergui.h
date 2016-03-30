@@ -151,6 +151,8 @@ enum FG_MSGTYPE
   FG_SETSTYLE, // Sets the style. -1 causes it to call GETSTYLE to try and resolve the style index.
   FG_GETSTYLE,
   FG_GETCLASSNAME, // Returns a unique string identifier for the class
+  FG_GETDPI,
+  FG_SETDPI,
   // fgWindow
   FG_MOUSEDOWN,
   FG_MOUSEDBLCLICK,

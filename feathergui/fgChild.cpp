@@ -224,8 +224,7 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
   case FG_SETPARENT:
     fgChild_SetParent(self, (fgChild*)msg->other, (fgChild*)msg->other2);
     fgSendMsg<FG_SETSKIN>(self); // re-evaluate our skin
-    if(msg->other)
-      fgChild_SubMessage((fgChild*)msg->other, FG_MOVE, FG_SETPARENT, 0, fgChild_PotentialResize(self));
+    fgChild_SubMessage(self, FG_MOVE, FG_SETPARENT, 0, fgChild_PotentialResize(self));
     return 0;
   case FG_ADDCHILD:
     hold = (fgChild*)msg->other;
@@ -449,10 +448,12 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
     fgSetCursor(FGCURSOR_ARROW, 0);
     return 1;
   case FG_DRAW:
-    fgStandardDraw(self, (AbsRect*)msg->other, INT_MAX);
+    fgStandardDraw(self, (AbsRect*)msg->other, msg->otheraux, INT_MAX);
     return 0;
   case FG_GETNAME:
     return 0;
+  case FG_GETDPI:
+    return self->parent ? fgSendMsg<FG_GETDPI>(self->parent) : 0;
   }
 
   return 1;
@@ -992,9 +993,9 @@ size_t fgChild::Drop(struct _FG_CHILD* target)
 {
   return fgSendMsg<FG_DROP, void*>(this, target);
 }
-void fgChild::Draw(AbsRect* area)
+void fgChild::Draw(AbsRect* area, int dpi)
 {
-  fgSendMsg<FG_DRAW, void*>(this, area);
+  fgSendMsg<FG_DRAW, void*, size_t>(this, area, dpi);
 }
 fgChild* FG_FASTCALL fgChild::Clone(fgChild* from)
 {

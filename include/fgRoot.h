@@ -11,6 +11,7 @@ extern "C" {
 #endif
 
 struct __kh_fgRadioGroup_t;
+struct _FG_MONITOR;
 
 typedef struct _FG_DEFER_ACTION {
   struct _FG_DEFER_ACTION* next; // It's crucial that this is the first element
@@ -25,8 +26,10 @@ typedef struct _FG_ROOT {
   fgWindow gui;
   size_t (FG_FASTCALL *behaviorhook)(struct _FG_CHILD* self, const FG_Msg* msg);
   fgChild* drag;
+  struct _FG_MONITOR* monitors;
   fgDeferAction* updateroot;
   struct __kh_fgRadioGroup_t* radiohash;
+  size_t dpi;
   double time; // In seconds
   fgMouseState mouse;
 #ifdef  __cplusplus
@@ -39,7 +42,7 @@ FG_EXTERN fgRoot* FG_FASTCALL fgSingleton();
 FG_EXTERN char FG_FASTCALL fgLoadExtension(const char* extname, void* fg, size_t sz);
 FG_EXTERN void FG_FASTCALL fgTerminate(fgRoot* root);
 FG_EXTERN char FG_FASTCALL fgMessageLoop(fgRoot* root);
-FG_EXTERN void FG_FASTCALL fgRoot_Init(fgRoot* self);
+FG_EXTERN void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, size_t dpi);
 FG_EXTERN void FG_FASTCALL fgRoot_Destroy(fgRoot* self);
 FG_EXTERN size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg);
 FG_EXTERN size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg); // Returns 0 if handled, 1 otherwise
@@ -52,7 +55,8 @@ FG_EXTERN void FG_FASTCALL fgRoot_DeallocAction(fgRoot* self, fgDeferAction* act
 FG_EXTERN void FG_FASTCALL fgRoot_AddAction(fgRoot* self, fgDeferAction* action); // Adds an action. Action can't already be in list.
 FG_EXTERN void FG_FASTCALL fgRoot_RemoveAction(fgRoot* self, fgDeferAction* action); // Removes an action. Action must be in list.
 FG_EXTERN void FG_FASTCALL fgRoot_ModifyAction(fgRoot* self, fgDeferAction* action); // Moves action if it needs to be moved, or inserts it if it isn't already in the list.
-FG_EXTERN void FG_FASTCALL fgStandardDraw(fgChild* self, AbsRect* area, int max);
+FG_EXTERN struct _FG_MONITOR* FG_FASTCALL fgRoot_GetMonitor(const fgRoot* self, const AbsRect* rect);
+FG_EXTERN void FG_FASTCALL fgStandardDraw(fgChild* self, AbsRect* area, size_t dpi, int max);
 FG_EXTERN void fgPushClipRect(AbsRect* clip);
 FG_EXTERN void fgPopClipRect();
 FG_EXTERN void fgSetCursor(unsigned int type, void* custom); // What custom actually is depends on the implemention

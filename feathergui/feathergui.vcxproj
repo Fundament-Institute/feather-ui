@@ -226,6 +226,7 @@
     <ClInclude Include="..\include\fgLayout.h" />
     <ClInclude Include="..\include\fgList.h" />
     <ClInclude Include="..\include\fgMenu.h" />
+    <ClInclude Include="..\include\fgMonitor.h" />
     <ClInclude Include="..\include\fgProgressbar.h" />
     <ClInclude Include="..\include\fgRadioButton.h" />
     <ClInclude Include="..\include\fgResource.h" />
@@ -261,6 +262,7 @@
     <ClCompile Include="fgTopWindow.cpp" />
     <ClCompile Include="fgTreeView.cpp" />
     <ClCompile Include="fgWindow.cpp" />
+    <ClCompile Include="fgMonitor.cpp" />
     <ClCompile Include="ubjson.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

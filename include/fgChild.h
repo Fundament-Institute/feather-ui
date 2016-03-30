@@ -85,7 +85,7 @@ typedef struct _FG_CHILD {
   FG_DLLEXPORT size_t Drag(struct _FG_CHILD* target, const FG_Msg& msg);
   FG_DLLEXPORT size_t Dragging(int x, int y);
   FG_DLLEXPORT size_t Drop(struct _FG_CHILD* target);
-  FG_DLLEXPORT void Draw(AbsRect* area);
+  FG_DLLEXPORT void Draw(AbsRect* area, int dpi);
   FG_DLLEXPORT struct _FG_CHILD* FG_FASTCALL Clone(struct _FG_CHILD* from);
   FG_DLLEXPORT size_t FG_FASTCALL SetSkin(struct _FG_SKIN* skin, FN_MAPPING mapping);
   FG_DLLEXPORT struct _FG_SKIN* FG_FASTCALL GetSkin(struct _FG_CHILD* child);

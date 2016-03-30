@@ -27,6 +27,7 @@ typedef struct {
   fgChild element;
   char* text;
   void* font;
+  void* cache;
   fgColor color;
 #ifdef  __cplusplus
   inline operator fgChild*() { return &element; }
@@ -43,8 +44,8 @@ FG_EXTERN void FG_FASTCALL fgText_Recalc(fgText* self);
 FG_EXTERN void* FG_FASTCALL fgCreateFont(fgFlag flags, const char* font, unsigned int fontsize, float lineheight, float letterspacing);
 FG_EXTERN void* FG_FASTCALL fgCloneFont(void* font);
 FG_EXTERN void FG_FASTCALL fgDestroyFont(void* font);
-FG_EXTERN void FG_FASTCALL fgDrawFont(void* font, const char* text, unsigned int color, const AbsRect* area, FABS rotation, AbsVec* center, fgFlag flags);
-FG_EXTERN void FG_FASTCALL fgFontSize(void* font, const char* text, AbsRect* area, fgFlag flags);
+FG_EXTERN void* FG_FASTCALL fgDrawFont(void* font, const char* text, unsigned int color, const AbsRect* area, FABS rotation, AbsVec* center, fgFlag flags, void* cache);
+FG_EXTERN void FG_FASTCALL fgFontSize(void* font, const char* text, AbsRect* area, fgFlag flags); // this should return EXPECTED TEXT AREA that is calculated by lineheight - it should discard excessive vertical space caused by weird unicode modifiers.
 
 #ifdef  __cplusplus
 }
