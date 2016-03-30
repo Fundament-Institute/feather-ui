@@ -81,6 +81,23 @@ FG_EXTERN fgSkin* FG_FASTCALL fgSkins_LoadUBJSON(struct __kh_fgSkins_t* self, co
 
 #ifdef  __cplusplus
 }
+
+template<FG_MSGTYPE type, typename... Args>
+inline fgStyleMsg* AddStyleMsg(fgStyle* style, Args... args)
+{
+  FG_Msg msg = { 0 };
+  msg.type = type;
+  fgSendMsgCall<1, Args...>::F(msg, args...);
+  return fgStyle_AddStyleMsg(style, &msg, 0, 0, 0, 0);
+}
+template<FG_MSGTYPE type, typename... Args>
+inline fgStyleMsg* AddStyleMsgArg(fgStyle* style, const void* arg, size_t length, Args... args)
+{
+  FG_Msg msg = { 0 };
+  msg.type = type;
+  fgSendMsgCall<2, Args...>::F(msg, args...);
+  return fgStyle_AddStyleMsg(style, &msg, arg, length, 0, 0);
+}
 #endif
 
 #endif

@@ -3,6 +3,7 @@
 *.opensdf
 *.bak
 *.opendb
+*.VC.db
 bin/
 bin32/
 media/editor/

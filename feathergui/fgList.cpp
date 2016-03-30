@@ -47,7 +47,7 @@ FG_EXTERN size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
     break;
   case FG_MOUSEMOVE:
     fgUpdateMouseState(&self->mouse, msg);
-    if((self->window.window.element.flags&FGLIST_DRAGGABLE) && (self->mouse.state&FGMOUSE_DRAG)) // Check if we clicked inside this window
+    if(!fgroot_instance->drag && (self->window.window.element.flags&FGLIST_DRAGGABLE) && (self->mouse.state&FGMOUSE_INSIDE)) // Check if we clicked inside this window
     {
       AbsRect cache;
       fgChild* target = fgChild_GetChildUnderMouse(*self, msg->x, msg->y, &cache); // find item below the mouse cursor (if any) and initiate a drag for it.

@@ -8,6 +8,9 @@
 #include "fgButton.h"
 #include "fgMenu.h"
 #include "fgTopWindow.h"
+#include "fgRadioButton.h"
+#include "fgSlider.h"
+#include "fgProgressbar.h"
 
 #if defined(BSS_DEBUG) && defined(BSS_CPU_x86_64)
 #pragma comment(lib, "../bin/feathergui_d.lib")
@@ -25,7 +28,7 @@ fgRoot* _fgroot=0; // fgRoot singleton variable
 void* FG_FASTCALL fgCreateFont(fgFlag flags, const char* font, unsigned int fontsize, float lineheight, float letterspacing) { return (void*)~0; }
 void* FG_FASTCALL fgCloneFont(void* font) { return (void*)~0; }
 void FG_FASTCALL fgDestroyFont(void* font) { }
-void FG_FASTCALL fgDrawFont(void* font, const char* text, unsigned int color, const AbsRect* area, FABS rotation, AbsVec* center, fgFlag flags) { }
+void* FG_FASTCALL fgDrawFont(void* font, const char* text, unsigned int color, const AbsRect* area, FABS rotation, AbsVec* center, fgFlag flags, void* cache) { return 0; }
 void FG_FASTCALL fgFontSize(void* font, const char* text, AbsRect* area, fgFlag flags) { }
 
 void* FG_FASTCALL fgCreateResource(fgFlag flags, const char* data, size_t length) { return (void*)~0; }
@@ -63,11 +66,37 @@ fgChild* FG_FASTCALL fgTopWindow_Create(const char* caption, fgFlag flags, const
   return (fgChild*)r;
 }
 
+fgChild* FG_FASTCALL fgCheckbox_Create(const char* text, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
+{
+  DEFAULT_CREATE(fgCheckbox, fgCheckbox_Init, flags, parent, prev, element);
+  fgChild_VoidMessage((fgChild*)r, FG_SETTEXT, text, 0);
+  return (fgChild*)r;
+}
+fgChild* FG_FASTCALL fgRadiobutton_Create(const char* text, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
+{
+  DEFAULT_CREATE(fgRadiobutton, fgRadiobutton_Init, flags, parent, prev, element);
+  fgChild_VoidMessage((fgChild*)r, FG_SETTEXT, text, 0);
+  return (fgChild*)r;
+}
+fgChild* FG_FASTCALL fgProgressbar_Create(FREL value, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
+{
+  DEFAULT_CREATE(fgProgressbar, fgProgressbar_Init, flags, parent, prev, element);
+  fgChild_IntMessage((fgChild*)r, FG_SETSTATE, *((ptrdiff_t*)&value), 0);
+  return (fgChild*)r;
+}
+fgChild* FG_FASTCALL fgSlider_Create(size_t range, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
+{
+  DEFAULT_CREATE(fgSlider, fgSlider_Init, range, flags, parent, prev, element);
+  return (fgChild*)r;
+}
+
+
 fgRoot* FG_FASTCALL fgInitialize()
 {
   fgRoot* r = (fgRoot*)malloc(sizeof(fgRoot));
   assert(!_fgroot);
-  fgRoot_Init(r);
+  AbsRect area = { 0 };
+  fgRoot_Init(r, &area, 0);
   return _fgroot=r;
 }
 char FG_FASTCALL fgLoadExtension(const char* extname, void* fg, size_t sz) { return -1; }

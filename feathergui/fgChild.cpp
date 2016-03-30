@@ -38,6 +38,10 @@ void FG_FASTCALL fgChild_Destroy(fgChild* self)
   assert(self != 0);
   if(fgFocusedWindow == self)
     fgSendMsg<FG_LOSTFOCUS>(self);
+  if(fgLastHover == self)
+    fgLastHover = 0;
+  if(fgCaptureWindow == self)
+    fgCaptureWindow = 0;
 
   fgChild_Clear(self);
   fgChild_SetParent(self, 0, 0);
