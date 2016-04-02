@@ -90,13 +90,13 @@ inline fgStyleMsg* AddStyleMsg(fgStyle* style, Args... args)
   fgSendMsgCall<1, Args...>::F(msg, args...);
   return fgStyle_AddStyleMsg(style, &msg, 0, 0, 0, 0);
 }
-template<FG_MSGTYPE type, typename... Args>
-inline fgStyleMsg* AddStyleMsgArg(fgStyle* style, const void* arg, size_t length, Args... args)
+template<FG_MSGTYPE type, typename Arg, typename... Args>
+inline fgStyleMsg* AddStyleMsgArg(fgStyle* style, const Arg* arg, Args... args)
 {
   FG_Msg msg = { 0 };
   msg.type = type;
   fgSendMsgCall<2, Args...>::F(msg, args...);
-  return fgStyle_AddStyleMsg(style, &msg, arg, length, 0, 0);
+  return fgStyle_AddStyleMsg(style, &msg, arg, sizeof(Arg), 0, 0);
 }
 #endif
 

@@ -94,11 +94,11 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
       return 1;
     {
       AbsRect* padding = (AbsRect*)msg->other;
-      char diff = CompareAbsRects(&self->realpadding, padding);
+      char diff = CompareMargins(&self->realpadding, padding);
       memcpy(&self->realpadding, padding, sizeof(AbsRect));
 
       if(diff) // Only send a move message if the change in padding could have resulted in an actual area change (this ensures a scroll delta change will NOT trigger an FG_MOVE)
-        fgChild_SubMessage(*self, FG_MOVE, FG_SETPADDING, 0, diff);
+        fgChild_SubMessage(*self, FG_MOVE, FG_SETPADDING, 0, diff | (1 << 8));
       else
         fgScrollbar_Recalc(self); // Recalculate scrollbar positions
 

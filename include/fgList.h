@@ -4,7 +4,7 @@
 #ifndef _FG_LIST_H__
 #define _FG_LIST_H__
 
-#include "fgScrollbar.h"
+#include "fgBox.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -12,26 +12,20 @@ extern "C" {
 
 enum FGLIST_FLAGS
 {
-  FGLIST_TILEX = (1 << 12),
-  FGLIST_TILEY = (1 << 13),
-  FGLIST_DISTRIBUTEX = (1 << 14), // when combined with TILEX and TILEY, simply makes the tiles expand along the X direction
-  FGLIST_DISTRIBUTEY = (1 << 15), // same as above but for the Y direction
-  FGLIST_SINGLESELECT = (1 << 16),
-  FGLIST_MULTISELECT = (1 << 17),
-  FGLIST_DRAGGABLE = (1 << 18),
-  FGLIST_FIXEDSIZE = (1 << 19), // This is a flag set for you by fgList that tells it that all elements are the same size, which allows for lookup optimizations.
-  FGLIST_LAYOUTMASK = FGLIST_TILEX | FGLIST_TILEY | FGLIST_DISTRIBUTEX | FGLIST_DISTRIBUTEY,
+  FGLIST_SINGLESELECT = (1 << 17),
+  FGLIST_MULTISELECT = (1 << 18),
+  FGLIST_DRAGGABLE = (1 << 19),
 };
 
 // A List is an arbitrary list of items with a number of different layout options that are selectable and/or draggable.
 typedef struct {
-  fgScrollbar window;
+  fgBox box;
   fgChild selector;
   fgChild hover;
   fgChild* selected; // points to current selected item
   fgMouseState mouse;
 #ifdef  __cplusplus
-  inline operator fgChild*() { return &window.window.element; }
+  inline operator fgChild*() { return &box.window.window.element; }
   inline fgChild* operator->() { return operator fgChild*(); }
 #endif
 } fgList;

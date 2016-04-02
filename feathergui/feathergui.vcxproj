@@ -217,6 +217,7 @@
   <ItemGroup>
     <ClInclude Include="..\include\bss_compiler.h" />
     <ClInclude Include="..\include\feathergui.h" />
+    <ClInclude Include="..\include\fgBox.h" />
     <ClInclude Include="..\include\fgButton.h" />
     <ClInclude Include="..\include\fgCheckbox.h" />
     <ClInclude Include="..\include\fgChild.h" />
@@ -244,6 +245,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="feathergui.cpp" />
+    <ClCompile Include="fgBox.cpp" />
     <ClCompile Include="fgButton.cpp" />
     <ClCompile Include="fgCheckbox.cpp" />
     <ClCompile Include="fgChild.cpp" />

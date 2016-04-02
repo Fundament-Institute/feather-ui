@@ -101,6 +101,9 @@
     <ClInclude Include="..\include\fgMonitor.h">
       <Filter>include</Filter>
     </ClInclude>
+    <ClInclude Include="..\include\fgBox.h">
+      <Filter>include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ubjson.cpp">
@@ -164,6 +167,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="fgMonitor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgBox.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

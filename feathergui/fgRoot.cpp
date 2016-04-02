@@ -47,8 +47,6 @@ void FG_FASTCALL fgRoot_CheckMouseMove(fgRoot* self)
 
 size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
 {
-  fgRoot_CheckMouseMove(self);
-
   switch(msg->type)
   {
   case FG_KEYCHAR: // If these messages get sent to the root, they have been rejected from everything else.
@@ -66,7 +64,8 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
     return (size_t)"fgRoot";
   case FG_DRAW:
   {
-    CRect* rootarea = &self->gui.element.element.area;
+	fgRoot_CheckMouseMove(self);
+	CRect* rootarea = &self->gui.element.element.area;
     AbsRect area = { rootarea->left.abs, rootarea->top.abs, rootarea->right.abs, rootarea->bottom.abs };
     FG_Msg m = *msg;
     m.other = &area;
@@ -87,13 +86,13 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
   return fgWindow_Message((fgWindow*)self,msg);
 }
 
-void FG_FASTCALL fgStandardDraw(fgChild* self, AbsRect* area, size_t dpi, int max)
+void FG_FASTCALL fgStandardDraw(fgChild* self, AbsRect* area, size_t dpi)
 {
   fgChild* hold = self->last; // we draw backwards through our list.
   AbsRect curarea;
   char clipping = 0;
 
-  while(hold && hold->index <= max)
+  while(hold)
   {
     if(!(hold->flags&FGCHILD_HIDDEN))
     {

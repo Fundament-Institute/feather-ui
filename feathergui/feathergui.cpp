@@ -39,11 +39,11 @@ char FG_FASTCALL MsgHitAbsRect(const FG_Msg* msg, const AbsRect* r)
   return HitAbsRect(r,(FABS)msg->x,(FABS)msg->y);
 }
 
-char FG_FASTCALL CompareAbsRects(const AbsRect* l, const AbsRect* r)
+char FG_FASTCALL CompareMargins(const AbsRect* l, const AbsRect* r)
 {
   assert(l != 0 && r != 0);
-  return ((((l->left - r->left) != (l->right - r->right))) << 1)
-    | ((((l->top - r->top) != (l->bottom - r->bottom))) << 2)
+  return ((((l->left - r->left) != (l->right + r->right))) << 1)
+    | ((((l->top - r->top) != (l->bottom + r->bottom))) << 2)
     | ((((l->left != r->left) || (l->right != r->right))) << 3)
     | ((((l->top != r->top) || (l->bottom != r->bottom))) << 4);
 }

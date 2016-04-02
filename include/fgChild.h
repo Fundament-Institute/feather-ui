@@ -56,7 +56,6 @@ typedef struct _FG_CHILD {
   struct _FG_CHILD* lastfocus; // Stores the last child that had focus, if any. This never points to the child that CURRENTLY has focus, only to the child that HAD focus.
   AbsRect margin; // defines the amount of external margin.
   AbsRect padding; // Defines the amount of internal padding. Only affects children that DON'T have FGCHILD_BACKGROUND set.
-  int index; // Internal index used for layout ordering or vector mapping.
   fgFlag flags;
   const struct _FG_SKIN* skin; // skin reference
   fgVectorChild skinrefs; // Type: fgChild* - References to skin children or subcontrols.
@@ -80,7 +79,6 @@ typedef struct _FG_CHILD {
   FG_DLLEXPORT size_t FG_FASTCALL RemoveChild(struct _FG_CHILD* child);
   FG_DLLEXPORT size_t FG_FASTCALL LayoutFunction(const FG_Msg& msg, const CRect& area);
   FG_DLLEXPORT void FG_FASTCALL LayoutChange(unsigned char subtype, struct _FG_CHILD* target, struct _FG_CHILD* old);
-  FG_DLLEXPORT ptrdiff_t FG_FASTCALL LayoutIndex(struct _FG_CHILD* child);
   FG_DLLEXPORT size_t FG_FASTCALL LayoutLoad(struct _FG_LAYOUT* layout, FN_MAPPING mapping);
   FG_DLLEXPORT size_t Drag(struct _FG_CHILD* target, const FG_Msg& msg);
   FG_DLLEXPORT size_t Dragging(int x, int y);
@@ -139,7 +137,7 @@ FG_EXTERN void FG_FASTCALL fgChild_Destroy(fgChild* self);
 FG_EXTERN void FG_FASTCALL fgChild_SetParent(fgChild* BSS_RESTRICT self, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev);
 FG_EXTERN size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg);
 
-FG_EXTERN size_t FG_FASTCALL fgLayout_Default(fgChild* self, const FG_Msg* msg, CRect* area);
+FG_EXTERN size_t FG_FASTCALL fgLayout_Default(fgChild* self, const FG_Msg* msg, CRect* area, AbsRect* parent);
 FG_EXTERN size_t FG_FASTCALL fgLayout_Distribute(fgChild* self, const FG_Msg* msg, char axis);
 FG_EXTERN size_t FG_FASTCALL fgLayout_Tile(fgChild* self, const FG_Msg* msg, char axes);
 FG_EXTERN size_t FG_FASTCALL fgChild_IntMessage(fgChild* self, unsigned char type, ptrdiff_t data, size_t aux);

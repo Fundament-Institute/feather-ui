@@ -10,13 +10,18 @@
 extern "C" {
 #endif
 
+struct _FG_MENU;
+typedef struct _FG_SUBMENU {
+  fgChild element;
+  fgChild* item;
+  struct _FG_MENU* submenu;
+} fgSubMenu;
+
 // A Menu is either a window menu or a context menu. Turns into a menubar if made the child of a top-level window
 typedef struct _FG_MENU {
   fgScrollbar window;
   fgChild highlight;
   fgChild arrow;
-  fgVectorChild members; // ordered list of menu items.
-  fgDeclareVector(struct _FG_MENU*, Menu) submenus; // If a menu item has a submenu, it's listed here.
   fgChild seperator; // cloned to replace a null value inserted into the list. This allows a style to control the size and appearence of the seperator.
   struct _FG_MENU* expanded; // holds the submenu that is currently expanded, if one is.
   //fgDeferAction* dropdown; // Keeps track of our dropdown action in fgRoot

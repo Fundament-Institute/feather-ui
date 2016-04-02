@@ -39,7 +39,7 @@ typedef unsigned int fgFlag;
 #define FG_EXTERN extern BSS_COMPILER_DLLEXPORT
 
 #ifndef FG_STATIC_LIB
-#ifdef feathergui_EXPORTS
+#ifdef feathergui_EXPORTS // All implementations need to define this to properly export the C++ functions in the feather static library.
 #pragma warning(disable:4251)
 #define FG_DLLEXPORT BSS_COMPILER_DLLEXPORT
 #else
@@ -126,7 +126,7 @@ FG_EXTERN const fgElement fgElement_CENTER;
 enum FG_MSGTYPE
 {
   FG_CONSTRUCT = 1,
-  FG_MOVE, // Passed when any change is made to an element. 1: propagating up, 2: x-axis resize, 4: y-axis resize, 8: x-axis move, 16: y-axis move, 32: zorder change
+  FG_MOVE, // Passed when any change is made to an element. 1: propagating up, 2: x-axis resize, 4: y-axis resize, 8: x-axis move, 16: y-axis move, 32: x center move, 64: y center move, 128: rotation change, 256: padding change
   FG_SETALPHA, // Used so an entire widget can be made to fade in or out. (Support is not guaranteed)
   FG_SETAREA,
   FG_SETELEMENT,
@@ -138,7 +138,6 @@ enum FG_MSGTYPE
   FG_ADDCHILD, // Pass an FG_Msg with this type and set the other pointer to the child that should be added.
   FG_REMOVECHILD, // Verifies child's parent is this, then sets the child's parent to NULL.
   FG_LAYOUTCHANGE, 
-  FG_LAYOUTINDEX,
   FG_LAYOUTFUNCTION,
   FG_LAYOUTLOAD, // Loads a layout passed in the first pointer with an optional custom class name resolution function passed into the second pointer of type fgChild* (*)(const char*, fgElement*, fgFlag)
   FG_DRAG, // Sent to initiate a drag&drop
@@ -162,6 +161,9 @@ enum FG_MSGTYPE
   FG_MOUSEMOVE,
   FG_MOUSESCROLL, 
   FG_MOUSELEAVE, // Sent when the mouse leaves the root area, forces a MOUSEOFF message on current hover window.
+  FG_TOUCHBEGIN,
+  FG_TOUCHEND,
+  FG_TOUCHMOVE,
   FG_KEYUP,
   FG_KEYDOWN,
   FG_KEYCHAR, //Passed in conjunction with keydown/up to differentiate a typed character from other keys.
@@ -402,10 +404,11 @@ typedef struct _FG_MOUSESTATE
 // General message structure which contains the message type and then various kinds of information depending on the type.
 typedef struct _FG_MSG {
   union {
-    struct { int x; int y; // Mouse events
+    struct { int x; int y; // Mouse and touch events
       union { 
         struct { unsigned char button; unsigned char allbtn; }; 
-        short scrolldelta; 
+        short scrolldelta; // MOUSESCROLL
+        short touchindex; // Touch events
       };
     }; 
     struct {  // Keys
@@ -425,7 +428,7 @@ typedef struct _FG_MSG {
 } FG_Msg;
 
 FG_EXTERN AbsVec FG_FASTCALL ResolveVec(const CVec* v, const AbsRect* last);
-FG_EXTERN char FG_FASTCALL CompareAbsRects(const AbsRect* l, const AbsRect* r); // Returns 0 if both are the same or a difference bitset otherwise.
+FG_EXTERN char FG_FASTCALL CompareMargins(const AbsRect* l, const AbsRect* r); // Returns 0 if both are the same or a difference bitset otherwise.
 FG_EXTERN char FG_FASTCALL CompareCRects(const CRect* l, const CRect* r); // Returns 0 if both are the same or a difference bitset otherwise.
 FG_EXTERN char FG_FASTCALL CompareElements(const fgElement* l, const fgElement* r);
 FG_EXTERN void FG_FASTCALL MoveCRect(AbsVec v, CRect* r);

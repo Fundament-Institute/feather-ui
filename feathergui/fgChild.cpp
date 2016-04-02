@@ -47,6 +47,9 @@ void FG_FASTCALL fgChild_Destroy(fgChild* self)
   fgChild_SetParent(self, 0, 0);
   reinterpret_cast<fgSkinRefArray&>(self->skinrefs).~cDynArray();
   fgChild_ClearListeners(self);
+  assert(fgFocusedWindow != self); // If these assertions fail something is wrong with how the message chain is constructed
+  assert(fgLastHover != self);
+  assert(fgCaptureWindow != self);
 }
 
 void FG_FASTCALL fgChild_SetParent(fgChild* BSS_RESTRICT self, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev)
@@ -82,6 +85,11 @@ void FG_FASTCALL fgChild_SetParent(fgChild* BSS_RESTRICT self, fgChild* BSS_REST
     fgChild_SubMessage(parent, FG_LAYOUTCHANGE, FGCHILD_LAYOUTADD, self, 0);
   }
 }
+
+// (1<<1) resize x (2)
+// (1<<2) resize y (4)
+// (1<<3) move x (8)
+// (1<<4) move y (16)
 
 char FG_FASTCALL fgChild_PotentialResize(fgChild* self)
 {
@@ -132,8 +140,8 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
         fgChild_SubMessage(hold, FG_MOVE, msg->subtype, ref, diff & msg->otheraux);
       }
 
-      if(msg->otheraux & 0b10000110)
-        fgChild_SubMessage(self, FG_LAYOUTCHANGE, FGCHILD_LAYOUTRESIZE, (void*)msg->otheraux, 0);
+      if(msg->otheraux & 0b100000110) // a layout change can happen on a resize or padding change
+        fgChild_SubMessage(self, FG_LAYOUTCHANGE, FGCHILD_LAYOUTRESIZE, 0, msg->otheraux);
     }
     return 0;
   case FG_SETALPHA:
@@ -196,7 +204,7 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
       return 1;
     {
       AbsRect* margin = (AbsRect*)msg->other;
-      char diff = CompareAbsRects(&self->margin, margin);
+      char diff = CompareMargins(&self->margin, margin);
 
       if(diff)
       {
@@ -213,7 +221,7 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
       return 1;
     {
       AbsRect* padding = (AbsRect*)msg->other;
-      char diff = CompareAbsRects(&self->padding, padding);
+      char diff = CompareMargins(&self->padding, padding);
 
       if(diff)
       {
@@ -221,7 +229,7 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
         memcpy(&self->padding, padding, sizeof(AbsRect));
         fgChild_MouseMoveCheck(self);
 
-        fgChild_SubMessage(self, FG_MOVE, FG_SETPADDING, 0, diff);
+        fgChild_SubMessage(self, FG_MOVE, FG_SETPADDING, 0, diff|(1<<8));
       }
     }
     return 0;
@@ -247,7 +255,7 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
     m.type = FG_LAYOUTFUNCTION;
     m.other = (void*)msg;
     m.other2 = &area;
-    if(fgChild_PassMessage(self, &m) != 0)
+    if(fgChild_PassMessage(self, &m) != 0 || (msg->otheraux & (1<<8)) != 0)
     {
       if(self->flags&FGCHILD_EXPANDX)
         area.right.abs += self->padding.left + self->padding.right;
@@ -258,10 +266,11 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
     return 0;
   }
   case FG_LAYOUTFUNCTION:
-    return fgLayout_Default(self, (const FG_Msg*)msg->other, (CRect*)msg->other2);
-  case FG_LAYOUTINDEX:
-    hold = (fgChild*)msg->other;
-    return !hold->prev ? 0 : (hold->prev->index + 1);
+  {
+    AbsRect area;
+    ResolveRect(self, &area);
+    return fgLayout_Default(self, (const FG_Msg*)msg->other, (CRect*)msg->other2, &area);
+  }
   case FG_LAYOUTLOAD:
   {
     fgLayout* layout = (fgLayout*)msg->other;
@@ -452,7 +461,7 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
     fgSetCursor(FGCURSOR_ARROW, 0);
     return 1;
   case FG_DRAW:
-    fgStandardDraw(self, (AbsRect*)msg->other, msg->otheraux, INT_MAX);
+    fgStandardDraw(self, (AbsRect*)msg->other, msg->otheraux);
     return 0;
   case FG_GETNAME:
     return 0;
@@ -622,31 +631,40 @@ FG_EXTERN size_t FG_FASTCALL fgChild_SubMessage(fgChild* self, unsigned char typ
   return (*fgroot_instance->behaviorhook)(self, &msg);
 }
 
-char FG_FASTCALL fgLayout_ExpandX(CRect* selfarea, fgChild* child)
+
+inline char FG_FASTCALL fgLayout_ExpandX(CRect* selfarea, fgChild* child, FABS dimx)
 {
   CRect* area = &child->element.area;
   FABS d = selfarea->right.abs - selfarea->left.abs;
-  if(area->right.rel == area->left.rel && area->right.abs > d)
+  FABS reld = (selfarea->right.rel - selfarea->left.rel)*dimx;
+  FABS right = (area->right.rel - area->left.rel)*(d + reld);
+  if(area->right.abs + right > d + reld)
   {
-    selfarea->right.abs = selfarea->left.abs + area->right.abs;
+    FABS ndim = area->right.abs + right - reld;
+    selfarea->right.abs = selfarea->left.abs + ndim;
+    area->right.abs += (area->right.rel - area->left.rel)*(d - ndim);
     return 2;
   }
   return 0;
 }
 
-char FG_FASTCALL fgLayout_ExpandY(CRect* selfarea, fgChild* child)
+inline char FG_FASTCALL fgLayout_ExpandY(CRect* selfarea, fgChild* child, FABS dimy)
 {
   CRect* area = &child->element.area;
   FABS d = selfarea->bottom.abs - selfarea->top.abs;
-  if(area->bottom.rel == area->top.rel && area->bottom.abs > d)
+  FABS reld = (selfarea->bottom.rel - selfarea->top.rel)*dimy;
+  FABS bottom = (area->bottom.rel - area->top.rel)*(d + reld);
+  if(area->bottom.abs + bottom > d + reld)
   {
-    selfarea->bottom.abs = selfarea->top.abs + area->bottom.abs;
+    FABS ndim = area->bottom.abs + bottom - reld;
+    selfarea->bottom.abs = selfarea->top.abs + ndim;
+    area->bottom.abs += (area->bottom.rel - area->top.rel)*(d - ndim); // Equivelent to: area->bottom.rel*(d + reld) - area->bottom.rel*(ndim + reld)
     return 4;
   }
   return 0;
 }
 
-size_t FG_FASTCALL fgLayout_Default(fgChild* self, const FG_Msg* msg, CRect* area)
+size_t FG_FASTCALL fgLayout_Default(fgChild* self, const FG_Msg* msg, CRect* area, AbsRect* parent)
 {
   if(!(self->flags & FGCHILD_EXPAND))
     return 0;
@@ -662,9 +680,9 @@ size_t FG_FASTCALL fgLayout_Default(fgChild* self, const FG_Msg* msg, CRect* are
   {
     FG_Msg m = *msg;
     m.subtype = FGCHILD_LAYOUTREMOVE;
-    size_t dim = fgLayout_Default(self, &m, area);
+    size_t dim = fgLayout_Default(self, &m, area, parent);
     m.subtype = FGCHILD_LAYOUTADD;
-    dim |= fgLayout_Default(self, &m, area);
+    dim |= fgLayout_Default(self, &m, area, parent);
     return dim;
   }
   case FGCHILD_LAYOUTADD:
@@ -673,9 +691,9 @@ size_t FG_FASTCALL fgLayout_Default(fgChild* self, const FG_Msg* msg, CRect* are
       break;
     char dim = 0;
     if(self->flags & FGCHILD_EXPANDX)
-      dim |= fgLayout_ExpandX(area, child);
+      dim |= fgLayout_ExpandX(area, child, parent->right - parent->left);
     if(self->flags & FGCHILD_EXPANDY)
-      dim |= fgLayout_ExpandY(area, child);
+      dim |= fgLayout_ExpandY(area, child, parent->bottom - parent->top);
     return dim;
   }
   case FGCHILD_LAYOUTREMOVE:
@@ -695,7 +713,7 @@ size_t FG_FASTCALL fgLayout_Default(fgChild* self, const FG_Msg* msg, CRect* are
       FG_Msg m = *msg;
       m.subtype = FGCHILD_LAYOUTRESET;
       m.other = child;
-      return fgLayout_Default(self, &m, area);
+      return fgLayout_Default(self, &m, area, parent);
     }
   }
   case FGCHILD_LAYOUTRESET:
@@ -712,9 +730,9 @@ size_t FG_FASTCALL fgLayout_Default(fgChild* self, const FG_Msg* msg, CRect* are
       if(hold != child)
       {
         if(self->flags & FGCHILD_EXPANDX)
-          dim |= fgLayout_ExpandX(area, hold);
+          dim |= fgLayout_ExpandX(area, hold, parent->right - parent->left);
         if(self->flags & FGCHILD_EXPANDY)
-          dim |= fgLayout_ExpandY(area, hold);
+          dim |= fgLayout_ExpandY(area, hold, parent->bottom - parent->top);
       }
       hold = hold->next;
     }
@@ -803,18 +821,19 @@ size_t FG_FASTCALL fgLayout_Tile(fgChild* self, const FG_Msg* msg, char axes)
   case FGCHILD_LAYOUTMOVE:
     break;
   case FGCHILD_LAYOUTRESIZE:
-    if((((msg->otherint&0b10) && !(self->flags&FGCHILD_EXPANDX)) || ((msg->otherint & 0b100) && !(self->flags&FGCHILD_EXPANDY))) && (axes & 3))
+    if((((msg->otheraux&0b10) && !(self->flags&FGCHILD_EXPANDX)) || ((msg->otheraux & 0b100) && !(self->flags&FGCHILD_EXPANDY))) && (axes & 3))
       fgLayout_TileReorder(0, self->root, axis, max, 0.0f);
     break;
   case FGCHILD_LAYOUTREORDER:
   {
     fgChild* old = (fgChild*)msg->other2;
-    child = child->index < old->index ? child : old; // Get lowest child
+    fgChild* cur = old;
+    while(cur != 0 && cur != child) cur = cur->next; // Run down from old until we either hit child, in which case old is the lowest, or we hit null
+    child = !cur ? child : old;
     fgLayout_TileReorder(child->prev, child, axis, max, (axes & 3) ? fgLayout_TileGetPitch(child->prev, axis) : 0.0f);
   }
     break;
   case FGCHILD_LAYOUTADD:
-    child->index = (int)fgSendMsg<FG_LAYOUTINDEX, void*>(self, child);
     fgLayout_TileReorder(child->prev, child, axis, max, (axes & 3) ? fgLayout_TileGetPitch(child->prev, axis) : 0.0f);
     break;
   case FGCHILD_LAYOUTREMOVE:
@@ -972,10 +991,6 @@ size_t FG_FASTCALL fgChild::LayoutFunction(const FG_Msg& msg, const CRect& area)
 void fgChild::LayoutChange(unsigned char subtype, fgChild* target, fgChild* old)
 {
   fgSendSubMsg<FG_LAYOUTCHANGE, void*, void*>(this, subtype, target, old);
-}
-ptrdiff_t FG_FASTCALL fgChild::LayoutIndex(fgChild* child)
-{
-  return fgSendMsg<FG_LAYOUTINDEX, void*>(this, child);
 }
 size_t FG_FASTCALL fgChild::LayoutLoad(fgLayout* layout, FN_MAPPING mapping)
 {

@@ -4,14 +4,9 @@
 #include "fgMenu.h"
 #include "feathercpp.h"
 
-typedef bss_util::cDynArray<fgMenu*> fgSubmenuArray;
-typedef bss_util::cDynArray<fgChild*> fgMenuArray;
-
 void FG_FASTCALL fgMenu_Init(fgMenu* self, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element, FG_UINT id, fgFlag flags, char submenu)
 {
   assert(self!=0);
-  memset(&self->members, 0, sizeof(fgVector));
-  memset(&self->submenus, 0, sizeof(fgVector));
   fgChild_InternalSetup(*self, flags, parent, prev, element, (FN_DESTROY)&fgMenu_Destroy, (FN_MESSAGE)(submenu ? &fgSubmenu_Message : &fgMenu_Message));
 }
 void FG_FASTCALL fgMenu_Destroy(fgMenu* self)
@@ -38,8 +33,7 @@ size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
     fgChild_AddPreChild(*self, &self->highlight);
     fgChild_Init(&self->arrow, FGCHILD_IGNORE | FGCHILD_EXPAND, 0, 0, 0);
     fgChild_AddPreChild(*self, &self->arrow);
-    fgChild_Init(&self->seperator, FGCHILD_IGNORE | FGCHILD_EXPAND, 0, 0, 0);
-    fgChild_AddPreChild(*self, &self->seperator);
+    fgChild_AddPreChild(*self, 0); // seperator placeholder
     return 0;
   case FG_MOUSEDOWN:
   {
@@ -109,7 +103,7 @@ size_t FG_FASTCALL fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
     size_t index = 0;
     if(((fgSubmenuArray&)self->submenus)[index]) // if this exists open the submenu
       fgMenu_Show(self->expanded = ((fgSubmenuArray&)self->submenus)[index], true);
-    else // otherwise send an action message to this control (because what you clicked on may just be an image or text).
+    else // otherwise send an action message to ourselves (because what you clicked on may just be an image or text).
     {
       fgSendMsg<FG_ACTION, void*>(*self, ((fgMenuArray&)self->members)[index]);
       fgMenu_Show(self, false);

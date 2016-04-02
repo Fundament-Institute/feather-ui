@@ -12,33 +12,23 @@ FG_EXTERN void FG_FASTCALL fgList_Init(fgList* self, fgChild* BSS_RESTRICT paren
 }
 FG_EXTERN void FG_FASTCALL fgList_Destroy(fgList* self)
 {
-  fgScrollbar_Destroy(&self->window); // this will destroy our prechildren for us.
+  fgBox_Destroy(&self->box); // this will destroy our prechildren for us.
 }
 FG_EXTERN size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
 {
   ptrdiff_t otherint = msg->otherint;
-  fgFlag flags = self->window.window.element.flags;
+  fgFlag flags = self->box.window.window.element.flags;
 
   switch(msg->type)
   {
   case FG_CONSTRUCT:
-    fgWindow_Message((fgWindow*)self, msg);
+    fgBox_Message(&self->box, msg);
     self->selected = 0;
     fgChild_Init(&self->selector, FGCHILD_BACKGROUND, 0, 0, 0); // we do NOT set the parent of these because we need to manipulate when they get rendered.
     fgChild_Init(&self->hover, FGCHILD_BACKGROUND, 0, 0, 0);
     fgChild_AddPreChild(*self, &self->selector);
     fgChild_AddPreChild(*self, &self->hover);
     return 0;
-  case FG_SETFLAG: // Do the same thing fgChild does to resolve a SETFLAG into SETFLAGS
-    otherint = T_SETBIT(flags, otherint, msg->otheraux);
-  case FG_SETFLAGS:
-    if((otherint^flags) & FGLIST_LAYOUTMASK)
-    { // handle a layout flag change
-      size_t r = fgScrollbar_Message(&self->window, msg); // we have to actually set the flags first before resetting the layout
-      fgChild_SubMessage(*self, FG_LAYOUTCHANGE, FGCHILD_LAYOUTRESET, 0, 0);
-      return r;
-    }
-    break;
   case FG_MOUSEDOWN:
     fgUpdateMouseState(&self->mouse, msg);
     break;
@@ -47,7 +37,7 @@ FG_EXTERN size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
     break;
   case FG_MOUSEMOVE:
     fgUpdateMouseState(&self->mouse, msg);
-    if(!fgroot_instance->drag && (self->window.window.element.flags&FGLIST_DRAGGABLE) && (self->mouse.state&FGMOUSE_INSIDE)) // Check if we clicked inside this window
+    if(!fgroot_instance->drag && (self->box.window.window.element.flags&FGLIST_DRAGGABLE) && (self->mouse.state&FGMOUSE_INSIDE)) // Check if we clicked inside this window
     {
       AbsRect cache;
       fgChild* target = fgChild_GetChildUnderMouse(*self, msg->x, msg->y, &cache); // find item below the mouse cursor (if any) and initiate a drag for it.
@@ -61,9 +51,6 @@ FG_EXTERN size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
       if(drag->parent != *self) // If something is being dragged over us, by default reject it if it wasn't from this list.
         break; // the default handler rejects it for us and sets the cursor.
       fgSetCursor(FGCURSOR_HAND, 0); // Set cursor to a droppable icon
-
-      // TODO: need to schedule drawing a line on the next draw call here
-
     }
     return 0;
   case FG_DROP:
@@ -86,13 +73,13 @@ FG_EXTERN size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
       return 0;
     }
     return 0;
-  case FG_LAYOUTFUNCTION:
-    if(flags&(FGLIST_TILEX | FGLIST_TILEY)) // TILE flags override DISTRIBUTE flags, if they're specified.
-      return fgLayout_Tile(*self, (const FG_Msg*)msg->other, (flags&FGLIST_LAYOUTMASK) >> 12);
-    if(flags&(FGLIST_DISTRIBUTEX | FGLIST_DISTRIBUTEY))
-      return fgLayout_Distribute(*self, (const FG_Msg*)msg->other, (flags&FGLIST_LAYOUTMASK) >> 12);
-    break; // If no layout flags are specified, fall back to default layout behavior.
+  case FG_DRAW:
+	  // If dragging, draw a line, otherwise, draw the hover rect.
+
+
+	  // If there are selections, draw them here.
+    break;
   }
 
-  return fgScrollbar_Message(&self->window, msg);
+  return fgBox_Message(&self->box, msg);
 }
