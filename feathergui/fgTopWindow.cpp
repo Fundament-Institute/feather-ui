@@ -55,7 +55,7 @@ size_t FG_FASTCALL fgTopWindow_Message(fgTopWindow* self, const FG_Msg* msg)
     self->controls[0].window.element.message = (FN_MESSAGE)&fgTopWindow_CloseMessage;
     self->controls[1].window.element.message = (FN_MESSAGE)&fgTopWindow_MaximizeMessage;
     self->controls[2].window.element.message = (FN_MESSAGE)&fgTopWindow_MinimizeMessage;
-    return 0;
+    return 1;
   case FG_SETTEXT:
   case FG_SETFONT:
   case FG_SETCOLOR:
@@ -70,7 +70,7 @@ size_t FG_FASTCALL fgTopWindow_Message(fgTopWindow* self, const FG_Msg* msg)
       ResolveRect(*self, &out);
       if(msg->y < out.top + self->window.element.padding.top)
         fgChild_IntMessage(*self, FG_ACTION, FGTOPWINDOW_MAXIMIZE, 0);
-      return 0;
+      return 1;
     }
     break;
   case FG_MOUSEDOWN:
@@ -135,7 +135,7 @@ size_t FG_FASTCALL fgTopWindow_Message(fgTopWindow* self, const FG_Msg* msg)
       break;
     case FGTOPWINDOW_CLOSE:
       VirtualFreeChild(*self);
-      return 0;
+      return 1;
     }
   case FG_GETCLASSNAME:
     return (size_t)"fgTopWindow";

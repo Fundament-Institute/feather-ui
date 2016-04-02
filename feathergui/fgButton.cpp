@@ -19,31 +19,31 @@ size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_CONSTRUCT:
-    fgWindow_HoverProcess(&self->window, msg);
+    fgWindow_HoverMessage(&self->window, msg);
     fgChild_Init(&self->item, FGCHILD_EXPAND | FGCHILD_IGNORE, *self, 0, &fgElement_CENTER);
     fgChild_AddPreChild(*self, &self->item);
     fgText_Init(&self->text, 0, 0, 0, FGCHILD_EXPAND | FGCHILD_IGNORE, *self, 0, &fgElement_CENTER);
     fgChild_AddPreChild(*self, self->text);
     fgSendMsg<FG_SETSTYLE, void*>(*self, "nuetral");
-    return 0;
+    return 1;
   case FG_ADDITEM:
     if(msg->other)
       fgSendMsg<FG_ADDCHILD, void*>(&self->item, msg->other);
     else
       fgChild_Clear(&self->item);
-    return 0;
+    return 1;
   case FG_NUETRAL:
     fgSendMsg<FG_SETSTYLE, void*>(*self, "nuetral");
-    return 0;
+    return 1;
   case FG_HOVER:
     fgSendMsg<FG_SETSTYLE, void*>(*self, "hover");
-    return 0;
+    return 1;
   case FG_ACTIVE:
     fgSendMsg<FG_SETSTYLE, void*>(*self, "active");
-    return 0;
+    return 1;
   case FG_GOTFOCUS:
     if(self->window.element.flags&FGBUTTON_NOFOCUS)
-      return 1;
+      return 0;
     break;
   case FG_GETCLASSNAME:
     return (size_t)"fgButton";
@@ -55,5 +55,5 @@ size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
   case FG_GETCOLOR:
     return fgChild_PassMessage(self->text, msg);
   }
-  return fgWindow_HoverProcess(&self->window,msg);
+  return fgWindow_HoverMessage(&self->window,msg);
 }

@@ -28,7 +28,7 @@ FG_EXTERN size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
     fgChild_Init(&self->hover, FGCHILD_BACKGROUND, 0, 0, 0);
     fgChild_AddPreChild(*self, &self->selector);
     fgChild_AddPreChild(*self, &self->hover);
-    return 0;
+    return 1;
   case FG_MOUSEDOWN:
     fgUpdateMouseState(&self->mouse, msg);
     break;
@@ -52,7 +52,7 @@ FG_EXTERN size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
         break; // the default handler rejects it for us and sets the cursor.
       fgSetCursor(FGCURSOR_HAND, 0); // Set cursor to a droppable icon
     }
-    return 0;
+    return 1;
   case FG_DROP:
     if(msg->other)
     {
@@ -70,9 +70,8 @@ FG_EXTERN size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
       // Remove the child from where it currently is, then re-insert it above or below the control it's being dragged over.
 
       fgSetCursor(FGCURSOR_ARROW, 0);
-      return 0;
     }
-    return 0;
+    return 1;
   case FG_DRAW:
 	  // If dragging, draw a line, otherwise, draw the hover rect.
 

@@ -34,31 +34,38 @@ size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
     fgChild_Init(&self->arrow, FGCHILD_IGNORE | FGCHILD_EXPAND, 0, 0, 0);
     fgChild_AddPreChild(*self, &self->arrow);
     fgChild_AddPreChild(*self, 0); // seperator placeholder
-    return 0;
+    return 1;
   case FG_MOUSEDOWN:
   {
-    char hit = MsgHitCRect(msg, *self);
-    fgChild* child;
-    AbsRect cache;
-    if(hit)
-      child = fgChild_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
-    if(!hit || !child) // check if we are outside and need to close the menu
+    if(self->expanded) // for top level menus, if there is an expanded submenu and it did not handle a mousedown, we always close the menu.
     {
-      if(self->expanded)
-        fgMenu_Show(self->expanded, false);
+      fgMenu_Show(self->expanded, false);
       self->expanded = 0;
-      return 0;
+      if(fgCaptureWindow == *self) // Remove our control hold on mouse messages.
+        fgCaptureWindow = 0;
+      return 1;
     }
-    size_t index = 0;
-    if(((fgSubmenuArray&)self->submenus)[index]) // if this exists open the submenu
-      fgMenu_Show(self->expanded = ((fgSubmenuArray&)self->submenus)[index], true);
-    else // otherwise send an action message to this control (because what you clicked on may just be an image or text).
-      fgSendMsg<FG_ACTION, void*>(*self, ((fgMenuArray&)self->members)[index]);
-    return 0;
+
+    assert(fgCaptureWindow != *self); // this should never happen (if it does you may need to always remove the capture window status).
+    AbsRect cache;
+    fgChild* child = fgChild_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
+    if(child) // If you click the empty part of the menu, nothing happens, but if you hit a child, we check if it has a submenu
+    {
+      fgMenu* submenu = reinterpret_cast<fgMenu*>(fgSendMsg<FG_GETSELECTEDITEM>(child));
+      if(submenu) // if this exists open the submenu
+      {
+        fgCaptureWindow = *self; // Because we are the top level menu, we must also capture the mouse
+        fgMenu_Show(self->expanded = submenu, true);
+      }
+      else // otherwise send an action message to ourselves (because what you clicked on may just be an image or text).
+        fgSendMsg<FG_ACTION, void*>(*self, child);
+    }
+
+    return 1;
   }
     break;
   case FG_MOUSEUP:
-    break;
+    break; // TODO: You may need to block all mouse messages from propagating down and manually trigger the hover calculations, because otherwise the mouse capture will break it.
   case FG_MOUSEMOVE:
   {
     AbsRect cache;
@@ -71,11 +78,9 @@ size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
   }
     break;
   case FG_MOUSEOFF:
-    if(!self->expanded) // Turn off the hover, but ONLY if a submenu isn't expanded.
-      fgChild_IntMessage(&self->highlight, FG_SETFLAG, FGCHILD_HIDDEN, 1);
-    break;
+    break; // the top level menu never turns off its hover
   case FG_ADDITEM:
-    return 0;
+    return 1;
   case FG_GETCLASSNAME:
     return (size_t)"fgMenu";
   }
@@ -84,7 +89,7 @@ size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
 
 size_t FG_FASTCALL fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
 {
-  switch(msg->type)
+  /*switch(msg->type)
   {
   case FG_MOUSEDOWN: // submenus respond to mouseup, however if the mousedown misses the control entirely we must propagate upwards
     return fgScrollbar_Message((fgScrollbar*)self, msg);
@@ -98,7 +103,7 @@ size_t FG_FASTCALL fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
     if(!hit || !child) // check if we are outside and need to close the menu
     {
       fgMenu_Show(self, false);
-      return 0;
+      return 1;
     }
     size_t index = 0;
     if(((fgSubmenuArray&)self->submenus)[index]) // if this exists open the submenu
@@ -108,7 +113,7 @@ size_t FG_FASTCALL fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
       fgSendMsg<FG_ACTION, void*>(*self, ((fgMenuArray&)self->members)[index]);
       fgMenu_Show(self, false);
     }
-    return 0;
+    return 1;
   }
   case FG_MOUSEMOVE:
   {
@@ -119,10 +124,13 @@ size_t FG_FASTCALL fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
       CRect r = { 0, 0, child->element.area.top.abs, 0, 0, 1, child->element.area.bottom.abs, 0 };
       fgSendMsg<FG_SETAREA, void*>(&self->highlight, &r);
     }
-    return 0;
+    return 1;
   }
+  case FG_MOUSEOFF:
+    if(!self->expanded) // Turn off the hover, but ONLY if a submenu isn't expanded.
+      fgChild_IntMessage(&self->highlight, FG_SETFLAG, FGCHILD_HIDDEN, 1);
   case FG_GETCLASSNAME:
     return (size_t)"fgSubmenu"; // This allows you to properly differentiate a top level menu glued to the top of a window from a submenu, like a context menu.
-  }
-  return fgMenu_Message(self, msg);
+  }*/
+  return fgScrollbar_Message(&self->window, msg);
 }

@@ -32,12 +32,12 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
     self->text = 0;
     self->color.color = 0;
     self->font = 0;
-    return 0;
+    return 1;
   case FG_SETTEXT:
     if(self->text) free(self->text);
     self->text = fgCopyText((const char*)msg->other);
     fgText_Recalc(self);
-    return 0;
+    return 1;
   case FG_SETFONT:
     if(self->font) fgDestroyFont(self->font);
     self->font = 0;

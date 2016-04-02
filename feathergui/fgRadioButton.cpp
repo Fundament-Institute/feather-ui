@@ -54,7 +54,7 @@ size_t FG_FASTCALL fgRadiobutton_Message(fgRadiobutton* self, const FG_Msg* msg)
     fgCheckbox_Message(&self->window, msg);
     self->radionext = 0;
     self->radioprev = 0;
-    return 0;
+    return 1;
   case FG_SETSTATE:
     if(msg->otherint && parent != 0) // if you about to check this radio button, uncheck all of them in it's fgChild group
     {
@@ -66,7 +66,7 @@ size_t FG_FASTCALL fgRadiobutton_Message(fgRadiobutton* self, const FG_Msg* msg)
       }
     }
     self->window.checked = msg->otherint;
-    return 0;
+    return 1;
   case FG_SETPARENT:
     if(msg->other != parent)
     {
@@ -92,11 +92,11 @@ size_t FG_FASTCALL fgRadiobutton_Message(fgRadiobutton* self, const FG_Msg* msg)
         root = self;
       }
     }
-    return 0;
+    return 1;
   case FG_ACTION:
     if(!self->window.checked)
       fgChild_IntMessage(*self, FG_SETSTATE, 1, 0);
-    return 0;
+    return 1;
   case FG_GETCLASSNAME:
     return (size_t)"fgRadioButton";
   }

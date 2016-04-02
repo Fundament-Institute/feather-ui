@@ -31,12 +31,12 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
     self->edge.color = 0;
     self->res = 0;
     self->outline = 0;
-    return 0;
+    return 1;
   case FG_SETUV:
     if(msg->other)
       self->uv = *((CRect*)msg->other);
     fgResource_Recalc(self);
-    return 0;
+    return 1;
   case FG_SETRESOURCE:
     if(self->res) fgDestroyResource(self->res);
     self->res = 0;

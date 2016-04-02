@@ -29,13 +29,13 @@ FG_EXTERN size_t FG_FASTCALL fgProgressbar_Message(fgProgressbar* self, const FG
     fgText_Init(&self->text, 0, 0, 0, FGCHILD_EXPAND | FGCHILD_IGNORE, *self, &self->bar, &fgElement_CENTER);
     fgChild_AddPreChild(*self, self->text);
     self->value = 0.0f;
-    return 0;
+    return 1;
   case FG_ADDITEM:
     if(msg->other)
       fgSendMsg<FG_ADDCHILD, void*>(&self->bar, msg->other);
     else
       fgChild_Clear(&self->bar);
-    return 0;
+    return 1;
   case FG_SETSTATE:
     if(msg->otherf != self->value)
     {
@@ -44,11 +44,11 @@ FG_EXTERN size_t FG_FASTCALL fgProgressbar_Message(fgProgressbar* self, const FG
       area.right.rel = self->value;
       fgSendMsg<FG_SETAREA, void*>(&self->bar, &area);
     }
-    return 0;
+    return 1;
   case FG_GETSTATE:
     if(msg->other)
       *((FREL*)msg->other) = self->value;
-    return 0;
+    return 1;
   case FG_SETTEXT:
   case FG_SETFONT:
   case FG_SETCOLOR:

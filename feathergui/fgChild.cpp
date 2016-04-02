@@ -121,7 +121,7 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_CONSTRUCT:
-    return 0;
+    return 1;
   case FG_MOVE:
     if(!msg->other && self->parent != 0) // This is internal, so we must always propagate it up
       fgChild_SubMessage(self->parent, FG_MOVE, msg->subtype, self, msg->otheraux | 1);
@@ -143,12 +143,12 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
       if(msg->otheraux & 0b100000110) // a layout change can happen on a resize or padding change
         fgChild_SubMessage(self, FG_LAYOUTCHANGE, FGCHILD_LAYOUTRESIZE, 0, msg->otheraux);
     }
-    return 0;
-  case FG_SETALPHA:
     return 1;
+  case FG_SETALPHA:
+    return 0;
   case FG_SETAREA:
     if(!msg->other)
-      return 1;
+      return 0;
     {
       CRect* area = (CRect*)msg->other;
       char diff = CompareCRects(&self->element.area, area);
@@ -161,10 +161,10 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
         fgChild_SubMessage(self, FG_MOVE, FG_SETAREA, 0, diff);
       }
     }
-    return 0;
+    return 1;
   case FG_SETELEMENT:
     if(!msg->other)
-      return 1;
+      return 0;
     {
       fgElement* element = (fgElement*)msg->other;
       char diff = CompareElements(&self->element, element);
@@ -177,7 +177,7 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
         fgChild_SubMessage(self, FG_MOVE, FG_SETELEMENT, 0, diff);
       }
     }
-    return 0;
+    return 1;
   case FG_SETFLAG: // If 0 is sent in, disable the flag, otherwise enable. Our internal flag is 1 if clipping disabled, 0 otherwise.
     otherint = T_SETBIT(self->flags, otherint, msg->otheraux);
   case FG_SETFLAGS:
@@ -198,10 +198,10 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
     if((change&FGCHILD_EXPAND)&self->flags) // If we change the expansion flags, we must recalculate every single child in our layout provided one of the expansion flags is actually set
       fgChild_SubMessage(self, FG_LAYOUTCHANGE, FGCHILD_LAYOUTRESET, 0, 0);
   }
-    return 0;
+    return 1;
   case FG_SETMARGIN:
     if(!msg->other)
-      return 1;
+      return 0;
     {
       AbsRect* margin = (AbsRect*)msg->other;
       char diff = CompareMargins(&self->margin, margin);
@@ -215,10 +215,10 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
         fgChild_SubMessage(self, FG_MOVE, FG_SETMARGIN, 0, diff);
       }
     }
-    return 0;
+    return 1;
   case FG_SETPADDING:
     if(!msg->other)
-      return 1;
+      return 0;
     {
       AbsRect* padding = (AbsRect*)msg->other;
       char diff = CompareMargins(&self->padding, padding);
@@ -232,21 +232,21 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
         fgChild_SubMessage(self, FG_MOVE, FG_SETPADDING, 0, diff|(1<<8));
       }
     }
-    return 0;
+    return 1;
   case FG_SETPARENT:
     fgChild_SetParent(self, (fgChild*)msg->other, (fgChild*)msg->other2);
     fgSendMsg<FG_SETSKIN>(self); // re-evaluate our skin
     fgChild_SubMessage(self, FG_MOVE, FG_SETPARENT, 0, fgChild_PotentialResize(self));
-    return 0;
+    return 1;
   case FG_ADDCHILD:
     hold = (fgChild*)msg->other;
     if(!hold)
-      return 1;
+      return 0;
     return fgSendMsg<FG_SETPARENT, void*>(hold, self);
   case FG_REMOVECHILD:
     hold = (fgChild*)msg->other;
     if(!msg->other || hold->parent != self)
-      return 1;
+      return 0;
     return fgSendMsg<FG_SETPARENT>((fgChild*)msg->other);
   case FG_LAYOUTCHANGE:
   {
@@ -263,7 +263,7 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
         area.bottom.abs += self->padding.top + self->padding.bottom;
       fgSendMsg<FG_SETAREA, void*>(self, &area);
     }
-    return 0;
+    return 1;
   }
   case FG_LAYOUTFUNCTION:
   {
@@ -275,7 +275,7 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
   {
     fgLayout* layout = (fgLayout*)msg->other;
     if(!layout)
-      return 1;
+      return 0;
 
     FN_MAPPING mapping = (FN_MAPPING)msg->other2;
     if(!mapping) mapping = &fgLayoutLoadMapping;
@@ -284,7 +284,7 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
     for(FG_UINT i = 0; i < layout->layout.l; ++i)
       prev = fgChild_LoadLayout(self, prev, layout->layout.p + i, mapping);
   }
-    return 0;
+    return 1;
   case FG_CLONE:
   {
     hold = (fgChild*)msg->other;
@@ -397,7 +397,7 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
     }
     fgChild_IntMessage(self, FG_SETSTYLE, -1, 1);
   }
-    return 0;
+    return 1;
   case FG_SETSTYLE:
   {
     fgStyle* style = 0;
@@ -424,7 +424,7 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
       style = (fgStyle*)msg->other;
 
     if(!style)
-      return 1;
+      return 0;
 
     fgStyleMsg* cur = style->styles;
     while(cur)
@@ -433,15 +433,15 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
       cur = cur->next;
     }
   }
-    return 0;
+    return 1;
   case FG_GETSTYLE:
     return (self->style == (FG_UINT)-1 && self->parent != 0) ? fgSendMsg<FG_GETSTYLE>(self->parent) : self->style;
   case FG_GOTFOCUS:
     if(self->lastfocus) {
       fgChild* hold = self->lastfocus;
       self->lastfocus = 0;
-      if(!fgSendMsg<FG_GOTFOCUS>(hold))
-        return 0;
+      if(fgSendMsg<FG_GOTFOCUS>(hold))
+        return 1;
     }
     if(self->parent)
       return fgSendMsg<FG_GOTFOCUS>(self->parent);
@@ -452,24 +452,24 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
     FG_Msg m = *(FG_Msg*)msg->other2; // Immediately trigger an FG_DRAGGING message to set the cursor
     m.type = FG_DRAGGING;
     fgChild_PassMessage(self, &m);
-    return 0;
+    return 1;
   }
   case FG_DRAGGING:
     fgSetCursor(FGCURSOR_NO, 0);
-    return 1;
+    return 0;
   case FG_DROP:
     fgSetCursor(FGCURSOR_ARROW, 0);
-    return 1;
+    return 0;
   case FG_DRAW:
     fgStandardDraw(self, (AbsRect*)msg->other, msg->otheraux);
-    return 0;
+    return 1;
   case FG_GETNAME:
     return 0;
   case FG_GETDPI:
     return self->parent ? fgSendMsg<FG_GETDPI>(self->parent) : 0;
   }
 
-  return 1;
+  return 0;
 }
 
 void FG_FASTCALL VirtualFreeChild(fgChild* self)
@@ -863,7 +863,7 @@ size_t FG_FASTCALL fgLayout_Distribute(fgChild* self, const FG_Msg* msg, char ax
     break;
   }*/
 
-  return 1;
+  return 0;
 }
 
 void FG_FASTCALL fgChild_Clear(fgChild* self)

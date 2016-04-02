@@ -64,14 +64,14 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     fgWindow_Message(&self->window, msg);
     memset(&self->maxdim, 0, sizeof(CVec));
-    return 0;
+    return 1;
   case FG_MOVE:
     if(!msg->other && (msg->otheraux & 6)) // detect an INTERNAL area change (every other area change will be handled elsewhere)
       fgScrollbar_Recalc(self); // If we have an actual area change, the scrollbars need to be repositioned or possibly removed entirely.
     break;
   case FG_SETAREA: // The set area only tries to enforce maxdim on the ABS portion. Consequently, responding to dimension changes must be done in FG_MOVE
     if(!msg->other)
-      return 1;
+      return 0;
     {
       AbsRect r;
       ResolveRect(*self, &r);
@@ -88,10 +88,10 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
       if(diff)
         fgChild_SubMessage(*self, FG_MOVE, FG_SETAREA, 0, diff);
     }
-    return 0;
+    return 1;
   case FG_SETPADDING:
     if(!msg->other)
-      return 1;
+      return 0;
     {
       AbsRect* padding = (AbsRect*)msg->other;
       char diff = CompareMargins(&self->realpadding, padding);
@@ -103,7 +103,7 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
         fgScrollbar_Recalc(self); // Recalculate scrollbar positions
 
     }
-    return 0;
+    return 1;
   case FG_LAYOUTCHANGE:
     {
       fgFlag flags = self->window.element.flags;
@@ -119,7 +119,7 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
       self->realsize = { area.right.abs - area.left.abs, area.bottom.abs - area.top.abs }; // retrieve real area and then reset to the area of the window.
       if(dim)
         fgScrollbar_Redim(self, area);
-      return 0;
+      return 1;
     }
     break;
   case FG_ACTION:
@@ -129,7 +129,7 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
       // apply change to padding
       // clamp
       // Set new padding (which will recalculate scrollbar positions)
-      return 0;
+      return 1;
     case FGSCROLLBAR_PAGE: // By default a page scroll (clicking on the area outside of the bar or hitting pageup/pagedown) attempts to scroll by the width of the container in that direction.
     {
       AbsRect r;
@@ -183,5 +183,5 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
       break;
     }
   }
-  return fgWindow_Message(&self->window, msg);
+  return fgWindow_HoverMessage(&self->window, msg);
 }

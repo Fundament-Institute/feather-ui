@@ -33,7 +33,7 @@ FG_EXTERN fgChild* fgCaptureWindow;
 FG_EXTERN void FG_FASTCALL fgWindow_Init(fgWindow* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element);
 FG_EXTERN void FG_FASTCALL fgWindow_Destroy(fgWindow* self);
 FG_EXTERN size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg);
-FG_EXTERN size_t FG_FASTCALL fgWindow_HoverProcess(fgWindow* self, const FG_Msg* msg);
+FG_EXTERN size_t FG_FASTCALL fgWindow_HoverMessage(fgWindow* self, const FG_Msg* msg);
 FG_EXTERN void FG_FASTCALL fgWindow_TabAfter(fgWindow* self, fgWindow* prev);
 FG_EXTERN void FG_FASTCALL fgWindow_TabBefore(fgWindow* self, fgWindow* next);
 FG_EXTERN void FG_FASTCALL fgWindow_DoHoverCalc(fgWindow* self);

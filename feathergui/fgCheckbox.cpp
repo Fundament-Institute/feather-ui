@@ -19,7 +19,7 @@ FG_EXTERN size_t FG_FASTCALL fgCheckbox_Message(fgCheckbox* self, const FG_Msg* 
   switch(msg->type)
   {
   case FG_CONSTRUCT:
-    fgWindow_HoverProcess(&self->window, msg);
+    fgWindow_HoverMessage(&self->window, msg);
     fgChild_Init(&self->check, FGCHILD_EXPAND | FGCHILD_IGNORE | FGCHILD_BACKGROUND, *self, 0, 0);
     fgChild_AddPreChild(*self, &self->check);
     fgChild_Init(&self->indeterminate, FGCHILD_EXPAND | FGCHILD_IGNORE | FGCHILD_BACKGROUND, *self, 0, 0);
@@ -30,30 +30,30 @@ FG_EXTERN size_t FG_FASTCALL fgCheckbox_Message(fgCheckbox* self, const FG_Msg* 
     fgChild_AddPreChild(*self, &self->item);
     fgSendMsg<FG_SETSTYLE, void*>(*self, "nuetral");
     self->checked = 0;
-    return 0;
+    return 1;
   case FG_ADDITEM:
     if(msg->other)
       fgSendMsg<FG_ADDCHILD, void*>(&self->item, msg->other);
     else
       fgChild_Clear(&self->item);
-    return 0;
+    return 1;
   case FG_NUETRAL:
     fgSendMsg<FG_SETSTYLE, void*>(*self, "nuetral");
-    return 0;
+    return 1;
   case FG_HOVER:
     fgSendMsg<FG_SETSTYLE, void*>(*self, "hover");
-    return 0;
+    return 1;
   case FG_ACTIVE:
     fgSendMsg<FG_SETSTYLE, void*>(*self, "active");
-    return 0;
+    return 1;
   case FG_ACTION:
     fgChild_IntMessage(*self, FG_SETSTATE, !fgSendMsg<FG_GETSTATE>(*self), 0);
-    return 0;
+    return 1;
   case FG_SETSTATE:
     self->checked = msg->otherint;
     fgChild_IntMessage(&self->check, FG_SETFLAG, FGCHILD_HIDDEN, self->checked != 1);
     fgChild_IntMessage(&self->indeterminate, FG_SETFLAG, FGCHILD_HIDDEN, self->checked != 2);
-    return 0;
+    return 1;
   case FG_GETSTATE:
     return self->checked;
   case FG_SETTEXT:
@@ -66,5 +66,5 @@ FG_EXTERN size_t FG_FASTCALL fgCheckbox_Message(fgCheckbox* self, const FG_Msg* 
   case FG_GETCLASSNAME:
     return (size_t)"fgCheckbox";
   }
-  return fgWindow_HoverProcess(&self->window, msg);
+  return fgWindow_HoverMessage(&self->window, msg);
 }

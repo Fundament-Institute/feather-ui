@@ -59,7 +59,7 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
   case FG_MOUSEMOVE:
   case FG_MOUSESCROLL:
   case FG_GOTFOCUS: //Root cannot have focus
-    return 1; 
+    return 0;
   case FG_GETCLASSNAME:
     return (size_t)"fgRoot";
   case FG_DRAW:
@@ -81,7 +81,7 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
     self->dpi = (size_t)msg->otherint;
     return self->gui.element.SetArea(area);
   }
-    return 0;
+    return 1;
   }
   return fgWindow_Message((fgWindow*)self,msg);
 }
@@ -90,7 +90,7 @@ void FG_FASTCALL fgStandardDraw(fgChild* self, AbsRect* area, size_t dpi)
 {
   fgChild* hold = self->last; // we draw backwards through our list.
   AbsRect curarea;
-  char clipping = 0;
+  bool clipping = false;
 
   while(hold)
   {
@@ -98,12 +98,12 @@ void FG_FASTCALL fgStandardDraw(fgChild* self, AbsRect* area, size_t dpi)
     {
       if(!clipping && !(hold->flags&FGCHILD_NOCLIP))
       {
-        clipping = 1;
+        clipping = true;
         fgPushClipRect(area);
       }
       else if(clipping && (hold->flags&FGCHILD_NOCLIP))
       {
-        clipping = 0;
+        clipping = false;
         fgPopClipRect();
       }
 
@@ -123,14 +123,14 @@ size_t FG_FASTCALL fgRoot_RInject(fgRoot* root, fgChild* self, const FG_Msg* msg
   assert(msg != 0);
 
   if((self->flags&FGCHILD_HIDDEN) != 0) // If we're hidden we always reject messages no matter what.
-    return 1;
+    return 0;
 
   AbsRect curarea;
   fgChild* cur = self->rootnoclip;
   while(cur) // Go through all our children that aren't being clipped
   {
-    if(!fgRoot_RInject(root,cur,msg,area)) //pass through the parent area because these aren't clipped
-      return 0; // If the message is NOT rejected, return 0 immediately to indicate we accepted the message.
+    if(fgRoot_RInject(root,cur,msg,area)) //pass through the parent area because these aren't clipped
+      return 1; // If the message is NOT rejected, return 1 immediately to indicate we accepted the message.
     cur=cur->next; // Otherwise the child rejected the message.
   }
 
@@ -138,14 +138,14 @@ size_t FG_FASTCALL fgRoot_RInject(fgRoot* root, fgChild* self, const FG_Msg* msg
   {
     ResolveRectCache(self, &curarea, area, (self->flags & FGCHILD_BACKGROUND) ? 0 : &self->padding);
     if(!MsgHitAbsRect(msg, &curarea)) // If the event completely misses us, we must reject it
-      return 1;
+      return 0;
   }
 
   cur = self->rootclip;
   while(cur) // Try to inject to any children we have
   {
-    if(!fgRoot_RInject(root,cur,msg,&curarea)) // If the message is NOT rejected, return 0 immediately.
-      return 0;
+    if(fgRoot_RInject(root,cur,msg,&curarea)) // If the message is NOT rejected, return 0 immediately.
+      return 1;
     cur=cur->next; // Otherwise the child rejected the message.
   }
 
@@ -173,11 +173,11 @@ size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
     fgChild* cur = !fgFocusedWindow ? *self : fgFocusedWindow;
     do
     {
-      if(!(*self->behaviorhook)(cur, msg))
-        return 0;
+      if((*self->behaviorhook)(cur, msg))
+        return 1;
       cur = cur->parent;
     } while(cur);
-    return 1;
+    return 0;
   }
   case FG_MOUSESCROLL:
   case FG_MOUSEDOWN:
@@ -189,11 +189,11 @@ size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
       MoveCRect(pos, &self->drag->element.area);
     }
     if(fgCaptureWindow)
-      if(!fgRoot_RInject(self, fgCaptureWindow, msg, 0)) // If it's captured, send the message to the captured window with NULL area.
-        return 0;
+      if(fgRoot_RInject(self, fgCaptureWindow, msg, 0)) // If it's captured, send the message to the captured window with NULL area.
+        return 1;
 
-    if(!fgRoot_RInject(self, *self, msg, &absarea))
-      return 0;
+    if(fgRoot_RInject(self, *self, msg, &absarea))
+      return 1;
     if(msg->type != FG_MOUSEMOVE)
       break;
   case FG_MOUSELEAVE:
@@ -204,7 +204,7 @@ size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
     }
     break;
   }
-  return 1;
+  return 0;
 }
 
 size_t FG_FASTCALL fgRoot_BehaviorDefault(fgChild* self, const FG_Msg* msg)
