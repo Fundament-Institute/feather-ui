@@ -16,7 +16,7 @@ void FG_FASTCALL fgWindow_Init(fgWindow* BSS_RESTRICT self, fgFlag flags, fgChil
 
 void FG_FASTCALL fgWindow_Destroy(fgWindow* self)
 {
-  assert(self!=0);
+  assert(self != 0);
   if(self->tabprev) self->tabprev->tabnext = self->tabnext;
   if(self->tabnext) self->tabnext->tabprev = self->tabprev;
   self->tabnext = self->tabprev = 0;
@@ -38,9 +38,9 @@ void FG_FASTCALL fgWindow_DoHoverCalc(fgWindow* self) // This is a seperate func
 
 size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
 {
-  assert(self!=0);
-  assert(msg!=0);
-  
+  assert(self != 0);
+  assert(msg != 0);
+
   switch(msg->type)
   {
   case FG_CONSTRUCT:
@@ -50,7 +50,7 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
     self->tabnext = self->tabprev = self; // This creates an infinite loop of tabbing
     return 1;
   case FG_KEYDOWN:
-    if(msg->keycode == FG_KEY_TAB && !(msg->sigkeys&(2|4)))
+    if(msg->keycode == FG_KEY_TAB && !(msg->sigkeys&(2 | 4)))
     {
       fgWindow* target = (msg->sigkeys & 1) ? self->tabprev : self->tabnext;
       if(target != self)
@@ -77,18 +77,18 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
       fgChild_PassMessage(*self, &m);
     }
     return 1;
-  case FG_MOUSEUP: 
+  case FG_MOUSEUP:
   { // Any control that gets a MOUSEUP event immediately fires a MOUSEMOVE event at that location, which will force the focus to shift to a different control if the mouseup occured elsewhere.
     FG_Msg m = *msg;
     m.type = FG_MOUSEMOVE;
     fgRoot_Inject(fgroot_instance, &m);
   }
-    if(fgroot_instance->drag != 0) // If necessary, send a drop message to the current control we're hovering over.
-    {
-      fgSendMsg<FG_DROP, void*>(fgLastHover, fgroot_instance->drag);
-      fgroot_instance->drag = 0; // Ensure the drag pointer is set to NULL even if the target window doesn't understand the FG_DROP message.
-    }
-    return 1;
+  if(fgroot_instance->drag != 0) // If necessary, send a drop message to the current control we're hovering over.
+  {
+    fgSendMsg<FG_DROP, void*>(fgLastHover, fgroot_instance->drag);
+    fgroot_instance->drag = 0; // Ensure the drag pointer is set to NULL even if the target window doesn't understand the FG_DROP message.
+  }
+  return 1;
   case FG_GOTFOCUS:
     if(fgChild_Message(*self, msg)) // checks if we resolved via lastfocus.
       return 1;
@@ -122,7 +122,7 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
     m.other = hold;
     return fgChild_Message(*self, msg);
   }
-    return 0;
+  return 0;
   case FG_GETCLASSNAME:
     return (size_t)"fgWindow";
   case FG_SETNAME:
@@ -138,7 +138,7 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
 
 size_t FG_FASTCALL fgWindow_HoverMessage(fgWindow* self, const FG_Msg* msg)
 {
-  assert(self!=0 && msg!=0);
+  assert(self != 0 && msg != 0);
   switch(msg->type)
   {
   case FG_MOUSEON:
@@ -162,7 +162,7 @@ size_t FG_FASTCALL fgWindow_HoverMessage(fgWindow* self, const FG_Msg* msg)
     }
     break;
   }
-  return fgWindow_Message(self,msg);
+  return fgWindow_Message(self, msg);
 }
 
 FG_EXTERN void FG_FASTCALL fgWindow_TabAfter(fgWindow* self, fgWindow* prev)

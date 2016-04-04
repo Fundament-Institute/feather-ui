@@ -46,13 +46,13 @@ FG_EXTERN size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
     }
     break;
   case FG_DRAGGING:
-    {
-      fgChild* drag = fgroot_instance->drag;
-      if(drag->parent != *self) // If something is being dragged over us, by default reject it if it wasn't from this list.
-        break; // the default handler rejects it for us and sets the cursor.
-      fgSetCursor(FGCURSOR_HAND, 0); // Set cursor to a droppable icon
-    }
-    return 1;
+  {
+    fgChild* drag = fgroot_instance->drag;
+    if(drag->parent != *self) // If something is being dragged over us, by default reject it if it wasn't from this list.
+      break; // the default handler rejects it for us and sets the cursor.
+    fgSetCursor(FGCURSOR_HAND, 0); // Set cursor to a droppable icon
+  }
+  return 1;
   case FG_DROP:
     if(msg->other)
     {
@@ -63,7 +63,7 @@ FG_EXTERN size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
       AbsRect cache;
       AbsRect rect;
       fgChild* target = fgChild_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
-      ResolveRectCache(target, &rect, &cache, (target->flags & FGCHILD_BACKGROUND) ? 0 : &target->padding);
+      ResolveRectCache(target, &rect, &cache, (target->flags & FGCHILD_BACKGROUND) ? 0 : &(*self)->padding);
 
       // figure out if we're on the x axis or y axis
 
@@ -73,10 +73,10 @@ FG_EXTERN size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
     }
     return 1;
   case FG_DRAW:
-	  // If dragging, draw a line, otherwise, draw the hover rect.
+    // If dragging, draw a line, otherwise, draw the hover rect.
 
 
-	  // If there are selections, draw them here.
+    // If there are selections, draw them here.
     break;
   }
 

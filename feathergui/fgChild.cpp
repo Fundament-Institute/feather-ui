@@ -136,7 +136,7 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
       {
         cur = cur->next;
         diff = fgChild_PotentialResize(hold);
-        
+
         fgChild_SubMessage(hold, FG_MOVE, msg->subtype, ref, diff & msg->otheraux);
       }
 
@@ -198,7 +198,7 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
     if((change&FGCHILD_EXPAND)&self->flags) // If we change the expansion flags, we must recalculate every single child in our layout provided one of the expansion flags is actually set
       fgChild_SubMessage(self, FG_LAYOUTCHANGE, FGCHILD_LAYOUTRESET, 0, 0);
   }
-    return 1;
+  return 1;
   case FG_SETMARGIN:
     if(!msg->other)
       return 0;
@@ -229,7 +229,7 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
         memcpy(&self->padding, padding, sizeof(AbsRect));
         fgChild_MouseMoveCheck(self);
 
-        fgChild_SubMessage(self, FG_MOVE, FG_SETPADDING, 0, diff|(1<<8));
+        fgChild_SubMessage(self, FG_MOVE, FG_SETPADDING, 0, diff | (1 << 8));
       }
     }
     return 1;
@@ -255,7 +255,7 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
     m.type = FG_LAYOUTFUNCTION;
     m.other = (void*)msg;
     m.other2 = &area;
-    if(fgChild_PassMessage(self, &m) != 0 || (msg->otheraux & (1<<8)) != 0)
+    if(fgChild_PassMessage(self, &m) != 0 || (msg->otheraux & (1 << 8)) != 0)
     {
       if(self->flags&FGCHILD_EXPANDX)
         area.right.abs += self->padding.left + self->padding.right;
@@ -284,7 +284,7 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
     for(FG_UINT i = 0; i < layout->layout.l; ++i)
       prev = fgChild_LoadLayout(self, prev, layout->layout.p + i, mapping);
   }
-    return 1;
+  return 1;
   case FG_CLONE:
   {
     hold = (fgChild*)msg->other;
@@ -313,7 +313,7 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
     if(!msg->other)
       return (size_t)hold;
   }
-    return 0;
+  return 0;
   case FG_GETCLASSNAME:
     return (size_t)"fgChild";
   case FG_GETSKIN:
@@ -321,7 +321,7 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
     {
       if(!self->parent)
         return (size_t)self->skin;
-      
+
       int index; // First we check if we're a skin reference, and if we are, check if there is a skin for us.
       for(index = 0; index < self->parent->skinrefs.l; ++index)
         if(self->parent->skinrefs.p[index] == self)
@@ -352,7 +352,7 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
           return (size_t)skin;
       }
       name = hold->GetClassName();
-      
+
       fgSkin* skin = fgSkin_GetSkin(self->skin, name);
       if(skin != 0)
         return (size_t)skin;
@@ -397,7 +397,7 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
     }
     fgChild_IntMessage(self, FG_SETSTYLE, -1, 1);
   }
-    return 1;
+  return 1;
   case FG_SETSTYLE:
   {
     fgStyle* style = 0;
@@ -433,7 +433,7 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
       cur = cur->next;
     }
   }
-    return 1;
+  return 1;
   case FG_GETSTYLE:
     return (self->style == (FG_UINT)-1 && self->parent != 0) ? fgSendMsg<FG_GETSTYLE>(self->parent) : self->style;
   case FG_GOTFOCUS:
@@ -495,7 +495,7 @@ void FG_FASTCALL ResolveRect(const fgChild* self, AbsRect* out)
 
   AbsRect last;
   ResolveRect(self->parent, &last);
-  ResolveRectCache(self, out, &last, (self->flags & FGCHILD_BACKGROUND) ? 0 : &self->padding);
+  ResolveRectCache(self, out, &last, (self->flags & FGCHILD_BACKGROUND) ? 0 : &self->parent->padding);
 }
 
 void FG_FASTCALL ResolveRectCache(const fgChild* self, AbsRect* BSS_RESTRICT out, const AbsRect* BSS_RESTRICT last, const AbsRect* BSS_RESTRICT padding)
@@ -821,7 +821,7 @@ size_t FG_FASTCALL fgLayout_Tile(fgChild* self, const FG_Msg* msg, char axes)
   case FGCHILD_LAYOUTMOVE:
     break;
   case FGCHILD_LAYOUTRESIZE:
-    if((((msg->otheraux&0b10) && !(self->flags&FGCHILD_EXPANDX)) || ((msg->otheraux & 0b100) && !(self->flags&FGCHILD_EXPANDY))) && (axes & 3))
+    if((((msg->otheraux & 0b10) && !(self->flags&FGCHILD_EXPANDX)) || ((msg->otheraux & 0b100) && !(self->flags&FGCHILD_EXPANDY))) && (axes & 3))
       fgLayout_TileReorder(0, self->root, axis, max, 0.0f);
     break;
   case FGCHILD_LAYOUTREORDER:
@@ -832,7 +832,7 @@ size_t FG_FASTCALL fgLayout_Tile(fgChild* self, const FG_Msg* msg, char axes)
     child = !cur ? child : old;
     fgLayout_TileReorder(child->prev, child, axis, max, (axes & 3) ? fgLayout_TileGetPitch(child->prev, axis) : 0.0f);
   }
-    break;
+  break;
   case FGCHILD_LAYOUTADD:
     fgLayout_TileReorder(child->prev, child, axis, max, (axes & 3) ? fgLayout_TileGetPitch(child->prev, axis) : 0.0f);
     break;
@@ -850,17 +850,17 @@ size_t FG_FASTCALL fgLayout_Distribute(fgChild* self, const FG_Msg* msg, char ax
   {
   case FGCHILD_LAYOUTMOVE: // we don't handle moving or resizing because we use relative coordinates, so the resize is done for us.
   case FGCHILD_LAYOUTRESIZE:
-    break;
+  break;
   case FGCHILD_LAYOUTREORDER:
-    //child = child->order<msg->other->order?child:msg->other; // Get lowest child
-    fgLayout_DistributeReorder(child->prev, child, axis, num);
-    break;
+  //child = child->order<msg->other->order?child:msg->other; // Get lowest child
+  fgLayout_DistributeReorder(child->prev, child, axis, num);
+  break;
   case FGCHILD_LAYOUTADD:
-    fgLayout_DistributeReorder(child->prev, child, axis, num);
-    break;
+  fgLayout_DistributeReorder(child->prev, child, axis, num);
+  break;
   case FGCHILD_LAYOUTREMOVE:
-    fgLayout_DistributeReorder(child->prev, child->next, axis, num);
-    break;
+  fgLayout_DistributeReorder(child->prev, child->next, axis, num);
+  break;
   }*/
 
   return 0;
@@ -886,7 +886,7 @@ fgChild* FG_FASTCALL fgChild_GetChildUnderMouse(fgChild* self, int x, int y, Abs
   {
     if(!(cur->flags&FGCHILD_BACKGROUND))
     {
-      ResolveRectCache(cur, &child, cache, &cur->padding); // this is only done for non background elements, so we always pass in the padding.
+      ResolveRectCache(cur, &child, cache, &self->padding); // this is only done for non background elements, so we always pass in the padding.
       if(HitAbsRect(&child, (FABS)x, (FABS)y))
         return cur;
     }
@@ -936,70 +936,38 @@ void FG_FASTCALL fgChild_ClearListeners(fgChild* self)
   }
 }
 
-void fgChild::Construct()
-{
-  fgSendMsg<FG_CONSTRUCT>(this);
-}
-void FG_FASTCALL fgChild::Move(unsigned char subtype, fgChild* child, unsigned long long diff)
-{
-  fgSendSubMsg<FG_MOVE, void*, size_t>(this, subtype, child, diff);
-}
-size_t FG_FASTCALL fgChild::SetAlpha(float alpha)
-{
-  return fgSendMsg<FG_SETALPHA, float>(this, alpha);
-}
-size_t FG_FASTCALL fgChild::SetArea(const CRect& area)
-{
-  return fgSendMsg<FG_SETAREA, const void*>(this, &area);
-}
-size_t FG_FASTCALL fgChild::SetElement(const fgElement& element)
-{
-  return fgSendMsg<FG_SETELEMENT, const void*>(this, &element);
-}
-void FG_FASTCALL fgChild::SetFlag(fgFlag flag, bool value)
-{
-  fgSendMsg<FG_SETFLAG, ptrdiff_t, size_t>(this, flag, value != 0);
-}
-void FG_FASTCALL fgChild::SetFlags(fgFlag flags)
-{
-  fgSendMsg<FG_SETFLAGS, ptrdiff_t>(this, flags);
-}
-size_t FG_FASTCALL fgChild::SetMargin(const AbsRect& margin)
-{
-  return fgSendMsg<FG_SETMARGIN, const void*>(this, &margin);
-}
-size_t FG_FASTCALL fgChild::SetPadding(const AbsRect& padding)
-{
-  return fgSendMsg<FG_SETPADDING, const void*>(this, &padding);
-}
-void FG_FASTCALL fgChild::SetParent(fgChild* parent, fgChild* prev)
-{
-  fgSendMsg<FG_SETPARENT, void*, void*>(this, parent, prev);
-}
-size_t FG_FASTCALL fgChild::AddChild(fgChild* child)
-{
-  return fgSendMsg<FG_ADDCHILD, void*>(this, child);
-}
-size_t FG_FASTCALL fgChild::RemoveChild(fgChild* child)
-{
-  return fgSendMsg<FG_REMOVECHILD, void*>(this, child);
-}
-size_t FG_FASTCALL fgChild::LayoutFunction(const FG_Msg& msg, const CRect& area)
-{
-  return fgSendMsg<FG_LAYOUTFUNCTION, const void*, const void*>(this, &msg, &area);
-}
-void fgChild::LayoutChange(unsigned char subtype, fgChild* target, fgChild* old)
-{
-  fgSendSubMsg<FG_LAYOUTCHANGE, void*, void*>(this, subtype, target, old);
-}
-size_t FG_FASTCALL fgChild::LayoutLoad(fgLayout* layout, FN_MAPPING mapping)
-{
-  return fgSendMsg<FG_LAYOUTLOAD, void*, void*>(this, layout, mapping);
-}
-size_t fgChild::Drag(fgChild* target, const FG_Msg& msg)
-{
-  return fgSendMsg<FG_DRAG, void*, const void*>(this, target, &msg);
-}
+void fgChild::Construct() { fgSendMsg<FG_CONSTRUCT>(this); }
+
+void FG_FASTCALL fgChild::Move(unsigned char subtype, fgChild* child, unsigned long long diff) { fgSendSubMsg<FG_MOVE, void*, size_t>(this, subtype, child, diff); }
+
+size_t FG_FASTCALL fgChild::SetAlpha(float alpha) { return fgSendMsg<FG_SETALPHA, float>(this, alpha); }
+
+size_t FG_FASTCALL fgChild::SetArea(const CRect& area) { return fgSendMsg<FG_SETAREA, const void*>(this, &area); }
+
+size_t FG_FASTCALL fgChild::SetElement(const fgElement& element) { return fgSendMsg<FG_SETELEMENT, const void*>(this, &element); }
+
+void FG_FASTCALL fgChild::SetFlag(fgFlag flag, bool value) { fgSendMsg<FG_SETFLAG, ptrdiff_t, size_t>(this, flag, value != 0); }
+
+void FG_FASTCALL fgChild::SetFlags(fgFlag flags) { fgSendMsg<FG_SETFLAGS, ptrdiff_t>(this, flags); }
+
+size_t FG_FASTCALL fgChild::SetMargin(const AbsRect& margin) { return fgSendMsg<FG_SETMARGIN, const void*>(this, &margin); }
+
+size_t FG_FASTCALL fgChild::SetPadding(const AbsRect& padding) { return fgSendMsg<FG_SETPADDING, const void*>(this, &padding); }
+
+void FG_FASTCALL fgChild::SetParent(fgChild* parent, fgChild* prev) { fgSendMsg<FG_SETPARENT, void*, void*>(this, parent, prev); }
+
+size_t FG_FASTCALL fgChild::AddChild(fgChild* child) { return fgSendMsg<FG_ADDCHILD, void*>(this, child); }
+
+size_t FG_FASTCALL fgChild::RemoveChild(fgChild* child) { return fgSendMsg<FG_REMOVECHILD, void*>(this, child); }
+
+size_t FG_FASTCALL fgChild::LayoutFunction(const FG_Msg& msg, const CRect& area) { return fgSendMsg<FG_LAYOUTFUNCTION, const void*, const void*>(this, &msg, &area); }
+
+void fgChild::LayoutChange(unsigned char subtype, fgChild* target, fgChild* old) { fgSendSubMsg<FG_LAYOUTCHANGE, void*, void*>(this, subtype, target, old); }
+
+size_t FG_FASTCALL fgChild::LayoutLoad(fgLayout* layout, FN_MAPPING mapping) { return fgSendMsg<FG_LAYOUTLOAD, void*, void*>(this, layout, mapping); }
+
+size_t fgChild::Drag(fgChild* target, const FG_Msg& msg) { return fgSendMsg<FG_DRAG, void*, const void*>(this, target, &msg); }
+
 size_t fgChild::Dragging(int x, int y)
 {
   FG_Msg m = { 0 };
@@ -1008,46 +976,27 @@ size_t fgChild::Dragging(int x, int y)
   m.y = y;
   return (*fgroot_instance->behaviorhook)(this, &m);
 }
-size_t fgChild::Drop(struct _FG_CHILD* target)
-{
-  return fgSendMsg<FG_DROP, void*>(this, target);
-}
-void fgChild::Draw(AbsRect* area, int dpi)
-{
-  fgSendMsg<FG_DRAW, void*, size_t>(this, area, dpi);
-}
-fgChild* FG_FASTCALL fgChild::Clone(fgChild* from)
-{
-  return reinterpret_cast<fgChild*>(fgSendMsg<FG_CLONE, void*>(this, from));
-}
-size_t FG_FASTCALL fgChild::SetSkin(fgSkin* skin, FN_MAPPING mapping)
-{
-  return fgSendMsg<FG_SETSKIN, void*, void*>(this, skin, mapping);
-}
-fgSkin* FG_FASTCALL fgChild::GetSkin(fgChild* child)
-{
-  return reinterpret_cast<fgSkin*>(fgSendMsg<FG_GETSKIN, void*>(this, child));
-}
-size_t FG_FASTCALL fgChild::SetStyle(const char* name)
-{
-  return fgSendMsg<FG_SETSTYLE, const void*, size_t>(this, name, 0);
-}
-size_t FG_FASTCALL fgChild::SetStyle(struct _FG_STYLE* style)
-{
-  return fgSendMsg<FG_SETSTYLE, void*, size_t>(this, style, 2);
-}
-size_t FG_FASTCALL fgChild::SetStyle(size_t index)
-{
-  return fgSendMsg<FG_SETSTYLE, ptrdiff_t, size_t>(this, index, 1);
-}
-struct _FG_STYLE* fgChild::GetStyle()
-{
-  return reinterpret_cast<struct _FG_STYLE*>(fgSendMsg<FG_GETSTYLE>(this));
-}
-const char* fgChild::GetClassName()
-{
-  return reinterpret_cast<const char*>(fgSendMsg<FG_GETCLASSNAME>(this));
-}
+
+size_t fgChild::Drop(struct _FG_CHILD* target) { return fgSendMsg<FG_DROP, void*>(this, target); }
+
+void fgChild::Draw(AbsRect* area, int dpi) { fgSendMsg<FG_DRAW, void*, size_t>(this, area, dpi); }
+
+fgChild* FG_FASTCALL fgChild::Clone(fgChild* from) { return reinterpret_cast<fgChild*>(fgSendMsg<FG_CLONE, void*>(this, from)); }
+
+size_t FG_FASTCALL fgChild::SetSkin(fgSkin* skin, FN_MAPPING mapping) { return fgSendMsg<FG_SETSKIN, void*, void*>(this, skin, mapping); }
+
+fgSkin* FG_FASTCALL fgChild::GetSkin(fgChild* child) { return reinterpret_cast<fgSkin*>(fgSendMsg<FG_GETSKIN, void*>(this, child)); }
+
+size_t FG_FASTCALL fgChild::SetStyle(const char* name) { return fgSendMsg<FG_SETSTYLE, const void*, size_t>(this, name, 0); }
+
+size_t FG_FASTCALL fgChild::SetStyle(struct _FG_STYLE* style) { return fgSendMsg<FG_SETSTYLE, void*, size_t>(this, style, 2); }
+
+size_t FG_FASTCALL fgChild::SetStyle(size_t index) { return fgSendMsg<FG_SETSTYLE, ptrdiff_t, size_t>(this, index, 1); }
+
+struct _FG_STYLE* fgChild::GetStyle() { return reinterpret_cast<struct _FG_STYLE*>(fgSendMsg<FG_GETSTYLE>(this)); }
+
+const char* fgChild::GetClassName() { return reinterpret_cast<const char*>(fgSendMsg<FG_GETCLASSNAME>(this)); }
+
 size_t FG_FASTCALL fgChild::MouseDown(int x, int y, unsigned char button, unsigned char allbtn)
 {
   FG_Msg m = { 0 };
@@ -1058,6 +1007,7 @@ size_t FG_FASTCALL fgChild::MouseDown(int x, int y, unsigned char button, unsign
   m.allbtn = allbtn;
   return (*fgroot_instance->behaviorhook)(this, &m);
 }
+
 size_t FG_FASTCALL fgChild::MouseDblClick(int x, int y, unsigned char button, unsigned char allbtn)
 {
   FG_Msg m = { 0 };
@@ -1068,6 +1018,7 @@ size_t FG_FASTCALL fgChild::MouseDblClick(int x, int y, unsigned char button, un
   m.allbtn = allbtn;
   return (*fgroot_instance->behaviorhook)(this, &m);
 }
+
 size_t FG_FASTCALL fgChild::MouseUp(int x, int y, unsigned char button, unsigned char allbtn)
 {
   FG_Msg m = { 0 };
@@ -1078,6 +1029,7 @@ size_t FG_FASTCALL fgChild::MouseUp(int x, int y, unsigned char button, unsigned
   m.allbtn = allbtn;
   return (*fgroot_instance->behaviorhook)(this, &m);
 }
+
 size_t FG_FASTCALL fgChild::MouseOn(int x, int y)
 {
   FG_Msg m = { 0 };
@@ -1086,6 +1038,7 @@ size_t FG_FASTCALL fgChild::MouseOn(int x, int y)
   m.y = y;
   return (*fgroot_instance->behaviorhook)(this, &m);
 }
+
 size_t FG_FASTCALL fgChild::MouseOff(int x, int y)
 {
   FG_Msg m = { 0 };
@@ -1094,6 +1047,7 @@ size_t FG_FASTCALL fgChild::MouseOff(int x, int y)
   m.y = y;
   return (*fgroot_instance->behaviorhook)(this, &m);
 }
+
 size_t FG_FASTCALL fgChild::MouseMove(int x, int y)
 {
   FG_Msg m = { 0 };
@@ -1102,6 +1056,7 @@ size_t FG_FASTCALL fgChild::MouseMove(int x, int y)
   m.y = y;
   return (*fgroot_instance->behaviorhook)(this, &m);
 }
+
 size_t FG_FASTCALL fgChild::MouseScroll(int x, int y, unsigned short delta)
 {
   FG_Msg m = { 0 };
@@ -1111,6 +1066,7 @@ size_t FG_FASTCALL fgChild::MouseScroll(int x, int y, unsigned short delta)
   m.scrolldelta = delta;
   return (*fgroot_instance->behaviorhook)(this, &m);
 }
+
 size_t FG_FASTCALL fgChild::MouseLeave(int x, int y)
 {
   FG_Msg m = { 0 };
@@ -1119,6 +1075,7 @@ size_t FG_FASTCALL fgChild::MouseLeave(int x, int y)
   m.y = y;
   return (*fgroot_instance->behaviorhook)(this, &m);
 }
+
 size_t FG_FASTCALL fgChild::KeyUp(unsigned char keycode, char sigkeys)
 {
   FG_Msg m = { 0 };
@@ -1127,6 +1084,7 @@ size_t FG_FASTCALL fgChild::KeyUp(unsigned char keycode, char sigkeys)
   m.sigkeys = sigkeys;
   return (*fgroot_instance->behaviorhook)(this, &m);
 }
+
 size_t FG_FASTCALL fgChild::KeyDown(unsigned char keycode, char sigkeys)
 {
   FG_Msg m = { 0 };
@@ -1135,6 +1093,7 @@ size_t FG_FASTCALL fgChild::KeyDown(unsigned char keycode, char sigkeys)
   m.sigkeys = sigkeys;
   return (*fgroot_instance->behaviorhook)(this, &m);
 }
+
 size_t FG_FASTCALL fgChild::KeyChar(int keychar, char sigkeys)
 {
   FG_Msg m = { 0 };
@@ -1143,6 +1102,7 @@ size_t FG_FASTCALL fgChild::KeyChar(int keychar, char sigkeys)
   m.sigkeys = sigkeys;
   return (*fgroot_instance->behaviorhook)(this, &m);
 }
+
 size_t FG_FASTCALL fgChild::JoyButtonDown(short joybutton)
 {
   FG_Msg m = { 0 };
@@ -1151,6 +1111,7 @@ size_t FG_FASTCALL fgChild::JoyButtonDown(short joybutton)
   m.joydown = true;
   return (*fgroot_instance->behaviorhook)(this, &m);
 }
+
 size_t FG_FASTCALL fgChild::JoyButtonUp(short joybutton)
 {
   FG_Msg m = { 0 };
@@ -1159,6 +1120,7 @@ size_t FG_FASTCALL fgChild::JoyButtonUp(short joybutton)
   m.joydown = false;
   return (*fgroot_instance->behaviorhook)(this, &m);
 }
+
 size_t FG_FASTCALL fgChild::JoyAxis(float joyvalue, short joyaxis)
 {
   FG_Msg m = { 0 };
@@ -1167,92 +1129,47 @@ size_t FG_FASTCALL fgChild::JoyAxis(float joyvalue, short joyaxis)
   m.joyaxis = joyaxis;
   return (*fgroot_instance->behaviorhook)(this, &m);
 }
-size_t fgChild::GotFocus()
-{
-  return fgSendMsg<FG_GOTFOCUS>(this);
-}
-void fgChild::LostFocus()
-{
-  fgSendMsg<FG_LOSTFOCUS>(this);
-}
-size_t FG_FASTCALL fgChild::SetName(const char* name)
-{
-  return fgSendMsg<FG_SETNAME, const void*>(this, name);
-}
-const char* fgChild::GetName()
-{
-  return reinterpret_cast<const char*>(fgSendMsg<FG_GETNAME>(this));
-}
-void fgChild::Nuetral()
-{
-  fgSendMsg<FG_NUETRAL>(this);
-}
-void fgChild::Hover()
-{
-  fgSendMsg<FG_HOVER>(this);
-}
-void fgChild::Active()
-{
-  fgSendMsg<FG_ACTIVE>(this);
-}
-void fgChild::Action()
-{
-  fgSendMsg<FG_ACTION>(this);
-}
-fgChild* fgChild::GetSelectedItem()
-{
-  return reinterpret_cast<fgChild*>(fgSendMsg<FG_GETSELECTEDITEM>(this));
-}
-size_t FG_FASTCALL fgChild::SetResource(void* res)
-{
-  return fgSendMsg<FG_SETRESOURCE, void*>(this, res);
-}
-size_t FG_FASTCALL fgChild::SetUV(const CRect& uv)
-{
-  return fgSendMsg<FG_SETUV, const void*>(this, &uv);
-}
-size_t FG_FASTCALL fgChild::SetColor(unsigned int color, int index)
-{
-  return fgSendMsg<FG_SETCOLOR, ptrdiff_t, size_t>(this, color, index);
-}
-size_t FG_FASTCALL fgChild::SetOutline(float outline)
-{
-  return fgSendMsg<FG_SETOUTLINE, float>(this, outline);
-}
-size_t FG_FASTCALL fgChild::SetFont(void* font)
-{
-  return fgSendMsg<FG_SETFONT, void*>(this, font);
-}
-size_t FG_FASTCALL fgChild::SetText(const char* text)
-{
-  return fgSendMsg<FG_SETTEXT, const void*>(this, text);
-}
-void* fgChild::GetResource()
-{
-  return reinterpret_cast<void*>(fgSendMsg<FG_GETRESOURCE>(this));
-}
-const CRect* fgChild::GetUV()
-{
-  return reinterpret_cast<const CRect*>(fgSendMsg<FG_GETUV>(this));
-}
-unsigned int FG_FASTCALL fgChild::GetColor(int index)
-{
-  return (unsigned int)fgSendMsg<FG_GETCOLOR, ptrdiff_t>(this, index);
-}
-float fgChild::GetOutline()
-{
-  return *reinterpret_cast<float*>(fgSendMsg<FG_GETOUTLINE>(this));
-}
-void* fgChild::GetFont()
-{
-  return reinterpret_cast<void*>(fgSendMsg<FG_GETFONT>(this));
-}
-const char* fgChild::GetText()
-{
-  return reinterpret_cast<const char*>(fgSendMsg<FG_GETTEXT>(this));
-}
 
-void fgChild::AddListener(unsigned short type, FN_LISTENER listener)
-{
-  fgChild_AddListener(this, type, listener);
-}
+size_t fgChild::GotFocus() { return fgSendMsg<FG_GOTFOCUS>(this); }
+
+void fgChild::LostFocus() { fgSendMsg<FG_LOSTFOCUS>(this); }
+
+size_t FG_FASTCALL fgChild::SetName(const char* name) { return fgSendMsg<FG_SETNAME, const void*>(this, name); }
+
+const char* fgChild::GetName() { return reinterpret_cast<const char*>(fgSendMsg<FG_GETNAME>(this)); }
+
+void fgChild::Nuetral() { fgSendMsg<FG_NUETRAL>(this); }
+
+void fgChild::Hover() { fgSendMsg<FG_HOVER>(this); }
+
+void fgChild::Active() { fgSendMsg<FG_ACTIVE>(this); }
+
+void fgChild::Action() { fgSendMsg<FG_ACTION>(this); }
+
+fgChild* fgChild::GetSelectedItem() { return reinterpret_cast<fgChild*>(fgSendMsg<FG_GETSELECTEDITEM>(this)); }
+
+size_t FG_FASTCALL fgChild::SetResource(void* res) { return fgSendMsg<FG_SETRESOURCE, void*>(this, res); }
+
+size_t FG_FASTCALL fgChild::SetUV(const CRect& uv) { return fgSendMsg<FG_SETUV, const void*>(this, &uv); }
+
+size_t FG_FASTCALL fgChild::SetColor(unsigned int color, int index) { return fgSendMsg<FG_SETCOLOR, ptrdiff_t, size_t>(this, color, index); }
+
+size_t FG_FASTCALL fgChild::SetOutline(float outline) { return fgSendMsg<FG_SETOUTLINE, float>(this, outline); }
+
+size_t FG_FASTCALL fgChild::SetFont(void* font) { return fgSendMsg<FG_SETFONT, void*>(this, font); }
+
+size_t FG_FASTCALL fgChild::SetText(const char* text) { return fgSendMsg<FG_SETTEXT, const void*>(this, text); }
+
+void* fgChild::GetResource() { return reinterpret_cast<void*>(fgSendMsg<FG_GETRESOURCE>(this)); }
+
+const CRect* fgChild::GetUV() { return reinterpret_cast<const CRect*>(fgSendMsg<FG_GETUV>(this)); }
+
+unsigned int FG_FASTCALL fgChild::GetColor(int index) { return (unsigned int)fgSendMsg<FG_GETCOLOR, ptrdiff_t>(this, index); }
+
+float fgChild::GetOutline() { return *reinterpret_cast<float*>(fgSendMsg<FG_GETOUTLINE>(this)); }
+
+void* fgChild::GetFont() { return reinterpret_cast<void*>(fgSendMsg<FG_GETFONT>(this)); }
+
+const char* fgChild::GetText() { return reinterpret_cast<const char*>(fgSendMsg<FG_GETTEXT>(this)); }
+
+void fgChild::AddListener(unsigned short type, FN_LISTENER listener) { fgChild_AddListener(this, type, listener); }

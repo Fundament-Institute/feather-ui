@@ -15,7 +15,7 @@ void FG_FASTCALL fgButton_Destroy(fgButton* self)
 }
 size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
 {
-  assert(self!=0 && msg!=0);
+  assert(self != 0 && msg != 0);
   switch(msg->type)
   {
   case FG_CONSTRUCT:
@@ -55,5 +55,5 @@ size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
   case FG_GETCOLOR:
     return fgChild_PassMessage(self->text, msg);
   }
-  return fgWindow_HoverMessage(&self->window,msg);
+  return fgWindow_HoverMessage(&self->window, msg);
 }

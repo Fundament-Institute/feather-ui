@@ -82,7 +82,7 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
     else
       fgDrawResource(self->res, &self->uv, self->color.color, self->edge.color, self->outline, (AbsRect*)msg->other, self->element.element.rotation, &center, self->element.flags);
   }
-    break;
+  break;
   case FG_GETCLASSNAME:
     return (size_t)"fgResource";
   }

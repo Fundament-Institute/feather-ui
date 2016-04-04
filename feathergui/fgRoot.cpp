@@ -107,7 +107,7 @@ void FG_FASTCALL fgStandardDraw(fgChild* self, AbsRect* area, size_t dpi)
         fgPopClipRect();
       }
 
-      ResolveRectCache(hold, &curarea, area, (hold->flags & FGCHILD_BACKGROUND) ? 0 : &hold->padding);
+      ResolveRectCache(hold, &curarea, area, (hold->flags & FGCHILD_BACKGROUND) ? 0 : &self->padding);
       fgSendMsg<FG_DRAW, void*, size_t>(hold, &curarea, dpi);
     }
     hold = hold->prev;
@@ -118,7 +118,7 @@ void FG_FASTCALL fgStandardDraw(fgChild* self, AbsRect* area, size_t dpi)
 }
 
 // Recursive event injection function
-size_t FG_FASTCALL fgRoot_RInject(fgRoot* root, fgChild* self, const FG_Msg* msg, AbsRect* area)
+size_t FG_FASTCALL fgRoot_RInject(fgRoot* root, fgChild* self, const FG_Msg* msg, AbsRect* area, AbsRect* padding)
 {
   assert(msg != 0);
 
@@ -126,27 +126,28 @@ size_t FG_FASTCALL fgRoot_RInject(fgRoot* root, fgChild* self, const FG_Msg* msg
     return 0;
 
   AbsRect curarea;
+  if(!area) // IF this is null either we are the root or this is a captured message, in which case we would have to resolve the entire relative coordinate chain anyway
+    ResolveRect(self, &curarea);
+  else
+    ResolveRectCache(self, &curarea, area, (self->flags & FGCHILD_BACKGROUND) ? 0 : padding);
+
   fgChild* cur = self->rootnoclip;
   while(cur) // Go through all our children that aren't being clipped
   {
-    if(fgRoot_RInject(root,cur,msg,area)) //pass through the parent area because these aren't clipped
+    if(fgRoot_RInject(root, cur, msg, &curarea, &self->padding)) // We still need to properly evaluate hitboxes even for nonclipping elements.
       return 1; // If the message is NOT rejected, return 1 immediately to indicate we accepted the message.
     cur=cur->next; // Otherwise the child rejected the message.
   }
 
-  if(area != 0) // If area is null, this was a captured message that is ALWAYS sent to us no matter what.
-  {
-    ResolveRectCache(self, &curarea, area, (self->flags & FGCHILD_BACKGROUND) ? 0 : &self->padding);
-    if(!MsgHitAbsRect(msg, &curarea)) // If the event completely misses us, we must reject it
-      return 0;
-  }
+  if(area != 0 && !MsgHitAbsRect(msg, &curarea)) // If the event completely misses us, we must reject it. If the area is null, we always accept the message.
+    return 0;
 
   cur = self->rootclip;
   while(cur) // Try to inject to any children we have
   {
-    if(fgRoot_RInject(root,cur,msg,&curarea)) // If the message is NOT rejected, return 0 immediately.
+    if(fgRoot_RInject(root, cur, msg, &curarea, &self->padding)) // If the message is NOT rejected, return 0 immediately.
       return 1;
-    cur=cur->next; // Otherwise the child rejected the message.
+    cur = cur->next; // Otherwise the child rejected the message.
   }
 
   // If we get this far either we have no children, the event missed them all, or they all rejected the event...
@@ -158,7 +159,6 @@ size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
   assert(self != 0);
 
   CRect* rootarea = &self->gui.element.element.area;
-  AbsRect absarea = { rootarea->left.abs, rootarea->top.abs, rootarea->right.abs, rootarea->bottom.abs };
   fgUpdateMouseState(&self->mouse, msg);
 
   switch(msg->type)
@@ -189,18 +189,18 @@ size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
       MoveCRect(pos, &self->drag->element.area);
     }
     if(fgCaptureWindow)
-      if(fgRoot_RInject(self, fgCaptureWindow, msg, 0)) // If it's captured, send the message to the captured window with NULL area.
+      if(fgRoot_RInject(self, fgCaptureWindow, msg, 0, 0)) // If it's captured, send the message to the captured window with NULL area.
         return 1;
 
-    if(fgRoot_RInject(self, *self, msg, &absarea))
+    if(fgRoot_RInject(self, *self, msg, 0, 0))
       return 1;
     if(msg->type != FG_MOUSEMOVE)
       break;
   case FG_MOUSELEAVE:
-    if(fgLastHover!=0) // If we STILL haven't accepted a mousemove event, send a MOUSEOFF message if lasthover exists
+    if(fgLastHover != 0) // If we STILL haven't accepted a mousemove event, send a MOUSEOFF message if lasthover exists
     {
       fgSendMsg<FG_MOUSEOFF>(fgLastHover);
-      fgLastHover=0;
+      fgLastHover = 0;
     }
     break;
   }
@@ -209,8 +209,8 @@ size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
 
 size_t FG_FASTCALL fgRoot_BehaviorDefault(fgChild* self, const FG_Msg* msg)
 {
-  assert(self!=0);
-  return (*self->message)(self,msg);
+  assert(self != 0);
+  return (*self->message)(self, msg);
 }
 
 FG_EXTERN size_t FG_FASTCALL fgRoot_BehaviorListener(fgChild* self, const FG_Msg* msg)
@@ -231,11 +231,11 @@ void FG_FASTCALL fgTerminate(fgRoot* root)
 void FG_FASTCALL fgRoot_Update(fgRoot* self, double delta)
 {
   fgDeferAction* cur;
-  self->time+=delta;
+  self->time += delta;
 
-  while((cur=self->updateroot) && (cur->time<=self->time))
+  while((cur = self->updateroot) && (cur->time <= self->time))
   {
-    self->updateroot=cur->next;
+    self->updateroot = cur->next;
     if((*cur->action)(cur->arg)) // If this returns true, we deallocate the node
       free(cur);
   }
@@ -254,7 +254,7 @@ FG_EXTERN fgMonitor* FG_FASTCALL fgRoot_GetMonitor(const fgRoot* self, const Abs
       area.top.abs > rect->top ? area.top.abs : rect->top,
       area.right.abs < rect->right ? area.right.abs : rect->right,
       area.bottom.abs < rect->bottom ? area.bottom.abs : rect->bottom };
-    
+
     float total = (monitor.right - monitor.left)*(monitor.bottom - monitor.top);
     if(total > largest) // This must be GREATER THAN to ensure that a value of "0" is not ever assigned a monitor.
     {
@@ -271,17 +271,18 @@ FG_EXTERN fgMonitor* FG_FASTCALL fgRoot_GetMonitor(const fgRoot* self, const Abs
 fgDeferAction* FG_FASTCALL fgRoot_AllocAction(char (FG_FASTCALL *action)(void*), void* arg, double time)
 {
   fgDeferAction* r = (fgDeferAction*)malloc(sizeof(fgDeferAction));
-  r->action=action;
-  r->arg=arg;
-  r->time=time;
-  r->next=0; // We do this so its never ambigious if an action is in the list already or not
-  r->prev=0;
+  r->action = action;
+  r->arg = arg;
+  r->time = time;
+  r->next = 0; // We do this so its never ambigious if an action is in the list already or not
+  r->prev = 0;
   return r;
 }
+
 void FG_FASTCALL fgRoot_DeallocAction(fgRoot* self, fgDeferAction* action)
 {
-  if(action->prev!=0 || action==self->updateroot) // If true you are in the list and must be removed
-    fgRoot_RemoveAction(self,action);
+  if(action->prev != 0 || action == self->updateroot) // If true you are in the list and must be removed
+    fgRoot_RemoveAction(self, action);
   free(action);
 }
 
@@ -289,37 +290,40 @@ void FG_FASTCALL fgRoot_AddAction(fgRoot* self, fgDeferAction* action)
 {
   fgDeferAction* cur = self->updateroot;
   fgDeferAction* prev = 0; // Sadly the elegant pointer to pointer method doesn't work for doubly linked lists.
-  assert(action!=0 && !action->prev && action!=self->updateroot);
+  assert(action != 0 && !action->prev && action != self->updateroot);
   while(cur != 0 && cur->time < action->time)
   {
-     prev = cur;
-     cur = cur->next;
+    prev = cur;
+    cur = cur->next;
   }
   action->next = cur;
   action->prev = prev;
-  if(prev) prev->next=action;
-  else self->updateroot=action; // Prev is only null if we're inserting before the root, which means we must reassign the root.
-  if(cur) cur->prev=action; // Cur is null if we are at the end of the list.
+  if(prev) prev->next = action;
+  else self->updateroot = action; // Prev is only null if we're inserting before the root, which means we must reassign the root.
+  if(cur) cur->prev = action; // Cur is null if we are at the end of the list.
 }
+
 void FG_FASTCALL fgRoot_RemoveAction(fgRoot* self, fgDeferAction* action)
 {
-  assert(action!=0 && (action->prev!=0 || action==self->updateroot));
-	if(action->prev != 0) action->prev->next = action->next;
+  assert(action != 0 && (action->prev != 0 || action == self->updateroot));
+  if(action->prev != 0) action->prev->next = action->next;
   else self->updateroot = action->next;
-	if(action->next != 0) action->next->prev = action->prev;
-  action->next=0; // We do this so its never ambigious if an action is in the list already or not
-  action->prev=0;
+  if(action->next != 0) action->next->prev = action->prev;
+  action->next = 0; // We do this so its never ambigious if an action is in the list already or not
+  action->prev = 0;
 }
+
 void FG_FASTCALL fgRoot_ModifyAction(fgRoot* self, fgDeferAction* action)
 {
-  if((action->next!=0 && action->next->time<action->time) || (action->prev!=0 && action->prev->time>action->time))
+  if((action->next != 0 && action->next->time < action->time) || (action->prev != 0 && action->prev->time > action->time))
   {
-    fgRoot_RemoveAction(self,action);
-    fgRoot_AddAction(self,action);
+    fgRoot_RemoveAction(self, action);
+    fgRoot_AddAction(self, action);
   }
-  else if(!action->prev && action!=self->updateroot) // If true you aren't in the list so we need to add you
-    fgRoot_AddAction(self,action);
+  else if(!action->prev && action != self->updateroot) // If true you aren't in the list so we need to add you
+    fgRoot_AddAction(self, action);
 }
+
 fgRoot* FG_FASTCALL fgSingleton()
 {
   return fgroot_instance;

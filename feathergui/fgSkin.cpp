@@ -26,7 +26,7 @@ void FG_FASTCALL fgSubskin_Init(fgSkin* self, int index)
   self->index = index;
 }
 
-template<class HASH, class T, void (FG_FASTCALL *DESTROY)(T*), void (*DEL)(HASH*, khint_t)>
+template<class HASH, class T, void (FG_FASTCALL *DESTROY)(T*), void(*DEL)(HASH*, khint_t)>
 char FG_FASTCALL DestroyHashElement(HASH* self, khiter_t iter)
 {
   if(kh_exist(self, iter))

@@ -47,7 +47,7 @@ size_t FG_FASTCALL fgSlider_Message(fgSlider* self, const FG_Msg* msg)
     {
       AbsRect out;
       ResolveRect(*self, &out);
-      double x = (out.left - msg->x)/(out.right - out.left); // we need all the precision in a double here
+      double x = (out.left - msg->x) / (out.right - out.left); // we need all the precision in a double here
       size_t value = bss_util::fFastRound(bssclamp(x, 0.0, 1.0)*self->range); // Clamp to [0,1], multiply into [0, range], then round to nearest integer.
       fgChild_IntMessage(&self->slider, FG_SETSTATE, value, 0);
     }

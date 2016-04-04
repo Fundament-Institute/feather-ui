@@ -8,7 +8,7 @@
 #include <limits.h>
 
 const fgElement fgElement_DEFAULT = { { 0, 0, 0, 0, 0, 1, 0, 1 }, 0, { 0, 0, 0, 0 } };
-const fgElement fgElement_CENTER = { {0, 0.5, 0, 0.5, 0, 0.5, 0, 0.5 }, 0, {0, 0.5, 0, 0.5} };
+const fgElement fgElement_CENTER = { { 0, 0.5, 0, 0.5, 0, 0.5, 0, 0.5 }, 0, { 0, 0.5, 0, 0.5 } };
 const fgColor fgColor_NONE = { 0 };
 const fgColor fgColor_BLACK = { 0xFF000000 };
 const fgColor fgColor_WHITE = { 0xFFFFFFFF };
@@ -20,23 +20,23 @@ static_assert(sizeof(FG_Msg) <= sizeof(uint64_t) * 3, "FG_Msg is too big!");
 AbsVec FG_FASTCALL ResolveVec(const CVec* v, const AbsRect* last)
 {
   AbsVec r = { v->x.abs, v->y.abs };
-  assert(last!=0);
-  r.x += lerp(last->left,last->right,v->x.rel);
-  r.y += lerp(last->top,last->bottom,v->y.rel);
-  return r; 
+  assert(last != 0);
+  r.x += lerp(last->left, last->right, v->x.rel);
+  r.y += lerp(last->top, last->bottom, v->y.rel);
+  return r;
 }
 
 // This uses a standard inclusive-exclusive rectangle interpretation.
 char FG_FASTCALL HitAbsRect(const AbsRect* r, FABS x, FABS y)
 {
-  assert(r!=0);
+  assert(r != 0);
   return (x < r->right) && (x >= r->left) && (y < r->bottom) && (y >= r->top);
 }
 
 char FG_FASTCALL MsgHitAbsRect(const FG_Msg* msg, const AbsRect* r)
 {
-  assert(msg!=0 && r!=0);
-  return HitAbsRect(r,(FABS)msg->x,(FABS)msg->y);
+  assert(msg != 0 && r != 0);
+  return HitAbsRect(r, (FABS)msg->x, (FABS)msg->y);
 }
 
 char FG_FASTCALL CompareMargins(const AbsRect* l, const AbsRect* r)
@@ -49,7 +49,7 @@ char FG_FASTCALL CompareMargins(const AbsRect* l, const AbsRect* r)
 }
 char FG_FASTCALL CompareCRects(const CRect* l, const CRect* r)
 {
-  assert(l!=0 && r!=0);
+  assert(l != 0 && r != 0);
   return ((((l->left.abs - r->left.abs) != (l->right.abs - r->right.abs))) << 1)
     | ((((l->top.abs - r->top.abs) != (l->bottom.abs - r->bottom.abs))) << 2)
     | ((((l->left.abs != r->left.abs) || (l->right.abs != r->right.abs))) << 3)
@@ -87,20 +87,20 @@ void FG_FASTCALL MoveCRectInv(AbsVec v, CRect* r)
 
 void FG_FASTCALL ToIntAbsRect(const AbsRect* r, int target[4])
 {
-  _mm_storeu_si128((__m128i*)target,_mm_cvttps_epi32(_mm_loadu_ps(&r->left)));
+  _mm_storeu_si128((__m128i*)target, _mm_cvttps_epi32(_mm_loadu_ps(&r->left)));
 }
 
 void FG_FASTCALL ToLongAbsRect(const AbsRect* r, long target[4])
 {
 #if ULONG_MAX==UINT_MAX
-  _mm_storeu_si128((__m128i*)target,_mm_cvttps_epi32(_mm_loadu_ps(&r->left)));
+  _mm_storeu_si128((__m128i*)target, _mm_cvttps_epi32(_mm_loadu_ps(&r->left)));
 #else
   int hold[4];
-  _mm_storeu_si128((__m128i*)hold,_mm_cvtps_epi32(_mm_loadu_ps(&r->left)));
-  target[0]=hold[0];
-  target[1]=hold[1];
-  target[2]=hold[2];
-  target[3]=hold[3];
+  _mm_storeu_si128((__m128i*)hold, _mm_cvtps_epi32(_mm_loadu_ps(&r->left)));
+  target[0] = hold[0];
+  target[1] = hold[1];
+  target[2] = hold[2];
+  target[3] = hold[3];
 #endif
 
 }
