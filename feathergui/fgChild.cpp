@@ -501,14 +501,13 @@ void FG_FASTCALL ResolveRect(const fgChild* self, AbsRect* out)
 void FG_FASTCALL ResolveRectCache(const fgChild* self, AbsRect* BSS_RESTRICT out, const AbsRect* BSS_RESTRICT last, const AbsRect* BSS_RESTRICT padding)
 {
   AbsRect replace;
-  //if(!(self->flags & FGCHILD_BACKGROUND))
   if(padding != 0)
   {
     replace.left = last->left + padding->left;
     replace.top = last->top + padding->top;
     replace.right = last->right - padding->right;
     replace.bottom = last->bottom - padding->bottom;
-    //last = &replace;
+    last = &replace;
   }
 
   AbsVec center = { self->element.center.x.abs, self->element.center.y.abs };
