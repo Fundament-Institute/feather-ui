@@ -66,7 +66,7 @@ size_t FG_FASTCALL fgRadiobutton_Message(fgRadiobutton* self, const FG_Msg* msg)
       }
     }
     self->window.checked = msg->otherint;
-    return 1;
+    break;
   case FG_SETPARENT:
     if(msg->other != parent)
     {
@@ -88,7 +88,7 @@ size_t FG_FASTCALL fgRadiobutton_Message(fgRadiobutton* self, const FG_Msg* msg)
         if(r) root = 0; // if r is nonzero we inserted it and thus must initialize root
         self->radionext = root;
         self->radioprev = 0;
-        root->radioprev = self;
+        if(root) root->radioprev = self;
         root = self;
       }
     }

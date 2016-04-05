@@ -20,9 +20,9 @@ FG_EXTERN size_t FG_FASTCALL fgCheckbox_Message(fgCheckbox* self, const FG_Msg* 
   {
   case FG_CONSTRUCT:
     fgWindow_HoverMessage(&self->window, msg);
-    fgChild_Init(&self->check, FGCHILD_EXPAND | FGCHILD_IGNORE | FGCHILD_BACKGROUND, *self, 0, 0);
+    fgChild_Init(&self->check, FGCHILD_EXPAND | FGCHILD_IGNORE | FGCHILD_BACKGROUND | FGCHILD_HIDDEN, *self, 0, 0);
     fgChild_AddPreChild(*self, &self->check);
-    fgChild_Init(&self->indeterminate, FGCHILD_EXPAND | FGCHILD_IGNORE | FGCHILD_BACKGROUND, *self, 0, 0);
+    fgChild_Init(&self->indeterminate, FGCHILD_EXPAND | FGCHILD_IGNORE | FGCHILD_BACKGROUND | FGCHILD_HIDDEN, *self, 0, 0);
     fgChild_AddPreChild(*self, &self->indeterminate);
     fgText_Init(&self->text, 0, 0, 0, FGCHILD_EXPAND | FGCHILD_IGNORE, *self, 0, &fgElement_CENTER);
     fgChild_AddPreChild(*self, self->text);

@@ -4,7 +4,7 @@
 #ifndef _FG_TABGROUP_H__
 #define _FG_TABGROUP_H__
 
-#include "fgButton.h"
+#include "fgWindow.h"
 
 #ifdef  __cplusplus
 extern "C" {
