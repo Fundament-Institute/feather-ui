@@ -265,7 +265,6 @@
     <ClCompile Include="fgTreeView.cpp" />
     <ClCompile Include="fgWindow.cpp" />
     <ClCompile Include="fgMonitor.cpp" />
-    <ClCompile Include="ubjson.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

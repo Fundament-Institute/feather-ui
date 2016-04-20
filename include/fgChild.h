@@ -19,6 +19,9 @@ enum FGCHILD_FLAGS
   FGCHILD_EXPANDX = (1 << 4), // Signals to the layout that the control should expand to include all it's elements
   FGCHILD_EXPANDY = (1 << 5),
   FGCHILD_EXPAND = FGCHILD_EXPANDX | FGCHILD_EXPANDY,
+  FGCHILD_SNAPX = (1 << 6), // If true, the rect resolution will snap this element to the nearest pixel on this axis.
+  FGCHILD_SNAPY = (1 << 7),
+  FGCHILD_SNAP = FGCHILD_SNAPX | FGCHILD_SNAPY,
   FGCHILD_LAYOUTRESIZE = 1, // Called when the element is resized
   FGCHILD_LAYOUTADD = 2, // Called when any child is added that needs to have the layout applied to it.
   FGCHILD_LAYOUTREMOVE = 3, // Called when any child is removed that needs to have the layout applied to it.
@@ -115,6 +118,10 @@ typedef struct _FG_CHILD {
   FG_DLLEXPORT void Active();
   FG_DLLEXPORT void Action();
   FG_DLLEXPORT struct _FG_CHILD* GetSelectedItem();
+  FG_DLLEXPORT size_t GetState(ptrdiff_t aux);
+  FG_DLLEXPORT float GetStatef(ptrdiff_t aux);
+  FG_DLLEXPORT size_t SetState(ptrdiff_t state, size_t aux);
+  FG_DLLEXPORT size_t SetStatef(float state, size_t aux);
   FG_DLLEXPORT size_t FG_FASTCALL SetResource(void* res);
   FG_DLLEXPORT size_t FG_FASTCALL SetUV(const CRect& uv);
   FG_DLLEXPORT size_t FG_FASTCALL SetColor(unsigned int color, int index);

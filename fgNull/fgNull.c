@@ -99,12 +99,35 @@ fgRoot* FG_FASTCALL fgInitialize()
   fgRoot_Init(r, &area, 0);
   return _fgroot=r;
 }
+
+AbsRect* clipstack = 0;
+size_t clipcapacity = 0;
+size_t clipnum = 0;
+
+void fgPushClipRect(AbsRect* clip)
+{
+  if(clipcapacity >= clipnum)
+  {
+    clipcapacity = clipcapacity * 2;
+    clipstack = realloc(clipstack, sizeof(AbsRect)*clipcapacity);
+  }
+  clipstack[clipnum++] = *clip;
+}
+AbsRect fgPeekClipRect()
+{
+  static const AbsRect BLANK = { 0,0,0,0 };
+  return !clipnum ? BLANK : clipstack[clipnum - 1];
+}
+void fgPopClipRect()
+{
+  --clipnum;
+}
+
 char FG_FASTCALL fgLoadExtension(const char* extname, void* fg, size_t sz) { return -1; }
-void fgPushClipRect(AbsRect* clip) {}
-void fgPopClipRect() {}
 void FG_FASTCALL fgDrawLine(AbsVec p1, AbsVec p2, unsigned int color) {}
 void fgSetCursor(unsigned int type, void* custom) {}
 void fgClipboardCopy(unsigned int type, const void* data, size_t length) {}
 char fgClipboardExists(unsigned int type) { return 0; }
 const void* fgClipboardPaste(unsigned int type, size_t* length) { return 0; }
 void fgClipboardFree(const void* mem) {}
+void fgDirtyElement(fgElement* elem) {}

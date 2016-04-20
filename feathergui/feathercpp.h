@@ -84,7 +84,7 @@ struct _FG_ROOT;
 extern struct _FG_ROOT* fgroot_instance;
 
 template<FG_MSGTYPE type, typename... Args>
-inline size_t fgSendMsg(fgChild* self, Args... args)
+inline size_t _sendmsg(fgChild* self, Args... args)
 {
   FG_Msg msg = { 0 };
   msg.type = type;
@@ -93,7 +93,7 @@ inline size_t fgSendMsg(fgChild* self, Args... args)
 }
 
 template<FG_MSGTYPE type, typename... Args>
-inline size_t fgSendSubMsg(fgChild* self, unsigned char sub, Args... args)
+inline size_t _sendsubmsg(fgChild* self, unsigned char sub, Args... args)
 {
   FG_Msg msg = { 0 };
   msg.type = type;

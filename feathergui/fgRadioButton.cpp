@@ -26,7 +26,7 @@ void FG_FASTCALL fgRadiobutton_Init(fgRadiobutton* BSS_RESTRICT self, fgFlag fla
 }
 void FG_FASTCALL fgRadiobutton_Destroy(fgRadiobutton* self)
 {
-  fgSendMsg<FG_SETPARENT>(*self); // Ensure we remove ourselves from the hash
+  _sendmsg<FG_SETPARENT>(*self); // Ensure we remove ourselves from the hash
   fgWindow_Destroy(&self->window.window);
 }
 

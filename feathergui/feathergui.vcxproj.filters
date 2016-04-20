@@ -106,9 +106,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="ubjson.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="feathergui.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

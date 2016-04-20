@@ -8,6 +8,7 @@
 void FG_FASTCALL fgSlider_Init(fgSlider* BSS_RESTRICT self, size_t range, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
 {
   fgChild_InternalSetup(*self, flags, parent, prev, element, (FN_DESTROY)&fgSlider_Destroy, (FN_MESSAGE)&fgSlider_Message);
+  self->range = range;
 }
 void FG_FASTCALL fgSlider_Destroy(fgSlider* self)
 {
@@ -20,7 +21,7 @@ size_t FG_FASTCALL fgSlider_Message(fgSlider* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgWindow_Message(&self->window, msg);
-    fgChild_Init(&self->slider, FGCHILD_BACKGROUND, *self, 0, &fgElement_CENTER);
+    fgChild_Init(&self->slider, FGCHILD_EXPAND | FGCHILD_IGNORE, *self, 0, &fgElement_CENTER);
     fgChild_AddPreChild(*self, &self->slider);
     self->value = 0;
     self->range = 0;
@@ -40,22 +41,30 @@ size_t FG_FASTCALL fgSlider_Message(fgSlider* self, const FG_Msg* msg)
     }
     CRect area = self->slider.element.area;
     area.left.rel = area.right.rel = !self->range ? 0.0 : ((FREL)self->value / (FREL)self->range);
-    fgSendMsg<FG_SETAREA, void*>(&self->slider, &area);
+    _sendmsg<FG_SETAREA, void*>(&self->slider, &area);
     return 1;
   case FG_MOUSEMOVE:
-    if(fgCaptureWindow == *self)
-    {
-      AbsRect out;
-      ResolveRect(*self, &out);
-      double x = (out.left - msg->x) / (out.right - out.left); // we need all the precision in a double here
-      size_t value = bss_util::fFastRound(bssclamp(x, 0.0, 1.0)*self->range); // Clamp to [0,1], multiply into [0, range], then round to nearest integer.
-      fgChild_IntMessage(&self->slider, FG_SETSTATE, value, 0);
-    }
+  case FG_MOUSEUP:
+    if(fgCaptureWindow != *self)
+      break;
+  case FG_MOUSEDOWN:
+  {
+    AbsRect out;
+    ResolveRect(*self, &out);
+    out.left += self->window.element.padding.left;
+    out.top += self->window.element.padding.top;
+    out.right -= self->window.element.padding.right;
+    out.bottom -= self->window.element.padding.bottom;
+
+    double x = (msg->x - out.left) / (out.right - out.left); // we need all the precision in a double here
+    size_t value = bss_util::fFastRound(bssclamp(x, 0.0, 1.0)*self->range); // Clamp to [0,1], multiply into [0, range], then round to nearest integer.
+    fgChild_IntMessage(*self, FG_SETSTATE, value, 0);
+  }
     break;
   case FG_GETSTATE:
-    return self->value;
+    return msg->otherint ? self->range : self->value;
   case FG_GETCLASSNAME:
     return (size_t)"fgSlider";
   }
-  return fgWindow_Message(&self->window, msg);
+  return fgWindow_HoverMessage(&self->window, msg);
 }

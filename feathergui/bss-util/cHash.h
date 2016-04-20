@@ -247,7 +247,7 @@ namespace bss_util {
   public:
     inline cKhash(const cKhash& copy) : KHTYPE(copy) { }
     inline cKhash(cKhash&& mov) : KHTYPE(std::move(mov)) { }
-    inline cKhash(unsigned int size = 0) { KHTYPE::kh_resize_template(size); };
+    inline cKhash(uint32_t size = 0) { KHTYPE::kh_resize_template(size); };
     inline ~cKhash() { }
     inline khiter_t Iterator(KHKEY key) const { return KHTYPE::kh_get_template(key); }
     //inline KHKEY GetIterKey(khiter_t iterator) { return kh_key(iterator); }
@@ -260,7 +260,7 @@ namespace bss_util {
     inline bool SetValue(khiter_t iterator, KHVAL&& newvalue) { return _setvalue<KHVAL&&>(iterator, std::move(newvalue)); }
     inline bool Set(KHKEY key, const KHVAL& newvalue) { return _setvalue<const KHVAL&>(Iterator(key), newvalue); }
     inline bool Set(KHKEY key, KHVAL&& newvalue) { return _setvalue<KHVAL&&>(Iterator(key), std::move(newvalue)); }
-    inline void SetCapacity(unsigned int size) { if(kh_end(this) < size) KHTYPE::kh_resize_template(size); }
+    inline void SetCapacity(uint32_t size) { if(kh_end(this) < size) KHTYPE::kh_resize_template(size); }
     inline bool Remove(KHKEY key)
     {
       khiter_t iterator = Iterator(key);
@@ -275,8 +275,8 @@ namespace bss_util {
       return true;
     }
     inline void Clear() { KHTYPE::kh_clear_template(); }
-    inline unsigned int Length() const { return kh_size(this); }
-    inline unsigned int Capacity() const { return kh_end(this); }
+    inline uint32_t Length() const { return kh_size(this); }
+    inline uint32_t Capacity() const { return kh_end(this); }
     inline khiter_t Start() const { return kh_begin(this); }
     inline khiter_t End() const { return kh_end(this); }
     inline bool ExistsIter(khiter_t iterator) const { return iterator<kh_end(this) && kh_exist(this, iterator) != 0; }
@@ -370,7 +370,7 @@ namespace bss_util {
   template<> BSS_EXPLICITSTATIC BSS_FORCEINLINE bool KH_AUTOINS_EQUALFUNC<const wchar_t*>(const wchar_t* a, const wchar_t* b) { return WCSICMP(a, b) == 0; }
   template<> BSS_EXPLICITSTATIC BSS_FORCEINLINE bool KH_AUTOINS_EQUALFUNC<wchar_t*>(wchar_t* a, wchar_t* b) { return WCSICMP(a, b) == 0; }
 
-  template<typename T, bool I> struct __cKh_KHGET { typedef typename std::remove_pointer<T>::type* KHGET; static const unsigned int INV = 0; };
+  template<typename T, bool I> struct __cKh_KHGET { typedef typename std::remove_pointer<T>::type* KHGET; static const uint32_t INV = 0; };
   template<typename T> struct __cKh_KHGET<T, true> { typedef T KHGET; static const KHGET INV = (KHGET)-1; };
   template<typename T> struct KHGET_cKh : __cKh_KHGET<T, std::is_integral<T>::value> { typedef typename __cKh_KHGET<T, std::is_integral<T>::value>::KHGET KHGET; };
   template<> struct KHGET_cKh<void> { typedef char KHGET; static const KHGET INV = (KHGET)-1; };
@@ -392,7 +392,7 @@ namespace bss_util {
   public:
     inline cHash(const cHash& copy) : BASE(copy) {}
     inline cHash(cHash&& mov) : BASE(std::move(mov)) {}
-    inline cHash(unsigned int size = 0) : BASE(size) {}
+    inline cHash(uint32_t size = 0) : BASE(size) {}
 
     inline cHash& operator =(const cHash& right) { BASE::operator=(right); return *this; }
     inline cHash& operator =(cHash&& mov) { BASE::operator=(std::move(mov)); return *this; }

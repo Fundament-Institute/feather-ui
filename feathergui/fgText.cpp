@@ -10,8 +10,8 @@ void FG_FASTCALL fgText_Init(fgText* self, char* text, void* font, unsigned int 
 
   self->cache = 0;
   if(color) fgChild_IntMessage(*self, FG_SETCOLOR, color, 0);
-  if(text) fgSendMsg<FG_SETTEXT, void*>(*self, text);
-  if(font) fgSendMsg<FG_SETFONT, void*>(*self, font);
+  if(text) _sendmsg<FG_SETTEXT, void*>(*self, text);
+  if(font) _sendmsg<FG_SETFONT, void*>(*self, font);
 }
 
 void FG_FASTCALL fgText_Destroy(fgText* self)
@@ -37,15 +37,18 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
     if(self->text) free(self->text);
     self->text = fgCopyText((const char*)msg->other);
     fgText_Recalc(self);
+    fgDirtyElement(&self->element.element);
     return 1;
   case FG_SETFONT:
     if(self->font) fgDestroyFont(self->font);
     self->font = 0;
     if(msg->other) self->font = fgCloneFont(msg->other);
     fgText_Recalc(self);
+    fgDirtyElement(&self->element.element);
     break;
   case FG_SETCOLOR:
     self->color.color = msg->otherint;
+    fgDirtyElement(&self->element.element);
     break;
   case FG_GETTEXT:
     return (size_t)self->text;
@@ -58,7 +61,7 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
       fgText_Recalc(self);
     break;
   case FG_DRAW:
-    if(self->font != 0)
+    if(self->font != 0 && !(msg->subtype & 1))
     {
       AbsVec center = ResolveVec(&self->element.element.center, (AbsRect*)msg->other);
       self->cache = fgDrawFont(self->font, !self->text ? "" : self->text, self->color.color, (AbsRect*)msg->other, self->element.element.rotation, &center, self->element.flags, self->cache);
@@ -82,6 +85,6 @@ FG_EXTERN void FG_FASTCALL fgText_Recalc(fgText* self)
       adjust.right.abs = adjust.left.abs + area.right - area.left;
     if(self->element.flags&FGCHILD_EXPANDY)
       adjust.bottom.abs = adjust.top.abs + area.bottom - area.top;
-    fgSendMsg<FG_SETAREA, void*>(*self, &adjust);
+    _sendmsg<FG_SETAREA, void*>(*self, &adjust);
   }
 }

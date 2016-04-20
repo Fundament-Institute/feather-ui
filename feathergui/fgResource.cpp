@@ -9,8 +9,8 @@ void FG_FASTCALL fgResource_Init(fgResource* self, void* res, const CRect* uv, u
 {
   fgChild_InternalSetup(*self, flags, parent, prev, element, (FN_DESTROY)&fgResource_Destroy, (FN_MESSAGE)&fgResource_Message);
   if(color) fgChild_IntMessage(*self, FG_SETCOLOR, color, 0);
-  if(uv) fgSendMsg<FG_SETUV, void*>(*self, (void*)uv);
-  if(res) fgSendMsg<FG_SETRESOURCE, void*>(*self, res);
+  if(uv) _sendmsg<FG_SETUV, void*>(*self, (void*)uv);
+  if(res) _sendmsg<FG_SETRESOURCE, void*>(*self, res);
 }
 void FG_FASTCALL fgResource_Destroy(fgResource* self)
 {
@@ -36,21 +36,25 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
     if(msg->other)
       self->uv = *((CRect*)msg->other);
     fgResource_Recalc(self);
+    fgDirtyElement(&self->element.element);
     return 1;
   case FG_SETRESOURCE:
     if(self->res) fgDestroyResource(self->res);
     self->res = 0;
     if(msg->other) self->res = fgCloneResource(msg->other);
     fgResource_Recalc(self);
+    fgDirtyElement(&self->element.element);
     break;
   case FG_SETCOLOR:
     if(msg->otheraux != 0)
       self->edge.color = msg->otherint;
     else
       self->color.color = msg->otherint;
+    fgDirtyElement(&self->element.element);
     break;
   case FG_SETOUTLINE:
     self->outline = msg->otherf;
+    fgDirtyElement(&self->element.element);
     break;
   case FG_GETUV:
     return (size_t)(&self->uv);
@@ -69,6 +73,7 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
     break;
   case FG_DRAW:
   {
+    if(msg->subtype & 1) break;
     AbsVec center = ResolveVec(&self->element.element.center, (AbsRect*)msg->other);
     if(self->element.flags&FGRESOURCE_LINE)
     {
@@ -115,6 +120,6 @@ void FG_FASTCALL fgResource_Recalc(fgResource* self)
       adjust.right.abs = adjust.left.abs + dim.x;
     if(self->element.flags&FGCHILD_EXPANDY)
       adjust.bottom.abs = adjust.top.abs + dim.y;
-    fgSendMsg<FG_SETAREA, void*>(*self, &adjust);
+    _sendmsg<FG_SETAREA, void*>(*self, &adjust);
   }
 }

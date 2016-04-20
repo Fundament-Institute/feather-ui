@@ -92,7 +92,7 @@ size_t FG_FASTCALL fgTopWindow_Message(fgTopWindow* self, const FG_Msg* msg)
       if(self->dragged)
       {
         fgCaptureWindow = *self;
-        fgSendMsg<FG_ACTIVE>(*self);
+        _sendmsg<FG_ACTIVE>(*self);
       }
     }
     break;
@@ -104,8 +104,8 @@ size_t FG_FASTCALL fgTopWindow_Message(fgTopWindow* self, const FG_Msg* msg)
       AbsVec dv = { v.x - self->offset.x + area.left.abs, v.y - self->offset.y + area.top.abs };
       MoveCRect(dv, &area);
       self->offset = v;
-      fgSendMsg<FG_SETAREA, void*>(*self, &area);
-      fgSendMsg<FG_SETAREA, void*>(*self, &area);
+      _sendmsg<FG_SETAREA, void*>(*self, &area);
+      _sendmsg<FG_SETAREA, void*>(*self, &area);
     }
     if(self->dragged & 2) {} // resize on left
     if(self->dragged & 4) {} // resize on top
@@ -128,10 +128,10 @@ size_t FG_FASTCALL fgTopWindow_Message(fgTopWindow* self, const FG_Msg* msg)
       break;
     case FGTOPWINDOW_MAXIMIZE:
       self->prevrect = self->window.element.element.area;
-      fgSendMsg<FG_SETAREA, void*>(*self, (void*)&fgElement_DEFAULT.area);
+      _sendmsg<FG_SETAREA, void*>(*self, (void*)&fgElement_DEFAULT.area);
       break;
     case FGTOPWINDOW_RESTORE:
-      fgSendMsg<FG_SETAREA, void*>(*self, &self->prevrect);
+      _sendmsg<FG_SETAREA, void*>(*self, &self->prevrect);
       break;
     case FGTOPWINDOW_CLOSE:
       VirtualFreeChild(*self);

@@ -12,14 +12,13 @@ extern "C" {
 
 enum FGTEXT_FLAGS
 {
-  FGTEXT_CHARWRAP = (1 << 6), // Wraps lines that go past the edge of the container by character
-  FGTEXT_WORDWRAP = (1 << 7), // Wraps lines that go past the edge of the container by word (the definition of a "word" is implementation specific)
-  FGTEXT_ELLIPSES = (1 << 8), // Lines that go past the bounderies of the text object are cut off with an ellipses (...)
-  FGTEXT_RTL = (1 << 9), // Forces right-to-left text rendering.
-  FGTEXT_RIGHTALIGN = (1 << 10),
-  FGTEXT_CENTER = (1 << 11), // Text horizontal centering behaves differently, because it centers each individual line.
-  FGTEXT_STRETCH = (1 << 12), // Stretches the text to fill the area.
-  FGTEXT_SUBPIXEL = (1 << 13), // Indicates this text should try to render with LCD subpixel hinting.
+  FGTEXT_CHARWRAP = (1 << 8), // Wraps lines that go past the edge of the container by character
+  FGTEXT_WORDWRAP = (1 << 9), // Wraps lines that go past the edge of the container by word (the definition of a "word" is implementation specific)
+  FGTEXT_ELLIPSES = (1 << 10), // Lines that go past the bounderies of the text object are cut off with an ellipses (...)
+  FGTEXT_RTL = (1 << 11), // Forces right-to-left text rendering.
+  FGTEXT_RIGHTALIGN = (1 << 12),
+  FGTEXT_CENTER = (1 << 13), // Text horizontal centering behaves differently, because it centers each individual line.
+  FGTEXT_SUBPIXEL = (1 << 14), // Indicates this text should try to render with LCD subpixel hinting.
 };
 
 // fgText stores a string and renders it according to the font and fontcolor that it has.

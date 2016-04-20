@@ -28,26 +28,26 @@ FG_EXTERN size_t FG_FASTCALL fgCheckbox_Message(fgCheckbox* self, const FG_Msg* 
     fgChild_AddPreChild(*self, self->text);
     fgChild_Init(&self->item, FGCHILD_EXPAND | FGCHILD_IGNORE, *self, 0, &fgElement_CENTER);
     fgChild_AddPreChild(*self, &self->item);
-    fgSendMsg<FG_SETSTYLE, void*>(*self, "nuetral");
+    _sendmsg<FG_SETSTYLE, void*>(*self, "nuetral");
     self->checked = 0;
     return 1;
   case FG_ADDITEM:
     if(msg->other)
-      fgSendMsg<FG_ADDCHILD, void*>(&self->item, msg->other);
+      _sendmsg<FG_ADDCHILD, void*>(&self->item, msg->other);
     else
       fgChild_Clear(&self->item);
     return 1;
   case FG_NUETRAL:
-    fgSendMsg<FG_SETSTYLE, void*>(*self, "nuetral");
+    _sendmsg<FG_SETSTYLE, void*>(*self, "nuetral");
     return 1;
   case FG_HOVER:
-    fgSendMsg<FG_SETSTYLE, void*>(*self, "hover");
+    _sendmsg<FG_SETSTYLE, void*>(*self, "hover");
     return 1;
   case FG_ACTIVE:
-    fgSendMsg<FG_SETSTYLE, void*>(*self, "active");
+    _sendmsg<FG_SETSTYLE, void*>(*self, "active");
     return 1;
   case FG_ACTION:
-    fgChild_IntMessage(*self, FG_SETSTATE, !fgSendMsg<FG_GETSTATE>(*self), 0);
+    fgChild_IntMessage(*self, FG_SETSTATE, !_sendmsg<FG_GETSTATE>(*self), 0);
     return 1;
   case FG_SETSTATE:
     self->checked = msg->otherint;

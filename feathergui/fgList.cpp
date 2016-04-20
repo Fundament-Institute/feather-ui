@@ -42,7 +42,7 @@ FG_EXTERN size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
       AbsRect cache;
       fgChild* target = fgChild_GetChildUnderMouse(*self, msg->x, msg->y, &cache); // find item below the mouse cursor (if any) and initiate a drag for it.
       if(target != 0)
-        fgSendMsg<FG_DRAG, void*, const void*>(*self, target, msg);
+        _sendmsg<FG_DRAG, void*, const void*>(*self, target, msg);
     }
     break;
   case FG_DRAGGING:
@@ -73,10 +73,13 @@ FG_EXTERN size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
     }
     return 1;
   case FG_DRAW:
+    if(!(msg->subtype & 1))
+    {
     // If dragging, draw a line, otherwise, draw the hover rect.
 
 
     // If there are selections, draw them here.
+    }
     break;
   }
 

@@ -19,7 +19,10 @@ void FG_FASTCALL fgWindow_Destroy(fgWindow* self)
   assert(self != 0);
   if(self->tabprev) self->tabprev->tabnext = self->tabnext;
   if(self->tabnext) self->tabnext->tabprev = self->tabprev;
+  if(self->sideprev) self->sideprev->sidenext = self->sidenext;
+  if(self->sidenext) self->sidenext->sideprev = self->sideprev;
   self->tabnext = self->tabprev = 0;
+  self->sidenext = self->sideprev = 0;
 
   if(self->name) free(self->name);
   fgChild_Destroy(&self->element);
@@ -30,9 +33,9 @@ void FG_FASTCALL fgWindow_DoHoverCalc(fgWindow* self) // This is a seperate func
   if(fgLastHover != *self)
   {
     if(fgLastHover != 0)
-      fgSendMsg<FG_MOUSEOFF>(fgLastHover);
+      _sendmsg<FG_MOUSEOFF>(fgLastHover);
     fgLastHover = *self;
-    fgSendMsg<FG_MOUSEON>(*self);
+    _sendmsg<FG_MOUSEON>(*self);
   }
 }
 
@@ -48,22 +51,23 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
     self->contextmenu = 0;
     self->name = 0;
     self->tabnext = self->tabprev = self; // This creates an infinite loop of tabbing
+    self->sidenext = self->sideprev = self;
     return 1;
   case FG_KEYDOWN:
     if(msg->keycode == FG_KEY_TAB && !(msg->sigkeys&(2 | 4)))
     {
-      fgWindow* target = (msg->sigkeys & 1) ? self->tabprev : self->tabnext;
-      if(target != self)
-        fgSendMsg<FG_GOTFOCUS>(*self);
+      fgWindow* target = (msg->sigkeys & 2) ? self->tabprev : self->tabnext;
+      if(target != 0 && target != self)
+        _sendmsg<FG_GOTFOCUS>(*target);
       return 1;
     }
     break;
   case FG_MOUSEDOWN:
     fgWindow_DoHoverCalc(self);
     if(fgFocusedWindow != *self)
-      fgSendMsg<FG_GOTFOCUS>(*self);
+      _sendmsg<FG_GOTFOCUS>(*self);
     //if(msg->button == FG_MOUSERBUTTON && self->contextmenu != 0)
-    //  fgSendMsg<FG_GOTFOCUS>(*self->contextmenu);
+    //  _sendmsg<FG_GOTFOCUS>(*self->contextmenu);
     return 1;
   case FG_MOUSESCROLL:
     fgWindow_DoHoverCalc(self);
@@ -85,7 +89,7 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
   }
   if(fgroot_instance->drag != 0) // If necessary, send a drop message to the current control we're hovering over.
   {
-    fgSendMsg<FG_DROP, void*>(fgLastHover, fgroot_instance->drag);
+    _sendmsg<FG_DROP, void*>(fgLastHover, fgroot_instance->drag);
     fgroot_instance->drag = 0; // Ensure the drag pointer is set to NULL even if the target window doesn't understand the FG_DROP message.
   }
   return 1;
@@ -93,7 +97,7 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
     if(fgChild_Message(*self, msg)) // checks if we resolved via lastfocus.
       return 1;
     if(fgFocusedWindow) // We do this here so you can disable getting focus by blocking this message without messing things up
-      fgSendMsg<FG_LOSTFOCUS, void*>(fgFocusedWindow, self);
+      _sendmsg<FG_LOSTFOCUS, void*>(fgFocusedWindow, self);
     fgFocusedWindow = *self;
     return 1;
   case FG_LOSTFOCUS:
@@ -104,7 +108,7 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
       if(self->element.parent)
       {
         if(!msg->other)
-          fgSendMsg<FG_GOTFOCUS>(self->element.parent);
+          _sendmsg<FG_GOTFOCUS>(self->element.parent);
         else
           self->element.parent->lastfocus = *self;
       }
@@ -116,7 +120,7 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
     if(!hold)
       hold = (fgWindow*)malloc(sizeof(fgWindow));
     hold->contextmenu = hold->contextmenu;
-    fgSendMsg<FG_SETNAME, void*>(*hold, self->name);
+    _sendmsg<FG_SETNAME, void*>(*hold, self->name);
 
     FG_Msg m = *msg;
     m.other = hold;
@@ -128,7 +132,7 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
   case FG_SETNAME:
     if(self->name) free(self->name);
     self->name = fgCopyText((const char*)msg->other);
-    fgSendMsg<FG_SETSKIN, void*>(*self, 0); // force the skin to be recalculated
+    _sendmsg<FG_SETSKIN, void*>(*self, 0); // force the skin to be recalculated
     return 1;
   case FG_GETNAME:
     return (size_t)self->name;
@@ -142,23 +146,23 @@ size_t FG_FASTCALL fgWindow_HoverMessage(fgWindow* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_MOUSEON:
-    fgSendMsg<FG_HOVER>(*self);
+    _sendmsg<FG_HOVER>(*self);
     break;
   case FG_MOUSEUP:
     if(MsgHitCRect(msg, &self->element)) // We can get a MOUSEUP when the mouse is outside of the control but we DO NOT fire it unless it's actually in the control.
-      fgSendMsg<FG_ACTION>(*self);
-    fgSendMsg<FG_HOVER>(*self); // Revert to hover no matter what. The other handler will fire off a mousemove for us that will handle the hover change event.
+      _sendmsg<FG_ACTION>(*self);
+    _sendmsg<FG_HOVER>(*self); // Revert to hover no matter what. The other handler will fire off a mousemove for us that will handle the hover change event.
     if(fgCaptureWindow == *self) // Remove our control hold on mouse messages.
       fgCaptureWindow = 0;
     break;
   case FG_MOUSEOFF:
-    fgSendMsg<FG_NUETRAL>(*self);
+    _sendmsg<FG_NUETRAL>(*self);
     break;
   case FG_MOUSEDOWN:
     if(msg->button == FG_MOUSELBUTTON)
     {
       fgCaptureWindow = *self;
-      fgSendMsg<FG_ACTIVE>(*self);
+      _sendmsg<FG_ACTIVE>(*self);
     }
     break;
   }

@@ -20,6 +20,8 @@ typedef struct _FG_WINDOW {
   char* name; // Optional name used for mapping to skin collections
   struct _FG_WINDOW* tabnext;
   struct _FG_WINDOW* tabprev;
+  struct _FG_WINDOW* sidenext;
+  struct _FG_WINDOW* sideprev;
 #ifdef  __cplusplus
   inline operator fgChild*() { return &element; }
   inline fgChild* operator->() { return operator fgChild*(); }

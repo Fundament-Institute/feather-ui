@@ -51,14 +51,14 @@ size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
     fgChild* child = fgChild_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
     if(child) // If you click the empty part of the menu, nothing happens, but if you hit a child, we check if it has a submenu
     {
-      fgMenu* submenu = reinterpret_cast<fgMenu*>(fgSendMsg<FG_GETSELECTEDITEM>(child));
+      fgMenu* submenu = reinterpret_cast<fgMenu*>(_sendmsg<FG_GETSELECTEDITEM>(child));
       if(submenu) // if this exists open the submenu
       {
         fgCaptureWindow = *self; // Because we are the top level menu, we must also capture the mouse
         fgMenu_Show(self->expanded = submenu, true);
       }
       else // otherwise send an action message to ourselves (because what you clicked on may just be an image or text).
-        fgSendMsg<FG_ACTION, void*>(*self, child);
+        _sendmsg<FG_ACTION, void*>(*self, child);
     }
 
     return 1;
@@ -73,7 +73,7 @@ size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
     if(child)
     {
       CRect r = { child->element.area.left.abs, 0, 0, 0, child->element.area.right.abs, 0, 0, 1 };
-      fgSendMsg<FG_SETAREA, void*>(&self->highlight, &r);
+      _sendmsg<FG_SETAREA, void*>(&self->highlight, &r);
     }
   }
   break;
@@ -110,7 +110,7 @@ size_t FG_FASTCALL fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
   fgMenu_Show(self->expanded = ((fgSubmenuArray&)self->submenus)[index], true);
   else // otherwise send an action message to ourselves (because what you clicked on may just be an image or text).
   {
-  fgSendMsg<FG_ACTION, void*>(*self, ((fgMenuArray&)self->members)[index]);
+  _sendmsg<FG_ACTION, void*>(*self, ((fgMenuArray&)self->members)[index]);
   fgMenu_Show(self, false);
   }
   return 1;
@@ -122,7 +122,7 @@ size_t FG_FASTCALL fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
   if(child)
   {
   CRect r = { 0, 0, child->element.area.top.abs, 0, 0, 1, child->element.area.bottom.abs, 0 };
-  fgSendMsg<FG_SETAREA, void*>(&self->highlight, &r);
+  _sendmsg<FG_SETAREA, void*>(&self->highlight, &r);
   }
   return 1;
   }

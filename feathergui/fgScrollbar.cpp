@@ -22,7 +22,7 @@ void FG_FASTCALL fgScrollbar_Redim(fgScrollbar* self, CRect& area)
     area.right.abs = self->window.element.element.area.right.abs;
   if(!(self->window.element.flags&FGCHILD_EXPANDY))
     area.bottom.abs = self->window.element.element.area.bottom.abs;
-  fgSendMsg<FG_SETAREA, void*>(*self, &area); // SETAREA will set MAXDIM appropriately
+  _sendmsg<FG_SETAREA, void*>(*self, &area); // SETAREA will set MAXDIM appropriately
 }
 
 void FG_FASTCALL fgScrollbar_Recalc(fgScrollbar* self)

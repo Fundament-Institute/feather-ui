@@ -56,10 +56,10 @@ namespace bss_util {
   const int64_t DBL_INTEPS = *(int64_t*)(&DBL_EPS);
 
   // Get max size of an arbitrary number of bits, either signed or unsigned (assuming one's or two's complement implementation)
-  template<unsigned char BITS>
+  template<uint8_t BITS>
   struct BitLimit
   {
-    static const unsigned short BYTES = ((T_CHARGETMSB(BITS)>>3) << (0+((BITS%8)>0))) + (BITS<8);
+    static const uint16_t BYTES = ((T_CHARGETMSB(BITS)>>3) << (0+((BITS%8)>0))) + (BITS<8);
     typedef typename std::conditional<sizeof(char) == BYTES, char,  //rounds the type up if necessary.
       typename std::conditional<sizeof(short) == BYTES, short,
       typename std::conditional<sizeof(int) == BYTES, int,
@@ -355,7 +355,7 @@ namespace bss_util {
 #ifndef MSC_MANAGED
   BSS_FORCEINLINE static void fSetRounding(bool nearest) noexcept
   {
-    unsigned int a;
+    uint32_t a;
 #ifdef BSS_PLATFORM_WIN32
     _controlfp_s(&a, nearest?_RC_NEAR:_RC_CHOP, _MCW_RC);
 #else
@@ -366,7 +366,7 @@ namespace bss_util {
   }
   BSS_FORCEINLINE static void fSetDenormal(bool on) noexcept
   {
-    unsigned int a;
+    uint32_t a;
 #ifdef BSS_PLATFORM_WIN32
     _controlfp_s(&a, on?_DN_SAVE:_DN_FLUSH, _MCW_DN);
 #else
@@ -380,7 +380,7 @@ namespace bss_util {
   // Returns true if FPU is in single precision mode and false otherwise (false for both double and extended precision)
   BSS_FORCEINLINE static bool FPUsingle() noexcept
   { 
-    unsigned int i;
+    uint32_t i;
 #ifdef BSS_PLATFORM_WIN32
     i = _mm_getcsr();
 #else
@@ -417,7 +417,7 @@ namespace bss_util {
 	{
 		int32_t left = *reinterpret_cast<int32_t*>(&fleft); //This maps our float to an int so we can do bitshifting operations on it
 		int32_t right = *reinterpret_cast<int32_t*>(&fright); //see above
-		unsigned char dif = abs((0x7F800000&left)-(0x7F800000&right))>>23; // This grabs the 8 exponent bits and subtracts them.
+		uint8_t dif = abs((0x7F800000&left)-(0x7F800000&right))>>23; // This grabs the 8 exponent bits and subtracts them.
 		if(dif>1) // An exponent difference of 2 or greater means the numbers are different.
 			return false;
 		return !dif?((0x007FFF80&left)==(0x007FFF80&right)):!(abs((0x007FFF80&left)-(0x007FFF80&right))-0x007FFF80); //If there is no difference in exponent we tear off the last 7 bits and compare the value, otherwise we tear off the last 7 bits, subtract, and then subtract the highest possible significand to compensate for the extra exponent.
@@ -595,7 +595,7 @@ namespace bss_util {
   {
     if(!search || !length || !find || !flength || length < flength) return 0;
 
-    unsigned char* s=(unsigned char*)search;
+    uint8_t* s=(uint8_t*)search;
     length-=flength;
     for(size_t i = 0; i <= length; ++i) // i <= length works because of the above length-=flength
     {
@@ -613,13 +613,13 @@ namespace bss_util {
 
   // Counts the number of bits in v (up to 128-bit types) using the parallel method detailed here: http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
   template<typename T>
-  inline static unsigned char BSS_FASTCALL bitcount(T v) noexcept
+  inline static uint8_t BSS_FASTCALL bitcount(T v) noexcept
   {
     static_assert(std::is_integral<T>::value,"T must be integral");
     v = v - ((v >> 1) & (T)~(T)0/3);                           // temp
     v = (v & (T)~(T)0/15*3) + ((v >> 2) & (T)~(T)0/15*3);      // temp
     v = (v + (v >> 4)) & (T)~(T)0/255*15;                      // temp
-    return (unsigned char)((T)(v * ((T)~(T)0/255)) >> (sizeof(T) - 1) * (sizeof(char)<<3));
+    return (uint8_t)((T)(v * ((T)~(T)0/255)) >> (sizeof(T) - 1) * (sizeof(char)<<3));
   }
 
   //Unlike FastSqrt, these are useless unless you are on a CPU without SSE instructions, or have a terrible std implementation.
@@ -656,7 +656,7 @@ namespace bss_util {
 	
 	  return v + 1;
   }
-  inline static unsigned int BSS_FASTCALL nextpow2(unsigned int v) noexcept
+  inline static uint32_t BSS_FASTCALL nextpow2(uint32_t v) noexcept
   {
 	  v -= 1;
 	  v |= (v >> 1);
@@ -667,7 +667,7 @@ namespace bss_util {
 	
 	  return v + 1;
   }
-  inline static unsigned short BSS_FASTCALL nextpow2(unsigned short v) noexcept
+  inline static uint16_t BSS_FASTCALL nextpow2(uint16_t v) noexcept
   {
 	  v -= 1;
 	  v |= (v >> 1);
@@ -677,7 +677,7 @@ namespace bss_util {
 	
 	  return v + 1;
   }
-  inline static unsigned char BSS_FASTCALL nextpow2(unsigned char v) noexcept
+  inline static uint8_t BSS_FASTCALL nextpow2(uint8_t v) noexcept
   {
 	  v -= 1;
 	  v |= (v >> 1);
@@ -688,7 +688,7 @@ namespace bss_util {
   }
 
 #ifdef BSS_PLATFORM_WIN32
-  inline static unsigned int BSS_FASTCALL log2(unsigned int v) noexcept
+  inline static uint32_t BSS_FASTCALL log2(uint32_t v) noexcept
   {
     if(!v) return 0;
     unsigned long r; 
@@ -696,27 +696,27 @@ namespace bss_util {
     return r; 
   }
 #elif defined(BSS_COMPILER_GCC)
-  inline static unsigned int BSS_FASTCALL log2(unsigned int v) noexcept { return !v?0:((sizeof(unsigned int)<<3)-1-__builtin_clz(v)); }
+  inline static uint32_t BSS_FASTCALL log2(uint32_t v) noexcept { return !v?0:((sizeof(uint32_t)<<3)-1-__builtin_clz(v)); }
 #else
   // Bit-twiddling hack for base 2 log by Sean Eron Anderson
-  inline static unsigned int BSS_FASTCALL log2(unsigned char v) noexcept
+  inline static uint32_t BSS_FASTCALL log2(uint8_t v) noexcept
   {
-    const unsigned int b[] = {0x2, 0xC, 0xF0};
-    const unsigned int S[] = {1, 2, 4};
+    const uint32_t b[] = {0x2, 0xC, 0xF0};
+    const uint32_t S[] = {1, 2, 4};
 
-    register unsigned int r = 0; // result of log2(v) will go here
+    register uint32_t r = 0; // result of log2(v) will go here
     if (v & b[2]) { v >>= S[2]; r |= S[2]; } 
     if (v & b[1]) { v >>= S[1]; r |= S[1]; } 
     if (v & b[0]) { v >>= S[0]; r |= S[0]; } 
 
     return r;
   }
-  inline static unsigned int BSS_FASTCALL log2(unsigned short v) noexcept
+  inline static uint32_t BSS_FASTCALL log2(uint16_t v) noexcept
   {
-    const unsigned int b[] = {0x2, 0xC, 0xF0, 0xFF00};
-    const unsigned int S[] = {1, 2, 4, 8};
+    const uint32_t b[] = {0x2, 0xC, 0xF0, 0xFF00};
+    const uint32_t S[] = {1, 2, 4, 8};
 
-    register unsigned int r = 0; // result of log2(v) will go here
+    register uint32_t r = 0; // result of log2(v) will go here
     if (v & b[3]) { v >>= S[3]; r |= S[3]; } 
     if (v & b[2]) { v >>= S[2]; r |= S[2]; } 
     if (v & b[1]) { v >>= S[1]; r |= S[1]; } 
@@ -725,12 +725,12 @@ namespace bss_util {
     return r;
   }
 
-  inline static unsigned int BSS_FASTCALL log2(unsigned int v) noexcept
+  inline static uint32_t BSS_FASTCALL log2(uint32_t v) noexcept
   {
-    const unsigned int b[] = {0x2, 0xC, 0xF0, 0xFF00, 0xFFFF0000};
-    const unsigned int S[] = {1, 2, 4, 8, 16};
+    const uint32_t b[] = {0x2, 0xC, 0xF0, 0xFF00, 0xFFFF0000};
+    const uint32_t S[] = {1, 2, 4, 8, 16};
 
-    register unsigned int r = 0; // result of log2(v) will go here
+    register uint32_t r = 0; // result of log2(v) will go here
     if (v & b[4]) { v >>= S[4]; r |= S[4]; } 
     if (v & b[3]) { v >>= S[3]; r |= S[3]; } 
     if (v & b[2]) { v >>= S[2]; r |= S[2]; } 
@@ -740,19 +740,19 @@ namespace bss_util {
     return r;
   }
 #endif
-  inline static unsigned int BSS_FASTCALL log2(uint64_t v) noexcept
+  inline static uint32_t BSS_FASTCALL log2(uint64_t v) noexcept
   {
 #if defined(BSS_COMPILER_MSC) && defined(BSS_64BIT)
     if(!v) return 0;
     unsigned long r; 
     _BitScanReverse64(&r, v); 
 #elif defined(BSS_COMPILER_GCC) && defined(BSS_64BIT)
-    unsigned int r = !v?0:((sizeof(uint64_t)<<3)-1-__builtin_clz(v));
+    uint32_t r = !v?0:((sizeof(uint64_t)<<3)-1-__builtin_clz(v));
 #else
     const uint64_t b[] = {0x2, 0xC, 0xF0, 0xFF00, 0xFFFF0000, 0xFFFFFFFF00000000};
-    const unsigned int S[] = {1, 2, 4, 8, 16, 32};
+    const uint32_t S[] = {1, 2, 4, 8, 16, 32};
 
-    register unsigned int r = 0; // result of log2(v) will go here
+    register uint32_t r = 0; // result of log2(v) will go here
     if (v & b[5]) { v >>= S[5]; r |= S[5]; } 
     if (v & b[4]) { v >>= S[4]; r |= S[4]; } 
     if (v & b[3]) { v >>= S[3]; r |= S[3]; } 
@@ -763,17 +763,17 @@ namespace bss_util {
 
     return r;
   }
-  inline static unsigned int BSS_FASTCALL log2_p2(unsigned int v) noexcept //Works only if v is a power of 2
+  inline static uint32_t BSS_FASTCALL log2_p2(uint32_t v) noexcept //Works only if v is a power of 2
   {
     assert(v && !(v & (v - 1))); //debug version checks to ensure its a power of two
 #ifdef BSS_COMPILER_MSC
     unsigned long r;
     _BitScanReverse(&r,v);
 #elif defined(BSS_COMPILER_GCC)
-    unsigned int r = (sizeof(unsigned int)<<3)-1-__builtin_clz(v);
+    uint32_t r = (sizeof(uint32_t)<<3)-1-__builtin_clz(v);
 #else
-    const unsigned int b[] = {0xAAAAAAAA, 0xCCCCCCCC, 0xF0F0F0F0, 0xFF00FF00, 0xFFFF0000};
-    register unsigned int r = (v & b[0]) != 0;
+    const uint32_t b[] = {0xAAAAAAAA, 0xCCCCCCCC, 0xF0F0F0F0, 0xFF00FF00, 0xFFFF0000};
+    register uint32_t r = (v & b[0]) != 0;
     r |= ((v & b[4]) != 0) << 4;
     r |= ((v & b[3]) != 0) << 3;
     r |= ((v & b[2]) != 0) << 2;

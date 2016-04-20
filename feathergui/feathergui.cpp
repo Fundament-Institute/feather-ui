@@ -144,3 +144,8 @@ void FG_FASTCALL fgUpdateMouseState(fgMouseState* state, const FG_Msg* msg)
   if(msg->type == FG_MOUSELEAVE)
     state->state &= ~FGMOUSE_DRAG;
 }
+
+char FG_FASTCALL fgRectIntersect(const AbsRect* l, const AbsRect* r)
+{
+  return (l->left <= r->right && l->top <= r->bottom && l->right >= r->left && l->bottom >= r->top);
+}

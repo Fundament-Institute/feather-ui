@@ -86,9 +86,9 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
   return fgWindow_Message((fgWindow*)self,msg);
 }
 
-void FG_FASTCALL fgStandardDraw(fgChild* self, AbsRect* area, size_t dpi)
+void FG_FASTCALL fgStandardDraw(fgChild* self, AbsRect* area, size_t dpi, char culled)
 {
-  fgChild* hold = self->last; // we draw backwards through our list.
+  fgChild* hold = culled ? self->lastnoclip : self->last; // we draw backwards through our list.
   AbsRect curarea;
   bool clipping = false;
 
@@ -96,6 +96,8 @@ void FG_FASTCALL fgStandardDraw(fgChild* self, AbsRect* area, size_t dpi)
   {
     if(!(hold->flags&FGCHILD_HIDDEN))
     {
+      ResolveRectCache(hold, &curarea, area, (hold->flags & FGCHILD_BACKGROUND) ? 0 : &self->padding);
+
       if(!clipping && !(hold->flags&FGCHILD_NOCLIP))
       {
         clipping = true;
@@ -107,8 +109,8 @@ void FG_FASTCALL fgStandardDraw(fgChild* self, AbsRect* area, size_t dpi)
         fgPopClipRect();
       }
 
-      ResolveRectCache(hold, &curarea, area, (hold->flags & FGCHILD_BACKGROUND) ? 0 : &self->padding);
-      fgSendMsg<FG_DRAW, void*, size_t>(hold, &curarea, dpi);
+      char culled = !fgRectIntersect(&curarea, &fgPeekClipRect());
+      _sendsubmsg<FG_DRAW, void*, size_t>(hold, culled, &curarea, dpi);
     }
     hold = hold->prev;
   }
@@ -199,7 +201,7 @@ size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
   case FG_MOUSELEAVE:
     if(fgLastHover != 0) // If we STILL haven't accepted a mousemove event, send a MOUSEOFF message if lasthover exists
     {
-      fgSendMsg<FG_MOUSEOFF>(fgLastHover);
+      _sendmsg<FG_MOUSEOFF>(fgLastHover);
       fgLastHover = 0;
     }
     break;

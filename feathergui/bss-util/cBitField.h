@@ -33,7 +33,7 @@ namespace bss_util
   };
 
   // Generic implementation of using an integral type's component bits to store flags.
-  template<typename T=unsigned int>
+  template<typename T=uint32_t>
   class BSS_COMPILER_DLLEXPORT cBitField
   {
   public:

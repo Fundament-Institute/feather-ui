@@ -23,7 +23,7 @@ fgChild* fgLayoutLoadMapping(const char* name, fgFlag flags, fgChild* parent, fg
   else if(!strcmp(name, "fgTopWindow"))
   {
     fgChild* r = fgTopWindow_Create(0, flags, element);
-    fgSendMsg<FG_SETPARENT, void*, void*>(r, parent, prev);
+    _sendmsg<FG_SETPARENT, void*, void*>(r, parent, prev);
     return r;
   }
   else if(!strcmp(name, "fgButton"))

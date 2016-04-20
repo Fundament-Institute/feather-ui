@@ -12,12 +12,14 @@ namespace bss_util {
   template<class T, typename CType = size_t>
   struct BSS_COMPILER_DLLEXPORT cArraySlice
   {
-    cArraySlice(const cArraySlice& copy) : begin(copy.begin), length(copy.length) {}
-    cArraySlice(T* b, CType l) : begin(b), length(l) { }
+    cArraySlice(const cArraySlice& copy) : start(copy.start), length(copy.length) {}
+    cArraySlice(T* s, CType l) : start(s), length(l) { }
     cArraySlice() {}
-    inline cArraySlice& operator=(const cArraySlice& right) { begin = right.begin; length = right.length; return *this; }
-    inline cArraySlice& operator++() { assert(length > 0); ++begin; --length; return *this; }
-    inline cArraySlice operator++(int) { assert(length > 0); return cArraySlice(begin + 1, length - 1); }
+    inline cArraySlice& operator=(const cArraySlice& right) { start = right.start; length = right.length; return *this; }
+    inline cArraySlice& operator++() { assert(length > 0); ++start; --length; return *this; }
+    inline cArraySlice operator++(int) { assert(length > 0); return cArraySlice(start + 1, length - 1); }
+    inline const cArraySlice operator()(CType start) const { return operator()(start, length); }
+    inline const cArraySlice operator()(CType start, CType end) const { return operator()(start, length); }
     inline cArraySlice operator()(CType start) { return operator()(start, length); }
     inline cArraySlice operator()(CType start, CType end)
     { 
@@ -26,16 +28,30 @@ namespace bss_util {
       start = bssmod(start, length);
       if(end <= 0) end = length - end;
       assert(end >= start);
-      return cArraySlice(begin + start, end - start);
+      return cArraySlice(start + start, end - start);
     }
+    inline bool operator!() const { return !start || !length; }
+    inline operator bool() const { return Valid(); }
 
-    inline operator cArraySlice<const T, CType>() const { return cArraySlice<const T, CType>(begin, length); }
+    BSS_FORCEINLINE bool Valid() const { return start != 0 && length != 0; }
+    BSS_FORCEINLINE const T& Front() const { assert(_length>0); return start[0]; }
+    BSS_FORCEINLINE const T& Back() const { assert(_length>0); return start[length - 1]; }
+    BSS_FORCEINLINE T& Front() { assert(_length>0); return start[0]; }
+    BSS_FORCEINLINE T& Back() { assert(_length>0); return start[length - 1]; }
+    BSS_FORCEINLINE const T* begin() const noexcept { return start; }
+    BSS_FORCEINLINE const T* end() const noexcept { return start + length; }
+    BSS_FORCEINLINE T* begin() noexcept { return start; }
+    BSS_FORCEINLINE T* end() noexcept { return start + length; }
+    BSS_FORCEINLINE T& operator [](CType i) noexcept { assert(i < length); return start[i]; }
+    BSS_FORCEINLINE const T& operator [](CType i) const noexcept { assert(i < length); return start[i]; }
 
-    T* begin;
+    inline operator cArraySlice<const T, CType>() const { return cArraySlice<const T, CType>(start, length); }
+
+    T* start;
     CType length;
   };
 
-  enum ARRAY_TYPE : unsigned char { CARRAY_SIMPLE=0, CARRAY_CONSTRUCT=1, CARRAY_SAFE=2, CARRAY_MOVE=3 };
+  enum ARRAY_TYPE : uint8_t { CARRAY_SIMPLE=0, CARRAY_CONSTRUCT=1, CARRAY_SAFE=2, CARRAY_MOVE=3 };
 
   // Handles the very basic operations of an array. Constructor management is done by classes that inherit this class.
   template<class T, typename CType = size_t, typename Alloc = StaticAllocPolicy<T>>
@@ -93,13 +109,19 @@ namespace bss_util {
     CType _capacity;
   };
 
+#ifdef BSS_DEBUG
+#define BSS_DEBUGFILL(p, old, n, Ty) memset(p + bssmin(n, old), 0xfd, ((n > old)?(n - old):(old - n))*sizeof(Ty))
+#else
+#define BSS_DEBUGFILL(p, old, n, Ty)  
+#endif
+
   template<class T, typename CType = size_t, ARRAY_TYPE ArrayType = CARRAY_SIMPLE, typename Alloc = StaticAllocPolicy<T>>
   struct BSS_COMPILER_DLLEXPORT cArrayInternal
   {
     static void _copymove(T* BSS_RESTRICT dest, T* BSS_RESTRICT src, CType n) noexcept { if(dest == nullptr) return; assert(dest != src); _copy(dest, src, n); }
     static void _copy(T* BSS_RESTRICT dest, const T* BSS_RESTRICT src, CType n) noexcept { if(dest == nullptr) return; assert(dest != src); memcpy(dest, src, sizeof(T)*n); }
     static void _move(T* a, CType dest, CType src, CType n) noexcept { memmove(a + dest, a + src, sizeof(T)*n); }
-    static void _setlength(T* a, CType old, CType n) noexcept {}
+    static void _setlength(T* a, CType old, CType n) noexcept { BSS_DEBUGFILL(a, old, n, T); }
     static void _setcapacity(cArrayBase<T, CType, Alloc>& a, CType capacity) noexcept
     {
       if(capacity <= a._capacity)
@@ -122,10 +144,11 @@ namespace bss_util {
     static void _move(T* a, CType dest, CType src, CType n) noexcept { memmove(a + dest, a + src, sizeof(T)*n); }
     static void _setlength(T* a, CType old, CType n) noexcept
     {
-      for(CType i = old; i < n; ++i)
-        new(a + i) T();
       for(CType i = n; i < old; ++i)
         a[i].~T();
+      BSS_DEBUGFILL(a, old, n, T);
+      for(CType i = old; i < n; ++i)
+        new(a + i) T();
     }
     static void _setcapacity(cArrayBase<T, CType, Alloc>& a, CType capacity) noexcept
     {
@@ -241,6 +264,10 @@ namespace bss_util {
     inline T_& Back() noexcept { assert(_capacity>0); return _array[_capacity - 1]; }
     BSS_FORCEINLINE operator T_*() noexcept { return _array; }
     BSS_FORCEINLINE operator const T_*() const noexcept { return _array; }
+#if defined(BSS_64BIT) && defined(BSS_DEBUG) 
+    BSS_FORCEINLINE T_& operator [](uint64_t i) { assert(i < _capacity); return _array[i]; } // for some insane reason, this works on 64-bit, but not on 32-bit
+    BSS_FORCEINLINE const T_& operator [](uint64_t i) const { assert(i < _capacity); return _array[i]; }
+#endif
     inline const T_* begin() const noexcept { return _array; }
     inline const T_* end() const noexcept { return _array + _capacity; }
     inline T_* begin() noexcept { return _array; }

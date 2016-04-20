@@ -24,22 +24,22 @@ size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
     fgChild_AddPreChild(*self, &self->item);
     fgText_Init(&self->text, 0, 0, 0, FGCHILD_EXPAND | FGCHILD_IGNORE, *self, 0, &fgElement_CENTER);
     fgChild_AddPreChild(*self, self->text);
-    fgSendMsg<FG_SETSTYLE, void*>(*self, "nuetral");
+    _sendmsg<FG_SETSTYLE, void*>(*self, "nuetral");
     return 1;
   case FG_ADDITEM:
     if(msg->other)
-      fgSendMsg<FG_ADDCHILD, void*>(&self->item, msg->other);
+      _sendmsg<FG_ADDCHILD, void*>(&self->item, msg->other);
     else
       fgChild_Clear(&self->item);
     return 1;
   case FG_NUETRAL:
-    fgSendMsg<FG_SETSTYLE, void*>(*self, "nuetral");
+    _sendmsg<FG_SETSTYLE, void*>(*self, "nuetral");
     return 1;
   case FG_HOVER:
-    fgSendMsg<FG_SETSTYLE, void*>(*self, "hover");
+    _sendmsg<FG_SETSTYLE, void*>(*self, "hover");
     return 1;
   case FG_ACTIVE:
-    fgSendMsg<FG_SETSTYLE, void*>(*self, "active");
+    _sendmsg<FG_SETSTYLE, void*>(*self, "active");
     return 1;
   case FG_GOTFOCUS:
     if(self->window.element.flags&FGBUTTON_NOFOCUS)
