@@ -24,13 +24,13 @@ typedef struct {
   size_t start; // start of text selection
   size_t end; // end of text selection (or just where the cursor is)
 #ifdef  __cplusplus
-  inline operator fgChild*() { return &window.window.element; }
-  inline fgChild* operator->() { return operator fgChild*(); }
+  inline operator fgElement*() { return &window.control.element; }
+  inline fgElement* operator->() { return operator fgElement*(); }
 #endif
 } fgTextbox;
 
-FG_EXTERN fgWindow* FG_FASTCALL fgTextbox_Create(fgWindow* parent, const fgElement* element, FG_UINT id, fgFlag flags);
-FG_EXTERN void FG_FASTCALL fgTextbox_Init(fgTextbox* self, fgWindow* parent, const fgElement* element, FG_UINT id, fgFlag flags);
+FG_EXTERN fgControl* FG_FASTCALL fgTextbox_Create(fgControl* parent, const fgTransform* transform, FG_UINT id, fgFlag flags);
+FG_EXTERN void FG_FASTCALL fgTextbox_Init(fgTextbox* self, fgControl* parent, const fgTransform* transform, FG_UINT id, fgFlag flags);
 FG_EXTERN char FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg);
 
 #ifdef  __cplusplus

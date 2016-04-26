@@ -4,7 +4,7 @@
 #ifndef _FG_ROOT_H__
 #define _FG_ROOT_H__
 
-#include "fgWindow.h"
+#include "fgControl.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -23,9 +23,9 @@ typedef struct _FG_DEFER_ACTION {
 
 // Defines the root interface to the GUI. This object should be returned by the implementation at some point
 typedef struct _FG_ROOT {
-  fgWindow gui;
-  size_t (FG_FASTCALL *behaviorhook)(struct _FG_CHILD* self, const FG_Msg* msg);
-  fgChild* drag;
+  fgControl gui;
+  size_t (FG_FASTCALL *behaviorhook)(struct _FG_ELEMENT* self, const FG_Msg* msg);
+  fgElement* drag;
   struct _FG_MONITOR* monitors;
   fgDeferAction* updateroot;
   struct __kh_fgRadioGroup_t* radiohash;
@@ -33,7 +33,7 @@ typedef struct _FG_ROOT {
   double time; // In seconds
   fgMouseState mouse;
 #ifdef  __cplusplus
-  inline operator fgChild*() { return &gui.element; }
+  inline operator fgElement*() { return &gui.element; }
 #endif
 } fgRoot;
 
@@ -46,8 +46,8 @@ FG_EXTERN void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, size_t
 FG_EXTERN void FG_FASTCALL fgRoot_Destroy(fgRoot* self);
 FG_EXTERN size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg);
 FG_EXTERN size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg); // Returns 0 if handled, 1 otherwise
-FG_EXTERN size_t FG_FASTCALL fgRoot_BehaviorDefault(fgChild* self, const FG_Msg* msg);
-FG_EXTERN size_t FG_FASTCALL fgRoot_BehaviorListener(fgChild* self, const FG_Msg* msg);
+FG_EXTERN size_t FG_FASTCALL fgRoot_BehaviorDefault(fgElement* self, const FG_Msg* msg);
+FG_EXTERN size_t FG_FASTCALL fgRoot_BehaviorListener(fgElement* self, const FG_Msg* msg);
 FG_EXTERN void FG_FASTCALL fgRoot_Update(fgRoot* self, double delta);
 FG_EXTERN void FG_FASTCALL fgRoot_CheckMouseMove(fgRoot* self);
 FG_EXTERN fgDeferAction* FG_FASTCALL fgRoot_AllocAction(char (FG_FASTCALL *action)(void*), void* arg, double time);
@@ -56,11 +56,11 @@ FG_EXTERN void FG_FASTCALL fgRoot_AddAction(fgRoot* self, fgDeferAction* action)
 FG_EXTERN void FG_FASTCALL fgRoot_RemoveAction(fgRoot* self, fgDeferAction* action); // Removes an action. Action must be in list.
 FG_EXTERN void FG_FASTCALL fgRoot_ModifyAction(fgRoot* self, fgDeferAction* action); // Moves action if it needs to be moved, or inserts it if it isn't already in the list.
 FG_EXTERN struct _FG_MONITOR* FG_FASTCALL fgRoot_GetMonitor(const fgRoot* self, const AbsRect* rect);
-FG_EXTERN void FG_FASTCALL fgStandardDraw(fgChild* self, AbsRect* area, size_t dpi, char culled);
+FG_EXTERN void FG_FASTCALL fgStandardDraw(fgElement* self, AbsRect* area, size_t dpi, char culled);
 FG_EXTERN void fgPushClipRect(AbsRect* clip);
 FG_EXTERN AbsRect fgPeekClipRect();
 FG_EXTERN void fgPopClipRect();
-FG_EXTERN void fgDirtyElement(fgElement* elem);
+FG_EXTERN void fgDirtyElement(fgTransform* elem);
 FG_EXTERN void fgSetCursor(unsigned int type, void* custom); // What custom actually is depends on the implemention
 FG_EXTERN void fgClipboardCopy(unsigned int type, const void* data, size_t length); // passing in NULL will erase whatever what was in the clipboard.
 FG_EXTERN char fgClipboardExists(unsigned int type);
@@ -71,7 +71,7 @@ FG_EXTERN void fgClipboardFree(const void* mem);
 }
 
 template<FG_MSGTYPE type, typename... Args>
-inline size_t fgSendMsg(fgChild* self, Args... args)
+inline size_t fgSendMsg(fgElement* self, Args... args)
 {
   FG_Msg msg = { 0 };
   msg.type = type;
@@ -80,7 +80,7 @@ inline size_t fgSendMsg(fgChild* self, Args... args)
 }
 
 template<FG_MSGTYPE type, typename... Args>
-inline size_t fgSendSubMsg(fgChild* self, unsigned char sub, Args... args)
+inline size_t fgSendSubMsg(fgElement* self, unsigned char sub, Args... args)
 {
   FG_Msg msg = { 0 };
   msg.type = type;

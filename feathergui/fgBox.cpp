@@ -6,9 +6,9 @@
 #include "bss-util\bss_util.h"
 #include "feathercpp.h"
 
-void FG_FASTCALL fgBox_Init(fgBox* self, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element, FG_UINT id, fgFlag flags)
+void FG_FASTCALL fgBox_Init(fgBox* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform, FG_UINT id, fgFlag flags)
 {
-  fgChild_InternalSetup(*self, flags, parent, prev, element, (FN_DESTROY)&fgBox_Destroy, (FN_MESSAGE)&fgBox_Message);
+  fgElement_InternalSetup(*self, flags, parent, prev, transform, (FN_DESTROY)&fgBox_Destroy, (FN_MESSAGE)&fgBox_Message);
 }
 void FG_FASTCALL fgBox_Destroy(fgBox* self)
 {
@@ -17,19 +17,19 @@ void FG_FASTCALL fgBox_Destroy(fgBox* self)
 size_t FG_FASTCALL fgBox_Message(fgBox* self, const FG_Msg* msg)
 {
   ptrdiff_t otherint = msg->otherint;
-  fgFlag flags = self->window.window.element.flags;
+  fgFlag flags = self->window.control.element.flags;
 
   switch(msg->type)
   {
   case FG_CONSTRUCT:
     break; // No constructor
-  case FG_SETFLAG: // Do the same thing fgChild does to resolve a SETFLAG into SETFLAGS
+  case FG_SETFLAG: // Do the same thing fgElement does to resolve a SETFLAG into SETFLAGS
     otherint = T_SETBIT(flags, otherint, msg->otheraux);
   case FG_SETFLAGS:
     if((otherint^flags) & FGBOX_LAYOUTMASK)
     { // handle a layout flag change
       size_t r = fgScrollbar_Message(&self->window, msg); // we have to actually set the flags first before resetting the layout
-      fgChild_SubMessage(*self, FG_LAYOUTCHANGE, FGCHILD_LAYOUTRESET, 0, 0);
+      fgSubMessage(*self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTRESET, 0, 0);
       return r;
     }
     break;

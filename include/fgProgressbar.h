@@ -4,7 +4,7 @@
 #ifndef _FG_PROGRESSBAR_H__
 #define _FG_PROGRESSBAR_H__
 
-#include "fgWindow.h"
+#include "fgControl.h"
 #include "fgText.h"
 
 #ifdef  __cplusplus
@@ -13,18 +13,18 @@ extern "C" {
 
 // A slider can be dragged along either a smooth value or between integer increments
 typedef struct _FG_PROGRESSBAR {
-  fgWindow window;
+  fgControl control;
   fgText text; // Text displayed in the center of the progress bar
-  fgChild bar; // bar object whose [left,right] coordinates are set to [0.0,value] by default
+  fgElement bar; // bar object whose [left,right] coordinates are set to [0.0,value] by default
   FREL value;
 #ifdef  __cplusplus
-  inline operator fgChild*() { return &window.element; }
-  inline fgChild* operator->() { return operator fgChild*(); }
+  inline operator fgElement*() { return &control.element; }
+  inline fgElement* operator->() { return operator fgElement*(); }
 #endif
 } fgProgressbar;
 
-FG_EXTERN fgChild* FG_FASTCALL fgProgressbar_Create(FREL value, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element);
-FG_EXTERN void FG_FASTCALL fgProgressbar_Init(fgProgressbar* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element);
+FG_EXTERN fgElement* FG_FASTCALL fgProgressbar_Create(FREL value, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform);
+FG_EXTERN void FG_FASTCALL fgProgressbar_Init(fgProgressbar* BSS_RESTRICT self, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform);
 FG_EXTERN void FG_FASTCALL fgProgressbar_Destroy(fgProgressbar* self);
 FG_EXTERN size_t FG_FASTCALL fgProgressbar_Message(fgProgressbar* self, const FG_Msg* msg);
 

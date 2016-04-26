@@ -14,13 +14,13 @@ extern "C" {
 typedef struct {
   fgList window; // ADDITEM is used to add an arbitrary object to the list. 
 #ifdef  __cplusplus
-  inline operator fgChild*() { return &window.window.window.element; }
-  inline fgChild* operator->() { return operator fgChild*(); }
+  inline operator fgElement*() { return &window.window.control.element; }
+  inline fgElement* operator->() { return operator fgElement*(); }
 #endif
 } fgDropdown;
 
-FG_EXTERN fgWindow* FG_FASTCALL fgDropdown_Create(fgWindow* parent, const fgElement* element, fgFlag flags);
-FG_EXTERN void FG_FASTCALL fgDropdown_Init(fgDropdown* self, fgWindow* parent, const fgElement* element, fgFlag flags);
+FG_EXTERN fgControl* FG_FASTCALL fgDropdown_Create(fgControl* parent, const fgTransform* transform, fgFlag flags);
+FG_EXTERN void FG_FASTCALL fgDropdown_Init(fgDropdown* self, fgControl* parent, const fgTransform* transform, fgFlag flags);
 FG_EXTERN char FG_FASTCALL fgDropdown_Message(fgDropdown* self, const FG_Msg* msg);
 
 #ifdef  __cplusplus

@@ -12,7 +12,7 @@
 extern "C" {
 #endif
 
-FG_EXTERN void (FG_FASTCALL *debugmsghook)(fgWindow* self, const FG_Msg* msg);
+FG_EXTERN void (FG_FASTCALL *debugmsghook)(fgControl* self, const FG_Msg* msg);
 
 typedef struct __FG_ROOT_SDL
 {

@@ -7,12 +7,12 @@
 #include <intrin.h>
 #include <limits.h>
 
-const fgElement fgElement_DEFAULT = { { 0, 0, 0, 0, 0, 1, 0, 1 }, 0, { 0, 0, 0, 0 } };
-const fgElement fgElement_CENTER = { { 0, 0.5, 0, 0.5, 0, 0.5, 0, 0.5 }, 0, { 0, 0.5, 0, 0.5 } };
+const fgTransform fgTransform_DEFAULT = { { 0, 0, 0, 0, 0, 1, 0, 1 }, 0, { 0, 0, 0, 0 } };
+const fgTransform fgTransform_CENTER = { { 0, 0.5, 0, 0.5, 0, 0.5, 0, 0.5 }, 0, { 0, 0.5, 0, 0.5 } };
 const fgColor fgColor_NONE = { 0 };
 const fgColor fgColor_BLACK = { 0xFF000000 };
 const fgColor fgColor_WHITE = { 0xFFFFFFFF };
-bss_util::cHash<std::pair<fgChild*, unsigned short>, void(FG_FASTCALL *)(struct _FG_CHILD*, const FG_Msg*)> fgListenerHash;
+bss_util::cHash<std::pair<fgElement*, unsigned short>, void(FG_FASTCALL *)(struct _FG_ELEMENT*, const FG_Msg*)> fgListenerHash;
 
 static_assert(sizeof(unsigned int) == sizeof(fgColor), "ERROR: fgColor not size of 32-bit int!");
 static_assert(sizeof(FG_Msg) <= sizeof(uint64_t) * 3, "FG_Msg is too big!");
@@ -59,7 +59,7 @@ char FG_FASTCALL CompareCRects(const CRect* l, const CRect* r)
     | ((((l->left.rel != r->left.rel) || (l->right.rel != r->right.rel))) << 3)
     | ((((l->top.rel != r->top.rel) || (l->bottom.rel != r->bottom.rel))) << 4);
 }
-char FG_FASTCALL CompareElements(const fgElement* l, const fgElement* r)
+char FG_FASTCALL CompareTransforms(const fgTransform* l, const fgTransform* r)
 {
   assert(l != 0 && r != 0);
   return CompareCRects(&l->area, &r->area)

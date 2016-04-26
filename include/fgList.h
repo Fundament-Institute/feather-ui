@@ -20,18 +20,18 @@ enum FGLIST_FLAGS
 // A List is an arbitrary list of items with a number of different layout options that are selectable and/or draggable.
 typedef struct {
   fgBox box;
-  fgChild selector;
-  fgChild hover;
-  fgChild* selected; // points to current selected item
+  fgElement selector;
+  fgElement hover;
+  fgElement* selected; // points to current selected item
   fgMouseState mouse;
 #ifdef  __cplusplus
-  inline operator fgChild*() { return &box.window.window.element; }
-  inline fgChild* operator->() { return operator fgChild*(); }
+  inline operator fgElement*() { return &box.window.control.element; }
+  inline fgElement* operator->() { return operator fgElement*(); }
 #endif
 } fgList;
 
-FG_EXTERN fgChild* FG_FASTCALL fgList_Create(fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element, FG_UINT id, fgFlag flags);
-FG_EXTERN void FG_FASTCALL fgList_Init(fgList* self, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element, FG_UINT id, fgFlag flags);
+FG_EXTERN fgElement* FG_FASTCALL fgList_Create(fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform, FG_UINT id, fgFlag flags);
+FG_EXTERN void FG_FASTCALL fgList_Init(fgList* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform, FG_UINT id, fgFlag flags);
 FG_EXTERN void FG_FASTCALL fgList_Destroy(fgList* self);
 FG_EXTERN size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg);
 

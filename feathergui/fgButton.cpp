@@ -5,13 +5,13 @@
 #include "fgSkin.h"
 #include "feathercpp.h"
 
-void FG_FASTCALL fgButton_Init(fgButton* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
+void FG_FASTCALL fgButton_Init(fgButton* BSS_RESTRICT self, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform)
 {
-  fgChild_InternalSetup(*self, flags, parent, prev, element, (FN_DESTROY)&fgButton_Destroy, (FN_MESSAGE)&fgButton_Message);
+  fgElement_InternalSetup(*self, flags, parent, prev, transform, (FN_DESTROY)&fgButton_Destroy, (FN_MESSAGE)&fgButton_Message);
 }
 void FG_FASTCALL fgButton_Destroy(fgButton* self)
 {
-  fgWindow_Destroy((fgWindow*)self);
+  fgControl_Destroy((fgControl*)self);
 }
 size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
 {
@@ -19,18 +19,18 @@ size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_CONSTRUCT:
-    fgWindow_HoverMessage(&self->window, msg);
-    fgChild_Init(&self->item, FGCHILD_EXPAND | FGCHILD_IGNORE, *self, 0, &fgElement_CENTER);
-    fgChild_AddPreChild(*self, &self->item);
-    fgText_Init(&self->text, 0, 0, 0, FGCHILD_EXPAND | FGCHILD_IGNORE, *self, 0, &fgElement_CENTER);
-    fgChild_AddPreChild(*self, self->text);
+    fgControl_HoverMessage(&self->control, msg);
+    fgElement_Init(&self->item, FGELEMENT_EXPAND | FGELEMENT_IGNORE, *self, 0, &fgTransform_CENTER);
+    fgElement_AddPreChild(*self, &self->item);
+    fgText_Init(&self->text, 0, 0, 0, FGELEMENT_EXPAND | FGELEMENT_IGNORE, *self, 0, &fgTransform_CENTER);
+    fgElement_AddPreChild(*self, self->text);
     _sendmsg<FG_SETSTYLE, void*>(*self, "nuetral");
     return 1;
   case FG_ADDITEM:
     if(msg->other)
       _sendmsg<FG_ADDCHILD, void*>(&self->item, msg->other);
     else
-      fgChild_Clear(&self->item);
+      fgElement_Clear(&self->item);
     return 1;
   case FG_NUETRAL:
     _sendmsg<FG_SETSTYLE, void*>(*self, "nuetral");
@@ -42,7 +42,7 @@ size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
     _sendmsg<FG_SETSTYLE, void*>(*self, "active");
     return 1;
   case FG_GOTFOCUS:
-    if(self->window.element.flags&FGBUTTON_NOFOCUS)
+    if(self->control.element.flags&FGBUTTON_NOFOCUS)
       return 0;
     break;
   case FG_GETCLASSNAME:
@@ -53,7 +53,7 @@ size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
   case FG_GETTEXT:
   case FG_GETFONT:
   case FG_GETCOLOR:
-    return fgChild_PassMessage(self->text, msg);
+    return fgPassMessage(self->text, msg);
   }
-  return fgWindow_HoverMessage(&self->window, msg);
+  return fgControl_HoverMessage(&self->control, msg);
 }

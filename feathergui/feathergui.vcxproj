@@ -220,7 +220,7 @@
     <ClInclude Include="..\include\fgBox.h" />
     <ClInclude Include="..\include\fgButton.h" />
     <ClInclude Include="..\include\fgCheckbox.h" />
-    <ClInclude Include="..\include\fgChild.h" />
+    <ClInclude Include="..\include\fgElement.h" />
     <ClInclude Include="..\include\fgCombobox.h" />
     <ClInclude Include="..\include\fgDropdown.h" />
     <ClInclude Include="..\include\fgImplementation.h" />
@@ -238,9 +238,9 @@
     <ClInclude Include="..\include\fgTabGroup.h" />
     <ClInclude Include="..\include\fgText.h" />
     <ClInclude Include="..\include\fgTextbox.h" />
-    <ClInclude Include="..\include\fgTopWindow.h" />
-    <ClInclude Include="..\include\fgTreeView.h" />
     <ClInclude Include="..\include\fgWindow.h" />
+    <ClInclude Include="..\include\fgTreeView.h" />
+    <ClInclude Include="..\include\fgControl.h" />
     <ClInclude Include="feathercpp.h" />
   </ItemGroup>
   <ItemGroup>
@@ -248,7 +248,7 @@
     <ClCompile Include="fgBox.cpp" />
     <ClCompile Include="fgButton.cpp" />
     <ClCompile Include="fgCheckbox.cpp" />
-    <ClCompile Include="fgChild.cpp" />
+    <ClCompile Include="fgElement.cpp" />
     <ClCompile Include="fgImplementation.cpp" />
     <ClCompile Include="fgLayout.cpp" />
     <ClCompile Include="fgList.cpp" />
@@ -261,9 +261,9 @@
     <ClCompile Include="fgRoot.cpp" />
     <ClCompile Include="fgSlider.cpp" />
     <ClCompile Include="fgText.cpp" />
-    <ClCompile Include="fgTopWindow.cpp" />
-    <ClCompile Include="fgTreeView.cpp" />
     <ClCompile Include="fgWindow.cpp" />
+    <ClCompile Include="fgTreeView.cpp" />
+    <ClCompile Include="fgControl.cpp" />
     <ClCompile Include="fgMonitor.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

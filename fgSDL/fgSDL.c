@@ -7,7 +7,7 @@
 #include "fgRoot.h"
 #include "fgButton.h"
 #include "fgMenu.h"
-#include "fgTopWindow.h"
+#include "fgWindow.h"
 
 #if defined(BSS_DEBUG) && defined(BSS_CPU_x86_64)
 #pragma comment(lib, "../bin/feathergui_d.lib")
@@ -86,28 +86,28 @@ void FG_FASTCALL fgResourceSize(void* res, const CRect* uv, AbsVec* dim, fgFlag 
 #define DEFAULT_CREATE(type, init, ...) \
   type* r = (type*)malloc(sizeof(type)); \
   init(r, __VA_ARGS__); \
-  ((fgChild*)r)->free = &free; \
-  return (fgChild*)r
+  ((fgElement*)r)->free = &free; \
+  return (fgElement*)r
 
-fgChild* FG_FASTCALL fgResource_Create(void* res, const CRect* uv, unsigned int color, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
+fgElement* FG_FASTCALL fgResource_Create(void* res, const CRect* uv, unsigned int color, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform)
 {
-  DEFAULT_CREATE(fgResource, fgResource_Init, res, uv, color, flags, parent, prev, element);
+  DEFAULT_CREATE(fgResource, fgResource_Init, res, uv, color, flags, parent, prev, transform);
 }
-fgChild* FG_FASTCALL fgText_Create(char* text, void* font, unsigned int color, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
+fgElement* FG_FASTCALL fgText_Create(char* text, void* font, unsigned int color, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform)
 {
-  DEFAULT_CREATE(fgText, fgText_Init, text, font, color, flags, parent, prev, element);
+  DEFAULT_CREATE(fgText, fgText_Init, text, font, color, flags, parent, prev, transform);
 }
-fgChild* FG_FASTCALL fgButton_Create(fgChild* item, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
+fgElement* FG_FASTCALL fgButton_Create(fgElement* item, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform)
 {
-  DEFAULT_CREATE(fgButton, fgButton_Init, flags, parent, prev, element);
+  DEFAULT_CREATE(fgButton, fgButton_Init, flags, parent, prev, transform);
 }
-fgChild* FG_FASTCALL fgTopWindow_Create(const char* caption, fgFlag flags, const fgElement* element)
+fgElement* FG_FASTCALL fgWindow_Create(const char* caption, fgFlag flags, const fgTransform* transform)
 {
-  fgTopWindow* r = (fgTopWindow*)malloc(sizeof(fgTopWindow));
-  fgTopWindow_Init(r, flags, element);
-  fgChild_VoidMessage((fgChild*)r, FG_SETPARENT, fgSingleton());
-  fgChild_VoidMessage((fgChild*)r, FG_SETTEXT, (void*)caption);
-  return (fgChild*)r;
+  fgWindow* r = (fgWindow*)malloc(sizeof(fgWindow));
+  fgWindow_Init(r, flags, transform);
+  fgVoidMessage((fgElement*)r, FG_SETPARENT, fgSingleton());
+  fgVoidMessage((fgElement*)r, FG_SETTEXT, (void*)caption);
+  return (fgElement*)r;
 }
 
 fgRoot* FG_FASTCALL fgInitialize()

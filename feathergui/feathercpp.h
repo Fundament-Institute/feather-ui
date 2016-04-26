@@ -71,10 +71,10 @@ char DynArrayRemove(T& a, FG_UINT index)
   return 1;
 }
 
-typedef bss_util::cDynArray<typename fgConstruct<fgStyleLayout, const char*, const fgElement*, fgFlag>::fgConstructor<fgStyleLayout_Destroy, fgStyleLayout_Init>, size_t, bss_util::CARRAY_CONSTRUCT> fgStyleLayoutArray;
+typedef bss_util::cDynArray<typename fgConstruct<fgStyleLayout, const char*, const fgTransform*, fgFlag>::fgConstructor<fgStyleLayout_Destroy, fgStyleLayout_Init>, size_t, bss_util::CARRAY_CONSTRUCT> fgStyleLayoutArray;
 typedef bss_util::cDynArray<typename fgConstruct<fgSkin, int>::fgConstructor<fgSkin_Destroy, fgSubskin_Init>, size_t, bss_util::CARRAY_CONSTRUCT> fgSubskinArray;
 typedef bss_util::cDynArray<typename fgConstruct<fgStyle>::fgConstructor<fgStyle_Destroy, fgStyle_Init>, size_t, bss_util::CARRAY_CONSTRUCT> fgStyleArray;
-typedef bss_util::cDynArray<typename fgConstruct<fgClassLayout, const char*, const fgElement*, fgFlag>::fgConstructor<fgClassLayout_Destroy, fgClassLayout_Init>, size_t, bss_util::CARRAY_CONSTRUCT> fgClassLayoutArray;
+typedef bss_util::cDynArray<typename fgConstruct<fgClassLayout, const char*, const fgTransform*, fgFlag>::fgConstructor<fgClassLayout_Destroy, fgClassLayout_Init>, size_t, bss_util::CARRAY_CONSTRUCT> fgClassLayoutArray;
 
 struct __kh_fgRadioGroup_t;
 extern __inline struct __kh_fgRadioGroup_t* fgRadioGroup_init();
@@ -84,7 +84,7 @@ struct _FG_ROOT;
 extern struct _FG_ROOT* fgroot_instance;
 
 template<FG_MSGTYPE type, typename... Args>
-inline size_t _sendmsg(fgChild* self, Args... args)
+inline size_t _sendmsg(fgElement* self, Args... args)
 {
   FG_Msg msg = { 0 };
   msg.type = type;
@@ -93,7 +93,7 @@ inline size_t _sendmsg(fgChild* self, Args... args)
 }
 
 template<FG_MSGTYPE type, typename... Args>
-inline size_t _sendsubmsg(fgChild* self, unsigned char sub, Args... args)
+inline size_t _sendsubmsg(fgElement* self, unsigned char sub, Args... args)
 {
   FG_Msg msg = { 0 };
   msg.type = type;
@@ -102,5 +102,5 @@ inline size_t _sendsubmsg(fgChild* self, unsigned char sub, Args... args)
   return (*fgroot_instance->behaviorhook)(self, &msg);
 }
 
-FG_EXTERN bss_util::cHash<std::pair<fgChild*, unsigned short>, void(FG_FASTCALL *)(struct _FG_CHILD*, const FG_Msg*)> fgListenerHash;
+FG_EXTERN bss_util::cHash<std::pair<fgElement*, unsigned short>, void(FG_FASTCALL *)(struct _FG_ELEMENT*, const FG_Msg*)> fgListenerHash;
 #endif

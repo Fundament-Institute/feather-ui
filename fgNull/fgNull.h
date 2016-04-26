@@ -5,13 +5,13 @@
 #ifndef __FG_NULL_H__
 #define __FG_NULL_H__
 
-#include "fgWindow.h"
+#include "fgControl.h"
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
-FG_EXTERN void (FG_FASTCALL *debugmsghook)(fgWindow* self, const FG_Msg* msg);
+FG_EXTERN void (FG_FASTCALL *debugmsghook)(fgControl* self, const FG_Msg* msg);
 
 #ifdef  __cplusplus
 }

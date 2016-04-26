@@ -4,7 +4,7 @@
 #ifndef _FG_RESOURCE_H__
 #define _FG_RESOURCE_H__
 
-#include "fgChild.h"
+#include "fgElement.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -19,20 +19,20 @@ enum FGRESOURCE_FLAGS
 
 // fgResource stores a renderable image/vector/shader, that optionally has UV coordinates.
 typedef struct {
-  fgChild element;
+  fgElement element;
   CRect uv;
   void* res;
   FABS outline; // for rounded rectangles and circles, this specifies the width of the outline
   fgColor color;
   fgColor edge;
 #ifdef  __cplusplus
-  inline operator fgChild*() { return &element; }
-  inline fgChild* operator->() { return operator fgChild*(); }
+  inline operator fgElement*() { return &element; }
+  inline fgElement* operator->() { return operator fgElement*(); }
 #endif
 } fgResource;
 
-FG_EXTERN fgChild* FG_FASTCALL fgResource_Create(void* res, const CRect* uv, unsigned int color, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element);
-FG_EXTERN void FG_FASTCALL fgResource_Init(fgResource* self, void* res, const CRect* uv, unsigned int color, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element);
+FG_EXTERN fgElement* FG_FASTCALL fgResource_Create(void* res, const CRect* uv, unsigned int color, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform);
+FG_EXTERN void FG_FASTCALL fgResource_Init(fgResource* self, void* res, const CRect* uv, unsigned int color, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform);
 FG_EXTERN void FG_FASTCALL fgResource_Destroy(fgResource* self);
 FG_EXTERN size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg);
 void FG_FASTCALL fgResource_Recalc(fgResource* self);

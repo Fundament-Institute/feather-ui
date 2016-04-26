@@ -4,7 +4,7 @@
 #ifndef _FG_MONITOR_H__
 #define _FG_MONITOR_H__
 
-#include "fgChild.h"
+#include "fgElement.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -13,7 +13,7 @@ extern "C" {
 // Defines a helper element that may OPTIONALLY be used by an implementation to track all available monitors. If a monitor's DPI
 // does not match the root DPI, elements must children of that monitor in order to respond to it's DPI.
 typedef struct _FG_MONITOR {
-  fgChild element;
+  fgElement element;
   AbsRect coverage; // True area of the monitor in the native DPI of root.
   size_t dpi; // DPI of the monitor
   struct _FG_MONITOR* mnext;

@@ -5,13 +5,13 @@
 #include "fgSkin.h"
 #include "feathercpp.h"
 
-FG_EXTERN void FG_FASTCALL fgCheckbox_Init(fgCheckbox* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
+FG_EXTERN void FG_FASTCALL fgCheckbox_Init(fgCheckbox* BSS_RESTRICT self, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform)
 {
-  fgChild_InternalSetup(*self, flags, parent, prev, element, (FN_DESTROY)&fgCheckbox_Destroy, (FN_MESSAGE)&fgCheckbox_Message);
+  fgElement_InternalSetup(*self, flags, parent, prev, transform, (FN_DESTROY)&fgCheckbox_Destroy, (FN_MESSAGE)&fgCheckbox_Message);
 }
 FG_EXTERN void FG_FASTCALL fgCheckbox_Destroy(fgCheckbox* self)
 {
-  fgWindow_Destroy(&self->window);
+  fgControl_Destroy(&self->control);
 }
 FG_EXTERN size_t FG_FASTCALL fgCheckbox_Message(fgCheckbox* self, const FG_Msg* msg)
 {
@@ -19,15 +19,15 @@ FG_EXTERN size_t FG_FASTCALL fgCheckbox_Message(fgCheckbox* self, const FG_Msg* 
   switch(msg->type)
   {
   case FG_CONSTRUCT:
-    fgWindow_HoverMessage(&self->window, msg);
-    fgChild_Init(&self->check, FGCHILD_EXPAND | FGCHILD_IGNORE | FGCHILD_BACKGROUND | FGCHILD_HIDDEN, *self, 0, 0);
-    fgChild_AddPreChild(*self, &self->check);
-    fgChild_Init(&self->indeterminate, FGCHILD_EXPAND | FGCHILD_IGNORE | FGCHILD_BACKGROUND | FGCHILD_HIDDEN, *self, 0, 0);
-    fgChild_AddPreChild(*self, &self->indeterminate);
-    fgText_Init(&self->text, 0, 0, 0, FGCHILD_EXPAND | FGCHILD_IGNORE, *self, 0, &fgElement_CENTER);
-    fgChild_AddPreChild(*self, self->text);
-    fgChild_Init(&self->item, FGCHILD_EXPAND | FGCHILD_IGNORE, *self, 0, &fgElement_CENTER);
-    fgChild_AddPreChild(*self, &self->item);
+    fgControl_HoverMessage(&self->control, msg);
+    fgElement_Init(&self->check, FGELEMENT_EXPAND | FGELEMENT_IGNORE | FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN, *self, 0, 0);
+    fgElement_AddPreChild(*self, &self->check);
+    fgElement_Init(&self->indeterminate, FGELEMENT_EXPAND | FGELEMENT_IGNORE | FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN, *self, 0, 0);
+    fgElement_AddPreChild(*self, &self->indeterminate);
+    fgText_Init(&self->text, 0, 0, 0, FGELEMENT_EXPAND | FGELEMENT_IGNORE, *self, 0, &fgTransform_CENTER);
+    fgElement_AddPreChild(*self, self->text);
+    fgElement_Init(&self->item, FGELEMENT_EXPAND | FGELEMENT_IGNORE, *self, 0, &fgTransform_CENTER);
+    fgElement_AddPreChild(*self, &self->item);
     _sendmsg<FG_SETSTYLE, void*>(*self, "nuetral");
     self->checked = 0;
     return 1;
@@ -35,7 +35,7 @@ FG_EXTERN size_t FG_FASTCALL fgCheckbox_Message(fgCheckbox* self, const FG_Msg* 
     if(msg->other)
       _sendmsg<FG_ADDCHILD, void*>(&self->item, msg->other);
     else
-      fgChild_Clear(&self->item);
+      fgElement_Clear(&self->item);
     return 1;
   case FG_NUETRAL:
     _sendmsg<FG_SETSTYLE, void*>(*self, "nuetral");
@@ -47,12 +47,12 @@ FG_EXTERN size_t FG_FASTCALL fgCheckbox_Message(fgCheckbox* self, const FG_Msg* 
     _sendmsg<FG_SETSTYLE, void*>(*self, "active");
     return 1;
   case FG_ACTION:
-    fgChild_IntMessage(*self, FG_SETSTATE, !_sendmsg<FG_GETSTATE>(*self), 0);
+    fgIntMessage(*self, FG_SETSTATE, !_sendmsg<FG_GETSTATE>(*self), 0);
     return 1;
   case FG_SETSTATE:
     self->checked = msg->otherint;
-    fgChild_IntMessage(&self->check, FG_SETFLAG, FGCHILD_HIDDEN, self->checked != 1);
-    fgChild_IntMessage(&self->indeterminate, FG_SETFLAG, FGCHILD_HIDDEN, self->checked != 2);
+    fgIntMessage(&self->check, FG_SETFLAG, FGELEMENT_HIDDEN, self->checked != 1);
+    fgIntMessage(&self->indeterminate, FG_SETFLAG, FGELEMENT_HIDDEN, self->checked != 2);
     return 1;
   case FG_GETSTATE:
     return self->checked;
@@ -62,9 +62,9 @@ FG_EXTERN size_t FG_FASTCALL fgCheckbox_Message(fgCheckbox* self, const FG_Msg* 
   case FG_GETTEXT:
   case FG_GETFONT:
   case FG_GETCOLOR:
-    return fgChild_PassMessage(self->text, msg);
+    return fgPassMessage(self->text, msg);
   case FG_GETCLASSNAME:
     return (size_t)"fgCheckbox";
   }
-  return fgWindow_HoverMessage(&self->window, msg);
+  return fgControl_HoverMessage(&self->control, msg);
 }

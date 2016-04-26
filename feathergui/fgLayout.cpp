@@ -3,35 +3,35 @@
 
 #include "fgLayout.h"
 #include "fgButton.h"
-#include "fgTopWindow.h"
+#include "fgWindow.h"
 #include "fgText.h"
 #include "fgResource.h"
 #include "feathercpp.h"
 
-fgChild* fgLayoutLoadMapping(const char* name, fgFlag flags, fgChild* parent, fgChild* prev, const fgElement* element)
+fgElement* fgLayoutLoadMapping(const char* name, fgFlag flags, fgElement* parent, fgElement* prev, const fgTransform* transform)
 {
-  if(!strcmp(name, "fgChild")) { // This could be a hash, but this is low priority as this is never called in a performance critical loop.
-    fgChild* r = (fgChild*)malloc(sizeof(fgChild));
-    fgChild_Init(r, flags, parent, prev, element);
+  if(!strcmp(name, "fgElement")) { // This could be a hash, but this is low priority as this is never called in a performance critical loop.
+    fgElement* r = (fgElement*)malloc(sizeof(fgElement));
+    fgElement_Init(r, flags, parent, prev, transform);
     return r;
   }
-  else if(!strcmp(name, "fgWindow")) {
-    fgWindow* r = (fgWindow*)malloc(sizeof(fgWindow));
-    fgWindow_Init(r, flags, parent, prev, element);
-    return (fgChild*)r;
+  else if(!strcmp(name, "fgControl")) {
+    fgControl* r = (fgControl*)malloc(sizeof(fgControl));
+    fgControl_Init(r, flags, parent, prev, transform);
+    return (fgElement*)r;
   }
-  else if(!strcmp(name, "fgTopWindow"))
+  else if(!strcmp(name, "fgWindow"))
   {
-    fgChild* r = fgTopWindow_Create(0, flags, element);
+    fgElement* r = fgWindow_Create(0, flags, transform);
     _sendmsg<FG_SETPARENT, void*, void*>(r, parent, prev);
     return r;
   }
   else if(!strcmp(name, "fgButton"))
-    return fgButton_Create(0, flags, parent, prev, element);
+    return fgButton_Create(0, flags, parent, prev, transform);
   else if(!strcmp(name, "fgText"))
-    return fgText_Create(0, 0, 0xFFFFFFFF, flags, parent, prev, element);
+    return fgText_Create(0, 0, 0xFFFFFFFF, flags, parent, prev, transform);
   else if(!strcmp(name, "fgResource"))
-    return fgResource_Create(0, 0, 0xFFFFFFFF, flags, parent, prev, element);
+    return fgResource_Create(0, 0, 0xFFFFFFFF, flags, parent, prev, transform);
 
   return 0;
 }
@@ -70,9 +70,9 @@ void* FG_FASTCALL fgLayout_GetFont(fgLayout* self, FG_UINT font)
 {
   return ((fgFontArray&)self->fonts)[font].ref;
 }
-FG_UINT FG_FASTCALL fgLayout_AddLayout(fgLayout* self, const char* name, const fgElement* element, fgFlag flags)
+FG_UINT FG_FASTCALL fgLayout_AddLayout(fgLayout* self, const char* name, const fgTransform* transform, fgFlag flags)
 {
-  return ((fgClassLayoutArray&)self->layout).AddConstruct(name, element, flags);
+  return ((fgClassLayoutArray&)self->layout).AddConstruct(name, transform, flags);
 }
 char FG_FASTCALL fgLayout_RemoveLayout(fgLayout* self, FG_UINT layout)
 {
@@ -83,9 +83,9 @@ fgClassLayout* FG_FASTCALL fgLayout_GetLayout(fgLayout* self, FG_UINT layout)
   return self->layout.p + layout;
 }
 
-void FG_FASTCALL fgClassLayout_Init(fgClassLayout* self, const char* name, const fgElement* element, fgFlag flags)
+void FG_FASTCALL fgClassLayout_Init(fgClassLayout* self, const char* name, const fgTransform* transform, fgFlag flags)
 {
-  fgStyleLayout_Init(&self->style, name, element, flags);
+  fgStyleLayout_Init(&self->style, name, transform, flags);
   memset(&self->children, 0, sizeof(fgVector));
 }
 void FG_FASTCALL fgClassLayout_Destroy(fgClassLayout* self)
@@ -94,9 +94,9 @@ void FG_FASTCALL fgClassLayout_Destroy(fgClassLayout* self)
   reinterpret_cast<fgClassLayoutArray&>(self->children).~cDynArray();
 }
 
-FG_UINT FG_FASTCALL fgClassLayout_AddChild(fgClassLayout* self, const char* name, const fgElement* element, fgFlag flags)
+FG_UINT FG_FASTCALL fgClassLayout_AddChild(fgClassLayout* self, const char* name, const fgTransform* transform, fgFlag flags)
 {
-  return ((fgClassLayoutArray&)self->children).AddConstruct(name, element, flags);
+  return ((fgClassLayoutArray&)self->children).AddConstruct(name, transform, flags);
 }
 char FG_FASTCALL fgClassLayout_RemoveChild(fgClassLayout* self, FG_UINT child)
 {

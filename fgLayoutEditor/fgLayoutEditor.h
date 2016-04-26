@@ -12,7 +12,7 @@ extern "C" {
 
 typedef struct FG_LAYOUT_ACTION
 {
-  fgChild* self;
+  fgElement* self;
   FG_Msg msg;
   struct FG_LAYOUT_ACTION* next;
 } fgLayoutAction;
@@ -21,13 +21,13 @@ typedef struct FG_LAYOUT_EDITOR
 {
   fgImplementation* dll;
   fgRoot* root;
-  fgTopWindow* window;
+  fgWindow* window;
   fgMenu* menu;
   fgList* toolbar;
   //fgTreeView* view;
   //fgGrid* properties;
-  fgChild workspace;
-  fgChild* selected;
+  fgElement workspace;
+  fgElement* selected;
   fgLayoutAction* undo;
   fgLayoutAction* redo;
 } fgLayoutEditor;

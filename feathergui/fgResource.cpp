@@ -5,17 +5,17 @@
 #include <stdio.h>
 #include "feathercpp.h"
 
-void FG_FASTCALL fgResource_Init(fgResource* self, void* res, const CRect* uv, unsigned int color, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
+void FG_FASTCALL fgResource_Init(fgResource* self, void* res, const CRect* uv, unsigned int color, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform)
 {
-  fgChild_InternalSetup(*self, flags, parent, prev, element, (FN_DESTROY)&fgResource_Destroy, (FN_MESSAGE)&fgResource_Message);
-  if(color) fgChild_IntMessage(*self, FG_SETCOLOR, color, 0);
+  fgElement_InternalSetup(*self, flags, parent, prev, transform, (FN_DESTROY)&fgResource_Destroy, (FN_MESSAGE)&fgResource_Message);
+  if(color) fgIntMessage(*self, FG_SETCOLOR, color, 0);
   if(uv) _sendmsg<FG_SETUV, void*>(*self, (void*)uv);
   if(res) _sendmsg<FG_SETRESOURCE, void*>(*self, res);
 }
 void FG_FASTCALL fgResource_Destroy(fgResource* self)
 {
   if(self->res) fgDestroyResource(self->res);
-  fgChild_Destroy(&self->element);
+  fgElement_Destroy(&self->element);
 }
 size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
 {
@@ -23,7 +23,7 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_CONSTRUCT:
-    fgChild_Message(&self->element, msg);
+    fgElement_Message(&self->element, msg);
     memset(&self->uv, 0, sizeof(CRect));
     self->uv.right.rel = 1.0f;
     self->uv.bottom.rel = 1.0f;
@@ -36,25 +36,25 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
     if(msg->other)
       self->uv = *((CRect*)msg->other);
     fgResource_Recalc(self);
-    fgDirtyElement(&self->element.element);
+    fgDirtyElement(&self->element.transform);
     return 1;
   case FG_SETRESOURCE:
     if(self->res) fgDestroyResource(self->res);
     self->res = 0;
     if(msg->other) self->res = fgCloneResource(msg->other);
     fgResource_Recalc(self);
-    fgDirtyElement(&self->element.element);
+    fgDirtyElement(&self->element.transform);
     break;
   case FG_SETCOLOR:
     if(msg->otheraux != 0)
       self->edge.color = msg->otherint;
     else
       self->color.color = msg->otherint;
-    fgDirtyElement(&self->element.element);
+    fgDirtyElement(&self->element.transform);
     break;
   case FG_SETOUTLINE:
     self->outline = msg->otherf;
-    fgDirtyElement(&self->element.element);
+    fgDirtyElement(&self->element.transform);
     break;
   case FG_GETUV:
     return (size_t)(&self->uv);
@@ -80,7 +80,7 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
     area.top *= scale;
     area.right *= scale;
     area.bottom *= scale;
-    AbsVec center = ResolveVec(&self->element.element.center, &area);
+    AbsVec center = ResolveVec(&self->element.transform.center, &area);
 
     if(self->element.flags&FGRESOURCE_LINE)
     {
@@ -92,13 +92,13 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
       fgDrawLine(area.topleft, area.bottomright, self->color.color);
     }
     else
-      fgDrawResource(self->res, &self->uv, self->color.color, self->edge.color, self->outline, &area, self->element.element.rotation, &center, self->element.flags);
+      fgDrawResource(self->res, &self->uv, self->color.color, self->edge.color, self->outline, &area, self->element.transform.rotation, &center, self->element.flags);
   }
   break;
   case FG_GETCLASSNAME:
     return (size_t)"fgResource";
   }
-  return fgChild_Message(&self->element, msg);
+  return fgElement_Message(&self->element, msg);
 }
 
 void* FG_FASTCALL fgCreateResourceFile(fgFlag flags, const char* file)
@@ -118,14 +118,14 @@ void* FG_FASTCALL fgCreateResourceFile(fgFlag flags, const char* file)
 
 void FG_FASTCALL fgResource_Recalc(fgResource* self)
 {
-  if(self->res && (self->element.flags&FGCHILD_EXPAND))
+  if(self->res && (self->element.flags&FGELEMENT_EXPAND))
   {
     AbsVec dim;
     fgResourceSize(self->res, &self->uv, &dim, self->element.flags);
-    CRect adjust = self->element.element.area;
-    if(self->element.flags&FGCHILD_EXPANDX)
+    CRect adjust = self->element.transform.area;
+    if(self->element.flags&FGELEMENT_EXPANDX)
       adjust.right.abs = adjust.left.abs + dim.x;
-    if(self->element.flags&FGCHILD_EXPANDY)
+    if(self->element.flags&FGELEMENT_EXPANDY)
       adjust.bottom.abs = adjust.top.abs + dim.y;
     _sendmsg<FG_SETAREA, void*>(*self, &adjust);
   }

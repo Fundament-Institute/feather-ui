@@ -4,41 +4,50 @@
 #ifndef _FG_WINDOW_H__
 #define _FG_WINDOW_H__
 
-#include "fgChild.h"
+#include "fgButton.h"
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
-struct _FG_MENU;
-struct _FG_SKIN;
+enum FGWINDOW_FLAGS
+{
+  FGWINDOW_MINIMIZABLE = (1 << 8),
+  FGWINDOW_MAXIMIZABLE = (1 << 9),
+  FGWINDOW_RESIZABLE = (1 << 10),
+  FGWINDOW_NOTITLEBAR = (1 << 11),
+  FGWINDOW_NOBORDER = (1 << 12),
+};
 
-// Defines the base GUI element, a window. This is not an actual top level window.
+enum FGWINDOW_ACTIONS
+{
+  FGWINDOW_CLOSE = 0,
+  FGWINDOW_MAXIMIZE,
+  FGWINDOW_RESTORE,
+  FGWINDOW_MINIMIZE,
+  FGWINDOW_UNMINIMIZE,
+};
+
+struct _FG_BUTTON;
+
+// A top-level window is an actual window with a titlebar that can be dragged and resized.
 typedef struct _FG_WINDOW {
-  fgChild element;
-  struct _FG_MENU* contextmenu;
-  char* name; // Optional name used for mapping to skin collections
-  struct _FG_WINDOW* tabnext;
-  struct _FG_WINDOW* tabprev;
-  struct _FG_WINDOW* sidenext;
-  struct _FG_WINDOW* sideprev;
+  fgControl control;
+  fgText caption;
+  fgButton controls[3]; // 0 is the close button, 1 is the maximize/restore button, 2 is the minimize button
+  CRect prevrect; // Stores where the window was before being maximized
+  AbsVec offset; // offset from the mouse cursor for movement
+  char dragged; // 1 if currently being dragged by mouse
 #ifdef  __cplusplus
-  inline operator fgChild*() { return &element; }
-  inline fgChild* operator->() { return operator fgChild*(); }
+  inline operator fgElement*() { return &control.element; }
+  inline fgElement* operator->() { return operator fgElement*(); }
 #endif
 } fgWindow;
 
-FG_EXTERN fgChild* fgFocusedWindow;
-FG_EXTERN fgChild* fgLastHover; // Last window the mouse moved over, used to generate MOUSEON and MOUSEOFF events
-FG_EXTERN fgChild* fgCaptureWindow;
-
-FG_EXTERN void FG_FASTCALL fgWindow_Init(fgWindow* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element);
+FG_EXTERN fgElement* FG_FASTCALL fgWindow_Create(const char* caption, fgFlag flags, const fgTransform* transform);
+FG_EXTERN void FG_FASTCALL fgWindow_Init(fgWindow* self, fgFlag flags, const fgTransform* transform);
 FG_EXTERN void FG_FASTCALL fgWindow_Destroy(fgWindow* self);
 FG_EXTERN size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg);
-FG_EXTERN size_t FG_FASTCALL fgWindow_HoverMessage(fgWindow* self, const FG_Msg* msg);
-FG_EXTERN void FG_FASTCALL fgWindow_TabAfter(fgWindow* self, fgWindow* prev);
-FG_EXTERN void FG_FASTCALL fgWindow_TabBefore(fgWindow* self, fgWindow* next);
-FG_EXTERN void FG_FASTCALL fgWindow_DoHoverCalc(fgWindow* self);
 
 #ifdef  __cplusplus
 }

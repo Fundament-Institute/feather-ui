@@ -32,13 +32,7 @@
     <ClInclude Include="..\include\fgButton.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgTopWindow.h">
-      <Filter>include</Filter>
-    </ClInclude>
     <ClInclude Include="..\include\fgMenu.h">
-      <Filter>include</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\fgWindow.h">
       <Filter>include</Filter>
     </ClInclude>
     <ClInclude Include="..\include\fgRoot.h">
@@ -63,9 +57,6 @@
       <Filter>include</Filter>
     </ClInclude>
     <ClInclude Include="..\include\fgSkin.h">
-      <Filter>include</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\fgChild.h">
       <Filter>include</Filter>
     </ClInclude>
     <ClInclude Include="..\include\fgLayout.h">
@@ -104,15 +95,21 @@
     <ClInclude Include="..\include\fgBox.h">
       <Filter>include</Filter>
     </ClInclude>
+    <ClInclude Include="..\include\fgControl.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\fgElement.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\fgWindow.h">
+      <Filter>include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="feathergui.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="fgButton.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="fgChild.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="fgImplementation.cpp">
@@ -134,12 +131,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="fgText.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="fgTopWindow.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="fgWindow.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="fgProgressbar.cpp">
@@ -167,6 +158,15 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="fgBox.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgControl.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgElement.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgWindow.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

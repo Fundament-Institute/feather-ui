@@ -4,7 +4,7 @@
 #ifndef _FG_SKIN_H__
 #define _FG_SKIN_H__
 
-#include "fgWindow.h"
+#include "fgControl.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -23,7 +23,7 @@ typedef struct _FG_STYLE
 
 typedef struct _FG_STYLE_LAYOUT {
   char* name;
-  fgElement element;
+  fgTransform transform;
   fgFlag flags;
   fgStyle style; // style overrides
 } fgStyleLayout;
@@ -53,7 +53,7 @@ FG_EXTERN void* FG_FASTCALL fgSkin_GetResource(const fgSkin* self, FG_UINT resou
 FG_EXTERN size_t FG_FASTCALL fgSkin_AddFont(fgSkin* self, void* font);
 FG_EXTERN char FG_FASTCALL fgSkin_RemoveFont(fgSkin* self, FG_UINT font);
 FG_EXTERN void* FG_FASTCALL fgSkin_GetFont(const fgSkin* self, FG_UINT font);
-FG_EXTERN size_t FG_FASTCALL fgSkin_AddChild(fgSkin* self, const char* name, const fgElement* element, fgFlag flags);
+FG_EXTERN size_t FG_FASTCALL fgSkin_AddChild(fgSkin* self, const char* name, const fgTransform* transform, fgFlag flags);
 FG_EXTERN char FG_FASTCALL fgSkin_RemoveChild(fgSkin* self, FG_UINT child);
 FG_EXTERN fgStyleLayout* FG_FASTCALL fgSkin_GetChild(const fgSkin* self, FG_UINT child);
 FG_EXTERN size_t FG_FASTCALL fgSkin_AddStyle(fgSkin* self, const char* name);
@@ -66,7 +66,7 @@ FG_EXTERN fgSkin* FG_FASTCALL fgSkin_AddSkin(fgSkin* self, const char* name);
 FG_EXTERN char FG_FASTCALL fgSkin_RemoveSkin(fgSkin* self, const char* name);
 FG_EXTERN fgSkin* FG_FASTCALL fgSkin_GetSkin(const fgSkin* self, const char* name);
 
-FG_EXTERN void FG_FASTCALL fgStyleLayout_Init(fgStyleLayout* self, const char* name, const fgElement* element, fgFlag flags);
+FG_EXTERN void FG_FASTCALL fgStyleLayout_Init(fgStyleLayout* self, const char* name, const fgTransform* transform, fgFlag flags);
 FG_EXTERN void FG_FASTCALL fgStyleLayout_Destroy(fgStyleLayout* self);
 
 FG_EXTERN void FG_FASTCALL fgStyle_Init(fgStyle* self);

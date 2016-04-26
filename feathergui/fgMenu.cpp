@@ -4,10 +4,10 @@
 #include "fgMenu.h"
 #include "feathercpp.h"
 
-void FG_FASTCALL fgMenu_Init(fgMenu* self, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element, FG_UINT id, fgFlag flags, char submenu)
+void FG_FASTCALL fgMenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform, FG_UINT id, fgFlag flags, char submenu)
 {
   assert(self != 0);
-  fgChild_InternalSetup(*self, flags, parent, prev, element, (FN_DESTROY)&fgMenu_Destroy, (FN_MESSAGE)(submenu ? &fgSubmenu_Message : &fgMenu_Message));
+  fgElement_InternalSetup(*self, flags, parent, prev, transform, (FN_DESTROY)&fgMenu_Destroy, (FN_MESSAGE)(submenu ? &fgSubmenu_Message : &fgMenu_Message));
 }
 void FG_FASTCALL fgMenu_Destroy(fgMenu* self)
 {
@@ -17,8 +17,8 @@ void FG_FASTCALL fgMenu_Destroy(fgMenu* self)
 
 inline void FG_FASTCALL fgMenu_Show(fgMenu* self, bool show)
 {
-  fgFlag set = show ? (self->window.window.element.flags & ~(FGCHILD_HIDDEN | FGCHILD_IGNORE)) : (self->window.window.element.flags | FGCHILD_HIDDEN | FGCHILD_IGNORE);
-  fgChild_IntMessage(*self, FG_SETFLAGS, set, 0);
+  fgFlag set = show ? (self->window.control.element.flags & ~(FGELEMENT_HIDDEN | FGELEMENT_IGNORE)) : (self->window.control.element.flags | FGELEMENT_HIDDEN | FGELEMENT_IGNORE);
+  fgIntMessage(*self, FG_SETFLAGS, set, 0);
 }
 
 size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
@@ -29,11 +29,11 @@ size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgScrollbar_Message((fgScrollbar*)self, msg);
-    fgChild_Init(&self->highlight, FGCHILD_HIDDEN | FGCHILD_IGNORE, *self, 0, &fgElement_DEFAULT);
-    fgChild_AddPreChild(*self, &self->highlight);
-    fgChild_Init(&self->arrow, FGCHILD_IGNORE | FGCHILD_EXPAND, 0, 0, 0);
-    fgChild_AddPreChild(*self, &self->arrow);
-    fgChild_AddPreChild(*self, 0); // seperator placeholder
+    fgElement_Init(&self->highlight, FGELEMENT_HIDDEN | FGELEMENT_IGNORE, *self, 0, &fgTransform_DEFAULT);
+    fgElement_AddPreChild(*self, &self->highlight);
+    fgElement_Init(&self->arrow, FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0, 0, 0);
+    fgElement_AddPreChild(*self, &self->arrow);
+    fgElement_AddPreChild(*self, 0); // seperator placeholder
     return 1;
   case FG_MOUSEDOWN:
   {
@@ -48,7 +48,7 @@ size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
 
     assert(fgCaptureWindow != *self); // this should never happen (if it does you may need to always remove the capture window status).
     AbsRect cache;
-    fgChild* child = fgChild_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
+    fgElement* child = fgElement_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
     if(child) // If you click the empty part of the menu, nothing happens, but if you hit a child, we check if it has a submenu
     {
       fgMenu* submenu = reinterpret_cast<fgMenu*>(_sendmsg<FG_GETSELECTEDITEM>(child));
@@ -69,10 +69,10 @@ size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
   case FG_MOUSEMOVE:
   {
     AbsRect cache;
-    fgChild* child = fgChild_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
+    fgElement* child = fgElement_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
     if(child)
     {
-      CRect r = { child->element.area.left.abs, 0, 0, 0, child->element.area.right.abs, 0, 0, 1 };
+      CRect r = { child->transform.area.left.abs, 0, 0, 0, child->transform.area.right.abs, 0, 0, 1 };
       _sendmsg<FG_SETAREA, void*>(&self->highlight, &r);
     }
   }
@@ -96,10 +96,10 @@ size_t FG_FASTCALL fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
   case FG_MOUSEUP:
   {
   char hit = MsgHitCRect(msg, *self);
-  fgChild* child;
+  fgElement* child;
   AbsRect cache;
   if(hit)
-  child = fgChild_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
+  child = fgElement_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
   if(!hit || !child) // check if we are outside and need to close the menu
   {
   fgMenu_Show(self, false);
@@ -118,17 +118,17 @@ size_t FG_FASTCALL fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
   case FG_MOUSEMOVE:
   {
   AbsRect cache;
-  fgChild* child = fgChild_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
+  fgElement* child = fgElement_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
   if(child)
   {
-  CRect r = { 0, 0, child->element.area.top.abs, 0, 0, 1, child->element.area.bottom.abs, 0 };
+  CRect r = { 0, 0, child->transform.area.top.abs, 0, 0, 1, child->transform.area.bottom.abs, 0 };
   _sendmsg<FG_SETAREA, void*>(&self->highlight, &r);
   }
   return 1;
   }
   case FG_MOUSEOFF:
   if(!self->expanded) // Turn off the hover, but ONLY if a submenu isn't expanded.
-  fgChild_IntMessage(&self->highlight, FG_SETFLAG, FGCHILD_HIDDEN, 1);
+  fgIntMessage(&self->highlight, FG_SETFLAG, FGELEMENT_HIDDEN, 1);
   case FG_GETCLASSNAME:
   return (size_t)"fgSubmenu"; // This allows you to properly differentiate a top level menu glued to the top of a window from a submenu, like a context menu.
   }*/

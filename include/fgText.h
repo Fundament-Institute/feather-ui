@@ -4,7 +4,7 @@
 #ifndef _FG_TEXT_H__
 #define _FG_TEXT_H__
 
-#include "fgChild.h"
+#include "fgElement.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -27,7 +27,7 @@ enum FGTEXT_FLAGS
 
 // fgText stores a string and renders it according to the font and fontcolor that it has.
 typedef struct {
-  fgChild element;
+  fgElement element;
   char* text;
   void* font;
   void* cache;
@@ -35,13 +35,13 @@ typedef struct {
   float lineheight;
   float letterspacing;
 #ifdef  __cplusplus
-  inline operator fgChild*() { return &element; }
-  inline fgChild* operator->() { return operator fgChild*(); }
+  inline operator fgElement*() { return &element; }
+  inline fgElement* operator->() { return operator fgElement*(); }
 #endif
 } fgText;
 
-FG_EXTERN fgChild* FG_FASTCALL fgText_Create(char* text, void* font, unsigned int color, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element);
-FG_EXTERN void FG_FASTCALL fgText_Init(fgText* self, char* text, void* font, unsigned int color, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element);
+FG_EXTERN fgElement* FG_FASTCALL fgText_Create(char* text, void* font, unsigned int color, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform);
+FG_EXTERN void FG_FASTCALL fgText_Init(fgText* self, char* text, void* font, unsigned int color, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform);
 FG_EXTERN void FG_FASTCALL fgText_Destroy(fgText* self);
 FG_EXTERN size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg);
 FG_EXTERN void FG_FASTCALL fgText_Recalc(fgText* self);

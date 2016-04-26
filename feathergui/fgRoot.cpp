@@ -17,14 +17,14 @@ void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, size_t dpi)
   self->updateroot = 0;
   self->radiohash = fgRadioGroup_init();
   fgroot_instance = self;
-  fgElement element = { area->left, 0, area->top, 0, area->right, 0, area->bottom, 0, 0, 0, 0 };
-  fgChild_InternalSetup(*self, 0, 0, 0, &element, (FN_DESTROY)&fgRoot_Destroy, (FN_MESSAGE)&fgRoot_Message);
+  fgTransform transform = { area->left, 0, area->top, 0, area->right, 0, area->bottom, 0, 0, 0, 0 };
+  fgElement_InternalSetup(*self, 0, 0, 0, &transform, (FN_DESTROY)&fgRoot_Destroy, (FN_MESSAGE)&fgRoot_Message);
 }
 
 void FG_FASTCALL fgRoot_Destroy(fgRoot* self)
 {
   fgRadioGroup_destroy(self->radiohash);
-  fgWindow_Destroy((fgWindow*)self);
+  fgControl_Destroy((fgControl*)self);
 }
 
 void fgRoot_BuildMouseMove(fgRoot* self, FG_Msg* msg)
@@ -65,45 +65,45 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
   case FG_DRAW:
   {
 	fgRoot_CheckMouseMove(self);
-	CRect* rootarea = &self->gui.element.element.area;
+	CRect* rootarea = &self->gui.element.transform.area;
     AbsRect area = { rootarea->left.abs, rootarea->top.abs, rootarea->right.abs, rootarea->bottom.abs };
     FG_Msg m = *msg;
     m.other = &area;
-    return fgWindow_Message((fgWindow*)self, &m);
+    return fgControl_Message((fgControl*)self, &m);
   }
   case FG_GETDPI:
     return self->dpi;
   case FG_SETDPI:
   {
     float scale = !self->dpi ? 1.0 : (msg->otherint / (float)self->dpi);
-    CRect* rootarea = &self->gui.element.element.area;
+    CRect* rootarea = &self->gui.element.transform.area;
     CRect area = { rootarea->left.abs*scale, 0, rootarea->top.abs*scale, 0, rootarea->right.abs*scale, 0, rootarea->bottom.abs*scale, 0 };
     self->dpi = (size_t)msg->otherint;
     return self->gui.element.SetArea(area);
   }
     return 1;
   }
-  return fgWindow_Message((fgWindow*)self,msg);
+  return fgControl_Message((fgControl*)self,msg);
 }
 
-void FG_FASTCALL fgStandardDraw(fgChild* self, AbsRect* area, size_t dpi, char culled)
+void FG_FASTCALL fgStandardDraw(fgElement* self, AbsRect* area, size_t dpi, char culled)
 {
-  fgChild* hold = culled ? self->lastnoclip : self->last; // we draw backwards through our list.
+  fgElement* hold = culled ? self->lastnoclip : self->last; // we draw backwards through our list.
   AbsRect curarea;
   bool clipping = false;
 
   while(hold)
   {
-    if(!(hold->flags&FGCHILD_HIDDEN))
+    if(!(hold->flags&FGELEMENT_HIDDEN))
     {
-      ResolveRectCache(hold, &curarea, area, (hold->flags & FGCHILD_BACKGROUND) ? 0 : &self->padding);
+      ResolveRectCache(hold, &curarea, area, (hold->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
 
-      if(!clipping && !(hold->flags&FGCHILD_NOCLIP))
+      if(!clipping && !(hold->flags&FGELEMENT_NOCLIP))
       {
         clipping = true;
         fgPushClipRect(area);
       }
-      else if(clipping && (hold->flags&FGCHILD_NOCLIP))
+      else if(clipping && (hold->flags&FGELEMENT_NOCLIP))
       {
         clipping = false;
         fgPopClipRect();
@@ -120,20 +120,20 @@ void FG_FASTCALL fgStandardDraw(fgChild* self, AbsRect* area, size_t dpi, char c
 }
 
 // Recursive event injection function
-size_t FG_FASTCALL fgRoot_RInject(fgRoot* root, fgChild* self, const FG_Msg* msg, AbsRect* area, AbsRect* padding)
+size_t FG_FASTCALL fgRoot_RInject(fgRoot* root, fgElement* self, const FG_Msg* msg, AbsRect* area, AbsRect* padding)
 {
   assert(msg != 0);
 
-  if((self->flags&FGCHILD_HIDDEN) != 0) // If we're hidden we always reject messages no matter what.
+  if((self->flags&FGELEMENT_HIDDEN) != 0) // If we're hidden we always reject messages no matter what.
     return 0;
 
   AbsRect curarea;
   if(!area) // IF this is null either we are the root or this is a captured message, in which case we would have to resolve the entire relative coordinate chain anyway
     ResolveRect(self, &curarea);
   else
-    ResolveRectCache(self, &curarea, area, (self->flags & FGCHILD_BACKGROUND) ? 0 : padding);
+    ResolveRectCache(self, &curarea, area, (self->flags & FGELEMENT_BACKGROUND) ? 0 : padding);
 
-  fgChild* cur = self->rootnoclip;
+  fgElement* cur = self->rootnoclip;
   while(cur) // Go through all our children that aren't being clipped
   {
     if(fgRoot_RInject(root, cur, msg, &curarea, &self->padding)) // We still need to properly evaluate hitboxes even for nonclipping elements.
@@ -160,7 +160,7 @@ size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
 {
   assert(self != 0);
 
-  CRect* rootarea = &self->gui.element.element.area;
+  CRect* rootarea = &self->gui.element.transform.area;
   fgUpdateMouseState(&self->mouse, msg);
 
   switch(msg->type)
@@ -172,7 +172,7 @@ size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
   case FG_KEYUP:
   case FG_KEYDOWN:
   {
-    fgChild* cur = !fgFocusedWindow ? *self : fgFocusedWindow;
+    fgElement* cur = !fgFocusedWindow ? *self : fgFocusedWindow;
     do
     {
       if((*self->behaviorhook)(cur, msg))
@@ -188,7 +188,7 @@ size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
     if(self->drag != 0 && self->drag->parent == *self)
     {
       AbsVec pos = { (FABS)msg->x, (FABS)msg->y };
-      MoveCRect(pos, &self->drag->element.area);
+      MoveCRect(pos, &self->drag->transform.area);
     }
     if(fgCaptureWindow)
       if(fgRoot_RInject(self, fgCaptureWindow, msg, 0, 0)) // If it's captured, send the message to the captured window with NULL area.
@@ -209,17 +209,17 @@ size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
   return 0;
 }
 
-size_t FG_FASTCALL fgRoot_BehaviorDefault(fgChild* self, const FG_Msg* msg)
+size_t FG_FASTCALL fgRoot_BehaviorDefault(fgElement* self, const FG_Msg* msg)
 {
   assert(self != 0);
   return (*self->message)(self, msg);
 }
 
-FG_EXTERN size_t FG_FASTCALL fgRoot_BehaviorListener(fgChild* self, const FG_Msg* msg)
+FG_EXTERN size_t FG_FASTCALL fgRoot_BehaviorListener(fgElement* self, const FG_Msg* msg)
 {
   assert(self != 0);
   size_t ret = (*self->message)(self, msg);
-  khiter_t iter = fgListenerHash.Iterator(std::pair<fgChild*, unsigned short>(self, msg->type));
+  khiter_t iter = fgListenerHash.Iterator(std::pair<fgElement*, unsigned short>(self, msg->type));
   if(fgListenerHash.ExistsIter(iter))
     fgListenerHash.GetValue(iter)(self, msg);
   return ret;
@@ -227,7 +227,7 @@ FG_EXTERN size_t FG_FASTCALL fgRoot_BehaviorListener(fgChild* self, const FG_Msg
 
 void FG_FASTCALL fgTerminate(fgRoot* root)
 {
-  VirtualFreeChild((fgChild*)root);
+  VirtualFreeChild((fgElement*)root);
 }
 
 void FG_FASTCALL fgRoot_Update(fgRoot* self, double delta)
@@ -251,7 +251,7 @@ FG_EXTERN fgMonitor* FG_FASTCALL fgRoot_GetMonitor(const fgRoot* self, const Abs
 
   while(cur)
   {
-    CRect& area = cur->element.element.area;
+    CRect& area = cur->element.transform.area;
     AbsRect monitor = { area.left.abs > rect->left ? area.left.abs : rect->left,
       area.top.abs > rect->top ? area.top.abs : rect->top,
       area.right.abs < rect->right ? area.right.abs : rect->right,

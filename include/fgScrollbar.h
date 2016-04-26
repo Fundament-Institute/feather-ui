@@ -4,7 +4,7 @@
 #ifndef _FG_SCROLLBAR_H__
 #define _FG_SCROLLBAR_H__
 
-#include "fgWindow.h"
+#include "fgControl.h"
 #include "fgButton.h"
 
 #ifdef  __cplusplus
@@ -28,22 +28,22 @@ enum FGSCROLLBAR_ACTIONS
   FGSCROLLBAR_BUTTON, // Clicking the actual buttons. 0 1 2 3 - left top right bottom
 };
 
-// A Scrollbar area acts as a clipping area for a single fgChild.
+// A Scrollbar area acts as a clipping area for a single fgElement.
 typedef struct {
-  fgWindow window;
+  fgControl control;
   fgButton btn[6]; // 0 - up arrow, 1 - down arrow, 2 - vertical slider, 3 - right arrow, 4 - left arrow, 6 - horz slider
-  fgChild bg[2]; // 0 - vertical background, 1 - horizontal background
+  fgElement bg[2]; // 0 - vertical background, 1 - horizontal background
   CVec maxdim;
   AbsRect realpadding; // We have to intercept and store padding amounts here because we hijack the padding to perform scrolling
   AbsVec barcache; // Stores scrollbar width/height
   AbsVec realsize; // Stores the total size of the children calculated from the layout.
 #ifdef  __cplusplus
-  inline operator fgChild*() { return &window.element; }
-  inline fgChild* operator->() { return operator fgChild*(); }
+  inline operator fgElement*() { return &control.element; }
+  inline fgElement* operator->() { return operator fgElement*(); }
 #endif
 } fgScrollbar;
 
-FG_EXTERN void FG_FASTCALL fgScrollbar_Init(fgScrollbar* self, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element, FG_UINT id, fgFlag flags);
+FG_EXTERN void FG_FASTCALL fgScrollbar_Init(fgScrollbar* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform, FG_UINT id, fgFlag flags);
 FG_EXTERN void FG_FASTCALL fgScrollbar_Destroy(fgScrollbar* self);
 FG_EXTERN size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg);
 

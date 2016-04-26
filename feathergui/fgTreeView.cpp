@@ -5,7 +5,7 @@
 #include "bss-util\bss_util.h"
 #include "feathercpp.h"
 
-FG_EXTERN void FG_FASTCALL fgTreeView_Init(fgTreeView* self, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element, FG_UINT id, fgFlag flags)
+FG_EXTERN void FG_FASTCALL fgTreeView_Init(fgTreeView* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform, FG_UINT id, fgFlag flags)
 {
 
 }
@@ -15,7 +15,7 @@ FG_EXTERN void FG_FASTCALL fgTreeView_Destroy(fgTreeView* self)
 }
 FG_EXTERN size_t FG_FASTCALL fgTreeView_Message(fgTreeView* self, const FG_Msg* msg)
 {
-  fgChild* hold = (fgChild*)msg->other;
+  fgElement* hold = (fgElement*)msg->other;
 
   switch(msg->type)
   {

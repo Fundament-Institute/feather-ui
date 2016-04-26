@@ -4,7 +4,7 @@
 #ifndef _FG_BUTTON_H__
 #define _FG_BUTTON_H__
 
-#include "fgWindow.h"
+#include "fgControl.h"
 #include "fgText.h"
 
 #ifdef  __cplusplus
@@ -18,17 +18,17 @@ enum FGBUTTON_FLAGS
 
 // A button is usually implemented as a simple background design that takes a static and displays it in the center of the button.
 typedef struct _FG_BUTTON {
-  fgWindow window;
-  fgChild item; // item displayed in button
+  fgControl control;
+  fgElement item; // item displayed in button
   fgText text; // text displayed in button
 #ifdef  __cplusplus
-  inline operator fgChild*() { return &window.element; }
-  inline fgChild* operator->() { return operator fgChild*(); }
+  inline operator fgElement*() { return &control.element; }
+  inline fgElement* operator->() { return operator fgElement*(); }
 #endif
 } fgButton;
 
-FG_EXTERN fgChild* FG_FASTCALL fgButton_Create(const char* text, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element);
-FG_EXTERN void FG_FASTCALL fgButton_Init(fgButton* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element);
+FG_EXTERN fgElement* FG_FASTCALL fgButton_Create(const char* text, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform);
+FG_EXTERN void FG_FASTCALL fgButton_Init(fgButton* BSS_RESTRICT self, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform);
 FG_EXTERN void FG_FASTCALL fgButton_Destroy(fgButton* self);
 FG_EXTERN size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg);
 

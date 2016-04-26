@@ -5,42 +5,42 @@
 #include "fgSkin.h"
 #include "feathercpp.h"
 
-FG_EXTERN void FG_FASTCALL fgProgressbar_Init(fgProgressbar* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
+FG_EXTERN void FG_FASTCALL fgProgressbar_Init(fgProgressbar* BSS_RESTRICT self, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform)
 {
-  fgChild_InternalSetup(*self, flags, parent, prev, element, (FN_DESTROY)&fgProgressbar_Destroy, (FN_MESSAGE)&fgProgressbar_Message);
+  fgElement_InternalSetup(*self, flags, parent, prev, transform, (FN_DESTROY)&fgProgressbar_Destroy, (FN_MESSAGE)&fgProgressbar_Message);
 }
 
 FG_EXTERN void FG_FASTCALL fgProgressbar_Destroy(fgProgressbar* self)
 {
-  fgWindow_Destroy(&self->window);
+  fgControl_Destroy(&self->control);
 }
 
 FG_EXTERN size_t FG_FASTCALL fgProgressbar_Message(fgProgressbar* self, const FG_Msg* msg)
 {
-  static const fgElement BAR_ELEMENT = { 0,0,0,0,0,0,0,1.0,0,0,0,0,0 };
+  static const fgTransform BAR_ELEMENT = { 0,0,0,0,0,0,0,1.0,0,0,0,0,0 };
 
   assert(self != 0 && msg != 0);
   switch(msg->type)
   {
   case FG_CONSTRUCT:
-    fgWindow_Message(&self->window, msg);
-    fgChild_Init(&self->bar, FGCHILD_BACKGROUND | FGCHILD_IGNORE, *self, 0, &BAR_ELEMENT);
-    fgChild_AddPreChild(*self, &self->bar);
-    fgText_Init(&self->text, 0, 0, 0, FGCHILD_EXPAND | FGCHILD_IGNORE, *self, 0, &fgElement_CENTER);
-    fgChild_AddPreChild(*self, self->text);
+    fgControl_Message(&self->control, msg);
+    fgElement_Init(&self->bar, FGELEMENT_BACKGROUND | FGELEMENT_IGNORE, *self, 0, &BAR_ELEMENT);
+    fgElement_AddPreChild(*self, &self->bar);
+    fgText_Init(&self->text, 0, 0, 0, FGELEMENT_EXPAND | FGELEMENT_IGNORE, *self, 0, &fgTransform_CENTER);
+    fgElement_AddPreChild(*self, self->text);
     self->value = 0.0f;
     return 1;
   case FG_ADDITEM:
     if(msg->other)
       _sendmsg<FG_ADDCHILD, void*>(&self->bar, msg->other);
     else
-      fgChild_Clear(&self->bar);
+      fgElement_Clear(&self->bar);
     return 1;
   case FG_SETSTATE:
     if(msg->otherf != self->value)
     {
       self->value = msg->otherf;
-      CRect area = self->bar.element.area;
+      CRect area = self->bar.transform.area;
       area.right.rel = self->value;
       _sendmsg<FG_SETAREA, void*>(&self->bar, &area);
     }
@@ -53,9 +53,9 @@ FG_EXTERN size_t FG_FASTCALL fgProgressbar_Message(fgProgressbar* self, const FG
   case FG_GETTEXT:
   case FG_GETFONT:
   case FG_GETCOLOR:
-    return fgChild_PassMessage(self->text, msg);
+    return fgPassMessage(self->text, msg);
   case FG_GETCLASSNAME:
     return (size_t)"fgProgressbar";
   }
-  return fgWindow_Message(&self->window, msg);
+  return fgControl_Message(&self->control, msg);
 }

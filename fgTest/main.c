@@ -5,7 +5,7 @@
 #include "../fgNull/fgNull.h"
 #include "fgButton.h"
 #include "fgMenu.h"
-#include "fgTopWindow.h"
+#include "fgWindow.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -75,12 +75,12 @@ char BSS_FASTCALL dcompare(double af, double bf, __int64 maxDiff)
 RETPAIR test_feathergui()
 {
   BEGINTEST;
-  fgChild ch;
-  fgChild ch2;
-  fgChild ch3;
-  fgChild top;
-  fgElement zeroelement;
-  fgElement elem;
+  fgElement ch;
+  fgElement ch2;
+  fgElement ch3;
+  fgElement top;
+  fgTransform zeroelement;
+  fgTransform elem;
   AbsRect out;
   AbsRect last;
   CRect crect;
@@ -127,10 +127,10 @@ RETPAIR test_feathergui()
   TEST(v.l==0);
   fgVector_Destroy(&v);
 
-  fgChild_Init(&ch, 0, 0, 0, 0); // Basic initialization test
-  memset(&zeroelement,0,sizeof(fgElement));
-  TEST(!memcmp(&ch.element,&zeroelement,sizeof(fgElement)));
-  //TEST(ch.destroy==&fgChild_Destroy); // Once upon a time, these tests worked, but VS2012 likes having different function pointers to the same function, which is technically legal, so we can't check this. Luckily it would be really weird if it broke anyway.
+  fgElement_Init(&ch, 0, 0, 0, 0); // Basic initialization test
+  memset(&zeroelement,0,sizeof(fgTransform));
+  TEST(!memcmp(&ch.element,&zeroelement,sizeof(fgTransform)));
+  //TEST(ch.destroy==&fgElement_Destroy); // Once upon a time, these tests worked, but VS2012 likes having different function pointers to the same function, which is technically legal, so we can't check this. Luckily it would be really weird if it broke anyway.
   //TEST(ch.free==&free);
   TEST(ch.next==0);
   TEST(ch.order==0);
@@ -139,33 +139,33 @@ RETPAIR test_feathergui()
   TEST(ch.root==0);
   TEST(ch.last==0);
 
-  fgChild_Init(&top, 0, 0, 0, 0); // Basic inheritance test
-  fgChild_SetParent(&ch,&top);
+  fgElement_Init(&top, 0, 0, 0, 0); // Basic inheritance test
+  fgElement_SetParent(&ch,&top);
   TEST(ch.next==0);
   TEST(ch.prev==0);
   TEST(ch.parent==&top);
   TEST(top.parent==0);
   TEST(top.root==&ch);
   TEST(top.last==&ch);
-  fgChild_Destroy(&ch);
+  fgElement_Destroy(&ch);
   TEST(top.root==0);
   TEST(top.last==0);
 
-  fgChild_Init(&ch, 0, 0, 0, 0); // Inheritance ordering test.
-  fgChild_Init(&ch2, 0, 0, 0, 0);
-  fgChild_Init(&ch3, 0, 0, 0, 0);
+  fgElement_Init(&ch, 0, 0, 0, 0); // Inheritance ordering test.
+  fgElement_Init(&ch2, 0, 0, 0, 0);
+  fgElement_Init(&ch3, 0, 0, 0, 0);
   ch.order=1;
   ch2.order=2;
   ch3.order=3;
 
-  fgChild_SetParent(&ch,&top);
+  fgElement_SetParent(&ch,&top);
   TEST(top.root==&ch);
   TEST(top.last==&ch);
-  fgChild_SetParent(&ch2,&top);
+  fgElement_SetParent(&ch2,&top);
   TEST(top.root==&ch2);
   TEST(top.root->next==&ch);
   TEST(top.last==&ch);
-  fgChild_SetParent(&ch3,&top);
+  fgElement_SetParent(&ch3,&top);
   TEST(top.root==&ch3);
   TEST(top.root->next==&ch2);
   TEST(top.root->next->next==&ch);
@@ -175,13 +175,13 @@ RETPAIR test_feathergui()
   TEST(ch2.parent==&top);
   TEST(ch3.parent==&top);
 
-  fgChild_Destroy(&ch);
+  fgElement_Destroy(&ch);
   TEST(top.root==&ch3);
   TEST(top.root->next==&ch2);
   TEST(top.root->next->next==0);
   TEST(top.last==&ch2);
 
-  fgChild_SetParent(&ch2,&ch3, 0);
+  fgElement_SetParent(&ch2,&ch3, 0);
   TEST(top.root==&ch3);
   TEST(top.root->next==0);
   TEST(top.last==&ch3);
@@ -189,47 +189,47 @@ RETPAIR test_feathergui()
   TEST(ch2.parent==&ch3);
   TEST(ch3.parent==&top);
 
-  fgChild_SetParent(&ch2,0, 0);
+  fgElement_SetParent(&ch2,0, 0);
   TEST(ch3.root==0);
   TEST(ch3.last==0);
 
-  fgChild_Init(&ch, 0, 0, 0);
+  fgElement_Init(&ch, 0, 0, 0);
   ch.order=1;
 
-  fgChild_SetParent(&ch2,&top, 0);
-  fgChild_SetParent(&ch,&top, 0);
+  fgElement_SetParent(&ch2,&top, 0);
+  fgElement_SetParent(&ch,&top, 0);
   TEST(top.root==&ch3);
   TEST(top.root->next==&ch2);
   TEST(top.root->next->next==&ch);
   TEST(top.root->next->next->next==0);
   TEST(top.last==&ch);
 
-  fgChild_Destroy(&ch2);
+  fgElement_Destroy(&ch2);
   TEST(top.root==&ch3);
   TEST(top.root->next==&ch);
   TEST(top.root->next->next==0);
   TEST(top.last==&ch);
   
-  fgChild_Init(&ch2, 0, 0, 0);
+  fgElement_Init(&ch2, 0, 0, 0);
   ch2.order=2;
 
-  fgChild_SetParent(&ch2,&top, 0);
+  fgElement_SetParent(&ch2,&top, 0);
   TEST(top.root==&ch3);
   TEST(top.root->next==&ch2);
   TEST(top.root->next->next==&ch);
   TEST(top.root->next->next->next==0);
   TEST(top.last==&ch);
 
-  fgChild_SetParent(&ch2,0, 0);
+  fgElement_SetParent(&ch2,0, 0);
   ch2.order=1;
-  fgChild_SetParent(&ch2,&top, 0);
+  fgElement_SetParent(&ch2,&top, 0);
   TEST(top.root==&ch3);
   TEST(top.root->next==&ch2); // Equal orders should be appended before the first one encountered.
   TEST(top.root->next->next==&ch);
   TEST(top.root->next->next->next==0);
   TEST(top.last==&ch);
 
-  memset(&elem,0,sizeof(fgElement));
+  memset(&elem,0,sizeof(fgTransform));
   memset(&last,0,sizeof(AbsRect));
   last.right=last.bottom=1.0f;
   elem.area.top.abs=0.2f;
@@ -330,8 +330,8 @@ RETPAIR test_feathergui()
   msg.y=4;
   TEST(MsgHitAbsRect(&msg,&last)==0); 
 
-  fgChild_SetParent(&ch3,&ch2);
-  fgChild_SetParent(&ch2,&ch);
+  fgElement_SetParent(&ch3,&ch2);
+  fgElement_SetParent(&ch2,&ch);
   top.element.area.left.abs=0;
   top.element.area.top.abs=1;
   top.element.area.right.abs=1;
@@ -405,10 +405,10 @@ RETPAIR test_feathergui()
   }
 
 
-//FG_EXTERN void FG_FASTCALL LList_Remove(fgChild* self, fgChild** root, fgChild** last);
-//FG_EXTERN void FG_FASTCALL LList_Add(fgChild* self, fgChild** root, fgChild** last, fgFlag flag);
-//FG_EXTERN void FG_FASTCALL LList_Insert(fgChild* self, fgChild* target, fgChild** last);
-//FG_EXTERN void FG_FASTCALL LList_ChangeOrder(fgChild* self, fgChild** root, fgChild** last, fgFlag flag);
+//FG_EXTERN void FG_FASTCALL LList_Remove(fgElement* self, fgElement** root, fgElement** last);
+//FG_EXTERN void FG_FASTCALL LList_Add(fgElement* self, fgElement** root, fgElement** last, fgFlag flag);
+//FG_EXTERN void FG_FASTCALL LList_Insert(fgElement* self, fgElement* target, fgElement** last);
+//FG_EXTERN void FG_FASTCALL LList_ChangeOrder(fgElement* self, fgElement** root, fgElement** last, fgFlag flag);
 
 
   ENDTEST;
@@ -427,11 +427,11 @@ char FG_FASTCALL dontfree(void* a) { test_root_STAGE=1; return 0; } // Returning
 RETPAIR test_Root()
 {
   BEGINTEST;
-  fgTopWindow* top;
+  fgWindow* top;
   fgDeferAction* action = fgRoot_AllocAction(&donothing,0,5);
   fgDeferAction* action2 = fgRoot_AllocAction(&dontfree,0,2);
   gui = fgInitialize();
-  top = (fgTopWindow*)fgTopWindow_Create("test",0,1,0);
+  top = (fgWindow*)fgWindow_Create("test",0,1,0);
 
   fgRoot_AddAction(gui,action);
   fgRoot_AddAction(gui,action2);
@@ -444,17 +444,17 @@ RETPAIR test_Root()
   TEST(test_root_STAGE==1);
   (*gui->update)(gui,10);
   TEST(test_root_STAGE==2);
-  fgChild_VoidMessage((fgWindow*)top,FG_ADDCHILD,fgButton_Create(fgResource_Create("fake"),0,0,2,0));
-  fgChild_VoidMessage((fgWindow*)top,FG_ADDCHILD,top->region.root->root);
-  fgChild_VoidMessage((fgWindow*)top,FG_ADDCHILD,fgButton_Create(fgLoadText("fake",0,"arial.ttf",14,0),0,0,4,0));
-  fgChild_VoidMessage((fgWindow*)top,FG_ADDCHILD,fgLoadImage("fake"));
+  fgVoidMessage((fgControl*)top,FG_ADDCHILD,fgButton_Create(fgResource_Create("fake"),0,0,2,0));
+  fgVoidMessage((fgControl*)top,FG_ADDCHILD,top->region.root->root);
+  fgVoidMessage((fgControl*)top,FG_ADDCHILD,fgButton_Create(fgLoadText("fake",0,"arial.ttf",14,0),0,0,4,0));
+  fgVoidMessage((fgControl*)top,FG_ADDCHILD,fgLoadImage("fake"));
   //fgStatic_Message(top->region.rlist,FG_RADDCHILD,fgLoadText("fake",0,"arial.ttf",14,0),0);
-  //fgChild_VoidMessage((fgWindow*)top,FG_ADDCHILD,top->region.rlist->element.root);
+  //fgVoidMessage((fgControl*)top,FG_ADDCHILD,top->region.rlist->transform.root);
   fgRoot_Render(gui);
   ENDTEST;
 }
 
-RETPAIR test_TopWindow()
+RETPAIR test_Window()
 {
   BEGINTEST;
   ENDTEST;
@@ -567,9 +567,9 @@ int main(int argc, char** argv)
   static const int COLUMNS[3] = { 24, 11, 8 };
   static TESTDEF tests[] = {
     { "feathergui.h", &test_feathergui },
-    { "fgWindow.h", &test_Window },
+    { "fgControl.h", &test_Window },
     { "fgRoot.h", &test_Root },
-    { "fgTopWindow.h", &test_TopWindow },
+    { "fgWindow.h", &test_Window },
     { "fgButton.h", &test_Button },
     { "fgList.h", &test_List },
     { "fgMenu.h", &test_Menu },

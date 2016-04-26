@@ -8,8 +8,8 @@
 void FG_FASTCALL fgMonitor_Init(fgMonitor* BSS_RESTRICT self, fgFlag flags, fgRoot* BSS_RESTRICT parent, fgMonitor* BSS_RESTRICT prev, const AbsRect* coverage, size_t dpi)
 {
   float scale = (!dpi || !parent->dpi) ? 1.0 : (parent->dpi / (float)dpi);
-  fgElement element = { coverage->left*scale, 0, coverage->top*scale, 0, coverage->right*scale, 0, coverage->bottom*scale, 0, 0, 0, 0 };
-  fgChild_InternalSetup(&self->element, flags, *parent, &prev->element, &element, (FN_DESTROY)&fgMonitor_Destroy, (FN_MESSAGE)&fgMonitor_Message);
+  fgTransform transform = { coverage->left*scale, 0, coverage->top*scale, 0, coverage->right*scale, 0, coverage->bottom*scale, 0, 0, 0, 0 };
+  fgElement_InternalSetup(&self->element, flags, *parent, &prev->element, &transform, (FN_DESTROY)&fgMonitor_Destroy, (FN_MESSAGE)&fgMonitor_Message);
   self->coverage = *coverage;
   self->dpi = dpi;
   self->mnext = !prev ? parent->monitors : 0;
@@ -25,7 +25,7 @@ void FG_FASTCALL fgMonitor_Destroy(fgMonitor* self)
   if(self->mnext) self->mnext->mprev = self->mprev;
   self->mnext = self->mprev = 0;
 
-  fgChild_Destroy(&self->element);
+  fgElement_Destroy(&self->element);
 }
 
 size_t FG_FASTCALL fgMonitor_Message(fgMonitor* self, const FG_Msg* msg)
@@ -40,19 +40,19 @@ size_t FG_FASTCALL fgMonitor_Message(fgMonitor* self, const FG_Msg* msg)
     float scale = fgroot_instance->dpi / (float)self->dpi;
     CRect area = { self->coverage.left*scale, 0, self->coverage.top*scale, 0, self->coverage.right*scale, 0, self->coverage.bottom*scale, 0 };
     size_t ret = self->element.SetArea(area);
-    fgChild_Message(&self->element, msg); // Passes the SETDPI message to all children
+    fgElement_Message(&self->element, msg); // Passes the SETDPI message to all children
     return ret;
   }
   case FG_DRAW: // Override draw call so we never clip, and replace the root DPI with our DPI
   {
-    fgChild* hold = self->element.last; // we draw backwards through our list.
+    fgElement* hold = self->element.last; // we draw backwards through our list.
     AbsRect curarea;
 
     while(hold)
     {
-      if(!(hold->flags&FGCHILD_HIDDEN))
+      if(!(hold->flags&FGELEMENT_HIDDEN))
       {
-        ResolveRectCache(hold, &curarea, (AbsRect*)msg->other, (hold->flags & FGCHILD_BACKGROUND) ? 0 : &self->element.padding);
+        ResolveRectCache(hold, &curarea, (AbsRect*)msg->other, (hold->flags & FGELEMENT_BACKGROUND) ? 0 : &self->element.padding);
         _sendmsg<FG_DRAW, void*, size_t>(hold, &curarea, self->dpi);
       }
       hold = hold->prev;
@@ -60,5 +60,5 @@ size_t FG_FASTCALL fgMonitor_Message(fgMonitor* self, const FG_Msg* msg)
   }
   }
 
-  return fgChild_Message(&self->element, msg);
+  return fgElement_Message(&self->element, msg);
 }

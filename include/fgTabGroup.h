@@ -4,7 +4,7 @@
 #ifndef _FG_TABGROUP_H__
 #define _FG_TABGROUP_H__
 
-#include "fgWindow.h"
+#include "fgControl.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -12,16 +12,16 @@ extern "C" {
 
 // A Tab group is a collection of tab pages that can be switched between by clicking on "tabs".
 typedef struct {
-  fgWindow window; // use FG_ADDITEM to add a panel and a name to the tabs. It returns a pointer to the added element you can then use with REMOVEITEM.
-  fgChild header; // This is where the radiobuttons are added, allowing the "fgReadioButton" class to be skinned. Uses FG_BACKGROUND so padding can be applied to the panels.
+  fgControl control; // use FG_ADDITEM to add a panel and a name to the tabs. It returns a pointer to the added element you can then use with REMOVEITEM.
+  fgElement header; // This is where the radiobuttons are added, allowing the "fgReadioButton" class to be skinned. Uses FG_BACKGROUND so padding can be applied to the panels.
 #ifdef  __cplusplus
-  inline operator fgChild*() { return &window.element; }
-  inline fgChild* operator->() { return operator fgChild*(); }
+  inline operator fgElement*() { return &control.element; }
+  inline fgElement* operator->() { return operator fgElement*(); }
 #endif
 } fgTabGroup;
 
-FG_EXTERN fgWindow* FG_FASTCALL fgTabGroup_Create(fgWindow* parent, const fgElement* element, FG_UINT id, fgFlag flags);
-FG_EXTERN void FG_FASTCALL fgTabGroup_Init(fgTabGroup* self, fgWindow* parent, const fgElement* element, FG_UINT id, fgFlag flags);
+FG_EXTERN fgControl* FG_FASTCALL fgTabGroup_Create(fgControl* parent, const fgTransform* transform, FG_UINT id, fgFlag flags);
+FG_EXTERN void FG_FASTCALL fgTabGroup_Init(fgTabGroup* self, fgControl* parent, const fgTransform* transform, FG_UINT id, fgFlag flags);
 FG_EXTERN char FG_FASTCALL fgTabGroup_Message(fgTabGroup* self, const FG_Msg* msg);
 
 #ifdef  __cplusplus

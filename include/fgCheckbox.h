@@ -4,7 +4,7 @@
 #ifndef _FG_CHECKBOX_H__
 #define _FG_CHECKBOX_H__
 
-#include "fgWindow.h"
+#include "fgControl.h"
 #include "fgText.h"
 
 #ifdef  __cplusplus
@@ -13,20 +13,20 @@ extern "C" {
 
 // A checkbox is a toggleable control with text alongside it.
 typedef struct _FG_CHECKBOX {
-  fgWindow window;
-  fgChild check; // Displayed when the checkbox is checked.
-  fgChild indeterminate; // Displayed when the checkbox state is set to 2 (indeterminate state)
-  fgChild item; // item displayed
+  fgControl control;
+  fgElement check; // Displayed when the checkbox is checked.
+  fgElement indeterminate; // Displayed when the checkbox state is set to 2 (indeterminate state)
+  fgElement item; // item displayed
   fgText text; // text displayed
   char checked;
 #ifdef  __cplusplus
-  inline operator fgChild*() { return &window.element; }
-  inline fgChild* operator->() { return operator fgChild*(); }
+  inline operator fgElement*() { return &control.element; }
+  inline fgElement* operator->() { return operator fgElement*(); }
 #endif
 } fgCheckbox;
 
-FG_EXTERN fgChild* FG_FASTCALL fgCheckbox_Create(const char* text, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element);
-FG_EXTERN void FG_FASTCALL fgCheckbox_Init(fgCheckbox* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element);
+FG_EXTERN fgElement* FG_FASTCALL fgCheckbox_Create(const char* text, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform);
+FG_EXTERN void FG_FASTCALL fgCheckbox_Init(fgCheckbox* BSS_RESTRICT self, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform);
 FG_EXTERN void FG_FASTCALL fgCheckbox_Destroy(fgCheckbox* self);
 FG_EXTERN size_t FG_FASTCALL fgCheckbox_Message(fgCheckbox* self, const FG_Msg* msg);
 

@@ -23,12 +23,12 @@ typedef struct {
   fgButton button;
   fgList dropdown; // ADDITEM is used to add an arbitrary object to the list. 
 #ifdef  __cplusplus
-  inline operator fgChild*() { return &box.window.window.element; }
+  inline operator fgElement*() { return &box.window.control.element; }
 #endif
 } fgCombobox;
 
-FG_EXTERN fgWindow* FG_FASTCALL fgCombobox_Create(fgWindow* parent, const fgElement* element, fgFlag flags);
-FG_EXTERN void FG_FASTCALL fgCombobox_Init(fgCombobox* self, fgWindow* parent, const fgElement* element, fgFlag flags);
+FG_EXTERN fgControl* FG_FASTCALL fgCombobox_Create(fgControl* parent, const fgTransform* transform, fgFlag flags);
+FG_EXTERN void FG_FASTCALL fgCombobox_Init(fgCombobox* self, fgControl* parent, const fgTransform* transform, fgFlag flags);
 FG_EXTERN char FG_FASTCALL fgCombobox_Message(fgCombobox* self, const FG_Msg* msg);
 
 #ifdef  __cplusplus

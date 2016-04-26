@@ -5,14 +5,14 @@
 #include "bss-util\bss_util.h"
 #include "feathercpp.h"
 
-void FG_FASTCALL fgSlider_Init(fgSlider* BSS_RESTRICT self, size_t range, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
+void FG_FASTCALL fgSlider_Init(fgSlider* BSS_RESTRICT self, size_t range, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform)
 {
-  fgChild_InternalSetup(*self, flags, parent, prev, element, (FN_DESTROY)&fgSlider_Destroy, (FN_MESSAGE)&fgSlider_Message);
+  fgElement_InternalSetup(*self, flags, parent, prev, transform, (FN_DESTROY)&fgSlider_Destroy, (FN_MESSAGE)&fgSlider_Message);
   self->range = range;
 }
 void FG_FASTCALL fgSlider_Destroy(fgSlider* self)
 {
-  fgWindow_Destroy(&self->window);
+  fgControl_Destroy(&self->control);
 }
 size_t FG_FASTCALL fgSlider_Message(fgSlider* self, const FG_Msg* msg)
 {
@@ -20,13 +20,14 @@ size_t FG_FASTCALL fgSlider_Message(fgSlider* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_CONSTRUCT:
-    fgWindow_Message(&self->window, msg);
-    fgChild_Init(&self->slider, FGCHILD_EXPAND | FGCHILD_IGNORE, *self, 0, &fgElement_CENTER);
-    fgChild_AddPreChild(*self, &self->slider);
+    fgControl_Message(&self->control, msg);
+    fgElement_Init(&self->slider, FGELEMENT_EXPAND | FGELEMENT_IGNORE, *self, 0, &fgTransform_CENTER);
+    fgElement_AddPreChild(*self, &self->slider);
     self->value = 0;
     self->range = 0;
     return 1;
   case FG_SETSTATE:
+  {
     if(msg->otheraux)
     {
       if(self->range == msg->otherint)
@@ -39,10 +40,11 @@ size_t FG_FASTCALL fgSlider_Message(fgSlider* self, const FG_Msg* msg)
         return 1;
       self->value = msg->otherint;
     }
-    CRect area = self->slider.element.area;
+    CRect area = self->slider.transform.area;
     area.left.rel = area.right.rel = !self->range ? 0.0 : ((FREL)self->value / (FREL)self->range);
     _sendmsg<FG_SETAREA, void*>(&self->slider, &area);
     return 1;
+  }
   case FG_MOUSEMOVE:
   case FG_MOUSEUP:
     if(fgCaptureWindow != *self)
@@ -51,14 +53,14 @@ size_t FG_FASTCALL fgSlider_Message(fgSlider* self, const FG_Msg* msg)
   {
     AbsRect out;
     ResolveRect(*self, &out);
-    out.left += self->window.element.padding.left;
-    out.top += self->window.element.padding.top;
-    out.right -= self->window.element.padding.right;
-    out.bottom -= self->window.element.padding.bottom;
+    out.left += self->control.element.padding.left;
+    out.top += self->control.element.padding.top;
+    out.right -= self->control.element.padding.right;
+    out.bottom -= self->control.element.padding.bottom;
 
     double x = (msg->x - out.left) / (out.right - out.left); // we need all the precision in a double here
     size_t value = bss_util::fFastRound(bssclamp(x, 0.0, 1.0)*self->range); // Clamp to [0,1], multiply into [0, range], then round to nearest integer.
-    fgChild_IntMessage(*self, FG_SETSTATE, value, 0);
+    fgIntMessage(*self, FG_SETSTATE, value, 0);
   }
     break;
   case FG_GETSTATE:
@@ -66,5 +68,5 @@ size_t FG_FASTCALL fgSlider_Message(fgSlider* self, const FG_Msg* msg)
   case FG_GETCLASSNAME:
     return (size_t)"fgSlider";
   }
-  return fgWindow_HoverMessage(&self->window, msg);
+  return fgControl_HoverMessage(&self->control, msg);
 }

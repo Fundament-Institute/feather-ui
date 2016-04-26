@@ -15,29 +15,29 @@
 #define kh_ptr_hash_equal(a, b) kh_int64_hash_equal(a, b)
 #endif
 
-KHASH_INIT(fgRadioGroup, fgChild*, fgRadiobutton*, 1, kh_ptr_hash_func, kh_ptr_hash_equal);
+KHASH_INIT(fgRadioGroup, fgElement*, fgRadiobutton*, 1, kh_ptr_hash_func, kh_ptr_hash_equal);
 
 __inline struct __kh_fgRadioGroup_t* fgRadioGroup_init() { return kh_init_fgRadioGroup(); }
 __inline void fgRadioGroup_destroy(struct __kh_fgRadioGroup_t* p) { kh_destroy_fgRadioGroup(p); }
 
-void FG_FASTCALL fgRadiobutton_Init(fgRadiobutton* BSS_RESTRICT self, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
+void FG_FASTCALL fgRadiobutton_Init(fgRadiobutton* BSS_RESTRICT self, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform)
 {
-  fgChild_InternalSetup(*self, flags, parent, prev, element, (FN_DESTROY)&fgRadiobutton_Destroy, (FN_MESSAGE)&fgRadiobutton_Message);
+  fgElement_InternalSetup(*self, flags, parent, prev, transform, (FN_DESTROY)&fgRadiobutton_Destroy, (FN_MESSAGE)&fgRadiobutton_Message);
 }
 void FG_FASTCALL fgRadiobutton_Destroy(fgRadiobutton* self)
 {
   _sendmsg<FG_SETPARENT>(*self); // Ensure we remove ourselves from the hash
-  fgWindow_Destroy(&self->window.window);
+  fgControl_Destroy(&self->window.control);
 }
 
-fgRadiobutton** fgRadiobutton_GetHash(fgChild* parent)
+fgRadiobutton** fgRadiobutton_GetHash(fgElement* parent)
 {
   khiter_t iter = kh_get(fgRadioGroup, fgroot_instance->radiohash, parent);
   if(iter != kh_end(fgroot_instance->radiohash) && kh_exist(fgroot_instance->radiohash, iter))
     return &kh_val(fgroot_instance->radiohash, iter);
   return 0;
 }
-fgRadiobutton* fgRadiobutton_GetHashRef(fgChild* parent)
+fgRadiobutton* fgRadiobutton_GetHashRef(fgElement* parent)
 {
   fgRadiobutton** p = fgRadiobutton_GetHash(parent);
   return !p ? 0 : *p;
@@ -46,7 +46,7 @@ fgRadiobutton* fgRadiobutton_GetHashRef(fgChild* parent)
 size_t FG_FASTCALL fgRadiobutton_Message(fgRadiobutton* self, const FG_Msg* msg)
 {
   assert(self != 0 && msg != 0);
-  fgChild*& parent = self->window.window.element.parent;
+  fgElement*& parent = self->window.control.element.parent;
 
   switch(msg->type)
   {
@@ -56,12 +56,12 @@ size_t FG_FASTCALL fgRadiobutton_Message(fgRadiobutton* self, const FG_Msg* msg)
     self->radioprev = 0;
     return 1;
   case FG_SETSTATE:
-    if(msg->otherint && parent != 0) // if you about to check this radio button, uncheck all of them in it's fgChild group
+    if(msg->otherint && parent != 0) // if you about to check this radio button, uncheck all of them in it's fgElement group
     {
       fgRadiobutton* cur = fgRadiobutton_GetHashRef(parent);
       while(cur)
       {
-        fgChild_IntMessage((fgChild*)cur, FG_SETSTATE, 0, 0);
+        fgIntMessage((fgElement*)cur, FG_SETSTATE, 0, 0);
         cur = cur->radionext;
       }
     }
@@ -95,7 +95,7 @@ size_t FG_FASTCALL fgRadiobutton_Message(fgRadiobutton* self, const FG_Msg* msg)
     return 1;
   case FG_ACTION:
     if(!self->window.checked)
-      fgChild_IntMessage(*self, FG_SETSTATE, 1, 0);
+      fgIntMessage(*self, FG_SETSTATE, 1, 0);
     return 1;
   case FG_GETCLASSNAME:
     return (size_t)"fgRadioButton";

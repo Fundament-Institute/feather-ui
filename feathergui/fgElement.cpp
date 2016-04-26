@@ -101,14 +101,14 @@ char FG_FASTCALL fgElement_PotentialResize(fgElement* self)
 
 fgElement* FG_FASTCALL fgElement_LoadLayout(fgElement* parent, fgElement* prev, fgClassLayout* layout, FN_MAPPING mapping)
 {
-  fgElement* child = (*mapping)(layout->style.name, layout->style.flags, parent, prev, &layout->style.transform);
-  fgVoidMessage(child, FG_SETSTYLE, &layout->style.style, 2);
+  fgElement* element = (*mapping)(layout->style.name, layout->style.flags, parent, prev, &layout->style.transform);
+  fgVoidMessage(element, FG_SETSTYLE, &layout->style.style, 2);
 
   fgElement* p = 0;
   for(FG_UINT i = 0; i < layout->children.l; ++i)
-    p = fgElement_LoadLayout(child, p, layout->children.p + i, mapping);
+    p = fgElement_LoadLayout(element, p, layout->children.p + i, mapping);
 
-  return child;
+  return element;
 }
 
 size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)

@@ -5,23 +5,23 @@
 #include "bss-util\bss_util.h"
 #include "feathercpp.h"
 
-void FG_FASTCALL fgScrollbar_Init(fgScrollbar* self, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element, FG_UINT id, fgFlag flags)
+void FG_FASTCALL fgScrollbar_Init(fgScrollbar* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform, FG_UINT id, fgFlag flags)
 {
-  fgChild_InternalSetup(*self, flags, parent, prev, element, (FN_DESTROY)&fgScrollbar_Destroy, (FN_MESSAGE)&fgScrollbar_Message);
+  fgElement_InternalSetup(*self, flags, parent, prev, transform, (FN_DESTROY)&fgScrollbar_Destroy, (FN_MESSAGE)&fgScrollbar_Message);
 }
 void FG_FASTCALL fgScrollbar_Destroy(fgScrollbar* self)
 {
-  fgWindow_Destroy(&self->window);
+  fgControl_Destroy(&self->control);
 }
 
 void FG_FASTCALL fgScrollbar_Redim(fgScrollbar* self, CRect& area)
 {
   area.right.abs += self->barcache.x;
   area.bottom.abs += self->barcache.y;
-  if(!(self->window.element.flags&FGCHILD_EXPANDX)) // If we actually are expanding along a given axis, use that result, otherwise replace it.
-    area.right.abs = self->window.element.element.area.right.abs;
-  if(!(self->window.element.flags&FGCHILD_EXPANDY))
-    area.bottom.abs = self->window.element.element.area.bottom.abs;
+  if(!(self->control.element.flags&FGELEMENT_EXPANDX)) // If we actually are expanding along a given axis, use that result, otherwise replace it.
+    area.right.abs = self->control.element.transform.area.right.abs;
+  if(!(self->control.element.flags&FGELEMENT_EXPANDY))
+    area.bottom.abs = self->control.element.transform.area.bottom.abs;
   _sendmsg<FG_SETAREA, void*>(*self, &area); // SETAREA will set MAXDIM appropriately
 }
 
@@ -31,12 +31,12 @@ void FG_FASTCALL fgScrollbar_Recalc(fgScrollbar* self)
   ResolveRect(*self, &r);
   AbsVec dim = { r.right - r.left, r.bottom - r.top };
 
-  bool hideh = !!(self->window.element.flags&FGSCROLLBAR_HIDEH);
-  bool hidev = !!(self->window.element.flags&FGSCROLLBAR_HIDEV);
+  bool hideh = !!(self->control.element.flags&FGSCROLLBAR_HIDEH);
+  bool hidev = !!(self->control.element.flags&FGSCROLLBAR_HIDEV);
 
   // We have to figure out which scrollbars are visible based on flags and our dimensions
-  bool scrollx = !hideh && ((dim.x < self->realsize.x) || self->window.element.flags&FGSCROLLBAR_SHOWH);
-  bool scrolly = !hidev && ((dim.y < self->realsize.y) || self->window.element.flags&FGSCROLLBAR_SHOWV);
+  bool scrollx = !hideh && ((dim.x < self->realsize.x) || self->control.element.flags&FGSCROLLBAR_SHOWH);
+  bool scrolly = !hidev && ((dim.y < self->realsize.y) || self->control.element.flags&FGSCROLLBAR_SHOWV);
 
   // Now things get tricky - we have to detect if enabling a scrollbar just caused us to shrink past the point where we need the other scrollbar
   scrollx = scrollx || (!hideh && scrolly && (dim.x < self->realsize.x + self->barcache.x));
@@ -62,7 +62,7 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_CONSTRUCT:
-    fgWindow_Message(&self->window, msg);
+    fgControl_Message(&self->control, msg);
     memset(&self->maxdim, 0, sizeof(CVec));
     return 1;
   case FG_MOVE:
@@ -82,11 +82,11 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
       if(self->maxdim.y.abs >= 0 && area->bottom.abs - area->top.abs > d.y)
         area->bottom.abs = area->top.abs + d.y;
 
-      char diff = CompareCRects(&self->window.element.element.area, area);
-      memcpy(&self->window.element.element.area, area, sizeof(CRect));
+      char diff = CompareCRects(&self->control.element.transform.area, area);
+      memcpy(&self->control.element.transform.area, area, sizeof(CRect));
 
       if(diff)
-        fgChild_SubMessage(*self, FG_MOVE, FG_SETAREA, 0, diff);
+        fgSubMessage(*self, FG_MOVE, FG_SETAREA, 0, diff);
     }
     return 1;
   case FG_SETPADDING:
@@ -98,7 +98,7 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
       memcpy(&self->realpadding, padding, sizeof(AbsRect));
 
       if(diff) // Only send a move message if the change in padding could have resulted in an actual area change (this ensures a scroll delta change will NOT trigger an FG_MOVE)
-        fgChild_SubMessage(*self, FG_MOVE, FG_SETPADDING, 0, diff | (1 << 8));
+        fgSubMessage(*self, FG_MOVE, FG_SETPADDING, 0, diff | (1 << 8));
       else
         fgScrollbar_Recalc(self); // Recalculate scrollbar positions
 
@@ -106,16 +106,16 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
     return 1;
   case FG_LAYOUTCHANGE:
     {
-      fgFlag flags = self->window.element.flags;
-      auto area = self->window.element.element.area;
-      self->window.element.flags |= FGCHILD_EXPAND;
+      fgFlag flags = self->control.element.flags;
+      auto area = self->control.element.transform.area;
+      self->control.element.flags |= FGELEMENT_EXPAND;
 
       FG_Msg m = { 0 };
       m.type = FG_LAYOUTFUNCTION;
       m.other = (void*)msg;
       m.other2 = &area;
-      size_t dim = fgChild_PassMessage(*self, &m);
-      self->window.element.flags = flags;
+      size_t dim = fgPassMessage(*self, &m);
+      self->control.element.flags = flags;
       self->realsize = { area.right.abs - area.left.abs, area.bottom.abs - area.top.abs }; // retrieve real area and then reset to the area of the window.
       if(dim)
         fgScrollbar_Redim(self, area);
@@ -139,7 +139,7 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
       m.subtype = FGSCROLLBAR_CHANGE;
       if(msg->otherint & 0) m.otherf = (r.right - r.left)*(msg->otherint == 0 ? -1 : 1);
       if(msg->otherint & 1) m.otherfaux = (r.bottom - r.top)*(msg->otherint == 1 ? -1 : 1);
-      return fgChild_PassMessage(*self, &m);
+      return fgPassMessage(*self, &m);
     }
     case FGSCROLLBAR_DELTAH:
     case FGSCROLLBAR_DELTAV:
@@ -152,7 +152,7 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
       else
         m.otherf = msg->otherint;
 
-      return fgChild_PassMessage(*self, &m);
+      return fgPassMessage(*self, &m);
     }
     case FGSCROLLBAR_BUTTON: // this should almost always be the lineheight, but we don't have that information so we just try the size of the button instead.
     {
@@ -183,5 +183,5 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
       break;
     }
   }
-  return fgWindow_HoverMessage(&self->window, msg);
+  return fgControl_HoverMessage(&self->control, msg);
 }

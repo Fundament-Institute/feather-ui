@@ -85,9 +85,9 @@ void* FG_FASTCALL fgSkin_GetFont(const fgSkin* self, FG_UINT font)
 {
   return DynGet<fgFontArray>(self->fonts, font).ref;
 }
-size_t FG_FASTCALL fgSkin_AddChild(fgSkin* self, const char* name, const fgElement* element, fgFlag flags)
+size_t FG_FASTCALL fgSkin_AddChild(fgSkin* self, const char* name, const fgTransform* transform, fgFlag flags)
 {
-  return ((fgStyleLayoutArray&)self->children).AddConstruct(name, element, flags);
+  return ((fgStyleLayoutArray&)self->children).AddConstruct(name, transform, flags);
 }
 char FG_FASTCALL fgSkin_RemoveChild(fgSkin* self, FG_UINT child)
 {
@@ -160,10 +160,10 @@ fgSkin* FG_FASTCALL fgSkin_GetSkin(const fgSkin* self, const char* name)
   return (iter != kh_end(self->skinmap) && kh_exist(self->skinmap, iter)) ? kh_val(self->skinmap, iter) : 0;
 }
 
-void FG_FASTCALL fgStyleLayout_Init(fgStyleLayout* self, const char* name, const fgElement* element, fgFlag flags)
+void FG_FASTCALL fgStyleLayout_Init(fgStyleLayout* self, const char* name, const fgTransform* transform, fgFlag flags)
 {
   self->name = fgCopyText(name);
-  self->element = *element;
+  self->transform = *transform;
   self->flags = flags;
   fgStyle_Init(&self->style);
 }

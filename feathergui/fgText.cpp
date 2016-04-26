@@ -4,12 +4,12 @@
 #include "fgText.h"
 #include "feathercpp.h"
 
-void FG_FASTCALL fgText_Init(fgText* self, char* text, void* font, unsigned int color, fgFlag flags, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element)
+void FG_FASTCALL fgText_Init(fgText* self, char* text, void* font, unsigned int color, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform)
 {
-  fgChild_InternalSetup(*self, flags, parent, prev, element, (FN_DESTROY)&fgText_Destroy, (FN_MESSAGE)&fgText_Message);
+  fgElement_InternalSetup(*self, flags, parent, prev, transform, (FN_DESTROY)&fgText_Destroy, (FN_MESSAGE)&fgText_Message);
 
   self->cache = 0;
-  if(color) fgChild_IntMessage(*self, FG_SETCOLOR, color, 0);
+  if(color) fgIntMessage(*self, FG_SETCOLOR, color, 0);
   if(text) _sendmsg<FG_SETTEXT, void*>(*self, text);
   if(font) _sendmsg<FG_SETFONT, void*>(*self, font);
 }
@@ -19,7 +19,7 @@ void FG_FASTCALL fgText_Destroy(fgText* self)
   assert(self != 0);
   if(self->text != 0) free(self->text);
   if(self->font != 0) fgDestroyFont(self->font);
-  fgChild_Destroy(&self->element);
+  fgElement_Destroy(&self->element);
 }
 
 size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
@@ -28,16 +28,18 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_CONSTRUCT:
-    fgChild_Message(&self->element, msg);
+    fgElement_Message(&self->element, msg);
     self->text = 0;
     self->color.color = 0;
     self->font = 0;
+    self->lineheight = 0;
+    self->letterspacing = 0;
     return 1;
   case FG_SETTEXT:
     if(self->text) free(self->text);
     self->text = fgCopyText((const char*)msg->other);
     fgText_Recalc(self);
-    fgDirtyElement(&self->element.element);
+    fgDirtyElement(&self->element.transform);
     return 1;
   case FG_SETFONT:
     switch(msg->subtype)
@@ -55,11 +57,11 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
       break;
     }
     fgText_Recalc(self);
-    fgDirtyElement(&self->element.element);
+    fgDirtyElement(&self->element.transform);
     break;
   case FG_SETCOLOR:
     self->color.color = msg->otherint;
-    fgDirtyElement(&self->element.element);
+    fgDirtyElement(&self->element.transform);
     break;
   case FG_GETTEXT:
     return (size_t)self->text;
@@ -85,8 +87,8 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
       area.top *= scale;
       area.right *= scale;
       area.bottom *= scale;
-      AbsVec center = ResolveVec(&self->element.element.center, &area);
-      self->cache = fgDrawFont(self->font, !self->text ? "" : self->text, self->lineheight, self->letterspacing, self->color.color, &area, self->element.element.rotation, &center, self->element.flags, self->cache);
+      AbsVec center = ResolveVec(&self->element.transform.center, &area);
+      self->cache = fgDrawFont(self->font, !self->text ? "" : self->text, self->lineheight, self->letterspacing, self->color.color, &area, self->element.transform.rotation, &center, self->element.flags, self->cache);
     }
     break;
   case FG_SETDPI:
@@ -95,20 +97,20 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
   case FG_GETCLASSNAME:
     return (size_t)"fgText";
   }
-  return fgChild_Message(&self->element, msg);
+  return fgElement_Message(&self->element, msg);
 }
 
 FG_EXTERN void FG_FASTCALL fgText_Recalc(fgText* self)
 {
-  if(self->font && (self->element.flags&FGCHILD_EXPAND))
+  if(self->font && (self->element.flags&FGELEMENT_EXPAND))
   {
     AbsRect area;
     ResolveRect(*self, &area);
     fgFontSize(self->font, !self->text ? "" : self->text, self->lineheight, self->letterspacing, &area, self->element.flags);
-    CRect adjust = self->element.element.area;
-    if(self->element.flags&FGCHILD_EXPANDX)
+    CRect adjust = self->element.transform.area;
+    if(self->element.flags&FGELEMENT_EXPANDX)
       adjust.right.abs = adjust.left.abs + area.right - area.left;
-    if(self->element.flags&FGCHILD_EXPANDY)
+    if(self->element.flags&FGELEMENT_EXPANDY)
       adjust.bottom.abs = adjust.top.abs + area.bottom - area.top;
     _sendmsg<FG_SETAREA, void*>(*self, &adjust);
   }

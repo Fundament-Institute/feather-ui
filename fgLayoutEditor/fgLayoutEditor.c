@@ -9,15 +9,15 @@ fgLayoutEditor* LoadLayoutEditor(fgImplementation* dll)
   memset(editor, 0, sizeof(fgLayoutEditor));
   editor->dll = dll;
   editor->root = dll->fgInitialize();
-  editor->window = dll->fgTopWindow_Create("FeatherGUI Layout Editor", 0, 0);
+  editor->window = dll->fgWindow_Create("FeatherGUI Layout Editor", 0, 0);
   //editor->menu = dll->fgMenu_Create(editor->window);
-  dll->fgChild_Init(&editor->workspace, 0, editor->window, 0);
+  dll->fgElement_Init(&editor->workspace, 0, editor->window, 0);
 
   return editor;
 }
 void CloseLayoutEditor(fgLayoutEditor* editor)
 {
-  editor->dll->fgChild_Destroy(&editor->workspace);
+  editor->dll->fgElement_Destroy(&editor->workspace);
   editor->dll->fgTerminate(editor->root);
   free(editor);
 }

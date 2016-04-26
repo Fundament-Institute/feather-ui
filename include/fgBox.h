@@ -24,13 +24,13 @@ enum FGBOX_FLAGS
 typedef struct _FG_BOX_ {
   fgScrollbar window;
 #ifdef  __cplusplus
-  inline operator fgChild*() { return &window.window.element; }
-  inline fgChild* operator->() { return operator fgChild*(); }
+  inline operator fgElement*() { return &window.control.element; }
+  inline fgElement* operator->() { return operator fgElement*(); }
 #endif
 } fgBox;
 
-FG_EXTERN fgChild* FG_FASTCALL fgBox_Create(fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element, FG_UINT id, fgFlag flags);
-FG_EXTERN void FG_FASTCALL fgBox_Init(fgBox* self, fgChild* BSS_RESTRICT parent, fgChild* BSS_RESTRICT prev, const fgElement* element, FG_UINT id, fgFlag flags);
+FG_EXTERN fgElement* FG_FASTCALL fgBox_Create(fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform, FG_UINT id, fgFlag flags);
+FG_EXTERN void FG_FASTCALL fgBox_Init(fgBox* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform, FG_UINT id, fgFlag flags);
 FG_EXTERN void FG_FASTCALL fgBox_Destroy(fgBox* self);
 FG_EXTERN size_t FG_FASTCALL fgBox_Message(fgBox* self, const FG_Msg* msg);
 
