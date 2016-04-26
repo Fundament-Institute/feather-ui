@@ -40,9 +40,20 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
     fgDirtyElement(&self->element.element);
     return 1;
   case FG_SETFONT:
-    if(self->font) fgDestroyFont(self->font);
-    self->font = 0;
-    if(msg->other) self->font = fgCloneFont(msg->other);
+    switch(msg->subtype)
+    {
+    case FGTEXT_FONT:
+      if(self->font) fgDestroyFont(self->font);
+      self->font = 0;
+      if(msg->other) self->font = fgCloneFontDPI(msg->other, _sendmsg<FG_GETDPI>(*self));
+      break;
+    case FGTEXT_LINEHEIGHT:
+      self->lineheight = msg->otherf;
+      break;
+    case FGTEXT_LETTERSPACING:
+      self->letterspacing = msg->otherf;
+      break;
+    }
     fgText_Recalc(self);
     fgDirtyElement(&self->element.element);
     break;
@@ -53,7 +64,12 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
   case FG_GETTEXT:
     return (size_t)self->text;
   case FG_GETFONT:
-    return (size_t)self->font;
+    switch(msg->subtype)
+    {
+    case FGTEXT_FONT: return reinterpret_cast<size_t>(self->font);
+    case FGTEXT_LINEHEIGHT: return *reinterpret_cast<size_t*>(&self->lineheight);
+    case FGTEXT_LETTERSPACING: return *reinterpret_cast<size_t*>(&self->letterspacing);
+    }
   case FG_GETCOLOR:
     return self->color.color;
   case FG_MOVE:
@@ -63,9 +79,18 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
   case FG_DRAW:
     if(self->font != 0 && !(msg->subtype & 1))
     {
-      AbsVec center = ResolveVec(&self->element.element.center, (AbsRect*)msg->other);
-      self->cache = fgDrawFont(self->font, !self->text ? "" : self->text, self->color.color, (AbsRect*)msg->other, self->element.element.rotation, &center, self->element.flags, self->cache);
+      AbsRect area = *(AbsRect*)msg->other;
+      float scale = (!msg->otheraux || !fgroot_instance->dpi) ? 1.0 : (fgroot_instance->dpi / (float)msg->otheraux);
+      area.left *= scale;
+      area.top *= scale;
+      area.right *= scale;
+      area.bottom *= scale;
+      AbsVec center = ResolveVec(&self->element.element.center, &area);
+      self->cache = fgDrawFont(self->font, !self->text ? "" : self->text, self->lineheight, self->letterspacing, self->color.color, &area, self->element.element.rotation, &center, self->element.flags, self->cache);
     }
+    break;
+  case FG_SETDPI:
+    (*self)->SetFont(self->font); // By setting the font to itself we'll clone it into the correct DPI
     break;
   case FG_GETCLASSNAME:
     return (size_t)"fgText";
@@ -79,7 +104,7 @@ FG_EXTERN void FG_FASTCALL fgText_Recalc(fgText* self)
   {
     AbsRect area;
     ResolveRect(*self, &area);
-    fgFontSize(self->font, !self->text ? "" : self->text, &area, self->element.flags);
+    fgFontSize(self->font, !self->text ? "" : self->text, self->lineheight, self->letterspacing, &area, self->element.flags);
     CRect adjust = self->element.element.area;
     if(self->element.flags&FGCHILD_EXPANDX)
       adjust.right.abs = adjust.left.abs + area.right - area.left;

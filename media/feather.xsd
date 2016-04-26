@@ -1,0 +1,127 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="featherGUI" >
+
+<xs:simpleType name="fgFlags">
+  <xs:restriction base="xs:string">
+    <xs:enumeration value="BACKGROUND"/>
+    <xs:enumeration value="NOCLIP"/>
+    <xs:enumeration value="IGNORE"/>
+    <xs:enumeration value="HIDDEN"/>
+    <xs:enumeration value="EXPANDX"/>
+    <xs:enumeration value="EXPANDY"/>
+    <xs:enumeration value="EXPAND"/>
+    <xs:enumeration value="SNAPX"/>
+    <xs:enumeration value="SNAPY"/>
+    <xs:enumeration value="SNAP"/>
+  </xs:restriction>
+</xs:simpleType>
+    
+<xs:simpleType name="fgFlagsText">
+  <xs:restriction base="xs:string">
+    <xs:enumeration value="CHARWRAP"/>
+    <xs:enumeration value="WORDWRAP"/>
+    <xs:enumeration value="ELLIPSES"/>
+    <xs:enumeration value="RTL"/>
+    <xs:enumeration value="RIGHTALIGN"/>
+    <xs:enumeration value="CENTER"/>
+    <xs:enumeration value="SUBPIXEL"/>
+  </xs:restriction>
+</xs:simpleType>
+
+<xs:simpleType name="fgFlagsCombobox">
+  <xs:restriction base="xs:string">
+    <xs:enumeration value="EDITBOX"/>
+  </xs:restriction>
+</xs:simpleType>
+
+<xs:simpleType name="fgFlagsButton">
+  <xs:restriction base="xs:string">
+    <xs:enumeration value="NOFOCUS"/>
+  </xs:restriction>
+</xs:simpleType>
+
+<xs:simpleType name="fgFlagsScrollbar">
+  <xs:restriction base="xs:string">
+    <xs:enumeration value="HIDEH"/>
+    <xs:enumeration value="HIDEV"/>
+    <xs:enumeration value="SHOWH"/>
+    <xs:enumeration value="SHOWV"/>
+  </xs:restriction>
+</xs:simpleType>
+
+<xs:simpleType name="fgFlagsList">
+  <xs:restriction base="xs:string">
+    <xs:enumeration value="SINGLESELECT"/>
+    <xs:enumeration value="MULTISELECT"/>
+    <xs:enumeration value="DRAGGABLE"/>
+  </xs:restriction>
+</xs:simpleType>
+    
+<xs:simpleType name="fgFlagsResource">
+  <xs:restriction base="xs:string">
+    <xs:enumeration value="ROUNDRECT"/>
+    <xs:enumeration value="CIRCLE"/>
+    <xs:enumeration value="LINE"/>
+  </xs:restriction>
+</xs:simpleType>
+    
+<xs:simpleType name="fgFlagsBox">
+  <xs:restriction base="xs:string">
+    <xs:enumeration value="TILEX"/>
+    <xs:enumeration value="TILEY"/>
+    <xs:enumeration value="TILE"/>
+    <xs:enumeration value="DISTRIBUTEX"/>
+    <xs:enumeration value="DISTRIBUTEY"/>
+    <xs:enumeration value="DISTRIBUTE"/>
+    <xs:enumeration value="FIXEDSIZE"/>
+  </xs:restriction>
+</xs:simpleType>
+
+<xs:complexType name="fgElement">
+  <xs:attribute name="id" type="xs:string"/> <!-- id is the UNIQUE layout identifier string -->
+  <xs:attribute name="rect" type="CRect"/>
+  <xs:attribute name="center" type="CVec"/>
+  <xs:attribute name="rotation" type="xs:decimal"/>
+  <xs:attribute name="left" type="Coord"/>
+  <xs:attribute name="top" type="Coord"/>
+  <xs:attribute name="right" type="Coord"/>
+  <xs:attribute name="bottom" type="Coord"/>
+  <xs:attribute name="width" type="Coord"/>
+  <xs:attribute name="height" type="Coord"/>
+  <xs:attribute name="skin" type="xs:string"/>
+  <xs:attribute name="alpha" type="xs:decimal"/>
+  <xs:attribute name="transform" type="fgTransform"/>
+  <xs:attribute name="margin" type="Rect"/>
+  <xs:attribute name="padding" type="Rect"/>
+  <xs:element name="Element" type="fgElement"/>
+  <xs:element name="Control" type="fgControl"/>
+  <xs:element name="Box" type="fgBox"/>
+  <xs:element name="Scrollbar" type="fgScrollbar"/>
+  <xs:element name="Button" type="fgButton"/>
+  <xs:element name="Checkbox" type="fgCheckbox"/>
+  <xs:element name="Combobox" type="fgCombobox"/>
+  <xs:element name="Dropdown" type="fgDropdown"/>
+  <xs:element name="List" type="fgList"/>
+  <xs:element name="Menu" type="fgMenu"/>
+  <xs:element name="Progressbar" type="fgProgressbar"/>
+  <xs:element name="RadioButton" type="fgRadioButton"/>
+  <xs:element name="Resource" type="fgResource"/>
+  <xs:element name="Slider" type="fgSlider"/>
+  <xs:element name="TabGroup" type="fgTabGroup"/>
+  <xs:element name="Text" type="fgText"/>
+  <xs:element name="Textbox" type="fgTextbox"/>
+  <xs:element name="Window" type="fgWindow"/>
+  <xs:element name="TreeView" type="fgTreeview"/>
+</xs:complexType>
+
+<xs:complexType name="fgControl">
+  <!-- inherit fgElement -->
+  <xs:attribute name="name" type="xs:string"/> <!-- this is the name used for styles. names do NOT have to be unique -->
+</xs:complexType>
+
+<xs:element name="fgLayout">
+  <xs:complexType>
+  </xs:complexType>
+</xs:element>
+
+</xs:schema>

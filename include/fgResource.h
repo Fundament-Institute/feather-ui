@@ -12,11 +12,9 @@ extern "C" {
 
 enum FGRESOURCE_FLAGS
 {
-  FGRESOURCE_STRETCHX = (1 << 8), // Stretches the image instead of tiling it
-  FGRESOURCE_STRETCHY = (1 << 9),
-  FGRESOURCE_ROUNDRECT = (1 << 10), // Indicates this is a rounded rectangle
-  FGRESOURCE_CIRCLE = (1 << 11), // Indicates this is a circle
-  FGRESOURCE_LINE = (1 << 12), // Indicates this is a line
+  FGRESOURCE_ROUNDRECT = (1 << 8), // Indicates this is a rounded rectangle
+  FGRESOURCE_CIRCLE = (1 << 9), // Indicates this is a circle
+  FGRESOURCE_LINE = (1 << 10), // Indicates this is a line
 };
 
 // fgResource stores a renderable image/vector/shader, that optionally has UV coordinates.

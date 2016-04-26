@@ -39,7 +39,9 @@ size_t FG_FASTCALL fgMonitor_Message(fgMonitor* self, const FG_Msg* msg)
     self->dpi = (size_t)msg->otherint;
     float scale = fgroot_instance->dpi / (float)self->dpi;
     CRect area = { self->coverage.left*scale, 0, self->coverage.top*scale, 0, self->coverage.right*scale, 0, self->coverage.bottom*scale, 0 };
-    return self->element.SetArea(area);
+    size_t ret = self->element.SetArea(area);
+    fgChild_Message(&self->element, msg); // Passes the SETDPI message to all children
+    return ret;
   }
   case FG_DRAW: // Override draw call so we never clip, and replace the root DPI with our DPI
   {

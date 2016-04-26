@@ -75,12 +75,23 @@ FG_EXTERN size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
   case FG_DRAW:
     if(!(msg->subtype & 1))
     {
-    // If dragging, draw a line, otherwise, draw the hover rect.
+      AbsRect cache;
+      fgChild* target = fgChild_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
 
+      if(self->mouse.state&FGMOUSE_DRAG)
+      {
+        //draw line
+      }
+      else if(target)
+        _sendmsg<FG_DRAW>(*self, msg->other, msg->otheraux);
 
-    // If there are selections, draw them here.
+      // If there are selections, draw them here.
     }
     break;
+  case FG_ADDITEM:
+    //if(msg->subtype == FG_SETTEXT)
+      //return _sendmsg<FG_ADDCHILD, void*>(*self, fgText_Create(msg->other, ))
+    return _sendmsg<FG_ADDCHILD, void*>(*self, msg->other);
   }
 
   return fgBox_Message(&self->box, msg);

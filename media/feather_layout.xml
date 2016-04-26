@@ -1,0 +1,6 @@
+<fgLayout xmlns:feather="feather.xsd" skin="skin.json">
+  <fgText left="|0" top="200|" width="|1" bottom="300|" rotation="0" center="|0.5,|0.5" flags="IGNORE|BACKGROUND" color="0xFFFFFFFF" font="arial;14" text="placeholder" />
+  <fgTopWindow area="200|0,200|0,300|0,400|0"  center="10|0.5,10|0.5" text="Feather GUI">
+    <fgButton area="100|0,100|0,150|0,200|0" text="Press me!" />
+  </fgTopWindow>
+</fgLayout>

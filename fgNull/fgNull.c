@@ -25,11 +25,12 @@
 fgRoot* _fgroot=0; // fgRoot singleton variable
 
 
-void* FG_FASTCALL fgCreateFont(fgFlag flags, const char* font, unsigned int fontsize, float lineheight, float letterspacing) { return (void*)~0; }
+void* FG_FASTCALL fgCreateFont(fgFlag flags, const char* font, unsigned int fontsize, unsigned int dpi) { return (void*)~0; }
+void* FG_FASTCALL fgCloneFontDPI(void* font, unsigned int dpi) { return (void*)~0; }
 void* FG_FASTCALL fgCloneFont(void* font) { return (void*)~0; }
 void FG_FASTCALL fgDestroyFont(void* font) { }
-void* FG_FASTCALL fgDrawFont(void* font, const char* text, unsigned int color, const AbsRect* area, FABS rotation, AbsVec* center, fgFlag flags, void* cache) { return 0; }
-void FG_FASTCALL fgFontSize(void* font, const char* text, AbsRect* area, fgFlag flags) { }
+void* FG_FASTCALL fgDrawFont(void* font, const char* text, float lineheight, float letterspacing, unsigned int color, const AbsRect* area, FABS rotation, AbsVec* center, fgFlag flags, void* cache) { return 0; }
+void FG_FASTCALL fgFontSize(void* font, const char* text, float lineheight, float letterspacing, AbsRect* area, fgFlag flags) { }
 
 void* FG_FASTCALL fgCreateResource(fgFlag flags, const char* data, size_t length) { return (void*)~0; }
 void* FG_FASTCALL fgCloneResource(void* res) { return (void*)~0; }

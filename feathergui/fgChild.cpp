@@ -477,6 +477,14 @@ size_t FG_FASTCALL fgChild_Message(fgChild* self, const FG_Msg* msg)
     return 0;
   case FG_GETDPI:
     return self->parent ? _sendmsg<FG_GETDPI>(self->parent) : 0;
+  case FG_SETDPI:
+    fgChild* cur = self->root;
+    while(hold = cur)
+    {
+      cur = cur->next;
+      fgChild_PassMessage(hold, msg);
+    }
+    break;
   }
 
   return 0;

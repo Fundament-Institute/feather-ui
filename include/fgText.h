@@ -19,6 +19,10 @@ enum FGTEXT_FLAGS
   FGTEXT_RIGHTALIGN = (1 << 12),
   FGTEXT_CENTER = (1 << 13), // Text horizontal centering behaves differently, because it centers each individual line.
   FGTEXT_SUBPIXEL = (1 << 14), // Indicates this text should try to render with LCD subpixel hinting.
+
+  FGTEXT_FONT = 0, // These are subtypes that can be passed to SETFONT to set different aspects of the font
+  FGTEXT_LINEHEIGHT = 1,
+  FGTEXT_LETTERSPACING = 2,
 };
 
 // fgText stores a string and renders it according to the font and fontcolor that it has.
@@ -28,6 +32,8 @@ typedef struct {
   void* font;
   void* cache;
   fgColor color;
+  float lineheight;
+  float letterspacing;
 #ifdef  __cplusplus
   inline operator fgChild*() { return &element; }
   inline fgChild* operator->() { return operator fgChild*(); }
@@ -40,11 +46,12 @@ FG_EXTERN void FG_FASTCALL fgText_Destroy(fgText* self);
 FG_EXTERN size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg);
 FG_EXTERN void FG_FASTCALL fgText_Recalc(fgText* self);
 
-FG_EXTERN void* FG_FASTCALL fgCreateFont(fgFlag flags, const char* font, unsigned int fontsize, float lineheight, float letterspacing);
+FG_EXTERN void* FG_FASTCALL fgCreateFont(fgFlag flags, const char* font, unsigned int fontsize, unsigned int dpi);
+FG_EXTERN void* FG_FASTCALL fgCloneFontDPI(void* font, unsigned int dpi);
 FG_EXTERN void* FG_FASTCALL fgCloneFont(void* font);
 FG_EXTERN void FG_FASTCALL fgDestroyFont(void* font);
-FG_EXTERN void* FG_FASTCALL fgDrawFont(void* font, const char* text, unsigned int color, const AbsRect* area, FABS rotation, AbsVec* center, fgFlag flags, void* cache);
-FG_EXTERN void FG_FASTCALL fgFontSize(void* font, const char* text, AbsRect* area, fgFlag flags); // this should return EXPECTED TEXT AREA that is calculated by lineheight - it should discard excessive vertical space caused by weird unicode modifiers.
+FG_EXTERN void* FG_FASTCALL fgDrawFont(void* font, const char* text, float lineheight, float letterspacing, unsigned int color, const AbsRect* area, FABS rotation, AbsVec* center, fgFlag flags, void* cache);
+FG_EXTERN void FG_FASTCALL fgFontSize(void* font, const char* text, float lineheight, float letterspacing, AbsRect* area, fgFlag flags); // this should return EXPECTED TEXT AREA that is calculated by lineheight - it should discard excessive vertical space caused by weird unicode modifiers.
 
 #ifdef  __cplusplus
 }

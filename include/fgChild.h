@@ -127,12 +127,16 @@ typedef struct _FG_CHILD {
   FG_DLLEXPORT size_t FG_FASTCALL SetColor(unsigned int color, int index);
   FG_DLLEXPORT size_t FG_FASTCALL SetOutline(float outline);
   FG_DLLEXPORT size_t FG_FASTCALL SetFont(void* font);
+  FG_DLLEXPORT size_t FG_FASTCALL SetLineHeight(float lineheight);
+  FG_DLLEXPORT size_t FG_FASTCALL SetLetterSpacing(float letterspacing);
   FG_DLLEXPORT size_t FG_FASTCALL SetText(const char* text);
   FG_DLLEXPORT void* GetResource();
   FG_DLLEXPORT const CRect* GetUV();
   FG_DLLEXPORT unsigned int FG_FASTCALL GetColor(int index);
   FG_DLLEXPORT float GetOutline();
   FG_DLLEXPORT void* GetFont();
+  FG_DLLEXPORT float GetLineHeight();
+  FG_DLLEXPORT float GetLetterSpacing();
   FG_DLLEXPORT const char* GetText();
   FG_DLLEXPORT void AddListener(unsigned short type, FN_LISTENER listener);
 #endif

@@ -74,7 +74,14 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
   case FG_DRAW:
   {
     if(msg->subtype & 1) break;
-    AbsVec center = ResolveVec(&self->element.element.center, (AbsRect*)msg->other);
+    AbsRect area = *(AbsRect*)msg->other;
+    float scale = (!msg->otheraux || !fgroot_instance->dpi) ? 1.0 : (fgroot_instance->dpi / (float)msg->otheraux);
+    area.left *= scale;
+    area.top *= scale;
+    area.right *= scale;
+    area.bottom *= scale;
+    AbsVec center = ResolveVec(&self->element.element.center, &area);
+
     if(self->element.flags&FGRESOURCE_LINE)
     {
       AbsRect area = *(AbsRect*)msg->other;
@@ -85,7 +92,7 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
       fgDrawLine(area.topleft, area.bottomright, self->color.color);
     }
     else
-      fgDrawResource(self->res, &self->uv, self->color.color, self->edge.color, self->outline, (AbsRect*)msg->other, self->element.element.rotation, &center, self->element.flags);
+      fgDrawResource(self->res, &self->uv, self->color.color, self->edge.color, self->outline, &area, self->element.element.rotation, &center, self->element.flags);
   }
   break;
   case FG_GETCLASSNAME:
