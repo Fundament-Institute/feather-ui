@@ -5,9 +5,9 @@
 #include "fgSkin.h"
 #include "feathercpp.h"
 
-FG_EXTERN void FG_FASTCALL fgProgressbar_Init(fgProgressbar* BSS_RESTRICT self, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform)
+FG_EXTERN void FG_FASTCALL fgProgressbar_Init(fgProgressbar* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  fgElement_InternalSetup(*self, flags, parent, prev, transform, (FN_DESTROY)&fgProgressbar_Destroy, (FN_MESSAGE)&fgProgressbar_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (FN_DESTROY)&fgProgressbar_Destroy, (FN_MESSAGE)&fgProgressbar_Message);
 }
 
 FG_EXTERN void FG_FASTCALL fgProgressbar_Destroy(fgProgressbar* self)
@@ -24,10 +24,8 @@ FG_EXTERN size_t FG_FASTCALL fgProgressbar_Message(fgProgressbar* self, const FG
   {
   case FG_CONSTRUCT:
     fgControl_Message(&self->control, msg);
-    fgElement_Init(&self->bar, FGELEMENT_BACKGROUND | FGELEMENT_IGNORE, *self, 0, &BAR_ELEMENT);
-    fgElement_AddPreChild(*self, &self->bar);
-    fgText_Init(&self->text, 0, 0, 0, FGELEMENT_EXPAND | FGELEMENT_IGNORE, *self, 0, &fgTransform_CENTER);
-    fgElement_AddPreChild(*self, self->text);
+    fgElement_Init(&self->bar, *self, 0, "fgProgressbar:bar", FGELEMENT_BACKGROUND | FGELEMENT_IGNORE, &BAR_ELEMENT);
+    fgText_Init(&self->text, 0, 0, 0, *self, 0, "fgProgressbar:text", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
     self->value = 0.0f;
     return 1;
   case FG_ADDITEM:
@@ -49,9 +47,13 @@ FG_EXTERN size_t FG_FASTCALL fgProgressbar_Message(fgProgressbar* self, const FG
     return *reinterpret_cast<size_t*>(&self->value);
   case FG_SETTEXT:
   case FG_SETFONT:
+  case FG_SETLINEHEIGHT:
+  case FG_SETLETTERSPACING:
   case FG_SETCOLOR:
   case FG_GETTEXT:
   case FG_GETFONT:
+  case FG_GETLINEHEIGHT:
+  case FG_GETLETTERSPACING:
   case FG_GETCOLOR:
     return fgPassMessage(self->text, msg);
   case FG_GETCLASSNAME:

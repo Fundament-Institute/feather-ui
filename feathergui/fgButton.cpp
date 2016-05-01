@@ -5,9 +5,9 @@
 #include "fgSkin.h"
 #include "feathercpp.h"
 
-void FG_FASTCALL fgButton_Init(fgButton* BSS_RESTRICT self, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform)
+void FG_FASTCALL fgButton_Init(fgButton* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  fgElement_InternalSetup(*self, flags, parent, prev, transform, (FN_DESTROY)&fgButton_Destroy, (FN_MESSAGE)&fgButton_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (FN_DESTROY)&fgButton_Destroy, (FN_MESSAGE)&fgButton_Message);
 }
 void FG_FASTCALL fgButton_Destroy(fgButton* self)
 {
@@ -20,17 +20,8 @@ size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgControl_HoverMessage(&self->control, msg);
-    fgElement_Init(&self->item, FGELEMENT_EXPAND | FGELEMENT_IGNORE, *self, 0, &fgTransform_CENTER);
-    fgElement_AddPreChild(*self, &self->item);
-    fgText_Init(&self->text, 0, 0, 0, FGELEMENT_EXPAND | FGELEMENT_IGNORE, *self, 0, &fgTransform_CENTER);
-    fgElement_AddPreChild(*self, self->text);
+    fgText_Init(&self->text, 0, 0, 0, *self, 0, "fgButton:text", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
     _sendmsg<FG_SETSTYLE, void*>(*self, "nuetral");
-    return 1;
-  case FG_ADDITEM:
-    if(msg->other)
-      _sendmsg<FG_ADDCHILD, void*>(&self->item, msg->other);
-    else
-      fgElement_Clear(&self->item);
     return 1;
   case FG_NUETRAL:
     _sendmsg<FG_SETSTYLE, void*>(*self, "nuetral");
@@ -49,9 +40,13 @@ size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
     return (size_t)"fgButton";
   case FG_SETTEXT:
   case FG_SETFONT:
+  case FG_SETLINEHEIGHT:
+  case FG_SETLETTERSPACING:
   case FG_SETCOLOR:
   case FG_GETTEXT:
   case FG_GETFONT:
+  case FG_GETLINEHEIGHT:
+  case FG_GETLETTERSPACING:
   case FG_GETCOLOR:
     return fgPassMessage(self->text, msg);
   }

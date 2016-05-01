@@ -4,10 +4,10 @@
 #include "fgMenu.h"
 #include "feathercpp.h"
 
-void FG_FASTCALL fgMenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform, FG_UINT id, fgFlag flags, char submenu)
+void FG_FASTCALL fgMenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, char submenu)
 {
   assert(self != 0);
-  fgElement_InternalSetup(*self, flags, parent, prev, transform, (FN_DESTROY)&fgMenu_Destroy, (FN_MESSAGE)(submenu ? &fgSubmenu_Message : &fgMenu_Message));
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (FN_DESTROY)&fgMenu_Destroy, (FN_MESSAGE)(submenu ? &fgSubmenu_Message : &fgMenu_Message));
 }
 void FG_FASTCALL fgMenu_Destroy(fgMenu* self)
 {
@@ -29,11 +29,9 @@ size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgScrollbar_Message((fgScrollbar*)self, msg);
-    fgElement_Init(&self->highlight, FGELEMENT_HIDDEN | FGELEMENT_IGNORE, *self, 0, &fgTransform_DEFAULT);
-    fgElement_AddPreChild(*self, &self->highlight);
-    fgElement_Init(&self->arrow, FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0, 0, 0);
-    fgElement_AddPreChild(*self, &self->arrow);
-    fgElement_AddPreChild(*self, 0); // seperator placeholder
+    fgElement_Init(&self->highlight, *self, 0, "fgMenu:highlight", FGELEMENT_HIDDEN | FGELEMENT_IGNORE, &fgTransform_DEFAULT);
+    fgElement_Init(&self->arrow, 0, 0, "fgMenu:arrow", FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0);
+    fgElement_Init(&self->seperator, 0, 0, "fgMenu:seperator", FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0);
     return 1;
   case FG_MOUSEDOWN:
   {

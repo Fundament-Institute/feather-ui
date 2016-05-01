@@ -6,9 +6,9 @@
 #include "bss-util\bss_util.h"
 #include "feathercpp.h"
 
-void FG_FASTCALL fgBox_Init(fgBox* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform, FG_UINT id, fgFlag flags)
+void FG_FASTCALL fgBox_Init(fgBox* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  fgElement_InternalSetup(*self, flags, parent, prev, transform, (FN_DESTROY)&fgBox_Destroy, (FN_MESSAGE)&fgBox_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (FN_DESTROY)&fgBox_Destroy, (FN_MESSAGE)&fgBox_Message);
 }
 void FG_FASTCALL fgBox_Destroy(fgBox* self)
 {

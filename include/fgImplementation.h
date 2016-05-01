@@ -22,7 +22,7 @@ typedef struct _FG_IMPLEMENTATION {
   void* (FG_FASTCALL *fgCloneDef)(void* def);
   void (FG_FASTCALL *fgDestroyDef)(void* def);
 
-  fgElement* (FG_FASTCALL *fgButton_Create)(fgElement* item, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform);
+  fgElement* (FG_FASTCALL *fgButton_Create)(fgElement* item, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
   fgElement* (FG_FASTCALL *fgWindow_Create)(const char* caption, fgFlag flags, const fgTransform* transform);
   fgRoot* (FG_FASTCALL *fgInitialize)();
   fgRoot* (FG_FASTCALL *fgSingleton)();
@@ -30,7 +30,7 @@ typedef struct _FG_IMPLEMENTATION {
   char (FG_FASTCALL *fgLoadExtension)(const char* extname, void* fg, size_t sz);
 
   void (FG_FASTCALL *fgTerminate)(fgRoot* root);
-  void (FG_FASTCALL *fgElement_Init)(fgElement* BSS_RESTRICT self, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform);
+  void (FG_FASTCALL *fgElement_Init)(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
   void (FG_FASTCALL *fgElement_Destroy)(fgElement* self);
 } fgImplementation;
 

@@ -13,12 +13,13 @@ void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, size_t dpi)
   self->behaviorhook = &fgRoot_BehaviorDefault;
   self->dpi = dpi;
   self->drag = 0;
+  self->monitors = 0;
   self->time = 0.0;
   self->updateroot = 0;
   self->radiohash = fgRadioGroup_init();
   fgroot_instance = self;
   fgTransform transform = { area->left, 0, area->top, 0, area->right, 0, area->bottom, 0, 0, 0, 0 };
-  fgElement_InternalSetup(*self, 0, 0, 0, &transform, (FN_DESTROY)&fgRoot_Destroy, (FN_MESSAGE)&fgRoot_Message);
+  fgElement_InternalSetup(*self, 0, 0, 0, 0, &transform, (FN_DESTROY)&fgRoot_Destroy, (FN_MESSAGE)&fgRoot_Message);
 }
 
 void FG_FASTCALL fgRoot_Destroy(fgRoot* self)
@@ -75,7 +76,7 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
     return self->dpi;
   case FG_SETDPI:
   {
-    float scale = !self->dpi ? 1.0 : (msg->otherint / (float)self->dpi);
+    float scale = !self->dpi ? 1.0f : (msg->otherint / (float)self->dpi);
     CRect* rootarea = &self->gui.element.transform.area;
     CRect area = { rootarea->left.abs*scale, 0, rootarea->top.abs*scale, 0, rootarea->right.abs*scale, 0, rootarea->bottom.abs*scale, 0 };
     self->dpi = (size_t)msg->otherint;
@@ -186,10 +187,8 @@ size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
   case FG_MOUSEUP:
   case FG_MOUSEMOVE:
     if(self->drag != 0 && self->drag->parent == *self)
-    {
-      AbsVec pos = { (FABS)msg->x, (FABS)msg->y };
-      MoveCRect(pos, &self->drag->transform.area);
-    }
+      MoveCRect((FABS)msg->x, (FABS)msg->y, &self->drag->transform.area);
+
     if(fgCaptureWindow)
       if(fgRoot_RInject(self, fgCaptureWindow, msg, 0, 0)) // If it's captured, send the message to the captured window with NULL area.
         return 1;

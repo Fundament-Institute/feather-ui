@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fg:Skin xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:fg="featherGUI" xsi:schemaLocation="featherGUI feather.xsd">
+  <Skin id="fgWindow">
+    <Skin id="fgButton" inherit="font" padding="5,5,5,5">
+      <Resource name=":bg" uv="5:,5:,5:,5:" area=":0,:0,:1,:1" color="0xFF666666" edgecolor="0xFFAAAAAA" outline="1.0" flags="BACKGROUND" />
+      <Skin id=":bg">
+        <Style id="nuetral" color="0xFF666666"/>
+        <Style id="active" color="0xFF505050"/>
+        <Style id="hover" color="0xFF7F7F7F"/>
+      </Skin>
+    </Skin>
+  </Skin>
+  <Skin id="font" color="0xFFFFFFFF" font="arial;14">
+  </Skin>
+  <Skin id="buttontest" inherit="font">
+    <Skin id="fgResource">
+      <Style id="nuetral" color="0xFFFF00FF" />
+      <Style id="hover" color="0xFF00FFFF" />
+      <Style id="active" color="0xFFFFFF00" />
+    </Skin>
+    <Style id="nuetral" text="Nuetral" />
+    <Style id="hover" text="Hover" />
+    <Style id="active" text="Active" />
+  </Skin>
+
+
+
+</fg:Skin>

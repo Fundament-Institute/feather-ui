@@ -6,9 +6,9 @@
 #include "bss-util\bss_util.h"
 #include "feathercpp.h"
 
-FG_EXTERN void FG_FASTCALL fgList_Init(fgList* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform, FG_UINT id, fgFlag flags)
+FG_EXTERN void FG_FASTCALL fgList_Init(fgList* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  fgElement_InternalSetup(*self, flags, parent, prev, transform, (FN_DESTROY)&fgList_Destroy, (FN_MESSAGE)&fgList_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (FN_DESTROY)&fgList_Destroy, (FN_MESSAGE)&fgList_Message);
 }
 FG_EXTERN void FG_FASTCALL fgList_Destroy(fgList* self)
 {
@@ -24,10 +24,8 @@ FG_EXTERN size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     fgBox_Message(&self->box, msg);
     self->selected = 0;
-    fgElement_Init(&self->selector, FGELEMENT_BACKGROUND, 0, 0, 0); // we do NOT set the parent of these because we need to manipulate when they get rendered.
-    fgElement_Init(&self->hover, FGELEMENT_BACKGROUND, 0, 0, 0);
-    fgElement_AddPreChild(*self, &self->selector);
-    fgElement_AddPreChild(*self, &self->hover);
+    fgElement_Init(&self->selector, 0, 0, "fgList:selector", FGELEMENT_BACKGROUND, 0); // we do NOT set the parent of these because we need to manipulate when they get rendered.
+    fgElement_Init(&self->hover, 0, 0, "fgList:hover", FGELEMENT_BACKGROUND, 0);
     return 1;
   case FG_MOUSEDOWN:
     fgUpdateMouseState(&self->mouse, msg);
@@ -88,10 +86,6 @@ FG_EXTERN size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
       // If there are selections, draw them here.
     }
     break;
-  case FG_ADDITEM:
-    //if(msg->subtype == FG_SETTEXT)
-      //return _sendmsg<FG_ADDCHILD, void*>(*self, fgText_Create(msg->other, ))
-    return _sendmsg<FG_ADDCHILD, void*>(*self, msg->other);
   }
 
   return fgBox_Message(&self->box, msg);

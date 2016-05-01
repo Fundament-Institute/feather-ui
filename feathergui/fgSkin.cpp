@@ -11,19 +11,12 @@ KHASH_INIT(fgSkins, const char*, fgSkin*, 1, kh_str_hash_funcins, kh_str_hash_in
 KHASH_INIT(fgStyles, const char*, FG_UINT, 1, kh_str_hash_funcins, kh_str_hash_insequal);
 
 static_assert(sizeof(fgStyleLayoutArray) == sizeof(fgVector), "mismatch between vector sizes");
-static_assert(sizeof(fgSubskinArray) == sizeof(fgVector), "mismatch between vector sizes");
 static_assert(sizeof(fgStyleArray) == sizeof(fgVector), "mismatch between vector sizes");
 static_assert(sizeof(fgClassLayoutArray) == sizeof(fgVector), "mismatch between vector sizes");
 
 void FG_FASTCALL fgSkin_Init(fgSkin* self)
 {
   memset(self, 0, sizeof(fgSkin));
-}
-
-void FG_FASTCALL fgSubskin_Init(fgSkin* self, int index)
-{
-  memset(self, 0, sizeof(fgSkin));
-  self->index = index;
 }
 
 template<class HASH, class T, void (FG_FASTCALL *DESTROY)(T*), void(*DEL)(HASH*, khint_t)>
@@ -57,7 +50,6 @@ void FG_FASTCALL fgSkin_Destroy(fgSkin* self)
   reinterpret_cast<fgResourceArray&>(self->resources).~cDynArray();
   reinterpret_cast<fgFontArray&>(self->fonts).~cDynArray();
   reinterpret_cast<fgStyleLayoutArray&>(self->children).~cDynArray();
-  reinterpret_cast<fgSubskinArray&>(self->subskins).~cDynArray();
   reinterpret_cast<fgStyleArray&>(self->styles).~cDynArray();
   DestroyHash<kh_fgSkins_t, fgSkin, &fgSkin_Destroy, &kh_del_fgSkins, &kh_destroy_fgSkins>(self->skinmap);
 }
@@ -85,9 +77,9 @@ void* FG_FASTCALL fgSkin_GetFont(const fgSkin* self, FG_UINT font)
 {
   return DynGet<fgFontArray>(self->fonts, font).ref;
 }
-size_t FG_FASTCALL fgSkin_AddChild(fgSkin* self, const char* name, const fgTransform* transform, fgFlag flags)
+size_t FG_FASTCALL fgSkin_AddChild(fgSkin* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  return ((fgStyleLayoutArray&)self->children).AddConstruct(name, transform, flags);
+  return ((fgStyleLayoutArray&)self->children).AddConstruct(type, name, flags, transform);
 }
 char FG_FASTCALL fgSkin_RemoveChild(fgSkin* self, FG_UINT child)
 {
@@ -112,20 +104,6 @@ char FG_FASTCALL fgSkin_RemoveStyle(fgSkin* self, FG_UINT style)
 fgStyle* FG_FASTCALL fgSkin_GetStyle(const fgSkin* self, FG_UINT style)
 {
   return ((fgStyleArray&)self->styles).begin() + style;
-}
-
-size_t FG_FASTCALL fgSkin_AddSubSkin(fgSkin* self, int index)
-{
-  return ((fgSubskinArray&)self->subskins).AddConstruct(index);
-}
-
-char FG_FASTCALL fgSkin_RemoveSubSkin(fgSkin* self, FG_UINT subskin)
-{
-  return DynArrayRemove((fgSubskinArray&)self->subskins, subskin);
-}
-fgSkin* FG_FASTCALL fgSkin_GetSubSkin(const fgSkin* self, FG_UINT subskin)
-{
-  return self->subskins.p + subskin;
 }
 
 fgSkin* FG_FASTCALL fgSkin_AddSkin(fgSkin* self, const char* name)
@@ -160,8 +138,9 @@ fgSkin* FG_FASTCALL fgSkin_GetSkin(const fgSkin* self, const char* name)
   return (iter != kh_end(self->skinmap) && kh_exist(self->skinmap, iter)) ? kh_val(self->skinmap, iter) : 0;
 }
 
-void FG_FASTCALL fgStyleLayout_Init(fgStyleLayout* self, const char* name, const fgTransform* transform, fgFlag flags)
+void FG_FASTCALL fgStyleLayout_Init(fgStyleLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform)
 {
+  self->type = fgCopyText(type);
   self->name = fgCopyText(name);
   self->transform = *transform;
   self->flags = flags;
@@ -169,6 +148,7 @@ void FG_FASTCALL fgStyleLayout_Init(fgStyleLayout* self, const char* name, const
 }
 void FG_FASTCALL fgStyleLayout_Destroy(fgStyleLayout* self)
 {
+  if(self->type) free(self->type);
   if(self->name) free(self->name);
   fgStyle_Destroy(&self->style);
 }

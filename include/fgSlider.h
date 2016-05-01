@@ -22,8 +22,8 @@ typedef struct _FG_SLIDER {
 #endif
 } fgSlider;
 
-FG_EXTERN fgElement* FG_FASTCALL fgSlider_Create(size_t range, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform);
-FG_EXTERN void FG_FASTCALL fgSlider_Init(fgSlider* BSS_RESTRICT self, size_t range, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform);
+FG_EXTERN fgElement* FG_FASTCALL fgSlider_Create(size_t range, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
+FG_EXTERN void FG_FASTCALL fgSlider_Init(fgSlider* BSS_RESTRICT self, size_t range, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
 FG_EXTERN void FG_FASTCALL fgSlider_Destroy(fgSlider* self);
 FG_EXTERN size_t FG_FASTCALL fgSlider_Message(fgSlider* self, const FG_Msg* msg);
 

@@ -30,8 +30,8 @@ typedef struct {
 #endif
 } fgList;
 
-FG_EXTERN fgElement* FG_FASTCALL fgList_Create(fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform, FG_UINT id, fgFlag flags);
-FG_EXTERN void FG_FASTCALL fgList_Init(fgList* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform, FG_UINT id, fgFlag flags);
+FG_EXTERN fgElement* FG_FASTCALL fgList_Create(fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
+FG_EXTERN void FG_FASTCALL fgList_Init(fgList* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
 FG_EXTERN void FG_FASTCALL fgList_Destroy(fgList* self);
 FG_EXTERN size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg);
 

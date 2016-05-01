@@ -4,9 +4,9 @@
 #include "fgText.h"
 #include "feathercpp.h"
 
-void FG_FASTCALL fgText_Init(fgText* self, char* text, void* font, unsigned int color, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform)
+void FG_FASTCALL fgText_Init(fgText* self, char* text, void* font, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  fgElement_InternalSetup(*self, flags, parent, prev, transform, (FN_DESTROY)&fgText_Destroy, (FN_MESSAGE)&fgText_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (FN_DESTROY)&fgText_Destroy, (FN_MESSAGE)&fgText_Message);
 
   self->cache = 0;
   if(color) fgIntMessage(*self, FG_SETCOLOR, color, 0);
@@ -42,20 +42,19 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
     fgDirtyElement(&self->element.transform);
     return 1;
   case FG_SETFONT:
-    switch(msg->subtype)
-    {
-    case FGTEXT_FONT:
-      if(self->font) fgDestroyFont(self->font);
-      self->font = 0;
-      if(msg->other) self->font = fgCloneFontDPI(msg->other, _sendmsg<FG_GETDPI>(*self));
-      break;
-    case FGTEXT_LINEHEIGHT:
-      self->lineheight = msg->otherf;
-      break;
-    case FGTEXT_LETTERSPACING:
-      self->letterspacing = msg->otherf;
-      break;
-    }
+    if(self->font) fgDestroyFont(self->font);
+    self->font = 0;
+    if(msg->other) self->font = fgCloneFontDPI(msg->other, _sendmsg<FG_GETDPI>(*self));
+    fgText_Recalc(self);
+    fgDirtyElement(&self->element.transform);
+    break;
+  case FG_SETLINEHEIGHT:
+    self->lineheight = msg->otherf;
+    fgText_Recalc(self);
+    fgDirtyElement(&self->element.transform);
+    break;
+  case FG_SETLETTERSPACING:
+    self->letterspacing = msg->otherf;
     fgText_Recalc(self);
     fgDirtyElement(&self->element.transform);
     break;
@@ -66,12 +65,11 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
   case FG_GETTEXT:
     return (size_t)self->text;
   case FG_GETFONT:
-    switch(msg->subtype)
-    {
-    case FGTEXT_FONT: return reinterpret_cast<size_t>(self->font);
-    case FGTEXT_LINEHEIGHT: return *reinterpret_cast<size_t*>(&self->lineheight);
-    case FGTEXT_LETTERSPACING: return *reinterpret_cast<size_t*>(&self->letterspacing);
-    }
+    return reinterpret_cast<size_t>(self->font);
+  case FG_GETLINEHEIGHT:
+    return *reinterpret_cast<size_t*>(&self->lineheight);
+  case FG_GETLETTERSPACING:
+    return *reinterpret_cast<size_t*>(&self->letterspacing);
   case FG_GETCOLOR:
     return self->color.color;
   case FG_MOVE:

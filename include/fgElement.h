@@ -37,7 +37,8 @@ struct _FG_STYLE;
 struct _FG_SKIN;
 struct _FG_LAYOUT;
 typedef fgDeclareVector(struct _FG_ELEMENT*, Element) fgVectorElement;
-typedef struct _FG_ELEMENT* (*FN_MAPPING)(const char*, fgFlag, struct _FG_ELEMENT*, struct _FG_ELEMENT*, const fgTransform*);
+typedef struct _FG_ELEMENT* (*FN_MAPPING)(const char*, struct _FG_ELEMENT*, struct _FG_ELEMENT*, const char*, fgFlag, const fgTransform*);
+
 typedef void(FG_FASTCALL *FN_LISTENER)(struct _FG_ELEMENT*, const FG_Msg*);
 
 typedef struct _FG_ELEMENT {
@@ -62,7 +63,7 @@ typedef struct _FG_ELEMENT {
   fgFlag flags;
   const struct _FG_SKIN* skin; // skin reference
   fgVectorElement skinrefs; // Type: fgElement* - References to skin children or subcontrols.
-  int prechild; // stores where the last preallocated subcontrol reference is in skinrefs.
+  char* name; // Optional name used for mapping to skin collections
   FG_UINT style; // Set to -1 if no style has been assigned, in which case the style from its parent will be used.
   FG_UINT userid;
   void* userdata;
@@ -142,10 +143,9 @@ typedef struct _FG_ELEMENT {
 #endif
 } fgElement;
 
-FG_EXTERN void FG_FASTCALL fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform, void (FG_FASTCALL *destroy)(void*), size_t(FG_FASTCALL *message)(void*, const FG_Msg*));
-FG_EXTERN void FG_FASTCALL fgElement_Init(fgElement* BSS_RESTRICT self, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform);
+FG_EXTERN void FG_FASTCALL fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, void (FG_FASTCALL *destroy)(void*), size_t(FG_FASTCALL *message)(void*, const FG_Msg*));
+FG_EXTERN void FG_FASTCALL fgElement_Init(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
 FG_EXTERN void FG_FASTCALL fgElement_Destroy(fgElement* self);
-FG_EXTERN void FG_FASTCALL fgElement_SetParent(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev);
 FG_EXTERN size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg);
 FG_EXTERN fgElement* FG_FASTCALL fgElement_GetChildUnderMouse(fgElement* self, int x, int y, AbsRect* cache);
 FG_EXTERN void FG_FASTCALL fgElement_ClearListeners(fgElement* self);
@@ -162,10 +162,9 @@ FG_EXTERN void FG_FASTCALL ResolveRect(const fgElement* self, AbsRect* out);
 FG_EXTERN void FG_FASTCALL ResolveRectCache(const fgElement* self, AbsRect* BSS_RESTRICT out, const AbsRect* BSS_RESTRICT last, const AbsRect* BSS_RESTRICT padding);
 FG_EXTERN char FG_FASTCALL MsgHitCRect(const FG_Msg* msg, const fgElement* child);
 FG_EXTERN void FG_FASTCALL LList_RemoveAll(fgElement* self);
-FG_EXTERN void FG_FASTCALL LList_InsertAll(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT prev);
+FG_EXTERN void FG_FASTCALL LList_InsertAll(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT next);
 FG_EXTERN void FG_FASTCALL VirtualFreeChild(fgElement* self);
 FG_EXTERN void FG_FASTCALL fgElement_Clear(fgElement* self);
-FG_EXTERN void FG_FASTCALL fgElement_AddPreChild(fgElement* self, fgElement* child);
 FG_EXTERN void FG_FASTCALL fgElement_MouseMoveCheck(fgElement* self);
 FG_EXTERN void FG_FASTCALL fgElement_AddListener(fgElement* self, unsigned short type, FN_LISTENER listener);
 

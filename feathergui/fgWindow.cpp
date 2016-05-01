@@ -15,52 +15,52 @@ size_t FG_FASTCALL fgWindow_CloseMessage(fgButton* self, const FG_Msg* msg)
 size_t FG_FASTCALL fgWindow_MaximizeMessage(fgButton* self, const FG_Msg* msg)
 {
   if(msg->type == FG_ACTION)
-    fgIntMessage(self->control.element.parent, FG_ACTION, !memcmp(&self->control.element.parent->transform, &fgTransform_DEFAULT, sizeof(fgTransform))? FGWINDOW_RESTORE : FGWINDOW_MAXIMIZE, 0);
+    fgIntMessage(self->control.element.parent, FG_ACTION, !memcmp(&self->control.element.parent->transform, &fgTransform_DEFAULT, sizeof(fgTransform)) ? FGWINDOW_RESTORE : FGWINDOW_MAXIMIZE, 0);
   return fgButton_Message(self, msg);
 }
 
 size_t FG_FASTCALL fgWindow_MinimizeMessage(fgButton* self, const FG_Msg* msg)
 {
   if(msg->type == FG_ACTION)
-    fgIntMessage(self->control.element.parent, FG_ACTION, (self->control.element.parent->flags&FGELEMENT_HIDDEN)? FGWINDOW_UNMINIMIZE : FGWINDOW_MINIMIZE, 0);
+    fgIntMessage(self->control.element.parent, FG_ACTION, (self->control.element.parent->flags&FGELEMENT_HIDDEN) ? FGWINDOW_UNMINIMIZE : FGWINDOW_MINIMIZE, 0);
   return fgButton_Message(self, msg);
 }
 
 void FG_FASTCALL fgWindow_Init(fgWindow* self, fgFlag flags, const fgTransform* transform)
 {
-  fgElement_InternalSetup(*self, flags, 0, 0, transform, (FN_DESTROY)&fgWindow_Destroy, (FN_MESSAGE)&fgWindow_Message);
+  fgElement_InternalSetup(*self, 0, 0, 0, flags, transform, (FN_DESTROY)&fgWindow_Destroy, (FN_MESSAGE)&fgWindow_Message);
 }
 void FG_FASTCALL fgWindow_Destroy(fgWindow* self)
-{  
+{
   fgControl_Destroy((fgControl*)self);
 }
 
 size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
 {
-  assert(self!=0 && msg!=0);
+  assert(self != 0 && msg != 0);
 
   switch(msg->type)
   {
   case FG_CONSTRUCT:
     fgControl_Message((fgControl*)self, msg);
     self->dragged = 0;
-    fgText_Init(&self->caption, 0, 0, 0, FGELEMENT_BACKGROUND | FGELEMENT_IGNORE | FGELEMENT_EXPAND, *self, 0, 0);
-    fgButton_Init(&self->controls[0], FGELEMENT_BACKGROUND, *self, 0, 0);
-    fgButton_Init(&self->controls[1], FGELEMENT_BACKGROUND, *self, 0, 0);
-    fgButton_Init(&self->controls[2], FGELEMENT_BACKGROUND, *self, 0, 0);
-    fgElement_AddPreChild(*self, self->caption);
-    fgElement_AddPreChild(*self, self->controls[0]);
-    fgElement_AddPreChild(*self, self->controls[1]);
-    fgElement_AddPreChild(*self, self->controls[2]);
+    fgText_Init(&self->caption, 0, 0, 0, *self, 0, "fgWindow:text", FGELEMENT_BACKGROUND | FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0);
+    fgButton_Init(&self->controls[0], *self, 0, "fgWindow:close", FGELEMENT_BACKGROUND, 0);
+    fgButton_Init(&self->controls[1], *self, 0, "fgWindow:restore", FGELEMENT_BACKGROUND, 0);
+    fgButton_Init(&self->controls[2], *self, 0, "fgWindow:minimize", FGELEMENT_BACKGROUND, 0);
     self->controls[0].control.element.message = (FN_MESSAGE)&fgWindow_CloseMessage;
     self->controls[1].control.element.message = (FN_MESSAGE)&fgWindow_MaximizeMessage;
     self->controls[2].control.element.message = (FN_MESSAGE)&fgWindow_MinimizeMessage;
     return 1;
   case FG_SETTEXT:
   case FG_SETFONT:
+  case FG_SETLINEHEIGHT:
+  case FG_SETLETTERSPACING:
   case FG_SETCOLOR:
   case FG_GETTEXT:
   case FG_GETFONT:
+  case FG_GETLINEHEIGHT:
+  case FG_GETLETTERSPACING:
   case FG_GETCOLOR:
     return fgPassMessage(self->caption, msg);
   case FG_MOUSEDBLCLICK:
@@ -84,8 +84,8 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
       // Check for move
       if(msg->y < out.top + self->control.element.padding.top)
       {
-        self->offset.x = msg->x;
-        self->offset.y = msg->y;
+        self->offset.x = (FABS)msg->x;
+        self->offset.y = (FABS)msg->y;
         self->dragged = 1;
       }
 
@@ -97,12 +97,11 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
     }
     break;
   case FG_MOUSEMOVE:
-    if(self->dragged&1) // window is being moved around
+    if(self->dragged & 1) // window is being moved around
     {
-      AbsVec v = { msg->x, msg->y };
+      AbsVec v = { (FABS)msg->x, (FABS)msg->y };
       CRect area = self->control.element.transform.area;
-      AbsVec dv = { v.x - self->offset.x + area.left.abs, v.y - self->offset.y + area.top.abs };
-      MoveCRect(dv, &area);
+      MoveCRect(v.x - self->offset.x + area.left.abs, v.y - self->offset.y + area.top.abs, &area);
       self->offset = v;
       _sendmsg<FG_SETAREA, void*>(*self, &area);
       _sendmsg<FG_SETAREA, void*>(*self, &area);
@@ -140,5 +139,5 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
   case FG_GETCLASSNAME:
     return (size_t)"fgWindow";
   }
-  return fgControl_Message((fgControl*)self,msg);
+  return fgControl_Message((fgControl*)self, msg);
 }

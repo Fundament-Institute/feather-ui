@@ -31,7 +31,7 @@ enum FGSCROLLBAR_ACTIONS
 // A Scrollbar area acts as a clipping area for a single fgElement.
 typedef struct {
   fgControl control;
-  fgButton btn[6]; // 0 - up arrow, 1 - down arrow, 2 - vertical slider, 3 - right arrow, 4 - left arrow, 6 - horz slider
+  fgButton btn[6]; // 0 - up arrow, 1 - down arrow, 2 - vertical slider, 3 - right arrow, 4 - left arrow, 5 - horz slider
   fgElement bg[2]; // 0 - vertical background, 1 - horizontal background
   CVec maxdim;
   AbsRect realpadding; // We have to intercept and store padding amounts here because we hijack the padding to perform scrolling
@@ -43,7 +43,7 @@ typedef struct {
 #endif
 } fgScrollbar;
 
-FG_EXTERN void FG_FASTCALL fgScrollbar_Init(fgScrollbar* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform, FG_UINT id, fgFlag flags);
+FG_EXTERN void FG_FASTCALL fgScrollbar_Init(fgScrollbar* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
 FG_EXTERN void FG_FASTCALL fgScrollbar_Destroy(fgScrollbar* self);
 FG_EXTERN size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg);
 

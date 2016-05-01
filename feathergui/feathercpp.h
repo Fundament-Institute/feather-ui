@@ -71,10 +71,10 @@ char DynArrayRemove(T& a, FG_UINT index)
   return 1;
 }
 
-typedef bss_util::cDynArray<typename fgConstruct<fgStyleLayout, const char*, const fgTransform*, fgFlag>::fgConstructor<fgStyleLayout_Destroy, fgStyleLayout_Init>, size_t, bss_util::CARRAY_CONSTRUCT> fgStyleLayoutArray;
+typedef bss_util::cDynArray<typename fgConstruct<fgStyleLayout, const char*, const char*, fgFlag, const fgTransform*>::fgConstructor<fgStyleLayout_Destroy, fgStyleLayout_Init>, size_t, bss_util::CARRAY_CONSTRUCT> fgStyleLayoutArray;
 typedef bss_util::cDynArray<typename fgConstruct<fgSkin, int>::fgConstructor<fgSkin_Destroy, fgSubskin_Init>, size_t, bss_util::CARRAY_CONSTRUCT> fgSubskinArray;
 typedef bss_util::cDynArray<typename fgConstruct<fgStyle>::fgConstructor<fgStyle_Destroy, fgStyle_Init>, size_t, bss_util::CARRAY_CONSTRUCT> fgStyleArray;
-typedef bss_util::cDynArray<typename fgConstruct<fgClassLayout, const char*, const fgTransform*, fgFlag>::fgConstructor<fgClassLayout_Destroy, fgClassLayout_Init>, size_t, bss_util::CARRAY_CONSTRUCT> fgClassLayoutArray;
+typedef bss_util::cDynArray<typename fgConstruct<fgClassLayout, const char*, const char*, fgFlag, const fgTransform*>::fgConstructor<fgClassLayout_Destroy, fgClassLayout_Init>, size_t, bss_util::CARRAY_CONSTRUCT> fgClassLayoutArray;
 
 struct __kh_fgRadioGroup_t;
 extern __inline struct __kh_fgRadioGroup_t* fgRadioGroup_init();

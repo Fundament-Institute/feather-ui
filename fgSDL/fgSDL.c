@@ -89,15 +89,15 @@ void FG_FASTCALL fgResourceSize(void* res, const CRect* uv, AbsVec* dim, fgFlag 
   ((fgElement*)r)->free = &free; \
   return (fgElement*)r
 
-fgElement* FG_FASTCALL fgResource_Create(void* res, const CRect* uv, unsigned int color, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform)
+fgElement* FG_FASTCALL fgResource_Create(void* res, const CRect* uv, unsigned int color, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const fgTransform* transform)
 {
   DEFAULT_CREATE(fgResource, fgResource_Init, res, uv, color, flags, parent, prev, transform);
 }
-fgElement* FG_FASTCALL fgText_Create(char* text, void* font, unsigned int color, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform)
+fgElement* FG_FASTCALL fgText_Create(char* text, void* font, unsigned int color, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const fgTransform* transform)
 {
   DEFAULT_CREATE(fgText, fgText_Init, text, font, color, flags, parent, prev, transform);
 }
-fgElement* FG_FASTCALL fgButton_Create(fgElement* item, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform)
+fgElement* FG_FASTCALL fgButton_Create(fgElement* item, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const fgTransform* transform)
 {
   DEFAULT_CREATE(fgButton, fgButton_Init, flags, parent, prev, transform);
 }

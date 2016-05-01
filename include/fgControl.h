@@ -17,7 +17,6 @@ struct _FG_SKIN;
 typedef struct _FG_CONTROL {
   fgElement element;
   struct _FG_MENU* contextmenu;
-  char* name; // Optional name used for mapping to skin collections
   struct _FG_CONTROL* tabnext;
   struct _FG_CONTROL* tabprev;
   struct _FG_CONTROL* sidenext;
@@ -32,7 +31,7 @@ FG_EXTERN fgElement* fgFocusedWindow;
 FG_EXTERN fgElement* fgLastHover; // Last window the mouse moved over, used to generate MOUSEON and MOUSEOFF events
 FG_EXTERN fgElement* fgCaptureWindow;
 
-FG_EXTERN void FG_FASTCALL fgControl_Init(fgControl* BSS_RESTRICT self, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform);
+FG_EXTERN void FG_FASTCALL fgControl_Init(fgControl* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
 FG_EXTERN void FG_FASTCALL fgControl_Destroy(fgControl* self);
 FG_EXTERN size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg);
 FG_EXTERN size_t FG_FASTCALL fgControl_HoverMessage(fgControl* self, const FG_Msg* msg);

@@ -1,6 +1,42 @@
-<fgLayout xmlns:feather="feather.xsd" skin="skin.json">
-  <fgText left="|0" top="200|" width="|1" bottom="300|" rotation="0" center="|0.5,|0.5" flags="IGNORE|BACKGROUND" color="0xFFFFFFFF" font="arial;14" text="placeholder" />
-  <fgTopWindow area="200|0,200|0,300|0,400|0"  center="10|0.5,10|0.5" text="Feather GUI">
-    <fgButton area="100|0,100|0,150|0,200|0" text="Press me!" />
-  </fgTopWindow>
-</fgLayout>
+<?xml version="1.0" encoding="UTF-8"?>
+<fg:Layout xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:fg="featherGUI" xsi:schemaLocation="featherGUI feather.xsd" skin="feather_skin.xml">
+  <Text left=":0" top="200.0:" width=":1.0" bottom="300:" rotation="0" center=":0.5,:0.5" flags="IGNORE|BACKGROUND" color="0xFFFFFFFF" font="arial;14" text="placeholder" />
+  <Window area="200:0,200:0,300:0,400:0"  center="10:0.5,10:0.5" text="Feather GUI">
+    <Button area="100:0,100:0,150:0,200:0" text="Press me!" />
+    <Menu>
+      <MenuItem>
+        <Text text="File" />
+        <Menu>
+          <MenuItem><Text text="New" /></MenuItem>
+          <MenuItem><Text text="Open" /></MenuItem>
+          <MenuItem><Text text="Save" /></MenuItem>
+          <MenuItem><Text text="Save As..." /></MenuItem>
+        </Menu>
+      </MenuItem>
+      <MenuItem>
+        <Text text="Help" />
+        <Menu>
+          <MenuItem><Text text="About" /></MenuItem>
+        </Menu>
+      </MenuItem>
+      <MenuItem><Text text="Test" /></MenuItem>
+    </Menu>
+    <TreeView>
+      <TreeItem>
+        <Text text="Folder" />
+        <TreeItem>
+          <Text text="Subfolder" />
+          <TreeItem>
+            <Text text="File 1" />
+          </TreeItem>
+          <TreeItem>
+            <Text text="File 2" />
+          </TreeItem>
+          <TreeItem>
+            <Text text="File 3" />
+          </TreeItem>
+        </TreeItem>
+      </TreeItem>
+    </TreeView>
+  </Window>
+</fg:Layout>

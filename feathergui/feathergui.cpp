@@ -68,21 +68,13 @@ char FG_FASTCALL CompareTransforms(const fgTransform* l, const fgTransform* r)
     | ((l->rotation != r->rotation) << 7);
 }
 
-void FG_FASTCALL MoveCRect(AbsVec v, CRect* r)
+void FG_FASTCALL MoveCRect(FABS x, FABS y, CRect* r)
 {
   AbsVec d = { r->right.abs - r->left.abs, r->bottom.abs - r->top.abs };
-  r->left.abs = v.x;
-  r->top.abs = v.y;
-  r->right.abs = v.x + d.x;
-  r->bottom.abs = v.y + d.y;
-}
-void FG_FASTCALL MoveCRectInv(AbsVec v, CRect* r)
-{
-  AbsVec d = { r->bottom.abs - r->top.abs, r->right.abs - r->left.abs };
-  r->left.abs = v.y;
-  r->top.abs = v.x;
-  r->right.abs = v.y + d.x;
-  r->bottom.abs = v.x + d.y;
+  r->left.abs = x;
+  r->top.abs = y;
+  r->right.abs = x + d.x;
+  r->bottom.abs = y + d.y;
 }
 
 void FG_FASTCALL ToIntAbsRect(const AbsRect* r, int target[4])

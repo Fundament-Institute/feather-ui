@@ -19,8 +19,8 @@ typedef struct {
 #endif
 } fgDropdown;
 
-FG_EXTERN fgControl* FG_FASTCALL fgDropdown_Create(fgControl* parent, const fgTransform* transform, fgFlag flags);
-FG_EXTERN void FG_FASTCALL fgDropdown_Init(fgDropdown* self, fgControl* parent, const fgTransform* transform, fgFlag flags);
+FG_EXTERN fgControl* FG_FASTCALL fgDropdown_Create(fgControl* parent, fgFlag flags, const fgTransform* transform);
+FG_EXTERN void FG_FASTCALL fgDropdown_Init(fgDropdown* self, fgControl* parent, fgFlag flags, const fgTransform* transform);
 FG_EXTERN char FG_FASTCALL fgDropdown_Message(fgDropdown* self, const FG_Msg* msg);
 
 #ifdef  __cplusplus

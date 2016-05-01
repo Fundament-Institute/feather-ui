@@ -29,8 +29,8 @@ typedef struct {
 #endif
 } fgTextbox;
 
-FG_EXTERN fgControl* FG_FASTCALL fgTextbox_Create(fgControl* parent, const fgTransform* transform, FG_UINT id, fgFlag flags);
-FG_EXTERN void FG_FASTCALL fgTextbox_Init(fgTextbox* self, fgControl* parent, const fgTransform* transform, FG_UINT id, fgFlag flags);
+FG_EXTERN fgControl* FG_FASTCALL fgTextbox_Create(fgControl* parent, fgFlag flags, const fgTransform* transform);
+FG_EXTERN void FG_FASTCALL fgTextbox_Init(fgTextbox* self, fgControl* parent, fgFlag flags, const fgTransform* transform);
 FG_EXTERN char FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg);
 
 #ifdef  __cplusplus

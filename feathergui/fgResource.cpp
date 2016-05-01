@@ -5,9 +5,9 @@
 #include <stdio.h>
 #include "feathercpp.h"
 
-void FG_FASTCALL fgResource_Init(fgResource* self, void* res, const CRect* uv, unsigned int color, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform)
+void FG_FASTCALL fgResource_Init(fgResource* self, void* res, const CRect* uv, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  fgElement_InternalSetup(*self, flags, parent, prev, transform, (FN_DESTROY)&fgResource_Destroy, (FN_MESSAGE)&fgResource_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (FN_DESTROY)&fgResource_Destroy, (FN_MESSAGE)&fgResource_Message);
   if(color) fgIntMessage(*self, FG_SETCOLOR, color, 0);
   if(uv) _sendmsg<FG_SETUV, void*>(*self, (void*)uv);
   if(res) _sendmsg<FG_SETRESOURCE, void*>(*self, res);

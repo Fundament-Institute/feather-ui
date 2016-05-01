@@ -9,9 +9,9 @@ fgElement* fgFocusedWindow = 0;
 fgElement* fgLastHover = 0;
 fgElement* fgCaptureWindow = 0;
 
-void FG_FASTCALL fgControl_Init(fgControl* BSS_RESTRICT self, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform)
+void FG_FASTCALL fgControl_Init(fgControl* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  fgElement_InternalSetup(&self->element, flags, parent, prev, transform, (FN_DESTROY)&fgControl_Destroy, (FN_MESSAGE)&fgControl_Message);
+  fgElement_InternalSetup(&self->element, parent, next, name, flags, transform, (FN_DESTROY)&fgControl_Destroy, (FN_MESSAGE)&fgControl_Message);
 }
 
 void FG_FASTCALL fgControl_Destroy(fgControl* self)
@@ -24,7 +24,6 @@ void FG_FASTCALL fgControl_Destroy(fgControl* self)
   self->tabnext = self->tabprev = 0;
   self->sidenext = self->sideprev = 0;
 
-  if(self->name) free(self->name);
   fgElement_Destroy(&self->element);
 }
 
@@ -49,7 +48,6 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     fgElement_Message(*self, msg);
     self->contextmenu = 0;
-    self->name = 0;
     self->tabnext = self->tabprev = self; // This creates an infinite loop of tabbing
     self->sidenext = self->sideprev = self;
     return 1;
@@ -120,7 +118,6 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
     if(!hold)
       hold = (fgControl*)malloc(sizeof(fgControl));
     hold->contextmenu = hold->contextmenu;
-    _sendmsg<FG_SETNAME, void*>(*hold, self->name);
 
     FG_Msg m = *msg;
     m.other = hold;
@@ -129,13 +126,6 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
   return 0;
   case FG_GETCLASSNAME:
     return (size_t)"fgControl";
-  case FG_SETNAME:
-    if(self->name) free(self->name);
-    self->name = fgCopyText((const char*)msg->other);
-    _sendmsg<FG_SETSKIN, void*>(*self, 0); // force the skin to be recalculated
-    return 1;
-  case FG_GETNAME:
-    return (size_t)self->name;
   }
   return fgElement_Message(*self, msg);
 }

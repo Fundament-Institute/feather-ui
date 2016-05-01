@@ -5,7 +5,7 @@
 #include "bss-util\bss_util.h"
 #include "feathercpp.h"
 
-FG_EXTERN void FG_FASTCALL fgTreeView_Init(fgTreeView* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform, FG_UINT id, fgFlag flags)
+FG_EXTERN void FG_FASTCALL fgTreeView_Init(fgTreeView* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
 
 }

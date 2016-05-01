@@ -14,23 +14,37 @@ BSS_FORCEINLINE char CompPairInOrder(const std::pair<U, V>& l, const std::pair<U
 typedef bss_util::cDynArray<fgElement*, FG_UINT> fgSkinRefArray;
 bss_util::cAVLtree<std::pair<fgElement*, unsigned short>, void, &CompPairInOrder> fgListenerList;
 
-void FG_FASTCALL fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform, void (FG_FASTCALL *destroy)(void*), size_t(FG_FASTCALL *message)(void*, const FG_Msg*))
+void FG_FASTCALL fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, void (FG_FASTCALL *destroy)(void*), size_t(FG_FASTCALL *message)(void*, const FG_Msg*))
 {
   assert(self != 0);
   memset(self, 0, sizeof(fgElement));
   self->destroy = destroy;
   self->free = 0;
+  self->name = fgCopyText(name);
   self->message = message;
   self->flags = flags;
   self->style = (FG_UINT)-1;
   if(transform) self->transform = *transform;
   _sendmsg<FG_CONSTRUCT>(self);
-  _sendmsg<FG_SETPARENT, void*, void*>(self, parent, prev);
+  _sendmsg<FG_SETPARENT, void*, void*>(self, parent, next);
 }
 
-void FG_FASTCALL fgElement_Init(fgElement* BSS_RESTRICT self, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform)
+void FG_FASTCALL fgElement_Init(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  fgElement_InternalSetup(self, flags, parent, prev, transform, (FN_DESTROY)&fgElement_Destroy, (FN_MESSAGE)&fgElement_Message);
+  fgElement_InternalSetup(self, parent, next, name, flags, transform, (FN_DESTROY)&fgElement_Destroy, (FN_MESSAGE)&fgElement_Message);
+}
+
+void FG_FASTCALL fgElement_RemoveParent(fgElement* BSS_RESTRICT self)
+{
+  if(self->parent != 0)
+  {
+    fgSubMessage(self->parent, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTREMOVE, self, 0);
+    if(self->parent->lastfocus == self)
+      self->parent->lastfocus = 0;
+    LList_RemoveAll(self); // Remove ourselves from our parent
+  }
+  self->next = 0;
+  self->prev = 0;
 }
 
 void FG_FASTCALL fgElement_Destroy(fgElement* self)
@@ -43,47 +57,15 @@ void FG_FASTCALL fgElement_Destroy(fgElement* self)
   if(fgCaptureWindow == self)
     fgCaptureWindow = 0;
 
+  if(self->name) free(self->name);
   fgElement_Clear(self);
-  fgElement_SetParent(self, 0, 0);
+  fgElement_RemoveParent(self);
+  self->parent = 0;
   reinterpret_cast<fgSkinRefArray&>(self->skinrefs).~cDynArray();
   fgElement_ClearListeners(self);
   assert(fgFocusedWindow != self); // If these assertions fail something is wrong with how the message chain is constructed
   assert(fgLastHover != self);
   assert(fgCaptureWindow != self);
-}
-
-void FG_FASTCALL fgElement_SetParent(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev)
-{
-  assert(self != 0);
-  if(self->parent == parent)
-  {
-    if(self->prev != prev)
-    {
-      assert(self->parent != 0);
-      assert(prev->parent == self->parent);
-      fgElement* old = self->prev;
-      LList_RemoveAll(self);
-      LList_InsertAll(self, prev);
-      fgSubMessage(self->parent, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTREORDER, self, (ptrdiff_t)old);
-    }
-    return;
-  }
-  if(self->parent != 0)
-  {
-    fgSubMessage(self->parent, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTREMOVE, self, 0);
-    if(self->parent->lastfocus == self)
-      self->parent->lastfocus = 0;
-    LList_RemoveAll(self); // Remove ourselves from our parent
-  }
-  self->next = 0;
-  self->prev = 0;
-  self->parent = parent;
-
-  if(parent)
-  {
-    LList_InsertAll(self, prev);
-    fgSubMessage(parent, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTADD, self, 0);
-  }
 }
 
 // (1<<1) resize x (2)
@@ -99,9 +81,9 @@ char FG_FASTCALL fgElement_PotentialResize(fgElement* self)
     | ((self->transform.area.top.rel != self->transform.area.bottom.rel) << 2);
 }
 
-fgElement* FG_FASTCALL fgElement_LoadLayout(fgElement* parent, fgElement* prev, fgClassLayout* layout, FN_MAPPING mapping)
+fgElement* FG_FASTCALL fgElement_LoadLayout(fgElement* parent, fgElement* next, fgClassLayout* layout, FN_MAPPING mapping)
 {
-  fgElement* element = (*mapping)(layout->style.name, layout->style.flags, parent, prev, &layout->style.transform);
+  fgElement* element = (*mapping)(layout->style.type, parent, next, layout->style.name, layout->style.flags, &layout->style.transform);
   fgVoidMessage(element, FG_SETSTYLE, &layout->style.style, 2);
 
   fgElement* p = 0;
@@ -244,10 +226,37 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     }
     return 1;
   case FG_SETPARENT:
-    fgElement_SetParent(self, (fgElement*)msg->other, (fgElement*)msg->other2);
-    _sendmsg<FG_SETSKIN>(self); // re-evaluate our skin
+  {
+    fgElement* parent = (fgElement*)msg->other;
+    fgElement* prev = (fgElement*)msg->other2;
+    if(self->parent == parent)
+    {
+      if(self->prev != prev)
+      {
+        assert(self->parent != 0);
+        assert(prev->parent == self->parent);
+        fgElement* old = self->prev;
+        LList_RemoveAll(self);
+        LList_InsertAll(self, prev);
+        fgSubMessage(self->parent, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTREORDER, self, (ptrdiff_t)old);
+      }
+      return 1;
+    }
+    fgElement_RemoveParent(self);
+    self->parent = parent;
+
+    if(parent)
+    {
+      LList_InsertAll(self, prev);
+      _sendmsg<FG_SETSKIN>(self);
+      fgSubMessage(parent, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTADD, self, 0);
+    }
+    else
+      _sendmsg<FG_SETSKIN>(self);
+  }
     fgSubMessage(self, FG_MOVE, FG_SETPARENT, 0, fgElement_PotentialResize(self));
     return 1;
+  case FG_ADDITEM:
   case FG_ADDCHILD:
     hold = (fgElement*)msg->other;
     if(!hold)
@@ -261,11 +270,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
   case FG_LAYOUTCHANGE:
   {
     CRect area = self->transform.area;
-    FG_Msg m = { 0 };
-    m.type = FG_LAYOUTFUNCTION;
-    m.other = (void*)msg;
-    m.other2 = &area;
-    if(fgPassMessage(self, &m) != 0 || (msg->otheraux & (1 << 8)) != 0)
+    if(_sendmsg<FG_LAYOUTFUNCTION, const void*, void*>(self, msg, &area) != 0 || (msg->otheraux & (1 << 8)) != 0)
     {
       if(self->flags&FGELEMENT_EXPANDX)
         area.right.abs += self->padding.left + self->padding.right;
@@ -290,9 +295,9 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     FN_MAPPING mapping = (FN_MAPPING)msg->other2;
     if(!mapping) mapping = &fgLayoutLoadMapping;
 
-    fgElement* prev = self->last;
+    fgElement* next = self->last;
     for(FG_UINT i = 0; i < layout->layout.l; ++i)
-      prev = fgElement_LoadLayout(self, prev, layout->layout.p + i, mapping);
+      next = fgElement_LoadLayout(self, next, layout->layout.p + i, mapping);
   }
   return 1;
   case FG_CLONE:
@@ -312,6 +317,8 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     hold->lastnoclip = 0;
     hold->rootclip = 0;
     hold->lastclip = 0;
+    hold->name = fgCopyText(self->name);
+    hold->SetParent(self->parent, self->prev);
 
     fgElement* cur = self->root;
     while(cur)
@@ -327,31 +334,9 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
   case FG_GETCLASSNAME:
     return (size_t)"fgElement";
   case FG_GETSKIN:
-    if(!msg->other) // If NULL this wasn't a propagation.
-    {
-      if(!self->parent)
-        return (size_t)self->skin;
-
-      int index; // First we check if we're a skin reference, and if we are, check if there is a skin for us.
-      for(index = 0; index < self->parent->skinrefs.l; ++index)
-        if(self->parent->skinrefs.p[index] == self)
-          break;
-      if(index < self->parent->skinrefs.l && self->parent->skin != 0)
-      {
-        index -= self->parent->prechild;
-        if(index < 0) index = -(index + self->parent->prechild + 1); // reverse negative indices so that adding a prechild to a widget does not change existing indices
-        for(FG_UINT i = 0; i < self->parent->skin->subskins.l; ++i)
-        {
-          fgSkin* skin = self->parent->skin->subskins.p + i;
-          if(skin->index == index)
-            return (size_t)skin;
-        }
-      }
-
-      // If not we start propagating up
-      return _sendmsg<FG_GETSKIN, void*>(self->parent, self);
-    }
-    else if(self->skin != 0)
+    if(!msg->other)
+      return (!self->parent) ? reinterpret_cast<size_t>(self->skin) : _sendmsg<FG_GETSKIN, void*>(self->parent, self);
+    if(self->skin != 0)
     {
       hold = (fgElement*)msg->other;
       const char* name = hold->GetName();
@@ -359,28 +344,26 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       {
         fgSkin* skin = fgSkin_GetSkin(self->skin, name);
         if(skin != 0)
-          return (size_t)skin;
+          return reinterpret_cast<size_t>(skin);
       }
       name = hold->GetClassName();
 
       fgSkin* skin = fgSkin_GetSkin(self->skin, name);
       if(skin != 0)
-        return (size_t)skin;
+        return reinterpret_cast<size_t>(skin);
     }
-    if(self->parent != 0)
-      return (*fgroot_instance->behaviorhook)(self->parent, msg);
-    return 0;
+    return (!self->parent)? 0 : fgPassMessage(self->parent, msg);
   case FG_SETSKIN:
   {
     fgSkin* skin = (fgSkin*)(!msg->other ? (void*)_sendmsg<FG_GETSKIN>(self) : msg->other);
     if(self->skin != skin) // only bother changing the skin if there's stuff to change
     {
-      if(self->skin != 0)
+      if(self->skin != 0) // remove existing skin elements
       {
-        for(FG_UINT i = self->prechild; i < self->skinrefs.l; ++i)
+        for(FG_UINT i = 0; i < self->skinrefs.l; ++i)
           _sendmsg<FG_REMOVECHILD, void*>(self, self->skinrefs.p[i]);
       }
-      self->skinrefs.l = self->prechild;
+      self->skinrefs.l = 0;
       self->skin = skin;
       if(self->skin != 0)
       {
@@ -391,7 +374,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
         for(FG_UINT i = 0; i < self->skin->children.l; ++i)
         {
           fgStyleLayout* layout = self->skin->children.p + i;
-          child = (*mapping)(layout->name, layout->flags, self, child, &layout->transform);
+          child = (*mapping)(layout->type, self, child, layout->name, layout->flags, &layout->transform);
           fgVoidMessage(child, FG_SETSTYLE, &layout->style, 2);
           ((fgSkinRefArray&)self->skinrefs).Add(child);
         }
@@ -399,13 +382,13 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       }
     }
 
-    fgElement* cur = self->root; // However, if we get a SETSKIN message, we must pass it to ALL our children no matter what, because they may have gotten new skins we don't know about.
-    while(cur)
+    fgElement* cur = self->root;
+    while(cur) // Because we allow children to look up their entire inheritance tree we must always inform them of skin changes
     {
-      _sendmsg<FG_SETSKIN, void*, void*>(cur, 0, msg->other2); // This will automatically set any subskins we have if necessary.
+      cur->SetSkin(0, (FN_MAPPING)msg->other2);
       cur = cur->next;
     }
-    fgIntMessage(self, FG_SETSTYLE, -1, 1);
+    fgIntMessage(self, FG_SETSTYLE, -1, 1); // force us and our children to recalculate our style based on the new skin
   }
   return 1;
   case FG_SETSTYLE:
@@ -473,10 +456,17 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
   case FG_DRAW:
     fgStandardDraw(self, (AbsRect*)msg->other, msg->otheraux, msg->subtype&1);
     return 1;
+  case FG_SETNAME:
+    if(self->name) free(self->name);
+    self->name = fgCopyText((const char*)msg->other);
+    _sendmsg<FG_SETSKIN, void*>(self, 0); // force the skin to be recalculated
+    return 1;
   case FG_GETNAME:
-    return 0;
+    return (size_t)self->name;
   case FG_GETDPI:
     return self->parent ? _sendmsg<FG_GETDPI>(self->parent) : 0;
+  case FG_GETLINEHEIGHT:
+    return self->parent ? _sendmsg<FG_GETLINEHEIGHT>(self->parent) : 0;
   case FG_SETDPI:
     fgElement* cur = self->root;
     while(hold = cur)
@@ -607,9 +597,9 @@ void FG_FASTCALL LList_Insert(fgElement* self, fgElement* cur, fgElement* prev, 
   else *last = self; // Cur is null if we are at the end of the list, so update last
 }
 
-void FG_FASTCALL LList_InsertAll(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT prev)
+void FG_FASTCALL LList_InsertAll(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT next)
 {
-  fgElement* next = !prev ? self->parent->root : prev->next;
+  fgElement* prev = !next ? self->parent->last : next->prev;
   LList_Insert<fgElement_prev, fgElement_next>(self, next, prev, &self->parent->root, &self->parent->last);
   if(!(self->flags&FGELEMENT_IGNORE))
   {
@@ -792,7 +782,7 @@ void fgLayout_TileReorder(fgElement* prev, fgElement* child, char axis, FABS max
     {
       if(fgLayout_TileSame(axis ? pos.y : pos.x, axis ? pos.x : pos.y, cur) && rowbump)
         break;
-      AbsVec dim = { prev->transform.area.right.abs - prev->transform.area.left.abs, prev->transform.area.bottom.abs - prev->transform.area.top.abs };
+      AbsVec dim = { (cur->transform.area.right.abs - cur->transform.area.left.abs), (cur->transform.area.bottom.abs - cur->transform.area.top.abs) };
       if(axis) { FABS t = dim.x; dim.x = dim.y; dim.y = t; }
 
       if(pos.x + dim.x > max)
@@ -804,9 +794,9 @@ void fgLayout_TileReorder(fgElement* prev, fgElement* child, char axis, FABS max
       }
 
       if(!axis)
-        MoveCRect(pos, &cur->transform.area);
+        MoveCRect(pos.x, pos.y, &cur->transform.area);
       else
-        MoveCRectInv(pos, &cur->transform.area);
+        MoveCRect(pos.y, pos.x, &cur->transform.area);
       pos.x += dim.x;
       if(dim.y > pitch) pitch = dim.y;
     }
@@ -816,10 +806,11 @@ void fgLayout_TileReorder(fgElement* prev, fgElement* child, char axis, FABS max
 
 FABS FG_FASTCALL fgLayout_TileGetPitch(fgElement* cur, char axis)
 {
+  if(!cur) return 0.0f;
   FABS start = (axis ? cur->transform.area.left.abs : cur->transform.area.top.abs);
   FABS dim;
   FABS pitch = 0.0;
-  while((axis ? cur->transform.area.left.abs : cur->transform.area.top.abs) == start)
+  while(cur != 0 && (axis ? cur->transform.area.left.abs : cur->transform.area.top.abs) == start)
   {
     dim = (axis ? cur->transform.area.right.abs : cur->transform.area.bottom.abs) - start;
     if(dim > pitch)
@@ -896,11 +887,6 @@ void FG_FASTCALL fgElement_Clear(fgElement* self)
 {
   while(self->root) // Destroy all children
     VirtualFreeChild(self->root);
-}
-
-void FG_FASTCALL fgElement_AddPreChild(fgElement* self, fgElement* child)
-{
-  ((fgSkinRefArray&)self->skinrefs).Insert(child, self->prechild++);
 }
 
 fgElement* FG_FASTCALL fgElement_GetChildUnderMouse(fgElement* self, int x, int y, AbsRect* cache)
@@ -980,7 +966,7 @@ size_t FG_FASTCALL fgElement::SetMargin(const AbsRect& margin) { return _sendmsg
 
 size_t FG_FASTCALL fgElement::SetPadding(const AbsRect& padding) { return _sendmsg<FG_SETPADDING, const void*>(this, &padding); }
 
-void FG_FASTCALL fgElement::SetParent(fgElement* parent, fgElement* prev) { _sendmsg<FG_SETPARENT, void*, void*>(this, parent, prev); }
+void FG_FASTCALL fgElement::SetParent(fgElement* parent, fgElement* next) { _sendmsg<FG_SETPARENT, void*, void*>(this, parent, next); }
 
 size_t FG_FASTCALL fgElement::AddChild(fgElement* child) { return _sendmsg<FG_ADDCHILD, void*>(this, child); }
 
@@ -1192,6 +1178,10 @@ size_t FG_FASTCALL fgElement::SetOutline(float outline) { return _sendmsg<FG_SET
 
 size_t FG_FASTCALL fgElement::SetFont(void* font) { return _sendmsg<FG_SETFONT, void*>(this, font); }
 
+size_t FG_FASTCALL fgElement::SetLineHeight(float lineheight) { return _sendmsg<FG_SETLINEHEIGHT, float>(this, lineheight); }
+
+size_t FG_FASTCALL fgElement::SetLetterSpacing(float letterspacing) { return _sendmsg<FG_SETLETTERSPACING, float>(this, letterspacing); }
+
 size_t FG_FASTCALL fgElement::SetText(const char* text) { return _sendmsg<FG_SETTEXT, const void*>(this, text); }
 
 void* fgElement::GetResource() { return reinterpret_cast<void*>(_sendmsg<FG_GETRESOURCE>(this)); }
@@ -1203,6 +1193,10 @@ unsigned int FG_FASTCALL fgElement::GetColor(int index) { return (unsigned int)_
 float fgElement::GetOutline() { return *reinterpret_cast<float*>(_sendmsg<FG_GETOUTLINE>(this)); }
 
 void* fgElement::GetFont() { return reinterpret_cast<void*>(_sendmsg<FG_GETFONT>(this)); }
+
+float fgElement::GetLineHeight() { size_t r = _sendmsg<FG_GETLINEHEIGHT>(this); return *reinterpret_cast<float*>(&r); }
+
+float fgElement::GetLetterSpacing() { size_t r = _sendmsg<FG_GETLETTERSPACING>(this); return *reinterpret_cast<float*>(&r); }
 
 const char* fgElement::GetText() { return reinterpret_cast<const char*>(_sendmsg<FG_GETTEXT>(this)); }
 

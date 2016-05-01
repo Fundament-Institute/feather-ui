@@ -9,7 +9,7 @@ void FG_FASTCALL fgMonitor_Init(fgMonitor* BSS_RESTRICT self, fgFlag flags, fgRo
 {
   float scale = (!dpi || !parent->dpi) ? 1.0 : (parent->dpi / (float)dpi);
   fgTransform transform = { coverage->left*scale, 0, coverage->top*scale, 0, coverage->right*scale, 0, coverage->bottom*scale, 0, 0, 0, 0 };
-  fgElement_InternalSetup(&self->element, flags, *parent, &prev->element, &transform, (FN_DESTROY)&fgMonitor_Destroy, (FN_MESSAGE)&fgMonitor_Message);
+  fgElement_InternalSetup(&self->element, *parent, &prev->element, 0, flags, &transform, (FN_DESTROY)&fgMonitor_Destroy, (FN_MESSAGE)&fgMonitor_Message);
   self->coverage = *coverage;
   self->dpi = dpi;
   self->mnext = !prev ? parent->monitors : 0;

@@ -20,8 +20,8 @@ typedef struct {
 #endif
 } fgTabGroup;
 
-FG_EXTERN fgControl* FG_FASTCALL fgTabGroup_Create(fgControl* parent, const fgTransform* transform, FG_UINT id, fgFlag flags);
-FG_EXTERN void FG_FASTCALL fgTabGroup_Init(fgTabGroup* self, fgControl* parent, const fgTransform* transform, FG_UINT id, fgFlag flags);
+FG_EXTERN fgControl* FG_FASTCALL fgTabGroup_Create(fgControl* parent, fgFlag flags, const fgTransform* transform);
+FG_EXTERN void FG_FASTCALL fgTabGroup_Init(fgTabGroup* self, fgControl* parent, fgFlag flags, const fgTransform* transform);
 FG_EXTERN char FG_FASTCALL fgTabGroup_Message(fgTabGroup* self, const FG_Msg* msg);
 
 #ifdef  __cplusplus

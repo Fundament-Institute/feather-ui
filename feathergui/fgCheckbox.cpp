@@ -5,9 +5,9 @@
 #include "fgSkin.h"
 #include "feathercpp.h"
 
-FG_EXTERN void FG_FASTCALL fgCheckbox_Init(fgCheckbox* BSS_RESTRICT self, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform)
+FG_EXTERN void FG_FASTCALL fgCheckbox_Init(fgCheckbox* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  fgElement_InternalSetup(*self, flags, parent, prev, transform, (FN_DESTROY)&fgCheckbox_Destroy, (FN_MESSAGE)&fgCheckbox_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (FN_DESTROY)&fgCheckbox_Destroy, (FN_MESSAGE)&fgCheckbox_Message);
 }
 FG_EXTERN void FG_FASTCALL fgCheckbox_Destroy(fgCheckbox* self)
 {
@@ -20,22 +20,11 @@ FG_EXTERN size_t FG_FASTCALL fgCheckbox_Message(fgCheckbox* self, const FG_Msg* 
   {
   case FG_CONSTRUCT:
     fgControl_HoverMessage(&self->control, msg);
-    fgElement_Init(&self->check, FGELEMENT_EXPAND | FGELEMENT_IGNORE | FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN, *self, 0, 0);
-    fgElement_AddPreChild(*self, &self->check);
-    fgElement_Init(&self->indeterminate, FGELEMENT_EXPAND | FGELEMENT_IGNORE | FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN, *self, 0, 0);
-    fgElement_AddPreChild(*self, &self->indeterminate);
-    fgText_Init(&self->text, 0, 0, 0, FGELEMENT_EXPAND | FGELEMENT_IGNORE, *self, 0, &fgTransform_CENTER);
-    fgElement_AddPreChild(*self, self->text);
-    fgElement_Init(&self->item, FGELEMENT_EXPAND | FGELEMENT_IGNORE, *self, 0, &fgTransform_CENTER);
-    fgElement_AddPreChild(*self, &self->item);
+    fgElement_Init(&self->check, *self, 0, "fgCheckbox:check", FGELEMENT_EXPAND | FGELEMENT_IGNORE | FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN, 0);
+    fgElement_Init(&self->indeterminate, *self, 0, "fgCheckbox:indeterminate", FGELEMENT_EXPAND | FGELEMENT_IGNORE | FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN, 0);
+    fgText_Init(&self->text, 0, 0, 0, *self, 0, "fgCheckbox:text", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
     _sendmsg<FG_SETSTYLE, void*>(*self, "nuetral");
     self->checked = 0;
-    return 1;
-  case FG_ADDITEM:
-    if(msg->other)
-      _sendmsg<FG_ADDCHILD, void*>(&self->item, msg->other);
-    else
-      fgElement_Clear(&self->item);
     return 1;
   case FG_NUETRAL:
     _sendmsg<FG_SETSTYLE, void*>(*self, "nuetral");
@@ -58,9 +47,13 @@ FG_EXTERN size_t FG_FASTCALL fgCheckbox_Message(fgCheckbox* self, const FG_Msg* 
     return self->checked;
   case FG_SETTEXT:
   case FG_SETFONT:
+  case FG_SETLINEHEIGHT:
+  case FG_SETLETTERSPACING:
   case FG_SETCOLOR:
   case FG_GETTEXT:
   case FG_GETFONT:
+  case FG_GETLINEHEIGHT:
+  case FG_GETLETTERSPACING:
   case FG_GETCOLOR:
     return fgPassMessage(self->text, msg);
   case FG_GETCLASSNAME:

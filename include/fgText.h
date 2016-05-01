@@ -19,10 +19,6 @@ enum FGTEXT_FLAGS
   FGTEXT_RIGHTALIGN = (1 << 12),
   FGTEXT_CENTER = (1 << 13), // Text horizontal centering behaves differently, because it centers each individual line.
   FGTEXT_SUBPIXEL = (1 << 14), // Indicates this text should try to render with LCD subpixel hinting.
-
-  FGTEXT_FONT = 0, // These are subtypes that can be passed to SETFONT to set different aspects of the font
-  FGTEXT_LINEHEIGHT = 1,
-  FGTEXT_LETTERSPACING = 2,
 };
 
 // fgText stores a string and renders it according to the font and fontcolor that it has.
@@ -40,8 +36,8 @@ typedef struct {
 #endif
 } fgText;
 
-FG_EXTERN fgElement* FG_FASTCALL fgText_Create(char* text, void* font, unsigned int color, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform);
-FG_EXTERN void FG_FASTCALL fgText_Init(fgText* self, char* text, void* font, unsigned int color, fgFlag flags, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT prev, const fgTransform* transform);
+FG_EXTERN fgElement* FG_FASTCALL fgText_Create(char* text, void* font, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
+FG_EXTERN void FG_FASTCALL fgText_Init(fgText* self, char* text, void* font, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
 FG_EXTERN void FG_FASTCALL fgText_Destroy(fgText* self);
 FG_EXTERN size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg);
 FG_EXTERN void FG_FASTCALL fgText_Recalc(fgText* self);
