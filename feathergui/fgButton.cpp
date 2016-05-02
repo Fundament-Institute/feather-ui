@@ -21,7 +21,14 @@ size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     fgControl_HoverMessage(&self->control, msg);
     fgText_Init(&self->text, 0, 0, 0, *self, 0, "fgButton:text", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
+    fgElement_Init(&self->item, *self, self->text, "fgButton:item", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
     _sendmsg<FG_SETSTYLE, void*>(*self, "nuetral");
+    return 1;
+  case FG_ADDITEM:
+    if(!msg->other)
+      fgElement_Clear(&self->item);
+    else
+      fgPassMessage(&self->item, msg);
     return 1;
   case FG_NUETRAL:
     _sendmsg<FG_SETSTYLE, void*>(*self, "nuetral");

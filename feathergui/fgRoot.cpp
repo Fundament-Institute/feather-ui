@@ -89,7 +89,7 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
 
 void FG_FASTCALL fgStandardDraw(fgElement* self, AbsRect* area, size_t dpi, char culled)
 {
-  fgElement* hold = culled ? self->lastnoclip : self->last; // we draw backwards through our list.
+  fgElement* hold = culled ? self->rootnoclip : self->root;
   AbsRect curarea;
   bool clipping = false;
 
@@ -113,7 +113,7 @@ void FG_FASTCALL fgStandardDraw(fgElement* self, AbsRect* area, size_t dpi, char
       char culled = !fgRectIntersect(&curarea, &fgPeekClipRect());
       _sendsubmsg<FG_DRAW, void*, size_t>(hold, culled, &curarea, dpi);
     }
-    hold = hold->prev;
+    hold = hold->next;
   }
 
   if(clipping)
@@ -134,23 +134,23 @@ size_t FG_FASTCALL fgRoot_RInject(fgRoot* root, fgElement* self, const FG_Msg* m
   else
     ResolveRectCache(self, &curarea, area, (self->flags & FGELEMENT_BACKGROUND) ? 0 : padding);
 
-  fgElement* cur = self->rootnoclip;
+  fgElement* cur = self->lastnoclip;
   while(cur) // Go through all our children that aren't being clipped
   {
     if(fgRoot_RInject(root, cur, msg, &curarea, &self->padding)) // We still need to properly evaluate hitboxes even for nonclipping elements.
       return 1; // If the message is NOT rejected, return 1 immediately to indicate we accepted the message.
-    cur=cur->next; // Otherwise the child rejected the message.
+    cur=cur->prev; // Otherwise the child rejected the message.
   }
 
   if(area != 0 && !MsgHitAbsRect(msg, &curarea)) // If the event completely misses us, we must reject it. If the area is null, we always accept the message.
     return 0;
 
-  cur = self->rootclip;
+  cur = self->lastclip;
   while(cur) // Try to inject to any children we have
   {
     if(fgRoot_RInject(root, cur, msg, &curarea, &self->padding)) // If the message is NOT rejected, return 0 immediately.
       return 1;
-    cur = cur->next; // Otherwise the child rejected the message.
+    cur = cur->prev; // Otherwise the child rejected the message.
   }
 
   // If we get this far either we have no children, the event missed them all, or they all rejected the event...

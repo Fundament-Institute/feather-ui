@@ -370,7 +370,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
         FN_MAPPING mapping = (FN_MAPPING)msg->other2;
         if(!mapping) mapping = &fgLayoutLoadMapping;
 
-        fgElement* child = self->last;
+        fgElement* child = self->root;
         for(FG_UINT i = 0; i < self->skin->children.l; ++i)
         {
           fgStyleLayout* layout = self->skin->children.p + i;
