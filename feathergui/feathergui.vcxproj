@@ -235,6 +235,7 @@
     <ClInclude Include="..\include\fgSkin.h" />
     <ClInclude Include="..\include\fgRoot.h" />
     <ClInclude Include="..\include\fgSlider.h" />
+    <ClInclude Include="..\include\fgStyle.h" />
     <ClInclude Include="..\include\fgTabGroup.h" />
     <ClInclude Include="..\include\fgText.h" />
     <ClInclude Include="..\include\fgTextbox.h" />
@@ -260,6 +261,7 @@
     <ClCompile Include="fgSkin.cpp" />
     <ClCompile Include="fgRoot.cpp" />
     <ClCompile Include="fgSlider.cpp" />
+    <ClCompile Include="fgStyle.cpp" />
     <ClCompile Include="fgText.cpp" />
     <ClCompile Include="fgWindow.cpp" />
     <ClCompile Include="fgTreeView.cpp" />

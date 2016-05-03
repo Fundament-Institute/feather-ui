@@ -93,6 +93,9 @@ namespace bss_util {
   template<class T>
   inline static T BSS_FASTCALL bssSetBit(T word, T bit, bool value) noexcept { return T_SETBIT(word,bit,value); }
 
+  template<class T>
+  BSS_FORCEINLINE static bool BSS_FASTCALL bssGetBit(T* p, size_t index) { return (p[index / (sizeof(T) << 3)] & (1 << (index % (sizeof(T) << 3)))) != 0; }
+
   // Replaces one character with another in a string
   template<typename T>
   inline static T* BSS_FASTCALL strreplace(T* string, const T find, const T replace) noexcept
@@ -688,7 +691,7 @@ namespace bss_util {
   }
 
 #ifdef BSS_PLATFORM_WIN32
-  inline static uint32_t BSS_FASTCALL log2(uint32_t v) noexcept
+  inline static uint32_t BSS_FASTCALL bsslog2(uint32_t v) noexcept
   {
     if(!v) return 0;
     unsigned long r; 
@@ -696,27 +699,27 @@ namespace bss_util {
     return r; 
   }
 #elif defined(BSS_COMPILER_GCC)
-  inline static uint32_t BSS_FASTCALL log2(uint32_t v) noexcept { return !v?0:((sizeof(uint32_t)<<3)-1-__builtin_clz(v)); }
+  inline static uint32_t BSS_FASTCALL bsslog2(uint32_t v) noexcept { return !v?0:((sizeof(uint32_t)<<3)-1-__builtin_clz(v)); }
 #else
   // Bit-twiddling hack for base 2 log by Sean Eron Anderson
-  inline static uint32_t BSS_FASTCALL log2(uint8_t v) noexcept
+  inline static uint32_t BSS_FASTCALL bsslog2(uint8_t v) noexcept
   {
     const uint32_t b[] = {0x2, 0xC, 0xF0};
     const uint32_t S[] = {1, 2, 4};
 
-    register uint32_t r = 0; // result of log2(v) will go here
+    register uint32_t r = 0; // result of bsslog2(v) will go here
     if (v & b[2]) { v >>= S[2]; r |= S[2]; } 
     if (v & b[1]) { v >>= S[1]; r |= S[1]; } 
     if (v & b[0]) { v >>= S[0]; r |= S[0]; } 
 
     return r;
   }
-  inline static uint32_t BSS_FASTCALL log2(uint16_t v) noexcept
+  inline static uint32_t BSS_FASTCALL bsslog2(uint16_t v) noexcept
   {
     const uint32_t b[] = {0x2, 0xC, 0xF0, 0xFF00};
     const uint32_t S[] = {1, 2, 4, 8};
 
-    register uint32_t r = 0; // result of log2(v) will go here
+    register uint32_t r = 0; // result of bsslog2(v) will go here
     if (v & b[3]) { v >>= S[3]; r |= S[3]; } 
     if (v & b[2]) { v >>= S[2]; r |= S[2]; } 
     if (v & b[1]) { v >>= S[1]; r |= S[1]; } 
@@ -725,12 +728,12 @@ namespace bss_util {
     return r;
   }
 
-  inline static uint32_t BSS_FASTCALL log2(uint32_t v) noexcept
+  inline static uint32_t BSS_FASTCALL bsslog2(uint32_t v) noexcept
   {
     const uint32_t b[] = {0x2, 0xC, 0xF0, 0xFF00, 0xFFFF0000};
     const uint32_t S[] = {1, 2, 4, 8, 16};
 
-    register uint32_t r = 0; // result of log2(v) will go here
+    register uint32_t r = 0; // result of bsslog2(v) will go here
     if (v & b[4]) { v >>= S[4]; r |= S[4]; } 
     if (v & b[3]) { v >>= S[3]; r |= S[3]; } 
     if (v & b[2]) { v >>= S[2]; r |= S[2]; } 
@@ -740,7 +743,7 @@ namespace bss_util {
     return r;
   }
 #endif
-  inline static uint32_t BSS_FASTCALL log2(uint64_t v) noexcept
+  inline static uint32_t BSS_FASTCALL bsslog2(uint64_t v) noexcept
   {
 #if defined(BSS_COMPILER_MSC) && defined(BSS_64BIT)
     if(!v) return 0;
@@ -752,7 +755,7 @@ namespace bss_util {
     const uint64_t b[] = {0x2, 0xC, 0xF0, 0xFF00, 0xFFFF0000, 0xFFFFFFFF00000000};
     const uint32_t S[] = {1, 2, 4, 8, 16, 32};
 
-    register uint32_t r = 0; // result of log2(v) will go here
+    register uint32_t r = 0; // result of bsslog2(v) will go here
     if (v & b[5]) { v >>= S[5]; r |= S[5]; } 
     if (v & b[4]) { v >>= S[4]; r |= S[4]; } 
     if (v & b[3]) { v >>= S[3]; r |= S[3]; } 
@@ -763,7 +766,7 @@ namespace bss_util {
 
     return r;
   }
-  inline static uint32_t BSS_FASTCALL log2_p2(uint32_t v) noexcept //Works only if v is a power of 2
+  inline static uint32_t BSS_FASTCALL bsslog2_p2(uint32_t v) noexcept //Works only if v is a power of 2
   {
     assert(v && !(v & (v - 1))); //debug version checks to ensure its a power of two
 #ifdef BSS_COMPILER_MSC

@@ -104,6 +104,9 @@
     <ClInclude Include="..\include\fgWindow.h">
       <Filter>include</Filter>
     </ClInclude>
+    <ClInclude Include="..\include\fgStyle.h">
+      <Filter>include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="feathergui.cpp">
@@ -167,6 +170,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="fgWindow.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgStyle.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

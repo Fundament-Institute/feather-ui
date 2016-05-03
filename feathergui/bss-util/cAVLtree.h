@@ -21,8 +21,8 @@ namespace bss_util {
     int _balance;
 
   private:
-    inline AVL_Node(const AVL_Node&) {} // This is to keep the compiler from defining a copy or assignment constructor that could conflict with move-only structures, like unique_ptr
-    AVL_Node& operator =(const AVL_Node&) { return *this; }
+    inline AVL_Node(const AVL_Node&) BSS_DELETEFUNC // This is to keep the compiler from defining a copy or assignment constructor that could conflict with move-only structures, like unique_ptr
+    AVL_Node& operator =(const AVL_Node&) BSS_DELETEFUNCOP
   };
 
   // Adaptive function definitions to allow for an optional Data field
@@ -148,7 +148,7 @@ namespace bss_util {
       return (cur!=0);
     }
 
-    inline cAVLtree& operator=(cAVLtree&& mov) { Clear(); _root=mov._root; mov._root=0; }
+    inline cAVLtree& operator=(cAVLtree&& mov) { Clear(); _root = mov._root; mov._root = 0; return *this; }
 
   protected:
     template<typename F>

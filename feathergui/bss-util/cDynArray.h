@@ -26,7 +26,7 @@ namespace bss_util {
     inline cDynArray(cDynArray&& mov) : AT_(std::move(mov)), _length(mov._length) { mov._length = 0; }
     inline cDynArray(const cArraySlice<const T, CType>& slice) : AT_(slice.length), _length(slice.length) { BASE::_copy(_array, slice.start, slice.length); }
     inline explicit cDynArray(CT_ capacity=0) : AT_(capacity), _length(0) {}
-    inline cDynArray(const std::initializer_list<T> list) : AT_(list.size()), _length(0)
+    inline cDynArray(const std::initializer_list<T>& list) : AT_(list.size()), _length(0)
     {
       auto end = list.end();
       for(auto i = list.begin(); i != end && _length < _capacity; ++i)
@@ -163,7 +163,7 @@ namespace bss_util {
     inline cDynArray(const cDynArray& copy) : AT_(copy._capacity), _length(copy._length) { memcpy(_array, copy._array, copy._capacity*sizeof(STORE)); }
     inline cDynArray(cDynArray&& mov) : AT_(std::move(mov)), _length(mov._length) { mov._length = 0; }
     inline explicit cDynArray(CT_ capacity = 0) : AT_(_maxchunks(capacity)/DIV_AMT), _length(0) {}
-    inline cDynArray(const std::initializer_list<bool> list) : AT_(_maxchunks(list.size())/DIV_AMT), _length(0)
+    inline cDynArray(const std::initializer_list<bool>& list) : AT_(_maxchunks(list.size())/DIV_AMT), _length(0)
     {
       auto end = list.end();
       for(auto i = list.begin(); i != end && _length < (_capacity*DIV_AMT); ++i)

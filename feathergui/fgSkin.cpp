@@ -8,7 +8,6 @@
 #include "feathercpp.h"
 
 KHASH_INIT(fgSkins, const char*, fgSkin*, 1, kh_str_hash_funcins, kh_str_hash_insequal);
-KHASH_INIT(fgStyles, const char*, FG_UINT, 1, kh_str_hash_funcins, kh_str_hash_insequal);
 
 static_assert(sizeof(fgStyleLayoutArray) == sizeof(fgVector), "mismatch between vector sizes");
 static_assert(sizeof(fgStyleArray) == sizeof(fgVector), "mismatch between vector sizes");
@@ -93,17 +92,19 @@ fgStyleLayout* FG_FASTCALL fgSkin_GetChild(const fgSkin* self, FG_UINT child)
 size_t FG_FASTCALL fgSkin_AddStyle(fgSkin* self, const char* name)
 {
   FG_UINT r = fgStyle_GetName(name);
-  if(r >= ((fgStyleArray&)self->styles).Length())
-    ((fgStyleArray&)self->styles).SetLength(r + 1);
+  FG_UINT i = bss_util::bsslog2(r);
+  if(i >= ((fgStyleArray&)self->styles).Length())
+    ((fgStyleArray&)self->styles).SetLength(i + 1);
   return r;
 }
 char FG_FASTCALL fgSkin_RemoveStyle(fgSkin* self, FG_UINT style)
 {
-  return DynArrayRemove((fgStyleArray&)self->styles, style);
+  return DynArrayRemove((fgStyleArray&)self->styles, bss_util::bsslog2(style));
 }
 fgStyle* FG_FASTCALL fgSkin_GetStyle(const fgSkin* self, FG_UINT style)
 {
-  return ((fgStyleArray&)self->styles).begin() + style;
+  assert(bss_util::bsslog2(style) < ((fgStyleArray&)self->styles).Length());
+  return ((fgStyleArray&)self->styles).begin() + bss_util::bsslog2(style);
 }
 
 fgSkin* FG_FASTCALL fgSkin_AddSkin(fgSkin* self, const char* name)
@@ -151,62 +152,4 @@ void FG_FASTCALL fgStyleLayout_Destroy(fgStyleLayout* self)
   if(self->type) free(self->type);
   if(self->name) free(self->name);
   fgStyle_Destroy(&self->style);
-}
-
-void FG_FASTCALL fgStyle_Init(fgStyle* self)
-{
-  memset(self, 0, sizeof(fgStyle));
-}
-
-void FG_FASTCALL fgStyle_Destroy(fgStyle* self)
-{
-  while(self->styles)
-    fgStyle_RemoveStyleMsg(self, self->styles);
-}
-
-fgStyleMsg* FG_FASTCALL fgStyle_AddStyleMsg(fgStyle* self, const FG_Msg* msg, const void* arg1, size_t arglen1, const void* arg2, size_t arglen2)
-{
-  fgStyleMsg* r = (fgStyleMsg*)malloc(sizeof(fgStyleMsg) + arglen1 + arglen2);
-  memcpy(&r->msg, msg, sizeof(FG_Msg));
-
-  if(arg1)
-  {
-    r->msg.other = r + 1;
-    memcpy(r->msg.other, arg1, arglen1);
-  }
-
-  if(arg2)
-  {
-    r->msg.other2 = ((char*)(r + 1)) + arglen1;
-    memcpy(r->msg.other2, arg2, arglen2);
-  }
-
-  r->next = self->styles;
-  self->styles = r;
-  return r;
-}
-
-void FG_FASTCALL fgStyle_RemoveStyleMsg(fgStyle* self, fgStyleMsg* msg)
-{
-  if(self->styles == msg)
-    self->styles = msg->next;
-  else
-  {
-    fgStyleMsg* cur = self->styles;
-    while(cur && cur->next != msg) cur = cur->next;
-    if(cur) cur->next = msg->next;
-  }
-  free(msg);
-}
-
-FG_UINT FG_FASTCALL fgStyle_GetName(const char* name)
-{
-  static kh_fgStyles_t* h = kh_init_fgStyles();
-  static FG_UINT count = 0;
-
-  int r;
-  khiter_t iter = kh_put_fgStyles(h, name, &r);
-  if(r) // if it wasn't in there before, we need to initialize the index
-    kh_val(h, iter) = count++;
-  return kh_val(h, iter);
 }

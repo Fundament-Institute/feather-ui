@@ -4,22 +4,12 @@
 #ifndef _FG_SKIN_H__
 #define _FG_SKIN_H__
 
+#include "fgStyle.h"
 #include "fgControl.h"
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
-
-typedef struct _FG_STYLE_MSG
-{
-  FG_Msg msg;
-  struct _FG_STYLE_MSG* next;
-} fgStyleMsg;
-
-typedef struct _FG_STYLE
-{
-  fgStyleMsg* styles;
-} fgStyle;
 
 typedef struct _FG_STYLE_LAYOUT {
   char* type;
@@ -27,6 +17,7 @@ typedef struct _FG_STYLE_LAYOUT {
   fgTransform transform;
   fgFlag flags;
   fgStyle style; // style overrides
+  int order;
 } fgStyleLayout;
 
 struct __kh_fgSkins_t;
@@ -66,34 +57,10 @@ FG_EXTERN fgSkin* FG_FASTCALL fgSkin_GetSkin(const fgSkin* self, const char* nam
 FG_EXTERN void FG_FASTCALL fgStyleLayout_Init(fgStyleLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform);
 FG_EXTERN void FG_FASTCALL fgStyleLayout_Destroy(fgStyleLayout* self);
 
-FG_EXTERN void FG_FASTCALL fgStyle_Init(fgStyle* self);
-FG_EXTERN void FG_FASTCALL fgStyle_Destroy(fgStyle* self);
-FG_EXTERN FG_UINT FG_FASTCALL fgStyle_GetName(const char* name);
-
-FG_EXTERN fgStyleMsg* FG_FASTCALL fgStyle_AddStyleMsg(fgStyle* self, const FG_Msg* msg, const void* arg1, size_t arglen1, const void* arg2, size_t arglen2);
-FG_EXTERN void FG_FASTCALL fgStyle_RemoveStyleMsg(fgStyle* self, fgStyleMsg* msg);
-
 FG_EXTERN fgSkin* FG_FASTCALL fgSkins_LoadFileUBJSON(struct __kh_fgSkins_t* self, const char* file);
 FG_EXTERN fgSkin* FG_FASTCALL fgSkins_LoadUBJSON(struct __kh_fgSkins_t* self, const void* data, FG_UINT length);
 
 #ifdef  __cplusplus
-}
-
-template<FG_MSGTYPE type, typename... Args>
-inline fgStyleMsg* AddStyleMsg(fgStyle* style, Args... args)
-{
-  FG_Msg msg = { 0 };
-  msg.type = type;
-  fgSendMsgCall<1, Args...>::F(msg, args...);
-  return fgStyle_AddStyleMsg(style, &msg, 0, 0, 0, 0);
-}
-template<FG_MSGTYPE type, typename Arg, typename... Args>
-inline fgStyleMsg* AddStyleMsgArg(fgStyle* style, const Arg* arg, Args... args)
-{
-  FG_Msg msg = { 0 };
-  msg.type = type;
-  fgSendMsgCall<2, Args...>::F(msg, args...);
-  return fgStyle_AddStyleMsg(style, &msg, arg, sizeof(Arg), 0, 0);
 }
 #endif
 

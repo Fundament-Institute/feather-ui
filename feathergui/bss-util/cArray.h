@@ -218,7 +218,7 @@ namespace bss_util {
   public:
     inline cArray(const cArray& copy) : AT_(copy._capacity) { BASE::_copy(_array, copy._array, _capacity); } // We have to declare this because otherwise its interpreted as deleted
     inline cArray(cArray&& mov) : AT_(std::move(mov)) {}
-    inline cArray(const std::initializer_list<T> list) : AT_(list.size())
+    inline cArray(const std::initializer_list<T>& list) : AT_(list.size())
     {
       auto end = list.end();
       CType c = 0;

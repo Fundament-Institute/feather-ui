@@ -1,41 +1,41 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="featherGUI" xmlns="featherGUI" >
 
-<xs:simpleType name="fgFlagsAny">
-  <xs:restriction base="xs:string">
-    <xs:pattern value="[A-Z]+(|[A-Z]+)*" />
-  </xs:restriction>
-</xs:simpleType>
+  <xs:simpleType name="fgFlagsAny">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[A-Z]+(|[A-Z]+)*" />
+    </xs:restriction>
+  </xs:simpleType>
 
-<xs:simpleType name="fgFlags">
-  <xs:restriction base="xs:string">
-    <xs:pattern value="(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP)(\|(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP))*" />
-  </xs:restriction>
-</xs:simpleType>
+  <xs:simpleType name="fgFlags">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP)(\|(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP))*" />
+    </xs:restriction>
+  </xs:simpleType>
 
-<xs:simpleType name="fgFlagsText">
-  <xs:restriction base="xs:string">
-    <xs:pattern value="(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|CHARWRAP|WORDWRAP|ELLIPSES|RTL|RIGHTALIGN|CENTER|SUBPIXEL)(\|(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|CHARWRAP|WORDWRAP|ELLIPSES|RTL|RIGHTALIGN|CENTER|SUBPIXEL))*" />
-  </xs:restriction>
-</xs:simpleType>
+  <xs:simpleType name="fgFlagsText">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|CHARWRAP|WORDWRAP|ELLIPSES|RTL|RIGHTALIGN|CENTER|SUBPIXEL)(\|(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|CHARWRAP|WORDWRAP|ELLIPSES|RTL|RIGHTALIGN|CENTER|SUBPIXEL))*" />
+    </xs:restriction>
+  </xs:simpleType>
 
-<xs:simpleType name="fgFlagsCombobox">
-  <xs:restriction base="xs:string">
-    <xs:pattern value="(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|HIDEH|HIDEV|SHOWH|SHOWV|EDITBOX)(\|(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|HIDEH|HIDEV|SHOWH|SHOWV|EDITBOX))*" />
-  </xs:restriction>
-</xs:simpleType>
+  <xs:simpleType name="fgFlagsCombobox">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|HIDEH|HIDEV|SHOWH|SHOWV|EDITBOX)(\|(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|HIDEH|HIDEV|SHOWH|SHOWV|EDITBOX))*" />
+    </xs:restriction>
+  </xs:simpleType>
 
-<xs:simpleType name="fgFlagsButton">
-  <xs:restriction base="xs:string">
-    <xs:pattern value="(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|NOFOCUS)(\|(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|NOFOCUS))*" />
-  </xs:restriction>
-</xs:simpleType>
+  <xs:simpleType name="fgFlagsButton">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|NOFOCUS)(\|(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|NOFOCUS))*" />
+    </xs:restriction>
+  </xs:simpleType>
 
-<xs:simpleType name="fgFlagsScrollbar">
-  <xs:restriction base="xs:string">
-    <xs:pattern value="(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|HIDEH|HIDEV|SHOWH|SHOWV)(\|(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|HIDEH|HIDEV|SHOWH|SHOWV))*" />
-  </xs:restriction>
-</xs:simpleType>
+  <xs:simpleType name="fgFlagsScrollbar">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|HIDEH|HIDEV|SHOWH|SHOWV)(\|(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|HIDEH|HIDEV|SHOWH|SHOWV))*" />
+    </xs:restriction>
+  </xs:simpleType>
 
   <xs:simpleType name="fgFlagsList">
     <xs:restriction base="xs:string">
@@ -60,50 +60,50 @@
       <xs:pattern value="(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|MINIMIZABLE|MAXIMIZABLE|RESIZABLE|NOTITLEBAR|NOBORDER)(\|(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|MINIMIZABLE|MAXIMIZABLE|RESIZABLE|NOTITLEBAR|NOBORDER))*" />
     </xs:restriction>
   </xs:simpleType>
-    
-<xs:simpleType name="fgCheckboxState">
-  <xs:restriction base="xs:string">
-    <xs:enumeration value="none"/>
-    <xs:enumeration value="checked"/>
-    <xs:enumeration value="indeterminate"/>
-  </xs:restriction>
-</xs:simpleType>
 
-<xs:simpleType name="fgFont">
-  <xs:restriction base="xs:string">
-    <xs:pattern value="[^;]*;[0-9]*"/>
-  </xs:restriction>
-</xs:simpleType>
+  <xs:simpleType name="fgCheckboxState">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="none"/>
+      <xs:enumeration value="checked"/>
+      <xs:enumeration value="indeterminate"/>
+    </xs:restriction>
+  </xs:simpleType>
 
-<xs:simpleType name="fgHex">
-  <xs:restriction base="xs:string">
-    <xs:pattern value="0x[0-9A-Fa-f]+"/>
-  </xs:restriction>
-</xs:simpleType>
+  <xs:simpleType name="fgFont">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[^;]*;[0-9]*"/>
+    </xs:restriction>
+  </xs:simpleType>
 
-<xs:simpleType name="fgCoord">
-  <xs:restriction base="xs:string">
-    <xs:pattern value="([0-9]+(\.[0-9]+)?)?:([0-9]+(\.[0-9]+)?)?"/>
-  </xs:restriction>
-</xs:simpleType>
+  <xs:simpleType name="fgHex">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="0x[0-9A-Fa-f]+"/>
+    </xs:restriction>
+  </xs:simpleType>
 
-<xs:simpleType name="Rect">
-  <xs:restriction base="xs:string">
-    <xs:pattern value="[0-9]+(\.[0-9]+)?, ?[0-9]+(\.[0-9]+)?, ?[0-9]+(\.[0-9]+)?, ?[0-9]+(\.[0-9]+)?"/>
-  </xs:restriction>
-</xs:simpleType>
+  <xs:simpleType name="fgCoord">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="([0-9]+(\.[0-9]+)?)?(em)?:([0-9]+(\.[0-9]+)?)?"/>
+    </xs:restriction>
+  </xs:simpleType>
 
-<xs:simpleType name="fgRect">
-  <xs:restriction base="xs:string">
-    <xs:pattern value="([0-9]+(\.[0-9]+)?)?:([0-9]+(\.[0-9]+)?)?, ?([0-9]+(\.[0-9]+)?)?:([0-9]+(\.[0-9]+)?)?, ?([0-9]+(\.[0-9]+)?)?:([0-9]+(\.[0-9]+)?)?, ?([0-9]+(\.[0-9]+)?)?:([0-9]+(\.[0-9]+)?)?"/>
-  </xs:restriction>
-</xs:simpleType>
+  <xs:simpleType name="Rect">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9]+(\.[0-9]+)?(em)?, ?[0-9]+(\.[0-9]+)?(em)?, ?[0-9]+(\.[0-9]+)?(em)?, ?[0-9]+(\.[0-9]+)?(em)?"/>
+    </xs:restriction>
+  </xs:simpleType>
 
-<xs:simpleType name="fgVec">
-  <xs:restriction base="xs:string">
-    <xs:pattern value="([0-9]+(\.[0-9]+)?)?:([0-9]+(\.[0-9]+)?)?, ?([0-9]+(\.[0-9]+)?)?:([0-9]+(\.[0-9]+)?)?"/>
-  </xs:restriction>
-</xs:simpleType>
+  <xs:simpleType name="fgRect">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="([0-9]+(\.[0-9]+)?)?(em)?:([0-9]+(\.[0-9]+)?)?, ?([0-9]+(\.[0-9]+)?)?(em)?:([0-9]+(\.[0-9]+)?)?, ?([0-9]+(\.[0-9]+)?)?(em)?:([0-9]+(\.[0-9]+)?)?, ?([0-9]+(\.[0-9]+)?)?(em)?:([0-9]+(\.[0-9]+)?)?"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="fgVec">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="([0-9]+(\.[0-9]+)?)?(em)?:([0-9]+(\.[0-9]+)?)?, ?([0-9]+(\.[0-9]+)?)?(em)?:([0-9]+(\.[0-9]+)?)?"/>
+    </xs:restriction>
+  </xs:simpleType>
 
   <xs:group name="fgControlGroup">
     <xs:choice>
@@ -128,275 +128,275 @@
       <xs:element name="TreeView" type="fgTreeView" />
     </xs:choice>
   </xs:group>
-  
-<xs:complexType name="fgLayoutBase">
-  <!-- id is the UNIQUE layout identifier string -->
-  <xs:attribute name="id" type="xs:string"/>
-  <!-- this is the name used for styles. names do NOT have to be unique -->
-  <xs:attribute name="name" type="xs:string"/>
-  <xs:attribute name="order" type="xs:integer"/>
-  <xs:attribute name="area" type="fgRect"/>
-  <xs:attribute name="center" type="fgVec"/>
-  <xs:attribute name="rotation" type="xs:decimal"/>
-  <xs:attribute name="left" type="fgCoord"/>
-  <xs:attribute name="top" type="fgCoord"/>
-  <xs:attribute name="right" type="fgCoord"/>
-  <xs:attribute name="bottom" type="fgCoord"/>
-  <xs:attribute name="width" type="fgCoord"/>
-  <xs:attribute name="height" type="fgCoord"/>
-  <xs:attribute name="skin" type="xs:string"/>
-  <xs:attribute name="alpha" type="xs:decimal"/>
-  <!--<xs:attribute name="transform" type="fgTransform"/>-->
-  <xs:attribute name="margin" type="Rect"/>
-  <xs:attribute name="padding" type="Rect"/>
-</xs:complexType>
 
-<xs:complexType name="fgLayout">
-  <xs:complexContent>
-    <xs:extension base="fgLayoutBase">
-      <xs:sequence>
-        <xs:group ref="fgControlGroup" minOccurs="0" maxOccurs="unbounded" />
-      </xs:sequence>
-    </xs:extension>
-  </xs:complexContent>
-</xs:complexType>
+  <xs:complexType name="fgLayoutBase">
+    <!-- id is the UNIQUE layout identifier string -->
+    <xs:attribute name="id" type="xs:string"/>
+    <!-- this is the name used for styles. names do NOT have to be unique -->
+    <xs:attribute name="name" type="xs:string"/>
+    <xs:attribute name="order" type="xs:integer"/>
+    <xs:attribute name="area" type="fgRect"/>
+    <xs:attribute name="center" type="fgVec"/>
+    <xs:attribute name="rotation" type="xs:decimal"/>
+    <xs:attribute name="left" type="fgCoord"/>
+    <xs:attribute name="top" type="fgCoord"/>
+    <xs:attribute name="right" type="fgCoord"/>
+    <xs:attribute name="bottom" type="fgCoord"/>
+    <xs:attribute name="width" type="fgCoord"/>
+    <xs:attribute name="height" type="fgCoord"/>
+    <xs:attribute name="skin" type="xs:string"/>
+    <xs:attribute name="alpha" type="xs:decimal"/>
+    <!--<xs:attribute name="transform" type="fgTransform"/>-->
+    <xs:attribute name="margin" type="Rect"/>
+    <xs:attribute name="padding" type="Rect"/>
+  </xs:complexType>
 
-<xs:complexType name="fgElement">
-  <xs:complexContent>
-    <xs:extension base="fgLayout">
-      <xs:attribute name="flags" type="fgFlags"/>
-    </xs:extension>
-  </xs:complexContent>
-</xs:complexType>
+  <xs:complexType name="fgLayout">
+    <xs:complexContent>
+      <xs:extension base="fgLayoutBase">
+        <xs:sequence>
+          <xs:group ref="fgControlGroup" minOccurs="0" maxOccurs="unbounded" />
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
 
-<xs:complexType name="fgControl">
-  <xs:complexContent>
-    <xs:extension base="fgLayout">
-      <xs:attribute name="flags" type="fgFlags"/>
-    </xs:extension>
-  </xs:complexContent>
-</xs:complexType>
-
-<xs:complexType name="fgButton">
-  <xs:complexContent>
-    <xs:extension base="fgLayout">
-      <xs:attribute name="flags" type="fgFlagsButton"/>
-      <xs:attribute name="text" type="xs:string"/>
-      <xs:attribute name="color" type="fgHex"/>
-      <xs:attribute name="font" type="fgFont"/>
-      <xs:attribute name="lineheight" type="xs:decimal"/>
-      <xs:attribute name="letterspacing" type="xs:decimal"/>
-    </xs:extension>
-  </xs:complexContent>
-</xs:complexType>
-
-<xs:complexType name="fgBox">
-  <xs:complexContent>
-    <xs:extension base="fgLayout">
-      <xs:attribute name="flags" type="fgFlagsBox"/>
-    </xs:extension>
-  </xs:complexContent>
-</xs:complexType>
-
-<xs:complexType name="fgScrollbar">
-  <xs:complexContent>
-    <xs:extension base="fgLayout">
-      <xs:attribute name="flags" type="fgFlagsScrollbar"/>
-    </xs:extension>
-  </xs:complexContent>
-</xs:complexType>
-
-<xs:complexType name="fgCheckbox">
-  <xs:complexContent>
-    <xs:extension base="fgLayout">
-      <xs:attribute name="flags" type="fgFlags"/>
-      <xs:attribute name="state" type="fgCheckboxState" default="none"/>
-      <xs:attribute name="text" type="xs:string"/>
-      <xs:attribute name="color" type="fgHex"/>
-      <xs:attribute name="font" type="fgFont"/>
-      <xs:attribute name="lineheight" type="xs:decimal"/>
-      <xs:attribute name="letterspacing" type="xs:decimal"/>
-    </xs:extension>
-  </xs:complexContent>
-</xs:complexType>
-
-<xs:complexType name="fgCombobox">
-  <xs:complexContent>
-    <xs:extension base="fgLayout">
-      <xs:attribute name="flags" type="fgFlagsCombobox"/>
-    </xs:extension>
-  </xs:complexContent>
-</xs:complexType>
-
-<xs:complexType name="fgDropdown">
-  <xs:complexContent>
-    <xs:extension base="fgLayout">
-      <xs:attribute name="flags" type="fgFlagsList"/>
-    </xs:extension>
-  </xs:complexContent>
-</xs:complexType>
-
-<xs:complexType name="fgList">
-  <xs:complexContent>
-    <xs:extension base="fgLayout">
-      <xs:attribute name="flags" type="fgFlagsList"/>
-    </xs:extension>
-  </xs:complexContent>
-</xs:complexType>
-
-<xs:complexType name="fgMenu">
-  <xs:complexContent>
-    <xs:extension base="fgLayoutBase">
-      <xs:choice>
-        <xs:element name="MenuItem" type="fgElement" minOccurs="0" maxOccurs="unbounded" />
-      </xs:choice>
-      <xs:attribute name="flags" type="fgFlagsScrollbar"/>
-    </xs:extension>
-  </xs:complexContent>
-</xs:complexType>
-
-<xs:complexType name="fgProgressbar">
-  <xs:complexContent>
-    <xs:extension base="fgLayout">
-      <xs:attribute name="flags" type="fgFlags"/>
-      <xs:attribute name="state" type="xs:decimal" default="0.0"/>
-    </xs:extension>
-  </xs:complexContent>
-</xs:complexType>
-
-<xs:complexType name="fgRadioButton">
-  <xs:complexContent>
-    <xs:extension base="fgLayout">
-      <xs:attribute name="flags" type="fgFlags"/>
-      <xs:attribute name="state" type="xs:boolean" default="false"/>
-    </xs:extension>
-  </xs:complexContent>
-</xs:complexType>
-
-<xs:complexType name="fgResource">
-  <xs:complexContent>
-    <xs:extension base="fgLayout">
-      <xs:attribute name="flags" type="fgFlagsResource"/>
-      <xs:attribute name="color" type="fgHex"/>
-      <xs:attribute name="uv" type="fgRect"/>
-      <xs:attribute name="resource" type="xs:string"/>
-      <xs:attribute name="edgecolor" type="fgHex"/>
-      <xs:attribute name="outline" type="xs:decimal"/>
-    </xs:extension>
-  </xs:complexContent>
-</xs:complexType>
-
-<xs:complexType name="fgSlider">
-  <xs:complexContent>
-    <xs:extension base="fgLayout">
-      <xs:attribute name="flags" type="fgFlags"/>
-      <xs:attribute name="state" type="xs:decimal" default="0.0"/>
-    </xs:extension>
-  </xs:complexContent>
-</xs:complexType>
-
-
-<xs:complexType name="fgTabGroup">
-  <xs:complexContent>
-    <xs:extension base="fgLayoutBase">
-      <xs:choice>
-        <xs:element name="Tab" type="fgScrollbar" minOccurs="0" maxOccurs="unbounded" />
-      </xs:choice>
-      <xs:attribute name="flags" type="fgFlags"/>
-    </xs:extension>
-  </xs:complexContent>
-</xs:complexType>
-
-<xs:complexType name="fgText">
-  <xs:complexContent>
-    <xs:extension base="fgLayout">
-      <xs:attribute name="flags" type="fgFlagsText"/>
-      <xs:attribute name="text" type="xs:string"/>
-      <xs:attribute name="color" type="fgHex"/>
-      <xs:attribute name="font" type="fgFont"/>
-      <xs:attribute name="lineheight" type="xs:decimal"/>
-      <xs:attribute name="letterspacing" type="xs:decimal"/>
-    </xs:extension>
-  </xs:complexContent>
-</xs:complexType>
-
-<xs:complexType name="fgTextbox">
-  <xs:complexContent>
-    <xs:extension base="fgLayout">
-      <xs:attribute name="flags" type="fgFlagsScrollbar"/>
-      <xs:attribute name="text" type="xs:string"/>
-      <xs:attribute name="placeholder" type="xs:string"/>
-      <xs:attribute name="color" type="fgHex"/>
-      <xs:attribute name="font" type="fgFont"/>
-      <xs:attribute name="lineheight" type="xs:decimal"/>
-      <xs:attribute name="letterspacing" type="xs:decimal"/>
-    </xs:extension>
-  </xs:complexContent>
-</xs:complexType>
-
-<xs:complexType name="fgWindow">
-  <xs:complexContent>
-    <xs:extension base="fgLayout">
-      <xs:attribute name="flags" type="fgFlagsWindow"/>
-      <xs:attribute name="text" type="xs:string"/>
-      <xs:attribute name="color" type="fgHex"/>
-      <xs:attribute name="font" type="fgFont"/>
-      <xs:attribute name="lineheight" type="xs:decimal"/>
-      <xs:attribute name="letterspacing" type="xs:decimal"/>
-    </xs:extension>
-  </xs:complexContent>
-</xs:complexType>
-
-<xs:complexType name="fgTreeItem">
-  <xs:complexContent>
-    <xs:extension base="fgLayoutBase">
-      <xs:sequence>
-        <xs:group ref="fgControlGroup" minOccurs="0" maxOccurs="unbounded" />
-        <xs:element name="TreeItem" type="fgTreeItem" minOccurs="0" maxOccurs="unbounded" />
-      </xs:sequence>
-    </xs:extension>
-  </xs:complexContent>
-</xs:complexType>
-
-<xs:complexType name="fgTreeView">
-  <xs:complexContent>
-    <xs:extension base="fgLayoutBase">
-      <xs:choice>
-        <xs:element name="TreeItem" type="fgTreeItem" minOccurs="0" maxOccurs="unbounded" />
-      </xs:choice>
-      <xs:attribute name="flags" type="fgFlagsScrollbar"/>
-    </xs:extension>
-  </xs:complexContent>
-</xs:complexType>
-
-<xs:element name="Layout">
-  <xs:complexType>
+  <xs:complexType name="fgElement">
     <xs:complexContent>
       <xs:extension base="fgLayout">
         <xs:attribute name="flags" type="fgFlags"/>
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
-</xs:element>
-  
-<xs:complexType name="fgStyle">
-  <xs:complexContent>
-    <xs:extension base="fgLayoutBase">
-      <xs:attribute name="flags" type="fgFlagsAny"/>
-      <xs:attribute name="text" type="xs:string"/>
-      <xs:attribute name="color" type="fgHex"/>
-      <xs:attribute name="font" type="fgFont"/>
-      <xs:attribute name="lineheight" type="xs:decimal"/>
-      <xs:attribute name="letterspacing" type="xs:decimal"/>
-      <xs:attribute name="state" type="xs:string"/>
-      <xs:attribute name="uv" type="fgRect"/>
-      <xs:attribute name="resource" type="xs:string"/>
-      <xs:attribute name="edgecolor" type="fgHex"/>
-      <xs:attribute name="outline" type="xs:decimal"/>
-      <xs:attribute name="placeholder" type="xs:string"/>
-    </xs:extension>
-  </xs:complexContent>
-</xs:complexType>
+
+  <xs:complexType name="fgControl">
+    <xs:complexContent>
+      <xs:extension base="fgLayout">
+        <xs:attribute name="flags" type="fgFlags"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="fgButton">
+    <xs:complexContent>
+      <xs:extension base="fgLayout">
+        <xs:attribute name="flags" type="fgFlagsButton"/>
+        <xs:attribute name="text" type="xs:string"/>
+        <xs:attribute name="color" type="fgHex"/>
+        <xs:attribute name="font" type="fgFont"/>
+        <xs:attribute name="lineheight" type="xs:decimal"/>
+        <xs:attribute name="letterspacing" type="xs:decimal"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="fgBox">
+    <xs:complexContent>
+      <xs:extension base="fgLayout">
+        <xs:attribute name="flags" type="fgFlagsBox"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="fgScrollbar">
+    <xs:complexContent>
+      <xs:extension base="fgLayout">
+        <xs:attribute name="flags" type="fgFlagsScrollbar"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="fgCheckbox">
+    <xs:complexContent>
+      <xs:extension base="fgLayout">
+        <xs:attribute name="flags" type="fgFlags"/>
+        <xs:attribute name="state" type="fgCheckboxState" default="none"/>
+        <xs:attribute name="text" type="xs:string"/>
+        <xs:attribute name="color" type="fgHex"/>
+        <xs:attribute name="font" type="fgFont"/>
+        <xs:attribute name="lineheight" type="xs:decimal"/>
+        <xs:attribute name="letterspacing" type="xs:decimal"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="fgCombobox">
+    <xs:complexContent>
+      <xs:extension base="fgLayout">
+        <xs:attribute name="flags" type="fgFlagsCombobox"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="fgDropdown">
+    <xs:complexContent>
+      <xs:extension base="fgLayout">
+        <xs:attribute name="flags" type="fgFlagsList"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="fgList">
+    <xs:complexContent>
+      <xs:extension base="fgLayout">
+        <xs:attribute name="flags" type="fgFlagsList"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="fgMenu">
+    <xs:complexContent>
+      <xs:extension base="fgLayoutBase">
+        <xs:choice>
+          <xs:element name="MenuItem" type="fgElement" minOccurs="0" maxOccurs="unbounded" />
+        </xs:choice>
+        <xs:attribute name="flags" type="fgFlagsScrollbar"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="fgProgressbar">
+    <xs:complexContent>
+      <xs:extension base="fgLayout">
+        <xs:attribute name="flags" type="fgFlags"/>
+        <xs:attribute name="state" type="xs:decimal" default="0.0"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="fgRadioButton">
+    <xs:complexContent>
+      <xs:extension base="fgLayout">
+        <xs:attribute name="flags" type="fgFlags"/>
+        <xs:attribute name="state" type="xs:boolean" default="false"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="fgResource">
+    <xs:complexContent>
+      <xs:extension base="fgLayout">
+        <xs:attribute name="flags" type="fgFlagsResource"/>
+        <xs:attribute name="color" type="fgHex"/>
+        <xs:attribute name="uv" type="fgRect"/>
+        <xs:attribute name="resource" type="xs:string"/>
+        <xs:attribute name="edgecolor" type="fgHex"/>
+        <xs:attribute name="outline" type="xs:decimal"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="fgSlider">
+    <xs:complexContent>
+      <xs:extension base="fgLayout">
+        <xs:attribute name="flags" type="fgFlags"/>
+        <xs:attribute name="state" type="xs:decimal" default="0.0"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+
+  <xs:complexType name="fgTabGroup">
+    <xs:complexContent>
+      <xs:extension base="fgLayoutBase">
+        <xs:choice>
+          <xs:element name="Tab" type="fgScrollbar" minOccurs="0" maxOccurs="unbounded" />
+        </xs:choice>
+        <xs:attribute name="flags" type="fgFlags"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="fgText">
+    <xs:complexContent>
+      <xs:extension base="fgLayout">
+        <xs:attribute name="flags" type="fgFlagsText"/>
+        <xs:attribute name="text" type="xs:string"/>
+        <xs:attribute name="color" type="fgHex"/>
+        <xs:attribute name="font" type="fgFont"/>
+        <xs:attribute name="lineheight" type="xs:decimal"/>
+        <xs:attribute name="letterspacing" type="xs:decimal"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="fgTextbox">
+    <xs:complexContent>
+      <xs:extension base="fgLayout">
+        <xs:attribute name="flags" type="fgFlagsScrollbar"/>
+        <xs:attribute name="text" type="xs:string"/>
+        <xs:attribute name="placeholder" type="xs:string"/>
+        <xs:attribute name="color" type="fgHex"/>
+        <xs:attribute name="font" type="fgFont"/>
+        <xs:attribute name="lineheight" type="xs:decimal"/>
+        <xs:attribute name="letterspacing" type="xs:decimal"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="fgWindow">
+    <xs:complexContent>
+      <xs:extension base="fgLayout">
+        <xs:attribute name="flags" type="fgFlagsWindow"/>
+        <xs:attribute name="text" type="xs:string"/>
+        <xs:attribute name="color" type="fgHex"/>
+        <xs:attribute name="font" type="fgFont"/>
+        <xs:attribute name="lineheight" type="xs:decimal"/>
+        <xs:attribute name="letterspacing" type="xs:decimal"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="fgTreeItem">
+    <xs:complexContent>
+      <xs:extension base="fgLayoutBase">
+        <xs:sequence>
+          <xs:group ref="fgControlGroup" minOccurs="0" maxOccurs="unbounded" />
+          <xs:element name="TreeItem" type="fgTreeItem" minOccurs="0" maxOccurs="unbounded" />
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="fgTreeView">
+    <xs:complexContent>
+      <xs:extension base="fgLayoutBase">
+        <xs:choice>
+          <xs:element name="TreeItem" type="fgTreeItem" minOccurs="0" maxOccurs="unbounded" />
+        </xs:choice>
+        <xs:attribute name="flags" type="fgFlagsScrollbar"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:element name="Layout">
+    <xs:complexType>
+      <xs:complexContent>
+        <xs:extension base="fgLayout">
+          <xs:attribute name="flags" type="fgFlags"/>
+        </xs:extension>
+      </xs:complexContent>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:complexType name="fgStyle">
+    <xs:complexContent>
+      <xs:extension base="fgLayoutBase">
+        <xs:attribute name="flags" type="fgFlagsAny"/>
+        <xs:attribute name="text" type="xs:string"/>
+        <xs:attribute name="color" type="fgHex"/>
+        <xs:attribute name="font" type="fgFont"/>
+        <xs:attribute name="lineheight" type="xs:decimal"/>
+        <xs:attribute name="letterspacing" type="xs:decimal"/>
+        <xs:attribute name="state" type="xs:string"/>
+        <xs:attribute name="uv" type="fgRect"/>
+        <xs:attribute name="resource" type="xs:string"/>
+        <xs:attribute name="edgecolor" type="fgHex"/>
+        <xs:attribute name="outline" type="xs:decimal"/>
+        <xs:attribute name="placeholder" type="xs:string"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
 
   <xs:group name="fgSkinGroup">
     <xs:choice>
@@ -423,18 +423,18 @@
       <xs:element name="Skin" type="fgSkin" />
     </xs:choice>
   </xs:group>
-  
-<xs:complexType name="fgSkin">
-  <xs:complexContent>
-    <xs:extension base="fgStyle">
-      <xs:sequence>
-        <xs:group ref="fgSkinGroup" minOccurs="0" maxOccurs="unbounded" />
-      </xs:sequence>
-      <xs:attribute name="inherit" type="xs:string"/>
-    </xs:extension>
-  </xs:complexContent>
-</xs:complexType>
 
-<xs:element name="Skin" type="fgSkin" />
+  <xs:complexType name="fgSkin">
+    <xs:complexContent>
+      <xs:extension base="fgStyle">
+        <xs:sequence>
+          <xs:group ref="fgSkinGroup" minOccurs="0" maxOccurs="unbounded" />
+        </xs:sequence>
+        <xs:attribute name="inherit" type="xs:string"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:element name="Skin" type="fgSkin" />
 
 </xs:schema>

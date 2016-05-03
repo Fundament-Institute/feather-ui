@@ -22,7 +22,7 @@ size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
     fgControl_HoverMessage(&self->control, msg);
     fgText_Init(&self->text, 0, 0, 0, *self, 0, "fgButton:text", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
     fgElement_Init(&self->item, *self, self->text, "fgButton:item", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
-    _sendmsg<FG_SETSTYLE, void*>(*self, "nuetral");
+    _sendsubmsg<FG_SETSTYLE, void*>(*self, 0, "nuetral");
     return 1;
   case FG_ADDITEM:
     if(!msg->other)
@@ -31,13 +31,13 @@ size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
       fgPassMessage(&self->item, msg);
     return 1;
   case FG_NUETRAL:
-    _sendmsg<FG_SETSTYLE, void*>(*self, "nuetral");
+    _sendsubmsg<FG_SETSTYLE, void*>(*self, 0, "nuetral");
     return 1;
   case FG_HOVER:
-    _sendmsg<FG_SETSTYLE, void*>(*self, "hover");
+    _sendsubmsg<FG_SETSTYLE, void*>(*self, 0, "hover");
     return 1;
   case FG_ACTIVE:
-    _sendmsg<FG_SETSTYLE, void*>(*self, "active");
+    _sendsubmsg<FG_SETSTYLE, void*>(*self, 0, "active");
     return 1;
   case FG_GOTFOCUS:
     if(self->control.element.flags&FGBUTTON_NOFOCUS)
