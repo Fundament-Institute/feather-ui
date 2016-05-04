@@ -7,7 +7,7 @@
 #include "fgResource.h"
 #include "fgText.h"
 #include "fgRoot.h"
-#include "bss-util\cDynArray.h"
+#include "bss-util\cArraySort.h"
 #include "fgLayout.h"
 #include "bss-util\cHash.h"
 #include "bss-util\cAVLtree.h"
@@ -71,10 +71,16 @@ char DynArrayRemove(T& a, FG_UINT index)
   return 1;
 }
 
-typedef bss_util::cDynArray<typename fgConstruct<fgStyleLayout, const char*, const char*, fgFlag, const fgTransform*>::fgConstructor<fgStyleLayout_Destroy, fgStyleLayout_Init>, size_t, bss_util::CARRAY_CONSTRUCT> fgStyleLayoutArray;
+typedef typename fgConstruct<fgStyleLayout, const char*, const char*, fgFlag, const fgTransform*, int>::fgConstructor<fgStyleLayout_Destroy, fgStyleLayout_Init> fgStyleLayoutConstruct;
+typedef typename fgConstruct<fgClassLayout, const char*, const char*, fgFlag, const fgTransform*, int>::fgConstructor<fgClassLayout_Destroy, fgClassLayout_Init> fgClassLayoutConstruct;
+
+extern BSS_FORCEINLINE char fgSortStyleLayout(const fgStyleLayoutConstruct& l, const fgStyleLayoutConstruct& r) { return -SGNCOMPARE(l.order, r.order); }
+extern BSS_FORCEINLINE char fgSortClassLayout(const fgClassLayoutConstruct& l, const fgClassLayoutConstruct& r) { return -SGNCOMPARE(l.style.order, r.style.order); }
+
+typedef bss_util::cArraySort<fgStyleLayoutConstruct, fgSortStyleLayout, size_t, bss_util::CARRAY_CONSTRUCT> fgStyleLayoutArray;
 typedef bss_util::cDynArray<typename fgConstruct<fgSkin, int>::fgConstructor<fgSkin_Destroy, fgSubskin_Init>, size_t, bss_util::CARRAY_CONSTRUCT> fgSubskinArray;
 typedef bss_util::cDynArray<typename fgConstruct<fgStyle>::fgConstructor<fgStyle_Destroy, fgStyle_Init>, size_t, bss_util::CARRAY_CONSTRUCT> fgStyleArray;
-typedef bss_util::cDynArray<typename fgConstruct<fgClassLayout, const char*, const char*, fgFlag, const fgTransform*>::fgConstructor<fgClassLayout_Destroy, fgClassLayout_Init>, size_t, bss_util::CARRAY_CONSTRUCT> fgClassLayoutArray;
+typedef bss_util::cArraySort<fgClassLayoutConstruct, fgSortClassLayout, size_t, bss_util::CARRAY_CONSTRUCT> fgClassLayoutArray;
 
 struct __kh_fgRadioGroup_t;
 extern __inline struct __kh_fgRadioGroup_t* fgRadioGroup_init();
@@ -103,4 +109,13 @@ inline size_t _sendsubmsg(fgElement* self, unsigned char sub, Args... args)
 }
 
 FG_EXTERN bss_util::cHash<std::pair<fgElement*, unsigned short>, void(FG_FASTCALL *)(struct _FG_ELEMENT*, const FG_Msg*)> fgListenerHash;
+
+inline FG_UINT fgStyleGetMask() { return 0; }
+
+template<typename Arg, typename... Args>
+inline FG_UINT fgStyleGetMask(Arg arg, Args... args)
+{
+  return fgStyle_GetName(arg) | fgStyleGetMask(args...);
+}
+
 #endif

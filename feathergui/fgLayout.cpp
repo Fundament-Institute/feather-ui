@@ -44,7 +44,7 @@ void FG_FASTCALL fgLayout_Destroy(fgLayout* self)
 {
   reinterpret_cast<fgResourceArray&>(self->resources).~cDynArray();
   reinterpret_cast<fgFontArray&>(self->fonts).~cDynArray();
-  reinterpret_cast<fgClassLayoutArray&>(self->layout).~cDynArray();
+  reinterpret_cast<fgClassLayoutArray&>(self->layout).~cArraySort();
 }
 FG_UINT FG_FASTCALL fgLayout_AddResource(fgLayout* self, void* resource)
 {
@@ -70,9 +70,9 @@ void* FG_FASTCALL fgLayout_GetFont(fgLayout* self, FG_UINT font)
 {
   return ((fgFontArray&)self->fonts)[font].ref;
 }
-FG_UINT FG_FASTCALL fgLayout_AddLayout(fgLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform)
+FG_UINT FG_FASTCALL fgLayout_AddLayout(fgLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, int order)
 {
-  return ((fgClassLayoutArray&)self->layout).AddConstruct(type, name, flags, transform);
+  return ((fgClassLayoutArray&)self->layout).Insert(fgClassLayoutConstruct(type, name, flags, transform, order));
 }
 char FG_FASTCALL fgLayout_RemoveLayout(fgLayout* self, FG_UINT layout)
 {
@@ -83,20 +83,20 @@ fgClassLayout* FG_FASTCALL fgLayout_GetLayout(fgLayout* self, FG_UINT layout)
   return self->layout.p + layout;
 }
 
-void FG_FASTCALL fgClassLayout_Init(fgClassLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform)
+void FG_FASTCALL fgClassLayout_Init(fgClassLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, int order)
 {
-  fgStyleLayout_Init(&self->style, type, name, flags, transform);
+  fgStyleLayout_Init(&self->style, type, name, flags, transform, order);
   memset(&self->children, 0, sizeof(fgVector));
 }
 void FG_FASTCALL fgClassLayout_Destroy(fgClassLayout* self)
 {
   fgStyleLayout_Destroy(&self->style);
-  reinterpret_cast<fgClassLayoutArray&>(self->children).~cDynArray();
+  reinterpret_cast<fgClassLayoutArray&>(self->children).~cArraySort();
 }
 
-FG_UINT FG_FASTCALL fgClassLayout_AddChild(fgClassLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform)
+FG_UINT FG_FASTCALL fgClassLayout_AddChild(fgClassLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, int order)
 {
-  return ((fgClassLayoutArray&)self->children).AddConstruct(type, name, flags, transform);
+  return ((fgClassLayoutArray&)self->children).Insert(fgClassLayoutConstruct(type, name, flags, transform, order));
 }
 char FG_FASTCALL fgClassLayout_RemoveChild(fgClassLayout* self, FG_UINT child)
 {

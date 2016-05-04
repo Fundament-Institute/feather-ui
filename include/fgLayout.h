@@ -32,13 +32,13 @@ FG_EXTERN void* FG_FASTCALL fgLayout_GetResource(fgLayout* self, FG_UINT resourc
 FG_EXTERN FG_UINT FG_FASTCALL fgLayout_AddFont(fgLayout* self, void* font);
 FG_EXTERN char FG_FASTCALL fgLayout_RemoveFont(fgLayout* self, FG_UINT font);
 FG_EXTERN void* FG_FASTCALL fgLayout_GetFont(fgLayout* self, FG_UINT font);
-FG_EXTERN FG_UINT FG_FASTCALL fgLayout_AddLayout(fgLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform);
+FG_EXTERN FG_UINT FG_FASTCALL fgLayout_AddLayout(fgLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, int order = 0);
 FG_EXTERN char FG_FASTCALL fgLayout_RemoveLayout(fgLayout* self, FG_UINT layout);
 FG_EXTERN fgClassLayout* FG_FASTCALL fgLayout_GetLayout(fgLayout* self, FG_UINT layout);
 
-FG_EXTERN void FG_FASTCALL fgClassLayout_Init(fgClassLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform);
+FG_EXTERN void FG_FASTCALL fgClassLayout_Init(fgClassLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, int order = 0);
 FG_EXTERN void FG_FASTCALL fgClassLayout_Destroy(fgClassLayout* self);
-FG_EXTERN FG_UINT FG_FASTCALL fgClassLayout_AddChild(fgClassLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform);
+FG_EXTERN FG_UINT FG_FASTCALL fgClassLayout_AddChild(fgClassLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, int order = 0);
 FG_EXTERN char FG_FASTCALL fgClassLayout_RemoveChild(fgClassLayout* self, FG_UINT child);
 FG_EXTERN fgClassLayout* FG_FASTCALL fgClassLayout_GetChild(fgClassLayout* self, FG_UINT child);
 

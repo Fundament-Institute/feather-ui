@@ -84,13 +84,30 @@ char FG_FASTCALL fgElement_PotentialResize(fgElement* self)
 fgElement* FG_FASTCALL fgElement_LoadLayout(fgElement* parent, fgElement* next, fgClassLayout* layout, FN_MAPPING mapping)
 {
   fgElement* element = (*mapping)(layout->style.type, parent, next, layout->style.name, layout->style.flags, &layout->style.transform);
-  _sendsubmsg<FG_SETSTYLE, void*, size_t>(element, 2, &layout->style.style, 0);
+  _sendsubmsg<FG_SETSTYLE, void*, size_t>(element, 2, &layout->style.style, ~0);
 
   fgElement* p = 0;
   for(FG_UINT i = 0; i < layout->children.l; ++i)
     p = fgElement_LoadLayout(element, p, layout->children.p + i, mapping);
 
   return element;
+}
+
+void FG_FASTCALL fgElement_ApplySkin(fgElement* self, const fgSkin* skin, FN_MAPPING mapping)
+{
+  if(!mapping) mapping = &fgLayoutLoadMapping;
+  if(skin->inherit) // apply inherited skin first so we override it.
+    fgElement_ApplySkin(self, skin->inherit, mapping);
+
+  fgElement* child = self->root;
+  for(FG_UINT i = 0; i < self->skin->children.l; ++i)
+  {
+    fgStyleLayout* layout = self->skin->children.p + i;
+    child = (*mapping)(layout->type, self, child, layout->name, layout->flags, &layout->transform);
+    _sendsubmsg<FG_SETSTYLE, void*, size_t>(child, 2, &layout->style, ~0);
+    ((fgSkinRefArray&)self->skinrefs).Add(child);
+  }
+  _sendsubmsg<FG_SETSTYLE, void*, size_t>(self, 2, (void*)&self->skin->style, ~0);
 }
 
 size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
@@ -367,18 +384,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       self->skin = skin;
       if(self->skin != 0)
       {
-        FN_MAPPING mapping = (FN_MAPPING)msg->other2;
-        if(!mapping) mapping = &fgLayoutLoadMapping;
-
-        fgElement* child = self->root;
-        for(FG_UINT i = 0; i < self->skin->children.l; ++i)
-        {
-          fgStyleLayout* layout = self->skin->children.p + i;
-          child = (*mapping)(layout->type, self, child, layout->name, layout->flags, &layout->transform);
-          _sendsubmsg<FG_SETSTYLE, void*, size_t>(child, 2, &layout->style, 0);
-          ((fgSkinRefArray&)self->skinrefs).Add(child);
-        }
-        _sendsubmsg<FG_SETSTYLE, void*, size_t>(self, 2, (void*)&self->skin->style, 0);
+        fgElement_ApplySkin(self, self->skin, (FN_MAPPING)msg->other2);
       }
     }
 
@@ -388,12 +394,12 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       cur->SetSkin(0, (FN_MAPPING)msg->other2);
       cur = cur->next;
     }
-    _sendsubmsg<FG_SETSTYLE, ptrdiff_t, size_t>(self, 1, -1, 0); // force us and our children to recalculate our style based on the new skin
+    _sendsubmsg<FG_SETSTYLE, ptrdiff_t, size_t>(self, 1, -1, ~0); // force us and our children to recalculate our style based on the new skin
   }
   return 1;
   case FG_SETSTYLE:
   {
-    //assert(msg->otheraux != 0);
+    assert(msg->otheraux != 0);
     fgStyle* style = 0;
     if(msg->subtype != 2)
     {
@@ -402,17 +408,26 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       if(index == -1)
         index = _sendmsg<FG_GETSTYLE>(self);
       else
-        self->style = (FG_UINT)index;
-
-      index = bss_util::bsslog2(index);
-      if(self->skin != 0 && index < self->skin->styles.l)
-        style = self->skin->styles.p + index;
+        self->style = (FG_UINT)(index|(self->style&(~msg->otheraux)));
 
       fgElement* cur = self->root;
       while(cur)
       {
-        _sendsubmsg<FG_SETSTYLE, ptrdiff_t, size_t>(cur, 1, -1, 0); // Forces the child to recalculate the style inheritance
+        _sendsubmsg<FG_SETSTYLE, ptrdiff_t, size_t>(cur, 1, -1, ~0); // Forces the child to recalculate the style inheritance
         cur = cur->next;
+      }
+
+      FG_Msg m = *msg;
+      m.subtype = 2;
+      while(index) // We loop through all set bits of index according to mask. index is not always just a single flag, because of style resets when the mask is -1.
+      {
+        size_t indice = bss_util::bsslog2(index);
+        index ^= (1ULL << indice);
+        if(self->skin != 0 && indice < self->skin->styles.l)
+        {
+          m.other = self->skin->styles.p + indice;
+          fgElement_Message(self, &m);
+        }
       }
     }
     else
@@ -1001,11 +1016,11 @@ size_t FG_FASTCALL fgElement::SetSkin(fgSkin* skin, FN_MAPPING mapping) { return
 
 fgSkin* FG_FASTCALL fgElement::GetSkin(fgElement* child) { return reinterpret_cast<fgSkin*>(_sendmsg<FG_GETSKIN, void*>(this, child)); }
 
-size_t FG_FASTCALL fgElement::SetStyle(const char* name) { return _sendsubmsg<FG_SETSTYLE, const void*, size_t>(this, 0, name, 0); }
+size_t FG_FASTCALL fgElement::SetStyle(const char* name, FG_UINT mask) { return _sendsubmsg<FG_SETSTYLE, const void*, size_t>(this, 0, name, mask); }
 
-size_t FG_FASTCALL fgElement::SetStyle(struct _FG_STYLE* style) { return _sendsubmsg<FG_SETSTYLE, void*, size_t>(this, 2, style, 0); }
+size_t FG_FASTCALL fgElement::SetStyle(struct _FG_STYLE* style) { return _sendsubmsg<FG_SETSTYLE, void*, size_t>(this, 2, style, ~0); }
 
-size_t FG_FASTCALL fgElement::SetStyle(size_t index) { return _sendsubmsg<FG_SETSTYLE, ptrdiff_t, size_t>(this, 1, index, 0); }
+size_t FG_FASTCALL fgElement::SetStyle(FG_UINT index, FG_UINT mask) { return _sendsubmsg<FG_SETSTYLE, ptrdiff_t, size_t>(this, 1, index, mask); }
 
 struct _FG_STYLE* fgElement::GetStyle() { return reinterpret_cast<struct _FG_STYLE*>(_sendmsg<FG_GETSTYLE>(this)); }
 

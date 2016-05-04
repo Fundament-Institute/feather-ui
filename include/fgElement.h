@@ -91,9 +91,9 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT struct _FG_ELEMENT* FG_FASTCALL Clone(struct _FG_ELEMENT* from);
   FG_DLLEXPORT size_t FG_FASTCALL SetSkin(struct _FG_SKIN* skin, FN_MAPPING mapping);
   FG_DLLEXPORT struct _FG_SKIN* FG_FASTCALL GetSkin(struct _FG_ELEMENT* child);
-  FG_DLLEXPORT size_t FG_FASTCALL SetStyle(const char* name);
+  FG_DLLEXPORT size_t FG_FASTCALL SetStyle(const char* name, FG_UINT mask);
   FG_DLLEXPORT size_t FG_FASTCALL SetStyle(struct _FG_STYLE* style);
-  FG_DLLEXPORT size_t FG_FASTCALL SetStyle(size_t index);
+  FG_DLLEXPORT size_t FG_FASTCALL SetStyle(FG_UINT index, FG_UINT mask);
   FG_DLLEXPORT struct _FG_STYLE* GetStyle();
   FG_DLLEXPORT const char* GetClassName();
   FG_DLLEXPORT size_t FG_FASTCALL MouseDown(int x, int y, unsigned char button, unsigned char allbtn);

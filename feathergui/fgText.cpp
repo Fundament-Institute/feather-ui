@@ -44,7 +44,14 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
   case FG_SETFONT:
     if(self->font) fgDestroyFont(self->font);
     self->font = 0;
-    if(msg->other) self->font = fgCloneFontDPI(msg->other, _sendmsg<FG_GETDPI>(*self));
+    if(msg->other)
+    {
+      size_t dpi = _sendmsg<FG_GETDPI>(*self);
+      unsigned int fontdpi;
+      unsigned int fontsize;
+      fgFontGet(msg->other, 0, &fontsize, &fontdpi);
+      self->font = (dpi == fontdpi) ? fgCloneFont(msg->other) : fgCopyFont(msg->other, fontsize, fontdpi);
+    }
     fgText_Recalc(self);
     fgDirtyElement(&self->element.transform);
     break;
@@ -59,7 +66,7 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
     fgDirtyElement(&self->element.transform);
     break;
   case FG_SETCOLOR:
-    self->color.color = msg->otherint;
+    self->color.color = (unsigned int)msg->otherint;
     fgDirtyElement(&self->element.transform);
     break;
   case FG_GETTEXT:

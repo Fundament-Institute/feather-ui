@@ -44,7 +44,7 @@ FG_EXTERN void* FG_FASTCALL fgSkin_GetResource(const fgSkin* self, FG_UINT resou
 FG_EXTERN size_t FG_FASTCALL fgSkin_AddFont(fgSkin* self, void* font);
 FG_EXTERN char FG_FASTCALL fgSkin_RemoveFont(fgSkin* self, FG_UINT font);
 FG_EXTERN void* FG_FASTCALL fgSkin_GetFont(const fgSkin* self, FG_UINT font);
-FG_EXTERN size_t FG_FASTCALL fgSkin_AddChild(fgSkin* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform);
+FG_EXTERN size_t FG_FASTCALL fgSkin_AddChild(fgSkin* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, int order = 0);
 FG_EXTERN char FG_FASTCALL fgSkin_RemoveChild(fgSkin* self, FG_UINT child);
 FG_EXTERN fgStyleLayout* FG_FASTCALL fgSkin_GetChild(const fgSkin* self, FG_UINT child);
 FG_EXTERN size_t FG_FASTCALL fgSkin_AddStyle(fgSkin* self, const char* name);
@@ -54,7 +54,7 @@ FG_EXTERN fgSkin* FG_FASTCALL fgSkin_AddSkin(fgSkin* self, const char* name);
 FG_EXTERN char FG_FASTCALL fgSkin_RemoveSkin(fgSkin* self, const char* name);
 FG_EXTERN fgSkin* FG_FASTCALL fgSkin_GetSkin(const fgSkin* self, const char* name);
 
-FG_EXTERN void FG_FASTCALL fgStyleLayout_Init(fgStyleLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform);
+FG_EXTERN void FG_FASTCALL fgStyleLayout_Init(fgStyleLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, int order = 0);
 FG_EXTERN void FG_FASTCALL fgStyleLayout_Destroy(fgStyleLayout* self);
 
 FG_EXTERN fgSkin* FG_FASTCALL fgSkins_LoadFileUBJSON(struct __kh_fgSkins_t* self, const char* file);
