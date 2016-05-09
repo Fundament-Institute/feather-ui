@@ -46,6 +46,10 @@ FG_EXTERN fgLayout* FG_FASTCALL fgLayout_LoadFileUBJSON(const char* file);
 FG_EXTERN fgLayout* FG_FASTCALL fgLayout_LoadUBJSON(const void* data, FG_UINT length);
 FG_EXTERN fgElement* fgLayoutLoadMapping(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
 
+FG_EXTERN size_t FG_FASTCALL fgLayout_Default(fgElement* self, const FG_Msg* msg, CRect* area, AbsRect* parent);
+FG_EXTERN size_t FG_FASTCALL fgLayout_Distribute(fgElement* self, const FG_Msg* msg, char axis);
+FG_EXTERN size_t FG_FASTCALL fgLayout_Tile(fgElement* self, const FG_Msg* msg, char axes);
+
 #ifdef  __cplusplus
 }
 #endif

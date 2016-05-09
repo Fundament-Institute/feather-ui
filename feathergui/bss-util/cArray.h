@@ -120,9 +120,16 @@ namespace bss_util {
   {
     static void _copymove(T* BSS_RESTRICT dest, T* BSS_RESTRICT src, CType n) noexcept { if(dest == nullptr) return; assert(dest != src); _copy(dest, src, n); }
     static void _copy(T* BSS_RESTRICT dest, const T* BSS_RESTRICT src, CType n) noexcept { if(dest == nullptr) return; assert(dest != src); memcpy(dest, src, sizeof(T)*n); }
-    static void _move(T* a, CType dest, CType src, CType n) noexcept { memmove(a + dest, a + src, sizeof(T)*n); }
+    template<typename U>
+    static void _insert(T* a, CType length, CType index, U && t) noexcept
+    {
+      assert(index >= 0 && length >= index);
+      memmove(a + index + 1, a + index, sizeof(T)*(length - index));
+      new(a + index) T(std::forward<U>(t));
+    }
+    static void _remove(T* a, CType length, CType index) noexcept { assert(index >= 0 && length > index); memmove(a + index, a + index + 1, sizeof(T)*(length - index - 1)); }
     static void _setlength(T* a, CType old, CType n) noexcept { BSS_DEBUGFILL(a, old, n, T); }
-    static void _setcapacity(cArrayBase<T, CType, Alloc>& a, CType capacity) noexcept
+    static void _setcapacity(cArrayBase<T, CType, Alloc>& a, CType length, CType capacity) noexcept
     {
       if(capacity <= a._capacity)
         a._capacity = capacity;
@@ -141,7 +148,13 @@ namespace bss_util {
       for(CType i = 0; i < n; ++i)
         new(dest + i) T(src[i]);
     }
-    static void _move(T* a, CType dest, CType src, CType n) noexcept { memmove(a + dest, a + src, sizeof(T)*n); }
+    template<typename U>
+    static void _insert(T* a, CType length, CType index, U && t) noexcept { cArrayInternal<T, CType, CARRAY_SIMPLE, Alloc>::_insert(a, length, index, std::forward<U>(t)); }
+    static void _remove(T* a, CType length, CType index) noexcept {
+      a[index].~T();
+      assert(index >= 0 && length > index);
+      memmove(a + index, a + index + 1, sizeof(T)*(length - index - 1));
+    }
     static void _setlength(T* a, CType old, CType n) noexcept
     {
       for(CType i = n; i < old; ++i)
@@ -150,7 +163,7 @@ namespace bss_util {
       for(CType i = old; i < n; ++i)
         new(a + i) T();
     }
-    static void _setcapacity(cArrayBase<T, CType, Alloc>& a, CType capacity) noexcept
+    static void _setcapacity(cArrayBase<T, CType, Alloc>& a, CType length, CType capacity) noexcept
     {
       a.SetCapacity(capacity);
     }
@@ -174,18 +187,29 @@ namespace bss_util {
       for(CType i = 0; i < n; ++i)
         new(dest + i) T(src[i]);
     }
-    static void _move(T* a, CType dest, CType src, CType n)
+    template<typename U>
+    static void _insert(T* a, CType length, CType index, U && t) noexcept
     {
-      if(src < dest)
-        std::move_backward<T*, T*>(a + src, a + src + n, a + dest + n);
+      assert(index >= 0 && length >= index);
+      if(index < length)
+      {
+        new(a + length) T(std::move(a[length - 1]));
+        std::move_backward<T*, T*>(a + index, a + length - 1, a + length);
+        a[index] = std::forward<U>(t);
+      }
       else
-        std::move<T*, T*>(a + src, a + src + n, a + dest);
+        new(a + index) T(std::forward<U>(t));
+    }
+    static void _remove(T* a, CType length, CType index) noexcept {
+      assert(index >= 0 && length > index);
+      std::move<T*, T*>(a + index + 1, a + length, a + index);
+      a[length - 1].~T();
     }
     static void _setlength(T* a, CType old, CType n) noexcept { cArrayInternal<T, CType, CARRAY_CONSTRUCT, Alloc>::_setlength(a, old, n); }
-    static void _setcapacity(cArrayBase<T, CType, Alloc>& a, CType capacity) noexcept
+    static void _setcapacity(cArrayBase<T, CType, Alloc>& a, CType length, CType capacity) noexcept
     {
       T* n = cArrayBase<T, CType, Alloc>::_getalloc(capacity, 0);
-      if(n != nullptr) _copymove(n, a._array, bssmin(a._capacity, capacity));
+      if(n != nullptr) _copymove(n, a._array, bssmin(length, capacity));
       cArrayBase<T, CType, Alloc>::_free(a._array);
       a._array = n;
       a._capacity = capacity;
@@ -196,11 +220,13 @@ namespace bss_util {
   struct BSS_COMPILER_DLLEXPORT cArrayInternal<T, CType, CARRAY_MOVE, Alloc>
   {
     typedef cArrayInternal<T, CType, CARRAY_SAFE, Alloc> SAFE;
-    static void _copymove(T* BSS_RESTRICT dest, T* BSS_RESTRICT src, CType n) { if(dest == nullptr) return; assert(dest != src); SAFE::_copymove(dest, src, n); }
-    static void _copy(T* BSS_RESTRICT dest, const T* BSS_RESTRICT src, CType n) { assert(false); }
-    static void _move(T* a, CType dest, CType src, CType n) { SAFE::_move(a, dest, src, n); }
-    static void _setlength(T* a, CType old, CType n) { SAFE::_setlength(a, old, n); }
-    static void _setcapacity(cArrayBase<T, CType, Alloc>& a, CType capacity) { SAFE::_setcapacity(a, capacity); }
+    static void _copymove(T* BSS_RESTRICT dest, T* BSS_RESTRICT src, CType n) noexcept { if(dest == nullptr) return; assert(dest != src); SAFE::_copymove(dest, src, n); }
+    static void _copy(T* BSS_RESTRICT dest, const T* BSS_RESTRICT src, CType n) noexcept { assert(false); }
+    template<typename U>
+    static void _insert(T* a, CType length, CType index, U && t) noexcept { SAFE::_insert(a, length, index, std::forward<U>(t)); }
+    static void _remove(T* a, CType length, CType index) noexcept { SAFE::_remove(a, length, index); }
+    static void _setlength(T* a, CType old, CType n) noexcept { SAFE::_setlength(a, old, n); }
+    static void _setcapacity(cArrayBase<T, CType, Alloc>& a, CType length, CType capacity) noexcept { SAFE::_setcapacity(a, length, capacity); }
   };
 
   // Wrapper for underlying arrays that expose the array, making them independently usable without blowing up everything that inherits them
@@ -233,8 +259,7 @@ namespace bss_util {
     BSS_FORCEINLINE CT_ Add(T_&& t) { _insert(std::move(t), _capacity); return _capacity - 1; }
     BSS_FORCEINLINE void Remove(CT_ index)
     {
-      BASE::_move(_array, index, index + 1, _capacity - index - 1);
-      SetCapacity(_capacity - 1);
+      BASE::_remove(_array, _capacity--, index); // we don't bother reallocating the array because it got smaller, so we just ignore part of it.
     }
     BSS_FORCEINLINE void RemoveLast() { Remove(_capacity - 1); }
     BSS_FORCEINLINE void Insert(const T_& t, CT_ index = 0) { _insert(t, index); }
@@ -247,14 +272,14 @@ namespace bss_util {
       if(capacity == _capacity) return;
       CT_ old = _capacity;
       if(capacity < _capacity) BASE::_setlength(_array, _capacity, capacity);
-      BASE::_setcapacity(*this, capacity);
+      BASE::_setcapacity(*this, _capacity, capacity);
       if(capacity > old) BASE::_setlength(_array, old, capacity);
     }
     BSS_FORCEINLINE void SetCapacityDiscard(CT_ capacity) noexcept
     {
       if(capacity == _capacity) return;
       BASE::_setlength(_array, _capacity, 0);
-      SetCapacityDiscard(capacity);
+      AT_::SetCapacityDiscard(capacity);
       BASE::_setlength(_array, 0, _capacity);
     }
     BSS_FORCEINLINE CT_ Capacity() const noexcept { return _capacity; }
@@ -291,7 +316,7 @@ namespace bss_util {
     BSS_FORCEINLINE cArray& operator +=(const cArray& add) noexcept
     { 
       CType old = _capacity;
-      BASE::_setcapacity(*this, _capacity + add._capacity);
+      BASE::_setcapacity(*this, _capacity, _capacity + add._capacity);
       BASE::_copy(_array + old, add._array, add._capacity);
       return *this;
     }
@@ -302,15 +327,8 @@ namespace bss_util {
     inline void _insert(U && data, CType index)
     {
       CType length = _capacity;
-      BASE::_setcapacity(*this, _capacity + 1);
-      if(index < length)
-      {
-        new(_array + length) T(std::forward<U>(_array[length - 1]));
-        BASE::_move(_array, index + 1, index, length - index - 1);
-        _array[index] = std::forward<U>(data);
-      }
-      else
-        new(_array + index) T(std::forward<U>(data));
+      BASE::_setcapacity(*this, _capacity, _capacity + 1);
+      BASE::_insert(_array, length, index, std::forward<U>(data));
     }
   };
 }

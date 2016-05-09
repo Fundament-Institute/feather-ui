@@ -8,6 +8,7 @@
 #include <limits.h>
 
 const fgTransform fgTransform_DEFAULT = { { 0, 0, 0, 0, 0, 1, 0, 1 }, 0, { 0, 0, 0, 0 } };
+const fgTransform fgTransform_EMPTY = { { 0, 0, 0, 0, 0, 0, 0, 0 }, 0, { 0, 0, 0, 0 } };
 const fgTransform fgTransform_CENTER = { { 0, 0.5, 0, 0.5, 0, 0.5, 0, 0.5 }, 0, { 0, 0.5, 0, 0.5 } };
 const fgColor fgColor_NONE = { 0 };
 const fgColor fgColor_BLACK = { 0xFF000000 };

@@ -72,8 +72,8 @@ void FG_FASTCALL fgScrollbar_Recalc(fgScrollbar* self)
   }
   
   // If we get this far, the padding has already been taken care of - append or remove scrollbars.
-  self->bg[1].SetFlag(FGELEMENT_HIDDEN | FGELEMENT_IGNORE, scrollx);
-  self->bg[0].SetFlag(FGELEMENT_HIDDEN | FGELEMENT_IGNORE, scrolly);
+  _sendsubmsg<FG_SETSTYLE, void*, size_t>(&self->bg[0], 0, scrollx ? "visible" : "hidden", fgStyleGetMask("hidden", "visible"));
+  _sendsubmsg<FG_SETSTYLE, void*, size_t>(&self->bg[1], 0, scrolly ? "visible" : "hidden", fgStyleGetMask("hidden", "visible"));
 
   // Set bar dimensions appropriately based on padding
   fgScrollbar_SetBars(self);
@@ -87,6 +87,19 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     fgControl_Message(&self->control, msg);
     memset(&self->maxdim, 0, sizeof(CVec));
+    memset(&self->realpadding, 0, sizeof(AbsRect));
+    memset(&self->barcache, 0, sizeof(AbsVec));
+    memset(&self->realsize, 0, sizeof(AbsVec));
+    fgElement_Init(&self->bg[0], *self, 0, "fgScrollbar:horzbg", FGELEMENT_BACKGROUND, &fgTransform_EMPTY);
+    fgElement_Init(&self->bg[1], *self, 0, "fgScrollbar:vertbg", FGELEMENT_BACKGROUND, &fgTransform_EMPTY);
+    fgElement_Init(self->btn[0], *self, &self->bg[0], "fgScrollbar:scrollleft", FGELEMENT_BACKGROUND, &fgTransform_EMPTY);
+    fgElement_Init(self->btn[1], *self, &self->bg[0], "fgScrollbar:scrollright", FGELEMENT_BACKGROUND, &fgTransform_EMPTY);
+    fgElement_Init(self->btn[2], *self, &self->bg[0], "fgScrollbar:scrollhorz", FGELEMENT_BACKGROUND, &fgTransform_EMPTY);
+    fgElement_Init(self->btn[3], *self, &self->bg[1], "fgScrollbar:scrollup", FGELEMENT_BACKGROUND, &fgTransform_EMPTY);
+    fgElement_Init(self->btn[4], *self, &self->bg[1], "fgScrollbar:scrolldown", FGELEMENT_BACKGROUND, &fgTransform_EMPTY);
+    fgElement_Init(self->btn[5], *self, &self->bg[1], "fgScrollbar:scrollvert", FGELEMENT_BACKGROUND, &fgTransform_EMPTY);
+    _sendsubmsg<FG_SETSTYLE, void*, size_t>(&self->bg[0], 0, "hidden", fgStyleGetMask("hidden", "visible"));
+    _sendsubmsg<FG_SETSTYLE, void*, size_t>(&self->bg[1], 0, "hidden", fgStyleGetMask("hidden", "visible"));
     return 1;
   case FG_MOVE:
     if(!msg->other && (msg->otheraux & 6)) // detect an INTERNAL area change (every other area change will be handled elsewhere)

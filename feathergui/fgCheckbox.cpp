@@ -24,6 +24,7 @@ FG_EXTERN size_t FG_FASTCALL fgCheckbox_Message(fgCheckbox* self, const FG_Msg* 
     //fgElement_Init(&self->indeterminate, *self, 0, "fgCheckbox:indeterminate", FGELEMENT_EXPAND | FGELEMENT_IGNORE | FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN, &fgTransform_DEFAULT);
     fgText_Init(&self->text, 0, 0, 0, *self, 0, "fgCheckbox:text", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
     _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, "nuetral", fgStyleGetMask("nuetral", "hover", "active"));
+    _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, "default", fgStyleGetMask("default", "checked", "indeterminate"));
     self->checked = 0;
     return 1;
   case FG_NUETRAL:

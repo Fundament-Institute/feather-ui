@@ -121,6 +121,7 @@ FG_EXTERN const fgColor fgColor_NONE; // Fully transparent
 FG_EXTERN const fgColor fgColor_BLACK;
 FG_EXTERN const fgColor fgColor_WHITE;
 FG_EXTERN const fgTransform fgTransform_DEFAULT;
+FG_EXTERN const fgTransform fgTransform_EMPTY;
 FG_EXTERN const fgTransform fgTransform_CENTER;
 
 enum FG_MSGTYPE
@@ -353,6 +354,65 @@ enum FG_KEYS
   FG_KEY_OEM_8 = 0xDF
 };
 
+//The joystick button enumerator
+enum FG_JOYBUTTONS
+{
+  FG_JOYBUTTON1 = 0,
+  FG_JOYBUTTON2 = 1,
+  FG_JOYBUTTON3 = 2,
+  FG_JOYBUTTON4 = 3,
+  FG_JOYBUTTON5 = 4,
+  FG_JOYBUTTON6 = 5,
+  FG_JOYBUTTON7 = 6,
+  FG_JOYBUTTON8 = 7,
+  FG_JOYBUTTON9 = 8,
+  FG_JOYBUTTON10 = 9,
+  FG_JOYBUTTON11 = 10,
+  FG_JOYBUTTON12 = 11,
+  FG_JOYBUTTON13 = 12,
+  FG_JOYBUTTON14 = 13,
+  FG_JOYBUTTON15 = 14,
+  FG_JOYBUTTON16 = 15,
+  FG_JOYBUTTON17 = 16,
+  FG_JOYBUTTON18 = 17,
+  FG_JOYBUTTON19 = 18,
+  FG_JOYBUTTON20 = 19,
+  FG_JOYBUTTON21 = 20,
+  FG_JOYBUTTON22 = 21,
+  FG_JOYBUTTON23 = 22,
+  FG_JOYBUTTON24 = 23,
+  FG_JOYBUTTON25 = 24,
+  FG_JOYBUTTON26 = 25,
+  FG_JOYBUTTON27 = 26,
+  FG_JOYBUTTON28 = 27,
+  FG_JOYBUTTON29 = 28,
+  FG_JOYBUTTON30 = 29,
+  FG_JOYBUTTON31 = 30,
+  FG_JOYBUTTON32 = 31,
+  FG_JOYSTICK_ID1 = 0x0000,
+  FG_JOYSTICK_ID2 = 0x0100,
+  FG_JOYSTICK_ID3 = 0x0200,
+  FG_JOYSTICK_ID4 = 0x0300,
+  FG_JOYSTICK_ID5 = 0x0400,
+  FG_JOYSTICK_ID6 = 0x0500,
+  FG_JOYSTICK_ID7 = 0x0600,
+  FG_JOYSTICK_ID8 = 0x0700,
+  FG_JOYSTICK_ID9 = 0x0800,
+  FG_JOYSTICK_ID10 = 0x0900,
+  FG_JOYSTICK_ID12 = 0x0A00,
+  FG_JOYSTICK_ID13 = 0x0B00,
+  FG_JOYSTICK_ID14 = 0x0C00,
+  FG_JOYSTICK_ID15 = 0x0D00,
+  FG_JOYSTICK_ID16 = 0x0E00,
+  FG_JOYSTICK_INVALID = 0xFFFF,
+  FG_JOYAXIS_X = 0,
+  FG_JOYAXIS_Y = 1,
+  FG_JOYAXIS_Z = 2,
+  FG_JOYAXIS_R = 3,
+  FG_JOYAXIS_U = 4,
+  FG_JOYAXIS_V = 5
+};
+
 enum FG_MOUSEBUTTON // Used in FG_Msg.button and FG_Msg.allbtn
 {
   FG_MOUSELBUTTON=1,
@@ -427,6 +487,14 @@ typedef struct _FG_MSG {
   };
   unsigned short type;
   unsigned char subtype;
+
+#ifdef __cplusplus
+  inline bool IsPressed() const { return (button&allbtn) != 0; }
+  inline bool IsShiftDown() const { return (1 & sigkeys) != 0; }
+  inline bool IsCtrlDown() const { return (2 & sigkeys) != 0; }
+  inline bool IsAltDown() const { return (4 & sigkeys) != 0; }
+  inline bool IsHeld() const { return (8 & sigkeys) != 0; }
+#endif
 } FG_Msg;
 
 FG_EXTERN AbsVec FG_FASTCALL ResolveVec(const CVec* v, const AbsRect* last);

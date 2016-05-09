@@ -33,11 +33,14 @@ struct fgConstruct
   template<void (FG_FASTCALL *DESTROY)(T*), void (FG_FASTCALL *CONSTRUCT)(T*, Args...)>
   struct fgConstructor : public T
   {
+    fgConstructor(fgConstructor&& mov) { memcpy(this, &mov, sizeof(T)); memset(&mov, 0, sizeof(T)); }
     fgConstructor() {}
     fgConstructor(Args... args) { CONSTRUCT((T*)this, args...); }
     ~fgConstructor() { DESTROY((T*)this); }
     operator T&() { return *this; }
     operator const T&() const { return *this; }
+    fgConstructor& operator=(fgConstructor&&) = delete;
+    fgConstructor& operator=(const fgConstructor&) = delete;
   };
 };
 
@@ -47,10 +50,13 @@ struct fgConstruct<T>
   template<void (FG_FASTCALL *DESTROY)(T*), void (FG_FASTCALL *CONSTRUCT)(T*)>
   struct fgConstructor : public T
   {
+    fgConstructor(fgConstructor&& mov) { memcpy(this, &mov, sizeof(T)); memset(&mov, 0, sizeof(T)); }
     fgConstructor() { CONSTRUCT((T*)this); }
     ~fgConstructor() { DESTROY((T*)this); }
     operator T&() { return *this; }
     operator const T&() const { return *this; }
+    fgConstructor& operator=(fgConstructor&&) = delete;
+    fgConstructor& operator=(const fgConstructor&) = delete;
   };
 };
 

@@ -31,8 +31,8 @@ enum FGSCROLLBAR_ACTIONS
 // A Scrollbar area acts as a clipping area for a single fgElement.
 typedef struct {
   fgControl control;
-  fgButton btn[6]; // 0 - up arrow, 1 - down arrow, 2 - vertical slider, 3 - right arrow, 4 - left arrow, 5 - horz slider
-  fgElement bg[2]; // 0 - vertical background, 1 - horizontal background
+  fgButton btn[6]; // 0 - left arrow, 1 - right arrow, 2 - horz slider, 3 - up arrow, 4 - down arrow, 5 - vert slider
+  fgElement bg[2]; // 0 - horizontal background, 1 - vertical background
   CVec maxdim;
   AbsRect realpadding; // We have to intercept and store padding amounts here because we hijack the padding to perform scrolling
   AbsVec barcache; // Stores scrollbar width/height

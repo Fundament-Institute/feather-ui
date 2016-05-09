@@ -150,9 +150,6 @@ FG_EXTERN size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* ms
 FG_EXTERN fgElement* FG_FASTCALL fgElement_GetChildUnderMouse(fgElement* self, int x, int y, AbsRect* cache);
 FG_EXTERN void FG_FASTCALL fgElement_ClearListeners(fgElement* self);
 
-FG_EXTERN size_t FG_FASTCALL fgLayout_Default(fgElement* self, const FG_Msg* msg, CRect* area, AbsRect* parent);
-FG_EXTERN size_t FG_FASTCALL fgLayout_Distribute(fgElement* self, const FG_Msg* msg, char axis);
-FG_EXTERN size_t FG_FASTCALL fgLayout_Tile(fgElement* self, const FG_Msg* msg, char axes);
 FG_EXTERN size_t FG_FASTCALL fgIntMessage(fgElement* self, unsigned char type, ptrdiff_t data, size_t aux);
 FG_EXTERN size_t FG_FASTCALL fgVoidMessage(fgElement* self, unsigned char type, void* data, ptrdiff_t aux);
 FG_EXTERN size_t FG_FASTCALL fgPassMessage(fgElement* self, const FG_Msg* msg);
