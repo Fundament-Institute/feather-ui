@@ -1083,18 +1083,18 @@ namespace bss_util {
 
   template<typename T, int N> inline static Vector<T, N> operator -(const Vector<T, N>& l) { for(int i = 0; i < N; ++i) l.v[i] = -l.v[i]; return l; }
 
-  template<typename T, int N> inline static bool BSS_FASTCALL operator !=(Vector<T, N>& l, const Vector<T, N>& r) { bool ret = false; for(int i = 0; i < N; ++i) ret = ret || (l.v[i] != r.v[i]); return ret; }
-  template<typename T, int N> inline static bool BSS_FASTCALL operator ==(Vector<T, N>& l, const Vector<T, N>& r) { bool ret = true; for(int i = 0; i < N; ++i) ret = ret && (l.v[i] == r.v[i]); return ret; }
-  template<typename T, int N> inline static bool BSS_FASTCALL operator !=(Vector<T, N>& l, const T scalar) { bool ret = false; for(int i = 0; i < N; ++i) ret = ret || (l.v[i] != scalar); return ret; }
-  template<typename T, int N> inline static bool BSS_FASTCALL operator ==(Vector<T, N>& l, const T scalar) { bool ret = true; for(int i = 0; i < N; ++i) ret = ret && (l.v[i] == scalar); return ret; }
-  template<typename T, int N> inline static bool BSS_FASTCALL operator >(Vector<T, N>& l, const Vector<T, N>& r) { char c = 0; for(int i = 0; i < N && !c; ++i) c = SGNCOMPARE(l.v[i], r.v[i]); return c>0; }
-  template<typename T, int N> inline static bool BSS_FASTCALL operator <(Vector<T, N>& l, const Vector<T, N>& r) { char c = 0; for(int i = 0; i < N && !c; ++i) c = SGNCOMPARE(l.v[i], r.v[i]); return c<0; }
-  template<typename T, int N> inline static bool BSS_FASTCALL operator >=(Vector<T, N>& l, const Vector<T, N>& r) { return !operator<(l, r); }
-  template<typename T, int N> inline static bool BSS_FASTCALL operator <=(Vector<T, N>& l, const Vector<T, N>& r) { return !operator>(l, r); }
-  template<typename T, int N> inline static bool BSS_FASTCALL operator >(Vector<T, N>& l, const T scalar) { bool ret = true; for(int i = 0; i < N; ++i) ret = ret && (l.v[i] > scalar); return ret; }
-  template<typename T, int N> inline static bool BSS_FASTCALL operator <(Vector<T, N>& l, const T scalar) { bool ret = true; for(int i = 0; i < N; ++i) ret = ret && (l.v[i] < scalar); return ret; }
-  template<typename T, int N> inline static bool BSS_FASTCALL operator >=(Vector<T, N>& l, const T scalar) { bool ret = true; for(int i = 0; i < N; ++i) ret = ret && (l.v[i] >= scalar); return ret; }
-  template<typename T, int N> inline static bool BSS_FASTCALL operator <=(Vector<T, N>& l, const T scalar) { bool ret = true; for(int i = 0; i < N; ++i) ret = ret && (l.v[i] <= scalar); return ret; }
+  template<typename T, int N> inline static bool BSS_FASTCALL operator !=(const Vector<T, N>& l, const Vector<T, N>& r) { bool ret = false; for(int i = 0; i < N; ++i) ret = ret || (l.v[i] != r.v[i]); return ret; }
+  template<typename T, int N> inline static bool BSS_FASTCALL operator ==(const Vector<T, N>& l, const Vector<T, N>& r) { bool ret = true; for(int i = 0; i < N; ++i) ret = ret && (l.v[i] == r.v[i]); return ret; }
+  template<typename T, int N> inline static bool BSS_FASTCALL operator !=(const Vector<T, N>& l, const T scalar) { bool ret = false; for(int i = 0; i < N; ++i) ret = ret || (l.v[i] != scalar); return ret; }
+  template<typename T, int N> inline static bool BSS_FASTCALL operator ==(const Vector<T, N>& l, const T scalar) { bool ret = true; for(int i = 0; i < N; ++i) ret = ret && (l.v[i] == scalar); return ret; }
+  template<typename T, int N> inline static bool BSS_FASTCALL operator >(const Vector<T, N>& l, const Vector<T, N>& r) { char c = 0; for(int i = 0; i < N && !c; ++i) c = SGNCOMPARE(l.v[i], r.v[i]); return c>0; }
+  template<typename T, int N> inline static bool BSS_FASTCALL operator <(const Vector<T, N>& l, const Vector<T, N>& r) { char c = 0; for(int i = 0; i < N && !c; ++i) c = SGNCOMPARE(l.v[i], r.v[i]); return c<0; }
+  template<typename T, int N> inline static bool BSS_FASTCALL operator >=(const Vector<T, N>& l, const Vector<T, N>& r) { return !operator<(l, r); }
+  template<typename T, int N> inline static bool BSS_FASTCALL operator <=(const Vector<T, N>& l, const Vector<T, N>& r) { return !operator>(l, r); }
+  template<typename T, int N> inline static bool BSS_FASTCALL operator >(const Vector<T, N>& l, const T scalar) { bool ret = true; for(int i = 0; i < N; ++i) ret = ret && (l.v[i] > scalar); return ret; }
+  template<typename T, int N> inline static bool BSS_FASTCALL operator <(const Vector<T, N>& l, const T scalar) { bool ret = true; for(int i = 0; i < N; ++i) ret = ret && (l.v[i] < scalar); return ret; }
+  template<typename T, int N> inline static bool BSS_FASTCALL operator >=(const Vector<T, N>& l, const T scalar) { bool ret = true; for(int i = 0; i < N; ++i) ret = ret && (l.v[i] >= scalar); return ret; }
+  template<typename T, int N> inline static bool BSS_FASTCALL operator <=(const Vector<T, N>& l, const T scalar) { bool ret = true; for(int i = 0; i < N; ++i) ret = ret && (l.v[i] <= scalar); return ret; }
 
   // Component-wise matrix operations. Note that component-wise matrix multiplication is ^
   template<typename T, int M, int N> inline static Matrix<T, M, N> BSS_FASTCALL operator +(const Matrix<T, M, N>& l, const Matrix<T, M, N>& r) { Matrix<T, M, N> n(l); n += r; return n; }

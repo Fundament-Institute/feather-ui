@@ -133,10 +133,10 @@ char FG_FASTCALL fgSkin_RemoveSkin(fgSkin* self, const char* name)
 }
 fgSkin* FG_FASTCALL fgSkin_GetSkin(const fgSkin* self, const char* name)
 {
-  if(!self->skinmap || !name)
+  if(!self || !self->skinmap || !name)
     return 0;
   khiter_t iter = kh_get(fgSkins, self->skinmap, name);
-  return (iter != kh_end(self->skinmap) && kh_exist(self->skinmap, iter)) ? kh_val(self->skinmap, iter) : 0;
+  return (iter != kh_end(self->skinmap) && kh_exist(self->skinmap, iter)) ? kh_val(self->skinmap, iter) : fgSkin_GetSkin(self->inherit, name);
 }
 
 void FG_FASTCALL fgStyleLayout_Init(fgStyleLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, int order)

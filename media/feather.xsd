@@ -378,7 +378,7 @@
       </xs:complexContent>
     </xs:complexType>
   </xs:element>
-
+    
   <xs:complexType name="fgStyle">
     <xs:complexContent>
       <xs:extension base="fgLayoutBase">

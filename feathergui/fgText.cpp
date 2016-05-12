@@ -6,9 +6,9 @@
 
 void FG_FASTCALL fgText_Init(fgText* self, char* text, void* font, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
+  self->cache = 0;
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, (FN_DESTROY)&fgText_Destroy, (FN_MESSAGE)&fgText_Message);
 
-  self->cache = 0;
   if(color) fgIntMessage(*self, FG_SETCOLOR, color, 0);
   if(text) _sendmsg<FG_SETTEXT, void*>(*self, text);
   if(font) _sendmsg<FG_SETFONT, void*>(*self, font);
