@@ -31,13 +31,13 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
     self->edge.color = 0;
     self->res = 0;
     self->outline = 0;
-    return 1;
+    return FG_ACCEPT;
   case FG_SETUV:
     if(msg->other)
       self->uv = *((CRect*)msg->other);
     fgResource_Recalc(self);
     fgDirtyElement(&self->element.transform);
-    return 1;
+    return FG_ACCEPT;
   case FG_SETRESOURCE:
     if(self->res) fgDestroyResource(self->res);
     self->res = 0;
@@ -68,7 +68,7 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
   case FG_GETOUTLINE:
     return *reinterpret_cast<size_t*>(&self->outline);
   case FG_MOVE:
-    if(!(msg->otheraux & 1) && (msg->otheraux&(2 | 4)))
+    if(!(msg->otheraux & FGMOVE_PROPAGATE) && (msg->otheraux & FGMOVE_RESIZE))
       fgResource_Recalc(self);
     break;
   case FG_DRAW:

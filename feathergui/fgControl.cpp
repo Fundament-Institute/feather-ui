@@ -50,26 +50,39 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
     self->contextmenu = 0;
     self->tabnext = self->tabprev = self; // This creates an infinite loop of tabbing
     self->sidenext = self->sideprev = self;
-    return 1;
+    return FG_ACCEPT;
   case FG_KEYDOWN:
-    if(msg->keycode == FG_KEY_TAB && !(msg->sigkeys&(2 | 4)))
+  {
+    fgControl* target = 0;
+    switch(msg->keycode)
     {
-      fgControl* target = (msg->sigkeys & 2) ? self->tabprev : self->tabnext;
-      if(target != 0 && target != self)
-        _sendmsg<FG_GOTFOCUS>(*target);
-      return 1;
+    case FG_KEY_LEFT:
+    case FG_KEY_RIGHT:
+      target = (msg->keycode == FG_KEY_LEFT) ? self->sideprev : self->sidenext;
+      break;
+    case FG_KEY_UP:
+    case FG_KEY_DOWN:
+      target = (msg->keycode == FG_KEY_UP) ? self->tabprev : self->tabnext;
+      break;
+    case FG_KEY_TAB:
+      if(msg->sigkeys&(2 | 4))
+        return 0;
+      target = (msg->sigkeys & 1) ? self->tabprev : self->tabnext;
+      break;
+    default:
+      return 0;
     }
-    break;
+    if(target != 0 && target != self)
+      _sendmsg<FG_GOTFOCUS>(*target);
+  }
+    return FG_ACCEPT;
   case FG_MOUSEDOWN:
     fgControl_DoHoverCalc(self);
     if(fgFocusedWindow != *self)
       _sendmsg<FG_GOTFOCUS>(*self);
     //if(msg->button == FG_MOUSERBUTTON && self->contextmenu != 0)
     //  _sendmsg<FG_GOTFOCUS>(*self->contextmenu);
-    return 1;
-  case FG_MOUSESCROLL:
-    fgControl_DoHoverCalc(self);
-    return 1;
+    return FG_ACCEPT;
   case FG_MOUSEMOVE:
     fgControl_DoHoverCalc(self);
     if(fgroot_instance->drag) // Send a dragging message if necessary. Does not initiate a drag for you (this is because some drags are initiated via click and drag, and some are just clicking).
@@ -78,7 +91,7 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
       m.type = FG_DRAGGING;
       fgPassMessage(*self, &m);
     }
-    return 1;
+    return FG_ACCEPT;
   case FG_MOUSEUP:
   { // Any control that gets a MOUSEUP event immediately fires a MOUSEMOVE event at that location, which will force the focus to shift to a different control if the mouseup occured elsewhere.
     FG_Msg m = *msg;
@@ -90,19 +103,21 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
     _sendmsg<FG_DROP, void*>(fgLastHover, fgroot_instance->drag);
     fgroot_instance->drag = 0; // Ensure the drag pointer is set to NULL even if the target window doesn't understand the FG_DROP message.
   }
-  return 1;
+    return FG_ACCEPT;
   case FG_GOTFOCUS:
-    if(fgElement_Message(*self, msg)) // checks if we resolved via lastfocus.
-      return 1;
+    if(fgElement_CheckLastFocus(*self)) // checks if we resolved via lastfocus.
+      return FG_ACCEPT;
     if(fgFocusedWindow) // We do this here so you can disable getting focus by blocking this message without messing things up
       _sendmsg<FG_LOSTFOCUS, void*>(fgFocusedWindow, self);
     fgFocusedWindow = *self;
-    return 1;
+    _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, "focused", fgStyleGetMask("focused", "unfocused"));
+    return FG_ACCEPT;
   case FG_LOSTFOCUS:
     assert(fgFocusedWindow == *self);
     if(fgFocusedWindow == *self)
     {
       fgFocusedWindow = 0;
+      _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, "unfocused", fgStyleGetMask("focused", "unfocused"));
       if(self->element.parent)
       {
         if(!msg->other)
@@ -111,7 +126,7 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
           self->element.parent->lastfocus = *self;
       }
     }
-    return 1;
+    return FG_ACCEPT;
   case FG_CLONE:
   {
     fgControl* hold = (fgControl*)msg->other;
@@ -135,6 +150,13 @@ size_t FG_FASTCALL fgControl_HoverMessage(fgControl* self, const FG_Msg* msg)
   assert(self != 0 && msg != 0);
   switch(msg->type)
   {
+  case FG_KEYDOWN:
+    if(msg->keycode == FG_KEY_RETURN)
+    {
+      _sendmsg<FG_ACTION>(*self);
+      return FG_ACCEPT;
+    }
+    break;
   case FG_MOUSEON:
     _sendmsg<FG_HOVER>(*self);
     break;

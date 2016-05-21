@@ -102,7 +102,7 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT size_t FG_FASTCALL MouseOn(int x, int y);
   FG_DLLEXPORT size_t FG_FASTCALL MouseOff(int x, int y);
   FG_DLLEXPORT size_t FG_FASTCALL MouseMove(int x, int y);
-  FG_DLLEXPORT size_t FG_FASTCALL MouseScroll(int x, int y, unsigned short delta);
+  FG_DLLEXPORT size_t FG_FASTCALL MouseScroll(int x, int y, unsigned short delta, unsigned short hdelta);
   FG_DLLEXPORT size_t FG_FASTCALL MouseLeave(int x, int y);
   FG_DLLEXPORT size_t FG_FASTCALL KeyUp(unsigned char keycode, char sigkeys);
   FG_DLLEXPORT size_t FG_FASTCALL KeyDown(unsigned char keycode, char sigkeys);
@@ -149,6 +149,7 @@ FG_EXTERN void FG_FASTCALL fgElement_Destroy(fgElement* self);
 FG_EXTERN size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg);
 FG_EXTERN fgElement* FG_FASTCALL fgElement_GetChildUnderMouse(fgElement* self, int x, int y, AbsRect* cache);
 FG_EXTERN void FG_FASTCALL fgElement_ClearListeners(fgElement* self);
+FG_EXTERN size_t FG_FASTCALL fgElement_CheckLastFocus(fgElement* self);
 
 FG_EXTERN size_t FG_FASTCALL fgIntMessage(fgElement* self, unsigned char type, ptrdiff_t data, size_t aux);
 FG_EXTERN size_t FG_FASTCALL fgVoidMessage(fgElement* self, unsigned char type, void* data, ptrdiff_t aux);

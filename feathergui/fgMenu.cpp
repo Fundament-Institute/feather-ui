@@ -32,7 +32,7 @@ size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
     fgElement_Init(&self->highlight, *self, 0, "fgMenu:highlight", FGELEMENT_HIDDEN | FGELEMENT_IGNORE, &fgTransform_DEFAULT);
     fgElement_Init(&self->arrow, 0, 0, "fgMenu:arrow", FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0);
     fgElement_Init(&self->seperator, 0, 0, "fgMenu:seperator", FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0);
-    return 1;
+    return FG_ACCEPT;
   case FG_MOUSEDOWN:
   {
     if(self->expanded) // for top level menus, if there is an expanded submenu and it did not handle a mousedown, we always close the menu.
@@ -41,7 +41,7 @@ size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
       self->expanded = 0;
       if(fgCaptureWindow == *self) // Remove our control hold on mouse messages.
         fgCaptureWindow = 0;
-      return 1;
+      return FG_ACCEPT;
     }
 
     assert(fgCaptureWindow != *self); // this should never happen (if it does you may need to always remove the capture window status).
@@ -59,7 +59,7 @@ size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
         _sendmsg<FG_ACTION, void*>(*self, child);
     }
 
-    return 1;
+    return FG_ACCEPT;
   }
   break;
   case FG_MOUSEUP:
@@ -78,7 +78,7 @@ size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
   case FG_MOUSEOFF:
     break; // the top level menu never turns off its hover
   case FG_ADDITEM:
-    return 1;
+    return FG_ACCEPT;
   case FG_GETCLASSNAME:
     return (size_t)"fgMenu";
   }
@@ -101,7 +101,7 @@ size_t FG_FASTCALL fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
   if(!hit || !child) // check if we are outside and need to close the menu
   {
   fgMenu_Show(self, false);
-  return 1;
+  return FG_ACCEPT;
   }
   size_t index = 0;
   if(((fgSubmenuArray&)self->submenus)[index]) // if this exists open the submenu
@@ -111,7 +111,7 @@ size_t FG_FASTCALL fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
   _sendmsg<FG_ACTION, void*>(*self, ((fgMenuArray&)self->members)[index]);
   fgMenu_Show(self, false);
   }
-  return 1;
+  return FG_ACCEPT;
   }
   case FG_MOUSEMOVE:
   {
@@ -122,7 +122,7 @@ size_t FG_FASTCALL fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
   CRect r = { 0, 0, child->transform.area.top.abs, 0, 0, 1, child->transform.area.bottom.abs, 0 };
   _sendmsg<FG_SETAREA, void*>(&self->highlight, &r);
   }
-  return 1;
+  return FG_ACCEPT;
   }
   case FG_MOUSEOFF:
   if(!self->expanded) // Turn off the hover, but ONLY if a submenu isn't expanded.

@@ -35,7 +35,7 @@ size_t FG_FASTCALL fgBox_Message(fgBox* self, const FG_Msg* msg)
     break;
   case FG_LAYOUTFUNCTION:
     if(flags&(FGBOX_TILEX | FGBOX_TILEY)) // TILE flags override DISTRIBUTE flags, if they're specified.
-      return fgLayout_Tile(*self, (const FG_Msg*)msg->other, (flags&FGBOX_LAYOUTMASK) >> 12);
+      return fgLayout_Tile(*self, (const FG_Msg*)msg->other, (flags&FGBOX_LAYOUTMASK) >> 12, (CRect*)msg->other2);
     if(flags&(FGBOX_DISTRIBUTEX | FGBOX_DISTRIBUTEY))
       return fgLayout_Distribute(*self, (const FG_Msg*)msg->other, (flags&FGBOX_LAYOUTMASK) >> 12);
     break; // If no layout flags are specified, fall back to default layout behavior.

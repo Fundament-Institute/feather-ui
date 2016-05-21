@@ -118,7 +118,7 @@ inline char FG_FASTCALL fgLayout_ExpandX(CRect* selfarea, fgElement* child, FABS
     FABS ndim = area->right.abs + right - reld;
     selfarea->right.abs = selfarea->left.abs + ndim;
     area->right.abs += (area->right.rel - area->left.rel)*(d - ndim);
-    return 2;
+    return FGMOVE_RESIZEX;
   }
   return 0;
 }
@@ -134,7 +134,7 @@ inline char FG_FASTCALL fgLayout_ExpandY(CRect* selfarea, fgElement* child, FABS
     FABS ndim = area->bottom.abs + bottom - reld;
     selfarea->bottom.abs = selfarea->top.abs + ndim;
     area->bottom.abs += (area->bottom.rel - area->top.rel)*(d - ndim); // Equivelent to: area->bottom.rel*(d + reld) - area->bottom.rel*(ndim + reld)
-    return 4;
+    return FGMOVE_RESIZEY;
   }
   return 0;
 }
@@ -224,15 +224,15 @@ char fgLayout_TileSame(FABS posx, FABS posy, fgElement* cur)
   return (posx > 0 || posy > 0) && posx == cur->transform.area.left.abs && posy == cur->transform.area.left.abs;
 }
 
-void fgLayout_TileReorder(fgElement* prev, fgElement* child, char axis, float max, float pitch) // axis: 0 means x-axis first, 1 means y-axis first
+AbsVec fgLayout_TileReorder(fgElement* prev, fgElement* cur, char axis, float max, float pitch) // axis: 0 means x-axis first, 1 means y-axis first
 {
   AbsVec pos = { 0,0 };
+  AbsVec expand = { 0,0 };
   if(prev)
   {
     pos.x = axis ? prev->transform.area.bottom.abs : prev->transform.area.right.abs;
     pos.y = axis ? prev->transform.area.left.abs : prev->transform.area.top.abs;
   }
-  fgElement* cur = child;
   char rowbump = 0; // Used to keep track if we've gone down at least one row - this is required for our same position optimization to be valid.
 
   while(cur) // O(n) complexity, but should break after re-ordering becomes unnecessary.
@@ -258,9 +258,14 @@ void fgLayout_TileReorder(fgElement* prev, fgElement* child, char axis, float ma
         MoveCRect(pos.y, pos.x, &cur->transform.area);
       pos.x += dim.x;
       if(dim.y > pitch) pitch = dim.y;
+      dim.y += pos.y;
+      if(pos.x > expand.x) expand.x = pos.x;
+      if(dim.y > expand.y) expand.y = dim.y;
     }
     cur = cur->next;
   }
+  if(axis) { FABS t = expand.x; expand.x = expand.y; expand.y = t; }
+  return expand;
 }
 
 FABS FG_FASTCALL fgLayout_TileGetPitch(fgElement* cur, char axis)
@@ -279,7 +284,7 @@ FABS FG_FASTCALL fgLayout_TileGetPitch(fgElement* cur, char axis)
   return pitch;
 }
 
-size_t FG_FASTCALL fgLayout_Tile(fgElement* self, const FG_Msg* msg, char axes)
+size_t FG_FASTCALL fgLayout_Tile(fgElement* self, const FG_Msg* msg, char axes, CRect* area)
 {
   fgElement* child = (fgElement*)msg->other;
   char axis = ((axes & 3) && (axes & 8)) || ((axes & 2) && !(axes & 1));
@@ -292,13 +297,17 @@ size_t FG_FASTCALL fgLayout_Tile(fgElement* self, const FG_Msg* msg, char axes)
     else if(!(self->flags & FGELEMENT_EXPANDX)) max = out.right - out.left;
   }
 
+  AbsVec expand;
   switch(msg->subtype)
   {
-  case FGELEMENT_LAYOUTMOVE:
+  case FGELEMENT_LAYOUTRESET:
+    expand = fgLayout_TileReorder(0, self->root, axis, max, 0.0f);
     break;
   case FGELEMENT_LAYOUTRESIZE:
-    if((((msg->otheraux & 0b10) && !(self->flags&FGELEMENT_EXPANDX)) || ((msg->otheraux & 0b100) && !(self->flags&FGELEMENT_EXPANDY))) && (axes & 3))
-      fgLayout_TileReorder(0, self->root, axis, max, 0.0f);
+    if((((msg->otheraux & FGMOVE_RESIZEX) && !(self->flags&FGELEMENT_EXPANDX)) || ((msg->otheraux & FGMOVE_RESIZEY) && !(self->flags&FGELEMENT_EXPANDY))) && (axes & 3))
+      expand = fgLayout_TileReorder(0, self->root, axis, max, 0.0f);
+    else
+      return 0;
     break;
   case FGELEMENT_LAYOUTREORDER:
   {
@@ -306,18 +315,38 @@ size_t FG_FASTCALL fgLayout_Tile(fgElement* self, const FG_Msg* msg, char axes)
     fgElement* cur = old;
     while(cur != 0 && cur != child) cur = cur->next; // Run down from old until we either hit child, in which case old is the lowest, or we hit null
     child = !cur ? child : old;
-    fgLayout_TileReorder(child->prev, child, axis, max, (axes & 3) ? fgLayout_TileGetPitch(child->prev, axis) : 0.0f);
+    expand = fgLayout_TileReorder(child->prev, child, axis, max, (axes & 3) ? fgLayout_TileGetPitch(child->prev, axis) : 0.0f);
   }
   break;
+  case FGELEMENT_LAYOUTMOVE:
+    if(!(msg->otheraux&FGMOVE_RESIZE)) // Only reorder if the child was resized. Note that we need to resize even if it's the opposite axis to account for expansion
+      return 0;
   case FGELEMENT_LAYOUTADD:
-    fgLayout_TileReorder(child->prev, child, axis, max, (axes & 3) ? fgLayout_TileGetPitch(child->prev, axis) : 0.0f);
+    expand = fgLayout_TileReorder(child->prev, child, axis, max, (axes & 3) ? fgLayout_TileGetPitch(child->prev, axis) : 0.0f);
     break;
   case FGELEMENT_LAYOUTREMOVE:
-    fgLayout_TileReorder(child->prev, child->next, axis, max, (axes & 3) ? fgLayout_TileGetPitch(child->prev, axis) : 0.0f);
+    expand = fgLayout_TileReorder(child->prev, child->next, axis, max, (axes & 3) ? fgLayout_TileGetPitch(child->prev, axis) : 0.0f);
     break;
   }
 
-  return 0;
+  char dim = 0;
+  if(self->flags&FGELEMENT_EXPANDX)
+  {
+    if(area->right.abs - area->left.abs < expand.x)
+    {
+      area->right.abs = area->left.abs + expand.x;
+      dim |= FGMOVE_RESIZEX;
+    }
+  }
+  if(self->flags&FGELEMENT_EXPANDY)
+  {
+    if(area->bottom.abs - area->top.abs < expand.y)
+    {
+      area->bottom.abs = area->top.abs + expand.y;
+      dim |= FGMOVE_RESIZEY;
+    }
+  }
+  return dim;
 }
 
 size_t FG_FASTCALL fgLayout_Distribute(fgElement* self, const FG_Msg* msg, char axis)

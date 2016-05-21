@@ -24,25 +24,25 @@ size_t FG_FASTCALL fgSlider_Message(fgSlider* self, const FG_Msg* msg)
     fgElement_Init(&self->slider, *self, 0, "fgSlider:slider", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
     self->value = 0;
     self->range = 0;
-    return 1;
+    return FG_ACCEPT;
   case FG_SETSTATE:
   {
     if(msg->otheraux)
     {
       if(self->range == msg->otherint)
-        return 1;
+        return FG_ACCEPT;
       self->range = msg->otherint;
     }
     else
     {
       if(self->value == msg->otherint)
-        return 1;
+        return FG_ACCEPT;
       self->value = msg->otherint;
     }
     CRect area = self->slider.transform.area;
     area.left.rel = area.right.rel = !self->range ? 0.0f : ((FREL)self->value / (FREL)self->range);
     _sendmsg<FG_SETAREA, void*>(&self->slider, &area);
-    return 1;
+    return FG_ACCEPT;
   }
   case FG_MOUSEMOVE:
   case FG_MOUSEUP:

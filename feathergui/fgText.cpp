@@ -34,13 +34,13 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
     self->font = 0;
     self->lineheight = 0;
     self->letterspacing = 0;
-    return 1;
+    return FG_ACCEPT;
   case FG_SETTEXT:
     if(self->text) free(self->text);
     self->text = fgCopyText((const char*)msg->other);
     fgText_Recalc(self);
     fgDirtyElement(&self->element.transform);
-    return 1;
+    return FG_ACCEPT;
   case FG_SETFONT:
     if(self->font) fgDestroyFont(self->font);
     self->font = 0;
@@ -80,7 +80,7 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
   case FG_GETCOLOR:
     return self->color.color;
   case FG_MOVE:
-    if(!(msg->otheraux & 1) && (msg->otheraux&(2 | 4)))
+    if(!(msg->otheraux & FGMOVE_PROPAGATE) && (msg->otheraux & FGMOVE_RESIZE))
       fgText_Recalc(self);
     break;
   case FG_DRAW:

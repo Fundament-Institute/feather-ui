@@ -16,6 +16,7 @@ void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, size_t dpi)
   self->monitors = 0;
   self->time = 0.0;
   self->updateroot = 0;
+  self->lineheight = 0;
   self->radiohash = fgRadioGroup_init();
   fgroot_instance = self;
   fgTransform transform = { area->left, 0, area->top, 0, area->right, 0, area->bottom, 0, 0, 0, 0 };
@@ -82,7 +83,12 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
     self->dpi = (size_t)msg->otherint;
     return self->gui.element.SetArea(area);
   }
-    return 1;
+    return FG_ACCEPT;
+  case FG_GETLINEHEIGHT:
+    return *reinterpret_cast<size_t*>(&self->lineheight);
+  case FG_SETLINEHEIGHT:
+    self->lineheight = msg->otherf;
+    return FG_ACCEPT;
   }
   return fgControl_Message((fgControl*)self,msg);
 }
@@ -138,7 +144,7 @@ size_t FG_FASTCALL fgRoot_RInject(fgRoot* root, fgElement* self, const FG_Msg* m
   while(cur) // Go through all our children that aren't being clipped
   {
     if(fgRoot_RInject(root, cur, msg, &curarea, &self->padding)) // We still need to properly evaluate hitboxes even for nonclipping elements.
-      return 1; // If the message is NOT rejected, return 1 immediately to indicate we accepted the message.
+      return FG_ACCEPT; // If the message is NOT rejected, return 1 immediately to indicate we accepted the message.
     cur=cur->prev; // Otherwise the child rejected the message.
   }
 
@@ -149,7 +155,7 @@ size_t FG_FASTCALL fgRoot_RInject(fgRoot* root, fgElement* self, const FG_Msg* m
   while(cur) // Try to inject to any children we have
   {
     if(fgRoot_RInject(root, cur, msg, &curarea, &self->padding)) // If the message is NOT rejected, return 0 immediately.
-      return 1;
+      return FG_ACCEPT;
     cur = cur->prev; // Otherwise the child rejected the message.
   }
 
@@ -177,7 +183,7 @@ size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
     do
     {
       if((*self->behaviorhook)(cur, msg))
-        return 1;
+        return FG_ACCEPT;
       cur = cur->parent;
     } while(cur);
     return 0;
@@ -191,10 +197,10 @@ size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
 
     if(fgCaptureWindow)
       if(fgRoot_RInject(self, fgCaptureWindow, msg, 0, 0)) // If it's captured, send the message to the captured window with NULL area.
-        return 1;
+        return FG_ACCEPT;
 
     if(fgRoot_RInject(self, *self, msg, 0, 0))
-      return 1;
+      return FG_ACCEPT;
     if(msg->type != FG_MOUSEMOVE)
       break;
   case FG_MOUSELEAVE:

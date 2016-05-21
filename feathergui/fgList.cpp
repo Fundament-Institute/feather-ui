@@ -26,7 +26,7 @@ FG_EXTERN size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
     self->selected = 0;
     fgElement_Init(&self->selector, 0, 0, "fgList:selector", FGELEMENT_BACKGROUND, 0); // we do NOT set the parent of these because we need to manipulate when they get rendered.
     fgElement_Init(&self->hover, 0, 0, "fgList:hover", FGELEMENT_BACKGROUND, 0);
-    return 1;
+    return FG_ACCEPT;
   case FG_MOUSEDOWN:
     fgUpdateMouseState(&self->mouse, msg);
     break;
@@ -50,7 +50,7 @@ FG_EXTERN size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
       break; // the default handler rejects it for us and sets the cursor.
     fgSetCursor(FGCURSOR_HAND, 0); // Set cursor to a droppable icon
   }
-  return 1;
+    return FG_ACCEPT;
   case FG_DROP:
     if(msg->other)
     {
@@ -69,7 +69,7 @@ FG_EXTERN size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
 
       fgSetCursor(FGCURSOR_ARROW, 0);
     }
-    return 1;
+    return FG_ACCEPT;
   case FG_DRAW:
     if(!(msg->subtype & 1))
     {

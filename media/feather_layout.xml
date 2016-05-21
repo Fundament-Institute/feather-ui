@@ -21,6 +21,12 @@
       </MenuItem>
       <MenuItem><Text text="Test" /></MenuItem>
     </Menu>
+    <TabGroup>
+      <Tab text="Tab 1"></Tab>
+      <Tab text="Tab 2"></Tab>
+      <Tab text="Tab 3"></Tab>
+      <Tab text="Tab 4"></Tab>
+    </TabGroup>
     <TreeView>
       <TreeItem>
         <Text text="Folder" />

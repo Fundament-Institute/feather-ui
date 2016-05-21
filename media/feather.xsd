@@ -300,7 +300,15 @@
     <xs:complexContent>
       <xs:extension base="fgLayoutBase">
         <xs:choice>
-          <xs:element name="Tab" type="fgScrollbar" minOccurs="0" maxOccurs="unbounded" />
+          <xs:element name="Tab" minOccurs="0" maxOccurs="unbounded">
+            <xs:complexType>
+              <xs:complexContent>
+                <xs:extension base="fgScrollbar">
+                  <xs:attribute name="text" type="xs:string"/>
+                </xs:extension>
+              </xs:complexContent>
+            </xs:complexType>
+          </xs:element>
         </xs:choice>
         <xs:attribute name="flags" type="fgFlags"/>
       </xs:extension>

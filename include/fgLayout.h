@@ -48,7 +48,7 @@ FG_EXTERN fgElement* fgLayoutLoadMapping(const char* type, fgElement* BSS_RESTRI
 
 FG_EXTERN size_t FG_FASTCALL fgLayout_Default(fgElement* self, const FG_Msg* msg, CRect* area, AbsRect* parent);
 FG_EXTERN size_t FG_FASTCALL fgLayout_Distribute(fgElement* self, const FG_Msg* msg, char axis);
-FG_EXTERN size_t FG_FASTCALL fgLayout_Tile(fgElement* self, const FG_Msg* msg, char axes);
+FG_EXTERN size_t FG_FASTCALL fgLayout_Tile(fgElement* self, const FG_Msg* msg, char axes, CRect* area);
 
 #ifdef  __cplusplus
 }

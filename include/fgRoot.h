@@ -30,6 +30,7 @@ typedef struct _FG_ROOT {
   fgDeferAction* updateroot;
   struct __kh_fgRadioGroup_t* radiohash;
   size_t dpi;
+  float lineheight;
   double time; // In seconds
   fgMouseState mouse;
 #ifdef  __cplusplus

@@ -22,8 +22,6 @@ enum FGSCROLLBAR_FLAGS
 enum FGSCROLLBAR_ACTIONS
 {
   FGSCROLLBAR_CHANGE = 0, // Triggered by the actual amount shifted
-  FGSCROLLBAR_DELTAH, // horizontal mouse wheel
-  FGSCROLLBAR_DELTAV, // vertical mouse wheel
   FGSCROLLBAR_PAGE, // PageUp, PageDown, and click on the spaces between the scrollbars. 0 1 2 3 - left top right bottom
   FGSCROLLBAR_BUTTON, // Clicking the actual buttons. 0 1 2 3 - left top right bottom
 };

@@ -54,7 +54,7 @@ size_t FG_FASTCALL fgRadiobutton_Message(fgRadiobutton* self, const FG_Msg* msg)
     fgCheckbox_Message(&self->window, msg);
     self->radionext = 0;
     self->radioprev = 0;
-    return 1;
+    return FG_ACCEPT;
   case FG_SETSTATE:
     if(msg->otherint && parent != 0) // if you about to check this radio button, uncheck all of them in it's fgElement group
     {
@@ -92,11 +92,11 @@ size_t FG_FASTCALL fgRadiobutton_Message(fgRadiobutton* self, const FG_Msg* msg)
         root = self;
       }
     }
-    return 1;
+    return FG_ACCEPT;
   case FG_ACTION:
     if(!self->window.checked)
       fgIntMessage(*self, FG_SETSTATE, 1, 0);
-    return 1;
+    return FG_ACCEPT;
   case FG_GETCLASSNAME:
     return (size_t)"fgRadioButton";
   }

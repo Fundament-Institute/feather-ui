@@ -37,6 +37,7 @@ typedef unsigned int fgFlag;
 #define FGUI_VERSION_REVISION 0
 #define FG_FASTCALL BSS_COMPILER_FASTCALL
 #define FG_EXTERN extern BSS_COMPILER_DLLEXPORT
+#define FG_ACCEPT 1
 
 #ifndef FG_STATIC_LIB
 #ifdef feathergui_EXPORTS // All implementations need to define this to properly export the C++ functions in the feather static library.
@@ -123,6 +124,22 @@ FG_EXTERN const fgColor fgColor_WHITE;
 FG_EXTERN const fgTransform fgTransform_DEFAULT;
 FG_EXTERN const fgTransform fgTransform_EMPTY;
 FG_EXTERN const fgTransform fgTransform_CENTER;
+
+enum FGMOVE
+{
+  FGMOVE_PROPAGATE = (1 << 0),
+  FGMOVE_RESIZEX = (1 << 1),
+  FGMOVE_RESIZEY = (1 << 2),
+  FGMOVE_RESIZE = (FGMOVE_RESIZEX | FGMOVE_RESIZEY),
+  FGMOVE_MOVEX = (1 << 3),
+  FGMOVE_MOVEY = (1 << 4),
+  FGMOVE_MOVE = (FGMOVE_MOVEX | FGMOVE_MOVEY),
+  FGMOVE_CENTERX = (1 << 5),
+  FGMOVE_CENTERY = (1 << 6),
+  FGMOVE_CENTER = (FGMOVE_CENTERX | FGMOVE_CENTERY),
+  FGMOVE_ROTATION = (1 << 7),
+  FGMOVE_PADDING = (1 << 8)
+};
 
 enum FG_MSGTYPE
 {
@@ -469,7 +486,7 @@ typedef struct _FG_MSG {
     struct { int x; int y; // Mouse and touch events
       union { 
         struct { unsigned char button; unsigned char allbtn; }; 
-        short scrolldelta; // MOUSESCROLL
+        struct { short scrolldelta; short scrollhdelta; }; // MOUSESCROLL
         short touchindex; // Touch events
       };
     }; 

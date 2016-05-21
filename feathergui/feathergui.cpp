@@ -17,6 +17,7 @@ bss_util::cHash<std::pair<fgElement*, unsigned short>, void(FG_FASTCALL *)(struc
 
 static_assert(sizeof(unsigned int) == sizeof(fgColor), "ERROR: fgColor not size of 32-bit int!");
 static_assert(sizeof(FG_Msg) <= sizeof(uint64_t) * 3, "FG_Msg is too big!");
+static_assert(sizeof(FG_Msg) == sizeof(void*)*2 + sizeof(uint32_t)*2, "FG_Msg is not 16!");
 
 AbsVec FG_FASTCALL ResolveVec(const CVec* v, const AbsRect* last)
 {
