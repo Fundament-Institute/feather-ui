@@ -170,6 +170,8 @@ enum FG_MSGTYPE
   FG_GETCLASSNAME, // Returns a unique string identifier for the class
   FG_GETDPI,
   FG_SETDPI,
+  FG_SETUSERDATA, // Stores the pointer-sized first argument in a hash using the second argument as a string key. If the key is null, stores it in userdata.
+  FG_GETUSERDATA, 
   // fgControl
   FG_MOUSEDOWN,
   FG_MOUSEDBLCLICK,

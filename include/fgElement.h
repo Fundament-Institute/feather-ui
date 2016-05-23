@@ -36,6 +36,7 @@ struct _FG_ELEMENT;
 struct _FG_STYLE;
 struct _FG_SKIN;
 struct _FG_LAYOUT;
+struct __kh_fgUserdata_t;
 typedef fgDeclareVector(struct _FG_ELEMENT*, Element) fgVectorElement;
 typedef struct _FG_ELEMENT* (*FN_MAPPING)(const char*, struct _FG_ELEMENT*, struct _FG_ELEMENT*, const char*, fgFlag, const fgTransform*);
 
@@ -67,10 +68,11 @@ typedef struct _FG_ELEMENT {
   FG_UINT style; // Set to -1 if no style has been assigned, in which case the style from its parent will be used.
   FG_UINT userid;
   void* userdata;
+  struct __kh_fgUserdata_t* userhash;
 
 #ifdef  __cplusplus
   FG_DLLEXPORT void Construct();
-  FG_DLLEXPORT void FG_FASTCALL Move(unsigned char subtype, struct _FG_ELEMENT* child, unsigned long long diff);
+  FG_DLLEXPORT void FG_FASTCALL Move(unsigned char subtype, struct _FG_ELEMENT* child, size_t diff);
   FG_DLLEXPORT size_t FG_FASTCALL SetAlpha(float alpha);
   FG_DLLEXPORT size_t FG_FASTCALL SetArea(const CRect& area);
   FG_DLLEXPORT size_t FG_FASTCALL SetElement(const fgTransform& element);
@@ -96,6 +98,8 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT size_t FG_FASTCALL SetStyle(FG_UINT index, FG_UINT mask);
   FG_DLLEXPORT struct _FG_STYLE* GetStyle();
   FG_DLLEXPORT const char* GetClassName();
+  FG_DLLEXPORT void* FG_FASTCALL GetUserdata(const char* name = 0);
+  FG_DLLEXPORT void FG_FASTCALL SetUserdata(void* data, const char* name = 0);
   FG_DLLEXPORT size_t FG_FASTCALL MouseDown(int x, int y, unsigned char button, unsigned char allbtn);
   FG_DLLEXPORT size_t FG_FASTCALL MouseDblClick(int x, int y, unsigned char button, unsigned char allbtn);
   FG_DLLEXPORT size_t FG_FASTCALL MouseUp(int x, int y, unsigned char button, unsigned char allbtn);

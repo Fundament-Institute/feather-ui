@@ -82,7 +82,7 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
     area.bottom *= scale;
     AbsVec center = ResolveVec(&self->element.transform.center, &area);
 
-    if(self->element.flags&FGRESOURCE_LINE)
+    if((self->element.flags&FGRESOURCE_SHAPEMASK) == FGRESOURCE_LINE)
     {
       AbsRect area = *(AbsRect*)msg->other;
       area.bottom -= 1;
@@ -90,6 +90,12 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
 
       // TODO: correctly center and rotate the resulting line.
       fgDrawLine(area.topleft, area.bottomright, self->color.color);
+    }
+    else if(self->element.flags&FGRESOURCE_UVTILE)
+    {
+      self->uv.right.abs = self->uv.left.abs + area.right - area.left;
+      self->uv.bottom.abs = self->uv.top.abs + area.bottom - area.top;
+      fgDrawResource(self->res, &self->uv, self->color.color, self->edge.color, self->outline, &area, self->element.transform.rotation, &center, self->element.flags);
     }
     else
       fgDrawResource(self->res, &self->uv, self->color.color, self->edge.color, self->outline, &area, self->element.transform.rotation, &center, self->element.flags);

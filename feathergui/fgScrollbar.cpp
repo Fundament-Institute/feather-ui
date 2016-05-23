@@ -180,7 +180,21 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
       self->control.element.flags = flags;
       self->realsize = { area.right.abs - area.left.abs, area.bottom.abs - area.top.abs }; // retrieve real area and then reset to the area of the window.
       if(dim)
+      {
+        if(!(flags & FGELEMENT_EXPANDX))
+        {
+          area.left = self->control.element.transform.area.left;
+          area.right = self->control.element.transform.area.right;
+        }
+        if(!(flags & FGELEMENT_EXPANDY))
+        {
+          area.top = self->control.element.transform.area.top;
+          area.bottom = self->control.element.transform.area.bottom;
+        }
+        if(flags&FGELEMENT_EXPAND)
+          self->control.element.SetArea(area);
         fgScrollbar_Redim(self, area);
+      }
       return FG_ACCEPT;
     }
     break;

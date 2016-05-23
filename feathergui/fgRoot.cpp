@@ -93,6 +93,28 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
   return fgControl_Message((fgControl*)self,msg);
 }
 
+void BSS_FORCEINLINE fgStandardDrawElement(fgElement* self, fgElement* hold, AbsRect* area, size_t dpi, AbsRect& curarea, bool& clipping)
+{
+  if(!(hold->flags&FGELEMENT_HIDDEN))
+  {
+    ResolveRectCache(hold, &curarea, area, (hold->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
+
+    if(!clipping && !(hold->flags&FGELEMENT_NOCLIP))
+    {
+      clipping = true;
+      fgPushClipRect(area);
+    }
+    else if(clipping && (hold->flags&FGELEMENT_NOCLIP))
+    {
+      clipping = false;
+      fgPopClipRect();
+    }
+
+    char culled = !fgRectIntersect(&curarea, &fgPeekClipRect());
+    _sendsubmsg<FG_DRAW, void*, size_t>(hold, culled, &curarea, dpi);
+  }
+}
+
 void FG_FASTCALL fgStandardDraw(fgElement* self, AbsRect* area, size_t dpi, char culled)
 {
   fgElement* hold = culled ? self->rootnoclip : self->root;
@@ -101,30 +123,53 @@ void FG_FASTCALL fgStandardDraw(fgElement* self, AbsRect* area, size_t dpi, char
 
   while(hold)
   {
-    if(!(hold->flags&FGELEMENT_HIDDEN))
-    {
-      ResolveRectCache(hold, &curarea, area, (hold->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
-
-      if(!clipping && !(hold->flags&FGELEMENT_NOCLIP))
-      {
-        clipping = true;
-        fgPushClipRect(area);
-      }
-      else if(clipping && (hold->flags&FGELEMENT_NOCLIP))
-      {
-        clipping = false;
-        fgPopClipRect();
-      }
-
-      char culled = !fgRectIntersect(&curarea, &fgPeekClipRect());
-      _sendsubmsg<FG_DRAW, void*, size_t>(hold, culled, &curarea, dpi);
-    }
-    hold = hold->next;
+    fgStandardDrawElement(self, hold, area, dpi, curarea, clipping);
+    hold = culled ? hold->nextclip : hold->next;
   }
 
   if(clipping)
     fgPopClipRect();
 }
+
+void FG_FASTCALL fgOrderedDraw(fgElement* self, AbsRect* area, size_t dpi, char culled, fgElement** ordered, size_t numordered)
+{
+  if(culled) // If we are culled, thee's no point drawing ordered elements, because ordered elements aren't non-clipping, so we let the standard draw take care of it.
+    return fgStandardDraw(self, area, dpi, culled);
+
+  fgElement* cur = self->root;
+  AbsRect curarea;
+  bool clipping = false;
+
+  while(cur != 0 && (cur->flags & FGELEMENT_BACKGROUND)) // Render all background elements before the ordered elements
+  {
+    fgStandardDrawElement(self, cur, area, dpi, curarea, clipping);
+    cur = cur->next;
+  }
+
+  // do binary search on the absolute resolved bottomright coordinates compared to the topleft corner of the render area
+  cur = 0;
+
+  clipping = true; // always clipping at this stage
+  fgPushClipRect(area);
+  char cull = 0;
+
+  while(!cull && cur != 0 && !(cur->flags & FGELEMENT_BACKGROUND)) // Render all ordered elements until they become culled
+  {
+    ResolveRectCache(cur, &curarea, area, &self->padding); // always apply padding because these are always foreground elements
+    cull = !fgRectIntersect(&curarea, &fgPeekClipRect());
+    _sendsubmsg<FG_DRAW, void*, size_t>(cur, cull, &curarea, dpi);
+  }
+
+  while(cur != 0 && (cur->flags & FGELEMENT_BACKGROUND)) // Render all background elements after the ordered elements
+  {
+    fgStandardDrawElement(self, cur, area, dpi, curarea, clipping);
+    cur = cur->next;
+  }
+
+  if(clipping)
+    fgPopClipRect();
+}
+
 
 // Recursive event injection function
 size_t FG_FASTCALL fgRoot_RInject(fgRoot* root, fgElement* self, const FG_Msg* msg, AbsRect* area, AbsRect* padding)

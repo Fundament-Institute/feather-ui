@@ -5,8 +5,11 @@
 #include "fgRoot.h"
 #include "fgLayout.h"
 #include "feathercpp.h"
+#include "bss-util/khash.h"
 #include <math.h>
 #include <limits.h>
+
+KHASH_INIT(fgUserdata, const char*, size_t, 1, kh_str_hash_func, kh_str_hash_equal);
 
 template<typename U, typename V>
 BSS_FORCEINLINE char CompPairInOrder(const std::pair<U, V>& l, const std::pair<U, V>& r) { char ret = SGNCOMPARE(l.first, r.first); return !ret ? SGNCOMPARE(l.second, r.second) : ret; }
@@ -60,6 +63,7 @@ void FG_FASTCALL fgElement_Destroy(fgElement* self)
     fgCaptureWindow = 0;
 
   if(self->name) free(self->name);
+  if(self->userhash) kh_destroy_fgUserdata(self->userhash);
   fgElement_RemoveParent(self);
   self->parent = 0;
   reinterpret_cast<fgSkinRefArray&>(self->skinrefs).~cDynArray();
@@ -154,7 +158,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgSubMessage(hold, FG_MOVE, msg->subtype, ref, diff & msg->otheraux);
       }
 
-      if(msg->otheraux & (FGMOVE_RESIZE|FGMOVE_PADDING)) // a layout change can happen on a resize or padding change
+      if(msg->otheraux & (FGMOVE_RESIZE | FGMOVE_PADDING)) // a layout change can happen on a resize or padding change
         fgSubMessage(self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTRESIZE, 0, msg->otheraux);
     }
     return FG_ACCEPT;
@@ -286,8 +290,8 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     else
       _sendmsg<FG_SETSKIN>(self);
   }
-    fgSubMessage(self, FG_MOVE, FG_SETPARENT, 0, fgElement_PotentialResize(self));
-    return FG_ACCEPT;
+  fgSubMessage(self, FG_MOVE, FG_SETPARENT, 0, fgElement_PotentialResize(self));
+  return FG_ACCEPT;
   case FG_ADDITEM:
   case FG_ADDCHILD:
     hold = (fgElement*)msg->other;
@@ -384,7 +388,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       if(skin != 0)
         return reinterpret_cast<size_t>(skin);
     }
-    return (!self->parent)? 0 : fgPassMessage(self->parent, msg);
+    return (!self->parent) ? 0 : fgPassMessage(self->parent, msg);
   case FG_SETSKIN:
   {
     fgSkin* skin = (fgSkin*)(!msg->other ? (void*)_sendmsg<FG_GETSKIN>(self) : msg->other);
@@ -423,7 +427,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       if(index == -1)
         index = _sendmsg<FG_GETSTYLE>(self);
       else
-        self->style = (FG_UINT)(index|(self->style&(~msg->otheraux)));
+        self->style = (FG_UINT)(index | (self->style&(~msg->otheraux)));
 
       fgElement* cur = self->root;
       while(cur)
@@ -481,7 +485,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     fgSetCursor(FGCURSOR_ARROW, 0);
     return 0;
   case FG_DRAW:
-    fgStandardDraw(self, (AbsRect*)msg->other, msg->otheraux, msg->subtype&1);
+    fgStandardDraw(self, (AbsRect*)msg->other, msg->otheraux, msg->subtype & 1);
     return FG_ACCEPT;
   case FG_SETNAME:
     if(self->name) free(self->name);
@@ -503,7 +507,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       fgPassMessage(hold, msg);
     }
   }
-    break;
+  break;
   case FG_TOUCHBEGIN:
     fgroot_instance->mouse.buttons |= FG_MOUSELBUTTON;
     self->MouseDown(msg->x, msg->y, FG_MOUSELBUTTON, fgroot_instance->mouse.buttons);
@@ -516,6 +520,32 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     fgroot_instance->mouse.buttons |= FG_MOUSELBUTTON;
     self->MouseMove(msg->x, msg->y);
     break;
+  case FG_GETUSERDATA:
+    if(!msg->other2)
+      return *reinterpret_cast<size_t*>(&self->userdata);
+    if(!self->userhash)
+      return 0;
+    {
+      khiter_t k = kh_get_fgUserdata(self->userhash, (const char*)msg->other2);
+      return (k != kh_end(self->userhash) && kh_exist(self->userhash, k)) ? kh_val(self->userhash, k) : 0;
+    }
+  case FG_SETUSERDATA:
+    if(!msg->other2)
+    {
+      self->userdata = msg->other;
+      return 1;
+    }
+    if(!self->userhash)
+      self->userhash = kh_init_fgUserdata();
+    if(!self->userhash)
+      return 0;
+
+    {
+      int r = 0;
+      khiter_t k = kh_put_fgUserdata(self->userhash, (const char*)msg->other2, &r);
+      kh_val(self->userhash, k) = (size_t)msg->otherint;
+      return 1 + r;
+    }
   }
 
   return 0;
@@ -768,7 +798,7 @@ void FG_FASTCALL fgElement_ClearListeners(fgElement* self)
 
 void fgElement::Construct() { _sendmsg<FG_CONSTRUCT>(this); }
 
-void FG_FASTCALL fgElement::Move(unsigned char subtype, fgElement* child, unsigned long long diff) { _sendsubmsg<FG_MOVE, void*, size_t>(this, subtype, child, diff); }
+void FG_FASTCALL fgElement::Move(unsigned char subtype, fgElement* child, size_t diff) { _sendsubmsg<FG_MOVE, void*, size_t>(this, subtype, child, diff); }
 
 size_t FG_FASTCALL fgElement::SetAlpha(float alpha) { return _sendmsg<FG_SETALPHA, float>(this, alpha); }
 
@@ -826,6 +856,10 @@ size_t FG_FASTCALL fgElement::SetStyle(FG_UINT index, FG_UINT mask) { return _se
 struct _FG_STYLE* fgElement::GetStyle() { return reinterpret_cast<struct _FG_STYLE*>(_sendmsg<FG_GETSTYLE>(this)); }
 
 const char* fgElement::GetClassName() { return reinterpret_cast<const char*>(_sendmsg<FG_GETCLASSNAME>(this)); }
+
+void* FG_FASTCALL fgElement::GetUserdata(const char* name) { size_t r = _sendmsg<FG_GETUSERDATA, const void*>(this, name); return *reinterpret_cast<void**>(&r); }
+
+void FG_FASTCALL fgElement::SetUserdata(void* data, const char* name) { _sendmsg<FG_SETUSERDATA, void*, const void*>(this, data, name); }
 
 size_t FG_FASTCALL fgElement::MouseDown(int x, int y, unsigned char button, unsigned char allbtn)
 {
