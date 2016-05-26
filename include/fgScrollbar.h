@@ -31,7 +31,7 @@ typedef struct {
   fgControl control;
   fgButton btn[6]; // 0 - left arrow, 1 - right arrow, 2 - horz slider, 3 - up arrow, 4 - down arrow, 5 - vert slider
   fgElement bg[2]; // 0 - horizontal background, 1 - vertical background
-  CVec maxdim;
+  AbsVec maxdim;
   AbsRect realpadding; // We have to intercept and store padding amounts here because we hijack the padding to perform scrolling
   AbsVec barcache; // Stores scrollbar width/height
   AbsVec realsize; // Stores the total size of the children calculated from the layout.

@@ -13,7 +13,7 @@ void FG_FASTCALL WinAPIfgText_Destroy(WinAPIfgText* self)
 }
 fgStatic* FG_FASTCALL WinAPIfgText_Clone(WinAPIfgText* self)
 {
-  WinAPIfgText* ret = (WinAPIfgText*)malloc(sizeof(WinAPIfgText));
+  WinAPIfgText* ret = bssmalloc<WinAPIfgText>(1);
   size_t len=strlen(self->text)+1;
   fgStatic_Clone(&ret->st.render,self); // this copies over the destroy function
   ret->st.handle=0; //do handle duplication
@@ -47,7 +47,7 @@ fgStatic* FG_FASTCALL fgLoadText(const char* text, fgFlag flags, const char* fon
 {
   size_t len=strlen(text)+1;
   char* str=(char*)malloc(len);
-  WinAPIfgText* r = (WinAPIfgText*)malloc(sizeof(WinAPIfgText));
+  WinAPIfgText* r = bssmalloc<WinAPIfgText>(1);
   fgStatic_Init((fgStatic*)r);
   r->st.render.clone=&WinAPIfgText_Clone;
   r->st.render.element.flags=flags;

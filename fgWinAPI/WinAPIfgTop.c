@@ -127,7 +127,7 @@ fgWindow* FG_FASTCALL fgTopWindow_Create(const char* caption, const fgElement* e
   RECT rsize = { CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT };
   wchar_t* buf=0;
   long style=WS_OVERLAPPED | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_VISIBLE;
-  WinAPIfgTop* r = (WinAPIfgTop*)malloc(sizeof(WinAPIfgTop));
+  WinAPIfgTop* r = bssmalloc<WinAPIfgTop>(1);
   fgWindow_Init(&r->wn.window,(fgWindow*)_fgroot,element,id,flags);
   fgWindow_Init(&r->region,(fgWindow*)r,element,0,0);
   if(flags&FGTOPWINDOW_MINIMIZE) style|=WS_MINIMIZEBOX;

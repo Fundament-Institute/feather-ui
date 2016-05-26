@@ -5,10 +5,9 @@
 #include "bss-util\bss_util.h"
 #include "feathercpp.h"
 
-void FG_FASTCALL fgSlider_Init(fgSlider* BSS_RESTRICT self, size_t range, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+void FG_FASTCALL fgSlider_Init(fgSlider* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, (FN_DESTROY)&fgSlider_Destroy, (FN_MESSAGE)&fgSlider_Message);
-  self->range = range;
 }
 void FG_FASTCALL fgSlider_Destroy(fgSlider* self)
 {

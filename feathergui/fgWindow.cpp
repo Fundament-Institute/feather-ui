@@ -26,9 +26,9 @@ size_t FG_FASTCALL fgWindow_MinimizeMessage(fgButton* self, const FG_Msg* msg)
   return fgButton_Message(self, msg);
 }
 
-void FG_FASTCALL fgWindow_Init(fgWindow* self, fgFlag flags, const fgTransform* transform)
+void FG_FASTCALL fgWindow_Init(fgWindow* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  fgElement_InternalSetup(*self, 0, 0, 0, flags, transform, (FN_DESTROY)&fgWindow_Destroy, (FN_MESSAGE)&fgWindow_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (FN_DESTROY)&fgWindow_Destroy, (FN_MESSAGE)&fgWindow_Message);
 }
 void FG_FASTCALL fgWindow_Destroy(fgWindow* self)
 {
@@ -44,7 +44,7 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     fgControl_Message((fgControl*)self, msg);
     self->dragged = 0;
-    fgText_Init(&self->caption, 0, 0, 0, *self, 0, "fgWindow:text", FGELEMENT_BACKGROUND | FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0);
+    fgText_Init(&self->caption, *self, 0, "fgWindow:text", FGELEMENT_BACKGROUND | FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0);
     fgButton_Init(&self->controls[0], *self, 0, "fgWindow:close", FGELEMENT_BACKGROUND, 0);
     fgButton_Init(&self->controls[1], *self, 0, "fgWindow:restore", FGELEMENT_BACKGROUND, 0);
     fgButton_Init(&self->controls[2], *self, 0, "fgWindow:minimize", FGELEMENT_BACKGROUND, 0);

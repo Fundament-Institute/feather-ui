@@ -86,29 +86,28 @@ char FG_FASTCALL fgElement_PotentialResize(fgElement* self)
     | ((self->transform.area.top.rel != self->transform.area.bottom.rel) << 2);
 }
 
-fgElement* FG_FASTCALL fgElement_LoadLayout(fgElement* parent, fgElement* next, fgClassLayout* layout, FN_MAPPING mapping)
+fgElement* FG_FASTCALL fgElement_LoadLayout(fgElement* parent, fgElement* next, fgClassLayout* layout)
 {
-  fgElement* element = (*mapping)(layout->style.type, parent, next, layout->style.name, layout->style.flags, &layout->style.transform);
+  fgElement* element = fgCreate(layout->style.type, parent, next, layout->style.name, layout->style.flags, &layout->style.transform);
   _sendsubmsg<FG_SETSTYLE, void*, size_t>(element, 2, &layout->style.style, ~0);
 
   fgElement* p = 0;
   for(FG_UINT i = 0; i < layout->children.l; ++i)
-    p = fgElement_LoadLayout(element, p, layout->children.p + i, mapping);
+    p = fgElement_LoadLayout(element, p, layout->children.p + i);
 
   return element;
 }
 
-void FG_FASTCALL fgElement_ApplySkin(fgElement* self, const fgSkin* skin, FN_MAPPING mapping)
+void FG_FASTCALL fgElement_ApplySkin(fgElement* self, const fgSkin* skin)
 {
-  if(!mapping) mapping = &fgLayoutLoadMapping;
   if(skin->inherit) // apply inherited skin first so we override it.
-    fgElement_ApplySkin(self, skin->inherit, mapping);
+    fgElement_ApplySkin(self, skin->inherit);
 
   fgElement* child = self->root;
   for(FG_UINT i = 0; i < self->skin->children.l; ++i)
   {
     fgStyleLayout* layout = self->skin->children.p + i;
-    child = (*mapping)(layout->type, self, child, layout->name, layout->flags, &layout->transform);
+    child = fgCreate(layout->type, self, child, layout->name, layout->flags, &layout->transform);
     assert(child != 0);
     _sendsubmsg<FG_SETSTYLE, void*, size_t>(child, 2, &layout->style, ~0);
     ((fgSkinRefArray&)self->skinrefs).Add(child);
@@ -328,19 +327,16 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     if(!layout)
       return 0;
 
-    FN_MAPPING mapping = (FN_MAPPING)msg->other2;
-    if(!mapping) mapping = &fgLayoutLoadMapping;
-
     fgElement* next = self->last;
     for(FG_UINT i = 0; i < layout->layout.l; ++i)
-      next = fgElement_LoadLayout(self, next, layout->layout.p + i, mapping);
+      next = fgElement_LoadLayout(self, next, layout->layout.p + i);
   }
   return FG_ACCEPT;
   case FG_CLONE:
   {
     hold = (fgElement*)msg->other;
     if(!hold)
-      hold = (fgElement*)malloc(sizeof(fgElement));
+      hold = bss_util::bssmalloc<fgElement>(1);
     memcpy(hold, self, sizeof(fgElement));
     hold->root = 0;
     hold->last = 0;
@@ -403,14 +399,14 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       self->skin = skin;
       if(self->skin != 0)
       {
-        fgElement_ApplySkin(self, self->skin, (FN_MAPPING)msg->other2);
+        fgElement_ApplySkin(self, self->skin);
       }
     }
 
     fgElement* cur = self->root;
     while(cur) // Because we allow children to look up their entire inheritance tree we must always inform them of skin changes
     {
-      cur->SetSkin(0, (FN_MAPPING)msg->other2);
+      cur->SetSkin(0);
       cur = cur->next;
     }
     _sendsubmsg<FG_SETSTYLE, ptrdiff_t, size_t>(self, 1, -1, ~0); // force us and our children to recalculate our style based on the new skin
@@ -546,6 +542,8 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       kh_val(self->userhash, k) = (size_t)msg->otherint;
       return 1 + r;
     }
+  case FG_MOUSEDBLCLICK:
+    return self->MouseDown(msg->x, msg->y, msg->button, msg->allbtn);
   }
 
   return 0;
@@ -824,7 +822,7 @@ size_t FG_FASTCALL fgElement::LayoutFunction(const FG_Msg& msg, const CRect& are
 
 void fgElement::LayoutChange(unsigned char subtype, fgElement* target, fgElement* old) { _sendsubmsg<FG_LAYOUTCHANGE, void*, void*>(this, subtype, target, old); }
 
-size_t FG_FASTCALL fgElement::LayoutLoad(fgLayout* layout, FN_MAPPING mapping) { return _sendmsg<FG_LAYOUTLOAD, void*, void*>(this, layout, mapping); }
+size_t FG_FASTCALL fgElement::LayoutLoad(fgLayout* layout) { return _sendmsg<FG_LAYOUTLOAD, void*>(this, layout); }
 
 size_t fgElement::Drag(fgElement* target, const FG_Msg& msg) { return _sendmsg<FG_DRAG, void*, const void*>(this, target, &msg); }
 
@@ -843,7 +841,7 @@ void fgElement::Draw(AbsRect* area, int dpi) { _sendmsg<FG_DRAW, void*, size_t>(
 
 fgElement* FG_FASTCALL fgElement::Clone(fgElement* from) { return reinterpret_cast<fgElement*>(_sendmsg<FG_CLONE, void*>(this, from)); }
 
-size_t FG_FASTCALL fgElement::SetSkin(fgSkin* skin, FN_MAPPING mapping) { return _sendmsg<FG_SETSKIN, void*, void*>(this, skin, mapping); }
+size_t FG_FASTCALL fgElement::SetSkin(fgSkin* skin) { return _sendmsg<FG_SETSKIN, void*>(this, skin); }
 
 fgSkin* FG_FASTCALL fgElement::GetSkin(fgElement* child) { return reinterpret_cast<fgSkin*>(_sendmsg<FG_GETSKIN, void*>(this, child)); }
 
@@ -1011,6 +1009,10 @@ void fgElement::Active() { _sendmsg<FG_ACTIVE>(this); }
 
 void fgElement::Action() { _sendmsg<FG_ACTION>(this); }
 
+void FG_FASTCALL fgElement::SetMaxDim(float x, float y) { _sendmsg<FG_SETMAXDIM, float, float>(this, x, y); }
+
+const AbsVec& fgElement::GetMaxDim() { size_t r = _sendmsg<FG_GETMAXDIM>(this); return **reinterpret_cast<AbsVec**>(&r); }
+
 size_t fgElement::GetState(ptrdiff_t aux) { return _sendmsg<FG_GETSTATE, ptrdiff_t>(this, aux); }
 
 float fgElement::GetStatef(ptrdiff_t aux) { size_t r = _sendmsg<FG_GETSTATE, ptrdiff_t>(this, aux); return *reinterpret_cast<float*>(&r); }
@@ -1051,6 +1053,6 @@ float fgElement::GetLineHeight() { size_t r = _sendmsg<FG_GETLINEHEIGHT>(this); 
 
 float fgElement::GetLetterSpacing() { size_t r = _sendmsg<FG_GETLETTERSPACING>(this); return *reinterpret_cast<float*>(&r); }
 
-const char* fgElement::GetText() { return reinterpret_cast<const char*>(_sendmsg<FG_GETTEXT>(this)); }
+const int* fgElement::GetText() { return reinterpret_cast<const int*>(_sendmsg<FG_GETTEXT>(this)); }
 
 void fgElement::AddListener(unsigned short type, FN_LISTENER listener) { fgElement_AddListener(this, type, listener); }

@@ -56,7 +56,7 @@ namespace bss_util {
       if(length > _length) BASE::_setlength(_array, _length, length);
       _length = length;
     }
-    inline void Reserve(CT_ capacity) { if(capacity>_capacity) BASE::_setcapacity(*this, capacity); }
+    inline void Reserve(CT_ capacity) { if(capacity>_capacity) BASE::_setcapacity(*this, _length, capacity); }
     BSS_FORCEINLINE CT_ Length() const { return _length; }
     BSS_FORCEINLINE CT_ Capacity() const { return _capacity; }
     BSS_FORCEINLINE const T_& Front() const { assert(_length>0); return _array[0]; }

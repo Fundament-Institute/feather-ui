@@ -38,6 +38,9 @@ BSS_COMPILER_DLLEXPORT extern union bssCPUInfo bssGetCPUInfo();
 BSS_COMPILER_DLLEXPORT extern size_t BSS_FASTCALL UTF8toUTF16(const char*BSS_RESTRICT input,wchar_t*BSS_RESTRICT output, size_t buflen);
 BSS_COMPILER_DLLEXPORT extern size_t BSS_FASTCALL UTF16toUTF8(const wchar_t*BSS_RESTRICT input, char*BSS_RESTRICT output, size_t buflen);
 BSS_COMPILER_DLLEXPORT extern size_t BSS_FASTCALL UTF8toUTF32(const char*BSS_RESTRICT input, int*BSS_RESTRICT output, size_t buflen);
+BSS_COMPILER_DLLEXPORT extern size_t BSS_FASTCALL UTF32toUTF8(const int*BSS_RESTRICT input, char*BSS_RESTRICT output, size_t buflen);
+BSS_COMPILER_DLLEXPORT extern size_t BSS_FASTCALL UTF32toUTF16(const int*BSS_RESTRICT input, wchar_t*BSS_RESTRICT output, size_t buflen);
+BSS_COMPILER_DLLEXPORT extern size_t BSS_FASTCALL UTF16toUTF32(const wchar_t*BSS_RESTRICT input, int*BSS_RESTRICT output, size_t buflen);
 BSS_COMPILER_DLLEXPORT extern int itoa_r(int value, char* buffer, int size, unsigned int radix); // For various stupid reasons we must reimplement multiple threadsafe versions of various functions because MinGW doesn't have them.
 BSS_COMPILER_DLLEXPORT extern const char* GetProgramPath();
 BSS_COMPILER_DLLEXPORT extern size_t GetWorkingSet();

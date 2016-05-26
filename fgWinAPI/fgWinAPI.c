@@ -85,7 +85,7 @@ fgRoot* FG_FASTCALL WinAPIfgInitialize(void* instance)
     FreeLibrary(dwm);
   }
 
-  _fgroot = (WinAPIfgRoot*)malloc(sizeof(WinAPIfgRoot));
+  _fgroot = bssmalloc<WinAPIfgRoot>(1);
   fgWindow_Init((fgWindow*)_fgroot,0,0,0,0);
   _fgroot->instance=wcex.hInstance;
   _fgroot->root.gui.element.destroy=&fgRoot_destroy;

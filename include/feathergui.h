@@ -199,6 +199,9 @@ enum FG_MSGTYPE
   FG_HOVER, // Sent when a hover-enabled control switches to its hover state
   FG_ACTIVE, // Sent when a hover-enabled control switches to its active state
   FG_ACTION, // Sent when a hover-enabled control recieves a valid click event (a MOUSEUP inside the control while it has focus)
+  // fgScrollbar
+  FG_SETMAXDIM,
+  FG_GETMAXDIM,
   // fgList, fgMenu, etc.
   FG_GETITEM,
   FG_ADDITEM, // Used for anything involving items (menus, lists, etc)

@@ -37,7 +37,7 @@ void FG_FASTCALL fgDrawFont(void* font, const char* text, unsigned int color, co
 void FG_FASTCALL fgFontSize(void* font, const char* text, AbsRect* area, fgFlag flags) { }
 
 void* FG_FASTCALL fgCreateResource(fgFlag flags, const char* data, size_t length) {
-  fgTexWrap* r = (fgTexWrap*)malloc(sizeof(fgTexWrap));
+  fgTexWrap* r = bssmalloc<fgTexWrap>(1);
   //r->texture = IMG_LoadTexture(_fgroot->render, file.c_str());
   r->ref = 1;
 
@@ -84,7 +84,7 @@ void FG_FASTCALL fgResourceSize(void* res, const CRect* uv, AbsVec* dim, fgFlag 
 }
 
 #define DEFAULT_CREATE(type, init, ...) \
-  type* r = (type*)malloc(sizeof(type)); \
+  type* r = bssmalloc<type>(1); \
   init(r, __VA_ARGS__); \
   ((fgElement*)r)->free = &free; \
   return (fgElement*)r
@@ -103,7 +103,7 @@ fgElement* FG_FASTCALL fgButton_Create(fgElement* item, fgFlag flags, fgElement*
 }
 fgElement* FG_FASTCALL fgWindow_Create(const char* caption, fgFlag flags, const fgTransform* transform)
 {
-  fgWindow* r = (fgWindow*)malloc(sizeof(fgWindow));
+  fgWindow* r = bssmalloc<fgWindow>(1);
   fgWindow_Init(r, flags, transform);
   fgVoidMessage((fgElement*)r, FG_SETPARENT, fgSingleton());
   fgVoidMessage((fgElement*)r, FG_SETTEXT, (void*)caption);
@@ -112,7 +112,7 @@ fgElement* FG_FASTCALL fgWindow_Create(const char* caption, fgFlag flags, const 
 
 fgRoot* FG_FASTCALL fgInitialize()
 {
-  fgRootSDL* r = (fgRootSDL*)malloc(sizeof(fgRootSDL));
+  fgRootSDL* r = bssmalloc<fgRootSDL>(1);
   assert(!_fgroot);
 
   if(SDL_Init(SDL_INIT_VIDEO) != 0) {

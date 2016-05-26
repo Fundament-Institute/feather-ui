@@ -3,21 +3,29 @@
 
 #include "fgText.h"
 #include "feathercpp.h"
+#include "bss-util/cDynArray.h"
 
-void FG_FASTCALL fgText_Init(fgText* self, char* text, void* font, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+fgElement* FG_FASTCALL fgText_Create(char* text, void* font, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+{
+  fgElement* r = fgCreate("fgText", parent, next, name, flags, transform);
+  if(color) fgIntMessage(r, FG_SETCOLOR, color, 0);
+  if(text) _sendmsg<FG_SETTEXT, void*>(r, text);
+  if(font) _sendmsg<FG_SETFONT, void*>(r, font);
+  return r;
+}
+void FG_FASTCALL fgText_Init(fgText* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
   self->cache = 0;
+  memset(&self->text, 0, sizeof(fgVectorString));
+  memset(&self->buf, 0, sizeof(fgVectorUTF32));
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, (FN_DESTROY)&fgText_Destroy, (FN_MESSAGE)&fgText_Message);
-
-  if(color) fgIntMessage(*self, FG_SETCOLOR, color, 0);
-  if(text) _sendmsg<FG_SETTEXT, void*>(*self, text);
-  if(font) _sendmsg<FG_SETFONT, void*>(*self, font);
 }
 
 void FG_FASTCALL fgText_Destroy(fgText* self)
 {
   assert(self != 0);
-  if(self->text != 0) free(self->text);
+  ((bss_util::cDynArray<int>*)&self->text)->~cDynArray();
+  ((bss_util::cDynArray<char>*)&self->buf)->~cDynArray();
   if(self->font != 0) fgDestroyFont(self->font);
   fgElement_Destroy(&self->element);
 }
@@ -29,15 +37,21 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgElement_Message(&self->element, msg);
-    self->text = 0;
     self->color.color = 0;
     self->font = 0;
     self->lineheight = 0;
     self->letterspacing = 0;
     return FG_ACCEPT;
   case FG_SETTEXT:
-    if(self->text) free(self->text);
-    self->text = fgCopyText((const char*)msg->other);
+    ((bss_util::cDynArray<int>*)&self->text)->Clear();
+    ((bss_util::cDynArray<char>*)&self->buf)->Clear();
+    if(msg->other)
+    {
+      ((bss_util::cDynArray<char>*)&self->buf)->operator=(bss_util::cArraySlice<const char>((const char*)msg->other, strlen((const char*)msg->other) + 1));
+      size_t len = UTF8toUTF32(self->buf.p, 0, 0);
+      ((bss_util::cDynArray<int>*)&self->text)->Reserve(len);
+      self->text.l = UTF8toUTF32(self->buf.p, self->text.p, self->text.s);
+    }
     fgText_Recalc(self);
     fgDirtyElement(&self->element.transform);
     return FG_ACCEPT;
@@ -70,7 +84,7 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
     fgDirtyElement(&self->element.transform);
     break;
   case FG_GETTEXT:
-    return (size_t)self->text;
+    return reinterpret_cast<size_t>(self->text.p);
   case FG_GETFONT:
     return reinterpret_cast<size_t>(self->font);
   case FG_GETLINEHEIGHT:
@@ -93,7 +107,7 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
       area.right *= scale;
       area.bottom *= scale;
       AbsVec center = ResolveVec(&self->element.transform.center, &area);
-      self->cache = fgDrawFont(self->font, !self->text ? "" : self->text, self->lineheight, self->letterspacing, self->color.color, &area, self->element.transform.rotation, &center, self->element.flags, self->cache);
+      self->cache = fgDrawFont(self->font, !self->text.p ? &UNICODE_TERMINATOR : self->text.p, self->lineheight, self->letterspacing, self->color.color, &area, self->element.transform.rotation, &center, self->element.flags, self->cache);
     }
     break;
   case FG_SETDPI:
@@ -111,7 +125,7 @@ FG_EXTERN void FG_FASTCALL fgText_Recalc(fgText* self)
   {
     AbsRect area;
     ResolveRect(*self, &area);
-    fgFontSize(self->font, !self->text ? "" : self->text, self->lineheight, self->letterspacing, &area, self->element.flags);
+    fgFontSize(self->font, !self->text.p ? &UNICODE_TERMINATOR : self->text.p, self->lineheight, self->letterspacing, &area, self->element.flags);
     CRect adjust = self->element.transform.area;
     if(self->element.flags&FGELEMENT_EXPANDX)
       adjust.right.abs = adjust.left.abs + area.right - area.left;

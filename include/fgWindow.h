@@ -44,8 +44,7 @@ typedef struct _FG_WINDOW {
 #endif
 } fgWindow;
 
-FG_EXTERN fgElement* FG_FASTCALL fgWindow_Create(const char* caption, fgFlag flags, const fgTransform* transform);
-FG_EXTERN void FG_FASTCALL fgWindow_Init(fgWindow* self, fgFlag flags, const fgTransform* transform);
+FG_EXTERN void FG_FASTCALL fgWindow_Init(fgWindow* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
 FG_EXTERN void FG_FASTCALL fgWindow_Destroy(fgWindow* self);
 FG_EXTERN size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg);
 

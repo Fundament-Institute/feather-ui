@@ -30,7 +30,6 @@ typedef struct _FG_MENU {
 #endif
 } fgMenu;
 
-FG_EXTERN fgElement* FG_FASTCALL fgMenu_Create(fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, char submenu);
 FG_EXTERN void FG_FASTCALL fgMenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, char submenu);
 FG_EXTERN void FG_FASTCALL fgMenu_Destroy(fgMenu* self);
 FG_EXTERN size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg);

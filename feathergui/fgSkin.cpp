@@ -117,7 +117,7 @@ fgSkin* FG_FASTCALL fgSkin_AddSkin(fgSkin* self, const char* name)
   khiter_t iter = kh_put(fgSkins, self->skinmap, name, &r);
   if(r != 0) // If r is 0 the element already exists so we don't want to re-initialize it
   {
-    kh_val(self->skinmap, iter) = (fgSkin*)malloc(sizeof(fgSkin));
+    kh_val(self->skinmap, iter) = bss_util::bssmalloc<fgSkin>(1);
     fgSkin_Init(kh_val(self->skinmap, iter));
     kh_key(self->skinmap, iter) = fgCopyText(name);
   }

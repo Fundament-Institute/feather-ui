@@ -30,8 +30,8 @@ void* FG_FASTCALL fgCreateFont(fgFlag flags, const char* font, unsigned int font
 void* FG_FASTCALL fgCopyFont(void* font, unsigned int fontsize, unsigned int dpi) { return (void*)~0; }
 void* FG_FASTCALL fgCloneFont(void* font) { return (void*)~0; }
 void FG_FASTCALL fgDestroyFont(void* font) { }
-void* FG_FASTCALL fgDrawFont(void* font, const char* text, float lineheight, float letterspacing, unsigned int color, const AbsRect* area, FABS rotation, AbsVec* center, fgFlag flags, void* cache) { return 0; }
-void FG_FASTCALL fgFontSize(void* font, const char* text, float lineheight, float letterspacing, AbsRect* area, fgFlag flags) { }
+void* FG_FASTCALL fgDrawFont(void* font, const int* text, float lineheight, float letterspacing, unsigned int color, const AbsRect* area, FABS rotation, AbsVec* center, fgFlag flags, void* cache) { return 0; }
+void FG_FASTCALL fgFontSize(void* font, const int* text, float lineheight, float letterspacing, AbsRect* area, fgFlag flags) { }
 void FG_FASTCALL fgFontGet(void* font, float* lineheight, unsigned int* size, unsigned int* dpi)
 { 
   if(lineheight) *lineheight = 0.0f;
@@ -45,71 +45,10 @@ void FG_FASTCALL fgDestroyResource(void* res) { }
 void FG_FASTCALL fgDrawResource(void* res, const CRect* uv, unsigned int color, unsigned int edge, FABS outline, const AbsRect* area, FABS rotation, AbsVec* center, fgFlag flags) {}
 void FG_FASTCALL fgResourceSize(void* res, const CRect* uv, AbsVec* dim, fgFlag flags) { }
 
-#define DEFAULT_CREATE(type, init, ...) \
-  type* r = (type*)malloc(sizeof(type)); \
-  init(r, __VA_ARGS__); \
-  ((fgElement*)r)->free = &free
-
-fgElement* FG_FASTCALL fgResource_Create(void* res, const CRect* uv, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+FG_EXTERN fgElement* FG_FASTCALL fgCreate(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  DEFAULT_CREATE(fgResource, fgResource_Init, res, uv, color, parent, next, name, flags, transform);
-  return (fgElement*)r;
+  return fgCreateDefault(type, parent, next, name, flags, transform);
 }
-
-fgElement* FG_FASTCALL fgText_Create(char* text, void* font, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
-{
-  DEFAULT_CREATE(fgText, fgText_Init, text, font, color, parent, next, name, flags, transform);
-  return (fgElement*)r;
-}
-
-fgElement* FG_FASTCALL fgButton_Create(const char* text, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
-{
-  DEFAULT_CREATE(fgButton, fgButton_Init, parent, next, name, flags, transform);
-  fgVoidMessage((fgElement*)r, FG_SETTEXT, text, 0);
-  return (fgElement*)r;
-}
-
-fgElement* FG_FASTCALL fgWindow_Create(const char* caption, fgFlag flags, const fgTransform* transform)
-{
-  DEFAULT_CREATE(fgWindow, fgWindow_Init, flags, transform);
-  fgVoidMessage((fgElement*)r, FG_SETPARENT, fgSingleton(), 0);
-  fgVoidMessage((fgElement*)r, FG_SETTEXT, caption, 0);
-  return (fgElement*)r;
-}
-
-fgElement* FG_FASTCALL fgCheckbox_Create(const char* text, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
-{
-  DEFAULT_CREATE(fgCheckbox, fgCheckbox_Init, parent, next, name, flags, transform);
-  fgVoidMessage((fgElement*)r, FG_SETTEXT, text, 0);
-  return (fgElement*)r;
-}
-
-fgElement* FG_FASTCALL fgRadiobutton_Create(const char* text, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
-{
-  DEFAULT_CREATE(fgRadiobutton, fgRadiobutton_Init, parent, next, name, flags, transform);
-  fgVoidMessage((fgElement*)r, FG_SETTEXT, text, 0);
-  return (fgElement*)r;
-}
-
-fgElement* FG_FASTCALL fgProgressbar_Create(FREL value, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
-{
-  DEFAULT_CREATE(fgProgressbar, fgProgressbar_Init, parent, next, name, flags, transform);
-  fgIntMessage((fgElement*)r, FG_SETSTATE, *((ptrdiff_t*)&value), 0);
-  return (fgElement*)r;
-}
-
-fgElement* FG_FASTCALL fgSlider_Create(size_t range, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
-{
-  DEFAULT_CREATE(fgSlider, fgSlider_Init, range, parent, next, name, flags, transform);
-  return (fgElement*)r;
-}
-
-FG_EXTERN fgElement* FG_FASTCALL fgBox_Create(fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
-{
-  DEFAULT_CREATE(fgBox, fgBox_Init, parent, next, name, flags, transform);
-  return (fgElement*)r;
-}
-
 
 fgRoot* FG_FASTCALL fgInitialize()
 {

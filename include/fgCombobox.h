@@ -27,7 +27,6 @@ typedef struct {
 #endif
 } fgCombobox;
 
-FG_EXTERN fgControl* FG_FASTCALL fgCombobox_Create(fgControl* parent, fgFlag flags, const fgTransform* transform);
 FG_EXTERN void FG_FASTCALL fgCombobox_Init(fgCombobox* self, fgControl* parent, fgFlag flags, const fgTransform* transform);
 FG_EXTERN char FG_FASTCALL fgCombobox_Message(fgCombobox* self, const FG_Msg* msg);
 

@@ -80,6 +80,10 @@ namespace bss_util {
   template<typename T>
   struct TBitLimit : public BitLimit<sizeof(T)<<3> {};
 
+  // Typesafe malloc implementation, for when you don't want to use New because you don't want constructors to be called.
+  template<typename T>
+  BSS_FORCEINLINE static T* bssmalloc(size_t sz) { return reinterpret_cast<T*>(malloc(sz * sizeof(T))); }
+
   //template<bool Cond, typename F, F f1, F f2>
   //struct choose_func { BSS_FORCEINLINE static F get() { return f1; } };
   //template<typename F, F f1, F f2>

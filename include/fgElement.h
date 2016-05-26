@@ -38,7 +38,6 @@ struct _FG_SKIN;
 struct _FG_LAYOUT;
 struct __kh_fgUserdata_t;
 typedef fgDeclareVector(struct _FG_ELEMENT*, Element) fgVectorElement;
-typedef struct _FG_ELEMENT* (*FN_MAPPING)(const char*, struct _FG_ELEMENT*, struct _FG_ELEMENT*, const char*, fgFlag, const fgTransform*);
 
 typedef void(FG_FASTCALL *FN_LISTENER)(struct _FG_ELEMENT*, const FG_Msg*);
 
@@ -85,13 +84,13 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT size_t FG_FASTCALL RemoveChild(struct _FG_ELEMENT* child);
   FG_DLLEXPORT size_t FG_FASTCALL LayoutFunction(const FG_Msg& msg, const CRect& area);
   FG_DLLEXPORT void FG_FASTCALL LayoutChange(unsigned char subtype, struct _FG_ELEMENT* target, struct _FG_ELEMENT* old);
-  FG_DLLEXPORT size_t FG_FASTCALL LayoutLoad(struct _FG_LAYOUT* layout, FN_MAPPING mapping);
+  FG_DLLEXPORT size_t FG_FASTCALL LayoutLoad(struct _FG_LAYOUT* layout);
   FG_DLLEXPORT size_t Drag(struct _FG_ELEMENT* target, const FG_Msg& msg);
   FG_DLLEXPORT size_t Dragging(int x, int y);
   FG_DLLEXPORT size_t Drop(struct _FG_ELEMENT* target);
   FG_DLLEXPORT void Draw(AbsRect* area, int dpi);
   FG_DLLEXPORT struct _FG_ELEMENT* FG_FASTCALL Clone(struct _FG_ELEMENT* from);
-  FG_DLLEXPORT size_t FG_FASTCALL SetSkin(struct _FG_SKIN* skin, FN_MAPPING mapping);
+  FG_DLLEXPORT size_t FG_FASTCALL SetSkin(struct _FG_SKIN* skin);
   FG_DLLEXPORT struct _FG_SKIN* FG_FASTCALL GetSkin(struct _FG_ELEMENT* child);
   FG_DLLEXPORT size_t FG_FASTCALL SetStyle(const char* name, FG_UINT mask);
   FG_DLLEXPORT size_t FG_FASTCALL SetStyle(struct _FG_STYLE* style);
@@ -122,6 +121,8 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT void Hover();
   FG_DLLEXPORT void Active();
   FG_DLLEXPORT void Action();
+  FG_DLLEXPORT void FG_FASTCALL SetMaxDim(float x, float y);
+  FG_DLLEXPORT const AbsVec& GetMaxDim();
   FG_DLLEXPORT struct _FG_ELEMENT* GetSelectedItem();
   FG_DLLEXPORT size_t GetState(ptrdiff_t aux);
   FG_DLLEXPORT float GetStatef(ptrdiff_t aux);
@@ -142,7 +143,7 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT void* GetFont();
   FG_DLLEXPORT float GetLineHeight();
   FG_DLLEXPORT float GetLetterSpacing();
-  FG_DLLEXPORT const char* GetText();
+  FG_DLLEXPORT const int* GetText();
   FG_DLLEXPORT void AddListener(unsigned short type, FN_LISTENER listener);
 #endif
 } fgElement;
@@ -154,6 +155,7 @@ FG_EXTERN size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* ms
 FG_EXTERN fgElement* FG_FASTCALL fgElement_GetChildUnderMouse(fgElement* self, int x, int y, AbsRect* cache);
 FG_EXTERN void FG_FASTCALL fgElement_ClearListeners(fgElement* self);
 FG_EXTERN size_t FG_FASTCALL fgElement_CheckLastFocus(fgElement* self);
+FG_EXTERN fgElement* FG_FASTCALL fgCreate(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
 
 FG_EXTERN size_t FG_FASTCALL fgIntMessage(fgElement* self, unsigned char type, ptrdiff_t data, size_t aux);
 FG_EXTERN size_t FG_FASTCALL fgVoidMessage(fgElement* self, unsigned char type, void* data, ptrdiff_t aux);

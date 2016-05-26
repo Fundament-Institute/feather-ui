@@ -68,6 +68,7 @@ FG_EXTERN void fgClipboardCopy(unsigned int type, const void* data, size_t lengt
 FG_EXTERN char fgClipboardExists(unsigned int type);
 FG_EXTERN const void* fgClipboardPaste(unsigned int type, size_t* length); // The pointer returned to this MUST BE FREED by calling fgClipboardFree() once you are done with it.
 FG_EXTERN void fgClipboardFree(const void* mem);
+FG_EXTERN fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
 
 #ifdef  __cplusplus
 }

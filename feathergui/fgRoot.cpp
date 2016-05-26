@@ -3,7 +3,13 @@
 
 #include "fgRoot.h"
 #include "fgMonitor.h"
+#include "fgBox.h"
+#include "fgWindow.h"
+#include "fgRadioButton.h"
+#include "fgProgressbar.h"
+#include "fgSlider.h"
 #include "feathercpp.h"
+#include "bss-util/cTrie.h"
 #include <stdlib.h>
 
 fgRoot* fgroot_instance = 0;
@@ -322,7 +328,7 @@ FG_EXTERN fgMonitor* FG_FASTCALL fgRoot_GetMonitor(const fgRoot* self, const Abs
 
 fgDeferAction* FG_FASTCALL fgRoot_AllocAction(char (FG_FASTCALL *action)(void*), void* arg, double time)
 {
-  fgDeferAction* r = (fgDeferAction*)malloc(sizeof(fgDeferAction));
+  fgDeferAction* r = bss_util::bssmalloc<fgDeferAction>(1);
   r->action = action;
   r->arg = arg;
   r->time = time;
@@ -379,4 +385,47 @@ void FG_FASTCALL fgRoot_ModifyAction(fgRoot* self, fgDeferAction* action)
 fgRoot* FG_FASTCALL fgSingleton()
 {
   return fgroot_instance;
+}
+
+template<class T, void (FG_FASTCALL *INIT)(T* BSS_RESTRICT, fgElement* BSS_RESTRICT, fgElement* BSS_RESTRICT, const char*, fgFlag, const fgTransform*)>
+fgElement* _create_default(fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+{
+  T* r = bss_util::bssmalloc<T>(1);
+  INIT(r, parent, next, name, flags, transform);
+  return (fgElement*)r;
+}
+
+fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+{
+  static bss_util::cTrie<uint16_t> t(12, "fgElement", "fgControl", "fgResource", "fgText", "fgBox", "fgScrollbar", "fgButton", "fgWindow", "fgCheckbox", "fgRadiobutton", "fgProgressbar", "fgSlider");
+  
+  switch(t[type])
+  {
+  case 0:
+    return _create_default<fgElement, fgElement_Init>(parent, next, name, flags, transform);
+  case 1:
+    return _create_default<fgControl, fgControl_Init>(parent, next, name, flags, transform);
+  case 2:
+    return _create_default<fgResource, fgResource_Init>(parent, next, name, flags, transform);
+  case 3:
+    return _create_default<fgText, fgText_Init>(parent, next, name, flags, transform);
+  case 4:
+    return _create_default<fgBox, fgBox_Init>(parent, next, name, flags, transform);
+  case 5:
+    return _create_default<fgScrollbar, fgScrollbar_Init>(parent, next, name, flags, transform);
+  case 6:
+    return _create_default<fgButton, fgButton_Init>(parent, next, name, flags, transform);
+  case 7:
+    return _create_default<fgWindow, fgWindow_Init>(parent, next, name, flags, transform);
+  case 8:
+    return _create_default<fgCheckbox, fgCheckbox_Init>(parent, next, name, flags, transform);
+  case 9:
+    return _create_default<fgRadiobutton, fgRadiobutton_Init>(parent, next, name, flags, transform);
+  case 10:
+    return _create_default<fgProgressbar, fgProgressbar_Init>(parent, next, name, flags, transform);
+  case 11:
+    return _create_default<fgSlider, fgSlider_Init>(parent, next, name, flags, transform);
+  }
+
+  return 0;
 }

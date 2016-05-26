@@ -5,12 +5,18 @@
 #include <stdio.h>
 #include "feathercpp.h"
 
-void FG_FASTCALL fgResource_Init(fgResource* self, void* res, const CRect* uv, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+fgElement* FG_FASTCALL fgResource_Create(void* res, const CRect* uv, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+{
+  fgElement* r = fgCreate("fgResource", parent, next, name, flags, transform);
+  if(color) fgIntMessage(r, FG_SETCOLOR, color, 0);
+  if(uv) _sendmsg<FG_SETUV, void*>(r, (void*)uv);
+  if(res) _sendmsg<FG_SETRESOURCE, void*>(r, res);
+  return r;
+}
+
+void FG_FASTCALL fgResource_Init(fgResource* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, (FN_DESTROY)&fgResource_Destroy, (FN_MESSAGE)&fgResource_Message);
-  if(color) fgIntMessage(*self, FG_SETCOLOR, color, 0);
-  if(uv) _sendmsg<FG_SETUV, void*>(*self, (void*)uv);
-  if(res) _sendmsg<FG_SETRESOURCE, void*>(*self, res);
 }
 void FG_FASTCALL fgResource_Destroy(fgResource* self)
 {

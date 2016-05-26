@@ -131,7 +131,7 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
   {
     fgControl* hold = (fgControl*)msg->other;
     if(!hold)
-      hold = (fgControl*)malloc(sizeof(fgControl));
+      hold = bss_util::bssmalloc<fgControl>(1);
     hold->contextmenu = hold->contextmenu;
 
     FG_Msg m = *msg;

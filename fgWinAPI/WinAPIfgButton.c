@@ -44,7 +44,7 @@ fgWindow* FG_FASTCALL fgButton_Create(fgStatic* item, fgWindow* parent, const fg
   RECT rsize = { CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT };
   DWORD style=WS_CHILD|WS_VISIBLE;
   wchar_t* txt=0;
-  WinAPIfgButton* r = (WinAPIfgButton*)malloc(sizeof(WinAPIfgButton));
+  WinAPIfgButton* r = bssmalloc<WinAPIfgButton>(1);
   //r->window.message=&fgdebug_Message_fgButton;
   fgWindow_Init((fgWindow*)r,parent,element,id,flags);
   r->wn.window.message=&WinAPIfgButton_Message;

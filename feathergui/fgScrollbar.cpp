@@ -109,7 +109,8 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgControl_Message(&self->control, msg);
-    memset(&self->maxdim, 0, sizeof(CVec));
+    self->maxdim.x = -1.0f;
+    self->maxdim.y = -1.0f;
     memset(&self->realpadding, 0, sizeof(AbsRect));
     memset(&self->barcache, 0, sizeof(AbsVec));
     memset(&self->realsize, 0, sizeof(AbsVec));
@@ -128,19 +129,29 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
     if(!msg->other && (msg->otheraux & FGMOVE_RESIZE)) // detect an INTERNAL area change (every other area change will be handled elsewhere)
       fgScrollbar_Recalc(self); // If we have an actual area change, the scrollbars need to be repositioned or possibly removed entirely.
     break;
-  case FG_SETAREA: // The set area only tries to enforce maxdim on the ABS portion. Consequently, responding to dimension changes must be done in FG_MOVE
+  case FG_SETAREA: // Responding to dimension changes must be done in FG_MOVE
+    if(self->maxdim.x < 0 && self->maxdim.y < 0) // If this is true maxdim is not being used at all, so pass it through
+      break;
     if(msg->other != nullptr)
     {
-      AbsRect r;
-      ResolveRect(*self, &r);
-      AbsVec d = ResolveVec(&self->maxdim, &r);
-      CRect area = *(CRect*)msg->other;
-      if(self->maxdim.x.abs >= 0 && area.right.abs - area.left.abs > d.x)
-        area.right.abs = area.left.abs + d.x;
-      if(self->maxdim.y.abs >= 0 && area.bottom.abs - area.top.abs > d.y)
-        area.bottom.abs = area.top.abs + d.y;
+      AbsRect resolve;
+      CRect area = self->control.element.transform.area;
+      self->control.element.transform.area = *(CRect*)msg->other;
+      ResolveRect(*self, &resolve);
+
+      if((self->maxdim.x < 0 || resolve.right - resolve.left <= self->maxdim.x) && (self->maxdim.y < 0 || resolve.bottom - resolve.top <= self->maxdim.y))
+        break; // If the area doesn't need any adjustment, just pass it through
+
+      CRect narea = self->control.element.transform.area;
+      self->control.element.transform.area = area;
+
+      if(self->maxdim.x >= 0)
+        narea.right.abs = narea.left.abs + std::min<float>(resolve.right - resolve.left, self->maxdim.x);
+      if(self->maxdim.y >= 0)
+        narea.bottom.abs = narea.top.abs + std::min<float>(resolve.bottom - resolve.top, self->maxdim.y);
+
       FG_Msg m = *msg;
-      m.other = &area;
+      m.other = &narea;
       return fgControl_HoverMessage(&self->control, &m);
     }
     return 0;
@@ -174,6 +185,8 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
     {
       fgFlag flags = self->control.element.flags;
       auto area = self->control.element.transform.area;
+      area.right.abs = area.left.abs + self->realsize.x;
+      area.bottom.abs = area.top.abs + self->realsize.y;
       self->control.element.flags |= FGELEMENT_EXPAND;
       
       size_t dim = _sendmsg<FG_LAYOUTFUNCTION, const void*, void*>(*self, msg, &area);
@@ -226,6 +239,13 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
       fgScrollbar_ApplyPadding(self, msg->otherf, msg->otherfaux);
       return FG_ACCEPT;
     }
+
+  case FG_SETMAXDIM:
+    self->maxdim.x = msg->otherf;
+    self->maxdim.y = msg->otherfaux;
+    return FG_ACCEPT;
+  case FG_GETMAXDIM:
+    return *reinterpret_cast<size_t*>(&self->maxdim);
   }
   return fgControl_HoverMessage(&self->control, msg);
 }

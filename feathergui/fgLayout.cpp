@@ -8,34 +8,6 @@
 #include "fgResource.h"
 #include "feathercpp.h"
 
-fgElement* fgLayoutLoadMapping(const char* type, fgElement* parent, fgElement* next, const char* name, fgFlag flags, const fgTransform* transform)
-{
-  if(!strcmp(type, "fgElement")) { // This could be a hash, but this is low priority as this is never called in a performance critical loop.
-    fgElement* r = (fgElement*)malloc(sizeof(fgElement));
-    fgElement_Init(r, parent, next, name, flags, transform);
-    return r;
-  }
-  else if(!strcmp(type, "fgControl")) {
-    fgControl* r = (fgControl*)malloc(sizeof(fgControl));
-    fgControl_Init(r, parent, next, name, flags, transform);
-    return (fgElement*)r;
-  }
-  else if(!strcmp(type, "fgWindow"))
-  {
-    fgElement* r = fgWindow_Create(0, flags, transform);
-    _sendmsg<FG_SETPARENT, void*, void*>(r, parent, next);
-    return r;
-  }
-  else if(!strcmp(type, "fgButton"))
-    return fgButton_Create(0, parent, next, name, flags, transform);
-  else if(!strcmp(type, "fgText"))
-    return fgText_Create(0, 0, 0xFFFFFFFF, parent, next, name, flags, transform);
-  else if(!strcmp(type, "fgResource"))
-    return fgResource_Create(0, 0, 0xFFFFFFFF, parent, next, name, flags, transform);
-
-  return 0;
-}
-
 void FG_FASTCALL fgLayout_Init(fgLayout* self)
 {
   memset(self, 0, sizeof(fgLayout));
@@ -224,10 +196,10 @@ char fgLayout_TileSame(FABS posx, FABS posy, fgElement* cur)
   return (posx > 0 || posy > 0) && posx == cur->transform.area.left.abs && posy == cur->transform.area.left.abs;
 }
 
-AbsVec fgLayout_TileReorder(fgElement* prev, fgElement* cur, char axis, float max, float pitch) // axis: 0 means x-axis first, 1 means y-axis first
+AbsVec fgLayout_TileReorder(fgElement* prev, fgElement* cur, char axis, float max, float pitch, AbsVec expand) // axis: 0 means x-axis first, 1 means y-axis first
 {
+  if(axis) { FABS t = expand.x; expand.x = expand.y; expand.y = t; }
   AbsVec pos = { 0,0 };
-  AbsVec expand = { 0,0 };
   if(prev)
   {
     pos.x = axis ? prev->transform.area.bottom.abs : prev->transform.area.right.abs;
@@ -286,6 +258,7 @@ FABS FG_FASTCALL fgLayout_TileGetPitch(fgElement* cur, char axis)
 
 size_t FG_FASTCALL fgLayout_Tile(fgElement* self, const FG_Msg* msg, char axes, CRect* area)
 {
+  AbsVec realsize = AbsVec { area->right.abs - area->left.abs, area->bottom.abs - area->top.abs };
   fgElement* child = (fgElement*)msg->other;
   char axis = ((axes & 3) && (axes & 8)) || ((axes & 2) && !(axes & 1));
   FABS max = INFINITY;
@@ -301,11 +274,11 @@ size_t FG_FASTCALL fgLayout_Tile(fgElement* self, const FG_Msg* msg, char axes, 
   switch(msg->subtype)
   {
   case FGELEMENT_LAYOUTRESET:
-    expand = fgLayout_TileReorder(0, self->root, axis, max, 0.0f);
+    expand = fgLayout_TileReorder(0, self->root, axis, max, 0.0f, AbsVec { 0,0 });
     break;
   case FGELEMENT_LAYOUTRESIZE:
     if((((msg->otheraux & FGMOVE_RESIZEX) && !(self->flags&FGELEMENT_EXPANDX)) || ((msg->otheraux & FGMOVE_RESIZEY) && !(self->flags&FGELEMENT_EXPANDY))) && (axes & 3))
-      expand = fgLayout_TileReorder(0, self->root, axis, max, 0.0f);
+      expand = fgLayout_TileReorder(0, self->root, axis, max, 0.0f, AbsVec { 0,0 });
     else
       return 0;
     break;
@@ -315,17 +288,36 @@ size_t FG_FASTCALL fgLayout_Tile(fgElement* self, const FG_Msg* msg, char axes, 
     fgElement* cur = old;
     while(cur != 0 && cur != child) cur = cur->next; // Run down from old until we either hit child, in which case old is the lowest, or we hit null
     child = !cur ? child : old;
-    expand = fgLayout_TileReorder(child->prev, child, axis, max, (axes & 3) ? fgLayout_TileGetPitch(child->prev, axis) : 0.0f);
+
+    if(child->prev)
+    {
+      AbsRect out;
+      ResolveRect(child->prev, &out);
+      realsize = out.topleft;
+    }
+    else
+      realsize = AbsVec { 0,0 };
+
+    expand = fgLayout_TileReorder(child->prev, child, axis, max, (axes & 3) ? fgLayout_TileGetPitch(child->prev, axis) : 0.0f, realsize);
   }
   break;
   case FGELEMENT_LAYOUTMOVE:
     if(!(msg->otheraux&FGMOVE_RESIZE)) // Only reorder if the child was resized. Note that we need to resize even if it's the opposite axis to account for expansion
       return 0;
   case FGELEMENT_LAYOUTADD:
-    expand = fgLayout_TileReorder(child->prev, child, axis, max, (axes & 3) ? fgLayout_TileGetPitch(child->prev, axis) : 0.0f);
+    expand = fgLayout_TileReorder(child->prev, child, axis, max, (axes & 3) ? fgLayout_TileGetPitch(child->prev, axis) : 0.0f, realsize);
     break;
   case FGELEMENT_LAYOUTREMOVE:
-    expand = fgLayout_TileReorder(child->prev, child->next, axis, max, (axes & 3) ? fgLayout_TileGetPitch(child->prev, axis) : 0.0f);
+    if(child->prev)
+    {
+      AbsRect out;
+      ResolveRect(child->prev, &out);
+      realsize = out.topleft;
+    }
+    else
+      realsize = AbsVec { 0,0 };
+
+    expand = fgLayout_TileReorder(child->prev, child->next, axis, max, (axes & 3) ? fgLayout_TileGetPitch(child->prev, axis) : 0.0f, realsize);
     break;
   }
 
