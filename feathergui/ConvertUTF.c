@@ -40,6 +40,7 @@ See the header file "ConvertUTF.h" for complete documentation.
 
 
 #include "bss-util/bss_util_c.h"
+#include <stdint.h>
 
 static const int halfShift = 10; /* used for shifting by 10 bits */
 
@@ -111,21 +112,22 @@ static const UTF8 firstByteMark[7] = { 0x00, 0x00, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC 
 
 
 BSS_COMPILER_DLLEXPORT
-extern size_t BSS_FASTCALL UTF32toUTF16(const int*BSS_RESTRICT input, wchar_t*BSS_RESTRICT output, size_t buflen)
+extern size_t BSS_FASTCALL UTF32toUTF16(const int*BSS_RESTRICT input, ptrdiff_t srclen, wchar_t*BSS_RESTRICT output, size_t buflen)
 {
   char result = 0;
   const UTF32* source = (unsigned int*)input;
   const UTF32* sourceEnd = source;
   UTF16* target = (unsigned short*)output;
   UTF16* targetEnd = target + buflen;
+  if(srclen < 0) srclen = PTRDIFF_MAX;
   buflen = 1;
-  while(*input)
+  while(*input && (input - (const char*)source) < srclen)
   {
     buflen += 1 + (*input > UNI_MAX_BMP);
     ++input;
   }
   if(!output) return buflen;
-  sourceEnd = ++input; // include null terminator
+  if((input - (const char*)source) < srclen) sourceEnd = ++input; // include null terminator
 
   while(source < sourceEnd)
   {
@@ -184,14 +186,14 @@ extern size_t BSS_FASTCALL UTF32toUTF16(const int*BSS_RESTRICT input, wchar_t*BS
 }
 
 BSS_COMPILER_DLLEXPORT
-extern size_t BSS_FASTCALL UTF16toUTF32(const wchar_t*BSS_RESTRICT input, int*BSS_RESTRICT output, size_t buflen)
+extern size_t BSS_FASTCALL UTF16toUTF32(const wchar_t*BSS_RESTRICT input, ptrdiff_t srclen, int*BSS_RESTRICT output, size_t buflen)
 {
   char result = 0;
   const UTF16* source = (unsigned short*)input;
   const UTF16* sourceEnd = source;
   UTF32* target = (unsigned int*)output;
   UTF32* targetEnd = target + buflen;
-  size_t srclen = wcslen(input) + 1;
+  if(srclen < 0) srclen = wcslen(input) + 1;
   if(!output) return srclen;
   sourceEnd += srclen;
   UTF32 ch, ch2;
@@ -250,15 +252,16 @@ extern size_t BSS_FASTCALL UTF16toUTF32(const wchar_t*BSS_RESTRICT input, int*BS
 /* --------------------------------------------------------------------- */
 
 BSS_COMPILER_DLLEXPORT
-extern size_t BSS_FASTCALL UTF32toUTF8(const int*BSS_RESTRICT input, char*BSS_RESTRICT output, size_t buflen)
+extern size_t BSS_FASTCALL UTF32toUTF8(const int*BSS_RESTRICT input, ptrdiff_t srclen, char*BSS_RESTRICT output, size_t buflen)
 {
   char result = 0;
   const UTF32* source = (unsigned int*)input;
   const UTF32* sourceEnd = source;
   UTF8* target = (unsigned char*)output;
   UTF8* targetEnd = target + buflen;
+  if(srclen < 0) srclen = PTRDIFF_MAX;
   buflen = 1;
-  while(*input)
+  while(*input && (input - (const char*)source) < srclen)
   {
     if(*input < (UTF32)0x80)
       buflen += 1;
@@ -273,7 +276,8 @@ extern size_t BSS_FASTCALL UTF32toUTF8(const int*BSS_RESTRICT input, char*BSS_RE
     ++input;
   }
   if(!output) return buflen;
-  sourceEnd = ++input; // increment to include null terminator
+  if((input - (const char*)source) < srclen)
+    sourceEnd = ++input; // increment to include null terminator if we hit one
 
   while(source < sourceEnd)
   {
@@ -395,20 +399,21 @@ char isLegalUTF8Sequence(const UTF8 *source, const UTF8 *sourceEnd) {
 /* --------------------------------------------------------------------- */
 
 BSS_COMPILER_DLLEXPORT
-extern size_t BSS_FASTCALL UTF8toUTF32(const char*BSS_RESTRICT input, int*BSS_RESTRICT output, size_t buflen)
+extern size_t BSS_FASTCALL UTF8toUTF32(const char*BSS_RESTRICT input, ptrdiff_t srclen, int*BSS_RESTRICT output, size_t buflen)
 {
   char result = 0;
-  const UTF8* source = (unsigned char*)input;
+  const UTF8* source = (UTF8*)input;
   const UTF8* sourceEnd = source;
-  UTF32* target = (unsigned int*)output;
+  UTF32* target = (UTF32*)output;
   UTF32* targetEnd = target + buflen;
+  if(srclen < 0) srclen = PTRDIFF_MAX;
   buflen = 1;
-  while(*input) {
+  while(*input && (input - (const char*)source) < srclen) {
     buflen += (((*input) & 0b11000000) != 0b10000000);
     ++input;
   }
   if(!output) return buflen;
-  sourceEnd = ++input;
+  if((input - (const char*)source) < srclen) sourceEnd = ++input;
 
   while(source < sourceEnd)
   {

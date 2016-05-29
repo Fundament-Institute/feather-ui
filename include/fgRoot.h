@@ -33,7 +33,9 @@ typedef struct _FG_ROOT {
   float lineheight;
   double time; // In seconds
   fgMouseState mouse;
+  unsigned int keys[8]; // 8*4*8 = 256
 #ifdef  __cplusplus
+  inline bool GetKey(unsigned char key) const { return (keys[key / 32] & (1 << (key % 32))) != 0; }
   inline operator fgElement*() { return &gui.element; }
 #endif
 } fgRoot;

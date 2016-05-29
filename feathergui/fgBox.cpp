@@ -39,6 +39,8 @@ size_t FG_FASTCALL fgBox_Message(fgBox* self, const FG_Msg* msg)
     if(flags&(FGBOX_DISTRIBUTEX | FGBOX_DISTRIBUTEY))
       return fgLayout_Distribute(*self, (const FG_Msg*)msg->other, (flags&FGBOX_LAYOUTMASK) >> 12);
     break; // If no layout flags are specified, fall back to default layout behavior.
+  case FG_GETCLASSNAME:
+    return (size_t)"fgBox";
   }
 
   return fgScrollbar_Message(&self->window, msg);

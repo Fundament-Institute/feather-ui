@@ -223,12 +223,13 @@ size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
 
   switch(msg->type)
   {
+  case FG_KEYUP:
+  case FG_KEYDOWN:
+    self->keys[msg->keycode / 32] = (msg->type == FG_KEYDOWN) ? (self->keys[msg->keycode / 32] | (1 << (msg->keycode % 32))) : (self->keys[msg->keycode / 32] & (~(1 << (msg->keycode % 32))));
   case FG_JOYBUTTONDOWN:
   case FG_JOYBUTTONUP:
   case FG_JOYAXIS:
   case FG_KEYCHAR:
-  case FG_KEYUP:
-  case FG_KEYDOWN:
   {
     fgElement* cur = !fgFocusedWindow ? *self : fgFocusedWindow;
     do

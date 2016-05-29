@@ -41,7 +41,8 @@ void FG_FASTCALL fgElement_RemoveParent(fgElement* BSS_RESTRICT self)
 {
   if(self->parent != 0)
   {
-    fgSubMessage(self->parent, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTREMOVE, self, 0);
+    if(!(self->flags&FGELEMENT_BACKGROUND))
+      fgSubMessage(self->parent, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTREMOVE, self, 0);
     if(self->parent->lastfocus == self)
       self->parent->lastfocus = 0;
     LList_RemoveAll(self); // Remove ourselves from our parent
@@ -142,7 +143,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
   case FG_MOVE:
     if(!msg->other && self->parent != 0) // This is internal, so we must always propagate it up
       fgSubMessage(self->parent, FG_MOVE, msg->subtype, self, msg->otheraux | FGMOVE_PROPAGATE);
-    if(msg->otheraux & FGMOVE_PROPAGATE) // A child moved, so recalculate any layouts
+    if((msg->otheraux & FGMOVE_PROPAGATE) != 0 && !(((fgElement*)msg->other)->flags&FGELEMENT_BACKGROUND)) // A child moved, so recalculate any layouts
       fgSubMessage(self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTMOVE, msg->other, msg->otheraux);
     else if(msg->otheraux) // This was either internal or propagated down, in which case we must keep propagating it down so long as something changed.
     {
@@ -186,6 +187,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       return 0;
     {
       fgTransform* transform = (fgTransform*)msg->other;
+      _sendmsg<FG_SETAREA, void*>(self, &transform->area);
       char diff = CompareTransforms(&self->transform, transform);
       if(diff)
       {
@@ -273,7 +275,8 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgElement* old = self->prev;
         LList_RemoveAll(self);
         LList_InsertAll(self, prev);
-        fgSubMessage(self->parent, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTREORDER, self, (ptrdiff_t)old);
+        if(!(self->flags&FGELEMENT_BACKGROUND))
+          fgSubMessage(self->parent, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTREORDER, self, (ptrdiff_t)old);
       }
       return FG_ACCEPT;
     }
@@ -284,7 +287,8 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     {
       LList_InsertAll(self, prev);
       _sendmsg<FG_SETSKIN>(self);
-      fgSubMessage(parent, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTADD, self, 0);
+      if(!(self->flags&FGELEMENT_BACKGROUND))
+        fgSubMessage(parent, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTADD, self, 0);
     }
     else
       _sendmsg<FG_SETSKIN>(self);

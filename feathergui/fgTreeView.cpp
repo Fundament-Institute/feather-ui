@@ -31,6 +31,8 @@ FG_EXTERN size_t FG_FASTCALL fgTreeView_Message(fgTreeView* self, const FG_Msg* 
     break;
   case FG_ADDITEM:
     return _sendmsg<FG_SETPARENT, void*>(hold, self);
+  case FG_GETCLASSNAME:
+    return (size_t)"fgTreeView";
   }
   return fgScrollbar_Message(&self->window, msg);
 }

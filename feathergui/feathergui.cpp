@@ -6,6 +6,7 @@
 #include "fgRoot.h"
 #include <intrin.h>
 #include <limits.h>
+#include <math.h>
 
 const fgTransform fgTransform_DEFAULT = { { 0, 0, 0, 0, 0, 1, 0, 1 }, 0, { 0, 0, 0, 0 } };
 const fgTransform fgTransform_EMPTY = { { 0, 0, 0, 0, 0, 0, 0, 0 }, 0, { 0, 0, 0, 0 } };
@@ -44,6 +45,10 @@ char FG_FASTCALL MsgHitAbsRect(const FG_Msg* msg, const AbsRect* r)
 char FG_FASTCALL CompareMargins(const AbsRect* l, const AbsRect* r)
 {
   assert(l != 0 && r != 0);
+  assert(!isnan(l->left) && !isnan(r->left));
+  assert(!isnan(l->top) && !isnan(r->top));
+  assert(!isnan(l->right) && !isnan(r->right));
+  assert(!isnan(l->bottom) && !isnan(r->bottom));
   return ((((l->left - r->left) != (l->right + r->right))) << 1)
     | ((((l->top - r->top) != (l->bottom + r->bottom))) << 2)
     | ((((l->left != r->left) || (l->right != r->right))) << 3)
@@ -52,6 +57,10 @@ char FG_FASTCALL CompareMargins(const AbsRect* l, const AbsRect* r)
 char FG_FASTCALL CompareCRects(const CRect* l, const CRect* r)
 {
   assert(l != 0 && r != 0);
+  assert(!isnan(l->left.abs) && !isnan(l->left.rel) && !isnan(r->left.abs) && !isnan(r->left.rel));
+  assert(!isnan(l->top.abs) && !isnan(l->top.rel) && !isnan(r->top.abs) && !isnan(r->top.rel));
+  assert(!isnan(l->right.abs) && !isnan(l->right.rel) && !isnan(r->right.abs) && !isnan(r->right.rel));
+  assert(!isnan(l->bottom.abs) && !isnan(l->bottom.rel) && !isnan(r->bottom.abs) && !isnan(r->bottom.rel));
   return ((((l->left.abs - r->left.abs) != (l->right.abs - r->right.abs))) << 1)
     | ((((l->top.abs - r->top.abs) != (l->bottom.abs - r->bottom.abs))) << 2)
     | ((((l->left.abs != r->left.abs) || (l->right.abs != r->right.abs))) << 3)

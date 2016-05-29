@@ -14,36 +14,59 @@ void FG_FASTCALL fgScrollbar_Destroy(fgScrollbar* self)
   fgControl_Destroy(&self->control);
 }
 
-void FG_FASTCALL fgScrollbar_Redim(fgScrollbar* self, CRect& area)
+size_t FG_FASTCALL fgScrollbar_bgMessage(fgElement* self, const FG_Msg* msg)
 {
-  if(self->barcache.x > 0.0) area.right.abs += self->barcache.x;
-  if(self->barcache.y > 0.0) area.bottom.abs += self->barcache.y;
-  if(!(self->control.element.flags&FGELEMENT_EXPANDX)) // If we actually are expanding along a given axis, use that result, otherwise replace it.
-    area.right.abs = self->control.element.transform.area.right.abs;
-  if(!(self->control.element.flags&FGELEMENT_EXPANDY))
-    area.bottom.abs = self->control.element.transform.area.bottom.abs;
-  _sendmsg<FG_SETAREA, void*>(*self, &area); // SETAREA will set MAXDIM appropriately
+  switch(msg->type)
+  {
+  case FG_MOUSEDOWN:
+    //if(msg->button == FG_MOUSELBUTTON && self->parent != 0)
+    //{
+    //  _sendsubmsg<FG_ACTION, ptrdiff_t>(self->parent, FGSCROLLBAR_PAGE, 1);
+    //}
+    //return FG_ACCEPT;
+  case FG_SETAREA:
+    if(self->parent != 0)
+      _sendsubmsg<FG_ACTION>(self->parent, FGSCROLLBAR_BARCACHE);
+    break;
+  }
+  return fgElement_Message(self, msg);
 }
 
-void FG_FASTCALL fgScrollbar_SetBars(fgScrollbar* self)
+size_t FG_FASTCALL fgScrollbar_barMessage(_FG_SCROLLBAR_INNER* self, const FG_Msg* msg)
 {
-  AbsRect area;
-  ResolveRect(*self, &area);
-  if(self->barcache.x >= 0)
+  switch(msg->type)
   {
-    float dim = area.right - area.left - self->realpadding.left - self->realpadding.right;
-    float length = self->realsize.x / dim;
-    float pos = self->control.element.padding.left / (self->realsize.x - dim);
-    self->btn[2]->SetArea(CRect { 0, (1.0f - length)*pos, 0, 0, 0, (1.0f - length)*pos + length, 0, 1.0f });
+  case FG_CONSTRUCT:
+    fgButton_Message(&self->button, msg);
+    self->lastmouse.x = 0;
+    self->lastmouse.y = 0;
+    self->lastdelta.x = 0;
+    self->lastdelta.y = 0;
+    return FG_ACCEPT;
+  case FG_MOUSEUP:
+  case FG_MOUSEDOWN:
+    self->lastmouse.x = msg->x;
+    self->lastmouse.y = msg->y;
+    self->lastdelta.x = 0;
+    self->lastdelta.y = 0;
+    break;
+  case FG_MOUSEMOVE:
+    if(msg->button == FG_MOUSELBUTTON)
+    {
+
+    }
+    break;
   }
-  if(self->barcache.y >= 0)
-  {
-    float dim = area.bottom - area.top - self->realpadding.top - self->realpadding.bottom;
-    float length = self->realsize.y / dim;
-    float pos = self->control.element.padding.top / (self->realsize.y - dim);
-    self->btn[5]->SetArea(CRect { 0, 0, 0, (1.0f - length)*pos, 0, 1.0f, 0, (1.0f - length)*pos + length });
-  }
+  return fgButton_Message(&self->button, msg);
 }
+
+size_t FG_FASTCALL fgScrollbar_buttonMessage(fgButton* self, const FG_Msg* msg)
+{
+
+  return fgButton_Message(self, msg);
+}
+
+void FG_FASTCALL fgScrollbar_ApplyPadding(fgScrollbar* self, float x, float y);
 
 void FG_FASTCALL fgScrollbar_Recalc(fgScrollbar* self)
 {
@@ -55,23 +78,44 @@ void FG_FASTCALL fgScrollbar_Recalc(fgScrollbar* self)
   bool hidev = !!(self->control.element.flags&FGSCROLLBAR_HIDEV);
 
   // We have to figure out which scrollbars are visible based on flags and our dimensions
-  bool scrollx = !hideh && ((dim.x < self->realsize.x) || self->control.element.flags&FGSCROLLBAR_SHOWH);
-  bool scrolly = !hidev && ((dim.y < self->realsize.y) || self->control.element.flags&FGSCROLLBAR_SHOWV);
+  bool scrollx = !hideh && ((dim.x < self->realsize.x + self->realpadding.left + self->realpadding.right + bssmax(self->barcache.y, 0)) || self->control.element.flags&FGSCROLLBAR_SHOWH);
+  bool scrolly = !hidev && ((dim.y < self->realsize.y + self->realpadding.top + self->realpadding.bottom + bssmax(self->barcache.x, 0)) || self->control.element.flags&FGSCROLLBAR_SHOWV);
 
   // If we are adding or removing a scrollbar, this will change the padding and could change everything else (e.g. for textboxes)
-  if((self->barcache.x != 0.0f && scrollx ^ (self->barcache.x < 0)) || (self->barcache.y != 0.0f && scrolly ^ (self->barcache.y < 0)))
+  if((self->barcache.x != 0.0f && scrollx ^ (self->barcache.x > 0)) || (self->barcache.y != 0.0f && scrolly ^ (self->barcache.y > 0)))
   {
-    if(scrollx ^ (self->barcache.x < 0)) self->barcache.x = -self->barcache.x;
-    if(scrolly ^ (self->barcache.y < 0)) self->barcache.y = -self->barcache.y;
-    return fgScrollbar_Recalc(self);
+    if(scrollx ^ (self->barcache.x > 0)) self->barcache.x = -self->barcache.x;
+    if(scrolly ^ (self->barcache.y > 0)) self->barcache.y = -self->barcache.y;
+    return fgScrollbar_ApplyPadding(self, 0, 0);
   }
   
   // If we get this far, the padding has already been taken care of - append or remove scrollbars.
-  _sendsubmsg<FG_SETSTYLE, void*, size_t>(&self->bg[0], 0, scrollx ? "visible" : "hidden", fgStyleGetMask("hidden", "visible"));
-  _sendsubmsg<FG_SETSTYLE, void*, size_t>(&self->bg[1], 0, scrolly ? "visible" : "hidden", fgStyleGetMask("hidden", "visible"));
+  self->bg[0].SetFlag(FGELEMENT_HIDDEN, self->barcache.x <= 0);
+  self->bg[1].SetFlag(FGELEMENT_HIDDEN, self->barcache.y <= 0);
+
+  // Expand area in response to adding scrollbars if necessary
+  CRect area = self->control.element.transform.area;
+  if(self->control.element.flags & FGELEMENT_EXPANDX)
+    area.right.abs = area.left.abs + self->realsize.x + self->realpadding.left + self->realpadding.right + bssmax(self->barcache.y, 0);
+  if(self->control.element.flags & FGELEMENT_EXPANDY)
+    area.bottom.abs = area.top.abs + self->realsize.y + self->realpadding.top + self->realpadding.bottom + bssmax(self->barcache.x, 0);
+  _sendmsg<FG_SETAREA, void*>(*self, &area); // SETAREA will set MAXDIM appropriately
 
   // Set bar dimensions appropriately based on padding
-  fgScrollbar_SetBars(self);
+  if(self->barcache.x >= 0)
+  {
+    float d = r.right - r.left - self->realpadding.left - self->realpadding.right;
+    float length = (self->realsize.x <= 0.0f) ? 1.0f : (d / self->realsize.x);
+    float pos = (self->realsize.x - d) == 0.0f ? 0.0f : self->control.element.padding.left / (self->realsize.x - d);
+    self->bar[0].button->SetArea(CRect { 0, (1.0f - length)*pos, 0, 0, 0, (1.0f - length)*pos + length, 0, 1.0f });
+  }
+  if(self->barcache.y >= 0)
+  {
+    float d = r.bottom - r.top - self->realpadding.top - self->realpadding.bottom;
+    float length = (self->realsize.y <= 0.0f) ? 1.0f : (d / self->realsize.y);
+    float pos = (d - self->realsize.y) == 0.0f ? 0.0f : self->control.element.padding.top / (d - self->realsize.y);
+    self->bar[1].button->SetArea(CRect { 0, 0, 0, (1.0f - length)*pos, 0, 1.0f, 0, (1.0f - length)*pos + length });
+  }
 }
 
 void FG_FASTCALL fgScrollbar_ApplyPadding(fgScrollbar* self, float x, float y)
@@ -94,10 +138,20 @@ void FG_FASTCALL fgScrollbar_ApplyPadding(fgScrollbar* self, float x, float y)
   if(self->control.element.padding.top < minpaddingy)
     self->control.element.padding.top = minpaddingy;
 
-  self->control.element.padding.right = self->realpadding.right + (self->barcache.x > 0) ? self->barcache.x : 0;
-  self->control.element.padding.bottom = self->realpadding.bottom + (self->barcache.y > 0) ? self->barcache.y : 0;
+  self->control.element.padding.right = self->realpadding.right + bssmax(self->barcache.y, 0);
+  self->control.element.padding.bottom = self->realpadding.bottom + bssmax(self->barcache.x, 0);
 
   fgScrollbar_Recalc(self); // recalculate scrollbars from our new padding value
+}
+
+void FG_FASTCALL fgScrollbar_SetBarcache(fgScrollbar* self)
+{
+  AbsRect r;
+  ResolveRect(&self->bg[0], &r);
+  self->barcache.x = r.bottom - r.top;
+  ResolveRect(&self->bg[1], &r);
+  self->barcache.y = r.right - r.left;
+  fgScrollbar_ApplyPadding(self, 0, 0);
 }
 
 size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
@@ -116,18 +170,27 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
     memset(&self->realsize, 0, sizeof(AbsVec));
     fgElement_Init(&self->bg[0], *self, 0, "fgScrollbar:horzbg", FGELEMENT_BACKGROUND | FGELEMENT_EXPANDY, &fgTransform_EMPTY);
     fgElement_Init(&self->bg[1], *self, 0, "fgScrollbar:vertbg", FGELEMENT_BACKGROUND | FGELEMENT_EXPANDX, &fgTransform_EMPTY);
-    fgElement_Init(self->btn[0], *self, &self->bg[0], "fgScrollbar:scrollleft", FGELEMENT_BACKGROUND, &fgTransform_EMPTY);
-    fgElement_Init(self->btn[1], *self, &self->bg[0], "fgScrollbar:scrollright", FGELEMENT_BACKGROUND, &fgTransform_EMPTY);
-    fgElement_Init(self->btn[2], *self, &self->bg[0], "fgScrollbar:scrollhorz", FGELEMENT_BACKGROUND, &fgTransform_EMPTY);
-    fgElement_Init(self->btn[3], *self, &self->bg[1], "fgScrollbar:scrollup", FGELEMENT_BACKGROUND, &fgTransform_EMPTY);
-    fgElement_Init(self->btn[4], *self, &self->bg[1], "fgScrollbar:scrolldown", FGELEMENT_BACKGROUND, &fgTransform_EMPTY);
-    fgElement_Init(self->btn[5], *self, &self->bg[1], "fgScrollbar:scrollvert", FGELEMENT_BACKGROUND, &fgTransform_EMPTY);
-    _sendsubmsg<FG_SETSTYLE, void*, size_t>(&self->bg[0], 0, "hidden", fgStyleGetMask("hidden", "visible"));
-    _sendsubmsg<FG_SETSTYLE, void*, size_t>(&self->bg[1], 0, "hidden", fgStyleGetMask("hidden", "visible"));
+    fgButton_Init(&self->btn[0], &self->bg[0], 0, "fgScrollbar:scrollleft", FGELEMENT_BACKGROUND, &fgTransform_EMPTY);
+    fgButton_Init(&self->btn[1], &self->bg[0], 0, "fgScrollbar:scrollright", FGELEMENT_BACKGROUND, &fgTransform_EMPTY);
+    fgButton_Init(&self->btn[2], &self->bg[1], 0, "fgScrollbar:scrollup", FGELEMENT_BACKGROUND, &fgTransform_EMPTY);
+    fgButton_Init(&self->btn[3], &self->bg[1], 0, "fgScrollbar:scrolldown", FGELEMENT_BACKGROUND, &fgTransform_EMPTY);
+    fgButton_Init(&self->bar[0].button, &self->bg[0], 0, "fgScrollbar:scrollhorz", FGELEMENT_BACKGROUND, &fgTransform_EMPTY);
+    fgButton_Init(&self->bar[1].button, &self->bg[1], 0, "fgScrollbar:scrollvert", FGELEMENT_BACKGROUND, &fgTransform_EMPTY);
+    self->bg[0].message = (FN_MESSAGE)&fgScrollbar_bgMessage;
+    self->bg[1].message = (FN_MESSAGE)&fgScrollbar_bgMessage;
+    self->btn[0].control.element.message = (FN_MESSAGE)&fgScrollbar_buttonMessage;
+    self->btn[1].control.element.message = (FN_MESSAGE)&fgScrollbar_buttonMessage;
+    self->btn[2].control.element.message = (FN_MESSAGE)&fgScrollbar_buttonMessage;
+    self->btn[3].control.element.message = (FN_MESSAGE)&fgScrollbar_buttonMessage;
+    self->bar[0].button.control.element.message = (FN_MESSAGE)&fgScrollbar_barMessage;
+    self->bar[1].button.control.element.message = (FN_MESSAGE)&fgScrollbar_barMessage;
+    self->bg[0].SetFlag(FGELEMENT_HIDDEN, true);
+    self->bg[1].SetFlag(FGELEMENT_HIDDEN, true);
+    fgScrollbar_SetBarcache(self);
     return FG_ACCEPT;
   case FG_MOVE:
     if(!msg->other && (msg->otheraux & FGMOVE_RESIZE)) // detect an INTERNAL area change (every other area change will be handled elsewhere)
-      fgScrollbar_Recalc(self); // If we have an actual area change, the scrollbars need to be repositioned or possibly removed entirely.
+      fgScrollbar_ApplyPadding(self, 0, 0); // If we have an actual area change, the scrollbars need to be repositioned or possibly removed entirely.
     break;
   case FG_SETAREA: // Responding to dimension changes must be done in FG_MOVE
     if(self->maxdim.x < 0 && self->maxdim.y < 0) // If this is true maxdim is not being used at all, so pass it through
@@ -162,10 +225,10 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
       char diff = CompareMargins(&self->realpadding, padding);
       memcpy(&self->realpadding, padding, sizeof(AbsRect));
 
-      if(diff) // Only send a move message if the change in padding could have resulted in an actual area change (this ensures a scroll delta change will NOT trigger an FG_MOVE)
-        fgSubMessage(*self, FG_MOVE, FG_SETPADDING, 0, diff | FGMOVE_PADDING);
-      else
-        fgScrollbar_Recalc(self); // Recalculate scrollbar positions
+      if(diff) // Only send a move message if the padding change actually changed something
+        fgSubMessage(*self, FG_MOVE, FG_SETPADDING, 0, FGMOVE_PADDING);
+
+      fgScrollbar_ApplyPadding(self, 0, 0); // Recalculate scrollbar positions
       return FG_ACCEPT;
     }
     return 0;
@@ -194,19 +257,15 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
       self->realsize = { area.right.abs - area.left.abs, area.bottom.abs - area.top.abs }; // retrieve real area and then reset to the area of the window.
       if(dim)
       {
-        if(!(flags & FGELEMENT_EXPANDX))
-        {
-          area.left = self->control.element.transform.area.left;
-          area.right = self->control.element.transform.area.right;
-        }
-        if(!(flags & FGELEMENT_EXPANDY))
-        {
-          area.top = self->control.element.transform.area.top;
-          area.bottom = self->control.element.transform.area.bottom;
-        }
-        if(flags&FGELEMENT_EXPAND)
+        if(flags & FGELEMENT_EXPAND)
+          area = self->control.element.transform.area;
+        if(flags & FGELEMENT_EXPANDX)
+          area.right.abs = area.left.abs + self->realsize.x + self->realpadding.left + self->realpadding.right + bssmax(self->barcache.y, 0);
+        if(flags & FGELEMENT_EXPANDY)
+          area.bottom.abs = area.top.abs + self->realsize.y + self->realpadding.top + self->realpadding.bottom + bssmax(self->barcache.x, 0);
+        if(flags & FGELEMENT_EXPAND)
           self->control.element.SetArea(area);
-        fgScrollbar_Redim(self, area);
+        fgScrollbar_Recalc(self);
       }
       return FG_ACCEPT;
     }
@@ -238,6 +297,9 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
     case FGSCROLLBAR_CHANGE: // corresponds to an actual change amount. First argument is x axis, second argument is y axis.
       fgScrollbar_ApplyPadding(self, msg->otherf, msg->otherfaux);
       return FG_ACCEPT;
+    case FGSCROLLBAR_BARCACHE:
+      fgScrollbar_SetBarcache(self);
+      return FG_ACCEPT;
     }
 
   case FG_SETMAXDIM:
@@ -246,6 +308,8 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
     return FG_ACCEPT;
   case FG_GETMAXDIM:
     return *reinterpret_cast<size_t*>(&self->maxdim);
+  case FG_GETCLASSNAME:
+    return (size_t)"fgScrollbar";
   }
   return fgControl_HoverMessage(&self->control, msg);
 }

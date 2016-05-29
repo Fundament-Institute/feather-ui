@@ -52,7 +52,7 @@ FG_EXTERN void* FG_FASTCALL fgCloneFont(void* font);
 FG_EXTERN void FG_FASTCALL fgDestroyFont(void* font);
 FG_EXTERN void* FG_FASTCALL fgDrawFont(void* font, const int* text, float lineheight, float letterspacing, unsigned int color, const AbsRect* area, FABS rotation, AbsVec* center, fgFlag flags, void* cache);
 FG_EXTERN void FG_FASTCALL fgFontSize(void* font, const int* text, float lineheight, float letterspacing, AbsRect* area, fgFlag flags); // this should return EXPECTED TEXT AREA that is calculated by lineheight - it should discard excessive vertical space caused by weird unicode modifiers.
-FG_EXTERN size_t FG_FASTCALL fgFontIndex(void* font, const int* text, float lineheight, float letterspacing, AbsVec pos, size_t last, AbsVec cache);
+FG_EXTERN size_t FG_FASTCALL fgFontIndex(void* font, const int* text, float lineheight, float letterspacing, AbsVec pos, size_t last, AbsVec* cache);
 FG_EXTERN AbsVec FG_FASTCALL fgFontPos(void* font, const int* text, float lineheight, float letterspacing, size_t index, size_t last, AbsVec cache);
 FG_EXTERN void FG_FASTCALL fgFontGet(void* font, float* lineheight, unsigned int* size, unsigned int* dpi);
 

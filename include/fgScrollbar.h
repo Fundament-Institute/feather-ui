@@ -24,12 +24,20 @@ enum FGSCROLLBAR_ACTIONS
   FGSCROLLBAR_CHANGE = 0, // Triggered by the actual amount shifted
   FGSCROLLBAR_PAGE, // PageUp, PageDown, and click on the spaces between the scrollbars. 0 1 2 3 - left top right bottom
   FGSCROLLBAR_BUTTON, // Clicking the actual buttons. 0 1 2 3 - left top right bottom
+  FGSCROLLBAR_BARCACHE, // resets the barcache
+};
+
+struct _FG_SCROLLBAR_INNER {
+  fgButton button;
+  AbsVec lastmouse;
+  AbsVec lastdelta;
 };
 
 // A Scrollbar area acts as a clipping area for a single fgElement.
-typedef struct {
+typedef struct _FG_SCROLLBAR {
   fgControl control;
-  fgButton btn[6]; // 0 - left arrow, 1 - right arrow, 2 - horz slider, 3 - up arrow, 4 - down arrow, 5 - vert slider
+  fgButton btn[4]; // 0 - left arrow, 1 - right arrow, 2 - up arrow, 3 - down arrow
+  _FG_SCROLLBAR_INNER bar[2]; // 0 - horz slider, 1 - vert slider
   fgElement bg[2]; // 0 - horizontal background, 1 - vertical background
   AbsVec maxdim;
   AbsRect realpadding; // We have to intercept and store padding amounts here because we hijack the padding to perform scrolling

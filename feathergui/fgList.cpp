@@ -86,6 +86,8 @@ FG_EXTERN size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
       // If there are selections, draw them here.
     }
     break;
+  case FG_GETCLASSNAME:
+    return (size_t)"fgList";
   }
 
   return fgBox_Message(&self->box, msg);

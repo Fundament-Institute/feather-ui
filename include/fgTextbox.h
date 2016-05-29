@@ -36,7 +36,9 @@ typedef struct {
   fgColor selector; // Color of the selector rectangle
   fgColor placecolor; // placeholder text color. Use SETCOLOR with the second argument set to 1.
   size_t start; // start of text selection
+  AbsVec startpos;
   size_t end; // end of text selection (or just where the cursor is)
+  AbsVec endpos;
   char inserting;
   void* font;
   void* cache;
