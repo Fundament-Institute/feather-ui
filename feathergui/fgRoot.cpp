@@ -178,7 +178,7 @@ void FG_FASTCALL fgOrderedDraw(fgElement* self, AbsRect* area, size_t dpi, char 
 
 
 // Recursive event injection function
-size_t FG_FASTCALL fgRoot_RInject(fgRoot* root, fgElement* self, const FG_Msg* msg, AbsRect* area, AbsRect* padding)
+size_t FG_FASTCALL fgStandardInject(fgElement* self, const FG_Msg* msg, const AbsRect* area)
 {
   assert(msg != 0);
 
@@ -189,12 +189,12 @@ size_t FG_FASTCALL fgRoot_RInject(fgRoot* root, fgElement* self, const FG_Msg* m
   if(!area) // IF this is null either we are the root or this is a captured message, in which case we would have to resolve the entire relative coordinate chain anyway
     ResolveRect(self, &curarea);
   else
-    ResolveRectCache(self, &curarea, area, (self->flags & FGELEMENT_BACKGROUND) ? 0 : padding);
+    ResolveRectCache(self, &curarea, area, (self->flags & FGELEMENT_BACKGROUND || !self->parent) ? 0 : &self->parent->padding);
 
   fgElement* cur = self->lastnoclip;
   while(cur) // Go through all our children that aren't being clipped
   {
-    if(fgRoot_RInject(root, cur, msg, &curarea, &self->padding)) // We still need to properly evaluate hitboxes even for nonclipping elements.
+    if(_sendmsg<FG_INJECT, const void*, const void*>(cur, msg, &curarea)) // We still need to properly evaluate hitboxes even for nonclipping elements.
       return FG_ACCEPT; // If the message is NOT rejected, return 1 immediately to indicate we accepted the message.
     cur=cur->prev; // Otherwise the child rejected the message.
   }
@@ -205,13 +205,13 @@ size_t FG_FASTCALL fgRoot_RInject(fgRoot* root, fgElement* self, const FG_Msg* m
   cur = self->lastclip;
   while(cur) // Try to inject to any children we have
   {
-    if(fgRoot_RInject(root, cur, msg, &curarea, &self->padding)) // If the message is NOT rejected, return 0 immediately.
+    if(_sendmsg<FG_INJECT, const void*, const void*>(cur, msg, &curarea)) // If the message is NOT rejected, return 0 immediately.
       return FG_ACCEPT;
     cur = cur->prev; // Otherwise the child rejected the message.
   }
 
   // If we get this far either we have no children, the event missed them all, or they all rejected the event...
-  return (*root->behaviorhook)(self,msg); // So we give the event to ourselves
+  return (*fgroot_instance->behaviorhook)(self,msg); // So we give the event to ourselves
 }
 
 size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
@@ -242,16 +242,17 @@ size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
   }
   case FG_MOUSESCROLL:
   case FG_MOUSEDOWN:
+    rootarea = rootarea;
   case FG_MOUSEUP:
   case FG_MOUSEMOVE:
     if(self->drag != 0 && self->drag->parent == *self)
       MoveCRect((FABS)msg->x, (FABS)msg->y, &self->drag->transform.area);
 
     if(fgCaptureWindow)
-      if(fgRoot_RInject(self, fgCaptureWindow, msg, 0, 0)) // If it's captured, send the message to the captured window with NULL area.
+      if(_sendmsg<FG_INJECT, const void*, const void*>(fgCaptureWindow, msg, 0)) // If it's captured, send the message to the captured window with NULL area.
         return FG_ACCEPT;
 
-    if(fgRoot_RInject(self, *self, msg, 0, 0))
+    if(_sendmsg<FG_INJECT, const void*, const void*>(*self, msg, 0))
       return FG_ACCEPT;
     if(msg->type != FG_MOUSEMOVE)
       break;

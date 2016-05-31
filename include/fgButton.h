@@ -13,7 +13,7 @@ extern "C" {
 
 enum FGBUTTON_FLAGS
 {
-  FGBUTTON_NOFOCUS = (1 << 8),
+  FGBUTTON_NOFOCUS = (FGCONTROL_DISABLE << 1),
 };
 
 // A button is usually implemented as a simple background design that takes a static and displays it in the center of the button.

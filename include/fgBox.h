@@ -12,12 +12,14 @@ extern "C" {
 
 enum FGBOX_FLAGS
 {
-  FGBOX_TILEX = (1 << 12),
-  FGBOX_TILEY = (1 << 13),
-  FGBOX_DISTRIBUTEX = (1 << 14), // when combined with TILEX and TILEY, simply makes the tiles expand along the X direction
-  FGBOX_DISTRIBUTEY = (1 << 15), // same as above but for the Y direction
-  FGBOX_FIXEDSIZE = (1 << 16), // This is a flag set for you by fgBox that tells it all elements are the same size, which allows for lookup optimizations.
+  FGBOX_TILEX = (FGSCROLLBAR_SHOWV << 1),
+  FGBOX_TILEY = (FGBOX_TILEX << 1),
+  FGBOX_DISTRIBUTEX = (FGBOX_TILEY << 1), // when combined with TILEX and TILEY, simply makes the tiles expand along the X direction
+  FGBOX_DISTRIBUTEY = (FGBOX_DISTRIBUTEX << 1), // same as above but for the Y direction
+  FGBOX_FIXEDX = (FGBOX_DISTRIBUTEY << 1), // This is a flag set for you by fgBox that tells it all elements are the same size, which allows for lookup optimizations.
+  FGBOX_FIXEDY = (FGBOX_FIXEDX << 1),
   FGBOX_LAYOUTMASK = FGBOX_TILEX | FGBOX_TILEY | FGBOX_DISTRIBUTEX | FGBOX_DISTRIBUTEY,
+  FGBOX_LAYOUTSHIFT = 13,
 };
 
 // A List is an arbitrary list of items with a number of different layout options that are selectable and/or draggable.

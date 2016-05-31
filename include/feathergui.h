@@ -162,6 +162,7 @@ enum FG_MSGTYPE
   FG_DRAGGING, // Sent to any element a dragged element is hovering over so it can set the cursor icon.
   FG_DROP, // Sent when an element is "dropped" on another element. Whether or not this does anything is up to the control.
   FG_DRAW,
+  FG_INJECT,
   FG_CLONE, // Clones the fgElement
   FG_SETSKIN, // Sets the skin. If NULL, uses GETSKIN to resolve the skin.
   FG_GETSKIN,

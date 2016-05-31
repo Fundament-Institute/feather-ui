@@ -49,11 +49,12 @@ size_t FG_FASTCALL fgScrollbar_barMessage(_FG_SCROLLBAR_INNER* self, const FG_Ms
     self->lastmouse.y = msg->y;
     self->lastdelta.x = 0;
     self->lastdelta.y = 0;
-    break;
+    return FG_ACCEPT;
   case FG_MOUSEMOVE:
     if(msg->button == FG_MOUSELBUTTON)
     {
 
+      return FG_ACCEPT;
     }
     break;
   }

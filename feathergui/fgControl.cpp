@@ -42,6 +42,34 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
 {
   assert(self != 0);
   assert(msg != 0);
+  ptrdiff_t otherint = msg->otherint;
+
+  if(self->element.flags&FGCONTROL_DISABLE)
+  { // If this control is disabled, it absorbs all input messages that reach it without responding to them.
+    switch(msg->type)
+    {
+    case FG_MOUSEDOWN:
+    case FG_MOUSEDBLCLICK:
+    case FG_MOUSEUP:
+    case FG_MOUSEON:
+    case FG_MOUSEOFF:
+    case FG_MOUSEMOVE:
+    case FG_MOUSESCROLL:
+    case FG_MOUSELEAVE:
+    case FG_TOUCHBEGIN:
+    case FG_TOUCHEND:
+    case FG_TOUCHMOVE:
+    case FG_KEYUP:
+    case FG_KEYDOWN:
+    case FG_KEYCHAR:
+    case FG_JOYBUTTONDOWN:
+    case FG_JOYBUTTONUP:
+    case FG_JOYAXIS:
+    case FG_GOTFOCUS:
+    case FG_LOSTFOCUS:
+      return FG_ACCEPT;
+    }
+  }
 
   switch(msg->type)
   {
@@ -105,6 +133,8 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
   }
     return FG_ACCEPT;
   case FG_GOTFOCUS:
+    if(self->element.flags&FGCONTROL_DISABLE)
+      return 0;
     if(fgElement_CheckLastFocus(*self)) // checks if we resolved via lastfocus.
       return FG_ACCEPT;
     if(fgFocusedWindow) // We do this here so you can disable getting focus by blocking this message without messing things up
@@ -127,6 +157,21 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
       }
     }
     return FG_ACCEPT;
+  case FG_SETFLAG: // If 0 is sent in, disable the flag, otherwise enable. Our internal flag is 1 if clipping disabled, 0 otherwise.
+    otherint = T_SETBIT(self->element.flags, otherint, msg->otheraux);
+  case FG_SETFLAGS:
+    if((self->element.flags ^ (fgFlag)otherint) == (otherint & FGCONTROL_DISABLE))
+    {
+      _sendmsg<FG_LOSTFOCUS, void*>(*self, 0);
+      if(fgCaptureWindow == *self) // Remove our control hold on mouse messages.
+        fgCaptureWindow = 0;
+      if(fgLastHover == *self)
+      {
+        _sendmsg<FG_MOUSEOFF>(*self);
+        fgLastHover = 0;
+      }
+    }
+    break;
   case FG_CLONE:
   {
     fgControl* hold = (fgControl*)msg->other;
@@ -148,6 +193,34 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
 size_t FG_FASTCALL fgControl_HoverMessage(fgControl* self, const FG_Msg* msg)
 {
   assert(self != 0 && msg != 0);
+
+  if(self->element.flags&FGCONTROL_DISABLE)
+  { // If this control is disabled, it absorbs all input messages that reach it without responding to them.
+    switch(msg->type)
+    {
+    case FG_MOUSEDOWN:
+    case FG_MOUSEDBLCLICK:
+    case FG_MOUSEUP:
+    case FG_MOUSEON:
+    case FG_MOUSEOFF:
+    case FG_MOUSEMOVE:
+    case FG_MOUSESCROLL:
+    case FG_MOUSELEAVE:
+    case FG_TOUCHBEGIN:
+    case FG_TOUCHEND:
+    case FG_TOUCHMOVE:
+    case FG_KEYUP:
+    case FG_KEYDOWN:
+    case FG_KEYCHAR:
+    case FG_JOYBUTTONDOWN:
+    case FG_JOYBUTTONUP:
+    case FG_JOYAXIS:
+    case FG_GOTFOCUS:
+    case FG_LOSTFOCUS:
+      return FG_ACCEPT;
+    }
+  }
+
   switch(msg->type)
   {
   case FG_KEYDOWN:

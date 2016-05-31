@@ -10,6 +10,11 @@
 extern "C" {
 #endif
 
+enum FGCONTROL_FLAGS
+{
+  FGCONTROL_DISABLE = (FGELEMENT_SNAPY << 1),
+};
+
 struct _FG_MENU;
 struct _FG_SKIN;
 

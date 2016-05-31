@@ -292,6 +292,9 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     }
     else
       _sendmsg<FG_SETSKIN>(self);
+    assert(!self->last || !self->last->next);
+    assert(!self->lastclip || !self->lastclip->nextclip);
+    assert(!self->lastnoclip || !self->lastnoclip->nextclip);
   }
   fgSubMessage(self, FG_MOVE, FG_SETPARENT, 0, fgElement_PotentialResize(self));
   return FG_ACCEPT;
@@ -487,6 +490,8 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
   case FG_DRAW:
     fgStandardDraw(self, (AbsRect*)msg->other, msg->otheraux, msg->subtype & 1);
     return FG_ACCEPT;
+  case FG_INJECT:
+    return fgStandardInject(self, (const FG_Msg*)msg->other, (const AbsRect*)msg->other2);
   case FG_SETNAME:
     if(self->name) free(self->name);
     self->name = fgCopyText((const char*)msg->other);
@@ -677,7 +682,7 @@ fgElement* FG_FASTCALL LList_FindClip(fgElement* BSS_RESTRICT self)
   do
   {
     self = GET(self);
-  } while(self && (self->flags&(FGELEMENT_NOCLIP | FGELEMENT_IGNORE)) != flags);
+  } while(self && (self->flags&(FGELEMENT_NOCLIP | FGELEMENT_IGNORE)) != (flags&(FGELEMENT_NOCLIP | FGELEMENT_IGNORE)));
   return self;
 }
 
@@ -687,8 +692,8 @@ void FG_FASTCALL LList_InsertAll(fgElement* BSS_RESTRICT self, fgElement* BSS_RE
   LList_Insert<fgElement_prev, fgElement_next>(self, next, prev, &self->parent->root, &self->parent->last);
   if(!(self->flags&FGELEMENT_IGNORE))
   {
-    prev = LList_FindClip<fgElement_prevclip>(self); // Ensure that prev and next are appropriately set to elements that match our clipping status.
-    next = LList_FindClip<fgElement_nextclip>(self);
+    prev = LList_FindClip<fgElement_prev>(self); // Ensure that prev and next are appropriately set to elements that match our clipping status.
+    next = LList_FindClip<fgElement_next>(self); // we DO NOT use fgElement_prevclip or fgElement_nextclip here because they haven't been set yet.
     if(self->flags&FGELEMENT_NOCLIP)
       LList_Insert<fgElement_prevclip, fgElement_nextclip>(self, next, prev, &self->parent->rootnoclip, &self->parent->lastnoclip);
     else
@@ -842,6 +847,8 @@ size_t fgElement::Dragging(int x, int y)
 size_t fgElement::Drop(struct _FG_ELEMENT* target) { return _sendmsg<FG_DROP, void*>(this, target); }
 
 void fgElement::Draw(AbsRect* area, int dpi) { _sendmsg<FG_DRAW, void*, size_t>(this, area, dpi); }
+
+size_t fgElement::Inject(const FG_Msg* msg, const AbsRect* area) { return _sendmsg<FG_INJECT, const void*, const void*>(this, msg, area); }
 
 fgElement* FG_FASTCALL fgElement::Clone(fgElement* from) { return reinterpret_cast<fgElement*>(_sendmsg<FG_CLONE, void*>(this, from)); }
 

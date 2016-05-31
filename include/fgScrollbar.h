@@ -13,10 +13,10 @@ extern "C" {
 
 enum FGSCROLLBAR_FLAGS
 {
-  FGSCROLLBAR_HIDEH = (1 << 8), // Never shows the Vertical or Horizontal scrollbar. Overrides SHOWV/SHOWH
-  FGSCROLLBAR_HIDEV = (1 << 9),
-  FGSCROLLBAR_SHOWH = (1 << 10), // Always show the Vertical or Horizontal scrollbar, even if not needed.
-  FGSCROLLBAR_SHOWV = (1 << 11),
+  FGSCROLLBAR_HIDEH = (FGCONTROL_DISABLE << 1), // Never shows the Vertical or Horizontal scrollbar. Overrides SHOWV/SHOWH
+  FGSCROLLBAR_HIDEV = (FGSCROLLBAR_HIDEH << 1),
+  FGSCROLLBAR_SHOWH = (FGSCROLLBAR_HIDEV << 1), // Always show the Vertical or Horizontal scrollbar, even if not needed.
+  FGSCROLLBAR_SHOWV = (FGSCROLLBAR_SHOWH << 1),
 };
 
 enum FGSCROLLBAR_ACTIONS

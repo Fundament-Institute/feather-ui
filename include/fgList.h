@@ -12,9 +12,9 @@ extern "C" {
 
 enum FGLIST_FLAGS
 {
-  FGLIST_SINGLESELECT = (1 << 17),
-  FGLIST_MULTISELECT = (1 << 18),
-  FGLIST_DRAGGABLE = (1 << 19),
+  FGLIST_SINGLESELECT = (FGBOX_FIXEDY << 1),
+  FGLIST_MULTISELECT = (FGLIST_SINGLESELECT << 1),
+  FGLIST_DRAGGABLE = (FGLIST_MULTISELECT << 1),
 };
 
 // A List is an arbitrary list of items with a number of different layout options that are selectable and/or draggable.

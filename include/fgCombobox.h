@@ -14,7 +14,7 @@ extern "C" {
 
 enum FGCOMBOBOX_FLAGS
 {
-  FGCOMBOBOX_EDITBOX = (1 << 12),
+  FGCOMBOBOX_EDITBOX = (FGSCROLLBAR_SHOWV << 1),
 };
 
 // A combobox is a text-only dropdown that can optionally let the user edit the text.
