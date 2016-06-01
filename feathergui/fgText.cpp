@@ -19,7 +19,7 @@ void FG_FASTCALL fgText_Init(fgText* self, fgElement* BSS_RESTRICT parent, fgEle
   self->cache = 0;
   memset(&self->text, 0, sizeof(fgVectorString));
   memset(&self->buf, 0, sizeof(fgVectorUTF32));
-  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (FN_DESTROY)&fgText_Destroy, (FN_MESSAGE)&fgText_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (fgDestroy)&fgText_Destroy, (fgMessage)&fgText_Message);
 }
 
 void FG_FASTCALL fgText_Destroy(fgText* self)
@@ -120,7 +120,7 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
   return fgElement_Message(&self->element, msg);
 }
 
-FG_EXTERN void FG_FASTCALL fgText_Recalc(fgText* self)
+void FG_FASTCALL fgText_Recalc(fgText* self)
 {
   if(self->font && (self->element.flags&FGELEMENT_EXPAND))
   {

@@ -6,15 +6,15 @@
 #include "bss-util\bss_util.h"
 #include "feathercpp.h"
 
-FG_EXTERN void FG_FASTCALL fgList_Init(fgList* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+void FG_FASTCALL fgList_Init(fgList* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (FN_DESTROY)&fgList_Destroy, (FN_MESSAGE)&fgList_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (fgDestroy)&fgList_Destroy, (fgMessage)&fgList_Message);
 }
-FG_EXTERN void FG_FASTCALL fgList_Destroy(fgList* self)
+void FG_FASTCALL fgList_Destroy(fgList* self)
 {
   fgBox_Destroy(&self->box); // this will destroy our prechildren for us.
 }
-FG_EXTERN size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
+size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
 {
   ptrdiff_t otherint = msg->otherint;
   fgFlag flags = self->box.window.control.element.flags;

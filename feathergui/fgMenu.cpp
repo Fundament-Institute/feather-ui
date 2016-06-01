@@ -7,7 +7,7 @@
 void FG_FASTCALL fgMenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, char submenu)
 {
   assert(self != 0);
-  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (FN_DESTROY)&fgMenu_Destroy, (FN_MESSAGE)(submenu ? &fgSubmenu_Message : &fgMenu_Message));
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (fgDestroy)&fgMenu_Destroy, (fgMessage)(submenu ? &fgSubmenu_Message : &fgMenu_Message));
 }
 void FG_FASTCALL fgMenu_Destroy(fgMenu* self)
 {

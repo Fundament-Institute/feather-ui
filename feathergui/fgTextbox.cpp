@@ -8,7 +8,7 @@ void FG_FASTCALL fgTextbox_Init(fgTextbox* self, fgElement* BSS_RESTRICT parent,
 {
   memset(&self->text, 0, sizeof(fgVectorString));
   memset(&self->buf, 0, sizeof(fgVectorUTF32));
-  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (FN_DESTROY)&fgScrollbar_Destroy, (FN_MESSAGE)&fgScrollbar_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (fgDestroy)&fgScrollbar_Destroy, (fgMessage)&fgScrollbar_Message);
 }
 void FG_FASTCALL fgTextbox_Destroy(fgTextbox* self)
 {
@@ -52,7 +52,7 @@ inline void FG_FASTCALL fgTextbox_MoveCursor(fgTextbox* self, int num, bool sele
   }
 }
 
-FG_EXTERN void FG_FASTCALL fgTextbox_Recalc(fgTextbox* self)
+void FG_FASTCALL fgTextbox_Recalc(fgTextbox* self)
 {
   if(self->font && (self->window.control.element.flags&FGELEMENT_EXPAND))
   {
@@ -299,6 +299,15 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       AbsVec linebottom = linetop;
       linebottom.y += self->lineheight;
       fgDrawLine(linetop, linebottom, 0xFF000000); // TODO: Make this blink. This requires ensuring that FG_DRAW is called at least during the blink interval.
+    }
+    break;
+  case FG_MOUSEDBLCLICK:
+    if(msg->button == FG_MOUSELBUTTON && !fgroot_instance->GetKey(FG_KEY_SHIFT) && !fgroot_instance->GetKey(FG_KEY_CONTROL))
+    {
+      self->start = fgFontIndex(self->font, self->text.p, self->lineheight, self->letterspacing, fgTextbox_RelativeMouse(self, msg), self->start, &self->startpos);
+      self->end = self->start;
+      fgTextbox_MoveCursor(self, 1, true, true);
+      return FG_ACCEPT;
     }
     break;
   case FG_MOUSEDOWN:

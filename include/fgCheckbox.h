@@ -14,9 +14,6 @@ extern "C" {
 // A checkbox is a toggleable control with text alongside it.
 typedef struct _FG_CHECKBOX {
   fgControl control;
-  fgElement check; // Displayed when the checkbox is checked.
-  fgElement indeterminate; // Displayed when the checkbox state is set to 2 (indeterminate state)
-  fgElement item; // item displayed
   fgText text; // text displayed
   char checked;
 #ifdef  __cplusplus

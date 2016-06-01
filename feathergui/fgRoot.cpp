@@ -8,6 +8,7 @@
 #include "fgRadioButton.h"
 #include "fgProgressbar.h"
 #include "fgSlider.h"
+#include "fgTextbox.h"
 #include "feathercpp.h"
 #include "bss-util/cTrie.h"
 #include <stdlib.h>
@@ -26,7 +27,7 @@ void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, size_t dpi)
   self->radiohash = fgRadioGroup_init();
   fgroot_instance = self;
   fgTransform transform = { area->left, 0, area->top, 0, area->right, 0, area->bottom, 0, 0, 0, 0 };
-  fgElement_InternalSetup(*self, 0, 0, 0, 0, &transform, (FN_DESTROY)&fgRoot_Destroy, (FN_MESSAGE)&fgRoot_Message);
+  fgElement_InternalSetup(*self, 0, 0, 0, 0, &transform, (fgDestroy)&fgRoot_Destroy, (fgMessage)&fgRoot_Message);
 }
 
 void FG_FASTCALL fgRoot_Destroy(fgRoot* self)
@@ -273,7 +274,7 @@ size_t FG_FASTCALL fgRoot_BehaviorDefault(fgElement* self, const FG_Msg* msg)
   return (*self->message)(self, msg);
 }
 
-FG_EXTERN size_t FG_FASTCALL fgRoot_BehaviorListener(fgElement* self, const FG_Msg* msg)
+size_t FG_FASTCALL fgRoot_BehaviorListener(fgElement* self, const FG_Msg* msg)
 {
   assert(self != 0);
   size_t ret = (*self->message)(self, msg);
@@ -301,7 +302,7 @@ void FG_FASTCALL fgRoot_Update(fgRoot* self, double delta)
   }
 }
 
-FG_EXTERN fgMonitor* FG_FASTCALL fgRoot_GetMonitor(const fgRoot* self, const AbsRect* rect)
+fgMonitor* FG_FASTCALL fgRoot_GetMonitor(const fgRoot* self, const AbsRect* rect)
 {
   fgMonitor* cur = self->monitors;
   float largest = 0;
@@ -399,7 +400,8 @@ fgElement* _create_default(fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRI
 
 fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  static bss_util::cTrie<uint16_t> t(12, "fgElement", "fgControl", "fgResource", "fgText", "fgBox", "fgScrollbar", "fgButton", "fgWindow", "fgCheckbox", "fgRadiobutton", "fgProgressbar", "fgSlider");
+  static bss_util::cTrie<uint16_t> t(12, "fgElement", "fgControl", "fgResource", "fgText", "fgBox", "fgScrollbar", "fgButton", "fgWindow", "fgCheckbox",
+    "fgRadiobutton", "fgProgressbar", "fgSlider", "fgTextbox");
   
   switch(t[type])
   {
@@ -427,6 +429,8 @@ fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT
     return _create_default<fgProgressbar, fgProgressbar_Init>(parent, next, name, flags, transform);
   case 11:
     return _create_default<fgSlider, fgSlider_Init>(parent, next, name, flags, transform);
+  case 12:
+    return _create_default<fgTextbox, fgTextbox_Init>(parent, next, name, flags, transform);
   }
 
   return 0;

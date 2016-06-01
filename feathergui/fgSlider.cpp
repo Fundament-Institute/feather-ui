@@ -7,7 +7,7 @@
 
 void FG_FASTCALL fgSlider_Init(fgSlider* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (FN_DESTROY)&fgSlider_Destroy, (FN_MESSAGE)&fgSlider_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (fgDestroy)&fgSlider_Destroy, (fgMessage)&fgSlider_Message);
 }
 void FG_FASTCALL fgSlider_Destroy(fgSlider* self)
 {

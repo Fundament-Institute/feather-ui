@@ -28,7 +28,7 @@ size_t FG_FASTCALL fgWindow_MinimizeMessage(fgButton* self, const FG_Msg* msg)
 
 void FG_FASTCALL fgWindow_Init(fgWindow* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (FN_DESTROY)&fgWindow_Destroy, (FN_MESSAGE)&fgWindow_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (fgDestroy)&fgWindow_Destroy, (fgMessage)&fgWindow_Message);
 }
 void FG_FASTCALL fgWindow_Destroy(fgWindow* self)
 {
@@ -48,9 +48,9 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
     fgButton_Init(&self->controls[0], *self, 0, "fgWindow:close", FGELEMENT_BACKGROUND, 0);
     fgButton_Init(&self->controls[1], *self, 0, "fgWindow:restore", FGELEMENT_BACKGROUND, 0);
     fgButton_Init(&self->controls[2], *self, 0, "fgWindow:minimize", FGELEMENT_BACKGROUND, 0);
-    self->controls[0].control.element.message = (FN_MESSAGE)&fgWindow_CloseMessage;
-    self->controls[1].control.element.message = (FN_MESSAGE)&fgWindow_MaximizeMessage;
-    self->controls[2].control.element.message = (FN_MESSAGE)&fgWindow_MinimizeMessage;
+    self->controls[0].control.element.message = (fgMessage)&fgWindow_CloseMessage;
+    self->controls[1].control.element.message = (fgMessage)&fgWindow_MaximizeMessage;
+    self->controls[2].control.element.message = (fgMessage)&fgWindow_MinimizeMessage;
     return FG_ACCEPT;
   case FG_SETTEXT:
   case FG_SETFONT:

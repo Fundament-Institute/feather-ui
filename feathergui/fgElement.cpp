@@ -34,7 +34,7 @@ void FG_FASTCALL fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement
 
 void FG_FASTCALL fgElement_Init(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  fgElement_InternalSetup(self, parent, next, name, flags, transform, (FN_DESTROY)&fgElement_Destroy, (FN_MESSAGE)&fgElement_Message);
+  fgElement_InternalSetup(self, parent, next, name, flags, transform, (fgDestroy)&fgElement_Destroy, (fgMessage)&fgElement_Message);
 }
 
 void FG_FASTCALL fgElement_RemoveParent(fgElement* BSS_RESTRICT self)
@@ -211,7 +211,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     if(change&FGELEMENT_IGNORE || change&FGELEMENT_NOCLIP)
     {
       self->flags = oldflags;
-      fgElement* old = self->prev;
+      fgElement* old = self->next;
       LList_RemoveAll(self);
       self->flags = (fgFlag)otherint;
       LList_InsertAll(self, old);
@@ -265,16 +265,16 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
   case FG_SETPARENT:
   {
     fgElement* parent = (fgElement*)msg->other;
-    fgElement* prev = (fgElement*)msg->other2;
+    fgElement* next = (fgElement*)msg->other2;
     if(self->parent == parent)
     {
-      if(self->prev != prev)
+      if(self->next != next)
       {
         assert(self->parent != 0);
-        assert(prev->parent == self->parent);
-        fgElement* old = self->prev;
+        assert(!next || next->parent == self->parent);
+        fgElement* old = self->next;
         LList_RemoveAll(self);
-        LList_InsertAll(self, prev);
+        LList_InsertAll(self, next);
         if(!(self->flags&FGELEMENT_BACKGROUND))
           fgSubMessage(self->parent, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTREORDER, self, (ptrdiff_t)old);
       }
@@ -285,7 +285,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
 
     if(parent)
     {
-      LList_InsertAll(self, prev);
+      LList_InsertAll(self, next);
       _sendmsg<FG_SETSKIN>(self);
       if(!(self->flags&FGELEMENT_BACKGROUND))
         fgSubMessage(parent, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTADD, self, 0);
@@ -357,7 +357,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     hold->rootclip = 0;
     hold->lastclip = 0;
     hold->name = fgCopyText(self->name);
-    hold->SetParent(self->parent, self->prev);
+    hold->SetParent(self->parent, self->next);
 
     fgElement* cur = self->root;
     while(cur)
@@ -722,12 +722,12 @@ size_t FG_FASTCALL fgIntMessage(fgElement* self, unsigned char type, ptrdiff_t d
   return (*fgroot_instance->behaviorhook)(self, &msg);
 }
 
-FG_EXTERN size_t FG_FASTCALL fgPassMessage(fgElement* self, const FG_Msg* msg)
+size_t FG_FASTCALL fgPassMessage(fgElement* self, const FG_Msg* msg)
 {
   return (*fgroot_instance->behaviorhook)(self, msg);
 }
 
-FG_EXTERN size_t FG_FASTCALL fgSubMessage(fgElement* self, unsigned char type, unsigned char subtype, void* data, ptrdiff_t aux)
+size_t FG_FASTCALL fgSubMessage(fgElement* self, unsigned char type, unsigned char subtype, void* data, ptrdiff_t aux)
 {
   FG_Msg msg = { 0 };
   msg.type = type;
@@ -772,7 +772,7 @@ void FG_FASTCALL fgElement_MouseMoveCheck(fgElement* self)
     fgroot_instance->mouse.state |= FGMOUSE_SEND_MOUSEMOVE;
 }
 
-void FG_FASTCALL fgElement_AddListener(fgElement* self, unsigned short type, FN_LISTENER listener)
+void FG_FASTCALL fgElement_AddListener(fgElement* self, unsigned short type, fgListener listener)
 {
   fgListenerList.Insert(std::pair<fgElement*, unsigned short>(self, type));
   fgListenerHash.Insert(std::pair<fgElement*, unsigned short>(self, type), listener);
@@ -1066,4 +1066,4 @@ float fgElement::GetLetterSpacing() { size_t r = _sendmsg<FG_GETLETTERSPACING>(t
 
 const int* fgElement::GetText() { return reinterpret_cast<const int*>(_sendmsg<FG_GETTEXT>(this)); }
 
-void fgElement::AddListener(unsigned short type, FN_LISTENER listener) { fgElement_AddListener(this, type, listener); }
+void fgElement::AddListener(unsigned short type, fgListener listener) { fgElement_AddListener(this, type, listener); }

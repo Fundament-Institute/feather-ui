@@ -16,7 +16,7 @@ fgElement* FG_FASTCALL fgResource_Create(void* res, const CRect* uv, unsigned in
 
 void FG_FASTCALL fgResource_Init(fgResource* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (FN_DESTROY)&fgResource_Destroy, (FN_MESSAGE)&fgResource_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (fgDestroy)&fgResource_Destroy, (fgMessage)&fgResource_Message);
 }
 void FG_FASTCALL fgResource_Destroy(fgResource* self)
 {

@@ -10,7 +10,7 @@ static_assert((1 << FGBOX_LAYOUTSHIFT) == FGBOX_TILEX, "Layoutshift is incorrect
 
 void FG_FASTCALL fgBox_Init(fgBox* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (FN_DESTROY)&fgBox_Destroy, (FN_MESSAGE)&fgBox_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (fgDestroy)&fgBox_Destroy, (fgMessage)&fgBox_Message);
 }
 void FG_FASTCALL fgBox_Destroy(fgBox* self)
 {

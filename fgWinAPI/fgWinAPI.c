@@ -215,7 +215,7 @@ LRESULT CALLBACK fgWindowWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
   //    EndPaint(hWnd, &ps); 
   //    return 0;
   case WM_CLOSE:
-    msg.type=FG_DESTROY;
+    msg.type=fgDestroy;
     (*_fgroot->root.behaviorhook)((fgWindow*)wn,&msg);
     return 0;
   case WM_DESTROY:

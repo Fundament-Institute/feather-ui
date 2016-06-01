@@ -11,7 +11,7 @@ fgElement* fgCaptureWindow = 0;
 
 void FG_FASTCALL fgControl_Init(fgControl* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  fgElement_InternalSetup(&self->element, parent, next, name, flags, transform, (FN_DESTROY)&fgControl_Destroy, (FN_MESSAGE)&fgControl_Message);
+  fgElement_InternalSetup(&self->element, parent, next, name, flags, transform, (fgDestroy)&fgControl_Destroy, (fgMessage)&fgControl_Message);
 }
 
 void FG_FASTCALL fgControl_Destroy(fgControl* self)
@@ -150,6 +150,8 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
       _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, "unfocused", fgStyleGetMask("focused", "unfocused"));
       if(self->element.parent)
       {
+        if(self->element.parent->lastfocus == *self) // if the lastfocus was already us set it to 0.
+          self->element.parent->lastfocus = 0;
         if(!msg->other)
           _sendmsg<FG_GOTFOCUS>(self->element.parent);
         else
@@ -254,14 +256,14 @@ size_t FG_FASTCALL fgControl_HoverMessage(fgControl* self, const FG_Msg* msg)
   return fgControl_Message(self, msg);
 }
 
-FG_EXTERN void FG_FASTCALL fgControl_TabAfter(fgControl* self, fgControl* prev)
+void FG_FASTCALL fgControl_TabAfter(fgControl* self, fgControl* prev)
 {
   self->tabnext = prev->tabnext;
   self->tabprev = prev;
   prev->tabnext = self;
 }
 
-FG_EXTERN void FG_FASTCALL fgControl_TabBefore(fgControl* self, fgControl* next)
+void FG_FASTCALL fgControl_TabBefore(fgControl* self, fgControl* next)
 {
   self->tabprev = next->tabprev;
   self->tabnext = next;

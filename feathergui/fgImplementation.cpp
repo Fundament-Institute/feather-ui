@@ -3,7 +3,7 @@
 
 #include "fgImplementation.h"
 
-//FG_EXTERN void FG_FASTCALL fgLoadImplementation(fgImplementation* fg)
+//void FG_FASTCALL fgLoadImplementation(fgImplementation* fg)
 //{
 //  fg->fgCreateImageDef = &fgCreateImageDef;
 //  fg->fgCreateTextDef = &fgCreateTextDef;
