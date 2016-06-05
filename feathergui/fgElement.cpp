@@ -37,20 +37,6 @@ void FG_FASTCALL fgElement_Init(fgElement* BSS_RESTRICT self, fgElement* BSS_RES
   fgElement_InternalSetup(self, parent, next, name, flags, transform, (fgDestroy)&fgElement_Destroy, (fgMessage)&fgElement_Message);
 }
 
-void FG_FASTCALL fgElement_RemoveParent(fgElement* BSS_RESTRICT self)
-{
-  if(self->parent != 0)
-  {
-    if(!(self->flags&FGELEMENT_BACKGROUND))
-      fgSubMessage(self->parent, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTREMOVE, self, 0);
-    if(self->parent->lastfocus == self)
-      self->parent->lastfocus = 0;
-    LList_RemoveAll(self); // Remove ourselves from our parent
-  }
-  self->next = 0;
-  self->prev = 0;
-}
-
 void FG_FASTCALL fgElement_Destroy(fgElement* self)
 {
   assert(self != 0);
@@ -65,7 +51,7 @@ void FG_FASTCALL fgElement_Destroy(fgElement* self)
 
   if(self->name) free(self->name);
   if(self->userhash) kh_destroy_fgUserdata(self->userhash);
-  fgElement_RemoveParent(self);
+  if(self->parent != 0) _sendmsg<FG_REMOVECHILD, void*>(self->parent, self);
   self->parent = 0;
   reinterpret_cast<fgSkinRefArray&>(self->skinrefs).~cDynArray();
   fgElement_ClearListeners(self);
@@ -205,19 +191,22 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     otherint = T_SETBIT(self->flags, otherint, msg->otheraux);
   case FG_SETFLAGS:
   {
-    fgFlag oldflags = self->flags;
     fgFlag change = self->flags ^ (fgFlag)otherint;
-    self->flags = (fgFlag)otherint;
+    if(change&FGELEMENT_BACKGROUND && !(self->flags & FGELEMENT_BACKGROUND) && self->parent != 0) // if we added the background flag, remove this from the layout before setting the flags.
+      fgSubMessage(self->parent, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTREMOVE, self, 0);
+
     if(change&FGELEMENT_IGNORE || change&FGELEMENT_NOCLIP)
     {
-      self->flags = oldflags;
       fgElement* old = self->next;
       LList_RemoveAll(self);
       self->flags = (fgFlag)otherint;
       LList_InsertAll(self, old);
     }
-    if(change&FGELEMENT_BACKGROUND && self->parent != 0) // If we change the background we either have to add or remove this from the layout
-      fgSubMessage(self->parent, FG_LAYOUTCHANGE, (self->flags & FGELEMENT_BACKGROUND) ? FGELEMENT_LAYOUTADD : FGELEMENT_LAYOUTREMOVE, self, 0);
+    else
+      self->flags = (fgFlag)otherint;
+
+    if(change&FGELEMENT_BACKGROUND && !(self->flags & FGELEMENT_BACKGROUND) && self->parent != 0) // If we removed the background flag, add this into the layout after setting the new flags.
+      fgSubMessage(self->parent, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTADD, self, 0);
     if((change&FGELEMENT_EXPAND)&self->flags) // If we change the expansion flags, we must recalculate every single child in our layout provided one of the expansion flags is actually set
       fgSubMessage(self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTRESET, 0, 0);
     if(change&FGELEMENT_HIDDEN || change&FGELEMENT_NOCLIP)
@@ -239,7 +228,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgDirtyElement(&self->transform);
         fgElement_MouseMoveCheck(self);
 
-        fgSubMessage(self, FG_MOVE, FG_SETMARGIN, 0, diff);
+        fgSubMessage(self, FG_MOVE, FG_SETMARGIN, 0, diff | FGMOVE_MARGIN);
       }
     }
     return FG_ACCEPT;
@@ -262,7 +251,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       }
     }
     return FG_ACCEPT;
-  case FG_SETPARENT:
+  case FG_SETPARENT: // Note: Doing everything in SETPARENT is a bad idea because it prevents parents from responding to children being added or removed!
   {
     fgElement* parent = (fgElement*)msg->other;
     fgElement* next = (fgElement*)msg->other2;
@@ -280,44 +269,58 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       }
       return FG_ACCEPT;
     }
-    fgElement_RemoveParent(self);
-    self->parent = parent;
-
+    if(self->parent != 0)
+      _sendmsg<FG_REMOVECHILD, void*>(self->parent, self);
     if(parent)
-    {
-      LList_InsertAll(self, next);
-      _sendmsg<FG_SETSKIN>(self);
-      if(!(self->flags&FGELEMENT_BACKGROUND))
-        fgSubMessage(parent, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTADD, self, 0);
-    }
-    else
-      _sendmsg<FG_SETSKIN>(self);
-    assert(!self->last || !self->last->next);
-    assert(!self->lastclip || !self->lastclip->nextclip);
-    assert(!self->lastnoclip || !self->lastnoclip->nextclip);
+      _sendmsg<FG_ADDCHILD, void*, void*>(parent, self, next);
   }
-  fgSubMessage(self, FG_MOVE, FG_SETPARENT, 0, fgElement_PotentialResize(self));
-  return FG_ACCEPT;
+    return FG_ACCEPT;
   case FG_ADDITEM:
   case FG_ADDCHILD:
     hold = (fgElement*)msg->other;
     if(!hold)
       return 0;
-    return _sendmsg<FG_SETPARENT, void*>(hold, self);
+    if(hold->parent != 0) // If the parent is nonzero, call SETPARENT to clean things up for us and then call this again after the child is ready.
+      return _sendmsg<FG_SETPARENT, void*, void*>(hold, self, msg->other2); // We do things this way so parents can respond to children being added or removed
+
+    hold->parent = self;
+    _sendmsg<FG_SETSKIN>(hold);
+    LList_InsertAll(hold, (fgElement*)msg->other2);
+    if(!(hold->flags&FGELEMENT_BACKGROUND))
+      fgSubMessage(self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTADD, hold, 0);
+
+    assert(!hold->last || !hold->last->next);
+    assert(!hold->lastclip || !hold->lastclip->nextclip);
+    assert(!hold->lastnoclip || !hold->lastnoclip->nextclip);
+    fgSubMessage(hold, FG_MOVE, FG_SETPARENT, 0, fgElement_PotentialResize(self));
+    return FG_ACCEPT;
   case FG_REMOVECHILD:
     hold = (fgElement*)msg->other;
     if(!msg->other || hold->parent != self)
       return 0;
-    return _sendmsg<FG_SETPARENT>((fgElement*)msg->other);
+
+    if(!(hold->flags&FGELEMENT_BACKGROUND))
+      fgSubMessage(self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTREMOVE, hold, 0);
+    if(self->lastfocus == hold)
+      self->lastfocus = 0;
+    LList_RemoveAll(hold); // Remove hold from us
+
+    hold->parent = 0;
+    hold->next = 0;
+    hold->prev = 0;
+    _sendmsg<FG_SETSKIN>(hold);
+    fgSubMessage(hold, FG_MOVE, FG_SETPARENT, 0, fgElement_PotentialResize(self));
+    return FG_ACCEPT;
   case FG_LAYOUTCHANGE:
   {
+    assert(!msg->other || !(((fgElement*)msg->other)->flags&FGELEMENT_BACKGROUND));
     CRect area = self->transform.area;
-    if(_sendmsg<FG_LAYOUTFUNCTION, const void*, void*>(self, msg, &area) != 0 || (msg->otheraux & FGMOVE_PADDING) != 0)
+    if(_sendmsg<FG_LAYOUTFUNCTION, const void*, void*>(self, msg, &area) != 0 || (msg->otheraux & (FGMOVE_PADDING | FGMOVE_MARGIN)) != 0)
     {
       if(self->flags&FGELEMENT_EXPANDX)
-        area.right.abs += self->padding.left + self->padding.right;
+        area.right.abs += self->padding.left + self->padding.right + self->margin.left + self->margin.right;
       if(self->flags&FGELEMENT_EXPANDY)
-        area.bottom.abs += self->padding.top + self->padding.bottom;
+        area.bottom.abs += self->padding.top + self->padding.bottom + self->margin.top + self->margin.bottom;
       _sendmsg<FG_SETAREA, void*>(self, &area);
     }
     return FG_ACCEPT;
@@ -811,7 +814,7 @@ size_t FG_FASTCALL fgElement::SetAlpha(float alpha) { return _sendmsg<FG_SETALPH
 
 size_t FG_FASTCALL fgElement::SetArea(const CRect& area) { return _sendmsg<FG_SETAREA, const void*>(this, &area); }
 
-size_t FG_FASTCALL fgElement::SetElement(const fgTransform& element) { return _sendmsg<FG_SETTRANSFORM, const void*>(this, &element); }
+size_t FG_FASTCALL fgElement::SetTransform(const fgTransform& transform) { return _sendmsg<FG_SETTRANSFORM, const void*>(this, &transform); }
 
 void FG_FASTCALL fgElement::SetFlag(fgFlag flag, bool value) { _sendmsg<FG_SETFLAG, ptrdiff_t, size_t>(this, flag, value != 0); }
 
@@ -823,7 +826,7 @@ size_t FG_FASTCALL fgElement::SetPadding(const AbsRect& padding) { return _sendm
 
 void FG_FASTCALL fgElement::SetParent(fgElement* parent, fgElement* next) { _sendmsg<FG_SETPARENT, void*, void*>(this, parent, next); }
 
-size_t FG_FASTCALL fgElement::AddChild(fgElement* child) { return _sendmsg<FG_ADDCHILD, void*>(this, child); }
+size_t FG_FASTCALL fgElement::AddChild(fgElement* child, fgElement* next) { return _sendmsg<FG_ADDCHILD, void*, void*>(this, child, next); }
 
 size_t FG_FASTCALL fgElement::RemoveChild(fgElement* child) { return _sendmsg<FG_REMOVECHILD, void*>(this, child); }
 
@@ -863,6 +866,10 @@ size_t FG_FASTCALL fgElement::SetStyle(struct _FG_STYLE* style) { return _sendsu
 size_t FG_FASTCALL fgElement::SetStyle(FG_UINT index, FG_UINT mask) { return _sendsubmsg<FG_SETSTYLE, ptrdiff_t, size_t>(this, 1, index, mask); }
 
 struct _FG_STYLE* fgElement::GetStyle() { return reinterpret_cast<struct _FG_STYLE*>(_sendmsg<FG_GETSTYLE>(this)); }
+
+size_t FG_FASTCALL fgElement::GetDPI() { return _sendmsg<FG_GETDPI>(this); }
+
+void FG_FASTCALL fgElement::SetDPI(int dpi) { _sendmsg<FG_SETDPI, ptrdiff_t>(this, dpi); }
 
 const char* fgElement::GetClassName() { return reinterpret_cast<const char*>(_sendmsg<FG_GETCLASSNAME>(this)); }
 

@@ -12,6 +12,7 @@
 #include "fgSlider.h"
 #include "fgProgressbar.h"
 #include "fgList.h"
+#include "fgDebug.h"
 
 #if defined(BSS_DEBUG) && defined(BSS_CPU_x86_64)
 #pragma comment(lib, "../bin/feathergui_d.lib")

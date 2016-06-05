@@ -60,6 +60,8 @@ size_t FG_FASTCALL fgMonitor_Message(fgMonitor* self, const FG_Msg* msg)
       hold = hold->prev;
     }
   }
+  case FG_GETCLASSNAME:
+    return (size_t)"fgMonitor";
   }
 
   return fgElement_Message(&self->element, msg);

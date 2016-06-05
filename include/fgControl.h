@@ -42,7 +42,7 @@ FG_EXTERN size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* ms
 FG_EXTERN size_t FG_FASTCALL fgControl_HoverMessage(fgControl* self, const FG_Msg* msg);
 FG_EXTERN void FG_FASTCALL fgControl_TabAfter(fgControl* self, fgControl* prev);
 FG_EXTERN void FG_FASTCALL fgControl_TabBefore(fgControl* self, fgControl* next);
-FG_EXTERN void FG_FASTCALL fgControl_DoHoverCalc(fgControl* self);
+FG_EXTERN void FG_FASTCALL fgElement_DoHoverCalc(fgElement* self);
 
 #ifdef  __cplusplus
 }

@@ -27,14 +27,14 @@ void FG_FASTCALL fgControl_Destroy(fgControl* self)
   fgElement_Destroy(&self->element);
 }
 
-void FG_FASTCALL fgControl_DoHoverCalc(fgControl* self) // This is a seperate function so some controls can force a focus event to instead activate hover instead.
+void FG_FASTCALL fgElement_DoHoverCalc(fgElement* self) // This is a seperate function so some controls can force a focus event to instead activate hover instead.
 {
-  if(fgLastHover != *self)
+  if(fgLastHover != self)
   {
     if(fgLastHover != 0)
       _sendmsg<FG_MOUSEOFF>(fgLastHover);
-    fgLastHover = *self;
-    _sendmsg<FG_MOUSEON>(*self);
+    fgLastHover = self;
+    _sendmsg<FG_MOUSEON>(self);
   }
 }
 
@@ -105,14 +105,14 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
   }
     return FG_ACCEPT;
   case FG_MOUSEDOWN:
-    fgControl_DoHoverCalc(self);
+    fgElement_DoHoverCalc(*self);
     if(fgFocusedWindow != *self)
       _sendmsg<FG_GOTFOCUS>(*self);
     //if(msg->button == FG_MOUSERBUTTON && self->contextmenu != 0)
     //  _sendmsg<FG_GOTFOCUS>(*self->contextmenu);
     return FG_ACCEPT;
   case FG_MOUSEMOVE:
-    fgControl_DoHoverCalc(self);
+    fgElement_DoHoverCalc(*self);
     if(fgroot_instance->drag) // Send a dragging message if necessary. Does not initiate a drag for you (this is because some drags are initiated via click and drag, and some are just clicking).
     {
       FG_Msg m = *msg;

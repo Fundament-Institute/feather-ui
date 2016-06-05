@@ -9,9 +9,12 @@
 #include "fgProgressbar.h"
 #include "fgSlider.h"
 #include "fgTextbox.h"
+#include "fgTreeView.h"
+#include "fgDebug.h"
 #include "feathercpp.h"
 #include "bss-util/cTrie.h"
 #include <stdlib.h>
+#include <sstream>
 
 fgRoot* fgroot_instance = 0;
 
@@ -34,10 +37,6 @@ void FG_FASTCALL fgRoot_Destroy(fgRoot* self)
 {
   fgRadioGroup_destroy(self->radiohash);
   fgControl_Destroy((fgControl*)self);
-}
-
-void fgRoot_BuildMouseMove(fgRoot* self, FG_Msg* msg)
-{
 }
 
 void FG_FASTCALL fgRoot_CheckMouseMove(fgRoot* self)
@@ -63,6 +62,7 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
   case FG_KEYDOWN:
   case FG_MOUSEON:
   case FG_MOUSEOFF:
+  case FG_MOUSEDBLCLICK:
   case FG_MOUSEDOWN:
   case FG_MOUSEUP:
   case FG_MOUSEMOVE:
@@ -242,6 +242,7 @@ size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
     return 0;
   }
   case FG_MOUSESCROLL:
+  case FG_MOUSEDBLCLICK:
   case FG_MOUSEDOWN:
     rootarea = rootarea;
   case FG_MOUSEUP:
@@ -400,10 +401,15 @@ fgElement* _create_default(fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRI
 
 fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  static bss_util::cTrie<uint16_t> t(12, "fgElement", "fgControl", "fgResource", "fgText", "fgBox", "fgScrollbar", "fgButton", "fgWindow", "fgCheckbox",
-    "fgRadiobutton", "fgProgressbar", "fgSlider", "fgTextbox");
+  static bss_util::cTrie<uint16_t> t(15, "fgelement", "fgcontrol", "fgresource", "fgtext", "fgbox", "fgscrollbar", "fgbutton", "fgwindow", "fgcheckbox",
+    "fgradiobutton", "fgprogressbar", "fgslider", "fgtextbox", "fgtreeview", "fgtreeitem", "fgdebug");
   
-  switch(t[type])
+  size_t len = strlen(type) + 1; // include null terminator
+  DYNARRAY(char, lower, len);
+  STRNCPY(lower, len, type, len);
+  STRLWR(lower);
+  
+  switch(t[lower])
   {
   case 0:
     return _create_default<fgElement, fgElement_Init>(parent, next, name, flags, transform);
@@ -431,6 +437,12 @@ fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT
     return _create_default<fgSlider, fgSlider_Init>(parent, next, name, flags, transform);
   case 12:
     return _create_default<fgTextbox, fgTextbox_Init>(parent, next, name, flags, transform);
+  case 13:
+    return _create_default<fgTreeView, fgTreeView_Init>(parent, next, name, flags, transform);
+  case 14:
+    return _create_default<fgTreeItem, fgTreeItem_Init>(parent, next, name, flags, transform);
+  case 15:
+    return _create_default<fgDebug, fgDebug_Init>(parent, next, name, flags, transform);
   }
 
   return 0;

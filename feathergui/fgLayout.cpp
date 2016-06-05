@@ -311,11 +311,7 @@ size_t FG_FASTCALL fgLayout_Tile(fgElement* self, const FG_Msg* msg, char axes, 
   case FGELEMENT_LAYOUTREMOVE:
     prev = fgLayout_GetPrev(child);
     if(prev)
-    {
-      AbsRect out;
-      ResolveRect(prev, &out);
-      realsize = out.topleft;
-    }
+      realsize = AbsVec { prev->transform.area.right.abs, prev->transform.area.bottom.abs };
     else
       realsize = AbsVec { 0,0 };
 
@@ -326,7 +322,7 @@ size_t FG_FASTCALL fgLayout_Tile(fgElement* self, const FG_Msg* msg, char axes, 
   char dim = 0;
   if(self->flags&FGELEMENT_EXPANDX)
   {
-    if(area->right.abs - area->left.abs < expand.x)
+    if(area->right.abs - area->left.abs != expand.x)
     {
       area->right.abs = area->left.abs + expand.x;
       dim |= FGMOVE_RESIZEX;
@@ -334,7 +330,7 @@ size_t FG_FASTCALL fgLayout_Tile(fgElement* self, const FG_Msg* msg, char axes, 
   }
   if(self->flags&FGELEMENT_EXPANDY)
   {
-    if(area->bottom.abs - area->top.abs < expand.y)
+    if(area->bottom.abs - area->top.abs != expand.y)
     {
       area->bottom.abs = area->top.abs + expand.y;
       dim |= FGMOVE_RESIZEY;

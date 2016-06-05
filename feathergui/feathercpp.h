@@ -95,6 +95,8 @@ extern void fgRadioGroup_destroy(struct __kh_fgRadioGroup_t*);
 
 struct _FG_ROOT;
 extern struct _FG_ROOT* fgroot_instance;
+struct _FG_DEBUG;
+extern struct _FG_DEBUG* fgdebug_instance;
 
 template<FG_MSGTYPE type, typename... Args>
 inline size_t _sendmsg(fgElement* self, Args... args)

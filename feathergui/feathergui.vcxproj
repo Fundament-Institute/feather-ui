@@ -220,6 +220,7 @@
     <ClInclude Include="..\include\fgBox.h" />
     <ClInclude Include="..\include\fgButton.h" />
     <ClInclude Include="..\include\fgCheckbox.h" />
+    <ClInclude Include="..\include\fgDebug.h" />
     <ClInclude Include="..\include\fgElement.h" />
     <ClInclude Include="..\include\fgCombobox.h" />
     <ClInclude Include="..\include\fgDropdown.h" />
@@ -250,6 +251,7 @@
     <ClCompile Include="fgBox.cpp" />
     <ClCompile Include="fgButton.cpp" />
     <ClCompile Include="fgCheckbox.cpp" />
+    <ClCompile Include="fgDebug.cpp" />
     <ClCompile Include="fgElement.cpp" />
     <ClCompile Include="fgImplementation.cpp" />
     <ClCompile Include="fgLayout.cpp" />

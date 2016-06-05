@@ -264,7 +264,7 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
     return FG_ACCEPT;
   }
   case FG_LAYOUTCHANGE:
-    if(self->control->last != &self->bg[1])
+    if((msg->subtype == FGELEMENT_LAYOUTADD || msg->subtype == FGELEMENT_LAYOUTREORDER) && self->control->last != &self->bg[1])
     {
       self->bg[0].SetParent(*self, 0);
       self->bg[1].SetParent(*self, 0);
@@ -296,7 +296,7 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
   case FG_GETLINEHEIGHT:
   {
     size_t r = fgControl_HoverMessage(&self->control, msg);
-    return !r ? *reinterpret_cast<const size_t*>(&DEFAULT_LINEHEIGHT) : r;
+    return (*reinterpret_cast<float*>(&r) == 0.0f) ? *reinterpret_cast<const size_t*>(&DEFAULT_LINEHEIGHT) : r;
   }
   case FG_ACTION:
     switch(msg->subtype)

@@ -27,6 +27,7 @@ enum FGSCROLLBAR_ACTIONS
   FGSCROLLBAR_PAGE, // PageUp, PageDown, and click on the spaces between the scrollbars. 0 1 2 3 - left top right bottom
   FGSCROLLBAR_BUTTON, // Clicking the actual buttons. 0 1 2 3 - left top right bottom
   FGSCROLLBAR_BARCACHE, // resets the barcache
+  FGSCROLLBAR_SCROLLTO, // Scrolls to include the given rect in the visible area. If this isn't possible, minimizes the amount of scrolling done while maximizing the visible area.
 };
 
 struct _FG_SCROLLBAR_INNER {
