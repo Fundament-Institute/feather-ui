@@ -317,11 +317,22 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     CRect area = self->transform.area;
     if(_sendmsg<FG_LAYOUTFUNCTION, const void*, void*>(self, msg, &area) != 0 || (msg->otheraux & (FGMOVE_PADDING | FGMOVE_MARGIN)) != 0)
     {
+      CRect narea = self->transform.area;
       if(self->flags&FGELEMENT_EXPANDX)
-        area.right.abs += self->padding.left + self->padding.right + self->margin.left + self->margin.right;
+      {
+        narea.left.abs = area.left.abs;
+        narea.left.rel = area.left.rel;
+        narea.right.abs = area.right.abs + self->padding.left + self->padding.right + self->margin.left + self->margin.right;
+        narea.right.rel = area.right.rel;
+      }
       if(self->flags&FGELEMENT_EXPANDY)
-        area.bottom.abs += self->padding.top + self->padding.bottom + self->margin.top + self->margin.bottom;
-      _sendmsg<FG_SETAREA, void*>(self, &area);
+      {
+        narea.top.abs = area.top.abs;
+        narea.top.rel = area.top.rel;
+        narea.bottom.abs = area.bottom.abs + self->padding.top + self->padding.bottom + self->margin.top + self->margin.bottom;
+        narea.bottom.rel = area.bottom.rel;
+      }
+      _sendmsg<FG_SETAREA, void*>(self, &narea);
     }
     return FG_ACCEPT;
   }
@@ -472,7 +483,6 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
   case FG_GETSTYLE:
     return (self->style == (FG_UINT)-1 && self->parent != 0) ? _sendmsg<FG_GETSTYLE>(self->parent) : self->style;
   case FG_GOTFOCUS:
-    fgElement_CheckLastFocus(self);
     if(self->parent)
       return _sendmsg<FG_GOTFOCUS>(self->parent);
     break;
@@ -1027,9 +1037,9 @@ void fgElement::Active() { _sendmsg<FG_ACTIVE>(this); }
 
 void fgElement::Action() { _sendmsg<FG_ACTION>(this); }
 
-void FG_FASTCALL fgElement::SetMaxDim(float x, float y) { _sendmsg<FG_SETMAXDIM, float, float>(this, x, y); }
+void FG_FASTCALL fgElement::SetDim(float x, float y, FGDIM type) { _sendsubmsg<FG_SETDIM, float, float>(this, type, x, y); }
 
-const AbsVec& fgElement::GetMaxDim() { size_t r = _sendmsg<FG_GETMAXDIM>(this); return **reinterpret_cast<AbsVec**>(&r); }
+const AbsVec* fgElement::GetDim(FGDIM type) { size_t r = _sendsubmsg<FG_GETDIM>(this, type); return *reinterpret_cast<AbsVec**>(&r); }
 
 size_t fgElement::GetState(ptrdiff_t aux) { return _sendmsg<FG_GETSTATE, ptrdiff_t>(this, aux); }
 

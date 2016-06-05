@@ -256,7 +256,7 @@ size_t FG_FASTCALL fgDebug_LogMessage(fgDebug* self, const FG_Msg* msg, unsigned
     if(msg->other2 != nullptr)
       m.arg2.crect = *(CRect*)msg->other2;
     break;
-  case FG_SETMAXDIM:
+  case FG_SETDIM:
     m.arg1.f = msg->otherf;
     m.arg2.f = msg->otherfaux;
     break;
@@ -363,8 +363,8 @@ ptrdiff_t FG_FASTCALL fgDebug_WriteMessage(char* buf, size_t bufsize, fgDebugMes
     return snprintf(buf, bufsize, "%*sFG_GOTFOCUS()", spaces, "");
   case FG_LOSTFOCUS:
     return snprintf(buf, bufsize, "%*sFG_LOSTFOCUS()", spaces, "");
-  case FG_GETMAXDIM:
-    return snprintf(buf, bufsize, "%*sFG_GETMAXDIM()", spaces, "");
+  case FG_GETDIM:
+    return snprintf(buf, bufsize, "%*sFG_GETDIM:%hhu()", spaces, "", msg->subtype);
   case FG_GETITEM:
     return snprintf(buf, bufsize, "%*sFG_GETITEM() - 0x%p", spaces, "", msg->valuep);
   case FG_GETRESOURCE:
@@ -489,8 +489,8 @@ ptrdiff_t FG_FASTCALL fgDebug_WriteMessage(char* buf, size_t bufsize, fgDebugMes
     return snprintf(buf, bufsize, "%*sFG_JOYBUTTONUP(%hi, %s)", spaces, "", msg->joybutton, msg->joydown ? "true" : "false");
   case FG_JOYAXIS:
     return snprintf(buf, bufsize, "%*sFG_JOYAXIS(%hi, %f)", spaces, "", msg->joyaxis, msg->joyvalue);
-  case FG_SETMAXDIM:
-    return snprintf(buf, bufsize, "%*sFG_SETMAXDIM(%f, %f)", spaces, "", msg->arg1.f, msg->arg2.f);
+  case FG_SETDIM:
+    return snprintf(buf, bufsize, "%*sFG_SETDIM:%hhu(%f, %f)", spaces, "", msg->subtype, msg->arg1.f, msg->arg2.f);
   case FG_SETSTATE:
     return snprintf(buf, bufsize, "%*sFG_SETSTATE(%ti, %zu)", spaces, "", msg->arg1.i, msg->arg2.u);
   case FG_SETUV:

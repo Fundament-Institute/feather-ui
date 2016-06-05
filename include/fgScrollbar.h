@@ -38,7 +38,7 @@ struct _FG_SCROLLBAR_INNER {
 // A Scrollbar area acts as a clipping area for a single fgElement.
 typedef struct _FG_SCROLLBAR {
   fgControl control;
-  fgButton btn[4]; // 0 - left arrow, 1 - right arrow, 2 - up arrow, 3 - down arrow
+  fgButton btn[4]; // 0 - left arrow, 1 - up arrow, 2 - right arrow, 3 - down arrow
   _FG_SCROLLBAR_INNER bar[2]; // 0 - horz slider, 1 - vert slider
   fgElement bg[2]; // 0 - horizontal background, 1 - vertical background
   AbsVec maxdim;

@@ -19,7 +19,7 @@ enum FGBOX_FLAGS
   FGBOX_FIXEDX = (FGBOX_DISTRIBUTEY << 1), // This is a flag set for you by fgBox that tells it all elements are the same size, which allows for lookup optimizations.
   FGBOX_FIXEDY = (FGBOX_FIXEDX << 1),
   FGBOX_LAYOUTMASK = FGBOX_TILEX | FGBOX_TILEY | FGBOX_DISTRIBUTEX | FGBOX_DISTRIBUTEY,
-  FGBOX_LAYOUTSHIFT = 13,
+  FGBOX_TILE = (FGBOX_TILEX | FGBOX_TILEY),
 };
 
 // A List is an arbitrary list of items with a number of different layout options that are selectable and/or draggable.

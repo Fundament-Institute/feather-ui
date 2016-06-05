@@ -14,8 +14,6 @@ size_t FG_FASTCALL fgTreeItemArrow_Message(fgElement* self, const FG_Msg* msg)
     if(msg->button == FG_MOUSELBUTTON && self->parent != 0)
       _sendmsg<FG_ACTION>(self->parent);
     break;
-  case FG_GOTFOCUS:
-    return 0;
   }
   return fgElement_Message(self, msg);
 }
@@ -53,8 +51,11 @@ size_t FG_FASTCALL fgTreeItem_Message(fgTreeItem* self, const FG_Msg* msg)
     }
     break;
   case FG_LAYOUTFUNCTION:
-    return fgLayout_Tile(&self->control.element, (const FG_Msg*)msg->other, 2, (CRect*)msg->other2);
+    return fgLayout_Tile(&self->control.element, (const FG_Msg*)msg->other, FGBOX_TILEY, (CRect*)msg->other2);
   case FG_ACTION:
+    if(msg->subtype != 0) // If nonzero this action was meant for the root
+      return !self->control.element.parent ? 0 : fgPassMessage(self->control.element.parent, msg);
+
     self->count = ((self->count&EXPANDED) ^ EXPANDED) | (self->count&(~EXPANDED));
     _sendsubmsg<FG_SETSTYLE, void*, size_t>(&self->arrow, 0, (self->count&EXPANDED) ? "visible" : "hidden", fgStyleGetMask("visible", "hidden"));
     {
@@ -69,6 +70,14 @@ size_t FG_FASTCALL fgTreeItem_Message(fgTreeItem* self, const FG_Msg* msg)
     return FG_ACCEPT;
   case FG_GETCLASSNAME:
     return (size_t)CLASSNAME;
+  case FG_GOTFOCUS:
+    if(self->control.element.parent != 0)
+    {
+      AbsRect r;
+      ResolveRect(&self->control.element, &r);
+      _sendsubmsg<FG_ACTION, void*>(self->control.element.parent, FGSCROLLBAR_SCROLLTO, &r);
+    }
+    break;
   }
 
   return fgControl_Message(&self->control, msg);
@@ -96,9 +105,13 @@ size_t FG_FASTCALL fgTreeView_Message(fgTreeView* self, const FG_Msg* msg)
     fgScrollbar_Message(&self->scrollbar, msg);
     return FG_ACCEPT;
   case FG_LAYOUTFUNCTION:
-    return fgLayout_Tile(*self, (const FG_Msg*)msg->other, 2, (CRect*)msg->other2);
+    return fgLayout_Tile(*self, (const FG_Msg*)msg->other, FGBOX_TILEY, (CRect*)msg->other2);
   case FG_GETCLASSNAME:
     return (size_t)"fgTreeView";
+  case FG_GOTFOCUS:
+    if(fgElement_CheckLastFocus(*self)) // try to resolve via lastfocus
+      return FG_ACCEPT;
+    break;
   }
   return fgScrollbar_Message(&self->scrollbar, msg);
 }

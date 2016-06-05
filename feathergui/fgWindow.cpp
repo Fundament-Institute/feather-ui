@@ -136,6 +136,10 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
       VirtualFreeChild(*self);
       return FG_ACCEPT;
     }
+  case FG_GOTFOCUS:
+    if(fgElement_CheckLastFocus(*self)) // try to resolve via lastfocus
+      return FG_ACCEPT;
+    break;
   case FG_GETCLASSNAME:
     return (size_t)"fgWindow";
   }

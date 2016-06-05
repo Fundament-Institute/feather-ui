@@ -124,8 +124,8 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT void Hover();
   FG_DLLEXPORT void Active();
   FG_DLLEXPORT void Action();
-  FG_DLLEXPORT void FG_FASTCALL SetMaxDim(float x, float y);
-  FG_DLLEXPORT const AbsVec& GetMaxDim();
+  FG_DLLEXPORT void FG_FASTCALL SetDim(float x, float y, FGDIM type = FGDIM_MAX);
+  FG_DLLEXPORT const AbsVec* GetDim(FGDIM type = FGDIM_MAX);
   FG_DLLEXPORT struct _FG_ELEMENT* GetSelectedItem();
   FG_DLLEXPORT size_t GetState(ptrdiff_t aux);
   FG_DLLEXPORT float GetStatef(ptrdiff_t aux);

@@ -7,6 +7,7 @@
 #include "fgText.h"
 #include "fgResource.h"
 #include "feathercpp.h"
+#include "fgBox.h"
 
 void FG_FASTCALL fgLayout_Init(fgLayout* self)
 {
@@ -197,12 +198,13 @@ fgElement* fgLayout_GetPrev(fgElement* cur)
   return cur;
 }
 
-AbsVec fgLayout_TileReorder(fgElement* prev, fgElement* cur, char axis, float max, float pitch, AbsVec expand) // axis: 0 means x-axis first, 1 means y-axis first
+AbsVec fgLayout_TileReorder(fgElement* prev, fgElement* cur, fgElement* skip, char axis, float max, float pitch, AbsVec expand) // axis: 0 means x-axis first, 1 means y-axis first
 {
   if(axis) { FABS t = expand.x; expand.x = expand.y; expand.y = t; }
   AbsVec pos = { 0,0 };
   if(prev)
   {
+    assert(!(prev->flags&FGELEMENT_BACKGROUND));
     pos.x = axis ? prev->transform.area.bottom.abs : prev->transform.area.right.abs;
     pos.y = axis ? prev->transform.area.left.abs : prev->transform.area.top.abs;
   }
@@ -210,6 +212,11 @@ AbsVec fgLayout_TileReorder(fgElement* prev, fgElement* cur, char axis, float ma
 
   while(cur) // O(n) complexity, but should break after re-ordering becomes unnecessary.
   {
+    if(cur == skip || (cur->flags&FGELEMENT_BACKGROUND)) // we check for cur background flags so we can pass in the root
+    {
+      cur = cur->next;
+      continue;
+    }
     if(fgLayout_TileSame(axis ? pos.y : pos.x, axis ? pos.x : pos.y, cur) && rowbump)
       break;
     AbsVec dim = { (cur->transform.area.right.abs - cur->transform.area.left.abs), (cur->transform.area.bottom.abs - cur->transform.area.top.abs) };
@@ -232,7 +239,7 @@ AbsVec fgLayout_TileReorder(fgElement* prev, fgElement* cur, char axis, float ma
     dim.y += pos.y;
     if(pos.x > expand.x) expand.x = pos.x;
     if(dim.y > expand.y) expand.y = dim.y;
-    cur = fgLayout_GetNext(cur);
+    cur = cur->next;
   }
   if(axis) { FABS t = expand.x; expand.x = expand.y; expand.y = t; }
   return expand;
@@ -254,18 +261,18 @@ FABS FG_FASTCALL fgLayout_TileGetPitch(fgElement* cur, char axis)
   return pitch;
 }
 
-size_t FG_FASTCALL fgLayout_Tile(fgElement* self, const FG_Msg* msg, char axes, CRect* area)
+size_t FG_FASTCALL fgLayout_Tile(fgElement* self, const FG_Msg* msg, fgFlag axes, CRect* area)
 {
   AbsVec realsize = AbsVec { area->right.abs - area->left.abs, area->bottom.abs - area->top.abs };
   fgElement* child = (fgElement*)msg->other;
   fgElement* prev;
-  char axis = ((axes & 3) && (axes & 8)) || ((axes & 2) && !(axes & 1));
+  char axis = ((axes & FGBOX_TILE) && (axes & FGBOX_DISTRIBUTEY)) || ((axes & FGBOX_TILEY) && !(axes & FGBOX_TILEX));
   FABS max = INFINITY;
-  if(axes & 3)
+  if(axes & FGBOX_TILE)
   {
     AbsRect out;
     ResolveRect(self, &out);
-    if((axes & 8) && !(self->flags & FGELEMENT_EXPANDY)) max = out.bottom - out.top;
+    if((axes & FGBOX_DISTRIBUTEY) && !(self->flags & FGELEMENT_EXPANDY)) max = out.bottom - out.top;
     else if(!(self->flags & FGELEMENT_EXPANDX)) max = out.right - out.left;
   }
 
@@ -273,11 +280,11 @@ size_t FG_FASTCALL fgLayout_Tile(fgElement* self, const FG_Msg* msg, char axes, 
   switch(msg->subtype)
   {
   case FGELEMENT_LAYOUTRESET:
-    expand = fgLayout_TileReorder(0, self->root, axis, max, 0.0f, AbsVec { 0,0 });
+    expand = fgLayout_TileReorder(0, self->root, 0, axis, max, 0.0f, AbsVec { 0,0 });
     break;
   case FGELEMENT_LAYOUTRESIZE:
-    if((((msg->otheraux & FGMOVE_RESIZEX) && !(self->flags&FGELEMENT_EXPANDX)) || ((msg->otheraux & FGMOVE_RESIZEY) && !(self->flags&FGELEMENT_EXPANDY))) && (axes & 3))
-      expand = fgLayout_TileReorder(0, self->root, axis, max, 0.0f, AbsVec { 0,0 });
+    if((((msg->otheraux & FGMOVE_RESIZEX) && !(self->flags&FGELEMENT_EXPANDX)) || ((msg->otheraux & FGMOVE_RESIZEY) && !(self->flags&FGELEMENT_EXPANDY))) && (axes & FGBOX_TILE))
+      expand = fgLayout_TileReorder(0, self->root, 0, axis, max, 0.0f, AbsVec { 0,0 });
     else
       return 0;
     break;
@@ -285,61 +292,69 @@ size_t FG_FASTCALL fgLayout_Tile(fgElement* self, const FG_Msg* msg, char axes, 
   {
     fgElement* old = (fgElement*)msg->other2;
     fgElement* cur = old;
+    assert(!(old->flags&FGELEMENT_BACKGROUND));
+    assert(!(cur->flags&FGELEMENT_BACKGROUND));
     while(cur != 0 && cur != child) cur = cur->next; // Run down from old until we either hit child, in which case old is the lowest, or we hit null
     child = !cur ? child : old;
 
     prev = fgLayout_GetPrev(child); // walk backwards until we hit the previous non-background element
-    if(prev)
-    {
-      AbsRect out;
-      ResolveRect(prev, &out);
-      realsize = out.topleft;
-    }
-    else
-      realsize = AbsVec { 0,0 };
-
-    expand = fgLayout_TileReorder(prev, child, axis, max, (axes & 3) ? fgLayout_TileGetPitch(prev, axis) : 0.0f, realsize);
+    expand = fgLayout_TileReorder(prev, child, 0, axis, max, (axes & FGBOX_TILE) ? fgLayout_TileGetPitch(prev, axis) : 0.0f, realsize);
   }
   break;
   case FGELEMENT_LAYOUTMOVE:
     if(!(msg->otheraux&FGMOVE_RESIZE)) // Only reorder if the child was resized. Note that we need to resize even if it's the opposite axis to account for expansion
       return 0;
-  case FGELEMENT_LAYOUTADD:
-    prev = fgLayout_GetPrev(child);
-    expand = fgLayout_TileReorder(prev, child, axis, max, (axes & 3) ? fgLayout_TileGetPitch(prev, axis) : 0.0f, realsize);
-    break;
-  case FGELEMENT_LAYOUTREMOVE:
+    if(((self->flags&FGELEMENT_EXPANDX) && !(axes&FGBOX_TILEX)) || ((self->flags&FGELEMENT_EXPANDY) && !(axes&FGBOX_TILEY))) 
+    { // If we are expanding along an axis that isn't tiled, we have to recalculate the whole thing.
+      expand = fgLayout_TileReorder(0, self->root, 0, axis, max, 0.0f, AbsVec { 0,0 });
+      break;
+    }
+
     prev = fgLayout_GetPrev(child);
     if(prev)
       realsize = AbsVec { prev->transform.area.right.abs, prev->transform.area.bottom.abs };
     else
       realsize = AbsVec { 0,0 };
 
-    expand = fgLayout_TileReorder(prev, fgLayout_GetNext(child), axis, max, (axes & 3) ? fgLayout_TileGetPitch(prev, axis) : 0.0f, realsize);
+    prev = fgLayout_GetPrev(child);
+    expand = fgLayout_TileReorder(prev, child, 0, axis, max, (axes & FGBOX_TILE) ? fgLayout_TileGetPitch(prev, axis) : 0.0f, realsize);
+    break;
+  case FGELEMENT_LAYOUTADD:
+    prev = fgLayout_GetPrev(child);
+    expand = fgLayout_TileReorder(prev, child, 0, axis, max, (axes & FGBOX_TILE) ? fgLayout_TileGetPitch(prev, axis) : 0.0f, realsize);
+    break;
+  case FGELEMENT_LAYOUTREMOVE:
+    if(((self->flags&FGELEMENT_EXPANDX) && !(axes&FGBOX_TILEX)) || ((self->flags&FGELEMENT_EXPANDY) && !(axes&FGBOX_TILEY)))
+    { // If we are expanding along an axis that isn't tiled, we have to recalculate the whole thing.
+      expand = fgLayout_TileReorder(0, self->root, child, axis, max, 0.0f, AbsVec { 0,0 });
+      break;
+    }
+
+    prev = fgLayout_GetPrev(child);
+    if(prev)
+      realsize = AbsVec { prev->transform.area.right.abs, prev->transform.area.bottom.abs };
+    else
+      realsize = AbsVec { 0,0 };
+
+    expand = fgLayout_TileReorder(prev, fgLayout_GetNext(child), 0, axis, max, (axes & FGBOX_TILE) ? fgLayout_TileGetPitch(prev, axis) : 0.0f, realsize);
     break;
   }
 
-  char dim = 0;
-  if(self->flags&FGELEMENT_EXPANDX)
+  char dim = 0; // We always expand the area regardless of the EXPAND flags because the function that calls this should use the information appropriately.
+  if(area->right.abs - area->left.abs != expand.x)
   {
-    if(area->right.abs - area->left.abs != expand.x)
-    {
-      area->right.abs = area->left.abs + expand.x;
-      dim |= FGMOVE_RESIZEX;
-    }
+    area->right.abs = area->left.abs + expand.x;
+    dim |= FGMOVE_RESIZEX;
   }
-  if(self->flags&FGELEMENT_EXPANDY)
+  if(area->bottom.abs - area->top.abs != expand.y)
   {
-    if(area->bottom.abs - area->top.abs != expand.y)
-    {
-      area->bottom.abs = area->top.abs + expand.y;
-      dim |= FGMOVE_RESIZEY;
-    }
+    area->bottom.abs = area->top.abs + expand.y;
+    dim |= FGMOVE_RESIZEY;
   }
   return dim;
 }
 
-size_t FG_FASTCALL fgLayout_Distribute(fgElement* self, const FG_Msg* msg, char axis)
+size_t FG_FASTCALL fgLayout_Distribute(fgElement* self, const FG_Msg* msg, fgFlag axis)
 {
   /*switch(msg->type)
   {

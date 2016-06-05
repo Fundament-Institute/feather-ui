@@ -142,6 +142,12 @@ enum FGMOVE
   FGMOVE_MARGIN = (1 << 9)
 };
 
+enum FGDIM
+{
+  FGDIM_MAX = 0,
+  FGDIM_FIXED = 1
+};
+
 enum FG_MSGTYPE
 {
   FG_CONSTRUCT = 1,
@@ -202,8 +208,8 @@ enum FG_MSGTYPE
   FG_ACTIVE, // Sent when a hover-enabled control switches to its active state
   FG_ACTION, // Sent when a hover-enabled control recieves a valid click event (a MOUSEUP inside the control while it has focus)
   // fgScrollbar
-  FG_SETMAXDIM,
-  FG_GETMAXDIM,
+  FG_SETDIM,
+  FG_GETDIM,
   // fgList, fgMenu, etc.
   FG_GETITEM,
   FG_ADDITEM, // Used for anything involving items (menus, lists, etc)
