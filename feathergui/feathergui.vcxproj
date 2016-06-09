@@ -240,9 +240,11 @@
     <ClInclude Include="..\include\fgTabGroup.h" />
     <ClInclude Include="..\include\fgText.h" />
     <ClInclude Include="..\include\fgTextbox.h" />
+    <ClInclude Include="..\include\fgToolbar.h" />
     <ClInclude Include="..\include\fgWindow.h" />
     <ClInclude Include="..\include\fgTreeView.h" />
     <ClInclude Include="..\include\fgControl.h" />
+    <ClInclude Include="..\include\fgWorkspace.h" />
     <ClInclude Include="feathercpp.h" />
   </ItemGroup>
   <ItemGroup>

@@ -22,9 +22,9 @@ size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgControl_HoverMessage(&self->control, msg);
-    fgText_Init(&self->text, *self, 0, "fgButton:text", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
-    fgElement_Init(&self->item, *self, self->text, "fgButton:item", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
-    _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, (self->control.element.flags & FGCONTROL_DISABLE) ? "disable" : "nuetral", fgStyleGetMask("nuetral", "hover", "active", "disable"));
+    fgText_Init(&self->text, *self, 0, "Button:text", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
+    fgElement_Init(&self->item, *self, self->text, "Button:item", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
+    _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, (self->control.element.flags & FGCONTROL_DISABLE) ? "disabled" : "nuetral", fgStyleGetMask("nuetral", "hover", "active", "disabled"));
     return FG_ACCEPT;
   case FG_ADDITEM:
     if(!msg->other)
@@ -33,13 +33,13 @@ size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
       fgPassMessage(&self->item, msg);
     return FG_ACCEPT;
   case FG_NUETRAL:
-    _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, "nuetral", fgStyleGetMask("nuetral", "hover", "active", "disable"));
+    _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, "nuetral", fgStyleGetMask("nuetral", "hover", "active", "disabled"));
     return FG_ACCEPT;
   case FG_HOVER:
-    _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, "hover", fgStyleGetMask("nuetral", "hover", "active", "disable"));
+    _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, "hover", fgStyleGetMask("nuetral", "hover", "active", "disabled"));
     return FG_ACCEPT;
   case FG_ACTIVE:
-    _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, "active", fgStyleGetMask("nuetral", "hover", "active", "disable"));
+    _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, "active", fgStyleGetMask("nuetral", "hover", "active", "disabled"));
     return FG_ACCEPT;
   case FG_GOTFOCUS:
     if(self->control.element.flags&FGBUTTON_NOFOCUS)
@@ -50,12 +50,12 @@ size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
   case FG_SETFLAGS:
     if((self->control.element.flags ^ (fgFlag)otherint) & FGCONTROL_DISABLE)
     {
-      _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, (otherint & FGCONTROL_DISABLE) ? "disable" : "nuetral", fgStyleGetMask("nuetral", "hover", "active", "disable"));
+      _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, (otherint & FGCONTROL_DISABLE) ? "disabled" : "nuetral", fgStyleGetMask("nuetral", "hover", "active", "disabled"));
       fgroot_instance->mouse.state |= FGMOUSE_SEND_MOUSEMOVE;
     }
     break;
   case FG_GETCLASSNAME:
-    return (size_t)"fgButton";
+    return (size_t)"Button";
   case FG_SETTEXT:
   case FG_SETFONT:
   case FG_SETLINEHEIGHT:

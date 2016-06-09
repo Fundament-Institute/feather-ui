@@ -35,12 +35,12 @@ size_t FG_FASTCALL fgBox_Message(fgBox* self, const FG_Msg* msg)
     break;
   case FG_LAYOUTFUNCTION:
     if(flags&(FGBOX_TILEX | FGBOX_TILEY)) // TILE flags override DISTRIBUTE flags, if they're specified.
-      return fgLayout_Tile(*self, (const FG_Msg*)msg->other, flags&FGBOX_LAYOUTMASK, (CRect*)msg->other2);
+      return fgTileLayout(*self, (const FG_Msg*)msg->other, flags&FGBOX_LAYOUTMASK, (CRect*)msg->other2);
     if(flags&(FGBOX_DISTRIBUTEX | FGBOX_DISTRIBUTEY))
-      return fgLayout_Distribute(*self, (const FG_Msg*)msg->other, flags&FGBOX_LAYOUTMASK);
+      return fgDistributeLayout(*self, (const FG_Msg*)msg->other, flags&FGBOX_LAYOUTMASK);
     break; // If no layout flags are specified, fall back to default layout behavior.
   case FG_GETCLASSNAME:
-    return (size_t)"fgBox";
+    return (size_t)"Box";
   }
 
   return fgScrollbar_Message(&self->window, msg);

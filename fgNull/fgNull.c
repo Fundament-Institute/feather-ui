@@ -46,9 +46,14 @@ void FG_FASTCALL fgDestroyResource(void* res) { }
 void FG_FASTCALL fgDrawResource(void* res, const CRect* uv, unsigned int color, unsigned int edge, FABS outline, const AbsRect* area, FABS rotation, AbsVec* center, fgFlag flags) {}
 void FG_FASTCALL fgResourceSize(void* res, const CRect* uv, AbsVec* dim, fgFlag flags) { }
 
-FG_EXTERN fgElement* FG_FASTCALL fgCreate(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+fgElement* FG_FASTCALL fgCreate(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
   return fgCreateDefault(type, parent, next, name, flags, transform);
+}
+
+enum FG_MSGTYPE FG_FASTCALL fgMessageMap(const char* name)
+{
+  return fgMessageMapDefault(name);
 }
 
 fgRoot* FG_FASTCALL fgInitialize()

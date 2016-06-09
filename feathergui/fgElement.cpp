@@ -40,6 +40,7 @@ void FG_FASTCALL fgElement_Init(fgElement* BSS_RESTRICT self, fgElement* BSS_RES
 void FG_FASTCALL fgElement_Destroy(fgElement* self)
 {
   assert(self != 0);
+  _sendmsg<FG_DESTROY>(self);
   fgElement_Clear(self);
 
   if(fgFocusedWindow == self)
@@ -166,8 +167,8 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
 
         fgSubMessage(self, FG_MOVE, FG_SETAREA, 0, diff);
       }
+      return diff;
     }
-    return FG_ACCEPT;
   case FG_SETTRANSFORM:
     if(!msg->other)
       return 0;
@@ -340,7 +341,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
   {
     AbsRect area;
     ResolveRect(self, &area);
-    return fgLayout_Default(self, (const FG_Msg*)msg->other, (CRect*)msg->other2, &area);
+    return fgDefaultLayout(self, (const FG_Msg*)msg->other, (CRect*)msg->other2, &area);
   }
   case FG_LAYOUTLOAD:
   {
@@ -385,7 +386,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
   }
   return 0;
   case FG_GETCLASSNAME:
-    return (size_t)"fgElement";
+    return (size_t)"Element";
   case FG_GETSKIN:
     if(!msg->other)
       return (!self->parent) ? reinterpret_cast<size_t>(self->skin) : _sendmsg<FG_GETSKIN, void*>(self->parent, self);

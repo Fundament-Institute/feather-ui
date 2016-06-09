@@ -110,6 +110,12 @@
     <ClInclude Include="..\include\fgDebug.h">
       <Filter>include</Filter>
     </ClInclude>
+    <ClInclude Include="..\include\fgWorkspace.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\fgToolbar.h">
+      <Filter>include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="feathergui.cpp">

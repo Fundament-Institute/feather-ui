@@ -93,6 +93,10 @@ struct __kh_fgRadioGroup_t;
 extern __inline struct __kh_fgRadioGroup_t* fgRadioGroup_init();
 extern void fgRadioGroup_destroy(struct __kh_fgRadioGroup_t*);
 
+struct __kh_fgFunctionMap_t;
+extern __inline struct __kh_fgFunctionMap_t* fgFunctionMap_init();
+extern void fgFunctionMap_destroy(struct __kh_fgFunctionMap_t*);
+
 struct _FG_ROOT;
 extern struct _FG_ROOT* fgroot_instance;
 struct _FG_DEBUG;

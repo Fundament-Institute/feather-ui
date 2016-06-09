@@ -20,7 +20,7 @@ size_t FG_FASTCALL fgCheckbox_Message(fgCheckbox* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgControl_HoverMessage(&self->control, msg);
-    fgText_Init(&self->text, *self, 0, "fgCheckbox:text", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
+    fgText_Init(&self->text, *self, 0, "Checkbox:text", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
     _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, "nuetral", fgStyleGetMask("nuetral", "hover", "active"));
     _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, "default", fgStyleGetMask("default", "checked", "indeterminate"));
     self->checked = 0;
@@ -55,7 +55,7 @@ size_t FG_FASTCALL fgCheckbox_Message(fgCheckbox* self, const FG_Msg* msg)
   case FG_GETCOLOR:
     return fgPassMessage(self->text, msg);
   case FG_GETCLASSNAME:
-    return (size_t)"fgCheckbox";
+    return (size_t)"Checkbox";
   }
   return fgControl_HoverMessage(&self->control, msg);
 }

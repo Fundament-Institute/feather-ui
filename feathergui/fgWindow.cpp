@@ -44,10 +44,10 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     fgControl_Message((fgControl*)self, msg);
     self->dragged = 0;
-    fgText_Init(&self->caption, *self, 0, "fgWindow:text", FGELEMENT_BACKGROUND | FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0);
-    fgButton_Init(&self->controls[0], *self, 0, "fgWindow:close", FGELEMENT_BACKGROUND, 0);
-    fgButton_Init(&self->controls[1], *self, 0, "fgWindow:restore", FGELEMENT_BACKGROUND, 0);
-    fgButton_Init(&self->controls[2], *self, 0, "fgWindow:minimize", FGELEMENT_BACKGROUND, 0);
+    fgText_Init(&self->caption, *self, 0, "Window:text", FGELEMENT_BACKGROUND | FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0);
+    fgButton_Init(&self->controls[0], *self, 0, "Window:close", FGELEMENT_BACKGROUND, 0);
+    fgButton_Init(&self->controls[1], *self, 0, "Window:restore", FGELEMENT_BACKGROUND, 0);
+    fgButton_Init(&self->controls[2], *self, 0, "Window:minimize", FGELEMENT_BACKGROUND, 0);
     self->controls[0].control.element.message = (fgMessage)&fgWindow_CloseMessage;
     self->controls[1].control.element.message = (fgMessage)&fgWindow_MaximizeMessage;
     self->controls[2].control.element.message = (fgMessage)&fgWindow_MinimizeMessage;
@@ -104,7 +104,6 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
       MoveCRect(v.x - self->offset.x + area.left.abs, v.y - self->offset.y + area.top.abs, &area);
       self->offset = v;
       _sendmsg<FG_SETAREA, void*>(*self, &area);
-      _sendmsg<FG_SETAREA, void*>(*self, &area);
     }
     if(self->dragged & 2) {} // resize on left
     if(self->dragged & 4) {} // resize on top
@@ -141,7 +140,7 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
       return FG_ACCEPT;
     break;
   case FG_GETCLASSNAME:
-    return (size_t)"fgWindow";
+    return (size_t)"Window";
   }
   return fgControl_Message((fgControl*)self, msg);
 }

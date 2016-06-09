@@ -8,7 +8,7 @@
 
 fgElement* FG_FASTCALL fgText_Create(char* text, void* font, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  fgElement* r = fgCreate("fgText", parent, next, name, flags, transform);
+  fgElement* r = fgCreate("Text", parent, next, name, flags, transform);
   if(color) fgIntMessage(r, FG_SETCOLOR, color, 0);
   if(text) _sendmsg<FG_SETTEXT, void*>(r, text);
   if(font) _sendmsg<FG_SETFONT, void*>(r, font);
@@ -115,7 +115,7 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
     (*self)->SetFont(self->font); // By setting the font to itself we'll clone it into the correct DPI
     break;
   case FG_GETCLASSNAME:
-    return (size_t)"fgText";
+    return (size_t)"Text";
   }
   return fgElement_Message(&self->element, msg);
 }

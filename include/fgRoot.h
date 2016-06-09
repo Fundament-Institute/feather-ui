@@ -11,6 +11,7 @@ extern "C" {
 #endif
 
 struct __kh_fgRadioGroup_t;
+struct __kh_fgFunctionMap_t;
 struct _FG_MONITOR;
 
 typedef struct _FG_DEFER_ACTION {
@@ -29,6 +30,7 @@ typedef struct _FG_ROOT {
   struct _FG_MONITOR* monitors;
   fgDeferAction* updateroot;
   struct __kh_fgRadioGroup_t* radiohash;
+  struct __kh_fgFunctionMap_t* functionhash;
   size_t dpi;
   float lineheight;
   double time; // In seconds
@@ -72,6 +74,7 @@ FG_EXTERN char fgClipboardExists(unsigned int type);
 FG_EXTERN const void* fgClipboardPaste(unsigned int type, size_t* length); // The pointer returned to this MUST BE FREED by calling fgClipboardFree() once you are done with it.
 FG_EXTERN void fgClipboardFree(const void* mem);
 FG_EXTERN fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
+FG_EXTERN short FG_FASTCALL fgMessageMapDefault(const char* name);
 
 #ifdef  __cplusplus
 }

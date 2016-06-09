@@ -45,10 +45,10 @@ size_t FG_FASTCALL fgDebug_Message(fgDebug* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgElement_Message(&self->element, msg);
-    fgTreeView_Init(&self->elements, *self, 0, "fgDebug:elements", 0, &fgTransform { { -300,1,0,0,0,1,0,1 }, 0, { 0,0,0,0 } });
-    fgText_Init(&self->properties, *self, 0, "fgDebug:properties", FGELEMENT_HIDDEN, &fgTransform { { -300,1,-200,1,0,1,0,1 }, 0, { 0,0,0,0 } });
-    fgTreeView_Init(&self->messages, *self, 0, "fgDebug:messages", 0, &fgTransform { { 0,0,0,0,200,0,0,1 }, 0, { 0,0,0,0 } });
-    fgText_Init(&self->contents, *self, 0, "fgDebug:contents", FGELEMENT_HIDDEN, &fgTransform { { 0,0,-200,1,200,0,0,1 }, 0, { 0,0,0,0 } });
+    fgTreeView_Init(&self->elements, *self, 0, "Debug:elements", 0, &fgTransform { { -300,1,0,0,0,1,0,1 }, 0, { 0,0,0,0 } });
+    fgText_Init(&self->properties, *self, 0, "Debug:properties", FGELEMENT_HIDDEN, &fgTransform { { -300,1,-200,1,0,1,0,1 }, 0, { 0,0,0,0 } });
+    fgTreeView_Init(&self->messages, *self, 0, "Debug:messages", 0, &fgTransform { { 0,0,0,0,200,0,0,1 }, 0, { 0,0,0,0 } });
+    fgText_Init(&self->contents, *self, 0, "Debug:contents", FGELEMENT_HIDDEN, &fgTransform { { 0,0,-200,1,200,0,0,1 }, 0, { 0,0,0,0 } });
     self->messagelog.p = 0;
     self->messagelog.l = 0;
     self->messagelog.s = 0;
@@ -81,7 +81,7 @@ size_t FG_FASTCALL fgDebug_Message(fgDebug* self, const FG_Msg* msg)
     }
     break;
   case FG_GETCLASSNAME:
-    return (size_t)"fgDebug";
+    return (size_t)"Debug";
   }
   return fgElement_Message(&self->element, msg);
 }
@@ -136,14 +136,14 @@ void FG_FASTCALL fgDebug_TreeInsert(fgElement* parent, fgElement* element, fgEle
 
   if(treeview != 0)
   {
-    root = fgCreate("fgTreeItem", parent, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY);
+    root = fgCreate("TreeItem", parent, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY);
     root->message = (fgMessage)&fgTreeItem_DebugMessage;
     root->userdata = element;
   }
   else
     treeview = !fgdebug_instance ? parent : *fgdebug_instance;
 
-  fgElement* text = fgCreate("fgText", root, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY);
+  fgElement* text = fgCreate("Text", root, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY);
 
   if(element->GetName())
     text->SetText(element->GetName());

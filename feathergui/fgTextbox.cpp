@@ -340,7 +340,7 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
     (*self)->SetFont(self->font); // By setting the font to itself we'll clone it into the correct DPI
     break;
   case FG_GETCLASSNAME:
-    return (size_t)"fgTextbox";
+    return (size_t)"Textbox";
   }
 
   return fgScrollbar_Message(&self->window, msg);

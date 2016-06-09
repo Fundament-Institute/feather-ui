@@ -40,7 +40,7 @@ typedef struct _FG_SCROLLBAR {
   fgControl control;
   fgButton btn[4]; // 0 - left arrow, 1 - up arrow, 2 - right arrow, 3 - down arrow
   _FG_SCROLLBAR_INNER bar[2]; // 0 - horz slider, 1 - vert slider
-  fgElement bg[2]; // 0 - horizontal background, 1 - vertical background
+  fgElement bg[3]; // 0 - horizontal background, 1 - vertical background, 2 - corner
   AbsVec maxdim;
   AbsRect realpadding; // We have to intercept and store padding amounts here because we hijack the padding to perform scrolling
   AbsVec barcache; // Stores scrollbar width/height

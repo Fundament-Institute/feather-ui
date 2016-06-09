@@ -28,6 +28,7 @@ void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, size_t dpi)
   self->updateroot = 0;
   self->lineheight = 0;
   self->radiohash = fgRadioGroup_init();
+  self->functionhash = fgFunctionMap_init();
   fgroot_instance = self;
   fgTransform transform = { area->left, 0, area->top, 0, area->right, 0, area->bottom, 0, 0, 0, 0 };
   fgElement_InternalSetup(*self, 0, 0, 0, 0, &transform, (fgDestroy)&fgRoot_Destroy, (fgMessage)&fgRoot_Message);
@@ -36,6 +37,7 @@ void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, size_t dpi)
 void FG_FASTCALL fgRoot_Destroy(fgRoot* self)
 {
   fgRadioGroup_destroy(self->radiohash);
+  fgFunctionMap_destroy(self->functionhash);
   fgControl_Destroy((fgControl*)self);
 }
 
@@ -70,7 +72,7 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
   case FG_GOTFOCUS: //Root cannot have focus
     return 0;
   case FG_GETCLASSNAME:
-    return (size_t)"fgRoot";
+    return (size_t)"Root";
   case FG_DRAW:
   {
 	fgRoot_CheckMouseMove(self);
@@ -401,8 +403,8 @@ fgElement* _create_default(fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRI
 
 fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  static bss_util::cTrie<uint16_t> t(15, "fgelement", "fgcontrol", "fgresource", "fgtext", "fgbox", "fgscrollbar", "fgbutton", "fgwindow", "fgcheckbox",
-    "fgradiobutton", "fgprogressbar", "fgslider", "fgtextbox", "fgtreeview", "fgtreeitem", "fgdebug");
+  static bss_util::cTrie<uint16_t> t(15, "element", "control", "resource", "text", "box", "scrollbar", "button", "window", "checkbox",
+    "radiobutton", "progressbar", "slider", "textbox", "treeview", "treeitem", "debug");
   
   size_t len = strlen(type) + 1; // include null terminator
   DYNARRAY(char, lower, len);
@@ -446,4 +448,21 @@ fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT
   }
 
   return 0;
+}
+
+short FG_FASTCALL fgMessageMapDefault(const char* name)
+{
+  static bss_util::cTrie<uint16_t> t(FG_CUSTOMEVENT, "CONSTRUCT", "DESTROY", "MOVE", "SETALPHA", "SETAREA", "SETTRANSFORM", "SETFLAG", "SETFLAGS", "SETMARGIN", "SETPADDING",
+    "SETPARENT", "ADDCHILD", "REMOVECHILD", "LAYOUTCHANGE", "LAYOUTFUNCTION", "LAYOUTLOAD", "DRAG", "DRAGGING", "DROP", "DRAW", "INJECT", "CLONE", "SETSKIN", "GETSKIN",
+    "SETSTYLE", "GETSTYLE", "GETCLASSNAME", "GETDPI", "SETDPI", "SETUSERDATA", "GETUSERDATA", "MOUSEDOWN", "MOUSEDBLCLICK", "MOUSEUP", "MOUSEON", "MOUSEOFF", "MOUSEMOVE",
+    "MOUSESCROLL", "MOUSELEAVE", "TOUCHBEGIN", "TOUCHEND", "TOUCHMOVE", "KEYUP", "KEYDOWN", "KEYCHAR", "JOYBUTTONDOWN", "JOYBUTTONUP", "JOYAXIS", "GOTFOCUS", "LOSTFOCUS",
+    "SETNAME", "GETNAME", "NUETRAL", "HOVER", "ACTIVE", "ACTION", "SETDIM", "GETDIM", "GETITEM", "ADDITEM", "REMOVEITEM", "GETSELECTEDITEM", "GETSTATE", "SETSTATE",
+    "SETRESOURCE", "SETUV", "SETCOLOR", "SETOUTLINE", "SETFONT", "SETLINEHEIGHT", "SETLETTERSPACING", "SETTEXT", "GETRESOURCE", "GETUV", "GETCOLOR", "GETOUTLINE", "GETFONT",
+    "GETLINEHEIGHT", "GETLETTERSPACING", "GETTEXT");
+
+  size_t len = strlen(name) + 1; // include null terminator
+  DYNARRAY(char, upper, len);
+  STRNCPY(upper, len, name, len);
+  STRUPR(upper);
+  return FG_MSGTYPE(t[upper]);
 }

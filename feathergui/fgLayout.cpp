@@ -9,6 +9,8 @@
 #include "feathercpp.h"
 #include "fgBox.h"
 
+KHASH_INIT(fgFunctionMap, const char*, fgListener, 1, kh_str_hash_func, kh_str_hash_equal);
+
 void FG_FASTCALL fgLayout_Init(fgLayout* self)
 {
   memset(self, 0, sizeof(fgLayout));
@@ -80,6 +82,128 @@ fgClassLayout* FG_FASTCALL fgClassLayout_GetChild(fgClassLayout* self, FG_UINT c
   return self->children.p + child;
 }
 
+__inline struct __kh_fgFunctionMap_t* fgFunctionMap_init()
+{
+  return kh_init_fgFunctionMap();
+}
+void fgFunctionMap_destroy(struct __kh_fgFunctionMap_t* h)
+{
+  for(khiter_t i = 0; i != kh_end(h); ++i)
+    if(kh_exist(h, i))
+      free(kh_val(h, i));
+
+  kh_destroy_fgFunctionMap(h);
+}
+
+int FG_FASTCALL fgLayout_RegisterFunction(fgListener fn, const char* name)
+{
+  int r;
+  khint_t iter = kh_put_fgFunctionMap(fgroot_instance->functionhash, fgCopyText(name), &r);
+  kh_val(fgroot_instance->functionhash, iter) = fn;
+  return r;
+}
+void FG_FASTCALL fgLayout_ApplyFunction(fgElement* root, const char* name)
+{
+  const char* p = (const char*)root->GetUserdata(name);
+  if(p != 0)
+  {
+    khint_t iter = kh_get_fgFunctionMap(fgroot_instance->functionhash, p);
+    if(iter != kh_end(fgroot_instance->functionhash))
+      fgElement_AddListener(root, fgMessageMap(name + 2), kh_val(fgroot_instance->functionhash, iter));
+  }
+}
+
+void FG_FASTCALL fgLayout_ApplyFunctions(fgElement* root)
+{
+  fgLayout_ApplyFunction(root, "onconstruct");
+  fgLayout_ApplyFunction(root, "ondestroy");
+  fgLayout_ApplyFunction(root, "onmove");
+  fgLayout_ApplyFunction(root, "onsetalpha");
+  fgLayout_ApplyFunction(root, "onsetarea");
+  fgLayout_ApplyFunction(root, "onsettransform");
+  fgLayout_ApplyFunction(root, "onsetflag");
+  fgLayout_ApplyFunction(root, "onsetflags");
+  fgLayout_ApplyFunction(root, "onsetmargin");
+  fgLayout_ApplyFunction(root, "onsetpadding");
+  fgLayout_ApplyFunction(root, "onsetparent");
+  fgLayout_ApplyFunction(root, "onaddchild");
+  fgLayout_ApplyFunction(root, "onremovechild");
+  fgLayout_ApplyFunction(root, "onlayoutchange");
+  fgLayout_ApplyFunction(root, "onlayoutfunction");
+  fgLayout_ApplyFunction(root, "onlayoutload");
+  fgLayout_ApplyFunction(root, "ondrag");
+  fgLayout_ApplyFunction(root, "ondragging");
+  fgLayout_ApplyFunction(root, "ondrop");
+  fgLayout_ApplyFunction(root, "ondraw");
+  fgLayout_ApplyFunction(root, "oninject");
+  fgLayout_ApplyFunction(root, "onclone");
+  fgLayout_ApplyFunction(root, "onsetskin");
+  fgLayout_ApplyFunction(root, "ongetskin");
+  fgLayout_ApplyFunction(root, "onsetstyle");
+  fgLayout_ApplyFunction(root, "ongetstyle");
+  fgLayout_ApplyFunction(root, "ongetclassname");
+  fgLayout_ApplyFunction(root, "ongetdpi");
+  fgLayout_ApplyFunction(root, "onsetdpi");
+  fgLayout_ApplyFunction(root, "onsetuserdata");
+  fgLayout_ApplyFunction(root, "ongetuserdata");
+  fgLayout_ApplyFunction(root, "onmousedown");
+  fgLayout_ApplyFunction(root, "onmousedblclick");
+  fgLayout_ApplyFunction(root, "onmouseup");
+  fgLayout_ApplyFunction(root, "onmouseon");
+  fgLayout_ApplyFunction(root, "onmouseoff");
+  fgLayout_ApplyFunction(root, "onmousemove");
+  fgLayout_ApplyFunction(root, "onmousescroll");
+  fgLayout_ApplyFunction(root, "onmouseleave");
+  fgLayout_ApplyFunction(root, "ontouchbegin");
+  fgLayout_ApplyFunction(root, "ontouchend");
+  fgLayout_ApplyFunction(root, "ontouchmove");
+  fgLayout_ApplyFunction(root, "onkeyup");
+  fgLayout_ApplyFunction(root, "onkeydown");
+  fgLayout_ApplyFunction(root, "onkeychar");
+  fgLayout_ApplyFunction(root, "onjoybuttondown");
+  fgLayout_ApplyFunction(root, "onjoybuttonup");
+  fgLayout_ApplyFunction(root, "onjoyaxis");
+  fgLayout_ApplyFunction(root, "ongotfocus");
+  fgLayout_ApplyFunction(root, "onlostfocus");
+  fgLayout_ApplyFunction(root, "onsetname");
+  fgLayout_ApplyFunction(root, "ongetname");
+  fgLayout_ApplyFunction(root, "onnuetral");
+  fgLayout_ApplyFunction(root, "onhover");
+  fgLayout_ApplyFunction(root, "onactive");
+  fgLayout_ApplyFunction(root, "onaction");
+  fgLayout_ApplyFunction(root, "onsetdim");
+  fgLayout_ApplyFunction(root, "ongetdim");
+  fgLayout_ApplyFunction(root, "ongetitem");
+  fgLayout_ApplyFunction(root, "onadditem");
+  fgLayout_ApplyFunction(root, "onremoveitem");
+  fgLayout_ApplyFunction(root, "ongetselecteditem");
+  fgLayout_ApplyFunction(root, "ongetstate");
+  fgLayout_ApplyFunction(root, "onsetstate");
+  fgLayout_ApplyFunction(root, "onsetresource");
+  fgLayout_ApplyFunction(root, "onsetuv");
+  fgLayout_ApplyFunction(root, "onsetcolor");
+  fgLayout_ApplyFunction(root, "onsetoutline");
+  fgLayout_ApplyFunction(root, "onsetfont");
+  fgLayout_ApplyFunction(root, "onsetlineheight");
+  fgLayout_ApplyFunction(root, "onsetletterspacing");
+  fgLayout_ApplyFunction(root, "onsettext");
+  fgLayout_ApplyFunction(root, "ongetresource");
+  fgLayout_ApplyFunction(root, "ongetuv");
+  fgLayout_ApplyFunction(root, "ongetcolor");
+  fgLayout_ApplyFunction(root, "ongetoutline");
+  fgLayout_ApplyFunction(root, "ongetfont");
+  fgLayout_ApplyFunction(root, "ongetlineheight");
+  fgLayout_ApplyFunction(root, "ongetletterspacing");
+  fgLayout_ApplyFunction(root, "ongettext");
+
+  fgElement* cur = root->root;
+  while(cur)
+  {
+    fgLayout_ApplyFunctions(cur);
+    cur = cur->next;
+  }
+}
+
 inline char FG_FASTCALL fgLayout_ExpandX(CRect* selfarea, fgElement* child, FABS dimx)
 {
   CRect* area = &child->transform.area;
@@ -104,7 +228,7 @@ inline char FG_FASTCALL fgLayout_ExpandY(CRect* selfarea, fgElement* child, FABS
   return 0;
 }
 
-size_t FG_FASTCALL fgLayout_Default(fgElement* self, const FG_Msg* msg, CRect* area, AbsRect* parent)
+size_t FG_FASTCALL fgDefaultLayout(fgElement* self, const FG_Msg* msg, CRect* area, AbsRect* parent)
 {
   if(!(self->flags & FGELEMENT_EXPAND))
     return 0;
@@ -121,9 +245,9 @@ size_t FG_FASTCALL fgLayout_Default(fgElement* self, const FG_Msg* msg, CRect* a
   {
     FG_Msg m = *msg;
     m.subtype = FGELEMENT_LAYOUTREMOVE;
-    size_t dim = fgLayout_Default(self, &m, area, parent);
+    size_t dim = fgDefaultLayout(self, &m, area, parent);
     m.subtype = FGELEMENT_LAYOUTADD;
-    dim |= fgLayout_Default(self, &m, area, parent);
+    dim |= fgDefaultLayout(self, &m, area, parent);
     return dim;
   }
   case FGELEMENT_LAYOUTADD:
@@ -150,7 +274,7 @@ size_t FG_FASTCALL fgLayout_Default(fgElement* self, const FG_Msg* msg, CRect* a
       FG_Msg m = *msg;
       m.subtype = FGELEMENT_LAYOUTRESET;
       m.other = child;
-      return fgLayout_Default(self, &m, area, parent);
+      return fgDefaultLayout(self, &m, area, parent);
     }
   }
   case FGELEMENT_LAYOUTRESET:
@@ -181,7 +305,7 @@ size_t FG_FASTCALL fgLayout_Default(fgElement* self, const FG_Msg* msg, CRect* a
   return 0;
 }
 
-char fgLayout_TileSame(FABS posx, FABS posy, fgElement* cur)
+char fgTileLayoutSame(FABS posx, FABS posy, fgElement* cur)
 {
   return (posx > 0 || posy > 0) && posx == cur->transform.area.left.abs && posy == cur->transform.area.left.abs;
 }
@@ -198,7 +322,7 @@ fgElement* fgLayout_GetPrev(fgElement* cur)
   return cur;
 }
 
-AbsVec fgLayout_TileReorder(fgElement* prev, fgElement* cur, fgElement* skip, char axis, float max, float pitch, AbsVec expand) // axis: 0 means x-axis first, 1 means y-axis first
+AbsVec fgTileLayoutReorder(fgElement* prev, fgElement* cur, fgElement* skip, char axis, float max, float pitch, AbsVec expand) // axis: 0 means x-axis first, 1 means y-axis first
 {
   if(axis) { FABS t = expand.x; expand.x = expand.y; expand.y = t; }
   AbsVec pos = { 0,0 };
@@ -217,7 +341,7 @@ AbsVec fgLayout_TileReorder(fgElement* prev, fgElement* cur, fgElement* skip, ch
       cur = cur->next;
       continue;
     }
-    if(fgLayout_TileSame(axis ? pos.y : pos.x, axis ? pos.x : pos.y, cur) && rowbump)
+    if(fgTileLayoutSame(axis ? pos.y : pos.x, axis ? pos.x : pos.y, cur) && rowbump)
       break;
     AbsVec dim = { (cur->transform.area.right.abs - cur->transform.area.left.abs), (cur->transform.area.bottom.abs - cur->transform.area.top.abs) };
     if(axis) { FABS t = dim.x; dim.x = dim.y; dim.y = t; }
@@ -245,7 +369,7 @@ AbsVec fgLayout_TileReorder(fgElement* prev, fgElement* cur, fgElement* skip, ch
   return expand;
 }
 
-FABS FG_FASTCALL fgLayout_TileGetPitch(fgElement* cur, char axis)
+FABS FG_FASTCALL fgTileLayoutGetPitch(fgElement* cur, char axis)
 {
   if(!cur) return 0.0f;
   FABS start = (axis ? cur->transform.area.left.abs : cur->transform.area.top.abs);
@@ -261,7 +385,7 @@ FABS FG_FASTCALL fgLayout_TileGetPitch(fgElement* cur, char axis)
   return pitch;
 }
 
-size_t FG_FASTCALL fgLayout_Tile(fgElement* self, const FG_Msg* msg, fgFlag axes, CRect* area)
+size_t FG_FASTCALL fgTileLayout(fgElement* self, const FG_Msg* msg, fgFlag axes, CRect* area)
 {
   AbsVec realsize = AbsVec { area->right.abs - area->left.abs, area->bottom.abs - area->top.abs };
   fgElement* child = (fgElement*)msg->other;
@@ -280,11 +404,11 @@ size_t FG_FASTCALL fgLayout_Tile(fgElement* self, const FG_Msg* msg, fgFlag axes
   switch(msg->subtype)
   {
   case FGELEMENT_LAYOUTRESET:
-    expand = fgLayout_TileReorder(0, self->root, 0, axis, max, 0.0f, AbsVec { 0,0 });
+    expand = fgTileLayoutReorder(0, self->root, 0, axis, max, 0.0f, AbsVec { 0,0 });
     break;
   case FGELEMENT_LAYOUTRESIZE:
     if((((msg->otheraux & FGMOVE_RESIZEX) && !(self->flags&FGELEMENT_EXPANDX)) || ((msg->otheraux & FGMOVE_RESIZEY) && !(self->flags&FGELEMENT_EXPANDY))) && (axes & FGBOX_TILE))
-      expand = fgLayout_TileReorder(0, self->root, 0, axis, max, 0.0f, AbsVec { 0,0 });
+      expand = fgTileLayoutReorder(0, self->root, 0, axis, max, 0.0f, AbsVec { 0,0 });
     else
       return 0;
     break;
@@ -298,7 +422,7 @@ size_t FG_FASTCALL fgLayout_Tile(fgElement* self, const FG_Msg* msg, fgFlag axes
     child = !cur ? child : old;
 
     prev = fgLayout_GetPrev(child); // walk backwards until we hit the previous non-background element
-    expand = fgLayout_TileReorder(prev, child, 0, axis, max, (axes & FGBOX_TILE) ? fgLayout_TileGetPitch(prev, axis) : 0.0f, realsize);
+    expand = fgTileLayoutReorder(prev, child, 0, axis, max, (axes & FGBOX_TILE) ? fgTileLayoutGetPitch(prev, axis) : 0.0f, realsize);
   }
   break;
   case FGELEMENT_LAYOUTMOVE:
@@ -306,7 +430,7 @@ size_t FG_FASTCALL fgLayout_Tile(fgElement* self, const FG_Msg* msg, fgFlag axes
       return 0;
     if(((self->flags&FGELEMENT_EXPANDX) && !(axes&FGBOX_TILEX)) || ((self->flags&FGELEMENT_EXPANDY) && !(axes&FGBOX_TILEY))) 
     { // If we are expanding along an axis that isn't tiled, we have to recalculate the whole thing.
-      expand = fgLayout_TileReorder(0, self->root, 0, axis, max, 0.0f, AbsVec { 0,0 });
+      expand = fgTileLayoutReorder(0, self->root, 0, axis, max, 0.0f, AbsVec { 0,0 });
       break;
     }
 
@@ -317,16 +441,16 @@ size_t FG_FASTCALL fgLayout_Tile(fgElement* self, const FG_Msg* msg, fgFlag axes
       realsize = AbsVec { 0,0 };
 
     prev = fgLayout_GetPrev(child);
-    expand = fgLayout_TileReorder(prev, child, 0, axis, max, (axes & FGBOX_TILE) ? fgLayout_TileGetPitch(prev, axis) : 0.0f, realsize);
+    expand = fgTileLayoutReorder(prev, child, 0, axis, max, (axes & FGBOX_TILE) ? fgTileLayoutGetPitch(prev, axis) : 0.0f, realsize);
     break;
   case FGELEMENT_LAYOUTADD:
     prev = fgLayout_GetPrev(child);
-    expand = fgLayout_TileReorder(prev, child, 0, axis, max, (axes & FGBOX_TILE) ? fgLayout_TileGetPitch(prev, axis) : 0.0f, realsize);
+    expand = fgTileLayoutReorder(prev, child, 0, axis, max, (axes & FGBOX_TILE) ? fgTileLayoutGetPitch(prev, axis) : 0.0f, realsize);
     break;
   case FGELEMENT_LAYOUTREMOVE:
     if(((self->flags&FGELEMENT_EXPANDX) && !(axes&FGBOX_TILEX)) || ((self->flags&FGELEMENT_EXPANDY) && !(axes&FGBOX_TILEY)))
     { // If we are expanding along an axis that isn't tiled, we have to recalculate the whole thing.
-      expand = fgLayout_TileReorder(0, self->root, child, axis, max, 0.0f, AbsVec { 0,0 });
+      expand = fgTileLayoutReorder(0, self->root, child, axis, max, 0.0f, AbsVec { 0,0 });
       break;
     }
 
@@ -336,7 +460,7 @@ size_t FG_FASTCALL fgLayout_Tile(fgElement* self, const FG_Msg* msg, fgFlag axes
     else
       realsize = AbsVec { 0,0 };
 
-    expand = fgLayout_TileReorder(prev, fgLayout_GetNext(child), 0, axis, max, (axes & FGBOX_TILE) ? fgLayout_TileGetPitch(prev, axis) : 0.0f, realsize);
+    expand = fgTileLayoutReorder(prev, fgLayout_GetNext(child), 0, axis, max, (axes & FGBOX_TILE) ? fgTileLayoutGetPitch(prev, axis) : 0.0f, realsize);
     break;
   }
 
@@ -354,7 +478,7 @@ size_t FG_FASTCALL fgLayout_Tile(fgElement* self, const FG_Msg* msg, fgFlag axes
   return dim;
 }
 
-size_t FG_FASTCALL fgLayout_Distribute(fgElement* self, const FG_Msg* msg, fgFlag axis)
+size_t FG_FASTCALL fgDistributeLayout(fgElement* self, const FG_Msg* msg, fgFlag axis)
 {
   /*switch(msg->type)
   {
@@ -363,13 +487,13 @@ size_t FG_FASTCALL fgLayout_Distribute(fgElement* self, const FG_Msg* msg, fgFla
   break;
   case FGELEMENT_LAYOUTREORDER:
   //child = child->order<msg->other->order?child:msg->other; // Get lowest child
-  fgLayout_DistributeReorder(child->prev, child, axis, num);
+  fgDistributeLayoutReorder(child->prev, child, axis, num);
   break;
   case FGELEMENT_LAYOUTADD:
-  fgLayout_DistributeReorder(child->prev, child, axis, num);
+  fgDistributeLayoutReorder(child->prev, child, axis, num);
   break;
   case FGELEMENT_LAYOUTREMOVE:
-  fgLayout_DistributeReorder(child->prev, child->next, axis, num);
+  fgDistributeLayoutReorder(child->prev, child->next, axis, num);
   break;
   }*/
 

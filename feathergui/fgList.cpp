@@ -24,8 +24,8 @@ size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     fgBox_Message(&self->box, msg);
     self->selected = 0;
-    fgElement_Init(&self->selector, 0, 0, "fgList:selector", FGELEMENT_BACKGROUND, 0); // we do NOT set the parent of these because we need to manipulate when they get rendered.
-    fgElement_Init(&self->hover, 0, 0, "fgList:hover", FGELEMENT_BACKGROUND, 0);
+    fgElement_Init(&self->selector, 0, 0, "List:selector", FGELEMENT_BACKGROUND, 0); // we do NOT set the parent of these because we need to manipulate when they get rendered.
+    fgElement_Init(&self->hover, 0, 0, "List:hover", FGELEMENT_BACKGROUND, 0);
     return FG_ACCEPT;
   case FG_MOUSEDOWN:
     fgUpdateMouseState(&self->mouse, msg);
@@ -87,7 +87,7 @@ size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
     }
     break;
   case FG_GETCLASSNAME:
-    return (size_t)"fgList";
+    return (size_t)"List";
   }
 
   return fgBox_Message(&self->box, msg);

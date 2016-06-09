@@ -98,7 +98,7 @@ size_t FG_FASTCALL fgRadiobutton_Message(fgRadiobutton* self, const FG_Msg* msg)
       fgIntMessage(*self, FG_SETSTATE, 1, 0);
     return FG_ACCEPT;
   case FG_GETCLASSNAME:
-    return (size_t)"fgRadioButton";
+    return (size_t)"RadioButton";
   }
   return fgCheckbox_Message(&self->window, msg);
 

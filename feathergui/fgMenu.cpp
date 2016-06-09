@@ -29,9 +29,9 @@ size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgScrollbar_Message((fgScrollbar*)self, msg);
-    fgElement_Init(&self->highlight, *self, 0, "fgMenu:highlight", FGELEMENT_HIDDEN | FGELEMENT_IGNORE, &fgTransform_DEFAULT);
-    fgElement_Init(&self->arrow, 0, 0, "fgMenu:arrow", FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0);
-    fgElement_Init(&self->seperator, 0, 0, "fgMenu:seperator", FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0);
+    fgElement_Init(&self->highlight, *self, 0, "Menu:highlight", FGELEMENT_HIDDEN | FGELEMENT_IGNORE, &fgTransform_DEFAULT);
+    fgElement_Init(&self->arrow, 0, 0, "Menu:arrow", FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0);
+    fgElement_Init(&self->seperator, 0, 0, "Menu:seperator", FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0);
     return FG_ACCEPT;
   case FG_MOUSEDOWN:
   {
@@ -80,7 +80,7 @@ size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
   case FG_ADDITEM:
     return FG_ACCEPT;
   case FG_GETCLASSNAME:
-    return (size_t)"fgMenu";
+    return (size_t)"Menu";
   }
   return fgScrollbar_Message((fgScrollbar*)self, msg);
 }
@@ -128,7 +128,7 @@ size_t FG_FASTCALL fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
   if(!self->expanded) // Turn off the hover, but ONLY if a submenu isn't expanded.
   fgIntMessage(&self->highlight, FG_SETFLAG, FGELEMENT_HIDDEN, 1);
   case FG_GETCLASSNAME:
-  return (size_t)"fgSubmenu"; // This allows you to properly differentiate a top level menu glued to the top of a window from a submenu, like a context menu.
+  return (size_t)"Submenu"; // This allows you to properly differentiate a top level menu glued to the top of a window from a submenu, like a context menu.
   }*/
   return fgScrollbar_Message(&self->window, msg);
 }

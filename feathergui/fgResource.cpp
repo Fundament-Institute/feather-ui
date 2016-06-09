@@ -7,7 +7,7 @@
 
 fgElement* FG_FASTCALL fgResource_Create(void* res, const CRect* uv, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  fgElement* r = fgCreate("fgResource", parent, next, name, flags, transform);
+  fgElement* r = fgCreate("Resource", parent, next, name, flags, transform);
   if(color) fgIntMessage(r, FG_SETCOLOR, color, 0);
   if(uv) _sendmsg<FG_SETUV, void*>(r, (void*)uv);
   if(res) _sendmsg<FG_SETRESOURCE, void*>(r, res);
@@ -108,7 +108,7 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
   }
   break;
   case FG_GETCLASSNAME:
-    return (size_t)"fgResource";
+    return (size_t)"Resource";
   }
   return fgElement_Message(&self->element, msg);
 }

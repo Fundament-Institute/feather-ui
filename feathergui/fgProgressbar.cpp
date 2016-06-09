@@ -7,7 +7,7 @@
 
 fgElement* FG_FASTCALL fgProgressbar_Create(FREL value, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  fgElement* r = fgCreate("fgProgressbar", parent, next, name, flags, transform);
+  fgElement* r = fgCreate("Progressbar", parent, next, name, flags, transform);
   _sendmsg<FG_SETSTATE, float>(r, value);
   return r;
 }
@@ -31,8 +31,8 @@ size_t FG_FASTCALL fgProgressbar_Message(fgProgressbar* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgControl_Message(&self->control, msg);
-    fgElement_Init(&self->bar, *self, 0, "fgProgressbar:bar", FGELEMENT_BACKGROUND | FGELEMENT_IGNORE, &BAR_ELEMENT);
-    fgText_Init(&self->text, *self, 0, "fgProgressbar:text", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
+    fgElement_Init(&self->bar, *self, 0, "Progressbar:bar", FGELEMENT_BACKGROUND | FGELEMENT_IGNORE, &BAR_ELEMENT);
+    fgText_Init(&self->text, *self, 0, "Progressbar:text", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
     self->value = 0.0f;
     return FG_ACCEPT;
   case FG_ADDITEM:
@@ -64,7 +64,7 @@ size_t FG_FASTCALL fgProgressbar_Message(fgProgressbar* self, const FG_Msg* msg)
   case FG_GETCOLOR:
     return fgPassMessage(self->text, msg);
   case FG_GETCLASSNAME:
-    return (size_t)"fgProgressbar";
+    return (size_t)"Progressbar";
   }
   return fgControl_Message(&self->control, msg);
 }

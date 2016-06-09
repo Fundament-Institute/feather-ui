@@ -30,7 +30,7 @@
 #endif
 #define CONCAT(...) __VA_ARGS__
 
-    
+
 // These yield float/int ranges using rand(). However, rand() is a horrible RNG, so unless you have a good reason, use bssrand() instead.
 #ifndef RANDFLOATGEN
 #define RANDFLOATGEN(min,max) (((max) - (min)) * (rand()/(RAND_MAX+1.0)) + (min))
@@ -119,6 +119,7 @@ public: \
 #define WCSTOK(str,delim,context) wcstok_s(str,delim,context)
 #define STRLWR(a) _strlwr(a)
 #define WCSLWR(a) _wcslwr(a)
+#define STRUPR(a) _strupr(a)
 #define SSCANF sscanf_s
 #define ITOAx0(v,buf,r) _itoa_s(v,buf,r)
 #define ITOA(v,buf,bufsize,r) _itoa_s(v,buf,bufsize,r)
@@ -156,6 +157,7 @@ public: \
 #define WCSTOK(str,delim,context) wcstok(str,delim,context) // For some reason, in linux, wcstok *IS* the threadsafe version
 #define STRLWR(a) strlwr(a)
 #define WCSLWR(a) wcslwr(a)
+#define STRUPR(a) strupr(a)
 #define SSCANF sscanf
 #define ITOAx0(v,buf,r) _itoa_r(v,buf,r)
 #define ITOA(v,buf,bufsize,r) itoa_r(v,buf,bufsize,r)

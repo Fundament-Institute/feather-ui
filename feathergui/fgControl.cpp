@@ -161,9 +161,13 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
   case FG_SETFLAG: // If 0 is sent in, disable the flag, otherwise enable. Our internal flag is 1 if clipping disabled, 0 otherwise.
     otherint = T_SETBIT(self->element.flags, otherint, msg->otheraux);
   case FG_SETFLAGS:
-    if((self->element.flags ^ (fgFlag)otherint) == (otherint & FGCONTROL_DISABLE))
+  {
+    bool disabled = !(self->element.flags & FGCONTROL_DISABLE) && ((otherint & FGCONTROL_DISABLE) != 0);
+    fgElement_Message(*self, msg); // apply the flag change first or we'll get weird bugs.
+    if(disabled)
     {
-      _sendmsg<FG_LOSTFOCUS, void*>(*self, 0);
+      if(fgFocusedWindow == *self)
+        _sendmsg<FG_LOSTFOCUS, void*>(*self, 0);
       if(fgCaptureWindow == *self) // Remove our control hold on mouse messages.
         fgCaptureWindow = 0;
       if(fgLastHover == *self)
@@ -172,7 +176,8 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
         fgLastHover = 0;
       }
     }
-    break;
+  }
+    return FG_ACCEPT;
   case FG_CLONE:
   {
     fgControl* hold = (fgControl*)msg->other;
@@ -186,7 +191,7 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
   }
   return 0;
   case FG_GETCLASSNAME:
-    return (size_t)"fgControl";
+    return (size_t)"Control";
   }
   return fgElement_Message(*self, msg);
 }
