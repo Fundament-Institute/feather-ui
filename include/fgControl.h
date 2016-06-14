@@ -40,6 +40,7 @@ FG_EXTERN void FG_FASTCALL fgControl_Init(fgControl* BSS_RESTRICT self, fgElemen
 FG_EXTERN void FG_FASTCALL fgControl_Destroy(fgControl* self);
 FG_EXTERN size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg);
 FG_EXTERN size_t FG_FASTCALL fgControl_HoverMessage(fgControl* self, const FG_Msg* msg);
+FG_EXTERN size_t FG_FASTCALL fgControl_ActionMessage(fgControl* self, const FG_Msg* msg);
 FG_EXTERN void FG_FASTCALL fgControl_TabAfter(fgControl* self, fgControl* prev);
 FG_EXTERN void FG_FASTCALL fgControl_TabBefore(fgControl* self, fgControl* next);
 FG_EXTERN void FG_FASTCALL fgElement_DoHoverCalc(fgElement* self);

@@ -240,8 +240,6 @@ size_t FG_FASTCALL fgControl_HoverMessage(fgControl* self, const FG_Msg* msg)
     _sendmsg<FG_HOVER>(*self);
     break;
   case FG_MOUSEUP:
-    if(MsgHitCRect(msg, &self->element)) // We can get a MOUSEUP when the mouse is outside of the control but we DO NOT fire it unless it's actually in the control.
-      _sendmsg<FG_ACTION>(*self);
     _sendmsg<FG_HOVER>(*self); // Revert to hover no matter what. The other handler will fire off a mousemove for us that will handle the hover change event.
     if(fgCaptureWindow == *self) // Remove our control hold on mouse messages.
       fgCaptureWindow = 0;
@@ -258,6 +256,24 @@ size_t FG_FASTCALL fgControl_HoverMessage(fgControl* self, const FG_Msg* msg)
     break;
   }
   return fgControl_Message(self, msg);
+}
+
+size_t FG_FASTCALL fgControl_ActionMessage(fgControl* self, const FG_Msg* msg)
+{
+  assert(self != 0 && msg != 0);
+
+  if(!(self->element.flags&FGCONTROL_DISABLE))
+  {
+    switch(msg->type)
+    {
+    case FG_MOUSEUP:
+      if(MsgHitCRect(msg, &self->element)) // We can get a MOUSEUP when the mouse is outside of the control but we DO NOT fire it unless it's actually in the control.
+        _sendmsg<FG_ACTION>(*self);
+      break;
+    }
+  }
+
+  return fgControl_HoverMessage(self, msg);
 }
 
 void FG_FASTCALL fgControl_TabAfter(fgControl* self, fgControl* prev)

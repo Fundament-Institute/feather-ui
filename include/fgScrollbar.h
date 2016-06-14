@@ -21,7 +21,7 @@ enum FGSCROLLBAR_FLAGS
 
 enum FGSCROLLBAR_ACTIONS
 {
-  FGSCROLLBAR_CHANGE = 0, // Triggered by the actual amount shifted
+  FGSCROLLBAR_CHANGE = 1, // Triggered by the actual amount shifted
   FGSCROLLBAR_BAR,
   FGSCROLLBAR_BARINIT,
   FGSCROLLBAR_PAGE, // PageUp, PageDown, and click on the spaces between the scrollbars. 0 1 2 3 - left top right bottom
@@ -39,7 +39,7 @@ struct _FG_SCROLLBAR_INNER {
 typedef struct _FG_SCROLLBAR {
   fgControl control;
   fgButton btn[4]; // 0 - left arrow, 1 - up arrow, 2 - right arrow, 3 - down arrow
-  _FG_SCROLLBAR_INNER bar[2]; // 0 - horz slider, 1 - vert slider
+  struct _FG_SCROLLBAR_INNER bar[2]; // 0 - horz slider, 1 - vert slider
   fgElement bg[3]; // 0 - horizontal background, 1 - vertical background, 2 - corner
   AbsVec maxdim;
   AbsRect realpadding; // We have to intercept and store padding amounts here because we hijack the padding to perform scrolling

@@ -68,5 +68,5 @@ size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
   case FG_GETCOLOR:
     return fgPassMessage(self->text, msg);
   }
-  return fgControl_HoverMessage(&self->control, msg);
+  return fgControl_ActionMessage(&self->control, msg);
 }

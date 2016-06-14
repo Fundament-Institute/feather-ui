@@ -13,7 +13,7 @@ extern "C" {
 
 enum FGTEXTBOX_ACTIONS
 {
-  FGTEXTBOX_SELECTALL = 0,
+  FGTEXTBOX_SELECTALL = FGSCROLLBAR_SCROLLTO,
   FGTEXTBOX_CUT,
   FGTEXTBOX_COPY,
   FGTEXTBOX_PASTE,
@@ -35,10 +35,11 @@ typedef struct {
   const int* placeholder; // placeholder text displayed when textbox is empty. Use SETTEXT or GETTEXT with the second argument set to 1.
   fgColor selector; // Color of the selector rectangle
   fgColor placecolor; // placeholder text color. Use SETCOLOR with the second argument set to 1.
-  size_t start; // start of text selection
+  size_t start; // current cursor
   AbsVec startpos;
-  size_t end; // end of text selection (or just where the cursor is)
+  size_t end; // end of selection
   AbsVec endpos;
+  float lastx; // stores the x coordinate while we are hitting up or down keys.
   char inserting;
   void* font;
   void* cache;
@@ -52,6 +53,7 @@ typedef struct {
 } fgTextbox;
 
 FG_EXTERN void FG_FASTCALL fgTextbox_Init(fgTextbox* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
+FG_EXTERN void FG_FASTCALL fgTextbox_Destroy(fgTextbox* self);
 FG_EXTERN size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg);
 
 #ifdef  __cplusplus

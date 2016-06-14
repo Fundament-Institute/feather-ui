@@ -29,8 +29,8 @@ union _FG_DEBUG_MESSAGE_STORAGE {
 typedef struct _FG_DEBUG_MESSAGE {
   union {
     struct {
-      _FG_DEBUG_MESSAGE_STORAGE arg1;
-      _FG_DEBUG_MESSAGE_STORAGE arg2;
+      union _FG_DEBUG_MESSAGE_STORAGE arg1;
+      union _FG_DEBUG_MESSAGE_STORAGE arg2;
     };
     struct {
       int x; int y; // Mouse and touch events

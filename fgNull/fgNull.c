@@ -46,12 +46,15 @@ void FG_FASTCALL fgDestroyResource(void* res) { }
 void FG_FASTCALL fgDrawResource(void* res, const CRect* uv, unsigned int color, unsigned int edge, FABS outline, const AbsRect* area, FABS rotation, AbsVec* center, fgFlag flags) {}
 void FG_FASTCALL fgResourceSize(void* res, const CRect* uv, AbsVec* dim, fgFlag flags) { }
 
+size_t FG_FASTCALL fgFontIndex(void* font, const int* text, float lineheight, float letterspacing, AbsVec pos, size_t last, AbsVec* cache) { return 0; }
+AbsVec FG_FASTCALL fgFontPos(void* font, const int* text, float lineheight, float letterspacing, size_t index, size_t last, AbsVec cache) { AbsVec a = { 0,0 }; return a; }
+
 fgElement* FG_FASTCALL fgCreate(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
   return fgCreateDefault(type, parent, next, name, flags, transform);
 }
 
-enum FG_MSGTYPE FG_FASTCALL fgMessageMap(const char* name)
+short FG_FASTCALL fgMessageMap(const char* name)
 {
   return fgMessageMapDefault(name);
 }

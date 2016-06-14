@@ -49,9 +49,9 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
     if(msg->other)
     {
       ((bss_util::cDynArray<char>*)&self->buf)->operator=(bss_util::cArraySlice<const char>((const char*)msg->other, strlen((const char*)msg->other) + 1));
-      size_t len = UTF8toUTF32(self->buf.p, -1, 0, 0);
+      size_t len = fgUTF8toUTF32(self->buf.p, -1, 0, 0);
       ((bss_util::cDynArray<int>*)&self->text)->Reserve(len);
-      self->text.l = UTF8toUTF32(self->buf.p, -1, self->text.p, self->text.s);
+      self->text.l = fgUTF8toUTF32(self->buf.p, -1, self->text.p, self->text.s);
     }
     fgText_Recalc(self);
     fgDirtyElement(&self->element.transform);

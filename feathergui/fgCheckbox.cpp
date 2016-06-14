@@ -57,5 +57,5 @@ size_t FG_FASTCALL fgCheckbox_Message(fgCheckbox* self, const FG_Msg* msg)
   case FG_GETCLASSNAME:
     return (size_t)"Checkbox";
   }
-  return fgControl_HoverMessage(&self->control, msg);
+  return fgControl_ActionMessage(&self->control, msg);
 }

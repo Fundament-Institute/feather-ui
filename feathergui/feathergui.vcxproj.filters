@@ -187,10 +187,10 @@
     <ClCompile Include="fgTextbox.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ConvertUTF.c">
+    <ClCompile Include="fgDebug.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="fgDebug.cpp">
+    <ClCompile Include="ConvertUTF.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
