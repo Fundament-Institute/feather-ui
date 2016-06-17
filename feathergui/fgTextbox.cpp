@@ -29,7 +29,7 @@ inline size_t FG_FASTCALL fgTextbox_DeleteSelection(fgTextbox* self)
   size_t start = bssmin(self->start, self->end);
   size_t end = bssmax(self->start, self->end);
 
-  memmove(self->text.p + start, self->text.p + self->end, (self->text.l - self->end)*sizeof(int));
+  bss_util::RemoveRangeSimple<int>(self->text.p, self->text.l, start, end - start);
   self->text.l -= end - start;
   self->buf.l = 0;
   fgTextbox_SetCursorEnd(self);
@@ -39,8 +39,8 @@ inline void FG_FASTCALL fgTextbox_Insert(fgTextbox* self, size_t start, const in
 {
   ((bss_util::cDynArray<int>*)&self->text)->Reserve(self->text.l + len);
   assert(self->text.p != 0);
-  memmove(self->text.p + start + len, self->text.p + start, (self->text.l - start) * sizeof(int));
-  MEMCPY(self->text.p + start, self->text.s - start, s, len);
+  bss_util::InsertRangeSimple<int>(self->text.p, self->text.l, start, s, len);
+  self->text.l += len;
   self->buf.l = 0;
   self->start += len;
   fgTextbox_SetCursorEnd(self);

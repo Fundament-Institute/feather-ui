@@ -51,6 +51,22 @@ namespace bss_util {
     CType length;
   };
 
+  // Helper function for inserting a range into a simple array
+  template<class T, typename CType = size_t>
+  static inline void InsertRangeSimple(T* a, CType length, CType index, const T* t, CType tsize) noexcept
+  {
+    assert(index >= 0 && length >= index);
+    memmove(a + index + tsize, a + index, sizeof(T)*(length - index));
+    memcpy(a + index, t, sizeof(T)*tsize);
+  }
+
+  template<class T, typename CType = size_t>
+  static inline void RemoveRangeSimple(T* a, CType length, CType index, CType range) noexcept
+  {
+    assert(index >= 0 && length > index);
+    memmove(a + index, a + index + range, sizeof(T)*(length - index - range));
+  }
+
   enum ARRAY_TYPE : uint8_t { CARRAY_SIMPLE=0, CARRAY_CONSTRUCT=1, CARRAY_SAFE=2, CARRAY_MOVE=3 };
 
   // Handles the very basic operations of an array. Constructor management is done by classes that inherit this class.
