@@ -190,10 +190,10 @@ void FG_FASTCALL fgScrollbar_ApplyPadding(fgScrollbar* self, float x, float y)
 
   AbsRect r;
   ResolveRect(*self, &r);
-  float minpaddingx = (r.right - r.left) - self->realsize.x - bssmax(self->barcache.y, 0);
-  minpaddingx = bssmin(minpaddingx, 0);
-  float minpaddingy = (r.bottom - r.top) - self->realsize.y - bssmax(self->barcache.x, 0);
-  minpaddingy = bssmin(minpaddingy, 0);
+  float minpaddingx = (r.right - r.left - self->realpadding.left - self->realpadding.right) - self->realsize.x - bssmax(self->barcache.y, 0);
+  minpaddingx = bssmin(minpaddingx, self->realpadding.left);
+  float minpaddingy = (r.bottom - r.top - self->realpadding.top - self->realpadding.bottom) - self->realsize.y - bssmax(self->barcache.x, 0);
+  minpaddingy = bssmin(minpaddingy, self->realpadding.top);
   if(self->control.element.padding.left < minpaddingx)
     self->control.element.padding.left = minpaddingx;
   if(self->control.element.padding.top < minpaddingy)
@@ -395,21 +395,17 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
         AbsRect& target = *((AbsRect*)msg->other);
         AbsRect r;
         ResolveRect(*self, &r);
-        float left = r.left + self->realpadding.left + self->control.element.padding.left;
-        float top = r.top + self->realpadding.top + self->control.element.padding.top;
-        float right = r.right - self->realpadding.right - bssmax(self->barcache.y, 0) - self->control.element.padding.right;
-        float bottom = r.bottom - self->realpadding.bottom - bssmax(self->barcache.x, 0) - self->control.element.padding.bottom;
-        left = bssmin(target.left - left, 0);
-        top = bssmin(target.top - top, 0);
-        right = bssmax(target.right - right, 0);
-        bottom = bssmax(target.bottom - bottom, 0);
-        float x = 0, y = 0;
-
-        if(left == 0 || right == 0)
-          x = bssmax(left, right);
-        if(top == 0 || bottom == 0)
-          y = bssmax(top, bottom);
-
+        float left = self->control.element.padding.left - self->realpadding.left;
+        float top = self->control.element.padding.top - self->realpadding.top;
+        float right = r.right - r.left - bssmax(self->barcache.y, 0) - self->realpadding.right - self->realpadding.left - self->control.element.padding.left;
+        float bottom = r.bottom - r.top - bssmax(self->barcache.x, 0) - self->realpadding.bottom - self->realpadding.left - self->control.element.padding.top;
+        left = bssmax(- target.left - left, 0);
+        top = bssmax(- target.top - top, 0);
+        right = bssmin(right - target.right, 0);
+        bottom = bssmin(bottom - target.bottom, 0);
+        float x = (left == 0) ? right : left;
+        float y = (top == 0) ? bottom : top;
+        
         fgScrollbar_ApplyPadding(self, x, y);
       }
       return FG_ACCEPT;

@@ -34,6 +34,7 @@ typedef struct _FG_ROOT {
   size_t dpi;
   float lineheight;
   double time; // In seconds
+  double cursorblink; // In seconds
   fgMouseState mouse;
   unsigned int keys[8]; // 8*4*8 = 256
 #ifdef  __cplusplus

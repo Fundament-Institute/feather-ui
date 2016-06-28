@@ -138,7 +138,7 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT size_t FG_FASTCALL SetFont(void* font);
   FG_DLLEXPORT size_t FG_FASTCALL SetLineHeight(float lineheight);
   FG_DLLEXPORT size_t FG_FASTCALL SetLetterSpacing(float letterspacing);
-  FG_DLLEXPORT size_t FG_FASTCALL SetText(const char* text);
+  FG_DLLEXPORT size_t FG_FASTCALL SetText(const char* text, FGSETTEXT mode = FGSETTEXT_UTF8);
   FG_DLLEXPORT void* GetResource();
   FG_DLLEXPORT const CRect* GetUV();
   FG_DLLEXPORT unsigned int FG_FASTCALL GetColor(int index);
@@ -146,7 +146,7 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT void* GetFont();
   FG_DLLEXPORT float GetLineHeight();
   FG_DLLEXPORT float GetLetterSpacing();
-  FG_DLLEXPORT const int* GetText();
+  FG_DLLEXPORT const int* GetText(FGSETTEXT mode = FGSETTEXT_UTF8);
   FG_DLLEXPORT void AddListener(unsigned short type, fgListener listener);
 #endif
 } fgElement;

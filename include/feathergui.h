@@ -142,6 +142,14 @@ enum FGMOVE
   FGMOVE_MARGIN = (1 << 9)
 };
 
+enum FGSETTEXT {
+  FGSETTEXT_UTF8 = 0,
+  FGSETTEXT_UTF32,
+  FGSETTEXT_PLACEHOLDER_UTF8,
+  FGSETTEXT_PLACEHOLDER_UTF32,
+  FGSETTEXT_MASK
+};
+
 enum FGDIM
 {
   FGDIM_MAX = 0,
@@ -267,8 +275,8 @@ enum FG_KEYS
   FG_KEY_ACCEPT = 0x1E,
   FG_KEY_MODECHANGE = 0x1F,
   FG_KEY_SPACE = 0x20,
-  FG_KEY_PRIOR = 0x21,
-  FG_KEY_NEXT = 0x22,
+  FG_KEY_PAGEUP = 0x21, // named PRIOR in windows virtual keys
+  FG_KEY_PAGEDOWN = 0x22, // named NEXT in windows virtual keys
   FG_KEY_END = 0x23,
   FG_KEY_HOME = 0x24,
   FG_KEY_LEFT = 0x25,

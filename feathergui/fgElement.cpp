@@ -145,7 +145,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgSubMessage(hold, FG_MOVE, msg->subtype, ref, diff & msg->otheraux);
       }
 
-      if(msg->otheraux & (FGMOVE_RESIZE | FGMOVE_PADDING)) // a layout change can happen on a resize or padding change
+      if(msg->otheraux & (FGMOVE_RESIZE | FGMOVE_PADDING | FGMOVE_MARGIN)) // a layout change can happen on a resize or padding change
         fgSubMessage(self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTRESIZE, 0, msg->otheraux);
     }
     return FG_ACCEPT;
@@ -1066,7 +1066,7 @@ size_t FG_FASTCALL fgElement::SetLineHeight(float lineheight) { return _sendmsg<
 
 size_t FG_FASTCALL fgElement::SetLetterSpacing(float letterspacing) { return _sendmsg<FG_SETLETTERSPACING, float>(this, letterspacing); }
 
-size_t FG_FASTCALL fgElement::SetText(const char* text) { return _sendmsg<FG_SETTEXT, const void*>(this, text); }
+size_t FG_FASTCALL fgElement::SetText(const char* text, FGSETTEXT mode) { return _sendmsg<FG_SETTEXT, const void*, size_t>(this, text, mode); }
 
 void* fgElement::GetResource() { return reinterpret_cast<void*>(_sendmsg<FG_GETRESOURCE>(this)); }
 
@@ -1082,6 +1082,6 @@ float fgElement::GetLineHeight() { size_t r = _sendmsg<FG_GETLINEHEIGHT>(this); 
 
 float fgElement::GetLetterSpacing() { size_t r = _sendmsg<FG_GETLETTERSPACING>(this); return *reinterpret_cast<float*>(&r); }
 
-const int* fgElement::GetText() { return reinterpret_cast<const int*>(_sendmsg<FG_GETTEXT>(this)); }
+const int* fgElement::GetText(FGSETTEXT mode) { return reinterpret_cast<const int*>(_sendmsg<FG_GETTEXT, ptrdiff_t>(this, mode)); }
 
 void fgElement::AddListener(unsigned short type, fgListener listener) { fgElement_AddListener(this, type, listener); }

@@ -25,7 +25,7 @@ enum FGBOX_FLAGS
 // A List is an arbitrary list of items with a number of different layout options that are selectable and/or draggable.
 typedef struct _FG_BOX_ {
   fgScrollbar window;
-  size_t nummiddle; // counts the number of background elements in the middle of the ordered elements
+  bool isordered; // If we detect that a BACKGROUND element was inserted in the middle of the foreground elements, we disable fgOrderedDraw until all children are removed.
   fgVectorElement ordered; // Used to implement fgOrderedDraw if TILEX or TILEY layouts are used.
 #ifdef  __cplusplus
   inline operator fgElement*() { return &window.control.element; }

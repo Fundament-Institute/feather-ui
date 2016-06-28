@@ -25,6 +25,7 @@ void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, size_t dpi)
   self->drag = 0;
   self->monitors = 0;
   self->time = 0.0;
+  self->cursorblink = 0.53; // 530 ms is the windows default.
   self->updateroot = 0;
   self->lineheight = 0;
   self->radiohash = fgRadioGroup_init();

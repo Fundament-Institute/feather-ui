@@ -48,12 +48,25 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
     ((bss_util::cDynArray<char>*)&self->buf)->Clear();
     if(msg->other)
     {
-      ((bss_util::cDynArray<char>*)&self->buf)->operator=(bss_util::cArraySlice<const char>((const char*)msg->other, strlen((const char*)msg->other) + 1));
-      size_t len = fgUTF8toUTF32(self->buf.p, -1, 0, 0);
-      ((bss_util::cDynArray<int>*)&self->text)->Reserve(len);
-      self->text.l = fgUTF8toUTF32(self->buf.p, -1, self->text.p, self->text.s);
+      if(msg->otheraux == FGSETTEXT_UTF8)
+      {
+        ((bss_util::cDynArray<char>*)&self->buf)->operator=(bss_util::cArraySlice<const char>((const char*)msg->other, strlen((const char*)msg->other) + 1));
+        size_t len = fgUTF8toUTF32(self->buf.p, -1, 0, 0);
+        ((bss_util::cDynArray<int>*)&self->text)->Reserve(len);
+        self->text.l = fgUTF8toUTF32(self->buf.p, -1, self->text.p, self->text.s);
+      }
+      else if(msg->otheraux == FGSETTEXT_UTF32)
+      {
+        int* txt = (int*)msg->other;
+        size_t len = 0;
+        while(txt[len++] != 0);
+        ((bss_util::cDynArray<int>*)&self->text)->Reserve(len);
+        MEMCPY(self->text.p, self->text.s, txt, sizeof(int)*len);
+      }
     }
-    fgText_Recalc(self);
+
+
+    fgText_Recalc        (self);
     fgDirtyElement(&self->element.transform);
     return FG_ACCEPT;
   case FG_SETFONT:
