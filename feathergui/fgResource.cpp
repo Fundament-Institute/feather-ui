@@ -42,25 +42,25 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
     if(msg->other)
       self->uv = *((CRect*)msg->other);
     fgResource_Recalc(self);
-    fgDirtyElement(&self->element.transform);
+    fgDirtyElement(*self);
     return FG_ACCEPT;
   case FG_SETRESOURCE:
     if(self->res) fgDestroyResource(self->res);
     self->res = 0;
     if(msg->other) self->res = fgCloneResource(msg->other);
     fgResource_Recalc(self);
-    fgDirtyElement(&self->element.transform);
+    fgDirtyElement(*self);
     break;
   case FG_SETCOLOR:
     if(msg->otheraux != 0)
       self->edge.color = msg->otherint;
     else
       self->color.color = msg->otherint;
-    fgDirtyElement(&self->element.transform);
+    fgDirtyElement(*self);
     break;
   case FG_SETOUTLINE:
     self->outline = msg->otherf;
-    fgDirtyElement(&self->element.transform);
+    fgDirtyElement(*self);
     break;
   case FG_GETUV:
     return (size_t)(&self->uv);

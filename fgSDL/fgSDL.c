@@ -142,7 +142,7 @@ fgRoot* FG_FASTCALL fgInitialize()
   return _fgroot = r;
 }
 char FG_FASTCALL fgLoadExtension(void* fg, const char* extname) { return -1; }
-void fgPushClipRect(AbsRect* clip)
+void fgPushClipRect(const AbsRect* clip)
 {
   if(_fgroot->cliplength >= _fgroot->clipcapacity)
   {

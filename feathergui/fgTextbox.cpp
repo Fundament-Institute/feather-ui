@@ -6,8 +6,6 @@
 
 void FG_FASTCALL fgTextbox_Init(fgTextbox* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  memset(&self->text, 0, sizeof(fgVectorString));
-  memset(&self->buf, 0, sizeof(fgVectorUTF32));
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, (fgDestroy)&fgTextbox_Destroy, (fgMessage)&fgTextbox_Message);
 }
 void FG_FASTCALL fgTextbox_Destroy(fgTextbox* self)
@@ -135,11 +133,11 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_CONSTRUCT:
-    fgScrollbar_Message(&self->window, msg);
+    memset(&self->text, 0, sizeof(fgVectorUTF32));
+    memset(&self->buf, 0, sizeof(fgVectorUTF32));
+    memset(&self->placeholder, 0, sizeof(fgVectorUTF32));
     self->validation = 0;
     self->mask = 0;
-    memset(&self->text, 0, sizeof(fgVectorUTF32));
-    memset(&self->placeholder, 0, sizeof(fgVectorUTF32));
     self->selector.color = ~0;
     self->placecolor.color = ~0;
     self->cursorcolor.color = 0xFF000000;
@@ -153,8 +151,9 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
     self->letterspacing = 0;
     self->lastx = 0;
     self->inserting = 0;
-    self->lastclick = fgroot_instance->time;
     memset(&self->areacache, 0, sizeof(AbsRect));
+    fgScrollbar_Message(&self->window, msg);
+    self->lastclick = fgroot_instance->time;
     return FG_ACCEPT;
   case FG_KEYCHAR:
     if(self->validation)
@@ -333,7 +332,7 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       break;
     }
     fgSubMessage(*self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTMOVE, self, FGMOVE_PROPAGATE | FGMOVE_RESIZE);
-    fgDirtyElement(&self->window.control.element.transform);
+    fgDirtyElement(*self);
     return FG_ACCEPT;
   case FG_SETFONT:
     if(self->font) fgDestroyFont(self->font);
@@ -347,17 +346,17 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       self->font = (dpi == fontdpi) ? fgCloneFont(msg->other) : fgCopyFont(msg->other, fontsize, fontdpi);
     }
     fgSubMessage(*self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTMOVE, self, FGMOVE_PROPAGATE | FGMOVE_RESIZE);
-    fgDirtyElement(&self->window.control.element.transform);
+    fgDirtyElement(*self);
     break;
   case FG_SETLINEHEIGHT:
     self->lineheight = msg->otherf;
     fgSubMessage(*self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTMOVE, self, FGMOVE_PROPAGATE | FGMOVE_RESIZE);
-    fgDirtyElement(&self->window.control.element.transform);
+    fgDirtyElement(*self);
     break;
   case FG_SETLETTERSPACING:
     self->letterspacing = msg->otherf;
     fgSubMessage(*self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTMOVE, self, FGMOVE_PROPAGATE | FGMOVE_RESIZE);
-    fgDirtyElement(&self->window.control.element.transform);
+    fgDirtyElement(*self);
     break;
   case FG_SETCOLOR:
     switch(msg->otheraux)
@@ -367,7 +366,7 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
     case 2: self->cursorcolor.color = (unsigned int)msg->otherint; break;
     case 3: self->selector.color = (unsigned int)msg->otherint; break;
     }
-    fgDirtyElement(&self->window.control.element.transform);
+    fgDirtyElement(*self);
     break;
   case FG_GETTEXT:
     if(!msg->otherint)
@@ -460,8 +459,8 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       area.top *= scale;
       area.right *= scale;
       area.bottom *= scale;
-      assert(self->areacache.right - self->areacache.left == area.right - area.left);
-      assert(self->areacache.bottom - self->areacache.top == area.bottom - area.top);
+      //assert(self->areacache.right - self->areacache.left == area.right - area.left);
+      //assert(self->areacache.bottom - self->areacache.top == area.bottom - area.top);
       center = ResolveVec(&self->window.control.element.transform.center, &area);
       int* text = self->text.p;
 
@@ -556,6 +555,10 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
         self->areacache.right *= scale;
         self->areacache.bottom *= scale;
         AbsRect r = self->areacache;
+        if(self->window->flags&FGELEMENT_EXPANDX) // If maxdim is -1, this will translate into a -1 maxdim for the text and properly deal with all resizing cases.
+          r.right = r.left + self->window->maxdim.x;
+        if(self->window->flags&FGELEMENT_EXPANDY)
+          r.bottom = r.top + self->window->maxdim.y;
 
         size_t dim = 0;
         fgFontSize(self->font, !self->text.p ? &UNICODE_TERMINATOR : self->text.p, self->lineheight, self->letterspacing, &r, self->window->flags);
@@ -565,6 +568,8 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
           dim |= FGMOVE_RESIZEY;
         area->right.abs = area->left.abs + (r.right - r.left);
         area->bottom.abs = area->top.abs + (r.bottom - r.top);
+        fgTextbox_fixpos(self, self->start, &self->startpos);
+        fgTextbox_fixpos(self, self->end, &self->endpos);
         return dim;
       }
     }

@@ -6,7 +6,7 @@
 
 #include "fgTextbox.h"
 #include "fgButton.h"
-#include "fgList.h"
+#include "fgBox.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -21,7 +21,7 @@ enum FGCOMBOBOX_FLAGS
 typedef struct {
   fgTextbox box; // GETSELECTEDITEM returns either the selected item or the text typed into the combobox.
   fgButton button;
-  fgList dropdown; // ADDITEM is used to add an arbitrary object to the list. 
+  fgBox dropdown; // ADDITEM is used to add an arbitrary object to the list. 
 #ifdef  __cplusplus
   inline operator fgElement*() { return &box.window.control.element; }
 #endif

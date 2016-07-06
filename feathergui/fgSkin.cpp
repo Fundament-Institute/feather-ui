@@ -133,8 +133,10 @@ char FG_FASTCALL fgSkin_RemoveSkin(fgSkin* self, const char* name)
 }
 fgSkin* FG_FASTCALL fgSkin_GetSkin(const fgSkin* self, const char* name)
 {
-  if(!self || !self->skinmap || !name)
+  if(!self || !name)
     return 0;
+  if(!self->skinmap)
+	return fgSkin_GetSkin(self->inherit, name);
   khiter_t iter = kh_get(fgSkins, self->skinmap, name);
   return (iter != kh_end(self->skinmap) && kh_exist(self->skinmap, iter)) ? kh_val(self->skinmap, iter) : fgSkin_GetSkin(self->inherit, name);
 }

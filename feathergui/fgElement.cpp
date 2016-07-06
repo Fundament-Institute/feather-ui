@@ -27,6 +27,10 @@ void FG_FASTCALL fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement
   self->message = message;
   self->flags = flags;
   self->style = (FG_UINT)-1;
+  self->maxdim.x = -1.0f;
+  self->maxdim.y = -1.0f;
+  self->mindim.x = -1.0f;
+  self->mindim.y = -1.0f;
   if(transform) self->transform = *transform;
   _sendmsg<FG_CONSTRUCT>(self);
   _sendmsg<FG_SETPARENT, void*, void*>(self, parent, next);
@@ -92,9 +96,9 @@ void FG_FASTCALL fgElement_ApplySkin(fgElement* self, const fgSkin* skin)
     fgElement_ApplySkin(self, skin->inherit);
 
   fgElement* child = self->root;
-  for(FG_UINT i = 0; i < self->skin->children.l; ++i)
+  for(FG_UINT i = 0; i < skin->children.l; ++i)
   {
-    fgStyleLayout* layout = self->skin->children.p + i;
+    fgStyleLayout* layout = skin->children.p + i;
     child = fgCreate(layout->type, self, child, layout->name, layout->flags, &layout->transform);
     assert(child != 0);
     _sendsubmsg<FG_SETSTYLE, void*, size_t>(child, 2, &layout->style, ~0);
@@ -156,13 +160,14 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       return 0;
     {
       CRect* area = (CRect*)msg->other;
+
       char diff = CompareCRects(&self->transform.area, area);
       if(diff)
       {
         fgElement_MouseMoveCheck(self);
-        fgDirtyElement(&self->transform);
+        fgDirtyElement(self);
         memcpy(&self->transform.area, area, sizeof(CRect));
-        fgDirtyElement(&self->transform);
+        fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
         fgSubMessage(self, FG_MOVE, FG_SETAREA, 0, diff);
@@ -175,13 +180,14 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     {
       fgTransform* transform = (fgTransform*)msg->other;
       _sendmsg<FG_SETAREA, void*>(self, &transform->area);
-      char diff = CompareTransforms(&self->transform, transform);
+      char diff = CompareTransforms(&self->transform, transform) & ((1 << 5)|(1 << 6)|(1 << 7));
       if(diff)
       {
         fgElement_MouseMoveCheck(self);
-        fgDirtyElement(&self->transform);
-        memcpy(&self->transform, transform, sizeof(fgTransform));
-        fgDirtyElement(&self->transform);
+        fgDirtyElement(self);
+        self->transform.center = transform->center;
+        self->transform.rotation = transform->rotation;
+        fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
         fgSubMessage(self, FG_MOVE, FG_SETTRANSFORM, 0, diff);
@@ -199,9 +205,9 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     if(change&FGELEMENT_IGNORE || change&FGELEMENT_NOCLIP)
     {
       fgElement* old = self->next;
-      LList_RemoveAll(self);
+      if(self->parent != 0) LList_RemoveAll(self);
       self->flags = (fgFlag)otherint;
-      LList_InsertAll(self, old);
+      if(self->parent != 0) LList_InsertAll(self, old);
     }
     else
       self->flags = (fgFlag)otherint;
@@ -211,7 +217,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     if((change&FGELEMENT_EXPAND)&self->flags) // If we change the expansion flags, we must recalculate every single child in our layout provided one of the expansion flags is actually set
       fgSubMessage(self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTRESET, 0, 0);
     if(change&FGELEMENT_HIDDEN || change&FGELEMENT_NOCLIP)
-      fgDirtyElement(&self->transform);
+      fgDirtyElement(self);
   }
   return FG_ACCEPT;
   case FG_SETMARGIN:
@@ -224,9 +230,9 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       if(diff)
       {
         fgElement_MouseMoveCheck(self);
-        fgDirtyElement(&self->transform);
+        fgDirtyElement(self);
         memcpy(&self->margin, margin, sizeof(AbsRect));
-        fgDirtyElement(&self->transform);
+        fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
         fgSubMessage(self, FG_MOVE, FG_SETMARGIN, 0, diff | FGMOVE_MARGIN);
@@ -243,9 +249,9 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       if(diff)
       {
         fgElement_MouseMoveCheck(self);
-        fgDirtyElement(&self->transform);
+        fgDirtyElement(self);
         memcpy(&self->padding, padding, sizeof(AbsRect));
-        fgDirtyElement(&self->transform);
+        fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
         fgSubMessage(self, FG_MOVE, FG_SETPADDING, 0, diff | FGMOVE_PADDING);
@@ -291,8 +297,8 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       fgSubMessage(self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTADD, hold, 0);
 
     assert(!hold->last || !hold->last->next);
-    assert(!hold->lastclip || !hold->lastclip->nextclip);
-    assert(!hold->lastnoclip || !hold->lastnoclip->nextclip);
+    assert(!hold->lastinject || !hold->lastinject->nextinject);
+    assert(!hold->lastnoclip || !hold->lastnoclip->nextnoclip);
     fgSubMessage(hold, FG_MOVE, FG_SETPARENT, 0, fgElement_PotentialResize(self));
     return FG_ACCEPT;
   case FG_REMOVECHILD:
@@ -318,21 +324,29 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     CRect area = self->transform.area;
     if(_sendmsg<FG_LAYOUTFUNCTION, const void*, void*>(self, msg, &area) != 0 || (msg->otheraux & (FGMOVE_PADDING | FGMOVE_MARGIN)) != 0)
     {
+      AbsVec mindim = self->mindim;
       CRect narea = self->transform.area;
       if(self->flags&FGELEMENT_EXPANDX)
       {
-        narea.left.abs = area.left.abs;
         narea.left.rel = area.left.rel;
-        narea.right.abs = area.right.abs + self->padding.left + self->padding.right + self->margin.left + self->margin.right;
+        narea.left.abs = area.left.abs;
         narea.right.rel = area.right.rel;
+        if(narea.right.rel == narea.left.rel)
+          narea.right.abs = area.right.abs + self->padding.left + self->padding.right + self->margin.left + self->margin.right;
+        else
+          mindim.x = area.right.abs - area.left.abs + self->padding.left + self->padding.right + self->margin.left + self->margin.right;
       }
       if(self->flags&FGELEMENT_EXPANDY)
       {
-        narea.top.abs = area.top.abs;
         narea.top.rel = area.top.rel;
-        narea.bottom.abs = area.bottom.abs + self->padding.top + self->padding.bottom + self->margin.top + self->margin.bottom;
+        narea.top.abs = area.top.abs;
         narea.bottom.rel = area.bottom.rel;
+        if(narea.right.rel == narea.left.rel)
+          narea.bottom.abs = area.bottom.abs + self->padding.top + self->padding.bottom + self->margin.top + self->margin.bottom;
+        else
+          mindim.y = area.bottom.abs - area.top.abs + self->padding.top + self->padding.bottom + self->margin.top + self->margin.bottom;
       }
+      _sendsubmsg<FG_SETDIM, float, float>(self, FGDIM_MIN, mindim.x, mindim.y);
       _sendmsg<FG_SETAREA, void*>(self, &narea);
     }
     return FG_ACCEPT;
@@ -341,7 +355,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
   {
     AbsRect area;
     ResolveRect(self, &area);
-    return fgDefaultLayout(self, (const FG_Msg*)msg->other, (CRect*)msg->other2, &area);
+    return ((self->flags & FGELEMENT_EXPAND) || msg->subtype != 0) ? fgDefaultLayout(self, (const FG_Msg*)msg->other, (CRect*)msg->other2, &area) : 0;
   }
   case FG_LAYOUTLOAD:
   {
@@ -365,12 +379,14 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     hold->parent = 0;
     hold->next = 0;
     hold->prev = 0;
-    hold->nextclip = 0;
-    hold->prevclip = 0;
+    hold->nextinject = 0;
+    hold->previnject = 0;
+    hold->nextnoclip = 0;
+    hold->prevnoclip = 0;
     hold->rootnoclip = 0;
     hold->lastnoclip = 0;
-    hold->rootclip = 0;
-    hold->lastclip = 0;
+    hold->rootinject = 0;
+    hold->lastinject = 0;
     hold->name = fgCopyText(self->name);
     hold->SetParent(self->parent, self->next);
 
@@ -539,6 +555,52 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     fgroot_instance->mouse.buttons |= FG_MOUSELBUTTON;
     self->MouseMove(msg->x, msg->y);
     break;
+  case FG_SETDIM:
+  {
+    char diff = 0;
+    switch(msg->subtype)
+    {
+    case FGDIM_MAX:
+      if(self->maxdim.x != msg->otherf) diff |= FGMOVE_RESIZEX;
+      if(self->maxdim.y != msg->otherfaux) diff |= FGMOVE_RESIZEY;
+      break;
+    case FGDIM_MIN:
+      if(self->mindim.x != msg->otherf) diff |= FGMOVE_RESIZEX;
+      if(self->mindim.y != msg->otherfaux) diff |= FGMOVE_RESIZEY;
+      break;
+    default:
+      return 0;
+    }
+    if(diff != 0)
+    {
+      fgElement_MouseMoveCheck(self);
+      fgDirtyElement(self);
+      switch(msg->subtype)
+      {
+      case FGDIM_MAX:
+        self->maxdim.x = msg->otherf;
+        self->maxdim.y = msg->otherfaux;
+        break;
+      case FGDIM_MIN:
+        self->mindim.x = msg->otherf;
+        self->mindim.y = msg->otherfaux;
+        break;
+      }
+      fgDirtyElement(self);
+      fgElement_MouseMoveCheck(self);
+      fgSubMessage(self, FG_MOVE, FG_SETDIM, 0, diff);
+    }
+  }
+    return FG_ACCEPT;
+  case FG_GETDIM:
+    switch(msg->subtype)
+    {
+    case FGDIM_MAX:
+      return *reinterpret_cast<size_t*>(&self->maxdim);
+    case FGDIM_MIN:
+      return *reinterpret_cast<size_t*>(&self->mindim);
+    }
+    return 0;
   case FG_GETUSERDATA:
     if(!msg->other2)
       return *reinterpret_cast<size_t*>(&self->userdata);
@@ -630,6 +692,15 @@ void FG_FASTCALL ResolveRectCache(const fgElement* self, AbsRect* BSS_RESTRICT o
   out->right -= self->margin.right;
   out->bottom -= self->margin.bottom;
 
+  if(self->mindim.x >= 0)
+    out->right = out->left + std::max(out->right - out->left, self->mindim.x);
+  if(self->mindim.y >= 0)
+    out->bottom = out->top + std::max(out->bottom - out->top, self->mindim.y);
+  if(self->maxdim.x >= 0)
+    out->right = out->left + std::min(out->right - out->left, self->maxdim.x);
+  if(self->maxdim.y >= 0)
+    out->bottom = out->top + std::min(out->bottom - out->top, self->maxdim.y);
+
   if(self->flags&FGELEMENT_SNAPX) { // TODO: Make this work properly with DPI so it maps to pixels
     out->left = floor(out->left);
     out->right = floor(out->right);
@@ -650,10 +721,12 @@ char FG_FASTCALL MsgHitCRect(const FG_Msg* msg, const fgElement* child)
 }
 
 BSS_FORCEINLINE fgElement*& fgElement_prev(fgElement* p) { return p->prev; }
-BSS_FORCEINLINE fgElement*& fgElement_prevclip(fgElement* p) { return p->prevclip; }
+BSS_FORCEINLINE fgElement*& fgElement_previnject(fgElement* p) { return p->previnject; }
+BSS_FORCEINLINE fgElement*& fgElement_prevnoclip(fgElement* p) { return p->prevnoclip; }
 
 BSS_FORCEINLINE fgElement*& fgElement_next(fgElement* p) { return p->next; }
-BSS_FORCEINLINE fgElement*& fgElement_nextclip(fgElement* p) { return p->nextclip; }
+BSS_FORCEINLINE fgElement*& fgElement_nextinject(fgElement* p) { return p->nextinject; }
+BSS_FORCEINLINE fgElement*& fgElement_nextnoclip(fgElement* p) { return p->nextnoclip; }
 
 template<fgElement*&(*PREV)(fgElement*), fgElement*&(*NEXT)(fgElement*)>
 void FG_FASTCALL LList_Remove(fgElement* self, fgElement** root, fgElement** last)
@@ -667,15 +740,15 @@ void FG_FASTCALL LList_Remove(fgElement* self, fgElement** root, fgElement** las
 
 void FG_FASTCALL LList_RemoveAll(fgElement* self)
 {
+  assert(self->parent != 0);
   LList_Remove<fgElement_prev, fgElement_next>(self, &self->parent->root, &self->parent->last); // Remove ourselves from our parent
   if(!(self->flags&FGELEMENT_IGNORE))
   {
     fgElement_MouseMoveCheck(self); // we have to check if the mouse intersects the child BEFORE we remove it so we can properly resolve relative coordinates.
-    if(self->flags&FGELEMENT_NOCLIP)
-      LList_Remove<fgElement_prevclip, fgElement_nextclip>(self, &self->parent->rootnoclip, &self->parent->lastnoclip);
-    else
-      LList_Remove<fgElement_prevclip, fgElement_nextclip>(self, &self->parent->rootclip, &self->parent->lastclip);
+    LList_Remove<fgElement_previnject, fgElement_nextinject>(self, &self->parent->rootinject, &self->parent->lastinject);
   }
+  if(self->flags&FGELEMENT_NOCLIP)
+    LList_Remove<fgElement_prevnoclip, fgElement_nextnoclip>(self, &self->parent->rootnoclip, &self->parent->lastnoclip); // Remove ourselves from our parent
 }
 
 template<fgElement*&(*PREV)(fgElement*), fgElement*&(*NEXT)(fgElement*)>
@@ -689,30 +762,34 @@ void FG_FASTCALL LList_Insert(fgElement* self, fgElement* cur, fgElement* prev, 
   else *last = self; // Cur is null if we are at the end of the list, so update last
 }
 
-template<fgElement*&(*GET)(fgElement*)>
-fgElement* FG_FASTCALL LList_FindClip(fgElement* BSS_RESTRICT self)
+template<fgElement*&(*GET)(fgElement*), fgFlag FLAG>
+fgElement* FG_FASTCALL LList_Find(fgElement* BSS_RESTRICT self)
 {
   fgFlag flags = self->flags;
   do
   {
     self = GET(self);
-  } while(self && (self->flags&(FGELEMENT_NOCLIP | FGELEMENT_IGNORE)) != (flags&(FGELEMENT_NOCLIP | FGELEMENT_IGNORE)));
+  } while(self && (self->flags&FLAG) != (flags&FLAG));
   return self;
 }
 
 void FG_FASTCALL LList_InsertAll(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT next)
 {
+  assert(self->parent != 0);
   fgElement* prev = !next ? self->parent->last : next->prev;
   LList_Insert<fgElement_prev, fgElement_next>(self, next, prev, &self->parent->root, &self->parent->last);
   if(!(self->flags&FGELEMENT_IGNORE))
   {
-    prev = LList_FindClip<fgElement_prev>(self); // Ensure that prev and next are appropriately set to elements that match our clipping status.
-    next = LList_FindClip<fgElement_next>(self); // we DO NOT use fgElement_prevclip or fgElement_nextclip here because they haven't been set yet.
-    if(self->flags&FGELEMENT_NOCLIP)
-      LList_Insert<fgElement_prevclip, fgElement_nextclip>(self, next, prev, &self->parent->rootnoclip, &self->parent->lastnoclip);
-    else
-      LList_Insert<fgElement_prevclip, fgElement_nextclip>(self, next, prev, &self->parent->rootclip, &self->parent->lastclip);
+    prev = LList_Find<fgElement_prev, FGELEMENT_IGNORE>(self); // Ensure that prev and next are appropriately set to elements that match our clipping status.
+    next = LList_Find<fgElement_next, FGELEMENT_IGNORE>(self); // we DO NOT use fgElement_prevclip or fgElement_nextclip here because they haven't been set yet.
+    LList_Insert<fgElement_previnject, fgElement_nextinject>(self, next, prev, &self->parent->rootinject, &self->parent->lastinject);
     fgElement_MouseMoveCheck(self); // This has to be AFTER so we can properly resolve relative coordinates
+  } 
+  if(self->flags&FGELEMENT_NOCLIP)
+  {
+    prev = LList_Find<fgElement_prev, FGELEMENT_NOCLIP>(self);
+    next = LList_Find<fgElement_next, FGELEMENT_NOCLIP>(self);
+    LList_Insert<fgElement_prev, fgElement_next>(self, next, prev, &self->parent->rootnoclip, &self->parent->lastnoclip);
   }
 }
 
@@ -841,7 +918,7 @@ size_t FG_FASTCALL fgElement::AddChild(fgElement* child, fgElement* next) { retu
 
 size_t FG_FASTCALL fgElement::RemoveChild(fgElement* child) { return _sendmsg<FG_REMOVECHILD, void*>(this, child); }
 
-size_t FG_FASTCALL fgElement::LayoutFunction(const FG_Msg& msg, const CRect& area) { return _sendmsg<FG_LAYOUTFUNCTION, const void*, const void*>(this, &msg, &area); }
+size_t FG_FASTCALL fgElement::LayoutFunction(const FG_Msg& msg, const CRect& area, bool scrollbar) { return _sendsubmsg<FG_LAYOUTFUNCTION, const void*, const void*>(this, !!scrollbar, &msg, &area); }
 
 void fgElement::LayoutChange(unsigned char subtype, fgElement* target, fgElement* old) { _sendsubmsg<FG_LAYOUTCHANGE, void*, void*>(this, subtype, target, old); }
 

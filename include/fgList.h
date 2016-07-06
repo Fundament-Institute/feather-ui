@@ -12,7 +12,7 @@ extern "C" {
 
 enum FGLIST_FLAGS
 {
-  FGLIST_SINGLESELECT = (FGBOX_FIXEDY << 1),
+  FGLIST_SINGLESELECT = (FGBOX_DISTRIBUTEY << 1),
   FGLIST_MULTISELECT = (FGLIST_SINGLESELECT << 1),
   FGLIST_DRAGGABLE = (FGLIST_MULTISELECT << 1),
 };
@@ -20,9 +20,9 @@ enum FGLIST_FLAGS
 // A List is an arbitrary list of items with a number of different layout options that are selectable and/or draggable.
 typedef struct {
   fgBox box;
-  fgElement selector;
-  fgElement hover;
-  fgElement* selected; // points to current selected item
+  fgColor select;
+  fgColor hover;
+  fgVectorElement selected; // vector of all selected elements
   fgMouseState mouse;
 #ifdef  __cplusplus
   inline operator fgElement*() { return &box.window.control.element; }

@@ -8,6 +8,10 @@
 #include "fgResource.h"
 #include "feathercpp.h"
 #include "fgBox.h"
+#include "bss-util/cXML.h"
+
+#include <fstream>
+#include <sstream>
 
 KHASH_INIT(fgFunctionMap, const char*, fgListener, 1, kh_str_hash_func, kh_str_hash_equal);
 
@@ -230,9 +234,6 @@ inline char FG_FASTCALL fgLayout_ExpandY(CRect* selfarea, fgElement* child, FABS
 
 size_t FG_FASTCALL fgDefaultLayout(fgElement* self, const FG_Msg* msg, CRect* area, AbsRect* parent)
 {
-  if(!(self->flags & FGELEMENT_EXPAND))
-    return 0;
-
   fgElement* child = (fgElement*)msg->other;
   assert(!child || !(child->flags & FGELEMENT_BACKGROUND));
 
@@ -253,10 +254,8 @@ size_t FG_FASTCALL fgDefaultLayout(fgElement* self, const FG_Msg* msg, CRect* ar
   case FGELEMENT_LAYOUTADD:
   {
     char dim = 0;
-    if(self->flags & FGELEMENT_EXPANDX)
-      dim |= fgLayout_ExpandX(area, child, parent->right - parent->left);
-    if(self->flags & FGELEMENT_EXPANDY)
-      dim |= fgLayout_ExpandY(area, child, parent->bottom - parent->top);
+    dim |= fgLayout_ExpandX(area, child, parent->right - parent->left);
+    dim |= fgLayout_ExpandY(area, child, parent->bottom - parent->top);
     return dim;
   }
   case FGELEMENT_LAYOUTREMOVE:
@@ -264,11 +263,9 @@ size_t FG_FASTCALL fgDefaultLayout(fgElement* self, const FG_Msg* msg, CRect* ar
     CRect* childarea = &child->transform.area;
     FABS dx = self->transform.area.right.abs - self->transform.area.left.abs;
     FABS dy = self->transform.area.bottom.abs - self->transform.area.top.abs;
-    if(((self->flags & FGELEMENT_EXPANDX) &&
-      childarea->right.rel == childarea->left.rel &&
+    if((childarea->right.rel == childarea->left.rel &&
       childarea->right.abs >= dx) ||
-      ((self->flags & FGELEMENT_EXPANDY) &&
-        childarea->bottom.rel == childarea->top.rel &&
+      (childarea->bottom.rel == childarea->top.rel &&
         childarea->bottom.abs >= dy))
     {
       FG_Msg m = *msg;
@@ -280,20 +277,16 @@ size_t FG_FASTCALL fgDefaultLayout(fgElement* self, const FG_Msg* msg, CRect* ar
   case FGELEMENT_LAYOUTRESET:
   {
     fgElement* hold = self->root;
-    if(self->flags & FGELEMENT_EXPANDX)
-      area->right.abs = area->left.abs; // Reset area to smallest possible, then re-add everything other than the removed child
-    if(self->flags & FGELEMENT_EXPANDY)
-      area->bottom.abs = area->top.abs;
+    area->right.abs = area->left.abs; // Reset area to smallest possible, then re-add everything other than the removed child
+    area->bottom.abs = area->top.abs;
     char dim = 0;
 
     while(hold) // O(n) by necessity
     {
       if(hold != child)
       {
-        if(self->flags & FGELEMENT_EXPANDX)
-          dim |= fgLayout_ExpandX(area, hold, parent->right - parent->left);
-        if(self->flags & FGELEMENT_EXPANDY)
-          dim |= fgLayout_ExpandY(area, hold, parent->bottom - parent->top);
+        dim |= fgLayout_ExpandX(area, hold, parent->right - parent->left);
+        dim |= fgLayout_ExpandY(area, hold, parent->bottom - parent->top);
       }
       hold = hold->next;
     }
@@ -385,30 +378,29 @@ FABS FG_FASTCALL fgTileLayoutGetPitch(fgElement* cur, char axis)
   return pitch;
 }
 
-size_t FG_FASTCALL fgTileLayout(fgElement* self, const FG_Msg* msg, fgFlag axes, CRect* area)
+size_t FG_FASTCALL fgTileLayout(fgElement* self, const FG_Msg* msg, fgFlag flags, CRect* area)
 {
-  AbsVec realsize = AbsVec { area->right.abs - area->left.abs, area->bottom.abs - area->top.abs };
+  AbsVec curdim = AbsVec { area->right.abs - area->left.abs, area->bottom.abs - area->top.abs };
   fgElement* child = (fgElement*)msg->other;
   fgElement* prev;
-  char axis = ((axes & FGBOX_TILE) && (axes & FGBOX_DISTRIBUTEY)) || ((axes & FGBOX_TILEY) && !(axes & FGBOX_TILEX));
+  char axis = ((flags & FGBOX_TILE) && (flags & FGBOX_DISTRIBUTEY)) || ((flags & FGBOX_TILEY) && !(flags & FGBOX_TILEX));
   FABS max = INFINITY;
-  if(axes & FGBOX_TILE)
+  if((flags & FGBOX_TILE) == FGBOX_TILE)
   {
     AbsRect out;
     ResolveRect(self, &out);
-    if((axes & FGBOX_DISTRIBUTEY) && !(self->flags & FGELEMENT_EXPANDY)) max = out.bottom - out.top;
-    else if(!(self->flags & FGELEMENT_EXPANDX)) max = out.right - out.left;
+    max = !axis ? ((self->flags & FGELEMENT_EXPANDX) ? self->maxdim.x : (out.right - out.left)) : ((self->flags & FGELEMENT_EXPANDY) ? self->maxdim.y : (out.bottom - out.top));
+    if(max < 0) max = INFINITY;
   }
 
-  AbsVec expand;
   switch(msg->subtype)
   {
   case FGELEMENT_LAYOUTRESET:
-    expand = fgTileLayoutReorder(0, self->root, 0, axis, max, 0.0f, AbsVec { 0,0 });
+    curdim = fgTileLayoutReorder(0, self->root, 0, axis, max, 0.0f, AbsVec { 0,0 });
     break;
   case FGELEMENT_LAYOUTRESIZE:
-    if((((msg->otheraux & FGMOVE_RESIZEX) && !(self->flags&FGELEMENT_EXPANDX)) || ((msg->otheraux & FGMOVE_RESIZEY) && !(self->flags&FGELEMENT_EXPANDY))) && (axes & FGBOX_TILE))
-      expand = fgTileLayoutReorder(0, self->root, 0, axis, max, 0.0f, AbsVec { 0,0 });
+    if((((msg->otheraux & FGMOVE_RESIZEX) && !(self->flags&FGELEMENT_EXPANDX)) || ((msg->otheraux & FGMOVE_RESIZEY) && !(self->flags&FGELEMENT_EXPANDY))) && (flags & FGBOX_TILE))
+      curdim = fgTileLayoutReorder(0, self->root, 0, axis, max, 0.0f, AbsVec { 0,0 });
     else
       return 0;
     break;
@@ -422,57 +414,57 @@ size_t FG_FASTCALL fgTileLayout(fgElement* self, const FG_Msg* msg, fgFlag axes,
     child = !cur ? child : old;
 
     prev = fgLayout_GetPrev(child); // walk backwards until we hit the previous non-background element
-    expand = fgTileLayoutReorder(prev, child, 0, axis, max, (axes & FGBOX_TILE) ? fgTileLayoutGetPitch(prev, axis) : 0.0f, realsize);
+    curdim = fgTileLayoutReorder(prev, child, 0, axis, max, (flags & FGBOX_TILE) ? fgTileLayoutGetPitch(prev, axis) : 0.0f, curdim);
   }
   break;
   case FGELEMENT_LAYOUTMOVE:
     if(!(msg->otheraux&FGMOVE_RESIZE)) // Only reorder if the child was resized. Note that we need to resize even if it's the opposite axis to account for expansion
       return 0;
-    if(((self->flags&FGELEMENT_EXPANDX) && !(axes&FGBOX_TILEX)) || ((self->flags&FGELEMENT_EXPANDY) && !(axes&FGBOX_TILEY))) 
+    if(((self->flags&FGELEMENT_EXPANDX) && !(flags&FGBOX_TILEX)) || ((self->flags&FGELEMENT_EXPANDY) && !(flags&FGBOX_TILEY)))
     { // If we are expanding along an axis that isn't tiled, we have to recalculate the whole thing.
-      expand = fgTileLayoutReorder(0, self->root, 0, axis, max, 0.0f, AbsVec { 0,0 });
+      curdim = fgTileLayoutReorder(0, self->root, 0, axis, max, 0.0f, AbsVec { 0,0 });
       break;
     }
 
     prev = fgLayout_GetPrev(child);
     if(prev)
-      realsize = AbsVec { prev->transform.area.right.abs, prev->transform.area.bottom.abs };
+      curdim = AbsVec { prev->transform.area.right.abs, prev->transform.area.bottom.abs };
     else
-      realsize = AbsVec { 0,0 };
+      curdim = AbsVec { 0,0 };
 
     prev = fgLayout_GetPrev(child);
-    expand = fgTileLayoutReorder(prev, child, 0, axis, max, (axes & FGBOX_TILE) ? fgTileLayoutGetPitch(prev, axis) : 0.0f, realsize);
+    curdim = fgTileLayoutReorder(prev, child, 0, axis, max, (flags & FGBOX_TILE) ? fgTileLayoutGetPitch(prev, axis) : 0.0f, curdim);
     break;
   case FGELEMENT_LAYOUTADD:
     prev = fgLayout_GetPrev(child);
-    expand = fgTileLayoutReorder(prev, child, 0, axis, max, (axes & FGBOX_TILE) ? fgTileLayoutGetPitch(prev, axis) : 0.0f, realsize);
+    curdim = fgTileLayoutReorder(prev, child, 0, axis, max, (flags & FGBOX_TILE) ? fgTileLayoutGetPitch(prev, axis) : 0.0f, curdim);
     break;
   case FGELEMENT_LAYOUTREMOVE:
-    if(((self->flags&FGELEMENT_EXPANDX) && !(axes&FGBOX_TILEX)) || ((self->flags&FGELEMENT_EXPANDY) && !(axes&FGBOX_TILEY)))
+    if(((self->flags&FGELEMENT_EXPANDX) && !(flags&FGBOX_TILEX)) || ((self->flags&FGELEMENT_EXPANDY) && !(flags&FGBOX_TILEY)))
     { // If we are expanding along an axis that isn't tiled, we have to recalculate the whole thing.
-      expand = fgTileLayoutReorder(0, self->root, child, axis, max, 0.0f, AbsVec { 0,0 });
+      curdim = fgTileLayoutReorder(0, self->root, child, axis, max, 0.0f, AbsVec { 0,0 });
       break;
     }
 
     prev = fgLayout_GetPrev(child);
     if(prev)
-      realsize = AbsVec { prev->transform.area.right.abs, prev->transform.area.bottom.abs };
+      curdim = AbsVec { prev->transform.area.right.abs, prev->transform.area.bottom.abs };
     else
-      realsize = AbsVec { 0,0 };
+      curdim = AbsVec { 0,0 };
 
-    expand = fgTileLayoutReorder(prev, fgLayout_GetNext(child), 0, axis, max, (axes & FGBOX_TILE) ? fgTileLayoutGetPitch(prev, axis) : 0.0f, realsize);
+    curdim = fgTileLayoutReorder(prev, fgLayout_GetNext(child), 0, axis, max, (flags & FGBOX_TILE) ? fgTileLayoutGetPitch(prev, axis) : 0.0f, curdim);
     break;
   }
 
   char dim = 0; // We always expand the area regardless of the EXPAND flags because the function that calls this should use the information appropriately.
-  if(area->right.abs - area->left.abs != expand.x)
+  if(area->right.abs - area->left.abs != curdim.x)
   {
-    area->right.abs = area->left.abs + expand.x;
+    area->right.abs = area->left.abs + curdim.x;
     dim |= FGMOVE_RESIZEX;
   }
-  if(area->bottom.abs - area->top.abs != expand.y)
+  if(area->bottom.abs - area->top.abs != curdim.y)
   {
-    area->bottom.abs = area->top.abs + expand.y;
+    area->bottom.abs = area->top.abs + curdim.y;
     dim |= FGMOVE_RESIZEY;
   }
   return dim;
@@ -498,4 +490,33 @@ size_t FG_FASTCALL fgDistributeLayout(fgElement* self, const FG_Msg* msg, fgFlag
   }*/
 
   return 0;
+}
+
+void FG_FASTCALL fgLayout_LoadFileUBJSON(fgLayout* self, const char* file)
+{
+}
+void FG_FASTCALL fgLayout_LoadUBJSON(fgLayout* self, const char* data, FG_UINT length)
+{
+
+}
+
+bool FG_FASTCALL fgLayout_LoadStreamXML(fgLayout* self, std::istream& s)
+{
+  bss_util::cXML xml(s);
+  if(xml[0] && !STRICMP(xml[0]->GetName(), "fg:Layout"))
+  {
+
+  }
+  else
+    return false;
+  return true;
+}
+void FG_FASTCALL fgLayout_LoadFileXML(fgLayout* self, const char* file)
+{
+  fgLayout_LoadStreamXML(self, std::ifstream(file, std::ios_base::in));
+}
+
+void FG_FASTCALL fgLayout_LoadXML(fgLayout* self, const char* data, FG_UINT length)
+{
+  fgLayout_LoadStreamXML(self, std::stringstream(std::string(data, length)));
 }

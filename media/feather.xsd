@@ -126,6 +126,7 @@
       <xs:element name="Textbox" type="fgTextbox" />
       <xs:element name="Window" type="fgWindow" />
       <xs:element name="TreeView" type="fgTreeView" />
+      <xs:element name="Toolbar" type="fgToolbar" />
     </xs:choice>
   </xs:group>
 
@@ -295,7 +296,6 @@
     </xs:complexContent>
   </xs:complexType>
 
-
   <xs:complexType name="fgTabGroup">
     <xs:complexContent>
       <xs:extension base="fgLayoutBase">
@@ -377,6 +377,25 @@
     </xs:complexContent>
   </xs:complexType>
 
+  <xs:complexType name="fgToolbar">
+    <xs:complexContent>
+      <xs:extension base="fgLayoutBase">
+        <xs:choice>
+          <xs:element name="ToolGroup" minOccurs="0" maxOccurs="unbounded">
+            <xs:complexType>
+              <xs:complexContent>
+                <xs:extension base="fgLayout">
+                  <xs:attribute name="flags" type="fgFlags"/>
+                </xs:extension>
+              </xs:complexContent>
+            </xs:complexType>
+          </xs:element>
+        </xs:choice>
+        <xs:attribute name="flags" type="fgFlags"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  
   <xs:element name="Layout">
     <xs:complexType>
       <xs:complexContent>

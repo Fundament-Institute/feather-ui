@@ -119,13 +119,13 @@ size_t BSS_FASTCALL fgUTF32toUTF16(const int*BSS_RESTRICT input, ptrdiff_t srcle
   UTF16* targetEnd = target + buflen;
   if(srclen < 0) srclen = PTRDIFF_MAX;
   buflen = 1;
-  while(*input && (input - (const char*)source) < srclen)
+  while(*input && (input - (const int*)source) < srclen)
   {
     buflen += 1 + (*input > UNI_MAX_BMP);
     ++input;
   }
   if(!output) return buflen;
-  if((input - (const char*)source) < srclen) sourceEnd = ++input; // include null terminator
+  if((input - (const int*)source) < srclen) sourceEnd = ++input; // include null terminator
 
   while(source < sourceEnd)
   {
@@ -257,7 +257,7 @@ size_t BSS_FASTCALL fgUTF32toUTF8(const int*BSS_RESTRICT input, ptrdiff_t srclen
   UTF8* targetEnd = target + buflen;
   if(srclen < 0) srclen = PTRDIFF_MAX;
   buflen = 1;
-  while(*input && (input - (const char*)source) < srclen)
+  while(*input && (input - (const int*)source) < srclen)
   {
     if(*input < (UTF32)0x80)
       buflen += 1;
@@ -272,7 +272,7 @@ size_t BSS_FASTCALL fgUTF32toUTF8(const int*BSS_RESTRICT input, ptrdiff_t srclen
     ++input;
   }
   if(!output) return buflen;
-  if((input - (const char*)source) < srclen)
+  if((input - (const int*)source) < srclen)
     sourceEnd = ++input; // increment to include null terminator if we hit one
 
   while(source < sourceEnd)

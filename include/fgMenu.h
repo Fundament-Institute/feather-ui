@@ -19,7 +19,6 @@ typedef struct _FG_SUBMENU {
 // A Menu is either a window menu or a context menu. Turns into a menubar if made the child of a top-level window
 typedef struct _FG_MENU {
   fgScrollbar window;
-  fgElement highlight;
   fgElement arrow;
   fgElement seperator; // cloned to replace a null value inserted into the list. This allows a style to control the size and appearence of the seperator.
   struct _FG_MENU* expanded; // holds the submenu that is currently expanded, if one is.

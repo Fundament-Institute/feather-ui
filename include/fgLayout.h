@@ -38,7 +38,6 @@ FG_EXTERN char FG_FASTCALL fgLayout_RemoveFont(fgLayout* self, FG_UINT font);
 FG_EXTERN void* FG_FASTCALL fgLayout_GetFont(fgLayout* self, FG_UINT font);
 FG_EXTERN FG_UINT FG_FASTCALL fgLayout_AddLayout(fgLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, int order = 0);
 FG_EXTERN char FG_FASTCALL fgLayout_RemoveLayout(fgLayout* self, FG_UINT layout);
-FG_EXTERN fgElement* FG_FASTCALL fgLayout_GetID(fgLayout* self, const char* id);
 FG_EXTERN fgClassLayout* FG_FASTCALL fgLayout_GetLayout(fgLayout* self, FG_UINT layout);
 FG_EXTERN int FG_FASTCALL fgLayout_RegisterFunction(fgListener fn, const char* name);
 FG_EXTERN void FG_FASTCALL fgLayout_ApplyFunctions(fgElement* root);
@@ -49,12 +48,15 @@ FG_EXTERN FG_UINT FG_FASTCALL fgClassLayout_AddChild(fgClassLayout* self, const 
 FG_EXTERN char FG_FASTCALL fgClassLayout_RemoveChild(fgClassLayout* self, FG_UINT child);
 FG_EXTERN fgClassLayout* FG_FASTCALL fgClassLayout_GetChild(fgClassLayout* self, FG_UINT child);
 
-FG_EXTERN fgLayout* FG_FASTCALL fgLayout_LoadFileUBJSON(const char* file);
-FG_EXTERN fgLayout* FG_FASTCALL fgLayout_LoadUBJSON(const void* data, FG_UINT length);
+FG_EXTERN fgElement* FG_FASTCALL fgLayout_GetID(fgLayout* self, const char* id);
+FG_EXTERN void FG_FASTCALL fgLayout_LoadFileUBJSON(fgLayout* self, const char* file);
+FG_EXTERN void FG_FASTCALL fgLayout_LoadUBJSON(fgLayout* self, const char* data, FG_UINT length);
+FG_EXTERN void FG_FASTCALL fgLayout_LoadFileXML(fgLayout* self, const char* file);
+FG_EXTERN void FG_FASTCALL fgLayout_LoadXML(fgLayout* self, const char* data, FG_UINT length);
 
 FG_EXTERN size_t FG_FASTCALL fgDefaultLayout(fgElement* self, const FG_Msg* msg, CRect* area, AbsRect* parent);
 FG_EXTERN size_t FG_FASTCALL fgDistributeLayout(fgElement* self, const FG_Msg* msg, fgFlag axis);
-FG_EXTERN size_t FG_FASTCALL fgTileLayout(fgElement* self, const FG_Msg* msg, fgFlag axes, CRect* area);
+FG_EXTERN size_t FG_FASTCALL fgTileLayout(fgElement* self, const FG_Msg* msg, fgFlag flags, CRect* area);
 
 #ifdef  __cplusplus
 }

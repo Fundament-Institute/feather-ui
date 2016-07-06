@@ -49,11 +49,12 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
     switch(msg->type)
     {
     case FG_MOUSEDOWN:
+    case FG_MOUSEMOVE:
+      fgElement_DoHoverCalc(*self);
     case FG_MOUSEDBLCLICK:
     case FG_MOUSEUP:
     case FG_MOUSEON:
     case FG_MOUSEOFF:
-    case FG_MOUSEMOVE:
     case FG_MOUSESCROLL:
     case FG_MOUSELEAVE:
     case FG_TOUCHBEGIN:
@@ -205,11 +206,12 @@ size_t FG_FASTCALL fgControl_HoverMessage(fgControl* self, const FG_Msg* msg)
     switch(msg->type)
     {
     case FG_MOUSEDOWN:
+    case FG_MOUSEMOVE:
+      fgElement_DoHoverCalc(*self);
     case FG_MOUSEDBLCLICK:
     case FG_MOUSEUP:
     case FG_MOUSEON:
     case FG_MOUSEOFF:
-    case FG_MOUSEMOVE:
     case FG_MOUSESCROLL:
     case FG_MOUSELEAVE:
     case FG_TOUCHBEGIN:

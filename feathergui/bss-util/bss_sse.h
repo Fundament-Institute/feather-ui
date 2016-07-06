@@ -24,17 +24,6 @@
 #define BSS_SSE_CMPEQ_PS _mm_cmpeq_ps
 #define BSS_SSE_CMPNEQ_PS _mm_cmpneq_ps
 
-#ifdef BSS_COMPILER_CLANG
-#define BSS_SSE_CMPLT_PS
-#define BSS_SSE_CMPLTE_PS
-#define BSS_SSE_CMPGT_PS
-#else
-#define BSS_SSE_CMPLT_PS _mm_cmplt_ps
-#define BSS_SSE_CMPLTE_PS _mm_cmple_ps
-#define BSS_SSE_CMPGT_PS _mm_cmpgt_ps
-#endif
-
-#define BSS_SSE_CMPGTE_PS _mm_cmpge_ps
 #define BSS_SSE_SS_F32 _mm_cvtss_f32
 
 #define BSS_SSE_LOAD_APD _mm_load_pd
@@ -51,6 +40,10 @@
 //#define BSS_SSE_MAX_PD _mm_max_pd
 #define BSS_SSE_MIN_PD bss_mm_min_pd
 #define BSS_SSE_MAX_PD bss_mm_max_pd
+#define BSS_SSE_CMPLT_PS _mm_cmplt_ps
+#define BSS_SSE_CMPLTE_PS _mm_cmple_ps
+#define BSS_SSE_CMPGT_PS _mm_cmpgt_ps
+#define BSS_SSE_CMPGTE_PS _mm_cmpge_ps
 #define BSS_SSE_CMPEQ_PD _mm_cmpeq_pd
 #define BSS_SSE_CMPNEQ_PD _mm_cmpneq_pd
 #define BSS_SSE_CMPLT_PD _mm_cmplt_pd
@@ -140,6 +133,16 @@
 #define BSS_SSE_M128d __m128d
 
 #define BSS_SSE_SHUFFLE(x,y,z,w) ((w<<6) | (z<<4) | (y<<2) | x)
+
+#ifdef BSS_COMPILER_CLANG
+#define BSS_SSE_CMPLT_PS 
+#define BSS_SSE_CMPLTE_PS 
+#define BSS_SSE_CMPGT_PS 
+#define BSS_SSE_CMPGTE_PS 
+#define BSS_SSE_SAR_EPI32
+#define BSS_SSE_EPI32_PS
+#define BSS_SSE_TPS_EPI32
+#endif
 
 // SSE2 does not have min or max, so we use this manual implementation of the instruction
 BSS_FORCEINLINE BSS_SSE_M128i BSS_FASTCALL bss_mm_min_epi32(BSS_SSE_M128i a, BSS_SSE_M128i b)

@@ -11,6 +11,7 @@
 #include "fgTextbox.h"
 #include "fgTreeView.h"
 #include "fgDebug.h"
+#include "fgList.h"
 #include "feathercpp.h"
 #include "bss-util/cTrie.h"
 #include <stdlib.h>
@@ -103,29 +104,33 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
   return fgControl_Message((fgControl*)self,msg);
 }
 
-void BSS_FORCEINLINE fgStandardDrawElement(fgElement* self, fgElement* hold, AbsRect* area, size_t dpi, AbsRect& curarea, bool& clipping)
+void BSS_FORCEINLINE fgStandardApplyClipping(fgElement* hold, const AbsRect* area, bool& clipping)
+{
+  if(!clipping && !(hold->flags&FGELEMENT_NOCLIP))
+  {
+    clipping = true;
+    fgPushClipRect(area);
+  }
+  else if(clipping && (hold->flags&FGELEMENT_NOCLIP))
+  {
+    clipping = false;
+    fgPopClipRect();
+  }
+}
+
+void BSS_FORCEINLINE fgStandardDrawElement(fgElement* self, fgElement* hold, const AbsRect* area, size_t dpi, AbsRect& curarea, bool& clipping)
 {
   if(!(hold->flags&FGELEMENT_HIDDEN))
   {
     ResolveRectCache(hold, &curarea, area, (hold->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
-
-    if(!clipping && !(hold->flags&FGELEMENT_NOCLIP))
-    {
-      clipping = true;
-      fgPushClipRect(area);
-    }
-    else if(clipping && (hold->flags&FGELEMENT_NOCLIP))
-    {
-      clipping = false;
-      fgPopClipRect();
-    }
+    fgStandardApplyClipping(hold, area, clipping);
 
     char culled = !fgRectIntersect(&curarea, &fgPeekClipRect());
     _sendsubmsg<FG_DRAW, void*, size_t>(hold, culled, &curarea, dpi);
   }
 }
 
-void FG_FASTCALL fgStandardDraw(fgElement* self, AbsRect* area, size_t dpi, char culled)
+void FG_FASTCALL fgStandardDraw(fgElement* self, const AbsRect* area, size_t dpi, char culled)
 {
   fgElement* hold = culled ? self->rootnoclip : self->root;
   AbsRect curarea;
@@ -134,14 +139,14 @@ void FG_FASTCALL fgStandardDraw(fgElement* self, AbsRect* area, size_t dpi, char
   while(hold)
   {
     fgStandardDrawElement(self, hold, area, dpi, curarea, clipping);
-    hold = culled ? hold->nextclip : hold->next;
+    hold = culled ? hold->nextnoclip : hold->next;
   }
 
   if(clipping)
     fgPopClipRect();
 }
 
-void FG_FASTCALL fgOrderedDraw(fgElement* self, AbsRect* area, size_t dpi, char culled, fgElement** ordered, size_t numordered)
+void FG_FASTCALL fgOrderedDraw(fgElement* self, const AbsRect* area, size_t dpi, char culled, fgElement* skip, fgElement* (*fn)(fgElement*, const AbsRect*))
 {
   if(culled) // If we are culled, thee's no point drawing ordered elements, because ordered elements aren't non-clipping, so we let the standard draw take care of it.
     return fgStandardDraw(self, area, dpi, culled);
@@ -157,9 +162,9 @@ void FG_FASTCALL fgOrderedDraw(fgElement* self, AbsRect* area, size_t dpi, char 
   }
 
   // do binary search on the absolute resolved bottomright coordinates compared to the topleft corner of the render area
-  cur = 0;
+  cur = fn(self, area);
 
-  clipping = true; // always clipping at this stage
+  clipping = true; // always clipping at this stage because ordered elements can't be nonclipping
   fgPushClipRect(area);
   char cull = 0;
 
@@ -168,8 +173,10 @@ void FG_FASTCALL fgOrderedDraw(fgElement* self, AbsRect* area, size_t dpi, char 
     ResolveRectCache(cur, &curarea, area, &self->padding); // always apply padding because these are always foreground elements
     cull = !fgRectIntersect(&curarea, &fgPeekClipRect());
     _sendsubmsg<FG_DRAW, void*, size_t>(cur, cull, &curarea, dpi);
+    cur = cur->next;
   }
 
+  cur = skip;
   while(cur != 0 && (cur->flags & FGELEMENT_BACKGROUND)) // Render all background elements after the ordered elements
   {
     fgStandardDrawElement(self, cur, area, dpi, curarea, clipping);
@@ -178,6 +185,11 @@ void FG_FASTCALL fgOrderedDraw(fgElement* self, AbsRect* area, size_t dpi, char 
 
   if(clipping)
     fgPopClipRect();
+}
+
+void FG_FASTCALL fgFixedDraw(fgElement* self, AbsRect* area, size_t dpi, char culled, fgElement** ordered, size_t numordered, AbsVec dim)
+{
+
 }
 
 
@@ -190,32 +202,27 @@ size_t FG_FASTCALL fgStandardInject(fgElement* self, const FG_Msg* msg, const Ab
     return 0;
 
   AbsRect curarea;
-  if(!area) // IF this is null either we are the root or this is a captured message, in which case we would have to resolve the entire relative coordinate chain anyway
+  if(!area) // If this is null either we are the root or this is a captured message, in which case we would have to resolve the entire relative coordinate chain anyway
     ResolveRect(self, &curarea);
   else
     ResolveRectCache(self, &curarea, area, (self->flags & FGELEMENT_BACKGROUND || !self->parent) ? 0 : &self->parent->padding);
 
-  fgElement* cur = self->lastnoclip;
-  while(cur) // Go through all our children that aren't being clipped
-  {
-    if(_sendmsg<FG_INJECT, const void*, const void*>(cur, msg, &curarea)) // We still need to properly evaluate hitboxes even for nonclipping elements.
-      return FG_ACCEPT; // If the message is NOT rejected, return 1 immediately to indicate we accepted the message.
-    cur=cur->prev; // Otherwise the child rejected the message.
-  }
-
-  if(area != 0 && !MsgHitAbsRect(msg, &curarea)) // If the event completely misses us, we must reject it. If the area is null, we always accept the message.
-    return 0;
-
-  cur = self->lastclip;
+  bool miss = (area != 0 && !MsgHitAbsRect(msg, &curarea)); // If the area is null, the message always hits.
+  fgElement* cur = miss ? self->lastnoclip : self->lastinject; // If the event completely misses us, evaluate only nonclipping elements.
   while(cur) // Try to inject to any children we have
   {
-    if(_sendmsg<FG_INJECT, const void*, const void*>(cur, msg, &curarea)) // If the message is NOT rejected, return 0 immediately.
-      return FG_ACCEPT;
-    cur = cur->prev; // Otherwise the child rejected the message.
+    if(!(cur->flags&FGELEMENT_IGNORE) && _sendmsg<FG_INJECT, const void*, const void*>(cur, msg, &curarea)) // We have to heck FGELEMENT_IGNORE because the noclip list may have render-only elements in it.
+      return FG_ACCEPT; // If the message is NOT rejected, return 1 immediately to indicate we accepted the message.
+    cur = miss ? cur->prevnoclip : cur->previnject; // Otherwise the child rejected the message.
   }
 
   // If we get this far either we have no children, the event missed them all, or they all rejected the event...
-  return (*fgroot_instance->behaviorhook)(self,msg); // So we give the event to ourselves
+  return miss ? 0 : (*fgroot_instance->behaviorhook)(self,msg); // So we give the event to ourselves, but only if it didn't miss us (which can happen if we were evaluating nonclipping elements)
+}
+
+void FG_FASTCALL fgOrderedInject(fgElement* self, const FG_Msg* msg, const AbsRect* area, fgElement* skip, fgElement* (*fn)(fgElement*, const AbsRect*))
+{
+
 }
 
 size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
@@ -404,8 +411,8 @@ fgElement* _create_default(fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRI
 
 fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  static bss_util::cTrie<uint16_t> t(15, "element", "control", "resource", "text", "box", "scrollbar", "button", "window", "checkbox",
-    "radiobutton", "progressbar", "slider", "textbox", "treeview", "treeitem", "debug");
+  static bss_util::cTrie<uint16_t> t(17, "element", "control", "resource", "text", "box", "scrollbar", "button", "window", "checkbox",
+    "radiobutton", "progressbar", "slider", "textbox", "treeview", "treeitem", "list", "debug");
   
   size_t len = strlen(type) + 1; // include null terminator
   DYNARRAY(char, lower, len);
@@ -445,6 +452,8 @@ fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT
   case 14:
     return _create_default<fgTreeItem, fgTreeItem_Init>(parent, next, name, flags, transform);
   case 15:
+    return _create_default<fgList, fgList_Init>(parent, next, name, flags, transform);
+  case 16:
     return _create_default<fgDebug, fgDebug_Init>(parent, next, name, flags, transform);
   }
 

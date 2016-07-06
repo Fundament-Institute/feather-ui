@@ -46,8 +46,8 @@ void FG_FASTCALL fgDestroyResource(void* res) { }
 void FG_FASTCALL fgDrawResource(void* res, const CRect* uv, unsigned int color, unsigned int edge, FABS outline, const AbsRect* area, FABS rotation, AbsVec* center, fgFlag flags) {}
 void FG_FASTCALL fgResourceSize(void* res, const CRect* uv, AbsVec* dim, fgFlag flags) { }
 
-size_t FG_FASTCALL fgFontIndex(void* font, const int* text, float lineheight, float letterspacing, AbsVec pos, size_t last, AbsVec* cache) { return 0; }
-AbsVec FG_FASTCALL fgFontPos(void* font, const int* text, float lineheight, float letterspacing, size_t index, size_t last, AbsVec cache) { AbsVec a = { 0,0 }; return a; }
+size_t FG_FASTCALL fgFontIndex(void* font, const int* text, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, AbsVec pos, AbsVec* cursor, void* cache) { return 0; }
+AbsVec FG_FASTCALL fgFontPos(void* font, const int* text, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, size_t index, void* cache) { AbsVec a = { 0,0 }; return a; }
 
 fgElement* FG_FASTCALL fgCreate(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
@@ -72,7 +72,7 @@ AbsRect* clipstack = 0;
 size_t clipcapacity = 0;
 size_t clipnum = 0;
 
-void fgPushClipRect(AbsRect* clip)
+void fgPushClipRect(const AbsRect* clip)
 {
   if(clipcapacity >= clipnum)
   {
@@ -98,4 +98,4 @@ void fgClipboardCopy(unsigned int type, const void* data, size_t length) {}
 char fgClipboardExists(unsigned int type) { return 0; }
 const void* fgClipboardPaste(unsigned int type, size_t* length) { return 0; }
 void fgClipboardFree(const void* mem) {}
-void fgDirtyElement(fgTransform* elem) {}
+void fgDirtyElement(fgElement* elem) {}

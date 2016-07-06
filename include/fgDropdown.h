@@ -4,7 +4,7 @@
 #ifndef _FG_DROPDOWN_H__
 #define _FG_DROPDOWN_H__
 
-#include "fgList.h"
+#include "fgBox.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -12,7 +12,7 @@ extern "C" {
 
 // A dropdown contains a list of arbitrary items and allows the user to select one.
 typedef struct {
-  fgList window; // ADDITEM is used to add an arbitrary object to the list. 
+  fgBox window; // ADDITEM is used to add an arbitrary object to the list. 
 #ifdef  __cplusplus
   inline operator fgElement*() { return &window.window.control.element; }
   inline fgElement* operator->() { return operator fgElement*(); }

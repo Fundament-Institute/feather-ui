@@ -29,7 +29,6 @@ size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgScrollbar_Message((fgScrollbar*)self, msg);
-    fgElement_Init(&self->highlight, *self, 0, "Menu:highlight", FGELEMENT_HIDDEN | FGELEMENT_IGNORE, &fgTransform_DEFAULT);
     fgElement_Init(&self->arrow, 0, 0, "Menu:arrow", FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0);
     fgElement_Init(&self->seperator, 0, 0, "Menu:seperator", FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0);
     return FG_ACCEPT;
@@ -65,16 +64,7 @@ size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
   case FG_MOUSEUP:
     break; // TODO: You may need to block all mouse messages from propagating down and manually trigger the hover calculations, because otherwise the mouse capture will break it.
   case FG_MOUSEMOVE:
-  {
-    AbsRect cache;
-    fgElement* child = fgElement_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
-    if(child)
-    {
-      CRect r = { child->transform.area.left.abs, 0, 0, 0, child->transform.area.right.abs, 0, 0, 1 };
-      _sendmsg<FG_SETAREA, void*>(&self->highlight, &r);
-    }
-  }
-  break;
+    break;
   case FG_MOUSEOFF:
     break; // the top level menu never turns off its hover
   case FG_ADDITEM:

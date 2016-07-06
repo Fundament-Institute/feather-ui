@@ -51,15 +51,19 @@ typedef struct _FG_ELEMENT {
   struct _FG_ELEMENT* last; // children list last
   struct _FG_ELEMENT* next;
   struct _FG_ELEMENT* prev;
-  struct _FG_ELEMENT* rootclip; // children with clipping list root
-  struct _FG_ELEMENT* lastclip; // children with clipping list last
-  struct _FG_ELEMENT* rootnoclip; // children with clipping list root
-  struct _FG_ELEMENT* lastnoclip; // children with clipping list last
-  struct _FG_ELEMENT* nextclip;
-  struct _FG_ELEMENT* prevclip;
+  struct _FG_ELEMENT* rootinject; // children without FGELEMENT_IGNORE
+  struct _FG_ELEMENT* lastinject;
+  struct _FG_ELEMENT* nextinject;
+  struct _FG_ELEMENT* previnject;
+  struct _FG_ELEMENT* rootnoclip; // children with FGELEMENT_NOCLIP
+  struct _FG_ELEMENT* lastnoclip;
+  struct _FG_ELEMENT* nextnoclip;
+  struct _FG_ELEMENT* prevnoclip;
   struct _FG_ELEMENT* lastfocus; // Stores the last child that had focus, if any. This never points to the child that CURRENTLY has focus, only to the child that HAD focus.
   AbsRect margin; // defines the amount of external margin.
   AbsRect padding; // Defines the amount of internal padding. Only affects children that DON'T have FGELEMENT_BACKGROUND set.
+  AbsVec maxdim;
+  AbsVec mindim;
   fgFlag flags;
   const struct _FG_SKIN* skin; // skin reference
   fgVectorElement skinrefs; // Type: fgElement* - References to skin children or subcontrols.
@@ -83,7 +87,7 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT  size_t FG_FASTCALL AddChild(struct _FG_ELEMENT* child, struct _FG_ELEMENT* next = 0);
   FG_DLLEXPORT size_t FG_FASTCALL RemoveChild(struct _FG_ELEMENT* child);
   FG_DLLEXPORT void FG_FASTCALL LayoutChange(unsigned char subtype, struct _FG_ELEMENT* target, struct _FG_ELEMENT* old);
-  FG_DLLEXPORT size_t FG_FASTCALL LayoutFunction(const FG_Msg& msg, const CRect& area);
+  FG_DLLEXPORT size_t FG_FASTCALL LayoutFunction(const FG_Msg& msg, const CRect& area, bool scrollbar = false);
   FG_DLLEXPORT size_t FG_FASTCALL LayoutLoad(struct _FG_LAYOUT* layout);
   FG_DLLEXPORT size_t Drag(struct _FG_ELEMENT* target, const FG_Msg& msg);
   FG_DLLEXPORT size_t Dragging(int x, int y);

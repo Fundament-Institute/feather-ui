@@ -22,11 +22,11 @@ size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_CONSTRUCT:
-    fgBox_Message(&self->box, msg);
-    self->selected = 0;
-    fgElement_Init(&self->selector, 0, 0, "List:selector", FGELEMENT_BACKGROUND, 0); // we do NOT set the parent of these because we need to manipulate when they get rendered.
-    fgElement_Init(&self->hover, 0, 0, "List:hover", FGELEMENT_BACKGROUND, 0);
-    return FG_ACCEPT;
+    memset(&self->selected, 0, sizeof(fgVectorElement));
+    memset(&self->mouse, 0, sizeof(fgMouseState));
+    self->select.color = 0x99999999;
+    self->hover.color = 0x99999999;
+    break;
   case FG_MOUSEDOWN:
     fgUpdateMouseState(&self->mouse, msg);
     break;
@@ -73,17 +73,10 @@ size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
   case FG_DRAW:
     if(!(msg->subtype & 1))
     {
-      AbsRect cache;
-      fgElement* target = fgElement_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
-
       if(self->mouse.state&FGMOUSE_DRAG)
       {
         //draw line
       }
-      else if(target)
-        _sendmsg<FG_DRAW>(*self, msg->other, msg->otheraux);
-
-      // If there are selections, draw them here.
     }
     break;
   case FG_GETCLASSNAME:

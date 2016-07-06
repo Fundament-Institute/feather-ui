@@ -16,9 +16,6 @@ fgElement* FG_FASTCALL fgText_Create(char* text, void* font, unsigned int color,
 }
 void FG_FASTCALL fgText_Init(fgText* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  self->cache = 0;
-  memset(&self->text, 0, sizeof(fgVectorString));
-  memset(&self->buf, 0, sizeof(fgVectorUTF32));
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, (fgDestroy)&fgText_Destroy, (fgMessage)&fgText_Message);
 }
 
@@ -37,6 +34,9 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_CONSTRUCT:
+    self->cache = 0;
+    memset(&self->text, 0, sizeof(fgVectorString));
+    memset(&self->buf, 0, sizeof(fgVectorUTF32));
     fgElement_Message(&self->element, msg);
     self->color.color = 0;
     self->font = 0;
@@ -66,8 +66,8 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
     }
 
 
-    fgText_Recalc        (self);
-    fgDirtyElement(&self->element.transform);
+    fgText_Recalc(self);
+    fgDirtyElement(*self);
     return FG_ACCEPT;
   case FG_SETFONT:
     if(self->font) fgDestroyFont(self->font);
@@ -81,21 +81,21 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
       self->font = (dpi == fontdpi) ? fgCloneFont(msg->other) : fgCopyFont(msg->other, fontsize, fontdpi);
     }
     fgText_Recalc(self);
-    fgDirtyElement(&self->element.transform);
+    fgDirtyElement(*self);
     return FG_ACCEPT;
   case FG_SETLINEHEIGHT:
     self->lineheight = msg->otherf;
     fgText_Recalc(self);
-    fgDirtyElement(&self->element.transform);
+    fgDirtyElement(*self);
     return FG_ACCEPT;
   case FG_SETLETTERSPACING:
     self->letterspacing = msg->otherf;
     fgText_Recalc(self);
-    fgDirtyElement(&self->element.transform);
+    fgDirtyElement(*self);
     return FG_ACCEPT;
   case FG_SETCOLOR:
     self->color.color = (unsigned int)msg->otherint;
-    fgDirtyElement(&self->element.transform);
+    fgDirtyElement(*self);
     return FG_ACCEPT;
   case FG_GETTEXT:
     return reinterpret_cast<size_t>(self->text.p);
@@ -140,11 +140,10 @@ void FG_FASTCALL fgText_Recalc(fgText* self)
     assert(!isnan(self->element.transform.area.left.abs) && !isnan(self->element.transform.area.top.abs) && !isnan(self->element.transform.area.right.abs) && !isnan(self->element.transform.area.bottom.abs));
     AbsRect area;
     ResolveRect(*self, &area);
-    if(self->element.flags&FGELEMENT_EXPANDX)
-      area.right = area.left;
+    if(self->element.flags&FGELEMENT_EXPANDX) // If maxdim is -1, this will translate into a -1 maxdim for the text and properly deal with all resizing cases.
+      area.right = area.left + self->element.maxdim.x;
     if(self->element.flags&FGELEMENT_EXPANDY)
-      area.bottom = area.top;
-
+      area.bottom = area.top + self->element.maxdim.y;
     fgFontSize(self->font, !self->text.p ? &UNICODE_TERMINATOR : self->text.p, self->lineheight, self->letterspacing, &area, self->element.flags);
     CRect adjust = self->element.transform.area;
     if(self->element.flags&FGELEMENT_EXPANDX)

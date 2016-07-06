@@ -30,7 +30,7 @@
 #endif
 #define CONCAT(...) __VA_ARGS__
 
-
+    
 // These yield float/int ranges using rand(). However, rand() is a horrible RNG, so unless you have a good reason, use bssrand() instead.
 #ifndef RANDFLOATGEN
 #define RANDFLOATGEN(min,max) (((max) - (min)) * (rand()/(RAND_MAX+1.0)) + (min))
@@ -103,7 +103,7 @@ public: \
 #define VSCPRINTF(format,args) _vscprintf(format,args)
 #define VSCWPRINTF(format,args) _vscwprintf(format,args)
 #define FOPEN(f, path, mode) fopen_s(&f, path, mode)
-#define WFOPEN(f, path, mode) _wfopen_s(&f, path, mode)
+#define WFOPEN(f, path, mode) _wfopen_s(&f, cStrW(path).c_str(), cStrW(mode).c_str())
 #define MEMCPY(dst,size,src,count) memcpy_s(dst,size,src,count)
 #define STRNCPY(dst,size,src,count) strncpy_s(dst,size,src,count)
 #define WCSNCPY(dst,size,src,count) wcsncpy_s(dst,size,src,count)
