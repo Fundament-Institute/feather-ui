@@ -9,6 +9,7 @@
 #include <stdarg.h>
 #include <vector>
 #include <assert.h>
+#include <stddef.h>
 #include "bss_util_c.h"
 #ifdef BSS_COMPILER_GCC
 #include <stdio.h>

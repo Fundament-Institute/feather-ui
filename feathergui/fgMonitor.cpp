@@ -59,6 +59,27 @@ size_t FG_FASTCALL fgMonitor_Message(fgMonitor* self, const FG_Msg* msg)
       }
       hold = hold->prev;
     }
+    return FG_ACCEPT;
+  }
+  case FG_SETAREA:
+  {
+    float scale = fgroot_instance->dpi / (float)self->dpi;
+    if(!msg->subtype)
+    {
+      size_t r = fgElement_Message(&self->element, msg);
+      self->coverage = AbsRect { self->element.transform.area.left.abs / scale, self->element.transform.area.top.abs / scale, self->element.transform.area.right.abs / scale, self->element.transform.area.bottom.abs / scale };
+      return r;
+    }
+    if(msg->other != 0)
+    {
+      self->coverage = *(AbsRect*)msg->other;
+      CRect area = { self->coverage.left*scale, 0, self->coverage.top*scale, 0, self->coverage.right*scale, 0, self->coverage.bottom*scale, 0 };
+      FG_Msg m = { 0 };
+      m.type = FG_SETAREA;
+      m.other = &area;
+      return fgElement_Message(&self->element, &m);
+    }
+    return 0;
   }
   case FG_GETCLASSNAME:
     return (size_t)"Monitor";

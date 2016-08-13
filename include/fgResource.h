@@ -15,7 +15,6 @@ enum FGRESOURCE_FLAGS
   FGRESOURCE_UVTILE = (1 << 8),
   FGRESOURCE_ROUNDRECT = (1 << 9), // Indicates this is a rounded rectangle
   FGRESOURCE_CIRCLE = (2 << 9), // Indicates this is a circle
-  FGRESOURCE_LINE = (3 << 9), // Indicates this is a line
   FGRESOURCE_SHAPEMASK = (3 << 9),
 };
 
@@ -43,9 +42,8 @@ FG_EXTERN void* FG_FASTCALL fgCreateResourceFile(fgFlag flags, const char* file)
 FG_EXTERN void* FG_FASTCALL fgCreateResource(fgFlag flags, const char* data, size_t length);
 FG_EXTERN void* FG_FASTCALL fgCloneResource(void* res);
 FG_EXTERN void FG_FASTCALL fgDestroyResource(void* res);
-FG_EXTERN void FG_FASTCALL fgDrawResource(void* res, const CRect* uv, unsigned int color, unsigned int edge, FABS outline, const AbsRect* area, FABS rotation, AbsVec* center, fgFlag flags);
+FG_EXTERN void FG_FASTCALL fgDrawResource(void* res, const CRect* uv, unsigned int color, unsigned int edge, FABS outline, const AbsRect* area, FABS rotation, const AbsVec* center, fgFlag flags);
 FG_EXTERN void FG_FASTCALL fgResourceSize(void* res, const CRect* uv, AbsVec* dim, fgFlag flags);
-FG_EXTERN void FG_FASTCALL fgDrawLine(AbsVec p1, AbsVec p2, unsigned int color);
 
 #ifdef  __cplusplus
 }

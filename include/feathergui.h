@@ -223,6 +223,7 @@ enum FG_MSGTYPE
   FG_GETITEM,
   FG_ADDITEM, // Used for anything involving items (menus, lists, etc)
   FG_REMOVEITEM,
+  FG_SETITEM,
   FG_GETSELECTEDITEM, // Used to get the selected item (or items, or text) in a control.
   // fgCheckbox, fgRadioButton, fgProgressbar, etc.
   FG_GETSTATE, // Gets the on/off state of a checkbox or the current progress on a progress bar

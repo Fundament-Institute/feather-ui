@@ -34,10 +34,10 @@ namespace bss_util {
     inline operator bool() const { return Valid(); }
 
     BSS_FORCEINLINE bool Valid() const { return start != 0 && length != 0; }
-    BSS_FORCEINLINE const T& Front() const { assert(_length>0); return start[0]; }
-    BSS_FORCEINLINE const T& Back() const { assert(_length>0); return start[length - 1]; }
-    BSS_FORCEINLINE T& Front() { assert(_length>0); return start[0]; }
-    BSS_FORCEINLINE T& Back() { assert(_length>0); return start[length - 1]; }
+    BSS_FORCEINLINE const T& Front() const { assert(length>0); return start[0]; }
+    BSS_FORCEINLINE const T& Back() const { assert(length>0); return start[length - 1]; }
+    BSS_FORCEINLINE T& Front() { assert(length>0); return start[0]; }
+    BSS_FORCEINLINE T& Back() { assert(length>0); return start[length - 1]; }
     BSS_FORCEINLINE const T* begin() const noexcept { return start; }
     BSS_FORCEINLINE const T* end() const noexcept { return start + length; }
     BSS_FORCEINLINE T* begin() noexcept { return start; }
@@ -115,7 +115,7 @@ namespace bss_util {
         _free(prev);
         return 0;
       }
-      return (T*)Alloc::allocate(n, prev);
+      return (T*)Alloc::allocate((size_t)n, prev);
     }
     static inline void _free(T* p) noexcept { if(p) Alloc::deallocate(p); }
     template<class U, typename UType, ARRAY_TYPE ArrayType, typename V>
@@ -126,7 +126,7 @@ namespace bss_util {
   };
 
 #ifdef BSS_DEBUG
-#define BSS_DEBUGFILL(p, old, n, Ty) memset(p + bssmin(n, old), 0xfd, ((n > old)?(n - old):(old - n))*sizeof(Ty))
+#define BSS_DEBUGFILL(p, old, n, Ty) memset(p + bssmin(n, old), 0xfd, (size_t)(((n > old)?(n - old):(old - n))*sizeof(Ty)))
 #else
 #define BSS_DEBUGFILL(p, old, n, Ty)  
 #endif
@@ -280,6 +280,13 @@ namespace bss_util {
     BSS_FORCEINLINE void RemoveLast() { Remove(_capacity - 1); }
     BSS_FORCEINLINE void Insert(const T_& t, CT_ index = 0) { _insert(t, index); }
     BSS_FORCEINLINE void Insert(T_&& t, CT_ index = 0) { _insert(std::move(t), index); }
+    BSS_FORCEINLINE void Set(const cArraySlice<const T, CType>& slice) { Set(slice.start, slice.length); }
+    BSS_FORCEINLINE void Set(const T_* p, CT_ n)
+    {
+      BASE::_setlength(_array, _capacity, 0);
+      AT_::SetCapacityDiscard(n);
+      BASE::_copy(_array, p, _capacity);
+    }
     BSS_FORCEINLINE bool Empty() const noexcept { return !_capacity; }
     BSS_FORCEINLINE void Clear() noexcept { SetCapacity(0); }
     inline cArraySlice<T, CType> GetSlice() const noexcept { return cArraySlice<T, CType>(_array, _capacity); }
@@ -322,13 +329,7 @@ namespace bss_util {
       return *this;
     }
     BSS_FORCEINLINE cArray& operator=(cArray&& mov) noexcept { BASE::_setlength(_array, _capacity, 0); AT_::operator=(std::move(mov)); return *this; }
-    BSS_FORCEINLINE cArray& operator=(const cArraySlice<const T, CType>& copy) noexcept
-    {
-      BASE::_setlength(_array, _capacity, 0);
-      AT_::SetCapacityDiscard(copy.length);
-      BASE::_copy(_array, copy.begin, _capacity);
-      return *this;
-    }
+    BSS_FORCEINLINE cArray& operator=(const cArraySlice<const T, CType>& copy) noexcept { Set(copy); return *this; }
     BSS_FORCEINLINE cArray& operator +=(const cArray& add) noexcept
     { 
       CType old = _capacity;

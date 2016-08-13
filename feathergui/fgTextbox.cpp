@@ -3,6 +3,7 @@
 
 #include "fgTextbox.h"
 #include "feathercpp.h"
+#include "fgCurve.h"
 
 void FG_FASTCALL fgTextbox_Init(fgTextbox* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
@@ -485,12 +486,9 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       // Draw cursor
       if(fgFocusedWindow == *self && bss_util::bssfmod(fgroot_instance->time - self->lastclick, fgroot_instance->cursorblink * 2) < fgroot_instance->cursorblink)
       {
-        AbsVec linetop = self->startpos;
-        linetop.x = floor(linetop.x + area.left);
-        linetop.y = floor(linetop.y + area.top);
-        AbsVec linebottom = linetop;
-        linebottom.y = floor(linebottom.y + self->lineheight);
-        fgDrawLine(linetop, linebottom, self->cursorcolor.color); // TODO: This requires ensuring that FG_DRAW is called at least during the blink interval.
+        AbsVec lines[2] = { self->startpos, { self->startpos.x, self->startpos.y + self->lineheight } };
+        AbsVec scale = { 1.0f, 1.0f };
+        fgDrawLines(lines, 2, self->cursorcolor.color, &area.topleft, &scale, self->window.control.element.transform.rotation, &center); // TODO: This requires ensuring that FG_DRAW is called at least during the blink interval.
       }
 
       if(!(self->window->flags&FGELEMENT_NOCLIP))

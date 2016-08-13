@@ -145,7 +145,7 @@
 #endif
 
 // SSE2 does not have min or max, so we use this manual implementation of the instruction
-BSS_FORCEINLINE BSS_SSE_M128i BSS_FASTCALL bss_mm_min_epi32(BSS_SSE_M128i a, BSS_SSE_M128i b)
+static BSS_FORCEINLINE BSS_SSE_M128i BSS_FASTCALL bss_mm_min_epi32(BSS_SSE_M128i a, BSS_SSE_M128i b)
 {
   BSS_SSE_M128i mask = BSS_SSE_CMPLT_EPI32(a, b);
   a = BSS_SSE_AND(a, mask);
@@ -153,7 +153,7 @@ BSS_FORCEINLINE BSS_SSE_M128i BSS_FASTCALL bss_mm_min_epi32(BSS_SSE_M128i a, BSS
   return BSS_SSE_OR(a, b);
 }
  
-BSS_FORCEINLINE BSS_SSE_M128i BSS_FASTCALL bss_mm_max_epi32(BSS_SSE_M128i a, BSS_SSE_M128i b)
+static BSS_FORCEINLINE BSS_SSE_M128i BSS_FASTCALL bss_mm_max_epi32(BSS_SSE_M128i a, BSS_SSE_M128i b)
 {
   BSS_SSE_M128i mask = BSS_SSE_CMPGT_EPI32(a, b);
   a = BSS_SSE_AND(a, mask);
@@ -161,7 +161,7 @@ BSS_FORCEINLINE BSS_SSE_M128i BSS_FASTCALL bss_mm_max_epi32(BSS_SSE_M128i a, BSS
   return BSS_SSE_OR(a, b);
 }
 
-BSS_FORCEINLINE BSS_SSE_M128 BSS_FASTCALL bss_mm_min_ps(BSS_SSE_M128 a, BSS_SSE_M128 b)
+static BSS_FORCEINLINE BSS_SSE_M128 BSS_FASTCALL bss_mm_min_ps(BSS_SSE_M128 a, BSS_SSE_M128 b)
 {
   BSS_SSE_M128i mask = _mm_castps_si128(BSS_SSE_CMPLT_PS(a, b));
   BSS_SSE_M128i c = BSS_SSE_AND(_mm_castps_si128(a), mask);
@@ -169,7 +169,7 @@ BSS_FORCEINLINE BSS_SSE_M128 BSS_FASTCALL bss_mm_min_ps(BSS_SSE_M128 a, BSS_SSE_
   return _mm_castsi128_ps(BSS_SSE_OR(c, d));
 }
  
-BSS_FORCEINLINE BSS_SSE_M128 BSS_FASTCALL bss_mm_max_ps(BSS_SSE_M128 a, BSS_SSE_M128 b)
+static BSS_FORCEINLINE BSS_SSE_M128 BSS_FASTCALL bss_mm_max_ps(BSS_SSE_M128 a, BSS_SSE_M128 b)
 {
   BSS_SSE_M128i mask = _mm_castps_si128(BSS_SSE_CMPGT_PS(a, b));
   BSS_SSE_M128i c = BSS_SSE_AND(_mm_castps_si128(a), mask);
@@ -177,7 +177,7 @@ BSS_FORCEINLINE BSS_SSE_M128 BSS_FASTCALL bss_mm_max_ps(BSS_SSE_M128 a, BSS_SSE_
   return _mm_castsi128_ps(BSS_SSE_OR(c, d));
 }
 
-BSS_FORCEINLINE BSS_SSE_M128d BSS_FASTCALL bss_mm_min_pd(BSS_SSE_M128d a, BSS_SSE_M128d b)
+static BSS_FORCEINLINE BSS_SSE_M128d BSS_FASTCALL bss_mm_min_pd(BSS_SSE_M128d a, BSS_SSE_M128d b)
 {
   BSS_SSE_M128i mask = _mm_castpd_si128(BSS_SSE_CMPLT_PD(a, b));
   BSS_SSE_M128i c = BSS_SSE_AND(_mm_castpd_si128(a), mask);
@@ -185,7 +185,7 @@ BSS_FORCEINLINE BSS_SSE_M128d BSS_FASTCALL bss_mm_min_pd(BSS_SSE_M128d a, BSS_SS
   return _mm_castsi128_pd(BSS_SSE_OR(c, d));
 }
  
-BSS_FORCEINLINE BSS_SSE_M128d BSS_FASTCALL bss_mm_max_pd(BSS_SSE_M128d a, BSS_SSE_M128d b)
+static BSS_FORCEINLINE BSS_SSE_M128d BSS_FASTCALL bss_mm_max_pd(BSS_SSE_M128d a, BSS_SSE_M128d b)
 {
   BSS_SSE_M128i mask = _mm_castpd_si128(BSS_SSE_CMPGT_PD(a, b));
   BSS_SSE_M128i c = BSS_SSE_AND(_mm_castpd_si128(a), mask);
@@ -194,7 +194,7 @@ BSS_FORCEINLINE BSS_SSE_M128d BSS_FASTCALL bss_mm_max_pd(BSS_SSE_M128d a, BSS_SS
 }
 
 // SSE2 does not have any way to multiply all four 32bit integer components
-BSS_FORCEINLINE BSS_SSE_M128i bss_mm_mul_epi32(BSS_SSE_M128i a, BSS_SSE_M128i b)
+static BSS_FORCEINLINE BSS_SSE_M128i bss_mm_mul_epi32(BSS_SSE_M128i a, BSS_SSE_M128i b)
 {
   __m128i tmp1 = _mm_mul_epu32(a, b); /* mul 2,0*/
   __m128i tmp2 = _mm_mul_epu32(_mm_srli_si128(a, 4), _mm_srli_si128(b, 4)); /* mul 3,1 */

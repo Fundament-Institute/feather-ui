@@ -503,12 +503,12 @@ void FG_FASTCALL fgLayout_LoadUBJSON(fgLayout* self, const char* data, FG_UINT l
 bool FG_FASTCALL fgLayout_LoadStreamXML(fgLayout* self, std::istream& s)
 {
   bss_util::cXML xml(s);
-  if(xml[0] && !STRICMP(xml[0]->GetName(), "fg:Layout"))
-  {
+  //if(xml[0] && !STRICMP(xml[0]->GetName(), "fg:Layout"))
+  //{
 
-  }
-  else
-    return false;
+  //}
+  //else
+  //  return false;
   return true;
 }
 void FG_FASTCALL fgLayout_LoadFileXML(fgLayout* self, const char* file)

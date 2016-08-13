@@ -8,6 +8,8 @@
 
 fgDebug* fgdebug_instance = nullptr;
 
+const char* FG_FASTCALL fgDebug_GetMessageString(unsigned short msg);
+
 void FG_FASTCALL fgDebug_Init(fgDebug* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
   if(fgdebug_instance != nullptr)
@@ -56,8 +58,10 @@ size_t FG_FASTCALL fgDebug_Message(fgDebug* self, const FG_Msg* msg)
     self->messagestrings.l = 0;
     self->messagestrings.s = 0;
     self->depth = 0;
+    self->depthelement = self->messages;
     self->hover = 0;
     self->behaviorhook = &fgRoot_BehaviorDefault;
+    self->ignore = 0;
     return FG_ACCEPT;
   case FG_DRAW:
     if(self->hover != 0)
@@ -121,12 +125,74 @@ const char* fgDebug_GetElementName(fgDebug* self, fgElement* e)
 
 size_t FG_FASTCALL fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
 {
+  static const FG_Msg* msgbuffer = 0;
+  static size_t depthbuffer = 0;
+
   assert(fgdebug_instance->behaviorhook != &fgRoot_BehaviorDebug);
-  size_t index = fgDebug_LogMessage(fgdebug_instance, msg, 0, fgdebug_instance->depth);
+  if(msg->type == FG_DRAW) // Don't log FG_DRAW calls or the whole log will be flooded with them.
+  {
+    fgdebug_instance->ignore += 1;
+    size_t r = (*fgdebug_instance->behaviorhook)(self, msg);
+    fgdebug_instance->ignore -= 1;
+    return r;
+  }
+
+  if(fgdebug_instance->ignore > 0) // If the ignore flag is set, don't log any messages
+    return (*fgdebug_instance->behaviorhook)(self, msg);
+
+  fgElement* parent = self->parent;
+  while(parent != 0) // Make sure we do not log any messages associated with the debug object itself.
+  {
+    if(parent == &fgdebug_instance->element)
+      return (*fgdebug_instance->behaviorhook)(self, msg);
+    parent = parent->parent;
+  }
+
+  if(msgbuffer)
+    fgDebug_LogMessage(fgdebug_instance, msgbuffer, 0, depthbuffer);
+
+  msgbuffer = msg;
+  depthbuffer = fgdebug_instance->depth;
+  fgElement* prev = fgdebug_instance->depthelement;
+  //size_t index = fgDebug_LogMessage(fgdebug_instance, msg, 0, fgdebug_instance->depth);
   ++fgdebug_instance->depth;
   size_t r = (*fgdebug_instance->behaviorhook)(self, msg);
   --fgdebug_instance->depth;
-  fgdebug_instance->messagelog.p[index].value = r;
+
+  if(msgbuffer)
+  {
+    switch(msgbuffer->type)
+    {
+    case FG_SETFLAGS:
+    case FG_SETMARGIN:
+    case FG_SETPADDING:
+    case FG_SETPARENT:
+    case FG_ADDITEM:
+    case FG_ADDCHILD:
+    case FG_REMOVECHILD:
+    case FG_LAYOUTCHANGE:
+    case FG_LAYOUTLOAD:
+    case FG_SETSKIN:
+    case FG_SETSTYLE:
+    case FG_DRAG:
+    case FG_DRAGGING:
+    case FG_DROP:
+    case FG_KEYUP:
+    case FG_KEYDOWN:
+    case FG_KEYCHAR:
+    case FG_MOUSEMOVE:
+    case FG_MOUSEDOWN:
+    case FG_MOUSEUP:
+      if(!r)
+        break;
+    default:
+      fgDebug_LogMessage(fgdebug_instance, msgbuffer, 0, depthbuffer);
+    }
+    msgbuffer = 0;
+  }
+
+  fgdebug_instance->depthelement = prev;
+  //fgdebug_instance->messagelog.p[index].value = r;
   return r;
 }
 
@@ -199,8 +265,6 @@ FG_EXTERN void FG_FASTCALL fgDebug_Hide()
     fgDebug_ClearLog(fgdebug_instance);
 }
 
-
-
 size_t FG_FASTCALL fgDebug_LogMessage(fgDebug* self, const FG_Msg* msg, unsigned long long time, size_t depth)
 {
   fgDebugMessage m = { 0 };
@@ -208,6 +272,7 @@ size_t FG_FASTCALL fgDebug_LogMessage(fgDebug* self, const FG_Msg* msg, unsigned
   m.subtype = msg->subtype;
   m.time = time;
   m.depth = depth;
+  self->ignore += 1;
 
   switch(msg->type)
   {
@@ -323,6 +388,19 @@ size_t FG_FASTCALL fgDebug_LogMessage(fgDebug* self, const FG_Msg* msg, unsigned
     break;
   }
 
+  if(msg->type != FG_INJECT)
+  {
+    fgElement* elem = fgCreate("TreeItem", self->depthelement, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY);
+    fgElement* text = fgCreate("Text", elem, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY);
+    text->SetText(fgDebug_GetMessageString(msg->type));
+
+    AbsRect r;
+    ResolveRect(text, &r);
+    _sendsubmsg<FG_ACTION, void*>(self->messages, FGSCROLLBAR_SCROLLTO, &r);
+    self->depthelement = elem;
+  }
+  self->ignore -= 1;
+
   return ((bss_util::cDynArray<fgDebugMessage>&)self->messagelog).Add(m);
 }
 
@@ -334,6 +412,90 @@ const char* _dbg_getstr(const char* s)
 #define OUTPUT_CRECT(r) r.left.abs,r.left.rel,r.top.abs,r.top.rel,r.right.abs,r.right.rel,r.bottom.abs,r.bottom.rel
 #define OUTPUT_CVEC(r) r.x.abs,r.x.rel,r.y.abs,r.y.rel
 #define OUTPUT_RECT(r) r.left,r.top,r.right,r.bottom
+
+const char* FG_FASTCALL fgDebug_GetMessageString(unsigned short msg)
+{
+  switch(msg)
+  {
+  case FG_CONSTRUCT: return "FG_CONSTRUCT";
+  case FG_GETSTYLE: return "FG_GETSTYLE";
+  case FG_GETDPI: return "FG_GETDPI";
+  case FG_GETCLASSNAME: return "FG_GETCLASSNAME";
+  case FG_GETNAME: return "FG_GETNAME";
+  case FG_NUETRAL: return "FG_NUETRAL";
+  case FG_HOVER: return "FG_HOVER";
+  case FG_ACTIVE: return "FG_ACTIVE";
+  case FG_ACTION: return "FG_ACTION";
+  case FG_GOTFOCUS: return "FG_GOTFOCUS";
+  case FG_LOSTFOCUS: return "FG_LOSTFOCUS";
+  case FG_GETDIM: return "FG_GETDIM";
+  case FG_GETITEM: return "FG_GETITEM";
+  case FG_GETRESOURCE: return "FG_GETRESOURCE";
+  case FG_GETUV: return "FG_GETUV";
+  case FG_GETCOLOR: return "FG_GETCOLOR";
+  case FG_GETOUTLINE: return "FG_GETOUTLINE";
+  case FG_GETFONT: return "FG_GETFONT";
+  case FG_GETLINEHEIGHT: return "FG_GETLINEHEIGHT";
+  case FG_GETLETTERSPACING: return "FG_GETLETTERSPACING";
+  case FG_MOVE: return "FG_MOVE:%hhu";
+  case FG_SETALPHA: return "FG_SETALPHA";
+  case FG_SETAREA: return "FG_SETAREA";
+  case FG_SETTRANSFORM: return "FG_SETTRANSFORM";
+  case FG_SETFLAG: return "FG_SETFLAG";
+  case FG_SETFLAGS: return "FG_SETFLAGS";
+  case FG_SETMARGIN: return "FG_SETMARGIN";
+  case FG_SETPADDING: return "FG_SETPADDING";
+  case FG_LAYOUTCHANGE: return "FG_LAYOUTCHANGE";
+  case FG_SETPARENT: return "FG_SETPARENT";
+  case FG_ADDCHILD: return "FG_ADDCHILD";
+  case FG_CLONE: return "FG_CLONE";
+  case FG_REMOVECHILD: return "FG_REMOVECHILD";
+  case FG_GETSKIN: return "FG_GETSKIN";
+  case FG_LAYOUTFUNCTION: return "FG_LAYOUTFUNCTION";
+  case FG_LAYOUTLOAD: return "FG_LAYOUTLOAD";
+  case FG_SETRESOURCE: return "FG_SETRESOURCE";
+  case FG_SETFONT: return "FG_SETFONT";
+  case FG_DRAG: return "FG_DRAG";
+  case FG_MOUSEDOWN: return "FG_MOUSEDOWN";
+  case FG_MOUSEDBLCLICK: return "FG_MOUSEDBLCLICK";
+  case FG_MOUSEUP: return "FG_MOUSEUP";
+  case FG_MOUSEON: return "FG_MOUSEON";
+  case FG_MOUSEOFF: return "FG_MOUSEOFF";
+  case FG_MOUSEMOVE: return "FG_MOUSEMOVE";
+  case FG_MOUSELEAVE: return "FG_MOUSELEAVE";
+  case FG_DRAGGING: return "FG_DRAGGING";
+  case FG_DROP: return "FG_SETFONT";
+  case FG_DRAW: return "FG_DRAW";
+  case FG_INJECT: return "FG_INJECT";
+  case FG_SETSKIN: return "FG_SETSKIN";
+  case FG_SETSTYLE: return "FG_SETSTYLE";
+  case FG_GETSTATE: return "FG_GETSTATE";
+  case FG_GETSELECTEDITEM: return "FG_GETSELECTEDITEM";
+  case FG_SETDPI: return "FG_SETDPI";
+  case FG_SETCOLOR: return "FG_SETCOLOR";
+  case FG_SETUSERDATA: return "FG_SETUSERDATA";
+  case FG_GETUSERDATA: return "FG_GETUSERDATA";
+  case FG_SETTEXT: return "FG_SETTEXT";
+  case FG_SETNAME: return "FG_SETNAME";
+  case FG_MOUSESCROLL: return "FG_MOUSESCROLL";
+  case FG_TOUCHBEGIN: return "FG_TOUCHBEGIN";
+  case FG_TOUCHEND: return "FG_TOUCHEND";
+  case FG_TOUCHMOVE: return "FG_TOUCHMOVE";
+  case FG_KEYUP: return "FG_KEYUP";
+  case FG_KEYDOWN: return "FG_KEYDOWN";
+  case FG_KEYCHAR: return "FG_KEYCHAR";
+  case FG_JOYBUTTONDOWN: return "FG_JOYBUTTONDOWN";
+  case FG_JOYBUTTONUP: return "FG_JOYBUTTONUP";
+  case FG_JOYAXIS: return "FG_JOYAXIS";
+  case FG_SETDIM: return "FG_SETDIM";
+  case FG_SETSTATE: return "FG_SETSTATE";
+  case FG_SETUV: return "FG_SETUV";
+  case FG_SETLETTERSPACING: return "FG_SETLETTERSPACING";
+  case FG_SETLINEHEIGHT: return "FG_SETLINEHEIGHT";
+  case FG_SETOUTLINE: return "FG_SETOUTLINE";
+  }
+  return "UNKNOWN MESSAGE";
+}
 
 ptrdiff_t FG_FASTCALL fgDebug_WriteMessage(char* buf, size_t bufsize, fgDebugMessage* msg)
 {

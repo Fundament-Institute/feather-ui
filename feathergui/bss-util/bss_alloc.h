@@ -90,7 +90,7 @@ namespace bss_util {
     typedef typename StandardAllocPolicy<T>::pointer pointer;
   public:
     inline i_AllocTracker(StandardAllocPolicy<T>* ptr = 0) {}
-    inline pointer _allocate(size_t cnt, const pointer = 0) noexcept { return bssmalloc<T>(cnt); }
+    inline pointer _allocate(size_t cnt, const pointer = 0) noexcept { return (T*)malloc(cnt * sizeof(T)); }
     inline void _deallocate(pointer p, size_t = 0) noexcept { free(p); }
   };
 

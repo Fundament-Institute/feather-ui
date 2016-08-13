@@ -64,10 +64,10 @@ cXMLNode& cXMLNode::operator=(cXMLNode&& mov)
   return *this;
 }
 
-void cXMLNode::AddNode(const cXMLNode& node) { _addnode(std::unique_ptr<cXMLNode>(new cXMLNode(node))); }
-void cXMLNode::AddNode(const char* name) { std::unique_ptr<cXMLNode> node(new cXMLNode()); node->_name = name; _addnode(std::move(node)); }
-void cXMLNode::AddAttribute(const cXMLValue& value) { _addattribute(std::move(cXMLValue(value))); }
-void cXMLNode::AddAttribute(const char* name) { cXMLValue v; v.Name=name; _addattribute(std::move(v)); }
+cXMLNode* cXMLNode::AddNode(const cXMLNode& node) { return _addnode(std::unique_ptr<cXMLNode>(new cXMLNode(node))); }
+cXMLNode* cXMLNode::AddNode(const char* name) { std::unique_ptr<cXMLNode> node(new cXMLNode()); node->_name = name; return _addnode(std::move(node)); }
+cXMLValue* cXMLNode::AddAttribute(const cXMLValue& value) { return _addattribute(std::move(cXMLValue(value))); }
+cXMLValue* cXMLNode::AddAttribute(const char* name) { cXMLValue v; v.Name=name; return _addattribute(std::move(v)); }
 bool cXMLNode::RemoveNode(size_t index)
 { 
   if(index>= _nodes.Length()) return false;
@@ -100,7 +100,7 @@ void cXMLNode::SetValue(double value) { _value.Float = value; _value.Integer = (
 void cXMLNode::SetValue(uint64_t value) { _value.Integer = value; _value.Float = (double)value; _value.String = std::to_string(value); }
 void cXMLNode::SetValue(const char* value) { _value.String = value; _evalvalue(_value); }
 
-void cXMLNode::_addnode(std::unique_ptr<cXMLNode> && n)
+cXMLNode* cXMLNode::_addnode(std::unique_ptr<cXMLNode> && n)
 {
   khiter_t iter = _nodehash.Iterator(n->_name);
   if(!_nodehash.ExistsIter(iter))
@@ -113,15 +113,19 @@ void cXMLNode::_addnode(std::unique_ptr<cXMLNode> && n)
   }
     
   _nodes.Add(std::move(n));
+  return _nodes.Back().get();
 }
-void cXMLNode::_addattribute(cXMLValue && v)
+cXMLValue* cXMLNode::_addattribute(cXMLValue && v)
 {
   khiter_t iter = _attrhash.Iterator(v.Name);
   if(!_attrhash.ExistsIter(iter)) {
-    _attrhash.Insert(v.Name, _attributes.Length());
     _attributes.Add(std::move(v));
-  } else
-    _attributes[_attrhash.GetValue(iter)] = v;
+    _attrhash.Insert(_attributes.Back().Name, _attributes.Length() - 1);
+    return &_attributes.Back();
+  }
+  size_t i = _attrhash.GetValue(iter);
+  _attributes[i] = std::move(v);
+  return &_attributes[i];
 }
 
 // Instead of including an entire regex library, we just do a dead simple pattern match of the form "<characters>*<characters>" where * is put into out.
@@ -208,7 +212,7 @@ void cXMLNode::_parseattribute(cStr& buf)
   _name.assign(buf, 0, i);
   while(i < buf.length() && isspace(buf[i])) ++i;
   if(i >= buf.length()) return;
-  const char* c = ((const char*)buf)+4;
+  const char* c = ((const char*)buf) + i;
 
   std::istringstream ss(c);
   while(ss.peek() != -1 && ss) 

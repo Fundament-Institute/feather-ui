@@ -66,7 +66,9 @@ typedef struct _FG_DEBUG {
   fgDeclareVector(fgDebugMessage, DebugMessage) messagelog;
   fgDeclareVector(char*, strings) messagestrings;
   size_t depth;
+  fgElement* depthelement;
   fgElement* hover;
+  int ignore;
 
 #ifdef  __cplusplus
   inline operator fgElement*() { return &element; }

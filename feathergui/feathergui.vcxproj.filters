@@ -116,6 +116,9 @@
     <ClInclude Include="..\include\fgToolbar.h">
       <Filter>include</Filter>
     </ClInclude>
+    <ClInclude Include="..\include\fgCurve.h">
+      <Filter>include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="feathergui.cpp">
@@ -194,6 +197,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="cXML.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgCurve.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

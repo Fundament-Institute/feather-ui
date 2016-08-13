@@ -47,6 +47,15 @@ namespace bss_util {
     BSS_FORCEINLINE void RemoveLast() { Remove(_length - 1); }
     BSS_FORCEINLINE void Insert(const T_& t, CT_ index=0) { _insert(t, index); }
     BSS_FORCEINLINE void Insert(T_&& t, CT_ index=0) { _insert(std::move(t), index); }
+    BSS_FORCEINLINE void Set(const cArraySlice<const T, CType>& slice) { Set(slice.start, slice.length); }
+    BSS_FORCEINLINE void Set(const T* p, CType n)
+    {
+      BASE::_setlength(_array, _length, 0);
+      if(n > _capacity)
+        AT_::SetCapacityDiscard(n);
+      BASE::_copy(_array, p, n);
+      _length = n;
+    }
     BSS_FORCEINLINE bool Empty() const { return !_length; }
     BSS_FORCEINLINE void Clear() { SetLength(0); }
     inline void SetLength(CT_ length)
@@ -94,15 +103,7 @@ namespace bss_util {
       return *this;
     }
     inline cDynArray& operator=(cDynArray&& mov) { BASE::_setlength(_array, _length, 0); AT_::operator=(std::move(mov)); _length = mov._length; mov._length = 0; return *this; }
-    inline cDynArray& operator=(const cArraySlice<const T, CType>& copy)
-    {
-      BASE::_setlength(_array, _length, 0);
-      if(copy.length > _capacity)
-        AT_::SetCapacityDiscard(copy.length);
-      BASE::_copy(_array, copy.start, copy.length);
-      _length = copy.length;
-      return *this;
-    }
+    inline cDynArray& operator=(const cArraySlice<const T, CType>& copy) { Set(copy); return *this; }
       inline cDynArray& operator +=(const cDynArray& add)
     { 
       BASE::_setcapacity(*this, _length, _length + add._length);

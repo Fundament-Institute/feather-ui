@@ -14,7 +14,8 @@ namespace bss_util {
   class BSS_COMPILER_DLLEXPORT delegate
   {
     inline delegate(std::function<R(Args...)>&& src) BSS_DELETEFUNC // Don't do delegate([&](){ return; }) or it'll go out of scope.
-      typedef R RTYPE;
+    typedef R RTYPE;
+    typedef R(MSC_FASTCALL *GCC_FASTCALL FUNCTYPE)(void*, Args...);
   public:
     inline delegate(const delegate& copy) noexcept : _src(copy._src), _stub(copy._stub) {}
     inline delegate(void* src, R(MSC_FASTCALL *GCC_FASTCALL stub)(void*, Args...)) noexcept : _src(src), _stub(stub) {}
@@ -29,6 +30,10 @@ namespace bss_util {
     inline static delegate From(const T* src) noexcept { return delegate(const_cast<T*>(src), &stubconst<T, F>); }
     template<RTYPE(MSC_FASTCALL *GCC_FASTCALL F)(Args...)>
     inline static delegate FromC() noexcept { return delegate(0, &stubstateless<F>); }
+    template<class T, RTYPE(MSC_FASTCALL *GCC_FASTCALL F)(T*, Args...)>
+    inline static delegate FromC(T* src) noexcept { return delegate((void*)src, (FUNCTYPE)&stubC<T, F>); }
+    template<class T, RTYPE(MSC_FASTCALL *GCC_FASTCALL F)(const T*, Args...)>
+    inline static delegate FromC(const T* src) noexcept { return delegate(const_cast<T*>(src), &stubconstC<T, F>); }
 
   protected:
     void* _src;
@@ -41,6 +46,10 @@ namespace bss_util {
     static R BSS_FASTCALL stublambda(void* src, Args... args) { return (*static_cast<std::function<R(Args...)>*>(src))(args...); }
     template <RTYPE(MSC_FASTCALL *GCC_FASTCALL F)(Args...)>
     static R BSS_FASTCALL stubstateless(void* src, Args... args) { return (*F)(args...); }
+    template <class T, RTYPE(MSC_FASTCALL *GCC_FASTCALL F)(T*, Args...)>
+    static R BSS_FASTCALL stubC(void* src, Args... args) { return (*F)(static_cast<T*>(src), args...); }
+    template <class T, RTYPE(MSC_FASTCALL *GCC_FASTCALL F)(const T*, Args...)>
+    static R BSS_FASTCALL stubconstC(void* src, Args... args) { return (*F)(static_cast<const T*>(src), args...); }
   };
 #else
   template<typename R = void, typename T1 = void, typename T2 = void, typename T3 = void, typename T4 = void, typename T5 = void>

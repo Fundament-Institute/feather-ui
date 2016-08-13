@@ -12,6 +12,7 @@
 #include "fgTreeView.h"
 #include "fgDebug.h"
 #include "fgList.h"
+#include "fgCurve.h"
 #include "feathercpp.h"
 #include "bss-util/cTrie.h"
 #include <stdlib.h>
@@ -34,6 +35,7 @@ void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, size_t dpi)
   fgroot_instance = self;
   fgTransform transform = { area->left, 0, area->top, 0, area->right, 0, area->bottom, 0, 0, 0, 0 };
   fgElement_InternalSetup(*self, 0, 0, 0, 0, &transform, (fgDestroy)&fgRoot_Destroy, (fgMessage)&fgRoot_Message);
+  self->gui.element.style = 0;
 }
 
 void FG_FASTCALL fgRoot_Destroy(fgRoot* self)
@@ -64,12 +66,11 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
   case FG_KEYCHAR: // If these messages get sent to the root, they have been rejected from everything else.
   case FG_KEYUP:
   case FG_KEYDOWN:
-  case FG_MOUSEON:
   case FG_MOUSEOFF:
   case FG_MOUSEDBLCLICK:
   case FG_MOUSEDOWN:
   case FG_MOUSEUP:
-  case FG_MOUSEMOVE:
+  case FG_MOUSEON:
   case FG_MOUSESCROLL:
   case FG_GOTFOCUS: //Root cannot have focus
     return 0;
@@ -100,6 +101,11 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
   case FG_SETLINEHEIGHT:
     self->lineheight = msg->otherf;
     return FG_ACCEPT;
+  case FG_GETSTYLE:
+    return 0;
+  case FG_MOUSEMOVE:
+    fgSetCursor(FGCURSOR_ARROW, 0);
+    return 0;
   }
   return fgControl_Message((fgControl*)self,msg);
 }
@@ -411,8 +417,8 @@ fgElement* _create_default(fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRI
 
 fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  static bss_util::cTrie<uint16_t> t(17, "element", "control", "resource", "text", "box", "scrollbar", "button", "window", "checkbox",
-    "radiobutton", "progressbar", "slider", "textbox", "treeview", "treeitem", "list", "debug");
+  static bss_util::cTrie<uint16_t> t(19, "element", "control", "resource", "text", "box", "scrollbar", "button", "window", "checkbox",
+    "radiobutton", "progressbar", "slider", "textbox", "treeview", "treeitem", "list", "listitem", "curve", "debug");
   
   size_t len = strlen(type) + 1; // include null terminator
   DYNARRAY(char, lower, len);
@@ -454,6 +460,10 @@ fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT
   case 15:
     return _create_default<fgList, fgList_Init>(parent, next, name, flags, transform);
   case 16:
+    return _create_default<fgControl, fgListItem_Init>(parent, next, name, flags, transform);
+  case 17:
+    return _create_default<fgCurve, fgCurve_Init>(parent, next, name, flags, transform);
+  case 18:
     return _create_default<fgDebug, fgDebug_Init>(parent, next, name, flags, transform);
   }
 

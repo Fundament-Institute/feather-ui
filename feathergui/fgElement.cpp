@@ -456,10 +456,12 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     fgStyle* style = 0;
     if(msg->subtype != 2)
     {
-      size_t index = (!msg->subtype ? fgStyle_GetName((const char*)msg->other) : (size_t)msg->otherint);
+      FG_UINT index = (!msg->subtype ? fgStyle_GetName((const char*)msg->other) : (FG_UINT)msg->otherint);
 
-      if(index == -1)
+      if(index == (FG_UINT)-1)
         index = _sendmsg<FG_GETSTYLE>(self);
+      else if(self->style == (FG_UINT)-1)
+        self->style = index;
       else
         self->style = (FG_UINT)(index | (self->style&(~msg->otheraux)));
 
@@ -474,7 +476,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       m.subtype = 2;
       while(index) // We loop through all set bits of index according to mask. index is not always just a single flag, because of style resets when the mask is -1.
       {
-        size_t indice = bss_util::bsslog2(index);
+        FG_UINT indice = bss_util::bsslog2(index);
         index ^= (1ULL << indice);
         if(self->skin != 0 && indice < self->skin->styles.l)
         {
@@ -498,10 +500,10 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
   }
   return FG_ACCEPT;
   case FG_GETSTYLE:
-    return (self->style == (FG_UINT)-1 && self->parent != 0) ? _sendmsg<FG_GETSTYLE>(self->parent) : self->style;
+    return (self->style == (FG_UINT)-1 && self->parent != 0) ? (*fgroot_instance->behaviorhook)(self->parent, msg) : self->style;
   case FG_GOTFOCUS:
     if(self->parent)
-      return _sendmsg<FG_GOTFOCUS>(self->parent);
+      return (*fgroot_instance->behaviorhook)(self->parent, msg);
     break;
   case FG_DRAG:
   {
@@ -530,9 +532,9 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
   case FG_GETNAME:
     return (size_t)self->name;
   case FG_GETDPI:
-    return self->parent ? _sendmsg<FG_GETDPI>(self->parent) : 0;
+    return self->parent ? (*fgroot_instance->behaviorhook)(self->parent, msg) : 0;
   case FG_GETLINEHEIGHT:
-    return self->parent ? _sendmsg<FG_GETLINEHEIGHT>(self->parent) : 0;
+    return self->parent ? (*fgroot_instance->behaviorhook)(self->parent, msg) : 0;
   case FG_SETDPI:
   {
     fgElement* cur = self->root;
@@ -627,6 +629,8 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       kh_val(self->userhash, k) = (size_t)msg->otherint;
       return 1 + r;
     }
+  case FG_GETSELECTEDITEM:
+    break;
   case FG_MOUSEDBLCLICK:
     return self->MouseDown(msg->x, msg->y, msg->button, msg->allbtn);
   }

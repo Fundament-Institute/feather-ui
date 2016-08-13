@@ -31,7 +31,7 @@ void* FG_FASTCALL fgCreateFont(fgFlag flags, const char* font, unsigned int font
 void* FG_FASTCALL fgCopyFont(void* font, unsigned int fontsize, unsigned int dpi) { return (void*)~0; }
 void* FG_FASTCALL fgCloneFont(void* font) { return (void*)~0; }
 void FG_FASTCALL fgDestroyFont(void* font) { }
-void* FG_FASTCALL fgDrawFont(void* font, const int* text, float lineheight, float letterspacing, unsigned int color, const AbsRect* area, FABS rotation, AbsVec* center, fgFlag flags, void* cache) { return 0; }
+void* FG_FASTCALL fgDrawFont(void* font, const int* text, float lineheight, float letterspacing, unsigned int color, const AbsRect* area, FABS rotation, const AbsVec* center, fgFlag flags, void* cache) { return 0; }
 void FG_FASTCALL fgFontSize(void* font, const int* text, float lineheight, float letterspacing, AbsRect* area, fgFlag flags) { }
 void FG_FASTCALL fgFontGet(void* font, float* lineheight, unsigned int* size, unsigned int* dpi)
 { 
@@ -43,11 +43,13 @@ void FG_FASTCALL fgFontGet(void* font, float* lineheight, unsigned int* size, un
 void* FG_FASTCALL fgCreateResource(fgFlag flags, const char* data, size_t length) { return (void*)~0; }
 void* FG_FASTCALL fgCloneResource(void* res) { return (void*)~0; }
 void FG_FASTCALL fgDestroyResource(void* res) { }
-void FG_FASTCALL fgDrawResource(void* res, const CRect* uv, unsigned int color, unsigned int edge, FABS outline, const AbsRect* area, FABS rotation, AbsVec* center, fgFlag flags) {}
+void FG_FASTCALL fgDrawResource(void* res, const CRect* uv, unsigned int color, unsigned int edge, FABS outline, const AbsRect* area, FABS rotation, const AbsVec* center, fgFlag flags) {}
 void FG_FASTCALL fgResourceSize(void* res, const CRect* uv, AbsVec* dim, fgFlag flags) { }
 
 size_t FG_FASTCALL fgFontIndex(void* font, const int* text, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, AbsVec pos, AbsVec* cursor, void* cache) { return 0; }
 AbsVec FG_FASTCALL fgFontPos(void* font, const int* text, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, size_t index, void* cache) { AbsVec a = { 0,0 }; return a; }
+
+void FG_FASTCALL fgDrawLines(const AbsVec* p, size_t n, unsigned int color, const AbsVec* translate, const AbsVec* scale, FABS rotation, const AbsVec* center) {}
 
 fgElement* FG_FASTCALL fgCreate(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
@@ -92,7 +94,6 @@ void fgPopClipRect()
 }
 
 char FG_FASTCALL fgLoadExtension(const char* extname, void* fg, size_t sz) { return -1; }
-void FG_FASTCALL fgDrawLine(AbsVec p1, AbsVec p2, unsigned int color) {}
 void fgSetCursor(unsigned int type, void* custom) {}
 void fgClipboardCopy(unsigned int type, const void* data, size_t length) {}
 char fgClipboardExists(unsigned int type) { return 0; }

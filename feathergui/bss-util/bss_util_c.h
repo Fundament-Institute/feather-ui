@@ -6,6 +6,7 @@
 
 #include "bss_defines.h"
 #include <wchar.h>
+#include <stddef.h>
 
 #ifdef  __cplusplus
 extern "C" {

@@ -51,10 +51,10 @@ namespace bss_util {
     BSS_FORCEINLINE size_t GetAttributes() const { return _attributes.Length(); }
     BSS_FORCEINLINE const cXMLValue& GetValue() const { return _value; }
     BSS_FORCEINLINE void SetName(const char* name) { _name = name; }
-    void BSS_FASTCALL AddNode(const cXMLNode& node);
-    void BSS_FASTCALL AddNode(const char* name);
-    void BSS_FASTCALL AddAttribute(const cXMLValue& value);
-    void BSS_FASTCALL AddAttribute(const char* name);
+    cXMLNode* BSS_FASTCALL AddNode(const cXMLNode& node);
+    cXMLNode* BSS_FASTCALL AddNode(const char* name);
+    cXMLValue* BSS_FASTCALL AddAttribute(const cXMLValue& value);
+    cXMLValue* BSS_FASTCALL AddAttribute(const char* name);
     bool BSS_FASTCALL RemoveNode(size_t index);
     bool BSS_FASTCALL RemoveNode(const char* name);
     bool BSS_FASTCALL RemoveAttribute(size_t index);
@@ -68,10 +68,13 @@ namespace bss_util {
     cXMLNode& operator=(const cXMLNode& copy);
     cXMLNode& operator=(cXMLNode&& mov);
     BSS_FORCEINLINE const cXMLNode* operator[](size_t index) const { return GetNode(index); }
+    BSS_FORCEINLINE const cXMLNode* operator[](const char* name) const { return GetNode(name); }
+    BSS_FORCEINLINE const cXMLValue* operator()(size_t index) const { return GetAttribute(index); }
+    BSS_FORCEINLINE const cXMLValue* operator()(const char* name) const { return GetAttribute(name); }
 
   protected:
-    void BSS_FASTCALL _addnode(std::unique_ptr<cXMLNode> && n);
-    void BSS_FASTCALL _addattribute(cXMLValue && v);
+    cXMLNode* BSS_FASTCALL _addnode(std::unique_ptr<cXMLNode> && n);
+    cXMLValue* BSS_FASTCALL _addattribute(cXMLValue && v);
     static bool BSS_FASTCALL _match(std::istream& stream, cStr& out, const char* pattern, bool reset = false);
     bool BSS_FASTCALL _parse(std::istream& stream, cStr& buf);
     void BSS_FASTCALL _parseinner(std::istream& stream, cStr& buf);
@@ -85,9 +88,9 @@ namespace bss_util {
     friend class cXML;
 
     cDynArray<std::unique_ptr<cXMLNode>, size_t, CARRAY_MOVE> _nodes;
-    cHash<const char*, size_t> _nodehash;
-    cDynArray<cXMLValue, size_t, CARRAY_SAFE> _attributes;
-    cHash<const char*, size_t> _attrhash;
+    cHash<cStr, size_t, false, CARRAY_SAFE> _nodehash;
+    cDynArray<cXMLValue, size_t, CARRAY_MOVE> _attributes;
+    cHash<cStr, size_t, false, CARRAY_SAFE> _attrhash;
     cXMLValue _value;
     cStr _name;
   };
@@ -106,6 +109,9 @@ namespace bss_util {
     inline cXML& operator=(const cXML& copy) { cXMLNode::operator=(copy); return *this; }
     inline cXML& operator=(cXML&& mov) { cXMLNode::operator=(mov); return *this; }
     BSS_FORCEINLINE const cXMLNode* operator[](size_t index) const { return GetNode(index); }
+    BSS_FORCEINLINE const cXMLNode* operator[](const char* name) const { return GetNode(name); }
+    BSS_FORCEINLINE const cXMLValue* operator()(size_t index) const { return GetAttribute(index); }
+    BSS_FORCEINLINE const cXMLValue* operator()(const char* name) const { return GetAttribute(name); }
 
   protected:
     void _initialparse(std::istream& stream, cStr& buf);

@@ -79,7 +79,7 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
     self->contextmenu = 0;
     self->tabnext = self->tabprev = self; // This creates an infinite loop of tabbing
     self->sidenext = self->sideprev = self;
-    _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, "unfocused", fgStyleGetMask("focused", "unfocused"));
+    _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 1, 0, fgStyleGetMask("focused"));
     return FG_ACCEPT;
   case FG_KEYDOWN:
   {
@@ -140,14 +140,14 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
     if(fgFocusedWindow) // We do this here so you can disable getting focus by blocking this message without messing things up
       _sendmsg<FG_LOSTFOCUS, void*>(fgFocusedWindow, self);
     fgFocusedWindow = *self;
-    _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, "focused", fgStyleGetMask("focused", "unfocused"));
+    _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, "focused", fgStyleGetMask("focused"));
     return FG_ACCEPT;
   case FG_LOSTFOCUS:
     assert(fgFocusedWindow == *self);
     if(fgFocusedWindow == *self)
     {
       fgFocusedWindow = 0;
-      _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, "unfocused", fgStyleGetMask("focused", "unfocused"));
+      _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 1, 0, fgStyleGetMask("focused"));
       if(self->element.parent)
       {
         if(self->element.parent->lastfocus == *self) // if the lastfocus was already us set it to 0.

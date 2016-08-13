@@ -178,7 +178,7 @@ namespace bss_util {
   };
 
   template<typename T>
-  BSS_FORCEINLINE void MatrixInvert4x4(const T* mat, T* dst) noexcept
+  static BSS_FORCEINLINE void MatrixInvert4x4(const T* mat, T* dst) noexcept
   {
     T tmp[12]; /* temp array for pairs */
     T src[16]; /* array of transpose source matrix */
@@ -260,7 +260,7 @@ namespace bss_util {
 
   // Standard 4x4 Matrix inversion using SSE, adapted from intel's implementation.
   template<>
-  BSS_FORCEINLINE void MatrixInvert4x4<float>(const float* src, float* dest) noexcept // no point in using __restrict because we load everything into SSE registers anyway
+  BSS_EXPLICITSTATIC BSS_FORCEINLINE void MatrixInvert4x4<float>(const float* src, float* dest) noexcept // no point in using __restrict because we load everything into SSE registers anyway
   {
     //   Copyright (c) 2001 Intel Corporation.
     //
