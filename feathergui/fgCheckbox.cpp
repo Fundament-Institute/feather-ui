@@ -21,25 +21,24 @@ size_t FG_FASTCALL fgCheckbox_Message(fgCheckbox* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     fgControl_HoverMessage(&self->control, msg);
     fgText_Init(&self->text, *self, 0, "Checkbox:text", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
-    _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, "nuetral", fgStyleGetMask("nuetral", "hover", "active"));
-    _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, "default", fgStyleGetMask("default", "checked", "indeterminate"));
+    fgMaskSetStyle(*self, "default", fgStyleGetMask("default", "checked", "indeterminate"));
     self->checked = 0;
     return FG_ACCEPT;
   case FG_NUETRAL:
-    _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, "nuetral", fgStyleGetMask("nuetral", "hover", "active"));
+    fgStandardNuetralSetStyle(*self, "nuetral");
     return FG_ACCEPT;
   case FG_HOVER:
-    _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, "hover", fgStyleGetMask("nuetral", "hover", "active"));
+    fgStandardNuetralSetStyle(*self, "hover");
     return FG_ACCEPT;
   case FG_ACTIVE:
-    _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, "active", fgStyleGetMask("nuetral", "hover", "active"));
+    fgStandardNuetralSetStyle(*self, "active");
     return FG_ACCEPT;
   case FG_ACTION:
     fgIntMessage(*self, FG_SETSTATE, !_sendmsg<FG_GETSTATE>(*self), 0);
     return FG_ACCEPT;
   case FG_SETSTATE:
     self->checked = msg->otherint;
-    _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, (self->checked == 1) ? "checked" : ((self->checked == 2) ? "indeterminate" : "default"), fgStyleGetMask("default", "checked", "indeterminate"));
+    fgMaskSetStyle(*self, (self->checked == 1) ? "checked" : ((self->checked == 2) ? "indeterminate" : "default"), fgStyleGetMask("default", "checked", "indeterminate"));
     return FG_ACCEPT;
   case FG_GETSTATE:
     return self->checked;

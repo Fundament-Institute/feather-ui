@@ -101,6 +101,7 @@ struct _FG_ROOT;
 extern struct _FG_ROOT* fgroot_instance;
 struct _FG_DEBUG;
 extern struct _FG_DEBUG* fgdebug_instance;
+extern FG_UINT fgStyleFlagMask;
 
 template<FG_MSGTYPE type, typename... Args>
 inline size_t _sendmsg(fgElement* self, Args... args)
@@ -128,7 +129,17 @@ inline FG_UINT fgStyleGetMask() { return 0; }
 template<typename Arg, typename... Args>
 inline FG_UINT fgStyleGetMask(Arg arg, Args... args)
 {
-  return fgStyle_GetName(arg) | fgStyleGetMask(args...);
+  return fgStyle_GetName(arg, false) | fgStyleGetMask(args...);
+}
+
+BSS_FORCEINLINE size_t fgStandardNuetralSetStyle(fgElement* self, const char* style, unsigned char sub = FGSETSTYLE_NAME)
+{
+  return _sendsubmsg<FG_SETSTYLE, const void*, size_t>(self, sub, style, fgStyleGetMask("nuetral", "hover", "active", "disable"));
+}
+
+BSS_FORCEINLINE size_t fgMaskSetStyle(fgElement* self, const char* style, FG_UINT mask)
+{
+  return _sendsubmsg<FG_SETSTYLE, const void*, size_t>(self, FGSETSTYLE_NAME, style, mask);
 }
 
 extern "C" {

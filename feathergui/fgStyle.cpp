@@ -6,6 +6,7 @@
 #include "fgStyle.h"
 
 KHASH_INIT(fgStyles, const char*, FG_UINT, 1, kh_str_hash_funcins, kh_str_hash_insequal);
+FG_UINT fgStyleFlagMask = 0;
 
 void FG_FASTCALL fgStyle_Init(fgStyle* self)
 {
@@ -53,15 +54,20 @@ void FG_FASTCALL fgStyle_RemoveStyleMsg(fgStyle* self, fgStyleMsg* msg)
   free(msg);
 }
 
-FG_UINT FG_FASTCALL fgStyle_GetName(const char* name)
+FG_UINT FG_FASTCALL fgStyle_GetName(const char* name, bool flag)
 {
   static kh_fgStyles_t* h = kh_init_fgStyles();
   static FG_UINT count = 0;
   assert(count < (sizeof(FG_UINT)<<3));
-
+  
   int r;
   khiter_t iter = kh_put_fgStyles(h, name, &r);
   if(r) // if it wasn't in there before, we need to initialize the index
+  {
+    kh_key(h, iter) = fgCopyText(name);
     kh_val(h, iter) = (1 << count++);
+    if(flag) fgStyleFlagMask |= kh_val(h, iter);
+  }
+  assert(!!(fgStyleFlagMask & kh_val(h, iter)) == flag);
   return kh_val(h, iter);
 }

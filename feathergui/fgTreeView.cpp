@@ -35,7 +35,7 @@ size_t FG_FASTCALL fgTreeItem_Message(fgTreeItem* self, const FG_Msg* msg)
     fgElement_Init(&self->arrow, &self->control.element, 0, ARROWNAME, FGELEMENT_BACKGROUND|FGELEMENT_HIDDEN, &fgTransform_EMPTY);
     self->arrow.message = (fgMessage)&fgTreeItemArrow_Message;
     self->count = EXPANDED;
-    _sendsubmsg<FG_SETSTYLE, void*, size_t>(&self->arrow, 0, "visible", fgStyleGetMask("visible", "hidden"));
+    fgMaskSetStyle(&self->arrow, "visible", fgStyleGetMask("visible", "hidden"));
     return FG_ACCEPT;
   case FG_ADDITEM:
   case FG_ADDCHILD:
@@ -57,7 +57,7 @@ size_t FG_FASTCALL fgTreeItem_Message(fgTreeItem* self, const FG_Msg* msg)
       return !self->control.element.parent ? 0 : fgPassMessage(self->control.element.parent, msg);
 
     self->count = ((self->count&EXPANDED) ^ EXPANDED) | (self->count&(~EXPANDED));
-    _sendsubmsg<FG_SETSTYLE, void*, size_t>(&self->arrow, 0, (self->count&EXPANDED) ? "visible" : "hidden", fgStyleGetMask("visible", "hidden"));
+    fgMaskSetStyle(&self->arrow, (self->count&EXPANDED) ? "visible" : "hidden", fgStyleGetMask("visible", "hidden"));
     {
       fgElement* cur = self->control.element.root;
       while(cur)

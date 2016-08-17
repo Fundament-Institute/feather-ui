@@ -127,6 +127,7 @@ size_t FG_FASTCALL fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
 {
   static const FG_Msg* msgbuffer = 0;
   static size_t depthbuffer = 0;
+  static size_t* indexbuffer = 0;
 
   assert(fgdebug_instance->behaviorhook != &fgRoot_BehaviorDebug);
   if(msg->type == FG_DRAW) // Don't log FG_DRAW calls or the whole log will be flooded with them.
@@ -149,12 +150,13 @@ size_t FG_FASTCALL fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
   }
 
   if(msgbuffer)
-    fgDebug_LogMessage(fgdebug_instance, msgbuffer, 0, depthbuffer);
+    *indexbuffer = fgDebug_LogMessage(fgdebug_instance, msgbuffer, 0, depthbuffer);
 
   msgbuffer = msg;
   depthbuffer = fgdebug_instance->depth;
+  size_t index = (size_t)-1;
+  indexbuffer = &index;
   fgElement* prev = fgdebug_instance->depthelement;
-  //size_t index = fgDebug_LogMessage(fgdebug_instance, msg, 0, fgdebug_instance->depth);
   ++fgdebug_instance->depth;
   size_t r = (*fgdebug_instance->behaviorhook)(self, msg);
   --fgdebug_instance->depth;
@@ -186,13 +188,14 @@ size_t FG_FASTCALL fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
       if(!r)
         break;
     default:
-      fgDebug_LogMessage(fgdebug_instance, msgbuffer, 0, depthbuffer);
+      *indexbuffer = fgDebug_LogMessage(fgdebug_instance, msgbuffer, 0, depthbuffer);
     }
     msgbuffer = 0;
   }
 
   fgdebug_instance->depthelement = prev;
-  //fgdebug_instance->messagelog.p[index].value = r;
+  if(index < fgdebug_instance->messagelog.l)
+    fgdebug_instance->messagelog.p[index].value = r;
   return r;
 }
 

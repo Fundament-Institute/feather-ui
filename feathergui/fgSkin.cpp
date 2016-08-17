@@ -8,6 +8,7 @@
 #include "feathercpp.h"
 
 KHASH_INIT(fgSkins, const char*, fgSkin*, 1, kh_str_hash_funcins, kh_str_hash_insequal);
+KHASH_INIT(fgStyleInt, FG_UINT, fgStyle, 1, kh_int_hash_func, kh_int_hash_equal);
 
 static_assert(sizeof(fgStyleLayoutArray) == sizeof(fgVector), "mismatch between vector sizes");
 static_assert(sizeof(fgStyleArray) == sizeof(fgVector), "mismatch between vector sizes");
@@ -49,7 +50,19 @@ void FG_FASTCALL fgSkin_Destroy(fgSkin* self)
   reinterpret_cast<fgResourceArray&>(self->resources).~cDynArray();
   reinterpret_cast<fgFontArray&>(self->fonts).~cDynArray();
   reinterpret_cast<fgStyleLayoutArray&>(self->children).~cArraySort();
-  reinterpret_cast<fgStyleArray&>(self->styles).~cDynArray();
+
+  if(self->styles != 0)
+  {
+    khiter_t cur = kh_begin(self->styles);
+    while(cur != kh_end(self->styles))
+    {
+      if(kh_exist(self->styles, cur))
+        fgStyle_Destroy(self->styles->vals + cur);
+      ++cur;
+    }
+    kh_destroy_fgStyleInt(self->styles);
+  }
+
   DestroyHash<kh_fgSkins_t, fgSkin, &fgSkin_Destroy, &kh_del_fgSkins, &kh_destroy_fgSkins>(self->skinmap);
 }
 size_t FG_FASTCALL fgSkin_AddResource(fgSkin* self, void* resource)
@@ -89,22 +102,46 @@ fgStyleLayout* FG_FASTCALL fgSkin_GetChild(const fgSkin* self, FG_UINT child)
   return self->children.p + child;
 }
 
-size_t FG_FASTCALL fgSkin_AddStyle(fgSkin* self, const char* name)
+FG_UINT FG_FASTCALL fgSkin_AddStyle(fgSkin* self, const char* name)
 {
-  FG_UINT r = fgStyle_GetName(name);
-  FG_UINT i = bss_util::bsslog2(r);
-  if(i >= ((fgStyleArray&)self->styles).Length())
-    ((fgStyleArray&)self->styles).SetLength(i + 1);
-  return r;
+  if(!self->styles)
+    self->styles = kh_init_fgStyleInt();
+
+  size_t len = strlen(name) + 1;
+  DYNARRAY(char, tokenize, len);
+  MEMCPY(tokenize, len, name, len);
+  char* context;
+  char* token = STRTOK(tokenize, "+", &context);
+  FG_UINT style = 0;
+  while(token)
+  {
+    style |= fgStyle_GetName(token, style != 0); // If this is the first token we're parsing, it's not a flag, otherwise it is a flag.
+    token = STRTOK(0, "+", &context);
+  }
+
+  int r = 0;
+  khiter_t i = kh_put_fgStyleInt(self->styles, style, &r);
+
+  if(r != 0)
+    kh_val(self->styles, i).styles = 0;
+  return style;
 }
 char FG_FASTCALL fgSkin_RemoveStyle(fgSkin* self, FG_UINT style)
 {
-  return DynArrayRemove((fgStyleArray&)self->styles, bss_util::bsslog2(style));
+  khiter_t i = kh_get_fgStyleInt(self->styles, style);
+  if(i < kh_end(self->styles) && kh_exist(self->styles, i))
+  {
+    fgStyle_Destroy(self->styles->vals + i);
+    kh_del_fgStyleInt(self->styles, i);
+    return 1;
+  }
+  return 0;
 }
 fgStyle* FG_FASTCALL fgSkin_GetStyle(const fgSkin* self, FG_UINT style)
 {
-  assert(bss_util::bsslog2(style) < ((fgStyleArray&)self->styles).Length());
-  return ((fgStyleArray&)self->styles).begin() + bss_util::bsslog2(style);
+  if(!self->styles) return 0;
+  khiter_t i = kh_get_fgStyleInt(self->styles, style);
+  return (i < kh_end(self->styles) && kh_exist(self->styles, i)) ? (self->styles->vals + i) : 0;
 }
 
 fgSkin* FG_FASTCALL fgSkin_AddSkin(fgSkin* self, const char* name)

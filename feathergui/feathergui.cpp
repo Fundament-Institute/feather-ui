@@ -133,6 +133,7 @@ void FG_FASTCALL fgUpdateMouseState(fgMouseState* state, const FG_Msg* msg)
   case FG_MOUSEMOVE:
     state->state |= FGMOUSE_HOVER;
     break;
+  case FG_MOUSEOFF:
   case FG_MOUSELEAVE:
     state->state &= ~FGMOUSE_HOVER;
     break;
@@ -144,7 +145,7 @@ void FG_FASTCALL fgUpdateMouseState(fgMouseState* state, const FG_Msg* msg)
   state->buttons = msg->allbtn;
   if(fgroot_instance->drag != 0)
     state->state |= FGMOUSE_DRAG;
-  if(msg->type == FG_MOUSELEAVE)
+  if(msg->type == FG_MOUSELEAVE || msg->type == FG_MOUSEOFF)
     state->state &= ~FGMOUSE_DRAG;
 }
 

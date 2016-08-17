@@ -79,7 +79,7 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
     self->contextmenu = 0;
     self->tabnext = self->tabprev = self; // This creates an infinite loop of tabbing
     self->sidenext = self->sideprev = self;
-    _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 1, 0, fgStyleGetMask("focused"));
+    fgStandardNuetralSetStyle(*self, "nuetral");
     return FG_ACCEPT;
   case FG_KEYDOWN:
   {
@@ -130,7 +130,8 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
   }
   if(fgroot_instance->drag != 0) // If necessary, send a drop message to the current control we're hovering over.
   {
-    _sendmsg<FG_DROP, void*>(fgLastHover, fgroot_instance->drag);
+    if(fgLastHover != 0) // It is possible for this to be null in edge cases where the mouse was forcibly removed from the window via alt-tab or something else.
+      _sendmsg<FG_DROP, void*>(fgLastHover, fgroot_instance->drag);
     fgroot_instance->drag = 0; // Ensure the drag pointer is set to NULL even if the target window doesn't understand the FG_DROP message.
   }
     return FG_ACCEPT;
@@ -140,14 +141,14 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
     if(fgFocusedWindow) // We do this here so you can disable getting focus by blocking this message without messing things up
       _sendmsg<FG_LOSTFOCUS, void*>(fgFocusedWindow, self);
     fgFocusedWindow = *self;
-    _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, "focused", fgStyleGetMask("focused"));
+    fgStandardNuetralSetStyle(*self, "focused", FGSETSTYLE_SETFLAG);
     return FG_ACCEPT;
   case FG_LOSTFOCUS:
     assert(fgFocusedWindow == *self);
     if(fgFocusedWindow == *self)
     {
       fgFocusedWindow = 0;
-      _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 1, 0, fgStyleGetMask("focused"));
+      fgStandardNuetralSetStyle(*self, "focused", FGSETSTYLE_REMOVEFLAG);
       if(self->element.parent)
       {
         if(self->element.parent->lastfocus == *self) // if the lastfocus was already us set it to 0.

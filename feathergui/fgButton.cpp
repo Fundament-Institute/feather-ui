@@ -24,7 +24,7 @@ size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
     fgControl_HoverMessage(&self->control, msg);
     fgText_Init(&self->text, *self, 0, "Button:text", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
     fgElement_Init(&self->item, *self, self->text, "Button:item", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
-    _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, (self->control.element.flags & FGCONTROL_DISABLE) ? "disabled" : "nuetral", fgStyleGetMask("nuetral", "hover", "active", "disabled"));
+    fgStandardNuetralSetStyle(*self, (self->control.element.flags & FGCONTROL_DISABLE) ? "disabled" : "nuetral");
     return FG_ACCEPT;
   case FG_ADDITEM:
     if(!msg->other)
@@ -33,13 +33,13 @@ size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
       fgPassMessage(&self->item, msg);
     return FG_ACCEPT;
   case FG_NUETRAL:
-    _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, "nuetral", fgStyleGetMask("nuetral", "hover", "active", "disabled"));
+    fgStandardNuetralSetStyle(*self, "nuetral");
     return FG_ACCEPT;
   case FG_HOVER:
-    _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, "hover", fgStyleGetMask("nuetral", "hover", "active", "disabled"));
+    fgStandardNuetralSetStyle(*self, "hover");
     return FG_ACCEPT;
   case FG_ACTIVE:
-    _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, "active", fgStyleGetMask("nuetral", "hover", "active", "disabled"));
+    fgStandardNuetralSetStyle(*self, "active");
     return FG_ACCEPT;
   case FG_GOTFOCUS:
     if(self->control.element.flags&FGBUTTON_NOFOCUS)
@@ -50,7 +50,7 @@ size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
   case FG_SETFLAGS:
     if((self->control.element.flags ^ (fgFlag)otherint) & FGCONTROL_DISABLE)
     {
-      _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, (otherint & FGCONTROL_DISABLE) ? "disabled" : "nuetral", fgStyleGetMask("nuetral", "hover", "active", "disabled"));
+      fgStandardNuetralSetStyle(*self, (otherint & FGCONTROL_DISABLE) ? "disabled" : "nuetral");
       fgroot_instance->mouse.state |= FGMOUSE_SEND_MOUSEMOVE;
     }
     break;

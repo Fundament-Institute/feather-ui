@@ -24,17 +24,17 @@ size_t FG_FASTCALL fgListItem_Message(fgControl* self, const FG_Msg* msg)
   case FG_MOUSEON:
   case FG_MOUSEOFF:
   case FG_MOUSESCROLL:
-  case FG_MOUSELEAVE: // We process the mouse messages and then reject them anyway, which allows our parent to respond correctly.
-    fgControl_HoverMessage(self, msg);
-    return 0;
+  case FG_MOUSELEAVE: 
+    fgPassMessage(self->element.parent, msg); // We send these messages to our parent FIRST, then override the resulting hover message by processing them ourselves.
+    break;
   case FG_NUETRAL:
-    _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, "nuetral", fgStyleGetMask("nuetral", "hover", "active"));
+    fgStandardNuetralSetStyle(*self, "nuetral");
     return FG_ACCEPT;
   case FG_HOVER:
-    _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, "hover", fgStyleGetMask("nuetral", "hover", "active"));
+    fgStandardNuetralSetStyle(*self, "hover");
     return FG_ACCEPT;
   case FG_ACTIVE:
-    _sendsubmsg<FG_SETSTYLE, void*, size_t>(*self, 0, "active", fgStyleGetMask("nuetral", "hover", "active"));
+    fgStandardNuetralSetStyle(*self, "active");
     return FG_ACCEPT;
   case FG_GETCLASSNAME:
     return (size_t)FGSTR_LISTITEM;
@@ -78,20 +78,20 @@ size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
       {
         for(size_t i = 0; i < self->selected.l; ++i)
           if(self->selected.p[i]->GetClassName() == FGSTR_LISTITEM)
-            _sendsubmsg<FG_SETSTYLE, void*, size_t>(self->selected.p[i], 1, 0, fgStyleGetMask("selected"));
+            fgStandardNuetralSetStyle(self->selected.p[i], "selected", FGSETSTYLE_REMOVEFLAG);
         ((bss_util::cArraySort<fgElement*>&)self->selected).Clear();
       }
       else if(index != (size_t)-1)
       {
         if(self->selected.p[index]->GetClassName() == FGSTR_LISTITEM)
-          _sendsubmsg<FG_SETSTYLE, void*, size_t>(self->selected.p[index], 1, 0, fgStyleGetMask("selected"));
+          fgStandardNuetralSetStyle(self->selected.p[index], "selected", FGSETSTYLE_REMOVEFLAG);
         ((bss_util::cArraySort<fgElement*>&)self->selected).Remove(index);
       }
 
       if(index == (size_t)-1)
       {
         if(target->GetClassName() == FGSTR_LISTITEM)
-          _sendsubmsg<FG_SETSTYLE, void*, size_t>(target, 0, "selected", fgStyleGetMask("selected"));
+          fgStandardNuetralSetStyle(target, "selected", FGSETSTYLE_SETFLAG);
         ((bss_util::cArraySort<fgElement*>&)self->selected).Insert(target);
       }
     }
@@ -108,6 +108,9 @@ size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
       if(target != 0)
         _sendmsg<FG_DRAG, void*, const void*>(*self, target, msg);
     }
+    break;
+  case FG_MOUSEOFF:
+    fgUpdateMouseState(&self->mouse, msg);
     break;
   case FG_DRAGGING:
   {
