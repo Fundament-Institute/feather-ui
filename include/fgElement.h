@@ -89,9 +89,8 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT void FG_FASTCALL LayoutChange(unsigned char subtype, struct _FG_ELEMENT* target, struct _FG_ELEMENT* old);
   FG_DLLEXPORT size_t FG_FASTCALL LayoutFunction(const FG_Msg& msg, const CRect& area, bool scrollbar = false);
   FG_DLLEXPORT size_t FG_FASTCALL LayoutLoad(struct _FG_LAYOUT* layout);
-  FG_DLLEXPORT size_t Drag(struct _FG_ELEMENT* target, const FG_Msg& msg);
-  FG_DLLEXPORT size_t Dragging(int x, int y);
-  FG_DLLEXPORT size_t Drop(struct _FG_ELEMENT* target);
+  FG_DLLEXPORT size_t DragOver(int x, int y);
+  FG_DLLEXPORT size_t Drop(int x, int y, unsigned char allbtn);
   FG_DLLEXPORT void Draw(AbsRect* area, int dpi);
   FG_DLLEXPORT size_t FG_FASTCALL Inject(const FG_Msg* msg, const AbsRect* area);
   FG_DLLEXPORT struct _FG_ELEMENT* FG_FASTCALL Clone(struct _FG_ELEMENT* from);

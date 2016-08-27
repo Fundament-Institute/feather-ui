@@ -107,6 +107,10 @@
 #define __has_builtin(x) 0
 #endif
 
+#ifdef BSS_64BIT
+#define BSS_HASINT128
+#endif
+
 #if __has_builtin(__builtin_unreachable) || __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 5)
 #define PORTABLE_UNREACHABLE() __builtin_unreachable()
 #define PORTABLE_ASSUME(x) do { if (!(x)) { __builtin_unreachable(); } } while (0)

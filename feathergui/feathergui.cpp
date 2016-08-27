@@ -125,17 +125,28 @@ void FG_FASTCALL fgUpdateMouseState(fgMouseState* state, const FG_Msg* msg)
   case FG_MOUSEDOWN:
     state->state |= FGMOUSE_HOVER;
     state->state |= FGMOUSE_INSIDE;
+    state->state &= ~FGMOUSE_DRAG;
     break;
   case FG_MOUSEUP:
     state->state |= FGMOUSE_HOVER;
     state->state &= ~FGMOUSE_INSIDE;
+    state->state &= ~FGMOUSE_DRAG;
+    break;
+  case FG_DRAGOVER:
+    state->state |= FGMOUSE_DRAG;
     break;
   case FG_MOUSEMOVE:
     state->state |= FGMOUSE_HOVER;
+    state->state &= ~FGMOUSE_DRAG;
     break;
   case FG_MOUSEOFF:
   case FG_MOUSELEAVE:
     state->state &= ~FGMOUSE_HOVER;
+    state->state &= ~FGMOUSE_DRAG;
+    break;
+  case FG_DROP:
+    state->state &= ~FGMOUSE_DRAG;
+    state->state &= ~FGMOUSE_INSIDE;
     break;
   default:
     return;
@@ -143,10 +154,6 @@ void FG_FASTCALL fgUpdateMouseState(fgMouseState* state, const FG_Msg* msg)
   state->x = msg->x;
   state->y = msg->y;
   state->buttons = msg->allbtn;
-  if(fgroot_instance->drag != 0)
-    state->state |= FGMOUSE_DRAG;
-  if(msg->type == FG_MOUSELEAVE || msg->type == FG_MOUSEOFF)
-    state->state &= ~FGMOUSE_DRAG;
 }
 
 char FG_FASTCALL fgRectIntersect(const AbsRect* l, const AbsRect* r)

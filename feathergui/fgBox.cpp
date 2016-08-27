@@ -19,8 +19,8 @@ void FG_FASTCALL fgBox_Destroy(fgBox* self)
 template<fgFlag FLAGS> BSS_FORCEINLINE char fgBoxVecCompare(const AbsVec& l, const AbsVec& r);
 template<> BSS_FORCEINLINE char fgBoxVecCompare<FGBOX_TILEX>(const AbsVec& l, const AbsVec& r) { return SGNCOMPARE(l.x, r.x); }
 template<> BSS_FORCEINLINE char fgBoxVecCompare<FGBOX_TILEY>(const AbsVec& l, const AbsVec& r) { return SGNCOMPARE(l.y, r.y); }
-template<> BSS_FORCEINLINE char fgBoxVecCompare<FGBOX_TILE>(const AbsVec& l, const AbsVec& r) { return 0; }
-template<> BSS_FORCEINLINE char fgBoxVecCompare<FGBOX_TILE|FGBOX_DISTRIBUTEY>(const AbsVec& l, const AbsVec& r) { return 0; }
+template<> BSS_FORCEINLINE char fgBoxVecCompare<FGBOX_TILE>(const AbsVec& l, const AbsVec& r) { char ret = SGNCOMPARE(l.y, r.y); return !ret ? SGNCOMPARE(l.x, r.x) : ret; }
+template<> BSS_FORCEINLINE char fgBoxVecCompare<FGBOX_TILE | FGBOX_DISTRIBUTEY>(const AbsVec& l, const AbsVec& r) { char ret = SGNCOMPARE(l.x, r.x); return !ret ? SGNCOMPARE(l.y, r.y) : ret; }
 
 template<fgFlag FLAGS>
 char fgBoxCompare(const AbsRect& l, const fgElement* const& e)
@@ -70,6 +70,8 @@ size_t FG_FASTCALL fgBox_Message(fgBox* self, const FG_Msg* msg)
     size_t r = fgScrollbar_Message(&self->window, msg);
     if(!self->window->root)
       self->isordered = 1;
+    else
+      self->isordered = 0;
     return r;
   }
   case FG_ADDCHILD:
@@ -97,26 +99,28 @@ size_t FG_FASTCALL fgBox_Message(fgBox* self, const FG_Msg* msg)
         }
       }
 
-      if(self->isordered) // if we're still ordered then we add this to our vector
+      if(!(hold->flags&FGELEMENT_BACKGROUND))
       {
-        if(!next || next->flags&FGELEMENT_BACKGROUND)
-          ((bss_util::cDynArray<fgElement*>&)self->ordered).Add(hold);
-        else
+        if(self->isordered) // if we're still ordered then we add this to our vector
         {
-          size_t i = self->ordered.l;
-          while(i > 0 && self->ordered.p[--i] != next);
-          assert(self->ordered.p[i] == next);
-          ((bss_util::cDynArray<fgElement*>&)self->ordered).Insert(hold, i);
+          if(!next || next->flags&FGELEMENT_BACKGROUND)
+            ((bss_util::cDynArray<fgElement*>&)self->ordered).Add(hold);
+          else
+          {
+            size_t i = self->ordered.l;
+            while(i > 0 && self->ordered.p[--i] != next);
+            assert(self->ordered.p[i] == next);
+            ((bss_util::cDynArray<fgElement*>&)self->ordered).Insert(hold, i);
+          }
         }
+        else
+          self->ordered.l = 0;
       }
-      else
-        self->ordered.l = 0;
       return FG_ACCEPT;
     }
     return 0;
   case FG_DRAW:
-    break;
-    /*if(!self->isordered || !self->ordered.l)
+    if(!self->isordered || !self->ordered.l)
       fgStandardDraw(*self, (AbsRect*)msg->other, msg->otheraux, msg->subtype & 1);
     else
     {
@@ -129,9 +133,17 @@ size_t FG_FASTCALL fgBox_Message(fgBox* self, const FG_Msg* msg)
       case FGBOX_TILE: fn = &fgBoxOrder<FGBOX_TILE>; break;
       case FGBOX_TILE | FGBOX_DISTRIBUTEY: fn = &fgBoxOrder<FGBOX_TILE | FGBOX_DISTRIBUTEY>; break;
       }
+      AbsRect temphold;
+      cStr str;
+      for(int i = 0; i < self->ordered.l; ++i)
+      {
+        ResolveRect(self->ordered.p[i], &temphold);
+        str += cStrF("%g,%g %g,%g;", temphold.left, temphold.top, temphold.right, temphold.bottom);
+        //str += cStrF("%p;", self->ordered.p[i]);
+      }
       fgOrderedDraw(*self, (AbsRect*)msg->other, msg->otheraux, msg->subtype & 1, self->ordered.p[self->ordered.l - 1]->next, fn);
     }
-    return FG_ACCEPT;*/
+    return FG_ACCEPT;
   case FG_INJECT:
     return fgStandardInject(*self, (const FG_Msg*)msg->other, (const AbsRect*)msg->other2);
   case FG_GETCLASSNAME:

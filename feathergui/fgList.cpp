@@ -3,6 +3,7 @@
 
 #include "fgList.h"
 #include "fgRoot.h"
+#include "fgCurve.h"
 #include "bss-util\bss_util.h"
 #include "feathercpp.h"
 
@@ -17,8 +18,11 @@ size_t FG_FASTCALL fgListItem_Message(fgControl* self, const FG_Msg* msg)
 {
   switch(msg->type)
   {
-  case FG_MOUSEDOWN:
+  case FG_DRAGOVER:
+  case FG_DROP:
+    return fgPassMessage(self->element.parent, msg);
   case FG_MOUSEMOVE:
+  case FG_MOUSEDOWN:
   case FG_MOUSEDBLCLICK:
   case FG_MOUSEUP:
   case FG_MOUSEON:
@@ -64,6 +68,7 @@ size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
     memset(&self->mouse, 0, sizeof(fgMouseState));
     self->select.color = 0xFF9999DD;
     self->hover.color = 0x99999999;
+    self->drag.color = 0xFFCCCCCC;
     break;
   case FG_MOUSEDOWN:
     fgUpdateMouseState(&self->mouse, msg);
@@ -101,29 +106,32 @@ size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
     break;
   case FG_MOUSEMOVE:
     fgUpdateMouseState(&self->mouse, msg);
-    if(!fgroot_instance->drag && (self->box.window.control.element.flags&FGLIST_DRAGGABLE) && (self->mouse.state&FGMOUSE_INSIDE)) // Check if we clicked inside this window
+    if((self->box.window.control.element.flags&FGLIST_DRAGGABLE) && (self->mouse.state&FGMOUSE_INSIDE)) // Check if we clicked inside this window
     {
       AbsRect cache;
       fgElement* target = fgElement_GetChildUnderMouse(*self, msg->x, msg->y, &cache); // find item below the mouse cursor (if any) and initiate a drag for it.
       if(target != 0)
-        _sendmsg<FG_DRAG, void*, const void*>(*self, target, msg);
+      {
+        fgDragStart(FGCLIPBOARD_ELEMENT, target, target);
+        self->mouse.state &= ~FGMOUSE_INSIDE;
+      }
     }
     break;
   case FG_MOUSEOFF:
     fgUpdateMouseState(&self->mouse, msg);
     break;
-  case FG_DRAGGING:
-  {
-    fgElement* drag = fgroot_instance->drag;
-    if(drag->parent != *self) // If something is being dragged over us, by default reject it if it wasn't from this list.
-      break; // the default handler rejects it for us and sets the cursor.
-    fgSetCursor(FGCURSOR_HAND, 0); // Set cursor to a droppable icon
-  }
+  case FG_DRAGOVER:
+    fgUpdateMouseState(&self->mouse, msg);
+    if(fgroot_instance->dragtype == FGCLIPBOARD_ELEMENT && fgroot_instance->dragdata != 0 && ((fgElement*)fgroot_instance->dragdata)->parent == *self) // Accept a drag element only if it's from this list
+      fgRoot_SetCursor(FGCURSOR_DRAG, 0);
+    else
+      break; // the default handler rejects it for us
     return FG_ACCEPT;
   case FG_DROP:
-    if(msg->other)
+    fgUpdateMouseState(&self->mouse, msg);
+    if(fgroot_instance->dragtype == FGCLIPBOARD_ELEMENT && fgroot_instance->dragdata != 0)
     {
-      fgElement* drag = (fgElement*)msg->other;
+      fgElement* drag = (fgElement*)fgroot_instance->dragdata;
       if(drag->parent != *self)
         break; // drop to default handling to reject this if it isn't a child of this control
 
@@ -134,13 +142,20 @@ size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
         break;
       ResolveRectCache(target, &rect, &cache, (target->flags & FGELEMENT_BACKGROUND) ? 0 : &(*self)->padding);
 
-      // figure out if we're on the x axis or y axis
+      // TODO: figure out if we're on the x axis or y axis
+      
+      if(self->mouse.y > ((rect.top + rect.bottom) * 0.5f)) // if true, it's after target, so move the target pointer up one.
+        target = target->next;
 
-      // Remove the child from where it currently is, then re-insert it above or below the control it's being dragged over.
-
-      fgSetCursor(FGCURSOR_ARROW, 0);
+      // Remove the child from where it currently is, then re-insert it, but only if target is not drag
+      if(target != drag)
+      {
+        drag->SetParent(0);
+        self->box->AddChild(drag, target);
+      }
+      return FG_ACCEPT;
     }
-    return FG_ACCEPT;
+    break;
   case FG_DRAW:
     if(!(msg->subtype & 1))
     {
@@ -156,7 +171,16 @@ size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
 
       if(self->mouse.state&FGMOUSE_DRAG)
       {
-        //draw line
+        AbsRect cache;
+        fgElement* target = fgElement_GetChildUnderMouse(*self, self->mouse.x, self->mouse.y, &cache);
+        if(target)
+        { // TODO: make this work with lists growing along x-axis
+          AbsRect r;
+          ResolveRectCache(target, &r, (AbsRect*)&cache, (target->flags & FGELEMENT_BACKGROUND) ? 0 : &(*self)->padding);
+          float y = (self->mouse.y > ((r.top + r.bottom) * 0.5f)) ? r.bottom : r.top;
+          AbsVec line[2] = { { r.left, y }, { r.right - 1, y } };
+          fgDrawLines(line, 2, self->drag.color, &AbsVec { 0,0 }, &AbsVec { 1,1 }, 0, &AbsVec { 0,0 });
+        }
       }
       else
       {

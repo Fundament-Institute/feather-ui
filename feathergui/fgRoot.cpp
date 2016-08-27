@@ -24,7 +24,6 @@ void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, size_t dpi)
 {
   self->behaviorhook = &fgRoot_BehaviorDefault;
   self->dpi = dpi;
-  self->drag = 0;
   self->monitors = 0;
   self->time = 0.0;
   self->cursorblink = 0.53; // 530 ms is the windows default.
@@ -32,6 +31,15 @@ void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, size_t dpi)
   self->lineheight = 0;
   self->radiohash = fgRadioGroup_init();
   self->functionhash = fgFunctionMap_init();
+  self->lastcursor = FGCURSOR_NONE;
+  self->lastcursordata = 0;
+  self->nextcursor = FGCURSOR_NONE;
+  self->nextcursordata = 0;
+  self->overridecursor = FGCURSOR_NONE;
+  self->overridecursordata = 0;
+  self->dragtype = FGCLIPBOARD_NONE;
+  self->dragdata = 0;
+  self->dragdraw = 0;
   fgroot_instance = self;
   fgTransform transform = { area->left, 0, area->top, 0, area->right, 0, area->bottom, 0, 0, 0, 0 };
   fgElement_InternalSetup(*self, 0, 0, 0, 0, &transform, (fgDestroy)&fgRoot_Destroy, (fgMessage)&fgRoot_Message);
@@ -63,6 +71,8 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
 {
   switch(msg->type)
   {
+  case FG_MOUSEMOVE:
+    fgRoot_SetCursor(FGCURSOR_ARROW, 0);
   case FG_KEYCHAR: // If these messages get sent to the root, they have been rejected from everything else.
   case FG_KEYUP:
   case FG_KEYDOWN:
@@ -83,7 +93,20 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
     AbsRect area = { rootarea->left.abs, rootarea->top.abs, rootarea->right.abs, rootarea->bottom.abs };
     FG_Msg m = *msg;
     m.other = &area;
-    return fgControl_Message((fgControl*)self, &m);
+    fgControl_Message((fgControl*)self, &m);
+    if(self->dragdraw != 0 && self->dragdraw->parent != *self)
+    {
+      AbsRect out;
+      ResolveRect(self->dragdraw, &out);
+      FABS dx = out.right - out.left;
+      FABS dy = out.bottom - out.top;
+      out.left = self->mouse.x;
+      out.top = self->mouse.y;
+      out.right = out.left + dx;
+      out.bottom = out.top + dy;
+      self->dragdraw->Draw(&out, (int)self->dragdraw->GetDPI());
+    }
+    return FG_ACCEPT;
   }
   case FG_GETDPI:
     return self->dpi;
@@ -102,9 +125,6 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
     self->lineheight = msg->otherf;
     return FG_ACCEPT;
   case FG_GETSTYLE:
-    return 0;
-  case FG_MOUSEMOVE:
-    fgSetCursor(FGCURSOR_ARROW, 0);
     return 0;
   }
   return fgControl_Message((fgControl*)self,msg);
@@ -231,12 +251,36 @@ void FG_FASTCALL fgOrderedInject(fgElement* self, const FG_Msg* msg, const AbsRe
 
 }
 
+void fgProcessNextCursor(fgRoot* self)
+{
+  if(self->overridecursor != FGCURSOR_NONE)
+  {
+    self->nextcursor = self->overridecursor;
+    self->nextcursordata = self->overridecursordata;
+  }
+
+  if(self->nextcursor != self->lastcursor || self->nextcursordata != self->lastcursordata)
+  {
+    fgSetCursor(self->nextcursor, self->nextcursordata);
+    self->lastcursor = self->nextcursor;
+    self->lastcursordata = self->lastcursordata;
+  }
+}
+
 size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
 {
   assert(self != 0);
 
   CRect* rootarea = &self->gui.element.transform.area;
   fgUpdateMouseState(&self->mouse, msg);
+  FG_Msg m;
+
+  if(self->dragtype != FGCLIPBOARD_NONE && (msg->type == FG_MOUSEMOVE || msg->type == FG_MOUSEUP))
+  {
+    m = *msg;
+    m.type = (msg->type == FG_MOUSEMOVE) ? FG_DRAGOVER : FG_DROP;
+    msg = &m;
+  }
 
   switch(msg->type)
   {
@@ -263,22 +307,41 @@ size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
     rootarea = rootarea;
   case FG_MOUSEUP:
   case FG_MOUSEMOVE:
-    if(self->drag != 0 && self->drag->parent == *self)
-      MoveCRect((FABS)msg->x, (FABS)msg->y, &self->drag->transform.area);
+    if(self->dragdraw != 0 && self->dragdraw->parent == *self)
+      MoveCRect((FABS)msg->x, (FABS)msg->y, &self->dragdraw->transform.area);
 
     if(fgCaptureWindow)
       if(_sendmsg<FG_INJECT, const void*, const void*>(fgCaptureWindow, msg, 0)) // If it's captured, send the message to the captured window with NULL area.
-        return FG_ACCEPT;
+        return fgProcessNextCursor(self), FG_ACCEPT;
 
     if(_sendmsg<FG_INJECT, const void*, const void*>(*self, msg, 0))
-      return FG_ACCEPT;
+      return fgProcessNextCursor(self), FG_ACCEPT;
     if(msg->type != FG_MOUSEMOVE)
       break;
+    fgProcessNextCursor(self);
   case FG_MOUSELEAVE:
     if(fgLastHover != 0) // If we STILL haven't accepted a mousemove event, send a MOUSEOFF message if lasthover exists
     {
       _sendmsg<FG_MOUSEOFF>(fgLastHover);
       fgLastHover = 0;
+    }
+    if(msg->type == FG_MOUSELEAVE)
+      self->lastcursor = FGCURSOR_NONE;
+    break;
+  case FG_DRAGOVER:
+  case FG_DROP:
+    _sendmsg<FG_INJECT, const void*, const void*>(*self, msg, 0);
+    fgProcessNextCursor(self);
+    if(msg->type == FG_DROP)
+    {
+      self->dragtype = FGCLIPBOARD_NONE;
+      if(self->dragdraw != 0)
+      {
+        if(self->dragdraw->parent == *self)
+          VirtualFreeChild(self->dragdraw);
+        self->dragdraw = 0;
+      }
+      self->dragdata = 0;
     }
     break;
   }
@@ -299,6 +362,20 @@ size_t FG_FASTCALL fgRoot_BehaviorListener(fgElement* self, const FG_Msg* msg)
   if(fgListenerHash.ExistsIter(iter))
     fgListenerHash.GetValue(iter)(self, msg);
   return ret;
+}
+
+void FG_FASTCALL fgRoot_SetCursor(char cursor, void* data)
+{
+  if(cursor & FGCURSOR_OVERRIDE)
+  {
+    fgroot_instance->overridecursor = cursor;
+    fgroot_instance->overridecursordata = data;
+  }
+  else
+  {
+    fgroot_instance->nextcursor = cursor;
+    fgroot_instance->nextcursordata = data;
+  }
 }
 
 void FG_FASTCALL fgTerminate(fgRoot* root)

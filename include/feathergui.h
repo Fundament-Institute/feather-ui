@@ -185,8 +185,7 @@ enum FG_MSGTYPE
   FG_LAYOUTCHANGE, 
   FG_LAYOUTFUNCTION,
   FG_LAYOUTLOAD, // Loads a layout passed in the first pointer with an optional custom class name resolution function passed into the second pointer of type fgElement* (*)(const char*, fgTransform*, fgFlag)
-  FG_DRAG, // Sent to initiate a drag&drop
-  FG_DRAGGING, // Sent to any element a dragged element is hovering over so it can set the cursor icon.
+  FG_DRAGOVER, // Sent to any element a dragged element is hovering over so it can set the cursor icon.
   FG_DROP, // Sent when an element is "dropped" on another element. Whether or not this does anything is up to the control.
   FG_DRAW,
   FG_INJECT,
@@ -474,7 +473,7 @@ enum FG_MOUSEBUTTON // Used in FG_Msg.button and FG_Msg.allbtn
 
 enum FG_CURSOR
 {
-  FGCURSOR_CUSTOM = 0,
+  FGCURSOR_NONE = 0,
   FGCURSOR_ARROW,
   FGCURSOR_IBEAM,
   FGCURSOR_CROSS,
@@ -487,14 +486,19 @@ enum FG_CURSOR
   FGCURSOR_RESIZEALL,
   FGCURSOR_NO,
   FGCURSOR_HELP, // contextual menu cursor on mac
-  // FGCURSOR_DRAG, // Mac has a default drag cursor, but windows doesn't
+  FGCURSOR_DRAG, // Mac has a default drag cursor, but windows doesn't
+  FGCURSOR_CUSTOM,
+  FGCURSOR_OVERRIDE = 0x40,
 };
 
 enum FG_CLIPBOARD
 {
-  FGCLIPBOARD_TEXT = 0,
+  FGCLIPBOARD_NONE = 0,
+  FGCLIPBOARD_TEXT,
   FGCLIPBOARD_WAVE,
   FGCLIPBOARD_BITMAP,
+  FGCLIPBOARD_FILE,
+  FGCLIPBOARD_ELEMENT,
   FGCLIPBOARD_CUSTOM,
   FGCLIPBOARD_ALL,
 };

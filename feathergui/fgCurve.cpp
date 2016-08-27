@@ -120,7 +120,15 @@ size_t FG_FASTCALL fgCurve_Message(fgCurve* self, const FG_Msg* msg)
     AbsVec scalevec = AbsVec { 1.0f, 1.0f };
 
     if(!(self->element.flags&FGCURVE_CURVEMASK))
-      fgDrawLines(self->points.p, self->points.l, self->color.color, &area.topleft, &scalevec, self->element.transform.rotation, &center);
+    {
+      if(self->points.l > 0)
+        fgDrawLines(self->points.p, self->points.l, self->color.color, &area.topleft, &scalevec, self->element.transform.rotation, &center);
+      else
+      {
+        AbsVec p[2] = { {0,0}, { area.right - area.left - 1, area.bottom - area.top - 1} };
+        fgDrawLines(p, 2, self->color.color, &area.topleft, &scalevec, self->element.transform.rotation, &center);
+      }
+    } 
     else
     {
       if(!self->cache.l)

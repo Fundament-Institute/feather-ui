@@ -42,7 +42,7 @@
 #define RANDBOOLGEN() (rand()>(RAND_MAX>>1))
 #endif
 
-#define SAFESHIFT(v,s) ((s>0)?(v<<s):(v>>(-s))) //positive number shifts left, negative number shifts right, prevents undefined behavior.
+#define SAFESHIFT(v,s) (((s)>0)?((v)<<(s)):((v)>>(-(s)))) //positive number shifts left, negative number shifts right, prevents undefined behavior.
 #define T_GETBIT(type, bit) ((type)(((type)1)<<(((type)bit)%(sizeof(type)<<3)))) // Gets a bitmask using its 0-based index.
 //#define T_GETBITRANGE(type, low, high) ((type)((((2<<((high)-(low)))-1)<<(low))|(((2<<((high)-(low)))-1)>>(-(low)))|(((2<<((high)-(low)))-1)<<((low)%(sizeof(type)<<3)))))
 // Gets a bitmask for a range of bits. This range can be negative to start from the left end instead of the right.

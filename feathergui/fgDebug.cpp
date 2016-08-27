@@ -176,8 +176,7 @@ size_t FG_FASTCALL fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
     case FG_LAYOUTLOAD:
     case FG_SETSKIN:
     case FG_SETSTYLE:
-    case FG_DRAG:
-    case FG_DRAGGING:
+    case FG_DRAGOVER:
     case FG_DROP:
     case FG_KEYUP:
     case FG_KEYDOWN:
@@ -283,7 +282,6 @@ size_t FG_FASTCALL fgDebug_LogMessage(fgDebug* self, const FG_Msg* msg, unsigned
     m.arg1.p = msg->other;
     m.arg2.p = msg->other2;
     break;
-  case FG_DRAG:
   case FG_MOVE:
     m.arg1.element = (fgElement*)msg->other;
     m.arg1.name = fgDebug_GetElementName(self, m.arg1.element);
@@ -337,7 +335,7 @@ size_t FG_FASTCALL fgDebug_LogMessage(fgDebug* self, const FG_Msg* msg, unsigned
   case FG_MOUSEOFF:
   case FG_MOUSEMOVE:
   case FG_MOUSELEAVE:
-  case FG_DRAGGING:
+  case FG_DRAGOVER:
     m.mouse.x = msg->x;
     m.mouse.y = msg->y;
     break;
@@ -458,7 +456,6 @@ const char* FG_FASTCALL fgDebug_GetMessageString(unsigned short msg)
   case FG_LAYOUTLOAD: return "FG_LAYOUTLOAD";
   case FG_SETRESOURCE: return "FG_SETRESOURCE";
   case FG_SETFONT: return "FG_SETFONT";
-  case FG_DRAG: return "FG_DRAG";
   case FG_MOUSEDOWN: return "FG_MOUSEDOWN";
   case FG_MOUSEDBLCLICK: return "FG_MOUSEDBLCLICK";
   case FG_MOUSEUP: return "FG_MOUSEUP";
@@ -466,7 +463,7 @@ const char* FG_FASTCALL fgDebug_GetMessageString(unsigned short msg)
   case FG_MOUSEOFF: return "FG_MOUSEOFF";
   case FG_MOUSEMOVE: return "FG_MOUSEMOVE";
   case FG_MOUSELEAVE: return "FG_MOUSELEAVE";
-  case FG_DRAGGING: return "FG_DRAGGING";
+  case FG_DRAGOVER: return "FG_DRAGOVER";
   case FG_DROP: return "FG_SETFONT";
   case FG_DRAW: return "FG_DRAW";
   case FG_INJECT: return "FG_INJECT";
@@ -586,8 +583,6 @@ ptrdiff_t FG_FASTCALL fgDebug_WriteMessage(char* buf, size_t bufsize, fgDebugMes
     return snprintf(buf, bufsize, "%*sFG_SETRESOURCE(0x%p)", spaces, "", msg->arg1.p);
   case FG_SETFONT:
     return snprintf(buf, bufsize, "%*sFG_SETFONT(0x%p)", spaces, "", msg->arg1.p);
-  case FG_DRAG:
-    return snprintf(buf, bufsize, "%*sFG_DRAG(%s [0x%p], 0x%p)", spaces, "", _dbg_getstr(msg->arg1.name), msg->arg1.element, msg->arg2.p);
   case FG_MOUSEDOWN:
     return snprintf(buf, bufsize, "%*sFG_MOUSEDOWN(x:%i, y:%i, %#hhX, %#hhX)", spaces, "", msg->mouse.x, msg->mouse.y, msg->mouse.button, msg->mouse.allbtn);
   case FG_MOUSEDBLCLICK:
@@ -602,8 +597,8 @@ ptrdiff_t FG_FASTCALL fgDebug_WriteMessage(char* buf, size_t bufsize, fgDebugMes
     return snprintf(buf, bufsize, "%*sFG_MOUSEMOVE(x:%i, y:%i)", spaces, "", msg->mouse.x, msg->mouse.y);
   case FG_MOUSELEAVE:
     return snprintf(buf, bufsize, "%*sFG_MOUSELEAVE(x:%i, y:%i)", spaces, "", msg->mouse.x, msg->mouse.y);
-  case FG_DRAGGING:
-    return snprintf(buf, bufsize, "%*sFG_DRAGGING(x:%i, y:%i)", spaces, "", msg->mouse.x, msg->mouse.y);
+  case FG_DRAGOVER:
+    return snprintf(buf, bufsize, "%*sFG_DRAGOVER(x:%i, y:%i)", spaces, "", msg->mouse.x, msg->mouse.y);
   case FG_DROP:
     return snprintf(buf, bufsize, "%*sFG_SETFONT(%s [0x%p])", spaces, "", _dbg_getstr(msg->arg1.name), msg->arg1.element);
   case FG_DRAW:

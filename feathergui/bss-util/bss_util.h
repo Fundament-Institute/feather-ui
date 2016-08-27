@@ -65,7 +65,7 @@ namespace bss_util {
       typename std::conditional<sizeof(short) == BYTES, short,
       typename std::conditional<sizeof(int) == BYTES, int,
       typename std::conditional<sizeof(int64_t) == BYTES, int64_t,
-#if defined(BSS_COMPILER_GCC) && defined(BSS_64BIT)
+#ifdef BSS_HASINT128
       typename std::conditional<sizeof(__int128) == BYTES, __int128, void>::type>::type>::type>::type>::type SIGNED;
 #else
       void>::type>::type>::type>::type SIGNED;
@@ -308,11 +308,12 @@ namespace bss_util {
     //return x + 1 + (x>>1) + (x>>3) - (x>>7) + (x>>10) - (x>>13) - (x>>17) - (x>>21) + (x>>24); // 0.61803394 (but kind of pointless)
   }
 
-  // Gets the sign of any number (0 is assumed to be positive)
+  // Gets the sign of any integer (0 is assumed to be positive)
   template<typename T>
-  BSS_FORCEINLINE static char BSS_FASTCALL tsign(T n) noexcept
+  BSS_FORCEINLINE static T BSS_FASTCALL tsign(T n) noexcept
   {
-    return (n >= 0) - (n < 0);
+    static_assert(std::is_integral<T>::value, "T must be an integer.");
+    return 1 | (n >> ((sizeof(T) << 3) - 1));
   }
 
   // Gets the sign of any number, where a value of 0 returns 0
@@ -805,6 +806,82 @@ namespace bss_util {
     return r;
   }
 
+  template<class T>
+  inline static typename std::make_unsigned<T>::type bssabs(T x)
+  {
+    static_assert(std::is_signed<T>::value, "T must be signed for this to work properly.");
+    T const mask = x >> ((sizeof(T) << 3) - 1); // Uses a bit twiddling hack to take absolute value without branching: https://graphics.stanford.edu/~seander/bithacks.html#IntegerAbs
+    return (x + mask) ^ mask;
+  }
+
+  template<class T>
+  inline static typename std::make_signed<T>::type bssnegate(T x, char negate)
+  {
+    static_assert(std::is_unsigned<T>::value, "T must be unsigned for this to work properly.");
+    return (x ^ -negate) + negate;
+  }
+
+  template<bool ENABLE, typename T>
+  struct __bssabsnegate_h
+  {
+    BSS_FORCEINLINE static typename std::make_unsigned<T>::type _bssabs(T x) { return bssabs<T>(x); }
+    BSS_FORCEINLINE static void _bssnegate(T& x, T& y, char negate) {
+      if(negate)
+      {
+        y = ~y + !x; // only add one if the x addition would overflow, which can only happen if x is the maximum value
+        x = ~x + 1;
+      }
+    }
+  };
+  template<typename T>
+  struct __bssabsnegate_h<false, T>
+  {
+    BSS_FORCEINLINE static T _bssabs(T x) { return x; }
+    BSS_FORCEINLINE static void _bssnegate(T& x, T& y, char negate) { }
+  };
+
+  // Double width multiplication followed by a right shift and truncation.
+  template<class T>
+  inline static T BSS_FASTCALL __bssmultiplyextract__h(T xs, T ys, T shift)
+  {
+    typedef typename std::make_unsigned<T>::type U;
+    U x = __bssabsnegate_h<std::is_signed<T>::value, T>::_bssabs(xs);
+    U y = __bssabsnegate_h<std::is_signed<T>::value, T>::_bssabs(ys);
+    static const U halfbits = (sizeof(U) << 2);
+    static const U halfmask = ((U)~0) >> halfbits;
+    U a = x >> halfbits, b = x & halfmask;
+    U c = y >> halfbits, d = y & halfmask;
+
+    U ac = a * c;
+    U bc = b * c;
+    U ad = a * d;
+    U bd = b * d;
+
+    U mid34 = (bd >> halfbits) + (bc & halfmask) + (ad & halfmask);
+
+    U high = ac + (bc >> halfbits) + (ad >> halfbits) + (mid34 >> halfbits); // high
+    U low = (mid34 << halfbits) | (bd & halfmask); // low
+    __bssabsnegate_h<std::is_signed<T>::value, U>::_bssnegate(low, high, (xs < 0) ^ (ys < 0));
+
+    if(shift >= (sizeof(U) << 3))
+      return ((T)high) >> (shift - (sizeof(U) << 3));
+    low = (low >> shift);
+    high = (high << ((sizeof(T) << 3) - shift)) & (-(shift>0)); // shifting left by 64 bits is undefined, so we use a bit trick to set high to zero if shift is 0 without branching.
+    return (T)(low | high);
+  }
+  template<class T>
+  BSS_FORCEINLINE static T BSS_FASTCALL bssmultiplyextract(T x, T y, T shift)
+  {
+    typedef typename std::conditional<std::is_signed<T>::value, typename BitLimit<sizeof(T) << 4>::SIGNED, typename BitLimit<sizeof(T) << 4>::UNSIGNED>::type U;
+    return (T)(((U)x * (U)y) >> shift);
+  }
+#ifndef BSS_HASINT128
+  template<>
+  BSS_FORCEINLINE static int64_t BSS_FASTCALL bssmultiplyextract<int64_t>(int64_t x, int64_t y, int64_t shift) { return __bssmultiplyextract__h<int64_t>(x, y, shift); }
+  template<>
+  BSS_FORCEINLINE static uint64_t BSS_FASTCALL bssmultiplyextract<uint64_t>(uint64_t x, uint64_t y, uint64_t shift) { return __bssmultiplyextract__h<uint64_t>(x, y, shift); }
+#endif
+
   // Basic lerp function with no bounds checking
   template<class T>
   BSS_FORCEINLINE static T BSS_FASTCALL lerp(T a, T b, double t) noexcept
@@ -812,7 +889,7 @@ namespace bss_util {
     return T((1.0 - t)*a) + T(t*b);
 	  //return a+((T)((b-a)*t)); // This is susceptible to floating point errors when t = 1
   }
-  
+
 #ifdef BSS_VARIADIC_TEMPLATES
 
   // Generates a packed sequence of numbers

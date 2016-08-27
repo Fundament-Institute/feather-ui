@@ -26,7 +26,6 @@
 
 fgRoot* _fgroot=0; // fgRoot singleton variable
 
-
 void* FG_FASTCALL fgCreateFont(fgFlag flags, const char* font, unsigned int fontsize, unsigned int dpi) { return (void*)~0; }
 void* FG_FASTCALL fgCopyFont(void* font, unsigned int fontsize, unsigned int dpi) { return (void*)~0; }
 void* FG_FASTCALL fgCloneFont(void* font) { return (void*)~0; }
@@ -91,6 +90,14 @@ AbsRect fgPeekClipRect()
 void fgPopClipRect()
 {
   --clipnum;
+}
+
+void fgDragStart(char type, void* data, fgElement* draw)
+{
+  _fgroot->dragtype = type;
+  _fgroot->dragdata = data;
+  _fgroot->dragdraw = draw;
+  fgCaptureWindow = 0;
 }
 
 char FG_FASTCALL fgLoadExtension(const char* extname, void* fg, size_t sz) { return -1; }

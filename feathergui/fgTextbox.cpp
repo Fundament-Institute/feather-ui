@@ -528,12 +528,12 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       self->start = fgTextbox_fixindex(self, fgTextbox_RelativeMouse(self, msg), &self->startpos);
       self->lastx = self->startpos.x;
     }
-    break;
+    fgScrollbar_Message(&self->window, msg);
+    fgRoot_SetCursor(FGCURSOR_IBEAM, 0);
+    return FG_ACCEPT;
   case FG_MOUSEON:
-    fgSetCursor(FGCURSOR_IBEAM, 0);
     return FG_ACCEPT;
   case FG_MOUSEOFF:
-    fgSetCursor(FGCURSOR_ARROW, 0);
     return FG_ACCEPT;
   case FG_LAYOUTFUNCTION:
     if(msg->other != 0 && self->font != 0)

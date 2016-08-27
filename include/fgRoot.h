@@ -26,7 +26,6 @@ typedef struct _FG_DEFER_ACTION {
 typedef struct _FG_ROOT {
   fgControl gui;
   size_t (FG_FASTCALL *behaviorhook)(struct _FG_ELEMENT* self, const FG_Msg* msg);
-  fgElement* drag;
   struct _FG_MONITOR* monitors;
   fgDeferAction* updateroot;
   struct __kh_fgRadioGroup_t* radiohash;
@@ -36,6 +35,15 @@ typedef struct _FG_ROOT {
   double time; // In seconds
   double cursorblink; // In seconds
   fgMouseState mouse;
+  char lastcursor; // FG_CURSOR
+  void* lastcursordata;
+  char nextcursor; // FG_CURSOR
+  void* nextcursordata;
+  char overridecursor; // FG_CURSOR
+  void* overridecursordata;
+  char dragtype; // FG_CLIPBOARD
+  void* dragdata;
+  fgElement* dragdraw;
   unsigned int keys[8]; // 8*4*8 = 256
 #ifdef  __cplusplus
   inline bool GetKey(unsigned char key) const { return (keys[key / 32] & (1 << (key % 32))) != 0; }
@@ -56,6 +64,7 @@ FG_EXTERN size_t FG_FASTCALL fgRoot_BehaviorDefault(fgElement* self, const FG_Ms
 FG_EXTERN size_t FG_FASTCALL fgRoot_BehaviorListener(fgElement* self, const FG_Msg* msg);
 FG_EXTERN void FG_FASTCALL fgRoot_Update(fgRoot* self, double delta);
 FG_EXTERN void FG_FASTCALL fgRoot_CheckMouseMove(fgRoot* self);
+FG_EXTERN void FG_FASTCALL fgRoot_SetCursor(char cursor, void* data);
 FG_EXTERN fgDeferAction* FG_FASTCALL fgRoot_AllocAction(char (FG_FASTCALL *action)(void*), void* arg, double time);
 FG_EXTERN void FG_FASTCALL fgRoot_DeallocAction(fgRoot* self, fgDeferAction* action); // Removes action from the list if necessary
 FG_EXTERN void FG_FASTCALL fgRoot_AddAction(fgRoot* self, fgDeferAction* action); // Adds an action. Action can't already be in list.
@@ -69,6 +78,7 @@ FG_EXTERN void fgPushClipRect(const AbsRect* clip);
 FG_EXTERN AbsRect fgPeekClipRect();
 FG_EXTERN void fgPopClipRect();
 FG_EXTERN void fgDirtyElement(fgElement* elem);
+FG_EXTERN void fgDragStart(char type, void* data, fgElement* draw);
 FG_EXTERN void fgSetCursor(unsigned int type, void* custom); // What custom actually is depends on the implemention
 FG_EXTERN void fgClipboardCopy(unsigned int type, const void* data, size_t length); // passing in NULL will erase whatever what was in the clipboard.
 FG_EXTERN char fgClipboardExists(unsigned int type);

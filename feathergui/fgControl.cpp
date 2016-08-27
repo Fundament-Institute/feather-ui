@@ -51,6 +51,7 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
     case FG_MOUSEDOWN:
     case FG_MOUSEMOVE:
       fgElement_DoHoverCalc(*self);
+      fgRoot_SetCursor(FGCURSOR_ARROW, 0);
     case FG_MOUSEDBLCLICK:
     case FG_MOUSEUP:
     case FG_MOUSEON:
@@ -115,24 +116,13 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
     return FG_ACCEPT;
   case FG_MOUSEMOVE:
     fgElement_DoHoverCalc(*self);
-    if(fgroot_instance->drag) // Send a dragging message if necessary. Does not initiate a drag for you (this is because some drags are initiated via click and drag, and some are just clicking).
-    {
-      FG_Msg m = *msg;
-      m.type = FG_DRAGGING;
-      fgPassMessage(*self, &m);
-    }
+    fgRoot_SetCursor(FGCURSOR_ARROW, 0);
     return FG_ACCEPT;
   case FG_MOUSEUP:
   { // Any control that gets a MOUSEUP event immediately fires a MOUSEMOVE event at that location, which will force the focus to shift to a different control if the mouseup occured elsewhere.
     FG_Msg m = *msg;
     m.type = FG_MOUSEMOVE;
     fgRoot_Inject(fgroot_instance, &m);
-  }
-  if(fgroot_instance->drag != 0) // If necessary, send a drop message to the current control we're hovering over.
-  {
-    if(fgLastHover != 0) // It is possible for this to be null in edge cases where the mouse was forcibly removed from the window via alt-tab or something else.
-      _sendmsg<FG_DROP, void*>(fgLastHover, fgroot_instance->drag);
-    fgroot_instance->drag = 0; // Ensure the drag pointer is set to NULL even if the target window doesn't understand the FG_DROP message.
   }
     return FG_ACCEPT;
   case FG_GOTFOCUS:

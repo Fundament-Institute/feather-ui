@@ -506,6 +506,12 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
           m.other = fgSkin_GetStyle(self->skin, indice | flags);
           if(m.other != 0)
             fgElement_Message(self, &m);
+          else if(flags != 0) // If we failed to find a style, but some flags were set, disable the flags and try to find another one
+          {
+            m.other = fgSkin_GetStyle(self->skin, indice);
+            if(m.other != 0)
+              fgElement_Message(self, &m);
+          }
         }
       }
     }
@@ -529,19 +535,10 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     if(self->parent)
       return (*fgroot_instance->behaviorhook)(self->parent, msg);
     break;
-  case FG_DRAG:
-  {
-    fgroot_instance->drag = (fgElement*)msg->other;
-    FG_Msg m = *(FG_Msg*)msg->other2; // Immediately trigger an FG_DRAGGING message to set the cursor
-    m.type = FG_DRAGGING;
-    fgPassMessage(self, &m);
-    return FG_ACCEPT;
-  }
-  case FG_DRAGGING:
-    fgSetCursor(FGCURSOR_NO, 0);
+  case FG_DRAGOVER:
+    fgRoot_SetCursor(FGCURSOR_NO, 0);
     return 0;
   case FG_DROP:
-    fgSetCursor(FGCURSOR_ARROW, 0);
     return 0;
   case FG_DRAW:
     fgStandardDraw(self, (AbsRect*)msg->other, msg->otheraux, msg->subtype & 1);
@@ -952,18 +949,24 @@ void fgElement::LayoutChange(unsigned char subtype, fgElement* target, fgElement
 
 size_t FG_FASTCALL fgElement::LayoutLoad(fgLayout* layout) { return _sendmsg<FG_LAYOUTLOAD, void*>(this, layout); }
 
-size_t fgElement::Drag(fgElement* target, const FG_Msg& msg) { return _sendmsg<FG_DRAG, void*, const void*>(this, target, &msg); }
-
-size_t fgElement::Dragging(int x, int y)
+size_t fgElement::DragOver(int x, int y)
 {
   FG_Msg m = { 0 };
-  m.type = FG_DRAGGING;
+  m.type = FG_DRAGOVER;
   m.x = x;
   m.y = y;
   return (*fgroot_instance->behaviorhook)(this, &m);
 }
 
-size_t fgElement::Drop(struct _FG_ELEMENT* target) { return _sendmsg<FG_DROP, void*>(this, target); }
+size_t fgElement::Drop(int x, int y, unsigned char allbtn)
+{
+  FG_Msg m = { 0 };
+  m.type = FG_DROP;
+  m.x = x;
+  m.y = y;
+  m.allbtn = allbtn;
+  return (*fgroot_instance->behaviorhook)(this, &m);
+}
 
 void fgElement::Draw(AbsRect* area, int dpi) { _sendmsg<FG_DRAW, void*, size_t>(this, area, dpi); }
 
