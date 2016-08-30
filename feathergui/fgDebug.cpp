@@ -334,7 +334,6 @@ size_t FG_FASTCALL fgDebug_LogMessage(fgDebug* self, const FG_Msg* msg, unsigned
   case FG_MOUSEON:
   case FG_MOUSEOFF:
   case FG_MOUSEMOVE:
-  case FG_MOUSELEAVE:
   case FG_DRAGOVER:
     m.mouse.x = msg->x;
     m.mouse.y = msg->y;
@@ -462,7 +461,6 @@ const char* FG_FASTCALL fgDebug_GetMessageString(unsigned short msg)
   case FG_MOUSEON: return "FG_MOUSEON";
   case FG_MOUSEOFF: return "FG_MOUSEOFF";
   case FG_MOUSEMOVE: return "FG_MOUSEMOVE";
-  case FG_MOUSELEAVE: return "FG_MOUSELEAVE";
   case FG_DRAGOVER: return "FG_DRAGOVER";
   case FG_DROP: return "FG_SETFONT";
   case FG_DRAW: return "FG_DRAW";
@@ -595,8 +593,6 @@ ptrdiff_t FG_FASTCALL fgDebug_WriteMessage(char* buf, size_t bufsize, fgDebugMes
     return snprintf(buf, bufsize, "%*sFG_MOUSEOFF(x:%i, y:%i)", spaces, "", msg->mouse.x, msg->mouse.y);
   case FG_MOUSEMOVE:
     return snprintf(buf, bufsize, "%*sFG_MOUSEMOVE(x:%i, y:%i)", spaces, "", msg->mouse.x, msg->mouse.y);
-  case FG_MOUSELEAVE:
-    return snprintf(buf, bufsize, "%*sFG_MOUSELEAVE(x:%i, y:%i)", spaces, "", msg->mouse.x, msg->mouse.y);
   case FG_DRAGOVER:
     return snprintf(buf, bufsize, "%*sFG_DRAGOVER(x:%i, y:%i)", spaces, "", msg->mouse.x, msg->mouse.y);
   case FG_DROP:

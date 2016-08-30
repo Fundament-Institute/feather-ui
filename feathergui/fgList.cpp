@@ -28,7 +28,6 @@ size_t FG_FASTCALL fgListItem_Message(fgControl* self, const FG_Msg* msg)
   case FG_MOUSEON:
   case FG_MOUSEOFF:
   case FG_MOUSESCROLL:
-  case FG_MOUSELEAVE: 
     fgPassMessage(self->element.parent, msg); // We send these messages to our parent FIRST, then override the resulting hover message by processing them ourselves.
     break;
   case FG_NUETRAL:

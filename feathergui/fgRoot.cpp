@@ -190,8 +190,11 @@ void FG_FASTCALL fgOrderedDraw(fgElement* self, const AbsRect* area, size_t dpi,
   // do binary search on the absolute resolved bottomright coordinates compared to the topleft corner of the render area
   cur = fn(self, area);
 
-  clipping = true; // always clipping at this stage because ordered elements can't be nonclipping
-  fgPushClipRect(area);
+  if(!clipping)
+  {
+    clipping = true; // always clipping at this stage because ordered elements can't be nonclipping
+    fgPushClipRect(area);
+  }
   char cull = 0;
 
   while(!cull && cur != 0 && !(cur->flags & FGELEMENT_BACKGROUND)) // Render all ordered elements until they become culled
@@ -237,7 +240,7 @@ size_t FG_FASTCALL fgStandardInject(fgElement* self, const FG_Msg* msg, const Ab
   fgElement* cur = miss ? self->lastnoclip : self->lastinject; // If the event completely misses us, evaluate only nonclipping elements.
   while(cur) // Try to inject to any children we have
   {
-    if(!(cur->flags&FGELEMENT_IGNORE) && _sendmsg<FG_INJECT, const void*, const void*>(cur, msg, &curarea)) // We have to heck FGELEMENT_IGNORE because the noclip list may have render-only elements in it.
+    if(!(cur->flags&FGELEMENT_IGNORE) && _sendmsg<FG_INJECT, const void*, const void*>(cur, msg, &curarea)) // We have to check FGELEMENT_IGNORE because the noclip list may have render-only elements in it.
       return FG_ACCEPT; // If the message is NOT rejected, return 1 immediately to indicate we accepted the message.
     cur = miss ? cur->prevnoclip : cur->previnject; // Otherwise the child rejected the message.
   }
@@ -246,9 +249,54 @@ size_t FG_FASTCALL fgStandardInject(fgElement* self, const FG_Msg* msg, const Ab
   return miss ? 0 : (*fgroot_instance->behaviorhook)(self,msg); // So we give the event to ourselves, but only if it didn't miss us (which can happen if we were evaluating nonclipping elements)
 }
 
-void FG_FASTCALL fgOrderedInject(fgElement* self, const FG_Msg* msg, const AbsRect* area, fgElement* skip, fgElement* (*fn)(fgElement*, const AbsRect*))
+size_t FG_FASTCALL fgOrderedInject(fgElement* self, const FG_Msg* msg, const AbsRect* area, fgElement* skip, fgElement* (*fn)(fgElement*, const FG_Msg*))
 {
+  assert(msg != 0);
 
+  if((self->flags&FGELEMENT_HIDDEN) != 0) // If we're hidden we always reject messages no matter what.
+    return 0;
+
+  AbsRect curarea;
+  if(!area) // If this is null either we are the root or this is a captured message, in which case we would have to resolve the entire relative coordinate chain anyway
+    ResolveRect(self, &curarea);
+  else
+    ResolveRectCache(self, &curarea, area, (self->flags & FGELEMENT_BACKGROUND || !self->parent) ? 0 : &self->parent->padding);
+
+  if(area != 0 && !MsgHitAbsRect(msg, &curarea)) // if this misses us, only evaluate nonclipping elements. Don't bother with the ordered array.
+  {
+    fgElement* cur = self->lastnoclip;
+    while(cur) // Try to inject to any children we have
+    {
+      if(!(cur->flags&FGELEMENT_IGNORE) && _sendmsg<FG_INJECT, const void*, const void*>(cur, msg, &curarea)) // We have to check FGELEMENT_IGNORE because the noclip list may have render-only elements in it.
+        return FG_ACCEPT; // If the message is NOT rejected, return 1 immediately to indicate we accepted the message.
+      cur = cur->prevnoclip; // Otherwise the child rejected the message.
+    }
+
+    return 0; // We either had no nonclipping children or it missed them all, so reject this.
+  }
+
+  fgElement* cur = self->lastinject;
+
+  while(cur != 0 && (cur->flags & FGELEMENT_BACKGROUND))
+  {
+    if(!(cur->flags&FGELEMENT_IGNORE) && _sendmsg<FG_INJECT, const void*, const void*>(cur, msg, &curarea))
+      return FG_ACCEPT; 
+    cur = cur->previnject; 
+  }
+
+  cur = fn(self, msg);
+  if(!(cur->flags&FGELEMENT_IGNORE) && _sendmsg<FG_INJECT, const void*, const void*>(cur, msg, &curarea))
+    return FG_ACCEPT;
+
+  cur = skip;
+  while(cur != 0 && (cur->flags & FGELEMENT_BACKGROUND))
+  {
+    if(!(cur->flags&FGELEMENT_IGNORE) && _sendmsg<FG_INJECT, const void*, const void*>(cur, msg, &curarea))
+      return FG_ACCEPT;
+    cur = cur->previnject;
+  }
+
+  return (*fgroot_instance->behaviorhook)(self, msg); // So we give the event to ourselves because it couldn't have missed us if we got to this point
 }
 
 void fgProcessNextCursor(fgRoot* self)
@@ -319,14 +367,16 @@ size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
     if(msg->type != FG_MOUSEMOVE)
       break;
     fgProcessNextCursor(self);
-  case FG_MOUSELEAVE:
+  case FG_MOUSEOFF:
     if(fgLastHover != 0) // If we STILL haven't accepted a mousemove event, send a MOUSEOFF message if lasthover exists
     {
       _sendmsg<FG_MOUSEOFF>(fgLastHover);
       fgLastHover = 0;
     }
-    if(msg->type == FG_MOUSELEAVE)
-      self->lastcursor = FGCURSOR_NONE;
+    if(msg->type != FG_MOUSEOFF)
+      break;
+  case FG_MOUSEON:
+    self->lastcursor = FGCURSOR_NONE;
     break;
   case FG_DRAGOVER:
   case FG_DROP:
@@ -552,7 +602,7 @@ short FG_FASTCALL fgMessageMapDefault(const char* name)
   static bss_util::cTrie<uint16_t> t(FG_CUSTOMEVENT, "CONSTRUCT", "DESTROY", "MOVE", "SETALPHA", "SETAREA", "SETTRANSFORM", "SETFLAG", "SETFLAGS", "SETMARGIN", "SETPADDING",
     "SETPARENT", "ADDCHILD", "REMOVECHILD", "LAYOUTCHANGE", "LAYOUTFUNCTION", "LAYOUTLOAD", "DRAG", "DRAGGING", "DROP", "DRAW", "INJECT", "CLONE", "SETSKIN", "GETSKIN",
     "SETSTYLE", "GETSTYLE", "GETCLASSNAME", "GETDPI", "SETDPI", "SETUSERDATA", "GETUSERDATA", "MOUSEDOWN", "MOUSEDBLCLICK", "MOUSEUP", "MOUSEON", "MOUSEOFF", "MOUSEMOVE",
-    "MOUSESCROLL", "MOUSELEAVE", "TOUCHBEGIN", "TOUCHEND", "TOUCHMOVE", "KEYUP", "KEYDOWN", "KEYCHAR", "JOYBUTTONDOWN", "JOYBUTTONUP", "JOYAXIS", "GOTFOCUS", "LOSTFOCUS",
+    "MOUSESCROLL", "TOUCHBEGIN", "TOUCHEND", "TOUCHMOVE", "KEYUP", "KEYDOWN", "KEYCHAR", "JOYBUTTONDOWN", "JOYBUTTONUP", "JOYAXIS", "GOTFOCUS", "LOSTFOCUS",
     "SETNAME", "GETNAME", "NUETRAL", "HOVER", "ACTIVE", "ACTION", "SETDIM", "GETDIM", "GETITEM", "ADDITEM", "REMOVEITEM", "GETSELECTEDITEM", "GETSTATE", "SETSTATE",
     "SETRESOURCE", "SETUV", "SETCOLOR", "SETOUTLINE", "SETFONT", "SETLINEHEIGHT", "SETLETTERSPACING", "SETTEXT", "GETRESOURCE", "GETUV", "GETCOLOR", "GETOUTLINE", "GETFONT",
     "GETLINEHEIGHT", "GETLETTERSPACING", "GETTEXT");

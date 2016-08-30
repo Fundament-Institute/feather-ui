@@ -112,7 +112,6 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT size_t FG_FASTCALL MouseOff(int x, int y);
   FG_DLLEXPORT size_t FG_FASTCALL MouseMove(int x, int y);
   FG_DLLEXPORT size_t FG_FASTCALL MouseScroll(int x, int y, unsigned short delta, unsigned short hdelta);
-  FG_DLLEXPORT size_t FG_FASTCALL MouseLeave(int x, int y);
   FG_DLLEXPORT size_t FG_FASTCALL KeyUp(unsigned char keycode, char sigkeys);
   FG_DLLEXPORT size_t FG_FASTCALL KeyDown(unsigned char keycode, char sigkeys);
   FG_DLLEXPORT size_t FG_FASTCALL KeyChar(int keychar, char sigkeys);

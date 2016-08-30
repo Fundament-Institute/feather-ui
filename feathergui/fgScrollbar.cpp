@@ -26,7 +26,6 @@ size_t FG_FASTCALL fgScrollbar_cornerMessage(fgElement* self, const FG_Msg* msg)
   case FG_MOUSEON:
   case FG_MOUSEOFF:
   case FG_MOUSESCROLL:
-  case FG_MOUSELEAVE:
     return FG_ACCEPT;
   }
   return fgElement_Message(self, msg);
@@ -62,7 +61,6 @@ size_t FG_FASTCALL fgScrollbar_bgMessage(fgElement* self, const FG_Msg* msg)
   case FG_MOUSEON:
   case FG_MOUSEOFF:
   case FG_MOUSESCROLL:
-  case FG_MOUSELEAVE:
     return FG_ACCEPT;
   case FG_SETAREA:
     size_t ret = fgElement_Message(self, msg);

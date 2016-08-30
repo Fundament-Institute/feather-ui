@@ -57,7 +57,6 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
     case FG_MOUSEON:
     case FG_MOUSEOFF:
     case FG_MOUSESCROLL:
-    case FG_MOUSELEAVE:
     case FG_TOUCHBEGIN:
     case FG_TOUCHEND:
     case FG_TOUCHMOVE:
@@ -204,7 +203,6 @@ size_t FG_FASTCALL fgControl_HoverMessage(fgControl* self, const FG_Msg* msg)
     case FG_MOUSEON:
     case FG_MOUSEOFF:
     case FG_MOUSESCROLL:
-    case FG_MOUSELEAVE:
     case FG_TOUCHBEGIN:
     case FG_TOUCHEND:
     case FG_TOUCHMOVE:

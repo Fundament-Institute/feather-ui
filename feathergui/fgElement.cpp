@@ -1067,15 +1067,6 @@ size_t FG_FASTCALL fgElement::MouseScroll(int x, int y, unsigned short delta, un
   return (*fgroot_instance->behaviorhook)(this, &m);
 }
 
-size_t FG_FASTCALL fgElement::MouseLeave(int x, int y)
-{
-  FG_Msg m = { 0 };
-  m.type = FG_MOUSELEAVE;
-  m.x = x;
-  m.y = y;
-  return (*fgroot_instance->behaviorhook)(this, &m);
-}
-
 size_t FG_FASTCALL fgElement::KeyUp(unsigned char keycode, char sigkeys)
 {
   FG_Msg m = { 0 };

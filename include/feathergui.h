@@ -209,7 +209,6 @@ enum FG_MSGTYPE
   FG_MOUSEOFF,
   FG_MOUSEMOVE,
   FG_MOUSESCROLL, 
-  FG_MOUSELEAVE, // Sent when the mouse leaves the root area, forces a MOUSEOFF message on current hover window.
   FG_TOUCHBEGIN,
   FG_TOUCHEND,
   FG_TOUCHMOVE,

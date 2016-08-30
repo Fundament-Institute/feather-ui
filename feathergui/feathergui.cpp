@@ -140,7 +140,6 @@ void FG_FASTCALL fgUpdateMouseState(fgMouseState* state, const FG_Msg* msg)
     state->state &= ~FGMOUSE_DRAG;
     break;
   case FG_MOUSEOFF:
-  case FG_MOUSELEAVE:
     state->state &= ~FGMOUSE_HOVER;
     state->state &= ~FGMOUSE_DRAG;
     break;
