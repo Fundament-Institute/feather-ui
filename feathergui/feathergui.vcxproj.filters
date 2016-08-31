@@ -47,9 +47,6 @@
     <ClInclude Include="..\include\fgCombobox.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgTabGroup.h">
-      <Filter>include</Filter>
-    </ClInclude>
     <ClInclude Include="..\include\fgTextbox.h">
       <Filter>include</Filter>
     </ClInclude>
@@ -117,6 +114,9 @@
       <Filter>include</Filter>
     </ClInclude>
     <ClInclude Include="..\include\fgCurve.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\fgTabControl.h">
       <Filter>include</Filter>
     </ClInclude>
   </ItemGroup>
@@ -200,6 +200,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="fgCurve.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgDropdown.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

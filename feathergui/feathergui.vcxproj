@@ -238,7 +238,7 @@
     <ClInclude Include="..\include\fgRoot.h" />
     <ClInclude Include="..\include\fgSlider.h" />
     <ClInclude Include="..\include\fgStyle.h" />
-    <ClInclude Include="..\include\fgTabGroup.h" />
+    <ClInclude Include="..\include\fgTabControl.h" />
     <ClInclude Include="..\include\fgText.h" />
     <ClInclude Include="..\include\fgTextbox.h" />
     <ClInclude Include="..\include\fgToolbar.h" />
@@ -257,6 +257,7 @@
     <ClCompile Include="fgCheckbox.cpp" />
     <ClCompile Include="fgCurve.cpp" />
     <ClCompile Include="fgDebug.cpp" />
+    <ClCompile Include="fgDropdown.cpp" />
     <ClCompile Include="fgElement.cpp" />
     <ClCompile Include="fgImplementation.cpp" />
     <ClCompile Include="fgLayout.cpp" />

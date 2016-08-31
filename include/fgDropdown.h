@@ -12,15 +12,17 @@ extern "C" {
 
 // A dropdown contains a list of arbitrary items and allows the user to select one.
 typedef struct {
-  fgBox window; // ADDITEM is used to add an arbitrary object to the list. 
+  fgBox box;
+  fgElement* selected;
+  fgColor hover;
 #ifdef  __cplusplus
-  inline operator fgElement*() { return &window.window.control.element; }
+  inline operator fgElement*() { return &box.window.control.element; }
   inline fgElement* operator->() { return operator fgElement*(); }
 #endif
 } fgDropdown;
 
-FG_EXTERN void FG_FASTCALL fgDropdown_Init(fgDropdown* self, fgControl* parent, fgFlag flags, const fgTransform* transform);
-FG_EXTERN char FG_FASTCALL fgDropdown_Message(fgDropdown* self, const FG_Msg* msg);
+FG_EXTERN void FG_FASTCALL fgDropdown_Init(fgControl* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
+FG_EXTERN size_t FG_FASTCALL fgDropdown_Message(fgControl* self, const FG_Msg* msg);
 
 #ifdef  __cplusplus
 }
