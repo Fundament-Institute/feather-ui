@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Docs on FeatherGUI</title>
+    <link>/feathergui/doc/</link>
+    <description>Recent content in Docs on FeatherGUI</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <copyright>Black Sphere Studios. All rights reserved.</copyright>
+    <lastBuildDate>Sat, 02 Apr 2016 00:00:00 +0000</lastBuildDate>
+    <atom:link href="/feathergui/doc/index.xml" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>fgElement</title>
+      <link>/feathergui/doc/fgElement/</link>
+      <pubDate>Sat, 02 Apr 2016 00:00:00 +0000</pubDate>
+      
+      <guid>/feathergui/doc/fgElement/</guid>
+      <description>
+
+&lt;h2 id=&#34;fgelement:f205b96db8b3755e721886ddb55ad439&#34;&gt;fgElement&lt;/h2&gt;
+
+&lt;p&gt;Test page&lt;/p&gt;
+</description>
+    </item>
+    
+  </channel>
+</rss>

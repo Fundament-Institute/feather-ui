@@ -4,6 +4,7 @@
 *.bak
 *.opendb
 *.VC.db
+*.exe
 bin/
 bin32/
 media/editor/
@@ -21,5 +22,4 @@ fgWinAPI/Win32/
 fgSDL/x64/
 fgSDL/Win32/
 fgSDL/lib/
-_hugo/
 lib/
