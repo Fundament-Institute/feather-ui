@@ -20,29 +20,32 @@ size_t FG_FASTCALL fgSlider_Message(fgSlider* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgControl_Message(&self->control, msg);
-    fgElement_Init(&self->slider, *self, 0, "Slider:slider", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
+    fgElement_Init(&self->slider, *self, 0, "Slider$slider", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
     self->value = 0;
     self->range = 0;
     return FG_ACCEPT;
-  case FG_SETSTATE:
-  {
-    if(msg->otheraux)
+  case FG_SETVALUE:
+    if(msg->subtype <= FGVALUE_FLOAT)
     {
-      if(self->range == msg->otherint)
-        return FG_ACCEPT;
-      self->range = msg->otherint;
+      ptrdiff_t value = (msg->subtype == FGVALUE_FLOAT) ? bss_util::fFastRound(msg->otherf) : msg->otherint;
+      if(msg->otheraux)
+      {
+        if(self->range == msg->otherint)
+          return FG_ACCEPT;
+        self->range = value;
+      }
+      else
+      {
+        if(self->value == msg->otherint)
+          return FG_ACCEPT;
+        self->value = value;
+      }
+      CRect area = self->slider.transform.area;
+      area.left.rel = area.right.rel = !self->range ? 0.0f : ((FREL)self->value / (FREL)self->range);
+      _sendmsg<FG_SETAREA, void*>(&self->slider, &area);
+      return FG_ACCEPT;
     }
-    else
-    {
-      if(self->value == msg->otherint)
-        return FG_ACCEPT;
-      self->value = msg->otherint;
-    }
-    CRect area = self->slider.transform.area;
-    area.left.rel = area.right.rel = !self->range ? 0.0f : ((FREL)self->value / (FREL)self->range);
-    _sendmsg<FG_SETAREA, void*>(&self->slider, &area);
-    return FG_ACCEPT;
-  }
+    return 0;
   case FG_MOUSEMOVE:
   case FG_MOUSEUP:
     if(fgCaptureWindow != *self)
@@ -58,11 +61,18 @@ size_t FG_FASTCALL fgSlider_Message(fgSlider* self, const FG_Msg* msg)
 
     double x = (msg->x - out.left) / (out.right - out.left); // we need all the precision in a double here
     size_t value = bss_util::fFastRound(bssclamp(x, 0.0, 1.0)*self->range); // Clamp to [0,1], multiply into [0, range], then round to nearest integer.
-    fgIntMessage(*self, FG_SETSTATE, value, 0);
+    fgIntMessage(*self, FG_SETVALUE, value, 0);
   }
     break;
-  case FG_GETSTATE:
-    return msg->otherint ? self->range : self->value;
+  case FG_GETVALUE:
+    if(!msg->subtype || msg->subtype == FGVALUE_INT64)
+      return msg->otherint ? self->range : self->value;
+    if(msg->subtype == FGVALUE_FLOAT)
+    {
+      float val = (float)(msg->otherint ? self->range : self->value);
+      return *(size_t*)&val;
+    }
+    return 0;
   case FG_GETCLASSNAME:
     return (size_t)"Slider";
   }

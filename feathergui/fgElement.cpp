@@ -167,6 +167,13 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgElement_MouseMoveCheck(self);
         fgDirtyElement(self);
         memcpy(&self->transform.area, area, sizeof(CRect));
+        if(msg->subtype != 0)
+        {
+          self->transform.area.left.abs = fgResolveUnit(self, self->transform.area.left.abs, (msg->subtype & FGUNIT_LEFT_MASK) >> FGUNIT_LEFT);
+          self->transform.area.top.abs = fgResolveUnit(self, self->transform.area.top.abs, (msg->subtype & FGUNIT_TOP_MASK) >> FGUNIT_TOP);
+          self->transform.area.right.abs = fgResolveUnit(self, self->transform.area.right.abs, (msg->subtype & FGUNIT_RIGHT_MASK) >> FGUNIT_RIGHT);
+          self->transform.area.bottom.abs = fgResolveUnit(self, self->transform.area.bottom.abs, (msg->subtype & FGUNIT_BOTTOM_MASK) >> FGUNIT_BOTTOM);
+        }
         fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
@@ -186,6 +193,11 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgElement_MouseMoveCheck(self);
         fgDirtyElement(self);
         self->transform.center = transform->center;
+        if(msg->subtype != 0)
+        {
+          self->transform.center.x.abs = fgResolveUnit(self, self->transform.center.x.abs, (msg->subtype & FGUNIT_X_MASK) >> FGUNIT_X);
+          self->transform.center.y.abs = fgResolveUnit(self, self->transform.center.y.abs, (msg->subtype & FGUNIT_Y_MASK) >> FGUNIT_Y);
+        }
         self->transform.rotation = transform->rotation;
         fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
@@ -232,6 +244,8 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgElement_MouseMoveCheck(self);
         fgDirtyElement(self);
         memcpy(&self->margin, margin, sizeof(AbsRect));
+        if(msg->subtype != 0)
+          fgResolveRectUnit(self, self->margin, msg->subtype);
         fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
@@ -251,6 +265,8 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgElement_MouseMoveCheck(self);
         fgDirtyElement(self);
         memcpy(&self->padding, padding, sizeof(AbsRect));
+        if(msg->subtype != 0)
+          fgResolveRectUnit(self, self->padding, msg->subtype);
         fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
@@ -603,10 +619,14 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       case FGDIM_MAX:
         self->maxdim.x = msg->otherf;
         self->maxdim.y = msg->otherfaux;
+        if((msg->subtype&(FGUNIT_X_MASK | FGUNIT_Y_MASK)) != 0)
+          fgResolveVecUnit(self, self->maxdim, msg->subtype);
         break;
       case FGDIM_MIN:
         self->mindim.x = msg->otherf;
         self->mindim.y = msg->otherfaux;
+        if((msg->subtype&(FGUNIT_X_MASK | FGUNIT_Y_MASK)) != 0)
+          fgResolveVecUnit(self, self->mindim, msg->subtype);
         break;
       }
       fgDirtyElement(self);
@@ -1141,13 +1161,17 @@ void FG_FASTCALL fgElement::SetDim(float x, float y, FGDIM type) { _sendsubmsg<F
 
 const AbsVec* fgElement::GetDim(FGDIM type) { size_t r = _sendsubmsg<FG_GETDIM>(this, type); return *reinterpret_cast<AbsVec**>(&r); }
 
-size_t fgElement::GetState(ptrdiff_t aux) { return _sendmsg<FG_GETSTATE, ptrdiff_t>(this, aux); }
+size_t fgElement::GetValue(ptrdiff_t aux) { return _sendsubmsg<FG_GETVALUE, ptrdiff_t>(this, FGVALUE_INT64, aux); }
 
-float fgElement::GetStatef(ptrdiff_t aux) { size_t r = _sendmsg<FG_GETSTATE, ptrdiff_t>(this, aux); return *reinterpret_cast<float*>(&r); }
+float fgElement::GetValueF(ptrdiff_t aux) { size_t r = _sendsubmsg<FG_GETVALUE, ptrdiff_t>(this, FGVALUE_FLOAT, aux); return *reinterpret_cast<float*>(&r); }
 
-size_t fgElement::SetState(ptrdiff_t state, size_t aux) { return _sendmsg<FG_SETSTATE, ptrdiff_t, size_t>(this, state, aux); }
+void* fgElement::GetValueP(ptrdiff_t aux) { size_t r = _sendsubmsg<FG_GETVALUE, ptrdiff_t>(this, FGVALUE_POINTER, aux); return *reinterpret_cast<void**>(&r); }
 
-size_t fgElement::SetStatef(float state, size_t aux) { return _sendmsg<FG_SETSTATE, float, size_t>(this, state, aux); }
+size_t fgElement::SetValue(ptrdiff_t state, size_t aux) { return _sendsubmsg<FG_SETVALUE, ptrdiff_t, size_t>(this, FGVALUE_INT64, state, aux); }
+
+size_t fgElement::SetValueF(float state, size_t aux) { return _sendsubmsg<FG_SETVALUE, float, size_t>(this, FGVALUE_FLOAT, state, aux); }
+
+size_t fgElement::SetValueP(void* ptr, size_t aux) { return _sendsubmsg<FG_SETVALUE, void*, size_t>(this, FGVALUE_POINTER, ptr, aux); }
 
 fgElement* fgElement::GetSelectedItem() { return reinterpret_cast<fgElement*>(_sendmsg<FG_GETSELECTEDITEM>(this)); }
 

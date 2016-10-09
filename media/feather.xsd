@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="featherGUI" xmlns="featherGUI" >
 
-  <xs:simpleType name="fgFlagsAny">
+  <xs:simpleType name="fgFlags">
     <xs:restriction base="xs:string">
       <xs:pattern value="[A-Z]+(|[A-Z]+)*" />
     </xs:restriction>
   </xs:simpleType>
 
-  <xs:simpleType name="fgFlags">
+  <xs:simpleType name="fgFlagsElement">
     <xs:restriction base="xs:string">
       <xs:pattern value="(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP)(\|(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP))*" />
     </xs:restriction>
@@ -81,27 +81,33 @@
     </xs:restriction>
   </xs:simpleType>
 
+  <xs:simpleType name="fgUnit">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(\+|-)?[0-9]*(\.[0-9]+)?(em|dp|sp|px)?"/>
+    </xs:restriction>
+  </xs:simpleType>
+  
   <xs:simpleType name="fgCoord">
     <xs:restriction base="xs:string">
-      <xs:pattern value="([0-9]+(\.[0-9]+)?)?(em)?:([0-9]+(\.[0-9]+)?)?"/>
+      <xs:pattern value="(\+|-)?[0-9]*(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?)?"/>
     </xs:restriction>
   </xs:simpleType>
 
   <xs:simpleType name="Rect">
     <xs:restriction base="xs:string">
-      <xs:pattern value="[0-9]+(\.[0-9]+)?(em)?, ?[0-9]+(\.[0-9]+)?(em)?, ?[0-9]+(\.[0-9]+)?(em)?, ?[0-9]+(\.[0-9]+)?(em)?"/>
+      <xs:pattern value="(\+|-)?[0-9]*(\.[0-9]+)?(em|dp|sp|px)?, ?(\+|-)?[0-9]*(\.[0-9]+)?(em|dp|sp|px)?, ?(\+|-)?[0-9]*(\.[0-9]+)?(em|dp|sp|px)?, ?(\+|-)?[0-9]*(\.[0-9]+)?(em|dp|sp|px)?"/>
     </xs:restriction>
   </xs:simpleType>
 
   <xs:simpleType name="fgRect">
     <xs:restriction base="xs:string">
-      <xs:pattern value="([0-9]+(\.[0-9]+)?)?(em)?:([0-9]+(\.[0-9]+)?)?, ?([0-9]+(\.[0-9]+)?)?(em)?:([0-9]+(\.[0-9]+)?)?, ?([0-9]+(\.[0-9]+)?)?(em)?:([0-9]+(\.[0-9]+)?)?, ?([0-9]+(\.[0-9]+)?)?(em)?:([0-9]+(\.[0-9]+)?)?"/>
+      <xs:pattern value="(\+|-)?[0-9]*(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?)?, ?[0-9]+(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?)?, ?[0-9]+(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?)?, ?[0-9]+(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?)?"/>
     </xs:restriction>
   </xs:simpleType>
 
   <xs:simpleType name="fgVec">
     <xs:restriction base="xs:string">
-      <xs:pattern value="([0-9]+(\.[0-9]+)?)?(em)?:([0-9]+(\.[0-9]+)?)?, ?([0-9]+(\.[0-9]+)?)?(em)?:([0-9]+(\.[0-9]+)?)?"/>
+      <xs:pattern value="(\+|-)?[0-9]*(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?)?, ?(\+|-)?[0-9]*(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?)?"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -145,6 +151,10 @@
     <xs:attribute name="bottom" type="fgCoord"/>
     <xs:attribute name="width" type="fgCoord"/>
     <xs:attribute name="height" type="fgCoord"/>
+    <xs:attribute name="min-width" type="fgUnit"/>
+    <xs:attribute name="min-height" type="fgUnit"/>
+    <xs:attribute name="max-width" type="fgUnit"/>
+    <xs:attribute name="max-height" type="fgUnit"/>
     <xs:attribute name="skin" type="xs:string"/>
     <xs:attribute name="alpha" type="xs:decimal"/>
     <!--<xs:attribute name="transform" type="fgTransform"/>-->
@@ -165,7 +175,7 @@
   <xs:complexType name="fgElement">
     <xs:complexContent>
       <xs:extension base="fgLayout">
-        <xs:attribute name="flags" type="fgFlags"/>
+        <xs:attribute name="flags" type="fgFlagsElement"/>
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
@@ -173,7 +183,7 @@
   <xs:complexType name="fgControl">
     <xs:complexContent>
       <xs:extension base="fgLayout">
-        <xs:attribute name="flags" type="fgFlags"/>
+        <xs:attribute name="flags" type="fgFlagsElement"/>
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
@@ -185,7 +195,7 @@
         <xs:attribute name="text" type="xs:string"/>
         <xs:attribute name="color" type="fgHex"/>
         <xs:attribute name="font" type="fgFont"/>
-        <xs:attribute name="lineheight" type="xs:decimal"/>
+        <xs:attribute name="lineheight" type="fgUnit"/>
         <xs:attribute name="letterspacing" type="xs:decimal"/>
       </xs:extension>
     </xs:complexContent>
@@ -210,12 +220,12 @@
   <xs:complexType name="fgCheckbox">
     <xs:complexContent>
       <xs:extension base="fgLayout">
-        <xs:attribute name="flags" type="fgFlags"/>
-        <xs:attribute name="state" type="fgCheckboxState" default="none"/>
+        <xs:attribute name="flags" type="fgFlagsElement"/>
+        <xs:attribute name="value" type="fgCheckboxState" default="none"/>
         <xs:attribute name="text" type="xs:string"/>
         <xs:attribute name="color" type="fgHex"/>
         <xs:attribute name="font" type="fgFont"/>
-        <xs:attribute name="lineheight" type="xs:decimal"/>
+        <xs:attribute name="lineheight" type="fgUnit"/>
         <xs:attribute name="letterspacing" type="xs:decimal"/>
       </xs:extension>
     </xs:complexContent>
@@ -259,8 +269,8 @@
   <xs:complexType name="fgProgressbar">
     <xs:complexContent>
       <xs:extension base="fgLayout">
-        <xs:attribute name="flags" type="fgFlags"/>
-        <xs:attribute name="state" type="xs:decimal" default="0.0"/>
+        <xs:attribute name="flags" type="fgFlagsElement"/>
+        <xs:attribute name="value" type="xs:decimal" default="0.0"/>
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
@@ -268,8 +278,8 @@
   <xs:complexType name="fgRadioButton">
     <xs:complexContent>
       <xs:extension base="fgLayout">
-        <xs:attribute name="flags" type="fgFlags"/>
-        <xs:attribute name="state" type="xs:boolean" default="false"/>
+        <xs:attribute name="flags" type="fgFlagsElement"/>
+        <xs:attribute name="value" type="xs:boolean" default="false"/>
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
@@ -290,8 +300,8 @@
   <xs:complexType name="fgSlider">
     <xs:complexContent>
       <xs:extension base="fgLayout">
-        <xs:attribute name="flags" type="fgFlags"/>
-        <xs:attribute name="state" type="xs:decimal" default="0.0"/>
+        <xs:attribute name="flags" type="fgFlagsElement"/>
+        <xs:attribute name="value" type="xs:decimal" default="0.0"/>
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
@@ -310,7 +320,7 @@
             </xs:complexType>
           </xs:element>
         </xs:choice>
-        <xs:attribute name="flags" type="fgFlags"/>
+        <xs:attribute name="flags" type="fgFlagsElement"/>
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
@@ -322,7 +332,7 @@
         <xs:attribute name="text" type="xs:string"/>
         <xs:attribute name="color" type="fgHex"/>
         <xs:attribute name="font" type="fgFont"/>
-        <xs:attribute name="lineheight" type="xs:decimal"/>
+        <xs:attribute name="lineheight" type="fgUnit"/>
         <xs:attribute name="letterspacing" type="xs:decimal"/>
       </xs:extension>
     </xs:complexContent>
@@ -336,7 +346,7 @@
         <xs:attribute name="placeholder" type="xs:string"/>
         <xs:attribute name="color" type="fgHex"/>
         <xs:attribute name="font" type="fgFont"/>
-        <xs:attribute name="lineheight" type="xs:decimal"/>
+        <xs:attribute name="lineheight" type="fgUnit"/>
         <xs:attribute name="letterspacing" type="xs:decimal"/>
       </xs:extension>
     </xs:complexContent>
@@ -349,7 +359,7 @@
         <xs:attribute name="text" type="xs:string"/>
         <xs:attribute name="color" type="fgHex"/>
         <xs:attribute name="font" type="fgFont"/>
-        <xs:attribute name="lineheight" type="xs:decimal"/>
+        <xs:attribute name="lineheight" type="fgUnit"/>
         <xs:attribute name="letterspacing" type="xs:decimal"/>
       </xs:extension>
     </xs:complexContent>
@@ -385,13 +395,13 @@
             <xs:complexType>
               <xs:complexContent>
                 <xs:extension base="fgLayout">
-                  <xs:attribute name="flags" type="fgFlags"/>
+                  <xs:attribute name="flags" type="fgFlagsElement"/>
                 </xs:extension>
               </xs:complexContent>
             </xs:complexType>
           </xs:element>
         </xs:choice>
-        <xs:attribute name="flags" type="fgFlags"/>
+        <xs:attribute name="flags" type="fgFlagsElement"/>
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
@@ -400,7 +410,7 @@
     <xs:complexType>
       <xs:complexContent>
         <xs:extension base="fgLayout">
-          <xs:attribute name="flags" type="fgFlags"/>
+          <xs:attribute name="flags" type="fgFlagsElement"/>
         </xs:extension>
       </xs:complexContent>
     </xs:complexType>
@@ -409,13 +419,13 @@
   <xs:complexType name="fgStyle">
     <xs:complexContent>
       <xs:extension base="fgLayoutBase">
-        <xs:attribute name="flags" type="fgFlagsAny"/>
+        <xs:attribute name="flags" type="fgFlags"/>
         <xs:attribute name="text" type="xs:string"/>
         <xs:attribute name="color" type="fgHex"/>
         <xs:attribute name="font" type="fgFont"/>
-        <xs:attribute name="lineheight" type="xs:decimal"/>
+        <xs:attribute name="lineheight" type="fgUnit"/>
         <xs:attribute name="letterspacing" type="xs:decimal"/>
-        <xs:attribute name="state" type="xs:string"/>
+        <xs:attribute name="value" type="xs:string"/>
         <xs:attribute name="uv" type="fgRect"/>
         <xs:attribute name="resource" type="xs:string"/>
         <xs:attribute name="edgecolor" type="fgHex"/>

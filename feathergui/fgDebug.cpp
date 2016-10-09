@@ -47,10 +47,10 @@ size_t FG_FASTCALL fgDebug_Message(fgDebug* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgElement_Message(&self->element, msg);
-    fgTreeView_Init(&self->elements, *self, 0, "Debug:elements", 0, &fgTransform { { -300,1,0,0,0,1,0,1 }, 0, { 0,0,0,0 } });
-    fgText_Init(&self->properties, *self, 0, "Debug:properties", FGELEMENT_HIDDEN, &fgTransform { { -300,1,-200,1,0,1,0,1 }, 0, { 0,0,0,0 } });
-    fgTreeView_Init(&self->messages, *self, 0, "Debug:messages", 0, &fgTransform { { 0,0,0,0,200,0,0,1 }, 0, { 0,0,0,0 } });
-    fgText_Init(&self->contents, *self, 0, "Debug:contents", FGELEMENT_HIDDEN, &fgTransform { { 0,0,-200,1,200,0,0,1 }, 0, { 0,0,0,0 } });
+    fgTreeView_Init(&self->elements, *self, 0, "Debug$elements", 0, &fgTransform { { -300,1,0,0,0,1,0,1 }, 0, { 0,0,0,0 } });
+    fgText_Init(&self->properties, *self, 0, "Debug$properties", FGELEMENT_HIDDEN, &fgTransform { { -300,1,-200,1,0,1,0,1 }, 0, { 0,0,0,0 } });
+    fgTreeView_Init(&self->messages, *self, 0, "Debug$messages", 0, &fgTransform { { 0,0,0,0,200,0,0,1 }, 0, { 0,0,0,0 } });
+    fgText_Init(&self->contents, *self, 0, "Debug$contents", FGELEMENT_HIDDEN, &fgTransform { { 0,0,-200,1,200,0,0,1 }, 0, { 0,0,0,0 } });
     self->messagelog.p = 0;
     self->messagelog.l = 0;
     self->messagelog.s = 0;
@@ -467,7 +467,7 @@ const char* FG_FASTCALL fgDebug_GetMessageString(unsigned short msg)
   case FG_INJECT: return "FG_INJECT";
   case FG_SETSKIN: return "FG_SETSKIN";
   case FG_SETSTYLE: return "FG_SETSTYLE";
-  case FG_GETSTATE: return "FG_GETSTATE";
+  case FG_GETVALUE: return "FG_GETVALUE";
   case FG_GETSELECTEDITEM: return "FG_GETSELECTEDITEM";
   case FG_SETDPI: return "FG_SETDPI";
   case FG_SETCOLOR: return "FG_SETCOLOR";
@@ -486,7 +486,7 @@ const char* FG_FASTCALL fgDebug_GetMessageString(unsigned short msg)
   case FG_JOYBUTTONUP: return "FG_JOYBUTTONUP";
   case FG_JOYAXIS: return "FG_JOYAXIS";
   case FG_SETDIM: return "FG_SETDIM";
-  case FG_SETSTATE: return "FG_SETSTATE";
+  case FG_SETVALUE: return "FG_SETVALUE";
   case FG_SETUV: return "FG_SETUV";
   case FG_SETLETTERSPACING: return "FG_SETLETTERSPACING";
   case FG_SETLINEHEIGHT: return "FG_SETLINEHEIGHT";
@@ -609,8 +609,8 @@ ptrdiff_t FG_FASTCALL fgDebug_WriteMessage(char* buf, size_t bufsize, fgDebugMes
     else if(msg->subtype == 1)
       return snprintf(buf, bufsize, "%*sFG_SETSTYLE:1(%zu, %zu)", spaces, "", msg->arg1.u, msg->arg2.u);
     return snprintf(buf, bufsize, "%*sFG_SETSTYLE:%hhu(0x%p, %zu)", spaces, "", msg->subtype, msg->arg1.p, msg->arg2.u);
-  case FG_GETSTATE:
-    return snprintf(buf, bufsize, "%*sFG_GETSTATE() - %ti", spaces, "", msg->value);
+  case FG_GETVALUE:
+    return snprintf(buf, bufsize, "%*sFG_GETVALUE() - %ti", spaces, "", msg->value);
   case FG_GETSELECTEDITEM:
     return snprintf(buf, bufsize, "%*sFG_GETSELECTEDITEM(%zu) - 0x%p", spaces, "", msg->arg1.u, msg->valuep);
   case FG_SETDPI:
@@ -647,8 +647,8 @@ ptrdiff_t FG_FASTCALL fgDebug_WriteMessage(char* buf, size_t bufsize, fgDebugMes
     return snprintf(buf, bufsize, "%*sFG_JOYAXIS(%hi, %f)", spaces, "", msg->joyaxis, msg->joyvalue);
   case FG_SETDIM:
     return snprintf(buf, bufsize, "%*sFG_SETDIM:%hhu(%f, %f)", spaces, "", msg->subtype, msg->arg1.f, msg->arg2.f);
-  case FG_SETSTATE:
-    return snprintf(buf, bufsize, "%*sFG_SETSTATE(%ti, %zu)", spaces, "", msg->arg1.i, msg->arg2.u);
+  case FG_SETVALUE:
+    return snprintf(buf, bufsize, "%*sFG_SETVALUE(%ti, %zu)", spaces, "", msg->arg1.i, msg->arg2.u);
   case FG_SETUV:
     return snprintf(buf, bufsize, "%*sFG_SETUV(CRect{%f,%f,%f,%f,%f,%f,%f,%f})", spaces, "", OUTPUT_CRECT(msg->arg2.crect));
   case FG_SETLETTERSPACING:

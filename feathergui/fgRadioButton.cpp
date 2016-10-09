@@ -55,13 +55,15 @@ size_t FG_FASTCALL fgRadiobutton_Message(fgRadiobutton* self, const FG_Msg* msg)
     self->radionext = 0;
     self->radioprev = 0;
     return FG_ACCEPT;
-  case FG_SETSTATE:
+  case FG_SETVALUE:
+    if(msg->subtype > FGVALUE_INT64)
+      return 0;
     if(msg->otherint && parent != 0) // if you about to check this radio button, uncheck all of them in it's fgElement group
     {
       fgRadiobutton* cur = fgRadiobutton_GetHashRef(parent);
       while(cur)
       {
-        fgIntMessage((fgElement*)cur, FG_SETSTATE, 0, 0);
+        fgIntMessage((fgElement*)cur, FG_SETVALUE, 0, 0);
         cur = cur->radionext;
       }
     }
@@ -95,7 +97,7 @@ size_t FG_FASTCALL fgRadiobutton_Message(fgRadiobutton* self, const FG_Msg* msg)
     return FG_ACCEPT;
   case FG_ACTION:
     if(!self->window.checked)
-      fgIntMessage(*self, FG_SETSTATE, 1, 0);
+      fgIntMessage(*self, FG_SETVALUE, 1, 0);
     return FG_ACCEPT;
   case FG_GETCLASSNAME:
     return (size_t)"RadioButton";

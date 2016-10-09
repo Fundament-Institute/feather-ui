@@ -8,7 +8,7 @@
 fgElement* FG_FASTCALL fgProgressbar_Create(FREL value, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
   fgElement* r = fgCreate("Progressbar", parent, next, name, flags, transform);
-  _sendmsg<FG_SETSTATE, float>(r, value);
+  _sendmsg<FG_SETVALUE, float>(r, value);
   return r;
 }
 
@@ -31,8 +31,8 @@ size_t FG_FASTCALL fgProgressbar_Message(fgProgressbar* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgControl_Message(&self->control, msg);
-    fgElement_Init(&self->bar, *self, 0, "Progressbar:bar", FGELEMENT_BACKGROUND | FGELEMENT_IGNORE, &BAR_ELEMENT);
-    fgText_Init(&self->text, *self, 0, "Progressbar:text", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
+    fgElement_Init(&self->bar, *self, 0, "Progressbar$bar", FGELEMENT_BACKGROUND | FGELEMENT_IGNORE, &BAR_ELEMENT);
+    fgText_Init(&self->text, *self, 0, "Progressbar$text", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
     self->value = 0.0f;
     return FG_ACCEPT;
   case FG_ADDITEM:
@@ -41,17 +41,26 @@ size_t FG_FASTCALL fgProgressbar_Message(fgProgressbar* self, const FG_Msg* msg)
     else
       fgElement_Clear(&self->bar);
     return FG_ACCEPT;
-  case FG_SETSTATE:
-    if(msg->otherf != self->value)
+  case FG_SETVALUE:
+    if(msg->subtype <= FGVALUE_FLOAT)
     {
-      self->value = msg->otherf;
-      CRect area = self->bar.transform.area;
-      area.right.rel = self->value;
-      _sendmsg<FG_SETAREA, void*>(&self->bar, &area);
+      float value = (msg->subtype == FGVALUE_INT64) ? (float)msg->otherint : msg->otherf;
+      if(value != self->value)
+      {
+        self->value = value;
+        CRect area = self->bar.transform.area;
+        area.right.rel = self->value;
+        _sendmsg<FG_SETAREA, void*>(&self->bar, &area);
+      }
+      return FG_ACCEPT;
     }
-    return FG_ACCEPT;
-  case FG_GETSTATE:
-    return *reinterpret_cast<size_t*>(&self->value);
+    return 0;
+  case FG_GETVALUE:
+    if(!msg->subtype || msg->subtype == FGVALUE_FLOAT)
+      return *reinterpret_cast<size_t*>(&self->value);
+    if(msg->subtype == FGVALUE_INT64)
+      return (size_t)self->value;
+    return 0;
   case FG_SETTEXT:
   case FG_SETFONT:
   case FG_SETLINEHEIGHT:

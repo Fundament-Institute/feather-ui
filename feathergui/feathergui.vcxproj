@@ -224,6 +224,7 @@
     <ClInclude Include="..\include\fgElement.h" />
     <ClInclude Include="..\include\fgCombobox.h" />
     <ClInclude Include="..\include\fgDropdown.h" />
+    <ClInclude Include="..\include\fgGrid.h" />
     <ClInclude Include="..\include\fgImplementation.h" />
     <ClInclude Include="..\include\fgLayout.h" />
     <ClInclude Include="..\include\fgCurve.h" />
@@ -259,6 +260,7 @@
     <ClCompile Include="fgDebug.cpp" />
     <ClCompile Include="fgDropdown.cpp" />
     <ClCompile Include="fgElement.cpp" />
+    <ClCompile Include="fgGrid.cpp" />
     <ClCompile Include="fgImplementation.cpp" />
     <ClCompile Include="fgLayout.cpp" />
     <ClCompile Include="fgList.cpp" />

@@ -9,11 +9,14 @@
 #include "feathercpp.h"
 #include "fgBox.h"
 #include "bss-util/cXML.h"
+#include "bss-util/cTrie.h"
 
 #include <fstream>
 #include <sstream>
 
 KHASH_INIT(fgFunctionMap, const char*, fgListener, 1, kh_str_hash_func, kh_str_hash_equal);
+
+using namespace bss_util;
 
 void FG_FASTCALL fgLayout_Init(fgLayout* self)
 {
@@ -181,8 +184,8 @@ void FG_FASTCALL fgLayout_ApplyFunctions(fgElement* root)
   fgLayout_ApplyFunction(root, "onadditem");
   fgLayout_ApplyFunction(root, "onremoveitem");
   fgLayout_ApplyFunction(root, "ongetselecteditem");
-  fgLayout_ApplyFunction(root, "ongetstate");
-  fgLayout_ApplyFunction(root, "onsetstate");
+  fgLayout_ApplyFunction(root, "ongetvalue");
+  fgLayout_ApplyFunction(root, "onsetvalue");
   fgLayout_ApplyFunction(root, "onsetresource");
   fgLayout_ApplyFunction(root, "onsetuv");
   fgLayout_ApplyFunction(root, "onsetcolor");
@@ -492,6 +495,11 @@ size_t FG_FASTCALL fgDistributeLayout(fgElement* self, const FG_Msg* msg, fgFlag
   return 0;
 }
 
+fgFlag fgLayout_GetFlagsFromString(const char* s)
+{
+  if(!s) return 0;
+
+}
 void FG_FASTCALL fgLayout_LoadFileUBJSON(fgLayout* self, const char* file)
 {
 }
@@ -500,15 +508,96 @@ void FG_FASTCALL fgLayout_LoadUBJSON(fgLayout* self, const char* data, FG_UINT l
 
 }
 
+void FG_FASTCALL fgLayout_NodeEvalTransform(const cXMLNode* node, fgTransform& t)
+{
+
+}
+/*void* FG_FASTCALL fgClassLayout_LoadFont(fgClassLayout* self, const cXMLValue* attribute)
+{
+
+}
+uint64_t FG_FASTCALL fgClassLayout_LoadHex(fgClassLayout* self, const cXMLValue* attribute)
+{
+
+}
+Coord FG_FASTCALL fgClassLayout_LoadCoord(fgClassLayout* self, const cXMLValue* attribute)
+{
+
+}
+AbsRect FG_FASTCALL fgClassLayout_LoadAbsRect(fgClassLayout* self, const cXMLValue* attribute)
+{
+
+}
+CRect FG_FASTCALL fgClassLayout_LoadCRect(fgClassLayout* self, const cXMLValue* attribute)
+{
+
+}
+CVec FG_FASTCALL fgClassLayout_LoadCVec(fgClassLayout* self, const cXMLValue* attribute)
+{
+
+}
+FABS FG_FASTCALL fgClassLayout_LoadUnit(fgClassLayout* self, const cXMLValue* attribute)
+{
+
+}*/
+
+void FG_FASTCALL fgClassLayout_LoadAttributesXML(fgClassLayout* self, const cXMLNode* cur)
+{
+  static cTrie<uint16_t> t(19, "id", "min-width", "min-height", "max-width", "max-height", "skin", "alpha", "margin", "padding", "text", "color", "font", "lineheight", "letterspacing", "value", "uv", "resource", "edgecolor", "outline");
+
+  switch(t[cur->GetName()])
+  {
+  case 0:
+  case 1:
+  case 2:
+  case 3:
+  case 4:
+  case 5:
+  case 6:
+  case 7:
+  case 8:
+  case 9:
+  case 10:
+  case 11:
+  case 12:
+  case 13:
+  case 14:
+  case 15:
+  case 16:
+  case 17:
+  case 18:
+    break;
+  }
+}
+void FG_FASTCALL fgClassLayout_LoadLayoutXML(fgClassLayout* self, const cXMLNode* cur, fgLayout* root)
+{
+  for(size_t i = 0; i < cur->GetNodes(); ++i)
+  {
+    const cXMLNode* node = cur->GetNode(i);
+    fgTransform transform = { 0 };
+    fgLayout_NodeEvalTransform(node, transform);
+    FG_UINT index = fgClassLayout_AddChild(self, node->GetName(), node->GetAttributeString("name"), fgLayout_GetFlagsFromString(node->GetAttributeString("flags")), &transform, node->GetAttributeInt("order"));
+    fgClassLayout_LoadAttributesXML(fgClassLayout_GetChild(self, index), node);
+    fgClassLayout_LoadLayoutXML(fgClassLayout_GetChild(self, index), node, root);
+  }
+}
 bool FG_FASTCALL fgLayout_LoadStreamXML(fgLayout* self, std::istream& s)
 {
-  bss_util::cXML xml(s);
-  //if(xml[0] && !STRICMP(xml[0]->GetName(), "fg:Layout"))
-  //{
+  cXML xml(s);
+  const cXMLNode* root = xml.GetNode("fg:Layout");
+  if(!root)
+    return false;
 
-  //}
-  //else
-  //  return false;
+  for(size_t i = 0; i < root->GetNodes(); ++i)
+  {
+    const cXMLNode* node = root->GetNode(i);
+    fgTransform transform = { 0 };
+    fgLayout_NodeEvalTransform(node, transform);
+    FG_UINT index = fgLayout_AddLayout(self, node->GetName(), node->GetAttributeString("name"), fgLayout_GetFlagsFromString(node->GetAttributeString("flags")), &transform, node->GetAttributeInt("order"));
+    fgClassLayout_LoadAttributesXML(fgLayout_GetLayout(self, index), node);
+    fgClassLayout_LoadLayoutXML(fgLayout_GetLayout(self, index), node, self);
+  }
+
   return true;
 }
 void FG_FASTCALL fgLayout_LoadFileXML(fgLayout* self, const char* file)
@@ -519,4 +608,9 @@ void FG_FASTCALL fgLayout_LoadFileXML(fgLayout* self, const char* file)
 void FG_FASTCALL fgLayout_LoadXML(fgLayout* self, const char* data, FG_UINT length)
 {
   fgLayout_LoadStreamXML(self, std::stringstream(std::string(data, length)));
+}
+
+void FG_FASTCALL fgLayout_SaveFileXML(fgLayout* self, const char* file)
+{
+
 }

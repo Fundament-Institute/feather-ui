@@ -22,24 +22,14 @@ fgRoot* fgroot_instance = 0;
 
 void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, size_t dpi)
 {
+  memset(self, 0, sizeof(fgRoot));
   self->behaviorhook = &fgRoot_BehaviorDefault;
   self->dpi = dpi;
-  self->monitors = 0;
-  self->time = 0.0;
   self->cursorblink = 0.53; // 530 ms is the windows default.
-  self->updateroot = 0;
-  self->lineheight = 0;
+  self->lineheight = 30;
+  self->fontscale = 1.0f;
   self->radiohash = fgRadioGroup_init();
   self->functionhash = fgFunctionMap_init();
-  self->lastcursor = FGCURSOR_NONE;
-  self->lastcursordata = 0;
-  self->nextcursor = FGCURSOR_NONE;
-  self->nextcursordata = 0;
-  self->overridecursor = FGCURSOR_NONE;
-  self->overridecursordata = 0;
-  self->dragtype = FGCLIPBOARD_NONE;
-  self->dragdata = 0;
-  self->dragdraw = 0;
   fgroot_instance = self;
   fgTransform transform = { area->left, 0, area->top, 0, area->right, 0, area->bottom, 0, 0, 0, 0 };
   fgElement_InternalSetup(*self, 0, 0, 0, 0, &transform, (fgDestroy)&fgRoot_Destroy, (fgMessage)&fgRoot_Message);
@@ -146,7 +136,7 @@ void BSS_FORCEINLINE fgStandardApplyClipping(fgElement* hold, const AbsRect* are
 
 void BSS_FORCEINLINE fgStandardDrawElement(fgElement* self, fgElement* hold, const AbsRect* area, size_t dpi, AbsRect& curarea, bool& clipping)
 {
-  if(!(hold->flags&FGELEMENT_HIDDEN))
+  if(!(hold->flags&FGELEMENT_HIDDEN) && hold != fgroot_instance->topmost)
   {
     ResolveRectCache(hold, &curarea, area, (hold->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
     fgStandardApplyClipping(hold, area, clipping);
@@ -201,7 +191,8 @@ void FG_FASTCALL fgOrderedDraw(fgElement* self, const AbsRect* area, size_t dpi,
   {
     ResolveRectCache(cur, &curarea, area, &self->padding); // always apply padding because these are always foreground elements
     cull = !fgRectIntersect(&curarea, &fgPeekClipRect());
-    _sendsubmsg<FG_DRAW, void*, size_t>(cur, cull, &curarea, dpi);
+    if(cur != fgroot_instance->topmost)
+      _sendsubmsg<FG_DRAW, void*, size_t>(cur, cull, &curarea, dpi);
     cur = cur->next;
   }
 
@@ -611,5 +602,5 @@ short FG_FASTCALL fgMessageMapDefault(const char* name)
   DYNARRAY(char, upper, len);
   STRNCPY(upper, len, name, len);
   STRUPR(upper);
-  return FG_MSGTYPE(t[upper]);
+  return t[upper];
 }

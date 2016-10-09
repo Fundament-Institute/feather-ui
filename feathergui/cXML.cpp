@@ -96,8 +96,8 @@ bool cXMLNode::RemoveAttribute(size_t index)
   return true;
 }
 bool cXMLNode::RemoveAttribute(const char* name) { return RemoveAttribute(_attrhash[name]); }
-void cXMLNode::SetValue(double value) { _value.Float = value; _value.Integer = (uint64_t)value; _value.String = std::to_string(value); }
-void cXMLNode::SetValue(uint64_t value) { _value.Integer = value; _value.Float = (double)value; _value.String = std::to_string(value); }
+void cXMLNode::SetValue(double value) { _value.Float = value; _value.Integer = (int64_t)value; _value.String = std::to_string(value); }
+void cXMLNode::SetValue(int64_t value) { _value.Integer = value; _value.Float = (double)value; _value.String = std::to_string(value); }
 void cXMLNode::SetValue(const char* value) { _value.String = value; _evalvalue(_value); }
 
 cXMLNode* cXMLNode::_addnode(std::unique_ptr<cXMLNode> && n)
@@ -251,8 +251,20 @@ void cXMLNode::_parseentity(std::istream& stream, cStr& target)
 void cXMLNode::_evalvalue(cXMLValue& val)
 {
   char* c;
-  val.Integer = strtoull(val.String, &c, 10);
-  val.Float = atof(val.String);
+  val.Integer = 0;
+  val.Float = 0.0;
+  if(val.String.length() > 0)
+  {
+    if(val.String[0] == '-')
+      val.Integer = strtoll(val.String, &c, 10);
+    else if(val.String.length() > 1 && val.String[0] == '0' && val.String[1] == 'x')
+      val.Integer = (int64_t)strtoull(val.String, &c, 16);
+    else if(val.String.length() > 1 && val.String[0] == '0' && val.String[1] == 'b')
+      val.Integer = (int64_t)strtoull(val.String, &c, 2);
+    else
+      val.Integer = (int64_t)strtoull(val.String, &c, 10);
+    val.Float = atof(val.String);
+  }
 }
 
 void cXMLNode::_writeattribute(std::ostream& stream) const

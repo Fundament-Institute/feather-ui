@@ -18,7 +18,7 @@ enum FGCONTROL_FLAGS
 struct _FG_MENU;
 struct _FG_SKIN;
 
-// Defines the base GUI element, a window. This is not an actual top level window.
+// Defines the base GUI class for controls (as opposed to text or images)
 typedef struct _FG_CONTROL {
   fgElement element;
   struct _FG_MENU* contextmenu;

@@ -52,7 +52,7 @@ size_t FG_FASTCALL fgMonitor_Message(fgMonitor* self, const FG_Msg* msg)
 
     while(hold)
     {
-      if(!(hold->flags&FGELEMENT_HIDDEN))
+      if(!(hold->flags&FGELEMENT_HIDDEN) && hold != fgroot_instance->topmost)
       {
         ResolveRectCache(hold, &curarea, (AbsRect*)msg->other, (hold->flags & FGELEMENT_BACKGROUND) ? 0 : &self->element.padding);
         _sendmsg<FG_DRAW, void*, size_t>(hold, &curarea, self->dpi);

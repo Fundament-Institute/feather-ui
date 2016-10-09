@@ -51,8 +51,11 @@ FG_EXTERN fgClassLayout* FG_FASTCALL fgClassLayout_GetChild(fgClassLayout* self,
 FG_EXTERN fgElement* FG_FASTCALL fgLayout_GetID(fgLayout* self, const char* id);
 FG_EXTERN void FG_FASTCALL fgLayout_LoadFileUBJSON(fgLayout* self, const char* file);
 FG_EXTERN void FG_FASTCALL fgLayout_LoadUBJSON(fgLayout* self, const char* data, FG_UINT length);
+FG_EXTERN void FG_FASTCALL fgLayout_SaveFileUBJSON(fgLayout* self, const char* file);
 FG_EXTERN void FG_FASTCALL fgLayout_LoadFileXML(fgLayout* self, const char* file);
 FG_EXTERN void FG_FASTCALL fgLayout_LoadXML(fgLayout* self, const char* data, FG_UINT length);
+FG_EXTERN void FG_FASTCALL fgLayout_SaveFileXML(fgLayout* self, const char* file);
+FG_EXTERN void FG_FASTCALL fgLayout_SaveElementXML(fgElement* root, const char* file);
 
 FG_EXTERN size_t FG_FASTCALL fgDefaultLayout(fgElement* self, const FG_Msg* msg, CRect* area, AbsRect* parent);
 FG_EXTERN size_t FG_FASTCALL fgDistributeLayout(fgElement* self, const FG_Msg* msg, fgFlag axis);

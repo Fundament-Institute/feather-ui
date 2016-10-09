@@ -82,6 +82,8 @@ typedef typename fgConstruct<fgClassLayout, const char*, const char*, fgFlag, co
 
 extern BSS_FORCEINLINE char fgSortStyleLayout(const fgStyleLayoutConstruct& l, const fgStyleLayoutConstruct& r) { return -SGNCOMPARE(l.order, r.order); }
 extern BSS_FORCEINLINE char fgSortClassLayout(const fgClassLayoutConstruct& l, const fgClassLayoutConstruct& r) { return -SGNCOMPARE(l.style.order, r.style.order); }
+extern BSS_FORCEINLINE void fgStandardDrawElement(fgElement* self, fgElement* hold, const AbsRect* area, size_t dpi, AbsRect& curarea, bool& clipping);
+
 static const int UNICODE_TERMINATOR = 0;
 
 typedef bss_util::cArraySort<fgStyleLayoutConstruct, fgSortStyleLayout, size_t, bss_util::CARRAY_CONSTRUCT> fgStyleLayoutArray;
@@ -140,6 +142,35 @@ BSS_FORCEINLINE size_t fgStandardNuetralSetStyle(fgElement* self, const char* st
 BSS_FORCEINLINE size_t fgMaskSetStyle(fgElement* self, const char* style, FG_UINT mask)
 {
   return _sendsubmsg<FG_SETSTYLE, const void*, size_t>(self, FGSETSTYLE_NAME, style, mask);
+}
+
+BSS_FORCEINLINE FABS fgResolveUnit(fgElement* self, FABS x, size_t unit)
+{
+  switch(unit)
+  {
+  case FGUNIT_DP:
+    return x;
+  case FGUNIT_SP:
+    return x*fgroot_instance->fontscale;
+  case FGUNIT_EM:
+    return x * self->GetLineHeight();
+  case FGUNIT_PX:
+    return x * ((FABS)self->GetDPI() / (FABS)fgroot_instance->dpi);
+  }
+}
+
+BSS_FORCEINLINE void fgResolveRectUnit(fgElement* self, AbsRect& r, size_t subtype)
+{
+  r.left = fgResolveUnit(self, r.left, (subtype & FGUNIT_LEFT_MASK) >> FGUNIT_LEFT);
+  r.top = fgResolveUnit(self, r.top, (subtype & FGUNIT_TOP_MASK) >> FGUNIT_TOP);
+  r.right = fgResolveUnit(self, r.right, (subtype & FGUNIT_RIGHT_MASK) >> FGUNIT_RIGHT);
+  r.bottom = fgResolveUnit(self, r.bottom, (subtype & FGUNIT_BOTTOM_MASK) >> FGUNIT_BOTTOM);
+}
+
+BSS_FORCEINLINE void fgResolveVecUnit(fgElement* self, AbsVec& v, size_t subtype)
+{
+  v.x = fgResolveUnit(self, v.x, (subtype & FGUNIT_X_MASK) >> FGUNIT_X);
+  v.y = fgResolveUnit(self, v.y, (subtype & FGUNIT_Y_MASK) >> FGUNIT_Y);
 }
 
 extern "C" {

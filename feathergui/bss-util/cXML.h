@@ -17,7 +17,7 @@ namespace bss_util {
     cStr Name;
     cStr String;
     double Float;
-    uint64_t Integer;
+    int64_t Integer;
 
     BSS_FORCEINLINE operator bool() const { return Integer!=0; } // If the string is "true" the integer gets set to 1 by the parser.
     BSS_FORCEINLINE operator char() const { return (char)Integer; }
@@ -48,6 +48,9 @@ namespace bss_util {
     BSS_FORCEINLINE size_t GetNodes() const { return _nodes.Length(); }
     BSS_FORCEINLINE const cXMLValue* GetAttribute(size_t index) const { return index>=_attributes.Length()?0:(_attributes+index); }
     BSS_FORCEINLINE const cXMLValue* GetAttribute(const char* name) const { return GetAttribute(_attrhash[name]); }
+    BSS_FORCEINLINE const char* GetAttributeString(const char* name) const { const cXMLValue* r = GetAttribute(_attrhash[name]); return !r ? 0 : r->String.c_str(); }
+    BSS_FORCEINLINE const int64_t GetAttributeInt(const char* name) const { const cXMLValue* r = GetAttribute(_attrhash[name]); return !r ? 0 : r->Integer; }
+    BSS_FORCEINLINE const double GetAttributeFloat(const char* name) const { const cXMLValue* r = GetAttribute(_attrhash[name]); return !r ? 0 : r->Float; }
     BSS_FORCEINLINE size_t GetAttributes() const { return _attributes.Length(); }
     BSS_FORCEINLINE const cXMLValue& GetValue() const { return _value; }
     BSS_FORCEINLINE void SetName(const char* name) { _name = name; }
@@ -60,7 +63,7 @@ namespace bss_util {
     bool BSS_FASTCALL RemoveAttribute(size_t index);
     bool BSS_FASTCALL RemoveAttribute(const char* name);
     void BSS_FASTCALL SetValue(double value);
-    void BSS_FASTCALL SetValue(uint64_t value);
+    void BSS_FASTCALL SetValue(int64_t value);
     void BSS_FASTCALL SetValue(const char* value);
     BSS_FORCEINLINE const std::unique_ptr<cXMLNode>* begin() const noexcept { return _nodes.begin(); }
     BSS_FORCEINLINE const std::unique_ptr<cXMLNode>* end() const noexcept { return _nodes.end(); }

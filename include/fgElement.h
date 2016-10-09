@@ -41,6 +41,7 @@ typedef fgDeclareVector(struct _FG_ELEMENT*, Element) fgVectorElement;
 
 typedef void(FG_FASTCALL *fgListener)(struct _FG_ELEMENT*, const FG_Msg*);
 
+// Defines the base GUI element
 typedef struct _FG_ELEMENT {
   fgTransform transform;
   fgDestroy destroy;
@@ -129,10 +130,12 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT void FG_FASTCALL SetDim(float x, float y, FGDIM type = FGDIM_MAX);
   FG_DLLEXPORT const AbsVec* GetDim(FGDIM type = FGDIM_MAX);
   FG_DLLEXPORT struct _FG_ELEMENT* GetSelectedItem();
-  FG_DLLEXPORT size_t GetState(ptrdiff_t aux);
-  FG_DLLEXPORT float GetStatef(ptrdiff_t aux);
-  FG_DLLEXPORT size_t SetState(ptrdiff_t state, size_t aux);
-  FG_DLLEXPORT size_t SetStatef(float state, size_t aux);
+  FG_DLLEXPORT size_t GetValue(ptrdiff_t aux);
+  FG_DLLEXPORT float GetValueF(ptrdiff_t aux);
+  FG_DLLEXPORT void* GetValueP(ptrdiff_t aux);
+  FG_DLLEXPORT size_t SetValue(ptrdiff_t value, size_t aux);
+  FG_DLLEXPORT size_t SetValueF(float value, size_t aux);
+  FG_DLLEXPORT size_t SetValueP(void* ptr, size_t aux);
   FG_DLLEXPORT size_t FG_FASTCALL SetResource(void* res);
   FG_DLLEXPORT size_t FG_FASTCALL SetUV(const CRect& uv);
   FG_DLLEXPORT size_t FG_FASTCALL SetColor(unsigned int color, int index);

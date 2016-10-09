@@ -83,11 +83,20 @@ size_t FG_FASTCALL fgCurve_Message(fgCurve* self, const FG_Msg* msg)
     break;
   case FG_GETCOLOR:
     return self->color.color;
-  case FG_SETSTATE:
-    self->factor = msg->otherf;
-    break;
-  case FG_GETSTATE:
-    return *(size_t*)&self->factor;
+  case FG_SETVALUE:
+    if(!msg->subtype || msg->subtype == FGVALUE_FLOAT)
+      self->factor = msg->otherf;
+    else if(msg->subtype == FGVALUE_INT64)
+      self->factor = msg->otherint;
+    else
+      return 0;
+    return FG_ACCEPT;
+  case FG_GETVALUE:
+    if(!msg->subtype || msg->subtype == FGVALUE_FLOAT)
+      return *(size_t*)&self->factor;
+    if(msg->subtype == FGVALUE_INT64)
+      return (size_t)self->factor;
+    return 0;
   case FG_ADDITEM:
     if(msg->otheraux >= self->points.l)
       reinterpret_cast<cDynArray<AbsVec>&>(self->points).Add(*(AbsVec*)msg->other);

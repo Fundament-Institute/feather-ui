@@ -142,7 +142,8 @@ enum FGMOVE
   FGMOVE_MARGIN = (1 << 9)
 };
 
-enum FGSETTEXT {
+enum FGSETTEXT
+{
   FGSETTEXT_UTF8 = 0,
   FGSETTEXT_UTF32,
   FGSETTEXT_PLACEHOLDER_UTF8,
@@ -150,7 +151,8 @@ enum FGSETTEXT {
   FGSETTEXT_MASK
 };
 
-enum FGSETSTYLE {
+enum FGSETSTYLE
+{
   FGSETSTYLE_NAME = 0,
   FGSETSTYLE_INDEX,
   FGSETSTYLE_POINTER,
@@ -165,6 +167,58 @@ enum FGDIM
   FGDIM_MIN = 0,
   FGDIM_MAX,
   FGDIM_FIXED,
+};
+
+enum FGUNIT
+{
+  FGUNIT_DP = 0, // By default, all feathergui units are in DPI-scaled units.
+  FGUNIT_SP = 1,
+  FGUNIT_EM = 2,
+  FGUNIT_PX = 3, // Corresponds to exactly one pixel regardless of DPI
+  FGUNIT_LEFT_DP = 0,
+  FGUNIT_LEFT_SP = (1 << 0),
+  FGUNIT_LEFT_EM = (2 << 0),
+  FGUNIT_LEFT_PX = (3 << 0),
+  FGUNIT_LEFT_MASK = (0b11 << 0),
+  FGUNIT_LEFT = 0,
+  FGUNIT_TOP_DP = 0,
+  FGUNIT_TOP_SP = (1 << 2),
+  FGUNIT_TOP_EM = (2 << 2),
+  FGUNIT_TOP_PX = (3 << 2),
+  FGUNIT_TOP_MASK = (0b11 << 2),
+  FGUNIT_TOP = 2,
+  FGUNIT_RIGHT_DP = 0,
+  FGUNIT_RIGHT_SP = (1 << 4),
+  FGUNIT_RIGHT_EM = (2 << 4),
+  FGUNIT_RIGHT_PX = (3 << 4),
+  FGUNIT_RIGHT_MASK = (0b11 << 4),
+  FGUNIT_RIGHT = 4,
+  FGUNIT_BOTTOM_DP = 0,
+  FGUNIT_BOTTOM_SP = (1 << 6),
+  FGUNIT_BOTTOM_EM = (2 << 6),
+  FGUNIT_BOTTOM_PX = (3 << 6),
+  FGUNIT_BOTTOM_MASK = (0b11 << 6),
+  FGUNIT_BOTTOM = 6,
+  FGUNIT_X_DP = 0,
+  FGUNIT_X_SP = (1 << 8),
+  FGUNIT_X_EM = (2 << 8),
+  FGUNIT_X_PX = (3 << 8),
+  FGUNIT_X_MASK = (0b11 << 8),
+  FGUNIT_X = 8,
+  FGUNIT_Y_DP = 0,
+  FGUNIT_Y_SP = (1 << 10),
+  FGUNIT_Y_EM = (2 << 10),
+  FGUNIT_Y_PX = (3 << 10),
+  FGUNIT_Y_MASK = (0b11 << 10),
+  FGUNIT_Y = 10,
+};
+
+enum FGVALUE
+{
+  FGVALUE_UNKNOWN = 0,
+  FGVALUE_INT64 = 1,
+  FGVALUE_FLOAT = 2,
+  FGVALUE_POINTER = 3
 };
 
 enum FG_MSGTYPE
@@ -234,8 +288,8 @@ enum FG_MSGTYPE
   FG_SETITEM,
   FG_GETSELECTEDITEM, // Used to get the selected item (or items, or text) in a control.
   // fgCheckbox, fgRadioButton, fgProgressbar, etc.
-  FG_GETSTATE, // Gets the on/off state of a checkbox or the current progress on a progress bar
-  FG_SETSTATE, // Sets the on/off state or progress
+  FG_GETVALUE, // Gets the on/off state of a checkbox or the current progress on a progress bar
+  FG_SETVALUE, // Sets the on/off state or progress
   // fgResource or fgText
   FG_SETRESOURCE,
   FG_SETUV,

@@ -119,6 +119,9 @@
     <ClInclude Include="..\include\fgTabControl.h">
       <Filter>include</Filter>
     </ClInclude>
+    <ClInclude Include="..\include\fgGrid.h">
+      <Filter>include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="feathergui.cpp">
@@ -203,6 +206,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="fgDropdown.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgGrid.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

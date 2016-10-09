@@ -32,6 +32,7 @@ typedef struct _FG_ROOT {
   struct __kh_fgFunctionMap_t* functionhash;
   size_t dpi;
   float lineheight;
+  float fontscale;
   double time; // In seconds
   double cursorblink; // In seconds
   fgMouseState mouse;
@@ -44,6 +45,7 @@ typedef struct _FG_ROOT {
   char dragtype; // FG_CLIPBOARD
   void* dragdata;
   fgElement* dragdraw;
+  fgElement* topmost;
   unsigned int keys[8]; // 8*4*8 = 256
 #ifdef  __cplusplus
   inline bool GetKey(unsigned char key) const { return (keys[key / 32] & (1 << (key % 32))) != 0; }

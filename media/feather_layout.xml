@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <fg:Layout xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:fg="featherGUI" xsi:schemaLocation="featherGUI feather.xsd" skin="feather_skin.xml">
-  <Text left=":0" top="200.0:" width=":1.0" bottom="300:" rotation="0" center=":0.5,:0.5" flags="IGNORE|BACKGROUND" color="0xFFFFFFFF" font="arial;14" text="placeholder" />
-  <Window area="200:0,200:0,300:0,400:0"  center="10:0.5,10:0.5" text="Feather GUI">
-    <Button area="100:0,100:0,150:0,200:0" text="Press me!" />
+  <Text left="0" top="200.0" width="100%" bottom="300" rotation="0" center="50%,50%" flags="IGNORE|BACKGROUND" color="0xFFFFFFFF" font="arial;14" text="placeholder" />
+  <Window area="200,200,300,400"  center="10:0.5,10:0.5" text="Feather GUI">
+    <Button area="100,100,150,200" text="Press me!" />
     <Menu>
       <MenuItem>
         <Text text="File" />

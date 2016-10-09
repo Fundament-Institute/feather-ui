@@ -29,8 +29,8 @@ size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgScrollbar_Message((fgScrollbar*)self, msg);
-    fgElement_Init(&self->arrow, 0, 0, "Menu:arrow", FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0);
-    fgElement_Init(&self->seperator, 0, 0, "Menu:seperator", FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0);
+    fgElement_Init(&self->arrow, 0, 0, "Menu$arrow", FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0);
+    fgElement_Init(&self->seperator, 0, 0, "Menu$seperator", FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0);
     return FG_ACCEPT;
   case FG_MOUSEDOWN:
   {

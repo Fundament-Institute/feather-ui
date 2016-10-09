@@ -44,10 +44,10 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     fgControl_Message((fgControl*)self, msg);
     self->dragged = 0;
-    fgText_Init(&self->caption, *self, 0, "Window:text", FGELEMENT_BACKGROUND | FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0);
-    fgButton_Init(&self->controls[0], *self, 0, "Window:close", FGELEMENT_BACKGROUND, 0);
-    fgButton_Init(&self->controls[1], *self, 0, "Window:restore", FGELEMENT_BACKGROUND, 0);
-    fgButton_Init(&self->controls[2], *self, 0, "Window:minimize", FGELEMENT_BACKGROUND, 0);
+    fgText_Init(&self->caption, *self, 0, "Window$text", FGELEMENT_BACKGROUND | FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0);
+    fgButton_Init(&self->controls[0], *self, 0, "Window$close", FGELEMENT_BACKGROUND, 0);
+    fgButton_Init(&self->controls[1], *self, 0, "Window$restore", FGELEMENT_BACKGROUND, 0);
+    fgButton_Init(&self->controls[2], *self, 0, "Window$minimize", FGELEMENT_BACKGROUND, 0);
     self->controls[0].control.element.message = (fgMessage)&fgWindow_CloseMessage;
     self->controls[1].control.element.message = (fgMessage)&fgWindow_MaximizeMessage;
     self->controls[2].control.element.message = (fgMessage)&fgWindow_MinimizeMessage;
