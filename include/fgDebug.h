@@ -1,8 +1,8 @@
 // Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
-#ifndef _FG_DEBUG_H__
-#define _FG_DEBUG_H__
+#ifndef __FG_DEBUG_H__
+#define __FG_DEBUG_H__
 
 #include "fgTreeView.h"
 

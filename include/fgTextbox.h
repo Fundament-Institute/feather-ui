@@ -1,8 +1,8 @@
 // Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
-#ifndef _FG_TEXTBOX_H__
-#define _FG_TEXTBOX_H__
+#ifndef __FG_TEXTBOX_H__
+#define __FG_TEXTBOX_H__
 
 #include "fgScrollbar.h"
 #include "fgText.h"
@@ -39,9 +39,9 @@ typedef struct {
   fgVectorUTF32 text;
   fgVectorString buf;
   fgVectorUTF32 placeholder; // placeholder text displayed when textbox is empty.
-  fgColor placecolor; // placeholder text color. Use SETCOLOR with the second argument set to 1.
-  fgColor cursorcolor; // cursor color. Use SETCOLOR with the second argument set to 2.
-  fgColor selector; // Color of the selector rectangle. Use SETCOLOR with the second argument set to 3.
+  fgColor placecolor; // placeholder text color. Use SETCOLOR with the subtype set to 1.
+  fgColor cursorcolor; // cursor color. Use SETCOLOR with the subtype set to 2.
+  fgColor selector; // Color of the selector rectangle. Use SETCOLOR with the subtype set to 3.
   size_t start; // current cursor
   AbsVec startpos;
   size_t end; // end of selection

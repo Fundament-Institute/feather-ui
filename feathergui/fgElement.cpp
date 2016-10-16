@@ -172,7 +172,9 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
           self->transform.area.left.abs = fgResolveUnit(self, self->transform.area.left.abs, (msg->subtype & FGUNIT_LEFT_MASK) >> FGUNIT_LEFT);
           self->transform.area.top.abs = fgResolveUnit(self, self->transform.area.top.abs, (msg->subtype & FGUNIT_TOP_MASK) >> FGUNIT_TOP);
           self->transform.area.right.abs = fgResolveUnit(self, self->transform.area.right.abs, (msg->subtype & FGUNIT_RIGHT_MASK) >> FGUNIT_RIGHT);
+          if(msg->subtype & FGUNIT_RIGHT_WIDTH) self->transform.area.right.abs += self->transform.area.left.abs;
           self->transform.area.bottom.abs = fgResolveUnit(self, self->transform.area.bottom.abs, (msg->subtype & FGUNIT_BOTTOM_MASK) >> FGUNIT_BOTTOM);
+          if(msg->subtype & FGUNIT_BOTTOM_HEIGHT) self->transform.area.bottom.abs += self->transform.area.top.abs;
         }
         fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
@@ -1179,7 +1181,7 @@ size_t FG_FASTCALL fgElement::SetResource(void* res) { return _sendmsg<FG_SETRES
 
 size_t FG_FASTCALL fgElement::SetUV(const CRect& uv) { return _sendmsg<FG_SETUV, const void*>(this, &uv); }
 
-size_t FG_FASTCALL fgElement::SetColor(unsigned int color, int index) { return _sendmsg<FG_SETCOLOR, ptrdiff_t, size_t>(this, color, index); }
+size_t FG_FASTCALL fgElement::SetColor(unsigned int color, FGSETCOLOR index) { return _sendsubmsg<FG_SETCOLOR, ptrdiff_t>(this, index, color); }
 
 size_t FG_FASTCALL fgElement::SetOutline(float outline) { return _sendmsg<FG_SETOUTLINE, float>(this, outline); }
 
@@ -1195,7 +1197,7 @@ void* fgElement::GetResource() { return reinterpret_cast<void*>(_sendmsg<FG_GETR
 
 const CRect* fgElement::GetUV() { return reinterpret_cast<const CRect*>(_sendmsg<FG_GETUV>(this)); }
 
-unsigned int FG_FASTCALL fgElement::GetColor(int index) { return (unsigned int)_sendmsg<FG_GETCOLOR, ptrdiff_t>(this, index); }
+unsigned int FG_FASTCALL fgElement::GetColor(FGSETCOLOR index) { return (unsigned int)_sendsubmsg<FG_GETCOLOR>(this, index); }
 
 float fgElement::GetOutline() { return *reinterpret_cast<float*>(_sendmsg<FG_GETOUTLINE>(this)); }
 

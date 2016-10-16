@@ -1,8 +1,8 @@
 // Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
-#ifndef _FG_COMBOBOX_H__
-#define _FG_COMBOBOX_H__
+#ifndef __FG_COMBOBOX_H__
+#define __FG_COMBOBOX_H__
 
 #include "fgTextbox.h"
 #include "fgButton.h"

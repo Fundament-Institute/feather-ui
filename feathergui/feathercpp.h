@@ -87,7 +87,6 @@ extern BSS_FORCEINLINE void fgStandardDrawElement(fgElement* self, fgElement* ho
 static const int UNICODE_TERMINATOR = 0;
 
 typedef bss_util::cArraySort<fgStyleLayoutConstruct, fgSortStyleLayout, size_t, bss_util::CARRAY_CONSTRUCT> fgStyleLayoutArray;
-typedef bss_util::cDynArray<typename fgConstruct<fgSkin, int>::fgConstructor<fgSkin_Destroy, fgSubskin_Init>, size_t, bss_util::CARRAY_CONSTRUCT> fgSubskinArray;
 typedef bss_util::cDynArray<typename fgConstruct<fgStyle>::fgConstructor<fgStyle_Destroy, fgStyle_Init>, size_t, bss_util::CARRAY_CONSTRUCT> fgStyleArray;
 typedef bss_util::cArraySort<fgClassLayoutConstruct, fgSortClassLayout, size_t, bss_util::CARRAY_CONSTRUCT> fgClassLayoutArray;
 
@@ -179,5 +178,10 @@ extern "C" {
   FG_EXTERN size_t FG_FASTCALL fgUTF32toUTF16(const int*BSS_RESTRICT input, ptrdiff_t srclen, wchar_t*BSS_RESTRICT output, size_t buflen);
   FG_EXTERN size_t FG_FASTCALL fgUTF16toUTF32(const wchar_t*BSS_RESTRICT input, ptrdiff_t srclen, int*BSS_RESTRICT output, size_t buflen);
 }
+
+namespace bss_util { struct cXMLNode; }
+
+extern fgSkin* FG_FASTCALL fgSkins_LoadNodeXML(struct __kh_fgSkins_t* self, const bss_util::cXMLNode* root);
+extern inline __kh_fgSkins_t *kh_init_fgSkins();
 
 #endif

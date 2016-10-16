@@ -52,14 +52,15 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
     fgDirtyElement(*self);
     break;
   case FG_SETCOLOR:
-    if(msg->otheraux != 0)
-      self->edge.color = msg->otherint;
-    else
-      self->color.color = msg->otherint;
+    switch(msg->subtype)
+    {
+    case FGSETCOLOR_EDGE: self->edge.color = msg->otherint; break;
+    case FGSETCOLOR_MAIN: self->color.color = msg->otherint; break;
+    }
     fgDirtyElement(*self);
     break;
   case FG_SETOUTLINE:
-    self->outline = msg->otherf;
+    self->outline = fgResolveUnit(&self->element, msg->otherf, msg->subtype);
     fgDirtyElement(*self);
     break;
   case FG_GETUV:
@@ -67,7 +68,7 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
   case FG_GETRESOURCE:
     return (size_t)self->res;
   case FG_GETCOLOR:
-    if(msg->otherint != 0)
+    if(msg->subtype != 0)
       return self->edge.color;
     else
       return self->color.color;

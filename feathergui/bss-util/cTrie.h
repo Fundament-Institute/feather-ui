@@ -19,8 +19,13 @@ namespace bss_util {
     T word; // This stores the original index of the word that this node corresponds to, but only if chr is nullptr (indicating the end of a word)
   };
 
+  template<typename T, bool IGNORECASE>
+  struct __cTrie_ToLower { static BSS_FORCEINLINE void F(T& c) { c = tolower(c); } };
+  template<typename T>
+  struct __cTrie_ToLower<T, false> { static BSS_FORCEINLINE void F(T& c) { } };
+
   // A static trie optimized for looking up small collections of words.
-  template<typename T=uint8_t>
+  template<typename T=uint8_t, bool IGNORECASE = false>
   class BSS_COMPILER_DLLEXPORT cTrie : protected cArrayBase<TRIE_NODE__<T>, T>
   {
     typedef cArrayBase<TRIE_NODE__<T>, T> BASE;
@@ -28,6 +33,7 @@ namespace bss_util {
     using BASE::_array;
     using BASE::_capacity;
     typedef std::pair<T, const char*> PAIR;
+    typedef typename std::conditional<IGNORECASE, cBinaryHeap<PAIR, T, CompTSecond<PAIR, CompIStr<const char*>>>, cBinaryHeap<PAIR, T, CompTSecond<PAIR, CompStr<const char*>>>>::type SORTING_HEAP;
 
   public:
     inline cTrie(cTrie&& mov) : BASE(std::move(mov)) {}
@@ -40,7 +46,7 @@ namespace bss_util {
       va_start(vl, num);
       for(T i = 0; i < num; ++i) { s[i].first=i; s[i].second=va_arg(vl, const char*); }
       va_end(vl);
-      cBinaryHeap<PAIR, T, CompTSecond<PAIR, CompStr<const char*>>>::HeapSort(s, num); // sort into alphabetical order
+      SORTING_HEAP::HeapSort(s, num); // sort into alphabetical order
       _init(num, s, 0, 0); // Put into our recursive initializer
     }
     inline cTrie(T num, const char* const* initstr) : BASE(num) { _construct(num, initstr); }
@@ -55,6 +61,7 @@ namespace bss_util {
       char c;
       while((c=*(word++)))
       {
+        __cTrie_ToLower<char, IGNORECASE>::F(c);
         if(cur->clen>1) // This is faster than a switch statement
           r=binsearch_exact<TNODE, char, T, &cTrie::_CompTNode>(cur, c, 0, cur->clen);
         else if(cur->clen==1)
@@ -75,6 +82,7 @@ namespace bss_util {
       while((len--)>0)
       {
         c=*(word++);
+        __cTrie_ToLower<char, IGNORECASE>::F(c);
         if(cur->clen>1) // This is faster than a switch statement
           r=binsearch_exact<TNODE, char, T, &cTrie::_CompTNode>(cur, c, 0, cur->clen);
         else if(cur->clen==1)
@@ -98,7 +106,7 @@ namespace bss_util {
       _fill(0, num);
       DYNARRAY(PAIR, s, num);
       for(T i = 0; i < num; ++i) { s[i].first=i; s[i].second=initstr[i]; }
-      cBinaryHeap<PAIR, T, CompTSecond<PAIR, CompStr<const char*>>>::HeapSort(s, num); // sort into alphabetical order
+      SORTING_HEAP::HeapSort(s, num); // sort into alphabetical order
       _init(num, s, 0, 0); // Put into our recursive initializer
     }
     BSS_FORCEINLINE void BSS_FASTCALL _fill(T s, T e) // Zeros out a range of nodes
@@ -116,12 +124,14 @@ namespace bss_util {
     {
       T r=cnt-1;
       char c=str[0].second[level];
+      if(IGNORECASE) c = tolower(c);
       if(!c) { _checksize(r+1); _array[r+1].word=str[0].first; ++str; --len; } // The only place we'll recieve the end of the word is in our starting position due to alphabetical order
 
       char l=0;
       for(T i = 0; i < len; ++i) //first pass so we can assemble top level nodes here
       {
         c=str[i].second[level];
+        if(IGNORECASE) c = tolower(c);
         if(l!=c) { _checksize(++r); _array[r].chr=(l=c); }
         assert(_array[r].clen<(std::numeric_limits<T>::max()-2));
         ++_array[r].clen;

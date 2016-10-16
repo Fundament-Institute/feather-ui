@@ -13,6 +13,7 @@
 #include "fgDebug.h"
 #include "fgList.h"
 #include "fgCurve.h"
+#include "fgDropdown.h"
 #include "feathercpp.h"
 #include "bss-util/cTrie.h"
 #include <stdlib.h>
@@ -84,6 +85,12 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
     FG_Msg m = *msg;
     m.other = &area;
     fgControl_Message((fgControl*)self, &m);
+    if(self->topmost && self->topmost->parent != 0) // Draw topmost before the drag object
+    {
+      AbsRect out;
+      ResolveRect(self->topmost->parent, &out);
+      self->dragdraw->Draw(&out, (int)self->topmost->GetDPI());
+    }
     if(self->dragdraw != 0 && self->dragdraw->parent != *self)
     {
       AbsRect out;
@@ -349,6 +356,10 @@ size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
     if(self->dragdraw != 0 && self->dragdraw->parent == *self)
       MoveCRect((FABS)msg->x, (FABS)msg->y, &self->dragdraw->transform.area);
 
+    if(self->topmost) // attempt topmost first if it exists
+      if(_sendmsg<FG_INJECT, const void*, const void*>(self->topmost, msg, 0))
+        return fgProcessNextCursor(self), FG_ACCEPT;
+
     if(fgCaptureWindow)
       if(_sendmsg<FG_INJECT, const void*, const void*>(fgCaptureWindow, msg, 0)) // If it's captured, send the message to the captured window with NULL area.
         return fgProcessNextCursor(self), FG_ACCEPT;
@@ -535,15 +546,10 @@ fgElement* _create_default(fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRI
 
 fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  static bss_util::cTrie<uint16_t> t(19, "element", "control", "resource", "text", "box", "scrollbar", "button", "window", "checkbox",
-    "radiobutton", "progressbar", "slider", "textbox", "treeview", "treeitem", "list", "listitem", "curve", "debug");
+  static bss_util::cTrie<uint16_t, true> t(19, "element", "control", "resource", "text", "box", "scrollbar", "button", "window", "checkbox",
+    "radiobutton", "progressbar", "slider", "textbox", "treeview", "treeitem", "list", "listitem", "curve", "dropdown", "debug");
   
-  size_t len = strlen(type) + 1; // include null terminator
-  DYNARRAY(char, lower, len);
-  STRNCPY(lower, len, type, len);
-  STRLWR(lower);
-  
-  switch(t[lower])
+  switch(t[type])
   {
   case 0:
     return _create_default<fgElement, fgElement_Init>(parent, next, name, flags, transform);
@@ -582,6 +588,8 @@ fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT
   case 17:
     return _create_default<fgCurve, fgCurve_Init>(parent, next, name, flags, transform);
   case 18:
+    return _create_default<fgDropdown, fgDropdown_Init>(parent, next, name, flags, transform);
+  case 19:
     return _create_default<fgDebug, fgDebug_Init>(parent, next, name, flags, transform);
   }
 
@@ -590,7 +598,7 @@ fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT
 
 short FG_FASTCALL fgMessageMapDefault(const char* name)
 {
-  static bss_util::cTrie<uint16_t> t(FG_CUSTOMEVENT, "CONSTRUCT", "DESTROY", "MOVE", "SETALPHA", "SETAREA", "SETTRANSFORM", "SETFLAG", "SETFLAGS", "SETMARGIN", "SETPADDING",
+  static bss_util::cTrie<uint16_t, true> t(FG_CUSTOMEVENT, "CONSTRUCT", "DESTROY", "MOVE", "SETALPHA", "SETAREA", "SETTRANSFORM", "SETFLAG", "SETFLAGS", "SETMARGIN", "SETPADDING",
     "SETPARENT", "ADDCHILD", "REMOVECHILD", "LAYOUTCHANGE", "LAYOUTFUNCTION", "LAYOUTLOAD", "DRAG", "DRAGGING", "DROP", "DRAW", "INJECT", "CLONE", "SETSKIN", "GETSKIN",
     "SETSTYLE", "GETSTYLE", "GETCLASSNAME", "GETDPI", "SETDPI", "SETUSERDATA", "GETUSERDATA", "MOUSEDOWN", "MOUSEDBLCLICK", "MOUSEUP", "MOUSEON", "MOUSEOFF", "MOUSEMOVE",
     "MOUSESCROLL", "TOUCHBEGIN", "TOUCHEND", "TOUCHMOVE", "KEYUP", "KEYDOWN", "KEYCHAR", "JOYBUTTONDOWN", "JOYBUTTONUP", "JOYAXIS", "GOTFOCUS", "LOSTFOCUS",
@@ -598,9 +606,5 @@ short FG_FASTCALL fgMessageMapDefault(const char* name)
     "SETRESOURCE", "SETUV", "SETCOLOR", "SETOUTLINE", "SETFONT", "SETLINEHEIGHT", "SETLETTERSPACING", "SETTEXT", "GETRESOURCE", "GETUV", "GETCOLOR", "GETOUTLINE", "GETFONT",
     "GETLINEHEIGHT", "GETLETTERSPACING", "GETTEXT");
 
-  size_t len = strlen(name) + 1; // include null terminator
-  DYNARRAY(char, upper, len);
-  STRNCPY(upper, len, name, len);
-  STRUPR(upper);
-  return t[upper];
+  return t[name];
 }

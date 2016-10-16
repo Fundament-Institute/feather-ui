@@ -1,8 +1,8 @@
 // Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
-#ifndef _FG_ELEMENT_H__
-#define _FG_ELEMENT_H__
+#ifndef __FG_ELEMENT_H__
+#define __FG_ELEMENT_H__
 
 #include "feathergui.h"
 
@@ -138,7 +138,7 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT size_t SetValueP(void* ptr, size_t aux);
   FG_DLLEXPORT size_t FG_FASTCALL SetResource(void* res);
   FG_DLLEXPORT size_t FG_FASTCALL SetUV(const CRect& uv);
-  FG_DLLEXPORT size_t FG_FASTCALL SetColor(unsigned int color, int index);
+  FG_DLLEXPORT size_t FG_FASTCALL SetColor(unsigned int color, FGSETCOLOR index);
   FG_DLLEXPORT size_t FG_FASTCALL SetOutline(float outline);
   FG_DLLEXPORT size_t FG_FASTCALL SetFont(void* font);
   FG_DLLEXPORT size_t FG_FASTCALL SetLineHeight(float lineheight);
@@ -146,7 +146,7 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT size_t FG_FASTCALL SetText(const char* text, FGSETTEXT mode = FGSETTEXT_UTF8);
   FG_DLLEXPORT void* GetResource();
   FG_DLLEXPORT const CRect* GetUV();
-  FG_DLLEXPORT unsigned int FG_FASTCALL GetColor(int index);
+  FG_DLLEXPORT unsigned int FG_FASTCALL GetColor(FGSETCOLOR index);
   FG_DLLEXPORT float GetOutline();
   FG_DLLEXPORT void* GetFont();
   FG_DLLEXPORT float GetLineHeight();

@@ -1,8 +1,8 @@
 // Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
-#ifndef _FG_TEXT_H__
-#define _FG_TEXT_H__
+#ifndef __FG_TEXT_H__
+#define __FG_TEXT_H__
 
 #include "fgElement.h"
 

@@ -1,8 +1,8 @@
 // Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
-#ifndef _FG_STYLE_H__
-#define _FG_STYLE_H__
+#ifndef __FG_STYLE_H__
+#define __FG_STYLE_H__
 
 #include "feathergui.h"
 
@@ -38,11 +38,29 @@ inline fgStyleMsg* AddStyleMsg(fgStyle* style, Args... args)
   fgSendMsgCall<1, Args...>::F(msg, args...);
   return fgStyle_AddStyleMsg(style, &msg, 0, 0, 0, 0);
 }
+template<FG_MSGTYPE type, typename... Args>
+inline fgStyleMsg* AddStyleSubMsg(fgStyle* style, unsigned char sub, Args... args)
+{
+  FG_Msg msg = { 0 };
+  msg.type = type;
+  msg.subtype = sub;
+  fgSendMsgCall<1, Args...>::F(msg, args...);
+  return fgStyle_AddStyleMsg(style, &msg, 0, 0, 0, 0);
+}
 template<FG_MSGTYPE type, typename Arg, typename... Args>
 inline fgStyleMsg* AddStyleMsgArg(fgStyle* style, const Arg* arg, Args... args)
 {
   FG_Msg msg = { 0 };
   msg.type = type;
+  fgSendMsgCall<2, Args...>::F(msg, args...);
+  return fgStyle_AddStyleMsg(style, &msg, arg, sizeof(Arg), 0, 0);
+}
+template<FG_MSGTYPE type, typename Arg, typename... Args>
+inline fgStyleMsg* AddStyleSubMsgArg(fgStyle* style, unsigned char sub, const Arg* arg, Args... args)
+{
+  FG_Msg msg = { 0 };
+  msg.type = type;
+  msg.subtype = sub;
   fgSendMsgCall<2, Args...>::F(msg, args...);
   return fgStyle_AddStyleMsg(style, &msg, arg, sizeof(Arg), 0, 0);
 }

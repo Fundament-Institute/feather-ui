@@ -195,12 +195,21 @@ size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
     }
     break;
   case FG_GETCOLOR:
-    return !msg->otherint ? self->select.color : self->hover.color;
+    switch(msg->subtype)
+    {
+    case FGSETCOLOR_SELECT:
+    case FGSETCOLOR_MAIN: return self->select.color;
+    case FGSETCOLOR_HOVER: return self->hover.color;
+    case FGSETCOLOR_DRAG: return self->drag.color;
+    }
   case FG_SETCOLOR:
-    if(!msg->otheraux)
-      self->select.color = (size_t)msg->otherint;
-    else
-      self->hover.color = (size_t)msg->otherint;
+    switch(msg->subtype)
+    {
+    case FGSETCOLOR_SELECT:
+    case FGSETCOLOR_MAIN: self->select.color = (unsigned int)msg->otherint; break;
+    case FGSETCOLOR_HOVER: self->hover.color = (unsigned int)msg->otherint; break;
+    case FGSETCOLOR_DRAG: self->drag.color = (unsigned int)msg->otherint; break;
+    }
     return FG_ACCEPT;
   case FG_GETSELECTEDITEM:
     return ((size_t)msg->otherint) < self->selected.l ? (size_t)self->selected.p[(size_t)msg->otherint] : 0;

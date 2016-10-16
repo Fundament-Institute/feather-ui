@@ -89,7 +89,7 @@
   
   <xs:simpleType name="fgCoord">
     <xs:restriction base="xs:string">
-      <xs:pattern value="(\+|-)?[0-9]*(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?)?"/>
+      <xs:pattern value="(\+|-)?[0-9]*(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?%?)?"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -101,13 +101,13 @@
 
   <xs:simpleType name="fgRect">
     <xs:restriction base="xs:string">
-      <xs:pattern value="(\+|-)?[0-9]*(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?)?, ?[0-9]+(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?)?, ?[0-9]+(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?)?, ?[0-9]+(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?)?"/>
+      <xs:pattern value="(\+|-)?[0-9]*(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?%?)?, ?[0-9]+(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?%?)?, ?[0-9]+(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?%?)?, ?[0-9]+(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?%?)?"/>
     </xs:restriction>
   </xs:simpleType>
 
   <xs:simpleType name="fgVec">
     <xs:restriction base="xs:string">
-      <xs:pattern value="(\+|-)?[0-9]*(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?)?, ?(\+|-)?[0-9]*(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?)?"/>
+      <xs:pattern value="(\+|-)?[0-9]*(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?%?)?, ?(\+|-)?[0-9]*(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?%?)?"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -292,7 +292,7 @@
         <xs:attribute name="uv" type="fgRect"/>
         <xs:attribute name="resource" type="xs:string"/>
         <xs:attribute name="edgecolor" type="fgHex"/>
-        <xs:attribute name="outline" type="xs:decimal"/>
+        <xs:attribute name="outline" type="fgUnit"/>
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
@@ -429,7 +429,7 @@
         <xs:attribute name="uv" type="fgRect"/>
         <xs:attribute name="resource" type="xs:string"/>
         <xs:attribute name="edgecolor" type="fgHex"/>
-        <xs:attribute name="outline" type="xs:decimal"/>
+        <xs:attribute name="outline" type="fgUnit"/>
         <xs:attribute name="placeholder" type="xs:string"/>
       </xs:extension>
     </xs:complexContent>

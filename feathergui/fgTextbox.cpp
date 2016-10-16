@@ -360,12 +360,12 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
     fgDirtyElement(*self);
     break;
   case FG_SETCOLOR:
-    switch(msg->otheraux)
+    switch(msg->subtype)
     {
-    case 0: self->color.color = (unsigned int)msg->otherint; break;
-    case 1: self->placecolor.color = (unsigned int)msg->otherint; break;
-    case 2: self->cursorcolor.color = (unsigned int)msg->otherint; break;
-    case 3: self->selector.color = (unsigned int)msg->otherint; break;
+    case FGSETCOLOR_MAIN: self->color.color = (unsigned int)msg->otherint; break;
+    case FGSETCOLOR_PLACEHOLDER: self->placecolor.color = (unsigned int)msg->otherint; break;
+    case FGSETCOLOR_CURSOR: self->cursorcolor.color = (unsigned int)msg->otherint; break;
+    case FGSETCOLOR_SELECT: self->selector.color = (unsigned int)msg->otherint; break;
     }
     fgDirtyElement(*self);
     break;

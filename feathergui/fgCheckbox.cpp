@@ -22,7 +22,7 @@ size_t FG_FASTCALL fgCheckbox_Message(fgCheckbox* self, const FG_Msg* msg)
     fgControl_HoverMessage(&self->control, msg);
     fgText_Init(&self->text, *self, 0, "Checkbox$text", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
     fgMaskSetStyle(*self, "default", fgStyleGetMask("default", "checked", "indeterminate"));
-    self->checked = 0;
+    self->checked = FGCHECKED_NONE;
     return FG_ACCEPT;
   case FG_NUETRAL:
     fgStandardNuetralSetStyle(*self, "nuetral");
@@ -40,7 +40,7 @@ size_t FG_FASTCALL fgCheckbox_Message(fgCheckbox* self, const FG_Msg* msg)
     if(msg->subtype != 0 && msg->subtype != FGVALUE_INT64)
       return 0;
     self->checked = msg->otherint;
-    fgMaskSetStyle(*self, (self->checked == 1) ? "checked" : ((self->checked == 2) ? "indeterminate" : "default"), fgStyleGetMask("default", "checked", "indeterminate"));
+    fgMaskSetStyle(*self, (self->checked == FGCHECKED_CHECKED) ? "checked" : ((self->checked == FGCHECKED_INDETERMINATE) ? "indeterminate" : "default"), fgStyleGetMask("default", "checked", "indeterminate"));
     return FG_ACCEPT;
   case FG_GETVALUE:
     if(!msg->subtype || msg->subtype == FGVALUE_INT64)
