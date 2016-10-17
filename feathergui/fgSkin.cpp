@@ -134,10 +134,8 @@ fgSkin* FG_FASTCALL fgSkin_GetSkin(const fgSkin* self, const char* name)
 {
   if(!self || !name)
     return 0;
-  if(!self->base.skinmap)
-    return fgSkin_GetSkin(self->inherit, name);
-  khiter_t iter = kh_get(fgSkins, self->base.skinmap, name);
-  return (iter != kh_end(self->base.skinmap) && kh_exist(self->base.skinmap, iter)) ? kh_val(self->base.skinmap, iter) : fgSkin_GetSkin(self->inherit, name);
+  fgSkin* r = fgSkinBase_GetSkin(&self->base, name);
+  return !r ? fgSkin_GetSkin(self->inherit, name) : r;
 }
 
 size_t FG_FASTCALL fgSkinBase_AddResource(fgSkinBase* self, void* resource)

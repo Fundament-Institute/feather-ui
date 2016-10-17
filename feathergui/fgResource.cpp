@@ -68,10 +68,12 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
   case FG_GETRESOURCE:
     return (size_t)self->res;
   case FG_GETCOLOR:
-    if(msg->subtype != 0)
-      return self->edge.color;
-    else
-      return self->color.color;
+    switch(msg->subtype)
+    {
+    case FGSETCOLOR_EDGE: return self->edge.color;
+    case FGSETCOLOR_MAIN: return self->color.color;
+    }
+    return 0;
   case FG_GETOUTLINE:
     return *reinterpret_cast<size_t*>(&self->outline);
   case FG_MOVE:

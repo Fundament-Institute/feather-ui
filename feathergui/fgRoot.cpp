@@ -85,11 +85,11 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
     FG_Msg m = *msg;
     m.other = &area;
     fgControl_Message((fgControl*)self, &m);
-    if(self->topmost && self->topmost->parent != 0) // Draw topmost before the drag object
+    if(self->topmost) // Draw topmost before the drag object
     {
       AbsRect out;
-      ResolveRect(self->topmost->parent, &out);
-      self->dragdraw->Draw(&out, (int)self->topmost->GetDPI());
+      ResolveRect(self->topmost, &out);
+      self->topmost->Draw(&out, (int)self->topmost->GetDPI());
     }
     if(self->dragdraw != 0 && self->dragdraw->parent != *self)
     {
@@ -356,12 +356,12 @@ size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
     if(self->dragdraw != 0 && self->dragdraw->parent == *self)
       MoveCRect((FABS)msg->x, (FABS)msg->y, &self->dragdraw->transform.area);
 
-    if(self->topmost) // attempt topmost first if it exists
-      if(_sendmsg<FG_INJECT, const void*, const void*>(self->topmost, msg, 0))
-        return fgProcessNextCursor(self), FG_ACCEPT;
-
     if(fgCaptureWindow)
       if(_sendmsg<FG_INJECT, const void*, const void*>(fgCaptureWindow, msg, 0)) // If it's captured, send the message to the captured window with NULL area.
+        return fgProcessNextCursor(self), FG_ACCEPT;
+
+    if(self->topmost) // After we attempt sending the message to the captured window, try sending it to the topmost
+      if(_sendmsg<FG_INJECT, const void*, const void*>(self->topmost, msg, 0))
         return fgProcessNextCursor(self), FG_ACCEPT;
 
     if(_sendmsg<FG_INJECT, const void*, const void*>(*self, msg, 0))

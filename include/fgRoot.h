@@ -89,6 +89,7 @@ FG_EXTERN const void* fgClipboardPaste(unsigned int type, size_t* length); // Th
 FG_EXTERN void fgClipboardFree(const void* mem);
 FG_EXTERN fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
 FG_EXTERN short FG_FASTCALL fgMessageMapDefault(const char* name);
+FG_EXTERN void BSS_FORCEINLINE fgStandardApplyClipping(fgElement* hold, const AbsRect* area, bool& clipping);
 
 #ifdef  __cplusplus
 }
