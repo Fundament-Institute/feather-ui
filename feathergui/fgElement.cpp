@@ -1175,7 +1175,7 @@ size_t fgElement::SetValueF(float state, size_t aux) { return _sendsubmsg<FG_SET
 
 size_t fgElement::SetValueP(void* ptr, size_t aux) { return _sendsubmsg<FG_SETVALUE, void*, size_t>(this, FGVALUE_POINTER, ptr, aux); }
 
-fgElement* fgElement::GetSelectedItem() { return reinterpret_cast<fgElement*>(_sendmsg<FG_GETSELECTEDITEM>(this)); }
+fgElement* fgElement::GetSelectedItem(ptrdiff_t index) { return reinterpret_cast<fgElement*>(_sendmsg<FG_GETSELECTEDITEM, ptrdiff_t>(this, index)); }
 
 size_t FG_FASTCALL fgElement::SetResource(void* res) { return _sendmsg<FG_SETRESOURCE, void*>(this, res); }
 

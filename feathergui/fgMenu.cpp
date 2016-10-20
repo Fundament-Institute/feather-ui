@@ -4,15 +4,22 @@
 #include "fgMenu.h"
 #include "feathercpp.h"
 
-void FG_FASTCALL fgMenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, char submenu)
+void FG_FASTCALL fgMenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
   assert(self != 0);
-  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (fgDestroy)&fgMenu_Destroy, (fgMessage)(submenu ? &fgSubmenu_Message : &fgMenu_Message));
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (fgDestroy)&fgMenu_Destroy, (fgMessage)&fgMenu_Message);
 }
+
+void FG_FASTCALL fgSubmenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+{
+  assert(self != 0);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (fgDestroy)&fgMenu_Destroy, (fgMessage)&fgSubmenu_Message);
+}
+
 void FG_FASTCALL fgMenu_Destroy(fgMenu* self)
 {
-  fgScrollbar_Destroy(&self->window); // this will destroy our prechildren for us.
-                                      //fgRoot_DeallocAction(fgSingleton(),self->dropdown);
+  fgScrollbar_Destroy(&self->window); 
+  //fgRoot_DeallocAction(fgSingleton(),self->dropdown);
 }
 
 inline void FG_FASTCALL fgMenu_Show(fgMenu* self, bool show)

@@ -58,12 +58,13 @@ size_t FG_FASTCALL fgRadiobutton_Message(fgRadiobutton* self, const FG_Msg* msg)
   case FG_SETVALUE:
     if(msg->subtype > FGVALUE_INT64)
       return 0;
-    if(msg->otherint && parent != 0) // if you about to check this radio button, uncheck all of them in it's fgElement group
+    if(msg->otherint && parent != 0) // if you about to check this radio button, uncheck all others in it's fgElement group
     {
       fgRadiobutton* cur = fgRadiobutton_GetHashRef(parent);
       while(cur)
       {
-        fgIntMessage((fgElement*)cur, FG_SETVALUE, 0, 0);
+        if(cur != self)
+          fgIntMessage((fgElement*)cur, FG_SETVALUE, 0, 0);
         cur = cur->radionext;
       }
     }

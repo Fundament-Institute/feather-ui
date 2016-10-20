@@ -16,7 +16,9 @@ typedef struct {
   fgBox box;
   fgElement* selected;
   fgColor hover;
+  fgColor select;
   char dropflag;
+  fgMouseState mouse;
 #ifdef  __cplusplus
   inline operator fgElement*() { return &control.element; }
   inline fgElement* operator->() { return operator fgElement*(); }

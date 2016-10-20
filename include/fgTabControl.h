@@ -14,6 +14,7 @@ extern "C" {
 typedef struct {
   fgControl control; // use FG_ADDITEM to add a panel with a name to the tabs. It returns a pointer to the added element you can then use with REMOVEITEM.
   fgBox header; // This is where the radiobuttons are added, allowing the "fgRadioButton" class to be skinned. Uses FG_BACKGROUND so padding can be applied to the panels.
+  fgElement* selected; // This is the currently active tab panel
 #ifdef  __cplusplus
   inline operator fgElement*() { return &control.element; }
   inline fgElement* operator->() { return operator fgElement*(); }
@@ -21,7 +22,7 @@ typedef struct {
 #endif
 } fgTabControl;
 
-FG_EXTERN void FG_FASTCALL fgTabControl_Init(fgTabControl* self, fgControl* parent, fgFlag flags, const fgTransform* transform);
+FG_EXTERN void FG_FASTCALL fgTabControl_Init(fgTabControl* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
 FG_EXTERN void FG_FASTCALL fgTabControl_Destroy(fgTabControl* self);
 FG_EXTERN size_t FG_FASTCALL fgTabControl_Message(fgTabControl* self, const FG_Msg* msg);
 

@@ -29,11 +29,12 @@ typedef struct _FG_MENU {
 #endif
 } fgMenu;
 
-FG_EXTERN void FG_FASTCALL fgMenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, char submenu);
+FG_EXTERN void FG_FASTCALL fgMenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
 FG_EXTERN void FG_FASTCALL fgMenu_Destroy(fgMenu* self);
 FG_EXTERN size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg);
-FG_EXTERN size_t FG_FASTCALL fgSubmenu_Message(fgMenu* self, const FG_Msg* msg);
 //FG_EXTERN char FG_FASTCALL fgMenu_DoDropdown(fgMenu* self);
+FG_EXTERN void FG_FASTCALL fgSubmenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
+FG_EXTERN size_t FG_FASTCALL fgSubmenu_Message(fgMenu* self, const FG_Msg* msg);
 
 #ifdef  __cplusplus
 }

@@ -14,6 +14,7 @@
 #include "fgList.h"
 #include "fgCurve.h"
 #include "fgDropdown.h"
+#include "fgTabControl.h"
 #include "feathercpp.h"
 #include "bss-util/cTrie.h"
 #include <stdlib.h>
@@ -546,8 +547,8 @@ fgElement* _create_default(fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRI
 
 fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  static bss_util::cTrie<uint16_t, true> t(19, "element", "control", "resource", "text", "box", "scrollbar", "button", "window", "checkbox",
-    "radiobutton", "progressbar", "slider", "textbox", "treeview", "treeitem", "list", "listitem", "curve", "dropdown", "debug");
+  static bss_util::cTrie<uint16_t, true> t(21, "element", "control", "resource", "text", "box", "scrollbar", "button", "window", "checkbox",
+    "radiobutton", "progressbar", "slider", "textbox", "treeview", "treeitem", "list", "listitem", "curve", "dropdown", "tabcontrol", "debug");
   
   switch(t[type])
   {
@@ -590,6 +591,8 @@ fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT
   case 18:
     return _create_default<fgDropdown, fgDropdown_Init>(parent, next, name, flags, transform);
   case 19:
+    return _create_default<fgTabControl, fgTabControl_Init>(parent, next, name, flags, transform);
+  case 20:
     return _create_default<fgDebug, fgDebug_Init>(parent, next, name, flags, transform);
   }
 

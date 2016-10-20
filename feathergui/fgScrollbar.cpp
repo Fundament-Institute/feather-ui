@@ -393,6 +393,13 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
       return fgControl_HoverMessage(&self->control, &m);
     }
     break;
+  case FG_SETDIM:
+    if(fgControl_HoverMessage(&self->control, msg))
+    {
+      fgScrollbar_Recalc(self);
+      return FG_ACCEPT;
+    }
+    return 0;
   case FG_GETCLASSNAME:
     return (size_t)"Scrollbar";
   }
