@@ -159,3 +159,11 @@ char FG_FASTCALL fgRectIntersect(const AbsRect* l, const AbsRect* r)
 {
   return (l->left <= r->right && l->top <= r->bottom && l->right >= r->left && l->bottom >= r->top);
 }
+
+void FG_FASTCALL fgRectIntersection(const AbsRect* BSS_RESTRICT l, const AbsRect* BSS_RESTRICT r, AbsRect* out)
+{
+  out->left = bssmax(l->left, r->left);
+  out->top = bssmax(l->top, r->top);
+  out->right = bssmin(l->right, r->right);
+  out->bottom = bssmin(l->bottom, r->bottom);
+}

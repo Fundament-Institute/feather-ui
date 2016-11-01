@@ -85,7 +85,10 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT size_t FG_FASTCALL SetMargin(const AbsRect& margin);
   FG_DLLEXPORT size_t FG_FASTCALL SetPadding(const AbsRect& padding);
   FG_DLLEXPORT void FG_FASTCALL SetParent(struct _FG_ELEMENT* parent, struct _FG_ELEMENT* next = 0);
-  FG_DLLEXPORT  size_t FG_FASTCALL AddChild(struct _FG_ELEMENT* child, struct _FG_ELEMENT* next = 0);
+  FG_DLLEXPORT size_t FG_FASTCALL AddChild(struct _FG_ELEMENT* child, struct _FG_ELEMENT* next = 0);
+  FG_DLLEXPORT struct _FG_ELEMENT* FG_FASTCALL AddItem(void* item);
+  FG_DLLEXPORT struct _FG_ELEMENT* FG_FASTCALL AddItemText(const char* item);
+  FG_DLLEXPORT struct _FG_ELEMENT* FG_FASTCALL AddItemElement(struct _FG_ELEMENT* item);
   FG_DLLEXPORT size_t FG_FASTCALL RemoveChild(struct _FG_ELEMENT* child);
   FG_DLLEXPORT void FG_FASTCALL LayoutChange(unsigned char subtype, struct _FG_ELEMENT* target, struct _FG_ELEMENT* old);
   FG_DLLEXPORT size_t FG_FASTCALL LayoutFunction(const FG_Msg& msg, const CRect& area, bool scrollbar = false);

@@ -146,6 +146,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
         cur = cur->next;
         diff = fgElement_PotentialResize(hold);
 
+        //if(diff & msg->otheraux)
         fgSubMessage(hold, FG_MOVE, msg->subtype, ref, diff & msg->otheraux);
       }
 
@@ -301,6 +302,8 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
   }
     return FG_ACCEPT;
   case FG_ADDITEM:
+    if(msg->subtype != 0)
+      return 0;
   case FG_ADDCHILD:
     hold = (fgElement*)msg->other;
     if(!hold)
@@ -339,30 +342,31 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
   case FG_LAYOUTCHANGE:
   {
     assert(!msg->other || !(((fgElement*)msg->other)->flags&FGELEMENT_BACKGROUND));
-    CRect area = self->transform.area;
-    if(_sendmsg<FG_LAYOUTFUNCTION, const void*, void*>(self, msg, &area) != 0 || (msg->otheraux & (FGMOVE_PADDING | FGMOVE_MARGIN)) != 0)
+    AbsVec edge = { self->padding.left + self->padding.right + self->margin.left + self->margin.right, self->padding.top + self->padding.bottom + self->margin.top + self->margin.bottom };
+    AbsVec dim = { // This is the CLIENT AREA of the control, so we have to remove all padding and margins from the total area first. This can result in negative areas.
+      ((self->transform.area.left.rel != self->transform.area.right.rel) ? self->mindim.x : (self->transform.area.right.abs - self->transform.area.left.abs)) - edge.x,
+      ((self->transform.area.top.rel != self->transform.area.bottom.rel) ? self->mindim.y : (self->transform.area.bottom.abs - self->transform.area.top.abs)) - edge.y
+    };
+    AbsVec newdim = dim;
+
+    _sendmsg<FG_LAYOUTFUNCTION, const void*, void*>(self, msg, &newdim) != 0 || (msg->otheraux & (FGMOVE_PADDING | FGMOVE_MARGIN));
+    if(newdim.x != dim.x || newdim.y != dim.y)
     {
       AbsVec mindim = self->mindim;
       CRect narea = self->transform.area;
       if(self->flags&FGELEMENT_EXPANDX)
       {
-        narea.left.rel = area.left.rel;
-        narea.left.abs = area.left.abs;
-        narea.right.rel = area.right.rel;
         if(narea.right.rel == narea.left.rel)
-          narea.right.abs = area.right.abs + self->padding.left + self->padding.right + self->margin.left + self->margin.right;
+          narea.right.abs = narea.left.abs + newdim.x + edge.x;
         else
-          mindim.x = area.right.abs - area.left.abs + self->padding.left + self->padding.right + self->margin.left + self->margin.right;
+          mindim.x = newdim.x + edge.x;
       }
       if(self->flags&FGELEMENT_EXPANDY)
       {
-        narea.top.rel = area.top.rel;
-        narea.top.abs = area.top.abs;
-        narea.bottom.rel = area.bottom.rel;
-        if(narea.right.rel == narea.left.rel)
-          narea.bottom.abs = area.bottom.abs + self->padding.top + self->padding.bottom + self->margin.top + self->margin.bottom;
+        if(narea.bottom.rel == narea.top.rel)
+          narea.bottom.abs = narea.top.abs + newdim.y + edge.y;
         else
-          mindim.y = area.bottom.abs - area.top.abs + self->padding.top + self->padding.bottom + self->margin.top + self->margin.bottom;
+          mindim.y = newdim.y + edge.y;
       }
       _sendsubmsg<FG_SETDIM, float, float>(self, FGDIM_MIN, mindim.x, mindim.y);
       _sendmsg<FG_SETAREA, void*>(self, &narea);
@@ -370,11 +374,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     return FG_ACCEPT;
   }
   case FG_LAYOUTFUNCTION:
-  {
-    AbsRect area;
-    ResolveRect(self, &area);
-    return ((self->flags & FGELEMENT_EXPAND) || msg->subtype != 0) ? fgDefaultLayout(self, (const FG_Msg*)msg->other, (CRect*)msg->other2, &area) : 0;
-  }
+    return ((self->flags & FGELEMENT_EXPAND) || msg->subtype != 0) ? fgDefaultLayout(self, (const FG_Msg*)msg->other, (AbsVec*)msg->other2) : 0;
   case FG_LAYOUTLOAD:
   {
     fgLayout* layout = (fgLayout*)msg->other;
@@ -962,6 +962,10 @@ size_t FG_FASTCALL fgElement::SetPadding(const AbsRect& padding) { return _sendm
 void FG_FASTCALL fgElement::SetParent(fgElement* parent, fgElement* next) { _sendmsg<FG_SETPARENT, void*, void*>(this, parent, next); }
 
 size_t FG_FASTCALL fgElement::AddChild(fgElement* child, fgElement* next) { return _sendmsg<FG_ADDCHILD, void*, void*>(this, child, next); }
+
+fgElement* FG_FASTCALL fgElement::AddItem(void* item) { return (fgElement*)_sendsubmsg<FG_ADDITEM, const void*>(this, FGADDITEM_DEFAULT, item); }
+fgElement* FG_FASTCALL fgElement::AddItemText(const char* item) { return (fgElement*)_sendsubmsg<FG_ADDITEM, const void*>(this, FGADDITEM_TEXT, item); }
+fgElement* FG_FASTCALL fgElement::AddItemElement(fgElement* item) { return (fgElement*)_sendsubmsg<FG_ADDITEM, const void*>(this, FGADDITEM_ELEMENT, item); }
 
 size_t FG_FASTCALL fgElement::RemoveChild(fgElement* child) { return _sendmsg<FG_REMOVECHILD, void*>(this, child); }
 

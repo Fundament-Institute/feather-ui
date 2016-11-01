@@ -58,7 +58,7 @@ void FG_FASTCALL fgList_Destroy(fgList* self)
 size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
 {
   ptrdiff_t otherint = msg->otherint;
-  fgFlag flags = self->box.window.control.element.flags;
+  fgFlag flags = self->box->flags;
 
   switch(msg->type)
   {
@@ -105,7 +105,7 @@ size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
     break;
   case FG_MOUSEMOVE:
     fgUpdateMouseState(&self->mouse, msg);
-    if((self->box.window.control.element.flags&FGLIST_DRAGGABLE) && (self->mouse.state&FGMOUSE_INSIDE)) // Check if we clicked inside this window
+    if((self->box->flags&FGLIST_DRAGGABLE) && (self->mouse.state&FGMOUSE_INSIDE)) // Check if we clicked inside this window
     {
       AbsRect cache;
       fgElement* target = fgElement_GetChildUnderMouse(*self, msg->x, msg->y, &cache); // find item below the mouse cursor (if any) and initiate a drag for it.

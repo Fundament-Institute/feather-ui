@@ -263,6 +263,7 @@
     <ClCompile Include="fgGrid.cpp" />
     <ClCompile Include="fgImplementation.cpp" />
     <ClCompile Include="fgLayout.cpp" />
+    <ClCompile Include="fgLayoutFunctions.cpp" />
     <ClCompile Include="fgList.cpp" />
     <ClCompile Include="fgMenu.cpp" />
     <ClCompile Include="fgProgressbar.cpp" />

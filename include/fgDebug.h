@@ -69,6 +69,10 @@ typedef struct _FG_DEBUG {
   fgElement* depthelement;
   fgElement* hover;
   int ignore;
+  void* font;
+  fgColor color;
+  float lineheight;
+  float letterspacing;
 
 #ifdef  __cplusplus
   inline operator fgElement*() { return &element; }

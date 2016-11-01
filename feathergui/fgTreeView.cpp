@@ -25,7 +25,7 @@ void FG_FASTCALL fgTreeItem_Init(fgTreeItem* BSS_RESTRICT self, fgElement* BSS_R
 size_t FG_FASTCALL fgTreeItem_Message(fgTreeItem* self, const FG_Msg* msg)
 {
   static const char* CLASSNAME = "TreeItem";
-  static const char* ARROWNAME = "TreeItem:arrow";
+  static const char* ARROWNAME = "TreeItem$arrow";
   static const size_t EXPANDED = ((size_t)1) << ((sizeof(size_t) << 3) - 1);
 
   switch(msg->type)
@@ -51,7 +51,7 @@ size_t FG_FASTCALL fgTreeItem_Message(fgTreeItem* self, const FG_Msg* msg)
     }
     break;
   case FG_LAYOUTFUNCTION:
-    return fgTileLayout(&self->control.element, (const FG_Msg*)msg->other, FGBOX_TILEY, (CRect*)msg->other2);
+    return fgTileLayout(&self->control.element, (const FG_Msg*)msg->other, FGBOX_TILEY, (AbsVec*)msg->other2);
   case FG_ACTION:
     if(msg->subtype != 0) // If nonzero this action was meant for the root
       return !self->control.element.parent ? 0 : fgPassMessage(self->control.element.parent, msg);
@@ -75,7 +75,7 @@ size_t FG_FASTCALL fgTreeItem_Message(fgTreeItem* self, const FG_Msg* msg)
     {
       AbsRect r;
       ResolveRect(&self->control.element, &r);
-      _sendsubmsg<FG_ACTION, void*>(self->control.element.parent, FGSCROLLBAR_SCROLLTO, &r);
+      _sendsubmsg<FG_ACTION, void*>(self->control.element.parent, FGSCROLLBAR_SCROLLTOABS, &r);
     }
     break;
   }
@@ -105,7 +105,7 @@ size_t FG_FASTCALL fgTreeView_Message(fgTreeView* self, const FG_Msg* msg)
     fgScrollbar_Message(&self->scrollbar, msg);
     return FG_ACCEPT;
   case FG_LAYOUTFUNCTION:
-    return fgTileLayout(*self, (const FG_Msg*)msg->other, FGBOX_TILEY, (CRect*)msg->other2);
+    return fgTileLayout(*self, (const FG_Msg*)msg->other, FGBOX_TILEY, (AbsVec*)msg->other2);
   case FG_GETCLASSNAME:
     return (size_t)"TreeView";
   case FG_GOTFOCUS:

@@ -295,23 +295,20 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
     return FG_ACCEPT;
   }
   case FG_LAYOUTCHANGE:
-    {
-      CRect area = self->control.element.transform.area;
-      area.right.abs = area.left.abs + self->realsize.x;
-      area.bottom.abs = area.top.abs + self->realsize.y;
-      
-      size_t dim = _sendsubmsg<FG_LAYOUTFUNCTION, const void*, void*>(*self, 1, msg, &area);
-      self->realsize = { area.right.abs - area.left.abs, area.bottom.abs - area.top.abs }; // retrieve real area and then reset to the area of the window.
-      if(dim)
+    { 
+      AbsVec oldsize = self->realsize;
+      _sendsubmsg<FG_LAYOUTFUNCTION, const void*, void*>(*self, 1, msg, &self->realsize);
+      if(oldsize.x != self->realsize.x || oldsize.y != self->realsize.y)
       {
-        if(self->control.element.flags & FGELEMENT_EXPAND)
-          area = self->control.element.transform.area;
-        if(self->control.element.flags & FGELEMENT_EXPANDX)
-          area.right.abs = area.left.abs + self->realsize.x + self->realpadding.left + self->realpadding.right + bssmax(self->barcache.y, 0);
-        if(self->control.element.flags & FGELEMENT_EXPANDY)
-          area.bottom.abs = area.top.abs + self->realsize.y + self->realpadding.top + self->realpadding.bottom + bssmax(self->barcache.x, 0);
-        if(self->control.element.flags & FGELEMENT_EXPAND)
+        if(self->control.element.flags & FGELEMENT_EXPAND) // We only need to adjust the actual area if we are expanding. Otherwise we just want to update the padding to the new realsize.
+        {
+          CRect area = self->control.element.transform.area;
+          if(self->control.element.flags & FGELEMENT_EXPANDX)
+            area.right.abs = area.left.abs + self->realsize.x + self->realpadding.left + self->realpadding.right + bssmax(self->barcache.y, 0);
+          if(self->control.element.flags & FGELEMENT_EXPANDY)
+            area.bottom.abs = area.top.abs + self->realsize.y + self->realpadding.top + self->realpadding.bottom + bssmax(self->barcache.x, 0);
           self->control.element.SetArea(area);
+        }
         fgScrollbar_ApplyPadding(self, 0, 0); // we must do applypadding here so the scroll area responds correctly when realsize shrinks.
       }
     }
@@ -364,19 +361,29 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
       fgScrollbar_SetBarcache(self);
       return FG_ACCEPT;
     case FGSCROLLBAR_SCROLLTO:
+    case FGSCROLLBAR_SCROLLTOABS:
       if(msg->other != 0)
       {
         AbsRect& target = *((AbsRect*)msg->other);
         AbsRect r;
         ResolveRect(*self, &r);
-        float left = self->control.element.padding.left - self->realpadding.left;
-        float top = self->control.element.padding.top - self->realpadding.top;
-        float right = r.right - r.left - bssmax(self->barcache.y, 0) - self->realpadding.right - self->realpadding.left - self->control.element.padding.left;
-        float bottom = r.bottom - r.top - bssmax(self->barcache.x, 0) - self->realpadding.bottom - self->realpadding.left - self->control.element.padding.top;
-        left = bssmax(- target.left - left, 0);
-        top = bssmax(- target.top - top, 0);
-        right = bssmin(right - target.right, 0);
-        bottom = bssmin(bottom - target.bottom, 0);
+        r.left += self->realpadding.left;
+        r.top += self->realpadding.top;
+        r.right -= self->realpadding.right;
+        r.bottom -= self->realpadding.bottom;
+
+        if(msg->subtype == FGSCROLLBAR_SCROLLTO)
+        {
+          target.left += r.left + self->control.element.padding.left - self->realpadding.left;
+          target.top += r.top + self->control.element.padding.top - self->realpadding.top;
+          target.right += r.left + self->control.element.padding.left - self->realpadding.left;
+          target.bottom += r.top + self->control.element.padding.top - self->realpadding.top;
+        }
+
+        float left = bssmax(r.left - target.left, 0);
+        float top = bssmax(r.top - target.top, 0);
+        float right = bssmin(r.right - target.right, 0);
+        float bottom = bssmin(r.bottom - target.bottom, 0);
         float x = (left == 0) ? right : left;
         float y = (top == 0) ? bottom : top;
         

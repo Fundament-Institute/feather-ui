@@ -62,6 +62,10 @@ size_t FG_FASTCALL fgDebug_Message(fgDebug* self, const FG_Msg* msg)
     self->hover = 0;
     self->behaviorhook = &fgRoot_BehaviorDefault;
     self->ignore = 0;
+    self->font = 0;
+    self->color.color = 0;
+    self->lineheight = 0;
+    self->letterspacing = 0;
     return FG_ACCEPT;
   case FG_DRAW:
     if(self->hover != 0)
@@ -82,8 +86,64 @@ size_t FG_FASTCALL fgDebug_Message(fgDebug* self, const FG_Msg* msg)
       fgDrawResource(0, &CRect { 0,0,0,0,0,0,0,0 }, 0x666666FF, 0, 0.0f, &totalarea, 0, &AbsVec { 0,0 }, FGRESOURCE_ROUNDRECT);
       fgDrawResource(0, &CRect { 0,0,0,0,0,0,0,0 }, 0x6666FFFF, 0, 0.0f, &r, 0, &AbsVec { 0,0 }, FGRESOURCE_ROUNDRECT);
       fgDrawResource(0, &CRect { 0,0,0,0,0,0,0,0 }, 0x6666FF66, 0, 0.0f, &clientarea, 0, &AbsVec { 0,0 }, FGRESOURCE_ROUNDRECT);
+      if(self->font)
+      {
+        unsigned int pt, dpi;
+        float lh = self->lineheight;
+        if(lh == 0.0f)
+          fgFontGet(self->font, &lh, &pt, &dpi);
+        char utf8buf[50] = { 0 };
+        int utf32buf[50] = { 0 };
+        AbsRect txtarea = totalarea;
+
+        int len = snprintf(utf8buf, 50, "%.0f, %.0f", totalarea.left, totalarea.top);
+        fgUTF8toUTF32(utf8buf, len, utf32buf, 50);
+        txtarea.bottom = totalarea.top;
+        txtarea.top -= lh;
+        fgDrawFont(self->font, utf32buf, self->lineheight, self->letterspacing, self->color.color, &txtarea, 0, &AbsVec { 0,0 }, 0, 0);
+        
+        len = snprintf(utf8buf, 50, "%.0f, %.0f", totalarea.right, totalarea.bottom);
+        fgUTF8toUTF32(utf8buf, len, utf32buf, 50);
+        txtarea.bottom = totalarea.bottom - lh;
+        txtarea.top = totalarea.bottom;
+        txtarea.left = txtarea.right;
+        fgDrawFont(self->font, utf32buf, self->lineheight, self->letterspacing, self->color.color, &txtarea, 0, &AbsVec { 0,0 }, 0, 0);
+      }
     }
     break;
+  case FG_SETFONT:
+    if(self->font) fgDestroyFont(self->font);
+    self->font = 0;
+    if(msg->other)
+    {
+      size_t dpi = _sendmsg<FG_GETDPI>(*self);
+      unsigned int fontdpi;
+      unsigned int fontsize;
+      fgFontGet(msg->other, 0, &fontsize, &fontdpi);
+      self->font = (dpi == fontdpi) ? fgCloneFont(msg->other) : fgCopyFont(msg->other, fontsize, fontdpi);
+    }
+    fgDirtyElement(*self);
+    return FG_ACCEPT;
+  case FG_SETLINEHEIGHT:
+    self->lineheight = msg->otherf;
+    fgDirtyElement(*self);
+    return FG_ACCEPT;
+  case FG_SETLETTERSPACING:
+    self->letterspacing = msg->otherf;
+    fgDirtyElement(*self);
+    return FG_ACCEPT;
+  case FG_SETCOLOR:
+    self->color.color = (unsigned int)msg->otherint;
+    fgDirtyElement(*self);
+    return FG_ACCEPT;
+  case FG_GETFONT:
+    return reinterpret_cast<size_t>(self->font);
+  case FG_GETLINEHEIGHT:
+    return *reinterpret_cast<size_t*>(&self->lineheight);
+  case FG_GETLETTERSPACING:
+    return *reinterpret_cast<size_t*>(&self->letterspacing);
+  case FG_GETCOLOR:
+    return self->color.color;
   case FG_GETCLASSNAME:
     return (size_t)"Debug";
   }
@@ -388,7 +448,7 @@ size_t FG_FASTCALL fgDebug_LogMessage(fgDebug* self, const FG_Msg* msg, unsigned
     break;
   }
 
-  if(msg->type != FG_INJECT)
+  if(msg->type != FG_INJECT && msg->type != FG_MOUSEMOVE)
   {
     fgElement* elem = fgCreate("TreeItem", self->depthelement, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY);
     fgElement* text = fgCreate("Text", elem, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY);
@@ -396,7 +456,7 @@ size_t FG_FASTCALL fgDebug_LogMessage(fgDebug* self, const FG_Msg* msg, unsigned
 
     AbsRect r;
     ResolveRect(text, &r);
-    _sendsubmsg<FG_ACTION, void*>(self->messages, FGSCROLLBAR_SCROLLTO, &r);
+    _sendsubmsg<FG_ACTION, void*>(self->messages, FGSCROLLBAR_SCROLLTOABS, &r);
     self->depthelement = elem;
   }
   self->ignore -= 1;
@@ -437,7 +497,7 @@ const char* FG_FASTCALL fgDebug_GetMessageString(unsigned short msg)
   case FG_GETFONT: return "FG_GETFONT";
   case FG_GETLINEHEIGHT: return "FG_GETLINEHEIGHT";
   case FG_GETLETTERSPACING: return "FG_GETLETTERSPACING";
-  case FG_MOVE: return "FG_MOVE:%hhu";
+  case FG_MOVE: return "FG_MOVE";
   case FG_SETALPHA: return "FG_SETALPHA";
   case FG_SETAREA: return "FG_SETAREA";
   case FG_SETTRANSFORM: return "FG_SETTRANSFORM";

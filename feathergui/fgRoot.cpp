@@ -15,6 +15,7 @@
 #include "fgCurve.h"
 #include "fgDropdown.h"
 #include "fgTabControl.h"
+#include "fgMenu.h"
 #include "feathercpp.h"
 #include "bss-util/cTrie.h"
 #include <stdlib.h>
@@ -185,8 +186,10 @@ void FG_FASTCALL fgOrderedDraw(fgElement* self, const AbsRect* area, size_t dpi,
     cur = cur->next;
   }
 
+  AbsRect out;
+  fgRectIntersection(area, &fgPeekClipRect(), &out);
   // do binary search on the absolute resolved bottomright coordinates compared to the topleft corner of the render area
-  cur = fn(self, area);
+  cur = fn(self, &out);
 
   if(!clipping)
   {
@@ -547,8 +550,8 @@ fgElement* _create_default(fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRI
 
 fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  static bss_util::cTrie<uint16_t, true> t(21, "element", "control", "resource", "text", "box", "scrollbar", "button", "window", "checkbox",
-    "radiobutton", "progressbar", "slider", "textbox", "treeview", "treeitem", "list", "listitem", "curve", "dropdown", "tabcontrol", "debug");
+  static bss_util::cTrie<uint16_t, true> t(24, "element", "control", "resource", "text", "box", "scrollbar", "button", "window", "checkbox",
+    "radiobutton", "progressbar", "slider", "textbox", "treeview", "treeitem", "list", "listitem", "curve", "dropdown", "tabcontrol", "menu", "submenu", "menuitem", "debug");
   
   switch(t[type])
   {
@@ -593,6 +596,12 @@ fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT
   case 19:
     return _create_default<fgTabControl, fgTabControl_Init>(parent, next, name, flags, transform);
   case 20:
+    return _create_default<fgMenu, fgMenu_Init>(parent, next, name, flags, transform);
+  case 21:
+    return _create_default<fgMenu, fgSubmenu_Init>(parent, next, name, flags, transform);
+  case 22:
+    return _create_default<fgMenuItem, fgMenuItem_Init>(parent, next, name, flags, transform);
+  case 23:
     return _create_default<fgDebug, fgDebug_Init>(parent, next, name, flags, transform);
   }
 

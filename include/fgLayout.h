@@ -50,9 +50,9 @@ FG_EXTERN bool FG_FASTCALL fgLayout_LoadXML(fgLayout* self, const char* data, FG
 FG_EXTERN void FG_FASTCALL fgLayout_SaveFileXML(fgLayout* self, const char* file);
 FG_EXTERN void FG_FASTCALL fgLayout_SaveElementXML(fgElement* root, const char* file);
 
-FG_EXTERN size_t FG_FASTCALL fgDefaultLayout(fgElement* self, const FG_Msg* msg, CRect* area, AbsRect* parent);
+FG_EXTERN size_t FG_FASTCALL fgDefaultLayout(fgElement* self, const FG_Msg* msg, AbsVec* dim);
 FG_EXTERN size_t FG_FASTCALL fgDistributeLayout(fgElement* self, const FG_Msg* msg, fgFlag axis);
-FG_EXTERN size_t FG_FASTCALL fgTileLayout(fgElement* self, const FG_Msg* msg, fgFlag flags, CRect* area);
+FG_EXTERN size_t FG_FASTCALL fgTileLayout(fgElement* self, const FG_Msg* msg, fgFlag flags, AbsVec* area);
 
 #ifdef  __cplusplus
 }

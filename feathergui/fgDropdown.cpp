@@ -18,7 +18,7 @@ void FG_FASTCALL fgDropdown_Destroy(fgDropdown* self)
 
 size_t FG_FASTCALL fgDropdownBox_Message(fgBox* self, const FG_Msg* msg)
 {
-  fgDropdown* parent = (fgDropdown*)self->window->parent;
+  fgDropdown* parent = (fgDropdown*)self->scroll->parent;
   switch(msg->type)
   {
   case FG_MOUSEMOVE:
@@ -31,7 +31,7 @@ size_t FG_FASTCALL fgDropdownBox_Message(fgBox* self, const FG_Msg* msg)
     assert(parent != 0);
     if(parent->dropflag && !MsgHitCRect(msg, *self))
     {
-      self->window->SetFlag(FGELEMENT_HIDDEN, true);
+      self->scroll->SetFlag(FGELEMENT_HIDDEN, true);
       if(fgroot_instance->topmost == *self)
         fgroot_instance->topmost = 0;
     }
@@ -52,7 +52,7 @@ size_t FG_FASTCALL fgDropdownBox_Message(fgBox* self, const FG_Msg* msg)
       }
       if(parent->dropflag)
       {
-        self->window->SetFlag(FGELEMENT_HIDDEN, true);
+        self->scroll->SetFlag(FGELEMENT_HIDDEN, true);
         if(fgroot_instance->topmost == *self)
           fgroot_instance->topmost = 0;
       }

@@ -15,7 +15,7 @@ extern "C" {
     fgBox box;
     fgBox header; // The header is where the labels are
 #ifdef  __cplusplus
-    inline operator fgElement*() { return &box.window.control.element; }
+    inline operator fgElement*() { return &box.scroll.control.element; }
     inline fgElement* operator->() { return operator fgElement*(); }
     FG_DLLEXPORT void AddColumn(const char* name, unsigned short column = (unsigned short)-1);
     FG_DLLEXPORT void AddItem(fgElement* item, unsigned short column, unsigned short row);
@@ -30,6 +30,7 @@ extern "C" {
   FG_EXTERN void FG_FASTCALL fgGrid_Destroy(fgGrid* self);
   FG_EXTERN size_t FG_FASTCALL fgGrid_Message(fgGrid* self, const FG_Msg* msg);
 
+  FG_EXTERN size_t FG_FASTCALL fgGridRow_Init(fgGrid* self, const FG_Msg* msg);
   FG_EXTERN size_t FG_FASTCALL fgGridRow_Message(fgGrid* self, const FG_Msg* msg);
 
 #ifdef  __cplusplus

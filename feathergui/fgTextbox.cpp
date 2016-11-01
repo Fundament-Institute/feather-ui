@@ -11,7 +11,7 @@ void FG_FASTCALL fgTextbox_Init(fgTextbox* self, fgElement* BSS_RESTRICT parent,
 }
 void FG_FASTCALL fgTextbox_Destroy(fgTextbox* self)
 {
-  fgScrollbar_Destroy(&self->window);
+  fgScrollbar_Destroy(&self->scroll);
   ((bss_util::cDynArray<int>*)&self->text)->~cDynArray();
   ((bss_util::cDynArray<int>*)&self->placeholder)->~cDynArray();
 }
@@ -51,8 +51,8 @@ inline void FG_FASTCALL fgTextbox_fixpos(fgTextbox* self, size_t cursor, AbsVec*
     for(size_t i = 0; i < self->text.l; ++i) text[i] = self->mask;
     text[self->text.l] = 0;
   }
-  *r = fgFontPos(self->font, text, self->lineheight, self->letterspacing, &self->areacache, self->window->flags, cursor, self->cache);
-  AbsRect to = { r->x, r->y, r->x, r->y + self->lineheight };
+  *r = fgFontPos(self->font, text, self->lineheight, self->letterspacing, &self->areacache, self->scroll->flags, cursor, self->cache);
+  AbsRect to = { r->x, r->y, r->x, r->y + self->lineheight*1.125 }; // We don't know what the descender is, so we estimate it as 1/8 the lineheight.
   _sendsubmsg<FG_ACTION, void*>(*self, FGSCROLLBAR_SCROLLTO, &to);
   self->lastx = self->startpos.x;
 }
@@ -66,8 +66,8 @@ inline size_t FG_FASTCALL fgTextbox_fixindex(fgTextbox* self, AbsVec pos, AbsVec
     for(size_t i = 0; i < self->text.l; ++i) text[i] = self->mask;
     text[self->text.l] = 0;
   }
-  size_t r = fgFontIndex(self->font, text, self->lineheight, self->letterspacing, &self->areacache, self->window->flags, pos, cursor, self->cache);
-  AbsRect to = { cursor->x, cursor->y, cursor->x, cursor->y + self->lineheight };
+  size_t r = fgFontIndex(self->font, text, self->lineheight, self->letterspacing, &self->areacache, self->scroll->flags, pos, cursor, self->cache);
+  AbsRect to = { cursor->x, cursor->y, cursor->x, cursor->y + self->lineheight*1.125 };
   _sendsubmsg<FG_ACTION, void*>(*self, FGSCROLLBAR_SCROLLTO, &to);
   return r;
 }
@@ -123,7 +123,7 @@ AbsVec FG_FASTCALL fgTextbox_RelativeMouse(fgTextbox* self, const FG_Msg* msg)
 {
   AbsRect r;
   ResolveRect(*self, &r);
-  return AbsVec { msg->x - r.left - self->window->padding.left + self->window.realpadding.left, msg->y - r.top - self->window->padding.top + self->window.realpadding.top };
+  return AbsVec { msg->x - r.left - self->scroll->padding.left + self->scroll.realpadding.left, msg->y - r.top - self->scroll->padding.top + self->scroll.realpadding.top };
 }
 
 size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
@@ -138,6 +138,7 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
     memset(&self->buf, 0, sizeof(fgVectorUTF32));
     memset(&self->placeholder, 0, sizeof(fgVectorUTF32));
     self->validation = 0;
+    self->formatting = 0;
     self->mask = 0;
     self->selector.color = ~0;
     self->placecolor.color = ~0;
@@ -153,7 +154,7 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
     self->lastx = 0;
     self->inserting = 0;
     memset(&self->areacache, 0, sizeof(AbsRect));
-    fgScrollbar_Message(&self->window, msg);
+    fgScrollbar_Message(&self->scroll, msg);
     self->lastclick = fgroot_instance->time;
     return FG_ACCEPT;
   case FG_KEYCHAR:
@@ -234,10 +235,10 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
     case FG_KEY_INSERT:
       return _sendsubmsg<FG_ACTION>(*self, FGTEXTBOX_TOGGLEINSERT);
     case FG_KEY_RETURN:
-      if(!msg->IsShiftDown() && (self->window->flags&FGTEXTBOX_ACTION))
+      if(!msg->IsShiftDown() && (self->scroll->flags&FGTEXTBOX_ACTION))
         _sendsubmsg<FG_ACTION>(*self, 0);
-      else if(!(self->window->flags&FGTEXTBOX_SINGLELINE))
-        self->window->KeyChar('\n', msg->sigkeys); // windows translates this to \r, not \n, so we have to do it ourselves.
+      else if(!(self->scroll->flags&FGTEXTBOX_SINGLELINE))
+        self->scroll->KeyChar('\n', msg->sigkeys); // windows translates this to \r, not \n, so we have to do it ourselves.
       return FG_ACCEPT;
     }
     return 0;
@@ -296,7 +297,7 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
         self->inserting = !self->inserting;
         break;
       default:
-        return fgScrollbar_Message(&self->window, msg);
+        return fgScrollbar_Message(&self->scroll, msg);
     }
     self->lastclick = fgroot_instance->time;
     return FG_ACCEPT;
@@ -403,7 +404,7 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       fgSubMessage(*self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTMOVE, self, FGMOVE_PROPAGATE | FGMOVE_RESIZE);
     break;
   case FG_DRAW:
-    fgScrollbar_Message(&self->window, msg); // Render everything else first
+    fgScrollbar_Message(&self->scroll, msg); // Render everything else first
     
     if(self->font != 0 && !(msg->subtype & 1))
     {
@@ -411,17 +412,17 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       AbsRect area = *(AbsRect*)msg->other;
 
       AbsRect cliparea = area;
-      cliparea.left += self->window.realpadding.left;
-      cliparea.top += self->window.realpadding.top;
-      cliparea.right -= self->window.realpadding.right + bssmax(self->window.barcache.y, 0);
-      cliparea.bottom -= self->window.realpadding.bottom + bssmax(self->window.barcache.x, 0);
-      if(!(self->window->flags&FGELEMENT_NOCLIP))
+      cliparea.left += self->scroll.realpadding.left;
+      cliparea.top += self->scroll.realpadding.top;
+      cliparea.right -= self->scroll.realpadding.right + bssmax(self->scroll.barcache.y, 0);
+      cliparea.bottom -= self->scroll.realpadding.bottom + bssmax(self->scroll.barcache.x, 0);
+      if(!(self->scroll->flags&FGELEMENT_NOCLIP))
         fgPushClipRect(&cliparea);
 
-      area.left += self->window->padding.left;
-      area.top += self->window->padding.top;
-      area.right -= self->window->padding.right;
-      area.bottom -= self->window->padding.bottom;
+      area.left += self->scroll->padding.left;
+      area.top += self->scroll->padding.top;
+      area.right -= self->scroll->padding.right;
+      area.bottom -= self->scroll->padding.bottom;
       AbsVec begin;
       AbsVec end;
       if(self->start < self->end)
@@ -462,7 +463,7 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       area.bottom *= scale;
       //assert(self->areacache.right - self->areacache.left == area.right - area.left);
       //assert(self->areacache.bottom - self->areacache.top == area.bottom - area.top);
-      center = ResolveVec(&self->window.control.element.transform.center, &area);
+      center = ResolveVec(&self->scroll.control.element.transform.center, &area);
       int* text = self->text.p;
 
       if(self->mask)
@@ -478,9 +479,9 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
         self->letterspacing,
         !self->text.l ? self->placecolor.color : self->color.color,
         &area,
-        self->window.control.element.transform.rotation,
+        self->scroll.control.element.transform.rotation,
         &center,
-        self->window.control.element.flags,
+        self->scroll.control.element.flags,
         self->cache);
 
       // Draw cursor
@@ -488,10 +489,10 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       {
         AbsVec lines[2] = { self->startpos, { self->startpos.x, self->startpos.y + self->lineheight } };
         AbsVec scale = { 1.0f, 1.0f };
-        fgDrawLines(lines, 2, self->cursorcolor.color, &area.topleft, &scale, self->window.control.element.transform.rotation, &center); // TODO: This requires ensuring that FG_DRAW is called at least during the blink interval.
+        fgDrawLines(lines, 2, self->cursorcolor.color, &area.topleft, &scale, self->scroll.control.element.transform.rotation, &center); // TODO: This requires ensuring that FG_DRAW is called at least during the blink interval.
       }
 
-      if(!(self->window->flags&FGELEMENT_NOCLIP))
+      if(!(self->scroll->flags&FGELEMENT_NOCLIP))
         fgPopClipRect();
     }
     return FG_ACCEPT;
@@ -528,7 +529,7 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       self->start = fgTextbox_fixindex(self, fgTextbox_RelativeMouse(self, msg), &self->startpos);
       self->lastx = self->startpos.x;
     }
-    fgScrollbar_Message(&self->window, msg);
+    fgScrollbar_Message(&self->scroll, msg);
     fgRoot_SetCursor(FGCURSOR_IBEAM, 0);
     return FG_ACCEPT;
   case FG_MOUSEON:
@@ -539,36 +540,30 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
     if(msg->other != 0 && self->font != 0)
     {
       FG_Msg* m = (FG_Msg*)msg->other;
-      CRect* area = (CRect*)msg->other2;
+      AbsVec* dim = (AbsVec*)msg->other2;
       if(m->subtype == FGELEMENT_LAYOUTMOVE)
       {
         ResolveRect(*self, &self->areacache);
-        self->areacache.left += self->window->padding.left;
-        self->areacache.top += self->window->padding.top;
-        self->areacache.right -= self->window->padding.right;
-        self->areacache.bottom -= self->window->padding.bottom;
-        float scale = (fgroot_instance->dpi / (float)self->window->GetDPI());
+        self->areacache.left += self->scroll->padding.left;
+        self->areacache.top += self->scroll->padding.top;
+        self->areacache.right -= self->scroll->padding.right;
+        self->areacache.bottom -= self->scroll->padding.bottom;
+        float scale = (fgroot_instance->dpi / (float)self->scroll->GetDPI());
         self->areacache.left *= scale;
         self->areacache.top *= scale;
         self->areacache.right *= scale;
         self->areacache.bottom *= scale;
         AbsRect r = self->areacache;
-        if(self->window->flags&FGELEMENT_EXPANDX) // If maxdim is -1, this will translate into a -1 maxdim for the text and properly deal with all resizing cases.
-          r.right = r.left + self->window->maxdim.x;
-        if(self->window->flags&FGELEMENT_EXPANDY)
-          r.bottom = r.top + self->window->maxdim.y;
+        if(self->scroll->flags&FGELEMENT_EXPANDX) // If maxdim is -1, this will translate into a -1 maxdim for the text and properly deal with all resizing cases.
+          r.right = r.left + self->scroll->maxdim.x;
+        if(self->scroll->flags&FGELEMENT_EXPANDY)
+          r.bottom = r.top + self->scroll->maxdim.y;
 
-        size_t dim = 0;
-        fgFontSize(self->font, !self->text.p ? &UNICODE_TERMINATOR : self->text.p, self->lineheight, self->letterspacing, &r, self->window->flags);
-        if(area->right.abs != area->left.abs + (r.right - r.left))
-          dim |= FGMOVE_RESIZEX;
-        if(area->bottom.abs != area->top.abs + (r.bottom - r.top))
-          dim |= FGMOVE_RESIZEY;
-        area->right.abs = area->left.abs + (r.right - r.left);
-        area->bottom.abs = area->top.abs + (r.bottom - r.top);
+        fgFontSize(self->font, !self->text.p ? &UNICODE_TERMINATOR : self->text.p, self->lineheight, self->letterspacing, &r, self->scroll->flags);
+        dim->x = r.right - r.left;
+        dim->y = r.bottom - r.top;
         fgTextbox_fixpos(self, self->start, &self->startpos);
         fgTextbox_fixpos(self, self->end, &self->endpos);
-        return dim;
       }
     }
     return 0;
@@ -579,5 +574,5 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
     return (size_t)"Textbox";
   }
 
-  return fgScrollbar_Message(&self->window, msg);
+  return fgScrollbar_Message(&self->scroll, msg);
 }

@@ -13,7 +13,7 @@ void FG_FASTCALL fgBox_Init(fgBox* self, fgElement* BSS_RESTRICT parent, fgEleme
 void FG_FASTCALL fgBox_Destroy(fgBox* self)
 {
   ((bss_util::cDynArray<fgElement*>&)self->ordered).~cDynArray();
-  fgScrollbar_Destroy(&self->window); // this will destroy our prechildren for us.
+  fgScrollbar_Destroy(&self->scroll); // this will destroy our prechildren for us.
 }
 
 bool BSS_FORCEINLINE checkIsOrdered(fgElement* root)
@@ -75,7 +75,7 @@ inline fgElement* fgBoxOrderInject(fgElement* self, const FG_Msg* msg)
 size_t FG_FASTCALL fgBox_Message(fgBox* self, const FG_Msg* msg)
 {
   ptrdiff_t otherint = msg->otherint;
-  fgFlag flags = self->window.control.element.flags;
+  fgFlag flags = self->scroll.control.element.flags;
 
   switch(msg->type)
   {
@@ -90,16 +90,16 @@ size_t FG_FASTCALL fgBox_Message(fgBox* self, const FG_Msg* msg)
   case FG_SETFLAGS:
     if((otherint^flags) & FGBOX_LAYOUTMASK)
     { // handle a layout flag change
-      size_t r = fgScrollbar_Message(&self->window, msg); // we have to actually set the flags first before resetting the layout
+      size_t r = fgScrollbar_Message(&self->scroll, msg); // we have to actually set the flags first before resetting the layout
       fgSubMessage(*self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTRESET, 0, 0);
       return r;
     }
     break;
   case FG_LAYOUTFUNCTION:
-    if(self->window->flags&(FGBOX_TILEX | FGBOX_TILEY)) // TILE flags override DISTRIBUTE flags, if they're specified.
-      return fgTileLayout(*self, (const FG_Msg*)msg->other, self->window->flags&FGBOX_LAYOUTMASK, (CRect*)msg->other2);
-    if(self->window->flags&(FGBOX_DISTRIBUTEX | FGBOX_DISTRIBUTEY))
-      return fgDistributeLayout(*self, (const FG_Msg*)msg->other, self->window->flags&FGBOX_LAYOUTMASK);
+    if(self->scroll->flags&(FGBOX_TILEX | FGBOX_TILEY)) // TILE flags override DISTRIBUTE flags, if they're specified.
+      return fgTileLayout(*self, (const FG_Msg*)msg->other, self->scroll->flags&FGBOX_LAYOUTMASK, (AbsVec*)msg->other2);
+    if(self->scroll->flags&(FGBOX_DISTRIBUTEX | FGBOX_DISTRIBUTEY))
+      return fgDistributeLayout(*self, (const FG_Msg*)msg->other, self->scroll->flags&FGBOX_LAYOUTMASK);
     break; // If no layout flags are specified, fall back to default layout behavior.
   case FG_REMOVECHILD:
   {
@@ -108,13 +108,13 @@ size_t FG_FASTCALL fgBox_Message(fgBox* self, const FG_Msg* msg)
       if(self->ordered.p[i] == hold)
         ((bss_util::cDynArray<fgElement*>&)self->ordered).Remove(i);
 
-    size_t r = fgScrollbar_Message(&self->window, msg);
-    self->isordered = checkIsOrdered(self->window->root);
+    size_t r = fgScrollbar_Message(&self->scroll, msg);
+    self->isordered = checkIsOrdered(self->scroll->root);
     return r;
   }
   case FG_ADDCHILD:
     assert(msg->other != 0);
-    if(fgScrollbar_Message(&self->window, msg) == FG_ACCEPT)
+    if(fgScrollbar_Message(&self->scroll, msg) == FG_ACCEPT)
     {
       fgElement* hold = (fgElement*)msg->other;
       fgElement* next = hold->next;
@@ -122,7 +122,7 @@ size_t FG_FASTCALL fgBox_Message(fgBox* self, const FG_Msg* msg)
         self->isordered = 0; // If ANY foreground elements are nonclipping, we can't use ordered rendering, because this would require us to maintain a second "nonclipping" sorted array.
       if(self->isordered)
       {
-        fgElement* prev = !next ? self->window->last : next->prev;
+        fgElement* prev = !next ? self->scroll->last : next->prev;
         if(hold->flags&FGELEMENT_BACKGROUND) // If we're a background element, just make sure we aren't surrounded by foreground elements
         {
           if(next != 0 && !(next->flags&FGELEMENT_BACKGROUND) && prev != 0 && !(prev->flags&FGELEMENT_BACKGROUND))
@@ -163,7 +163,7 @@ size_t FG_FASTCALL fgBox_Message(fgBox* self, const FG_Msg* msg)
     else
     {
       fgElement* (*fn)(fgElement*, const AbsRect*);
-      switch(self->window->flags&(FGBOX_TILE | FGBOX_DISTRIBUTEY))
+      switch(self->scroll->flags&(FGBOX_TILE | FGBOX_DISTRIBUTEY))
       {
       case 0:
       case FGBOX_TILEX: fn = &fgBoxOrder<FGBOX_TILEX>; break;
@@ -180,7 +180,7 @@ size_t FG_FASTCALL fgBox_Message(fgBox* self, const FG_Msg* msg)
     else
     {
       fgElement* (*fn)(fgElement*, const FG_Msg*);
-      switch(self->window->flags&(FGBOX_TILE | FGBOX_DISTRIBUTEY))
+      switch(self->scroll->flags&(FGBOX_TILE | FGBOX_DISTRIBUTEY))
       {
       case 0:
       case FGBOX_TILEX: fn = &fgBoxOrderInject<FGBOX_TILEX>; break;
@@ -194,5 +194,5 @@ size_t FG_FASTCALL fgBox_Message(fgBox* self, const FG_Msg* msg)
     return (size_t)"Box";
   }
 
-  return fgScrollbar_Message(&self->window, msg);
+  return fgScrollbar_Message(&self->scroll, msg);
 }

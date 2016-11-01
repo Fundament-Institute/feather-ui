@@ -22,12 +22,12 @@ enum FGBOX_FLAGS
 
 // A List is an arbitrary list of items with a number of different layout options that are selectable and/or draggable.
 typedef struct _FG_BOX_ {
-  fgScrollbar window;
+  fgScrollbar scroll;
   char isordered; // If we detect that a BACKGROUND element was inserted in the middle of the foreground elements, we disable fgOrderedDraw until all children are removed.
   fgVectorElement ordered; // Used to implement fgOrderedDraw if TILEX or TILEY layouts are used.
   AbsVec fixedsize;
 #ifdef  __cplusplus
-  inline operator fgElement*() { return &window.control.element; }
+  inline operator fgElement*() { return &scroll.control.element; }
   inline fgElement* operator->() { return operator fgElement*(); }
 #endif
 } fgBox;

@@ -33,8 +33,9 @@ enum FGTEXTBOX_ACTIONS
 // A Textbox is really just a text static inside an optional Scrollbar. It can be single or multi-line with an optional validation regex.
 // The textbox only understands single UTF codepoints, so an external library should be used to perform unicode normalization before setting it.
 typedef struct {
-  fgScrollbar window;
+  fgScrollbar scroll;
   char* validation; // validation regex
+  char* formatting; // printf formatting string matched to capture groups in the validation regex
   int mask; // If not zero, stores a unicode character for password masking. 
   fgVectorUTF32 text;
   fgVectorString buf;
@@ -56,7 +57,7 @@ typedef struct {
   float letterspacing;
   double lastclick; // determines the starting point of the cursor blink animation
 #ifdef  __cplusplus
-  inline operator fgElement*() { return &window.control.element; }
+  inline operator fgElement*() { return &scroll.control.element; }
   inline fgElement* operator->() { return operator fgElement*(); }
 #endif
 } fgTextbox;

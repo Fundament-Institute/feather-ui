@@ -233,6 +233,13 @@ enum FGUNIT
   FGUNIT_BOTTOM_HEIGHT = (1 << 13),
 };
 
+enum FGADDITEM
+{
+  FGADDITEM_DEFAULT = 0,
+  FGADDITEM_TEXT = 1, 
+  FGADDITEM_ELEMENT = 2
+};
+
 enum FGVALUE
 {
   FGVALUE_UNKNOWN = 0,
@@ -625,18 +632,19 @@ typedef struct _FG_MSG {
 } FG_Msg;
 
 FG_EXTERN AbsVec FG_FASTCALL ResolveVec(const CVec* v, const AbsRect* last);
-FG_EXTERN char FG_FASTCALL CompareMargins(const AbsRect* l, const AbsRect* r); // Returns 0 if both are the same or a difference bitset otherwise.
-FG_EXTERN char FG_FASTCALL CompareCRects(const CRect* l, const CRect* r); // Returns 0 if both are the same or a difference bitset otherwise.
-FG_EXTERN char FG_FASTCALL CompareTransforms(const fgTransform* l, const fgTransform* r);
-FG_EXTERN void FG_FASTCALL MoveCRect(FABS x, FABS y, CRect* r);
-FG_EXTERN char FG_FASTCALL HitAbsRect(const AbsRect* r, FABS x, FABS y);
+FG_EXTERN inline char FG_FASTCALL CompareMargins(const AbsRect* l, const AbsRect* r); // Returns 0 if both are the same or a difference bitset otherwise.
+FG_EXTERN inline char FG_FASTCALL CompareCRects(const CRect* l, const CRect* r); // Returns 0 if both are the same or a difference bitset otherwise.
+FG_EXTERN inline char FG_FASTCALL CompareTransforms(const fgTransform* l, const fgTransform* r);
+FG_EXTERN inline void FG_FASTCALL MoveCRect(FABS x, FABS y, CRect* r);
+FG_EXTERN inline char FG_FASTCALL HitAbsRect(const AbsRect* r, FABS x, FABS y);
 //FG_EXTERN void FG_FASTCALL ToIntAbsRect(const AbsRect* r, int target[static 4]);
-FG_EXTERN void FG_FASTCALL ToIntAbsRect(const AbsRect* r, int target[4]);
-FG_EXTERN void FG_FASTCALL ToLongAbsRect(const AbsRect* r, long target[4]);
-FG_EXTERN char FG_FASTCALL MsgHitAbsRect(const FG_Msg* msg, const AbsRect* r);
+FG_EXTERN inline void FG_FASTCALL ToIntAbsRect(const AbsRect* r, int target[4]);
+FG_EXTERN inline void FG_FASTCALL ToLongAbsRect(const AbsRect* r, long target[4]);
+FG_EXTERN inline char FG_FASTCALL MsgHitAbsRect(const FG_Msg* msg, const AbsRect* r);
 FG_EXTERN char* FG_FASTCALL fgCopyText(const char* text);
-FG_EXTERN void FG_FASTCALL fgUpdateMouseState(fgMouseState* state, const FG_Msg* msg);
-FG_EXTERN char FG_FASTCALL fgRectIntersect(const AbsRect* l, const AbsRect* r); // Returns 1 if the rectangles intersect, or 0 otherwise
+FG_EXTERN inline void FG_FASTCALL fgUpdateMouseState(fgMouseState* state, const FG_Msg* msg);
+FG_EXTERN inline char FG_FASTCALL fgRectIntersect(const AbsRect* l, const AbsRect* r); // Returns 1 if the rectangles intersect, or 0 otherwise
+FG_EXTERN inline void FG_FASTCALL fgRectIntersection(const AbsRect* BSS_RESTRICT l, const AbsRect* BSS_RESTRICT r, AbsRect* out);
 
 #ifdef  __cplusplus
 }

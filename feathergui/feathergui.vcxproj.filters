@@ -214,5 +214,8 @@
     <ClCompile Include="fgTabControl.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="fgLayoutFunctions.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

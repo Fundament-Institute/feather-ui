@@ -44,5 +44,14 @@
         </TreeItem>
       </TreeItem>
     </TreeView>
+    <Grid>
+      <Column text="Column 1" />
+      <Column text="Column 2" />
+      <Column text="Column 3" />
+      <Column text="Column 4" />
+      <GridRow>
+        
+      </GridRow>
+    </Grid>
   </Window>
 </fg:Layout>

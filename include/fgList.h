@@ -26,7 +26,7 @@ typedef struct {
   fgVectorElement selected; // vector of all selected elements
   fgMouseState mouse;
 #ifdef  __cplusplus
-  inline operator fgElement*() { return &box.window.control.element; }
+  inline operator fgElement*() { return &box.scroll.control.element; }
   inline fgElement* operator->() { return operator fgElement*(); }
 #endif
 } fgList;

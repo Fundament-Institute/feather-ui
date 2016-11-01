@@ -89,7 +89,7 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
         self->dragged = 1;
       }
 
-      if(self->dragged)
+      if(self->dragged != 0)
       {
         fgCaptureWindow = *self;
         _sendmsg<FG_ACTIVE>(*self);
@@ -135,6 +135,10 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
       VirtualFreeChild(*self);
       return FG_ACCEPT;
     }
+  case FG_INJECT:
+    if(self->dragged != 0) // if we are being dragged, we completely bypass all children
+      return (*fgroot_instance->behaviorhook)(*self, (const FG_Msg*)msg->other);
+    break;
   case FG_GOTFOCUS:
     if(fgElement_CheckLastFocus(*self)) // try to resolve via lastfocus
       return FG_ACCEPT;
