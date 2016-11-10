@@ -76,18 +76,33 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
   case FG_MOUSEDOWN:
     if(msg->button == FG_MOUSELBUTTON)
     {
+      self->offset.x = (FABS)msg->x;
+      self->offset.y = (FABS)msg->y;
+
       AbsRect out;
       ResolveRect(*self, &out);
+      AbsRect textout;
+      ResolveRectCache(self->caption, &textout, &out, 0);
 
       // Check for resize
+      if(self->control->flags&FGWINDOW_RESIZABLE)
+      {
+        if(msg->x < out.left + self->control.element.padding.left)
+          self->dragged |= 2;
+        if(msg->y < textout.top)
+          self->dragged |= 4;
+        if(msg->x >= out.right - self->control.element.padding.right)
+          self->dragged |= 8;
+        if(msg->y >= out.bottom - self->control.element.padding.bottom)
+          self->dragged |= 16;
+      }
 
       // Check for move
-      if(msg->y < out.top + self->control.element.padding.top)
-      {
-        self->offset.x = (FABS)msg->x;
-        self->offset.y = (FABS)msg->y;
+      if(msg->y >= textout.top &&
+        msg->y < textout.bottom &&
+        msg->x >= out.left + self->control.element.padding.left &&
+        msg->x < out.right - self->control.element.padding.right)
         self->dragged = 1;
-      }
 
       if(self->dragged != 0)
       {
@@ -105,11 +120,55 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
       self->offset = v;
       _sendmsg<FG_SETAREA, void*>(*self, &area);
     }
-    if(self->dragged & 2) {} // resize on left
-    if(self->dragged & 4) {} // resize on top
-    if(self->dragged & 8) {} // resize on right
-    if(self->dragged & 16) {} // resize on bottom
-    break;
+    else if(self->dragged)
+    {
+      AbsVec v = { (FABS)msg->x, (FABS)msg->y };
+      CRect area = self->control.element.transform.area;
+      if(self->dragged & 2) // resize on left
+        area.left.abs += v.x - self->offset.x;
+      if(self->dragged & 4) // resize on top
+        area.top.abs += v.y - self->offset.y;
+      if(self->dragged & 8) // resize on right
+        area.right.abs += v.x - self->offset.x;
+      if(self->dragged & 16) // resize on bottom 
+        area.bottom.abs += v.y - self->offset.y;
+      self->offset = v;
+      _sendmsg<FG_SETAREA, void*>(*self, &area);
+    } 
+
+    if(fgControl_Message((fgControl*)self, msg))
+    {
+      AbsRect out;
+      ResolveRect(*self, &out);
+      AbsRect textout;
+      ResolveRectCache(self->caption, &textout, &out, 0);
+
+      size_t dragged = self->dragged;
+
+      if(!dragged && (self->control->flags&FGWINDOW_RESIZABLE) != 0)
+      {
+      // Check for resize
+        if(msg->x < out.left + self->control.element.padding.left)
+          dragged |= 2;
+        if(msg->y < textout.top)
+          dragged |= 4;
+        if(msg->x >= out.right - self->control.element.padding.right)
+          dragged |= 8;
+        if(msg->y >= out.bottom - self->control.element.padding.bottom)
+          dragged |= 16;
+      }
+
+      if(dragged == 12 || dragged == 18)
+        fgRoot_SetCursor(FGCURSOR_RESIZENESW, 0);
+      if(dragged == 6 || dragged == 24)
+        fgRoot_SetCursor(FGCURSOR_RESIZENWSE, 0);
+      if(dragged == 2 || dragged == 8)
+        fgRoot_SetCursor(FGCURSOR_RESIZEWE, 0);
+      if(dragged == 4 || dragged == 16)
+        fgRoot_SetCursor(FGCURSOR_RESIZENS, 0);
+      return FG_ACCEPT;
+    }
+    return 0;
   case FG_MOUSEUP:
     self->dragged = 0;
     if(fgCaptureWindow == *self) // Remove our control hold on mouse messages.

@@ -259,7 +259,7 @@ size_t FG_FASTCALL fgControl_ActionMessage(fgControl* self, const FG_Msg* msg)
     switch(msg->type)
     {
     case FG_MOUSEUP:
-      if(MsgHitCRect(msg, &self->element)) // We can get a MOUSEUP when the mouse is outside of the control but we DO NOT fire it unless it's actually in the control.
+      if(MsgHitCRect(msg, &self->element) && fgCaptureWindow == &self->element) // We can get a MOUSEUP when the mouse is outside of the control but we DO NOT fire it unless it's actually in the control.
         _sendmsg<FG_ACTION>(*self);
       break;
     }

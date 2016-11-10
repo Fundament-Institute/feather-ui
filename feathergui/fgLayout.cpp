@@ -323,11 +323,11 @@ int FG_FASTCALL fgLayout_NodeEvalTransform(const cXMLNode* node, fgTransform& t)
   return flags;
 }
 
-void FG_FASTCALL fgClassLayout_LoadAttributesXML(fgStyleLayout* self, const cXMLNode* cur, int flags, fgSkinBase* root)
+void FG_FASTCALL fgClassLayout_LoadAttributesXML(fgStyleLayout* self, const cXMLNode* cur, int flags, fgSkinBase* root, const char* path)
 {
   static cTrie<uint16_t, true> t(34, "id", "min-width", "min-height", "max-width", "max-height", "skin", "alpha", "margin", "padding", "text",
     "placeholder", "color", "placecolor", "cursorcolor", "selectcolor", "hovercolor", "dragcolor", "edgecolor", "font", "lineheight",
-    "letterspacing", "value", "uv", "resource", "outline", "area", "center", "rotation", "left", "top", "right", "bottom", "width", "height");
+    "letterspacing", "value", "uv", "resource", "outline", "area", "center", "rotation", "left", "top", "right", "bottom", "width", "height", "range");
   static cTrie<uint16_t, true> tvalue(5, "checkbox", "curve", "progressbar", "radiobutton", "slider");
   static cTrie<uint16_t, true> tenum(5, "true", "false", "none", "checked", "indeterminate");
 
@@ -366,7 +366,20 @@ void FG_FASTCALL fgClassLayout_LoadAttributesXML(fgStyleLayout* self, const cXML
       minflags &= (~0x8000000);
       maxflags |= (fgClassLayout_LoadUnit(attr->String, attr->String.length()) << FGUNIT_Y);
       break;
-    case 5: // skin (not implemented)
+    case 5: // skin
+    {
+      fgSkin* skin = fgSkinBase_GetSkin(root, attr->String);
+      if(!skin) // Attempt loading it as an absolute XML path
+        skin = fgSkins_LoadFileXML(root->skinmap, attr->String);
+      if(!skin) // relative XML path
+        skin = fgSkins_LoadFileXML(root->skinmap, cStr(path) + attr->String);
+      if(!skin) // absolute UBJSON path
+        skin = fgSkins_LoadFileUBJSON(root->skinmap, attr->String);
+      if(!skin) // relative UBJSON path
+        skin = fgSkins_LoadFileUBJSON(root->skinmap, cStr(path) + attr->String);
+      if(skin)
+        AddStyleMsg<FG_SETSKIN, void*>(&self->style, skin);
+    }
       break;
     case 6:
       AddStyleMsg<FG_SETALPHA, float>(&self->style, attr->Float);
@@ -492,6 +505,9 @@ void FG_FASTCALL fgClassLayout_LoadAttributesXML(fgStyleLayout* self, const cXML
     case 32: // width
     case 33: // height
       break; // These are processed before we get here, so ignore them.
+    case 34: // range
+      AddStyleSubMsg<FG_SETVALUE, ptrdiff_t, size_t>(&self->style, FGVALUE_INT64, attr->Integer, 1);
+      break;
     default: // Otherwise, unrecognized attributes are set as custom userdata
     {
       FG_Msg msg = { 0 };
@@ -508,7 +524,7 @@ void FG_FASTCALL fgClassLayout_LoadAttributesXML(fgStyleLayout* self, const cXML
     AddStyleSubMsgArg<FG_SETDIM, AbsVec>(&self->style, maxflags | FGDIM_MAX, &maxdim);
 }
 
-void FG_FASTCALL fgClassLayout_LoadLayoutXML(fgClassLayout* self, const cXMLNode* cur, fgLayout* root)
+void FG_FASTCALL fgClassLayout_LoadLayoutXML(fgClassLayout* self, const cXMLNode* cur, fgLayout* root, const char* path)
 {
   for(size_t i = 0; i < cur->GetNodes(); ++i)
   {
@@ -517,11 +533,11 @@ void FG_FASTCALL fgClassLayout_LoadLayoutXML(fgClassLayout* self, const cXMLNode
     fgLayout_NodeEvalTransform(node, transform);
     int flags = fgLayout_GetFlagsFromString(node->GetAttributeString("flags"));
     FG_UINT index = fgClassLayout_AddChild(self, node->GetName(), node->GetAttributeString("name"), flags, &transform, node->GetAttributeInt("order"));    
-    fgClassLayout_LoadAttributesXML(&fgClassLayout_GetChild(self, index)->style, node, flags, &root->base);
-    fgClassLayout_LoadLayoutXML(fgClassLayout_GetChild(self, index), node, root);
+    fgClassLayout_LoadAttributesXML(&fgClassLayout_GetChild(self, index)->style, node, flags, &root->base, path);
+    fgClassLayout_LoadLayoutXML(fgClassLayout_GetChild(self, index), node, root, path);
   }
 }
-bool FG_FASTCALL fgLayout_LoadStreamXML(fgLayout* self, std::istream& s)
+bool FG_FASTCALL fgLayout_LoadStreamXML(fgLayout* self, std::istream& s, const char* path)
 {
   cXML xml(s);
   const cXMLNode* root = xml.GetNode("fg:Layout");
@@ -535,20 +551,25 @@ bool FG_FASTCALL fgLayout_LoadStreamXML(fgLayout* self, std::istream& s)
     fgLayout_NodeEvalTransform(node, transform);
     int flags = fgLayout_GetFlagsFromString(node->GetAttributeString("flags"));
     FG_UINT index = fgLayout_AddLayout(self, node->GetName(), node->GetAttributeString("name"), flags, &transform, node->GetAttributeInt("order"));
-    fgClassLayout_LoadAttributesXML(&fgLayout_GetLayout(self, index)->style, node, flags, &self->base);
-    fgClassLayout_LoadLayoutXML(fgLayout_GetLayout(self, index), node, self);
+    fgClassLayout_LoadAttributesXML(&fgLayout_GetLayout(self, index)->style, node, flags, &self->base, path);
+    fgClassLayout_LoadLayoutXML(fgLayout_GetLayout(self, index), node, self, path);
   }
 
   return true;
 }
 bool FG_FASTCALL fgLayout_LoadFileXML(fgLayout* self, const char* file)
 {
-  return fgLayout_LoadStreamXML(self, std::ifstream(file, std::ios_base::in));
+  cStr path(file);
+  path.ReplaceChar('\\', '/');
+  char* dir = strrchr(path.UnsafeString(), '/');
+  if(dir) // If we find a /, we chop off the rest of the string AFTER it, so it becomes a valid directory path.
+    dir[1] = 0;
+  return fgLayout_LoadStreamXML(self, std::ifstream(file, std::ios_base::in), path.c_str());
 }
 
 bool FG_FASTCALL fgLayout_LoadXML(fgLayout* self, const char* data, FG_UINT length)
 {
-  return fgLayout_LoadStreamXML(self, std::stringstream(std::string(data, length)));
+  return fgLayout_LoadStreamXML(self, std::stringstream(std::string(data, length)), 0);
 }
 
 void FG_FASTCALL fgLayout_SaveFileXML(fgLayout* self, const char* file)

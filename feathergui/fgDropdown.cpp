@@ -16,6 +16,27 @@ void FG_FASTCALL fgDropdown_Destroy(fgDropdown* self)
   fgControl_Destroy(&self->control);
 }
 
+void fgDropdown_Draw(fgElement* self, const AbsRect* area, size_t dpi)
+{
+  fgDropdown* parent = (fgDropdown*)self->parent;
+  AbsRect cache;
+  fgElement* target = fgElement_GetChildUnderMouse(self, parent->mouse.x, parent->mouse.y, &cache);
+  fgPushClipRect(&cache);
+  if(parent->selected)
+  {
+    AbsRect r;
+    ResolveRectCache(parent->selected, &r, &cache, (parent->selected->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
+    fgDrawResource(0, &CRect { 0 }, parent->select.color, 0, 0.0f, &r, 0.0f, &AbsVec { 0,0 }, FGRESOURCE_ROUNDRECT);
+  }
+  if(target != 0)
+  {
+    AbsRect r;
+    ResolveRectCache(target, &r, &cache, (target->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
+    fgDrawResource(0, &CRect { 0 }, parent->hover.color, 0, 0.0f, &r, 0.0f, &AbsVec { 0,0 }, FGRESOURCE_ROUNDRECT);
+  }
+  fgPopClipRect();
+}
+
 size_t FG_FASTCALL fgDropdownBox_Message(fgBox* self, const FG_Msg* msg)
 {
   fgDropdown* parent = (fgDropdown*)self->scroll->parent;
@@ -60,28 +81,6 @@ size_t FG_FASTCALL fgDropdownBox_Message(fgBox* self, const FG_Msg* msg)
     if(!parent->dropflag)
       parent->dropflag = 1;
     break;
-  case FG_DRAW:
-    assert(parent != 0);
-    if(!(msg->subtype & 1))
-    {
-      AbsRect cache;
-      fgElement* target = fgElement_GetChildUnderMouse(*self, parent->mouse.x, parent->mouse.y, &cache);
-      fgPushClipRect(&cache);
-      if(parent->selected)
-      {
-        AbsRect r;
-        ResolveRectCache(parent->selected, &r, &cache, (parent->selected->flags & FGELEMENT_BACKGROUND) ? 0 : &(*self)->padding);
-        fgDrawResource(0, &CRect { 0 }, parent->select.color, 0, 0.0f, &r, 0.0f, &AbsVec { 0,0 }, FGRESOURCE_ROUNDRECT);
-      }
-      if(target != 0)
-      {
-        AbsRect r;
-        ResolveRectCache(target, &r, &cache, (target->flags & FGELEMENT_BACKGROUND) ? 0 : &(*self)->padding);
-        fgDrawResource(0, &CRect { 0 }, parent->hover.color, 0, 0.0f, &r, 0.0f, &AbsVec { 0,0 }, FGRESOURCE_ROUNDRECT);
-      }
-      fgPopClipRect();
-    }
-    break;
   }
   return fgBox_Message(self, msg);
 }
@@ -92,6 +91,7 @@ size_t FG_FASTCALL fgDropdown_Message(fgDropdown* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgBox_Init(&self->box, *self, 0, "fgDropdown$box", FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN | FGELEMENT_NOCLIP | FGELEMENT_EXPANDY | FGBOX_TILEY, &fgTransform { {0, 0, 0, 1, 0, 1, 0, 1 }, 0, {0, 0} });
+    self->box.fndraw = &fgDropdown_Draw;
     self->box->message = (fgMessage)&fgDropdownBox_Message;
     self->selected = 0;
     self->dropflag = 0;
@@ -156,5 +156,5 @@ size_t FG_FASTCALL fgDropdown_Message(fgDropdown* self, const FG_Msg* msg)
   case FG_GETCLASSNAME:
     return (size_t)"Dropdown";
   }
-  fgControl_Message(&self->control, msg);
+  return fgControl_Message(&self->control, msg);
 }

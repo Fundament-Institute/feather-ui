@@ -26,6 +26,7 @@ typedef struct _FG_BOX_ {
   char isordered; // If we detect that a BACKGROUND element was inserted in the middle of the foreground elements, we disable fgOrderedDraw until all children are removed.
   fgVectorElement ordered; // Used to implement fgOrderedDraw if TILEX or TILEY layouts are used.
   AbsVec fixedsize;
+  void(*fndraw)(fgElement*, const AbsRect*, size_t);
 #ifdef  __cplusplus
   inline operator fgElement*() { return &scroll.control.element; }
   inline fgElement* operator->() { return operator fgElement*(); }

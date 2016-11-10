@@ -84,6 +84,7 @@ size_t FG_FASTCALL fgBox_Message(fgBox* self, const FG_Msg* msg)
     self->isordered = 1;
     self->fixedsize.x = -1;
     self->fixedsize.y = -1;
+    self->fndraw = 0;
     break;
   case FG_SETFLAG: // Do the same thing fgElement does to resolve a SETFLAG into SETFLAGS
     otherint = T_SETBIT(flags, otherint, msg->otheraux);
@@ -171,7 +172,7 @@ size_t FG_FASTCALL fgBox_Message(fgBox* self, const FG_Msg* msg)
       case FGBOX_TILE: fn = &fgBoxOrder<FGBOX_TILE>; break;
       case FGBOX_TILE | FGBOX_DISTRIBUTEY: fn = &fgBoxOrder<FGBOX_TILE | FGBOX_DISTRIBUTEY>; break;
       }
-      fgOrderedDraw(*self, (AbsRect*)msg->other, msg->otheraux, msg->subtype & 1, self->ordered.p[self->ordered.l - 1]->next, fn);
+      fgOrderedDraw(*self, (AbsRect*)msg->other, msg->otheraux, msg->subtype & 1, self->ordered.p[self->ordered.l - 1]->next, fn, self->fndraw);
     }
     return FG_ACCEPT;
   case FG_INJECT:

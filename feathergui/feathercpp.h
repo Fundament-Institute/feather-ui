@@ -147,6 +147,7 @@ BSS_FORCEINLINE FABS fgResolveUnit(fgElement* self, FABS x, size_t unit)
 {
   switch(unit)
   {
+  default:
   case FGUNIT_DP:
     return x;
   case FGUNIT_SP:

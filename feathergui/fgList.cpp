@@ -55,6 +55,44 @@ void FG_FASTCALL fgList_Destroy(fgList* self)
   ((bss_util::cArraySort<fgElement*>&)self->selected).~cArraySort();
   fgBox_Destroy(&self->box);
 }
+void fgList_Draw(fgElement* self, const AbsRect* area, size_t dpi)
+{
+  fgList* realself = reinterpret_cast<fgList*>(self);
+  for(size_t i = 0; i < realself->selected.l; ++i)
+  {
+    if(realself->selected.p[i]->GetClassName() != FGSTR_LISTITEM)
+    {
+      AbsRect r;
+      ResolveRectCache(realself->selected.p[i], &r, area, (realself->selected.p[i]->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
+      fgDrawResource(0, &CRect { 0 }, realself->select.color, 0, 0.0f, &r, 0.0f, &AbsVec { 0,0 }, FGRESOURCE_ROUNDRECT);
+    }
+  }
+
+  if(realself->mouse.state&FGMOUSE_DRAG)
+  {
+    AbsRect cache;
+    fgElement* target = fgElement_GetChildUnderMouse(self, realself->mouse.x, realself->mouse.y, &cache);
+    if(target)
+    { // TODO: make this work with lists growing along x-axis
+      AbsRect r;
+      ResolveRectCache(target, &r, (AbsRect*)&cache, (target->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
+      float y = (realself->mouse.y > ((r.top + r.bottom) * 0.5f)) ? r.bottom : r.top;
+      AbsVec line[2] = { { r.left, y }, { r.right - 1, y } };
+      fgDrawLines(line, 2, realself->drag.color, &AbsVec { 0,0 }, &AbsVec { 1,1 }, 0, &AbsVec { 0,0 });
+    }
+  }
+  else
+  {
+    AbsRect cache;
+    fgElement* target = fgElement_GetChildUnderMouse(self, realself->mouse.x, realself->mouse.y, &cache);
+    if(target && target->GetClassName() != FGSTR_LISTITEM)
+    {
+      AbsRect r;
+      ResolveRectCache(target, &r, &cache, (target->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
+      fgDrawResource(0, &CRect { 0 }, realself->hover.color, 0, 0.0f, &r, 0.0f, &AbsVec { 0,0 }, FGRESOURCE_ROUNDRECT);
+    }
+  }
+}
 size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
 {
   ptrdiff_t otherint = msg->otherint;
@@ -63,12 +101,14 @@ size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_CONSTRUCT:
+    fgBox_Message(&self->box, msg);
     memset(&self->selected, 0, sizeof(fgVectorElement));
     memset(&self->mouse, 0, sizeof(fgMouseState));
+    self->box.fndraw = &fgList_Draw;
     self->select.color = 0xFF9999DD;
     self->hover.color = 0x99999999;
     self->drag.color = 0xFFCCCCCC;
-    break;
+    return FG_ACCEPT;
   case FG_MOUSEDOWN:
     fgUpdateMouseState(&self->mouse, msg);
     if(self->box->flags&FGLIST_SELECT)
@@ -153,45 +193,6 @@ size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
         self->box->AddChild(drag, target);
       }
       return FG_ACCEPT;
-    }
-    break;
-  case FG_DRAW:
-    if(!(msg->subtype & 1))
-    {
-      for(size_t i = 0; i < self->selected.l; ++i)
-      {
-        if(self->selected.p[i]->GetClassName() != FGSTR_LISTITEM)
-        {
-          AbsRect r;
-          ResolveRectCache(self->selected.p[i], &r, (AbsRect*)msg->other, (self->selected.p[i]->flags & FGELEMENT_BACKGROUND) ? 0 : &(*self)->padding);
-          fgDrawResource(0, &CRect { 0 }, self->select.color, 0, 0.0f, &r, 0.0f, &AbsVec { 0,0 }, FGRESOURCE_ROUNDRECT);
-        }
-      }
-
-      if(self->mouse.state&FGMOUSE_DRAG)
-      {
-        AbsRect cache;
-        fgElement* target = fgElement_GetChildUnderMouse(*self, self->mouse.x, self->mouse.y, &cache);
-        if(target)
-        { // TODO: make this work with lists growing along x-axis
-          AbsRect r;
-          ResolveRectCache(target, &r, (AbsRect*)&cache, (target->flags & FGELEMENT_BACKGROUND) ? 0 : &(*self)->padding);
-          float y = (self->mouse.y > ((r.top + r.bottom) * 0.5f)) ? r.bottom : r.top;
-          AbsVec line[2] = { { r.left, y }, { r.right - 1, y } };
-          fgDrawLines(line, 2, self->drag.color, &AbsVec { 0,0 }, &AbsVec { 1,1 }, 0, &AbsVec { 0,0 });
-        }
-      }
-      else
-      {
-        AbsRect cache;
-        fgElement* target = fgElement_GetChildUnderMouse(*self, self->mouse.x, self->mouse.y, &cache);
-        if(target && target->GetClassName() != FGSTR_LISTITEM)
-        {
-          AbsRect r;
-          ResolveRectCache(target, &r, &cache, (target->flags & FGELEMENT_BACKGROUND) ? 0 : &(*self)->padding);
-          fgDrawResource(0, &CRect { 0 }, self->hover.color, 0, 0.0f, &r, 0.0f, &AbsVec { 0,0 }, FGRESOURCE_ROUNDRECT);
-        }
-      }
     }
     break;
   case FG_GETCOLOR:

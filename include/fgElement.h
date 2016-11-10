@@ -97,7 +97,7 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT size_t Drop(int x, int y, unsigned char allbtn);
   FG_DLLEXPORT void Draw(AbsRect* area, int dpi);
   FG_DLLEXPORT size_t FG_FASTCALL Inject(const FG_Msg* msg, const AbsRect* area);
-  FG_DLLEXPORT struct _FG_ELEMENT* FG_FASTCALL Clone(struct _FG_ELEMENT* from);
+  FG_DLLEXPORT struct _FG_ELEMENT* FG_FASTCALL Clone(struct _FG_ELEMENT* target);
   FG_DLLEXPORT size_t FG_FASTCALL SetSkin(struct _FG_SKIN* skin);
   FG_DLLEXPORT struct _FG_SKIN* FG_FASTCALL GetSkin(struct _FG_ELEMENT* child = 0);
   FG_DLLEXPORT size_t FG_FASTCALL SetStyle(const char* name, FG_UINT mask);

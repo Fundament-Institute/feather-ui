@@ -5,6 +5,7 @@
 #include "feathercpp.h"
 
 static const char* SUBMENU_NAME = "Submenu";
+static const char* MENU_NAME = "Menu";
 
 void FG_FASTCALL fgMenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
@@ -21,7 +22,7 @@ void FG_FASTCALL fgMenu_Destroy(fgMenu* self)
 inline void FG_FASTCALL fgMenu_Show(fgMenu* self, bool show)
 {
   assert(self != 0);
-  fgFlag set = show ? (self->box->flags & ~(FGELEMENT_HIDDEN | FGELEMENT_IGNORE)) : (self->box->flags | FGELEMENT_HIDDEN | FGELEMENT_IGNORE);
+  fgFlag set = show ? (self->box->flags & (~FGELEMENT_HIDDEN)) : (self->box->flags | FGELEMENT_HIDDEN);
   fgIntMessage(*self, FG_SETFLAGS, set, 0);
 
   fgMenu* submenu = (fgMenu*)self->box->GetSelectedItem();
@@ -56,8 +57,8 @@ size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     fgBox_Message(&self->box, msg);
     self->expanded = 0;
-    fgElement_Init(&self->arrow, 0, 0, "Menu$arrow", FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0);
-    fgElement_Init(&self->seperator, 0, 0, "Menu$seperator", FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0);
+    fgElement_Init(&self->arrow, 0, 0, "Menu$arrow", FGELEMENT_IGNORE | FGELEMENT_EXPAND, &fgTransform { {0,0,0,0.5,0,0,0,0.5}, 0, {1.0,0.5} });
+    fgElement_Init(&self->seperator, 0, 0, "Menu$seperator", FGELEMENT_IGNORE | FGELEMENT_EXPAND, &fgTransform { { 0,0,0,0,0,0,0,0 }, 0, { 0,0 } });
     return FG_ACCEPT;
   case FG_MOUSEUP:
     if(fgCaptureWindow == *self)
@@ -83,14 +84,11 @@ size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
     fgElement* child = fgElement_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
     if(fgCaptureWindow == *self)
     {
-      if(!MsgHitAbsRect(msg, &cache))
-      {
-        if(self->expanded)
-          fgMenu_Show(self->expanded, false);
-        self->expanded = 0;
-        fgCaptureWindow = 0;
-        return fgControl_Message((fgControl*)self, msg);
-      }
+      if(self->expanded)
+        fgMenu_Show(self->expanded, false);
+      self->expanded = 0;
+      fgCaptureWindow = 0;
+      return fgControl_Message((fgControl*)self, msg);
     }
     fgCaptureWindow = *self;
     if(child != 0)
@@ -104,20 +102,23 @@ size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
       break;
     case FGADDITEM_ELEMENT:
     {
-      fgElement* menuitem = fgCreate("MenuItem", *self, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY);
+      fgElement* menuitem = fgCreate("MenuItem", *self, 0, 0, FGELEMENT_EXPAND | FGELEMENT_NOCLIP, &fgTransform_EMPTY);
       fgPassMessage(menuitem, msg);
       return (size_t)menuitem;
     }
     case FGADDITEM_TEXT:
     {
-      fgElement* menuitem = fgCreate("MenuItem", *self, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY);
+      fgElement* menuitem = fgCreate("MenuItem", *self, 0, 0, FGELEMENT_EXPAND | FGELEMENT_NOCLIP, &fgTransform_EMPTY);
       fgCreate("Text", menuitem, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY)->SetText((const char*)msg->other);
       return (size_t)menuitem;
     }
     }
     return 0;
+  case FG_SETFLAGS:
+    msg = msg;
+    break;
   case FG_GETCLASSNAME:
-    return (size_t)"Menu";
+    return (size_t)MENU_NAME;
   }
   return fgSubmenu_Message(self, msg);
 }
@@ -125,7 +126,7 @@ size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
 void FG_FASTCALL fgSubmenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
   assert(self != 0);
-  fgElement_InternalSetup(*self, parent, next, name, flags|FGELEMENT_NOCLIP, transform, (fgDestroy)&fgMenu_Destroy, (fgMessage)&fgSubmenu_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags|FGELEMENT_NOCLIP|FGELEMENT_BACKGROUND, transform, (fgDestroy)&fgMenu_Destroy, (fgMessage)&fgSubmenu_Message);
 }
 
 size_t FG_FASTCALL fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
@@ -137,8 +138,8 @@ size_t FG_FASTCALL fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     fgBox_Message(&self->box, msg);
     self->expanded = 0;
-    fgElement_Init(&self->arrow, 0, 0, "Submenu$arrow", FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0);
-    fgElement_Init(&self->seperator, 0, 0, "Submenu$seperator", FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0);
+    fgElement_Init(&self->arrow, 0, 0, "Submenu$arrow", FGELEMENT_IGNORE | FGELEMENT_EXPAND, &fgTransform { { 0,0,0,0.5,0,0,0,0.5 }, 0, { 1.0,0.5 } });
+    fgElement_Init(&self->seperator, 0, 0, "Submenu$seperator", FGELEMENT_IGNORE | FGELEMENT_EXPAND, &fgTransform { { 0,0,0,0,0,1.0,0,0 }, 0, { 0,0 } });
     return FG_ACCEPT;
   case FG_MOUSEUP:
   case FG_MOUSEDOWN:
@@ -148,20 +149,17 @@ size_t FG_FASTCALL fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
     if(MsgHitAbsRect(msg, &cache))
     {
       if(child != 0 && !fgMenu_ExpandMenu(self, (fgMenu*)child->GetSelectedItem()) && msg->type == FG_MOUSEUP)
-      {
         _sendmsg<FG_ACTION, void*>(*self, child);
-        fgMenu_Show(self, false);
-        if(fgCaptureWindow == *self)
-          fgCaptureWindow = 0;
-      }
       else
-        break;
+        return FG_ACCEPT;
     }
-    else
+    if(fgCaptureWindow == *self || fgCaptureWindow->GetClassName() == MENU_NAME)
     {
-      fgMenu_Show(self, false);
-      if(fgCaptureWindow == *self)
-        fgCaptureWindow = 0;
+      fgMenu* menu = reinterpret_cast<fgMenu*>(fgCaptureWindow);
+      if(menu->expanded)
+        fgMenu_Show(menu->expanded, false);
+      menu->expanded = 0;
+      fgCaptureWindow = 0;
     }
   }
   return FG_ACCEPT;
@@ -174,24 +172,47 @@ size_t FG_FASTCALL fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
   }
   break;
   case FG_ADDITEM:
+    if(!msg->other)
+    {
+      fgElement* item = self->seperator.Clone(0);
+      item->SetParent(*self);
+      return (size_t)item;
+    }
     switch(msg->subtype)
     {
     case FGADDITEM_DEFAULT:
       break;
     case FGADDITEM_ELEMENT:
     {
-      fgElement* menuitem = fgCreate("MenuItem", *self, 0, 0, FGELEMENT_EXPANDY, &MENU_TRANSFORM);
+      fgElement* menuitem = fgCreate("MenuItem", *self, 0, 0, FGELEMENT_EXPAND | FGELEMENT_NOCLIP, &MENU_TRANSFORM);
       fgPassMessage(menuitem, msg);
       return (size_t)menuitem;
     }
     case FGADDITEM_TEXT:
     {
-      fgElement* menuitem = fgCreate("MenuItem", *self, 0, 0, FGELEMENT_EXPANDY, &MENU_TRANSFORM);
+      fgElement* menuitem = fgCreate("MenuItem", *self, 0, 0, FGELEMENT_EXPAND | FGELEMENT_NOCLIP, &MENU_TRANSFORM);
       fgCreate("Text", menuitem, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY)->SetText((const char*)msg->other);
       return (size_t)menuitem;
     }
     }
     return 0;
+  case FG_DRAW:
+    fgBox_Message(&self->box, msg);
+    if(!(msg->subtype & 1))
+    {
+      fgElement* cur = self->box->root;
+      while(cur)
+      {
+        if(!(cur->flags & FGELEMENT_BACKGROUND) && cur->GetSelectedItem())
+        {
+          AbsRect rect;
+          ResolveRectCache(cur, &rect, (const AbsRect*)msg->other, &self->box->padding);
+          self->arrow.Draw(&rect, msg->otherint);
+        }
+        cur = cur->next;
+      }
+    }
+    return FG_ACCEPT;
   case FG_GETSELECTEDITEM:
     return (size_t)self->expanded;
   case FG_GETCLASSNAME:

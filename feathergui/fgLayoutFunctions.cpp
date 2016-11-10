@@ -9,16 +9,14 @@
 
 inline FABS FG_FASTCALL fgLayout_GetChildWidth(fgElement* child)
 {
-  if(child->transform.area.left.rel == child->transform.area.right.rel)
-    return child->transform.area.right.abs - child->transform.area.left.abs;
-  return bssmax(child->mindim.x, 0.0f);
+  FABS w = (child->transform.area.left.rel == child->transform.area.right.rel) ? child->transform.area.right.abs - child->transform.area.left.abs : 0.0f;
+  return (child->mindim.x >= 0.0f && child->mindim.x > w) ? child->mindim.x : w;
 }
 
 inline FABS FG_FASTCALL fgLayout_GetChildHeight(fgElement* child)
 {
-  if(child->transform.area.top.rel == child->transform.area.bottom.rel)
-    return child->transform.area.bottom.abs - child->transform.area.top.abs;
-  return bssmax(child->mindim.y, 0.0f);
+  FABS h = (child->transform.area.top.rel == child->transform.area.bottom.rel) ? child->transform.area.bottom.abs - child->transform.area.top.abs : 0.0f;
+  return (child->mindim.y >= 0.0f && child->mindim.y > h) ? child->mindim.y : h;
 }
 
 inline FABS FG_FASTCALL fgLayout_ExpandX(FABS dimx, fgElement* child)
@@ -102,6 +100,50 @@ BSS_FORCEINLINE fgElement* fgLayout_GetPrev(fgElement* cur)
   return cur;
 }
 
+BSS_FORCEINLINE FABS FG_FASTCALL fgLayout_GetChildRight(fgElement* child)
+{
+  return child->transform.area.left.abs + fgLayout_GetChildWidth(child);
+}
+
+BSS_FORCEINLINE FABS FG_FASTCALL fgLayout_GetChildBottom(fgElement* child)
+{
+  return child->transform.area.top.abs + fgLayout_GetChildHeight(child);
+}
+
+void FG_FASTCALL fgTileLayoutFill(fgElement* cur, fgElement* skip, FABS space, char axis, float max)
+{
+  FABS start = (axis ? cur->transform.area.left.abs : cur->transform.area.top.abs);
+
+  while(cur != 0 && (axis ? cur->transform.area.left.abs : cur->transform.area.top.abs) == start)
+  {
+    if(cur == skip || (cur->flags&FGELEMENT_BACKGROUND)) // we check for cur background flags so we can pass in the root
+    {
+      cur = cur->prev;
+      continue;
+    }
+
+    // All relative tiles are restricted to expanding [space] units beyond their minimum size.
+    if(axis && cur->transform.area.top.rel != cur->transform.area.bottom.rel)
+    {
+      FABS h = ((cur->transform.area.bottom.rel - cur->transform.area.top.rel) * max) - cur->transform.area.top.abs - cur->mindim.y;
+      if(h < 0) h = 0;
+      if(cur->maxdim.y >= 0.0f && cur->maxdim.y < h + cur->mindim.y) h = cur->maxdim.y - cur->mindim.y;
+      FABS y = bssmin(h, space);
+      space -= y;
+      cur->transform.area.bottom.abs = (cur->transform.area.top.rel*max) + cur->transform.area.top.abs + cur->mindim.y + y - (cur->transform.area.bottom.rel * max);
+    }
+    if(!axis && cur->transform.area.left.rel != cur->transform.area.right.rel)
+    {
+      FABS w = ((cur->transform.area.right.rel - cur->transform.area.left.rel) * max) - cur->transform.area.left.abs - cur->mindim.x;
+      if(w < 0) w = 0;
+      if(cur->maxdim.x >= 0.0f && cur->maxdim.x < w + cur->mindim.x) w = cur->maxdim.x - cur->mindim.x;
+      FABS x = bssmin(w, space);
+      space -= x;
+      cur->transform.area.right.abs = (cur->transform.area.left.rel*max) + cur->transform.area.left.abs + cur->mindim.x + x - (cur->transform.area.right.rel * max);
+    }
+  }
+}
+
 AbsVec fgTileLayoutReorder(fgElement* prev, fgElement* cur, fgElement* skip, char axis, float max, float pitch, AbsVec expand) // axis: 0 means x-axis first, 1 means y-axis first
 {
   if(axis) { FABS t = expand.x; expand.x = expand.y; expand.y = t; }
@@ -109,8 +151,8 @@ AbsVec fgTileLayoutReorder(fgElement* prev, fgElement* cur, fgElement* skip, cha
   if(prev)
   {
     assert(!(prev->flags&FGELEMENT_BACKGROUND));
-    pos.x = axis ? prev->transform.area.bottom.abs : prev->transform.area.right.abs;
     pos.y = axis ? prev->transform.area.left.abs : prev->transform.area.top.abs;
+    pos.x = axis ? fgLayout_GetChildBottom(prev) : fgLayout_GetChildRight(prev);
   }
   char rowbump = 0; // Used to keep track if we've gone down at least one row - this is required for our same position optimization to be valid.
 
@@ -123,11 +165,12 @@ AbsVec fgTileLayoutReorder(fgElement* prev, fgElement* cur, fgElement* skip, cha
     }
     if(fgTileLayoutSame(axis ? pos.y : pos.x, axis ? pos.x : pos.y, cur) && rowbump)
       break;
-    AbsVec dim = { (cur->transform.area.right.abs - cur->transform.area.left.abs), (cur->transform.area.bottom.abs - cur->transform.area.top.abs) };
+    AbsVec dim = { fgLayout_GetChildWidth(cur), fgLayout_GetChildHeight(cur) };
     if(axis) { FABS t = dim.x; dim.x = dim.y; dim.y = t; }
 
     if(pos.x + dim.x > max)
     {
+      fgTileLayoutFill(fgLayout_GetPrev(cur), skip, max - pos.x, axis, max);
       pos.y += pitch;
       pos.x = 0;
       pitch = 0;
@@ -157,7 +200,7 @@ FABS FG_FASTCALL fgTileLayoutGetPitch(fgElement* cur, char axis)
   FABS pitch = 0.0;
   while(cur != 0 && (axis ? cur->transform.area.left.abs : cur->transform.area.top.abs) == start)
   {
-    dim = (axis ? cur->transform.area.right.abs : cur->transform.area.bottom.abs) - start;
+    dim = (axis ? fgLayout_GetChildRight(cur) : fgLayout_GetChildBottom(cur)) - start;
     if(dim > pitch)
       pitch = dim;
     cur = fgLayout_GetPrev(cur); // run backwards until we go up a level
@@ -170,13 +213,16 @@ size_t FG_FASTCALL fgTileLayout(fgElement* self, const FG_Msg* msg, fgFlag flags
   AbsVec curdim = *dim;
   fgElement* child = (fgElement*)msg->other;
   fgElement* prev;
-  char axis = ((flags & FGBOX_TILE) && (flags & FGBOX_DISTRIBUTEY)) || ((flags & FGBOX_TILEY) && !(flags & FGBOX_TILEX));
-  FABS max = INFINITY;
+  char axis = ((flags & FGBOX_TILE) && (flags & FGBOX_DISTRIBUTEY)) || ((flags & FGBOX_TILEY) && !(flags & FGBOX_TILEX)); // 0 expands along x-axis, 1 expands along y-axis
+  FABS max = INFINITY; // Maximum axis length. If axis is 0, represents maximum length along x axis, otherwise represents maximum length along y-axis.
+  AbsRect out;
+  ResolveRect(self, &out);
+  AbsVec selfdim = { out.right - out.left, out.bottom - out.top };
+  if(self->maxdim.x >= 0.0f && selfdim.x > self->maxdim.x) selfdim.x = self->maxdim.x;
+  if(self->maxdim.y >= 0.0f && selfdim.y > self->maxdim.y) selfdim.y = self->maxdim.y;
   if((flags & FGBOX_TILE) == FGBOX_TILE)
   {
-    AbsRect out;
-    ResolveRect(self, &out);
-    max = !axis ? ((self->flags & FGELEMENT_EXPANDX) ? self->maxdim.x : (out.right - out.left)) : ((self->flags & FGELEMENT_EXPANDY) ? self->maxdim.y : (out.bottom - out.top));
+    max = !axis ? ((self->flags & FGELEMENT_EXPANDX) ? self->maxdim.x : selfdim.x) : ((self->flags & FGELEMENT_EXPANDY) ? self->maxdim.y : selfdim.y);
     if(max < 0) max = INFINITY;
   }
 
@@ -185,7 +231,7 @@ size_t FG_FASTCALL fgTileLayout(fgElement* self, const FG_Msg* msg, fgFlag flags
   case FGELEMENT_LAYOUTRESET:
     curdim = fgTileLayoutReorder(0, self->root, 0, axis, max, 0.0f, AbsVec { 0,0 });
     break;
-  case FGELEMENT_LAYOUTRESIZE:
+  case FGELEMENT_LAYOUTRESIZE: // we only need to resize if the tiling is wrapping (flags is set to FGBOX_TILE) and the limiting axis is the same one that was resized.
     if((((msg->otheraux & FGMOVE_RESIZEX) && !(self->flags&FGELEMENT_EXPANDX)) || ((msg->otheraux & FGMOVE_RESIZEY) && !(self->flags&FGELEMENT_EXPANDY))) && (flags & FGBOX_TILE))
       curdim = fgTileLayoutReorder(0, self->root, 0, axis, max, 0.0f, AbsVec { 0,0 });
     else
@@ -215,7 +261,7 @@ size_t FG_FASTCALL fgTileLayout(fgElement* self, const FG_Msg* msg, fgFlag flags
 
     prev = fgLayout_GetPrev(child);
     if(prev)
-      curdim = AbsVec { prev->transform.area.right.abs, prev->transform.area.bottom.abs };
+      curdim = AbsVec { fgLayout_GetChildRight(prev), fgLayout_GetChildBottom(prev) };
     else
       curdim = AbsVec { 0,0 };
 
@@ -235,7 +281,7 @@ size_t FG_FASTCALL fgTileLayout(fgElement* self, const FG_Msg* msg, fgFlag flags
 
     prev = fgLayout_GetPrev(child);
     if(prev)
-      curdim = AbsVec { prev->transform.area.right.abs, prev->transform.area.bottom.abs };
+      curdim = AbsVec { fgLayout_GetChildRight(prev), fgLayout_GetChildBottom(prev) };
     else
       curdim = AbsVec { 0,0 };
 

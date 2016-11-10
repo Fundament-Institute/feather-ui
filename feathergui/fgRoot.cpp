@@ -171,7 +171,7 @@ void FG_FASTCALL fgStandardDraw(fgElement* self, const AbsRect* area, size_t dpi
     fgPopClipRect();
 }
 
-void FG_FASTCALL fgOrderedDraw(fgElement* self, const AbsRect* area, size_t dpi, char culled, fgElement* skip, fgElement* (*fn)(fgElement*, const AbsRect*))
+void FG_FASTCALL fgOrderedDraw(fgElement* self, const AbsRect* area, size_t dpi, char culled, fgElement* skip, fgElement* (*fn)(fgElement*, const AbsRect*), void(*draw)(fgElement*, const AbsRect*, size_t))
 {
   if(culled) // If we are culled, thee's no point drawing ordered elements, because ordered elements aren't non-clipping, so we let the standard draw take care of it.
     return fgStandardDraw(self, area, dpi, culled);
@@ -185,6 +185,9 @@ void FG_FASTCALL fgOrderedDraw(fgElement* self, const AbsRect* area, size_t dpi,
     fgStandardDrawElement(self, cur, area, dpi, curarea, clipping);
     cur = cur->next;
   }
+
+  if(draw)
+    draw(self, area, dpi);
 
   AbsRect out;
   fgRectIntersection(area, &fgPeekClipRect(), &out);
