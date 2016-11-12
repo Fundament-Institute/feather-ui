@@ -102,14 +102,14 @@ size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
       break;
     case FGADDITEM_ELEMENT:
     {
-      fgElement* menuitem = fgCreate("MenuItem", *self, 0, 0, FGELEMENT_EXPAND | FGELEMENT_NOCLIP, &fgTransform_EMPTY);
+      fgElement* menuitem = fgroot_instance->backend.fgCreate("MenuItem", *self, 0, 0, FGELEMENT_EXPAND | FGELEMENT_NOCLIP, &fgTransform_EMPTY);
       fgPassMessage(menuitem, msg);
       return (size_t)menuitem;
     }
     case FGADDITEM_TEXT:
     {
-      fgElement* menuitem = fgCreate("MenuItem", *self, 0, 0, FGELEMENT_EXPAND | FGELEMENT_NOCLIP, &fgTransform_EMPTY);
-      fgCreate("Text", menuitem, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY)->SetText((const char*)msg->other);
+      fgElement* menuitem = fgroot_instance->backend.fgCreate("MenuItem", *self, 0, 0, FGELEMENT_EXPAND | FGELEMENT_NOCLIP, &fgTransform_EMPTY);
+      fgroot_instance->backend.fgCreate("Text", menuitem, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY)->SetText((const char*)msg->other);
       return (size_t)menuitem;
     }
     }
@@ -184,14 +184,14 @@ size_t FG_FASTCALL fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
       break;
     case FGADDITEM_ELEMENT:
     {
-      fgElement* menuitem = fgCreate("MenuItem", *self, 0, 0, FGELEMENT_EXPAND | FGELEMENT_NOCLIP, &MENU_TRANSFORM);
+      fgElement* menuitem = fgroot_instance->backend.fgCreate("MenuItem", *self, 0, 0, FGELEMENT_EXPAND | FGELEMENT_NOCLIP, &MENU_TRANSFORM);
       fgPassMessage(menuitem, msg);
       return (size_t)menuitem;
     }
     case FGADDITEM_TEXT:
     {
-      fgElement* menuitem = fgCreate("MenuItem", *self, 0, 0, FGELEMENT_EXPAND | FGELEMENT_NOCLIP, &MENU_TRANSFORM);
-      fgCreate("Text", menuitem, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY)->SetText((const char*)msg->other);
+      fgElement* menuitem = fgroot_instance->backend.fgCreate("MenuItem", *self, 0, 0, FGELEMENT_EXPAND | FGELEMENT_NOCLIP, &MENU_TRANSFORM);
+      fgroot_instance->backend.fgCreate("Text", menuitem, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY)->SetText((const char*)msg->other);
       return (size_t)menuitem;
     }
     }

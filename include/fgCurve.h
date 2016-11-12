@@ -34,7 +34,6 @@ extern "C" {
   FG_EXTERN void FG_FASTCALL fgCurve_Init(fgCurve* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
   FG_EXTERN void FG_FASTCALL fgCurve_Destroy(fgCurve* self);
   FG_EXTERN size_t FG_FASTCALL fgCurve_Message(fgCurve* self, const FG_Msg* msg);
-  FG_EXTERN void FG_FASTCALL fgDrawLines(const AbsVec* p, size_t n, unsigned int color, const AbsVec* translate, const AbsVec* scale, FABS rotation, const AbsVec* center);
 
 #ifdef  __cplusplus
 }

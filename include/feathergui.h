@@ -314,7 +314,7 @@ enum FG_MSGTYPE
   FG_REMOVEITEM,
   FG_SETITEM,
   FG_GETSELECTEDITEM, // Used to get the selected item (or items, or text) in a control.
-  // fgCheckbox, fgRadioButton, fgProgressbar, etc.
+  // fgCheckbox, fgRadiobutton, fgProgressbar, etc.
   FG_GETVALUE, // Gets the on/off state of a checkbox or the current progress on a progress bar
   FG_SETVALUE, // Sets the on/off state or progress
   // fgResource or fgText

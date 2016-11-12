@@ -1,7 +1,7 @@
 // Copyright ©2016 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
-#include "fgTreeView.h"
+#include "fgTreeview.h"
 #include "fgBox.h"
 #include "bss-util\bss_util.h"
 #include "feathercpp.h"
@@ -87,15 +87,15 @@ void FG_FASTCALL fgTreeItem_Destroy(fgTreeItem* self)
 {
   fgControl_Destroy(&self->control);
 }
-void FG_FASTCALL fgTreeView_Init(fgTreeView* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+void FG_FASTCALL fgTreeview_Init(fgTreeview* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  fgElement_InternalSetup(*self, parent, next, 0, flags, transform, (fgDestroy)&fgTreeView_Destroy, (fgMessage)&fgTreeView_Message);
+  fgElement_InternalSetup(*self, parent, next, 0, flags, transform, (fgDestroy)&fgTreeview_Destroy, (fgMessage)&fgTreeview_Message);
 }
-void FG_FASTCALL fgTreeView_Destroy(fgTreeView* self)
+void FG_FASTCALL fgTreeview_Destroy(fgTreeview* self)
 {
   fgScrollbar_Destroy(&self->scrollbar);
 }
-size_t FG_FASTCALL fgTreeView_Message(fgTreeView* self, const FG_Msg* msg)
+size_t FG_FASTCALL fgTreeview_Message(fgTreeview* self, const FG_Msg* msg)
 {
   fgElement* hold = (fgElement*)msg->other;
 

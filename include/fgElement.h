@@ -166,8 +166,6 @@ FG_EXTERN size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* ms
 FG_EXTERN fgElement* FG_FASTCALL fgElement_GetChildUnderMouse(fgElement* self, int x, int y, AbsRect* cache);
 FG_EXTERN void FG_FASTCALL fgElement_ClearListeners(fgElement* self);
 FG_EXTERN size_t FG_FASTCALL fgElement_CheckLastFocus(fgElement* self);
-FG_EXTERN fgElement* FG_FASTCALL fgCreate(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
-FG_EXTERN short FG_FASTCALL fgMessageMap(const char* name);
 
 FG_EXTERN size_t FG_FASTCALL fgIntMessage(fgElement* self, unsigned char type, ptrdiff_t data, size_t aux);
 FG_EXTERN size_t FG_FASTCALL fgVoidMessage(fgElement* self, unsigned char type, void* data, ptrdiff_t aux);

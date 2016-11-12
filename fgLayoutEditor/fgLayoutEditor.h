@@ -24,7 +24,7 @@ typedef struct FG_LAYOUT_EDITOR
   fgWindow* window;
   fgMenu* menu;
   fgList* toolbar;
-  //fgTreeView* view;
+  //fgTreeview* view;
   //fgGrid* properties;
   fgElement workspace;
   fgElement* selected;

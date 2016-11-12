@@ -50,9 +50,6 @@
     <ClInclude Include="..\include\fgTextbox.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgImplementation.h">
-      <Filter>include</Filter>
-    </ClInclude>
     <ClInclude Include="..\include\fgSkin.h">
       <Filter>include</Filter>
     </ClInclude>
@@ -68,9 +65,6 @@
     <ClInclude Include="..\include\fgCheckbox.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgRadioButton.h">
-      <Filter>include</Filter>
-    </ClInclude>
     <ClInclude Include="..\include\fgSlider.h">
       <Filter>include</Filter>
     </ClInclude>
@@ -79,9 +73,6 @@
     </ClInclude>
     <ClInclude Include="feathercpp.h">
       <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\fgTreeView.h">
-      <Filter>include</Filter>
     </ClInclude>
     <ClInclude Include="..\include\fgDropdown.h">
       <Filter>include</Filter>
@@ -116,10 +107,19 @@
     <ClInclude Include="..\include\fgCurve.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgTabControl.h">
+    <ClInclude Include="..\include\fgGrid.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgGrid.h">
+    <ClInclude Include="..\include\fgTreeview.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\fgRadiobutton.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\fgTabcontrol.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\fgBackend.h">
       <Filter>include</Filter>
     </ClInclude>
   </ItemGroup>
@@ -128,9 +128,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="fgButton.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="fgImplementation.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="fgLayout.cpp">
@@ -157,9 +154,6 @@
     <ClCompile Include="fgCheckbox.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="fgRadioButton.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="fgSlider.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -167,9 +161,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="fgList.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="fgTreeView.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="fgMonitor.cpp">
@@ -211,10 +202,19 @@
     <ClCompile Include="fgGrid.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="fgTabControl.cpp">
+    <ClCompile Include="fgLayoutFunctions.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="fgLayoutFunctions.cpp">
+    <ClCompile Include="fgRadiobutton.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgTreeview.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgTabcontrol.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgBackend.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -60,8 +60,19 @@ struct fgConstruct<T>
   };
 };
 
-typedef bss_util::cDynArray<fgArbitraryRef<fgCloneResource, fgDestroyResource>, FG_UINT, bss_util::CARRAY_CONSTRUCT> fgResourceArray;
-typedef bss_util::cDynArray<fgArbitraryRef<fgCloneFont, fgDestroyFont>, FG_UINT, bss_util::CARRAY_CONSTRUCT> fgFontArray;
+struct _FG_ROOT;
+extern struct _FG_ROOT* fgroot_instance;
+struct _FG_DEBUG;
+extern struct _FG_DEBUG* fgdebug_instance;
+extern FG_UINT fgStyleFlagMask;
+
+extern BSS_FORCEINLINE void* FG_FASTCALL fgCloneResourceCpp(void* r) { return fgroot_instance->backend.fgCloneResource(r); }
+extern BSS_FORCEINLINE void FG_FASTCALL fgDestroyResourceCpp(void* r) { return fgroot_instance->backend.fgDestroyResource(r); }
+extern BSS_FORCEINLINE void* FG_FASTCALL fgCloneFontCpp(void* r) { return fgroot_instance->backend.fgCloneFont(r); }
+extern BSS_FORCEINLINE void FG_FASTCALL fgDestroyFontCpp(void* r) { return fgroot_instance->backend.fgDestroyFont(r); }
+
+typedef bss_util::cDynArray<fgArbitraryRef<fgCloneResourceCpp, fgDestroyResourceCpp>, FG_UINT, bss_util::CARRAY_CONSTRUCT> fgResourceArray;
+typedef bss_util::cDynArray<fgArbitraryRef<fgCloneFontCpp, fgDestroyFontCpp>, FG_UINT, bss_util::CARRAY_CONSTRUCT> fgFontArray;
 
 template<class T>
 auto DynGet(const fgVector& r, FG_UINT i) { return ((T&)r)[i]; }
@@ -98,19 +109,13 @@ struct __kh_fgFunctionMap_t;
 extern __inline struct __kh_fgFunctionMap_t* fgFunctionMap_init();
 extern void fgFunctionMap_destroy(struct __kh_fgFunctionMap_t*);
 
-struct _FG_ROOT;
-extern struct _FG_ROOT* fgroot_instance;
-struct _FG_DEBUG;
-extern struct _FG_DEBUG* fgdebug_instance;
-extern FG_UINT fgStyleFlagMask;
-
 template<FG_MSGTYPE type, typename... Args>
 inline size_t _sendmsg(fgElement* self, Args... args)
 {
   FG_Msg msg = { 0 };
   msg.type = type;
   fgSendMsgCall<1, Args...>::F(msg, args...);
-  return (*fgroot_instance->behaviorhook)(self, &msg);
+  return (*fgroot_instance->backend.behaviorhook)(self, &msg);
 }
 
 template<FG_MSGTYPE type, typename... Args>
@@ -120,7 +125,7 @@ inline size_t _sendsubmsg(fgElement* self, unsigned char sub, Args... args)
   msg.type = type;
   msg.subtype = sub;
   fgSendMsgCall<1, Args...>::F(msg, args...);
-  return (*fgroot_instance->behaviorhook)(self, &msg);
+  return (*fgroot_instance->backend.behaviorhook)(self, &msg);
 }
 
 FG_EXTERN bss_util::cHash<std::pair<fgElement*, unsigned short>, void(FG_FASTCALL *)(struct _FG_ELEMENT*, const FG_Msg*)> fgListenerHash;
@@ -182,7 +187,9 @@ extern "C" {
 
 namespace bss_util { struct cXMLNode; }
 
-extern fgSkin* FG_FASTCALL fgSkins_LoadNodeXML(struct __kh_fgSkins_t* self, const bss_util::cXMLNode* root);
+extern fgSkin* FG_FASTCALL fgSkins_LoadNodeXML(fgSkinBase* self, const bss_util::cXMLNode* root);
 extern inline __kh_fgSkins_t *kh_init_fgSkins();
+extern void FG_FASTCALL fgStyle_LoadAttributesXML(struct _FG_STYLE* self, const bss_util::cXMLNode* cur, int flags, struct _FG_SKIN_BASE* root, const char* path, char** id);
+extern int FG_FASTCALL fgStyle_NodeEvalTransform(const bss_util::cXMLNode* node, fgTransform& t);
 
 #endif

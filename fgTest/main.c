@@ -2,22 +2,22 @@
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #include "fgTest.h"
-#include "../fgNull/fgNull.h"
 #include "fgButton.h"
 #include "fgMenu.h"
 #include "fgWindow.h"
+#include "fgRoot.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 
 #if defined(BSS_DEBUG) && defined(BSS_CPU_x86_64)
-#pragma comment(lib, "../bin/fgNull64_d.lib")
+#pragma comment(lib, "../bin/feathergui64_d.lib")
 #elif defined(BSS_CPU_x86_64)
-#pragma comment(lib, "../bin/fgNull64.lib")
+#pragma comment(lib, "../bin/feathergui64.lib")
 #elif defined(BSS_DEBUG)
-#pragma comment(lib, "../bin/fgNull_d.lib")
+#pragma comment(lib, "../bin/feathergui_d.lib")
 #else
-#pragma comment(lib, "../bin/fgNull.lib")
+#pragma comment(lib, "../bin/feathergui.lib")
 #endif
 
 typedef struct {
@@ -430,7 +430,10 @@ RETPAIR test_Root()
   fgWindow* top;
   fgDeferAction* action = fgRoot_AllocAction(&donothing,0,5);
   fgDeferAction* action2 = fgRoot_AllocAction(&dontfree,0,2);
-  gui = fgInitialize();
+
+  gui = (fgRoot*)malloc(sizeof(fgRoot));
+  AbsRect area = { 0 };
+  fgRoot_Init(gui, &area, 0, 0);
   top = (fgWindow*)fgWindow_Create("test",0,1,0);
 
   fgRoot_AddAction(gui,action);

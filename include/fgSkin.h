@@ -62,14 +62,15 @@ FG_EXTERN void* FG_FASTCALL fgSkinBase_GetResource(const fgSkinBase* self, FG_UI
 FG_EXTERN size_t FG_FASTCALL fgSkinBase_AddFont(fgSkinBase* self, void* font);
 FG_EXTERN char FG_FASTCALL fgSkinBase_RemoveFont(fgSkinBase* self, FG_UINT font);
 FG_EXTERN void* FG_FASTCALL fgSkinBase_GetFont(const fgSkinBase* self, FG_UINT font);
+FG_EXTERN fgFlag fgSkinBase_GetFlagsFromString(const char* s, fgFlag* remove);
 
 FG_EXTERN void FG_FASTCALL fgStyleLayout_Init(fgStyleLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, int order = 0);
 FG_EXTERN void FG_FASTCALL fgStyleLayout_Destroy(fgStyleLayout* self);
 
-FG_EXTERN fgSkin* FG_FASTCALL fgSkins_LoadFileUBJSON(struct __kh_fgSkins_t* self, const char* file);
-FG_EXTERN fgSkin* FG_FASTCALL fgSkins_LoadUBJSON(struct __kh_fgSkins_t* self, const void* data, FG_UINT length);
-FG_EXTERN fgSkin* FG_FASTCALL fgSkins_LoadFileXML(struct __kh_fgSkins_t* self, const char* file);
-FG_EXTERN fgSkin* FG_FASTCALL fgSkins_LoadXML(struct __kh_fgSkins_t* self, const char* data, FG_UINT length);
+FG_EXTERN fgSkin* FG_FASTCALL fgSkins_LoadFileUBJSON(fgSkinBase* self, const char* file);
+FG_EXTERN fgSkin* FG_FASTCALL fgSkins_LoadUBJSON(fgSkinBase* self, const void* data, FG_UINT length);
+FG_EXTERN fgSkin* FG_FASTCALL fgSkins_LoadFileXML(fgSkinBase* self, const char* file);
+FG_EXTERN fgSkin* FG_FASTCALL fgSkins_LoadXML(fgSkinBase* self, const char* data, FG_UINT length);
 
 #ifdef  __cplusplus
 }

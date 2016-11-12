@@ -7,7 +7,7 @@
 
 fgElement* FG_FASTCALL fgResource_Create(void* res, const CRect* uv, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  fgElement* r = fgCreate("Resource", parent, next, name, flags, transform);
+  fgElement* r = fgroot_instance->backend.fgCreate("Resource", parent, next, name, flags, transform);
   if(color) fgIntMessage(r, FG_SETCOLOR, color, 0);
   if(uv) _sendmsg<FG_SETUV, void*>(r, (void*)uv);
   if(res) _sendmsg<FG_SETRESOURCE, void*>(r, res);
@@ -20,7 +20,7 @@ void FG_FASTCALL fgResource_Init(fgResource* self, fgElement* BSS_RESTRICT paren
 }
 void FG_FASTCALL fgResource_Destroy(fgResource* self)
 {
-  if(self->res) fgDestroyResource(self->res);
+  if(self->res) fgroot_instance->backend.fgDestroyResource(self->res);
   fgElement_Destroy(&self->element);
 }
 size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
@@ -42,14 +42,14 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
     if(msg->other)
       self->uv = *((CRect*)msg->other);
     fgResource_Recalc(self);
-    fgDirtyElement(*self);
+    fgroot_instance->backend.fgDirtyElement(*self);
     return FG_ACCEPT;
   case FG_SETRESOURCE:
-    if(self->res) fgDestroyResource(self->res);
+    if(self->res) fgroot_instance->backend.fgDestroyResource(self->res);
     self->res = 0;
-    if(msg->other) self->res = fgCloneResource(msg->other);
+    if(msg->other) self->res = fgroot_instance->backend.fgCloneResource(msg->other);
     fgResource_Recalc(self);
-    fgDirtyElement(*self);
+    fgroot_instance->backend.fgDirtyElement(*self);
     break;
   case FG_SETCOLOR:
     switch(msg->subtype)
@@ -57,11 +57,11 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
     case FGSETCOLOR_EDGE: self->edge.color = msg->otherint; break;
     case FGSETCOLOR_MAIN: self->color.color = msg->otherint; break;
     }
-    fgDirtyElement(*self);
+    fgroot_instance->backend.fgDirtyElement(*self);
     break;
   case FG_SETOUTLINE:
     self->outline = fgResolveUnit(&self->element, msg->otherf, msg->subtype);
-    fgDirtyElement(*self);
+    fgroot_instance->backend.fgDirtyElement(*self);
     break;
   case FG_GETUV:
     return (size_t)(&self->uv);
@@ -95,10 +95,10 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
     {
       self->uv.right.abs = self->uv.left.abs + area.right - area.left;
       self->uv.bottom.abs = self->uv.top.abs + area.bottom - area.top;
-      fgDrawResource(self->res, &self->uv, self->color.color, self->edge.color, self->outline, &area, self->element.transform.rotation, &center, self->element.flags);
+      fgroot_instance->backend.fgDrawResource(self->res, &self->uv, self->color.color, self->edge.color, self->outline, &area, self->element.transform.rotation, &center, self->element.flags);
     }
     else
-      fgDrawResource(self->res, &self->uv, self->color.color, self->edge.color, self->outline, &area, self->element.transform.rotation, &center, self->element.flags);
+      fgroot_instance->backend.fgDrawResource(self->res, &self->uv, self->color.color, self->edge.color, self->outline, &area, self->element.transform.rotation, &center, self->element.flags);
   }
   break;
   case FG_GETCLASSNAME:
@@ -117,7 +117,7 @@ void* FG_FASTCALL fgCreateResourceFile(fgFlag flags, const char* file)
   char* buf = (char*)malloc(len);
   fread(buf, 1, len, f);
   fclose(f);
-  void* r = fgCreateResource(flags, buf, len);
+  void* r = fgroot_instance->backend.fgCreateResource(flags, buf, len);
   free(buf);
   return r;
 }
@@ -127,7 +127,7 @@ void FG_FASTCALL fgResource_Recalc(fgResource* self)
   if(self->res && (self->element.flags&FGELEMENT_EXPAND))
   {
     AbsVec dim;
-    fgResourceSize(self->res, &self->uv, &dim, self->element.flags);
+    fgroot_instance->backend.fgResourceSize(self->res, &self->uv, &dim, self->element.flags);
     CRect adjust = self->element.transform.area;
     if(self->element.flags&FGELEMENT_EXPANDX)
       adjust.right.abs = adjust.left.abs + dim.x;

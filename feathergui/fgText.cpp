@@ -8,7 +8,7 @@
 
 fgElement* FG_FASTCALL fgText_Create(char* text, void* font, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  fgElement* r = fgCreate("Text", parent, next, name, flags, transform);
+  fgElement* r = fgroot_instance->backend.fgCreate("Text", parent, next, name, flags, transform);
   if(color) fgIntMessage(r, FG_SETCOLOR, color, 0);
   if(text) _sendmsg<FG_SETTEXT, void*>(r, text);
   if(font) _sendmsg<FG_SETFONT, void*>(r, font);
@@ -24,7 +24,7 @@ void FG_FASTCALL fgText_Destroy(fgText* self)
   assert(self != 0);
   ((bss_util::cDynArray<int>*)&self->text)->~cDynArray();
   ((bss_util::cDynArray<char>*)&self->buf)->~cDynArray();
-  if(self->font != 0) fgDestroyFont(self->font);
+  if(self->font != 0) fgroot_instance->backend.fgDestroyFont(self->font);
   fgElement_Destroy(&self->element);
 }
 
@@ -67,35 +67,35 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
 
 
     fgText_Recalc(self);
-    fgDirtyElement(*self);
+    fgroot_instance->backend.fgDirtyElement(*self);
     return FG_ACCEPT;
   case FG_SETFONT:
-    if(self->font) fgDestroyFont(self->font);
+    if(self->font) fgroot_instance->backend.fgDestroyFont(self->font);
     self->font = 0;
     if(msg->other)
     {
       size_t dpi = _sendmsg<FG_GETDPI>(*self);
       unsigned int fontdpi;
       unsigned int fontsize;
-      fgFontGet(msg->other, 0, &fontsize, &fontdpi);
-      self->font = (dpi == fontdpi) ? fgCloneFont(msg->other) : fgCopyFont(msg->other, fontsize, fontdpi);
+      fgroot_instance->backend.fgFontGet(msg->other, 0, &fontsize, &fontdpi);
+      self->font = (dpi == fontdpi) ? fgroot_instance->backend.fgCloneFont(msg->other) : fgroot_instance->backend.fgCopyFont(msg->other, fontsize, fontdpi);
     }
     fgText_Recalc(self);
-    fgDirtyElement(*self);
+    fgroot_instance->backend.fgDirtyElement(*self);
     return FG_ACCEPT;
   case FG_SETLINEHEIGHT:
     self->lineheight = msg->otherf;
     fgText_Recalc(self);
-    fgDirtyElement(*self);
+    fgroot_instance->backend.fgDirtyElement(*self);
     return FG_ACCEPT;
   case FG_SETLETTERSPACING:
     self->letterspacing = msg->otherf;
     fgText_Recalc(self);
-    fgDirtyElement(*self);
+    fgroot_instance->backend.fgDirtyElement(*self);
     return FG_ACCEPT;
   case FG_SETCOLOR:
     self->color.color = (unsigned int)msg->otherint;
-    fgDirtyElement(*self);
+    fgroot_instance->backend.fgDirtyElement(*self);
     return FG_ACCEPT;
   case FG_GETTEXT:
     return reinterpret_cast<size_t>(self->text.p);
@@ -121,7 +121,7 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
       area.right *= scale;
       area.bottom *= scale;
       AbsVec center = ResolveVec(&self->element.transform.center, &area);
-      self->cache = fgDrawFont(self->font, !self->text.p ? &UNICODE_TERMINATOR : self->text.p, self->lineheight, self->letterspacing, self->color.color, &area, self->element.transform.rotation, &center, self->element.flags, self->cache);
+      self->cache = fgroot_instance->backend.fgDrawFont(self->font, !self->text.p ? &UNICODE_TERMINATOR : self->text.p, self->lineheight, self->letterspacing, self->color.color, &area, self->element.transform.rotation, &center, self->element.flags, self->cache);
     }
     break;
   case FG_SETDPI:
@@ -144,12 +144,13 @@ void FG_FASTCALL fgText_Recalc(fgText* self)
       area.right = area.left + self->element.maxdim.x;
     if(self->element.flags&FGELEMENT_EXPANDY)
       area.bottom = area.top + self->element.maxdim.y;
-    fgFontSize(self->font, !self->text.p ? &UNICODE_TERMINATOR : self->text.p, self->lineheight, self->letterspacing, &area, self->element.flags);
+    fgroot_instance->backend.fgFontSize(self->font, !self->text.p ? &UNICODE_TERMINATOR : self->text.p, self->lineheight, self->letterspacing, &area, self->element.flags);
     CRect adjust = self->element.transform.area;
     if(self->element.flags&FGELEMENT_EXPANDX)
       adjust.right.abs = adjust.left.abs + area.right - area.left + self->element.padding.left + self->element.padding.right;
     if(self->element.flags&FGELEMENT_EXPANDY)
       adjust.bottom.abs = adjust.top.abs + area.bottom - area.top + self->element.padding.top + self->element.padding.bottom;
+    assert(!isnan(adjust.left.abs) && !isnan(adjust.top.abs) && !isnan(adjust.right.abs) && !isnan(adjust.bottom.abs));
     _sendmsg<FG_SETAREA, void*>(*self, &adjust);
   }
 }

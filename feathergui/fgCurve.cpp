@@ -8,7 +8,7 @@ using namespace bss_util;
 
 fgElement* FG_FASTCALL fgCurve_Create(const AbsVec* points, size_t npoints, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  fgElement* r = fgCreate("Curve", parent, next, name, flags, transform);
+  fgElement* r = fgroot_instance->backend.fgCreate("Curve", parent, next, name, flags, transform);
   if(color) fgIntMessage(r, FG_SETCOLOR, color, 0);
   if(points && npoints > 0) _sendmsg<FG_SETITEM, const void*, size_t>(r, points, npoints);
   return r;
@@ -79,7 +79,7 @@ size_t FG_FASTCALL fgCurve_Message(fgCurve* self, const FG_Msg* msg)
     return FG_ACCEPT;
   case FG_SETCOLOR:
     self->color.color = msg->otherint;
-    fgDirtyElement(&self->element);
+    fgroot_instance->backend.fgDirtyElement(&self->element);
     break;
   case FG_GETCOLOR:
     return self->color.color;
@@ -131,11 +131,11 @@ size_t FG_FASTCALL fgCurve_Message(fgCurve* self, const FG_Msg* msg)
     if(!(self->element.flags&FGCURVE_CURVEMASK))
     {
       if(self->points.l > 0)
-        fgDrawLines(self->points.p, self->points.l, self->color.color, &area.topleft, &scalevec, self->element.transform.rotation, &center);
+        fgroot_instance->backend.fgDrawLines(self->points.p, self->points.l, self->color.color, &area.topleft, &scalevec, self->element.transform.rotation, &center);
       else
       {
         AbsVec p[2] = { {0,0}, { area.right - area.left - 1, area.bottom - area.top - 1} };
-        fgDrawLines(p, 2, self->color.color, &area.topleft, &scalevec, self->element.transform.rotation, &center);
+        fgroot_instance->backend.fgDrawLines(p, 2, self->color.color, &area.topleft, &scalevec, self->element.transform.rotation, &center);
       }
     } 
     else
@@ -159,7 +159,7 @@ size_t FG_FASTCALL fgCurve_Message(fgCurve* self, const FG_Msg* msg)
         }
       }
 
-      fgDrawLines(self->cache.p, self->cache.l, self->color.color, &area.topleft, &scalevec, self->element.transform.rotation, &center);
+      fgroot_instance->backend.fgDrawLines(self->cache.p, self->cache.l, self->color.color, &area.topleft, &scalevec, self->element.transform.rotation, &center);
     }
   }
   break;

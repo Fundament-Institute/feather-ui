@@ -5,6 +5,7 @@
 #define __FG_ROOT_H__
 
 #include "fgControl.h"
+#include "fgBackend.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -25,7 +26,7 @@ typedef struct _FG_DEFER_ACTION {
 // Defines the root interface to the GUI. This object should be returned by the implementation at some point
 typedef struct _FG_ROOT {
   fgControl gui;
-  size_t (FG_FASTCALL *behaviorhook)(struct _FG_ELEMENT* self, const FG_Msg* msg);
+  fgBackend backend;
   struct _FG_MONITOR* monitors;
   fgDeferAction* updateroot;
   struct __kh_fgRadioGroup_t* radiohash;
@@ -53,12 +54,9 @@ typedef struct _FG_ROOT {
 #endif
 } fgRoot;
 
-FG_EXTERN fgRoot* FG_FASTCALL fgInitialize();
 FG_EXTERN fgRoot* FG_FASTCALL fgSingleton();
 FG_EXTERN char FG_FASTCALL fgLoadExtension(const char* extname, void* fg, size_t sz);
-FG_EXTERN void FG_FASTCALL fgTerminate(fgRoot* root);
-FG_EXTERN char FG_FASTCALL fgMessageLoop(fgRoot* root);
-FG_EXTERN void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, size_t dpi);
+FG_EXTERN void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, size_t dpi, fgBackend* backend);
 FG_EXTERN void FG_FASTCALL fgRoot_Destroy(fgRoot* self);
 FG_EXTERN size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg);
 FG_EXTERN size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg); // Returns 0 if handled, 1 otherwise
@@ -77,19 +75,8 @@ FG_EXTERN size_t FG_FASTCALL fgStandardInject(fgElement* self, const FG_Msg* msg
 FG_EXTERN size_t FG_FASTCALL fgOrderedInject(fgElement* self, const FG_Msg* msg, const AbsRect* area, fgElement* skip, fgElement* (*fn)(fgElement*, const FG_Msg*));
 FG_EXTERN void FG_FASTCALL fgStandardDraw(fgElement* self, const AbsRect* area, size_t dpi, char culled);
 FG_EXTERN void FG_FASTCALL fgOrderedDraw(fgElement* self, const AbsRect* area, size_t dpi, char culled, fgElement* skip, fgElement* (*fn)(fgElement*, const AbsRect*), void(*draw)(fgElement*, const AbsRect*, size_t));
-FG_EXTERN void fgPushClipRect(const AbsRect* clip);
-FG_EXTERN AbsRect fgPeekClipRect();
-FG_EXTERN void fgPopClipRect();
-FG_EXTERN void fgDirtyElement(fgElement* elem);
-FG_EXTERN void fgDragStart(char type, void* data, fgElement* draw);
-FG_EXTERN void fgSetCursor(unsigned int type, void* custom); // What custom actually is depends on the implemention
-FG_EXTERN void fgClipboardCopy(unsigned int type, const void* data, size_t length); // passing in NULL will erase whatever what was in the clipboard.
-FG_EXTERN char fgClipboardExists(unsigned int type);
-FG_EXTERN const void* fgClipboardPaste(unsigned int type, size_t* length); // The pointer returned to this MUST BE FREED by calling fgClipboardFree() once you are done with it.
-FG_EXTERN void fgClipboardFree(const void* mem);
-FG_EXTERN fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
-FG_EXTERN short FG_FASTCALL fgMessageMapDefault(const char* name);
 FG_EXTERN void BSS_FORCEINLINE fgStandardApplyClipping(fgElement* hold, const AbsRect* area, bool& clipping);
+FG_EXTERN fgElement* FG_FASTCALL fgCreate(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
 
 #ifdef  __cplusplus
 }
@@ -100,7 +87,7 @@ inline size_t fgSendMsg(fgElement* self, Args... args)
   FG_Msg msg = { 0 };
   msg.type = type;
   fgSendMsgCall<1, Args...>::F(msg, args...);
-  return (*fgSingleton()->behaviorhook)(self, &msg);
+  return (*fgSingleton()->backend.behaviorhook)(self, &msg);
 }
 
 template<FG_MSGTYPE type, typename... Args>
@@ -110,7 +97,7 @@ inline size_t fgSendSubMsg(fgElement* self, unsigned char sub, Args... args)
   msg.type = type;
   msg.subtype = sub;
   fgSendMsgCall<1, Args...>::F(msg, args...);
-  return (*fgSingleton()->behaviorhook)(self, &msg);
+  return (*fgSingleton()->backend.behaviorhook)(self, &msg);
 }
 #endif
 

@@ -51,7 +51,7 @@ inline void FG_FASTCALL fgTextbox_fixpos(fgTextbox* self, size_t cursor, AbsVec*
     for(size_t i = 0; i < self->text.l; ++i) text[i] = self->mask;
     text[self->text.l] = 0;
   }
-  *r = fgFontPos(self->font, text, self->lineheight, self->letterspacing, &self->areacache, self->scroll->flags, cursor, self->cache);
+  *r = fgroot_instance->backend.fgFontPos(self->font, text, self->lineheight, self->letterspacing, &self->areacache, self->scroll->flags, cursor, self->cache);
   AbsRect to = { r->x, r->y, r->x, r->y + self->lineheight*1.125 }; // We don't know what the descender is, so we estimate it as 1/8 the lineheight.
   _sendsubmsg<FG_ACTION, void*>(*self, FGSCROLLBAR_SCROLLTO, &to);
   self->lastx = self->startpos.x;
@@ -66,7 +66,7 @@ inline size_t FG_FASTCALL fgTextbox_fixindex(fgTextbox* self, AbsVec pos, AbsVec
     for(size_t i = 0; i < self->text.l; ++i) text[i] = self->mask;
     text[self->text.l] = 0;
   }
-  size_t r = fgFontIndex(self->font, text, self->lineheight, self->letterspacing, &self->areacache, self->scroll->flags, pos, cursor, self->cache);
+  size_t r = fgroot_instance->backend.fgFontIndex(self->font, text, self->lineheight, self->letterspacing, &self->areacache, self->scroll->flags, pos, cursor, self->cache);
   AbsRect to = { cursor->x, cursor->y, cursor->x, cursor->y + self->lineheight*1.125 };
   _sendsubmsg<FG_ACTION, void*>(*self, FGSCROLLBAR_SCROLLTO, &to);
   return r;
@@ -252,20 +252,20 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
         fgTextbox_fixpos(self, self->end, &self->endpos);
         break;
       case FGTEXTBOX_CUT:
-        fgClipboardCopy(FGCLIPBOARD_TEXT, self->text.p, self->text.l*sizeof(int));
+        fgroot_instance->backend.fgClipboardCopy(FGCLIPBOARD_TEXT, self->text.p, self->text.l*sizeof(int));
         fgTextbox_DeleteSelection(self);
         break;
       case FGTEXTBOX_COPY:
-        fgClipboardCopy(FGCLIPBOARD_TEXT, self->text.p, self->text.l * sizeof(int));
+        fgroot_instance->backend.fgClipboardCopy(FGCLIPBOARD_TEXT, self->text.p, self->text.l * sizeof(int));
         break;
       case FGTEXTBOX_PASTE:
-        if(fgClipboardExists(FGCLIPBOARD_TEXT))
+        if(fgroot_instance->backend.fgClipboardExists(FGCLIPBOARD_TEXT))
         {
           fgTextbox_DeleteSelection(self);
           size_t sz = 0;
-          const int* paste = (const int*)fgClipboardPaste(FGCLIPBOARD_TEXT, &sz);
+          const int* paste = (const int*)fgroot_instance->backend.fgClipboardPaste(FGCLIPBOARD_TEXT, &sz);
           fgTextbox_Insert(self, self->start, paste, sz); // TODO: do verification here
-          fgClipboardFree(paste);
+          fgroot_instance->backend.fgClipboardFree(paste);
           break;
         }
         return 0;
@@ -334,31 +334,31 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       break;
     }
     fgSubMessage(*self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTMOVE, self, FGMOVE_PROPAGATE | FGMOVE_RESIZE);
-    fgDirtyElement(*self);
+    fgroot_instance->backend.fgDirtyElement(*self);
     return FG_ACCEPT;
   case FG_SETFONT:
-    if(self->font) fgDestroyFont(self->font);
+    if(self->font) fgroot_instance->backend.fgDestroyFont(self->font);
     self->font = 0;
     if(msg->other)
     {
       size_t dpi = _sendmsg<FG_GETDPI>(*self);
       unsigned int fontdpi;
       unsigned int fontsize;
-      fgFontGet(msg->other, 0, &fontsize, &fontdpi);
-      self->font = (dpi == fontdpi) ? fgCloneFont(msg->other) : fgCopyFont(msg->other, fontsize, fontdpi);
+      fgroot_instance->backend.fgFontGet(msg->other, 0, &fontsize, &fontdpi);
+      self->font = (dpi == fontdpi) ? fgroot_instance->backend.fgCloneFont(msg->other) : fgroot_instance->backend.fgCopyFont(msg->other, fontsize, fontdpi);
     }
     fgSubMessage(*self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTMOVE, self, FGMOVE_PROPAGATE | FGMOVE_RESIZE);
-    fgDirtyElement(*self);
+    fgroot_instance->backend.fgDirtyElement(*self);
     break;
   case FG_SETLINEHEIGHT:
     self->lineheight = msg->otherf;
     fgSubMessage(*self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTMOVE, self, FGMOVE_PROPAGATE | FGMOVE_RESIZE);
-    fgDirtyElement(*self);
+    fgroot_instance->backend.fgDirtyElement(*self);
     break;
   case FG_SETLETTERSPACING:
     self->letterspacing = msg->otherf;
     fgSubMessage(*self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTMOVE, self, FGMOVE_PROPAGATE | FGMOVE_RESIZE);
-    fgDirtyElement(*self);
+    fgroot_instance->backend.fgDirtyElement(*self);
     break;
   case FG_SETCOLOR:
     switch(msg->subtype)
@@ -368,7 +368,7 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
     case FGSETCOLOR_CURSOR: self->cursorcolor.color = (unsigned int)msg->otherint; break;
     case FGSETCOLOR_SELECT: self->selector.color = (unsigned int)msg->otherint; break;
     }
-    fgDirtyElement(*self);
+    fgroot_instance->backend.fgDirtyElement(*self);
     break;
   case FG_GETTEXT:
     if(!msg->otherint)
@@ -417,7 +417,7 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       cliparea.right -= self->scroll.realpadding.right + bssmax(self->scroll.barcache.y, 0);
       cliparea.bottom -= self->scroll.realpadding.bottom + bssmax(self->scroll.barcache.x, 0);
       if(!(self->scroll->flags&FGELEMENT_NOCLIP))
-        fgPushClipRect(&cliparea);
+        fgroot_instance->backend.fgPushClipRect(&cliparea);
 
       area.left += self->scroll->padding.left;
       area.top += self->scroll->padding.top;
@@ -440,19 +440,19 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       if(begin.y == end.y)
       {
         AbsRect srect = { area.left + begin.x, area.top + begin.y, area.left + end.x, area.top + begin.y + self->lineheight };
-        fgDrawResource(0, &uv, self->selector.color, 0, 0, &srect, 0, &center, FGRESOURCE_ROUNDRECT);
+        fgroot_instance->backend.fgDrawResource(0, &uv, self->selector.color, 0, 0, &srect, 0, &center, FGRESOURCE_ROUNDRECT);
       }
       else
       {
         AbsRect srect = AbsRect{ area.left + begin.x, area.top + begin.y, area.right, area.top + begin.y + self->lineheight };
-        fgDrawResource(0, &uv, self->selector.color, 0, 0, &srect, 0, &center, FGRESOURCE_ROUNDRECT);
+        fgroot_instance->backend.fgDrawResource(0, &uv, self->selector.color, 0, 0, &srect, 0, &center, FGRESOURCE_ROUNDRECT);
         if(begin.y + self->lineheight + 0.5 < end.y)
         {
           srect = AbsRect { area.left, area.top + begin.y + self->lineheight, area.right, area.top + end.y };
-          fgDrawResource(0, &uv, self->selector.color, 0, 0, &srect, 0, &center, FGRESOURCE_ROUNDRECT);
+          fgroot_instance->backend.fgDrawResource(0, &uv, self->selector.color, 0, 0, &srect, 0, &center, FGRESOURCE_ROUNDRECT);
         }
         srect = AbsRect { area.left, area.top + end.y, area.left + end.x, area.top + end.y + self->lineheight };
-        fgDrawResource(0, &uv, self->selector.color, 0, 0, &srect, 0, &center, FGRESOURCE_ROUNDRECT);
+        fgroot_instance->backend.fgDrawResource(0, &uv, self->selector.color, 0, 0, &srect, 0, &center, FGRESOURCE_ROUNDRECT);
       }
 
       // Draw text
@@ -473,7 +473,7 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
         text[self->text.l] = 0;
       }
 
-      self->cache = fgDrawFont(self->font,
+      self->cache = fgroot_instance->backend.fgDrawFont(self->font,
         !self->text.l ? self->placeholder.p : text,
         self->lineheight,
         self->letterspacing,
@@ -489,11 +489,11 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       {
         AbsVec lines[2] = { self->startpos, { self->startpos.x, self->startpos.y + self->lineheight } };
         AbsVec scale = { 1.0f, 1.0f };
-        fgDrawLines(lines, 2, self->cursorcolor.color, &area.topleft, &scale, self->scroll.control.element.transform.rotation, &center); // TODO: This requires ensuring that FG_DRAW is called at least during the blink interval.
+        fgroot_instance->backend.fgDrawLines(lines, 2, self->cursorcolor.color, &area.topleft, &scale, self->scroll.control.element.transform.rotation, &center); // TODO: This requires ensuring that FG_DRAW is called at least during the blink interval.
       }
 
       if(!(self->scroll->flags&FGELEMENT_NOCLIP))
-        fgPopClipRect();
+        fgroot_instance->backend.fgPopClipRect();
     }
     return FG_ACCEPT;
   case FG_MOUSEDBLCLICK:
@@ -559,7 +559,7 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
         if(self->scroll->flags&FGELEMENT_EXPANDY)
           r.bottom = r.top + self->scroll->maxdim.y;
 
-        fgFontSize(self->font, !self->text.p ? &UNICODE_TERMINATOR : self->text.p, self->lineheight, self->letterspacing, &r, self->scroll->flags);
+        fgroot_instance->backend.fgFontSize(self->font, !self->text.p ? &UNICODE_TERMINATOR : self->text.p, self->lineheight, self->letterspacing, &r, self->scroll->flags);
         dim->x = r.right - r.left;
         dim->y = r.bottom - r.top;
         fgTextbox_fixpos(self, self->start, &self->startpos);

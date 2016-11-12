@@ -3,7 +3,7 @@
 
 #include "feathercpp.h"
 #include "bss-util/khash.h"
-#include "fgRadioButton.h"
+#include "fgRadiobutton.h"
 #include "fgSkin.h"
 #include "fgRoot.h"
 

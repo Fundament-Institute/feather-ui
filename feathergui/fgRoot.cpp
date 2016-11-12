@@ -5,16 +5,16 @@
 #include "fgMonitor.h"
 #include "fgBox.h"
 #include "fgWindow.h"
-#include "fgRadioButton.h"
+#include "fgRadiobutton.h"
 #include "fgProgressbar.h"
 #include "fgSlider.h"
 #include "fgTextbox.h"
-#include "fgTreeView.h"
+#include "fgTreeview.h"
 #include "fgDebug.h"
 #include "fgList.h"
 #include "fgCurve.h"
 #include "fgDropdown.h"
-#include "fgTabControl.h"
+#include "fgTabcontrol.h"
 #include "fgMenu.h"
 #include "feathercpp.h"
 #include "bss-util/cTrie.h"
@@ -23,10 +23,43 @@
 
 fgRoot* fgroot_instance = 0;
 
-void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, size_t dpi)
+void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, size_t dpi, fgBackend* backend)
 {
+  static fgBackend DEFAULT_BACKEND = {
+    &fgRoot_BehaviorDefault,
+    &fgCreateFontDefault,
+    &fgCopyFontDefault,
+    &fgCloneFontDefault,
+    &fgDestroyFontDefault,
+    &fgDrawFontDefault,
+    &fgFontSizeDefault,
+    &fgFontGetDefault,
+    &fgCreateResourceDefault,
+    &fgCloneResourceDefault,
+    &fgDestroyResourceDefault,
+    &fgDrawResourceDefault,
+    &fgResourceSizeDefault,
+    &fgFontIndexDefault,
+    &fgFontPosDefault,
+    &fgDrawLinesDefault,
+    &fgCreateDefault,
+    &fgMessageMapDefault,
+    &fgPushClipRectDefault,
+    &fgPeekClipRectDefault,
+    &fgPopClipRectDefault,
+    &fgDragStartDefault,
+    &fgSetCursorDefault,
+    &fgClipboardCopyDefault,
+    &fgClipboardExistsDefault,
+    &fgClipboardPasteDefault,
+    &fgClipboardFreeDefault,
+    &fgDirtyElementDefault,
+    0,
+    0,
+  };
+
   memset(self, 0, sizeof(fgRoot));
-  self->behaviorhook = &fgRoot_BehaviorDefault;
+  self->backend = !backend ? DEFAULT_BACKEND : *backend;
   self->dpi = dpi;
   self->cursorblink = 0.53; // 530 ms is the windows default.
   self->lineheight = 30;
@@ -134,12 +167,12 @@ void BSS_FORCEINLINE fgStandardApplyClipping(fgElement* hold, const AbsRect* are
   if(!clipping && !(hold->flags&FGELEMENT_NOCLIP))
   {
     clipping = true;
-    fgPushClipRect(area);
+    fgroot_instance->backend.fgPushClipRect(area);
   }
   else if(clipping && (hold->flags&FGELEMENT_NOCLIP))
   {
     clipping = false;
-    fgPopClipRect();
+    fgroot_instance->backend.fgPopClipRect();
   }
 }
 
@@ -150,7 +183,7 @@ void BSS_FORCEINLINE fgStandardDrawElement(fgElement* self, fgElement* hold, con
     ResolveRectCache(hold, &curarea, area, (hold->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
     fgStandardApplyClipping(hold, area, clipping);
 
-    char culled = !fgRectIntersect(&curarea, &fgPeekClipRect());
+    char culled = !fgRectIntersect(&curarea, &fgroot_instance->backend.fgPeekClipRect());
     _sendsubmsg<FG_DRAW, void*, size_t>(hold, culled, &curarea, dpi);
   }
 }
@@ -168,7 +201,7 @@ void FG_FASTCALL fgStandardDraw(fgElement* self, const AbsRect* area, size_t dpi
   }
 
   if(clipping)
-    fgPopClipRect();
+    fgroot_instance->backend.fgPopClipRect();
 }
 
 void FG_FASTCALL fgOrderedDraw(fgElement* self, const AbsRect* area, size_t dpi, char culled, fgElement* skip, fgElement* (*fn)(fgElement*, const AbsRect*), void(*draw)(fgElement*, const AbsRect*, size_t))
@@ -190,21 +223,21 @@ void FG_FASTCALL fgOrderedDraw(fgElement* self, const AbsRect* area, size_t dpi,
     draw(self, area, dpi);
 
   AbsRect out;
-  fgRectIntersection(area, &fgPeekClipRect(), &out);
+  fgRectIntersection(area, &fgroot_instance->backend.fgPeekClipRect(), &out);
   // do binary search on the absolute resolved bottomright coordinates compared to the topleft corner of the render area
   cur = fn(self, &out);
 
   if(!clipping)
   {
     clipping = true; // always clipping at this stage because ordered elements can't be nonclipping
-    fgPushClipRect(area);
+    fgroot_instance->backend.fgPushClipRect(area);
   }
   char cull = 0;
 
   while(!cull && cur != 0 && !(cur->flags & FGELEMENT_BACKGROUND)) // Render all ordered elements until they become culled
   {
     ResolveRectCache(cur, &curarea, area, &self->padding); // always apply padding because these are always foreground elements
-    cull = !fgRectIntersect(&curarea, &fgPeekClipRect());
+    cull = !fgRectIntersect(&curarea, &fgroot_instance->backend.fgPeekClipRect());
     if(cur != fgroot_instance->topmost)
       _sendsubmsg<FG_DRAW, void*, size_t>(cur, cull, &curarea, dpi);
     cur = cur->next;
@@ -218,7 +251,7 @@ void FG_FASTCALL fgOrderedDraw(fgElement* self, const AbsRect* area, size_t dpi,
   }
 
   if(clipping)
-    fgPopClipRect();
+    fgroot_instance->backend.fgPopClipRect();
 }
 
 void FG_FASTCALL fgFixedDraw(fgElement* self, AbsRect* area, size_t dpi, char culled, fgElement** ordered, size_t numordered, AbsVec dim)
@@ -251,7 +284,7 @@ size_t FG_FASTCALL fgStandardInject(fgElement* self, const FG_Msg* msg, const Ab
   }
 
   // If we get this far either we have no children, the event missed them all, or they all rejected the event...
-  return miss ? 0 : (*fgroot_instance->behaviorhook)(self,msg); // So we give the event to ourselves, but only if it didn't miss us (which can happen if we were evaluating nonclipping elements)
+  return miss ? 0 : (*fgroot_instance->backend.behaviorhook)(self,msg); // So we give the event to ourselves, but only if it didn't miss us (which can happen if we were evaluating nonclipping elements)
 }
 
 size_t FG_FASTCALL fgOrderedInject(fgElement* self, const FG_Msg* msg, const AbsRect* area, fgElement* skip, fgElement* (*fn)(fgElement*, const FG_Msg*))
@@ -301,7 +334,7 @@ size_t FG_FASTCALL fgOrderedInject(fgElement* self, const FG_Msg* msg, const Abs
     cur = cur->previnject;
   }
 
-  return (*fgroot_instance->behaviorhook)(self, msg); // So we give the event to ourselves because it couldn't have missed us if we got to this point
+  return (*fgroot_instance->backend.behaviorhook)(self, msg); // So we give the event to ourselves because it couldn't have missed us if we got to this point
 }
 
 void fgProcessNextCursor(fgRoot* self)
@@ -314,7 +347,7 @@ void fgProcessNextCursor(fgRoot* self)
 
   if(self->nextcursor != self->lastcursor || self->nextcursordata != self->lastcursordata)
   {
-    fgSetCursor(self->nextcursor, self->nextcursordata);
+    self->backend.fgSetCursor(self->nextcursor, self->nextcursordata);
     self->lastcursor = self->nextcursor;
     self->lastcursordata = self->lastcursordata;
   }
@@ -348,7 +381,7 @@ size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
     fgElement* cur = !fgFocusedWindow ? *self : fgFocusedWindow;
     do
     {
-      if((*self->behaviorhook)(cur, msg))
+      if((*self->backend.behaviorhook)(cur, msg))
         return FG_ACCEPT;
       cur = cur->parent;
     } while(cur);
@@ -543,83 +576,7 @@ fgRoot* FG_FASTCALL fgSingleton()
   return fgroot_instance;
 }
 
-template<class T, void (FG_FASTCALL *INIT)(T* BSS_RESTRICT, fgElement* BSS_RESTRICT, fgElement* BSS_RESTRICT, const char*, fgFlag, const fgTransform*)>
-fgElement* _create_default(fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+fgElement* FG_FASTCALL fgCreate(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  T* r = bss_util::bssmalloc<T>(1);
-  INIT(r, parent, next, name, flags, transform);
-  return (fgElement*)r;
-}
-
-fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
-{
-  static bss_util::cTrie<uint16_t, true> t(24, "element", "control", "resource", "text", "box", "scrollbar", "button", "window", "checkbox",
-    "radiobutton", "progressbar", "slider", "textbox", "treeview", "treeitem", "list", "listitem", "curve", "dropdown", "tabcontrol", "menu", "submenu", "menuitem", "debug");
-  
-  switch(t[type])
-  {
-  case 0:
-    return _create_default<fgElement, fgElement_Init>(parent, next, name, flags, transform);
-  case 1:
-    return _create_default<fgControl, fgControl_Init>(parent, next, name, flags, transform);
-  case 2:
-    return _create_default<fgResource, fgResource_Init>(parent, next, name, flags, transform);
-  case 3:
-    return _create_default<fgText, fgText_Init>(parent, next, name, flags, transform);
-  case 4:
-    return _create_default<fgBox, fgBox_Init>(parent, next, name, flags, transform);
-  case 5:
-    return _create_default<fgScrollbar, fgScrollbar_Init>(parent, next, name, flags, transform);
-  case 6:
-    return _create_default<fgButton, fgButton_Init>(parent, next, name, flags, transform);
-  case 7:
-    return _create_default<fgWindow, fgWindow_Init>(parent, next, name, flags, transform);
-  case 8:
-    return _create_default<fgCheckbox, fgCheckbox_Init>(parent, next, name, flags, transform);
-  case 9:
-    return _create_default<fgRadiobutton, fgRadiobutton_Init>(parent, next, name, flags, transform);
-  case 10:
-    return _create_default<fgProgressbar, fgProgressbar_Init>(parent, next, name, flags, transform);
-  case 11:
-    return _create_default<fgSlider, fgSlider_Init>(parent, next, name, flags, transform);
-  case 12:
-    return _create_default<fgTextbox, fgTextbox_Init>(parent, next, name, flags, transform);
-  case 13:
-    return _create_default<fgTreeView, fgTreeView_Init>(parent, next, name, flags, transform);
-  case 14:
-    return _create_default<fgTreeItem, fgTreeItem_Init>(parent, next, name, flags, transform);
-  case 15:
-    return _create_default<fgList, fgList_Init>(parent, next, name, flags, transform);
-  case 16:
-    return _create_default<fgControl, fgListItem_Init>(parent, next, name, flags, transform);
-  case 17:
-    return _create_default<fgCurve, fgCurve_Init>(parent, next, name, flags, transform);
-  case 18:
-    return _create_default<fgDropdown, fgDropdown_Init>(parent, next, name, flags, transform);
-  case 19:
-    return _create_default<fgTabControl, fgTabControl_Init>(parent, next, name, flags, transform);
-  case 20:
-    return _create_default<fgMenu, fgMenu_Init>(parent, next, name, flags, transform);
-  case 21:
-    return _create_default<fgMenu, fgSubmenu_Init>(parent, next, name, flags, transform);
-  case 22:
-    return _create_default<fgMenuItem, fgMenuItem_Init>(parent, next, name, flags, transform);
-  case 23:
-    return _create_default<fgDebug, fgDebug_Init>(parent, next, name, flags, transform);
-  }
-
-  return 0;
-}
-
-short FG_FASTCALL fgMessageMapDefault(const char* name)
-{
-  static bss_util::cTrie<uint16_t, true> t(FG_CUSTOMEVENT, "CONSTRUCT", "DESTROY", "MOVE", "SETALPHA", "SETAREA", "SETTRANSFORM", "SETFLAG", "SETFLAGS", "SETMARGIN", "SETPADDING",
-    "SETPARENT", "ADDCHILD", "REMOVECHILD", "LAYOUTCHANGE", "LAYOUTFUNCTION", "LAYOUTLOAD", "DRAG", "DRAGGING", "DROP", "DRAW", "INJECT", "CLONE", "SETSKIN", "GETSKIN",
-    "SETSTYLE", "GETSTYLE", "GETCLASSNAME", "GETDPI", "SETDPI", "SETUSERDATA", "GETUSERDATA", "MOUSEDOWN", "MOUSEDBLCLICK", "MOUSEUP", "MOUSEON", "MOUSEOFF", "MOUSEMOVE",
-    "MOUSESCROLL", "TOUCHBEGIN", "TOUCHEND", "TOUCHMOVE", "KEYUP", "KEYDOWN", "KEYCHAR", "JOYBUTTONDOWN", "JOYBUTTONUP", "JOYAXIS", "GOTFOCUS", "LOSTFOCUS",
-    "SETNAME", "GETNAME", "NUETRAL", "HOVER", "ACTIVE", "ACTION", "SETDIM", "GETDIM", "GETITEM", "ADDITEM", "REMOVEITEM", "GETSELECTEDITEM", "GETSTATE", "SETSTATE",
-    "SETRESOURCE", "SETUV", "SETCOLOR", "SETOUTLINE", "SETFONT", "SETLINEHEIGHT", "SETLETTERSPACING", "SETTEXT", "GETRESOURCE", "GETUV", "GETCOLOR", "GETOUTLINE", "GETFONT",
-    "GETLINEHEIGHT", "GETLETTERSPACING", "GETTEXT");
-
-  return t[name];
+  return fgroot_instance->backend.fgCreate(type, parent, next, name, flags, transform);
 }

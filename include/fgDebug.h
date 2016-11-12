@@ -4,7 +4,7 @@
 #ifndef __FG_DEBUG_H__
 #define __FG_DEBUG_H__
 
-#include "fgTreeView.h"
+#include "fgTreeview.h"
 
 enum FGDEBUG_FLAGS
 {
@@ -58,8 +58,8 @@ typedef struct _FG_DEBUG_MESSAGE {
 // The debug view is designed as an overlay to help you inspect the current state of the GUI
 typedef struct _FG_DEBUG {
   fgElement element;
-  fgTreeView elements; // TreeView of the elements, minus the debug view itself.
-  fgTreeView messages; // Log of all messages passing through the GUI
+  fgTreeview elements; // TreeView of the elements, minus the debug view itself.
+  fgTreeview messages; // Log of all messages passing through the GUI
   fgText properties; // element properties
   fgText contents; // message contents
   size_t(FG_FASTCALL *behaviorhook)(struct _FG_ELEMENT* self, const FG_Msg* msg);

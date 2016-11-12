@@ -27,26 +27,26 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
     <PlatformToolset>v140_xp</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
     <PlatformToolset>v140_xp</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <PlatformToolset>v140_xp</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -72,24 +72,24 @@
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)bin32\</OutDir>
     <TargetName>$(ProjectName)32_d</TargetName>
-    <TargetExt>.lib</TargetExt>
+    <TargetExt>.dll</TargetExt>
     <IntDir>$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <TargetName>$(ProjectName)_d</TargetName>
-    <TargetExt>.lib</TargetExt>
+    <TargetExt>.dll</TargetExt>
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)bin\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>$(SolutionDir)bin32\</OutDir>
-    <TargetExt>.lib</TargetExt>
+    <TargetExt>.dll</TargetExt>
     <IntDir>$(Platform)\$(Configuration)\</IntDir>
     <TargetName>$(ProjectName)32</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <TargetExt>.lib</TargetExt>
+    <TargetExt>.dll</TargetExt>
     <LinkIncremental>false</LinkIncremental>
     <OutDir>$(SolutionDir)bin\</OutDir>
     <TargetName>$(ProjectName)</TargetName>
@@ -225,26 +225,26 @@
     <ClInclude Include="..\include\fgCombobox.h" />
     <ClInclude Include="..\include\fgDropdown.h" />
     <ClInclude Include="..\include\fgGrid.h" />
-    <ClInclude Include="..\include\fgImplementation.h" />
+    <ClInclude Include="..\include\fgBackend.h" />
     <ClInclude Include="..\include\fgLayout.h" />
     <ClInclude Include="..\include\fgCurve.h" />
     <ClInclude Include="..\include\fgList.h" />
     <ClInclude Include="..\include\fgMenu.h" />
     <ClInclude Include="..\include\fgMonitor.h" />
     <ClInclude Include="..\include\fgProgressbar.h" />
-    <ClInclude Include="..\include\fgRadioButton.h" />
+    <ClInclude Include="..\include\fgRadiobutton.h" />
     <ClInclude Include="..\include\fgResource.h" />
     <ClInclude Include="..\include\fgScrollbar.h" />
     <ClInclude Include="..\include\fgSkin.h" />
     <ClInclude Include="..\include\fgRoot.h" />
     <ClInclude Include="..\include\fgSlider.h" />
     <ClInclude Include="..\include\fgStyle.h" />
-    <ClInclude Include="..\include\fgTabControl.h" />
+    <ClInclude Include="..\include\fgTabcontrol.h" />
     <ClInclude Include="..\include\fgText.h" />
     <ClInclude Include="..\include\fgTextbox.h" />
     <ClInclude Include="..\include\fgToolbar.h" />
     <ClInclude Include="..\include\fgWindow.h" />
-    <ClInclude Include="..\include\fgTreeView.h" />
+    <ClInclude Include="..\include\fgTreeview.h" />
     <ClInclude Include="..\include\fgControl.h" />
     <ClInclude Include="..\include\fgWorkspace.h" />
     <ClInclude Include="feathercpp.h" />
@@ -261,24 +261,24 @@
     <ClCompile Include="fgDropdown.cpp" />
     <ClCompile Include="fgElement.cpp" />
     <ClCompile Include="fgGrid.cpp" />
-    <ClCompile Include="fgImplementation.cpp" />
+    <ClCompile Include="fgBackend.cpp" />
     <ClCompile Include="fgLayout.cpp" />
     <ClCompile Include="fgLayoutFunctions.cpp" />
     <ClCompile Include="fgList.cpp" />
     <ClCompile Include="fgMenu.cpp" />
     <ClCompile Include="fgProgressbar.cpp" />
-    <ClCompile Include="fgRadioButton.cpp" />
+    <ClCompile Include="fgRadiobutton.cpp" />
     <ClCompile Include="fgResource.cpp" />
     <ClCompile Include="fgScrollbar.cpp" />
     <ClCompile Include="fgSkin.cpp" />
     <ClCompile Include="fgRoot.cpp" />
     <ClCompile Include="fgSlider.cpp" />
     <ClCompile Include="fgStyle.cpp" />
-    <ClCompile Include="fgTabControl.cpp" />
+    <ClCompile Include="fgTabcontrol.cpp" />
     <ClCompile Include="fgText.cpp" />
     <ClCompile Include="fgTextbox.cpp" />
     <ClCompile Include="fgWindow.cpp" />
-    <ClCompile Include="fgTreeView.cpp" />
+    <ClCompile Include="fgTreeview.cpp" />
     <ClCompile Include="fgControl.cpp" />
     <ClCompile Include="fgMonitor.cpp" />
   </ItemGroup>

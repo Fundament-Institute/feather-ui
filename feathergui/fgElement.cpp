@@ -80,7 +80,7 @@ char FG_FASTCALL fgElement_PotentialResize(fgElement* self)
 
 fgElement* FG_FASTCALL fgElement_LoadLayout(fgElement* parent, fgElement* next, fgClassLayout* layout)
 {
-  fgElement* element = fgCreate(layout->style.type, parent, next, layout->style.name, layout->style.flags, &layout->style.transform);
+  fgElement* element = fgroot_instance->backend.fgCreate(layout->style.type, parent, next, layout->style.name, layout->style.flags, &layout->style.transform);
   _sendsubmsg<FG_SETSTYLE, void*, size_t>(element, FGSETSTYLE_POINTER, &layout->style.style, ~0);
 
   fgElement* p = 0;
@@ -99,7 +99,7 @@ void FG_FASTCALL fgElement_ApplySkin(fgElement* self, const fgSkin* skin)
   for(FG_UINT i = 0; i < skin->children.l; ++i)
   {
     fgStyleLayout* layout = skin->children.p + i;
-    child = fgCreate(layout->type, self, child, layout->name, layout->flags, &layout->transform);
+    child = fgroot_instance->backend.fgCreate(layout->type, self, child, layout->name, layout->flags, &layout->transform);
     assert(child != 0);
     _sendsubmsg<FG_SETSTYLE, void*, size_t>(child, FGSETSTYLE_POINTER, &layout->style, ~0);
     ((fgSkinRefArray&)self->skinrefs).Add(child);
@@ -166,7 +166,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       if(diff)
       {
         fgElement_MouseMoveCheck(self);
-        fgDirtyElement(self);
+        fgroot_instance->backend.fgDirtyElement(self);
         memcpy(&self->transform.area, area, sizeof(CRect));
         if(msg->subtype != 0)
         {
@@ -177,7 +177,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
           self->transform.area.bottom.abs = fgResolveUnit(self, self->transform.area.bottom.abs, (msg->subtype & FGUNIT_BOTTOM_MASK) >> FGUNIT_BOTTOM);
           if(msg->subtype & FGUNIT_BOTTOM_HEIGHT) self->transform.area.bottom.abs += self->transform.area.top.abs;
         }
-        fgDirtyElement(self);
+        fgroot_instance->backend.fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
         fgSubMessage(self, FG_MOVE, FG_SETAREA, 0, diff);
@@ -194,7 +194,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       if(diff)
       {
         fgElement_MouseMoveCheck(self);
-        fgDirtyElement(self);
+        fgroot_instance->backend.fgDirtyElement(self);
         self->transform.center = transform->center;
         if(msg->subtype != 0)
         {
@@ -202,7 +202,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
           self->transform.center.y.abs = fgResolveUnit(self, self->transform.center.y.abs, (msg->subtype & FGUNIT_Y_MASK) >> FGUNIT_Y);
         }
         self->transform.rotation = transform->rotation;
-        fgDirtyElement(self);
+        fgroot_instance->backend.fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
         fgSubMessage(self, FG_MOVE, FG_SETTRANSFORM, 0, diff);
@@ -232,7 +232,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     if((change&FGELEMENT_EXPAND)&self->flags) // If we change the expansion flags, we must recalculate every single child in our layout provided one of the expansion flags is actually set
       fgSubMessage(self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTRESET, 0, 0);
     if(change&FGELEMENT_HIDDEN || change&FGELEMENT_NOCLIP)
-      fgDirtyElement(self);
+      fgroot_instance->backend.fgDirtyElement(self);
   }
   return FG_ACCEPT;
   case FG_SETMARGIN:
@@ -245,11 +245,11 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       if(diff)
       {
         fgElement_MouseMoveCheck(self);
-        fgDirtyElement(self);
+        fgroot_instance->backend.fgDirtyElement(self);
         memcpy(&self->margin, margin, sizeof(AbsRect));
         if(msg->subtype != 0)
           fgResolveRectUnit(self, self->margin, msg->subtype);
-        fgDirtyElement(self);
+        fgroot_instance->backend.fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
         fgSubMessage(self, FG_MOVE, FG_SETMARGIN, 0, diff | FGMOVE_MARGIN);
@@ -266,11 +266,11 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       if(diff)
       {
         fgElement_MouseMoveCheck(self);
-        fgDirtyElement(self);
+        fgroot_instance->backend.fgDirtyElement(self);
         memcpy(&self->padding, padding, sizeof(AbsRect));
         if(msg->subtype != 0)
           fgResolveRectUnit(self, self->padding, msg->subtype);
-        fgDirtyElement(self);
+        fgroot_instance->backend.fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
         fgSubMessage(self, FG_MOVE, FG_SETPADDING, 0, diff | FGMOVE_PADDING);
@@ -542,16 +542,16 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     fgStyleMsg* cur = style->styles;
     while(cur)
     {
-      (*fgroot_instance->behaviorhook)(self, &cur->msg);
+      (*fgroot_instance->backend.behaviorhook)(self, &cur->msg);
       cur = cur->next;
     }
   }
   return FG_ACCEPT;
   case FG_GETSTYLE:
-    return (self->style == (FG_UINT)-1 && self->parent != 0) ? (*fgroot_instance->behaviorhook)(self->parent, msg) : self->style;
+    return (self->style == (FG_UINT)-1 && self->parent != 0) ? (*fgroot_instance->backend.behaviorhook)(self->parent, msg) : self->style;
   case FG_GOTFOCUS:
     if(self->parent)
-      return (*fgroot_instance->behaviorhook)(self->parent, msg);
+      return (*fgroot_instance->backend.behaviorhook)(self->parent, msg);
     break;
   case FG_DRAGOVER:
     fgRoot_SetCursor(FGCURSOR_NO, 0);
@@ -571,9 +571,9 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
   case FG_GETNAME:
     return (size_t)self->name;
   case FG_GETDPI:
-    return self->parent ? (*fgroot_instance->behaviorhook)(self->parent, msg) : 0;
+    return self->parent ? (*fgroot_instance->backend.behaviorhook)(self->parent, msg) : 0;
   case FG_GETLINEHEIGHT:
-    return self->parent ? (*fgroot_instance->behaviorhook)(self->parent, msg) : 0;
+    return self->parent ? (*fgroot_instance->backend.behaviorhook)(self->parent, msg) : 0;
   case FG_SETDPI:
   {
     fgElement* cur = self->root;
@@ -615,7 +615,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     if(diff != 0)
     {
       fgElement_MouseMoveCheck(self);
-      fgDirtyElement(self);
+      fgroot_instance->backend.fgDirtyElement(self);
       switch(msg->subtype)
       {
       case FGDIM_MAX:
@@ -631,7 +631,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
           fgResolveVecUnit(self, self->mindim, msg->subtype);
         break;
       }
-      fgDirtyElement(self);
+      fgroot_instance->backend.fgDirtyElement(self);
       fgElement_MouseMoveCheck(self);
       fgSubMessage(self, FG_MOVE, FG_SETDIM, 0, diff);
     }
@@ -756,6 +756,7 @@ void FG_FASTCALL ResolveRectCache(const fgElement* self, AbsRect* BSS_RESTRICT o
     out->top = floor(out->top);
     out->bottom = floor(out->bottom);
   }
+  assert(!isnan(out->left) && !isnan(out->top) && !isnan(out->right) && !isnan(out->bottom));
 }
 
 
@@ -847,7 +848,7 @@ size_t FG_FASTCALL fgVoidMessage(fgElement* self, unsigned char type, void* data
   msg.other = data;
   msg.otheraux = aux;
   assert(self != 0);
-  return (*fgroot_instance->behaviorhook)(self, &msg);
+  return (*fgroot_instance->backend.behaviorhook)(self, &msg);
 }
 
 size_t FG_FASTCALL fgIntMessage(fgElement* self, unsigned char type, ptrdiff_t data, size_t aux)
@@ -857,12 +858,12 @@ size_t FG_FASTCALL fgIntMessage(fgElement* self, unsigned char type, ptrdiff_t d
   msg.otherint = data;
   msg.otheraux = aux;
   assert(self != 0);
-  return (*fgroot_instance->behaviorhook)(self, &msg);
+  return (*fgroot_instance->backend.behaviorhook)(self, &msg);
 }
 
 size_t FG_FASTCALL fgPassMessage(fgElement* self, const FG_Msg* msg)
 {
-  return (*fgroot_instance->behaviorhook)(self, msg);
+  return (*fgroot_instance->backend.behaviorhook)(self, msg);
 }
 
 size_t FG_FASTCALL fgSubMessage(fgElement* self, unsigned char type, unsigned char subtype, void* data, ptrdiff_t aux)
@@ -873,7 +874,7 @@ size_t FG_FASTCALL fgSubMessage(fgElement* self, unsigned char type, unsigned ch
   msg.other = data;
   msg.otheraux = aux;
   assert(self != 0);
-  return (*fgroot_instance->behaviorhook)(self, &msg);
+  return (*fgroot_instance->backend.behaviorhook)(self, &msg);
 }
 
 void FG_FASTCALL fgElement_Clear(fgElement* self)
@@ -981,7 +982,7 @@ size_t fgElement::DragOver(int x, int y)
   m.type = FG_DRAGOVER;
   m.x = x;
   m.y = y;
-  return (*fgroot_instance->behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.behaviorhook)(this, &m);
 }
 
 size_t fgElement::Drop(int x, int y, unsigned char allbtn)
@@ -991,7 +992,7 @@ size_t fgElement::Drop(int x, int y, unsigned char allbtn)
   m.x = x;
   m.y = y;
   m.allbtn = allbtn;
-  return (*fgroot_instance->behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.behaviorhook)(this, &m);
 }
 
 void fgElement::Draw(AbsRect* area, int dpi) { _sendmsg<FG_DRAW, void*, size_t>(this, area, dpi); }
@@ -1030,7 +1031,7 @@ size_t FG_FASTCALL fgElement::MouseDown(int x, int y, unsigned char button, unsi
   m.y = y;
   m.button = button;
   m.allbtn = allbtn;
-  return (*fgroot_instance->behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.behaviorhook)(this, &m);
 }
 
 size_t FG_FASTCALL fgElement::MouseDblClick(int x, int y, unsigned char button, unsigned char allbtn)
@@ -1041,7 +1042,7 @@ size_t FG_FASTCALL fgElement::MouseDblClick(int x, int y, unsigned char button, 
   m.y = y;
   m.button = button;
   m.allbtn = allbtn;
-  return (*fgroot_instance->behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.behaviorhook)(this, &m);
 }
 
 size_t FG_FASTCALL fgElement::MouseUp(int x, int y, unsigned char button, unsigned char allbtn)
@@ -1052,7 +1053,7 @@ size_t FG_FASTCALL fgElement::MouseUp(int x, int y, unsigned char button, unsign
   m.y = y;
   m.button = button;
   m.allbtn = allbtn;
-  return (*fgroot_instance->behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.behaviorhook)(this, &m);
 }
 
 size_t FG_FASTCALL fgElement::MouseOn(int x, int y)
@@ -1061,7 +1062,7 @@ size_t FG_FASTCALL fgElement::MouseOn(int x, int y)
   m.type = FG_MOUSEON;
   m.x = x;
   m.y = y;
-  return (*fgroot_instance->behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.behaviorhook)(this, &m);
 }
 
 size_t FG_FASTCALL fgElement::MouseOff(int x, int y)
@@ -1070,7 +1071,7 @@ size_t FG_FASTCALL fgElement::MouseOff(int x, int y)
   m.type = FG_MOUSEOFF;
   m.x = x;
   m.y = y;
-  return (*fgroot_instance->behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.behaviorhook)(this, &m);
 }
 
 size_t FG_FASTCALL fgElement::MouseMove(int x, int y)
@@ -1079,7 +1080,7 @@ size_t FG_FASTCALL fgElement::MouseMove(int x, int y)
   m.type = FG_MOUSEMOVE;
   m.x = x;
   m.y = y;
-  return (*fgroot_instance->behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.behaviorhook)(this, &m);
 }
 
 size_t FG_FASTCALL fgElement::MouseScroll(int x, int y, unsigned short delta, unsigned short hdelta)
@@ -1090,7 +1091,7 @@ size_t FG_FASTCALL fgElement::MouseScroll(int x, int y, unsigned short delta, un
   m.y = y;
   m.scrolldelta = delta;
   m.scrollhdelta = hdelta;
-  return (*fgroot_instance->behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.behaviorhook)(this, &m);
 }
 
 size_t FG_FASTCALL fgElement::KeyUp(unsigned char keycode, char sigkeys)
@@ -1099,7 +1100,7 @@ size_t FG_FASTCALL fgElement::KeyUp(unsigned char keycode, char sigkeys)
   m.type = FG_KEYUP;
   m.keycode = keycode;
   m.sigkeys = sigkeys;
-  return (*fgroot_instance->behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.behaviorhook)(this, &m);
 }
 
 size_t FG_FASTCALL fgElement::KeyDown(unsigned char keycode, char sigkeys)
@@ -1108,7 +1109,7 @@ size_t FG_FASTCALL fgElement::KeyDown(unsigned char keycode, char sigkeys)
   m.type = FG_KEYDOWN;
   m.keycode = keycode;
   m.sigkeys = sigkeys;
-  return (*fgroot_instance->behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.behaviorhook)(this, &m);
 }
 
 size_t FG_FASTCALL fgElement::KeyChar(int keychar, char sigkeys)
@@ -1117,7 +1118,7 @@ size_t FG_FASTCALL fgElement::KeyChar(int keychar, char sigkeys)
   m.type = FG_KEYCHAR;
   m.keychar = keychar;
   m.sigkeys = sigkeys;
-  return (*fgroot_instance->behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.behaviorhook)(this, &m);
 }
 
 size_t FG_FASTCALL fgElement::JoyButtonDown(short joybutton)
@@ -1126,7 +1127,7 @@ size_t FG_FASTCALL fgElement::JoyButtonDown(short joybutton)
   m.type = FG_JOYBUTTONDOWN;
   m.joybutton = joybutton;
   m.joydown = true;
-  return (*fgroot_instance->behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.behaviorhook)(this, &m);
 }
 
 size_t FG_FASTCALL fgElement::JoyButtonUp(short joybutton)
@@ -1135,7 +1136,7 @@ size_t FG_FASTCALL fgElement::JoyButtonUp(short joybutton)
   m.type = FG_JOYBUTTONUP;
   m.joybutton = joybutton;
   m.joydown = false;
-  return (*fgroot_instance->behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.behaviorhook)(this, &m);
 }
 
 size_t FG_FASTCALL fgElement::JoyAxis(float joyvalue, short joyaxis)
@@ -1144,7 +1145,7 @@ size_t FG_FASTCALL fgElement::JoyAxis(float joyvalue, short joyaxis)
   m.type = FG_JOYAXIS;
   m.joyvalue = joyvalue;
   m.joyaxis = joyaxis;
-  return (*fgroot_instance->behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.behaviorhook)(this, &m);
 }
 
 size_t fgElement::GotFocus() { return _sendmsg<FG_GOTFOCUS>(this); }

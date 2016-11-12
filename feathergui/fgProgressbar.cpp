@@ -7,7 +7,7 @@
 
 fgElement* FG_FASTCALL fgProgressbar_Create(FREL value, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
 {
-  fgElement* r = fgCreate("Progressbar", parent, next, name, flags, transform);
+  fgElement* r = fgroot_instance->backend.fgCreate("Progressbar", parent, next, name, flags, transform);
   _sendmsg<FG_SETVALUE, float>(r, value);
   return r;
 }

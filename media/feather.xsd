@@ -3,7 +3,7 @@
 
   <xs:simpleType name="fgFlags">
     <xs:restriction base="xs:string">
-      <xs:pattern value="[A-Z]+(|[A-Z]+)*" />
+      <xs:pattern value="-?[A-Z]+(|-?[A-Z]+)*" />
     </xs:restriction>
   </xs:simpleType>
 
@@ -27,7 +27,7 @@
   
   <xs:simpleType name="fgFlagsCombobox">
     <xs:restriction base="xs:string">
-      <xs:pattern value="(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|HIDEH|HIDEV|SHOWH|SHOWV|EDITBOX)(\|(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|HIDEH|HIDEV|SHOWH|SHOWV|EDITBOX))*" />
+      <xs:pattern value="(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|HIDEH|HIDEV|SHOWH|SHOWV)(\|(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|HIDEH|HIDEV|SHOWH|SHOWV))*" />
     </xs:restriction>
   </xs:simpleType>
 
@@ -51,7 +51,13 @@
 
   <xs:simpleType name="fgFlagsResource">
     <xs:restriction base="xs:string">
-      <xs:pattern value="(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|ROUNDRECT|CIRCLE|LINE)(\|(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|ROUNDRECT|CIRCLE|LINE))*" />
+      <xs:pattern value="(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|ROUNDRECT|CIRCLE)(\|(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|ROUNDRECT|CIRCLE))*" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="fgFlagsCurve">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|LINE|QUADRATIC|CUBIC|BSPLINE)(\|(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|LINE|QUADRATIC|CUBIC|BSPLINE))*" />
     </xs:restriction>
   </xs:simpleType>
 
@@ -83,7 +89,7 @@
 
   <xs:simpleType name="fgHex">
     <xs:restriction base="xs:string">
-      <xs:pattern value="0x[0-9A-Fa-f]+"/>
+      <xs:pattern value="0(x[0-9A-Fa-f]+)?"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -107,13 +113,19 @@
 
   <xs:simpleType name="fgRect">
     <xs:restriction base="xs:string">
-      <xs:pattern value="(\+|-)?[0-9]*(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?%?)?(, |,| )[0-9]+(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?%?)?(, |,| )[0-9]+(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?%?)?(, |,| )[0-9]+(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?%?)?"/>
+      <xs:pattern value="(\+|-)?[0-9]*(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?%?)?(, |,| )(\+|-)?[0-9]+(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?%?)?(, |,| )(\+|-)?[0-9]+(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?%?)?(, |,| )(\+|-)?[0-9]+(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?%?)?"/>
     </xs:restriction>
   </xs:simpleType>
 
   <xs:simpleType name="fgVec">
     <xs:restriction base="xs:string">
       <xs:pattern value="(\+|-)?[0-9]*(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?%?)?(, |,| )(\+|-)?[0-9]*(\.[0-9]+)?(%|(em|dp|sp|px)?:(\+|-)?[0-9]*(\.[0-9]+)?%?)?"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="fgPoints">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(\+|-)?[0-9]*(\.[0-9]+)?(em|dp|sp|px)?,(\+|-)?[0-9]*(\.[0-9]+)?(em|dp|sp|px)?(;(\+|-)?[0-9]*(\.[0-9]+)?(em|dp|sp|px)?,(\+|-)?[0-9]*(\.[0-9]+)?(em|dp|sp|px)?)*"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -139,6 +151,7 @@
       <xs:element name="Window" type="fgWindow" />
       <xs:element name="TreeView" type="fgTreeView" />
       <xs:element name="Toolbar" type="fgToolbar" />
+      <xs:element name="Curve" type="fgCurve" />
     </xs:choice>
   </xs:group>
   
@@ -251,6 +264,8 @@
     <xs:complexContent>
       <xs:extension base="fgLayout">
         <xs:attribute name="flags" type="fgFlagsList"/>
+        <xs:attribute name="selectcolor" type="fgHex"/>
+        <xs:attribute name="hovercolor" type="fgHex"/>
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
@@ -263,6 +278,7 @@
           <xs:group ref="fgControlGroup" minOccurs="0" maxOccurs="unbounded" />
         </xs:sequence>
         <xs:attribute name="flags" type="fgFlagsList"/>
+        <xs:attribute name="dragcolor" type="fgHex"/>
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
@@ -318,6 +334,17 @@
     </xs:complexContent>
   </xs:complexType>
 
+  <xs:complexType name="fgCurve">
+    <xs:complexContent>
+      <xs:extension base="fgLayout">
+        <xs:attribute name="flags" type="fgFlagsCurve"/>
+        <xs:attribute name="color" type="fgHex"/>
+        <xs:attribute name="points" type="fgPoints"/>
+        <xs:attribute name="value" type="xs:decimal" default="0.1" />
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
   <xs:complexType name="fgSlider">
     <xs:complexContent>
       <xs:extension base="fgLayout">
@@ -360,6 +387,9 @@
       <xs:extension base="fgLayoutText">
         <xs:attribute name="flags" type="fgFlagsTextbox"/>
         <xs:attribute name="placeholder" type="xs:string"/>
+        <xs:attribute name="cursorcolor" type="fgHex"/>
+        <xs:attribute name="placecolor" type="fgHex"/>
+        <xs:attribute name="selectcolor" type="fgHex"/>
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
@@ -428,16 +458,21 @@
       <xs:extension base="fgLayoutBase">
         <xs:attribute name="flags" type="fgFlags"/>
         <xs:attribute name="text" type="xs:string"/>
-        <xs:attribute name="color" type="fgHex"/>
+        <xs:attribute name="placeholder" type="xs:string"/>
         <xs:attribute name="font" type="fgFont"/>
         <xs:attribute name="lineheight" type="fgUnit"/>
         <xs:attribute name="letterspacing" type="xs:decimal"/>
         <xs:attribute name="value" type="xs:string"/>
         <xs:attribute name="uv" type="fgRect"/>
         <xs:attribute name="resource" type="xs:string"/>
-        <xs:attribute name="edgecolor" type="fgHex"/>
         <xs:attribute name="outline" type="fgUnit"/>
-        <xs:attribute name="placeholder" type="xs:string"/>
+        <xs:attribute name="color" type="fgHex"/>
+        <xs:attribute name="placecolor" type="fgHex"/>
+        <xs:attribute name="cursorcolor" type="fgHex"/>
+        <xs:attribute name="selectcolor" type="fgHex"/>
+        <xs:attribute name="hovercolor" type="fgHex"/>
+        <xs:attribute name="dragcolor" type="fgHex"/>
+        <xs:attribute name="edgecolor" type="fgHex"/>
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
@@ -465,6 +500,7 @@
       <xs:element name="TreeView" type="fgTreeView" />
       <xs:element name="Style" type="fgStyle" />
       <xs:element name="Skin" type="fgSkin" />
+      <xs:element name="Curve" type="fgCurve" />
     </xs:choice>
   </xs:group>
 

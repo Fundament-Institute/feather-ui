@@ -47,9 +47,9 @@ size_t FG_FASTCALL fgDebug_Message(fgDebug* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgElement_Message(&self->element, msg);
-    fgTreeView_Init(&self->elements, *self, 0, "Debug$elements", 0, &fgTransform { { -300,1,0,0,0,1,0,1 }, 0, { 0,0,0,0 } });
+    fgTreeview_Init(&self->elements, *self, 0, "Debug$elements", 0, &fgTransform { { -300,1,0,0,0,1,0,1 }, 0, { 0,0,0,0 } });
     fgText_Init(&self->properties, *self, 0, "Debug$properties", FGELEMENT_HIDDEN, &fgTransform { { -300,1,-200,1,0,1,0,1 }, 0, { 0,0,0,0 } });
-    fgTreeView_Init(&self->messages, *self, 0, "Debug$messages", 0, &fgTransform { { 0,0,0,0,200,0,0,1 }, 0, { 0,0,0,0 } });
+    fgTreeview_Init(&self->messages, *self, 0, "Debug$messages", 0, &fgTransform { { 0,0,0,0,200,0,0,1 }, 0, { 0,0,0,0 } });
     fgText_Init(&self->contents, *self, 0, "Debug$contents", FGELEMENT_HIDDEN, &fgTransform { { 0,0,-200,1,200,0,0,1 }, 0, { 0,0,0,0 } });
     self->messagelog.p = 0;
     self->messagelog.l = 0;
@@ -83,15 +83,15 @@ size_t FG_FASTCALL fgDebug_Message(fgDebug* self, const FG_Msg* msg)
       totalarea.right += self->hover->margin.right;
       totalarea.bottom += self->hover->margin.bottom;
 
-      fgDrawResource(0, &CRect { 0,0,0,0,0,0,0,0 }, 0x666666FF, 0, 0.0f, &totalarea, 0, &AbsVec { 0,0 }, FGRESOURCE_ROUNDRECT);
-      fgDrawResource(0, &CRect { 0,0,0,0,0,0,0,0 }, 0x6666FFFF, 0, 0.0f, &r, 0, &AbsVec { 0,0 }, FGRESOURCE_ROUNDRECT);
-      fgDrawResource(0, &CRect { 0,0,0,0,0,0,0,0 }, 0x6666FF66, 0, 0.0f, &clientarea, 0, &AbsVec { 0,0 }, FGRESOURCE_ROUNDRECT);
+      fgroot_instance->backend.fgDrawResource(0, &CRect { 0,0,0,0,0,0,0,0 }, 0x666666FF, 0, 0.0f, &totalarea, 0, &AbsVec { 0,0 }, FGRESOURCE_ROUNDRECT);
+      fgroot_instance->backend.fgDrawResource(0, &CRect { 0,0,0,0,0,0,0,0 }, 0x6666FFFF, 0, 0.0f, &r, 0, &AbsVec { 0,0 }, FGRESOURCE_ROUNDRECT);
+      fgroot_instance->backend.fgDrawResource(0, &CRect { 0,0,0,0,0,0,0,0 }, 0x6666FF66, 0, 0.0f, &clientarea, 0, &AbsVec { 0,0 }, FGRESOURCE_ROUNDRECT);
       if(self->font)
       {
         unsigned int pt, dpi;
         float lh = self->lineheight;
         if(lh == 0.0f)
-          fgFontGet(self->font, &lh, &pt, &dpi);
+          fgroot_instance->backend.fgFontGet(self->font, &lh, &pt, &dpi);
         char utf8buf[50] = { 0 };
         int utf32buf[50] = { 0 };
         AbsRect txtarea = totalarea;
@@ -100,41 +100,41 @@ size_t FG_FASTCALL fgDebug_Message(fgDebug* self, const FG_Msg* msg)
         fgUTF8toUTF32(utf8buf, len, utf32buf, 50);
         txtarea.bottom = totalarea.top;
         txtarea.top -= lh;
-        fgDrawFont(self->font, utf32buf, self->lineheight, self->letterspacing, self->color.color, &txtarea, 0, &AbsVec { 0,0 }, 0, 0);
+        fgroot_instance->backend.fgDrawFont(self->font, utf32buf, self->lineheight, self->letterspacing, self->color.color, &txtarea, 0, &AbsVec { 0,0 }, 0, 0);
         
         len = snprintf(utf8buf, 50, "%.0f, %.0f", totalarea.right, totalarea.bottom);
         fgUTF8toUTF32(utf8buf, len, utf32buf, 50);
         txtarea.bottom = totalarea.bottom - lh;
         txtarea.top = totalarea.bottom;
         txtarea.left = txtarea.right;
-        fgDrawFont(self->font, utf32buf, self->lineheight, self->letterspacing, self->color.color, &txtarea, 0, &AbsVec { 0,0 }, 0, 0);
+        fgroot_instance->backend.fgDrawFont(self->font, utf32buf, self->lineheight, self->letterspacing, self->color.color, &txtarea, 0, &AbsVec { 0,0 }, 0, 0);
       }
     }
     break;
   case FG_SETFONT:
-    if(self->font) fgDestroyFont(self->font);
+    if(self->font) fgroot_instance->backend.fgDestroyFont(self->font);
     self->font = 0;
     if(msg->other)
     {
       size_t dpi = _sendmsg<FG_GETDPI>(*self);
       unsigned int fontdpi;
       unsigned int fontsize;
-      fgFontGet(msg->other, 0, &fontsize, &fontdpi);
-      self->font = (dpi == fontdpi) ? fgCloneFont(msg->other) : fgCopyFont(msg->other, fontsize, fontdpi);
+      fgroot_instance->backend.fgFontGet(msg->other, 0, &fontsize, &fontdpi);
+      self->font = (dpi == fontdpi) ? fgroot_instance->backend.fgCloneFont(msg->other) : fgroot_instance->backend.fgCopyFont(msg->other, fontsize, fontdpi);
     }
-    fgDirtyElement(*self);
+    fgroot_instance->backend.fgDirtyElement(*self);
     return FG_ACCEPT;
   case FG_SETLINEHEIGHT:
     self->lineheight = msg->otherf;
-    fgDirtyElement(*self);
+    fgroot_instance->backend.fgDirtyElement(*self);
     return FG_ACCEPT;
   case FG_SETLETTERSPACING:
     self->letterspacing = msg->otherf;
-    fgDirtyElement(*self);
+    fgroot_instance->backend.fgDirtyElement(*self);
     return FG_ACCEPT;
   case FG_SETCOLOR:
     self->color.color = (unsigned int)msg->otherint;
-    fgDirtyElement(*self);
+    fgroot_instance->backend.fgDirtyElement(*self);
     return FG_ACCEPT;
   case FG_GETFONT:
     return reinterpret_cast<size_t>(self->font);
@@ -264,14 +264,14 @@ void FG_FASTCALL fgDebug_TreeInsert(fgElement* parent, fgElement* element, fgEle
 
   if(treeview != 0)
   {
-    root = fgCreate("TreeItem", parent, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY);
+    root = fgroot_instance->backend.fgCreate("TreeItem", parent, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY);
     root->message = (fgMessage)&fgTreeItem_DebugMessage;
     root->userdata = element;
   }
   else
     treeview = !fgdebug_instance ? parent : *fgdebug_instance;
 
-  fgElement* text = fgCreate("Text", root, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY);
+  fgElement* text = fgroot_instance->backend.fgCreate("Text", root, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY);
 
   if(element->GetName())
     text->SetText(element->GetName());
@@ -308,20 +308,20 @@ FG_EXTERN void FG_FASTCALL fgDebug_Show(float left, float right)
 {
   if(!fgdebug_instance)
     fgDebug_Init((fgDebug*)malloc(sizeof(fgDebug)), *fgroot_instance, 0, 0, FGELEMENT_HIDDEN, &fgTransform_DEFAULT);
-  if(fgroot_instance->behaviorhook == &fgRoot_BehaviorDebug)
+  if(fgroot_instance->backend.behaviorhook == &fgRoot_BehaviorDebug)
     return; // Prevent an infinite loop
 
   fgdebug_instance->elements->SetTransform(fgTransform { { -right,1,0,0,0,1,0,1 }, 0, { 0,0,0,0 } });
   fgdebug_instance->messages->SetTransform(fgTransform { { 0,0,0,0,left,0,0,1 }, 0, { 0,0,0,0 } });
   fgdebug_instance->element.SetTransform(fgTransform_DEFAULT);
-  fgdebug_instance->behaviorhook = fgroot_instance->behaviorhook;
+  fgdebug_instance->behaviorhook = fgroot_instance->backend.behaviorhook;
   fgDebug_BuildTree(fgdebug_instance->elements);
   fgdebug_instance->element.SetFlag(FGELEMENT_HIDDEN, false);
-  fgroot_instance->behaviorhook = &fgRoot_BehaviorDebug;
+  fgroot_instance->backend.behaviorhook = &fgRoot_BehaviorDebug;
 }
 FG_EXTERN void FG_FASTCALL fgDebug_Hide()
 {
-  fgroot_instance->behaviorhook = fgdebug_instance->behaviorhook;
+  fgroot_instance->backend.behaviorhook = fgdebug_instance->behaviorhook;
   fgdebug_instance->element.SetFlag(FGELEMENT_HIDDEN, true);
   if(fgdebug_instance->element.flags&FGDEBUG_CLEARONHIDE)
     fgDebug_ClearLog(fgdebug_instance);
@@ -450,8 +450,8 @@ size_t FG_FASTCALL fgDebug_LogMessage(fgDebug* self, const FG_Msg* msg, unsigned
 
   if(msg->type != FG_INJECT && msg->type != FG_MOUSEMOVE)
   {
-    fgElement* elem = fgCreate("TreeItem", self->depthelement, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY);
-    fgElement* text = fgCreate("Text", elem, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY);
+    fgElement* elem = fgroot_instance->backend.fgCreate("TreeItem", self->depthelement, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY);
+    fgElement* text = fgroot_instance->backend.fgCreate("Text", elem, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY);
     text->SetText(fgDebug_GetMessageString(msg->type));
 
     AbsRect r;

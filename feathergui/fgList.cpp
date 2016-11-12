@@ -64,7 +64,7 @@ void fgList_Draw(fgElement* self, const AbsRect* area, size_t dpi)
     {
       AbsRect r;
       ResolveRectCache(realself->selected.p[i], &r, area, (realself->selected.p[i]->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
-      fgDrawResource(0, &CRect { 0 }, realself->select.color, 0, 0.0f, &r, 0.0f, &AbsVec { 0,0 }, FGRESOURCE_ROUNDRECT);
+      fgroot_instance->backend.fgDrawResource(0, &CRect { 0 }, realself->select.color, 0, 0.0f, &r, 0.0f, &AbsVec { 0,0 }, FGRESOURCE_ROUNDRECT);
     }
   }
 
@@ -78,7 +78,7 @@ void fgList_Draw(fgElement* self, const AbsRect* area, size_t dpi)
       ResolveRectCache(target, &r, (AbsRect*)&cache, (target->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
       float y = (realself->mouse.y > ((r.top + r.bottom) * 0.5f)) ? r.bottom : r.top;
       AbsVec line[2] = { { r.left, y }, { r.right - 1, y } };
-      fgDrawLines(line, 2, realself->drag.color, &AbsVec { 0,0 }, &AbsVec { 1,1 }, 0, &AbsVec { 0,0 });
+      fgroot_instance->backend.fgDrawLines(line, 2, realself->drag.color, &AbsVec { 0,0 }, &AbsVec { 1,1 }, 0, &AbsVec { 0,0 });
     }
   }
   else
@@ -89,7 +89,7 @@ void fgList_Draw(fgElement* self, const AbsRect* area, size_t dpi)
     {
       AbsRect r;
       ResolveRectCache(target, &r, &cache, (target->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
-      fgDrawResource(0, &CRect { 0 }, realself->hover.color, 0, 0.0f, &r, 0.0f, &AbsVec { 0,0 }, FGRESOURCE_ROUNDRECT);
+      fgroot_instance->backend.fgDrawResource(0, &CRect { 0 }, realself->hover.color, 0, 0.0f, &r, 0.0f, &AbsVec { 0,0 }, FGRESOURCE_ROUNDRECT);
     }
   }
 }
@@ -151,7 +151,8 @@ size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
       fgElement* target = fgElement_GetChildUnderMouse(*self, msg->x, msg->y, &cache); // find item below the mouse cursor (if any) and initiate a drag for it.
       if(target != 0)
       {
-        fgDragStart(FGCLIPBOARD_ELEMENT, target, target);
+        fgroot_instance->backend.fgDragStart(FGCLIPBOARD_ELEMENT, target, target);
+        fgCaptureWindow = 0;
         self->mouse.state &= ~FGMOUSE_INSIDE;
       }
     }
