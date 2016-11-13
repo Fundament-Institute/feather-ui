@@ -18,9 +18,9 @@ size_t FG_FASTCALL fgTreeItemArrow_Message(fgElement* self, const FG_Msg* msg)
   return fgElement_Message(self, msg);
 }
 
-void FG_FASTCALL fgTreeItem_Init(fgTreeItem* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+void FG_FASTCALL fgTreeItem_Init(fgTreeItem* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  fgElement_InternalSetup(&self->control.element, parent, next, name, flags, transform, (fgDestroy)&fgTreeItem_Destroy, (fgMessage)&fgTreeItem_Message);
+  fgElement_InternalSetup(&self->control.element, parent, next, name, flags, transform, units, (fgDestroy)&fgTreeItem_Destroy, (fgMessage)&fgTreeItem_Message);
 }
 size_t FG_FASTCALL fgTreeItem_Message(fgTreeItem* self, const FG_Msg* msg)
 {
@@ -32,7 +32,7 @@ size_t FG_FASTCALL fgTreeItem_Message(fgTreeItem* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgControl_Message(&self->control, msg);
-    fgElement_Init(&self->arrow, &self->control.element, 0, ARROWNAME, FGELEMENT_BACKGROUND|FGELEMENT_HIDDEN, &fgTransform_EMPTY);
+    fgElement_Init(&self->arrow, &self->control.element, 0, ARROWNAME, FGELEMENT_BACKGROUND|FGELEMENT_HIDDEN, 0, 0);
     self->arrow.message = (fgMessage)&fgTreeItemArrow_Message;
     self->count = EXPANDED;
     fgMaskSetStyle(&self->arrow, "visible", fgStyleGetMask("visible", "hidden"));
@@ -87,9 +87,9 @@ void FG_FASTCALL fgTreeItem_Destroy(fgTreeItem* self)
 {
   fgControl_Destroy(&self->control);
 }
-void FG_FASTCALL fgTreeview_Init(fgTreeview* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+void FG_FASTCALL fgTreeview_Init(fgTreeview* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  fgElement_InternalSetup(*self, parent, next, 0, flags, transform, (fgDestroy)&fgTreeview_Destroy, (fgMessage)&fgTreeview_Message);
+  fgElement_InternalSetup(*self, parent, next, 0, flags, transform, units, (fgDestroy)&fgTreeview_Destroy, (fgMessage)&fgTreeview_Message);
 }
 void FG_FASTCALL fgTreeview_Destroy(fgTreeview* self)
 {

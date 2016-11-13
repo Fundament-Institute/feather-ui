@@ -304,7 +304,7 @@ enum FG_MSGTYPE
   FG_SETNAME, // Sets the unique name for this object for skin collection mapping. Can be null.
   FG_GETNAME, // May return a unique string for this object, or will return NULL.
   // fgButton and others
-  FG_NUETRAL, // Sent when a button or other hover-enabled control switches to it's nuetral state
+  FG_NEUTRAL, // Sent when a button or other hover-enabled control switches to it's neutral state
   FG_HOVER, // Sent when a hover-enabled control switches to its hover state
   FG_ACTIVE, // Sent when a hover-enabled control switches to its active state
   FG_ACTION, // Sent when a hover-enabled control recieves a valid click event (a MOUSEUP inside the control while it has focus)
@@ -620,7 +620,7 @@ typedef struct _FG_MSG {
     };
   };
   unsigned short type;
-  unsigned char subtype;
+  unsigned short subtype;
 
 #ifdef __cplusplus
   inline bool IsPressed() const { return (button&allbtn) != 0; }

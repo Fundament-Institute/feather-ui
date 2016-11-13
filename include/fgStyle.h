@@ -39,7 +39,7 @@ inline fgStyleMsg* AddStyleMsg(fgStyle* style, Args... args)
   return fgStyle_AddStyleMsg(style, &msg, 0, 0, 0, 0);
 }
 template<FG_MSGTYPE type, typename... Args>
-inline fgStyleMsg* AddStyleSubMsg(fgStyle* style, unsigned char sub, Args... args)
+inline fgStyleMsg* AddStyleSubMsg(fgStyle* style, unsigned short sub, Args... args)
 {
   FG_Msg msg = { 0 };
   msg.type = type;
@@ -56,7 +56,7 @@ inline fgStyleMsg* AddStyleMsgArg(fgStyle* style, const Arg* arg, Args... args)
   return fgStyle_AddStyleMsg(style, &msg, arg, sizeof(Arg), 0, 0);
 }
 template<FG_MSGTYPE type, typename Arg, typename... Args>
-inline fgStyleMsg* AddStyleSubMsgArg(fgStyle* style, unsigned char sub, const Arg* arg, Args... args)
+inline fgStyleMsg* AddStyleSubMsgArg(fgStyle* style, unsigned short sub, const Arg* arg, Args... args)
 {
   FG_Msg msg = { 0 };
   msg.type = type;

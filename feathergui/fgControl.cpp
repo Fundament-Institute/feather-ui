@@ -10,9 +10,9 @@ fgElement* fgFocusedWindow = 0;
 fgElement* fgLastHover = 0;
 fgElement* fgCaptureWindow = 0;
 
-void FG_FASTCALL fgControl_Init(fgControl* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+void FG_FASTCALL fgControl_Init(fgControl* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  fgElement_InternalSetup(&self->element, parent, next, name, flags, transform, (fgDestroy)&fgControl_Destroy, (fgMessage)&fgControl_Message);
+  fgElement_InternalSetup(&self->element, parent, next, name, flags, transform, units, (fgDestroy)&fgControl_Destroy, (fgMessage)&fgControl_Message);
 }
 
 void FG_FASTCALL fgControl_Destroy(fgControl* self)
@@ -80,7 +80,7 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
     self->contextmenu = 0;
     self->tabnext = self->tabprev = self; // This creates an infinite loop of tabbing
     self->sidenext = self->sideprev = self;
-    fgStandardNuetralSetStyle(*self, "nuetral");
+    fgStandardNeutralSetStyle(*self, "neutral");
     return FG_ACCEPT;
   case FG_KEYDOWN:
   {
@@ -131,14 +131,14 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
     if(fgFocusedWindow) // We do this here so you can disable getting focus by blocking this message without messing things up
       _sendmsg<FG_LOSTFOCUS, void*>(fgFocusedWindow, self);
     fgFocusedWindow = *self;
-    fgStandardNuetralSetStyle(*self, "focused", FGSETSTYLE_SETFLAG);
+    fgStandardNeutralSetStyle(*self, "focused", FGSETSTYLE_SETFLAG);
     return FG_ACCEPT;
   case FG_LOSTFOCUS:
     assert(fgFocusedWindow == *self);
     if(fgFocusedWindow == *self)
     {
       fgFocusedWindow = 0;
-      fgStandardNuetralSetStyle(*self, "focused", FGSETSTYLE_REMOVEFLAG);
+      fgStandardNeutralSetStyle(*self, "focused", FGSETSTYLE_REMOVEFLAG);
       if(self->element.parent)
       {
         if(self->element.parent->lastfocus == *self) // if the lastfocus was already us set it to 0.
@@ -237,7 +237,7 @@ size_t FG_FASTCALL fgControl_HoverMessage(fgControl* self, const FG_Msg* msg)
       fgCaptureWindow = 0;
     break;
   case FG_MOUSEOFF:
-    _sendmsg<FG_NUETRAL>(*self);
+    _sendmsg<FG_NEUTRAL>(*self);
     break;
   case FG_MOUSEDOWN:
     if(msg->button == FG_MOUSELBUTTON)

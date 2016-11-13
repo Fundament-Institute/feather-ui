@@ -5,9 +5,9 @@
 #include "feathercpp.h"
 #include "fgCurve.h"
 
-void FG_FASTCALL fgTextbox_Init(fgTextbox* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+void FG_FASTCALL fgTextbox_Init(fgTextbox* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (fgDestroy)&fgTextbox_Destroy, (fgMessage)&fgTextbox_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgTextbox_Destroy, (fgMessage)&fgTextbox_Message);
 }
 void FG_FASTCALL fgTextbox_Destroy(fgTextbox* self)
 {
@@ -52,7 +52,7 @@ inline void FG_FASTCALL fgTextbox_fixpos(fgTextbox* self, size_t cursor, AbsVec*
     text[self->text.l] = 0;
   }
   *r = fgroot_instance->backend.fgFontPos(self->font, text, self->lineheight, self->letterspacing, &self->areacache, self->scroll->flags, cursor, self->cache);
-  AbsRect to = { r->x, r->y, r->x, r->y + self->lineheight*1.125 }; // We don't know what the descender is, so we estimate it as 1/8 the lineheight.
+  AbsRect to = { r->x, r->y, r->x, r->y + self->lineheight*1.125f }; // We don't know what the descender is, so we estimate it as 1/8 the lineheight.
   _sendsubmsg<FG_ACTION, void*>(*self, FGSCROLLBAR_SCROLLTO, &to);
   self->lastx = self->startpos.x;
 }
@@ -67,7 +67,7 @@ inline size_t FG_FASTCALL fgTextbox_fixindex(fgTextbox* self, AbsVec pos, AbsVec
     text[self->text.l] = 0;
   }
   size_t r = fgroot_instance->backend.fgFontIndex(self->font, text, self->lineheight, self->letterspacing, &self->areacache, self->scroll->flags, pos, cursor, self->cache);
-  AbsRect to = { cursor->x, cursor->y, cursor->x, cursor->y + self->lineheight*1.125 };
+  AbsRect to = { cursor->x, cursor->y, cursor->x, cursor->y + self->lineheight*1.125f };
   _sendsubmsg<FG_ACTION, void*>(*self, FGSCROLLBAR_SCROLLTO, &to);
   return r;
 }
@@ -302,12 +302,12 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
     self->lastclick = fgroot_instance->time;
     return FG_ACCEPT;
   case FG_SETTEXT:
-    switch(msg->otheraux)
+    switch(msg->subtype)
     {
     case FGSETTEXT_PLACEHOLDER_UTF8:
     case FGSETTEXT_UTF8:
     {
-      auto target = ((msg->otheraux == FGSETTEXT_UTF8) ? &self->text : &self->placeholder);
+      auto target = ((msg->subtype == FGSETTEXT_UTF8) ? &self->text : &self->placeholder);
       ((bss_util::cDynArray<int>*)target)->Clear();
       ((bss_util::cDynArray<char>*)&self->buf)->Clear();
       if(msg->other)
@@ -322,7 +322,7 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
     case FGSETTEXT_PLACEHOLDER_UTF32:
     case FGSETTEXT_UTF32:
     {
-      auto target = ((msg->otheraux == FGSETTEXT_UTF32) ? &self->text : &self->placeholder);
+      auto target = ((msg->subtype == FGSETTEXT_UTF32) ? &self->text : &self->placeholder);
       size_t len = 0;
       while(((int*)msg->other)[len++] != 0);
       ((bss_util::cDynArray<int>*)target)->Reserve(len);
@@ -330,7 +330,7 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
     }
       break;
     case FGSETTEXT_MASK:
-      self->mask = msg->otherint;
+      self->mask = (int)msg->otherint;
       break;
     }
     fgSubMessage(*self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTMOVE, self, FGMOVE_PROPAGATE | FGMOVE_RESIZE);

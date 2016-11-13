@@ -5,16 +5,9 @@
 #include "fgSkin.h"
 #include "feathercpp.h"
 
-fgElement* FG_FASTCALL fgProgressbar_Create(FREL value, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+void FG_FASTCALL fgProgressbar_Init(fgProgressbar* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  fgElement* r = fgroot_instance->backend.fgCreate("Progressbar", parent, next, name, flags, transform);
-  _sendmsg<FG_SETVALUE, float>(r, value);
-  return r;
-}
-
-void FG_FASTCALL fgProgressbar_Init(fgProgressbar* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
-{
-  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (fgDestroy)&fgProgressbar_Destroy, (fgMessage)&fgProgressbar_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgProgressbar_Destroy, (fgMessage)&fgProgressbar_Message);
 }
 
 void FG_FASTCALL fgProgressbar_Destroy(fgProgressbar* self)
@@ -31,15 +24,9 @@ size_t FG_FASTCALL fgProgressbar_Message(fgProgressbar* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgControl_Message(&self->control, msg);
-    fgElement_Init(&self->bar, *self, 0, "Progressbar$bar", FGELEMENT_BACKGROUND | FGELEMENT_IGNORE, &BAR_ELEMENT);
-    fgText_Init(&self->text, *self, 0, "Progressbar$text", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
+    fgElement_Init(&self->bar, *self, 0, "Progressbar$bar", FGELEMENT_BACKGROUND | FGELEMENT_IGNORE, &BAR_ELEMENT, 0);
+    fgText_Init(&self->text, *self, 0, "Progressbar$text", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER, 0);
     self->value = 0.0f;
-    return FG_ACCEPT;
-  case FG_ADDITEM:
-    if(msg->other)
-      _sendmsg<FG_ADDCHILD, void*>(&self->bar, msg->other);
-    else
-      fgElement_Clear(&self->bar);
     return FG_ACCEPT;
   case FG_SETVALUE:
     if(msg->subtype <= FGVALUE_FLOAT)

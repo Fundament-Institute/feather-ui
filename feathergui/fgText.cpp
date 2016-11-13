@@ -6,17 +6,17 @@
 #include "bss-util/cDynArray.h"
 #include <math.h>
 
-fgElement* FG_FASTCALL fgText_Create(char* text, void* font, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+fgElement* FG_FASTCALL fgText_Create(char* text, void* font, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  fgElement* r = fgroot_instance->backend.fgCreate("Text", parent, next, name, flags, transform);
+  fgElement* r = fgroot_instance->backend.fgCreate("Text", parent, next, name, flags, transform, units);
   if(color) fgIntMessage(r, FG_SETCOLOR, color, 0);
   if(text) _sendmsg<FG_SETTEXT, void*>(r, text);
   if(font) _sendmsg<FG_SETFONT, void*>(r, font);
   return r;
 }
-void FG_FASTCALL fgText_Init(fgText* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+void FG_FASTCALL fgText_Init(fgText* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (fgDestroy)&fgText_Destroy, (fgMessage)&fgText_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgText_Destroy, (fgMessage)&fgText_Message);
 }
 
 void FG_FASTCALL fgText_Destroy(fgText* self)
@@ -48,14 +48,14 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
     ((bss_util::cDynArray<char>*)&self->buf)->Clear();
     if(msg->other)
     {
-      if(msg->otheraux == FGSETTEXT_UTF8)
+      if(msg->subtype == FGSETTEXT_UTF8)
       {
         ((bss_util::cDynArray<char>*)&self->buf)->operator=(bss_util::cArraySlice<const char>((const char*)msg->other, strlen((const char*)msg->other) + 1));
         size_t len = fgUTF8toUTF32(self->buf.p, -1, 0, 0);
         ((bss_util::cDynArray<int>*)&self->text)->Reserve(len);
         self->text.l = fgUTF8toUTF32(self->buf.p, -1, self->text.p, self->text.s);
       }
-      else if(msg->otheraux == FGSETTEXT_UTF32)
+      else if(msg->subtype == FGSETTEXT_UTF32)
       {
         int* txt = (int*)msg->other;
         size_t len = 0;
@@ -115,7 +115,7 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
     if(self->font != 0 && !(msg->subtype & 1))
     {
       AbsRect area = *(AbsRect*)msg->other;
-      float scale = (!msg->otheraux || !fgroot_instance->dpi) ? 1.0 : (fgroot_instance->dpi / (float)msg->otheraux);
+      float scale = (!msg->otheraux || !fgroot_instance->dpi) ? 1.0f : (fgroot_instance->dpi / (float)msg->otheraux);
       area.left *= scale;
       area.top *= scale;
       area.right *= scale;

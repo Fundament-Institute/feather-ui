@@ -20,7 +20,7 @@ typedef struct {
 #endif
 } fgCombobox;
 
-FG_EXTERN void FG_FASTCALL fgCombobox_Init(fgCombobox* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
+FG_EXTERN void FG_FASTCALL fgCombobox_Init(fgCombobox* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
 FG_EXTERN void FG_FASTCALL fgCombobox_Destroy(fgCombobox* self);
 FG_EXTERN size_t FG_FASTCALL fgCombobox_Message(fgCombobox* self, const FG_Msg* msg);
 

@@ -4,10 +4,10 @@
 #include "fgDropdown.h"
 #include "feathercpp.h"
 
-void FG_FASTCALL fgDropdown_Init(fgDropdown* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+void FG_FASTCALL fgDropdown_Init(fgDropdown* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
   memset(self, sizeof(fgDropdown), 0);
-  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (fgDestroy)&fgDropdown_Destroy, (fgMessage)&fgDropdown_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgDropdown_Destroy, (fgMessage)&fgDropdown_Message);
 }
 
 void FG_FASTCALL fgDropdown_Destroy(fgDropdown* self)
@@ -66,9 +66,9 @@ size_t FG_FASTCALL fgDropdownBox_Message(fgBox* self, const FG_Msg* msg)
       if(target)
       {
         if(parent->selected)
-          fgStandardNuetralSetStyle(parent->selected, "selected", FGSETSTYLE_REMOVEFLAG);
+          fgStandardNeutralSetStyle(parent->selected, "selected", FGSETSTYLE_REMOVEFLAG);
         parent->selected = target;
-        fgStandardNuetralSetStyle(target, "selected", FGSETSTYLE_SETFLAG);
+        fgStandardNeutralSetStyle(target, "selected", FGSETSTYLE_SETFLAG);
         parent->dropflag = 1;
       }
       if(parent->dropflag)
@@ -90,7 +90,7 @@ size_t FG_FASTCALL fgDropdown_Message(fgDropdown* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_CONSTRUCT:
-    fgBox_Init(&self->box, *self, 0, "Dropdown$box", FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN | FGELEMENT_NOCLIP | FGELEMENT_EXPANDY | FGBOX_TILEY, &fgTransform { {0, 0, 0, 1, 0, 1, 0, 1 }, 0, {0, 0} });
+    fgBox_Init(&self->box, *self, 0, "Dropdown$box", FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN | FGELEMENT_NOCLIP | FGELEMENT_EXPANDY | FGBOX_TILEY, &fgTransform { {0, 0, 0, 1, 0, 1, 0, 1 }, 0, {0, 0} }, 0);
     self->box.fndraw = &fgDropdown_Draw;
     self->box->message = (fgMessage)&fgDropdownBox_Message;
     self->selected = 0;

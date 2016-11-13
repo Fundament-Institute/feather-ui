@@ -5,18 +5,18 @@
 #include <stdio.h>
 #include "feathercpp.h"
 
-fgElement* FG_FASTCALL fgResource_Create(void* res, const CRect* uv, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+fgElement* FG_FASTCALL fgResource_Create(void* res, const CRect* uv, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  fgElement* r = fgroot_instance->backend.fgCreate("Resource", parent, next, name, flags, transform);
+  fgElement* r = fgroot_instance->backend.fgCreate("Resource", parent, next, name, flags, transform, units);
   if(color) fgIntMessage(r, FG_SETCOLOR, color, 0);
   if(uv) _sendmsg<FG_SETUV, void*>(r, (void*)uv);
   if(res) _sendmsg<FG_SETRESOURCE, void*>(r, res);
   return r;
 }
 
-void FG_FASTCALL fgResource_Init(fgResource* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+void FG_FASTCALL fgResource_Init(fgResource* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (fgDestroy)&fgResource_Destroy, (fgMessage)&fgResource_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgResource_Destroy, (fgMessage)&fgResource_Message);
 }
 void FG_FASTCALL fgResource_Destroy(fgResource* self)
 {

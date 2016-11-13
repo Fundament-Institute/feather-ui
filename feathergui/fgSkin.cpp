@@ -13,6 +13,7 @@
 #include "fgCombobox.h"
 #include "fgCurve.h"
 #include "fgWindow.h"
+#include "fgList.h"
 #include <fstream>
 #include <sstream>
 
@@ -80,9 +81,9 @@ void FG_FASTCALL fgSkin_Destroy(fgSkin* self)
 
   fgSkinBase_Destroy(&self->base);
 }
-size_t FG_FASTCALL fgSkin_AddChild(fgSkin* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, int order)
+size_t FG_FASTCALL fgSkin_AddChild(fgSkin* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order)
 {
-  return ((fgStyleLayoutArray&)self->children).Insert(fgStyleLayoutConstruct(type, name, flags, transform, order));
+  return ((fgStyleLayoutArray&)self->children).Insert(fgStyleLayoutConstruct(type, name, flags, transform, units, order));
 }
 char FG_FASTCALL fgSkin_RemoveChild(fgSkin* self, FG_UINT child)
 {
@@ -199,12 +200,13 @@ fgSkin* FG_FASTCALL fgSkinBase_GetSkin(const fgSkinBase* self, const char* name)
   return (iter != kh_end(self->skinmap) && kh_exist(self->skinmap, iter)) ? kh_val(self->skinmap, iter) : 0;
 }
 
-void FG_FASTCALL fgStyleLayout_Init(fgStyleLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, int order)
+void FG_FASTCALL fgStyleLayout_Init(fgStyleLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order)
 {
   self->type = fgCopyText(type);
   self->name = fgCopyText(name);
   self->id = 0;
   self->transform = *transform;
+  self->units = units;
   self->flags = flags;
   self->order = order;
   fgStyle_Init(&self->style);
@@ -243,61 +245,74 @@ int FG_FASTCALL fgStyle_LoadCoord(const char* attribute, size_t len, Coord& coor
   size_t first = len;
   if(rel)
   {
-    coord.rel = atof(rel + 1);
+    coord.rel = (FREL)atof(rel + 1);
     if(attribute[len - 1] == '%') // Check if this is a percentage and scale it accordingly.
       coord.rel *= 0.01f;
     first = attribute - rel;
   }
   else if(attribute[len - 1] == '%')
   {
-    coord.rel = atof(attribute) * 0.01f;
+    coord.rel = (FREL)(atof(attribute) * 0.01);
     return 0;
   }
 
-  coord.abs = atof(attribute);
+  coord.abs = (FABS)atof(attribute);
   return fgStyle_LoadUnit(attribute, first);
 }
 int FG_FASTCALL fgStyle_LoadAbsRect(const char* attribute, AbsRect& r)
 {
-  const char* s1 = strchr(attribute, ',');
-  const char* s2 = !s1 ? 0 : strchr(++s1, ',');
-  const char* s3 = !s2 ? 0 : strchr(++s2, ',');
-  if(s3) ++s3;
+  size_t len = strlen(attribute) + 1;
+  DYNARRAY(char, buf, len);
+  MEMCPY(buf, len, attribute, len);
+  char* context;
+  const char* s0 = STRTOK(buf, ", ", &context);
+  const char* s1 = STRTOK(0, ", ", &context);
+  const char* s2 = STRTOK(0, ", ", &context);
+  const char* s3 = STRTOK(0, ", ", &context);
 
-  r.left = atof(attribute);
-  r.top = atof(attribute);
-  r.right = atof(attribute);
-  r.bottom = atof(attribute);
-  return (fgStyle_LoadUnit(attribute, (!s1 ? 0 : (s1 - attribute - 1))) << FGUNIT_LEFT) |
-    (fgStyle_LoadUnit(s1, (!s2 ? 0 : (s2 - s1 - 1))) << FGUNIT_TOP) |
-    (fgStyle_LoadUnit(s2, (!s3 ? 0 : (s3 - s2 - 1))) << FGUNIT_RIGHT) |
+  r.left = (FABS)atof(s0);
+  r.top = (FABS)atof(s1);
+  r.right = (FABS)atof(s2);
+  r.bottom = (FABS)atof(s3);
+  return (fgStyle_LoadUnit(s0, 0) << FGUNIT_LEFT) |
+    (fgStyle_LoadUnit(s1, 0) << FGUNIT_TOP) |
+    (fgStyle_LoadUnit(s2, 0) << FGUNIT_RIGHT) |
     (fgStyle_LoadUnit(s3, 0) << FGUNIT_BOTTOM);
 }
 
 int FG_FASTCALL fgStyle_LoadCRect(const char* attribute, CRect& r)
 {
-  const char* s1 = strchr(attribute, ',');
-  const char* s2 = !s1 ? 0 : strchr(++s1, ',');
-  const char* s3 = !s2 ? 0 : strchr(++s2, ',');
-  if(s3) ++s3;
+  size_t len = strlen(attribute) + 1;
+  DYNARRAY(char, buf, len);
+  MEMCPY(buf, len, attribute, len);
+  char* context;
+  const char* s0 = STRTOK(buf, ", ", &context);
+  const char* s1 = STRTOK(0, ", ", &context);
+  const char* s2 = STRTOK(0, ", ", &context);
+  const char* s3 = STRTOK(0, ", ", &context);
 
-  return (fgStyle_LoadCoord(attribute, (!s1 ? 0 : (s1 - attribute - 1)), r.left) << FGUNIT_LEFT) |
-    (fgStyle_LoadCoord(s1, (!s2 ? 0 : (s2 - s1 - 1)), r.top) << FGUNIT_TOP) |
-    (fgStyle_LoadCoord(s2, (!s3 ? 0 : (s3 - s2 - 1)), r.right) << FGUNIT_RIGHT) |
+  return (fgStyle_LoadCoord(attribute, 0, r.left) << FGUNIT_LEFT) |
+    (fgStyle_LoadCoord(s1, 0, r.top) << FGUNIT_TOP) |
+    (fgStyle_LoadCoord(s2, 0, r.right) << FGUNIT_RIGHT) |
     (fgStyle_LoadCoord(s3, 0, r.bottom) << FGUNIT_BOTTOM);
 }
 
 int FG_FASTCALL fgStyle_LoadCVec(const char* attribute, CVec& v)
 {
-  const char* s = strchr(attribute, ',');
-  if(s) ++s;
-  return (fgStyle_LoadCoord(attribute, (!s ? 0 : (s - attribute - 1)), v.x) << FGUNIT_X) | (fgStyle_LoadCoord(s, 0, v.y) << FGUNIT_Y);
+  size_t len = strlen(attribute) + 1;
+  DYNARRAY(char, buf, len);
+  MEMCPY(buf, len, attribute, len);
+  char* context;
+  const char* s0 = STRTOK(buf, ", ", &context);
+  const char* s1 = STRTOK(0, ", ", &context);
+  return (fgStyle_LoadCoord(s0, 0, v.x) << FGUNIT_X) | (fgStyle_LoadCoord(s1, 0, v.y) << FGUNIT_Y);
 }
 
 int FG_FASTCALL fgStyle_NodeEvalTransform(const cXMLNode* node, fgTransform& t)
 {
   static cTrie<uint16_t, true> attr(9, "area", "center", "rotation", "left", "top", "right", "bottom", "width", "height");
   int flags = 0;
+  bool hastransform = false;
 
   for(size_t i = 0; i < node->GetAttributes(); ++i)
   {
@@ -313,7 +328,7 @@ int FG_FASTCALL fgStyle_NodeEvalTransform(const cXMLNode* node, fgTransform& t)
       flags |= fgStyle_LoadCVec(a->String, t.center);
       break;
     case 2:
-      t.rotation = a->Float;
+      t.rotation = (FABS)a->Float;
       break;
     case 3:
       flags = (flags&(FGUNIT_LEFT_MASK)) | fgStyle_LoadCoord(a->String, 0, t.area.left);
@@ -329,21 +344,25 @@ int FG_FASTCALL fgStyle_NodeEvalTransform(const cXMLNode* node, fgTransform& t)
       break;
     case 7:
       flags = (flags&(FGUNIT_RIGHT_MASK)) | fgStyle_LoadUnit(a->String, 0) | FGUNIT_RIGHT_WIDTH;
-      t.area.right.abs = a->Float;
+      t.area.right.abs = (FABS)a->Float;
       break;
     case 8:
       flags = (flags&(FGUNIT_BOTTOM_MASK)) | fgStyle_LoadUnit(a->String, 0) | FGUNIT_BOTTOM_HEIGHT;
-      t.area.bottom.abs = a->Float;
+      t.area.bottom.abs = (FABS)a->Float;
       break;
+    default:
+      continue;
     }
+    hastransform = true;
   }
 
+  if(!hastransform) return -1;
   return flags;
 }
 
 void FG_FASTCALL fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, fgSkinBase* root, const char* path, char** id)
 {
-  static cTrie<uint16_t, true> t(34, "id", "min-width", "min-height", "max-width", "max-height", "skin", "alpha", "margin", "padding", "text",
+  static cTrie<uint16_t, true> t(35, "id", "min-width", "min-height", "max-width", "max-height", "skin", "alpha", "margin", "padding", "text",
     "placeholder", "color", "placecolor", "cursorcolor", "selectcolor", "hovercolor", "dragcolor", "edgecolor", "font", "lineheight",
     "letterspacing", "value", "uv", "resource", "outline", "area", "center", "rotation", "left", "top", "right", "bottom", "width", "height", "range");
   static cTrie<uint16_t, true> tvalue(5, "checkbox", "curve", "progressbar", "radiobutton", "slider");
@@ -366,24 +385,24 @@ void FG_FASTCALL fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, i
         *id = fgCopyText(attr->String);
       break;
     case 1:
-      mindim.x = attr->Float;
+      mindim.x = (FABS)attr->Float;
       minflags &= (~0x8000000);
-      minflags |= (fgStyle_LoadUnit(attr->String, attr->String.length()) << FGUNIT_X);
+      minflags |= (fgStyle_LoadUnit(attr->String, attr->String.length() + 1) << FGUNIT_X);
       break;
     case 2:
-      mindim.y = attr->Float;
+      mindim.y = (FABS)attr->Float;
       minflags &= (~0x8000000);
-      minflags |= (fgStyle_LoadUnit(attr->String, attr->String.length()) << FGUNIT_Y);
+      minflags |= (fgStyle_LoadUnit(attr->String, attr->String.length() + 1) << FGUNIT_Y);
       break;
     case 3:
-      maxdim.x = attr->Float;
-      minflags &= (~0x8000000);
-      maxflags |= (fgStyle_LoadUnit(attr->String, attr->String.length()) << FGUNIT_X);
+      maxdim.x = (FABS)attr->Float;
+      maxflags &= (~0x8000000);
+      maxflags |= (fgStyle_LoadUnit(attr->String, attr->String.length() + 1) << FGUNIT_X);
       break;
     case 4:
-      maxdim.y = attr->Float;
-      minflags &= (~0x8000000);
-      maxflags |= (fgStyle_LoadUnit(attr->String, attr->String.length()) << FGUNIT_Y);
+      maxdim.y = (FABS)attr->Float;
+      maxflags &= (~0x8000000);
+      maxflags |= (fgStyle_LoadUnit(attr->String, attr->String.length() + 1) << FGUNIT_Y);
       break;
     case 5: // skin
     {
@@ -401,7 +420,7 @@ void FG_FASTCALL fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, i
     }
     break;
     case 6:
-      AddStyleMsg<FG_SETALPHA, float>(self, attr->Float);
+      AddStyleMsg<FG_SETALPHA, FABS>(self, (FABS)attr->Float);
       break;
     case 7:
     {
@@ -423,7 +442,7 @@ void FG_FASTCALL fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, i
       FG_Msg msg = { 0 };
       msg.type = FG_SETTEXT;
       msg.subtype = ((ID == 9) ? FGSETTEXT_UTF8 : FGSETTEXT_PLACEHOLDER_UTF8);
-      fgStyle_AddStyleMsg(self, &msg, attr->String.c_str(), attr->String.length(), 0, 0);
+      fgStyle_AddStyleMsg(self, &msg, attr->String.c_str(), attr->String.length() + 1, 0, 0);
       break;
     }
     case 11:
@@ -456,10 +475,10 @@ void FG_FASTCALL fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, i
       break;
     }
     case 19:
-      AddStyleMsg<FG_SETLINEHEIGHT, float>(self, attr->Float);
+      AddStyleMsg<FG_SETLINEHEIGHT, FABS>(self, (FABS)attr->Float);
       break;
     case 20:
-      AddStyleMsg<FG_SETLETTERSPACING, float>(self, attr->Float);
+      AddStyleMsg<FG_SETLETTERSPACING, FABS>(self, (FABS)attr->Float);
       break;
     case 21: // Value's type changes depending on what type we are
       switch(tvalue[cur->GetName()])
@@ -482,7 +501,7 @@ void FG_FASTCALL fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, i
         break; // Not implemented
       case 2: // Progressbar
       case 4: // Slider
-        AddStyleSubMsg<FG_SETVALUE, float>(self, FGVALUE_FLOAT, attr->Float);
+        AddStyleSubMsg<FG_SETVALUE, FABS>(self, FGVALUE_FLOAT, (FABS)attr->Float);
         break;
       case 3: // Radiobutton
         switch(tenum[attr->String])
@@ -512,7 +531,7 @@ void FG_FASTCALL fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, i
       break;
     }
     case 24: // outline
-      AddStyleSubMsg<FG_SETOUTLINE, float>(self, fgStyle_LoadUnit(attr->String.c_str(), attr->String.length()), attr->Float);
+      AddStyleSubMsg<FG_SETOUTLINE, FABS>(self, fgStyle_LoadUnit(attr->String.c_str(), attr->String.length() + 1), (FABS)attr->Float);
       break;
     case 25: // area
     case 26: // center
@@ -531,22 +550,22 @@ void FG_FASTCALL fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, i
     {
       FG_Msg msg = { 0 };
       msg.type = FG_SETUSERDATA;
-      fgStyle_AddStyleMsg(self, &msg, attr->String.c_str(), attr->String.length(), attr->Name.c_str(), attr->Name.length());
+      fgStyle_AddStyleMsg(self, &msg, attr->String.c_str(), attr->String.length() + 1, attr->Name.c_str(), attr->Name.length() + 1);
     }
     break;
     }
   }
 
   if(!(minflags & 0x8000000))
-    AddStyleSubMsgArg<FG_SETDIM, AbsVec>(self, minflags | FGDIM_MIN, &mindim);
+    AddStyleSubMsg<FG_SETDIM, FABS, FABS>(self, minflags | FGDIM_MIN, mindim.x, mindim.y);
   if(!(maxflags & 0x8000000))
-    AddStyleSubMsgArg<FG_SETDIM, AbsVec>(self, maxflags | FGDIM_MAX, &maxdim);
+    AddStyleSubMsg<FG_SETDIM, FABS, FABS>(self, maxflags | FGDIM_MAX, maxdim.x, maxdim.y);
 }
 
 
 fgFlag fgSkinBase_GetFlagsFromString(const char* s, fgFlag* remove)
 {
-  static cTrie<uint16_t, true> t(49, "BACKGROUND", "NOCLIP", "IGNORE", "HIDDEN", "EXPANDX", "EXPANDY", "SNAPX", "SNAPY", "HIDEH",
+  static cTrie<uint16_t, true> t(50, "BACKGROUND", "NOCLIP", "IGNORE", "HIDDEN", "EXPANDX", "EXPANDY", "DISABLE", "SNAPX", "SNAPY", "HIDEH",
     "HIDEV", "SHOWH", "SHOWV", "TILEX", "TILEY", "DISTRIBUTEX", "DISTRIBUTEY", "FIXEDSIZE", "SINGLESELECT", "MULTISELECT",
     "DRAGGABLE", "HIDEH", "HIDEV", "SHOWH", "SHOWV", "CHARWRAP", "WORDWRAP", "ELLIPSES", "RTL", "RIGHTALIGN", "CENTER", "SUBPIXEL", "ACTION",
     "SINGLELINE", "NOFOCUS", "ROUNDRECT", "CIRCLE", "LINE", "QUADRATIC", "CUBIC", "BSPLINE", "MINIMIZABLE", "MAXIMIZABLE", "RESIZABLE",
@@ -562,42 +581,44 @@ fgFlag fgSkinBase_GetFlagsFromString(const char* s, fgFlag* remove)
       ++s;
     uint16_t i = !n ? t[s] : t.Get(s, n - s);
     fgFlag f = 0;
-    if(i < 49)
+    if(i < 50)
     {
       switch(i)
       {
       default:
         f = (1 << i);
         break;
-      case 20: f = FGSCROLLBAR_HIDEH; break;
-      case 21: f = FGSCROLLBAR_HIDEV; break;
-      case 22: f = FGSCROLLBAR_SHOWH; break;
-      case 23: f = FGSCROLLBAR_SHOWV; break;
-      case 24: f = FGTEXT_CHARWRAP; break;
-      case 25: f = FGTEXT_WORDWRAP; break;
-      case 26: f = FGTEXT_ELLIPSES; break;
-      case 27: f = FGTEXT_RTL; break;
-      case 28: f = FGTEXT_RIGHTALIGN;  break;
-      case 29: f = FGTEXT_CENTER;  break;
-      case 30: f = FGTEXT_SUBPIXEL;  break;
-      case 31: f = FGTEXTBOX_ACTION;  break;
-      case 32: f = FGTEXTBOX_SINGLELINE;  break;
-      case 33: f = FGBUTTON_NOFOCUS;  break;
-      case 34: f = FGRESOURCE_ROUNDRECT;  break;
-      case 35: f = FGRESOURCE_CIRCLE;  break;
-      case 36: f = FGCURVE_LINE;  break;
-      case 37: f = FGCURVE_QUADRATIC;  break;
-      case 38: f = FGCURVE_CUBIC;  break;
-      case 39: f = FGCURVE_BSPLINE;  break;
-      case 40: f = FGWINDOW_MINIMIZABLE;  break;
-      case 41: f = FGWINDOW_MAXIMIZABLE;  break;
-      case 42: f = FGWINDOW_RESIZABLE;  break;
-      case 43: f = FGWINDOW_NOTITLEBAR;  break;
-      case 44: f = FGWINDOW_NOBORDER;  break;
-      case 45: f = FGELEMENT_EXPAND;  break;
-      case 46: f = FGELEMENT_SNAP;  break;
-      case 47: f = FGBOX_TILE;  break;
-      case 48: f = FGBOX_DISTRIBUTEX | FGBOX_DISTRIBUTEY;  break;
+      case 19: f = FGLIST_MULTISELECT; break; // We can't rely on the default method here because MULTISELECT is actually two seperate flags
+      case 20: f = FGLIST_DRAGGABLE; break;
+      case 21: f = FGSCROLLBAR_HIDEH; break;
+      case 22: f = FGSCROLLBAR_HIDEV; break;
+      case 23: f = FGSCROLLBAR_SHOWH; break;
+      case 24: f = FGSCROLLBAR_SHOWV; break;
+      case 25: f = FGTEXT_CHARWRAP; break;
+      case 26: f = FGTEXT_WORDWRAP; break;
+      case 27: f = FGTEXT_ELLIPSES; break;
+      case 28: f = FGTEXT_RTL; break;
+      case 29: f = FGTEXT_RIGHTALIGN;  break;
+      case 30: f = FGTEXT_CENTER;  break;
+      case 31: f = FGTEXT_SUBPIXEL;  break;
+      case 32: f = FGTEXTBOX_ACTION;  break;
+      case 33: f = FGTEXTBOX_SINGLELINE;  break;
+      case 34: f = FGBUTTON_NOFOCUS;  break;
+      case 35: f = FGRESOURCE_ROUNDRECT;  break;
+      case 36: f = FGRESOURCE_CIRCLE;  break;
+      case 37: f = FGCURVE_LINE;  break;
+      case 38: f = FGCURVE_QUADRATIC;  break;
+      case 39: f = FGCURVE_CUBIC;  break;
+      case 40: f = FGCURVE_BSPLINE;  break;
+      case 41: f = FGWINDOW_MINIMIZABLE;  break;
+      case 42: f = FGWINDOW_MAXIMIZABLE;  break;
+      case 43: f = FGWINDOW_RESIZABLE;  break;
+      case 44: f = FGWINDOW_NOTITLEBAR;  break;
+      case 45: f = FGWINDOW_NOBORDER;  break;
+      case 46: f = FGELEMENT_EXPAND;  break;
+      case 47: f = FGELEMENT_SNAP;  break;
+      case 48: f = FGBOX_TILE;  break;
+      case 49: f = FGBOX_DISTRIBUTEX | FGBOX_DISTRIBUTEY;  break;
       }
     }
 
@@ -620,9 +641,9 @@ void FG_FASTCALL fgSkins_LoadSubNodeXML(fgSkin* self, const cXMLNode* cur)
   for(size_t i = 0; i < cur->GetNodes(); ++i)
   {
     const cXMLNode* node = cur->GetNode(i);
-    if(!stricmp(node->GetName(), "skin"))
+    if(!STRICMP(node->GetName(), "skin"))
       fgSkins_LoadNodeXML(&self->base, node);
-    else if(!stricmp(node->GetName(), "style"))
+    else if(!STRICMP(node->GetName(), "style"))
     {
       FG_UINT style = fgSkin_AddStyle(self, node->GetAttributeString("name"));
       // Styles parse flags differently - the attributes use the parent flags for resource/font loading, then creates add and remove flag messages
@@ -637,9 +658,9 @@ void FG_FASTCALL fgSkins_LoadSubNodeXML(fgSkin* self, const cXMLNode* cur)
     else
     {
       fgTransform transform = { 0 };
-      fgStyle_NodeEvalTransform(node, transform);
+      int type = fgStyle_NodeEvalTransform(node, transform);
       fgFlag flags = fgSkinBase_GetFlagsFromString(node->GetAttributeString("flags"), 0);
-      FG_UINT index = fgSkin_AddChild(self, node->GetName(), node->GetAttributeString("name"), flags, &transform, node->GetAttributeInt("order"));
+      FG_UINT index = fgSkin_AddChild(self, node->GetName(), node->GetAttributeString("name"), flags, &transform, type, node->GetAttributeInt("order"));
       fgStyle_LoadAttributesXML(&fgSkin_GetChild(self, index)->style, node, flags, &self->base, 0, 0);
     }
   }
@@ -666,7 +687,7 @@ fgSkin* FG_FASTCALL fgSkins_LoadStreamXML(fgSkinBase* self, std::istream& s)
 
   while(root = xml.GetNode(index++))
   {
-    if(!stricmp(root->GetName(), "fg:skin"))
+    if(!STRICMP(root->GetName(), "fg:skin"))
       ret = fgSkins_LoadNodeXML(self, root);
   }
 

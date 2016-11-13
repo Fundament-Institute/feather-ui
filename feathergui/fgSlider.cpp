@@ -5,9 +5,9 @@
 #include "bss-util\bss_util.h"
 #include "feathercpp.h"
 
-void FG_FASTCALL fgSlider_Init(fgSlider* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+void FG_FASTCALL fgSlider_Init(fgSlider* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (fgDestroy)&fgSlider_Destroy, (fgMessage)&fgSlider_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgSlider_Destroy, (fgMessage)&fgSlider_Message);
 }
 void FG_FASTCALL fgSlider_Destroy(fgSlider* self)
 {
@@ -20,7 +20,7 @@ size_t FG_FASTCALL fgSlider_Message(fgSlider* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgControl_Message(&self->control, msg);
-    fgElement_Init(&self->slider, *self, 0, "Slider$slider", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
+    fgElement_Init(&self->slider, *self, 0, "Slider$slider", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER, 0);
     self->value = 0;
     self->range = 0;
     return FG_ACCEPT;

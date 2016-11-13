@@ -68,7 +68,7 @@ void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, size_t dpi, fgBa
   self->functionhash = fgFunctionMap_init();
   fgroot_instance = self;
   fgTransform transform = { area->left, 0, area->top, 0, area->right, 0, area->bottom, 0, 0, 0, 0 };
-  fgElement_InternalSetup(*self, 0, 0, 0, 0, &transform, (fgDestroy)&fgRoot_Destroy, (fgMessage)&fgRoot_Message);
+  fgElement_InternalSetup(*self, 0, 0, 0, 0, &transform, 0, (fgDestroy)&fgRoot_Destroy, (fgMessage)&fgRoot_Message);
   self->gui.element.style = 0;
 }
 
@@ -576,7 +576,7 @@ fgRoot* FG_FASTCALL fgSingleton()
   return fgroot_instance;
 }
 
-fgElement* FG_FASTCALL fgCreate(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+fgElement* FG_FASTCALL fgCreate(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  return fgroot_instance->backend.fgCreate(type, parent, next, name, flags, transform);
+  return fgroot_instance->backend.fgCreate(type, parent, next, name, flags, transform, units);
 }

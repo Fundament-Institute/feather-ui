@@ -26,9 +26,9 @@ size_t FG_FASTCALL fgWindow_MinimizeMessage(fgButton* self, const FG_Msg* msg)
   return fgButton_Message(self, msg);
 }
 
-void FG_FASTCALL fgWindow_Init(fgWindow* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+void FG_FASTCALL fgWindow_Init(fgWindow* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (fgDestroy)&fgWindow_Destroy, (fgMessage)&fgWindow_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgWindow_Destroy, (fgMessage)&fgWindow_Message);
 }
 void FG_FASTCALL fgWindow_Destroy(fgWindow* self)
 {
@@ -44,10 +44,10 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     fgControl_Message((fgControl*)self, msg);
     self->dragged = 0;
-    fgText_Init(&self->caption, *self, 0, "Window$text", FGELEMENT_BACKGROUND | FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0);
-    fgButton_Init(&self->controls[0], *self, 0, "Window$close", FGELEMENT_BACKGROUND, 0);
-    fgButton_Init(&self->controls[1], *self, 0, "Window$restore", FGELEMENT_BACKGROUND, 0);
-    fgButton_Init(&self->controls[2], *self, 0, "Window$minimize", FGELEMENT_BACKGROUND, 0);
+    fgText_Init(&self->caption, *self, 0, "Window$text", FGELEMENT_BACKGROUND | FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0, 0);
+    fgButton_Init(&self->controls[0], *self, 0, "Window$close", FGELEMENT_BACKGROUND, 0, 0);
+    fgButton_Init(&self->controls[1], *self, 0, "Window$restore", FGELEMENT_BACKGROUND, 0, 0);
+    fgButton_Init(&self->controls[2], *self, 0, "Window$minimize", FGELEMENT_BACKGROUND, 0, 0);
     self->controls[0].control.element.message = (fgMessage)&fgWindow_CloseMessage;
     self->controls[1].control.element.message = (fgMessage)&fgWindow_MaximizeMessage;
     self->controls[2].control.element.message = (fgMessage)&fgWindow_MinimizeMessage;

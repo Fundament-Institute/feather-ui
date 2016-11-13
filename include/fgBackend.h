@@ -30,7 +30,7 @@ typedef struct _FG_BACKEND {
   size_t(FG_FASTCALL *fgFontIndex)(void* font, const int* text, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, AbsVec pos, AbsVec* cursor, void* cache);
   AbsVec(FG_FASTCALL *fgFontPos)(void* font, const int* text, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, size_t index, void* cache);
   void (FG_FASTCALL *fgDrawLines)(const AbsVec* p, size_t n, unsigned int color, const AbsVec* translate, const AbsVec* scale, FABS rotation, const AbsVec* center);
-  fgElement* (FG_FASTCALL *fgCreate)(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
+  fgElement* (FG_FASTCALL *fgCreate)(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
   short (FG_FASTCALL *fgMessageMap)(const char* name);
 
   void (FG_FASTCALL *fgPushClipRect)(const AbsRect* clip);
@@ -68,7 +68,7 @@ FG_EXTERN void FG_FASTCALL fgResourceSizeDefault(void* res, const CRect* uv, Abs
 FG_EXTERN size_t FG_FASTCALL fgFontIndexDefault(void* font, const int* text, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, AbsVec pos, AbsVec* cursor, void* cache);
 FG_EXTERN AbsVec FG_FASTCALL fgFontPosDefault(void* font, const int* text, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, size_t index, void* cache);
 FG_EXTERN void FG_FASTCALL fgDrawLinesDefault(const AbsVec* p, size_t n, unsigned int color, const AbsVec* translate, const AbsVec* scale, FABS rotation, const AbsVec* center);
-FG_EXTERN fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
+FG_EXTERN fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
 FG_EXTERN short FG_FASTCALL fgMessageMapDefault(const char* name);
 
 FG_EXTERN void FG_FASTCALL fgPushClipRectDefault(const AbsRect* clip);

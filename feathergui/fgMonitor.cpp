@@ -17,7 +17,7 @@ void FG_FASTCALL fgMonitor_Init(fgMonitor* BSS_RESTRICT self, fgFlag flags, fgRo
   if(self->mprev) self->mprev->mnext = self;
   else parent->monitors = self;
 
-  fgElement_InternalSetup(&self->element, *parent, &prev->element, 0, flags, &transform, (fgDestroy)&fgMonitor_Destroy, (fgMessage)&fgMonitor_Message);
+  fgElement_InternalSetup(&self->element, *parent, &prev->element, 0, flags, &transform, 0, (fgDestroy)&fgMonitor_Destroy, (fgMessage)&fgMonitor_Message);
 }
 
 void FG_FASTCALL fgMonitor_Destroy(fgMonitor* self)

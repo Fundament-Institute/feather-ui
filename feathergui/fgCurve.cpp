@@ -6,17 +6,17 @@
 
 using namespace bss_util;
 
-fgElement* FG_FASTCALL fgCurve_Create(const AbsVec* points, size_t npoints, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+fgElement* FG_FASTCALL fgCurve_Create(const AbsVec* points, size_t npoints, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  fgElement* r = fgroot_instance->backend.fgCreate("Curve", parent, next, name, flags, transform);
+  fgElement* r = fgroot_instance->backend.fgCreate("Curve", parent, next, name, flags, transform, units);
   if(color) fgIntMessage(r, FG_SETCOLOR, color, 0);
   if(points && npoints > 0) _sendmsg<FG_SETITEM, const void*, size_t>(r, points, npoints);
   return r;
 }
 
-void FG_FASTCALL fgCurve_Init(fgCurve* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+void FG_FASTCALL fgCurve_Init(fgCurve* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  fgElement_InternalSetup(&self->element, parent, next, name, flags, transform, (fgDestroy)&fgCurve_Destroy, (fgMessage)&fgCurve_Message);
+  fgElement_InternalSetup(&self->element, parent, next, name, flags, transform, units, (fgDestroy)&fgCurve_Destroy, (fgMessage)&fgCurve_Message);
 }
 
 void FG_FASTCALL fgCurve_Destroy(fgCurve* self)

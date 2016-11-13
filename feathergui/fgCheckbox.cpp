@@ -5,9 +5,9 @@
 #include "fgSkin.h"
 #include "feathercpp.h"
 
-void FG_FASTCALL fgCheckbox_Init(fgCheckbox* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+void FG_FASTCALL fgCheckbox_Init(fgCheckbox* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (fgDestroy)&fgCheckbox_Destroy, (fgMessage)&fgCheckbox_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgCheckbox_Destroy, (fgMessage)&fgCheckbox_Message);
 }
 void FG_FASTCALL fgCheckbox_Destroy(fgCheckbox* self)
 {
@@ -20,18 +20,18 @@ size_t FG_FASTCALL fgCheckbox_Message(fgCheckbox* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgControl_HoverMessage(&self->control, msg);
-    fgText_Init(&self->text, *self, 0, "Checkbox$text", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
+    fgText_Init(&self->text, *self, 0, "Checkbox$text", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER, 0);
     fgMaskSetStyle(*self, "default", fgStyleGetMask("default", "checked", "indeterminate"));
     self->checked = FGCHECKED_NONE;
     return FG_ACCEPT;
-  case FG_NUETRAL:
-    fgStandardNuetralSetStyle(*self, "nuetral");
+  case FG_NEUTRAL:
+    fgStandardNeutralSetStyle(*self, "neutral");
     return FG_ACCEPT;
   case FG_HOVER:
-    fgStandardNuetralSetStyle(*self, "hover");
+    fgStandardNeutralSetStyle(*self, "hover");
     return FG_ACCEPT;
   case FG_ACTIVE:
-    fgStandardNuetralSetStyle(*self, "active");
+    fgStandardNeutralSetStyle(*self, "active");
     return FG_ACCEPT;
   case FG_ACTION:
     fgIntMessage(*self, FG_SETVALUE, !_sendmsg<FG_GETVALUE>(*self), 0);

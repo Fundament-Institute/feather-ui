@@ -17,7 +17,7 @@ BSS_FORCEINLINE char CompPairInOrder(const std::pair<U, V>& l, const std::pair<U
 typedef bss_util::cDynArray<fgElement*, FG_UINT> fgSkinRefArray;
 bss_util::cAVLtree<std::pair<fgElement*, unsigned short>, void, &CompPairInOrder> fgListenerList;
 
-void FG_FASTCALL fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, void (FG_FASTCALL *destroy)(void*), size_t(FG_FASTCALL *message)(void*, const FG_Msg*))
+void FG_FASTCALL fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units, void (FG_FASTCALL *destroy)(void*), size_t(FG_FASTCALL *message)(void*, const FG_Msg*))
 {
   assert(self != 0);
   memset(self, 0, sizeof(fgElement));
@@ -31,14 +31,13 @@ void FG_FASTCALL fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement
   self->maxdim.y = -1.0f;
   self->mindim.x = -1.0f;
   self->mindim.y = -1.0f;
-  if(transform) self->transform = *transform;
-  _sendmsg<FG_CONSTRUCT>(self);
+  _sendsubmsg<FG_CONSTRUCT, const void*>(self, units, transform);
   _sendmsg<FG_SETPARENT, void*, void*>(self, parent, next);
 }
 
-void FG_FASTCALL fgElement_Init(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+void FG_FASTCALL fgElement_Init(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  fgElement_InternalSetup(self, parent, next, name, flags, transform, (fgDestroy)&fgElement_Destroy, (fgMessage)&fgElement_Message);
+  fgElement_InternalSetup(self, parent, next, name, flags, transform, units, (fgDestroy)&fgElement_Destroy, (fgMessage)&fgElement_Message);
 }
 
 void FG_FASTCALL fgElement_Destroy(fgElement* self)
@@ -80,12 +79,11 @@ char FG_FASTCALL fgElement_PotentialResize(fgElement* self)
 
 fgElement* FG_FASTCALL fgElement_LoadLayout(fgElement* parent, fgElement* next, fgClassLayout* layout)
 {
-  fgElement* element = fgroot_instance->backend.fgCreate(layout->style.type, parent, next, layout->style.name, layout->style.flags, &layout->style.transform);
+  fgElement* element = fgroot_instance->backend.fgCreate(layout->style.type, parent, next, layout->style.name, layout->style.flags, (layout->style.units == -1) ? 0 : &layout->style.transform, layout->style.units);
   _sendsubmsg<FG_SETSTYLE, void*, size_t>(element, FGSETSTYLE_POINTER, &layout->style.style, ~0);
 
-  fgElement* p = 0;
   for(FG_UINT i = 0; i < layout->children.l; ++i)
-    p = fgElement_LoadLayout(element, p, layout->children.p + i);
+    fgElement_LoadLayout(element, 0, layout->children.p + i);
 
   return element;
 }
@@ -99,7 +97,7 @@ void FG_FASTCALL fgElement_ApplySkin(fgElement* self, const fgSkin* skin)
   for(FG_UINT i = 0; i < skin->children.l; ++i)
   {
     fgStyleLayout* layout = skin->children.p + i;
-    child = fgroot_instance->backend.fgCreate(layout->type, self, child, layout->name, layout->flags, &layout->transform);
+    child = fgroot_instance->backend.fgCreate(layout->type, self, child, layout->name, layout->flags, (layout->units == -1) ? 0 : &layout->transform, layout->units);
     assert(child != 0);
     _sendsubmsg<FG_SETSTYLE, void*, size_t>(child, FGSETSTYLE_POINTER, &layout->style, ~0);
     ((fgSkinRefArray&)self->skinrefs).Add(child);
@@ -128,14 +126,12 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
   assert(msg != 0);
 
   switch(msg->type)
-  {
-  case FG_CONSTRUCT:
-    return FG_ACCEPT;
+  { // Note: FG_CONSTRUCT falls trhough to FG_SETTRANSFORM
   case FG_MOVE:
     if(!msg->other && self->parent != 0) // This is internal, so we must always propagate it up
-      fgSubMessage(self->parent, FG_MOVE, msg->subtype, self, msg->otheraux | FGMOVE_PROPAGATE);
+      _sendsubmsg<FG_MOVE, void*, size_t>(self->parent, msg->subtype, self, msg->otheraux | FGMOVE_PROPAGATE);
     if((msg->otheraux & FGMOVE_PROPAGATE) != 0 && !(((fgElement*)msg->other)->flags&FGELEMENT_BACKGROUND)) // A child moved, so recalculate any layouts
-      fgSubMessage(self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTMOVE, msg->other, msg->otheraux);
+      _sendsubmsg<FG_LAYOUTCHANGE, void*, size_t>(self, FGELEMENT_LAYOUTMOVE, msg->other, msg->otheraux);
     else if(msg->otheraux) // This was either internal or propagated down, in which case we must keep propagating it down so long as something changed.
     {
       fgElement* ref = !msg->other ? self : (fgElement*)msg->other;
@@ -147,11 +143,11 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
         diff = fgElement_PotentialResize(hold);
 
         //if(diff & msg->otheraux)
-        fgSubMessage(hold, FG_MOVE, msg->subtype, ref, diff & msg->otheraux);
+        _sendsubmsg<FG_MOVE, void*, size_t>(hold, msg->subtype, ref, diff & msg->otheraux);
       }
 
       if(msg->otheraux & (FGMOVE_RESIZE | FGMOVE_PADDING | FGMOVE_MARGIN)) // a layout change can happen on a resize or padding change
-        fgSubMessage(self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTRESIZE, 0, msg->otheraux);
+        _sendsubmsg<FG_LAYOUTCHANGE, void*, size_t>(self, FGELEMENT_LAYOUTRESIZE, 0, msg->otheraux);
     }
     return FG_ACCEPT;
   case FG_SETALPHA:
@@ -168,7 +164,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgElement_MouseMoveCheck(self);
         fgroot_instance->backend.fgDirtyElement(self);
         memcpy(&self->transform.area, area, sizeof(CRect));
-        if(msg->subtype != 0)
+        if(msg->subtype != 0 && msg->subtype != (unsigned short)-1)
         {
           self->transform.area.left.abs = fgResolveUnit(self, self->transform.area.left.abs, (msg->subtype & FGUNIT_LEFT_MASK) >> FGUNIT_LEFT);
           self->transform.area.top.abs = fgResolveUnit(self, self->transform.area.top.abs, (msg->subtype & FGUNIT_TOP_MASK) >> FGUNIT_TOP);
@@ -180,13 +176,14 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgroot_instance->backend.fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
-        fgSubMessage(self, FG_MOVE, FG_SETAREA, 0, diff);
+        _sendsubmsg<FG_MOVE, void*, size_t>(self, FG_SETAREA, 0, diff);
       }
       return diff;
     }
+  case FG_CONSTRUCT:
   case FG_SETTRANSFORM:
     if(!msg->other)
-      return 0;
+      return msg->type == FG_CONSTRUCT;
     {
       fgTransform* transform = (fgTransform*)msg->other;
       _sendmsg<FG_SETAREA, void*>(self, &transform->area);
@@ -196,7 +193,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgElement_MouseMoveCheck(self);
         fgroot_instance->backend.fgDirtyElement(self);
         self->transform.center = transform->center;
-        if(msg->subtype != 0)
+        if(msg->subtype != 0 && msg->subtype != (unsigned short)-1)
         {
           self->transform.center.x.abs = fgResolveUnit(self, self->transform.center.x.abs, (msg->subtype & FGUNIT_X_MASK) >> FGUNIT_X);
           self->transform.center.y.abs = fgResolveUnit(self, self->transform.center.y.abs, (msg->subtype & FGUNIT_Y_MASK) >> FGUNIT_Y);
@@ -205,7 +202,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgroot_instance->backend.fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
-        fgSubMessage(self, FG_MOVE, FG_SETTRANSFORM, 0, diff);
+        _sendsubmsg<FG_MOVE, void*, size_t>(self, FG_SETTRANSFORM, 0, diff);
       }
     }
     return FG_ACCEPT;
@@ -215,7 +212,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
   {
     fgFlag change = self->flags ^ (fgFlag)otherint;
     if(change&FGELEMENT_BACKGROUND && !(self->flags & FGELEMENT_BACKGROUND) && self->parent != 0) // if we added the background flag, remove this from the layout before setting the flags.
-      fgSubMessage(self->parent, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTREMOVE, self, 0);
+      _sendsubmsg<FG_LAYOUTCHANGE, void*, size_t>(self->parent, FGELEMENT_LAYOUTREMOVE, self, 0);
 
     if(change&FGELEMENT_IGNORE || change&FGELEMENT_NOCLIP)
     {
@@ -228,9 +225,9 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       self->flags = (fgFlag)otherint;
 
     if(change&FGELEMENT_BACKGROUND && !(self->flags & FGELEMENT_BACKGROUND) && self->parent != 0) // If we removed the background flag, add this into the layout after setting the new flags.
-      fgSubMessage(self->parent, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTADD, self, 0);
+      _sendsubmsg<FG_LAYOUTCHANGE, void*, size_t>(self->parent, FGELEMENT_LAYOUTADD, self, 0);
     if((change&FGELEMENT_EXPAND)&self->flags) // If we change the expansion flags, we must recalculate every single child in our layout provided one of the expansion flags is actually set
-      fgSubMessage(self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTRESET, 0, 0);
+      _sendsubmsg<FG_LAYOUTCHANGE, void*, size_t>(self, FGELEMENT_LAYOUTRESET, 0, 0);
     if(change&FGELEMENT_HIDDEN || change&FGELEMENT_NOCLIP)
       fgroot_instance->backend.fgDirtyElement(self);
   }
@@ -247,12 +244,12 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgElement_MouseMoveCheck(self);
         fgroot_instance->backend.fgDirtyElement(self);
         memcpy(&self->margin, margin, sizeof(AbsRect));
-        if(msg->subtype != 0)
+        if(msg->subtype != 0 && msg->subtype != (unsigned short)-1)
           fgResolveRectUnit(self, self->margin, msg->subtype);
         fgroot_instance->backend.fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
-        fgSubMessage(self, FG_MOVE, FG_SETMARGIN, 0, diff | FGMOVE_MARGIN);
+        _sendsubmsg<FG_MOVE, void*, size_t>(self, FG_SETMARGIN, 0, diff | FGMOVE_MARGIN);
       }
     }
     return FG_ACCEPT;
@@ -268,12 +265,12 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgElement_MouseMoveCheck(self);
         fgroot_instance->backend.fgDirtyElement(self);
         memcpy(&self->padding, padding, sizeof(AbsRect));
-        if(msg->subtype != 0)
+        if(msg->subtype != 0 && msg->subtype != (unsigned short)-1)
           fgResolveRectUnit(self, self->padding, msg->subtype);
         fgroot_instance->backend.fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
-        fgSubMessage(self, FG_MOVE, FG_SETPADDING, 0, diff | FGMOVE_PADDING);
+        _sendsubmsg<FG_MOVE, void*, size_t>(self, FG_SETPADDING, 0, diff | FGMOVE_PADDING);
       }
     }
     return FG_ACCEPT;
@@ -291,7 +288,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
         LList_RemoveAll(self);
         LList_InsertAll(self, next);
         if(!(self->flags&FGELEMENT_BACKGROUND))
-          fgSubMessage(self->parent, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTREORDER, self, (ptrdiff_t)old);
+          _sendsubmsg<FG_LAYOUTCHANGE, void*, size_t>(self->parent, FGELEMENT_LAYOUTREORDER, self, (ptrdiff_t)old);
       }
       return FG_ACCEPT;
     }
@@ -310,17 +307,18 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       return 0;
     if(hold->parent != 0) // If the parent is nonzero, call SETPARENT to clean things up for us and then call this again after the child is ready.
       return _sendmsg<FG_SETPARENT, void*, void*>(hold, self, msg->other2); // We do things this way so parents can respond to children being added or removed
-
+    assert(!hold->parent);
+    assert(msg->other2 != self);
     hold->parent = self;
     _sendmsg<FG_SETSKIN>(hold);
     LList_InsertAll(hold, (fgElement*)msg->other2);
     if(!(hold->flags&FGELEMENT_BACKGROUND))
-      fgSubMessage(self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTADD, hold, 0);
+      _sendsubmsg<FG_LAYOUTCHANGE, void*, size_t>(self, FGELEMENT_LAYOUTADD, hold, 0);
 
     assert(!hold->last || !hold->last->next);
     assert(!hold->lastinject || !hold->lastinject->nextinject);
     assert(!hold->lastnoclip || !hold->lastnoclip->nextnoclip);
-    fgSubMessage(hold, FG_MOVE, FG_SETPARENT, 0, fgElement_PotentialResize(self));
+    _sendsubmsg<FG_MOVE, void*, size_t>(hold, FG_SETPARENT, 0, fgElement_PotentialResize(self));
     return FG_ACCEPT;
   case FG_REMOVECHILD:
     hold = (fgElement*)msg->other;
@@ -328,7 +326,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       return 0;
 
     if(!(hold->flags&FGELEMENT_BACKGROUND))
-      fgSubMessage(self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTREMOVE, hold, 0);
+      _sendsubmsg<FG_LAYOUTCHANGE, void*, size_t>(self, FGELEMENT_LAYOUTREMOVE, hold, 0);
     if(self->lastfocus == hold)
       self->lastfocus = 0;
     LList_RemoveAll(hold); // Remove hold from us
@@ -337,7 +335,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     hold->next = 0;
     hold->prev = 0;
     _sendmsg<FG_SETSKIN>(hold);
-    fgSubMessage(hold, FG_MOVE, FG_SETPARENT, 0, fgElement_PotentialResize(self));
+    _sendsubmsg<FG_MOVE, void*, size_t>(hold, FG_SETPARENT, 0, fgElement_PotentialResize(self));
     return FG_ACCEPT;
   case FG_LAYOUTCHANGE:
   {
@@ -381,9 +379,8 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     if(!layout)
       return 0;
 
-    fgElement* next = self->last;
     for(FG_UINT i = 0; i < layout->layout.l; ++i)
-      next = fgElement_LoadLayout(self, next, layout->layout.p + i);
+      fgElement_LoadLayout(self, 0, layout->layout.p + i);
   }
   return FG_ACCEPT;
   case FG_CLONE:
@@ -633,7 +630,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       }
       fgroot_instance->backend.fgDirtyElement(self);
       fgElement_MouseMoveCheck(self);
-      fgSubMessage(self, FG_MOVE, FG_SETDIM, 0, diff);
+      _sendsubmsg<FG_MOVE, void*, size_t>(self, FG_SETDIM, 0, diff);
     }
   }
     return FG_ACCEPT;
@@ -841,7 +838,7 @@ void FG_FASTCALL LList_InsertAll(fgElement* BSS_RESTRICT self, fgElement* BSS_RE
   }
 }
 
-size_t FG_FASTCALL fgVoidMessage(fgElement* self, unsigned char type, void* data, ptrdiff_t aux)
+size_t FG_FASTCALL fgVoidMessage(fgElement* self, unsigned short type, void* data, ptrdiff_t aux)
 {
   FG_Msg msg = { 0 };
   msg.type = type;
@@ -851,7 +848,7 @@ size_t FG_FASTCALL fgVoidMessage(fgElement* self, unsigned char type, void* data
   return (*fgroot_instance->backend.behaviorhook)(self, &msg);
 }
 
-size_t FG_FASTCALL fgIntMessage(fgElement* self, unsigned char type, ptrdiff_t data, size_t aux)
+size_t FG_FASTCALL fgIntMessage(fgElement* self, unsigned short type, ptrdiff_t data, size_t aux)
 {
   FG_Msg msg = { 0 };
   msg.type = type;
@@ -866,7 +863,7 @@ size_t FG_FASTCALL fgPassMessage(fgElement* self, const FG_Msg* msg)
   return (*fgroot_instance->backend.behaviorhook)(self, msg);
 }
 
-size_t FG_FASTCALL fgSubMessage(fgElement* self, unsigned char type, unsigned char subtype, void* data, ptrdiff_t aux)
+size_t FG_FASTCALL fgSubMessage(fgElement* self, unsigned short type, unsigned short subtype, void* data, ptrdiff_t aux)
 {
   FG_Msg msg = { 0 };
   msg.type = type;
@@ -944,7 +941,7 @@ void FG_FASTCALL fgElement_ClearListeners(fgElement* self)
 
 void fgElement::Construct() { _sendmsg<FG_CONSTRUCT>(this); }
 
-void FG_FASTCALL fgElement::Move(unsigned char subtype, fgElement* child, size_t diff) { _sendsubmsg<FG_MOVE, void*, size_t>(this, subtype, child, diff); }
+void FG_FASTCALL fgElement::Move(unsigned short subtype, fgElement* child, size_t diff) { _sendsubmsg<FG_MOVE, void*, size_t>(this, subtype, child, diff); }
 
 size_t FG_FASTCALL fgElement::SetAlpha(float alpha) { return _sendmsg<FG_SETALPHA, float>(this, alpha); }
 
@@ -972,7 +969,7 @@ size_t FG_FASTCALL fgElement::RemoveChild(fgElement* child) { return _sendmsg<FG
 
 size_t FG_FASTCALL fgElement::LayoutFunction(const FG_Msg& msg, const CRect& area, bool scrollbar) { return _sendsubmsg<FG_LAYOUTFUNCTION, const void*, const void*>(this, !!scrollbar, &msg, &area); }
 
-void fgElement::LayoutChange(unsigned char subtype, fgElement* target, fgElement* old) { _sendsubmsg<FG_LAYOUTCHANGE, void*, void*>(this, subtype, target, old); }
+void fgElement::LayoutChange(unsigned short subtype, fgElement* target, fgElement* old) { _sendsubmsg<FG_LAYOUTCHANGE, void*, void*>(this, subtype, target, old); }
 
 size_t FG_FASTCALL fgElement::LayoutLoad(fgLayout* layout) { return _sendmsg<FG_LAYOUTLOAD, void*>(this, layout); }
 
@@ -1156,7 +1153,7 @@ size_t FG_FASTCALL fgElement::SetName(const char* name) { return _sendmsg<FG_SET
 
 const char* fgElement::GetName() { return reinterpret_cast<const char*>(_sendmsg<FG_GETNAME>(this)); }
 
-void fgElement::Nuetral() { _sendmsg<FG_NUETRAL>(this); }
+void fgElement::Neutral() { _sendmsg<FG_NEUTRAL>(this); }
 
 void fgElement::Hover() { _sendmsg<FG_HOVER>(this); }
 
@@ -1196,7 +1193,7 @@ size_t FG_FASTCALL fgElement::SetLineHeight(float lineheight) { return _sendmsg<
 
 size_t FG_FASTCALL fgElement::SetLetterSpacing(float letterspacing) { return _sendmsg<FG_SETLETTERSPACING, float>(this, letterspacing); }
 
-size_t FG_FASTCALL fgElement::SetText(const char* text, FGSETTEXT mode) { return _sendmsg<FG_SETTEXT, const void*, size_t>(this, text, mode); }
+size_t FG_FASTCALL fgElement::SetText(const char* text, FGSETTEXT mode) { return _sendsubmsg<FG_SETTEXT, const void*>(this, mode, text); }
 
 void* fgElement::GetResource() { return reinterpret_cast<void*>(_sendmsg<FG_GETRESOURCE>(this)); }
 

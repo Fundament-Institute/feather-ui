@@ -26,7 +26,7 @@ extern "C" {
 #endif
   } fgGrid;
 
-  FG_EXTERN void FG_FASTCALL fgGrid_Init(fgGrid* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
+  FG_EXTERN void FG_FASTCALL fgGrid_Init(fgGrid* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
   FG_EXTERN void FG_FASTCALL fgGrid_Destroy(fgGrid* self);
   FG_EXTERN size_t FG_FASTCALL fgGrid_Message(fgGrid* self, const FG_Msg* msg);
 

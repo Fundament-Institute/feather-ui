@@ -49,7 +49,7 @@ typedef struct _FG_DEBUG_MESSAGE {
     struct { char joydown; short joybutton; }; // JOYBUTTON
   };
   unsigned short type;
-  unsigned char subtype;
+  unsigned short subtype;
   unsigned long long time;
   union { size_t value; float valuef; void* valuep; };
   size_t depth;
@@ -80,7 +80,7 @@ typedef struct _FG_DEBUG {
 #endif
 } fgDebug;
 
-FG_EXTERN void FG_FASTCALL fgDebug_Init(fgDebug* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
+FG_EXTERN void FG_FASTCALL fgDebug_Init(fgDebug* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
 FG_EXTERN void FG_FASTCALL fgDebug_Destroy(fgDebug* self);
 FG_EXTERN size_t FG_FASTCALL fgDebug_Message(fgDebug* self, const FG_Msg* msg);
 FG_EXTERN void FG_FASTCALL fgDebug_ClearLog(fgDebug* self);

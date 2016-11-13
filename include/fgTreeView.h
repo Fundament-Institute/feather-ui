@@ -25,11 +25,11 @@ typedef struct _FG_TREEVIEW {
 #endif
 } fgTreeview;
 
-FG_EXTERN void FG_FASTCALL fgTreeview_Init(fgTreeview* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
+FG_EXTERN void FG_FASTCALL fgTreeview_Init(fgTreeview* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
 FG_EXTERN void FG_FASTCALL fgTreeview_Destroy(fgTreeview* self);
 FG_EXTERN size_t FG_FASTCALL fgTreeview_Message(fgTreeview* self, const FG_Msg* msg);
 
-FG_EXTERN void FG_FASTCALL fgTreeItem_Init(fgTreeItem* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
+FG_EXTERN void FG_FASTCALL fgTreeItem_Init(fgTreeItem* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
 FG_EXTERN size_t FG_FASTCALL fgTreeItem_Message(fgTreeItem* self, const FG_Msg* msg);
 FG_EXTERN void FG_FASTCALL fgTreeItem_Destroy(fgTreeItem* self);
 

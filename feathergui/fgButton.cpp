@@ -5,9 +5,9 @@
 #include "fgSkin.h"
 #include "feathercpp.h"
 
-void FG_FASTCALL fgButton_Init(fgButton* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+void FG_FASTCALL fgButton_Init(fgButton* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (fgDestroy)&fgButton_Destroy, (fgMessage)&fgButton_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgButton_Destroy, (fgMessage)&fgButton_Message);
 }
 void FG_FASTCALL fgButton_Destroy(fgButton* self)
 {
@@ -22,24 +22,26 @@ size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgControl_HoverMessage(&self->control, msg);
-    fgText_Init(&self->text, *self, 0, "Button$text", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
-    fgElement_Init(&self->item, *self, self->text, "Button$item", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER);
-    fgStandardNuetralSetStyle(*self, (self->control.element.flags & FGCONTROL_DISABLE) ? "disabled" : "nuetral");
+    fgText_Init(&self->text, *self, 0, "Button$text", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER, 0);
+    fgStandardNeutralSetStyle(*self, (self->control.element.flags & FGCONTROL_DISABLE) ? "disabled" : "neutral");
     return FG_ACCEPT;
+  case FG_ADDCHILD:
   case FG_ADDITEM:
-    if(!msg->other)
-      fgElement_Clear(&self->item);
-    else
-      fgPassMessage(&self->item, msg);
-    return FG_ACCEPT;
-  case FG_NUETRAL:
-    fgStandardNuetralSetStyle(*self, "nuetral");
+    if(msg->other != (fgElement*)&self->text && !msg->other2)
+    {
+      FG_Msg m = *msg;
+      m.other2 = &self->text;
+      return fgControl_ActionMessage(&self->control, &m);
+    }
+    break;
+  case FG_NEUTRAL:
+    fgStandardNeutralSetStyle(*self, "neutral");
     return FG_ACCEPT;
   case FG_HOVER:
-    fgStandardNuetralSetStyle(*self, "hover");
+    fgStandardNeutralSetStyle(*self, "hover");
     return FG_ACCEPT;
   case FG_ACTIVE:
-    fgStandardNuetralSetStyle(*self, "active");
+    fgStandardNeutralSetStyle(*self, "active");
     return FG_ACCEPT;
   case FG_GOTFOCUS:
     if(self->control.element.flags&FGBUTTON_NOFOCUS)
@@ -50,7 +52,7 @@ size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
   case FG_SETFLAGS:
     if((self->control.element.flags ^ (fgFlag)otherint) & FGCONTROL_DISABLE)
     {
-      fgStandardNuetralSetStyle(*self, (otherint & FGCONTROL_DISABLE) ? "disabled" : "nuetral");
+      fgStandardNeutralSetStyle(*self, (otherint & FGCONTROL_DISABLE) ? "disabled" : "neutral");
       fgroot_instance->mouse.state |= FGMOUSE_SEND_MOUSEMOVE;
     }
     break;

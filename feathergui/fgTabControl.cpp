@@ -5,9 +5,9 @@
 #include "feathercpp.h"
 #include "fgRadiobutton.h"
 
-void FG_FASTCALL fgTabcontrol_Init(fgTabcontrol* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+void FG_FASTCALL fgTabcontrol_Init(fgTabcontrol* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (fgDestroy)&fgTabcontrol_Destroy, (fgMessage)&fgTabcontrol_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgTabcontrol_Destroy, (fgMessage)&fgTabcontrol_Message);
 }
 
 void FG_FASTCALL fgTabcontrol_Destroy(fgTabcontrol* self)
@@ -71,13 +71,13 @@ size_t FG_FASTCALL fgTabcontrol_Message(fgTabcontrol* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgControl_HoverMessage(&self->control, msg);
-    fgBox_Init(&self->header, *self, 0, "Tabcontrol$header", FGBOX_TILEX | FGELEMENT_EXPANDY | FGELEMENT_BACKGROUND, &fgTransform { 0, 0, 0, 0, 0, 1, 0, 0 });
+    fgBox_Init(&self->header, *self, 0, "Tabcontrol$header", FGBOX_TILEX | FGELEMENT_EXPANDY | FGELEMENT_BACKGROUND, &fgTransform { 0, 0, 0, 0, 0, 1, 0, 0 }, 0);
     return FG_ACCEPT;
   case FG_ADDITEM:
   {
-    fgElement* button = fgroot_instance->backend.fgCreate("Radiobutton", self->header, 0, "Tabcontrol$toggle", FGELEMENT_EXPAND, &fgTransform_EMPTY);
+    fgElement* button = fgroot_instance->backend.fgCreate("Radiobutton", self->header, 0, "Tabcontrol$toggle", FGELEMENT_EXPAND, 0, 0);
     assert(button->destroy == (fgDestroy)&fgRadiobutton_Destroy);
-    fgElement* panel = fgroot_instance->backend.fgCreate("Element", *self, 0, "Tabcontrol$panel", FGELEMENT_HIDDEN, &fgTransform_DEFAULT);
+    fgElement* panel = fgroot_instance->backend.fgCreate("Element", *self, 0, "Tabcontrol$panel", FGELEMENT_HIDDEN, &fgTransform_DEFAULT, 0);
     assert(panel->message == (fgMessage)&fgElement_Message);
     panel->message = (fgMessage)&fgTabcontrolPanel_Message;
     panel->destroy = (fgDestroy)&fgTabcontrolPanel_Destroy;

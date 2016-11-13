@@ -11,8 +11,10 @@ extern "C" {
 #endif
 
 struct _FG_MENU;
+
 typedef struct _FG_MENUITEM {
   fgElement element;
+  fgText text;
   struct _FG_MENU* submenu;
 } fgMenuItem;
 
@@ -29,13 +31,13 @@ typedef struct _FG_MENU {
 #endif
 } fgMenu;
 
-FG_EXTERN void FG_FASTCALL fgMenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
+FG_EXTERN void FG_FASTCALL fgMenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
 FG_EXTERN void FG_FASTCALL fgMenu_Destroy(fgMenu* self);
 FG_EXTERN size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg);
 //FG_EXTERN char FG_FASTCALL fgMenu_DoDropdown(fgMenu* self);
-FG_EXTERN void FG_FASTCALL fgSubmenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
+FG_EXTERN void FG_FASTCALL fgSubmenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
 FG_EXTERN size_t FG_FASTCALL fgSubmenu_Message(fgMenu* self, const FG_Msg* msg);
-FG_EXTERN void FG_FASTCALL fgMenuItem_Init(fgMenuItem* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
+FG_EXTERN void FG_FASTCALL fgMenuItem_Init(fgMenuItem* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
 FG_EXTERN size_t FG_FASTCALL fgMenuItem_Message(fgMenuItem* self, const FG_Msg* msg);
 
 #ifdef  __cplusplus

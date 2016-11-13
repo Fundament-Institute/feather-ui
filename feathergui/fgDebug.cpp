@@ -10,13 +10,13 @@ fgDebug* fgdebug_instance = nullptr;
 
 const char* FG_FASTCALL fgDebug_GetMessageString(unsigned short msg);
 
-void FG_FASTCALL fgDebug_Init(fgDebug* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+void FG_FASTCALL fgDebug_Init(fgDebug* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
   if(fgdebug_instance != nullptr)
     VirtualFreeChild(*fgdebug_instance);
 
   fgdebug_instance = self;
-  fgElement_InternalSetup(&self->element, parent, next, name, flags, transform, (fgDestroy)&fgDebug_Destroy, (fgMessage)&fgDebug_Message);
+  fgElement_InternalSetup(&self->element, parent, next, name, flags, transform, units, (fgDestroy)&fgDebug_Destroy, (fgMessage)&fgDebug_Message);
 }
 
 FG_EXTERN void FG_FASTCALL fgDebug_ClearLog(fgDebug* self)
@@ -47,10 +47,10 @@ size_t FG_FASTCALL fgDebug_Message(fgDebug* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgElement_Message(&self->element, msg);
-    fgTreeview_Init(&self->elements, *self, 0, "Debug$elements", 0, &fgTransform { { -300,1,0,0,0,1,0,1 }, 0, { 0,0,0,0 } });
-    fgText_Init(&self->properties, *self, 0, "Debug$properties", FGELEMENT_HIDDEN, &fgTransform { { -300,1,-200,1,0,1,0,1 }, 0, { 0,0,0,0 } });
-    fgTreeview_Init(&self->messages, *self, 0, "Debug$messages", 0, &fgTransform { { 0,0,0,0,200,0,0,1 }, 0, { 0,0,0,0 } });
-    fgText_Init(&self->contents, *self, 0, "Debug$contents", FGELEMENT_HIDDEN, &fgTransform { { 0,0,-200,1,200,0,0,1 }, 0, { 0,0,0,0 } });
+    fgTreeview_Init(&self->elements, *self, 0, "Debug$elements", 0, &fgTransform { { -300,1,0,0,0,1,0,1 }, 0, { 0,0,0,0 } }, 0);
+    fgText_Init(&self->properties, *self, 0, "Debug$properties", FGELEMENT_HIDDEN, &fgTransform { { -300,1,-200,1,0,1,0,1 }, 0, { 0,0,0,0 } }, 0);
+    fgTreeview_Init(&self->messages, *self, 0, "Debug$messages", 0, &fgTransform { { 0,0,0,0,200,0,0,1 }, 0, { 0,0,0,0 } }, 0);
+    fgText_Init(&self->contents, *self, 0, "Debug$contents", FGELEMENT_HIDDEN, &fgTransform { { 0,0,-200,1,200,0,0,1 }, 0, { 0,0,0,0 } }, 0);
     self->messagelog.p = 0;
     self->messagelog.l = 0;
     self->messagelog.s = 0;
@@ -185,6 +185,7 @@ const char* fgDebug_GetElementName(fgDebug* self, fgElement* e)
 
 size_t FG_FASTCALL fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
 {
+  //BSS_VERIFY_HEAP;
   static const FG_Msg* msgbuffer = 0;
   static size_t depthbuffer = 0;
   static size_t* indexbuffer = 0;
@@ -264,14 +265,14 @@ void FG_FASTCALL fgDebug_TreeInsert(fgElement* parent, fgElement* element, fgEle
 
   if(treeview != 0)
   {
-    root = fgroot_instance->backend.fgCreate("TreeItem", parent, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY);
+    root = fgroot_instance->backend.fgCreate("TreeItem", parent, 0, 0, FGELEMENT_EXPAND, 0, 0);
     root->message = (fgMessage)&fgTreeItem_DebugMessage;
     root->userdata = element;
   }
   else
     treeview = !fgdebug_instance ? parent : *fgdebug_instance;
 
-  fgElement* text = fgroot_instance->backend.fgCreate("Text", root, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY);
+  fgElement* text = fgroot_instance->backend.fgCreate("Text", root, 0, 0, FGELEMENT_EXPAND, 0, 0);
 
   if(element->GetName())
     text->SetText(element->GetName());
@@ -307,7 +308,7 @@ void FG_FASTCALL fgDebug_BuildTree(fgElement* treeview)
 FG_EXTERN void FG_FASTCALL fgDebug_Show(float left, float right)
 {
   if(!fgdebug_instance)
-    fgDebug_Init((fgDebug*)malloc(sizeof(fgDebug)), *fgroot_instance, 0, 0, FGELEMENT_HIDDEN, &fgTransform_DEFAULT);
+    fgDebug_Init((fgDebug*)malloc(sizeof(fgDebug)), *fgroot_instance, 0, 0, FGELEMENT_HIDDEN, &fgTransform_DEFAULT, 0);
   if(fgroot_instance->backend.behaviorhook == &fgRoot_BehaviorDebug)
     return; // Prevent an infinite loop
 
@@ -450,8 +451,8 @@ size_t FG_FASTCALL fgDebug_LogMessage(fgDebug* self, const FG_Msg* msg, unsigned
 
   if(msg->type != FG_INJECT && msg->type != FG_MOUSEMOVE)
   {
-    fgElement* elem = fgroot_instance->backend.fgCreate("TreeItem", self->depthelement, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY);
-    fgElement* text = fgroot_instance->backend.fgCreate("Text", elem, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY);
+    fgElement* elem = fgroot_instance->backend.fgCreate("TreeItem", self->depthelement, 0, 0, FGELEMENT_EXPAND, 0, 0);
+    fgElement* text = fgroot_instance->backend.fgCreate("Text", elem, 0, 0, FGELEMENT_EXPAND, 0, 0);
     text->SetText(fgDebug_GetMessageString(msg->type));
 
     AbsRect r;
@@ -482,7 +483,7 @@ const char* FG_FASTCALL fgDebug_GetMessageString(unsigned short msg)
   case FG_GETDPI: return "FG_GETDPI";
   case FG_GETCLASSNAME: return "FG_GETCLASSNAME";
   case FG_GETNAME: return "FG_GETNAME";
-  case FG_NUETRAL: return "FG_NUETRAL";
+  case FG_NEUTRAL: return "FG_NEUTRAL";
   case FG_HOVER: return "FG_HOVER";
   case FG_ACTIVE: return "FG_ACTIVE";
   case FG_ACTION: return "FG_ACTION";
@@ -571,8 +572,8 @@ ptrdiff_t FG_FASTCALL fgDebug_WriteMessage(char* buf, size_t bufsize, fgDebugMes
     return snprintf(buf, bufsize, "%*sFG_GETCLASSNAME() - %s", spaces, "", (char*)msg->valuep);
   case FG_GETNAME:
     return snprintf(buf, bufsize, "%*sFG_GETNAME() - %s", spaces, "", (char*)msg->valuep);
-  case FG_NUETRAL:
-    return snprintf(buf, bufsize, "%*sFG_NUETRAL()", spaces, "");
+  case FG_NEUTRAL:
+    return snprintf(buf, bufsize, "%*sFG_NEUTRAL()", spaces, "");
   case FG_HOVER:
     return snprintf(buf, bufsize, "%*sFG_HOVER()", spaces, "");
   case FG_ACTIVE:

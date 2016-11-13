@@ -5,9 +5,9 @@
 #include "bss-util\bss_util.h"
 #include "feathercpp.h"
 
-void FG_FASTCALL fgScrollbar_Init(fgScrollbar* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+void FG_FASTCALL fgScrollbar_Init(fgScrollbar* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (fgDestroy)&fgScrollbar_Destroy, (fgMessage)&fgScrollbar_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgScrollbar_Destroy, (fgMessage)&fgScrollbar_Message);
 }
 void FG_FASTCALL fgScrollbar_Destroy(fgScrollbar* self)
 {
@@ -83,8 +83,8 @@ size_t FG_FASTCALL fgScrollbar_barMessage(_FG_SCROLLBAR_INNER* self, const FG_Ms
     return FG_ACCEPT;
   case FG_MOUSEUP:
   case FG_MOUSEDOWN:
-    self->lastmouse.x = msg->x;
-    self->lastmouse.y = msg->y;
+    self->lastmouse.x = (FABS)msg->x;
+    self->lastmouse.y = (FABS)msg->y;
     if(self->button->parent != 0)
       _sendsubmsg<FG_ACTION, ptrdiff_t>(self->button->parent, FGSCROLLBAR_BARINIT, self->button->userid);
     break;
@@ -96,7 +96,7 @@ size_t FG_FASTCALL fgScrollbar_barMessage(_FG_SCROLLBAR_INNER* self, const FG_Ms
           self->button->parent,
           FGSCROLLBAR_BAR,
           self->button->userid,
-          (!self->button->userid) ? (self->lastmouse.x - msg->x) : (self->lastmouse.y - msg->y));
+          (!self->button->userid) ? (self->lastmouse.x - (FABS)msg->x) : (self->lastmouse.y - (FABS)msg->y));
     }
     break;
   }
@@ -239,15 +239,15 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
     memset(&self->barcache, 0, sizeof(AbsVec));
     memset(&self->realsize, 0, sizeof(AbsVec));
     fgControl_Message(&self->control, msg);
-    fgElement_Init(&self->bg[0], *self, 0, "Scrollbar$horzbg", FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN, &fgTransform_EMPTY);
-    fgElement_Init(&self->bg[1], *self, 0, "Scrollbar$vertbg", FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN, &fgTransform_EMPTY);
-    fgElement_Init(&self->bg[2], *self, 0, "Scrollbar$corner", FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN, &fgTransform_EMPTY);
-    fgButton_Init(&self->btn[0], &self->bg[0], 0, "Scrollbar$scrollleft", FGELEMENT_BACKGROUND, &fgTransform_EMPTY);
-    fgButton_Init(&self->btn[1], &self->bg[1], 0, "Scrollbar$scrolltop", FGELEMENT_BACKGROUND, &fgTransform_EMPTY);
-    fgButton_Init(&self->btn[2], &self->bg[0], 0, "Scrollbar$scrollright", FGELEMENT_BACKGROUND, &fgTransform_EMPTY);
-    fgButton_Init(&self->btn[3], &self->bg[1], 0, "Scrollbar$scrollbottom", FGELEMENT_BACKGROUND, &fgTransform_EMPTY);
-    fgButton_Init(&self->bar[0].button, &self->bg[0], 0, "Scrollbar$scrollhorz", 0, &fgTransform_EMPTY);
-    fgButton_Init(&self->bar[1].button, &self->bg[1], 0, "Scrollbar$scrollvert", 0, &fgTransform_EMPTY);
+    fgElement_Init(&self->bg[0], *self, 0, "Scrollbar$horzbg", FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN, 0, 0);
+    fgElement_Init(&self->bg[1], *self, 0, "Scrollbar$vertbg", FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN, 0, 0);
+    fgElement_Init(&self->bg[2], *self, 0, "Scrollbar$corner", FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN, 0, 0);
+    fgButton_Init(&self->btn[0], &self->bg[0], 0, "Scrollbar$scrollleft", FGELEMENT_BACKGROUND, 0, 0);
+    fgButton_Init(&self->btn[1], &self->bg[1], 0, "Scrollbar$scrolltop", FGELEMENT_BACKGROUND, 0, 0);
+    fgButton_Init(&self->btn[2], &self->bg[0], 0, "Scrollbar$scrollright", FGELEMENT_BACKGROUND, 0, 0);
+    fgButton_Init(&self->btn[3], &self->bg[1], 0, "Scrollbar$scrollbottom", FGELEMENT_BACKGROUND, 0, 0);
+    fgButton_Init(&self->bar[0].button, &self->bg[0], 0, "Scrollbar$scrollhorz", 0, 0, 0);
+    fgButton_Init(&self->bar[1].button, &self->bg[1], 0, "Scrollbar$scrollvert", 0, 0, 0);
     self->btn[0]->userid = 0;
     self->btn[1]->userid = 1;
     self->btn[2]->userid = 2;

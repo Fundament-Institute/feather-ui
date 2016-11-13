@@ -76,7 +76,7 @@ typedef struct _FG_ELEMENT {
 
 #ifdef  __cplusplus
   FG_DLLEXPORT void Construct();
-  FG_DLLEXPORT void FG_FASTCALL Move(unsigned char subtype, struct _FG_ELEMENT* child, size_t diff);
+  FG_DLLEXPORT void FG_FASTCALL Move(unsigned short subtype, struct _FG_ELEMENT* child, size_t diff);
   FG_DLLEXPORT size_t FG_FASTCALL SetAlpha(float alpha);
   FG_DLLEXPORT size_t FG_FASTCALL SetArea(const CRect& area);
   FG_DLLEXPORT size_t FG_FASTCALL SetTransform(const fgTransform& transform);
@@ -90,7 +90,7 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT struct _FG_ELEMENT* FG_FASTCALL AddItemText(const char* item);
   FG_DLLEXPORT struct _FG_ELEMENT* FG_FASTCALL AddItemElement(struct _FG_ELEMENT* item);
   FG_DLLEXPORT size_t FG_FASTCALL RemoveChild(struct _FG_ELEMENT* child);
-  FG_DLLEXPORT void FG_FASTCALL LayoutChange(unsigned char subtype, struct _FG_ELEMENT* target, struct _FG_ELEMENT* old);
+  FG_DLLEXPORT void FG_FASTCALL LayoutChange(unsigned short subtype, struct _FG_ELEMENT* target, struct _FG_ELEMENT* old);
   FG_DLLEXPORT size_t FG_FASTCALL LayoutFunction(const FG_Msg& msg, const CRect& area, bool scrollbar = false);
   FG_DLLEXPORT size_t FG_FASTCALL LayoutLoad(struct _FG_LAYOUT* layout);
   FG_DLLEXPORT size_t DragOver(int x, int y);
@@ -126,7 +126,7 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT void LostFocus();
   FG_DLLEXPORT size_t FG_FASTCALL SetName(const char* name);
   FG_DLLEXPORT const char* GetName();
-  FG_DLLEXPORT void Nuetral();
+  FG_DLLEXPORT void Neutral();
   FG_DLLEXPORT void Hover();
   FG_DLLEXPORT void Active();
   FG_DLLEXPORT void Action();
@@ -159,18 +159,18 @@ typedef struct _FG_ELEMENT {
 #endif
 } fgElement;
 
-FG_EXTERN void FG_FASTCALL fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, void (FG_FASTCALL *destroy)(void*), size_t(FG_FASTCALL *message)(void*, const FG_Msg*));
-FG_EXTERN void FG_FASTCALL fgElement_Init(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform);
+FG_EXTERN void FG_FASTCALL fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units, void (FG_FASTCALL *destroy)(void*), size_t(FG_FASTCALL *message)(void*, const FG_Msg*));
+FG_EXTERN void FG_FASTCALL fgElement_Init(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
 FG_EXTERN void FG_FASTCALL fgElement_Destroy(fgElement* self);
 FG_EXTERN size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg);
 FG_EXTERN fgElement* FG_FASTCALL fgElement_GetChildUnderMouse(fgElement* self, int x, int y, AbsRect* cache);
 FG_EXTERN void FG_FASTCALL fgElement_ClearListeners(fgElement* self);
 FG_EXTERN size_t FG_FASTCALL fgElement_CheckLastFocus(fgElement* self);
 
-FG_EXTERN size_t FG_FASTCALL fgIntMessage(fgElement* self, unsigned char type, ptrdiff_t data, size_t aux);
-FG_EXTERN size_t FG_FASTCALL fgVoidMessage(fgElement* self, unsigned char type, void* data, ptrdiff_t aux);
+FG_EXTERN size_t FG_FASTCALL fgIntMessage(fgElement* self, unsigned short type, ptrdiff_t data, size_t aux);
+FG_EXTERN size_t FG_FASTCALL fgVoidMessage(fgElement* self, unsigned short type, void* data, ptrdiff_t aux);
 FG_EXTERN size_t FG_FASTCALL fgPassMessage(fgElement* self, const FG_Msg* msg);
-FG_EXTERN size_t FG_FASTCALL fgSubMessage(fgElement* self, unsigned char type, unsigned char subtype, void* data, ptrdiff_t aux);
+FG_EXTERN size_t FG_FASTCALL fgSubMessage(fgElement* self, unsigned short type, unsigned short subtype, void* data, ptrdiff_t aux);
 
 FG_EXTERN void FG_FASTCALL ResolveRect(const fgElement* self, AbsRect* out);
 FG_EXTERN void FG_FASTCALL ResolveRectCache(const fgElement* self, AbsRect* BSS_RESTRICT out, const AbsRect* BSS_RESTRICT last, const AbsRect* BSS_RESTRICT padding);

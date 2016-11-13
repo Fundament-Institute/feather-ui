@@ -88,8 +88,8 @@ char DynArrayRemove(T& a, FG_UINT index)
   return 1;
 }
 
-typedef typename fgConstruct<fgStyleLayout, const char*, const char*, fgFlag, const fgTransform*, int>::fgConstructor<fgStyleLayout_Destroy, fgStyleLayout_Init> fgStyleLayoutConstruct;
-typedef typename fgConstruct<fgClassLayout, const char*, const char*, fgFlag, const fgTransform*, int>::fgConstructor<fgClassLayout_Destroy, fgClassLayout_Init> fgClassLayoutConstruct;
+typedef typename fgConstruct<fgStyleLayout, const char*, const char*, fgFlag, const fgTransform*, short, int>::fgConstructor<fgStyleLayout_Destroy, fgStyleLayout_Init> fgStyleLayoutConstruct;
+typedef typename fgConstruct<fgClassLayout, const char*, const char*, fgFlag, const fgTransform*, short, int>::fgConstructor<fgClassLayout_Destroy, fgClassLayout_Init> fgClassLayoutConstruct;
 
 extern BSS_FORCEINLINE char fgSortStyleLayout(const fgStyleLayoutConstruct& l, const fgStyleLayoutConstruct& r) { return -SGNCOMPARE(l.order, r.order); }
 extern BSS_FORCEINLINE char fgSortClassLayout(const fgClassLayoutConstruct& l, const fgClassLayoutConstruct& r) { return -SGNCOMPARE(l.style.order, r.style.order); }
@@ -119,7 +119,7 @@ inline size_t _sendmsg(fgElement* self, Args... args)
 }
 
 template<FG_MSGTYPE type, typename... Args>
-inline size_t _sendsubmsg(fgElement* self, unsigned char sub, Args... args)
+inline size_t _sendsubmsg(fgElement* self, unsigned short sub, Args... args)
 {
   FG_Msg msg = { 0 };
   msg.type = type;
@@ -138,9 +138,9 @@ inline FG_UINT fgStyleGetMask(Arg arg, Args... args)
   return fgStyle_GetName(arg, false) | fgStyleGetMask(args...);
 }
 
-BSS_FORCEINLINE size_t fgStandardNuetralSetStyle(fgElement* self, const char* style, unsigned char sub = FGSETSTYLE_NAME)
+BSS_FORCEINLINE size_t fgStandardNeutralSetStyle(fgElement* self, const char* style, unsigned short sub = FGSETSTYLE_NAME)
 {
-  return _sendsubmsg<FG_SETSTYLE, const void*, size_t>(self, sub, style, fgStyleGetMask("nuetral", "hover", "active", "disable"));
+  return _sendsubmsg<FG_SETSTYLE, const void*, size_t>(self, sub, style, fgStyleGetMask("neutral", "hover", "active", "disable"));
 }
 
 BSS_FORCEINLINE size_t fgMaskSetStyle(fgElement* self, const char* style, FG_UINT mask)

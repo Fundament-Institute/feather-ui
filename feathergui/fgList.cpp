@@ -9,9 +9,9 @@
 
 static const char* FGSTR_LISTITEM = "ListItem";
 
-void FG_FASTCALL fgListItem_Init(fgControl* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+void FG_FASTCALL fgListItem_Init(fgControl* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (fgDestroy)&fgElement_Destroy, (fgMessage)&fgListItem_Message);
+  fgElement_InternalSetup(*self, parent, next, name, !flags ? (FGBOX_TILEY | FGELEMENT_EXPANDY) : flags, transform, units, (fgDestroy)&fgElement_Destroy, (fgMessage)&fgListItem_Message);
 }
 
 size_t FG_FASTCALL fgListItem_Message(fgControl* self, const FG_Msg* msg)
@@ -30,14 +30,14 @@ size_t FG_FASTCALL fgListItem_Message(fgControl* self, const FG_Msg* msg)
   case FG_MOUSESCROLL:
     fgPassMessage(self->element.parent, msg); // We send these messages to our parent FIRST, then override the resulting hover message by processing them ourselves.
     break;
-  case FG_NUETRAL:
-    fgStandardNuetralSetStyle(*self, "nuetral");
+  case FG_NEUTRAL:
+    fgStandardNeutralSetStyle(*self, "neutral");
     return FG_ACCEPT;
   case FG_HOVER:
-    fgStandardNuetralSetStyle(*self, "hover");
+    fgStandardNeutralSetStyle(*self, "hover");
     return FG_ACCEPT;
   case FG_ACTIVE:
-    fgStandardNuetralSetStyle(*self, "active");
+    fgStandardNeutralSetStyle(*self, "active");
     return FG_ACCEPT;
   case FG_GETCLASSNAME:
     return (size_t)FGSTR_LISTITEM;
@@ -46,9 +46,9 @@ size_t FG_FASTCALL fgListItem_Message(fgControl* self, const FG_Msg* msg)
   return fgControl_HoverMessage(self, msg);
 }
 
-void FG_FASTCALL fgList_Init(fgList* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform)
+void FG_FASTCALL fgList_Init(fgList* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  fgElement_InternalSetup(*self, parent, next, name, flags, transform, (fgDestroy)&fgList_Destroy, (fgMessage)&fgList_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgList_Destroy, (fgMessage)&fgList_Message);
 }
 void FG_FASTCALL fgList_Destroy(fgList* self)
 {
@@ -122,20 +122,20 @@ size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
       {
         for(size_t i = 0; i < self->selected.l; ++i)
           if(self->selected.p[i]->GetClassName() == FGSTR_LISTITEM)
-            fgStandardNuetralSetStyle(self->selected.p[i], "selected", FGSETSTYLE_REMOVEFLAG);
+            fgStandardNeutralSetStyle(self->selected.p[i], "selected", FGSETSTYLE_REMOVEFLAG);
         ((bss_util::cArraySort<fgElement*>&)self->selected).Clear();
       }
       else if(index != (size_t)-1)
       {
         if(self->selected.p[index]->GetClassName() == FGSTR_LISTITEM)
-          fgStandardNuetralSetStyle(self->selected.p[index], "selected", FGSETSTYLE_REMOVEFLAG);
+          fgStandardNeutralSetStyle(self->selected.p[index], "selected", FGSETSTYLE_REMOVEFLAG);
         ((bss_util::cArraySort<fgElement*>&)self->selected).Remove(index);
       }
 
       if(index == (size_t)-1)
       {
         if(target->GetClassName() == FGSTR_LISTITEM)
-          fgStandardNuetralSetStyle(target, "selected", FGSETSTYLE_SETFLAG);
+          fgStandardNeutralSetStyle(target, "selected", FGSETSTYLE_SETFLAG);
         ((bss_util::cArraySort<fgElement*>&)self->selected).Insert(target);
       }
     }

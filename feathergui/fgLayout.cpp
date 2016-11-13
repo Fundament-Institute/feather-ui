@@ -27,9 +27,9 @@ void FG_FASTCALL fgLayout_Destroy(fgLayout* self)
   fgSkinBase_Destroy(&self->base);
   reinterpret_cast<fgClassLayoutArray&>(self->layout).~cArraySort();
 }
-FG_UINT FG_FASTCALL fgLayout_AddLayout(fgLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, int order)
+FG_UINT FG_FASTCALL fgLayout_AddLayout(fgLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order)
 {
-  return ((fgClassLayoutArray&)self->layout).Insert(fgClassLayoutConstruct(type, name, flags, transform, order));
+  return ((fgClassLayoutArray&)self->layout).Insert(fgClassLayoutConstruct(type, name, flags, transform, units, order));
 }
 char FG_FASTCALL fgLayout_RemoveLayout(fgLayout* self, FG_UINT layout)
 {
@@ -40,9 +40,9 @@ fgClassLayout* FG_FASTCALL fgLayout_GetLayout(fgLayout* self, FG_UINT layout)
   return self->layout.p + layout;
 }
 
-void FG_FASTCALL fgClassLayout_Init(fgClassLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, int order)
+void FG_FASTCALL fgClassLayout_Init(fgClassLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order)
 {
-  fgStyleLayout_Init(&self->style, type, name, flags, transform, order);
+  fgStyleLayout_Init(&self->style, type, name, flags, transform, units, order);
   memset(&self->children, 0, sizeof(fgVector));
 }
 void FG_FASTCALL fgClassLayout_Destroy(fgClassLayout* self)
@@ -51,9 +51,9 @@ void FG_FASTCALL fgClassLayout_Destroy(fgClassLayout* self)
   reinterpret_cast<fgClassLayoutArray&>(self->children).~cArraySort();
 }
 
-FG_UINT FG_FASTCALL fgClassLayout_AddChild(fgClassLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, int order)
+FG_UINT FG_FASTCALL fgClassLayout_AddChild(fgClassLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order)
 {
-  return ((fgClassLayoutArray&)self->children).Insert(fgClassLayoutConstruct(type, name, flags, transform, order));
+  return ((fgClassLayoutArray&)self->children).Insert(fgClassLayoutConstruct(type, name, flags, transform, units, order));
 }
 char FG_FASTCALL fgClassLayout_RemoveChild(fgClassLayout* self, FG_UINT child)
 {
@@ -149,7 +149,7 @@ void FG_FASTCALL fgLayout_ApplyFunctions(fgElement* root)
   fgLayout_ApplyFunction(root, "onlostfocus");
   fgLayout_ApplyFunction(root, "onsetname");
   fgLayout_ApplyFunction(root, "ongetname");
-  fgLayout_ApplyFunction(root, "onnuetral");
+  fgLayout_ApplyFunction(root, "onneutral");
   fgLayout_ApplyFunction(root, "onhover");
   fgLayout_ApplyFunction(root, "onactive");
   fgLayout_ApplyFunction(root, "onaction");
@@ -204,14 +204,14 @@ void FG_FASTCALL fgClassLayout_LoadLayoutXML(fgClassLayout* self, const cXMLNode
   { 
     const cXMLNode* node = cur->GetNode(i);
     fgTransform transform = { 0 };
-    fgStyle_NodeEvalTransform(node, transform);
+    int type = fgStyle_NodeEvalTransform(node, transform);
     int flags = fgSkinBase_GetFlagsFromString(node->GetAttributeString("flags"), 0);
 
-    if(!stricmp(node->GetName(), "menuitem") && !node->GetNodes()) // An empty menuitem is a special case
-      AddStyleSubMsg<FG_ADDITEM, const void*>(&self->style.style, FGADDITEM_TEXT, node->GetAttributeString("name"));
+    if(!STRICMP(node->GetName(), "menuitem") && !node->GetNodes() && !node->GetAttributeString("text")) // An empty menuitem is a special case
+      AddStyleSubMsg<FG_ADDITEM>(&self->style.style, FGADDITEM_TEXT);
     else
     {
-      FG_UINT index = fgClassLayout_AddChild(self, node->GetName(), node->GetAttributeString("name"), flags, &transform, node->GetAttributeInt("order"));
+      FG_UINT index = fgClassLayout_AddChild(self, node->GetName(), node->GetAttributeString("name"), flags, &transform, type, node->GetAttributeInt("order"));
       fgClassLayout_LoadAttributesXML(&fgClassLayout_GetChild(self, index)->style, node, flags, &root->base, path);
       fgClassLayout_LoadLayoutXML(fgClassLayout_GetChild(self, index), node, root, path);
     }
@@ -222,7 +222,7 @@ bool FG_FASTCALL fgLayout_LoadStreamXML(fgLayout* self, std::istream& s, const c
   cXML xml(s);
   size_t nodes = xml.GetNodes();
   for(size_t i = 0; i < nodes; ++i) // Load any skins contained in the layout first
-    if(!stricmp(xml.GetNode(i)->GetName(), "fg:skin"))
+    if(!STRICMP(xml.GetNode(i)->GetName(), "fg:skin"))
       fgSkins_LoadNodeXML(&self->base, xml.GetNode(i));
 
   const cXMLNode* root = xml.GetNode("fg:Layout");
@@ -233,9 +233,9 @@ bool FG_FASTCALL fgLayout_LoadStreamXML(fgLayout* self, std::istream& s, const c
   {
     const cXMLNode* node = root->GetNode(i);
     fgTransform transform = { 0 };
-    fgStyle_NodeEvalTransform(node, transform);
+    short type = fgStyle_NodeEvalTransform(node, transform);
     int flags = fgSkinBase_GetFlagsFromString(node->GetAttributeString("flags"), 0);
-    FG_UINT index = fgLayout_AddLayout(self, node->GetName(), node->GetAttributeString("name"), flags, &transform, node->GetAttributeInt("order"));
+    FG_UINT index = fgLayout_AddLayout(self, node->GetName(), node->GetAttributeString("name"), flags, &transform, type, node->GetAttributeInt("order"));
     fgClassLayout_LoadAttributesXML(&fgLayout_GetLayout(self, index)->style, node, flags, &self->base, path);
     fgClassLayout_LoadLayoutXML(fgLayout_GetLayout(self, index), node, self, path);
   }
