@@ -22,7 +22,7 @@ void FG_FASTCALL fgDebug_Init(fgDebug* BSS_RESTRICT self, fgElement* BSS_RESTRIC
 FG_EXTERN void FG_FASTCALL fgDebug_ClearLog(fgDebug* self)
 {
   for(size_t i = 0; i < self->messagestrings.l; ++i)
-    free(self->messagestrings.p[i]);
+    fgfree(self->messagestrings.p[i], __FILE__, __LINE__);
   self->messagestrings.l = 0;
   self->messagelog.l = 0;
 }
@@ -154,7 +154,7 @@ char* fgDebug_CopyText(fgDebug* self, const char* s)
 {
   if(!s) return 0;
   size_t len = strlen(s) + 1;
-  char* ret = (char*)malloc(len);
+  char* ret = fgmalloc<char>(len, __FILE__, __LINE__);
   memcpy(ret, s, len);
   ((bss_util::cDynArray<char*>&)self->messagestrings).AddConstruct(ret);
   return ret;
@@ -308,7 +308,7 @@ void FG_FASTCALL fgDebug_BuildTree(fgElement* treeview)
 FG_EXTERN void FG_FASTCALL fgDebug_Show(float left, float right)
 {
   if(!fgdebug_instance)
-    fgDebug_Init((fgDebug*)malloc(sizeof(fgDebug)), *fgroot_instance, 0, 0, FGELEMENT_HIDDEN, &fgTransform_DEFAULT, 0);
+    fgDebug_Init(fgmalloc<fgDebug>(1, __FILE__, __LINE__), *fgroot_instance, 0, 0, FGELEMENT_HIDDEN, &fgTransform_DEFAULT, 0);
   if(fgroot_instance->backend.behaviorhook == &fgRoot_BehaviorDebug)
     return; // Prevent an infinite loop
 

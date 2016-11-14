@@ -4,6 +4,7 @@
 #include "bss-util/khash.h"
 #include "bss-util/bss_util.h"
 #include "fgStyle.h"
+#include "feathercpp.h"
 
 KHASH_INIT(fgStyles, const char*, FG_UINT, 1, kh_str_hash_funcins, kh_str_hash_insequal);
 FG_UINT fgStyleFlagMask = 0;
@@ -21,7 +22,7 @@ void FG_FASTCALL fgStyle_Destroy(fgStyle* self)
 
 fgStyleMsg* FG_FASTCALL fgStyle_AddStyleMsg(fgStyle* self, const FG_Msg* msg, const void* arg1, size_t arglen1, const void* arg2, size_t arglen2)
 {
-  fgStyleMsg* r = (fgStyleMsg*)malloc(sizeof(fgStyleMsg) + arglen1 + arglen2);
+  fgStyleMsg* r = (fgStyleMsg*)fgmalloc<char>(sizeof(fgStyleMsg) + arglen1 + arglen2, __FILE__, __LINE__);
   memcpy(&r->msg, msg, sizeof(FG_Msg));
 
   if(arg1)
@@ -51,23 +52,36 @@ void FG_FASTCALL fgStyle_RemoveStyleMsg(fgStyle* self, fgStyleMsg* msg)
     while(cur && cur->next != msg) cur = cur->next;
     if(cur) cur->next = msg->next;
   }
-  free(msg);
+  fgfree(msg, __FILE__, __LINE__);
 }
 
+struct fgStyleStatic
+{
+  fgStyleStatic() { h = kh_init_fgStyles(); }
+  ~fgStyleStatic() {
+    for(khiter_t i = 0; i < h->n_buckets; ++i)
+    {
+      if(kh_exist(h, i))
+        fgfree(const_cast<char*>(kh_key(h, i)), __FILE__, __LINE__);
+    }
+    kh_destroy_fgStyles(h);
+  }
+  kh_fgStyles_t* h;
+};
 FG_UINT FG_FASTCALL fgStyle_GetName(const char* name, bool flag)
 {
-  static kh_fgStyles_t* h = kh_init_fgStyles();
+  static fgStyleStatic stylehash;
   static FG_UINT count = 0;
   assert(count < (sizeof(FG_UINT)<<3));
   
   int r;
-  khiter_t iter = kh_put_fgStyles(h, name, &r);
+  khiter_t iter = kh_put_fgStyles(stylehash.h, name, &r);
   if(r) // if it wasn't in there before, we need to initialize the index
   {
-    kh_key(h, iter) = fgCopyText(name);
-    kh_val(h, iter) = (1 << count++);
-    if(flag) fgStyleFlagMask |= kh_val(h, iter);
+    kh_key(stylehash.h, iter) = fgCopyText(name, __FILE__, __LINE__);
+    kh_val(stylehash.h, iter) = (1 << count++);
+    if(flag) fgStyleFlagMask |= kh_val(stylehash.h, iter);
   }
-  assert(!!(fgStyleFlagMask & kh_val(h, iter)) == flag);
-  return kh_val(h, iter);
+  assert(!!(fgStyleFlagMask & kh_val(stylehash.h, iter)) == flag);
+  return kh_val(stylehash.h, iter);
 }

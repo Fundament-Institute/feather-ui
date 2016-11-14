@@ -87,9 +87,13 @@ void FG_FASTCALL fgDirtyElementDefault(fgElement* elem) {}
 template<class T, void (FG_FASTCALL *INIT)(T* BSS_RESTRICT, fgElement* BSS_RESTRICT, fgElement* BSS_RESTRICT, const char*, fgFlag, const fgTransform*, unsigned short)>
 fgElement* _create_default(fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  T* r = bss_util::bssmalloc<T>(1);
+  T* r = fgmalloc<T>(1, __FILE__, __LINE__);
   INIT(r, parent, next, name, flags, transform, units);
-  ((fgElement*)r)->free = &free;
+#ifdef BSS_DEBUG
+  ((fgElement*)r)->free = &fgfreeblank;
+#else
+  ((fgElement*)r)->free = &free; // We do this because the compiler can't figure out the inlining weirdness going on here
+#endif
   return (fgElement*)r;
 }
 

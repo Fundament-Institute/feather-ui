@@ -548,7 +548,9 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
         self->areacache.top += self->scroll->padding.top;
         self->areacache.right -= self->scroll->padding.right;
         self->areacache.bottom -= self->scroll->padding.bottom;
-        float scale = (fgroot_instance->dpi / (float)self->scroll->GetDPI());
+        size_t dpi = self->scroll->GetDPI(); // GetDPI can return 0 if we have no parent, which can happen when a layout is being set up or destroyed.
+        float scale = !dpi ? 1.0 : (fgroot_instance->dpi / (float)dpi);
+        assert(isfinite(scale));
         self->areacache.left *= scale;
         self->areacache.top *= scale;
         self->areacache.right *= scale;
@@ -562,6 +564,7 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
         fgroot_instance->backend.fgFontSize(self->font, !self->text.p ? &UNICODE_TERMINATOR : self->text.p, self->lineheight, self->letterspacing, &r, self->scroll->flags);
         dim->x = r.right - r.left;
         dim->y = r.bottom - r.top;
+        assert(!isnan(self->scroll.realsize.x) && !isnan(self->scroll.realsize.y));
         fgTextbox_fixpos(self, self->start, &self->startpos);
         fgTextbox_fixpos(self, self->end, &self->endpos);
       }

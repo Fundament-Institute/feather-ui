@@ -20,7 +20,6 @@
 
 #include <assert.h>
 #include <string.h> // memcpy,memset
-#include <malloc.h> 
 #include "bss_compiler.h"
 
 #ifdef  __cplusplus
@@ -641,7 +640,7 @@ FG_EXTERN inline char FG_FASTCALL HitAbsRect(const AbsRect* r, FABS x, FABS y);
 FG_EXTERN inline void FG_FASTCALL ToIntAbsRect(const AbsRect* r, int target[4]);
 FG_EXTERN inline void FG_FASTCALL ToLongAbsRect(const AbsRect* r, long target[4]);
 FG_EXTERN inline char FG_FASTCALL MsgHitAbsRect(const FG_Msg* msg, const AbsRect* r);
-FG_EXTERN char* FG_FASTCALL fgCopyText(const char* text);
+FG_EXTERN char* FG_FASTCALL fgCopyText(const char* text, const char* file, size_t line);
 FG_EXTERN inline void FG_FASTCALL fgUpdateMouseState(fgMouseState* state, const FG_Msg* msg);
 FG_EXTERN inline char FG_FASTCALL fgRectIntersect(const AbsRect* l, const AbsRect* r); // Returns 1 if the rectangles intersect, or 0 otherwise
 FG_EXTERN inline void FG_FASTCALL fgRectIntersection(const AbsRect* BSS_RESTRICT l, const AbsRect* BSS_RESTRICT r, AbsRect* out);

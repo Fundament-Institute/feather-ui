@@ -23,6 +23,7 @@ typedef struct _FG_CLASS_LAYOUT {
 
 typedef struct _FG_LAYOUT {
   fgSkinBase base;
+  fgStyle style;
   struct __kh_fgIDMap_t* idmap; // holds map of last instantiated layout
   fgVectorClassLayout layout; // Type: fgClassLayout
 } fgLayout;

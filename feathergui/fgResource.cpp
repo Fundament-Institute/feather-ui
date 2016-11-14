@@ -114,11 +114,10 @@ void* FG_FASTCALL fgCreateResourceFile(fgFlag flags, const char* file)
   fseek(f, 0, SEEK_END);
   long len = ftell(f);
   fseek(f, 0, SEEK_SET);
-  char* buf = (char*)malloc(len);
+  DYNARRAY(char, buf, len);
   fread(buf, 1, len, f);
   fclose(f);
   void* r = fgroot_instance->backend.fgCreateResource(flags, buf, len);
-  free(buf);
   return r;
 }
 

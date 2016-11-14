@@ -192,6 +192,7 @@ void FG_FASTCALL fgScrollbar_Recalc(fgScrollbar* self)
 
 void FG_FASTCALL fgScrollbar_ApplyPadding(fgScrollbar* self, float x, float y)
 {
+  assert(!isnan(self->realsize.x) && !isnan(self->realsize.y));
   self->control.element.padding.left += x;
   self->control.element.padding.top += y;
   if(self->control.element.padding.left > self->realpadding.left || (self->control->flags & FGSCROLLBAR_HIDEH))
@@ -298,6 +299,7 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
     { 
       AbsVec oldsize = self->realsize;
       _sendsubmsg<FG_LAYOUTFUNCTION, const void*, void*>(*self, 1, msg, &self->realsize);
+      assert(!isnan(self->realsize.x) && !isnan(self->realsize.y));
       if(oldsize.x != self->realsize.x || oldsize.y != self->realsize.y)
       {
         if(self->control.element.flags & FGELEMENT_EXPAND) // We only need to adjust the actual area if we are expanding. Otherwise we just want to update the padding to the new realsize.

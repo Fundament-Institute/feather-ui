@@ -23,7 +23,7 @@ void FG_FASTCALL fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement
   memset(self, 0, sizeof(fgElement));
   self->destroy = destroy;
   self->free = 0;
-  self->name = fgCopyText(name);
+  self->name = fgCopyText(name, __FILE__, __LINE__);
   self->message = message;
   self->flags = flags;
   self->style = (FG_UINT)-1;
@@ -53,10 +53,11 @@ void FG_FASTCALL fgElement_Destroy(fgElement* self)
   if(fgCaptureWindow == self)
     fgCaptureWindow = 0;
 
-  if(self->name) free(self->name);
-  if(self->userhash) kh_destroy_fgUserdata(self->userhash);
   if(self->parent != 0) _sendmsg<FG_REMOVECHILD, void*>(self->parent, self);
   self->parent = 0;
+  if(self->name) fgfree(self->name, __FILE__, __LINE__);
+  if(self->userhash) kh_destroy_fgUserdata(self->userhash);
+  self->userhash = 0;
   reinterpret_cast<fgSkinRefArray&>(self->skinrefs).~cDynArray();
   fgElement_ClearListeners(self);
   assert(fgFocusedWindow != self); // If these assertions fail something is wrong with how the message chain is constructed
@@ -379,6 +380,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     if(!layout)
       return 0;
 
+    _sendsubmsg<FG_SETSTYLE, void*, size_t>(self, FGSETSTYLE_POINTER, &layout->style, ~0);
     for(FG_UINT i = 0; i < layout->layout.l; ++i)
       fgElement_LoadLayout(self, 0, layout->layout.p + i);
   }
@@ -387,8 +389,18 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
   {
     hold = (fgElement*)msg->other;
     if(!hold)
-      hold = bss_util::bssmalloc<fgElement>(1);
-    memcpy(hold, self, sizeof(fgElement));
+    {
+      hold = fgmalloc<fgElement>(1, __FILE__, __LINE__);
+      memcpy(hold, self, sizeof(fgElement));
+#ifdef BSS_DEBUG
+      hold->free = &fgfreeblank;
+#else
+      hold->free = &free;
+#endif
+    }
+    else
+      memcpy(hold, self, sizeof(fgElement));
+
     hold->root = 0;
     hold->last = 0;
     hold->parent = 0;
@@ -402,7 +414,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     hold->lastnoclip = 0;
     hold->rootinject = 0;
     hold->lastinject = 0;
-    hold->name = fgCopyText(self->name);
+    hold->name = fgCopyText(self->name, __FILE__, __LINE__);
     hold->SetParent(self->parent, self->next);
 
     fgElement* cur = self->root;
@@ -561,8 +573,8 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
   case FG_INJECT:
     return fgStandardInject(self, (const FG_Msg*)msg->other, (const AbsRect*)msg->other2);
   case FG_SETNAME:
-    if(self->name) free(self->name);
-    self->name = fgCopyText((const char*)msg->other);
+    if(self->name) fgfree(self->name, __FILE__, __LINE__);
+    self->name = fgCopyText((const char*)msg->other, __FILE__, __LINE__);
     _sendmsg<FG_SETSKIN, void*>(self, 0); // force the skin to be recalculated
     return FG_ACCEPT;
   case FG_GETNAME:
@@ -834,7 +846,7 @@ void FG_FASTCALL LList_InsertAll(fgElement* BSS_RESTRICT self, fgElement* BSS_RE
   {
     prev = LList_Find<fgElement_prev, FGELEMENT_NOCLIP>(self);
     next = LList_Find<fgElement_next, FGELEMENT_NOCLIP>(self);
-    LList_Insert<fgElement_prev, fgElement_next>(self, next, prev, &self->parent->rootnoclip, &self->parent->lastnoclip);
+    LList_Insert<fgElement_prevnoclip, fgElement_nextnoclip>(self, next, prev, &self->parent->rootnoclip, &self->parent->lastnoclip);
   }
 }
 

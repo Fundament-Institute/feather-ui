@@ -20,6 +20,10 @@ static_assert(sizeof(unsigned int) == sizeof(fgColor), "ERROR: fgColor not size 
 static_assert(sizeof(FG_Msg) <= sizeof(uint64_t) * 3, "FG_Msg is too big!");
 static_assert(sizeof(FG_Msg) == sizeof(void*)*2 + sizeof(uint32_t)*2, "FG_Msg is not 16!");
 
+#ifdef BSS_DEBUG
+fgLeakTracker fgLeakTracker::Tracker;
+#endif
+
 AbsVec FG_FASTCALL ResolveVec(const CVec* v, const AbsRect* last)
 {
   AbsVec r = { v->x.abs, v->y.abs };
@@ -108,11 +112,11 @@ void FG_FASTCALL ToLongAbsRect(const AbsRect* r, long target[4])
 
 }
 
-char* FG_FASTCALL fgCopyText(const char* text)
+char* FG_FASTCALL fgCopyText(const char* text, const char* file, size_t line)
 {
   if(!text) return 0;
   size_t len = strlen(text) + 1;
-  char* ret = (char*)malloc(len);
+  char* ret = fgmalloc<char>(len, !file ? __FILE__ : file, !file ? __LINE__ : line);
   memcpy(ret, text, len);
   return ret;
 }

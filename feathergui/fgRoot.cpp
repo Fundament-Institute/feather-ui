@@ -484,7 +484,7 @@ void FG_FASTCALL fgRoot_Update(fgRoot* self, double delta)
   {
     self->updateroot = cur->next;
     if((*cur->action)(cur->arg)) // If this returns true, we deallocate the node
-      free(cur);
+      fgfree(cur, __FILE__, __LINE__);
   }
 }
 
@@ -517,7 +517,7 @@ fgMonitor* FG_FASTCALL fgRoot_GetMonitor(const fgRoot* self, const AbsRect* rect
 
 fgDeferAction* FG_FASTCALL fgRoot_AllocAction(char (FG_FASTCALL *action)(void*), void* arg, double time)
 {
-  fgDeferAction* r = bss_util::bssmalloc<fgDeferAction>(1);
+  fgDeferAction* r = fgmalloc<fgDeferAction>(1, __FILE__, __LINE__);
   r->action = action;
   r->arg = arg;
   r->time = time;
@@ -530,7 +530,7 @@ void FG_FASTCALL fgRoot_DeallocAction(fgRoot* self, fgDeferAction* action)
 {
   if(action->prev != 0 || action == self->updateroot) // If true you are in the list and must be removed
     fgRoot_RemoveAction(self, action);
-  free(action);
+  fgfree(action, __FILE__, __LINE__);
 }
 
 void FG_FASTCALL fgRoot_AddAction(fgRoot* self, fgDeferAction* action)

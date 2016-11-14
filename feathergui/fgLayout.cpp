@@ -25,6 +25,7 @@ void FG_FASTCALL fgLayout_Init(fgLayout* self)
 void FG_FASTCALL fgLayout_Destroy(fgLayout* self)
 {
   fgSkinBase_Destroy(&self->base);
+  fgStyle_Destroy(&self->style);
   reinterpret_cast<fgClassLayoutArray&>(self->layout).~cArraySort();
 }
 FG_UINT FG_FASTCALL fgLayout_AddLayout(fgLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order)
@@ -72,7 +73,7 @@ void fgFunctionMap_destroy(struct __kh_fgFunctionMap_t* h)
 {
   for(khiter_t i = 0; i != kh_end(h); ++i)
     if(kh_exist(h, i))
-      free(kh_val(h, i));
+      fgfree(kh_val(h, i), __FILE__, __LINE__);
 
   kh_destroy_fgFunctionMap(h);
 }
@@ -80,7 +81,7 @@ void fgFunctionMap_destroy(struct __kh_fgFunctionMap_t* h)
 int FG_FASTCALL fgLayout_RegisterFunction(fgListener fn, const char* name)
 {
   int r;
-  khint_t iter = kh_put_fgFunctionMap(fgroot_instance->functionhash, fgCopyText(name), &r);
+  khint_t iter = kh_put_fgFunctionMap(fgroot_instance->functionhash, fgCopyText(name, __FILE__, __LINE__), &r);
   kh_val(fgroot_instance->functionhash, iter) = fn;
   return r;
 }
@@ -228,6 +229,8 @@ bool FG_FASTCALL fgLayout_LoadStreamXML(fgLayout* self, std::istream& s, const c
   const cXMLNode* root = xml.GetNode("fg:Layout");
   if(!root)
     return false;
+
+  fgStyle_LoadAttributesXML(&self->style, root, 0, &self->base, 0, 0); // This will load and apply skins to the layout base
 
   for(size_t i = 0; i < root->GetNodes(); ++i)
   {

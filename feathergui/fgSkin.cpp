@@ -37,8 +37,8 @@ char FG_FASTCALL DestroyHashElement(HASH* self, khiter_t iter)
   if(kh_exist(self, iter))
   {
     (*DESTROY)(kh_val(self, iter));
-    free(kh_val(self, iter));
-    free((char*)kh_key(self, iter));
+    fgfree(kh_val(self, iter), __FILE__, __LINE__);
+    fgfree((char*)kh_key(self, iter), __FILE__, __LINE__);
     (*DEL)(self, iter);
     return 1;
   }
@@ -178,9 +178,9 @@ fgSkin* FG_FASTCALL fgSkinBase_AddSkin(fgSkinBase* self, const char* name)
   khiter_t iter = kh_put(fgSkins, self->skinmap, name, &r);
   if(r != 0) // If r is 0 the element already exists so we don't want to re-initialize it
   {
-    kh_val(self->skinmap, iter) = bss_util::bssmalloc<fgSkin>(1);
+    kh_val(self->skinmap, iter) = fgmalloc<fgSkin>(1, __FILE__, __LINE__);
     fgSkin_Init(kh_val(self->skinmap, iter));
-    kh_key(self->skinmap, iter) = fgCopyText(name);
+    kh_key(self->skinmap, iter) = fgCopyText(name, __FILE__, __LINE__);
   }
 
   return kh_val(self->skinmap, iter);
@@ -202,8 +202,8 @@ fgSkin* FG_FASTCALL fgSkinBase_GetSkin(const fgSkinBase* self, const char* name)
 
 void FG_FASTCALL fgStyleLayout_Init(fgStyleLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order)
 {
-  self->type = fgCopyText(type);
-  self->name = fgCopyText(name);
+  self->type = fgCopyText(type, __FILE__, __LINE__);
+  self->name = fgCopyText(name, __FILE__, __LINE__);
   self->id = 0;
   self->transform = *transform;
   self->units = units;
@@ -213,9 +213,9 @@ void FG_FASTCALL fgStyleLayout_Init(fgStyleLayout* self, const char* type, const
 }
 void FG_FASTCALL fgStyleLayout_Destroy(fgStyleLayout* self)
 {
-  if(self->type) free(self->type);
-  if(self->name) free(self->name);
-  if(self->id) free(self->id);
+  if(self->type) fgfree(self->type, __FILE__, __LINE__);
+  if(self->name) fgfree(self->name, __FILE__, __LINE__);
+  if(self->id) fgfree(self->id, __FILE__, __LINE__);
   fgStyle_Destroy(&self->style);
 }
 
@@ -382,7 +382,7 @@ void FG_FASTCALL fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, i
     {
     case 0:
       if(id)
-        *id = fgCopyText(attr->String);
+        *id = fgCopyText(attr->String, __FILE__, __LINE__);
       break;
     case 1:
       mindim.x = (FABS)attr->Float;
