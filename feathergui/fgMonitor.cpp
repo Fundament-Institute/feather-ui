@@ -7,7 +7,7 @@
 
 void FG_FASTCALL fgMonitor_Init(fgMonitor* BSS_RESTRICT self, fgFlag flags, fgRoot* BSS_RESTRICT parent, fgMonitor* BSS_RESTRICT prev, const AbsRect* coverage, size_t dpi)
 {
-  float scale = (!dpi || !parent->dpi) ? 1.0 : (parent->dpi / (float)dpi);
+  FABS scale = (!dpi || !parent->dpi) ? (FABS)1.0 : (parent->dpi / (FABS)dpi);
   fgTransform transform = { coverage->left*scale, 0, coverage->top*scale, 0, coverage->right*scale, 0, coverage->bottom*scale, 0, 0, 0, 0 };
   self->coverage = *coverage;
   self->dpi = dpi;

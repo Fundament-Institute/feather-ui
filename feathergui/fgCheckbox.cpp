@@ -39,7 +39,7 @@ size_t FG_FASTCALL fgCheckbox_Message(fgCheckbox* self, const FG_Msg* msg)
   case FG_SETVALUE:
     if(msg->subtype != 0 && msg->subtype != FGVALUE_INT64)
       return 0;
-    self->checked = msg->otherint;
+    self->checked = (char)msg->otherint;
     fgMaskSetStyle(*self, (self->checked == FGCHECKED_CHECKED) ? "checked" : ((self->checked == FGCHECKED_INDETERMINATE) ? "indeterminate" : "default"), fgStyleGetMask("default", "checked", "indeterminate"));
     return FG_ACCEPT;
   case FG_GETVALUE:

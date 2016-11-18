@@ -68,7 +68,7 @@ size_t FG_FASTCALL fgRadiobutton_Message(fgRadiobutton* self, const FG_Msg* msg)
         cur = cur->radionext;
       }
     }
-    self->window.checked = msg->otherint;
+    self->window.checked = (char)msg->otherint;
     break;
   case FG_SETPARENT:
     if(msg->other != parent)

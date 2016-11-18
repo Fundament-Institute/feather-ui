@@ -78,7 +78,7 @@ size_t FG_FASTCALL fgCurve_Message(fgCurve* self, const FG_Msg* msg)
     self->factor = 0.1f;
     return FG_ACCEPT;
   case FG_SETCOLOR:
-    self->color.color = msg->otherint;
+    self->color.color = (uint32_t)msg->otherint;
     fgroot_instance->backend.fgDirtyElement(&self->element);
     break;
   case FG_GETCOLOR:
@@ -87,7 +87,7 @@ size_t FG_FASTCALL fgCurve_Message(fgCurve* self, const FG_Msg* msg)
     if(!msg->subtype || msg->subtype == FGVALUE_FLOAT)
       self->factor = msg->otherf;
     else if(msg->subtype == FGVALUE_INT64)
-      self->factor = msg->otherint;
+      self->factor = (float)msg->otherint;
     else
       return 0;
     return FG_ACCEPT;
@@ -105,7 +105,7 @@ size_t FG_FASTCALL fgCurve_Message(fgCurve* self, const FG_Msg* msg)
     self->cache.l = 0;
     break;
   case FG_GETITEM:
-    if(msg->otherint < 0 || msg->otherint >= self->points.l)
+    if(msg->otherint < 0 || msg->otherint >= (ptrdiff_t)self->points.l)
       return 0;
     return (size_t)(self->points.p + msg->otherint);
   case FG_REMOVEITEM:
@@ -120,7 +120,7 @@ size_t FG_FASTCALL fgCurve_Message(fgCurve* self, const FG_Msg* msg)
   {
     if(msg->subtype & 1) break;
     AbsRect area = *(AbsRect*)msg->other;
-    float scale = (!msg->otheraux || !fgroot_instance->dpi) ? 1.0 : (fgroot_instance->dpi / (float)msg->otheraux);
+    FABS scale = (!msg->otheraux || !fgroot_instance->dpi) ? (FABS)1.0 : (fgroot_instance->dpi / (float)msg->otheraux);
     area.left *= scale;
     area.top *= scale;
     area.right *= scale;

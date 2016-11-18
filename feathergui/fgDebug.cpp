@@ -308,7 +308,10 @@ void FG_FASTCALL fgDebug_BuildTree(fgElement* treeview)
 FG_EXTERN void FG_FASTCALL fgDebug_Show(float left, float right)
 {
   if(!fgdebug_instance)
+  {
     fgDebug_Init(fgmalloc<fgDebug>(1, __FILE__, __LINE__), *fgroot_instance, 0, 0, FGELEMENT_HIDDEN, &fgTransform_DEFAULT, 0);
+    fgdebug_instance->element.free = &fgfreeblank;
+  }
   if(fgroot_instance->backend.behaviorhook == &fgRoot_BehaviorDebug)
     return; // Prevent an infinite loop
 
@@ -355,7 +358,6 @@ size_t FG_FASTCALL fgDebug_LogMessage(fgDebug* self, const FG_Msg* msg, unsigned
     m.arg2.name = fgDebug_GetElementName(self, m.arg2.element);
   case FG_REMOVEITEM:
   case FG_REMOVECHILD:
-  case FG_CLONE:
   case FG_DROP:
   case FG_GETSKIN:
     m.arg1.name = fgDebug_GetElementName(self, m.arg1.element);
@@ -509,7 +511,6 @@ const char* FG_FASTCALL fgDebug_GetMessageString(unsigned short msg)
   case FG_LAYOUTCHANGE: return "FG_LAYOUTCHANGE";
   case FG_SETPARENT: return "FG_SETPARENT";
   case FG_ADDCHILD: return "FG_ADDCHILD";
-  case FG_CLONE: return "FG_CLONE";
   case FG_REMOVECHILD: return "FG_REMOVECHILD";
   case FG_GETSKIN: return "FG_GETSKIN";
   case FG_LAYOUTFUNCTION: return "FG_LAYOUTFUNCTION";
@@ -628,8 +629,6 @@ ptrdiff_t FG_FASTCALL fgDebug_WriteMessage(char* buf, size_t bufsize, fgDebugMes
     return snprintf(buf, bufsize, "%*sFG_SETPARENT(%s [0x%p], %s [0x%p])", spaces, "", _dbg_getstr(msg->arg1.name), msg->arg1.element, _dbg_getstr(msg->arg2.name), msg->arg2.element);
   case FG_ADDCHILD:
     return snprintf(buf, bufsize, "%*sFG_ADDCHILD(%s [0x%p], %s [0x%p])", spaces, "", _dbg_getstr(msg->arg1.name), msg->arg1.element, _dbg_getstr(msg->arg2.name), msg->arg2.element);
-  case FG_CLONE:
-    return snprintf(buf, bufsize, "%*sFG_CLONE(%s [0x%p]) - 0x%p", spaces, "", _dbg_getstr(msg->arg1.name), msg->arg1.element, msg->valuep);
   case FG_REMOVECHILD:
     return snprintf(buf, bufsize, "%*sFG_REMOVECHILD(%s [0x%p])", spaces, "", _dbg_getstr(msg->arg1.name), msg->arg1.element);
   case FG_GETSKIN:

@@ -9,7 +9,7 @@
 #include <math.h>
 #include <limits.h>
 
-KHASH_INIT(fgUserdata, const char*, size_t, 1, kh_str_hash_func, kh_str_hash_equal);
+KHASH_INIT(fgUserdata, char*, size_t, 1, kh_str_hash_func, kh_str_hash_equal);
 
 template<typename U, typename V>
 BSS_FORCEINLINE char CompPairInOrder(const std::pair<U, V>& l, const std::pair<U, V>& r) { char ret = SGNCOMPARE(l.first, r.first); return !ret ? SGNCOMPARE(l.second, r.second) : ret; }
@@ -55,8 +55,14 @@ void FG_FASTCALL fgElement_Destroy(fgElement* self)
 
   if(self->parent != 0) _sendmsg<FG_REMOVECHILD, void*>(self->parent, self);
   self->parent = 0;
+  if(self->userhash)
+  {
+    for(khiter_t i = 0; i < self->userhash->n_buckets; ++i)
+      if(kh_exist(self->userhash, i))
+        fgfree(kh_key(self->userhash, i), __FILE__, __LINE__);
+    kh_destroy_fgUserdata(self->userhash);
+  }
   if(self->name) fgfree(self->name, __FILE__, __LINE__);
-  if(self->userhash) kh_destroy_fgUserdata(self->userhash);
   self->userhash = 0;
   reinterpret_cast<fgSkinRefArray&>(self->skinrefs).~cDynArray();
   fgElement_ClearListeners(self);
@@ -69,6 +75,15 @@ void FG_FASTCALL fgElement_Destroy(fgElement* self)
 // (1<<2) resize y (4)
 // (1<<3) move x (8)
 // (1<<4) move y (16)
+
+bool FG_FASTCALL fgElement_VERIFY(fgElement* self)
+{
+  for(khiter_t i = 0; i < self->userhash->n_buckets; ++i)
+    if(kh_exist(self->userhash, i))
+      if(!fgLeakTracker::Tracker.Verify(kh_key(self->userhash, i)))
+        return false;
+  return true;
+}
 
 char FG_FASTCALL fgElement_PotentialResize(fgElement* self)
 {
@@ -385,7 +400,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       fgElement_LoadLayout(self, 0, layout->layout.p + i);
   }
   return FG_ACCEPT;
-  case FG_CLONE:
+  /*case FG_CLONE: // REMOVED: Cloning is extraordinarily difficult to get right due to skinref, which needs a minimum O(n^2) operation to be cloned correctly.
   {
     hold = (fgElement*)msg->other;
     if(!hold)
@@ -415,6 +430,8 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     hold->rootinject = 0;
     hold->lastinject = 0;
     hold->name = fgCopyText(self->name, __FILE__, __LINE__);
+    hold->userhash = 0;
+    hold->skinrefs.l = 0;
     hold->SetParent(self->parent, self->next);
 
     fgElement* cur = self->root;
@@ -427,7 +444,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     if(!msg->other)
       return (size_t)hold;
   }
-  return 0;
+  return 0;*/
   case FG_GETCLASSNAME:
     return (size_t)"Element";
   case FG_GETSKIN:
@@ -661,7 +678,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     if(!self->userhash)
       return 0;
     {
-      khiter_t k = kh_get_fgUserdata(self->userhash, (const char*)msg->other2);
+      khiter_t k = kh_get_fgUserdata(self->userhash, (char*)msg->other2);
       return (k != kh_end(self->userhash) && kh_exist(self->userhash, k)) ? kh_val(self->userhash, k) : 0;
     }
   case FG_SETUSERDATA:
@@ -677,8 +694,11 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
 
     {
       int r = 0;
-      khiter_t k = kh_put_fgUserdata(self->userhash, (const char*)msg->other2, &r);
-      kh_val(self->userhash, k) = (size_t)msg->otherint;
+      const char* name = (const char*)msg->other2;
+      khiter_t iter = kh_get_fgUserdata(self->userhash, (char*)msg->other2);
+      if(iter == kh_end(self->userhash) || !kh_exist(self->userhash, iter))
+        iter = kh_put_fgUserdata(self->userhash, fgCopyText((const char*)msg->other2, __FILE__, __LINE__), &r);
+      kh_val(self->userhash, iter) = (size_t)msg->otherint;
       return 1 + r;
     }
   case FG_GETSELECTEDITEM:
@@ -973,9 +993,9 @@ void FG_FASTCALL fgElement::SetParent(fgElement* parent, fgElement* next) { _sen
 
 size_t FG_FASTCALL fgElement::AddChild(fgElement* child, fgElement* next) { return _sendmsg<FG_ADDCHILD, void*, void*>(this, child, next); }
 
-fgElement* FG_FASTCALL fgElement::AddItem(void* item) { return (fgElement*)_sendsubmsg<FG_ADDITEM, const void*>(this, FGADDITEM_DEFAULT, item); }
-fgElement* FG_FASTCALL fgElement::AddItemText(const char* item) { return (fgElement*)_sendsubmsg<FG_ADDITEM, const void*>(this, FGADDITEM_TEXT, item); }
-fgElement* FG_FASTCALL fgElement::AddItemElement(fgElement* item) { return (fgElement*)_sendsubmsg<FG_ADDITEM, const void*>(this, FGADDITEM_ELEMENT, item); }
+fgElement* FG_FASTCALL fgElement::AddItem(void* item) { return (fgElement*)_sendsubmsg<FG_ADDITEM, const void*>(this, FGITEM_DEFAULT, item); }
+fgElement* FG_FASTCALL fgElement::AddItemText(const char* item, FGSETTEXT fmt) { return (fgElement*)_sendsubmsg<FG_ADDITEM, const void*, size_t>(this, FGITEM_TEXT, item, fmt); }
+fgElement* FG_FASTCALL fgElement::AddItemElement(fgElement* item) { return (fgElement*)_sendsubmsg<FG_ADDITEM, const void*>(this, FGITEM_ELEMENT, item); }
 
 size_t FG_FASTCALL fgElement::RemoveChild(fgElement* child) { return _sendmsg<FG_REMOVECHILD, void*>(this, child); }
 
@@ -1007,8 +1027,6 @@ size_t fgElement::Drop(int x, int y, unsigned char allbtn)
 void fgElement::Draw(AbsRect* area, int dpi) { _sendmsg<FG_DRAW, void*, size_t>(this, area, dpi); }
 
 size_t fgElement::Inject(const FG_Msg* msg, const AbsRect* area) { return _sendmsg<FG_INJECT, const void*, const void*>(this, msg, area); }
-
-fgElement* FG_FASTCALL fgElement::Clone(fgElement* from) { return reinterpret_cast<fgElement*>(_sendmsg<FG_CLONE, void*>(this, from)); }
 
 size_t FG_FASTCALL fgElement::SetSkin(fgSkin* skin) { return _sendmsg<FG_SETSKIN, void*>(this, skin); }
 

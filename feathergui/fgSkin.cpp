@@ -291,7 +291,7 @@ int FG_FASTCALL fgStyle_LoadCRect(const char* attribute, CRect& r)
   const char* s2 = STRTOK(0, ", ", &context);
   const char* s3 = STRTOK(0, ", ", &context);
 
-  return (fgStyle_LoadCoord(attribute, 0, r.left) << FGUNIT_LEFT) |
+  return (fgStyle_LoadCoord(s0, 0, r.left) << FGUNIT_LEFT) |
     (fgStyle_LoadCoord(s1, 0, r.top) << FGUNIT_TOP) |
     (fgStyle_LoadCoord(s2, 0, r.right) << FGUNIT_RIGHT) |
     (fgStyle_LoadCoord(s3, 0, r.bottom) << FGUNIT_BOTTOM);
@@ -469,7 +469,7 @@ void FG_FASTCALL fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, i
     case 18: // font
     {
       const char* split = strchr(attr->String.c_str(), ';');
-      FG_UINT index = fgSkinBase_AddFont(root, fgroot_instance->backend.fgCreateFont(flags, cStr(attr->String.c_str(), split - attr->String.c_str()).c_str(), atoi(split + 1), 96));
+      FG_UINT index = (FG_UINT)fgSkinBase_AddFont(root, fgroot_instance->backend.fgCreateFont(flags, cStr(attr->String.c_str(), split - attr->String.c_str()).c_str(), atoi(split + 1), 96));
       if(split != 0)
         AddStyleMsg<FG_SETFONT, void*>(self, fgSkinBase_GetFont(root, index));
       break;
@@ -526,7 +526,7 @@ void FG_FASTCALL fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, i
     }
     case 23: // resource
     {
-      FG_UINT res = fgSkinBase_AddResource(root, fgCreateResourceFile(flags, attr->String));
+      FG_UINT res = (FG_UINT)fgSkinBase_AddResource(root, fgCreateResourceFile(flags, attr->String));
       AddStyleMsg<FG_SETRESOURCE, void*>(self, fgSkinBase_GetResource(root, res));
       break;
     }
@@ -660,7 +660,7 @@ void FG_FASTCALL fgSkins_LoadSubNodeXML(fgSkin* self, const cXMLNode* cur)
       fgTransform transform = { 0 };
       int type = fgStyle_NodeEvalTransform(node, transform);
       fgFlag flags = fgSkinBase_GetFlagsFromString(node->GetAttributeString("flags"), 0);
-      FG_UINT index = fgSkin_AddChild(self, node->GetName(), node->GetAttributeString("name"), flags, &transform, type, node->GetAttributeInt("order"));
+      FG_UINT index = (FG_UINT)fgSkin_AddChild(self, node->GetName(), node->GetAttributeString("name"), flags, &transform, type, (int)node->GetAttributeInt("order"));
       fgStyle_LoadAttributesXML(&fgSkin_GetChild(self, index)->style, node, flags, &self->base, 0, 0);
     }
   }

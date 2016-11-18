@@ -74,6 +74,8 @@ void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, size_t dpi, fgBa
 
 void FG_FASTCALL fgRoot_Destroy(fgRoot* self)
 {
+  if(fgdebug_instance != 0)
+    VirtualFreeChild(&fgdebug_instance->element);
   fgRadioGroup_destroy(self->radiohash);
   fgFunctionMap_destroy(self->functionhash);
   fgControl_Destroy((fgControl*)self);
@@ -132,8 +134,8 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
       ResolveRect(self->dragdraw, &out);
       FABS dx = out.right - out.left;
       FABS dy = out.bottom - out.top;
-      out.left = self->mouse.x;
-      out.top = self->mouse.y;
+      out.left = (FABS)self->mouse.x;
+      out.top = (FABS)self->mouse.y;
       out.right = out.left + dx;
       out.bottom = out.top + dy;
       self->dragdraw->Draw(&out, (int)self->dragdraw->GetDPI());

@@ -84,7 +84,7 @@ inline void FG_FASTCALL fgTextbox_Insert(fgTextbox* self, size_t start, const in
   fgTextbox_fixpos(self, self->start, &self->startpos);
   fgTextbox_SetCursorEnd(self);
 }
-inline bool FG_FASTCALL fgTextbox_checkspace(fgTextbox* self, int num, bool space)
+inline bool FG_FASTCALL fgTextbox_checkspace(fgTextbox* self, ptrdiff_t num, bool space)
 {
   if(self->mask != 0) return false;
   int c = self->text.p[self->start + num];
@@ -549,7 +549,7 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
         self->areacache.right -= self->scroll->padding.right;
         self->areacache.bottom -= self->scroll->padding.bottom;
         size_t dpi = self->scroll->GetDPI(); // GetDPI can return 0 if we have no parent, which can happen when a layout is being set up or destroyed.
-        float scale = !dpi ? 1.0 : (fgroot_instance->dpi / (float)dpi);
+        FABS scale = !dpi ? (FABS)1.0 : (fgroot_instance->dpi / (FABS)dpi);
         assert(isfinite(scale));
         self->areacache.left *= scale;
         self->areacache.top *= scale;

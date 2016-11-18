@@ -141,10 +141,10 @@ size_t FG_FASTCALL fgDropdown_Message(fgDropdown* self, const FG_Msg* msg)
     {
       case FGSETCOLOR_MAIN:
       case FGSETCOLOR_HOVER:
-        self->hover.color = (size_t)msg->otherint;
+        self->hover.color = (uint32_t)msg->otherint;
         break;
       case FGSETCOLOR_SELECT:
-        self->select.color = (size_t)msg->otherint;
+        self->select.color = (uint32_t)msg->otherint;
         break;
     }
     return FG_ACCEPT;

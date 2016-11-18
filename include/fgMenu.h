@@ -22,7 +22,6 @@ typedef struct _FG_MENUITEM {
 typedef struct _FG_MENU {
   fgBox box;
   fgElement arrow;
-  fgElement seperator; // cloned to replace a null value inserted into the list. This allows a style to control the size and appearence of the seperator.
   struct _FG_MENU* expanded; // holds the submenu that is currently expanded, if one is.
   //fgDeferAction* dropdown; // Keeps track of our dropdown action in fgRoot
 #ifdef  __cplusplus

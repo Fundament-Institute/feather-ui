@@ -15,6 +15,7 @@ enum FGLIST_FLAGS
   FGLIST_SELECT = (FGBOX_DISTRIBUTEY << 1),
   FGLIST_MULTISELECT = (FGLIST_SELECT << 1) | FGLIST_SELECT,
   FGLIST_DRAGGABLE = (FGLIST_SELECT << 2),
+  FGLIST_SPLITTER = (FGLIST_DRAGGABLE << 1),
 };
 
 // A List is an arbitrary list of items with a number of different layout options that are selectable and/or draggable.

@@ -232,11 +232,15 @@ enum FGUNIT
   FGUNIT_BOTTOM_HEIGHT = (1 << 13),
 };
 
-enum FGADDITEM
+enum FGITEM
 {
-  FGADDITEM_DEFAULT = 0,
-  FGADDITEM_TEXT = 1, 
-  FGADDITEM_ELEMENT = 2
+  FGITEM_DEFAULT = 0,
+  FGITEM_TEXT, 
+  FGITEM_ELEMENT,
+  FGITEM_ADDROW,
+  FGITEM_INSERTROW,
+  FGITEM_ADDCOLUMN,
+  FGITEM_INSERTCOLUMN,
 };
 
 enum FGVALUE
@@ -269,7 +273,6 @@ enum FG_MSGTYPE
   FG_DROP, // Sent when an element is "dropped" on another element. Whether or not this does anything is up to the control.
   FG_DRAW,
   FG_INJECT,
-  FG_CLONE, // Clones the fgElement
   FG_SETSKIN, // Sets the skin. If NULL, uses GETSKIN to resolve the skin.
   FG_GETSKIN,
   FG_SETSTYLE, // Sets the style. -1 causes it to call GETSTYLE to try and resolve the style index.

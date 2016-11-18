@@ -34,6 +34,10 @@ size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
       return fgControl_ActionMessage(&self->control, &m);
     }
     break;
+  case FG_SETITEM:
+    if(msg->subtype == FGITEM_TEXT || msg->subtype == FGITEM_DEFAULT)
+      return self->control->SetText((const char*)msg->other, (FGSETTEXT)msg->otheraux);
+    break;
   case FG_NEUTRAL:
     fgStandardNeutralSetStyle(*self, "neutral");
     return FG_ACCEPT;

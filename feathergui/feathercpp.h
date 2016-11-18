@@ -203,6 +203,9 @@ class fgLeakTracker
     size_t size;
     const char* file;
     size_t line;
+    const char* freefile;
+    size_t freeline;
+    size_t freecount;
   };
 
 public:
@@ -217,7 +220,8 @@ public:
     for(auto curiter = _leakinfo.begin(); curiter.IsValid(); ++curiter)
     {
       pinfo = _leakinfo.GetValue(*curiter);
-      fprintf(f, "%p (Size: %zi) leaked at %s:%zi\n", pinfo->ptr, pinfo->size, pinfo->file, pinfo->line);
+      if(!pinfo->freecount)
+        fprintf(f, "%p (Size: %zi) leaked at %s:%zi\n", pinfo->ptr, pinfo->size, pinfo->file, pinfo->line);
       free(pinfo);
     }
 
@@ -230,17 +234,24 @@ public:
     const char* hold2 = strrchr(file, '/');
     file = bssmax(bssmax(hold, hold2), file);
 
-    if(_leakinfo.Exists(ptr)) //ensure there is no conflict, because if there is something else terribly wrong is going on.
-      throw "DUPLICATE ASSIGNMENT ERROR";
+    if(_leakinfo.Exists(ptr))
+    {
+      if(!_leakinfo[ptr]->freecount) // If we just allocated memory that hasn't actually been freed something really bad happened.
+        throw "DUPLICATE ASSIGNMENT ERROR";
+      _leakinfo[ptr]->freecount = 0;
+    }
 
     LEAKINFO* pinfo = (LEAKINFO*)malloc(sizeof(LEAKINFO));
     pinfo->size = size;
     pinfo->file = file;
     pinfo->line = line;
     pinfo->ptr = ptr;
+    pinfo->freecount = 0;
+    pinfo->freefile = 0;
+    pinfo->freeline = 0;
     _leakinfo.Insert(ptr, pinfo);
   }
-  void Remove(void* ptr, const char* file, size_t line)
+  bool Remove(void* ptr, const char* file, size_t line)
   {
     auto i = _leakinfo.Iterator(ptr);
     if(!_leakinfo.ExistsIter(i))
@@ -248,9 +259,24 @@ public:
     else
     {
       LEAKINFO* info = _leakinfo.GetValue(i);
-      memset(ptr, 0xFD, info->size);
-      _leakinfo.RemoveIter(i);
+      ++info->freecount;
+
+      if(info->freecount > 1)
+        fprintf(f, "Attempted to delete memory location (%p) at least %zi times at %s:%zi. First free location at %s:%zi\n", ptr, info->freecount, file, line, info->freefile, info->freeline);
+      else
+      {
+        info->freefile = file;
+        info->freeline = line;
+        memset(ptr, 0xFD, info->size);
+        return true;
+      }
     }
+
+    return false;
+  }
+  bool Verify(void* ptr)
+  {
+    return _leakinfo.Exists(ptr);
   }
 
   static fgLeakTracker Tracker;
@@ -268,9 +294,10 @@ BSS_FORCEINLINE static T* fgmalloc(size_t sz, const char* file, size_t line)
 }
 BSS_FORCEINLINE static void fgfree(void* p, const char* file, size_t line)
 { 
-  fgLeakTracker::Tracker.Remove(p, file, line);
-  free(p);
+  if(fgLeakTracker::Tracker.Remove(p, file, line))
+    free(p);
 }
+
 #else
 template<typename T>
 BSS_FORCEINLINE static T* fgmalloc(size_t sz, const char*, size_t) { return reinterpret_cast<T*>(malloc(sz * sizeof(T))); }

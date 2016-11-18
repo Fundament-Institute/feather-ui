@@ -170,18 +170,6 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
     }
   }
     return FG_ACCEPT;
-  case FG_CLONE:
-  {
-    fgControl* hold = (fgControl*)msg->other;
-    if(!hold)
-      hold = fgmalloc<fgControl>(1, __FILE__, __LINE__);
-    hold->contextmenu = hold->contextmenu;
-
-    FG_Msg m = *msg;
-    m.other = hold;
-    return fgElement_Message(*self, msg);
-  }
-  return 0;
   case FG_GETCLASSNAME:
     return (size_t)"Control";
   }

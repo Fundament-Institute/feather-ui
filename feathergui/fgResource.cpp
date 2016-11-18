@@ -54,8 +54,8 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
   case FG_SETCOLOR:
     switch(msg->subtype)
     {
-    case FGSETCOLOR_EDGE: self->edge.color = msg->otherint; break;
-    case FGSETCOLOR_MAIN: self->color.color = msg->otherint; break;
+    case FGSETCOLOR_EDGE: self->edge.color = (uint32_t)msg->otherint; break;
+    case FGSETCOLOR_MAIN: self->color.color = (uint32_t)msg->otherint; break;
     }
     fgroot_instance->backend.fgDirtyElement(*self);
     break;
@@ -84,7 +84,7 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
   {
     if(msg->subtype & 1) break;
     AbsRect area = *(AbsRect*)msg->other;
-    float scale = (!msg->otheraux || !fgroot_instance->dpi) ? 1.0 : (fgroot_instance->dpi / (float)msg->otheraux);
+    FABS scale = (!msg->otheraux || !fgroot_instance->dpi) ? (FABS)1.0 : (fgroot_instance->dpi / (FABS)msg->otheraux);
     area.left *= scale;
     area.top *= scale;
     area.right *= scale;
@@ -109,7 +109,8 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
 
 void* FG_FASTCALL fgCreateResourceFile(fgFlag flags, const char* file)
 {
-  FILE* f = fopen(file, "rb");
+  FILE* f;
+  FOPEN(f, file, "rb");
   if(!f) return 0;
   fseek(f, 0, SEEK_END);
   long len = ftell(f);

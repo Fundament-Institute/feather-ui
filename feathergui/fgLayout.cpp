@@ -209,10 +209,10 @@ void FG_FASTCALL fgClassLayout_LoadLayoutXML(fgClassLayout* self, const cXMLNode
     int flags = fgSkinBase_GetFlagsFromString(node->GetAttributeString("flags"), 0);
 
     if(!STRICMP(node->GetName(), "menuitem") && !node->GetNodes() && !node->GetAttributeString("text")) // An empty menuitem is a special case
-      AddStyleSubMsg<FG_ADDITEM>(&self->style.style, FGADDITEM_TEXT);
+      AddStyleSubMsg<FG_ADDITEM>(&self->style.style, FGITEM_TEXT);
     else
     {
-      FG_UINT index = fgClassLayout_AddChild(self, node->GetName(), node->GetAttributeString("name"), flags, &transform, type, node->GetAttributeInt("order"));
+      FG_UINT index = fgClassLayout_AddChild(self, node->GetName(), node->GetAttributeString("name"), flags, &transform, type, (int)node->GetAttributeInt("order"));
       fgClassLayout_LoadAttributesXML(&fgClassLayout_GetChild(self, index)->style, node, flags, &root->base, path);
       fgClassLayout_LoadLayoutXML(fgClassLayout_GetChild(self, index), node, root, path);
     }
@@ -238,7 +238,7 @@ bool FG_FASTCALL fgLayout_LoadStreamXML(fgLayout* self, std::istream& s, const c
     fgTransform transform = { 0 };
     short type = fgStyle_NodeEvalTransform(node, transform);
     int flags = fgSkinBase_GetFlagsFromString(node->GetAttributeString("flags"), 0);
-    FG_UINT index = fgLayout_AddLayout(self, node->GetName(), node->GetAttributeString("name"), flags, &transform, type, node->GetAttributeInt("order"));
+    FG_UINT index = fgLayout_AddLayout(self, node->GetName(), node->GetAttributeString("name"), flags, &transform, type, (int)node->GetAttributeInt("order"));
     fgClassLayout_LoadAttributesXML(&fgLayout_GetLayout(self, index)->style, node, flags, &self->base, path);
     fgClassLayout_LoadLayoutXML(fgLayout_GetLayout(self, index), node, self, path);
   }
