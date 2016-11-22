@@ -577,6 +577,8 @@ fgFlag fgSkinBase_GetFlagsFromString(const char* s, fgFlag* remove)
     "SINGLELINE", "NOFOCUS", "ROUNDRECT", "CIRCLE", "LINE", "QUADRATIC", "CUBIC", "BSPLINE", "MINIMIZABLE", "MAXIMIZABLE", "RESIZABLE",
     "NOTITLEBAR", "NOBORDER", "EXPAND", "SNAP", "TILE", "DISTRIBUTE");
 
+  if(!s)
+    return FGELEMENT_USEDEFAULTS;
   fgFlag out = 0;
   const char* n;
   while(s)
@@ -652,7 +654,7 @@ fgSkin* fgSkinBase_GetInherit(fgSkinBase* self, const char* inherit)
 void FG_FASTCALL fgSkins_LoadSubNodeXML(fgSkin* self, const cXMLNode* cur)
 {
   fgFlag rootflags = fgSkinBase_GetFlagsFromString(cur->GetAttributeString("flags"), 0);
-  if(rootflags)
+  if(rootflags&(~FGELEMENT_USEDEFAULTS))
     AddStyleMsg<FG_SETFLAGS, ptrdiff_t>(&self->style, rootflags);
   fgTransform ts = { 0 };
   int tsunits = fgStyle_NodeEvalTransform(cur, ts);
@@ -674,9 +676,9 @@ void FG_FASTCALL fgSkins_LoadSubNodeXML(fgSkin* self, const cXMLNode* cur)
       fgStyle_LoadAttributesXML(fgSkin_GetStyle(self, style), node, rootflags, &self->base, 0, 0);
       fgFlag remove = 0;
       fgFlag add = fgSkinBase_GetFlagsFromString(node->GetAttributeString("flags"), &remove);
-      if(remove)
+      if(remove&(~FGELEMENT_USEDEFAULTS))
         AddStyleMsg<FG_SETFLAG, ptrdiff_t, size_t>(fgSkin_GetStyle(self, style), remove, 0);
-      if(add)
+      if(add&(~FGELEMENT_USEDEFAULTS))
         AddStyleMsg<FG_SETFLAG, ptrdiff_t, size_t>(fgSkin_GetStyle(self, style), add, 1);
     }
     else

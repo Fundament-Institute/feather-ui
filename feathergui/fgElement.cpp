@@ -33,7 +33,7 @@ void FG_FASTCALL fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement
   self->free = 0;
   self->name = fgCopyText(name, __FILE__, __LINE__);
   self->message = message;
-  self->flags = flags;
+  self->flags = flags & (~FGELEMENT_USEDEFAULTS);
   self->style = (FG_UINT)-1;
   self->maxdim.x = -1.0f;
   self->maxdim.y = -1.0f;
@@ -61,17 +61,24 @@ void FG_FASTCALL fgElement_Destroy(fgElement* self)
 {
   assert(self != 0);
   _sendmsg<FG_DESTROY>(self);
+  if(fgFocusedWindow == self) // We first try to bump focus up to our parents
+  {
+    fgFocusedWindow = 0;
+    if(self->parent != 0)
+      _sendmsg<FG_GOTFOCUS, void*>(self->parent, self);
+  }
+  if(self->parent != 0)
+    _sendmsg<FG_REMOVECHILD, void*>(self->parent, self);
+  self->parent = 0;
   fgElement_Clear(self);
 
-  if(fgFocusedWindow == self)
-    _sendmsg<FG_LOSTFOCUS>(self);
+  if(fgFocusedWindow == self) // There are some known cases where a child might have focus and destroying it bumps focus back up to us.
+    fgFocusedWindow = 0; // However, we must detach ourselves from our parents before we clear out our elements, so any focus buried inside our element is simply lost.
   if(fgLastHover == self)
     fgLastHover = 0;
   if(fgCaptureWindow == self)
     fgCaptureWindow = 0;
 
-  if(self->parent != 0) _sendmsg<FG_REMOVECHILD, void*>(self->parent, self);
-  self->parent = 0;
   if(self->userhash)
   {
     for(khiter_t i = 0; i < self->userhash->n_buckets; ++i)

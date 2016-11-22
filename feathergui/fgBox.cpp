@@ -148,7 +148,7 @@ size_t FG_FASTCALL fgBox_Message(fgBox* self, const FG_Msg* msg)
           {
             size_t i = self->ordered.l;
             while(i > 0 && self->ordered.p[--i] != next);
-            assert(self->ordered.p[i] == next);
+            assert(!self->ordered.p || self->ordered.p[i] == next);
             ((bss_util::cDynArray<fgElement*>&)self->ordered).Insert(hold, i);
           }
         }

@@ -11,7 +11,7 @@ static const char* FGSTR_LISTITEM = "ListItem";
 
 void FG_FASTCALL fgListItem_Init(fgControl* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  fgElement_InternalSetup(*self, parent, next, name, !flags ? (FGBOX_TILEY | FGELEMENT_EXPANDY) : flags, transform, units, (fgDestroy)&fgElement_Destroy, (fgMessage)&fgListItem_Message);
+  fgElement_InternalSetup(*self, parent, next, name, (flags&FGELEMENT_USEDEFAULTS) ? (FGBOX_TILEY | FGELEMENT_EXPANDY) : flags, transform, units, (fgDestroy)&fgElement_Destroy, (fgMessage)&fgListItem_Message);
 }
 
 size_t FG_FASTCALL fgListItem_Message(fgControl* self, const FG_Msg* msg)

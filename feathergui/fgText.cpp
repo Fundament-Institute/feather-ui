@@ -16,7 +16,7 @@ fgElement* FG_FASTCALL fgText_Create(char* text, void* font, unsigned int color,
 }
 void FG_FASTCALL fgText_Init(fgText* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  fgElement_InternalSetup(*self, parent, next, name, (!flags ? FGELEMENT_EXPAND : flags), transform, units, (fgDestroy)&fgText_Destroy, (fgMessage)&fgText_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgText_Destroy, (fgMessage)&fgText_Message);
 }
 
 void FG_FASTCALL fgText_Destroy(fgText* self)

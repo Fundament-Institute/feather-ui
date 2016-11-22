@@ -28,6 +28,7 @@ enum FGELEMENT_FLAGS
   FGELEMENT_LAYOUTMOVE = 4, // Called when any child is moved so the layout can adjust as necessary.
   FGELEMENT_LAYOUTREORDER = 5, // Called when any child is reordered
   FGELEMENT_LAYOUTRESET = 6, // Called when something invalidates the entire layout (like adding an EXPAND flag)
+  FGELEMENT_USEDEFAULTS = (1 << ((sizeof(fgFlag)<<3) - 1)),
 };
 
 typedef void (FG_FASTCALL *fgDestroy)(void*);
