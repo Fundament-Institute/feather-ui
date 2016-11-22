@@ -16,16 +16,17 @@ fgElement* FG_FASTCALL fgText_Create(char* text, void* font, unsigned int color,
 }
 void FG_FASTCALL fgText_Init(fgText* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgText_Destroy, (fgMessage)&fgText_Message);
+  fgElement_InternalSetup(*self, parent, next, name, (!flags ? FGELEMENT_EXPAND : flags), transform, units, (fgDestroy)&fgText_Destroy, (fgMessage)&fgText_Message);
 }
 
 void FG_FASTCALL fgText_Destroy(fgText* self)
 {
   assert(self != 0);
+  if(self->font != 0) fgroot_instance->backend.fgDestroyFont(self->font);
+  self->font = 0;
+  fgElement_Destroy(&self->element);
   ((bss_util::cDynArray<int>*)&self->text)->~cDynArray();
   ((bss_util::cDynArray<char>*)&self->buf)->~cDynArray();
-  if(self->font != 0) fgroot_instance->backend.fgDestroyFont(self->font);
-  fgElement_Destroy(&self->element);
 }
 
 size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
@@ -35,12 +36,12 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     self->cache = 0;
+    self->lineheight = 0; // lineheight must be zero'd before a potential transform unit resolution.
     memset(&self->text, 0, sizeof(fgVectorString));
     memset(&self->buf, 0, sizeof(fgVectorUTF32));
     fgElement_Message(&self->element, msg);
     self->color.color = 0;
     self->font = 0;
-    self->lineheight = 0;
     self->letterspacing = 0;
     return FG_ACCEPT;
   case FG_SETTEXT:
@@ -74,6 +75,7 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
     self->font = 0;
     if(msg->other)
     {
+      assert(msg->other != (void*)0xcdcdcdcdcdcdcdcd);
       size_t dpi = _sendmsg<FG_GETDPI>(*self);
       unsigned int fontdpi;
       unsigned int fontsize;

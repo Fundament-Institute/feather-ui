@@ -37,6 +37,7 @@ struct _FG_STYLE;
 struct _FG_SKIN;
 struct _FG_LAYOUT;
 struct __kh_fgUserdata_t;
+struct __kh_fgSkinElements_t;
 typedef fgDeclareVector(struct _FG_ELEMENT*, Element) fgVectorElement;
 
 typedef void(FG_FASTCALL *fgListener)(struct _FG_ELEMENT*, const FG_Msg*);
@@ -67,7 +68,7 @@ typedef struct _FG_ELEMENT {
   AbsVec mindim;
   fgFlag flags;
   const struct _FG_SKIN* skin; // skin reference
-  fgVectorElement skinrefs; // Type: fgElement* - References to skin children or subcontrols.
+  struct __kh_fgSkinElements_t* skinelements; // child elements that are part of the skin
   char* name; // Optional name used for mapping to skin collections
   FG_UINT style; // Set to -1 if no style has been assigned, in which case the style from its parent will be used.
   FG_UINT userid;

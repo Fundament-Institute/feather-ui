@@ -21,6 +21,7 @@ void FG_FASTCALL fgResource_Init(fgResource* self, fgElement* BSS_RESTRICT paren
 void FG_FASTCALL fgResource_Destroy(fgResource* self)
 {
   if(self->res) fgroot_instance->backend.fgDestroyResource(self->res);
+  self->res = 0;
   fgElement_Destroy(&self->element);
 }
 size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)

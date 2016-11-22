@@ -178,6 +178,22 @@ BSS_FORCEINLINE void fgResolveVecUnit(fgElement* self, AbsVec& v, size_t subtype
   v.y = fgResolveUnit(self, v.y, (subtype & FGUNIT_Y_MASK) >> FGUNIT_Y);
 }
 
+BSS_FORCEINLINE void fgResolveCRectUnit(fgElement* self, CRect& r, size_t subtype)
+{
+  r.left.abs = fgResolveUnit(self, r.left.abs, (subtype & FGUNIT_LEFT_MASK) >> FGUNIT_LEFT);
+  r.top.abs = fgResolveUnit(self, r.top.abs, (subtype & FGUNIT_TOP_MASK) >> FGUNIT_TOP);
+  r.right.abs = fgResolveUnit(self, r.right.abs, (subtype & FGUNIT_RIGHT_MASK) >> FGUNIT_RIGHT);
+  if(subtype & FGUNIT_RIGHT_WIDTH) r.right.abs += r.left.abs;
+  r.bottom.abs = fgResolveUnit(self, r.bottom.abs, (subtype & FGUNIT_BOTTOM_MASK) >> FGUNIT_BOTTOM);
+  if(subtype & FGUNIT_BOTTOM_HEIGHT) r.bottom.abs += r.top.abs;
+}
+
+BSS_FORCEINLINE void fgResolveCVecUnit(fgElement* self, CVec& v, size_t subtype)
+{
+  v.x.abs = fgResolveUnit(self, v.x.abs, (subtype & FGUNIT_X_MASK) >> FGUNIT_X);
+  v.y.abs = fgResolveUnit(self, v.y.abs, (subtype & FGUNIT_Y_MASK) >> FGUNIT_Y);
+}
+
 extern "C" {
   FG_EXTERN size_t FG_FASTCALL fgUTF8toUTF32(const char*BSS_RESTRICT input, ptrdiff_t srclen, int*BSS_RESTRICT output, size_t buflen);
   FG_EXTERN size_t FG_FASTCALL fgUTF32toUTF8(const int*BSS_RESTRICT input, ptrdiff_t srclen, char*BSS_RESTRICT output, size_t buflen);

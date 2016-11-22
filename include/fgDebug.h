@@ -73,6 +73,7 @@ typedef struct _FG_DEBUG {
   fgColor color;
   float lineheight;
   float letterspacing;
+  AbsRect oldpadding;
 
 #ifdef  __cplusplus
   inline operator fgElement*() { return &element; }
@@ -84,7 +85,7 @@ FG_EXTERN void FG_FASTCALL fgDebug_Init(fgDebug* BSS_RESTRICT self, fgElement* B
 FG_EXTERN void FG_FASTCALL fgDebug_Destroy(fgDebug* self);
 FG_EXTERN size_t FG_FASTCALL fgDebug_Message(fgDebug* self, const FG_Msg* msg);
 FG_EXTERN void FG_FASTCALL fgDebug_ClearLog(fgDebug* self);
-FG_EXTERN void FG_FASTCALL fgDebug_Show(float left, float right);
+FG_EXTERN void FG_FASTCALL fgDebug_Show(float left, float right, bool overlay);
 FG_EXTERN void FG_FASTCALL fgDebug_Hide();
 FG_EXTERN fgDebug* FG_FASTCALL fgDebug_Get();
 FG_EXTERN size_t FG_FASTCALL fgDebug_LogMessage(fgDebug* self, const FG_Msg* msg, unsigned long long time, size_t depth);

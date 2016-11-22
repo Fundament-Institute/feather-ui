@@ -21,9 +21,9 @@ void FG_FASTCALL fgCurve_Init(fgCurve* self, fgElement* BSS_RESTRICT parent, fgE
 
 void FG_FASTCALL fgCurve_Destroy(fgCurve* self)
 {
+  fgElement_Destroy(&self->element);
   reinterpret_cast<cDynArray<AbsVec>&>(self->points).~cDynArray();
   reinterpret_cast<cDynArray<AbsVec>&>(self->cache).~cDynArray();
-  fgElement_Destroy(&self->element);
 }
 
 // p must point to an array of at least 4 points. We do not check that in the function as it is internal only.

@@ -31,6 +31,7 @@ typedef struct _FG_SKIN_BASE
   fgVector resources; // type: void*
   fgVector fonts;
   struct __kh_fgSkins_t* skinmap;
+  struct _FG_SKIN_BASE* parent;
 } fgSkinBase;
 
 typedef struct _FG_SKIN

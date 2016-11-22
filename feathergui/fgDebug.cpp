@@ -35,17 +35,22 @@ fgDebug* FG_FASTCALL fgDebug_Get()
 void FG_FASTCALL fgDebug_Destroy(fgDebug* self)
 {
   fgDebug_Hide();
-  fgdebug_instance = 0;
+  self->depthelement = 0;
   fgDebug_ClearLog(self);
   ((bss_util::cDynArray<char*>&)self->messagestrings).~cDynArray();
   ((bss_util::cDynArray<fgDebugMessage>&)self->messagelog).~cDynArray();
   fgElement_Destroy(&self->element);
+  fgdebug_instance = 0; // we can't null this until after we're finished destroying ourselves 
 }
 size_t FG_FASTCALL fgDebug_Message(fgDebug* self, const FG_Msg* msg)
 {
+  assert(fgroot_instance != 0);
+  assert(self != 0);
+
   switch(msg->type)
   {
   case FG_CONSTRUCT:
+    self->lineheight = 0; // lineheight must be zero'd before a potential transform unit resolution.
     fgElement_Message(&self->element, msg);
     fgTreeview_Init(&self->elements, *self, 0, "Debug$elements", 0, &fgTransform { { -300,1,0,0,0,1,0,1 }, 0, { 0,0,0,0 } }, 0);
     fgText_Init(&self->properties, *self, 0, "Debug$properties", FGELEMENT_HIDDEN, &fgTransform { { -300,1,-200,1,0,1,0,1 }, 0, { 0,0,0,0 } }, 0);
@@ -64,7 +69,6 @@ size_t FG_FASTCALL fgDebug_Message(fgDebug* self, const FG_Msg* msg)
     self->ignore = 0;
     self->font = 0;
     self->color.color = 0;
-    self->lineheight = 0;
     self->letterspacing = 0;
     return FG_ACCEPT;
   case FG_DRAW:
@@ -162,6 +166,9 @@ char* fgDebug_CopyText(fgDebug* self, const char* s)
 
 size_t FG_FASTCALL fgTreeItem_DebugMessage(fgTreeItem* self, const FG_Msg* msg)
 {
+  assert(fgdebug_instance != 0);
+  assert(self != 0);
+
   switch(msg->type)
   {
   case FG_MOUSEON:
@@ -185,7 +192,9 @@ const char* fgDebug_GetElementName(fgDebug* self, fgElement* e)
 
 size_t FG_FASTCALL fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
 {
-  //BSS_VERIFY_HEAP;
+  assert(fgdebug_instance != 0);
+  assert(self != 0);
+  assert(fgdebug_instance->depthelement != 0);
   static const FG_Msg* msgbuffer = 0;
   static size_t depthbuffer = 0;
   static size_t* indexbuffer = 0;
@@ -261,6 +270,9 @@ size_t FG_FASTCALL fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
 
 void FG_FASTCALL fgDebug_TreeInsert(fgElement* parent, fgElement* element, fgElement* treeview)
 {
+  assert(fgdebug_instance != 0);
+  assert(fgroot_instance != 0);
+  assert(element != 0);
   fgElement* root = parent;
 
   if(treeview != 0)
@@ -292,6 +304,7 @@ void FG_FASTCALL fgDebug_TreeInsert(fgElement* parent, fgElement* element, fgEle
 
 void FG_FASTCALL fgDebug_BuildTree(fgElement* treeview)
 {
+  assert(fgroot_instance != 0);
   // Clean out the tree
   fgElement* cur;
   fgElement* hold = treeview->root;
@@ -305,28 +318,37 @@ void FG_FASTCALL fgDebug_BuildTree(fgElement* treeview)
   fgDebug_TreeInsert(treeview, &fgroot_instance->gui.element, 0);
 }
 
-FG_EXTERN void FG_FASTCALL fgDebug_Show(float left, float right)
+FG_EXTERN void FG_FASTCALL fgDebug_Show(float left, float right, bool overlay)
 {
+  assert(fgroot_instance != 0);
   if(!fgdebug_instance)
   {
-    fgDebug_Init(fgmalloc<fgDebug>(1, __FILE__, __LINE__), *fgroot_instance, 0, 0, FGELEMENT_HIDDEN, &fgTransform_DEFAULT, 0);
+    fgDebug_Init(fgmalloc<fgDebug>(1, __FILE__, __LINE__), *fgroot_instance, 0, 0, FGELEMENT_HIDDEN|FGELEMENT_BACKGROUND, &fgTransform_DEFAULT, 0);
     fgdebug_instance->element.free = &fgfreeblank;
   }
   if(fgroot_instance->backend.behaviorhook == &fgRoot_BehaviorDebug)
     return; // Prevent an infinite loop
 
+  assert(fgdebug_instance != 0);
   fgdebug_instance->elements->SetTransform(fgTransform { { -right,1,0,0,0,1,0,1 }, 0, { 0,0,0,0 } });
   fgdebug_instance->messages->SetTransform(fgTransform { { 0,0,0,0,left,0,0,1 }, 0, { 0,0,0,0 } });
   fgdebug_instance->element.SetTransform(fgTransform_DEFAULT);
   fgdebug_instance->behaviorhook = fgroot_instance->backend.behaviorhook;
   fgDebug_BuildTree(fgdebug_instance->elements);
+  fgdebug_instance->oldpadding = fgroot_instance->gui->padding;
+  if(!overlay)
+    fgroot_instance->gui->SetPadding(AbsRect { left, fgdebug_instance->oldpadding.top, right, fgdebug_instance->oldpadding.bottom });
+
   fgdebug_instance->element.SetFlag(FGELEMENT_HIDDEN, false);
   fgroot_instance->backend.behaviorhook = &fgRoot_BehaviorDebug;
 }
 FG_EXTERN void FG_FASTCALL fgDebug_Hide()
 {
+  assert(fgdebug_instance != 0);
+  assert(fgdebug_instance != 0);
   fgroot_instance->backend.behaviorhook = fgdebug_instance->behaviorhook;
   fgdebug_instance->element.SetFlag(FGELEMENT_HIDDEN, true);
+  fgroot_instance->gui->SetPadding(fgdebug_instance->oldpadding);
   if(fgdebug_instance->element.flags&FGDEBUG_CLEARONHIDE)
     fgDebug_ClearLog(fgdebug_instance);
 }
@@ -453,6 +475,7 @@ size_t FG_FASTCALL fgDebug_LogMessage(fgDebug* self, const FG_Msg* msg, unsigned
 
   if(msg->type != FG_INJECT && msg->type != FG_MOUSEMOVE)
   {
+    assert(self->depthelement != 0);
     fgElement* elem = fgroot_instance->backend.fgCreate("TreeItem", self->depthelement, 0, 0, FGELEMENT_EXPAND, 0, 0);
     fgElement* text = fgroot_instance->backend.fgCreate("Text", elem, 0, 0, FGELEMENT_EXPAND, 0, 0);
     text->SetText(fgDebug_GetMessageString(msg->type));

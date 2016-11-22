@@ -15,7 +15,7 @@ void FG_FASTCALL fgMenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgEle
 
 void FG_FASTCALL fgMenu_Destroy(fgMenu* self)
 {
-  fgElement_Destroy(&self->arrow); // Both of these must be manually destroyed because they are ghost entities not actually attached to the menu.
+  fgElement_Destroy(&self->arrow); // This must be destroyed manually because it's a ghost entity not attached to the menu.
   fgBox_Destroy(&self->box); 
   //fgRoot_DeallocAction(fgSingleton(),self->dropdown);
 }

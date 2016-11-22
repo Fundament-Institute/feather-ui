@@ -12,8 +12,8 @@ void FG_FASTCALL fgBox_Init(fgBox* self, fgElement* BSS_RESTRICT parent, fgEleme
 }
 void FG_FASTCALL fgBox_Destroy(fgBox* self)
 {
-  ((bss_util::cDynArray<fgElement*>&)self->ordered).~cDynArray();
   fgScrollbar_Destroy(&self->scroll); // this will destroy our prechildren for us.
+  ((bss_util::cDynArray<fgElement*>&)self->ordered).~cDynArray();
 }
 
 bool BSS_FORCEINLINE checkIsOrdered(fgElement* root)

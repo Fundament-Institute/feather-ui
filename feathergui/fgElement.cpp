@@ -9,7 +9,15 @@
 #include <math.h>
 #include <limits.h>
 
+#ifdef BSS_64BIT
+#define kh_ptr_hash_func(key) kh_int64_hash_func((uint64_t)key)
+#else
+#define kh_ptr_hash_func kh_int_hash_func
+#endif
+
 KHASH_INIT(fgUserdata, char*, size_t, 1, kh_str_hash_func, kh_str_hash_equal);
+KHASH_INIT(fgSkinElements, fgElement*, char, 0, kh_ptr_hash_func, kh_int_hash_equal);
+
 
 template<typename U, typename V>
 BSS_FORCEINLINE char CompPairInOrder(const std::pair<U, V>& l, const std::pair<U, V>& r) { char ret = SGNCOMPARE(l.first, r.first); return !ret ? SGNCOMPARE(l.second, r.second) : ret; }
@@ -31,7 +39,16 @@ void FG_FASTCALL fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement
   self->maxdim.y = -1.0f;
   self->mindim.x = -1.0f;
   self->mindim.y = -1.0f;
-  _sendsubmsg<FG_CONSTRUCT, const void*>(self, units, transform);
+  if(transform)
+  {
+    self->transform = *transform;
+    if(units != 0 && units != (unsigned short)-1)
+    {
+      fgResolveCRectUnit(self, self->transform.area, units);
+      fgResolveCVecUnit(self, self->transform.center, units);
+    }
+  }
+  _sendmsg<FG_CONSTRUCT>(self);
   _sendmsg<FG_SETPARENT, void*, void*>(self, parent, next);
 }
 
@@ -61,10 +78,12 @@ void FG_FASTCALL fgElement_Destroy(fgElement* self)
       if(kh_exist(self->userhash, i))
         fgfree(kh_key(self->userhash, i), __FILE__, __LINE__);
     kh_destroy_fgUserdata(self->userhash);
+    self->userhash = 0;
   }
-  if(self->name) fgfree(self->name, __FILE__, __LINE__);
-  self->userhash = 0;
-  reinterpret_cast<fgSkinRefArray&>(self->skinrefs).~cDynArray();
+  if(self->name)
+    fgfree(self->name, __FILE__, __LINE__);
+  if(self->skinelements != 0)
+    kh_destroy_fgSkinElements(self->skinelements);
   fgElement_ClearListeners(self);
   assert(fgFocusedWindow != self); // If these assertions fail something is wrong with how the message chain is constructed
   assert(fgLastHover != self);
@@ -116,7 +135,11 @@ void FG_FASTCALL fgElement_ApplySkin(fgElement* self, const fgSkin* skin)
     child = fgroot_instance->backend.fgCreate(layout->type, self, child, layout->name, layout->flags, (layout->units == -1) ? 0 : &layout->transform, layout->units);
     assert(child != 0);
     _sendsubmsg<FG_SETSTYLE, void*, size_t>(child, FGSETSTYLE_POINTER, &layout->style, ~0);
-    ((fgSkinRefArray&)self->skinrefs).Add(child);
+    if(!self->skinelements)
+      self->skinelements = kh_init_fgSkinElements();
+    int r;
+    kh_put_fgSkinElements(self->skinelements, child, &r);
+    assert(r != 0);
   }
   _sendsubmsg<FG_SETSTYLE, void*, size_t>(self, FGSETSTYLE_POINTER, (void*)&self->skin->style, ~0);
 }
@@ -142,7 +165,9 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
   assert(msg != 0);
 
   switch(msg->type)
-  { // Note: FG_CONSTRUCT falls trhough to FG_SETTRANSFORM
+  {
+  case FG_CONSTRUCT:
+    return FG_ACCEPT;
   case FG_MOVE:
     if(!msg->other && self->parent != 0) // This is internal, so we must always propagate it up
       _sendsubmsg<FG_MOVE, void*, size_t>(self->parent, msg->subtype, self, msg->otheraux | FGMOVE_PROPAGATE);
@@ -181,14 +206,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgroot_instance->backend.fgDirtyElement(self);
         memcpy(&self->transform.area, area, sizeof(CRect));
         if(msg->subtype != 0 && msg->subtype != (unsigned short)-1)
-        {
-          self->transform.area.left.abs = fgResolveUnit(self, self->transform.area.left.abs, (msg->subtype & FGUNIT_LEFT_MASK) >> FGUNIT_LEFT);
-          self->transform.area.top.abs = fgResolveUnit(self, self->transform.area.top.abs, (msg->subtype & FGUNIT_TOP_MASK) >> FGUNIT_TOP);
-          self->transform.area.right.abs = fgResolveUnit(self, self->transform.area.right.abs, (msg->subtype & FGUNIT_RIGHT_MASK) >> FGUNIT_RIGHT);
-          if(msg->subtype & FGUNIT_RIGHT_WIDTH) self->transform.area.right.abs += self->transform.area.left.abs;
-          self->transform.area.bottom.abs = fgResolveUnit(self, self->transform.area.bottom.abs, (msg->subtype & FGUNIT_BOTTOM_MASK) >> FGUNIT_BOTTOM);
-          if(msg->subtype & FGUNIT_BOTTOM_HEIGHT) self->transform.area.bottom.abs += self->transform.area.top.abs;
-        }
+          fgResolveCRectUnit(self, self->transform.area, msg->subtype);
         fgroot_instance->backend.fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
@@ -196,10 +214,9 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       }
       return diff;
     }
-  case FG_CONSTRUCT:
   case FG_SETTRANSFORM:
     if(!msg->other)
-      return msg->type == FG_CONSTRUCT;
+      return 0;
     {
       fgTransform* transform = (fgTransform*)msg->other;
       _sendmsg<FG_SETAREA, void*>(self, &transform->area);
@@ -210,10 +227,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgroot_instance->backend.fgDirtyElement(self);
         self->transform.center = transform->center;
         if(msg->subtype != 0 && msg->subtype != (unsigned short)-1)
-        {
-          self->transform.center.x.abs = fgResolveUnit(self, self->transform.center.x.abs, (msg->subtype & FGUNIT_X_MASK) >> FGUNIT_X);
-          self->transform.center.y.abs = fgResolveUnit(self, self->transform.center.y.abs, (msg->subtype & FGUNIT_Y_MASK) >> FGUNIT_Y);
-        }
+          fgResolveCVecUnit(self, self->transform.center, msg->subtype);
         self->transform.rotation = transform->rotation;
         fgroot_instance->backend.fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
@@ -346,7 +360,13 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     if(self->lastfocus == hold)
       self->lastfocus = 0;
     LList_RemoveAll(hold); // Remove hold from us
-
+    
+    if(self->skinelements != 0) // Double check to see if this is a skin element. If so, remove it from our hash
+    {
+      khiter_t iter = kh_get_fgSkinElements(self->skinelements, hold);
+      if(iter != kh_end(self->skinelements) && kh_exist(self->skinelements, iter))
+        kh_del_fgSkinElements(self->skinelements, iter);
+    }
     hold->parent = 0;
     hold->next = 0;
     hold->prev = 0;
@@ -448,9 +468,9 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
   case FG_GETCLASSNAME:
     return (size_t)"Element";
   case FG_GETSKIN:
-    if(!msg->other)
-      return (!self->parent) ? reinterpret_cast<size_t>(self->skin) : _sendmsg<FG_GETSKIN, void*>(self->parent, self);
-    if(self->skin != 0)
+    if(!msg->other) // If msg->other is none we simply return our self->skin, whatever it is
+      return reinterpret_cast<size_t>(self->skin);
+    if(self->skin != 0) // Otherwise we are performing a skin lookup for a child
     {
       hold = (fgElement*)msg->other;
       const char* name = hold->GetName();
@@ -469,20 +489,21 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     return (!self->parent) ? 0 : fgPassMessage(self->parent, msg);
   case FG_SETSKIN:
   {
-    fgSkin* skin = (fgSkin*)(!msg->other ? (void*)_sendmsg<FG_GETSKIN>(self) : msg->other);
+    fgSkin* skin = (fgSkin*)msg->other;
+    if(!skin && self->parent != 0)
+      skin = (fgSkin*)_sendmsg<FG_GETSKIN, void*>(self->parent, self);
     if(self->skin != skin) // only bother changing the skin if there's stuff to change
     {
-      if(self->skin != 0) // remove existing skin elements
+      if(self->skin != 0 && self->skinelements != 0) // remove existing skin elements
       {
-        for(FG_UINT i = 0; i < self->skinrefs.l; ++i)
-          _sendmsg<FG_REMOVECHILD, void*>(self, self->skinrefs.p[i]);
+        for(FG_UINT i = 0; i < self->skinelements->n_buckets; ++i)
+          if(kh_exist(self->skinelements, i))
+            _sendmsg<FG_REMOVECHILD, void*>(self, kh_key(self->skinelements, i));
+        kh_clear_fgSkinElements(self->skinelements);
       }
-      self->skinrefs.l = 0;
       self->skin = skin;
       if(self->skin != 0)
-      {
         fgElement_ApplySkin(self, self->skin);
-      }
     }
 
     fgElement* cur = self->root;

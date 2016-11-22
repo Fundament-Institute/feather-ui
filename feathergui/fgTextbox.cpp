@@ -149,7 +149,7 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
     memset(&self->endpos, 0, sizeof(AbsVec));
     self->color.color = 0;
     self->font = 0;
-    self->lineheight = 0;
+    self->lineheight = 0; // lineheight must be zero'd before a potential transform unit resolution.
     self->letterspacing = 0;
     self->lastx = 0;
     self->inserting = 0;

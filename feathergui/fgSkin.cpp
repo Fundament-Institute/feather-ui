@@ -180,6 +180,7 @@ fgSkin* FG_FASTCALL fgSkinBase_AddSkin(fgSkinBase* self, const char* name)
   {
     kh_val(self->skinmap, iter) = fgmalloc<fgSkin>(1, __FILE__, __LINE__);
     fgSkin_Init(kh_val(self->skinmap, iter));
+    kh_val(self->skinmap, iter)->base.parent = self;
     kh_key(self->skinmap, iter) = fgCopyText(name, __FILE__, __LINE__);
   }
 
@@ -362,9 +363,10 @@ int FG_FASTCALL fgStyle_NodeEvalTransform(const cXMLNode* node, fgTransform& t)
 
 void FG_FASTCALL fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, fgSkinBase* root, const char* path, char** id)
 {
-  static cTrie<uint16_t, true> t(35, "id", "min-width", "min-height", "max-width", "max-height", "skin", "alpha", "margin", "padding", "text",
+  static cTrie<uint16_t, true> t(39, "id", "min-width", "min-height", "max-width", "max-height", "skin", "alpha", "margin", "padding", "text",
     "placeholder", "color", "placecolor", "cursorcolor", "selectcolor", "hovercolor", "dragcolor", "edgecolor", "font", "lineheight",
-    "letterspacing", "value", "uv", "resource", "outline", "area", "center", "rotation", "left", "top", "right", "bottom", "width", "height", "range");
+    "letterspacing", "value", "uv", "resource", "outline", "area", "center", "rotation", "left", "top", "right", "bottom", "width", "height",
+    "name", "flags", "order", "inherit", "range");
   static cTrie<uint16_t, true> tvalue(5, "checkbox", "curve", "progressbar", "radiobutton", "slider");
   static cTrie<uint16_t, true> tenum(5, "true", "false", "none", "checked", "indeterminate");
 
@@ -542,8 +544,12 @@ void FG_FASTCALL fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, i
     case 31: // bottom
     case 32: // width
     case 33: // height
+    case 34: // name
+    case 35: // flags
+    case 36: // order
+    case 37: // inherit
       break; // These are processed before we get here, so ignore them.
-    case 34: // range
+    case 38: // range
       AddStyleSubMsg<FG_SETVALUE, ptrdiff_t, size_t>(self, FGVALUE_INT64, attr->Integer, 1);
       break;
     default: // Otherwise, unrecognized attributes are set as custom userdata
@@ -632,11 +638,29 @@ fgFlag fgSkinBase_GetFlagsFromString(const char* s, fgFlag* remove)
   return out;
 }
 
+fgSkin* fgSkinBase_GetInherit(fgSkinBase* self, const char* inherit)
+{
+  if(!inherit) return 0;
+  fgSkin* r = 0;
+  while(!r && self != 0)
+  {
+    r = fgSkinBase_GetSkin(self, inherit);
+    self = self->parent;
+  }
+  return r;
+}
 void FG_FASTCALL fgSkins_LoadSubNodeXML(fgSkin* self, const cXMLNode* cur)
 {
-  int rootflags = fgSkinBase_GetFlagsFromString(cur->GetAttributeString("flags"), 0);
+  fgFlag rootflags = fgSkinBase_GetFlagsFromString(cur->GetAttributeString("flags"), 0);
+  if(rootflags)
+    AddStyleMsg<FG_SETFLAGS, ptrdiff_t>(&self->style, rootflags);
+  fgTransform ts = { 0 };
+  int tsunits = fgStyle_NodeEvalTransform(cur, ts);
+  if(tsunits != -1)
+    AddStyleSubMsgArg<FG_SETTRANSFORM, fgTransform>(&self->style, tsunits, &ts);
+
   fgStyle_LoadAttributesXML(&self->style, cur, rootflags, &self->base, 0, 0);
-  //self->inherit = 
+  self->inherit = fgSkinBase_GetInherit(&self->base, cur->GetAttributeString("inherit"));
 
   for(size_t i = 0; i < cur->GetNodes(); ++i)
   {
@@ -658,9 +682,9 @@ void FG_FASTCALL fgSkins_LoadSubNodeXML(fgSkin* self, const cXMLNode* cur)
     else
     {
       fgTransform transform = { 0 };
-      int type = fgStyle_NodeEvalTransform(node, transform);
+      short units = fgStyle_NodeEvalTransform(node, transform);
       fgFlag flags = fgSkinBase_GetFlagsFromString(node->GetAttributeString("flags"), 0);
-      FG_UINT index = (FG_UINT)fgSkin_AddChild(self, node->GetName(), node->GetAttributeString("name"), flags, &transform, type, (int)node->GetAttributeInt("order"));
+      FG_UINT index = (FG_UINT)fgSkin_AddChild(self, node->GetName(), node->GetAttributeString("name"), flags, &transform, units, (int)node->GetAttributeInt("order"));
       fgStyle_LoadAttributesXML(&fgSkin_GetChild(self, index)->style, node, flags, &self->base, 0, 0);
     }
   }
