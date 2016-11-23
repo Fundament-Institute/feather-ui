@@ -46,6 +46,11 @@ typedef void(FG_FASTCALL *fgListener)(struct _FG_ELEMENT*, const FG_Msg*);
 // Defines the base GUI element
 typedef struct _FG_ELEMENT {
   fgTransform transform;
+  AbsRect margin; // defines the amount of external margin.
+  AbsRect padding; // Defines the amount of internal padding. Only affects children that DON'T have FGELEMENT_BACKGROUND set.
+  AbsVec maxdim;
+  AbsVec mindim;
+  AbsVec layoutdim;
   fgDestroy destroy;
   void (*free)(void* self); // pointer to deallocation function
   fgMessage message;
@@ -63,10 +68,6 @@ typedef struct _FG_ELEMENT {
   struct _FG_ELEMENT* nextnoclip;
   struct _FG_ELEMENT* prevnoclip;
   struct _FG_ELEMENT* lastfocus; // Stores the last child that had focus, if any. This never points to the child that CURRENTLY has focus, only to the child that HAD focus.
-  AbsRect margin; // defines the amount of external margin.
-  AbsRect padding; // Defines the amount of internal padding. Only affects children that DON'T have FGELEMENT_BACKGROUND set.
-  AbsVec maxdim;
-  AbsVec mindim;
   fgFlag flags;
   const struct _FG_SKIN* skin; // skin reference
   struct __kh_fgSkinElements_t* skinelements; // child elements that are part of the skin

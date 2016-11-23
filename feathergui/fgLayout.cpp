@@ -209,7 +209,7 @@ void FG_FASTCALL fgClassLayout_LoadLayoutXML(fgClassLayout* self, const cXMLNode
     int flags = fgSkinBase_GetFlagsFromString(node->GetAttributeString("flags"), 0);
 
     if(!STRICMP(node->GetName(), "menuitem") && !node->GetNodes() && !node->GetAttributeString("text")) // An empty menuitem is a special case
-      AddStyleSubMsg<FG_ADDITEM>(&self->style.style, FGITEM_TEXT);
+      fgClassLayout_AddChild(self, "Element", "Submenu$seperator", FGELEMENT_IGNORE, &fgTransform { { 0,0,0,0,0,1.0,0,0 }, 0, {0,0,0,0} }, 0, (int)node->GetAttributeInt("order"));
     else
     {
       FG_UINT index = fgClassLayout_AddChild(self, node->GetName(), node->GetAttributeString("name"), flags, &transform, type, (int)node->GetAttributeInt("order"));

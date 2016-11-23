@@ -7,16 +7,34 @@
 
 #include <math.h>
 
-inline FABS FG_FASTCALL fgLayout_GetChildWidth(fgElement* child)
+BSS_FORCEINLINE FABS FG_FASTCALL fgLayout_GetChildMinWidth(fgElement* child)
 {
-  FABS w = (child->transform.area.left.rel == child->transform.area.right.rel) ? child->transform.area.right.abs - child->transform.area.left.abs : 0.0f;
-  return (child->mindim.x >= 0.0f && child->mindim.x > w) ? child->mindim.x : w;
+  if(!(child->flags&FGELEMENT_EXPANDX))
+    return child->mindim.x;
+  FABS l = child->layoutdim.x + child->padding.left + child->padding.right;
+  return (child->mindim.x >= 0.0f && child->mindim.x > l) ? child->mindim.x : l;
 }
 
-inline FABS FG_FASTCALL fgLayout_GetChildHeight(fgElement* child)
+BSS_FORCEINLINE FABS FG_FASTCALL fgLayout_GetChildMinHeight(fgElement* child)
+{
+  if(!(child->flags&FGELEMENT_EXPANDY))
+    return child->mindim.y;
+  FABS l = child->layoutdim.y + child->padding.top + child->padding.bottom;
+  return (child->mindim.y >= 0.0f && child->mindim.y > l) ? child->mindim.y : l;
+}
+
+BSS_FORCEINLINE FABS FG_FASTCALL fgLayout_GetChildWidth(fgElement* child)
+{
+  FABS w = (child->transform.area.left.rel == child->transform.area.right.rel) ? child->transform.area.right.abs - child->transform.area.left.abs : 0.0f;
+  FABS m = fgLayout_GetChildMinWidth(child);
+  return (m >= 0.0f && m > w) ? m : w;
+}
+
+BSS_FORCEINLINE FABS FG_FASTCALL fgLayout_GetChildHeight(fgElement* child)
 {
   FABS h = (child->transform.area.top.rel == child->transform.area.bottom.rel) ? child->transform.area.bottom.abs - child->transform.area.top.abs : 0.0f;
-  return (child->mindim.y >= 0.0f && child->mindim.y > h) ? child->mindim.y : h;
+  FABS m = fgLayout_GetChildMinHeight(child);
+  return (m >= 0.0f && m > h) ? m : h;
 }
 
 inline FABS FG_FASTCALL fgLayout_ExpandX(FABS dimx, fgElement* child)
@@ -125,21 +143,23 @@ void FG_FASTCALL fgTileLayoutFill(fgElement* cur, fgElement* skip, FABS space, c
     // All relative tiles are restricted to expanding [space] units beyond their minimum size.
     if(axis && cur->transform.area.top.rel != cur->transform.area.bottom.rel)
     {
-      FABS h = ((cur->transform.area.bottom.rel - cur->transform.area.top.rel) * max) - cur->transform.area.top.abs - cur->mindim.y;
+      FABS m = fgLayout_GetChildMinHeight(cur);
+      FABS h = ((cur->transform.area.bottom.rel - cur->transform.area.top.rel) * max) - cur->transform.area.top.abs - m;
       if(h < 0) h = 0;
-      if(cur->maxdim.y >= 0.0f && cur->maxdim.y < h + cur->mindim.y) h = cur->maxdim.y - cur->mindim.y;
+      if(cur->maxdim.y >= 0.0f && cur->maxdim.y < h + m) h = cur->maxdim.y - m;
       FABS y = bssmin(h, space);
       space -= y;
-      cur->transform.area.bottom.abs = (cur->transform.area.top.rel*max) + cur->transform.area.top.abs + cur->mindim.y + y - (cur->transform.area.bottom.rel * max);
+      cur->transform.area.bottom.abs = (cur->transform.area.top.rel*max) + cur->transform.area.top.abs + m + y - (cur->transform.area.bottom.rel * max);
     }
     if(!axis && cur->transform.area.left.rel != cur->transform.area.right.rel)
     {
-      FABS w = ((cur->transform.area.right.rel - cur->transform.area.left.rel) * max) - cur->transform.area.left.abs - cur->mindim.x;
+      FABS m = fgLayout_GetChildMinWidth(cur);
+      FABS w = ((cur->transform.area.right.rel - cur->transform.area.left.rel) * max) - cur->transform.area.left.abs - m;
       if(w < 0) w = 0;
-      if(cur->maxdim.x >= 0.0f && cur->maxdim.x < w + cur->mindim.x) w = cur->maxdim.x - cur->mindim.x;
+      if(cur->maxdim.x >= 0.0f && cur->maxdim.x < w + m) w = cur->maxdim.x - m;
       FABS x = bssmin(w, space);
       space -= x;
-      cur->transform.area.right.abs = (cur->transform.area.left.rel*max) + cur->transform.area.left.abs + cur->mindim.x + x - (cur->transform.area.right.rel * max);
+      cur->transform.area.right.abs = (cur->transform.area.left.rel*max) + cur->transform.area.left.abs + m + x - (cur->transform.area.right.rel * max);
     }
   }
 }

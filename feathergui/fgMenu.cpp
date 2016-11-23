@@ -116,6 +116,8 @@ size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
     return 0;
   case FG_GETCLASSNAME:
     return (size_t)MENU_NAME;
+  case FG_DRAW:
+    return fgBox_Message(&self->box, msg);
   }
   return fgSubmenu_Message(self, msg);
 }
@@ -134,7 +136,7 @@ size_t FG_FASTCALL fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     fgBox_Message(&self->box, msg);
     self->expanded = 0;
-    fgElement_Init(&self->arrow, 0, 0, "Submenu$arrow", FGELEMENT_IGNORE | FGELEMENT_BACKGROUND | FGELEMENT_EXPAND, &fgTransform { { 0,0,0,0.5,0,0,0,0.5 }, 0, { 1.0,0.5 } }, 0);
+    fgElement_Init(&self->arrow, 0, 0, "Submenu$arrow", FGELEMENT_IGNORE | FGELEMENT_BACKGROUND | FGELEMENT_EXPAND, &fgTransform { { 0,1,0,0.5,0,1,0,0.5 }, 0, { 0.5,1.0 } }, 0);
     return FG_ACCEPT;
   case FG_MOUSEUP:
   case FG_MOUSEDOWN:
@@ -170,9 +172,8 @@ size_t FG_FASTCALL fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
     if(!msg->other)
     {
       fgElement* item = fgmalloc<fgElement>(1, __FILE__, __LINE__);
-      fgElement_Init(item, 0, 0, "Submenu$seperator", FGELEMENT_IGNORE | FGELEMENT_EXPAND, &fgTransform { { 0,0,0,0,0,1.0,0,0 }, 0, { 0,0 } }, 0);
+      fgElement_Init(item, *self, 0, "Submenu$seperator", FGELEMENT_IGNORE, &fgTransform { { 0,0,0,0,0,1.0,0,0 }, 0, { 0,0 } }, 0);
       item->free = &fgfreeblank;
-      item->SetParent(*self);
       return (size_t)item;
     }
     switch(msg->subtype)
@@ -204,11 +205,17 @@ size_t FG_FASTCALL fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
         {
           AbsRect rect;
           ResolveRectCache(cur, &rect, (const AbsRect*)msg->other, &self->box->padding);
-          self->arrow.Draw(&rect, (int)msg->otherint);
+          AbsRect arrow;
+          ResolveRectCache(&self->arrow, &arrow, &rect, (self->arrow.flags&FGELEMENT_BACKGROUND) ? 0 : &cur->padding);
+          self->arrow.Draw(&arrow, (int)msg->otheraux);
         }
         cur = cur->next;
       }
     }
+    return FG_ACCEPT;
+  case FG_SETSKIN:
+    fgBox_Message(&self->box, msg);
+    self->arrow.SetSkin(self->box->GetSkin(&self->arrow)); // Because the arrow is not technically a child of the menu, we must set the skin manually
     return FG_ACCEPT;
   case FG_GETSELECTEDITEM:
     return (size_t)self->expanded;

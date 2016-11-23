@@ -148,6 +148,7 @@ void FG_FASTCALL fgElement_ApplySkin(fgElement* self, const fgSkin* skin)
     kh_put_fgSkinElements(self->skinelements, child, &r);
     assert(r != 0);
   }
+
   _sendsubmsg<FG_SETSTYLE, void*, size_t>(self, FGSETSTYLE_POINTER, (void*)&self->skin->style, ~0);
 }
 
@@ -264,7 +265,11 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     if(change&FGELEMENT_BACKGROUND && !(self->flags & FGELEMENT_BACKGROUND) && self->parent != 0) // If we removed the background flag, add this into the layout after setting the new flags.
       _sendsubmsg<FG_LAYOUTCHANGE, void*, size_t>(self->parent, FGELEMENT_LAYOUTADD, self, 0);
     if((change&FGELEMENT_EXPAND)&self->flags) // If we change the expansion flags, we must recalculate every single child in our layout provided one of the expansion flags is actually set
+    {
+      if(change&FGELEMENT_EXPANDX) self->layoutdim.x = 0;
+      if(change&FGELEMENT_EXPANDY) self->layoutdim.y = 0;
       _sendsubmsg<FG_LAYOUTCHANGE, void*, size_t>(self, FGELEMENT_LAYOUTRESET, 0, 0);
+    }
     if(change&FGELEMENT_HIDDEN || change&FGELEMENT_NOCLIP)
       fgroot_instance->backend.fgDirtyElement(self);
   }
@@ -381,39 +386,29 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     _sendsubmsg<FG_MOVE, void*, size_t>(hold, FG_SETPARENT, 0, fgElement_PotentialResize(self));
     return FG_ACCEPT;
   case FG_LAYOUTCHANGE:
-  {
     assert(!msg->other || !(((fgElement*)msg->other)->flags&FGELEMENT_BACKGROUND));
-    AbsVec edge = { self->padding.left + self->padding.right + self->margin.left + self->margin.right, self->padding.top + self->padding.bottom + self->margin.top + self->margin.bottom };
-    AbsVec dim = { // This is the CLIENT AREA of the control, so we have to remove all padding and margins from the total area first. This can result in negative areas.
-      ((self->transform.area.left.rel != self->transform.area.right.rel) ? self->mindim.x : (self->transform.area.right.abs - self->transform.area.left.abs)) - edge.x,
-      ((self->transform.area.top.rel != self->transform.area.bottom.rel) ? self->mindim.y : (self->transform.area.bottom.abs - self->transform.area.top.abs)) - edge.y
-    };
-    AbsVec newdim = dim;
-
-    _sendmsg<FG_LAYOUTFUNCTION, const void*, void*>(self, msg, &newdim) != 0 || (msg->otheraux & (FGMOVE_PADDING | FGMOVE_MARGIN));
-    if(newdim.x != dim.x || newdim.y != dim.y)
+    if(self->flags&FGELEMENT_EXPAND)
     {
-      AbsVec mindim = self->mindim;
-      CRect narea = self->transform.area;
-      if(self->flags&FGELEMENT_EXPANDX)
+      AbsVec newdim = self->layoutdim;
+
+      _sendmsg<FG_LAYOUTFUNCTION, const void*, void*>(self, msg, &newdim);
+      assert(!isnan(newdim.x) && !isnan(newdim.y));
+      char diff = 0;
+      if((self->flags&FGELEMENT_EXPANDX) && newdim.x != self->layoutdim.x) diff |= FGMOVE_RESIZEX;
+      if((self->flags&FGELEMENT_EXPANDY) && newdim.y != self->layoutdim.y) diff |= FGMOVE_RESIZEY;
+
+      if(diff)
       {
-        if(narea.right.rel == narea.left.rel)
-          narea.right.abs = narea.left.abs + newdim.x + edge.x;
-        else
-          mindim.x = newdim.x + edge.x;
+        fgElement_MouseMoveCheck(self);
+        fgroot_instance->backend.fgDirtyElement(self);
+        self->layoutdim = newdim;
+        fgroot_instance->backend.fgDirtyElement(self);
+        fgElement_MouseMoveCheck(self);
+        _sendsubmsg<FG_MOVE, void*, size_t>(self, FG_LAYOUTCHANGE, 0, diff);
       }
-      if(self->flags&FGELEMENT_EXPANDY)
-      {
-        if(narea.bottom.rel == narea.top.rel)
-          narea.bottom.abs = narea.top.abs + newdim.y + edge.y;
-        else
-          mindim.y = newdim.y + edge.y;
-      }
-      _sendsubmsg<FG_SETDIM, float, float>(self, FGDIM_MIN, mindim.x, mindim.y);
-      _sendmsg<FG_SETAREA, void*>(self, &narea);
     }
+
     return FG_ACCEPT;
-  }
   case FG_LAYOUTFUNCTION:
     return ((self->flags & FGELEMENT_EXPAND) || msg->subtype != 0) ? fgDefaultLayout(self, (const FG_Msg*)msg->other, (AbsVec*)msg->other2) : 0;
   case FG_LAYOUTLOAD:
@@ -784,13 +779,11 @@ void FG_FASTCALL ResolveRectCache(const fgElement* self, AbsRect* BSS_RESTRICT o
   out->right = lerp(last->left, last->right, v->right.rel) + v->right.abs;
   out->bottom = lerp(last->top, last->bottom, v->bottom.rel) + v->bottom.abs;
 
-  center.x += (v->right.abs - v->left.abs)*self->transform.center.x.rel;
-  center.y += (v->bottom.abs - v->top.abs)*self->transform.center.y.rel;
-  //center = ResolveVec(&,r); // We can't use this because the center is relative to the DIMENSIONS, not the actual position.
-  out->left -= center.x;
-  out->top -= center.y;
-  out->right -= center.x;
-  out->bottom -= center.y;
+  if(self->flags & FGELEMENT_EXPANDX)
+    out->right = out->left + std::max(out->right - out->left, self->layoutdim.x + self->padding.left + self->padding.right);
+  if(self->flags & FGELEMENT_EXPANDY)
+    out->bottom = out->top + std::max(out->bottom - out->top, self->layoutdim.y + self->padding.top + self->padding.bottom);
+
   out->left += self->margin.left;
   out->top += self->margin.top;
   out->right -= self->margin.right;
@@ -804,6 +797,13 @@ void FG_FASTCALL ResolveRectCache(const fgElement* self, AbsRect* BSS_RESTRICT o
     out->right = out->left + std::min(out->right - out->left, self->maxdim.x);
   if(self->maxdim.y >= 0)
     out->bottom = out->top + std::min(out->bottom - out->top, self->maxdim.y);
+
+  center.x += (out->right - out->left)*self->transform.center.x.rel;
+  center.y += (out->bottom - out->top)*self->transform.center.y.rel;
+  out->left -= center.x;
+  out->top -= center.y;
+  out->right -= center.x;
+  out->bottom -= center.y;
 
   if(self->flags&FGELEMENT_SNAPX) { // TODO: Make this work properly with DPI so it maps to pixels
     out->left = floor(out->left);
