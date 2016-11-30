@@ -21,12 +21,15 @@
 #include <stdlib.h>
 #include <sstream>
 
+KHASH_INIT(fgIDMap, char*, fgElement*, 1, kh_str_hash_func, kh_str_hash_equal);
+KHASH_INIT(fgIDHash, fgElement*, char*, 1, kh_ptr_hash_func, kh_int_hash_equal);
+
 fgRoot* fgroot_instance = 0;
 
 void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, size_t dpi, fgBackend* backend)
 {
   static fgBackend DEFAULT_BACKEND = {
-    &fgRoot_BehaviorDefault,
+    &fgBehaviorHookDefault,
     &fgCreateFontDefault,
     &fgCopyFontDefault,
     &fgCloneFontDefault,
@@ -44,6 +47,7 @@ void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, size_t dpi, fgBa
     &fgDrawLinesDefault,
     &fgCreateDefault,
     &fgMessageMapDefault,
+    &fgUserDataMapDefault,
     &fgPushClipRectDefault,
     &fgPeekClipRectDefault,
     &fgPopClipRectDefault,
@@ -66,6 +70,8 @@ void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, size_t dpi, fgBa
   self->fontscale = 1.0f;
   self->radiohash = fgRadioGroup_init();
   self->functionhash = fgFunctionMap_init();
+  self->idhash = kh_init_fgIDHash();
+  self->idmap = kh_init_fgIDMap();
   fgroot_instance = self;
   fgTransform transform = { area->left, 0, area->top, 0, area->right, 0, area->bottom, 0, 0, 0, 0 };
   fgElement_InternalSetup(*self, 0, 0, 0, 0, &transform, 0, (fgDestroy)&fgRoot_Destroy, (fgMessage)&fgRoot_Message);
@@ -79,6 +85,8 @@ void FG_FASTCALL fgRoot_Destroy(fgRoot* self)
   fgRadioGroup_destroy(self->radiohash);
   fgFunctionMap_destroy(self->functionhash);
   fgControl_Destroy((fgControl*)self);
+  kh_destroy_fgIDHash(self->idhash);
+  kh_destroy_fgIDMap(self->idmap);
 }
 
 void FG_FASTCALL fgRoot_CheckMouseMove(fgRoot* self)
@@ -164,14 +172,14 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
   return fgControl_Message((fgControl*)self,msg);
 }
 
-void BSS_FORCEINLINE fgStandardApplyClipping(fgElement* hold, const AbsRect* area, bool& clipping)
+void BSS_FORCEINLINE fgStandardApplyClipping(fgFlag flags, const AbsRect* area, bool& clipping)
 {
-  if(!clipping && !(hold->flags&FGELEMENT_NOCLIP))
+  if(!clipping && !(flags&FGELEMENT_NOCLIP))
   {
     clipping = true;
     fgroot_instance->backend.fgPushClipRect(area);
   }
-  else if(clipping && (hold->flags&FGELEMENT_NOCLIP))
+  else if(clipping && (flags&FGELEMENT_NOCLIP))
   {
     clipping = false;
     fgroot_instance->backend.fgPopClipRect();
@@ -183,7 +191,7 @@ void BSS_FORCEINLINE fgStandardDrawElement(fgElement* self, fgElement* hold, con
   if(!(hold->flags&FGELEMENT_HIDDEN) && hold != fgroot_instance->topmost)
   {
     ResolveRectCache(hold, &curarea, area, (hold->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
-    fgStandardApplyClipping(hold, area, clipping);
+    fgStandardApplyClipping(hold->flags, area, clipping);
 
     char culled = !fgRectIntersect(&curarea, &fgroot_instance->backend.fgPeekClipRect());
     _sendsubmsg<FG_DRAW, void*, size_t>(hold, culled, &curarea, dpi);
@@ -442,22 +450,6 @@ size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
   return 0;
 }
 
-size_t FG_FASTCALL fgRoot_BehaviorDefault(fgElement* self, const FG_Msg* msg)
-{
-  assert(self != 0);
-  return (*self->message)(self, msg);
-}
-
-size_t FG_FASTCALL fgRoot_BehaviorListener(fgElement* self, const FG_Msg* msg)
-{
-  assert(self != 0);
-  size_t ret = (*self->message)(self, msg);
-  khiter_t iter = fgListenerHash.Iterator(std::pair<fgElement*, unsigned short>(self, msg->type));
-  if(fgListenerHash.ExistsIter(iter))
-    fgListenerHash.GetValue(iter)(self, msg);
-  return ret;
-}
-
 void FG_FASTCALL fgRoot_SetCursor(char cursor, void* data)
 {
   if(cursor & FGCURSOR_OVERRIDE)
@@ -571,6 +563,55 @@ void FG_FASTCALL fgRoot_ModifyAction(fgRoot* self, fgDeferAction* action)
   }
   else if(!action->prev && action != self->updateroot) // If true you aren't in the list so we need to add you
     fgRoot_AddAction(self, action);
+}
+fgElement* FG_FASTCALL fgRoot_GetID(fgRoot* self, const char* id)
+{
+  khiter_t i = kh_get_fgIDMap(self->idmap, const_cast<char*>(id));
+  if(i != kh_end(self->idmap) && kh_exist(self->idmap, i))
+    return kh_val(self->idmap, i);
+  return 0;
+}
+
+#ifdef BSS_DEBUG
+void VERIFY_IDHASH()
+{
+  for(khiter_t i = 0; i < fgroot_instance->idhash->n_buckets; ++i)
+    if(i != kh_end(fgroot_instance->idhash) && kh_exist(fgroot_instance->idhash, i))
+      assert(kh_val(fgroot_instance->idhash, i) != (void*)0xcdcdcdcdcdcdcdcd);
+}
+#endif
+
+void FG_FASTCALL fgRoot_AddID(fgRoot* self, const char* id, fgElement* element)
+{
+  int r;
+  khiter_t i = kh_get_fgIDMap(self->idmap, const_cast<char*>(id));
+  if(i != kh_end(self->idmap) && kh_exist(self->idmap, i))  // the key already exists so we need to remove and replace the previous element
+  {
+    assert(i != kh_end(self->idmap));
+    kh_del_fgIDHash(self->idhash, kh_get_fgIDHash(self->idhash, kh_val(self->idmap, i)));
+  }
+  else
+    i = kh_put_fgIDMap(self->idmap, fgCopyText(id, __FILE__, __LINE__), &r);
+
+  kh_val(self->idmap, i) = element;
+  khiter_t j = kh_put_fgIDHash(self->idhash, element, &r);
+  const char* test = kh_key(self->idmap, i);
+  kh_val(self->idhash, j) = kh_key(self->idmap, i);
+}
+bool FG_FASTCALL fgRoot_RemoveID(fgRoot* self, fgElement* element)
+{
+  khiter_t i = kh_get_fgIDHash(self->idhash, element);
+  if(i == kh_end(self->idhash) || !kh_exist(self->idhash, i))
+    return false;
+  khiter_t j = kh_get_fgIDMap(self->idmap, kh_val(self->idhash, i));
+  if(j != kh_end(self->idmap) && kh_exist(self->idmap, j))
+    kh_del_fgIDMap(self->idmap, j);
+  else
+    assert(false);
+
+  fgfree(kh_val(self->idhash, i), __FILE__, __LINE__);
+  kh_del_fgIDHash(self->idhash, i);
+  return true;
 }
 
 fgRoot* FG_FASTCALL fgSingleton()

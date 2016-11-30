@@ -65,7 +65,7 @@ size_t FG_FASTCALL fgDebug_Message(fgDebug* self, const FG_Msg* msg)
     self->depth = 0;
     self->depthelement = self->messages;
     self->hover = 0;
-    self->behaviorhook = &fgRoot_BehaviorDefault;
+    self->behaviorhook = &fgBehaviorHookDefault;
     self->ignore = 0;
     self->font = 0;
     self->color.color = 0;

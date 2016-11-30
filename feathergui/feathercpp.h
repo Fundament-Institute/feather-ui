@@ -12,6 +12,130 @@
 #include "bss-util\cHash.h"
 #include "bss-util\cAVLtree.h"
 
+#ifdef BSS_64BIT
+#define kh_ptr_hash_func(key) kh_int64_hash_func((uint64_t)key)
+#else
+#define kh_ptr_hash_func kh_int_hash_func
+#endif
+
+
+// This is a template implementation of malloc that we can overload for memory leak detection
+#ifdef BSS_DEBUG
+
+class fgLeakTracker
+{
+  struct LEAKINFO
+  {
+    void* ptr;
+    size_t size;
+    const char* file;
+    size_t line;
+    const char* freefile;
+    size_t freeline;
+    size_t freecount;
+  };
+
+public:
+  fgLeakTracker()
+  {
+    fopen_s(&f, "memleaks.txt", "w");
+  }
+  ~fgLeakTracker()
+  {
+    fputs("--- Memory leaks---\n", f);
+    LEAKINFO* pinfo;
+    for(auto curiter = _leakinfo.begin(); curiter.IsValid(); ++curiter)
+    {
+      pinfo = _leakinfo.GetValue(*curiter);
+      if(!pinfo->freecount)
+        fprintf(f, "%p (Size: %zi) leaked at %s:%zi\n", pinfo->ptr, pinfo->size, pinfo->file, pinfo->line);
+      free(pinfo);
+    }
+
+    fclose(f);
+  }
+
+  void Add(void* ptr, size_t size, const char* file, size_t line)
+  {
+    const char* hold = strrchr(file, '\\');
+    const char* hold2 = strrchr(file, '/');
+    file = bssmax(bssmax(hold, hold2), file);
+
+    if(_leakinfo.Exists(ptr))
+    {
+      if(!_leakinfo[ptr]->freecount) // If we just allocated memory that hasn't actually been freed something really bad happened.
+        throw "DUPLICATE ASSIGNMENT ERROR";
+      _leakinfo[ptr]->freecount = 0;
+    }
+
+    LEAKINFO* pinfo = (LEAKINFO*)malloc(sizeof(LEAKINFO));
+    pinfo->size = size;
+    pinfo->file = file;
+    pinfo->line = line;
+    pinfo->ptr = ptr;
+    pinfo->freecount = 0;
+    pinfo->freefile = 0;
+    pinfo->freeline = 0;
+    _leakinfo.Insert(ptr, pinfo);
+  }
+  bool Remove(void* ptr, const char* file, size_t line)
+  {
+    auto i = _leakinfo.Iterator(ptr);
+    if(!_leakinfo.ExistsIter(i))
+      fprintf(f, "Attempt to delete unassigned memory location (%p) at %s:%zi\n", ptr, file, line);
+    else
+    {
+      LEAKINFO* info = _leakinfo.GetValue(i);
+      ++info->freecount;
+
+      if(info->freecount > 1)
+        fprintf(f, "Attempted to delete memory location (%p) at least %zi times at %s:%zi. First free location at %s:%zi\n", ptr, info->freecount, file, line, info->freefile, info->freeline);
+      else
+      {
+        info->freefile = file;
+        info->freeline = line;
+        memset(ptr, 0xFD, info->size);
+        return true;
+      }
+    }
+
+    return false;
+  }
+  bool Verify(void* ptr)
+  {
+    return _leakinfo.Exists(ptr);
+  }
+
+  static fgLeakTracker Tracker;
+protected:
+  bss_util::cHash<void*, LEAKINFO*> _leakinfo;
+  FILE* f;
+};
+
+template<typename T>
+BSS_FORCEINLINE static T* fgmalloc(size_t sz, const char* file, size_t line)
+{
+  T* p = reinterpret_cast<T*>(malloc(sz * sizeof(T)));
+  fgLeakTracker::Tracker.Add(p, sz * sizeof(T), file, line);
+  return p;
+}
+BSS_FORCEINLINE static void fgfree(void* p, const char* file, size_t line)
+{
+  if(fgLeakTracker::Tracker.Remove(p, file, line))
+    free(p);
+}
+
+#else
+template<typename T>
+BSS_FORCEINLINE static T* fgmalloc(size_t sz, const char*, size_t) { return reinterpret_cast<T*>(malloc(sz * sizeof(T))); }
+BSS_FORCEINLINE static void fgfree(void* p, const char*, size_t) { free(p); }
+#endif
+
+BSS_FORCEINLINE static void fgfreeblank(void* p)
+{
+  fgfree(p, "", 0);
+}
+
 template<void* (FG_FASTCALL *CLONE)(void*), void (FG_FASTCALL *DESTROY)(void*)>
 struct fgArbitraryRef
 {
@@ -70,6 +194,13 @@ extern BSS_FORCEINLINE void* FG_FASTCALL fgCloneResourceCpp(void* r) { return fg
 extern BSS_FORCEINLINE void FG_FASTCALL fgDestroyResourceCpp(void* r) { return fgroot_instance->backend.fgDestroyResource(r); }
 extern BSS_FORCEINLINE void* FG_FASTCALL fgCloneFontCpp(void* r) { return fgroot_instance->backend.fgCloneFont(r); }
 extern BSS_FORCEINLINE void FG_FASTCALL fgDestroyFontCpp(void* r) { return fgroot_instance->backend.fgDestroyFont(r); }
+extern BSS_FORCEINLINE void FG_FASTCALL fgConstructKeyValue(_FG_KEY_VALUE*) {}
+extern BSS_FORCEINLINE void FG_FASTCALL fgDestructKeyValue(_FG_KEY_VALUE* p)
+{
+  fgfree(p->key, __FILE__, __LINE__);
+  if(p->value)
+    fgfree(p->value, __FILE__, __LINE__);
+}
 
 typedef bss_util::cDynArray<fgArbitraryRef<fgCloneResourceCpp, fgDestroyResourceCpp>, FG_UINT, bss_util::CARRAY_CONSTRUCT> fgResourceArray;
 typedef bss_util::cDynArray<fgArbitraryRef<fgCloneFontCpp, fgDestroyFontCpp>, FG_UINT, bss_util::CARRAY_CONSTRUCT> fgFontArray;
@@ -99,6 +230,7 @@ static const int UNICODE_TERMINATOR = 0;
 
 typedef bss_util::cArraySort<fgStyleLayoutConstruct, fgSortStyleLayout, size_t, bss_util::CARRAY_CONSTRUCT> fgStyleLayoutArray;
 typedef bss_util::cDynArray<typename fgConstruct<fgStyle>::fgConstructor<fgStyle_Destroy, fgStyle_Init>, size_t, bss_util::CARRAY_CONSTRUCT> fgStyleArray;
+typedef bss_util::cDynArray<typename fgConstruct<struct _FG_KEY_VALUE>::fgConstructor<fgDestructKeyValue, fgConstructKeyValue>, size_t, bss_util::CARRAY_CONSTRUCT> fgKeyValueArray;
 typedef bss_util::cArraySort<fgClassLayoutConstruct, fgSortClassLayout, size_t, bss_util::CARRAY_CONSTRUCT> fgClassLayoutArray;
 
 struct __kh_fgRadioGroup_t;
@@ -205,124 +337,7 @@ namespace bss_util { struct cXMLNode; }
 
 extern fgSkin* FG_FASTCALL fgSkins_LoadNodeXML(fgSkinBase* self, const bss_util::cXMLNode* root);
 extern inline __kh_fgSkins_t *kh_init_fgSkins();
-extern void FG_FASTCALL fgStyle_LoadAttributesXML(struct _FG_STYLE* self, const bss_util::cXMLNode* cur, int flags, struct _FG_SKIN_BASE* root, const char* path, char** id);
+extern void FG_FASTCALL fgStyle_LoadAttributesXML(struct _FG_STYLE* self, const bss_util::cXMLNode* cur, int flags, struct _FG_SKIN_BASE* root, const char* path, char** id, fgKeyValueArray* userdata);
 extern int FG_FASTCALL fgStyle_NodeEvalTransform(const bss_util::cXMLNode* node, fgTransform& t);
-
-// This is a template implementation of malloc that we can overload for memory leak detection
-#ifdef BSS_DEBUG
-
-class fgLeakTracker
-{
-  struct LEAKINFO
-  {
-    void* ptr;
-    size_t size;
-    const char* file;
-    size_t line;
-    const char* freefile;
-    size_t freeline;
-    size_t freecount;
-  };
-
-public:
-  fgLeakTracker()
-  {
-    fopen_s(&f, "memleaks.txt", "w");
-  }
-  ~fgLeakTracker()
-  {
-    fputs("--- Memory leaks---\n", f);
-    LEAKINFO* pinfo;
-    for(auto curiter = _leakinfo.begin(); curiter.IsValid(); ++curiter)
-    {
-      pinfo = _leakinfo.GetValue(*curiter);
-      if(!pinfo->freecount)
-        fprintf(f, "%p (Size: %zi) leaked at %s:%zi\n", pinfo->ptr, pinfo->size, pinfo->file, pinfo->line);
-      free(pinfo);
-    }
-
-    fclose(f);
-  }
-
-  void Add(void* ptr, size_t size, const char* file, size_t line)
-  {
-    const char* hold = strrchr(file, '\\');
-    const char* hold2 = strrchr(file, '/');
-    file = bssmax(bssmax(hold, hold2), file);
-
-    if(_leakinfo.Exists(ptr))
-    {
-      if(!_leakinfo[ptr]->freecount) // If we just allocated memory that hasn't actually been freed something really bad happened.
-        throw "DUPLICATE ASSIGNMENT ERROR";
-      _leakinfo[ptr]->freecount = 0;
-    }
-
-    LEAKINFO* pinfo = (LEAKINFO*)malloc(sizeof(LEAKINFO));
-    pinfo->size = size;
-    pinfo->file = file;
-    pinfo->line = line;
-    pinfo->ptr = ptr;
-    pinfo->freecount = 0;
-    pinfo->freefile = 0;
-    pinfo->freeline = 0;
-    _leakinfo.Insert(ptr, pinfo);
-  }
-  bool Remove(void* ptr, const char* file, size_t line)
-  {
-    auto i = _leakinfo.Iterator(ptr);
-    if(!_leakinfo.ExistsIter(i))
-      fprintf(f, "Attempt to delete unassigned memory location (%p) at %s:%zi\n", ptr, file, line);
-    else
-    {
-      LEAKINFO* info = _leakinfo.GetValue(i);
-      ++info->freecount;
-
-      if(info->freecount > 1)
-        fprintf(f, "Attempted to delete memory location (%p) at least %zi times at %s:%zi. First free location at %s:%zi\n", ptr, info->freecount, file, line, info->freefile, info->freeline);
-      else
-      {
-        info->freefile = file;
-        info->freeline = line;
-        memset(ptr, 0xFD, info->size);
-        return true;
-      }
-    }
-
-    return false;
-  }
-  bool Verify(void* ptr)
-  {
-    return _leakinfo.Exists(ptr);
-  }
-
-  static fgLeakTracker Tracker;
-protected:
-  bss_util::cHash<void*, LEAKINFO*> _leakinfo;
-  FILE* f;
-};
-
-template<typename T>
-BSS_FORCEINLINE static T* fgmalloc(size_t sz, const char* file, size_t line)
-{ 
-  T* p = reinterpret_cast<T*>(malloc(sz * sizeof(T)));
-  fgLeakTracker::Tracker.Add(p, sz * sizeof(T), file, line);
-  return p;
-}
-BSS_FORCEINLINE static void fgfree(void* p, const char* file, size_t line)
-{ 
-  if(fgLeakTracker::Tracker.Remove(p, file, line))
-    free(p);
-}
-
-#else
-template<typename T>
-BSS_FORCEINLINE static T* fgmalloc(size_t sz, const char*, size_t) { return reinterpret_cast<T*>(malloc(sz * sizeof(T))); }
-BSS_FORCEINLINE static void fgfree(void* p, const char*, size_t) { free(p); }
-#endif
-
-BSS_FORCEINLINE static void fgfreeblank(void* p)
-{
-  fgfree(p, "", 0);
-}
 
 #endif

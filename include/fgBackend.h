@@ -11,6 +11,7 @@ extern "C" {
 #endif
 
 struct _FG_ROOT;
+struct __VECTOR__KeyValue;
 
 typedef struct _FG_BACKEND {
   size_t(FG_FASTCALL *behaviorhook)(struct _FG_ELEMENT* self, const FG_Msg* msg);
@@ -32,6 +33,7 @@ typedef struct _FG_BACKEND {
   void (FG_FASTCALL *fgDrawLines)(const AbsVec* p, size_t n, unsigned int color, const AbsVec* translate, const AbsVec* scale, FABS rotation, const AbsVec* center);
   fgElement* (FG_FASTCALL *fgCreate)(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
   short (FG_FASTCALL *fgMessageMap)(const char* name);
+  void (FG_FASTCALL *fgUserDataMap)(fgElement* self, struct __VECTOR__KeyValue* pairs);
 
   void (FG_FASTCALL *fgPushClipRect)(const AbsRect* clip);
   AbsRect (FG_FASTCALL *fgPeekClipRect)();
@@ -52,6 +54,8 @@ typedef struct _FG_BACKEND {
 FG_EXTERN struct _FG_ROOT* FG_FASTCALL fgInitialize();
 FG_EXTERN void FG_FASTCALL fgTerminate(struct _FG_ROOT* root);
 
+FG_EXTERN size_t FG_FASTCALL fgBehaviorHookDefault(fgElement* self, const FG_Msg* msg);
+FG_EXTERN size_t FG_FASTCALL fgBehaviorHookListener(fgElement* self, const FG_Msg* msg);
 FG_EXTERN void* FG_FASTCALL fgCreateFontDefault(fgFlag flags, const char* font, unsigned int fontsize, unsigned int dpi);
 FG_EXTERN void* FG_FASTCALL fgCopyFontDefault(void* font, unsigned int fontsize, unsigned int dpi);
 FG_EXTERN void* FG_FASTCALL fgCloneFontDefault(void* font);
@@ -70,6 +74,10 @@ FG_EXTERN AbsVec FG_FASTCALL fgFontPosDefault(void* font, const int* text, float
 FG_EXTERN void FG_FASTCALL fgDrawLinesDefault(const AbsVec* p, size_t n, unsigned int color, const AbsVec* translate, const AbsVec* scale, FABS rotation, const AbsVec* center);
 FG_EXTERN fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
 FG_EXTERN short FG_FASTCALL fgMessageMapDefault(const char* name);
+FG_EXTERN void FG_FASTCALL fgUserDataMapDefault(fgElement* self, struct __VECTOR__KeyValue* pairs);
+FG_EXTERN void FG_FASTCALL fgUserDataMapDefaultProcess(fgElement* self, struct _FG_KEY_VALUE* pair);
+FG_EXTERN void FG_FASTCALL fgUserDataMapCallbacks(fgElement* self, struct __VECTOR__KeyValue* pairs);
+FG_EXTERN void FG_FASTCALL fgUserDataMapCallbacksProcess(fgElement* self, struct _FG_KEY_VALUE* pair);
 
 FG_EXTERN void FG_FASTCALL fgPushClipRectDefault(const AbsRect* clip);
 FG_EXTERN AbsRect FG_FASTCALL fgPeekClipRectDefault();

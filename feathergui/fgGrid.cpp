@@ -33,13 +33,12 @@ size_t FG_FASTCALL fgGrid_Message(fgGrid* self, const FG_Msg* msg)
 
 void FG_FASTCALL fgGridRow_Init(fgGridRow* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgElement_Destroy, (fgMessage)&fgGridRow_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgGridRow_Destroy, (fgMessage)&fgGridRow_Message);
 
 }
 void FG_FASTCALL fgGridRow_Destroy(fgGridRow* self)
 {
-  ((bss_util::cDynArray<fgElement*>&)self->items).~cDynArray();
-  fgElement_Destroy(&self->element);
+  fgBox_Destroy(&self->box);
 }
 
 size_t FG_FASTCALL fgGridRow_Message(fgGridRow* self, const FG_Msg* msg)
@@ -49,5 +48,5 @@ size_t FG_FASTCALL fgGridRow_Message(fgGridRow* self, const FG_Msg* msg)
   case FG_ADDITEM:
     break;
   }
-  return fgElement_Message(&self->element, msg);
+  return fgBox_Message(&self->box, msg);
 }

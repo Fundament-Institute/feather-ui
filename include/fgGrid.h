@@ -11,10 +11,9 @@ extern "C" {
 #endif
 
   typedef struct _FG_GRID_ROW {
-    fgElement element;
-    fgVectorElement items;
+    fgBox box;
 #ifdef  __cplusplus
-    inline operator fgElement*() { return &element; }
+    inline operator fgElement*() { return &box.scroll.control.element; }
     inline fgElement* operator->() { return operator fgElement*(); }
     FG_DLLEXPORT void AddItem(fgElement* item, size_t column);
     FG_DLLEXPORT void AddItem(const char* item, size_t column);

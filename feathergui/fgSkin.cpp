@@ -361,12 +361,12 @@ int FG_FASTCALL fgStyle_NodeEvalTransform(const cXMLNode* node, fgTransform& t)
   return flags;
 }
 
-void FG_FASTCALL fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, fgSkinBase* root, const char* path, char** id)
+void FG_FASTCALL fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, fgSkinBase* root, const char* path, char** id, fgKeyValueArray* userdata)
 {
-  static cTrie<uint16_t, true> t(39, "id", "min-width", "min-height", "max-width", "max-height", "skin", "alpha", "margin", "padding", "text",
+  static cTrie<uint16_t, true> t(42, "id", "min-width", "min-height", "max-width", "max-height", "skin", "alpha", "margin", "padding", "text",
     "placeholder", "color", "placecolor", "cursorcolor", "selectcolor", "hovercolor", "dragcolor", "edgecolor", "font", "lineheight",
     "letterspacing", "value", "uv", "resource", "outline", "area", "center", "rotation", "left", "top", "right", "bottom", "width", "height",
-    "name", "flags", "order", "inherit", "range");
+    "name", "flags", "order", "inherit", "range", "xmlns:xsi", "xmlns:fg", "xsi:schemaLocation");
   static cTrie<uint16_t, true> tvalue(5, "checkbox", "curve", "progressbar", "radiobutton", "slider");
   static cTrie<uint16_t, true> tenum(5, "true", "false", "none", "checked", "indeterminate");
 
@@ -552,12 +552,22 @@ void FG_FASTCALL fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, i
     case 38: // range
       AddStyleSubMsg<FG_SETVALUE, ptrdiff_t, size_t>(self, FGVALUE_INT64, attr->Integer, 1);
       break;
+    case 39: 
+    case 40:
+    case 41: // These are all XML specific values that are only used for setting the XSD file
     default: // Otherwise, unrecognized attributes are set as custom userdata
-    {
-      FG_Msg msg = { 0 };
-      msg.type = FG_SETUSERDATA;
-      fgStyle_AddStyleMsg(self, &msg, attr->String.c_str(), attr->String.length() + 1, attr->Name.c_str(), attr->Name.length() + 1);
-    }
+      if(!userdata)
+      {
+        FG_Msg msg = { 0 };
+        msg.type = FG_SETUSERDATA;
+        fgStyle_AddStyleMsg(self, &msg, attr->String.c_str(), attr->String.length() + 1, attr->Name.c_str(), attr->Name.length() + 1);
+      }
+      else
+      {
+        size_t i = userdata->AddConstruct();
+        (*userdata)[i].key = fgCopyText(attr->Name.c_str(), __FILE__, __LINE__);
+        (*userdata)[i].value = fgCopyText(attr->String.c_str(), __FILE__, __LINE__);
+      }
     break;
     }
   }
@@ -661,7 +671,7 @@ void FG_FASTCALL fgSkins_LoadSubNodeXML(fgSkin* self, const cXMLNode* cur)
   if(tsunits != -1)
     AddStyleSubMsgArg<FG_SETTRANSFORM, fgTransform>(&self->style, tsunits, &ts);
 
-  fgStyle_LoadAttributesXML(&self->style, cur, rootflags, &self->base, 0, 0);
+  fgStyle_LoadAttributesXML(&self->style, cur, rootflags, &self->base, 0, 0, 0);
   self->inherit = fgSkinBase_GetInherit(&self->base, cur->GetAttributeString("inherit"));
 
   for(size_t i = 0; i < cur->GetNodes(); ++i)
@@ -673,7 +683,7 @@ void FG_FASTCALL fgSkins_LoadSubNodeXML(fgSkin* self, const cXMLNode* cur)
     {
       FG_UINT style = fgSkin_AddStyle(self, node->GetAttributeString("name"));
       // Styles parse flags differently - the attributes use the parent flags for resource/font loading, then creates add and remove flag messages
-      fgStyle_LoadAttributesXML(fgSkin_GetStyle(self, style), node, rootflags, &self->base, 0, 0);
+      fgStyle_LoadAttributesXML(fgSkin_GetStyle(self, style), node, rootflags, &self->base, 0, 0, 0);
       fgFlag remove = 0;
       fgFlag add = fgSkinBase_GetFlagsFromString(node->GetAttributeString("flags"), &remove);
       if(remove&(~FGELEMENT_USEDEFAULTS))
@@ -687,7 +697,7 @@ void FG_FASTCALL fgSkins_LoadSubNodeXML(fgSkin* self, const cXMLNode* cur)
       short units = fgStyle_NodeEvalTransform(node, transform);
       fgFlag flags = fgSkinBase_GetFlagsFromString(node->GetAttributeString("flags"), 0);
       FG_UINT index = (FG_UINT)fgSkin_AddChild(self, node->GetName(), node->GetAttributeString("name"), flags, &transform, units, (int)node->GetAttributeInt("order"));
-      fgStyle_LoadAttributesXML(&fgSkin_GetChild(self, index)->style, node, flags, &self->base, 0, 0);
+      fgStyle_LoadAttributesXML(&fgSkin_GetChild(self, index)->style, node, flags, &self->base, 0, 0, 0);
     }
   }
 }

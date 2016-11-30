@@ -19,7 +19,25 @@
 #include "feathercpp.h"
 #include "bss-util/cTrie.h"
 
+KHASH_INIT(fgFunctionMap, char*, fgListener, 1, kh_str_hash_func, kh_str_hash_equal);
+
 using namespace bss_util;
+
+size_t FG_FASTCALL fgBehaviorHookDefault(fgElement* self, const FG_Msg* msg)
+{
+  assert(self != 0);
+  return (*self->message)(self, msg);
+}
+
+size_t FG_FASTCALL fgBehaviorHookListener(fgElement* self, const FG_Msg* msg)
+{
+  assert(self != 0);
+  size_t ret = (*self->message)(self, msg);
+  khiter_t iter = fgListenerHash.Iterator(std::pair<fgElement*, unsigned short>(self, msg->type));
+  if(fgListenerHash.ExistsIter(iter))
+    fgListenerHash.GetValue(iter)(self, msg);
+  return ret;
+}
 
 void* FG_FASTCALL fgCreateFontDefault(fgFlag flags, const char* font, unsigned int fontsize, unsigned int dpi) { return (void*)~0; }
 void* FG_FASTCALL fgCopyFontDefault(void* font, unsigned int fontsize, unsigned int dpi) { return (void*)~0; }
@@ -85,9 +103,9 @@ void FG_FASTCALL fgClipboardFreeDefault(const void* mem) {}
 void FG_FASTCALL fgDirtyElementDefault(fgElement* elem) {}
 
 template<class T, void (FG_FASTCALL *INIT)(T* BSS_RESTRICT, fgElement* BSS_RESTRICT, fgElement* BSS_RESTRICT, const char*, fgFlag, const fgTransform*, unsigned short)>
-fgElement* _create_default(fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+BSS_FORCEINLINE fgElement* _create_default(fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units, const char* file, size_t line)
 {
-  T* r = fgmalloc<T>(1, __FILE__, __LINE__);
+  T* r = fgmalloc<T>(1, file, line);
   INIT(r, parent, next, name, flags, transform, units);
 #ifdef BSS_DEBUG
   ((fgElement*)r)->free = &fgfreeblank;
@@ -106,45 +124,45 @@ fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT
   switch(t[type])
   {
   case 0:
-    return _create_default<fgElement, fgElement_Init>(parent, next, name, flags, transform, units);
+    return _create_default<fgElement, fgElement_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
   case 1:
-    return _create_default<fgControl, fgControl_Init>(parent, next, name, flags, transform, units);
+    return _create_default<fgControl, fgControl_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
   case 2:
-    return _create_default<fgResource, fgResource_Init>(parent, next, name, flags, transform, units);
+    return _create_default<fgResource, fgResource_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
   case 3:
-    return _create_default<fgText, fgText_Init>(parent, next, name, flags, transform, units);
+    return _create_default<fgText, fgText_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
   case 4:
-    return _create_default<fgBox, fgBox_Init>(parent, next, name, flags, transform, units);
+    return _create_default<fgBox, fgBox_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
   case 5:
-    return _create_default<fgScrollbar, fgScrollbar_Init>(parent, next, name, flags, transform, units);
+    return _create_default<fgScrollbar, fgScrollbar_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
   case 6:
-    return _create_default<fgButton, fgButton_Init>(parent, next, name, flags, transform, units);
+    return _create_default<fgButton, fgButton_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
   case 7:
-    return _create_default<fgWindow, fgWindow_Init>(parent, next, name, flags, transform, units);
+    return _create_default<fgWindow, fgWindow_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
   case 8:
-    return _create_default<fgCheckbox, fgCheckbox_Init>(parent, next, name, flags, transform, units);
+    return _create_default<fgCheckbox, fgCheckbox_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
   case 9:
-    return _create_default<fgRadiobutton, fgRadiobutton_Init>(parent, next, name, flags, transform, units);
+    return _create_default<fgRadiobutton, fgRadiobutton_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
   case 10:
-    return _create_default<fgProgressbar, fgProgressbar_Init>(parent, next, name, flags, transform, units);
+    return _create_default<fgProgressbar, fgProgressbar_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
   case 11:
-    return _create_default<fgSlider, fgSlider_Init>(parent, next, name, flags, transform, units);
+    return _create_default<fgSlider, fgSlider_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
   case 12:
-    return _create_default<fgTextbox, fgTextbox_Init>(parent, next, name, flags, transform, units);
+    return _create_default<fgTextbox, fgTextbox_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
   case 13:
-    return _create_default<fgTreeview, fgTreeview_Init>(parent, next, name, flags, transform, units);
+    return _create_default<fgTreeview, fgTreeview_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
   case 14:
-    return _create_default<fgTreeItem, fgTreeItem_Init>(parent, next, name, flags, transform, units);
+    return _create_default<fgTreeItem, fgTreeItem_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
   case 15:
-    return _create_default<fgList, fgList_Init>(parent, next, name, flags, transform, units);
+    return _create_default<fgList, fgList_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
   case 16:
-    return _create_default<fgControl, fgListItem_Init>(parent, next, name, flags, transform, units);
+    return _create_default<fgControl, fgListItem_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
   case 17:
-    return _create_default<fgCurve, fgCurve_Init>(parent, next, name, flags, transform, units);
+    return _create_default<fgCurve, fgCurve_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
   case 18:
-    return _create_default<fgDropdown, fgDropdown_Init>(parent, next, name, flags, transform, units);
+    return _create_default<fgDropdown, fgDropdown_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
   case 19:
-    return _create_default<fgTabcontrol, fgTabcontrol_Init>(parent, next, name, flags, transform, units);
+    return _create_default<fgTabcontrol, fgTabcontrol_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
   case 20: //Tab
   {
     fgElement* e = parent->AddItemText(name);
@@ -152,13 +170,13 @@ fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT
     return e;
   }
   case 21:
-    return _create_default<fgMenu, fgMenu_Init>(parent, next, name, flags, transform, units);
+    return _create_default<fgMenu, fgMenu_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
   case 22:
-    return _create_default<fgMenu, fgSubmenu_Init>(parent, next, name, flags, transform, units);
+    return _create_default<fgMenu, fgSubmenu_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
   case 23:
-    return _create_default<fgMenuItem, fgMenuItem_Init>(parent, next, name, flags, transform, units);
+    return _create_default<fgMenuItem, fgMenuItem_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
   case 24:
-    return _create_default<fgDebug, fgDebug_Init>(parent, next, name, flags, transform, units);
+    return _create_default<fgDebug, fgDebug_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
   }
 
   return 0;
@@ -166,13 +184,66 @@ fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT
 
 short FG_FASTCALL fgMessageMapDefault(const char* name)
 {
-  static bss_util::cTrie<uint16_t, true> t(FG_CUSTOMEVENT, "CONSTRUCT", "DESTROY", "MOVE", "SETALPHA", "SETAREA", "SETTRANSFORM", "SETFLAG", "SETFLAGS", "SETMARGIN", "SETPADDING",
-    "SETPARENT", "ADDCHILD", "REMOVECHILD", "LAYOUTCHANGE", "LAYOUTFUNCTION", "LAYOUTLOAD", "DRAG", "DRAGGING", "DROP", "DRAW", "INJECT", "CLONE", "SETSKIN", "GETSKIN",
-    "SETSTYLE", "GETSTYLE", "GETCLASSNAME", "GETDPI", "SETDPI", "SETUSERDATA", "GETUSERDATA", "MOUSEDOWN", "MOUSEDBLCLICK", "MOUSEUP", "MOUSEON", "MOUSEOFF", "MOUSEMOVE",
-    "MOUSESCROLL", "TOUCHBEGIN", "TOUCHEND", "TOUCHMOVE", "KEYUP", "KEYDOWN", "KEYCHAR", "JOYBUTTONDOWN", "JOYBUTTONUP", "JOYAXIS", "GOTFOCUS", "LOSTFOCUS",
-    "SETNAME", "GETNAME", "NEUTRAL", "HOVER", "ACTIVE", "ACTION", "SETDIM", "GETDIM", "GETITEM", "ADDITEM", "REMOVEITEM", "GETSELECTEDITEM", "GETSTATE", "SETSTATE",
-    "SETRESOURCE", "SETUV", "SETCOLOR", "SETOUTLINE", "SETFONT", "SETLINEHEIGHT", "SETLETTERSPACING", "SETTEXT", "GETRESOURCE", "GETUV", "GETCOLOR", "GETOUTLINE", "GETFONT",
-    "GETLINEHEIGHT", "GETLETTERSPACING", "GETTEXT");
+  static bss_util::cTrie<uint16_t, true> t(FG_CUSTOMEVENT+1, "UNKNOWN", "CONSTRUCT", "DESTROY", "MOVE", "SETALPHA", "SETAREA", "SETTRANSFORM", "SETFLAG", "SETFLAGS", "SETMARGIN", "SETPADDING",
+    "SETPARENT", "ADDCHILD", "REMOVECHILD", "LAYOUTCHANGE", "LAYOUTFUNCTION", "LAYOUTLOAD", "DRAGOVER", "DROP", "DRAW", "INJECT", "SETSKIN", "GETSKIN", "SETSTYLE", "GETSTYLE", "GETCLASSNAME",
+    "GETDPI", "SETDPI", "SETUSERDATA", "GETUSERDATA", "SETDIM", "GETDIM", "MOUSEDOWN", "MOUSEDBLCLICK", "MOUSEUP", "MOUSEON", "MOUSEOFF", "MOUSEMOVE", "MOUSESCROLL", "TOUCHBEGIN", "TOUCHEND",
+    "TOUCHMOVE", "KEYUP", "KEYDOWN", "KEYCHAR", "JOYBUTTONDOWN", "JOYBUTTONUP", "JOYAXIS", "GOTFOCUS", "LOSTFOCUS", "SETNAME", "GETNAME", "NEUTRAL", "HOVER", "ACTIVE", "ACTION", "GETITEM",
+    "ADDITEM", "REMOVEITEM", "SETITEM", "GETSELECTEDITEM", "GETVALUE", "SETVALUE", "SETRESOURCE", "SETUV", "SETCOLOR", "SETOUTLINE", "SETFONT", "SETLINEHEIGHT", "SETLETTERSPACING",
+    "SETTEXT", "GETRESOURCE", "GETUV", "GETCOLOR", "GETOUTLINE", "GETFONT", "GETLINEHEIGHT", "GETLETTERSPACING", "GETTEXT", "$FG_CUSTOMEVENT");
 
+  assert(t["$FG_CUSTOMEVENT"] == FG_CUSTOMEVENT); // Ensure this count is correct
   return t[name];
+}
+
+void FG_FASTCALL fgUserDataMapDefaultProcess(fgElement* self, struct _FG_KEY_VALUE* pair)
+{
+  self->SetUserdata(pair->value, pair->key);
+}
+
+void FG_FASTCALL fgUserDataMapDefault(fgElement* self, struct __VECTOR__KeyValue* pairs)
+{
+  for(size_t i = 0; i < pairs->l; ++i)
+    fgUserDataMapDefaultProcess(self, pairs->p + i);
+}
+
+void FG_FASTCALL fgUserDataMapCallbacksProcess(fgElement* self, struct _FG_KEY_VALUE* pair)
+{
+  if(!STRNICMP(pair->key, "on", 2))
+  {
+    short type = (*fgroot_instance->backend.fgMessageMap)(pair->key + 2);
+    if(type != -1)
+    {
+      khint_t i = kh_get_fgFunctionMap(fgroot_instance->functionhash, pair->value);
+      if(i != kh_end(fgroot_instance->functionhash))
+        fgElement_AddListener(self, type, kh_val(fgroot_instance->functionhash, i));
+    }
+  }
+  else
+    fgUserDataMapDefaultProcess(self, pair);
+}
+void FG_FASTCALL fgUserDataMapCallbacks(fgElement* self, struct __VECTOR__KeyValue* pairs)
+{
+  for(size_t i = 0; i < pairs->l; ++i)
+    fgUserDataMapCallbacksProcess(self, pairs->p + i);
+}
+
+__inline struct __kh_fgFunctionMap_t* fgFunctionMap_init()
+{
+  return kh_init_fgFunctionMap();
+}
+void fgFunctionMap_destroy(struct __kh_fgFunctionMap_t* h)
+{
+  for(khiter_t i = 0; i != kh_end(h); ++i)
+    if(kh_exist(h, i))
+      fgfree(kh_key(h, i), __FILE__, __LINE__);
+
+  kh_destroy_fgFunctionMap(h);
+}
+
+int FG_FASTCALL fgRegisterFunction(const char* name, fgListener fn)
+{
+  int r;
+  khint_t iter = kh_put_fgFunctionMap(fgroot_instance->functionhash, fgCopyText(name, __FILE__, __LINE__), &r);
+  kh_val(fgroot_instance->functionhash, iter) = fn;
+  return r;
 }

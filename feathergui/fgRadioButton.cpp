@@ -7,15 +7,7 @@
 #include "fgSkin.h"
 #include "fgRoot.h"
 
-#ifdef BSS_32BIT
-#define kh_ptr_hash_func(key) kh_int_hash_func((size_t)key)
-#define kh_ptr_hash_equal(a, b) kh_int_hash_equal(a, b)
-#else
-#define kh_ptr_hash_func(key) kh_int64_hash_func((size_t)key)
-#define kh_ptr_hash_equal(a, b) kh_int64_hash_equal(a, b)
-#endif
-
-KHASH_INIT(fgRadioGroup, fgElement*, fgRadiobutton*, 1, kh_ptr_hash_func, kh_ptr_hash_equal);
+KHASH_INIT(fgRadioGroup, fgElement*, fgRadiobutton*, 1, kh_ptr_hash_func, kh_int_hash_equal);
 
 __inline struct __kh_fgRadioGroup_t* fgRadioGroup_init() { return kh_init_fgRadioGroup(); }
 __inline void fgRadioGroup_destroy(struct __kh_fgRadioGroup_t* p) { kh_destroy_fgRadioGroup(p); }

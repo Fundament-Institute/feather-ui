@@ -9,15 +9,8 @@
 #include <math.h>
 #include <limits.h>
 
-#ifdef BSS_64BIT
-#define kh_ptr_hash_func(key) kh_int64_hash_func((uint64_t)key)
-#else
-#define kh_ptr_hash_func kh_int_hash_func
-#endif
-
 KHASH_INIT(fgUserdata, char*, size_t, 1, kh_str_hash_func, kh_str_hash_equal);
 KHASH_INIT(fgSkinElements, fgElement*, char, 0, kh_ptr_hash_func, kh_int_hash_equal);
-
 
 template<typename U, typename V>
 BSS_FORCEINLINE char CompPairInOrder(const std::pair<U, V>& l, const std::pair<U, V>& r) { char ret = SGNCOMPARE(l.first, r.first); return !ret ? SGNCOMPARE(l.second, r.second) : ret; }
@@ -60,6 +53,7 @@ void FG_FASTCALL fgElement_Init(fgElement* BSS_RESTRICT self, fgElement* BSS_RES
 void FG_FASTCALL fgElement_Destroy(fgElement* self)
 {
   assert(self != 0);
+  fgRoot_RemoveID(fgroot_instance, self);
   _sendmsg<FG_DESTROY>(self);
   if(fgFocusedWindow == self) // We first try to bump focus up to our parents
   {
@@ -102,6 +96,7 @@ void FG_FASTCALL fgElement_Destroy(fgElement* self)
 // (1<<3) move x (8)
 // (1<<4) move y (16)
 
+#ifdef BSS_DEBUG
 bool FG_FASTCALL fgElement_VERIFY(fgElement* self)
 {
   for(khiter_t i = 0; i < self->userhash->n_buckets; ++i)
@@ -110,6 +105,7 @@ bool FG_FASTCALL fgElement_VERIFY(fgElement* self)
         return false;
   return true;
 }
+#endif
 
 char FG_FASTCALL fgElement_PotentialResize(fgElement* self)
 {
@@ -122,7 +118,10 @@ char FG_FASTCALL fgElement_PotentialResize(fgElement* self)
 fgElement* FG_FASTCALL fgElement_LoadLayout(fgElement* parent, fgElement* next, fgClassLayout* layout)
 {
   fgElement* element = fgroot_instance->backend.fgCreate(layout->style.type, parent, next, layout->style.name, layout->style.flags, (layout->style.units == -1) ? 0 : &layout->style.transform, layout->style.units);
+  if(layout->style.id != 0)
+    fgRoot_AddID(fgroot_instance, layout->style.id, element);
   _sendsubmsg<FG_SETSTYLE, void*, size_t>(element, FGSETSTYLE_POINTER, &layout->style.style, ~0);
+  fgroot_instance->backend.fgUserDataMap(element, &layout->userdata); // Map any custom userdata to this element
 
   for(FG_UINT i = 0; i < layout->children.l; ++i)
     fgElement_LoadLayout(element, 0, layout->children.p + i);
@@ -500,7 +499,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       {
         for(FG_UINT i = 0; i < self->skinelements->n_buckets; ++i)
           if(kh_exist(self->skinelements, i))
-            _sendmsg<FG_REMOVECHILD, void*>(self, kh_key(self->skinelements, i));
+            VirtualFreeChild(kh_key(self->skinelements, i));
         kh_clear_fgSkinElements(self->skinelements);
       }
       self->skin = skin;
