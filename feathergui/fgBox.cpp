@@ -51,25 +51,30 @@ inline fgElement* fgBoxOrder(fgElement* self, const AbsRect* area)
   return (r >= box->ordered.l) ? box->ordered.p[0] : box->ordered.p[r];
 }
 
-template<fgFlag FLAGS> BSS_FORCEINLINE char fgBoxMsgCompare(const FG_Msg& l, const AbsRect& r);
-template<> BSS_FORCEINLINE char fgBoxMsgCompare<FGBOX_TILEX>(const FG_Msg& l, const AbsRect& r) { return (l.x >= r.left) - (l.x < r.right); }
-template<> BSS_FORCEINLINE char fgBoxMsgCompare<FGBOX_TILEY>(const FG_Msg& l, const AbsRect& r) { return (l.y >= r.top) - (l.y < r.bottom); }
-template<> BSS_FORCEINLINE char fgBoxMsgCompare<FGBOX_TILE>(const FG_Msg& l, const AbsRect& r) { char ret = (l.y >= r.top) - (l.y < r.bottom); return !ret ? ((l.x >= r.left) - (l.x < r.right)) : ret; }
-template<> BSS_FORCEINLINE char fgBoxMsgCompare<FGBOX_TILE | FGBOX_DISTRIBUTEY>(const FG_Msg& l, const AbsRect& r) { char ret = (l.x >= r.left) - (l.x < r.right); return !ret ? ((l.y >= r.top) - (l.y < r.bottom)) : ret; }
+template<fgFlag FLAGS> BSS_FORCEINLINE char fgBoxMsgCompare(const AbsVec& l, const AbsRect& r);
+template<> BSS_FORCEINLINE char fgBoxMsgCompare<FGBOX_TILEX>(const AbsVec& l, const AbsRect& r) { return (l.x >= r.left) - (l.x < r.right); }
+template<> BSS_FORCEINLINE char fgBoxMsgCompare<FGBOX_TILEY>(const AbsVec& l, const AbsRect& r) { return (l.y >= r.top) - (l.y < r.bottom); }
+template<> BSS_FORCEINLINE char fgBoxMsgCompare<FGBOX_TILE>(const AbsVec& l, const AbsRect& r) { char ret = (l.y >= r.top) - (l.y < r.bottom); return !ret ? ((l.x >= r.left) - (l.x < r.right)) : ret; }
+template<> BSS_FORCEINLINE char fgBoxMsgCompare<FGBOX_TILE | FGBOX_DISTRIBUTEY>(const AbsVec& l, const AbsRect& r) { char ret = (l.x >= r.left) - (l.x < r.right); return !ret ? ((l.y >= r.top) - (l.y < r.bottom)) : ret; }
 
 template<fgFlag FLAGS>
-char fgBoxMsgCompare(const FG_Msg& l, const fgElement* const& e)
+char fgBoxMsgCompare(const AbsVec& l, const fgElement* const& e)
 {
   AbsRect r;
   ResolveRect(e, &r);
   return fgBoxMsgCompare<FLAGS&(FGBOX_TILE | FGBOX_DISTRIBUTEY)>(l, r);
 }
 template<fgFlag FLAGS>
+inline fgElement* fgBoxOrderVec(fgBox* box, AbsVec v)
+{
+  size_t r = bss_util::binsearch_near<const fgElement*, AbsVec, size_t, &fgBoxMsgCompare<FLAGS>, &bss_util::CompT_EQ<char>, 1>(box->ordered.p, v, 0, box->ordered.l);
+  return (r >= box->ordered.l) ? box->ordered.p[0] : box->ordered.p[r];
+}
+
+template<fgFlag FLAGS>
 inline fgElement* fgBoxOrderInject(fgElement* self, const FG_Msg* msg)
 {
-  fgBox* box = (fgBox*)self;
-  size_t r = bss_util::binsearch_near<const fgElement*, FG_Msg, size_t, &fgBoxMsgCompare<FLAGS>, &bss_util::CompT_EQ<char>, 1>(box->ordered.p, *msg, 0, box->ordered.l);
-  return (r >= box->ordered.l) ? box->ordered.p[0] : box->ordered.p[r];
+  return fgBoxOrderVec<FLAGS>((fgBox*)self, AbsVec { (FABS)msg->x, (FABS)msg->y });
 }
 
 size_t FG_FASTCALL fgBox_Message(fgBox* self, const FG_Msg* msg)
@@ -191,6 +196,36 @@ size_t FG_FASTCALL fgBox_Message(fgBox* self, const FG_Msg* msg)
       }
       return fgOrderedInject(*self, (const FG_Msg*)msg->other, (const AbsRect*)msg->other2, self->ordered.p[self->ordered.l - 1]->next, fn);
     }
+  case FG_GETITEM:
+    if(!self->isordered)
+      return 0; // If this isn't ordered we can't get an item by index
+    if(msg->subtype == 1)
+      return self->ordered.l;
+    if(msg->subtype == 2) // This means to query for the nearest element to the given coordinates.
+    {
+      switch(self->scroll->flags&(FGBOX_TILE | FGBOX_DISTRIBUTEY))
+      {
+      case 0:
+      case FGBOX_TILEX: return (size_t)fgBoxOrderVec<FGBOX_TILEX>(self, AbsVec { (FABS)msg->x, (FABS)msg->y });
+      case FGBOX_TILEY: return (size_t)fgBoxOrderVec<FGBOX_TILEY>(self, AbsVec { (FABS)msg->x, (FABS)msg->y });
+      case FGBOX_TILE: return (size_t)fgBoxOrderVec<FGBOX_TILE>(self, AbsVec { (FABS)msg->x, (FABS)msg->y });
+      case FGBOX_TILE | FGBOX_DISTRIBUTEY: return (size_t)fgBoxOrderVec<FGBOX_TILE | FGBOX_DISTRIBUTEY>(self, AbsVec { (FABS)msg->x, (FABS)msg->y });
+      }
+    }
+    else if(size_t(msg->otherint) < self->ordered.l)
+      return (size_t)self->ordered.p[msg->otherint];
+    return 0;
+  case FG_SETITEM:
+    if(!self->isordered || msg->subtype != FGITEM_ELEMENT)
+      return 0; // Can't set anything if we aren't ordered
+    if(msg->otheraux < self->ordered.l)
+    {
+      fgElement* next = self->ordered.p[msg->otheraux]->next;
+      VirtualFreeChild(self->ordered.p[msg->otheraux]);
+      self->scroll->AddChild((fgElement*)msg->other, next);
+      return FG_ACCEPT;
+    }
+    return 0;
   case FG_GETCLASSNAME:
     return (size_t)"Box";
   }

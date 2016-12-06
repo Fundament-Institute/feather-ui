@@ -258,6 +258,7 @@ namespace bss_util {
       dst[j] *= det;
   }
 
+#ifdef BSS_SSE_ENABLED
   // Standard 4x4 Matrix inversion using SSE, adapted from intel's implementation.
   template<>
   BSS_EXPLICITSTATIC BSS_FORCEINLINE void MatrixInvert4x4<float>(const float* src, float* dest) noexcept // no point in using __restrict because we load everything into SSE registers anyway
@@ -363,6 +364,7 @@ namespace bss_util {
     BSS_SSE_STORE_APS(dest+8, _mm_shuffle_ps(iC, iD, 0x77));
     BSS_SSE_STORE_APS(dest+12, _mm_shuffle_ps(iC, iD, 0x22));
   }
+#endif
 
   // Multiply an MxN matrix with an NxP matrix to make an MxP matrix.
   template<typename T, int M, int N, int P>
@@ -527,7 +529,7 @@ namespace bss_util {
   struct BSS_COMPILER_DLLEXPORT __MatrixDeterminant<float, 4>
   {
     template<uint8_t I>
-    BSS_FORCEINLINE static __m128 _mm_ror_ps(__m128 vec) { return (((I)%4) ? (_mm_shuffle_ps(vec, vec, _MM_SHUFFLE((uint8_t)(I+3)%4, (uint8_t)(I+2)%4, (uint8_t)(I+1)%4, (uint8_t)(I+0)%4))) : vec); }
+    BSS_FORCEINLINE static BSS_SSE_M128 _mm_ror_ps(BSS_SSE_M128 vec) { return (((I)%4) ? (BSS_SSE_SHUFFLE_PS(vec, vec, _MM_SHUFFLE((uint8_t)(I+3)%4, (uint8_t)(I+2)%4, (uint8_t)(I+1)%4, (uint8_t)(I+0)%4))) : vec); }
     BSS_FORCEINLINE static float BSS_FASTCALL MD(const float(&x)[4][4]) {
       //   Copyright (c) 2001 Intel Corporation.
       //
@@ -537,8 +539,8 @@ namespace bss_util {
       // Intel makes no representations about the suitability of this software for 
       // any purpose, and specifically disclaims all warranties. 
 
-      __m128 Va, Vb, Vc;
-      __m128 r1, r2, r3, t1, t2, sum;
+      BSS_SSE_M128 Va, Vb, Vc;
+      BSS_SSE_M128 r1, r2, r3, t1, t2, sum;
       sseVec _L1(x[0]);
       sseVec _L2(x[1]);
       sseVec _L3(x[2]);
@@ -546,22 +548,22 @@ namespace bss_util {
 
       // First, Let's calculate the first four minterms of the first line
       t1 = _L4; t2 = _mm_ror_ps<1>(_L3);
-      Vc = _mm_mul_ps(t2, _mm_ror_ps<0>(t1));                   // V3'·V4
-      Va = _mm_mul_ps(t2, _mm_ror_ps<2>(t1));                   // V3'·V4"
-      Vb = _mm_mul_ps(t2, _mm_ror_ps<3>(t1));                   // V3'·V4^
+      Vc = BSS_SSE_MUL_PS(t2, _mm_ror_ps<0>(t1));                   // V3'·V4
+      Va = BSS_SSE_MUL_PS(t2, _mm_ror_ps<2>(t1));                   // V3'·V4"
+      Vb = BSS_SSE_MUL_PS(t2, _mm_ror_ps<3>(t1));                   // V3'·V4^
 
-      r1 = _mm_sub_ps(_mm_ror_ps<1>(Va), _mm_ror_ps<2>(Vc));     // V3"·V4^ - V3^·V4"
-      r2 = _mm_sub_ps(_mm_ror_ps<2>(Vb), _mm_ror_ps<0>(Vb));     // V3^·V4' - V3'·V4^
-      r3 = _mm_sub_ps(_mm_ror_ps<0>(Va), _mm_ror_ps<1>(Vc));     // V3'·V4" - V3"·V4'
+      r1 = BSS_SSE_SUB_PS(_mm_ror_ps<1>(Va), _mm_ror_ps<2>(Vc));     // V3"·V4^ - V3^·V4"
+      r2 = BSS_SSE_SUB_PS(_mm_ror_ps<2>(Vb), _mm_ror_ps<0>(Vb));     // V3^·V4' - V3'·V4^
+      r3 = BSS_SSE_SUB_PS(_mm_ror_ps<0>(Va), _mm_ror_ps<1>(Vc));     // V3'·V4" - V3"·V4'
 
-      Va = _mm_ror_ps<1>(_L2);     sum = _mm_mul_ps(Va, r1);
-      Vb = _mm_ror_ps<1>(Va);      sum = _mm_add_ps(sum, _mm_mul_ps(Vb, r2));
-      Vc = _mm_ror_ps<1>(Vb);      sum = _mm_add_ps(sum, _mm_mul_ps(Vc, r3));
+      Va = _mm_ror_ps<1>(_L2);     sum = BSS_SSE_MUL_PS(Va, r1);
+      Vb = _mm_ror_ps<1>(Va);      sum = BSS_SSE_ADD_PS(sum, BSS_SSE_MUL_PS(Vb, r2));
+      Vc = _mm_ror_ps<1>(Vb);      sum = BSS_SSE_ADD_PS(sum, BSS_SSE_MUL_PS(Vc, r3));
 
       // Now we can calculate the determinant:
-      __m128 Det = _mm_mul_ps(sum, _L1);
-      Det = _mm_add_ps(Det, _mm_movehl_ps(Det, Det));
-      Det = _mm_sub_ss(Det, _mm_shuffle_ps(Det, Det, 1));
+      BSS_SSE_M128 Det = BSS_SSE_MUL_PS(sum, _L1);
+      Det = BSS_SSE_ADD_PS(Det, BSS_SSE_MOVEHL_PS(Det, Det));
+      Det = BSS_SSE_SUB_SS(Det, BSS_SSE_SHUFFLE_PS(Det, Det, 1));
       return BSS_SSE_SS_F32(Det);
     }
   };

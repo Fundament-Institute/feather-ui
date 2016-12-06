@@ -51,7 +51,7 @@
 
   <xs:simpleType name="fgFlagsResource">
     <xs:restriction base="xs:string">
-      <xs:pattern value="(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|ROUNDRECT|CIRCLE)(\|(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|ROUNDRECT|CIRCLE))*" />
+      <xs:pattern value="(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|ROUNDRECT|CIRCLE|TRIANGLE)(\|(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|ROUNDRECT|CIRCLE|TRIANGLE))*" />
     </xs:restriction>
   </xs:simpleType>
 
@@ -142,14 +142,14 @@
       <xs:element name="List" type="fgList" />
       <xs:element name="Menu" type="fgMenu"  />
       <xs:element name="Progressbar" type="fgProgressbar"  />
-      <xs:element name="RadioButton" type="fgRadioButton" />
+      <xs:element name="Radiobutton" type="fgRadiobutton" />
       <xs:element name="Resource" type="fgResource" />
       <xs:element name="Slider" type="fgSlider" />
       <xs:element name="TabControl" type="fgTabControl" />
       <xs:element name="Text" type="fgText" />
       <xs:element name="Textbox" type="fgTextbox" />
       <xs:element name="Window" type="fgWindow" />
-      <xs:element name="TreeView" type="fgTreeView" />
+      <xs:element name="Treeview" type="fgTreeview" />
       <xs:element name="Toolbar" type="fgToolbar" />
       <xs:element name="Curve" type="fgCurve" />
     </xs:choice>
@@ -291,6 +291,9 @@
             <xs:complexType>
               <xs:complexContent>
                 <xs:extension base="fgLayout">
+                  <xs:sequence>
+                    <xs:element name="Submenu" minOccurs="0" maxOccurs="unbounded" type="fgMenu" />
+                  </xs:sequence>
                   <xs:attribute name="flags" type="fgFlagsBox"/>
                   <xs:attribute name="text" type="xs:string"/>
                 </xs:extension>
@@ -312,7 +315,7 @@
     </xs:complexContent>
   </xs:complexType>
 
-  <xs:complexType name="fgRadioButton">
+  <xs:complexType name="fgRadiobutton">
     <xs:complexContent>
       <xs:extension base="fgLayoutText">
         <xs:attribute name="flags" type="fgFlagsElement"/>
@@ -413,7 +416,7 @@
     </xs:complexContent>
   </xs:complexType>
 
-  <xs:complexType name="fgTreeView">
+  <xs:complexType name="fgTreeview">
     <xs:complexContent>
       <xs:extension base="fgLayoutBase">
         <xs:choice>
@@ -490,14 +493,14 @@
       <xs:element name="List" type="fgList" />
       <xs:element name="Menu" type="fgMenu"  />
       <xs:element name="Progressbar" type="fgProgressbar"  />
-      <xs:element name="RadioButton" type="fgRadioButton" />
+      <xs:element name="Radiobutton" type="fgRadiobutton" />
       <xs:element name="Resource" type="fgResource" />
       <xs:element name="Slider" type="fgSlider" />
       <xs:element name="TabControl" type="fgTabControl" />
       <xs:element name="Text" type="fgText" />
       <xs:element name="Textbox" type="fgTextbox" />
       <xs:element name="Window" type="fgWindow" />
-      <xs:element name="TreeView" type="fgTreeView" />
+      <xs:element name="Treevew" type="fgTreeview" />
       <xs:element name="Style" type="fgStyle" />
       <xs:element name="Skin" type="fgSkin" />
       <xs:element name="Curve" type="fgCurve" />

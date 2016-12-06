@@ -134,6 +134,9 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT void Action();
   FG_DLLEXPORT void FG_FASTCALL SetDim(float x, float y, FGDIM type = FGDIM_MAX);
   FG_DLLEXPORT const AbsVec* GetDim(FGDIM type = FGDIM_MAX);
+  FG_DLLEXPORT struct _FG_ELEMENT* GetItem(ptrdiff_t index);
+  FG_DLLEXPORT struct _FG_ELEMENT* GetItemAt(int x, int y);
+  FG_DLLEXPORT size_t GetNumItems();
   FG_DLLEXPORT struct _FG_ELEMENT* GetSelectedItem(ptrdiff_t index = 0);
   FG_DLLEXPORT size_t GetValue(ptrdiff_t aux = 0);
   FG_DLLEXPORT float GetValueF(ptrdiff_t aux = 0);

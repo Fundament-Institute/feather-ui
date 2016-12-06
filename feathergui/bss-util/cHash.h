@@ -184,9 +184,9 @@ namespace bss_util {
       {
         if(!__ac_iseither(flags, i))
         {
-          new(keys + i) Key(copy.keys[i]);
+          new(keys + i) Key((const Key&)copy.keys[i]);
           if(IsMap)
-            new(vals + i) Data(copy.vals[i]);
+            new(vals + i) Data((const Data&)copy.vals[i]);
         }
       }
 

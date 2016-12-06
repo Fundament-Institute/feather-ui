@@ -84,26 +84,28 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
       AbsRect textout;
       ResolveRectCache(self->caption, &textout, &out, 0);
 
-      // Check for resize
-      if(self->control->flags&FGWINDOW_RESIZABLE)
+      if(memcmp(&self->control.element.transform, &fgTransform_DEFAULT, sizeof(fgTransform)) != 0) // Only resize/move if not maximized
       {
-        if(msg->x < out.left + self->control.element.padding.left)
-          self->dragged |= 2;
-        if(msg->y < textout.top)
-          self->dragged |= 4;
-        if(msg->x >= out.right - self->control.element.padding.right)
-          self->dragged |= 8;
-        if(msg->y >= out.bottom - self->control.element.padding.bottom)
-          self->dragged |= 16;
+        // Check for resize
+        if(self->control->flags&FGWINDOW_RESIZABLE)
+        {
+          if(msg->x < out.left + self->control.element.padding.left)
+            self->dragged |= 2;
+          if(msg->y < textout.top)
+            self->dragged |= 4;
+          if(msg->x >= out.right - self->control.element.padding.right)
+            self->dragged |= 8;
+          if(msg->y >= out.bottom - self->control.element.padding.bottom)
+            self->dragged |= 16;
+        }
+
+        // Check for move
+        if(msg->y >= textout.top &&
+          msg->y < textout.bottom &&
+          msg->x >= out.left + self->control.element.padding.left &&
+          msg->x < out.right - self->control.element.padding.right)
+          self->dragged = 1;
       }
-
-      // Check for move
-      if(msg->y >= textout.top &&
-        msg->y < textout.bottom &&
-        msg->x >= out.left + self->control.element.padding.left &&
-        msg->x < out.right - self->control.element.padding.right)
-        self->dragged = 1;
-
       if(self->dragged != 0)
       {
         fgCaptureWindow = *self;
@@ -158,14 +160,17 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
           dragged |= 16;
       }
 
-      if(dragged == 12 || dragged == 18)
-        fgRoot_SetCursor(FGCURSOR_RESIZENESW, 0);
-      if(dragged == 6 || dragged == 24)
-        fgRoot_SetCursor(FGCURSOR_RESIZENWSE, 0);
-      if(dragged == 2 || dragged == 8)
-        fgRoot_SetCursor(FGCURSOR_RESIZEWE, 0);
-      if(dragged == 4 || dragged == 16)
-        fgRoot_SetCursor(FGCURSOR_RESIZENS, 0);
+      if(memcmp(&self->control.element.transform, &fgTransform_DEFAULT, sizeof(fgTransform)) != 0) // Only resize/move if not maximized
+      {
+        if(dragged == 12 || dragged == 18)
+          fgRoot_SetCursor(FGCURSOR_RESIZENESW, 0);
+        if(dragged == 6 || dragged == 24)
+          fgRoot_SetCursor(FGCURSOR_RESIZENWSE, 0);
+        if(dragged == 2 || dragged == 8)
+          fgRoot_SetCursor(FGCURSOR_RESIZEWE, 0);
+        if(dragged == 4 || dragged == 16)
+          fgRoot_SetCursor(FGCURSOR_RESIZENS, 0);
+      }
       return FG_ACCEPT;
     }
     return 0;

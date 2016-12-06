@@ -108,6 +108,7 @@ size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
     self->select.color = 0xFF9999DD;
     self->hover.color = 0x99999999;
     self->drag.color = 0xFFCCCCCC;
+    self->splitter = 0;
     return FG_ACCEPT;
   case FG_MOUSEDOWN:
     fgUpdateMouseState(&self->mouse, msg);
@@ -145,6 +146,10 @@ size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
     break;
   case FG_MOUSEMOVE:
     fgUpdateMouseState(&self->mouse, msg);
+    if(self->splitter != 0)
+    {
+
+    }
     if((self->box->flags&FGLIST_DRAGGABLE) && (self->mouse.state&FGMOUSE_INSIDE)) // Check if we clicked inside this window
     {
       AbsRect cache;
@@ -213,6 +218,20 @@ size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
     case FGSETCOLOR_DRAG: self->drag.color = (unsigned int)msg->otherint; break;
     }
     return FG_ACCEPT;
+  case FG_SETVALUE:
+    if(!msg->subtype || msg->subtype == FGVALUE_FLOAT)
+      self->splitter = msg->otherf;
+    else if(msg->subtype == FGVALUE_INT64)
+      self->splitter = (float)msg->otherint;
+    else
+      return 0;
+    return FG_ACCEPT;
+  case FG_GETVALUE:
+    if(!msg->subtype || msg->subtype == FGVALUE_FLOAT)
+      return *(size_t*)&self->splitter;
+    if(msg->subtype == FGVALUE_INT64)
+      return (size_t)self->splitter;
+    return 0;
   case FG_GETSELECTEDITEM:
     return ((size_t)msg->otherint) < self->selected.l ? (size_t)self->selected.p[(size_t)msg->otherint] : 0;
   case FG_GETCLASSNAME:

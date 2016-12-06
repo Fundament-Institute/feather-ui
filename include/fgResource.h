@@ -15,6 +15,7 @@ enum FGRESOURCE_FLAGS
   FGRESOURCE_UVTILE = (1 << 8),
   FGRESOURCE_ROUNDRECT = (1 << 9), // Indicates this is a rounded rectangle
   FGRESOURCE_CIRCLE = (2 << 9), // Indicates this is a circle
+  FGRESOURCE_TRIANGLE = (3 << 9), // Indicates this is a triangle
   FGRESOURCE_SHAPEMASK = (3 << 9),
 };
 

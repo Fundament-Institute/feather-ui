@@ -109,7 +109,8 @@ class BSS_COMPILER_DLLEXPORT cStrT : public std::basic_string<T, std::char_trait
   typedef std::basic_string<T, std::char_traits<T>, Alloc> BASE;
 
 public:
-  explicit inline cStrT(size_t length = 1) : BASE() { BASE::reserve(length); } //an implicit constructor here would be bad
+  inline cStrT() : BASE() {}
+  explicit inline cStrT(size_t length) : BASE() { BASE::reserve(length); } //an implicit constructor here would be bad
   inline cStrT(const BASE& copy) : BASE(copy) {}
   inline cStrT(BASE&& mov) : BASE(std::move(mov)) {}
   inline cStrT(const cStrT& copy) : BASE(copy) {}

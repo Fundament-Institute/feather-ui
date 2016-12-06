@@ -581,11 +581,11 @@ void FG_FASTCALL fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, i
 
 fgFlag fgSkinBase_GetFlagsFromString(const char* s, fgFlag* remove)
 {
-  static cTrie<uint16_t, true> t(50, "BACKGROUND", "NOCLIP", "IGNORE", "HIDDEN", "EXPANDX", "EXPANDY", "DISABLE", "SNAPX", "SNAPY", "HIDEH",
+  static cTrie<uint16_t, true> t(51, "BACKGROUND", "NOCLIP", "IGNORE", "HIDDEN", "EXPANDX", "EXPANDY", "DISABLE", "SNAPX", "SNAPY", "HIDEH",
     "HIDEV", "SHOWH", "SHOWV", "TILEX", "TILEY", "DISTRIBUTEX", "DISTRIBUTEY", "FIXEDSIZE", "SINGLESELECT", "MULTISELECT",
     "DRAGGABLE", "HIDEH", "HIDEV", "SHOWH", "SHOWV", "CHARWRAP", "WORDWRAP", "ELLIPSES", "RTL", "RIGHTALIGN", "CENTER", "SUBPIXEL", "ACTION",
     "SINGLELINE", "NOFOCUS", "ROUNDRECT", "CIRCLE", "LINE", "QUADRATIC", "CUBIC", "BSPLINE", "MINIMIZABLE", "MAXIMIZABLE", "RESIZABLE",
-    "NOTITLEBAR", "NOBORDER", "EXPAND", "SNAP", "TILE", "DISTRIBUTE");
+    "NOTITLEBAR", "NOBORDER", "EXPAND", "SNAP", "TILE", "DISTRIBUTE", "TRIANGLE");
 
   if(!s)
     return FGELEMENT_USEDEFAULTS;
@@ -637,6 +637,7 @@ fgFlag fgSkinBase_GetFlagsFromString(const char* s, fgFlag* remove)
       case 47: f = FGELEMENT_SNAP;  break;
       case 48: f = FGBOX_TILE;  break;
       case 49: f = FGBOX_DISTRIBUTEX | FGBOX_DISTRIBUTEY;  break;
+      case 50: f = FGRESOURCE_TRIANGLE; break;
       }
     }
 

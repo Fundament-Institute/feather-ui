@@ -105,6 +105,8 @@ size_t FG_FASTCALL fgCurve_Message(fgCurve* self, const FG_Msg* msg)
     self->cache.l = 0;
     break;
   case FG_GETITEM:
+    if(msg->subtype > 0)
+      return self->points.l;
     if(msg->otherint < 0 || msg->otherint >= (ptrdiff_t)self->points.l)
       return 0;
     return (size_t)(self->points.p + msg->otherint);

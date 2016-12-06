@@ -943,6 +943,19 @@ fgElement* FG_FASTCALL fgElement_GetChildUnderMouse(fgElement* self, int x, int 
 {
   ResolveRect(self, cache);
   AbsRect child;
+  size_t l = self->GetNumItems(); 
+  if(l > 0) // If this is a control inheriting fgBox we can use a binary search instead
+  {
+    fgElement* cur = self->GetItemAt(x, y);
+    if(cur != 0 && !(cur->flags&FGELEMENT_BACKGROUND))
+    {
+      ResolveRectCache(cur, &child, cache, &self->padding);
+      if(HitAbsRect(&child, (FABS)x, (FABS)y))
+        return cur;
+    }
+    return 0;
+  }
+
   fgElement* cur = self->root; // we have to go through the whole child list because you can have FG_IGNORE on but still be a hover target, espiecally if you're an fgText control inside a list.
   while(cur != 0)
   {
@@ -996,7 +1009,7 @@ void FG_FASTCALL fgElement_ClearListeners(fgElement* self)
     fgListenerHash.Remove(cur->_key);
     fgListenerList.Remove(cur->_key);
   }
-}
+} 
 
 void fgElement::Construct() { _sendmsg<FG_CONSTRUCT>(this); }
 
@@ -1233,6 +1246,20 @@ size_t fgElement::SetValue(ptrdiff_t state, size_t aux) { return _sendsubmsg<FG_
 size_t fgElement::SetValueF(float state, size_t aux) { return _sendsubmsg<FG_SETVALUE, float, size_t>(this, FGVALUE_FLOAT, state, aux); }
 
 size_t fgElement::SetValueP(void* ptr, size_t aux) { return _sendsubmsg<FG_SETVALUE, void*, size_t>(this, FGVALUE_POINTER, ptr, aux); }
+
+struct _FG_ELEMENT* fgElement::GetItem(ptrdiff_t index) { return reinterpret_cast<fgElement*>(_sendmsg<FG_GETITEM, ptrdiff_t>(this, index)); }
+
+struct _FG_ELEMENT* fgElement::GetItemAt(int x, int y)
+{
+  FG_Msg m = { 0 };
+  m.type = FG_GETITEM;
+  m.subtype = 2;
+  m.x = x;
+  m.y = y;
+  return reinterpret_cast<fgElement*>((*fgroot_instance->backend.behaviorhook)(this, &m));
+}
+
+size_t fgElement::GetNumItems() { return _sendsubmsg<FG_GETITEM>(this, 1); }
 
 fgElement* fgElement::GetSelectedItem(ptrdiff_t index) { return reinterpret_cast<fgElement*>(_sendmsg<FG_GETSELECTEDITEM, ptrdiff_t>(this, index)); }
 
