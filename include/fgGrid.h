@@ -15,8 +15,8 @@ extern "C" {
 #ifdef  __cplusplus
     inline operator fgElement*() { return &box.scroll.control.element; }
     inline fgElement* operator->() { return operator fgElement*(); }
-    FG_DLLEXPORT void AddItem(fgElement* item, size_t column);
-    FG_DLLEXPORT void AddItem(const char* item, size_t column);
+    FG_DLLEXPORT void InsertItem(fgElement* item, size_t column = (size_t)-1);
+    FG_DLLEXPORT void InsertItem(const char* item, size_t column = (size_t)-1);
     FG_DLLEXPORT bool RemoveItem(size_t column);
     FG_DLLEXPORT fgElement* GetItem(size_t column);
 #endif
@@ -32,10 +32,10 @@ extern "C" {
 #ifdef  __cplusplus
     inline operator fgElement*() { return &box.scroll.control.element; }
     inline fgElement* operator->() { return operator fgElement*(); }
-    FG_DLLEXPORT void AddColumn(const char* name, size_t column = (size_t)-1);
-    FG_DLLEXPORT void AddItem(fgElement* item, size_t column, size_t row);
-    FG_DLLEXPORT void AddItem(const char* item, size_t column, size_t row);
-    FG_DLLEXPORT fgGridRow* AddRow(size_t row);
+    FG_DLLEXPORT void InsertColumn(const char* name, size_t column = (size_t)-1);
+    FG_DLLEXPORT void SetItem(fgElement* item, size_t column, size_t row);
+    FG_DLLEXPORT void SetItem(const char* item, size_t column, size_t row);
+    FG_DLLEXPORT fgGridRow* InsertRow(size_t row = (size_t)-1);
     FG_DLLEXPORT bool RemoveColumn(size_t column);
     FG_DLLEXPORT bool RemoveRow(size_t row);
     FG_DLLEXPORT bool RemoveItem(size_t column, size_t row);

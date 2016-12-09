@@ -503,6 +503,7 @@ void FG_FASTCALL fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, i
         break; // Not implemented
       case 2: // Progressbar
       case 4: // Slider
+      default: // Anything else
         AddStyleSubMsg<FG_SETVALUE, FABS>(self, FGVALUE_FLOAT, (FABS)attr->Float);
         break;
       case 3: // Radiobutton

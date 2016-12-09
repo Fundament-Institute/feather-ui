@@ -315,22 +315,22 @@ size_t FG_FASTCALL fgTileLayout(fgElement* self, const FG_Msg* msg, fgFlag flags
 
 size_t FG_FASTCALL fgDistributeLayout(fgElement* self, const FG_Msg* msg, fgFlag axis)
 {
-  /*switch(msg->type)
+  switch(msg->type)
   {
-  case FGELEMENT_LAYOUTMOVE: // we don't handle moving or resizing because we use relative coordinates, so the resize is done for us.
-  case FGELEMENT_LAYOUTRESIZE:
-  break;
-  case FGELEMENT_LAYOUTREORDER:
-  //child = child->order<msg->other->order?child:msg->other; // Get lowest child
-  fgDistributeLayoutReorder(child->prev, child, axis, num);
-  break;
-  case FGELEMENT_LAYOUTADD:
-  fgDistributeLayoutReorder(child->prev, child, axis, num);
-  break;
-  case FGELEMENT_LAYOUTREMOVE:
-  fgDistributeLayoutReorder(child->prev, child->next, axis, num);
-  break;
-  }*/
+  //case FGELEMENT_LAYOUTMOVE: // we don't handle moving or resizing because we use relative coordinates, so the resize is done for us.
+  //case FGELEMENT_LAYOUTRESIZE:
+  //break;
+  //case FGELEMENT_LAYOUTREORDER:
+  ////child = child->order<msg->other->order?child:msg->other; // Get lowest child
+  //fgDistributeLayoutReorder(child->prev, child, axis, num);
+  //break;
+  //case FGELEMENT_LAYOUTADD:
+  //fgDistributeLayoutReorder(child->prev, child, axis, num);
+  //break;
+  //case FGELEMENT_LAYOUTREMOVE:
+  //fgDistributeLayoutReorder(child->prev, child->next, axis, num);
+  //break;
+  }
 
   return 0;
 }

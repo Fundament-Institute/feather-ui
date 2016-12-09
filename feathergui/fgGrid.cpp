@@ -26,6 +26,8 @@ size_t FG_FASTCALL fgGrid_Message(fgGrid* self, const FG_Msg* msg)
 
 
     break;
+  case FG_SETVALUE:
+    return fgPassMessage(self->header, msg);
   }
 
   return fgBox_Message(&self->box, msg);

@@ -23,6 +23,8 @@
 
 KHASH_INIT(fgIDMap, char*, fgElement*, 1, kh_str_hash_func, kh_str_hash_equal);
 KHASH_INIT(fgIDHash, fgElement*, char*, 1, kh_ptr_hash_func, kh_int_hash_equal);
+typedef std::pair<fgInitializer, size_t> INITPAIR;
+KHASH_INIT(fgInitMap, char*, INITPAIR, 1, kh_str_hash_funcins, kh_str_hash_insequal);
 
 fgRoot* fgroot_instance = 0;
 
@@ -72,10 +74,36 @@ void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, size_t dpi, fgBa
   self->functionhash = fgFunctionMap_init();
   self->idhash = kh_init_fgIDHash();
   self->idmap = kh_init_fgIDMap();
+  self->initmap = kh_init_fgInitMap();
   fgroot_instance = self;
   fgTransform transform = { area->left, 0, area->top, 0, area->right, 0, area->bottom, 0, 0, 0, 0 };
   fgElement_InternalSetup(*self, 0, 0, 0, 0, &transform, 0, (fgDestroy)&fgRoot_Destroy, (fgMessage)&fgRoot_Message);
   self->gui.element.style = 0;
+
+  fgRegisterControl("element", fgElement_Init, sizeof(fgElement));
+  fgRegisterControl("control", (fgInitializer)fgControl_Init, sizeof(fgControl));
+  fgRegisterControl("resource", (fgInitializer)fgResource_Init, sizeof(fgResource));
+  fgRegisterControl("text", (fgInitializer)fgText_Init, sizeof(fgText));
+  fgRegisterControl("box", (fgInitializer)fgBox_Init, sizeof(fgBox));
+  fgRegisterControl("scrollbar", (fgInitializer)fgScrollbar_Init, sizeof(fgScrollbar));
+  fgRegisterControl("button", (fgInitializer)fgButton_Init, sizeof(fgButton));
+  fgRegisterControl("window", (fgInitializer)fgWindow_Init, sizeof(fgWindow));
+  fgRegisterControl("checkbox", (fgInitializer)fgCheckbox_Init, sizeof(fgCheckbox));
+  fgRegisterControl("radiobutton", (fgInitializer)fgRadiobutton_Init, sizeof(fgRadiobutton));
+  fgRegisterControl("progressbar", (fgInitializer)fgProgressbar_Init, sizeof(fgProgressbar));
+  fgRegisterControl("slider", (fgInitializer)fgSlider_Init, sizeof(fgSlider));
+  fgRegisterControl("textbox", (fgInitializer)fgTextbox_Init, sizeof(fgTextbox));
+  fgRegisterControl("treeview", (fgInitializer)fgTreeview_Init, sizeof(fgTreeview));
+  fgRegisterControl("treeitem", (fgInitializer)fgTreeItem_Init, sizeof(fgTreeItem));
+  fgRegisterControl("list", (fgInitializer)fgList_Init, sizeof(fgList));
+  fgRegisterControl("listitem", (fgInitializer)fgListItem_Init, sizeof(fgControl));
+  fgRegisterControl("curve", (fgInitializer)fgCurve_Init, sizeof(fgCurve));
+  fgRegisterControl("dropdown", (fgInitializer)fgDropdown_Init, sizeof(fgDropdown));
+  fgRegisterControl("tabcontrol", (fgInitializer)fgTabcontrol_Init, sizeof(fgTabcontrol));
+  fgRegisterControl("menu", (fgInitializer)fgMenu_Init, sizeof(fgMenu));
+  fgRegisterControl("submenu", (fgInitializer)fgSubmenu_Init, sizeof(fgMenu));
+  fgRegisterControl("menuitem", (fgInitializer)fgMenuItem_Init, sizeof(fgMenuItem));
+  fgRegisterControl("debug", (fgInitializer)fgDebug_Init, sizeof(fgDebug));
 }
 
 void FG_FASTCALL fgRoot_Destroy(fgRoot* self)
@@ -86,7 +114,10 @@ void FG_FASTCALL fgRoot_Destroy(fgRoot* self)
   fgFunctionMap_destroy(self->functionhash);
   fgControl_Destroy((fgControl*)self);
   kh_destroy_fgIDHash(self->idhash);
-  kh_destroy_fgIDMap(self->idmap);
+  kh_destroy_fgIDMap(self->idmap); // We don't need to clear this because it will have already been emptied.
+  for(khiter_t i = 0; i < self->initmap->n_buckets; ++i) // We do have to clear this one, though.
+    fgfree(kh_key(self->initmap, i), __FILE__, __LINE__);
+  kh_destroy_fgInitMap(self->initmap);
 }
 
 void FG_FASTCALL fgRoot_CheckMouseMove(fgRoot* self)
@@ -622,4 +653,39 @@ fgRoot* FG_FASTCALL fgSingleton()
 fgElement* FG_FASTCALL fgCreate(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
   return fgroot_instance->backend.fgCreate(type, parent, next, name, flags, transform, units);
+}
+
+void FG_FASTCALL fgRegisterControl(const char* name, fgInitializer fn, size_t sz)
+{
+  int r;
+  khint_t i = kh_put_fgInitMap(fgroot_instance->initmap, const_cast<char*>(name), &r);
+  if(r != 0)
+    kh_key(fgroot_instance->initmap, i) = fgCopyText(name, __FILE__, __LINE__);
+  kh_val(fgroot_instance->initmap, i).first = fn;
+  kh_val(fgroot_instance->initmap, i).second = sz;
+}
+
+
+fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+{
+  if(!stricmp(type, "tab"))
+  {
+    fgElement* e = parent->AddItemText(name);
+    e->SetFlags(flags);
+    return e;
+  }
+
+  khint_t i = kh_get_fgInitMap(fgroot_instance->initmap, const_cast<char*>(type));
+  if(i == kh_end(fgroot_instance->initmap) || !kh_exist(fgroot_instance->initmap, i))
+    return 0;
+  INITPAIR& pair = kh_val(fgroot_instance->initmap, i);
+
+  fgElement* r = reinterpret_cast<fgElement*>(fgmalloc<char>(pair.second, type, 0));
+  pair.first(r, parent, next, name, flags, transform, units);
+#ifdef BSS_DEBUG
+  r->free = &fgfreeblank;
+#else
+  r->free = &free; // We do this because the compiler can't figure out the inlining weirdness going on here
+#endif
+  return (fgElement*)r;
 }

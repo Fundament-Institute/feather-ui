@@ -93,6 +93,30 @@ void fgList_Draw(fgElement* self, const AbsRect* area, size_t dpi)
     }
   }
 }
+fgElement* fgList_GetSplit(fgList* self, const FG_Msg* msg)
+{
+  if(self->splitter != 0 && (self->box->flags&FGBOX_TILE) && (self->box->flags&FGBOX_TILE) != FGBOX_TILE)
+  {
+    AbsRect cache;
+    ResolveRect(*self, &cache);
+    fgElement* cur = self->box->GetItemAt(msg->x, msg->y);
+    AbsRect child;
+    ResolveRectCache(cur, &child, &cache, &self->box->padding);
+    bool prev = (self->box->flags&FGBOX_TILEX) ? (msg->x < (child.left + child.right)*0.5f) : (msg->y < (child.top + child.bottom)*0.5f);
+    fgElement* p = prev ? fgLayout_GetPrev(cur) : fgLayout_GetNext(cur);
+    if(p) // You can't split if there's no previous or next element to split between.
+    {
+      AbsRect after = child; // By setting after to child we can resolve back to child instead of after if we're resolving a previous element
+      ResolveRectCache(p, prev ? &child : &after, &cache, &self->box->padding);
+      FABS mid = (self->box->flags&FGBOX_TILEX) ? (child.right + after.left)*0.5f : (child.bottom + after.top)*0.5f;
+      FABS mpos = (self->box->flags&FGBOX_TILEX) ? msg->x : msg->y;
+      if(abs(mpos - mid) <= self->splitter)
+        return prev ? p : cur;
+    }
+  }
+  return 0;
+}
+
 size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
 {
   ptrdiff_t otherint = msg->otherint;
@@ -109,9 +133,18 @@ size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
     self->hover.color = 0x99999999;
     self->drag.color = 0xFFCCCCCC;
     self->splitter = 0;
+    self->split = 0;
+    self->splitedge = 0;
+    self->splitmouse = 0;
     return FG_ACCEPT;
   case FG_MOUSEDOWN:
     fgUpdateMouseState(&self->mouse, msg);
+    if(self->split = fgList_GetSplit(self, msg))
+    {
+      self->splitedge = (self->box->flags&FGBOX_TILEX) ? self->split->transform.area.right.abs : self->split->transform.area.bottom.abs;
+      self->splitmouse = (self->box->flags&FGBOX_TILEX) ? msg->x : msg->y;
+      break;
+    }
     if(self->box->flags&FGLIST_SELECT)
     {
       AbsRect cache;
@@ -142,13 +175,26 @@ size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
     }
     break;
   case FG_MOUSEUP:
+    self->split = 0;
     fgUpdateMouseState(&self->mouse, msg);
     break;
   case FG_MOUSEMOVE:
     fgUpdateMouseState(&self->mouse, msg);
-    if(self->splitter != 0)
+    if(self->split) // check if we are actively dragging a splitter
     {
-
+      fgRoot_SetCursor((self->box->flags&FGBOX_TILEX) ? FGCURSOR_RESIZEWE : FGCURSOR_RESIZENS, 0);
+      CRect area = self->split->transform.area;
+      if(self->box->flags&FGBOX_TILEX)
+        area.right.abs = std::max(area.left.abs, self->splitedge + (msg->x - self->splitmouse));
+      else
+        area.bottom.abs = std::max(area.top.abs, self->splitedge + (msg->y - self->splitmouse));
+      self->split->SetArea(area);
+      return FG_ACCEPT;
+    }
+    if(fgList_GetSplit(self, msg) != 0)
+    {
+      fgRoot_SetCursor((self->box->flags&FGBOX_TILEX) ? FGCURSOR_RESIZEWE : FGCURSOR_RESIZENS, 0);
+      return FG_ACCEPT;
     }
     if((self->box->flags&FGLIST_DRAGGABLE) && (self->mouse.state&FGMOUSE_INSIDE)) // Check if we clicked inside this window
     {

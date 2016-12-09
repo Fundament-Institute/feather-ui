@@ -339,5 +339,7 @@ extern fgSkin* FG_FASTCALL fgSkins_LoadNodeXML(fgSkinBase* self, const bss_util:
 extern inline __kh_fgSkins_t *kh_init_fgSkins();
 extern void FG_FASTCALL fgStyle_LoadAttributesXML(struct _FG_STYLE* self, const bss_util::cXMLNode* cur, int flags, struct _FG_SKIN_BASE* root, const char* path, char** id, fgKeyValueArray* userdata);
 extern int FG_FASTCALL fgStyle_NodeEvalTransform(const bss_util::cXMLNode* node, fgTransform& t);
+extern fgElement* fgLayout_GetNext(fgElement* cur);
+extern fgElement* fgLayout_GetPrev(fgElement* cur);
 
 #endif

@@ -16,6 +16,7 @@ struct __kh_fgFunctionMap_t;
 struct __kh_fgIDMap_t;
 struct __kh_fgIDHash_t;
 struct _FG_MONITOR;
+typedef void(FG_FASTCALL *fgInitializer)(fgElement* BSS_RESTRICT, fgElement* BSS_RESTRICT, fgElement* BSS_RESTRICT, const char*, fgFlag, const fgTransform*, unsigned short);
 
 typedef struct _FG_DEFER_ACTION {
   struct _FG_DEFER_ACTION* next; // It's crucial that this is the first element
@@ -35,6 +36,7 @@ typedef struct _FG_ROOT {
   struct __kh_fgFunctionMap_t* functionhash;
   struct __kh_fgIDMap_t* idmap;
   struct __kh_fgIDHash_t* idhash; // reverse ID lookup
+  struct __kh_fgInitMap_t* initmap;
   size_t dpi;
   float lineheight;
   float fontscale;
@@ -82,6 +84,7 @@ FG_EXTERN void FG_FASTCALL fgStandardDraw(fgElement* self, const AbsRect* area, 
 FG_EXTERN void FG_FASTCALL fgOrderedDraw(fgElement* self, const AbsRect* area, size_t dpi, char culled, fgElement* skip, fgElement* (*fn)(fgElement*, const AbsRect*), void(*draw)(fgElement*, const AbsRect*, size_t));
 FG_EXTERN fgElement* FG_FASTCALL fgCreate(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
 FG_EXTERN int FG_FASTCALL fgRegisterFunction(const char* name, fgListener fn);
+FG_EXTERN void FG_FASTCALL fgRegisterControl(const char* name, fgInitializer fn, size_t sz);
 
 #ifdef  __cplusplus
 }

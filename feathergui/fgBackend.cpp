@@ -3,19 +3,6 @@
 
 #include "fgBackend.h"
 #include "fgRoot.h"
-#include "fgResource.h"
-#include "fgWindow.h"
-#include "fgRadiobutton.h"
-#include "fgProgressbar.h"
-#include "fgSlider.h"
-#include "fgTextbox.h"
-#include "fgTreeview.h"
-#include "fgDebug.h"
-#include "fgList.h"
-#include "fgCurve.h"
-#include "fgDropdown.h"
-#include "fgTabcontrol.h"
-#include "fgMenu.h"
 #include "feathercpp.h"
 #include "bss-util/cTrie.h"
 
@@ -113,73 +100,6 @@ BSS_FORCEINLINE fgElement* _create_default(fgElement* BSS_RESTRICT parent, fgEle
   ((fgElement*)r)->free = &free; // We do this because the compiler can't figure out the inlining weirdness going on here
 #endif
   return (fgElement*)r;
-}
-
-fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
-{
-  static bss_util::cTrie<uint16_t, true> t(25, "element", "control", "resource", "text", "box", "scrollbar", "button", "window", "checkbox",
-    "radiobutton", "progressbar", "slider", "textbox", "treeview", "treeitem", "list", "listitem", "curve", "dropdown", "tabcontrol", "tab",
-    "menu", "submenu", "menuitem", "debug");
-
-  switch(t[type])
-  {
-  case 0:
-    return _create_default<fgElement, fgElement_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
-  case 1:
-    return _create_default<fgControl, fgControl_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
-  case 2:
-    return _create_default<fgResource, fgResource_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
-  case 3:
-    return _create_default<fgText, fgText_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
-  case 4:
-    return _create_default<fgBox, fgBox_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
-  case 5:
-    return _create_default<fgScrollbar, fgScrollbar_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
-  case 6:
-    return _create_default<fgButton, fgButton_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
-  case 7:
-    return _create_default<fgWindow, fgWindow_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
-  case 8:
-    return _create_default<fgCheckbox, fgCheckbox_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
-  case 9:
-    return _create_default<fgRadiobutton, fgRadiobutton_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
-  case 10:
-    return _create_default<fgProgressbar, fgProgressbar_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
-  case 11:
-    return _create_default<fgSlider, fgSlider_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
-  case 12:
-    return _create_default<fgTextbox, fgTextbox_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
-  case 13:
-    return _create_default<fgTreeview, fgTreeview_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
-  case 14:
-    return _create_default<fgTreeItem, fgTreeItem_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
-  case 15:
-    return _create_default<fgList, fgList_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
-  case 16:
-    return _create_default<fgControl, fgListItem_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
-  case 17:
-    return _create_default<fgCurve, fgCurve_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
-  case 18:
-    return _create_default<fgDropdown, fgDropdown_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
-  case 19:
-    return _create_default<fgTabcontrol, fgTabcontrol_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
-  case 20: //Tab
-  {
-    fgElement* e = parent->AddItemText(name);
-    e->SetFlags(flags);
-    return e;
-  }
-  case 21:
-    return _create_default<fgMenu, fgMenu_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
-  case 22:
-    return _create_default<fgMenu, fgSubmenu_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
-  case 23:
-    return _create_default<fgMenuItem, fgMenuItem_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
-  case 24:
-    return _create_default<fgDebug, fgDebug_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
-  }
-
-  return 0;
 }
 
 short FG_FASTCALL fgMessageMapDefault(const char* name)
