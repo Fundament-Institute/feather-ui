@@ -250,6 +250,7 @@
     <ClInclude Include="feathercpp.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ccheck.c" />
     <ClCompile Include="ConvertUTF.c" />
     <ClCompile Include="cXML.cpp" />
     <ClCompile Include="feathergui.cpp" />

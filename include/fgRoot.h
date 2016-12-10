@@ -77,7 +77,7 @@ FG_EXTERN void FG_FASTCALL fgRoot_ModifyAction(fgRoot* self, fgDeferAction* acti
 FG_EXTERN struct _FG_MONITOR* FG_FASTCALL fgRoot_GetMonitor(const fgRoot* self, const AbsRect* rect);
 FG_EXTERN fgElement* FG_FASTCALL fgRoot_GetID(fgRoot* self, const char* id);
 FG_EXTERN void FG_FASTCALL fgRoot_AddID(fgRoot* self, const char* id, fgElement* element);
-FG_EXTERN bool FG_FASTCALL fgRoot_RemoveID(fgRoot* self, fgElement* element);
+FG_EXTERN char FG_FASTCALL fgRoot_RemoveID(fgRoot* self, fgElement* element);
 FG_EXTERN size_t FG_FASTCALL fgStandardInject(fgElement* self, const FG_Msg* msg, const AbsRect* area);
 FG_EXTERN size_t FG_FASTCALL fgOrderedInject(fgElement* self, const FG_Msg* msg, const AbsRect* area, fgElement* skip, fgElement* (*fn)(fgElement*, const FG_Msg*));
 FG_EXTERN void FG_FASTCALL fgStandardDraw(fgElement* self, const AbsRect* area, size_t dpi, char culled);

@@ -629,7 +629,7 @@ void FG_FASTCALL fgRoot_AddID(fgRoot* self, const char* id, fgElement* element)
   const char* test = kh_key(self->idmap, i);
   kh_val(self->idhash, j) = kh_key(self->idmap, i);
 }
-bool FG_FASTCALL fgRoot_RemoveID(fgRoot* self, fgElement* element)
+char FG_FASTCALL fgRoot_RemoveID(fgRoot* self, fgElement* element)
 {
   khiter_t i = kh_get_fgIDHash(self->idhash, element);
   if(i == kh_end(self->idhash) || !kh_exist(self->idhash, i))
@@ -668,7 +668,7 @@ void FG_FASTCALL fgRegisterControl(const char* name, fgInitializer fn, size_t sz
 
 fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  if(!stricmp(type, "tab"))
+  if(!STRICMP(type, "tab"))
   {
     fgElement* e = parent->AddItemText(name);
     e->SetFlags(flags);

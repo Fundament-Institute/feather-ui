@@ -23,7 +23,7 @@ extern "C" {
 
   FG_EXTERN void FG_FASTCALL fgStyle_Init(fgStyle* self);
   FG_EXTERN void FG_FASTCALL fgStyle_Destroy(fgStyle* self);
-  FG_EXTERN FG_UINT FG_FASTCALL fgStyle_GetName(const char* name, bool flag);
+  FG_EXTERN FG_UINT FG_FASTCALL fgStyle_GetName(const char* name, char flag);
 
   FG_EXTERN fgStyleMsg* FG_FASTCALL fgStyle_AddStyleMsg(fgStyle* self, const FG_Msg* msg, const void* arg1, size_t arglen1, const void* arg2, size_t arglen2);
   FG_EXTERN void FG_FASTCALL fgStyle_RemoveStyleMsg(fgStyle* self, fgStyleMsg* msg);

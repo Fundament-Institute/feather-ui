@@ -318,7 +318,7 @@ void FG_FASTCALL fgDebug_BuildTree(fgElement* treeview)
   fgDebug_TreeInsert(treeview, &fgroot_instance->gui.element, 0);
 }
 
-FG_EXTERN void FG_FASTCALL fgDebug_Show(float left, float right, bool overlay)
+FG_EXTERN void FG_FASTCALL fgDebug_Show(float left, float right, char overlay)
 {
   assert(fgroot_instance != 0);
   if(!fgdebug_instance)

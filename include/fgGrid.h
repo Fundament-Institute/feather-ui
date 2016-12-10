@@ -17,6 +17,8 @@ extern "C" {
     inline fgElement* operator->() { return operator fgElement*(); }
     FG_DLLEXPORT void InsertItem(fgElement* item, size_t column = (size_t)-1);
     FG_DLLEXPORT void InsertItem(const char* item, size_t column = (size_t)-1);
+    FG_DLLEXPORT void SetItem(fgElement* item, size_t column);
+    FG_DLLEXPORT void SetItem(const char* item, size_t column);
     FG_DLLEXPORT bool RemoveItem(size_t column);
     FG_DLLEXPORT fgElement* GetItem(size_t column);
 #endif

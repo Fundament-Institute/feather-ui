@@ -1,0 +1,18 @@
+#include "fgRoot.h"
+#include "fgMonitor.h"
+#include "fgBox.h"
+#include "fgWindow.h"
+#include "fgRadiobutton.h"
+#include "fgProgressbar.h"
+#include "fgSlider.h"
+#include "fgTextbox.h"
+#include "fgTreeview.h"
+#include "fgDebug.h"
+#include "fgList.h"
+#include "fgCurve.h"
+#include "fgDropdown.h"
+#include "fgTabcontrol.h"
+#include "fgMenu.h"
+#include "fgGrid.h"
+
+// This file only exists to attempt to compile the featherGUI headers in a C context instead of a C++ one.

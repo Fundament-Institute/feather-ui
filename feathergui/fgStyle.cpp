@@ -68,7 +68,7 @@ struct fgStyleStatic
   }
   kh_fgStyles_t* h;
 };
-FG_UINT FG_FASTCALL fgStyle_GetName(const char* name, bool flag)
+FG_UINT FG_FASTCALL fgStyle_GetName(const char* name, char flag)
 {
   static fgStyleStatic stylehash;
   static FG_UINT count = 0;
