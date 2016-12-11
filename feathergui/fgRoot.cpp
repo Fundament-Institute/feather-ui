@@ -116,7 +116,8 @@ void FG_FASTCALL fgRoot_Destroy(fgRoot* self)
   kh_destroy_fgIDHash(self->idhash);
   kh_destroy_fgIDMap(self->idmap); // We don't need to clear this because it will have already been emptied.
   for(khiter_t i = 0; i < self->initmap->n_buckets; ++i) // We do have to clear this one, though.
-    fgfree(kh_key(self->initmap, i), __FILE__, __LINE__);
+    if(i != kh_end(self->initmap) && kh_exist(self->initmap, i))
+      fgfree(kh_key(self->initmap, i), __FILE__, __LINE__);
   kh_destroy_fgInitMap(self->initmap);
 }
 
