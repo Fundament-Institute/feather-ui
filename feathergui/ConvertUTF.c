@@ -114,7 +114,6 @@ size_t BSS_FASTCALL fgUTF32toUTF16(const int*BSS_RESTRICT input, ptrdiff_t srcle
 {
   char result = 0;
   const UTF32* source = (unsigned int*)input;
-  const UTF32* sourceEnd = source;
   UTF16* target = (unsigned short*)output;
   UTF16* targetEnd = target + buflen;
   if(srclen < 0) srclen = PTRDIFF_MAX;
@@ -125,7 +124,7 @@ size_t BSS_FASTCALL fgUTF32toUTF16(const int*BSS_RESTRICT input, ptrdiff_t srcle
     ++input;
   }
   if(!output) return buflen;
-  if((input - (const int*)source) < srclen) sourceEnd = ++input; // include null terminator
+  const UTF32* sourceEnd = ((input - (const int*)source) < srclen) ? sourceEnd = ++input : source + srclen;
 
   while(source < sourceEnd)
   {
@@ -148,7 +147,7 @@ size_t BSS_FASTCALL fgUTF32toUTF16(const int*BSS_RESTRICT input, ptrdiff_t srcle
         //}
         //else
         //{
-          *target++ = UNI_REPLACEMENT_CHAR;
+        *target++ = UNI_REPLACEMENT_CHAR;
         //}
       }
       else
@@ -164,7 +163,7 @@ size_t BSS_FASTCALL fgUTF32toUTF16(const int*BSS_RESTRICT input, ptrdiff_t srcle
       //}
       //else
       //{
-        *target++ = UNI_REPLACEMENT_CHAR;
+      *target++ = UNI_REPLACEMENT_CHAR;
       //}
     }
     else
@@ -247,7 +246,6 @@ size_t BSS_FASTCALL fgUTF16toUTF32(const wchar_t*BSS_RESTRICT input, ptrdiff_t s
 }
 
 /* --------------------------------------------------------------------- */
-
 size_t BSS_FASTCALL fgUTF32toUTF8(const int*BSS_RESTRICT input, ptrdiff_t srclen, char*BSS_RESTRICT output, size_t buflen)
 {
   char result = 0;
@@ -393,12 +391,10 @@ char isLegalUTF8Sequence(const UTF8 *source, const UTF8 *sourceEnd) {
 }
 
 /* --------------------------------------------------------------------- */
-
 size_t BSS_FASTCALL fgUTF8toUTF32(const char*BSS_RESTRICT input, ptrdiff_t srclen, int*BSS_RESTRICT output, size_t buflen)
 {
   char result = 0;
   const UTF8* source = (UTF8*)input;
-  const UTF8* sourceEnd = source;
   UTF32* target = (UTF32*)output;
   UTF32* targetEnd = target + buflen;
   if(srclen < 0) srclen = PTRDIFF_MAX;
@@ -408,8 +404,7 @@ size_t BSS_FASTCALL fgUTF8toUTF32(const char*BSS_RESTRICT input, ptrdiff_t srcle
     ++input;
   }
   if(!output) return buflen;
-  if((input - (const char*)source) < srclen) sourceEnd = ++input;
-  else sourceEnd = source + srclen;
+  const UTF8* sourceEnd = ((input - (const char*)source) < srclen) ? ++input : source + srclen;
 
   while(source < sourceEnd)
   {
