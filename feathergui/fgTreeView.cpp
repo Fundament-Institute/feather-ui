@@ -3,7 +3,7 @@
 
 #include "fgTreeview.h"
 #include "fgBox.h"
-#include "bss-util\bss_util.h"
+#include "bss-util/bss_util.h"
 #include "feathercpp.h"
 
 size_t FG_FASTCALL fgTreeItemArrow_Message(fgElement* self, const FG_Msg* msg)
@@ -38,11 +38,12 @@ size_t FG_FASTCALL fgTreeItem_Message(fgTreeItem* self, const FG_Msg* msg)
     fgMaskSetStyle(&self->arrow, "visible", fgStyleGetMask("visible", "hidden"));
     return FG_ACCEPT;
   case FG_ADDITEM:
+    if(msg->subtype != 0)
+      return 0;
   case FG_ADDCHILD:
     if(((fgElement*)msg->other)->GetClassName() == CLASSNAME)
       self->arrow.SetFlag(FGELEMENT_HIDDEN, ((++self->count) & (~EXPANDED)) == 0);
     break;
-  case FG_REMOVEITEM:
   case FG_REMOVECHILD:
     if(((fgElement*)msg->other)->GetClassName() == CLASSNAME)
     {

@@ -62,7 +62,7 @@ typedef struct _FG_DEBUG {
   fgTreeview messages; // Log of all messages passing through the GUI
   fgText properties; // element properties
   fgText contents; // message contents
-  size_t(FG_FASTCALL *behaviorhook)(struct _FG_ELEMENT* self, const FG_Msg* msg);
+  size_t(MSC_FASTCALL *GCC_FASTCALL behaviorhook)(struct _FG_ELEMENT* self, const FG_Msg* msg);
   fgDeclareVector(fgDebugMessage, DebugMessage) messagelog;
   fgDeclareVector(char*, strings) messagestrings;
   size_t depth;

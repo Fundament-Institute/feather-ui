@@ -2,7 +2,7 @@
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #include "fgSlider.h"
-#include "bss-util\bss_util.h"
+#include "bss-util/bss_util.h"
 #include "feathercpp.h"
 
 void FG_FASTCALL fgSlider_Init(fgSlider* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)

@@ -50,12 +50,17 @@ size_t FG_FASTCALL fgDebug_Message(fgDebug* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_CONSTRUCT:
+  {
     self->lineheight = 0; // lineheight must be zero'd before a potential transform unit resolution.
     fgElement_Message(&self->element, msg);
-    fgTreeview_Init(&self->elements, *self, 0, "Debug$elements", 0, &fgTransform { { -300,1,0,0,0,1,0,1 }, 0, { 0,0,0,0 } }, 0);
-    fgText_Init(&self->properties, *self, 0, "Debug$properties", FGELEMENT_HIDDEN, &fgTransform { { -300,1,-200,1,0,1,0,1 }, 0, { 0,0,0,0 } }, 0);
-    fgTreeview_Init(&self->messages, *self, 0, "Debug$messages", 0, &fgTransform { { 0,0,0,0,200,0,0,1 }, 0, { 0,0,0,0 } }, 0);
-    fgText_Init(&self->contents, *self, 0, "Debug$contents", FGELEMENT_HIDDEN, &fgTransform { { 0,0,-200,1,200,0,0,1 }, 0, { 0,0,0,0 } }, 0);
+    const fgTransform tf_elements = { { -300,1,0,0,0,1,0,1 }, 0,{ 0,0,0,0 } };
+    const fgTransform tf_properties = { { -300,1,-200,1,0,1,0,1 }, 0,{ 0,0,0,0 } };
+    const fgTransform tf_messages = { { 0,0,0,0,200,0,0,1 }, 0,{ 0,0,0,0 } };
+    const fgTransform tf_contents = { { 0,0,-200,1,200,0,0,1 }, 0,{ 0,0,0,0 } };
+    fgTreeview_Init(&self->elements, *self, 0, "Debug$elements", 0, &tf_elements, 0);
+    fgText_Init(&self->properties, *self, 0, "Debug$properties", FGELEMENT_HIDDEN, &tf_properties, 0);
+    fgTreeview_Init(&self->messages, *self, 0, "Debug$messages", 0, &tf_messages, 0);
+    fgText_Init(&self->contents, *self, 0, "Debug$contents", FGELEMENT_HIDDEN, &tf_contents, 0);
     self->messagelog.p = 0;
     self->messagelog.l = 0;
     self->messagelog.s = 0;
@@ -70,6 +75,7 @@ size_t FG_FASTCALL fgDebug_Message(fgDebug* self, const FG_Msg* msg)
     self->font = 0;
     self->color.color = 0;
     self->letterspacing = 0;
+  }
     return FG_ACCEPT;
   case FG_DRAW:
     if(self->hover != 0)
@@ -87,10 +93,12 @@ size_t FG_FASTCALL fgDebug_Message(fgDebug* self, const FG_Msg* msg)
       totalarea.right += self->hover->margin.right;
       totalarea.bottom += self->hover->margin.bottom;
 
-      fgroot_instance->backend.fgDrawResource(0, &CRect { 0,0,0,0,0,0,0,0 }, 0x666666FF, 0, 0.0f, &totalarea, 0, &AbsVec { 0,0 }, FGRESOURCE_ROUNDRECT);
-      fgroot_instance->backend.fgDrawResource(0, &CRect { 0,0,0,0,0,0,0,0 }, 0x6666FFFF, 0, 0.0f, &r, 0, &AbsVec { 0,0 }, FGRESOURCE_ROUNDRECT);
-      fgroot_instance->backend.fgDrawResource(0, &CRect { 0,0,0,0,0,0,0,0 }, 0x6666FF66, 0, 0.0f, &clientarea, 0, &AbsVec { 0,0 }, FGRESOURCE_ROUNDRECT);
-      if(self->font)
+      const CRect ZeroCRect = { 0,0,0,0,0,0,0,0 };
+      const AbsVec ZeroAbsVec = { 0,0 };
+      fgroot_instance->backend.fgDrawResource(0, &ZeroCRect, 0x666666FF, 0, 0.0f, &totalarea, 0, &ZeroAbsVec, FGRESOURCE_ROUNDRECT);
+      fgroot_instance->backend.fgDrawResource(0, &ZeroCRect, 0x6666FFFF, 0, 0.0f, &r, 0, &ZeroAbsVec, FGRESOURCE_ROUNDRECT);
+      fgroot_instance->backend.fgDrawResource(0, &ZeroCRect, 0x6666FF66, 0, 0.0f, &clientarea, 0, &ZeroAbsVec, FGRESOURCE_ROUNDRECT);
+      /*if(self->font)
       {
         unsigned int pt, dpi;
         float lh = self->lineheight;
@@ -112,7 +120,7 @@ size_t FG_FASTCALL fgDebug_Message(fgDebug* self, const FG_Msg* msg)
         txtarea.top = totalarea.bottom;
         txtarea.left = txtarea.right;
         fgroot_instance->backend.fgDrawFont(self->font, utf32buf, self->lineheight, self->letterspacing, self->color.color, &txtarea, 0, &AbsVec { 0,0 }, 0, 0);
-      }
+      }*/
     }
     break;
   case FG_SETFONT:
@@ -199,7 +207,6 @@ size_t FG_FASTCALL fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
   static size_t depthbuffer = 0;
   static size_t* indexbuffer = 0;
 
-  assert(fgdebug_instance->behaviorhook != &fgRoot_BehaviorDebug);
   if(msg->type == FG_DRAW) // Don't log FG_DRAW calls or the whole log will be flooded with them.
   {
     fgdebug_instance->ignore += 1;
@@ -207,7 +214,7 @@ size_t FG_FASTCALL fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
     fgdebug_instance->ignore -= 1;
     return r;
   }
-
+  assert(fgdebug_instance->behaviorhook != &fgRoot_BehaviorDebug);
   if(fgdebug_instance->ignore > 0) // If the ignore flag is set, don't log any messages
     return (*fgdebug_instance->behaviorhook)(self, msg);
 
@@ -217,6 +224,36 @@ size_t FG_FASTCALL fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
     if(parent == &fgdebug_instance->element)
       return (*fgdebug_instance->behaviorhook)(self, msg);
     parent = parent->parent;
+  }
+
+  switch(msg->type)
+  {
+  case FG_MOUSEMOVE:
+  case FG_KEYDOWN:
+  case FG_KEYUP:
+    if(fgroot_instance->GetKey(FG_KEY_MENU))
+    {
+      fgdebug_instance->ignore += 1;
+      AbsRect cache;
+      fgElement* cur = fgroot_instance->gui;
+      while(cur)
+      {
+        fgdebug_instance->hover = cur;
+        cur = fgElement_GetChildUnderMouse(cur, fgroot_instance->mouse.x, fgroot_instance->mouse.y, &cache);
+      }
+      fgdebug_instance->ignore -= 1;
+    }
+    else
+      fgdebug_instance->hover = 0;
+    break;
+  case FG_MOUSEUP:
+  case FG_MOUSEDBLCLICK:
+  case FG_MOUSESCROLL:
+    if(fgroot_instance->GetKey(FG_KEY_MENU))
+      return FG_ACCEPT;
+  case FG_MOUSEDOWN:
+
+    break;
   }
 
   if(msgbuffer)
@@ -308,7 +345,7 @@ void FG_FASTCALL fgDebug_BuildTree(fgElement* treeview)
   // Clean out the tree
   fgElement* cur;
   fgElement* hold = treeview->root;
-  while(cur = hold)
+  while((cur = hold) != 0)
   {
     hold = hold->next;
     if(!(cur->flags&FGELEMENT_BACKGROUND))

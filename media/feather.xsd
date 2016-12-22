@@ -49,6 +49,12 @@
     </xs:restriction>
   </xs:simpleType>
 
+  <xs:simpleType name="fgFlagsGrid">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|HIDEH|HIDEV|SHOWH|SHOWV|TILEX|TILEY|TILE|DISTRIBUTEX|DISTRIBUTEY|DISTRIBUTE|FIXEDSIZE|SINGLESELECT|MULTISELECT|DRAGGABLE|AUTOEDIT)(\|(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|HIDEH|HIDEV|SHOWH|SHOWV|TILEX|TILEY|TILE|DISTRIBUTEX|DISTRIBUTEY|DISTRIBUTE|FIXEDSIZE|SINGLESELECT|MULTISELECT|DRAGGABLE|AUTOEDIT))*" />
+    </xs:restriction>
+  </xs:simpleType>
+
   <xs:simpleType name="fgFlagsResource">
     <xs:restriction base="xs:string">
       <xs:pattern value="(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|ROUNDRECT|CIRCLE|TRIANGLE)(\|(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|ROUNDRECT|CIRCLE|TRIANGLE))*" />
@@ -123,6 +129,12 @@
     </xs:restriction>
   </xs:simpleType>
 
+  <xs:simpleType name="fgAbsVec">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(\+|-)?[0-9]*(\.[0-9]+)?(em|dp|sp|px)?(, |,| )(\+|-)?[0-9]*(\.[0-9]+)?(em|dp|sp|px)?"/>
+    </xs:restriction>
+  </xs:simpleType>
+
   <xs:simpleType name="fgPoints">
     <xs:restriction base="xs:string">
       <xs:pattern value="(\+|-)?[0-9]*(\.[0-9]+)?(em|dp|sp|px)?,(\+|-)?[0-9]*(\.[0-9]+)?(em|dp|sp|px)?(;(\+|-)?[0-9]*(\.[0-9]+)?(em|dp|sp|px)?,(\+|-)?[0-9]*(\.[0-9]+)?(em|dp|sp|px)?)*"/>
@@ -140,6 +152,7 @@
       <xs:element name="Combobox" type="fgCombobox" />
       <xs:element name="Dropdown" type="fgDropdown" />
       <xs:element name="List" type="fgList" />
+      <xs:element name="Grid" type="fgGrid" />
       <xs:element name="Menu" type="fgMenu"  />
       <xs:element name="Progressbar" type="fgProgressbar"  />
       <xs:element name="Radiobutton" type="fgRadiobutton" />
@@ -279,6 +292,29 @@
         </xs:sequence>
         <xs:attribute name="flags" type="fgFlagsList"/>
         <xs:attribute name="dragcolor" type="fgHex"/>
+        <xs:attribute name="value" type="xs:decimal" default="0.0"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <xs:complexType name="fgGrid">
+    <xs:complexContent>
+      <xs:extension base="fgLayout">
+        <xs:sequence>
+          <xs:element name="Column" minOccurs="0" maxOccurs="unbounded">
+            <xs:complexType>
+              <xs:complexContent>
+                <xs:extension base="fgLayoutBase">
+                  <xs:attribute name="text" type="xs:string"/>
+                </xs:extension>
+              </xs:complexContent>
+            </xs:complexType>
+          </xs:element>
+          <xs:element name="GridRow" minOccurs="0" maxOccurs="unbounded" type="fgBox" />
+        </xs:sequence>
+        <xs:attribute name="flags" type="fgFlagsGrid"/>
+        <xs:attribute name="dragcolor" type="fgHex"/>
+        <xs:attribute name="splitter" type="fgAbsVec"/>
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
@@ -308,7 +344,7 @@
 
   <xs:complexType name="fgProgressbar">
     <xs:complexContent>
-      <xs:extension base="fgLayout">
+      <xs:extension base="fgLayoutText">
         <xs:attribute name="flags" type="fgFlagsElement"/>
         <xs:attribute name="value" type="xs:decimal" default="0.0"/>
       </xs:extension>
@@ -491,6 +527,7 @@
       <xs:element name="Combobox" type="fgCombobox" />
       <xs:element name="Dropdown" type="fgDropdown" />
       <xs:element name="List" type="fgList" />
+      <xs:element name="Grid" type="fgGrid" />
       <xs:element name="Menu" type="fgMenu"  />
       <xs:element name="Progressbar" type="fgProgressbar"  />
       <xs:element name="Radiobutton" type="fgRadiobutton" />

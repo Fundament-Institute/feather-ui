@@ -27,6 +27,7 @@
 #include <string>
 #include <stdio.h>
 #include <array>
+#include <limits>
 #ifdef BSS_PLATFORM_POSIX
 #include <stdlib.h> // For abs(int) on POSIX systems
 #include <fpu_control.h> // for FPU control on POSIX systems

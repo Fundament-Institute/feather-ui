@@ -18,7 +18,7 @@ BSS_FORCEINLINE char CompPairInOrder(const std::pair<U, V>& l, const std::pair<U
 typedef bss_util::cDynArray<fgElement*, FG_UINT> fgSkinRefArray;
 bss_util::cAVLtree<std::pair<fgElement*, unsigned short>, void, &CompPairInOrder> fgListenerList;
 
-void FG_FASTCALL fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units, void (FG_FASTCALL *destroy)(void*), size_t(FG_FASTCALL *message)(void*, const FG_Msg*))
+void FG_FASTCALL fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units, void (MSC_FASTCALL *GCC_FASTCALL destroy)(void*), size_t(MSC_FASTCALL *GCC_FASTCALL message)(void*, const FG_Msg*))
 {
   assert(self != 0);
   memset(self, 0, sizeof(fgElement));
@@ -779,9 +779,9 @@ void FG_FASTCALL ResolveRectCache(const fgElement* self, AbsRect* BSS_RESTRICT o
   out->bottom = lerp(last->top, last->bottom, v->bottom.rel) + v->bottom.abs;
 
   if(self->flags & FGELEMENT_EXPANDX)
-    out->right = out->left + std::max(out->right - out->left, self->layoutdim.x + self->padding.left + self->padding.right);
+    out->right = out->left + std::max(out->right - out->left, self->layoutdim.x + self->padding.left + self->padding.right + self->margin.left + self->margin.right);
   if(self->flags & FGELEMENT_EXPANDY)
-    out->bottom = out->top + std::max(out->bottom - out->top, self->layoutdim.y + self->padding.top + self->padding.bottom);
+    out->bottom = out->top + std::max(out->bottom - out->top, self->layoutdim.y + self->padding.top + self->padding.bottom + self->margin.top + self->margin.bottom);
 
   out->left += self->margin.left;
   out->top += self->margin.top;
@@ -1033,11 +1033,13 @@ void FG_FASTCALL fgElement::SetParent(fgElement* parent, fgElement* next) { _sen
 
 size_t FG_FASTCALL fgElement::AddChild(fgElement* child, fgElement* next) { return _sendmsg<FG_ADDCHILD, void*, void*>(this, child, next); }
 
-fgElement* FG_FASTCALL fgElement::AddItem(void* item) { return (fgElement*)_sendsubmsg<FG_ADDITEM, const void*>(this, FGITEM_DEFAULT, item); }
+fgElement* FG_FASTCALL fgElement::AddItem(void* item, size_t index) { return (fgElement*)_sendsubmsg<FG_ADDITEM, const void*, size_t>(this, FGITEM_DEFAULT, item, index); }
 fgElement* FG_FASTCALL fgElement::AddItemText(const char* item, FGSETTEXT fmt) { return (fgElement*)_sendsubmsg<FG_ADDITEM, const void*, size_t>(this, FGITEM_TEXT, item, fmt); }
-fgElement* FG_FASTCALL fgElement::AddItemElement(fgElement* item) { return (fgElement*)_sendsubmsg<FG_ADDITEM, const void*>(this, FGITEM_ELEMENT, item); }
+fgElement* FG_FASTCALL fgElement::AddItemElement(fgElement* item, size_t index) { return (fgElement*)_sendsubmsg<FG_ADDITEM, const void*, size_t>(this, FGITEM_ELEMENT, item, index); }
 
 size_t FG_FASTCALL fgElement::RemoveChild(fgElement* child) { return _sendmsg<FG_REMOVECHILD, void*>(this, child); }
+
+size_t FG_FASTCALL fgElement::RemoveItem(size_t item) { return _sendmsg<FG_REMOVEITEM, ptrdiff_t>(this, item); }
 
 size_t FG_FASTCALL fgElement::LayoutFunction(const FG_Msg& msg, const CRect& area, bool scrollbar) { return _sendsubmsg<FG_LAYOUTFUNCTION, const void*, const void*>(this, !!scrollbar, &msg, &area); }
 
@@ -1253,13 +1255,13 @@ struct _FG_ELEMENT* fgElement::GetItemAt(int x, int y)
 {
   FG_Msg m = { 0 };
   m.type = FG_GETITEM;
-  m.subtype = 2;
+  m.subtype = FGITEM_LOCATION;
   m.x = x;
   m.y = y;
   return reinterpret_cast<fgElement*>((*fgroot_instance->backend.behaviorhook)(this, &m));
 }
 
-size_t fgElement::GetNumItems() { return _sendsubmsg<FG_GETITEM>(this, 1); }
+size_t fgElement::GetNumItems() { return _sendsubmsg<FG_GETITEM>(this, FGITEM_COUNT); }
 
 fgElement* fgElement::GetSelectedItem(ptrdiff_t index) { return reinterpret_cast<fgElement*>(_sendmsg<FG_GETSELECTEDITEM, ptrdiff_t>(this, index)); }
 

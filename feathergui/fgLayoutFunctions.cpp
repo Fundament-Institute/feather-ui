@@ -4,48 +4,49 @@
 #include "fgLayout.h"
 #include "fgBox.h"
 #include "bss-util/bss_util.h"
+#include "feathercpp.h"
 
 #include <math.h>
 
-BSS_FORCEINLINE FABS FG_FASTCALL fgLayout_GetChildMinWidth(fgElement* child)
+BSS_FORCEINLINE FABS FG_FASTCALL fgLayout_GetElementMinWidth(fgElement* child)
 {
   if(!(child->flags&FGELEMENT_EXPANDX))
     return child->mindim.x;
-  FABS l = child->layoutdim.x + child->padding.left + child->padding.right;
+  FABS l = child->layoutdim.x + child->padding.left + child->padding.right + child->margin.left + child->margin.right;
   return (child->mindim.x >= 0.0f && child->mindim.x > l) ? child->mindim.x : l;
 }
 
-BSS_FORCEINLINE FABS FG_FASTCALL fgLayout_GetChildMinHeight(fgElement* child)
+BSS_FORCEINLINE FABS FG_FASTCALL fgLayout_GetElementMinHeight(fgElement* child)
 {
   if(!(child->flags&FGELEMENT_EXPANDY))
     return child->mindim.y;
-  FABS l = child->layoutdim.y + child->padding.top + child->padding.bottom;
+  FABS l = child->layoutdim.y + child->padding.top + child->padding.bottom + child->margin.top + child->margin.bottom;
   return (child->mindim.y >= 0.0f && child->mindim.y > l) ? child->mindim.y : l;
 }
 
-BSS_FORCEINLINE FABS FG_FASTCALL fgLayout_GetChildWidth(fgElement* child)
+BSS_FORCEINLINE FABS FG_FASTCALL fgLayout_GetElementWidth(fgElement* child)
 {
   FABS w = (child->transform.area.left.rel == child->transform.area.right.rel) ? child->transform.area.right.abs - child->transform.area.left.abs : 0.0f;
-  FABS m = fgLayout_GetChildMinWidth(child);
+  FABS m = fgLayout_GetElementMinWidth(child);
   return (m >= 0.0f && m > w) ? m : w;
 }
 
-BSS_FORCEINLINE FABS FG_FASTCALL fgLayout_GetChildHeight(fgElement* child)
+BSS_FORCEINLINE FABS FG_FASTCALL fgLayout_GetElementHeight(fgElement* child)
 {
   FABS h = (child->transform.area.top.rel == child->transform.area.bottom.rel) ? child->transform.area.bottom.abs - child->transform.area.top.abs : 0.0f;
-  FABS m = fgLayout_GetChildMinHeight(child);
+  FABS m = fgLayout_GetElementMinHeight(child);
   return (m >= 0.0f && m > h) ? m : h;
 }
 
 inline FABS FG_FASTCALL fgLayout_ExpandX(FABS dimx, fgElement* child)
 {
-  FABS r = child->transform.area.left.abs + fgLayout_GetChildWidth(child);
+  FABS r = child->transform.area.left.abs + fgLayout_GetElementWidth(child);
   return bssmax(dimx, r);
 }
 
 inline FABS FG_FASTCALL fgLayout_ExpandY(FABS dimy, fgElement* child)
 {
-  FABS r = child->transform.area.top.abs + fgLayout_GetChildHeight(child);
+  FABS r = child->transform.area.top.abs + fgLayout_GetElementHeight(child);
   return bssmax(dimy, r);
 }
 
@@ -120,12 +121,12 @@ BSS_FORCEINLINE fgElement* fgLayout_GetPrev(fgElement* cur)
 
 BSS_FORCEINLINE FABS FG_FASTCALL fgLayout_GetChildRight(fgElement* child)
 {
-  return child->transform.area.left.abs + fgLayout_GetChildWidth(child);
+  return child->transform.area.left.abs + fgLayout_GetElementWidth(child);
 }
 
 BSS_FORCEINLINE FABS FG_FASTCALL fgLayout_GetChildBottom(fgElement* child)
 {
-  return child->transform.area.top.abs + fgLayout_GetChildHeight(child);
+  return child->transform.area.top.abs + fgLayout_GetElementHeight(child);
 }
 
 void FG_FASTCALL fgTileLayoutFill(fgElement* cur, fgElement* skip, FABS space, char axis, float max)
@@ -143,7 +144,7 @@ void FG_FASTCALL fgTileLayoutFill(fgElement* cur, fgElement* skip, FABS space, c
     // All relative tiles are restricted to expanding [space] units beyond their minimum size.
     if(axis && cur->transform.area.top.rel != cur->transform.area.bottom.rel)
     {
-      FABS m = fgLayout_GetChildMinHeight(cur);
+      FABS m = fgLayout_GetElementMinHeight(cur);
       FABS h = ((cur->transform.area.bottom.rel - cur->transform.area.top.rel) * max) - cur->transform.area.top.abs - m;
       if(h < 0) h = 0;
       if(cur->maxdim.y >= 0.0f && cur->maxdim.y < h + m) h = cur->maxdim.y - m;
@@ -153,7 +154,7 @@ void FG_FASTCALL fgTileLayoutFill(fgElement* cur, fgElement* skip, FABS space, c
     }
     if(!axis && cur->transform.area.left.rel != cur->transform.area.right.rel)
     {
-      FABS m = fgLayout_GetChildMinWidth(cur);
+      FABS m = fgLayout_GetElementMinWidth(cur);
       FABS w = ((cur->transform.area.right.rel - cur->transform.area.left.rel) * max) - cur->transform.area.left.abs - m;
       if(w < 0) w = 0;
       if(cur->maxdim.x >= 0.0f && cur->maxdim.x < w + m) w = cur->maxdim.x - m;
@@ -185,7 +186,7 @@ AbsVec fgTileLayoutReorder(fgElement* prev, fgElement* cur, fgElement* skip, cha
     }
     if(fgTileLayoutSame(axis ? pos.y : pos.x, axis ? pos.x : pos.y, cur) && rowbump)
       break;
-    AbsVec dim = { fgLayout_GetChildWidth(cur), fgLayout_GetChildHeight(cur) };
+    AbsVec dim = { fgLayout_GetElementWidth(cur), fgLayout_GetElementHeight(cur) };
     if(axis) { FABS t = dim.x; dim.x = dim.y; dim.y = t; }
 
     if(pos.x + dim.x > max)
@@ -313,23 +314,70 @@ size_t FG_FASTCALL fgTileLayout(fgElement* self, const FG_Msg* msg, fgFlag flags
   return 0;
 }
 
-size_t FG_FASTCALL fgDistributeLayout(fgElement* self, const FG_Msg* msg, fgFlag axis)
+AbsVec fgDistributeLayoutReorder(fgElement* prev, fgElement* cur, fgElement* skip, char axis, AbsVec expand, AbsRect* cache, AbsRect* padding) // axis: 0 means x-axis first, 1 means y-axis first
 {
+  float cursor = 0.0f;
+  if(prev)
+  {
+    assert(!(prev->flags&FGELEMENT_BACKGROUND));
+    cursor = axis ? fgLayout_GetChildBottom(prev) : fgLayout_GetChildRight(prev);
+  }
+  while(cur)
+  {
+    if(cur == skip || (cur->flags&FGELEMENT_BACKGROUND)) // we check for cur background flags so we can pass in the root
+    {
+      cur = cur->next;
+      continue;
+    }
+    CRect area = cur->transform.area;
+    AbsRect abs;
+    ResolveRectCache(cur, &abs, cache, padding);
+    if(axis)
+    {
+      area.top.abs = cursor;
+      area.bottom.abs = cursor;
+      area.bottom.rel -= area.top.rel;
+      area.top.rel = 0;
+      cursor += abs.bottom - abs.top;
+      if(cursor > expand.y) expand.y = cursor;
+      if(abs.right > expand.x) expand.x = abs.right;
+    }
+    else
+    {
+      area.left.abs = cursor;
+      area.right.abs = cursor;
+      area.right.rel -= area.left.rel;
+      area.left.rel = 0;
+      cursor += abs.right - abs.left;
+      if(cursor > expand.x) expand.x = cursor;
+      if(abs.bottom > expand.y) expand.y = abs.bottom;
+    }
+    cur->SetArea(area);
+    cur = cur->next;
+  }
+
+  return expand;
+}
+size_t FG_FASTCALL fgDistributeLayout(fgElement* self, const FG_Msg* msg, fgFlag flags, AbsVec* dim)
+{
+  AbsRect cache;
+  ResolveRect(self, &cache);
+  fgElement* child = (fgElement*)msg->other;
+  char axis = (flags&FGBOX_DISTRIBUTEY); // 0 expands along x-axis, 1 expands along y-axis
   switch(msg->type)
   {
-  //case FGELEMENT_LAYOUTMOVE: // we don't handle moving or resizing because we use relative coordinates, so the resize is done for us.
-  //case FGELEMENT_LAYOUTRESIZE:
-  //break;
-  //case FGELEMENT_LAYOUTREORDER:
-  ////child = child->order<msg->other->order?child:msg->other; // Get lowest child
-  //fgDistributeLayoutReorder(child->prev, child, axis, num);
-  //break;
-  //case FGELEMENT_LAYOUTADD:
-  //fgDistributeLayoutReorder(child->prev, child, axis, num);
-  //break;
-  //case FGELEMENT_LAYOUTREMOVE:
-  //fgDistributeLayoutReorder(child->prev, child->next, axis, num);
-  //break;
+  case FGELEMENT_LAYOUTRESET:
+  case FGELEMENT_LAYOUTMOVE: // we don't handle moving or resizing because we use relative coordinates, so the resize is done for us.
+  case FGELEMENT_LAYOUTRESIZE:
+  case FGELEMENT_LAYOUTREORDER:
+    *dim = fgDistributeLayoutReorder(0, self->root, 0, axis, AbsVec{ 0,0 }, &cache, &self->padding);
+    break;
+  case FGELEMENT_LAYOUTADD:
+    *dim = fgDistributeLayoutReorder(fgLayout_GetPrev(child), child, 0, axis, *dim, &cache, &self->padding);
+    break;
+  case FGELEMENT_LAYOUTREMOVE:
+    *dim = fgDistributeLayoutReorder(0, self->root, child, axis, AbsVec{ 0,0 }, &cache, &self->padding);
+    break;
   }
 
   return 0;

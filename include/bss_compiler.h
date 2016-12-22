@@ -49,7 +49,7 @@
 #define BSS_FORCEINLINE inline
 #define BSS_RESTRICT __restrict__
 #define BSS_ALIGNED(sn, n) sn
-#define MSC_FASTCALL BSS_FASTCALL
+#define MSC_FASTCALL BSS_COMPILER_FASTCALL
 #define GCC_FASTCALL 
 #define BSS_DELETEFUNC BSS_COMPILER_DELETEFUNC
 #define BSS_DELETEFUNCOP BSS_COMPILER_DELETEOPFUNC
@@ -76,7 +76,7 @@
 #define BSS_VARIADIC_TEMPLATES
 
 #define MSC_FASTCALL 
-#define GCC_FASTCALL BSS_FASTCALL
+#define GCC_FASTCALL BSS_COMPILER_FASTCALL
 #define BSS_DELETEFUNC BSS_COMPILER_DELETEFUNC
 #define BSS_DELETEFUNCOP BSS_COMPILER_DELETEOPFUNC
 #define BSS_EXPLICITSTATIC // GCC says that putting "static" on explicit templatizations of functions is illegal. VC++ breaks if you don't.
@@ -100,7 +100,7 @@
 #define BSS_VARIADIC_TEMPLATES
 
 #define MSC_FASTCALL 
-#define GCC_FASTCALL BSS_FASTCALL
+#define GCC_FASTCALL BSS_COMPILER_FASTCALL
 #define BSS_DELETEFUNC BSS_COMPILER_DELETEFUNC
 #define BSS_DELETEFUNCOP BSS_COMPILER_DELETEOPFUNC
 #define BSS_EXPLICITSTATIC // GCC says that putting "static" on explicit templatizations of functions is illegal. VC++ breaks if you don't.
@@ -136,7 +136,7 @@
 #define BSS_ALIGNED(sn, n) BSS_ALIGN(n) sn
 #define BSS_VERIFY_HEAP _ASSERTE(_CrtCheckMemory())
 #define FUNCPTRCC(m,CC) CC m
-#define MSC_FASTCALL BSS_FASTCALL
+#define MSC_FASTCALL BSS_COMPILER_FASTCALL
 #define GCC_FASTCALL 
 #define BSS_EXPLICITSTATIC static // GCC says that putting "static" on explicit templatizations of functions is illegal. VC++ breaks if you don't.
 #define BSS_SSE_ENABLED

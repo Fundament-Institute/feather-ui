@@ -31,7 +31,7 @@ void FG_FASTCALL fgSkin_Init(fgSkin* self)
   memset(self, 0, sizeof(fgSkin));
 }
 
-template<class HASH, class T, void (FG_FASTCALL *DESTROY)(T*), void(*DEL)(HASH*, khint_t)>
+template<class HASH, class T, void (MSC_FASTCALL *GCC_FASTCALL DESTROY)(T*), void(*DEL)(HASH*, khint_t)>
 char FG_FASTCALL DestroyHashElement(HASH* self, khiter_t iter)
 {
   if(kh_exist(self, iter))
@@ -45,7 +45,7 @@ char FG_FASTCALL DestroyHashElement(HASH* self, khiter_t iter)
   return 0;
 }
 
-template<class HASH, class T, void(FG_FASTCALL *DESTROYELEM)(T*), void(*DEL)(HASH*, khint_t), void(*DESTROYHASH)(HASH*)>
+template<class HASH, class T, void(MSC_FASTCALL *GCC_FASTCALL DESTROYELEM)(T*), void(*DEL)(HASH*, khint_t), void(*DESTROYHASH)(HASH*)>
 void FG_FASTCALL DestroyHash(HASH* self)
 {
   if(self)
@@ -281,6 +281,21 @@ int FG_FASTCALL fgStyle_LoadAbsRect(const char* attribute, AbsRect& r)
     (fgStyle_LoadUnit(s3, 0) << FGUNIT_BOTTOM);
 }
 
+int FG_FASTCALL fgStyle_LoadAbsVec(const char* attribute, AbsVec& r)
+{
+  size_t len = strlen(attribute) + 1;
+  DYNARRAY(char, buf, len);
+  MEMCPY(buf, len, attribute, len);
+  char* context;
+  const char* s0 = STRTOK(buf, ", ", &context);
+  const char* s1 = STRTOK(0, ", ", &context);
+
+  r.x = (FABS)atof(s0);
+  r.y = (FABS)atof(s1);
+  return (fgStyle_LoadUnit(s0, 0) << FGUNIT_X) |
+    (fgStyle_LoadUnit(s1, 0) << FGUNIT_Y);
+}
+
 int FG_FASTCALL fgStyle_LoadCRect(const char* attribute, CRect& r)
 {
   size_t len = strlen(attribute) + 1;
@@ -366,7 +381,7 @@ void FG_FASTCALL fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, i
   static cTrie<uint16_t, true> t(42, "id", "min-width", "min-height", "max-width", "max-height", "skin", "alpha", "margin", "padding", "text",
     "placeholder", "color", "placecolor", "cursorcolor", "selectcolor", "hovercolor", "dragcolor", "edgecolor", "font", "lineheight",
     "letterspacing", "value", "uv", "resource", "outline", "area", "center", "rotation", "left", "top", "right", "bottom", "width", "height",
-    "name", "flags", "order", "inherit", "range", "xmlns:xsi", "xmlns:fg", "xsi:schemaLocation");
+    "name", "flags", "order", "inherit", "range", "splitter", "xmlns:xsi", "xmlns:fg", "xsi:schemaLocation");
   static cTrie<uint16_t, true> tvalue(5, "checkbox", "curve", "progressbar", "radiobutton", "slider");
   static cTrie<uint16_t, true> tenum(5, "true", "false", "none", "checked", "indeterminate");
 
@@ -553,9 +568,18 @@ void FG_FASTCALL fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, i
     case 38: // range
       AddStyleSubMsg<FG_SETVALUE, ptrdiff_t, size_t>(self, FGVALUE_INT64, attr->Integer, 1);
       break;
-    case 39: 
-    case 40:
-    case 41: // These are all XML specific values that are only used for setting the XSD file
+    case 39: // splitter
+    {
+      AbsVec splitter;
+      int f = fgStyle_LoadAbsVec(attr->String, splitter);
+      AddStyleSubMsg<FG_SETVALUE, float>(self, 0, splitter.x);
+      AddStyleSubMsg<FG_SETVALUE, float>(self, FGVALUE_ROW, splitter.y);
+      break;
+    }
+    case 40: 
+    case 41:
+    case 42: // These are all XML specific values that are only used for setting the XSD file
+      break;
     default: // Otherwise, unrecognized attributes are set as custom userdata
       if(!userdata)
       {

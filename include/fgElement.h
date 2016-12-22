@@ -31,8 +31,8 @@ enum FGELEMENT_FLAGS
   FGELEMENT_USEDEFAULTS = (1 << ((sizeof(fgFlag)<<3) - 1)),
 };
 
-typedef void (FG_FASTCALL *fgDestroy)(void*);
-typedef size_t(FG_FASTCALL *fgMessage)(void*, const FG_Msg*);
+typedef void (MSC_FASTCALL *GCC_FASTCALL fgDestroy)(void*);
+typedef size_t(MSC_FASTCALL *GCC_FASTCALL fgMessage)(void*, const FG_Msg*);
 struct _FG_ELEMENT;
 struct _FG_STYLE;
 struct _FG_SKIN;
@@ -41,7 +41,7 @@ struct __kh_fgUserdata_t;
 struct __kh_fgSkinElements_t;
 typedef fgDeclareVector(struct _FG_ELEMENT*, Element) fgVectorElement;
 
-typedef void(FG_FASTCALL *fgListener)(struct _FG_ELEMENT*, const FG_Msg*);
+typedef void(MSC_FASTCALL *GCC_FASTCALL fgListener)(struct _FG_ELEMENT*, const FG_Msg*);
 
 // Defines the base GUI element
 typedef struct _FG_ELEMENT {
@@ -89,10 +89,11 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT size_t FG_FASTCALL SetPadding(const AbsRect& padding);
   FG_DLLEXPORT void FG_FASTCALL SetParent(struct _FG_ELEMENT* parent, struct _FG_ELEMENT* next = 0);
   FG_DLLEXPORT size_t FG_FASTCALL AddChild(struct _FG_ELEMENT* child, struct _FG_ELEMENT* next = 0);
-  FG_DLLEXPORT struct _FG_ELEMENT* FG_FASTCALL AddItem(void* item);
+  FG_DLLEXPORT struct _FG_ELEMENT* FG_FASTCALL AddItem(void* item, size_t index = (size_t)~0);
   FG_DLLEXPORT struct _FG_ELEMENT* FG_FASTCALL AddItemText(const char* item, FGSETTEXT fmt = FGSETTEXT_UTF8);
-  FG_DLLEXPORT struct _FG_ELEMENT* FG_FASTCALL AddItemElement(struct _FG_ELEMENT* item);
+  FG_DLLEXPORT struct _FG_ELEMENT* FG_FASTCALL AddItemElement(struct _FG_ELEMENT* item, size_t index = (size_t)~0);
   FG_DLLEXPORT size_t FG_FASTCALL RemoveChild(struct _FG_ELEMENT* child);
+  FG_DLLEXPORT size_t FG_FASTCALL RemoveItem(size_t item);
   FG_DLLEXPORT void FG_FASTCALL LayoutChange(unsigned short subtype, struct _FG_ELEMENT* target, struct _FG_ELEMENT* old);
   FG_DLLEXPORT size_t FG_FASTCALL LayoutFunction(const FG_Msg& msg, const CRect& area, bool scrollbar = false);
   FG_DLLEXPORT size_t FG_FASTCALL LayoutLoad(struct _FG_LAYOUT* layout);
@@ -164,7 +165,7 @@ typedef struct _FG_ELEMENT {
 #endif
 } fgElement;
 
-FG_EXTERN void FG_FASTCALL fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units, void (FG_FASTCALL *destroy)(void*), size_t(FG_FASTCALL *message)(void*, const FG_Msg*));
+FG_EXTERN void FG_FASTCALL fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units, void (MSC_FASTCALL *GCC_FASTCALL destroy)(void*), size_t(MSC_FASTCALL *GCC_FASTCALL message)(void*, const FG_Msg*));
 FG_EXTERN void FG_FASTCALL fgElement_Init(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
 FG_EXTERN void FG_FASTCALL fgElement_Destroy(fgElement* self);
 FG_EXTERN size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg);

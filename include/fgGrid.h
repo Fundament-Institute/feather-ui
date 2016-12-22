@@ -5,20 +5,32 @@
 #define __FG_GRID_H__
 
 #include "fgList.h"
+#include "fgTextbox.h"
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
+  enum FGGRID_FLAGS
+  {
+    FGGRID_AUTOEDIT = (FGLIST_DRAGGABLE << 1),
+  };
+
+  enum FGGRID_ACTIONS
+  {
+    FGGRID_RESIZECOLUMN = FGSCROLLBAR_NUM,
+  };
+
   typedef struct _FG_GRID_ROW {
-    fgBox box;
+    fgElement element;
+    struct _FG_BOX_ORDERED_ELEMENTS_ order;
 #ifdef  __cplusplus
-    inline operator fgElement*() { return &box.scroll.control.element; }
+    inline operator fgElement*() { return &element; }
     inline fgElement* operator->() { return operator fgElement*(); }
     FG_DLLEXPORT void InsertItem(fgElement* item, size_t column = (size_t)-1);
     FG_DLLEXPORT void InsertItem(const char* item, size_t column = (size_t)-1);
-    FG_DLLEXPORT void SetItem(fgElement* item, size_t column);
-    FG_DLLEXPORT void SetItem(const char* item, size_t column);
+    FG_DLLEXPORT bool SetItem(fgElement* item, size_t column);
+    FG_DLLEXPORT bool SetItem(const char* item, size_t column);
     FG_DLLEXPORT bool RemoveItem(size_t column);
     FG_DLLEXPORT fgElement* GetItem(size_t column);
 #endif
@@ -26,23 +38,25 @@ extern "C" {
 
   // Represents a grid of columns (or rows) with labels.
   typedef struct _FG_GRID {
-    fgBox box;
+    fgList list;
     fgList header; // The header is where the labels are
-    fgVectorElement selected;
-    fgColor select; // color index 0
-    fgColor hover; // color index 1
+    fgTextbox editbox; // Used for autoediting grid controls.
+    fgColor rowedgecolor;
+    fgColor columnedgecolor;
+    fgColor rowevencolor;
 #ifdef  __cplusplus
-    inline operator fgElement*() { return &box.scroll.control.element; }
+    inline operator fgElement*() { return &list.box.scroll.control.element; }
     inline fgElement* operator->() { return operator fgElement*(); }
-    FG_DLLEXPORT void InsertColumn(const char* name, size_t column = (size_t)-1);
-    FG_DLLEXPORT void SetItem(fgElement* item, size_t column, size_t row);
-    FG_DLLEXPORT void SetItem(const char* item, size_t column, size_t row);
+    FG_DLLEXPORT fgElement* InsertColumn(const char* name, size_t column = (size_t)-1);
+    FG_DLLEXPORT bool SetItem(fgElement* item, size_t column, size_t row);
+    FG_DLLEXPORT bool SetItem(const char* item, size_t column, size_t row);
     FG_DLLEXPORT fgGridRow* InsertRow(size_t row = (size_t)-1);
     FG_DLLEXPORT bool RemoveColumn(size_t column);
     FG_DLLEXPORT bool RemoveRow(size_t row);
     FG_DLLEXPORT bool RemoveItem(size_t column, size_t row);
     FG_DLLEXPORT fgElement* GetItem(size_t column, size_t row);
     FG_DLLEXPORT fgGridRow* GetRow(size_t row);
+    FG_DLLEXPORT fgElement* GetColumn(size_t column);
 #endif
   } fgGrid;
 

@@ -70,9 +70,12 @@ size_t FG_FASTCALL fgTabcontrol_Message(fgTabcontrol* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_CONSTRUCT:
+  {
     fgControl_HoverMessage(&self->control, msg);
-    fgBox_Init(&self->header, *self, 0, "Tabcontrol$header", FGBOX_TILEX | FGELEMENT_EXPANDY | FGELEMENT_BACKGROUND, &fgTransform { 0, 0, 0, 0, 0, 1, 0, 0 }, 0);
+    fgTransform TF_HEADER = { { 0, 0, 0, 0, 0, 1, 0, 0 }, 0,{ 0,0,0,0 } };
+    fgBox_Init(&self->header, *self, 0, "Tabcontrol$header", FGBOX_TILEX | FGELEMENT_EXPANDY | FGELEMENT_BACKGROUND, &TF_HEADER, 0);
     return FG_ACCEPT;
+  }
   case FG_ADDITEM:
   {
     fgElement* button = fgroot_instance->backend.fgCreate("Radiobutton", self->header, 0, "Tabcontrol$toggle", FGELEMENT_EXPAND, 0, 0);

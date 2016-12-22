@@ -149,9 +149,9 @@ void FG_FASTCALL fgText_Recalc(fgText* self)
     fgroot_instance->backend.fgFontSize(self->font, !self->text.p ? &UNICODE_TERMINATOR : self->text.p, self->lineheight, self->letterspacing, &area, self->element.flags);
     CRect adjust = self->element.transform.area;
     if(self->element.flags&FGELEMENT_EXPANDX)
-      adjust.right.abs = adjust.left.abs + area.right - area.left + self->element.padding.left + self->element.padding.right;
+      adjust.right.abs = adjust.left.abs + area.right - area.left + self->element.padding.left + self->element.padding.right + self->element.margin.left + self->element.margin.right;
     if(self->element.flags&FGELEMENT_EXPANDY)
-      adjust.bottom.abs = adjust.top.abs + area.bottom - area.top + self->element.padding.top + self->element.padding.bottom;
+      adjust.bottom.abs = adjust.top.abs + area.bottom - area.top + self->element.padding.top + self->element.padding.bottom + self->element.margin.top + self->element.margin.bottom;
     assert(!isnan(adjust.left.abs) && !isnan(adjust.top.abs) && !isnan(adjust.right.abs) && !isnan(adjust.bottom.abs));
     _sendmsg<FG_SETAREA, void*>(*self, &adjust);
   }

@@ -16,12 +16,13 @@ namespace bss_util {
   protected:
     typedef cArrayInternal<T, CType, ArrayType, Alloc> BASE;
     typedef cArrayBase<T, CType, Alloc> AT_;
-    typedef typename AT_::CT_ CT_;
-    typedef typename AT_::T_ T_;
     using AT_::_array;
     using AT_::_capacity;
 
   public:
+    typedef typename AT_::CT_ CT_;
+    typedef typename AT_::T_ T_;
+
     inline cDynArray(const cDynArray& copy) : AT_(copy._capacity), _length(copy._length) { BASE::_copy(_array, copy._array, _length); }
     inline cDynArray(cDynArray&& mov) : AT_(std::move(mov)), _length(mov._length) { mov._length = 0; }
     inline cDynArray(const cArraySlice<const T, CType>& slice) : AT_(slice.length), _length(slice.length) { BASE::_copy(_array, slice.start, slice.length); }

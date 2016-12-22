@@ -4,7 +4,6 @@
 #include "feathergui.h"
 #include "feathercpp.h"
 #include "fgRoot.h"
-#include <intrin.h>
 #include <limits.h>
 #include <math.h>
 
@@ -14,7 +13,9 @@ const fgTransform fgTransform_CENTER = { { 0, 0.5, 0, 0.5, 0, 0.5, 0, 0.5 }, 0, 
 const fgColor fgColor_NONE = { 0 };
 const fgColor fgColor_BLACK = { 0xFF000000 };
 const fgColor fgColor_WHITE = { 0xFFFFFFFF };
-bss_util::cHash<std::pair<fgElement*, unsigned short>, void(FG_FASTCALL *)(struct _FG_ELEMENT*, const FG_Msg*)> fgListenerHash;
+const CRect CRect_EMPTY = { 0,0,0,0,0,0,0,0 };
+const AbsVec AbsVec_EMPTY = { 0,0 };
+bss_util::cHash<std::pair<fgElement*, unsigned short>, fgListener> fgListenerHash;
 
 static_assert(sizeof(unsigned int) == sizeof(fgColor), "ERROR: fgColor not size of 32-bit int!");
 static_assert(sizeof(FG_Msg) <= sizeof(uint64_t) * 3, "FG_Msg is too big!");

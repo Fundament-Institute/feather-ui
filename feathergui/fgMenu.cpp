@@ -10,7 +10,8 @@ static const char* MENU_NAME = "Menu";
 void FG_FASTCALL fgMenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
   assert(self != 0);
-  fgElement_InternalSetup(*self, parent, next, name, ((flags&FGELEMENT_USEDEFAULTS) ? (FGELEMENT_EXPANDY | FGBOX_TILEX) : flags), (!transform ? &fgTransform { { 0, 0, 0, 0, 0, 1.0, 0, 0 }, 0, {0,0,0,0} } : transform), units, (fgDestroy)&fgMenu_Destroy, (fgMessage)&fgMenu_Message);
+  const fgTransform TF_MENU = { { 0, 0, 0, 0, 0, 1.0, 0, 0 }, 0,{ 0,0,0,0 } };
+  fgElement_InternalSetup(*self, parent, next, name, ((flags&FGELEMENT_USEDEFAULTS) ? (FGELEMENT_EXPANDY | FGBOX_TILEX) : flags), (!transform ? &TF_MENU : transform), units, (fgDestroy)&fgMenu_Destroy, (fgMessage)&fgMenu_Message);
 }
 
 void FG_FASTCALL fgMenu_Destroy(fgMenu* self)
@@ -48,7 +49,6 @@ inline fgMenu* fgMenu_ExpandMenu(fgMenu* self, fgMenu* submenu)
 
   return submenu;
 }
-
 size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
 {
   assert(self != 0 && msg != 0);
@@ -56,10 +56,13 @@ size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_CONSTRUCT:
+  {
     fgBox_Message(&self->box, msg);
     self->expanded = 0;
-    fgElement_Init(&self->arrow, 0, 0, "Menu$arrow", FGELEMENT_IGNORE | FGELEMENT_BACKGROUND | FGELEMENT_EXPAND, &fgTransform { {0,0,0,0.5,0,0,0,0.5}, 0, {1.0,0.5} }, 0);
+    const fgTransform TF_ARROW = { { 0,0,0,0.5,0,0,0,0.5 }, 0,{ 1.0,0.5 } };
+    fgElement_Init(&self->arrow, 0, 0, "Menu$arrow", FGELEMENT_IGNORE | FGELEMENT_BACKGROUND | FGELEMENT_EXPAND, &TF_ARROW, 0);
     return FG_ACCEPT;
+  }
   case FG_MOUSEUP:
     if(fgCaptureWindow == *self)
     {
@@ -125,7 +128,9 @@ size_t FG_FASTCALL fgMenu_Message(fgMenu* self, const FG_Msg* msg)
 void FG_FASTCALL fgSubmenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
   assert(self != 0);
-  if(!transform) transform = (parent != 0 && parent->parent != 0 && parent->parent->GetClassName() == MENU_NAME) ? &fgTransform { { 0, 0, 0, 1.0, 0, 0, 0, 1.0 }, 0, { 0,0,0,0 } } : &fgTransform { { 0, 1.0, 0, 0, 0, 1.0, 0, 0 }, 0, { 0,0,0,0 } };
+  const fgTransform TF_MENU = { { 0, 0, 0, 1.0, 0, 0, 0, 1.0 }, 0,{ 0,0,0,0 } };
+  const fgTransform TF_SUBMENU = { { 0, 1.0, 0, 0, 0, 1.0, 0, 0 }, 0,{ 0,0,0,0 } };
+  if(!transform) transform = (parent != 0 && parent->parent != 0 && parent->parent->GetClassName() == MENU_NAME) ? &TF_MENU : &TF_SUBMENU;
   fgElement_InternalSetup(*self, parent, next, name, ((flags&FGELEMENT_USEDEFAULTS) ? (FGELEMENT_NOCLIP | FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN | FGBOX_TILEY | FGELEMENT_EXPAND) : flags), transform, units, (fgDestroy)&fgMenu_Destroy, (fgMessage)&fgSubmenu_Message);
 }
 
@@ -134,10 +139,13 @@ size_t FG_FASTCALL fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_CONSTRUCT:
+  {
     fgBox_Message(&self->box, msg);
     self->expanded = 0;
-    fgElement_Init(&self->arrow, 0, 0, "Submenu$arrow", FGELEMENT_IGNORE | FGELEMENT_BACKGROUND | FGELEMENT_EXPAND, &fgTransform { { 0,1,0,0.5,0,1,0,0.5 }, 0, { 0.5,1.0 } }, 0);
+    const fgTransform TF_ARROW = { { 0,1,0,0.5,0,1,0,0.5 }, 0,{ 0.5,1.0 } };
+    fgElement_Init(&self->arrow, 0, 0, "Submenu$arrow", FGELEMENT_IGNORE | FGELEMENT_BACKGROUND | FGELEMENT_EXPAND, &TF_ARROW, 0);
     return FG_ACCEPT;
+  }
   case FG_MOUSEUP:
   case FG_MOUSEDOWN:
   {
@@ -172,7 +180,8 @@ size_t FG_FASTCALL fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
     if(!msg->other)
     {
       fgElement* item = fgmalloc<fgElement>(1, __FILE__, __LINE__);
-      fgElement_Init(item, *self, 0, "Submenu$seperator", FGELEMENT_IGNORE, &fgTransform { { 0,0,0,0,0,1.0,0,0 }, 0, { 0,0 } }, 0);
+      const fgTransform TF_SEPERATOR = { { 0,0,0,0,0,1.0,0,0 }, 0,{ 0,0 } };
+      fgElement_Init(item, *self, 0, "Submenu$seperator", FGELEMENT_IGNORE, &TF_SEPERATOR, 0);
       item->free = &fgfreeblank;
       return (size_t)item;
     }

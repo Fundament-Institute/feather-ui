@@ -16,6 +16,7 @@
 #include "fgDropdown.h"
 #include "fgTabcontrol.h"
 #include "fgMenu.h"
+#include "fgGrid.h"
 #include "feathercpp.h"
 #include "bss-util/cTrie.h"
 #include <stdlib.h>
@@ -103,6 +104,8 @@ void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, size_t dpi, fgBa
   fgRegisterControl("menu", (fgInitializer)fgMenu_Init, sizeof(fgMenu));
   fgRegisterControl("submenu", (fgInitializer)fgSubmenu_Init, sizeof(fgMenu));
   fgRegisterControl("menuitem", (fgInitializer)fgMenuItem_Init, sizeof(fgMenuItem));
+  fgRegisterControl("grid", (fgInitializer)fgGrid_Init, sizeof(fgGrid));
+  fgRegisterControl("gridrow", (fgInitializer)fgGridRow_Init, sizeof(fgGridRow));
   fgRegisterControl("debug", (fgInitializer)fgDebug_Init, sizeof(fgDebug));
 }
 
@@ -246,7 +249,7 @@ void FG_FASTCALL fgStandardDraw(fgElement* self, const AbsRect* area, size_t dpi
     fgroot_instance->backend.fgPopClipRect();
 }
 
-void FG_FASTCALL fgOrderedDraw(fgElement* self, const AbsRect* area, size_t dpi, char culled, fgElement* skip, fgElement* (*fn)(fgElement*, const AbsRect*), void(*draw)(fgElement*, const AbsRect*, size_t))
+void FG_FASTCALL fgOrderedDraw(fgElement* self, const AbsRect* area, size_t dpi, char culled, fgElement* skip, fgElement* (*fn)(fgElement*, const AbsRect*, const AbsRect*), void(*draw)(fgElement*, const AbsRect*, size_t))
 {
   if(culled) // If we are culled, thee's no point drawing ordered elements, because ordered elements aren't non-clipping, so we let the standard draw take care of it.
     return fgStandardDraw(self, area, dpi, culled);
@@ -267,7 +270,7 @@ void FG_FASTCALL fgOrderedDraw(fgElement* self, const AbsRect* area, size_t dpi,
   AbsRect out;
   fgRectIntersection(area, &fgroot_instance->backend.fgPeekClipRect(), &out);
   // do binary search on the absolute resolved bottomright coordinates compared to the topleft corner of the render area
-  cur = fn(self, &out);
+  cur = fn(self, &out, area);
 
   if(!clipping)
   {
@@ -541,7 +544,7 @@ fgMonitor* FG_FASTCALL fgRoot_GetMonitor(const fgRoot* self, const AbsRect* rect
   return last;
 }
 
-fgDeferAction* FG_FASTCALL fgRoot_AllocAction(char (FG_FASTCALL *action)(void*), void* arg, double time)
+fgDeferAction* FG_FASTCALL fgRoot_AllocAction(char (MSC_FASTCALL *GCC_FASTCALL action)(void*), void* arg, double time)
 {
   fgDeferAction* r = fgmalloc<fgDeferAction>(1, __FILE__, __LINE__);
   r->action = action;
@@ -672,6 +675,14 @@ fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT
   if(!STRICMP(type, "tab"))
   {
     fgElement* e = parent->AddItemText(name);
+    if(transform) e->SetTransform(*transform);
+    e->SetFlags(flags);
+    return e;
+  }
+  if(!STRICMP(type, "column"))
+  {
+    fgElement* e = reinterpret_cast<fgGrid*>(parent)->InsertColumn(name, (size_t)~0);
+    if(transform) e->SetTransform(*transform);
     e->SetFlags(flags);
     return e;
   }

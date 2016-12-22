@@ -93,8 +93,9 @@ void FG_FASTCALL fgClassLayout_LoadLayoutXML(fgClassLayout* self, const cXMLNode
     int type = fgStyle_NodeEvalTransform(node, transform);
     int flags = fgSkinBase_GetFlagsFromString(node->GetAttributeString("flags"), 0);
 
+    fgTransform TF_SEPERATOR = { { 0,0,0,0,0,1.0,0,0 }, 0,{ 0,0,0,0 } };
     if(!STRICMP(node->GetName(), "menuitem") && !node->GetNodes() && !node->GetAttributeString("text")) // An empty menuitem is a special case
-      fgClassLayout_AddChild(self, "Element", "Submenu$seperator", FGELEMENT_IGNORE, &fgTransform { { 0,0,0,0,0,1.0,0,0 }, 0, {0,0,0,0} }, 0, (int)node->GetAttributeInt("order"));
+      fgClassLayout_AddChild(self, "Element", "Submenu$seperator", FGELEMENT_IGNORE, &TF_SEPERATOR, 0, (int)node->GetAttributeInt("order"));
     else
     {
       FG_UINT index = fgClassLayout_AddChild(self, node->GetName(), node->GetAttributeString("name"), flags, &transform, type, (int)node->GetAttributeInt("order"));
@@ -139,12 +140,14 @@ bool FG_FASTCALL fgLayout_LoadFileXML(fgLayout* self, const char* file)
   char* dir = strrchr(path.UnsafeString(), '/');
   if(dir) // If we find a /, we chop off the rest of the string AFTER it, so it becomes a valid directory path.
     dir[1] = 0;
-  return fgLayout_LoadStreamXML(self, std::ifstream(file, std::ios_base::in), path.c_str());
+  std::ifstream fs(file, std::ios_base::in);
+  return fgLayout_LoadStreamXML(self, fs, path.c_str());
 }
 
 bool FG_FASTCALL fgLayout_LoadXML(fgLayout* self, const char* data, FG_UINT length)
 {
-  return fgLayout_LoadStreamXML(self, std::stringstream(std::string(data, length)), 0);
+  std::stringstream ss(std::string(data, length));
+  return fgLayout_LoadStreamXML(self, ss, 0);
 }
 
 void FG_FASTCALL fgLayout_SaveFileXML(fgLayout* self, const char* file)

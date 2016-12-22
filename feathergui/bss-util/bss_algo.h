@@ -19,29 +19,37 @@
 #endif
 
 namespace bss_util {
+  // A generalization of the binary search that allows for auxiliary arguments to be passed into the comparison function
+  template<typename T, typename D, typename CT_, char(*CEQ)(const char&, const char&), char CVAL, typename... Args>
+  struct binsearch_aux_t {
+    template<char(*CFunc)(const D&, const T&, Args...)>
+    inline static CT_ BSS_FASTCALL binsearch_near(const T* arr, const D& data, CT_ first, CT_ last, Args... args)
+    {
+      typename std::make_signed<CT_>::type c = last - first; // Must be a signed version of whatever CT_ is
+      CT_ c2; //No possible operation can make this negative so we leave it as possibly unsigned.
+      CT_ m;
+      while(c > 0)
+      {
+        c2 = (c >> 1);
+        m = first + c2;
+
+        //if(!(_Val < *_Mid))
+        if((*CEQ)((*CFunc)(data, arr[m], args...), CVAL))
+        {	// try top half
+          first = m + 1;
+          c -= c2 + 1;
+        }
+        else
+          c = c2;
+      }
+      return first;
+    }
+  };
+
   // Performs a binary search on "arr" between first and last. if CEQ=NEQ and char CVAL=-1, uses an upper bound, otherwise uses lower bound.
   template<typename T, typename D, typename CT_, char(*CFunc)(const D&, const T&), char(*CEQ)(const char&, const char&), char CVAL>
-  inline static CT_ BSS_FASTCALL binsearch_near(const T* arr, const D& data, CT_ first, CT_ last)
-  {
-    typename std::make_signed<CT_>::type c = last - first; // Must be a signed version of whatever CT_ is
-    CT_ c2; //No possible operation can make this negative so we leave it as possibly unsigned.
-    CT_ m;
-    while(c > 0)
-    {
-      c2 = (c >> 1);
-      m = first + c2;
+  BSS_FORCEINLINE static CT_ BSS_FASTCALL binsearch_near(const T* arr, const D& data, CT_ first, CT_ last) { return binsearch_aux_t<T, D, CT_, CEQ, CVAL>::template binsearch_near<CFunc>(arr, data, first, last); }
 
-      //if(!(_Val < *_Mid))
-      if((*CEQ)((*CFunc)(data, arr[m]), CVAL))
-      {	// try top half
-        first = m + 1;
-        c -= c2 + 1;
-      }
-      else
-        c = c2;
-    }
-    return first;
-  }
   // Either gets the element that matches the value in question or one immediately before the closest match. Could return an invalid -1 value.
   template<typename T, typename CT_, char(*CFunc)(const T&, const T&)>
   BSS_FORCEINLINE static CT_ BSS_FASTCALL binsearch_before(const T* arr, const T& data, CT_ first, CT_ last) { return binsearch_near<T, T, CT_, CFunc, CompT_NEQ<char>, -1>(arr, data, first, last) - 1; }

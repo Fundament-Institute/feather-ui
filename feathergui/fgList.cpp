@@ -4,10 +4,11 @@
 #include "fgList.h"
 #include "fgRoot.h"
 #include "fgCurve.h"
-#include "bss-util\bss_util.h"
+#include "bss-util/bss_util.h"
 #include "feathercpp.h"
 
 static const char* FGSTR_LISTITEM = "ListItem";
+typedef bss_util::cArraySort<fgElement*> fgElementArray;
 
 void FG_FASTCALL fgListItem_Init(fgControl* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
@@ -52,7 +53,7 @@ void FG_FASTCALL fgList_Init(fgList* self, fgElement* BSS_RESTRICT parent, fgEle
 }
 void FG_FASTCALL fgList_Destroy(fgList* self)
 {
-  ((bss_util::cArraySort<fgElement*>&)self->selected).~cArraySort();
+  ((fgElementArray&)self->selected).~cArraySort();
   fgBox_Destroy(&self->box);
 }
 void fgList_Draw(fgElement* self, const AbsRect* area, size_t dpi)
@@ -64,7 +65,7 @@ void fgList_Draw(fgElement* self, const AbsRect* area, size_t dpi)
     {
       AbsRect r;
       ResolveRectCache(realself->selected.p[i], &r, area, (realself->selected.p[i]->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
-      fgroot_instance->backend.fgDrawResource(0, &CRect { 0 }, realself->select.color, 0, 0.0f, &r, 0.0f, &AbsVec { 0,0 }, FGRESOURCE_ROUNDRECT);
+      fgroot_instance->backend.fgDrawResource(0, &CRect_EMPTY, realself->select.color, 0, 0.0f, &r, 0.0f, &AbsVec_EMPTY, FGRESOURCE_ROUNDRECT);
     }
   }
 
@@ -78,7 +79,8 @@ void fgList_Draw(fgElement* self, const AbsRect* area, size_t dpi)
       ResolveRectCache(target, &r, (AbsRect*)&cache, (target->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
       float y = (realself->mouse.y > ((r.top + r.bottom) * 0.5f)) ? r.bottom : r.top;
       AbsVec line[2] = { { r.left, y }, { r.right - 1, y } };
-      fgroot_instance->backend.fgDrawLines(line, 2, realself->drag.color, &AbsVec { 0,0 }, &AbsVec { 1,1 }, 0, &AbsVec { 0,0 });
+      const AbsVec FULLVEC = { 1,1 };
+      fgroot_instance->backend.fgDrawLines(line, 2, realself->drag.color, &AbsVec_EMPTY, &FULLVEC, 0, &AbsVec_EMPTY);
     }
   }
   else
@@ -89,7 +91,7 @@ void fgList_Draw(fgElement* self, const AbsRect* area, size_t dpi)
     {
       AbsRect r;
       ResolveRectCache(target, &r, &cache, (target->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
-      fgroot_instance->backend.fgDrawResource(0, &CRect { 0 }, realself->hover.color, 0, 0.0f, &r, 0.0f, &AbsVec { 0,0 }, FGRESOURCE_ROUNDRECT);
+      fgroot_instance->backend.fgDrawResource(0, &CRect_EMPTY, realself->hover.color, 0, 0.0f, &r, 0.0f, &AbsVec_EMPTY, FGRESOURCE_ROUNDRECT);
     }
   }
 }
@@ -100,18 +102,21 @@ fgElement* fgList_GetSplit(fgList* self, const FG_Msg* msg)
     AbsRect cache;
     ResolveRect(*self, &cache);
     fgElement* cur = self->box->GetItemAt(msg->x, msg->y);
-    AbsRect child;
-    ResolveRectCache(cur, &child, &cache, &self->box->padding);
-    bool prev = (self->box->flags&FGBOX_TILEX) ? (msg->x < (child.left + child.right)*0.5f) : (msg->y < (child.top + child.bottom)*0.5f);
-    fgElement* p = prev ? fgLayout_GetPrev(cur) : fgLayout_GetNext(cur);
-    if(p) // You can't split if there's no previous or next element to split between.
+    if(cur != 0)
     {
-      AbsRect after = child; // By setting after to child we can resolve back to child instead of after if we're resolving a previous element
-      ResolveRectCache(p, prev ? &child : &after, &cache, &self->box->padding);
-      FABS mid = (self->box->flags&FGBOX_TILEX) ? (child.right + after.left)*0.5f : (child.bottom + after.top)*0.5f;
-      FABS mpos = (self->box->flags&FGBOX_TILEX) ? msg->x : msg->y;
-      if(abs(mpos - mid) <= self->splitter)
-        return prev ? p : cur;
+      AbsRect child;
+      ResolveRectCache(cur, &child, &cache, &self->box->padding);
+      bool prev = (self->box->flags&FGBOX_TILEX) ? (msg->x < (child.left + child.right)*0.5f) : (msg->y < (child.top + child.bottom)*0.5f);
+      fgElement* p = prev ? fgLayout_GetPrev(cur) : fgLayout_GetNext(cur);
+      if(p) // You can't split if there's no previous or next element to split between.
+      {
+        AbsRect after = child; // By setting after to child we can resolve back to child instead of after if we're resolving a previous element
+        ResolveRectCache(p, prev ? &child : &after, &cache, &self->box->padding);
+        FABS mid = (self->box->flags&FGBOX_TILEX) ? (child.right + after.left)*0.5f : (child.bottom + after.top)*0.5f;
+        FABS mpos = (self->box->flags&FGBOX_TILEX) ? msg->x : msg->y;
+        if(abs(mpos - mid) <= self->splitter)
+          return prev ? p : cur;
+      }
     }
   }
   return 0;
@@ -141,7 +146,7 @@ size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
     fgUpdateMouseState(&self->mouse, msg);
     if(self->split = fgList_GetSplit(self, msg))
     {
-      self->splitedge = (self->box->flags&FGBOX_TILEX) ? self->split->transform.area.right.abs : self->split->transform.area.bottom.abs;
+      self->splitedge = (self->box->flags&FGBOX_TILEX) ? self->split->transform.area.left.abs + fgLayout_GetElementWidth(self->split) : self->split->transform.area.top.abs + fgLayout_GetElementHeight(self->split);
       self->splitmouse = (self->box->flags&FGBOX_TILEX) ? msg->x : msg->y;
       break;
     }
@@ -151,26 +156,26 @@ size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
       fgElement* target = fgElement_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
       if(!target)
         break;
-      size_t index = ((bss_util::cArraySort<fgElement*>&)self->selected).Find(target);
+      size_t index = ((fgElementArray&)self->selected).Find(target);
       if((self->box->flags&FGLIST_MULTISELECT) != FGLIST_MULTISELECT || !fgroot_instance->GetKey(FG_KEY_SHIFT))
       {
         for(size_t i = 0; i < self->selected.l; ++i)
           if(self->selected.p[i]->GetClassName() == FGSTR_LISTITEM)
             fgStandardNeutralSetStyle(self->selected.p[i], "selected", FGSETSTYLE_REMOVEFLAG);
-        ((bss_util::cArraySort<fgElement*>&)self->selected).Clear();
+        ((fgElementArray&)self->selected).Clear();
       }
       else if(index != (size_t)-1)
       {
         if(self->selected.p[index]->GetClassName() == FGSTR_LISTITEM)
           fgStandardNeutralSetStyle(self->selected.p[index], "selected", FGSETSTYLE_REMOVEFLAG);
-        ((bss_util::cArraySort<fgElement*>&)self->selected).Remove(index);
+        ((fgElementArray&)self->selected).Remove(index);
       }
 
       if(index == (size_t)-1)
       {
         if(target->GetClassName() == FGSTR_LISTITEM)
           fgStandardNeutralSetStyle(target, "selected", FGSETSTYLE_SETFLAG);
-        ((bss_util::cArraySort<fgElement*>&)self->selected).Insert(target);
+        ((fgElementArray&)self->selected).Insert(target);
       }
     }
     break;

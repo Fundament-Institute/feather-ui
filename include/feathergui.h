@@ -20,6 +20,7 @@
 
 #include <assert.h>
 #include <string.h> // memcpy,memset
+#include <stddef.h>
 #include "bss_compiler.h"
 
 #ifdef  __cplusplus
@@ -123,6 +124,8 @@ FG_EXTERN const fgColor fgColor_WHITE;
 FG_EXTERN const fgTransform fgTransform_DEFAULT;
 FG_EXTERN const fgTransform fgTransform_EMPTY;
 FG_EXTERN const fgTransform fgTransform_CENTER;
+FG_EXTERN const CRect CRect_EMPTY;
+FG_EXTERN const AbsVec AbsVec_EMPTY;
 
 enum FGMOVE
 {
@@ -170,6 +173,9 @@ enum FGSETCOLOR
   FGSETCOLOR_HOVER,
   FGSETCOLOR_DRAG,
   FGSETCOLOR_EDGE,
+  FGSETCOLOR_ROWEDGE,
+  FGSETCOLOR_COLUMNEDGE,
+  FGSETCOLOR_ROWEVEN,
 };
 
 enum FGDIM
@@ -239,6 +245,8 @@ enum FGITEM
   FGITEM_ELEMENT,
   FGITEM_ROW,
   FGITEM_COLUMN,
+  FGITEM_LOCATION,
+  FGITEM_COUNT,
 };
 
 enum FGVALUE
@@ -246,7 +254,8 @@ enum FGVALUE
   FGVALUE_UNKNOWN = 0,
   FGVALUE_INT64 = 1,
   FGVALUE_FLOAT = 2,
-  FGVALUE_POINTER = 3
+  FGVALUE_POINTER = 3,
+  FGVALUE_ROW = 4,
 };
 
 enum FG_MSGTYPE

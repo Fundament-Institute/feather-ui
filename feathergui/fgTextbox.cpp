@@ -73,6 +73,7 @@ inline size_t FG_FASTCALL fgTextbox_fixindex(fgTextbox* self, AbsVec pos, AbsVec
 }
 inline void FG_FASTCALL fgTextbox_Insert(fgTextbox* self, size_t start, const int* s, size_t len)
 {
+  if(!s[len - 1]) --len; // We cannot insert a null pointer in the middle of our text, so remove it if it exists.
   ((bss_util::cDynArray<int>*)&self->text)->Reserve(self->text.l + len + 1);
   assert(self->text.p != 0);
   bss_util::InsertRangeSimple<int>(self->text.p, self->text.l, start, s, len);

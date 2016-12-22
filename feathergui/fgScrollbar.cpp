@@ -2,7 +2,7 @@
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #include "fgScrollbar.h"
-#include "bss-util\bss_util.h"
+#include "bss-util/bss_util.h"
 #include "feathercpp.h"
 
 void FG_FASTCALL fgScrollbar_Init(fgScrollbar* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
@@ -127,8 +127,8 @@ void FG_FASTCALL fgScrollbar_Recalc(fgScrollbar* self)
   bool hidev = !!(self->control.element.flags&FGSCROLLBAR_HIDEV);
 
   // We have to figure out which scrollbars are visible based on flags and our dimensions
-  bool scrollx = !hideh && ((dim.x < self->realsize.x + self->realpadding.left + self->realpadding.right + bssmax(self->barcache.y, 0)) || self->control.element.flags&FGSCROLLBAR_SHOWH);
-  bool scrolly = !hidev && ((dim.y < self->realsize.y + self->realpadding.top + self->realpadding.bottom + bssmax(self->barcache.x, 0)) || self->control.element.flags&FGSCROLLBAR_SHOWV);
+  bool scrollx = !hideh && ((dim.x < self->realsize.x + self->realpadding.left + self->realpadding.right + self->control->margin.left + self->control->margin.right + bssmax(self->barcache.y, 0)) || self->control.element.flags&FGSCROLLBAR_SHOWH);
+  bool scrolly = !hidev && ((dim.y < self->realsize.y + self->realpadding.top + self->realpadding.bottom + self->control->margin.top + self->control->margin.bottom + bssmax(self->barcache.x, 0)) || self->control.element.flags&FGSCROLLBAR_SHOWV);
 
   // If we are adding or removing a scrollbar, this will change the padding and could change everything else (e.g. for textboxes)
   if((self->barcache.x != 0.0f && scrollx ^ (self->barcache.x > 0)) || (self->barcache.y != 0.0f && scrolly ^ (self->barcache.y > 0)))
@@ -156,9 +156,9 @@ void FG_FASTCALL fgScrollbar_Recalc(fgScrollbar* self)
   // Expand area in response to adding scrollbars if necessary
   CRect area = self->control.element.transform.area;
   if(self->control.element.flags & FGELEMENT_EXPANDX)
-    area.right.abs = area.left.abs + self->realsize.x + self->realpadding.left + self->realpadding.right + bssmax(self->barcache.y, 0);
+    area.right.abs = area.left.abs + self->realsize.x + self->realpadding.left + self->realpadding.right + self->control->margin.left + self->control->margin.right + bssmax(self->barcache.y, 0);
   if(self->control.element.flags & FGELEMENT_EXPANDY)
-    area.bottom.abs = area.top.abs + self->realsize.y + self->realpadding.top + self->realpadding.bottom + bssmax(self->barcache.x, 0);
+    area.bottom.abs = area.top.abs + self->realsize.y + self->realpadding.top + self->realpadding.bottom + self->control->margin.top + self->control->margin.bottom + bssmax(self->barcache.x, 0);
   _sendmsg<FG_SETAREA, void*>(*self, &area); // SETAREA will set MAXDIM appropriately
 
   // If both scrollbars are active, set the margins to exclude them from the corner
@@ -306,9 +306,9 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
         {
           CRect area = self->control.element.transform.area;
           if(self->control.element.flags & FGELEMENT_EXPANDX)
-            area.right.abs = area.left.abs + self->realsize.x + self->realpadding.left + self->realpadding.right + bssmax(self->barcache.y, 0);
+            area.right.abs = area.left.abs + self->realsize.x + self->realpadding.left + self->realpadding.right + self->control->margin.top + self->control->margin.bottom + bssmax(self->barcache.y, 0);
           if(self->control.element.flags & FGELEMENT_EXPANDY)
-            area.bottom.abs = area.top.abs + self->realsize.y + self->realpadding.top + self->realpadding.bottom + bssmax(self->barcache.x, 0);
+            area.bottom.abs = area.top.abs + self->realsize.y + self->realpadding.top + self->realpadding.bottom + self->control->margin.top + self->control->margin.bottom + bssmax(self->barcache.x, 0);
           self->control.element.SetArea(area);
         }
         fgScrollbar_ApplyPadding(self, 0, 0); // we must do applypadding here so the scroll area responds correctly when realsize shrinks.

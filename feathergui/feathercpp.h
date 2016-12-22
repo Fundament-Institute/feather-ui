@@ -7,10 +7,10 @@
 #include "fgResource.h"
 #include "fgText.h"
 #include "fgRoot.h"
-#include "bss-util\cArraySort.h"
+#include "bss-util/cArraySort.h"
 #include "fgLayout.h"
-#include "bss-util\cHash.h"
-#include "bss-util\cAVLtree.h"
+#include "bss-util/cHash.h"
+#include "bss-util/cAVLtree.h"
 
 #ifdef BSS_64BIT
 #define kh_ptr_hash_func(key) kh_int64_hash_func((uint64_t)key)
@@ -38,7 +38,7 @@ class fgLeakTracker
 public:
   fgLeakTracker()
   {
-    fopen_s(&f, "memleaks.txt", "w");
+    FOPEN(f, "memleaks.txt", "w");
   }
   ~fgLeakTracker()
   {
@@ -136,7 +136,7 @@ BSS_FORCEINLINE static void fgfreeblank(void* p)
   fgfree(p, "", 0);
 }
 
-template<void* (FG_FASTCALL *CLONE)(void*), void (FG_FASTCALL *DESTROY)(void*)>
+template<void* (MSC_FASTCALL *GCC_FASTCALL CLONE)(void*), void (MSC_FASTCALL *GCC_FASTCALL DESTROY)(void*)>
 struct fgArbitraryRef
 {
   fgArbitraryRef() : ref(0) {}
@@ -154,7 +154,7 @@ struct fgArbitraryRef
 template<class T, typename... Args>
 struct fgConstruct
 {
-  template<void (FG_FASTCALL *DESTROY)(T*), void (FG_FASTCALL *CONSTRUCT)(T*, Args...)>
+  template<void (MSC_FASTCALL *GCC_FASTCALL DESTROY)(T*), void (MSC_FASTCALL *GCC_FASTCALL CONSTRUCT)(T*, Args...)>
   struct fgConstructor : public T
   {
     fgConstructor(fgConstructor&& mov) { memcpy(this, &mov, sizeof(T)); memset(&mov, 0, sizeof(T)); }
@@ -171,7 +171,7 @@ struct fgConstruct
 template<class T>
 struct fgConstruct<T>
 {
-  template<void (FG_FASTCALL *DESTROY)(T*), void (FG_FASTCALL *CONSTRUCT)(T*)>
+  template<void (MSC_FASTCALL *GCC_FASTCALL DESTROY)(T*), void (MSC_FASTCALL *GCC_FASTCALL CONSTRUCT)(T*)>
   struct fgConstructor : public T
   {
     fgConstructor(fgConstructor&& mov) { memcpy(this, &mov, sizeof(T)); memset(&mov, 0, sizeof(T)); }
@@ -206,9 +206,7 @@ typedef bss_util::cDynArray<fgArbitraryRef<fgCloneResourceCpp, fgDestroyResource
 typedef bss_util::cDynArray<fgArbitraryRef<fgCloneFontCpp, fgDestroyFontCpp>, FG_UINT, bss_util::CARRAY_CONSTRUCT> fgFontArray;
 
 template<class T>
-auto DynGet(const fgVector& r, FG_UINT i) { return ((T&)r)[i]; }
-template<class T>
-auto DynGetP(const fgVector& r, FG_UINT i) { return ((T&)r).begin()+i; }
+typename T::T_ DynGet(const fgVector& r, FG_UINT i) { return ((T&)r)[i]; }
 
 template<class T>
 char DynArrayRemove(T& a, FG_UINT index)
@@ -260,7 +258,7 @@ inline size_t _sendsubmsg(fgElement* self, unsigned short sub, Args... args)
   return (*fgroot_instance->backend.behaviorhook)(self, &msg);
 }
 
-FG_EXTERN bss_util::cHash<std::pair<fgElement*, unsigned short>, void(FG_FASTCALL *)(struct _FG_ELEMENT*, const FG_Msg*)> fgListenerHash;
+FG_EXTERN bss_util::cHash<std::pair<fgElement*, unsigned short>, fgListener> fgListenerHash;
 
 inline FG_UINT fgStyleGetMask() { return 0; }
 
@@ -341,5 +339,14 @@ extern void FG_FASTCALL fgStyle_LoadAttributesXML(struct _FG_STYLE* self, const 
 extern int FG_FASTCALL fgStyle_NodeEvalTransform(const bss_util::cXMLNode* node, fgTransform& t);
 extern fgElement* fgLayout_GetNext(fgElement* cur);
 extern fgElement* fgLayout_GetPrev(fgElement* cur);
+BSS_FORCEINLINE FABS FG_FASTCALL fgLayout_GetElementWidth(fgElement* child);
+BSS_FORCEINLINE FABS FG_FASTCALL fgLayout_GetElementHeight(fgElement* child);
+
+struct _FG_BOX_ORDERED_ELEMENTS_;
+
+template<fgFlag FLAGS>
+inline fgElement* fgOrderedGet(struct _FG_BOX_ORDERED_ELEMENTS_* self, const AbsRect* area, const AbsRect* cache);
+template<fgFlag FLAGS>
+inline fgElement* fgOrderedVec(struct _FG_BOX_ORDERED_ELEMENTS_* order, AbsVec v);
 
 #endif

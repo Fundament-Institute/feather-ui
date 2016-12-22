@@ -16,12 +16,12 @@ struct __kh_fgFunctionMap_t;
 struct __kh_fgIDMap_t;
 struct __kh_fgIDHash_t;
 struct _FG_MONITOR;
-typedef void(FG_FASTCALL *fgInitializer)(fgElement* BSS_RESTRICT, fgElement* BSS_RESTRICT, fgElement* BSS_RESTRICT, const char*, fgFlag, const fgTransform*, unsigned short);
+typedef void(MSC_FASTCALL *GCC_FASTCALL fgInitializer)(fgElement* BSS_RESTRICT, fgElement* BSS_RESTRICT, fgElement* BSS_RESTRICT, const char*, fgFlag, const fgTransform*, unsigned short);
 
 typedef struct _FG_DEFER_ACTION {
   struct _FG_DEFER_ACTION* next; // It's crucial that this is the first element
   struct _FG_DEFER_ACTION* prev;
-  char (FG_FASTCALL *action)(void*); // If this returns nonzero, this node is deallocated after this returns.
+  char (MSC_FASTCALL *GCC_FASTCALL action)(void*); // If this returns nonzero, this node is deallocated after this returns.
   void* arg; // Argument passed into the function
   double time; // Time when the action should be triggered
 } fgDeferAction;
@@ -54,6 +54,7 @@ typedef struct _FG_ROOT {
   fgElement* dragdraw;
   fgElement* topmost;
   unsigned int keys[8]; // 8*4*8 = 256
+  void* aniroot;
 #ifdef  __cplusplus
   inline bool GetKey(unsigned char key) const { return (keys[key / 32] & (1 << (key % 32))) != 0; }
   inline operator fgElement*() { return &gui.element; }
@@ -69,7 +70,7 @@ FG_EXTERN size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg); // 
 FG_EXTERN void FG_FASTCALL fgRoot_Update(fgRoot* self, double delta);
 FG_EXTERN void FG_FASTCALL fgRoot_CheckMouseMove(fgRoot* self);
 FG_EXTERN void FG_FASTCALL fgRoot_SetCursor(char cursor, void* data);
-FG_EXTERN fgDeferAction* FG_FASTCALL fgRoot_AllocAction(char (FG_FASTCALL *action)(void*), void* arg, double time);
+FG_EXTERN fgDeferAction* FG_FASTCALL fgRoot_AllocAction(char (MSC_FASTCALL *GCC_FASTCALL action)(void*), void* arg, double time);
 FG_EXTERN void FG_FASTCALL fgRoot_DeallocAction(fgRoot* self, fgDeferAction* action); // Removes action from the list if necessary
 FG_EXTERN void FG_FASTCALL fgRoot_AddAction(fgRoot* self, fgDeferAction* action); // Adds an action. Action can't already be in list.
 FG_EXTERN void FG_FASTCALL fgRoot_RemoveAction(fgRoot* self, fgDeferAction* action); // Removes an action. Action must be in list.
@@ -81,7 +82,7 @@ FG_EXTERN char FG_FASTCALL fgRoot_RemoveID(fgRoot* self, fgElement* element);
 FG_EXTERN size_t FG_FASTCALL fgStandardInject(fgElement* self, const FG_Msg* msg, const AbsRect* area);
 FG_EXTERN size_t FG_FASTCALL fgOrderedInject(fgElement* self, const FG_Msg* msg, const AbsRect* area, fgElement* skip, fgElement* (*fn)(fgElement*, const FG_Msg*));
 FG_EXTERN void FG_FASTCALL fgStandardDraw(fgElement* self, const AbsRect* area, size_t dpi, char culled);
-FG_EXTERN void FG_FASTCALL fgOrderedDraw(fgElement* self, const AbsRect* area, size_t dpi, char culled, fgElement* skip, fgElement* (*fn)(fgElement*, const AbsRect*), void(*draw)(fgElement*, const AbsRect*, size_t));
+FG_EXTERN void FG_FASTCALL fgOrderedDraw(fgElement* self, const AbsRect* area, size_t dpi, char culled, fgElement* skip, fgElement* (*fn)(fgElement*, const AbsRect*, const AbsRect*), void(*draw)(fgElement*, const AbsRect*, size_t));
 FG_EXTERN fgElement* FG_FASTCALL fgCreate(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
 FG_EXTERN int FG_FASTCALL fgRegisterFunction(const char* name, fgListener fn);
 FG_EXTERN void FG_FASTCALL fgRegisterControl(const char* name, fgInitializer fn, size_t sz);

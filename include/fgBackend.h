@@ -14,40 +14,40 @@ struct _FG_ROOT;
 struct __VECTOR__KeyValue;
 
 typedef struct _FG_BACKEND {
-  size_t(FG_FASTCALL *behaviorhook)(struct _FG_ELEMENT* self, const FG_Msg* msg);
-  void* (FG_FASTCALL *fgCreateFont)(fgFlag flags, const char* font, unsigned int fontsize, unsigned int dpi);
-  void* (FG_FASTCALL *fgCopyFont)(void* font, unsigned int fontsize, unsigned int dpi);
-  void* (FG_FASTCALL *fgCloneFont)(void* font);
-  void (FG_FASTCALL *fgDestroyFont)(void* font);
-  void* (FG_FASTCALL *fgDrawFont)(void* font, const int* text, float lineheight, float letterspacing, unsigned int color, const AbsRect* area, FABS rotation, const AbsVec* center, fgFlag flags, void* cache);
-  void (FG_FASTCALL *fgFontSize)(void* font, const int* text, float lineheight, float letterspacing, AbsRect* area, fgFlag flags);
-  void (FG_FASTCALL *fgFontGet)(void* font, float* lineheight, unsigned int* size, unsigned int* dpi);
-  void* (FG_FASTCALL *fgCreateResource)(fgFlag flags, const char* data, size_t length);
-  void* (FG_FASTCALL *fgCloneResource)(void* res);
-  void (FG_FASTCALL *fgDestroyResource)(void* res);
-  void (FG_FASTCALL *fgDrawResource)(void* res, const CRect* uv, unsigned int color, unsigned int edge, FABS outline, const AbsRect* area, FABS rotation, const AbsVec* center, fgFlag flags);
-  void (FG_FASTCALL *fgResourceSize)(void* res, const CRect* uv, AbsVec* dim, fgFlag flags);
+  size_t(MSC_FASTCALL *GCC_FASTCALL behaviorhook)(struct _FG_ELEMENT* self, const FG_Msg* msg);
+  void* (MSC_FASTCALL *GCC_FASTCALL fgCreateFont)(fgFlag flags, const char* font, unsigned int fontsize, unsigned int dpi);
+  void* (MSC_FASTCALL *GCC_FASTCALL fgCopyFont)(void* font, unsigned int fontsize, unsigned int dpi);
+  void* (MSC_FASTCALL *GCC_FASTCALL fgCloneFont)(void* font);
+  void (MSC_FASTCALL *GCC_FASTCALL fgDestroyFont)(void* font);
+  void* (MSC_FASTCALL *GCC_FASTCALL fgDrawFont)(void* font, const int* text, float lineheight, float letterspacing, unsigned int color, const AbsRect* area, FABS rotation, const AbsVec* center, fgFlag flags, void* cache);
+  void (MSC_FASTCALL *GCC_FASTCALL fgFontSize)(void* font, const int* text, float lineheight, float letterspacing, AbsRect* area, fgFlag flags);
+  void (MSC_FASTCALL *GCC_FASTCALL fgFontGet)(void* font, float* lineheight, unsigned int* size, unsigned int* dpi);
+  void* (MSC_FASTCALL *GCC_FASTCALL fgCreateResource)(fgFlag flags, const char* data, size_t length);
+  void* (MSC_FASTCALL *GCC_FASTCALL fgCloneResource)(void* res);
+  void (MSC_FASTCALL *GCC_FASTCALL fgDestroyResource)(void* res);
+  void (MSC_FASTCALL *GCC_FASTCALL fgDrawResource)(void* res, const CRect* uv, unsigned int color, unsigned int edge, FABS outline, const AbsRect* area, FABS rotation, const AbsVec* center, fgFlag flags);
+  void (MSC_FASTCALL *GCC_FASTCALL fgResourceSize)(void* res, const CRect* uv, AbsVec* dim, fgFlag flags);
 
-  size_t(FG_FASTCALL *fgFontIndex)(void* font, const int* text, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, AbsVec pos, AbsVec* cursor, void* cache);
-  AbsVec(FG_FASTCALL *fgFontPos)(void* font, const int* text, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, size_t index, void* cache);
-  void (FG_FASTCALL *fgDrawLines)(const AbsVec* p, size_t n, unsigned int color, const AbsVec* translate, const AbsVec* scale, FABS rotation, const AbsVec* center);
-  fgElement* (FG_FASTCALL *fgCreate)(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
-  short (FG_FASTCALL *fgMessageMap)(const char* name);
-  void (FG_FASTCALL *fgUserDataMap)(fgElement* self, struct __VECTOR__KeyValue* pairs);
+  size_t(MSC_FASTCALL *GCC_FASTCALL fgFontIndex)(void* font, const int* text, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, AbsVec pos, AbsVec* cursor, void* cache);
+  AbsVec(MSC_FASTCALL *GCC_FASTCALL fgFontPos)(void* font, const int* text, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, size_t index, void* cache);
+  void (MSC_FASTCALL *GCC_FASTCALL fgDrawLines)(const AbsVec* p, size_t n, unsigned int color, const AbsVec* translate, const AbsVec* scale, FABS rotation, const AbsVec* center);
+  fgElement* (MSC_FASTCALL *GCC_FASTCALL fgCreate)(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
+  short (MSC_FASTCALL *GCC_FASTCALL fgMessageMap)(const char* name);
+  void (MSC_FASTCALL *GCC_FASTCALL fgUserDataMap)(fgElement* self, struct __VECTOR__KeyValue* pairs);
 
-  void (FG_FASTCALL *fgPushClipRect)(const AbsRect* clip);
-  AbsRect (FG_FASTCALL *fgPeekClipRect)();
-  void (FG_FASTCALL *fgPopClipRect)();
-  void (FG_FASTCALL *fgDragStart)(char type, void* data, fgElement* draw);
-  void (FG_FASTCALL *fgSetCursor)(unsigned int type, void* custom);
-  void (FG_FASTCALL *fgClipboardCopy)(unsigned int type, const void* data, size_t length);
-  char (FG_FASTCALL *fgClipboardExists)(unsigned int type);
-  const void* (FG_FASTCALL *fgClipboardPaste)(unsigned int type, size_t* length);
-  void (FG_FASTCALL *fgClipboardFree)(const void* mem);
-  void (FG_FASTCALL *fgDirtyElement)(fgElement* elem);
+  void (MSC_FASTCALL *GCC_FASTCALL fgPushClipRect)(const AbsRect* clip);
+  AbsRect (MSC_FASTCALL *GCC_FASTCALL fgPeekClipRect)();
+  void (MSC_FASTCALL *GCC_FASTCALL fgPopClipRect)();
+  void (MSC_FASTCALL *GCC_FASTCALL fgDragStart)(char type, void* data, fgElement* draw);
+  void (MSC_FASTCALL *GCC_FASTCALL fgSetCursor)(unsigned int type, void* custom);
+  void (MSC_FASTCALL *GCC_FASTCALL fgClipboardCopy)(unsigned int type, const void* data, size_t length);
+  char (MSC_FASTCALL *GCC_FASTCALL fgClipboardExists)(unsigned int type);
+  const void* (MSC_FASTCALL *GCC_FASTCALL fgClipboardPaste)(unsigned int type, size_t* length);
+  void (MSC_FASTCALL *GCC_FASTCALL fgClipboardFree)(const void* mem);
+  void (MSC_FASTCALL *GCC_FASTCALL fgDirtyElement)(fgElement* elem);
 
-  char (FG_FASTCALL *fgMessageLoop)(struct _FG_ROOT* root);
-  char (FG_FASTCALL *fgLoadExtension)(const char* extname, void* fg, size_t sz);
+  char (MSC_FASTCALL *GCC_FASTCALL fgMessageLoop)(struct _FG_ROOT* root);
+  char (MSC_FASTCALL *GCC_FASTCALL fgLoadExtension)(const char* extname, void* fg, size_t sz);
 } fgBackend;
 
 

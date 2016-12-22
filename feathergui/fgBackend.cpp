@@ -89,7 +89,7 @@ const void* FG_FASTCALL fgClipboardPasteDefault(unsigned int type, size_t* lengt
 void FG_FASTCALL fgClipboardFreeDefault(const void* mem) {}
 void FG_FASTCALL fgDirtyElementDefault(fgElement* elem) {}
 
-template<class T, void (FG_FASTCALL *INIT)(T* BSS_RESTRICT, fgElement* BSS_RESTRICT, fgElement* BSS_RESTRICT, const char*, fgFlag, const fgTransform*, unsigned short)>
+template<class T, void (MSC_FASTCALL *GCC_FASTCALL INIT)(T* BSS_RESTRICT, fgElement* BSS_RESTRICT, fgElement* BSS_RESTRICT, const char*, fgFlag, const fgTransform*, unsigned short)>
 BSS_FORCEINLINE fgElement* _create_default(fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units, const char* file, size_t line)
 {
   T* r = fgmalloc<T>(1, file, line);
