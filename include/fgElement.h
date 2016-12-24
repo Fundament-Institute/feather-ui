@@ -129,6 +129,8 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT void LostFocus();
   FG_DLLEXPORT size_t FG_FASTCALL SetName(const char* name);
   FG_DLLEXPORT const char* GetName();
+  FG_DLLEXPORT void FG_FASTCALL SetContextMenu(struct _FG_ELEMENT* menu);
+  FG_DLLEXPORT struct _FG_ELEMENT* GetContextMenu();
   FG_DLLEXPORT void Neutral();
   FG_DLLEXPORT void Hover();
   FG_DLLEXPORT void Active();

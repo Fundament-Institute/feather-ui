@@ -21,7 +21,7 @@ struct _FG_SKIN;
 // Defines the base GUI class for controls (as opposed to text or images)
 typedef struct _FG_CONTROL {
   fgElement element;
-  struct _FG_MENU* contextmenu;
+  fgElement* contextmenu;
   struct _FG_CONTROL* tabnext;
   struct _FG_CONTROL* tabprev;
   struct _FG_CONTROL* sidenext;

@@ -112,7 +112,10 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
     if(fgFocusedWindow != *self)
       _sendmsg<FG_GOTFOCUS>(*self);
     if(msg->button == FG_MOUSERBUTTON && self->contextmenu != 0)
-      _sendmsg<FG_GOTFOCUS>(*self->contextmenu);
+    {
+      MoveCRect(msg->x, msg->y, &self->contextmenu->transform.area);
+      _sendmsg<FG_GOTFOCUS>(self->contextmenu);
+    }
     return FG_ACCEPT;
   case FG_MOUSEMOVE:
     fgElement_DoHoverCalc(*self);
@@ -233,6 +236,12 @@ size_t FG_FASTCALL fgControl_HoverMessage(fgControl* self, const FG_Msg* msg)
       fgCaptureWindow = *self;
       _sendmsg<FG_ACTIVE>(*self);
     }
+    break;
+  case FG_SETCONTEXTMENU:
+    self->contextmenu = (fgElement*)msg->other;
+    break;
+  case FG_GETCONTEXTMENU:
+    return (size_t)self->contextmenu;
     break;
   }
   return fgControl_Message(self, msg);

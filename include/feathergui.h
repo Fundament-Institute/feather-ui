@@ -313,6 +313,8 @@ enum FG_MSGTYPE
   FG_LOSTFOCUS,
   FG_SETNAME, // Sets the unique name for this object for skin collection mapping. Can be null.
   FG_GETNAME, // May return a unique string for this object, or will return NULL.
+  FG_SETCONTEXTMENU,
+  FG_GETCONTEXTMENU,
   // fgButton and others
   FG_NEUTRAL, // Sent when a button or other hover-enabled control switches to it's neutral state
   FG_HOVER, // Sent when a hover-enabled control switches to its hover state

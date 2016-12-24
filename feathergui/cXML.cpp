@@ -66,7 +66,7 @@ cXMLNode& cXMLNode::operator=(cXMLNode&& mov)
 
 cXMLNode* cXMLNode::AddNode(const cXMLNode& node) { return _addnode(std::unique_ptr<cXMLNode>(new cXMLNode(node))); }
 cXMLNode* cXMLNode::AddNode(const char* name) { std::unique_ptr<cXMLNode> node(new cXMLNode()); node->_name = name; return _addnode(std::move(node)); }
-cXMLValue* cXMLNode::AddAttribute(const cXMLValue& value) { return _addattribute(std::move(cXMLValue(value))); }
+cXMLValue* cXMLNode::AddAttribute(const cXMLValue& value) { return _addattribute(cXMLValue(value)); }
 cXMLValue* cXMLNode::AddAttribute(const char* name) { cXMLValue v; v.Name=name; return _addattribute(std::move(v)); }
 bool cXMLNode::RemoveNode(size_t index)
 { 

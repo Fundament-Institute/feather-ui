@@ -90,6 +90,7 @@ FG_EXTERN void FG_FASTCALL fgDebug_Hide();
 FG_EXTERN fgDebug* FG_FASTCALL fgDebug_Get();
 FG_EXTERN size_t FG_FASTCALL fgDebug_LogMessage(fgDebug* self, const FG_Msg* msg, unsigned long long time, size_t depth);
 FG_EXTERN ptrdiff_t FG_FASTCALL fgDebug_WriteMessage(char* buf, size_t bufsize, fgDebugMessage* msg);
+FG_EXTERN void FG_FASTCALL fgDebug_DumpMessages(const char* file);
 FG_EXTERN void FG_FASTCALL fgDebug_BuildTree(fgElement* treeview);
 
 FG_EXTERN size_t FG_FASTCALL fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg);

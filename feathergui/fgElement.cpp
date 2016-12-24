@@ -1225,6 +1225,10 @@ size_t FG_FASTCALL fgElement::SetName(const char* name) { return _sendmsg<FG_SET
 
 const char* fgElement::GetName() { return reinterpret_cast<const char*>(_sendmsg<FG_GETNAME>(this)); }
 
+void FG_FASTCALL fgElement::SetContextMenu(fgElement* menu) { _sendmsg<FG_SETCONTEXTMENU, void*>(this, menu); }
+
+fgElement* fgElement::GetContextMenu() { return reinterpret_cast<fgElement*>(_sendmsg<FG_GETCONTEXTMENU>(this)); }
+
 void fgElement::Neutral() { _sendmsg<FG_NEUTRAL>(this); }
 
 void fgElement::Hover() { _sendmsg<FG_HOVER>(this); }

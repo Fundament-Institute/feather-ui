@@ -32,6 +32,22 @@ fgDebug* FG_FASTCALL fgDebug_Get()
   return fgdebug_instance;
 }
 
+fgElement* FG_FASTCALL fgDebug_GetTreeItem(fgElement* root, fgElement* target)
+{
+  if(target->parent != 0 && target->parent != &fgroot_instance->gui.element)
+    root = fgDebug_GetTreeItem(root, target->parent);
+  if(!root)
+    return 0;
+  fgElement* cur = root->root;
+  while(cur)
+  {
+    if(!(cur->flags&FGELEMENT_BACKGROUND) && cur->userdata == target)
+      return cur;
+    cur = cur->next;
+  }
+  return 0;
+}
+
 void FG_FASTCALL fgDebug_Destroy(fgDebug* self)
 {
   fgDebug_Hide();
@@ -42,6 +58,7 @@ void FG_FASTCALL fgDebug_Destroy(fgDebug* self)
   fgElement_Destroy(&self->element);
   fgdebug_instance = 0; // we can't null this until after we're finished destroying ourselves 
 }
+
 size_t FG_FASTCALL fgDebug_Message(fgDebug* self, const FG_Msg* msg)
 {
   assert(fgroot_instance != 0);
@@ -198,6 +215,53 @@ const char* fgDebug_GetElementName(fgDebug* self, fgElement* e)
   return !r ? e->GetClassName() : fgDebug_CopyText(self, r);
 }
 
+fgElement* fgDebug_GetElementUnderMouse()
+{
+  AbsRect cache;
+  fgElement* cur = fgroot_instance->gui;
+  fgElement* hover = 0;
+  while(cur)
+  {
+    hover = cur;
+    cur = fgElement_GetChildUnderMouse(cur, fgroot_instance->mouse.x, fgroot_instance->mouse.y, &cache);
+  }
+  return hover;
+}
+
+void FG_FASTCALL fgDebug_TreeInsert(fgElement* parent, fgElement* element, fgElement* treeview)
+{
+  assert(fgdebug_instance != 0);
+  assert(fgroot_instance != 0);
+  assert(element != 0);
+  fgElement* root = parent;
+
+  if(treeview != 0)
+  {
+    root = fgroot_instance->backend.fgCreate("TreeItem", parent, 0, 0, FGELEMENT_EXPAND, 0, 0);
+    root->message = (fgMessage)&fgTreeItem_DebugMessage;
+    root->userdata = element;
+  }
+  else
+    treeview = !fgdebug_instance ? parent : *fgdebug_instance;
+
+  fgElement* text = fgroot_instance->backend.fgCreate("Text", root, 0, 0, FGELEMENT_EXPAND, 0, 0);
+
+  if(element->GetName())
+    text->SetText(element->GetName());
+  else
+    text->SetText(element->GetClassName());
+
+  if(element == treeview)
+    return;
+
+  fgElement* cur = element->root;
+  while(cur)
+  {
+    fgDebug_TreeInsert(root, cur, treeview);
+    cur = cur->next;
+  }
+}
+
 size_t FG_FASTCALL fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
 {
   assert(fgdebug_instance != 0);
@@ -234,14 +298,9 @@ size_t FG_FASTCALL fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
     if(fgroot_instance->GetKey(FG_KEY_MENU))
     {
       fgdebug_instance->ignore += 1;
-      AbsRect cache;
-      fgElement* cur = fgroot_instance->gui;
-      while(cur)
-      {
-        fgdebug_instance->hover = cur;
-        cur = fgElement_GetChildUnderMouse(cur, fgroot_instance->mouse.x, fgroot_instance->mouse.y, &cache);
-      }
+      fgdebug_instance->hover = fgDebug_GetElementUnderMouse();
       fgdebug_instance->ignore -= 1;
+      return FG_ACCEPT;
     }
     else
       fgdebug_instance->hover = 0;
@@ -252,7 +311,16 @@ size_t FG_FASTCALL fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
     if(fgroot_instance->GetKey(FG_KEY_MENU))
       return FG_ACCEPT;
   case FG_MOUSEDOWN:
-
+    if(fgroot_instance->GetKey(FG_KEY_MENU))
+    {
+      fgdebug_instance->ignore += 1;
+      fgdebug_instance->hover = fgDebug_GetElementUnderMouse();
+      fgElement* treeitem = fgDebug_GetTreeItem(fgdebug_instance->elements, fgdebug_instance->hover);
+      if(treeitem)
+        treeitem->MouseDown(msg->x, msg->y, msg->button, msg->allbtn);
+      fgdebug_instance->ignore -= 1;
+      return FG_ACCEPT;
+    }
     break;
   }
 
@@ -302,41 +370,21 @@ size_t FG_FASTCALL fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
   fgdebug_instance->depthelement = prev;
   if(index < fgdebug_instance->messagelog.l)
     fgdebug_instance->messagelog.p[index].value = r;
+
+  if(msg->type == FG_REMOVECHILD && msg->other != 0 && !((fgElement*)msg->other)->parent)
+  {
+    fgElement* treeitem = fgDebug_GetTreeItem(fgdebug_instance->elements, (fgElement*)msg->other);
+    if(treeitem)
+      VirtualFreeChild(treeitem);
+  }
+  if(msg->type == FG_ADDCHILD && msg->other != 0 && ((fgElement*)msg->other)->parent == self)
+  {
+    fgElement* treeitem = fgDebug_GetTreeItem(fgdebug_instance->elements, self);
+    if(treeitem)
+      fgDebug_TreeInsert(fgdebug_instance->elements, (fgElement*)msg->other, 0);
+  }
+
   return r;
-}
-
-void FG_FASTCALL fgDebug_TreeInsert(fgElement* parent, fgElement* element, fgElement* treeview)
-{
-  assert(fgdebug_instance != 0);
-  assert(fgroot_instance != 0);
-  assert(element != 0);
-  fgElement* root = parent;
-
-  if(treeview != 0)
-  {
-    root = fgroot_instance->backend.fgCreate("TreeItem", parent, 0, 0, FGELEMENT_EXPAND, 0, 0);
-    root->message = (fgMessage)&fgTreeItem_DebugMessage;
-    root->userdata = element;
-  }
-  else
-    treeview = !fgdebug_instance ? parent : *fgdebug_instance;
-
-  fgElement* text = fgroot_instance->backend.fgCreate("Text", root, 0, 0, FGELEMENT_EXPAND, 0, 0);
-
-  if(element->GetName())
-    text->SetText(element->GetName());
-  else
-    text->SetText(element->GetClassName());
-
-  if(element == treeview)
-    return;
-
-  fgElement* cur = element->root;
-  while(cur)
-  {
-    fgDebug_TreeInsert(root, cur, treeview);
-    cur = cur->next;
-  }
 }
 
 void FG_FASTCALL fgDebug_BuildTree(fgElement* treeview)
@@ -597,6 +645,8 @@ const char* FG_FASTCALL fgDebug_GetMessageString(unsigned short msg)
   case FG_GETUSERDATA: return "FG_GETUSERDATA";
   case FG_SETTEXT: return "FG_SETTEXT";
   case FG_SETNAME: return "FG_SETNAME";
+  case FG_SETCONTEXTMENU: return "FG_SETCONTEXTMENU";
+  case FG_GETCONTEXTMENU: return "FG_GETCONTEXTMENU";
   case FG_MOUSESCROLL: return "FG_MOUSESCROLL";
   case FG_TOUCHBEGIN: return "FG_TOUCHBEGIN";
   case FG_TOUCHEND: return "FG_TOUCHEND";
@@ -617,167 +667,186 @@ const char* FG_FASTCALL fgDebug_GetMessageString(unsigned short msg)
   return "UNKNOWN MESSAGE";
 }
 
-ptrdiff_t FG_FASTCALL fgDebug_WriteMessage(char* buf, size_t bufsize, fgDebugMessage* msg)
+template<typename... Args>
+ptrdiff_t FG_FASTCALL fgDebug_WriteMessageFn(fgDebugMessage* msg, int(*fn) (Args..., const char *, ...), Args... args)
 {
   int spaces = (int)(msg->depth * 2);
 
   switch(msg->type)
   {
   case FG_CONSTRUCT:
-    return snprintf(buf, bufsize, "%*sFG_CONSTRUCT()", spaces, "");
+    return (*fn)(args..., "%*sFG_CONSTRUCT()", spaces, "");
   case FG_GETSTYLE:
-    return snprintf(buf, bufsize, "%*sFG_GETSTYLE() - %p", spaces, "", msg->valuep);
+    return (*fn)(args..., "%*sFG_GETSTYLE() - %p", spaces, "", msg->valuep);
   case FG_GETDPI:
-    return snprintf(buf, bufsize, "%*sFG_GETDPI() - %ti", spaces, "", msg->value);
+    return (*fn)(args..., "%*sFG_GETDPI() - %ti", spaces, "", msg->value);
   case FG_GETCLASSNAME:
-    return snprintf(buf, bufsize, "%*sFG_GETCLASSNAME() - %s", spaces, "", (char*)msg->valuep);
+    return (*fn)(args..., "%*sFG_GETCLASSNAME() - %s", spaces, "", (char*)msg->valuep);
   case FG_GETNAME:
-    return snprintf(buf, bufsize, "%*sFG_GETNAME() - %s", spaces, "", (char*)msg->valuep);
+    return (*fn)(args..., "%*sFG_GETNAME() - %s", spaces, "", (char*)msg->valuep);
   case FG_NEUTRAL:
-    return snprintf(buf, bufsize, "%*sFG_NEUTRAL()", spaces, "");
+    return (*fn)(args..., "%*sFG_NEUTRAL()", spaces, "");
   case FG_HOVER:
-    return snprintf(buf, bufsize, "%*sFG_HOVER()", spaces, "");
+    return (*fn)(args..., "%*sFG_HOVER()", spaces, "");
   case FG_ACTIVE:
-    return snprintf(buf, bufsize, "%*sFG_ACTIVE()", spaces, "");
+    return (*fn)(args..., "%*sFG_ACTIVE()", spaces, "");
   case FG_ACTION:
-    return snprintf(buf, bufsize, "%*sFG_ACTION()", spaces, "");
+    return (*fn)(args..., "%*sFG_ACTION()", spaces, "");
   case FG_GOTFOCUS:
-    return snprintf(buf, bufsize, "%*sFG_GOTFOCUS()", spaces, "");
+    return (*fn)(args..., "%*sFG_GOTFOCUS()", spaces, "");
   case FG_LOSTFOCUS:
-    return snprintf(buf, bufsize, "%*sFG_LOSTFOCUS()", spaces, "");
+    return (*fn)(args..., "%*sFG_LOSTFOCUS()", spaces, "");
   case FG_GETDIM:
-    return snprintf(buf, bufsize, "%*sFG_GETDIM:%hhu()", spaces, "", msg->subtype);
+    return (*fn)(args..., "%*sFG_GETDIM:%hhu()", spaces, "", msg->subtype);
   case FG_GETITEM:
-    return snprintf(buf, bufsize, "%*sFG_GETITEM() - 0x%p", spaces, "", msg->valuep);
+    return (*fn)(args..., "%*sFG_GETITEM() - 0x%p", spaces, "", msg->valuep);
   case FG_GETRESOURCE:
-    return snprintf(buf, bufsize, "%*sFG_GETRESOURCE() - 0x%p", spaces, "", msg->valuep);
+    return (*fn)(args..., "%*sFG_GETRESOURCE() - 0x%p", spaces, "", msg->valuep);
   case FG_GETUV:
-    //return snprintf(buf, bufsize, "%*sFG_GETUV() - CRect{%f,%f,%f,%f,%f,%f,%f,%f}", spaces, "");
-    return snprintf(buf, bufsize, "%*sFG_GETUV() - CRect", spaces, "");
+    //return (*fn)(args..., "%*sFG_GETUV() - CRect{%f,%f,%f,%f,%f,%f,%f,%f}", spaces, "");
+    return (*fn)(args..., "%*sFG_GETUV() - CRect", spaces, "");
   case FG_GETCOLOR:
-    return snprintf(buf, bufsize, "%*sFG_GETCOLOR() - %#zX", spaces, "", msg->value);
+    return (*fn)(args..., "%*sFG_GETCOLOR() - %#zX", spaces, "", msg->value);
   case FG_GETOUTLINE:
-    return snprintf(buf, bufsize, "%*sFG_GETOUTLINE() - %f", spaces, "", msg->valuef);
+    return (*fn)(args..., "%*sFG_GETOUTLINE() - %f", spaces, "", msg->valuef);
   case FG_GETFONT:
-    return snprintf(buf, bufsize, "%*sFG_GETFONT() - 0x%p", spaces, "", msg->valuep);
+    return (*fn)(args..., "%*sFG_GETFONT() - 0x%p", spaces, "", msg->valuep);
   case FG_GETLINEHEIGHT:
-    return snprintf(buf, bufsize, "%*sFG_GETLINEHEIGHT() - %f", spaces, "", msg->valuef);
+    return (*fn)(args..., "%*sFG_GETLINEHEIGHT() - %f", spaces, "", msg->valuef);
   case FG_GETLETTERSPACING:
-    return snprintf(buf, bufsize, "%*sFG_GETLETTERSPACING() - %f", spaces, "", msg->valuef);
+    return (*fn)(args..., "%*sFG_GETLETTERSPACING() - %f", spaces, "", msg->valuef);
   case FG_MOVE:
-    return snprintf(buf, bufsize, "%*sFG_MOVE:%hhu(%s [0x%p], %zu)", spaces, "", msg->subtype, _dbg_getstr(msg->arg1.name), msg->arg1.element, msg->arg2.u);
+    return (*fn)(args..., "%*sFG_MOVE:%hhu(%s [0x%p], %zu)", spaces, "", msg->subtype, _dbg_getstr(msg->arg1.name), msg->arg1.element, msg->arg2.u);
   case FG_SETALPHA:
-    return snprintf(buf, bufsize, "%*sFG_SETALPHA(%f)", spaces, "", msg->arg1.f);
+    return (*fn)(args..., "%*sFG_SETALPHA(%f)", spaces, "", msg->arg1.f);
   case FG_SETAREA:
-    return snprintf(buf, bufsize, "%*sFG_SETAREA(CRect{%f,%f,%f,%f,%f,%f,%f,%f})", spaces, "", OUTPUT_CRECT(msg->arg1.crect));
+    return (*fn)(args..., "%*sFG_SETAREA(CRect{%f,%f,%f,%f,%f,%f,%f,%f})", spaces, "", OUTPUT_CRECT(msg->arg1.crect));
   case FG_SETTRANSFORM:
-    return snprintf(buf, bufsize, "%*sFG_SETTRANSFORM(fgTransform{{%f,%f,%f,%f,%f,%f,%f,%f}, %f, {%f,%f,%f,%f})", spaces, "",
+    return (*fn)(args..., "%*sFG_SETTRANSFORM(fgTransform{{%f,%f,%f,%f,%f,%f,%f,%f}, %f, {%f,%f,%f,%f})", spaces, "",
       OUTPUT_CRECT(msg->arg1.transform.area),
       msg->arg1.transform.rotation,
       OUTPUT_CVEC(msg->arg1.transform.center));
   case FG_SETFLAG:
-    return snprintf(buf, bufsize, "%*sFG_SETFLAG(%#zX, %s)", spaces, "", msg->arg1.u, msg->arg2.u ? "true" : "false");
+    return (*fn)(args..., "%*sFG_SETFLAG(%#zX, %s)", spaces, "", msg->arg1.u, msg->arg2.u ? "true" : "false");
   case FG_SETFLAGS:
-    return snprintf(buf, bufsize, "%*sFG_SETFLAGS(%#zX)", spaces, "", msg->arg1.u);
+    return (*fn)(args..., "%*sFG_SETFLAGS(%#zX)", spaces, "", msg->arg1.u);
   case FG_SETMARGIN:
-    return snprintf(buf, bufsize, "%*sFG_SETMARGIN(AbsRect{%f, %f, %f, %f})", spaces, "", OUTPUT_RECT(msg->arg1.rect));
+    return (*fn)(args..., "%*sFG_SETMARGIN(AbsRect{%f, %f, %f, %f})", spaces, "", OUTPUT_RECT(msg->arg1.rect));
   case FG_SETPADDING:
-    return snprintf(buf, bufsize, "%*sFG_SETPADDING(AbsRect{%f, %f, %f, %f})", spaces, "", OUTPUT_RECT(msg->arg1.rect));
+    return (*fn)(args..., "%*sFG_SETPADDING(AbsRect{%f, %f, %f, %f})", spaces, "", OUTPUT_RECT(msg->arg1.rect));
   case FG_LAYOUTCHANGE:
-    return snprintf(buf, bufsize, "%*sFG_LAYOUTCHANGE:%hhu(0x%p, 0x%p)", spaces, "", msg->subtype, msg->arg1.p, msg->arg2.p);
+    return (*fn)(args..., "%*sFG_LAYOUTCHANGE:%hhu(0x%p, 0x%p)", spaces, "", msg->subtype, msg->arg1.p, msg->arg2.p);
   case FG_SETPARENT:
-    return snprintf(buf, bufsize, "%*sFG_SETPARENT(%s [0x%p], %s [0x%p])", spaces, "", _dbg_getstr(msg->arg1.name), msg->arg1.element, _dbg_getstr(msg->arg2.name), msg->arg2.element);
+    return (*fn)(args..., "%*sFG_SETPARENT(%s [0x%p], %s [0x%p])", spaces, "", _dbg_getstr(msg->arg1.name), msg->arg1.element, _dbg_getstr(msg->arg2.name), msg->arg2.element);
   case FG_ADDCHILD:
-    return snprintf(buf, bufsize, "%*sFG_ADDCHILD(%s [0x%p], %s [0x%p])", spaces, "", _dbg_getstr(msg->arg1.name), msg->arg1.element, _dbg_getstr(msg->arg2.name), msg->arg2.element);
+    return (*fn)(args..., "%*sFG_ADDCHILD(%s [0x%p], %s [0x%p])", spaces, "", _dbg_getstr(msg->arg1.name), msg->arg1.element, _dbg_getstr(msg->arg2.name), msg->arg2.element);
   case FG_REMOVECHILD:
-    return snprintf(buf, bufsize, "%*sFG_REMOVECHILD(%s [0x%p])", spaces, "", _dbg_getstr(msg->arg1.name), msg->arg1.element);
+    return (*fn)(args..., "%*sFG_REMOVECHILD(%s [0x%p])", spaces, "", _dbg_getstr(msg->arg1.name), msg->arg1.element);
   case FG_GETSKIN:
-    return snprintf(buf, bufsize, "%*sFG_GETSKIN(%s [0x%p]) - 0x%p", spaces, "", _dbg_getstr(msg->arg1.name), msg->arg1.element, msg->valuep);
+    return (*fn)(args..., "%*sFG_GETSKIN(%s [0x%p]) - 0x%p", spaces, "", _dbg_getstr(msg->arg1.name), msg->arg1.element, msg->valuep);
   case FG_LAYOUTFUNCTION:
-    return snprintf(buf, bufsize, "%*sFG_LAYOUTFUNCTION(0x%p, CRect{%f,%f,%f,%f,%f,%f,%f,%f})", spaces, "", msg->arg1.p, OUTPUT_CRECT(msg->arg2.crect));
+    return (*fn)(args..., "%*sFG_LAYOUTFUNCTION(0x%p, CRect{%f,%f,%f,%f,%f,%f,%f,%f})", spaces, "", msg->arg1.p, OUTPUT_CRECT(msg->arg2.crect));
   case FG_LAYOUTLOAD:
-    return snprintf(buf, bufsize, "%*sFG_LAYOUTLOAD(0x%p)", spaces, "", msg->arg1.p);
+    return (*fn)(args..., "%*sFG_LAYOUTLOAD(0x%p)", spaces, "", msg->arg1.p);
   case FG_SETRESOURCE:
-    return snprintf(buf, bufsize, "%*sFG_SETRESOURCE(0x%p)", spaces, "", msg->arg1.p);
+    return (*fn)(args..., "%*sFG_SETRESOURCE(0x%p)", spaces, "", msg->arg1.p);
   case FG_SETFONT:
-    return snprintf(buf, bufsize, "%*sFG_SETFONT(0x%p)", spaces, "", msg->arg1.p);
+    return (*fn)(args..., "%*sFG_SETFONT(0x%p)", spaces, "", msg->arg1.p);
   case FG_MOUSEDOWN:
-    return snprintf(buf, bufsize, "%*sFG_MOUSEDOWN(x:%i, y:%i, %#hhX, %#hhX)", spaces, "", msg->mouse.x, msg->mouse.y, msg->mouse.button, msg->mouse.allbtn);
+    return (*fn)(args..., "%*sFG_MOUSEDOWN(x:%i, y:%i, %#hhX, %#hhX)", spaces, "", msg->mouse.x, msg->mouse.y, msg->mouse.button, msg->mouse.allbtn);
   case FG_MOUSEDBLCLICK:
-    return snprintf(buf, bufsize, "%*sFG_MOUSEDBLCLICK(x:%i, y:%i, %#hhX, %#hhX)", spaces, "", msg->mouse.x, msg->mouse.y, msg->mouse.button, msg->mouse.allbtn);
+    return (*fn)(args..., "%*sFG_MOUSEDBLCLICK(x:%i, y:%i, %#hhX, %#hhX)", spaces, "", msg->mouse.x, msg->mouse.y, msg->mouse.button, msg->mouse.allbtn);
   case FG_MOUSEUP:
-    return snprintf(buf, bufsize, "%*sFG_MOUSEUP(x:%i, y:%i, %#hhX, %#hhX)", spaces, "", msg->mouse.x, msg->mouse.y, msg->mouse.button, msg->mouse.allbtn);
+    return (*fn)(args..., "%*sFG_MOUSEUP(x:%i, y:%i, %#hhX, %#hhX)", spaces, "", msg->mouse.x, msg->mouse.y, msg->mouse.button, msg->mouse.allbtn);
   case FG_MOUSEON:
-    return snprintf(buf, bufsize, "%*sFG_MOUSEON(x:%i, y:%i)", spaces, "", msg->mouse.x, msg->mouse.y);
+    return (*fn)(args..., "%*sFG_MOUSEON(x:%i, y:%i)", spaces, "", msg->mouse.x, msg->mouse.y);
   case FG_MOUSEOFF:
-    return snprintf(buf, bufsize, "%*sFG_MOUSEOFF(x:%i, y:%i)", spaces, "", msg->mouse.x, msg->mouse.y);
+    return (*fn)(args..., "%*sFG_MOUSEOFF(x:%i, y:%i)", spaces, "", msg->mouse.x, msg->mouse.y);
   case FG_MOUSEMOVE:
-    return snprintf(buf, bufsize, "%*sFG_MOUSEMOVE(x:%i, y:%i)", spaces, "", msg->mouse.x, msg->mouse.y);
+    return (*fn)(args..., "%*sFG_MOUSEMOVE(x:%i, y:%i)", spaces, "", msg->mouse.x, msg->mouse.y);
   case FG_DRAGOVER:
-    return snprintf(buf, bufsize, "%*sFG_DRAGOVER(x:%i, y:%i)", spaces, "", msg->mouse.x, msg->mouse.y);
+    return (*fn)(args..., "%*sFG_DRAGOVER(x:%i, y:%i)", spaces, "", msg->mouse.x, msg->mouse.y);
   case FG_DROP:
-    return snprintf(buf, bufsize, "%*sFG_SETFONT(%s [0x%p])", spaces, "", _dbg_getstr(msg->arg1.name), msg->arg1.element);
+    return (*fn)(args..., "%*sFG_SETFONT(%s [0x%p])", spaces, "", _dbg_getstr(msg->arg1.name), msg->arg1.element);
   case FG_DRAW:
-    return snprintf(buf, bufsize, "%*sFG_DRAW:%hhu(AbsRect{%f, %f, %f, %f}, 0x%p)", spaces, "", msg->subtype, OUTPUT_RECT(msg->arg1.rect), msg->arg2.p);
+    return (*fn)(args..., "%*sFG_DRAW:%hhu(AbsRect{%f, %f, %f, %f}, 0x%p)", spaces, "", msg->subtype, OUTPUT_RECT(msg->arg1.rect), msg->arg2.p);
   case FG_INJECT:
-    return snprintf(buf, bufsize, "%*sFG_INJECT(0x%p, AbsRect{%f, %f, %f, %f})", spaces, "", msg->arg1.p, OUTPUT_RECT(msg->arg2.rect));
+    return (*fn)(args..., "%*sFG_INJECT(0x%p, AbsRect{%f, %f, %f, %f})", spaces, "", msg->arg1.p, OUTPUT_RECT(msg->arg2.rect));
   case FG_SETSKIN:
-    return snprintf(buf, bufsize, "%*sFG_SETSKIN(0x%p)", spaces, "", msg->arg1.p);
+    return (*fn)(args..., "%*sFG_SETSKIN(0x%p)", spaces, "", msg->arg1.p);
   case FG_SETSTYLE:
     if(!msg->subtype)
-      return snprintf(buf, bufsize, "%*sFG_SETSTYLE(%s, %zu)", spaces, "", _dbg_getstr(msg->arg1.s), msg->arg2.u);
+      return (*fn)(args..., "%*sFG_SETSTYLE(%s, %zu)", spaces, "", _dbg_getstr(msg->arg1.s), msg->arg2.u);
     else if(msg->subtype == 1)
-      return snprintf(buf, bufsize, "%*sFG_SETSTYLE:1(%zu, %zu)", spaces, "", msg->arg1.u, msg->arg2.u);
-    return snprintf(buf, bufsize, "%*sFG_SETSTYLE:%hhu(0x%p, %zu)", spaces, "", msg->subtype, msg->arg1.p, msg->arg2.u);
+      return (*fn)(args..., "%*sFG_SETSTYLE:1(%zu, %zu)", spaces, "", msg->arg1.u, msg->arg2.u);
+    return (*fn)(args..., "%*sFG_SETSTYLE:%hhu(0x%p, %zu)", spaces, "", msg->subtype, msg->arg1.p, msg->arg2.u);
   case FG_GETVALUE:
-    return snprintf(buf, bufsize, "%*sFG_GETVALUE() - %ti", spaces, "", msg->value);
+    return (*fn)(args..., "%*sFG_GETVALUE() - %ti", spaces, "", msg->value);
   case FG_GETSELECTEDITEM:
-    return snprintf(buf, bufsize, "%*sFG_GETSELECTEDITEM(%zu) - 0x%p", spaces, "", msg->arg1.u, msg->valuep);
+    return (*fn)(args..., "%*sFG_GETSELECTEDITEM(%zu) - 0x%p", spaces, "", msg->arg1.u, msg->valuep);
   case FG_SETDPI:
-    return snprintf(buf, bufsize, "%*sFG_SETDPI(%ti)", spaces, "", msg->arg1.i);
+    return (*fn)(args..., "%*sFG_SETDPI(%ti)", spaces, "", msg->arg1.i);
   case FG_SETCOLOR:
-    return snprintf(buf, bufsize, "%*sFG_SETCOLOR(%#zX)", spaces, "", msg->arg1.u);
+    return (*fn)(args..., "%*sFG_SETCOLOR(%#zX)", spaces, "", msg->arg1.u);
   case FG_SETUSERDATA:
-    return snprintf(buf, bufsize, "%*sFG_SETUSERDATA(0x%p, %s)", spaces, "", msg->arg1.p, _dbg_getstr(msg->arg2.s));
+    return (*fn)(args..., "%*sFG_SETUSERDATA(0x%p, %s)", spaces, "", msg->arg1.p, _dbg_getstr(msg->arg2.s));
   case FG_GETUSERDATA:
-    return snprintf(buf, bufsize, "%*sFG_GETUSERDATA(%s) - 0x%p", spaces, "", _dbg_getstr(msg->arg1.s), msg->valuep);
+    return (*fn)(args..., "%*sFG_GETUSERDATA(%s) - 0x%p", spaces, "", _dbg_getstr(msg->arg1.s), msg->valuep);
   case FG_SETTEXT:
-    return snprintf(buf, bufsize, "%*sFG_SETTEXT(%s)", spaces, "", _dbg_getstr(msg->arg1.s));
+    return (*fn)(args..., "%*sFG_SETTEXT(%s)", spaces, "", _dbg_getstr(msg->arg1.s));
   case FG_SETNAME:
-    return snprintf(buf, bufsize, "%*sFG_SETNAME(%s)", spaces, "", _dbg_getstr(msg->arg1.s));
+    return (*fn)(args..., "%*sFG_SETNAME(%s)", spaces, "", _dbg_getstr(msg->arg1.s));
+  case FG_SETCONTEXTMENU:
+    return (*fn)(args..., "%*sFG_SETCONTEXTMENU(0x%p)", spaces, "", msg->arg1.p);
+  case FG_GETCONTEXTMENU:
+    return (*fn)(args..., "%*sFG_GETCONTEXTMENU(0x%p)", spaces, "", msg->arg1.p);
   case FG_MOUSESCROLL:
-    return snprintf(buf, bufsize, "%*sFG_MOUSESCROLL(x:%i, y:%i, v:%#hi, h:%#hi)", spaces, "", msg->mouse.x, msg->mouse.y, msg->mouse.scrolldelta, msg->mouse.scrollhdelta);
+    return (*fn)(args..., "%*sFG_MOUSESCROLL(x:%i, y:%i, v:%#hi, h:%#hi)", spaces, "", msg->mouse.x, msg->mouse.y, msg->mouse.scrolldelta, msg->mouse.scrollhdelta);
   case FG_TOUCHBEGIN:
-    return snprintf(buf, bufsize, "%*sFG_TOUCHBEGIN(x:%i, y:%i, %hi)", spaces, "", msg->mouse.x, msg->mouse.y, msg->mouse.touchindex);
+    return (*fn)(args..., "%*sFG_TOUCHBEGIN(x:%i, y:%i, %hi)", spaces, "", msg->mouse.x, msg->mouse.y, msg->mouse.touchindex);
   case FG_TOUCHEND:
-    return snprintf(buf, bufsize, "%*sFG_TOUCHEND(x:%i, y:%i, %hi)", spaces, "", msg->mouse.x, msg->mouse.y, msg->mouse.touchindex);
+    return (*fn)(args..., "%*sFG_TOUCHEND(x:%i, y:%i, %hi)", spaces, "", msg->mouse.x, msg->mouse.y, msg->mouse.touchindex);
   case FG_TOUCHMOVE:
-    return snprintf(buf, bufsize, "%*sFG_TOUCHMOVE(x:%i, y:%i, %hi)", spaces, "", msg->mouse.x, msg->mouse.y, msg->mouse.touchindex);
+    return (*fn)(args..., "%*sFG_TOUCHMOVE(x:%i, y:%i, %hi)", spaces, "", msg->mouse.x, msg->mouse.y, msg->mouse.touchindex);
   case FG_KEYUP:
-    return snprintf(buf, bufsize, "%*sFG_KEYUP(%#hhX, %#hhX)", spaces, "", msg->keys.keycode, msg->keys.sigkeys);
+    return (*fn)(args..., "%*sFG_KEYUP(%#hhX, %#hhX)", spaces, "", msg->keys.keycode, msg->keys.sigkeys);
   case FG_KEYDOWN:
-    return snprintf(buf, bufsize, "%*sFG_KEYDOWN(%#hhX, %#hhX)", spaces, "", msg->keys.keycode, msg->keys.sigkeys);
+    return (*fn)(args..., "%*sFG_KEYDOWN(%#hhX, %#hhX)", spaces, "", msg->keys.keycode, msg->keys.sigkeys);
   case FG_KEYCHAR:
-    return snprintf(buf, bufsize, "%*sFG_KEYCHAR(%c (%u), %#hhX)", spaces, "", (char)msg->keys.keychar, msg->keys.keychar, msg->keys.sigkeys);
+    return (*fn)(args..., "%*sFG_KEYCHAR(%c (%u), %#hhX)", spaces, "", (char)msg->keys.keychar, msg->keys.keychar, msg->keys.sigkeys);
   case FG_JOYBUTTONDOWN:
-    return snprintf(buf, bufsize, "%*sFG_JOYBUTTONDOWN(%hi, %s)", spaces, "", msg->joybutton, msg->joydown ? "true" : "false");
+    return (*fn)(args..., "%*sFG_JOYBUTTONDOWN(%hi, %s)", spaces, "", msg->joybutton, msg->joydown ? "true" : "false");
   case FG_JOYBUTTONUP:
-    return snprintf(buf, bufsize, "%*sFG_JOYBUTTONUP(%hi, %s)", spaces, "", msg->joybutton, msg->joydown ? "true" : "false");
+    return (*fn)(args..., "%*sFG_JOYBUTTONUP(%hi, %s)", spaces, "", msg->joybutton, msg->joydown ? "true" : "false");
   case FG_JOYAXIS:
-    return snprintf(buf, bufsize, "%*sFG_JOYAXIS(%hi, %f)", spaces, "", msg->joyaxis, msg->joyvalue);
+    return (*fn)(args..., "%*sFG_JOYAXIS(%hi, %f)", spaces, "", msg->joyaxis, msg->joyvalue);
   case FG_SETDIM:
-    return snprintf(buf, bufsize, "%*sFG_SETDIM:%hhu(%f, %f)", spaces, "", msg->subtype, msg->arg1.f, msg->arg2.f);
+    return (*fn)(args..., "%*sFG_SETDIM:%hhu(%f, %f)", spaces, "", msg->subtype, msg->arg1.f, msg->arg2.f);
   case FG_SETVALUE:
-    return snprintf(buf, bufsize, "%*sFG_SETVALUE(%ti, %zu)", spaces, "", msg->arg1.i, msg->arg2.u);
+    return (*fn)(args..., "%*sFG_SETVALUE(%ti, %zu)", spaces, "", msg->arg1.i, msg->arg2.u);
   case FG_SETUV:
-    return snprintf(buf, bufsize, "%*sFG_SETUV(CRect{%f,%f,%f,%f,%f,%f,%f,%f})", spaces, "", OUTPUT_CRECT(msg->arg2.crect));
+    return (*fn)(args..., "%*sFG_SETUV(CRect{%f,%f,%f,%f,%f,%f,%f,%f})", spaces, "", OUTPUT_CRECT(msg->arg2.crect));
   case FG_SETLETTERSPACING:
-    return snprintf(buf, bufsize, "%*sFG_SETLETTERSPACING(%.2g)", spaces, "", msg->arg1.f);
+    return (*fn)(args..., "%*sFG_SETLETTERSPACING(%.2g)", spaces, "", msg->arg1.f);
   case FG_SETLINEHEIGHT:
-    return snprintf(buf, bufsize, "%*sFG_SETLINEHEIGHT(%.2g)", spaces, "", msg->arg1.f);
+    return (*fn)(args..., "%*sFG_SETLINEHEIGHT(%.2g)", spaces, "", msg->arg1.f);
   case FG_SETOUTLINE:
-    return snprintf(buf, bufsize, "%*sFG_SETOUTLINE(%.2g)", spaces, "", msg->arg1.f);
+    return (*fn)(args..., "%*sFG_SETOUTLINE(%.2g)", spaces, "", msg->arg1.f);
   }
 
   return 0;
+}
+
+ptrdiff_t FG_FASTCALL fgDebug_WriteMessage(fgDebugMessage* msg, char* buf, size_t bufsize)
+{
+  return fgDebug_WriteMessageFn<char*, size_t>(msg, &snprintf, buf, bufsize);
+}
+
+void FG_FASTCALL fgDebug_DumpMessages(fgDebug* self, const char* file)
+{
+  FILE* f;
+  FOPEN(f, file, "wb");
+  for(size_t i = 0; i < self->messagelog.l; ++i)
+    fgDebug_WriteMessageFn<FILE*>(self->messagelog.p + i, &fprintf, f);
+  fclose(f);
 }

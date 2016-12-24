@@ -378,10 +378,10 @@ int FG_FASTCALL fgStyle_NodeEvalTransform(const cXMLNode* node, fgTransform& t)
 
 void FG_FASTCALL fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, fgSkinBase* root, const char* path, char** id, fgKeyValueArray* userdata)
 {
-  static cTrie<uint16_t, true> t(42, "id", "min-width", "min-height", "max-width", "max-height", "skin", "alpha", "margin", "padding", "text",
+  static cTrie<uint16_t, true> t(44, "id", "min-width", "min-height", "max-width", "max-height", "skin", "alpha", "margin", "padding", "text",
     "placeholder", "color", "placecolor", "cursorcolor", "selectcolor", "hovercolor", "dragcolor", "edgecolor", "font", "lineheight",
     "letterspacing", "value", "uv", "resource", "outline", "area", "center", "rotation", "left", "top", "right", "bottom", "width", "height",
-    "name", "flags", "order", "inherit", "range", "splitter", "xmlns:xsi", "xmlns:fg", "xsi:schemaLocation");
+    "name", "flags", "order", "inherit", "range", "splitter", "contextmenu", "xmlns:xsi", "xmlns:fg", "xsi:schemaLocation");
   static cTrie<uint16_t, true> tvalue(5, "checkbox", "curve", "progressbar", "radiobutton", "slider");
   static cTrie<uint16_t, true> tenum(5, "true", "false", "none", "checked", "indeterminate");
 
@@ -576,10 +576,11 @@ void FG_FASTCALL fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, i
       AddStyleSubMsg<FG_SETVALUE, float>(self, FGVALUE_ROW, splitter.y);
       break;
     }
-    case 40: 
     case 41:
-    case 42: // These are all XML specific values that are only used for setting the XSD file
+    case 42:
+    case 43: // These are all XML specific values that are only used for setting the XSD file
       break;
+    case 40: // contextmenu is a recognized option, but we put it in as custom userdata anyway because we can't resolve it until the layout is resolved.
     default: // Otherwise, unrecognized attributes are set as custom userdata
       if(!userdata)
       {

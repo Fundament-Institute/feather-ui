@@ -3,6 +3,7 @@
 *.opensdf
 *.bak
 *.opendb
+*.vcxproj.user
 *.VC.db
 *.exe
 bin/
