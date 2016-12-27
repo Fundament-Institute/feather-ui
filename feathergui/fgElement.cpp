@@ -107,6 +107,79 @@ bool FG_FASTCALL fgElement_VERIFY(fgElement* self)
 }
 #endif
 
+BSS_FORCEINLINE fgElement*& fgElement_prev(fgElement* p) { return p->prev; }
+BSS_FORCEINLINE fgElement*& fgElement_previnject(fgElement* p) { return p->previnject; }
+BSS_FORCEINLINE fgElement*& fgElement_prevnoclip(fgElement* p) { return p->prevnoclip; }
+
+BSS_FORCEINLINE fgElement*& fgElement_next(fgElement* p) { return p->next; }
+BSS_FORCEINLINE fgElement*& fgElement_nextinject(fgElement* p) { return p->nextinject; }
+BSS_FORCEINLINE fgElement*& fgElement_nextnoclip(fgElement* p) { return p->nextnoclip; }
+
+template<fgElement*&(*PREV)(fgElement*), fgElement*&(*NEXT)(fgElement*)>
+inline void FG_FASTCALL LList_Insert(fgElement* self, fgElement* cur, fgElement* prev, fgElement** root, fgElement** last)
+{
+  NEXT(self) = cur;
+  PREV(self) = prev;
+  if(prev) NEXT(prev) = self;
+  else *root = self; // Prev is only null if we're inserting before the root, which means we must reassign the root.
+  if(cur) PREV(cur) = self;
+  else *last = self; // Cur is null if we are at the end of the list, so update last
+}
+
+template<fgElement*&(*GET)(fgElement*), fgFlag FLAG>
+inline fgElement* FG_FASTCALL LList_Find(fgElement* BSS_RESTRICT self)
+{
+  fgFlag flags = self->flags;
+  do
+  {
+    self = GET(self);
+  } while(self && (self->flags&FLAG) != (flags&FLAG));
+  return self;
+}
+
+inline void FG_FASTCALL LList_InsertAll(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT next)
+{
+  assert(self->parent != 0);
+  fgElement* prev = !next ? self->parent->last : next->prev;
+  LList_Insert<fgElement_prev, fgElement_next>(self, next, prev, &self->parent->root, &self->parent->last);
+  if(!(self->flags&FGELEMENT_IGNORE))
+  {
+    prev = LList_Find<fgElement_prev, FGELEMENT_IGNORE>(self); // Ensure that prev and next are appropriately set to elements that match our clipping status.
+    next = LList_Find<fgElement_next, FGELEMENT_IGNORE>(self); // we DO NOT use fgElement_prevclip or fgElement_nextclip here because they haven't been set yet.
+    LList_Insert<fgElement_previnject, fgElement_nextinject>(self, next, prev, &self->parent->rootinject, &self->parent->lastinject);
+    fgElement_MouseMoveCheck(self); // This has to be AFTER so we can properly resolve relative coordinates
+  }
+  if(self->flags&FGELEMENT_NOCLIP)
+  {
+    prev = LList_Find<fgElement_prev, FGELEMENT_NOCLIP>(self);
+    next = LList_Find<fgElement_next, FGELEMENT_NOCLIP>(self);
+    LList_Insert<fgElement_prevnoclip, fgElement_nextnoclip>(self, next, prev, &self->parent->rootnoclip, &self->parent->lastnoclip);
+  }
+}
+
+template<fgElement*&(*PREV)(fgElement*), fgElement*&(*NEXT)(fgElement*)>
+inline void FG_FASTCALL LList_Remove(fgElement* self, fgElement** root, fgElement** last)
+{
+  assert(self != 0);
+  if(PREV(self) != 0) NEXT(PREV(self)) = NEXT(self);
+  else *root = NEXT(self);
+  if(NEXT(self) != 0) PREV(NEXT(self)) = PREV(self);
+  else *last = PREV(self);
+}
+
+inline void FG_FASTCALL LList_RemoveAll(fgElement* self)
+{
+  assert(self->parent != 0);
+  LList_Remove<fgElement_prev, fgElement_next>(self, &self->parent->root, &self->parent->last); // Remove ourselves from our parent
+  if(!(self->flags&FGELEMENT_IGNORE))
+  {
+    fgElement_MouseMoveCheck(self); // we have to check if the mouse intersects the child BEFORE we remove it so we can properly resolve relative coordinates.
+    LList_Remove<fgElement_previnject, fgElement_nextinject>(self, &self->parent->rootinject, &self->parent->lastinject);
+  }
+  if(self->flags&FGELEMENT_NOCLIP)
+    LList_Remove<fgElement_prevnoclip, fgElement_nextnoclip>(self, &self->parent->rootnoclip, &self->parent->lastnoclip); // Remove ourselves from our parent
+}
+
 char FG_FASTCALL fgElement_PotentialResize(fgElement* self)
 {
   return ((self->transform.area.left.rel != 0 || self->transform.area.right.rel != 0) << 3) // If you have nonzero relative coordinates, a resize will cause a move
@@ -740,7 +813,11 @@ void FG_FASTCALL VirtualFreeChild(fgElement* self)
     (*self->free)(self);
 }
 
-void FG_FASTCALL ResolveRect(const fgElement* self, AbsRect* out)
+// Inner (Child) rect has padding and margins applied and is used by foreground elements
+// Standard (clipping) rect has margins applied is used by background elements and rendering
+// Outer (layout) rect has none of those and is used by layouts
+
+void FG_FASTCALL ResolveOuterRect(const fgElement* self, AbsRect* out)
 {
   assert(out != 0);
   if(!self->parent)
@@ -755,10 +832,10 @@ void FG_FASTCALL ResolveRect(const fgElement* self, AbsRect* out)
 
   AbsRect last;
   ResolveRect(self->parent, &last);
-  ResolveRectCache(self, out, &last, (self->flags & FGELEMENT_BACKGROUND) ? 0 : &self->parent->padding);
+  ResolveOuterRectCache(self, out, &last, (self->flags & FGELEMENT_BACKGROUND) ? 0 : &self->parent->padding);
 }
 
-void FG_FASTCALL ResolveRectCache(const fgElement* self, AbsRect* BSS_RESTRICT out, const AbsRect* BSS_RESTRICT last, const AbsRect* BSS_RESTRICT padding)
+void FG_FASTCALL ResolveOuterRectCache(const fgElement* self, AbsRect* BSS_RESTRICT out, const AbsRect* BSS_RESTRICT last, const AbsRect* BSS_RESTRICT padding)
 {
   AbsRect replace;
   if(padding != 0)
@@ -782,11 +859,6 @@ void FG_FASTCALL ResolveRectCache(const fgElement* self, AbsRect* BSS_RESTRICT o
     out->right = out->left + std::max(out->right - out->left, self->layoutdim.x + self->padding.left + self->padding.right + self->margin.left + self->margin.right);
   if(self->flags & FGELEMENT_EXPANDY)
     out->bottom = out->top + std::max(out->bottom - out->top, self->layoutdim.y + self->padding.top + self->padding.bottom + self->margin.top + self->margin.bottom);
-
-  out->left += self->margin.left;
-  out->top += self->margin.top;
-  out->right -= self->margin.right;
-  out->bottom -= self->margin.bottom;
 
   if(self->mindim.x >= 0)
     out->right = out->left + std::max(out->right - out->left, self->mindim.x);
@@ -815,86 +887,48 @@ void FG_FASTCALL ResolveRectCache(const fgElement* self, AbsRect* BSS_RESTRICT o
   assert(!isnan(out->left) && !isnan(out->top) && !isnan(out->right) && !isnan(out->bottom));
 }
 
+void FG_FASTCALL ResolveRect(const fgElement* self, AbsRect* out)
+{
+  ResolveOuterRect(self, out);
+  out->left += self->margin.left;
+  out->top += self->margin.top;
+  out->right -= self->margin.right;
+  out->bottom -= self->margin.bottom;
+}
 
-char FG_FASTCALL MsgHitCRect(const FG_Msg* msg, const fgElement* child)
+void FG_FASTCALL ResolveRectCache(const fgElement* self, AbsRect* BSS_RESTRICT out, const AbsRect* BSS_RESTRICT last, const AbsRect* BSS_RESTRICT padding)
+{
+  ResolveOuterRectCache(self, out, last, padding);
+  out->left += self->margin.left;
+  out->top += self->margin.top;
+  out->right -= self->margin.right;
+  out->bottom -= self->margin.bottom;
+}
+
+void FG_FASTCALL ResolveInnerRect(const fgElement* self, AbsRect* out)
+{
+  ResolveRect(self, out);
+  out->left += self->padding.left;
+  out->top += self->padding.top;
+  out->right -= self->padding.right;
+  out->bottom -= self->padding.bottom;
+}
+
+void FG_FASTCALL ResolveInnerRectCache(const fgElement* self, AbsRect* BSS_RESTRICT out, const AbsRect* BSS_RESTRICT last, const AbsRect* BSS_RESTRICT padding)
+{
+  ResolveOuterRectCache(self, out, last, padding);
+  out->left += self->padding.left;
+  out->top += self->padding.top;
+  out->right -= self->padding.right;
+  out->bottom -= self->padding.bottom;
+}
+
+char FG_FASTCALL MsgHitElement(const FG_Msg* msg, const fgElement* child)
 {
   AbsRect r;
   assert(msg != 0 && child != 0);
   ResolveRect(child, &r);
   return MsgHitAbsRect(msg, &r);
-}
-
-BSS_FORCEINLINE fgElement*& fgElement_prev(fgElement* p) { return p->prev; }
-BSS_FORCEINLINE fgElement*& fgElement_previnject(fgElement* p) { return p->previnject; }
-BSS_FORCEINLINE fgElement*& fgElement_prevnoclip(fgElement* p) { return p->prevnoclip; }
-
-BSS_FORCEINLINE fgElement*& fgElement_next(fgElement* p) { return p->next; }
-BSS_FORCEINLINE fgElement*& fgElement_nextinject(fgElement* p) { return p->nextinject; }
-BSS_FORCEINLINE fgElement*& fgElement_nextnoclip(fgElement* p) { return p->nextnoclip; }
-
-template<fgElement*&(*PREV)(fgElement*), fgElement*&(*NEXT)(fgElement*)>
-void FG_FASTCALL LList_Remove(fgElement* self, fgElement** root, fgElement** last)
-{
-  assert(self != 0);
-  if(PREV(self) != 0) NEXT(PREV(self)) = NEXT(self);
-  else *root = NEXT(self);
-  if(NEXT(self) != 0) PREV(NEXT(self)) = PREV(self);
-  else *last = PREV(self);
-}
-
-void FG_FASTCALL LList_RemoveAll(fgElement* self)
-{
-  assert(self->parent != 0);
-  LList_Remove<fgElement_prev, fgElement_next>(self, &self->parent->root, &self->parent->last); // Remove ourselves from our parent
-  if(!(self->flags&FGELEMENT_IGNORE))
-  {
-    fgElement_MouseMoveCheck(self); // we have to check if the mouse intersects the child BEFORE we remove it so we can properly resolve relative coordinates.
-    LList_Remove<fgElement_previnject, fgElement_nextinject>(self, &self->parent->rootinject, &self->parent->lastinject);
-  }
-  if(self->flags&FGELEMENT_NOCLIP)
-    LList_Remove<fgElement_prevnoclip, fgElement_nextnoclip>(self, &self->parent->rootnoclip, &self->parent->lastnoclip); // Remove ourselves from our parent
-}
-
-template<fgElement*&(*PREV)(fgElement*), fgElement*&(*NEXT)(fgElement*)>
-void FG_FASTCALL LList_Insert(fgElement* self, fgElement* cur, fgElement* prev, fgElement** root, fgElement** last)
-{
-  NEXT(self) = cur;
-  PREV(self) = prev;
-  if(prev) NEXT(prev) = self;
-  else *root = self; // Prev is only null if we're inserting before the root, which means we must reassign the root.
-  if(cur) PREV(cur) = self;
-  else *last = self; // Cur is null if we are at the end of the list, so update last
-}
-
-template<fgElement*&(*GET)(fgElement*), fgFlag FLAG>
-fgElement* FG_FASTCALL LList_Find(fgElement* BSS_RESTRICT self)
-{
-  fgFlag flags = self->flags;
-  do
-  {
-    self = GET(self);
-  } while(self && (self->flags&FLAG) != (flags&FLAG));
-  return self;
-}
-
-void FG_FASTCALL LList_InsertAll(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT next)
-{
-  assert(self->parent != 0);
-  fgElement* prev = !next ? self->parent->last : next->prev;
-  LList_Insert<fgElement_prev, fgElement_next>(self, next, prev, &self->parent->root, &self->parent->last);
-  if(!(self->flags&FGELEMENT_IGNORE))
-  {
-    prev = LList_Find<fgElement_prev, FGELEMENT_IGNORE>(self); // Ensure that prev and next are appropriately set to elements that match our clipping status.
-    next = LList_Find<fgElement_next, FGELEMENT_IGNORE>(self); // we DO NOT use fgElement_prevclip or fgElement_nextclip here because they haven't been set yet.
-    LList_Insert<fgElement_previnject, fgElement_nextinject>(self, next, prev, &self->parent->rootinject, &self->parent->lastinject);
-    fgElement_MouseMoveCheck(self); // This has to be AFTER so we can properly resolve relative coordinates
-  } 
-  if(self->flags&FGELEMENT_NOCLIP)
-  {
-    prev = LList_Find<fgElement_prev, FGELEMENT_NOCLIP>(self);
-    next = LList_Find<fgElement_next, FGELEMENT_NOCLIP>(self);
-    LList_Insert<fgElement_prevnoclip, fgElement_nextnoclip>(self, next, prev, &self->parent->rootnoclip, &self->parent->lastnoclip);
-  }
 }
 
 size_t FG_FASTCALL fgVoidMessage(fgElement* self, unsigned short type, void* data, ptrdiff_t aux)

@@ -375,10 +375,10 @@ RETPAIR test_feathergui()
         out.right==-1.5f &&
         out.bottom==3.0f);
 
-  MsgHitCRect(&msg,&top);
-  MsgHitCRect(&msg,&ch);
-  MsgHitCRect(&msg,&ch2);
-  MsgHitCRect(&msg,&ch3);
+  MsgHitElement(&msg,&top);
+  MsgHitElement(&msg,&ch);
+  MsgHitElement(&msg,&ch2);
+  MsgHitElement(&msg,&ch3);
 
   memset(&crect,0,sizeof(CRect));
   memset(&cother,0,sizeof(CRect));

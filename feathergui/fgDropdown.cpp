@@ -50,7 +50,7 @@ size_t FG_FASTCALL fgDropdownBox_Message(fgBox* self, const FG_Msg* msg)
   case FG_MOUSEDOWN:
     fgUpdateMouseState(&parent->mouse, msg);
     assert(parent != 0);
-    if(parent->dropflag && !MsgHitCRect(msg, *self))
+    if(parent->dropflag && !MsgHitElement(msg, *self))
     {
       self->scroll->SetFlag(FGELEMENT_HIDDEN, true);
       if(fgroot_instance->topmost == *self)
@@ -62,7 +62,7 @@ size_t FG_FASTCALL fgDropdownBox_Message(fgBox* self, const FG_Msg* msg)
     assert(parent != 0);
     {
       AbsRect cache;
-      fgElement* target = MsgHitCRect(msg, *self) ? fgElement_GetChildUnderMouse(*self, msg->x, msg->y, &cache) : 0;
+      fgElement* target = MsgHitElement(msg, *self) ? fgElement_GetChildUnderMouse(*self, msg->x, msg->y, &cache) : 0;
       if(target)
       {
         if(parent->selected)

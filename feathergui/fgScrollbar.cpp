@@ -127,25 +127,25 @@ void FG_FASTCALL fgScrollbar_Recalc(fgScrollbar* self)
   bool hidev = !!(self->control.element.flags&FGSCROLLBAR_HIDEV);
 
   // We have to figure out which scrollbars are visible based on flags and our dimensions
-  bool scrollx = !hideh && ((dim.x < self->realsize.x + self->realpadding.left + self->realpadding.right + self->control->margin.left + self->control->margin.right + bssmax(self->barcache.y, 0)) || self->control.element.flags&FGSCROLLBAR_SHOWH);
-  bool scrolly = !hidev && ((dim.y < self->realsize.y + self->realpadding.top + self->realpadding.bottom + self->control->margin.top + self->control->margin.bottom + bssmax(self->barcache.x, 0)) || self->control.element.flags&FGSCROLLBAR_SHOWV);
+  bool scrollx = !hideh && ((dim.x < self->realsize.x + self->realpadding.left + self->realpadding.right + bssmax(self->barcache.y, 0)) || self->control.element.flags&FGSCROLLBAR_SHOWH);
+  bool scrolly = !hidev && ((dim.y < self->realsize.y + self->realpadding.top + self->realpadding.bottom + bssmax(self->barcache.x, 0)) || self->control.element.flags&FGSCROLLBAR_SHOWV);
 
   // If we are adding or removing a scrollbar, this will change the padding and could change everything else (e.g. for textboxes)
   if((self->barcache.x != 0.0f && scrollx ^ (self->barcache.x > 0)) || (self->barcache.y != 0.0f && scrolly ^ (self->barcache.y > 0)))
   {
-    char dim = 0;
+    char dimr = 0;
     if(scrollx ^ (self->barcache.x > 0))
     {
       self->barcache.x = -self->barcache.x;
-      dim |= FGMOVE_RESIZEY;
+      dimr |= FGMOVE_RESIZEY;
     }
     if(scrolly ^ (self->barcache.y > 0))
     {
       self->barcache.y = -self->barcache.y;
-      dim |= FGMOVE_RESIZEY;
+      dimr |= FGMOVE_RESIZEY;
     }
     fgScrollbar_ApplyPadding(self, 0, 0);
-    self->control->Move(FG_SETPADDING, 0, dim);
+    self->control->Move(FG_SETPADDING, 0, dimr);
     return;
   }
 
@@ -395,7 +395,7 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
     }
     return 0;
   case FG_ADDCHILD:
-    if(msg->other != 0 && !(((fgElement*)msg->other)->flags&FGELEMENT_BACKGROUND) && !msg->other2)
+    if(msg->other != 0 && msg->other != self->bg && msg->other != (self->bg + 1) && !msg->other2)
     {
       FG_Msg m = *msg;
       m.other2 = &self->bg[0];

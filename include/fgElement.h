@@ -180,11 +180,17 @@ FG_EXTERN size_t FG_FASTCALL fgVoidMessage(fgElement* self, unsigned short type,
 FG_EXTERN size_t FG_FASTCALL fgPassMessage(fgElement* self, const FG_Msg* msg);
 FG_EXTERN size_t FG_FASTCALL fgSubMessage(fgElement* self, unsigned short type, unsigned short subtype, void* data, ptrdiff_t aux);
 
+// The outer (layout) rect does not have margins or padding applied. This is the rect used by the layout.
+FG_EXTERN void FG_FASTCALL ResolveOuterRect(const fgElement* self, AbsRect* out);
+FG_EXTERN void FG_FASTCALL ResolveOuterRectCache(const fgElement* self, AbsRect* BSS_RESTRICT out, const AbsRect* BSS_RESTRICT last, const AbsRect* BSS_RESTRICT padding);
+// The standard (clipping) rect has margins applied. This is used by background elements, mouse injection and drawing.
 FG_EXTERN void FG_FASTCALL ResolveRect(const fgElement* self, AbsRect* out);
 FG_EXTERN void FG_FASTCALL ResolveRectCache(const fgElement* self, AbsRect* BSS_RESTRICT out, const AbsRect* BSS_RESTRICT last, const AbsRect* BSS_RESTRICT padding);
-FG_EXTERN char FG_FASTCALL MsgHitCRect(const FG_Msg* msg, const fgElement* child);
-FG_EXTERN void FG_FASTCALL LList_RemoveAll(fgElement* self);
-FG_EXTERN void FG_FASTCALL LList_InsertAll(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT next);
+// The inner (child) rect has margins and padding applied. This is used when resolving foreground elements.
+FG_EXTERN void FG_FASTCALL ResolveInnerRect(const fgElement* self, AbsRect* out);
+FG_EXTERN void FG_FASTCALL ResolveInnerRectCache(const fgElement* self, AbsRect* BSS_RESTRICT out, const AbsRect* BSS_RESTRICT last, const AbsRect* BSS_RESTRICT padding);
+// Tests if a MOUSEMOVE message (or other valid mouse message) hits the given element
+FG_EXTERN char FG_FASTCALL MsgHitElement(const FG_Msg* msg, const fgElement* element);
 FG_EXTERN void FG_FASTCALL VirtualFreeChild(fgElement* self);
 FG_EXTERN void FG_FASTCALL fgElement_Clear(fgElement* self);
 FG_EXTERN void FG_FASTCALL fgElement_MouseMoveCheck(fgElement* self);

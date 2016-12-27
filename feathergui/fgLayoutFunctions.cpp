@@ -131,7 +131,9 @@ BSS_FORCEINLINE FABS FG_FASTCALL fgLayout_GetChildBottom(fgElement* child)
 
 void FG_FASTCALL fgTileLayoutFill(fgElement* cur, fgElement* skip, FABS space, char axis, float max)
 {
-  FABS start = (axis ? cur->transform.area.left.abs : cur->transform.area.top.abs);
+  FABS start = 0;
+  if(cur != 0)
+    start = (axis ? cur->transform.area.left.abs : cur->transform.area.top.abs);
 
   while(cur != 0 && (axis ? cur->transform.area.left.abs : cur->transform.area.top.abs) == start)
   {
@@ -162,6 +164,7 @@ void FG_FASTCALL fgTileLayoutFill(fgElement* cur, fgElement* skip, FABS space, c
       space -= x;
       cur->transform.area.right.abs = (cur->transform.area.left.rel*max) + cur->transform.area.left.abs + m + x - (cur->transform.area.right.rel * max);
     }
+    cur = cur->prev;
   }
 }
 
@@ -237,7 +240,7 @@ size_t FG_FASTCALL fgTileLayout(fgElement* self, const FG_Msg* msg, fgFlag flags
   char axis = ((flags & FGBOX_TILE) && (flags & FGBOX_DISTRIBUTEY)) || ((flags & FGBOX_TILEY) && !(flags & FGBOX_TILEX)); // 0 expands along x-axis, 1 expands along y-axis
   FABS max = INFINITY; // Maximum axis length. If axis is 0, represents maximum length along x axis, otherwise represents maximum length along y-axis.
   AbsRect out;
-  ResolveRect(self, &out);
+  ResolveInnerRect(self, &out);
   AbsVec selfdim = { out.right - out.left, out.bottom - out.top };
   if(self->maxdim.x >= 0.0f && selfdim.x > self->maxdim.x) selfdim.x = self->maxdim.x;
   if(self->maxdim.y >= 0.0f && selfdim.y > self->maxdim.y) selfdim.y = self->maxdim.y;
