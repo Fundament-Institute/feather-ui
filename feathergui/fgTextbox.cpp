@@ -420,10 +420,7 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       if(!(self->scroll->flags&FGELEMENT_NOCLIP))
         fgroot_instance->backend.fgPushClipRect(&cliparea);
 
-      area.left += self->scroll->padding.left;
-      area.top += self->scroll->padding.top;
-      area.right -= self->scroll->padding.right;
-      area.bottom -= self->scroll->padding.bottom;
+      GetInnerRect(*self, &area, &area);
       AbsVec begin;
       AbsVec end;
       if(self->start < self->end)
@@ -544,11 +541,7 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       AbsVec* dim = (AbsVec*)msg->other2;
       if(m->subtype == FGELEMENT_LAYOUTMOVE)
       {
-        ResolveRect(*self, &self->areacache);
-        self->areacache.left += self->scroll->padding.left;
-        self->areacache.top += self->scroll->padding.top;
-        self->areacache.right -= self->scroll->padding.right;
-        self->areacache.bottom -= self->scroll->padding.bottom;
+        ResolveInnerRect(*self, &self->areacache);
         size_t dpi = self->scroll->GetDPI(); // GetDPI can return 0 if we have no parent, which can happen when a layout is being set up or destroyed.
         FABS scale = !dpi ? (FABS)1.0 : (fgroot_instance->dpi / (FABS)dpi);
         assert(isfinite(scale));

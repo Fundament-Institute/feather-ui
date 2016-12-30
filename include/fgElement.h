@@ -188,7 +188,7 @@ FG_EXTERN void FG_FASTCALL ResolveRect(const fgElement* self, AbsRect* out);
 FG_EXTERN void FG_FASTCALL ResolveRectCache(const fgElement* self, AbsRect* BSS_RESTRICT out, const AbsRect* BSS_RESTRICT last, const AbsRect* BSS_RESTRICT padding);
 // The inner (child) rect has margins and padding applied. This is used when resolving foreground elements.
 FG_EXTERN void FG_FASTCALL ResolveInnerRect(const fgElement* self, AbsRect* out);
-FG_EXTERN void FG_FASTCALL ResolveInnerRectCache(const fgElement* self, AbsRect* BSS_RESTRICT out, const AbsRect* BSS_RESTRICT last, const AbsRect* BSS_RESTRICT padding);
+FG_EXTERN void FG_FASTCALL GetInnerRect(const fgElement* self, AbsRect* inner, const AbsRect* standard);
 // Tests if a MOUSEMOVE message (or other valid mouse message) hits the given element
 FG_EXTERN char FG_FASTCALL MsgHitElement(const FG_Msg* msg, const fgElement* element);
 FG_EXTERN void FG_FASTCALL VirtualFreeChild(fgElement* self);

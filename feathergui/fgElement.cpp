@@ -813,6 +813,12 @@ void FG_FASTCALL VirtualFreeChild(fgElement* self)
     (*self->free)(self);
 }
 
+BSS_FORCEINLINE void __applyrect(AbsRect& dest, const AbsRect& src, const AbsRect& apply) noexcept
+{
+  const sseVecT<FABS> m(1.0f, 1.0f, -1.0f, -1.0f);
+  (sseVecT<FABS>(BSS_UNALIGNED<const float>(&src.left)) + (sseVecT<FABS>(BSS_UNALIGNED<const float>(&apply.left))*m)) >> BSS_UNALIGNED<float>(&dest.left);
+}
+
 // Inner (Child) rect has padding and margins applied and is used by foreground elements
 // Standard (clipping) rect has margins applied is used by background elements and rendering
 // Outer (layout) rect has none of those and is used by layouts
@@ -840,20 +846,22 @@ void FG_FASTCALL ResolveOuterRectCache(const fgElement* self, AbsRect* BSS_RESTR
   AbsRect replace;
   if(padding != 0)
   {
-    replace.left = last->left + padding->left;
-    replace.top = last->top + padding->top;
-    replace.right = last->right - padding->right;
-    replace.bottom = last->bottom - padding->bottom;
+    __applyrect(replace, *last, *padding);
     last = &replace;
   }
 
   AbsVec center = { self->transform.center.x.abs, self->transform.center.y.abs };
   const CRect* v = &self->transform.area;
   assert(out != 0 && self != 0 && last != 0);
-  out->left = lerp(last->left, last->right, v->left.rel) + v->left.abs;
-  out->top = lerp(last->top, last->bottom, v->top.rel) + v->top.abs;
-  out->right = lerp(last->left, last->right, v->right.rel) + v->right.abs;
-  out->bottom = lerp(last->top, last->bottom, v->bottom.rel) + v->bottom.abs;
+  //bss_util::lerp<sseVecT<FABS>, sseVecT<FABS>>(
+  //  sseVecT<FABS>(last->left, last->top, last->left, last->top),
+  //  sseVecT<FABS>(last->right, last->bottom, last->right, last->bottom),
+  //  sseVecT<FABS>(v->left.rel, v->top.rel, v->right.rel, v->bottom.rel))
+  //  + sseVecT<FABS>(v->left.abs, v->top.abs, v->right.abs, v->bottom.abs) >> BSS_UNALIGNED<float>(&out->left);
+  out->left = fglerp(last->left, last->right, v->left.rel) + v->left.abs;
+  out->top = fglerp(last->top, last->bottom, v->top.rel) + v->top.abs;
+  out->right = fglerp(last->left, last->right, v->right.rel) + v->right.abs;
+  out->bottom = fglerp(last->top, last->bottom, v->bottom.rel) + v->bottom.abs;
 
   if(self->flags & FGELEMENT_EXPANDX)
     out->right = out->left + std::max(out->right - out->left, self->layoutdim.x + self->padding.left + self->padding.right + self->margin.left + self->margin.right);
@@ -890,37 +898,24 @@ void FG_FASTCALL ResolveOuterRectCache(const fgElement* self, AbsRect* BSS_RESTR
 void FG_FASTCALL ResolveRect(const fgElement* self, AbsRect* out)
 {
   ResolveOuterRect(self, out);
-  out->left += self->margin.left;
-  out->top += self->margin.top;
-  out->right -= self->margin.right;
-  out->bottom -= self->margin.bottom;
+  __applyrect(*out, *out, self->margin);
 }
 
 void FG_FASTCALL ResolveRectCache(const fgElement* self, AbsRect* BSS_RESTRICT out, const AbsRect* BSS_RESTRICT last, const AbsRect* BSS_RESTRICT padding)
 {
   ResolveOuterRectCache(self, out, last, padding);
-  out->left += self->margin.left;
-  out->top += self->margin.top;
-  out->right -= self->margin.right;
-  out->bottom -= self->margin.bottom;
+  __applyrect(*out, *out, self->margin);
 }
 
 void FG_FASTCALL ResolveInnerRect(const fgElement* self, AbsRect* out)
 {
   ResolveRect(self, out);
-  out->left += self->padding.left;
-  out->top += self->padding.top;
-  out->right -= self->padding.right;
-  out->bottom -= self->padding.bottom;
+  __applyrect(*out, *out, self->padding);
 }
 
-void FG_FASTCALL ResolveInnerRectCache(const fgElement* self, AbsRect* BSS_RESTRICT out, const AbsRect* BSS_RESTRICT last, const AbsRect* BSS_RESTRICT padding)
+void FG_FASTCALL GetInnerRect(const fgElement* self, AbsRect* inner, const AbsRect* standard)
 {
-  ResolveOuterRectCache(self, out, last, padding);
-  out->left += self->padding.left;
-  out->top += self->padding.top;
-  out->right -= self->padding.right;
-  out->bottom -= self->padding.bottom;
+  __applyrect(*inner, *standard, self->padding);
 }
 
 char FG_FASTCALL MsgHitElement(const FG_Msg* msg, const fgElement* child)

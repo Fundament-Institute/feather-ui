@@ -29,8 +29,8 @@ AbsVec FG_FASTCALL ResolveVec(const CVec* v, const AbsRect* last)
 {
   AbsVec r = { v->x.abs, v->y.abs };
   assert(last != 0);
-  r.x += lerp(last->left, last->right, v->x.rel);
-  r.y += lerp(last->top, last->bottom, v->y.rel);
+  r.x += fglerp(last->left, last->right, v->x.rel);
+  r.y += fglerp(last->top, last->bottom, v->y.rel);
   return r;
 }
 

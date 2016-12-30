@@ -87,6 +87,8 @@ namespace bss_util {
   // Typesafe malloc implementation, for when you don't want to use New because you don't want constructors to be called.
   template<typename T>
   BSS_FORCEINLINE static T* bssmalloc(size_t sz) { return reinterpret_cast<T*>(malloc(sz * sizeof(T))); }
+  template<typename T>
+  BSS_FORCEINLINE static T* bsscalloc(size_t sz) { return reinterpret_cast<T*>(calloc(sz, sizeof(T))); }
 
   //template<bool Cond, typename F, F f1, F f2>
   //struct choose_func { BSS_FORCEINLINE static F get() { return f1; } };
@@ -924,10 +926,10 @@ namespace bss_util {
   }
 
   // Basic lerp function with no bounds checking
-  template<class T>
-  BSS_FORCEINLINE static T BSS_FASTCALL lerp(T a, T b, double t) noexcept
+  template<class T, class D = double>
+  BSS_FORCEINLINE static T BSS_FASTCALL lerp(T a, T b, D t) noexcept
   {
-    return T((1.0 - t)*a) + T(t*b);
+    return T((D(1.0) - t)*a) + T(t*b);
 	  //return a+((T)((b-a)*t)); // This is susceptible to floating point errors when t = 1
   }
 

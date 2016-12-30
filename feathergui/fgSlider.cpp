@@ -52,14 +52,10 @@ size_t FG_FASTCALL fgSlider_Message(fgSlider* self, const FG_Msg* msg)
       break;
   case FG_MOUSEDOWN:
   {
-    AbsRect out;
-    ResolveRect(*self, &out);
-    out.left += self->control.element.padding.left;
-    out.top += self->control.element.padding.top;
-    out.right -= self->control.element.padding.right;
-    out.bottom -= self->control.element.padding.bottom;
+    AbsRect inner;
+    ResolveInnerRect(*self, &inner);
 
-    double x = (msg->x - out.left) / (out.right - out.left); // we need all the precision in a double here
+    double x = (msg->x - inner.left) / (inner.right - inner.left); // we need all the precision in a double here
     size_t value = bss_util::fFastRound(bssclamp(x, 0.0, 1.0)*self->range); // Clamp to [0,1], multiply into [0, range], then round to nearest integer.
     fgIntMessage(*self, FG_SETVALUE, value, 0);
   }

@@ -81,6 +81,8 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
 
       AbsRect out;
       ResolveRect(*self, &out);
+      AbsRect inner;
+      GetInnerRect(*self, &inner, &out);
       AbsRect textout;
       ResolveRectCache(self->caption, &textout, &out, 0);
 
@@ -89,21 +91,21 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
         // Check for resize
         if(self->control->flags&FGWINDOW_RESIZABLE)
         {
-          if(msg->x < out.left + self->control.element.padding.left)
+          if(msg->x < inner.left)
             self->dragged |= 2;
           if(msg->y < textout.top)
             self->dragged |= 4;
-          if(msg->x >= out.right - self->control.element.padding.right)
+          if(msg->x >= inner.right)
             self->dragged |= 8;
-          if(msg->y >= out.bottom - self->control.element.padding.bottom)
+          if(msg->y >= inner.bottom)
             self->dragged |= 16;
         }
 
         // Check for move
         if(msg->y >= textout.top &&
           msg->y < textout.bottom &&
-          msg->x >= out.left + self->control.element.padding.left &&
-          msg->x < out.right - self->control.element.padding.right)
+          msg->x >= inner.left &&
+          msg->x < inner.right)
           self->dragged = 1;
       }
       if(self->dragged != 0)
@@ -142,6 +144,8 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
     {
       AbsRect out;
       ResolveRect(*self, &out);
+      AbsRect inner;
+      GetInnerRect(*self, &inner, &out);
       AbsRect textout;
       ResolveRectCache(self->caption, &textout, &out, 0);
 
@@ -150,13 +154,13 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
       if(!dragged && (self->control->flags&FGWINDOW_RESIZABLE) != 0)
       {
       // Check for resize
-        if(msg->x < out.left + self->control.element.padding.left)
+        if(msg->x < inner.left)
           dragged |= 2;
         if(msg->y < textout.top)
           dragged |= 4;
-        if(msg->x >= out.right - self->control.element.padding.right)
+        if(msg->x >= inner.right)
           dragged |= 8;
-        if(msg->y >= out.bottom - self->control.element.padding.bottom)
+        if(msg->y >= inner.bottom)
           dragged |= 16;
       }
 

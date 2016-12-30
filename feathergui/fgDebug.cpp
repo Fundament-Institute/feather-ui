@@ -97,24 +97,21 @@ size_t FG_FASTCALL fgDebug_Message(fgDebug* self, const FG_Msg* msg)
   case FG_DRAW:
     if(self->hover != 0)
     {
-      AbsRect r;
-      ResolveRect(self->hover, &r);
-      AbsRect clientarea = r;
-      clientarea.left += self->hover->padding.left;
-      clientarea.top += self->hover->padding.top;
-      clientarea.right -= self->hover->padding.right;
-      clientarea.bottom -= self->hover->padding.bottom;
-      AbsRect totalarea = r;
-      totalarea.left -= self->hover->margin.left;
-      totalarea.top -= self->hover->margin.top;
-      totalarea.right += self->hover->margin.right;
-      totalarea.bottom += self->hover->margin.bottom;
+      AbsRect outer;
+      ResolveOuterRect(self->hover, &outer);
+      AbsRect clip = outer;
+      clip.left += self->hover->margin.left;
+      clip.top += self->hover->margin.top;
+      clip.right -= self->hover->margin.right;
+      clip.bottom -= self->hover->margin.bottom;
+      AbsRect inner;
+      GetInnerRect(self->hover, &inner, &clip);
 
       const CRect ZeroCRect = { 0,0,0,0,0,0,0,0 };
       const AbsVec ZeroAbsVec = { 0,0 };
-      fgroot_instance->backend.fgDrawResource(0, &ZeroCRect, 0x666666FF, 0, 0.0f, &totalarea, 0, &ZeroAbsVec, FGRESOURCE_ROUNDRECT);
-      fgroot_instance->backend.fgDrawResource(0, &ZeroCRect, 0x6666FFFF, 0, 0.0f, &r, 0, &ZeroAbsVec, FGRESOURCE_ROUNDRECT);
-      fgroot_instance->backend.fgDrawResource(0, &ZeroCRect, 0x6666FF66, 0, 0.0f, &clientarea, 0, &ZeroAbsVec, FGRESOURCE_ROUNDRECT);
+      fgroot_instance->backend.fgDrawResource(0, &ZeroCRect, 0x666666FF, 0, 0.0f, &outer, 0, &ZeroAbsVec, FGRESOURCE_ROUNDRECT);
+      fgroot_instance->backend.fgDrawResource(0, &ZeroCRect, 0x6666FFFF, 0, 0.0f, &clip, 0, &ZeroAbsVec, FGRESOURCE_ROUNDRECT);
+      fgroot_instance->backend.fgDrawResource(0, &ZeroCRect, 0x6666FF66, 0, 0.0f, &inner, 0, &ZeroAbsVec, FGRESOURCE_ROUNDRECT);
       /*if(self->font)
       {
         unsigned int pt, dpi;
