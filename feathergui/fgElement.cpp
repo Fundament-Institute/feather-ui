@@ -255,6 +255,9 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
       _sendsubmsg<FG_LAYOUTCHANGE, void*, size_t>(self, FGELEMENT_LAYOUTMOVE, msg->other, msg->otheraux);
     else if(msg->otheraux) // This was either internal or propagated down, in which case we must keep propagating it down so long as something changed.
     {
+      if(msg->otheraux & (FGMOVE_RESIZE | FGMOVE_PADDING | FGMOVE_MARGIN)) // a layout change can happen on a resize or padding change
+        _sendsubmsg<FG_LAYOUTCHANGE, void*, size_t>(self, FGELEMENT_LAYOUTRESIZE, 0, msg->otheraux);
+
       fgElement* ref = !msg->other ? self : (fgElement*)msg->other;
       fgElement* cur = self->root;
       char diff;
@@ -266,9 +269,6 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
         //if(diff & msg->otheraux)
         _sendsubmsg<FG_MOVE, void*, size_t>(hold, msg->subtype, ref, diff & msg->otheraux);
       }
-
-      if(msg->otheraux & (FGMOVE_RESIZE | FGMOVE_PADDING | FGMOVE_MARGIN)) // a layout change can happen on a resize or padding change
-        _sendsubmsg<FG_LAYOUTCHANGE, void*, size_t>(self, FGELEMENT_LAYOUTRESIZE, 0, msg->otheraux);
     }
     return FG_ACCEPT;
   case FG_SETALPHA:

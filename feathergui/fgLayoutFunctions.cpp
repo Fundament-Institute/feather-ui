@@ -133,71 +133,72 @@ FABS fgTileGetExtra(fgElement* cur, char axis, FABS dim, FABS max)
   return x - dim;
 }
 
-void FG_FASTCALL fgTileLayoutFill(fgElement* cur, fgElement* skip, fgElement* row, FABS space, char axis, FABS max, FABS extra)
+void FG_FASTCALL fgTileLayoutFill(fgElement* last, fgElement* skip, fgElement* row, FABS space, char axis, FABS max)
 {
-  FABS side = max;
-  if(extra < space) // if this is true we don't actually have enough to fill the space in, so we must make adjustments
+  assert(row != 0);
+  if(space < 0) space = 0;
+  FABS side = axis ? row->transform.area.top.abs : row->transform.area.left.abs;
+  while(row != last)
   {
-    side -= space - extra;
-    space = extra;
-  }
-
-  while(cur != row)
-  {
-    assert(cur != 0);
-    if(cur == skip || (cur->flags&FGELEMENT_BACKGROUND)) // we check for cur background flags so we can pass in the root
+    if(row == skip || (row->flags&FGELEMENT_BACKGROUND)) // we check for cur background flags so we can pass in the root
     {
-      cur = cur->prev;
+      row = row->next;
       continue;
     }
 
     // All relative tiles are restricted to expanding [space] units beyond their minimum size.
-    FABS d = axis ? fgLayout_GetElementHeight(cur) : fgLayout_GetElementWidth(cur);
-    FABS e = fgTileGetExtra(cur, axis, d, max);
-    if(axis && cur->maxdim.y >= 0.0f && d > cur->maxdim.y) d = cur->maxdim.y;
-    if(!axis && cur->maxdim.x >= 0.0f && d > cur->maxdim.x) d = cur->maxdim.x;
+    FABS d = axis ? fgLayout_GetElementHeight(row) : fgLayout_GetElementWidth(row);
+    FABS e = fgTileGetExtra(row, axis, d, max);
+    if(axis && row->maxdim.y >= 0.0f && d > row->maxdim.y) d = row->maxdim.y;
+    if(!axis && row->maxdim.x >= 0.0f && d > row->maxdim.x) d = row->maxdim.x;
     FABS y = bssmin(e, space);
     space -= y;
     if(axis)
     {
-      cur->transform.area.top.abs = side - d - y;
-      cur->transform.area.bottom.abs = (cur->transform.area.bottom.rel != cur->transform.area.top.rel) ? side - max : side;
+      row->transform.area.top.abs = side;
+      row->transform.area.bottom.abs = (row->transform.area.bottom.rel != row->transform.area.top.rel) ? (side + d + y - max) : (side + d + y);
     }
     else
     {
-      cur->transform.area.left.abs = side - d - y;
-      cur->transform.area.right.abs = (cur->transform.area.right.rel != cur->transform.area.left.rel) ? side - max : side;
+      row->transform.area.left.abs = side;
+      row->transform.area.right.abs = (row->transform.area.right.rel != row->transform.area.left.rel) ? (side + d + y - max) : (side + d + y);
     }
-    side = side - d - y;
-    cur = cur->prev;
+    side += d + y;
+    row = row->next;
   }
 }
 
-AbsVec fgTileLayoutReorder(fgElement* cur, fgElement* skip, char axis, float max, AbsVec expand) // axis: 0 means x-axis first, 1 means y-axis first
+AbsVec fgTileLayoutReorder(fgElement* cur, fgElement* skip, char axis, float max, AbsVec expand, fgFlag flags) // axis: 0 means x-axis first, 1 means y-axis first
 {
-  if(axis) { FABS t = expand.x; expand.x = expand.y; expand.y = t; }
+  if(axis) { FABS t = expand.x; expand.x = expand.y; expand.y = t; flags = ((flags&FGBOX_IGNOREMARGINEDGEX) >> 1) | ((flags&FGBOX_IGNOREMARGINEDGEY) << 1); }
   FABS pitch = 0.0f;
-  FABS extra = 0.0f;
   AbsVec pos = { 0,0 };
-  fgElement* prev = !cur ? 0 : fgLayout_GetPrev(cur);
+  while(cur && cur->flags&FGELEMENT_BACKGROUND) cur = cur->next;
   fgElement* row = cur;
+  fgElement* prev;
   
-  if(std::isfinite(max)) // If max is finite then we could potentially perform a tile fill and will require pitch, so find the start of our row and initialize pitch.
+  if(row != 0 && std::isfinite(max)) // If max is finite then we could potentially perform a tile fill and will require pitch, so find the start of our row and initialize pitch.
   {
     FABS start = (axis ? row->transform.area.left.abs : row->transform.area.top.abs);
     FABS dim;
+    prev = row;
     while(row != 0 && (axis ? row->transform.area.left.abs : row->transform.area.top.abs) == start)
     {
       dim = (axis ? fgLayout_GetChildRight(row) : fgLayout_GetChildBottom(row)) - start;
+      if(flags&FGBOX_IGNOREMARGINEDGEY)
+        dim -= (axis ? cur->margin.left : cur->margin.top);
       if(dim > pitch)
         pitch = dim;
-      if(row != cur) // don't double-count the extra space
-        extra += fgTileGetExtra(row, axis, dim, max);
+      prev = row;
       row = fgLayout_GetPrev(row); // run backwards until we go up a level
     }
+    row = prev;
   }
-  if(prev)
+  if((prev = !cur ? 0 : fgLayout_GetPrev(cur)))
     pos = axis ? AbsVec{ fgLayout_GetChildBottom(prev), prev->transform.area.left.abs } : AbsVec{ fgLayout_GetChildRight(prev), prev->transform.area.top.abs };
+  if(cur != 0 && (flags&FGBOX_IGNOREMARGINEDGEX))
+    pos.x -= axis ? cur->margin.top : cur->margin.left;
+  fgElement* firstrow = row;
 
   while(cur)
   {
@@ -208,47 +209,85 @@ AbsVec fgTileLayoutReorder(fgElement* cur, fgElement* skip, char axis, float max
     }
     AbsVec dim = axis ? AbsVec{ fgLayout_GetElementHeight(cur), fgLayout_GetElementWidth(cur) } : AbsVec{ fgLayout_GetElementWidth(cur), fgLayout_GetElementHeight(cur) };
 
-    if(pos.x + dim.x > max)
+    if(row != cur && pos.x + dim.x > max)
     {
-      fgTileLayoutFill(prev, skip, row, max - pos.x, axis, max, extra);
+      fgTileLayoutFill(cur, skip, row, max - pos.x, axis, max);
       pos.y += pitch;
-      pos.x = 0;
+      pos.x = (flags&FGBOX_IGNOREMARGINEDGEX) ? -(axis ? cur->margin.top : cur->margin.left) : 0;
       pitch = 0;
-      row = prev;
+      row = cur;
     }
+    FABS posy = (row == firstrow && (flags&FGBOX_IGNOREMARGINEDGEY)) ? pos.y - (axis ? cur->margin.left : cur->margin.top) : pos.y;
 
     if(!axis)
-      MoveCRect(pos.x, pos.y, &cur->transform.area);
+      MoveCRect(pos.x, posy, &cur->transform.area);
     else
-      MoveCRect(pos.y, pos.x, &cur->transform.area);
+      MoveCRect(posy, pos.x, &cur->transform.area);
 
-    if(std::isfinite(max)) extra += fgTileGetExtra(cur, axis, dim.x, max);
     pos.x += dim.x;
+    dim.y += posy - pos.y;
     if(dim.y > pitch) pitch = dim.y;
     dim.y += pos.y;
     if(pos.x > expand.x) expand.x = pos.x;
     if(dim.y > expand.y) expand.y = dim.y;
-    prev = cur;
     cur = cur->next;
   }
 
-  if(std::isfinite(max))
-    fgTileLayoutFill(prev, skip, row, max - pos.x, axis, max, extra);
+  if(row != 0 && std::isfinite(max))
+    fgTileLayoutFill(0, skip, row, max - pos.x, axis, max);
   if(axis) { FABS t = expand.x; expand.x = expand.y; expand.y = t; }
   return expand;
+}
+
+void fgTileRecalcMin(fgElement* self, const FG_Msg* msg, char axis)
+{
+  fgElement* child = (fgElement*)msg->other;
+  fgElement* cur = self->root;
+  FABS w;
+  switch(msg->subtype)
+  {
+  case FGELEMENT_LAYOUTRESET:
+  case FGELEMENT_LAYOUTMOVE:
+    child = 0;
+  case FGELEMENT_LAYOUTREMOVE:
+    if(!axis)
+      self->mindim.x = 0;
+    else
+      self->mindim.y = 0;
+
+    while(cur)
+    {
+      if(cur != child && !(cur->flags&FGELEMENT_BACKGROUND))
+      {
+        if(!axis && (w = fgLayout_GetElementWidth(cur) + self->padding.left + self->padding.right + self->margin.left + self->margin.right) > self->mindim.x) self->mindim.x = w;
+        if(axis && (w = fgLayout_GetElementHeight(cur) + self->padding.top + self->padding.bottom + self->margin.top + self->margin.bottom) > self->mindim.y) self->mindim.y = w;
+      }
+      cur = cur->next;
+    }
+    break;
+  case FGELEMENT_LAYOUTADD:
+    if(!axis && (w = fgLayout_GetElementWidth(child) + self->padding.left + self->padding.right + self->margin.left + self->margin.right) > self->mindim.x) self->mindim.x = w;
+    if(axis && (w = fgLayout_GetElementHeight(child) + self->padding.top + self->padding.bottom + self->margin.top + self->margin.bottom) > self->mindim.y) self->mindim.y = w;
+    break;
+  }
 }
 
 size_t FG_FASTCALL fgTileLayout(fgElement* self, const FG_Msg* msg, fgFlag flags, AbsVec* dim)
 {
   AbsVec curdim = *dim;
   fgElement* child = (fgElement*)msg->other;
+  fgElement* skip = child;
   char axis = ((flags & FGBOX_TILE) && (flags & FGBOX_DISTRIBUTEY)) || ((flags & FGBOX_TILEY) && !(flags & FGBOX_TILEX)); // 0 expands along x-axis, 1 expands along y-axis
   FABS max = INFINITY; // Maximum axis length. If axis is 0, represents maximum length along x axis, otherwise represents maximum length along y-axis.
-  AbsRect out;
-  ResolveInnerRect(self, &out);
-  AbsVec selfdim = { out.right - out.left, out.bottom - out.top };
   if((flags & FGBOX_TILE) == FGBOX_TILE)
   {
+    if((!axis && self->transform.area.left.rel != self->transform.area.right.rel) || (axis && self->transform.area.top.rel != self->transform.area.bottom.rel))
+      fgTileRecalcMin(self, msg, axis);
+
+    AbsRect out;
+    ResolveInnerRect(self, &out);
+    AbsVec selfdim = { out.right - out.left, out.bottom - out.top };
+
     max = !axis ? ((self->flags & FGELEMENT_EXPANDX) ? self->maxdim.x : selfdim.x) : ((self->flags & FGELEMENT_EXPANDY) ? self->maxdim.y : selfdim.y);
     if(max < 0) max = INFINITY;
   }
@@ -256,17 +295,17 @@ size_t FG_FASTCALL fgTileLayout(fgElement* self, const FG_Msg* msg, fgFlag flags
   switch(msg->subtype)
   {
   case FGELEMENT_LAYOUTRESET:
-    curdim = fgTileLayoutReorder(self->root, 0, axis, max, AbsVec { 0,0 });
+    curdim = fgTileLayoutReorder(self->root, 0, axis, max, AbsVec { 0,0 }, flags);
     break;
   case FGELEMENT_LAYOUTRESIZE: // we only need to resize if the tiling is wrapping (flags is set to FGBOX_TILE) and the limiting axis is the same one that was resized.
     if((((msg->otheraux & FGMOVE_RESIZEX) && !(self->flags&FGELEMENT_EXPANDX)) || ((msg->otheraux & FGMOVE_RESIZEY) && !(self->flags&FGELEMENT_EXPANDY))) && (flags & FGBOX_TILE))
-      curdim = fgTileLayoutReorder(self->root, 0, axis, max, AbsVec{ 0,0 });
+      curdim = fgTileLayoutReorder(self->root, 0, axis, max, AbsVec{ 0,0 }, flags);
     else
       return 0;
     break;
   case FGELEMENT_LAYOUTREORDER:
     if((flags&FGBOX_TILE) == FGBOX_TILE) // If the tiling is wrapping we have to recalculate everything
-      curdim = fgTileLayoutReorder(self->root, 0, axis, max, AbsVec{ 0,0 });
+      curdim = fgTileLayoutReorder(self->root, 0, axis, max, AbsVec{ 0,0 }, flags);
     else
     {
       fgElement* old = (fgElement*)msg->other2;
@@ -274,30 +313,19 @@ size_t FG_FASTCALL fgTileLayout(fgElement* self, const FG_Msg* msg, fgFlag flags
       assert(!(old->flags&FGELEMENT_BACKGROUND));
       assert(!(cur->flags&FGELEMENT_BACKGROUND));
       while(cur != 0 && cur != child) cur = cur->next; // Run down from old until we either hit child, in which case old is the lowest, or we hit null
-      curdim = fgTileLayoutReorder(!cur ? child : old, 0, axis, max, curdim);
+      curdim = fgTileLayoutReorder(!cur ? child : old, 0, axis, max, curdim, flags);
     }
+    break;
+  case FGELEMENT_LAYOUTADD:
+    curdim = fgTileLayoutReorder(child, 0, axis, max, curdim, flags);
     break;
   case FGELEMENT_LAYOUTMOVE:
     if(!(msg->otheraux&FGMOVE_RESIZE)) // Only reorder if the child was resized. Note that we need to resize even if it's the opposite axis to account for expansion
       return 0;
-    if(((self->flags&FGBOX_TILE) == FGBOX_TILE) || ((self->flags&FGELEMENT_EXPANDX) && !(flags&FGBOX_TILEX)) || ((self->flags&FGELEMENT_EXPANDY) && !(flags&FGBOX_TILEY)))
-      curdim = fgTileLayoutReorder(self->root, 0, axis, max, AbsVec{ 0,0 });
-    else
-    {
-      fgElement* prev = fgLayout_GetPrev(child);
-      if(!axis)
-        curdim.x = !prev ? 0 : fgLayout_GetChildRight(prev);
-      else
-        curdim.y = !prev ? 0 : fgLayout_GetChildBottom(prev);
-      curdim = fgTileLayoutReorder(child, 0, axis, max, curdim);
-    }
-    break;
-  case FGELEMENT_LAYOUTADD:
-    curdim = fgTileLayoutReorder(child, 0, axis, max, curdim);
-    break;
+    skip = 0;
   case FGELEMENT_LAYOUTREMOVE: // If we are expanding along an axis that isn't tiled, or we are wrapping, we have to recalculate the whole thing.
     if(((self->flags&FGBOX_TILE) == FGBOX_TILE) || ((self->flags&FGELEMENT_EXPANDX) && !(flags&FGBOX_TILEX)) || ((self->flags&FGELEMENT_EXPANDY) && !(flags&FGBOX_TILEY)))
-      curdim = fgTileLayoutReorder(self->root, child, axis, max, AbsVec { 0,0 });
+      curdim = fgTileLayoutReorder(self->root, skip, axis, max, AbsVec { 0,0 }, flags);
     else
     {
       fgElement* prev = fgLayout_GetPrev(child);
@@ -305,7 +333,7 @@ size_t FG_FASTCALL fgTileLayout(fgElement* self, const FG_Msg* msg, fgFlag flags
         curdim.x = !prev ? 0 : fgLayout_GetChildRight(prev);
       else
         curdim.y = !prev ? 0 : fgLayout_GetChildBottom(prev);
-      curdim = fgTileLayoutReorder(child, child, axis, max, curdim);
+      curdim = fgTileLayoutReorder(child, skip, axis, max, curdim, flags);
     }
     break;
   }
