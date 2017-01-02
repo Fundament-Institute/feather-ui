@@ -1,5 +1,5 @@
 /* fgDirect2D - Direct2D Backend for Feather GUI
-Copyright ©2016 Black Sphere Studios
+Copyright ©2017 Black Sphere Studios
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
