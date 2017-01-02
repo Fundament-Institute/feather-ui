@@ -32,6 +32,8 @@ void FG_FASTCALL fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement
   self->maxdim.y = -1.0f;
   self->mindim.x = -1.0f;
   self->mindim.y = -1.0f;
+  self->scaling.x = 1.0f;
+  self->scaling.y = 1.0f;
   if(transform)
   {
     self->transform = *transform;
@@ -680,7 +682,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
   case FG_DROP:
     return 0;
   case FG_DRAW:
-    fgStandardDraw(self, (AbsRect*)msg->other, msg->otheraux, msg->subtype & 1);
+    fgStandardDraw(self, (const AbsRect*)msg->other, (const fgDrawAuxData*)msg->other2, msg->subtype & 1);
     return FG_ACCEPT;
   case FG_INJECT:
     return fgStandardInject(self, (const FG_Msg*)msg->other, (const AbsRect*)msg->other2);
@@ -692,7 +694,7 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
   case FG_GETNAME:
     return (size_t)self->name;
   case FG_GETDPI:
-    return self->parent ? (*fgroot_instance->backend.behaviorhook)(self->parent, msg) : 0;
+    return self->parent ? (*fgroot_instance->backend.behaviorhook)(self->parent, msg) : (size_t)&fgIntVec_EMPTY;
   case FG_GETLINEHEIGHT:
     return self->parent ? (*fgroot_instance->backend.behaviorhook)(self->parent, msg) : 0;
   case FG_SETDPI:
@@ -800,6 +802,12 @@ size_t FG_FASTCALL fgElement_Message(fgElement* self, const FG_Msg* msg)
     break;
   case FG_MOUSEDBLCLICK:
     return self->MouseDown(msg->x, msg->y, msg->button, msg->allbtn);
+  case FG_SETSCALING:
+    self->scaling.x = msg->otherf;
+    self->scaling.y = msg->otherfaux;
+    break;
+  case FG_GETSCALING:
+    return (size_t)&self->scaling;
   }
 
   return 0;
@@ -1095,7 +1103,7 @@ size_t fgElement::Drop(int x, int y, unsigned char allbtn)
   return (*fgroot_instance->backend.behaviorhook)(this, &m);
 }
 
-void fgElement::Draw(AbsRect* area, int dpi) { _sendmsg<FG_DRAW, void*, size_t>(this, area, dpi); }
+void fgElement::Draw(const AbsRect* area, const fgDrawAuxData* aux) { _sendmsg<FG_DRAW, const void*, const void*>(this, area, aux); }
 
 size_t fgElement::Inject(const FG_Msg* msg, const AbsRect* area) { return _sendmsg<FG_INJECT, const void*, const void*>(this, msg, area); }
 
@@ -1111,9 +1119,9 @@ size_t FG_FASTCALL fgElement::SetStyle(FG_UINT index, FG_UINT mask) { return _se
 
 struct _FG_STYLE* fgElement::GetStyle() { return reinterpret_cast<struct _FG_STYLE*>(_sendmsg<FG_GETSTYLE>(this)); }
 
-size_t FG_FASTCALL fgElement::GetDPI() { return _sendmsg<FG_GETDPI>(this); }
+fgIntVec& FG_FASTCALL fgElement::GetDPI() { return *reinterpret_cast<fgIntVec*>(_sendmsg<FG_GETDPI>(this)); }
 
-void FG_FASTCALL fgElement::SetDPI(int dpi) { _sendmsg<FG_SETDPI, ptrdiff_t>(this, dpi); }
+void FG_FASTCALL fgElement::SetDPI(int x, int y) { _sendmsg<FG_SETDPI, ptrdiff_t, size_t>(this, x, y); }
 
 const char* fgElement::GetClassName() { return reinterpret_cast<const char*>(_sendmsg<FG_GETCLASSNAME>(this)); }
 

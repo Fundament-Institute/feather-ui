@@ -51,6 +51,7 @@ typedef struct _FG_ELEMENT {
   AbsVec maxdim;
   AbsVec mindim;
   AbsVec layoutdim;
+  AbsVec scaling;
   fgDestroy destroy;
   void (*free)(void* self); // pointer to deallocation function
   fgMessage message;
@@ -99,7 +100,7 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT size_t FG_FASTCALL LayoutLoad(struct _FG_LAYOUT* layout);
   FG_DLLEXPORT size_t DragOver(int x, int y);
   FG_DLLEXPORT size_t Drop(int x, int y, unsigned char allbtn);
-  FG_DLLEXPORT void Draw(AbsRect* area, int dpi);
+  FG_DLLEXPORT void Draw(const AbsRect* area, const fgDrawAuxData* aux);
   FG_DLLEXPORT size_t FG_FASTCALL Inject(const FG_Msg* msg, const AbsRect* area);
   FG_DLLEXPORT size_t FG_FASTCALL SetSkin(struct _FG_SKIN* skin);
   FG_DLLEXPORT struct _FG_SKIN* FG_FASTCALL GetSkin(struct _FG_ELEMENT* child = 0);
@@ -107,8 +108,8 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT size_t FG_FASTCALL SetStyle(struct _FG_STYLE* style);
   FG_DLLEXPORT size_t FG_FASTCALL SetStyle(FG_UINT index, FG_UINT mask);
   FG_DLLEXPORT struct _FG_STYLE* GetStyle();
-  FG_DLLEXPORT size_t FG_FASTCALL GetDPI();
-  FG_DLLEXPORT void FG_FASTCALL SetDPI(int dpi);
+  FG_DLLEXPORT fgIntVec& FG_FASTCALL GetDPI();
+  FG_DLLEXPORT void FG_FASTCALL SetDPI(int x, int y);
   FG_DLLEXPORT const char* GetClassName();
   FG_DLLEXPORT void* FG_FASTCALL GetUserdata(const char* name = 0);
   FG_DLLEXPORT void FG_FASTCALL SetUserdata(void* data, const char* name = 0);

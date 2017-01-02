@@ -37,7 +37,7 @@ typedef struct _FG_ROOT {
   struct __kh_fgIDMap_t* idmap;
   struct __kh_fgIDHash_t* idhash; // reverse ID lookup
   struct __kh_fgInitMap_t* initmap;
-  size_t dpi;
+  fgIntVec dpi;
   float lineheight;
   float fontscale;
   double time; // In seconds
@@ -63,7 +63,7 @@ typedef struct _FG_ROOT {
 
 FG_EXTERN fgRoot* FG_FASTCALL fgSingleton();
 FG_EXTERN char FG_FASTCALL fgLoadExtension(const char* extname, void* fg, size_t sz);
-FG_EXTERN void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, size_t dpi, fgBackend* backend);
+FG_EXTERN void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, const fgIntVec* dpi, const fgBackend* backend);
 FG_EXTERN void FG_FASTCALL fgRoot_Destroy(fgRoot* self);
 FG_EXTERN size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg);
 FG_EXTERN size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg); // Returns 0 if handled, 1 otherwise
@@ -81,8 +81,8 @@ FG_EXTERN void FG_FASTCALL fgRoot_AddID(fgRoot* self, const char* id, fgElement*
 FG_EXTERN char FG_FASTCALL fgRoot_RemoveID(fgRoot* self, fgElement* element);
 FG_EXTERN size_t FG_FASTCALL fgStandardInject(fgElement* self, const FG_Msg* msg, const AbsRect* area);
 FG_EXTERN size_t FG_FASTCALL fgOrderedInject(fgElement* self, const FG_Msg* msg, const AbsRect* area, fgElement* skip, fgElement* (*fn)(fgElement*, const FG_Msg*));
-FG_EXTERN void FG_FASTCALL fgStandardDraw(fgElement* self, const AbsRect* area, size_t dpi, char culled);
-FG_EXTERN void FG_FASTCALL fgOrderedDraw(fgElement* self, const AbsRect* area, size_t dpi, char culled, fgElement* skip, fgElement* (*fn)(fgElement*, const AbsRect*, const AbsRect*), void(*draw)(fgElement*, const AbsRect*, size_t));
+FG_EXTERN void FG_FASTCALL fgStandardDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, char culled);
+FG_EXTERN void FG_FASTCALL fgOrderedDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, char culled, fgElement* skip, fgElement* (*fn)(fgElement*, const AbsRect*, const AbsRect*), void(*draw)(fgElement*, const AbsRect*, const fgDrawAuxData*));
 FG_EXTERN fgElement* FG_FASTCALL fgCreate(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
 FG_EXTERN int FG_FASTCALL fgRegisterFunction(const char* name, fgListener fn);
 FG_EXTERN void FG_FASTCALL fgRegisterControl(const char* name, fgInitializer fn, size_t sz);

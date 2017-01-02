@@ -48,7 +48,7 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
   case FG_SETRESOURCE:
     if(self->res) fgroot_instance->backend.fgDestroyResource(self->res);
     self->res = 0;
-    if(msg->other) self->res = fgroot_instance->backend.fgCloneResource(msg->other);
+    if(msg->other) self->res = fgroot_instance->backend.fgCloneResource(msg->other, &self->element);
     fgResource_Recalc(self);
     fgroot_instance->backend.fgDirtyElement(*self);
     break;
@@ -61,7 +61,7 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
     fgroot_instance->backend.fgDirtyElement(*self);
     break;
   case FG_SETOUTLINE:
-    self->outline = fgResolveUnit(&self->element, msg->otherf, msg->subtype);
+    self->outline = fgResolveUnit(&self->element, msg->otherf, msg->subtype, false);
     fgroot_instance->backend.fgDirtyElement(*self);
     break;
   case FG_GETUV:
@@ -85,21 +85,22 @@ size_t FG_FASTCALL fgResource_Message(fgResource* self, const FG_Msg* msg)
   {
     if(msg->subtype & 1) break;
     AbsRect area = *(AbsRect*)msg->other;
-    FABS scale = (!msg->otheraux || !fgroot_instance->dpi) ? (FABS)1.0 : (fgroot_instance->dpi / (FABS)msg->otheraux);
-    area.left *= scale;
-    area.top *= scale;
-    area.right *= scale;
-    area.bottom *= scale;
+    fgDrawAuxData* data = (fgDrawAuxData*)msg->other2;
+    AbsVec scale = { (!data->dpi.x || !fgroot_instance->dpi.x) ? 1.0f : (fgroot_instance->dpi.x / (float)data->dpi.x), (!data->dpi.y || !fgroot_instance->dpi.y) ? 1.0f : (fgroot_instance->dpi.y / (float)data->dpi.y) };
+    area.left *= scale.x;
+    area.top *= scale.y;
+    area.right *= scale.x;
+    area.bottom *= scale.y;
     AbsVec center = ResolveVec(&self->element.transform.center, &area);
 
     if(self->element.flags&FGRESOURCE_UVTILE)
     {
       self->uv.right.abs = self->uv.left.abs + area.right - area.left;
       self->uv.bottom.abs = self->uv.top.abs + area.bottom - area.top;
-      fgroot_instance->backend.fgDrawResource(self->res, &self->uv, self->color.color, self->edge.color, self->outline, &area, self->element.transform.rotation, &center, self->element.flags);
+      fgroot_instance->backend.fgDrawResource(self->res, &self->uv, self->color.color, self->edge.color, self->outline, &area, self->element.transform.rotation, &center, self->element.flags, data);
     }
     else
-      fgroot_instance->backend.fgDrawResource(self->res, &self->uv, self->color.color, self->edge.color, self->outline, &area, self->element.transform.rotation, &center, self->element.flags);
+      fgroot_instance->backend.fgDrawResource(self->res, &self->uv, self->color.color, self->edge.color, self->outline, &area, self->element.transform.rotation, &center, self->element.flags, data);
   }
   break;
   case FG_GETCLASSNAME:

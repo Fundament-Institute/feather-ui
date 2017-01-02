@@ -15,6 +15,7 @@ const fgColor fgColor_BLACK = { 0xFF000000 };
 const fgColor fgColor_WHITE = { 0xFFFFFFFF };
 const CRect CRect_EMPTY = { 0,0,0,0,0,0,0,0 };
 const AbsVec AbsVec_EMPTY = { 0,0 };
+const fgIntVec fgIntVec_EMPTY = { 0,0 };
 bss_util::cHash<std::pair<fgElement*, unsigned short>, fgListener> fgListenerHash;
 
 static_assert(sizeof(unsigned int) == sizeof(fgColor), "ERROR: fgColor not size of 32-bit int!");
@@ -172,3 +173,43 @@ void FG_FASTCALL fgRectIntersection(const AbsRect* BSS_RESTRICT l, const AbsRect
   out->right = bssmin(l->right, r->right);
   out->bottom = bssmin(l->bottom, r->bottom);
 }
+
+#ifdef BSS_PLATFORM_WIN32
+#include "bss-util/bss_win32_includes.h"
+
+size_t BSS_FASTCALL fgUTF8toUTF16(const char*BSS_RESTRICT input, ptrdiff_t srclen, wchar_t*BSS_RESTRICT output, size_t buflen)
+{
+  return (size_t)MultiByteToWideChar(CP_UTF8, 0, input, (int)srclen, output, (int)(!output ? 0 : buflen));
+}
+
+size_t BSS_FASTCALL fgUTF16toUTF8(const wchar_t*BSS_RESTRICT input, ptrdiff_t srclen, char*BSS_RESTRICT output, size_t buflen)
+{
+  return (size_t)WideCharToMultiByte(CP_UTF8, 0, input, (int)srclen, output, (int)(!output ? 0 : buflen), NULL, NULL);
+}
+
+#else
+#include <iconv.h>
+size_t BSS_FASTCALL fgUTF8toUTF16(const char*BSS_RESTRICT input, ptrdiff_t srclen, wchar_t*BSS_RESTRICT output, size_t buflen)
+{
+static iconv_t iconv_utf8to16 = 0;
+  size_t len = srclen < 0 ? strlen(input) : srclen;
+  char* out = (char*)output;
+  if(!output) return (len * 4) + 1;
+  len += 1; // include null terminator
+  if(!iconv_utf8to16) iconv_utf8to16 = iconv_open("UTF-8", "UTF-16");
+  char* in = (char*)input; // Linux is stupid
+  return iconv(iconv_utf8to16, &in, &len, &out, &buflen);
+}
+
+extern size_t BSS_FASTCALL fgUTF16toUTF8(const wchar_t*BSS_RESTRICT input, ptrdiff_t srclen, char*BSS_RESTRICT output, size_t buflen)
+{
+  static iconv_t iconv_utf16to8 = 0;
+  size_t len = (srclen < 0 ? wcslen(input) : srclen) * 2;
+  char* in = (char*)input;
+  if(!output) return (len * 2) + 1;
+  len += 2; // include null terminator (which is 2 bytes wide here)
+  if(!iconv_utf16to8) iconv_utf16to8 = iconv_open("UTF-16", "UTF-8");
+  return iconv(iconv_utf16to8, &in, &len, &output, &buflen);
+}
+#endif
+

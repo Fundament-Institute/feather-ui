@@ -17,6 +17,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fgLayoutEditor", "fgLayoutE
 		{A8D060DE-D5D6-40B1-9F96-401562E8DACD} = {A8D060DE-D5D6-40B1-9F96-401562E8DACD}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fgDirect2D", "fgDirect2D\fgDirect2D.vcxproj", "{C07B4A3B-2629-4B98-9C7D-AFD1B90C7516}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -75,6 +77,18 @@ Global
 		{D3B96E3C-5586-49B0-ABA7-09E4F3734A3E}.Release|Win32.Build.0 = Release|Win32
 		{D3B96E3C-5586-49B0-ABA7-09E4F3734A3E}.Release|x64.ActiveCfg = Release|x64
 		{D3B96E3C-5586-49B0-ABA7-09E4F3734A3E}.Release|x64.Build.0 = Release|x64
+		{C07B4A3B-2629-4B98-9C7D-AFD1B90C7516}.Debug|Win32.ActiveCfg = Debug|Win32
+		{C07B4A3B-2629-4B98-9C7D-AFD1B90C7516}.Debug|Win32.Build.0 = Debug|Win32
+		{C07B4A3B-2629-4B98-9C7D-AFD1B90C7516}.Debug|x64.ActiveCfg = Debug|x64
+		{C07B4A3B-2629-4B98-9C7D-AFD1B90C7516}.Debug|x64.Build.0 = Debug|x64
+		{C07B4A3B-2629-4B98-9C7D-AFD1B90C7516}.Release Clang|Win32.ActiveCfg = Release|Win32
+		{C07B4A3B-2629-4B98-9C7D-AFD1B90C7516}.Release Clang|Win32.Build.0 = Release|Win32
+		{C07B4A3B-2629-4B98-9C7D-AFD1B90C7516}.Release Clang|x64.ActiveCfg = Release|x64
+		{C07B4A3B-2629-4B98-9C7D-AFD1B90C7516}.Release Clang|x64.Build.0 = Release|x64
+		{C07B4A3B-2629-4B98-9C7D-AFD1B90C7516}.Release|Win32.ActiveCfg = Release|Win32
+		{C07B4A3B-2629-4B98-9C7D-AFD1B90C7516}.Release|Win32.Build.0 = Release|Win32
+		{C07B4A3B-2629-4B98-9C7D-AFD1B90C7516}.Release|x64.ActiveCfg = Release|x64
+		{C07B4A3B-2629-4B98-9C7D-AFD1B90C7516}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

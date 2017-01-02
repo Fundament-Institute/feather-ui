@@ -190,9 +190,9 @@ struct _FG_DEBUG;
 extern struct _FG_DEBUG* fgdebug_instance;
 extern FG_UINT fgStyleFlagMask;
 
-extern BSS_FORCEINLINE void* FG_FASTCALL fgCloneResourceCpp(void* r) { return fgroot_instance->backend.fgCloneResource(r); }
+extern BSS_FORCEINLINE void* FG_FASTCALL fgCloneResourceCpp(void* r) { return fgroot_instance->backend.fgCloneResource(r, 0); }
 extern BSS_FORCEINLINE void FG_FASTCALL fgDestroyResourceCpp(void* r) { return fgroot_instance->backend.fgDestroyResource(r); }
-extern BSS_FORCEINLINE void* FG_FASTCALL fgCloneFontCpp(void* r) { return fgroot_instance->backend.fgCloneFont(r); }
+extern BSS_FORCEINLINE void* FG_FASTCALL fgCloneFontCpp(void* r) { return fgroot_instance->backend.fgCloneFont(r, 0); }
 extern BSS_FORCEINLINE void FG_FASTCALL fgDestroyFontCpp(void* r) { return fgroot_instance->backend.fgDestroyFont(r); }
 extern BSS_FORCEINLINE void FG_FASTCALL fgConstructKeyValue(_FG_KEY_VALUE*) {}
 extern BSS_FORCEINLINE void FG_FASTCALL fgDestructKeyValue(_FG_KEY_VALUE* p)
@@ -222,9 +222,7 @@ typedef typename fgConstruct<fgClassLayout, const char*, const char*, fgFlag, co
 
 extern BSS_FORCEINLINE char fgSortStyleLayout(const fgStyleLayoutConstruct& l, const fgStyleLayoutConstruct& r) { return -SGNCOMPARE(l.order, r.order); }
 extern BSS_FORCEINLINE char fgSortClassLayout(const fgClassLayoutConstruct& l, const fgClassLayoutConstruct& r) { return -SGNCOMPARE(l.style.order, r.style.order); }
-extern BSS_FORCEINLINE void fgStandardDrawElement(fgElement* self, fgElement* hold, const AbsRect* area, size_t dpi, AbsRect& curarea, bool& clipping);
-
-static const int UNICODE_TERMINATOR = 0;
+extern BSS_FORCEINLINE void fgStandardDrawElement(fgElement* self, fgElement* hold, const AbsRect* area, const fgDrawAuxData* aux, AbsRect& curarea, bool& clipping);
 
 typedef bss_util::cArraySort<fgStyleLayoutConstruct, fgSortStyleLayout, size_t, bss_util::CARRAY_CONSTRUCT> fgStyleLayoutArray;
 typedef bss_util::cDynArray<typename fgConstruct<fgStyle>::fgConstructor<fgStyle_Destroy, fgStyle_Init>, size_t, bss_util::CARRAY_CONSTRUCT> fgStyleArray;
@@ -278,7 +276,7 @@ BSS_FORCEINLINE size_t fgMaskSetStyle(fgElement* self, const char* style, FG_UIN
   return _sendsubmsg<FG_SETSTYLE, const void*, size_t>(self, FGSETSTYLE_NAME, style, mask);
 }
 
-BSS_FORCEINLINE FABS fgResolveUnit(fgElement* self, FABS x, size_t unit)
+BSS_FORCEINLINE FABS fgResolveUnit(fgElement* self, FABS x, size_t unit, bool axis)
 {
   switch(unit)
   {
@@ -290,38 +288,38 @@ BSS_FORCEINLINE FABS fgResolveUnit(fgElement* self, FABS x, size_t unit)
   case FGUNIT_EM:
     return x * self->GetLineHeight();
   case FGUNIT_PX:
-    return x * ((FABS)self->GetDPI() / (FABS)fgroot_instance->dpi);
+    return axis ? (x * ((FABS)self->GetDPI().y / (FABS)fgroot_instance->dpi.y)) : (x * ((FABS)self->GetDPI().x / (FABS)fgroot_instance->dpi.x));
   }
 }
 
 BSS_FORCEINLINE void fgResolveRectUnit(fgElement* self, AbsRect& r, size_t subtype)
 {
-  r.left = fgResolveUnit(self, r.left, (subtype & FGUNIT_LEFT_MASK) >> FGUNIT_LEFT);
-  r.top = fgResolveUnit(self, r.top, (subtype & FGUNIT_TOP_MASK) >> FGUNIT_TOP);
-  r.right = fgResolveUnit(self, r.right, (subtype & FGUNIT_RIGHT_MASK) >> FGUNIT_RIGHT);
-  r.bottom = fgResolveUnit(self, r.bottom, (subtype & FGUNIT_BOTTOM_MASK) >> FGUNIT_BOTTOM);
+  r.left = fgResolveUnit(self, r.left, (subtype & FGUNIT_LEFT_MASK) >> FGUNIT_LEFT, false);
+  r.top = fgResolveUnit(self, r.top, (subtype & FGUNIT_TOP_MASK) >> FGUNIT_TOP, true);
+  r.right = fgResolveUnit(self, r.right, (subtype & FGUNIT_RIGHT_MASK) >> FGUNIT_RIGHT, false);
+  r.bottom = fgResolveUnit(self, r.bottom, (subtype & FGUNIT_BOTTOM_MASK) >> FGUNIT_BOTTOM, true);
 }
 
 BSS_FORCEINLINE void fgResolveVecUnit(fgElement* self, AbsVec& v, size_t subtype)
 {
-  v.x = fgResolveUnit(self, v.x, (subtype & FGUNIT_X_MASK) >> FGUNIT_X);
-  v.y = fgResolveUnit(self, v.y, (subtype & FGUNIT_Y_MASK) >> FGUNIT_Y);
+  v.x = fgResolveUnit(self, v.x, (subtype & FGUNIT_X_MASK) >> FGUNIT_X, false);
+  v.y = fgResolveUnit(self, v.y, (subtype & FGUNIT_Y_MASK) >> FGUNIT_Y, true);
 }
 
 BSS_FORCEINLINE void fgResolveCRectUnit(fgElement* self, CRect& r, size_t subtype)
 {
-  r.left.abs = fgResolveUnit(self, r.left.abs, (subtype & FGUNIT_LEFT_MASK) >> FGUNIT_LEFT);
-  r.top.abs = fgResolveUnit(self, r.top.abs, (subtype & FGUNIT_TOP_MASK) >> FGUNIT_TOP);
-  r.right.abs = fgResolveUnit(self, r.right.abs, (subtype & FGUNIT_RIGHT_MASK) >> FGUNIT_RIGHT);
+  r.left.abs = fgResolveUnit(self, r.left.abs, (subtype & FGUNIT_LEFT_MASK) >> FGUNIT_LEFT, false);
+  r.top.abs = fgResolveUnit(self, r.top.abs, (subtype & FGUNIT_TOP_MASK) >> FGUNIT_TOP, true);
+  r.right.abs = fgResolveUnit(self, r.right.abs, (subtype & FGUNIT_RIGHT_MASK) >> FGUNIT_RIGHT, false);
   if(subtype & FGUNIT_RIGHT_WIDTH) r.right.abs += r.left.abs;
-  r.bottom.abs = fgResolveUnit(self, r.bottom.abs, (subtype & FGUNIT_BOTTOM_MASK) >> FGUNIT_BOTTOM);
+  r.bottom.abs = fgResolveUnit(self, r.bottom.abs, (subtype & FGUNIT_BOTTOM_MASK) >> FGUNIT_BOTTOM, true);
   if(subtype & FGUNIT_BOTTOM_HEIGHT) r.bottom.abs += r.top.abs;
 }
 
 BSS_FORCEINLINE void fgResolveCVecUnit(fgElement* self, CVec& v, size_t subtype)
 {
-  v.x.abs = fgResolveUnit(self, v.x.abs, (subtype & FGUNIT_X_MASK) >> FGUNIT_X);
-  v.y.abs = fgResolveUnit(self, v.y.abs, (subtype & FGUNIT_Y_MASK) >> FGUNIT_Y);
+  v.x.abs = fgResolveUnit(self, v.x.abs, (subtype & FGUNIT_X_MASK) >> FGUNIT_X, false);
+  v.y.abs = fgResolveUnit(self, v.y.abs, (subtype & FGUNIT_Y_MASK) >> FGUNIT_Y, true);
 }
 
 extern "C" {

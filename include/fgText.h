@@ -24,13 +24,21 @@ enum FGTEXT_FLAGS // these start at (1 << 13) so they don't intersect the scroll
 typedef fgDeclareVector(char, String) fgVectorString;
 typedef fgDeclareVector(int, UTF32) fgVectorUTF32;
 
+typedef struct _FG_FONT_DESC {
+  FABS ascender;
+  FABS descender;
+  FABS lineheight;
+  unsigned int pt;
+  fgIntVec dpi;
+} fgFontDesc;
+
 // fgText stores a string and renders it according to the font and fontcolor that it has.
-typedef struct {
+typedef struct _FG_TEXT {
   fgElement element;
   fgVectorUTF32 text;
   fgVectorString buf;
   void* font;
-  void* cache;
+  void* layout;
   fgColor color;
   float lineheight;
   float letterspacing;

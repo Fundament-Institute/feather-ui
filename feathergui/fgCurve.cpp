@@ -122,22 +122,23 @@ size_t FG_FASTCALL fgCurve_Message(fgCurve* self, const FG_Msg* msg)
   {
     if(msg->subtype & 1) break;
     AbsRect area = *(AbsRect*)msg->other;
-    FABS scale = (!msg->otheraux || !fgroot_instance->dpi) ? (FABS)1.0 : (fgroot_instance->dpi / (float)msg->otheraux);
-    area.left *= scale;
-    area.top *= scale;
-    area.right *= scale;
-    area.bottom *= scale;
+    fgDrawAuxData* data = (fgDrawAuxData*)msg->other2;
+    AbsVec scale = { (!data->dpi.x || !fgroot_instance->dpi.x) ? 1.0f : (fgroot_instance->dpi.x / (float)data->dpi.x), (!data->dpi.y || !fgroot_instance->dpi.y) ? 1.0f : (fgroot_instance->dpi.y / (float)data->dpi.y) };
+    area.left *= scale.x;
+    area.top *= scale.y;
+    area.right *= scale.x;
+    area.bottom *= scale.y;
     AbsVec center = ResolveVec(&self->element.transform.center, &area);
     AbsVec scalevec = AbsVec { 1.0f, 1.0f };
 
     if(!(self->element.flags&FGCURVE_CURVEMASK))
     {
       if(self->points.l > 0)
-        fgroot_instance->backend.fgDrawLines(self->points.p, self->points.l, self->color.color, &area.topleft, &scalevec, self->element.transform.rotation, &center);
+        fgroot_instance->backend.fgDrawLines(self->points.p, self->points.l, self->color.color, &area.topleft, &scalevec, self->element.transform.rotation, &center, data);
       else
       {
         AbsVec p[2] = { {0,0}, { area.right - area.left - 1, area.bottom - area.top - 1} };
-        fgroot_instance->backend.fgDrawLines(p, 2, self->color.color, &area.topleft, &scalevec, self->element.transform.rotation, &center);
+        fgroot_instance->backend.fgDrawLines(p, 2, self->color.color, &area.topleft, &scalevec, self->element.transform.rotation, &center, data);
       }
     } 
     else
@@ -161,7 +162,7 @@ size_t FG_FASTCALL fgCurve_Message(fgCurve* self, const FG_Msg* msg)
         }
       }
 
-      fgroot_instance->backend.fgDrawLines(self->cache.p, self->cache.l, self->color.color, &area.topleft, &scalevec, self->element.transform.rotation, &center);
+      fgroot_instance->backend.fgDrawLines(self->cache.p, self->cache.l, self->color.color, &area.topleft, &scalevec, self->element.transform.rotation, &center, data);
     }
   }
   break;

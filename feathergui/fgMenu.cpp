@@ -216,7 +216,7 @@ size_t FG_FASTCALL fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
           ResolveRectCache(cur, &rect, (const AbsRect*)msg->other, &self->box->padding);
           AbsRect arrow;
           ResolveRectCache(&self->arrow, &arrow, &rect, (self->arrow.flags&FGELEMENT_BACKGROUND) ? 0 : &cur->padding);
-          self->arrow.Draw(&arrow, (int)msg->otheraux);
+          self->arrow.Draw(&arrow, (fgDrawAuxData*)msg->other2);
         }
         cur = cur->next;
       }

@@ -100,7 +100,6 @@
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)bin32\</OutDir>
     <TargetName>$(ProjectName)32_d</TargetName>
-    <TargetExt>.dll</TargetExt>
     <IntDir>$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -112,14 +111,12 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>$(SolutionDir)bin32\</OutDir>
-    <TargetExt>.dll</TargetExt>
     <IntDir>$(Platform)\$(Configuration)\</IntDir>
     <TargetName>$(ProjectName)32</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Clang|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>$(SolutionDir)bin32\</OutDir>
-    <TargetExt>.dll</TargetExt>
     <IntDir>$(Platform)\$(Configuration)\</IntDir>
     <TargetName>$(ProjectName)32</TargetName>
   </PropertyGroup>

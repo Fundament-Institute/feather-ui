@@ -29,16 +29,15 @@ KHASH_INIT(fgInitMap, char*, INITPAIR, 1, kh_str_hash_funcins, kh_str_hash_inseq
 
 fgRoot* fgroot_instance = 0;
 
-void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, size_t dpi, fgBackend* backend)
+void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, const fgIntVec* dpi, const fgBackend* backend)
 {
   static fgBackend DEFAULT_BACKEND = {
     &fgBehaviorHookDefault,
     &fgCreateFontDefault,
-    &fgCopyFontDefault,
     &fgCloneFontDefault,
     &fgDestroyFontDefault,
     &fgDrawFontDefault,
-    &fgFontSizeDefault,
+    &fgFontLayoutDefault,
     &fgFontGetDefault,
     &fgCreateResourceDefault,
     &fgCloneResourceDefault,
@@ -67,7 +66,7 @@ void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, size_t dpi, fgBa
 
   memset(self, 0, sizeof(fgRoot));
   self->backend = !backend ? DEFAULT_BACKEND : *backend;
-  self->dpi = dpi;
+  self->dpi = *dpi;
   self->cursorblink = 0.53; // 530 ms is the windows default.
   self->lineheight = 30;
   self->fontscale = 1.0f;
@@ -159,17 +158,24 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
     return (size_t)"Root";
   case FG_DRAW:
   {
-	fgRoot_CheckMouseMove(self);
-	CRect* rootarea = &self->gui.element.transform.area;
+	  fgRoot_CheckMouseMove(self);
+	  CRect* rootarea = &self->gui.element.transform.area;
     AbsRect area = { rootarea->left.abs, rootarea->top.abs, rootarea->right.abs, rootarea->bottom.abs };
+    fgDrawAuxData data = {
+      sizeof(fgDrawAuxData),
+      self->dpi,
+      { 1,1 },
+      { 0,0 }
+    };
     FG_Msg m = *msg;
     m.other = &area;
+    m.other2 = &data;
     fgControl_Message((fgControl*)self, &m);
     if(self->topmost) // Draw topmost before the drag object
     {
       AbsRect out;
       ResolveRect(self->topmost, &out);
-      self->topmost->Draw(&out, (int)self->topmost->GetDPI());
+      self->topmost->Draw(&out, &data);
     }
     if(self->dragdraw != 0 && self->dragdraw->parent != *self)
     {
@@ -181,18 +187,19 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
       out.top = (FABS)self->mouse.y;
       out.right = out.left + dx;
       out.bottom = out.top + dy;
-      self->dragdraw->Draw(&out, (int)self->dragdraw->GetDPI());
+      self->dragdraw->Draw(&out, &data);
     }
     return FG_ACCEPT;
   }
   case FG_GETDPI:
-    return self->dpi;
+    return (size_t)&self->dpi;
   case FG_SETDPI:
   {
-    float scale = !self->dpi ? 1.0f : (msg->otherint / (float)self->dpi);
+    AbsVec scale = { !self->dpi.x ? 1.0f : (msg->otherint / (float)self->dpi.x), !self->dpi.y ? 1.0f : (msg->otherint / (float)self->dpi.y) };
     CRect* rootarea = &self->gui.element.transform.area;
-    CRect area = { rootarea->left.abs*scale, 0, rootarea->top.abs*scale, 0, rootarea->right.abs*scale, 0, rootarea->bottom.abs*scale, 0 };
-    self->dpi = (size_t)msg->otherint;
+    CRect area = { rootarea->left.abs*scale.x, 0, rootarea->top.abs*scale.y, 0, rootarea->right.abs*scale.x, 0, rootarea->bottom.abs*scale.y, 0 };
+    self->dpi.x = msg->otherint;
+    self->dpi.y = msg->otheraux;
     return self->gui.element.SetArea(area);
   }
     return FG_ACCEPT;
@@ -207,33 +214,33 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
   return fgControl_Message((fgControl*)self,msg);
 }
 
-void BSS_FORCEINLINE fgStandardApplyClipping(fgFlag flags, const AbsRect* area, bool& clipping)
+void BSS_FORCEINLINE fgStandardApplyClipping(fgFlag flags, const AbsRect* area, bool& clipping, const fgDrawAuxData* aux)
 {
   if(!clipping && !(flags&FGELEMENT_NOCLIP))
   {
     clipping = true;
-    fgroot_instance->backend.fgPushClipRect(area);
+    fgroot_instance->backend.fgPushClipRect(area, aux);
   }
   else if(clipping && (flags&FGELEMENT_NOCLIP))
   {
     clipping = false;
-    fgroot_instance->backend.fgPopClipRect();
+    fgroot_instance->backend.fgPopClipRect(aux);
   }
 }
 
-void BSS_FORCEINLINE fgStandardDrawElement(fgElement* self, fgElement* hold, const AbsRect* area, size_t dpi, AbsRect& curarea, bool& clipping)
+void BSS_FORCEINLINE fgStandardDrawElement(fgElement* self, fgElement* hold, const AbsRect* area, const fgDrawAuxData* aux, AbsRect& curarea, bool& clipping)
 {
   if(!(hold->flags&FGELEMENT_HIDDEN) && hold != fgroot_instance->topmost)
   {
     ResolveRectCache(hold, &curarea, area, (hold->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
-    fgStandardApplyClipping(hold->flags, area, clipping);
+    fgStandardApplyClipping(hold->flags, area, clipping, aux);
 
-    char culled = !fgRectIntersect(&curarea, &fgroot_instance->backend.fgPeekClipRect());
-    _sendsubmsg<FG_DRAW, void*, size_t>(hold, culled, &curarea, dpi);
+    char culled = !fgRectIntersect(&curarea, &fgroot_instance->backend.fgPeekClipRect(aux));
+    _sendsubmsg<FG_DRAW, void*, const void*>(hold, culled, &curarea, aux);
   }
 }
 
-void FG_FASTCALL fgStandardDraw(fgElement* self, const AbsRect* area, size_t dpi, char culled)
+void FG_FASTCALL fgStandardDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, char culled)
 {
   fgElement* hold = culled ? self->rootnoclip : self->root;
   AbsRect curarea;
@@ -241,18 +248,18 @@ void FG_FASTCALL fgStandardDraw(fgElement* self, const AbsRect* area, size_t dpi
 
   while(hold)
   {
-    fgStandardDrawElement(self, hold, area, dpi, curarea, clipping);
+    fgStandardDrawElement(self, hold, area, aux, curarea, clipping);
     hold = culled ? hold->nextnoclip : hold->next;
   }
 
   if(clipping)
-    fgroot_instance->backend.fgPopClipRect();
+    fgroot_instance->backend.fgPopClipRect(aux);
 }
 
-void FG_FASTCALL fgOrderedDraw(fgElement* self, const AbsRect* area, size_t dpi, char culled, fgElement* skip, fgElement* (*fn)(fgElement*, const AbsRect*, const AbsRect*), void(*draw)(fgElement*, const AbsRect*, size_t))
+void FG_FASTCALL fgOrderedDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, char culled, fgElement* skip, fgElement* (*fn)(fgElement*, const AbsRect*, const AbsRect*), void(*draw)(fgElement*, const AbsRect*, const fgDrawAuxData*))
 {
   if(culled) // If we are culled, thee's no point drawing ordered elements, because ordered elements aren't non-clipping, so we let the standard draw take care of it.
-    return fgStandardDraw(self, area, dpi, culled);
+    return fgStandardDraw(self, area, aux, culled);
 
   fgElement* cur = self->root;
   AbsRect curarea;
@@ -260,43 +267,43 @@ void FG_FASTCALL fgOrderedDraw(fgElement* self, const AbsRect* area, size_t dpi,
 
   while(cur != 0 && (cur->flags & FGELEMENT_BACKGROUND)) // Render all background elements before the ordered elements
   {
-    fgStandardDrawElement(self, cur, area, dpi, curarea, clipping);
+    fgStandardDrawElement(self, cur, area, aux, curarea, clipping);
     cur = cur->next;
   }
 
   if(draw)
-    draw(self, area, dpi);
+    draw(self, area, aux);
 
   AbsRect out;
-  fgRectIntersection(area, &fgroot_instance->backend.fgPeekClipRect(), &out);
+  fgRectIntersection(area, &fgroot_instance->backend.fgPeekClipRect(aux), &out);
   // do binary search on the absolute resolved bottomright coordinates compared to the topleft corner of the render area
   cur = fn(self, &out, area);
 
   if(!clipping)
   {
     clipping = true; // always clipping at this stage because ordered elements can't be nonclipping
-    fgroot_instance->backend.fgPushClipRect(area);
+    fgroot_instance->backend.fgPushClipRect(area, aux);
   }
   char cull = 0;
 
   while(!cull && cur != 0 && !(cur->flags & FGELEMENT_BACKGROUND)) // Render all ordered elements until they become culled
   {
     ResolveRectCache(cur, &curarea, area, &self->padding); // always apply padding because these are always foreground elements
-    cull = !fgRectIntersect(&curarea, &fgroot_instance->backend.fgPeekClipRect());
+    cull = !fgRectIntersect(&curarea, &fgroot_instance->backend.fgPeekClipRect(aux));
     if(cur != fgroot_instance->topmost)
-      _sendsubmsg<FG_DRAW, void*, size_t>(cur, cull, &curarea, dpi);
+      _sendsubmsg<FG_DRAW, void*, const void*>(cur, cull, &curarea, aux);
     cur = cur->next;
   }
 
   cur = skip;
   while(cur != 0 && (cur->flags & FGELEMENT_BACKGROUND)) // Render all background elements after the ordered elements
   {
-    fgStandardDrawElement(self, cur, area, dpi, curarea, clipping);
+    fgStandardDrawElement(self, cur, area, aux, curarea, clipping);
     cur = cur->next;
   }
 
   if(clipping)
-    fgroot_instance->backend.fgPopClipRect();
+    fgroot_instance->backend.fgPopClipRect(aux);
 }
 
 void FG_FASTCALL fgFixedDraw(fgElement* self, AbsRect* area, size_t dpi, char culled, fgElement** ordered, size_t numordered, AbsVec dim)

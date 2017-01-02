@@ -51,7 +51,7 @@ typedef struct {
   AbsRect areacache; // Stores a cache of the last area we knew about. If this changes, startpos and endpos must be recalculated.
   char inserting;
   void* font;
-  void* cache;
+  void* layout;
   fgColor color;
   float lineheight;
   float letterspacing;

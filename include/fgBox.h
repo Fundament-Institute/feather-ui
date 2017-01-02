@@ -33,7 +33,7 @@ struct _FG_BOX_ORDERED_ELEMENTS_ {
 typedef struct _FG_BOX_ {
   fgScrollbar scroll;
   struct _FG_BOX_ORDERED_ELEMENTS_ order;
-  void(*fndraw)(fgElement*, const AbsRect*, size_t);
+  void(*fndraw)(fgElement*, const AbsRect*, const fgDrawAuxData*);
 #ifdef  __cplusplus
   inline operator fgElement*() { return &scroll.control.element; }
   inline fgElement* operator->() { return operator fgElement*(); }

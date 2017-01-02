@@ -11,6 +11,8 @@ void FG_FASTCALL fgTextbox_Init(fgTextbox* self, fgElement* BSS_RESTRICT parent,
 }
 void FG_FASTCALL fgTextbox_Destroy(fgTextbox* self)
 {
+  if(self->layout != 0) fgroot_instance->backend.fgFontLayout(self->font, 0, 0, 0, 0, 0, 0, self->layout);
+  if(self->font != 0) fgroot_instance->backend.fgDestroyFont(self->font);
   fgScrollbar_Destroy(&self->scroll);
   ((bss_util::cDynArray<int>*)&self->text)->~cDynArray();
   ((bss_util::cDynArray<int>*)&self->placeholder)->~cDynArray();
@@ -51,7 +53,7 @@ inline void FG_FASTCALL fgTextbox_fixpos(fgTextbox* self, size_t cursor, AbsVec*
     for(size_t i = 0; i < self->text.l; ++i) text[i] = self->mask;
     text[self->text.l] = 0;
   }
-  *r = fgroot_instance->backend.fgFontPos(self->font, text, self->lineheight, self->letterspacing, &self->areacache, self->scroll->flags, cursor, self->cache);
+  *r = fgroot_instance->backend.fgFontPos(self->font, text, self->text.l, self->lineheight, self->letterspacing, &self->areacache, self->scroll->flags, cursor, self->layout);
   AbsRect to = { r->x, r->y, r->x, r->y + self->lineheight*1.125f }; // We don't know what the descender is, so we estimate it as 1/8 the lineheight.
   _sendsubmsg<FG_ACTION, void*>(*self, FGSCROLLBAR_SCROLLTO, &to);
   self->lastx = self->startpos.x;
@@ -66,7 +68,7 @@ inline size_t FG_FASTCALL fgTextbox_fixindex(fgTextbox* self, AbsVec pos, AbsVec
     for(size_t i = 0; i < self->text.l; ++i) text[i] = self->mask;
     text[self->text.l] = 0;
   }
-  size_t r = fgroot_instance->backend.fgFontIndex(self->font, text, self->lineheight, self->letterspacing, &self->areacache, self->scroll->flags, pos, cursor, self->cache);
+  size_t r = fgroot_instance->backend.fgFontIndex(self->font, text, self->text.l, self->lineheight, self->letterspacing, &self->areacache, self->scroll->flags, pos, cursor, self->layout);
   AbsRect to = { cursor->x, cursor->y, cursor->x, cursor->y + self->lineheight*1.125f };
   _sendsubmsg<FG_ACTION, void*>(*self, FGSCROLLBAR_SCROLLTO, &to);
   return r;
@@ -342,11 +344,12 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
     self->font = 0;
     if(msg->other)
     {
-      size_t dpi = _sendmsg<FG_GETDPI>(*self);
-      unsigned int fontdpi;
-      unsigned int fontsize;
-      fgroot_instance->backend.fgFontGet(msg->other, 0, &fontsize, &fontdpi);
-      self->font = (dpi == fontdpi) ? fgroot_instance->backend.fgCloneFont(msg->other) : fgroot_instance->backend.fgCopyFont(msg->other, fontsize, fontdpi);
+      fgFontDesc desc;
+      fgroot_instance->backend.fgFontGet(msg->other, &desc);
+      fgIntVec dpi = self->scroll->GetDPI();
+      bool identical = (dpi.x == desc.dpi.x && dpi.y == desc.dpi.y);
+      desc.dpi = dpi;
+      self->font = fgroot_instance->backend.fgCloneFont(msg->other, identical ? 0 : &desc);
     }
     fgSubMessage(*self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTMOVE, self, FGMOVE_PROPAGATE | FGMOVE_RESIZE);
     fgroot_instance->backend.fgDirtyElement(*self);
@@ -411,6 +414,7 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
     {
       // Draw selection rectangles
       AbsRect area = *(AbsRect*)msg->other;
+      fgDrawAuxData* data = (fgDrawAuxData*)msg->other2;
 
       AbsRect cliparea = area;
       cliparea.left += self->scroll.realpadding.left;
@@ -418,7 +422,7 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       cliparea.right -= self->scroll.realpadding.right + bssmax(self->scroll.barcache.y, 0);
       cliparea.bottom -= self->scroll.realpadding.bottom + bssmax(self->scroll.barcache.x, 0);
       if(!(self->scroll->flags&FGELEMENT_NOCLIP))
-        fgroot_instance->backend.fgPushClipRect(&cliparea);
+        fgroot_instance->backend.fgPushClipRect(&cliparea, data);
 
       GetInnerRect(*self, &area, &area);
       AbsVec begin;
@@ -438,27 +442,27 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       if(begin.y == end.y)
       {
         AbsRect srect = { area.left + begin.x, area.top + begin.y, area.left + end.x, area.top + begin.y + self->lineheight };
-        fgroot_instance->backend.fgDrawResource(0, &uv, self->selector.color, 0, 0, &srect, 0, &center, FGRESOURCE_ROUNDRECT);
+        fgroot_instance->backend.fgDrawResource(0, &uv, self->selector.color, 0, 0, &srect, 0, &center, FGRESOURCE_ROUNDRECT, data);
       }
       else
       {
         AbsRect srect = AbsRect{ area.left + begin.x, area.top + begin.y, area.right, area.top + begin.y + self->lineheight };
-        fgroot_instance->backend.fgDrawResource(0, &uv, self->selector.color, 0, 0, &srect, 0, &center, FGRESOURCE_ROUNDRECT);
+        fgroot_instance->backend.fgDrawResource(0, &uv, self->selector.color, 0, 0, &srect, 0, &center, FGRESOURCE_ROUNDRECT, data);
         if(begin.y + self->lineheight + 0.5 < end.y)
         {
           srect = AbsRect { area.left, area.top + begin.y + self->lineheight, area.right, area.top + end.y };
-          fgroot_instance->backend.fgDrawResource(0, &uv, self->selector.color, 0, 0, &srect, 0, &center, FGRESOURCE_ROUNDRECT);
+          fgroot_instance->backend.fgDrawResource(0, &uv, self->selector.color, 0, 0, &srect, 0, &center, FGRESOURCE_ROUNDRECT, data);
         }
         srect = AbsRect { area.left, area.top + end.y, area.left + end.x, area.top + end.y + self->lineheight };
-        fgroot_instance->backend.fgDrawResource(0, &uv, self->selector.color, 0, 0, &srect, 0, &center, FGRESOURCE_ROUNDRECT);
+        fgroot_instance->backend.fgDrawResource(0, &uv, self->selector.color, 0, 0, &srect, 0, &center, FGRESOURCE_ROUNDRECT, data);
       }
 
       // Draw text
-      float scale = (!msg->otheraux || !fgroot_instance->dpi) ? 1.0f : (fgroot_instance->dpi / (float)msg->otheraux);
-      area.left *= scale;
-      area.top *= scale;
-      area.right *= scale;
-      area.bottom *= scale;
+      AbsVec scale = { (!data->dpi.x || !fgroot_instance->dpi.x) ? 1.0f : (fgroot_instance->dpi.x / (float)data->dpi.x), (!data->dpi.y || !fgroot_instance->dpi.y) ? 1.0f : (fgroot_instance->dpi.y / (float)data->dpi.y) };
+      area.left *= scale.x;
+      area.top *= scale.y;
+      area.right *= scale.x;
+      area.bottom *= scale.y;
       //assert(self->areacache.right - self->areacache.left == area.right - area.left);
       //assert(self->areacache.bottom - self->areacache.top == area.bottom - area.top);
       center = ResolveVec(&self->scroll.control.element.transform.center, &area);
@@ -471,8 +475,9 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
         text[self->text.l] = 0;
       }
 
-      self->cache = fgroot_instance->backend.fgDrawFont(self->font,
+      fgroot_instance->backend.fgDrawFont(self->font,
         !self->text.l ? self->placeholder.p : text,
+        !self->text.l ? self->placeholder.l : self->text.l,
         self->lineheight,
         self->letterspacing,
         !self->text.l ? self->placecolor.color : self->color.color,
@@ -480,18 +485,19 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
         self->scroll.control.element.transform.rotation,
         &center,
         self->scroll.control.element.flags,
-        self->cache);
+        data,
+        self->mask != 0 ? 0 : self->layout);
 
       // Draw cursor
       if(fgFocusedWindow == *self && bss_util::bssfmod(fgroot_instance->time - self->lastclick, fgroot_instance->cursorblink * 2) < fgroot_instance->cursorblink)
       {
         AbsVec lines[2] = { self->startpos, { self->startpos.x, self->startpos.y + self->lineheight } };
         AbsVec scale = { 1.0f, 1.0f };
-        fgroot_instance->backend.fgDrawLines(lines, 2, self->cursorcolor.color, &area.topleft, &scale, self->scroll.control.element.transform.rotation, &center); // TODO: This requires ensuring that FG_DRAW is called at least during the blink interval.
+        fgroot_instance->backend.fgDrawLines(lines, 2, self->cursorcolor.color, &area.topleft, &scale, self->scroll.control.element.transform.rotation, &center, data); // TODO: This requires ensuring that FG_DRAW is called at least during the blink interval.
       }
 
       if(!(self->scroll->flags&FGELEMENT_NOCLIP))
-        fgroot_instance->backend.fgPopClipRect();
+        fgroot_instance->backend.fgPopClipRect(data);
     }
     return FG_ACCEPT;
   case FG_MOUSEDBLCLICK:
@@ -542,20 +548,20 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       if(m->subtype == FGELEMENT_LAYOUTMOVE)
       {
         ResolveInnerRect(*self, &self->areacache);
-        size_t dpi = self->scroll->GetDPI(); // GetDPI can return 0 if we have no parent, which can happen when a layout is being set up or destroyed.
-        FABS scale = !dpi ? (FABS)1.0 : (fgroot_instance->dpi / (FABS)dpi);
-        assert(isfinite(scale));
-        self->areacache.left *= scale;
-        self->areacache.top *= scale;
-        self->areacache.right *= scale;
-        self->areacache.bottom *= scale;
+        fgIntVec dpi = self->scroll->GetDPI(); // GetDPI can return 0 if we have no parent, which can happen when a layout is being set up or destroyed.
+        AbsVec scale = { !dpi.x ? (FABS)1.0 : (fgroot_instance->dpi.x / (FABS)dpi.x), !dpi.y ? (FABS)1.0 : (fgroot_instance->dpi.y / (FABS)dpi.y) };
+        assert(isfinite(scale.x) && isfinite(scale.y));
+        self->areacache.left *= scale.x;
+        self->areacache.top *= scale.y;
+        self->areacache.right *= scale.x;
+        self->areacache.bottom *= scale.y;
         AbsRect r = self->areacache;
         if(self->scroll->flags&FGELEMENT_EXPANDX) // If maxdim is -1, this will translate into a -1 maxdim for the text and properly deal with all resizing cases.
           r.right = r.left + self->scroll->maxdim.x;
         if(self->scroll->flags&FGELEMENT_EXPANDY)
           r.bottom = r.top + self->scroll->maxdim.y;
 
-        fgroot_instance->backend.fgFontSize(self->font, !self->text.p ? &UNICODE_TERMINATOR : self->text.p, self->lineheight, self->letterspacing, &r, self->scroll->flags);
+        self->layout = fgroot_instance->backend.fgFontLayout(self->font, self->text.p, self->text.l, self->lineheight, self->letterspacing, &r, self->scroll->flags, self->layout);
         dim->x = r.right - r.left;
         dim->y = r.bottom - r.top;
         assert(!isnan(self->scroll.realsize.x) && !isnan(self->scroll.realsize.y));

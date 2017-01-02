@@ -29,7 +29,7 @@ typedef struct _FG_WORKSPACE {
   unsigned int gridcolor[2]; // color of the grid's x and y axis lines.
   unsigned int rulercolor[2]; // color of the major and minor lines on the ruler
   unsigned int crosshaircolor; // color of the lines drawn to where the cursor is
-  unsigned int dpi;
+  fgIntVec dpi;
   AbsVec gridsize;
 #ifdef  __cplusplus
   inline operator fgElement*() { return &scrollbar.control.element; }

@@ -486,7 +486,7 @@ void FG_FASTCALL fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, i
     case 18: // font
     {
       const char* split = strchr(attr->String.c_str(), ';');
-      FG_UINT index = (FG_UINT)fgSkinBase_AddFont(root, fgroot_instance->backend.fgCreateFont(flags, cStr(attr->String.c_str(), split - attr->String.c_str()).c_str(), atoi(split + 1), 96));
+      FG_UINT index = (FG_UINT)fgSkinBase_AddFont(root, fgroot_instance->backend.fgCreateFont(flags, cStr(attr->String.c_str(), split - attr->String.c_str()).c_str(), atoi(split + 1), &fgroot_instance->dpi));
       if(split != 0)
         AddStyleMsg<FG_SETFONT, void*>(self, fgSkinBase_GetFont(root, index));
       break;

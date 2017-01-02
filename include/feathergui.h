@@ -62,6 +62,7 @@ MAKE_VEC(FREL,RelVec);
 MAKE_VEC(FABS,AbsVec);
 // A coordinate vector specifies a point by unified coordinates
 MAKE_VEC(Coord,CVec);
+MAKE_VEC(int, fgIntVec);
 
 #define MAKE_RECT(_T,_T2,_N) typedef struct { \
   union { \
@@ -126,6 +127,7 @@ FG_EXTERN const fgTransform fgTransform_EMPTY;
 FG_EXTERN const fgTransform fgTransform_CENTER;
 FG_EXTERN const CRect CRect_EMPTY;
 FG_EXTERN const AbsVec AbsVec_EMPTY;
+FG_EXTERN const fgIntVec fgIntVec_EMPTY;
 
 enum FGMOVE
 {
@@ -292,6 +294,8 @@ enum FG_MSGTYPE
   FG_GETUSERDATA, 
   FG_SETDIM,
   FG_GETDIM,
+  FG_SETSCALING,
+  FG_GETSCALING,
   // fgControl
   FG_MOUSEDOWN,
   FG_MOUSEDBLCLICK,
@@ -657,6 +661,19 @@ FG_EXTERN char* FG_FASTCALL fgCopyText(const char* text, const char* file, size_
 FG_EXTERN inline void FG_FASTCALL fgUpdateMouseState(fgMouseState* state, const FG_Msg* msg);
 FG_EXTERN inline char FG_FASTCALL fgRectIntersect(const AbsRect* l, const AbsRect* r); // Returns 1 if the rectangles intersect, or 0 otherwise
 FG_EXTERN inline void FG_FASTCALL fgRectIntersection(const AbsRect* BSS_RESTRICT l, const AbsRect* BSS_RESTRICT r, AbsRect* out);
+FG_EXTERN size_t FG_FASTCALL fgUTF32toUTF16(const int*BSS_RESTRICT input, ptrdiff_t srclen, wchar_t*BSS_RESTRICT output, size_t buflen);
+FG_EXTERN size_t FG_FASTCALL fgUTF8toUTF16(const char*BSS_RESTRICT input, ptrdiff_t srclen, wchar_t*BSS_RESTRICT output, size_t buflen);
+FG_EXTERN size_t FG_FASTCALL fgUTF16toUTF8(const wchar_t*BSS_RESTRICT input, ptrdiff_t srclen, char*BSS_RESTRICT output, size_t buflen);
+FG_EXTERN size_t FG_FASTCALL fgUTF8toUTF32(const char*BSS_RESTRICT input, ptrdiff_t srclen, int*BSS_RESTRICT output, size_t buflen);
+FG_EXTERN size_t FG_FASTCALL fgUTF32toUTF8(const int*BSS_RESTRICT input, ptrdiff_t srclen, char*BSS_RESTRICT output, size_t buflen);
+FG_EXTERN size_t FG_FASTCALL fgUTF16toUTF32(const wchar_t*BSS_RESTRICT input, ptrdiff_t srclen, int*BSS_RESTRICT output, size_t buflen);
+
+typedef struct _FG_DRAW_AUX_DATA {
+  size_t fgSZ;
+  fgIntVec dpi;
+  AbsVec scale;
+  AbsVec scalecenter;
+} fgDrawAuxData;
 
 #ifdef  __cplusplus
 }

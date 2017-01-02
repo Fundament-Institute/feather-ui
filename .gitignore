@@ -6,6 +6,7 @@
 *.vcxproj.user
 *.VC.db
 *.exe
+*.aps
 bin/
 bin32/
 media/editor/
@@ -14,8 +15,8 @@ feathergui/Win32/
 fgLayoutEditor/x64/
 fgLayoutEditor/Win32/
 fgLayoutEditor/res/
-fgNull/x64/
-fgNull/Win32/
+fgDirect2D/x64/
+fgDirect2D/Win32/
 fgTest/x64/
 fgTest/Win32/
 fgWinAPI/x64/

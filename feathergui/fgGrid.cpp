@@ -209,7 +209,7 @@ size_t FG_FASTCALL fgGridRow_Message(fgGridRow* self, const FG_Msg* msg)
     break;
   case FG_DRAW:
     if(!self->order.isordered || !self->order.ordered.l)
-      fgStandardDraw(*self, (AbsRect*)msg->other, msg->otheraux, msg->subtype & 1);
+      fgStandardDraw(*self, (AbsRect*)msg->other, (fgDrawAuxData*)msg->other2, msg->subtype & 1);
     else
     {
       fgElement* (*fn)(fgElement*, const AbsRect*, const AbsRect*);
@@ -221,7 +221,7 @@ size_t FG_FASTCALL fgGridRow_Message(fgGridRow* self, const FG_Msg* msg)
       case FGBOX_TILE: fn = &fgGridRowOrder<FGBOX_TILE>; break;
       case FGBOX_TILE | FGBOX_DISTRIBUTEY: fn = &fgGridRowOrder<FGBOX_TILE | FGBOX_DISTRIBUTEY>; break;
       }
-      fgOrderedDraw(*self, (AbsRect*)msg->other, msg->otheraux, msg->subtype & 1, self->order.ordered.p[self->order.ordered.l - 1]->next, fn, 0);
+      fgOrderedDraw(*self, (AbsRect*)msg->other, (fgDrawAuxData*)msg->other2, msg->subtype & 1, self->order.ordered.p[self->order.ordered.l - 1]->next, fn, 0);
     }
     return FG_ACCEPT;
   case FG_INJECT:

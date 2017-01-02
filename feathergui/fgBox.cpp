@@ -95,7 +95,7 @@ size_t FG_FASTCALL fgBox_Message(fgBox* self, const FG_Msg* msg)
     break;
   case FG_DRAW:
     if(!self->order.isordered || !self->order.ordered.l)
-      fgStandardDraw(*self, (AbsRect*)msg->other, msg->otheraux, msg->subtype & 1);
+      fgStandardDraw(*self, (AbsRect*)msg->other, (fgDrawAuxData*)msg->other2, msg->subtype & 1);
     else
     {
       fgElement* (*fn)(fgElement*, const AbsRect*, const AbsRect*);
@@ -107,7 +107,7 @@ size_t FG_FASTCALL fgBox_Message(fgBox* self, const FG_Msg* msg)
       case FGBOX_TILE: fn = &fgBoxOrder<FGBOX_TILE>; break;
       case FGBOX_TILE | FGBOX_DISTRIBUTEY: fn = &fgBoxOrder<FGBOX_TILE | FGBOX_DISTRIBUTEY>; break;
       }
-      fgOrderedDraw(*self, (AbsRect*)msg->other, msg->otheraux, msg->subtype & 1, self->order.ordered.p[self->order.ordered.l - 1]->next, fn, self->fndraw);
+      fgOrderedDraw(*self, (AbsRect*)msg->other, (fgDrawAuxData*)msg->other2, msg->subtype & 1, self->order.ordered.p[self->order.ordered.l - 1]->next, fn, self->fndraw);
     }
     return FG_ACCEPT;
   case FG_INJECT:

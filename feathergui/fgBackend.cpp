@@ -26,35 +26,29 @@ size_t FG_FASTCALL fgBehaviorHookListener(fgElement* self, const FG_Msg* msg)
   return ret;
 }
 
-void* FG_FASTCALL fgCreateFontDefault(fgFlag flags, const char* font, unsigned int fontsize, unsigned int dpi) { return (void*)~0; }
-void* FG_FASTCALL fgCopyFontDefault(void* font, unsigned int fontsize, unsigned int dpi) { return (void*)~0; }
-void* FG_FASTCALL fgCloneFontDefault(void* font) { return (void*)~0; }
+void* FG_FASTCALL fgCreateFontDefault(fgFlag flags, const char* font, unsigned int fontsize, const fgIntVec* dpi) { return (void*)~0; }
+void* FG_FASTCALL fgCloneFontDefault(void* font, const struct _FG_FONT_DESC* desc) { return (void*)~0; }
 void FG_FASTCALL fgDestroyFontDefault(void* font) { }
-void* FG_FASTCALL fgDrawFontDefault(void* font, const int* text, float lineheight, float letterspacing, unsigned int color, const AbsRect* area, FABS rotation, const AbsVec* center, fgFlag flags, void* cache) { return 0; }
-void FG_FASTCALL fgFontSizeDefault(void* font, const int* text, float lineheight, float letterspacing, AbsRect* area, fgFlag flags) { }
-void FG_FASTCALL fgFontGetDefault(void* font, float* lineheight, unsigned int* size, unsigned int* dpi)
-{
-  if(lineheight) *lineheight = 0.0f;
-  if(size) *size = 0;
-  if(dpi) *dpi = 0;
-}
+void FG_FASTCALL fgDrawFontDefault(void* font, const int* text, size_t len, float lineheight, float letterspacing, unsigned int color, const AbsRect* area, FABS rotation, const AbsVec* center, fgFlag flags, const fgDrawAuxData* data, void* layout) { }
+void* FG_FASTCALL fgFontLayoutDefault(void* font, const int* text, size_t len, float lineheight, float letterspacing, AbsRect* area, fgFlag flags, void* prevlayout) { return 0; }
+void FG_FASTCALL fgFontGetDefault(void* font, struct _FG_FONT_DESC* desc) { if(desc) memset(desc, 0, sizeof(struct _FG_FONT_DESC)); }
 
 void* FG_FASTCALL fgCreateResourceDefault(fgFlag flags, const char* data, size_t length) { return (void*)~0; }
-void* FG_FASTCALL fgCloneResourceDefault(void* res) { return (void*)~0; }
+void* FG_FASTCALL fgCloneResourceDefault(void* res, fgElement* src) { return (void*)~0; }
 void FG_FASTCALL fgDestroyResourceDefault(void* res) { }
-void FG_FASTCALL fgDrawResourceDefault(void* res, const CRect* uv, unsigned int color, unsigned int edge, FABS outline, const AbsRect* area, FABS rotation, const AbsVec* center, fgFlag flags) {}
+void FG_FASTCALL fgDrawResourceDefault(void* res, const CRect* uv, unsigned int color, unsigned int edge, FABS outline, const AbsRect* area, FABS rotation, const AbsVec* center, fgFlag flags, const fgDrawAuxData* data) {}
 void FG_FASTCALL fgResourceSizeDefault(void* res, const CRect* uv, AbsVec* dim, fgFlag flags) { }
 
-size_t FG_FASTCALL fgFontIndexDefault(void* font, const int* text, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, AbsVec pos, AbsVec* cursor, void* cache) { return 0; }
-AbsVec FG_FASTCALL fgFontPosDefault(void* font, const int* text, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, size_t index, void* cache) { AbsVec a = { 0,0 }; return a; }
+size_t FG_FASTCALL fgFontIndexDefault(void* font, const int* text, size_t len, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, AbsVec pos, AbsVec* cursor, void* cache) { return 0; }
+AbsVec FG_FASTCALL fgFontPosDefault(void* font, const int* text, size_t len, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, size_t index, void* cache) { AbsVec a = { 0,0 }; return a; }
 
-void FG_FASTCALL fgDrawLinesDefault(const AbsVec* p, size_t n, unsigned int color, const AbsVec* translate, const AbsVec* scale, FABS rotation, const AbsVec* center) {}
+void FG_FASTCALL fgDrawLinesDefault(const AbsVec* p, size_t n, unsigned int color, const AbsVec* translate, const AbsVec* scale, FABS rotation, const AbsVec* center, const fgDrawAuxData* data) {}
 
 AbsRect* clipstack = 0;
 size_t clipcapacity = 0;
 size_t clipnum = 0;
 
-void FG_FASTCALL fgPushClipRectDefault(const AbsRect* clip)
+void FG_FASTCALL fgPushClipRectDefault(const AbsRect* clip, const fgDrawAuxData* data)
 {
   if(clipcapacity >= clipnum)
   {
@@ -63,12 +57,12 @@ void FG_FASTCALL fgPushClipRectDefault(const AbsRect* clip)
   }
   clipstack[clipnum++] = *clip;
 }
-AbsRect FG_FASTCALL fgPeekClipRectDefault()
+AbsRect FG_FASTCALL fgPeekClipRectDefault(const fgDrawAuxData* data)
 {
   static const AbsRect BLANK = { 0,0,0,0 };
   return !clipnum ? BLANK : clipstack[clipnum - 1];
 }
-void FG_FASTCALL fgPopClipRectDefault()
+void FG_FASTCALL fgPopClipRectDefault(const fgDrawAuxData* data)
 {
   --clipnum;
 }
@@ -106,10 +100,11 @@ short FG_FASTCALL fgMessageMapDefault(const char* name)
 {
   static bss_util::cTrie<uint16_t, true> t(FG_CUSTOMEVENT+1, "UNKNOWN", "CONSTRUCT", "DESTROY", "MOVE", "SETALPHA", "SETAREA", "SETTRANSFORM", "SETFLAG", "SETFLAGS", "SETMARGIN", "SETPADDING",
     "SETPARENT", "ADDCHILD", "REMOVECHILD", "LAYOUTCHANGE", "LAYOUTFUNCTION", "LAYOUTLOAD", "DRAGOVER", "DROP", "DRAW", "INJECT", "SETSKIN", "GETSKIN", "SETSTYLE", "GETSTYLE", "GETCLASSNAME",
-    "GETDPI", "SETDPI", "SETUSERDATA", "GETUSERDATA", "SETDIM", "GETDIM", "MOUSEDOWN", "MOUSEDBLCLICK", "MOUSEUP", "MOUSEON", "MOUSEOFF", "MOUSEMOVE", "MOUSESCROLL", "TOUCHBEGIN", "TOUCHEND",
-    "TOUCHMOVE", "KEYUP", "KEYDOWN", "KEYCHAR", "JOYBUTTONDOWN", "JOYBUTTONUP", "JOYAXIS", "GOTFOCUS", "LOSTFOCUS", "SETNAME", "GETNAME", "SETCONTEXTMENU", "GETCONTEXTMENU", "NEUTRAL",
-    "HOVER", "ACTIVE", "ACTION", "GETITEM", "ADDITEM", "REMOVEITEM", "SETITEM", "GETSELECTEDITEM", "GETVALUE", "SETVALUE", "SETRESOURCE", "SETUV", "SETCOLOR", "SETOUTLINE", "SETFONT",
-    "SETLINEHEIGHT", "SETLETTERSPACING", "SETTEXT", "GETRESOURCE", "GETUV", "GETCOLOR", "GETOUTLINE", "GETFONT", "GETLINEHEIGHT", "GETLETTERSPACING", "GETTEXT", "$FG_CUSTOMEVENT");
+    "GETDPI", "SETDPI", "SETUSERDATA", "GETUSERDATA", "SETDIM", "GETDIM", "SETSCALING", "GETSCALING", "MOUSEDOWN", "MOUSEDBLCLICK", "MOUSEUP", "MOUSEON", "MOUSEOFF", "MOUSEMOVE", "MOUSESCROLL",
+    "TOUCHBEGIN", "TOUCHEND", "TOUCHMOVE", "KEYUP", "KEYDOWN", "KEYCHAR", "JOYBUTTONDOWN", "JOYBUTTONUP", "JOYAXIS", "GOTFOCUS", "LOSTFOCUS", "SETNAME", "GETNAME", "SETCONTEXTMENU",
+    "GETCONTEXTMENU", "NEUTRAL", "HOVER", "ACTIVE", "ACTION", "GETITEM", "ADDITEM", "REMOVEITEM", "SETITEM", "GETSELECTEDITEM", "GETVALUE", "SETVALUE", "SETRESOURCE", "SETUV", "SETCOLOR",
+    "SETOUTLINE", "SETFONT", "SETLINEHEIGHT", "SETLETTERSPACING", "SETTEXT", "GETRESOURCE", "GETUV", "GETCOLOR", "GETOUTLINE", "GETFONT", "GETLINEHEIGHT", "GETLETTERSPACING", "GETTEXT",
+    "$FG_CUSTOMEVENT");
 
   assert(t["$FG_CUSTOMEVENT"] == FG_CUSTOMEVENT); // Ensure this count is correct
   return t[name];

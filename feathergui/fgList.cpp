@@ -56,7 +56,7 @@ void FG_FASTCALL fgList_Destroy(fgList* self)
   ((fgElementArray&)self->selected).~cArraySort();
   fgBox_Destroy(&self->box);
 }
-void fgList_Draw(fgElement* self, const AbsRect* area, size_t dpi)
+void fgList_Draw(fgElement* self, const AbsRect* area, const fgDrawAuxData* data)
 {
   fgList* realself = reinterpret_cast<fgList*>(self);
   for(size_t i = 0; i < realself->selected.l; ++i)
@@ -65,7 +65,7 @@ void fgList_Draw(fgElement* self, const AbsRect* area, size_t dpi)
     {
       AbsRect r;
       ResolveRectCache(realself->selected.p[i], &r, area, (realself->selected.p[i]->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
-      fgroot_instance->backend.fgDrawResource(0, &CRect_EMPTY, realself->select.color, 0, 0.0f, &r, 0.0f, &AbsVec_EMPTY, FGRESOURCE_ROUNDRECT);
+      fgroot_instance->backend.fgDrawResource(0, &CRect_EMPTY, realself->select.color, 0, 0.0f, &r, 0.0f, &AbsVec_EMPTY, FGRESOURCE_ROUNDRECT, data);
     }
   }
 
@@ -80,7 +80,7 @@ void fgList_Draw(fgElement* self, const AbsRect* area, size_t dpi)
       float y = (realself->mouse.y > ((r.top + r.bottom) * 0.5f)) ? r.bottom : r.top;
       AbsVec line[2] = { { r.left, y }, { r.right - 1, y } };
       const AbsVec FULLVEC = { 1,1 };
-      fgroot_instance->backend.fgDrawLines(line, 2, realself->drag.color, &AbsVec_EMPTY, &FULLVEC, 0, &AbsVec_EMPTY);
+      fgroot_instance->backend.fgDrawLines(line, 2, realself->drag.color, &AbsVec_EMPTY, &FULLVEC, 0, &AbsVec_EMPTY, data);
     }
   }
   else
@@ -91,7 +91,7 @@ void fgList_Draw(fgElement* self, const AbsRect* area, size_t dpi)
     {
       AbsRect r;
       ResolveRectCache(target, &r, &cache, (target->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
-      fgroot_instance->backend.fgDrawResource(0, &CRect_EMPTY, realself->hover.color, 0, 0.0f, &r, 0.0f, &AbsVec_EMPTY, FGRESOURCE_ROUNDRECT);
+      fgroot_instance->backend.fgDrawResource(0, &CRect_EMPTY, realself->hover.color, 0, 0.0f, &r, 0.0f, &AbsVec_EMPTY, FGRESOURCE_ROUNDRECT, data);
     }
   }
 }

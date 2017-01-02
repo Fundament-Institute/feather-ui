@@ -22,6 +22,7 @@ void FG_FASTCALL fgText_Init(fgText* self, fgElement* BSS_RESTRICT parent, fgEle
 void FG_FASTCALL fgText_Destroy(fgText* self)
 {
   assert(self != 0);
+  if(self->layout != 0) fgroot_instance->backend.fgFontLayout(self->font, 0, 0, 0, 0, 0, 0, self->layout);
   if(self->font != 0) fgroot_instance->backend.fgDestroyFont(self->font);
   self->font = 0;
   fgElement_Destroy(&self->element);
@@ -35,7 +36,7 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_CONSTRUCT:
-    self->cache = 0;
+    self->layout = 0;
     self->lineheight = 0; // lineheight must be zero'd before a potential transform unit resolution.
     memset(&self->text, 0, sizeof(fgVectorString));
     memset(&self->buf, 0, sizeof(fgVectorUTF32));
@@ -76,11 +77,12 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
     if(msg->other)
     {
       assert(msg->other != (void*)0xcdcdcdcdcdcdcdcd);
-      size_t dpi = _sendmsg<FG_GETDPI>(*self);
-      unsigned int fontdpi;
-      unsigned int fontsize;
-      fgroot_instance->backend.fgFontGet(msg->other, 0, &fontsize, &fontdpi);
-      self->font = (dpi == fontdpi) ? fgroot_instance->backend.fgCloneFont(msg->other) : fgroot_instance->backend.fgCopyFont(msg->other, fontsize, fontdpi);
+      fgFontDesc desc;
+      fgroot_instance->backend.fgFontGet(msg->other, &desc);
+      fgIntVec dpi = self->element.GetDPI();
+      bool identical = (dpi.x == desc.dpi.x && dpi.y == desc.dpi.y);
+      desc.dpi = dpi;
+      self->font = fgroot_instance->backend.fgCloneFont(msg->other, identical ? 0 : &desc);
     }
     fgText_Recalc(self);
     fgroot_instance->backend.fgDirtyElement(*self);
@@ -117,13 +119,14 @@ size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg)
     if(self->font != 0 && !(msg->subtype & 1))
     {
       AbsRect area = *(AbsRect*)msg->other;
-      float scale = (!msg->otheraux || !fgroot_instance->dpi) ? 1.0f : (fgroot_instance->dpi / (float)msg->otheraux);
-      area.left *= scale;
-      area.top *= scale;
-      area.right *= scale;
-      area.bottom *= scale;
+      fgDrawAuxData* data = (fgDrawAuxData*)msg->other2;
+      AbsVec scale = { (!data->dpi.x || !fgroot_instance->dpi.x) ? 1.0f : (fgroot_instance->dpi.x / (float)data->dpi.x), (!data->dpi.y || !fgroot_instance->dpi.y) ? 1.0f : (fgroot_instance->dpi.y / (float)data->dpi.y) };
+      area.left *= scale.x;
+      area.top *= scale.y;
+      area.right *= scale.x;
+      area.bottom *= scale.y;
       AbsVec center = ResolveVec(&self->element.transform.center, &area);
-      self->cache = fgroot_instance->backend.fgDrawFont(self->font, !self->text.p ? &UNICODE_TERMINATOR : self->text.p, self->lineheight, self->letterspacing, self->color.color, &area, self->element.transform.rotation, &center, self->element.flags, self->cache);
+      fgroot_instance->backend.fgDrawFont(self->font, self->text.p, self->text.l, self->lineheight, self->letterspacing, self->color.color, &area, self->element.transform.rotation, &center, self->element.flags, data, self->layout);
     }
     break;
   case FG_SETDPI:
@@ -146,7 +149,7 @@ void FG_FASTCALL fgText_Recalc(fgText* self)
       area.right = area.left + self->element.maxdim.x;
     if(self->element.flags&FGELEMENT_EXPANDY)
       area.bottom = area.top + self->element.maxdim.y;
-    fgroot_instance->backend.fgFontSize(self->font, !self->text.p ? &UNICODE_TERMINATOR : self->text.p, self->lineheight, self->letterspacing, &area, self->element.flags);
+    self->layout = fgroot_instance->backend.fgFontLayout(self->font, self->text.p, self->text.l, self->lineheight, self->letterspacing, &area, self->element.flags, self->layout);
     CRect adjust = self->element.transform.area;
     if(self->element.flags&FGELEMENT_EXPANDX)
       adjust.right.abs = adjust.left.abs + area.right - area.left + self->element.padding.left + self->element.padding.right + self->element.margin.left + self->element.margin.right;

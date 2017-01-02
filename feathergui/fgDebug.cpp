@@ -106,12 +106,13 @@ size_t FG_FASTCALL fgDebug_Message(fgDebug* self, const FG_Msg* msg)
       clip.bottom -= self->hover->margin.bottom;
       AbsRect inner;
       GetInnerRect(self->hover, &inner, &clip);
+      fgDrawAuxData* data = (fgDrawAuxData*)msg->other2;
 
       const CRect ZeroCRect = { 0,0,0,0,0,0,0,0 };
       const AbsVec ZeroAbsVec = { 0,0 };
-      fgroot_instance->backend.fgDrawResource(0, &ZeroCRect, 0x666666FF, 0, 0.0f, &outer, 0, &ZeroAbsVec, FGRESOURCE_ROUNDRECT);
-      fgroot_instance->backend.fgDrawResource(0, &ZeroCRect, 0x6666FFFF, 0, 0.0f, &clip, 0, &ZeroAbsVec, FGRESOURCE_ROUNDRECT);
-      fgroot_instance->backend.fgDrawResource(0, &ZeroCRect, 0x6666FF66, 0, 0.0f, &inner, 0, &ZeroAbsVec, FGRESOURCE_ROUNDRECT);
+      fgroot_instance->backend.fgDrawResource(0, &ZeroCRect, 0x666666FF, 0, 0.0f, &outer, 0, &ZeroAbsVec, FGRESOURCE_ROUNDRECT, data);
+      fgroot_instance->backend.fgDrawResource(0, &ZeroCRect, 0x6666FFFF, 0, 0.0f, &clip, 0, &ZeroAbsVec, FGRESOURCE_ROUNDRECT, data);
+      fgroot_instance->backend.fgDrawResource(0, &ZeroCRect, 0x6666FF66, 0, 0.0f, &inner, 0, &ZeroAbsVec, FGRESOURCE_ROUNDRECT, data);
       /*if(self->font)
       {
         unsigned int pt, dpi;
@@ -142,11 +143,12 @@ size_t FG_FASTCALL fgDebug_Message(fgDebug* self, const FG_Msg* msg)
     self->font = 0;
     if(msg->other)
     {
-      size_t dpi = _sendmsg<FG_GETDPI>(*self);
-      unsigned int fontdpi;
-      unsigned int fontsize;
-      fgroot_instance->backend.fgFontGet(msg->other, 0, &fontsize, &fontdpi);
-      self->font = (dpi == fontdpi) ? fgroot_instance->backend.fgCloneFont(msg->other) : fgroot_instance->backend.fgCopyFont(msg->other, fontsize, fontdpi);
+      fgFontDesc desc;
+      fgroot_instance->backend.fgFontGet(msg->other, &desc);
+      fgIntVec dpi = self->element.GetDPI();
+      bool identical = (dpi.x == desc.dpi.x && dpi.y == desc.dpi.y);
+      desc.dpi = dpi;
+      self->font = fgroot_instance->backend.fgCloneFont(msg->other, identical ? 0 : &desc);
     }
     fgroot_instance->backend.fgDirtyElement(*self);
     return FG_ACCEPT;
@@ -493,6 +495,10 @@ size_t FG_FASTCALL fgDebug_LogMessage(fgDebug* self, const FG_Msg* msg, unsigned
     m.arg1.f = msg->otherf;
     m.arg2.f = msg->otherfaux;
     break;
+  case FG_SETSCALING:
+    m.arg1.f = msg->otherf;
+    m.arg2.f = msg->otherfaux;
+    break;
   case FG_MOUSEDOWN:
   case FG_MOUSEDBLCLICK:
   case FG_MOUSEUP:
@@ -660,6 +666,8 @@ const char* FG_FASTCALL fgDebug_GetMessageString(unsigned short msg)
   case FG_SETLETTERSPACING: return "FG_SETLETTERSPACING";
   case FG_SETLINEHEIGHT: return "FG_SETLINEHEIGHT";
   case FG_SETOUTLINE: return "FG_SETOUTLINE";
+  case FG_SETSCALING: return "FG_SETSCALING";
+  case FG_GETSCALING: return "FG_GETSCALING";
   }
   return "UNKNOWN MESSAGE";
 }
@@ -819,6 +827,8 @@ ptrdiff_t FG_FASTCALL fgDebug_WriteMessageFn(fgDebugMessage* msg, int(*fn) (Args
     return (*fn)(args..., "%*sFG_JOYAXIS(%hi, %f)", spaces, "", msg->joyaxis, msg->joyvalue);
   case FG_SETDIM:
     return (*fn)(args..., "%*sFG_SETDIM:%hhu(%f, %f)", spaces, "", msg->subtype, msg->arg1.f, msg->arg2.f);
+  case FG_SETSCALING:
+    return (*fn)(args..., "%*sFG_SETSCALING:%hhu(%f, %f)", spaces, "", msg->subtype, msg->arg1.f, msg->arg2.f);
   case FG_SETVALUE:
     return (*fn)(args..., "%*sFG_SETVALUE(%ti, %zu)", spaces, "", msg->arg1.i, msg->arg2.u);
   case FG_SETUV:

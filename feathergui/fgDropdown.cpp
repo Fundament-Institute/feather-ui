@@ -16,25 +16,25 @@ void FG_FASTCALL fgDropdown_Destroy(fgDropdown* self)
   fgControl_Destroy(&self->control);
 }
 
-void fgDropdown_Draw(fgElement* self, const AbsRect* area, size_t dpi)
+void fgDropdown_Draw(fgElement* self, const AbsRect* area, const fgDrawAuxData* data)
 {
   fgDropdown* parent = (fgDropdown*)self->parent;
   AbsRect cache;
   fgElement* target = fgElement_GetChildUnderMouse(self, parent->mouse.x, parent->mouse.y, &cache);
-  fgroot_instance->backend.fgPushClipRect(&cache);
+  fgroot_instance->backend.fgPushClipRect(&cache, data);
   if(parent->selected)
   {
     AbsRect r;
     ResolveRectCache(parent->selected, &r, &cache, (parent->selected->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
-    fgroot_instance->backend.fgDrawResource(0, &CRect_EMPTY, parent->select.color, 0, 0.0f, &r, 0.0f, &AbsVec_EMPTY, FGRESOURCE_ROUNDRECT);
+    fgroot_instance->backend.fgDrawResource(0, &CRect_EMPTY, parent->select.color, 0, 0.0f, &r, 0.0f, &AbsVec_EMPTY, FGRESOURCE_ROUNDRECT, data);
   }
   if(target != 0)
   {
     AbsRect r;
     ResolveRectCache(target, &r, &cache, (target->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
-    fgroot_instance->backend.fgDrawResource(0, &CRect_EMPTY, parent->hover.color, 0, 0.0f, &r, 0.0f, &AbsVec_EMPTY, FGRESOURCE_ROUNDRECT);
+    fgroot_instance->backend.fgDrawResource(0, &CRect_EMPTY, parent->hover.color, 0, 0.0f, &r, 0.0f, &AbsVec_EMPTY, FGRESOURCE_ROUNDRECT, data);
   }
-  fgroot_instance->backend.fgPopClipRect();
+  fgroot_instance->backend.fgPopClipRect(data);
 }
 
 size_t FG_FASTCALL fgDropdownBox_Message(fgBox* self, const FG_Msg* msg)
