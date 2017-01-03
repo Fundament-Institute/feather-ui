@@ -133,7 +133,7 @@ bool FG_FASTCALL fgLayout_LoadStreamXML(fgLayout* self, std::istream& s, const c
 
   return true;
 }
-bool FG_FASTCALL fgLayout_LoadFileXML(fgLayout* self, const char* file)
+char FG_FASTCALL fgLayout_LoadFileXML(fgLayout* self, const char* file)
 {
   cStr path(file);
   path.ReplaceChar('\\', '/');
@@ -144,7 +144,7 @@ bool FG_FASTCALL fgLayout_LoadFileXML(fgLayout* self, const char* file)
   return fgLayout_LoadStreamXML(self, fs, path.c_str());
 }
 
-bool FG_FASTCALL fgLayout_LoadXML(fgLayout* self, const char* data, FG_UINT length)
+char FG_FASTCALL fgLayout_LoadXML(fgLayout* self, const char* data, FG_UINT length)
 {
   std::stringstream ss(std::string(data, length));
   return fgLayout_LoadStreamXML(self, ss, 0);

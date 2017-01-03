@@ -48,7 +48,7 @@ size_t FG_FASTCALL fgMonitor_Message(fgMonitor* self, const FG_Msg* msg)
   }
   case FG_DRAW: // Override draw call so we never clip, and replace the root DPI with our DPI
   {
-    fgElement* hold = self->element.last; // we draw backwards through our list.
+    fgElement* hold = self->element.root;
     AbsRect curarea;
     fgDrawAuxData data = {
       sizeof(fgDrawAuxData),
@@ -64,7 +64,7 @@ size_t FG_FASTCALL fgMonitor_Message(fgMonitor* self, const FG_Msg* msg)
         ResolveRectCache(hold, &curarea, (AbsRect*)msg->other, (hold->flags & FGELEMENT_BACKGROUND) ? 0 : &self->element.padding);
         _sendmsg<FG_DRAW, void*, void*>(hold, &curarea, &data);
       }
-      hold = hold->prev;
+      hold = hold->next;
     }
     return FG_ACCEPT;
   }

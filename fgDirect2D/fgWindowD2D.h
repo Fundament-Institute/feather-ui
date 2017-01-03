@@ -5,9 +5,11 @@
 #define __FG_WINDOW_D2D_H__
 
 #include "fgWindow.h"
+#include <stack>
 
 struct HWND__;
 struct tagRECT;
+struct tagPOINTS;
 struct ID2D1HwndRenderTarget;
 struct ID2D1SolidColorBrush;
 
@@ -23,10 +25,18 @@ struct fgWindowD2D {
   ID2D1HwndRenderTarget* target;
   ID2D1SolidColorBrush* color;
   ID2D1SolidColorBrush* edgecolor;
+  fgIntVec dpi;
+  std::stack<AbsRect> cliprect;
+  bool inside;
 
   static void WndRegister();
   static longptr_t __stdcall WndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam);
-  HWND__* WndCreate(tagRECT& rsize, fgFlag flags);
+  void WndCreate(tagRECT& rsize, fgFlag flags);
+  void CreateResources();
+  void DiscardResources();
+  size_t SetKey(uint8_t keycode, bool down, bool held, unsigned long time);
+  void SetChar(int key, unsigned long time);
+  void SetMouse(tagPOINTS* points, unsigned short type, unsigned char button, size_t wparam, unsigned long time);
 };
 
 struct fgDrawAuxDataEx {

@@ -46,13 +46,13 @@ typedef struct _FG_BACKEND {
   void (MSC_FASTCALL *GCC_FASTCALL fgClipboardFree)(const void* mem);
   void (MSC_FASTCALL *GCC_FASTCALL fgDirtyElement)(fgElement* elem);
 
-  char (MSC_FASTCALL *GCC_FASTCALL fgMessageLoop)(struct _FG_ROOT* root);
-  char (MSC_FASTCALL *GCC_FASTCALL fgLoadExtension)(const char* extname, void* fg, size_t sz);
+  char (MSC_FASTCALL *GCC_FASTCALL fgProcessMessages)();
+  size_t (MSC_FASTCALL *GCC_FASTCALL fgLoadExtension)(const char* extname, void* fg, size_t sz);
+  void (MSC_FASTCALL *GCC_FASTCALL fgTerminate)();
 } fgBackend;
 
 
 FG_EXTERN struct _FG_ROOT* FG_FASTCALL fgInitialize();
-FG_EXTERN void FG_FASTCALL fgTerminate(struct _FG_ROOT* root);
 
 FG_EXTERN size_t FG_FASTCALL fgBehaviorHookDefault(fgElement* self, const FG_Msg* msg);
 FG_EXTERN size_t FG_FASTCALL fgBehaviorHookListener(fgElement* self, const FG_Msg* msg);
@@ -89,8 +89,9 @@ FG_EXTERN const void* FG_FASTCALL fgClipboardPasteDefault(unsigned int type, siz
 FG_EXTERN void FG_FASTCALL fgClipboardFreeDefault(const void* mem);
 FG_EXTERN void FG_FASTCALL fgDirtyElementDefault(fgElement* elem);
 
-FG_EXTERN char FG_FASTCALL fgMessageLoopDefault(struct _FG_ROOT* root);
-FG_EXTERN char FG_FASTCALL fgLoadExtensionDefault(const char* extname, void* fg, size_t sz);
+FG_EXTERN char FG_FASTCALL fgProcessMessagesDefault();
+FG_EXTERN size_t FG_FASTCALL fgLoadExtensionDefault(const char* extname, void* fg, size_t sz);
+FG_EXTERN void FG_FASTCALL fgTerminateDefault();
 #ifdef  __cplusplus
 }
 #endif

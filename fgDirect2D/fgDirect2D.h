@@ -29,11 +29,12 @@ struct fgDirect2D
 {
   fgRoot root;
   ID2D1Factory* factory;
-  AbsRect cliprect;
   IWICImagingFactory* wicfactory;
   IDWriteFactory* writefactory;
 
   static fgDirect2D* instance;
 };
+
+fgWindowD2D* GetElementWindow(fgElement* cur);
 
 #endif

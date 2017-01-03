@@ -14,5 +14,6 @@
 #include "fgTabcontrol.h"
 #include "fgMenu.h"
 #include "fgGrid.h"
-
+#include "fgLayout.h"
+#include "fgBackend.h"
 // This file only exists to attempt to compile the featherGUI headers in a C context instead of a C++ one.

@@ -84,10 +84,6 @@ MAKE_RECT(FABS,AbsVec,AbsRect);
 // A coordinate rect specifies its topleft and bottomright corners in terms of coordinate vectors.
 MAKE_RECT(Coord,CVec,CRect);
 
-static BSS_FORCEINLINE FG_UINT FG_FASTCALL fbnext(FG_UINT in)
-{
-  return in + 1 + (in>>1) + (in>>3) - (in>>7);
-}
 static BSS_FORCEINLINE FABS FG_FASTCALL fglerp(FABS a, FABS b, FREL amt)
 {
 	return a+((FABS)((b-a)*amt));

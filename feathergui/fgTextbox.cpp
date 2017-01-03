@@ -159,6 +159,7 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
     memset(&self->areacache, 0, sizeof(AbsRect));
     fgScrollbar_Message(&self->scroll, msg);
     self->lastclick = fgroot_instance->time;
+    self->layout = 0;
     return FG_ACCEPT;
   case FG_KEYCHAR:
     if(self->validation)

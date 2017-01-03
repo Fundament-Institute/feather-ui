@@ -75,13 +75,34 @@ void FG_FASTCALL fgDragStartDefault(char type, void* data, fgElement* draw)
   fgCaptureWindow = 0;
 }
 
-char FG_FASTCALL fgLoadExtensionDefault(const char* extname, void* fg, size_t sz) { return -1; }
+size_t FG_FASTCALL fgLoadExtensionDefault(const char* extname, void* fg, size_t sz) { return -1; }
 void FG_FASTCALL fgSetCursorDefault(unsigned int type, void* custom) {}
-void FG_FASTCALL fgClipboardCopyDefault(unsigned int type, const void* data, size_t length) {}
-char FG_FASTCALL fgClipboardExistsDefault(unsigned int type) { return 0; }
-const void* FG_FASTCALL fgClipboardPasteDefault(unsigned int type, size_t* length) { return 0; }
-void FG_FASTCALL fgClipboardFreeDefault(const void* mem) {}
 void FG_FASTCALL fgDirtyElementDefault(fgElement* elem) {}
+
+static unsigned int __fgClipboardType = 0;
+static std::unique_ptr<uint8_t[]> __fgClipboardData = 0;
+static size_t __fgClipboardSize = 0;
+
+void FG_FASTCALL fgClipboardCopyDefault(unsigned int type, const void* data, size_t length)
+{
+  __fgClipboardType = type;
+  __fgClipboardSize = length;
+  __fgClipboardData = std::unique_ptr<uint8_t[]>(new uint8_t[length]);
+  MEMCPY(__fgClipboardData.get(), length, data, length);
+}
+char FG_FASTCALL fgClipboardExistsDefault(unsigned int type) { return type == __fgClipboardType && __fgClipboardSize != 0; }
+const void* FG_FASTCALL fgClipboardPasteDefault(unsigned int type, size_t* length)
+{
+  *length = __fgClipboardSize;
+  void* data = malloc(__fgClipboardSize);
+  MEMCPY(data, __fgClipboardSize, __fgClipboardData.get(), __fgClipboardSize);
+  return data;
+}
+void FG_FASTCALL fgClipboardFreeDefault(const void* mem)
+{
+  assert(mem != 0);
+  free(const_cast<void*>(mem));
+}
 
 template<class T, void (MSC_FASTCALL *GCC_FASTCALL INIT)(T* BSS_RESTRICT, fgElement* BSS_RESTRICT, fgElement* BSS_RESTRICT, const char*, fgFlag, const fgTransform*, unsigned short)>
 BSS_FORCEINLINE fgElement* _create_default(fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units, const char* file, size_t line)
@@ -168,4 +189,15 @@ int FG_FASTCALL fgRegisterFunction(const char* name, fgListener fn)
   khint_t iter = kh_put_fgFunctionMap(fgroot_instance->functionhash, fgCopyText(name, __FILE__, __LINE__), &r);
   kh_val(fgroot_instance->functionhash, iter) = fn;
   return r;
+}
+
+void FG_FASTCALL fgTerminateDefault()
+{
+  VirtualFreeChild(&fgroot_instance->gui.element);
+  fgroot_instance = 0;
+}
+
+char FG_FASTCALL fgProcessMessagesDefault()
+{
+  return 0;
 }

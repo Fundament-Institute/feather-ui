@@ -60,8 +60,9 @@ void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, const fgIntVec* 
     &fgClipboardPasteDefault,
     &fgClipboardFreeDefault,
     &fgDirtyElementDefault,
-    0,
-    0,
+    &fgProcessMessagesDefault,
+    &fgLoadExtensionDefault,
+    &fgTerminateDefault,
   };
 
   memset(self, 0, sizeof(fgRoot));
