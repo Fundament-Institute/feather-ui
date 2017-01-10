@@ -26,26 +26,27 @@ KHASH_INIT(fgIDMap, char*, fgElement*, 1, kh_str_hash_func, kh_str_hash_equal);
 KHASH_INIT(fgIDHash, fgElement*, char*, 1, kh_ptr_hash_func, kh_int_hash_equal);
 typedef std::pair<fgInitializer, size_t> INITPAIR;
 KHASH_INIT(fgInitMap, char*, INITPAIR, 1, kh_str_hash_funcins, kh_str_hash_insequal);
+KHASH_INIT(fgCursorMap, unsigned int, void*, 1, kh_int_hash_func, kh_int_hash_equal);
 
 fgRoot* fgroot_instance = 0;
 
-void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, const fgIntVec* dpi, const fgBackend* backend)
+void fgRoot_Init(fgRoot* self, const AbsRect* area, const fgIntVec* dpi, const fgBackend* backend)
 {
   static fgBackend DEFAULT_BACKEND = {
-    &fgBehaviorHookDefault,
+    FGTEXTFMT_UTF8,
     &fgCreateFontDefault,
     &fgCloneFontDefault,
     &fgDestroyFontDefault,
     &fgDrawFontDefault,
     &fgFontLayoutDefault,
     &fgFontGetDefault,
-    &fgCreateResourceDefault,
-    &fgCloneResourceDefault,
-    &fgDestroyResourceDefault,
-    &fgDrawResourceDefault,
-    &fgResourceSizeDefault,
     &fgFontIndexDefault,
     &fgFontPosDefault,
+    &fgCreateAssetDefault,
+    &fgCloneAssetDefault,
+    &fgDestroyAssetDefault,
+    &fgDrawAssetDefault,
+    &fgAssetSizeDefault,
     &fgDrawLinesDefault,
     &fgCreateDefault,
     &fgMessageMapDefault,
@@ -60,6 +61,7 @@ void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, const fgIntVec* 
     &fgClipboardPasteDefault,
     &fgClipboardFreeDefault,
     &fgDirtyElementDefault,
+    &fgBehaviorHookDefault,
     &fgProcessMessagesDefault,
     &fgLoadExtensionDefault,
     &fgTerminateDefault,
@@ -76,6 +78,7 @@ void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, const fgIntVec* 
   self->idhash = kh_init_fgIDHash();
   self->idmap = kh_init_fgIDMap();
   self->initmap = kh_init_fgInitMap();
+  self->cursormap = kh_init_fgCursorMap();
   fgroot_instance = self;
   fgTransform transform = { area->left, 0, area->top, 0, area->right, 0, area->bottom, 0, 0, 0, 0 };
   fgElement_InternalSetup(*self, 0, 0, 0, 0, &transform, 0, (fgDestroy)&fgRoot_Destroy, (fgMessage)&fgRoot_Message);
@@ -109,7 +112,7 @@ void FG_FASTCALL fgRoot_Init(fgRoot* self, const AbsRect* area, const fgIntVec* 
   fgRegisterControl("debug", (fgInitializer)fgDebug_Init, sizeof(fgDebug));
 }
 
-void FG_FASTCALL fgRoot_Destroy(fgRoot* self)
+void fgRoot_Destroy(fgRoot* self)
 {
   if(fgdebug_instance != 0)
     VirtualFreeChild(&fgdebug_instance->element);
@@ -122,9 +125,13 @@ void FG_FASTCALL fgRoot_Destroy(fgRoot* self)
     if(i != kh_end(self->initmap) && kh_exist(self->initmap, i))
       fgfree(kh_key(self->initmap, i), __FILE__, __LINE__);
   kh_destroy_fgInitMap(self->initmap);
+  for(khiter_t i = 0; i < self->cursormap->n_buckets; ++i)
+    if(i != kh_end(self->cursormap) && kh_exist(self->cursormap, i))
+      fgfree(kh_val(self->cursormap, i), __FILE__, __LINE__);
+  kh_destroy_fgCursorMap(self->cursormap);
 }
 
-void FG_FASTCALL fgRoot_CheckMouseMove(fgRoot* self)
+void fgRoot_CheckMouseMove(fgRoot* self)
 {
   if(self->mouse.state&FGMOUSE_SEND_MOUSEMOVE)
   {
@@ -138,12 +145,11 @@ void FG_FASTCALL fgRoot_CheckMouseMove(fgRoot* self)
   }
 }
 
-size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
+size_t fgRoot_Message(fgRoot* self, const FG_Msg* msg)
 {
   switch(msg->type)
   {
   case FG_MOUSEMOVE:
-    fgRoot_SetCursor(FGCURSOR_ARROW, 0);
   case FG_KEYCHAR: // If these messages get sent to the root, they have been rejected from everything else.
   case FG_KEYUP:
   case FG_KEYDOWN:
@@ -169,8 +175,8 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
       { 0,0 }
     };
     FG_Msg m = *msg;
-    m.other = &area;
-    m.other2 = &data;
+    m.p = &area;
+    m.p2 = &data;
     fgControl_Message((fgControl*)self, &m);
     if(self->topmost) // Draw topmost before the drag object
     {
@@ -196,18 +202,18 @@ size_t FG_FASTCALL fgRoot_Message(fgRoot* self, const FG_Msg* msg)
     return (size_t)&self->dpi;
   case FG_SETDPI:
   {
-    AbsVec scale = { !self->dpi.x ? 1.0f : (msg->otherint / (float)self->dpi.x), !self->dpi.y ? 1.0f : (msg->otherint / (float)self->dpi.y) };
+    AbsVec scale = { !self->dpi.x ? 1.0f : (msg->i / (float)self->dpi.x), !self->dpi.y ? 1.0f : (msg->i / (float)self->dpi.y) };
     CRect* rootarea = &self->gui.element.transform.area;
     CRect area = { rootarea->left.abs*scale.x, 0, rootarea->top.abs*scale.y, 0, rootarea->right.abs*scale.x, 0, rootarea->bottom.abs*scale.y, 0 };
-    self->dpi.x = msg->otherint;
-    self->dpi.y = msg->otheraux;
+    self->dpi.x = msg->i;
+    self->dpi.y = msg->u2;
     return self->gui.element.SetArea(area);
   }
     return FG_ACCEPT;
   case FG_GETLINEHEIGHT:
     return *reinterpret_cast<size_t*>(&self->lineheight);
   case FG_SETLINEHEIGHT:
-    self->lineheight = msg->otherf;
+    self->lineheight = msg->f;
     return FG_ACCEPT;
   case FG_GETSTYLE:
     return 0;
@@ -236,12 +242,13 @@ void BSS_FORCEINLINE fgStandardDrawElement(fgElement* self, fgElement* hold, con
     ResolveRectCache(hold, &curarea, area, (hold->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
     fgStandardApplyClipping(hold->flags, area, clipping, aux);
 
-    char culled = !fgRectIntersect(&curarea, &fgroot_instance->backend.fgPeekClipRect(aux));
+    AbsRect clip = fgroot_instance->backend.fgPeekClipRect(aux);
+    char culled = !fgRectIntersect(&curarea, &clip);
     _sendsubmsg<FG_DRAW, void*, const void*>(hold, culled, &curarea, aux);
   }
 }
 
-void FG_FASTCALL fgStandardDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, char culled)
+void fgStandardDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, char culled)
 {
   fgElement* hold = culled ? self->rootnoclip : self->root;
   AbsRect curarea;
@@ -257,7 +264,7 @@ void FG_FASTCALL fgStandardDraw(fgElement* self, const AbsRect* area, const fgDr
     fgroot_instance->backend.fgPopClipRect(aux);
 }
 
-void FG_FASTCALL fgOrderedDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, char culled, fgElement* skip, fgElement* (*fn)(fgElement*, const AbsRect*, const AbsRect*), void(*draw)(fgElement*, const AbsRect*, const fgDrawAuxData*))
+void fgOrderedDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, char culled, fgElement* skip, fgElement* (*fn)(fgElement*, const AbsRect*, const AbsRect*), void(*draw)(fgElement*, const AbsRect*, const fgDrawAuxData*))
 {
   if(culled) // If we are culled, thee's no point drawing ordered elements, because ordered elements aren't non-clipping, so we let the standard draw take care of it.
     return fgStandardDraw(self, area, aux, culled);
@@ -276,7 +283,8 @@ void FG_FASTCALL fgOrderedDraw(fgElement* self, const AbsRect* area, const fgDra
     draw(self, area, aux);
 
   AbsRect out;
-  fgRectIntersection(area, &fgroot_instance->backend.fgPeekClipRect(aux), &out);
+  AbsRect clip = fgroot_instance->backend.fgPeekClipRect(aux);
+  fgRectIntersection(area, &clip, &out);
   // do binary search on the absolute resolved bottomright coordinates compared to the topleft corner of the render area
   cur = fn(self, &out, area);
 
@@ -290,7 +298,8 @@ void FG_FASTCALL fgOrderedDraw(fgElement* self, const AbsRect* area, const fgDra
   while(!cull && cur != 0 && !(cur->flags & FGELEMENT_BACKGROUND)) // Render all ordered elements until they become culled
   {
     ResolveRectCache(cur, &curarea, area, &self->padding); // always apply padding because these are always foreground elements
-    cull = !fgRectIntersect(&curarea, &fgroot_instance->backend.fgPeekClipRect(aux));
+    AbsRect clip = fgroot_instance->backend.fgPeekClipRect(aux);
+    cull = !fgRectIntersect(&curarea, &clip);
     if(cur != fgroot_instance->topmost)
       _sendsubmsg<FG_DRAW, void*, const void*>(cur, cull, &curarea, aux);
     cur = cur->next;
@@ -307,14 +316,14 @@ void FG_FASTCALL fgOrderedDraw(fgElement* self, const AbsRect* area, const fgDra
     fgroot_instance->backend.fgPopClipRect(aux);
 }
 
-void FG_FASTCALL fgFixedDraw(fgElement* self, AbsRect* area, size_t dpi, char culled, fgElement** ordered, size_t numordered, AbsVec dim)
+void fgFixedDraw(fgElement* self, AbsRect* area, size_t dpi, char culled, fgElement** ordered, size_t numordered, AbsVec dim)
 {
 
 }
 
 
 // Recursive event injection function
-size_t FG_FASTCALL fgStandardInject(fgElement* self, const FG_Msg* msg, const AbsRect* area)
+size_t fgStandardInject(fgElement* self, const FG_Msg* msg, const AbsRect* area)
 {
   assert(msg != 0);
 
@@ -329,10 +338,11 @@ size_t FG_FASTCALL fgStandardInject(fgElement* self, const FG_Msg* msg, const Ab
 
   bool miss = (area != 0 && !MsgHitAbsRect(msg, &curarea)); // If the area is null, the message always hits.
   fgElement* cur = miss ? self->lastnoclip : self->lastinject; // If the event completely misses us, evaluate only nonclipping elements.
+  size_t r;
   while(cur) // Try to inject to any children we have
   {
-    if(!(cur->flags&FGELEMENT_IGNORE) && _sendmsg<FG_INJECT, const void*, const void*>(cur, msg, &curarea)) // We have to check FGELEMENT_IGNORE because the noclip list may have render-only elements in it.
-      return FG_ACCEPT; // If the message is NOT rejected, return 1 immediately to indicate we accepted the message.
+    if(!(cur->flags&FGELEMENT_IGNORE) && (r = _sendmsg<FG_INJECT, const void*, const void*>(cur, msg, &curarea))) // We have to check FGELEMENT_IGNORE because the noclip list may have render-only elements in it.
+      return r; // If the message is NOT rejected, return the result immediately to indicate we accepted the message.
     cur = miss ? cur->prevnoclip : cur->previnject; // Otherwise the child rejected the message.
   }
 
@@ -340,7 +350,7 @@ size_t FG_FASTCALL fgStandardInject(fgElement* self, const FG_Msg* msg, const Ab
   return miss ? 0 : (*fgroot_instance->backend.behaviorhook)(self,msg); // So we give the event to ourselves, but only if it didn't miss us (which can happen if we were evaluating nonclipping elements)
 }
 
-size_t FG_FASTCALL fgOrderedInject(fgElement* self, const FG_Msg* msg, const AbsRect* area, fgElement* skip, fgElement* (*fn)(fgElement*, const FG_Msg*))
+size_t fgOrderedInject(fgElement* self, const FG_Msg* msg, const AbsRect* area, fgElement* skip, fgElement* (*fn)(fgElement*, const FG_Msg*))
 {
   assert(msg != 0);
 
@@ -353,13 +363,14 @@ size_t FG_FASTCALL fgOrderedInject(fgElement* self, const FG_Msg* msg, const Abs
   else
     ResolveRectCache(self, &curarea, area, (self->flags & FGELEMENT_BACKGROUND || !self->parent) ? 0 : &self->parent->padding);
 
+  size_t r;
   if(area != 0 && !MsgHitAbsRect(msg, &curarea)) // if this misses us, only evaluate nonclipping elements. Don't bother with the ordered array.
   {
     fgElement* cur = self->lastnoclip;
     while(cur) // Try to inject to any children we have
     {
-      if(!(cur->flags&FGELEMENT_IGNORE) && _sendmsg<FG_INJECT, const void*, const void*>(cur, msg, &curarea)) // We have to check FGELEMENT_IGNORE because the noclip list may have render-only elements in it.
-        return FG_ACCEPT; // If the message is NOT rejected, return 1 immediately to indicate we accepted the message.
+      if(!(cur->flags&FGELEMENT_IGNORE) && (r = _sendmsg<FG_INJECT, const void*, const void*>(cur, msg, &curarea))) // We have to check FGELEMENT_IGNORE because the noclip list may have render-only elements in it.
+        return r; // If the message is NOT rejected, return 1 immediately to indicate we accepted the message.
       cur = cur->prevnoclip; // Otherwise the child rejected the message.
     }
 
@@ -370,43 +381,57 @@ size_t FG_FASTCALL fgOrderedInject(fgElement* self, const FG_Msg* msg, const Abs
 
   while(cur != 0 && (cur->flags & FGELEMENT_BACKGROUND))
   {
-    if(!(cur->flags&FGELEMENT_IGNORE) && _sendmsg<FG_INJECT, const void*, const void*>(cur, msg, &curarea))
-      return FG_ACCEPT; 
+    if(!(cur->flags&FGELEMENT_IGNORE) && (r = _sendmsg<FG_INJECT, const void*, const void*>(cur, msg, &curarea)))
+      return r;
     cur = cur->previnject; 
   }
 
   cur = fn(self, msg);
-  if(!(cur->flags&FGELEMENT_IGNORE) && _sendmsg<FG_INJECT, const void*, const void*>(cur, msg, &curarea))
-    return FG_ACCEPT;
+  if(!(cur->flags&FGELEMENT_IGNORE) && (r = _sendmsg<FG_INJECT, const void*, const void*>(cur, msg, &curarea)))
+    return r;
 
   cur = skip;
   while(cur != 0 && (cur->flags & FGELEMENT_BACKGROUND))
   {
-    if(!(cur->flags&FGELEMENT_IGNORE) && _sendmsg<FG_INJECT, const void*, const void*>(cur, msg, &curarea))
-      return FG_ACCEPT;
+    if(!(cur->flags&FGELEMENT_IGNORE) && (r = _sendmsg<FG_INJECT, const void*, const void*>(cur, msg, &curarea)))
+      return r;
     cur = cur->previnject;
   }
 
   return (*fgroot_instance->backend.behaviorhook)(self, msg); // So we give the event to ourselves because it couldn't have missed us if we got to this point
 }
 
-void fgProcessNextCursor(fgRoot* self)
+BSS_FORCEINLINE size_t fgProcessCursor(fgRoot* self, size_t value, unsigned short type, FG_CURSOR fallback = FGCURSOR_NONE)
 {
-  if(self->overridecursor != FGCURSOR_NONE)
+  static bool FROMCHECK = false;
+  unsigned int cursor = (unsigned int)value;
+  if(type != FG_MOUSEMOVE && type != FG_DRAGOVER)
   {
-    self->nextcursor = self->overridecursor;
-    self->nextcursordata = self->overridecursordata;
+    cursor = self->cursor; // If this isn't a mousemove/dragover, we don't change the cursor type, but we do set it anyway in case the OS tries to do weird shit under our noses.
+    fallback = FGCURSOR_NONE;
   }
-
-  if(self->nextcursor != self->lastcursor || self->nextcursordata != self->lastcursordata)
+  if(!cursor && fallback != FGCURSOR_NONE)
+    cursor = fallback;
+  if(cursor != 0)
   {
-    self->backend.fgSetCursor(self->nextcursor, self->nextcursordata);
-    self->lastcursor = self->nextcursor;
-    self->lastcursordata = self->lastcursordata;
+    self->cursor = cursor;
+    void* data = 0;
+    if(self->cursormap->n_buckets > 0)
+    {
+      khiter_t i = kh_get_fgCursorMap(self->cursormap, cursor);
+      if(i != kh_end(self->cursormap) && kh_exist(self->cursormap, i))
+        data = kh_val(self->cursormap, i);
+    }
+    if(cursor == FGCURSOR_IBEAM)
+      FROMCHECK = true;
+    if(cursor != FGCURSOR_IBEAM && FROMCHECK)
+      cursor = cursor;
+    self->backend.fgSetCursor(cursor, data);
   }
+  return value;
 }
 
-size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
+size_t fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
 {
   assert(self != 0);
 
@@ -450,18 +475,18 @@ size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
       MoveCRect((FABS)msg->x, (FABS)msg->y, &self->dragdraw->transform.area);
 
     if(fgCaptureWindow)
-      if(_sendmsg<FG_INJECT, const void*, const void*>(fgCaptureWindow, msg, 0)) // If it's captured, send the message to the captured window with NULL area.
-        return fgProcessNextCursor(self), FG_ACCEPT;
+      if(fgProcessCursor(self, _sendmsg<FG_INJECT, const void*, const void*>(fgCaptureWindow, msg, 0), msg->type)) // If it's captured, send the message to the captured window with NULL area.
+        return FG_ACCEPT;
 
     if(self->topmost) // After we attempt sending the message to the captured window, try sending it to the topmost
-      if(_sendmsg<FG_INJECT, const void*, const void*>(self->topmost, msg, 0))
-        return fgProcessNextCursor(self), FG_ACCEPT;
+      if(fgProcessCursor(self, _sendmsg<FG_INJECT, const void*, const void*>(self->topmost, msg, 0), msg->type))
+        return FG_ACCEPT;
 
-    if(_sendmsg<FG_INJECT, const void*, const void*>(*self, msg, 0))
-      return fgProcessNextCursor(self), FG_ACCEPT;
+    if(fgProcessCursor(self, _sendmsg<FG_INJECT, const void*, const void*>(*self, msg, 0), msg->type))
+      return FG_ACCEPT;
     if(msg->type != FG_MOUSEMOVE)
       break;
-    fgProcessNextCursor(self);
+    fgProcessCursor(self, FGCURSOR_ARROW, msg->type);
   case FG_MOUSEOFF:
     if(fgLastHover != 0) // If we STILL haven't accepted a mousemove event, send a MOUSEOFF message if lasthover exists
     {
@@ -471,12 +496,10 @@ size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
     if(msg->type != FG_MOUSEOFF)
       break;
   case FG_MOUSEON:
-    self->lastcursor = FGCURSOR_NONE;
     break;
   case FG_DRAGOVER:
   case FG_DROP:
-    _sendmsg<FG_INJECT, const void*, const void*>(*self, msg, 0);
-    fgProcessNextCursor(self);
+    fgProcessCursor(self, _sendmsg<FG_INJECT, const void*, const void*>(*self, msg, 0), msg->type, FGCURSOR_NO);
     if(msg->type == FG_DROP)
     {
       self->dragtype = FGCLIPBOARD_NONE;
@@ -493,26 +516,12 @@ size_t FG_FASTCALL fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
   return 0;
 }
 
-void FG_FASTCALL fgRoot_SetCursor(char cursor, void* data)
-{
-  if(cursor & FGCURSOR_OVERRIDE)
-  {
-    fgroot_instance->overridecursor = cursor;
-    fgroot_instance->overridecursordata = data;
-  }
-  else
-  {
-    fgroot_instance->nextcursor = cursor;
-    fgroot_instance->nextcursordata = data;
-  }
-}
-
-void FG_FASTCALL fgTerminate(fgRoot* root)
+void fgTerminate(fgRoot* root)
 {
   VirtualFreeChild((fgElement*)root);
 }
 
-void FG_FASTCALL fgRoot_Update(fgRoot* self, double delta)
+void fgRoot_Update(fgRoot* self, double delta)
 {
   fgDeferAction* cur;
   self->time += delta;
@@ -525,7 +534,7 @@ void FG_FASTCALL fgRoot_Update(fgRoot* self, double delta)
   }
 }
 
-fgMonitor* FG_FASTCALL fgRoot_GetMonitor(const fgRoot* self, const AbsRect* rect)
+fgMonitor* fgRoot_GetMonitor(const fgRoot* self, const AbsRect* rect)
 {
   fgMonitor* cur = self->monitors;
   float largest = 0;
@@ -552,7 +561,7 @@ fgMonitor* FG_FASTCALL fgRoot_GetMonitor(const fgRoot* self, const AbsRect* rect
   return last;
 }
 
-fgDeferAction* FG_FASTCALL fgRoot_AllocAction(char (MSC_FASTCALL *GCC_FASTCALL action)(void*), void* arg, double time)
+fgDeferAction* fgRoot_AllocAction(char (*action)(void*), void* arg, double time)
 {
   fgDeferAction* r = fgmalloc<fgDeferAction>(1, __FILE__, __LINE__);
   r->action = action;
@@ -563,14 +572,14 @@ fgDeferAction* FG_FASTCALL fgRoot_AllocAction(char (MSC_FASTCALL *GCC_FASTCALL a
   return r;
 }
 
-void FG_FASTCALL fgRoot_DeallocAction(fgRoot* self, fgDeferAction* action)
+void fgRoot_DeallocAction(fgRoot* self, fgDeferAction* action)
 {
   if(action->prev != 0 || action == self->updateroot) // If true you are in the list and must be removed
     fgRoot_RemoveAction(self, action);
   fgfree(action, __FILE__, __LINE__);
 }
 
-void FG_FASTCALL fgRoot_AddAction(fgRoot* self, fgDeferAction* action)
+void fgRoot_AddAction(fgRoot* self, fgDeferAction* action)
 {
   fgDeferAction* cur = self->updateroot;
   fgDeferAction* prev = 0; // Sadly the elegant pointer to pointer method doesn't work for doubly linked lists.
@@ -587,7 +596,7 @@ void FG_FASTCALL fgRoot_AddAction(fgRoot* self, fgDeferAction* action)
   if(cur) cur->prev = action; // Cur is null if we are at the end of the list.
 }
 
-void FG_FASTCALL fgRoot_RemoveAction(fgRoot* self, fgDeferAction* action)
+void fgRoot_RemoveAction(fgRoot* self, fgDeferAction* action)
 {
   assert(action != 0 && (action->prev != 0 || action == self->updateroot));
   if(action->prev != 0) action->prev->next = action->next;
@@ -597,7 +606,7 @@ void FG_FASTCALL fgRoot_RemoveAction(fgRoot* self, fgDeferAction* action)
   action->prev = 0;
 }
 
-void FG_FASTCALL fgRoot_ModifyAction(fgRoot* self, fgDeferAction* action)
+void fgRoot_ModifyAction(fgRoot* self, fgDeferAction* action)
 {
   if((action->next != 0 && action->next->time < action->time) || (action->prev != 0 && action->prev->time > action->time))
   {
@@ -607,7 +616,7 @@ void FG_FASTCALL fgRoot_ModifyAction(fgRoot* self, fgDeferAction* action)
   else if(!action->prev && action != self->updateroot) // If true you aren't in the list so we need to add you
     fgRoot_AddAction(self, action);
 }
-fgElement* FG_FASTCALL fgRoot_GetID(fgRoot* self, const char* id)
+fgElement* fgRoot_GetID(fgRoot* self, const char* id)
 {
   khiter_t i = kh_get_fgIDMap(self->idmap, const_cast<char*>(id));
   if(i != kh_end(self->idmap) && kh_exist(self->idmap, i))
@@ -624,7 +633,7 @@ void VERIFY_IDHASH()
 }
 #endif
 
-void FG_FASTCALL fgRoot_AddID(fgRoot* self, const char* id, fgElement* element)
+void fgRoot_AddID(fgRoot* self, const char* id, fgElement* element)
 {
   int r;
   khiter_t i = kh_get_fgIDMap(self->idmap, const_cast<char*>(id));
@@ -641,7 +650,7 @@ void FG_FASTCALL fgRoot_AddID(fgRoot* self, const char* id, fgElement* element)
   const char* test = kh_key(self->idmap, i);
   kh_val(self->idhash, j) = kh_key(self->idmap, i);
 }
-char FG_FASTCALL fgRoot_RemoveID(fgRoot* self, fgElement* element)
+char fgRoot_RemoveID(fgRoot* self, fgElement* element)
 {
   khiter_t i = kh_get_fgIDHash(self->idhash, element);
   if(i == kh_end(self->idhash) || !kh_exist(self->idhash, i))
@@ -657,17 +666,17 @@ char FG_FASTCALL fgRoot_RemoveID(fgRoot* self, fgElement* element)
   return true;
 }
 
-fgRoot* FG_FASTCALL fgSingleton()
+fgRoot* fgSingleton()
 {
   return fgroot_instance;
 }
 
-fgElement* FG_FASTCALL fgCreate(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+fgElement* fgCreate(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
   return fgroot_instance->backend.fgCreate(type, parent, next, name, flags, transform, units);
 }
 
-void FG_FASTCALL fgRegisterControl(const char* name, fgInitializer fn, size_t sz)
+void fgRegisterControl(const char* name, fgInitializer fn, size_t sz)
 {
   int r;
   khint_t i = kh_put_fgInitMap(fgroot_instance->initmap, const_cast<char*>(name), &r);
@@ -676,9 +685,30 @@ void FG_FASTCALL fgRegisterControl(const char* name, fgInitializer fn, size_t sz
   kh_val(fgroot_instance->initmap, i).first = fn;
   kh_val(fgroot_instance->initmap, i).second = sz;
 }
+void fgIterateControls(void* p, void(*fn)(void*, const char*))
+{
+  for(khiter_t i = 0; i < fgroot_instance->initmap->n_buckets; ++i) // We do have to clear this one, though.
+    if(i != kh_end(fgroot_instance->initmap) && kh_exist(fgroot_instance->initmap, i))
+      fn(p, kh_key(fgroot_instance->initmap, i));
+}
 
+int fgRegisterCursor(int cursor, const void* data, size_t sz)
+{
+  int r;
+  khint_t i = kh_put_fgCursorMap(fgroot_instance->cursormap, cursor, &r);
+  if(!r) // if something already existed, delete the data first
+    fgfree(kh_val(fgroot_instance->cursormap, i), __FILE__, __LINE__);
+  if(data)
+  {
+    kh_val(fgroot_instance->cursormap, i) = fgmalloc<char>(sz, __FILE__, __LINE__);
+    MEMCPY(kh_val(fgroot_instance->cursormap, i), sz, data, sz);
+  }
+  else
+    kh_del_fgCursorMap(fgroot_instance->cursormap, i);
+  return r;
+}
 
-fgElement* FG_FASTCALL fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+fgElement* fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
   if(!STRICMP(type, "tab"))
   {

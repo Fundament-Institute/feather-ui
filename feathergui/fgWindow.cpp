@@ -5,37 +5,38 @@
 #include "fgText.h"
 #include "feathercpp.h"
 
-size_t FG_FASTCALL fgWindow_CloseMessage(fgButton* self, const FG_Msg* msg)
+size_t fgWindow_CloseMessage(fgButton* self, const FG_Msg* msg)
 {
   if(msg->type == FG_ACTION)
-    fgIntMessage(self->control.element.parent, FG_ACTION, FGWINDOW_CLOSE, 0);
+    return _sendmsg<FG_ACTION, size_t>(self->control.element.parent, FGWINDOW_CLOSE); // This must immediately return because the control doesn't exist anymore
   return fgButton_Message(self, msg);
 }
 
-size_t FG_FASTCALL fgWindow_MaximizeMessage(fgButton* self, const FG_Msg* msg)
+size_t fgWindow_MaximizeMessage(fgButton* self, const FG_Msg* msg)
 {
   if(msg->type == FG_ACTION)
-    fgIntMessage(self->control.element.parent, FG_ACTION, !memcmp(&self->control.element.parent->transform, &fgTransform_DEFAULT, sizeof(fgTransform)) ? FGWINDOW_RESTORE : FGWINDOW_MAXIMIZE, 0);
+    _sendmsg<FG_ACTION, size_t>(self->control.element.parent, !memcmp(&self->control.element.parent->transform, &fgTransform_DEFAULT, sizeof(fgTransform)) ? FGWINDOW_RESTORE : FGWINDOW_MAXIMIZE);
   return fgButton_Message(self, msg);
 }
 
-size_t FG_FASTCALL fgWindow_MinimizeMessage(fgButton* self, const FG_Msg* msg)
+size_t fgWindow_MinimizeMessage(fgButton* self, const FG_Msg* msg)
 {
   if(msg->type == FG_ACTION)
-    fgIntMessage(self->control.element.parent, FG_ACTION, (self->control.element.parent->flags&FGELEMENT_HIDDEN) ? FGWINDOW_UNMINIMIZE : FGWINDOW_MINIMIZE, 0);
+    _sendmsg<FG_ACTION, size_t>(self->control.element.parent, (self->control.element.parent->flags&FGELEMENT_HIDDEN) ? FGWINDOW_UNMINIMIZE : FGWINDOW_MINIMIZE);
   return fgButton_Message(self, msg);
 }
 
-void FG_FASTCALL fgWindow_Init(fgWindow* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgWindow_Init(fgWindow* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgWindow_Destroy, (fgMessage)&fgWindow_Message);
 }
-void FG_FASTCALL fgWindow_Destroy(fgWindow* self)
+void fgWindow_Destroy(fgWindow* self)
 {
+  self->control->message = (fgMessage)fgControl_Message;
   fgControl_Destroy((fgControl*)self);
 }
 
-size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
+size_t fgWindow_Message(fgWindow* self, const FG_Msg* msg)
 {
   assert(self != 0 && msg != 0);
 
@@ -44,6 +45,7 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     fgControl_Message((fgControl*)self, msg);
     self->dragged = 0;
+    memset(&self->prevrect, 0, sizeof(CRect));
     fgText_Init(&self->caption, *self, 0, "Window$text", FGELEMENT_BACKGROUND | FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0, 0);
     fgButton_Init(&self->controls[0], *self, 0, "Window$close", FGELEMENT_BACKGROUND, 0, 0);
     fgButton_Init(&self->controls[1], *self, 0, "Window$restore", FGELEMENT_BACKGROUND, 0, 0);
@@ -69,7 +71,7 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
       AbsRect out;
       ResolveRect(*self, &out);
       if(msg->y < out.top + self->control.element.padding.top)
-        fgIntMessage(*self, FG_ACTION, FGWINDOW_MAXIMIZE, 0);
+        _sendmsg<FG_ACTION, size_t>(*self, FGWINDOW_MAXIMIZE);
       return FG_ACCEPT;
     }
     break;
@@ -167,15 +169,15 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
       if(memcmp(&self->control.element.transform, &fgTransform_DEFAULT, sizeof(fgTransform)) != 0) // Only resize/move if not maximized
       {
         if(dragged == 12 || dragged == 18)
-          fgRoot_SetCursor(FGCURSOR_RESIZENESW, 0);
+          return FGCURSOR_RESIZENESW;
         if(dragged == 6 || dragged == 24)
-          fgRoot_SetCursor(FGCURSOR_RESIZENWSE, 0);
+          return FGCURSOR_RESIZENWSE;
         if(dragged == 2 || dragged == 8)
-          fgRoot_SetCursor(FGCURSOR_RESIZEWE, 0);
+          return FGCURSOR_RESIZEWE;
         if(dragged == 4 || dragged == 16)
-          fgRoot_SetCursor(FGCURSOR_RESIZENS, 0);
+          return FGCURSOR_RESIZENS;
       }
-      return FG_ACCEPT;
+      return FGCURSOR_ARROW;
     }
     return 0;
   case FG_MOUSEUP:
@@ -184,13 +186,13 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
       fgCaptureWindow = 0;
     break;
   case FG_ACTION:
-    switch(msg->otherint)
+    switch(msg->i)
     {
     case FGWINDOW_MINIMIZE:
-      fgIntMessage(*self, FG_SETFLAG, FGELEMENT_HIDDEN, 1);
+      _sendmsg<FG_SETFLAG, size_t, size_t>(*self, FGELEMENT_HIDDEN, 1);
       break;
     case FGWINDOW_UNMINIMIZE:
-      fgIntMessage(*self, FG_SETFLAG, FGELEMENT_HIDDEN, 0);
+      _sendmsg<FG_SETFLAG, size_t, size_t>(*self, FGELEMENT_HIDDEN, 0);
       break;
     case FGWINDOW_MAXIMIZE:
       self->prevrect = self->control.element.transform.area;
@@ -205,7 +207,7 @@ size_t FG_FASTCALL fgWindow_Message(fgWindow* self, const FG_Msg* msg)
     }
   case FG_INJECT:
     if(self->dragged != 0) // if we are being dragged, we completely bypass all children
-      return (*fgroot_instance->backend.behaviorhook)(*self, (const FG_Msg*)msg->other);
+      return (*fgroot_instance->backend.behaviorhook)(*self, (const FG_Msg*)msg->p);
     break;
   case FG_GOTFOCUS:
     if(fgElement_CheckLastFocus(*self)) // try to resolve via lastfocus

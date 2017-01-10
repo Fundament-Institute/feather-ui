@@ -5,18 +5,19 @@
 #include "fgSkin.h"
 #include "feathercpp.h"
 
-void FG_FASTCALL fgButton_Init(fgButton* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgButton_Init(fgButton* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgButton_Destroy, (fgMessage)&fgButton_Message);
 }
-void FG_FASTCALL fgButton_Destroy(fgButton* self)
+void fgButton_Destroy(fgButton* self)
 {
+  self->control->message = (fgMessage)fgControl_Message;
   fgControl_Destroy((fgControl*)self);
 }
-size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
+size_t fgButton_Message(fgButton* self, const FG_Msg* msg)
 {
   assert(self != 0 && msg != 0);
-  ptrdiff_t otherint = msg->otherint;
+  ptrdiff_t otherint = msg->i;
 
   switch(msg->type)
   {
@@ -27,16 +28,16 @@ size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
     return FG_ACCEPT;
   case FG_ADDCHILD:
   case FG_ADDITEM:
-    if(msg->other != (fgElement*)&self->text && !msg->other2)
+    if(msg->p != (fgElement*)&self->text && !msg->p2)
     {
       FG_Msg m = *msg;
-      m.other2 = &self->text;
+      m.p2 = &self->text;
       return fgControl_ActionMessage(&self->control, &m);
     }
     break;
   case FG_SETITEM:
     if(msg->subtype == FGITEM_TEXT || msg->subtype == FGITEM_DEFAULT)
-      return self->control->SetText((const char*)msg->other, (FGSETTEXT)msg->otheraux);
+      return self->control->SetText((const char*)msg->p, (FGTEXTFMT)msg->u2);
     break;
   case FG_NEUTRAL:
     fgStandardNeutralSetStyle(*self, "neutral");
@@ -52,7 +53,7 @@ size_t FG_FASTCALL fgButton_Message(fgButton* self, const FG_Msg* msg)
       return 0;
     break;
   case FG_SETFLAG: // If 0 is sent in, disable the flag, otherwise enable. Our internal flag is 1 if clipping disabled, 0 otherwise.
-    otherint = T_SETBIT(self->control.element.flags, otherint, msg->otheraux);
+    otherint = T_SETBIT(self->control.element.flags, otherint, msg->u2);
   case FG_SETFLAGS:
     if((self->control.element.flags ^ (fgFlag)otherint) & FGCONTROL_DISABLE)
     {

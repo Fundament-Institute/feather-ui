@@ -7,10 +7,10 @@
 #include "fgText.h"
 #include "bss-util/bss_defines.h"
 #include "bss-util/bss_win32_includes.h"
-#include <d2d1.h>
+#include <d2d1_1.h>
 #include <stdint.h>
 #include <wincodec.h>
-#include <dwrite.h>
+#include <dwrite_1.h>
 #include <malloc.h>
 
 #define GETEXDATA(data) assert(data->fgSZ == sizeof(fgDrawAuxDataEx)); if(data->fgSZ != sizeof(fgDrawAuxDataEx)) return; fgDrawAuxDataEx* exdata = (fgDrawAuxDataEx*)data;
@@ -36,7 +36,7 @@ BOOL __stdcall SpawnMonitorsProc(HMONITOR monitor, HDC hdc, LPRECT, LPARAM lpara
   return TRUE;
 }
 
-void FG_FASTCALL fgTerminateD2D()
+void fgTerminateD2D()
 {
   PostQuitMessage(0);
   fgDirect2D* d2d = fgDirect2D::instance;
@@ -65,7 +65,19 @@ inline D2D1_COLOR_F ToD2Color(unsigned int color)
   return D2D1::ColorF((c.r << 16) | (c.g << 8) | c.b, c.a / 255.0f);
 }
 
-template<class T, void (MSC_FASTCALL *GCC_FASTCALL INIT)(T* BSS_RESTRICT, fgElement* BSS_RESTRICT, fgElement* BSS_RESTRICT, const char*, fgFlag, const fgTransform*, unsigned short)>
+IDWriteTextLayout1* CreateD2DLayout(IDWriteTextFormat* format, const wchar_t* text, size_t len, const AbsRect* area)
+{
+  if(!text) return 0;
+  IDWriteTextLayout* layout = 0;
+  FABS x = area->right - area->left;
+  FABS y = area->bottom - area->top;
+  fgDirect2D::instance->writefactory->CreateTextLayout(text, len, format, (x <= 0.0f ? INFINITY : x), (y <= 0.0f ? INFINITY : y), &layout);
+  IDWriteTextLayout1* layout1 = 0;
+  layout->QueryInterface<IDWriteTextLayout1>(&layout1);
+  return layout1;
+}
+
+template<class T, void (*INIT)(T* BSS_RESTRICT, fgElement* BSS_RESTRICT, fgElement* BSS_RESTRICT, const char*, fgFlag, const fgTransform*, unsigned short)>
 BSS_FORCEINLINE fgElement* d2d_create_default(fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units, const char* file, size_t line)
 {
   T* r = (T*)malloc(sizeof(T));
@@ -74,24 +86,24 @@ BSS_FORCEINLINE fgElement* d2d_create_default(fgElement* BSS_RESTRICT parent, fg
   return (fgElement*)r;
 }
 
-fgElement* FG_FASTCALL fgCreateD2D(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+fgElement* fgCreateD2D(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
   if(!_stricmp(type, "window"))
     return d2d_create_default<fgWindowD2D, fgWindowD2D_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
   return fgCreateDefault(type, parent, next, name, flags, transform, units);
 }
 
-void* FG_FASTCALL fgCreateFontD2D(fgFlag flags, const char* font, uint32_t fontsize, const fgIntVec* dpi)
+void* fgCreateFontD2D(fgFlag flags, const char* font, uint32_t fontsize, const fgIntVec* dpi)
 {
   size_t len = fgUTF8toUTF16(font, -1, 0, 0);
   DYNARRAY(wchar_t, wtext, len);
   fgUTF8toUTF16(font, -1, wtext, len);
   IDWriteTextFormat* format = 0;
-  fgDirect2D::instance->writefactory->CreateTextFormat(wtext, 0, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, fontsize, L"en-us", &format);
+  fgDirect2D::instance->writefactory->CreateTextFormat(wtext, 0, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, fontsize * (96.0f/72.0f), L"en-us", &format);
   return format;
 }
 
-void* FG_FASTCALL fgCloneFontD2D(void* font, const struct _FG_FONT_DESC* desc)
+void* fgCloneFontD2D(void* font, const struct _FG_FONT_DESC* desc)
 {
   IDWriteTextFormat* f = (IDWriteTextFormat*)font;
   if(!desc || desc->pt == f->GetFontSize())
@@ -104,54 +116,60 @@ void* FG_FASTCALL fgCloneFontD2D(void* font, const struct _FG_FONT_DESC* desc)
   }
   return f;
 }
-void FG_FASTCALL fgDestroyFontD2D(void* font) { ((IDWriteTextFormat*)font)->Release(); }
-void FG_FASTCALL fgDrawFontD2D(void* font, const int* text, size_t srclen, float lineheight, float letterspacing, unsigned int color, const AbsRect* area, FABS rotation, const AbsVec* center, fgFlag flags, const fgDrawAuxData* data, void* cache)
+void fgDestroyFontD2D(void* font) { ((IDWriteTextFormat*)font)->Release(); }
+void fgDrawFontD2D(void* font, const void* text, size_t len, float lineheight, float letterspacing, unsigned int color, const AbsRect* area, FABS rotation, const AbsVec* center, fgFlag flags, const fgDrawAuxData* data, void* cache)
 {
   GETEXDATA(data);
-  IDWriteTextFormat* format = (IDWriteTextFormat*)font;
-  IDWriteTextLayout* layout = (IDWriteTextLayout*)cache;
-  
+  IDWriteTextLayout1* layout = (IDWriteTextLayout1*)cache;
   exdata->window->color->SetColor(ToD2Color(color));
-  size_t len = fgUTF32toUTF16(text, srclen, 0, 0);
-  DYNARRAY(wchar_t, wtext, len);
-  fgUTF32toUTF16(text, srclen, wtext, len);
   
   if(!layout)
-    exdata->window->target->DrawTextW(wtext, len, format, D2D1::RectF(area->left, area->top, area->right, area->bottom), exdata->window->color, D2D1_DRAW_TEXT_OPTIONS_CLIP);
+  { // We CANNOT input the string directly from the DLL for some unbelievably stupid reason. We must make a copy in this DLL and pass that to Direct2D.
+    DYNARRAY(wchar_t, wtext, len);
+    memcpy_s(wtext, len*sizeof(wchar_t), text, len * sizeof(wchar_t));
+    exdata->window->target->DrawTextW(wtext, len, (IDWriteTextFormat*)font, D2D1::RectF(area->left, area->top, area->right, area->bottom), exdata->window->color, (flags&FGELEMENT_NOCLIP) ? D2D1_DRAW_TEXT_OPTIONS_NONE : D2D1_DRAW_TEXT_OPTIONS_CLIP);
+  }
   else
     exdata->window->target->DrawTextLayout(D2D1::Point2F(area->left, area->top), layout, exdata->window->color, D2D1_DRAW_TEXT_OPTIONS_CLIP);
 }
-IDWriteTextLayout* CreateD2DLayout(IDWriteTextFormat* format, const int* text, size_t srclen, const AbsRect* area)
+void* fgFontFormatD2D(void* font, const void* text, size_t len, float lineheight, float letterspacing, AbsRect* area, fgFlag flags, void* cache)
 {
-  size_t len = fgUTF32toUTF16(text, srclen, 0, 0);
-  DYNARRAY(wchar_t, wtext, len);
-  fgUTF32toUTF16(text, srclen, wtext, len);
-  IDWriteTextLayout* layout = 0;
-  FABS x = area->right - area->left;
-  FABS y = area->bottom - area->top;
-  fgDirect2D::instance->writefactory->CreateTextLayout(wtext, len, format, x <= 0.0f ? INFINITY : x, y <= 0.0f ? INFINITY : y, &layout);
-  return layout;
-}
-void* FG_FASTCALL fgFontFormatD2D(void* font, const int* text, size_t srclen, float lineheight, float letterspacing, AbsRect* area, fgFlag flags, void* cache)
-{
-  IDWriteTextLayout* layout = (IDWriteTextLayout*)cache;
+  IDWriteTextLayout1* layout = (IDWriteTextLayout1*)cache;
   if(layout)
     layout->Release();
-  layout = CreateD2DLayout((IDWriteTextFormat*)font, text, srclen, area);
+  if(!area)
+    return 0;
+  layout = CreateD2DLayout((IDWriteTextFormat*)font, (const wchar_t*)text, len, area);
   if(!layout) return 0;
   FLOAT linespacing;
   FLOAT baseline;
   DWRITE_LINE_SPACING_METHOD method;
   layout->GetLineSpacing(&method, &linespacing, &baseline);
-  layout->SetLineSpacing(DWRITE_LINE_SPACING_METHOD_UNIFORM, lineheight, baseline * (lineheight / linespacing));
+  if(lineheight > 0.0f)
+    layout->SetLineSpacing(DWRITE_LINE_SPACING_METHOD_UNIFORM, lineheight, baseline * (lineheight / linespacing));
   layout->SetWordWrapping((flags&(FGTEXT_CHARWRAP | FGTEXT_WORDWRAP)) ? DWRITE_WORD_WRAPPING_WRAP : DWRITE_WORD_WRAPPING_NO_WRAP);
+  layout->SetReadingDirection((flags&FGTEXT_RTL) ? DWRITE_READING_DIRECTION_RIGHT_TO_LEFT : DWRITE_READING_DIRECTION_LEFT_TO_RIGHT);
+  if(flags&FGTEXT_RIGHTALIGN)
+    layout->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_FAR);
+  if(flags&FGTEXT_CENTER)
+    layout->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+  if(letterspacing > 0.0f)
+  {
+    DWRITE_TEXT_RANGE range;
+    FLOAT leading, trailing, minimum;
+    layout->GetCharacterSpacing(0, &leading, &trailing, &minimum, &range);
+    layout->SetCharacterSpacing(leading, trailing + letterspacing, minimum, range);
+  }
+
   DWRITE_TEXT_METRICS metrics;
   layout->GetMetrics(&metrics);
   area->right = area->left + metrics.width;
   area->bottom = area->top + metrics.height;
+  layout->SetMaxWidth(metrics.width);
+  layout->SetMaxHeight(metrics.height);
   return layout;
 }
-void FG_FASTCALL fgFontGetD2D(void* font, struct _FG_FONT_DESC* desc)
+void fgFontGetD2D(void* font, struct _FG_FONT_DESC* desc)
 {
   IDWriteTextFormat* format = (IDWriteTextFormat*)font;
   if(desc)
@@ -165,11 +183,11 @@ void FG_FASTCALL fgFontGetD2D(void* font, struct _FG_FONT_DESC* desc)
     desc->dpi = { 0,0 };
   }
 }
-size_t FG_FASTCALL fgFontIndexD2D(void* font, const int* text, size_t srclen, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, AbsVec pos, AbsVec* cursor, void* cache)
+size_t fgFontIndexD2D(void* font, const void* text, size_t len, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, AbsVec pos, AbsVec* cursor, void* cache)
 {
-  IDWriteTextLayout* layout = (IDWriteTextLayout*)cache;
+  IDWriteTextLayout1* layout = (IDWriteTextLayout1*)cache;
   if(!layout)
-    layout = CreateD2DLayout((IDWriteTextFormat*)font, text, srclen, area);
+    layout = CreateD2DLayout((IDWriteTextFormat*)font, (const wchar_t*)text, len, area);
   if(!layout)
     return 0;
 
@@ -182,11 +200,11 @@ size_t FG_FASTCALL fgFontIndexD2D(void* font, const int* text, size_t srclen, fl
   cursor->y = hit.top;
   return hit.textPosition;
 }
-AbsVec FG_FASTCALL fgFontPosD2D(void* font, const int* text, size_t srclen, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, size_t index, void* cache)
+AbsVec fgFontPosD2D(void* font, const void* text, size_t len, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, size_t index, void* cache)
 {
-  IDWriteTextLayout* layout = (IDWriteTextLayout*)cache;
+  IDWriteTextLayout1* layout = (IDWriteTextLayout1*)cache;
   if(!layout)
-    layout = CreateD2DLayout((IDWriteTextFormat*)font, text, srclen, area);
+    layout = CreateD2DLayout((IDWriteTextFormat*)font, (const wchar_t*)text, len, area);
   if(!layout)
     return AbsVec{ 0,0 };
 
@@ -196,7 +214,7 @@ AbsVec FG_FASTCALL fgFontPosD2D(void* font, const int* text, size_t srclen, floa
   return AbsVec{ x, y };
 }
 
-void* FG_FASTCALL fgCreateResourceD2D(fgFlag flags, const char* data, size_t length)
+void* fgCreateAssetD2D(fgFlag flags, const char* data, size_t length)
 {
   IWICBitmapDecoder *decoder = NULL;
   IWICBitmapFrameDecode *source = NULL;
@@ -221,13 +239,13 @@ void* FG_FASTCALL fgCreateResourceD2D(fgFlag flags, const char* data, size_t len
   //else if(data[0] == 'G' && data[1] == 'I' && data[2] == 'F') // GIF header
   //else if((data[0] == 'I' && data[1] == 'I' && data[2] == '*' && data[3] == 0) || (data[0] == 'M' && data[1] == 'M' && data[2] == 0 && data[3] == '*')) // TIFF header
 }
-void* FG_FASTCALL fgCloneResourceD2D(void* res, fgElement* src)
+fgAsset fgCloneAssetD2D(fgAsset asset, fgElement* src)
 { 
   fgWindowD2D* window = GetElementWindow(src);
   if(!window)
   {
-    ((IUnknown*)res)->AddRef();
-    return res;
+    ((IUnknown*)asset)->AddRef();
+    return asset;
   }
   assert(window->window->destroy == (fgDestroy)fgWindowD2D_Destroy);
   ID2D1HwndRenderTarget* target = window->target;
@@ -237,23 +255,23 @@ void* FG_FASTCALL fgCloneResourceD2D(void* res, fgElement* src)
   HRESULT hr = fgDirect2D::instance->wicfactory->CreateFormatConverter(&conv);
 
   if(SUCCEEDED(hr)) // Convert the image format to 32bppPBGRA (DXGI_FORMAT_B8G8R8A8_UNORM + D2D1_ALPHA_MODE_PREMULTIPLIED).
-    hr = conv->Initialize((IWICBitmapSource*)res, GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, NULL, 0.f, WICBitmapPaletteTypeMedianCut);
+    hr = conv->Initialize((IWICBitmapSource*)asset, GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, NULL, 0.f, WICBitmapPaletteTypeMedianCut);
   if(SUCCEEDED(hr))
     hr = target->CreateBitmapFromWicBitmap(conv, NULL, &bitmap);
 
   return bitmap;
 }
-void FG_FASTCALL fgDestroyResourceD2D(void* res) { ((IUnknown*)res)->Release(); }
-void FG_FASTCALL fgDrawResourceD2D(void* res, const CRect* uv, unsigned int color, unsigned int edge, FABS outline, const AbsRect* area, FABS rotation, const AbsVec* center, fgFlag flags, const fgDrawAuxData* data)
+void fgDestroyAssetD2D(fgAsset asset) { ((IUnknown*)asset)->Release(); }
+void fgDrawAssetD2D(fgAsset asset, const CRect* uv, unsigned int color, unsigned int edge, FABS outline, const AbsRect* area, FABS rotation, const AbsVec* center, fgFlag flags, const fgDrawAuxData* data)
 {
   GETEXDATA(data);
   assert(exdata->window != 0);
   assert(exdata->window->target != 0);
 
   ID2D1Bitmap* tex = 0;
-  if(res)
+  if(asset)
   {
-    ((IUnknown*)res)->QueryInterface<ID2D1Bitmap>(&tex);
+    ((IUnknown*)asset)->QueryInterface<ID2D1Bitmap>(&tex);
     assert(tex);
   }
 
@@ -274,23 +292,45 @@ void FG_FASTCALL fgDrawResourceD2D(void* res, const CRect* uv, unsigned int colo
   exdata->window->color->SetColor(ToD2Color(color));
   exdata->window->edgecolor->SetColor(ToD2Color(edge));
 
-  if((flags&FGRESOURCE_SHAPEMASK) == FGRESOURCE_ROUNDRECT)
+  if((flags&FGRESOURCE_SHAPEMASK) == FGRESOURCE_RECT)
   {
-    auto rrect = D2D1::RoundedRect(rect, uvresolve.left, uvresolve.top);
-    exdata->window->target->FillRoundedRectangle(rrect, exdata->window->color);
-    exdata->window->target->DrawRoundedRectangle(rrect, exdata->window->edgecolor, outline);
+    if(uvresolve.left == 0 && uvresolve.top == 0 && uvresolve.right == 0 && uvresolve.bottom == 0)
+    {
+      exdata->window->target->FillRectangle(rect, exdata->window->color);
+      rect.left += 0.5f;
+      rect.top += 0.5f;
+      rect.right -= 0.5f;
+      rect.bottom -= 0.5f;
+      exdata->window->target->DrawRectangle(rect, exdata->window->color);
+    }
+    else
+    {
+      auto rrect = D2D1::RoundedRect(rect, uvresolve.left, uvresolve.top);
+      exdata->window->target->FillRoundedRectangle(rrect, exdata->window->color);
+      rrect.rect.left += 0.5f;
+      rrect.rect.top += 0.5f;
+      rrect.rect.right -= 0.5f;
+      rrect.rect.bottom -= 0.5f;
+      exdata->window->target->DrawRoundedRectangle(rrect, exdata->window->edgecolor, outline);
+    }
   }
-  else if((flags&FGRESOURCE_SHAPEMASK) == FGRESOURCE_CIRCLE) {}
-  //  psRenderCircle::DrawCircle(driver->library.CIRCLE, STATEBLOCK_LIBRARY::PREMULTIPLIED, rect, uvresolve, 0, psColor32(color), psColor32(edge), outline);
+  else if((flags&FGRESOURCE_SHAPEMASK) == FGRESOURCE_CIRCLE)
+  {
+    D2D1_ELLIPSE ellipse = D2D1::Ellipse(D2D1::Point2F((rect.left + rect.right)*0.5f, (rect.top + rect.bottom)*0.5f), (rect.right - rect.left)*0.5f, (rect.bottom - rect.top)*0.5f);
+    exdata->window->target->FillEllipse(ellipse, exdata->window->color);
+    ellipse.radiusX -= 0.5f;
+    ellipse.radiusY -= 0.5f;
+    exdata->window->target->DrawEllipse(ellipse, exdata->window->edgecolor);
+  }
   else if((flags&FGRESOURCE_SHAPEMASK) == FGRESOURCE_TRIANGLE) {}
   //  psRoundTri::DrawRoundTri(driver->library.ROUNDTRI, STATEBLOCK_LIBRARY::PREMULTIPLIED, rect, uvresolve, 0, psColor32(color), psColor32(edge), outline);
   else
     exdata->window->target->DrawBitmap(tex, rect, (color >> 24) / 255.0f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, uvresolve);
 }
 
-void FG_FASTCALL fgResourceSizeD2D(void* res, const CRect* uv, AbsVec* dim, fgFlag flags)
+void fgAssetSizeD2D(fgAsset asset, const CRect* uv, AbsVec* dim, fgFlag flags)
 {
-  ID2D1Bitmap* tex = (ID2D1Bitmap*)res;
+  ID2D1Bitmap* tex = (ID2D1Bitmap*)asset;
   auto sz = tex->GetPixelSize();
   D2D1_RECT_F uvresolve = D2D1::RectF(uv->left.rel + (uv->left.abs / sz.width),
     uv->top.rel + (uv->top.abs / sz.height),
@@ -300,46 +340,55 @@ void FG_FASTCALL fgResourceSizeD2D(void* res, const CRect* uv, AbsVec* dim, fgFl
   dim->y = uvresolve.bottom - uvresolve.top;
 }
 
-void FG_FASTCALL fgDrawLinesD2D(const AbsVec* p, size_t n, unsigned int color, const AbsVec* translate, const AbsVec* scale, FABS rotation, const AbsVec* center, const fgDrawAuxData* data)
+void fgDrawLinesD2D(const AbsVec* p, size_t n, unsigned int color, const AbsVec* translate, const AbsVec* scale, FABS rotation, const AbsVec* center, const fgDrawAuxData* data)
 {
   GETEXDATA(data);
+  D2D1_MATRIX_3X2_F world;
+  exdata->window->target->GetTransform(&world);
+  exdata->window->target->SetTransform(
+    D2D1::Matrix3x2F::Rotation(rotation, D2D1::Point2F(center->x, center->y))*
+    D2D1::Matrix3x2F::Scale(scale->x, scale->y)*
+    world*
+    D2D1::Matrix3x2F::Translation(translate->x + 0.5, translate->y + 0.5));
+
   exdata->window->color->SetColor(ToD2Color(color));
   for(size_t i = 1; i < n; ++i)
     exdata->window->target->DrawLine(D2D1_POINT_2F{ p[i - 1].x, p[i - 1].y }, D2D1_POINT_2F{ p[i].x, p[i].y }, exdata->window->color, 1.0F, 0);
   //bss_util::Matrix<float, 4, 4>::AffineTransform_T(translate->x, translate->y, 0, rotation, center->x, center->y, m);
+  exdata->window->target->SetTransform(world);
 }
 
-void FG_FASTCALL fgPushClipRectD2D(const AbsRect* clip, const fgDrawAuxData* data)
+void fgPushClipRectD2D(const AbsRect* clip, const fgDrawAuxData* data)
 {
   GETEXDATA(data);
   AbsRect cliprect = exdata->window->cliprect.top();
-  cliprect = { bssmax(clip->left, cliprect.left), bssmax(clip->top, cliprect.top), bssmin(clip->right, cliprect.right), bssmin(clip->bottom, cliprect.bottom) };
+  cliprect = { bssmax(floor(clip->left), cliprect.left), bssmax(floor(clip->top), cliprect.top), bssmin(ceil(clip->right), cliprect.right), bssmin(ceil(clip->bottom), cliprect.bottom) };
   exdata->window->cliprect.push(cliprect);
   exdata->window->target->PushAxisAlignedClip(D2D1::RectF(cliprect.left, cliprect.top, cliprect.right, cliprect.bottom), D2D1_ANTIALIAS_MODE_ALIASED);
 }
 
-AbsRect FG_FASTCALL fgPeekClipRectD2D(const fgDrawAuxData* data)
+AbsRect fgPeekClipRectD2D(const fgDrawAuxData* data)
 {
   if(data->fgSZ != sizeof(fgDrawAuxDataEx)) return AbsRect{ 0,0,0,0 };
   fgDrawAuxDataEx* exdata = (fgDrawAuxDataEx*)data;
   return exdata->window->cliprect.top();
 }
 
-void FG_FASTCALL fgPopClipRectD2D(const fgDrawAuxData* data)
+void fgPopClipRectD2D(const fgDrawAuxData* data)
 {
   GETEXDATA(data);
   exdata->window->cliprect.pop();
   exdata->window->target->PopAxisAlignedClip();
 }
 
-void FG_FASTCALL fgDirtyElementD2D(fgElement* e)
+void fgDirtyElementD2D(fgElement* e)
 {
   fgWindowD2D* window = GetElementWindow(e);
   if(window)
     InvalidateRect(window->handle, NULL, FALSE);
 }
 
-void FG_FASTCALL fgSetCursorD2D(uint32_t type, void* custom)
+void fgSetCursorD2D(uint32_t type, void* custom)
 {
   static HCURSOR hArrow = LoadCursor(NULL, IDC_ARROW);
   static HCURSOR hIBeam = LoadCursor(NULL, IDC_IBEAM);
@@ -373,7 +422,7 @@ void FG_FASTCALL fgSetCursorD2D(uint32_t type, void* custom)
   }
 }
 
-void FG_FASTCALL fgClipboardCopyD2D(uint32_t type, const void* data, size_t length)
+void fgClipboardCopyD2D(uint32_t type, const void* data, size_t length)
 {
   OpenClipboard(GetActiveWindow());
   if(data != 0 && length > 0 && EmptyClipboard())
@@ -425,7 +474,7 @@ void FG_FASTCALL fgClipboardCopyD2D(uint32_t type, const void* data, size_t leng
   CloseClipboard();
 }
 
-char FG_FASTCALL fgClipboardExistsD2D(uint32_t type)
+char fgClipboardExistsD2D(uint32_t type)
 {
   switch(type)
   {
@@ -443,7 +492,7 @@ char FG_FASTCALL fgClipboardExistsD2D(uint32_t type)
   return 0;
 }
 
-const void* FG_FASTCALL fgClipboardPasteD2D(uint32_t type, size_t* length)
+const void* fgClipboardPasteD2D(uint32_t type, size_t* length)
 {
   OpenClipboard(GetActiveWindow());
   UINT format = CF_PRIVATEFIRST;
@@ -487,12 +536,12 @@ const void* FG_FASTCALL fgClipboardPasteD2D(uint32_t type, size_t* length)
   return ret;
 }
 
-void FG_FASTCALL fgClipboardFreeD2D(const void* mem)
+void fgClipboardFreeD2D(const void* mem)
 {
   free(const_cast<void*>(mem));
 }
 
-void FG_FASTCALL fgDragStartD2D(char type, void* data, fgElement* draw)
+void fgDragStartD2D(char type, void* data, fgElement* draw)
 {
   fgRoot* root = fgSingleton();
   root->dragtype = type;
@@ -500,7 +549,7 @@ void FG_FASTCALL fgDragStartD2D(char type, void* data, fgElement* draw)
   root->dragdraw = draw;
 }
 
-char FG_FASTCALL fgProcessMessagesDefault()
+char fgProcessMessagesD2D()
 {
   MSG msg;
 
@@ -520,30 +569,42 @@ char FG_FASTCALL fgProcessMessagesDefault()
       TranslateMessage(&msg);
       break;
     case WM_QUIT:
-      return 1;
+      return 0;
     }
   }
 
-  return 0;
+  return 1;
 }
 
-struct _FG_ROOT* FG_FASTCALL fgInitialize()
+int64_t GetRegistryValueW(HKEY__* hKeyRoot, const wchar_t* szKey, const wchar_t* szValue, unsigned char* data, unsigned long sz)
+{
+  HKEY__* hKey;
+  LRESULT e = RegOpenKeyExW(hKeyRoot, szKey, 0, KEY_READ, &hKey);
+  if(!hKey) return -2;
+  LSTATUS r = RegQueryValueExW(hKey, szValue, 0, 0, data, &sz);
+  RegCloseKey(hKey);
+  if(r == ERROR_SUCCESS)
+    return sz;
+  return (r == ERROR_MORE_DATA) ? sz : -1;
+}
+
+struct _FG_ROOT* fgInitialize()
 {
   static fgBackend BACKEND = {
-    &fgBehaviorHookListener,
+    FGTEXTFMT_UTF16,
     &fgCreateFontD2D,
     &fgCloneFontD2D,
     &fgDestroyFontD2D,
     &fgDrawFontD2D,
     &fgFontFormatD2D,
     &fgFontGetD2D,
-    &fgCreateResourceD2D,
-    &fgCloneResourceD2D,
-    &fgDestroyResourceD2D,
-    &fgDrawResourceD2D,
-    &fgResourceSizeD2D,
     &fgFontIndexD2D,
     &fgFontPosD2D,
+    &fgCreateAssetD2D,
+    &fgCloneAssetD2D,
+    &fgDestroyAssetD2D,
+    &fgDrawAssetD2D,
+    &fgAssetSizeD2D,
     &fgDrawLinesD2D,
     &fgCreateD2D,
     &fgMessageMapDefault,
@@ -558,7 +619,8 @@ struct _FG_ROOT* FG_FASTCALL fgInitialize()
     &fgClipboardPasteD2D,
     &fgClipboardFreeD2D,
     &fgDirtyElementD2D,
-    &fgProcessMessagesDefault,
+    &fgBehaviorHookListener,
+    &fgProcessMessagesD2D,
     &fgLoadExtensionDefault,
     &fgTerminateD2D,
   };
@@ -581,18 +643,18 @@ struct _FG_ROOT* FG_FASTCALL fgInitialize()
   if(FAILED(CoInitialize(NULL)))
     return 0;
 
-  AbsRect extent = { GetSystemMetrics(SM_XVIRTUALSCREEN), GetSystemMetrics(SM_CXVIRTUALSCREEN), GetSystemMetrics(SM_CYVIRTUALSCREEN), GetSystemMetrics(SM_YVIRTUALSCREEN) };
+  AbsRect extent = { GetSystemMetrics(SM_XVIRTUALSCREEN), GetSystemMetrics(SM_YVIRTUALSCREEN), GetSystemMetrics(SM_CXVIRTUALSCREEN), GetSystemMetrics(SM_CYVIRTUALSCREEN) };
   extent.right += extent.left;
   extent.bottom += extent.top;
 
   fgDirect2D* root = reinterpret_cast<fgDirect2D*>(calloc(1, sizeof(fgDirect2D)));
   fgDirect2D::instance = root;
-
+  
   HRESULT hr = CoCreateInstance(CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER, IID_IWICImagingFactory, (LPVOID*)&root->wicfactory);
   if(SUCCEEDED(hr))
-    hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), reinterpret_cast<IUnknown**>(&root->writefactory));
+    hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory1), reinterpret_cast<IUnknown**>(&root->writefactory));
   if(SUCCEEDED(hr))
-    hr = D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &root->factory);
+    hr = D2D1CreateFactory<ID2D1Factory1>(D2D1_FACTORY_TYPE_SINGLE_THREADED, &root->factory);
   if(FAILED(hr))
   {
     if(root->wicfactory) root->wicfactory->Release();
@@ -610,5 +672,16 @@ struct _FG_ROOT* FG_FASTCALL fgInitialize()
   fgIntVec dpi = { dpix, dpiy };
   fgRoot_Init(&root->root, &extent, &dpi, &BACKEND);
   EnumDisplayMonitors(0, 0, SpawnMonitorsProc, (LPARAM)root);
+
+  DWORD blinkrate = 0;
+  int64_t sz = GetRegistryValueW(HKEY_CURRENT_USER, L"Control Panel\\Desktop", L"CursorBlinkRate", 0, 0);
+  if(sz > 0)
+  {
+    DYNARRAY(wchar_t, buf, sz / 2);
+    sz = GetRegistryValueW(HKEY_CURRENT_USER, L"Control Panel\\Desktop", L"CursorBlinkRate", (unsigned char*)buf, sz);
+    if(sz > 0)
+      root->root.cursorblink = _wtoi(buf) / 1000.0;
+  }
+
   return &root->root;
 }

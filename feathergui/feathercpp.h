@@ -18,7 +18,6 @@
 #define kh_ptr_hash_func kh_int_hash_func
 #endif
 
-
 // This is a template implementation of malloc that we can overload for memory leak detection
 #ifdef BSS_DEBUG
 
@@ -113,13 +112,13 @@ protected:
 };
 
 template<typename T>
-BSS_FORCEINLINE static T* fgmalloc(size_t sz, const char* file, size_t line)
+static BSS_FORCEINLINE T* fgmalloc(size_t sz, const char* file, size_t line)
 {
   T* p = reinterpret_cast<T*>(malloc(sz * sizeof(T)));
   fgLeakTracker::Tracker.Add(p, sz * sizeof(T), file, line);
   return p;
 }
-BSS_FORCEINLINE static void fgfree(void* p, const char* file, size_t line)
+static BSS_FORCEINLINE void fgfree(void* p, const char* file, size_t line)
 {
   if(fgLeakTracker::Tracker.Remove(p, file, line))
     free(p);
@@ -136,7 +135,7 @@ BSS_FORCEINLINE static void fgfreeblank(void* p)
   fgfree(p, "", 0);
 }
 
-template<void* (MSC_FASTCALL *GCC_FASTCALL CLONE)(void*), void (MSC_FASTCALL *GCC_FASTCALL DESTROY)(void*)>
+template<void* (*CLONE)(void*), void (*DESTROY)(void*)>
 struct fgArbitraryRef
 {
   fgArbitraryRef() : ref(0) {}
@@ -154,7 +153,7 @@ struct fgArbitraryRef
 template<class T, typename... Args>
 struct fgConstruct
 {
-  template<void (MSC_FASTCALL *GCC_FASTCALL DESTROY)(T*), void (MSC_FASTCALL *GCC_FASTCALL CONSTRUCT)(T*, Args...)>
+  template<void (*DESTROY)(T*), void (*CONSTRUCT)(T*, Args...)>
   struct fgConstructor : public T
   {
     fgConstructor(fgConstructor&& mov) { memcpy(this, &mov, sizeof(T)); memset(&mov, 0, sizeof(T)); }
@@ -171,7 +170,7 @@ struct fgConstruct
 template<class T>
 struct fgConstruct<T>
 {
-  template<void (MSC_FASTCALL *GCC_FASTCALL DESTROY)(T*), void (MSC_FASTCALL *GCC_FASTCALL CONSTRUCT)(T*)>
+  template<void (*DESTROY)(T*), void (*CONSTRUCT)(T*)>
   struct fgConstructor : public T
   {
     fgConstructor(fgConstructor&& mov) { memcpy(this, &mov, sizeof(T)); memset(&mov, 0, sizeof(T)); }
@@ -190,12 +189,12 @@ struct _FG_DEBUG;
 extern struct _FG_DEBUG* fgdebug_instance;
 extern FG_UINT fgStyleFlagMask;
 
-extern BSS_FORCEINLINE void* FG_FASTCALL fgCloneResourceCpp(void* r) { return fgroot_instance->backend.fgCloneResource(r, 0); }
-extern BSS_FORCEINLINE void FG_FASTCALL fgDestroyResourceCpp(void* r) { return fgroot_instance->backend.fgDestroyResource(r); }
-extern BSS_FORCEINLINE void* FG_FASTCALL fgCloneFontCpp(void* r) { return fgroot_instance->backend.fgCloneFont(r, 0); }
-extern BSS_FORCEINLINE void FG_FASTCALL fgDestroyFontCpp(void* r) { return fgroot_instance->backend.fgDestroyFont(r); }
-extern BSS_FORCEINLINE void FG_FASTCALL fgConstructKeyValue(_FG_KEY_VALUE*) {}
-extern BSS_FORCEINLINE void FG_FASTCALL fgDestructKeyValue(_FG_KEY_VALUE* p)
+BSS_FORCEINLINE void* fgCloneResourceCpp(void* r) { return fgroot_instance->backend.fgCloneAsset(r, 0); }
+BSS_FORCEINLINE void fgDestroyResourceCpp(void* r) { return fgroot_instance->backend.fgDestroyAsset(r); }
+BSS_FORCEINLINE void* fgCloneFontCpp(void* r) { return fgroot_instance->backend.fgCloneFont(r, 0); }
+BSS_FORCEINLINE void fgDestroyFontCpp(void* r) { return fgroot_instance->backend.fgDestroyFont(r); }
+BSS_FORCEINLINE void fgConstructKeyValue(_FG_KEY_VALUE*) {}
+BSS_FORCEINLINE void fgDestructKeyValue(_FG_KEY_VALUE* p)
 {
   fgfree(p->key, __FILE__, __LINE__);
   if(p->value)
@@ -220,8 +219,8 @@ char DynArrayRemove(T& a, FG_UINT index)
 typedef typename fgConstruct<fgStyleLayout, const char*, const char*, fgFlag, const fgTransform*, short, int>::fgConstructor<fgStyleLayout_Destroy, fgStyleLayout_Init> fgStyleLayoutConstruct;
 typedef typename fgConstruct<fgClassLayout, const char*, const char*, fgFlag, const fgTransform*, short, int>::fgConstructor<fgClassLayout_Destroy, fgClassLayout_Init> fgClassLayoutConstruct;
 
-extern BSS_FORCEINLINE char fgSortStyleLayout(const fgStyleLayoutConstruct& l, const fgStyleLayoutConstruct& r) { return -SGNCOMPARE(l.order, r.order); }
-extern BSS_FORCEINLINE char fgSortClassLayout(const fgClassLayoutConstruct& l, const fgClassLayoutConstruct& r) { return -SGNCOMPARE(l.style.order, r.style.order); }
+BSS_FORCEINLINE char fgSortStyleLayout(const fgStyleLayoutConstruct& l, const fgStyleLayoutConstruct& r) { return -SGNCOMPARE(l.order, r.order); }
+BSS_FORCEINLINE char fgSortClassLayout(const fgClassLayoutConstruct& l, const fgClassLayoutConstruct& r) { return -SGNCOMPARE(l.style.order, r.style.order); }
 extern BSS_FORCEINLINE void fgStandardDrawElement(fgElement* self, fgElement* hold, const AbsRect* area, const fgDrawAuxData* aux, AbsRect& curarea, bool& clipping);
 
 typedef bss_util::cArraySort<fgStyleLayoutConstruct, fgSortStyleLayout, size_t, bss_util::CARRAY_CONSTRUCT> fgStyleLayoutArray;
@@ -238,7 +237,7 @@ extern __inline struct __kh_fgFunctionMap_t* fgFunctionMap_init();
 extern void fgFunctionMap_destroy(struct __kh_fgFunctionMap_t*);
 
 template<FG_MSGTYPE type, typename... Args>
-inline size_t _sendmsg(fgElement* self, Args... args)
+static inline size_t _sendmsg(fgElement* self, Args... args)
 {
   FG_Msg msg = { 0 };
   msg.type = type;
@@ -247,7 +246,7 @@ inline size_t _sendmsg(fgElement* self, Args... args)
 }
 
 template<FG_MSGTYPE type, typename... Args>
-inline size_t _sendsubmsg(fgElement* self, unsigned short sub, Args... args)
+static inline size_t _sendsubmsg(fgElement* self, unsigned short sub, Args... args)
 {
   FG_Msg msg = { 0 };
   msg.type = type;
@@ -258,25 +257,25 @@ inline size_t _sendsubmsg(fgElement* self, unsigned short sub, Args... args)
 
 FG_EXTERN bss_util::cHash<std::pair<fgElement*, unsigned short>, fgListener> fgListenerHash;
 
-inline FG_UINT fgStyleGetMask() { return 0; }
+static inline FG_UINT fgStyleGetMask() { return 0; }
 
 template<typename Arg, typename... Args>
-inline FG_UINT fgStyleGetMask(Arg arg, Args... args)
+static inline FG_UINT fgStyleGetMask(Arg arg, Args... args)
 {
   return fgStyle_GetName(arg, false) | fgStyleGetMask(args...);
 }
 
-BSS_FORCEINLINE size_t fgStandardNeutralSetStyle(fgElement* self, const char* style, unsigned short sub = FGSETSTYLE_NAME)
+static BSS_FORCEINLINE size_t fgStandardNeutralSetStyle(fgElement* self, const char* style, unsigned short sub = FGSETSTYLE_NAME)
 {
   return _sendsubmsg<FG_SETSTYLE, const void*, size_t>(self, sub, style, fgStyleGetMask("neutral", "hover", "active", "disable"));
 }
 
-BSS_FORCEINLINE size_t fgMaskSetStyle(fgElement* self, const char* style, FG_UINT mask)
+static BSS_FORCEINLINE size_t fgMaskSetStyle(fgElement* self, const char* style, FG_UINT mask)
 {
   return _sendsubmsg<FG_SETSTYLE, const void*, size_t>(self, FGSETSTYLE_NAME, style, mask);
 }
 
-BSS_FORCEINLINE FABS fgResolveUnit(fgElement* self, FABS x, size_t unit, bool axis)
+static BSS_FORCEINLINE FABS fgResolveUnit(fgElement* self, FABS x, size_t unit, bool axis)
 {
   switch(unit)
   {
@@ -292,7 +291,21 @@ BSS_FORCEINLINE FABS fgResolveUnit(fgElement* self, FABS x, size_t unit, bool ax
   }
 }
 
-BSS_FORCEINLINE void fgResolveRectUnit(fgElement* self, AbsRect& r, size_t subtype)
+static BSS_FORCEINLINE void fgSnapAbsRect(AbsRect& r, fgFlag flags)
+{
+  if(flags&FGELEMENT_SNAPX)
+  {
+    r.left = roundf(r.left);
+    r.right = roundf(r.right);
+  }
+  if(flags&FGELEMENT_SNAPY)
+  {
+    r.top = roundf(r.top);
+    r.bottom = roundf(r.bottom);
+  }
+}
+
+static BSS_FORCEINLINE void fgResolveRectUnit(fgElement* self, AbsRect& r, size_t subtype)
 {
   r.left = fgResolveUnit(self, r.left, (subtype & FGUNIT_LEFT_MASK) >> FGUNIT_LEFT, false);
   r.top = fgResolveUnit(self, r.top, (subtype & FGUNIT_TOP_MASK) >> FGUNIT_TOP, true);
@@ -300,13 +313,13 @@ BSS_FORCEINLINE void fgResolveRectUnit(fgElement* self, AbsRect& r, size_t subty
   r.bottom = fgResolveUnit(self, r.bottom, (subtype & FGUNIT_BOTTOM_MASK) >> FGUNIT_BOTTOM, true);
 }
 
-BSS_FORCEINLINE void fgResolveVecUnit(fgElement* self, AbsVec& v, size_t subtype)
+static BSS_FORCEINLINE void fgResolveVecUnit(fgElement* self, AbsVec& v, size_t subtype)
 {
   v.x = fgResolveUnit(self, v.x, (subtype & FGUNIT_X_MASK) >> FGUNIT_X, false);
   v.y = fgResolveUnit(self, v.y, (subtype & FGUNIT_Y_MASK) >> FGUNIT_Y, true);
 }
 
-BSS_FORCEINLINE void fgResolveCRectUnit(fgElement* self, CRect& r, size_t subtype)
+static BSS_FORCEINLINE void fgResolveCRectUnit(fgElement* self, CRect& r, size_t subtype)
 {
   r.left.abs = fgResolveUnit(self, r.left.abs, (subtype & FGUNIT_LEFT_MASK) >> FGUNIT_LEFT, false);
   r.top.abs = fgResolveUnit(self, r.top.abs, (subtype & FGUNIT_TOP_MASK) >> FGUNIT_TOP, true);
@@ -316,29 +329,34 @@ BSS_FORCEINLINE void fgResolveCRectUnit(fgElement* self, CRect& r, size_t subtyp
   if(subtype & FGUNIT_BOTTOM_HEIGHT) r.bottom.abs += r.top.abs;
 }
 
-BSS_FORCEINLINE void fgResolveCVecUnit(fgElement* self, CVec& v, size_t subtype)
+static BSS_FORCEINLINE void fgResolveCVecUnit(fgElement* self, CVec& v, size_t subtype)
 {
   v.x.abs = fgResolveUnit(self, v.x.abs, (subtype & FGUNIT_X_MASK) >> FGUNIT_X, false);
   v.y.abs = fgResolveUnit(self, v.y.abs, (subtype & FGUNIT_Y_MASK) >> FGUNIT_Y, true);
 }
 
 extern "C" {
-  FG_EXTERN size_t FG_FASTCALL fgUTF8toUTF32(const char*BSS_RESTRICT input, ptrdiff_t srclen, int*BSS_RESTRICT output, size_t buflen);
-  FG_EXTERN size_t FG_FASTCALL fgUTF32toUTF8(const int*BSS_RESTRICT input, ptrdiff_t srclen, char*BSS_RESTRICT output, size_t buflen);
-  FG_EXTERN size_t FG_FASTCALL fgUTF32toUTF16(const int*BSS_RESTRICT input, ptrdiff_t srclen, wchar_t*BSS_RESTRICT output, size_t buflen);
-  FG_EXTERN size_t FG_FASTCALL fgUTF16toUTF32(const wchar_t*BSS_RESTRICT input, ptrdiff_t srclen, int*BSS_RESTRICT output, size_t buflen);
+  FG_EXTERN size_t fgUTF8toUTF32(const char*BSS_RESTRICT input, ptrdiff_t srclen, int*BSS_RESTRICT output, size_t buflen);
+  FG_EXTERN size_t fgUTF32toUTF8(const int*BSS_RESTRICT input, ptrdiff_t srclen, char*BSS_RESTRICT output, size_t buflen);
+  FG_EXTERN size_t fgUTF32toUTF16(const int*BSS_RESTRICT input, ptrdiff_t srclen, wchar_t*BSS_RESTRICT output, size_t buflen);
+  FG_EXTERN size_t fgUTF16toUTF32(const wchar_t*BSS_RESTRICT input, ptrdiff_t srclen, int*BSS_RESTRICT output, size_t buflen);
 }
 
 namespace bss_util { struct cXMLNode; }
+struct __VECTOR__UTF8;
+struct __VECTOR__UTF16;
+struct __VECTOR__UTF32;
 
-extern fgSkin* FG_FASTCALL fgSkins_LoadNodeXML(fgSkinBase* self, const bss_util::cXMLNode* root);
+extern fgSkin* fgSkinBase_LoadNodeXML(fgSkinBase* self, const bss_util::cXMLNode* root);
 extern inline __kh_fgSkins_t *kh_init_fgSkins();
-extern void FG_FASTCALL fgStyle_LoadAttributesXML(struct _FG_STYLE* self, const bss_util::cXMLNode* cur, int flags, struct _FG_SKIN_BASE* root, const char* path, char** id, fgKeyValueArray* userdata);
-extern int FG_FASTCALL fgStyle_NodeEvalTransform(const bss_util::cXMLNode* node, fgTransform& t);
+extern void fgStyle_LoadAttributesXML(struct _FG_STYLE* self, const bss_util::cXMLNode* cur, int flags, struct _FG_SKIN_BASE* root, const char* path, char** id, fgKeyValueArray* userdata);
+extern int fgStyle_NodeEvalTransform(const bss_util::cXMLNode* node, fgTransform& t);
 extern fgElement* fgLayout_GetNext(fgElement* cur);
 extern fgElement* fgLayout_GetPrev(fgElement* cur);
-BSS_FORCEINLINE FABS FG_FASTCALL fgLayout_GetElementWidth(fgElement* child);
-BSS_FORCEINLINE FABS FG_FASTCALL fgLayout_GetElementHeight(fgElement* child);
+BSS_FORCEINLINE FABS fgLayout_GetElementWidth(fgElement* child);
+BSS_FORCEINLINE FABS fgLayout_GetElementHeight(fgElement* child);
+extern inline fgVector* fgText_Conversion(int type, struct __VECTOR__UTF8* text8, struct __VECTOR__UTF16* text16, struct __VECTOR__UTF32* text32);
+extern void fgMenu_Show(struct _FG_MENU* self, bool show);
 
 struct _FG_BOX_ORDERED_ELEMENTS_;
 

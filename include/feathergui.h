@@ -31,11 +31,12 @@ typedef float FREL; // Change this to double for double precision (why on earth 
 typedef float FABS; // We seperate both of these types because then you don't have to guess if a float is relative or absolute
 typedef unsigned int FG_UINT; 
 typedef unsigned int fgFlag;
+typedef void* fgAsset;
+typedef void* fgFont;
 
 #define FGUI_VERSION_MAJOR 0
 #define FGUI_VERSION_MINOR 1
 #define FGUI_VERSION_REVISION 0
-#define FG_FASTCALL BSS_COMPILER_FASTCALL
 #define FG_EXTERN extern BSS_COMPILER_DLLEXPORT
 #define FG_ACCEPT 1
 
@@ -84,7 +85,7 @@ MAKE_RECT(FABS,AbsVec,AbsRect);
 // A coordinate rect specifies its topleft and bottomright corners in terms of coordinate vectors.
 MAKE_RECT(Coord,CVec,CRect);
 
-static BSS_FORCEINLINE FABS FG_FASTCALL fglerp(FABS a, FABS b, FREL amt)
+static BSS_FORCEINLINE FABS fglerp(FABS a, FABS b, FREL amt)
 {
 	return a+((FABS)((b-a)*amt));
 }
@@ -142,13 +143,15 @@ enum FGMOVE
   FGMOVE_MARGIN = (1 << 9)
 };
 
-enum FGSETTEXT
+enum FGTEXTFMT
 {
-  FGSETTEXT_UTF8 = 0,
-  FGSETTEXT_UTF32,
-  FGSETTEXT_PLACEHOLDER_UTF8,
-  FGSETTEXT_PLACEHOLDER_UTF32,
-  FGSETTEXT_MASK
+  FGTEXTFMT_UTF8 = 0,
+  FGTEXTFMT_UTF16 = 1,
+  FGTEXTFMT_UTF32 = 2,
+  FGTEXTFMT_PLACEHOLDER_UTF8 = 4,
+  FGTEXTFMT_PLACEHOLDER_UTF16 = 5,
+  FGTEXTFMT_PLACEHOLDER_UTF32 = 6,
+  FGTEXTFMT_MASK = 7
 };
 
 enum FGSETSTYLE
@@ -330,7 +333,7 @@ enum FG_MSGTYPE
   FG_GETVALUE, // Gets the on/off state of a checkbox or the current progress on a progress bar
   FG_SETVALUE, // Sets the on/off state or progress
   // fgResource or fgText
-  FG_SETRESOURCE,
+  FG_SETASSET,
   FG_SETUV,
   FG_SETCOLOR,
   FG_SETOUTLINE,
@@ -338,7 +341,7 @@ enum FG_MSGTYPE
   FG_SETLINEHEIGHT,
   FG_SETLETTERSPACING,
   FG_SETTEXT,
-  FG_GETRESOURCE,
+  FG_GETASSET,
   FG_GETUV,
   FG_GETCOLOR,
   FG_GETOUTLINE,
@@ -609,6 +612,8 @@ typedef struct _FG_MOUSESTATE
   unsigned char state;
 } fgMouseState;
 
+struct _FG_ELEMENT;
+
 // General message structure which contains the message type and then various kinds of information depending on the type.
 typedef struct _FG_MSG {
   union {
@@ -627,8 +632,8 @@ typedef struct _FG_MSG {
     struct { float joyvalue; short joyaxis; }; // JOYAXIS
     struct { char joydown; short joybutton; }; // JOYBUTTON
     struct {
-      union { void* other; ptrdiff_t otherint; FABS otherf; };
-      union { void* other2; size_t otheraux; FABS otherfaux; };
+      union { void* p; ptrdiff_t i; size_t u; FABS f; struct _FG_ELEMENT* e; };
+      union { void* p2; ptrdiff_t i2; size_t u2; FABS f2; struct _FG_ELEMENT* e2; };
     };
   };
   unsigned short type;
@@ -643,26 +648,26 @@ typedef struct _FG_MSG {
 #endif
 } FG_Msg;
 
-FG_EXTERN AbsVec FG_FASTCALL ResolveVec(const CVec* v, const AbsRect* last);
-FG_EXTERN inline char FG_FASTCALL CompareMargins(const AbsRect* l, const AbsRect* r); // Returns 0 if both are the same or a difference bitset otherwise.
-FG_EXTERN inline char FG_FASTCALL CompareCRects(const CRect* l, const CRect* r); // Returns 0 if both are the same or a difference bitset otherwise.
-FG_EXTERN inline char FG_FASTCALL CompareTransforms(const fgTransform* l, const fgTransform* r);
-FG_EXTERN inline void FG_FASTCALL MoveCRect(FABS x, FABS y, CRect* r);
-FG_EXTERN inline char FG_FASTCALL HitAbsRect(const AbsRect* r, FABS x, FABS y);
-//FG_EXTERN void FG_FASTCALL ToIntAbsRect(const AbsRect* r, int target[static 4]);
-FG_EXTERN inline void FG_FASTCALL ToIntAbsRect(const AbsRect* r, int target[4]);
-FG_EXTERN inline void FG_FASTCALL ToLongAbsRect(const AbsRect* r, long target[4]);
-FG_EXTERN inline char FG_FASTCALL MsgHitAbsRect(const FG_Msg* msg, const AbsRect* r);
-FG_EXTERN char* FG_FASTCALL fgCopyText(const char* text, const char* file, size_t line);
-FG_EXTERN inline void FG_FASTCALL fgUpdateMouseState(fgMouseState* state, const FG_Msg* msg);
-FG_EXTERN inline char FG_FASTCALL fgRectIntersect(const AbsRect* l, const AbsRect* r); // Returns 1 if the rectangles intersect, or 0 otherwise
-FG_EXTERN inline void FG_FASTCALL fgRectIntersection(const AbsRect* BSS_RESTRICT l, const AbsRect* BSS_RESTRICT r, AbsRect* out);
-FG_EXTERN size_t FG_FASTCALL fgUTF32toUTF16(const int*BSS_RESTRICT input, ptrdiff_t srclen, wchar_t*BSS_RESTRICT output, size_t buflen);
-FG_EXTERN size_t FG_FASTCALL fgUTF8toUTF16(const char*BSS_RESTRICT input, ptrdiff_t srclen, wchar_t*BSS_RESTRICT output, size_t buflen);
-FG_EXTERN size_t FG_FASTCALL fgUTF16toUTF8(const wchar_t*BSS_RESTRICT input, ptrdiff_t srclen, char*BSS_RESTRICT output, size_t buflen);
-FG_EXTERN size_t FG_FASTCALL fgUTF8toUTF32(const char*BSS_RESTRICT input, ptrdiff_t srclen, int*BSS_RESTRICT output, size_t buflen);
-FG_EXTERN size_t FG_FASTCALL fgUTF32toUTF8(const int*BSS_RESTRICT input, ptrdiff_t srclen, char*BSS_RESTRICT output, size_t buflen);
-FG_EXTERN size_t FG_FASTCALL fgUTF16toUTF32(const wchar_t*BSS_RESTRICT input, ptrdiff_t srclen, int*BSS_RESTRICT output, size_t buflen);
+FG_EXTERN AbsVec ResolveVec(const CVec* v, const AbsRect* last);
+FG_EXTERN inline char CompareMargins(const AbsRect* l, const AbsRect* r); // Returns 0 if both are the same or a difference bitset otherwise.
+FG_EXTERN inline char CompareCRects(const CRect* l, const CRect* r); // Returns 0 if both are the same or a difference bitset otherwise.
+FG_EXTERN inline char CompareTransforms(const fgTransform* l, const fgTransform* r);
+FG_EXTERN inline void MoveCRect(FABS x, FABS y, CRect* r);
+FG_EXTERN inline char HitAbsRect(const AbsRect* r, FABS x, FABS y);
+//FG_EXTERN void ToIntAbsRect(const AbsRect* r, int target[static 4]);
+FG_EXTERN inline void ToIntAbsRect(const AbsRect* r, int target[4]);
+FG_EXTERN inline void ToLongAbsRect(const AbsRect* r, long target[4]);
+FG_EXTERN inline char MsgHitAbsRect(const FG_Msg* msg, const AbsRect* r);
+FG_EXTERN char* fgCopyText(const char* text, const char* file, size_t line);
+FG_EXTERN inline void fgUpdateMouseState(fgMouseState* state, const FG_Msg* msg);
+FG_EXTERN inline char fgRectIntersect(const AbsRect* l, const AbsRect* r); // Returns 1 if the rectangles intersect, or 0 otherwise
+FG_EXTERN inline void fgRectIntersection(const AbsRect* BSS_RESTRICT l, const AbsRect* BSS_RESTRICT r, AbsRect* out);
+FG_EXTERN size_t fgUTF32toUTF16(const int*BSS_RESTRICT input, ptrdiff_t srclen, wchar_t*BSS_RESTRICT output, size_t buflen);
+FG_EXTERN size_t fgUTF8toUTF16(const char*BSS_RESTRICT input, ptrdiff_t srclen, wchar_t*BSS_RESTRICT output, size_t buflen);
+FG_EXTERN size_t fgUTF16toUTF8(const wchar_t*BSS_RESTRICT input, ptrdiff_t srclen, char*BSS_RESTRICT output, size_t buflen);
+FG_EXTERN size_t fgUTF8toUTF32(const char*BSS_RESTRICT input, ptrdiff_t srclen, int*BSS_RESTRICT output, size_t buflen);
+FG_EXTERN size_t fgUTF32toUTF8(const int*BSS_RESTRICT input, ptrdiff_t srclen, char*BSS_RESTRICT output, size_t buflen);
+FG_EXTERN size_t fgUTF16toUTF32(const wchar_t*BSS_RESTRICT input, ptrdiff_t srclen, int*BSS_RESTRICT output, size_t buflen);
 
 typedef struct _FG_DRAW_AUX_DATA {
   size_t fgSZ;
@@ -675,17 +680,23 @@ typedef struct _FG_DRAW_AUX_DATA {
 }
 
 template<int I, typename T>
-void BSS_FORCEINLINE static fgSendMsgArg(FG_Msg&, T) = delete;
+void BSS_FORCEINLINE static fgSendMsgArg(FG_Msg&, T);
 
-template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<1, const void*>(FG_Msg& msg, const void* p) { msg.other = const_cast<void*>(p); }
-template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<1, void*>(FG_Msg& msg, void* p) { msg.other = p; }
-template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<1, float>(FG_Msg& msg, float p) { msg.otherf = p; }
-template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<1, ptrdiff_t>(FG_Msg& msg, ptrdiff_t p) { msg.otherint = p; }
+template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<1, const void*>(FG_Msg& msg, const void* p) { msg.p = const_cast<void*>(p); }
+template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<1, void*>(FG_Msg& msg, void* p) { msg.p = p; }
+template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<1, float>(FG_Msg& msg, float p) { msg.f = p; }
+template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<1, ptrdiff_t>(FG_Msg& msg, ptrdiff_t p) { msg.i = p; }
+template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<1, size_t>(FG_Msg& msg, size_t p) { msg.u = p; }
+template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<1, const struct _FG_ELEMENT*>(FG_Msg& msg, const struct _FG_ELEMENT* p) { msg.p = const_cast<struct _FG_ELEMENT*>(p); }
+template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<1, struct _FG_ELEMENT*>(FG_Msg& msg, struct _FG_ELEMENT* p) { msg.p = p; }
 
-template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<2, const void*>(FG_Msg& msg, const void* p) { msg.other2 = const_cast<void*>(p); }
-template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<2, void*>(FG_Msg& msg, void* p) { msg.other2 = p; }
-template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<2, float>(FG_Msg& msg, float p) { msg.otherfaux = p; }
-template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<2, size_t>(FG_Msg& msg, size_t p) { msg.otheraux = p; }
+template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<2, const void*>(FG_Msg& msg, const void* p) { msg.p2 = const_cast<void*>(p); }
+template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<2, void*>(FG_Msg& msg, void* p) { msg.p2 = p; }
+template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<2, float>(FG_Msg& msg, float p) { msg.f2 = p; }
+template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<2, ptrdiff_t>(FG_Msg& msg, ptrdiff_t p) { msg.i2 = p; }
+template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<2, size_t>(FG_Msg& msg, size_t p) { msg.u2 = p; }
+template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<2, const struct _FG_ELEMENT*>(FG_Msg& msg, const struct _FG_ELEMENT* p) { msg.p2 = const_cast<struct _FG_ELEMENT*>(p); }
+template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<2, struct _FG_ELEMENT*>(FG_Msg& msg, struct _FG_ELEMENT* p) { msg.p2 = p; }
 
 template<int I, typename... Args> struct fgSendMsgCall;
 template<int I, typename Arg, typename... Args>
@@ -697,7 +708,6 @@ struct fgSendMsgCall<I, Arg, Args...> {
 };
 template<int I>
 struct fgSendMsgCall<I> { BSS_FORCEINLINE static void F(FG_Msg& msg) {} };
-
 #endif
 
 #endif

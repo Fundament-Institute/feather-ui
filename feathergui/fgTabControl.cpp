@@ -5,25 +5,26 @@
 #include "feathercpp.h"
 #include "fgRadiobutton.h"
 
-void FG_FASTCALL fgTabcontrol_Init(fgTabcontrol* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgTabcontrol_Init(fgTabcontrol* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgTabcontrol_Destroy, (fgMessage)&fgTabcontrol_Message);
 }
 
-void FG_FASTCALL fgTabcontrol_Destroy(fgTabcontrol* self)
+void fgTabcontrol_Destroy(fgTabcontrol* self)
 {
   fgBox_Destroy(&self->header);
+  self->control->message = (fgMessage)fgControl_HoverMessage;
   fgControl_Destroy(&self->control);
 }
 
-size_t FG_FASTCALL fgTabcontrolToggle_Message(fgRadiobutton* self, const FG_Msg* msg)
+size_t fgTabcontrolToggle_Message(fgRadiobutton* self, const FG_Msg* msg)
 {
   switch(msg->type)
   {
   case FG_SETVALUE:
     if(msg->subtype > FGVALUE_INT64)
         return 0;
-    ((fgElement*)self->window->userdata)->SetFlag(FGELEMENT_HIDDEN, !msg->otherint);
+    ((fgElement*)self->window->userdata)->SetFlag(FGELEMENT_HIDDEN, !msg->i);
     break;
   case FG_GETSELECTEDITEM:
     return (size_t)self->window->userdata;
@@ -31,7 +32,7 @@ size_t FG_FASTCALL fgTabcontrolToggle_Message(fgRadiobutton* self, const FG_Msg*
   return fgRadiobutton_Message(self, msg);
 }
 
-size_t FG_FASTCALL fgTabcontrolPanel_Message(fgElement* self, const FG_Msg* msg)
+size_t fgTabcontrolPanel_Message(fgElement* self, const FG_Msg* msg)
 {
   switch(msg->type)
   {
@@ -41,7 +42,7 @@ size_t FG_FASTCALL fgTabcontrolPanel_Message(fgElement* self, const FG_Msg* msg)
   return fgElement_Message(self, msg);
 }
 
-void FG_FASTCALL fgTabcontrolToggle_Destroy(fgRadiobutton* self)
+void fgTabcontrolToggle_Destroy(fgRadiobutton* self)
 {
   if(self->window->userdata != 0)
   {
@@ -50,10 +51,11 @@ void FG_FASTCALL fgTabcontrolToggle_Destroy(fgRadiobutton* self)
     panel->userdata = 0; // prevents deleting the panel or the toggle twice
     VirtualFreeChild(panel);
   }
+  self->window->message = (fgMessage)fgRadiobutton_Message;
   fgRadiobutton_Destroy(self);
 }
 
-void FG_FASTCALL fgTabcontrolPanel_Destroy(fgElement* self)
+void fgTabcontrolPanel_Destroy(fgElement* self)
 {
   if(self->userdata != 0)
   {
@@ -62,10 +64,11 @@ void FG_FASTCALL fgTabcontrolPanel_Destroy(fgElement* self)
     toggle->userdata = 0; // prevents deleting the panel or the toggle twice
     VirtualFreeChild(toggle);
   }
+  self->message = (fgMessage)&fgElement_Message;
   fgElement_Destroy(self);
 }
 
-size_t FG_FASTCALL fgTabcontrol_Message(fgTabcontrol* self, const FG_Msg* msg)
+size_t fgTabcontrol_Message(fgTabcontrol* self, const FG_Msg* msg)
 {
   switch(msg->type)
   {
@@ -88,7 +91,7 @@ size_t FG_FASTCALL fgTabcontrol_Message(fgTabcontrol* self, const FG_Msg* msg)
     button->destroy = (fgDestroy)&fgTabcontrolToggle_Destroy;
     panel->userdata = button;
     button->userdata = panel;
-    button->SetText((const char*)msg->other);
+    button->SetText((const char*)msg->p);
     AbsRect padding = self->control->padding;
     padding.top = self->header->transform.area.bottom.abs;
     self->control->SetPadding(padding);
@@ -103,5 +106,3 @@ size_t FG_FASTCALL fgTabcontrol_Message(fgTabcontrol* self, const FG_Msg* msg)
 
   return fgControl_HoverMessage(&self->control, msg);
 }
-
-fgElement* fgTabcontrol::AddItem(const char* name) { return (fgElement*)_sendmsg<FG_ADDITEM, const void*>(*this, name); }

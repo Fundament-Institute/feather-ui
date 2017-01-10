@@ -5,15 +5,16 @@
 #include "fgSkin.h"
 #include "feathercpp.h"
 
-void FG_FASTCALL fgCheckbox_Init(fgCheckbox* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgCheckbox_Init(fgCheckbox* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgCheckbox_Destroy, (fgMessage)&fgCheckbox_Message);
 }
-void FG_FASTCALL fgCheckbox_Destroy(fgCheckbox* self)
+void fgCheckbox_Destroy(fgCheckbox* self)
 {
+  self->control->message = (fgMessage)fgControl_HoverMessage;
   fgControl_Destroy(&self->control);
 }
-size_t FG_FASTCALL fgCheckbox_Message(fgCheckbox* self, const FG_Msg* msg)
+size_t fgCheckbox_Message(fgCheckbox* self, const FG_Msg* msg)
 {
   assert(self != 0 && msg != 0);
   switch(msg->type)
@@ -34,12 +35,12 @@ size_t FG_FASTCALL fgCheckbox_Message(fgCheckbox* self, const FG_Msg* msg)
     fgStandardNeutralSetStyle(*self, "active");
     return FG_ACCEPT;
   case FG_ACTION:
-    fgIntMessage(*self, FG_SETVALUE, !_sendmsg<FG_GETVALUE>(*self), 0);
+    _sendmsg<FG_SETVALUE, size_t>(*self, !_sendmsg<FG_GETVALUE>(*self));
     return FG_ACCEPT;
   case FG_SETVALUE:
     if(msg->subtype != 0 && msg->subtype != FGVALUE_INT64)
       return 0;
-    self->checked = (char)msg->otherint;
+    self->checked = (char)msg->i;
     fgMaskSetStyle(*self, (self->checked == FGCHECKED_CHECKED) ? "checked" : ((self->checked == FGCHECKED_INDETERMINATE) ? "indeterminate" : "default"), fgStyleGetMask("default", "checked", "indeterminate"));
     return FG_ACCEPT;
   case FG_GETVALUE:

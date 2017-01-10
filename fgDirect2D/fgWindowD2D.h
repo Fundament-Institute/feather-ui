@@ -29,14 +29,17 @@ struct fgWindowD2D {
   std::stack<AbsRect> cliprect;
   bool inside;
 
-  static void WndRegister();
-  static longptr_t __stdcall WndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam);
   void WndCreate(tagRECT& rsize, fgFlag flags);
   void CreateResources();
   void DiscardResources();
   size_t SetKey(uint8_t keycode, bool down, bool held, unsigned long time);
   void SetChar(int key, unsigned long time);
   void SetMouse(tagPOINTS* points, unsigned short type, unsigned char button, size_t wparam, unsigned long time);
+
+  static void WndRegister();
+  static longptr_t __stdcall WndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam);
+
+  static uint32_t wincount;
 };
 
 struct fgDrawAuxDataEx {
@@ -44,8 +47,17 @@ struct fgDrawAuxDataEx {
   fgWindowD2D* window;
 };
 
-void FG_FASTCALL fgWindowD2D_Init(fgWindowD2D* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
-void FG_FASTCALL fgWindowD2D_Destroy(fgWindowD2D* self);
-size_t FG_FASTCALL fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg);
+
+#ifdef  __cplusplus
+extern "C" {
+#endif
+
+FG_EXTERN void fgWindowD2D_Init(fgWindowD2D* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
+FG_EXTERN void fgWindowD2D_Destroy(fgWindowD2D* self);
+FG_EXTERN size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg);
+
+#ifdef  __cplusplus
+}
+#endif
 
 #endif

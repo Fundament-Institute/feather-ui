@@ -40,39 +40,39 @@ HWND TopWndCreate(HINSTANCE instance, fgWindow* wn, const wchar_t* name, long st
   return hWnd;
 }
 
-char FG_FASTCALL WinAPIfgTop_Message(WinAPIfgTop* self, const FG_Msg* msg)
+char WinAPIfgTop_Message(WinAPIfgTop* self, const FG_Msg* msg)
 {
   CRect narea;
   MARGINS m;
   RECT rc;
-  WinAPIMessage* wmsg = (WinAPIMessage*)msg->other;
+  WinAPIMessage* wmsg = (WinAPIMessage*)msg->p;
 	HDC         hDC;
 
   switch(msg->type)
   {
   case FG_REMOVESTATIC:
   case FG_REMOVECHILD:
-    if(((fgChild*)msg->other)->parent==(fgChild*)self)
+    if(((fgChild*)msg->p)->parent==(fgChild*)self)
       return fgWindow_Message(&self->wn.window,msg);
     return fgWindow_Message(&self->region,msg);
   case FG_ADDSTATIC:
   case FG_ADDCHILD:
-    if(msg->otheraux==1)
+    if(msg->u2==1)
       return fgWindow_Message(&self->wn.window,msg);
     return fgWindow_Message(&self->region,msg);
   case WINAPIFGTOP_WINDOWMOVE:
-    narea.left.abs=((WINDOWPOS*)msg->other)->x;
+    narea.left.abs=((WINDOWPOS*)msg->p)->x;
     narea.left.rel=0;
-    narea.top.abs=((WINDOWPOS*)msg->other)->y;
+    narea.top.abs=((WINDOWPOS*)msg->p)->y;
     narea.top.rel=0;
-    narea.right.abs=((WINDOWPOS*)msg->other)->x+((WINDOWPOS*)msg->other)->cx;
+    narea.right.abs=((WINDOWPOS*)msg->p)->x+((WINDOWPOS*)msg->p)->cx;
     narea.right.rel=0;
-    narea.bottom.abs=((WINDOWPOS*)msg->other)->y+((WINDOWPOS*)msg->other)->cy;
+    narea.bottom.abs=((WINDOWPOS*)msg->p)->y+((WINDOWPOS*)msg->p)->cy;
     narea.bottom.rel=0;
     fgWindow_SetArea(&self->wn.window,&narea);
     return 0;
   case FGTOPWINDOW_SETMARGIN:
-    ToIntAbsRect((AbsRect*)msg->other,self->margin);
+    ToIntAbsRect((AbsRect*)msg->p,self->margin);
     m.cxLeftWidth=self->margin[0];
     m.cyTopHeight=self->margin[1];
     m.cxRightWidth=self->margin[2];
@@ -115,13 +115,13 @@ char FG_FASTCALL WinAPIfgTop_Message(WinAPIfgTop* self, const FG_Msg* msg)
 
   return fgWindow_Message((fgWindow*)self,msg);
 }
-void FG_FASTCALL WinAPIfgTop_Destroy(WinAPIfgTop* self)
+void WinAPIfgTop_Destroy(WinAPIfgTop* self)
 {
   fgWindow_Destroy(&self->region); // Removes the region from the window child list so we don't try to free something on the stack.
   WinAPIfgWindow_Destroy(self);
 }
 
-fgWindow* FG_FASTCALL fgTopWindow_Create(const char* caption, const fgElement* element, FG_UINT id, fgFlag flags)
+fgWindow* fgTopWindow_Create(const char* caption, const fgElement* element, FG_UINT id, fgFlag flags)
 {
   AbsRect absr;
   RECT rsize = { CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT };

@@ -29,13 +29,13 @@ typedef struct _FG_TOOLBAR {
 #endif
 } fgToolbar;
 
-FG_EXTERN void FG_FASTCALL fgToolbar_Init(fgToolbar* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
-FG_EXTERN void FG_FASTCALL fgToolbar_Destroy(fgToolbar* self);
-FG_EXTERN size_t FG_FASTCALL fgToolbar_Message(fgToolbar* self, const FG_Msg* msg);
+FG_EXTERN void fgToolbar_Init(fgToolbar* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
+FG_EXTERN void fgToolbar_Destroy(fgToolbar* self);
+FG_EXTERN size_t fgToolbar_Message(fgToolbar* self, const FG_Msg* msg);
 
-FG_EXTERN void FG_FASTCALL fgToolGroup_Init(fgToolGroup* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
-FG_EXTERN void FG_FASTCALL fgToolGroup_Destroy(fgToolGroup* self);
-FG_EXTERN size_t FG_FASTCALL fgToolGroup_Message(fgToolGroup* self, const FG_Msg* msg);
+FG_EXTERN void fgToolGroup_Init(fgToolGroup* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
+FG_EXTERN void fgToolGroup_Destroy(fgToolGroup* self);
+FG_EXTERN size_t fgToolGroup_Message(fgToolGroup* self, const FG_Msg* msg);
 
 #ifdef  __cplusplus
 }

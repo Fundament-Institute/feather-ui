@@ -19,14 +19,20 @@ extern "C" {
   typedef struct _FG_STYLE
   {
     fgStyleMsg* styles;
+
+#ifdef  __cplusplus
+    FG_DLLEXPORT fgStyleMsg* AddStyleMsg(const FG_Msg* msg);
+    FG_DLLEXPORT void RemoveStyleMsg(fgStyleMsg* msg);
+#endif
   } fgStyle;
 
-  FG_EXTERN void FG_FASTCALL fgStyle_Init(fgStyle* self);
-  FG_EXTERN void FG_FASTCALL fgStyle_Destroy(fgStyle* self);
-  FG_EXTERN FG_UINT FG_FASTCALL fgStyle_GetName(const char* name, char flag);
+  FG_EXTERN void fgStyle_Init(fgStyle* self);
+  FG_EXTERN void fgStyle_Destroy(fgStyle* self);
+  FG_EXTERN FG_UINT fgStyle_GetName(const char* name, char flag);
 
-  FG_EXTERN fgStyleMsg* FG_FASTCALL fgStyle_AddStyleMsg(fgStyle* self, const FG_Msg* msg, const void* arg1, size_t arglen1, const void* arg2, size_t arglen2);
-  FG_EXTERN void FG_FASTCALL fgStyle_RemoveStyleMsg(fgStyle* self, fgStyleMsg* msg);
+  FG_EXTERN fgStyleMsg* fgStyle_AddStyleMsg(fgStyle* self, const FG_Msg* msg, const void* arg1, size_t arglen1, const void* arg2, size_t arglen2);
+  FG_EXTERN void fgStyle_RemoveStyleMsg(fgStyle* self, fgStyleMsg* msg);
+
 #ifdef  __cplusplus
 }
 

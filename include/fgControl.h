@@ -36,14 +36,14 @@ FG_EXTERN fgElement* fgFocusedWindow;
 FG_EXTERN fgElement* fgLastHover; // Last window the mouse moved over, used to generate MOUSEON and MOUSEOFF events
 FG_EXTERN fgElement* fgCaptureWindow;
 
-FG_EXTERN void FG_FASTCALL fgControl_Init(fgControl* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
-FG_EXTERN void FG_FASTCALL fgControl_Destroy(fgControl* self);
-FG_EXTERN size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg);
-FG_EXTERN size_t FG_FASTCALL fgControl_HoverMessage(fgControl* self, const FG_Msg* msg);
-FG_EXTERN size_t FG_FASTCALL fgControl_ActionMessage(fgControl* self, const FG_Msg* msg);
-FG_EXTERN void FG_FASTCALL fgControl_TabAfter(fgControl* self, fgControl* prev);
-FG_EXTERN void FG_FASTCALL fgControl_TabBefore(fgControl* self, fgControl* next);
-FG_EXTERN void FG_FASTCALL fgElement_DoHoverCalc(fgElement* self);
+FG_EXTERN void fgControl_Init(fgControl* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
+FG_EXTERN void fgControl_Destroy(fgControl* self);
+FG_EXTERN size_t fgControl_Message(fgControl* self, const FG_Msg* msg);
+FG_EXTERN size_t fgControl_HoverMessage(fgControl* self, const FG_Msg* msg);
+FG_EXTERN size_t fgControl_ActionMessage(fgControl* self, const FG_Msg* msg);
+FG_EXTERN void fgControl_TabAfter(fgControl* self, fgControl* prev);
+FG_EXTERN void fgControl_TabBefore(fgControl* self, fgControl* next);
+FG_EXTERN void fgElement_DoHoverCalc(fgElement* self);
 
 #ifdef  __cplusplus
 }

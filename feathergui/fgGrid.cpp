@@ -5,29 +5,30 @@
 #include "feathercpp.h"
 #include "bss-util/cDynArray.h"
 
-size_t FG_FASTCALL fgPlaceholder_Message(fgElement* self, const FG_Msg* msg) { return fgElement_Message(self, msg); }
+size_t fgPlaceholder_Message(fgElement* self, const FG_Msg* msg) { return fgElement_Message(self, msg); }
 
-size_t FG_FASTCALL fgGridColumn_Message(fgList* self, const FG_Msg* msg)
+size_t fgGridColumn_Message(fgList* self, const FG_Msg* msg)
 {
   switch(msg->type)
   {
     case FG_MOVE:
-      if((msg->otheraux & FGMOVE_PROPAGATE) != 0 && !(((fgElement*)msg->other)->flags&FGELEMENT_BACKGROUND) && self->box->parent != 0)
-        _sendsubmsg<FG_ACTION, void*>(self->box->parent, FGGRID_RESIZECOLUMN, msg->other);
+      if((msg->u2 & FGMOVE_PROPAGATE) != 0 && !(msg->e->flags&FGELEMENT_BACKGROUND) && self->box->parent != 0)
+        _sendsubmsg<FG_ACTION, void*>(self->box->parent, FGGRID_RESIZECOLUMN, msg->p);
       break;
   }
   return fgList_Message(self, msg);
 }
 
-void FG_FASTCALL fgGrid_Init(fgGrid* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgGrid_Init(fgGrid* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgGrid_Destroy, (fgMessage)&fgGrid_Message);
 }
-void FG_FASTCALL fgGrid_Destroy(fgGrid* self)
+void fgGrid_Destroy(fgGrid* self)
 {
+  self->list->message = (fgMessage)fgList_Message;
   fgList_Destroy(&self->list);
 }
-size_t FG_FASTCALL fgGrid_Message(fgGrid* self, const FG_Msg* msg)
+size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
 {
   static fgTransform ROWTRANSFORM = fgTransform{ { 0, 0, 0, 0, 0, 1, 0, 0 }, 0, { 0,0,0,0 } };
 
@@ -43,39 +44,39 @@ size_t FG_FASTCALL fgGrid_Message(fgGrid* self, const FG_Msg* msg)
     {
     case FGITEM_COLUMN:
     {
-      fgElement* text = fgCreate("text", self->header, msg->otheraux < self->header.box.order.ordered.l ? self->header.box.order.ordered.p[msg->otheraux] : 0, "Grid$column", FGELEMENT_EXPAND, &fgTransform_EMPTY, 0);
-      text->SetText((const char*)msg->other);
+      fgElement* text = fgCreate("text", self->header, msg->u2 < self->header.box.order.ordered.l ? self->header.box.order.ordered.p[msg->u2] : 0, "Grid$column", FGELEMENT_EXPAND, &fgTransform_EMPTY, 0);
+      text->SetText((const char*)msg->p);
       for(size_t i = 0; i < self->list.box.order.ordered.l; ++i)
       {
-        fgElement* next = self->list.box.order.ordered.p[i]->GetItem(msg->otheraux);
+        fgElement* next = self->list.box.order.ordered.p[i]->GetItem(msg->u2);
         if(next) // We only have to insert a placeholder if there is actually an item that will come after us
           fgCreate("element", self->list, next, "Grid$placeholder", 0, &fgTransform_EMPTY, 0)->message = (fgMessage)&fgPlaceholder_Message;
       }
       return (size_t)text;
     }
     case FGITEM_ROW:
-      return (size_t)fgCreate("gridrow", self->list, (size_t)msg->otherint < self->list.box.order.ordered.l ? self->list.box.order.ordered.p[(size_t)msg->otherint] : 0, "Grid$row", FGBOX_TILEX | FGELEMENT_EXPANDY, &ROWTRANSFORM, 0);
+      return (size_t)fgCreate("gridrow", self->list, msg->u < self->list.box.order.ordered.l ? self->list.box.order.ordered.p[msg->u] : 0, "Grid$row", FGBOX_TILEX | FGELEMENT_EXPANDY, &ROWTRANSFORM, 0);
     }
     return 0;
   case FG_REMOVEITEM:
     switch(msg->subtype)
     {
     case FGITEM_COLUMN:
-      if((size_t)msg->otherint < self->header.box.order.ordered.l)
+      if(msg->u < self->header.box.order.ordered.l)
       {
-        self->header->RemoveItem(msg->otherint);
+        self->header->RemoveItem(msg->i);
         for(size_t i = 0; i < self->list.box.order.ordered.l; ++i)
-          self->list.box.order.ordered.p[i]->RemoveItem(msg->otherint);
+          self->list.box.order.ordered.p[i]->RemoveItem(msg->i);
         return FG_ACCEPT;
       }
       return 0;
     case FGITEM_ROW:
-      return self->list->RemoveItem((size_t)msg->otherint);
+      return self->list->RemoveItem(msg->u);
     case 0:
     {
-      fgElement* row = self->list->GetItem(msg->otheraux);
+      fgElement* row = self->list->GetItem(msg->u2);
       if(row)
-        return row->RemoveItem(msg->otherint);
+        return row->RemoveItem(msg->i);
       return 0;
     }
     }
@@ -84,12 +85,12 @@ size_t FG_FASTCALL fgGrid_Message(fgGrid* self, const FG_Msg* msg)
     switch(msg->subtype)
     {
     case FGITEM_COLUMN:
-      return ((size_t)msg->otherint < self->header.box.order.ordered.l) ? (size_t)self->header.box.order.ordered.p[(size_t)msg->otherint] : 0;
+      return (msg->u < self->header.box.order.ordered.l) ? (size_t)self->header.box.order.ordered.p[msg->u] : 0;
     case FGITEM_ROW:
-      return ((size_t)msg->otherint < self->list.box.order.ordered.l) ? (size_t)self->list.box.order.ordered.p[(size_t)msg->otherint] : 0;
+      return (msg->u < self->list.box.order.ordered.l) ? (size_t)self->list.box.order.ordered.p[msg->u] : 0;
     case 0:
-      if((size_t)msg->otheraux < self->list.box.order.ordered.l)
-        return _sendmsg<FG_GETITEM, ptrdiff_t>(self->list.box.order.ordered.p[msg->otheraux], msg->otherint);
+      if((size_t)msg->u2 < self->list.box.order.ordered.l)
+        return _sendmsg<FG_GETITEM, ptrdiff_t>(self->list.box.order.ordered.p[msg->u2], msg->i);
       return 0;
     }
     break;
@@ -118,13 +119,13 @@ size_t FG_FASTCALL fgGrid_Message(fgGrid* self, const FG_Msg* msg)
     switch(msg->subtype)
     {
     case FGSETCOLOR_ROWEDGE:
-      self->rowedgecolor.color = (uint32_t)msg->otherint;
+      self->rowedgecolor.color = (uint32_t)msg->i;
       return FG_ACCEPT;
     case FGSETCOLOR_COLUMNEDGE:
-      self->columnedgecolor.color = (uint32_t)msg->otherint;
+      self->columnedgecolor.color = (uint32_t)msg->i;
       return FG_ACCEPT;
     case FGSETCOLOR_ROWEVEN:
-      self->rowevencolor.color = (uint32_t)msg->otherint;
+      self->rowevencolor.color = (uint32_t)msg->i;
       return FG_ACCEPT;
     }
     break;
@@ -135,7 +136,7 @@ size_t FG_FASTCALL fgGrid_Message(fgGrid* self, const FG_Msg* msg)
     {
     case FGGRID_RESIZECOLUMN:
     {
-      fgElement* c = (fgElement*)msg->other;
+      fgElement* c = msg->e;
       size_t column = 0;
       while(column < self->header.box.order.ordered.l && c != self->header.box.order.ordered.p[column])
         ++column;
@@ -170,28 +171,28 @@ inline fgElement* fgGridRowOrderInject(fgElement* self, const FG_Msg* msg)
   return fgOrderedVec<FLAGS>(&((fgGridRow*)self)->order, AbsVec { (FABS)msg->x, (FABS)msg->y });
 }
 
-void FG_FASTCALL fgGridRow_Init(fgGridRow* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgGridRow_Init(fgGridRow* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgGridRow_Destroy, (fgMessage)&fgGridRow_Message);
 }
-void FG_FASTCALL fgGridRow_Destroy(fgGridRow* self)
+void fgGridRow_Destroy(fgGridRow* self)
 {
   fgElement_Destroy(&self->element);
   fgBoxOrderedElement_Destroy(&self->order);
 }
 
-size_t FG_FASTCALL fgGridRow_Message(fgGridRow* self, const FG_Msg* msg)
+size_t fgGridRow_Message(fgGridRow* self, const FG_Msg* msg)
 {
   switch(msg->type)
   {
   case FG_ADDITEM:
     break;
   case FG_ADDCHILD:
-    if(self->element.parent != 0 && !(((fgElement*)msg->other)->flags&FGELEMENT_BACKGROUND))
+    if(self->element.parent != 0 && !(((fgElement*)msg->p)->flags&FGELEMENT_BACKGROUND))
     {
       int column = 0;
       fgElement* e = self->element.root;
-      fgElement* next = (fgElement*)msg->other2;
+      fgElement* next = msg->e2;
       while(e != next)
       {
         column += !(e->flags&FGELEMENT_BACKGROUND);
@@ -200,7 +201,7 @@ size_t FG_FASTCALL fgGridRow_Message(fgGridRow* self, const FG_Msg* msg)
       fgElement* c = reinterpret_cast<fgElement*>(_sendsubmsg<FG_GETITEM, ptrdiff_t>(self->element.parent, FGITEM_COLUMN, column));
       if(c)
       {
-        fgElement* child = (fgElement*)msg->other;
+        fgElement* child = msg->e;
         CRect area = child->transform.area;
         area.right.abs = area.left.abs + fgLayout_GetElementWidth(c); // TODO: Get opposite axis working
         child->SetArea(area);
@@ -209,7 +210,7 @@ size_t FG_FASTCALL fgGridRow_Message(fgGridRow* self, const FG_Msg* msg)
     break;
   case FG_DRAW:
     if(!self->order.isordered || !self->order.ordered.l)
-      fgStandardDraw(*self, (AbsRect*)msg->other, (fgDrawAuxData*)msg->other2, msg->subtype & 1);
+      fgStandardDraw(*self, (AbsRect*)msg->p, (fgDrawAuxData*)msg->p2, msg->subtype & 1);
     else
     {
       fgElement* (*fn)(fgElement*, const AbsRect*, const AbsRect*);
@@ -221,12 +222,12 @@ size_t FG_FASTCALL fgGridRow_Message(fgGridRow* self, const FG_Msg* msg)
       case FGBOX_TILE: fn = &fgGridRowOrder<FGBOX_TILE>; break;
       case FGBOX_TILE | FGBOX_DISTRIBUTEY: fn = &fgGridRowOrder<FGBOX_TILE | FGBOX_DISTRIBUTEY>; break;
       }
-      fgOrderedDraw(*self, (AbsRect*)msg->other, (fgDrawAuxData*)msg->other2, msg->subtype & 1, self->order.ordered.p[self->order.ordered.l - 1]->next, fn, 0);
+      fgOrderedDraw(*self, (AbsRect*)msg->p, (fgDrawAuxData*)msg->p2, msg->subtype & 1, self->order.ordered.p[self->order.ordered.l - 1]->next, fn, 0);
     }
     return FG_ACCEPT;
   case FG_INJECT:
     if(!self->order.isordered || !self->order.ordered.l)
-      return fgStandardInject(*self, (const FG_Msg*)msg->other, (const AbsRect*)msg->other2);
+      return fgStandardInject(*self, (const FG_Msg*)msg->p, (const AbsRect*)msg->p2);
     else
     {
       fgElement* (*fn)(fgElement*, const FG_Msg*);
@@ -238,7 +239,7 @@ size_t FG_FASTCALL fgGridRow_Message(fgGridRow* self, const FG_Msg* msg)
       case FGBOX_TILE: fn = &fgGridRowOrderInject<FGBOX_TILE>; break;
       case FGBOX_TILE | FGBOX_DISTRIBUTEY: fn = &fgGridRowOrderInject<FGBOX_TILE | FGBOX_DISTRIBUTEY>; break;
       }
-      return fgOrderedInject(*self, (const FG_Msg*)msg->other, (const AbsRect*)msg->other2, self->order.ordered.p[self->order.ordered.l - 1]->next, fn);
+      return fgOrderedInject(*self, (const FG_Msg*)msg->p, (const AbsRect*)msg->p2, self->order.ordered.p[self->order.ordered.l - 1]->next, fn);
     }
   case FG_GETCLASSNAME:
     return (size_t)"GridRow";

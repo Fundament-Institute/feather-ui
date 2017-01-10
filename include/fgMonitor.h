@@ -22,9 +22,9 @@ typedef struct _FG_MONITOR {
 
 struct _FG_ROOT;
 
-FG_EXTERN void FG_FASTCALL fgMonitor_Init(fgMonitor* BSS_RESTRICT self, fgFlag flags, struct _FG_ROOT* BSS_RESTRICT parent, fgMonitor* BSS_RESTRICT prev, const AbsRect* coverage, const fgIntVec* dpi);
-FG_EXTERN void FG_FASTCALL fgMonitor_Destroy(fgMonitor* self);
-FG_EXTERN size_t FG_FASTCALL fgMonitor_Message(fgMonitor* self, const FG_Msg* msg);
+FG_EXTERN void fgMonitor_Init(fgMonitor* BSS_RESTRICT self, fgFlag flags, struct _FG_ROOT* BSS_RESTRICT parent, fgMonitor* BSS_RESTRICT prev, const AbsRect* coverage, const fgIntVec* dpi);
+FG_EXTERN void fgMonitor_Destroy(fgMonitor* self);
+FG_EXTERN size_t fgMonitor_Message(fgMonitor* self, const FG_Msg* msg);
 
 #ifdef  __cplusplus
 }

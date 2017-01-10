@@ -6,12 +6,12 @@
 
 extern WinAPIfgRoot* _fgroot;
 
-void FG_FASTCALL WinAPIfgText_Destroy(WinAPIfgText* self)
+void WinAPIfgText_Destroy(WinAPIfgText* self)
 {
   if(self->text) free(self->text);
   fgStatic_Destroy((fgStatic*)self);
 }
-fgStatic* FG_FASTCALL WinAPIfgText_Clone(WinAPIfgText* self)
+fgStatic* WinAPIfgText_Clone(WinAPIfgText* self)
 {
   WinAPIfgText* ret = bssmalloc<WinAPIfgText>(1);
   size_t len=strlen(self->text)+1;
@@ -22,7 +22,7 @@ fgStatic* FG_FASTCALL WinAPIfgText_Clone(WinAPIfgText* self)
   return ret;
 }
 
-void FG_FASTCALL WinAPIfgText_Message(fgStatic* self, unsigned char type, void* arg, int other)
+void WinAPIfgText_Message(fgStatic* self, unsigned char type, void* arg, int other)
 {
   size_t len;
   char* str;
@@ -43,7 +43,7 @@ void FG_FASTCALL WinAPIfgText_Message(fgStatic* self, unsigned char type, void* 
   fgStatic_Message(self,type,arg,other);
 }
 
-fgStatic* FG_FASTCALL fgLoadText(const char* text, fgFlag flags, const char* font, unsigned int fontsize)
+fgStatic* fgLoadText(const char* text, fgFlag flags, const char* font, unsigned int fontsize)
 {
   size_t len=strlen(text)+1;
   char* str=(char*)malloc(len);

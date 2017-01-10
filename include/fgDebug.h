@@ -5,6 +5,8 @@
 #define __FG_DEBUG_H__
 
 #include "fgTreeview.h"
+#include "fgMenu.h"
+#include "fgGrid.h"
 
 enum FGDEBUG_FLAGS
 {
@@ -60,9 +62,10 @@ typedef struct _FG_DEBUG {
   fgElement element;
   fgTreeview elements; // TreeView of the elements, minus the debug view itself.
   fgTreeview messages; // Log of all messages passing through the GUI
-  fgText properties; // element properties
+  fgGrid properties; // element properties
   fgText contents; // message contents
-  size_t(MSC_FASTCALL *GCC_FASTCALL behaviorhook)(struct _FG_ELEMENT* self, const FG_Msg* msg);
+  fgMenu context;
+  size_t(*behaviorhook)(struct _FG_ELEMENT* self, const FG_Msg* msg);
   fgDeclareVector(fgDebugMessage, DebugMessage) messagelog;
   fgDeclareVector(char*, strings) messagestrings;
   size_t depth;
@@ -81,18 +84,18 @@ typedef struct _FG_DEBUG {
 #endif
 } fgDebug;
 
-FG_EXTERN void FG_FASTCALL fgDebug_Init(fgDebug* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
-FG_EXTERN void FG_FASTCALL fgDebug_Destroy(fgDebug* self);
-FG_EXTERN size_t FG_FASTCALL fgDebug_Message(fgDebug* self, const FG_Msg* msg);
-FG_EXTERN void FG_FASTCALL fgDebug_ClearLog(fgDebug* self);
-FG_EXTERN void FG_FASTCALL fgDebug_Show(float left, float right, char overlay);
-FG_EXTERN void FG_FASTCALL fgDebug_Hide();
-FG_EXTERN fgDebug* FG_FASTCALL fgDebug_Get();
-FG_EXTERN size_t FG_FASTCALL fgDebug_LogMessage(fgDebug* self, const FG_Msg* msg, unsigned long long time, size_t depth);
-FG_EXTERN ptrdiff_t FG_FASTCALL fgDebug_WriteMessage(char* buf, size_t bufsize, fgDebugMessage* msg);
-FG_EXTERN void FG_FASTCALL fgDebug_DumpMessages(const char* file);
-FG_EXTERN void FG_FASTCALL fgDebug_BuildTree(fgElement* treeview);
+FG_EXTERN void fgDebug_Init(fgDebug* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
+FG_EXTERN void fgDebug_Destroy(fgDebug* self);
+FG_EXTERN size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg);
+FG_EXTERN void fgDebug_ClearLog(fgDebug* self);
+FG_EXTERN void fgDebug_Show(float left, float right, char overlay);
+FG_EXTERN void fgDebug_Hide();
+FG_EXTERN fgDebug* fgDebug_Get();
+FG_EXTERN size_t fgDebug_LogMessage(fgDebug* self, const FG_Msg* msg, unsigned long long time, size_t depth);
+FG_EXTERN ptrdiff_t fgDebug_WriteMessage(char* buf, size_t bufsize, fgDebugMessage* msg);
+FG_EXTERN void fgDebug_DumpMessages(const char* file);
+FG_EXTERN void fgDebug_BuildTree(fgElement* treeview);
 
-FG_EXTERN size_t FG_FASTCALL fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg);
+FG_EXTERN size_t fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg);
 
 #endif

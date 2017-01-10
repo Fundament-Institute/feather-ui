@@ -6,16 +6,16 @@
 
 extern WinAPIfgRoot* _fgroot;
 
-fgStatic* FG_FASTCALL fgLoadImage(const char* path)
+fgStatic* fgLoadImage(const char* path)
 {
   return 0;
 }
-fgStatic* FG_FASTCALL fgLoadImageData(const void* data, size_t length)
+fgStatic* fgLoadImageData(const void* data, size_t length)
 {
   return 0;
 }
 
-void FG_FASTCALL WinAPIfgImage_Destroy(WinAPIfgImage* self)
+void WinAPIfgImage_Destroy(WinAPIfgImage* self)
 {
   switch(self->st.render.element.flags&0x18) // We store what type it is here
   {

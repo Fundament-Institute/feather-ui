@@ -37,9 +37,12 @@ typedef struct {
   char* validation; // validation regex
   char* formatting; // printf formatting string matched to capture groups in the validation regex
   int mask; // If not zero, stores a unicode character for password masking. 
-  fgVectorUTF32 text;
-  fgVectorString buf;
-  fgVectorUTF32 placeholder; // placeholder text displayed when textbox is empty.
+  fgVectorUTF8 text8;
+  fgVectorUTF16 text16;
+  fgVectorUTF32 text32;
+  fgVectorUTF8 placeholder8;
+  fgVectorUTF16 placeholder16;
+  fgVectorUTF32 placeholder32; // placeholder text displayed when textbox is empty.
   fgColor placecolor; // placeholder text color. Use SETCOLOR with the subtype set to 1.
   fgColor cursorcolor; // cursor color. Use SETCOLOR with the subtype set to 2.
   fgColor selector; // Color of the selector rectangle. Use SETCOLOR with the subtype set to 3.
@@ -62,9 +65,9 @@ typedef struct {
 #endif
 } fgTextbox;
 
-FG_EXTERN void FG_FASTCALL fgTextbox_Init(fgTextbox* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
-FG_EXTERN void FG_FASTCALL fgTextbox_Destroy(fgTextbox* self);
-FG_EXTERN size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg);
+FG_EXTERN void fgTextbox_Init(fgTextbox* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
+FG_EXTERN void fgTextbox_Destroy(fgTextbox* self);
+FG_EXTERN size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg);
 
 #ifdef  __cplusplus
 }

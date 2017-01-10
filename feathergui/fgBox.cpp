@@ -6,16 +6,17 @@
 #include "bss-util/bss_algo.h"
 #include "feathercpp.h"
 
-void FG_FASTCALL fgBox_Init(fgBox* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgBox_Init(fgBox* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgBox_Destroy, (fgMessage)&fgBox_Message);
 }
-void FG_FASTCALL fgBox_Destroy(fgBox* self)
+void fgBox_Destroy(fgBox* self)
 {
-  fgScrollbar_Destroy(&self->scroll); // this will destroy our prechildren for us.
   fgBoxOrderedElement_Destroy(&self->order);
+  self->scroll->message = (fgMessage)fgScrollbar_Message;
+  fgScrollbar_Destroy(&self->scroll); // this will destroy our prechildren for us.
 }
-void FG_FASTCALL fgBoxOrderedElement_Destroy(struct _FG_BOX_ORDERED_ELEMENTS_* self)
+void fgBoxOrderedElement_Destroy(struct _FG_BOX_ORDERED_ELEMENTS_* self)
 {
   ((bss_util::cDynArray<fgElement*>&)self->ordered).~cDynArray();
 }
@@ -83,9 +84,9 @@ inline fgElement* fgBoxOrderInject(fgElement* self, const FG_Msg* msg)
   return fgOrderedVec<FLAGS>(&((fgBox*)self)->order, AbsVec { (FABS)msg->x, (FABS)msg->y });
 }
 
-size_t FG_FASTCALL fgBox_Message(fgBox* self, const FG_Msg* msg)
+size_t fgBox_Message(fgBox* self, const FG_Msg* msg)
 {
-  ptrdiff_t otherint = msg->otherint;
+  ptrdiff_t otherint = msg->i;
   fgFlag flags = self->scroll.control.element.flags;
 
   switch(msg->type)
@@ -95,7 +96,7 @@ size_t FG_FASTCALL fgBox_Message(fgBox* self, const FG_Msg* msg)
     break;
   case FG_DRAW:
     if(!self->order.isordered || !self->order.ordered.l)
-      fgStandardDraw(*self, (AbsRect*)msg->other, (fgDrawAuxData*)msg->other2, msg->subtype & 1);
+      fgStandardDraw(*self, (AbsRect*)msg->p, (fgDrawAuxData*)msg->p2, msg->subtype & 1);
     else
     {
       fgElement* (*fn)(fgElement*, const AbsRect*, const AbsRect*);
@@ -107,12 +108,12 @@ size_t FG_FASTCALL fgBox_Message(fgBox* self, const FG_Msg* msg)
       case FGBOX_TILE: fn = &fgBoxOrder<FGBOX_TILE>; break;
       case FGBOX_TILE | FGBOX_DISTRIBUTEY: fn = &fgBoxOrder<FGBOX_TILE | FGBOX_DISTRIBUTEY>; break;
       }
-      fgOrderedDraw(*self, (AbsRect*)msg->other, (fgDrawAuxData*)msg->other2, msg->subtype & 1, self->order.ordered.p[self->order.ordered.l - 1]->next, fn, self->fndraw);
+      fgOrderedDraw(*self, (AbsRect*)msg->p, (fgDrawAuxData*)msg->p2, msg->subtype & 1, self->order.ordered.p[self->order.ordered.l - 1]->next, fn, self->fndraw);
     }
     return FG_ACCEPT;
   case FG_INJECT:
     if(!self->order.isordered || !self->order.ordered.l)
-      return fgStandardInject(*self, (const FG_Msg*)msg->other, (const AbsRect*)msg->other2);
+      return fgStandardInject(*self, (const FG_Msg*)msg->p, (const AbsRect*)msg->p2);
     else
     {
       fgElement* (*fn)(fgElement*, const FG_Msg*);
@@ -124,7 +125,7 @@ size_t FG_FASTCALL fgBox_Message(fgBox* self, const FG_Msg* msg)
       case FGBOX_TILE: fn = &fgBoxOrderInject<FGBOX_TILE>; break;
       case FGBOX_TILE | FGBOX_DISTRIBUTEY: fn = &fgBoxOrderInject<FGBOX_TILE | FGBOX_DISTRIBUTEY>; break;
       }
-      return fgOrderedInject(*self, (const FG_Msg*)msg->other, (const AbsRect*)msg->other2, self->order.ordered.p[self->order.ordered.l - 1]->next, fn);
+      return fgOrderedInject(*self, (const FG_Msg*)msg->p, (const AbsRect*)msg->p2, self->order.ordered.p[self->order.ordered.l - 1]->next, fn);
     }
   case FG_GETCLASSNAME:
     return (size_t)"Box";
@@ -133,9 +134,9 @@ size_t FG_FASTCALL fgBox_Message(fgBox* self, const FG_Msg* msg)
   return fgBoxOrderedElement_Message(&self->order, msg, *self, (fgMessage)&fgScrollbar_Message);
 }
 
-size_t FG_FASTCALL fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_* self, const FG_Msg* msg, fgElement* element, fgMessage callback)
+size_t fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_* self, const FG_Msg* msg, fgElement* element, fgMessage callback)
 {
-  ptrdiff_t otherint = msg->otherint;
+  ptrdiff_t otherint = msg->i;
   fgFlag flags = element->flags;
 
   switch(msg->type)
@@ -147,7 +148,7 @@ size_t FG_FASTCALL fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_*
     self->fixedsize.y = -1;
     break;
   case FG_SETFLAG: // Do the same thing fgElement does to resolve a SETFLAG into SETFLAGS
-    otherint = T_SETBIT(flags, otherint, msg->otheraux);
+    otherint = T_SETBIT(flags, otherint, msg->u2);
   case FG_SETFLAGS:
     if((otherint^flags) & FGBOX_LAYOUTMASK)
     { // handle a layout flag change
@@ -158,15 +159,14 @@ size_t FG_FASTCALL fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_*
     break;
   case FG_LAYOUTFUNCTION:
     if(element->flags&(FGBOX_TILEX | FGBOX_TILEY)) // TILE flags override DISTRIBUTE flags, if they're specified.
-      return fgTileLayout(element, (const FG_Msg*)msg->other, element->flags&FGBOX_LAYOUTMASK, (AbsVec*)msg->other2);
+      return fgTileLayout(element, (const FG_Msg*)msg->p, element->flags&FGBOX_LAYOUTMASK, (AbsVec*)msg->p2);
     if(element->flags&(FGBOX_DISTRIBUTEX | FGBOX_DISTRIBUTEY))
-      return fgDistributeLayout(element, (const FG_Msg*)msg->other, element->flags&FGBOX_LAYOUTMASK, (AbsVec*)msg->other2);
+      return fgDistributeLayout(element, (const FG_Msg*)msg->p, element->flags&FGBOX_LAYOUTMASK, (AbsVec*)msg->p2);
     break; // If no layout flags are specified, fall back to default layout behavior.
   case FG_REMOVECHILD:
   {
-    fgElement* hold = (fgElement*)msg->other;
     for(size_t i = 0; i < self->ordered.l; ++i)
-      if(self->ordered.p[i] == hold)
+      if(self->ordered.p[i] == msg->e)
         ((bss_util::cDynArray<fgElement*>&)self->ordered).Remove(i);
 
     size_t r = callback(element, msg);
@@ -174,17 +174,16 @@ size_t FG_FASTCALL fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_*
     return r;
   }
   case FG_ADDCHILD:
-    assert(msg->other != 0);
+    assert(msg->p != 0);
     if(callback(element, msg) == FG_ACCEPT)
     {
-      fgElement* hold = (fgElement*)msg->other;
-      fgElement* next = hold->next;
-      if((hold->flags & (FGELEMENT_BACKGROUND | FGELEMENT_NOCLIP)) == FGELEMENT_NOCLIP)
+      fgElement* next = msg->e->next;
+      if((msg->e->flags & (FGELEMENT_BACKGROUND | FGELEMENT_NOCLIP)) == FGELEMENT_NOCLIP)
         self->isordered = 0; // If ANY foreground elements are nonclipping, we can't use ordered rendering, because this would require us to maintain a second "nonclipping" sorted array.
       if(self->isordered)
       {
         fgElement* prev = !next ? element->last : next->prev;
-        if(hold->flags&FGELEMENT_BACKGROUND) // If we're a background element, just make sure we aren't surrounded by foreground elements
+        if(msg->e->flags&FGELEMENT_BACKGROUND) // If we're a background element, just make sure we aren't surrounded by foreground elements
         {
           if(next != 0 && !(next->flags&FGELEMENT_BACKGROUND) && prev != 0 && !(prev->flags&FGELEMENT_BACKGROUND))
             self->isordered = 0;
@@ -198,18 +197,18 @@ size_t FG_FASTCALL fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_*
         }
       }
 
-      if(!(hold->flags&FGELEMENT_BACKGROUND))
+      if(!(msg->e->flags&FGELEMENT_BACKGROUND))
       {
         if(self->isordered) // if we're still ordered then we add this to our vector
         {
           if(!next || next->flags&FGELEMENT_BACKGROUND)
-            ((bss_util::cDynArray<fgElement*>&)self->ordered).Add(hold);
+            ((bss_util::cDynArray<fgElement*>&)self->ordered).Add(msg->e);
           else
           {
             size_t i = self->ordered.l;
             while(i > 0 && self->ordered.p[--i] != next);
             assert(!self->ordered.p || self->ordered.p[i] == next);
-            ((bss_util::cDynArray<fgElement*>&)self->ordered).Insert(hold, i);
+            ((bss_util::cDynArray<fgElement*>&)self->ordered).Insert(msg->e, i);
           }
         }
         else
@@ -223,16 +222,16 @@ size_t FG_FASTCALL fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_*
       return 0; // Can't set anything if we aren't ordered
     else
     {
-      fgElement* next = (msg->otheraux < self->ordered.l) ? self->ordered.p[msg->otheraux] : 0;
-      element->AddChild((fgElement*)msg->other, next);
+      fgElement* next = (msg->u2 < self->ordered.l) ? self->ordered.p[msg->u2] : 0;
+      element->AddChild(msg->e, next);
       return FG_ACCEPT;
     }
   case FG_REMOVEITEM:
     if(!self->isordered)
       return 0; // Can't remove by index if we aren't ordered
-    if((size_t)msg->otherint < self->ordered.l)
+    if(msg->u < self->ordered.l)
     {
-      VirtualFreeChild(self->ordered.p[(size_t)msg->otherint]);
+      VirtualFreeChild(self->ordered.p[msg->u]);
       return FG_ACCEPT;
     }
     return 0;
@@ -252,17 +251,17 @@ size_t FG_FASTCALL fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_*
       case FGBOX_TILE | FGBOX_DISTRIBUTEY: return (size_t)fgOrderedVec<FGBOX_TILE | FGBOX_DISTRIBUTEY>(self, AbsVec{ (FABS)msg->x, (FABS)msg->y });
       }
     }
-    else if(size_t(msg->otherint) < self->ordered.l)
-      return (size_t)self->ordered.p[msg->otherint];
+    else if(size_t(msg->i) < self->ordered.l)
+      return (size_t)self->ordered.p[msg->i];
     return 0;
   case FG_SETITEM:
     if(!self->isordered || msg->subtype != FGITEM_ELEMENT)
       return 0; // Can't set anything if we aren't ordered
-    if(msg->otheraux < self->ordered.l)
+    if(msg->u2 < self->ordered.l)
     {
-      fgElement* next = self->ordered.p[msg->otheraux]->next;
-      VirtualFreeChild(self->ordered.p[msg->otheraux]);
-      element->AddChild((fgElement*)msg->other, next);
+      fgElement* next = self->ordered.p[msg->u2]->next;
+      VirtualFreeChild(self->ordered.p[msg->u2]);
+      element->AddChild(msg->e, next);
       return FG_ACCEPT;
     }
     return 0;

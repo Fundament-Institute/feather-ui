@@ -21,16 +21,16 @@ HRESULT (__stdcall *dwmextend)(HWND, const MARGINS*) = 0;
 WinAPIfgRoot* _fgroot=0; // fgRoot singleton variable
 HBRUSH hbrBlack;
 
-void FG_FASTCALL fgRoot_destroy(fgRoot* self)
+void fgRoot_destroy(fgRoot* self)
 {
   (*self->mouse.element.destroy)(&self->mouse);
   fgWindow_Destroy((fgWindow*)self);
 }
-fgRoot* FG_FASTCALL fgInitialize()
+fgRoot* fgInitialize()
 {
   return WinAPIfgInitialize(0);
 }
-void FG_FASTCALL WinAPIfgRoot_Update(fgRoot* self, double delta)
+void WinAPIfgRoot_Update(fgRoot* self, double delta)
 {
   MSG msg;
 
@@ -43,13 +43,13 @@ void FG_FASTCALL WinAPIfgRoot_Update(fgRoot* self, double delta)
   fgRoot_Update(self,delta);
 }
 
-//char FG_FASTCALL WinAPIfgRoot_Behavior(fgWindow* self, const FG_Msg* msg)
+//char WinAPIfgRoot_Behavior(fgWindow* self, const FG_Msg* msg)
 //{
 //  if(msg->type==WINAPIFGTOP_MSGFILTER) return 0;
 //  return fgRoot_BehaviorDefault(self,msg);
 //}
 
-fgRoot* FG_FASTCALL WinAPIfgInitialize(void* instance)
+fgRoot* WinAPIfgInitialize(void* instance)
 {
   HMODULE dwm;
   WNDCLASSEXW wcex = { sizeof(WNDCLASSEXW), // cbSize
@@ -101,12 +101,12 @@ fgRoot* FG_FASTCALL WinAPIfgInitialize(void* instance)
   return (fgRoot*)_fgroot;
 }
 
-fgRoot* FG_FASTCALL fgSingleton()
+fgRoot* fgSingleton()
 {
   return (fgRoot*)_fgroot;
 }
 
-void FG_FASTCALL WinAPIutf8to16(wchar_t** t, const char* src)
+void WinAPIutf8to16(wchar_t** t, const char* src)
 {
   size_t len = MultiByteToWideChar(CP_UTF8, 0, src, -1, 0, 0);
   *t=0;
@@ -119,7 +119,7 @@ void FG_FASTCALL WinAPIutf8to16(wchar_t** t, const char* src)
   }
 }
 
-void FG_FASTCALL WinAPIfgWindow_Destroy(fgWindow* self)
+void WinAPIfgWindow_Destroy(fgWindow* self)
 {
   HANDLE h = ((WinAPIfgWindow*)self)->handle;
   fgWindow_Destroy(self);
@@ -127,7 +127,7 @@ void FG_FASTCALL WinAPIfgWindow_Destroy(fgWindow* self)
   ((WinAPIfgWindow*)self)->handle=0;
   DestroyWindow(h); // Do winAPI destruction
 }
-void FG_FASTCALL WinAPI_FG_MOVE(WinAPIfgWindow* self)
+void WinAPI_FG_MOVE(WinAPIfgWindow* self)
 {
   BOOL ret;
   AbsRect r;
@@ -200,10 +200,10 @@ LRESULT CALLBACK fgWindowWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 	  return DefWindowProcW(hWnd, message, wParam, lParam);
 
   msg.type=WINAPIFGTOP_MSGFILTER;
-  msg.other=&wmsg;
+  msg.p=&wmsg;
   if((c=(*_fgroot->root.behaviorhook)((fgWindow*)wn,&msg))!=0) // We invert the meaning of 1 and 0 here so it remains a sane default.
     return (c<0)?1:0;
-  msg.other=0;
+  msg.p=0;
 
   switch (message)
 	{
@@ -229,7 +229,7 @@ LRESULT CALLBACK fgWindowWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
     if(lParam!=0) // If we get a WM_COMMAND message from a control, pass it to the control so it can handle it.
     {
       msg.type=WINAPIFGTOP_MSGFILTER;
-      msg.other=&wmsg;
+      msg.p=&wmsg;
       (*_fgroot->root.behaviorhook)((fgWindow*)GetWindowLongPtr((HWND)lParam,GWLP_USERDATA),&msg);
     }
     break;
@@ -370,7 +370,7 @@ LRESULT CALLBACK fgWindowWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
   case WM_WINDOWPOSCHANGING:
   case WM_WINDOWPOSCHANGED: // Make sure we keep track of where the window actually is.
     msg.type=WINAPIFGTOP_WINDOWMOVE;
-    msg.other=(WINDOWPOS*)lParam;
+    msg.p=(WINDOWPOS*)lParam;
     (*_fgroot->root.behaviorhook)((fgWindow*)wn,&msg);
     break;
   //default:

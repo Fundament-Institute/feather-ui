@@ -4,15 +4,16 @@
 #include "fgDropdown.h"
 #include "feathercpp.h"
 
-void FG_FASTCALL fgDropdown_Init(fgDropdown* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgDropdown_Init(fgDropdown* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
   memset(self, sizeof(fgDropdown), 0);
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgDropdown_Destroy, (fgMessage)&fgDropdown_Message);
 }
 
-void FG_FASTCALL fgDropdown_Destroy(fgDropdown* self)
+void fgDropdown_Destroy(fgDropdown* self)
 {
   fgBox_Destroy(&self->box);
+  self->control->message = (fgMessage)fgControl_Message;
   fgControl_Destroy(&self->control);
 }
 
@@ -26,18 +27,20 @@ void fgDropdown_Draw(fgElement* self, const AbsRect* area, const fgDrawAuxData* 
   {
     AbsRect r;
     ResolveRectCache(parent->selected, &r, &cache, (parent->selected->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
-    fgroot_instance->backend.fgDrawResource(0, &CRect_EMPTY, parent->select.color, 0, 0.0f, &r, 0.0f, &AbsVec_EMPTY, FGRESOURCE_ROUNDRECT, data);
+    fgSnapAbsRect(r, self->flags);
+    fgroot_instance->backend.fgDrawAsset(0, &CRect_EMPTY, parent->select.color, 0, 0.0f, &r, 0.0f, &AbsVec_EMPTY, FGRESOURCE_RECT, data);
   }
   if(target != 0)
   {
     AbsRect r;
     ResolveRectCache(target, &r, &cache, (target->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
-    fgroot_instance->backend.fgDrawResource(0, &CRect_EMPTY, parent->hover.color, 0, 0.0f, &r, 0.0f, &AbsVec_EMPTY, FGRESOURCE_ROUNDRECT, data);
+    fgSnapAbsRect(r, self->flags);
+    fgroot_instance->backend.fgDrawAsset(0, &CRect_EMPTY, parent->hover.color, 0, 0.0f, &r, 0.0f, &AbsVec_EMPTY, FGRESOURCE_RECT, data);
   }
   fgroot_instance->backend.fgPopClipRect(data);
 }
 
-size_t FG_FASTCALL fgDropdownBox_Message(fgBox* self, const FG_Msg* msg)
+size_t fgDropdownBox_Message(fgBox* self, const FG_Msg* msg)
 {
   fgDropdown* parent = (fgDropdown*)self->scroll->parent;
   switch(msg->type)
@@ -85,7 +88,7 @@ size_t FG_FASTCALL fgDropdownBox_Message(fgBox* self, const FG_Msg* msg)
   return fgBox_Message(self, msg);
 }
 
-size_t FG_FASTCALL fgDropdown_Message(fgDropdown* self, const FG_Msg* msg)
+size_t fgDropdown_Message(fgDropdown* self, const FG_Msg* msg)
 {
   switch(msg->type)
   {
@@ -110,7 +113,7 @@ size_t FG_FASTCALL fgDropdown_Message(fgDropdown* self, const FG_Msg* msg)
 
     if(self->selected) // Then, yank the selected item out of our box child and render it manually, if it exists
     {
-      AbsRect* area = (AbsRect*)msg->other;
+      AbsRect* area = (AbsRect*)msg->p;
       AbsRect out;
       ResolveRect(self->selected, &out);
 
@@ -121,12 +124,12 @@ size_t FG_FASTCALL fgDropdown_Message(fgDropdown* self, const FG_Msg* msg)
       out.right = out.left + dx;
       out.bottom = out.top + dy;
         
-      _sendmsg<FG_DRAW, void*, size_t>(self->selected, &out, msg->otheraux);
+      _sendmsg<FG_DRAW, void*, size_t>(self->selected, &out, msg->u2);
     }
     return FG_ACCEPT;
   case FG_REMOVECHILD:
   case FG_ADDCHILD:
-    if(((fgElement*)msg->other)->flags & FGELEMENT_BACKGROUND)
+    if(msg->e->flags & FGELEMENT_BACKGROUND)
       break;
     return (*self->box->message)(self->box, msg);
   case FG_GETCOLOR:
@@ -144,10 +147,10 @@ size_t FG_FASTCALL fgDropdown_Message(fgDropdown* self, const FG_Msg* msg)
     {
       case FGSETCOLOR_MAIN:
       case FGSETCOLOR_HOVER:
-        self->hover.color = (uint32_t)msg->otherint;
+        self->hover.color = (uint32_t)msg->i;
         break;
       case FGSETCOLOR_SELECT:
-        self->select.color = (uint32_t)msg->otherint;
+        self->select.color = (uint32_t)msg->i;
         break;
     }
     return FG_ACCEPT;

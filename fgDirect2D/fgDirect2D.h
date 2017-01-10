@@ -20,17 +20,17 @@ limitations under the License.
 #include "fgRoot.h"
 #include "fgWindowD2D.h"
 
-struct ID2D1Factory;
+struct ID2D1Factory1;
 struct IWICImagingFactory;
-struct IDWriteFactory;
+struct IDWriteFactory1;
 struct IWICFormatConverter;
 
 struct fgDirect2D
 {
   fgRoot root;
-  ID2D1Factory* factory;
+  ID2D1Factory1* factory;
   IWICImagingFactory* wicfactory;
-  IDWriteFactory* writefactory;
+  IDWriteFactory1* writefactory;
 
   static fgDirect2D* instance;
 };

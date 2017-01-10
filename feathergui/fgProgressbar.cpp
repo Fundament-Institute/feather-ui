@@ -5,17 +5,18 @@
 #include "fgSkin.h"
 #include "feathercpp.h"
 
-void FG_FASTCALL fgProgressbar_Init(fgProgressbar* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgProgressbar_Init(fgProgressbar* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgProgressbar_Destroy, (fgMessage)&fgProgressbar_Message);
 }
 
-void FG_FASTCALL fgProgressbar_Destroy(fgProgressbar* self)
+void fgProgressbar_Destroy(fgProgressbar* self)
 {
+  self->control->message = (fgMessage)fgControl_Message;
   fgControl_Destroy(&self->control);
 }
 
-size_t FG_FASTCALL fgProgressbar_Message(fgProgressbar* self, const FG_Msg* msg)
+size_t fgProgressbar_Message(fgProgressbar* self, const FG_Msg* msg)
 {
   static const fgTransform BAR_ELEMENT = { 0,0,0,0,0,0,0,1.0,0,0,0,0,0 };
 
@@ -31,7 +32,7 @@ size_t FG_FASTCALL fgProgressbar_Message(fgProgressbar* self, const FG_Msg* msg)
   case FG_SETVALUE:
     if(msg->subtype <= FGVALUE_FLOAT)
     {
-      float value = (msg->subtype == FGVALUE_INT64) ? (float)msg->otherint : msg->otherf;
+      float value = (msg->subtype == FGVALUE_INT64) ? (float)msg->i : msg->f;
       if(value != self->value)
       {
         self->value = value;

@@ -4,6 +4,7 @@
 #include "feathergui.h"
 #include "feathercpp.h"
 #include "fgRoot.h"
+#include "bss-util/bss_sse.h"
 #include <limits.h>
 #include <math.h>
 
@@ -26,7 +27,7 @@ static_assert(sizeof(FG_Msg) == sizeof(void*)*2 + sizeof(uint32_t)*2, "FG_Msg is
 fgLeakTracker fgLeakTracker::Tracker;
 #endif
 
-AbsVec FG_FASTCALL ResolveVec(const CVec* v, const AbsRect* last)
+AbsVec ResolveVec(const CVec* v, const AbsRect* last)
 {
   AbsVec r = { v->x.abs, v->y.abs };
   assert(last != 0);
@@ -36,19 +37,19 @@ AbsVec FG_FASTCALL ResolveVec(const CVec* v, const AbsRect* last)
 }
 
 // This uses a standard inclusive-exclusive rectangle interpretation.
-char FG_FASTCALL HitAbsRect(const AbsRect* r, FABS x, FABS y)
+char HitAbsRect(const AbsRect* r, FABS x, FABS y)
 {
   assert(r != 0);
   return (x < r->right) && (x >= r->left) && (y < r->bottom) && (y >= r->top);
 }
 
-char FG_FASTCALL MsgHitAbsRect(const FG_Msg* msg, const AbsRect* r)
+char MsgHitAbsRect(const FG_Msg* msg, const AbsRect* r)
 {
   assert(msg != 0 && r != 0);
   return HitAbsRect(r, (FABS)msg->x, (FABS)msg->y);
 }
 
-char FG_FASTCALL CompareMargins(const AbsRect* l, const AbsRect* r)
+char CompareMargins(const AbsRect* l, const AbsRect* r)
 {
   assert(l != 0 && r != 0);
   assert(!isnan(l->left) && !isnan(r->left));
@@ -60,7 +61,7 @@ char FG_FASTCALL CompareMargins(const AbsRect* l, const AbsRect* r)
     | ((((l->left != r->left) || (l->right != r->right))) << 3)
     | ((((l->top != r->top) || (l->bottom != r->bottom))) << 4);
 }
-char FG_FASTCALL CompareCRects(const CRect* l, const CRect* r)
+char CompareCRects(const CRect* l, const CRect* r)
 {
   assert(l != 0 && r != 0);
   assert(!isnan(l->left.abs) && !isnan(l->left.rel) && !isnan(r->left.abs) && !isnan(r->left.rel));
@@ -76,7 +77,7 @@ char FG_FASTCALL CompareCRects(const CRect* l, const CRect* r)
     | ((((l->left.rel != r->left.rel) || (l->right.rel != r->right.rel))) << 3)
     | ((((l->top.rel != r->top.rel) || (l->bottom.rel != r->bottom.rel))) << 4);
 }
-char FG_FASTCALL CompareTransforms(const fgTransform* l, const fgTransform* r)
+char CompareTransforms(const fgTransform* l, const fgTransform* r)
 {
   assert(l != 0 && r != 0);
   return CompareCRects(&l->area, &r->area)
@@ -85,7 +86,7 @@ char FG_FASTCALL CompareTransforms(const fgTransform* l, const fgTransform* r)
     | ((l->rotation != r->rotation) << 7);
 }
 
-void FG_FASTCALL MoveCRect(FABS x, FABS y, CRect* r)
+void MoveCRect(FABS x, FABS y, CRect* r)
 {
   AbsVec d = { r->right.abs - r->left.abs, r->bottom.abs - r->top.abs };
   r->left.abs = x;
@@ -94,15 +95,15 @@ void FG_FASTCALL MoveCRect(FABS x, FABS y, CRect* r)
   r->bottom.abs = y + d.y;
 }
 
-void FG_FASTCALL ToIntAbsRect(const AbsRect* r, int target[4])
+void ToIntAbsRect(const AbsRect* r, int target[4])
 {
-  _mm_storeu_si128((__m128i*)target, _mm_cvttps_epi32(_mm_loadu_ps(&r->left)));
+  sseVeci(sseVec(BSS_UNALIGNED<const float>(&r->left))) >> BSS_UNALIGNED<int>(target);
 }
 
-void FG_FASTCALL ToLongAbsRect(const AbsRect* r, long target[4])
+void ToLongAbsRect(const AbsRect* r, long target[4])
 {
 #if ULONG_MAX==UINT_MAX
-  _mm_storeu_si128((__m128i*)target, _mm_cvttps_epi32(_mm_loadu_ps(&r->left)));
+  sseVeci(sseVec(BSS_UNALIGNED<const float>(&r->left))) >> BSS_UNALIGNED<int>((int*)target);
 #else
   int hold[4];
   _mm_storeu_si128((__m128i*)hold, _mm_cvtps_epi32(_mm_loadu_ps(&r->left)));
@@ -114,7 +115,7 @@ void FG_FASTCALL ToLongAbsRect(const AbsRect* r, long target[4])
 
 }
 
-char* FG_FASTCALL fgCopyText(const char* text, const char* file, size_t line)
+char* fgCopyText(const char* text, const char* file, size_t line)
 {
   if(!text) return 0;
   size_t len = strlen(text) + 1;
@@ -123,7 +124,7 @@ char* FG_FASTCALL fgCopyText(const char* text, const char* file, size_t line)
   return ret;
 }
 
-void FG_FASTCALL fgUpdateMouseState(fgMouseState* state, const FG_Msg* msg)
+void fgUpdateMouseState(fgMouseState* state, const FG_Msg* msg)
 {
   assert(msg != 0);
   switch(msg->type)
@@ -161,12 +162,12 @@ void FG_FASTCALL fgUpdateMouseState(fgMouseState* state, const FG_Msg* msg)
   state->buttons = msg->allbtn;
 }
 
-char FG_FASTCALL fgRectIntersect(const AbsRect* l, const AbsRect* r)
+char fgRectIntersect(const AbsRect* l, const AbsRect* r)
 {
   return (l->left <= r->right && l->top <= r->bottom && l->right >= r->left && l->bottom >= r->top);
 }
 
-void FG_FASTCALL fgRectIntersection(const AbsRect* BSS_RESTRICT l, const AbsRect* BSS_RESTRICT r, AbsRect* out)
+void fgRectIntersection(const AbsRect* BSS_RESTRICT l, const AbsRect* BSS_RESTRICT r, AbsRect* out)
 {
   out->left = bssmax(l->left, r->left);
   out->top = bssmax(l->top, r->top);
@@ -177,19 +178,19 @@ void FG_FASTCALL fgRectIntersection(const AbsRect* BSS_RESTRICT l, const AbsRect
 #ifdef BSS_PLATFORM_WIN32
 #include "bss-util/bss_win32_includes.h"
 
-size_t BSS_FASTCALL fgUTF8toUTF16(const char*BSS_RESTRICT input, ptrdiff_t srclen, wchar_t*BSS_RESTRICT output, size_t buflen)
+size_t fgUTF8toUTF16(const char*BSS_RESTRICT input, ptrdiff_t srclen, wchar_t*BSS_RESTRICT output, size_t buflen)
 {
   return (size_t)MultiByteToWideChar(CP_UTF8, 0, input, (int)srclen, output, (int)(!output ? 0 : buflen));
 }
 
-size_t BSS_FASTCALL fgUTF16toUTF8(const wchar_t*BSS_RESTRICT input, ptrdiff_t srclen, char*BSS_RESTRICT output, size_t buflen)
+size_t fgUTF16toUTF8(const wchar_t*BSS_RESTRICT input, ptrdiff_t srclen, char*BSS_RESTRICT output, size_t buflen)
 {
   return (size_t)WideCharToMultiByte(CP_UTF8, 0, input, (int)srclen, output, (int)(!output ? 0 : buflen), NULL, NULL);
 }
 
 #else
 #include <iconv.h>
-size_t BSS_FASTCALL fgUTF8toUTF16(const char*BSS_RESTRICT input, ptrdiff_t srclen, wchar_t*BSS_RESTRICT output, size_t buflen)
+size_t fgUTF8toUTF16(const char*BSS_RESTRICT input, ptrdiff_t srclen, wchar_t*BSS_RESTRICT output, size_t buflen)
 {
 static iconv_t iconv_utf8to16 = 0;
   size_t len = srclen < 0 ? strlen(input) : srclen;
@@ -201,7 +202,7 @@ static iconv_t iconv_utf8to16 = 0;
   return iconv(iconv_utf8to16, &in, &len, &out, &buflen);
 }
 
-extern size_t BSS_FASTCALL fgUTF16toUTF8(const wchar_t*BSS_RESTRICT input, ptrdiff_t srclen, char*BSS_RESTRICT output, size_t buflen)
+extern size_t fgUTF16toUTF8(const wchar_t*BSS_RESTRICT input, ptrdiff_t srclen, char*BSS_RESTRICT output, size_t buflen)
 {
   static iconv_t iconv_utf16to8 = 0;
   size_t len = (srclen < 0 ? wcslen(input) : srclen) * 2;
@@ -209,7 +210,7 @@ extern size_t BSS_FASTCALL fgUTF16toUTF8(const wchar_t*BSS_RESTRICT input, ptrdi
   if(!output) return (len * 2) + 1;
   len += 2; // include null terminator (which is 2 bytes wide here)
   if(!iconv_utf16to8) iconv_utf16to8 = iconv_open("UTF-16", "UTF-8");
-  return iconv(iconv_utf16to8, &in, &len, &output, &buflen);
+  return iconv(iconv_utf16to8, &in, &len, (char**)&output, &buflen);
 }
 #endif
 

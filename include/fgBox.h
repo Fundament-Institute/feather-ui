@@ -40,11 +40,11 @@ typedef struct _FG_BOX_ {
 #endif
 } fgBox;
 
-FG_EXTERN void FG_FASTCALL fgBox_Init(fgBox* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
-FG_EXTERN void FG_FASTCALL fgBox_Destroy(fgBox* self);
-FG_EXTERN size_t FG_FASTCALL fgBox_Message(fgBox* self, const FG_Msg* msg);
-FG_EXTERN void FG_FASTCALL fgBoxOrderedElement_Destroy(struct _FG_BOX_ORDERED_ELEMENTS_* self);
-FG_EXTERN size_t FG_FASTCALL fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_* self, const FG_Msg* msg, fgElement* element, fgMessage callback);
+FG_EXTERN void fgBox_Init(fgBox* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
+FG_EXTERN void fgBox_Destroy(fgBox* self);
+FG_EXTERN size_t fgBox_Message(fgBox* self, const FG_Msg* msg);
+FG_EXTERN void fgBoxOrderedElement_Destroy(struct _FG_BOX_ORDERED_ELEMENTS_* self);
+FG_EXTERN size_t fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_* self, const FG_Msg* msg, fgElement* element, fgMessage callback);
 
 #ifdef  __cplusplus
 }

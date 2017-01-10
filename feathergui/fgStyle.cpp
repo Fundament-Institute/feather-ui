@@ -9,32 +9,32 @@
 KHASH_INIT(fgStyles, const char*, FG_UINT, 1, kh_str_hash_funcins, kh_str_hash_insequal);
 FG_UINT fgStyleFlagMask = 0;
 
-void FG_FASTCALL fgStyle_Init(fgStyle* self)
+void fgStyle_Init(fgStyle* self)
 {
   memset(self, 0, sizeof(fgStyle));
 }
 
-void FG_FASTCALL fgStyle_Destroy(fgStyle* self)
+void fgStyle_Destroy(fgStyle* self)
 {
   while(self->styles)
     fgStyle_RemoveStyleMsg(self, self->styles);
 }
 
-fgStyleMsg* FG_FASTCALL fgStyle_AddStyleMsg(fgStyle* self, const FG_Msg* msg, const void* arg1, size_t arglen1, const void* arg2, size_t arglen2)
+fgStyleMsg* fgStyle_AddStyleMsg(fgStyle* self, const FG_Msg* msg, const void* arg1, size_t arglen1, const void* arg2, size_t arglen2)
 {
   fgStyleMsg* r = (fgStyleMsg*)fgmalloc<char>(sizeof(fgStyleMsg) + arglen1 + arglen2, __FILE__, __LINE__);
   memcpy(&r->msg, msg, sizeof(FG_Msg));
 
   if(arg1)
   {
-    r->msg.other = r + 1;
-    memcpy(r->msg.other, arg1, arglen1);
+    r->msg.p = r + 1;
+    memcpy(r->msg.p, arg1, arglen1);
   }
 
   if(arg2)
   {
-    r->msg.other2 = ((char*)(r + 1)) + arglen1;
-    memcpy(r->msg.other2, arg2, arglen2);
+    r->msg.p2 = ((char*)(r + 1)) + arglen1;
+    memcpy(r->msg.p2, arg2, arglen2);
   }
 
   r->next = self->styles;
@@ -42,7 +42,7 @@ fgStyleMsg* FG_FASTCALL fgStyle_AddStyleMsg(fgStyle* self, const FG_Msg* msg, co
   return r;
 }
 
-void FG_FASTCALL fgStyle_RemoveStyleMsg(fgStyle* self, fgStyleMsg* msg)
+void fgStyle_RemoveStyleMsg(fgStyle* self, fgStyleMsg* msg)
 {
   if(self->styles == msg)
     self->styles = msg->next;
@@ -54,6 +54,10 @@ void FG_FASTCALL fgStyle_RemoveStyleMsg(fgStyle* self, fgStyleMsg* msg)
   }
   fgfree(msg, __FILE__, __LINE__);
 }
+
+
+fgStyleMsg* fgStyle::AddStyleMsg(const FG_Msg* msg) { return fgStyle_AddStyleMsg(this, msg, 0,0,0,0); }
+void fgStyle::RemoveStyleMsg(fgStyleMsg* msg) { fgStyle_RemoveStyleMsg(this, msg); }
 
 struct fgStyleStatic
 {
@@ -68,7 +72,7 @@ struct fgStyleStatic
   }
   kh_fgStyles_t* h;
 };
-FG_UINT FG_FASTCALL fgStyle_GetName(const char* name, char flag)
+FG_UINT fgStyle_GetName(const char* name, char flag)
 {
   static fgStyleStatic stylehash;
   static FG_UINT count = 0;

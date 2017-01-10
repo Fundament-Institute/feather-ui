@@ -8,9 +8,9 @@
 
 fgDebug* fgdebug_instance = nullptr;
 
-const char* FG_FASTCALL fgDebug_GetMessageString(unsigned short msg);
+const char* fgDebug_GetMessageString(unsigned short msg);
 
-void FG_FASTCALL fgDebug_Init(fgDebug* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgDebug_Init(fgDebug* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
   if(fgdebug_instance != nullptr)
     VirtualFreeChild(*fgdebug_instance);
@@ -19,7 +19,7 @@ void FG_FASTCALL fgDebug_Init(fgDebug* BSS_RESTRICT self, fgElement* BSS_RESTRIC
   fgElement_InternalSetup(&self->element, parent, next, name, flags, transform, units, (fgDestroy)&fgDebug_Destroy, (fgMessage)&fgDebug_Message);
 }
 
-FG_EXTERN void FG_FASTCALL fgDebug_ClearLog(fgDebug* self)
+FG_EXTERN void fgDebug_ClearLog(fgDebug* self)
 {
   for(size_t i = 0; i < self->messagestrings.l; ++i)
     fgfree(self->messagestrings.p[i], __FILE__, __LINE__);
@@ -27,12 +27,12 @@ FG_EXTERN void FG_FASTCALL fgDebug_ClearLog(fgDebug* self)
   self->messagelog.l = 0;
 }
 
-fgDebug* FG_FASTCALL fgDebug_Get()
+fgDebug* fgDebug_Get()
 {
   return fgdebug_instance;
 }
 
-fgElement* FG_FASTCALL fgDebug_GetTreeItem(fgElement* root, fgElement* target)
+fgElement* fgDebug_GetTreeItem(fgElement* root, fgElement* target)
 {
   if(target->parent != 0 && target->parent != &fgroot_instance->gui.element)
     root = fgDebug_GetTreeItem(root, target->parent);
@@ -48,7 +48,7 @@ fgElement* FG_FASTCALL fgDebug_GetTreeItem(fgElement* root, fgElement* target)
   return 0;
 }
 
-void FG_FASTCALL fgDebug_Destroy(fgDebug* self)
+void fgDebug_Destroy(fgDebug* self)
 {
   fgDebug_Hide();
   self->depthelement = 0;
@@ -59,7 +59,28 @@ void FG_FASTCALL fgDebug_Destroy(fgDebug* self)
   fgdebug_instance = 0; // we can't null this until after we're finished destroying ourselves 
 }
 
-size_t FG_FASTCALL fgDebug_Message(fgDebug* self, const FG_Msg* msg)
+static const char* PROPERTY_LIST[] = {
+  "Class",
+  "Name",
+  "Area",
+  "Center",
+  "Rotation",
+  "Margin",
+  "Padding",
+  "Min Size",
+  "Max Size",
+  "Layout Size",
+  "Scaling",
+  "Parent",
+  "Flags",
+  "Skin",
+  "Style",
+  "User ID",
+  "Userdata",
+  "User Hash",
+};
+
+size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
 {
   assert(fgroot_instance != 0);
   assert(self != 0);
@@ -75,9 +96,22 @@ size_t FG_FASTCALL fgDebug_Message(fgDebug* self, const FG_Msg* msg)
     const fgTransform tf_messages = { { 0,0,0,0,200,0,0,1 }, 0,{ 0,0,0,0 } };
     const fgTransform tf_contents = { { 0,0,-200,1,200,0,0,1 }, 0,{ 0,0,0,0 } };
     fgTreeview_Init(&self->elements, *self, 0, "Debug$elements", 0, &tf_elements, 0);
-    fgText_Init(&self->properties, *self, 0, "Debug$properties", FGELEMENT_HIDDEN, &tf_properties, 0);
+    fgGrid_Init(&self->properties, *self, 0, "Debug$properties", FGELEMENT_HIDDEN, &tf_properties, 0);
     fgTreeview_Init(&self->messages, *self, 0, "Debug$messages", 0, &tf_messages, 0);
     fgText_Init(&self->contents, *self, 0, "Debug$contents", FGELEMENT_HIDDEN, &tf_contents, 0);
+    self->properties.InsertColumn("Name");
+    self->properties.InsertColumn("Value");
+    for(size_t i = 0; i < sizeof(PROPERTY_LIST) / sizeof(const char*); ++i)
+    {
+      fgGridRow* r = self->properties.InsertRow();
+      r->InsertItem(PROPERTY_LIST[i]);
+      r->InsertItem("");
+    }
+    fgSubmenu_Init(&self->context, *self, 0, "Debug$context", FGELEMENT_USEDEFAULTS, &fgTransform_EMPTY, 0);
+    self->context->AddItemText("Delete");
+    self->context->AddItemText("Move");
+    fgIterateControls(self->context->AddItemText("Insert"), [](void* p, const char* s) { fgElement* e = (fgElement*)p; e->AddItemText(s); });
+    self->elements->SetContextMenu(self->context);
     self->messagelog.p = 0;
     self->messagelog.l = 0;
     self->messagelog.s = 0;
@@ -106,13 +140,13 @@ size_t FG_FASTCALL fgDebug_Message(fgDebug* self, const FG_Msg* msg)
       clip.bottom -= self->hover->margin.bottom;
       AbsRect inner;
       GetInnerRect(self->hover, &inner, &clip);
-      fgDrawAuxData* data = (fgDrawAuxData*)msg->other2;
+      fgDrawAuxData* data = (fgDrawAuxData*)msg->p2;
 
       const CRect ZeroCRect = { 0,0,0,0,0,0,0,0 };
       const AbsVec ZeroAbsVec = { 0,0 };
-      fgroot_instance->backend.fgDrawResource(0, &ZeroCRect, 0x666666FF, 0, 0.0f, &outer, 0, &ZeroAbsVec, FGRESOURCE_ROUNDRECT, data);
-      fgroot_instance->backend.fgDrawResource(0, &ZeroCRect, 0x6666FFFF, 0, 0.0f, &clip, 0, &ZeroAbsVec, FGRESOURCE_ROUNDRECT, data);
-      fgroot_instance->backend.fgDrawResource(0, &ZeroCRect, 0x6666FF66, 0, 0.0f, &inner, 0, &ZeroAbsVec, FGRESOURCE_ROUNDRECT, data);
+      fgroot_instance->backend.fgDrawAsset(0, &ZeroCRect, 0x666666FF, 0, 0.0f, &outer, 0, &ZeroAbsVec, FGRESOURCE_RECT, data);
+      fgroot_instance->backend.fgDrawAsset(0, &ZeroCRect, 0x6666FFFF, 0, 0.0f, &clip, 0, &ZeroAbsVec, FGRESOURCE_RECT, data);
+      fgroot_instance->backend.fgDrawAsset(0, &ZeroCRect, 0x6666FF66, 0, 0.0f, &inner, 0, &ZeroAbsVec, FGRESOURCE_RECT, data);
       /*if(self->font)
       {
         unsigned int pt, dpi;
@@ -141,27 +175,27 @@ size_t FG_FASTCALL fgDebug_Message(fgDebug* self, const FG_Msg* msg)
   case FG_SETFONT:
     if(self->font) fgroot_instance->backend.fgDestroyFont(self->font);
     self->font = 0;
-    if(msg->other)
+    if(msg->p)
     {
       fgFontDesc desc;
-      fgroot_instance->backend.fgFontGet(msg->other, &desc);
+      fgroot_instance->backend.fgFontGet(msg->p, &desc);
       fgIntVec dpi = self->element.GetDPI();
       bool identical = (dpi.x == desc.dpi.x && dpi.y == desc.dpi.y);
       desc.dpi = dpi;
-      self->font = fgroot_instance->backend.fgCloneFont(msg->other, identical ? 0 : &desc);
+      self->font = fgroot_instance->backend.fgCloneFont(msg->p, identical ? 0 : &desc);
     }
     fgroot_instance->backend.fgDirtyElement(*self);
     return FG_ACCEPT;
   case FG_SETLINEHEIGHT:
-    self->lineheight = msg->otherf;
+    self->lineheight = msg->f;
     fgroot_instance->backend.fgDirtyElement(*self);
     return FG_ACCEPT;
   case FG_SETLETTERSPACING:
-    self->letterspacing = msg->otherf;
+    self->letterspacing = msg->f;
     fgroot_instance->backend.fgDirtyElement(*self);
     return FG_ACCEPT;
   case FG_SETCOLOR:
-    self->color.color = (unsigned int)msg->otherint;
+    self->color.color = (unsigned int)msg->i;
     fgroot_instance->backend.fgDirtyElement(*self);
     return FG_ACCEPT;
   case FG_GETFONT:
@@ -188,7 +222,7 @@ char* fgDebug_CopyText(fgDebug* self, const char* s)
   return ret;
 }
 
-size_t FG_FASTCALL fgTreeItem_DebugMessage(fgTreeItem* self, const FG_Msg* msg)
+size_t fgTreeItem_DebugMessage(fgTreeItem* self, const FG_Msg* msg)
 {
   assert(fgdebug_instance != 0);
   assert(self != 0);
@@ -227,7 +261,7 @@ fgElement* fgDebug_GetElementUnderMouse()
   return hover;
 }
 
-void FG_FASTCALL fgDebug_TreeInsert(fgElement* parent, fgElement* element, fgElement* treeview)
+void fgDebug_TreeInsert(fgElement* parent, fgElement* element, fgElement* treeview)
 {
   assert(fgdebug_instance != 0);
   assert(fgroot_instance != 0);
@@ -261,7 +295,7 @@ void FG_FASTCALL fgDebug_TreeInsert(fgElement* parent, fgElement* element, fgEle
   }
 }
 
-size_t FG_FASTCALL fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
+size_t fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
 {
   assert(fgdebug_instance != 0);
   assert(self != 0);
@@ -370,23 +404,23 @@ size_t FG_FASTCALL fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
   if(index < fgdebug_instance->messagelog.l)
     fgdebug_instance->messagelog.p[index].value = r;
 
-  if(msg->type == FG_REMOVECHILD && msg->other != 0 && !((fgElement*)msg->other)->parent)
+  if(msg->type == FG_REMOVECHILD && msg->e != 0 && !msg->e->parent)
   {
-    fgElement* treeitem = fgDebug_GetTreeItem(fgdebug_instance->elements, (fgElement*)msg->other);
+    fgElement* treeitem = fgDebug_GetTreeItem(fgdebug_instance->elements, msg->e);
     if(treeitem)
       VirtualFreeChild(treeitem);
   }
-  if(msg->type == FG_ADDCHILD && msg->other != 0 && ((fgElement*)msg->other)->parent == self)
+  if(msg->type == FG_ADDCHILD && msg->e != 0 && msg->e->parent == self)
   {
     fgElement* treeitem = fgDebug_GetTreeItem(fgdebug_instance->elements, self);
     if(treeitem)
-      fgDebug_TreeInsert(fgdebug_instance->elements, (fgElement*)msg->other, 0);
+      fgDebug_TreeInsert(fgdebug_instance->elements, msg->e, 0);
   }
 
   return r;
 }
 
-void FG_FASTCALL fgDebug_BuildTree(fgElement* treeview)
+void fgDebug_BuildTree(fgElement* treeview)
 {
   assert(fgroot_instance != 0);
   // Clean out the tree
@@ -402,7 +436,7 @@ void FG_FASTCALL fgDebug_BuildTree(fgElement* treeview)
   fgDebug_TreeInsert(treeview, &fgroot_instance->gui.element, 0);
 }
 
-FG_EXTERN void FG_FASTCALL fgDebug_Show(float left, float right, char overlay)
+FG_EXTERN void fgDebug_Show(float left, float right, char overlay)
 {
   assert(fgroot_instance != 0);
   if(!fgdebug_instance)
@@ -426,7 +460,7 @@ FG_EXTERN void FG_FASTCALL fgDebug_Show(float left, float right, char overlay)
   fgdebug_instance->element.SetFlag(FGELEMENT_HIDDEN, false);
   fgroot_instance->backend.behaviorhook = &fgRoot_BehaviorDebug;
 }
-FG_EXTERN void FG_FASTCALL fgDebug_Hide()
+FG_EXTERN void fgDebug_Hide()
 {
   assert(fgdebug_instance != 0);
   assert(fgdebug_instance != 0);
@@ -437,7 +471,7 @@ FG_EXTERN void FG_FASTCALL fgDebug_Hide()
     fgDebug_ClearLog(fgdebug_instance);
 }
 
-size_t FG_FASTCALL fgDebug_LogMessage(fgDebug* self, const FG_Msg* msg, unsigned long long time, size_t depth)
+size_t fgDebug_LogMessage(fgDebug* self, const FG_Msg* msg, unsigned long long time, size_t depth)
 {
   fgDebugMessage m = { 0 };
   m.type = msg->type;
@@ -449,55 +483,55 @@ size_t FG_FASTCALL fgDebug_LogMessage(fgDebug* self, const FG_Msg* msg, unsigned
   switch(msg->type)
   {
   default:
-    m.arg1.p = msg->other;
-    m.arg2.p = msg->other2;
+    m.arg1.p = msg->p;
+    m.arg2.p = msg->p2;
     break;
   case FG_MOVE:
-    m.arg1.element = (fgElement*)msg->other;
+    m.arg1.element = msg->e;
     m.arg1.name = fgDebug_GetElementName(self, m.arg1.element);
-    m.arg2.p = msg->other2;
+    m.arg2.p = msg->p2;
     break;
   case FG_SETPARENT:
   case FG_ADDITEM:
   case FG_ADDCHILD:
-    m.arg2.element = (fgElement*)msg->other2;
+    m.arg2.element = msg->e2;
     m.arg2.name = fgDebug_GetElementName(self, m.arg2.element);
   case FG_REMOVEITEM:
   case FG_REMOVECHILD:
   case FG_DROP:
   case FG_GETSKIN:
     m.arg1.name = fgDebug_GetElementName(self, m.arg1.element);
-    m.arg1.element = (fgElement*)msg->other;
+    m.arg1.element = msg->e;
     break;
   case FG_SETUV:
   case FG_SETAREA:
-    if(msg->other != nullptr)
-      m.arg1.crect = *(CRect*)msg->other;
+    if(msg->p != nullptr)
+      m.arg1.crect = *(CRect*)msg->p;
     break;
   case FG_SETTRANSFORM:
-    if(msg->other != nullptr)
-      m.arg1.transform = *(fgTransform*)msg->other;
+    if(msg->p != nullptr)
+      m.arg1.transform = *(fgTransform*)msg->p;
     break;
   case FG_SETMARGIN:
-    if(msg->other != nullptr)
-      m.arg1.rect = *(AbsRect*)msg->other;
+    if(msg->p != nullptr)
+      m.arg1.rect = *(AbsRect*)msg->p;
     break;
   case FG_SETPADDING:
-    if(msg->other != nullptr)
-      m.arg1.rect = *(AbsRect*)msg->other;
+    if(msg->p != nullptr)
+      m.arg1.rect = *(AbsRect*)msg->p;
     break;
   case FG_LAYOUTFUNCTION:
-    m.arg1.message = (FG_Msg*)msg->other;
-    if(msg->other2 != nullptr)
-      m.arg2.crect = *(CRect*)msg->other2;
+    m.arg1.message = (FG_Msg*)msg->p;
+    if(msg->p2 != nullptr)
+      m.arg2.crect = *(CRect*)msg->p2;
     break;
   case FG_SETDIM:
-    m.arg1.f = msg->otherf;
-    m.arg2.f = msg->otherfaux;
+    m.arg1.f = msg->f;
+    m.arg2.f = msg->f2;
     break;
   case FG_SETSCALING:
-    m.arg1.f = msg->otherf;
-    m.arg2.f = msg->otherfaux;
+    m.arg1.f = msg->f;
+    m.arg2.f = msg->f2;
     break;
   case FG_MOUSEDOWN:
   case FG_MOUSEDBLCLICK:
@@ -512,30 +546,30 @@ size_t FG_FASTCALL fgDebug_LogMessage(fgDebug* self, const FG_Msg* msg, unsigned
     m.mouse.y = msg->y;
     break;
   case FG_DRAW:
-    if(msg->other != nullptr)
-      m.arg1.rect = *(AbsRect*)msg->other;
-    m.arg2.i = msg->otheraux;
+    if(msg->p != nullptr)
+      m.arg1.rect = *(AbsRect*)msg->p;
+    m.arg2.i = msg->u2;
     break;
   case FG_INJECT:
-    m.arg1.message = (FG_Msg*)msg->other;
-    if(msg->other2 != nullptr)
-      m.arg2.rect = *(AbsRect*)msg->other2;
+    m.arg1.message = (FG_Msg*)msg->p;
+    if(msg->p2 != nullptr)
+      m.arg2.rect = *(AbsRect*)msg->p2;
     break;
   case FG_SETSTYLE:
     if(!msg->subtype)
-      m.arg1.s = fgDebug_CopyText(self, (const char*)msg->other);
+      m.arg1.s = fgDebug_CopyText(self, (const char*)msg->p);
     else
-      m.arg1.p = msg->other;
-    m.arg2.u = msg->otheraux;
+      m.arg1.p = msg->p;
+    m.arg2.u = msg->u2;
     break;
   case FG_SETUSERDATA:
-    m.arg1.p = msg->other;
-    m.arg2.s = fgDebug_CopyText(self, (const char*)msg->other2);
+    m.arg1.p = msg->p;
+    m.arg2.s = fgDebug_CopyText(self, (const char*)msg->p2);
     break;
   case FG_GETUSERDATA:
   case FG_SETTEXT:
   case FG_SETNAME:
-    m.arg1.s = fgDebug_CopyText(self, (const char*)msg->other);
+    m.arg1.s = fgDebug_CopyText(self, (const char*)msg->p);
     break;
   case FG_MOUSESCROLL:
     m.mouse.scrolldelta = msg->scrolldelta;
@@ -587,7 +621,7 @@ const char* _dbg_getstr(const char* s)
 #define OUTPUT_CVEC(r) r.x.abs,r.x.rel,r.y.abs,r.y.rel
 #define OUTPUT_RECT(r) r.left,r.top,r.right,r.bottom
 
-const char* FG_FASTCALL fgDebug_GetMessageString(unsigned short msg)
+const char* fgDebug_GetMessageString(unsigned short msg)
 {
   switch(msg)
   {
@@ -604,7 +638,7 @@ const char* FG_FASTCALL fgDebug_GetMessageString(unsigned short msg)
   case FG_LOSTFOCUS: return "FG_LOSTFOCUS";
   case FG_GETDIM: return "FG_GETDIM";
   case FG_GETITEM: return "FG_GETITEM";
-  case FG_GETRESOURCE: return "FG_GETRESOURCE";
+  case FG_GETASSET: return "FG_GETASSET";
   case FG_GETUV: return "FG_GETUV";
   case FG_GETCOLOR: return "FG_GETCOLOR";
   case FG_GETOUTLINE: return "FG_GETOUTLINE";
@@ -626,7 +660,7 @@ const char* FG_FASTCALL fgDebug_GetMessageString(unsigned short msg)
   case FG_GETSKIN: return "FG_GETSKIN";
   case FG_LAYOUTFUNCTION: return "FG_LAYOUTFUNCTION";
   case FG_LAYOUTLOAD: return "FG_LAYOUTLOAD";
-  case FG_SETRESOURCE: return "FG_SETRESOURCE";
+  case FG_SETASSET: return "FG_SETASSET";
   case FG_SETFONT: return "FG_SETFONT";
   case FG_MOUSEDOWN: return "FG_MOUSEDOWN";
   case FG_MOUSEDBLCLICK: return "FG_MOUSEDBLCLICK";
@@ -673,7 +707,7 @@ const char* FG_FASTCALL fgDebug_GetMessageString(unsigned short msg)
 }
 
 template<typename... Args>
-ptrdiff_t FG_FASTCALL fgDebug_WriteMessageFn(fgDebugMessage* msg, int(*fn) (Args..., const char *, ...), Args... args)
+ptrdiff_t fgDebug_WriteMessageFn(fgDebugMessage* msg, int(*fn) (Args..., char const* const, ...), Args... args)
 {
   int spaces = (int)(msg->depth * 2);
 
@@ -705,8 +739,8 @@ ptrdiff_t FG_FASTCALL fgDebug_WriteMessageFn(fgDebugMessage* msg, int(*fn) (Args
     return (*fn)(args..., "%*sFG_GETDIM:%hhu()", spaces, "", msg->subtype);
   case FG_GETITEM:
     return (*fn)(args..., "%*sFG_GETITEM() - 0x%p", spaces, "", msg->valuep);
-  case FG_GETRESOURCE:
-    return (*fn)(args..., "%*sFG_GETRESOURCE() - 0x%p", spaces, "", msg->valuep);
+  case FG_GETASSET:
+    return (*fn)(args..., "%*sFG_GETASSET() - 0x%p", spaces, "", msg->valuep);
   case FG_GETUV:
     //return (*fn)(args..., "%*sFG_GETUV() - CRect{%f,%f,%f,%f,%f,%f,%f,%f}", spaces, "");
     return (*fn)(args..., "%*sFG_GETUV() - CRect", spaces, "");
@@ -753,8 +787,8 @@ ptrdiff_t FG_FASTCALL fgDebug_WriteMessageFn(fgDebugMessage* msg, int(*fn) (Args
     return (*fn)(args..., "%*sFG_LAYOUTFUNCTION(0x%p, CRect{%f,%f,%f,%f,%f,%f,%f,%f})", spaces, "", msg->arg1.p, OUTPUT_CRECT(msg->arg2.crect));
   case FG_LAYOUTLOAD:
     return (*fn)(args..., "%*sFG_LAYOUTLOAD(0x%p)", spaces, "", msg->arg1.p);
-  case FG_SETRESOURCE:
-    return (*fn)(args..., "%*sFG_SETRESOURCE(0x%p)", spaces, "", msg->arg1.p);
+  case FG_SETASSET:
+    return (*fn)(args..., "%*sFG_SETASSET(0x%p)", spaces, "", msg->arg1.p);
   case FG_SETFONT:
     return (*fn)(args..., "%*sFG_SETFONT(0x%p)", spaces, "", msg->arg1.p);
   case FG_MOUSEDOWN:
@@ -844,12 +878,12 @@ ptrdiff_t FG_FASTCALL fgDebug_WriteMessageFn(fgDebugMessage* msg, int(*fn) (Args
   return 0;
 }
 
-ptrdiff_t FG_FASTCALL fgDebug_WriteMessage(fgDebugMessage* msg, char* buf, size_t bufsize)
+ptrdiff_t fgDebug_WriteMessage(fgDebugMessage* msg, char* buf, size_t bufsize)
 {
-  return fgDebug_WriteMessageFn<char*, size_t>(msg, &snprintf, buf, bufsize);
+  return fgDebug_WriteMessageFn<char* const, size_t>(msg, &snprintf, buf, bufsize);
 }
 
-void FG_FASTCALL fgDebug_DumpMessages(fgDebug* self, const char* file)
+void fgDebug_DumpMessages(fgDebug* self, const char* file)
 {
   FILE* f;
   FOPEN(f, file, "wb");

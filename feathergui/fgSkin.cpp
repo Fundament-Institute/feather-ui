@@ -26,13 +26,13 @@ static_assert(sizeof(fgClassLayoutArray) == sizeof(fgVector), "mismatch between 
 
 using namespace bss_util;
 
-void FG_FASTCALL fgSkin_Init(fgSkin* self)
+void fgSkin_Init(fgSkin* self)
 {
   memset(self, 0, sizeof(fgSkin));
 }
 
-template<class HASH, class T, void (MSC_FASTCALL *GCC_FASTCALL DESTROY)(T*), void(*DEL)(HASH*, khint_t)>
-char FG_FASTCALL DestroyHashElement(HASH* self, khiter_t iter)
+template<class HASH, class T, void (*DESTROY)(T*), void(*DEL)(HASH*, khint_t)>
+char DestroyHashElement(HASH* self, khiter_t iter)
 {
   if(kh_exist(self, iter))
   {
@@ -45,8 +45,8 @@ char FG_FASTCALL DestroyHashElement(HASH* self, khiter_t iter)
   return 0;
 }
 
-template<class HASH, class T, void(MSC_FASTCALL *GCC_FASTCALL DESTROYELEM)(T*), void(*DEL)(HASH*, khint_t), void(*DESTROYHASH)(HASH*)>
-void FG_FASTCALL DestroyHash(HASH* self)
+template<class HASH, class T, void(*DESTROYELEM)(T*), void(*DEL)(HASH*, khint_t), void(*DESTROYHASH)(HASH*)>
+void DestroyHash(HASH* self)
 {
   if(self)
   {
@@ -55,14 +55,14 @@ void FG_FASTCALL DestroyHash(HASH* self)
     (*DESTROYHASH)(self);
   }
 }
-void FG_FASTCALL fgSkinBase_Destroy(fgSkinBase* self)
+void fgSkinBase_Destroy(fgSkinBase* self)
 {
   reinterpret_cast<fgResourceArray&>(self->resources).~cDynArray();
   reinterpret_cast<fgFontArray&>(self->fonts).~cDynArray();
   DestroyHash<kh_fgSkins_t, fgSkin, &fgSkin_Destroy, &kh_del_fgSkins, &kh_destroy_fgSkins>(self->skinmap);
 }
 
-void FG_FASTCALL fgSkin_Destroy(fgSkin* self)
+void fgSkin_Destroy(fgSkin* self)
 {
   fgStyle_Destroy(&self->style);
   reinterpret_cast<fgStyleLayoutArray&>(self->children).~cArraySort();
@@ -81,20 +81,20 @@ void FG_FASTCALL fgSkin_Destroy(fgSkin* self)
 
   fgSkinBase_Destroy(&self->base);
 }
-size_t FG_FASTCALL fgSkin_AddChild(fgSkin* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order)
+size_t fgSkin_AddChild(fgSkin* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order)
 {
   return ((fgStyleLayoutArray&)self->children).Insert(fgStyleLayoutConstruct(type, name, flags, transform, units, order));
 }
-char FG_FASTCALL fgSkin_RemoveChild(fgSkin* self, FG_UINT child)
+char fgSkin_RemoveChild(fgSkin* self, FG_UINT child)
 {
   return DynArrayRemove((fgFontArray&)self->children, child);
 }
-fgStyleLayout* FG_FASTCALL fgSkin_GetChild(const fgSkin* self, FG_UINT child)
+fgStyleLayout* fgSkin_GetChild(const fgSkin* self, FG_UINT child)
 {
   return self->children.p + child;
 }
 
-FG_UINT FG_FASTCALL fgSkin_AddStyle(fgSkin* self, const char* name)
+FG_UINT fgSkin_AddStyle(fgSkin* self, const char* name)
 {
   if(!self->styles)
     self->styles = kh_init_fgStyleInt();
@@ -118,7 +118,7 @@ FG_UINT FG_FASTCALL fgSkin_AddStyle(fgSkin* self, const char* name)
     kh_val(self->styles, i).styles = 0;
   return style;
 }
-char FG_FASTCALL fgSkin_RemoveStyle(fgSkin* self, FG_UINT style)
+char fgSkin_RemoveStyle(fgSkin* self, FG_UINT style)
 {
   khiter_t i = kh_get_fgStyleInt(self->styles, style);
   if(i < kh_end(self->styles) && kh_exist(self->styles, i))
@@ -129,14 +129,14 @@ char FG_FASTCALL fgSkin_RemoveStyle(fgSkin* self, FG_UINT style)
   }
   return 0;
 }
-fgStyle* FG_FASTCALL fgSkin_GetStyle(const fgSkin* self, FG_UINT style)
+fgStyle* fgSkin_GetStyle(const fgSkin* self, FG_UINT style)
 {
   if(!self->styles) return 0;
   khiter_t i = kh_get_fgStyleInt(self->styles, style);
   return (i < kh_end(self->styles) && kh_exist(self->styles, i)) ? (self->styles->vals + i) : 0;
 }
 
-fgSkin* FG_FASTCALL fgSkin_GetSkin(const fgSkin* self, const char* name)
+fgSkin* fgSkin_GetSkin(const fgSkin* self, const char* name)
 {
   if(!self || !name)
     return 0;
@@ -144,31 +144,31 @@ fgSkin* FG_FASTCALL fgSkin_GetSkin(const fgSkin* self, const char* name)
   return !r ? fgSkin_GetSkin(self->inherit, name) : r;
 }
 
-size_t FG_FASTCALL fgSkinBase_AddResource(fgSkinBase* self, void* resource)
+size_t fgSkinBase_AddAsset(fgSkinBase* self, void* resource)
 {
   return ((fgResourceArray&)self->resources).Add(resource);
 }
-char FG_FASTCALL fgSkinBase_RemoveResource(fgSkinBase* self, FG_UINT resource)
+char fgSkinBase_RemoveAsset(fgSkinBase* self, FG_UINT resource)
 {
   return DynArrayRemove((fgResourceArray&)self->resources, resource);
 }
-void* FG_FASTCALL fgSkinBase_GetResource(const fgSkinBase* self, FG_UINT resource)
+void* fgSkinBase_GetAsset(const fgSkinBase* self, FG_UINT resource)
 {
   return DynGet<fgResourceArray>(self->resources, resource).ref;
 }
-size_t FG_FASTCALL fgSkinBase_AddFont(fgSkinBase* self, void* font)
+size_t fgSkinBase_AddFont(fgSkinBase* self, void* font)
 {
   return ((fgFontArray&)self->fonts).Add(font);
 }
-char FG_FASTCALL fgSkinBase_RemoveFont(fgSkinBase* self, FG_UINT font)
+char fgSkinBase_RemoveFont(fgSkinBase* self, FG_UINT font)
 {
   return DynArrayRemove((fgFontArray&)self->fonts, font);
 }
-void* FG_FASTCALL fgSkinBase_GetFont(const fgSkinBase* self, FG_UINT font)
+void* fgSkinBase_GetFont(const fgSkinBase* self, FG_UINT font)
 {
   return DynGet<fgFontArray>(self->fonts, font).ref;
 }
-fgSkin* FG_FASTCALL fgSkinBase_AddSkin(fgSkinBase* self, const char* name)
+fgSkin* fgSkinBase_AddSkin(fgSkinBase* self, const char* name)
 {
   if(!self->skinmap)
     self->skinmap = kh_init_fgSkins();
@@ -186,14 +186,14 @@ fgSkin* FG_FASTCALL fgSkinBase_AddSkin(fgSkinBase* self, const char* name)
 
   return kh_val(self->skinmap, iter);
 }
-char FG_FASTCALL fgSkinBase_RemoveSkin(fgSkinBase* self, const char* name)
+char fgSkinBase_RemoveSkin(fgSkinBase* self, const char* name)
 {
   if(!self->skinmap || !name)
     return 0;
 
   return DestroyHashElement<struct __kh_fgSkins_t, fgSkin, &fgSkin_Destroy, &kh_del_fgSkins>(self->skinmap, kh_get(fgSkins, self->skinmap, name));
 }
-fgSkin* FG_FASTCALL fgSkinBase_GetSkin(const fgSkinBase* self, const char* name)
+fgSkin* fgSkinBase_GetSkin(const fgSkinBase* self, const char* name)
 {
   if(!self || !name || !self->skinmap)
     return 0;
@@ -201,7 +201,7 @@ fgSkin* FG_FASTCALL fgSkinBase_GetSkin(const fgSkinBase* self, const char* name)
   return (iter != kh_end(self->skinmap) && kh_exist(self->skinmap, iter)) ? kh_val(self->skinmap, iter) : 0;
 }
 
-void FG_FASTCALL fgStyleLayout_Init(fgStyleLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order)
+void fgStyleLayout_Init(fgStyleLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order)
 {
   self->type = fgCopyText(type, __FILE__, __LINE__);
   self->name = fgCopyText(name, __FILE__, __LINE__);
@@ -212,7 +212,7 @@ void FG_FASTCALL fgStyleLayout_Init(fgStyleLayout* self, const char* type, const
   self->order = order;
   fgStyle_Init(&self->style);
 }
-void FG_FASTCALL fgStyleLayout_Destroy(fgStyleLayout* self)
+void fgStyleLayout_Destroy(fgStyleLayout* self)
 {
   if(self->type) fgfree(self->type, __FILE__, __LINE__);
   if(self->name) fgfree(self->name, __FILE__, __LINE__);
@@ -220,7 +220,7 @@ void FG_FASTCALL fgStyleLayout_Destroy(fgStyleLayout* self)
   fgStyle_Destroy(&self->style);
 }
 
-int FG_FASTCALL fgStyle_LoadUnit(const char* str, size_t len)
+int fgStyle_LoadUnit(const char* str, size_t len)
 {
   int flags = FGUNIT_DP;
   if(!len) len = strlen(str);
@@ -237,7 +237,7 @@ int FG_FASTCALL fgStyle_LoadUnit(const char* str, size_t len)
   return flags;
 }
 
-int FG_FASTCALL fgStyle_LoadCoord(const char* attribute, size_t len, Coord& coord)
+int fgStyle_LoadCoord(const char* attribute, size_t len, Coord& coord)
 {
   coord = Coord { 0, 0 };
   if(!attribute) return 0;
@@ -260,7 +260,7 @@ int FG_FASTCALL fgStyle_LoadCoord(const char* attribute, size_t len, Coord& coor
   coord.abs = (FABS)atof(attribute);
   return fgStyle_LoadUnit(attribute, first);
 }
-int FG_FASTCALL fgStyle_LoadAbsRect(const char* attribute, AbsRect& r)
+int fgStyle_LoadAbsRect(const char* attribute, AbsRect& r)
 {
   size_t len = strlen(attribute) + 1;
   DYNARRAY(char, buf, len);
@@ -281,7 +281,7 @@ int FG_FASTCALL fgStyle_LoadAbsRect(const char* attribute, AbsRect& r)
     (fgStyle_LoadUnit(s3, 0) << FGUNIT_BOTTOM);
 }
 
-int FG_FASTCALL fgStyle_LoadAbsVec(const char* attribute, AbsVec& r)
+int fgStyle_LoadAbsVec(const char* attribute, AbsVec& r)
 {
   size_t len = strlen(attribute) + 1;
   DYNARRAY(char, buf, len);
@@ -296,7 +296,7 @@ int FG_FASTCALL fgStyle_LoadAbsVec(const char* attribute, AbsVec& r)
     (fgStyle_LoadUnit(s1, 0) << FGUNIT_Y);
 }
 
-int FG_FASTCALL fgStyle_LoadCRect(const char* attribute, CRect& r)
+int fgStyle_LoadCRect(const char* attribute, CRect& r)
 {
   size_t len = strlen(attribute) + 1;
   DYNARRAY(char, buf, len);
@@ -313,7 +313,7 @@ int FG_FASTCALL fgStyle_LoadCRect(const char* attribute, CRect& r)
     (fgStyle_LoadCoord(s3, 0, r.bottom) << FGUNIT_BOTTOM);
 }
 
-int FG_FASTCALL fgStyle_LoadCVec(const char* attribute, CVec& v)
+int fgStyle_LoadCVec(const char* attribute, CVec& v)
 {
   size_t len = strlen(attribute) + 1;
   DYNARRAY(char, buf, len);
@@ -324,7 +324,7 @@ int FG_FASTCALL fgStyle_LoadCVec(const char* attribute, CVec& v)
   return (fgStyle_LoadCoord(s0, 0, v.x) << FGUNIT_X) | (fgStyle_LoadCoord(s1, 0, v.y) << FGUNIT_Y);
 }
 
-int FG_FASTCALL fgStyle_NodeEvalTransform(const cXMLNode* node, fgTransform& t)
+int fgStyle_NodeEvalTransform(const cXMLNode* node, fgTransform& t)
 {
   static cTrie<uint16_t, true> attr(9, "area", "center", "rotation", "left", "top", "right", "bottom", "width", "height");
   int flags = 0;
@@ -376,7 +376,7 @@ int FG_FASTCALL fgStyle_NodeEvalTransform(const cXMLNode* node, fgTransform& t)
   return flags;
 }
 
-void FG_FASTCALL fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, fgSkinBase* root, const char* path, char** id, fgKeyValueArray* userdata)
+void fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, fgSkinBase* root, const char* path, char** id, fgKeyValueArray* userdata)
 {
   static cTrie<uint16_t, true> t(44, "id", "min-width", "min-height", "max-width", "max-height", "skin", "alpha", "margin", "padding", "text",
     "placeholder", "color", "placecolor", "cursorcolor", "selectcolor", "hovercolor", "dragcolor", "edgecolor", "font", "lineheight",
@@ -425,13 +425,13 @@ void FG_FASTCALL fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, i
     {
       fgSkin* skin = fgSkinBase_GetSkin(root, attr->String);
       if(!skin) // Attempt loading it as an absolute XML path
-        skin = fgSkins_LoadFileXML(root, attr->String);
+        skin = fgSkinBase_LoadFileXML(root, attr->String);
       if(!skin) // relative XML path
-        skin = fgSkins_LoadFileXML(root, cStr(path) + attr->String);
+        skin = fgSkinBase_LoadFileXML(root, cStr(path) + attr->String);
       if(!skin) // absolute UBJSON path
-        skin = fgSkins_LoadFileUBJSON(root, attr->String);
+        skin = fgSkinBase_LoadFileUBJSON(root, attr->String);
       if(!skin) // relative UBJSON path
-        skin = fgSkins_LoadFileUBJSON(root, cStr(path) + attr->String);
+        skin = fgSkinBase_LoadFileUBJSON(root, cStr(path) + attr->String);
       if(skin)
         AddStyleMsg<FG_SETSKIN, void*>(self, skin);
     }
@@ -458,7 +458,7 @@ void FG_FASTCALL fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, i
     {
       FG_Msg msg = { 0 };
       msg.type = FG_SETTEXT;
-      msg.subtype = ((ID == 9) ? FGSETTEXT_UTF8 : FGSETTEXT_PLACEHOLDER_UTF8);
+      msg.subtype = ((ID == 9) ? FGTEXTFMT_UTF8 : FGTEXTFMT_PLACEHOLDER_UTF8);
       fgStyle_AddStyleMsg(self, &msg, attr->String.c_str(), attr->String.length() + 1, 0, 0);
       break;
     }
@@ -544,8 +544,8 @@ void FG_FASTCALL fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, i
     }
     case 23: // resource
     {
-      FG_UINT res = (FG_UINT)fgSkinBase_AddResource(root, fgCreateResourceFile(flags, attr->String));
-      AddStyleMsg<FG_SETRESOURCE, void*>(self, fgSkinBase_GetResource(root, res));
+      FG_UINT res = (FG_UINT)fgSkinBase_AddAsset(root, fgCreateAssetFile(flags, attr->String));
+      AddStyleMsg<FG_SETASSET, void*>(self, fgSkinBase_GetAsset(root, res));
       break;
     }
     case 24: // outline
@@ -610,7 +610,7 @@ fgFlag fgSkinBase_GetFlagsFromString(const char* s, fgFlag* remove)
   static cTrie<uint16_t, true> t(54, "BACKGROUND", "NOCLIP", "IGNORE", "HIDDEN", "EXPANDX", "EXPANDY", "DISABLE", "SNAPX", "SNAPY", "HIDEH",
     "HIDEV", "SHOWH", "SHOWV", "IGNOREMARGINEDGEX", "IGNOREMARGINEDGEY", "TILEX", "TILEY", "DISTRIBUTEX", "DISTRIBUTEY", "FIXEDSIZE", "SINGLESELECT", "MULTISELECT",
     "DRAGGABLE", "HIDEH", "HIDEV", "SHOWH", "SHOWV", "CHARWRAP", "WORDWRAP", "ELLIPSES", "RTL", "RIGHTALIGN", "CENTER", "SUBPIXEL", "ACTION",
-    "SINGLELINE", "NOFOCUS", "ROUNDRECT", "CIRCLE", "LINE", "QUADRATIC", "CUBIC", "BSPLINE", "MINIMIZABLE", "MAXIMIZABLE", "RESIZABLE",
+    "SINGLELINE", "NOFOCUS", "RECT", "CIRCLE", "LINE", "QUADRATIC", "CUBIC", "BSPLINE", "MINIMIZABLE", "MAXIMIZABLE", "RESIZABLE",
     "NOTITLEBAR", "NOBORDER", "EXPAND", "SNAP", "TILE", "DISTRIBUTE", "TRIANGLE", "IGNOREMARGINEDGE");
 
   if(!s)
@@ -648,7 +648,7 @@ fgFlag fgSkinBase_GetFlagsFromString(const char* s, fgFlag* remove)
       case 34: f = FGTEXTBOX_ACTION;  break;
       case 35: f = FGTEXTBOX_SINGLELINE;  break;
       case 36: f = FGBUTTON_NOFOCUS;  break;
-      case 37: f = FGRESOURCE_ROUNDRECT;  break;
+      case 37: f = FGRESOURCE_RECT;  break;
       case 38: f = FGRESOURCE_CIRCLE;  break;
       case 39: f = FGCURVE_LINE;  break;
       case 40: f = FGCURVE_QUADRATIC;  break;
@@ -689,7 +689,7 @@ fgSkin* fgSkinBase_GetInherit(fgSkinBase* self, const char* inherit)
   }
   return r;
 }
-void FG_FASTCALL fgSkins_LoadSubNodeXML(fgSkin* self, const cXMLNode* cur)
+void fgSkinBase_LoadSubNodeXML(fgSkin* self, const cXMLNode* cur)
 {
   fgFlag rootflags = fgSkinBase_GetFlagsFromString(cur->GetAttributeString("flags"), 0);
   if(rootflags&(~FGELEMENT_USEDEFAULTS))
@@ -706,7 +706,7 @@ void FG_FASTCALL fgSkins_LoadSubNodeXML(fgSkin* self, const cXMLNode* cur)
   {
     const cXMLNode* node = cur->GetNode(i);
     if(!STRICMP(node->GetName(), "skin"))
-      fgSkins_LoadNodeXML(&self->base, node);
+      fgSkinBase_LoadNodeXML(&self->base, node);
     else if(!STRICMP(node->GetName(), "style"))
     {
       FG_UINT style = fgSkin_AddStyle(self, node->GetAttributeString("name"));
@@ -730,7 +730,7 @@ void FG_FASTCALL fgSkins_LoadSubNodeXML(fgSkin* self, const cXMLNode* cur)
   }
 }
 
-fgSkin* FG_FASTCALL fgSkins_LoadNodeXML(fgSkinBase* self, const cXMLNode* root)
+fgSkin* fgSkinBase_LoadNodeXML(fgSkinBase* self, const cXMLNode* root)
 {
   const char* id = root->GetAttributeString("id");
   if(!id)
@@ -738,11 +738,11 @@ fgSkin* FG_FASTCALL fgSkins_LoadNodeXML(fgSkinBase* self, const cXMLNode* root)
   if(!id)
      return 0;
   fgSkin* s = fgSkinBase_AddSkin(self, id);
-  fgSkins_LoadSubNodeXML(s, root);
+  fgSkinBase_LoadSubNodeXML(s, root);
   return s;
 }
 
-fgSkin* FG_FASTCALL fgSkins_LoadStreamXML(fgSkinBase* self, std::istream& s)
+fgSkin* fgSkinBase_LoadStreamXML(fgSkinBase* self, std::istream& s)
 {
   cXML xml(s);
   size_t index = 0;
@@ -752,26 +752,51 @@ fgSkin* FG_FASTCALL fgSkins_LoadStreamXML(fgSkinBase* self, std::istream& s)
   while(root = xml.GetNode(index++))
   {
     if(!STRICMP(root->GetName(), "fg:skin"))
-      ret = fgSkins_LoadNodeXML(self, root);
+      ret = fgSkinBase_LoadNodeXML(self, root);
   }
 
   return ret;
 }
 
-fgSkin* FG_FASTCALL fgSkins_LoadFileXML(fgSkinBase* self, const char* file)
+fgSkin* fgSkinBase_LoadFileXML(fgSkinBase* self, const char* file)
 {
-  return fgSkins_LoadStreamXML(self, std::ifstream(file, std::ios_base::in));
+  std::ifstream s(file, std::ios_base::in);
+  return fgSkinBase_LoadStreamXML(self, s);
 }
-fgSkin* FG_FASTCALL fgSkins_LoadXML(fgSkinBase* self, const char* data, FG_UINT length)
+fgSkin* fgSkinBase_LoadXML(fgSkinBase* self, const char* data, FG_UINT length)
 {
-  return fgSkins_LoadStreamXML(self, std::stringstream(std::string(data, length)));
+  std::istringstream s(std::string(data, length));
+  return fgSkinBase_LoadStreamXML(self, s);
 }
 
-fgSkin* FG_FASTCALL fgSkins_LoadFileUBJSON(fgSkinBase* self, const char* file)
+fgSkin* fgSkinBase_LoadFileUBJSON(fgSkinBase* self, const char* file)
 {
   return 0;
 }
-fgSkin* FG_FASTCALL fgSkins_LoadUBJSON(fgSkinBase* self, const void* data, FG_UINT length)
+fgSkin* fgSkinBase_LoadUBJSON(fgSkinBase* self, const void* data, FG_UINT length)
 {
   return 0;
 }
+
+fgSkin* fgSkinBase::AddSkin(const char* name) { return fgSkinBase_AddSkin(this, name); }
+char fgSkinBase::RemoveSkin(const char* name) { return fgSkinBase_RemoveSkin(this, name); }
+fgSkin* fgSkinBase::GetSkin(const char* name) const { return fgSkinBase_GetSkin(this, name); }
+size_t fgSkinBase::AddAsset(void* resource) { return fgSkinBase_AddAsset(this, resource); }
+char fgSkinBase::RemoveAsset(FG_UINT resource) { return fgSkinBase_RemoveAsset(this, resource); }
+void* fgSkinBase::GetAsset(FG_UINT resource) const { return fgSkinBase_GetAsset(this, resource); }
+size_t fgSkinBase::AddFont(void* font) { return fgSkinBase_AddFont(this, font); }
+char fgSkinBase::RemoveFont(FG_UINT font) { return fgSkinBase_RemoveFont(this, font); }
+void* fgSkinBase::GetFont(FG_UINT font) const { return fgSkinBase_GetFont(this, font); }
+
+fgSkin* fgSkinBase::LoadFileUBJSON(const char* file) { return fgSkinBase_LoadFileUBJSON(this, file); }
+fgSkin* fgSkinBase::LoadUBJSON(const void* data, FG_UINT length) { return fgSkinBase_LoadUBJSON(this, data, length); }
+fgSkin* fgSkinBase::LoadFileXML(const char* file) { return fgSkinBase_LoadFileXML(this, file); }
+fgSkin* fgSkinBase::LoadXML(const char* data, FG_UINT length) { return fgSkinBase_LoadXML(this, data, length); }
+
+size_t fgSkin::AddChild(const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order) { return fgSkin_AddChild(this, type, name, flags, transform, units, order); }
+char fgSkin::RemoveChild(FG_UINT child) { return fgSkin_RemoveChild(this, child); }
+fgStyleLayout* fgSkin::GetChild(FG_UINT child) const { return fgSkin_GetChild(this, child); }
+FG_UINT fgSkin::AddStyle(const char* name) { return fgSkin_AddStyle(this, name); }
+char fgSkin::RemoveStyle(FG_UINT style) { return fgSkin_RemoveStyle(this, style); }
+fgStyle* fgSkin::GetStyle(FG_UINT style) const { return fgSkin_GetStyle(this, style); }
+fgSkin* fgSkin::GetSkin(const char* name) const { return fgSkin_GetSkin(this, name); }

@@ -21,7 +21,8 @@ enum FGTEXT_FLAGS // these start at (1 << 13) so they don't intersect the scroll
   FGTEXT_SUBPIXEL = (1 << 19), // Indicates this text should try to render with LCD subpixel hinting.
 };
 
-typedef fgDeclareVector(char, String) fgVectorString;
+typedef fgDeclareVector(char, UTF8) fgVectorUTF8;
+typedef fgDeclareVector(wchar_t, UTF16) fgVectorUTF16;
 typedef fgDeclareVector(int, UTF32) fgVectorUTF32;
 
 typedef struct _FG_FONT_DESC {
@@ -35,9 +36,10 @@ typedef struct _FG_FONT_DESC {
 // fgText stores a string and renders it according to the font and fontcolor that it has.
 typedef struct _FG_TEXT {
   fgElement element;
-  fgVectorUTF32 text;
-  fgVectorString buf;
-  void* font;
+  fgVectorUTF32 text32;
+  fgVectorUTF16 text16;
+  fgVectorUTF8 text8;
+  fgFont font;
   void* layout;
   fgColor color;
   float lineheight;
@@ -48,11 +50,11 @@ typedef struct _FG_TEXT {
 #endif
 } fgText;
 
-FG_EXTERN fgElement* FG_FASTCALL fgText_Create(char* text, void* font, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
-FG_EXTERN void FG_FASTCALL fgText_Init(fgText* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
-FG_EXTERN void FG_FASTCALL fgText_Destroy(fgText* self);
-FG_EXTERN size_t FG_FASTCALL fgText_Message(fgText* self, const FG_Msg* msg);
-FG_EXTERN void FG_FASTCALL fgText_Recalc(fgText* self);
+FG_EXTERN fgElement* fgText_Create(char* text, fgFont font, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
+FG_EXTERN void fgText_Init(fgText* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
+FG_EXTERN void fgText_Destroy(fgText* self);
+FG_EXTERN size_t fgText_Message(fgText* self, const FG_Msg* msg);
+FG_EXTERN void fgText_Recalc(fgText* self);
 
 #ifdef  __cplusplus
 }

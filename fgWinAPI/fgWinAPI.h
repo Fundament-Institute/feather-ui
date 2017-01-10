@@ -82,17 +82,17 @@ extern "C" {
   // WndProc message translation function used by all statics
   FG_EXTERN ptrdiff_t BSS_COMPILER_STDCALL fgStaticWndProc(void* hWnd, unsigned int message, size_t wParam, ptrdiff_t lParam);
   // Supplementary fgInitialize function
-  FG_EXTERN fgRoot* FG_FASTCALL WinAPIfgInitialize(void* instance);
+  FG_EXTERN fgRoot* WinAPIfgInitialize(void* instance);
   // WinAPI destroy function
-  FG_EXTERN void FG_FASTCALL WinAPIfgWindow_Destroy(fgWindow* self);
+  FG_EXTERN void WinAPIfgWindow_Destroy(fgWindow* self);
   // WinAPI default behavior function
-  //FG_EXTERN char FG_FASTCALL WinAPIfgRoot_Behavior(fgWindow* self, const FG_Msg* msg);
+  //FG_EXTERN char WinAPIfgRoot_Behavior(fgWindow* self, const FG_Msg* msg);
   // UTF8 to UTF16 conversion wrapper. Free t after you finish with it.
-  FG_EXTERN void FG_FASTCALL WinAPIutf8to16(wchar_t** t, const char* src);
+  FG_EXTERN void WinAPIutf8to16(wchar_t** t, const char* src);
   // FG_MOVE response function
-  FG_EXTERN void FG_FASTCALL WinAPI_FG_MOVE(WinAPIfgWindow* self);
-  FG_EXTERN fgStatic* FG_FASTCALL WinAPIfgText_Clone(WinAPIfgText* self);
-  FG_EXTERN fgStatic* FG_FASTCALL WinAPIfgImage_Clone(WinAPIfgImage* self);
+  FG_EXTERN void WinAPI_FG_MOVE(WinAPIfgWindow* self);
+  FG_EXTERN fgStatic* WinAPIfgText_Clone(WinAPIfgText* self);
+  FG_EXTERN fgStatic* WinAPIfgImage_Clone(WinAPIfgImage* self);
   
   typedef struct {
     fgRoot root;

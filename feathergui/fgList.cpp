@@ -10,12 +10,12 @@
 static const char* FGSTR_LISTITEM = "ListItem";
 typedef bss_util::cArraySort<fgElement*> fgElementArray;
 
-void FG_FASTCALL fgListItem_Init(fgControl* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgListItem_Init(fgControl* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
   fgElement_InternalSetup(*self, parent, next, name, (flags&FGELEMENT_USEDEFAULTS) ? (FGBOX_TILEY | FGELEMENT_EXPANDY) : flags, transform, units, (fgDestroy)&fgElement_Destroy, (fgMessage)&fgListItem_Message);
 }
 
-size_t FG_FASTCALL fgListItem_Message(fgControl* self, const FG_Msg* msg)
+size_t fgListItem_Message(fgControl* self, const FG_Msg* msg)
 {
   switch(msg->type)
   {
@@ -47,13 +47,14 @@ size_t FG_FASTCALL fgListItem_Message(fgControl* self, const FG_Msg* msg)
   return fgControl_HoverMessage(self, msg);
 }
 
-void FG_FASTCALL fgList_Init(fgList* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgList_Init(fgList* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgList_Destroy, (fgMessage)&fgList_Message);
 }
-void FG_FASTCALL fgList_Destroy(fgList* self)
+void fgList_Destroy(fgList* self)
 {
   ((fgElementArray&)self->selected).~cArraySort();
+  self->box->message = (fgMessage)fgBox_Message;
   fgBox_Destroy(&self->box);
 }
 void fgList_Draw(fgElement* self, const AbsRect* area, const fgDrawAuxData* data)
@@ -65,7 +66,8 @@ void fgList_Draw(fgElement* self, const AbsRect* area, const fgDrawAuxData* data
     {
       AbsRect r;
       ResolveRectCache(realself->selected.p[i], &r, area, (realself->selected.p[i]->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
-      fgroot_instance->backend.fgDrawResource(0, &CRect_EMPTY, realself->select.color, 0, 0.0f, &r, 0.0f, &AbsVec_EMPTY, FGRESOURCE_ROUNDRECT, data);
+      fgSnapAbsRect(r, self->flags);
+      fgroot_instance->backend.fgDrawAsset(0, &CRect_EMPTY, realself->select.color, 0, 0.0f, &r, 0.0f, &AbsVec_EMPTY, FGRESOURCE_RECT, data);
     }
   }
 
@@ -77,6 +79,7 @@ void fgList_Draw(fgElement* self, const AbsRect* area, const fgDrawAuxData* data
     { // TODO: make this work with lists growing along x-axis
       AbsRect r;
       ResolveRectCache(target, &r, (AbsRect*)&cache, (target->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
+      fgSnapAbsRect(r, self->flags);
       float y = (realself->mouse.y > ((r.top + r.bottom) * 0.5f)) ? r.bottom : r.top;
       AbsVec line[2] = { { r.left, y }, { r.right - 1, y } };
       const AbsVec FULLVEC = { 1,1 };
@@ -91,7 +94,8 @@ void fgList_Draw(fgElement* self, const AbsRect* area, const fgDrawAuxData* data
     {
       AbsRect r;
       ResolveRectCache(target, &r, &cache, (target->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
-      fgroot_instance->backend.fgDrawResource(0, &CRect_EMPTY, realself->hover.color, 0, 0.0f, &r, 0.0f, &AbsVec_EMPTY, FGRESOURCE_ROUNDRECT, data);
+      fgSnapAbsRect(r, self->flags);
+      fgroot_instance->backend.fgDrawAsset(0, &CRect_EMPTY, realself->hover.color, 0, 0.0f, &r, 0.0f, &AbsVec_EMPTY, FGRESOURCE_RECT, data);
     }
   }
 }
@@ -122,9 +126,9 @@ fgElement* fgList_GetSplit(fgList* self, const FG_Msg* msg)
   return 0;
 }
 
-size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
+size_t fgList_Message(fgList* self, const FG_Msg* msg)
 {
-  ptrdiff_t otherint = msg->otherint;
+  ptrdiff_t otherint = msg->i;
   fgFlag flags = self->box->flags;
 
   switch(msg->type)
@@ -187,20 +191,16 @@ size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
     fgUpdateMouseState(&self->mouse, msg);
     if(self->split) // check if we are actively dragging a splitter
     {
-      fgRoot_SetCursor((self->box->flags&FGBOX_TILEX) ? FGCURSOR_RESIZEWE : FGCURSOR_RESIZENS, 0);
       CRect area = self->split->transform.area;
       if(self->box->flags&FGBOX_TILEX)
         area.right.abs = std::max(area.left.abs, self->splitedge + (msg->x - self->splitmouse));
       else
         area.bottom.abs = std::max(area.top.abs, self->splitedge + (msg->y - self->splitmouse));
       self->split->SetArea(area);
-      return FG_ACCEPT;
+      return (self->box->flags&FGBOX_TILEX) ? FGCURSOR_RESIZEWE : FGCURSOR_RESIZENS;
     }
     if(fgList_GetSplit(self, msg) != 0)
-    {
-      fgRoot_SetCursor((self->box->flags&FGBOX_TILEX) ? FGCURSOR_RESIZEWE : FGCURSOR_RESIZENS, 0);
-      return FG_ACCEPT;
-    }
+      return (self->box->flags&FGBOX_TILEX) ? FGCURSOR_RESIZEWE : FGCURSOR_RESIZENS;
     if((self->box->flags&FGLIST_DRAGGABLE) && (self->mouse.state&FGMOUSE_INSIDE)) // Check if we clicked inside this window
     {
       AbsRect cache;
@@ -218,14 +218,12 @@ size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
     break;
   case FG_DRAGOVER:
     fgUpdateMouseState(&self->mouse, msg);
-    if(fgroot_instance->dragtype == FGCLIPBOARD_ELEMENT && fgroot_instance->dragdata != 0 && ((fgElement*)fgroot_instance->dragdata)->parent == *self) // Accept a drag element only if it's from this list
-      fgRoot_SetCursor(FGCURSOR_DRAG, 0);
-    else
-      break; // the default handler rejects it for us
-    return FG_ACCEPT;
+    if((fgroot_instance->dragtype == FGCLIPBOARD_ELEMENT) && (fgroot_instance->dragdata != 0) && (((fgElement*)fgroot_instance->dragdata)->parent == *self)) // Accept a drag element only if it's from this list
+      return FGCURSOR_DRAG;
+    break; // the default handler rejects it for us
   case FG_DROP:
     fgUpdateMouseState(&self->mouse, msg);
-    if(fgroot_instance->dragtype == FGCLIPBOARD_ELEMENT && fgroot_instance->dragdata != 0)
+    if((fgroot_instance->dragtype == FGCLIPBOARD_ELEMENT) && (fgroot_instance->dragdata != 0))
     {
       fgElement* drag = (fgElement*)fgroot_instance->dragdata;
       if(drag->parent != *self)
@@ -264,16 +262,16 @@ size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
     switch(msg->subtype)
     {
     case FGSETCOLOR_SELECT:
-    case FGSETCOLOR_MAIN: self->select.color = (unsigned int)msg->otherint; break;
-    case FGSETCOLOR_HOVER: self->hover.color = (unsigned int)msg->otherint; break;
-    case FGSETCOLOR_DRAG: self->drag.color = (unsigned int)msg->otherint; break;
+    case FGSETCOLOR_MAIN: self->select.color = (unsigned int)msg->i; break;
+    case FGSETCOLOR_HOVER: self->hover.color = (unsigned int)msg->i; break;
+    case FGSETCOLOR_DRAG: self->drag.color = (unsigned int)msg->i; break;
     }
     return FG_ACCEPT;
   case FG_SETVALUE:
     if(!msg->subtype || msg->subtype == FGVALUE_FLOAT)
-      self->splitter = msg->otherf;
+      self->splitter = msg->f;
     else if(msg->subtype == FGVALUE_INT64)
-      self->splitter = (float)msg->otherint;
+      self->splitter = (float)msg->i;
     else
       return 0;
     return FG_ACCEPT;
@@ -284,7 +282,7 @@ size_t FG_FASTCALL fgList_Message(fgList* self, const FG_Msg* msg)
       return (size_t)self->splitter;
     return 0;
   case FG_GETSELECTEDITEM:
-    return ((size_t)msg->otherint) < self->selected.l ? (size_t)self->selected.p[(size_t)msg->otherint] : 0;
+    return (msg->u) < self->selected.l ? (size_t)self->selected.p[msg->u] : 0;
   case FG_GETCLASSNAME:
     return (size_t)"List";
   }

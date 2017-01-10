@@ -4,26 +4,37 @@
 #include "fgDirect2D.h"
 #include "bss-util/bss_win32_includes.h"
 #include <dwmapi.h>
-#include <d2d1.h>
+#include <d2d1_1.h>
 
 EXTERN_C IMAGE_DOS_HEADER __ImageBase;
 typedef HRESULT(STDAPICALLTYPE *DWMCOMPENABLE)(BOOL*);
 typedef HRESULT(STDAPICALLTYPE *DWMBLURBEHIND)(HWND, const DWM_BLURBEHIND*);
 DWMBLURBEHIND dwmblurbehind = 0;
+uint32_t fgWindowD2D::wincount = 0;
 
-void FG_FASTCALL fgWindowD2D_Init(fgWindowD2D* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgWindowD2D_Init(fgWindowD2D* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
+  ++fgWindowD2D::wincount;
   fgElement_InternalSetup(self->window, parent, next, name, flags, transform, units, (fgDestroy)&fgWindowD2D_Destroy, (fgMessage)&fgWindowD2D_Message);
 }
-void FG_FASTCALL fgWindowD2D_Destroy(fgWindowD2D* self)
+void fgWindowD2D_Destroy(fgWindowD2D* self)
 {
   self->cliprect.~stack<AbsRect>();
   self->DiscardResources();
+
+  if(!--fgWindowD2D::wincount)
+    PostQuitMessage(0);
+
   if(self->handle)
+  {
+    SetWindowLongPtrW(self->handle, GWLP_USERDATA, 0); // Prevent the WM_DESTROY message from propogating
     DestroyWindow(self->handle);
+  }
+
+  self->window->message = (fgMessage)fgWindow_Message;
   fgWindow_Destroy(&self->window);
 }
-size_t FG_FASTCALL fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
+size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
 {
   switch(msg->type)
   {
@@ -49,17 +60,12 @@ size_t FG_FASTCALL fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
   case FG_DRAW:
     self->CreateResources();
     self->target->BeginDraw();
-    self->target->SetTransform(D2D1::Matrix3x2F::Identity());
-    self->target->Clear(D2D1::ColorF(D2D1::ColorF::Black));
-
     {
       fgElement* hold = self->window->root;
       assert(!self->cliprect.size());
-      AbsRect area = *(AbsRect*)msg->other;
-      area.right -= area.left;
-      area.bottom -= area.top;
-      area.left = 0;
-      area.top = 0;
+
+      AbsRect area = *(AbsRect*)msg->p;
+      self->target->SetTransform(D2D1::Matrix3x2F::Translation(-area.left, -area.top));
       self->cliprect.push(area);
 
       AbsRect curarea;
@@ -72,15 +78,9 @@ size_t FG_FASTCALL fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
         },
         self,
       };
-      
-      fgElement* topmost = fgSingleton()->topmost;
-      if(topmost && GetElementWindow(topmost) == self) // Draw topmost before the drag object
-      {
-        AbsRect out;
-        ResolveRect(topmost, &out);
-        topmost->Draw(&out, &exdata.data);
-      }
 
+
+      fgElement* topmost = fgSingleton()->topmost;
       while(hold)
       {
         if(!(hold->flags&FGELEMENT_HIDDEN) && hold != topmost)
@@ -90,12 +90,31 @@ size_t FG_FASTCALL fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
         }
         hold = hold->next;
       }
+
+      if(topmost && GetElementWindow(topmost) == self) // Draw topmost before the drag object
+      {
+        AbsRect out;
+        ResolveRect(topmost, &out);
+        topmost->Draw(&out, &exdata.data);
+      }
+
       self->cliprect.pop();
     }
-
-    if(self->target->EndDraw() == D2DERR_RECREATE_TARGET)
+    if(self->target->EndDraw() == 0x8899000C) // D2DERR_RECREATE_TARGET
       self->DiscardResources();
     return FG_ACCEPT;
+  case FG_MOVE:
+    if(self->handle && msg->subtype != (uint16_t)-1)
+    {
+      AbsRect out;
+      ResolveRect(self->window, &out);
+      CRect& root = fgDirect2D::instance->root.gui->transform.area;
+      out.left -= root.left.abs;
+      out.top -= root.top.abs;
+      out.right -= root.left.abs;
+      out.bottom -= root.top.abs;
+      SetWindowPos(self->handle, HWND_TOP, out.left, out.top, out.right - out.left, out.bottom - out.top, SWP_NOSENDCHANGING);
+    }
   }
   return fgWindow_Message(&self->window, msg);
 }
@@ -150,7 +169,8 @@ longptr_t __stdcall fgWindowD2D::WndProc(HWND__* hWnd, unsigned int message, siz
     switch(message)
     {
     case WM_SIZE:
-      self->target->Resize(D2D1::SizeU(LOWORD(lParam), HIWORD(lParam)));
+      if(self->target)
+        self->target->Resize(D2D1::SizeU(LOWORD(lParam), HIWORD(lParam)));
       return 0;
     case WM_DISPLAYCHANGE:
       InvalidateRect(self->handle, NULL, FALSE);
@@ -254,6 +274,13 @@ longptr_t __stdcall fgWindowD2D::WndProc(HWND__* hWnd, unsigned int message, siz
       self->SetMouse(MAKELPPOINTS(lParam), FG_MOUSEOFF, 0, 0, GetMessageTime());
       self->inside = false;
       break;
+    //case WM_WINDOWPOSCHANGING:
+    //{
+    //  WINDOWPOS* pos = (WINDOWPOS*)lParam;
+    //  CRect area = { pos->x, 0, pos->y, 0, pos->x + pos->cx, 0, pos->y + pos->cy, 0 };
+    //  fgSendSubMsg<FG_SETAREA, void*>(self->window, 1, &area);
+    //  break;
+    //}
     }
   }
 
@@ -263,15 +290,12 @@ longptr_t __stdcall fgWindowD2D::WndProc(HWND__* hWnd, unsigned int message, siz
 void fgWindowD2D::WndCreate(RECT& rsize, fgFlag flags)
 {
   unsigned long style = WS_POPUP | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_POPUP;
-  if(flags & FGWINDOW_MINIMIZABLE) style |= WS_MINIMIZEBOX;
-  if(flags & FGWINDOW_MAXIMIZABLE) style |= WS_MAXIMIZEBOX;
-  if(flags & FGWINDOW_RESIZABLE) style |= WS_SIZEBOX;
 
   AdjustWindowRect(&rsize, style, FALSE);
   int rwidth = rsize.right - rsize.left;
   int rheight = rsize.bottom - rsize.top;
 
-  handle = CreateWindowExW(WS_EX_COMPOSITED, L"fgDirect2D", L"", style, CW_USEDEFAULT, CW_USEDEFAULT, INT(rwidth), INT(rheight), NULL, NULL, (HINSTANCE)&__ImageBase, NULL);
+  handle = CreateWindowExW(WS_EX_COMPOSITED, L"fgDirect2D", L"", style, rsize.left, rsize.top, INT(rwidth), INT(rheight), NULL, NULL, (HINSTANCE)&__ImageBase, NULL);
   HDC hdc = GetDC(handle);
   UINT xdpi = (UINT)GetDeviceCaps(hdc, LOGPIXELSX);
   UINT ydpi = (UINT)GetDeviceCaps(hdc, LOGPIXELSY);
@@ -300,7 +324,7 @@ void fgWindowD2D::CreateResources()
     RECT rc;
     GetClientRect(handle, &rc);
     HRESULT hr = fgDirect2D::instance->factory->CreateHwndRenderTarget(
-      D2D1::RenderTargetProperties(),
+      D2D1::RenderTargetProperties(D2D1_RENDER_TARGET_TYPE_DEFAULT, D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED)),
       D2D1::HwndRenderTargetProperties(handle, D2D1::SizeU(rc.right - rc.left, rc.bottom - rc.top)),
       &target);
     if(SUCCEEDED(hr))

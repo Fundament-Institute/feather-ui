@@ -5,15 +5,16 @@
 #include "bss-util/bss_util.h"
 #include "feathercpp.h"
 
-void FG_FASTCALL fgSlider_Init(fgSlider* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgSlider_Init(fgSlider* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgSlider_Destroy, (fgMessage)&fgSlider_Message);
 }
-void FG_FASTCALL fgSlider_Destroy(fgSlider* self)
+void fgSlider_Destroy(fgSlider* self)
 {
+  self->control->message = (fgMessage)fgControl_Message;
   fgControl_Destroy(&self->control);
 }
-size_t FG_FASTCALL fgSlider_Message(fgSlider* self, const FG_Msg* msg)
+size_t fgSlider_Message(fgSlider* self, const FG_Msg* msg)
 {
   assert(self != 0 && msg != 0);
   switch(msg->type)
@@ -27,16 +28,16 @@ size_t FG_FASTCALL fgSlider_Message(fgSlider* self, const FG_Msg* msg)
   case FG_SETVALUE:
     if(msg->subtype <= FGVALUE_FLOAT)
     {
-      ptrdiff_t value = (msg->subtype == FGVALUE_FLOAT) ? bss_util::fFastRound(msg->otherf) : msg->otherint;
-      if(msg->otheraux)
+      ptrdiff_t value = (msg->subtype == FGVALUE_FLOAT) ? bss_util::fFastRound(msg->f) : msg->i;
+      if(msg->u2)
       {
-        if(self->range == msg->otherint)
+        if(self->range == msg->i)
           return FG_ACCEPT;
         self->range = value;
       }
       else
       {
-        if(self->value == msg->otherint)
+        if(self->value == msg->i)
           return FG_ACCEPT;
         self->value = value;
       }
@@ -57,15 +58,15 @@ size_t FG_FASTCALL fgSlider_Message(fgSlider* self, const FG_Msg* msg)
 
     double x = (msg->x - inner.left) / (inner.right - inner.left); // we need all the precision in a double here
     size_t value = bss_util::fFastRound(bssclamp(x, 0.0, 1.0)*self->range); // Clamp to [0,1], multiply into [0, range], then round to nearest integer.
-    fgIntMessage(*self, FG_SETVALUE, value, 0);
+    _sendmsg<FG_SETVALUE, size_t>(*self, value);
   }
     break;
   case FG_GETVALUE:
     if(!msg->subtype || msg->subtype == FGVALUE_INT64)
-      return msg->otherint ? self->range : self->value;
+      return msg->i ? self->range : self->value;
     if(msg->subtype == FGVALUE_FLOAT)
     {
-      float val = (float)(msg->otherint ? self->range : self->value);
+      float val = (float)(msg->i ? self->range : self->value);
       return *(size_t*)&val;
     }
     return 0;

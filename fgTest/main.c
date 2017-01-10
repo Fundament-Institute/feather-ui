@@ -9,26 +9,11 @@
 #include <stdlib.h>
 #include <time.h>
 
-#if defined(BSS_DEBUG) && defined(BSS_CPU_x86_64)
-#pragma comment(lib, "../bin/feathergui_d.lib")
-#pragma comment(lib, "../bin/fgDirect2D_d.lib")
-#elif defined(BSS_CPU_x86_64)
-#pragma comment(lib, "../bin/feathergui.lib")
-#pragma comment(lib, "../bin/fgDirect2D.lib")
-#elif defined(BSS_DEBUG)
-#pragma comment(lib, "../bin32/feathergui32_d.lib")
-#pragma comment(lib, "../bin/fgDirect2D32_d.lib")
-#else
-#pragma comment(lib, "../bin32/feathergui32.lib")
-#pragma comment(lib, "../bin/fgDirect2D32.lib")
-#endif
-
 static FILE* failedtests=0;
-
 static fgRoot* gui=0;
 
 // Highly optimized traditional tolerance based approach to comparing floating point numbers, found here: http://www.randydillon.org/Papers/2007/everfast.htm
-char FG_FASTCALL fcompare(float af, float bf, __int32 maxDiff) // maxDiff default is 1
+char fcompare(float af, float bf, __int32 maxDiff) // maxDiff default is 1
 { 
   __int32 ai,bi,test,diff,v1,v2;
   assert(af!=0.0f && bf!=0.0f); // Use fsmall for this
@@ -41,7 +26,7 @@ char FG_FASTCALL fcompare(float af, float bf, __int32 maxDiff) // maxDiff defaul
   v2 = maxDiff - diff;
   return (v1|v2) >= 0;
 }
-char FG_FASTCALL dcompare(double af, double bf, __int64 maxDiff)
+char dcompare(double af, double bf, __int64 maxDiff)
 { 
   __int64 ai,bi,test,diff,v1,v2;
   assert(af!=0.0 && bf!=0.0); // Use fsmall for this
@@ -65,19 +50,31 @@ RETPAIR test_feathergui()
   fgTransform zeroelement;
   fgTransform elem;
   AbsRect out;
-  AbsRect last;
+  AbsRect last = { 1.1,2.9,3,-4 };
   CRect crect;
   CRect cother;
   CVec vec;
   AbsVec res;
   FG_Msg msg;
-  fgVector v; //fgVector functionality tests
 
   TEST(fglerp(0.0f,1.0f,0.5f)==0.5f);
   TEST(fglerp(-1.0f,1.0f,0.5f)==0.0f);
   TEST(fglerp(0.0f,1.0f,1.0f)==1.0f);
   TEST(fglerp(-1.0f,1.0f,0.0f)==-1.0f);
 
+  int rect[4];
+  ToIntAbsRect(&last, rect);
+  TEST(rect[0] == 1);
+  TEST(rect[1] == 2);
+  TEST(rect[2] == 3);
+  TEST(rect[3] == -4);
+
+  long lrect[4];
+  ToLongAbsRect(&last, lrect);
+  TEST(lrect[0] == 1);
+  TEST(lrect[1] == 2);
+  TEST(lrect[2] == 3);
+  TEST(lrect[3] == -4);
   ENDTEST;
 }
 
@@ -97,13 +94,15 @@ RETPAIR test_Window()
   //if(tabfocus)
   //  tabfocus->GetSelectedItem()->Action();
 
-  while(!fgSingleton()->backend.fgProcessMessages());
+  while(fgSingleton()->backend.fgProcessMessages());
+
+  fgLayout_Destroy(&layout);
   ENDTEST;
 }
 
-char test_root_STAGE=0;
-char FG_FASTCALL donothing(void* a) { test_root_STAGE=2; return 1; } // Returning one auto deallocates the node
-char FG_FASTCALL dontfree(void* a) { test_root_STAGE=1; return 0; } // Returning zero means the node won't be automatically deallocated
+//char test_root_STAGE=0;
+//char donothing(void* a) { test_root_STAGE=2; return 1; } // Returning one auto deallocates the node
+//char dontfree(void* a) { test_root_STAGE=1; return 0; } // Returning zero means the node won't be automatically deallocated
 
 RETPAIR test_Root()
 {
@@ -155,12 +154,22 @@ RETPAIR test_Menu()
   ENDTEST;
 }
 
+// Visual studio cannot debug a dynamically loaded DLL, so for debugging purposes we statically link to the backend we are testing
+#if defined(BSS_DEBUG) && defined(BSS_CPU_x86_64)
+#pragma comment(lib, "../bin/fgDirect2D_d.lib")
+#elif defined(BSS_CPU_x86_64)
+#pragma comment(lib, "../bin/fgDirect2D.lib")
+#elif defined(BSS_DEBUG)
+#pragma comment(lib, "../bin32/fgDirect2D32_d.lib")
+#else
+#pragma comment(lib, "../bin32/fgDirect2D32.lib")
+#endif
+
 int main(int argc, char** argv)
 {
   static const int COLUMNS[3] = { 24, 11, 8 };
   static TESTDEF tests[] = {
     { "feathergui.h", &test_feathergui },
-    { "fgControl.h", &test_Window },
     { "fgRoot.h", &test_Root },
     { "fgWindow.h", &test_Window },
     { "fgButton.h", &test_Button },
@@ -175,11 +184,21 @@ int main(int argc, char** argv)
   unsigned int failures[sizeof(tests)/sizeof(TESTDEF)];
   unsigned int nfail=0;
 
+  fgInitialize();
+  /*
+#if defined(BSS_DEBUG) && defined(BSS_CPU_x86_64)
+  fgLoadBackend("fgDirect2D_d.dll");
+#elif defined(BSS_CPU_x86_64)
+  fgLoadBackend("fgDirect2D.dll");
+#elif defined(BSS_DEBUG)
+  fgLoadBackend("fgDirect2D32_d.dll");
+#else
+  fgLoadBackend("fgDirect2D32.dll");
+#endif
+  */
+
   srand(time(NULL));
   failedtests=fopen("failedtests.txt","wb");
-
-  if(!fgInitialize())
-    return -1;
   
   printf("Feather GUI Abstraction Layer v%i.%i.%i: Unit Tests\nCopyright ©2017 Black Sphere Studios\n\n",FGUI_VERSION_MAJOR,FGUI_VERSION_MINOR,FGUI_VERSION_REVISION);
   printf("%-*s %-*s %-*s\n",COLUMNS[0],"Test Name", COLUMNS[1],"Subtests", COLUMNS[2],"Pass/Fail");
@@ -202,6 +221,7 @@ int main(int argc, char** argv)
     printf("\nThese failures indicate either a misconfiguration on your system, or a potential bug. Please report all bugs to http://code.google.com/p/feathergui/issues/list\n\nA detailed list of failed tests was written to failedtests.txt\n");
   }
 
+  //fgUnloadBackend();
   fgSingleton()->backend.fgTerminate();
 
   printf("\nPress Enter to exit the program.");

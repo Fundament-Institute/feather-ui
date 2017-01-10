@@ -25,6 +25,7 @@ typedef struct _FG_STYLE_LAYOUT {
 struct __kh_fgSkins_t;
 struct __kh_fgStyles_t;
 struct __kh_fgStyleInt_t;
+struct _FG_SKIN;
 
 typedef struct _FG_SKIN_BASE
 {
@@ -32,6 +33,23 @@ typedef struct _FG_SKIN_BASE
   fgVector fonts;
   struct __kh_fgSkins_t* skinmap;
   struct _FG_SKIN_BASE* parent;
+
+#ifdef  __cplusplus
+  FG_DLLEXPORT struct _FG_SKIN* AddSkin(const char* name);
+  FG_DLLEXPORT char RemoveSkin(const char* name);
+  FG_DLLEXPORT struct _FG_SKIN* GetSkin(const char* name) const;
+  FG_DLLEXPORT size_t AddAsset(void* resource);
+  FG_DLLEXPORT char RemoveAsset(FG_UINT resource);
+  FG_DLLEXPORT void* GetAsset(FG_UINT resource) const;
+  FG_DLLEXPORT size_t AddFont(void* font);
+  FG_DLLEXPORT char RemoveFont(FG_UINT font);
+  FG_DLLEXPORT void* GetFont(FG_UINT font) const;
+
+  FG_DLLEXPORT struct _FG_SKIN* LoadFileUBJSON(const char* file);
+  FG_DLLEXPORT struct _FG_SKIN* LoadUBJSON(const void* data, FG_UINT length);
+  FG_DLLEXPORT struct _FG_SKIN* LoadFileXML(const char* file);
+  FG_DLLEXPORT struct _FG_SKIN* LoadXML(const char* data, FG_UINT length);
+#endif
 } fgSkinBase;
 
 typedef struct _FG_SKIN
@@ -41,38 +59,48 @@ typedef struct _FG_SKIN
   fgStyle style; // style overrides
   fgDeclareVector(fgStyleLayout, StyleLayout) children; // type: fgStyleLayout
   struct __kh_fgStyleInt_t* styles;
+
+#ifdef  __cplusplus
+  FG_DLLEXPORT size_t AddChild(const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order);
+  FG_DLLEXPORT char RemoveChild(FG_UINT child);
+  FG_DLLEXPORT fgStyleLayout* GetChild(FG_UINT child) const;
+  FG_DLLEXPORT FG_UINT AddStyle(const char* name);
+  FG_DLLEXPORT char RemoveStyle(FG_UINT style);
+  FG_DLLEXPORT fgStyle* GetStyle(FG_UINT style) const;
+  FG_DLLEXPORT struct _FG_SKIN* GetSkin(const char* name) const;
+#endif
 } fgSkin;
 
 
-FG_EXTERN void FG_FASTCALL fgSkin_Init(fgSkin* self);
-FG_EXTERN void FG_FASTCALL fgSkin_Destroy(fgSkin* self);
-FG_EXTERN void FG_FASTCALL fgSkinBase_Destroy(fgSkinBase* self);
-FG_EXTERN size_t FG_FASTCALL fgSkin_AddChild(fgSkin* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order);
-FG_EXTERN char FG_FASTCALL fgSkin_RemoveChild(fgSkin* self, FG_UINT child);
-FG_EXTERN fgStyleLayout* FG_FASTCALL fgSkin_GetChild(const fgSkin* self, FG_UINT child);
-FG_EXTERN FG_UINT FG_FASTCALL fgSkin_AddStyle(fgSkin* self, const char* name);
-FG_EXTERN char FG_FASTCALL fgSkin_RemoveStyle(fgSkin* self, FG_UINT style);
-FG_EXTERN fgStyle* FG_FASTCALL fgSkin_GetStyle(const fgSkin* self, FG_UINT style);
-FG_EXTERN fgSkin* FG_FASTCALL fgSkin_GetSkin(const fgSkin* self, const char* name);
+FG_EXTERN void fgSkin_Init(fgSkin* self);
+FG_EXTERN void fgSkin_Destroy(fgSkin* self);
+FG_EXTERN size_t fgSkin_AddChild(fgSkin* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order);
+FG_EXTERN char fgSkin_RemoveChild(fgSkin* self, FG_UINT child);
+FG_EXTERN fgStyleLayout* fgSkin_GetChild(const fgSkin* self, FG_UINT child);
+FG_EXTERN FG_UINT fgSkin_AddStyle(fgSkin* self, const char* name);
+FG_EXTERN char fgSkin_RemoveStyle(fgSkin* self, FG_UINT style);
+FG_EXTERN fgStyle* fgSkin_GetStyle(const fgSkin* self, FG_UINT style);
+FG_EXTERN fgSkin* fgSkin_GetSkin(const fgSkin* self, const char* name);
 
-FG_EXTERN fgSkin* FG_FASTCALL fgSkinBase_AddSkin(fgSkinBase* self, const char* name);
-FG_EXTERN char FG_FASTCALL fgSkinBase_RemoveSkin(fgSkinBase* self, const char* name);
-FG_EXTERN fgSkin* FG_FASTCALL fgSkinBase_GetSkin(const fgSkinBase* self, const char* name);
-FG_EXTERN size_t FG_FASTCALL fgSkinBase_AddResource(fgSkinBase* self, void* resource);
-FG_EXTERN char FG_FASTCALL fgSkinBase_RemoveResource(fgSkinBase* self, FG_UINT resource);
-FG_EXTERN void* FG_FASTCALL fgSkinBase_GetResource(const fgSkinBase* self, FG_UINT resource);
-FG_EXTERN size_t FG_FASTCALL fgSkinBase_AddFont(fgSkinBase* self, void* font);
-FG_EXTERN char FG_FASTCALL fgSkinBase_RemoveFont(fgSkinBase* self, FG_UINT font);
-FG_EXTERN void* FG_FASTCALL fgSkinBase_GetFont(const fgSkinBase* self, FG_UINT font);
+FG_EXTERN void fgSkinBase_Destroy(fgSkinBase* self);
+FG_EXTERN fgSkin* fgSkinBase_AddSkin(fgSkinBase* self, const char* name);
+FG_EXTERN char fgSkinBase_RemoveSkin(fgSkinBase* self, const char* name);
+FG_EXTERN fgSkin* fgSkinBase_GetSkin(const fgSkinBase* self, const char* name);
+FG_EXTERN size_t fgSkinBase_AddAsset(fgSkinBase* self, void* asset);
+FG_EXTERN char fgSkinBase_RemoveAsset(fgSkinBase* self, FG_UINT asset);
+FG_EXTERN void* fgSkinBase_GetAsset(const fgSkinBase* self, FG_UINT asset);
+FG_EXTERN size_t fgSkinBase_AddFont(fgSkinBase* self, void* font);
+FG_EXTERN char fgSkinBase_RemoveFont(fgSkinBase* self, FG_UINT font);
+FG_EXTERN void* fgSkinBase_GetFont(const fgSkinBase* self, FG_UINT font);
 FG_EXTERN fgFlag fgSkinBase_GetFlagsFromString(const char* s, fgFlag* remove);
 
-FG_EXTERN void FG_FASTCALL fgStyleLayout_Init(fgStyleLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order);
-FG_EXTERN void FG_FASTCALL fgStyleLayout_Destroy(fgStyleLayout* self);
+FG_EXTERN fgSkin* fgSkinBase_LoadFileUBJSON(fgSkinBase* self, const char* file);
+FG_EXTERN fgSkin* fgSkinBase_LoadUBJSON(fgSkinBase* self, const void* data, FG_UINT length);
+FG_EXTERN fgSkin* fgSkinBase_LoadFileXML(fgSkinBase* self, const char* file);
+FG_EXTERN fgSkin* fgSkinBase_LoadXML(fgSkinBase* self, const char* data, FG_UINT length);
 
-FG_EXTERN fgSkin* FG_FASTCALL fgSkins_LoadFileUBJSON(fgSkinBase* self, const char* file);
-FG_EXTERN fgSkin* FG_FASTCALL fgSkins_LoadUBJSON(fgSkinBase* self, const void* data, FG_UINT length);
-FG_EXTERN fgSkin* FG_FASTCALL fgSkins_LoadFileXML(fgSkinBase* self, const char* file);
-FG_EXTERN fgSkin* FG_FASTCALL fgSkins_LoadXML(fgSkinBase* self, const char* data, FG_UINT length);
+FG_EXTERN void fgStyleLayout_Init(fgStyleLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order);
+FG_EXTERN void fgStyleLayout_Destroy(fgStyleLayout* self);
 
 #ifdef  __cplusplus
 }

@@ -10,12 +10,12 @@ fgElement* fgFocusedWindow = 0;
 fgElement* fgLastHover = 0;
 fgElement* fgCaptureWindow = 0;
 
-void FG_FASTCALL fgControl_Init(fgControl* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgControl_Init(fgControl* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
   fgElement_InternalSetup(&self->element, parent, next, name, flags, transform, units, (fgDestroy)&fgControl_Destroy, (fgMessage)&fgControl_Message);
 }
 
-void FG_FASTCALL fgControl_Destroy(fgControl* self)
+void fgControl_Destroy(fgControl* self)
 {
   assert(self != 0);
   if(self->tabprev) self->tabprev->tabnext = self->tabnext;
@@ -25,10 +25,11 @@ void FG_FASTCALL fgControl_Destroy(fgControl* self)
   self->tabnext = self->tabprev = 0;
   self->sidenext = self->sideprev = 0;
 
+  self->element.message = (fgMessage)fgElement_Message; // Setting the message function to the element message function after the destructor mimics destroying this class's virtual functions, as C++ would have done.
   fgElement_Destroy(&self->element);
 }
 
-void FG_FASTCALL fgElement_DoHoverCalc(fgElement* self) // This is a seperate function so some controls can force a focus event to instead activate hover instead.
+void fgElement_DoHoverCalc(fgElement* self) // This is a seperate function so some controls can force a focus event to instead activate hover instead.
 {
   if(fgLastHover != self)
   {
@@ -39,11 +40,11 @@ void FG_FASTCALL fgElement_DoHoverCalc(fgElement* self) // This is a seperate fu
   }
 }
 
-size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
+size_t fgControl_Message(fgControl* self, const FG_Msg* msg)
 {
   assert(self != 0);
   assert(msg != 0);
-  ptrdiff_t otherint = msg->otherint;
+  ptrdiff_t otherint = msg->i;
 
   if(self->element.flags&FGCONTROL_DISABLE)
   { // If this control is disabled, it absorbs all input messages that reach it without responding to them.
@@ -52,7 +53,7 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
     case FG_MOUSEDOWN:
     case FG_MOUSEMOVE:
       fgElement_DoHoverCalc(*self);
-      fgRoot_SetCursor(FGCURSOR_ARROW, 0);
+      return FGCURSOR_ARROW;
     case FG_MOUSEDBLCLICK:
     case FG_MOUSEUP:
     case FG_MOUSEON:
@@ -111,17 +112,18 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
     fgElement_DoHoverCalc(*self);
     if(fgFocusedWindow != *self)
       _sendmsg<FG_GOTFOCUS>(*self);
-    if(msg->button == FG_MOUSERBUTTON && self->contextmenu != 0)
-    {
-      MoveCRect(msg->x, msg->y, &self->contextmenu->transform.area);
-      _sendmsg<FG_GOTFOCUS>(self->contextmenu);
-    }
     return FG_ACCEPT;
   case FG_MOUSEMOVE:
     fgElement_DoHoverCalc(*self);
-    fgRoot_SetCursor(FGCURSOR_ARROW, 0);
-    return FG_ACCEPT;
+    return FGCURSOR_ARROW;
   case FG_MOUSEUP:
+    if(msg->button == FG_MOUSERBUTTON && self->contextmenu != 0)
+    {
+      MoveCRect(msg->x, msg->y, &self->contextmenu->transform.area);
+      fgMenu_Show((fgMenu*)self->contextmenu, true);
+      _sendmsg<FG_GOTFOCUS>(self->contextmenu);
+      fgCaptureWindow = self->contextmenu;
+    }
   { // Any control that gets a MOUSEUP event immediately fires a MOUSEMOVE event at that location, which will force the focus to shift to a different control if the mouseup occured elsewhere.
     FG_Msg m = *msg;
     m.type = FG_MOUSEMOVE;
@@ -146,7 +148,7 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
       {
         if(self->element.parent->lastfocus == *self) // if the lastfocus was already us set it to 0.
           self->element.parent->lastfocus = 0;
-        if(!msg->other)
+        if(!msg->p)
           _sendmsg<FG_GOTFOCUS>(self->element.parent);
         else
           self->element.parent->lastfocus = *self;
@@ -154,7 +156,7 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
     }
     return FG_ACCEPT;
   case FG_SETFLAG: // If 0 is sent in, disable the flag, otherwise enable. Our internal flag is 1 if clipping disabled, 0 otherwise.
-    otherint = T_SETBIT(self->element.flags, otherint, msg->otheraux);
+    otherint = T_SETBIT(self->element.flags, otherint, msg->u2);
   case FG_SETFLAGS:
   {
     bool disabled = !(self->element.flags & FGCONTROL_DISABLE) && ((otherint & FGCONTROL_DISABLE) != 0);
@@ -179,7 +181,7 @@ size_t FG_FASTCALL fgControl_Message(fgControl* self, const FG_Msg* msg)
   return fgElement_Message(*self, msg);
 }
 
-size_t FG_FASTCALL fgControl_HoverMessage(fgControl* self, const FG_Msg* msg)
+size_t fgControl_HoverMessage(fgControl* self, const FG_Msg* msg)
 {
   assert(self != 0 && msg != 0);
 
@@ -238,7 +240,7 @@ size_t FG_FASTCALL fgControl_HoverMessage(fgControl* self, const FG_Msg* msg)
     }
     break;
   case FG_SETCONTEXTMENU:
-    self->contextmenu = (fgElement*)msg->other;
+    self->contextmenu = msg->e;
     break;
   case FG_GETCONTEXTMENU:
     return (size_t)self->contextmenu;
@@ -247,7 +249,7 @@ size_t FG_FASTCALL fgControl_HoverMessage(fgControl* self, const FG_Msg* msg)
   return fgControl_Message(self, msg);
 }
 
-size_t FG_FASTCALL fgControl_ActionMessage(fgControl* self, const FG_Msg* msg)
+size_t fgControl_ActionMessage(fgControl* self, const FG_Msg* msg)
 {
   assert(self != 0 && msg != 0);
 
@@ -265,14 +267,14 @@ size_t FG_FASTCALL fgControl_ActionMessage(fgControl* self, const FG_Msg* msg)
   return fgControl_HoverMessage(self, msg);
 }
 
-void FG_FASTCALL fgControl_TabAfter(fgControl* self, fgControl* prev)
+void fgControl_TabAfter(fgControl* self, fgControl* prev)
 {
   self->tabnext = prev->tabnext;
   self->tabprev = prev;
   prev->tabnext = self;
 }
 
-void FG_FASTCALL fgControl_TabBefore(fgControl* self, fgControl* next)
+void fgControl_TabBefore(fgControl* self, fgControl* next)
 {
   self->tabprev = next->tabprev;
   self->tabnext = next;

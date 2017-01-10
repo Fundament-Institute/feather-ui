@@ -6,13 +6,13 @@
 #include <CommCtrl.h>
 
 extern WinAPIfgRoot* _fgroot;
-extern void FG_FASTCALL WinAPIfgImage_Destroy(WinAPIfgImage*);
-extern void FG_FASTCALL WinAPIfgText_Destroy(WinAPIfgText*);
+extern void WinAPIfgImage_Destroy(WinAPIfgImage*);
+extern void WinAPIfgText_Destroy(WinAPIfgText*);
 
-char FG_FASTCALL WinAPIfgButton_Message(WinAPIfgButton* self, const FG_Msg* msg)
+char WinAPIfgButton_Message(WinAPIfgButton* self, const FG_Msg* msg)
 {
   char r =  fgWindow_Message(self,msg);
-  WinAPIMessage* wmsg = (WinAPIMessage*)msg->other;
+  WinAPIMessage* wmsg = (WinAPIMessage*)msg->p;
   
   switch(msg->type)
   {
@@ -37,7 +37,7 @@ char FG_FASTCALL WinAPIfgButton_Message(WinAPIfgButton* self, const FG_Msg* msg)
   return r;
 }
 
-fgWindow* FG_FASTCALL fgButton_Create(fgStatic* item, fgWindow* parent, const fgElement* element, FG_UINT id, fgFlag flags)
+fgWindow* fgButton_Create(fgStatic* item, fgWindow* parent, const fgElement* element, FG_UINT id, fgFlag flags)
 {
   AbsRect absp;
   AbsRect absr;

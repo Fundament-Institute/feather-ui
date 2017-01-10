@@ -6,28 +6,29 @@
 
 using namespace bss_util;
 
-fgElement* FG_FASTCALL fgCurve_Create(const AbsVec* points, size_t npoints, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+fgElement* fgCurve_Create(const AbsVec* points, size_t npoints, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
   fgElement* r = fgroot_instance->backend.fgCreate("Curve", parent, next, name, flags, transform, units);
-  if(color) fgIntMessage(r, FG_SETCOLOR, color, 0);
+  if(color) _sendmsg<FG_SETCOLOR, size_t>(r, color);
   if(points && npoints > 0) _sendmsg<FG_SETITEM, const void*, size_t>(r, points, npoints);
   return r;
 }
 
-void FG_FASTCALL fgCurve_Init(fgCurve* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgCurve_Init(fgCurve* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
   fgElement_InternalSetup(&self->element, parent, next, name, flags, transform, units, (fgDestroy)&fgCurve_Destroy, (fgMessage)&fgCurve_Message);
 }
 
-void FG_FASTCALL fgCurve_Destroy(fgCurve* self)
+void fgCurve_Destroy(fgCurve* self)
 {
-  fgElement_Destroy(&self->element);
   reinterpret_cast<cDynArray<AbsVec>&>(self->points).~cDynArray();
   reinterpret_cast<cDynArray<AbsVec>&>(self->cache).~cDynArray();
+  self->element.message = (fgMessage)&fgElement_Message;
+  fgElement_Destroy(&self->element);
 }
 
 // p must point to an array of at least 4 points. We do not check that in the function as it is internal only.
-void FG_FASTCALL fgCurve_GenCubic(fgCurve* self, AbsVec* p)
+void fgCurve_GenCubic(fgCurve* self, AbsVec* p)
 {
   AbsVec s1[4];
   s1[0].x = p[0].x;
@@ -65,7 +66,7 @@ void FG_FASTCALL fgCurve_GenCubic(fgCurve* self, AbsVec* p)
   }
 }
 
-size_t FG_FASTCALL fgCurve_Message(fgCurve* self, const FG_Msg* msg)
+size_t fgCurve_Message(fgCurve* self, const FG_Msg* msg)
 {
   assert(self != 0 && msg != 0);
   switch(msg->type)
@@ -78,16 +79,16 @@ size_t FG_FASTCALL fgCurve_Message(fgCurve* self, const FG_Msg* msg)
     self->factor = 0.1f;
     return FG_ACCEPT;
   case FG_SETCOLOR:
-    self->color.color = (uint32_t)msg->otherint;
+    self->color.color = (uint32_t)msg->i;
     fgroot_instance->backend.fgDirtyElement(&self->element);
     break;
   case FG_GETCOLOR:
     return self->color.color;
   case FG_SETVALUE:
     if(!msg->subtype || msg->subtype == FGVALUE_FLOAT)
-      self->factor = msg->otherf;
+      self->factor = msg->f;
     else if(msg->subtype == FGVALUE_INT64)
-      self->factor = (float)msg->otherint;
+      self->factor = (float)msg->i;
     else
       return 0;
     return FG_ACCEPT;
@@ -98,36 +99,37 @@ size_t FG_FASTCALL fgCurve_Message(fgCurve* self, const FG_Msg* msg)
       return (size_t)self->factor;
     return 0;
   case FG_ADDITEM:
-    if(msg->otheraux >= self->points.l)
-      reinterpret_cast<cDynArray<AbsVec>&>(self->points).Add(*(AbsVec*)msg->other);
+    if(msg->u2 >= self->points.l)
+      reinterpret_cast<cDynArray<AbsVec>&>(self->points).Add(*(AbsVec*)msg->p);
     else
-      reinterpret_cast<cDynArray<AbsVec>&>(self->points).Insert(*(AbsVec*)msg->other, msg->otheraux);
+      reinterpret_cast<cDynArray<AbsVec>&>(self->points).Insert(*(AbsVec*)msg->p, msg->u2);
     self->cache.l = 0;
     break;
   case FG_GETITEM:
     if(msg->subtype > 0)
       return self->points.l;
-    if(msg->otherint < 0 || msg->otherint >= (ptrdiff_t)self->points.l)
+    if(msg->u >= self->points.l)
       return 0;
-    return (size_t)(self->points.p + msg->otherint);
+    return (size_t)(self->points.p + msg->u);
   case FG_REMOVEITEM:
-    reinterpret_cast<cDynArray<AbsVec>&>(self->points).Remove(msg->otherint);
+    reinterpret_cast<cDynArray<AbsVec>&>(self->points).Remove(msg->u);
     self->cache.l = 0;
     break;
   case FG_SETITEM:
-    reinterpret_cast<cDynArray<AbsVec>&>(self->points).Set((AbsVec*)msg->other, msg->otheraux);
+    reinterpret_cast<cDynArray<AbsVec>&>(self->points).Set((AbsVec*)msg->p, msg->u2);
     self->cache.l = 0;
     break;
   case FG_DRAW:
   {
     if(msg->subtype & 1) break;
-    AbsRect area = *(AbsRect*)msg->other;
-    fgDrawAuxData* data = (fgDrawAuxData*)msg->other2;
+    AbsRect area = *(AbsRect*)msg->p;
+    fgDrawAuxData* data = (fgDrawAuxData*)msg->p2;
     AbsVec scale = { (!data->dpi.x || !fgroot_instance->dpi.x) ? 1.0f : (fgroot_instance->dpi.x / (float)data->dpi.x), (!data->dpi.y || !fgroot_instance->dpi.y) ? 1.0f : (fgroot_instance->dpi.y / (float)data->dpi.y) };
     area.left *= scale.x;
     area.top *= scale.y;
     area.right *= scale.x;
     area.bottom *= scale.y;
+    fgSnapAbsRect(area, self->element.flags);
     AbsVec center = ResolveVec(&self->element.transform.center, &area);
     AbsVec scalevec = AbsVec { 1.0f, 1.0f };
 

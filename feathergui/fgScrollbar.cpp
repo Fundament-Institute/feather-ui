@@ -5,16 +5,17 @@
 #include "bss-util/bss_util.h"
 #include "feathercpp.h"
 
-void FG_FASTCALL fgScrollbar_Init(fgScrollbar* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgScrollbar_Init(fgScrollbar* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgScrollbar_Destroy, (fgMessage)&fgScrollbar_Message);
 }
-void FG_FASTCALL fgScrollbar_Destroy(fgScrollbar* self)
+void fgScrollbar_Destroy(fgScrollbar* self)
 {
+  self->control->message = (fgMessage)fgControl_Message;
   fgControl_Destroy(&self->control);
 }
 
-size_t FG_FASTCALL fgScrollbar_cornerMessage(fgElement* self, const FG_Msg* msg)
+size_t fgScrollbar_cornerMessage(fgElement* self, const FG_Msg* msg)
 {
   switch(msg->type)
   {
@@ -31,7 +32,7 @@ size_t FG_FASTCALL fgScrollbar_cornerMessage(fgElement* self, const FG_Msg* msg)
   return fgElement_Message(self, msg);
 }
 
-size_t FG_FASTCALL fgScrollbar_bgMessage(fgElement* self, const FG_Msg* msg)
+size_t fgScrollbar_bgMessage(fgElement* self, const FG_Msg* msg)
 {
   switch(msg->type)
   {
@@ -72,7 +73,7 @@ size_t FG_FASTCALL fgScrollbar_bgMessage(fgElement* self, const FG_Msg* msg)
   return fgElement_Message(self, msg);
 }
 
-size_t FG_FASTCALL fgScrollbar_barMessage(_FG_SCROLLBAR_INNER* self, const FG_Msg* msg)
+size_t fgScrollbar_barMessage(_FG_SCROLLBAR_INNER* self, const FG_Msg* msg)
 {
   switch(msg->type)
   {
@@ -103,7 +104,7 @@ size_t FG_FASTCALL fgScrollbar_barMessage(_FG_SCROLLBAR_INNER* self, const FG_Ms
   return fgButton_Message(&self->button, msg);
 }
 
-size_t FG_FASTCALL fgScrollbar_buttonMessage(fgButton* self, const FG_Msg* msg)
+size_t fgScrollbar_buttonMessage(fgButton* self, const FG_Msg* msg)
 {
   switch(msg->type)
   {
@@ -115,9 +116,9 @@ size_t FG_FASTCALL fgScrollbar_buttonMessage(fgButton* self, const FG_Msg* msg)
   return fgButton_Message(self, msg);
 }
 
-void FG_FASTCALL fgScrollbar_ApplyPadding(fgScrollbar* self, float x, float y);
+void fgScrollbar_ApplyPadding(fgScrollbar* self, float x, float y);
 
-void FG_FASTCALL fgScrollbar_Recalc(fgScrollbar* self)
+void fgScrollbar_Recalc(fgScrollbar* self)
 {
   AbsRect r;
   ResolveRect(*self, &r);
@@ -190,7 +191,7 @@ void FG_FASTCALL fgScrollbar_Recalc(fgScrollbar* self)
   }
 }
 
-void FG_FASTCALL fgScrollbar_ApplyPadding(fgScrollbar* self, float x, float y)
+void fgScrollbar_ApplyPadding(fgScrollbar* self, float x, float y)
 {
   assert(!isnan(self->realsize.x) && !isnan(self->realsize.y));
   self->control.element.padding.left += x;
@@ -217,7 +218,7 @@ void FG_FASTCALL fgScrollbar_ApplyPadding(fgScrollbar* self, float x, float y)
   fgScrollbar_Recalc(self); // recalculate scrollbars from our new padding value
 }
 
-void FG_FASTCALL fgScrollbar_SetBarcache(fgScrollbar* self)
+void fgScrollbar_SetBarcache(fgScrollbar* self)
 {
   AbsRect r;
   ResolveRect(&self->bg[0], &r);
@@ -228,7 +229,7 @@ void FG_FASTCALL fgScrollbar_SetBarcache(fgScrollbar* self)
   fgScrollbar_ApplyPadding(self, 0, 0);
 }
 
-size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
+size_t fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
 {
   static const float DEFAULT_LINEHEIGHT = 30.0f;
   assert(self != 0 && msg != 0);
@@ -270,9 +271,9 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
     fgScrollbar_SetBarcache(self);
     return FG_ACCEPT;
   case FG_SETPADDING:
-    if(msg->other != nullptr)
+    if(msg->p != nullptr)
     {
-      AbsRect* padding = (AbsRect*)msg->other;
+      AbsRect* padding = (AbsRect*)msg->p;
       char diff = CompareMargins(&self->realpadding, padding);
       memcpy(&self->realpadding, padding, sizeof(AbsRect));
 
@@ -289,8 +290,8 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
     m.type = FG_ACTION;
     m.subtype = FGSCROLLBAR_CHANGE;
     float lineheight = self->control.element.GetLineHeight();
-    m.otherfaux = (msg->scrolldelta / 120.0f) * 3.0f * lineheight;
-    m.otherf = (msg->scrollhdelta / -120.0f) * lineheight;
+    m.f2 = (msg->scrolldelta / 120.0f) * 3.0f * lineheight;
+    m.f = (msg->scrollhdelta / -120.0f) * lineheight;
 
     fgPassMessage(*self, &m);
     return FG_ACCEPT;
@@ -324,49 +325,49 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
     switch(msg->subtype)
     {
     case FGSCROLLBAR_BARINIT:
-      if(!msg->otherint) self->lastpadding.x = self->control.element.padding.left;
+      if(!msg->i) self->lastpadding.x = self->control.element.padding.left;
       else self->lastpadding.y = self->control.element.padding.top;
       return FG_ACCEPT;
     case FGSCROLLBAR_BAR:
     {
       AbsRect r;
-      ResolveRect(&self->bg[msg->otherint != 0], &r);
-      if(!msg->otherint)
-        fgScrollbar_ApplyPadding(self, self->lastpadding.x + msg->otherfaux * self->realsize.x / (r.right - r.left - self->realpadding.left - self->realpadding.right - self->bg[0].padding.left - self->bg[0].padding.right) - self->control.element.padding.left, 0);
+      ResolveRect(&self->bg[msg->i != 0], &r);
+      if(!msg->i)
+        fgScrollbar_ApplyPadding(self, self->lastpadding.x + msg->f2 * self->realsize.x / (r.right - r.left - self->realpadding.left - self->realpadding.right - self->bg[0].padding.left - self->bg[0].padding.right) - self->control.element.padding.left, 0);
       else
-        fgScrollbar_ApplyPadding(self, 0, self->lastpadding.y + msg->otherfaux * self->realsize.y / (r.bottom - r.top - self->realpadding.top - self->realpadding.bottom - self->bg[1].padding.top - self->bg[1].padding.bottom) - self->control.element.padding.top);
+        fgScrollbar_ApplyPadding(self, 0, self->lastpadding.y + msg->f2 * self->realsize.y / (r.bottom - r.top - self->realpadding.top - self->realpadding.bottom - self->bg[1].padding.top - self->bg[1].padding.bottom) - self->control.element.padding.top);
     }
       return FG_ACCEPT;
     case FGSCROLLBAR_PAGE: // By default a page scroll (clicking on the area outside of the bar or hitting pageup/pagedown) attempts to scroll by the width of the container in that direction.
     {
       AbsRect r;
       ResolveRect(*self, &r);
-      if(msg->otherint&1)
-        fgScrollbar_ApplyPadding(self, 0, (r.bottom - r.top)*(msg->otherint == 1 ? 1 : -1));
+      if(msg->i&1)
+        fgScrollbar_ApplyPadding(self, 0, (r.bottom - r.top)*(msg->i == 1 ? 1 : -1));
       else
-        fgScrollbar_ApplyPadding(self, (r.right - r.left)*(msg->otherint == 0 ? 1 : -1), 0);
+        fgScrollbar_ApplyPadding(self, (r.right - r.left)*(msg->i == 0 ? 1 : -1), 0);
     }
       return FG_ACCEPT;
     case FGSCROLLBAR_BUTTON:
     {
-      float x = msg->otherint < 2 ? self->control.element.GetLineHeight() : -self->control.element.GetLineHeight();
-      if(msg->otherint % 2)
+      float x = msg->i < 2 ? self->control.element.GetLineHeight() : -self->control.element.GetLineHeight();
+      if(msg->i % 2)
         fgScrollbar_ApplyPadding(self, 0, x);
       else
         fgScrollbar_ApplyPadding(self, x, 0);
       return FG_ACCEPT;
     }
     case FGSCROLLBAR_CHANGE: // corresponds to an actual change amount. First argument is x axis, second argument is y axis.
-      fgScrollbar_ApplyPadding(self, msg->otherf, msg->otherfaux);
+      fgScrollbar_ApplyPadding(self, msg->f, msg->f2);
       return FG_ACCEPT;
     case FGSCROLLBAR_BARCACHE:
       fgScrollbar_SetBarcache(self);
       return FG_ACCEPT;
     case FGSCROLLBAR_SCROLLTO:
     case FGSCROLLBAR_SCROLLTOABS:
-      if(msg->other != 0)
+      if(msg->p != 0)
       {
-        AbsRect& target = *((AbsRect*)msg->other);
+        AbsRect& target = *((AbsRect*)msg->p);
         AbsRect r;
         ResolveRect(*self, &r);
         r.left += self->realpadding.left;
@@ -386,8 +387,8 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
         float top = bssmax(r.top - target.top, 0);
         float right = bssmin(r.right - target.right, 0);
         float bottom = bssmin(r.bottom - target.bottom, 0);
-        float x = (left == 0) ? right : left;
-        float y = (top == 0) ? bottom : top;
+        float x = (left == 0 && target.right > r.left) ? right : left;
+        float y = (top == 0 && target.bottom > r.top) ? bottom : top;
         
         fgScrollbar_ApplyPadding(self, x, y);
       }
@@ -395,10 +396,10 @@ size_t FG_FASTCALL fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
     }
     return 0;
   case FG_ADDCHILD:
-    if(msg->other != 0 && msg->other != self->bg && msg->other != (self->bg + 1) && !msg->other2)
+    if(msg->p != 0 && msg->p != self->bg && msg->p != (self->bg + 1) && !msg->p2)
     {
       FG_Msg m = *msg;
-      m.other2 = &self->bg[0];
+      m.p2 = &self->bg[0];
       return fgControl_HoverMessage(&self->control, &m);
     }
     break;

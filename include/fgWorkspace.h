@@ -37,9 +37,9 @@ typedef struct _FG_WORKSPACE {
 #endif
 } fgWorkspace;
 
-FG_EXTERN void FG_FASTCALL fgWorkspace_Init(fgWorkspace* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
-FG_EXTERN void FG_FASTCALL fgWorkspace_Destroy(fgWorkspace* self);
-FG_EXTERN size_t FG_FASTCALL fgWorkspace_Message(fgWorkspace* self, const FG_Msg* msg);
+FG_EXTERN void fgWorkspace_Init(fgWorkspace* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
+FG_EXTERN void fgWorkspace_Destroy(fgWorkspace* self);
+FG_EXTERN size_t fgWorkspace_Message(fgWorkspace* self, const FG_Msg* msg);
 
 #ifdef  __cplusplus
 }

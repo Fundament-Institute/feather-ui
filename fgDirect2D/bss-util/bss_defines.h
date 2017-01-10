@@ -1,4 +1,4 @@
-﻿// Copyright ©2016 Black Sphere Studios
+﻿// Copyright ©2017 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "bss_util.h"
 
 #ifndef __BSS_DEFINES_H__
@@ -130,6 +130,9 @@ public: \
 #define ATOLL(s) _atoi64(s)
 #define STRTOULL(s,e,r) _strtoui64(s,e,r)
 #define ALLOCA(x) _alloca(x) // _malloca requires using _freea so we can't use it
+#define LOADDYNLIB(s) LoadLibraryA(s)
+#define GETDYNFUNC(p,s) GetProcAddress((HMODULE)p, s)
+#define FREEDYNLIB(p) FreeLibrary((HMODULE)p)
 #else
 #ifdef BSS_PLATFORM_MINGW
 #define TIME64(ptime) _time64(ptime)
@@ -168,6 +171,9 @@ public: \
 #define ATOLL(s) atoll(s)
 #define STRTOULL(s,e,r) strtoull(s,e,r)
 #define ALLOCA(x) alloca(x)
+#define LOADDYNLIB(s) dlopen(s, RTLD_LAZY)
+#define GETDYNFUNC(p,s) dlsym(p,s)
+#define FREEDYNLIB(p) dlclose(p)
 #endif
 
 #endif

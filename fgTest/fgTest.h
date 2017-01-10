@@ -5,6 +5,8 @@
 #ifndef __FG_TEST_H__
 #define __FG_TEST_H__
 
+#include <stddef.h>
+
 #define FGTEST_VERSION_MAJOR 0
 #define FGTEST_VERSION_MINOR 1
 #define FGTEST_VERSION_REVISION 0

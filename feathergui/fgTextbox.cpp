@@ -5,97 +5,121 @@
 #include "feathercpp.h"
 #include "fgCurve.h"
 
-void FG_FASTCALL fgTextbox_Init(fgTextbox* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgTextbox_Init(fgTextbox* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgTextbox_Destroy, (fgMessage)&fgTextbox_Message);
 }
-void FG_FASTCALL fgTextbox_Destroy(fgTextbox* self)
+void fgTextbox_Destroy(fgTextbox* self)
 {
   if(self->layout != 0) fgroot_instance->backend.fgFontLayout(self->font, 0, 0, 0, 0, 0, 0, self->layout);
   if(self->font != 0) fgroot_instance->backend.fgDestroyFont(self->font);
+  ((bss_util::cDynArray<int>*)&self->text32)->~cDynArray();
+  ((bss_util::cDynArray<wchar_t>*)&self->text16)->~cDynArray();
+  ((bss_util::cDynArray<char>*)&self->text8)->~cDynArray();
+  ((bss_util::cDynArray<int>*)&self->placeholder32)->~cDynArray();
+  ((bss_util::cDynArray<wchar_t>*)&self->placeholder16)->~cDynArray();
+  ((bss_util::cDynArray<char>*)&self->placeholder8)->~cDynArray();
+
+  self->scroll->message = (fgMessage)fgScrollbar_Message;
   fgScrollbar_Destroy(&self->scroll);
-  ((bss_util::cDynArray<int>*)&self->text)->~cDynArray();
-  ((bss_util::cDynArray<int>*)&self->placeholder)->~cDynArray();
 }
 
-inline void FG_FASTCALL fgTextbox_SetCursorEnd(fgTextbox* self)
+inline void fgTextbox_SetCursorEnd(fgTextbox* self)
 {
   self->end = self->start;
   self->endpos = self->startpos;
 }
 
-inline size_t FG_FASTCALL fgTextbox_DeleteSelection(fgTextbox* self)
+inline size_t fgTextbox_DeleteSelection(fgTextbox* self)
 {
   if(self->start == self->end)
     return 0;
-  assert(self->text.p != 0);
+  assert(self->text32.p != 0);
   if(self->start > self->end)
   {
     bss_util::rswap(self->start, self->end);
     bss_util::rswap(self->startpos, self->endpos);
   }
 
-  bss_util::RemoveRangeSimple<int>(self->text.p, self->text.l, self->start, self->end - self->start);
-  self->text.l -= self->end - self->start;
-  self->text.p[self->text.l] = 0;
-  self->buf.l = 0;
+  bss_util::RemoveRangeSimple<int>(self->text32.p, self->text32.l, self->start, self->end - self->start);
+  self->text32.l -= self->end - self->start;
+  self->text32.p[self->text32.l] = 0;
+  self->text16.l = 0;
+  self->text8.l = 0;
   fgTextbox_SetCursorEnd(self);
   fgSubMessage(*self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTMOVE, self, FGMOVE_PROPAGATE | FGMOVE_RESIZE);
   return FG_ACCEPT;
 }
-inline void FG_FASTCALL fgTextbox_fixpos(fgTextbox* self, size_t cursor, AbsVec* r)
-{
-  int* text = self->text.p;
 
+#define FILLMASK(self, text) \
+switch(fgroot_instance->backend.BackendTextFormat)\
+{\
+case FGTEXTFMT_UTF8:\
+  text = ALLOCA((self->text8.l + 1) * sizeof(char));\
+  for(size_t i = 0; i < self->text8.l; ++i) ((char*)text)[i] = self->mask;\
+  ((char*)text)[self->text8.l] = 0;\
+  break;\
+case FGTEXTFMT_UTF16:\
+  text = ALLOCA((self->text16.l + 1) * sizeof(wchar_t));\
+  for(size_t i = 0; i < self->text16.l; ++i) ((wchar_t*)text)[i] = self->mask;\
+  ((wchar_t*)text)[self->text16.l] = 0;\
+  break;\
+case FGTEXTFMT_UTF32:\
+  text = ALLOCA((self->text32.l + 1) * sizeof(int));\
+  for(size_t i = 0; i < self->text32.l; ++i) ((int*)text)[i] = self->mask;\
+  ((int*)text)[self->text32.l] = 0;\
+  break;\
+}
+
+inline void fgTextbox_fixpos(fgTextbox* self, size_t cursor, AbsVec* r)
+{
+  fgVector* v = fgText_Conversion(fgroot_instance->backend.BackendTextFormat, &self->text8, &self->text16, &self->text32);
+  if(!v) return;
+  void* text = v->p;
   if(self->mask)
-  {
-    text = (int*)ALLOCA((self->text.l + 1) * sizeof(int));
-    for(size_t i = 0; i < self->text.l; ++i) text[i] = self->mask;
-    text[self->text.l] = 0;
-  }
-  *r = fgroot_instance->backend.fgFontPos(self->font, text, self->text.l, self->lineheight, self->letterspacing, &self->areacache, self->scroll->flags, cursor, self->layout);
+    FILLMASK(self, text)
+
+  *r = fgroot_instance->backend.fgFontPos(self->font, text, v->l, self->lineheight, self->letterspacing, &self->areacache, self->scroll->flags, cursor, self->layout);
   AbsRect to = { r->x, r->y, r->x, r->y + self->lineheight*1.125f }; // We don't know what the descender is, so we estimate it as 1/8 the lineheight.
   _sendsubmsg<FG_ACTION, void*>(*self, FGSCROLLBAR_SCROLLTO, &to);
   self->lastx = self->startpos.x;
 }
-inline size_t FG_FASTCALL fgTextbox_fixindex(fgTextbox* self, AbsVec pos, AbsVec* cursor)
+inline size_t fgTextbox_fixindex(fgTextbox* self, AbsVec pos, AbsVec* cursor)
 {
-  int* text = self->text.p;
-
+  fgVector* v = fgText_Conversion(fgroot_instance->backend.BackendTextFormat, &self->text8, &self->text16, &self->text32);
+  if(!v) return 0;
+  void* text = v->p;
   if(self->mask)
-  {
-    text = (int*)ALLOCA((self->text.l + 1) * sizeof(int));
-    for(size_t i = 0; i < self->text.l; ++i) text[i] = self->mask;
-    text[self->text.l] = 0;
-  }
-  size_t r = fgroot_instance->backend.fgFontIndex(self->font, text, self->text.l, self->lineheight, self->letterspacing, &self->areacache, self->scroll->flags, pos, cursor, self->layout);
+    FILLMASK(self, text)
+  size_t r = fgroot_instance->backend.fgFontIndex(self->font, text, v->l, self->lineheight, self->letterspacing, &self->areacache, self->scroll->flags, pos, cursor, self->layout);
   AbsRect to = { cursor->x, cursor->y, cursor->x, cursor->y + self->lineheight*1.125f };
   _sendsubmsg<FG_ACTION, void*>(*self, FGSCROLLBAR_SCROLLTO, &to);
   return r;
 }
-inline void FG_FASTCALL fgTextbox_Insert(fgTextbox* self, size_t start, const int* s, size_t len)
+inline void fgTextbox_Insert(fgTextbox* self, size_t start, const int* s, size_t len)
 {
   if(!s[len - 1]) --len; // We cannot insert a null pointer in the middle of our text, so remove it if it exists.
-  ((bss_util::cDynArray<int>*)&self->text)->Reserve(self->text.l + len + 1);
-  assert(self->text.p != 0);
-  bss_util::InsertRangeSimple<int>(self->text.p, self->text.l, start, s, len);
-  self->text.l += len;
-  self->text.p[self->text.l] = 0;
-  self->buf.l = 0;
+  ((bss_util::cDynArray<int>*)&self->text32)->Reserve(self->text32.l + len + 1);
+  assert(self->text32.p != 0);
+  bss_util::InsertRangeSimple<int>(self->text32.p, self->text32.l, start, s, len);
+  self->text32.l += len;
+  self->text32.p[self->text32.l] = 0;
+  self->text16.l = 0;
+  self->text8.l = 0;
   fgSubMessage(*self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTMOVE, self, FGMOVE_PROPAGATE|FGMOVE_RESIZE);
   self->start += len;
   fgTextbox_fixpos(self, self->start, &self->startpos);
   fgTextbox_SetCursorEnd(self);
 }
-inline bool FG_FASTCALL fgTextbox_checkspace(fgTextbox* self, ptrdiff_t num, bool space)
+inline bool fgTextbox_checkspace(fgTextbox* self, ptrdiff_t num, bool space)
 {
   if(self->mask != 0) return false;
-  int c = self->text.p[self->start + num];
+  int c = self->text32.p[self->start + num];
   return ((!!isspace(c)) == space || c == '\n' || c == '\r');
 }
-inline void FG_FASTCALL fgTextbox_MoveCursor(fgTextbox* self, int num, bool select, bool word)
+inline void fgTextbox_MoveCursor(fgTextbox* self, int num, bool select, bool word)
 {
-  if(!self->text.p) return;
+  if(!self->text32.p) return;
   size_t laststart = self->start;
   if(word) // If we are looking for words, increment num until we hit a whitespace character. If it isn't a newline, include that space in the selection.
   {
@@ -107,14 +131,14 @@ inline void FG_FASTCALL fgTextbox_MoveCursor(fgTextbox* self, int num, bool sele
     }
     else if(num > 0)
     {
-      while(num + self->start < self->text.l && !fgTextbox_checkspace(self, num, true)) ++num;
-      while(num + self->start < self->text.l && !fgTextbox_checkspace(self, num, false)) ++num;
+      while(num + self->start < self->text32.l && !fgTextbox_checkspace(self, num, true)) ++num;
+      while(num + self->start < self->text32.l && !fgTextbox_checkspace(self, num, false)) ++num;
     }
   }
   if(((int)self->start) + num < 0)
     self->start = 0;
-  else if(self->start + num > self->text.l)
-    self->start = self->text.l;
+  else if(self->start + num > self->text32.l)
+    self->start = self->text32.l;
   else
     self->start += num;
   fgTextbox_fixpos(self, self->start, &self->startpos);
@@ -122,14 +146,14 @@ inline void FG_FASTCALL fgTextbox_MoveCursor(fgTextbox* self, int num, bool sele
     fgTextbox_SetCursorEnd(self);
 }
 
-AbsVec FG_FASTCALL fgTextbox_RelativeMouse(fgTextbox* self, const FG_Msg* msg)
+AbsVec fgTextbox_RelativeMouse(fgTextbox* self, const FG_Msg* msg)
 {
   AbsRect r;
   ResolveRect(*self, &r);
   return AbsVec { msg->x - r.left - self->scroll->padding.left + self->scroll.realpadding.left, msg->y - r.top - self->scroll->padding.top + self->scroll.realpadding.top };
 }
 
-size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
+size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
 {
   static const float CURSOR_BLINK = 0.8f;
   assert(self != 0 && msg != 0);
@@ -137,9 +161,12 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_CONSTRUCT:
-    memset(&self->text, 0, sizeof(fgVectorUTF32));
-    memset(&self->buf, 0, sizeof(fgVectorUTF32));
-    memset(&self->placeholder, 0, sizeof(fgVectorUTF32));
+    memset(&self->text8, 0, sizeof(fgVectorUTF8));
+    memset(&self->text16, 0, sizeof(fgVectorUTF16));
+    memset(&self->text32, 0, sizeof(fgVectorUTF32));
+    memset(&self->placeholder8, 0, sizeof(fgVectorUTF8));
+    memset(&self->placeholder16, 0, sizeof(fgVectorUTF16));
+    memset(&self->placeholder32, 0, sizeof(fgVectorUTF32));
     self->validation = 0;
     self->formatting = 0;
     self->mask = 0;
@@ -167,7 +194,7 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       // TODO: do validation here
       return 0;
     }
-    if(self->inserting && self->start == self->end && self->start < self->text.l && self->text.p[self->start] != 0)
+    if(self->inserting && self->start == self->end && self->start < self->text32.l && self->text32.p[self->start] != 0)
       fgTextbox_MoveCursor(self, 1, true, false);
     
     fgTextbox_DeleteSelection(self);
@@ -252,15 +279,15 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       case FGTEXTBOX_SELECTALL:
         self->start = 0;
         fgTextbox_fixpos(self, self->start, &self->startpos);
-        self->end = self->text.l;
+        self->end = self->text32.l;
         fgTextbox_fixpos(self, self->end, &self->endpos);
         break;
       case FGTEXTBOX_CUT:
-        fgroot_instance->backend.fgClipboardCopy(FGCLIPBOARD_TEXT, self->text.p, self->text.l*sizeof(int));
+        fgroot_instance->backend.fgClipboardCopy(FGCLIPBOARD_TEXT, self->text32.p, self->text32.l*sizeof(int));
         fgTextbox_DeleteSelection(self);
         break;
       case FGTEXTBOX_COPY:
-        fgroot_instance->backend.fgClipboardCopy(FGCLIPBOARD_TEXT, self->text.p, self->text.l * sizeof(int));
+        fgroot_instance->backend.fgClipboardCopy(FGCLIPBOARD_TEXT, self->text32.p, self->text32.l * sizeof(int));
         break;
       case FGTEXTBOX_PASTE:
         if(fgroot_instance->backend.fgClipboardExists(FGCLIPBOARD_TEXT))
@@ -276,25 +303,25 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       case FGTEXTBOX_GOTOSTART:
         self->start = 0;
         fgTextbox_fixpos(self, self->start, &self->startpos);
-        if(!msg->otherint)
+        if(!msg->i)
           fgTextbox_SetCursorEnd(self);
         break;
       case FGTEXTBOX_GOTOEND:
-        self->start = self->text.l;
+        self->start = self->text32.l;
         fgTextbox_fixpos(self, self->start, &self->startpos);
-        if(!msg->otherint)
+        if(!msg->i)
           fgTextbox_SetCursorEnd(self);
         break;
       case FGTEXTBOX_GOTOLINESTART:
-        while(self->start > 0 && self->text.p[self->start-1] != '\n' && self->text.p[self->start-1] != '\r') --self->start;
+        while(self->start > 0 && self->text32.p[self->start-1] != '\n' && self->text32.p[self->start-1] != '\r') --self->start;
         fgTextbox_fixpos(self, self->start, &self->startpos);
-        if(!msg->otherint)
+        if(!msg->i)
           fgTextbox_SetCursorEnd(self);
         break;
       case FGTEXTBOX_GOTOLINEEND:
-        while(self->start < self->text.l && self->text.p[self->start] != '\n' && self->text.p[self->start] != '\r') ++self->start;
+        while(self->start < self->text32.l && self->text32.p[self->start] != '\n' && self->text32.p[self->start] != '\r') ++self->start;
         fgTextbox_fixpos(self, self->start, &self->startpos);
-        if(!msg->otherint)
+        if(!msg->i)
           fgTextbox_SetCursorEnd(self);
         break;
       case FGTEXTBOX_TOGGLEINSERT:
@@ -306,88 +333,108 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
     self->lastclick = fgroot_instance->time;
     return FG_ACCEPT;
   case FG_SETTEXT:
-    switch(msg->subtype)
+    if(msg->subtype <= FGTEXTFMT_UTF32)
     {
-    case FGSETTEXT_PLACEHOLDER_UTF8:
-    case FGSETTEXT_UTF8:
+      ((bss_util::cDynArray<int>*)&self->text32)->Clear();
+      ((bss_util::cDynArray<wchar_t>*)&self->text16)->Clear();
+      ((bss_util::cDynArray<char>*)&self->text8)->Clear();
+    }
+    else if(msg->subtype <= FGTEXTFMT_PLACEHOLDER_UTF32)
     {
-      auto target = ((msg->subtype == FGSETTEXT_UTF8) ? &self->text : &self->placeholder);
-      ((bss_util::cDynArray<int>*)target)->Clear();
-      ((bss_util::cDynArray<char>*)&self->buf)->Clear();
-      if(msg->other)
+      ((bss_util::cDynArray<int>*)&self->placeholder32)->Clear();
+      ((bss_util::cDynArray<wchar_t>*)&self->placeholder16)->Clear();
+      ((bss_util::cDynArray<char>*)&self->placeholder8)->Clear();
+    }
+    if(msg->p)
+    {
+      switch(msg->subtype)
       {
-        size_t len = fgUTF8toUTF32((const char*)msg->other, -1, 0, 0);
-        ((bss_util::cDynArray<int>*)target)->Reserve(len + 1);
-        target->l = fgUTF8toUTF32((const char*)msg->other, -1, target->p, target->s);
-        target->p[target->l] = 0;
+      case FGTEXTFMT_UTF8:
+        ((bss_util::cDynArray<char>*)&self->text8)->operator=(bss_util::cArraySlice<const char>((const char*)msg->p, !msg->u2 ? (strlen((const char*)msg->p) + 1) : msg->u2));
+        break;
+      case FGTEXTFMT_UTF16:
+        ((bss_util::cDynArray<wchar_t>*)&self->text16)->operator=(bss_util::cArraySlice<const wchar_t>((const wchar_t*)msg->p, !msg->u2 ? (wcslen((const wchar_t*)msg->p) + 1) : msg->u2));
+        break;
+      case FGTEXTFMT_UTF32:
+      {
+        int* txt = (int*)msg->p;
+        size_t len = msg->u2;
+        if(!len)
+          while(txt[len++] != 0);
+        ((bss_util::cDynArray<int>*)&self->text32)->operator=(bss_util::cArraySlice<const int>((const int*)msg->p, len));
+      }
+      break;
+      case FGTEXTFMT_PLACEHOLDER_UTF8:
+        ((bss_util::cDynArray<char>*)&self->placeholder8)->operator=(bss_util::cArraySlice<const char>((const char*)msg->p, !msg->u2 ? (strlen((const char*)msg->p) + 1) : msg->u2));
+        break;
+      case FGTEXTFMT_PLACEHOLDER_UTF16:
+        ((bss_util::cDynArray<wchar_t>*)&self->placeholder16)->operator=(bss_util::cArraySlice<const wchar_t>((const wchar_t*)msg->p, !msg->u2 ? (wcslen((const wchar_t*)msg->p) + 1) : msg->u2));
+        break;
+      case FGTEXTFMT_PLACEHOLDER_UTF32:
+      {
+        int* txt = (int*)msg->p;
+        size_t len = msg->u2;
+        if(!len)
+          while(txt[len++] != 0);
+        ((bss_util::cDynArray<int>*)&self->placeholder32)->operator=(bss_util::cArraySlice<const int>((const int*)msg->p, len));
+      }
+      break;
+      case FGTEXTFMT_MASK:
+        self->mask = msg->i;
+        break;
       }
     }
-      break;
-    case FGSETTEXT_PLACEHOLDER_UTF32:
-    case FGSETTEXT_UTF32:
-    {
-      auto target = ((msg->subtype == FGSETTEXT_UTF32) ? &self->text : &self->placeholder);
-      size_t len = 0;
-      while(((int*)msg->other)[len++] != 0);
-      ((bss_util::cDynArray<int>*)target)->Reserve(len);
-      MEMCPY(target->p, target->s, (int*)msg->other, sizeof(int)*len);
-    }
-      break;
-    case FGSETTEXT_MASK:
-      self->mask = (int)msg->otherint;
-      break;
-    }
+    fgText_Conversion(FGTEXTFMT_UTF32, &self->text8, &self->text16, &self->text32); // the textbox requires a UTF32 format be available at all times
     fgSubMessage(*self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTMOVE, self, FGMOVE_PROPAGATE | FGMOVE_RESIZE);
     fgroot_instance->backend.fgDirtyElement(*self);
     return FG_ACCEPT;
   case FG_SETFONT:
     if(self->font) fgroot_instance->backend.fgDestroyFont(self->font);
     self->font = 0;
-    if(msg->other)
+    if(msg->p)
     {
       fgFontDesc desc;
-      fgroot_instance->backend.fgFontGet(msg->other, &desc);
+      fgroot_instance->backend.fgFontGet(msg->p, &desc);
       fgIntVec dpi = self->scroll->GetDPI();
       bool identical = (dpi.x == desc.dpi.x && dpi.y == desc.dpi.y);
       desc.dpi = dpi;
-      self->font = fgroot_instance->backend.fgCloneFont(msg->other, identical ? 0 : &desc);
+      self->font = fgroot_instance->backend.fgCloneFont(msg->p, identical ? 0 : &desc);
     }
     fgSubMessage(*self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTMOVE, self, FGMOVE_PROPAGATE | FGMOVE_RESIZE);
     fgroot_instance->backend.fgDirtyElement(*self);
     break;
   case FG_SETLINEHEIGHT:
-    self->lineheight = msg->otherf;
+    self->lineheight = msg->f;
     fgSubMessage(*self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTMOVE, self, FGMOVE_PROPAGATE | FGMOVE_RESIZE);
     fgroot_instance->backend.fgDirtyElement(*self);
     break;
   case FG_SETLETTERSPACING:
-    self->letterspacing = msg->otherf;
+    self->letterspacing = msg->f;
     fgSubMessage(*self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTMOVE, self, FGMOVE_PROPAGATE | FGMOVE_RESIZE);
     fgroot_instance->backend.fgDirtyElement(*self);
     break;
   case FG_SETCOLOR:
     switch(msg->subtype)
     {
-    case FGSETCOLOR_MAIN: self->color.color = (unsigned int)msg->otherint; break;
-    case FGSETCOLOR_PLACEHOLDER: self->placecolor.color = (unsigned int)msg->otherint; break;
-    case FGSETCOLOR_CURSOR: self->cursorcolor.color = (unsigned int)msg->otherint; break;
-    case FGSETCOLOR_SELECT: self->selector.color = (unsigned int)msg->otherint; break;
+    case FGSETCOLOR_MAIN: self->color.color = (unsigned int)msg->i; break;
+    case FGSETCOLOR_PLACEHOLDER: self->placecolor.color = (unsigned int)msg->i; break;
+    case FGSETCOLOR_CURSOR: self->cursorcolor.color = (unsigned int)msg->i; break;
+    case FGSETCOLOR_SELECT: self->selector.color = (unsigned int)msg->i; break;
     }
     fgroot_instance->backend.fgDirtyElement(*self);
     break;
   case FG_GETTEXT:
-    if(!msg->otherint)
+    if(msg->subtype <= FGTEXTFMT_UTF32)
     {
-      if(!self->buf.l)
-      {
-        size_t len = fgUTF32toUTF8(self->text.p, -1, 0, 0);
-        ((bss_util::cDynArray<int>*)&self->buf)->Reserve(len + 1);
-        self->buf.l = fgUTF32toUTF8(self->text.p, -1, self->buf.p, self->buf.s);
-        self->buf.p[self->buf.l] = 0;
-      }
-      return reinterpret_cast<size_t>(self->buf.p);
+      fgVector* v = fgText_Conversion(msg->subtype, &self->text8, &self->text16, &self->text32);
+      return !v ? 0 : reinterpret_cast<size_t>(v->p);
     }
-    return reinterpret_cast<size_t>(self->placeholder.p);
+    else if(msg->subtype <= FGTEXTFMT_PLACEHOLDER_UTF32)
+    {
+      fgVector* v = fgText_Conversion(msg->subtype - FGTEXTFMT_PLACEHOLDER_UTF8, &self->placeholder8, &self->placeholder16, &self->placeholder32);
+      return !v ? 0 : reinterpret_cast<size_t>(v->p);
+    }
+    return 0;
   case FG_GETFONT:
     return reinterpret_cast<size_t>(self->font);
   case FG_GETLINEHEIGHT:
@@ -395,7 +442,7 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
   case FG_GETLETTERSPACING:
     return *reinterpret_cast<size_t*>(&self->letterspacing);
   case FG_GETCOLOR:
-    switch(msg->otheraux)
+    switch(msg->u2)
     {
     default:
     case 0: return self->color.color;
@@ -405,7 +452,7 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
     }
     assert(false);
   case FG_MOVE:
-    if(!(msg->otheraux & FGMOVE_PROPAGATE) && (msg->otheraux & (FGMOVE_RESIZE | FGMOVE_PADDING | FGMOVE_MARGIN)))
+    if(!(msg->u2 & FGMOVE_PROPAGATE) && (msg->u2 & (FGMOVE_RESIZE | FGMOVE_PADDING | FGMOVE_MARGIN)))
       fgSubMessage(*self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTMOVE, self, FGMOVE_PROPAGATE | FGMOVE_RESIZE);
     break;
   case FG_DRAW:
@@ -414,8 +461,8 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
     if(self->font != 0 && !(msg->subtype & 1))
     {
       // Draw selection rectangles
-      AbsRect area = *(AbsRect*)msg->other;
-      fgDrawAuxData* data = (fgDrawAuxData*)msg->other2;
+      AbsRect area = *(AbsRect*)msg->p;
+      fgDrawAuxData* data = (fgDrawAuxData*)msg->p2;
 
       AbsRect cliparea = area;
       cliparea.left += self->scroll.realpadding.left;
@@ -432,30 +479,31 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       {
         begin = self->startpos;
         end = self->endpos;
-      } else {
+      }
+      else {
         begin = self->endpos;
         end = self->startpos;
       }
 
 
-      CRect uv = CRect { 0,0,0,0,0,0,0,0 };
-      AbsVec center = AbsVec { 0,0 };
+      CRect uv = CRect{ 0,0,0,0,0,0,0,0 };
+      AbsVec center = AbsVec{ 0,0 };
       if(begin.y == end.y)
       {
         AbsRect srect = { area.left + begin.x, area.top + begin.y, area.left + end.x, area.top + begin.y + self->lineheight };
-        fgroot_instance->backend.fgDrawResource(0, &uv, self->selector.color, 0, 0, &srect, 0, &center, FGRESOURCE_ROUNDRECT, data);
+        fgroot_instance->backend.fgDrawAsset(0, &uv, self->selector.color, 0, 0, &srect, 0, &center, FGRESOURCE_RECT, data);
       }
       else
       {
         AbsRect srect = AbsRect{ area.left + begin.x, area.top + begin.y, area.right, area.top + begin.y + self->lineheight };
-        fgroot_instance->backend.fgDrawResource(0, &uv, self->selector.color, 0, 0, &srect, 0, &center, FGRESOURCE_ROUNDRECT, data);
+        fgroot_instance->backend.fgDrawAsset(0, &uv, self->selector.color, 0, 0, &srect, 0, &center, FGRESOURCE_RECT, data);
         if(begin.y + self->lineheight + 0.5 < end.y)
         {
-          srect = AbsRect { area.left, area.top + begin.y + self->lineheight, area.right, area.top + end.y };
-          fgroot_instance->backend.fgDrawResource(0, &uv, self->selector.color, 0, 0, &srect, 0, &center, FGRESOURCE_ROUNDRECT, data);
+          srect = AbsRect{ area.left, area.top + begin.y + self->lineheight, area.right, area.top + end.y };
+          fgroot_instance->backend.fgDrawAsset(0, &uv, self->selector.color, 0, 0, &srect, 0, &center, FGRESOURCE_RECT, data);
         }
-        srect = AbsRect { area.left, area.top + end.y, area.left + end.x, area.top + end.y + self->lineheight };
-        fgroot_instance->backend.fgDrawResource(0, &uv, self->selector.color, 0, 0, &srect, 0, &center, FGRESOURCE_ROUNDRECT, data);
+        srect = AbsRect{ area.left, area.top + end.y, area.left + end.x, area.top + end.y + self->lineheight };
+        fgroot_instance->backend.fgDrawAsset(0, &uv, self->selector.color, 0, 0, &srect, 0, &center, FGRESOURCE_RECT, data);
       }
 
       // Draw text
@@ -466,33 +514,44 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       area.bottom *= scale.y;
       //assert(self->areacache.right - self->areacache.left == area.right - area.left);
       //assert(self->areacache.bottom - self->areacache.top == area.bottom - area.top);
+      fgSnapAbsRect(area, self->scroll->flags);
       center = ResolveVec(&self->scroll.control.element.transform.center, &area);
-      int* text = self->text.p;
 
-      if(self->mask)
+      void* text = 0;
+      size_t len = 0;
+      if(!self->text32.l)
       {
-        text = (int*)ALLOCA((self->text.l + 1)*sizeof(int));
-        for(size_t i = 0; i < self->text.l; ++i) text[i] = self->mask;
-        text[self->text.l] = 0;
+        fgVector* v = fgText_Conversion(fgroot_instance->backend.BackendTextFormat, &self->placeholder8, &self->placeholder16, &self->placeholder32);
+        text = v->p;
+        len = v->l;
+      }
+      else
+      {
+        fgVector* v = fgText_Conversion(fgroot_instance->backend.BackendTextFormat, &self->text8, &self->text16, &self->text32);
+        text = v->p;
+        len = v->l;
+        if(self->mask)
+          FILLMASK(self, text)
       }
 
       fgroot_instance->backend.fgDrawFont(self->font,
-        !self->text.l ? self->placeholder.p : text,
-        !self->text.l ? self->placeholder.l : self->text.l,
+        text,
+        len,
         self->lineheight,
         self->letterspacing,
-        !self->text.l ? self->placecolor.color : self->color.color,
+        !self->text32.l ? self->placecolor.color : self->color.color,
         &area,
         self->scroll.control.element.transform.rotation,
         &center,
         self->scroll.control.element.flags,
         data,
-        self->mask != 0 ? 0 : self->layout);
+        (self->mask != 0 || !self->text32.l) ? 0 : self->layout);
 
       // Draw cursor
       if(fgFocusedWindow == *self && bss_util::bssfmod(fgroot_instance->time - self->lastclick, fgroot_instance->cursorblink * 2) < fgroot_instance->cursorblink)
       {
-        AbsVec lines[2] = { self->startpos, { self->startpos.x, self->startpos.y + self->lineheight } };
+        AbsVec snappos = { roundf(self->startpos.x), roundf(self->startpos.y) };
+        AbsVec lines[2] = { snappos, { snappos.x, snappos.y + self->lineheight } };
         AbsVec scale = { 1.0f, 1.0f };
         fgroot_instance->backend.fgDrawLines(lines, 2, self->cursorcolor.color, &area.topleft, &scale, self->scroll.control.element.transform.rotation, &center, data); // TODO: This requires ensuring that FG_DRAW is called at least during the blink interval.
       }
@@ -502,15 +561,15 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
     }
     return FG_ACCEPT;
   case FG_MOUSEDBLCLICK:
-    if(msg->button == FG_MOUSELBUTTON && !fgroot_instance->GetKey(FG_KEY_SHIFT) && !fgroot_instance->GetKey(FG_KEY_CONTROL))
+    if(self->text32.l > 0 && msg->button == FG_MOUSELBUTTON && !fgroot_instance->GetKey(FG_KEY_SHIFT) && !fgroot_instance->GetKey(FG_KEY_CONTROL))
     {
       self->end = fgTextbox_fixindex(self, fgTextbox_RelativeMouse(self, msg), &self->endpos);
       self->start = 0;
-      if(isspace(self->text.p[self->end]) && self->end > 0) --self->end;
+      if(isspace(self->text32.p[self->end]) && self->end > 0) --self->end;
       while(self->end > 0 && !fgTextbox_checkspace(self, self->end, true)) --self->end;
       if(self->end > 0) ++self->end;
       self->start = self->end;
-      while(self->start < self->text.l && !fgTextbox_checkspace(self, 0, true)) ++self->start; // note: checkspace works off of self->start
+      while(self->start < self->text32.l && !fgTextbox_checkspace(self, 0, true)) ++self->start; // note: checkspace works off of self->start
 
       fgTextbox_fixpos(self, self->start, &self->startpos);
       fgTextbox_fixpos(self, self->end, &self->endpos);
@@ -535,17 +594,16 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       self->lastx = self->startpos.x;
     }
     fgScrollbar_Message(&self->scroll, msg);
-    fgRoot_SetCursor(FGCURSOR_IBEAM, 0);
-    return FG_ACCEPT;
+    return FGCURSOR_IBEAM;
   case FG_MOUSEON:
     return FG_ACCEPT;
   case FG_MOUSEOFF:
     return FG_ACCEPT;
   case FG_LAYOUTFUNCTION:
-    if(msg->other != 0 && self->font != 0)
+    if(msg->p != 0 && self->font != 0)
     {
-      FG_Msg* m = (FG_Msg*)msg->other;
-      AbsVec* dim = (AbsVec*)msg->other2;
+      FG_Msg* m = (FG_Msg*)msg->p;
+      AbsVec* dim = (AbsVec*)msg->p2;
       if(m->subtype == FGELEMENT_LAYOUTMOVE)
       {
         ResolveInnerRect(*self, &self->areacache);
@@ -562,7 +620,9 @@ size_t FG_FASTCALL fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
         if(self->scroll->flags&FGELEMENT_EXPANDY)
           r.bottom = r.top + self->scroll->maxdim.y;
 
-        self->layout = fgroot_instance->backend.fgFontLayout(self->font, self->text.p, self->text.l, self->lineheight, self->letterspacing, &r, self->scroll->flags, self->layout);
+        fgVector* v = fgText_Conversion(fgroot_instance->backend.BackendTextFormat, &self->text8, &self->text16, &self->text32);
+        if(v)
+          self->layout = fgroot_instance->backend.fgFontLayout(self->font, v->p, v->l, self->lineheight, self->letterspacing, &r, self->scroll->flags, self->layout);
         dim->x = r.right - r.left;
         dim->y = r.bottom - r.top;
         assert(!isnan(self->scroll.realsize.x) && !isnan(self->scroll.realsize.y));
