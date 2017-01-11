@@ -119,9 +119,11 @@ size_t fgControl_Message(fgControl* self, const FG_Msg* msg)
   case FG_MOUSEUP:
     if(msg->button == FG_MOUSERBUTTON && self->contextmenu != 0)
     {
-      MoveCRect(msg->x, msg->y, &self->contextmenu->transform.area);
+      AbsRect area = { 0 };
+      if(self->contextmenu->parent)
+        ResolveRect(self->contextmenu->parent, &area);
+      MoveCRect(msg->x - area.left, msg->y - area.top, &self->contextmenu->transform.area);
       fgMenu_Show((fgMenu*)self->contextmenu, true);
-      _sendmsg<FG_GOTFOCUS>(self->contextmenu);
       fgCaptureWindow = self->contextmenu;
     }
   { // Any control that gets a MOUSEUP event immediately fires a MOUSEMOVE event at that location, which will force the focus to shift to a different control if the mouseup occured elsewhere.
@@ -175,6 +177,12 @@ size_t fgControl_Message(fgControl* self, const FG_Msg* msg)
     }
   }
     return FG_ACCEPT;
+  case FG_SETCONTEXTMENU:
+    self->contextmenu = msg->e;
+    break;
+  case FG_GETCONTEXTMENU:
+    return (size_t)self->contextmenu;
+    break;
   case FG_GETCLASSNAME:
     return (size_t)"Control";
   }
@@ -238,12 +246,6 @@ size_t fgControl_HoverMessage(fgControl* self, const FG_Msg* msg)
       fgCaptureWindow = *self;
       _sendmsg<FG_ACTIVE>(*self);
     }
-    break;
-  case FG_SETCONTEXTMENU:
-    self->contextmenu = msg->e;
-    break;
-  case FG_GETCONTEXTMENU:
-    return (size_t)self->contextmenu;
     break;
   }
   return fgControl_Message(self, msg);

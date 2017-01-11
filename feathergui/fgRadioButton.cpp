@@ -39,7 +39,6 @@ fgRadiobutton* fgRadiobutton_GetHashRef(fgElement* parent)
 size_t fgRadiobutton_Message(fgRadiobutton* self, const FG_Msg* msg)
 {
   assert(self != 0 && msg != 0);
-  fgElement*& parent = self->window.control.element.parent;
 
   switch(msg->type)
   {
@@ -48,12 +47,18 @@ size_t fgRadiobutton_Message(fgRadiobutton* self, const FG_Msg* msg)
     self->radionext = 0;
     self->radioprev = 0;
     return FG_ACCEPT;
+  case FG_MOVE:
+    if(msg->subtype == FG_SETPARENT)
+    {
+
+    }
+    break;
   case FG_SETVALUE:
     if(msg->subtype > FGVALUE_INT64)
       return 0;
-    if(msg->i && parent != 0) // if you about to check this radio button, uncheck all others in it's fgElement group
+    if(msg->i && self->window->parent != 0) // if you about to check this radio button, uncheck all others in it's fgElement group
     {
-      fgRadiobutton* cur = fgRadiobutton_GetHashRef(parent);
+      fgRadiobutton* cur = fgRadiobutton_GetHashRef(self->window->parent);
       while(cur)
       {
         if(cur != self)
@@ -63,30 +68,26 @@ size_t fgRadiobutton_Message(fgRadiobutton* self, const FG_Msg* msg)
     }
     self->window.checked = (char)msg->i;
     break;
-  case FG_SETPARENT:
-    if(msg->p != parent)
+  case FG_PARENTCHANGE:
+    if(msg->e2) // remove ourselves from the old parent, if there was one
     {
-      if(parent)
-      {
-        fgRadiobutton** root = fgRadiobutton_GetHash(parent);
-        assert(root != 0);
-        if(self->radioprev != 0) self->radioprev->radionext = self->radionext;
-        else if(root) *root = self->radionext;
-        if(self->radionext != 0) self->radionext->radioprev = self->radioprev;
-        if(root && !*root)
-          kh_del(fgRadioGroup, fgroot_instance->radiohash, kh_get(fgRadioGroup, fgroot_instance->radiohash, parent));
-      }
-      fgCheckbox_Message(&self->window, msg);
-      if(parent)
-      {
-        int r = 0;
-        fgRadiobutton*& root = kh_val(fgroot_instance->radiohash, kh_put(fgRadioGroup, fgroot_instance->radiohash, parent, &r));
-        if(r) root = 0; // if r is nonzero we inserted it and thus must initialize root
-        self->radionext = root;
-        self->radioprev = 0;
-        if(root) root->radioprev = self;
-        root = self;
-      }
+      fgRadiobutton** root = fgRadiobutton_GetHash(msg->e2);
+      assert(root != 0);
+      if(self->radioprev != 0) self->radioprev->radionext = self->radionext;
+      else if(root) *root = self->radionext;
+      if(self->radionext != 0) self->radionext->radioprev = self->radioprev;
+      if(root && !*root)
+        kh_del(fgRadioGroup, fgroot_instance->radiohash, kh_get(fgRadioGroup, fgroot_instance->radiohash, msg->e2));
+    }
+    if(msg->e) // add ourselves to the new parent, if there is one.
+    {
+      int r = 0;
+      fgRadiobutton*& root = kh_val(fgroot_instance->radiohash, kh_put(fgRadioGroup, fgroot_instance->radiohash, msg->e, &r));
+      if(r) root = 0; // if r is nonzero we inserted it and thus must initialize root
+      self->radionext = root;
+      self->radioprev = 0;
+      if(root) root->radioprev = self;
+      root = self;
     }
     return FG_ACCEPT;
   case FG_ACTION:

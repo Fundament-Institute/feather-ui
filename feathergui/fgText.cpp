@@ -178,8 +178,12 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
   case FG_GETCOLOR:
     return self->color.color;
   case FG_MOVE:
-    if(!(msg->u2 & FGMOVE_PROPAGATE) && (msg->u2 & FGMOVE_RESIZE))
+    if((msg->subtype != FG_SETAREA || msg->p) && !(msg->u2 & FGMOVE_PROPAGATE) && (msg->u2 & FGMOVE_RESIZE))
       fgText_Recalc(self);
+    break;
+  case FG_SETAREA:
+    fgElement_Message(&self->element, msg);
+    fgText_Recalc(self);
     break;
   case FG_DRAW:
     if(self->font != 0 && !(msg->subtype & 1))
@@ -227,6 +231,10 @@ void fgText_Recalc(fgText* self)
     if(self->element.flags&FGELEMENT_EXPANDY)
       adjust.bottom.abs = adjust.top.abs + area.bottom - area.top + self->element.padding.top + self->element.padding.bottom + self->element.margin.top + self->element.margin.bottom;
     assert(!isnan(adjust.left.abs) && !isnan(adjust.top.abs) && !isnan(adjust.right.abs) && !isnan(adjust.bottom.abs));
-    _sendmsg<FG_SETAREA, void*>(*self, &adjust);
+    FG_Msg msg = { 0 };
+    msg.type = FG_SETAREA;
+    msg.p = &adjust;
+    fgElement_Message(&self->element, &msg);
+    //_sendmsg<FG_SETAREA, void*>(*self, &adjust);
   }
 }

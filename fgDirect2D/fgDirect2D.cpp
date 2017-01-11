@@ -32,7 +32,7 @@ BOOL __stdcall SpawnMonitorsProc(HMONITOR monitor, HDC hdc, LPRECT, LPARAM lpara
   fgMonitor* cur = reinterpret_cast<fgMonitor*>(calloc(1, sizeof(fgMonitor)));
   fgIntVec dpi = { xdpi, ydpi };
   fgMonitor_Init(cur, 0, &root->root, prev, &area, &dpi);
-
+  prev = cur;
   return TRUE;
 }
 

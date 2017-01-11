@@ -255,8 +255,11 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
   case FG_MOVE:
     if(!msg->p && self->parent != 0) // This is internal, so we must always propagate it up
       _sendsubmsg<FG_MOVE, void*, size_t>(self->parent, msg->subtype, self, msg->u2 | FGMOVE_PROPAGATE);
-    if((msg->u2 & FGMOVE_PROPAGATE) != 0 && !(msg->e->flags&FGELEMENT_BACKGROUND)) // A child moved, so recalculate any layouts
-      _sendsubmsg<FG_LAYOUTCHANGE, void*, size_t>(self, FGELEMENT_LAYOUTMOVE, msg->p, msg->u2);
+    if((msg->u2 & FGMOVE_PROPAGATE) != 0) // A child moved, so recalculate any layouts
+    {
+      if((msg->u2 & (~FGMOVE_PROPAGATE)) != 0 && !(msg->e->flags&FGELEMENT_BACKGROUND))
+        _sendsubmsg<FG_LAYOUTCHANGE, void*, size_t>(self, FGELEMENT_LAYOUTMOVE, msg->p, msg->u2);
+    }
     else if(msg->u2) // This was either internal or propagated down, in which case we must keep propagating it down so long as something changed.
     {
       if(msg->u2 & (FGMOVE_RESIZE | FGMOVE_PADDING | FGMOVE_MARGIN)) // a layout change can happen on a resize or padding change
@@ -396,9 +399,8 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
   case FG_SETPARENT: // Note: Doing everything in SETPARENT is a bad idea because it prevents parents from responding to children being added or removed!
     if(self->parent == msg->e)
     {
-      if(self->next != msg->e2)
+      if(self->parent != 0 && self->next != msg->e2)
       {
-        assert(self->parent != 0);
         assert(!msg->e2 || msg->e2->parent == self->parent);
         fgElement* old = self->next;
         LList_RemoveAll(self);
@@ -433,6 +435,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
     assert(!msg->e->lastinject || !msg->e->lastinject->nextinject);
     assert(!msg->e->lastnoclip || !msg->e->lastnoclip->nextnoclip);
     _sendsubmsg<FG_MOVE, void*, size_t>(msg->e, FG_SETPARENT, 0, fgElement_PotentialResize(self));
+    _sendmsg<FG_PARENTCHANGE, void*, void*>(msg->e, msg->e->parent, 0);
     return FG_ACCEPT;
   case FG_REMOVECHILD:
     if(!msg->p || msg->e->parent != self)
@@ -455,6 +458,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
     msg->e->prev = 0;
     _sendmsg<FG_SETSKIN>(msg->e);
     _sendsubmsg<FG_MOVE, void*, size_t>(msg->e, FG_SETPARENT, 0, fgElement_PotentialResize(self));
+    _sendmsg<FG_PARENTCHANGE, void*, void*>(msg->e, 0, self);
     return FG_ACCEPT;
   case FG_LAYOUTCHANGE:
     assert(!msg->p || !(((fgElement*)msg->p)->flags&FGELEMENT_BACKGROUND));
@@ -913,6 +917,24 @@ void ResolveInnerRect(const fgElement* self, AbsRect* out)
 void GetInnerRect(const fgElement* self, AbsRect* inner, const AbsRect* standard)
 {
   __applyrect(*inner, *standard, self->padding);
+}
+
+void ResolveNoClipRect(const fgElement* self, AbsRect* out)
+{
+  AbsRect rect;
+  ResolveRect(self, out);
+  rect = *out;
+
+  for(const fgElement* cur = self->rootnoclip; cur != 0; cur = cur->next)
+  {
+    AbsRect cache;
+    ResolveRectCache(cur, &cache, out, (cur->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
+    if(cache.left < rect.left) rect.left = cache.left;
+    if(cache.top < rect.top) rect.top = cache.top;
+    if(cache.right > rect.right) rect.right = cache.right;
+    if(cache.bottom > rect.bottom) rect.bottom = cache.bottom;
+  }
+  *out = rect;
 }
 
 char MsgHitElement(const FG_Msg* msg, const fgElement* child)

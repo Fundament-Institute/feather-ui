@@ -80,8 +80,6 @@ size_t fgTreeItem_Message(fgTreeItem* self, const FG_Msg* msg)
     }
     break;
   case FG_MOUSEDOWN:
-    if(msg->button == FG_MOUSERBUTTON)
-      return 0;
     break;
   }
 

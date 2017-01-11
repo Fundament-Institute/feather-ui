@@ -29,7 +29,7 @@ struct fgWindowD2D {
   std::stack<AbsRect> cliprect;
   bool inside;
 
-  void WndCreate(tagRECT& rsize, fgFlag flags);
+  void WndCreate();
   void CreateResources();
   void DiscardResources();
   size_t SetKey(uint8_t keycode, bool down, bool held, unsigned long time);

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <fg:Layout xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:fg="featherGUI" xsi:schemaLocation="featherGUI feather.xsd" skin="testskin" padding="0,20,0,0">
   <Window area="130 100 510 420" text="test window" color="0xFFFFFFFF" font="arial;14" padding="10,22,10,10" flags="RESIZABLE">
-    <Submenu id="#testcontext" flags="EXPAND|TILEY|HIDDEN"><MenuItem text="Change Window Text" /></Submenu>
+    <Submenu id="#testcontext" area="0,0,0,0"><MenuItem text="Change Window Text" /></Submenu>
     <TabControl area="0 0 100% 100%">
       <Tab name="Tab 1" id="#tabfocus">
         <Button area="10, 10, 0, 0" flags="EXPAND" text="Not Pressed" onaction="makepressed" />
@@ -36,9 +36,9 @@
           <Text area="0, 0, 100%, 20" text="List 5" />
         </List>
         <Treeview area="240, 10, 340, 150" contextmenu="#testcontext">
-          <TreeItem><Text text="Parent Item 1" flags="EXPAND"/>
-            <TreeItem><Text text="Item 4" flags="EXPAND"/></TreeItem>
-            <TreeItem><Text text="Item 5" flags="EXPAND"/></TreeItem>
+          <TreeItem contextmenu="#testcontext"><Text text="Parent Item 1" flags="EXPAND"/>
+            <TreeItem contextmenu="#testcontext"><Text text="Item 4" flags="EXPAND"/></TreeItem>
+            <TreeItem contextmenu="#testcontext"><Text text="Item 5" flags="EXPAND" /></TreeItem>
             <TreeItem><Text text="Item 6" flags="EXPAND"/></TreeItem>
           </TreeItem>
           <TreeItem><Text text="Parent Item 2" flags="EXPAND"/>
@@ -309,7 +309,7 @@
   <Skin name="Grid">
     <Resource name="#gridbg" uv="3,3,3,3" area="0,0,100%,100%" color="0x99000000" edgecolor="0xFFAAAAAA" outline="1" flags="RECT|BACKGROUND" />
   </Skin>
-  <Skin name="Text" color="0xFFFFFFFF" font="arial;14">
+  <Skin name="Text" color="0xFFFFFFFF" font="arial;14" />
   <Skin name="Menu" hovercolor="0xFFFFFFFF">
     <Resource name="#menubg" uv="0,0,0,0" area="0,0,100%,100%" color="0x99000000" edgecolor="0xFFAAAAAA" outline="0" flags="RECT|BACKGROUND" />
   </Skin>

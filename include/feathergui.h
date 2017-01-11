@@ -140,7 +140,7 @@ enum FGMOVE
   FGMOVE_CENTER = (FGMOVE_CENTERX | FGMOVE_CENTERY),
   FGMOVE_ROTATION = (1 << 7),
   FGMOVE_PADDING = (1 << 8),
-  FGMOVE_MARGIN = (1 << 9)
+  FGMOVE_MARGIN = (1 << 9),
 };
 
 enum FGTEXTFMT
@@ -275,6 +275,7 @@ enum FG_MSGTYPE
   FG_SETPARENT, // Adds this element to the parent in the first argument, inserting it after the child in the second argument, or before the root if the second argument is NULL.
   FG_ADDCHILD, // Pass an FG_Msg with this type and set the other pointer to the child that should be added.
   FG_REMOVECHILD, // Verifies child's parent is this, then sets the child's parent to NULL.
+  FG_PARENTCHANGE, // This is ONLY used to notify a child that it's parent has changed, because FG_SETPARENT might not ever be called if FG_ADDCHILD is called directly.
   FG_LAYOUTCHANGE, 
   FG_LAYOUTFUNCTION,
   FG_LAYOUTLOAD, // Loads a layout passed in the first pointer with an optional custom class name resolution function passed into the second pointer of type fgElement* (*)(const char*, fgTransform*, fgFlag)

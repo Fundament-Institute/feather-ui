@@ -159,17 +159,17 @@ size_t fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
       else
         return FG_ACCEPT;
     }
+    if((fgCaptureWindow != 0) && (fgCaptureWindow == *self || fgCaptureWindow->GetClassName() == SUBMENU_NAME))
+    {
+      fgMenu_Show((fgMenu*)fgCaptureWindow, false);
+      fgCaptureWindow = 0;
+    }
     if(fgCaptureWindow != 0 && (fgCaptureWindow->GetClassName() == MENU_NAME))
     {
       fgMenu* menu = reinterpret_cast<fgMenu*>(fgCaptureWindow);
       if(menu->expanded)
         fgMenu_Show(menu->expanded, false);
       menu->expanded = 0;
-      fgCaptureWindow = 0;
-    }
-    else if((fgCaptureWindow != 0) && (fgCaptureWindow == *self))
-    {
-      fgMenu_Show(self, false);
       fgCaptureWindow = 0;
     }
   }

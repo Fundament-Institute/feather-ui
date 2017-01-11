@@ -110,7 +110,7 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
     fgSubmenu_Init(&self->context, *self, 0, "Debug$context", FGELEMENT_USEDEFAULTS, &fgTransform_EMPTY, 0);
     self->context->AddItemText("Delete");
     self->context->AddItemText("Move");
-    fgIterateControls(self->context->AddItemText("Insert"), [](void* p, const char* s) { fgElement* e = (fgElement*)p; e->AddItemText(s); });
+    fgIterateControls(fgCreate("Submenu", self->context->AddItemText("Insert"), 0, 0, FGELEMENT_USEDEFAULTS, 0, 0), [](void* p, const char* s) { fgElement* e = (fgElement*)p; e->AddItemText(s); });
     self->elements->SetContextMenu(self->context);
     self->messagelog.p = 0;
     self->messagelog.l = 0;
@@ -261,7 +261,7 @@ fgElement* fgDebug_GetElementUnderMouse()
   return hover;
 }
 
-void fgDebug_TreeInsert(fgElement* parent, fgElement* element, fgElement* treeview)
+void fgDebug_TreeInsert(fgElement* parent, fgElement* element, fgElement* treeview, fgElement* contextmenu)
 {
   assert(fgdebug_instance != 0);
   assert(fgroot_instance != 0);
@@ -271,6 +271,7 @@ void fgDebug_TreeInsert(fgElement* parent, fgElement* element, fgElement* treevi
   if(treeview != 0)
   {
     root = fgroot_instance->backend.fgCreate("TreeItem", parent, 0, 0, FGELEMENT_EXPAND, 0, 0);
+    root->SetContextMenu(contextmenu);
     root->message = (fgMessage)&fgTreeItem_DebugMessage;
     root->userdata = element;
   }
@@ -290,7 +291,7 @@ void fgDebug_TreeInsert(fgElement* parent, fgElement* element, fgElement* treevi
   fgElement* cur = element->root;
   while(cur)
   {
-    fgDebug_TreeInsert(root, cur, treeview);
+    fgDebug_TreeInsert(root, cur, treeview, contextmenu);
     cur = cur->next;
   }
 }
@@ -414,7 +415,7 @@ size_t fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
   {
     fgElement* treeitem = fgDebug_GetTreeItem(fgdebug_instance->elements, self);
     if(treeitem)
-      fgDebug_TreeInsert(fgdebug_instance->elements, msg->e, 0);
+      fgDebug_TreeInsert(fgdebug_instance->elements, msg->e, 0, fgdebug_instance->context);
   }
 
   return r;
@@ -433,7 +434,7 @@ void fgDebug_BuildTree(fgElement* treeview)
       VirtualFreeChild(cur);
   }
 
-  fgDebug_TreeInsert(treeview, &fgroot_instance->gui.element, 0);
+  fgDebug_TreeInsert(treeview, &fgroot_instance->gui.element, 0, fgdebug_instance->context);
 }
 
 FG_EXTERN void fgDebug_Show(float left, float right, char overlay)
@@ -654,6 +655,7 @@ const char* fgDebug_GetMessageString(unsigned short msg)
   case FG_SETMARGIN: return "FG_SETMARGIN";
   case FG_SETPADDING: return "FG_SETPADDING";
   case FG_LAYOUTCHANGE: return "FG_LAYOUTCHANGE";
+  case FG_PARENTCHANGE: return "FG_PARENTCHANGE";
   case FG_SETPARENT: return "FG_SETPARENT";
   case FG_ADDCHILD: return "FG_ADDCHILD";
   case FG_REMOVECHILD: return "FG_REMOVECHILD";

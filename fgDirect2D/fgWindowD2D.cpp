@@ -47,16 +47,22 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
     self->dpi.y = 0;
     self->inside = false;
     new (&self->cliprect) std::stack<AbsRect>();
-
-    if(fgWindow_Message(&self->window, msg))
+    return fgWindow_Message(&self->window, msg);
+  case FG_PARENTCHANGE:
+    if(msg->e != 0 && self->window->parent == &fgSingleton()->gui.element)
+      return fgSendMsg<FG_SETPARENT, const void*>(self->window, fgSingleton()->monitors);
+    if(!self->window->parent && self->handle != 0)
     {
-      AbsRect out;
-      ResolveRect(self->window, &out);
-      RECT rc = { out.left, out.top, out.right, out.bottom };
-      self->WndCreate(rc, self->window->flags);
+      self->DiscardResources();
+      SetWindowLongPtrW(self->handle, GWLP_USERDATA, 0); // Prevent the WM_DESTROY message from propogating
+      DestroyWindow(self->handle);
+    }
+    else if(self->window->parent != 0 && !self->handle)
+    {
+      self->WndCreate();
       self->CreateResources();
     }
-    return FG_ACCEPT;
+    break;
   case FG_DRAW:
     self->CreateResources();
     self->target->BeginDraw();
@@ -108,11 +114,6 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
     {
       AbsRect out;
       ResolveRect(self->window, &out);
-      CRect& root = fgDirect2D::instance->root.gui->transform.area;
-      out.left -= root.left.abs;
-      out.top -= root.top.abs;
-      out.right -= root.left.abs;
-      out.bottom -= root.top.abs;
       SetWindowPos(self->handle, HWND_TOP, out.left, out.top, out.right - out.left, out.bottom - out.top, SWP_NOSENDCHANGING);
     }
   }
@@ -287,9 +288,13 @@ longptr_t __stdcall fgWindowD2D::WndProc(HWND__* hWnd, unsigned int message, siz
   return DefWindowProc(hWnd, message, wParam, lParam);
 }
 
-void fgWindowD2D::WndCreate(RECT& rsize, fgFlag flags)
+void fgWindowD2D::WndCreate()
 {
   unsigned long style = WS_POPUP | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_POPUP;
+
+  AbsRect out;
+  ResolveRect(window, &out);
+  RECT rsize = { out.left, out.top, out.right, out.bottom };
 
   AdjustWindowRect(&rsize, style, FALSE);
   int rwidth = rsize.right - rsize.left;
