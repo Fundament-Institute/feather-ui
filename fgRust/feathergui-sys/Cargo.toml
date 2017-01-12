@@ -1,0 +1,7 @@
+[package]
+name = "feathergui-sys"
+version = "0.1.0"
+authors = ["Connor Hilarides <connorcpu@live.com>"]
+build = "build.rs"
+
+[dependencies]
