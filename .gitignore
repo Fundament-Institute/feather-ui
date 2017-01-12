@@ -29,3 +29,6 @@ examples/c/x64/
 examples/c/Win32/
 examples/cs/obj/
 lib/
+
+# Rust
+target/
