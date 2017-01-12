@@ -37,7 +37,9 @@ size_t fgMonitor_Message(fgMonitor* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_GETDPI:
-    return (size_t)&self->dpi;
+    if(self->dpi.x != 0 && self->dpi.y != 0)
+      return (size_t)&self->dpi;
+    break;
   case FG_SETDPI:
   {
     self->dpi.x = msg->u;
@@ -90,6 +92,8 @@ size_t fgMonitor_Message(fgMonitor* self, const FG_Msg* msg)
     }
     return 0;
   }
+  case FG_INJECT:
+    return fgStandardInject(&self->element, (const FG_Msg*)msg->p, NULL);
   case FG_GETCLASSNAME:
     return (size_t)"Monitor";
   }

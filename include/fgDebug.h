@@ -35,7 +35,7 @@ typedef struct _FG_DEBUG_MESSAGE {
       union _FG_DEBUG_MESSAGE_STORAGE arg2;
     };
     struct {
-      int x; int y; // Mouse and touch events
+      float x; float y; // Mouse and touch events
       union {
         struct { unsigned char button; unsigned char allbtn; };
         struct { short scrolldelta; short scrollhdelta; }; // MOUSESCROLL

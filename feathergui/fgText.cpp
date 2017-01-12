@@ -135,7 +135,10 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
     fgroot_instance->backend.fgDirtyElement(*self);
     return FG_ACCEPT;
   case FG_SETFONT:
-    if(self->font) fgroot_instance->backend.fgDestroyFont(self->font);
+  {
+    if(self->layout != 0) fgroot_instance->backend.fgFontLayout(self->font, 0, 0, 0, 0, 0, 0, self->layout);
+    self->layout = 0;
+    void* oldfont = self->font; // We can't delete this up here because it may rely on the same font we're setting.
     self->font = 0;
     if(msg->p)
     {
@@ -147,8 +150,11 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
       desc.dpi = dpi;
       self->font = fgroot_instance->backend.fgCloneFont(msg->p, identical ? 0 : &desc);
     }
+    if(oldfont) fgroot_instance->backend.fgDestroyFont(oldfont);
+    
     fgText_Recalc(self);
     fgroot_instance->backend.fgDirtyElement(*self);
+  }
     return FG_ACCEPT;
   case FG_SETLINEHEIGHT:
     self->lineheight = msg->f;
@@ -190,11 +196,7 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
     {
       AbsRect area = *(AbsRect*)msg->p;
       fgDrawAuxData* data = (fgDrawAuxData*)msg->p2;
-      AbsVec scale = { (!data->dpi.x || !fgroot_instance->dpi.x) ? 1.0f : (fgroot_instance->dpi.x / (float)data->dpi.x), (!data->dpi.y || !fgroot_instance->dpi.y) ? 1.0f : (fgroot_instance->dpi.y / (float)data->dpi.y) };
-      area.left *= scale.x;
-      area.top *= scale.y;
-      area.right *= scale.x;
-      area.bottom *= scale.y;
+      fgScaleRectDPI(&area, data->dpi.x, data->dpi.y);
       fgSnapAbsRect(area, self->element.flags);
       AbsVec center = ResolveVec(&self->element.transform.center, &area);
       fgVector* v = fgText_Conversion(fgroot_instance->backend.BackendTextFormat, &self->text8, &self->text16, &self->text32);

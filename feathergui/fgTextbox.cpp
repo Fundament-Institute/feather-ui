@@ -389,7 +389,10 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
     fgroot_instance->backend.fgDirtyElement(*self);
     return FG_ACCEPT;
   case FG_SETFONT:
-    if(self->font) fgroot_instance->backend.fgDestroyFont(self->font);
+  {
+    if(self->layout != 0) fgroot_instance->backend.fgFontLayout(self->font, 0, 0, 0, 0, 0, 0, self->layout);
+    self->layout = 0;
+    void* oldfont = self->font; // We can't delete this up here because it may rely on the same font we're setting.
     self->font = 0;
     if(msg->p)
     {
@@ -400,8 +403,11 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       desc.dpi = dpi;
       self->font = fgroot_instance->backend.fgCloneFont(msg->p, identical ? 0 : &desc);
     }
+    if(oldfont) fgroot_instance->backend.fgDestroyFont(oldfont);
+
     fgSubMessage(*self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTMOVE, self, FGMOVE_PROPAGATE | FGMOVE_RESIZE);
     fgroot_instance->backend.fgDirtyElement(*self);
+  }
     break;
   case FG_SETLINEHEIGHT:
     self->lineheight = msg->f;
@@ -507,11 +513,7 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       }
 
       // Draw text
-      AbsVec scale = { (!data->dpi.x || !fgroot_instance->dpi.x) ? 1.0f : (fgroot_instance->dpi.x / (float)data->dpi.x), (!data->dpi.y || !fgroot_instance->dpi.y) ? 1.0f : (fgroot_instance->dpi.y / (float)data->dpi.y) };
-      area.left *= scale.x;
-      area.top *= scale.y;
-      area.right *= scale.x;
-      area.bottom *= scale.y;
+      fgScaleRectDPI(&area, data->dpi.x, data->dpi.y);
       //assert(self->areacache.right - self->areacache.left == area.right - area.left);
       //assert(self->areacache.bottom - self->areacache.top == area.bottom - area.top);
       fgSnapAbsRect(area, self->scroll->flags);
@@ -608,12 +610,7 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       {
         ResolveInnerRect(*self, &self->areacache);
         fgIntVec dpi = self->scroll->GetDPI(); // GetDPI can return 0 if we have no parent, which can happen when a layout is being set up or destroyed.
-        AbsVec scale = { !dpi.x ? (FABS)1.0 : (fgroot_instance->dpi.x / (FABS)dpi.x), !dpi.y ? (FABS)1.0 : (fgroot_instance->dpi.y / (FABS)dpi.y) };
-        assert(isfinite(scale.x) && isfinite(scale.y));
-        self->areacache.left *= scale.x;
-        self->areacache.top *= scale.y;
-        self->areacache.right *= scale.x;
-        self->areacache.bottom *= scale.y;
+        fgScaleRectDPI(&self->areacache, dpi.x, dpi.y);
         AbsRect r = self->areacache;
         if(self->scroll->flags&FGELEMENT_EXPANDX) // If maxdim is -1, this will translate into a -1 maxdim for the text and properly deal with all resizing cases.
           r.right = r.left + self->scroll->maxdim.x;

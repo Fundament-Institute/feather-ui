@@ -174,6 +174,15 @@ void fgRectIntersection(const AbsRect* BSS_RESTRICT l, const AbsRect* BSS_RESTRI
   out->right = bssmin(l->right, r->right);
   out->bottom = bssmin(l->bottom, r->bottom);
 }
+void fgScaleRectDPI(AbsRect* rect, int dpix, int dpiy)
+{
+  BSS_ALIGN(16) float scale[4];
+  scale[0] = (!dpix || !fgroot_instance->dpi.x) ? 1.0f : (fgroot_instance->dpi.x / (float)dpix);
+  scale[1] = (!dpiy || !fgroot_instance->dpi.y) ? 1.0f : (fgroot_instance->dpi.y / (float)dpiy);
+  scale[2] = scale[0];
+  scale[3] = scale[1];
+  (sseVec(BSS_UNALIGNED<const float>(&rect->left))*sseVec(scale)) >> BSS_UNALIGNED<float>(&rect->left);
+}
 
 #ifdef BSS_PLATFORM_WIN32
 #include "bss-util/bss_win32_includes.h"

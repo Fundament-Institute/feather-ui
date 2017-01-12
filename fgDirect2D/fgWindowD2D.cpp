@@ -114,8 +114,14 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
     {
       AbsRect out;
       ResolveRect(self->window, &out);
+      fgScaleRectDPI(&out, 96, 96);
       SetWindowPos(self->handle, HWND_TOP, out.left, out.top, out.right - out.left, out.bottom - out.top, SWP_NOSENDCHANGING);
     }
+    break;
+  case FG_SETDPI:
+    self->dpi.x = msg->i;
+    self->dpi.y = msg->i2;
+    break;
   }
   return fgWindow_Message(&self->window, msg);
 }
@@ -187,10 +193,8 @@ longptr_t __stdcall fgWindowD2D::WndProc(HWND__* hWnd, unsigned int message, siz
       VirtualFreeChild(self->window);
       return 1;
     case 0x02E0: //WM_DPICHANGED
-      self->dpi.x = LOWORD(wParam);
-      self->dpi.y = HIWORD(wParam);
+      //self->window->SetDPI(LOWORD(wParam), HIWORD(wParam));
       return 0;
-
     case WM_MOUSEWHEEL:
     {
       POINTS pointstemp = { 0 };
@@ -294,12 +298,13 @@ void fgWindowD2D::WndCreate()
 
   AbsRect out;
   ResolveRect(window, &out);
+  fgScaleRectDPI(&out, 96, 96);
   RECT rsize = { out.left, out.top, out.right, out.bottom };
 
   AdjustWindowRect(&rsize, style, FALSE);
   int rwidth = rsize.right - rsize.left;
   int rheight = rsize.bottom - rsize.top;
-
+  
   handle = CreateWindowExW(WS_EX_COMPOSITED, L"fgDirect2D", L"", style, rsize.left, rsize.top, INT(rwidth), INT(rheight), NULL, NULL, (HINSTANCE)&__ImageBase, NULL);
   HDC hdc = GetDC(handle);
   UINT xdpi = (UINT)GetDeviceCaps(hdc, LOGPIXELSX);
@@ -411,8 +416,10 @@ void fgWindowD2D::SetMouse(tagPOINTS* points, unsigned short type, unsigned char
   {
     AbsRect out;
     ResolveRect(window, &out);
-    evt.x = points->x + out.left;
-    evt.y = points->y + out.top;
+    fgIntVec dpi = window->GetDPI();
+    AbsVec scale = { (!dpi.x) ? 1.0f : (96.0f / (float)dpi.x), (!dpi.y) ? 1.0f : (96.0f / (float)dpi.y) };
+    evt.x = points->x * scale.x + out.left;
+    evt.y = points->y * scale.y + out.top;
     evt.allbtn = root->mouse.buttons;
     root->mouse.x = evt.x;
     root->mouse.y = evt.y;

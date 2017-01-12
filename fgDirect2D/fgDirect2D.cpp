@@ -23,14 +23,11 @@ BOOL __stdcall SpawnMonitorsProc(HMONITOR monitor, HDC hdc, LPRECT, LPARAM lpara
   fgDirect2D* root = reinterpret_cast<fgDirect2D*>(lparam);
   MONITORINFO info = { sizeof(MONITORINFO), 0 };
   GetMonitorInfo(monitor, &info);
-  UINT xdpi = (UINT)GetDeviceCaps(hdc, LOGPIXELSX);
-  UINT ydpi = (UINT)GetDeviceCaps(hdc, LOGPIXELSY);
+  fgIntVec dpi = { 0, 0 };
   //GetDpiForMonitor(0, MDT_Effective_DPI, &xdpi, &ydpi);
 
   AbsRect area = { info.rcMonitor.left, info.rcMonitor.top, info.rcMonitor.right, info.rcMonitor.bottom };
-
   fgMonitor* cur = reinterpret_cast<fgMonitor*>(calloc(1, sizeof(fgMonitor)));
-  fgIntVec dpi = { xdpi, ydpi };
   fgMonitor_Init(cur, 0, &root->root, prev, &area, &dpi);
   prev = cur;
   return TRUE;

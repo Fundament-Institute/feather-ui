@@ -295,13 +295,13 @@ static BSS_FORCEINLINE void fgSnapAbsRect(AbsRect& r, fgFlag flags)
 {
   if(flags&FGELEMENT_SNAPX)
   {
-    r.left = roundf(r.left);
-    r.right = roundf(r.right);
+    r.left = floor(r.left);
+    r.right = floor(r.right);
   }
   if(flags&FGELEMENT_SNAPY)
   {
-    r.top = roundf(r.top);
-    r.bottom = roundf(r.bottom);
+    r.top = floor(r.top);
+    r.bottom = floor(r.bottom);
   }
 }
 

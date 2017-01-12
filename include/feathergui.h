@@ -608,7 +608,7 @@ enum FG_MOUSEFLAGS {
 
 typedef struct _FG_MOUSESTATE
 {
-  int x, y; // Last known position of the mouse for this control
+  float x, y; // Last known position of the mouse for this control
   unsigned char buttons; // Last known configuration of mouse buttons recieved by this control
   unsigned char state;
 } fgMouseState;
@@ -618,7 +618,7 @@ struct _FG_ELEMENT;
 // General message structure which contains the message type and then various kinds of information depending on the type.
 typedef struct _FG_MSG {
   union {
-    struct { int x; int y; // Mouse and touch events
+    struct { float x; float y; // Mouse and touch events
       union { 
         struct { unsigned char button; unsigned char allbtn; }; 
         struct { short scrolldelta; short scrollhdelta; }; // MOUSESCROLL
@@ -663,6 +663,7 @@ FG_EXTERN char* fgCopyText(const char* text, const char* file, size_t line);
 FG_EXTERN inline void fgUpdateMouseState(fgMouseState* state, const FG_Msg* msg);
 FG_EXTERN inline char fgRectIntersect(const AbsRect* l, const AbsRect* r); // Returns 1 if the rectangles intersect, or 0 otherwise
 FG_EXTERN inline void fgRectIntersection(const AbsRect* BSS_RESTRICT l, const AbsRect* BSS_RESTRICT r, AbsRect* out);
+FG_EXTERN inline void fgScaleRectDPI(AbsRect* rect, int dpix, int dpiy);
 FG_EXTERN size_t fgUTF32toUTF16(const int*BSS_RESTRICT input, ptrdiff_t srclen, wchar_t*BSS_RESTRICT output, size_t buflen);
 FG_EXTERN size_t fgUTF8toUTF16(const char*BSS_RESTRICT input, ptrdiff_t srclen, wchar_t*BSS_RESTRICT output, size_t buflen);
 FG_EXTERN size_t fgUTF16toUTF8(const wchar_t*BSS_RESTRICT input, ptrdiff_t srclen, char*BSS_RESTRICT output, size_t buflen);

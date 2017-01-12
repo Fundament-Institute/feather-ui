@@ -705,6 +705,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
       cur = cur->next;
       fgPassMessage(hold, msg);
     }
+    _sendsubmsg<FG_MOVE, void*, size_t>(self, FG_SETDPI, 0, FGMOVE_RESIZE);
   }
   break;
   case FG_TOUCHBEGIN:
@@ -1029,7 +1030,7 @@ void fgElement_Clear(fgElement* self)
     VirtualFreeChild(self->root);
 }
 
-fgElement* fgElement_GetChildUnderMouse(fgElement* self, int x, int y, AbsRect* cache)
+fgElement* fgElement_GetChildUnderMouse(fgElement* self, float x, float y, AbsRect* cache)
 {
   ResolveRect(self, cache);
   AbsRect child;
@@ -1137,7 +1138,7 @@ void fgElement::LayoutChange(unsigned short subtype, fgElement* target, fgElemen
 
 size_t fgElement::LayoutLoad(fgLayout* layout) { return _sendmsg<FG_LAYOUTLOAD, void*>(this, layout); }
 
-size_t fgElement::DragOver(int x, int y)
+size_t fgElement::DragOver(float x, float y)
 {
   FG_Msg m = { 0 };
   m.type = FG_DRAGOVER;
@@ -1146,7 +1147,7 @@ size_t fgElement::DragOver(int x, int y)
   return (*fgroot_instance->backend.behaviorhook)(this, &m);
 }
 
-size_t fgElement::Drop(int x, int y, unsigned char allbtn)
+size_t fgElement::Drop(float x, float y, unsigned char allbtn)
 {
   FG_Msg m = { 0 };
   m.type = FG_DROP;
@@ -1174,7 +1175,7 @@ struct _FG_STYLE* fgElement::GetStyle() { return reinterpret_cast<struct _FG_STY
 
 fgIntVec& fgElement::GetDPI() { return *reinterpret_cast<fgIntVec*>(_sendmsg<FG_GETDPI>(this)); }
 
-void fgElement::SetDPI(int x, int y) { _sendmsg<FG_SETDPI, ptrdiff_t, size_t>(this, x, y); }
+void fgElement::SetDPI(int x, int y) { _sendmsg<FG_SETDPI, ptrdiff_t, ptrdiff_t>(this, x, y); }
 
 const char* fgElement::GetClassName() { return reinterpret_cast<const char*>(_sendmsg<FG_GETCLASSNAME>(this)); }
 
@@ -1182,7 +1183,7 @@ void* fgElement::GetUserdata(const char* name) { size_t r = _sendmsg<FG_GETUSERD
 
 void fgElement::SetUserdata(void* data, const char* name) { _sendmsg<FG_SETUSERDATA, void*, const void*>(this, data, name); }
 
-size_t fgElement::MouseDown(int x, int y, unsigned char button, unsigned char allbtn)
+size_t fgElement::MouseDown(float x, float y, unsigned char button, unsigned char allbtn)
 {
   FG_Msg m = { 0 };
   m.type = FG_MOUSEDOWN;
@@ -1193,7 +1194,7 @@ size_t fgElement::MouseDown(int x, int y, unsigned char button, unsigned char al
   return (*fgroot_instance->backend.behaviorhook)(this, &m);
 }
 
-size_t fgElement::MouseDblClick(int x, int y, unsigned char button, unsigned char allbtn)
+size_t fgElement::MouseDblClick(float x, float y, unsigned char button, unsigned char allbtn)
 {
   FG_Msg m = { 0 };
   m.type = FG_MOUSEDBLCLICK;
@@ -1204,7 +1205,7 @@ size_t fgElement::MouseDblClick(int x, int y, unsigned char button, unsigned cha
   return (*fgroot_instance->backend.behaviorhook)(this, &m);
 }
 
-size_t fgElement::MouseUp(int x, int y, unsigned char button, unsigned char allbtn)
+size_t fgElement::MouseUp(float x, float y, unsigned char button, unsigned char allbtn)
 {
   FG_Msg m = { 0 };
   m.type = FG_MOUSEUP;
@@ -1215,7 +1216,7 @@ size_t fgElement::MouseUp(int x, int y, unsigned char button, unsigned char allb
   return (*fgroot_instance->backend.behaviorhook)(this, &m);
 }
 
-size_t fgElement::MouseOn(int x, int y)
+size_t fgElement::MouseOn(float x, float y)
 {
   FG_Msg m = { 0 };
   m.type = FG_MOUSEON;
@@ -1224,7 +1225,7 @@ size_t fgElement::MouseOn(int x, int y)
   return (*fgroot_instance->backend.behaviorhook)(this, &m);
 }
 
-size_t fgElement::MouseOff(int x, int y)
+size_t fgElement::MouseOff(float x, float y)
 {
   FG_Msg m = { 0 };
   m.type = FG_MOUSEOFF;
@@ -1233,7 +1234,7 @@ size_t fgElement::MouseOff(int x, int y)
   return (*fgroot_instance->backend.behaviorhook)(this, &m);
 }
 
-size_t fgElement::MouseMove(int x, int y)
+size_t fgElement::MouseMove(float x, float y)
 {
   FG_Msg m = { 0 };
   m.type = FG_MOUSEMOVE;
@@ -1242,7 +1243,7 @@ size_t fgElement::MouseMove(int x, int y)
   return (*fgroot_instance->backend.behaviorhook)(this, &m);
 }
 
-size_t fgElement::MouseScroll(int x, int y, unsigned short delta, unsigned short hdelta)
+size_t fgElement::MouseScroll(float x, float y, unsigned short delta, unsigned short hdelta)
 {
   FG_Msg m = { 0 };
   m.type = FG_MOUSESCROLL;
@@ -1345,7 +1346,7 @@ size_t fgElement::SetValueP(void* ptr, size_t aux) { return _sendsubmsg<FG_SETVA
 
 struct _FG_ELEMENT* fgElement::GetItem(size_t index) { return reinterpret_cast<fgElement*>(_sendmsg<FG_GETITEM, size_t>(this, index)); }
 
-struct _FG_ELEMENT* fgElement::GetItemAt(int x, int y)
+struct _FG_ELEMENT* fgElement::GetItemAt(float x, float y)
 {
   FG_Msg m = { 0 };
   m.type = FG_GETITEM;

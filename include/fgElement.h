@@ -98,8 +98,8 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT void LayoutChange(unsigned short subtype, struct _FG_ELEMENT* target, struct _FG_ELEMENT* old);
   FG_DLLEXPORT size_t LayoutFunction(const FG_Msg& msg, const CRect& area, bool scrollbar = false);
   FG_DLLEXPORT size_t LayoutLoad(struct _FG_LAYOUT* layout);
-  FG_DLLEXPORT size_t DragOver(int x, int y);
-  FG_DLLEXPORT size_t Drop(int x, int y, unsigned char allbtn);
+  FG_DLLEXPORT size_t DragOver(float x, float y);
+  FG_DLLEXPORT size_t Drop(float x, float y, unsigned char allbtn);
   FG_DLLEXPORT void Draw(const AbsRect* area, const fgDrawAuxData* aux);
   FG_DLLEXPORT size_t Inject(const FG_Msg* msg, const AbsRect* area);
   FG_DLLEXPORT size_t SetSkin(struct _FG_SKIN* skin);
@@ -113,13 +113,13 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT const char* GetClassName();
   FG_DLLEXPORT void* GetUserdata(const char* name = 0);
   FG_DLLEXPORT void SetUserdata(void* data, const char* name = 0);
-  FG_DLLEXPORT size_t MouseDown(int x, int y, unsigned char button, unsigned char allbtn);
-  FG_DLLEXPORT size_t MouseDblClick(int x, int y, unsigned char button, unsigned char allbtn);
-  FG_DLLEXPORT size_t MouseUp(int x, int y, unsigned char button, unsigned char allbtn);
-  FG_DLLEXPORT size_t MouseOn(int x, int y);
-  FG_DLLEXPORT size_t MouseOff(int x, int y);
-  FG_DLLEXPORT size_t MouseMove(int x, int y);
-  FG_DLLEXPORT size_t MouseScroll(int x, int y, unsigned short delta, unsigned short hdelta);
+  FG_DLLEXPORT size_t MouseDown(float x, float y, unsigned char button, unsigned char allbtn);
+  FG_DLLEXPORT size_t MouseDblClick(float x, float y, unsigned char button, unsigned char allbtn);
+  FG_DLLEXPORT size_t MouseUp(float x, float y, unsigned char button, unsigned char allbtn);
+  FG_DLLEXPORT size_t MouseOn(float x, float y);
+  FG_DLLEXPORT size_t MouseOff(float x, float y);
+  FG_DLLEXPORT size_t MouseMove(float x, float y);
+  FG_DLLEXPORT size_t MouseScroll(float x, float y, unsigned short delta, unsigned short hdelta);
   FG_DLLEXPORT size_t KeyUp(unsigned char keycode, char sigkeys);
   FG_DLLEXPORT size_t KeyDown(unsigned char keycode, char sigkeys);
   FG_DLLEXPORT size_t KeyChar(int keychar, char sigkeys);
@@ -139,7 +139,7 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT void SetDim(float x, float y, FGDIM type = FGDIM_MAX);
   FG_DLLEXPORT const AbsVec* GetDim(FGDIM type = FGDIM_MAX);
   FG_DLLEXPORT struct _FG_ELEMENT* GetItem(size_t index);
-  FG_DLLEXPORT struct _FG_ELEMENT* GetItemAt(int x, int y);
+  FG_DLLEXPORT struct _FG_ELEMENT* GetItemAt(float x, float y);
   FG_DLLEXPORT size_t GetNumItems();
   FG_DLLEXPORT struct _FG_ELEMENT* GetSelectedItem(size_t index = 0);
   FG_DLLEXPORT size_t GetValue(ptrdiff_t aux = 0);
@@ -184,7 +184,7 @@ FG_EXTERN void fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement* 
 FG_EXTERN void fgElement_Init(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
 FG_EXTERN void fgElement_Destroy(fgElement* self);
 FG_EXTERN size_t fgElement_Message(fgElement* self, const FG_Msg* msg);
-FG_EXTERN fgElement* fgElement_GetChildUnderMouse(fgElement* self, int x, int y, AbsRect* cache);
+FG_EXTERN fgElement* fgElement_GetChildUnderMouse(fgElement* self, float x, float y, AbsRect* cache);
 FG_EXTERN void fgElement_ClearListeners(fgElement* self);
 FG_EXTERN size_t fgElement_CheckLastFocus(fgElement* self);
 

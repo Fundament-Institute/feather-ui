@@ -760,7 +760,7 @@ fgSkin* fgSkinBase_LoadStreamXML(fgSkinBase* self, std::istream& s)
 
 fgSkin* fgSkinBase_LoadFileXML(fgSkinBase* self, const char* file)
 {
-  std::ifstream s(file, std::ios_base::in);
+  std::ifstream s(file, std::ios_base::in| std::ios_base::binary);
   return fgSkinBase_LoadStreamXML(self, s);
 }
 fgSkin* fgSkinBase_LoadXML(fgSkinBase* self, const char* data, FG_UINT length)

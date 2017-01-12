@@ -145,7 +145,7 @@ char fgLayout_LoadFileXML(fgLayout* self, const char* file)
   char* dir = strrchr(path.UnsafeString(), '/');
   if(dir) // If we find a /, we chop off the rest of the string AFTER it, so it becomes a valid directory path.
     dir[1] = 0;
-  std::ifstream fs(file, std::ios_base::in);
+  std::ifstream fs(file, std::ios_base::in|std::ios_base::binary);
   return fgLayout_LoadStreamXML(self, fs, path.c_str());
 }
 

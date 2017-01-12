@@ -8,6 +8,7 @@
 *.exe
 *.aps
 *.designer.cs
+*.txt
 bin/
 bin32/
 media/editor/
