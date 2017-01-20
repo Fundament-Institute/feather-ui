@@ -66,6 +66,7 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
   case FG_DRAW:
     self->CreateResources();
     self->target->BeginDraw();
+    self->target->Clear(D2D1::ColorF(0, 0));
     {
       fgElement* hold = self->window->root;
       assert(!self->cliprect.size());
