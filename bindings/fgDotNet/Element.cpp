@@ -89,8 +89,8 @@ Element^ Element::GetSelectedItem() { return gcnew Element(_p->GetSelectedItem(0
 Element^ Element::GetSelectedItem(size_t index) { return GenNewManagedPtr<Element, fgElement>(_p->GetSelectedItem(index)); }
 size_t Element::GetValue(ptrdiff_t aux) { return _p->GetValue(aux); }
 float Element::GetValueF(ptrdiff_t aux) { return _p->GetValueF(aux); }
-size_t Element::SetValue(ptrdiff_t value, size_t aux) { return _p->SetValue(value, aux); }
-size_t Element::SetValueF(float value, size_t aux) { return _p->SetValueF(value, aux); }
+size_t Element::SetValue(ptrdiff_t value) { return _p->SetValue(value); }
+size_t Element::SetValueF(float value) { return _p->SetValueF(value); }
 size_t Element::SetAsset(Asset^ asset) { return _p->SetAsset(asset); }
 size_t Element::SetUV(UnifiedRect^ uv) { return _p->SetUV(uv->operator CRect()); }
 size_t Element::SetColor(unsigned int color, FGSETCOLOR index) { return _p->SetColor(color, index); }

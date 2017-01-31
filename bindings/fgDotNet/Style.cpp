@@ -25,7 +25,3 @@ FG_UINT Style::GetName(System::String^ name, char flag)
 }
 
 Style::operator fgStyleMsg*(Style^ e) { return e->styles; }
-
-StyleLayout::StyleLayout(fgStyleLayout* p) : type(gcnew System::String(p->type)), name(gcnew System::String(p->name)), id(gcnew System::String(p->id)),
-transform(p->transform), units(p->units), flags(p->flags), style(gcnew Style(&p->style)), order(p->order)
-{}

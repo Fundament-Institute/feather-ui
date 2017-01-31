@@ -2,7 +2,7 @@
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #pragma once
-#include "fgSkin.h"
+#include "fgStyle.h"
 #include "Element.h"
 
 namespace fgDotNet {
@@ -16,19 +16,6 @@ namespace fgDotNet {
   private:
     const FG_Msg* msg;
     fgStyleMsg* next;
-  };
-
-  public ref struct StyleLayout
-  {
-    StyleLayout(fgStyleLayout* p);
-    System::String^ type;
-    System::String^ name;
-    System::String^ id;
-    UnifiedTransform transform;
-    short units;
-    fgFlag flags;
-    Style^ style; // style overrides
-    int order;
   };
 
   public ref struct Style

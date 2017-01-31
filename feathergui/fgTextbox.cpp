@@ -385,7 +385,8 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       }
     }
     fgText_Conversion(FGTEXTFMT_UTF32, &self->text8, &self->text16, &self->text32); // the textbox requires a UTF32 format be available at all times
-    fgSubMessage(*self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTMOVE, self, FGMOVE_PROPAGATE | FGMOVE_RESIZE);
+    if(!(self->scroll->flags&FGELEMENT_SILENT))
+      fgSubMessage(*self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTMOVE, self, FGMOVE_PROPAGATE | FGMOVE_RESIZE);
     fgroot_instance->backend.fgDirtyElement(*self);
     return FG_ACCEPT;
   case FG_SETFONT:

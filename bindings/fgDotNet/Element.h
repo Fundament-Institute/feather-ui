@@ -144,8 +144,8 @@ namespace fgDotNet {
     Element^ GetSelectedItem(size_t index);
     size_t GetValue(ptrdiff_t aux);
     float GetValueF(ptrdiff_t aux);
-    size_t SetValue(ptrdiff_t value, size_t aux);
-    size_t SetValueF(float value, size_t aux);
+    size_t SetValue(ptrdiff_t value);
+    size_t SetValueF(float value);
     size_t SetAsset(Asset^ res);
     size_t SetUV(UnifiedRect^ uv);
     size_t SetColor(unsigned int color, FGSETCOLOR index);

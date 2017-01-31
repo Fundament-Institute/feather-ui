@@ -6,17 +6,65 @@
 #include "fgLayout.h"
 #include "feathercpp.h"
 #include "bss-util/khash.h"
+#include "bss-util/cArraySort.h"
 #include <math.h>
 #include <limits.h>
 
-KHASH_INIT(fgUserdata, char*, size_t, 1, kh_str_hash_func, kh_str_hash_equal);
-KHASH_INIT(fgSkinElements, fgElement*, char, 0, kh_ptr_hash_func, kh_int_hash_equal);
+KHASH_INIT(fgUserdata, const char*, size_t, 1, kh_str_hash_func, kh_str_hash_equal);
 
 template<typename U, typename V>
 BSS_FORCEINLINE char CompPairInOrder(const std::pair<U, V>& l, const std::pair<U, V>& r) { char ret = SGNCOMPARE(l.first, r.first); return !ret ? SGNCOMPARE(l.second, r.second) : ret; }
 
-typedef bss_util::cDynArray<fgElement*, FG_UINT> fgSkinRefArray;
 bss_util::cAVLtree<std::pair<fgElement*, unsigned short>, void, &CompPairInOrder> fgListenerList;
+
+struct fgStoredMessage
+{
+  explicit fgStoredMessage(fgElement* t) : target(t), msg(0) {}
+  fgStoredMessage(fgElement* t, const fgStyleMsg* m) : target(t), msg(fgStyle_CloneStyleMsg(m)) { }
+  fgStoredMessage(const fgStoredMessage& copy) : target(copy.target), msg(fgStyle_CloneStyleMsg(copy.msg)) {}
+  fgStoredMessage(fgStoredMessage&& mov) : target(mov.target), msg(mov.msg) { mov.msg = 0; }
+  ~fgStoredMessage() { if(msg) fgfree(msg, __FILE__, __LINE__); }
+  void Replace(const fgStyleMsg& m)
+  {
+    if(msg != 0)
+    {
+      unsigned int sz = msg->sz&(~0xC0000000);
+      unsigned int nsz = m.sz&(~0xC0000000);
+      if(nsz <= sz)
+      {
+        MEMCPY(msg, sz, &m, nsz);
+        return;
+      }
+      fgfree(msg, __FILE__, __LINE__);
+    }
+    msg = fgStyle_CloneStyleMsg(&m);
+  }
+
+  inline fgStoredMessage& operator=(const fgStoredMessage& copy) { target = copy.target; msg = fgStyle_CloneStyleMsg(copy.msg); return *this; }
+  inline fgStoredMessage& operator=(fgStoredMessage&& mov) { target = mov.target; msg = mov.msg; mov.msg = 0; return *this; }
+
+  fgElement* target;
+  fgStyleMsg* msg;
+};
+
+char CompElementMsg(const fgStoredMessage& l, const fgStoredMessage& r)
+{ 
+  char c = SGNCOMPARE(l.target, r.target);
+  if(c) return c;
+  c = SGNCOMPARE(l.msg->msg.type, r.msg->msg.type);
+  if(c) return c;
+
+  switch(l.msg->msg.type) // These predefined message types have a subtype that changes their declaration entirely 
+  {
+  case FG_SETDIM:
+  case FG_SETCOLOR:
+  case FG_SETITEM:
+    return SGNCOMPARE(l.msg->msg.subtype, r.msg->msg.subtype);
+  }
+  return 0;
+}
+
+typedef bss_util::cArraySort<fgStoredMessage, &CompElementMsg> MESSAGESORT;
 
 void fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units, void (*destroy)(void*), size_t(*message)(void*, const FG_Msg*))
 {
@@ -79,14 +127,22 @@ void fgElement_Destroy(fgElement* self)
   {
     for(khiter_t i = 0; i < self->userhash->n_buckets; ++i)
       if(kh_exist(self->userhash, i))
-        fgfree(kh_key(self->userhash, i), __FILE__, __LINE__);
+        fgFreeText(kh_key(self->userhash, i), __FILE__, __LINE__);
     kh_destroy_fgUserdata(self->userhash);
     self->userhash = 0;
   }
   if(self->name)
-    fgfree(self->name, __FILE__, __LINE__);
-  if(self->skinelements != 0)
-    kh_destroy_fgSkinElements(self->skinelements);
+    fgFreeText(self->name, __FILE__, __LINE__);
+  if(self->skinstyle)
+  {
+    ((MESSAGESORT*)self->skinstyle)->~cArraySort();
+    fgfree(self->skinstyle, __FILE__, __LINE__); // We do this instead of delete so we can use feather's leak tracker, which has to be based on C allocations anyway.
+  }
+  if(self->layoutstyle)
+  {
+    ((MESSAGESORT*)self->layoutstyle)->~cArraySort();
+    fgfree(self->layoutstyle, __FILE__, __LINE__);
+  }
   fgElement_ClearListeners(self);
   assert(fgFocusedWindow != self); // If these assertions fail something is wrong with how the message chain is constructed
   assert(fgLastHover != self);
@@ -101,16 +157,16 @@ void fgElement_Destroy(fgElement* self)
 // (1<<3) move x (8)
 // (1<<4) move y (16)
 
-#ifdef BSS_DEBUG
-bool fgElement_VERIFY(fgElement* self)
-{
-  for(khiter_t i = 0; i < self->userhash->n_buckets; ++i)
-    if(kh_exist(self->userhash, i))
-      if(!fgLeakTracker::Tracker.Verify(kh_key(self->userhash, i)))
-        return false;
-  return true;
-}
-#endif
+//#ifdef BSS_DEBUG
+//bool fgElement_VERIFY(fgElement* self)
+//{
+//  for(khiter_t i = 0; i < self->userhash->n_buckets; ++i)
+//    if(kh_exist(self->userhash, i))
+//      if(!fgLeakTracker::Tracker.Verify((char*)kh_key(self->userhash, i)))
+//        return false;
+//  return true;
+//}
+//#endif
 
 BSS_FORCEINLINE fgElement*& fgElement_prev(fgElement* p) { return p->prev; }
 BSS_FORCEINLINE fgElement*& fgElement_previnject(fgElement* p) { return p->previnject; }
@@ -193,12 +249,69 @@ char fgElement_PotentialResize(fgElement* self)
     | ((self->transform.area.top.rel != self->transform.area.bottom.rel) << 2);
 }
 
+void fgElement_ApplyMessageArray(fgElement* search, fgElement* target, fgVector* vector)
+{
+  MESSAGESORT* src = (MESSAGESORT*)vector;
+  fgStyleMsg msg = { 0 };
+  fgStoredMessage m(search);
+  m.msg = &msg;
+  size_t i = src->FindNear(m, false);
+  //assert(i >= src->Length() || i == 0);
+  while(i < src->Length() && (*src)[i].target == search)
+    (*fgroot_instance->backend.behaviorhook)(target, &(*src)[i++].msg->msg);
+  m.msg = 0;
+}
+
+inline void fgElement_AddToMessageArray(const fgStyleMsg& msg, fgElement* target, MESSAGESORT& dest)
+{
+  fgStoredMessage add(target);
+  add.msg = const_cast<fgStyleMsg*>(&msg);
+  size_t i = dest.Find(add);
+  if(i < dest.Length())
+    dest[i].Replace(msg);
+  else
+    dest.Insert(fgStoredMessage(target, &msg));
+  add.msg = 0;
+}
+
+inline void fgElement_AddArrayToMessageArray(const MESSAGESORT& src, MESSAGESORT** dest)
+{
+  if(!*dest)
+  {
+    *dest = fgmalloc<MESSAGESORT>(1, __FILE__, __LINE__); // Done so we can use feathergui's leak tracker
+    new (*dest) MESSAGESORT(0);
+  }
+  for(size_t i = 0; i < src.Length(); ++i)
+    fgElement_AddToMessageArray(*src[i].msg, src[i].target, **dest);
+}
+
+inline void fgElement_StyleToMessageArray(const fgStyle& src, fgElement* target, MESSAGESORT** dest)
+{
+  assert(dest);
+  fgStyleMsg* cur = src.styles;
+  if(cur && !*dest)
+  {
+    *dest = fgmalloc<MESSAGESORT>(1, __FILE__, __LINE__); // Done so we can use feathergui's leak tracker
+    new (*dest) MESSAGESORT(0);
+  }
+  while(cur)
+  {
+    fgElement_AddToMessageArray(*cur, target, **dest);
+    cur = cur->next;
+  }
+}
+
 fgElement* fgElement_LoadLayout(fgElement* parent, fgElement* next, fgClassLayout* layout)
 {
-  fgElement* element = fgroot_instance->backend.fgCreate(layout->style.type, parent, next, layout->style.name, layout->style.flags, (layout->style.units == -1) ? 0 : &layout->style.transform, layout->style.units);
-  if(layout->style.id != 0)
-    fgRoot_AddID(fgroot_instance, layout->style.id, element);
-  _sendsubmsg<FG_SETSTYLE, void*, size_t>(element, FGSETSTYLE_POINTER, &layout->style.style, ~0);
+  fgElement* element = fgroot_instance->backend.fgCreate(layout->layout.type, parent, next, layout->name, layout->layout.flags, (layout->layout.units == -1) ? 0 : &layout->layout.transform, layout->layout.units);
+  assert(element != 0);
+  if(!element)
+    return 0;
+  if(layout->id != 0)
+    fgRoot_AddID(fgroot_instance, layout->id, element);
+  fgElement_StyleToMessageArray(layout->layout.style, 0, (MESSAGESORT**)&element->layoutstyle);
+  if(element->layoutstyle)
+    fgElement_ApplyMessageArray(0, element, element->layoutstyle);
   fgroot_instance->backend.fgUserDataMap(element, &layout->userdata); // Map any custom userdata to this element
 
   for(FG_UINT i = 0; i < layout->children.l; ++i)
@@ -212,21 +325,7 @@ void fgElement_ApplySkin(fgElement* self, const fgSkin* skin)
   if(skin->inherit) // apply inherited skin first so we override it.
     fgElement_ApplySkin(self, skin->inherit);
 
-  fgElement* child = self->root;
-  for(FG_UINT i = 0; i < skin->children.l; ++i)
-  {
-    fgStyleLayout* layout = skin->children.p + i;
-    child = fgroot_instance->backend.fgCreate(layout->type, self, child, layout->name, layout->flags, (layout->units == -1) ? 0 : &layout->transform, layout->units);
-    assert(child != 0);
-    _sendsubmsg<FG_SETSTYLE, void*, size_t>(child, FGSETSTYLE_POINTER, &layout->style, ~0);
-    if(!self->skinelements)
-      self->skinelements = kh_init_fgSkinElements();
-    int r;
-    kh_put_fgSkinElements(self->skinelements, child, &r);
-    assert(r != 0);
-  }
-
-  _sendsubmsg<FG_SETSTYLE, void*, size_t>(self, FGSETSTYLE_POINTER, (void*)&self->skin->style, ~0);
+  fgElement_StyleToMessageArray(skin->style, 0, (MESSAGESORT**)&self->skinstyle);
 }
 
 
@@ -240,6 +339,56 @@ size_t fgElement_CheckLastFocus(fgElement* self)
       return 1;
   }
   return 0;
+}
+
+void fgElement_SetSkinStyleElement(fgElement* self, FG_UINT style, FG_UINT flags, const fgSkinLayout& layout)
+{
+  fgElement* element = (fgElement*)alloca(layout.sz);
+  MEMCPY(element, layout.sz, layout.instance, layout.sz);
+  element->userhash = 0;
+  element->parent = self;
+  element->flags |= FGELEMENT_SILENT;
+
+  if(self->skinstyle)
+    fgElement_ApplyMessageArray(layout.instance, element, self->skinstyle);
+  element->flags &= (~FGELEMENT_SILENT);
+
+  FG_Msg m = { 0 };
+  m.type = FG_SETSTYLE;
+  m.subtype = FGSETSTYLE_POINTER;
+  while(style) // We loop through all set bits of style according to mask. style is not always just a single flag, because of style resets when the mask is -1.
+  {
+    FG_UINT indice = (1U << bss_util::bsslog2(style));
+    style ^= indice;
+    m.p = fgSkinTree_GetStyle(&layout.tree, indice | flags);
+    if(m.p != 0)
+    {
+      fgElement_Message(element, &m);
+      fgElement_StyleToMessageArray(*(fgStyle*)m.p, layout.instance, (MESSAGESORT**)&self->skinstyle);
+    }
+    else if(flags != 0) // If we failed to find a style, but some flags were set, disable the flags and try to find another one
+    {
+      m.p = fgSkinTree_GetStyle(&layout.tree, indice);
+      if(m.p != 0)
+      {
+        fgElement_Message(element, &m);
+        fgElement_StyleToMessageArray(*(fgStyle*)m.p, layout.instance, (MESSAGESORT**)&self->skinstyle);
+      }
+    }
+  }
+
+  for(size_t i = 0; i < layout.tree.children.l; ++i)
+    fgElement_SetSkinStyleElement(self, style, flags, layout.tree.children.p[i]);
+}
+
+void fgElement_SetSkinStyle(fgElement* self, FG_UINT style, FG_UINT flags, const fgSkin* skin)
+{
+  if(!skin)
+    return;
+  fgElement_SetSkinStyle(self, style, flags, skin->inherit);
+
+  for(size_t i = 0; i < skin->tree.children.l; ++i)
+    fgElement_SetSkinStyleElement(self, style, flags, skin->tree.children.p[i]);
 }
 
 size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
@@ -447,12 +596,6 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
       self->lastfocus = 0;
     LList_RemoveAll(msg->e); // Remove msg->e from us
     
-    if(self->skinelements != 0) // Double check to see if this is a skin element. If so, remove it from our hash
-    {
-      khiter_t iter = kh_get_fgSkinElements(self->skinelements, msg->e);
-      if(iter != kh_end(self->skinelements) && kh_exist(self->skinelements, iter))
-        kh_del_fgSkinElements(self->skinelements, iter);
-    }
     msg->e->parent = 0;
     msg->e->next = 0;
     msg->e->prev = 0;
@@ -492,7 +635,10 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
     if(!layout)
       return 0;
 
-    _sendsubmsg<FG_SETSTYLE, void*, size_t>(self, FGSETSTYLE_POINTER, &layout->style, ~0);
+    fgElement_StyleToMessageArray(layout->style, 0, (MESSAGESORT**)&self->layoutstyle);
+    if(self->layoutstyle)
+      fgElement_ApplyMessageArray(0, self, self->layoutstyle);
+
     for(FG_UINT i = 0; i < layout->layout.l; ++i)
       fgElement_LoadLayout(self, 0, layout->layout.p + i);
   }
@@ -570,16 +716,16 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
       skin = (fgSkin*)_sendmsg<FG_GETSKIN, void*>(self->parent, self);
     if(self->skin != skin) // only bother changing the skin if there's stuff to change
     {
-      if(self->skin != 0 && self->skinelements != 0) // remove existing skin elements
-      {
-        for(FG_UINT i = 0; i < self->skinelements->n_buckets; ++i)
-          if(kh_exist(self->skinelements, i))
-            VirtualFreeChild(kh_key(self->skinelements, i));
-        kh_clear_fgSkinElements(self->skinelements);
-      }
+      fgroot_instance->backend.fgDirtyElement(self);
+      if(self->skinstyle != 0)
+        ((MESSAGESORT*)self->skinstyle)->Clear();
       self->skin = skin;
       if(self->skin != 0)
         fgElement_ApplySkin(self, self->skin);
+      if(self->layoutstyle)
+        fgElement_AddArrayToMessageArray(*(MESSAGESORT*)self->layoutstyle, (MESSAGESORT**)&self->skinstyle);
+      if(self->skinstyle)
+        fgElement_ApplyMessageArray(0, self, self->skinstyle);
     }
 
     fgElement* cur = self->root;
@@ -604,7 +750,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
       {
       case FGSETSTYLE_NAME:
       case FGSETSTYLE_INDEX:
-        index = (!msg->subtype ? fgStyle_GetName((const char*)msg->p, false) : (FG_UINT)msg->i);
+        index = ((msg->subtype == FGSETSTYLE_NAME) ? fgStyle_GetName((const char*)msg->p, false) : (FG_UINT)msg->i);
 
         if(index == (FG_UINT)-1)
           index = (FG_UINT)_sendmsg<FG_GETSTYLE>(self);
@@ -634,22 +780,23 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
         cur = cur->next;
       }
 
-      FG_Msg m = *msg;
-      m.subtype = FGSETSTYLE_POINTER;
-      FG_UINT flags = ((self->style == (FG_UINT)-1) ? (index&fgStyleFlagMask) : (self->style&fgStyleFlagMask));
-      index &= (~fgStyleFlagMask);
-      while(index) // We loop through all set bits of index according to mask. index is not always just a single flag, because of style resets when the mask is -1.
+      if(self->skin != 0)
       {
-        FG_UINT indice = (1U << bss_util::bsslog2(index));
-        index ^= indice;
-        if(self->skin != 0)
+        FG_UINT flags = ((self->style == (FG_UINT)-1) ? (index&fgStyleFlagMask) : (self->style&fgStyleFlagMask));
+        index &= (~fgStyleFlagMask);
+        fgElement_SetSkinStyle(self, index, flags, self->skin);
+        FG_Msg m = *msg;
+        m.subtype = FGSETSTYLE_POINTER;
+        while(index) // We loop through all set bits of index according to mask. index is not always just a single flag, because of style resets when the mask is -1.
         {
-          m.p = fgSkin_GetStyle(self->skin, indice | flags);
+          FG_UINT indice = (1U << bss_util::bsslog2(index));
+          index ^= indice;
+          m.p = fgSkinTree_GetStyle(&self->skin->tree, indice | flags);
           if(m.p != 0)
             fgElement_Message(self, &m);
           else if(flags != 0) // If we failed to find a style, but some flags were set, disable the flags and try to find another one
           {
-            m.p = fgSkin_GetStyle(self->skin, indice);
+            m.p = fgSkinTree_GetStyle(&self->skin->tree, indice);
             if(m.p != 0)
               fgElement_Message(self, &m);
           }
@@ -686,7 +833,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
   case FG_INJECT:
     return fgStandardInject(self, (const FG_Msg*)msg->p, (const AbsRect*)msg->p2);
   case FG_SETNAME:
-    if(self->name) fgfree(self->name, __FILE__, __LINE__);
+    if(self->name) fgFreeText(self->name, __FILE__, __LINE__);
     self->name = fgCopyText((const char*)msg->p, __FILE__, __LINE__);
     _sendmsg<FG_SETSKIN, void*>(self, 0); // force the skin to be recalculated
     return FG_ACCEPT;
@@ -1063,8 +1210,8 @@ fgElement* fgElement_GetChildUnderMouse(fgElement* self, float x, float y, AbsRe
 
 void fgElement_MouseMoveCheck(fgElement* self)
 {
-  if(!self->parent || (self->flags&FGELEMENT_IGNORE))
-    return; // If you have no parent or FGELEMENT_IGNORE is set, you can't possibly recieve MOUSEMOVE events so don't bother with this.
+  if(!self->parent || (self->flags&(FGELEMENT_IGNORE|FGELEMENT_SILENT)))
+    return; // If you have no parent or FGELEMENT_IGNORE is set (or this was a silent message), you can't possibly recieve MOUSEMOVE events so don't bother with this.
   AbsRect out;
   ResolveRect(self, &out);
   if(HitAbsRect(&out, (FABS)fgroot_instance->mouse.x, (FABS)fgroot_instance->mouse.y))
@@ -1338,11 +1485,19 @@ float fgElement::GetValueF(ptrdiff_t aux) { size_t r = _sendsubmsg<FG_GETVALUE, 
 
 void* fgElement::GetValueP(ptrdiff_t aux) { size_t r = _sendsubmsg<FG_GETVALUE, ptrdiff_t>(this, FGVALUE_POINTER, aux); return *reinterpret_cast<void**>(&r); }
 
-size_t fgElement::SetValue(ptrdiff_t state, size_t aux) { return _sendsubmsg<FG_SETVALUE, ptrdiff_t, size_t>(this, FGVALUE_INT64, state, aux); }
+size_t fgElement::GetRange() { return _sendsubmsg<FG_GETRANGE>(this, FGVALUE_INT64); }
 
-size_t fgElement::SetValueF(float state, size_t aux) { return _sendsubmsg<FG_SETVALUE, float, size_t>(this, FGVALUE_FLOAT, state, aux); }
+float fgElement::GetRangeF() { size_t r = _sendsubmsg<FG_GETRANGE>(this, FGVALUE_FLOAT); return *reinterpret_cast<float*>(&r); }
 
-size_t fgElement::SetValueP(void* ptr, size_t aux) { return _sendsubmsg<FG_SETVALUE, void*, size_t>(this, FGVALUE_POINTER, ptr, aux); }
+size_t fgElement::SetValue(ptrdiff_t state) { return _sendsubmsg<FG_SETVALUE, ptrdiff_t>(this, FGVALUE_INT64, state); }
+
+size_t fgElement::SetValueF(float state) { return _sendsubmsg<FG_SETVALUE, float>(this, FGVALUE_FLOAT, state); }
+
+size_t fgElement::SetValueP(void* ptr) { return _sendsubmsg<FG_SETVALUE, void*>(this, FGVALUE_POINTER, ptr); }
+
+size_t fgElement::SetRange(ptrdiff_t range) { return _sendsubmsg<FG_SETRANGE, ptrdiff_t>(this, FGVALUE_INT64, range); }
+
+size_t fgElement::SetRangeF(float range) { return _sendsubmsg<FG_SETRANGE, float>(this, FGVALUE_FLOAT, range); }
 
 struct _FG_ELEMENT* fgElement::GetItem(size_t index) { return reinterpret_cast<fgElement*>(_sendmsg<FG_GETITEM, size_t>(this, index)); }
 

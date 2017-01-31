@@ -86,18 +86,9 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
         self,
       };
 
+      fgStandardDraw(self->window, &area, &exdata.data, 0);
 
       fgElement* topmost = fgSingleton()->topmost;
-      while(hold)
-      {
-        if(!(hold->flags&FGELEMENT_HIDDEN) && hold != topmost)
-        {
-          ResolveRectCache(hold, &curarea, &area, (hold->flags & FGELEMENT_BACKGROUND) ? 0 : &self->window->padding);
-          fgSendMsg<FG_DRAW, void*, void*>(hold, &curarea, &exdata);
-        }
-        hold = hold->next;
-      }
-
       if(topmost && GetElementWindow(topmost) == self) // Draw topmost before the drag object
       {
         AbsRect out;
@@ -106,6 +97,7 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
       }
 
       self->cliprect.pop();
+      assert(!self->cliprect.size());
     }
     if(self->target->EndDraw() == 0x8899000C) // D2DERR_RECREATE_TARGET
       self->DiscardResources();

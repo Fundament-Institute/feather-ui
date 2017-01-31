@@ -14,6 +14,7 @@ extern "C" {
   {
     FG_Msg msg;
     struct _FG_STYLE_MSG* next;
+    unsigned int sz;
   } fgStyleMsg;
 
   typedef struct _FG_STYLE
@@ -30,7 +31,8 @@ extern "C" {
   FG_EXTERN void fgStyle_Destroy(fgStyle* self);
   FG_EXTERN FG_UINT fgStyle_GetName(const char* name, char flag);
 
-  FG_EXTERN fgStyleMsg* fgStyle_AddStyleMsg(fgStyle* self, const FG_Msg* msg, const void* arg1, size_t arglen1, const void* arg2, size_t arglen2);
+  FG_EXTERN fgStyleMsg* fgStyle_AddStyleMsg(fgStyle* self, const FG_Msg* msg, const void* arg1, unsigned int arg1size, const void* arg2, unsigned int arg2size);
+  FG_EXTERN fgStyleMsg* fgStyle_CloneStyleMsg(const fgStyleMsg* self);
   FG_EXTERN void fgStyle_RemoveStyleMsg(fgStyle* self, fgStyleMsg* msg);
 
 #ifdef  __cplusplus

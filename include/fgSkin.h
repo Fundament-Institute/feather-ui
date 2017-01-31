@@ -11,16 +11,38 @@
 extern "C" {
 #endif
 
-typedef struct _FG_STYLE_LAYOUT {
-  char* type;
-  char* name;
-  char* id;
+typedef struct _FG_SKIN_ELEMENT {
+  const char* type;
   fgTransform transform;
   short units;
   fgFlag flags;
   fgStyle style; // style overrides
   int order;
-} fgStyleLayout;
+} fgSkinElement;
+
+struct _FG_SKIN_LAYOUT;
+typedef fgDeclareVector(struct _FG_SKIN_LAYOUT, SkinLayout) fgVectorSkinLayout;
+
+typedef struct _FG_SKIN_TREE {
+  fgVectorSkinLayout children;
+  struct __kh_fgStyleInt_t* styles;
+
+#ifdef  __cplusplus
+  FG_DLLEXPORT size_t AddChild(const char* type, fgFlag flags, const fgTransform* transform, short units, int order);
+  FG_DLLEXPORT char RemoveChild(FG_UINT child);
+  FG_DLLEXPORT struct _FG_SKIN_LAYOUT* GetChild(FG_UINT child) const;
+  FG_DLLEXPORT FG_UINT AddStyle(const char* name);
+  FG_DLLEXPORT char RemoveStyle(FG_UINT style);
+  FG_DLLEXPORT fgStyle* GetStyle(FG_UINT style) const;
+#endif
+} fgSkinTree;
+
+typedef struct _FG_SKIN_LAYOUT {
+  fgSkinElement layout;
+  fgSkinTree tree;
+  unsigned int sz;
+  fgElement* instance; // Instance of this skin element. Skin elements cannot be assigned skins, so this only needs to apply the style overrides.
+} fgSkinLayout;
 
 struct __kh_fgSkins_t;
 struct __kh_fgStyles_t;
@@ -57,29 +79,30 @@ typedef struct _FG_SKIN
   struct _FG_SKIN_BASE base;
   struct _FG_SKIN* inherit;
   fgStyle style; // style overrides
-  fgDeclareVector(fgStyleLayout, StyleLayout) children; // type: fgStyleLayout
-  struct __kh_fgStyleInt_t* styles;
+  fgSkinTree tree;
 
 #ifdef  __cplusplus
-  FG_DLLEXPORT size_t AddChild(const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order);
-  FG_DLLEXPORT char RemoveChild(FG_UINT child);
-  FG_DLLEXPORT fgStyleLayout* GetChild(FG_UINT child) const;
-  FG_DLLEXPORT FG_UINT AddStyle(const char* name);
-  FG_DLLEXPORT char RemoveStyle(FG_UINT style);
-  FG_DLLEXPORT fgStyle* GetStyle(FG_UINT style) const;
   FG_DLLEXPORT struct _FG_SKIN* GetSkin(const char* name) const;
 #endif
 } fgSkin;
 
+FG_EXTERN void fgSkinElement_Init(fgSkinElement* self, const char* type, fgFlag flags, const fgTransform* transform, short units, int order);
+FG_EXTERN void fgSkinElement_Destroy(fgSkinElement* self);
+
+FG_EXTERN void fgSkinTree_Init(fgSkinTree* self);
+FG_EXTERN void fgSkinTree_Destroy(fgSkinTree* self);
+FG_EXTERN size_t fgSkinTree_AddChild(fgSkinTree* self, const char* type, fgFlag flags, const fgTransform* transform, short units, int order);
+FG_EXTERN char fgSkinTree_RemoveChild(fgSkinTree* self, FG_UINT child);
+FG_EXTERN fgSkinLayout* fgSkinTree_GetChild(const fgSkinTree* self, FG_UINT child);
+FG_EXTERN FG_UINT fgSkinTree_AddStyle(fgSkinTree* self, const char* name);
+FG_EXTERN char fgSkinTree_RemoveStyle(fgSkinTree* self, FG_UINT style);
+FG_EXTERN fgStyle* fgSkinTree_GetStyle(const fgSkinTree* self, FG_UINT style);
+
+FG_EXTERN void fgSkinLayout_Init(fgSkinLayout* self, const char* type, fgFlag flags, const fgTransform* transform, short units, int order);
+FG_EXTERN void fgSkinLayout_Destroy(fgSkinLayout* self);
 
 FG_EXTERN void fgSkin_Init(fgSkin* self);
 FG_EXTERN void fgSkin_Destroy(fgSkin* self);
-FG_EXTERN size_t fgSkin_AddChild(fgSkin* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order);
-FG_EXTERN char fgSkin_RemoveChild(fgSkin* self, FG_UINT child);
-FG_EXTERN fgStyleLayout* fgSkin_GetChild(const fgSkin* self, FG_UINT child);
-FG_EXTERN FG_UINT fgSkin_AddStyle(fgSkin* self, const char* name);
-FG_EXTERN char fgSkin_RemoveStyle(fgSkin* self, FG_UINT style);
-FG_EXTERN fgStyle* fgSkin_GetStyle(const fgSkin* self, FG_UINT style);
 FG_EXTERN fgSkin* fgSkin_GetSkin(const fgSkin* self, const char* name);
 
 FG_EXTERN void fgSkinBase_Destroy(fgSkinBase* self);
@@ -98,9 +121,6 @@ FG_EXTERN fgSkin* fgSkinBase_LoadFileUBJSON(fgSkinBase* self, const char* file);
 FG_EXTERN fgSkin* fgSkinBase_LoadUBJSON(fgSkinBase* self, const void* data, FG_UINT length);
 FG_EXTERN fgSkin* fgSkinBase_LoadFileXML(fgSkinBase* self, const char* file);
 FG_EXTERN fgSkin* fgSkinBase_LoadXML(fgSkinBase* self, const char* data, FG_UINT length);
-
-FG_EXTERN void fgStyleLayout_Init(fgStyleLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order);
-FG_EXTERN void fgStyleLayout_Destroy(fgStyleLayout* self);
 
 #ifdef  __cplusplus
 }

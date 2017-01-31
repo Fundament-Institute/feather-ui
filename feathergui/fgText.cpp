@@ -215,7 +215,7 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
 
 void fgText_Recalc(fgText* self)
 {
-  if(self->font && (self->element.flags&FGELEMENT_EXPAND))
+  if(self->font && (self->element.flags&FGELEMENT_EXPAND) && !(self->element.flags&FGELEMENT_SILENT))
   {
     assert(!isnan(self->element.transform.area.left.abs) && !isnan(self->element.transform.area.top.abs) && !isnan(self->element.transform.area.right.abs) && !isnan(self->element.transform.area.bottom.abs));
     AbsRect area;

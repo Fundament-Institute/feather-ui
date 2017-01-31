@@ -107,13 +107,13 @@ size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
     }
     }
     return 0;
-  case FG_SETVALUE:
-    if(msg->subtype == FGVALUE_ROW)
+  case FG_SETRANGE:
     {
       FG_Msg m = *msg;
-      m.subtype = FGVALUE_FLOAT;
+      m.type = FG_SETVALUE;
       return fgList_Message(&self->list, &m);
     }
+  case FG_SETVALUE:
     return fgPassMessage(self->header, msg);
   case FG_SETCOLOR:
     switch(msg->subtype)

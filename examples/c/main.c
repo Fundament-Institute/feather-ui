@@ -9,7 +9,7 @@
 void statelistener(fgElement* self, const FG_Msg* msg)
 {
   fgElement* progbar = fgRoot_GetID(fgSingleton(), "#progbar");
-  fgFloatMessage(progbar, FG_SETVALUE, FGVALUE_FLOAT, fgGetFloatMessage(self, FG_GETVALUE, FGVALUE_FLOAT, 0) / fgGetFloatMessage(self, FG_GETVALUE, FGVALUE_FLOAT, 1), 0);
+  fgFloatMessage(progbar, FG_SETVALUE, FGVALUE_FLOAT, fgGetFloatMessage(self, FG_GETVALUE, FGVALUE_FLOAT, 0) / fgGetFloatMessage(self, FG_GETRANGE, FGVALUE_FLOAT, 0), 0);
   char buf[10];
   _itoa_s(fgIntMessage(self, FG_GETVALUE, 0, 0), buf, 10, 10);
   fgVoidMessage(progbar, FG_SETTEXT, buf, 0);

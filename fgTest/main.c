@@ -75,6 +75,8 @@ RETPAIR test_feathergui()
   TEST(lrect[1] == 2);
   TEST(lrect[2] == 3);
   TEST(lrect[3] == -4);
+
+  int size = sizeof(fgElement);
   ENDTEST;
 }
 

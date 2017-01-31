@@ -12,11 +12,11 @@ extern "C" {
 
 enum FGRESOURCE_FLAGS
 {
-  FGRESOURCE_UVTILE = (1 << 8),
-  FGRESOURCE_RECT = (1 << 9), // Indicates this is a rounded rectangle
-  FGRESOURCE_CIRCLE = (2 << 9), // Indicates this is a circle
-  FGRESOURCE_TRIANGLE = (3 << 9), // Indicates this is a triangle
-  FGRESOURCE_SHAPEMASK = (3 << 9),
+  FGRESOURCE_UVTILE = (1 << 9),
+  FGRESOURCE_RECT = (1 << 10), // Indicates this is a rounded rectangle
+  FGRESOURCE_CIRCLE = (2 << 10), // Indicates this is a circle
+  FGRESOURCE_TRIANGLE = (3 << 10), // Indicates this is a triangle
+  FGRESOURCE_SHAPEMASK = (3 << 10),
 };
 
 // fgResource stores a renderable image/vector/shader, that optionally has UV coordinates.

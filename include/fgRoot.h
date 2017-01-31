@@ -17,6 +17,7 @@ struct __kh_fgIDMap_t;
 struct __kh_fgCursorMap_t;
 struct __kh_fgIDHash_t;
 struct _FG_MONITOR;
+struct _FG_SKIN;
 typedef void(*fgInitializer)(fgElement* BSS_RESTRICT, fgElement* BSS_RESTRICT, fgElement* BSS_RESTRICT, const char*, fgFlag, const fgTransform*, unsigned short);
 
 typedef struct _FG_DEFER_ACTION {
@@ -79,11 +80,13 @@ FG_EXTERN size_t fgStandardInject(fgElement* self, const FG_Msg* msg, const AbsR
 FG_EXTERN size_t fgOrderedInject(fgElement* self, const FG_Msg* msg, const AbsRect* area, fgElement* skip, fgElement* (*fn)(fgElement*, const FG_Msg*));
 FG_EXTERN void fgStandardDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, char culled);
 FG_EXTERN void fgOrderedDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, char culled, fgElement* skip, fgElement* (*fn)(fgElement*, const AbsRect*, const AbsRect*), void(*draw)(fgElement*, const AbsRect*, const fgDrawAuxData*));
+FG_EXTERN char fgDrawSkin(fgElement* self, const struct _FG_SKIN* skin, const AbsRect* area, const fgDrawAuxData* aux, char culled, char foreground, char clipping);
 FG_EXTERN fgElement* fgCreate(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
 FG_EXTERN int fgRegisterCursor(int cursor, const void* data, size_t sz);
 FG_EXTERN int fgRegisterFunction(const char* name, fgListener fn);
 FG_EXTERN void fgRegisterControl(const char* name, fgInitializer fn, size_t sz);
 FG_EXTERN void fgIterateControls(void* p, void(*fn)(void*, const char*));
+FG_EXTERN size_t fgGetTypeSize(const char* type);
 
 #ifdef  __cplusplus
 }

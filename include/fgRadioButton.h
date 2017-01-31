@@ -12,7 +12,7 @@ extern "C" {
 
 // A radio button is like a checkbox, but disables all other radio buttons that have the same parent control (use a non-styled fgElement to group them).
 typedef struct _FG_RADIOBUTTON {
-  fgCheckbox window; // A radio buton must be a different class for styling purposes.
+  fgCheckbox window; // A radio button must be a different class for styling purposes.
   struct _FG_RADIOBUTTON* radionext; // Used for the list of radiobuttons in a given fgElement grouping
   struct _FG_RADIOBUTTON* radioprev;
 #ifdef  __cplusplus

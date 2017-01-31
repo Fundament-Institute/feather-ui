@@ -154,6 +154,7 @@
       <xs:element name="List" type="fgList" />
       <xs:element name="Grid" type="fgGrid" />
       <xs:element name="Menu" type="fgMenu"  />
+      <xs:element name="Submenu" type="fgMenu"  />
       <xs:element name="Progressbar" type="fgProgressbar"  />
       <xs:element name="Radiobutton" type="fgRadiobutton" />
       <xs:element name="Resource" type="fgResource" />
@@ -165,6 +166,7 @@
       <xs:element name="Treeview" type="fgTreeview" />
       <xs:element name="Toolbar" type="fgToolbar" />
       <xs:element name="Curve" type="fgCurve" />
+      <xs:element name="Style" type="fgStyle" />
     </xs:choice>
   </xs:group>
   
@@ -192,6 +194,61 @@
     <!--<xs:attribute name="transform" type="fgTransform"/>-->
     <xs:attribute name="margin" type="Rect"/>
     <xs:attribute name="padding" type="Rect"/>
+    <xs:attribute name="contextmenu" type="xs:string"/>
+    <xs:attribute name="onconstruct" type="xs:string"/>
+    <xs:attribute name="ondestroy" type="xs:string"/>
+    <xs:attribute name="onmove" type="xs:string"/>
+    <xs:attribute name="onsetalpha" type="xs:string"/>
+    <xs:attribute name="onsettransform" type="xs:string"/>
+    <xs:attribute name="onsetflags" type="xs:string"/>
+    <xs:attribute name="onsetmargin" type="xs:string"/>
+    <xs:attribute name="onsetpadding" type="xs:string"/>
+    <xs:attribute name="onaddchild" type="xs:string"/>
+    <xs:attribute name="onremovechild" type="xs:string"/>
+    <xs:attribute name="onparentchange" type="xs:string"/>
+    <xs:attribute name="onlayoutchange" type="xs:string"/>
+    <xs:attribute name="ondragover" type="xs:string"/>
+    <xs:attribute name="ondrop" type="xs:string"/>
+    <xs:attribute name="ondraw" type="xs:string"/>
+    <xs:attribute name="onsetskin" type="xs:string"/>
+    <xs:attribute name="onsetstyle" type="xs:string"/>
+    <xs:attribute name="onsetdpi" type="xs:string"/>
+    <xs:attribute name="onsetscaling" type="xs:string"/>
+    <xs:attribute name="onmousedown" type="xs:string"/>
+    <xs:attribute name="onmousedblclick" type="xs:string"/>
+    <xs:attribute name="onmouseup" type="xs:string"/>
+    <xs:attribute name="onmouseon" type="xs:string"/>
+    <xs:attribute name="onmouseoff" type="xs:string"/>
+    <xs:attribute name="onmousemove" type="xs:string"/>
+    <xs:attribute name="onmousescroll" type="xs:string"/>
+    <xs:attribute name="ontouchbegin" type="xs:string"/>
+    <xs:attribute name="ontouchend" type="xs:string"/>
+    <xs:attribute name="ontouchmove" type="xs:string"/>
+    <xs:attribute name="onkeyup" type="xs:string"/>
+    <xs:attribute name="onkeydown" type="xs:string"/>
+    <xs:attribute name="onkeychar" type="xs:string"/>
+    <xs:attribute name="onjoybuttondown" type="xs:string"/>
+    <xs:attribute name="onjoybuttonup" type="xs:string"/>
+    <xs:attribute name="onjoyaxis" type="xs:string"/>
+    <xs:attribute name="ongotfocus" type="xs:string"/>
+    <xs:attribute name="onlostfocus" type="xs:string"/>
+    <xs:attribute name="onnuetral" type="xs:string"/>
+    <xs:attribute name="onhover" type="xs:string"/>
+    <xs:attribute name="onactive" type="xs:string"/>
+    <xs:attribute name="onaction" type="xs:string"/>
+    <xs:attribute name="onadditem" type="xs:string"/>
+    <xs:attribute name="onremoveitem" type="xs:string"/>
+    <xs:attribute name="onsetitem" type="xs:string"/>
+    <xs:attribute name="onsetvalue" type="xs:string"/>
+    <xs:attribute name="onsetrange" type="xs:string"/>
+    <xs:attribute name="onsetasset" type="xs:string"/>
+    <xs:attribute name="onsetuv" type="xs:string"/>
+    <xs:attribute name="onsetcolor" type="xs:string"/>
+    <xs:attribute name="onsetoutline" type="xs:string"/>
+    <xs:attribute name="onsetfont" type="xs:string"/>
+    <xs:attribute name="onsetlineheight" type="xs:string"/>
+    <xs:attribute name="onsetletterspacing" type="xs:string"/>
+    <xs:attribute name="onsettext" type="xs:string"/>
   </xs:complexType>
 
   <xs:complexType name="fgLayout">
@@ -327,9 +384,6 @@
             <xs:complexType>
               <xs:complexContent>
                 <xs:extension base="fgLayout">
-                  <xs:sequence>
-                    <xs:element name="Submenu" minOccurs="0" maxOccurs="unbounded" type="fgMenu" />
-                  </xs:sequence>
                   <xs:attribute name="flags" type="fgFlagsBox"/>
                   <xs:attribute name="text" type="xs:string"/>
                 </xs:extension>
@@ -529,6 +583,7 @@
       <xs:element name="List" type="fgList" />
       <xs:element name="Grid" type="fgGrid" />
       <xs:element name="Menu" type="fgMenu"  />
+      <xs:element name="Submenu" type="fgMenu"  />
       <xs:element name="Progressbar" type="fgProgressbar"  />
       <xs:element name="Radiobutton" type="fgRadiobutton" />
       <xs:element name="Resource" type="fgResource" />

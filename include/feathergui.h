@@ -256,7 +256,6 @@ enum FGVALUE
   FGVALUE_INT64 = 1,
   FGVALUE_FLOAT = 2,
   FGVALUE_POINTER = 3,
-  FGVALUE_ROW = 4,
 };
 
 enum FG_MSGTYPE
@@ -333,6 +332,8 @@ enum FG_MSGTYPE
   // fgCheckbox, fgRadiobutton, fgProgressbar, etc.
   FG_GETVALUE, // Gets the on/off state of a checkbox or the current progress on a progress bar
   FG_SETVALUE, // Sets the on/off state or progress
+  FG_GETRANGE, 
+  FG_SETRANGE,
   // fgResource or fgText
   FG_SETASSET,
   FG_SETUV,
@@ -659,7 +660,8 @@ FG_EXTERN inline char HitAbsRect(const AbsRect* r, FABS x, FABS y);
 FG_EXTERN inline void ToIntAbsRect(const AbsRect* r, int target[4]);
 FG_EXTERN inline void ToLongAbsRect(const AbsRect* r, long target[4]);
 FG_EXTERN inline char MsgHitAbsRect(const FG_Msg* msg, const AbsRect* r);
-FG_EXTERN char* fgCopyText(const char* text, const char* file, size_t line);
+FG_EXTERN const char* fgCopyText(const char* text, const char* file, size_t line);
+FG_EXTERN void fgFreeText(const char* text, const char* file, size_t line);
 FG_EXTERN inline void fgUpdateMouseState(fgMouseState* state, const FG_Msg* msg);
 FG_EXTERN inline char fgRectIntersect(const AbsRect* l, const AbsRect* r); // Returns 1 if the rectangles intersect, or 0 otherwise
 FG_EXTERN inline void fgRectIntersection(const AbsRect* BSS_RESTRICT l, const AbsRect* BSS_RESTRICT r, AbsRect* out);

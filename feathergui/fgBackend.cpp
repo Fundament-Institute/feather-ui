@@ -11,7 +11,7 @@
 #include <dlfcn.h>
 #endif
 
-KHASH_INIT(fgFunctionMap, char*, fgListener, 1, kh_str_hash_func, kh_str_hash_equal);
+KHASH_INIT(fgFunctionMap, const char*, fgListener, 1, kh_str_hash_func, kh_str_hash_equal);
 
 using namespace bss_util;
 
@@ -65,7 +65,7 @@ void fgDragStartDefault(char type, void* data, fgElement* draw)
 
 size_t fgLoadExtensionDefault(const char* extname, void* fg, size_t sz) { return -1; }
 void fgSetCursorDefault(unsigned int type, void* custom) {}
-void fgDirtyElementDefault(fgElement* elem) {}
+void fgDirtyElementDefault(fgElement* e) { if(e->flags&FGELEMENT_SILENT) return; }
 
 static unsigned int __fgClipboardType = 0;
 static std::unique_ptr<uint8_t[]> __fgClipboardData = 0;
@@ -108,11 +108,11 @@ BSS_FORCEINLINE fgElement* _create_default(fgElement* BSS_RESTRICT parent, fgEle
 short fgMessageMapDefault(const char* name)
 {
   static bss_util::cTrie<uint16_t, true> t(FG_CUSTOMEVENT+1, "UNKNOWN", "CONSTRUCT", "DESTROY", "MOVE", "SETALPHA", "SETAREA", "SETTRANSFORM", "SETFLAG", "SETFLAGS", "SETMARGIN", "SETPADDING",
-    "SETPARENT", "ADDCHILD", "REMOVECHILD", "PARENTCHANGE", "LAYOUTCHANGE", "LAYOUTFUNCTION", "LAYOUTLOAD", "DRAGOVER", "DROP", "DRAW", "INJECT", "SETSKIN", "GETSKIN", "SETSTYLE", "GETSTYLE", "GETCLASSNAME",
-    "GETDPI", "SETDPI", "SETUSERDATA", "GETUSERDATA", "SETDIM", "GETDIM", "SETSCALING", "GETSCALING", "MOUSEDOWN", "MOUSEDBLCLICK", "MOUSEUP", "MOUSEON", "MOUSEOFF", "MOUSEMOVE", "MOUSESCROLL",
-    "TOUCHBEGIN", "TOUCHEND", "TOUCHMOVE", "KEYUP", "KEYDOWN", "KEYCHAR", "JOYBUTTONDOWN", "JOYBUTTONUP", "JOYAXIS", "GOTFOCUS", "LOSTFOCUS", "SETNAME", "GETNAME", "SETCONTEXTMENU",
-    "GETCONTEXTMENU", "NEUTRAL", "HOVER", "ACTIVE", "ACTION", "GETITEM", "ADDITEM", "REMOVEITEM", "SETITEM", "GETSELECTEDITEM", "GETVALUE", "SETVALUE", "SETASSET", "SETUV", "SETCOLOR",
-    "SETOUTLINE", "SETFONT", "SETLINEHEIGHT", "SETLETTERSPACING", "SETTEXT", "GETASSET", "GETUV", "GETCOLOR", "GETOUTLINE", "GETFONT", "GETLINEHEIGHT", "GETLETTERSPACING", "GETTEXT",
+    "SETPARENT", "ADDCHILD", "REMOVECHILD", "PARENTCHANGE", "LAYOUTCHANGE", "LAYOUTFUNCTION", "LAYOUTLOAD", "DRAGOVER", "DROP", "DRAW", "INJECT", "SETSKIN", "GETSKIN", "SETSTYLE", "GETSTYLE",
+    "GETCLASSNAME", "GETDPI", "SETDPI", "SETUSERDATA", "GETUSERDATA", "SETDIM", "GETDIM", "SETSCALING", "GETSCALING", "MOUSEDOWN", "MOUSEDBLCLICK", "MOUSEUP", "MOUSEON", "MOUSEOFF", "MOUSEMOVE",
+    "MOUSESCROLL", "TOUCHBEGIN", "TOUCHEND", "TOUCHMOVE", "KEYUP", "KEYDOWN", "KEYCHAR", "JOYBUTTONDOWN", "JOYBUTTONUP", "JOYAXIS", "GOTFOCUS", "LOSTFOCUS", "SETNAME", "GETNAME", "SETCONTEXTMENU",
+    "GETCONTEXTMENU", "NEUTRAL", "HOVER", "ACTIVE", "ACTION", "GETITEM", "ADDITEM", "REMOVEITEM", "SETITEM", "GETSELECTEDITEM", "GETVALUE", "SETVALUE", "GETRANGE", "SETRANGE", "SETASSET", "SETUV",
+    "SETCOLOR", "SETOUTLINE", "SETFONT", "SETLINEHEIGHT", "SETLETTERSPACING", "SETTEXT", "GETASSET", "GETUV", "GETCOLOR", "GETOUTLINE", "GETFONT", "GETLINEHEIGHT", "GETLETTERSPACING", "GETTEXT",
     "$FG_CUSTOMEVENT");
 
   assert(t["$FG_CUSTOMEVENT"] == FG_CUSTOMEVENT); // Ensure this count is correct
@@ -128,7 +128,7 @@ void fgUserDataMapDefaultProcess(fgElement* self, struct _FG_KEY_VALUE* pair)
       self->SetContextMenu(menu);
   }
   else
-    self->SetUserdata(pair->value, pair->key);
+    self->SetUserdata((char*)pair->value, pair->key);
 }
 
 void fgUserDataMapDefault(fgElement* self, struct __VECTOR__KeyValue* pairs)
@@ -144,7 +144,7 @@ void fgUserDataMapCallbacksProcess(fgElement* self, struct _FG_KEY_VALUE* pair)
     short type = (*fgroot_instance->backend.fgMessageMap)(pair->key + 2);
     if(type != -1)
     {
-      khint_t i = kh_get_fgFunctionMap(fgroot_instance->functionhash, pair->value);
+      khint_t i = kh_get_fgFunctionMap(fgroot_instance->functionhash, (char*)pair->value);
       if(i != kh_end(fgroot_instance->functionhash))
         fgElement_AddListener(self, type, kh_val(fgroot_instance->functionhash, i));
     }
@@ -182,7 +182,7 @@ void fgFunctionMap_destroy(struct __kh_fgFunctionMap_t* h)
 {
   for(khiter_t i = 0; i != kh_end(h); ++i)
     if(kh_exist(h, i))
-      fgfree(kh_key(h, i), __FILE__, __LINE__);
+      fgFreeText(kh_key(h, i), __FILE__, __LINE__);
 
   kh_destroy_fgFunctionMap(h);
 }

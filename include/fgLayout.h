@@ -12,11 +12,13 @@ extern "C" {
 
 struct _FG_CLASS_LAYOUT;
 typedef fgDeclareVector(struct _FG_CLASS_LAYOUT, ClassLayout) fgVectorClassLayout;
-struct _FG_KEY_VALUE { char* key; char* value; };
+struct _FG_KEY_VALUE { const char* key; const char* value; };
 typedef fgDeclareVector(struct _FG_KEY_VALUE, KeyValue) fgVectorKeyValue;
 
 typedef struct _FG_CLASS_LAYOUT {
-  fgStyleLayout style;
+  fgSkinElement layout;
+  const char* name;
+  const char* id;
   fgVectorClassLayout children; // Type: fgClassLayout
   fgVectorKeyValue userdata; // Custom userdata from unknown attributes
 

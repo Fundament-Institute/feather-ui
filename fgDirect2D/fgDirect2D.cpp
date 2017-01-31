@@ -28,7 +28,7 @@ BOOL __stdcall SpawnMonitorsProc(HMONITOR monitor, HDC hdc, LPRECT, LPARAM lpara
 
   AbsRect area = { info.rcMonitor.left, info.rcMonitor.top, info.rcMonitor.right, info.rcMonitor.bottom };
   fgMonitor* cur = reinterpret_cast<fgMonitor*>(calloc(1, sizeof(fgMonitor)));
-  fgMonitor_Init(cur, 0, &root->root, prev, &area, &dpi);
+  fgMonitor_Init(cur, 0, &root->root, (!info.rcMonitor.left && !info.rcMonitor.top) ? 0 : prev, &area, &dpi); // Attempt to identify the primary monitor and make it the first monitor in the list
   prev = cur;
   return TRUE;
 }
@@ -376,10 +376,13 @@ void fgPopClipRectD2D(const fgDrawAuxData* data)
   GETEXDATA(data);
   exdata->window->cliprect.pop();
   exdata->window->target->PopAxisAlignedClip();
+  assert(exdata->window->cliprect.size() > 0);
 }
 
 void fgDirtyElementD2D(fgElement* e)
 {
+  if(e->flags&FGELEMENT_SILENT)
+    return;
   fgWindowD2D* window = GetElementWindow(e);
   if(window)
     InvalidateRect(window->handle, NULL, FALSE);

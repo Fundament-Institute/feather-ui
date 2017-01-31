@@ -41,13 +41,17 @@ fgClassLayout* fgLayout_GetLayout(const fgLayout* self, FG_UINT layout)
 
 void fgClassLayout_Init(fgClassLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order)
 {
-  fgStyleLayout_Init(&self->style, type, name, flags, transform, units, order);
+  fgSkinElement_Init(&self->layout, type, flags, transform, units, order);
+  self->name = fgCopyText(name, __FILE__, __LINE__);
+  self->id = 0;
   memset(&self->children, 0, sizeof(fgVector));
   memset(&self->userdata, 0, sizeof(fgVector));
 }
 void fgClassLayout_Destroy(fgClassLayout* self)
 {
-  fgStyleLayout_Destroy(&self->style);
+  fgSkinElement_Destroy(&self->layout);
+  if(self->name) fgFreeText(self->name, __FILE__, __LINE__);
+  if(self->id) fgFreeText(self->id, __FILE__, __LINE__);
   reinterpret_cast<fgKeyValueArray&>(self->userdata).~cDynArray();
   reinterpret_cast<fgClassLayoutArray&>(self->children).~cArraySort();
 }
@@ -86,7 +90,7 @@ void fgLayout_SaveFileUBJSON(fgLayout* self, const char* file)
 
 void fgClassLayout_LoadAttributesXML(fgClassLayout* self, const cXMLNode* cur, int flags, fgSkinBase* root, const char* path)
 {
-  fgStyle_LoadAttributesXML(&self->style.style, cur, flags, root, path, &self->style.id, (fgKeyValueArray*)&self->userdata);
+  fgStyle_LoadAttributesXML(&self->layout.style, cur, flags, root, path, &self->id, (fgKeyValueArray*)&self->userdata);
 }
 
 void fgClassLayout_LoadLayoutXML(fgClassLayout* self, const cXMLNode* cur, fgLayout* root, const char* path)

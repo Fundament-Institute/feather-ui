@@ -16,11 +16,12 @@ enum FGELEMENT_FLAGS
   FGELEMENT_NOCLIP = (1 << 1), // By default, children are clipped by their parents. When set on a control, it will not be clipped by its parent.
   FGELEMENT_IGNORE = (1 << 2), // When this flag is set, no mouse events will be sent to the control.
   FGELEMENT_HIDDEN = (1 << 3), // Signals that this control and it's children should not be rendered. However, they will still be laid out as if they existed.
-  FGELEMENT_EXPANDX = (1 << 4), // Signals to the layout that the control should expand to include all it's elements
-  FGELEMENT_EXPANDY = (1 << 5),
+  FGELEMENT_SILENT = (1 << 4),
+  FGELEMENT_EXPANDX = (1 << 5), // Signals to the layout that the control should expand to include all it's elements
+  FGELEMENT_EXPANDY = (1 << 6),
   FGELEMENT_EXPAND = FGELEMENT_EXPANDX | FGELEMENT_EXPANDY,
-  FGELEMENT_SNAPX = (1 << 6), // If true, any rendering this element performs will be snapped to the nearest pixel.
-  FGELEMENT_SNAPY = (1 << 7),
+  FGELEMENT_SNAPX = (1 << 7), // If true, any rendering this element performs will be snapped to the nearest pixel.
+  FGELEMENT_SNAPY = (1 << 8),
   FGELEMENT_SNAP = FGELEMENT_SNAPX | FGELEMENT_SNAPY,
   FGELEMENT_LAYOUTRESIZE = 1, // Called when the element is resized
   FGELEMENT_LAYOUTADD = 2, // Called when any child is added that needs to have the layout applied to it.
@@ -38,7 +39,6 @@ struct _FG_STYLE;
 struct _FG_SKIN;
 struct _FG_LAYOUT;
 struct __kh_fgUserdata_t;
-struct __kh_fgSkinElements_t;
 typedef fgDeclareVector(struct _FG_ELEMENT*, Element) fgVectorElement;
 
 typedef void(*fgListener)(struct _FG_ELEMENT*, const FG_Msg*);
@@ -52,10 +52,19 @@ typedef struct _FG_ELEMENT {
   AbsVec mindim;
   AbsVec layoutdim;
   AbsVec scaling;
-  fgDestroy destroy;
-  void (*free)(void* self); // pointer to deallocation function
   fgMessage message;
+  fgDestroy destroy;
+  void(*free)(void* self); // pointer to deallocation function
   struct _FG_ELEMENT* parent;
+  const char* name; // Optional name used for mapping to skin collections
+  fgFlag flags;
+  FG_UINT style; // Set to -1 if no style has been assigned, in which case the style from its parent will be used.
+  FG_UINT userid;
+  void* userdata;
+  struct __kh_fgUserdata_t* userhash;
+  const struct _FG_SKIN* skin; // skin reference
+  fgVector* skinstyle;
+  fgVector* layoutstyle;
   struct _FG_ELEMENT* root; // children list root
   struct _FG_ELEMENT* last; // children list last
   struct _FG_ELEMENT* next;
@@ -69,14 +78,6 @@ typedef struct _FG_ELEMENT {
   struct _FG_ELEMENT* nextnoclip;
   struct _FG_ELEMENT* prevnoclip;
   struct _FG_ELEMENT* lastfocus; // Stores the last child that had focus, if any. This never points to the child that CURRENTLY has focus, only to the child that HAD focus.
-  fgFlag flags;
-  const struct _FG_SKIN* skin; // skin reference
-  struct __kh_fgSkinElements_t* skinelements; // child elements that are part of the skin
-  char* name; // Optional name used for mapping to skin collections
-  FG_UINT style; // Set to -1 if no style has been assigned, in which case the style from its parent will be used.
-  FG_UINT userid;
-  void* userdata;
-  struct __kh_fgUserdata_t* userhash;
 
 #ifdef  __cplusplus
   FG_DLLEXPORT void Construct();
@@ -145,9 +146,13 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT size_t GetValue(ptrdiff_t aux = 0);
   FG_DLLEXPORT float GetValueF(ptrdiff_t aux = 0);
   FG_DLLEXPORT void* GetValueP(ptrdiff_t aux = 0);
-  FG_DLLEXPORT size_t SetValue(ptrdiff_t value, size_t aux = 0);
-  FG_DLLEXPORT size_t SetValueF(float value, size_t aux = 0);
-  FG_DLLEXPORT size_t SetValueP(void* ptr, size_t aux = 0);
+  FG_DLLEXPORT size_t GetRange();
+  FG_DLLEXPORT float GetRangeF();
+  FG_DLLEXPORT size_t SetValue(ptrdiff_t value);
+  FG_DLLEXPORT size_t SetValueF(float value);
+  FG_DLLEXPORT size_t SetValueP(void* ptr);
+  FG_DLLEXPORT size_t SetRange(ptrdiff_t value);
+  FG_DLLEXPORT size_t SetRangeF(float value);
   FG_DLLEXPORT size_t SetAsset(fgAsset asset);
   FG_DLLEXPORT size_t SetUV(const CRect& uv);
   FG_DLLEXPORT size_t SetColor(unsigned int color, FGSETCOLOR index);
@@ -187,6 +192,7 @@ FG_EXTERN size_t fgElement_Message(fgElement* self, const FG_Msg* msg);
 FG_EXTERN fgElement* fgElement_GetChildUnderMouse(fgElement* self, float x, float y, AbsRect* cache);
 FG_EXTERN void fgElement_ClearListeners(fgElement* self);
 FG_EXTERN size_t fgElement_CheckLastFocus(fgElement* self);
+FG_EXTERN void fgElement_ApplyMessageArray(fgElement* search, fgElement* target, fgVector* src);
 
 FG_EXTERN size_t fgDimMessage(fgElement* self, unsigned short type, unsigned short subtype, float x, float y);
 FG_EXTERN size_t fgFloatMessage(fgElement* self, unsigned short type, unsigned short subtype, float data, ptrdiff_t aux);

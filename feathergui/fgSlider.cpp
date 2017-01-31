@@ -25,19 +25,20 @@ size_t fgSlider_Message(fgSlider* self, const FG_Msg* msg)
     self->value = 0;
     self->range = 0;
     return FG_ACCEPT;
+  case FG_SETRANGE:
   case FG_SETVALUE:
     if(msg->subtype <= FGVALUE_FLOAT)
     {
       ptrdiff_t value = (msg->subtype == FGVALUE_FLOAT) ? bss_util::fFastRound(msg->f) : msg->i;
-      if(msg->u2)
+      if(msg->type == FG_SETRANGE)
       {
-        if(self->range == msg->i)
+        if(self->range == value)
           return FG_ACCEPT;
         self->range = value;
       }
       else
       {
-        if(self->value == msg->i)
+        if(self->value == value)
           return FG_ACCEPT;
         self->value = value;
       }
@@ -61,14 +62,17 @@ size_t fgSlider_Message(fgSlider* self, const FG_Msg* msg)
     _sendmsg<FG_SETVALUE, size_t>(*self, value);
   }
     break;
+  case FG_GETRANGE:
+    if(!msg->subtype || msg->subtype == FGVALUE_INT64)
+      return self->range;
+    if(msg->subtype == FGVALUE_FLOAT)
+      return *(size_t*)&self->range;
+    return 0;
   case FG_GETVALUE:
     if(!msg->subtype || msg->subtype == FGVALUE_INT64)
-      return msg->i ? self->range : self->value;
+      return self->value;
     if(msg->subtype == FGVALUE_FLOAT)
-    {
-      float val = (float)(msg->i ? self->range : self->value);
-      return *(size_t*)&val;
-    }
+      return *(size_t*)&self->value;
     return 0;
   case FG_GETCLASSNAME:
     return (size_t)"Slider";

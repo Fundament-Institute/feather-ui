@@ -18,6 +18,8 @@ const CRect CRect_EMPTY = { 0,0,0,0,0,0,0,0 };
 const AbsVec AbsVec_EMPTY = { 0,0 };
 const fgIntVec fgIntVec_EMPTY = { 0,0 };
 bss_util::cHash<std::pair<fgElement*, unsigned short>, fgListener> fgListenerHash;
+bss_util::cHash<char*> fgStringAllocHash;
+bss_util::cHashBase<const char*, size_t, true, bss_util::KH_POINTER_HASHFUNC<const char* const&>, bss_util::KH_INT_EQUALFUNC<const char*>> fgStringRefHash;
 
 static_assert(sizeof(unsigned int) == sizeof(fgColor), "ERROR: fgColor not size of 32-bit int!");
 static_assert(sizeof(FG_Msg) <= sizeof(uint64_t) * 3, "FG_Msg is too big!");
@@ -115,13 +117,77 @@ void ToLongAbsRect(const AbsRect* r, long target[4])
 
 }
 
-char* fgCopyText(const char* text, const char* file, size_t line)
+const char* fgCopyText(const char* text, const char* file, size_t line)
 {
   if(!text) return 0;
+#ifndef FG_NO_TEXT_CACHE
+  khiter_t i = fgStringRefHash.Iterator(text);
+  if(fgStringRefHash.ExistsIter(i))
+  {
+    fgStringRefHash.MutableValue(i)++;
+    return text;
+  }
+
+  i = fgStringAllocHash.Iterator(const_cast<char*>(text));
+  if(fgStringAllocHash.ExistsIter(i))
+  {
+    text = fgStringAllocHash.GetKey(i);
+    i = fgStringRefHash.Iterator(text);
+    assert(fgStringRefHash.ExistsIter(i));
+    fgStringRefHash.MutableValue(i)++;
+    return text;
+  }
+
   size_t len = strlen(text) + 1;
-  char* ret = fgmalloc<char>(len, !file ? __FILE__ : file, !file ? __LINE__ : line);
+  char* ret = (char*)malloc(len);
+  memcpy(ret, text, len);
+  fgStringAllocHash.Insert(ret);
+  fgStringRefHash.Insert(ret, 1);
+  return ret;
+#else
+  size_t len = strlen(text) + 1;
+  char* ret = (char*)fgmalloc<char>(len, file, line);
   memcpy(ret, text, len);
   return ret;
+#endif
+}
+
+bool fgTextFreeCheck(void* p)
+{
+  return fgStringRefHash.Exists((const char*)p);
+}
+
+void fgFreeText(const char* text, const char* file, size_t line)
+{
+#ifndef FG_NO_TEXT_CACHE
+  khiter_t i = fgStringRefHash.Iterator(text);
+  if(fgStringRefHash.ExistsIter(i))
+  {
+    if(--fgStringRefHash.MutableValue(i) <= 0)
+    {
+      if(!fgStringAllocHash.Remove(const_cast<char*>(text)))
+        assert(false);
+      if(!fgStringRefHash.Remove(text))
+        assert(false);
+      free(const_cast<char*>(text));
+    }
+  }
+  else
+    assert(false);
+#else
+  fgfree((char*)text, file, line);
+#endif
+}
+
+void fgTextLeakDump(FILE* f)
+{
+  for(auto curiter = fgStringRefHash.begin(); curiter.IsValid(); ++curiter)
+  {
+    const char* str = fgStringRefHash.GetKey(*curiter);
+    size_t refs = fgStringRefHash.GetValue(*curiter);
+    fprintf(f, "The string \"%s\" leaked with %zi dangling references\n", str, refs);
+    free(const_cast<char*>(str));
+  }
 }
 
 void fgUpdateMouseState(fgMouseState* state, const FG_Msg* msg)

@@ -20,25 +20,45 @@ void fgStyle_Destroy(fgStyle* self)
     fgStyle_RemoveStyleMsg(self, self->styles);
 }
 
-fgStyleMsg* fgStyle_AddStyleMsg(fgStyle* self, const FG_Msg* msg, const void* arg1, size_t arglen1, const void* arg2, size_t arglen2)
+fgStyleMsg* fgStyle_AddStyleMsg(fgStyle* self, const FG_Msg* msg, const void* arg1, unsigned int arg1size, const void* arg2, unsigned int arg2size)
 {
-  fgStyleMsg* r = (fgStyleMsg*)fgmalloc<char>(sizeof(fgStyleMsg) + arglen1 + arglen2, __FILE__, __LINE__);
-  memcpy(&r->msg, msg, sizeof(FG_Msg));
+  unsigned int sz = sizeof(fgStyleMsg) + arg1size + arg2size;
+  assert(!(sz & 0xC0000000));
+  fgStyleMsg* r = (fgStyleMsg*)fgmalloc<char>(sz, __FILE__, __LINE__);
+  MEMCPY(&r->msg, sizeof(FG_Msg), msg, sizeof(FG_Msg));
 
   if(arg1)
   {
     r->msg.p = r + 1;
-    memcpy(r->msg.p, arg1, arglen1);
+    memcpy(r->msg.p, arg1, arg1size);
+    sz |= 0x40000000;
   }
 
   if(arg2)
   {
-    r->msg.p2 = ((char*)(r + 1)) + arglen1;
-    memcpy(r->msg.p2, arg2, arglen2);
+    r->msg.p2 = ((char*)(r + 1)) + arg1size;
+    memcpy(r->msg.p2, arg2, arg2size);
+    sz |= 0x80000000;
   }
 
+  r->sz = sz;
   r->next = self->styles;
   self->styles = r;
+  return r;
+}
+
+fgStyleMsg* fgStyle_CloneStyleMsg(const fgStyleMsg* self)
+{
+  unsigned int sz = self->sz&(~0xC0000000);
+  fgStyleMsg* r = (fgStyleMsg*)fgmalloc<char>(sz, __FILE__, __LINE__);
+  MEMCPY(r, sz, self, sz);
+
+  if(r->sz & 0x40000000)
+    r->msg.p = (char*)r + ((char*)self->msg.p - (char*)self);
+
+  if(r->sz & 0x80000000)
+    r->msg.p2 = (char*)r + ((char*)self->msg.p2 - (char*)self);
+
   return r;
 }
 
@@ -66,7 +86,7 @@ struct fgStyleStatic
     for(khiter_t i = 0; i < h->n_buckets; ++i)
     {
       if(kh_exist(h, i))
-        fgfree(const_cast<char*>(kh_key(h, i)), __FILE__, __LINE__);
+        fgFreeText(kh_key(h, i), __FILE__, __LINE__);
     }
     kh_destroy_fgStyles(h);
   }

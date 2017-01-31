@@ -29,7 +29,7 @@ void fgResource_Destroy(fgResource* self)
 
 void fgResource_Recalc(fgResource* self)
 {
-  if(self->asset && (self->element.flags&FGELEMENT_EXPAND))
+  if(self->asset && (self->element.flags&FGELEMENT_EXPAND) && !(self->element.flags&FGELEMENT_SILENT))
   {
     AbsVec dim;
     fgroot_instance->backend.fgAssetSize(self->asset, &self->uv, &dim, self->element.flags);

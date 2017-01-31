@@ -677,6 +677,7 @@ const char* fgDebug_GetMessageString(unsigned short msg)
   case FG_SETSKIN: return "FG_SETSKIN";
   case FG_SETSTYLE: return "FG_SETSTYLE";
   case FG_GETVALUE: return "FG_GETVALUE";
+  case FG_GETRANGE: return "FG_GETRANGE";
   case FG_GETSELECTEDITEM: return "FG_GETSELECTEDITEM";
   case FG_SETDPI: return "FG_SETDPI";
   case FG_SETCOLOR: return "FG_SETCOLOR";
@@ -698,6 +699,7 @@ const char* fgDebug_GetMessageString(unsigned short msg)
   case FG_JOYAXIS: return "FG_JOYAXIS";
   case FG_SETDIM: return "FG_SETDIM";
   case FG_SETVALUE: return "FG_SETVALUE";
+  case FG_SETRANGE: return "FG_SETRANGE";
   case FG_SETUV: return "FG_SETUV";
   case FG_SETLETTERSPACING: return "FG_SETLETTERSPACING";
   case FG_SETLINEHEIGHT: return "FG_SETLINEHEIGHT";
@@ -823,6 +825,8 @@ ptrdiff_t fgDebug_WriteMessageFn(fgDebugMessage* msg, int(*fn) (Args..., char co
     return (*fn)(args..., "%*sFG_SETSTYLE:%hhu(0x%p, %zu)", spaces, "", msg->subtype, msg->arg1.p, msg->arg2.u);
   case FG_GETVALUE:
     return (*fn)(args..., "%*sFG_GETVALUE() - %ti", spaces, "", msg->value);
+  case FG_GETRANGE:
+    return (*fn)(args..., "%*sFG_GETRANGE() - %ti", spaces, "", msg->value);
   case FG_GETSELECTEDITEM:
     return (*fn)(args..., "%*sFG_GETSELECTEDITEM(%zu) - 0x%p", spaces, "", msg->arg1.u, msg->valuep);
   case FG_SETDPI:
@@ -867,6 +871,8 @@ ptrdiff_t fgDebug_WriteMessageFn(fgDebugMessage* msg, int(*fn) (Args..., char co
     return (*fn)(args..., "%*sFG_SETSCALING:%hhu(%f, %f)", spaces, "", msg->subtype, msg->arg1.f, msg->arg2.f);
   case FG_SETVALUE:
     return (*fn)(args..., "%*sFG_SETVALUE(%ti, %zu)", spaces, "", msg->arg1.i, msg->arg2.u);
+  case FG_SETRANGE:
+    return (*fn)(args..., "%*sFG_SETRANGE(%ti, %zu)", spaces, "", msg->arg1.i);
   case FG_SETUV:
     return (*fn)(args..., "%*sFG_SETUV(CRect{%f,%f,%f,%f,%f,%f,%f,%f})", spaces, "", OUTPUT_CRECT(msg->arg2.crect));
   case FG_SETLETTERSPACING:

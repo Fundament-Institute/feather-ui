@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <fg:Layout xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:fg="featherGUI" xsi:schemaLocation="featherGUI feather.xsd" skin="testskin" padding="0,20,0,0">
   <Window area="130 100 510 420" text="test window" color="0xFFFFFFFF" font="arial;14" padding="10,22,10,10" flags="RESIZABLE">
-    <Submenu id="#testcontext" area="0,0,0,0"><MenuItem text="Change Window Text" /></Submenu>
+    <Submenu id="#testcontext" area="0,0,0,0">
+      <MenuItem text="Change Window Text" />
+    </Submenu>
     <TabControl area="0 0 100% 100%">
       <Tab name="Tab 1" id="#tabfocus">
         <Button area="10, 10, 0, 0" flags="EXPAND" text="Not Pressed" onaction="makepressed" />
@@ -36,33 +38,45 @@
           <Text area="0, 0, 100%, 20" text="List 5" />
         </List>
         <Treeview area="240, 10, 340, 150" contextmenu="#testcontext">
-          <TreeItem contextmenu="#testcontext"><Text text="Parent Item 1" flags="EXPAND"/>
-            <TreeItem contextmenu="#testcontext"><Text text="Item 4" flags="EXPAND"/></TreeItem>
-            <TreeItem contextmenu="#testcontext"><Text text="Item 5" flags="EXPAND" /></TreeItem>
-            <TreeItem><Text text="Item 6" flags="EXPAND"/></TreeItem>
+          <TreeItem contextmenu="#testcontext">
+            <Text text="Parent Item 1" flags="EXPAND"/>
+            <TreeItem contextmenu="#testcontext">
+              <Text text="Item 4" flags="EXPAND"/>
+            </TreeItem>
+            <TreeItem contextmenu="#testcontext">
+              <Text text="Item 5" flags="EXPAND" />
+            </TreeItem>
+            <TreeItem>
+              <Text text="Item 6" flags="EXPAND"/>
+            </TreeItem>
           </TreeItem>
-          <TreeItem><Text text="Parent Item 2" flags="EXPAND"/>
-            <TreeItem><Text text="Item 6" flags="EXPAND"/></TreeItem>
+          <TreeItem>
+            <Text text="Parent Item 2" flags="EXPAND"/>
+            <TreeItem>
+              <Text text="Item 6" flags="EXPAND"/>
+            </TreeItem>
           </TreeItem>
-          <TreeItem><Text text="Parent Item 3" flags="EXPAND"/></TreeItem>
+          <TreeItem>
+            <Text text="Parent Item 3" flags="EXPAND"/>
+          </TreeItem>
         </Treeview>
       </Tab>
       <Tab name="Tab 3">
-		<Box area="0,0,100%,0" flags="TILE|EXPANDY|IGNOREMARGINEDGE" padding="5,5,5,5">
-		  <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0xFF999999" flags="RECT|BACKGROUND|IGNORE" order="1"/>
-        <Box area="0,0,100%,0" flags="TILE|EXPANDY|IGNOREMARGINEDGE" padding="5,5,5,5" max-width="90" min-width="60">
-          <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0xFFBBBB00" flags="RECT|BACKGROUND|IGNORE" order="1"/>
-          <Resource uv="3,3,3,3" area="0,0,50,25" color="0xFFDDDDDD" flags="RECT" margin="0,5,0,0" />
-          <Resource uv="3,3,3,3" area="0,0,30,25" color="0xFFDDDDDD" flags="RECT" margin="10,5,0,0" /> 
+        <Box area="0,0,100%,0" flags="TILE|EXPANDY|IGNOREMARGINEDGE" padding="5,5,5,5">
+          <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0xFF999999" flags="RECT|BACKGROUND|IGNORE" order="1"/>
+          <Box area="0,0,100%,0" flags="TILE|EXPANDY|IGNOREMARGINEDGE" padding="5,5,5,5" max-width="90" min-width="60">
+            <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0xFFBBBB00" flags="RECT|BACKGROUND|IGNORE" order="1"/>
+            <Resource uv="3,3,3,3" area="0,0,50,25" color="0xFFDDDDDD" flags="RECT" margin="0,5,0,0" />
+            <Resource uv="3,3,3,3" area="0,0,30,25" color="0xFFDDDDDD" flags="RECT" margin="10,5,0,0" />
+          </Box>
+          <Box area="0,0,100%,0" flags="TILE|EXPANDY|IGNOREMARGINEDGE" padding="5,5,5,5" margin="10,5,0,0" max-width="250">
+            <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0xFFBBBBBB" flags="RECT|BACKGROUND|IGNORE" order="1"/>
+            <Resource uv="3,3,3,3" area="0,0,30,25" color="0xFFDDDDDD" flags="RECT" margin="10,5,0,0" />
+            <Resource uv="3,3,3,3" area="0,0,100%,25" color="0xFFDDDDDD" flags="RECT" margin="10,5,0,0" min-width="60" max-width="100"/>
+            <Resource uv="3,3,3,3" area="0,0,100%,25" color="0xFFDDDDDD" flags="RECT" margin="10,5,0,0" min-width="20"/>
+            <Resource uv="3,3,3,3" area="0,0,100%,25" color="0xFFDDDDDD" flags="RECT" margin="10,5,0,0" min-width="20" max-width="100"/>
+          </Box>
         </Box>
-        <Box area="0,0,100%,0" flags="TILE|EXPANDY|IGNOREMARGINEDGE" padding="5,5,5,5" margin="10,5,0,0" max-width="250">
-          <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0xFFBBBBBB" flags="RECT|BACKGROUND|IGNORE" order="1"/>
-          <Resource uv="3,3,3,3" area="0,0,30,25" color="0xFFDDDDDD" flags="RECT" margin="10,5,0,0" />
-          <Resource uv="3,3,3,3" area="0,0,100%,25" color="0xFFDDDDDD" flags="RECT" margin="10,5,0,0" min-width="60" max-width="100"/> 
-          <Resource uv="3,3,3,3" area="0,0,100%,25" color="0xFFDDDDDD" flags="RECT" margin="10,5,0,0" min-width="20"/> 
-          <Resource uv="3,3,3,3" area="0,0,100%,25" color="0xFFDDDDDD" flags="RECT" margin="10,5,0,0" min-width="20" max-width="100"/> 
-        </Box>
-      </Box>
       </Tab>
       <Tab name="Tab 4">
         <Grid area="0,0,100%,100%" margin="20,20,20,20" padding="0,20,0,0" flags="TILEY|DRAGGABLE" splitter="2,2">
@@ -98,7 +112,7 @@
         </Grid>
       </Tab>
     </TabControl>
-  </Window>  
+  </Window>
   <!--<Menu flags="EXPANDY|TILEX|BACKGROUND">
     <MenuItem text="File">
       <Submenu>
@@ -161,46 +175,40 @@
       <Resource uv="0,0,0,0" area="0,0,100%,100%" color="0x66000000" edgecolor="0" outline="0" flags="RECT|BACKGROUND|IGNORE" />
     </Skin>
     <Skin name="Scrollbar$scrollhorz">
-      <Resource name="#scrollbg" uv="6,6,6,6" area="0,0,100%,100%" color="0x660000FF" edgecolor="0xFF0000FF" outline="1" flags="RECT|BACKGROUND|IGNORE" />
-      <Skin name="#scrollbg">
+      <Resource uv="6,6,6,6" area="0,0,100%,100%" color="0x660000FF" edgecolor="0xFF0000FF" outline="1" flags="RECT|BACKGROUND|IGNORE">
         <Style name="disabled" edgecolor="0xFF999999"/>
         <Style name="neutral" edgecolor="0xFF0000FF"/>
-      </Skin>
+      </Resource>
     </Skin>
     <Skin name="Scrollbar$scrollvert">
-      <Resource name="#scrollbg" uv="6,6,6,6" area="0,0,100%,100%" color="0x660000FF" edgecolor="0xFF0000FF" outline="1" flags="RECT|BACKGROUND|IGNORE" />
-      <Skin name="#scrollbg">
+      <Resource uv="6,6,6,6" area="0,0,100%,100%" color="0x660000FF" edgecolor="0xFF0000FF" outline="1" flags="RECT|BACKGROUND|IGNORE">
         <Style name="disabled" edgecolor="0xFF999999"/>
         <Style name="neutral" edgecolor="0xFF0000FF"/>
-      </Skin>
+      </Resource>
     </Skin>
     <Skin name="Scrollbar$scrollleft" area="0,0,20,20">
-      <Resource name="#scrollbg" uv="6,6,6,6" area="0,0,100%,100%" color="0" edgecolor="0xFF0000FF" outline="1" flags="RECT|BACKGROUND" />
-      <Skin name="#scrollbg">
+      <Resource uv="6,6,6,6" area="0,0,100%,100%" color="0" edgecolor="0xFF0000FF" outline="1" flags="RECT|BACKGROUND">
         <Style name="disabled" edgecolor="0xFF999999"/>
         <Style name="neutral" edgecolor="0xFF0000FF"/>
-      </Skin>
+      </Resource>
     </Skin>
     <Skin name="Scrollbar$scrolltop" area="0,0,20,20">
-      <Resource name="#scrollbg" uv="6,6,6,6" area="0,0,100%,100%" color="0" edgecolor="0xFF0000FF" outline="1" flags="RECT|BACKGROUND" />
-      <Skin name="#scrollbg">
+      <Resource uv="6,6,6,6" area="0,0,100%,100%" color="0" edgecolor="0xFF0000FF" outline="1" flags="RECT|BACKGROUND">
         <Style name="disabled" edgecolor="0xFF999999"/>
         <Style name="neutral" edgecolor="0xFF0000FF"/>
-      </Skin>
+      </Resource>
     </Skin>
     <Skin name="Scrollbar$scrollright" area="-20:1, 0, 0:1, 20">
-      <Resource name="#scrollbg" uv="6,6,6,6" area="0,0,100%,100%" color="0" edgecolor="0xFF0000FF" outline="1" flags="RECT|BACKGROUND" />
-      <Skin name="#scrollbg">
+      <Resource uv="6,6,6,6" area="0,0,100%,100%" color="0" edgecolor="0xFF0000FF" outline="1" flags="RECT|BACKGROUND">
         <Style name="disabled" edgecolor="0xFF999999"/>
         <Style name="neutral" edgecolor="0xFF0000FF"/>
-      </Skin>
+      </Resource>
     </Skin>
     <Skin name="Scrollbar$scrollbottom" area="0, -20:1, 20, 0:1">
-      <Resource name="#scrollbg" uv="6,6,6,6" area="0,0,100%,100%" color="0" edgecolor="0xFF0000FF" outline="1" flags="RECT|BACKGROUND" />
-      <Skin name="#scrollbg">
+      <Resource uv="6,6,6,6" area="0,0,100%,100%" color="0" edgecolor="0xFF0000FF" outline="1" flags="RECT|BACKGROUND">
         <Style name="disabled" edgecolor="0xFF999999"/>
         <Style name="neutral" edgecolor="0xFF0000FF"/>
-      </Skin>
+      </Resource>
     </Skin>
   </Skin>
   <Skin name="Window" flags="RESIZABLE">
@@ -210,39 +218,37 @@
       <Resource area="0,0,100%,100%" color="0" edgecolor="0xFFDDDDDD" outline="3" flags="RECT|BACKGROUND" />
     </Skin>
     <Skin name="Button" color="0xFFFFFFFF" font="arial;14" padding="5,5,5,5">
-      <Skin name="#bg">
-        <Style name="neutral" color="0xFF666666" />
-        <Style name="active" color="0xFF505050" />
-        <Style name="hover" color="0xFF7F7F7F" />
-      </Skin>
-      <Resource name="#bg" uv="5,5,5,5" area="0,0,100%,100%" color="0xFF666666" edgecolor="0xFFAAAAAA" outline="1" flags="RECT|BACKGROUND|SNAP" />
+      <Resource uv="5,5,5,5" area="0,0,100%,100%" color="0xFF666666" edgecolor="0xFFAAAAAA" outline="1" flags="RECT|BACKGROUND|SNAP">
+        <Style name="neutral" color="0xFF666666" transition="1000 ease-in"/>
+        <Style name="active" color="0xFF505050" transition="1000 cubic(0,1,0,1) 0" />
+        <Style name="hover" color="0xFF7F7F7F" transition="1000 ease-in" />
+        <!--<Style name="neutral" color="0xFF666666" transition="1000 ease-in"/>
+        <Style name="active" color="0xFF505050" transition="1000 cubic(0,1,0,1) 0" />
+        <Style name="hover" color="0xFF7F7F7F" transition="1000 ease-in" />-->
+      </Resource>
     </Skin>
     <Skin name="Checkbox" color="0xFFFFFFFF" font="arial;14" padding="25,0,5,0">
-      <Resource name="#checkbg" uv="3,3,3,3" area="5, 0:0.5, 20, 15:0.5" color="0xFFFFFFFF" edgecolor="0xFF222222" outline="1" flags="RECT|BACKGROUND|SNAP" center="0 50%" />
-      <Resource name="#check" uv="3,3,3,3" area="8, 0:0.5, 17, 9:0.5" color="0xFF000000" edgecolor="0" outline="0" flags="RECT|BACKGROUND|SNAP" center="0 50%" order="1" />
-      <Skin name="#checkbg">
+      <Resource uv="3,3,3,3" area="5, 0:0.5, 20, 15:0.5" color="0xFFFFFFFF" edgecolor="0xFF222222" outline="1" flags="RECT|BACKGROUND|SNAP" center="0 50%">
         <Style name="neutral" color="0xFFFFFFFF" />
         <Style name="active" color="0xFFBBBBBB" />
         <Style name="hover" color="0xFFDDDDDD" />
-      </Skin>
-      <Skin name="#check">
+      </Resource>
+      <Resource uv="3,3,3,3" area="8, 0:0.5, 17, 9:0.5" color="0xFF000000" edgecolor="0" outline="0" flags="RECT|BACKGROUND|SNAP" center="0 50%">
         <Style name="default" flags="HIDDEN" />
         <Style name="checked" flags="-HIDDEN" />
         <Style name="indeterminate" flags="HIDDEN" />
-      </Skin>
+      </Resource>
     </Skin>
     <Skin name="Radiobutton" color="0xFFFFFFFF" font="arial;14" padding="25,5,5,5">
-      <Resource name="#bg" uv="0,6.2832,0,6.2832" area="5, 0:0.5, 20, 15:0.5" color="0xFFFFFFFF" edgecolor="0xFF222222" outline="1" flags="CIRCLE|BACKGROUND|SNAP" center="0 50%" />
-      <Resource name="#check" uv="0,6.2832,0,6.2832" area="8, 0:0.5, 17, 9:0.5" color="0xFF000000" edgecolor="0" outline="0" flags="CIRCLE|BACKGROUND|SNAP" center="0 50%" order="1"/>
-      <Skin name="#bg">
+      <Resource uv="0,6.2832,0,6.2832" area="5, 0:0.5, 20, 15:0.5" color="0xFFFFFFFF" edgecolor="0xFF222222" outline="1" flags="CIRCLE|BACKGROUND|SNAP" center="0 50%">
         <Style name="neutral" color="0xFFFFFFFF" />
         <Style name="active" color="0xFFBBBBBB" />
         <Style name="hover" color="0xFFDDDDDD" />
-      </Skin>
-      <Skin name="#check">
+      </Resource>
+      <Resource uv="0,6.2832,0,6.2832" area="8, 0:0.5, 17, 9:0.5" color="0xFF000000" edgecolor="0" outline="0" flags="CIRCLE|BACKGROUND|SNAP" center="0 50%">
         <Style name="default" flags="HIDDEN" />
         <Style name="checked" flags="-HIDDEN" />
-      </Skin>
+      </Resource>
     </Skin>
     <Skin name="Progressbar" color="0xFFFFFFFF" font="arial;14" padding="0,0,0,0">
       <Resource uv="6,6,6,6" area="0,0,100%,100%" color="0" edgecolor="0xFFDDDDDD" outline="3" flags="RECT|BACKGROUND" />
@@ -252,18 +258,18 @@
     </Skin>
     <Skin name="Slider" padding="5,0,5,0">
       <Curve area="0, 50%, 100%, 1.0:0.5" flags="LINE|SNAP" color="0xFFFFFFFF" />
-      <Skin name="Slider$slider">
-        <Resource uv="5,5,5,5" area="0,0,10,20" color="0xFFFFFFFF" edgecolor="0xFF666666" outline="1" flags="RECT|NOCLIP|SNAP" />
+      <Skin name="Slider$slider" area="0,0,10,20" >
+        <Resource uv="5,5,5,5" area="0,0,100%,100%"  color="0xFFFFFFFF" edgecolor="0xFF666666" outline="0" flags="RECT|NOCLIP|SNAP" />
       </Skin>
     </Skin>
     <Skin name="Box" inherit="Scrollbar" />
     <Skin name="Textbox" color="0xFFFFFFFF" font="arial;14" lineheight="16" placecolor="0x88FFFFFF" cursorcolor="0xFFFFFFFF" selectcolor="0xAAAA0000" padding="3,3,3,3" inherit="Scrollbar">
-      <Resource name="#textbg" uv="3,3,3,3" area="0,0,100%,100%" color="0x99000000" edgecolor="0xFFAAAAAA" outline="1" flags="RECT|BACKGROUND|IGNORE" />
+      <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0x99000000" edgecolor="0xFFAAAAAA" outline="1" flags="RECT|BACKGROUND|IGNORE" />
     </Skin>
     <Skin name="Dropdown" hovercolor="0x99990099" selectcolor="0xAAAA0000">
-      <Resource name="#dropdownbg" uv="3,3,3,3" area="0,0,100%,100%" color="0x99000000" edgecolor="0xFFAAAAAA" outline="1" flags="RECT|BACKGROUND|IGNORE" />
+      <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0x99000000" edgecolor="0xFFAAAAAA" outline="1" flags="RECT|BACKGROUND|IGNORE" />
       <Skin name="Dropdown$box" inherit="Scrollbar">
-        <Resource name="#dropdownboxbg" uv="3,3,3,3" area="0,0,100%,100%" color="0x99000000" edgecolor="0xFFAAAAAA" outline="1" flags="RECT|BACKGROUND|IGNORE" />
+        <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0x99000000" edgecolor="0xFFAAAAAA" outline="1" flags="RECT|BACKGROUND|IGNORE" />
       </Skin>
     </Skin>
   </Skin>
@@ -271,50 +277,47 @@
     <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0x99000000" edgecolor="0xFFAAAAAA" outline="1" flags="RECT|BACKGROUND|IGNORE" />
     <Skin name="Text" color="0xFFFFFFFF" font="arial;10" />
     <Skin name="TreeItem" padding="20,0,0,0" flags="EXPAND">
-      <Resource name="#bg" uv="2,2,2,2" area="0,0,100%,100%" color="0x99AA6666" edgecolor="0xAAFFAAAA" outline="1" flags="RECT|BACKGROUND|IGNORE|SNAP" />
-      <Skin name="TreeItem$arrow" area="4,1,16,13">
-        <Resource name="#bg" uv="3,3,3,3" area="0,0,100%,100%" color="0" edgecolor="0xFFDDDDDD" outline="1" flags="RECT|BACKGROUND|IGNORE|SNAP" />
-        <Resource name="#bgv" uv="0,0,0,0" area="-1:0.5, 2, 1:0.5, -2:1" color="0xFFDDDDDD" flags="RECT|BACKGROUND|IGNORE|SNAP" />
-        <Resource name="#bgh" uv="0,0,0,0" area="2, -1:0.5, -2:1, 1:0.5" color="0xFFDDDDDD" flags="RECT|BACKGROUND|IGNORE|SNAP" />
-        <Skin name="#bgv">
-          <Style name="hidden" flags="-HIDDEN"/>
-          <Style name="visible" flags="HIDDEN"/>
-        </Skin>
-      </Skin>
-      <Skin name="#bg">
+      <Resource uv="2,2,2,2" area="0,0,100%,100%" color="0x99AA6666" edgecolor="0xAAFFAAAA" outline="1" flags="RECT|BACKGROUND|IGNORE|SNAP">
         <Style name="neutral+focused" flags="-HIDDEN"/>
         <Style name="neutral" flags="HIDDEN"/>
+      </Resource>
+      <Skin name="TreeItem$arrow" area="4,1,16,13">
+        <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0" edgecolor="0xFFDDDDDD" outline="1" flags="RECT|BACKGROUND|IGNORE|SNAP" />
+        <Resource uv="0,0,0,0" area="-1:0.5, 2, 1:0.5, -2:1" color="0xFFDDDDDD" flags="RECT|BACKGROUND|IGNORE|SNAP">
+          <Style name="hidden" flags="-HIDDEN"/>
+          <Style name="visible" flags="HIDDEN"/>
+        </Resource>
+        <Resource uv="0,0,0,0" area="2, -1:0.5, -2:1, 1:0.5" color="0xFFDDDDDD" flags="RECT|BACKGROUND|IGNORE|SNAP" />
       </Skin>
     </Skin>
   </Skin>
   <Skin name="TabControl">
     <Skin name="Tabcontrol$toggle" color="0xFFFFFFFF" margin="0,0,10,0" padding="6,2,6,2">
-      <Resource name="#tabtogglebg" uv="3,3,3,3" area="0,0,100%,100%" color="0x99000000" edgecolor="0xFFAAAAAA" outline="1" flags="RECT|BACKGROUND|SNAP" />
+      <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0x99000000" edgecolor="0xFFAAAAAA" outline="1" flags="RECT|BACKGROUND|SNAP" />
       <Style name="default" edgecolor="0xBBFFFFFF"/>
       <Style name="checked" edgecolor="0xFFFFFFFF"/>
     </Skin>
   </Skin>
   <Skin name="List">
-    <Resource name="#listbg" uv="3,3,3,3" area="0,0,100%,100%" color="0x99000000" edgecolor="0xFFAAAAAA" outline="1" flags="RECT|BACKGROUND|SNAP" />
+    <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0x99000000" edgecolor="0xFFAAAAAA" outline="1" flags="RECT|BACKGROUND|SNAP" />
   </Skin>
   <Skin name="ListItem">
-    <Resource name="#listbg" uv="3,3,3,3" area="0,0,100%,100%" color="0x99000000" edgecolor="0xFFAAAAAA" outline="1" flags="RECT|BACKGROUND|SNAP" />
-    <Skin name="#listbg">
+    <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0x99FFFFFF" edgecolor="0xFFAAAAAA" outline="1" flags="RECT|BACKGROUND|SNAP">
       <Style name="hover" color="0x99009900" />
       <Style name="neutral" color="0x99990099" />
       <Style name="neutral+selected" color="0x99999900" />
       <Style name="hover+selected" color="0xCC999900" />
-    </Skin>
+    </Resource>
   </Skin>
   <Skin name="Grid">
-    <Resource name="#gridbg" uv="3,3,3,3" area="0,0,100%,100%" color="0x99000000" edgecolor="0xFFAAAAAA" outline="1" flags="RECT|BACKGROUND" />
+    <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0x99000000" edgecolor="0xFFAAAAAA" outline="1" flags="RECT|BACKGROUND" />
   </Skin>
   <Skin name="Text" color="0xFFFFFFFF" font="arial;14" />
   <Skin name="Menu" hovercolor="0xFFFFFFFF">
-    <Resource name="#menubg" uv="0,0,0,0" area="0,0,100%,100%" color="0x99000000" edgecolor="0xFFAAAAAA" outline="0" flags="RECT|BACKGROUND" />
+    <Resource uv="0,0,0,0" area="0,0,100%,100%" color="0x99000000" edgecolor="0xFFAAAAAA" outline="0" flags="RECT|BACKGROUND" />
   </Skin>
   <Skin name="Submenu">
-    <Resource name="#submenubg" uv="0,3,3,0" area="0,0,100%,100%" color="0x99000000" edgecolor="0xFFAAAAAA" outline="1" flags="RECT|BACKGROUND" />
+    <Resource uv="0,3,3,0" area="0,0,100%,100%" color="0x99000000" edgecolor="0xFFAAAAAA" outline="1" flags="RECT|BACKGROUND" />
     <Skin name="Submenu$seperator" area="0,0,100%,5">
       <Resource area="0,0,100%,100%" color="0xDDCCCCCC" outline="0" flags="RECT|BACKGROUND" margin="0,2,0,2" />
     </Skin>

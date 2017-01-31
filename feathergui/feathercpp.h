@@ -18,8 +18,13 @@
 #define kh_ptr_hash_func kh_int_hash_func
 #endif
 
+//#define FG_NO_TEXT_CACHE // Uncomment this if text is leaking somewhere and you don't know where.
+
 // This is a template implementation of malloc that we can overload for memory leak detection
 #ifdef BSS_DEBUG
+
+extern bool fgTextFreeCheck(void* p);
+extern void fgTextLeakDump(FILE* f);
 
 class fgLeakTracker
 {
@@ -48,9 +53,15 @@ public:
       pinfo = _leakinfo.GetValue(*curiter);
       if(!pinfo->freecount)
         fprintf(f, "%p (Size: %zi) leaked at %s:%zi\n", pinfo->ptr, pinfo->size, pinfo->file, pinfo->line);
+#ifndef FG_NO_TEXT_CACHE
+      fgFreeText(pinfo->file, __FILE__, __LINE__);
+#else
+      free((char*)pinfo->file);
+#endif
       free(pinfo);
     }
 
+    fgTextLeakDump(f);
     fclose(f);
   }
 
@@ -69,7 +80,13 @@ public:
 
     LEAKINFO* pinfo = (LEAKINFO*)malloc(sizeof(LEAKINFO));
     pinfo->size = size;
-    pinfo->file = file;
+#ifndef FG_NO_TEXT_CACHE
+    pinfo->file = fgCopyText(file, __FILE__, __LINE__);
+#else
+    size_t sz = strlen(file) + 1;
+    pinfo->file = (const char*)malloc(sz);
+    MEMCPY((char*)pinfo->file, sz, file, sz);
+#endif
     pinfo->line = line;
     pinfo->ptr = ptr;
     pinfo->freecount = 0;
@@ -120,6 +137,7 @@ static BSS_FORCEINLINE T* fgmalloc(size_t sz, const char* file, size_t line)
 }
 static BSS_FORCEINLINE void fgfree(void* p, const char* file, size_t line)
 {
+  assert(!fgTextFreeCheck(p)); // In debug mode, make sure you are freeing text allocated with fgCopyText with fgFreeText
   if(fgLeakTracker::Tracker.Remove(p, file, line))
     free(p);
 }
@@ -196,9 +214,9 @@ BSS_FORCEINLINE void fgDestroyFontCpp(void* r) { return fgroot_instance->backend
 BSS_FORCEINLINE void fgConstructKeyValue(_FG_KEY_VALUE*) {}
 BSS_FORCEINLINE void fgDestructKeyValue(_FG_KEY_VALUE* p)
 {
-  fgfree(p->key, __FILE__, __LINE__);
+  fgFreeText(p->key, __FILE__, __LINE__);
   if(p->value)
-    fgfree(p->value, __FILE__, __LINE__);
+    fgFreeText(p->value, __FILE__, __LINE__);
 }
 
 typedef bss_util::cDynArray<fgArbitraryRef<fgCloneResourceCpp, fgDestroyResourceCpp>, FG_UINT, bss_util::CARRAY_CONSTRUCT> fgResourceArray;
@@ -216,14 +234,13 @@ char DynArrayRemove(T& a, FG_UINT index)
   return 1;
 }
 
-typedef typename fgConstruct<fgStyleLayout, const char*, const char*, fgFlag, const fgTransform*, short, int>::fgConstructor<fgStyleLayout_Destroy, fgStyleLayout_Init> fgStyleLayoutConstruct;
+typedef typename fgConstruct<fgSkinLayout, const char*, fgFlag, const fgTransform*, short, int>::fgConstructor<fgSkinLayout_Destroy, fgSkinLayout_Init> fgSkinLayoutConstruct;
 typedef typename fgConstruct<fgClassLayout, const char*, const char*, fgFlag, const fgTransform*, short, int>::fgConstructor<fgClassLayout_Destroy, fgClassLayout_Init> fgClassLayoutConstruct;
 
-BSS_FORCEINLINE char fgSortStyleLayout(const fgStyleLayoutConstruct& l, const fgStyleLayoutConstruct& r) { return -SGNCOMPARE(l.order, r.order); }
-BSS_FORCEINLINE char fgSortClassLayout(const fgClassLayoutConstruct& l, const fgClassLayoutConstruct& r) { return -SGNCOMPARE(l.style.order, r.style.order); }
-extern BSS_FORCEINLINE void fgStandardDrawElement(fgElement* self, fgElement* hold, const AbsRect* area, const fgDrawAuxData* aux, AbsRect& curarea, bool& clipping);
+BSS_FORCEINLINE char fgSortStyleLayout(const fgSkinLayoutConstruct& l, const fgSkinLayoutConstruct& r) { return -SGNCOMPARE(l.layout.order, r.layout.order); }
+BSS_FORCEINLINE char fgSortClassLayout(const fgClassLayoutConstruct& l, const fgClassLayoutConstruct& r) { return -SGNCOMPARE(l.layout.order, r.layout.order); }
 
-typedef bss_util::cArraySort<fgStyleLayoutConstruct, fgSortStyleLayout, size_t, bss_util::CARRAY_CONSTRUCT> fgStyleLayoutArray;
+typedef bss_util::cArraySort<fgSkinLayoutConstruct, fgSortStyleLayout, size_t, bss_util::CARRAY_CONSTRUCT> fgSkinLayoutArray;
 typedef bss_util::cDynArray<typename fgConstruct<fgStyle>::fgConstructor<fgStyle_Destroy, fgStyle_Init>, size_t, bss_util::CARRAY_CONSTRUCT> fgStyleArray;
 typedef bss_util::cDynArray<typename fgConstruct<struct _FG_KEY_VALUE>::fgConstructor<fgDestructKeyValue, fgConstructKeyValue>, size_t, bss_util::CARRAY_CONSTRUCT> fgKeyValueArray;
 typedef bss_util::cArraySort<fgClassLayoutConstruct, fgSortClassLayout, size_t, bss_util::CARRAY_CONSTRUCT> fgClassLayoutArray;
@@ -349,7 +366,7 @@ struct __VECTOR__UTF32;
 
 extern fgSkin* fgSkinBase_LoadNodeXML(fgSkinBase* self, const bss_util::cXMLNode* root);
 extern inline __kh_fgSkins_t *kh_init_fgSkins();
-extern void fgStyle_LoadAttributesXML(struct _FG_STYLE* self, const bss_util::cXMLNode* cur, int flags, struct _FG_SKIN_BASE* root, const char* path, char** id, fgKeyValueArray* userdata);
+extern void fgStyle_LoadAttributesXML(struct _FG_STYLE* self, const bss_util::cXMLNode* cur, int flags, struct _FG_SKIN_BASE* root, const char* path, const char** id, fgKeyValueArray* userdata);
 extern int fgStyle_NodeEvalTransform(const bss_util::cXMLNode* node, fgTransform& t);
 extern fgElement* fgLayout_GetNext(fgElement* cur);
 extern fgElement* fgLayout_GetPrev(fgElement* cur);

@@ -10,15 +10,15 @@
 extern "C" {
 #endif
 
-enum FGTEXT_FLAGS // these start at (1 << 13) so they don't intersect the scrollbar flags, due to fgTextbox
+enum FGTEXT_FLAGS // these start at (1 << 14) so they don't intersect the scrollbar flags, due to fgTextbox
 {
-  FGTEXT_CHARWRAP = (1 << 13), // Wraps lines that go past the edge of the container by character
-  FGTEXT_WORDWRAP = (1 << 14), // Wraps lines that go past the edge of the container by word (the definition of a "word" is implementation specific)
-  FGTEXT_ELLIPSES = (1 << 15), // Lines that go past the bounderies of the text object are cut off with an ellipses (...)
-  FGTEXT_RTL = (1 << 16), // Forces right-to-left text rendering.
-  FGTEXT_RIGHTALIGN = (1 << 17),
-  FGTEXT_CENTER = (1 << 18), // Text horizontal centering behaves differently, because it centers each individual line.
-  FGTEXT_SUBPIXEL = (1 << 19), // Indicates this text should try to render with LCD subpixel hinting.
+  FGTEXT_CHARWRAP = (1 << 14), // Wraps lines that go past the edge of the container by character
+  FGTEXT_WORDWRAP = (1 << 15), // Wraps lines that go past the edge of the container by word (the definition of a "word" is implementation specific)
+  FGTEXT_ELLIPSES = (1 << 16), // Lines that go past the bounderies of the text object are cut off with an ellipses (...)
+  FGTEXT_RTL = (1 << 17), // Forces right-to-left text rendering.
+  FGTEXT_RIGHTALIGN = (1 << 18),
+  FGTEXT_CENTER = (1 << 19), // Text horizontal centering behaves differently, because it centers each individual line.
+  FGTEXT_SUBPIXEL = (1 << 20), // Indicates this text should try to render with LCD subpixel hinting.
 };
 
 typedef fgDeclareVector(char, UTF8) fgVectorUTF8;

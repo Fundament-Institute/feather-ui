@@ -22,10 +22,10 @@
 #include <stdlib.h>
 #include <sstream>
 
-KHASH_INIT(fgIDMap, char*, fgElement*, 1, kh_str_hash_func, kh_str_hash_equal);
-KHASH_INIT(fgIDHash, fgElement*, char*, 1, kh_ptr_hash_func, kh_int_hash_equal);
+KHASH_INIT(fgIDMap, const char*, fgElement*, 1, kh_str_hash_func, kh_str_hash_equal);
+KHASH_INIT(fgIDHash, fgElement*, const char*, 1, kh_ptr_hash_func, kh_int_hash_equal);
 typedef std::pair<fgInitializer, size_t> INITPAIR;
-KHASH_INIT(fgInitMap, char*, INITPAIR, 1, kh_str_hash_funcins, kh_str_hash_insequal);
+KHASH_INIT(fgInitMap, const char*, INITPAIR, 1, kh_str_hash_funcins, kh_str_hash_insequal);
 KHASH_INIT(fgCursorMap, unsigned int, void*, 1, kh_int_hash_func, kh_int_hash_equal);
 
 fgRoot* fgroot_instance = 0;
@@ -123,7 +123,7 @@ void fgRoot_Destroy(fgRoot* self)
   kh_destroy_fgIDMap(self->idmap); // We don't need to clear this because it will have already been emptied.
   for(khiter_t i = 0; i < self->initmap->n_buckets; ++i) // We do have to clear this one, though.
     if(i != kh_end(self->initmap) && kh_exist(self->initmap, i))
-      fgfree(kh_key(self->initmap, i), __FILE__, __LINE__);
+      fgFreeText(kh_key(self->initmap, i), __FILE__, __LINE__);
   kh_destroy_fgInitMap(self->initmap);
   for(khiter_t i = 0; i < self->cursormap->n_buckets; ++i)
     if(i != kh_end(self->cursormap) && kh_exist(self->cursormap, i))
@@ -221,7 +221,7 @@ size_t fgRoot_Message(fgRoot* self, const FG_Msg* msg)
   return fgControl_Message((fgControl*)self,msg);
 }
 
-void BSS_FORCEINLINE fgStandardApplyClipping(fgFlag flags, const AbsRect* area, bool& clipping, const fgDrawAuxData* aux)
+char BSS_FORCEINLINE fgStandardApplyClipping(fgFlag flags, const AbsRect* area, char clipping, const fgDrawAuxData* aux)
 {
   if(!clipping && !(flags&FGELEMENT_NOCLIP))
   {
@@ -233,19 +233,59 @@ void BSS_FORCEINLINE fgStandardApplyClipping(fgFlag flags, const AbsRect* area, 
     clipping = false;
     fgroot_instance->backend.fgPopClipRect(aux);
   }
+  return clipping;
 }
 
-void BSS_FORCEINLINE fgStandardDrawElement(fgElement* self, fgElement* hold, const AbsRect* area, const fgDrawAuxData* aux, AbsRect& curarea, bool& clipping)
+char BSS_FORCEINLINE fgStandardDrawElement(fgElement* self, fgElement* hold, const AbsRect* area, const fgDrawAuxData* aux, AbsRect& curarea, char clipping)
 {
   if(!(hold->flags&FGELEMENT_HIDDEN) && hold != fgroot_instance->topmost)
   {
     ResolveRectCache(hold, &curarea, area, (hold->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
-    fgStandardApplyClipping(hold->flags, area, clipping, aux);
+    clipping = fgStandardApplyClipping(hold->flags, area, clipping, aux);
 
     AbsRect clip = fgroot_instance->backend.fgPeekClipRect(aux);
     char culled = !fgRectIntersect(&curarea, &clip);
     _sendsubmsg<FG_DRAW, void*, const void*>(hold, culled, &curarea, aux);
   }
+  return clipping;
+}
+
+// This must be its own function due to the way alloca works.
+inline char fgDrawSkinElement(fgElement* self, fgSkinLayout& child, const AbsRect* area, const fgDrawAuxData* aux, AbsRect& curarea, char clipping)
+{
+  fgElement* element = child.instance;
+  size_t sz = child.sz;
+  if(self->skinstyle != 0)
+  {
+    element = (fgElement*)alloca(sz);
+    MEMCPY(element, sz, child.instance, sz);
+    element->userhash = 0;
+    element->flags |= FGELEMENT_SILENT;
+    fgElement_ApplyMessageArray(child.instance, element, self->skinstyle);
+  }
+  char r = fgStandardDrawElement(self, element, area, aux, curarea, clipping);
+
+  AbsRect childarea;
+  for(size_t i = 0; i < child.tree.children.l; ++i)
+    clipping = fgDrawSkinElement(self, child.tree.children.p[i], &curarea, aux, childarea, clipping);
+  return r;
+}
+
+char fgDrawSkin(fgElement* self, const fgSkin* skin, const AbsRect* area, const fgDrawAuxData* aux, char culled, char foreground, char clipping)
+{
+  if(foreground)
+    return clipping;
+
+  if(skin != 0)
+  {
+    clipping = fgDrawSkin(self, skin->inherit, area, aux, culled, foreground, clipping);
+
+    AbsRect curarea;
+    for(size_t i = 0; i < skin->tree.children.l; ++i)
+      clipping = fgDrawSkinElement(self, skin->tree.children.p[i], area, aux, curarea, clipping);
+  }
+
+  return clipping;
 }
 
 void fgStandardDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, char culled)
@@ -254,11 +294,15 @@ void fgStandardDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* a
   AbsRect curarea;
   bool clipping = false;
 
+  clipping = fgDrawSkin(self, self->skin, area, aux, culled, false, clipping);
+
   while(hold)
   {
-    fgStandardDrawElement(self, hold, area, aux, curarea, clipping);
+    clipping = fgStandardDrawElement(self, hold, area, aux, curarea, clipping);
     hold = culled ? hold->nextnoclip : hold->next;
   }
+
+  clipping = fgDrawSkin(self, self->skin, area, aux, culled, true, clipping);
 
   if(clipping)
     fgroot_instance->backend.fgPopClipRect(aux);
@@ -273,9 +317,11 @@ void fgOrderedDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* au
   AbsRect curarea;
   bool clipping = false;
 
+  clipping = fgDrawSkin(self, self->skin, area, aux, culled, false, clipping);
+
   while(cur != 0 && (cur->flags & FGELEMENT_BACKGROUND)) // Render all background elements before the ordered elements
   {
-    fgStandardDrawElement(self, cur, area, aux, curarea, clipping);
+    clipping = fgStandardDrawElement(self, cur, area, aux, curarea, clipping);
     cur = cur->next;
   }
 
@@ -308,9 +354,11 @@ void fgOrderedDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* au
   cur = skip;
   while(cur != 0 && (cur->flags & FGELEMENT_BACKGROUND)) // Render all background elements after the ordered elements
   {
-    fgStandardDrawElement(self, cur, area, aux, curarea, clipping);
+    clipping = fgStandardDrawElement(self, cur, area, aux, curarea, clipping);
     cur = cur->next;
   }
+
+  clipping = fgDrawSkin(self, self->skin, area, aux, culled, true, clipping);
 
   if(clipping)
     fgroot_instance->backend.fgPopClipRect(aux);
@@ -661,7 +709,7 @@ char fgRoot_RemoveID(fgRoot* self, fgElement* element)
   else
     assert(false);
 
-  fgfree(kh_val(self->idhash, i), __FILE__, __LINE__);
+  fgFreeText(kh_val(self->idhash, i), __FILE__, __LINE__);
   kh_del_fgIDHash(self->idhash, i);
   return true;
 }
@@ -738,4 +786,12 @@ fgElement* fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgE
   r->free = &free; // We do this because the compiler can't figure out the inlining weirdness going on here
 #endif
   return (fgElement*)r;
+}
+
+size_t fgGetTypeSize(const char* type)
+{
+  khint_t i = kh_get_fgInitMap(fgroot_instance->initmap, const_cast<char*>(type));
+  if(i == kh_end(fgroot_instance->initmap) || !kh_exist(fgroot_instance->initmap, i))
+    return 0;
+  return kh_val(fgroot_instance->initmap, i).second;
 }

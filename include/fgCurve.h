@@ -13,10 +13,10 @@ extern "C" {
   enum FGCURVE_FLAGS
   {
     FGCURVE_LINE = 0,
-    FGCURVE_QUADRATIC = (1 << 8),
-    FGCURVE_CUBIC = (2 << 8),
-    FGCURVE_BSPLINE = (3 << 8),
-    FGCURVE_CURVEMASK = (3 << 8),
+    FGCURVE_QUADRATIC = (1 << 9),
+    FGCURVE_CUBIC = (2 << 9),
+    FGCURVE_BSPLINE = (3 << 9),
+    FGCURVE_CURVEMASK = (3 << 9),
   };
 
   typedef fgDeclareVector(AbsVec, Point) fgVectorPoint;

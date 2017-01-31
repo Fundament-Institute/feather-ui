@@ -16,13 +16,15 @@ namespace fgExample_cs
       //fgRegisterFunction("statelistener", [](fgElement* self, const FG_Msg*) { fgElement* progbar = fgRoot_GetID(fgSingleton(), "#progbar"); progbar->SetValueF(self->GetValueF(0) / self->GetValueF(1), 0); progbar->SetText(cStrF("%i", self->GetValue(0))); });
       //fgRegisterFunction("makepressed", [](fgElement* self, const FG_Msg*) { self->SetText("Pressed!"); });
 
-      Layout layout = new Layout();
-      layout.LoadFileXML("../media/feathertest.xml");
-      root.LayoutLoad(layout);
+      using (Layout layout = new Layout())
+      {
+        layout.LoadFileXML("../media/feathertest.xml");
+        root.LayoutLoad(layout);
 
-      root.GetID("#tabfocus").Action();
+        root.GetID("#tabfocus").Action();
 
-      while (root.ProcessMessages()) ;
+        while (root.ProcessMessages()) ;
+      }
     }
   }
 }
