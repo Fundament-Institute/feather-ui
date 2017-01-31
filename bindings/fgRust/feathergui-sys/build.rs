@@ -25,4 +25,5 @@ fn get_lib_dir() -> PathBuf {
 
 fn main() {
     println!("cargo:rustc-link-search=native={}", get_lib_dir().to_str().unwrap());
+    println!("cargo:rustc-link-lib=static=feathergui");
 }

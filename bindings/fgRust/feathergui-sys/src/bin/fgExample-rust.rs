@@ -1,8 +1,8 @@
 extern crate feathergui_sys;
 
 use feathergui_sys::*;
-use feathergui_sys::Enum_FGVALUE::*;
-use feathergui_sys::Enum_FG_MSGTYPE::*;
+use feathergui_sys::FGVALUE::*;
+use feathergui_sys::FG_MSGTYPE::*;
 use std::{mem, ptr, thread};
 use std::os::raw::{c_char, c_void};
 use std::time::Duration;
