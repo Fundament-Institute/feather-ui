@@ -122,6 +122,9 @@
     <ClInclude Include="..\include\fgBackend.h">
       <Filter>include</Filter>
     </ClInclude>
+    <ClInclude Include="..\include\fgAll.h">
+      <Filter>include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="feathergui.cpp">

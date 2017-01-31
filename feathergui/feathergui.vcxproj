@@ -516,6 +516,7 @@
   <ItemGroup>
     <ClInclude Include="..\include\bss_compiler.h" />
     <ClInclude Include="..\include\feathergui.h" />
+    <ClInclude Include="..\include\fgAll.h" />
     <ClInclude Include="..\include\fgBox.h" />
     <ClInclude Include="..\include\fgButton.h" />
     <ClInclude Include="..\include\fgCheckbox.h" />
