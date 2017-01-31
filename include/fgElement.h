@@ -1,4 +1,4 @@
-// Copyright ©2017 Black Sphere Studios
+// Copyright ï¿½2017 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #ifndef __FG_ELEMENT_H__
@@ -41,7 +41,14 @@ struct _FG_LAYOUT;
 struct __kh_fgUserdata_t;
 typedef fgDeclareVector(struct _FG_ELEMENT*, Element) fgVectorElement;
 
+// For dealing with rust's bindgen weirdness
+// just wat
+#ifdef _RUST_BINDGEN
+typedef void(fun_fgListener)(struct _FG_ELEMENT*, const FG_Msg*);
+typedef fun_fgListener *fgListener;
+#else
 typedef void(*fgListener)(struct _FG_ELEMENT*, const FG_Msg*);
+#endif
 
 // Defines the base GUI element
 typedef struct _FG_ELEMENT {
