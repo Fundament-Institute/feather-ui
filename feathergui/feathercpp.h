@@ -53,11 +53,8 @@ public:
       pinfo = _leakinfo.GetValue(*curiter);
       if(!pinfo->freecount)
         fprintf(f, "%p (Size: %zi) leaked at %s:%zi\n", pinfo->ptr, pinfo->size, pinfo->file, pinfo->line);
-#ifndef FG_NO_TEXT_CACHE
-      fgFreeText(pinfo->file, __FILE__, __LINE__);
-#else
+
       free((char*)pinfo->file);
-#endif
       free(pinfo);
     }
 
@@ -80,13 +77,9 @@ public:
 
     LEAKINFO* pinfo = (LEAKINFO*)malloc(sizeof(LEAKINFO));
     pinfo->size = size;
-#ifndef FG_NO_TEXT_CACHE
-    pinfo->file = fgCopyText(file, __FILE__, __LINE__);
-#else
     size_t sz = strlen(file) + 1;
     pinfo->file = (const char*)malloc(sz);
     MEMCPY((char*)pinfo->file, sz, file, sz);
-#endif
     pinfo->line = line;
     pinfo->ptr = ptr;
     pinfo->freecount = 0;
@@ -381,5 +374,21 @@ template<fgFlag FLAGS>
 inline fgElement* fgOrderedGet(struct _FG_BOX_ORDERED_ELEMENTS_* self, const AbsRect* area, const AbsRect* cache);
 template<fgFlag FLAGS>
 inline fgElement* fgOrderedVec(struct _FG_BOX_ORDERED_ELEMENTS_* order, AbsVec v);
+
+// Set a bunch of memory to zero after a given subclass
+template<class T, class SUBCLASS>
+void memsubset(T* p, int v) { memset(reinterpret_cast<char*>(p) + sizeof(SUBCLASS), v, sizeof(T) - sizeof(SUBCLASS)); }
+template<class T, class SUBCLASS>
+void memsubcpy(T* dest, const T* src)
+{
+  MEMCPY(((char*)dest) + sizeof(SUBCLASS), sizeof(T) - sizeof(SUBCLASS), ((char*)src) + sizeof(SUBCLASS), sizeof(T) - sizeof(SUBCLASS));
+}
+template<class T>
+T* memcpyalloc(const T* src, size_t len)
+{
+  T* r = (T*)malloc(len * sizeof(T));
+  MEMCPY(r, len * sizeof(T), src, len * sizeof(T));
+  return r;
+}
 
 #endif

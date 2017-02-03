@@ -25,6 +25,16 @@ size_t fgCheckbox_Message(fgCheckbox* self, const FG_Msg* msg)
     fgMaskSetStyle(*self, "default", fgStyleGetMask("default", "checked", "indeterminate"));
     self->checked = FGCHECKED_NONE;
     return FG_ACCEPT;
+  case FG_CLONE:
+    if(msg->e)
+    {
+      fgCheckbox* hold = reinterpret_cast<fgCheckbox*>(msg->e);
+      fgControl_ActionMessage(&self->control, msg);
+      self->text->Clone(hold->text);
+      _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->text);
+      hold->checked = self->checked;
+    }
+    return sizeof(fgCheckbox);
   case FG_NEUTRAL:
     fgStandardNeutralSetStyle(*self, "neutral");
     return FG_ACCEPT;

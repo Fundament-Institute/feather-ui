@@ -86,7 +86,6 @@ inline fgElement* fgBoxOrderInject(fgElement* self, const FG_Msg* msg)
 
 size_t fgBox_Message(fgBox* self, const FG_Msg* msg)
 {
-  ptrdiff_t otherint = msg->i;
   fgFlag flags = self->scroll.control.element.flags;
 
   switch(msg->type)
@@ -94,6 +93,24 @@ size_t fgBox_Message(fgBox* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     self->fndraw = 0;
     break;
+  case FG_CLONE:
+    if(msg->e)
+    {
+      fgBox* hold = reinterpret_cast<fgBox*>(msg->e);
+      memsubcpy<fgBox, fgScrollbar>(hold, self); // We do this first because we have to ensure our messages can process ADDCHILD correctly.
+      memset(&hold->order.ordered, 0, sizeof(fgVectorElement));
+      fgScrollbar_Message(&self->scroll, msg);
+    }
+    return sizeof(fgBox);
+  case FG_GETCOLOR:
+    if(msg->subtype == FGSETCOLOR_DIVIDER)
+      return self->dividercolor.color;
+    break;
+  case FG_SETCOLOR:
+    if(msg->subtype != FGSETCOLOR_DIVIDER)
+      break;
+    self->dividercolor.color = msg->u;
+    return FG_ACCEPT;
   case FG_DRAW:
     if(!self->order.isordered || !self->order.ordered.l)
       fgStandardDraw(*self, (AbsRect*)msg->p, (fgDrawAuxData*)msg->p2, msg->subtype & 1);
@@ -136,7 +153,7 @@ size_t fgBox_Message(fgBox* self, const FG_Msg* msg)
 
 size_t fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_* self, const FG_Msg* msg, fgElement* element, fgMessage callback)
 {
-  ptrdiff_t otherint = msg->i;
+  fgFlag otherint = (fgFlag)msg->u;
   fgFlag flags = element->flags;
 
   switch(msg->type)

@@ -89,7 +89,7 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
   {
-    self->lineheight = 0; // lineheight must be zero'd before a potential transform unit resolution.
+    memsubset<fgDebug, fgElement>(self, 0); // lineheight must be zero'd before a potential transform unit resolution.
     fgElement_Message(&self->element, msg);
     const fgTransform tf_elements = { { -300,1,0,0,0,1,0,1 }, 0,{ 0,0,0,0 } };
     const fgTransform tf_properties = { { -300,1,-200,1,0,1,0,1 }, 0,{ 0,0,0,0 } };
@@ -112,22 +112,16 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
     self->context->AddItemText("Move");
     fgIterateControls(fgCreate("Submenu", self->context->AddItemText("Insert"), 0, 0, FGELEMENT_USEDEFAULTS, 0, 0), [](void* p, const char* s) { fgElement* e = (fgElement*)p; e->AddItemText(s); });
     self->elements->SetContextMenu(self->context);
-    self->messagelog.p = 0;
-    self->messagelog.l = 0;
-    self->messagelog.s = 0;
-    self->messagestrings.p = 0;
-    self->messagestrings.l = 0;
-    self->messagestrings.s = 0;
-    self->depth = 0;
     self->depthelement = self->messages;
-    self->hover = 0;
     self->behaviorhook = &fgBehaviorHookDefault;
-    self->ignore = 0;
-    self->font = 0;
-    self->color.color = 0;
-    self->letterspacing = 0;
   }
     return FG_ACCEPT;
+  case FG_CLONE:
+    if(msg->e)
+    {
+      fgElement_Message(&self->element, msg);
+    }
+    return sizeof(fgText);
   case FG_DRAW:
     if(self->hover != 0)
     {

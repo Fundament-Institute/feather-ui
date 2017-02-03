@@ -160,6 +160,7 @@ size_t fgRoot_Message(fgRoot* self, const FG_Msg* msg)
   case FG_MOUSEON:
   case FG_MOUSESCROLL:
   case FG_GOTFOCUS: //Root cannot have focus
+  case FG_CLONE:
     return 0;
   case FG_GETCLASSNAME:
     return (size_t)"Root";
@@ -254,12 +255,11 @@ char BSS_FORCEINLINE fgStandardDrawElement(fgElement* self, fgElement* hold, con
 inline char fgDrawSkinElement(fgElement* self, fgSkinLayout& child, const AbsRect* area, const fgDrawAuxData* aux, AbsRect& curarea, char clipping)
 {
   fgElement* element = child.instance;
-  size_t sz = child.sz;
   if(self->skinstyle != 0)
   {
-    element = (fgElement*)alloca(sz);
-    MEMCPY(element, sz, child.instance, sz);
-    element->userhash = 0;
+    element = (fgElement*)alloca(child.instance->Clone());
+    child.instance->Clone(element);
+    element->free = 0;
     element->flags |= FGELEMENT_SILENT;
     fgElement_ApplyMessageArray(child.instance, element, self->skinstyle);
   }
@@ -268,6 +268,9 @@ inline char fgDrawSkinElement(fgElement* self, fgSkinLayout& child, const AbsRec
   AbsRect childarea;
   for(size_t i = 0; i < child.tree.children.l; ++i)
     clipping = fgDrawSkinElement(self, child.tree.children.p[i], &curarea, aux, childarea, clipping);
+
+  if(self->skinstyle != 0)
+    VirtualFreeChild(element);
   return r;
 }
 
@@ -368,7 +371,6 @@ void fgFixedDraw(fgElement* self, AbsRect* area, size_t dpi, char culled, fgElem
 {
 
 }
-
 
 // Recursive event injection function
 size_t fgStandardInject(fgElement* self, const FG_Msg* msg, const AbsRect* area)

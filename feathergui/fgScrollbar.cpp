@@ -270,6 +270,25 @@ size_t fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
     self->bar[1].button.control.element.message = (fgMessage)&fgScrollbar_barMessage;
     fgScrollbar_SetBarcache(self);
     return FG_ACCEPT;
+  case FG_CLONE:
+    if(msg->e)
+    {
+      fgScrollbar* hold = reinterpret_cast<fgScrollbar*>(msg->e);
+      hold->realpadding = self->realpadding;
+      hold->barcache = self->barcache;
+      hold->realsize = self->realsize;
+      hold->lastpadding = self->lastpadding;
+      fgControl_Message(&self->control, msg);
+      for(size_t i = 0; i < 4; ++i) { self->btn[i]->Clone(hold->btn[i]); _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->btn[i]); }
+      for(size_t i = 0; i < 3; ++i) { self->bg[i].Clone(&hold->bg[i]); _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, &hold->bg[i]); }
+      self->bar[0].button->Clone(hold->bar[0].button);
+      hold->bar[0].lastmouse = self->bar[0].lastmouse;
+      _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->bar[0].button);
+      self->bar[1].button->Clone(hold->bar[1].button);
+      hold->bar[1].lastmouse = self->bar[1].lastmouse;
+      _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->bar[1].button);
+    }
+    return sizeof(fgScrollbar);
   case FG_SETPADDING:
     if(msg->p != nullptr)
     {

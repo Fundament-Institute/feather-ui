@@ -212,19 +212,24 @@
     </Skin>
   </Skin>
   <Skin name="Window" flags="RESIZABLE">
-    <Resource uv="10,10,10,10" area="0,0,100%,100%" color="0xFF666666" edgecolor="0xFFAAAAAA" outline="1" flags="RECT|BACKGROUND" />
+    <Resource uv="10,10,10,10" area="0,0,100%,100%" color="0xCC666666" edgecolor="0xFFAAAAAA" outline="1" flags="RECT|BACKGROUND" />
     <Skin name="Window$text" margin="4,4,0,0" />
-    <Skin name="Window$restore" area="-30:1, 0, -15:1, 15" >
+    <Skin name="Window$close" area="-30:1, 0, -15:1, 15" >
+      <Resource area="50%,50%,150%,70%" color="0xFFDDDDDD" flags="RECT|BACKGROUND|NOCLIP" rotation="0.785" center="50%,50%"/>
+      <Resource area="50%,50%,150%,70%" color="0xFFDDDDDD" flags="RECT|BACKGROUND|NOCLIP" rotation="-0.785" center="50%,50%"/>
+    </Skin>
+    <Skin name="Window$restore" area="-60:1, 0, -45:1, 15" >
       <Resource area="0,0,100%,100%" color="0" edgecolor="0xFFDDDDDD" outline="3" flags="RECT|BACKGROUND" />
+      <Resource area="0,0%,100%,30%" color="0xFFDDDDDD" flags="RECT|BACKGROUND" />
+    </Skin>
+    <Skin name="Window$minimize" area="-90:1, 0, -75:1, 15" >
+      <Resource area="0,70%,100%,100%" color="0xFFDDDDDD" flags="RECT|BACKGROUND" />
     </Skin>
     <Skin name="Button" color="0xFFFFFFFF" font="arial;14" padding="5,5,5,5">
       <Resource uv="5,5,5,5" area="0,0,100%,100%" color="0xFF666666" edgecolor="0xFFAAAAAA" outline="1" flags="RECT|BACKGROUND|SNAP">
         <Style name="neutral" color="0xFF666666" transition="1000 ease-in"/>
         <Style name="active" color="0xFF505050" transition="1000 cubic(0,1,0,1) 0" />
         <Style name="hover" color="0xFF7F7F7F" transition="1000 ease-in" />
-        <!--<Style name="neutral" color="0xFF666666" transition="1000 ease-in"/>
-        <Style name="active" color="0xFF505050" transition="1000 cubic(0,1,0,1) 0" />
-        <Style name="hover" color="0xFF7F7F7F" transition="1000 ease-in" />-->
       </Resource>
     </Skin>
     <Skin name="Checkbox" color="0xFFFFFFFF" font="arial;14" padding="25,0,5,0">

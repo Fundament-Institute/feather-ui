@@ -44,7 +44,7 @@ size_t fgControl_Message(fgControl* self, const FG_Msg* msg)
 {
   assert(self != 0);
   assert(msg != 0);
-  ptrdiff_t otherint = msg->i;
+  fgFlag otherint = (fgFlag)msg->u;
 
   if(self->element.flags&FGCONTROL_DISABLE)
   { // If this control is disabled, it absorbs all input messages that reach it without responding to them.
@@ -83,6 +83,15 @@ size_t fgControl_Message(fgControl* self, const FG_Msg* msg)
     self->sidenext = self->sideprev = self;
     fgStandardNeutralSetStyle(*self, "neutral");
     return FG_ACCEPT;
+  case FG_CLONE:
+    if(msg->e)
+    {
+      fgControl* hold = reinterpret_cast<fgControl*>(msg->e);
+      memsubset<fgControl, fgElement>(hold, 0);
+      hold->contextmenu = self->contextmenu;
+      fgElement_Message(&self->element, msg);
+    }
+    return sizeof(fgControl);
   case FG_KEYDOWN:
   {
     fgControl* target = 0;
@@ -261,7 +270,11 @@ size_t fgControl_ActionMessage(fgControl* self, const FG_Msg* msg)
     {
     case FG_MOUSEUP:
       if(MsgHitElement(msg, &self->element) && fgCaptureWindow == &self->element) // We can get a MOUSEUP when the mouse is outside of the control but we DO NOT fire it unless it's actually in the control.
+      {
+        size_t r = fgControl_HoverMessage(self, msg);
         _sendmsg<FG_ACTION>(*self);
+        return r;
+      }
       break;
     }
   }

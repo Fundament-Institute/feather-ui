@@ -21,12 +21,18 @@
     <ClInclude Include="fgWindowD2D.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="fgRoundRect.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="fgDirect2D.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="fgWindowD2D.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgRoundRect.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

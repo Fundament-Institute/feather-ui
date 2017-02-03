@@ -47,6 +47,15 @@ size_t fgRadiobutton_Message(fgRadiobutton* self, const FG_Msg* msg)
     self->radionext = 0;
     self->radioprev = 0;
     return FG_ACCEPT;
+  case FG_CLONE:
+    if(msg->e)
+    {
+      fgRadiobutton* hold = reinterpret_cast<fgRadiobutton*>(msg->e);
+      hold->radionext = 0;
+      hold->radioprev = 0;
+      fgCheckbox_Message(&self->window, msg);
+    }
+    return sizeof(fgRadiobutton);
   case FG_MOVE:
     if(msg->subtype == FG_SETPARENT)
     {

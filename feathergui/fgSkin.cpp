@@ -95,7 +95,6 @@ size_t fgSkinTree_AddChild(fgSkinTree* self, const char* type, fgFlag flags, con
 {
   size_t r = ((fgSkinLayoutArray&)self->children).Insert(fgSkinLayoutConstruct(type, flags, transform, units, order));
   self->children.p[r].instance = fgroot_instance->backend.fgCreate(type, 0, 0, 0, flags, (units == -1) ? 0 : transform, units);
-  self->children.p[r].sz = fgGetTypeSize(type);
   return r;
 }
 char fgSkinTree_RemoveChild(fgSkinTree* self, FG_UINT child)
@@ -234,7 +233,6 @@ void fgSkinLayout_Init(fgSkinLayout* self, const char* type, fgFlag flags, const
   memset(self, 0, sizeof(fgSkinLayout));
   fgSkinElement_Init(&self->layout, type, flags, transform, units, order);
   self->instance = 0;
-  self->sz = 0;
 }
 void fgSkinLayout_Destroy(fgSkinLayout* self)
 {

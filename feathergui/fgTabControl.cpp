@@ -79,6 +79,16 @@ size_t fgTabcontrol_Message(fgTabcontrol* self, const FG_Msg* msg)
     fgBox_Init(&self->header, *self, 0, "Tabcontrol$header", FGBOX_TILEX | FGELEMENT_EXPANDY | FGELEMENT_BACKGROUND, &TF_HEADER, 0);
     return FG_ACCEPT;
   }
+  case FG_CLONE:
+    if(msg->e)
+    {
+      fgTabcontrol* hold = reinterpret_cast<fgTabcontrol*>(msg->e);
+      self->header->Clone(hold->header);
+      hold->selected = 0;
+      fgControl_HoverMessage(&self->control, msg);
+      _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->header);
+    }
+    return sizeof(fgTabcontrol);
   case FG_ADDITEM:
   {
     fgElement* button = fgroot_instance->backend.fgCreate("Radiobutton", self->header, 0, "Tabcontrol$toggle", FGELEMENT_EXPAND, 0, 0);

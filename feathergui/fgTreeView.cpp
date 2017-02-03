@@ -37,6 +37,16 @@ size_t fgTreeItem_Message(fgTreeItem* self, const FG_Msg* msg)
     self->count = EXPANDED;
     fgMaskSetStyle(&self->arrow, "visible", fgStyleGetMask("visible", "hidden"));
     return FG_ACCEPT;
+  case FG_CLONE:
+    if(msg->e)
+    {
+      fgTreeItem* hold = reinterpret_cast<fgTreeItem*>(msg->e);
+      self->arrow.Clone(&hold->arrow);
+      self->count = 0;
+      fgControl_Message(&self->control, msg);
+      _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, &hold->arrow);
+    }
+    return sizeof(fgTreeItem);
   case FG_ADDITEM:
     if(msg->subtype != 0)
       return 0;
@@ -107,6 +117,10 @@ size_t fgTreeview_Message(fgTreeview* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     fgScrollbar_Message(&self->scrollbar, msg);
     return FG_ACCEPT;
+  case FG_CLONE:
+    if(msg->e)
+      fgScrollbar_Message(&self->scrollbar, msg);
+    return sizeof(fgTreeview);
   case FG_LAYOUTFUNCTION:
     return fgTileLayout(*self, (const FG_Msg*)msg->p, FGBOX_TILEY, (AbsVec*)msg->p2);
   case FG_GETCLASSNAME:

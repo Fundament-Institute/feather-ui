@@ -175,10 +175,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="fgDirect2D.h" />
+    <ClInclude Include="fgRoundRect.h" />
     <ClInclude Include="fgWindowD2D.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="fgDirect2D.cpp" />
+    <ClCompile Include="fgRoundRect.cpp" />
     <ClCompile Include="fgWindowD2D.cpp" />
   </ItemGroup>
   <ItemGroup>

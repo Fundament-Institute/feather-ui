@@ -29,6 +29,18 @@ size_t fgProgressbar_Message(fgProgressbar* self, const FG_Msg* msg)
     fgText_Init(&self->text, *self, 0, "Progressbar$text", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER, 0);
     self->value = 0.0f;
     return FG_ACCEPT;
+  case FG_CLONE:
+    if(msg->e)
+    {
+      fgProgressbar* hold = reinterpret_cast<fgProgressbar*>(msg->e);
+      self->bar.Clone(&hold->bar);
+      self->text->Clone(hold->text);
+      fgControl_Message(&self->control, msg);
+      hold->value = self->value;
+      _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, &hold->bar);
+      _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->text);
+    }
+    return sizeof(fgProgressbar);
   case FG_SETVALUE:
     if(msg->subtype <= FGVALUE_FLOAT)
     {

@@ -40,7 +40,6 @@ typedef struct _FG_SKIN_TREE {
 typedef struct _FG_SKIN_LAYOUT {
   fgSkinElement layout;
   fgSkinTree tree;
-  unsigned int sz;
   fgElement* instance; // Instance of this skin element. Skin elements cannot be assigned skins, so this only needs to apply the style overrides.
 } fgSkinLayout;
 

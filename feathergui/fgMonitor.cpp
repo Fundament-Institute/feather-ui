@@ -36,6 +36,16 @@ size_t fgMonitor_Message(fgMonitor* self, const FG_Msg* msg)
 {
   switch(msg->type)
   {
+  case FG_CLONE:
+    if(msg->e)
+    {
+      fgMonitor* hold = reinterpret_cast<fgMonitor*>(msg->e);
+      memsubcpy<fgMonitor, fgElement>(hold, self);
+      hold->mnext = 0;
+      hold->mprev = 0;
+      fgElement_Message(&self->element, msg);
+    }
+    return sizeof(fgMonitor);
   case FG_GETDPI:
     if(self->dpi.x != 0 && self->dpi.y != 0)
       return (size_t)&self->dpi;

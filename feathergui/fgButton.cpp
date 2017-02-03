@@ -17,7 +17,7 @@ void fgButton_Destroy(fgButton* self)
 size_t fgButton_Message(fgButton* self, const FG_Msg* msg)
 {
   assert(self != 0 && msg != 0);
-  ptrdiff_t otherint = msg->i;
+  fgFlag otherint = (fgFlag)msg->u;
 
   switch(msg->type)
   {
@@ -26,6 +26,15 @@ size_t fgButton_Message(fgButton* self, const FG_Msg* msg)
     fgText_Init(&self->text, *self, 0, "Button$text", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER, 0);
     fgStandardNeutralSetStyle(*self, (self->control.element.flags & FGCONTROL_DISABLE) ? "disabled" : "neutral");
     return FG_ACCEPT;
+  case FG_CLONE:
+    if(msg->e)
+    {
+      fgButton* hold = reinterpret_cast<fgButton*>(msg->e);
+      fgControl_ActionMessage(&self->control, msg);
+      self->text->Clone(hold->text);
+      _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->text);
+    }
+    return sizeof(fgButton);
   case FG_ADDCHILD:
   case FG_ADDITEM:
     if(msg->p != (fgElement*)&self->text && !msg->p2)

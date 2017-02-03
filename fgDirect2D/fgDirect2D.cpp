@@ -16,6 +16,7 @@
 #define GETEXDATA(data) assert(data->fgSZ == sizeof(fgDrawAuxDataEx)); if(data->fgSZ != sizeof(fgDrawAuxDataEx)) return; fgDrawAuxDataEx* exdata = (fgDrawAuxDataEx*)data;
 
 fgDirect2D* fgDirect2D::instance = 0;
+static float PI = 3.14159265359f;
 
 BOOL __stdcall SpawnMonitorsProc(HMONITOR monitor, HDC hdc, LPRECT, LPARAM lparam)
 {
@@ -265,6 +266,11 @@ void fgDrawAssetD2D(fgAsset asset, const CRect* uv, unsigned int color, unsigned
   assert(exdata->window != 0);
   assert(exdata->window->target != 0);
 
+  D2D1_MATRIX_3X2_F world;
+  exdata->window->target->GetTransform(&world);
+  if(rotation != 0) // WHY THE FUCK DOES THIS TAKE DEGREES?!
+    exdata->window->target->SetTransform(D2D1::Matrix3x2F::Rotation(rotation * 180.0f / PI, D2D1::Point2F(center->x, center->y))*world);
+  
   ID2D1Bitmap* tex = 0;
   if(asset)
   {
@@ -298,7 +304,7 @@ void fgDrawAssetD2D(fgAsset asset, const CRect* uv, unsigned int color, unsigned
       rect.top += 0.5f;
       rect.right -= 0.5f;
       rect.bottom -= 0.5f;
-      exdata->window->target->DrawRectangle(rect, exdata->window->color);
+      exdata->window->target->DrawRectangle(rect, exdata->window->edgecolor, outline);
     }
     else
     {
@@ -323,6 +329,8 @@ void fgDrawAssetD2D(fgAsset asset, const CRect* uv, unsigned int color, unsigned
   //  psRoundTri::DrawRoundTri(driver->library.ROUNDTRI, STATEBLOCK_LIBRARY::PREMULTIPLIED, rect, uvresolve, 0, psColor32(color), psColor32(edge), outline);
   else
     exdata->window->target->DrawBitmap(tex, rect, (color >> 24) / 255.0f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, uvresolve);
+
+  exdata->window->target->SetTransform(world);
 }
 
 void fgAssetSizeD2D(fgAsset asset, const CRect* uv, AbsVec* dim, fgFlag flags)
@@ -343,7 +351,7 @@ void fgDrawLinesD2D(const AbsVec* p, size_t n, unsigned int color, const AbsVec*
   D2D1_MATRIX_3X2_F world;
   exdata->window->target->GetTransform(&world);
   exdata->window->target->SetTransform(
-    D2D1::Matrix3x2F::Rotation(rotation, D2D1::Point2F(center->x, center->y))*
+    D2D1::Matrix3x2F::Rotation(rotation * 180.0f / PI, D2D1::Point2F(center->x, center->y))*
     D2D1::Matrix3x2F::Scale(scale->x, scale->y)*
     world*
     D2D1::Matrix3x2F::Translation(translate->x + 0.5, translate->y + 0.5));

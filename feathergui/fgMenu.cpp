@@ -137,6 +137,8 @@ void fgSubmenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS
 
 size_t fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
 {
+  fgFlag otherint = (fgFlag)msg->u;
+
   switch(msg->type)
   {
   case FG_CONSTRUCT:
@@ -147,6 +149,27 @@ size_t fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
     fgElement_Init(&self->arrow, 0, 0, "Submenu$arrow", FGELEMENT_IGNORE | FGELEMENT_BACKGROUND | FGELEMENT_EXPAND, &TF_ARROW, 0);
     return FG_ACCEPT;
   }
+  case FG_CLONE:
+    if(msg->e)
+    {
+      fgMenu* hold = reinterpret_cast<fgMenu*>(msg->e);
+      self->arrow.Clone(&hold->arrow);
+      hold->expanded = 0;
+      fgBox_Message(&self->box, msg);
+      _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, &hold->arrow);
+    }
+    return sizeof(fgMenu);
+  case FG_SETFLAG: // If 0 is sent in, disable the flag, otherwise enable. Our internal flag is 1 if clipping disabled, 0 otherwise.
+    otherint = T_SETBIT(self->box->flags, otherint, msg->u2);
+  case FG_SETFLAGS:
+    if(((self->box->flags ^ otherint) & FGELEMENT_HIDDEN) != 0)
+    {
+      if(!(otherint&FGELEMENT_HIDDEN) && self->box->parent != 0 && self->box->parent->GetClassName() != SUBMENU_NAME)
+        fgroot_instance->topmost = self->box;
+      else if(fgroot_instance->topmost == self->box)
+        fgroot_instance->topmost = 0;
+    }
+    break;
   case FG_MOUSEUP:
   case FG_MOUSEDOWN:
   {
@@ -258,6 +281,16 @@ size_t fgMenuItem_Message(fgMenuItem* self, const FG_Msg* msg)
     fgText_Init(&self->text, &self->element, 0, "MenuItem$text", FGELEMENT_EXPAND, 0, 0);
     self->submenu = 0;
     return FG_ACCEPT;
+  case FG_CLONE:
+    if(msg->e)
+    {
+      fgMenuItem* hold = reinterpret_cast<fgMenuItem*>(msg->e);
+      hold->submenu = 0;
+      self->text->Clone(hold->text);
+      fgElement_Message(&self->element, msg);
+      _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->text);
+    }
+    return sizeof(fgMenuItem);
   case FG_ADDITEM:
   case FG_ADDCHILD:
   {

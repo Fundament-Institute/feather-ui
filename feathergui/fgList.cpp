@@ -128,24 +128,29 @@ fgElement* fgList_GetSplit(fgList* self, const FG_Msg* msg)
 
 size_t fgList_Message(fgList* self, const FG_Msg* msg)
 {
-  ptrdiff_t otherint = msg->i;
   fgFlag flags = self->box->flags;
 
   switch(msg->type)
   {
   case FG_CONSTRUCT:
     fgBox_Message(&self->box, msg);
-    memset(&self->selected, 0, sizeof(fgVectorElement));
-    memset(&self->mouse, 0, sizeof(fgMouseState));
+    memsubset<fgList, fgBox>(self, 0);
     self->box.fndraw = &fgList_Draw;
     self->select.color = 0xFF9999DD;
     self->hover.color = 0x99999999;
     self->drag.color = 0xFFCCCCCC;
-    self->splitter = 0;
-    self->split = 0;
-    self->splitedge = 0;
-    self->splitmouse = 0;
     return FG_ACCEPT;
+  case FG_CLONE:
+    if(msg->e)
+    {
+      fgList* hold = reinterpret_cast<fgList*>(msg->e);
+      memsubcpy<fgList, fgBox>(hold, self); // We do this first because we have to ensure our messages can process ADDCHILD correctly.
+      memset(&hold->selected, 0, sizeof(fgVectorElement));
+      memset(&hold->mouse, 0, sizeof(fgMouseState));
+      hold->split = 0;
+      fgBox_Message(&self->box, msg);
+    }
+    return sizeof(fgList);
   case FG_MOUSEDOWN:
     fgUpdateMouseState(&self->mouse, msg);
     if(self->split = fgList_GetSplit(self, msg))

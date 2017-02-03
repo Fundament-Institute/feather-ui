@@ -39,6 +39,19 @@ size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
     fgList_Init(&self->header, *self, 0, "Grid$header", FGELEMENT_BACKGROUND | FGELEMENT_EXPANDY | FGBOX_TILEX, &ROWTRANSFORM, 0);
     self->header->message = (fgMessage)fgGridColumn_Message;
     return FG_ACCEPT;
+  case FG_CLONE:
+    if(msg->e)
+    {
+      fgGrid* hold = reinterpret_cast<fgGrid*>(msg->e);
+      self->header->Clone(hold->header);
+      fgList_Message(&self->list, msg);
+      self->editbox->Clone(hold->editbox);
+      hold->columndividercolor = self->columndividercolor;
+      hold->rowevencolor = self->rowevencolor;
+      _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->header);
+      _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->editbox);
+    }
+    return sizeof(fgGrid);
   case FG_ADDITEM:
     switch(msg->subtype)
     {
@@ -118,15 +131,21 @@ size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
   case FG_SETCOLOR:
     switch(msg->subtype)
     {
-    case FGSETCOLOR_ROWEDGE:
-      self->rowedgecolor.color = (uint32_t)msg->i;
-      return FG_ACCEPT;
-    case FGSETCOLOR_COLUMNEDGE:
-      self->columnedgecolor.color = (uint32_t)msg->i;
+    case FGSETCOLOR_COLUMNDIVIDER:
+      self->columndividercolor.color = (uint32_t)msg->i;
       return FG_ACCEPT;
     case FGSETCOLOR_ROWEVEN:
       self->rowevencolor.color = (uint32_t)msg->i;
       return FG_ACCEPT;
+    }
+    break;
+  case FG_GETCOLOR:
+    switch(msg->subtype)
+    {
+    case FGSETCOLOR_COLUMNDIVIDER:
+      return self->columndividercolor.color;
+    case FGSETCOLOR_ROWEVEN:
+      return self->rowevencolor.color;
     }
     break;
   case FG_GETCLASSNAME:
@@ -185,6 +204,14 @@ size_t fgGridRow_Message(fgGridRow* self, const FG_Msg* msg)
 {
   switch(msg->type)
   {
+  case FG_CLONE:
+    if(msg->e)
+    {
+      fgGridRow* hold = reinterpret_cast<fgGridRow*>(msg->e);
+      memsubcpy<fgGridRow, fgScrollbar>(hold, self); // We do this first because we have to ensure our messages can process ADDCHILD correctly.
+      memset(&hold->order.ordered, 0, sizeof(fgVectorElement)); 
+      fgElement_Message(&self->element, msg);
+    }
   case FG_ADDITEM:
     break;
   case FG_ADDCHILD:

@@ -73,11 +73,20 @@ size_t fgCurve_Message(fgCurve* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgElement_Message(&self->element, msg);
-    memset(&self->points, 0, sizeof(fgVectorPoint));
-    memset(&self->cache, 0, sizeof(fgVectorPoint));
-    self->color.color = 0;
+    memsubset<fgCurve, fgElement>(self, 0);
     self->factor = 0.1f;
     return FG_ACCEPT;
+  case FG_CLONE:
+    if(msg->e)
+    {
+      fgCurve* hold = reinterpret_cast<fgCurve*>(msg->e);
+      memsubset<fgCurve, fgElement>(hold, 0);
+      hold->color = self->color;
+      hold->factor = self->factor;
+      reinterpret_cast<cDynArray<AbsVec>&>(hold->points) = reinterpret_cast<cDynArray<AbsVec>&>(self->points);
+      fgElement_Message(&self->element, msg);
+    }
+    return sizeof(fgCurve);
   case FG_SETCOLOR:
     self->color.color = (uint32_t)msg->i;
     fgroot_instance->backend.fgDirtyElement(&self->element);

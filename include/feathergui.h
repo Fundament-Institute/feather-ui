@@ -174,8 +174,8 @@ enum FGSETCOLOR
   FGSETCOLOR_HOVER,
   FGSETCOLOR_DRAG,
   FGSETCOLOR_EDGE,
-  FGSETCOLOR_ROWEDGE,
-  FGSETCOLOR_COLUMNEDGE,
+  FGSETCOLOR_DIVIDER,
+  FGSETCOLOR_COLUMNDIVIDER,
   FGSETCOLOR_ROWEVEN,
 };
 
@@ -263,6 +263,7 @@ enum FG_MSGTYPE
   FG_UNKNOWN = 0,
   FG_CONSTRUCT = 1,
   FG_DESTROY, // Notification when the element is being destroyed. Sending this message will not destroy the element or call the destructor.
+  FG_CLONE,
   FG_MOVE, // Passed when any change is made to an element. 1: propagating up, 2: x-axis resize, 4: y-axis resize, 8: x-axis move, 16: y-axis move, 32: x center move, 64: y center move, 128: rotation change, 256: padding change
   FG_SETALPHA, // Used so an entire widget can be made to fade in or out. (Support is not guaranteed)
   FG_SETAREA,

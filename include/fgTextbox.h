@@ -34,8 +34,8 @@ enum FGTEXTBOX_ACTIONS
 // The textbox only understands single UTF codepoints, so an external library should be used to perform unicode normalization before setting it.
 typedef struct {
   fgScrollbar scroll;
-  char* validation; // validation regex
-  char* formatting; // printf formatting string matched to capture groups in the validation regex
+  const char* validation; // validation regex
+  const char* formatting; // printf formatting string matched to capture groups in the validation regex
   int mask; // If not zero, stores a unicode character for password masking. 
   fgVectorUTF8 text8;
   fgVectorUTF16 text16;

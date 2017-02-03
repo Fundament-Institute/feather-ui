@@ -96,16 +96,26 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_CONSTRUCT:
-    self->layout = 0;
-    self->lineheight = 0; // lineheight must be zero'd before a potential transform unit resolution.
-    memset(&self->text32, 0, sizeof(fgVectorUTF32));
-    memset(&self->text16, 0, sizeof(bss_util::cDynArray<wchar_t>));
-    memset(&self->text8, 0, sizeof(fgVectorUTF8));
+    memsubset<fgText, fgElement>(self, 0); // lineheight must be zero'd before a potential transform unit resolution.
     fgElement_Message(&self->element, msg);
-    self->color.color = 0;
-    self->font = 0;
-    self->letterspacing = 0;
     return FG_ACCEPT;
+  case FG_CLONE:
+    if(msg->e)
+    {
+      fgElement_Message(&self->element, msg);
+      fgText* hold = reinterpret_cast<fgText*>(msg->e);
+      memsubset<fgText, fgElement>(hold, 0);
+      reinterpret_cast<bss_util::cDynArray<int>&>(hold->text32) = reinterpret_cast<bss_util::cDynArray<int>&>(self->text32);
+      reinterpret_cast<bss_util::cDynArray<wchar_t>&>(hold->text16) = reinterpret_cast<bss_util::cDynArray<wchar_t>&>(self->text16);
+      reinterpret_cast<bss_util::cDynArray<char>&>(hold->text8) = reinterpret_cast<bss_util::cDynArray<char>&>(self->text8);
+      if(self->font)
+        hold->font = fgroot_instance->backend.fgCloneFont(self->font, 0);
+      hold->color = self->color;
+      hold->lineheight = self->lineheight;
+      hold->letterspacing = self->letterspacing;
+      fgText_Recalc(hold);
+    }
+    return sizeof(fgText);
   case FG_SETTEXT:
     ((bss_util::cDynArray<int>*)&self->text32)->Clear();
     ((bss_util::cDynArray<wchar_t>*)&self->text16)->Clear();

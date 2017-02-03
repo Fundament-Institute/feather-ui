@@ -115,6 +115,29 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
     self->dpi.x = msg->i;
     self->dpi.y = msg->i2;
     break;
+  case FG_ACTION:
+    switch(msg->i)
+    {
+    case FGWINDOW_MINIMIZE:
+      ShowWindow(self->handle, SW_MINIMIZE);
+      break;
+    case FGWINDOW_RESTORE:
+    case FGWINDOW_UNMINIMIZE:
+      ShowWindow(self->handle, SW_RESTORE);
+      break;
+    case FGWINDOW_MAXIMIZE:
+      ShowWindow(self->handle, SW_MAXIMIZE);
+      RECT r;
+      if(SUCCEEDED(GetClientRect(self->handle, &r)))
+      {
+        CRect area = { r.left, 0, r.top, 0, r.right, 0, r.bottom };
+        fgSendSubMsg<FG_SETAREA, void*>(self->window, 1, &area);
+      }
+      break;
+    case FGWINDOW_CLOSE:
+      VirtualFreeChild(self->window);
+      return FG_ACCEPT;
+    }
   }
   return fgWindow_Message(&self->window, msg);
 }
@@ -287,7 +310,7 @@ longptr_t __stdcall fgWindowD2D::WndProc(HWND__* hWnd, unsigned int message, siz
 
 void fgWindowD2D::WndCreate()
 {
-  unsigned long style = WS_POPUP | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_POPUP;
+  unsigned long style = WS_POPUP | WS_CLIPCHILDREN | WS_CLIPSIBLINGS;
 
   AbsRect out;
   ResolveRect(window, &out);

@@ -89,6 +89,7 @@ typedef struct _FG_ELEMENT {
 #ifdef  __cplusplus
   FG_DLLEXPORT void Construct();
   FG_DLLEXPORT void Move(unsigned short subtype, struct _FG_ELEMENT* child, size_t diff);
+  FG_DLLEXPORT size_t Clone(struct _FG_ELEMENT* target = 0);
   FG_DLLEXPORT size_t SetAlpha(float alpha);
   FG_DLLEXPORT size_t SetArea(const CRect& area);
   FG_DLLEXPORT size_t SetTransform(const fgTransform& transform);

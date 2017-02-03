@@ -49,14 +49,20 @@ size_t fgResource_Message(fgResource* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgElement_Message(&self->element, msg);
-    memset(&self->uv, 0, sizeof(CRect));
+    memsubset<fgResource, fgElement>(self, 0);
     self->uv.right.rel = 1.0f;
     self->uv.bottom.rel = 1.0f;
-    self->color.color = 0;
-    self->edge.color = 0;
-    self->asset = 0;
-    self->outline = 0;
     return FG_ACCEPT;
+  case FG_CLONE:
+    if(msg->e)
+    {
+      fgResource* hold = reinterpret_cast<fgResource*>(msg->e);
+      memsubcpy<fgResource, fgElement>(hold, self);
+      fgElement_Message(&self->element, msg);
+      if(self->asset) 
+        hold->asset = fgroot_instance->backend.fgCloneAsset(self->asset, &hold->element);
+    }
+    return sizeof(fgResource);
   case FG_SETUV:
     if(msg->p)
       self->uv = *((CRect*)msg->p);
@@ -64,9 +70,11 @@ size_t fgResource_Message(fgResource* self, const FG_Msg* msg)
     fgroot_instance->backend.fgDirtyElement(*self);
     return FG_ACCEPT;
   case FG_SETASSET:
-    if(self->asset) fgroot_instance->backend.fgDestroyAsset(self->asset);
+    if(self->asset)
+      fgroot_instance->backend.fgDestroyAsset(self->asset);
     self->asset = 0;
-    if(msg->p) self->asset = fgroot_instance->backend.fgCloneAsset(msg->p, &self->element);
+    if(msg->p)
+      self->asset = fgroot_instance->backend.fgCloneAsset(msg->p, &self->element);
     fgResource_Recalc(self);
     fgroot_instance->backend.fgDirtyElement(*self);
     break;

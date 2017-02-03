@@ -43,7 +43,7 @@ size_t fgWindow_Message(fgWindow* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_CONSTRUCT:
-    fgControl_Message((fgControl*)self, msg);
+    fgControl_Message(&self->control, msg);
     self->dragged = 0;
     memset(&self->prevrect, 0, sizeof(CRect));
     fgText_Init(&self->caption, *self, 0, "Window$text", FGELEMENT_BACKGROUND | FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0, 0);
@@ -54,6 +54,22 @@ size_t fgWindow_Message(fgWindow* self, const FG_Msg* msg)
     self->controls[1].control.element.message = (fgMessage)&fgWindow_MaximizeMessage;
     self->controls[2].control.element.message = (fgMessage)&fgWindow_MinimizeMessage;
     return FG_ACCEPT;
+  case FG_CLONE:
+    if(msg->e)
+    {
+      fgWindow* hold = reinterpret_cast<fgWindow*>(msg->e);
+      self->caption->Clone(hold->caption);
+      for(size_t i = 0; i < 3; ++i) self->controls[i]->Clone(hold->controls[i]);
+      hold->dragged = 0;
+      hold->prevrect = self->prevrect;
+      hold->offset = self->offset;
+      fgControl_Message(&self->control, msg);
+      _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->caption);
+      _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->controls[0]);
+      _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->controls[1]);
+      _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->controls[2]);
+    }
+    return sizeof(fgWindow);
   case FG_SETTEXT:
   case FG_SETFONT:
   case FG_SETLINEHEIGHT:

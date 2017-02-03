@@ -41,8 +41,7 @@ extern "C" {
     fgList list;
     fgList header; // The header is where the labels are
     fgTextbox editbox; // Used for autoediting grid controls.
-    fgColor rowedgecolor;
-    fgColor columnedgecolor;
+    fgColor columndividercolor;
     fgColor rowevencolor;
 #ifdef  __cplusplus
     inline operator fgElement*() { return &list.box.scroll.control.element; }

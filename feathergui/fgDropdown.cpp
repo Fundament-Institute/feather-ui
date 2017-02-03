@@ -103,6 +103,20 @@ size_t fgDropdown_Message(fgDropdown* self, const FG_Msg* msg)
     self->hover.color = 0x99999999;
     break;
   }
+  case FG_CLONE:
+    if(msg->e)
+    {
+      fgDropdown* hold = reinterpret_cast<fgDropdown*>(msg->e);
+      hold->selected = 0;
+      hold->hover = self->hover;
+      hold->select = self->select;
+      hold->dropflag = self->dropflag;
+      memset(&self->mouse, 0, sizeof(fgMouseState));
+      fgControl_Message(&self->control, msg);
+      self->box->Clone(hold->box);
+      _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->box);
+    }
+    return sizeof(fgDropdown);
   case FG_MOUSEDOWN:
     self->dropflag = 0;
     self->box->SetFlag(FGELEMENT_HIDDEN, false);

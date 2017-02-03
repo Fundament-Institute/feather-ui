@@ -13,6 +13,8 @@ void fgTextbox_Destroy(fgTextbox* self)
 {
   if(self->layout != 0) fgroot_instance->backend.fgFontLayout(self->font, 0, 0, 0, 0, 0, 0, self->layout);
   if(self->font != 0) fgroot_instance->backend.fgDestroyFont(self->font);
+  if(self->validation != 0) fgFreeText(self->validation, __FILE__, __LINE__);
+  if(self->formatting != 0) fgFreeText(self->formatting, __FILE__, __LINE__);
   ((bss_util::cDynArray<int>*)&self->text32)->~cDynArray();
   ((bss_util::cDynArray<wchar_t>*)&self->text16)->~cDynArray();
   ((bss_util::cDynArray<char>*)&self->text8)->~cDynArray();
@@ -161,33 +163,46 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_CONSTRUCT:
-    memset(&self->text8, 0, sizeof(fgVectorUTF8));
-    memset(&self->text16, 0, sizeof(fgVectorUTF16));
-    memset(&self->text32, 0, sizeof(fgVectorUTF32));
-    memset(&self->placeholder8, 0, sizeof(fgVectorUTF8));
-    memset(&self->placeholder16, 0, sizeof(fgVectorUTF16));
-    memset(&self->placeholder32, 0, sizeof(fgVectorUTF32));
-    self->validation = 0;
-    self->formatting = 0;
-    self->mask = 0;
+    memsubset<fgTextbox, fgScrollbar>(self, 0);
     self->selector.color = ~0;
     self->placecolor.color = ~0;
     self->cursorcolor.color = 0xFF000000;
-    self->start = 0;
-    memset(&self->startpos, 0, sizeof(AbsVec));
-    self->end = 0;
-    memset(&self->endpos, 0, sizeof(AbsVec));
-    self->color.color = 0;
-    self->font = 0;
-    self->lineheight = 0; // lineheight must be zero'd before a potential transform unit resolution.
-    self->letterspacing = 0;
-    self->lastx = 0;
-    self->inserting = 0;
-    memset(&self->areacache, 0, sizeof(AbsRect));
     fgScrollbar_Message(&self->scroll, msg);
     self->lastclick = fgroot_instance->time;
-    self->layout = 0;
     return FG_ACCEPT;
+  case FG_CLONE:
+    if(msg->e)
+    {
+      fgTextbox* hold = reinterpret_cast<fgTextbox*>(msg->e);
+      memsubset<fgTextbox, fgScrollbar>(hold, 0);
+      reinterpret_cast<bss_util::cDynArray<int>&>(hold->text32) = reinterpret_cast<bss_util::cDynArray<int>&>(self->text32);
+      reinterpret_cast<bss_util::cDynArray<wchar_t>&>(hold->text16) = reinterpret_cast<bss_util::cDynArray<wchar_t>&>(self->text16);
+      reinterpret_cast<bss_util::cDynArray<char>&>(hold->text8) = reinterpret_cast<bss_util::cDynArray<char>&>(self->text8);
+      reinterpret_cast<bss_util::cDynArray<int>&>(hold->placeholder32) = reinterpret_cast<bss_util::cDynArray<int>&>(self->placeholder32);
+      reinterpret_cast<bss_util::cDynArray<wchar_t>&>(hold->placeholder16) = reinterpret_cast<bss_util::cDynArray<wchar_t>&>(self->placeholder16);
+      reinterpret_cast<bss_util::cDynArray<char>&>(hold->placeholder8) = reinterpret_cast<bss_util::cDynArray<char>&>(self->placeholder8);
+      if(self->font)
+        hold->font = fgroot_instance->backend.fgCloneFont(self->font, 0);
+      hold->color = self->color;
+      hold->lineheight = self->lineheight;
+      hold->letterspacing = self->letterspacing;
+      hold->lastx = self->lastx;
+      hold->validation = fgCopyText(self->validation, __FILE__, __LINE__);
+      hold->formatting = fgCopyText(self->formatting, __FILE__, __LINE__);
+      hold->selector.color = self->selector.color;
+      hold->placecolor.color = self->placecolor.color;
+      hold->cursorcolor.color = self->cursorcolor.color;
+      hold->start = self->start;
+      hold->startpos = self->startpos;
+      hold->end = self->end;
+      hold->endpos = self->endpos;
+      hold->inserting = self->inserting;
+
+      fgScrollbar_Message(&self->scroll, msg);
+      hold->lastclick = self->lastclick;
+      fgSubMessage(*self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTMOVE, self, FGMOVE_PROPAGATE | FGMOVE_RESIZE);
+    }
+    return sizeof(fgTextbox);
   case FG_KEYCHAR:
     if(self->validation)
     { 

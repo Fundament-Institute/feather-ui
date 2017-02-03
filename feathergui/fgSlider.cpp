@@ -25,6 +25,17 @@ size_t fgSlider_Message(fgSlider* self, const FG_Msg* msg)
     self->value = 0;
     self->range = 0;
     return FG_ACCEPT;
+  case FG_CLONE:
+    if(msg->e)
+    {
+      fgSlider* hold = reinterpret_cast<fgSlider*>(msg->e);
+      fgControl_Message(&self->control, msg);
+      self->slider.Clone(&hold->slider);
+      hold->range = self->range;
+      hold->value = self->value;
+      _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, &hold->slider);
+    }
+    return sizeof(fgSlider);
   case FG_SETRANGE:
   case FG_SETVALUE:
     if(msg->subtype <= FGVALUE_FLOAT)

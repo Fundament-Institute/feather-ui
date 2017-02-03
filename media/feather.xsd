@@ -141,6 +141,12 @@
     </xs:restriction>
   </xs:simpleType>
 
+  <xs:simpleType name="fgTransition">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9]+ (ease|linear|ease-in|ease-out|ease-in-out|cubic\((\+|-)?[0-9]*(\.[0-9]+)?, ?(\+|-)?[0-9]*(\.[0-9]+)?, ?(\+|-)?[0-9]*(\.[0-9]+)?, ?(\+|-)?[0-9]*(\.[0-9]+)?)\)? [0-9]*"/>
+    </xs:restriction>
+  </xs:simpleType>
+
   <xs:group name="fgControlGroup">
     <xs:choice>
       <xs:element name="Element" type="fgElement" />
@@ -195,6 +201,7 @@
     <xs:attribute name="margin" type="Rect"/>
     <xs:attribute name="padding" type="Rect"/>
     <xs:attribute name="contextmenu" type="xs:string"/>
+    
     <xs:attribute name="onconstruct" type="xs:string"/>
     <xs:attribute name="ondestroy" type="xs:string"/>
     <xs:attribute name="onmove" type="xs:string"/>
@@ -566,6 +573,22 @@
         <xs:attribute name="hovercolor" type="fgHex"/>
         <xs:attribute name="dragcolor" type="fgHex"/>
         <xs:attribute name="edgecolor" type="fgHex"/>
+        <xs:attribute name="transition" type="fgTransition"/>
+        <xs:attribute name="transition-area" type="fgTransition"/>
+        <xs:attribute name="transition-center" type="fgTransition"/>
+        <xs:attribute name="transition-rotation" type="fgTransition"/>
+        <xs:attribute name="transition-left" type="fgTransition"/>
+        <xs:attribute name="transition-top" type="fgTransition"/>
+        <xs:attribute name="transition-right" type="fgTransition"/>
+        <xs:attribute name="transition-bottom" type="fgTransition"/>
+        <xs:attribute name="transition-alpha" type="fgTransition"/>
+        <xs:attribute name="transition-value" type="fgTransition"/>
+        <xs:attribute name="transition-color" type="fgTransition"/>
+        <xs:attribute name="transition-uv" type="fgTransition"/>
+        <xs:attribute name="transition-edgecolor" type="fgTransition"/>
+        <xs:attribute name="transition-outline" type="fgTransition"/>
+        <xs:attribute name="transition-lineheight" type="fgTransition"/>
+        <xs:attribute name="transition-letterspacing" type="fgTransition"/>
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>

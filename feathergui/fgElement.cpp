@@ -19,6 +19,7 @@ bss_util::cAVLtree<std::pair<fgElement*, unsigned short>, void, &CompPairInOrder
 
 struct fgStoredMessage
 {
+  fgStoredMessage() : target(0), msg(0) {}
   explicit fgStoredMessage(fgElement* t) : target(t), msg(0) {}
   fgStoredMessage(fgElement* t, const fgStyleMsg* m) : target(t), msg(fgStyle_CloneStyleMsg(m)) { }
   fgStoredMessage(const fgStoredMessage& copy) : target(copy.target), msg(fgStyle_CloneStyleMsg(copy.msg)) {}
@@ -64,7 +65,7 @@ char CompElementMsg(const fgStoredMessage& l, const fgStoredMessage& r)
   return 0;
 }
 
-typedef bss_util::cArraySort<fgStoredMessage, &CompElementMsg> MESSAGESORT;
+typedef bss_util::cArraySort<fgStoredMessage, &CompElementMsg, size_t, bss_util::CARRAY_CONSTRUCT> MESSAGESORT;
 
 void fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units, void (*destroy)(void*), size_t(*message)(void*, const FG_Msg*))
 {
@@ -104,6 +105,7 @@ void fgElement_Destroy(fgElement* self)
 {
   assert(self != 0);
   fgRoot_RemoveID(fgroot_instance, self);
+  fgroot_instance->backend.fgDirtyElement(self);
   _sendmsg<FG_DESTROY>(self);
   if(fgFocusedWindow == self) // We first try to bump focus up to our parents
   {
@@ -343,9 +345,9 @@ size_t fgElement_CheckLastFocus(fgElement* self)
 
 void fgElement_SetSkinStyleElement(fgElement* self, FG_UINT style, FG_UINT flags, const fgSkinLayout& layout)
 {
-  fgElement* element = (fgElement*)alloca(layout.sz);
-  MEMCPY(element, layout.sz, layout.instance, layout.sz);
-  element->userhash = 0;
+  fgElement* element = (fgElement*)alloca(layout.instance->Clone());
+  layout.instance->Clone(element);
+  element->free = 0;
   element->parent = self;
   element->flags |= FGELEMENT_SILENT;
 
@@ -379,6 +381,8 @@ void fgElement_SetSkinStyleElement(fgElement* self, FG_UINT style, FG_UINT flags
 
   for(size_t i = 0; i < layout.tree.children.l; ++i)
     fgElement_SetSkinStyleElement(self, style, flags, layout.tree.children.p[i]);
+  element->parent = 0;
+  VirtualFreeChild(element);
 }
 
 void fgElement_SetSkinStyle(fgElement* self, FG_UINT style, FG_UINT flags, const fgSkin* skin)
@@ -393,7 +397,7 @@ void fgElement_SetSkinStyle(fgElement* self, FG_UINT style, FG_UINT flags, const
 
 size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
 {
-  ptrdiff_t otherint = msg->i;
+  fgFlag otherint = (fgFlag)msg->u;
   assert(self != 0);
   assert(msg != 0);
 
@@ -643,51 +647,42 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
       fgElement_LoadLayout(self, 0, layout->layout.p + i);
   }
   return FG_ACCEPT;
-  /*case FG_CLONE: // REMOVED: Cloning is extraordinarily difficult to get right due to skinref, which needs a minimum O(n^2) operation to be cloned correctly.
-  {
-    fgElement* hold = (fgElement*)msg->p;
-    if(!hold)
+  case FG_CLONE:
+    if(msg->e != 0)
     {
-      hold = fgmalloc<fgElement>(1, __FILE__, __LINE__);
-      memcpy(hold, self, sizeof(fgElement));
+      constexpr int PORTION = sizeof(fgElement*) * 13;
+      memcpy(msg->e, self, sizeof(fgElement) - PORTION);
+      memset((char*)(msg->e + 1) - PORTION, 0, PORTION);
+      msg->e->name = fgCopyText(self->name, __FILE__, __LINE__);
+      if(self->userhash)
+      {
+        msg->e->userhash = kh_init_fgUserdata();
+        MEMCPY(msg->e->userhash, sizeof(kh_fgUserdata_t), self->userhash, sizeof(kh_fgUserdata_t));
+        msg->e->userhash->keys = memcpyalloc<const char*>(self->userhash->keys, msg->e->userhash->n_buckets);
+        msg->e->userhash->vals = memcpyalloc<size_t>(self->userhash->vals, msg->e->userhash->n_buckets);
+        msg->e->userhash->flags = memcpyalloc<khint32_t>(self->userhash->flags, (msg->e->userhash->n_buckets >> 4) + 1);
+      }
+      if(self->skinstyle)
+        fgElement_AddArrayToMessageArray(*(MESSAGESORT*)self->skinstyle, (MESSAGESORT**)&msg->e->skinstyle);
+      if(self->layoutstyle)
+        fgElement_AddArrayToMessageArray(*(MESSAGESORT*)self->layoutstyle, (MESSAGESORT**)&msg->e->layoutstyle);
+      msg->e->parent = 0;
+
+      fgElement* cur = self->root;
+      while(cur)
+      {
+        fgElement* child = (fgElement*)fgmalloc<char>(cur->Clone(), __FILE__, __LINE__);
+        cur->Clone(child);
 #ifdef BSS_DEBUG
-      hold->free = &fgfreeblank;
+        child->free = &fgfreeblank;
 #else
-      hold->free = &free;
+        child->free = &free;
 #endif
+        _sendmsg<FG_ADDCHILD, void*>(msg->e, child);
+        cur = cur->next;
+      }
     }
-    else
-      memcpy(hold, self, sizeof(fgElement));
-
-    hold->root = 0;
-    hold->last = 0;
-    hold->parent = 0;
-    hold->next = 0;
-    hold->prev = 0;
-    hold->nextinject = 0;
-    hold->previnject = 0;
-    hold->nextnoclip = 0;
-    hold->prevnoclip = 0;
-    hold->rootnoclip = 0;
-    hold->lastnoclip = 0;
-    hold->rootinject = 0;
-    hold->lastinject = 0;
-    hold->name = fgCopyText(self->name, __FILE__, __LINE__);
-    hold->userhash = 0;
-    hold->skinrefs.l = 0;
-    hold->SetParent(self->parent, self->next);
-
-    fgElement* cur = self->root;
-    while(cur)
-    {
-      _sendmsg<FG_ADDCHILD, void*>(hold, (fgElement*)_sendmsg<FG_CLONE>(cur));
-      cur = cur->next;
-    }
-
-    if(!msg->p)
-      return (size_t)hold;
-  }
-  return 0;*/
+    return sizeof(fgElement);
   case FG_GETCLASSNAME:
     return (size_t)"Element";
   case FG_GETSKIN:
@@ -1252,6 +1247,8 @@ void fgElement_ClearListeners(fgElement* self)
 void fgElement::Construct() { _sendmsg<FG_CONSTRUCT>(this); }
 
 void fgElement::Move(unsigned short subtype, fgElement* child, size_t diff) { _sendsubmsg<FG_MOVE, fgElement*, size_t>(this, subtype, child, diff); }
+
+size_t fgElement::Clone(struct _FG_ELEMENT* target) { return _sendmsg<FG_CLONE, fgElement*>(this, target); }
 
 size_t fgElement::SetAlpha(float alpha) { return _sendmsg<FG_SETALPHA, float>(this, alpha); }
 
