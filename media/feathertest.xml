@@ -154,7 +154,7 @@
   </Menu>-->
 </fg:Layout>
 <fg:Skin name="testskin" xmlns:fg="featherGUI">
-  <Skin name="buttontest" color="0xFFFFFFFF" font="arial;14">
+  <Skin name="buttontest" color="0xFFFFFFFF" font="arial.ttf;14">
     <Skin name="Resource">
       <Style name="neutral" color="0xFFFF00FF" />
       <Style name="active" color="0xFF00FFFF" />

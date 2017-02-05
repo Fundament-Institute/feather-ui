@@ -24,6 +24,9 @@
     <ClInclude Include="fgRoundRect.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="fgDirect2D_fgRoundRect.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="fgDirect2D.cpp">
@@ -40,5 +43,10 @@
     <ResourceCompile Include="fgDirect2D.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="fgRoundRect.hlsl">
+      <Filter>Resource Files</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

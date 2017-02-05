@@ -5,6 +5,7 @@
 #include "fgMonitor.h"
 #include "fgResource.h"
 #include "fgText.h"
+#include "fgRoundRect.h"
 #include "bss-util/bss_defines.h"
 #include "bss-util/bss_win32_includes.h"
 #include <d2d1_1.h>
@@ -46,6 +47,7 @@ void fgTerminateD2D()
     d2d->wicfactory->Release();
   if(d2d->writefactory)
     d2d->writefactory->Release();
+
   CoUninitialize();
 
   fgDirect2D::instance = 0;
@@ -297,6 +299,7 @@ void fgDrawAssetD2D(fgAsset asset, const CRect* uv, unsigned int color, unsigned
 
   if((flags&FGRESOURCE_SHAPEMASK) == FGRESOURCE_RECT)
   {
+    //exdata->window->context->DrawImage(exdata->window->roundrect, &D2D1::Point2F(rect.left, rect.top), &rect);
     if(uvresolve.left == 0 && uvresolve.top == 0 && uvresolve.right == 0 && uvresolve.bottom == 0)
     {
       exdata->window->target->FillRectangle(rect, exdata->window->color);
@@ -672,6 +675,8 @@ struct _FG_ROOT* fgInitialize()
     return 0;
   }
 
+  hr = fgRoundRect::Register(root->factory);
+  hr = E_INVALIDARG;
   fgWindowD2D::WndRegister(); // Register window class
 
   FLOAT dpix;

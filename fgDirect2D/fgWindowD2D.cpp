@@ -2,6 +2,7 @@
 // For conditions of distribution and use, see copyright notice in "fgDirect2D.h"
 
 #include "fgDirect2D.h"
+#include "fgRoundRect.h"
 #include "bss-util/bss_win32_includes.h"
 #include <dwmapi.h>
 #include <d2d1_1.h>
@@ -45,6 +46,9 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
     self->handle = 0;
     self->dpi.x = 0;
     self->dpi.y = 0;
+    self->roundrect = 0;
+    self->triangle = 0;
+    self->circle = 0;
     self->inside = false;
     new (&self->cliprect) std::stack<AbsRect>();
     return fgWindow_Message(&self->window, msg);
@@ -354,9 +358,14 @@ void fgWindowD2D::CreateResources()
       D2D1::HwndRenderTargetProperties(handle, D2D1::SizeU(rc.right - rc.left, rc.bottom - rc.top)),
       &target);
     if(SUCCEEDED(hr))
-      target->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &color);
-    if(SUCCEEDED(hr))
-      target->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &edgecolor);
+    {
+      hr = target->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &color);
+      hr = target->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &edgecolor);
+      hr = target->QueryInterface<ID2D1DeviceContext>(&context);
+      if(SUCCEEDED(hr))
+        hr = context->CreateEffect(CLSID_fgRoundRect, &roundrect);
+      hr = hr;
+    }
   }
 }
 void fgWindowD2D::DiscardResources()
@@ -367,9 +376,19 @@ void fgWindowD2D::DiscardResources()
     edgecolor->Release();
   if(target)
     target->Release();
+  if(roundrect)
+    roundrect->Release();
+  if(triangle)
+    triangle->Release();
+  if(circle)
+    circle->Release();
   color = 0;
   edgecolor = 0;
   target = 0;
+  context = 0;
+  roundrect = 0;
+  triangle = 0;
+  circle = 0;
 }
 
 size_t fgWindowD2D::SetKey(uint8_t keycode, bool down, bool held, unsigned long time)

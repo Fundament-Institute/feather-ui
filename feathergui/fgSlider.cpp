@@ -77,13 +77,19 @@ size_t fgSlider_Message(fgSlider* self, const FG_Msg* msg)
     if(!msg->subtype || msg->subtype == FGVALUE_INT64)
       return self->range;
     if(msg->subtype == FGVALUE_FLOAT)
-      return *(size_t*)&self->range;
+    {
+      float range = self->range;
+      return *(size_t*)&range;
+    }
     return 0;
   case FG_GETVALUE:
     if(!msg->subtype || msg->subtype == FGVALUE_INT64)
       return self->value;
     if(msg->subtype == FGVALUE_FLOAT)
-      return *(size_t*)&self->value;
+    {
+      float value = self->value;
+      return *(size_t*)&value;
+    }
     return 0;
   case FG_GETCLASSNAME:
     return (size_t)"Slider";

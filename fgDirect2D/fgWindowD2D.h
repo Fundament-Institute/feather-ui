@@ -12,6 +12,8 @@ struct tagRECT;
 struct tagPOINTS;
 struct ID2D1HwndRenderTarget;
 struct ID2D1SolidColorBrush;
+struct ID2D1Effect;
+struct ID2D1DeviceContext;
 
 #if defined(_WIN64)
 typedef long long longptr_t;
@@ -23,8 +25,12 @@ struct fgWindowD2D {
   fgWindow window;
   HWND__* handle;
   ID2D1HwndRenderTarget* target;
+  ID2D1DeviceContext* context;
   ID2D1SolidColorBrush* color;
   ID2D1SolidColorBrush* edgecolor;
+  ID2D1Effect* roundrect;
+  ID2D1Effect* triangle;
+  ID2D1Effect* circle;
   fgIntVec dpi;
   std::stack<AbsRect> cliprect;
   bool inside;
