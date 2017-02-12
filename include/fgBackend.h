@@ -5,6 +5,7 @@
 #define __FG_BACKEND_H__
 
 #include "fgElement.h"
+#include <stdarg.h>
 
 #ifdef  __cplusplus
 extern "C" {
@@ -47,9 +48,10 @@ typedef struct _FG_BACKEND {
   void (*fgClipboardFree)(const void* mem);
   void (*fgDirtyElement)(fgElement* elem);
 
-  size_t(*behaviorhook)(struct _FG_ELEMENT* self, const FG_Msg* msg);
+  size_t(*fgBehaviorHook)(struct _FG_ELEMENT* self, const FG_Msg* msg);
   char (*fgProcessMessages)();
   size_t (*fgLoadExtension)(const char* extname, void* fg, size_t sz);
+  int(*fgLogHook)(const char* format, va_list args);
   void (*fgTerminate)();
 } fgBackend;
 
@@ -95,6 +97,7 @@ FG_EXTERN size_t fgBehaviorHookListener(fgElement* self, const FG_Msg* msg);
 FG_EXTERN char fgProcessMessagesDefault();
 FG_EXTERN size_t fgLoadExtensionDefault(const char* extname, void* fg, size_t sz);
 FG_EXTERN void fgTerminateDefault();
+FG_EXTERN int fgLogHookDefault(const char* format, va_list args);
 
 FG_EXTERN struct _FG_ROOT* fgLoadBackend(const char* dll);
 FG_EXTERN void fgUnloadBackend();

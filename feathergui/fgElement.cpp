@@ -260,7 +260,7 @@ void fgElement_ApplyMessageArray(fgElement* search, fgElement* target, fgVector*
   size_t i = src->FindNear(m, false);
   //assert(i >= src->Length() || i == 0);
   while(i < src->Length() && (*src)[i].target == search)
-    (*fgroot_instance->backend.behaviorhook)(target, &(*src)[i++].msg->msg);
+    (*fgroot_instance->backend.fgBehaviorHook)(target, &(*src)[i++].msg->msg);
   m.msg = 0;
 }
 
@@ -703,7 +703,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
       if(skin != 0)
         return reinterpret_cast<size_t>(skin);
     }
-    return (!self->parent) ? 0 : fgPassMessage(self->parent, msg);
+    return (!self->parent) ? 0 : fgSendMessage(self->parent, msg);
   case FG_SETSKIN:
   {
     fgSkin* skin = (fgSkin*)msg->p;
@@ -807,16 +807,16 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
     fgStyleMsg* cur = style->styles;
     while(cur)
     {
-      (*fgroot_instance->backend.behaviorhook)(self, &cur->msg);
+      (*fgroot_instance->backend.fgBehaviorHook)(self, &cur->msg);
       cur = cur->next;
     }
   }
   return FG_ACCEPT;
   case FG_GETSTYLE:
-    return (self->style == (FG_UINT)-1 && self->parent != 0) ? (*fgroot_instance->backend.behaviorhook)(self->parent, msg) : self->style;
+    return (self->style == (FG_UINT)-1 && self->parent != 0) ? (*fgroot_instance->backend.fgBehaviorHook)(self->parent, msg) : self->style;
   case FG_GOTFOCUS:
     if(self->parent)
-      return (*fgroot_instance->backend.behaviorhook)(self->parent, msg);
+      return (*fgroot_instance->backend.fgBehaviorHook)(self->parent, msg);
     break;
   case FG_DRAGOVER:
     return 0;
@@ -835,9 +835,9 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
   case FG_GETNAME:
     return (size_t)self->name;
   case FG_GETDPI:
-    return self->parent ? (*fgroot_instance->backend.behaviorhook)(self->parent, msg) : (size_t)&fgIntVec_EMPTY;
+    return self->parent ? (*fgroot_instance->backend.fgBehaviorHook)(self->parent, msg) : (size_t)&fgIntVec_EMPTY;
   case FG_GETLINEHEIGHT:
-    return self->parent ? (*fgroot_instance->backend.behaviorhook)(self->parent, msg) : 0;
+    return self->parent ? (*fgroot_instance->backend.fgBehaviorHook)(self->parent, msg) : 0;
   case FG_SETDPI:
   {
     fgElement* hold;
@@ -845,7 +845,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
     while(hold = cur)
     {
       cur = cur->next;
-      fgPassMessage(hold, msg);
+      fgSendMessage(hold, msg);
     }
     _sendsubmsg<FG_MOVE, void*, size_t>(self, FG_SETDPI, 0, FGMOVE_RESIZE);
   }
@@ -1095,7 +1095,7 @@ size_t fgVoidMessage(fgElement* self, unsigned short type, void* data, ptrdiff_t
   msg.p = data;
   msg.u2 = aux;
   assert(self != 0);
-  return (*fgroot_instance->backend.behaviorhook)(self, &msg);
+  return (*fgroot_instance->backend.fgBehaviorHook)(self, &msg);
 }
 
 size_t fgIntMessage(fgElement* self, unsigned short type, ptrdiff_t data, size_t aux)
@@ -1105,12 +1105,12 @@ size_t fgIntMessage(fgElement* self, unsigned short type, ptrdiff_t data, size_t
   msg.i = data;
   msg.u2 = aux;
   assert(self != 0);
-  return (*fgroot_instance->backend.behaviorhook)(self, &msg);
+  return (*fgroot_instance->backend.fgBehaviorHook)(self, &msg);
 }
 
-size_t fgPassMessage(fgElement* self, const FG_Msg* msg)
+size_t fgSendMessage(fgElement* self, const FG_Msg* msg)
 {
-  return (*fgroot_instance->backend.behaviorhook)(self, msg);
+  return (*fgroot_instance->backend.fgBehaviorHook)(self, msg);
 }
 
 size_t fgSubMessage(fgElement* self, unsigned short type, unsigned short subtype, void* data, ptrdiff_t aux)
@@ -1121,7 +1121,7 @@ size_t fgSubMessage(fgElement* self, unsigned short type, unsigned short subtype
   msg.p = data;
   msg.u2 = aux;
   assert(self != 0);
-  return (*fgroot_instance->backend.behaviorhook)(self, &msg);
+  return (*fgroot_instance->backend.fgBehaviorHook)(self, &msg);
 }
 
 
@@ -1133,7 +1133,7 @@ FG_EXTERN size_t fgDimMessage(fgElement* self, unsigned short type, unsigned sho
   msg.f = x;
   msg.f2 = y;
   assert(self != 0);
-  return (*fgroot_instance->backend.behaviorhook)(self, &msg);
+  return (*fgroot_instance->backend.fgBehaviorHook)(self, &msg);
 }
 FG_EXTERN size_t fgFloatMessage(fgElement* self, unsigned short type, unsigned short subtype, float data, ptrdiff_t aux)
 {
@@ -1143,7 +1143,7 @@ FG_EXTERN size_t fgFloatMessage(fgElement* self, unsigned short type, unsigned s
   msg.f = data;
   msg.i2 = aux;
   assert(self != 0);
-  return (*fgroot_instance->backend.behaviorhook)(self, &msg);
+  return (*fgroot_instance->backend.fgBehaviorHook)(self, &msg);
 }
 FG_EXTERN float fgGetFloatMessage(fgElement* self, unsigned short type, unsigned short subtype, ptrdiff_t aux)
 {
@@ -1152,7 +1152,7 @@ FG_EXTERN float fgGetFloatMessage(fgElement* self, unsigned short type, unsigned
   msg.subtype = subtype;
   msg.i = aux;
   assert(self != 0);
-  size_t r = (*fgroot_instance->backend.behaviorhook)(self, &msg);
+  size_t r = (*fgroot_instance->backend.fgBehaviorHook)(self, &msg);
   return *(float*)&r;
 }
 FG_EXTERN void* fgGetPtrMessage(fgElement* self, unsigned short type, unsigned short subtype, size_t data, size_t aux)
@@ -1163,7 +1163,7 @@ FG_EXTERN void* fgGetPtrMessage(fgElement* self, unsigned short type, unsigned s
   msg.u = data;
   msg.u2 = aux;
   assert(self != 0);
-  return reinterpret_cast<void*>((*fgroot_instance->backend.behaviorhook)(self, &msg));
+  return reinterpret_cast<void*>((*fgroot_instance->backend.fgBehaviorHook)(self, &msg));
 }
 
 void fgElement_Clear(fgElement* self)
@@ -1288,7 +1288,7 @@ size_t fgElement::DragOver(float x, float y)
   m.type = FG_DRAGOVER;
   m.x = x;
   m.y = y;
-  return (*fgroot_instance->backend.behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.fgBehaviorHook)(this, &m);
 }
 
 size_t fgElement::Drop(float x, float y, unsigned char allbtn)
@@ -1298,7 +1298,7 @@ size_t fgElement::Drop(float x, float y, unsigned char allbtn)
   m.x = x;
   m.y = y;
   m.allbtn = allbtn;
-  return (*fgroot_instance->backend.behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.fgBehaviorHook)(this, &m);
 }
 
 void fgElement::Draw(const AbsRect* area, const fgDrawAuxData* aux) { _sendmsg<FG_DRAW, const void*, const void*>(this, area, aux); }
@@ -1335,7 +1335,7 @@ size_t fgElement::MouseDown(float x, float y, unsigned char button, unsigned cha
   m.y = y;
   m.button = button;
   m.allbtn = allbtn;
-  return (*fgroot_instance->backend.behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.fgBehaviorHook)(this, &m);
 }
 
 size_t fgElement::MouseDblClick(float x, float y, unsigned char button, unsigned char allbtn)
@@ -1346,7 +1346,7 @@ size_t fgElement::MouseDblClick(float x, float y, unsigned char button, unsigned
   m.y = y;
   m.button = button;
   m.allbtn = allbtn;
-  return (*fgroot_instance->backend.behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.fgBehaviorHook)(this, &m);
 }
 
 size_t fgElement::MouseUp(float x, float y, unsigned char button, unsigned char allbtn)
@@ -1357,7 +1357,7 @@ size_t fgElement::MouseUp(float x, float y, unsigned char button, unsigned char 
   m.y = y;
   m.button = button;
   m.allbtn = allbtn;
-  return (*fgroot_instance->backend.behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.fgBehaviorHook)(this, &m);
 }
 
 size_t fgElement::MouseOn(float x, float y)
@@ -1366,7 +1366,7 @@ size_t fgElement::MouseOn(float x, float y)
   m.type = FG_MOUSEON;
   m.x = x;
   m.y = y;
-  return (*fgroot_instance->backend.behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.fgBehaviorHook)(this, &m);
 }
 
 size_t fgElement::MouseOff(float x, float y)
@@ -1375,7 +1375,7 @@ size_t fgElement::MouseOff(float x, float y)
   m.type = FG_MOUSEOFF;
   m.x = x;
   m.y = y;
-  return (*fgroot_instance->backend.behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.fgBehaviorHook)(this, &m);
 }
 
 size_t fgElement::MouseMove(float x, float y)
@@ -1384,7 +1384,7 @@ size_t fgElement::MouseMove(float x, float y)
   m.type = FG_MOUSEMOVE;
   m.x = x;
   m.y = y;
-  return (*fgroot_instance->backend.behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.fgBehaviorHook)(this, &m);
 }
 
 size_t fgElement::MouseScroll(float x, float y, unsigned short delta, unsigned short hdelta)
@@ -1395,7 +1395,7 @@ size_t fgElement::MouseScroll(float x, float y, unsigned short delta, unsigned s
   m.y = y;
   m.scrolldelta = delta;
   m.scrollhdelta = hdelta;
-  return (*fgroot_instance->backend.behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.fgBehaviorHook)(this, &m);
 }
 
 size_t fgElement::KeyUp(unsigned char keycode, char sigkeys)
@@ -1404,7 +1404,7 @@ size_t fgElement::KeyUp(unsigned char keycode, char sigkeys)
   m.type = FG_KEYUP;
   m.keycode = keycode;
   m.sigkeys = sigkeys;
-  return (*fgroot_instance->backend.behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.fgBehaviorHook)(this, &m);
 }
 
 size_t fgElement::KeyDown(unsigned char keycode, char sigkeys)
@@ -1413,7 +1413,7 @@ size_t fgElement::KeyDown(unsigned char keycode, char sigkeys)
   m.type = FG_KEYDOWN;
   m.keycode = keycode;
   m.sigkeys = sigkeys;
-  return (*fgroot_instance->backend.behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.fgBehaviorHook)(this, &m);
 }
 
 size_t fgElement::KeyChar(int keychar, char sigkeys)
@@ -1422,7 +1422,7 @@ size_t fgElement::KeyChar(int keychar, char sigkeys)
   m.type = FG_KEYCHAR;
   m.keychar = keychar;
   m.sigkeys = sigkeys;
-  return (*fgroot_instance->backend.behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.fgBehaviorHook)(this, &m);
 }
 
 size_t fgElement::JoyButtonDown(short joybutton)
@@ -1431,7 +1431,7 @@ size_t fgElement::JoyButtonDown(short joybutton)
   m.type = FG_JOYBUTTONDOWN;
   m.joybutton = joybutton;
   m.joydown = true;
-  return (*fgroot_instance->backend.behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.fgBehaviorHook)(this, &m);
 }
 
 size_t fgElement::JoyButtonUp(short joybutton)
@@ -1440,7 +1440,7 @@ size_t fgElement::JoyButtonUp(short joybutton)
   m.type = FG_JOYBUTTONUP;
   m.joybutton = joybutton;
   m.joydown = false;
-  return (*fgroot_instance->backend.behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.fgBehaviorHook)(this, &m);
 }
 
 size_t fgElement::JoyAxis(float joyvalue, short joyaxis)
@@ -1449,7 +1449,7 @@ size_t fgElement::JoyAxis(float joyvalue, short joyaxis)
   m.type = FG_JOYAXIS;
   m.joyvalue = joyvalue;
   m.joyaxis = joyaxis;
-  return (*fgroot_instance->backend.behaviorhook)(this, &m);
+  return (*fgroot_instance->backend.fgBehaviorHook)(this, &m);
 }
 
 size_t fgElement::GotFocus() { return _sendmsg<FG_GOTFOCUS>(this); }
@@ -1505,7 +1505,7 @@ struct _FG_ELEMENT* fgElement::GetItemAt(float x, float y)
   m.subtype = FGITEM_LOCATION;
   m.x = x;
   m.y = y;
-  return reinterpret_cast<fgElement*>((*fgroot_instance->backend.behaviorhook)(this, &m));
+  return reinterpret_cast<fgElement*>((*fgroot_instance->backend.fgBehaviorHook)(this, &m));
 }
 
 size_t fgElement::GetNumItems() { return _sendsubmsg<FG_GETITEM>(this, FGITEM_COUNT); }

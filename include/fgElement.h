@@ -207,7 +207,7 @@ FG_EXTERN size_t fgFloatMessage(fgElement* self, unsigned short type, unsigned s
 FG_EXTERN float fgGetFloatMessage(fgElement* self, unsigned short type, unsigned short subtype, ptrdiff_t aux);
 FG_EXTERN size_t fgIntMessage(fgElement* self, unsigned short type, ptrdiff_t data, size_t aux);
 FG_EXTERN size_t fgVoidMessage(fgElement* self, unsigned short type, void* data, ptrdiff_t aux);
-FG_EXTERN size_t fgPassMessage(fgElement* self, const FG_Msg* msg);
+FG_EXTERN size_t fgSendMessage(fgElement* self, const FG_Msg* msg);
 FG_EXTERN size_t fgSubMessage(fgElement* self, unsigned short type, unsigned short subtype, void* data, ptrdiff_t aux);
 FG_EXTERN void* fgGetPtrMessage(fgElement* self, unsigned short type, unsigned short subtype, size_t data, size_t aux);
 

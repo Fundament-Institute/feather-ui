@@ -480,7 +480,8 @@ void fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, fg
       FG_Msg msg = { 0 };
       msg.type = FG_SETTEXT;
       msg.subtype = ((ID == 9) ? FGTEXTFMT_UTF8 : FGTEXTFMT_PLACEHOLDER_UTF8);
-      fgStyle_AddStyleMsg(self, &msg, attr->String.c_str(), attr->String.length() + 1, 0, 0);
+      msg.p = const_cast<char*>(attr->String.c_str());
+      fgStyle_AddStyleMsg(self, &msg, attr->String.length() + 1, 0);
       break;
     }
     case 11:
@@ -607,7 +608,9 @@ void fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, fg
       {
         FG_Msg msg = { 0 };
         msg.type = FG_SETUSERDATA;
-        fgStyle_AddStyleMsg(self, &msg, attr->String.c_str(), attr->String.length() + 1, attr->Name.c_str(), attr->Name.length() + 1);
+        msg.p = const_cast<char*>(attr->String.c_str());
+        msg.p2 = const_cast<char*>(attr->Name.c_str());
+        fgStyle_AddStyleMsg(self, &msg, attr->String.length() + 1, attr->Name.length() + 1);
       }
       else
       {

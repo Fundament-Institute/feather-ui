@@ -107,7 +107,7 @@ size_t fgMenu_Message(fgMenu* self, const FG_Msg* msg)
     case FGITEM_ELEMENT:
     {
       fgElement* menuitem = fgroot_instance->backend.fgCreate("MenuItem", *self, 0, 0, FGELEMENT_USEDEFAULTS, 0, 0);
-      fgPassMessage(menuitem, msg);
+      fgSendMessage(menuitem, msg);
       return (size_t)menuitem;
     }
     case FGITEM_TEXT:
@@ -221,7 +221,7 @@ size_t fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
     case FGITEM_ELEMENT:
     {
       fgElement* menuitem = fgroot_instance->backend.fgCreate("MenuItem", *self, 0, 0, FGELEMENT_USEDEFAULTS, 0, 0);
-      fgPassMessage(menuitem, msg);
+      fgSendMessage(menuitem, msg);
       return (size_t)menuitem;
     }
     case FGITEM_TEXT:
@@ -315,7 +315,7 @@ size_t fgMenuItem_Message(fgMenuItem* self, const FG_Msg* msg)
   case FG_GETLINEHEIGHT:
   case FG_GETLETTERSPACING:
   case FG_GETCOLOR:
-    return fgPassMessage(self->text, msg);
+    return fgSendMessage(self->text, msg);
   case FG_GETCLASSNAME:
     return (size_t)"MenuItem";
   }

@@ -65,7 +65,7 @@ size_t fgTreeItem_Message(fgTreeItem* self, const FG_Msg* msg)
     return fgTileLayout(&self->control.element, (const FG_Msg*)msg->p, FGBOX_TILEY, (AbsVec*)msg->p2);
   case FG_ACTION:
     if(msg->subtype != 0) // If nonzero this action was meant for the root
-      return !self->control.element.parent ? 0 : fgPassMessage(self->control.element.parent, msg);
+      return !self->control.element.parent ? 0 : fgSendMessage(self->control.element.parent, msg);
 
     self->count = ((self->count&EXPANDED) ^ EXPANDED) | (self->count&(~EXPANDED));
     fgMaskSetStyle(&self->arrow, (self->count&EXPANDED) ? "visible" : "hidden", fgStyleGetMask("visible", "hidden"));

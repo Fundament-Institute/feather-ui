@@ -67,7 +67,7 @@ size_t fgCheckbox_Message(fgCheckbox* self, const FG_Msg* msg)
   case FG_GETLINEHEIGHT:
   case FG_GETLETTERSPACING:
   case FG_GETCOLOR:
-    return fgPassMessage(self->text, msg);
+    return fgSendMessage(self->text, msg);
   case FG_GETCLASSNAME:
     return (size_t)"Checkbox";
   }

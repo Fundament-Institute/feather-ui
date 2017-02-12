@@ -41,7 +41,11 @@ int main(int argc, char** argv)
 
   fgElement* tabfocus = fgRoot_GetID(fgSingleton(), "#tabfocus");
   if(tabfocus)
-    fgIntMessage((fgElement*)fgIntMessage(tabfocus, FG_GETSELECTEDITEM, 0, 0), FG_ACTION, 0, 0);
+  {
+    fgElement* tabbutton = (fgElement*)fgVoidMessage(tabfocus, FG_GETSELECTEDITEM, 0, 0);
+    FG_Msg m = { FG_ACTION, 0 };
+    fgSendMessageAsync(tabbutton, &m, 0, 0);
+  }
 
   while(fgSingleton()->backend.fgProcessMessages());
 

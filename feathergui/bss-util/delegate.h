@@ -51,6 +51,52 @@ namespace bss_util {
     template <class T, RTYPE(MSC_FASTCALL *GCC_FASTCALL F)(const T*, Args...)>
     static R BSS_FASTCALL stubconstC(void* src, Args... args) { return (*F)(static_cast<const T*>(src), args...); }
   };
+
+  template<typename R, typename... Args>
+  struct StoreFunction : std::tuple<Args...>
+  {
+    inline StoreFunction(R(MSC_FASTCALL *GCC_FASTCALL f)(Args...), Args&&... args) : std::tuple<Args...>(std::forward<Args>(args)...), _f(f) {}
+    BSS_FORCEINLINE R Call() const { return _unpack(typename bssSeq_gens<sizeof...(Args)>::type()); }
+    BSS_FORCEINLINE R operator()() const { return Call(); }
+
+    R(MSC_FASTCALL *GCC_FASTCALL _f)(Args...);
+
+  private:
+    template<int ...S> BSS_FORCEINLINE R _unpack(bssSeq<S...>) const { return _f(std::get<S>(*this) ...); }
+  };
+
+  template<typename R, typename... Args>
+  struct StoreDelegate : std::tuple<Args...>
+  {
+    inline StoreDelegate(delegate<R, Args...> fn, Args&&... args) : std::tuple<Args...>(std::forward<Args>(args)...), _fn(fn) {}
+    BSS_FORCEINLINE R Call() const { return _unpack(typename bssSeq_gens<sizeof...(Args)>::type()); }
+    BSS_FORCEINLINE R operator()() const { return Call(); }
+
+    delegate<R, Args...> _fn;
+
+  private:
+    template<int ...S> BSS_FORCEINLINE R _unpack(bssSeq<S...>) const { return _fn(std::get<S>(*this) ...); }
+  };
+
+  template<typename R, typename... Args>
+  struct DeferFunction : StoreFunction<R, Args...>
+  {
+    inline DeferFunction(R(MSC_FASTCALL *GCC_FASTCALL f)(Args...), Args&&... args) : StoreFunction<R, Args...>(f, std::forward<Args>(args)...) {}
+    inline ~DeferFunction() { this->Call(); }
+  };
+
+  template<typename R, typename... Args>
+  struct DeferDelegate : StoreDelegate<R, Args...>
+  {
+    inline DeferDelegate(delegate<R, Args...> fn, Args&&... args) : StoreDelegate<R, Args...>(fn, std::forward<Args>(args)...) {}
+    inline ~DeferDelegate() { this->Call(); }
+  };
+
+  template<typename R, typename... Args>
+  BSS_FORCEINLINE DeferDelegate<R, Args...> defer(delegate<R, Args...> fn, Args&&... args) { return DeferDelegate<R, Args...>(fn, std::forward<Args>(args)...); }
+  template<typename R, typename... Args>
+  BSS_FORCEINLINE DeferFunction<R, Args...> defer(R(*f)(Args...), Args&&... args) { return DeferFunction<R, Args...>(f, std::forward<Args>(args)...); }
+
 #else
   template<typename R = void, typename T1 = void, typename T2 = void, typename T3 = void, typename T4 = void, typename T5 = void>
   class BSS_COMPILER_DLLEXPORT delegate {};

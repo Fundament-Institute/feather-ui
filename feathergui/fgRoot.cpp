@@ -79,6 +79,10 @@ void fgRoot_Init(fgRoot* self, const AbsRect* area, const fgIntVec* dpi, const f
   self->idmap = kh_init_fgIDMap();
   self->initmap = kh_init_fgInitMap();
   self->cursormap = kh_init_fgCursorMap();
+  self->queue = (_FG_MESSAGEQUEUE*)calloc(1, sizeof(_FG_MESSAGEQUEUE));
+  new(self->queue) _FG_MESSAGEQUEUE();
+  self->aux = (_FG_MESSAGEQUEUE*)calloc(1, sizeof(_FG_MESSAGEQUEUE));
+  new(self->aux) _FG_MESSAGEQUEUE();
   fgroot_instance = self;
   fgTransform transform = { area->left, 0, area->top, 0, area->right, 0, area->bottom, 0, 0, 0, 0 };
   fgElement_InternalSetup(*self, 0, 0, 0, 0, &transform, 0, (fgDestroy)&fgRoot_Destroy, (fgMessage)&fgRoot_Message);
@@ -397,7 +401,7 @@ size_t fgStandardInject(fgElement* self, const FG_Msg* msg, const AbsRect* area)
   }
 
   // If we get this far either we have no children, the event missed them all, or they all rejected the event...
-  return miss ? 0 : (*fgroot_instance->backend.behaviorhook)(self,msg); // So we give the event to ourselves, but only if it didn't miss us (which can happen if we were evaluating nonclipping elements)
+  return miss ? 0 : (*fgroot_instance->backend.fgBehaviorHook)(self,msg); // So we give the event to ourselves, but only if it didn't miss us (which can happen if we were evaluating nonclipping elements)
 }
 
 size_t fgOrderedInject(fgElement* self, const FG_Msg* msg, const AbsRect* area, fgElement* skip, fgElement* (*fn)(fgElement*, const FG_Msg*))
@@ -448,7 +452,7 @@ size_t fgOrderedInject(fgElement* self, const FG_Msg* msg, const AbsRect* area, 
     cur = cur->previnject;
   }
 
-  return (*fgroot_instance->backend.behaviorhook)(self, msg); // So we give the event to ourselves because it couldn't have missed us if we got to this point
+  return (*fgroot_instance->backend.fgBehaviorHook)(self, msg); // So we give the event to ourselves because it couldn't have missed us if we got to this point
 }
 
 BSS_FORCEINLINE size_t fgProcessCursor(fgRoot* self, size_t value, unsigned short type, FG_CURSOR fallback = FGCURSOR_NONE)
@@ -509,7 +513,7 @@ size_t fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
     fgElement* cur = !fgFocusedWindow ? *self : fgFocusedWindow;
     do
     {
-      if((*self->backend.behaviorhook)(cur, msg))
+      if((*self->backend.fgBehaviorHook)(cur, msg))
         return FG_ACCEPT;
       cur = cur->parent;
     } while(cur);
@@ -796,4 +800,58 @@ size_t fgGetTypeSize(const char* type)
   if(i == kh_end(fgroot_instance->initmap) || !kh_exist(fgroot_instance->initmap, i))
     return 0;
   return kh_val(fgroot_instance->initmap, i).second;
+}
+
+void fgSendMessageAsync(fgElement* element, const FG_Msg* msg, unsigned int arg1size, unsigned int arg2size)
+{
+  uint32_t sz = sizeof(QUEUEDMESSAGE) + arg1size + arg2size;
+  size_t r;
+  _FG_MESSAGEQUEUE* q = ((std::atomic<_FG_MESSAGEQUEUE*>&)fgroot_instance->queue).load(std::memory_order_relaxed);
+  for(;;)
+  {
+    q->lock.RLock();
+    r = q->length.fetch_add(sz, std::memory_order_relaxed);
+    size_t rend = r + sz;
+    size_t c = q->capacity.load(std::memory_order_relaxed);
+    if(rend >= c)
+    {
+      q->length.fetch_sub(sz, std::memory_order_relaxed);
+      if(q->lock.AttemptUpgrade())
+      {
+        if(rend >= q->capacity.load(std::memory_order_relaxed))
+        {
+          c = T_FBNEXT(rend);
+          q->capacity.store(c, std::memory_order_relaxed);
+          q->mem.store(realloc(q->mem, c), std::memory_order_relaxed);
+#ifdef BSS_DEBUG
+          size_t l = q->length.load(std::memory_order_relaxed);
+          memset((char*)q->mem.load(std::memory_order_relaxed) + l, 0xcd, c - l);
+#endif
+        }
+        q->lock.Downgrade();
+      }
+      q->lock.RUnlock();
+    }
+    else
+      break;
+  }
+
+  char* mem = (char*)q->mem.load(std::memory_order_relaxed);
+  mem += r;
+  QUEUEDMESSAGE* m = (QUEUEDMESSAGE*)mem;
+  m->sz = sz;
+  m->e = element;
+  m->msg = *msg;
+
+  if(arg1size > 0)
+  {
+    m->msg.p = m + 1;
+    MEMCPY(m->msg.p, arg1size, msg->p, arg1size);
+  }
+  if(arg2size > 0)
+  {
+    m->msg.p2 = mem + sizeof(QUEUEDMESSAGE) + arg1size;
+    MEMCPY(m->msg.p2, arg2size, msg->p2, arg2size);
+  }
+  q->lock.RUnlock();
 }

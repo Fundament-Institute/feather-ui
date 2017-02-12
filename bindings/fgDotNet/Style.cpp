@@ -12,7 +12,7 @@ Style::!Style() { if(_owner) { fgStyle s = { styles }; fgStyle_Destroy(&s); } }
 StyleMsg^ Style::AddStyleMsg(const FG_Msg* msg)
 {
   fgStyle shim = { styles }; // Because fgStyle just wraps a single pointer, we can store the pointer directly and use a shim to avoid allocating any memory
-  fgStyleMsg* m = fgStyle_AddStyleMsg(&shim, msg, 0, 0, 0, 0);
+  fgStyleMsg* m = fgStyle_AddStyleMsg(&shim, msg, 0, 0);
   styles = shim.styles;
   return GenNewManagedPtr<StyleMsg, fgStyleMsg>(m);
 }

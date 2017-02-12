@@ -111,7 +111,7 @@ size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
     switch(msg->subtype)
     {
     case FGITEM_COLUMN:
-      return fgPassMessage(self->header, msg);
+      return fgSendMessage(self->header, msg);
     case FGITEM_ROW:
     {
       FG_Msg m = *msg;
@@ -127,7 +127,7 @@ size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
       return fgList_Message(&self->list, &m);
     }
   case FG_SETVALUE:
-    return fgPassMessage(self->header, msg);
+    return fgSendMessage(self->header, msg);
   case FG_SETCOLOR:
     switch(msg->subtype)
     {

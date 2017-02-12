@@ -57,6 +57,7 @@
 #define BSS_ASSUME(x) 
 #define BSS_EXPLICITSTATIC static
 #define BSS_SSE_ENABLED
+#define BSS_COMPILER_HAS_TIME_GET
 
 #elif defined(__clang__) // Clang (must be before GCC, because clang also pretends it's GCC)
 #define BSS_COMPILER_CLANG
@@ -74,6 +75,7 @@
 #define BSS_ALIGN(n) __attribute__((aligned(n)))
 #define BSS_ALIGNED(sn, n) sn BSS_ALIGN(n)
 #define BSS_VARIADIC_TEMPLATES
+#define BSS_COMPILER_HAS_TIME_GET
 
 #define MSC_FASTCALL 
 #define GCC_FASTCALL BSS_COMPILER_FASTCALL
@@ -98,6 +100,10 @@
 #define BSS_ALIGN(n) __attribute__((aligned(n)))
 #define BSS_ALIGNED(sn, n) sn BSS_ALIGN(n)
 #define BSS_VARIADIC_TEMPLATES
+
+#if __GNUC__ >= 5 && __GNUC_MINOR__ >= 1
+#define BSS_COMPILER_HAS_TIME_GET
+#endif
 
 #define MSC_FASTCALL 
 #define GCC_FASTCALL BSS_COMPILER_FASTCALL
@@ -140,6 +146,7 @@
 #define GCC_FASTCALL 
 #define BSS_EXPLICITSTATIC static // GCC says that putting "static" on explicit templatizations of functions is illegal. VC++ breaks if you don't.
 #define BSS_SSE_ENABLED
+#define BSS_COMPILER_HAS_TIME_GET
 
 #define BSS_UNREACHABLE() __assume(0)
 #define BSS_ASSUME(x) __assume(x)

@@ -71,7 +71,7 @@ size_t fgProgressbar_Message(fgProgressbar* self, const FG_Msg* msg)
   case FG_GETLINEHEIGHT:
   case FG_GETLETTERSPACING:
   case FG_GETCOLOR:
-    return fgPassMessage(self->text, msg);
+    return fgSendMessage(self->text, msg);
   case FG_GETCLASSNAME:
     return (size_t)"Progressbar";
   }

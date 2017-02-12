@@ -22,6 +22,24 @@ void fgText_Init(fgText* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RE
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgText_Destroy, (fgMessage)&fgText_Message);
 }
 
+void fgText_WipeDynText(fgText* self)
+{
+  if(!self->text32.s && self->text32.l > 0) // If capacity is zero but the length is nonzero, this is a temporary pointer to an external string
+  {
+    self->text32.l = 0;
+    self->text32.p = 0;
+  }
+  if(!self->text16.s && self->text16.l > 0)
+  {
+    self->text16.l = 0;
+    self->text16.p = 0;
+  }
+  if(!self->text8.s && self->text8.l > 0)
+  {
+    self->text8.l = 0;
+    self->text8.p = 0;
+  }
+}
 void fgText_Destroy(fgText* self)
 {
   assert(self != 0);
@@ -29,6 +47,7 @@ void fgText_Destroy(fgText* self)
   if(self->font != 0) fgroot_instance->backend.fgDestroyFont(self->font);
   self->font = 0;
   fgElement_Destroy(&self->element);
+  fgText_WipeDynText(self);
   ((bss_util::cDynArray<int>*)&self->text32)->~cDynArray();
   ((bss_util::cDynArray<wchar_t>*)&self->text16)->~cDynArray();
   ((bss_util::cDynArray<char>*)&self->text8)->~cDynArray();
@@ -105,6 +124,7 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
       fgElement_Message(&self->element, msg);
       fgText* hold = reinterpret_cast<fgText*>(msg->e);
       memsubset<fgText, fgElement>(hold, 0);
+      fgText_WipeDynText(self);
       reinterpret_cast<bss_util::cDynArray<int>&>(hold->text32) = reinterpret_cast<bss_util::cDynArray<int>&>(self->text32);
       reinterpret_cast<bss_util::cDynArray<wchar_t>&>(hold->text16) = reinterpret_cast<bss_util::cDynArray<wchar_t>&>(self->text16);
       reinterpret_cast<bss_util::cDynArray<char>&>(hold->text8) = reinterpret_cast<bss_util::cDynArray<char>&>(self->text8);
@@ -117,6 +137,7 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
     }
     return sizeof(fgText);
   case FG_SETTEXT:
+    fgText_WipeDynText(self);
     ((bss_util::cDynArray<int>*)&self->text32)->Clear();
     ((bss_util::cDynArray<wchar_t>*)&self->text16)->Clear();
     ((bss_util::cDynArray<char>*)&self->text8)->Clear();
@@ -127,16 +148,31 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
       case FGTEXTFMT_UTF8:
         ((bss_util::cDynArray<char>*)&self->text8)->operator=(bss_util::cArraySlice<const char>((const char*)msg->p, !msg->u2 ? (strlen((const char*)msg->p) + 1) : msg->u2));
         break;
+      case FGTEXTFMT_DYNAMIC_UTF8:
+        self->text8.p = (char*)msg->p;
+        self->text8.l = !msg->u2 ? (strlen((const char*)msg->p) + 1) : msg->u2;
+        break;
       case FGTEXTFMT_UTF16:
         ((bss_util::cDynArray<wchar_t>*)&self->text16)->operator=(bss_util::cArraySlice<const wchar_t>((const wchar_t*)msg->p, !msg->u2 ? (wcslen((const wchar_t*)msg->p) + 1) : msg->u2));
         break;
+      case FGTEXTFMT_DYNAMIC_UTF16:
+        self->text16.p = (wchar_t*)msg->p;
+        self->text16.l = !msg->u2 ? (wcslen((const wchar_t*)msg->p) + 1) : msg->u2;
+        break;
       case FGTEXTFMT_UTF32:
+      case FGTEXTFMT_DYNAMIC_UTF32:
       {
         int* txt = (int*)msg->p;
         size_t len = msg->u2;
         if(!len)
           while(txt[len++] != 0);
-        ((bss_util::cDynArray<int>*)&self->text32)->operator=(bss_util::cArraySlice<const int>((const int*)msg->p, len));
+        if(msg->subtype == FGTEXTFMT_DYNAMIC_UTF32)
+        {
+          self->text32.p = txt;
+          self->text32.l = len;
+        }
+        else
+          ((bss_util::cDynArray<int>*)&self->text32)->operator=(bss_util::cArraySlice<const int>((const int*)msg->p, len));
       }
         break;
       }

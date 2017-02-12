@@ -42,7 +42,7 @@ size_t fgScrollbar_bgMessage(fgElement* self, const FG_Msg* msg)
     return FG_ACCEPT;
   case FG_ACTION:
     if(self->parent != 0)
-      return fgPassMessage(self->parent, msg);
+      return fgSendMessage(self->parent, msg);
     break;
   case FG_MOUSEDOWN:
     if(msg->button == FG_MOUSELBUTTON && self->parent != 0)
@@ -312,7 +312,7 @@ size_t fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
     m.f2 = (msg->scrolldelta / 120.0f) * 3.0f * lineheight;
     m.f = (msg->scrollhdelta / -120.0f) * lineheight;
 
-    fgPassMessage(*self, &m);
+    fgSendMessage(*self, &m);
     return FG_ACCEPT;
   }
   case FG_LAYOUTCHANGE:

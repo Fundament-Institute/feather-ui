@@ -80,7 +80,7 @@ size_t fgWindow_Message(fgWindow* self, const FG_Msg* msg)
   case FG_GETLINEHEIGHT:
   case FG_GETLETTERSPACING:
   case FG_GETCOLOR:
-    return fgPassMessage(self->caption, msg);
+    return fgSendMessage(self->caption, msg);
   case FG_MOUSEDBLCLICK:
     if(msg->button == FG_MOUSELBUTTON)
     {
@@ -223,7 +223,7 @@ size_t fgWindow_Message(fgWindow* self, const FG_Msg* msg)
     }
   case FG_INJECT:
     if(self->dragged != 0) // if we are being dragged, we completely bypass all children
-      return (*fgroot_instance->backend.behaviorhook)(*self, (const FG_Msg*)msg->p);
+      return (*fgroot_instance->backend.fgBehaviorHook)(*self, (const FG_Msg*)msg->p);
     break;
   case FG_GOTFOCUS:
     if(fgElement_CheckLastFocus(*self)) // try to resolve via lastfocus

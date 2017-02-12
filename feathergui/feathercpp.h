@@ -11,6 +11,7 @@
 #include "fgLayout.h"
 #include "bss-util/cHash.h"
 #include "bss-util/cAVLtree.h"
+#include "bss-util/rwlock.h"
 
 #ifdef BSS_64BIT
 #define kh_ptr_hash_func(key) kh_int64_hash_func((uint64_t)key)
@@ -252,7 +253,7 @@ static inline size_t _sendmsg(fgElement* self, Args... args)
   FG_Msg msg = { 0 };
   msg.type = type;
   fgSendMsgCall<1, Args...>::F(msg, args...);
-  return (*fgroot_instance->backend.behaviorhook)(self, &msg);
+  return (*fgroot_instance->backend.fgBehaviorHook)(self, &msg);
 }
 
 template<FG_MSGTYPE type, typename... Args>
@@ -262,7 +263,7 @@ static inline size_t _sendsubmsg(fgElement* self, unsigned short sub, Args... ar
   msg.type = type;
   msg.subtype = sub;
   fgSendMsgCall<1, Args...>::F(msg, args...);
-  return (*fgroot_instance->backend.behaviorhook)(self, &msg);
+  return (*fgroot_instance->backend.fgBehaviorHook)(self, &msg);
 }
 
 FG_EXTERN bss_util::cHash<std::pair<fgElement*, unsigned short>, fgListener> fgListenerHash;
@@ -391,4 +392,17 @@ T* memcpyalloc(const T* src, size_t len)
   return r;
 }
 
+struct _FG_MESSAGEQUEUE {
+  bss_util::RWLock lock;
+  std::atomic<size_t> length;
+  std::atomic<size_t> capacity;
+  std::atomic<void*> mem;
+};
+
+struct QUEUEDMESSAGE
+{
+  uint32_t sz;
+  fgElement* e;
+  FG_Msg msg;
+};
 #endif

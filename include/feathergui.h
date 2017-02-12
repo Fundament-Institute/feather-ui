@@ -151,7 +151,10 @@ enum FGTEXTFMT
   FGTEXTFMT_PLACEHOLDER_UTF8 = 4,
   FGTEXTFMT_PLACEHOLDER_UTF16 = 5,
   FGTEXTFMT_PLACEHOLDER_UTF32 = 6,
-  FGTEXTFMT_MASK = 7
+  FGTEXTFMT_DYNAMIC_UTF8 = 8,
+  FGTEXTFMT_DYNAMIC_UTF16 = 9,
+  FGTEXTFMT_DYNAMIC_UTF32 = 10,
+  FGTEXTFMT_MASK = 15,
 };
 
 enum FGSETSTYLE
@@ -619,6 +622,8 @@ struct _FG_ELEMENT;
 
 // General message structure which contains the message type and then various kinds of information depending on the type.
 typedef struct _FG_MSG {
+  unsigned short type;
+  unsigned short subtype;
   union {
     struct { float x; float y; // Mouse and touch events
       union { 
@@ -639,8 +644,6 @@ typedef struct _FG_MSG {
       union { void* p2; ptrdiff_t i2; size_t u2; FABS f2; struct _FG_ELEMENT* e2; };
     };
   };
-  unsigned short type;
-  unsigned short subtype;
 
 #ifdef __cplusplus
   inline bool IsPressed() const { return (button&allbtn) != 0; }

@@ -21,7 +21,7 @@ size_t fgListItem_Message(fgControl* self, const FG_Msg* msg)
   {
   case FG_DRAGOVER:
   case FG_DROP:
-    return fgPassMessage(self->element.parent, msg);
+    return fgSendMessage(self->element.parent, msg);
   case FG_MOUSEMOVE:
   case FG_MOUSEDOWN:
   case FG_MOUSEDBLCLICK:
@@ -29,7 +29,7 @@ size_t fgListItem_Message(fgControl* self, const FG_Msg* msg)
   case FG_MOUSEON:
   case FG_MOUSEOFF:
   case FG_MOUSESCROLL:
-    fgPassMessage(self->element.parent, msg); // We send these messages to our parent FIRST, then override the resulting hover message by processing them ourselves.
+    fgSendMessage(self->element.parent, msg); // We send these messages to our parent FIRST, then override the resulting hover message by processing them ourselves.
     break;
   case FG_NEUTRAL:
     fgStandardNeutralSetStyle(*self, "neutral");

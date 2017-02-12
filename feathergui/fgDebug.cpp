@@ -439,27 +439,27 @@ FG_EXTERN void fgDebug_Show(float left, float right, char overlay)
     fgDebug_Init(fgmalloc<fgDebug>(1, __FILE__, __LINE__), *fgroot_instance, 0, 0, FGELEMENT_HIDDEN|FGELEMENT_BACKGROUND, &fgTransform_DEFAULT, 0);
     fgdebug_instance->element.free = &fgfreeblank;
   }
-  if(fgroot_instance->backend.behaviorhook == &fgRoot_BehaviorDebug)
+  if(fgroot_instance->backend.fgBehaviorHook == &fgRoot_BehaviorDebug)
     return; // Prevent an infinite loop
 
   assert(fgdebug_instance != 0);
   fgdebug_instance->elements->SetTransform(fgTransform { { -right,1,0,0,0,1,0,1 }, 0, { 0,0,0,0 } });
   fgdebug_instance->messages->SetTransform(fgTransform { { 0,0,0,0,left,0,0,1 }, 0, { 0,0,0,0 } });
   fgdebug_instance->element.SetTransform(fgTransform_DEFAULT);
-  fgdebug_instance->behaviorhook = fgroot_instance->backend.behaviorhook;
+  fgdebug_instance->behaviorhook = fgroot_instance->backend.fgBehaviorHook;
   fgDebug_BuildTree(fgdebug_instance->elements);
   fgdebug_instance->oldpadding = fgroot_instance->gui->padding;
   if(!overlay)
     fgroot_instance->gui->SetPadding(AbsRect { left, fgdebug_instance->oldpadding.top, right, fgdebug_instance->oldpadding.bottom });
 
   fgdebug_instance->element.SetFlag(FGELEMENT_HIDDEN, false);
-  fgroot_instance->backend.behaviorhook = &fgRoot_BehaviorDebug;
+  fgroot_instance->backend.fgBehaviorHook = &fgRoot_BehaviorDebug;
 }
 FG_EXTERN void fgDebug_Hide()
 {
   assert(fgdebug_instance != 0);
   assert(fgdebug_instance != 0);
-  fgroot_instance->backend.behaviorhook = fgdebug_instance->behaviorhook;
+  fgroot_instance->backend.fgBehaviorHook = fgdebug_instance->behaviorhook;
   fgdebug_instance->element.SetFlag(FGELEMENT_HIDDEN, true);
   fgroot_instance->gui->SetPadding(fgdebug_instance->oldpadding);
   if(fgdebug_instance->element.flags&FGDEBUG_CLEARONHIDE)

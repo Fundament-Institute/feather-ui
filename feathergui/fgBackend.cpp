@@ -203,7 +203,25 @@ void fgTerminateDefault()
 
 char fgProcessMessagesDefault()
 {
-  return 0; // return 1 as long as the progam should continue running. Return 0 when it should quit.
+  _FG_MESSAGEQUEUE* q = ((std::atomic<_FG_MESSAGEQUEUE*>&)fgroot_instance->queue).load(std::memory_order_acquire);
+  ((std::atomic<_FG_MESSAGEQUEUE*>&)fgroot_instance->queue).exchange(fgroot_instance->aux, std::memory_order_release);
+  fgroot_instance->aux = q;
+  q->lock.Lock();
+  size_t cur = 0;
+  size_t l = q->length.load(std::memory_order_relaxed);
+  char* mem = (char*)q->mem.load(std::memory_order_relaxed);
+  while(cur < l)
+  {
+    QUEUEDMESSAGE* m = (QUEUEDMESSAGE*)(mem + cur);
+    fgSendMessage(m->e, &m->msg);
+    cur += m->sz;
+  }
+  q->length.store(0, std::memory_order_relaxed);
+#ifdef BSS_DEBUG
+  memset(mem, 0xcd, l);
+#endif
+  q->lock.Unlock();
+  return 1; // return 1 as long as the program should continue running. Return 0 when it should quit.
 }
 
 typedef struct _FG_ROOT*(*FN_INITIALIZE)();
@@ -227,4 +245,11 @@ void fgUnloadBackend()
   fgroot_instance = 0;
   FREEDYNLIB(fgDynLibP);
   fgDynLibP = 0;
+}
+
+int fgLogHookDefault(const char* format, va_list args)
+{
+  static std::unique_ptr<FILE, void(*)(FILE*)> f(fopen("feathergui.log", "wb"), [](FILE* x) { fclose(x); });
+  vfprintf(f.get(), format, args);
+  return vprintf(format, args);
 }

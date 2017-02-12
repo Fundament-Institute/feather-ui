@@ -20,22 +20,24 @@ void fgStyle_Destroy(fgStyle* self)
     fgStyle_RemoveStyleMsg(self, self->styles);
 }
 
-fgStyleMsg* fgStyle_AddStyleMsg(fgStyle* self, const FG_Msg* msg, const void* arg1, unsigned int arg1size, const void* arg2, unsigned int arg2size)
+fgStyleMsg* fgStyle_AddStyleMsg(fgStyle* self, const FG_Msg* msg, unsigned int arg1size, unsigned int arg2size)
 {
   unsigned int sz = sizeof(fgStyleMsg) + arg1size + arg2size;
   assert(!(sz & 0xC0000000));
   fgStyleMsg* r = (fgStyleMsg*)fgmalloc<char>(sz, __FILE__, __LINE__);
   MEMCPY(&r->msg, sizeof(FG_Msg), msg, sizeof(FG_Msg));
 
-  if(arg1)
+  if(arg1size > 0)
   {
+    void* arg1 = r->msg.p;
     r->msg.p = r + 1;
     memcpy(r->msg.p, arg1, arg1size);
     sz |= 0x40000000;
   }
 
-  if(arg2)
+  if(arg2size > 0)
   {
+    void* arg2 = r->msg.p2;
     r->msg.p2 = ((char*)(r + 1)) + arg1size;
     memcpy(r->msg.p2, arg2, arg2size);
     sz |= 0x80000000;
@@ -76,7 +78,7 @@ void fgStyle_RemoveStyleMsg(fgStyle* self, fgStyleMsg* msg)
 }
 
 
-fgStyleMsg* fgStyle::AddStyleMsg(const FG_Msg* msg) { return fgStyle_AddStyleMsg(this, msg, 0,0,0,0); }
+fgStyleMsg* fgStyle::AddStyleMsg(const FG_Msg* msg) { return fgStyle_AddStyleMsg(this, msg, 0, 0); }
 void fgStyle::RemoveStyleMsg(fgStyleMsg* msg) { fgStyle_RemoveStyleMsg(this, msg); }
 
 struct fgStyleStatic

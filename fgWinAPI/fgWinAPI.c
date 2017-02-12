@@ -89,7 +89,7 @@ fgRoot* WinAPIfgInitialize(void* instance)
   fgWindow_Init((fgWindow*)_fgroot,0,0,0,0);
   _fgroot->instance=wcex.hInstance;
   _fgroot->root.gui.element.destroy=&fgRoot_destroy;
-  _fgroot->root.behaviorhook=&fgRoot_BehaviorDefault;
+  _fgroot->root.fgBehaviorHook=&fgRoot_BehaviorDefault;
   _fgroot->root.keymsghook=0;
   _fgroot->root.winrender=&fgRoot_WinRender;
   _fgroot->root.update=&WinAPIfgRoot_Update;
@@ -201,7 +201,7 @@ LRESULT CALLBACK fgWindowWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 
   msg.type=WINAPIFGTOP_MSGFILTER;
   msg.p=&wmsg;
-  if((c=(*_fgroot->root.behaviorhook)((fgWindow*)wn,&msg))!=0) // We invert the meaning of 1 and 0 here so it remains a sane default.
+  if((c=(*_fgroot->root.fgBehaviorHook)((fgWindow*)wn,&msg))!=0) // We invert the meaning of 1 and 0 here so it remains a sane default.
     return (c<0)?1:0;
   msg.p=0;
 
@@ -216,7 +216,7 @@ LRESULT CALLBACK fgWindowWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
   //    return 0;
   case WM_CLOSE:
     msg.type=fgDestroy;
-    (*_fgroot->root.behaviorhook)((fgWindow*)wn,&msg);
+    (*_fgroot->root.fgBehaviorHook)((fgWindow*)wn,&msg);
     return 0;
   case WM_DESTROY:
     if(wn->handle!=0) // If handle is NULL, we're already nuking the feather window so don't do it again
@@ -230,13 +230,13 @@ LRESULT CALLBACK fgWindowWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
     {
       msg.type=WINAPIFGTOP_MSGFILTER;
       msg.p=&wmsg;
-      (*_fgroot->root.behaviorhook)((fgWindow*)GetWindowLongPtr((HWND)lParam,GWLP_USERDATA),&msg);
+      (*_fgroot->root.fgBehaviorHook)((fgWindow*)GetWindowLongPtr((HWND)lParam,GWLP_USERDATA),&msg);
     }
     break;
   case WM_MOUSEWHEEL:
     msg.type=FG_MOUSESCROLL;
     msg.scrolldelta=GET_WHEEL_DELTA_WPARAM(wParam);
-    (*_fgroot->root.behaviorhook)((fgWindow*)wn,&msg);
+    (*_fgroot->root.fgBehaviorHook)((fgWindow*)wn,&msg);
     break;
   //case WM_NCCALCSIZE:
   //  return 0;
@@ -244,91 +244,91 @@ LRESULT CALLBACK fgWindowWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
     msg.type=FG_MOUSEMOVE;
     msg.allbtn=getallbtn(wParam);
     makelparampts(&msg,MAKELPPOINTS(lParam));
-    (*_fgroot->root.behaviorhook)((fgWindow*)wn,&msg);
+    (*_fgroot->root.fgBehaviorHook)((fgWindow*)wn,&msg);
     break;
   case WM_LBUTTONDOWN:
     msg.type=FG_MOUSEDOWN;
     msg.allbtn=getallbtn(wParam);
     msg.button=FG_MOUSELBUTTON;
     makelparampts(&msg,MAKELPPOINTS(lParam));
-    (*_fgroot->root.behaviorhook)((fgWindow*)wn,&msg);
+    (*_fgroot->root.fgBehaviorHook)((fgWindow*)wn,&msg);
     break;	
   case WM_LBUTTONUP:
     msg.type=FG_MOUSEUP;
     msg.allbtn=getallbtn(wParam);
     msg.button=FG_MOUSELBUTTON;
     makelparampts(&msg,MAKELPPOINTS(lParam));
-    (*_fgroot->root.behaviorhook)((fgWindow*)wn,&msg);
+    (*_fgroot->root.fgBehaviorHook)((fgWindow*)wn,&msg);
     break;
   case WM_LBUTTONDBLCLK:
     msg.type=FG_MOUSEDOWN;
     msg.allbtn=getallbtn(wParam);
     msg.button=FG_MOUSELBUTTON;
     makelparampts(&msg,MAKELPPOINTS(lParam));
-    (*_fgroot->root.behaviorhook)((fgWindow*)wn,&msg);
+    (*_fgroot->root.fgBehaviorHook)((fgWindow*)wn,&msg);
     break;
   case WM_RBUTTONDOWN:
     msg.type=FG_MOUSEDOWN;
     msg.allbtn=getallbtn(wParam);
     msg.button=FG_MOUSERBUTTON;
     makelparampts(&msg,MAKELPPOINTS(lParam));
-    (*_fgroot->root.behaviorhook)((fgWindow*)wn,&msg);
+    (*_fgroot->root.fgBehaviorHook)((fgWindow*)wn,&msg);
     break;
   case WM_RBUTTONUP:
     msg.type=FG_MOUSEUP;
     msg.allbtn=getallbtn(wParam);
     msg.button=FG_MOUSERBUTTON;
     makelparampts(&msg,MAKELPPOINTS(lParam));
-    (*_fgroot->root.behaviorhook)((fgWindow*)wn,&msg);
+    (*_fgroot->root.fgBehaviorHook)((fgWindow*)wn,&msg);
     break;	
   case WM_RBUTTONDBLCLK:
     msg.type=FG_MOUSEDOWN;
     msg.allbtn=getallbtn(wParam);
     msg.button=FG_MOUSERBUTTON;
     makelparampts(&msg,MAKELPPOINTS(lParam));
-    (*_fgroot->root.behaviorhook)((fgWindow*)wn,&msg);
+    (*_fgroot->root.fgBehaviorHook)((fgWindow*)wn,&msg);
     break;
   case WM_MBUTTONDOWN:
     msg.type=FG_MOUSEDOWN;
     msg.allbtn=getallbtn(wParam);
     msg.button=FG_MOUSEMBUTTON;
     makelparampts(&msg,MAKELPPOINTS(lParam));
-    (*_fgroot->root.behaviorhook)((fgWindow*)wn,&msg);
+    (*_fgroot->root.fgBehaviorHook)((fgWindow*)wn,&msg);
     break;
   case WM_MBUTTONUP:
     msg.type=FG_MOUSEUP;
     msg.allbtn=getallbtn(wParam);
     msg.button=FG_MOUSEMBUTTON;
     makelparampts(&msg,MAKELPPOINTS(lParam));
-    (*_fgroot->root.behaviorhook)((fgWindow*)wn,&msg);
+    (*_fgroot->root.fgBehaviorHook)((fgWindow*)wn,&msg);
     break;	
   case WM_MBUTTONDBLCLK:
     msg.type=FG_MOUSEDOWN;
     msg.allbtn=getallbtn(wParam);
     msg.button=FG_MOUSEMBUTTON;
     makelparampts(&msg,MAKELPPOINTS(lParam));
-    (*_fgroot->root.behaviorhook)((fgWindow*)wn,&msg);
+    (*_fgroot->root.fgBehaviorHook)((fgWindow*)wn,&msg);
     break;
   case WM_XBUTTONDOWN:
     msg.type=FG_MOUSEDOWN;
     msg.allbtn=getallbtn(wParam);
     msg.button=GET_XBUTTON_WPARAM(wParam)==XBUTTON1?FG_MOUSEXBUTTON1:FG_MOUSEXBUTTON2;
     makelparampts(&msg,MAKELPPOINTS(lParam));
-    (*_fgroot->root.behaviorhook)((fgWindow*)wn,&msg);
+    (*_fgroot->root.fgBehaviorHook)((fgWindow*)wn,&msg);
     break;
   case WM_XBUTTONUP:
     msg.type=FG_MOUSEUP;
     msg.allbtn=getallbtn(wParam);
     msg.button=GET_XBUTTON_WPARAM(wParam)==XBUTTON1?FG_MOUSEXBUTTON1:FG_MOUSEXBUTTON2;
     makelparampts(&msg,MAKELPPOINTS(lParam));
-    (*_fgroot->root.behaviorhook)((fgWindow*)wn,&msg);
+    (*_fgroot->root.fgBehaviorHook)((fgWindow*)wn,&msg);
     break;
   case WM_XBUTTONDBLCLK:
     msg.type=FG_MOUSEDOWN;
     msg.allbtn=getallbtn(wParam);
     msg.button=GET_XBUTTON_WPARAM(wParam)==XBUTTON1?FG_MOUSEXBUTTON1:FG_MOUSEXBUTTON2;
     makelparampts(&msg,MAKELPPOINTS(lParam));
-    (*_fgroot->root.behaviorhook)((fgWindow*)wn,&msg);
+    (*_fgroot->root.fgBehaviorHook)((fgWindow*)wn,&msg);
     break;
   case WM_SYSKEYUP:
   case WM_SYSKEYDOWN:
@@ -339,7 +339,7 @@ LRESULT CALLBACK fgWindowWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
     msg.type=msg.keydown?FG_KEYDOWN:FG_KEYUP;
     msg.keycode=(unsigned char)wParam;
     msg.sigkeys=((allkeys[VK_SHIFT] & 0x80)>>7)|((allkeys[VK_CONTROL] & 0x80)>>6)|((allkeys[VK_MENU] & 0x80)>>5)|(((lParam&0x40000000)!=0)<<3);
-    (*_fgroot->root.behaviorhook)((fgWindow*)wn,&msg);
+    (*_fgroot->root.fgBehaviorHook)((fgWindow*)wn,&msg);
     break;
   case WM_ACTIVATE:
     //if(_ps_enginemouselock) {
@@ -365,13 +365,13 @@ LRESULT CALLBACK fgWindowWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
     msg.type=FG_KEYCHAR;
     msg.keychar=(int)wParam;
     msg.sigkeys=((allkeys[VK_SHIFT] & 0x80)>>7)|((allkeys[VK_CONTROL] & 0x80)>>6)|((allkeys[VK_MENU] & 0x80)>>5);
-    (*_fgroot->root.behaviorhook)((fgWindow*)wn,&msg);
+    (*_fgroot->root.fgBehaviorHook)((fgWindow*)wn,&msg);
     return 0;
   case WM_WINDOWPOSCHANGING:
   case WM_WINDOWPOSCHANGED: // Make sure we keep track of where the window actually is.
     msg.type=WINAPIFGTOP_WINDOWMOVE;
     msg.p=(WINDOWPOS*)lParam;
-    (*_fgroot->root.behaviorhook)((fgWindow*)wn,&msg);
+    (*_fgroot->root.fgBehaviorHook)((fgWindow*)wn,&msg);
     break;
   //default:
   //  OutputDebugString(cStr("\n%i",message));

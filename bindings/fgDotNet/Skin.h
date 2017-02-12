@@ -47,7 +47,6 @@ namespace fgDotNet {
   {
     explicit SkinLayout(fgSkinLayout* p);
     property SkinTree^ Tree { SkinTree^ get() { return gcnew SkinTree(&reinterpret_cast<fgSkinLayout*>(_p)->tree); } }
-    property unsigned int Size { unsigned int get() { return reinterpret_cast<fgSkinLayout*>(_p)->sz; } }
     property Element^ Instance { Element^ get() { return GenNewManagedPtr<Element, fgElement>(reinterpret_cast<fgSkinLayout*>(_p)->instance); } }
   };
 
