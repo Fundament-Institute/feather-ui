@@ -1,15 +1,15 @@
 // Copyright ©2017 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "fgDirect2D.h"
 
-#ifndef __FG_ROUNDRECT_D2D_H__
-#define __FG_ROUNDRECT_D2D_H__
+#ifndef __FG_CIRCLE_D2D_H__
+#define __FG_CIRCLE_D2D_H__
 
 #include "fgEffectBase.h"
 
-DEFINE_GUID(CLSID_fgRoundRect, 0xC58204BE, 0x9FA1, 0x4884, 0xB1, 0x82, 0xBF, 0xE8, 0x5D, 0x65, 0x90, 0xDC);
-DEFINE_GUID(CLSID_fgRoundRectPixelShader, 0x0050F29E, 0xF56A, 0xAC, 0xB2, 0x5F, 0x23, 0x90, 0x46, 0x94, 0xAA, 0x5F);
+DEFINE_GUID(CLSID_fgCircle, 0x8C08CBDF, 0x092B, 0x4123, 0xA7, 0x4C, 0x92, 0xC7, 0x5B, 0xDA, 0x47, 0x01);
+DEFINE_GUID(CLSID_fgCirclePixelShader, 0x4BDBC599, 0xDD68, 0x4199, 0x83, 0x5E, 0xD8, 0x39, 0xA0, 0x9D, 0xE7, 0x32);
 
-class fgRoundRect : public fgEffectBase
+class fgCircle : public fgEffectBase
 {
 public:
   IFACEMETHODIMP Initialize(_In_ ID2D1EffectContext* pContextInternal, _In_ ID2D1TransformGraph* pTransformGraph);
@@ -19,8 +19,8 @@ public:
   IFACEMETHODIMP SetDrawInfo(_In_ ID2D1DrawInfo* pRenderInfo);
 
 private:
-  fgRoundRect();
-  ~fgRoundRect();
+  fgCircle();
+  ~fgCircle();
 };
 
 #endif

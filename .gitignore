@@ -9,6 +9,7 @@
 *.aps
 *.designer.cs
 *.txt
+*.log
 /bin/
 /bin32/
 /media/editor/

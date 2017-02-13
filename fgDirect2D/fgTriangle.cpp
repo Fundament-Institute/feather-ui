@@ -3,38 +3,38 @@
 
 #include <d2d1effecthelpers.h>
 #include <initguid.h>
-#include "fgRoundRect.h"
-#include "fgDirect2D_fgRoundRect.h"
+#include "fgTriangle.h"
+#include "fgDirect2D_fgTriangle.h"
 #include "bss-util/bss_defines.h"
 #include <utility>
 #include <memory>
 
 #define XML(x) TEXT(#x)
 
-fgRoundRect::fgRoundRect() {}
-fgRoundRect::~fgRoundRect()
+fgTriangle::fgTriangle() {}
+fgTriangle::~fgTriangle()
 {
 }
-IFACEMETHODIMP fgRoundRect::Initialize(_In_ ID2D1EffectContext* pContextInternal, _In_ ID2D1TransformGraph* pTransformGraph)
+IFACEMETHODIMP fgTriangle::Initialize(_In_ ID2D1EffectContext* pContextInternal, _In_ ID2D1TransformGraph* pTransformGraph)
 {
-  HRESULT hr = pContextInternal->LoadPixelShader(CLSID_fgRoundRectPixelShader, fgRoundRect_main, sizeof(fgRoundRect_main));
+  HRESULT hr = pContextInternal->LoadPixelShader(CLSID_fgTrianglePixelShader, fgTriangle_main, sizeof(fgTriangle_main));
 
   if(SUCCEEDED(hr))
     hr = pTransformGraph->SetSingleTransformNode(this);
 
   return hr;
 }
-HRESULT fgRoundRect::Register(_In_ ID2D1Factory1* pFactory)
+HRESULT fgTriangle::Register(_In_ ID2D1Factory1* pFactory)
 {
   PCWSTR pszXml =
     XML(
       <?xml version='1.0'?>
       <Effect>
         <!-- System Properties -->
-        <Property name = 'DisplayName' type = 'string' value = 'Round Rectangle' />
+        <Property name = 'DisplayName' type = 'string' value = 'Triangle' />
         <Property name = 'Author' type = 'string' value = 'Black Sphere Studios' />
         <Property name = 'Category' type = 'string' value = 'Vector' />
-        <Property name = 'Description' type = 'string' value = 'Draws a rounded rectangle with an outline.' />
+        <Property name = 'Description' type = 'string' value = 'Draws a triangle with an outline.' />
         <Inputs>
         </Inputs>
         <Property name='Rect' type='vector4'>
@@ -71,9 +71,9 @@ HRESULT fgRoundRect::Register(_In_ ID2D1Factory1* pFactory)
     D2D1_VALUE_TYPE_BINDING(L"OutlineColor", &SetOutlineColor, &GetOutlineColor),
     D2D1_VALUE_TYPE_BINDING(L"Outline", &SetOutline, &GetOutline),
   };
-  
+
   return pFactory->RegisterEffectFromString(
-    CLSID_fgRoundRect,
+    CLSID_fgTriangle,
     pszXml,
     bindings,
     ARRAYSIZE(bindings),
@@ -81,19 +81,19 @@ HRESULT fgRoundRect::Register(_In_ ID2D1Factory1* pFactory)
   );
 }
 
-HRESULT __stdcall fgRoundRect::CreateEffect(_Outptr_ IUnknown** ppEffectImpl)
+HRESULT __stdcall fgTriangle::CreateEffect(_Outptr_ IUnknown** ppEffectImpl)
 {
   // This code assumes that the effect class initializes its reference count to 1.
-  *ppEffectImpl = static_cast<ID2D1EffectImpl*>(new fgRoundRect());
+  *ppEffectImpl = static_cast<ID2D1EffectImpl*>(new fgTriangle());
 
   if(*ppEffectImpl == nullptr)
     return E_OUTOFMEMORY;
   return S_OK;
 }
 
-IFACEMETHODIMP fgRoundRect::SetDrawInfo(_In_ ID2D1DrawInfo* pRenderInfo)
+IFACEMETHODIMP fgTriangle::SetDrawInfo(_In_ ID2D1DrawInfo* pRenderInfo)
 {
   _drawInfo = pRenderInfo;
   _drawInfo->AddRef();
-  return _drawInfo->SetPixelShader(CLSID_fgRoundRectPixelShader);
+  return _drawInfo->SetPixelShader(CLSID_fgTrianglePixelShader);
 }

@@ -64,6 +64,7 @@ void fgRoot_Init(fgRoot* self, const AbsRect* area, const fgIntVec* dpi, const f
     &fgBehaviorHookDefault,
     &fgProcessMessagesDefault,
     &fgLoadExtensionDefault,
+    &fgLogHookDefault,
     &fgTerminateDefault,
   };
 
@@ -592,7 +593,7 @@ fgMonitor* fgRoot_GetMonitor(const fgRoot* self, const AbsRect* rect)
 {
   fgMonitor* cur = self->monitors;
   float largest = 0;
-  fgMonitor* last = 0; // it is possible for all intersections ot have an area of zero, meaning the element is not on ANY monitors and is thus not visible.
+  fgMonitor* last = 0; // it is possible for all intersections to have an area of zero, meaning the element is not on ANY monitors and is thus not visible.
 
   while(cur)
   {
@@ -694,6 +695,7 @@ void fgRoot_AddID(fgRoot* self, const char* id, fgElement* element)
   if(i != kh_end(self->idmap) && kh_exist(self->idmap, i))  // the key already exists so we need to remove and replace the previous element
   {
     assert(i != kh_end(self->idmap));
+    fgLog("Replacing duplicate element ID: %s (%p -> %p)", id, kh_val(self->idmap, i), element);
     kh_del_fgIDHash(self->idhash, kh_get_fgIDHash(self->idhash, kh_val(self->idmap, i)));
   }
   else
@@ -736,12 +738,14 @@ void fgRegisterControl(const char* name, fgInitializer fn, size_t sz)
   khint_t i = kh_put_fgInitMap(fgroot_instance->initmap, const_cast<char*>(name), &r);
   if(r != 0)
     kh_key(fgroot_instance->initmap, i) = fgCopyText(name, __FILE__, __LINE__);
+  else
+    fgLog("Replacing duplicate control name: %s", name);
   kh_val(fgroot_instance->initmap, i).first = fn;
   kh_val(fgroot_instance->initmap, i).second = sz;
 }
 void fgIterateControls(void* p, void(*fn)(void*, const char*))
 {
-  for(khiter_t i = 0; i < fgroot_instance->initmap->n_buckets; ++i) // We do have to clear this one, though.
+  for(khiter_t i = 0; i < fgroot_instance->initmap->n_buckets; ++i)
     if(i != kh_end(fgroot_instance->initmap) && kh_exist(fgroot_instance->initmap, i))
       fn(p, kh_key(fgroot_instance->initmap, i));
 }
@@ -781,7 +785,10 @@ fgElement* fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgE
 
   khint_t i = kh_get_fgInitMap(fgroot_instance->initmap, const_cast<char*>(type));
   if(i == kh_end(fgroot_instance->initmap) || !kh_exist(fgroot_instance->initmap, i))
+  {
+    fgLog("Attempted to create nonexistant type: %s", type);
     return 0;
+  }
   INITPAIR& pair = kh_val(fgroot_instance->initmap, i);
 
   fgElement* r = reinterpret_cast<fgElement*>(fgmalloc<char>(pair.second, type, 0));
@@ -798,7 +805,10 @@ size_t fgGetTypeSize(const char* type)
 {
   khint_t i = kh_get_fgInitMap(fgroot_instance->initmap, const_cast<char*>(type));
   if(i == kh_end(fgroot_instance->initmap) || !kh_exist(fgroot_instance->initmap, i))
+  {
+    fgLog("Attempted to get size of nonexistant type: %s", type);
     return 0;
+  }
   return kh_val(fgroot_instance->initmap, i).second;
 }
 
@@ -854,4 +864,14 @@ void fgSendMessageAsync(fgElement* element, const FG_Msg* msg, unsigned int arg1
     MEMCPY(m->msg.p2, arg2size, msg->p2, arg2size);
   }
   q->lock.RUnlock();
+}
+
+int fgLog(const char* format, ...)
+{
+  assert(fgroot_instance != 0);
+  va_list args;
+  va_start(args, format);
+  int r = fgroot_instance->backend.fgLogHook(format, args);
+  va_end(args);
+  return r;
 }

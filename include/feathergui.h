@@ -18,7 +18,6 @@
 #ifndef __FEATHER_GUI_H__
 #define __FEATHER_GUI_H__
 
-#include <assert.h>
 #include <string.h> // memcpy,memset
 #include <stddef.h>
 #include "bss_compiler.h"
@@ -49,6 +48,16 @@ typedef void* fgFont;
 #endif
 #else
 #define FG_DLLEXPORT
+#endif
+
+#ifdef BSS_PLATFORM_WIN32 // Windows eats the abort signal sent by assertions inside a WinProc, making it impossible to cleanly kill the program
+#ifdef BSS_DEBUG
+#define assert(x) if(!(x)) { int* p = 0; *p = 0; } // So we have to do this bullshit instead
+#else
+#define assert(x) 
+#endif
+#else
+#include <assert.h>
 #endif
 
 // A unified coordinate specifies things in terms of absolute and relative positions.

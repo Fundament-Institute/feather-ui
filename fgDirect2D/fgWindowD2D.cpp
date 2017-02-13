@@ -2,10 +2,12 @@
 // For conditions of distribution and use, see copyright notice in "fgDirect2D.h"
 
 #include "fgDirect2D.h"
-#include "fgRoundRect.h"
 #include "bss-util/bss_win32_includes.h"
 #include <dwmapi.h>
 #include <d2d1_1.h>
+#include "fgRoundRect.h"
+#include "fgCircle.h"
+#include "fgTriangle.h"
 
 EXTERN_C IMAGE_DOS_HEADER __ImageBase;
 typedef HRESULT(STDAPICALLTYPE *DWMCOMPENABLE)(BOOL*);
@@ -169,7 +171,7 @@ void fgWindowD2D::WndRegister()
       dwmblurbehind = 0;
     }
   }
-   
+
   // Register window class
   WNDCLASSEX wcex = { sizeof(WNDCLASSEX) };
   wcex.style = CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
@@ -213,7 +215,7 @@ longptr_t __stdcall fgWindowD2D::WndProc(HWND__* hWnd, unsigned int message, siz
       VirtualFreeChild(self->window);
       return 1;
     case 0x02E0: //WM_DPICHANGED
-      //self->window->SetDPI(LOWORD(wParam), HIWORD(wParam));
+                 //self->window->SetDPI(LOWORD(wParam), HIWORD(wParam));
       return 0;
     case WM_MOUSEWHEEL:
     {
@@ -299,16 +301,15 @@ longptr_t __stdcall fgWindowD2D::WndProc(HWND__* hWnd, unsigned int message, siz
       self->SetMouse(MAKELPPOINTS(lParam), FG_MOUSEOFF, 0, 0, GetMessageTime());
       self->inside = false;
       break;
-    //case WM_WINDOWPOSCHANGING:
-    //{
-    //  WINDOWPOS* pos = (WINDOWPOS*)lParam;
-    //  CRect area = { pos->x, 0, pos->y, 0, pos->x + pos->cx, 0, pos->y + pos->cy, 0 };
-    //  fgSendSubMsg<FG_SETAREA, void*>(self->window, 1, &area);
-    //  break;
-    //}
+      //case WM_WINDOWPOSCHANGING:
+      //{
+      //  WINDOWPOS* pos = (WINDOWPOS*)lParam;
+      //  CRect area = { pos->x, 0, pos->y, 0, pos->x + pos->cx, 0, pos->y + pos->cy, 0 };
+      //  fgSendSubMsg<FG_SETAREA, void*>(self->window, 1, &area);
+      //  break;
+      //}
     }
   }
-
   return DefWindowProc(hWnd, message, wParam, lParam);
 }
 
@@ -324,14 +325,14 @@ void fgWindowD2D::WndCreate()
   AdjustWindowRect(&rsize, style, FALSE);
   int rwidth = rsize.right - rsize.left;
   int rheight = rsize.bottom - rsize.top;
-  
+
   handle = CreateWindowExW(WS_EX_COMPOSITED, L"fgDirect2D", L"", style, rsize.left, rsize.top, INT(rwidth), INT(rheight), NULL, NULL, (HINSTANCE)&__ImageBase, NULL);
   HDC hdc = GetDC(handle);
   UINT xdpi = (UINT)GetDeviceCaps(hdc, LOGPIXELSX);
   UINT ydpi = (UINT)GetDeviceCaps(hdc, LOGPIXELSY);
   dpi.x = xdpi;
   dpi.y = ydpi;
-  
+
   SetWindowLongPtrW(handle, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 
   //MARGINS margins = { -1,-1,-1,-1 };
@@ -363,7 +364,11 @@ void fgWindowD2D::CreateResources()
       hr = target->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &edgecolor);
       hr = target->QueryInterface<ID2D1DeviceContext>(&context);
       if(SUCCEEDED(hr))
+      {
         hr = context->CreateEffect(CLSID_fgRoundRect, &roundrect);
+        hr = context->CreateEffect(CLSID_fgCircle, &circle);
+        hr = context->CreateEffect(CLSID_fgTriangle, &triangle);
+      }
       hr = hr;
     }
   }
@@ -374,14 +379,14 @@ void fgWindowD2D::DiscardResources()
     color->Release();
   if(edgecolor)
     edgecolor->Release();
-  if(target)
-    target->Release();
   if(roundrect)
     roundrect->Release();
   if(triangle)
     triangle->Release();
   if(circle)
     circle->Release();
+  if(target)
+    target->Release();
   color = 0;
   edgecolor = 0;
   target = 0;
@@ -417,7 +422,7 @@ void fgWindowD2D::SetChar(int key, unsigned long time)
   if(root->GetKey(FG_KEY_SHIFT)) evt.sigkeys = evt.sigkeys | 1; //VK_SHIFT
   if(root->GetKey(FG_KEY_CONTROL)) evt.sigkeys = evt.sigkeys | 2; //VK_CONTROL
   if(root->GetKey(FG_KEY_MENU)) evt.sigkeys = evt.sigkeys | 4; //VK_MENU
-  //if(held) evt.sigkeys = evt.sigkeys|8;
+                                                               //if(held) evt.sigkeys = evt.sigkeys|8;
   fgRoot_Inject(root, &evt);
 }
 

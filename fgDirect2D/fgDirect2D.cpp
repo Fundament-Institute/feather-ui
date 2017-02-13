@@ -5,14 +5,15 @@
 #include "fgMonitor.h"
 #include "fgResource.h"
 #include "fgText.h"
-#include "fgRoundRect.h"
 #include "bss-util/bss_defines.h"
-#include "bss-util/bss_win32_includes.h"
-#include <d2d1_1.h>
+#include "util.h"
 #include <stdint.h>
 #include <wincodec.h>
 #include <dwrite_1.h>
 #include <malloc.h>
+#include "fgRoundRect.h"
+#include "fgCircle.h"
+#include "fgTriangle.h"
 
 #define GETEXDATA(data) assert(data->fgSZ == sizeof(fgDrawAuxDataEx)); if(data->fgSZ != sizeof(fgDrawAuxDataEx)) return; fgDrawAuxDataEx* exdata = (fgDrawAuxDataEx*)data;
 
@@ -57,12 +58,6 @@ fgWindowD2D* GetElementWindow(fgElement* cur)
 {
   while(cur && cur->destroy != (fgDestroy)fgWindowD2D_Destroy) cur = cur->parent;
   return (fgWindowD2D*)cur;
-}
-
-inline D2D1_COLOR_F ToD2Color(unsigned int color)
-{
-  fgColor c = { color };
-  return D2D1::ColorF((c.r << 16) | (c.g << 8) | c.b, c.a / 255.0f);
 }
 
 IDWriteTextLayout1* CreateD2DLayout(IDWriteTextFormat* format, const wchar_t* text, size_t len, const AbsRect* area)
@@ -296,40 +291,30 @@ void fgDrawAssetD2D(fgAsset asset, const CRect* uv, unsigned int color, unsigned
   D2D1_RECT_F rect = D2D1::RectF(area->left, area->top, area->right, area->bottom);
   exdata->window->color->SetColor(ToD2Color(color));
   exdata->window->edgecolor->SetColor(ToD2Color(edge));
+  ID2D1Effect* e = 0;
 
-  if((flags&FGRESOURCE_SHAPEMASK) == FGRESOURCE_RECT)
+  switch(flags&FGRESOURCE_SHAPEMASK)
   {
-    //exdata->window->context->DrawImage(exdata->window->roundrect, &D2D1::Point2F(rect.left, rect.top), &rect);
-    if(uvresolve.left == 0 && uvresolve.top == 0 && uvresolve.right == 0 && uvresolve.bottom == 0)
-    {
-      exdata->window->target->FillRectangle(rect, exdata->window->color);
-      rect.left += 0.5f;
-      rect.top += 0.5f;
-      rect.right -= 0.5f;
-      rect.bottom -= 0.5f;
-      exdata->window->target->DrawRectangle(rect, exdata->window->edgecolor, outline);
-    }
-    else
-    {
-      auto rrect = D2D1::RoundedRect(rect, uvresolve.left, uvresolve.top);
-      exdata->window->target->FillRoundedRectangle(rrect, exdata->window->color);
-      rrect.rect.left += 0.5f;
-      rrect.rect.top += 0.5f;
-      rrect.rect.right -= 0.5f;
-      rrect.rect.bottom -= 0.5f;
-      exdata->window->target->DrawRoundedRectangle(rrect, exdata->window->edgecolor, outline);
-    }
+    case FGRESOURCE_RECT:
+      e = exdata->window->roundrect;
+      break;
+    case FGRESOURCE_CIRCLE:
+      e = exdata->window->circle;
+      break;
+    case FGRESOURCE_TRIANGLE:
+      e = exdata->window->triangle;
+      break;
   }
-  else if((flags&FGRESOURCE_SHAPEMASK) == FGRESOURCE_CIRCLE)
+
+  if(e)
   {
-    D2D1_ELLIPSE ellipse = D2D1::Ellipse(D2D1::Point2F((rect.left + rect.right)*0.5f, (rect.top + rect.bottom)*0.5f), (rect.right - rect.left)*0.5f, (rect.bottom - rect.top)*0.5f);
-    exdata->window->target->FillEllipse(ellipse, exdata->window->color);
-    ellipse.radiusX -= 0.5f;
-    ellipse.radiusY -= 0.5f;
-    exdata->window->target->DrawEllipse(ellipse, exdata->window->edgecolor);
+    e->SetValue(0, D2D1::Vector4F(area->left, area->top, area->right, area->bottom));
+    e->SetValue(1, D2D1::Vector4F(uvresolve.left, uvresolve.top, uvresolve.right, uvresolve.bottom));
+    e->SetValue(2, color);
+    e->SetValue(3, edge);
+    e->SetValue(4, outline);
+    exdata->window->context->DrawImage(e, &D2D1::Point2F(rect.left, rect.top), &rect);
   }
-  else if((flags&FGRESOURCE_SHAPEMASK) == FGRESOURCE_TRIANGLE) {}
-  //  psRoundTri::DrawRoundTri(driver->library.ROUNDTRI, STATEBLOCK_LIBRARY::PREMULTIPLIED, rect, uvresolve, 0, psColor32(color), psColor32(edge), outline);
   else
     exdata->window->target->DrawBitmap(tex, rect, (color >> 24) / 255.0f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, uvresolve);
 
@@ -633,6 +618,7 @@ struct _FG_ROOT* fgInitialize()
     &fgBehaviorHookListener,
     &fgProcessMessagesD2D,
     &fgLoadExtensionDefault,
+    &fgLogHookDefault,
     &fgTerminateD2D,
   };
 
@@ -648,11 +634,19 @@ struct _FG_ROOT* fgInitialize()
   if(pGetPolicy && pSetPolicy && pGetPolicy(&dwFlags))
     pSetPolicy(dwFlags & ~EXCEPTION_SWALLOWING); // Turn off the filter 
 
-#ifdef BSS_DEBUG
-  HeapSetInformation(NULL, HeapEnableTerminationOnCorruption, NULL, 0);
-#endif
-  if(FAILED(CoInitialize(NULL)))
+  HRESULT hr = CoInitialize(NULL); // If this fails for some reason we can't even log an error
+  if(FAILED(hr))
     return 0;
+
+  if(FAILED(hr = CoInitializeSecurity(NULL, -1, NULL, NULL, RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_DYNAMIC_CLOAKING, NULL)))
+    return 0;
+  IGlobalOptions *pGlobalOptions;
+  hr = CoCreateInstance(CLSID_GlobalOptions, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pGlobalOptions));
+  if(SUCCEEDED(hr))
+  {
+    hr = pGlobalOptions->Set(COMGLB_EXCEPTION_HANDLING, COMGLB_EXCEPTION_DONOT_HANDLE);
+    pGlobalOptions->Release();
+  }
 
   AbsRect extent = { GetSystemMetrics(SM_XVIRTUALSCREEN), GetSystemMetrics(SM_YVIRTUALSCREEN), GetSystemMetrics(SM_CXVIRTUALSCREEN), GetSystemMetrics(SM_CYVIRTUALSCREEN) };
   extent.right += extent.left;
@@ -660,30 +654,52 @@ struct _FG_ROOT* fgInitialize()
 
   fgDirect2D* root = reinterpret_cast<fgDirect2D*>(calloc(1, sizeof(fgDirect2D)));
   fgDirect2D::instance = root;
+  HDC hdc = GetDC(NULL);
+  fgIntVec dpi = { GetDeviceCaps(hdc, LOGPIXELSX), GetDeviceCaps(hdc, LOGPIXELSY) };
+  fgRoot_Init(&root->root, &extent, &dpi, &BACKEND);
+
+  fgLog("Initializing fgDirect2D...");
+
+#ifdef BSS_DEBUG
+  HeapSetInformation(NULL, HeapEnableTerminationOnCorruption, NULL, 0);
+#endif
   
-  HRESULT hr = CoCreateInstance(CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER, IID_IWICImagingFactory, (LPVOID*)&root->wicfactory);
+  hr = CoCreateInstance(CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER, IID_IWICImagingFactory, (LPVOID*)&root->wicfactory);
   if(SUCCEEDED(hr))
     hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory1), reinterpret_cast<IUnknown**>(&root->writefactory));
+  else
+    fgLog("CoCreateInstance() failed with error: %i", hr);
+
   if(SUCCEEDED(hr))
     hr = D2D1CreateFactory<ID2D1Factory1>(D2D1_FACTORY_TYPE_SINGLE_THREADED, &root->factory);
+  else
+    fgLog("DWriteCreateFactory() failed with error: %i", hr);
+
   if(FAILED(hr))
   {
+    fgLog("D2D1CreateFactory() failed with error: %i", hr);
     if(root->wicfactory) root->wicfactory->Release();
     if(root->factory) root->factory->Release();
     if(root->writefactory) root->writefactory->Release();
+    fgRoot_Destroy(&root->root);
     free(root);
     return 0;
   }
 
-  hr = fgRoundRect::Register(root->factory);
-  hr = E_INVALIDARG;
+  if(FAILED(fgRoundRect::Register(root->factory)))
+    fgLog("Failed to register fgRoundRect", hr);
+  if(FAILED(fgCircle::Register(root->factory)))
+    fgLog("Failed to register fgCircle", hr);
+  if(FAILED(fgTriangle::Register(root->factory)))
+    fgLog("Failed to register fgTriangle", hr);
+
   fgWindowD2D::WndRegister(); // Register window class
 
   FLOAT dpix;
   FLOAT dpiy;
   root->factory->GetDesktopDpi(&dpix, &dpiy);
-  fgIntVec dpi = { dpix, dpiy };
-  fgRoot_Init(&root->root, &extent, &dpi, &BACKEND);
+  root->root.dpi.x = (int)dpix;
+  root->root.dpi.y = (int)dpiy;
   EnumDisplayMonitors(0, 0, SpawnMonitorsProc, (LPARAM)root);
 
   DWORD blinkrate = 0;
