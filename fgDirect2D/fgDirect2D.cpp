@@ -2,6 +2,7 @@
 // For conditions of distribution and use, see copyright notice in "fgDirect2D.h"
 
 #include "fgDirect2D.h"
+#include "fgWindowD2D.h"
 #include "fgMonitor.h"
 #include "fgResource.h"
 #include "fgText.h"
@@ -41,6 +42,7 @@ void fgTerminateD2D()
   PostQuitMessage(0);
   fgDirect2D* d2d = fgDirect2D::instance;
   assert(d2d);
+  fgContext_Destroy(&d2d->context);
   VirtualFreeChild(d2d->root.gui);
   if(d2d->factory)
     d2d->factory->Release();
@@ -116,16 +118,16 @@ void fgDrawFontD2D(void* font, const void* text, size_t len, float lineheight, f
 {
   GETEXDATA(data);
   IDWriteTextLayout1* layout = (IDWriteTextLayout1*)cache;
-  exdata->window->color->SetColor(ToD2Color(color));
+  exdata->context->color->SetColor(ToD2Color(color));
   
   if(!layout)
   { // We CANNOT input the string directly from the DLL for some unbelievably stupid reason. We must make a copy in this DLL and pass that to Direct2D.
     DYNARRAY(wchar_t, wtext, len);
     memcpy_s(wtext, len*sizeof(wchar_t), text, len * sizeof(wchar_t));
-    exdata->window->target->DrawTextW(wtext, len, (IDWriteTextFormat*)font, D2D1::RectF(area->left, area->top, area->right, area->bottom), exdata->window->color, (flags&FGELEMENT_NOCLIP) ? D2D1_DRAW_TEXT_OPTIONS_NONE : D2D1_DRAW_TEXT_OPTIONS_CLIP);
+    exdata->context->target->DrawTextW(wtext, len, (IDWriteTextFormat*)font, D2D1::RectF(area->left, area->top, area->right, area->bottom), exdata->context->color, (flags&FGELEMENT_NOCLIP) ? D2D1_DRAW_TEXT_OPTIONS_NONE : D2D1_DRAW_TEXT_OPTIONS_CLIP);
   }
   else
-    exdata->window->target->DrawTextLayout(D2D1::Point2F(area->left, area->top), layout, exdata->window->color, D2D1_DRAW_TEXT_OPTIONS_CLIP);
+    exdata->context->target->DrawTextLayout(D2D1::Point2F(area->left, area->top), layout, exdata->context->color, D2D1_DRAW_TEXT_OPTIONS_CLIP);
 }
 void* fgFontFormatD2D(void* font, const void* text, size_t len, float lineheight, float letterspacing, AbsRect* area, fgFlag flags, void* cache)
 {
@@ -243,7 +245,7 @@ fgAsset fgCloneAssetD2D(fgAsset asset, fgElement* src)
     return asset;
   }
   assert(window->window->destroy == (fgDestroy)fgWindowD2D_Destroy);
-  ID2D1HwndRenderTarget* target = window->target;
+  ID2D1HwndRenderTarget* target = window->context.target;
 
   IWICFormatConverter *conv = NULL;
   ID2D1Bitmap* bitmap = NULL;
@@ -260,13 +262,13 @@ void fgDestroyAssetD2D(fgAsset asset) { ((IUnknown*)asset)->Release(); }
 void fgDrawAssetD2D(fgAsset asset, const CRect* uv, unsigned int color, unsigned int edge, FABS outline, const AbsRect* area, FABS rotation, const AbsVec* center, fgFlag flags, const fgDrawAuxData* data)
 {
   GETEXDATA(data);
-  assert(exdata->window != 0);
-  assert(exdata->window->target != 0);
+  assert(exdata->context != 0);
+  assert(exdata->context->target != 0);
 
   D2D1_MATRIX_3X2_F world;
-  exdata->window->target->GetTransform(&world);
+  exdata->context->target->GetTransform(&world);
   if(rotation != 0) // WHY THE FUCK DOES THIS TAKE DEGREES?!
-    exdata->window->target->SetTransform(D2D1::Matrix3x2F::Rotation(rotation * 180.0f / PI, D2D1::Point2F(center->x, center->y))*world);
+    exdata->context->target->SetTransform(D2D1::Matrix3x2F::Rotation(rotation * 180.0f / PI, D2D1::Point2F(center->x, center->y))*world);
   
   ID2D1Bitmap* tex = 0;
   if(asset)
@@ -289,20 +291,20 @@ void fgDrawAssetD2D(fgAsset asset, const CRect* uv, unsigned int color, unsigned
 
   //psRectRotate rect(area->left, area->top, area->right, area->bottom, rotation, psVec(center->x - area->left, center->y - area->top));
   D2D1_RECT_F rect = D2D1::RectF(area->left, area->top, area->right, area->bottom);
-  exdata->window->color->SetColor(ToD2Color(color));
-  exdata->window->edgecolor->SetColor(ToD2Color(edge));
+  exdata->context->color->SetColor(ToD2Color(color));
+  exdata->context->edgecolor->SetColor(ToD2Color(edge));
   ID2D1Effect* e = 0;
 
   switch(flags&FGRESOURCE_SHAPEMASK)
   {
     case FGRESOURCE_RECT:
-      e = exdata->window->roundrect;
+      e = exdata->context->roundrect;
       break;
     case FGRESOURCE_CIRCLE:
-      e = exdata->window->circle;
+      e = exdata->context->circle;
       break;
     case FGRESOURCE_TRIANGLE:
-      e = exdata->window->triangle;
+      e = exdata->context->triangle;
       break;
   }
 
@@ -313,12 +315,12 @@ void fgDrawAssetD2D(fgAsset asset, const CRect* uv, unsigned int color, unsigned
     e->SetValue(2, color);
     e->SetValue(3, edge);
     e->SetValue(4, outline);
-    exdata->window->context->DrawImage(e, &D2D1::Point2F(rect.left, rect.top), &rect);
+    exdata->context->context->DrawImage(e, &D2D1::Point2F(rect.left, rect.top), &rect);
   }
   else
-    exdata->window->target->DrawBitmap(tex, rect, (color >> 24) / 255.0f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, uvresolve);
+    exdata->context->target->DrawBitmap(tex, rect, (color >> 24) / 255.0f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, uvresolve);
 
-  exdata->window->target->SetTransform(world);
+  exdata->context->target->SetTransform(world);
 }
 
 void fgAssetSizeD2D(fgAsset asset, const CRect* uv, AbsVec* dim, fgFlag flags)
@@ -337,51 +339,73 @@ void fgDrawLinesD2D(const AbsVec* p, size_t n, unsigned int color, const AbsVec*
 {
   GETEXDATA(data);
   D2D1_MATRIX_3X2_F world;
-  exdata->window->target->GetTransform(&world);
-  exdata->window->target->SetTransform(
+  exdata->context->target->GetTransform(&world);
+  exdata->context->target->SetTransform(
     D2D1::Matrix3x2F::Rotation(rotation * 180.0f / PI, D2D1::Point2F(center->x, center->y))*
     D2D1::Matrix3x2F::Scale(scale->x, scale->y)*
     world*
     D2D1::Matrix3x2F::Translation(translate->x + 0.5, translate->y + 0.5));
 
-  exdata->window->color->SetColor(ToD2Color(color));
+  exdata->context->color->SetColor(ToD2Color(color));
   for(size_t i = 1; i < n; ++i)
-    exdata->window->target->DrawLine(D2D1_POINT_2F{ p[i - 1].x, p[i - 1].y }, D2D1_POINT_2F{ p[i].x, p[i].y }, exdata->window->color, 1.0F, 0);
+    exdata->context->target->DrawLine(D2D1_POINT_2F{ p[i - 1].x, p[i - 1].y }, D2D1_POINT_2F{ p[i].x, p[i].y }, exdata->context->color, 1.0F, 0);
   //bss_util::Matrix<float, 4, 4>::AffineTransform_T(translate->x, translate->y, 0, rotation, center->x, center->y, m);
-  exdata->window->target->SetTransform(world);
+  exdata->context->target->SetTransform(world);
 }
 
 void fgPushClipRectD2D(const AbsRect* clip, const fgDrawAuxData* data)
 {
   GETEXDATA(data);
-  AbsRect cliprect = exdata->window->cliprect.top();
+  AbsRect cliprect = exdata->context->cliprect.top();
   cliprect = { bssmax(floor(clip->left), cliprect.left), bssmax(floor(clip->top), cliprect.top), bssmin(ceil(clip->right), cliprect.right), bssmin(ceil(clip->bottom), cliprect.bottom) };
-  exdata->window->cliprect.push(cliprect);
-  exdata->window->target->PushAxisAlignedClip(D2D1::RectF(cliprect.left, cliprect.top, cliprect.right, cliprect.bottom), D2D1_ANTIALIAS_MODE_ALIASED);
+  exdata->context->cliprect.push(cliprect);
+  exdata->context->target->PushAxisAlignedClip(D2D1::RectF(cliprect.left, cliprect.top, cliprect.right, cliprect.bottom), D2D1_ANTIALIAS_MODE_ALIASED);
 }
 
 AbsRect fgPeekClipRectD2D(const fgDrawAuxData* data)
 {
   if(data->fgSZ != sizeof(fgDrawAuxDataEx)) return AbsRect{ 0,0,0,0 };
   fgDrawAuxDataEx* exdata = (fgDrawAuxDataEx*)data;
-  return exdata->window->cliprect.top();
+  return exdata->context->cliprect.top();
 }
 
 void fgPopClipRectD2D(const fgDrawAuxData* data)
 {
   GETEXDATA(data);
-  exdata->window->cliprect.pop();
-  exdata->window->target->PopAxisAlignedClip();
-  assert(exdata->window->cliprect.size() > 0);
+  exdata->context->cliprect.pop();
+  exdata->context->target->PopAxisAlignedClip();
+  assert(exdata->context->cliprect.size() > 0);
 }
 
 void fgDirtyElementD2D(fgElement* e)
 {
+  static fgElement* lasttop = 0;
+
   if(e->flags&FGELEMENT_SILENT)
     return;
-  fgWindowD2D* window = GetElementWindow(e);
-  if(window)
-    InvalidateRect(window->handle, NULL, FALSE);
+  if(!fgDirect2D::instance->root.topmost && lasttop != 0)
+  {
+    SetWindowPos(fgDirect2D::instance->tophwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOSENDCHANGING);
+    lasttop = 0;
+    ReleaseCapture();
+  }
+  while(e && e->destroy != (fgDestroy)fgWindowD2D_Destroy && e != fgDirect2D::instance->root.topmost)
+    e = e->parent;
+  if(e != 0 && e == fgDirect2D::instance->root.topmost)
+  {
+    if(lasttop != e)
+    {
+      AbsRect out;
+      ResolveNoClipRect(e, &out);
+      fgScaleRectDPI(&out, 96, 96); // SetWindowPos will resize the direct2D background via the WndProc callback
+      SetWindowPos(fgDirect2D::instance->tophwnd, HWND_TOP, out.left, out.top, out.right - out.left, out.bottom - out.top, SWP_NOSENDCHANGING);
+      lasttop = e;
+      SetCapture(fgDirect2D::instance->tophwnd);
+    }
+    InvalidateRect(fgDirect2D::instance->tophwnd, NULL, FALSE);
+  }
+  else if(e)
+    InvalidateRect(((fgWindowD2D*)e)->handle, NULL, FALSE);
 }
 
 void fgSetCursorD2D(uint32_t type, void* custom)
@@ -572,6 +596,36 @@ char fgProcessMessagesD2D()
   return 1;
 }
 
+longptr_t __stdcall fgDirect2D::WndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam)
+{
+  fgDirect2D* self = reinterpret_cast<fgDirect2D*>(GetWindowLongPtrW(hWnd, GWLP_USERDATA));
+  if(self)
+  {
+    switch(message)
+    {
+    case WM_PAINT:
+      if(self->root.topmost != 0)
+      {
+        AbsRect area;
+        ResolveRect(self->root.topmost, &area);
+        self->context.Draw(self->tophwnd, self->root.topmost, &area);
+      }
+      return 0;
+    case WM_KILLFOCUS:
+      if(self->root.topmost != 0) // If we lose focus but topmost is not NULL, then we must have clicked somewhere else and we need to generate a MOUSEDOWN message
+      {
+        DWORD pts = GetMessagePos();
+        POINTS pos = MAKEPOINTS(pts);
+        self->context.SetMouse(&pos, FG_MOUSEDOWN, FG_MOUSELBUTTON, 0, GetMessageTime(), self->root.topmost);
+      }
+    }
+
+    if(self->root.topmost != 0)
+      return self->context.WndProc(hWnd, message, wParam, lParam, self->root.topmost);
+  }
+  return DefWindowProc(hWnd, message, wParam, lParam);
+}
+
 int64_t GetRegistryValueW(HKEY__* hKeyRoot, const wchar_t* szKey, const wchar_t* szValue, unsigned char* data, unsigned long sz)
 {
   HKEY__* hKey;
@@ -693,7 +747,18 @@ struct _FG_ROOT* fgInitialize()
   if(FAILED(fgTriangle::Register(root->factory)))
     fgLog("Failed to register fgTriangle", hr);
 
-  fgWindowD2D::WndRegister(); // Register window class
+  fgContext_Construct(&root->context);
+  fgContext::SetDWMCallbacks();
+  fgContext::WndRegister(fgWindowD2D::WndProc, L"fgWindowD2D"); // Register window class
+  fgContext::WndRegister(fgDirect2D::WndProc, L"fgDirectD2Dtopmost"); // Register topmost class
+
+  AbsRect empty = { 0 };
+  root->tophwnd = fgContext::WndCreate(empty, WS_EX_TOOLWINDOW, root, L"fgDirectD2Dtopmost", dpi);
+  ShowWindow(root->tophwnd, SW_SHOW);
+  UpdateWindow(root->tophwnd);
+  //SetWindowPos(root->topmost, HWND_TOP, INT(wleft), INT(wtop), INT(rwidth), INT(rheight), SWP_NOCOPYBITS | SWP_NOMOVE | SWP_NOACTIVATE);
+  SetCursor(LoadCursor(NULL, IDC_ARROW));
+  root->context.CreateResources(root->tophwnd);
 
   FLOAT dpix;
   FLOAT dpiy;

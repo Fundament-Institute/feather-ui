@@ -56,8 +56,7 @@ size_t fgDropdownBox_Message(fgBox* self, const FG_Msg* msg)
     if(parent->dropflag && !MsgHitElement(msg, *self))
     {
       self->scroll->SetFlag(FGELEMENT_HIDDEN, true);
-      if(fgroot_instance->topmost == *self)
-        fgroot_instance->topmost = 0;
+      fgClearTopmost(*self);
     }
     break;
   case FG_MOUSEUP:
@@ -77,8 +76,7 @@ size_t fgDropdownBox_Message(fgBox* self, const FG_Msg* msg)
       if(parent->dropflag)
       {
         self->scroll->SetFlag(FGELEMENT_HIDDEN, true);
-        if(fgroot_instance->topmost == *self)
-          fgroot_instance->topmost = 0;
+        fgClearTopmost(*self);
       }
     }
     if(!parent->dropflag)
@@ -120,7 +118,7 @@ size_t fgDropdown_Message(fgDropdown* self, const FG_Msg* msg)
   case FG_MOUSEDOWN:
     self->dropflag = 0;
     self->box->SetFlag(FGELEMENT_HIDDEN, false);
-    fgroot_instance->topmost = self->box;
+    fgSetTopmost(self->box);
     return (*self->box->message)(self->box, msg);
   case FG_DRAW:
     fgControl_Message(&self->control, msg); // Render things normally first

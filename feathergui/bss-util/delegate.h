@@ -95,7 +95,7 @@ namespace bss_util {
   template<typename R, typename... Args>
   BSS_FORCEINLINE DeferDelegate<R, Args...> defer(delegate<R, Args...> fn, Args&&... args) { return DeferDelegate<R, Args...>(fn, std::forward<Args>(args)...); }
   template<typename R, typename... Args>
-  BSS_FORCEINLINE DeferFunction<R, Args...> defer(R(*f)(Args...), Args&&... args) { return DeferFunction<R, Args...>(f, std::forward<Args>(args)...); }
+  BSS_FORCEINLINE DeferFunction<R, Args...> defer(R(MSC_FASTCALL *GCC_FASTCALL f)(Args...), Args&&... args) { return DeferFunction<R, Args...>(f, std::forward<Args>(args)...); }
 
 #else
   template<typename R = void, typename T1 = void, typename T2 = void, typename T3 = void, typename T4 = void, typename T5 = void>

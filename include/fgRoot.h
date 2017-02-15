@@ -87,6 +87,8 @@ FG_EXTERN char fgDrawSkin(fgElement* self, const struct _FG_SKIN* skin, const Ab
 FG_EXTERN fgElement* fgCreate(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
 FG_EXTERN int fgRegisterCursor(int cursor, const void* data, size_t sz);
 FG_EXTERN int fgRegisterFunction(const char* name, fgListener fn);
+FG_EXTERN fgElement* fgSetTopmost(fgElement* target);
+FG_EXTERN char fgClearTopmost(fgElement* target);
 FG_EXTERN void fgRegisterControl(const char* name, fgInitializer fn, size_t sz);
 FG_EXTERN void fgIterateControls(void* p, void(*fn)(void*, const char*));
 FG_EXTERN void fgSendMessageAsync(fgElement* element, const FG_Msg* msg, unsigned int arg1size, unsigned int arg2size);

@@ -52,7 +52,7 @@ typedef void* fgFont;
 
 #ifdef BSS_PLATFORM_WIN32 // Windows eats the abort signal sent by assertions inside a WinProc, making it impossible to cleanly kill the program
 #ifdef BSS_DEBUG
-#define assert(x) if(!(x)) { int* p = 0; *p = 0; } // So we have to do this bullshit instead
+#define assert(x) if(!(x)) { *((int*)0) = 0; } // So we have to do this bullshit instead
 #else
 #define assert(x) 
 #endif

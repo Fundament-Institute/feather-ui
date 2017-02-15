@@ -5,54 +5,18 @@
 #define __FG_WINDOW_D2D_H__
 
 #include "fgWindow.h"
+#include "fgContext.h"
 #include <stack>
-
-struct HWND__;
-struct tagRECT;
-struct tagPOINTS;
-struct ID2D1HwndRenderTarget;
-struct ID2D1SolidColorBrush;
-struct ID2D1Effect;
-struct ID2D1DeviceContext;
-
-#if defined(_WIN64)
-typedef long long longptr_t;
-#else
-typedef __w64 long longptr_t;
-#endif
 
 struct fgWindowD2D {
   fgWindow window;
+  fgContext context;
   HWND__* handle;
-  ID2D1HwndRenderTarget* target;
-  ID2D1DeviceContext* context;
-  ID2D1SolidColorBrush* color;
-  ID2D1SolidColorBrush* edgecolor;
-  ID2D1Effect* roundrect;
-  ID2D1Effect* triangle;
-  ID2D1Effect* circle;
   fgIntVec dpi;
-  std::stack<AbsRect> cliprect;
-  bool inside;
 
-  void WndCreate();
-  void CreateResources();
-  void DiscardResources();
-  size_t SetKey(uint8_t keycode, bool down, bool held, unsigned long time);
-  void SetChar(int key, unsigned long time);
-  void SetMouse(tagPOINTS* points, unsigned short type, unsigned char button, size_t wparam, unsigned long time);
-
-  static void WndRegister();
   static longptr_t __stdcall WndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam);
-
   static uint32_t wincount;
 };
-
-struct fgDrawAuxDataEx {
-  fgDrawAuxData data;
-  fgWindowD2D* window;
-};
-
 
 #ifdef  __cplusplus
 extern "C" {

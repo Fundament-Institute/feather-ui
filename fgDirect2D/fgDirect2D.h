@@ -18,19 +18,24 @@ limitations under the License.
 #define __FG_DIRECT2D_H__
 
 #include "fgRoot.h"
-#include "fgWindowD2D.h"
+#include "fgContext.h"
 
 struct ID2D1Factory1;
 struct IWICImagingFactory;
 struct IDWriteFactory1;
 struct IWICFormatConverter;
+struct fgWindowD2D;
 
 struct fgDirect2D
 {
   fgRoot root;
+  fgContext context;
   ID2D1Factory1* factory;
   IWICImagingFactory* wicfactory;
   IDWriteFactory1* writefactory;
+  HWND__* tophwnd;
+
+  static longptr_t __stdcall WndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam);
 
   static fgDirect2D* instance;
 };

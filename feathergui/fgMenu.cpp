@@ -165,9 +165,9 @@ size_t fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
     if(((self->box->flags ^ otherint) & FGELEMENT_HIDDEN) != 0)
     {
       if(!(otherint&FGELEMENT_HIDDEN) && self->box->parent != 0 && self->box->parent->GetClassName() != SUBMENU_NAME)
-        fgroot_instance->topmost = self->box;
-      else if(fgroot_instance->topmost == self->box)
-        fgroot_instance->topmost = 0;
+        fgSetTopmost(self->box);
+      else
+        fgClearTopmost(self->box);
     }
     break;
   case FG_MOUSEUP:

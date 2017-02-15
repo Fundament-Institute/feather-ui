@@ -10,6 +10,8 @@
 
 #define XML(x) TEXT(#x)
 
+int __cdecl TestHook1(int nReportType, char* szMsg, int* pnRet) { return -1; }
+
 fgEffectBase::fgEffectBase() : _ref(1), _drawInfo(0)
 { 
   assert(sizeof(_constants) == sizeof(float)*(4*4 + 1));
@@ -73,7 +75,7 @@ IFACEMETHODIMP fgEffectBase::QueryInterface(_In_ REFIID riid, _Outptr_ void** pp
 
 HRESULT fgEffectBase::SetRect(D2D_VECTOR_4F rect)
 {
-  _rect = D2D1::RectL(rect.x, rect.y, rect.z, rect.w);
+  _rect = D2D1::RectL(floor(rect.x), floor(rect.y), ceil(rect.z), ceil(rect.w));
   _constants.rect = rect;
   return S_OK;
 }

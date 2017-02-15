@@ -571,9 +571,22 @@ size_t fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
   return 0;
 }
 
-void fgTerminate(fgRoot* root)
+fgElement* fgSetTopmost(fgElement* target)
 {
-  VirtualFreeChild((fgElement*)root);
+  fgElement* prev = fgroot_instance->topmost;
+  fgroot_instance->topmost = target;
+  fgroot_instance->backend.fgDirtyElement(target);
+  return prev;
+}
+char fgClearTopmost(fgElement* target)
+{
+  if(fgroot_instance->topmost == target)
+  {
+    fgroot_instance->topmost = 0;
+    fgroot_instance->backend.fgDirtyElement(target);
+    return 1;
+  }
+  return 0;
 }
 
 void fgRoot_Update(fgRoot* self, double delta)
