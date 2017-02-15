@@ -65,7 +65,21 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
     }
     break;
   case FG_DRAW:
-    self->context.Draw(self->handle, self->window, (AbsRect*)msg->p);
+  {
+    fgDrawAuxDataEx exdata;
+    self->context.BeginDraw(self->handle, self->window, (AbsRect*)msg->p, exdata);
+    FG_Msg m = *msg;
+    m.p2 = &exdata;
+    fgWindow_Message(&self->window, &m);
+    /*fgElement* topmost = fgSingleton()->topmost;
+    if(topmost && GetElementWindow(topmost) == self) // Draw topmost before the drag object
+    {
+    AbsRect out;
+    ResolveRect(topmost, &out);
+    topmost->Draw(&out, &exdata.data);
+    }*/
+    self->context.EndDraw();
+  }
     return FG_ACCEPT;
   case FG_MOVE:
     if(self->handle && msg->subtype != (uint16_t)-1)

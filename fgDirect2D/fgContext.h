@@ -14,6 +14,7 @@ struct ID2D1HwndRenderTarget;
 struct ID2D1SolidColorBrush;
 struct ID2D1Effect;
 struct ID2D1DeviceContext;
+struct fgDrawAuxDataEx;
 
 #if defined(_WIN64)
 typedef long long longptr_t;
@@ -34,15 +35,18 @@ struct fgContext {
 
   void CreateResources(HWND__* handle);
   void DiscardResources();
-  void Draw(HWND__* handle, fgElement* element, const AbsRect* area);
+  void BeginDraw(HWND__* handle, fgElement* element, const AbsRect* area, fgDrawAuxDataEx& exdata);
+  void EndDraw();
   size_t SetKey(uint8_t keycode, bool down, bool held, unsigned long time);
   void SetChar(int key, unsigned long time);
-  void SetMouse(tagPOINTS* points, unsigned short type, unsigned char button, size_t wparam, unsigned long time, fgElement* src);
+  void SetMouse(tagPOINTS* points, unsigned short type, unsigned char button, size_t wparam, unsigned long time);
   longptr_t __stdcall WndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam, fgElement* src);
 
   static HWND__* WndCreate(const AbsRect& out, uint32_t exflags, void* self, const wchar_t* cls, fgIntVec& dpi);
   static void SetDWMCallbacks();
   static void WndRegister(longptr_t(__stdcall* f)(HWND__*, unsigned int, size_t, longptr_t), const wchar_t* name);
+  static tagPOINTS* AdjustPoints(tagPOINTS* points, fgElement* src);
+  static tagPOINTS* AdjustDPI(tagPOINTS* points, fgElement* src);
 
   static uint32_t wincount;
 };

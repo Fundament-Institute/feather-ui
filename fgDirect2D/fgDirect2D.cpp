@@ -608,16 +608,19 @@ longptr_t __stdcall fgDirect2D::WndProc(HWND__* hWnd, unsigned int message, size
       {
         AbsRect area;
         ResolveRect(self->root.topmost, &area);
-        self->context.Draw(self->tophwnd, self->root.topmost, &area);
+        fgDrawAuxDataEx exdata;
+        self->context.BeginDraw(self->tophwnd, self->root.topmost, &area, exdata);
+        self->root.topmost->Draw(&area, &exdata.data);
+        self->context.EndDraw();
       }
       return 0;
     case WM_KILLFOCUS:
       if(self->root.topmost != 0) // If we lose focus but topmost is not NULL, then we must have clicked somewhere else and we need to generate a MOUSEDOWN message
       {
         DWORD pts = GetMessagePos();
-        POINTS pos = MAKEPOINTS(pts);
-        self->context.SetMouse(&pos, FG_MOUSEDOWN, FG_MOUSELBUTTON, 0, GetMessageTime(), self->root.topmost);
+        self->context.SetMouse(fgContext::AdjustDPI(&MAKEPOINTS(pts), self->root.topmost), FG_MOUSEDOWN, FG_MOUSELBUTTON, 0, GetMessageTime());
       }
+      break;
     }
 
     if(self->root.topmost != 0)
