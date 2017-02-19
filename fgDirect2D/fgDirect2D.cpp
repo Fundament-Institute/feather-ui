@@ -571,6 +571,7 @@ void fgDragStartD2D(char type, void* data, fgElement* draw)
 
 char fgProcessMessagesD2D()
 {
+  fgProcessMessagesDefault();
   MSG msg;
 
   while(PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE))

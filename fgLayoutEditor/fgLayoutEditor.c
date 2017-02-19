@@ -3,21 +3,11 @@
 
 #include "fgLayoutEditor.h"
 
-fgLayoutEditor* LoadLayoutEditor(fgImplementation* dll)
+FG_EXTERN void fgLayoutEditor_Init(fgLayoutEditor* self)
 {
-  fgLayoutEditor* editor = malloc(sizeof(fgLayoutEditor));
-  memset(editor, 0, sizeof(fgLayoutEditor));
-  editor->dll = dll;
-  editor->root = dll->fgInitialize();
-  editor->window = dll->fgWindow_Create("FeatherGUI Layout Editor", 0, 0);
-  //editor->menu = dll->fgMenu_Create(editor->window);
-  dll->fgElement_Init(&editor->workspace, 0, editor->window, 0);
-
-  return editor;
+  memset(self, 0, sizeof(fgLayoutEditor));
 }
-void CloseLayoutEditor(fgLayoutEditor* editor)
+FG_EXTERN void fgLayoutEditor_Destroy(fgLayoutEditor* self)
 {
-  editor->dll->fgElement_Destroy(&editor->workspace);
-  editor->dll->fgTerminate(editor->root);
-  free(editor);
+  
 }

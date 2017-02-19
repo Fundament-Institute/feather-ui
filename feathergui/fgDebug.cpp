@@ -51,7 +51,6 @@ fgElement* fgDebug_GetTreeItem(fgElement* root, fgElement* target)
 void fgDebug_Destroy(fgDebug* self)
 {
   fgDebug_Hide();
-  self->depthelement = 0;
   fgDebug_ClearLog(self);
   ((bss_util::cDynArray<char*>&)self->messagestrings).~cDynArray();
   ((bss_util::cDynArray<fgDebugMessage>&)self->messagelog).~cDynArray();
@@ -80,10 +79,33 @@ static const char* PROPERTY_LIST[] = {
   "User Hash",
 };
 
+void fgDebug_DrawMessages(fgDebug* self, AbsRect* rect)
+{
+  _FG_FONT_DESC desc;
+  desc.lineheight = self->lineheight;
+  if(desc.lineheight == 0)
+    fgroot_instance->backend.fgFontGet(self->font, &desc);
+  FABS bottom = rect->bottom;
+  size_t i = self->messagelog.l;
+  while(bottom > rect->top && (i-- > 0))
+  {
+    ((bss_util::cDynArray<int>*)&self->text32)->Clear();
+    ((bss_util::cDynArray<wchar_t>*)&self->text16)->Clear();
+    ((bss_util::cDynArray<char>*)&self->text8)->Clear();
+    AbsRect txtarea = { rect->left, bottom - desc.lineheight, rect->right, bottom };
+    ((bss_util::cDynArray<char>*)&self->text8)->Reserve(fgDebug_WriteMessage(self->messagelog.p + i, 0, 0) + 1);
+    self->text8.l = fgDebug_WriteMessage(self->messagelog.p + i, self->text8.p, self->text8.s) + 1;
+    fgVector* v = fgText_Conversion(fgroot_instance->backend.BackendTextFormat, &self->text8, &self->text16, &self->text32);
+    fgroot_instance->backend.fgDrawFont(self->font, v->p, v->l, desc.lineheight, self->letterspacing, self->color.color, &txtarea, 0, &AbsVec_EMPTY, 0, 0, 0);
+
+    bottom = txtarea.top;
+  }
+}
 size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
 {
   assert(fgroot_instance != 0);
   assert(self != 0);
+  fgFlag otherint = (fgFlag)msg->u;
 
   switch(msg->type)
   {
@@ -97,7 +119,6 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
     const fgTransform tf_contents = { { 0,0,-200,1,200,0,0,1 }, 0,{ 0,0,0,0 } };
     fgTreeview_Init(&self->elements, *self, 0, "Debug$elements", 0, &tf_elements, 0);
     fgGrid_Init(&self->properties, *self, 0, "Debug$properties", FGELEMENT_HIDDEN, &tf_properties, 0);
-    fgTreeview_Init(&self->messages, *self, 0, "Debug$messages", 0, &tf_messages, 0);
     fgText_Init(&self->contents, *self, 0, "Debug$contents", FGELEMENT_HIDDEN, &tf_contents, 0);
     self->properties.InsertColumn("Name");
     self->properties.InsertColumn("Value");
@@ -112,7 +133,6 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
     self->context->AddItemText("Move");
     fgIterateControls(fgCreate("Submenu", self->context->AddItemText("Insert"), 0, 0, FGELEMENT_USEDEFAULTS, 0, 0), [](void* p, const char* s) { fgElement* e = (fgElement*)p; e->AddItemText(s); });
     self->elements->SetContextMenu(self->context);
-    self->depthelement = self->messages;
     self->behaviorhook = &fgBehaviorHookDefault;
   }
     return FG_ACCEPT;
@@ -141,6 +161,7 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
       fgroot_instance->backend.fgDrawAsset(0, &ZeroCRect, 0x666666FF, 0, 0.0f, &outer, 0, &ZeroAbsVec, FGRESOURCE_RECT, data);
       fgroot_instance->backend.fgDrawAsset(0, &ZeroCRect, 0x6666FFFF, 0, 0.0f, &clip, 0, &ZeroAbsVec, FGRESOURCE_RECT, data);
       fgroot_instance->backend.fgDrawAsset(0, &ZeroCRect, 0x6666FF66, 0, 0.0f, &inner, 0, &ZeroAbsVec, FGRESOURCE_RECT, data);
+
       /*if(self->font)
       {
         unsigned int pt, dpi;
@@ -164,6 +185,40 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
         txtarea.left = txtarea.right;
         fgroot_instance->backend.fgDrawFont(self->font, utf32buf, self->lineheight, self->letterspacing, self->color.color, &txtarea, 0, &AbsVec { 0,0 }, 0, 0);
       }*/
+    }
+    
+    {
+      AbsRect clip;
+      ResolveRect(self->elements, &clip);
+      fgDebug_DrawMessages(self, &clip);
+    }
+    break;
+  case FG_SETFLAG: // We need to perform extra logic on show/hide
+    otherint = T_SETBIT(self->element.flags, otherint, msg->u2);
+  case FG_SETFLAGS:
+    if((otherint^self->element.flags) & FGELEMENT_HIDDEN)
+    { // handle a layout flag change
+      size_t r = fgElement_Message(&self->element, msg);
+      if(otherint&FGELEMENT_HIDDEN)
+      {
+        fgroot_instance->backend.fgBehaviorHook = self->behaviorhook;
+        fgroot_instance->gui->SetPadding(self->oldpadding);
+        if(self->element.flags&FGDEBUG_CLEARONHIDE)
+          fgDebug_ClearLog(self);
+      }
+      else
+      {
+        self->elements->SetTransform(fgTransform{ { -300,1,0,0,0,1,0,1 }, 0,{ 0,0,0,0 } });
+        self->element.SetTransform(fgTransform_DEFAULT);
+        self->behaviorhook = fgroot_instance->backend.fgBehaviorHook;
+        fgDebug_BuildTree(self->elements);
+        self->oldpadding = fgroot_instance->gui->padding;
+        if(!(self->element.flags&FGDEBUG_OVERLAY))
+          fgroot_instance->gui->SetPadding(AbsRect{ self->oldpadding.left, self->oldpadding.top, self->oldpadding.right + 300, self->oldpadding.bottom });
+
+        fgroot_instance->backend.fgBehaviorHook = &fgRoot_BehaviorDebug;
+      }
+      return r;
     }
     break;
   case FG_SETFONT:
@@ -294,7 +349,6 @@ size_t fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
 {
   assert(fgdebug_instance != 0);
   assert(self != 0);
-  assert(fgdebug_instance->depthelement != 0);
   static const FG_Msg* msgbuffer = 0;
   static size_t depthbuffer = 0;
   static size_t* indexbuffer = 0;
@@ -359,7 +413,6 @@ size_t fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
   depthbuffer = fgdebug_instance->depth;
   size_t index = (size_t)-1;
   indexbuffer = &index;
-  fgElement* prev = fgdebug_instance->depthelement;
   ++fgdebug_instance->depth;
   size_t r = (*fgdebug_instance->behaviorhook)(self, msg);
   --fgdebug_instance->depth;
@@ -395,7 +448,6 @@ size_t fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
     msgbuffer = 0;
   }
 
-  fgdebug_instance->depthelement = prev;
   if(index < fgdebug_instance->messagelog.l)
     fgdebug_instance->messagelog.p[index].value = r;
 
@@ -435,35 +487,18 @@ FG_EXTERN void fgDebug_Show(float left, float right, char overlay)
 {
   assert(fgroot_instance != 0);
   if(!fgdebug_instance)
-  {
-    fgDebug_Init(fgmalloc<fgDebug>(1, __FILE__, __LINE__), *fgroot_instance, 0, 0, FGELEMENT_HIDDEN|FGELEMENT_BACKGROUND, &fgTransform_DEFAULT, 0);
-    fgdebug_instance->element.free = &fgfreeblank;
-  }
+    fgdebug_instance = reinterpret_cast<fgDebug*>(fgCreate("debug", *fgroot_instance, 0, 0, FGELEMENT_HIDDEN | FGELEMENT_BACKGROUND | (overlay ? FGDEBUG_OVERLAY : 0), &fgTransform_DEFAULT, 0));
+  assert(fgdebug_instance != 0);
   if(fgroot_instance->backend.fgBehaviorHook == &fgRoot_BehaviorDebug)
     return; // Prevent an infinite loop
 
-  assert(fgdebug_instance != 0);
-  fgdebug_instance->elements->SetTransform(fgTransform { { -right,1,0,0,0,1,0,1 }, 0, { 0,0,0,0 } });
-  fgdebug_instance->messages->SetTransform(fgTransform { { 0,0,0,0,left,0,0,1 }, 0, { 0,0,0,0 } });
-  fgdebug_instance->element.SetTransform(fgTransform_DEFAULT);
-  fgdebug_instance->behaviorhook = fgroot_instance->backend.fgBehaviorHook;
-  fgDebug_BuildTree(fgdebug_instance->elements);
-  fgdebug_instance->oldpadding = fgroot_instance->gui->padding;
-  if(!overlay)
-    fgroot_instance->gui->SetPadding(AbsRect { left, fgdebug_instance->oldpadding.top, right, fgdebug_instance->oldpadding.bottom });
-
   fgdebug_instance->element.SetFlag(FGELEMENT_HIDDEN, false);
-  fgroot_instance->backend.fgBehaviorHook = &fgRoot_BehaviorDebug;
 }
 FG_EXTERN void fgDebug_Hide()
 {
   assert(fgdebug_instance != 0);
   assert(fgdebug_instance != 0);
-  fgroot_instance->backend.fgBehaviorHook = fgdebug_instance->behaviorhook;
   fgdebug_instance->element.SetFlag(FGELEMENT_HIDDEN, true);
-  fgroot_instance->gui->SetPadding(fgdebug_instance->oldpadding);
-  if(fgdebug_instance->element.flags&FGDEBUG_CLEARONHIDE)
-    fgDebug_ClearLog(fgdebug_instance);
 }
 
 size_t fgDebug_LogMessage(fgDebug* self, const FG_Msg* msg, unsigned long long time, size_t depth)
@@ -589,19 +624,6 @@ size_t fgDebug_LogMessage(fgDebug* self, const FG_Msg* msg, unsigned long long t
     m.keys.sigkeys = msg->sigkeys;
     break;
   }
-
-  if(msg->type != FG_INJECT && msg->type != FG_MOUSEMOVE)
-  {
-    assert(self->depthelement != 0);
-    fgElement* elem = fgroot_instance->backend.fgCreate("TreeItem", self->depthelement, 0, 0, FGELEMENT_EXPAND, 0, 0);
-    fgElement* text = fgroot_instance->backend.fgCreate("Text", elem, 0, 0, FGELEMENT_EXPAND, 0, 0);
-    text->SetText(fgDebug_GetMessageString(msg->type));
-
-    AbsRect r;
-    ResolveRect(text, &r);
-    _sendsubmsg<FG_ACTION, void*>(self->messages, FGSCROLLBAR_SCROLLTOABS, &r);
-    self->depthelement = elem;
-  }
   self->ignore -= 1;
 
   return ((bss_util::cDynArray<fgDebugMessage>&)self->messagelog).Add(m);
@@ -621,6 +643,8 @@ const char* fgDebug_GetMessageString(unsigned short msg)
   switch(msg)
   {
   case FG_CONSTRUCT: return "FG_CONSTRUCT";
+  case FG_DESTROY: return "FG_DESTROY"; 
+  case FG_CLONE: return "FG_CLONE";
   case FG_GETSTYLE: return "FG_GETSTYLE";
   case FG_GETDPI: return "FG_GETDPI";
   case FG_GETCLASSNAME: return "FG_GETCLASSNAME";
@@ -704,8 +728,8 @@ const char* fgDebug_GetMessageString(unsigned short msg)
   return "UNKNOWN MESSAGE";
 }
 
-template<typename... Args>
-ptrdiff_t fgDebug_WriteMessageFn(fgDebugMessage* msg, int(*fn) (Args..., char const* const, ...), Args... args)
+template<typename F, typename... Args>
+ptrdiff_t fgDebug_WriteMessageFn(fgDebugMessage* msg, F fn, Args... args)
 {
   int spaces = (int)(msg->depth * 2);
 
@@ -713,6 +737,10 @@ ptrdiff_t fgDebug_WriteMessageFn(fgDebugMessage* msg, int(*fn) (Args..., char co
   {
   case FG_CONSTRUCT:
     return (*fn)(args..., "%*sFG_CONSTRUCT()", spaces, "");
+  case FG_DESTROY:
+    return (*fn)(args..., "%*sFG_DESTROY()", spaces, "");
+  case FG_CLONE:
+    return (*fn)(args..., "%*sFG_CLONE()", spaces, "");
   case FG_GETSTYLE:
     return (*fn)(args..., "%*sFG_GETSTYLE() - %p", spaces, "", msg->valuep);
   case FG_GETDPI:
@@ -882,14 +910,14 @@ ptrdiff_t fgDebug_WriteMessageFn(fgDebugMessage* msg, int(*fn) (Args..., char co
 
 ptrdiff_t fgDebug_WriteMessage(fgDebugMessage* msg, char* buf, size_t bufsize)
 {
-  return fgDebug_WriteMessageFn<char* const, size_t>(msg, &snprintf, buf, bufsize);
+  return fgDebug_WriteMessageFn<int(*)(char* const, size_t, char const* const, ...), char* const, size_t>(msg, &snprintf, buf, bufsize);
 }
 
-void fgDebug_DumpMessages(fgDebug* self, const char* file)
+void fgDebug_DumpMessages(const char* file)
 {
   FILE* f;
   FOPEN(f, file, "wb");
-  for(size_t i = 0; i < self->messagelog.l; ++i)
-    fgDebug_WriteMessageFn<FILE*>(self->messagelog.p + i, &fprintf, f);
+  for(size_t i = 0; i < fgdebug_instance->messagelog.l; ++i)
+    fgDebug_WriteMessageFn<int(*)(FILE*, char const* const, ...), FILE*>(fgdebug_instance->messagelog.p + i, &fprintf, f);
   fclose(f);
 }

@@ -221,7 +221,7 @@ int main(int argc, char** argv)
     printf("\nThe following tests failed: \n");
     for (i = 0; i < nfail; i++)
       printf("  %s\n", tests[failures[i]].NAME);
-    printf("\nThese failures indicate either a misconfiguration on your system, or a potential bug. Please report all bugs to http://code.google.com/p/feathergui/issues/list\n\nA detailed list of failed tests was written to failedtests.txt\n");
+    printf("\nThese failures indicate either a misconfiguration on your system, or a potential bug.\n\nA detailed list of failed tests was written to failedtests.txt\n");
   }
 
   //fgUnloadBackend();

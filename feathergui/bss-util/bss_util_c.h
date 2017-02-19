@@ -57,7 +57,7 @@ BSS_COMPILER_DLLEXPORT extern wchar_t* wcstok_r(wchar_t* s, const wchar_t* delim
 
 // templatized implementation of itoa_r so it can work with stack allocated arrays
 template<int SZ>
-BSS_FORCEINLINE int BSS_FASTCALL _itoa_r(int value, char (&buffer)[SZ], unsigned int radix) { return itoa_r(value,buffer,SZ,radix); }
+BSS_FORCEINLINE int _itoa_r(int value, char (&buffer)[SZ], unsigned int radix) { return itoa_r(value,buffer,SZ,radix); }
 #endif
 
 #endif

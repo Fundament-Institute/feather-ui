@@ -19,7 +19,7 @@ namespace bss_util {
 
   // Does a full insert, calling LLInsertAssign and LLInsert
   template<typename T>
-  inline void BSS_FASTCALL LLInsert(T* node, T* target, T*& root) noexcept
+  inline void LLInsert(T* node, T* target, T*& root) noexcept
   {
 		node->prev = target->prev;
 		node->next = target;
@@ -30,7 +30,7 @@ namespace bss_util {
 
   // Does a full insert, calling LLInsertAssign and LLInsert, but doesn't re-assign root
   template<typename T>
-  inline void BSS_FASTCALL LLInsert(T* node, T* target) noexcept
+  inline void LLInsert(T* node, T* target) noexcept
   {
 		node->prev = target->prev;
 		node->next = target;
@@ -40,7 +40,7 @@ namespace bss_util {
   
   // Does a full insert before the root
   template<typename T>
-  inline void BSS_FASTCALL LLAdd(T* node, T*& root) noexcept
+  inline void LLAdd(T* node, T*& root) noexcept
   {
     node->prev=0;
     node->next=root;
@@ -49,7 +49,7 @@ namespace bss_util {
   }
   
   template<typename T>
-  inline void BSS_FASTCALL LLAdd(T* node, T*& root, T*& last) noexcept
+  inline void LLAdd(T* node, T*& root, T*& last) noexcept
   {
     node->prev=0;
     node->next=root;
@@ -60,7 +60,7 @@ namespace bss_util {
 
   // Does a full insert, calling LLInsertAssign and LLInsert
   template<typename T>
-  inline void BSS_FASTCALL LLInsertAfter(T* node, T* target, T*& last) noexcept
+  inline void LLInsertAfter(T* node, T* target, T*& last) noexcept
   {
 		node->next = target->next;
 		node->prev = target;
@@ -71,7 +71,7 @@ namespace bss_util {
 
   // Does a full insert, calling LLInsertAssign and LLInsert, but doesn't re-assign last
   template<typename T>
-  inline void BSS_FASTCALL LLInsertAfter(T* node, T* target) noexcept
+  inline void LLInsertAfter(T* node, T* target) noexcept
   {
 		node->next = target->next;
 		node->prev = target;
@@ -81,7 +81,7 @@ namespace bss_util {
 
   // Used in the form last = LLAddAfter(node,last); where last must be the last element of a linked list, defined by last->next = 0.
   template<typename T>
-  inline T* BSS_FASTCALL LLAddAfter(T* node, T* last) noexcept
+  inline T* LLAddAfter(T* node, T* last) noexcept
   {
 		node->next = 0;
 		node->prev = last;
@@ -90,7 +90,7 @@ namespace bss_util {
   }
 
   template<typename T>
-  inline void BSS_FASTCALL LLAddAfter(T* node, T*& root, T*& last) noexcept
+  inline void LLAddAfter(T* node, T*& root, T*& last) noexcept
   {
     node->next = 0;
     node->prev = last;
@@ -101,7 +101,7 @@ namespace bss_util {
 
   // Removes a node from a list, re-assigning root and last as necessary. Does not zero values on node
   template<typename T>
-  inline void BSS_FASTCALL LLRemove(T* node, T*& root, T*& last) noexcept
+  inline void LLRemove(T* node, T*& root, T*& last) noexcept
   {
 		if(node->prev != 0) node->prev->next = node->next;
 		else if(root == node) root = node->next;
@@ -111,7 +111,7 @@ namespace bss_util {
 
   // Removes a node from a list, re-assigning root as necessary. Does not zero values on node
   template<typename T>
-  inline void BSS_FASTCALL LLRemove(T* node, T*& root) noexcept
+  inline void LLRemove(T* node, T*& root) noexcept
   {
 		if(node->prev != 0) node->prev->next = node->next;
 		else if(root == node) root = node->next;
@@ -120,7 +120,7 @@ namespace bss_util {
 
   // Removes a node from a list. Does not zero values on node
   template<typename T>
-  inline void BSS_FASTCALL LLRemove(T* node) noexcept
+  inline void LLRemove(T* node) noexcept
   {
 		if(node->prev != 0) node->prev->next = node->next;
 		if(node->next != 0) node->next->prev = node->prev;
@@ -128,7 +128,7 @@ namespace bss_util {
 
   // Reimplementations of LLAdd and LLRemove generalized to any data structure instead of requiring it to be inherited.
   template<typename T, LLBase<T>& (*GETNODES)(T* n)>
-  BSS_FORCEINLINE void BSS_FASTCALL AltLLAdd(T* node, T*& root) noexcept
+  BSS_FORCEINLINE void AltLLAdd(T* node, T*& root) noexcept
   {
     GETNODES(node).prev=0;
     GETNODES(node).next=root;
@@ -136,7 +136,7 @@ namespace bss_util {
     root=node;
   }
   template<typename T, LLBase<T>& (*GETNODES)(T* n)>
-  inline void BSS_FASTCALL AltLLRemove(T* node, T*& root) noexcept
+  inline void AltLLRemove(T* node, T*& root) noexcept
   {
 		if(GETNODES(node).prev != 0) GETNODES(GETNODES(node).prev).next = GETNODES(node).next;
 		else if(root == node) root = static_cast<T*>(GETNODES(node).next);

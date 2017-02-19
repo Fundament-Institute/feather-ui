@@ -262,7 +262,7 @@ inline char fgDrawSkinElement(fgElement* self, fgSkinLayout& child, const AbsRec
   fgElement* element = child.instance;
   if(self->skinstyle != 0)
   {
-    element = (fgElement*)alloca(child.instance->Clone());
+    element = (fgElement*)ALLOCA(child.instance->Clone());
     child.instance->Clone(element);
     element->free = 0;
     element->flags |= FGELEMENT_SILENT;

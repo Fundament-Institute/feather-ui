@@ -220,6 +220,12 @@ void fgUpdateMouseState(fgMouseState* state, const FG_Msg* msg)
     state->state &= ~FGMOUSE_DRAG;
     state->state &= ~FGMOUSE_INSIDE;
     break;
+  case FG_MOUSEDBLCLICK:
+  case FG_MOUSEON:
+    break;
+  case FG_MOUSESCROLL:
+    state->x = msg->x;
+    state->y = msg->y;
   default:
     return;
   }

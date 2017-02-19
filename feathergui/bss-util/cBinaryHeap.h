@@ -11,7 +11,7 @@
 
 namespace bss_util {
   template<class T, typename CT_>
-  struct MFUNC_DEFAULT { BSS_FORCEINLINE static void BSS_FASTCALL MFunc(const T&, CT_, MFUNC_DEFAULT*) {} };
+  struct MFUNC_DEFAULT { BSS_FORCEINLINE static void MFunc(const T&, CT_, MFUNC_DEFAULT*) {} };
 
   // This is a binary max-heap implemented using an array. Use CompTInv to change it into a min-heap, or to make it use pairs.
   template<class T, typename CT_=uint32_t, char(*CFunc)(const T&, const T&)=CompT<T>, ARRAY_TYPE ArrayType = CARRAY_SIMPLE, typename Alloc=StaticAllocPolicy<T>, class MFUNC = MFUNC_DEFAULT<T, CT_>>

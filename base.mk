@@ -28,5 +28,5 @@ $(BUILDDIR)/$(TARGET): $(OBJS)
 clean: distclean
 	@- $(RM) $(BUILDDIR)/$(TARGET)
 
-debug: CPPFLAGS += -g
+debug: CPPFLAGS += -ggdb -fvar-tracking-assignments
 debug: all

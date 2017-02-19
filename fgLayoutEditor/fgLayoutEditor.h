@@ -4,7 +4,7 @@
 #ifndef __FG_LAYOUT_EDITOR_H__
 #define __FG_LAYOUT_EDITOR_H__
 
-#include "../include/fgImplementation.h"
+#include "fgAll.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -19,21 +19,19 @@ typedef struct FG_LAYOUT_ACTION
 
 typedef struct FG_LAYOUT_EDITOR
 {
-  fgImplementation* dll;
-  fgRoot* root;
   fgWindow* window;
   fgMenu* menu;
   fgList* toolbar;
-  //fgTreeview* view;
-  //fgGrid* properties;
-  fgElement workspace;
+  fgTreeview* view;
+  fgGrid* properties;
+  fgElement* workspace;
   fgElement* selected;
   fgLayoutAction* undo;
   fgLayoutAction* redo;
 } fgLayoutEditor;
 
-extern fgLayoutEditor* LoadLayoutEditor(fgImplementation* dll);
-extern void CloseLayoutEditor(fgLayoutEditor* editor);
+FG_EXTERN void fgLayoutEditor_Init(fgLayoutEditor* self);
+FG_EXTERN void fgLayoutEditor_Destroy(fgLayoutEditor* self);
 
 #ifdef  __cplusplus
 }

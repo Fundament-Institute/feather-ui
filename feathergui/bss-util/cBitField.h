@@ -40,8 +40,8 @@ namespace bss_util
     // Initializes the bitfield with the given flag values, if any
     inline explicit cBitField(T init=0) : _bits(init) {}
     // Sets the entire bitfield to the given value
-    BSS_FORCEINLINE void BSS_FASTCALL Set(T bits) { _bits=bits; }
-    BSS_FORCEINLINE void BSS_FASTCALL Set(T bits, T mask) { _bits^=(bits^(_bits&mask)); }
+    BSS_FORCEINLINE void Set(T bits) { _bits=bits; }
+    BSS_FORCEINLINE void Set(T bits, T mask) { _bits^=(bits^(_bits&mask)); }
     // Gets the entire bitfield
     BSS_FORCEINLINE T Get() const { return _bits; }
     BSS_FORCEINLINE bool Get(T bit) const { return (_bits&bit)!=0; }

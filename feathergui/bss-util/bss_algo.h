@@ -23,7 +23,7 @@ namespace bss_util {
   template<typename T, typename D, typename CT_, char(*CEQ)(const char&, const char&), char CVAL, typename... Args>
   struct binsearch_aux_t {
     template<char(*CFunc)(const D&, const T&, Args...)>
-    inline static CT_ BSS_FASTCALL binsearch_near(const T* arr, const D& data, CT_ first, CT_ last, Args... args)
+    inline static CT_ binsearch_near(const T* arr, const D& data, CT_ first, CT_ last, Args... args)
     {
       typename std::make_signed<CT_>::type c = last - first; // Must be a signed version of whatever CT_ is
       CT_ c2; //No possible operation can make this negative so we leave it as possibly unsigned.
@@ -48,31 +48,31 @@ namespace bss_util {
 
   // Performs a binary search on "arr" between first and last. if CEQ=NEQ and char CVAL=-1, uses an upper bound, otherwise uses lower bound.
   template<typename T, typename D, typename CT_, char(*CFunc)(const D&, const T&), char(*CEQ)(const char&, const char&), char CVAL>
-  BSS_FORCEINLINE static CT_ BSS_FASTCALL binsearch_near(const T* arr, const D& data, CT_ first, CT_ last) { return binsearch_aux_t<T, D, CT_, CEQ, CVAL>::template binsearch_near<CFunc>(arr, data, first, last); }
+  BSS_FORCEINLINE static CT_ binsearch_near(const T* arr, const D& data, CT_ first, CT_ last) { return binsearch_aux_t<T, D, CT_, CEQ, CVAL>::template binsearch_near<CFunc>(arr, data, first, last); }
 
   // Either gets the element that matches the value in question or one immediately before the closest match. Could return an invalid -1 value.
   template<typename T, typename CT_, char(*CFunc)(const T&, const T&)>
-  BSS_FORCEINLINE static CT_ BSS_FASTCALL binsearch_before(const T* arr, const T& data, CT_ first, CT_ last) { return binsearch_near<T, T, CT_, CFunc, CompT_NEQ<char>, -1>(arr, data, first, last) - 1; }
+  BSS_FORCEINLINE static CT_ binsearch_before(const T* arr, const T& data, CT_ first, CT_ last) { return binsearch_near<T, T, CT_, CFunc, CompT_NEQ<char>, -1>(arr, data, first, last) - 1; }
 
   template<typename T, typename CT_, char(*CFunc)(const T&, const T&)>
-  BSS_FORCEINLINE static CT_ BSS_FASTCALL binsearch_before(const T* arr, CT_ length, const T& data) { return binsearch_near<T, T, CT_, CFunc, CompT_NEQ<char>, -1>(arr, data, 0, length) - 1; }
+  BSS_FORCEINLINE static CT_ binsearch_before(const T* arr, CT_ length, const T& data) { return binsearch_near<T, T, CT_, CFunc, CompT_NEQ<char>, -1>(arr, data, 0, length) - 1; }
 
   template<typename T, typename CT_, char(*CFunc)(const T&, const T&), CT_ I>
-  BSS_FORCEINLINE static CT_ BSS_FASTCALL binsearch_before(const T(&arr)[I], const T& data) { return binsearch_before<T, CT_, CFunc>(arr, I, data); }
+  BSS_FORCEINLINE static CT_ binsearch_before(const T(&arr)[I], const T& data) { return binsearch_before<T, CT_, CFunc>(arr, I, data); }
 
   // Either gets the element that matches the value in question or one immediately after the closest match.
   template<typename T, typename CT_, char(*CFunc)(const T&, const T&)>
-  BSS_FORCEINLINE static CT_ BSS_FASTCALL binsearch_after(const T* arr, const T& data, CT_ first, CT_ last) { return binsearch_near<T, T, CT_, CFunc, CompT_EQ<char>, 1>(arr, data, first, last); }
+  BSS_FORCEINLINE static CT_ binsearch_after(const T* arr, const T& data, CT_ first, CT_ last) { return binsearch_near<T, T, CT_, CFunc, CompT_EQ<char>, 1>(arr, data, first, last); }
 
   template<typename T, typename CT_, char(*CFunc)(const T&, const T&)>
-  BSS_FORCEINLINE static CT_ BSS_FASTCALL binsearch_after(const T* arr, CT_ length, const T& data) { return binsearch_near<T, T, CT_, CFunc, CompT_EQ<char>, 1>(arr, data, 0, length); }
+  BSS_FORCEINLINE static CT_ binsearch_after(const T* arr, CT_ length, const T& data) { return binsearch_near<T, T, CT_, CFunc, CompT_EQ<char>, 1>(arr, data, 0, length); }
 
   template<typename T, typename CT_, char(*CFunc)(const T&, const T&), CT_ I>
-  BSS_FORCEINLINE static CT_ BSS_FASTCALL binsearch_after(const T(&arr)[I], const T& data) { return binsearch_after<T, CT_, CFunc>(arr, I, data); }
+  BSS_FORCEINLINE static CT_ binsearch_after(const T(&arr)[I], const T& data) { return binsearch_after<T, CT_, CFunc>(arr, I, data); }
 
   // Returns index of the item, if it exists, or -1
   template<typename T, typename D, typename CT_, char(*CFunc)(const T&, const D&)>
-  inline static CT_ BSS_FASTCALL binsearch_exact(const T* arr, const D& data, typename std::make_signed<CT_>::type f, typename std::make_signed<CT_>::type l)
+  inline static CT_ binsearch_exact(const T* arr, const D& data, typename std::make_signed<CT_>::type f, typename std::make_signed<CT_>::type l)
   {
     --l; // Done so l can be an exclusive size parameter even though the algorithm is inclusive.
     CT_ m; // While f and l must be signed ints or the algorithm breaks, m does not.
@@ -92,7 +92,7 @@ namespace bss_util {
   }
 
   template<typename T, typename CT_, char(*CFunc)(const T&, const T&), CT_ I>
-  BSS_FORCEINLINE static CT_ BSS_FASTCALL binsearch_exact(const T(&arr)[I], const T& data) { return binsearch_exact<T, T, CT_, CFunc>(arr, data, 0, I); }
+  BSS_FORCEINLINE static CT_ binsearch_exact(const T(&arr)[I], const T& data) { return binsearch_exact<T, T, CT_, CFunc>(arr, data, 0, I); }
 
   // Implementation of an xorshift64star generator. x serves as the generator state, which should initially be set to the RNG seed.
   uint64_t static xorshift64star(uint64_t& x)
@@ -237,23 +237,23 @@ namespace bss_util {
 
   // Shuffler using Fisher-Yates/Knuth Shuffle algorithm based on Durstenfeld's implementation.
   template<typename T, typename CT, typename ENGINE>
-  inline static void BSS_FASTCALL shuffle(T* p, CT size, ENGINE& e)
+  inline static void shuffle(T* p, CT size, ENGINE& e)
   {
     for(CT i = size; i > 0; --i)
       rswap<T>(p[i - 1], p[bssrand<CT, ENGINE>(0, i, e)]);
   }
   template<typename T, typename CT, typename ENGINE, CT size>
-  inline static void BSS_FASTCALL shuffle(T(&p)[size], ENGINE& e) { shuffle<T, CT, ENGINE>(p, size, e); }
+  inline static void shuffle(T(&p)[size], ENGINE& e) { shuffle<T, CT, ENGINE>(p, size, e); }
 
   /* Shuffler using default random number generator.*/
   template<typename T>
-  BSS_FORCEINLINE static void BSS_FASTCALL shuffle(T* p, int size)
+  BSS_FORCEINLINE static void shuffle(T* p, int size)
   {
     xorshift_engine<uint64_t> e;
     shuffle<T, int, xorshift_engine<uint64_t>>(p, size, e);
   }
   template<typename T, int size>
-  BSS_FORCEINLINE static void BSS_FASTCALL shuffle(T(&p)[size]) { shuffle<T>(p, size); }
+  BSS_FORCEINLINE static void shuffle(T(&p)[size]) { shuffle<T>(p, size); }
 
   template<class F, typename T, size_t SIZE>
   BSS_FORCEINLINE static void transform(T(&t)[SIZE], T(&result)[SIZE], F func) { std::transform(std::begin(t), std::end(t), result, func); }
@@ -386,7 +386,7 @@ namespace bss_util {
   }
 
   template<typename T>
-  BSS_FORCEINLINE static size_t BSS_FASTCALL _PDS_imageToGrid(const std::array<T, 2>& pt, T cell, size_t gw, T(&rect)[4])
+  BSS_FORCEINLINE static size_t _PDS_imageToGrid(const std::array<T, 2>& pt, T cell, size_t gw, T(&rect)[4])
   {
     return (size_t)((pt[0] - rect[0]) / cell) + gw*(size_t)((pt[1] - rect[1]) / cell) + 2 + gw + gw;
   }
@@ -463,7 +463,7 @@ namespace bss_util {
 
   // Implementation of a uniform quadratic B-spline interpolation
   template<typename T, typename D>
-  inline static T BSS_FASTCALL UniformQuadraticBSpline(D t, const T& p1, const T& p2, const T& p3)
+  inline static T UniformQuadraticBSpline(D t, const T& p1, const T& p2, const T& p3)
   {
     D t2 = t*t;
     return (p1*(1 - 2 * t + t2) + p2*(1 + 2 * t - 2 * t2) + p3*t2) / ((D)2.0);
@@ -475,7 +475,7 @@ namespace bss_util {
   //                | -3  0  3  0 |         | p3 |
   //                \  1  4  1  0 /         \ p4 /
   template<typename T, typename D>
-  inline static T BSS_FASTCALL UniformCubicBSpline(D t, const T& p1, const T& p2, const T& p3, const T& p4)
+  inline static T UniformCubicBSpline(D t, const T& p1, const T& p2, const T& p3, const T& p4)
   {
     D t2 = t*t;
     D t3 = t2*t;
@@ -488,7 +488,7 @@ namespace bss_util {
   //                | -1  0  1  0 |       | p3 |
   //                \  0  2  0  0 /       \ p4 /
   template<typename T, typename D>
-  inline static T BSS_FASTCALL CubicBSpline(D t, const T& p1, const T& p2, const T& p3, const T& p4)
+  inline static T CubicBSpline(D t, const T& p1, const T& p2, const T& p3, const T& p4)
   {
     D t2 = t*t;
     D t3 = t2*t;
@@ -497,7 +497,7 @@ namespace bss_util {
 
   // This implements all possible B-spline functions, but does it statically without optimizations (so it can be used with any type)
   template<typename T, typename D, const T(&m)[4][4]>
-  BSS_FORCEINLINE static T BSS_FASTCALL StaticGenericSpline(D t, const T(&p)[4])
+  BSS_FORCEINLINE static T StaticGenericSpline(D t, const T(&p)[4])
   {
     D t2 = t*t;
     D t3 = t2*t;
@@ -508,7 +508,7 @@ namespace bss_util {
   }
 
   // This implements all possible B-spline functions using a given matrix m, optimized for floats
-  inline static float BSS_FASTCALL GenericBSpline(float t, const float(&p)[4], const float(&m)[4][4])
+  inline static float GenericBSpline(float t, const float(&p)[4], const float(&m)[4][4])
   {
     float a[4] = { t*t*t, t*t, t, 1 };
     sseVec r = MatrixMultiply1x4<float>(a, m);
@@ -526,7 +526,7 @@ namespace bss_util {
   //                | -3  3  0  0 |   | p3 |
   //                \  1  0  0  0 /   \ p4 /
   template<typename T, typename D>
-  inline static T BSS_FASTCALL BezierCurve(D t, const T& p1, const T& p2, const T& p3, const T& p4)
+  inline static T BezierCurve(D t, const T& p1, const T& p2, const T& p3, const T& p4)
   {
     static constexpr float m[4][4] = { -1.0f, 3.0f, -3.0f, 1.0f, 3.0f, -6.0f, 3.0f, 0, -3.0f, 3, 0, 0, 1.0f, 0, 0, 0 };
     const float p[4] = { p1, p2, p3, p4 };
@@ -535,7 +535,7 @@ namespace bss_util {
 
   // Generic breadth-first search for a binary tree. Don't use this on a min/maxheap - it's internal array already IS in breadth-first order.
   template<typename T, bool(*FACTION)(T*), T* (*LCHILD)(T*), T* (*RCHILD)(T*)> // return true to quit
-  inline static void BSS_FASTCALL BreadthFirstTree(T* root, size_t n)
+  inline static void BreadthFirstTree(T* root, size_t n)
   {
     n = (n / 2) + 1;
     DYNARRAY(T*, queue, n);
@@ -817,7 +817,7 @@ namespace bss_util {
   }
 
 
-  inline static size_t BSS_FASTCALL Base64Encode(const uint8_t* src, size_t cnt, char* out)
+  inline static size_t Base64Encode(const uint8_t* src, size_t cnt, char* out)
   {
     size_t cn = ((cnt / 3) << 2) + (cnt % 3) + (cnt % 3 != 0);
     if(!out) return cn;
@@ -874,7 +874,7 @@ namespace bss_util {
     return c;
   }
 
-  inline static size_t BSS_FASTCALL Base64Decode(const char* src, size_t cnt, uint8_t* out)
+  inline static size_t Base64Decode(const char* src, size_t cnt, uint8_t* out)
   {
     if((cnt & 0b11) == 1) return 0; // You cannot have a legal base64 encode of this length.
     size_t cn = ((cnt >> 2) * 3) + (cnt & 0b11) - ((cnt & 0b11) != 0);

@@ -187,7 +187,7 @@ namespace bss_util {
     }
     inline void Reserve(CT_ capacity) { capacity = _maxchunks(capacity) / DIV_AMT; if(capacity > _capacity) SetCapacity(capacity); }
     inline void Flip() { for(CT_ i = 0; i < _capacity; ++i) _array[i] = ~_array[i]; }
-    CT_ BSS_FASTCALL CountBits(CT_ bitindex, CT_ length) const
+    CT_ CountBits(CT_ bitindex, CT_ length) const
     {
       if(!length) return 0;
       length += bitindex;

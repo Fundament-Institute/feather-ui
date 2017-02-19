@@ -11,6 +11,7 @@
 enum FGDEBUG_FLAGS
 {
   FGDEBUG_CLEARONHIDE = (FGELEMENT_SNAPY << 1), // If set, clears the message log when the debug view is hidden
+  FGDEBUG_OVERLAY = (FGDEBUG_CLEARONHIDE << 1),
 };
 
 union _FG_DEBUG_MESSAGE_STORAGE {
@@ -61,7 +62,6 @@ typedef struct _FG_DEBUG_MESSAGE {
 typedef struct _FG_DEBUG {
   fgElement element;
   fgTreeview elements; // TreeView of the elements, minus the debug view itself.
-  fgTreeview messages; // Log of all messages passing through the GUI
   fgGrid properties; // element properties
   fgText contents; // message contents
   fgMenu context;
@@ -69,7 +69,6 @@ typedef struct _FG_DEBUG {
   fgDeclareVector(fgDebugMessage, DebugMessage) messagelog;
   fgDeclareVector(char*, strings) messagestrings;
   size_t depth;
-  fgElement* depthelement;
   fgElement* hover;
   int ignore;
   void* font;
@@ -77,6 +76,9 @@ typedef struct _FG_DEBUG {
   float lineheight;
   float letterspacing;
   AbsRect oldpadding;
+  fgVectorUTF32 text32;
+  fgVectorUTF16 text16;
+  fgVectorUTF8 text8;
 
 #ifdef  __cplusplus
   inline operator fgElement*() { return &element; }
@@ -92,7 +94,7 @@ FG_EXTERN void fgDebug_Show(float left, float right, char overlay);
 FG_EXTERN void fgDebug_Hide();
 FG_EXTERN fgDebug* fgDebug_Get();
 FG_EXTERN size_t fgDebug_LogMessage(fgDebug* self, const FG_Msg* msg, unsigned long long time, size_t depth);
-FG_EXTERN ptrdiff_t fgDebug_WriteMessage(char* buf, size_t bufsize, fgDebugMessage* msg);
+FG_EXTERN ptrdiff_t fgDebug_WriteMessage(fgDebugMessage* msg, char* buf, size_t bufsize);
 FG_EXTERN void fgDebug_DumpMessages(const char* file);
 FG_EXTERN void fgDebug_BuildTree(fgElement* treeview);
 

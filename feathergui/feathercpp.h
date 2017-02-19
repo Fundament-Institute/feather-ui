@@ -201,20 +201,29 @@ struct _FG_DEBUG;
 extern struct _FG_DEBUG* fgdebug_instance;
 extern FG_UINT fgStyleFlagMask;
 
-BSS_FORCEINLINE void* fgCloneResourceCpp(void* r) { return fgroot_instance->backend.fgCloneAsset(r, 0); }
-BSS_FORCEINLINE void fgDestroyResourceCpp(void* r) { return fgroot_instance->backend.fgDestroyAsset(r); }
-BSS_FORCEINLINE void* fgCloneFontCpp(void* r) { return fgroot_instance->backend.fgCloneFont(r, 0); }
-BSS_FORCEINLINE void fgDestroyFontCpp(void* r) { return fgroot_instance->backend.fgDestroyFont(r); }
-BSS_FORCEINLINE void fgConstructKeyValue(_FG_KEY_VALUE*) {}
-BSS_FORCEINLINE void fgDestructKeyValue(_FG_KEY_VALUE* p)
-{
-  fgFreeText(p->key, __FILE__, __LINE__);
-  if(p->value)
-    fgFreeText(p->value, __FILE__, __LINE__);
-}
+typedef typename fgConstruct<fgSkinLayout, const char*, fgFlag, const fgTransform*, short, int>::fgConstructor<fgSkinLayout_Destroy, fgSkinLayout_Init> fgSkinLayoutConstruct;
+typedef typename fgConstruct<fgClassLayout, const char*, const char*, fgFlag, const fgTransform*, short, int>::fgConstructor<fgClassLayout_Destroy, fgClassLayout_Init> fgClassLayoutConstruct;
 
-typedef bss_util::cDynArray<fgArbitraryRef<fgCloneResourceCpp, fgDestroyResourceCpp>, FG_UINT, bss_util::CARRAY_CONSTRUCT> fgResourceArray;
-typedef bss_util::cDynArray<fgArbitraryRef<fgCloneFontCpp, fgDestroyFontCpp>, FG_UINT, bss_util::CARRAY_CONSTRUCT> fgFontArray;
+// For some batshit insane reason, putting static on the functions themselves makes VC++ explode unless they are static members of a class
+struct fgStaticFn
+{
+  BSS_FORCEINLINE static void* fgCloneResourceCpp(void* r) { return fgroot_instance->backend.fgCloneAsset(r, 0); }
+  BSS_FORCEINLINE static void fgDestroyResourceCpp(void* r) { return fgroot_instance->backend.fgDestroyAsset(r); }
+  BSS_FORCEINLINE static void* fgCloneFontCpp(void* r) { return fgroot_instance->backend.fgCloneFont(r, 0); }
+  BSS_FORCEINLINE static void fgDestroyFontCpp(void* r) { return fgroot_instance->backend.fgDestroyFont(r); }
+  BSS_FORCEINLINE static void fgConstructKeyValue(_FG_KEY_VALUE*) {}
+  BSS_FORCEINLINE static void fgDestructKeyValue(_FG_KEY_VALUE* p)
+  {
+    fgFreeText(p->key, __FILE__, __LINE__);
+    if(p->value)
+      fgFreeText(p->value, __FILE__, __LINE__);
+  }
+  BSS_FORCEINLINE static char fgSortStyleLayout(const fgSkinLayoutConstruct& l, const fgSkinLayoutConstruct& r) { return -SGNCOMPARE(l.layout.order, r.layout.order); }
+  BSS_FORCEINLINE static char fgSortClassLayout(const fgClassLayoutConstruct& l, const fgClassLayoutConstruct& r) { return -SGNCOMPARE(l.layout.order, r.layout.order); }
+};
+
+typedef bss_util::cDynArray<fgArbitraryRef<fgStaticFn::fgCloneResourceCpp, fgStaticFn::fgDestroyResourceCpp>, FG_UINT, bss_util::CARRAY_CONSTRUCT> fgResourceArray;
+typedef bss_util::cDynArray<fgArbitraryRef<fgStaticFn::fgCloneFontCpp, fgStaticFn::fgDestroyFontCpp>, FG_UINT, bss_util::CARRAY_CONSTRUCT> fgFontArray;
 
 template<class T>
 typename T::T_ DynGet(const fgVector& r, FG_UINT i) { return ((T&)r)[i]; }
@@ -228,16 +237,10 @@ char DynArrayRemove(T& a, FG_UINT index)
   return 1;
 }
 
-typedef typename fgConstruct<fgSkinLayout, const char*, fgFlag, const fgTransform*, short, int>::fgConstructor<fgSkinLayout_Destroy, fgSkinLayout_Init> fgSkinLayoutConstruct;
-typedef typename fgConstruct<fgClassLayout, const char*, const char*, fgFlag, const fgTransform*, short, int>::fgConstructor<fgClassLayout_Destroy, fgClassLayout_Init> fgClassLayoutConstruct;
-
-BSS_FORCEINLINE char fgSortStyleLayout(const fgSkinLayoutConstruct& l, const fgSkinLayoutConstruct& r) { return -SGNCOMPARE(l.layout.order, r.layout.order); }
-BSS_FORCEINLINE char fgSortClassLayout(const fgClassLayoutConstruct& l, const fgClassLayoutConstruct& r) { return -SGNCOMPARE(l.layout.order, r.layout.order); }
-
-typedef bss_util::cArraySort<fgSkinLayoutConstruct, fgSortStyleLayout, size_t, bss_util::CARRAY_CONSTRUCT> fgSkinLayoutArray;
+typedef bss_util::cArraySort<fgSkinLayoutConstruct, fgStaticFn::fgSortStyleLayout, size_t, bss_util::CARRAY_CONSTRUCT> fgSkinLayoutArray;
 typedef bss_util::cDynArray<typename fgConstruct<fgStyle>::fgConstructor<fgStyle_Destroy, fgStyle_Init>, size_t, bss_util::CARRAY_CONSTRUCT> fgStyleArray;
-typedef bss_util::cDynArray<typename fgConstruct<struct _FG_KEY_VALUE>::fgConstructor<fgDestructKeyValue, fgConstructKeyValue>, size_t, bss_util::CARRAY_CONSTRUCT> fgKeyValueArray;
-typedef bss_util::cArraySort<fgClassLayoutConstruct, fgSortClassLayout, size_t, bss_util::CARRAY_CONSTRUCT> fgClassLayoutArray;
+typedef bss_util::cDynArray<typename fgConstruct<struct _FG_KEY_VALUE>::fgConstructor<fgStaticFn::fgDestructKeyValue, fgStaticFn::fgConstructKeyValue>, size_t, bss_util::CARRAY_CONSTRUCT> fgKeyValueArray;
+typedef bss_util::cArraySort<fgClassLayoutConstruct, fgStaticFn::fgSortClassLayout, size_t, bss_util::CARRAY_CONSTRUCT> fgClassLayoutArray;
 
 struct __kh_fgRadioGroup_t;
 extern __inline struct __kh_fgRadioGroup_t* fgRadioGroup_init();

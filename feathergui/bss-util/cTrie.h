@@ -53,7 +53,7 @@ namespace bss_util {
     template<int SZ>
     inline cTrie(const char* const (&initstr)[SZ]) : BASE(SZ), _length(SZ) { _construct(SZ, initstr); }
     inline ~cTrie() {}
-    T BSS_FASTCALL Get(const char* word) const
+    T Get(const char* word) const
     {
       assert(word!=0);
       TNODE* cur=_array; // root is always 0
@@ -73,7 +73,7 @@ namespace bss_util {
       }
       return cur->word;
     }
-    T BSS_FASTCALL Get(const char* word, T len) const
+    T Get(const char* word, T len) const
     {
       assert(word!=0);
       TNODE* cur=_array; // root is always 0
@@ -103,7 +103,7 @@ namespace bss_util {
     static inline char _CompTNode(const TNODE& t, const char& c) { return SGNCOMPARE(t.chr, c); }
 
   protected:
-    void BSS_FASTCALL _construct(T num, const char* const* initstr)
+    void _construct(T num, const char* const* initstr)
     {
       _fill(0, num);
       DYNARRAY(PAIR, s, num);
@@ -111,7 +111,7 @@ namespace bss_util {
       SORTING_HEAP::HeapSort(s, num); // sort into alphabetical order
       _init(num, s, 0, 0); // Put into our recursive initializer
     }
-    BSS_FORCEINLINE void BSS_FASTCALL _fill(T s, T e) // Zeros out a range of nodes
+    BSS_FORCEINLINE void _fill(T s, T e) // Zeros out a range of nodes
     {
       for(T i = s; i < e; ++i)
       {
@@ -121,8 +121,8 @@ namespace bss_util {
         _array[i].chr=0;
       }
     }
-    BSS_FORCEINLINE void BSS_FASTCALL _checksize(T r) { assert(r<(std::numeric_limits<T>::max()-2)); if(r>=_capacity) { T s=_capacity; BASE::SetCapacity(_capacity<<1); _fill(s, _capacity); } }
-    T BSS_FASTCALL _init(T len, PAIR const* str, T cnt, T level)
+    BSS_FORCEINLINE void _checksize(T r) { assert(r<(std::numeric_limits<T>::max()-2)); if(r>=_capacity) { T s=_capacity; BASE::SetCapacity(_capacity<<1); _fill(s, _capacity); } }
+    T _init(T len, PAIR const* str, T cnt, T level)
     {
       T r=cnt-1;
       char c=str[0].second[level];

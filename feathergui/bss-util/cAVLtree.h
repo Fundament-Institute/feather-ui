@@ -36,12 +36,12 @@ namespace bss_util {
     typedef Data DATAGET;
 
   protected:
-    BSS_FORCEINLINE static void BSS_FASTCALL _setdata(AVLNode* BSS_RESTRICT old, AVLNode* BSS_RESTRICT cur) { assert(old != cur); if(cur != 0) cur->_key.second = std::move(old->_key.second); }
+    BSS_FORCEINLINE static void _setdata(AVLNode* BSS_RESTRICT old, AVLNode* BSS_RESTRICT cur) { assert(old != cur); if(cur != 0) cur->_key.second = std::move(old->_key.second); }
     template<typename U>
-    BSS_FORCEINLINE static void BSS_FASTCALL _setraw(U && data, AVLNode* cur) { if(cur != 0) cur->_key.second = std::forward<U>(data); }
-    BSS_FORCEINLINE static KEYGET& BSS_FASTCALL _getdata(KeyData& cur) { return cur.second; }
-    BSS_FORCEINLINE static Key& BSS_FASTCALL _getkey(KeyData& cur) { return cur.first; }
-    BSS_FORCEINLINE static void BSS_FASTCALL _swapdata(AVLNode* BSS_RESTRICT retval, AVLNode* BSS_RESTRICT root)
+    BSS_FORCEINLINE static void _setraw(U && data, AVLNode* cur) { if(cur != 0) cur->_key.second = std::forward<U>(data); }
+    BSS_FORCEINLINE static KEYGET& _getdata(KeyData& cur) { return cur.second; }
+    BSS_FORCEINLINE static Key& _getkey(KeyData& cur) { return cur.first; }
+    BSS_FORCEINLINE static void _swapdata(AVLNode* BSS_RESTRICT retval, AVLNode* BSS_RESTRICT root)
     {
       assert(retval != root);
       if(retval != 0) // We have to actually swap the data so that retval returns the correct data so it can be used in ReplaceKey
@@ -63,12 +63,12 @@ namespace bss_util {
     typedef char DATAGET;
 
   protected:
-    BSS_FORCEINLINE static void BSS_FASTCALL _setdata(AVLNode* BSS_RESTRICT old, AVLNode* BSS_RESTRICT cur) { }
+    BSS_FORCEINLINE static void _setdata(AVLNode* BSS_RESTRICT old, AVLNode* BSS_RESTRICT cur) { }
     template<typename U>
-    BSS_FORCEINLINE static void BSS_FASTCALL _setraw(U && data, AVLNode* cur) { }
-    BSS_FORCEINLINE static KEYGET& BSS_FASTCALL _getdata(KeyData& cur) { return cur; }
-    BSS_FORCEINLINE static Key& BSS_FASTCALL _getkey(KeyData& cur) { return cur; }
-    BSS_FORCEINLINE static void BSS_FASTCALL _swapdata(AVLNode* BSS_RESTRICT retval, AVLNode* BSS_RESTRICT root) { }
+    BSS_FORCEINLINE static void _setraw(U && data, AVLNode* cur) { }
+    BSS_FORCEINLINE static KEYGET& _getdata(KeyData& cur) { return cur; }
+    BSS_FORCEINLINE static Key& _getkey(KeyData& cur) { return cur; }
+    BSS_FORCEINLINE static void _swapdata(AVLNode* BSS_RESTRICT retval, AVLNode* BSS_RESTRICT root) { }
   };
 
   // AVL Tree implementation
@@ -92,37 +92,37 @@ namespace bss_util {
     inline AVLNode* GetRoot() { return _root; }
     template<typename F> // std::function<void(std::pair<key,data>)> (we infer _traverse's template argument here, otherwise GCC explodes)
     BSS_FORCEINLINE void Traverse(F lambda) { _traverse(lambda, _root); }
-    BSS_FORCEINLINE AVLNode* BSS_FASTCALL Insert(Key key, const DATAGET& data)
+    BSS_FORCEINLINE AVLNode* Insert(Key key, const DATAGET& data)
     {
       char change = 0;
       AVLNode* cur = _insert(key, &_root, change);
       BASE::template _setraw<const DATAGET&>(data, cur); // WHO COMES UP WITH THIS SYNTAX?!
       return cur;
     }
-    BSS_FORCEINLINE AVLNode* BSS_FASTCALL Insert(Key key, DATAGET&& data)
+    BSS_FORCEINLINE AVLNode* Insert(Key key, DATAGET&& data)
     {
       char change = 0;
       AVLNode* cur = _insert(key, &_root, change);
       BASE::template _setraw<DATAGET&&>(std::move(data), cur);
       return cur;
     }
-    BSS_FORCEINLINE AVLNode* BSS_FASTCALL Insert(Key key)
+    BSS_FORCEINLINE AVLNode* Insert(Key key)
     {
       char change = 0;
       return _insert(key, &_root, change);
     }
-    BSS_FORCEINLINE AVLNode* BSS_FASTCALL Near(const Key key) const { return _near(key); }
-    BSS_FORCEINLINE KEYGET BSS_FASTCALL Get(const Key key, const KEYGET& INVALID) const
+    BSS_FORCEINLINE AVLNode* Near(const Key key) const { return _near(key); }
+    BSS_FORCEINLINE KEYGET Get(const Key key, const KEYGET& INVALID) const
     {
       AVLNode* retval = _find(key);
       return !retval ? INVALID : BASE::_getdata(retval->_key);
     }
-    BSS_FORCEINLINE KEYGET* BSS_FASTCALL GetRef(const Key key) const
+    BSS_FORCEINLINE KEYGET* GetRef(const Key key) const
     {
       AVLNode* retval = _find(key);
       return !retval ? 0 : &BASE::_getdata(retval->_key);
     }
-    inline bool BSS_FASTCALL Remove(const Key key)
+    inline bool Remove(const Key key)
     {
       char change = 0;
       AVLNode* node = _remove(key, &_root, change);
@@ -134,7 +134,7 @@ namespace bss_util {
       }
       return false;
     }
-    inline bool BSS_FASTCALL ReplaceKey(const Key oldkey, const Key newkey)
+    inline bool ReplaceKey(const Key oldkey, const Key newkey)
     {
       char change = 0;
       AVLNode* old = _remove(oldkey, &_root, change);
@@ -152,7 +152,7 @@ namespace bss_util {
 
   protected:
     template<typename F>
-    BSS_FORCEINLINE static void BSS_FASTCALL _traverse(F lambda, AVLNode* node)
+    BSS_FORCEINLINE static void _traverse(F lambda, AVLNode* node)
     {
       if(!node) return;
       _traverse<F>(lambda, node->_left);
@@ -160,7 +160,7 @@ namespace bss_util {
       _traverse<F>(lambda, node->_right);
     }
 
-    inline void BSS_FASTCALL _clear(AVLNode* node)
+    inline void _clear(AVLNode* node)
     {
       if(!node) return;
       _clear(node->_left);
@@ -169,7 +169,7 @@ namespace bss_util {
       cAllocTracker<Alloc>::_deallocate(node, 1);
     }
 
-    static void BSS_FASTCALL _leftrotate(AVLNode** pnode)
+    static void _leftrotate(AVLNode** pnode)
     {
       AVLNode* node = *pnode;
       AVLNode* r = node->_right;
@@ -182,7 +182,7 @@ namespace bss_util {
       r->_balance -= (1 - bssmin(r->_left->_balance, 0));
     }
 
-    static void BSS_FASTCALL _rightrotate(AVLNode** pnode)
+    static void _rightrotate(AVLNode** pnode)
     {
       AVLNode* node = *pnode;
       AVLNode* r = node->_left;
@@ -194,7 +194,7 @@ namespace bss_util {
       r->_right->_balance += (1 - bssmin(r->_balance, 0));
       r->_balance += (1 + bssmax(r->_right->_balance, 0));
     }
-    AVLNode* BSS_FASTCALL _insert(Key key, AVLNode** proot, char& change) //recursive insertion function
+    AVLNode* _insert(Key key, AVLNode** proot, char& change) //recursive insertion function
     {
       AVLNode* root = *proot;
       if(!root)
@@ -224,7 +224,7 @@ namespace bss_util {
       return retval;
     }
 
-    inline AVLNode* BSS_FASTCALL _find(const Key& key) const
+    inline AVLNode* _find(const Key& key) const
     {
       AVLNode* cur = _root;
       while(cur)
@@ -240,7 +240,7 @@ namespace bss_util {
       return 0;
     }
 
-    inline AVLNode* BSS_FASTCALL _near(const Key& key) const
+    inline AVLNode* _near(const Key& key) const
     {
       AVLNode* prev = 0;
       AVLNode* cur = _root;
@@ -257,7 +257,7 @@ namespace bss_util {
 
       return prev;
     }
-    inline static char BSS_FASTCALL _rebalance(AVLNode** root)
+    inline static char _rebalance(AVLNode** root)
     {
       AVLNode* _root = *root;
       char retval = 0;
@@ -294,7 +294,7 @@ namespace bss_util {
       return retval;
     }
 
-    AVLNode* BSS_FASTCALL _remove(const Key& key, AVLNode** proot, char& change) //recursive removal function
+    AVLNode* _remove(const Key& key, AVLNode** proot, char& change) //recursive removal function
     {
       AVLNode* root = *proot;
       if(!root)

@@ -8,7 +8,7 @@
 #include "feathercpp.h"
 
 static const char* FGSTR_LISTITEM = "ListItem";
-typedef bss_util::cArraySort<fgElement*> fgElementArray;
+typedef bss_util::cArraySort<struct _FG_ELEMENT*> fgElementArray;
 
 void fgListItem_Init(fgControl* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {

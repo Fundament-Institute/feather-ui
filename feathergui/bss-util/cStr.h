@@ -203,13 +203,13 @@ public:
     }
   }
   template<typename I, typename F> // F = I(const T* s)
-  static BSS_FORCEINLINE size_t BSS_FASTCALL ParseTokens(const T* str, const T* delim, std::vector<I>& vec, F parser)
+  static BSS_FORCEINLINE size_t ParseTokens(const T* str, const T* delim, std::vector<I>& vec, F parser)
   {
     cStrT<T> buf(str);
     return ParseTokens<I, F>(buf.UnsafeString(), delim, vec, parser);
   }
   template<typename I, typename F> // F = I(const T* s)
-  static size_t BSS_FASTCALL ParseTokens(T* str, const T* delim, std::vector<I>& vec, F parser)
+  static size_t ParseTokens(T* str, const T* delim, std::vector<I>& vec, F parser)
   {
     T* ct;
     T* cur = CSTR_CT<T>::STOK(str, delim, &ct);
@@ -259,7 +259,7 @@ private:
   void operator[](std::allocator<char>&) BSS_DELETEFUNC
     BSS_FORCEINLINE CHAR* _internal_ptr() { return const_cast<CHAR*>(BASE::data()); }
   BSS_FORCEINLINE const CHAR* _internal_ptr() const { return BASE::data(); }
-  BSS_FORCEINLINE void BSS_FASTCALL _convstr(const OTHER_C* src, ptrdiff_t len)
+  BSS_FORCEINLINE void _convstr(const OTHER_C* src, ptrdiff_t len)
   {
     size_t r = CSTR_CT<T>::CONV(src, len, 0, 0);
     if(r == (size_t)-1) return; // If invalid, bail
@@ -268,7 +268,7 @@ private:
     if(r == (size_t)-1) return; // If somehow still invalid, bail again
     BASE::resize(r - 1); // resize to actual number of characters instead of simply the maximum (disregard null terminator)
   }
-  BSS_FORCEINLINE void BSS_FASTCALL _convstr2(const OTHER_C2* src, ptrdiff_t len)
+  BSS_FORCEINLINE void _convstr2(const OTHER_C2* src, ptrdiff_t len)
   {
     size_t r = CSTR_CT<T>::CONV2(src, len, 0, 0);
     if(r == (size_t)-1) return; // If invalid, bail
@@ -278,8 +278,8 @@ private:
     BASE::resize(r - 1); // resize to actual number of characters instead of simply the maximum (disregard null terminator)
   }
 
-  inline static T* BSS_FASTCALL _ltrim(T* str) { for(; *str>0 && *str<33; ++str); return str; }
-  inline static T* BSS_FASTCALL _rtrim(T* str, size_t size) { T* inter = str + size; for(; inter>str && *inter<33; --inter); *(++inter) = 0; return str; }
+  inline static T* _ltrim(T* str) { for(; *str>0 && *str<33; ++str); return str; }
+  inline static T* _rtrim(T* str, size_t size) { T* inter = str + size; for(; inter>str && *inter<33; --inter); *(++inter) = 0; return str; }
 
 };
 #pragma warning(pop)

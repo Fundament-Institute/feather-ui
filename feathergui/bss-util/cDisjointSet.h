@@ -31,7 +31,7 @@ namespace bss_util {
       Reset();
     } 
     // Union (combine) two disjoint sets into one set. Returns false if set1 or set2 aren't set names.
-    inline bool BSS_FASTCALL Union(T set1, T set2)
+    inline bool Union(T set1, T set2)
     {
       if(_invalidindex(set1)||_invalidindex(set2))
         return false;
@@ -52,7 +52,7 @@ namespace bss_util {
     }
 
     // Returns the set name that x belongs to.
-    inline T_ BSS_FASTCALL Find(T x) 
+    inline T_ Find(T x) 
     {
       assert(x < _capacity);
       
@@ -120,7 +120,7 @@ namespace bss_util {
 
     // Constructs a minimum spanning tree using Kruskal's algorithm, given a sorted list of edges (smallest first).
     template<class ITER>
-    inline static cArray<std::pair<T,T>,T> BSS_FASTCALL MinSpanningTree(T numverts, ITER edges, ITER edgeslast)
+    inline static cArray<std::pair<T,T>,T> MinSpanningTree(T numverts, ITER edges, ITER edgeslast)
     {
       cArray<std::pair<T, T>, T> ret(numverts-1); // A nice result in combinatorics tells us that all trees have exactly n-1 edges.
       ret.SetCapacity(MinSpanningTree(numverts,edges,edgeslast,ret)); // This will always be <= n-1 so the SetCapacity is basically free.
@@ -129,7 +129,7 @@ namespace bss_util {
 
     // Actual function definition that uses an out array that must be at least n-1 elements long.
     template<class ITER>
-    static T BSS_FASTCALL MinSpanningTree(T numverts, ITER edges, ITER edgeslast, std::pair<T,T>* out)
+    static T MinSpanningTree(T numverts, ITER edges, ITER edgeslast, std::pair<T,T>* out)
     {
       DYNARRAY(T_,arr,numverts); // Allocate everything on the stack
       cDisjointSet<T,StaticNullPolicy<T_>> set(arr,numverts);

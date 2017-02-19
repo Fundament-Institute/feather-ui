@@ -337,8 +337,6 @@ void fgContext::SetMouse(tagPOINTS* points, unsigned short type, unsigned char b
   evt.type = type;
   evt.x = points->x;
   evt.y = points->y;
-  root->mouse.x = evt.x;
-  root->mouse.y = evt.y;
 
   if(type == FG_MOUSESCROLL)
   {
@@ -356,10 +354,10 @@ void fgContext::SetMouse(tagPOINTS* points, unsigned short type, unsigned char b
       bt |= FG_MOUSEMBUTTON&(-((wparam&MK_MBUTTON) != 0));
       bt |= FG_MOUSEXBUTTON1&(-((wparam&MK_XBUTTON1) != 0));
       bt |= FG_MOUSEXBUTTON2&(-((wparam&MK_XBUTTON2) != 0));
-      root->mouse.buttons = bt;
     }
+    else
+      evt.allbtn = root->mouse.buttons;
     evt.button = button;
-    evt.allbtn = root->mouse.buttons;
   }
 
   switch(type)

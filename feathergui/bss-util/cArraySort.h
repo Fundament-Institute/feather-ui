@@ -23,12 +23,12 @@ namespace bss_util {
     inline cArraySort(const cArraySlice<const T, CType>& slice) : _array(slice) {}
     inline explicit cArraySort(CT_ size=0) : _array(size) {}
     inline ~cArraySort() { }
-    BSS_FORCEINLINE CT_ BSS_FASTCALL Insert(constref data) { CT_ loc = _insert(data); _array.Insert(data, loc); return loc; }
-    BSS_FORCEINLINE CT_ BSS_FASTCALL Insert(moveref data) { CT_ loc = _insert(std::move(data)); _array.Insert(std::move(data), loc); return loc; }
+    BSS_FORCEINLINE CT_ Insert(constref data) { CT_ loc = _insert(data); _array.Insert(data, loc); return loc; }
+    BSS_FORCEINLINE CT_ Insert(moveref data) { CT_ loc = _insert(std::move(data)); _array.Insert(std::move(data), loc); return loc; }
     inline void Clear() { _array.Clear(); }
-    inline void BSS_FASTCALL Discard(uint32_t num) { _array.SetLength((num>_array.Length())?0:(_array.Length() - num)); }
+    inline void Discard(uint32_t num) { _array.SetLength((num>_array.Length())?0:(_array.Length() - num)); }
     BSS_FORCEINLINE bool Empty() const { return _array.Empty(); }
-    BSS_FORCEINLINE void BSS_FASTCALL Reserve(CT_ capacity) { _array.Reserve(capacity); }
+    BSS_FORCEINLINE void Reserve(CT_ capacity) { _array.Reserve(capacity); }
     BSS_FORCEINLINE CT_ Length() const { return _array.Length(); }
     BSS_FORCEINLINE CT_ Capacity() const { return _array.Capacity(); }
     inline const T& Front() const { return _array.Front(); }
@@ -41,7 +41,7 @@ namespace bss_util {
     inline T* end() noexcept { return _array.end(); }
     BSS_FORCEINLINE cArraySlice<T, CT_> GetSlice() const noexcept { return _array.GetSlice(); }
 
-    CT_ BSS_FASTCALL ReplaceData(CT_ index, constref data)
+    CT_ ReplaceData(CT_ index, constref data)
     {
       T swap;
       _array[index]=data;
@@ -60,20 +60,20 @@ namespace bss_util {
       return index;
     }
 
-    inline bool BSS_FASTCALL Remove(CT_ index)
+    inline bool Remove(CT_ index)
     {
       if(index >= _array.Length()) return false;
       _array.Remove(index);
       return true;
     }
 
-    BSS_FORCEINLINE CT_ BSS_FASTCALL Find(constref data) const
+    BSS_FORCEINLINE CT_ Find(constref data) const
     {
       return binsearch_exact<T, T, CT_, CFunc>(_array, data, 0, _array.Length());
     }
 
     // Can actually return -1 if there isn't anything in the array
-    inline CT_ BSS_FASTCALL FindNear(constref data, bool before=true) const
+    inline CT_ FindNear(constref data, bool before=true) const
     {
       CT_ retval=before?binsearch_before<T, CT_, CFunc>(_array, _array.Length(), data):binsearch_after<T, CT_, CFunc>(_array, _array.Length(), data);
       return (retval<_array.Length())?retval:(CT_)(-1); // This is only needed for before=false in case it returns a value outside the range.
@@ -87,7 +87,7 @@ namespace bss_util {
 
   protected:
     template<typename U>
-    CT_ BSS_FASTCALL _insert(U && data)
+    CT_ _insert(U && data)
     {
       if(_array.Empty())
         return 0;

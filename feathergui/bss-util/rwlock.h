@@ -134,6 +134,8 @@ namespace bss_util {
     bool IsFree() const { return !l.load(std::memory_order_relaxed); }
 
   protected:
+#pragma warning(push)
+#pragma warning(disable:4251)
     std::atomic<size_t> l;
 
 #ifdef BSS_DEBUG
@@ -143,6 +145,7 @@ namespace bss_util {
     std::unordered_map<std::thread::id, int> _debug;
     std::atomic_flag _debuglock;
 #endif
+#pragma warning(pop)
   };
 }
 

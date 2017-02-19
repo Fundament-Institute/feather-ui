@@ -32,7 +32,7 @@ struct bss_si128
 };
 
 template<class T, size_t I, T (*F)(T,T)>
-BSS_FORCEINLINE static std::array<T, I> BSS_FASTCALL _sse_array_single(const std::array<T, I>& a, const std::array<T, I>& b)
+BSS_FORCEINLINE static std::array<T, I> _sse_array_single(const std::array<T, I>& a, const std::array<T, I>& b)
 {
   std::array<T, I> r(a);
   r[0] = F(r[0], b[0]);
@@ -40,7 +40,7 @@ BSS_FORCEINLINE static std::array<T, I> BSS_FASTCALL _sse_array_single(const std
 }
 
 template<class T, size_t TI, class D, size_t DI>
-BSS_FORCEINLINE static std::array<D, DI> BSS_FASTCALL _sse_array_cvt(const std::array<T, TI>& a)
+BSS_FORCEINLINE static std::array<D, DI> _sse_array_cvt(const std::array<T, TI>& a)
 {
   static_assert(DI >= TI, "DI can't be less than TI");
   std::array<D, DI> r;
@@ -50,7 +50,7 @@ BSS_FORCEINLINE static std::array<D, DI> BSS_FASTCALL _sse_array_cvt(const std::
 }
 
 template<class T, size_t I, T(*F)(T, int)>
-BSS_FORCEINLINE static std::array<T, I> BSS_FASTCALL _sse_array_shift(const std::array<T, I>& a, int s)
+BSS_FORCEINLINE static std::array<T, I> _sse_array_shift(const std::array<T, I>& a, int s)
 {
   std::array<T, I> r;
   for(size_t i = 0; i < I; ++i)
@@ -59,7 +59,7 @@ BSS_FORCEINLINE static std::array<T, I> BSS_FASTCALL _sse_array_shift(const std:
 }
 
 template<class T>
-BSS_FORCEINLINE static std::array<T, 2> BSS_FASTCALL _sse_array_shuffle2(const std::array<T, 2>& a, const std::array<T, 2>& b, int i)
+BSS_FORCEINLINE static std::array<T, 2> _sse_array_shuffle2(const std::array<T, 2>& a, const std::array<T, 2>& b, int i)
 {
   std::array<T, 2> r;
   r[0] = a[i != 0]; // According to the SSE docs, the instruction treats all nonzero numbers as one, even though the immediate integer has two bits reserved for each index.
@@ -68,7 +68,7 @@ BSS_FORCEINLINE static std::array<T, 2> BSS_FASTCALL _sse_array_shuffle2(const s
 }
 
 template<class T>
-BSS_FORCEINLINE static std::array<T, 4> BSS_FASTCALL _sse_array_shuffle4(const std::array<T, 4>& a, const std::array<T, 4>& b, int i)
+BSS_FORCEINLINE static std::array<T, 4> _sse_array_shuffle4(const std::array<T, 4>& a, const std::array<T, 4>& b, int i)
 {
   std::array<T, 4> r;
   r[0] = a[i&3];
@@ -79,7 +79,7 @@ BSS_FORCEINLINE static std::array<T, 4> BSS_FASTCALL _sse_array_shuffle4(const s
 }
 
 template<class T, size_t O>
-BSS_FORCEINLINE static std::array<T, 8> BSS_FASTCALL _sse_array_shuffle8(const std::array<T, 8>& a, int i)
+BSS_FORCEINLINE static std::array<T, 8> _sse_array_shuffle8(const std::array<T, 8>& a, int i)
 {
   std::array<T, 8> r(a);
   r[0 + O] = a[(i & 3) + O];
@@ -385,7 +385,7 @@ BSS_FORCEINLINE static __m128i BSS_SSE_SET_EPI64(int64_t y, int64_t x) { BSS_ALI
 #define BSS_SSE_CAST_SI128_PS _mm_castsi128_ps
 
 // SSE2 does not have min or max, so we use this manual implementation of the instruction
-static BSS_FORCEINLINE BSS_SSE_M128i BSS_FASTCALL bss_mm_min_epi32(BSS_SSE_M128i a, BSS_SSE_M128i b)
+static BSS_FORCEINLINE BSS_SSE_M128i bss_mm_min_epi32(BSS_SSE_M128i a, BSS_SSE_M128i b)
 {
   BSS_SSE_M128i mask = BSS_SSE_CMPLT_EPI32(a, b);
   a = BSS_SSE_AND(a, mask);
@@ -393,7 +393,7 @@ static BSS_FORCEINLINE BSS_SSE_M128i BSS_FASTCALL bss_mm_min_epi32(BSS_SSE_M128i
   return BSS_SSE_OR(a, b);
 }
  
-static BSS_FORCEINLINE BSS_SSE_M128i BSS_FASTCALL bss_mm_max_epi32(BSS_SSE_M128i a, BSS_SSE_M128i b)
+static BSS_FORCEINLINE BSS_SSE_M128i bss_mm_max_epi32(BSS_SSE_M128i a, BSS_SSE_M128i b)
 {
   BSS_SSE_M128i mask = BSS_SSE_CMPGT_EPI32(a, b);
   a = BSS_SSE_AND(a, mask);
@@ -401,7 +401,7 @@ static BSS_FORCEINLINE BSS_SSE_M128i BSS_FASTCALL bss_mm_max_epi32(BSS_SSE_M128i
   return BSS_SSE_OR(a, b);
 }
 
-static BSS_FORCEINLINE BSS_SSE_M128 BSS_FASTCALL bss_mm_min_ps(BSS_SSE_M128 a, BSS_SSE_M128 b)
+static BSS_FORCEINLINE BSS_SSE_M128 bss_mm_min_ps(BSS_SSE_M128 a, BSS_SSE_M128 b)
 {
   BSS_SSE_M128i mask = _mm_castps_si128(BSS_SSE_CMPLT_PS(a, b));
   BSS_SSE_M128i c = BSS_SSE_AND(_mm_castps_si128(a), mask);
@@ -409,7 +409,7 @@ static BSS_FORCEINLINE BSS_SSE_M128 BSS_FASTCALL bss_mm_min_ps(BSS_SSE_M128 a, B
   return _mm_castsi128_ps(BSS_SSE_OR(c, d));
 }
  
-static BSS_FORCEINLINE BSS_SSE_M128 BSS_FASTCALL bss_mm_max_ps(BSS_SSE_M128 a, BSS_SSE_M128 b)
+static BSS_FORCEINLINE BSS_SSE_M128 bss_mm_max_ps(BSS_SSE_M128 a, BSS_SSE_M128 b)
 {
   BSS_SSE_M128i mask = _mm_castps_si128(BSS_SSE_CMPGT_PS(a, b));
   BSS_SSE_M128i c = BSS_SSE_AND(_mm_castps_si128(a), mask);
@@ -417,7 +417,7 @@ static BSS_FORCEINLINE BSS_SSE_M128 BSS_FASTCALL bss_mm_max_ps(BSS_SSE_M128 a, B
   return _mm_castsi128_ps(BSS_SSE_OR(c, d));
 }
 
-static BSS_FORCEINLINE BSS_SSE_M128d BSS_FASTCALL bss_mm_min_pd(BSS_SSE_M128d a, BSS_SSE_M128d b)
+static BSS_FORCEINLINE BSS_SSE_M128d bss_mm_min_pd(BSS_SSE_M128d a, BSS_SSE_M128d b)
 {
   BSS_SSE_M128i mask = _mm_castpd_si128(BSS_SSE_CMPLT_PD(a, b));
   BSS_SSE_M128i c = BSS_SSE_AND(_mm_castpd_si128(a), mask);
@@ -425,7 +425,7 @@ static BSS_FORCEINLINE BSS_SSE_M128d BSS_FASTCALL bss_mm_min_pd(BSS_SSE_M128d a,
   return _mm_castsi128_pd(BSS_SSE_OR(c, d));
 }
  
-static BSS_FORCEINLINE BSS_SSE_M128d BSS_FASTCALL bss_mm_max_pd(BSS_SSE_M128d a, BSS_SSE_M128d b)
+static BSS_FORCEINLINE BSS_SSE_M128d bss_mm_max_pd(BSS_SSE_M128d a, BSS_SSE_M128d b)
 {
   BSS_SSE_M128i mask = _mm_castpd_si128(BSS_SSE_CMPGT_PD(a, b));
   BSS_SSE_M128i c = BSS_SSE_AND(_mm_castpd_si128(a), mask);

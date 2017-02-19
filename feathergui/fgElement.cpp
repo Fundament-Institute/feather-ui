@@ -345,7 +345,7 @@ size_t fgElement_CheckLastFocus(fgElement* self)
 
 void fgElement_SetSkinStyleElement(fgElement* self, FG_UINT style, FG_UINT flags, const fgSkinLayout& layout)
 {
-  fgElement* element = (fgElement*)alloca(layout.instance->Clone());
+  fgElement* element = (fgElement*)ALLOCA(layout.instance->Clone());
   layout.instance->Clone(element);
   element->free = 0;
   element->parent = self;
