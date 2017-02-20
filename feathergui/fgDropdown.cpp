@@ -6,7 +6,7 @@
 
 void fgDropdown_Init(fgDropdown* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  memset(self, sizeof(fgDropdown), 0);
+  memsubset<fgDropdown, fgControl>(self, 0);
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgDropdown_Destroy, (fgMessage)&fgDropdown_Message);
 }
 

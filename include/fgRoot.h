@@ -19,7 +19,9 @@ struct __kh_fgIDHash_t;
 struct _FG_MONITOR;
 struct _FG_SKIN;
 struct _FG_MESSAGEQUEUE;
+struct _FG_ROOT;
 typedef void(*fgInitializer)(fgElement* BSS_RESTRICT, fgElement* BSS_RESTRICT, fgElement* BSS_RESTRICT, const char*, fgFlag, const fgTransform*, unsigned short);
+typedef size_t(*fgInject)(struct _FG_ROOT* self, const FG_Msg* msg);
 
 typedef struct _FG_DEFER_ACTION {
   struct _FG_DEFER_ACTION* next; // It's crucial that this is the first element
@@ -56,6 +58,7 @@ typedef struct _FG_ROOT {
   void* aniroot;
   struct _FG_MESSAGEQUEUE* queue;
   struct _FG_MESSAGEQUEUE* aux;
+  fgInject inject;
 #ifdef  __cplusplus
   inline bool GetKey(unsigned char key) const { return (keys[key / 32] & (1 << (key % 32))) != 0; }
   inline operator fgElement*() { return &gui.element; }
@@ -67,7 +70,7 @@ FG_EXTERN char fgLoadExtension(const char* extname, void* fg, size_t sz);
 FG_EXTERN void fgRoot_Init(fgRoot* self, const AbsRect* area, const fgIntVec* dpi, const fgBackend* backend);
 FG_EXTERN void fgRoot_Destroy(fgRoot* self);
 FG_EXTERN size_t fgRoot_Message(fgRoot* self, const FG_Msg* msg);
-FG_EXTERN size_t fgRoot_Inject(fgRoot* self, const FG_Msg* msg); // Returns 0 if handled, 1 otherwise
+FG_EXTERN size_t fgRoot_DefaultInject(fgRoot* self, const FG_Msg* msg); // Returns 0 if handled, 1 otherwise
 FG_EXTERN void fgRoot_Update(fgRoot* self, double delta);
 FG_EXTERN void fgRoot_CheckMouseMove(fgRoot* self);
 FG_EXTERN fgDeferAction* fgRoot_AllocAction(char (*action)(void*), void* arg, double time);
@@ -93,6 +96,7 @@ FG_EXTERN void fgRegisterControl(const char* name, fgInitializer fn, size_t sz);
 FG_EXTERN void fgIterateControls(void* p, void(*fn)(void*, const char*));
 FG_EXTERN void fgSendMessageAsync(fgElement* element, const FG_Msg* msg, unsigned int arg1size, unsigned int arg2size);
 FG_EXTERN size_t fgGetTypeSize(const char* type);
+FG_EXTERN fgInject fgSetInjectFunc(fgInject inject); // Sets the injection function and returns the previous one
 FG_EXTERN int fgLog(const char* format, ...);
 
 #ifdef  __cplusplus

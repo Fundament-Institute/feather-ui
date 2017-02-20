@@ -84,6 +84,7 @@ void fgRoot_Init(fgRoot* self, const AbsRect* area, const fgIntVec* dpi, const f
   new(self->queue) _FG_MESSAGEQUEUE();
   self->aux = (_FG_MESSAGEQUEUE*)calloc(1, sizeof(_FG_MESSAGEQUEUE));
   new(self->aux) _FG_MESSAGEQUEUE();
+  self->inject = fgRoot_DefaultInject;
   fgroot_instance = self;
   fgTransform transform = { area->left, 0, area->top, 0, area->right, 0, area->bottom, 0, 0, 0, 0 };
   fgElement_InternalSetup(*self, 0, 0, 0, 0, &transform, 0, (fgDestroy)&fgRoot_Destroy, (fgMessage)&fgRoot_Message);
@@ -146,7 +147,7 @@ void fgRoot_CheckMouseMove(fgRoot* self)
     m.x = self->mouse.x;
     m.y = self->mouse.y;
     m.allbtn = self->mouse.buttons;
-    fgRoot_Inject(self, &m);
+    self->inject(self, &m);
   }
 }
 
@@ -486,7 +487,7 @@ BSS_FORCEINLINE size_t fgProcessCursor(fgRoot* self, size_t value, unsigned shor
   return value;
 }
 
-size_t fgRoot_Inject(fgRoot* self, const FG_Msg* msg)
+size_t fgRoot_DefaultInject(fgRoot* self, const FG_Msg* msg)
 {
   assert(self != 0);
 
@@ -887,4 +888,11 @@ int fgLog(const char* format, ...)
   int r = fgroot_instance->backend.fgLogHook(format, args);
   va_end(args);
   return r;
+}
+
+fgInject fgSetInjectFunc(fgInject inject)
+{
+  fgInject prev = fgroot_instance->inject;
+  fgroot_instance->inject = inject;
+  return prev;
 }

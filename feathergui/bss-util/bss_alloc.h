@@ -70,7 +70,7 @@ namespace bss_util {
   public:
     inline i_AllocTracker(const i_AllocTracker& copy) : _allocator(copy._alloc_extern?copy._allocator:new _Ax()), _alloc_extern(copy._alloc_extern) {}
     inline i_AllocTracker(i_AllocTracker&& mov) : _allocator(mov._allocator), _alloc_extern(mov._alloc_extern) { mov._alloc_extern=true; }
-    inline i_AllocTracker(_Ax* ptr=0) :	_allocator((!ptr)?(new _Ax()):(ptr)), _alloc_extern(ptr!=0) {}
+    inline explicit i_AllocTracker(_Ax* ptr=0) :	_allocator((!ptr)?(new _Ax()):(ptr)), _alloc_extern(ptr!=0) {}
     inline ~i_AllocTracker() { if(!_alloc_extern) delete _allocator; }
     inline pointer _allocate(size_t cnt, const pointer p = 0) noexcept { return _allocator->allocate(cnt, p); }
     inline void _deallocate(pointer p, size_t s = 0) noexcept { _allocator->deallocate(p, s); }
@@ -89,7 +89,7 @@ namespace bss_util {
   {
     typedef typename StandardAllocPolicy<T>::pointer pointer;
   public:
-    inline i_AllocTracker(StandardAllocPolicy<T>* ptr = 0) {}
+    inline explicit i_AllocTracker(StandardAllocPolicy<T>* ptr = 0) {}
     inline pointer _allocate(size_t cnt, const pointer = 0) noexcept { return (T*)malloc(cnt * sizeof(T)); }
     inline void _deallocate(pointer p, size_t = 0) noexcept { free(p); }
   };
@@ -102,7 +102,7 @@ namespace bss_util {
   public:
     inline cAllocTracker(const cAllocTracker& copy) : BASE(copy) {}
     inline cAllocTracker(cAllocTracker&& mov) : BASE(std::move(mov)) {}
-    inline cAllocTracker(_Ax* ptr=0) : BASE(ptr) {}
+    inline explicit cAllocTracker(_Ax* ptr=0) : BASE(ptr) {}
   };
 }
 

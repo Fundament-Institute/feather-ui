@@ -138,7 +138,7 @@ size_t fgControl_Message(fgControl* self, const FG_Msg* msg)
   { // Any control that gets a MOUSEUP event immediately fires a MOUSEMOVE event at that location, which will force the focus to shift to a different control if the mouseup occured elsewhere.
     FG_Msg m = *msg;
     m.type = FG_MOUSEMOVE;
-    fgRoot_Inject(fgroot_instance, &m);
+    fgroot_instance->inject(fgroot_instance, &m);
   }
     return FG_ACCEPT;
   case FG_GOTFOCUS:

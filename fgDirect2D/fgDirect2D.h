@@ -30,12 +30,15 @@ struct fgDirect2D
 {
   fgRoot root;
   fgContext context;
+  fgContext debugcontext;
+  HWND__* debughwnd;
   ID2D1Factory1* factory;
   IWICImagingFactory* wicfactory;
   IDWriteFactory1* writefactory;
   HWND__* tophwnd;
 
   static longptr_t __stdcall WndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam);
+  static longptr_t __stdcall DebugWndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam);
 
   static fgDirect2D* instance;
 };

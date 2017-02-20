@@ -273,8 +273,8 @@ namespace bss_util {
     using AT_::_length;
 
   public:
-    cRandomQueue(const cRandomQueue& copy) : AT_(copy) {}
-    cRandomQueue(cRandomQueue&& mov) : AT_(std::move(mov)) {}
+    cRandomQueue(const cRandomQueue& copy) : AT_(copy), _e(copy._e) {}
+    cRandomQueue(cRandomQueue&& mov) : AT_(std::move(mov)), _e(mov._e) {}
     explicit cRandomQueue(CT_ size = 0, ENGINE& e = bss_getdefaultengine()) : AT_(size), _e(e) {}
     inline void Push(const T& t) { AT_::Add(t); }
     inline void Push(T&& t) { AT_::Add(std::move(t)); }
@@ -403,7 +403,7 @@ namespace bss_util {
     size_t gh = ((size_t)ceil(h / cell)) + 4;
     std::array<T, 2>* grid = new std::array<T, 2>[gw*gh];      //grid height
     uint64_t* ig = (uint64_t*)grid;
-    memset(grid, 0xFFFFFFFF, gw*gh * sizeof(std::array<T, 2>));
+    memset(grid, 0xFF, gw*gh * sizeof(std::array<T, 2>));
     assert(!(~ig[0]));
 
     cRandomQueue<std::array<T, 2>> list;

@@ -235,7 +235,7 @@ public:
     return r;
   }
 
-  BSS_FORCEINLINE static cStrT<T, Alloc> cStrTF(const T* string, va_list vl)
+  inline static cStrT<T, Alloc> cStrTF(const T* string, va_list vl)
   {
     if(!string)
       return cStrT<T, Alloc>();
@@ -246,6 +246,7 @@ public:
     va_list vltemp;
     va_copy(vltemp, vl);
     size_t _length = (size_t)CSTR_CT<T>::VPCF(string, vltemp); // If we didn't copy vl here, it would get modified by vsnprintf and blow up.
+    va_end(vltemp);
 #else
     size_t _length = (size_t)CSTR_CT<T>::VPCF(string, vl); // This ensures VPCF doesn't modify our original va_list
 #endif
@@ -286,13 +287,13 @@ private:
 
 #ifdef BSS_PLATFORM_WIN32
 typedef cStrT<wchar_t, std::allocator<wchar_t>> cStrW;
-inline cStrW cStrWF(const wchar_t* string, ...) { va_list vl; va_start(vl, string); return cStrW::cStrTF(string, vl); va_end(vl); }
+inline cStrW cStrWF(const wchar_t* string, ...) { va_list vl; va_start(vl, string); cStrW r = cStrW::cStrTF(string, vl); va_end(vl); return r; }
 typedef wchar_t bsschar;
 #else
 typedef char bsschar;
 #endif
 typedef cStrT<char, std::allocator<char>> cStr;
-inline cStr cStrF(const char* string, ...) { va_list vl; va_start(vl, string); return cStr::cStrTF(string, vl); va_end(vl); }
+inline cStr cStrF(const char* string, ...) { va_list vl; va_start(vl, string); cStr r = cStr::cStrTF(string, vl); va_end(vl); return r; }
 
 #ifdef _UNICODE
 typedef cStrW TStr;

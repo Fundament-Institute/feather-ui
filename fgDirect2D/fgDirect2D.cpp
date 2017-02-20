@@ -6,6 +6,7 @@
 #include "fgMonitor.h"
 #include "fgResource.h"
 #include "fgText.h"
+#include "fgDebug.h"
 #include "bss-util/bss_defines.h"
 #include "util.h"
 #include <stdint.h>
@@ -74,6 +75,31 @@ IDWriteTextLayout1* CreateD2DLayout(IDWriteTextFormat* format, const wchar_t* te
   return layout1;
 }
 
+size_t fgDebugD2D_Message(fgDebug* self, const FG_Msg* msg)
+{
+  switch(msg->type)
+  {
+  case FG_CONSTRUCT:
+    fgDebug_Message(self, msg);
+    return FG_ACCEPT;
+  }
+  return fgDebug_Message(self, msg);
+}
+
+void fgDebugD2D_Init(fgDebug* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+{
+  fgElement_InternalSetup(&self->element, parent, next, name, flags, transform, units, (fgDestroy)&fgDebug_Destroy, (fgMessage)&fgDebugD2D_Message);
+
+  AbsRect r = { 0 };
+  ResolveRect(&self->element, &r);
+  fgDirect2D::instance->debughwnd = fgContext::WndCreate(r, WS_EX_TOOLWINDOW, self, L"fgDebugD2D", fgDirect2D::instance->root.dpi);
+  ShowWindow(fgDirect2D::instance->debughwnd, SW_SHOW);
+  UpdateWindow(fgDirect2D::instance->debughwnd);
+  //SetWindowPos(fgDirect2D::instance->debughwnd, HWND_TOP, INT(wleft), INT(wtop), INT(rwidth), INT(rheight), SWP_NOCOPYBITS | SWP_NOMOVE | SWP_NOACTIVATE);
+  SetCursor(LoadCursor(NULL, IDC_ARROW));
+  fgDirect2D::instance->debugcontext.CreateResources(fgDirect2D::instance->debughwnd);
+}
+
 template<class T, void (*INIT)(T* BSS_RESTRICT, fgElement* BSS_RESTRICT, fgElement* BSS_RESTRICT, const char*, fgFlag, const fgTransform*, unsigned short)>
 BSS_FORCEINLINE fgElement* d2d_create_default(fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units, const char* file, size_t line)
 {
@@ -87,6 +113,8 @@ fgElement* fgCreateD2D(const char* type, fgElement* BSS_RESTRICT parent, fgEleme
 {
   if(!_stricmp(type, "window"))
     return d2d_create_default<fgWindowD2D, fgWindowD2D_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
+  if(!_stricmp(type, "debug"))
+    return d2d_create_default<fgDebug, fgDebugD2D_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
   return fgCreateDefault(type, parent, next, name, flags, transform, units);
 }
 
@@ -389,7 +417,7 @@ void fgDirtyElementD2D(fgElement* e)
     lasttop = 0;
     ReleaseCapture();
   }
-  while(e && e->destroy != (fgDestroy)fgWindowD2D_Destroy && e != fgDirect2D::instance->root.topmost)
+  while(e && e->destroy != (fgDestroy)fgWindowD2D_Destroy && e != fgDirect2D::instance->root.topmost && e->destroy != (fgDestroy)fgDebug_Destroy)
     e = e->parent;
   if(e != 0 && e == fgDirect2D::instance->root.topmost)
   {
@@ -404,6 +432,8 @@ void fgDirtyElementD2D(fgElement* e)
     }
     InvalidateRect(fgDirect2D::instance->tophwnd, NULL, FALSE);
   }
+  else if(e != 0 && e->destroy == (fgDestroy)fgDebug_Destroy)
+    InvalidateRect(fgDirect2D::instance->debughwnd, NULL, FALSE);
   else if(e)
     InvalidateRect(((fgWindowD2D*)e)->handle, NULL, FALSE);
 }
@@ -630,6 +660,29 @@ longptr_t __stdcall fgDirect2D::WndProc(HWND__* hWnd, unsigned int message, size
   return DefWindowProc(hWnd, message, wParam, lParam);
 }
 
+longptr_t __stdcall fgDirect2D::DebugWndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam)
+{
+  fgDebug* self = reinterpret_cast<fgDebug*>(GetWindowLongPtrW(hWnd, GWLP_USERDATA));
+  if(self)
+  {
+    switch(message)
+    {
+    case WM_PAINT:
+      {
+        AbsRect area;
+        ResolveRect(&self->element, &area);
+        fgDrawAuxDataEx exdata;
+        fgDirect2D::instance->debugcontext.BeginDraw(hWnd, &self->element, &area, exdata);
+        self->element.Draw(&area, &exdata.data);
+        fgDirect2D::instance->debugcontext.EndDraw();
+      }
+      return 0;
+    }
+
+    return fgDirect2D::instance->debugcontext.WndProc(hWnd, message, wParam, lParam, &self->element);
+  }
+}
+
 int64_t GetRegistryValueW(HKEY__* hKeyRoot, const wchar_t* szKey, const wchar_t* szValue, unsigned char* data, unsigned long sz)
 {
   HKEY__* hKey;
@@ -755,6 +808,7 @@ struct _FG_ROOT* fgInitialize()
   fgContext::SetDWMCallbacks();
   fgContext::WndRegister(fgWindowD2D::WndProc, L"fgWindowD2D"); // Register window class
   fgContext::WndRegister(fgDirect2D::WndProc, L"fgDirectD2Dtopmost"); // Register topmost class
+  fgContext::WndRegister(fgDirect2D::DebugWndProc, L"fgDebugD2D"); // Register topmost class
 
   AbsRect empty = { 0 };
   root->tophwnd = fgContext::WndCreate(empty, WS_EX_TOOLWINDOW, root, L"fgDirectD2Dtopmost", dpi);

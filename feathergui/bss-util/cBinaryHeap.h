@@ -65,7 +65,7 @@ namespace bss_util {
 
       while(k > 0) {
         parent = CBH_PARENT(k);
-        if(CFunc(_array[parent], std::forward<U>(val)) > 0) break;
+        if(CFunc(_array[parent], val) > 0) break;
         _array[k] = std::move(_array[parent]);
         MFUNC::MFunc(_array[k], k, p);
         k = parent;
@@ -85,14 +85,14 @@ namespace bss_util {
       {
         if(CFunc(_array[i-1], _array[i]) > 0) // CFunc (left,right) and return true if left > right
           --i; //left is greater than right so pick that one
-        if(CFunc(std::forward<U>(val), _array[i]) > 0)
+        if(CFunc(val, _array[i]) > 0)
           break;
         _array[k]=std::move(_array[i]);
         MFUNC::MFunc(_array[k], k, p);
         k=i;
         assert(k<(std::numeric_limits<CT_>::max()>>1));
       }
-      if(i >= length && --i < length && CFunc(std::forward<U>(val), _array[i])<=0) //Check if left child is also invalid (can only happen at the very end of the array)
+      if(i >= length && --i < length && CFunc(val, _array[i])<=0) //Check if left child is also invalid (can only happen at the very end of the array)
       {
         _array[k]=std::move(_array[i]);
         MFUNC::MFunc(_array[k], k, p);
@@ -150,7 +150,7 @@ namespace bss_util {
     inline bool _set(CT_ index, U && val)
     {
       if(index>=_length) return false;
-      if(CFunc(_array[index], std::forward<U>(val)) <= 0) //in this case we percolate up
+      if(CFunc(_array[index], val) <= 0) //in this case we percolate up
         PercolateUp(_array, _length, index, std::forward<U>(val), this);
       else
         PercolateDown(_array, _length, index, std::forward<U>(val), this);

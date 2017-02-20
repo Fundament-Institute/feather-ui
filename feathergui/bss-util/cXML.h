@@ -13,11 +13,16 @@ namespace bss_util {
   // Represents an XML value converted to various forms.
   struct BSS_COMPILER_DLLEXPORT cXMLValue
   {
+    cXMLValue(const cXMLValue& copy) : Name(copy.Name), String(copy.String), Float(copy.Float), Integer(copy.Integer) {}
+    cXMLValue(cXMLValue&& mov) : Name(std::move(mov.Name)), String(std::move(mov.String)), Float(std::move(mov.Float)), Integer(std::move(mov.Integer)) {}
     cXMLValue() : Float(0.0), Integer(0) {}
     cStr Name;
     cStr String;
     double Float;
     int64_t Integer;
+
+    inline cXMLValue& operator=(const cXMLValue& copy) { Name = copy.Name; String = copy.String; Float = copy.Float; Integer = copy.Integer; return *this; }
+    inline cXMLValue& operator=(cXMLValue&& mov) { Name = std::move(mov.Name); String = std::move(mov.String); Float = mov.Float; Integer = mov.Integer; return *this; }
 
     BSS_FORCEINLINE operator bool() const { return Integer!=0; } // If the string is "true" the integer gets set to 1 by the parser.
     BSS_FORCEINLINE operator char() const { return (char)Integer; }

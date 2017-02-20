@@ -12,10 +12,6 @@ const char* fgDebug_GetMessageString(unsigned short msg);
 
 void fgDebug_Init(fgDebug* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  if(fgdebug_instance != nullptr)
-    VirtualFreeChild(*fgdebug_instance);
-
-  fgdebug_instance = self;
   fgElement_InternalSetup(&self->element, parent, next, name, flags, transform, units, (fgDestroy)&fgDebug_Destroy, (fgMessage)&fgDebug_Message);
 }
 
@@ -111,6 +107,10 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
   {
+    if(fgdebug_instance != nullptr)
+      VirtualFreeChild(*fgdebug_instance);
+
+    fgdebug_instance = self;
     memsubset<fgDebug, fgElement>(self, 0); // lineheight must be zero'd before a potential transform unit resolution.
     fgElement_Message(&self->element, msg);
     const fgTransform tf_elements = { { -300,1,0,0,0,1,0,1 }, 0,{ 0,0,0,0 } };

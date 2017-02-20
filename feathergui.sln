@@ -36,6 +36,9 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "examples", "examples", "{65E74504-A9E1-43FB-B207-261BCDEDC9D0}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fgDotNet", "bindings\fgDotNet\fgDotNet.vcxproj", "{D64C9612-8074-483C-B16B-D26DAA791A63}"
+	ProjectSection(ProjectDependencies) = postProject
+		{65FDFEE1-D190-4A98-B590-55D9FA97E86B} = {65FDFEE1-D190-4A98-B590-55D9FA97E86B}
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "fgExample-cs", "examples\cs\fgExample-cs.csproj", "{DED5ED56-A149-4F4A-95D0-2F393DA2A950}"
 EndProject

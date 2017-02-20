@@ -251,5 +251,8 @@ int fgLogHookDefault(const char* format, va_list args)
 {
   static std::unique_ptr<FILE, void(*)(FILE*)> f(fopen("feathergui.log", "wb"), [](FILE* x) { fclose(x); });
   vfprintf(f.get(), format, args);
-  return vprintf(format, args);
+  fwrite("\n", 1, 1, f.get());
+  int n = vprintf(format, args);
+  printf("\n");
+  return n;
 }

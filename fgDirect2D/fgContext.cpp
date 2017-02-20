@@ -294,7 +294,7 @@ size_t fgContext::SetKey(uint8_t keycode, bool down, bool held, unsigned long ti
   if(root->GetKey(FG_KEY_MENU)) evt.sigkeys = evt.sigkeys | 4; //VK_MENU
   if(held) evt.sigkeys = evt.sigkeys | 8;
 
-  return fgRoot_Inject(root, &evt);
+  return root->inject(root, &evt);
 }
 
 void fgContext::SetChar(int key, unsigned long time)
@@ -309,7 +309,7 @@ void fgContext::SetChar(int key, unsigned long time)
   if(root->GetKey(FG_KEY_CONTROL)) evt.sigkeys = evt.sigkeys | 2; //VK_CONTROL
   if(root->GetKey(FG_KEY_MENU)) evt.sigkeys = evt.sigkeys | 4; //VK_MENU
                                                                //if(held) evt.sigkeys = evt.sigkeys|8;
-  fgRoot_Inject(root, &evt);
+  root->inject(root, &evt);
 }
 
 tagPOINTS* fgContext::AdjustPoints(tagPOINTS* points, fgElement* src)
@@ -371,5 +371,5 @@ void fgContext::SetMouse(tagPOINTS* points, unsigned short type, unsigned char b
     break;
   }
 
-  fgRoot_Inject(root, &evt);
+  root->inject(root, &evt);
 }
