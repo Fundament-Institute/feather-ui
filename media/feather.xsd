@@ -89,7 +89,7 @@
 
   <xs:simpleType name="fgFont">
     <xs:restriction base="xs:string">
-      <xs:pattern value="[^;]*;[0-9]*"/>
+      <xs:pattern value="[0-9]+ (bold|bolder|light|lighter|normal|[1-9][0-9][0-9])? (italic)? [^,]+(,[^,]+)*"/>
     </xs:restriction>
   </xs:simpleType>
 

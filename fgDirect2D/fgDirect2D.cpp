@@ -120,13 +120,13 @@ fgElement* fgCreateD2D(const char* type, fgElement* BSS_RESTRICT parent, fgEleme
   return fgCreateDefault(type, parent, next, name, flags, transform, units);
 }
 
-void* fgCreateFontD2D(fgFlag flags, const char* font, uint32_t fontsize, const fgIntVec* dpi)
+fgFont fgCreateFontD2D(fgFlag flags, const char* family, short weight, char italic, unsigned int size, const fgIntVec* dpi)
 {
-  size_t len = fgUTF8toUTF16(font, -1, 0, 0);
+  size_t len = fgUTF8toUTF16(family, -1, 0, 0);
   DYNARRAY(wchar_t, wtext, len);
-  fgUTF8toUTF16(font, -1, wtext, len);
+  fgUTF8toUTF16(family, -1, wtext, len);
   IDWriteTextFormat* format = 0;
-  fgDirect2D::instance->writefactory->CreateTextFormat(wtext, 0, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, fontsize * (96.0f/72.0f), L"en-us", &format);
+  fgDirect2D::instance->writefactory->CreateTextFormat(wtext, 0, DWRITE_FONT_WEIGHT(weight), italic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, size * (96.0f/72.0f), L"en-us", &format);
   return format;
 }
 
@@ -139,7 +139,7 @@ void* fgCloneFontD2D(void* font, const struct _FG_FONT_DESC* desc)
   {
     DYNARRAY(wchar_t, wtext, f->GetFontFamilyNameLength()+1);
     f->GetFontFamilyName(wtext, f->GetFontFamilyNameLength() + 1);
-    fgDirect2D::instance->writefactory->CreateTextFormat(wtext, 0, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, desc->pt, L"en-us", &f);
+    fgDirect2D::instance->writefactory->CreateTextFormat(wtext, 0, f->GetFontWeight(), f->GetFontStyle(), f->GetFontStretch(), desc->pt, L"en-us", &f);
   }
   return f;
 }

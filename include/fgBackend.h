@@ -17,7 +17,7 @@ struct _FG_FONT_DESC;
 
 typedef struct _FG_BACKEND {
   enum FGTEXTFMT BackendTextFormat;
-  fgFont(*fgCreateFont)(fgFlag flags, const char* font, unsigned int fontsize, const fgIntVec* dpi);
+  fgFont(*fgCreateFont)(fgFlag flags, const char* family, short weight, char italic, unsigned int size, const fgIntVec* dpi);
   fgFont(*fgCloneFont)(fgFont font, const struct _FG_FONT_DESC* desc);
   void (*fgDestroyFont)(fgFont font);
   void (*fgDrawFont)(fgFont font, const void* text, size_t len, float lineheight, float letterspacing, unsigned int color, const AbsRect* area, FABS rotation, const AbsVec* center, fgFlag flags, const fgDrawAuxData* data, void* layout);
@@ -58,7 +58,7 @@ typedef struct _FG_BACKEND {
 
 FG_EXTERN struct _FG_ROOT* fgInitialize();
 
-FG_EXTERN void* fgCreateFontDefault(fgFlag flags, const char* font, unsigned int fontsize, const fgIntVec* dpi);
+FG_EXTERN void* fgCreateFontDefault(fgFlag flags, const char* family, short weight, char italic, unsigned int size, const fgIntVec* dpi);
 FG_EXTERN void* fgCloneFontDefault(void* font, const struct _FG_FONT_DESC* desc);
 FG_EXTERN void fgDestroyFontDefault(void* font);
 FG_EXTERN void fgDrawFontDefault(void* font, const void* text, size_t len, float lineheight, float letterspacing, unsigned int color, const AbsRect* area, FABS rotation, const AbsVec* center, fgFlag flags, const fgDrawAuxData* data, void* layout);

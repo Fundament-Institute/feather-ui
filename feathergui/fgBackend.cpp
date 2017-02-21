@@ -15,7 +15,7 @@ KHASH_INIT(fgFunctionMap, const char*, fgListener, 1, kh_str_hash_func, kh_str_h
 
 using namespace bss_util;
 
-fgFont fgCreateFontDefault(fgFlag flags, const char* font, unsigned int fontsize, const fgIntVec* dpi) { return (void*)~0; }
+fgFont fgCreateFontDefault(fgFlag flags, const char* family, short weight, char italic, unsigned int size, const fgIntVec* dpi) { return (void*)~0; }
 fgFont fgCloneFontDefault(fgFont font, const struct _FG_FONT_DESC* desc) { return (void*)~0; }
 void fgDestroyFontDefault(fgFont font) { }
 void fgDrawFontDefault(fgFont font, const void* text, size_t len, float lineheight, float letterspacing, unsigned int color, const AbsRect* area, FABS rotation, const AbsVec* center, fgFlag flags, const fgDrawAuxData* data, void* layout) { }

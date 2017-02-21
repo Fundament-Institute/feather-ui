@@ -241,6 +241,76 @@ void fgSkinLayout_Destroy(fgSkinLayout* self)
   fgSkinTree_Destroy(&self->tree);
 }
 
+const char* fgSkin_ParseFont(const char* font, char quote, int* size, short* weight, char* italic)
+{
+  *size = 14; // Set defaults
+  *weight = 400;
+  *italic = 0;
+  if(!font) return 0;
+  const char* s = strchr(font, ' ');
+  if(!s) return font;
+  while(isspace(*++s));
+  if(!s[0]) return font;
+  *size = (int)strtol(font, 0, 10);
+
+  if(s[0] == quote) return s;
+  const char* f = strchr(s, ' ');
+  size_t slen = f - s;
+  if(!f || f[-1] == ',') return s;
+  while(isspace(*++f));
+  if(!f[0]) return s;
+
+  if(!STRNICMP(s, "bold", slen))
+    *weight = 700;
+  else if(!STRNICMP(s, "bolder", slen))
+    *weight = 900;
+  else if(!STRNICMP(s, "normal", slen))
+    *weight = 400;
+  else if(!STRNICMP(s, "light", slen))
+    *weight = 300;
+  else if(!STRNICMP(s, "lighter", slen))
+    *weight = 100;
+  else if(!STRNICMP(s, "italic", slen))
+    *italic = true;
+  else
+    *weight = (short)strtol(s, 0, 10);
+
+  if(f[0] == quote) return f;
+  const char* g = strchr(f, ' ');
+  size_t flen = g - f;
+  if(!g || g[-1] == ',') return f;
+  while(isspace(*++g));
+  if(!g[0]) return f;
+
+  if(!STRNICMP(f, "italic", flen))
+    *italic = true;
+
+  return g;
+}
+
+char* fgSkin_GetFontFamily(char* s, char quote, char** context)
+{
+  if(!s)
+  {
+    s = *context;
+    if(s[0] == ',')
+      ++s;
+  }
+
+  while(isspace(s[0])) ++s;
+  if(!s[0]) return 0;
+  char* end;
+  if(s[0] == quote)
+    end = strchr(++s, quote);
+  else
+    end = strchr(s, ' ');
+  if(!end || !end[0])
+    return s;
+  *end = 0;
+  *context = end + 1;
+  return s;
+}
+
 int fgStyle_LoadUnit(const char* str, size_t len)
 {
   int flags = FGUNIT_DP;
@@ -507,10 +577,24 @@ void fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, fg
       break;
     case 18: // font
     {
-      const char* split = strchr(attr->String.c_str(), ';');
-      FG_UINT index = (FG_UINT)fgSkinBase_AddFont(root, fgroot_instance->backend.fgCreateFont(flags, cStr(attr->String.c_str(), split - attr->String.c_str()).c_str(), atoi(split + 1), &fgroot_instance->dpi));
-      if(split != 0)
+      int size;
+      short weight;
+      char italic;
+      cStr families = fgSkin_ParseFont(attr->String.c_str(), '\'', &size, &weight, &italic);
+      char* context = 0;
+      char* family = fgSkin_GetFontFamily(families.UnsafeString(), '\'', &context);
+      fgFont font = 0;
+      while(family != 0)
+      {
+        if((font = fgroot_instance->backend.fgCreateFont(flags, family, weight, italic, size, &fgroot_instance->dpi)) != 0)
+          break;
+        family = fgSkin_GetFontFamily(0, '\'', &context);
+      }
+      if(font != 0)
+      {
+        FG_UINT index = (FG_UINT)fgSkinBase_AddFont(root, font);
         AddStyleMsg<FG_SETFONT, void*>(self, fgSkinBase_GetFont(root, index));
+      }
       break;
     }
     case 19:

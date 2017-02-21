@@ -49,7 +49,7 @@ namespace bss_util {
   template<typename T>
   BSS_FORCEINLINE bool CompStrLT(const T& left, const T& right) { return strcmp(left, right)<0; }
   template<typename T>
-  BSS_FORCEINLINE bool CompIStrLT(const T& left, const T& right) { return stricmp(left, right)<0; }
+  BSS_FORCEINLINE bool CompIStrLT(const T& left, const T& right) { return STRICMP(left, right)<0; }
   template<typename T>
   BSS_FORCEINLINE char CompStrW(const T& left, const T& right)
   {

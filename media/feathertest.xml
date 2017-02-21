@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <fg:Layout xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:fg="featherGUI" xsi:schemaLocation="featherGUI feather.xsd" skin="testskin" padding="0,20,0,0">
-  <Window area="130 100 510 420" text="test window" color="0xFFFFFFFF" font="arial;14" padding="10,22,10,10" flags="RESIZABLE">
+  <Window area="130 100 510 420" text="test window" color="0xFFFFFFFF" font="14 400 'arial'," padding="10,22,10,10" flags="RESIZABLE">
     <Submenu id="#testcontext" area="0,0,0,0">
       <MenuItem text="Change Window Text" />
     </Submenu>
@@ -154,7 +154,7 @@
   </Menu>-->
 </fg:Layout>
 <fg:Skin name="testskin" xmlns:fg="featherGUI">
-  <Skin name="buttontest" color="0xFFFFFFFF" font="arial.ttf;14">
+  <Skin name="buttontest" color="0xFFFFFFFF" font="14 arial">
     <Skin name="Resource">
       <Style name="neutral" color="0xFFFF00FF" />
       <Style name="active" color="0xFF00FFFF" />
@@ -225,14 +225,14 @@
     <Skin name="Window$minimize" area="-90:1, 0, -75:1, 15" >
       <Resource area="0,70%,100%,100%" color="0xFFDDDDDD" flags="RECT|BACKGROUND" />
     </Skin>
-    <Skin name="Button" color="0xFFFFFFFF" font="arial;14" padding="5,5,5,5">
+    <Skin name="Button" color="0xFFFFFFFF" font="14 arial" padding="5,5,5,5">
       <Resource uv="5,5,5,5" area="0,0,100%,100%" color="0xFF666666" edgecolor="0xFFAAAAAA" outline="1" flags="RECT|BACKGROUND|SNAP">
         <Style name="neutral" color="0xFF666666" transition="1000 ease-in"/>
         <Style name="active" color="0xFF505050" transition="1000 cubic(0,1,0,1) 0" />
         <Style name="hover" color="0xFF7F7F7F" transition="1000 ease-in" />
       </Resource>
     </Skin>
-    <Skin name="Checkbox" color="0xFFFFFFFF" font="arial;14" padding="25,0,5,0">
+    <Skin name="Checkbox" color="0xFFFFFFFF" font="14 arial" padding="25,0,5,0">
       <Resource uv="3,3,3,3" area="5, 0:0.5, 20, 15:0.5" color="0xFFFFFFFF" edgecolor="0xFF222222" outline="1" flags="RECT|BACKGROUND|SNAP" center="0 50%">
         <Style name="neutral" color="0xFFFFFFFF" />
         <Style name="active" color="0xFFBBBBBB" />
@@ -244,7 +244,7 @@
         <Style name="indeterminate" flags="HIDDEN" />
       </Resource>
     </Skin>
-    <Skin name="Radiobutton" color="0xFFFFFFFF" font="arial;14" padding="25,5,5,5">
+    <Skin name="Radiobutton" color="0xFFFFFFFF" font="14 arial" padding="25,5,5,5">
       <Resource uv="0,6.2832,0,6.2832" area="5, 0:0.5, 20, 15:0.5" color="0xFFFFFFFF" edgecolor="0xFF222222" outline="1" flags="CIRCLE|BACKGROUND|SNAP" center="0 50%">
         <Style name="neutral" color="0xFFFFFFFF" />
         <Style name="active" color="0xFFBBBBBB" />
@@ -255,7 +255,7 @@
         <Style name="checked" flags="-HIDDEN" />
       </Resource>
     </Skin>
-    <Skin name="Progressbar" color="0xFFFFFFFF" font="arial;14" padding="0,0,0,0">
+    <Skin name="Progressbar" color="0xFFFFFFFF" font="14 arial" padding="0,0,0,0">
       <Resource uv="6,6,6,6" area="0,0,100%,100%" color="0" edgecolor="0xFFDDDDDD" outline="3" flags="RECT|BACKGROUND" />
       <Skin name="Progressbar$bar">
         <Resource uv="6,6,6,6" area="0,0,100%,100%" color="0xFF333333" edgecolor="0" outline="0" flags="RECT" />
@@ -268,7 +268,7 @@
       </Skin>
     </Skin>
     <Skin name="Box" inherit="Scrollbar" />
-    <Skin name="Textbox" color="0xFFFFFFFF" font="arial;14" lineheight="16" placecolor="0x88FFFFFF" cursorcolor="0xFFFFFFFF" selectcolor="0xAAAA0000" padding="3,3,3,3" inherit="Scrollbar">
+    <Skin name="Textbox" color="0xFFFFFFFF" font="14 arial" lineheight="16" placecolor="0x88FFFFFF" cursorcolor="0xFFFFFFFF" selectcolor="0xAAAA0000" padding="3,3,3,3" inherit="Scrollbar">
       <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0x99000000" edgecolor="0xFFAAAAAA" outline="1" flags="RECT|BACKGROUND|IGNORE" />
     </Skin>
     <Skin name="Dropdown" hovercolor="0x99990099" selectcolor="0xAAAA0000">
@@ -280,7 +280,7 @@
   </Skin>
   <Skin id="Treeview">
     <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0x99000000" edgecolor="0xFFAAAAAA" outline="1" flags="RECT|BACKGROUND|IGNORE" />
-    <Skin name="Text" color="0xFFFFFFFF" font="arial;10" />
+    <Skin name="Text" color="0xFFFFFFFF" font="10 arial" />
     <Skin name="TreeItem" padding="20,0,0,0" flags="EXPAND">
       <Resource uv="2,2,2,2" area="0,0,100%,100%" color="0x99AA6666" edgecolor="0xAAFFAAAA" outline="1" flags="RECT|BACKGROUND|IGNORE|SNAP">
         <Style name="neutral+focused" flags="-HIDDEN"/>
@@ -317,7 +317,7 @@
   <Skin name="Grid">
     <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0x99000000" edgecolor="0xFFAAAAAA" outline="1" flags="RECT|BACKGROUND" />
   </Skin>
-  <Skin name="Text" color="0xFFFFFFFF" font="arial;14" />
+  <Skin name="Text" color="0xFFFFFFFF" font="14 arial" />
   <Skin name="Menu" hovercolor="0xFFFFFFFF">
     <Resource uv="0,0,0,0" area="0,0,100%,100%" color="0x99000000" edgecolor="0xFFAAAAAA" outline="0" flags="RECT|BACKGROUND" />
   </Skin>
@@ -331,5 +331,5 @@
       <Resource area="0,0,10,10" color="0xDDCCCCCC" outline="0" flags="RECT|IGNORE" />
     </Skin>
   </Skin>
-  <Skin name="Debug" color="0xFFFFFFFF" font="arial;14" />
+  <Skin name="Debug" color="0xFFFFFFFF" font="14 arial" />
 </fg:Skin>
