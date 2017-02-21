@@ -32,7 +32,7 @@ struct bss_si128
 };
 
 template<class T, size_t I, T (*F)(T,T)>
-BSS_FORCEINLINE static std::array<T, I> _sse_array_single(const std::array<T, I>& a, const std::array<T, I>& b)
+BSS_FORCEINLINE std::array<T, I> _sse_array_single(const std::array<T, I>& a, const std::array<T, I>& b)
 {
   std::array<T, I> r(a);
   r[0] = F(r[0], b[0]);
@@ -40,7 +40,7 @@ BSS_FORCEINLINE static std::array<T, I> _sse_array_single(const std::array<T, I>
 }
 
 template<class T, size_t TI, class D, size_t DI>
-BSS_FORCEINLINE static std::array<D, DI> _sse_array_cvt(const std::array<T, TI>& a)
+BSS_FORCEINLINE std::array<D, DI> _sse_array_cvt(const std::array<T, TI>& a)
 {
   static_assert(DI >= TI, "DI can't be less than TI");
   std::array<D, DI> r;
@@ -50,7 +50,7 @@ BSS_FORCEINLINE static std::array<D, DI> _sse_array_cvt(const std::array<T, TI>&
 }
 
 template<class T, size_t I, T(*F)(T, int)>
-BSS_FORCEINLINE static std::array<T, I> _sse_array_shift(const std::array<T, I>& a, int s)
+BSS_FORCEINLINE std::array<T, I> _sse_array_shift(const std::array<T, I>& a, int s)
 {
   std::array<T, I> r;
   for(size_t i = 0; i < I; ++i)
@@ -59,7 +59,7 @@ BSS_FORCEINLINE static std::array<T, I> _sse_array_shift(const std::array<T, I>&
 }
 
 template<class T>
-BSS_FORCEINLINE static std::array<T, 2> _sse_array_shuffle2(const std::array<T, 2>& a, const std::array<T, 2>& b, int i)
+BSS_FORCEINLINE std::array<T, 2> _sse_array_shuffle2(const std::array<T, 2>& a, const std::array<T, 2>& b, int i)
 {
   std::array<T, 2> r;
   r[0] = a[i != 0]; // According to the SSE docs, the instruction treats all nonzero numbers as one, even though the immediate integer has two bits reserved for each index.
@@ -68,7 +68,7 @@ BSS_FORCEINLINE static std::array<T, 2> _sse_array_shuffle2(const std::array<T, 
 }
 
 template<class T>
-BSS_FORCEINLINE static std::array<T, 4> _sse_array_shuffle4(const std::array<T, 4>& a, const std::array<T, 4>& b, int i)
+BSS_FORCEINLINE std::array<T, 4> _sse_array_shuffle4(const std::array<T, 4>& a, const std::array<T, 4>& b, int i)
 {
   std::array<T, 4> r;
   r[0] = a[i&3];
@@ -79,7 +79,7 @@ BSS_FORCEINLINE static std::array<T, 4> _sse_array_shuffle4(const std::array<T, 
 }
 
 template<class T, size_t O>
-BSS_FORCEINLINE static std::array<T, 8> _sse_array_shuffle8(const std::array<T, 8>& a, int i)
+BSS_FORCEINLINE std::array<T, 8> _sse_array_shuffle8(const std::array<T, 8>& a, int i)
 {
   std::array<T, 8> r(a);
   r[0 + O] = a[(i & 3) + O];
@@ -89,28 +89,28 @@ BSS_FORCEINLINE static std::array<T, 8> _sse_array_shuffle8(const std::array<T, 
   return r;
 }
 
-template<class T> BSS_FORCEINLINE static T _sse_array_add(T l, T r) { return l + r; }
-template<class T> BSS_FORCEINLINE static T _sse_array_sub(T l, T r) { return l - r; }
-template<class T> BSS_FORCEINLINE static T _sse_array_mul(T l, T r) { return l * r; }
-template<class T> BSS_FORCEINLINE static T _sse_array_div(T l, T r) { return l / r; }
-template<class T> BSS_FORCEINLINE static T _sse_array_min(T l, T r) { return bssmin(l, r); }
-template<class T> BSS_FORCEINLINE static T _sse_array_max(T l, T r) { return bssmax(l, r); }
-template<class T> BSS_FORCEINLINE static T _sse_array_and(T l, T r) { return l & r; }
-template<class T> BSS_FORCEINLINE static T _sse_array_andnot(T l, T r) { return (~l) & r; }
-template<class T> BSS_FORCEINLINE static T _sse_array_or(T l, T r) { return l | r; }
-template<class T> BSS_FORCEINLINE static T _sse_array_xor(T l, T r) { return l ^ r; }
-template<class T, bool (*F)(T,T)> BSS_FORCEINLINE static T _sse_array_cmp(T l, T r) { typename bss_util::TBitLimit<T>::UNSIGNED t = (F(l,r) ? ((typename bss_util::TBitLimit<T>::UNSIGNED)~0) : 0); return *(T*)&t; }
-template<class T> BSS_FORCEINLINE static bool _sse_array_cmpeq(T l, T r) { return l == r; }
-template<class T> BSS_FORCEINLINE static bool _sse_array_cmpneq(T l, T r) { return l != r; }
-template<class T> BSS_FORCEINLINE static bool _sse_array_cmplt(T l, T r) { return l < r; }
-template<class T> BSS_FORCEINLINE static bool _sse_array_cmple(T l, T r) { return l <= r; }
-template<class T> BSS_FORCEINLINE static bool _sse_array_cmpgt(T l, T r) { return l > r ; }
-template<class T> BSS_FORCEINLINE static bool _sse_array_cmpge(T l, T r) { return l >= r; }
-template<class T> BSS_FORCEINLINE static T _sse_array_sl(T l, int r) { return l << r; }
-template<class T> BSS_FORCEINLINE static T _sse_array_sr(T l, int r) { return T(typename std::make_unsigned<T>::type(l) >> r); }
-template<class T> BSS_FORCEINLINE static T _sse_array_sra(T l, int r) { return T(typename std::make_signed<T>::type(l) >> r); }
+template<class T> BSS_FORCEINLINE T _sse_array_add(T l, T r) { return l + r; }
+template<class T> BSS_FORCEINLINE T _sse_array_sub(T l, T r) { return l - r; }
+template<class T> BSS_FORCEINLINE T _sse_array_mul(T l, T r) { return l * r; }
+template<class T> BSS_FORCEINLINE T _sse_array_div(T l, T r) { return l / r; }
+template<class T> BSS_FORCEINLINE T _sse_array_min(T l, T r) { return bssmin(l, r); }
+template<class T> BSS_FORCEINLINE T _sse_array_max(T l, T r) { return bssmax(l, r); }
+template<class T> BSS_FORCEINLINE T _sse_array_and(T l, T r) { return l & r; }
+template<class T> BSS_FORCEINLINE T _sse_array_andnot(T l, T r) { return (~l) & r; }
+template<class T> BSS_FORCEINLINE T _sse_array_or(T l, T r) { return l | r; }
+template<class T> BSS_FORCEINLINE T _sse_array_xor(T l, T r) { return l ^ r; }
+template<class T, bool (*F)(T,T)> BSS_FORCEINLINE T _sse_array_cmp(T l, T r) { typename bss_util::TBitLimit<T>::UNSIGNED t = (F(l,r) ? ((typename bss_util::TBitLimit<T>::UNSIGNED)~0) : 0); return *(T*)&t; }
+template<class T> BSS_FORCEINLINE bool _sse_array_cmpeq(T l, T r) { return l == r; }
+template<class T> BSS_FORCEINLINE bool _sse_array_cmpneq(T l, T r) { return l != r; }
+template<class T> BSS_FORCEINLINE bool _sse_array_cmplt(T l, T r) { return l < r; }
+template<class T> BSS_FORCEINLINE bool _sse_array_cmple(T l, T r) { return l <= r; }
+template<class T> BSS_FORCEINLINE bool _sse_array_cmpgt(T l, T r) { return l > r ; }
+template<class T> BSS_FORCEINLINE bool _sse_array_cmpge(T l, T r) { return l >= r; }
+template<class T> BSS_FORCEINLINE T _sse_array_sl(T l, int r) { return l << r; }
+template<class T> BSS_FORCEINLINE T _sse_array_sr(T l, int r) { return T(typename std::make_unsigned<T>::type(l) >> r); }
+template<class T> BSS_FORCEINLINE T _sse_array_sra(T l, int r) { return T(typename std::make_signed<T>::type(l) >> r); }
 
-template<class T> BSS_FORCEINLINE static bool _sse_array_shuffle(T l, T r) { return l >= r; }
+template<class T> BSS_FORCEINLINE bool _sse_array_shuffle(T l, T r) { return l >= r; }
 
 // Define compiler-specific intrinsics for working with SSE.
 #define BSS_SSE_LOAD_APS(x) BSS_SSE_M128{(x)[0], (x)[1], (x)[2], (x)[3]}
@@ -132,14 +132,14 @@ template<class T> BSS_FORCEINLINE static bool _sse_array_shuffle(T l, T r) { ret
 #define BSS_SSE_CMPGT_PS bss_util::arraymap<float, 4, _sse_array_cmp<float, _sse_array_cmpgt<float>>>
 #define BSS_SSE_CMPGTE_PS bss_util::arraymap<float, 4, _sse_array_cmp<float, _sse_array_cmpge<float>>>
 #define BSS_SSE_SETZERO_PS() BSS_SSE_M128{0, 0, 0, 0}
-BSS_FORCEINLINE static BSS_SSE_M128 BSS_SSE_MOVEHL_PS(BSS_SSE_M128 a, BSS_SSE_M128 b) { return BSS_SSE_M128 { (b)[2],(b)[3],(a)[2],(a)[3] }; }
-BSS_FORCEINLINE static BSS_SSE_M128 BSS_SSE_MOVELH_PS(BSS_SSE_M128 a, BSS_SSE_M128 b) { return BSS_SSE_M128 { (a)[0],(a)[1],(b)[0],(b)[1] }; }
+BSS_FORCEINLINE BSS_SSE_M128 BSS_SSE_MOVEHL_PS(BSS_SSE_M128 a, BSS_SSE_M128 b) { return BSS_SSE_M128 { (b)[2],(b)[3],(a)[2],(a)[3] }; }
+BSS_FORCEINLINE BSS_SSE_M128 BSS_SSE_MOVELH_PS(BSS_SSE_M128 a, BSS_SSE_M128 b) { return BSS_SSE_M128 { (a)[0],(a)[1],(b)[0],(b)[1] }; }
 #define BSS_SSE_ADD_SS _sse_array_single<float, 4, _sse_array_add<float>>
 #define BSS_SSE_SUB_SS _sse_array_single<float, 4, _sse_array_sub<float>>
 #define BSS_SSE_MUL_SS _sse_array_single<float, 4, _sse_array_mul<float>>
 #define BSS_SSE_DIV_SS _sse_array_single<float, 4, _sse_array_div<float>>
 
-BSS_FORCEINLINE static float BSS_SSE_SS_F32(BSS_SSE_M128 x) { return x[0]; }
+BSS_FORCEINLINE float BSS_SSE_SS_F32(BSS_SSE_M128 x) { return x[0]; }
 
 #define BSS_SSE_LOAD_APD(x) BSS_SSE_M128d{(x)[0], (x)[1]}
 #define BSS_SSE_LOAD_UPD BSS_SSE_LOAD_APD
@@ -159,14 +159,14 @@ BSS_FORCEINLINE static float BSS_SSE_SS_F32(BSS_SSE_M128 x) { return x[0]; }
 #define BSS_SSE_CMPLTE_PD bss_util::arraymap<double, 2, _sse_array_cmp<double, _sse_array_cmple<double>>>
 #define BSS_SSE_CMPGT_PD bss_util::arraymap<double, 2, _sse_array_cmp<double, _sse_array_cmpgt<double>>>
 #define BSS_SSE_CMPGTE_PD bss_util::arraymap<double, 2, _sse_array_cmp<double, _sse_array_cmpge<double>>>
-BSS_FORCEINLINE static double BSS_SSE_SD_F64(BSS_SSE_M128d x) { return x[0]; }
+BSS_FORCEINLINE double BSS_SSE_SD_F64(BSS_SSE_M128d x) { return x[0]; }
 #define BSS_SSE_SETZERO_PD() BSS_SSE_M128d{0, 0}
 
-BSS_FORCEINLINE static bss_si128 BSS_SSE_LOAD_ASI128(BSS_SSE_M128i* x) { return bss_si128(*x); }
+BSS_FORCEINLINE bss_si128 BSS_SSE_LOAD_ASI128(BSS_SSE_M128i* x) { return bss_si128(*x); }
 #define BSS_SSE_LOAD_USI128 BSS_SSE_LOAD_ASI128 
 #define BSS_SSE_SET_EPI32(a, b, c, d) BSS_SSE_M128i{d, c, b, a}
 #define BSS_SSE_SET1_EPI32(a) BSS_SSE_M128i{a, a, a, a}
-BSS_FORCEINLINE static void BSS_SSE_STORE_ASI128(BSS_SSE_M128i* p, bss_si128 b) { *p = b; }
+BSS_FORCEINLINE void BSS_SSE_STORE_ASI128(BSS_SSE_M128i* p, bss_si128 b) { *p = b; }
 #define BSS_SSE_STORE_USI128 BSS_SSE_STORE_ASI128 
 #define BSS_SSE_ADD_EPI32 bss_util::arraymap<int32_t, 4, _sse_array_add<int32_t>>
 #define BSS_SSE_SUB_EPI32 bss_util::arraymap<int32_t, 4, _sse_array_sub<int32_t>>
@@ -186,7 +186,7 @@ BSS_FORCEINLINE static void BSS_SSE_STORE_ASI128(BSS_SSE_M128i* p, bss_si128 b) 
 #define BSS_SSE_CMPEQ_EPI32 bss_util::arraymap<int32_t, 4, _sse_array_cmp<int32_t, _sse_array_cmpeq<int32_t>>>
 #define BSS_SSE_CMPLT_EPI32 bss_util::arraymap<int32_t, 4, _sse_array_cmp<int32_t, _sse_array_cmplt<int32_t>>>
 #define BSS_SSE_CMPGT_EPI32 bss_util::arraymap<int32_t, 4, _sse_array_cmp<int32_t, _sse_array_cmpgt<int32_t>>>
-BSS_FORCEINLINE static int32_t BSS_SSE_SI128_SI32(bss_si128 x) { return (int32_t)x.v[0]; }
+BSS_FORCEINLINE int32_t BSS_SSE_SI128_SI32(bss_si128 x) { return (int32_t)x.v[0]; }
 
 #define BSS_SSE_SET_EPI8(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) BSS_SSE_M128i8{p, o, n, m, l, k, j, i, h, g, f, e, d, c, b, a}
 #define BSS_SSE_SET1_EPI8(a) BSS_SSE_M128i8{a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a}
@@ -218,11 +218,11 @@ BSS_FORCEINLINE static int32_t BSS_SSE_SI128_SI32(bss_si128 x) { return (int32_t
 #define BSS_SSE_SLI_EPI64 _sse_array_shift<int64_t, 2, _sse_array_sl<int64_t>>
 #define BSS_SSE_SR_EPI64(a, i) _sse_array_shift<int64_t, 2, _sse_array_sr<int64_t>>(a, BSS_SSE_SI128_SI32(i)) 
 #define BSS_SSE_SRI_EPI64 _sse_array_shift<int64_t, 2, _sse_array_sr<int64_t>>
-BSS_FORCEINLINE static int64_t BSS_SSE_SI128_SI64(bss_si128 x) { return x.v[0]; }
+BSS_FORCEINLINE int64_t BSS_SSE_SI128_SI64(bss_si128 x) { return x.v[0]; }
 
-BSS_FORCEINLINE static bss_si128 BSS_SSE_SHUFFLE_EPI32(bss_si128 x, int i) { return _sse_array_shuffle4<int32_t>(x, x, i); }
-BSS_FORCEINLINE static bss_si128 BSS_SSE_SHUFFLEHI_EPI16(bss_si128 x, int i) { return _sse_array_shuffle8<int16_t, 4>(x, i); }
-BSS_FORCEINLINE static bss_si128 BSS_SSE_SHUFFLELO_EPI16(bss_si128 x, int i) { return _sse_array_shuffle8<int16_t, 0>(x, i); }
+BSS_FORCEINLINE bss_si128 BSS_SSE_SHUFFLE_EPI32(bss_si128 x, int i) { return _sse_array_shuffle4<int32_t>(x, x, i); }
+BSS_FORCEINLINE bss_si128 BSS_SSE_SHUFFLEHI_EPI16(bss_si128 x, int i) { return _sse_array_shuffle8<int16_t, 4>(x, i); }
+BSS_FORCEINLINE bss_si128 BSS_SSE_SHUFFLELO_EPI16(bss_si128 x, int i) { return _sse_array_shuffle8<int16_t, 0>(x, i); }
 #define BSS_SSE_SHUFFLE_PD _sse_array_shuffle2<double>
 #define BSS_SSE_SHUFFLE_PS _sse_array_shuffle4<float>
 #define BSS_SSE_SETZERO_SI128() bss_si128(std::array<int64_t, 2>{0,0})
@@ -234,12 +234,12 @@ BSS_FORCEINLINE static bss_si128 BSS_SSE_SHUFFLELO_EPI16(bss_si128 x, int i) { r
 #define BSS_SSE_EPI32_PS _sse_array_cvt<int32_t, 4, float, 4>
 #define BSS_SSE_PD_PS _sse_array_cvt<double, 2, float, 4> 
 
-BSS_FORCEINLINE static BSS_SSE_M128 BSS_SSE_CAST_PD_PS(BSS_SSE_M128d x) { return *reinterpret_cast<BSS_SSE_M128*>(&x); }
-BSS_FORCEINLINE static BSS_SSE_M128i BSS_SSE_CAST_PD_SI128(BSS_SSE_M128d x) { return *reinterpret_cast<BSS_SSE_M128i*>(&x); }
-BSS_FORCEINLINE static BSS_SSE_M128d BSS_SSE_CAST_PS_PD(BSS_SSE_M128 x) { return *reinterpret_cast<BSS_SSE_M128d*>(&x); }
-BSS_FORCEINLINE static BSS_SSE_M128i BSS_SSE_CAST_PS_SI128(BSS_SSE_M128 x) { return *reinterpret_cast<BSS_SSE_M128i*>(&x); }
-BSS_FORCEINLINE static BSS_SSE_M128d BSS_SSE_CAST_SI128_PD(BSS_SSE_M128i x) { return *reinterpret_cast<BSS_SSE_M128d*>(&x); }
-BSS_FORCEINLINE static BSS_SSE_M128 BSS_SSE_CAST_SI128_PS(BSS_SSE_M128i x) { return *reinterpret_cast<BSS_SSE_M128*>(&x); }
+BSS_FORCEINLINE BSS_SSE_M128 BSS_SSE_CAST_PD_PS(BSS_SSE_M128d x) { return *reinterpret_cast<BSS_SSE_M128*>(&x); }
+BSS_FORCEINLINE BSS_SSE_M128i BSS_SSE_CAST_PD_SI128(BSS_SSE_M128d x) { return *reinterpret_cast<BSS_SSE_M128i*>(&x); }
+BSS_FORCEINLINE BSS_SSE_M128d BSS_SSE_CAST_PS_PD(BSS_SSE_M128 x) { return *reinterpret_cast<BSS_SSE_M128d*>(&x); }
+BSS_FORCEINLINE BSS_SSE_M128i BSS_SSE_CAST_PS_SI128(BSS_SSE_M128 x) { return *reinterpret_cast<BSS_SSE_M128i*>(&x); }
+BSS_FORCEINLINE BSS_SSE_M128d BSS_SSE_CAST_SI128_PD(BSS_SSE_M128i x) { return *reinterpret_cast<BSS_SSE_M128d*>(&x); }
+BSS_FORCEINLINE BSS_SSE_M128 BSS_SSE_CAST_SI128_PS(BSS_SSE_M128i x) { return *reinterpret_cast<BSS_SSE_M128*>(&x); }
 
 #else
 #define BSS_SSE_M128 __m128
@@ -353,7 +353,7 @@ BSS_FORCEINLINE static BSS_SSE_M128 BSS_SSE_CAST_SI128_PS(BSS_SSE_M128i x) { ret
 #define BSS_SSE_CMPGT_EPI16 _mm_cmpgt_epi16
 #define BSS_SSE_SI128_SI16 (short)_mm_cvtsi128_si32
 
-BSS_FORCEINLINE static __m128i BSS_SSE_SET_EPI64(int64_t y, int64_t x) { BSS_ALIGN(16) int64_t vv[2] = { x, y }; return BSS_SSE_LOAD_ASI128((BSS_SSE_M128i*)vv); }
+BSS_FORCEINLINE __m128i BSS_SSE_SET_EPI64(int64_t y, int64_t x) { BSS_ALIGN(16) int64_t vv[2] = { x, y }; return BSS_SSE_LOAD_ASI128((BSS_SSE_M128i*)vv); }
 #define BSS_SSE_SET1_EPI64(x) BSS_SSE_SET_EPI64(x, x)
 #define BSS_SSE_ADD_EPI64 _mm_add_epi64
 #define BSS_SSE_SUB_EPI64 _mm_sub_epi64

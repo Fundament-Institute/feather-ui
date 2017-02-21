@@ -15,7 +15,7 @@ void fgDebug_Init(fgDebug* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fg
   fgElement_InternalSetup(&self->element, parent, next, name, flags, transform, units, (fgDestroy)&fgDebug_Destroy, (fgMessage)&fgDebug_Message);
 }
 
-FG_EXTERN void fgDebug_ClearLog(fgDebug* self)
+void fgDebug_ClearLog(fgDebug* self)
 {
   for(size_t i = 0; i < self->messagestrings.l; ++i)
     fgfree(self->messagestrings.p[i], __FILE__, __LINE__);
@@ -483,7 +483,7 @@ void fgDebug_BuildTree(fgElement* treeview)
   fgDebug_TreeInsert(treeview, &fgroot_instance->gui.element, 0, fgdebug_instance->context);
 }
 
-FG_EXTERN void fgDebug_Show(float left, float right, char overlay)
+void fgDebug_Show(float left, float right, char overlay)
 {
   assert(fgroot_instance != 0);
   if(!fgdebug_instance)
@@ -494,7 +494,7 @@ FG_EXTERN void fgDebug_Show(float left, float right, char overlay)
 
   fgdebug_instance->element.SetFlag(FGELEMENT_HIDDEN, false);
 }
-FG_EXTERN void fgDebug_Hide()
+void fgDebug_Hide()
 {
   assert(fgdebug_instance != 0);
   assert(fgdebug_instance != 0);

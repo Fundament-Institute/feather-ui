@@ -700,23 +700,23 @@ typedef struct _FG_DRAW_AUX_DATA {
 }
 
 template<int I, typename T>
-void BSS_FORCEINLINE static fgSendMsgArg(FG_Msg&, T);
+void BSS_FORCEINLINE fgSendMsgArg(FG_Msg&, T);
 
-template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<1, const void*>(FG_Msg& msg, const void* p) { msg.p = const_cast<void*>(p); }
-template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<1, void*>(FG_Msg& msg, void* p) { msg.p = p; }
-template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<1, float>(FG_Msg& msg, float p) { msg.f = p; }
-template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<1, ptrdiff_t>(FG_Msg& msg, ptrdiff_t p) { msg.i = p; }
-template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<1, size_t>(FG_Msg& msg, size_t p) { msg.u = p; }
-template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<1, const struct _FG_ELEMENT*>(FG_Msg& msg, const struct _FG_ELEMENT* p) { msg.p = const_cast<struct _FG_ELEMENT*>(p); }
-template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<1, struct _FG_ELEMENT*>(FG_Msg& msg, struct _FG_ELEMENT* p) { msg.p = p; }
+template<> void BSS_FORCEINLINE fgSendMsgArg<1, const void*>(FG_Msg& msg, const void* p) { msg.p = const_cast<void*>(p); }
+template<> void BSS_FORCEINLINE fgSendMsgArg<1, void*>(FG_Msg& msg, void* p) { msg.p = p; }
+template<> void BSS_FORCEINLINE fgSendMsgArg<1, float>(FG_Msg& msg, float p) { msg.f = p; }
+template<> void BSS_FORCEINLINE fgSendMsgArg<1, ptrdiff_t>(FG_Msg& msg, ptrdiff_t p) { msg.i = p; }
+template<> void BSS_FORCEINLINE fgSendMsgArg<1, size_t>(FG_Msg& msg, size_t p) { msg.u = p; }
+template<> void BSS_FORCEINLINE fgSendMsgArg<1, const struct _FG_ELEMENT*>(FG_Msg& msg, const struct _FG_ELEMENT* p) { msg.p = const_cast<struct _FG_ELEMENT*>(p); }
+template<> void BSS_FORCEINLINE fgSendMsgArg<1, struct _FG_ELEMENT*>(FG_Msg& msg, struct _FG_ELEMENT* p) { msg.p = p; }
 
-template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<2, const void*>(FG_Msg& msg, const void* p) { msg.p2 = const_cast<void*>(p); }
-template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<2, void*>(FG_Msg& msg, void* p) { msg.p2 = p; }
-template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<2, float>(FG_Msg& msg, float p) { msg.f2 = p; }
-template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<2, ptrdiff_t>(FG_Msg& msg, ptrdiff_t p) { msg.i2 = p; }
-template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<2, size_t>(FG_Msg& msg, size_t p) { msg.u2 = p; }
-template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<2, const struct _FG_ELEMENT*>(FG_Msg& msg, const struct _FG_ELEMENT* p) { msg.p2 = const_cast<struct _FG_ELEMENT*>(p); }
-template<> void BSS_FORCEINLINE BSS_EXPLICITSTATIC fgSendMsgArg<2, struct _FG_ELEMENT*>(FG_Msg& msg, struct _FG_ELEMENT* p) { msg.p2 = p; }
+template<> void BSS_FORCEINLINE fgSendMsgArg<2, const void*>(FG_Msg& msg, const void* p) { msg.p2 = const_cast<void*>(p); }
+template<> void BSS_FORCEINLINE fgSendMsgArg<2, void*>(FG_Msg& msg, void* p) { msg.p2 = p; }
+template<> void BSS_FORCEINLINE fgSendMsgArg<2, float>(FG_Msg& msg, float p) { msg.f2 = p; }
+template<> void BSS_FORCEINLINE fgSendMsgArg<2, ptrdiff_t>(FG_Msg& msg, ptrdiff_t p) { msg.i2 = p; }
+template<> void BSS_FORCEINLINE fgSendMsgArg<2, size_t>(FG_Msg& msg, size_t p) { msg.u2 = p; }
+template<> void BSS_FORCEINLINE fgSendMsgArg<2, const struct _FG_ELEMENT*>(FG_Msg& msg, const struct _FG_ELEMENT* p) { msg.p2 = const_cast<struct _FG_ELEMENT*>(p); }
+template<> void BSS_FORCEINLINE fgSendMsgArg<2, struct _FG_ELEMENT*>(FG_Msg& msg, struct _FG_ELEMENT* p) { msg.p2 = p; }
 
 template<int I, typename... Args> struct fgSendMsgCall;
 template<int I, typename Arg, typename... Args>

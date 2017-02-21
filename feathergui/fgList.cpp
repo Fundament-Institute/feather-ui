@@ -153,7 +153,7 @@ size_t fgList_Message(fgList* self, const FG_Msg* msg)
     return sizeof(fgList);
   case FG_MOUSEDOWN:
     fgUpdateMouseState(&self->mouse, msg);
-    if(self->split = fgList_GetSplit(self, msg))
+    if((self->split = fgList_GetSplit(self, msg)) != 0)
     {
       self->splitedge = (self->box->flags&FGBOX_TILEX) ? self->split->transform.area.left.abs + fgLayout_GetElementWidth(self->split) : self->split->transform.area.top.abs + fgLayout_GetElementHeight(self->split);
       self->splitmouse = (self->box->flags&FGBOX_TILEX) ? msg->x : msg->y;

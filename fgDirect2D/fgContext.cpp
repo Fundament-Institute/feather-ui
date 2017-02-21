@@ -25,6 +25,7 @@ void fgContext_Construct(fgContext* self)
   self->triangle = 0;
   self->circle = 0;
   self->inside = false;
+  self->invalid = false;
   new (&self->cliprect) std::stack<AbsRect>();
 }
 void fgContext_Destroy(fgContext* self)
@@ -206,6 +207,7 @@ HWND__* fgContext::WndCreate(const AbsRect& out, uint32_t exflags, void* self, c
 
 void fgContext::BeginDraw(HWND handle, fgElement* element, const AbsRect* area, fgDrawAuxDataEx& exdata)
 {
+  invalid = true;
   CreateResources(handle);
   target->BeginDraw();
   target->Clear(D2D1::ColorF(0, 0));
@@ -232,6 +234,7 @@ void fgContext::EndDraw()
   assert(!cliprect.size());
   if(target->EndDraw() == 0x8899000C) // D2DERR_RECREATE_TARGET
     DiscardResources();
+  invalid = false;
 }
 
 void fgContext::CreateResources(HWND handle)
@@ -372,4 +375,13 @@ void fgContext::SetMouse(tagPOINTS* points, unsigned short type, unsigned char b
   }
 
   root->inject(root, &evt);
+}
+
+void fgContext::InvalidateHWND(HWND__* hWnd)
+{
+  if(!invalid)
+  {
+    InvalidateRect(hWnd, NULL, FALSE);
+    invalid = true;
+  }
 }

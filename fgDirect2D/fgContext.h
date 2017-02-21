@@ -32,6 +32,7 @@ struct fgContext {
   ID2D1Effect* circle;
   std::stack<AbsRect> cliprect;
   bool inside;
+  bool invalid;
 
   void CreateResources(HWND__* handle);
   void DiscardResources();
@@ -41,6 +42,7 @@ struct fgContext {
   void SetChar(int key, unsigned long time);
   void SetMouse(tagPOINTS* points, unsigned short type, unsigned char button, size_t wparam, unsigned long time);
   longptr_t __stdcall WndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam, fgElement* src);
+  void InvalidateHWND(HWND__* hWnd);
 
   static HWND__* WndCreate(const AbsRect& out, uint32_t exflags, void* self, const wchar_t* cls, fgIntVec& dpi);
   static void SetDWMCallbacks();

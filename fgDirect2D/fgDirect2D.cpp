@@ -82,6 +82,8 @@ size_t fgDebugD2D_Message(fgDebug* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     fgDebug_Message(self, msg);
     return FG_ACCEPT;
+  case FG_SETPARENT:
+    return fgDebug_Message(self, msg);
   }
   return fgDebug_Message(self, msg);
 }
@@ -430,12 +432,12 @@ void fgDirtyElementD2D(fgElement* e)
       lasttop = e;
       SetCapture(fgDirect2D::instance->tophwnd);
     }
-    InvalidateRect(fgDirect2D::instance->tophwnd, NULL, FALSE);
+    fgDirect2D::instance->context.InvalidateHWND(fgDirect2D::instance->tophwnd);
   }
   else if(e != 0 && e->destroy == (fgDestroy)fgDebug_Destroy)
-    InvalidateRect(fgDirect2D::instance->debughwnd, NULL, FALSE);
+    fgDirect2D::instance->debugcontext.InvalidateHWND(fgDirect2D::instance->debughwnd);
   else if(e)
-    InvalidateRect(((fgWindowD2D*)e)->handle, NULL, FALSE);
+    ((fgWindowD2D*)e)->context.InvalidateHWND(((fgWindowD2D*)e)->handle);
 }
 
 void fgSetCursorD2D(uint32_t type, void* custom)

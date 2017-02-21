@@ -11,7 +11,7 @@
 namespace bss_util {
   // Find the dot product of two n-dimensional vectors
   template<typename T, int N>
-  BSS_FORCEINLINE static T NVector_Dot(const T(&l)[N], const T(&r)[N])
+  BSS_FORCEINLINE T NVector_Dot(const T(&l)[N], const T(&r)[N])
   {
     T ret=0;
     for(int i=0; i<N; ++i)
@@ -20,20 +20,20 @@ namespace bss_util {
   }
 
   template<>
-  BSS_FORCEINLINE BSS_EXPLICITSTATIC float NVector_Dot<float, 4>(const float(&l)[4], const float(&r)[4])
+  BSS_FORCEINLINE float NVector_Dot<float, 4>(const float(&l)[4], const float(&r)[4])
   {
     return (sseVec(l)*sseVec(r)).Sum();
   }
 
   template<>
-  BSS_FORCEINLINE BSS_EXPLICITSTATIC int NVector_Dot<int, 4>(const int(&l)[4], const int(&r)[4])
+  BSS_FORCEINLINE int NVector_Dot<int, 4>(const int(&l)[4], const int(&r)[4])
   {
     return (sseVeci(l)*sseVeci(r)).Sum();
   }
 
   // Get the squared distance between two n-dimensional vectors
   template<typename T, int N>
-  inline static T NVector_DistanceSq(const T(&l)[N], const T(&r)[N])
+  inline T NVector_DistanceSq(const T(&l)[N], const T(&r)[N])
   {
     T tp = r[0]-l[0];
     T ret = tp*tp;
@@ -45,10 +45,10 @@ namespace bss_util {
     return ret;
   }
   template<typename T, int N>
-  BSS_FORCEINLINE static T NVector_Distance(const T(&l)[N], const T(&r)[N]) { return FastSqrt<T>(NVector_DistanceSq<T, N>(l, r)); }
+  BSS_FORCEINLINE T NVector_Distance(const T(&l)[N], const T(&r)[N]) { return FastSqrt<T>(NVector_DistanceSq<T, N>(l, r)); }
 
   template<typename T, int N>
-  BSS_FORCEINLINE static void NVector_Normalize(const T(&v)[N], T(&out)[N])
+  BSS_FORCEINLINE void NVector_Normalize(const T(&v)[N], T(&out)[N])
   {
     T invlength = 1/FastSqrt<T>(NVector_Dot<T, N>(v, v));
     assert(invlength != 0);
@@ -57,20 +57,20 @@ namespace bss_util {
   }
 
   template<>
-  BSS_FORCEINLINE BSS_EXPLICITSTATIC void NVector_Normalize<float, 4>(const float(&v)[4], float(&out)[4])
+  BSS_FORCEINLINE void NVector_Normalize<float, 4>(const float(&v)[4], float(&out)[4])
   {
     float l = FastSqrt<float>(NVector_Dot<float, 4>(v, v));
     (sseVec(v)/sseVec(l, l, l, l)) >> out;
   }
 
   template<typename T>
-  BSS_FORCEINLINE static T NVector_AbsCall(const T v)
+  BSS_FORCEINLINE T NVector_AbsCall(const T v)
   {
     return abs((typename std::conditional<std::is_integral<T>::value, typename std::make_signed<typename std::conditional<std::is_integral<T>::value, T, int>::type>::type, T>::type)v);
   }
 
   template<typename T, int N>
-  BSS_FORCEINLINE static void NVector_Abs(const T(&v)[N], T(&out)[N])
+  BSS_FORCEINLINE void NVector_Abs(const T(&v)[N], T(&out)[N])
   {
     for(int i = 0; i < N; ++i)
       out[i] = NVector_AbsCall(v[i]);
@@ -78,7 +78,7 @@ namespace bss_util {
 
   // Find the area of an n-dimensional triangle using Heron's formula
   template<typename T, int N>
-  inline static T NTriangleArea(const T(&x1)[N], const T(&x2)[N], const T(&x3)[N])
+  inline T NTriangleArea(const T(&x1)[N], const T(&x2)[N], const T(&x3)[N])
   {
     T a = NVector_Distance(x1, x2);
     T b = NVector_Distance(x1, x3);
@@ -89,7 +89,7 @@ namespace bss_util {
 
   // Applies an operator to two vectors
   /*template<typename T, int N, T(*F)(T, T), sseVecT<T>(*sseF)(const sseVecT<T>&, const sseVecT<T>&)>
-  BSS_FORCEINLINE static void NVectOp(const T(&x1)[N], const T(&x2)[N], T(&out)[N])
+  BSS_FORCEINLINE void NVectOp(const T(&x1)[N], const T(&x2)[N], T(&out)[N])
   {
   assert(((size_t)x1)%16==0);
   assert(((size_t)x2)%16==0);
@@ -104,7 +104,7 @@ namespace bss_util {
 
   // Applies an operator to a vector and a scalar
   template<typename T, int N, T(*F)(T, T), sseVecT<T>(*sseF)(const sseVecT<T>&, const sseVecT<T>&)>
-  BSS_FORCEINLINE static void NVectOp(const T(&x1)[N], T x2, T(&out)[N])
+  BSS_FORCEINLINE void NVectOp(const T(&x1)[N], T x2, T(&out)[N])
   {
   assert(((size_t)x1)%16==0);
   assert(((size_t)out)%16==0);
@@ -116,25 +116,25 @@ namespace bss_util {
   out[i]=F(x1[i], x2);
   }
 
-  template<typename T, typename R> BSS_FORCEINLINE static R NVectFAdd(T a, T b) { return a+b; }
-  template<typename T, typename R> BSS_FORCEINLINE static R NVectFSub(T a, T b) { return a-b; }
-  template<typename T, typename R> BSS_FORCEINLINE static R NVectFMul(T a, T b) { return a*b; }
-  template<typename T, typename R> BSS_FORCEINLINE static R NVectFDiv(T a, T b) { return a/b; }
-  template<typename T, int N> BSS_FORCEINLINE static void NVectAdd(const T(&x1)[N], const T(&x2)[N], T(&out)[N])
+  template<typename T, typename R> BSS_FORCEINLINE R NVectFAdd(T a, T b) { return a+b; }
+  template<typename T, typename R> BSS_FORCEINLINE R NVectFSub(T a, T b) { return a-b; }
+  template<typename T, typename R> BSS_FORCEINLINE R NVectFMul(T a, T b) { return a*b; }
+  template<typename T, typename R> BSS_FORCEINLINE R NVectFDiv(T a, T b) { return a/b; }
+  template<typename T, int N> BSS_FORCEINLINE void NVectAdd(const T(&x1)[N], const T(&x2)[N], T(&out)[N])
   { return NVectOp<T, N, NVectFAdd<T, T>, NVectFAdd<const sseVecT<T>&, sseVecT<T>>>(x1, x2, out); }
-  template<typename T, int N> BSS_FORCEINLINE static void NVectAdd(const T(&x1)[N], T x2, T(&out)[N])
+  template<typename T, int N> BSS_FORCEINLINE void NVectAdd(const T(&x1)[N], T x2, T(&out)[N])
   { return NVectOp<T, N, NVectFAdd<T, T>, NVectFAdd<const sseVecT<T>&, sseVecT<T>>>(x1, x2, out); }
-  template<typename T, int N> BSS_FORCEINLINE static void NVectSub(const T(&x1)[N], const T(&x2)[N], T(&out)[N])
+  template<typename T, int N> BSS_FORCEINLINE void NVectSub(const T(&x1)[N], const T(&x2)[N], T(&out)[N])
   { return NVectOp<T, N, NVectFSub<T, T>, NVectFSub<const sseVecT<T>&, sseVecT<T>>>(x1, x2, out); }
-  template<typename T, int N> BSS_FORCEINLINE static void NVectSub(const T(&x1)[N], T x2, T(&out)[N])
+  template<typename T, int N> BSS_FORCEINLINE void NVectSub(const T(&x1)[N], T x2, T(&out)[N])
   { return NVectOp<T, N, NVectFSub<T, T>, NVectFSub<const sseVecT<T>&, sseVecT<T>>>(x1, x2, out); }
-  template<typename T, int N> BSS_FORCEINLINE static void NVectMul(const T(&x1)[N], const T(&x2)[N], T(&out)[N])
+  template<typename T, int N> BSS_FORCEINLINE void NVectMul(const T(&x1)[N], const T(&x2)[N], T(&out)[N])
   { return NVectOp<T, N, NVectFMul<T, T>, NVectFMul<const sseVecT<T>&, sseVecT<T>>>(x1, x2, out); }
-  template<typename T, int N> BSS_FORCEINLINE static void NVectMul(const T(&x1)[N], T x2, T(&out)[N])
+  template<typename T, int N> BSS_FORCEINLINE void NVectMul(const T(&x1)[N], T x2, T(&out)[N])
   { return NVectOp<T, N, NVectFMul<T, T>, NVectFMul<const sseVecT<T>&, sseVecT<T>>>(x1, x2, out); }
-  template<typename T, int N> BSS_FORCEINLINE static void NVectDiv(const T(&x1)[N], const T(&x2)[N], T(&out)[N])
+  template<typename T, int N> BSS_FORCEINLINE void NVectDiv(const T(&x1)[N], const T(&x2)[N], T(&out)[N])
   { return NVectOp<T, N, NVectFDiv<T, T>, NVectFDiv<const sseVecT<T>&, sseVecT<T>>>(x1, x2, out); }
-  template<typename T, int N> BSS_FORCEINLINE static void NVectDiv(const T(&x1)[N], T x2, T(&out)[N])
+  template<typename T, int N> BSS_FORCEINLINE void NVectDiv(const T(&x1)[N], T x2, T(&out)[N])
   { return NVectOp<T, N, NVectFDiv<T, T>, NVectFDiv<const sseVecT<T>&, sseVecT<T>>>(x1, x2, out); }*/
 
   template<typename T, int M, int N, bool B=false>
@@ -178,7 +178,7 @@ namespace bss_util {
   };
 
   template<typename T>
-  static BSS_FORCEINLINE void MatrixInvert4x4(const T* mat, T* dst) noexcept
+  BSS_FORCEINLINE void MatrixInvert4x4(const T* mat, T* dst) noexcept
   {
     T tmp[12]; /* temp array for pairs */
     T src[16]; /* array of transpose source matrix */
@@ -261,7 +261,7 @@ namespace bss_util {
 #ifdef BSS_SSE_ENABLED
   // Standard 4x4 Matrix inversion using SSE, adapted from intel's implementation.
   template<>
-  BSS_EXPLICITSTATIC BSS_FORCEINLINE void MatrixInvert4x4<float>(const float* src, float* dest) noexcept // no point in using __restrict because we load everything into SSE registers anyway
+  BSS_FORCEINLINE void MatrixInvert4x4<float>(const float* src, float* dest) noexcept // no point in using __restrict because we load everything into SSE registers anyway
   {
     //   Copyright (c) 2001 Intel Corporation.
     //
@@ -468,7 +468,7 @@ namespace bss_util {
   }
 
   template<typename T, int M, int N, int P>
-  BSS_FORCEINLINE static void MatrixMultiply(const T(&l)[M][N], const T(&r)[N][P], T(&out)[M][P])
+  BSS_FORCEINLINE void MatrixMultiply(const T(&l)[M][N], const T(&r)[N][P], T(&out)[M][P])
   {
     __MatrixMultiply<T, M, N, P>::MM(l, r, out);
   }
@@ -569,10 +569,10 @@ namespace bss_util {
   };
 
   template<typename T, int N>
-  BSS_FORCEINLINE static T MatrixDeterminant(const T(&x)[N][N]) { return __MatrixDeterminant<T, N>::MD(x); }
+  BSS_FORCEINLINE T MatrixDeterminant(const T(&x)[N][N]) { return __MatrixDeterminant<T, N>::MD(x); }
 
   template<typename T, int N>
-  static BSS_FORCEINLINE void FromQuaternion(T(&q)[4], T(&out)[N][N])
+  BSS_FORCEINLINE void FromQuaternion(T(&q)[4], T(&out)[N][N])
   {
     T w=q[3], x=q[0], y=q[1], z=q[2];
     T xx = x*x, xy = x*y, xz = x*z, xw = x*w;
@@ -586,7 +586,7 @@ namespace bss_util {
   }
 
   template<>
-  BSS_EXPLICITSTATIC BSS_FORCEINLINE void FromQuaternion<float, 4>(float(&q)[4], float(&out)[4][4])
+  BSS_FORCEINLINE void FromQuaternion<float, 4>(float(&q)[4], float(&out)[4][4])
   {
     sseVec x(q[0]);
     sseVec y(q[1]);
@@ -1057,66 +1057,66 @@ namespace bss_util {
     };
   };
 
-  template<typename T, typename U, int N> inline static Vector<T, N> operator +(const Vector<T, N>& l, const Vector<U, N>& r) { Vector<T, N> n(l); n += r; return n; }
-  template<typename T, typename U, int N> inline static Vector<T, N> operator -(const Vector<T, N>& l, const Vector<U, N>& r) { Vector<T, N> n(l); n -= r; return n; }
-  template<typename T, typename U, int N> inline static Vector<T, N> operator *(const Vector<T, N>& l, const Vector<U, N>& r) { Vector<T, N> n(l); n *= r; return n; }
-  template<typename T, typename U, int N> inline static Vector<T, N> operator /(const Vector<T, N>& l, const Vector<U, N>& r) { Vector<T, N> n(l); n /= r; return n; }
-  template<typename T, int N> inline static Vector<T, N> operator +(const Vector<T, N>& l, const T scalar) { Vector<T, N> n(l); n += scalar; return n; }
-  template<typename T, int N> inline static Vector<T, N> operator -(const Vector<T, N>& l, const T scalar) { Vector<T, N> n(l); n -= scalar; return n; }
-  template<typename T, int N> inline static Vector<T, N> operator *(const Vector<T, N>& l, const T scalar) { Vector<T, N> n(l); n *= scalar; return n; }
-  template<typename T, int N> inline static Vector<T, N> operator /(const Vector<T, N>& l, const T scalar) { Vector<T, N> n(l); n /= scalar; return n; }
-  template<typename T, int N> inline static Vector<T, N> operator +(const T scalar, const Vector<T, N>& r) { Vector<T, N> n(r); n += scalar; return n; }
-  template<typename T, int N> inline static Vector<T, N> operator -(const T scalar, const Vector<T, N>& r) {
+  template<typename T, typename U, int N> inline Vector<T, N> operator +(const Vector<T, N>& l, const Vector<U, N>& r) { Vector<T, N> n(l); n += r; return n; }
+  template<typename T, typename U, int N> inline Vector<T, N> operator -(const Vector<T, N>& l, const Vector<U, N>& r) { Vector<T, N> n(l); n -= r; return n; }
+  template<typename T, typename U, int N> inline Vector<T, N> operator *(const Vector<T, N>& l, const Vector<U, N>& r) { Vector<T, N> n(l); n *= r; return n; }
+  template<typename T, typename U, int N> inline Vector<T, N> operator /(const Vector<T, N>& l, const Vector<U, N>& r) { Vector<T, N> n(l); n /= r; return n; }
+  template<typename T, int N> inline Vector<T, N> operator +(const Vector<T, N>& l, const T scalar) { Vector<T, N> n(l); n += scalar; return n; }
+  template<typename T, int N> inline Vector<T, N> operator -(const Vector<T, N>& l, const T scalar) { Vector<T, N> n(l); n -= scalar; return n; }
+  template<typename T, int N> inline Vector<T, N> operator *(const Vector<T, N>& l, const T scalar) { Vector<T, N> n(l); n *= scalar; return n; }
+  template<typename T, int N> inline Vector<T, N> operator /(const Vector<T, N>& l, const T scalar) { Vector<T, N> n(l); n /= scalar; return n; }
+  template<typename T, int N> inline Vector<T, N> operator +(const T scalar, const Vector<T, N>& r) { Vector<T, N> n(r); n += scalar; return n; }
+  template<typename T, int N> inline Vector<T, N> operator -(const T scalar, const Vector<T, N>& r) {
     Vector<T, N> ret(r); for(int i = 0; i < N; ++i) ret.v[i] = scalar - r.v[i]; return ret;
   }
-  template<typename T, int N> inline static Vector<T, N> operator *(const T scalar, const Vector<T, N>& r) { Vector<T, N> n(r); n *= scalar; return n; }
-  template<typename T, int N> inline static Vector<T, N> operator /(const T scalar, const Vector<T, N>& r) {
+  template<typename T, int N> inline Vector<T, N> operator *(const T scalar, const Vector<T, N>& r) { Vector<T, N> n(r); n *= scalar; return n; }
+  template<typename T, int N> inline Vector<T, N> operator /(const T scalar, const Vector<T, N>& r) {
     Vector<T, N> ret(r); for(int i = 0; i < N; ++i) ret.v[i] = scalar / r.v[i]; return ret;
   }
 
-  template<typename T, typename U, int N> inline static Vector<T, N>& operator +=(Vector<T, N>& l, const Vector<U, N>& r) { for(int i = 0; i < N; ++i) l.v[i] += (T)r.v[i]; return l; }
-  template<typename T, typename U, int N> inline static Vector<T, N>& operator -=(Vector<T, N>& l, const Vector<U, N>& r) { for(int i = 0; i < N; ++i) l.v[i] -= (T)r.v[i]; return l; }
-  template<typename T, typename U, int N> inline static Vector<T, N>& operator *=(Vector<T, N>& l, const Vector<U, N>& r) { for(int i = 0; i < N; ++i) l.v[i] *= (T)r.v[i]; return l; }
-  template<typename T, typename U, int N> inline static Vector<T, N>& operator /=(Vector<T, N>& l, const Vector<U, N>& r) { for(int i = 0; i < N; ++i) l.v[i] /= (T)r.v[i]; return l; }
-  template<typename T, int N> inline static Vector<T, N>& operator +=(Vector<T, N>& l, const T scalar) { for(int i = 0; i < N; ++i) l.v[i] += scalar; return l; }
-  template<typename T, int N> inline static Vector<T, N>& operator -=(Vector<T, N>& l, const T scalar) { for(int i = 0; i < N; ++i) l.v[i] -= scalar; return l; }
-  template<typename T, int N> inline static Vector<T, N>& operator *=(Vector<T, N>& l, const T scalar) { for(int i = 0; i < N; ++i) l.v[i] *= scalar; return l; }
-  template<typename T, int N> inline static Vector<T, N>& operator /=(Vector<T, N>& l, const T scalar) { for(int i = 0; i < N; ++i) l.v[i] /= scalar; return l; }
+  template<typename T, typename U, int N> inline Vector<T, N>& operator +=(Vector<T, N>& l, const Vector<U, N>& r) { for(int i = 0; i < N; ++i) l.v[i] += (T)r.v[i]; return l; }
+  template<typename T, typename U, int N> inline Vector<T, N>& operator -=(Vector<T, N>& l, const Vector<U, N>& r) { for(int i = 0; i < N; ++i) l.v[i] -= (T)r.v[i]; return l; }
+  template<typename T, typename U, int N> inline Vector<T, N>& operator *=(Vector<T, N>& l, const Vector<U, N>& r) { for(int i = 0; i < N; ++i) l.v[i] *= (T)r.v[i]; return l; }
+  template<typename T, typename U, int N> inline Vector<T, N>& operator /=(Vector<T, N>& l, const Vector<U, N>& r) { for(int i = 0; i < N; ++i) l.v[i] /= (T)r.v[i]; return l; }
+  template<typename T, int N> inline Vector<T, N>& operator +=(Vector<T, N>& l, const T scalar) { for(int i = 0; i < N; ++i) l.v[i] += scalar; return l; }
+  template<typename T, int N> inline Vector<T, N>& operator -=(Vector<T, N>& l, const T scalar) { for(int i = 0; i < N; ++i) l.v[i] -= scalar; return l; }
+  template<typename T, int N> inline Vector<T, N>& operator *=(Vector<T, N>& l, const T scalar) { for(int i = 0; i < N; ++i) l.v[i] *= scalar; return l; }
+  template<typename T, int N> inline Vector<T, N>& operator /=(Vector<T, N>& l, const T scalar) { for(int i = 0; i < N; ++i) l.v[i] /= scalar; return l; }
 
-  template<typename T, int N> inline static Vector<T, N> operator -(const Vector<T, N>& l) { for(int i = 0; i < N; ++i) l.v[i] = -l.v[i]; return l; }
+  template<typename T, int N> inline Vector<T, N> operator -(const Vector<T, N>& l) { for(int i = 0; i < N; ++i) l.v[i] = -l.v[i]; return l; }
 
-  template<typename T, int N> inline static bool operator !=(const Vector<T, N>& l, const Vector<T, N>& r) { bool ret = false; for(int i = 0; i < N; ++i) ret = ret || (l.v[i] != r.v[i]); return ret; }
-  template<typename T, int N> inline static bool operator ==(const Vector<T, N>& l, const Vector<T, N>& r) { bool ret = true; for(int i = 0; i < N; ++i) ret = ret && (l.v[i] == r.v[i]); return ret; }
-  template<typename T, int N> inline static bool operator !=(const Vector<T, N>& l, const T scalar) { bool ret = false; for(int i = 0; i < N; ++i) ret = ret || (l.v[i] != scalar); return ret; }
-  template<typename T, int N> inline static bool operator ==(const Vector<T, N>& l, const T scalar) { bool ret = true; for(int i = 0; i < N; ++i) ret = ret && (l.v[i] == scalar); return ret; }
-  template<typename T, int N> inline static bool operator >(const Vector<T, N>& l, const Vector<T, N>& r) { char c = 0; for(int i = 0; i < N && !c; ++i) c = SGNCOMPARE(l.v[i], r.v[i]); return c>0; }
-  template<typename T, int N> inline static bool operator <(const Vector<T, N>& l, const Vector<T, N>& r) { char c = 0; for(int i = 0; i < N && !c; ++i) c = SGNCOMPARE(l.v[i], r.v[i]); return c<0; }
-  template<typename T, int N> inline static bool operator >=(const Vector<T, N>& l, const Vector<T, N>& r) { return !operator<(l, r); }
-  template<typename T, int N> inline static bool operator <=(const Vector<T, N>& l, const Vector<T, N>& r) { return !operator>(l, r); }
-  template<typename T, int N> inline static bool operator >(const Vector<T, N>& l, const T scalar) { bool ret = true; for(int i = 0; i < N; ++i) ret = ret && (l.v[i] > scalar); return ret; }
-  template<typename T, int N> inline static bool operator <(const Vector<T, N>& l, const T scalar) { bool ret = true; for(int i = 0; i < N; ++i) ret = ret && (l.v[i] < scalar); return ret; }
-  template<typename T, int N> inline static bool operator >=(const Vector<T, N>& l, const T scalar) { bool ret = true; for(int i = 0; i < N; ++i) ret = ret && (l.v[i] >= scalar); return ret; }
-  template<typename T, int N> inline static bool operator <=(const Vector<T, N>& l, const T scalar) { bool ret = true; for(int i = 0; i < N; ++i) ret = ret && (l.v[i] <= scalar); return ret; }
+  template<typename T, int N> inline bool operator !=(const Vector<T, N>& l, const Vector<T, N>& r) { bool ret = false; for(int i = 0; i < N; ++i) ret = ret || (l.v[i] != r.v[i]); return ret; }
+  template<typename T, int N> inline bool operator ==(const Vector<T, N>& l, const Vector<T, N>& r) { bool ret = true; for(int i = 0; i < N; ++i) ret = ret && (l.v[i] == r.v[i]); return ret; }
+  template<typename T, int N> inline bool operator !=(const Vector<T, N>& l, const T scalar) { bool ret = false; for(int i = 0; i < N; ++i) ret = ret || (l.v[i] != scalar); return ret; }
+  template<typename T, int N> inline bool operator ==(const Vector<T, N>& l, const T scalar) { bool ret = true; for(int i = 0; i < N; ++i) ret = ret && (l.v[i] == scalar); return ret; }
+  template<typename T, int N> inline bool operator >(const Vector<T, N>& l, const Vector<T, N>& r) { char c = 0; for(int i = 0; i < N && !c; ++i) c = SGNCOMPARE(l.v[i], r.v[i]); return c>0; }
+  template<typename T, int N> inline bool operator <(const Vector<T, N>& l, const Vector<T, N>& r) { char c = 0; for(int i = 0; i < N && !c; ++i) c = SGNCOMPARE(l.v[i], r.v[i]); return c<0; }
+  template<typename T, int N> inline bool operator >=(const Vector<T, N>& l, const Vector<T, N>& r) { return !operator<(l, r); }
+  template<typename T, int N> inline bool operator <=(const Vector<T, N>& l, const Vector<T, N>& r) { return !operator>(l, r); }
+  template<typename T, int N> inline bool operator >(const Vector<T, N>& l, const T scalar) { bool ret = true; for(int i = 0; i < N; ++i) ret = ret && (l.v[i] > scalar); return ret; }
+  template<typename T, int N> inline bool operator <(const Vector<T, N>& l, const T scalar) { bool ret = true; for(int i = 0; i < N; ++i) ret = ret && (l.v[i] < scalar); return ret; }
+  template<typename T, int N> inline bool operator >=(const Vector<T, N>& l, const T scalar) { bool ret = true; for(int i = 0; i < N; ++i) ret = ret && (l.v[i] >= scalar); return ret; }
+  template<typename T, int N> inline bool operator <=(const Vector<T, N>& l, const T scalar) { bool ret = true; for(int i = 0; i < N; ++i) ret = ret && (l.v[i] <= scalar); return ret; }
 
   // Component-wise matrix operations. Note that component-wise matrix multiplication is ^
-  template<typename T, int M, int N> inline static Matrix<T, M, N> operator +(const Matrix<T, M, N>& l, const Matrix<T, M, N>& r) { Matrix<T, M, N> n(l); n += r; return n; }
-  template<typename T, int M, int N> inline static Matrix<T, M, N> operator -(const Matrix<T, M, N>& l, const Matrix<T, M, N>& r) { Matrix<T, M, N> n(l); n -= r; return n; }
-  template<typename T, int M, int N> inline static Matrix<T, M, N> operator ^(const Matrix<T, M, N>& l, const Matrix<T, M, N>& r) { Matrix<T, M, N> n(l); n ^= r; return n; }
-  template<typename T, int M, int N> inline static Matrix<T, M, N> operator /(const Matrix<T, M, N>& l, const Matrix<T, M, N>& r) { Matrix<T, M, N> n(l); n /= r; return n; }
-  template<typename T, int M, int N> inline static Matrix<T, M, N> operator +(const Matrix<T, M, N>& l, const T scalar) { Matrix<T, M, N> n(l); n += scalar; return n; }
-  template<typename T, int M, int N> inline static Matrix<T, M, N> operator -(const Matrix<T, M, N>& l, const T scalar) { Matrix<T, M, N> n(l); n -= scalar; return n; }
-  template<typename T, int M, int N> inline static Matrix<T, M, N> operator *(const Matrix<T, M, N>& l, const T scalar) { Matrix<T, M, N> n(l); n *= scalar; return n; }
-  template<typename T, int M, int N> inline static Matrix<T, M, N> operator /(const Matrix<T, M, N>& l, const T scalar) { Matrix<T, M, N> n(l); n /= scalar; return n; }
-  template<typename T, int M, int N> inline static Matrix<T, M, N> operator +(const T scalar, const Matrix<T, M, N>& r) { Matrix<T, M, N> n(r); n += scalar; return n; }
-  template<typename T, int M, int N> inline static Matrix<T, M, N> operator -(const T scalar, const Matrix<T, M, N>& r) {
+  template<typename T, int M, int N> inline Matrix<T, M, N> operator +(const Matrix<T, M, N>& l, const Matrix<T, M, N>& r) { Matrix<T, M, N> n(l); n += r; return n; }
+  template<typename T, int M, int N> inline Matrix<T, M, N> operator -(const Matrix<T, M, N>& l, const Matrix<T, M, N>& r) { Matrix<T, M, N> n(l); n -= r; return n; }
+  template<typename T, int M, int N> inline Matrix<T, M, N> operator ^(const Matrix<T, M, N>& l, const Matrix<T, M, N>& r) { Matrix<T, M, N> n(l); n ^= r; return n; }
+  template<typename T, int M, int N> inline Matrix<T, M, N> operator /(const Matrix<T, M, N>& l, const Matrix<T, M, N>& r) { Matrix<T, M, N> n(l); n /= r; return n; }
+  template<typename T, int M, int N> inline Matrix<T, M, N> operator +(const Matrix<T, M, N>& l, const T scalar) { Matrix<T, M, N> n(l); n += scalar; return n; }
+  template<typename T, int M, int N> inline Matrix<T, M, N> operator -(const Matrix<T, M, N>& l, const T scalar) { Matrix<T, M, N> n(l); n -= scalar; return n; }
+  template<typename T, int M, int N> inline Matrix<T, M, N> operator *(const Matrix<T, M, N>& l, const T scalar) { Matrix<T, M, N> n(l); n *= scalar; return n; }
+  template<typename T, int M, int N> inline Matrix<T, M, N> operator /(const Matrix<T, M, N>& l, const T scalar) { Matrix<T, M, N> n(l); n /= scalar; return n; }
+  template<typename T, int M, int N> inline Matrix<T, M, N> operator +(const T scalar, const Matrix<T, M, N>& r) { Matrix<T, M, N> n(r); n += scalar; return n; }
+  template<typename T, int M, int N> inline Matrix<T, M, N> operator -(const T scalar, const Matrix<T, M, N>& r) {
     Matrix<T, M, N> x;
     T* u = (T*)x.v;
     T* v = (T*)r.v;
     for(int i = 0; i < M*N; ++i) u[i] = scalar - v[i];
     return x;
   }
-  template<typename T, int M, int N> inline static Matrix<T, M, N> operator *(const T scalar, const Matrix<T, M, N>& r) { Matrix<T, M, N> n(r); n *= scalar; return n; }
-  template<typename T, int M, int N> inline static Matrix<T, M, N> operator /(const T scalar, const Matrix<T, M, N>& r) {
+  template<typename T, int M, int N> inline Matrix<T, M, N> operator *(const T scalar, const Matrix<T, M, N>& r) { Matrix<T, M, N> n(r); n *= scalar; return n; }
+  template<typename T, int M, int N> inline Matrix<T, M, N> operator /(const T scalar, const Matrix<T, M, N>& r) {
     Matrix<T, M, N> x;
     T* u = (T*)x.v;
     T* v = (T*)r.v;
@@ -1124,65 +1124,65 @@ namespace bss_util {
     return x;
   }
 
-  template<typename T, int M, int N> inline static Matrix<T, M, N>& operator +=(Matrix<T, M, N>& l, const Matrix<T, M, N>& r) { for(int i = 0; i < M; ++i) for(int j = 0; j < N; ++j) l.v[i][j] += r.v[i][j]; return l; }
-  template<typename T, int M, int N> inline static Matrix<T, M, N>& operator -=(Matrix<T, M, N>& l, const Matrix<T, M, N>& r) { for(int i = 0; i < M; ++i) for(int j = 0; j < N; ++j) l.v[i][j] -= r.v[i][j]; return l; }
-  template<typename T, int M, int N> inline static Matrix<T, M, N>& operator ^=(Matrix<T, M, N>& l, const Matrix<T, M, N>& r) { for(int i = 0; i < M; ++i) for(int j = 0; j < N; ++j) l.v[i][j] *= r.v[i][j]; return l; }
-  template<typename T, int M, int N> inline static Matrix<T, M, N>& operator /=(Matrix<T, M, N>& l, const Matrix<T, M, N>& r) { for(int i = 0; i < M; ++i) for(int j = 0; j < N; ++j) l.v[i][j] /= r.v[i][j]; return l; }
-  template<typename T, int M, int N> inline static Matrix<T, M, N>& operator +=(Matrix<T, M, N>& l, const T scalar) { for(int i = 0; i < M; ++i) for(int j = 0; j < N; ++j) l.v[i][j] += scalar; return l; }
-  template<typename T, int M, int N> inline static Matrix<T, M, N>& operator -=(Matrix<T, M, N>& l, const T scalar) { for(int i = 0; i < M; ++i) for(int j = 0; j < N; ++j) l.v[i][j] -= scalar; return l; }
-  template<typename T, int M, int N> inline static Matrix<T, M, N>& operator *=(Matrix<T, M, N>& l, const T scalar) { for(int i = 0; i < M; ++i) for(int j = 0; j < N; ++j) l.v[i][j] *= scalar; return l; }
-  template<typename T, int M, int N> inline static Matrix<T, M, N>& operator /=(Matrix<T, M, N>& l, const T scalar) { for(int i = 0; i < M; ++i) for(int j = 0; j < N; ++j) l.v[i][j] /= scalar; return l; }
+  template<typename T, int M, int N> inline Matrix<T, M, N>& operator +=(Matrix<T, M, N>& l, const Matrix<T, M, N>& r) { for(int i = 0; i < M; ++i) for(int j = 0; j < N; ++j) l.v[i][j] += r.v[i][j]; return l; }
+  template<typename T, int M, int N> inline Matrix<T, M, N>& operator -=(Matrix<T, M, N>& l, const Matrix<T, M, N>& r) { for(int i = 0; i < M; ++i) for(int j = 0; j < N; ++j) l.v[i][j] -= r.v[i][j]; return l; }
+  template<typename T, int M, int N> inline Matrix<T, M, N>& operator ^=(Matrix<T, M, N>& l, const Matrix<T, M, N>& r) { for(int i = 0; i < M; ++i) for(int j = 0; j < N; ++j) l.v[i][j] *= r.v[i][j]; return l; }
+  template<typename T, int M, int N> inline Matrix<T, M, N>& operator /=(Matrix<T, M, N>& l, const Matrix<T, M, N>& r) { for(int i = 0; i < M; ++i) for(int j = 0; j < N; ++j) l.v[i][j] /= r.v[i][j]; return l; }
+  template<typename T, int M, int N> inline Matrix<T, M, N>& operator +=(Matrix<T, M, N>& l, const T scalar) { for(int i = 0; i < M; ++i) for(int j = 0; j < N; ++j) l.v[i][j] += scalar; return l; }
+  template<typename T, int M, int N> inline Matrix<T, M, N>& operator -=(Matrix<T, M, N>& l, const T scalar) { for(int i = 0; i < M; ++i) for(int j = 0; j < N; ++j) l.v[i][j] -= scalar; return l; }
+  template<typename T, int M, int N> inline Matrix<T, M, N>& operator *=(Matrix<T, M, N>& l, const T scalar) { for(int i = 0; i < M; ++i) for(int j = 0; j < N; ++j) l.v[i][j] *= scalar; return l; }
+  template<typename T, int M, int N> inline Matrix<T, M, N>& operator /=(Matrix<T, M, N>& l, const T scalar) { for(int i = 0; i < M; ++i) for(int j = 0; j < N; ++j) l.v[i][j] /= scalar; return l; }
 
-  template<typename T, int M, int N> inline static bool operator ==(const Matrix<T, M, N>& l, const Matrix<T, M, N>& r) { for(int i = 0; i < M; ++i) for(int j = 0; j < N; ++j) if(l.v[i][j] != r.v[i][j]) return false; return true; }
-  template<typename T, int M, int N> inline static bool operator !=(const Matrix<T, M, N>& l, const Matrix<T, M, N>& r) { return !operator==(l, r); }
-  template<typename T, int M, int N> inline static bool operator ==(const Matrix<T, M, N>& l, const T scalar) { for(int i = 0; i < M; ++i) for(int j = 0; j < N; ++j) if(l.v[i][j] != scalar) return false; return true; }
-  template<typename T, int M, int N> inline static bool operator !=(const Matrix<T, M, N>& l, const T scalar) { return !operator==(l, scalar); }
+  template<typename T, int M, int N> inline bool operator ==(const Matrix<T, M, N>& l, const Matrix<T, M, N>& r) { for(int i = 0; i < M; ++i) for(int j = 0; j < N; ++j) if(l.v[i][j] != r.v[i][j]) return false; return true; }
+  template<typename T, int M, int N> inline bool operator !=(const Matrix<T, M, N>& l, const Matrix<T, M, N>& r) { return !operator==(l, r); }
+  template<typename T, int M, int N> inline bool operator ==(const Matrix<T, M, N>& l, const T scalar) { for(int i = 0; i < M; ++i) for(int j = 0; j < N; ++j) if(l.v[i][j] != scalar) return false; return true; }
+  template<typename T, int M, int N> inline bool operator !=(const Matrix<T, M, N>& l, const T scalar) { return !operator==(l, scalar); }
 
-  template<typename T, int M, int N> inline static Matrix<T, M, N> operator -(const Matrix<T, M, N>& l) { return l*((T)-1); }
-  template<typename T, int M, int N> inline static Matrix<T, M, N> operator ~(const Matrix<T, M, N>& l) { Matrix<T, M, N> m; return l.Transpose(m.v); return m; }
+  template<typename T, int M, int N> inline Matrix<T, M, N> operator -(const Matrix<T, M, N>& l) { return l*((T)-1); }
+  template<typename T, int M, int N> inline Matrix<T, M, N> operator ~(const Matrix<T, M, N>& l) { Matrix<T, M, N> m; return l.Transpose(m.v); return m; }
 
   template<typename T, int M, int N>
-  inline static const Vector<T, N> operator *(const Vector<T, M>& v, const Matrix<T, M, N>& m) // Does v * M and assumes v is a row vector
+  inline const Vector<T, N> operator *(const Vector<T, M>& v, const Matrix<T, M, N>& m) // Does v * M and assumes v is a row vector
   {
     Vector<T, N> out;
     MatrixMultiply<T, 1, M, N>(v.v_row, m.v, out.v_row);
     return out;
   }
   template<typename T, int M, int N>
-  inline static const Vector<T, M> operator *(const Matrix<T, M, N>& m, const Vector<T, N>& v) // Does M * v and assumes v is a column vector
+  inline const Vector<T, M> operator *(const Matrix<T, M, N>& m, const Vector<T, N>& v) // Does M * v and assumes v is a column vector
   {
     Vector<T, M> out;
     MatrixMultiply<T, M, N, 1>(m.v, v.v_column, out.v_column);
     return out;
   }
   template<typename T, int N>
-  inline static Matrix<T, N, N>& operator *=(Vector<T, N>& l, const Matrix<T, N, N>& r) // Does v *= M and assumes v is a row vector
+  inline Matrix<T, N, N>& operator *=(Vector<T, N>& l, const Matrix<T, N, N>& r) // Does v *= M and assumes v is a row vector
   {
     MatrixMultiply<T, 1, N, N>(l.v_row, r.v, l.v_row);
     return l;
   }
   template<typename T, int M, int N, int P>
-  inline static const Matrix<T, M, P> operator *(const Matrix<T, M, N>& l, const Matrix<T, N, P>& r) // Does M * M
+  inline const Matrix<T, M, P> operator *(const Matrix<T, M, N>& l, const Matrix<T, N, P>& r) // Does M * M
   {
     Matrix<T, M, P> out;
     MatrixMultiply<T, M, N, P>(l.v, r.v, out.v);
     return out;
   }
   template<typename T, int M, int N>
-  inline static Matrix<T, M, N>& operator *=(Matrix<T, M, N>& l, const Matrix<T, N, N>& r) // Does M *= M
+  inline Matrix<T, M, N>& operator *=(Matrix<T, M, N>& l, const Matrix<T, N, N>& r) // Does M *= M
   {
     MatrixMultiply<T, M, N, N>(l.v, r.v, l.v);
     return l;
   }
 
-  template<> inline BSS_EXPLICITSTATIC Vector<float, 4>& operator +=<float, float, 4>(Vector<float, 4>& l, const Vector<float, 4>& r) { (sseVec(l.v)+sseVec(r.v)) >> l.v; return l; }
-  template<> inline BSS_EXPLICITSTATIC Vector<float, 4>& operator -=<float, float, 4>(Vector<float, 4>& l, const Vector<float, 4>& r) { (sseVec(l.v)-sseVec(r.v)) >> l.v; return l; }
-  template<> inline BSS_EXPLICITSTATIC Vector<float, 4>& operator *=<float, float, 4>(Vector<float, 4>& l, const Vector<float, 4>& r) { (sseVec(l.v)*sseVec(r.v)) >> l.v; return l; }
-  template<> inline BSS_EXPLICITSTATIC Vector<float, 4>& operator /=<float, float, 4>(Vector<float, 4>& l, const Vector<float, 4>& r) { (sseVec(l.v)/sseVec(r.v)) >> l.v; return l; }
-  template<> inline BSS_EXPLICITSTATIC Vector<float, 4>& operator +=<float, 4>(Vector<float, 4>& l, const float r) { (sseVec(l.v)+sseVec(r, r, r, r)) >> l.v; return l; }
-  template<> inline BSS_EXPLICITSTATIC Vector<float, 4>& operator -=<float, 4>(Vector<float, 4>& l, const float r) { (sseVec(l.v)-sseVec(r, r, r, r)) >> l.v; return l; }
-  template<> inline BSS_EXPLICITSTATIC Vector<float, 4>& operator *=<float, 4>(Vector<float, 4>& l, const float r) { (sseVec(l.v)*sseVec(r, r, r, r)) >> l.v; return l; }
-  template<> inline BSS_EXPLICITSTATIC Vector<float, 4>& operator /=<float, 4>(Vector<float, 4>& l, const float r) { (sseVec(l.v)/sseVec(r, r, r, r)) >> l.v; return l; }
+  template<> inline Vector<float, 4>& operator +=<float, float, 4>(Vector<float, 4>& l, const Vector<float, 4>& r) { (sseVec(l.v)+sseVec(r.v)) >> l.v; return l; }
+  template<> inline Vector<float, 4>& operator -=<float, float, 4>(Vector<float, 4>& l, const Vector<float, 4>& r) { (sseVec(l.v)-sseVec(r.v)) >> l.v; return l; }
+  template<> inline Vector<float, 4>& operator *=<float, float, 4>(Vector<float, 4>& l, const Vector<float, 4>& r) { (sseVec(l.v)*sseVec(r.v)) >> l.v; return l; }
+  template<> inline Vector<float, 4>& operator /=<float, float, 4>(Vector<float, 4>& l, const Vector<float, 4>& r) { (sseVec(l.v)/sseVec(r.v)) >> l.v; return l; }
+  template<> inline Vector<float, 4>& operator +=<float, 4>(Vector<float, 4>& l, const float r) { (sseVec(l.v)+sseVec(r, r, r, r)) >> l.v; return l; }
+  template<> inline Vector<float, 4>& operator -=<float, 4>(Vector<float, 4>& l, const float r) { (sseVec(l.v)-sseVec(r, r, r, r)) >> l.v; return l; }
+  template<> inline Vector<float, 4>& operator *=<float, 4>(Vector<float, 4>& l, const float r) { (sseVec(l.v)*sseVec(r, r, r, r)) >> l.v; return l; }
+  template<> inline Vector<float, 4>& operator /=<float, 4>(Vector<float, 4>& l, const float r) { (sseVec(l.v)/sseVec(r, r, r, r)) >> l.v; return l; }
 
 }
 

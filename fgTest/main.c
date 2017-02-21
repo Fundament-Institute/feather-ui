@@ -5,6 +5,7 @@
 #include "fgWindow.h"
 #include "fgRoot.h"
 #include "fgLayout.h"
+#include "fgDebug.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -168,6 +169,22 @@ RETPAIR test_Menu()
 #pragma comment(lib, "../bin32/fgDirect2D32.lib")
 #endif
 
+
+size_t test_inject(fgRoot* self, const FG_Msg* msg)
+{
+  if(msg->type == FG_KEYDOWN)
+  {
+    if(msg->keycode == FG_KEY_F11)
+    {
+      if(fgDebug_Get() != 0 && !(fgDebug_Get()->element.flags&FGELEMENT_HIDDEN))
+        fgDebug_Hide();
+      else
+        fgDebug_Show(200, 200, 0);
+    }
+  }
+  return fgRoot_DefaultInject(self, msg);
+}
+
 int main(int argc, char** argv)
 {
   static const int COLUMNS[3] = { 24, 11, 8 };
@@ -188,6 +205,7 @@ int main(int argc, char** argv)
   unsigned int nfail=0;
 
   fgInitialize();
+  fgSetInjectFunc(&test_inject);
   /*
 #if defined(BSS_DEBUG) && defined(BSS_CPU_x86_64)
   fgLoadBackend("fgDirect2D_d.dll");

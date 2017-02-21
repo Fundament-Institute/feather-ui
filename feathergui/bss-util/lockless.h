@@ -30,7 +30,7 @@ namespace bss_util {
 #pragma warning(disable : 4793)
 
   // Enforces a CPU barrier to prevent any reordering attempts
-	BSS_FORCEINLINE static void CPU_Barrier()
+	BSS_FORCEINLINE void CPU_Barrier()
 	{
 #ifdef BSS_COMPILER_CLANG
     __sync_synchronize();

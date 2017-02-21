@@ -354,7 +354,7 @@ size_t fgUTF32toUTF8(const int*BSS_RESTRICT input, ptrdiff_t srclen, char*BSS_RE
 * definition of UTF-8 goes up to 4-byte sequences.
 */
 
-static char isLegalUTF8(const UTF8 *source, int length) {
+char isLegalUTF8(const UTF8 *source, int length) {
   UTF8 a;
   const UTF8 *srcptr = source + length;
   switch(length)

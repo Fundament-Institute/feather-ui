@@ -8,6 +8,10 @@
 #include "fgMenu.h"
 #include "fgGrid.h"
 
+#ifdef  __cplusplus
+extern "C" {
+#endif
+
 enum FGDEBUG_FLAGS
 {
   FGDEBUG_CLEARONHIDE = (FGELEMENT_SNAPY << 1), // If set, clears the message log when the debug view is hidden
@@ -99,5 +103,9 @@ FG_EXTERN void fgDebug_DumpMessages(const char* file);
 FG_EXTERN void fgDebug_BuildTree(fgElement* treeview);
 
 FG_EXTERN size_t fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg);
+
+#ifdef  __cplusplus
+}
+#endif
 
 #endif
