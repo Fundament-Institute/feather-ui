@@ -24,8 +24,14 @@ struct _FG_SKIN_LAYOUT;
 typedef fgDeclareVector(struct _FG_SKIN_LAYOUT, SkinLayout) fgVectorSkinLayout;
 
 typedef struct _FG_SKIN_TREE {
+  struct fgStylePair {
+    FG_UINT map;
+    fgStyle style;
+  };
+
   fgVectorSkinLayout children;
-  struct __kh_fgStyleInt_t* styles;
+  fgDeclareVector(struct fgStylePair, StylePair) styles;
+  size_t stylemask;
 
 #ifdef  __cplusplus
   FG_DLLEXPORT size_t AddChild(const char* type, fgFlag flags, const fgTransform* transform, short units, int order);
@@ -45,7 +51,6 @@ typedef struct _FG_SKIN_LAYOUT {
 
 struct __kh_fgSkins_t;
 struct __kh_fgStyles_t;
-struct __kh_fgStyleInt_t;
 struct _FG_SKIN;
 
 typedef struct _FG_SKIN_BASE

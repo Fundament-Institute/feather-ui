@@ -25,6 +25,8 @@ FG_EXTERN void fgTabcontrol_Init(fgTabcontrol* self, fgElement* BSS_RESTRICT par
 FG_EXTERN void fgTabcontrol_Destroy(fgTabcontrol* self);
 FG_EXTERN size_t fgTabcontrol_Message(fgTabcontrol* self, const FG_Msg* msg);
 
+FG_EXTERN size_t fgTab_Message(fgElement* self, const FG_Msg* msg);
+
 #ifdef  __cplusplus
 }
 #endif

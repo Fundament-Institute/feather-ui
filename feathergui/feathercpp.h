@@ -199,7 +199,6 @@ struct _FG_ROOT;
 extern struct _FG_ROOT* fgroot_instance;
 struct _FG_DEBUG;
 extern struct _FG_DEBUG* fgdebug_instance;
-extern FG_UINT fgStyleFlagMask;
 
 typedef typename fgConstruct<fgSkinLayout, const char*, fgFlag, const fgTransform*, short, int>::fgConstructor<fgSkinLayout_Destroy, fgSkinLayout_Init> fgSkinLayoutConstruct;
 typedef typename fgConstruct<fgClassLayout, const char*, const char*, fgFlag, const fgTransform*, short, int>::fgConstructor<fgClassLayout_Destroy, fgClassLayout_Init> fgClassLayoutConstruct;
@@ -272,7 +271,7 @@ inline FG_UINT fgStyleGetMask() { return 0; }
 template<typename Arg, typename... Args>
 inline FG_UINT fgStyleGetMask(Arg arg, Args... args)
 {
-  return fgStyle_GetName(arg, false) | fgStyleGetMask(args...);
+  return fgStyle_GetName(arg) | fgStyleGetMask(args...);
 }
 
 BSS_FORCEINLINE size_t fgStandardNeutralSetStyle(fgElement* self, const char* style, unsigned short sub = FGSETSTYLE_NAME)
@@ -280,6 +279,11 @@ BSS_FORCEINLINE size_t fgStandardNeutralSetStyle(fgElement* self, const char* st
   return _sendsubmsg<FG_SETSTYLE, const void*, size_t>(self, sub, style, fgStyleGetMask("neutral", "hover", "active", "disable"));
 }
 
+BSS_FORCEINLINE size_t fgSetFlagStyle(fgElement* self, const char* style, bool value = true)
+{
+  size_t f = fgStyle_GetName(style);
+  return _sendsubmsg<FG_SETSTYLE, size_t, size_t>(self, FGSETSTYLE_INDEX, !value ? 0 : f, f);
+}
 BSS_FORCEINLINE size_t fgMaskSetStyle(fgElement* self, const char* style, FG_UINT mask)
 {
   return _sendsubmsg<FG_SETSTYLE, const void*, size_t>(self, FGSETSTYLE_NAME, style, mask);
@@ -358,15 +362,15 @@ struct __VECTOR__UTF16;
 struct __VECTOR__UTF32;
 
 extern fgSkin* fgSkinBase_LoadNodeXML(fgSkinBase* self, const bss_util::cXMLNode* root);
-extern inline __kh_fgSkins_t *kh_init_fgSkins();
+extern __kh_fgSkins_t *kh_init_fgSkins();
 extern void fgStyle_LoadAttributesXML(struct _FG_STYLE* self, const bss_util::cXMLNode* cur, int flags, struct _FG_SKIN_BASE* root, const char* path, const char** id, fgKeyValueArray* userdata);
 extern int fgStyle_NodeEvalTransform(const bss_util::cXMLNode* node, fgTransform& t);
 extern fgElement* fgLayout_GetNext(fgElement* cur);
 extern fgElement* fgLayout_GetPrev(fgElement* cur);
-inline FABS fgLayout_GetElementWidth(fgElement* child);
-inline FABS fgLayout_GetElementHeight(fgElement* child);
-extern inline fgVector* fgText_Conversion(int type, struct __VECTOR__UTF8* text8, struct __VECTOR__UTF16* text16, struct __VECTOR__UTF32* text32);
+extern fgVector* fgText_Conversion(int type, struct __VECTOR__UTF8* text8, struct __VECTOR__UTF16* text16, struct __VECTOR__UTF32* text32);
 extern void fgMenu_Show(struct _FG_MENU* self, bool show);
+extern void LList_RemoveAll(fgElement* self);
+extern void LList_InsertAll(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT next);
 
 struct _FG_BOX_ORDERED_ELEMENTS_;
 
@@ -389,6 +393,48 @@ T* memcpyalloc(const T* src, size_t len)
   T* r = (T*)malloc(len * sizeof(T));
   MEMCPY(r, len * sizeof(T), src, len * sizeof(T));
   return r;
+}
+
+BSS_FORCEINLINE FABS fgLayout_GetElementMinWidth(fgElement* child)
+{
+  if(!(child->flags&FGELEMENT_EXPANDX))
+    return child->mindim.x;
+  FABS l = child->layoutdim.x + child->padding.left + child->padding.right + child->margin.left + child->margin.right;
+  return (child->mindim.x >= 0.0f && child->mindim.x > l) ? child->mindim.x : l;
+}
+
+BSS_FORCEINLINE FABS fgLayout_GetElementMinHeight(fgElement* child)
+{
+  if(!(child->flags&FGELEMENT_EXPANDY))
+    return child->mindim.y;
+  FABS l = child->layoutdim.y + child->padding.top + child->padding.bottom + child->margin.top + child->margin.bottom;
+  return (child->mindim.y >= 0.0f && child->mindim.y > l) ? child->mindim.y : l;
+}
+
+BSS_FORCEINLINE FABS fgLayout_GetElementWidth(fgElement* child)
+{
+  FABS w = (child->transform.area.left.rel == child->transform.area.right.rel) ? child->transform.area.right.abs - child->transform.area.left.abs : 0.0f;
+  FABS m = fgLayout_GetElementMinWidth(child);
+  return (m >= 0.0f && m > w) ? m : w;
+}
+
+BSS_FORCEINLINE FABS fgLayout_GetElementHeight(fgElement* child)
+{
+  FABS h = (child->transform.area.top.rel == child->transform.area.bottom.rel) ? child->transform.area.bottom.abs - child->transform.area.top.abs : 0.0f;
+  FABS m = fgLayout_GetElementMinHeight(child);
+  return (m >= 0.0f && m > h) ? m : h;
+}
+
+inline FABS fgLayout_ExpandX(FABS dimx, fgElement* child)
+{
+  FABS r = child->transform.area.left.abs + fgLayout_GetElementWidth(child);
+  return bssmax(dimx, r);
+}
+
+inline FABS fgLayout_ExpandY(FABS dimy, fgElement* child)
+{
+  FABS r = child->transform.area.top.abs + fgLayout_GetElementHeight(child);
+  return bssmax(dimy, r);
 }
 
 struct _FG_MESSAGEQUEUE {

@@ -785,6 +785,7 @@ fgElement* fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgE
   if(!STRICMP(type, "tab"))
   {
     fgElement* e = parent->AddItemText(name);
+    //e->message = (fgMessage)fgTab_Message;
     if(transform) e->SetTransform(*transform);
     e->SetFlags(flags);
     return e;
@@ -895,4 +896,23 @@ fgInject fgSetInjectFunc(fgInject inject)
   fgInject prev = fgroot_instance->inject;
   fgroot_instance->inject = inject;
   return prev;
+}
+
+void fgRoot_Clear(fgRoot* self)
+{
+  fgMonitor* m = self->monitors;
+  while(m)
+  {
+    fgElement_Clear(&m->element);
+    LList_RemoveAll(&m->element);
+    m = m->mnext;
+  }
+  fgElement_Clear(&self->gui.element);
+  m = self->monitors;
+  while(m)
+  {
+    fgElement_Clear(&m->element);
+    LList_InsertAll(&m->element, 0);
+    m = m->mnext;
+  }
 }

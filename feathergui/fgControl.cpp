@@ -147,14 +147,14 @@ size_t fgControl_Message(fgControl* self, const FG_Msg* msg)
     if(fgFocusedWindow) // We do this here so you can disable getting focus by blocking this message without messing things up
       _sendmsg<FG_LOSTFOCUS, void*>(fgFocusedWindow, self);
     fgFocusedWindow = *self;
-    fgStandardNeutralSetStyle(*self, "focused", FGSETSTYLE_SETFLAG);
+    fgSetFlagStyle(*self, "focused", true);
     return FG_ACCEPT;
   case FG_LOSTFOCUS:
     assert(fgFocusedWindow == *self);
     if(fgFocusedWindow == *self)
     {
       fgFocusedWindow = 0;
-      fgStandardNeutralSetStyle(*self, "focused", FGSETSTYLE_REMOVEFLAG);
+      fgSetFlagStyle(*self, "focused", false);
       if(self->element.parent)
       {
         if(self->element.parent->lastfocus == *self) // if the lastfocus was already us set it to 0.

@@ -7,7 +7,6 @@
 #include "feathercpp.h"
 
 KHASH_INIT(fgStyles, const char*, FG_UINT, 1, kh_str_hash_funcins, kh_str_hash_insequal);
-FG_UINT fgStyleFlagMask = 0;
 
 void fgStyle_Init(fgStyle* self)
 {
@@ -94,7 +93,7 @@ struct fgStyleStatic
   }
   kh_fgStyles_t* h;
 };
-FG_UINT fgStyle_GetName(const char* name, char flag)
+FG_UINT fgStyle_GetName(const char* name)
 {
   static fgStyleStatic stylehash;
   static FG_UINT count = 0;
@@ -106,8 +105,6 @@ FG_UINT fgStyle_GetName(const char* name, char flag)
   {
     kh_key(stylehash.h, iter) = fgCopyText(name, __FILE__, __LINE__);
     kh_val(stylehash.h, iter) = (1 << count++);
-    if(flag) fgStyleFlagMask |= kh_val(stylehash.h, iter);
   }
-  assert(!!(fgStyleFlagMask & kh_val(stylehash.h, iter)) == flag);
   return kh_val(stylehash.h, iter);
 }

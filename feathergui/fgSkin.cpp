@@ -8,6 +8,7 @@
 #include "feathercpp.h"
 #include "bss-util/cXML.h"
 #include "bss-util/cTrie.h"
+#include "bss-util/cArraySort.h"
 #include "fgButton.h"
 #include "fgTextbox.h"
 #include "fgCombobox.h"
@@ -17,14 +18,22 @@
 #include <fstream>
 #include <sstream>
 
+using namespace bss_util;
+
 KHASH_INIT(fgSkins, const char*, fgSkin*, 1, kh_str_hash_funcins, kh_str_hash_insequal);
-KHASH_INIT(fgStyleInt, FG_UINT, fgStyle, 1, kh_int_hash_func, kh_int_hash_equal);
 
 static_assert(sizeof(fgSkinLayoutArray) == sizeof(fgVector), "mismatch between vector sizes");
 static_assert(sizeof(fgStyleArray) == sizeof(fgVector), "mismatch between vector sizes");
 static_assert(sizeof(fgClassLayoutArray) == sizeof(fgVector), "mismatch between vector sizes");
 
-using namespace bss_util;
+char CompStylePair(const fgSkinTree::fgStylePair& l, const fgSkinTree::fgStylePair& r)
+{
+  uint8_t lb = bitcount(l.map);
+  uint8_t rb = bitcount(r.map);
+  char ret = SGNCOMPARE(rb, lb);
+  return !ret ? SGNCOMPARE(r.map, l.map) : ret;
+}
+typedef cArraySort<fgSkinTree::fgStylePair, &CompStylePair> StyleArraySort;
 
 void fgSkin_Init(fgSkin* self)
 {
@@ -78,17 +87,8 @@ void fgSkinTree_Destroy(fgSkinTree* self)
 {
   reinterpret_cast<fgSkinLayoutArray&>(self->children).~cArraySort();
 
-  if(self->styles != 0)
-  {
-    khiter_t cur = kh_begin(self->styles);
-    while(cur != kh_end(self->styles))
-    {
-      if(kh_exist(self->styles, cur))
-        fgStyle_Destroy(self->styles->vals + cur);
-      ++cur;
-    }
-    kh_destroy_fgStyleInt(self->styles);
-  }
+  for(size_t i = 0; i < self->styles.l; ++i)
+    fgStyle_Destroy(&self->styles.p[i].style);
 }
 
 size_t fgSkinTree_AddChild(fgSkinTree* self, const char* type, fgFlag flags, const fgTransform* transform, short units, int order)
@@ -108,9 +108,6 @@ fgSkinLayout* fgSkinTree_GetChild(const fgSkinTree* self, FG_UINT child)
 
 FG_UINT fgSkinTree_AddStyle(fgSkinTree* self, const char* name)
 {
-  if(!self->styles)
-    self->styles = kh_init_fgStyleInt();
-
   size_t len = strlen(name) + 1;
   DYNARRAY(char, tokenize, len);
   MEMCPY(tokenize, len, name, len);
@@ -119,34 +116,31 @@ FG_UINT fgSkinTree_AddStyle(fgSkinTree* self, const char* name)
   FG_UINT style = 0;
   while(token)
   {
-    style |= fgStyle_GetName(token, style != 0); // If this is the first token we're parsing, it's not a flag, otherwise it is a flag.
+    style |= fgStyle_GetName(token);
     token = STRTOK(0, "+", &context);
   }
 
-  int r = 0;
-  khiter_t i = kh_put_fgStyleInt(self->styles, style, &r);
-
-  if(r != 0)
-    kh_val(self->styles, i).styles = 0;
+  self->stylemask |= style;
+  fgSkinTree::fgStylePair pair = { style, 0 };
+  if(((StyleArraySort&)self->styles).Find(pair) == (size_t)~0)
+    ((StyleArraySort&)self->styles).Insert(pair);
   return style;
 }
 
 char fgSkinTree_RemoveStyle(fgSkinTree* self, FG_UINT style)
 {
-  khiter_t i = kh_get_fgStyleInt(self->styles, style);
-  if(i < kh_end(self->styles) && kh_exist(self->styles, i))
-  {
-    fgStyle_Destroy(self->styles->vals + i);
-    kh_del_fgStyleInt(self->styles, i);
-    return 1;
-  }
-  return 0;
+  fgSkinTree::fgStylePair pair = { style, 0 };
+  size_t i = ((StyleArraySort&)self->styles).Find(pair);
+  if(i == (size_t)~0)
+    return 0;
+  fgStyle_Destroy(&self->styles.p[i].style);
+  return ((StyleArraySort&)self->styles).Remove(i);
 }
 fgStyle* fgSkinTree_GetStyle(const fgSkinTree* self, FG_UINT style)
 {
-  if(!self->styles) return 0;
-  khiter_t i = kh_get_fgStyleInt(self->styles, style);
-  return (i < kh_end(self->styles) && kh_exist(self->styles, i)) ? (self->styles->vals + i) : 0;
+  fgSkinTree::fgStylePair pair = { style, 0 };
+  size_t i = ((StyleArraySort&)self->styles).Find(pair);
+  return (i == (size_t)~0) ? 0 : (&self->styles.p[i].style);
 }
 
 void fgSkinBase_Destroy(fgSkinBase* self)
@@ -293,9 +287,13 @@ char* fgSkin_GetFontFamily(char* s, char quote, char** context)
   if(!s)
   {
     s = *context;
+    if(!s) // This can happen in error cases
+      return 0;
     if(s[0] == ',')
       ++s;
   }
+  else
+    *context = 0;
 
   while(isspace(s[0])) ++s;
   if(!s[0]) return 0;
@@ -467,6 +465,22 @@ int fgStyle_NodeEvalTransform(const cXMLNode* node, fgTransform& t)
   return flags;
 }
 
+uint32_t fgStyle_ParseColor(const cXMLValue* attr)
+{
+  fgColor color;
+  color.color = attr->Integer;
+  if(attr->String.length() == 8 && attr->String[0] == '0' && attr->String[1] == 'x') // If this is true, it's a non-alpha color value
+  {
+    rswap(color.r, color.b);
+    color.a = 255;
+  }
+  else
+  {
+    rswap(color.r, color.a);
+    rswap(color.g, color.b);
+  }
+  return color.color;
+}
 void fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, fgSkinBase* root, const char* path, const char** id, fgKeyValueArray* userdata)
 {
   static cTrie<uint16_t, true> t(44, "id", "min-width", "min-height", "max-width", "max-height", "skin", "alpha", "margin", "padding", "text",
@@ -555,25 +569,25 @@ void fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, fg
       break;
     }
     case 11:
-      AddStyleSubMsg<FG_SETCOLOR, ptrdiff_t>(self, FGSETCOLOR_MAIN, attr->Integer);
+      AddStyleSubMsg<FG_SETCOLOR, ptrdiff_t>(self, FGSETCOLOR_MAIN, fgStyle_ParseColor(attr));
       break;
     case 12:
-      AddStyleSubMsg<FG_SETCOLOR, ptrdiff_t>(self, FGSETCOLOR_PLACEHOLDER, attr->Integer);
+      AddStyleSubMsg<FG_SETCOLOR, ptrdiff_t>(self, FGSETCOLOR_PLACEHOLDER, fgStyle_ParseColor(attr));
       break;
     case 13:
-      AddStyleSubMsg<FG_SETCOLOR, ptrdiff_t>(self, FGSETCOLOR_CURSOR, attr->Integer);
+      AddStyleSubMsg<FG_SETCOLOR, ptrdiff_t>(self, FGSETCOLOR_CURSOR, fgStyle_ParseColor(attr));
       break;
     case 14:
-      AddStyleSubMsg<FG_SETCOLOR, ptrdiff_t>(self, FGSETCOLOR_SELECT, attr->Integer);
+      AddStyleSubMsg<FG_SETCOLOR, ptrdiff_t>(self, FGSETCOLOR_SELECT, fgStyle_ParseColor(attr));
       break;
     case 15:
-      AddStyleSubMsg<FG_SETCOLOR, ptrdiff_t>(self, FGSETCOLOR_HOVER, attr->Integer);
+      AddStyleSubMsg<FG_SETCOLOR, ptrdiff_t>(self, FGSETCOLOR_HOVER, fgStyle_ParseColor(attr));
       break;
     case 16:
-      AddStyleSubMsg<FG_SETCOLOR, ptrdiff_t>(self, FGSETCOLOR_DRAG, attr->Integer);
+      AddStyleSubMsg<FG_SETCOLOR, ptrdiff_t>(self, FGSETCOLOR_DRAG, fgStyle_ParseColor(attr));
       break;
     case 17:
-      AddStyleSubMsg<FG_SETCOLOR, ptrdiff_t>(self, FGSETCOLOR_EDGE, attr->Integer);
+      AddStyleSubMsg<FG_SETCOLOR, ptrdiff_t>(self, FGSETCOLOR_EDGE, fgStyle_ParseColor(attr));
       break;
     case 18: // font
     {

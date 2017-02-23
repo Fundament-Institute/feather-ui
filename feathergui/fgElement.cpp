@@ -343,7 +343,7 @@ size_t fgElement_CheckLastFocus(fgElement* self)
   return 0;
 }
 
-void fgElement_SetSkinStyleElement(fgElement* self, FG_UINT style, FG_UINT flags, const fgSkinLayout& layout)
+void fgElement_SetSkinStyleElement(fgElement* self, FG_UINT style, const fgSkinLayout& layout)
 {
   fgElement* element = (fgElement*)ALLOCA(layout.instance->Clone());
   layout.instance->Clone(element);
@@ -355,44 +355,39 @@ void fgElement_SetSkinStyleElement(fgElement* self, FG_UINT style, FG_UINT flags
     fgElement_ApplyMessageArray(layout.instance, element, self->skinstyle);
   element->flags &= (~FGELEMENT_SILENT);
 
-  FG_Msg m = { 0 };
-  m.type = FG_SETSTYLE;
-  m.subtype = FGSETSTYLE_POINTER;
-  while(style) // We loop through all set bits of style according to mask. style is not always just a single flag, because of style resets when the mask is -1.
+  if((style&layout.tree.stylemask) != 0) // only bother looking for style matches if this skin even has a style to process
   {
-    FG_UINT indice = (1U << bss_util::bsslog2(style));
-    style ^= indice;
-    m.p = fgSkinTree_GetStyle(&layout.tree, indice | flags);
-    if(m.p != 0)
+    FG_Msg m = { 0 };
+    m.type = FG_SETSTYLE;
+    m.subtype = FGSETSTYLE_POINTER;
+    auto& styles = layout.tree.styles;
+    FG_UINT index = style;
+    for(size_t i = 0; i < styles.l; ++i)
     {
-      fgElement_Message(element, &m);
-      fgElement_StyleToMessageArray(*(fgStyle*)m.p, layout.instance, (MESSAGESORT**)&self->skinstyle);
-    }
-    else if(flags != 0) // If we failed to find a style, but some flags were set, disable the flags and try to find another one
-    {
-      m.p = fgSkinTree_GetStyle(&layout.tree, indice);
-      if(m.p != 0)
+      if((styles.p[i].map&index) == styles.p[i].map) // Check if this is an exact match
       {
-        fgElement_Message(element, &m);
+        m.p = &styles.p[i].style;
+        fgElement_Message(element, &m); // If it matches, apply the style
         fgElement_StyleToMessageArray(*(fgStyle*)m.p, layout.instance, (MESSAGESORT**)&self->skinstyle);
+        index &= (~styles.p[i].map); // Then strip the bits from the index so no other style will trigger on these groups
       }
     }
   }
 
   for(size_t i = 0; i < layout.tree.children.l; ++i)
-    fgElement_SetSkinStyleElement(self, style, flags, layout.tree.children.p[i]);
+    fgElement_SetSkinStyleElement(self, style, layout.tree.children.p[i]);
   element->parent = 0;
   VirtualFreeChild(element);
 }
 
-void fgElement_SetSkinStyle(fgElement* self, FG_UINT style, FG_UINT flags, const fgSkin* skin)
+void fgElement_SetSkinStyle(fgElement* self, FG_UINT style, const fgSkin* skin)
 {
   if(!skin)
     return;
-  fgElement_SetSkinStyle(self, style, flags, skin->inherit);
+  fgElement_SetSkinStyle(self, style, skin->inherit);
 
   for(size_t i = 0; i < skin->tree.children.l; ++i)
-    fgElement_SetSkinStyleElement(self, style, flags, skin->tree.children.p[i]);
+    fgElement_SetSkinStyleElement(self, style, skin->tree.children.p[i]);
 }
 
 size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
@@ -482,21 +477,27 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
   case FG_SETFLAGS:
   {
     fgFlag change = self->flags ^ (fgFlag)otherint;
-    if(change&FGELEMENT_BACKGROUND && !(self->flags & FGELEMENT_BACKGROUND) && self->parent != 0) // if we added the background flag, remove this from the layout before setting the flags.
-      _sendsubmsg<FG_LAYOUTCHANGE, void*, size_t>(self->parent, FGELEMENT_LAYOUTREMOVE, self, 0);
-
-    if(change&FGELEMENT_IGNORE || change&FGELEMENT_NOCLIP)
+    if(!(self->flags&FGELEMENT_SILENT))
     {
-      fgElement* old = self->next;
-      if(self->parent != 0) LList_RemoveAll(self);
-      self->flags = (fgFlag)otherint;
-      if(self->parent != 0) LList_InsertAll(self, old);
+      if(change&FGELEMENT_BACKGROUND && !(self->flags & FGELEMENT_BACKGROUND) && self->parent != 0) // if we added the background flag, remove this from the layout before setting the flags.
+        _sendsubmsg<FG_LAYOUTCHANGE, void*, size_t>(self->parent, FGELEMENT_LAYOUTREMOVE, self, 0);
+
+      if(change&FGELEMENT_IGNORE || change&FGELEMENT_NOCLIP)
+      {
+        fgElement* old = self->next;
+        if(self->parent != 0) LList_RemoveAll(self);
+        self->flags = (fgFlag)otherint;
+        if(self->parent != 0) LList_InsertAll(self, old);
+      }
+      else
+        self->flags = (fgFlag)otherint;
+
+      if(change&FGELEMENT_BACKGROUND && !(self->flags & FGELEMENT_BACKGROUND) && self->parent != 0) // If we removed the background flag, add this into the layout after setting the new flags.
+        _sendsubmsg<FG_LAYOUTCHANGE, void*, size_t>(self->parent, FGELEMENT_LAYOUTADD, self, 0);
     }
     else
       self->flags = (fgFlag)otherint;
 
-    if(change&FGELEMENT_BACKGROUND && !(self->flags & FGELEMENT_BACKGROUND) && self->parent != 0) // If we removed the background flag, add this into the layout after setting the new flags.
-      _sendsubmsg<FG_LAYOUTCHANGE, void*, size_t>(self->parent, FGELEMENT_LAYOUTADD, self, 0);
     if((change&FGELEMENT_EXPAND)&self->flags) // If we change the expansion flags, we must recalculate every single child in our layout provided one of the expansion flags is actually set
     {
       if(change&FGELEMENT_EXPANDX) self->layoutdim.x = 0;
@@ -740,12 +741,13 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
       assert(msg->u2 != 0);
       FG_UINT mask = (FG_UINT)msg->u2;
       FG_UINT index;
+      FG_UINT oldstyle = self->style;
 
       switch(msg->subtype)
       {
       case FGSETSTYLE_NAME:
       case FGSETSTYLE_INDEX:
-        index = ((msg->subtype == FGSETSTYLE_NAME) ? fgStyle_GetName((const char*)msg->p, false) : (FG_UINT)msg->i);
+        index = ((msg->subtype == FGSETSTYLE_NAME) ? fgStyle_GetName((const char*)msg->p) : (FG_UINT)msg->i);
 
         if(index == (FG_UINT)-1)
           index = (FG_UINT)_sendmsg<FG_GETSTYLE>(self);
@@ -753,18 +755,6 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
           self->style = index;
         else
           self->style = (FG_UINT)(index | (self->style&(~mask)));
-        break;
-      case FGSETSTYLE_SETFLAG:
-      case FGSETSTYLE_REMOVEFLAG:
-        index = fgStyle_GetName((const char*)msg->p, true);
-      case FGSETSTYLE_SETFLAGINDEX:
-      case FGSETSTYLE_REMOVEFLAGINDEX:
-        if(msg->subtype == FGSETSTYLE_SETFLAGINDEX || msg->subtype == FGSETSTYLE_REMOVEFLAGINDEX)
-          index = (FG_UINT)msg->i;
-        if(self->style == (FG_UINT)-1)
-          self->style = 0;
-        self->style = T_SETBIT(self->style, index, (msg->subtype == FGSETSTYLE_SETFLAG));
-        index = (self->style&mask);
         break;
       }
 
@@ -774,26 +764,24 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
         _sendsubmsg<FG_SETSTYLE, ptrdiff_t, size_t>(cur, FGSETSTYLE_INDEX, -1, ~0); // Forces the child to recalculate the style inheritance
         cur = cur->next;
       }
-
-      if(self->skin != 0)
+      
+      if(self->skin != 0) // Only proceed if our skin exists
       {
-        FG_UINT flags = ((self->style == (FG_UINT)-1) ? (index&fgStyleFlagMask) : (self->style&fgStyleFlagMask));
-        index &= (~fgStyleFlagMask);
-        fgElement_SetSkinStyle(self, index, flags, self->skin);
-        FG_Msg m = *msg;
-        m.subtype = FGSETSTYLE_POINTER;
-        while(index) // We loop through all set bits of index according to mask. index is not always just a single flag, because of style resets when the mask is -1.
+        index = self->style;
+        fgElement_SetSkinStyle(self, index, self->skin);
+        if((self->skin->tree.stylemask&(self->style)) != 0)
         {
-          FG_UINT indice = (1U << bss_util::bsslog2(index));
-          index ^= indice;
-          m.p = fgSkinTree_GetStyle(&self->skin->tree, indice | flags);
-          if(m.p != 0)
-            fgElement_Message(self, &m);
-          else if(flags != 0) // If we failed to find a style, but some flags were set, disable the flags and try to find another one
+          FG_Msg m = *msg;
+          m.subtype = FGSETSTYLE_POINTER;
+          auto& styles = self->skin->tree.styles;
+          for(size_t i = 0; i < styles.l; ++i)
           {
-            m.p = fgSkinTree_GetStyle(&self->skin->tree, indice);
-            if(m.p != 0)
-              fgElement_Message(self, &m);
+            if((styles.p[i].map&index) == styles.p[i].map) // Check if this is an exact match
+            {
+              m.p = &styles.p[i].style;
+              fgElement_Message(self, &m); // If it matches, apply the style
+              index &= (~styles.p[i].map); // Then strip the bits from the index so no other style will trigger on these groups
+            }
           }
         }
       }

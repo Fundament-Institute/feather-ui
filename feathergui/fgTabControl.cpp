@@ -116,3 +116,10 @@ size_t fgTabcontrol_Message(fgTabcontrol* self, const FG_Msg* msg)
 
   return fgControl_HoverMessage(&self->control, msg);
 }
+
+FG_EXTERN size_t fgTab_Message(fgElement* self, const FG_Msg* msg)
+{
+  if(msg->type == FG_GETCLASSNAME)
+    return (size_t)"Tab";
+  return fgElement_Message(self, msg);
+}

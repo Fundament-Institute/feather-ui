@@ -68,9 +68,9 @@ size_t fgDropdownBox_Message(fgBox* self, const FG_Msg* msg)
       if(target)
       {
         if(parent->selected)
-          fgStandardNeutralSetStyle(parent->selected, "selected", FGSETSTYLE_REMOVEFLAG);
+          fgSetFlagStyle(parent->selected, "selected", false);
         parent->selected = target;
-        fgStandardNeutralSetStyle(target, "selected", FGSETSTYLE_SETFLAG);
+        fgSetFlagStyle(target, "selected", true);
         parent->dropflag = 1;
       }
       if(parent->dropflag)

@@ -5,50 +5,7 @@
 #include "fgBox.h"
 #include "bss-util/bss_util.h"
 #include "feathercpp.h"
-
 #include <math.h>
-
-BSS_FORCEINLINE FABS fgLayout_GetElementMinWidth(fgElement* child)
-{
-  if(!(child->flags&FGELEMENT_EXPANDX))
-    return child->mindim.x;
-  FABS l = child->layoutdim.x + child->padding.left + child->padding.right + child->margin.left + child->margin.right;
-  return (child->mindim.x >= 0.0f && child->mindim.x > l) ? child->mindim.x : l;
-}
-
-BSS_FORCEINLINE FABS fgLayout_GetElementMinHeight(fgElement* child)
-{
-  if(!(child->flags&FGELEMENT_EXPANDY))
-    return child->mindim.y;
-  FABS l = child->layoutdim.y + child->padding.top + child->padding.bottom + child->margin.top + child->margin.bottom;
-  return (child->mindim.y >= 0.0f && child->mindim.y > l) ? child->mindim.y : l;
-}
-
-BSS_FORCEINLINE FABS fgLayout_GetElementWidth(fgElement* child)
-{
-  FABS w = (child->transform.area.left.rel == child->transform.area.right.rel) ? child->transform.area.right.abs - child->transform.area.left.abs : 0.0f;
-  FABS m = fgLayout_GetElementMinWidth(child);
-  return (m >= 0.0f && m > w) ? m : w;
-}
-
-BSS_FORCEINLINE FABS fgLayout_GetElementHeight(fgElement* child)
-{
-  FABS h = (child->transform.area.top.rel == child->transform.area.bottom.rel) ? child->transform.area.bottom.abs - child->transform.area.top.abs : 0.0f;
-  FABS m = fgLayout_GetElementMinHeight(child);
-  return (m >= 0.0f && m > h) ? m : h;
-}
-
-inline FABS fgLayout_ExpandX(FABS dimx, fgElement* child)
-{
-  FABS r = child->transform.area.left.abs + fgLayout_GetElementWidth(child);
-  return bssmax(dimx, r);
-}
-
-inline FABS fgLayout_ExpandY(FABS dimy, fgElement* child)
-{
-  FABS r = child->transform.area.top.abs + fgLayout_GetElementHeight(child);
-  return bssmax(dimy, r);
-}
 
 size_t fgDefaultLayout(fgElement* self, const FG_Msg* msg, AbsVec* dim)
 {

@@ -82,6 +82,7 @@ FG_EXTERN struct _FG_MONITOR* fgRoot_GetMonitor(const fgRoot* self, const AbsRec
 FG_EXTERN fgElement* fgRoot_GetID(fgRoot* self, const char* id);
 FG_EXTERN void fgRoot_AddID(fgRoot* self, const char* id, fgElement* element);
 FG_EXTERN char fgRoot_RemoveID(fgRoot* self, fgElement* element);
+FG_EXTERN void fgRoot_Clear(fgRoot* self); // Clears the root and monitors of all elements, but doesn't destroy the monitor objects
 FG_EXTERN size_t fgStandardInject(fgElement* self, const FG_Msg* msg, const AbsRect* area);
 FG_EXTERN size_t fgOrderedInject(fgElement* self, const FG_Msg* msg, const AbsRect* area, fgElement* skip, fgElement* (*fn)(fgElement*, const FG_Msg*));
 FG_EXTERN void fgStandardDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, char culled);

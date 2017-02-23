@@ -170,20 +170,20 @@ size_t fgList_Message(fgList* self, const FG_Msg* msg)
       {
         for(size_t i = 0; i < self->selected.l; ++i)
           if(self->selected.p[i]->GetClassName() == FGSTR_LISTITEM)
-            fgStandardNeutralSetStyle(self->selected.p[i], "selected", FGSETSTYLE_REMOVEFLAG);
+            fgSetFlagStyle(self->selected.p[i], "selected", false);
         ((fgElementArray&)self->selected).Clear();
       }
       else if(index != (size_t)-1)
       {
         if(self->selected.p[index]->GetClassName() == FGSTR_LISTITEM)
-          fgStandardNeutralSetStyle(self->selected.p[index], "selected", FGSETSTYLE_REMOVEFLAG);
+          fgSetFlagStyle(self->selected.p[index], "selected", false);
         ((fgElementArray&)self->selected).Remove(index);
       }
 
       if(index == (size_t)-1)
       {
         if(target->GetClassName() == FGSTR_LISTITEM)
-          fgStandardNeutralSetStyle(target, "selected", FGSETSTYLE_SETFLAG);
+          fgSetFlagStyle(target, "selected", true);
         ((fgElementArray&)self->selected).Insert(target);
       }
     }
