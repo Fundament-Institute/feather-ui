@@ -30,6 +30,7 @@
 /examples/c/Win32/
 /examples/cs/obj/
 /lib/
+/.vs/
 
 # Rust
 bindings/fgRust/feathergui-sys/target/
