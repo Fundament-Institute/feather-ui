@@ -38,7 +38,7 @@ struct _FG_ELEMENT;
 struct _FG_STYLE;
 struct _FG_SKIN;
 struct _FG_LAYOUT;
-struct __kh_fgUserdata_t;
+struct kh_fgUserdata_s;
 typedef fgDeclareVector(struct _FG_ELEMENT*, Element) fgVectorElement;
 
 // For dealing with rust's bindgen weirdness
@@ -68,7 +68,7 @@ typedef struct _FG_ELEMENT {
   FG_UINT style; // Set to -1 if no style has been assigned, in which case the style from its parent will be used.
   FG_UINT userid;
   void* userdata;
-  struct __kh_fgUserdata_t* userhash;
+  struct kh_fgUserdata_s* userhash;
   const struct _FG_SKIN* skin; // skin reference
   fgVector* skinstyle;
   fgVector* layoutstyle;

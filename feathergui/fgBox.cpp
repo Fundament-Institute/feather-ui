@@ -12,6 +12,7 @@ void fgBox_Init(fgBox* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_REST
 }
 void fgBox_Destroy(fgBox* self)
 {
+  ((fgElementArray&)self->selected).~cArraySort();
   fgBoxOrderedElement_Destroy(&self->order);
   self->scroll->message = (fgMessage)fgScrollbar_Message;
   fgScrollbar_Destroy(&self->scroll); // this will destroy our prechildren for us.
@@ -92,6 +93,8 @@ size_t fgBox_Message(fgBox* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     self->fndraw = 0;
+    self->dividercolor.color = 0;
+    memset(&self->selected, 0, sizeof(fgVectorElement));
     break;
   case FG_CLONE:
     if(msg->e)
@@ -99,6 +102,7 @@ size_t fgBox_Message(fgBox* self, const FG_Msg* msg)
       fgBox* hold = reinterpret_cast<fgBox*>(msg->e);
       memsubcpy<fgBox, fgScrollbar>(hold, self); // We do this first because we have to ensure our messages can process ADDCHILD correctly.
       memset(&hold->order.ordered, 0, sizeof(fgVectorElement));
+      memset(&hold->selected, 0, sizeof(fgVectorElement));
       fgScrollbar_Message(&self->scroll, msg);
     }
     return sizeof(fgBox);
@@ -125,7 +129,7 @@ size_t fgBox_Message(fgBox* self, const FG_Msg* msg)
       case FGBOX_TILE: fn = &fgBoxOrder<FGBOX_TILE>; break;
       case FGBOX_TILE | FGBOX_DISTRIBUTEY: fn = &fgBoxOrder<FGBOX_TILE | FGBOX_DISTRIBUTEY>; break;
       }
-      fgOrderedDraw(*self, (AbsRect*)msg->p, (fgDrawAuxData*)msg->p2, msg->subtype & 1, self->order.ordered.p[self->order.ordered.l - 1]->next, fn, self->fndraw);
+      fgOrderedDraw(*self, (AbsRect*)msg->p, (fgDrawAuxData*)msg->p2, msg->subtype & 1, self->order.ordered.p[self->order.ordered.l - 1]->next, fn, self->fndraw, self->selected.l > 0 ? self->selected.p[0] : 0);
     }
     return FG_ACCEPT;
   case FG_INJECT:
@@ -142,13 +146,56 @@ size_t fgBox_Message(fgBox* self, const FG_Msg* msg)
       case FGBOX_TILE: fn = &fgBoxOrderInject<FGBOX_TILE>; break;
       case FGBOX_TILE | FGBOX_DISTRIBUTEY: fn = &fgBoxOrderInject<FGBOX_TILE | FGBOX_DISTRIBUTEY>; break;
       }
-      return fgOrderedInject(*self, (const FG_Msg*)msg->p, (const AbsRect*)msg->p2, self->order.ordered.p[self->order.ordered.l - 1]->next, fn);
+      return fgOrderedInject(*self, (const FG_Msg*)msg->p, (const AbsRect*)msg->p2, self->order.ordered.p[self->order.ordered.l - 1]->next, fn, self->selected.l > 0 ? self->selected.p[0] : 0);
     }
+  case FG_GETSELECTEDITEM:
+    return (msg->u) < self->selected.l ? (size_t)self->selected.p[msg->u] : 0;
   case FG_GETCLASSNAME:
     return (size_t)"Box";
   }
 
   return fgBoxOrderedElement_Message(&self->order, msg, *self, (fgMessage)&fgScrollbar_Message);
+}
+
+void fgBoxCheckOrdered(struct _FG_BOX_ORDERED_ELEMENTS_* self, const FG_Msg* msg, fgElement* element, fgElement* next)
+{
+  if((msg->e->flags & (FGELEMENT_BACKGROUND | FGELEMENT_NOCLIP)) == FGELEMENT_NOCLIP)
+    self->isordered = 0; // If ANY foreground elements are nonclipping, we can't use ordered rendering, because this would require us to maintain a second "nonclipping" sorted array.
+  if(self->isordered)
+  {
+    fgElement* prev = !next ? element->last : next->prev;
+    if(msg->e->flags&FGELEMENT_BACKGROUND) // If we're a background element, just make sure we aren't surrounded by foreground elements
+    {
+      if(next != 0 && !(next->flags&FGELEMENT_BACKGROUND) && prev != 0 && !(prev->flags&FGELEMENT_BACKGROUND))
+        self->isordered = 0;
+    }
+    else if(!((next != 0 && !(next->flags&FGELEMENT_BACKGROUND)) || (prev != 0 && !(prev->flags&FGELEMENT_BACKGROUND)))) // if we are a foreground element and we're touching a foreground element on either side, we're okay. Otherwise, do a probe.
+    {
+      while(next && (next->flags&FGELEMENT_BACKGROUND)) next = next->next;
+      while(prev && (prev->flags&FGELEMENT_BACKGROUND)) prev = prev->prev;
+      if((next != 0 && !(next->flags&FGELEMENT_BACKGROUND)) || (prev != 0 && !(prev->flags&FGELEMENT_BACKGROUND)))
+        self->isordered = 0; // If we are a foreground element and we just hit another foreground element, there must be at least one background element seperating us, which is invalid.
+    }
+  }
+}
+
+void fgBoxOrderedRemove(struct _FG_BOX_ORDERED_ELEMENTS_* self, fgElement* target)
+{
+  for(size_t i = 0; i < self->ordered.l; ++i)
+    if(self->ordered.p[i] == target)
+      ((bss_util::cDynArray<fgElement*>&)self->ordered).Remove(i);
+}
+void fgBoxOrderedInsert(struct _FG_BOX_ORDERED_ELEMENTS_* self, fgElement* target, fgElement* next)
+{
+  if(!next || next->flags&FGELEMENT_BACKGROUND)
+    ((bss_util::cDynArray<fgElement*>&)self->ordered).Add(target);
+  else
+  {
+    size_t i = self->ordered.l;
+    while(i > 0 && self->ordered.p[--i] != next);
+    assert(!self->ordered.p || self->ordered.p[i] == next);
+    ((bss_util::cDynArray<fgElement*>&)self->ordered).Insert(target, i);
+  }
 }
 
 size_t fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_* self, const FG_Msg* msg, fgElement* element, fgMessage callback)
@@ -182,52 +229,42 @@ size_t fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_* self, const
     break; // If no layout flags are specified, fall back to default layout behavior.
   case FG_REMOVECHILD:
   {
-    for(size_t i = 0; i < self->ordered.l; ++i)
-      if(self->ordered.p[i] == msg->e)
-        ((bss_util::cDynArray<fgElement*>&)self->ordered).Remove(i);
-
+    fgBoxOrderedRemove(self, msg->e);
     size_t r = callback(element, msg);
     self->isordered = checkIsOrdered(element->root);
     return r;
   }
+  case FG_REORDERCHILD:
+    assert(msg->p != 0);
+    if(callback(element, msg) == FG_ACCEPT)
+    {
+      fgElement* next = msg->e->next;
+      fgBoxCheckOrdered(self, msg, element, next);
+
+      if(!(msg->e->flags&FGELEMENT_BACKGROUND))
+      {
+        if(self->isordered) // If we are still ordered, we have to remove this from the array and add it back in at the proper location
+        {
+          fgBoxOrderedRemove(self, msg->e);
+          fgBoxOrderedInsert(self, msg->e, next);
+        }
+        else
+          self->ordered.l = 0;
+      }
+      return FG_ACCEPT;
+    }
+    return 0;
   case FG_ADDCHILD:
     assert(msg->p != 0);
     if(callback(element, msg) == FG_ACCEPT)
     {
       fgElement* next = msg->e->next;
-      if((msg->e->flags & (FGELEMENT_BACKGROUND | FGELEMENT_NOCLIP)) == FGELEMENT_NOCLIP)
-        self->isordered = 0; // If ANY foreground elements are nonclipping, we can't use ordered rendering, because this would require us to maintain a second "nonclipping" sorted array.
-      if(self->isordered)
-      {
-        fgElement* prev = !next ? element->last : next->prev;
-        if(msg->e->flags&FGELEMENT_BACKGROUND) // If we're a background element, just make sure we aren't surrounded by foreground elements
-        {
-          if(next != 0 && !(next->flags&FGELEMENT_BACKGROUND) && prev != 0 && !(prev->flags&FGELEMENT_BACKGROUND))
-            self->isordered = 0;
-        }
-        else if(!((next != 0 && !(next->flags&FGELEMENT_BACKGROUND)) || (prev != 0 && !(prev->flags&FGELEMENT_BACKGROUND)))) // if we are a foreground element and we're touching a foreground element on either side, we're okay. Otherwise, do a probe.
-        {
-          while(next && (next->flags&FGELEMENT_BACKGROUND)) next = next->next;
-          while(prev && (prev->flags&FGELEMENT_BACKGROUND)) prev = prev->prev;
-          if((next != 0 && !(next->flags&FGELEMENT_BACKGROUND)) || (prev != 0 && !(prev->flags&FGELEMENT_BACKGROUND)))
-            self->isordered = 0; // If we are a foreground element and we just hit another foreground element, there must be at least one background element seperating us, which is invalid.
-        }
-      }
+      fgBoxCheckOrdered(self, msg, element, next);
 
       if(!(msg->e->flags&FGELEMENT_BACKGROUND))
       {
-        if(self->isordered) // if we're still ordered then we add this to our vector
-        {
-          if(!next || next->flags&FGELEMENT_BACKGROUND)
-            ((bss_util::cDynArray<fgElement*>&)self->ordered).Add(msg->e);
-          else
-          {
-            size_t i = self->ordered.l;
-            while(i > 0 && self->ordered.p[--i] != next);
-            assert(!self->ordered.p || self->ordered.p[i] == next);
-            ((bss_util::cDynArray<fgElement*>&)self->ordered).Insert(msg->e, i);
-          }
-        }
+        if(self->isordered) // If we are still ordered, we have to remove this from the array and add it back in at the proper location
+          fgBoxOrderedInsert(self, msg->e, next);
         else
           self->ordered.l = 0;
       }

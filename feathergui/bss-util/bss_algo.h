@@ -30,7 +30,7 @@ namespace bss_util {
       CT_ m;
       while(c > 0)
       {
-        c2 = (c >> 1);
+        c2 = (c >> 1); // >> 1 is valid here because we check to see that c > 0 beforehand.
         m = first + c2;
 
         //if(!(_Val < *_Mid))
@@ -79,7 +79,7 @@ namespace bss_util {
     char r;
     while(l >= f) // This only works when l is an inclusive max indice
     {
-      m = f + ((l - f) >> 1); // Done to avoid overflow on large numbers
+      m = f + ((l - f) >> 1); // Done to avoid overflow on large numbers. >> 1 is valid because l must be >= f so this can't be negative
 
       if((r = (*CFunc)(arr[m], data)) < 0) // This is faster than a switch statement
         f = m + 1;
@@ -537,6 +537,12 @@ namespace bss_util {
   template<typename T, bool(*FACTION)(T*), T* (*LCHILD)(T*), T* (*RCHILD)(T*)> // return true to quit
   inline void BreadthFirstTree(T* root, size_t n)
   {
+    if(!n) return;
+    if(n == 1)
+    {
+      FACTION(root);
+      return;
+    }
     n = (n / 2) + 1;
     DYNARRAY(T*, queue, n);
     queue[0] = root;

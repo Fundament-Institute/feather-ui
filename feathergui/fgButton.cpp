@@ -35,9 +35,17 @@ size_t fgButton_Message(fgButton* self, const FG_Msg* msg)
       _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->text);
     }
     return sizeof(fgButton);
+  case FG_REORDERCHILD:
+    if(msg->e != (fgElement*)&self->text && !msg->e2)
+    {
+      FG_Msg m = *msg;
+      m.p2 = &self->text;
+      return fgControl_ActionMessage(&self->control, &m);
+    }
+    break;
   case FG_ADDCHILD:
   case FG_ADDITEM:
-    if(msg->p != (fgElement*)&self->text && !msg->p2)
+    if(msg->e != (fgElement*)&self->text && !msg->e2)
     {
       FG_Msg m = *msg;
       m.p2 = &self->text;

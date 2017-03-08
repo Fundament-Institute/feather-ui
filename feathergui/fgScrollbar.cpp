@@ -414,11 +414,19 @@ size_t fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
       return FG_ACCEPT;
     }
     return 0;
-  case FG_ADDCHILD:
-    if(msg->p != 0 && msg->p != self->bg && msg->p != (self->bg + 1) && !msg->p2)
+  case FG_REORDERCHILD:
+    if(msg->e != 0 && msg->e != self->bg && msg->e != (self->bg + 1) && !msg->e2)
     {
       FG_Msg m = *msg;
-      m.p2 = &self->bg[0];
+      m.e2 = &self->bg[0];
+      return fgControl_HoverMessage(&self->control, &m);
+    }
+    break;
+  case FG_ADDCHILD:
+    if(msg->e != 0 && msg->e != self->bg && msg->e != (self->bg + 1) && !msg->e2)
+    {
+      FG_Msg m = *msg;
+      m.e2 = &self->bg[0];
       return fgControl_HoverMessage(&self->control, &m);
     }
     break;

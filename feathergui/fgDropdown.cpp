@@ -141,6 +141,7 @@ size_t fgDropdown_Message(fgDropdown* self, const FG_Msg* msg)
     return FG_ACCEPT;
   case FG_REMOVECHILD:
   case FG_ADDCHILD:
+  case FG_REORDERCHILD:
     if(msg->e->flags & FGELEMENT_BACKGROUND)
       break;
     return (*self->box->message)(self->box, msg);

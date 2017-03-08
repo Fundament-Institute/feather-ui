@@ -282,16 +282,14 @@ inline char fgDrawSkinElement(fgElement* self, fgSkinLayout& child, const AbsRec
 
 char fgDrawSkin(fgElement* self, const fgSkin* skin, const AbsRect* area, const fgDrawAuxData* aux, char culled, char foreground, char clipping)
 {
-  if(foreground)
-    return clipping;
-
   if(skin != 0)
   {
     clipping = fgDrawSkin(self, skin->inherit, area, aux, culled, foreground, clipping);
 
     AbsRect curarea;
     for(size_t i = 0; i < skin->tree.children.l; ++i)
-      clipping = fgDrawSkinElement(self, skin->tree.children.p[i], area, aux, curarea, clipping);
+      if((skin->tree.children.p[i].layout.order > 0) == foreground)
+        clipping = fgDrawSkinElement(self, skin->tree.children.p[i], area, aux, curarea, clipping);
   }
 
   return clipping;
@@ -317,7 +315,7 @@ void fgStandardDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* a
     fgroot_instance->backend.fgPopClipRect(aux);
 }
 
-void fgOrderedDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, char culled, fgElement* skip, fgElement* (*fn)(fgElement*, const AbsRect*, const AbsRect*), void(*draw)(fgElement*, const AbsRect*, const fgDrawAuxData*))
+void fgOrderedDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, char culled, fgElement* skip, fgElement* (*fn)(fgElement*, const AbsRect*, const AbsRect*), void(*draw)(fgElement*, const AbsRect*, const fgDrawAuxData*), fgElement* selected)
 {
   if(culled) // If we are culled, thee's no point drawing ordered elements, because ordered elements aren't non-clipping, so we let the standard draw take care of it.
     return fgStandardDraw(self, area, aux, culled);
@@ -352,12 +350,22 @@ void fgOrderedDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* au
 
   while(!cull && cur != 0 && !(cur->flags & FGELEMENT_BACKGROUND)) // Render all ordered elements until they become culled
   {
-    ResolveRectCache(cur, &curarea, area, &self->padding); // always apply padding because these are always foreground elements
+    if(cur != fgroot_instance->topmost && cur != selected)
+    {
+      ResolveRectCache(cur, &curarea, area, &self->padding); // always apply padding because these are always foreground elements
+      AbsRect clip = fgroot_instance->backend.fgPeekClipRect(aux);
+      cull = !fgRectIntersect(&curarea, &clip);
+      _sendsubmsg<FG_DRAW, void*, const void*>(cur, cull, &curarea, aux);
+    }
+    cur = cur->next;
+  }
+
+  if(selected != 0)
+  {
+    ResolveRectCache(selected, &curarea, area, &self->padding); // always apply padding because these are always foreground elements
     AbsRect clip = fgroot_instance->backend.fgPeekClipRect(aux);
     cull = !fgRectIntersect(&curarea, &clip);
-    if(cur != fgroot_instance->topmost)
-      _sendsubmsg<FG_DRAW, void*, const void*>(cur, cull, &curarea, aux);
-    cur = cur->next;
+    _sendsubmsg<FG_DRAW, void*, const void*>(selected, cull, &curarea, aux);
   }
 
   cur = skip;
@@ -406,7 +414,7 @@ size_t fgStandardInject(fgElement* self, const FG_Msg* msg, const AbsRect* area)
   return miss ? 0 : (*fgroot_instance->backend.fgBehaviorHook)(self,msg); // So we give the event to ourselves, but only if it didn't miss us (which can happen if we were evaluating nonclipping elements)
 }
 
-size_t fgOrderedInject(fgElement* self, const FG_Msg* msg, const AbsRect* area, fgElement* skip, fgElement* (*fn)(fgElement*, const FG_Msg*))
+size_t fgOrderedInject(fgElement* self, const FG_Msg* msg, const AbsRect* area, fgElement* skip, fgElement* (*fn)(fgElement*, const FG_Msg*), fgElement* selected)
 {
   assert(msg != 0);
 
@@ -422,10 +430,16 @@ size_t fgOrderedInject(fgElement* self, const FG_Msg* msg, const AbsRect* area, 
   size_t r;
   if(area != 0 && !MsgHitAbsRect(msg, &curarea)) // if this misses us, only evaluate nonclipping elements. Don't bother with the ordered array.
   {
+    if(selected != 0 && (selected->flags&FGELEMENT_NOCLIP) != 0) // Check our selected item first, but only if it's nonclipping
+    {
+      if(!(selected->flags&FGELEMENT_IGNORE) && (r = _sendmsg<FG_INJECT, const void*, const void*>(selected, msg, &curarea)))
+        return r; // If the message is NOT rejected, return 1 immediately to indicate we accepted the message.
+    }
+
     fgElement* cur = self->lastnoclip;
     while(cur) // Try to inject to any children we have
     {
-      if(!(cur->flags&FGELEMENT_IGNORE) && (r = _sendmsg<FG_INJECT, const void*, const void*>(cur, msg, &curarea))) // We have to check FGELEMENT_IGNORE because the noclip list may have render-only elements in it.
+      if(cur != selected && !(cur->flags&FGELEMENT_IGNORE) && (r = _sendmsg<FG_INJECT, const void*, const void*>(cur, msg, &curarea))) // We have to check FGELEMENT_IGNORE because the noclip list may have render-only elements in it.
         return r; // If the message is NOT rejected, return 1 immediately to indicate we accepted the message.
       cur = cur->prevnoclip; // Otherwise the child rejected the message.
     }
@@ -433,11 +447,13 @@ size_t fgOrderedInject(fgElement* self, const FG_Msg* msg, const AbsRect* area, 
     return 0; // We either had no nonclipping children or it missed them all, so reject this.
   }
 
-  fgElement* cur = self->lastinject;
+  if(selected != 0 && !(selected->flags&FGELEMENT_IGNORE) && (r = _sendmsg<FG_INJECT, const void*, const void*>(selected, msg, &curarea)))
+    return r; // Check our selected first, if it exists.
 
+  fgElement* cur = self->lastinject;
   while(cur != 0 && (cur->flags & FGELEMENT_BACKGROUND))
   {
-    if(!(cur->flags&FGELEMENT_IGNORE) && (r = _sendmsg<FG_INJECT, const void*, const void*>(cur, msg, &curarea)))
+    if(cur != selected && !(cur->flags&FGELEMENT_IGNORE) && (r = _sendmsg<FG_INJECT, const void*, const void*>(cur, msg, &curarea)))
       return r;
     cur = cur->previnject; 
   }
@@ -785,7 +801,6 @@ fgElement* fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgE
   if(!STRICMP(type, "tab"))
   {
     fgElement* e = parent->AddItemText(name);
-    //e->message = (fgMessage)fgTab_Message;
     if(transform) e->SetTransform(*transform);
     e->SetFlags(flags);
     return e;

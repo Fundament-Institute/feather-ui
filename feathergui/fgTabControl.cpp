@@ -3,7 +3,6 @@
 
 #include "fgTabcontrol.h"
 #include "feathercpp.h"
-#include "fgRadiobutton.h"
 
 void fgTabcontrol_Init(fgTabcontrol* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
@@ -12,24 +11,19 @@ void fgTabcontrol_Init(fgTabcontrol* self, fgElement* BSS_RESTRICT parent, fgEle
 
 void fgTabcontrol_Destroy(fgTabcontrol* self)
 {
-  fgBox_Destroy(&self->header);
+  fgList_Destroy(&self->header);
   self->control->message = (fgMessage)fgControl_HoverMessage;
   fgControl_Destroy(&self->control);
 }
 
-size_t fgTabcontrolToggle_Message(fgRadiobutton* self, const FG_Msg* msg)
+size_t fgTabcontrolToggle_Message(fgControl* self, const FG_Msg* msg)
 {
   switch(msg->type)
   {
-  case FG_SETVALUE:
-    if(msg->subtype > FGVALUE_INT64)
-        return 0;
-    ((fgElement*)self->window->userdata)->SetFlag(FGELEMENT_HIDDEN, !msg->i);
-    break;
   case FG_GETSELECTEDITEM:
-    return (size_t)self->window->userdata;
+    return (size_t)self->element.userdata;
   }
-  return fgRadiobutton_Message(self, msg);
+  return fgListItem_Message(self, msg);
 }
 
 size_t fgTabcontrolPanel_Message(fgElement* self, const FG_Msg* msg)
@@ -42,17 +36,17 @@ size_t fgTabcontrolPanel_Message(fgElement* self, const FG_Msg* msg)
   return fgElement_Message(self, msg);
 }
 
-void fgTabcontrolToggle_Destroy(fgRadiobutton* self)
+void fgTabcontrolToggle_Destroy(fgControl* self)
 {
-  if(self->window->userdata != 0)
+  if(self->element.userdata != 0)
   {
-    fgElement* panel = (fgElement*)self->window->userdata;
-    self->window->userdata = 0; // prevents an infinite loop
+    fgElement* panel = (fgElement*)self->element.userdata;
+    self->element.userdata = 0; // prevents an infinite loop
     panel->userdata = 0; // prevents deleting the panel or the toggle twice
     VirtualFreeChild(panel);
   }
-  self->window->message = (fgMessage)fgRadiobutton_Message;
-  fgRadiobutton_Destroy(self);
+  self->element.message = (fgMessage)fgText_Message;
+  fgControl_Destroy(self);
 }
 
 void fgTabcontrolPanel_Destroy(fgElement* self)
@@ -68,6 +62,32 @@ void fgTabcontrolPanel_Destroy(fgElement* self)
   fgElement_Destroy(self);
 }
 
+size_t fgTabcontrolHeader_Message(fgList* self, const FG_Msg* msg)
+{
+  switch(msg->type)
+  {
+  case FG_MOUSEDOWN:
+  {
+    fgElement* selected = 0;
+    if(self->box.selected.l > 0)
+      selected = self->box.selected.p[0];
+    size_t ret = fgList_Message(self, msg);
+    fgElement* n = 0;
+    if(self->box.selected.l > 0)
+      n = self->box.selected.p[0];
+    if(selected != n)
+    {
+      if(selected)
+        ((fgElement*)selected->userdata)->SetFlag(FGELEMENT_HIDDEN, 1);
+      if(n)
+        ((fgElement*)n->userdata)->SetFlag(FGELEMENT_HIDDEN, 0);
+    }
+    return ret;
+  }
+  }
+  return fgList_Message(self, msg);
+}
+
 size_t fgTabcontrol_Message(fgTabcontrol* self, const FG_Msg* msg)
 {
   switch(msg->type)
@@ -76,7 +96,9 @@ size_t fgTabcontrol_Message(fgTabcontrol* self, const FG_Msg* msg)
   {
     fgControl_HoverMessage(&self->control, msg);
     fgTransform TF_HEADER = { { 0, 0, 0, 0, 0, 1, 0, 0 }, 0,{ 0,0,0,0 } };
-    fgBox_Init(&self->header, *self, 0, "Tabcontrol$header", FGBOX_TILEX | FGELEMENT_EXPANDY | FGELEMENT_BACKGROUND, &TF_HEADER, 0);
+    fgList_Init(&self->header, *self, 0, "Tabcontrol$header", FGLIST_SELECT | FGBOX_TILEX | FGELEMENT_EXPANDY | FGELEMENT_BACKGROUND | (self->control->flags&FGLIST_DRAGGABLE), &TF_HEADER, 0);
+    assert(self->header->message == (fgMessage)&fgList_Message);
+    self->header->message = (fgMessage)&fgTabcontrolHeader_Message;
     return FG_ACCEPT;
   }
   case FG_CLONE:
@@ -84,32 +106,38 @@ size_t fgTabcontrol_Message(fgTabcontrol* self, const FG_Msg* msg)
     {
       fgTabcontrol* hold = reinterpret_cast<fgTabcontrol*>(msg->e);
       self->header->Clone(hold->header);
-      hold->selected = 0;
       fgControl_HoverMessage(&self->control, msg);
       _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->header);
     }
     return sizeof(fgTabcontrol);
   case FG_ADDITEM:
   {
-    fgElement* button = fgroot_instance->backend.fgCreate("Radiobutton", self->header, 0, "Tabcontrol$toggle", FGELEMENT_EXPAND, 0, 0);
-    assert(button->destroy == (fgDestroy)&fgRadiobutton_Destroy);
+    assert(_CrtCheckMemory());
+    fgElement* button = fgroot_instance->backend.fgCreate("ListItem", self->header, 0, "Tabcontrol$toggle", FGELEMENT_EXPAND, 0, 0);
+    fgElement* text = fgroot_instance->backend.fgCreate("Text", button, 0, "Tabcontrol$text", FGELEMENT_EXPAND, 0, 0);
+
     fgElement* panel = fgroot_instance->backend.fgCreate("Element", *self, 0, "Tabcontrol$panel", FGELEMENT_HIDDEN, &fgTransform_DEFAULT, 0);
+    assert(button->message == (fgMessage)&fgListItem_Message);
     assert(panel->message == (fgMessage)&fgElement_Message);
+    assert(button->destroy == (fgDestroy)&fgControl_Destroy);
     panel->message = (fgMessage)&fgTabcontrolPanel_Message;
     panel->destroy = (fgDestroy)&fgTabcontrolPanel_Destroy;
     button->message = (fgMessage)&fgTabcontrolToggle_Message;
     button->destroy = (fgDestroy)&fgTabcontrolToggle_Destroy;
     panel->userdata = button;
     button->userdata = panel;
-    button->SetText((const char*)msg->p);
+    text->SetText((const char*)msg->p);
     AbsRect padding = self->control->padding;
     padding.top = self->header->transform.area.bottom.abs;
     self->control->SetPadding(padding);
-    button->SetValue(1);
+    if(self->header.box.selected.l > 0)
+      ((fgElement*)self->header.box.selected.p[0]->userdata)->SetFlag(FGELEMENT_HIDDEN, 1);
+    self->header.box.selected.l = 0;
+    ((fgElementArray&)self->header.box.selected).Insert(button);
     return (size_t)panel;
   }
   case FG_GETSELECTEDITEM:
-    return (size_t)self->selected;
+    return fgSendMessage(self->header, msg);
   case FG_GETCLASSNAME:
     return (size_t)"TabControl";
   }

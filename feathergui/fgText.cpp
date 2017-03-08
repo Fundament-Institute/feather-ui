@@ -238,6 +238,7 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
     fgText_Recalc(self);
     break;
   case FG_DRAW:
+    fgElement_Message(&self->element, msg);
     if(self->font != 0 && !(msg->subtype & 1))
     {
       AbsRect area = *(AbsRect*)msg->p;
@@ -249,7 +250,7 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
       if(v)
         fgroot_instance->backend.fgDrawFont(self->font, v->p, v->l, self->lineheight, self->letterspacing, self->color.color, &area, self->element.transform.rotation, &center, self->element.flags, data, self->layout);
     }
-    break;
+    return FG_ACCEPT;
   case FG_SETDPI:
     (*self)->SetFont(self->font); // By setting the font to itself we'll clone it into the correct DPI
     break;

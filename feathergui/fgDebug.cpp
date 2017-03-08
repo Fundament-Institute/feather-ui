@@ -428,6 +428,7 @@ size_t fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
     case FG_ADDITEM:
     case FG_ADDCHILD:
     case FG_REMOVECHILD:
+    case FG_REORDERCHILD:
     case FG_LAYOUTCHANGE:
     case FG_LAYOUTLOAD:
     case FG_SETSKIN:
@@ -524,6 +525,7 @@ size_t fgDebug_LogMessage(fgDebug* self, const FG_Msg* msg, unsigned long long t
   case FG_SETPARENT:
   case FG_ADDITEM:
   case FG_ADDCHILD:
+  case FG_REORDERCHILD:
     m.arg2.element = msg->e2;
     m.arg2.name = fgDebug_GetElementName(self, m.arg2.element);
   case FG_REMOVEITEM:
@@ -677,6 +679,7 @@ const char* fgDebug_GetMessageString(unsigned short msg)
   case FG_SETPARENT: return "FG_SETPARENT";
   case FG_ADDCHILD: return "FG_ADDCHILD";
   case FG_REMOVECHILD: return "FG_REMOVECHILD";
+  case FG_REORDERCHILD: return "FG_REORDERCHILD";
   case FG_GETSKIN: return "FG_GETSKIN";
   case FG_LAYOUTFUNCTION: return "FG_LAYOUTFUNCTION";
   case FG_LAYOUTLOAD: return "FG_LAYOUTLOAD";
@@ -807,6 +810,8 @@ ptrdiff_t fgDebug_WriteMessageFn(fgDebugMessage* msg, F fn, Args... args)
     return (*fn)(args..., "%*sFG_ADDCHILD(%s [0x%p], %s [0x%p])", spaces, "", _dbg_getstr(msg->arg1.name), msg->arg1.element, _dbg_getstr(msg->arg2.name), msg->arg2.element);
   case FG_REMOVECHILD:
     return (*fn)(args..., "%*sFG_REMOVECHILD(%s [0x%p])", spaces, "", _dbg_getstr(msg->arg1.name), msg->arg1.element);
+  case FG_REORDERCHILD:
+    return (*fn)(args..., "%*sFG_REORDERCHILD(%s [0x%p], %s [0x%p])", spaces, "", _dbg_getstr(msg->arg1.name), msg->arg1.element, _dbg_getstr(msg->arg2.name), msg->arg2.element);
   case FG_GETSKIN:
     return (*fn)(args..., "%*sFG_GETSKIN(%s [0x%p]) - 0x%p", spaces, "", _dbg_getstr(msg->arg1.name), msg->arg1.element, msg->valuep);
   case FG_LAYOUTFUNCTION:

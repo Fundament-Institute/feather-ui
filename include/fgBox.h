@@ -35,6 +35,7 @@ typedef struct _FG_BOX_ {
   struct _FG_BOX_ORDERED_ELEMENTS_ order;
   void(*fndraw)(fgElement*, const AbsRect*, const fgDrawAuxData*);
   fgColor dividercolor;
+  fgVectorElement selected; // While fgBox does not handle selecting elements, it must have access to them if they exist
 
 #ifdef  __cplusplus
   inline operator fgElement*() { return &scroll.control.element; }

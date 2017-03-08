@@ -11,11 +11,11 @@
 extern "C" {
 #endif
 
-struct __kh_fgRadioGroup_t;
-struct __kh_fgFunctionMap_t;
-struct __kh_fgIDMap_t;
-struct __kh_fgCursorMap_t;
-struct __kh_fgIDHash_t;
+struct kh_fgRadioGroup_s;
+struct kh_fgFunctionMap_s;
+struct kh_fgIDMap_s;
+struct kh_fgCursorMap_s;
+struct kh_fgIDHash_s;
 struct _FG_MONITOR;
 struct _FG_SKIN;
 struct _FG_MESSAGEQUEUE;
@@ -37,12 +37,12 @@ typedef struct _FG_ROOT {
   fgBackend backend;
   struct _FG_MONITOR* monitors;
   fgDeferAction* updateroot;
-  struct __kh_fgRadioGroup_t* radiohash;
-  struct __kh_fgFunctionMap_t* functionhash;
-  struct __kh_fgIDMap_t* idmap;
-  struct __kh_fgIDHash_t* idhash; // reverse ID lookup
-  struct __kh_fgInitMap_t* initmap;
-  struct __kh_fgCursorMap_t* cursormap;
+  struct kh_fgRadioGroup_s* radiohash;
+  struct kh_fgFunctionMap_s* functionhash;
+  struct kh_fgIDMap_s* idmap;
+  struct kh_fgIDHash_s* idhash; // reverse ID lookup
+  struct kh_fgInitMap_s* initmap;
+  struct kh_fgCursorMap_s* cursormap;
   fgIntVec dpi;
   float lineheight;
   float fontscale;
@@ -84,9 +84,9 @@ FG_EXTERN void fgRoot_AddID(fgRoot* self, const char* id, fgElement* element);
 FG_EXTERN char fgRoot_RemoveID(fgRoot* self, fgElement* element);
 FG_EXTERN void fgRoot_Clear(fgRoot* self); // Clears the root and monitors of all elements, but doesn't destroy the monitor objects
 FG_EXTERN size_t fgStandardInject(fgElement* self, const FG_Msg* msg, const AbsRect* area);
-FG_EXTERN size_t fgOrderedInject(fgElement* self, const FG_Msg* msg, const AbsRect* area, fgElement* skip, fgElement* (*fn)(fgElement*, const FG_Msg*));
+FG_EXTERN size_t fgOrderedInject(fgElement* self, const FG_Msg* msg, const AbsRect* area, fgElement* skip, fgElement* (*fn)(fgElement*, const FG_Msg*), fgElement* selected);
 FG_EXTERN void fgStandardDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, char culled);
-FG_EXTERN void fgOrderedDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, char culled, fgElement* skip, fgElement* (*fn)(fgElement*, const AbsRect*, const AbsRect*), void(*draw)(fgElement*, const AbsRect*, const fgDrawAuxData*));
+FG_EXTERN void fgOrderedDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, char culled, fgElement* skip, fgElement* (*fn)(fgElement*, const AbsRect*, const AbsRect*), void(*draw)(fgElement*, const AbsRect*, const fgDrawAuxData*), fgElement* selected);
 FG_EXTERN char fgDrawSkin(fgElement* self, const struct _FG_SKIN* skin, const AbsRect* area, const fgDrawAuxData* aux, char culled, char foreground, char clipping);
 FG_EXTERN fgElement* fgCreate(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
 FG_EXTERN int fgRegisterCursor(int cursor, const void* data, size_t sz);

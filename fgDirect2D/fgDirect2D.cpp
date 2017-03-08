@@ -13,6 +13,7 @@
 #include <wincodec.h>
 #include <dwrite_1.h>
 #include <malloc.h>
+#include <assert.h>
 #include "fgRoundRect.h"
 #include "fgCircle.h"
 #include "fgTriangle.h"

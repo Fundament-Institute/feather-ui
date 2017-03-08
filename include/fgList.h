@@ -23,7 +23,6 @@ typedef struct {
   fgColor select; // color index 0
   fgColor hover; // color index 1
   fgColor drag; // color index 2
-  fgVectorElement selected; // vector of all selected elements
   fgMouseState mouse;
   FABS splitter; // If nonzero, determines the width (or height) of the area between elements that allows you to resize them. Set using SETVALUE
   fgElement* split;

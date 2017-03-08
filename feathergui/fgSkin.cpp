@@ -197,7 +197,7 @@ char fgSkinBase_RemoveSkin(fgSkinBase* self, const char* name)
   if(!self->skinmap || !name)
     return 0;
 
-  return DestroyHashElement<struct __kh_fgSkins_t, fgSkin, &fgSkin_Destroy, &kh_del_fgSkins>(self->skinmap, kh_get(fgSkins, self->skinmap, name));
+  return DestroyHashElement<struct kh_fgSkins_s, fgSkin, &fgSkin_Destroy, &kh_del_fgSkins>(self->skinmap, kh_get(fgSkins, self->skinmap, name));
 }
 fgSkin* fgSkinBase_GetSkin(const fgSkinBase* self, const char* name)
 {
@@ -486,7 +486,7 @@ void fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, fg
   static cTrie<uint16_t, true> t(44, "id", "min-width", "min-height", "max-width", "max-height", "skin", "alpha", "margin", "padding", "text",
     "placeholder", "color", "placecolor", "cursorcolor", "selectcolor", "hovercolor", "dragcolor", "edgecolor", "font", "lineheight",
     "letterspacing", "value", "uv", "resource", "outline", "area", "center", "rotation", "left", "top", "right", "bottom", "width", "height",
-    "name", "flags", "order", "inherit", "range", "splitter", "contextmenu", "xmlns:xsi", "xmlns:fg", "xsi:schemaLocation");
+    "name", "flags", "order", "inherit", "range", "splitter", "contextmenu", "reorder", "xmlns:xsi", "xmlns:fg", "xsi:schemaLocation");
   static cTrie<uint16_t, true> tvalue(5, "checkbox", "curve", "progressbar", "radiobutton", "slider");
   static cTrie<uint16_t, true> tenum(5, "true", "false", "none", "checked", "indeterminate");
 
@@ -696,9 +696,15 @@ void fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, fg
       AddStyleSubMsg<FG_SETRANGE, float>(self, FGVALUE_FLOAT, splitter.y);
       break;
     }
-    case 41:
+    case 41: // reorder
+      if(!STRICMP(attr->String, "top"))
+        AddStyleSubMsg<FG_SETPARENT>(self, FGSETPARENT_LAST);
+      else if(!STRICMP(attr->String, "bottom"))
+        AddStyleSubMsg<FG_SETPARENT>(self, FGSETPARENT_FIRST);
+      break;
     case 42:
-    case 43: // These are all XML specific values that are only used for setting the XSD file
+    case 43:
+    case 44: // These are all XML specific values that are only used for setting the XSD file
       break;
     case 40: // contextmenu is a recognized option, but we put it in as custom userdata anyway because we can't resolve it until the layout is resolved.
     default: // Otherwise, unrecognized attributes are set as custom userdata

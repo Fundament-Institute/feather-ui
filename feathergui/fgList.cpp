@@ -8,11 +8,10 @@
 #include "feathercpp.h"
 
 static const char* FGSTR_LISTITEM = "ListItem";
-typedef bss_util::cArraySort<struct _FG_ELEMENT*> fgElementArray;
 
 void fgListItem_Init(fgControl* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  fgElement_InternalSetup(*self, parent, next, name, (flags&FGELEMENT_USEDEFAULTS) ? (FGBOX_TILEY | FGELEMENT_EXPANDY) : flags, transform, units, (fgDestroy)&fgElement_Destroy, (fgMessage)&fgListItem_Message);
+  fgElement_InternalSetup(*self, parent, next, name, (flags&FGELEMENT_USEDEFAULTS) ? (FGBOX_TILEY | FGELEMENT_EXPANDY) : flags, transform, units, (fgDestroy)&fgControl_Destroy, (fgMessage)&fgListItem_Message);
 }
 
 size_t fgListItem_Message(fgControl* self, const FG_Msg* msg)
@@ -53,19 +52,18 @@ void fgList_Init(fgList* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RE
 }
 void fgList_Destroy(fgList* self)
 {
-  ((fgElementArray&)self->selected).~cArraySort();
   self->box->message = (fgMessage)fgBox_Message;
   fgBox_Destroy(&self->box);
 }
 void fgList_Draw(fgElement* self, const AbsRect* area, const fgDrawAuxData* data)
 {
   fgList* realself = reinterpret_cast<fgList*>(self);
-  for(size_t i = 0; i < realself->selected.l; ++i)
+  for(size_t i = 0; i < realself->box.selected.l; ++i)
   {
-    if(realself->selected.p[i]->GetClassName() != FGSTR_LISTITEM)
+    if(realself->box.selected.p[i]->GetClassName() != FGSTR_LISTITEM)
     {
       AbsRect r;
-      ResolveRectCache(realself->selected.p[i], &r, area, (realself->selected.p[i]->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
+      ResolveRectCache(realself->box.selected.p[i], &r, area, (realself->box.selected.p[i]->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
       fgSnapAbsRect(r, self->flags);
       fgroot_instance->backend.fgDrawAsset(0, &CRect_EMPTY, realself->select.color, 0, 0.0f, &r, 0.0f, &AbsVec_EMPTY, FGRESOURCE_RECT, data);
     }
@@ -136,16 +134,12 @@ size_t fgList_Message(fgList* self, const FG_Msg* msg)
     fgBox_Message(&self->box, msg);
     memsubset<fgList, fgBox>(self, 0);
     self->box.fndraw = &fgList_Draw;
-    self->select.color = 0xFF9999DD;
-    self->hover.color = 0x99999999;
-    self->drag.color = 0xFFCCCCCC;
     return FG_ACCEPT;
   case FG_CLONE:
     if(msg->e)
     {
       fgList* hold = reinterpret_cast<fgList*>(msg->e);
       memsubcpy<fgList, fgBox>(hold, self); // We do this first because we have to ensure our messages can process ADDCHILD correctly.
-      memset(&hold->selected, 0, sizeof(fgVectorElement));
       memset(&hold->mouse, 0, sizeof(fgMouseState));
       hold->split = 0;
       fgBox_Message(&self->box, msg);
@@ -165,26 +159,23 @@ size_t fgList_Message(fgList* self, const FG_Msg* msg)
       fgElement* target = fgElement_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
       if(!target)
         break;
-      size_t index = ((fgElementArray&)self->selected).Find(target);
+      size_t index = ((fgElementArray&)self->box.selected).Find(target);
       if((self->box->flags&FGLIST_MULTISELECT) != FGLIST_MULTISELECT || !fgroot_instance->GetKey(FG_KEY_SHIFT))
       {
-        for(size_t i = 0; i < self->selected.l; ++i)
-          if(self->selected.p[i]->GetClassName() == FGSTR_LISTITEM)
-            fgSetFlagStyle(self->selected.p[i], "selected", false);
-        ((fgElementArray&)self->selected).Clear();
+        for(size_t i = 0; i < self->box.selected.l; ++i)
+          fgSetFlagStyle(self->box.selected.p[i], "selected", false);
+        ((fgElementArray&)self->box.selected).Clear();
       }
       else if(index != (size_t)-1)
       {
-        if(self->selected.p[index]->GetClassName() == FGSTR_LISTITEM)
-          fgSetFlagStyle(self->selected.p[index], "selected", false);
-        ((fgElementArray&)self->selected).Remove(index);
+        fgSetFlagStyle(self->box.selected.p[index], "selected", false);
+        ((fgElementArray&)self->box.selected).Remove(index);
       }
 
-      if(index == (size_t)-1)
+      if(index == (size_t)-1 || ((self->box->flags&FGLIST_DRAGGABLE) != 0 && !fgroot_instance->GetKey(FG_KEY_SHIFT)))
       {
-        if(target->GetClassName() == FGSTR_LISTITEM)
-          fgSetFlagStyle(target, "selected", true);
-        ((fgElementArray&)self->selected).Insert(target);
+        fgSetFlagStyle(target, "selected", true);
+        ((fgElementArray&)self->box.selected).Insert(target);
       }
     }
     break;
@@ -286,8 +277,6 @@ size_t fgList_Message(fgList* self, const FG_Msg* msg)
     if(msg->subtype == FGVALUE_INT64)
       return (size_t)self->splitter;
     return 0;
-  case FG_GETSELECTEDITEM:
-    return (msg->u) < self->selected.l ? (size_t)self->selected.p[msg->u] : 0;
   case FG_GETCLASSNAME:
     return (size_t)"List";
   }

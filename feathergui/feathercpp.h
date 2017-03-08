@@ -236,14 +236,15 @@ typedef bss_util::cArraySort<fgSkinLayoutConstruct, fgSortStyleLayout, size_t, b
 typedef bss_util::cDynArray<typename fgConstruct<fgStyle>::fgConstructor<fgStyle_Destroy, fgStyle_Init>, size_t, bss_util::CARRAY_CONSTRUCT> fgStyleArray;
 typedef bss_util::cDynArray<typename fgConstruct<struct _FG_KEY_VALUE>::fgConstructor<fgDestructKeyValue, fgConstructKeyValue>, size_t, bss_util::CARRAY_CONSTRUCT> fgKeyValueArray;
 typedef bss_util::cArraySort<fgClassLayoutConstruct, fgSortClassLayout, size_t, bss_util::CARRAY_CONSTRUCT> fgClassLayoutArray;
+typedef bss_util::cArraySort<struct _FG_ELEMENT*> fgElementArray;
 
-struct __kh_fgRadioGroup_t;
-extern __inline struct __kh_fgRadioGroup_t* fgRadioGroup_init();
-extern void fgRadioGroup_destroy(struct __kh_fgRadioGroup_t*);
+struct kh_fgRadioGroup_s;
+extern __inline struct kh_fgRadioGroup_s* fgRadioGroup_init();
+extern void fgRadioGroup_destroy(struct kh_fgRadioGroup_s*);
 
-struct __kh_fgFunctionMap_t;
-extern __inline struct __kh_fgFunctionMap_t* fgFunctionMap_init();
-extern void fgFunctionMap_destroy(struct __kh_fgFunctionMap_t*);
+struct kh_fgFunctionMap_s;
+extern __inline struct kh_fgFunctionMap_s* fgFunctionMap_init();
+extern void fgFunctionMap_destroy(struct kh_fgFunctionMap_s*);
 
 template<FG_MSGTYPE type, typename... Args>
 inline size_t _sendmsg(fgElement* self, Args... args)
@@ -362,7 +363,7 @@ struct __VECTOR__UTF16;
 struct __VECTOR__UTF32;
 
 extern fgSkin* fgSkinBase_LoadNodeXML(fgSkinBase* self, const bss_util::cXMLNode* root);
-extern __kh_fgSkins_t *kh_init_fgSkins();
+extern kh_fgSkins_s *kh_init_fgSkins();
 extern void fgStyle_LoadAttributesXML(struct _FG_STYLE* self, const bss_util::cXMLNode* cur, int flags, struct _FG_SKIN_BASE* root, const char* path, const char** id, fgKeyValueArray* userdata);
 extern int fgStyle_NodeEvalTransform(const bss_util::cXMLNode* node, fgTransform& t);
 extern fgElement* fgLayout_GetNext(fgElement* cur);

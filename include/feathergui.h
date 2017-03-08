@@ -50,17 +50,10 @@ typedef void* fgFont;
 #define FG_DLLEXPORT
 #endif
 
-#ifdef BSS_PLATFORM_WIN32 // Windows eats the abort signal sent by assertions inside a WinProc, making it impossible to cleanly kill the program
-#ifdef BSS_DEBUG
-#ifdef assert
-#undef assert
-#endif
-#define assert(x) if(!(x)) { *((int*)0) = 0; } // So we have to do this bullshit instead
+#ifdef BSS_DEBUG // Used for dealing with windows eating assertions inside callback functions
+#define fgassert(x) if(!(x)) { *((int*)0) = 0; } 
 #else
-#define assert(x) 
-#endif
-#else
-#include <assert.h>
+#define fgassert(x) 
 #endif
 
 // A unified coordinate specifies things in terms of absolute and relative positions.
@@ -269,6 +262,13 @@ enum FGVALUE
   FGVALUE_POINTER = 3,
 };
 
+enum FGSETPARENT
+{
+  FGSETPARENT_DEFAULT = 0,
+  FGSETPARENT_FIRST = 1,
+  FGSETPARENT_LAST = 2,
+};
+
 enum FG_MSGTYPE
 {
   FG_UNKNOWN = 0,
@@ -286,6 +286,7 @@ enum FG_MSGTYPE
   FG_SETPARENT, // Adds this element to the parent in the first argument, inserting it after the child in the second argument, or before the root if the second argument is NULL.
   FG_ADDCHILD, // Pass an FG_Msg with this type and set the other pointer to the child that should be added.
   FG_REMOVECHILD, // Verifies child's parent is this, then sets the child's parent to NULL.
+  FG_REORDERCHILD, // This is used ONLY when a child cannot be removed and re-added to a parent and must be directly re-ordered within them.
   FG_PARENTCHANGE, // This is ONLY used to notify a child that it's parent has changed, because FG_SETPARENT might not ever be called if FG_ADDCHILD is called directly.
   FG_LAYOUTCHANGE, 
   FG_LAYOUTFUNCTION,

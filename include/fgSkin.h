@@ -49,15 +49,15 @@ typedef struct _FG_SKIN_LAYOUT {
   fgElement* instance; // Instance of this skin element. Skin elements cannot be assigned skins, so this only needs to apply the style overrides.
 } fgSkinLayout;
 
-struct __kh_fgSkins_t;
-struct __kh_fgStyles_t;
+struct kh_fgSkins_s;
+struct kh_fgStyles_s;
 struct _FG_SKIN;
 
 typedef struct _FG_SKIN_BASE
 {
   fgVector resources; // type: void*
   fgVector fonts;
-  struct __kh_fgSkins_t* skinmap;
+  struct kh_fgSkins_s* skinmap;
   struct _FG_SKIN_BASE* parent;
 
 #ifdef  __cplusplus

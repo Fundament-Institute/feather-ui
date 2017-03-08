@@ -200,10 +200,23 @@ inline fgElement* LList_Find(fgElement* BSS_RESTRICT self)
   return self;
 }
 
+inline bool LList_Contains(fgElement* root, fgElement* element)
+{
+  if(!element)
+    return true;
+  while(root != 0 && root != element)
+    root = root->next;
+  return root == element;
+}
+
 inline void LList_InsertAll(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT next)
 {
   assert(self->parent != 0);
+  assert(!next || next->parent == self->parent);
+  assert(next != self);
+  assert(LList_Contains(self->parent->root, next));
   fgElement* prev = !next ? self->parent->last : next->prev;
+  assert(prev != self);
   LList_Insert<fgElement_prev, fgElement_next>(self, next, prev, &self->parent->root, &self->parent->last);
   if(!(self->flags&FGELEMENT_IGNORE))
   {
@@ -477,7 +490,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
   case FG_SETFLAGS:
   {
     fgFlag change = self->flags ^ (fgFlag)otherint;
-    if(!(self->flags&FGELEMENT_SILENT))
+    if(!(self->flags&FGELEMENT_SILENT) && self->parent != 0 && (self->prev != 0 || self->parent->root == self))
     {
       if(change&FGELEMENT_BACKGROUND && !(self->flags & FGELEMENT_BACKGROUND) && self->parent != 0) // if we added the background flag, remove this from the layout before setting the flags.
         _sendsubmsg<FG_LAYOUTCHANGE, void*, size_t>(self->parent, FGELEMENT_LAYOUTREMOVE, self, 0);
@@ -551,24 +564,35 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
     }
     return FG_ACCEPT;
   case FG_SETPARENT: // Note: Doing everything in SETPARENT is a bad idea because it prevents parents from responding to children being added or removed!
-    if(self->parent == msg->e)
+    if(self->parent != 0 && (self->parent == msg->e || msg->subtype != 0))
     {
-      if(self->parent != 0 && self->next != msg->e2)
+      fgElement* next = msg->e2;
+      switch(msg->subtype)
       {
-        assert(!msg->e2 || msg->e2->parent == self->parent);
-        fgElement* old = self->next;
-        LList_RemoveAll(self);
-        LList_InsertAll(self, msg->e2);
-        if(!(self->flags&FGELEMENT_BACKGROUND))
-          _sendsubmsg<FG_LAYOUTCHANGE, void*, fgElement*>(self->parent, FGELEMENT_LAYOUTREORDER, self, old);
+      case FGSETPARENT_FIRST: next = self->parent->root; break;
+      case FGSETPARENT_LAST: next = 0; break;
       }
-      return FG_ACCEPT;
+      return _sendmsg<FG_REORDERCHILD, fgElement*, fgElement*>(self->parent, self, next);
     }
     if(self->parent != 0)
-      _sendmsg<FG_REMOVECHILD, void*>(self->parent, self);
+      _sendmsg<FG_REMOVECHILD, fgElement*>(self->parent, self);
     if(msg->e)
-      _sendmsg<FG_ADDCHILD, void*, void*>(msg->e, self, msg->e2);
+      _sendmsg<FG_ADDCHILD, fgElement*, fgElement*>(msg->e, self, msg->e2);
     return FG_ACCEPT;
+  case FG_REORDERCHILD:
+    if(!msg->e || msg->e->parent != self)
+      return 0;
+    else if(msg->e->next != msg->e2)
+    {
+      assert(!msg->e2 || msg->e2->parent == self);
+      fgElement* old = msg->e->next;
+      LList_RemoveAll(msg->e);
+      LList_InsertAll(msg->e, msg->e2);
+      if(!(msg->e->flags&FGELEMENT_BACKGROUND))
+        _sendsubmsg<FG_LAYOUTCHANGE, fgElement*, fgElement*>(self, FGELEMENT_LAYOUTREORDER, msg->e, old);
+      return FG_ACCEPT;
+    }
+    break;
   case FG_ADDITEM:
     if(msg->subtype != 0)
       return 0;
@@ -577,17 +601,19 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
       return 0;
     if(msg->e->parent != 0) // If the parent is nonzero, call SETPARENT to clean things up for us and then call this again after the child is ready.
       return _sendmsg<FG_SETPARENT, void*, void*>(msg->e, self, msg->p2); // We do things this way so parents can respond to children being added or removed
-    assert(!msg->e->parent);
-    assert(msg->p2 != self);
+    fgassert(!msg->e->parent);
+    fgassert(msg->p2 != self);
+    fgassert(msg->p2 != msg->e);
     msg->e->parent = self;
-    _sendmsg<FG_SETSKIN>(msg->e);
     LList_InsertAll(msg->e, (fgElement*)msg->p2);
+    fgassert(!msg->e->prev || msg->e->prev != msg->e->next);
+    _sendmsg<FG_SETSKIN>(msg->e);
     if(!(msg->e->flags&FGELEMENT_BACKGROUND))
       _sendsubmsg<FG_LAYOUTCHANGE, void*, size_t>(self, FGELEMENT_LAYOUTADD, msg->e, 0);
 
-    assert(!msg->e->last || !msg->e->last->next);
-    assert(!msg->e->lastinject || !msg->e->lastinject->nextinject);
-    assert(!msg->e->lastnoclip || !msg->e->lastnoclip->nextnoclip);
+    fgassert(!msg->e->last || !msg->e->last->next);
+    fgassert(!msg->e->lastinject || !msg->e->lastinject->nextinject);
+    fgassert(!msg->e->lastnoclip || !msg->e->lastnoclip->nextnoclip);
     _sendsubmsg<FG_MOVE, void*, size_t>(msg->e, FG_SETPARENT, 0, fgElement_PotentialResize(self));
     _sendmsg<FG_PARENTCHANGE, void*, void*>(msg->e, msg->e->parent, 0);
     return FG_ACCEPT;
@@ -661,7 +687,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
         MEMCPY(msg->e->userhash, sizeof(kh_fgUserdata_t), self->userhash, sizeof(kh_fgUserdata_t));
         msg->e->userhash->keys = memcpyalloc<const char*>(self->userhash->keys, msg->e->userhash->n_buckets);
         msg->e->userhash->vals = memcpyalloc<size_t>(self->userhash->vals, msg->e->userhash->n_buckets);
-        msg->e->userhash->flags = memcpyalloc<khint32_t>(self->userhash->flags, (msg->e->userhash->n_buckets >> 4) + 1);
+        msg->e->userhash->flags = memcpyalloc<khint8_t>(self->userhash->flags, msg->e->userhash->n_buckets);
       }
       if(self->skinstyle)
         fgElement_AddArrayToMessageArray(*(MESSAGESORT*)self->skinstyle, (MESSAGESORT**)&msg->e->skinstyle);

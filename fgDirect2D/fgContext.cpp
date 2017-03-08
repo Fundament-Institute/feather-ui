@@ -7,6 +7,7 @@
 #include "bss-util/bss_win32_includes.h"
 #include <d2d1_1.h>
 #include <dwmapi.h>
+#include <assert.h>
 #include "fgRoundRect.h"
 #include "fgCircle.h"
 #include "fgTriangle.h"

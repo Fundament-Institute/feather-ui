@@ -264,10 +264,8 @@ size_t fgTileLayout(fgElement* self, const FG_Msg* msg, fgFlag flags, AbsVec* di
       curdim = fgTileLayoutReorder(self->root, 0, axis, max, AbsVec{ 0,0 }, flags);
     else
     {
-      fgElement* old = msg->e2;
+      fgElement* old = msg->e2; // Both of these could temporarily be BACKGROUND elements, so we can't assert that.
       fgElement* cur = old;
-      assert(!(old->flags&FGELEMENT_BACKGROUND));
-      assert(!(cur->flags&FGELEMENT_BACKGROUND));
       while(cur != 0 && cur != child) cur = cur->next; // Run down from old until we either hit child, in which case old is the lowest, or we hit null
       curdim = fgTileLayoutReorder(!cur ? child : old, 0, axis, max, curdim, flags);
     }

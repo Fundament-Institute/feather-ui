@@ -728,6 +728,7 @@ namespace bss_util {
   {
     FILE* f = 0;
     WFOPEN(f, file, "rb");
+    if(!f) return std::pair<std::unique_ptr<T[]>, size_t>(nullptr, 0);
     fseek(f, 0, SEEK_END);
     size_t ln = ftell(f);
     fseek(f, 0, SEEK_SET);

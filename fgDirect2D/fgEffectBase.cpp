@@ -7,6 +7,7 @@
 #include "bss-util/bss_defines.h"
 #include <utility>
 #include <memory>
+#include <assert.h>
 
 #define XML(x) TEXT(#x)
 

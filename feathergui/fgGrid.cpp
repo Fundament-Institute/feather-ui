@@ -249,7 +249,7 @@ size_t fgGridRow_Message(fgGridRow* self, const FG_Msg* msg)
       case FGBOX_TILE: fn = &fgGridRowOrder<FGBOX_TILE>; break;
       case FGBOX_TILE | FGBOX_DISTRIBUTEY: fn = &fgGridRowOrder<FGBOX_TILE | FGBOX_DISTRIBUTEY>; break;
       }
-      fgOrderedDraw(*self, (AbsRect*)msg->p, (fgDrawAuxData*)msg->p2, msg->subtype & 1, self->order.ordered.p[self->order.ordered.l - 1]->next, fn, 0);
+      fgOrderedDraw(*self, (AbsRect*)msg->p, (fgDrawAuxData*)msg->p2, msg->subtype & 1, self->order.ordered.p[self->order.ordered.l - 1]->next, fn, 0, 0);
     }
     return FG_ACCEPT;
   case FG_INJECT:
@@ -266,7 +266,7 @@ size_t fgGridRow_Message(fgGridRow* self, const FG_Msg* msg)
       case FGBOX_TILE: fn = &fgGridRowOrderInject<FGBOX_TILE>; break;
       case FGBOX_TILE | FGBOX_DISTRIBUTEY: fn = &fgGridRowOrderInject<FGBOX_TILE | FGBOX_DISTRIBUTEY>; break;
       }
-      return fgOrderedInject(*self, (const FG_Msg*)msg->p, (const AbsRect*)msg->p2, self->order.ordered.p[self->order.ordered.l - 1]->next, fn);
+      return fgOrderedInject(*self, (const FG_Msg*)msg->p, (const AbsRect*)msg->p2, self->order.ordered.p[self->order.ordered.l - 1]->next, fn, 0);
     }
   case FG_GETCLASSNAME:
     return (size_t)"GridRow";

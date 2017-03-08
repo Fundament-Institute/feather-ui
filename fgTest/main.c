@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <assert.h>
 
 static FILE* failedtests=0;
 static fgRoot* gui=0;

@@ -108,7 +108,7 @@ BSS_FORCEINLINE fgElement* _create_default(fgElement* BSS_RESTRICT parent, fgEle
 short fgMessageMapDefault(const char* name)
 {
   static bss_util::cTrie<uint16_t, true> t(FG_CUSTOMEVENT+1, "UNKNOWN", "CONSTRUCT", "DESTROY", "CLONE", "MOVE", "SETALPHA", "SETAREA", "SETTRANSFORM", "SETFLAG", "SETFLAGS", "SETMARGIN", "SETPADDING",
-    "SETPARENT", "ADDCHILD", "REMOVECHILD", "PARENTCHANGE", "LAYOUTCHANGE", "LAYOUTFUNCTION", "LAYOUTLOAD", "DRAGOVER", "DROP", "DRAW", "INJECT", "SETSKIN", "GETSKIN", "SETSTYLE", "GETSTYLE",
+    "SETPARENT", "ADDCHILD", "REMOVECHILD", "REORDERCHILD", "PARENTCHANGE", "LAYOUTCHANGE", "LAYOUTFUNCTION", "LAYOUTLOAD", "DRAGOVER", "DROP", "DRAW", "INJECT", "SETSKIN", "GETSKIN", "SETSTYLE", "GETSTYLE",
     "GETCLASSNAME", "GETDPI", "SETDPI", "SETUSERDATA", "GETUSERDATA", "SETDIM", "GETDIM", "SETSCALING", "GETSCALING", "MOUSEDOWN", "MOUSEDBLCLICK", "MOUSEUP", "MOUSEON", "MOUSEOFF", "MOUSEMOVE",
     "MOUSESCROLL", "TOUCHBEGIN", "TOUCHEND", "TOUCHMOVE", "KEYUP", "KEYDOWN", "KEYCHAR", "JOYBUTTONDOWN", "JOYBUTTONUP", "JOYAXIS", "GOTFOCUS", "LOSTFOCUS", "SETNAME", "GETNAME", "SETCONTEXTMENU",
     "GETCONTEXTMENU", "NEUTRAL", "HOVER", "ACTIVE", "ACTION", "GETITEM", "ADDITEM", "REMOVEITEM", "SETITEM", "GETSELECTEDITEM", "GETVALUE", "SETVALUE", "GETRANGE", "SETRANGE", "SETASSET", "SETUV",
@@ -174,11 +174,11 @@ size_t fgBehaviorHookListener(fgElement* self, const FG_Msg* msg)
   return ret;
 }
 
-__inline struct __kh_fgFunctionMap_t* fgFunctionMap_init()
+__inline struct kh_fgFunctionMap_s* fgFunctionMap_init()
 {
   return kh_init_fgFunctionMap();
 }
-void fgFunctionMap_destroy(struct __kh_fgFunctionMap_t* h)
+void fgFunctionMap_destroy(struct kh_fgFunctionMap_s* h)
 {
   for(khiter_t i = 0; i != kh_end(h); ++i)
     if(kh_exist(h, i))
