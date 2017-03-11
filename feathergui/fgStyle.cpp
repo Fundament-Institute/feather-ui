@@ -7,6 +7,23 @@
 #include "feathercpp.h"
 
 KHASH_INIT(fgStyles, const char*, FG_UINT, 1, kh_str_hash_funcins, kh_str_hash_insequal);
+fgStyleStatic fgStyleStatic::Instance;
+
+fgStyleStatic::fgStyleStatic() { h = kh_init_fgStyles(); }
+fgStyleStatic::~fgStyleStatic() { Clear(); }
+void fgStyleStatic::Clear()
+{
+  if(h)
+  {
+    for(khiter_t i = 0; i < h->n_buckets; ++i)
+    {
+      if(kh_exist(h, i))
+        fgFreeText(kh_key(h, i), __FILE__, __LINE__);
+    }
+    kh_destroy_fgStyles(h);
+    h = 0;
+  }
+}
 
 void fgStyle_Init(fgStyle* self)
 {
@@ -80,31 +97,17 @@ void fgStyle_RemoveStyleMsg(fgStyle* self, fgStyleMsg* msg)
 fgStyleMsg* fgStyle::AddStyleMsg(const FG_Msg* msg) { return fgStyle_AddStyleMsg(this, msg, 0, 0); }
 void fgStyle::RemoveStyleMsg(fgStyleMsg* msg) { fgStyle_RemoveStyleMsg(this, msg); }
 
-struct fgStyleStatic
-{
-  fgStyleStatic() { h = kh_init_fgStyles(); }
-  ~fgStyleStatic() {
-    for(khiter_t i = 0; i < h->n_buckets; ++i)
-    {
-      if(kh_exist(h, i))
-        fgFreeText(kh_key(h, i), __FILE__, __LINE__);
-    }
-    kh_destroy_fgStyles(h);
-  }
-  kh_fgStyles_t* h;
-};
 FG_UINT fgStyle_GetName(const char* name)
 {
-  static fgStyleStatic stylehash;
   static FG_UINT count = 0;
   assert(count < (sizeof(FG_UINT)<<3));
   
   int r;
-  khiter_t iter = kh_put_fgStyles(stylehash.h, name, &r);
+  khiter_t iter = kh_put_fgStyles(fgStyleStatic::Instance.h, name, &r);
   if(r) // if it wasn't in there before, we need to initialize the index
   {
-    kh_key(stylehash.h, iter) = fgCopyText(name, __FILE__, __LINE__);
-    kh_val(stylehash.h, iter) = (1 << count++);
+    kh_key(fgStyleStatic::Instance.h, iter) = fgCopyText(name, __FILE__, __LINE__);
+    kh_val(fgStyleStatic::Instance.h, iter) = (1 << count++);
   }
-  return kh_val(stylehash.h, iter);
+  return kh_val(fgStyleStatic::Instance.h, iter);
 }

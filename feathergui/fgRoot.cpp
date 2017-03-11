@@ -135,6 +135,10 @@ void fgRoot_Destroy(fgRoot* self)
     if(i != kh_end(self->cursormap) && kh_exist(self->cursormap, i))
       fgfree(kh_val(self->cursormap, i), __FILE__, __LINE__);
   kh_destroy_fgCursorMap(self->cursormap);
+  fgStyleStatic::Instance.Clear();
+#ifdef BSS_DEBUG
+  fgLeakTracker::Tracker.Dump();
+#endif
 }
 
 void fgRoot_CheckMouseMove(fgRoot* self)

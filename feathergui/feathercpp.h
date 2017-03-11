@@ -21,11 +21,14 @@
 
 //#define FG_NO_TEXT_CACHE // Uncomment this if text is leaking somewhere and you don't know where.
 
+struct _FG_ROOT;
+extern struct _FG_ROOT* fgroot_instance;
+
 // This is a template implementation of malloc that we can overload for memory leak detection
 #ifdef BSS_DEBUG
 
 extern bool fgTextFreeCheck(void* p);
-extern void fgTextLeakDump(FILE* f);
+extern void fgTextLeakDump();
 
 class fgLeakTracker
 {
@@ -41,30 +44,30 @@ class fgLeakTracker
   };
 
 public:
-  fgLeakTracker()
+  fgLeakTracker() { }
+  ~fgLeakTracker() { }
+
+  void Dump()
   {
-    FOPEN(f, "memleaks.txt", "w");
-  }
-  ~fgLeakTracker()
-  {
-    fputs("--- Memory leaks---\n", f);
+    assert(fgroot_instance != 0);
+    fgLog("--- Memory leaks---\n");
     LEAKINFO* pinfo;
     for(auto curiter = _leakinfo.begin(); curiter.IsValid(); ++curiter)
     {
       pinfo = _leakinfo.GetValue(*curiter);
       if(!pinfo->freecount)
-        fprintf(f, "%p (Size: %zi) leaked at %s:%zi\n", pinfo->ptr, pinfo->size, pinfo->file, pinfo->line);
+        fgLog("%p (Size: %zi) leaked at %s:%zi\n", pinfo->ptr, pinfo->size, pinfo->file, pinfo->line);
 
       free((char*)pinfo->file);
       free(pinfo);
     }
 
-    fgTextLeakDump(f);
-    fclose(f);
+    fgTextLeakDump();
+    _leakinfo.Clear();
   }
-
   void Add(void* ptr, size_t size, const char* file, size_t line)
   {
+    assert(fgroot_instance != 0);
     const char* hold = strrchr(file, '\\');
     const char* hold2 = strrchr(file, '/');
     file = bssmax(bssmax(hold, hold2), file);
@@ -90,6 +93,7 @@ public:
   }
   bool Remove(void* ptr, const char* file, size_t line)
   {
+    assert(fgroot_instance != 0);
     auto i = _leakinfo.Iterator(ptr);
     if(!_leakinfo.ExistsIter(i))
       fprintf(f, "Attempt to delete unassigned memory location (%p) at %s:%zi\n", ptr, file, line);
@@ -195,8 +199,6 @@ struct fgConstruct<T>
   };
 };
 
-struct _FG_ROOT;
-extern struct _FG_ROOT* fgroot_instance;
 struct _FG_DEBUG;
 extern struct _FG_DEBUG* fgdebug_instance;
 
@@ -451,4 +453,17 @@ struct QUEUEDMESSAGE
   fgElement* e;
   FG_Msg msg;
 };
+
+struct kh_fgStyles_s;
+
+struct fgStyleStatic
+{
+  fgStyleStatic();
+  ~fgStyleStatic();
+  void Clear();
+  struct kh_fgStyles_s* h;
+
+  static fgStyleStatic Instance;
+};
+
 #endif

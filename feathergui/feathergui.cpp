@@ -179,13 +179,13 @@ void fgFreeText(const char* text, const char* file, size_t line)
 #endif
 }
 
-void fgTextLeakDump(FILE* f)
+void fgTextLeakDump()
 {
   for(auto curiter = fgStringRefHash.begin(); curiter.IsValid(); ++curiter)
   {
     const char* str = fgStringRefHash.GetKey(*curiter);
     size_t refs = fgStringRefHash.GetValue(*curiter);
-    fprintf(f, "The string \"%s\" leaked with %zi dangling references\n", str, refs);
+    fgLog("The string \"%s\" leaked with %zi dangling references\n", str, refs);
     free(const_cast<char*>(str));
   }
 }

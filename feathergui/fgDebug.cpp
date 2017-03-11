@@ -319,7 +319,10 @@ void fgDebug_TreeInsert(fgElement* parent, fgElement* element, fgElement* treevi
 
   if(treeview != 0)
   {
-    root = fgroot_instance->backend.fgCreate("TreeItem", parent, 0, 0, FGELEMENT_EXPAND, 0, 0);
+    fgElement* next = 0;
+    if(element->next)
+      next = fgDebug_GetTreeItem(parent, element->next);
+    root = fgroot_instance->backend.fgCreate("TreeItem", parent, next, 0, FGELEMENT_EXPAND, 0, 0);
     root->SetContextMenu(contextmenu);
     root->message = (fgMessage)&fgTreeItem_DebugMessage;
     root->userdata = element;
@@ -464,7 +467,15 @@ size_t fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
     if(treeitem)
       fgDebug_TreeInsert(fgdebug_instance->elements, msg->e, 0, fgdebug_instance->context);
   }
-
+  if(msg->type == FG_REORDERCHILD && msg->e != 0 && msg->e->parent == self)
+  {
+    fgElement* treeitem = fgDebug_GetTreeItem(fgdebug_instance->elements, msg->e);
+    if(treeitem)
+      VirtualFreeChild(treeitem);
+    treeitem = fgDebug_GetTreeItem(fgdebug_instance->elements, self);
+    if(treeitem)
+      fgDebug_TreeInsert(fgdebug_instance->elements, msg->e, 0, fgdebug_instance->context);
+  }
   return r;
 }
 

@@ -249,7 +249,7 @@ void fgUnloadBackend()
 
 int fgLogHookDefault(const char* format, va_list args)
 {
-  static std::unique_ptr<FILE, void(*)(FILE*)> f(fopen("feathergui.log", "wb"), [](FILE* x) { fclose(x); });
+  static std::unique_ptr<FILE, decltype(&fclose)> f(fopen("feathergui.log", "wb"), &fclose);
   vfprintf(f.get(), format, args);
   fwrite("\n", 1, 1, f.get());
   int n = vprintf(format, args);
