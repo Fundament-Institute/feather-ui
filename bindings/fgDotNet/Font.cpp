@@ -7,10 +7,10 @@ using namespace System;
 
 Font::Font(void* p) : _p(p), _owner(false) {}
 Font::Font(void* p, bool owner) : _p(p), _owner(owner) {}
-Font::Font(fgFlag flags, String^ font, unsigned int fontsize, System::Drawing::Point dpi) : _p(0), _owner(true)
+Font::Font(fgFlag flags, String^ font, short weight, char italic, unsigned int size, System::Drawing::Point dpi) : _p(0), _owner(true)
 {
   TOCHAR(font);
-  _p = fgSingleton()->backend.fgCreateFont(flags, (const char*)pstr, fontsize, &Element::From(dpi));
+  _p = fgSingleton()->backend.fgCreateFont(flags, (const char*)pstr, weight, italic, size, &Element::From(dpi));
 }
 Font::~Font() { this->!Font(); }
 Font::!Font() { if(_p && _owner) fgSingleton()->backend.fgDestroyFont(_p); }

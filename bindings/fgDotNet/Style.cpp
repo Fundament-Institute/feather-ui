@@ -18,10 +18,10 @@ StyleMsg^ Style::AddStyleMsg(const FG_Msg* msg)
 }
 void Style::RemoveStyleMsg(StyleMsg^ msg) {}
 
-FG_UINT Style::GetName(System::String^ name, char flag)
+FG_UINT Style::GetName(System::String^ name)
 {
   TOCHAR(name);
-  return fgStyle_GetName((const char*)pstr, flag);
+  return fgStyle_GetName((const char*)pstr);
 }
 
 Style::operator fgStyleMsg*(Style^ e) { return e->styles; }

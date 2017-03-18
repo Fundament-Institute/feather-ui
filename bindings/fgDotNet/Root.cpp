@@ -36,7 +36,7 @@ namespace fgDotNet {
     }
 
     // Returns 0 if handled, 1 otherwise
-    size_t Inject(const FG_Msg* msg) { return fgRoot_Inject(reinterpret_cast<fgRoot*>(_p), msg); } 
+    size_t Inject(const FG_Msg* msg) { return reinterpret_cast<fgRoot*>(_p)->inject(reinterpret_cast<fgRoot*>(_p), msg); }
     void Update(double delta) { fgRoot_Update(reinterpret_cast<fgRoot*>(_p), delta); }
     void CheckMouseMove() { fgRoot_CheckMouseMove(reinterpret_cast<fgRoot*>(_p)); }
     Monitor^ GetMonitor(RectangleF rect) { return GenNewManagedPtr<Monitor, fgMonitor>(fgRoot_GetMonitor(reinterpret_cast<fgRoot*>(_p), &Element::From(rect))); }

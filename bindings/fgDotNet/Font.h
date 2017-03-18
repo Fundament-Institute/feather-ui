@@ -29,7 +29,7 @@ namespace fgDotNet {
     };
 
     explicit Font(void* p);
-    Font(fgFlag flags, System::String^ font, unsigned int fontsize, System::Drawing::Point dpi);
+    Font(fgFlag flags, System::String^ font, short weight, char italic, unsigned int size, System::Drawing::Point dpi);
     ~Font();
     !Font();
     Font^ Clone(Desc^ desc);

@@ -47,7 +47,7 @@
     <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <Keyword>ManagedCProj</Keyword>
     <RootNamespace>feathergui</RootNamespace>
-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>7.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -152,7 +152,7 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <OutDir>$(SolutionDir)bin32\</OutDir>
+    <OutDir>$(ProjectDir)..\bin32\</OutDir>
     <TargetName>$(ProjectName)32_d</TargetName>
     <IntDir>$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
@@ -166,7 +166,7 @@
     <TargetName>$(ProjectName)_d</TargetName>
     <TargetExt>.dll</TargetExt>
     <LinkIncremental>true</LinkIncremental>
-    <OutDir>$(SolutionDir)bin\</OutDir>
+    <OutDir>$(ProjectDir)..\bin\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug Static|x64'">
     <TargetName>$(ProjectName)_d_s</TargetName>
@@ -175,7 +175,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <OutDir>$(SolutionDir)bin32\</OutDir>
+    <OutDir>$(ProjectDir)..\bin32\</OutDir>
     <IntDir>$(Platform)\$(Configuration)\</IntDir>
     <TargetName>$(ProjectName)32</TargetName>
   </PropertyGroup>
@@ -194,7 +194,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <TargetExt>.dll</TargetExt>
     <LinkIncremental>false</LinkIncremental>
-    <OutDir>$(SolutionDir)bin\</OutDir>
+    <OutDir>$(ProjectDir)..\bin\</OutDir>
     <TargetName>$(ProjectName)</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Static|x64'">
@@ -213,7 +213,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;BSS_STATIC_LIB;_DEBUG;_WINDOWS;feathergui_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../include/feathergui;../include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -238,7 +238,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;BSS_STATIC_LIB;_DEBUG;_WINDOWS;feathergui_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../include/feathergui;../include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -261,7 +261,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;BSS_STATIC_LIB;_DEBUG;_WINDOWS;feathergui_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../include/feathergui;../include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -286,7 +286,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;BSS_STATIC_LIB;_DEBUG;_WINDOWS;feathergui_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../include/feathergui;../include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -308,7 +308,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>WIN32;BSS_STATIC_LIB;NDEBUG;_WINDOWS;feathergui_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../include/feathergui;../include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
@@ -343,7 +343,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>WIN32;BSS_STATIC_LIB;NDEBUG;_WINDOWS;feathergui_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../include/feathergui;../include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
@@ -376,7 +376,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>WIN32;BSS_STATIC_LIB;NDEBUG;_WINDOWS;feathergui_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../include/feathergui;../include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
@@ -409,7 +409,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>WIN32;BSS_STATIC_LIB;NDEBUG;_WINDOWS;feathergui_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../include/feathergui;../include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
@@ -444,7 +444,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>WIN32;BSS_STATIC_LIB;NDEBUG;_WINDOWS;feathergui_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../include/feathergui;../include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
@@ -477,7 +477,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>WIN32;BSS_STATIC_LIB;NDEBUG;_WINDOWS;feathergui_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../include/feathergui;../include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
@@ -505,6 +505,41 @@
       <LinkLibraryDependencies>true</LinkLibraryDependencies>
     </ProjectReference>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(VcpkgEnabled)' == 'true'">
+    <PostBuildEvent>
+      <Message>Copy include files to vcpkg folder</Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(VcpkgEnabled)'=='Release|true'">
+    <PostBuildEvent>
+      <Command>xcopy "$(TargetDir)$(TargetName).lib" "$(VcpkgRoot)lib" /c /y /q /i
+xcopy "$(TargetDir)$(TargetName).dll" "$(VcpkgRoot)bin" /c /y /q /i
+xcopy "$(TargetDir)$(TargetName).pdb" "$(VcpkgRoot)bin" /c /y /q /i
+xcopy "..\include\feathergui\*.h" "$(VcpkgRoot)include\feathergui" /c /y /q /i /s</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(VcpkgEnabled)'=='Release Static|true'">
+    <PostBuildEvent>
+      <Command>xcopy "$(TargetDir)$(TargetName).lib" "$(VcpkgRoot)lib" /c /y /q /i
+xcopy "$(TargetDir)$(TargetName).pdb" "$(VcpkgRoot)lib" /c /y /q /i
+xcopy "..\include\feathergui\*.h" "$(VcpkgRoot)include\feathergui" /c /y /q /i /s</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(VcpkgEnabled)'=='Debug|true'">
+    <PostBuildEvent>
+      <Command>xcopy "$(TargetDir)$(TargetName).lib" "$(VcpkgRoot)debug\lib" /c /y /q /i
+xcopy "$(TargetDir)$(TargetName).dll" "$(VcpkgRoot)debug\bin" /c /y /q /i
+xcopy "$(TargetDir)$(TargetName).pdb" "$(VcpkgRoot)debug\bin" /c /y /q /i
+xcopy "..\include\feathergui\*.h" "$(VcpkgRoot)include\feathergui" /c /y /q /i /s</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(VcpkgEnabled)'=='Debug Static|true'">
+    <PostBuildEvent>
+      <Command>xcopy "$(TargetDir)$(TargetName).lib" "$(VcpkgRoot)debug\lib" /c /y /q /i
+xcopy "$(TargetDir)$(TargetName).pdb" "$(VcpkgRoot)debug\lib" /c /y /q /i
+xcopy "..\include\feathergui\*.h" "$(VcpkgRoot)include\feathergui" /c /y /q /i /s</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Data" />
@@ -514,39 +549,39 @@
     <ResourceCompile Include="feathergui.rc" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\include\bss_compiler.h" />
-    <ClInclude Include="..\include\feathergui.h" />
-    <ClInclude Include="..\include\fgAll.h" />
-    <ClInclude Include="..\include\fgBox.h" />
-    <ClInclude Include="..\include\fgButton.h" />
-    <ClInclude Include="..\include\fgCheckbox.h" />
-    <ClInclude Include="..\include\fgDebug.h" />
-    <ClInclude Include="..\include\fgElement.h" />
-    <ClInclude Include="..\include\fgCombobox.h" />
-    <ClInclude Include="..\include\fgDropdown.h" />
-    <ClInclude Include="..\include\fgGrid.h" />
-    <ClInclude Include="..\include\fgBackend.h" />
-    <ClInclude Include="..\include\fgLayout.h" />
-    <ClInclude Include="..\include\fgCurve.h" />
-    <ClInclude Include="..\include\fgList.h" />
-    <ClInclude Include="..\include\fgMenu.h" />
-    <ClInclude Include="..\include\fgMonitor.h" />
-    <ClInclude Include="..\include\fgProgressbar.h" />
-    <ClInclude Include="..\include\fgRadiobutton.h" />
-    <ClInclude Include="..\include\fgResource.h" />
-    <ClInclude Include="..\include\fgScrollbar.h" />
-    <ClInclude Include="..\include\fgSkin.h" />
-    <ClInclude Include="..\include\fgRoot.h" />
-    <ClInclude Include="..\include\fgSlider.h" />
-    <ClInclude Include="..\include\fgStyle.h" />
-    <ClInclude Include="..\include\fgTabcontrol.h" />
-    <ClInclude Include="..\include\fgText.h" />
-    <ClInclude Include="..\include\fgTextbox.h" />
-    <ClInclude Include="..\include\fgToolbar.h" />
-    <ClInclude Include="..\include\fgWindow.h" />
-    <ClInclude Include="..\include\fgTreeview.h" />
-    <ClInclude Include="..\include\fgControl.h" />
-    <ClInclude Include="..\include\fgWorkspace.h" />
+    <ClInclude Include="..\include\feathergui\bss_compiler.h" />
+    <ClInclude Include="..\include\feathergui\feathergui.h" />
+    <ClInclude Include="..\include\feathergui\fgAll.h" />
+    <ClInclude Include="..\include\feathergui\fgBox.h" />
+    <ClInclude Include="..\include\feathergui\fgButton.h" />
+    <ClInclude Include="..\include\feathergui\fgCheckbox.h" />
+    <ClInclude Include="..\include\feathergui\fgDebug.h" />
+    <ClInclude Include="..\include\feathergui\fgElement.h" />
+    <ClInclude Include="..\include\feathergui\fgCombobox.h" />
+    <ClInclude Include="..\include\feathergui\fgDropdown.h" />
+    <ClInclude Include="..\include\feathergui\fgGrid.h" />
+    <ClInclude Include="..\include\feathergui\fgBackend.h" />
+    <ClInclude Include="..\include\feathergui\fgLayout.h" />
+    <ClInclude Include="..\include\feathergui\fgCurve.h" />
+    <ClInclude Include="..\include\feathergui\fgList.h" />
+    <ClInclude Include="..\include\feathergui\fgMenu.h" />
+    <ClInclude Include="..\include\feathergui\fgMonitor.h" />
+    <ClInclude Include="..\include\feathergui\fgProgressbar.h" />
+    <ClInclude Include="..\include\feathergui\fgRadiobutton.h" />
+    <ClInclude Include="..\include\feathergui\fgResource.h" />
+    <ClInclude Include="..\include\feathergui\fgScrollbar.h" />
+    <ClInclude Include="..\include\feathergui\fgSkin.h" />
+    <ClInclude Include="..\include\feathergui\fgRoot.h" />
+    <ClInclude Include="..\include\feathergui\fgSlider.h" />
+    <ClInclude Include="..\include\feathergui\fgStyle.h" />
+    <ClInclude Include="..\include\feathergui\fgTabcontrol.h" />
+    <ClInclude Include="..\include\feathergui\fgText.h" />
+    <ClInclude Include="..\include\feathergui\fgTextbox.h" />
+    <ClInclude Include="..\include\feathergui\fgToolbar.h" />
+    <ClInclude Include="..\include\feathergui\fgWindow.h" />
+    <ClInclude Include="..\include\feathergui\fgTreeview.h" />
+    <ClInclude Include="..\include\feathergui\fgControl.h" />
+    <ClInclude Include="..\include\feathergui\fgWorkspace.h" />
     <ClInclude Include="feathercpp.h" />
   </ItemGroup>
   <ItemGroup>

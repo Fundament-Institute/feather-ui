@@ -23,106 +23,106 @@
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\include\feathergui.h">
+    <ClInclude Include="..\include\feathergui\feathergui.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\bss_compiler.h">
+    <ClInclude Include="..\include\feathergui\bss_compiler.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgButton.h">
+    <ClInclude Include="..\include\feathergui\fgButton.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgMenu.h">
+    <ClInclude Include="..\include\feathergui\fgMenu.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgRoot.h">
+    <ClInclude Include="..\include\feathergui\fgRoot.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgList.h">
+    <ClInclude Include="..\include\feathergui\fgList.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgScrollbar.h">
+    <ClInclude Include="..\include\feathergui\fgScrollbar.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgCombobox.h">
+    <ClInclude Include="..\include\feathergui\fgCombobox.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgTextbox.h">
+    <ClInclude Include="..\include\feathergui\fgTextbox.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgSkin.h">
+    <ClInclude Include="..\include\feathergui\fgSkin.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgLayout.h">
+    <ClInclude Include="..\include\feathergui\fgLayout.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgText.h">
+    <ClInclude Include="..\include\feathergui\fgText.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgResource.h">
+    <ClInclude Include="..\include\feathergui\fgResource.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgCheckbox.h">
+    <ClInclude Include="..\include\feathergui\fgCheckbox.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgSlider.h">
+    <ClInclude Include="..\include\feathergui\fgSlider.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgProgressbar.h">
+    <ClInclude Include="..\include\feathergui\fgProgressbar.h">
       <Filter>include</Filter>
     </ClInclude>
     <ClInclude Include="feathercpp.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgDropdown.h">
+    <ClInclude Include="..\include\feathergui\fgDropdown.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgMonitor.h">
+    <ClInclude Include="..\include\feathergui\fgMonitor.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgBox.h">
+    <ClInclude Include="..\include\feathergui\fgBox.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgControl.h">
+    <ClInclude Include="..\include\feathergui\fgControl.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgElement.h">
+    <ClInclude Include="..\include\feathergui\fgElement.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgWindow.h">
+    <ClInclude Include="..\include\feathergui\fgWindow.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgStyle.h">
+    <ClInclude Include="..\include\feathergui\fgStyle.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgDebug.h">
+    <ClInclude Include="..\include\feathergui\fgDebug.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgWorkspace.h">
+    <ClInclude Include="..\include\feathergui\fgWorkspace.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgToolbar.h">
+    <ClInclude Include="..\include\feathergui\fgToolbar.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgCurve.h">
+    <ClInclude Include="..\include\feathergui\fgCurve.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgGrid.h">
+    <ClInclude Include="..\include\feathergui\fgGrid.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgTreeview.h">
+    <ClInclude Include="..\include\feathergui\fgTreeview.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgRadiobutton.h">
+    <ClInclude Include="..\include\feathergui\fgRadiobutton.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgTabcontrol.h">
+    <ClInclude Include="..\include\feathergui\fgTabcontrol.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgBackend.h">
+    <ClInclude Include="..\include\feathergui\fgBackend.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fgAll.h">
+    <ClInclude Include="..\include\feathergui\fgAll.h">
       <Filter>include</Filter>
     </ClInclude>
   </ItemGroup>

@@ -27,7 +27,7 @@ namespace fgDotNet {
     StyleMsg^ AddStyleMsg(const FG_Msg* msg);
     void RemoveStyleMsg(StyleMsg^ msg);
 
-    static FG_UINT GetName(System::String^ name, char flag);
+    static FG_UINT GetName(System::String^ name);
     static operator fgStyleMsg*(Style^ e);
 
   private:
