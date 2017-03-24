@@ -128,7 +128,7 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
       r->InsertItem(PROPERTY_LIST[i]);
       r->InsertItem("");
     }
-    fgSubmenu_Init(&self->context, *self, 0, "Debug$context", FGELEMENT_USEDEFAULTS, &fgTransform_EMPTY, 0);
+    fgSubmenu_Init(&self->context, *self, 0, "Debug$context", fgGetTypeFlags("Submenu"), &fgTransform_EMPTY, 0);
     self->context->AddItemText("Delete");
     self->context->AddItemText("Move");
     fgIterateControls(fgCreate("Submenu", self->context->AddItemText("Insert"), 0, 0, FGELEMENT_USEDEFAULTS, 0, 0), [](void* p, const char* s) { fgElement* e = (fgElement*)p; e->AddItemText(s); });
@@ -194,7 +194,7 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
     }
     break;
   case FG_SETFLAG: // We need to perform extra logic on show/hide
-    otherint = T_SETBIT(self->element.flags, otherint, msg->u2);
+    otherint = bss_util::bssSetBit<fgFlag>(self->element.flags, otherint, msg->u2 != 0);
   case FG_SETFLAGS:
     if((otherint^self->element.flags) & FGELEMENT_HIDDEN)
     { // handle a layout flag change
@@ -499,7 +499,7 @@ void fgDebug_Show(float left, float right, char overlay)
 {
   assert(fgroot_instance != 0);
   if(!fgdebug_instance)
-    fgdebug_instance = reinterpret_cast<fgDebug*>(fgCreate("debug", *fgroot_instance, 0, 0, FGELEMENT_HIDDEN | FGELEMENT_BACKGROUND | (overlay ? FGDEBUG_OVERLAY : 0), &fgTransform_DEFAULT, 0));
+    fgdebug_instance = reinterpret_cast<fgDebug*>(fgCreate("debug", *fgroot_instance, 0, 0, FGELEMENT_HIDDEN | (overlay ? FGDEBUG_OVERLAY : 0), &fgTransform_DEFAULT, 0));
   assert(fgdebug_instance != 0);
   if(fgroot_instance->backend.fgBehaviorHook == &fgRoot_BehaviorDebug)
     return; // Prevent an infinite loop

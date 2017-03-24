@@ -70,12 +70,13 @@ typedef bss_util::cArraySort<fgStoredMessage, &CompElementMsg, size_t, bss_util:
 void fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units, void (*destroy)(void*), size_t(*message)(void*, const FG_Msg*))
 {
   assert(self != 0);
+  assert(!(flags&FGELEMENT_USEDEFAULTS));
   memset(self, 0, sizeof(fgElement));
   self->destroy = destroy;
   self->free = 0;
   self->name = fgCopyText(name, __FILE__, __LINE__);
   self->message = message;
-  self->flags = flags & (~FGELEMENT_USEDEFAULTS);
+  self->flags = flags;
   self->style = (FG_UINT)-1;
   self->maxdim.x = -1.0f;
   self->maxdim.y = -1.0f;
@@ -86,7 +87,7 @@ void fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRI
   if(transform)
   {
     self->transform = *transform;
-    if(units != 0 && units != (unsigned short)-1)
+    if(units != 0 && units != (uint16_t)~0)
     {
       fgResolveCRectUnit(self, self->transform.area, units);
       fgResolveCVecUnit(self, self->transform.center, units);
@@ -454,12 +455,13 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgElement_MouseMoveCheck(self);
         fgroot_instance->backend.fgDirtyElement(self);
         memcpy(&self->transform.area, area, sizeof(CRect));
-        if(msg->subtype != 0 && msg->subtype != (unsigned short)-1)
+        if(msg->subtype != 0 && msg->subtype != (uint16_t)~0)
           fgResolveCRectUnit(self, self->transform.area, msg->subtype);
         fgroot_instance->backend.fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
-        _sendsubmsg<FG_MOVE, void*, size_t>(self, FG_SETAREA, 0, diff);
+        if(msg->subtype != (uint16_t)~0)
+          _sendsubmsg<FG_MOVE, void*, size_t>(self, FG_SETAREA, 0, diff);
       }
       return diff;
     }
@@ -475,18 +477,19 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgElement_MouseMoveCheck(self);
         fgroot_instance->backend.fgDirtyElement(self);
         self->transform.center = transform->center;
-        if(msg->subtype != 0 && msg->subtype != (unsigned short)-1)
+        if(msg->subtype != 0 && msg->subtype != (uint16_t)~0)
           fgResolveCVecUnit(self, self->transform.center, msg->subtype);
         self->transform.rotation = transform->rotation;
         fgroot_instance->backend.fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
-        _sendsubmsg<FG_MOVE, void*, size_t>(self, FG_SETTRANSFORM, 0, diff);
+        if(msg->subtype != (uint16_t)~0)
+          _sendsubmsg<FG_MOVE, void*, size_t>(self, FG_SETTRANSFORM, 0, diff);
       }
     }
     return FG_ACCEPT;
-  case FG_SETFLAG: // If 0 is sent in, disable the flag, otherwise enable. Our internal flag is 1 if clipping disabled, 0 otherwise.
-    otherint = T_SETBIT(self->flags, otherint, msg->u2);
+  case FG_SETFLAG: // If 0 is sent in, disable the flag, otherwise enable.
+    otherint = bss_util::bssSetBit<fgFlag>(self->flags, otherint, msg->u2 != 0);
   case FG_SETFLAGS:
   {
     fgFlag change = self->flags ^ (fgFlag)otherint;
@@ -533,12 +536,13 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgElement_MouseMoveCheck(self);
         fgroot_instance->backend.fgDirtyElement(self);
         memcpy(&self->margin, margin, sizeof(AbsRect));
-        if(msg->subtype != 0 && msg->subtype != (unsigned short)-1)
+        if(msg->subtype != 0 && msg->subtype != (uint16_t)~0)
           fgResolveRectUnit(self, self->margin, msg->subtype);
         fgroot_instance->backend.fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
-        _sendsubmsg<FG_MOVE, void*, size_t>(self, FG_SETMARGIN, 0, diff | FGMOVE_MARGIN);
+        if(msg->subtype != (uint16_t)~0)
+          _sendsubmsg<FG_MOVE, void*, size_t>(self, FG_SETMARGIN, 0, diff | FGMOVE_MARGIN);
       }
     }
     return FG_ACCEPT;
@@ -554,12 +558,13 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgElement_MouseMoveCheck(self);
         fgroot_instance->backend.fgDirtyElement(self);
         memcpy(&self->padding, padding, sizeof(AbsRect));
-        if(msg->subtype != 0 && msg->subtype != (unsigned short)-1)
+        if(msg->subtype != 0 && msg->subtype != (uint16_t)~0)
           fgResolveRectUnit(self, self->padding, msg->subtype);
         fgroot_instance->backend.fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
-        _sendsubmsg<FG_MOVE, void*, size_t>(self, FG_SETPADDING, 0, diff | FGMOVE_PADDING);
+        if(msg->subtype != (uint16_t)~0)
+          _sendsubmsg<FG_MOVE, void*, size_t>(self, FG_SETPADDING, 0, diff | FGMOVE_PADDING);
       }
     }
     return FG_ACCEPT;

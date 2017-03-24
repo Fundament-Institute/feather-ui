@@ -114,7 +114,7 @@ BSS_FORCEINLINE fgElement* d2d_create_default(fgElement* BSS_RESTRICT parent, fg
 
 fgElement* fgCreateD2D(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  if(!_stricmp(type, "window"))
+  if(!_stricmp(type, "window")) // Neither of these have default flags so we don't bother with them.
     return d2d_create_default<fgWindowD2D, fgWindowD2D_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
   if(!_stricmp(type, "debug"))
     return d2d_create_default<fgDebug, fgDebugD2D_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);

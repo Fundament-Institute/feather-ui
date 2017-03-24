@@ -11,7 +11,7 @@ static const char* FGSTR_LISTITEM = "ListItem";
 
 void fgListItem_Init(fgControl* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  fgElement_InternalSetup(*self, parent, next, name, (flags&FGELEMENT_USEDEFAULTS) ? (FGBOX_TILEY | FGELEMENT_EXPANDY) : flags, transform, units, (fgDestroy)&fgControl_Destroy, (fgMessage)&fgListItem_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgControl_Destroy, (fgMessage)&fgListItem_Message);
 }
 
 size_t fgListItem_Message(fgControl* self, const FG_Msg* msg)
@@ -155,31 +155,42 @@ size_t fgList_Message(fgList* self, const FG_Msg* msg)
     }
     if(self->box->flags&FGLIST_SELECT)
     {
+      bool multi = (self->box->flags&FGLIST_MULTISELECT) == FGLIST_MULTISELECT;
+      bool shift = fgroot_instance->GetKey(FG_KEY_SHIFT);
+
       AbsRect cache;
       fgElement* target = fgElement_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
       if(!target)
         break;
       size_t index = ((fgElementArray&)self->box.selected).Find(target);
-      if((self->box->flags&FGLIST_MULTISELECT) != FGLIST_MULTISELECT || !fgroot_instance->GetKey(FG_KEY_SHIFT))
-      {
-        for(size_t i = 0; i < self->box.selected.l; ++i)
-          fgSetFlagStyle(self->box.selected.p[i], "selected", false);
-        ((fgElementArray&)self->box.selected).Clear();
-      }
-      else if(index != (size_t)-1)
-      {
-        fgSetFlagStyle(self->box.selected.p[index], "selected", false);
-        ((fgElementArray&)self->box.selected).Remove(index);
-      }
 
-      if(index == (size_t)-1 || ((self->box->flags&FGLIST_DRAGGABLE) != 0 && !fgroot_instance->GetKey(FG_KEY_SHIFT)))
+      if(!multi || (!shift && (!(self->box->flags&FGLIST_DRAGGABLE) || index == (size_t)~0)))
       {
-        fgSetFlagStyle(target, "selected", true);
-        ((fgElementArray&)self->box.selected).Insert(target);
+        fgBox_DeselectAll(&self->box);
+        fgBox_SelectTarget(&self->box, target);
+      }
+      else if(shift)
+      {
+        if(index == (size_t)~0)
+          fgBox_SelectTarget(&self->box, target);
+        else
+        {
+          fgSetFlagStyle(self->box.selected.p[index], "selected", false);
+          ((fgElementArray&)self->box.selected).Remove(index);
+        }
       }
     }
     break;
   case FG_MOUSEUP:
+    if((self->box->flags&FGLIST_DRAGGABLE) != 0 && (self->box->flags&FGLIST_MULTISELECT) == FGLIST_MULTISELECT && !fgroot_instance->GetKey(FG_KEY_SHIFT))
+    {
+      fgBox_DeselectAll(&self->box);
+      AbsRect cache;
+      fgElement* target = fgElement_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
+      if(!target)
+        break;
+      fgBox_SelectTarget(&self->box, target);
+    }
     self->split = 0;
     fgUpdateMouseState(&self->mouse, msg);
     break;

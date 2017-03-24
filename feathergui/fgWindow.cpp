@@ -15,7 +15,7 @@ size_t fgWindow_CloseMessage(fgButton* self, const FG_Msg* msg)
 size_t fgWindow_MaximizeMessage(fgButton* self, const FG_Msg* msg)
 {
   if(msg->type == FG_ACTION)
-    _sendmsg<FG_ACTION, size_t>(self->control.element.parent, !memcmp(&self->control.element.parent->transform, &fgTransform_DEFAULT, sizeof(fgTransform)) ? FGWINDOW_RESTORE : FGWINDOW_MAXIMIZE);
+    _sendmsg<FG_ACTION, size_t>(self->control.element.parent, ((fgWindow*)self->control.element.parent)->maximized ? FGWINDOW_RESTORE : FGWINDOW_MAXIMIZE);
   return fgButton_Message(self, msg);
 }
 
@@ -45,6 +45,7 @@ size_t fgWindow_Message(fgWindow* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     fgControl_Message(&self->control, msg);
     self->dragged = 0;
+    self->maximized = 0;
     memset(&self->prevrect, 0, sizeof(CRect));
     fgText_Init(&self->caption, *self, 0, "Window$text", FGELEMENT_BACKGROUND | FGELEMENT_IGNORE | FGELEMENT_EXPAND, 0, 0);
     fgButton_Init(&self->controls[0], *self, 0, "Window$close", FGELEMENT_BACKGROUND, 0, 0);
@@ -104,7 +105,7 @@ size_t fgWindow_Message(fgWindow* self, const FG_Msg* msg)
       AbsRect textout;
       ResolveRectCache(self->caption, &textout, &out, 0);
 
-      if(memcmp(&self->control.element.transform, &fgTransform_DEFAULT, sizeof(fgTransform)) != 0) // Only resize/move if not maximized
+      if(!self->maximized) // Only resize/move if not maximized
       {
         // Check for resize
         if(self->control->flags&FGWINDOW_RESIZABLE)
@@ -213,9 +214,11 @@ size_t fgWindow_Message(fgWindow* self, const FG_Msg* msg)
     case FGWINDOW_MAXIMIZE:
       self->prevrect = self->control.element.transform.area;
       _sendmsg<FG_SETAREA, void*>(*self, (void*)&fgTransform_DEFAULT.area);
+      self->maximized = 1;
       break;
     case FGWINDOW_RESTORE:
       _sendmsg<FG_SETAREA, void*>(*self, &self->prevrect);
+      self->maximized = 0;
       break;
     case FGWINDOW_CLOSE:
       VirtualFreeChild(*self);

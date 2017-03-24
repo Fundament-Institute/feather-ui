@@ -11,7 +11,7 @@ void fgMenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RE
 {
   assert(self != 0);
   const fgTransform TF_MENU = { { 0, 0, 0, 0, 0, 1.0, 0, 0 }, 0,{ 0,0,0,0 } };
-  fgElement_InternalSetup(*self, parent, next, name, ((flags&FGELEMENT_USEDEFAULTS) ? (FGELEMENT_EXPANDY | FGBOX_TILEX) : flags), (!transform ? &TF_MENU : transform), units, (fgDestroy)&fgMenu_Destroy, (fgMessage)&fgMenu_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, (!transform ? &TF_MENU : transform), units, (fgDestroy)&fgMenu_Destroy, (fgMessage)&fgMenu_Message);
 }
 
 void fgMenu_Destroy(fgMenu* self)
@@ -132,7 +132,7 @@ void fgSubmenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS
   const fgTransform TF_MENU = { { 0, 0, 0, 1.0, 0, 0, 0, 1.0 }, 0,{ 0,0,0,0 } };
   const fgTransform TF_SUBMENU = { { 0, 1.0, 0, 0, 0, 1.0, 0, 0 }, 0,{ 0,0,0,0 } };
   if(!transform) transform = (parent != 0 && parent->parent != 0 && parent->parent->GetClassName() == MENU_NAME) ? &TF_MENU : &TF_SUBMENU;
-  fgElement_InternalSetup(*self, parent, next, name, ((flags&FGELEMENT_USEDEFAULTS) ? (FGELEMENT_NOCLIP | FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN | FGBOX_TILEY | FGELEMENT_EXPAND) : flags), transform, units, (fgDestroy)&fgMenu_Destroy, (fgMessage)&fgSubmenu_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgMenu_Destroy, (fgMessage)&fgSubmenu_Message);
 }
 
 size_t fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
@@ -160,7 +160,7 @@ size_t fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
     }
     return sizeof(fgMenu);
   case FG_SETFLAG: // If 0 is sent in, disable the flag, otherwise enable. Our internal flag is 1 if clipping disabled, 0 otherwise.
-    otherint = T_SETBIT(self->box->flags, otherint, msg->u2);
+    otherint = bss_util::bssSetBit<fgFlag>(self->box->flags, otherint, msg->u2 != 0);
   case FG_SETFLAGS:
     if(((self->box->flags ^ otherint) & FGELEMENT_HIDDEN) != 0)
     {
@@ -267,7 +267,6 @@ void fgMenuItem_Init(fgMenuItem* self, fgElement* BSS_RESTRICT parent, fgElement
 {
   static const fgTransform MENU_TRANSFORM = fgTransform { { 0,0,0,0,0,1,0,0 }, 0, { 0,0,0,0 } };
   if(!transform) transform = (parent != 0 && parent->GetClassName() == MENU_NAME) ? &fgTransform_EMPTY : &MENU_TRANSFORM;
-  if(flags&FGELEMENT_USEDEFAULTS) flags = FGELEMENT_EXPAND | FGELEMENT_NOCLIP;
   assert(self != 0);
   fgElement_InternalSetup(&self->element, parent, next, name, flags, transform, units, (fgDestroy)&fgElement_Destroy, (fgMessage)&fgMenuItem_Message);
 }

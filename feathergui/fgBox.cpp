@@ -85,6 +85,40 @@ inline fgElement* fgBoxOrderInject(fgElement* self, const FG_Msg* msg)
   return fgOrderedVec<FLAGS>(&((fgBox*)self)->order, AbsVec { (FABS)msg->x, (FABS)msg->y });
 }
 
+inline fgOrderedDrawGet fgBox_GetDrawOrderFn(fgFlag flags)
+{
+  switch(flags&(FGBOX_TILE | FGBOX_DISTRIBUTEY))
+  {
+  case 0:
+  case FGBOX_TILEX: return &fgBoxOrder<FGBOX_TILEX>;
+  case FGBOX_TILEY: return &fgBoxOrder<FGBOX_TILEY>;
+  case FGBOX_TILE: return&fgBoxOrder<FGBOX_TILE>;
+  case FGBOX_TILE | FGBOX_DISTRIBUTEY: return &fgBoxOrder<FGBOX_TILE | FGBOX_DISTRIBUTEY>;
+  }
+  assert(false);
+  return 0;
+}
+
+//void fgBoxRenderDividers(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux)
+//{
+//  fgBox_GetDrawOrderFn(self->flags)()
+//}
+
+void fgBox_DeselectAll(fgBox* self)
+{
+  for(size_t i = 0; i < self->selected.l; ++i)
+    fgSetFlagStyle(self->selected.p[i], "selected", false);
+  ((fgElementArray&)self->selected).Clear();
+}
+
+void fgBox_SelectTarget(fgBox* self, fgElement* target)
+{
+  assert(target != 0 && target->parent == (fgElement*)self);
+
+  fgSetFlagStyle(target, "selected", true);
+  ((fgElementArray&)self->selected).Insert(target);
+}
+
 size_t fgBox_Message(fgBox* self, const FG_Msg* msg)
 {
   fgFlag flags = self->scroll.control.element.flags;
@@ -119,18 +153,7 @@ size_t fgBox_Message(fgBox* self, const FG_Msg* msg)
     if(!self->order.isordered || !self->order.ordered.l)
       fgStandardDraw(*self, (AbsRect*)msg->p, (fgDrawAuxData*)msg->p2, msg->subtype & 1);
     else
-    {
-      fgElement* (*fn)(fgElement*, const AbsRect*, const AbsRect*);
-      switch(self->scroll->flags&(FGBOX_TILE | FGBOX_DISTRIBUTEY))
-      {
-      case 0:
-      case FGBOX_TILEX: fn = &fgBoxOrder<FGBOX_TILEX>; break;
-      case FGBOX_TILEY: fn = &fgBoxOrder<FGBOX_TILEY>; break;
-      case FGBOX_TILE: fn = &fgBoxOrder<FGBOX_TILE>; break;
-      case FGBOX_TILE | FGBOX_DISTRIBUTEY: fn = &fgBoxOrder<FGBOX_TILE | FGBOX_DISTRIBUTEY>; break;
-      }
-      fgOrderedDraw(*self, (AbsRect*)msg->p, (fgDrawAuxData*)msg->p2, msg->subtype & 1, self->order.ordered.p[self->order.ordered.l - 1]->next, fn, self->fndraw, self->selected.l > 0 ? self->selected.p[0] : 0);
-    }
+      fgOrderedDraw(*self, (AbsRect*)msg->p, (fgDrawAuxData*)msg->p2, msg->subtype & 1, self->order.ordered.p[self->order.ordered.l - 1]->next, fgBox_GetDrawOrderFn(self->scroll->flags), self->fndraw, self->selected.l > 0 ? self->selected.p[0] : 0);
     return FG_ACCEPT;
   case FG_INJECT:
     if(!self->order.isordered || !self->order.ordered.l)
@@ -212,7 +235,7 @@ size_t fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_* self, const
     self->fixedsize.y = -1;
     break;
   case FG_SETFLAG: // Do the same thing fgElement does to resolve a SETFLAG into SETFLAGS
-    otherint = T_SETBIT(flags, otherint, msg->u2);
+    otherint = bss_util::bssSetBit<fgFlag>(flags, otherint, msg->u2 != 0);
   case FG_SETFLAGS:
     if((otherint^flags) & FGBOX_LAYOUTMASK)
     { // handle a layout flag change

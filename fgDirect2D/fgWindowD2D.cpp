@@ -82,7 +82,7 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
   }
     return FG_ACCEPT;
   case FG_MOVE:
-    if(self->handle && msg->subtype != (uint16_t)-1)
+    if(self->handle && msg->subtype != (uint16_t)~0)
     {
       AbsRect out;
       ResolveRect(self->window, &out);
@@ -99,20 +99,26 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
     {
     case FGWINDOW_MINIMIZE:
       ShowWindow(self->handle, SW_MINIMIZE);
-      break;
-    case FGWINDOW_RESTORE:
+      return FG_ACCEPT;
     case FGWINDOW_UNMINIMIZE:
       ShowWindow(self->handle, SW_RESTORE);
-      break;
+      return FG_ACCEPT;
+    case FGWINDOW_RESTORE:
+      ShowWindow(self->handle, SW_RESTORE);
+      self->window.maximized = 0;
     case FGWINDOW_MAXIMIZE:
-      ShowWindow(self->handle, SW_MAXIMIZE);
+      if(msg->i == FGWINDOW_MAXIMIZE)
+      {
+        ShowWindow(self->handle, SW_MAXIMIZE);
+        self->window.maximized = 1;
+      }
       RECT r;
       if(SUCCEEDED(GetClientRect(self->handle, &r)))
       {
         CRect area = { r.left, 0, r.top, 0, r.right, 0, r.bottom };
-        fgSendSubMsg<FG_SETAREA, void*>(self->window, 1, &area);
+        fgSendSubMsg<FG_SETAREA, void*>(self->window, (uint16_t)~0, &area);
       }
-      break;
+      return FG_ACCEPT;
     case FGWINDOW_CLOSE:
       VirtualFreeChild(self->window);
       return FG_ACCEPT;

@@ -22,10 +22,15 @@
 #include <stdlib.h>
 #include <sstream>
 
+struct fgTypeInit {
+  fgInitializer init;
+  size_t size;
+  fgFlag flags;
+};
+
 KHASH_INIT(fgIDMap, const char*, fgElement*, 1, kh_str_hash_func, kh_str_hash_equal);
 KHASH_INIT(fgIDHash, fgElement*, const char*, 1, kh_ptr_hash_func, kh_int_hash_equal);
-typedef std::pair<fgInitializer, size_t> INITPAIR;
-KHASH_INIT(fgInitMap, const char*, INITPAIR, 1, kh_str_hash_funcins, kh_str_hash_insequal);
+KHASH_INIT(fgInitMap, const char*, fgTypeInit, 1, kh_str_hash_funcins, kh_str_hash_insequal);
 KHASH_INIT(fgCursorMap, unsigned int, void*, 1, kh_int_hash_func, kh_int_hash_equal);
 
 fgRoot* fgroot_instance = 0;
@@ -90,32 +95,32 @@ void fgRoot_Init(fgRoot* self, const AbsRect* area, const fgIntVec* dpi, const f
   fgElement_InternalSetup(*self, 0, 0, 0, 0, &transform, 0, (fgDestroy)&fgRoot_Destroy, (fgMessage)&fgRoot_Message);
   self->gui.element.style = 0;
 
-  fgRegisterControl("element", fgElement_Init, sizeof(fgElement));
-  fgRegisterControl("control", (fgInitializer)fgControl_Init, sizeof(fgControl));
-  fgRegisterControl("resource", (fgInitializer)fgResource_Init, sizeof(fgResource));
-  fgRegisterControl("text", (fgInitializer)fgText_Init, sizeof(fgText));
-  fgRegisterControl("box", (fgInitializer)fgBox_Init, sizeof(fgBox));
-  fgRegisterControl("scrollbar", (fgInitializer)fgScrollbar_Init, sizeof(fgScrollbar));
-  fgRegisterControl("button", (fgInitializer)fgButton_Init, sizeof(fgButton));
-  fgRegisterControl("window", (fgInitializer)fgWindow_Init, sizeof(fgWindow));
-  fgRegisterControl("checkbox", (fgInitializer)fgCheckbox_Init, sizeof(fgCheckbox));
-  fgRegisterControl("radiobutton", (fgInitializer)fgRadiobutton_Init, sizeof(fgRadiobutton));
-  fgRegisterControl("progressbar", (fgInitializer)fgProgressbar_Init, sizeof(fgProgressbar));
-  fgRegisterControl("slider", (fgInitializer)fgSlider_Init, sizeof(fgSlider));
-  fgRegisterControl("textbox", (fgInitializer)fgTextbox_Init, sizeof(fgTextbox));
-  fgRegisterControl("treeview", (fgInitializer)fgTreeview_Init, sizeof(fgTreeview));
-  fgRegisterControl("treeitem", (fgInitializer)fgTreeItem_Init, sizeof(fgTreeItem));
-  fgRegisterControl("list", (fgInitializer)fgList_Init, sizeof(fgList));
-  fgRegisterControl("listitem", (fgInitializer)fgListItem_Init, sizeof(fgControl));
-  fgRegisterControl("curve", (fgInitializer)fgCurve_Init, sizeof(fgCurve));
-  fgRegisterControl("dropdown", (fgInitializer)fgDropdown_Init, sizeof(fgDropdown));
-  fgRegisterControl("tabcontrol", (fgInitializer)fgTabcontrol_Init, sizeof(fgTabcontrol));
-  fgRegisterControl("menu", (fgInitializer)fgMenu_Init, sizeof(fgMenu));
-  fgRegisterControl("submenu", (fgInitializer)fgSubmenu_Init, sizeof(fgMenu));
-  fgRegisterControl("menuitem", (fgInitializer)fgMenuItem_Init, sizeof(fgMenuItem));
-  fgRegisterControl("grid", (fgInitializer)fgGrid_Init, sizeof(fgGrid));
-  fgRegisterControl("gridrow", (fgInitializer)fgGridRow_Init, sizeof(fgGridRow));
-  fgRegisterControl("debug", (fgInitializer)fgDebug_Init, sizeof(fgDebug));
+  fgRegisterControl("element", fgElement_Init, sizeof(fgElement), 0);
+  fgRegisterControl("control", (fgInitializer)fgControl_Init, sizeof(fgControl), 0);
+  fgRegisterControl("resource", (fgInitializer)fgResource_Init, sizeof(fgResource), FGELEMENT_IGNORE);
+  fgRegisterControl("text", (fgInitializer)fgText_Init, sizeof(fgText), FGELEMENT_IGNORE);
+  fgRegisterControl("box", (fgInitializer)fgBox_Init, sizeof(fgBox), 0);
+  fgRegisterControl("scrollbar", (fgInitializer)fgScrollbar_Init, sizeof(fgScrollbar), 0);
+  fgRegisterControl("button", (fgInitializer)fgButton_Init, sizeof(fgButton), 0);
+  fgRegisterControl("window", (fgInitializer)fgWindow_Init, sizeof(fgWindow), 0);
+  fgRegisterControl("checkbox", (fgInitializer)fgCheckbox_Init, sizeof(fgCheckbox), 0);
+  fgRegisterControl("radiobutton", (fgInitializer)fgRadiobutton_Init, sizeof(fgRadiobutton), 0);
+  fgRegisterControl("progressbar", (fgInitializer)fgProgressbar_Init, sizeof(fgProgressbar), 0);
+  fgRegisterControl("slider", (fgInitializer)fgSlider_Init, sizeof(fgSlider), 0);
+  fgRegisterControl("textbox", (fgInitializer)fgTextbox_Init, sizeof(fgTextbox), 0);
+  fgRegisterControl("treeview", (fgInitializer)fgTreeview_Init, sizeof(fgTreeview), 0);
+  fgRegisterControl("treeitem", (fgInitializer)fgTreeItem_Init, sizeof(fgTreeItem), 0);
+  fgRegisterControl("list", (fgInitializer)fgList_Init, sizeof(fgList), 0);
+  fgRegisterControl("listitem", (fgInitializer)fgListItem_Init, sizeof(fgControl), FGBOX_TILEY | FGELEMENT_EXPANDY);
+  fgRegisterControl("curve", (fgInitializer)fgCurve_Init, sizeof(fgCurve), 0);
+  fgRegisterControl("dropdown", (fgInitializer)fgDropdown_Init, sizeof(fgDropdown), 0);
+  fgRegisterControl("tabcontrol", (fgInitializer)fgTabcontrol_Init, sizeof(fgTabcontrol), 0);
+  fgRegisterControl("menu", (fgInitializer)fgMenu_Init, sizeof(fgMenu), FGELEMENT_EXPANDY | FGBOX_TILEX);
+  fgRegisterControl("submenu", (fgInitializer)fgSubmenu_Init, sizeof(fgMenu), FGELEMENT_NOCLIP | FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN | FGBOX_TILEY | FGELEMENT_EXPAND);
+  fgRegisterControl("menuitem", (fgInitializer)fgMenuItem_Init, sizeof(fgMenuItem), FGELEMENT_EXPAND | FGELEMENT_NOCLIP);
+  fgRegisterControl("grid", (fgInitializer)fgGrid_Init, sizeof(fgGrid), 0);
+  fgRegisterControl("gridrow", (fgInitializer)fgGridRow_Init, sizeof(fgGridRow), 0);
+  fgRegisterControl("debug", (fgInitializer)fgDebug_Init, sizeof(fgDebug), FGELEMENT_BACKGROUND);
 }
 
 void fgRoot_Destroy(fgRoot* self)
@@ -766,7 +771,7 @@ fgElement* fgCreate(const char* type, fgElement* BSS_RESTRICT parent, fgElement*
   return fgroot_instance->backend.fgCreate(type, parent, next, name, flags, transform, units);
 }
 
-void fgRegisterControl(const char* name, fgInitializer fn, size_t sz)
+void fgRegisterControl(const char* name, fgInitializer fn, size_t sz, fgFlag flags)
 {
   int r;
   khint_t i = kh_put_fgInitMap(fgroot_instance->initmap, const_cast<char*>(name), &r);
@@ -774,8 +779,9 @@ void fgRegisterControl(const char* name, fgInitializer fn, size_t sz)
     kh_key(fgroot_instance->initmap, i) = fgCopyText(name, __FILE__, __LINE__);
   else
     fgLog("Replacing duplicate control name: %s", name);
-  kh_val(fgroot_instance->initmap, i).first = fn;
-  kh_val(fgroot_instance->initmap, i).second = sz;
+  kh_val(fgroot_instance->initmap, i).init = fn;
+  kh_val(fgroot_instance->initmap, i).size = sz;
+  kh_val(fgroot_instance->initmap, i).flags = flags;
 }
 void fgIterateControls(void* p, void(*fn)(void*, const char*))
 {
@@ -823,10 +829,12 @@ fgElement* fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgE
     fgLog("Attempted to create nonexistant type: %s", type);
     return 0;
   }
-  INITPAIR& pair = kh_val(fgroot_instance->initmap, i);
+  fgTypeInit& ty = kh_val(fgroot_instance->initmap, i);
+  if(FGELEMENT_USEDEFAULTS&flags)
+    flags = (flags&(~FGELEMENT_USEDEFAULTS)) | ty.flags;
 
-  fgElement* r = reinterpret_cast<fgElement*>(fgmalloc<char>(pair.second, type, 0));
-  pair.first(r, parent, next, name, flags, transform, units);
+  fgElement* r = reinterpret_cast<fgElement*>(fgmalloc<char>(ty.size, type, 0));
+  ty.init(r, parent, next, name, flags, transform, units);
 #ifdef BSS_DEBUG
   r->free = &fgfreeblank;
 #else
@@ -843,7 +851,19 @@ size_t fgGetTypeSize(const char* type)
     fgLog("Attempted to get size of nonexistant type: %s", type);
     return 0;
   }
-  return kh_val(fgroot_instance->initmap, i).second;
+  return kh_val(fgroot_instance->initmap, i).size;
+}
+fgFlag fgGetTypeFlags(const char* type)
+{
+  if(!STRICMP(type, "tab") || !STRICMP(type, "column"))
+    return 0;
+  khint_t i = kh_get_fgInitMap(fgroot_instance->initmap, const_cast<char*>(type));
+  if(i == kh_end(fgroot_instance->initmap) || !kh_exist(fgroot_instance->initmap, i))
+  {
+    fgLog("Attempted to get default flags of nonexistant type: %s", type);
+    return 0;
+  }
+  return kh_val(fgroot_instance->initmap, i).flags;
 }
 
 void fgSendMessageAsync(fgElement* element, const FG_Msg* msg, unsigned int arg1size, unsigned int arg2size)

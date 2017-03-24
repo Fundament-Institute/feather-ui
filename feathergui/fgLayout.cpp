@@ -100,7 +100,9 @@ void fgClassLayout_LoadLayoutXML(fgClassLayout* self, const cXMLNode* cur, fgLay
     const cXMLNode* node = cur->GetNode(i);
     fgTransform transform = { 0 };
     int type = fgStyle_NodeEvalTransform(node, transform);
-    int flags = fgSkinBase_GetFlagsFromString(node->GetAttributeString("flags"), 0);
+    fgFlag rmflags = 0;
+    fgFlag flags = fgSkinBase_GetFlagsFromString(node->GetAttributeString("flags"), &rmflags);
+    flags = (flags | fgGetTypeFlags(node->GetName()))&(~rmflags);
 
     fgTransform TF_SEPERATOR = { { 0,0,0,0,0,1.0,0,0 }, 0,{ 0,0,0,0 } };
     if(!STRICMP(node->GetName(), "menuitem") && !node->GetNodes() && !node->GetAttributeString("text")) // An empty menuitem is a special case
@@ -133,7 +135,9 @@ bool fgLayout_LoadStreamXML(fgLayout* self, std::istream& s, const char* path)
     const cXMLNode* node = root->GetNode(i);
     fgTransform transform = { 0 };
     short type = fgStyle_NodeEvalTransform(node, transform);
-    int flags = fgSkinBase_GetFlagsFromString(node->GetAttributeString("flags"), 0);
+    fgFlag rmflags = 0;
+    fgFlag flags = fgSkinBase_GetFlagsFromString(node->GetAttributeString("flags"), &rmflags);
+    flags = (flags | fgGetTypeFlags(node->GetName()))&(~rmflags);
     FG_UINT index = fgLayout_AddLayout(self, node->GetName(), node->GetAttributeString("name"), flags, &transform, type, (int)node->GetAttributeInt("order"));
     fgClassLayout* layout = fgLayout_GetLayout(self, index);
     fgClassLayout_LoadAttributesXML(layout, node, flags, &self->base, path);

@@ -415,7 +415,7 @@ size_t fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
     }
     return 0;
   case FG_REORDERCHILD:
-    if(msg->e != 0 && msg->e != self->bg && msg->e != (self->bg + 1) && !msg->e2)
+    if(msg->e != 0 && msg->e != self->bg && msg->e != (self->bg + 1) && msg->e != (self->bg + 2) && !msg->e2)
     {
       FG_Msg m = *msg;
       m.e2 = &self->bg[0];
@@ -423,7 +423,7 @@ size_t fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
     }
     break;
   case FG_ADDCHILD:
-    if(msg->e != 0 && msg->e != self->bg && msg->e != (self->bg + 1) && !msg->e2)
+    if(msg->e != 0 && msg->e != self->bg && msg->e != (self->bg + 1) && msg->e != (self->bg + 2) && !msg->e2)
     {
       FG_Msg m = *msg;
       m.e2 = &self->bg[0];

@@ -48,6 +48,8 @@ FG_EXTERN void fgBox_Destroy(fgBox* self);
 FG_EXTERN size_t fgBox_Message(fgBox* self, const FG_Msg* msg);
 FG_EXTERN void fgBoxOrderedElement_Destroy(struct _FG_BOX_ORDERED_ELEMENTS_* self);
 FG_EXTERN size_t fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_* self, const FG_Msg* msg, fgElement* element, fgMessage callback);
+FG_EXTERN void fgBox_DeselectAll(fgBox* self);
+FG_EXTERN void fgBox_SelectTarget(fgBox* self, fgElement* target);
 
 #ifdef  __cplusplus
 }

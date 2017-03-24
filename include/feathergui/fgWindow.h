@@ -38,6 +38,7 @@ typedef struct _FG_WINDOW {
   CRect prevrect; // Stores where the window was before being maximized
   AbsVec offset; // offset from the mouse cursor for movement
   char dragged; // 1 if currently being dragged by mouse
+  char maximized; // 1 if maximized
 #ifdef  __cplusplus
   inline operator fgElement*() { return &control.element; }
   inline fgElement* operator->() { return operator fgElement*(); }
