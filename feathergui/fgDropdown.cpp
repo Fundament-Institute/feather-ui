@@ -17,7 +17,7 @@ void fgDropdown_Destroy(fgDropdown* self)
   fgControl_Destroy(&self->control);
 }
 
-void fgDropdown_Draw(fgElement* self, const AbsRect* area, const fgDrawAuxData* data)
+void fgDropdown_Draw(fgElement* self, const AbsRect* area, const fgDrawAuxData* data, fgElement*)
 {
   fgDropdown* parent = (fgDropdown*)self->parent;
   AbsRect cache;

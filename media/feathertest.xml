@@ -28,7 +28,7 @@
           <Text flags="EXPAND" text="Drop 3" />
           <Text area="0, 0, 100%, 20" text="Drop 4" />
         </Dropdown>
-        <List area="-350:1, 30, -250:1, 0" flags="TILEY|EXPANDY|MULTISELECT|DRAGGABLE|SNAP" value="3">
+        <List area="-350:1, 30, -250:1, 0" flags="TILEY|EXPANDY|MULTISELECT|DRAGGABLE|SNAP" value="3" dividercolor="0x000000">
           <ListItem area="0, 0, 100%, 20" />
           <Text area="0, 0, 100%, 20" text="List 1" />
           <Text area="0, 0, 100%, 20" text="List 2" />

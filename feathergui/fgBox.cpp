@@ -99,10 +99,42 @@ inline fgOrderedDrawGet fgBox_GetDrawOrderFn(fgFlag flags)
   return 0;
 }
 
-//void fgBoxRenderDividers(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux)
-//{
-//  fgBox_GetDrawOrderFn(self->flags)()
-//}
+void fgBoxRenderDividers(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, fgElement* begin)
+{
+  fgColor& dividercolor = reinterpret_cast<fgBox*>(self)->dividercolor;
+  fgElement* next = begin;
+  begin = fgLayout_GetPrev(begin);
+  if(!begin)
+    begin = next;
+
+  AbsRect rbegin;
+  ResolveRectCache(begin, &rbegin, area, &self->padding);
+  AbsVec center = ResolveVec(&self->transform.center, area);
+  AbsVec offset = { 0,0 };
+  AbsVec scale = { 1,1 };
+
+  while(next = fgLayout_GetNext(begin)) // We only draw dividers between elements, so once we hit the last one, stop
+  {
+    AbsRect rnext;
+    ResolveRectCache(next, &rnext, area, &self->padding);
+
+    if(self->flags&FGBOX_TILEX)
+    {
+      float avg = (rnext.left + rbegin.right) * 0.5f;
+      AbsVec v[2] = { { avg,rnext.top}, { avg,rnext.bottom} };
+      fgroot_instance->backend.fgDrawLines(v,2, dividercolor.color, &offset, &scale, self->transform.rotation, &center, aux);
+    }
+    else
+    {
+      float avg = (rnext.top + rbegin.bottom) * 0.5f;
+      AbsVec v[2] = { { avg,rnext.left },{ avg,rnext.right } };
+      fgroot_instance->backend.fgDrawLines(v, 2, dividercolor.color, &offset, &scale, self->transform.rotation, &center, aux);
+    }
+
+    begin = next;
+    rbegin = rnext;
+  }
+}
 
 void fgBox_DeselectAll(fgBox* self)
 {
@@ -151,7 +183,7 @@ size_t fgBox_Message(fgBox* self, const FG_Msg* msg)
     return FG_ACCEPT;
   case FG_DRAW:
     if(!self->order.isordered || !self->order.ordered.l)
-      fgStandardDraw(*self, (AbsRect*)msg->p, (fgDrawAuxData*)msg->p2, msg->subtype & 1);
+      fgStandardDraw(*self, (AbsRect*)msg->p, (fgDrawAuxData*)msg->p2, msg->subtype & 1, self->fndraw);
     else
       fgOrderedDraw(*self, (AbsRect*)msg->p, (fgDrawAuxData*)msg->p2, msg->subtype & 1, self->order.ordered.p[self->order.ordered.l - 1]->next, fgBox_GetDrawOrderFn(self->scroll->flags), self->fndraw, self->selected.l > 0 ? self->selected.p[0] : 0);
     return FG_ACCEPT;

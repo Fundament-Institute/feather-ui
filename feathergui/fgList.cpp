@@ -55,7 +55,7 @@ void fgList_Destroy(fgList* self)
   self->box->message = (fgMessage)fgBox_Message;
   fgBox_Destroy(&self->box);
 }
-void fgList_Draw(fgElement* self, const AbsRect* area, const fgDrawAuxData* data)
+void fgList_Draw(fgElement* self, const AbsRect* area, const fgDrawAuxData* data, fgElement* begin)
 {
   fgList* realself = reinterpret_cast<fgList*>(self);
   for(size_t i = 0; i < realself->box.selected.l; ++i)
@@ -74,14 +74,23 @@ void fgList_Draw(fgElement* self, const AbsRect* area, const fgDrawAuxData* data
     AbsRect cache;
     fgElement* target = fgElement_GetChildUnderMouse(self, realself->mouse.x, realself->mouse.y, &cache);
     if(target)
-    { // TODO: make this work with lists growing along x-axis
+    { 
       AbsRect r;
       ResolveRectCache(target, &r, (AbsRect*)&cache, (target->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
       fgSnapAbsRect(r, self->flags);
-      float y = (realself->mouse.y > ((r.top + r.bottom) * 0.5f)) ? r.bottom : r.top;
-      AbsVec line[2] = { { r.left, y }, { r.right - 1, y } };
       const AbsVec FULLVEC = { 1,1 };
-      fgroot_instance->backend.fgDrawLines(line, 2, realself->drag.color, &AbsVec_EMPTY, &FULLVEC, 0, &AbsVec_EMPTY, data);
+      if(self->flags&FGBOX_TILEX)
+      {
+        float x = (realself->mouse.x > ((r.left + r.right) * 0.5f)) ? r.right : r.left;
+        AbsVec line[2] = { { x, r.top }, { x, r.bottom - 1 } };
+        fgroot_instance->backend.fgDrawLines(line, 2, realself->drag.color, &AbsVec_EMPTY, &FULLVEC, 0, &AbsVec_EMPTY, data);
+      }
+      else if(self->flags&FGBOX_TILEY)
+      {
+        float y = (realself->mouse.y > ((r.top + r.bottom) * 0.5f)) ? r.bottom : r.top;
+        AbsVec line[2] = { { r.left, y }, { r.right - 1, y } };
+        fgroot_instance->backend.fgDrawLines(line, 2, realself->drag.color, &AbsVec_EMPTY, &FULLVEC, 0, &AbsVec_EMPTY, data);
+      }
     }
   }
   else
@@ -96,6 +105,9 @@ void fgList_Draw(fgElement* self, const AbsRect* area, const fgDrawAuxData* data
       fgroot_instance->backend.fgDrawAsset(0, &CRect_EMPTY, realself->hover.color, 0, 0.0f, &r, 0.0f, &AbsVec_EMPTY, FGRESOURCE_RECT, data);
     }
   }
+
+  if(realself->box.dividercolor.a > 0)
+    fgBoxRenderDividers(self, area, data, begin);
 }
 fgElement* fgList_GetSplit(fgList* self, const FG_Msg* msg)
 {
@@ -243,10 +255,16 @@ size_t fgList_Message(fgList* self, const FG_Msg* msg)
         break;
       ResolveRectCache(target, &rect, &cache, (target->flags & FGELEMENT_BACKGROUND) ? 0 : &(*self)->padding);
 
-      // TODO: figure out if we're on the x axis or y axis
-      
-      if(self->mouse.y > ((rect.top + rect.bottom) * 0.5f)) // if true, it's after target, so move the target pointer up one.
-        target = target->next;
+      if(self->box->flags&FGBOX_TILEX)
+      {
+        if(self->mouse.x > ((rect.left + rect.right) * 0.5f)) // if true, it's after target, so move the target pointer up one.
+          target = target->next;
+      }
+      else if(self->box->flags&FGBOX_TILEY)
+      {
+        if(self->mouse.y > ((rect.top + rect.bottom) * 0.5f)) // if true, it's after target, so move the target pointer up one.
+          target = target->next;
+      }
 
       // Remove the child from where it currently is, then re-insert it, but only if target is not drag
       if(target != drag)

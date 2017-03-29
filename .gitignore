@@ -7,7 +7,6 @@
 *.VC.db
 *.exe
 *.aps
-*.designer.cs
 *.txt
 *.log
 /bin/

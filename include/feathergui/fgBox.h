@@ -33,7 +33,7 @@ struct _FG_BOX_ORDERED_ELEMENTS_ {
 typedef struct _FG_BOX_ {
   fgScrollbar scroll;
   struct _FG_BOX_ORDERED_ELEMENTS_ order;
-  void(*fndraw)(fgElement*, const AbsRect*, const fgDrawAuxData*);
+  void(*fndraw)(fgElement*, const AbsRect*, const fgDrawAuxData*, fgElement*);
   fgColor dividercolor;
   fgVectorElement selected; // While fgBox does not handle selecting elements, it must have access to them if they exist
 
@@ -50,6 +50,7 @@ FG_EXTERN void fgBoxOrderedElement_Destroy(struct _FG_BOX_ORDERED_ELEMENTS_* sel
 FG_EXTERN size_t fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_* self, const FG_Msg* msg, fgElement* element, fgMessage callback);
 FG_EXTERN void fgBox_DeselectAll(fgBox* self);
 FG_EXTERN void fgBox_SelectTarget(fgBox* self, fgElement* target);
+FG_EXTERN void fgBoxRenderDividers(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, fgElement* begin);
 
 #ifdef  __cplusplus
 }

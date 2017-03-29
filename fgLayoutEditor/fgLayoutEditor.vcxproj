@@ -238,8 +238,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="fgLayoutEditor.c" />
-    <ClCompile Include="main.c" />
+    <ClCompile Include="fgLayoutEditor.cpp" />
+    <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="fgLayoutEditor.h" />

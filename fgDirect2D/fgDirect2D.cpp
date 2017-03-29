@@ -684,6 +684,7 @@ longptr_t __stdcall fgDirect2D::DebugWndProc(HWND__* hWnd, unsigned int message,
 
     return fgDirect2D::instance->debugcontext.WndProc(hWnd, message, wParam, lParam, &self->element);
   }
+  return DefWindowProc(hWnd, message, wParam, lParam);
 }
 
 int64_t GetRegistryValueW(HKEY__* hKeyRoot, const wchar_t* szKey, const wchar_t* szValue, unsigned char* data, unsigned long sz)

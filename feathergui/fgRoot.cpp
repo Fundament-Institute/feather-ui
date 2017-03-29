@@ -17,6 +17,7 @@
 #include "fgTabcontrol.h"
 #include "fgMenu.h"
 #include "fgGrid.h"
+#include "fgWorkspace.h"
 #include "feathercpp.h"
 #include "bss-util/cTrie.h"
 #include <stdlib.h>
@@ -120,6 +121,7 @@ void fgRoot_Init(fgRoot* self, const AbsRect* area, const fgIntVec* dpi, const f
   fgRegisterControl("menuitem", (fgInitializer)fgMenuItem_Init, sizeof(fgMenuItem), FGELEMENT_EXPAND | FGELEMENT_NOCLIP);
   fgRegisterControl("grid", (fgInitializer)fgGrid_Init, sizeof(fgGrid), 0);
   fgRegisterControl("gridrow", (fgInitializer)fgGridRow_Init, sizeof(fgGridRow), 0);
+  fgRegisterControl("workspace", (fgInitializer)fgWorkspace_Init, sizeof(fgWorkspace), 0);
   fgRegisterControl("debug", (fgInitializer)fgDebug_Init, sizeof(fgDebug), FGELEMENT_BACKGROUND);
 }
 
@@ -304,13 +306,16 @@ char fgDrawSkin(fgElement* self, const fgSkin* skin, const AbsRect* area, const 
   return clipping;
 }
 
-void fgStandardDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, char culled)
+void fgStandardDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, char culled, fgAuxDrawFunction draw)
 {
   fgElement* hold = culled ? self->rootnoclip : self->root;
   AbsRect curarea;
   bool clipping = false;
 
   clipping = fgDrawSkin(self, self->skin, area, aux, culled, false, clipping);
+
+  if(draw && !culled)
+    draw(self, area, aux, hold);
 
   while(hold)
   {
@@ -324,10 +329,10 @@ void fgStandardDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* a
     fgroot_instance->backend.fgPopClipRect(aux);
 }
 
-void fgOrderedDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, char culled, fgElement* skip, fgElement* (*fn)(fgElement*, const AbsRect*, const AbsRect*), void(*draw)(fgElement*, const AbsRect*, const fgDrawAuxData*), fgElement* selected)
+void fgOrderedDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, char culled, fgElement* skip, fgElement* (*fn)(fgElement*, const AbsRect*, const AbsRect*), void(*draw)(fgElement*, const AbsRect*, const fgDrawAuxData*, fgElement*), fgElement* selected)
 {
-  if(culled) // If we are culled, thee's no point drawing ordered elements, because ordered elements aren't non-clipping, so we let the standard draw take care of it.
-    return fgStandardDraw(self, area, aux, culled);
+  if(culled) // If we are culled, there's no point drawing ordered elements, because ordered elements aren't non-clipping, so we let the standard draw take care of it.
+    return fgStandardDraw(self, area, aux, culled, draw);
 
   fgElement* cur = self->root;
   AbsRect curarea;
@@ -341,14 +346,14 @@ void fgOrderedDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* au
     cur = cur->next;
   }
 
-  if(draw)
-    draw(self, area, aux);
-
   AbsRect out;
   AbsRect clip = fgroot_instance->backend.fgPeekClipRect(aux);
   fgRectIntersection(area, &clip, &out);
   // do binary search on the absolute resolved bottomright coordinates compared to the topleft corner of the render area
   cur = fn(self, &out, area);
+
+  if(draw)
+    draw(self, area, aux, cur);
 
   if(!clipping)
   {

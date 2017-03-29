@@ -374,6 +374,8 @@ extern fgVector* fgText_Conversion(int type, struct __VECTOR__UTF8* text8, struc
 extern void fgMenu_Show(struct _FG_MENU* self, bool show);
 extern void LList_RemoveAll(fgElement* self);
 extern void LList_InsertAll(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT next);
+template<fgElement*&(*GET)(fgElement*), fgFlag FLAG>
+extern fgElement* LList_Find(fgElement* BSS_RESTRICT self);
 
 struct _FG_BOX_ORDERED_ELEMENTS_;
 

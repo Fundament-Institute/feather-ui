@@ -15,7 +15,7 @@ enum FGTOOLBAR_FLAGS
   FGTOOLBAR_LOCKED = (FGCONTROL_DISABLE << 1), // Locks the toolgroups so they can't be moved or re-arranged.
 };
 
-// A toolbar contains multiple groups of controls that can be moved around or rearranged.
+// A toolbar is simply a list of lists containing buttons or other controls.
 typedef struct _FG_TOOLBAR {
   fgList list;
   fgElement seperator; // cloned to replace a null value inserted into the list. This allows a style to control the size and appearence of the seperator.

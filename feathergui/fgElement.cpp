@@ -842,7 +842,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
   case FG_DROP:
     return 0;
   case FG_DRAW:
-    fgStandardDraw(self, (const AbsRect*)msg->p, (const fgDrawAuxData*)msg->p2, msg->subtype & 1);
+    fgStandardDraw(self, (const AbsRect*)msg->p, (const fgDrawAuxData*)msg->p2, msg->subtype & 1, 0);
     return FG_ACCEPT;
   case FG_INJECT:
     return fgStandardInject(self, (const FG_Msg*)msg->p, (const AbsRect*)msg->p2);

@@ -643,7 +643,8 @@ typedef struct _FG_MSG {
     }; 
     struct {  // Keys
         int keychar; //Only used by KEYCHAR, represents a utf32 character
-        unsigned char keycode; //only used by KEYDOWN/KEYUP, represents an actual keycode, not a character
+        unsigned short keyraw; // In some cases (e.g. games) an application may want to pass around the raw hardware scancode of a key.
+        unsigned char keycode; //only used by KEYDOWN/KEYUP, represents an actual keycode in FG_KEYS, not a character
         char sigkeys; // 1: shift, 2: ctrl, 4: alt, 8: held
     };
     struct { float joyvalue; short joyaxis; }; // JOYAXIS

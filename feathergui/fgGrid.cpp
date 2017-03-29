@@ -237,7 +237,7 @@ size_t fgGridRow_Message(fgGridRow* self, const FG_Msg* msg)
     break;
   case FG_DRAW:
     if(!self->order.isordered || !self->order.ordered.l)
-      fgStandardDraw(*self, (AbsRect*)msg->p, (fgDrawAuxData*)msg->p2, msg->subtype & 1);
+      fgStandardDraw(*self, (AbsRect*)msg->p, (fgDrawAuxData*)msg->p2, msg->subtype & 1, 0);
     else
     {
       fgElement* (*fn)(fgElement*, const AbsRect*, const AbsRect*);

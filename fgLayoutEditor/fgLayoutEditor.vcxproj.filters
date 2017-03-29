@@ -15,10 +15,10 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="fgLayoutEditor.c">
+    <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="main.c">
+    <ClCompile Include="fgLayoutEditor.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
