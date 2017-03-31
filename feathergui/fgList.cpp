@@ -227,7 +227,7 @@ size_t fgList_Message(fgList* self, const FG_Msg* msg)
       if(target != 0)
       {
         fgroot_instance->backend.fgDragStart(FGCLIPBOARD_ELEMENT, target, target);
-        fgCaptureWindow = 0;
+        fgroot_instance->fgCaptureWindow = 0;
         self->mouse.state &= ~FGMOUSE_INSIDE;
       }
     }
@@ -283,15 +283,16 @@ size_t fgList_Message(fgList* self, const FG_Msg* msg)
     case FGSETCOLOR_HOVER: return self->hover.color;
     case FGSETCOLOR_DRAG: return self->drag.color;
     }
+    break;
   case FG_SETCOLOR:
     switch(msg->subtype)
     {
     case FGSETCOLOR_SELECT:
-    case FGSETCOLOR_MAIN: self->select.color = (unsigned int)msg->i; break;
-    case FGSETCOLOR_HOVER: self->hover.color = (unsigned int)msg->i; break;
-    case FGSETCOLOR_DRAG: self->drag.color = (unsigned int)msg->i; break;
+    case FGSETCOLOR_MAIN: self->select.color = (unsigned int)msg->i; return FG_ACCEPT;
+    case FGSETCOLOR_HOVER: self->hover.color = (unsigned int)msg->i; return FG_ACCEPT;
+    case FGSETCOLOR_DRAG: self->drag.color = (unsigned int)msg->i; return FG_ACCEPT;
     }
-    return FG_ACCEPT;
+    break;
   case FG_SETVALUE:
     if(!msg->subtype || msg->subtype == FGVALUE_FLOAT)
       self->splitter = msg->f;

@@ -1,6 +1,9 @@
 // Copyright ©2012 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
+#include "bss-util/bss_defines.h"
+
+#ifdef BSS_PLATFORM_WIN32
 #include "fgWinAPI.h"
 #include "win32_includes.h"
 
@@ -31,3 +34,5 @@ void WinAPIfgImage_Destroy(WinAPIfgImage* self)
   }
   fgStatic_Destroy((fgStatic*)self);
 }
+
+#endif

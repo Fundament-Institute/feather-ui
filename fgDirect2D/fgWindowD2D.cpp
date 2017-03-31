@@ -9,18 +9,20 @@
 #include "fgCircle.h"
 #include "fgTriangle.h"
 
-uint32_t fgWindowD2D::wincount = 0;
+fgWindowD2D* fgWindowD2D::windowlist = 0;
 
 void fgWindowD2D_Init(fgWindowD2D* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  ++fgWindowD2D::wincount;
+  self->list.next = self->list.prev = 0;
+  bss_util::AltLLAdd<fgWindowD2D, fgWindowD2D::GETNODE>(self, fgWindowD2D::windowlist);
   fgElement_InternalSetup(self->window, parent, next, name, flags, transform, units, (fgDestroy)&fgWindowD2D_Destroy, (fgMessage)&fgWindowD2D_Message);
 }
 void fgWindowD2D_Destroy(fgWindowD2D* self)
 {
   fgContext_Destroy(&self->context);
 
-  if(!--fgWindowD2D::wincount)
+  bss_util::AltLLRemove<fgWindowD2D, fgWindowD2D::GETNODE>(self, fgWindowD2D::windowlist);
+  if(!fgWindowD2D::windowlist)
     PostQuitMessage(0);
 
   if(self->handle)

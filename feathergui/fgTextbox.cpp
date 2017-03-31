@@ -566,7 +566,7 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
         (self->mask != 0 || !self->text32.l) ? 0 : self->layout);
 
       // Draw cursor
-      if(fgFocusedWindow == *self && bss_util::bssfmod(fgroot_instance->time - self->lastclick, fgroot_instance->cursorblink * 2) < fgroot_instance->cursorblink)
+      if(fgroot_instance->fgFocusedWindow == *self && bss_util::bssfmod(fgroot_instance->time - self->lastclick, fgroot_instance->cursorblink * 2) < fgroot_instance->cursorblink)
       {
         AbsVec snappos = { roundf(self->startpos.x), roundf(self->startpos.y) };
         AbsVec lines[2] = { snappos, { snappos.x, snappos.y + self->lineheight } };

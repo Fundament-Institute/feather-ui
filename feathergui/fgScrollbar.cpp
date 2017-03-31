@@ -90,7 +90,7 @@ size_t fgScrollbar_barMessage(_FG_SCROLLBAR_INNER* self, const FG_Msg* msg)
       _sendsubmsg<FG_ACTION, ptrdiff_t>(self->button->parent, FGSCROLLBAR_BARINIT, self->button->userid);
     break;
   case FG_MOUSEMOVE:
-    if(fgCaptureWindow == self->button)
+    if(fgroot_instance->fgCaptureWindow == self->button)
     {
       if(self->button->parent != 0)
         _sendsubmsg<FG_ACTION, ptrdiff_t, float>(

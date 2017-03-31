@@ -75,7 +75,7 @@ static const char* PROPERTY_LIST[] = {
   "User Hash",
 };
 
-void fgDebug_DrawMessages(fgDebug* self, AbsRect* rect)
+void fgDebug_DrawMessages(fgDebug* self, AbsRect* rect, fgDrawAuxData* aux)
 {
   _FG_FONT_DESC desc;
   desc.lineheight = self->lineheight;
@@ -92,7 +92,7 @@ void fgDebug_DrawMessages(fgDebug* self, AbsRect* rect)
     ((bss_util::cDynArray<char>*)&self->text8)->Reserve(fgDebug_WriteMessage(self->messagelog.p + i, 0, 0) + 1);
     self->text8.l = fgDebug_WriteMessage(self->messagelog.p + i, self->text8.p, self->text8.s) + 1;
     fgVector* v = fgText_Conversion(fgroot_instance->backend.BackendTextFormat, &self->text8, &self->text16, &self->text32);
-    fgroot_instance->backend.fgDrawFont(self->font, v->p, v->l, desc.lineheight, self->letterspacing, self->color.color, &txtarea, 0, &AbsVec_EMPTY, 0, 0, 0);
+    fgroot_instance->backend.fgDrawFont(self->font, v->p, v->l, desc.lineheight, self->letterspacing, self->color.color, &txtarea, 0, &AbsVec_EMPTY, 0, aux, 0);
 
     bottom = txtarea.top;
   }
@@ -115,7 +115,6 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
     fgElement_Message(&self->element, msg);
     const fgTransform tf_elements = { { -300,1,0,0,0,1,0,1 }, 0,{ 0,0,0,0 } };
     const fgTransform tf_properties = { { -300,1,-200,1,0,1,0,1 }, 0,{ 0,0,0,0 } };
-    const fgTransform tf_messages = { { 0,0,0,0,200,0,0,1 }, 0,{ 0,0,0,0 } };
     const fgTransform tf_contents = { { 0,0,-200,1,200,0,0,1 }, 0,{ 0,0,0,0 } };
     fgTreeview_Init(&self->elements, *self, 0, "Debug$elements", 0, &tf_elements, 0);
     fgGrid_Init(&self->properties, *self, 0, "Debug$properties", FGELEMENT_HIDDEN, &tf_properties, 0);
@@ -190,7 +189,7 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
     {
       AbsRect clip;
       ResolveRect(self->elements, &clip);
-      fgDebug_DrawMessages(self, &clip);
+      //fgDebug_DrawMessages(self, &clip, (fgDrawAuxData*)msg->p2);
     }
     break;
   case FG_SETFLAG: // We need to perform extra logic on show/hide

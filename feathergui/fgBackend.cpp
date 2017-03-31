@@ -60,7 +60,7 @@ void fgDragStartDefault(char type, void* data, fgElement* draw)
   fgroot_instance->dragtype = type;
   fgroot_instance->dragdata = data;
   fgroot_instance->dragdraw = draw;
-  fgCaptureWindow = 0;
+  fgroot_instance->fgCaptureWindow = 0;
 }
 
 size_t fgLoadExtensionDefault(const char* extname, void* fg, size_t sz) { return -1; }

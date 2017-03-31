@@ -32,6 +32,7 @@ struct fgDirect2D
   fgContext context;
   fgContext debugcontext;
   HWND__* debughwnd;
+  fgWindowD2D* debugtarget;
   ID2D1Factory1* factory;
   IWICImagingFactory* wicfactory;
   IDWriteFactory1* writefactory;

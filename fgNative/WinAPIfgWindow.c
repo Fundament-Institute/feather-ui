@@ -1,6 +1,9 @@
 // Copyright ©2012 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
+#include "bss-util/bss_defines.h"
+
+#ifdef BSS_PLATFORM_WIN32
 #include "fgWinAPI.h"
 #include "win32_includes.h"
 #include <dwmapi.h>
@@ -40,7 +43,7 @@ HWND TopWndCreate(HINSTANCE instance, fgWindow* wn, const wchar_t* name, long st
   return hWnd;
 }
 
-char WinAPIfgTop_Message(WinAPIfgTop* self, const FG_Msg* msg)
+char WinAPIfgWindow_Message(WinAPIfgWindow* self, const FG_Msg* msg)
 {
   CRect narea;
   MARGINS m;
@@ -71,7 +74,7 @@ char WinAPIfgTop_Message(WinAPIfgTop* self, const FG_Msg* msg)
     narea.bottom.rel=0;
     fgWindow_SetArea(&self->wn.window,&narea);
     return 0;
-  case FGTOPWINDOW_SETMARGIN:
+  case FGELEMENT_SETMARGIN:
     ToIntAbsRect((AbsRect*)msg->p,self->margin);
     m.cxLeftWidth=self->margin[0];
     m.cyTopHeight=self->margin[1];
@@ -115,7 +118,7 @@ char WinAPIfgTop_Message(WinAPIfgTop* self, const FG_Msg* msg)
 
   return fgWindow_Message((fgWindow*)self,msg);
 }
-void WinAPIfgTop_Destroy(WinAPIfgTop* self)
+void WinAPIfgWindow_Destroy(WinAPIfgWindow* self)
 {
   fgWindow_Destroy(&self->region); // Removes the region from the window child list so we don't try to free something on the stack.
   WinAPIfgWindow_Destroy(self);
@@ -127,13 +130,13 @@ fgWindow* fgTopWindow_Create(const char* caption, const fgElement* element, FG_U
   RECT rsize = { CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT };
   wchar_t* buf=0;
   long style=WS_OVERLAPPED | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_VISIBLE;
-  WinAPIfgTop* r = bssmalloc<WinAPIfgTop>(1);
+  WinAPIfgWindow* r = bssmalloc<WinAPIfgWindow>(1);
   fgWindow_Init(&r->wn.window,(fgWindow*)_fgroot,element,id,flags);
   fgWindow_Init(&r->region,(fgWindow*)r,element,0,0);
-  if(flags&FGTOPWINDOW_MINIMIZE) style|=WS_MINIMIZEBOX;
-  if(flags&FGTOPWINDOW_RESTORE) style|=WS_MAXIMIZEBOX;
-  if(!(flags&FGTOPWINDOW_NOTITLEBAR)) style|=WS_CAPTION|WS_SYSMENU;
-  if(flags&FGTOPWINDOW_RESIZABLE) style|=WS_THICKFRAME;
+  if(flags&FGWINDOW_MINIMIZE) style|=WS_MINIMIZEBOX;
+  if(flags&FGWINDOW_RESTORE) style|=WS_MAXIMIZEBOX;
+  if(!(flags&FGWINDOW_NOTITLEBAR)) style|=WS_CAPTION|WS_SYSMENU;
+  if(flags&FGWINDOW_RESIZABLE) style|=WS_THICKFRAME;
   else
   {
     if(element!=0) style|=WS_POPUP;
@@ -162,3 +165,5 @@ fgWindow* fgTopWindow_Create(const char* caption, const fgElement* element, FG_U
   if(buf) free(buf);
   return (fgWindow*)r;
 }
+
+#endif

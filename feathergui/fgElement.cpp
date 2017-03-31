@@ -108,9 +108,9 @@ void fgElement_Destroy(fgElement* self)
   fgRoot_RemoveID(fgroot_instance, self);
   fgroot_instance->backend.fgDirtyElement(self);
   _sendmsg<FG_DESTROY>(self);
-  if(fgFocusedWindow == self) // We first try to bump focus up to our parents
+  if(fgroot_instance->fgFocusedWindow == self) // We first try to bump focus up to our parents
   {
-    fgFocusedWindow = 0;
+    fgroot_instance->fgFocusedWindow = 0;
     if(self->parent != 0)
       _sendmsg<FG_GOTFOCUS, void*>(self->parent, self);
   }
@@ -119,12 +119,12 @@ void fgElement_Destroy(fgElement* self)
   self->parent = 0;
   fgElement_Clear(self);
 
-  if(fgFocusedWindow == self) // There are some known cases where a child might have focus and destroying it bumps focus back up to us.
-    fgFocusedWindow = 0; // However, we must detach ourselves from our parents before we clear out our elements, so any focus buried inside our element is simply lost.
-  if(fgLastHover == self)
-    fgLastHover = 0;
-  if(fgCaptureWindow == self)
-    fgCaptureWindow = 0;
+  if(fgroot_instance->fgFocusedWindow == self) // There are some known cases where a child might have focus and destroying it bumps focus back up to us.
+    fgroot_instance->fgFocusedWindow = 0; // However, we must detach ourselves from our parents before we clear out our elements, so any focus buried inside our element is simply lost.
+  if(fgroot_instance->fgLastHover == self)
+    fgroot_instance->fgLastHover = 0;
+  if(fgroot_instance->fgCaptureWindow == self)
+    fgroot_instance->fgCaptureWindow = 0;
 
   if(self->userhash)
   {
@@ -147,9 +147,9 @@ void fgElement_Destroy(fgElement* self)
     fgfree(self->layoutstyle, __FILE__, __LINE__);
   }
   fgElement_ClearListeners(self);
-  assert(fgFocusedWindow != self); // If these assertions fail something is wrong with how the message chain is constructed
-  assert(fgLastHover != self);
-  assert(fgCaptureWindow != self);
+  assert(fgroot_instance->fgFocusedWindow != self); // If these assertions fail something is wrong with how the message chain is constructed
+  assert(fgroot_instance->fgLastHover != self);
+  assert(fgroot_instance->fgCaptureWindow != self);
 #ifdef BSS_DEBUG
   memset(self, 0xfefefefe, sizeof(fgElement));
 #endif
@@ -606,19 +606,19 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
       return 0;
     if(msg->e->parent != 0) // If the parent is nonzero, call SETPARENT to clean things up for us and then call this again after the child is ready.
       return _sendmsg<FG_SETPARENT, void*, void*>(msg->e, self, msg->p2); // We do things this way so parents can respond to children being added or removed
-    fgassert(!msg->e->parent);
-    fgassert(msg->p2 != self);
-    fgassert(msg->p2 != msg->e);
+    assert(!msg->e->parent);
+    assert(msg->p2 != self);
+    assert(msg->p2 != msg->e);
     msg->e->parent = self;
     LList_InsertAll(msg->e, (fgElement*)msg->p2);
-    fgassert(!msg->e->prev || msg->e->prev != msg->e->next);
+    assert(!msg->e->prev || msg->e->prev != msg->e->next);
     _sendmsg<FG_SETSKIN>(msg->e);
     if(!(msg->e->flags&FGELEMENT_BACKGROUND))
       _sendsubmsg<FG_LAYOUTCHANGE, void*, size_t>(self, FGELEMENT_LAYOUTADD, msg->e, 0);
 
-    fgassert(!msg->e->last || !msg->e->last->next);
-    fgassert(!msg->e->lastinject || !msg->e->lastinject->nextinject);
-    fgassert(!msg->e->lastnoclip || !msg->e->lastnoclip->nextnoclip);
+    assert(!msg->e->last || !msg->e->last->next);
+    assert(!msg->e->lastinject || !msg->e->lastinject->nextinject);
+    assert(!msg->e->lastnoclip || !msg->e->lastnoclip->nextnoclip);
     _sendsubmsg<FG_MOVE, void*, size_t>(msg->e, FG_SETPARENT, 0, fgElement_PotentialResize(self));
     _sendmsg<FG_PARENTCHANGE, void*, void*>(msg->e, msg->e->parent, 0);
     return FG_ACCEPT;

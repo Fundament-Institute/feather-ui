@@ -5,12 +5,11 @@
 #ifndef __FG_WINAPI_H__
 #define __FG_WINAPI_H__
 
-#include "fgStatic.h"
 #include "fgRoot.h"
 #include "fgButton.h"
 #include "fgMenu.h"
-#include "fgTopWindow.h"
-#include "fgTabGroup.h"
+#include "fgWindow.h"
+#include "fgTabcontrol.h"
 #include "fgList.h"
 #include "fgCombobox.h"
 #include "fgTextbox.h"
@@ -21,15 +20,10 @@
 #ifdef  __cplusplus
 extern "C" {
 #endif
-  enum WINAPIFGTOP_MSGTYPE {
-    WINAPIFGTOP_MSGFILTER=FGTOPWINDOW_SETCAPTION+1, // Use this to filter raw windows messages
-    WINAPIFGTOP_WINDOWMOVE,
-  };
-
   typedef struct {
-    fgStatic render;
+    fgAsset render;
     void* handle;
-  } WinAPIfgStatic;
+  } WinAPIfgAsset;
 
   typedef struct {
     fgWindow window;
@@ -38,44 +32,10 @@ extern "C" {
   } WinAPIfgWindow;
 
   typedef struct {
-    WinAPIfgStatic st;
-    void* imghandle;
-  } WinAPIfgImage;
-
-  typedef struct {
-    WinAPIfgStatic st;
-    char* text;
-  } WinAPIfgText;
-
-  typedef struct {
     WinAPIfgWindow wn;
     fgWindow region;
     int margin[4]; // ltrb rectangle
   } WinAPIfgTop;
-
-  typedef struct {
-    WinAPIfgWindow wn;
-  } WinAPIfgButton;
-
-  typedef struct {
-    WinAPIfgWindow wn;
-  } WinAPIfgTextbox;
-
-  typedef struct {
-    WinAPIfgWindow wn;
-  } WinAPIfgMenu;
-
-  typedef struct {
-    WinAPIfgWindow wn;
-  } WinAPIfgTabGroup;
-
-  typedef struct {
-    WinAPIfgWindow wn;
-  } WinAPIfgList;
-
-  typedef struct {
-    WinAPIfgWindow wn;
-  } WinAPIfgCombobox;
 
   // WndProc message translation function used by all windows
   FG_EXTERN ptrdiff_t BSS_COMPILER_STDCALL fgWindowWndProc(void* hWnd, unsigned int message, size_t wParam, ptrdiff_t lParam);

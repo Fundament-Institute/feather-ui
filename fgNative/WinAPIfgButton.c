@@ -1,6 +1,9 @@
 // Copyright ©2012 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
+#include "bss-util/bss_defines.h"
+
+#ifdef BSS_PLATFORM_WIN32
 #include "fgWinAPI.h"
 #include "win32_includes.h"
 #include <CommCtrl.h>
@@ -78,3 +81,5 @@ fgWindow* fgButton_Create(fgStatic* item, fgWindow* parent, const fgElement* ele
   if(item) VirtualFreeChild((fgChild*)item); // We eat this
   return (fgWindow*)r;
 }
+
+#endif

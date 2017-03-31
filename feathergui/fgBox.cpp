@@ -120,14 +120,14 @@ void fgBoxRenderDividers(fgElement* self, const AbsRect* area, const fgDrawAuxDa
 
     if(self->flags&FGBOX_TILEX)
     {
-      float avg = (rnext.left + rbegin.right) * 0.5f;
-      AbsVec v[2] = { { avg,rnext.top}, { avg,rnext.bottom} };
+      float avg = floor((rnext.left + rbegin.right) * 0.5f);
+      AbsVec v[2] = { { avg,floor(rnext.top)}, { avg,floor(rnext.bottom)} };
       fgroot_instance->backend.fgDrawLines(v,2, dividercolor.color, &offset, &scale, self->transform.rotation, &center, aux);
     }
     else
     {
-      float avg = (rnext.top + rbegin.bottom) * 0.5f;
-      AbsVec v[2] = { { avg,rnext.left },{ avg,rnext.right } };
+      float avg = floor((rnext.top + rbegin.bottom) * 0.5f);
+      AbsVec v[2] = { { floor(rnext.left),avg },{ floor(rnext.right),avg } };
       fgroot_instance->backend.fgDrawLines(v, 2, dividercolor.color, &offset, &scale, self->transform.rotation, &center, aux);
     }
 

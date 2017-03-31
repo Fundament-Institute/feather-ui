@@ -1,8 +1,10 @@
 // Copyright ©2012 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
+#include "bss-util/bss_defines.h"
+
+#ifdef BSS_PLATFORM_WIN32
 #include "fgWinAPI.h"
-#include "bss_defines.h"
 #include "win32_includes.h"
 #include <CommCtrl.h>
 #include <dwmapi.h>
@@ -381,3 +383,5 @@ LRESULT CALLBACK fgWindowWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
   return (*wn->DefWndProc)(hWnd, message, wParam, lParam);
 	//return DefWindowProcW(hWnd, message, wParam, lParam);
 }
+
+#endif

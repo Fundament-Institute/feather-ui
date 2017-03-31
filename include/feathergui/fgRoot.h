@@ -61,6 +61,9 @@ typedef struct _FG_ROOT {
   struct _FG_MESSAGEQUEUE* queue;
   struct _FG_MESSAGEQUEUE* aux;
   fgInject inject;
+  fgElement* fgFocusedWindow;
+  fgElement* fgLastHover; // Last window the mouse moved over, used to generate MOUSEON and MOUSEOFF events
+  fgElement* fgCaptureWindow;
 #ifdef  __cplusplus
   inline bool GetKey(unsigned char key) const { return (keys[key / 32] & (1 << (key % 32))) != 0; }
   inline operator fgElement*() { return &gui.element; }

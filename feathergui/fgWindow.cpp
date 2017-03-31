@@ -129,7 +129,7 @@ size_t fgWindow_Message(fgWindow* self, const FG_Msg* msg)
       }
       if(self->dragged != 0)
       {
-        fgCaptureWindow = *self;
+        fgroot_instance->fgCaptureWindow = *self;
         _sendmsg<FG_ACTIVE>(*self);
       }
     }
@@ -199,8 +199,8 @@ size_t fgWindow_Message(fgWindow* self, const FG_Msg* msg)
     return 0;
   case FG_MOUSEUP:
     self->dragged = 0;
-    if(fgCaptureWindow == *self) // Remove our control hold on mouse messages.
-      fgCaptureWindow = 0;
+    if(fgroot_instance->fgCaptureWindow == *self) // Remove our control hold on mouse messages.
+      fgroot_instance->fgCaptureWindow = 0;
     break;
   case FG_ACTION:
     switch(msg->i)

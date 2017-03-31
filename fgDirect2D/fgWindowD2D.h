@@ -6,6 +6,7 @@
 
 #include "fgWindow.h"
 #include "fgContext.h"
+#include "bss-util/LLBase.h"
 #include <stack>
 
 struct fgWindowD2D {
@@ -13,9 +14,11 @@ struct fgWindowD2D {
   fgContext context;
   HWND__* handle;
   fgIntVec dpi;
+  bss_util::LLBase<fgWindowD2D> list;
 
   static longptr_t __stdcall WndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam);
-  static uint32_t wincount;
+  static fgWindowD2D* windowlist;
+  static BSS_FORCEINLINE bss_util::LLBase<fgWindowD2D>& GETNODE(fgWindowD2D* n) { return n->list; }
 };
 
 #ifdef  __cplusplus

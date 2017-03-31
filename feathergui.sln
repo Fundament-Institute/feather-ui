@@ -5,7 +5,7 @@ VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "feathergui", "feathergui\feathergui.vcxproj", "{65FDFEE1-D190-4A98-B590-55D9FA97E86B}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fgWinAPI", "fgWinAPI\fgWinAPI.vcxproj", "{A8D060DE-D5D6-40B1-9F96-401562E8DACD}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fgNative", "fgNative\fgNative.vcxproj", "{A8D060DE-D5D6-40B1-9F96-401562E8DACD}"
 	ProjectSection(ProjectDependencies) = postProject
 		{65FDFEE1-D190-4A98-B590-55D9FA97E86B} = {65FDFEE1-D190-4A98-B590-55D9FA97E86B}
 	EndProjectSection

@@ -542,7 +542,7 @@ size_t fgRoot_DefaultInject(fgRoot* self, const FG_Msg* msg)
   case FG_JOYAXIS:
   case FG_KEYCHAR:
   {
-    fgElement* cur = !fgFocusedWindow ? *self : fgFocusedWindow;
+    fgElement* cur = !self->fgFocusedWindow ? *self : self->fgFocusedWindow;
     do
     {
       if((*self->backend.fgBehaviorHook)(cur, msg))
@@ -560,8 +560,8 @@ size_t fgRoot_DefaultInject(fgRoot* self, const FG_Msg* msg)
     if(self->dragdraw != 0 && self->dragdraw->parent == *self)
       MoveCRect((FABS)msg->x, (FABS)msg->y, &self->dragdraw->transform.area);
 
-    if(fgCaptureWindow)
-      if(fgProcessCursor(self, _sendmsg<FG_INJECT, const void*, const void*>(fgCaptureWindow, msg, 0), msg->type)) // If it's captured, send the message to the captured window with NULL area.
+    if(self->fgCaptureWindow)
+      if(fgProcessCursor(self, _sendmsg<FG_INJECT, const void*, const void*>(self->fgCaptureWindow, msg, 0), msg->type)) // If it's captured, send the message to the captured window with NULL area.
         return FG_ACCEPT;
 
     if(self->topmost) // After we attempt sending the message to the captured window, try sending it to the topmost
@@ -574,10 +574,10 @@ size_t fgRoot_DefaultInject(fgRoot* self, const FG_Msg* msg)
       break;
     fgProcessCursor(self, FGCURSOR_ARROW, msg->type);
   case FG_MOUSEOFF:
-    if(fgLastHover != 0) // If we STILL haven't accepted a mousemove event, send a MOUSEOFF message if lasthover exists
+    if(self->fgLastHover != 0) // If we STILL haven't accepted a mousemove event, send a MOUSEOFF message if lasthover exists
     {
-      _sendmsg<FG_MOUSEOFF>(fgLastHover);
-      fgLastHover = 0;
+      _sendmsg<FG_MOUSEOFF>(self->fgLastHover);
+      self->fgLastHover = 0;
     }
     if(msg->type != FG_MOUSEOFF)
       break;

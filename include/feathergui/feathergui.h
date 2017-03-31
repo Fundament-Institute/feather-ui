@@ -21,6 +21,7 @@
 #include <string.h> // memcpy,memset
 #include <stddef.h>
 #include "bss_compiler.h"
+#include <assert.h>
 
 #ifdef  __cplusplus
 extern "C" {
@@ -48,12 +49,6 @@ typedef void* fgFont;
 #endif
 #else
 #define FG_DLLEXPORT
-#endif
-
-#ifdef BSS_DEBUG // Used for dealing with windows eating assertions inside callback functions
-#define fgassert(x) if(!(x)) { *((int*)0) = 0; } 
-#else
-#define fgassert(x) 
 #endif
 
 // A unified coordinate specifies things in terms of absolute and relative positions.

@@ -65,36 +65,36 @@ size_t fgMenu_Message(fgMenu* self, const FG_Msg* msg)
     return FG_ACCEPT;
   }
   case FG_MOUSEUP:
-    if(fgCaptureWindow == *self)
+    if(fgroot_instance->fgCaptureWindow == *self)
     {
       AbsRect cache;
       fgElement* child = fgElement_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
       if(!MsgHitAbsRect(msg, &cache))
-        fgCaptureWindow = 0;
+        fgroot_instance->fgCaptureWindow = 0;
       else if(child != 0 && !fgMenu_ExpandMenu(self, (fgMenu*)child->GetSelectedItem()))
       {
         _sendmsg<FG_ACTION, void*>(*self, child);
-        fgCaptureWindow = 0;
+        fgroot_instance->fgCaptureWindow = 0;
       }
     }
     return fgControl_Message((fgControl*)self, msg);
   case FG_MOUSEMOVE:
-    if(fgCaptureWindow != *self)
+    if(fgroot_instance->fgCaptureWindow != *self)
       return fgControl_Message((fgControl*)self, msg);
     break;
   case FG_MOUSEDOWN:
   {
     AbsRect cache;
     fgElement* child = fgElement_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
-    if(fgCaptureWindow == *self)
+    if(fgroot_instance->fgCaptureWindow == *self)
     {
       if(self->expanded)
         fgMenu_Show(self->expanded, false);
       self->expanded = 0;
-      fgCaptureWindow = 0;
+      fgroot_instance->fgCaptureWindow = 0;
       return fgControl_Message((fgControl*)self, msg);
     }
-    fgCaptureWindow = *self;
+    fgroot_instance->fgCaptureWindow = *self;
     if(child != 0)
       fgMenu_ExpandMenu(self, (fgMenu*)child->GetSelectedItem());
   }
@@ -182,18 +182,18 @@ size_t fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
       else
         return FG_ACCEPT;
     }
-    if((fgCaptureWindow != 0) && (fgCaptureWindow == *self || fgCaptureWindow->GetClassName() == SUBMENU_NAME))
+    if((fgroot_instance->fgCaptureWindow != 0) && (fgroot_instance->fgCaptureWindow == *self || fgroot_instance->fgCaptureWindow->GetClassName() == SUBMENU_NAME))
     {
-      fgMenu_Show((fgMenu*)fgCaptureWindow, false);
-      fgCaptureWindow = 0;
+      fgMenu_Show((fgMenu*)fgroot_instance->fgCaptureWindow, false);
+      fgroot_instance->fgCaptureWindow = 0;
     }
-    if(fgCaptureWindow != 0 && (fgCaptureWindow->GetClassName() == MENU_NAME))
+    if(fgroot_instance->fgCaptureWindow != 0 && (fgroot_instance->fgCaptureWindow->GetClassName() == MENU_NAME))
     {
-      fgMenu* menu = reinterpret_cast<fgMenu*>(fgCaptureWindow);
+      fgMenu* menu = reinterpret_cast<fgMenu*>(fgroot_instance->fgCaptureWindow);
       if(menu->expanded)
         fgMenu_Show(menu->expanded, false);
       menu->expanded = 0;
-      fgCaptureWindow = 0;
+      fgroot_instance->fgCaptureWindow = 0;
     }
   }
   return FG_ACCEPT;

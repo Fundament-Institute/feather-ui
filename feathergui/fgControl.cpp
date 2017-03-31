@@ -6,10 +6,6 @@
 #include "feathercpp.h"
 #include "fgMenu.h"
 
-fgElement* fgFocusedWindow = 0;
-fgElement* fgLastHover = 0;
-fgElement* fgCaptureWindow = 0;
-
 void fgControl_Init(fgControl* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
   fgElement_InternalSetup(&self->element, parent, next, name, flags, transform, units, (fgDestroy)&fgControl_Destroy, (fgMessage)&fgControl_Message);
@@ -31,11 +27,11 @@ void fgControl_Destroy(fgControl* self)
 
 void fgElement_DoHoverCalc(fgElement* self) // This is a seperate function so some controls can force a focus event to instead activate hover instead.
 {
-  if(fgLastHover != self)
+  if(fgroot_instance->fgLastHover != self)
   {
-    if(fgLastHover != 0)
-      _sendmsg<FG_MOUSEOFF>(fgLastHover);
-    fgLastHover = self;
+    if(fgroot_instance->fgLastHover != 0)
+      _sendmsg<FG_MOUSEOFF>(fgroot_instance->fgLastHover);
+    fgroot_instance->fgLastHover = self;
     _sendmsg<FG_MOUSEON>(self);
   }
 }
@@ -119,7 +115,7 @@ size_t fgControl_Message(fgControl* self, const FG_Msg* msg)
     return FG_ACCEPT;
   case FG_MOUSEDOWN:
     fgElement_DoHoverCalc(*self);
-    if(fgFocusedWindow != *self)
+    if(fgroot_instance->fgFocusedWindow != *self)
       _sendmsg<FG_GOTFOCUS>(*self);
     return FG_ACCEPT;
   case FG_MOUSEMOVE:
@@ -133,7 +129,7 @@ size_t fgControl_Message(fgControl* self, const FG_Msg* msg)
         ResolveRect(self->contextmenu->parent, &area);
       MoveCRect(msg->x - area.left, msg->y - area.top, &self->contextmenu->transform.area);
       fgMenu_Show((fgMenu*)self->contextmenu, true);
-      fgCaptureWindow = self->contextmenu;
+      fgroot_instance->fgCaptureWindow = self->contextmenu;
     }
   { // Any control that gets a MOUSEUP event immediately fires a MOUSEMOVE event at that location, which will force the focus to shift to a different control if the mouseup occured elsewhere.
     FG_Msg m = *msg;
@@ -144,16 +140,16 @@ size_t fgControl_Message(fgControl* self, const FG_Msg* msg)
   case FG_GOTFOCUS:
     if(self->element.flags&FGCONTROL_DISABLE)
       return 0;
-    if(fgFocusedWindow) // We do this here so you can disable getting focus by blocking this message without messing things up
-      _sendmsg<FG_LOSTFOCUS, void*>(fgFocusedWindow, self);
-    fgFocusedWindow = *self;
+    if(fgroot_instance->fgFocusedWindow) // We do this here so you can disable getting focus by blocking this message without messing things up
+      _sendmsg<FG_LOSTFOCUS, void*>(fgroot_instance->fgFocusedWindow, self);
+    fgroot_instance->fgFocusedWindow = *self;
     fgSetFlagStyle(*self, "focused", true);
     return FG_ACCEPT;
   case FG_LOSTFOCUS:
-    assert(fgFocusedWindow == *self);
-    if(fgFocusedWindow == *self)
+    assert(fgroot_instance->fgFocusedWindow == *self);
+    if(fgroot_instance->fgFocusedWindow == *self)
     {
-      fgFocusedWindow = 0;
+      fgroot_instance->fgFocusedWindow = 0;
       fgSetFlagStyle(*self, "focused", false);
       if(self->element.parent)
       {
@@ -174,14 +170,14 @@ size_t fgControl_Message(fgControl* self, const FG_Msg* msg)
     fgElement_Message(*self, msg); // apply the flag change first or we'll get weird bugs.
     if(disabled)
     {
-      if(fgFocusedWindow == *self)
+      if(fgroot_instance->fgFocusedWindow == *self)
         _sendmsg<FG_LOSTFOCUS, void*>(*self, 0);
-      if(fgCaptureWindow == *self) // Remove our control hold on mouse messages.
-        fgCaptureWindow = 0;
-      if(fgLastHover == *self)
+      if(fgroot_instance->fgCaptureWindow == *self) // Remove our control hold on mouse messages.
+        fgroot_instance->fgCaptureWindow = 0;
+      if(fgroot_instance->fgLastHover == *self)
       {
         _sendmsg<FG_MOUSEOFF>(*self);
-        fgLastHover = 0;
+        fgroot_instance->fgLastHover = 0;
       }
     }
   }
@@ -243,8 +239,8 @@ size_t fgControl_HoverMessage(fgControl* self, const FG_Msg* msg)
     break;
   case FG_MOUSEUP:
     _sendmsg<FG_HOVER>(*self); // Revert to hover no matter what. The other handler will fire off a mousemove for us that will handle the hover change event.
-    if(fgCaptureWindow == *self) // Remove our control hold on mouse messages.
-      fgCaptureWindow = 0;
+    if(fgroot_instance->fgCaptureWindow == *self) // Remove our control hold on mouse messages.
+      fgroot_instance->fgCaptureWindow = 0;
     break;
   case FG_MOUSEOFF:
     _sendmsg<FG_NEUTRAL>(*self);
@@ -252,7 +248,7 @@ size_t fgControl_HoverMessage(fgControl* self, const FG_Msg* msg)
   case FG_MOUSEDOWN:
     if(msg->button == FG_MOUSELBUTTON)
     {
-      fgCaptureWindow = *self;
+      fgroot_instance->fgCaptureWindow = *self;
       _sendmsg<FG_ACTIVE>(*self);
     }
     break;
@@ -269,7 +265,7 @@ size_t fgControl_ActionMessage(fgControl* self, const FG_Msg* msg)
     switch(msg->type)
     {
     case FG_MOUSEUP:
-      if(MsgHitElement(msg, &self->element) && fgCaptureWindow == &self->element) // We can get a MOUSEUP when the mouse is outside of the control but we DO NOT fire it unless it's actually in the control.
+      if(MsgHitElement(msg, &self->element) && fgroot_instance->fgCaptureWindow == &self->element) // We can get a MOUSEUP when the mouse is outside of the control but we DO NOT fire it unless it's actually in the control.
       {
         size_t r = fgControl_HoverMessage(self, msg);
         _sendmsg<FG_ACTION>(*self);

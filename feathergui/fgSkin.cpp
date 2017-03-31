@@ -483,8 +483,8 @@ uint32_t fgStyle_ParseColor(const cXMLValue* attr)
 }
 void fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, fgSkinBase* root, const char* path, const char** id, fgKeyValueArray* userdata)
 {
-  static cTrie<uint16_t, true> t(44, "id", "min-width", "min-height", "max-width", "max-height", "skin", "alpha", "margin", "padding", "text",
-    "placeholder", "color", "placecolor", "cursorcolor", "selectcolor", "hovercolor", "dragcolor", "edgecolor", "font", "lineheight",
+  static cTrie<uint16_t, true> t(46, "id", "min-width", "min-height", "max-width", "max-height", "skin", "alpha", "margin", "padding", "text",
+    "placeholder", "color", "placecolor", "cursorcolor", "selectcolor", "hovercolor", "dragcolor", "edgecolor", "dividercolor", "font", "lineheight",
     "letterspacing", "value", "uv", "resource", "outline", "area", "center", "rotation", "left", "top", "right", "bottom", "width", "height",
     "name", "flags", "order", "inherit", "range", "splitter", "contextmenu", "reorder", "xmlns:xsi", "xmlns:fg", "xsi:schemaLocation");
   static cTrie<uint16_t, true> tvalue(5, "checkbox", "curve", "progressbar", "radiobutton", "slider");
@@ -589,7 +589,10 @@ void fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, fg
     case 17:
       AddStyleSubMsg<FG_SETCOLOR, ptrdiff_t>(self, FGSETCOLOR_EDGE, fgStyle_ParseColor(attr));
       break;
-    case 18: // font
+    case 18:
+      AddStyleSubMsg<FG_SETCOLOR, ptrdiff_t>(self, FGSETCOLOR_DIVIDER, fgStyle_ParseColor(attr));
+      break;
+    case 19: // font
     {
       int size;
       short weight;
@@ -611,13 +614,13 @@ void fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, fg
       }
       break;
     }
-    case 19:
+    case 20:
       AddStyleMsg<FG_SETLINEHEIGHT, FABS>(self, (FABS)attr->Float);
       break;
-    case 20:
+    case 21:
       AddStyleMsg<FG_SETLETTERSPACING, FABS>(self, (FABS)attr->Float);
       break;
-    case 21: // Value's type changes depending on what type we are
+    case 22: // Value's type changes depending on what type we are
       switch(tvalue[cur->GetName()])
       {
       case 0: // Checkbox
@@ -655,40 +658,40 @@ void fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, fg
         }
       }
       break;
-    case 22: // uv
+    case 23: // uv
     {
       CRect uv;
       int f = fgStyle_LoadCRect(attr->String, uv);
       AddStyleSubMsgArg<FG_SETUV, CRect>(self, f, &uv);
       break;
     }
-    case 23: // resource
+    case 24: // resource
     {
       FG_UINT res = (FG_UINT)fgSkinBase_AddAsset(root, fgCreateAssetFile(flags, attr->String));
       AddStyleMsg<FG_SETASSET, void*>(self, fgSkinBase_GetAsset(root, res));
       break;
     }
-    case 24: // outline
+    case 25: // outline
       AddStyleSubMsg<FG_SETOUTLINE, FABS>(self, fgStyle_LoadUnit(attr->String.c_str(), attr->String.length() + 1), (FABS)attr->Float);
       break;
-    case 25: // area
-    case 26: // center
-    case 27: // rotation
-    case 28: // left
-    case 29: // top
-    case 30: // right
-    case 31: // bottom
-    case 32: // width
-    case 33: // height
-    case 34: // name
-    case 35: // flags
-    case 36: // order
-    case 37: // inherit
+    case 26: // area
+    case 27: // center
+    case 28: // rotation
+    case 29: // left
+    case 30: // top
+    case 31: // right
+    case 32: // bottom
+    case 33: // width
+    case 34: // height
+    case 35: // name
+    case 36: // flags
+    case 37: // order
+    case 38: // inherit
       break; // These are processed before we get here, so ignore them.
-    case 38: // range
+    case 39: // range
       AddStyleSubMsg<FG_SETRANGE, ptrdiff_t>(self, FGVALUE_INT64, attr->Integer);
       break;
-    case 39: // splitter
+    case 40: // splitter
     {
       AbsVec splitter;
       int f = fgStyle_LoadAbsVec(attr->String, splitter);
@@ -696,17 +699,17 @@ void fgStyle_LoadAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, fg
       AddStyleSubMsg<FG_SETRANGE, float>(self, FGVALUE_FLOAT, splitter.y);
       break;
     }
-    case 41: // reorder
+    case 42: // reorder
       if(!STRICMP(attr->String, "top"))
         AddStyleSubMsg<FG_SETPARENT>(self, FGSETPARENT_LAST);
       else if(!STRICMP(attr->String, "bottom"))
         AddStyleSubMsg<FG_SETPARENT>(self, FGSETPARENT_FIRST);
       break;
-    case 42:
     case 43:
-    case 44: // These are all XML specific values that are only used for setting the XSD file
+    case 44:
+    case 45: // These are all XML specific values that are only used for setting the XSD file
       break;
-    case 40: // contextmenu is a recognized option, but we put it in as custom userdata anyway because we can't resolve it until the layout is resolved.
+    case 41: // contextmenu is a recognized option, but we put it in as custom userdata anyway because we can't resolve it until the layout is resolved.
     default: // Otherwise, unrecognized attributes are set as custom userdata
       if(!userdata)
       {

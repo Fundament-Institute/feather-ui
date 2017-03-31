@@ -61,7 +61,7 @@ size_t fgSlider_Message(fgSlider* self, const FG_Msg* msg)
     return 0;
   case FG_MOUSEMOVE:
   case FG_MOUSEUP:
-    if(fgCaptureWindow != *self)
+    if(fgroot_instance->fgCaptureWindow != *self)
       break;
   case FG_MOUSEDOWN:
   {

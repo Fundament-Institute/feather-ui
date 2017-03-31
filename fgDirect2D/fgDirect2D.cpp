@@ -7,13 +7,14 @@
 #include "fgResource.h"
 #include "fgText.h"
 #include "fgDebug.h"
-#include "bss-util/bss_defines.h"
+#include "bss-util/bss_util.h"
 #include "util.h"
 #include <stdint.h>
 #include <wincodec.h>
 #include <dwrite_1.h>
 #include <malloc.h>
 #include <assert.h>
+#include <signal.h>
 #include "fgRoundRect.h"
 #include "fgCircle.h"
 #include "fgTriangle.h"
@@ -76,8 +77,36 @@ IDWriteTextLayout1* CreateD2DLayout(IDWriteTextFormat* format, const wchar_t* te
   return layout1;
 }
 
+longptr_t __stdcall fgDirect2D::DebugWndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam)
+{
+  fgDebug* self = reinterpret_cast<fgDebug*>(GetWindowLongPtrW(hWnd, GWLP_USERDATA));
+  if(self)
+  {
+    switch(message)
+    {
+    case WM_PAINT:
+    {
+      AbsRect area;
+      ResolveRect(&self->element, &area);
+      fgDrawAuxDataEx exdata;
+      fgDirect2D::instance->debugcontext.BeginDraw(hWnd, &self->element, &area, exdata);
+      fgDirect2D::instance->debugcontext.target->Clear(D2D1::ColorF(0, 1.0));
+      AbsRect test = exdata.context->cliprect.top();
+      self->element.Draw(&area, &exdata.data);
+      fgDirect2D::instance->debugcontext.EndDraw();
+    }
+    return 0;
+    }
+
+    return fgDirect2D::instance->debugcontext.WndProc(hWnd, message, wParam, lParam, &self->element);
+  }
+  return DefWindowProc(hWnd, message, wParam, lParam);
+}
+
 size_t fgDebugD2D_Message(fgDebug* self, const FG_Msg* msg)
 {
+  fgFlag otherint = (fgFlag)msg->u;
+
   switch(msg->type)
   {
   case FG_CONSTRUCT:
@@ -85,12 +114,36 @@ size_t fgDebugD2D_Message(fgDebug* self, const FG_Msg* msg)
     return FG_ACCEPT;
   case FG_SETPARENT:
     return fgDebug_Message(self, msg);
+  case FG_SETFLAG: // Do the same thing fgElement does to resolve a SETFLAG into SETFLAGS
+    otherint = bss_util::bssSetBit<fgFlag>(self->element.flags, otherint, msg->u2 != 0);
+  case FG_SETFLAGS:
+    if((otherint^self->element.flags) & FGELEMENT_HIDDEN)
+      ShowWindow(fgDirect2D::instance->debughwnd, (otherint&FGELEMENT_HIDDEN) ? SW_HIDE : SW_SHOW);
+    break;
   }
   return fgDebug_Message(self, msg);
 }
 
 void fgDebugD2D_Init(fgDebug* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
+  if(!fgDirect2D::instance->root.fgCaptureWindow)
+    fgDirect2D::instance->debugtarget = fgWindowD2D::windowlist;
+  else
+    fgDirect2D::instance->debugtarget = GetElementWindow(fgDirect2D::instance->root.fgCaptureWindow);
+
+  fgTransform tf = {0};
+  if(fgDirect2D::instance->debugtarget)
+  {
+    AbsRect area;
+    ResolveRect(fgDirect2D::instance->debugtarget->window, &area);
+    tf.area.left.abs = area.left;
+    tf.area.top.abs = area.top;
+    tf.area.right.abs = area.right + 300;
+    tf.area.bottom.abs = area.bottom;
+    //transform = &tf;
+    //parent = fgDirect2D::instance->debugtarget->window->parent;
+  }
+
   fgElement_InternalSetup(&self->element, parent, next, name, flags, transform, units, (fgDestroy)&fgDebug_Destroy, (fgMessage)&fgDebugD2D_Message);
 
   AbsRect r = { 0 };
@@ -387,6 +440,7 @@ void fgDrawLinesD2D(const AbsVec* p, size_t n, unsigned int color, const AbsVec*
 void fgPushClipRectD2D(const AbsRect* clip, const fgDrawAuxData* data)
 {
   GETEXDATA(data);
+  assert(exdata->context->cliprect.size() > 0);
   AbsRect cliprect = exdata->context->cliprect.top();
   cliprect = { bssmax(floor(clip->left), cliprect.left), bssmax(floor(clip->top), cliprect.top), bssmin(ceil(clip->right), cliprect.right), bssmin(ceil(clip->bottom), cliprect.bottom) };
   exdata->context->cliprect.push(cliprect);
@@ -623,6 +677,7 @@ char fgProcessMessagesD2D()
       TranslateMessage(&msg);
       break;
     case WM_QUIT:
+      fgDebug_Hide();
       return 0;
     }
   }
@@ -659,30 +714,6 @@ longptr_t __stdcall fgDirect2D::WndProc(HWND__* hWnd, unsigned int message, size
 
     if(self->root.topmost != 0)
       return self->context.WndProc(hWnd, message, wParam, lParam, self->root.topmost);
-  }
-  return DefWindowProc(hWnd, message, wParam, lParam);
-}
-
-longptr_t __stdcall fgDirect2D::DebugWndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam)
-{
-  fgDebug* self = reinterpret_cast<fgDebug*>(GetWindowLongPtrW(hWnd, GWLP_USERDATA));
-  if(self)
-  {
-    switch(message)
-    {
-    case WM_PAINT:
-      {
-        AbsRect area;
-        ResolveRect(&self->element, &area);
-        fgDrawAuxDataEx exdata;
-        fgDirect2D::instance->debugcontext.BeginDraw(hWnd, &self->element, &area, exdata);
-        self->element.Draw(&area, &exdata.data);
-        fgDirect2D::instance->debugcontext.EndDraw();
-      }
-      return 0;
-    }
-
-    return fgDirect2D::instance->debugcontext.WndProc(hWnd, message, wParam, lParam, &self->element);
   }
   return DefWindowProc(hWnd, message, wParam, lParam);
 }
@@ -737,6 +768,8 @@ struct _FG_ROOT* fgInitialize()
     &fgTerminateD2D,
   };
 
+  signal(SIGABRT, [](int) {*((int*)0) = 0; });
+
   typedef BOOL(WINAPI *tGetPolicy)(LPDWORD lpFlags);
   typedef BOOL(WINAPI *tSetPolicy)(DWORD dwFlags);
   const DWORD EXCEPTION_SWALLOWING = 0x1;
@@ -768,6 +801,7 @@ struct _FG_ROOT* fgInitialize()
   extent.bottom += extent.top;
 
   fgDirect2D* root = reinterpret_cast<fgDirect2D*>(calloc(1, sizeof(fgDirect2D)));
+  new(root) fgDirect2D();
   fgDirect2D::instance = root;
   HDC hdc = GetDC(NULL);
   fgIntVec dpi = { GetDeviceCaps(hdc, LOGPIXELSX), GetDeviceCaps(hdc, LOGPIXELSY) };
