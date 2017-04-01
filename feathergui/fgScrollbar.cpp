@@ -408,7 +408,9 @@ size_t fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
         float bottom = bssmin(r.bottom - target.bottom, 0);
         float x = (left == 0 && target.right > r.left) ? right : left;
         float y = (top == 0 && target.bottom > r.top) ? bottom : top;
-        
+        if(target.right - target.left > r.right - r.left) x = r.left - target.left;
+        if(target.bottom - target.top > r.bottom - r.top) y = r.top - target.top;
+
         fgScrollbar_ApplyPadding(self, x, y);
       }
       return FG_ACCEPT;

@@ -16,3 +16,5 @@
 #include "fgTreeview.h"
 #include "fgWindow.h"
 #include "fgDebug.h"
+#include "fgWorkspace.h"
+#include "fgToolbar.h"

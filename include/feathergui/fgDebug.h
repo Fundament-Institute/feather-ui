@@ -7,6 +7,7 @@
 #include "fgTreeview.h"
 #include "fgMenu.h"
 #include "fgGrid.h"
+#include "fgTabcontrol.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -64,7 +65,9 @@ typedef struct _FG_DEBUG_MESSAGE {
 
 // The debug view is designed as an overlay to help you inspect the current state of the GUI
 typedef struct _FG_DEBUG {
-  fgElement element;
+  fgTabcontrol tabs;
+  fgElement* tablayout;
+  fgElement* tabmessages;
   fgTreeview elements; // TreeView of the elements, minus the debug view itself.
   fgGrid properties; // element properties
   fgText contents; // message contents
@@ -85,7 +88,7 @@ typedef struct _FG_DEBUG {
   fgVectorUTF8 text8;
 
 #ifdef  __cplusplus
-  inline operator fgElement*() { return &element; }
+  inline operator fgElement*() { return &tabs.control.element; }
   inline fgElement* operator->() { return operator fgElement*(); }
 #endif
 } fgDebug;
@@ -94,7 +97,7 @@ FG_EXTERN void fgDebug_Init(fgDebug* BSS_RESTRICT self, fgElement* BSS_RESTRICT 
 FG_EXTERN void fgDebug_Destroy(fgDebug* self);
 FG_EXTERN size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg);
 FG_EXTERN void fgDebug_ClearLog(fgDebug* self);
-FG_EXTERN void fgDebug_Show(float left, float right, char overlay);
+FG_EXTERN void fgDebug_Show(const fgTransform* tf, char overlay);
 FG_EXTERN void fgDebug_Hide();
 FG_EXTERN fgDebug* fgDebug_Get();
 FG_EXTERN size_t fgDebug_LogMessage(fgDebug* self, const FG_Msg* msg, unsigned long long time, size_t depth);

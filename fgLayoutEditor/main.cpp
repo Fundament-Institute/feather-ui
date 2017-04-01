@@ -8,27 +8,33 @@
 #ifdef BSS_PLATFORM_WIN32 //Windows function
 #include "bss-util/bss_win32_includes.h"
 
+template<class R, class T, size_t(*F)(const T* BSS_RESTRICT, ptrdiff_t, R* BSS_RESTRICT, size_t)>
+inline std::basic_string<R> ConvUTF(const T* s)
+{
+  std::basic_string<R> wstr;
+  wstr.reserve(F(s, -1, 0, 0));
+  wstr.resize(F(s, -1, const_cast<R*>(wstr.data()), wstr.capacity()));
+  return wstr;
+}
+
 int Listdir(const char* cdir, bool(*fn)(const char*), char flags, const char* filter = "*")
 {
   WIN32_FIND_DATAW ffd;
   HANDLE hdir = INVALID_HANDLE_VALUE;
 
-  std::wstring dir;
-  dir.reserve(fgUTF8toUTF16(cdir, -1, 0, 0));
-  dir.resize(fgUTF8toUTF16(cdir, -1, const_cast<wchar_t*>(dir.data()), dir.capacity()));
+  std::wstring dir = ConvUTF<wchar_t, char, fgUTF8toUTF16>(cdir);
+  std::wstring wfilter = ConvUTF<wchar_t, char, fgUTF8toUTF16>(filter);
 
   if(dir[dir.length() - 1] == '/') const_cast<wchar_t*>(dir.data())[dir.length() - 1] = '\\';
   if(dir[dir.length() - 1] != '\\') dir += '\\';
-  hdir = FindFirstFileW(dir + filter, &ffd);
+  hdir = FindFirstFileW((dir + wfilter).c_str(), &ffd);
 
   while(hdir != 0 && hdir != INVALID_HANDLE_VALUE)
   {
     if(WCSICMP(ffd.cFileName, L".") != 0 && WCSICMP(ffd.cFileName, L"..") != 0)
     {
       std::wstring file = dir + ffd.cFileName;
-      std::string fldir;
-      fldir.reserve(fgUTF16toUTF8(file.c_str(), -1, 0, 0));
-      fldir.resize(fgUTF16toUTF8(file.c_str(), -1, const_cast<char*>(fldir.data()), fldir.capacity()));
+      std::string fldir = ConvUTF<char, wchar_t, fgUTF16toUTF8>(file.c_str());
 
       if(ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
       {
@@ -93,8 +99,7 @@ int main(int argc, char** argv)
   commands.reserve(MAX_PATH);
   GetModuleFileNameW(0, const_cast<wchar_t*>(commands.data()), MAX_PATH);
   const_cast<wchar_t*>(commands.data())[wcsrchr(commands.c_str(), '\\') - commands.c_str() + 1] = '\0';
-  rootpath.reserve(fgUTF16toUTF8(commands.c_str(), -1, 0, 0));
-  rootpath.resize(fgUTF16toUTF8(commands.c_str(), -1, const_cast<char*>(rootpath.data()), rootpath.capacity()));
+  rootpath = ConvUTF<char, wchar_t, fgUTF16toUTF8>(commands.c_str());
 #else
   rootpath = ".";
 #endif

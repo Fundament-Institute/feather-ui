@@ -177,10 +177,10 @@ size_t test_inject(fgRoot* self, const FG_Msg* msg)
   {
     if(msg->keycode == FG_KEY_F11)
     {
-      if(fgDebug_Get() != 0 && !(fgDebug_Get()->element.flags&FGELEMENT_HIDDEN))
+      if(fgDebug_Get() != 0 && !(fgDebug_Get()->tabs.control.element.flags&FGELEMENT_HIDDEN))
         fgDebug_Hide();
       else
-        fgDebug_Show(200, 200, 0);
+        fgDebug_Show(0, 1);
     }
   }
   return fgRoot_DefaultInject(self, msg);

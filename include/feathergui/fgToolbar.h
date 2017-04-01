@@ -18,7 +18,6 @@ enum FGTOOLBAR_FLAGS
 // A toolbar is simply a list of lists containing buttons or other controls.
 typedef struct _FG_TOOLBAR {
   fgList list;
-  fgElement seperator; // cloned to replace a null value inserted into the list. This allows a style to control the size and appearence of the seperator.
 #ifdef  __cplusplus
   inline operator fgElement*() { return &list.box.scroll.control.element; }
   inline fgElement* operator->() { return operator fgElement*(); }

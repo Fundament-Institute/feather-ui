@@ -20,6 +20,12 @@ size_t fgTabcontrolToggle_Message(fgControl* self, const FG_Msg* msg)
 {
   switch(msg->type)
   {
+  case FG_ACTION:
+  {
+    FG_Msg m = { FG_ACTION, 0 };
+    m.e = *self;
+    return fgSendMessage(self->element.parent, &m);
+  }
   case FG_GETSELECTEDITEM:
     return (size_t)self->element.userdata;
   }
@@ -62,26 +68,59 @@ void fgTabcontrolPanel_Destroy(fgElement* self)
   fgElement_Destroy(self);
 }
 
+void fgTabcontrol_AdjustPadding(fgTabcontrol* self)
+{
+  AbsRect padding = self->realpadding;
+  padding.top += self->header->transform.area.bottom.abs;
+  FG_Msg m = { FG_SETPADDING, 0 };
+  m.p = &padding;
+  fgControl_HoverMessage(&self->control, &m);
+}
+
+fgElement* fgTabcontrolHeader_PreSelect(fgList* self)
+{
+  return (self->box.selected.l > 0) ? self->box.selected.p[0] : 0;
+}
+
+void fgTabcontrolHeader_PostSelect(fgList* self, fgElement* selected)
+{
+  fgElement* n = 0;
+  if(self->box.selected.l > 0)
+    n = self->box.selected.p[0];
+  if(selected != n)
+  {
+    if(selected)
+      ((fgElement*)selected->userdata)->SetFlag(FGELEMENT_HIDDEN, 1);
+    if(n)
+      ((fgElement*)n->userdata)->SetFlag(FGELEMENT_HIDDEN, 0);
+  }
+}
+
 size_t fgTabcontrolHeader_Message(fgList* self, const FG_Msg* msg)
 {
   switch(msg->type)
   {
+  case FG_SETAREA:
+  {
+    size_t r = fgList_Message(self, msg);
+    fgTabcontrol_AdjustPadding(reinterpret_cast<fgTabcontrol*>(self->box->parent));
+    return r;
+  }
+  case FG_ACTION:
+    if(msg->e)
+    {
+      assert(msg->e->parent == *self);
+      fgElement* selected = fgTabcontrolHeader_PreSelect(self);
+      fgBox_DeselectAll(&self->box);
+      fgBox_SelectTarget(&self->box, msg->e);
+      fgTabcontrolHeader_PostSelect(self, selected);
+    }
+    break;
   case FG_MOUSEDOWN:
   {
-    fgElement* selected = 0;
-    if(self->box.selected.l > 0)
-      selected = self->box.selected.p[0];
+    fgElement* selected = fgTabcontrolHeader_PreSelect(self);
     size_t ret = fgList_Message(self, msg);
-    fgElement* n = 0;
-    if(self->box.selected.l > 0)
-      n = self->box.selected.p[0];
-    if(selected != n)
-    {
-      if(selected)
-        ((fgElement*)selected->userdata)->SetFlag(FGELEMENT_HIDDEN, 1);
-      if(n)
-        ((fgElement*)n->userdata)->SetFlag(FGELEMENT_HIDDEN, 0);
-    }
+    fgTabcontrolHeader_PostSelect(self, selected);
     return ret;
   }
   }
@@ -94,6 +133,7 @@ size_t fgTabcontrol_Message(fgTabcontrol* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
   {
+    memset(&self->realpadding, 0, sizeof(AbsRect));
     fgControl_HoverMessage(&self->control, msg);
     fgTransform TF_HEADER = { { 0, 0, 0, 0, 0, 1, 0, 0 }, 0,{ 0,0,0,0 } };
     fgList_Init(&self->header, *self, 0, "Tabcontrol$header", FGLIST_SELECT | FGBOX_TILEX | FGELEMENT_EXPANDY | FGELEMENT_BACKGROUND | (self->control->flags&FGLIST_DRAGGABLE), &TF_HEADER, 0);
@@ -115,7 +155,6 @@ size_t fgTabcontrol_Message(fgTabcontrol* self, const FG_Msg* msg)
     assert(_CrtCheckMemory());
     fgElement* button = fgroot_instance->backend.fgCreate("ListItem", self->header, 0, "Tabcontrol$toggle", FGELEMENT_EXPAND, 0, 0);
     fgElement* text = fgroot_instance->backend.fgCreate("Text", button, 0, "Tabcontrol$text", FGELEMENT_EXPAND, 0, 0);
-
     fgElement* panel = fgroot_instance->backend.fgCreate("Element", *self, 0, "Tabcontrol$panel", FGELEMENT_HIDDEN, &fgTransform_DEFAULT, 0);
     assert(button->message == (fgMessage)&fgListItem_Message);
     assert(panel->message == (fgMessage)&fgElement_Message);
@@ -127,15 +166,26 @@ size_t fgTabcontrol_Message(fgTabcontrol* self, const FG_Msg* msg)
     panel->userdata = button;
     button->userdata = panel;
     text->SetText((const char*)msg->p);
-    AbsRect padding = self->control->padding;
-    padding.top = self->header->transform.area.bottom.abs;
-    self->control->SetPadding(padding);
     if(self->header.box.selected.l > 0)
       ((fgElement*)self->header.box.selected.p[0]->userdata)->SetFlag(FGELEMENT_HIDDEN, 1);
     self->header.box.selected.l = 0;
     ((fgElementArray&)self->header.box.selected).Insert(button);
     return (size_t)panel;
   }
+  case FG_SETPADDING:
+    if(msg->p != nullptr)
+    {
+      AbsRect* padding = (AbsRect*)msg->p;
+      char diff = CompareMargins(&self->realpadding, padding);
+      memcpy(&self->realpadding, padding, sizeof(AbsRect));
+
+      if(diff) // Only send a move message if the padding change actually changed something
+        fgSubMessage(*self, FG_MOVE, FG_SETPADDING, 0, FGMOVE_PADDING);
+
+      fgTabcontrol_AdjustPadding(self);
+      return FG_ACCEPT;
+    }
+    return 0;
   case FG_GETSELECTEDITEM:
     return fgSendMessage(self->header, msg);
   case FG_GETCLASSNAME:

@@ -20,17 +20,20 @@ typedef struct FG_LAYOUT_ACTION
 typedef struct FG_LAYOUT_EDITOR
 {
   fgWindow* window;
+  fgBox* main; // Primary tiling layout
   fgMenu* menu;
-  fgList* toolbar;
-  fgTreeview* view;
+  fgToolbar* toolbar;
+  fgTreeview* explorer;
   fgGrid* properties;
-  fgElement* workspace;
+  fgWorkspace* workspace;
+  fgMenu* context;
+
   fgElement* selected;
   fgLayoutAction* undo;
   fgLayoutAction* redo;
 } fgLayoutEditor;
 
-FG_EXTERN void fgLayoutEditor_Init(fgLayoutEditor* self);
+FG_EXTERN void fgLayoutEditor_Init(fgLayoutEditor* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
 FG_EXTERN void fgLayoutEditor_Destroy(fgLayoutEditor* self);
 
 #ifdef  __cplusplus

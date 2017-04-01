@@ -87,18 +87,18 @@ longptr_t __stdcall fgDirect2D::DebugWndProc(HWND__* hWnd, unsigned int message,
     case WM_PAINT:
     {
       AbsRect area;
-      ResolveRect(&self->element, &area);
+      ResolveRect(*self, &area);
       fgDrawAuxDataEx exdata;
-      fgDirect2D::instance->debugcontext.BeginDraw(hWnd, &self->element, &area, exdata);
+      fgDirect2D::instance->debugcontext.BeginDraw(hWnd, *self, &area, exdata);
       fgDirect2D::instance->debugcontext.target->Clear(D2D1::ColorF(0, 1.0));
       AbsRect test = exdata.context->cliprect.top();
-      self->element.Draw(&area, &exdata.data);
+      self->tabs->Draw(&area, &exdata.data);
       fgDirect2D::instance->debugcontext.EndDraw();
     }
     return 0;
     }
 
-    return fgDirect2D::instance->debugcontext.WndProc(hWnd, message, wParam, lParam, &self->element);
+    return fgDirect2D::instance->debugcontext.WndProc(hWnd, message, wParam, lParam, *self);
   }
   return DefWindowProc(hWnd, message, wParam, lParam);
 }
@@ -115,9 +115,9 @@ size_t fgDebugD2D_Message(fgDebug* self, const FG_Msg* msg)
   case FG_SETPARENT:
     return fgDebug_Message(self, msg);
   case FG_SETFLAG: // Do the same thing fgElement does to resolve a SETFLAG into SETFLAGS
-    otherint = bss_util::bssSetBit<fgFlag>(self->element.flags, otherint, msg->u2 != 0);
+    otherint = bss_util::bssSetBit<fgFlag>(self->tabs->flags, otherint, msg->u2 != 0);
   case FG_SETFLAGS:
-    if((otherint^self->element.flags) & FGELEMENT_HIDDEN)
+    if((otherint^self->tabs->flags) & FGELEMENT_HIDDEN)
       ShowWindow(fgDirect2D::instance->debughwnd, (otherint&FGELEMENT_HIDDEN) ? SW_HIDE : SW_SHOW);
     break;
   }
@@ -144,10 +144,10 @@ void fgDebugD2D_Init(fgDebug* self, fgElement* BSS_RESTRICT parent, fgElement* B
     //parent = fgDirect2D::instance->debugtarget->window->parent;
   }
 
-  fgElement_InternalSetup(&self->element, parent, next, name, flags, transform, units, (fgDestroy)&fgDebug_Destroy, (fgMessage)&fgDebugD2D_Message);
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgDebug_Destroy, (fgMessage)&fgDebugD2D_Message);
 
   AbsRect r = { 0 };
-  ResolveRect(&self->element, &r);
+  ResolveRect(*self, &r);
   fgDirect2D::instance->debughwnd = fgContext::WndCreate(r, WS_EX_TOOLWINDOW, self, L"fgDebugD2D", fgDirect2D::instance->root.dpi);
   ShowWindow(fgDirect2D::instance->debughwnd, SW_SHOW);
   UpdateWindow(fgDirect2D::instance->debughwnd);

@@ -12,7 +12,7 @@ const char* fgDebug_GetMessageString(unsigned short msg);
 
 void fgDebug_Init(fgDebug* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  fgElement_InternalSetup(&self->element, parent, next, name, flags, transform, units, (fgDestroy)&fgDebug_Destroy, (fgMessage)&fgDebug_Message);
+  fgElement_InternalSetup(self->tabs, parent, next, name, flags, transform, units, (fgDestroy)&fgDebug_Destroy, (fgMessage)&fgDebug_Message);
 }
 
 void fgDebug_ClearLog(fgDebug* self)
@@ -50,7 +50,8 @@ void fgDebug_Destroy(fgDebug* self)
   fgDebug_ClearLog(self);
   ((bss_util::cDynArray<char*>&)self->messagestrings).~cDynArray();
   ((bss_util::cDynArray<fgDebugMessage>&)self->messagelog).~cDynArray();
-  fgElement_Destroy(&self->element);
+  self->tabs->message = (fgMessage)fgTabcontrol_Message;
+  fgTabcontrol_Destroy(&self->tabs);
   fgdebug_instance = 0; // we can't null this until after we're finished destroying ourselves 
 }
 
@@ -112,13 +113,16 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
 
     fgdebug_instance = self;
     memsubset<fgDebug, fgElement>(self, 0); // lineheight must be zero'd before a potential transform unit resolution.
-    fgElement_Message(&self->element, msg);
-    const fgTransform tf_elements = { { -300,1,0,0,0,1,0,1 }, 0,{ 0,0,0,0 } };
+    fgTabcontrol_Message(&self->tabs, msg);
+    self->tablayout = self->tabs->AddItemText("Layout");
+    self->tabmessages = self->tabs->AddItemText("Messages");
+    self->tablayout->GetSelectedItem()->Action();
+
     const fgTransform tf_properties = { { -300,1,-200,1,0,1,0,1 }, 0,{ 0,0,0,0 } };
     const fgTransform tf_contents = { { 0,0,-200,1,200,0,0,1 }, 0,{ 0,0,0,0 } };
-    fgTreeview_Init(&self->elements, *self, 0, "Debug$elements", 0, &tf_elements, 0);
-    fgGrid_Init(&self->properties, *self, 0, "Debug$properties", FGELEMENT_HIDDEN, &tf_properties, 0);
-    fgText_Init(&self->contents, *self, 0, "Debug$contents", FGELEMENT_HIDDEN, &tf_contents, 0);
+    fgTreeview_Init(&self->elements, self->tablayout, 0, "Debug$elements", 0, &fgTransform_DEFAULT, 0);
+    fgGrid_Init(&self->properties, self->tablayout, 0, "Debug$properties", FGELEMENT_HIDDEN, &tf_properties, 0);
+    fgText_Init(&self->contents, self->tabmessages, 0, "Debug$contents", FGELEMENT_HIDDEN, &tf_contents, 0);
     self->properties.InsertColumn("Name");
     self->properties.InsertColumn("Value");
     for(size_t i = 0; i < sizeof(PROPERTY_LIST) / sizeof(const char*); ++i)
@@ -138,9 +142,32 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
   case FG_CLONE:
     if(msg->e)
     {
-      fgElement_Message(&self->element, msg);
+      fgDebug* hold = reinterpret_cast<fgDebug*>(msg->e);
+      fgTabcontrol_Message(&self->tabs, msg);
+      self->elements->Clone(hold->elements);
+      self->properties->Clone(hold->properties);
+      self->contents->Clone(hold->contents);
+      self->context->Clone(hold->context);
+      _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->elements);
+      _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->properties);
+      _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->contents);
+      _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->context);
+      reinterpret_cast<bss_util::cDynArray<fgDebugMessage>&>(hold->messagelog) = reinterpret_cast<bss_util::cDynArray<fgDebugMessage>&>(self->messagelog);
+      reinterpret_cast<bss_util::cDynArray<char*>&>(hold->messagestrings) = reinterpret_cast<bss_util::cDynArray<char*>&>(self->messagestrings);
+      hold->behaviorhook = self->behaviorhook;
+      hold->depth = self->depth;
+      hold->hover = self->hover;
+      hold->ignore = self->ignore;
+      hold->font = fgroot_instance->backend.fgCloneFont(self->font, 0);
+      hold->color = self->color;
+      hold->lineheight = self->lineheight;
+      hold->letterspacing = self->letterspacing;
+      hold->oldpadding = self->oldpadding;
+      reinterpret_cast<bss_util::cDynArray<int>&>(hold->text32) = reinterpret_cast<bss_util::cDynArray<int>&>(self->text32);
+      reinterpret_cast<bss_util::cDynArray<wchar_t>&>(hold->text16) = reinterpret_cast<bss_util::cDynArray<wchar_t>&>(self->text16);
+      reinterpret_cast<bss_util::cDynArray<char>&>(hold->text8) = reinterpret_cast<bss_util::cDynArray<char>&>(self->text8);
     }
-    return sizeof(fgText);
+    return sizeof(fgDebug);
   case FG_DRAW:
     if(self->hover != 0)
     {
@@ -193,26 +220,25 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
     }
     break;
   case FG_SETFLAG: // We need to perform extra logic on show/hide
-    otherint = bss_util::bssSetBit<fgFlag>(self->element.flags, otherint, msg->u2 != 0);
+    otherint = bss_util::bssSetBit<fgFlag>(self->tabs->flags, otherint, msg->u2 != 0);
   case FG_SETFLAGS:
-    if((otherint^self->element.flags) & FGELEMENT_HIDDEN)
+    if((otherint^self->tabs->flags) & FGELEMENT_HIDDEN)
     { // handle a layout flag change
-      size_t r = fgElement_Message(&self->element, msg);
+      size_t r = fgTabcontrol_Message(&self->tabs, msg);
       if(otherint&FGELEMENT_HIDDEN)
       {
         fgroot_instance->backend.fgBehaviorHook = self->behaviorhook;
-        fgroot_instance->gui->SetPadding(self->oldpadding);
-        if(self->element.flags&FGDEBUG_CLEARONHIDE)
+        if(!(self->tabs->flags&FGDEBUG_OVERLAY))
+          fgroot_instance->gui->SetPadding(self->oldpadding);
+        if(self->tabs->flags&FGDEBUG_CLEARONHIDE)
           fgDebug_ClearLog(self);
       }
       else
       {
-        self->elements->SetTransform(fgTransform{ { -300,1,0,0,0,1,0,1 }, 0,{ 0,0,0,0 } });
-        self->element.SetTransform(fgTransform_DEFAULT);
         self->behaviorhook = fgroot_instance->backend.fgBehaviorHook;
         fgDebug_BuildTree(self->elements);
         self->oldpadding = fgroot_instance->gui->padding;
-        if(!(self->element.flags&FGDEBUG_OVERLAY))
+        if(!(self->tabs->flags&FGDEBUG_OVERLAY))
           fgroot_instance->gui->SetPadding(AbsRect{ self->oldpadding.left, self->oldpadding.top, self->oldpadding.right + 300, self->oldpadding.bottom });
 
         fgroot_instance->backend.fgBehaviorHook = &fgRoot_BehaviorDebug;
@@ -227,7 +253,7 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
     {
       fgFontDesc desc;
       fgroot_instance->backend.fgFontGet(msg->p, &desc);
-      fgIntVec dpi = self->element.GetDPI();
+      fgIntVec dpi = self->tabs->GetDPI();
       bool identical = (dpi.x == desc.dpi.x && dpi.y == desc.dpi.y);
       desc.dpi = dpi;
       self->font = fgroot_instance->backend.fgCloneFont(msg->p, identical ? 0 : &desc);
@@ -257,7 +283,7 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
   case FG_GETCLASSNAME:
     return (size_t)"Debug";
   }
-  return fgElement_Message(&self->element, msg);
+  return fgTabcontrol_Message(&self->tabs, msg);
 }
 
 char* fgDebug_CopyText(fgDebug* self, const char* s)
@@ -369,7 +395,7 @@ size_t fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
   fgElement* parent = self->parent;
   while(parent != 0) // Make sure we do not log any messages associated with the debug object itself.
   {
-    if(parent == &fgdebug_instance->element)
+    if(parent == fgdebug_instance->tabs)
       return (*fgdebug_instance->behaviorhook)(self, msg);
     parent = parent->parent;
   }
@@ -494,22 +520,25 @@ void fgDebug_BuildTree(fgElement* treeview)
   fgDebug_TreeInsert(treeview, &fgroot_instance->gui.element, 0, fgdebug_instance->context);
 }
 
-void fgDebug_Show(float left, float right, char overlay)
+void fgDebug_Show(const fgTransform* tf, char overlay)
 {
+  static const fgTransform TF_DEFAULT = { {-300,1,0,0,0,1,0,1}, 0, {0,0,0,0} };
+  if(!tf)
+    tf = &TF_DEFAULT;
+
   assert(fgroot_instance != 0);
   if(!fgdebug_instance)
-    fgdebug_instance = reinterpret_cast<fgDebug*>(fgCreate("debug", *fgroot_instance, 0, 0, FGELEMENT_HIDDEN | (overlay ? FGDEBUG_OVERLAY : 0), &fgTransform_DEFAULT, 0));
+    fgdebug_instance = reinterpret_cast<fgDebug*>(fgCreate("debug", *fgroot_instance, 0, 0, FGELEMENT_HIDDEN | (overlay ? FGDEBUG_OVERLAY : 0), tf, 0));
   assert(fgdebug_instance != 0);
   if(fgroot_instance->backend.fgBehaviorHook == &fgRoot_BehaviorDebug)
     return; // Prevent an infinite loop
 
-  fgdebug_instance->element.SetFlag(FGELEMENT_HIDDEN, false);
+  fgdebug_instance->tabs->SetFlag(FGELEMENT_HIDDEN, false);
 }
 void fgDebug_Hide()
 {
-  assert(fgdebug_instance != 0);
-  assert(fgdebug_instance != 0);
-  fgdebug_instance->element.SetFlag(FGELEMENT_HIDDEN, true);
+  if(fgdebug_instance)
+    fgdebug_instance->tabs->SetFlag(FGELEMENT_HIDDEN, true);
 }
 
 size_t fgDebug_LogMessage(fgDebug* self, const FG_Msg* msg, unsigned long long time, size_t depth)

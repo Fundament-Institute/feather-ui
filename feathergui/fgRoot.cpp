@@ -128,7 +128,7 @@ void fgRoot_Init(fgRoot* self, const AbsRect* area, const fgIntVec* dpi, const f
 void fgRoot_Destroy(fgRoot* self)
 {
   if(fgdebug_instance != 0)
-    VirtualFreeChild(&fgdebug_instance->element);
+    VirtualFreeChild(*fgdebug_instance);
   fgRadioGroup_destroy(self->radiohash);
   fgFunctionMap_destroy(self->functionhash);
   fgControl_Destroy((fgControl*)self);
