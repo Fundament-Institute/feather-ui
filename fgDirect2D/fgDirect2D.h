@@ -37,6 +37,7 @@ struct fgDirect2D
   IWICImagingFactory* wicfactory;
   IDWriteFactory1* writefactory;
   HWND__* tophwnd;
+  AbsRect toprect;
 
   static longptr_t __stdcall WndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam);
   static longptr_t __stdcall DebugWndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam);

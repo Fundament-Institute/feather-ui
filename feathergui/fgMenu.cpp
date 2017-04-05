@@ -164,7 +164,7 @@ size_t fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
   case FG_SETFLAGS:
     if(((self->box->flags ^ otherint) & FGELEMENT_HIDDEN) != 0)
     {
-      if(!(otherint&FGELEMENT_HIDDEN) && self->box->parent != 0 && self->box->parent->GetClassName() != SUBMENU_NAME)
+      if(!(otherint&FGELEMENT_HIDDEN) && self->box->parent != 0 && self->box->parent->parent != 0 && self->box->parent->parent->GetClassName() != SUBMENU_NAME)
         fgSetTopmost(self->box);
       else
         fgClearTopmost(self->box);

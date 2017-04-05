@@ -21,6 +21,8 @@
 
 #define GETEXDATA(data) assert(data->fgSZ == sizeof(fgDrawAuxDataEx)); if(data->fgSZ != sizeof(fgDrawAuxDataEx)) return; fgDrawAuxDataEx* exdata = (fgDrawAuxDataEx*)data;
 
+typedef HRESULT(STDAPICALLTYPE *GETDPIFORMONITOR)(HMONITOR, int, UINT*, UINT*);
+GETDPIFORMONITOR pGetDpiForMonitor = 0;
 fgDirect2D* fgDirect2D::instance = 0;
 static float PI = 3.14159265359f;
 
@@ -29,9 +31,15 @@ BOOL __stdcall SpawnMonitorsProc(HMONITOR monitor, HDC hdc, LPRECT, LPARAM lpara
   static fgMonitor* prev = 0;
   fgDirect2D* root = reinterpret_cast<fgDirect2D*>(lparam);
   MONITORINFO info = { sizeof(MONITORINFO), 0 };
-  GetMonitorInfo(monitor, &info);
+  GetMonitorInfoW(monitor, &info);
   fgIntVec dpi = { 0, 0 };
-  //GetDpiForMonitor(0, MDT_Effective_DPI, &xdpi, &ydpi);
+  if(pGetDpiForMonitor)
+  {
+    UINT x, y;
+    pGetDpiForMonitor(monitor, 0, &x, &y);
+    dpi.x = x;
+    dpi.y = y;
+  }
 
   AbsRect area = { info.rcMonitor.left, info.rcMonitor.top, info.rcMonitor.right, info.rcMonitor.bottom };
   fgMonitor* cur = reinterpret_cast<fgMonitor*>(calloc(1, sizeof(fgMonitor)));
@@ -65,6 +73,12 @@ fgWindowD2D* GetElementWindow(fgElement* cur)
   return (fgWindowD2D*)cur;
 }
 
+bool IsChildOf(fgElement* cur, fgElement* target)
+{
+  while(cur && cur != target) cur = cur->parent;
+  return cur == target;
+}
+
 IDWriteTextLayout1* CreateD2DLayout(IDWriteTextFormat* format, const wchar_t* text, size_t len, const AbsRect* area)
 {
   if(!text) return 0;
@@ -90,7 +104,7 @@ longptr_t __stdcall fgDirect2D::DebugWndProc(HWND__* hWnd, unsigned int message,
       ResolveRect(*self, &area);
       fgDrawAuxDataEx exdata;
       fgDirect2D::instance->debugcontext.BeginDraw(hWnd, *self, &area, exdata);
-      fgDirect2D::instance->debugcontext.target->Clear(D2D1::ColorF(0, 1.0));
+      //fgDirect2D::instance->debugcontext.target->Clear(D2D1::ColorF(0, 1.0));
       AbsRect test = exdata.context->cliprect.top();
       self->tabs->Draw(&area, &exdata.data);
       fgDirect2D::instance->debugcontext.EndDraw();
@@ -136,12 +150,12 @@ void fgDebugD2D_Init(fgDebug* self, fgElement* BSS_RESTRICT parent, fgElement* B
   {
     AbsRect area;
     ResolveRect(fgDirect2D::instance->debugtarget->window, &area);
-    tf.area.left.abs = area.left;
+    tf.area.left.abs = area.right;
     tf.area.top.abs = area.top;
     tf.area.right.abs = area.right + 300;
     tf.area.bottom.abs = area.bottom;
-    //transform = &tf;
-    //parent = fgDirect2D::instance->debugtarget->window->parent;
+    transform = &tf;
+    parent = fgDirect2D::instance->debugtarget->window->parent;
   }
 
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgDebug_Destroy, (fgMessage)&fgDebugD2D_Message);
@@ -476,15 +490,16 @@ void fgDirtyElementD2D(fgElement* e)
   }
   while(e && e->destroy != (fgDestroy)fgWindowD2D_Destroy && e != fgDirect2D::instance->root.topmost && e->destroy != (fgDestroy)fgDebug_Destroy)
     e = e->parent;
-  if(e != 0 && e == fgDirect2D::instance->root.topmost)
+
+  if(fgDirect2D::instance->root.topmost != 0 && e == fgDirect2D::instance->root.topmost)
   {
-    if(lasttop != e)
+    AbsRect& toprect = fgDirect2D::instance->toprect;
+    ResolveNoClipRect(fgDirect2D::instance->root.topmost, &toprect, 0, 0);
+    fgScaleRectDPI(&toprect, 96, 96); // SetWindowPos will resize the direct2D background via the WndProc callback
+    SetWindowPos(fgDirect2D::instance->tophwnd, HWND_TOP, toprect.left, toprect.top, toprect.right - toprect.left, toprect.bottom - toprect.top, SWP_NOSENDCHANGING);
+    if(lasttop != fgDirect2D::instance->root.topmost)
     {
-      AbsRect out;
-      ResolveNoClipRect(e, &out);
-      fgScaleRectDPI(&out, 96, 96); // SetWindowPos will resize the direct2D background via the WndProc callback
-      SetWindowPos(fgDirect2D::instance->tophwnd, HWND_TOP, out.left, out.top, out.right - out.left, out.bottom - out.top, SWP_NOSENDCHANGING);
-      lasttop = e;
+      lasttop = fgDirect2D::instance->root.topmost;
       SetCapture(fgDirect2D::instance->tophwnd);
     }
     fgDirect2D::instance->context.InvalidateHWND(fgDirect2D::instance->tophwnd);
@@ -698,7 +713,7 @@ longptr_t __stdcall fgDirect2D::WndProc(HWND__* hWnd, unsigned int message, size
         AbsRect area;
         ResolveRect(self->root.topmost, &area);
         fgDrawAuxDataEx exdata;
-        self->context.BeginDraw(self->tophwnd, self->root.topmost, &area, exdata);
+        self->context.BeginDraw(self->tophwnd, self->root.topmost, &self->toprect, exdata);
         self->root.topmost->Draw(&area, &exdata.data);
         self->context.EndDraw();
       }
@@ -709,6 +724,9 @@ longptr_t __stdcall fgDirect2D::WndProc(HWND__* hWnd, unsigned int message, size
         DWORD pts = GetMessagePos();
         self->context.SetMouse(fgContext::AdjustDPI(&MAKEPOINTS(pts), self->root.topmost), FG_MOUSEDOWN, FG_MOUSELBUTTON, 0, GetMessageTime());
       }
+      break;
+    case WM_LBUTTONDOWN:
+      message = message;
       break;
     }
 
@@ -749,6 +767,7 @@ struct _FG_ROOT* fgInitialize()
     &fgAssetSizeD2D,
     &fgDrawLinesD2D,
     &fgCreateD2D,
+    &fgFlagMapDefault,
     &fgMessageMapDefault,
     &fgUserDataMapCallbacks,
     &fgPushClipRectD2D,
@@ -861,7 +880,13 @@ struct _FG_ROOT* fgInitialize()
   root->factory->GetDesktopDpi(&dpix, &dpiy);
   root->root.dpi.x = (int)dpix;
   root->root.dpi.y = (int)dpiy;
+
+  HMODULE shcore = LoadLibraryW(L"Shcore.dll"); // If we're on windows 8.1 or above, the user can set per-monitor DPI
+  if(shcore)
+    pGetDpiForMonitor = (GETDPIFORMONITOR)GetProcAddress(shcore, "GetDpiForMonitor");
   EnumDisplayMonitors(0, 0, SpawnMonitorsProc, (LPARAM)root);
+  if(shcore)
+    FreeLibrary(shcore);
 
   DWORD blinkrate = 0;
   int64_t sz = GetRegistryValueW(HKEY_CURRENT_USER, L"Control Panel\\Desktop", L"CursorBlinkRate", 0, 0);

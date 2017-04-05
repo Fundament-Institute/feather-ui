@@ -13,10 +13,10 @@ extern "C" {
 
 // A combobox is a text-only dropdown that allows the user to edit the text
 typedef struct {
-  fgDropdown box; // GETSELECTEDITEM returns either the selected item or the text typed into the combobox.
+  fgDropdown dropdown; // GETSELECTEDITEM returns either the selected item or the text typed into the combobox.
   fgTextbox text;
 #ifdef  __cplusplus
-  inline operator fgElement*() { return &box.box.scroll.control.element; }
+  inline operator fgElement*() { return &dropdown.box.scroll.control.element; }
 #endif
 } fgCombobox;
 

@@ -87,7 +87,7 @@ size_t fgResource_Message(fgResource* self, const FG_Msg* msg)
     fgroot_instance->backend.fgDirtyElement(*self);
     break;
   case FG_SETOUTLINE:
-    self->outline = fgResolveUnit(&self->element, msg->f, msg->subtype, false);
+    self->outline = fgResolveUnit(&self->element, msg->f, msg->subtype, false, (msg->subtype & FGUNIT_SNAP) != 0);
     fgroot_instance->backend.fgDirtyElement(*self);
     break;
   case FG_GETUV:

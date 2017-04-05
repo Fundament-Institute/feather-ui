@@ -319,6 +319,8 @@ inline void fgElement_StyleToMessageArray(const fgStyle& src, fgElement* target,
 
 fgElement* fgElement_LoadLayout(fgElement* parent, fgElement* next, fgClassLayout* layout)
 {
+  //fgTransform tf;
+  //fgElement_SnapTransform(layout->layout.transform, tf, parent->GetDPI()));
   fgElement* element = fgroot_instance->backend.fgCreate(layout->layout.type, parent, next, layout->name, layout->layout.flags, (layout->layout.units == -1) ? 0 : &layout->layout.transform, layout->layout.units);
   assert(element != 0);
   if(!element)
@@ -1081,20 +1083,26 @@ void GetInnerRect(const fgElement* self, AbsRect* inner, const AbsRect* standard
   __applyrect(*inner, *standard, self->padding);
 }
 
-void ResolveNoClipRect(const fgElement* self, AbsRect* out)
+void ResolveNoClipRect(const fgElement* self, AbsRect* out, const AbsRect* last, const AbsRect* padding)
 {
   AbsRect rect;
-  ResolveRect(self, out);
+  if(!last)
+    ResolveRect(self, out);
+  else
+    ResolveRectCache(self, out, last, padding);
   rect = *out;
 
   for(const fgElement* cur = self->rootnoclip; cur != 0; cur = cur->next)
   {
-    AbsRect cache;
-    ResolveRectCache(cur, &cache, out, (cur->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
-    if(cache.left < rect.left) rect.left = cache.left;
-    if(cache.top < rect.top) rect.top = cache.top;
-    if(cache.right > rect.right) rect.right = cache.right;
-    if(cache.bottom > rect.bottom) rect.bottom = cache.bottom;
+    if(!(cur->flags&FGELEMENT_HIDDEN))
+    {
+      AbsRect cache;
+      ResolveNoClipRect(cur, &cache, out, (cur->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
+      if(cache.left < rect.left) rect.left = cache.left;
+      if(cache.top < rect.top) rect.top = cache.top;
+      if(cache.right > rect.right) rect.right = cache.right;
+      if(cache.bottom > rect.bottom) rect.bottom = cache.bottom;
+    }
   }
   *out = rect;
 }

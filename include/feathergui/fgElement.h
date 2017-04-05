@@ -221,7 +221,7 @@ FG_EXTERN void ResolveRectCache(const fgElement* self, AbsRect* BSS_RESTRICT out
 FG_EXTERN void ResolveInnerRect(const fgElement* self, AbsRect* out);
 FG_EXTERN void GetInnerRect(const fgElement* self, AbsRect* inner, const AbsRect* standard);
 // Gets the total area covered by the element's standard rect and all its nonclipping children's standard rects.
-FG_EXTERN void ResolveNoClipRect(const fgElement* self, AbsRect* out);
+FG_EXTERN void ResolveNoClipRect(const fgElement* self, AbsRect* out, const AbsRect* last, const AbsRect* padding);
 // Tests if a MOUSEMOVE message (or other valid mouse message) hits the given element
 FG_EXTERN char MsgHitElement(const FG_Msg* msg, const fgElement* element);
 FG_EXTERN void VirtualFreeChild(fgElement* self);

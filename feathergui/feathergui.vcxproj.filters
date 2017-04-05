@@ -125,6 +125,9 @@
     <ClInclude Include="..\include\feathergui\fgAll.h">
       <Filter>include</Filter>
     </ClInclude>
+    <ClInclude Include="..\include\feathergui\fgSkinTree.h">
+      <Filter>include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="feathergui.cpp">
@@ -224,6 +227,18 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="fgWorkspace.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgSkinTree.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgSkinParseXML.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgToolbar.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgCombobox.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

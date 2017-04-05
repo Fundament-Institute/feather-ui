@@ -2,7 +2,7 @@
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #include "fgBackend.h"
-#include "fgRoot.h"
+#include "fgAll.h"
 #include "feathercpp.h"
 #include "bss-util/cTrie.h"
 #ifdef BSS_PLATFORM_WIN32
@@ -119,6 +119,222 @@ short fgMessageMapDefault(const char* name)
   return t[name];
 }
 
+const char* fgFlagMapDefault(const char* type, fgFlag flag)
+{
+  static cTrie<uint16_t, true> t(30, "element", "control", "scrollbar", "box", "list", "grid", "resource", "text", "button", "window", "checkbox", "radiobutton",
+    "progressbar", "slider", "textbox", "treeview", "treeitem", "listitem", "curve", "dropdown", "tabcontrol", "menu", "submenu",
+    "menuitem", "gridrow", "workspace", "toolbar", "toolgroup", "combobox", "debug");
+
+  switch(flag)
+  {
+  case FGELEMENT_BACKGROUND: return "BACKGROUND";
+  case FGELEMENT_NOCLIP: return "NOCLIP";
+  case FGELEMENT_IGNORE: return "IGNORE";
+  case FGELEMENT_HIDDEN: return "HIDDEN";
+  case FGELEMENT_SILENT: return "SILENT";
+  case FGELEMENT_EXPANDX: return "EXPANDX";
+  case FGELEMENT_EXPANDY: return "EXPANDY";
+  case FGELEMENT_EXPANDX | FGELEMENT_EXPANDY: return "EXPAND";
+  case FGELEMENT_SNAPX: return "SNAPX";
+  case FGELEMENT_SNAPY: return "SNAPY";
+  case FGELEMENT_SNAPX | FGELEMENT_SNAPY: return "SNAP";
+  }
+
+  uint16_t ty = t[type];
+
+  // Top level flags (no other class inherits these)
+  switch(ty)
+  {
+  case 5:  // grid
+    switch(flag)
+    {
+    case FGGRID_AUTOEDIT: return "AUTOEDIT";
+    }
+    break;
+  case 6: // resource
+    switch(flag)
+    {
+    case FGRESOURCE_UVTILE: return "BACKGROUND";
+    case FGRESOURCE_RECT: return "RECT";
+    case FGRESOURCE_CIRCLE: return "CIRCLE";
+    case FGRESOURCE_TRIANGLE: return "TRIANGLE";
+    }
+    break;
+  case 8: //button
+    switch(flag)
+    {
+    case FGBUTTON_NOFOCUS: return "NOFOCUS";
+    }
+    break;
+  case 9: // window
+    switch(flag)
+    {
+    case FGWINDOW_MINIMIZABLE: return "MINIMIZABLE";
+    case FGWINDOW_MAXIMIZABLE: return "MAXIMIZABLE";
+    case FGWINDOW_RESIZABLE: return "RESIZABLE";
+    case FGWINDOW_NOTITLEBAR: return "NOTITLEBAR";
+    case FGWINDOW_NOBORDER: return "NOBORDER";
+    }
+    break;
+  case 18: // curve
+    switch(flag)
+    {
+    case FGCURVE_QUADRATIC: return "QUADRATIC";
+    case FGCURVE_CUBIC: return "CUBIC";
+    case FGCURVE_BSPLINE: return "BSPLINE";
+    }
+    break;
+  case 25: // workspace
+    switch(flag)
+    {
+    case FGWORKSPACE_RULERX: return "RULERX";
+    case FGWORKSPACE_RULERY: return "RULERY";
+    case FGWORKSPACE_SNAPTOX: return "SNAPTOX";
+    case FGWORKSPACE_SNAPTOY: return "SNAPTOY";
+    }
+    break;
+  case 26: // toolbar
+    switch(flag)
+    {
+    case FGTOOLBAR_LOCKED: return "LOCKED";
+    }
+    break;
+  case 29:  // debug
+    switch(flag)
+    {
+    case FGDEBUG_CLEARONHIDE: return "CLEARONHIDE";
+    case FGDEBUG_OVERLAY: return "OVERLAY";
+    }
+    break;
+  }
+
+  switch(ty) // list flags
+  {
+  case 4: // list
+  case 5: // grid
+  case 26: // toolbar
+    switch(flag)
+    {
+    case FGLIST_SELECT: return "SELECT";
+    case FGLIST_MULTISELECT: return "MULTISELECT";
+    case FGLIST_DRAGGABLE: return "DRAGGABLE";
+    }
+    break;
+  }
+
+  switch(ty) // box flags
+  {
+  case 3: // box
+  case 4: // list
+  case 5: // grid
+  case 19: // dropdown
+  case 21: // menu
+  case 26: // toolbar
+  case 27: // toolgroup
+  case 28: // combobox
+    switch(flag)
+    {
+    case FGBOX_IGNOREMARGINEDGEX: return "IGNOREMARGINEDGEX";
+    case FGBOX_IGNOREMARGINEDGEY: return "IGNOREMARGINEDGEY";
+    case FGBOX_IGNOREMARGINEDGEX|FGBOX_IGNOREMARGINEDGEY: return "IGNOREMARGINEDGE";
+    case FGBOX_TILEX: return "TILEX";
+    case FGBOX_TILEY: return "TILEY";
+    case FGBOX_TILEX|FGBOX_TILEY: return "TILE";
+    case FGBOX_DISTRIBUTEX: return "DISTRIBUTEX";
+    case FGBOX_DISTRIBUTEY: return "DISTRIBUTEY";
+    case FGBOX_DISTRIBUTEX|FGBOX_DISTRIBUTEY: return "DISTRIBUTE";
+    }
+    break;
+  }
+
+  switch(ty) // scrollbar flags
+  {
+  case 2: // scrollbar
+  case 3: // box
+  case 4: // list
+  case 5: // grid
+  case 14: // textbox
+  case 15: // treeview
+  case 19: // dropdown
+  case 21: // menu
+  case 25: // workspace
+  case 26: // toolbar
+  case 27: // toolgroup
+  case 28: // combobox
+    switch(flag)
+    {
+    case FGLIST_SELECT: return "SELECT";
+    case FGLIST_MULTISELECT: return "MULTISELECT";
+    case FGLIST_DRAGGABLE: return "DRAGGABLE";
+    }
+    break;
+  }
+
+  switch(ty) // text flags
+  {
+  case 7: // text
+  case 14: // textbox
+  case 27: // toolgroup
+  //case 28: // combobox
+    switch(flag)
+    {
+    case FGTEXT_CHARWRAP: return "CHARWRAP";
+    case FGTEXT_WORDWRAP: return "WORDWRAP";
+    case FGTEXT_ELLIPSES: return "ELLIPSES";
+    case FGTEXT_RTL: return "RTL";
+    case FGTEXT_RIGHTALIGN: return "RIGHTALIGN";
+    case FGTEXT_CENTER: return "CENTER";
+    case FGTEXT_SUBPIXEL: return "SUBPIXEL";
+    }
+    break;
+  }
+
+  switch(ty) // textbox flags
+  {
+  case 14: // textbox
+  //case 28: // combobox
+    switch(flag)
+    {
+    case FGTEXTBOX_ACTION: return "ACTION";
+    case FGTEXTBOX_SINGLELINE: return "SINGLELINE";
+    }
+    break;
+  }
+
+  switch(ty) // Control flags
+  {
+  case 1:
+  case 2:
+  case 3:
+  case 4:
+  case 5: // grid
+  case 8: //button
+  case 9:
+  case 10:
+  case 11:
+  case 12: //progressbar
+  case 13:
+  case 14:
+  case 15:
+  case 16:
+  case 17: //listitem
+  case 19:
+  case 20:
+  case 21:
+  case 22: //submenu
+  case 24:
+  case 25:
+  case 26:
+  case 27:
+  case 28: // combobox
+    switch(flag)
+    {
+    case FGCONTROL_DISABLE: return "DISABLE";
+    }
+  }
+
+  return 0;
+}
 void fgUserDataMapDefaultProcess(fgElement* self, struct _FG_KEY_VALUE* pair)
 {
   if(!STRNICMP(pair->key, "contextmenu", 11))

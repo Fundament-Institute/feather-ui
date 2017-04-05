@@ -573,6 +573,7 @@ xcopy "..\include\feathergui\*.h" "$(VcpkgRoot)include\feathergui" /c /y /q /i /
     <ClInclude Include="..\include\feathergui\fgScrollbar.h" />
     <ClInclude Include="..\include\feathergui\fgSkin.h" />
     <ClInclude Include="..\include\feathergui\fgRoot.h" />
+    <ClInclude Include="..\include\feathergui\fgSkinTree.h" />
     <ClInclude Include="..\include\feathergui\fgSlider.h" />
     <ClInclude Include="..\include\feathergui\fgStyle.h" />
     <ClInclude Include="..\include\feathergui\fgTabcontrol.h" />
@@ -593,6 +594,7 @@ xcopy "..\include\feathergui\*.h" "$(VcpkgRoot)include\feathergui" /c /y /q /i /
     <ClCompile Include="fgBox.cpp" />
     <ClCompile Include="fgButton.cpp" />
     <ClCompile Include="fgCheckbox.cpp" />
+    <ClCompile Include="fgCombobox.cpp" />
     <ClCompile Include="fgCurve.cpp" />
     <ClCompile Include="fgDebug.cpp" />
     <ClCompile Include="fgDropdown.cpp" />
@@ -609,11 +611,14 @@ xcopy "..\include\feathergui\*.h" "$(VcpkgRoot)include\feathergui" /c /y /q /i /
     <ClCompile Include="fgScrollbar.cpp" />
     <ClCompile Include="fgSkin.cpp" />
     <ClCompile Include="fgRoot.cpp" />
+    <ClCompile Include="fgSkinParseXML.cpp" />
+    <ClCompile Include="fgSkinTree.cpp" />
     <ClCompile Include="fgSlider.cpp" />
     <ClCompile Include="fgStyle.cpp" />
     <ClCompile Include="fgTabcontrol.cpp" />
     <ClCompile Include="fgText.cpp" />
     <ClCompile Include="fgTextbox.cpp" />
+    <ClCompile Include="fgToolbar.cpp" />
     <ClCompile Include="fgWindow.cpp" />
     <ClCompile Include="fgTreeview.cpp" />
     <ClCompile Include="fgControl.cpp" />

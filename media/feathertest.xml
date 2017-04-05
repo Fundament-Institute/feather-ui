@@ -1,10 +1,49 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<fg:Layout xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:fg="featherGUI" xsi:schemaLocation="featherGUI feather.xsd" skin="testskin" padding="0,20,0,0">
+<fg:Layout xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:fg="featherGUI" xsi:schemaLocation="featherGUI feather.xsd" skin="testskin">
   <Window area="130 100 510 420" text="Test Window" flags="RESIZABLE">
+    <Menu>
+      <MenuItem text="File">
+        <Submenu>
+          <MenuItem text="New" />
+          <MenuItem text="Open" />
+          <MenuItem text="Save" />
+          <MenuItem text="Save As..." />
+          <MenuItem />
+          <MenuItem text="Quit" />
+        </Submenu>
+      </MenuItem>
+      <MenuItem text="Edit">
+        <Submenu>
+          <MenuItem text="Cut" />
+          <MenuItem text="Copy" />
+          <MenuItem text="Paste" />
+          <MenuItem />
+          <MenuItem text="Transform" >
+            <Submenu >
+              <MenuItem text="Free Transform" >
+                <Submenu>
+                  <MenuItem text="Apply" />
+                </Submenu>
+              </MenuItem>
+              <MenuItem />
+              <MenuItem text="Rotate" />
+              <MenuItem text="Skew" />
+              <MenuItem text="Resize" />
+            </Submenu>
+          </MenuItem>
+        </Submenu>
+      </MenuItem>
+      <MenuItem text="Options" />
+      <MenuItem text="Help">
+        <Submenu>
+          <MenuItem text="About" />
+        </Submenu>
+      </MenuItem>
+    </Menu>
     <Submenu id="#testcontext" area="0,0,0,0">
       <MenuItem text="Change Window Text" />
     </Submenu>
-    <TabControl area="0 0 100% 100%" flags="DRAGGABLE">
+    <TabControl area="0 20 100% 100%" flags="DRAGGABLE">
       <Tab name="Tab 1" id="#tabfocus">
         <Button area="0, 0, 0, 0" flags="EXPAND" text="Not Pressed" onaction="makepressed" />
         <Box area="10, 160, 150, 240" flags="TILEY|EXPANDX" max-width="100" margin="2,2,2,2">
@@ -19,6 +58,7 @@
         <Radiobutton area="190, 190, 0, 0" text="Radio Test 3" flags="EXPAND" />
         <Slider area="10, 70, 150, 90" value="200" range="500" onsetvalue="statelistener" />
         <Progressbar id="#progbar" value="0.35" area="10, 100, 150, 125" text="Progress" />
+        <!--<Combobox id="#combo" text="combo text"></Combobox>-->
       </Tab>
       <Tab name="Long Tab">
         <Textbox area="140, 30, 210, 150" flags="WORDWRAP" placeholder="placeholder" />
@@ -113,45 +153,6 @@
       </Tab>
     </TabControl>
   </Window>
-  <!--<Menu flags="EXPANDY|TILEX|BACKGROUND">
-    <MenuItem text="File">
-      <Submenu>
-        <MenuItem text="New" />
-        <MenuItem text="Open" />
-        <MenuItem text="Save" />
-        <MenuItem text="Save As..." />
-        <MenuItem />
-        <MenuItem text="Quit" />
-      </Submenu>
-    </MenuItem>
-    <MenuItem text="Edit">
-      <Submenu>
-        <MenuItem text="Cut" />
-        <MenuItem text="Copy" />
-        <MenuItem text="Paste" />
-        <MenuItem />
-        <MenuItem text="Transform" >
-          <Submenu >
-            <MenuItem text="Free Transform" >
-              <Submenu>
-                <MenuItem text="Apply" />
-              </Submenu>
-            </MenuItem>
-            <MenuItem />
-            <MenuItem text="Rotate" />
-            <MenuItem text="Skew" />
-            <MenuItem text="Resize" />
-          </Submenu>
-        </MenuItem>
-      </Submenu>
-    </MenuItem>
-    <MenuItem text="Options" />
-    <MenuItem text="Help">
-      <Submenu>
-        <MenuItem text="About" />
-      </Submenu>
-    </MenuItem>
-  </Menu>-->
 </fg:Layout>
 <fg:Skin name="testskin" xmlns:fg="featherGUI">
   <Skin name="Scrollbar">
@@ -201,7 +202,7 @@
       </Resource>
     </Skin>
   </Skin>
-  <Skin name="Window" flags="RESIZABLE" color="0xFFFFFF" font="14 arial" padding="3, 35, 3, 3">
+  <Skin name="Window" flags="RESIZABLE" color="0xFFFFFF" font="14 arial" padding="3, 30, 3, 3">
     <Resource uv="14,14,14,14" area="0,0,100%,100%" color="0xBBBBBB" edgecolor="0xAAAAAA" outline="2" flags="RECT|BACKGROUND" />
     <Resource uv="14,14,0,0" area="0,0,100%,30" color="0x666666" edgecolor="0" outline="1" flags="RECT|BACKGROUND" />
     <Skin name="Window$text" margin="12,4,0,0"/>
@@ -326,12 +327,12 @@
   </Skin>
   <Skin name="Text" color="0x000000" font="14 arial" />
   <Skin name="Menu" hovercolor="0xFFFFFFFF">
-    <Resource uv="0,0,0,0" area="0,0,100%,100%" color="0xFFFFFF99" edgecolor="0xAAAAAA" outline="0" flags="RECT|BACKGROUND" />
+    <Resource uv="0,0,0,0" area="0,0,100%,100%" color="0xBBBBBB" edgecolor="0xAAAAAA" outline="0" flags="RECT|BACKGROUND" />
   </Skin>
   <Skin name="Submenu">
-    <Resource uv="0,3,3,0" area="0,0,100%,100%" color="0xFFFFFF99" edgecolor="0xAAAAAA" outline="1" flags="RECT|BACKGROUND" />
+    <Resource uv="0,3,3,0" area="0,0,100%,100%" color="0xFFFFFFCC" edgecolor="0xAAAAAA" outline="1" flags="RECT|BACKGROUND" />
     <Skin name="Submenu$seperator" area="0,0,100%,5">
-      <Resource area="0,0,100%,100%" color="0xCCCCCCDD" outline="0" flags="RECT|BACKGROUND" margin="0,2,0,2" />
+      <Resource area="0,0,100%,100%" color="0x000000DD" outline="0" flags="RECT|BACKGROUND" margin="0,2,0,2" />
     </Skin>
     <Skin name="MenuItem" padding="0,0,20,0" />
     <Skin name="Submenu$arrow" area="100%, 50%, 100%, 50%" center="100%,50%">

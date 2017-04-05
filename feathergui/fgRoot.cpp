@@ -3,21 +3,7 @@
 
 #include "fgRoot.h"
 #include "fgMonitor.h"
-#include "fgBox.h"
-#include "fgWindow.h"
-#include "fgRadiobutton.h"
-#include "fgProgressbar.h"
-#include "fgSlider.h"
-#include "fgTextbox.h"
-#include "fgTreeview.h"
-#include "fgDebug.h"
-#include "fgList.h"
-#include "fgCurve.h"
-#include "fgDropdown.h"
-#include "fgTabcontrol.h"
-#include "fgMenu.h"
-#include "fgGrid.h"
-#include "fgWorkspace.h"
+#include "fgAll.h"
 #include "feathercpp.h"
 #include "bss-util/cTrie.h"
 #include <stdlib.h>
@@ -55,6 +41,7 @@ void fgRoot_Init(fgRoot* self, const AbsRect* area, const fgIntVec* dpi, const f
     &fgAssetSizeDefault,
     &fgDrawLinesDefault,
     &fgCreateDefault,
+    &fgFlagMapDefault,
     &fgMessageMapDefault,
     &fgUserDataMapDefault,
     &fgPushClipRectDefault,
@@ -122,6 +109,9 @@ void fgRoot_Init(fgRoot* self, const AbsRect* area, const fgIntVec* dpi, const f
   fgRegisterControl("grid", (fgInitializer)fgGrid_Init, sizeof(fgGrid), 0);
   fgRegisterControl("gridrow", (fgInitializer)fgGridRow_Init, sizeof(fgGridRow), 0);
   fgRegisterControl("workspace", (fgInitializer)fgWorkspace_Init, sizeof(fgWorkspace), 0);
+  fgRegisterControl("toolbar", (fgInitializer)fgToolbar_Init, sizeof(fgToolbar), 0);
+  fgRegisterControl("toolgroup", (fgInitializer)fgToolGroup_Init, sizeof(fgBox), 0);
+  fgRegisterControl("combobox", (fgInitializer)fgCombobox_Init, sizeof(fgCombobox), 0);
   fgRegisterControl("debug", (fgInitializer)fgDebug_Init, sizeof(fgDebug), FGELEMENT_BACKGROUND);
 }
 

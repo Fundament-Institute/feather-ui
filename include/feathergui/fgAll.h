@@ -18,3 +18,4 @@
 #include "fgDebug.h"
 #include "fgWorkspace.h"
 #include "fgToolbar.h"
+#include "fgCombobox.h"

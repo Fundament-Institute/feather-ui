@@ -236,6 +236,7 @@ enum FGUNIT
   FGUNIT_Y = 10,
   FGUNIT_RIGHT_WIDTH = (1 << 12),
   FGUNIT_BOTTOM_HEIGHT = (1 << 13),
+  FGUNIT_SNAP = (1 << 14), // Snaps the result to device pixels according to the current DPI
 };
 
 enum FGITEM
