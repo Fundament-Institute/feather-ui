@@ -118,15 +118,15 @@ int main(int argc, char** argv)
   if(!fgSingleton())
     return 1;
 
-  //fgLayout layout;
-  //fgLayout_Init(&layout);
-  //fgLayout_LoadFileXML(&layout, "../media/editor/editor.xml");
+  fgLayout layout;
+  fgLayout_Init(&layout);
+  fgLayout_LoadFileXML(&layout, "../media/editor/editor.xml");
 
-  //{
-  //  fgLayoutEditor editor(&layout);
-  //  while(fgSingleton()->backend.fgProcessMessages());
-  //}
-  //fgLayout_Destroy(&layout);
+  {
+    fgLayoutEditor editor(&layout);
+    while(fgSingleton()->backend.fgProcessMessages());
+  }
+  fgLayout_Destroy(&layout);
   fgUnloadBackend();
 }
 

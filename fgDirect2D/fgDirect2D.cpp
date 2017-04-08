@@ -55,6 +55,12 @@ void fgTerminateD2D()
   fgDirect2D* d2d = fgDirect2D::instance;
   assert(d2d);
   fgContext_Destroy(&d2d->context);
+  DestroyWindow(d2d->tophwnd);
+  if(d2d->debughwnd)
+  {
+    fgContext_Destroy(&d2d->debugcontext);
+    DestroyWindow(d2d->debughwnd);
+  }
   VirtualFreeChild(d2d->root.gui);
   if(d2d->factory)
     d2d->factory->Release();
@@ -66,6 +72,7 @@ void fgTerminateD2D()
   CoUninitialize();
 
   fgDirect2D::instance = 0;
+  d2d->~fgDirect2D();
   free(d2d);
 }
 
@@ -791,7 +798,6 @@ struct _FG_ROOT* fgInitialize()
   };
 
   signal(SIGABRT, [](int) {*((int*)0) = 0; });
-
   typedef BOOL(WINAPI *tGetPolicy)(LPDWORD lpFlags);
   typedef BOOL(WINAPI *tSetPolicy)(DWORD dwFlags);
   const DWORD EXCEPTION_SWALLOWING = 0x1;
@@ -827,6 +833,7 @@ struct _FG_ROOT* fgInitialize()
   fgDirect2D::instance = root;
   HDC hdc = GetDC(NULL);
   fgIntVec dpi = { GetDeviceCaps(hdc, LOGPIXELSX), GetDeviceCaps(hdc, LOGPIXELSY) };
+  ReleaseDC(NULL, hdc);
   fgRoot_Init(&root->root, &extent, &dpi, &BACKEND);
 
   fgLog("Initializing fgDirect2D...");
@@ -834,7 +841,7 @@ struct _FG_ROOT* fgInitialize()
 #ifdef BSS_DEBUG
   HeapSetInformation(NULL, HeapEnableTerminationOnCorruption, NULL, 0);
 #endif
-  
+
   hr = CoCreateInstance(CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER, IID_IWICImagingFactory, (LPVOID*)&root->wicfactory);
   if(SUCCEEDED(hr))
     hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory1), reinterpret_cast<IUnknown**>(&root->writefactory));

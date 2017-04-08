@@ -191,7 +191,8 @@ HWND__* fgContext::WndCreate(const AbsRect& out, uint32_t exflags, void* self, c
   HWND handle = CreateWindowExW(WS_EX_COMPOSITED | exflags, cls, L"", style, rsize.left, rsize.top, INT(rwidth), INT(rheight), NULL, NULL, (HINSTANCE)&__ImageBase, NULL);
   HDC hdc = GetDC(handle);
   dpi = { (int)GetDeviceCaps(hdc, LOGPIXELSX), (int)GetDeviceCaps(hdc, LOGPIXELSY) };
-  
+  ReleaseDC(handle, hdc);
+
   SetWindowLongPtrW(handle, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(self));
 
   if(dwmblurbehind != 0)
@@ -201,6 +202,7 @@ HWND__* fgContext::WndCreate(const AbsRect& out, uint32_t exflags, void* self, c
     HRGN region = CreateRectRgn(-1, -1, 0, 0);
     DWM_BLURBEHIND blurbehind = { DWM_BB_ENABLE | DWM_BB_BLURREGION | DWM_BB_TRANSITIONONMAXIMIZED, TRUE, region, FALSE };
     (*dwmblurbehind)(handle, &blurbehind);
+    DeleteObject(region);
   }
 
   return handle;
