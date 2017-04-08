@@ -3,67 +3,44 @@
 
 #include "fgLayoutEditor.h"
 
-void fgLayoutEditor_Init(fgLayoutEditor* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+fgLayoutEditor* fgLayoutEditor::Instance = 0;
+
+size_t fgLayoutEditor::_inject(fgRoot* self, const FG_Msg* msg)
 {
-  memset(self, 0, sizeof(fgLayoutEditor));
-  self->window = reinterpret_cast<fgWindow*>(fgCreate("Window", parent, next, name, flags, transform, units));
-  self->main = reinterpret_cast<fgBox*>(fgCreate("Box", *self->window, 0, "fgLayoutEditor$main", FGBOX_TILEY, &fgTransform_EMPTY, 0));
-  self->menu = reinterpret_cast<fgMenu*>(fgCreate("Menu", *self->main, 0, "fgLayoutEditor$menu", FGELEMENT_USEDEFAULTS, &fgTransform_EMPTY, 0));
-  self->toolbar = reinterpret_cast<fgToolbar*>(fgCreate("Toolbar", *self->main, 0, "fgLayoutEditor$toolbar", FGELEMENT_USEDEFAULTS, &fgTransform_EMPTY, 0));
-  self->workspace = reinterpret_cast<fgWorkspace*>(fgCreate("Workspace", *self->main, 0, "fgLayoutEditor$workspace", FGELEMENT_USEDEFAULTS, &fgTransform_EMPTY, 0));
-  self->explorer = reinterpret_cast<fgTreeview*>(fgCreate("Treeview", *self->workspace, 0, "fgLayoutEditor$explorer", FGELEMENT_USEDEFAULTS, &fgTransform_EMPTY, 0));
-  self->properties = reinterpret_cast<fgGrid*>(fgCreate("Grid", *self->workspace, 0, "fgLayoutEditor$properties", FGELEMENT_USEDEFAULTS, &fgTransform_EMPTY, 0));
-  self->context = reinterpret_cast<fgMenu*>(fgCreate("Submenu", *self->window, 0, "fgLayoutEditor$context", FGELEMENT_USEDEFAULTS, &fgTransform_EMPTY, 0));
-  
-  { // Setup menus
-    fgElement* file = fgCreate("Submenu", self->menu->box->AddItemText("File"), 0, 0, FGELEMENT_USEDEFAULTS, 0, 0);
-    fgElement* edit = fgCreate("Submenu", self->menu->box->AddItemText("Edit"), 0, 0, FGELEMENT_USEDEFAULTS, 0, 0);
-    fgElement* view = fgCreate("Submenu", self->menu->box->AddItemText("View"), 0, 0, FGELEMENT_USEDEFAULTS, 0, 0);
-    fgElement* help = fgCreate("Submenu", self->menu->box->AddItemText("Help"), 0, 0, FGELEMENT_USEDEFAULTS, 0, 0);
-
-    file->AddItemText("New");
-    file->AddItemText("Open");
-    file->AddItemText("Open Recent");
-    file->AddItemText("Save");
-    file->AddItemText("Save As...");
-    file->AddItemText("Save All");
-    file->AddItemText(0);
-    file->AddItemText("Close");
-    file->AddItemText("Close All");
-    file->AddItemText(0);
-    file->AddItemText("Exit");
-
-    edit->AddItemText("Insert");
-    edit->AddItemText("Delete");
-    edit->AddItemText("Move");
-    edit->AddItemText("Select All");
-    edit->AddItemText(0);
-    edit->AddItemText("Cut");
-    edit->AddItemText("Copy");
-    edit->AddItemText("Paste");
-    edit->AddItemText(0);
-    edit->AddItemText("Undo");
-    edit->AddItemText("Redo");
-    edit->AddItemText(0);
-
-    view->AddItemText("Show Grid");
-    view->AddItemText("Show Crosshair");
-    view->AddItemText("Hide Rulers");
-    view->AddItemText("Hide Cursors");
-    view->AddItemText(0);
-    view->AddItemText("Snap to Grid");
-    view->AddItemText("Snap Near");
-    view->AddItemText(0);
-    view->AddItemText("Toggle Wireframe");
-
-    help->AddItemText("Manual");
-    help->AddItemText("Documentation");
-    help->AddItemText(0);
-    help->AddItemText("About FeatherGUI Layout Editor");
+  if(msg->type == FG_KEYDOWN)
+  {
+    if(msg->keycode == FG_KEY_F11)
+    {
+      if(fgDebug_Get() != 0 && !(fgDebug_Get()->tabs.control.element.flags&FGELEMENT_HIDDEN))
+        fgDebug_Hide();
+      else
+        fgDebug_Show(0, 1);
+    }
   }
+  return fgRoot_DefaultInject(self, msg);
+}
 
+fgLayoutEditor::fgLayoutEditor(fgLayout* layout)
+{
+  memset(this, 0, sizeof(fgLayoutEditor));
+  fgLayoutEditor::Instance = this;
+
+  fgRegisterFunction("menu_new", MenuNew);
+  fgRegisterFunction("menu_open", MenuOpen);
+  fgRegisterFunction("menu_save", MenuSave);
+  fgRegisterFunction("menu_saveas", MenuSaveAs);
+  fgRegisterFunction("menu_exit", MenuExit);
+
+  fgSingleton()->gui->LayoutLoad(layout);
+
+  _mainwindow = reinterpret_cast<fgWindow*>(fgGetID("Editor$mainwindow"));
+  _workspace = reinterpret_cast<fgWorkspace*>(fgGetID("Editor$workspace"));
+  _explorer = reinterpret_cast<fgTreeview*>(fgGetID("Editor$layout"));
+  _properties = reinterpret_cast<fgGrid*>(fgGetID("Editor$properties"));
+  
+  /*
   { // Setup toolbar
-    fgElement* mainbar = self->toolbar->list->AddItem(0);
+    fgElement* mainbar = self->toolbar->box->AddItem(0);
     fgCreate("Button", mainbar, 0, 0, FGELEMENT_USEDEFAULTS, 0, 0); // New
     fgCreate("Button", mainbar, 0, 0, FGELEMENT_USEDEFAULTS, 0, 0); // Open
     fgCreate("Button", mainbar, 0, 0, FGELEMENT_USEDEFAULTS, 0, 0); // Save
@@ -77,7 +54,7 @@ void fgLayoutEditor_Init(fgLayoutEditor* self, fgElement* BSS_RESTRICT parent, f
     fgCreate("Button", mainbar, 0, 0, FGELEMENT_USEDEFAULTS, 0, 0); // Paste
     fgCreate("Button", mainbar, 0, 0, FGELEMENT_USEDEFAULTS, 0, 0); // Delete
 
-    fgElement* viewbar = self->toolbar->list->AddItem(0);
+    fgElement* viewbar = self->toolbar->box->AddItem(0);
     fgCreate("Button", viewbar, 0, 0, FGELEMENT_USEDEFAULTS, 0, 0); // Show Grid
     fgCreate("Button", viewbar, 0, 0, FGELEMENT_USEDEFAULTS, 0, 0); // Show Crosshair
     fgCreate("Button", viewbar, 0, 0, FGELEMENT_USEDEFAULTS, 0, 0); // Hide Rulers
@@ -86,14 +63,37 @@ void fgLayoutEditor_Init(fgLayoutEditor* self, fgElement* BSS_RESTRICT parent, f
     fgCreate("Button", viewbar, 0, 0, FGELEMENT_USEDEFAULTS, 0, 0); // Snapping
     fgCreate("Button", viewbar, 0, 0, FGELEMENT_USEDEFAULTS, 0, 0); // Toggle Wireframe
 
-    fgElement* insertbar = self->toolbar->list->AddItem(0); // Bar with buttons for each element
+    fgElement* insertbar = self->toolbar->box->AddItem(0); // Bar with buttons for each element
     fgIterateControls(insertbar, [](void* p, const char* s) { fgElement* e = (fgElement*)p; e->AddItemText(s); });
-  }
+  }*/
 
-
+  fgSetInjectFunc(_inject);
 }
 
-void fgLayoutEditor_Destroy(fgLayoutEditor* self)
+fgLayoutEditor::~fgLayoutEditor()
 {
-  VirtualFreeChild(*self->window);
+  fgElement* window = fgGetID("Editor$mainwindow");
+  if(window)
+    VirtualFreeChild(window);
+}
+void fgLayoutEditor::MenuNew(struct _FG_ELEMENT*, const FG_Msg*)
+{
+
+}
+void fgLayoutEditor::MenuOpen(struct _FG_ELEMENT*, const FG_Msg*)
+{
+
+}
+void fgLayoutEditor::MenuSave(struct _FG_ELEMENT*, const FG_Msg*)
+{
+
+}
+void fgLayoutEditor::MenuSaveAs(struct _FG_ELEMENT*, const FG_Msg*)
+{
+
+}
+void fgLayoutEditor::MenuExit(struct _FG_ELEMENT*, const FG_Msg*)
+{
+  if(Instance->_mainwindow)
+    VirtualFreeChild(*Instance->_mainwindow);
 }

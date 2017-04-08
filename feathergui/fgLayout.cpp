@@ -335,7 +335,16 @@ void fgLayout_WriteStyleAttributesXML(cXMLNode* node, fgStyle& s, fgSkinBase* ro
         _FG_FONT_DATA* p = root->GetFont(cur->msg.p);
         if(p)
         {
-
+          cStr& s = node->AddAttribute("font")->String;
+          fgLayout_WriteInt(s, p->size);
+          if(p->weight != 400)
+          {
+            s += ' ';
+            fgLayout_WriteInt(s, p->weight);
+          }
+          if(p->italic)
+            s += " italic";
+          s += p->family;
         }
       }
       break;
@@ -360,6 +369,12 @@ void fgLayout_WriteStyleAttributesXML(cXMLNode* node, fgStyle& s, fgSkinBase* ro
       node->AddAttribute("uv")->String = fgLayout_WriteCRectXML(*(CRect*)cur->msg.p, 0);
       break;
     case FG_SETASSET:
+      if(cur->msg.p)
+      {
+        _FG_ASSET_DATA* p = root->GetAsset(cur->msg.p);
+        if(p)
+          node->AddAttribute("asset")->String = p->file;
+      }
       break;
     case FG_SETRANGE:
       fgLayout_WriteFloat(node->AddAttribute("range")->String, cur->msg.f);
@@ -387,18 +402,18 @@ void fgLayout_WriteStyleAttributesXML(cXMLNode* node, fgStyle& s, fgSkinBase* ro
     cur = cur->next;
   }
 }
-void fgLayout_WriteElementAttributesXML(cXMLNode* node, fgSkinElement& e)
+void fgLayout_WriteElementAttributesXML(cXMLNode* node, fgSkinElement& e, fgSkinBase* root)
 {
   if(e.order != 0)
     fgLayout_WriteInt(node->AddAttribute("order")->String, e.order);
   fgLayout_WriteFlagsXML(node, e.type, e.flags);
-  fgLayout_WriteStyleAttributesXML(node, e.style);
+  fgLayout_WriteStyleAttributesXML(node, e.style, root);
   fgLayout_WriteTransformXML(node, e.transform, e.units);
 }
 void fgLayout_SaveElementXML(fgLayout* self, fgClassLayout& e, cXMLNode* parent, const char* path)
 {
   cXMLNode* node = parent->AddNode(e.layout.type);
-  fgLayout_WriteElementAttributesXML(node, e.layout);
+  fgLayout_WriteElementAttributesXML(node, e.layout, &self->base);
   if(e.id)
     node->AddAttribute("id")->String = e.id;
   if(e.name)
@@ -420,7 +435,7 @@ void fgLayout_SaveStreamXML(fgLayout* self, std::ostream& s, const char* path)
   root->AddAttribute("xmlns:xsi")->String = "http://www.w3.org/2001/XMLSchema-instance";
   root->AddAttribute("xmlns:fg")->String = "featherGUI";
   root->AddAttribute("xsi:schemaLocation")->String = "featherGUI feather.xsd";
-  fgLayout_WriteStyleAttributesXML(root, self->style);
+  fgLayout_WriteStyleAttributesXML(root, self->style, &self->base);
   
   // Write all children nodes
   for(size_t i = 0; i < self->layout.l; ++i)

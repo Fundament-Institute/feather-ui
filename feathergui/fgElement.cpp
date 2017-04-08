@@ -105,7 +105,7 @@ void fgElement_Init(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent
 void fgElement_Destroy(fgElement* self)
 {
   assert(self != 0);
-  fgRoot_RemoveID(fgroot_instance, self);
+  fgRemoveID(self);
   fgroot_instance->backend.fgDirtyElement(self);
   _sendmsg<FG_DESTROY>(self);
   if(fgroot_instance->fgFocusedWindow == self) // We first try to bump focus up to our parents
@@ -326,7 +326,7 @@ fgElement* fgElement_LoadLayout(fgElement* parent, fgElement* next, fgClassLayou
   if(!element)
     return 0;
   if(layout->id != 0)
-    fgRoot_AddID(fgroot_instance, layout->id, element);
+    fgAddID(layout->id, element);
   fgElement_StyleToMessageArray(layout->layout.style, 0, (MESSAGESORT**)&element->layoutstyle);
   if(element->layoutstyle)
     fgElement_ApplyMessageArray(0, element, element->layoutstyle);

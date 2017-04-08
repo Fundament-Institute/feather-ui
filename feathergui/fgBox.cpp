@@ -53,6 +53,8 @@ char fgOrderedCompare(const AbsRect& l, const fgElement* const& e, const AbsRect
 template<fgFlag FLAGS>
 inline fgElement* fgOrderedGet(struct _FG_BOX_ORDERED_ELEMENTS_* self, const AbsRect* area, const AbsRect* cache)
 {
+  if(!self->ordered.l)
+    return 0;
   size_t r = bss_util::binsearch_aux_t<const fgElement*, AbsRect, size_t, &bss_util::CompT_EQ<char>, 1, const AbsRect*>::template binsearch_near<&fgOrderedCompare<FLAGS>>(self->ordered.p, *area, 0, self->ordered.l, cache);
   return (r >= self->ordered.l) ? self->ordered.p[0] : self->ordered.p[r];
 }
@@ -75,6 +77,8 @@ char fgBoxMsgCompare(const AbsVec& l, const fgElement* const& e)
 template<fgFlag FLAGS>
 inline fgElement* fgOrderedVec(struct _FG_BOX_ORDERED_ELEMENTS_* order, AbsVec v)
 {
+  if(!order->ordered.l)
+    return 0;
   size_t r = bss_util::binsearch_near<const fgElement*, AbsVec, size_t, &fgBoxMsgCompare<FLAGS>, &bss_util::CompT_EQ<char>, 1>(order->ordered.p, v, 0, order->ordered.l);
   return (r >= order->ordered.l) ? order->ordered.p[0] : order->ordered.p[r];
 }

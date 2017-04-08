@@ -58,7 +58,9 @@
         <Radiobutton area="190, 190, 0, 0" text="Radio Test 3" flags="EXPAND" />
         <Slider area="10, 70, 150, 90" value="200" range="500" onsetvalue="statelistener" />
         <Progressbar id="#progbar" value="0.35" area="10, 100, 150, 125" text="Progress" />
-        <!--<Combobox id="#combo" text="combo text"></Combobox>-->
+        <Combobox id="#combo" text="combo text" area="190,20,300,50">
+          <Text area="0, 0, 100%, 20" text="test text" />
+        </Combobox>
       </Tab>
       <Tab name="Long Tab">
         <Textbox area="140, 30, 210, 150" flags="WORDWRAP" placeholder="placeholder" />
@@ -119,7 +121,7 @@
         </Box>
       </Tab>
       <Tab name="Tab 4">
-        <Grid area="0,0,100%,100%" margin="20,20,20,20" padding="0,20,0,0" flags="TILEY|DRAGGABLE" splitter="2,2">
+        <Grid area="0,0,100%,100%" margin="20,20,20,20" flags="TILEY|DRAGGABLE" splitter="2,2">
           <Column name="Column 1"/>
           <Column name="Column 2"/>
           <Column name="Column 3"/>
@@ -274,7 +276,7 @@
     </Skin>
   </Skin>
   <Skin name="TabControl">
-    <Skin name="Tabcontrol$header"></Skin>
+    <Skin name="Tabcontrol$header" flags="TILE"></Skin>
     <Skin name="Tabcontrol$panel">
       <Resource uv="0,0,14,14" area="0,0,100%,100%" color="0xEEEEEE" flags="RECT|BACKGROUND|SNAP" />
     </Skin>
@@ -309,6 +311,13 @@
     </Skin>
   </Skin>
   <Skin name="List" selectcolor="0xDD9999" hovercolor="0x999999" dragcolor="0xCCCCCC">
+    <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0xFFFFFF99" edgecolor="0xAAAAAA" outline="1" flags="RECT|BACKGROUND|SNAP" />
+  </Skin>
+  <Skin name="Combobox" hovercolor="0x999999">
+    <Skin name="fgCombobox$textbox" area="0,0,-30:1,0:1" color="0x000000" font="14 arial" lineheight="16" placecolor="0x00000088" cursorcolor="0x000000" selectcolor="0x0000AAAA" padding="3,3,3,3" inherit="Scrollbar"/>
+    <Skin name="Dropdown$box" inherit="Scrollbar">
+      <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0xFFFFFF99" edgecolor="0xAAAAAA" outline="1" flags="RECT|BACKGROUND|IGNORE" />
+    </Skin>
     <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0xFFFFFF99" edgecolor="0xAAAAAA" outline="1" flags="RECT|BACKGROUND|SNAP" />
   </Skin>
   <Skin name="ListItem">

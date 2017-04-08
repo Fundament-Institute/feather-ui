@@ -44,6 +44,7 @@ BOOL __stdcall SpawnMonitorsProc(HMONITOR monitor, HDC hdc, LPRECT, LPARAM lpara
   AbsRect area = { info.rcMonitor.left, info.rcMonitor.top, info.rcMonitor.right, info.rcMonitor.bottom };
   fgMonitor* cur = reinterpret_cast<fgMonitor*>(calloc(1, sizeof(fgMonitor)));
   fgMonitor_Init(cur, 0, &root->root, (!info.rcMonitor.left && !info.rcMonitor.top) ? 0 : prev, &area, &dpi); // Attempt to identify the primary monitor and make it the first monitor in the list
+  ((fgElement*)cur)->free = &free;
   prev = cur;
   return TRUE;
 }
@@ -65,6 +66,7 @@ void fgTerminateD2D()
   CoUninitialize();
 
   fgDirect2D::instance = 0;
+  free(d2d);
 }
 
 fgWindowD2D* GetElementWindow(fgElement* cur)
@@ -280,6 +282,7 @@ void fgFontGetD2D(void* font, struct _FG_FONT_DESC* desc)
 }
 size_t fgFontIndexD2D(void* font, const void* text, size_t len, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, AbsVec pos, AbsVec* cursor, void* cache)
 {
+  assert(font != 0);
   IDWriteTextLayout1* layout = (IDWriteTextLayout1*)cache;
   if(!layout)
     layout = CreateD2DLayout((IDWriteTextFormat*)font, (const wchar_t*)text, len, area);

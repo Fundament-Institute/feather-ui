@@ -39,7 +39,6 @@ _FG_FONT_DATA::~_FG_FONT_DATA()
 _FG_FONT_DATA& _FG_FONT_DATA::operator=(const _FG_FONT_DATA& copy) { this->~_FG_FONT_DATA(); new (this) _FG_FONT_DATA(copy); return *this; }
 _FG_FONT_DATA& _FG_FONT_DATA::operator=(_FG_FONT_DATA&& mov) { this->~_FG_FONT_DATA(); new (this) _FG_FONT_DATA(std::move(mov)); return *this; }
 
-
 _FG_ASSET_DATA::_FG_ASSET_DATA(void* _asset, const char* _file)
 {
   memset(this, 0, sizeof(_FG_ASSET_DATA));

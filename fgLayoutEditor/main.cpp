@@ -7,12 +7,13 @@
 
 #ifdef BSS_PLATFORM_WIN32 //Windows function
 #include "bss-util/bss_win32_includes.h"
+#include <Shlwapi.h>
 
 template<class R, class T, size_t(*F)(const T* BSS_RESTRICT, ptrdiff_t, R* BSS_RESTRICT, size_t)>
 inline std::basic_string<R> ConvUTF(const T* s)
 {
   std::basic_string<R> wstr;
-  wstr.reserve(F(s, -1, 0, 0));
+  wstr.resize(F(s, -1, 0, 0));
   wstr.resize(F(s, -1, const_cast<R*>(wstr.data()), wstr.capacity()));
   return wstr;
 }
@@ -22,8 +23,12 @@ int Listdir(const char* cdir, bool(*fn)(const char*), char flags, const char* fi
   WIN32_FIND_DATAW ffd;
   HANDLE hdir = INVALID_HANDLE_VALUE;
 
-  std::wstring dir = ConvUTF<wchar_t, char, fgUTF8toUTF16>(cdir);
+  std::wstring dir;
+  dir.resize(MAX_PATH);
   std::wstring wfilter = ConvUTF<wchar_t, char, fgUTF8toUTF16>(filter);
+
+  PathCanonicalizeW(const_cast<wchar_t*>(dir.data()), ConvUTF<wchar_t, char, fgUTF8toUTF16>(cdir).c_str());
+  dir.resize(wcslen(dir.data()));
 
   if(dir[dir.length() - 1] == '/') const_cast<wchar_t*>(dir.data())[dir.length() - 1] = '\\';
   if(dir[dir.length() - 1] != '\\') dir += '\\';
@@ -104,16 +109,24 @@ int main(int argc, char** argv)
   rootpath = ".";
 #endif
 
+#ifdef BSS_DEBUG
+  Listdir(rootpath.c_str(), attemptbackend, 0, "*_d.dll");
+#else
   Listdir(rootpath.c_str(), attemptbackend, 0, "*.dll");
+#endif
 
   if(!fgSingleton())
     return 1;
 
-  fgLayoutEditor editor;
-  fgLayoutEditor_Init(&editor);
-  while(fgSingleton()->backend.fgProcessMessages());
-  fgLayoutEditor_Destroy(&editor);
+  //fgLayout layout;
+  //fgLayout_Init(&layout);
+  //fgLayout_LoadFileXML(&layout, "../media/editor/editor.xml");
 
+  //{
+  //  fgLayoutEditor editor(&layout);
+  //  while(fgSingleton()->backend.fgProcessMessages());
+  //}
+  //fgLayout_Destroy(&layout);
   fgUnloadBackend();
 }
 

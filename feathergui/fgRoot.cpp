@@ -119,9 +119,13 @@ void fgRoot_Destroy(fgRoot* self)
 {
   if(fgdebug_instance != 0)
     VirtualFreeChild(*fgdebug_instance);
+  fgControl_Destroy((fgControl*)self);
+  self->queue->~_FG_MESSAGEQUEUE();
+  free(self->queue);
+  self->aux->~_FG_MESSAGEQUEUE();
+  free(self->aux);
   fgRadioGroup_destroy(self->radiohash);
   fgFunctionMap_destroy(self->functionhash);
-  fgControl_Destroy((fgControl*)self);
   kh_destroy_fgIDHash(self->idhash);
   kh_destroy_fgIDMap(self->idmap); // We don't need to clear this because it will have already been emptied.
   for(khiter_t i = 0; i < self->initmap->n_buckets; ++i) // We do have to clear this one, though.
@@ -705,11 +709,11 @@ void fgRoot_ModifyAction(fgRoot* self, fgDeferAction* action)
   else if(!action->prev && action != self->updateroot) // If true you aren't in the list so we need to add you
     fgRoot_AddAction(self, action);
 }
-fgElement* fgRoot_GetID(fgRoot* self, const char* id)
+fgElement* fgGetID(const char* id)
 {
-  khiter_t i = kh_get_fgIDMap(self->idmap, const_cast<char*>(id));
-  if(i != kh_end(self->idmap) && kh_exist(self->idmap, i))
-    return kh_val(self->idmap, i);
+  khiter_t i = kh_get_fgIDMap(fgroot_instance->idmap, const_cast<char*>(id));
+  if(i != kh_end(fgroot_instance->idmap) && kh_exist(fgroot_instance->idmap, i))
+    return kh_val(fgroot_instance->idmap, i);
   return 0;
 }
 
@@ -722,37 +726,37 @@ void VERIFY_IDHASH()
 }
 #endif
 
-void fgRoot_AddID(fgRoot* self, const char* id, fgElement* element)
+void fgAddID(const char* id, fgElement* element)
 {
   int r;
-  khiter_t i = kh_get_fgIDMap(self->idmap, const_cast<char*>(id));
-  if(i != kh_end(self->idmap) && kh_exist(self->idmap, i))  // the key already exists so we need to remove and replace the previous element
+  khiter_t i = kh_get_fgIDMap(fgroot_instance->idmap, const_cast<char*>(id));
+  if(i != kh_end(fgroot_instance->idmap) && kh_exist(fgroot_instance->idmap, i))  // the key already exists so we need to remove and replace the previous element
   {
-    assert(i != kh_end(self->idmap));
-    fgLog("Replacing duplicate element ID: %s (%p -> %p)", id, kh_val(self->idmap, i), element);
-    kh_del_fgIDHash(self->idhash, kh_get_fgIDHash(self->idhash, kh_val(self->idmap, i)));
+    assert(i != kh_end(fgroot_instance->idmap));
+    fgLog("Replacing duplicate element ID: %s (%p -> %p)", id, kh_val(fgroot_instance->idmap, i), element);
+    kh_del_fgIDHash(fgroot_instance->idhash, kh_get_fgIDHash(fgroot_instance->idhash, kh_val(fgroot_instance->idmap, i)));
   }
   else
-    i = kh_put_fgIDMap(self->idmap, fgCopyText(id, __FILE__, __LINE__), &r);
+    i = kh_put_fgIDMap(fgroot_instance->idmap, fgCopyText(id, __FILE__, __LINE__), &r);
 
-  kh_val(self->idmap, i) = element;
-  khiter_t j = kh_put_fgIDHash(self->idhash, element, &r);
-  const char* test = kh_key(self->idmap, i);
-  kh_val(self->idhash, j) = kh_key(self->idmap, i);
+  kh_val(fgroot_instance->idmap, i) = element;
+  khiter_t j = kh_put_fgIDHash(fgroot_instance->idhash, element, &r);
+  const char* test = kh_key(fgroot_instance->idmap, i);
+  kh_val(fgroot_instance->idhash, j) = kh_key(fgroot_instance->idmap, i);
 }
-char fgRoot_RemoveID(fgRoot* self, fgElement* element)
+char fgRemoveID(fgElement* element)
 {
-  khiter_t i = kh_get_fgIDHash(self->idhash, element);
-  if(i == kh_end(self->idhash) || !kh_exist(self->idhash, i))
+  khiter_t i = kh_get_fgIDHash(fgroot_instance->idhash, element);
+  if(i == kh_end(fgroot_instance->idhash) || !kh_exist(fgroot_instance->idhash, i))
     return false;
-  khiter_t j = kh_get_fgIDMap(self->idmap, kh_val(self->idhash, i));
-  if(j != kh_end(self->idmap) && kh_exist(self->idmap, j))
-    kh_del_fgIDMap(self->idmap, j);
+  khiter_t j = kh_get_fgIDMap(fgroot_instance->idmap, kh_val(fgroot_instance->idhash, i));
+  if(j != kh_end(fgroot_instance->idmap) && kh_exist(fgroot_instance->idmap, j))
+    kh_del_fgIDMap(fgroot_instance->idmap, j);
   else
     assert(false);
 
-  fgFreeText(kh_val(self->idhash, i), __FILE__, __LINE__);
-  kh_del_fgIDHash(self->idhash, i);
+  fgFreeText(kh_val(fgroot_instance->idhash, i), __FILE__, __LINE__);
+  kh_del_fgIDHash(fgroot_instance->idhash, i);
   return true;
 }
 
@@ -829,6 +833,7 @@ fgElement* fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgE
     flags = (flags&(~FGELEMENT_USEDEFAULTS)) | ty.flags;
 
   fgElement* r = reinterpret_cast<fgElement*>(fgmalloc<char>(ty.size, type, 0));
+  memset(r, 0xFD, ty.size);
   ty.init(r, parent, next, name, flags, transform, units);
 #ifdef BSS_DEBUG
   r->free = &fgfreeblank;

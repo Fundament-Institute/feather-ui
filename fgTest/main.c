@@ -94,7 +94,7 @@ RETPAIR test_Window()
   fgLayout_LoadFileXML(&layout, "../media/feathertest.xml");
   fgVoidMessage(&fgSingleton()->gui.element, FG_LAYOUTLOAD, &layout, 0);
 
-  fgElement* tabfocus = fgRoot_GetID(fgSingleton(), "#tabfocus");
+  fgElement* tabfocus = fgGetID("#tabfocus");
   fgElement* tabbutton = (fgElement*)fgVoidMessage(tabfocus, FG_GETSELECTEDITEM, 0, 0);
   FG_Msg m = { FG_ACTION, 0 };
   fgSendMessageAsync(tabbutton, &m, 0, 0);

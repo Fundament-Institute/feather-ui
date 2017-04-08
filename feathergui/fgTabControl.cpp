@@ -100,12 +100,6 @@ size_t fgTabcontrolHeader_Message(fgList* self, const FG_Msg* msg)
 {
   switch(msg->type)
   {
-  case FG_SETAREA:
-  {
-    size_t r = fgList_Message(self, msg);
-    fgTabcontrol_AdjustPadding(reinterpret_cast<fgTabcontrol*>(self->box->parent));
-    return r;
-  }
   case FG_ACTION:
     if(msg->e)
     {
@@ -150,6 +144,11 @@ size_t fgTabcontrol_Message(fgTabcontrol* self, const FG_Msg* msg)
       _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->header);
     }
     return sizeof(fgTabcontrol);
+  case FG_MOVE:
+    fgControl_HoverMessage(&self->control, msg);
+    if((msg->u2 & FGMOVE_PROPAGATE) != 0 && msg->p == &self->header)
+      fgTabcontrol_AdjustPadding(self);
+    return FG_ACCEPT;
   case FG_ADDITEM:
   {
     assert(_CrtCheckMemory());

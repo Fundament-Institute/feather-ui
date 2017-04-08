@@ -32,23 +32,24 @@ void fgAssetSizeDefault(fgAsset res, const CRect* uv, AbsVec* dim, fgFlag flags)
 
 void fgDrawLinesDefault(const AbsVec* p, size_t n, unsigned int color, const AbsVec* translate, const AbsVec* scale, FABS rotation, const AbsVec* center, const fgDrawAuxData* data) {}
 
-AbsRect* clipstack = 0;
-size_t clipcapacity = 0;
-size_t clipnum = 0;
+static std::unique_ptr<AbsRect, decltype(&free)> clipstack(nullptr, &free);
+static size_t clipcapacity = 0;
+static size_t clipnum = 0;
 
 void fgPushClipRectDefault(const AbsRect* clip, const fgDrawAuxData* data)
 {
   if(clipcapacity >= clipnum)
   {
     clipcapacity = clipcapacity * 2;
-    clipstack = (AbsRect*)realloc(clipstack, sizeof(AbsRect)*clipcapacity);
+    AbsRect* p = clipstack.release();
+    clipstack.reset((AbsRect*)realloc(p, sizeof(AbsRect)*clipcapacity));
   }
-  clipstack[clipnum++] = *clip;
+  clipstack.get()[clipnum++] = *clip;
 }
 AbsRect fgPeekClipRectDefault(const fgDrawAuxData* data)
 {
   static const AbsRect BLANK = { 0,0,0,0 };
-  return !clipnum ? BLANK : clipstack[clipnum - 1];
+  return !clipnum ? BLANK : clipstack.get()[clipnum - 1];
 }
 void fgPopClipRectDefault(const fgDrawAuxData* data)
 {
@@ -339,7 +340,7 @@ void fgUserDataMapDefaultProcess(fgElement* self, struct _FG_KEY_VALUE* pair)
 {
   if(!STRNICMP(pair->key, "contextmenu", 11))
   {
-    fgElement* menu = fgRoot_GetID(fgroot_instance, pair->value);
+    fgElement* menu = fgGetID(pair->value);
     if(menu != 0)
       self->SetContextMenu(menu);
   }
@@ -451,7 +452,13 @@ struct _FG_ROOT* fgLoadBackend(const char* dll)
   if(!fgDynLibP)
     return 0;
   FN_INITIALIZE init = (FN_INITIALIZE)GETDYNFUNC(fgDynLibP, "fgInitialize");
-  return !init ? 0 : init();
+  if(!init)
+  {
+    FREEDYNLIB(fgDynLibP);
+    fgDynLibP = 0;
+    return 0;
+  }
+  return init();
 }
 
 void fgUnloadBackend()

@@ -29,6 +29,8 @@ FG_EXTERN void fgDropdown_Init(fgDropdown* BSS_RESTRICT self, fgElement* BSS_RES
 FG_EXTERN void fgDropdown_Destroy(fgDropdown* self);
 FG_EXTERN size_t fgDropdown_Message(fgDropdown* self, const FG_Msg* msg);
 
+FG_EXTERN size_t fgDropdownBox_Message(fgBox* self, const FG_Msg* msg);
+
 #ifdef  __cplusplus
 }
 #endif

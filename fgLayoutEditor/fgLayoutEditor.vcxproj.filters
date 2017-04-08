@@ -26,6 +26,9 @@
     <ClInclude Include="fgLayoutEditor.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="EditorVersion.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="fgLayoutEditor.rc">

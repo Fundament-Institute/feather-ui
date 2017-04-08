@@ -6,10 +6,6 @@
 
 #include "fgAll.h"
 
-#ifdef  __cplusplus
-extern "C" {
-#endif
-
 typedef struct FG_LAYOUT_ACTION
 {
   fgElement* self;
@@ -17,27 +13,34 @@ typedef struct FG_LAYOUT_ACTION
   struct FG_LAYOUT_ACTION* next;
 } fgLayoutAction;
 
-typedef struct FG_LAYOUT_EDITOR
+class fgLayoutEditor
 {
-  fgWindow* window;
-  fgBox* main; // Primary tiling layout
-  fgMenu* menu;
-  fgToolbar* toolbar;
-  fgTreeview* explorer;
-  fgGrid* properties;
-  fgWorkspace* workspace;
-  fgMenu* context;
+public:
+  explicit fgLayoutEditor(fgLayout* layout);
+  ~fgLayoutEditor();
 
-  fgElement* selected;
-  fgLayoutAction* undo;
-  fgLayoutAction* redo;
-} fgLayoutEditor;
+  static void MenuNew(struct _FG_ELEMENT*, const FG_Msg*);
+  static void MenuOpen(struct _FG_ELEMENT*, const FG_Msg*);
+  static void MenuSave(struct _FG_ELEMENT*, const FG_Msg*);
+  static void MenuSaveAs(struct _FG_ELEMENT*, const FG_Msg*);
+  static void MenuExit(struct _FG_ELEMENT*, const FG_Msg*);
 
-FG_EXTERN void fgLayoutEditor_Init(fgLayoutEditor* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
-FG_EXTERN void fgLayoutEditor_Destroy(fgLayoutEditor* self);
+  static fgLayoutEditor* Instance;
 
-#ifdef  __cplusplus
-}
-#endif
+protected:
+  static size_t _inject(fgRoot* self, const FG_Msg* msg);
+
+  fgWindow* _mainwindow;
+  fgTreeview* _explorer;
+  fgGrid* _properties;
+  fgTreeview* _skinexplorer;
+  fgGrid* _skinprops;
+  fgWorkspace* _workspace;
+
+  fgLayout* _layout;
+  fgElement* _selected;
+  fgLayoutAction* _undo;
+  fgLayoutAction* _redo;
+};
 
 #endif

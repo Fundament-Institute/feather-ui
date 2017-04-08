@@ -84,9 +84,6 @@ FG_EXTERN void fgRoot_AddAction(fgRoot* self, fgDeferAction* action); // Adds an
 FG_EXTERN void fgRoot_RemoveAction(fgRoot* self, fgDeferAction* action); // Removes an action. Action must be in list.
 FG_EXTERN void fgRoot_ModifyAction(fgRoot* self, fgDeferAction* action); // Moves action if it needs to be moved, or inserts it if it isn't already in the list.
 FG_EXTERN struct _FG_MONITOR* fgRoot_GetMonitor(const fgRoot* self, const AbsRect* rect);
-FG_EXTERN fgElement* fgRoot_GetID(fgRoot* self, const char* id);
-FG_EXTERN void fgRoot_AddID(fgRoot* self, const char* id, fgElement* element);
-FG_EXTERN char fgRoot_RemoveID(fgRoot* self, fgElement* element);
 FG_EXTERN void fgRoot_Clear(fgRoot* self); // Clears the root and monitors of all elements, but doesn't destroy the monitor objects
 FG_EXTERN size_t fgStandardInject(fgElement* self, const FG_Msg* msg, const AbsRect* area);
 FG_EXTERN size_t fgOrderedInject(fgElement* self, const FG_Msg* msg, const AbsRect* area, fgElement* skip, fgElement* (*fn)(fgElement*, const FG_Msg*), fgElement* selected);
@@ -104,6 +101,9 @@ FG_EXTERN void fgSendMessageAsync(fgElement* element, const FG_Msg* msg, unsigne
 FG_EXTERN size_t fgGetTypeSize(const char* type);
 FG_EXTERN fgFlag fgGetTypeFlags(const char* type);
 FG_EXTERN fgInject fgSetInjectFunc(fgInject inject); // Sets the injection function and returns the previous one
+FG_EXTERN fgElement* fgGetID(const char* id);
+FG_EXTERN void fgAddID(const char* id, fgElement* element);
+FG_EXTERN char fgRemoveID(fgElement* element);
 FG_EXTERN int fgLog(const char* format, ...);
 
 #ifdef  __cplusplus

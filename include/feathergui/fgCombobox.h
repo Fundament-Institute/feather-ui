@@ -16,7 +16,7 @@ typedef struct {
   fgDropdown dropdown; // GETSELECTEDITEM returns either the selected item or the text typed into the combobox.
   fgTextbox text;
 #ifdef  __cplusplus
-  inline operator fgElement*() { return &dropdown.box.scroll.control.element; }
+  inline operator fgElement*() { return &dropdown.control.element; }
 #endif
 } fgCombobox;
 

@@ -298,11 +298,17 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
         fgTextbox_fixpos(self, self->end, &self->endpos);
         break;
       case FGTEXTBOX_CUT:
-        fgroot_instance->backend.fgClipboardCopy(FGCLIPBOARD_TEXT, self->text32.p, self->text32.l*sizeof(int));
+        if(self->start < self->end)
+          fgroot_instance->backend.fgClipboardCopy(FGCLIPBOARD_TEXT, self->text32.p + self->start, (self->end - self->start)*sizeof(int));
+        if(self->start > self->end)
+          fgroot_instance->backend.fgClipboardCopy(FGCLIPBOARD_TEXT, self->text32.p + self->end, (self->start - self->end) * sizeof(int));
         fgTextbox_DeleteSelection(self);
         break;
       case FGTEXTBOX_COPY:
-        fgroot_instance->backend.fgClipboardCopy(FGCLIPBOARD_TEXT, self->text32.p, self->text32.l * sizeof(int));
+        if(self->start < self->end)
+          fgroot_instance->backend.fgClipboardCopy(FGCLIPBOARD_TEXT, self->text32.p + self->start, (self->end - self->start) * sizeof(int));
+        if(self->start > self->end)
+          fgroot_instance->backend.fgClipboardCopy(FGCLIPBOARD_TEXT, self->text32.p + self->end, (self->start - self->end) * sizeof(int));
         break;
       case FGTEXTBOX_PASTE:
         if(fgroot_instance->backend.fgClipboardExists(FGCLIPBOARD_TEXT))

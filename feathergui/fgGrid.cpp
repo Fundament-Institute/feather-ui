@@ -7,6 +7,15 @@
 
 size_t fgPlaceholder_Message(fgElement* self, const FG_Msg* msg) { return fgElement_Message(self, msg); }
 
+void fgGrid_AdjustPadding(fgGrid* self)
+{
+  AbsRect padding = self->realpadding;
+  padding.top += self->header->transform.area.bottom.abs;
+  FG_Msg m = { FG_SETPADDING, 0 };
+  m.p = &padding;
+  fgList_Message(&self->list, &m);
+}
+
 size_t fgGridColumn_Message(fgList* self, const FG_Msg* msg)
 {
   switch(msg->type)
@@ -35,6 +44,7 @@ size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_CONSTRUCT:
+    memset(&self->realpadding, 0, sizeof(AbsRect));
     fgList_Message(&self->list, msg);
     fgList_Init(&self->header, *self, 0, "Grid$header", FGELEMENT_BACKGROUND | FGELEMENT_EXPANDY | FGBOX_TILEX, &ROWTRANSFORM, 0);
     self->header->message = (fgMessage)fgGridColumn_Message;
@@ -52,6 +62,11 @@ size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
       _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->editbox);
     }
     return sizeof(fgGrid);
+  case FG_MOVE:
+    fgList_Message(&self->list, msg);
+    if((msg->u2 & FGMOVE_PROPAGATE) != 0 && msg->p == &self->header)
+      fgGrid_AdjustPadding(self);
+    return FG_ACCEPT;
   case FG_ADDITEM:
     switch(msg->subtype)
     {
@@ -148,8 +163,20 @@ size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
       return self->rowevencolor.color;
     }
     break;
-  case FG_GETCLASSNAME:
-    return (size_t)"Grid";
+  case FG_SETPADDING:
+    if(msg->p != nullptr)
+    {
+      AbsRect* padding = (AbsRect*)msg->p;
+      char diff = CompareMargins(&self->realpadding, padding);
+      memcpy(&self->realpadding, padding, sizeof(AbsRect));
+
+      if(diff) // Only send a move message if the padding change actually changed something
+        fgSubMessage(*self, FG_MOVE, FG_SETPADDING, 0, FGMOVE_PADDING);
+
+      fgGrid_AdjustPadding(self);
+      return FG_ACCEPT;
+    }
+    return 0;
   case FG_ACTION:
     switch(msg->subtype)
     {
@@ -176,6 +203,8 @@ size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
       return FG_ACCEPT;
     }
     break;
+  case FG_GETCLASSNAME:
+    return (size_t)"Grid";
   }
 
   return fgList_Message(&self->list, msg);

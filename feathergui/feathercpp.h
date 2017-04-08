@@ -433,6 +433,7 @@ inline FABS fgLayout_ExpandY(FABS dimy, fgElement* child)
 }
 
 struct _FG_MESSAGEQUEUE {
+  ~_FG_MESSAGEQUEUE() { if(mem.load(std::memory_order_acquire)) free(mem.load(std::memory_order_acquire)); }
   bss_util::RWLock lock;
   std::atomic<size_t> length;
   std::atomic<size_t> capacity;

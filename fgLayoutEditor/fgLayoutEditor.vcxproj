@@ -139,7 +139,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>feathergui32_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>feathergui32_d.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../bin32</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -155,7 +155,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>feathergui_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>feathergui_d.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../bin</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -175,7 +175,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>feathergui32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>feathergui32.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../bin32</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -214,7 +214,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>feathergui.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>feathergui.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../bin</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -242,6 +242,7 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="EditorVersion.h" />
     <ClInclude Include="fgLayoutEditor.h" />
   </ItemGroup>
   <ItemGroup>

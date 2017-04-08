@@ -261,7 +261,7 @@ void fgStyle_ParseAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, f
 {
   static cTrie<uint16_t, true> t(46, "id", "min-width", "min-height", "max-width", "max-height", "skin", "alpha", "margin", "padding", "text",
     "placeholder", "color", "placecolor", "cursorcolor", "selectcolor", "hovercolor", "dragcolor", "edgecolor", "dividercolor", "font", "lineheight",
-    "letterspacing", "value", "uv", "resource", "outline", "area", "center", "rotation", "left", "top", "right", "bottom", "width", "height",
+    "letterspacing", "value", "uv", "asset", "outline", "area", "center", "rotation", "left", "top", "right", "bottom", "width", "height",
     "name", "flags", "order", "inherit", "range", "splitter", "contextmenu", "reorder", "xmlns:xsi", "xmlns:fg", "xsi:schemaLocation");
   static cTrie<uint16_t, true> tvalue(5, "checkbox", "curve", "progressbar", "radiobutton", "slider");
   static cTrie<uint16_t, true> tenum(5, "true", "false", "none", "checked", "indeterminate");
@@ -430,7 +430,7 @@ void fgStyle_ParseAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, f
       AddStyleSubMsgArg<FG_SETUV, CRect>(self, f, &uv);
       break;
     }
-    case 24: // resource
+    case 24: // asset
     {
       _FG_ASSET_DATA* res = fgSkinBase_AddAssetFile(root, flags, attr->String);
       AddStyleMsg<FG_SETASSET, void*>(self, res->asset);

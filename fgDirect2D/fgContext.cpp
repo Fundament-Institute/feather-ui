@@ -352,12 +352,12 @@ void fgContext::SetMouse(tagPOINTS* points, unsigned short type, unsigned char b
   {
     if(wparam != (size_t)-1) //if wparam is -1 it signals that it is invalid, so we simply leave our assignments at their last known value.
     {
-      uint8_t bt = 0; //we must keep these bools accurate at all times
-      bt |= FG_MOUSELBUTTON&(-((wparam&MK_LBUTTON) != 0));
-      bt |= FG_MOUSERBUTTON&(-((wparam&MK_RBUTTON) != 0));
-      bt |= FG_MOUSEMBUTTON&(-((wparam&MK_MBUTTON) != 0));
-      bt |= FG_MOUSEXBUTTON1&(-((wparam&MK_XBUTTON1) != 0));
-      bt |= FG_MOUSEXBUTTON2&(-((wparam&MK_XBUTTON2) != 0));
+      evt.allbtn = 0; //we must keep these bools accurate at all times
+      evt.allbtn |= FG_MOUSELBUTTON&(-((wparam&MK_LBUTTON) != 0));
+      evt.allbtn |= FG_MOUSERBUTTON&(-((wparam&MK_RBUTTON) != 0));
+      evt.allbtn |= FG_MOUSEMBUTTON&(-((wparam&MK_MBUTTON) != 0));
+      evt.allbtn |= FG_MOUSEXBUTTON1&(-((wparam&MK_XBUTTON1) != 0));
+      evt.allbtn |= FG_MOUSEXBUTTON2&(-((wparam&MK_XBUTTON2) != 0));
     }
     else
       evt.allbtn = root->mouse.buttons;

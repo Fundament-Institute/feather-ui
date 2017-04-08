@@ -85,6 +85,12 @@
     </xs:restriction>
   </xs:simpleType>
 
+  <xs:simpleType name="fgFlagsWorkspace">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|HIDEH|HIDEV|SHOWH|SHOWV|RULERX|RULERY|SNAPTOX|SNAPTOY)(\|(BACKGROUND|NOCLIP|IGNORE|HIDDEN|EXPANDX|EXPANDY|EXPAND|SNAPX|SNAPY|SNAP|HIDEH|HIDEV|SHOWH|SHOWV|RULERX|RULERY|SNAPTOX|SNAPTOY))*" />
+    </xs:restriction>
+  </xs:simpleType>
+
   <xs:simpleType name="fgCheckboxState">
     <xs:restriction base="xs:string">
       <xs:enumeration value="none"/>
@@ -177,6 +183,7 @@
       <xs:element name="Window" type="fgWindow" />
       <xs:element name="Treeview" type="fgTreeview" />
       <xs:element name="Toolbar" type="fgToolbar" />
+      <xs:element name="Workspace" type="fgWorkspace" />
       <xs:element name="Curve" type="fgCurve" />
       <xs:element name="Style" type="fgStyle" />
     </xs:choice>
@@ -433,7 +440,7 @@
         <xs:attribute name="flags" type="fgFlagsResource"/>
         <xs:attribute name="color" type="fgHex"/>
         <xs:attribute name="uv" type="fgRect"/>
-        <xs:attribute name="resource" type="xs:string"/>
+        <xs:attribute name="asset" type="xs:string"/>
         <xs:attribute name="edgecolor" type="fgHex"/>
         <xs:attribute name="outline" type="fgUnit"/>
       </xs:extension>
@@ -548,6 +555,14 @@
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
+
+  <xs:complexType name="fgWorkspace">
+    <xs:complexContent>
+      <xs:extension base="fgLayout">
+        <xs:attribute name="flags" type="fgFlagsWorkspace"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
   
   <xs:element name="Layout">
     <xs:complexType>
@@ -570,7 +585,7 @@
         <xs:attribute name="letterspacing" type="xs:decimal"/>
         <xs:attribute name="value" type="xs:string"/>
         <xs:attribute name="uv" type="fgRect"/>
-        <xs:attribute name="resource" type="xs:string"/>
+        <xs:attribute name="asset" type="xs:string"/>
         <xs:attribute name="outline" type="fgUnit"/>
         <xs:attribute name="color" type="fgHex"/>
         <xs:attribute name="placecolor" type="fgHex"/>
