@@ -55,20 +55,9 @@ fgSkinLayout* fgSkinTree_GetChild(const fgSkinTree* self, FG_UINT child)
   return self->children.p + child;
 }
 
-FG_UINT fgSkinTree_AddStyle(fgSkinTree* self, const char* name)
+FG_UINT fgSkinTree_AddStyle(fgSkinTree* self, const char* names)
 {
-  size_t len = strlen(name) + 1;
-  DYNARRAY(char, tokenize, len);
-  MEMCPY(tokenize, len, name, len);
-  char* context;
-  char* token = STRTOK(tokenize, "+", &context);
-  FG_UINT style = 0;
-  while(token)
-  {
-    style |= fgStyle_GetName(token);
-    token = STRTOK(0, "+", &context);
-  }
-
+  FG_UINT style = fgStyle_GetAllNames(names);
   self->stylemask |= style;
   fgSkinTree::fgStylePair pair = { style, 0 };
   if(((StyleArraySort&)self->styles).Find(pair) == (size_t)~0)

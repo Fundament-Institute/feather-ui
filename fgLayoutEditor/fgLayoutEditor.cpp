@@ -25,12 +25,6 @@ fgLayoutEditor::fgLayoutEditor(fgLayout* layout)
   memset(this, 0, sizeof(fgLayoutEditor));
   fgLayoutEditor::Instance = this;
 
-  fgRegisterFunction("menu_new", MenuNew);
-  fgRegisterFunction("menu_open", MenuOpen);
-  fgRegisterFunction("menu_save", MenuSave);
-  fgRegisterFunction("menu_saveas", MenuSaveAs);
-  fgRegisterFunction("menu_exit", MenuExit);
-
   fgSingleton()->gui->LayoutLoad(layout);
 
   _mainwindow = reinterpret_cast<fgWindow*>(fgGetID("Editor$mainwindow"));
@@ -76,24 +70,30 @@ fgLayoutEditor::~fgLayoutEditor()
   if(window)
     VirtualFreeChild(window);
 }
-void fgLayoutEditor::MenuNew(struct _FG_ELEMENT*, const FG_Msg*)
+void fgLayoutEditor::MenuFile(struct _FG_ELEMENT* e, const FG_Msg* m)
+{
+  fgElement* child = (fgElement*)m->p;
+  if(child)
+  {
+    switch(child->userid)
+    {
+    case 8:
+      if(Instance->_mainwindow)
+        VirtualFreeChild(*Instance->_mainwindow);
+    }
+  }
+}
+void fgLayoutEditor::MenuRecent(struct _FG_ELEMENT*, const FG_Msg*)
+{}
+void fgLayoutEditor::MenuEdit(struct _FG_ELEMENT*, const FG_Msg*)
 {
 
 }
-void fgLayoutEditor::MenuOpen(struct _FG_ELEMENT*, const FG_Msg*)
+void fgLayoutEditor::MenuView(struct _FG_ELEMENT*, const FG_Msg*)
 {
 
 }
-void fgLayoutEditor::MenuSave(struct _FG_ELEMENT*, const FG_Msg*)
+void fgLayoutEditor::MenuHelp(struct _FG_ELEMENT*, const FG_Msg*)
 {
 
-}
-void fgLayoutEditor::MenuSaveAs(struct _FG_ELEMENT*, const FG_Msg*)
-{
-
-}
-void fgLayoutEditor::MenuExit(struct _FG_ELEMENT*, const FG_Msg*)
-{
-  if(Instance->_mainwindow)
-    VirtualFreeChild(*Instance->_mainwindow);
 }

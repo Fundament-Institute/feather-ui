@@ -106,6 +106,7 @@ void fgElement_Destroy(fgElement* self)
 {
   assert(self != 0);
   fgRemoveID(self);
+  fgClearTopmost(self); // Ensure we are not the topmost
   fgroot_instance->backend.fgDirtyElement(self);
   _sendmsg<FG_DESTROY>(self);
   if(fgroot_instance->fgFocusedWindow == self) // We first try to bump focus up to our parents
@@ -327,6 +328,7 @@ fgElement* fgElement_LoadLayout(fgElement* parent, fgElement* next, fgClassLayou
     return 0;
   if(layout->id != 0)
     fgAddID(layout->id, element);
+  element->userid = layout->userid;
   fgElement_StyleToMessageArray(layout->layout.style, 0, (MESSAGESORT**)&element->layoutstyle);
   if(element->layoutstyle)
     fgElement_ApplyMessageArray(0, element, element->layoutstyle);
@@ -780,7 +782,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
       {
       case FGSETSTYLE_NAME:
       case FGSETSTYLE_INDEX:
-        index = ((msg->subtype == FGSETSTYLE_NAME) ? fgStyle_GetName((const char*)msg->p) : (FG_UINT)msg->i);
+        index = ((msg->subtype == FGSETSTYLE_NAME) ? fgStyle_GetName((const char*)msg->p) : (FG_UINT)msg->u);
 
         if(index == (FG_UINT)-1)
           index = (FG_UINT)_sendmsg<FG_GETSTYLE>(self);

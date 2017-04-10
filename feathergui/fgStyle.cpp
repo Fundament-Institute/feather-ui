@@ -111,3 +111,20 @@ FG_UINT fgStyle_GetName(const char* name)
   }
   return kh_val(fgStyleStatic::Instance.h, iter);
 }
+
+FG_UINT fgStyle_GetAllNames(const char* names)
+{
+  size_t len = strlen(names) + 1;
+  DYNARRAY(char, tokenize, len);
+  MEMCPY(tokenize, len, names, len);
+  char* context;
+  char* token = STRTOK(tokenize, "+", &context);
+  FG_UINT style = 0;
+  while(token)
+  {
+    style |= fgStyle_GetName(token);
+    token = STRTOK(0, "+", &context);
+  }
+
+  return style;
+}

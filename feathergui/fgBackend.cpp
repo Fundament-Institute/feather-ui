@@ -406,6 +406,7 @@ void fgFunctionMap_destroy(struct kh_fgFunctionMap_s* h)
 
 int fgRegisterFunction(const char* name, fgListener fn)
 {
+  assert(fgroot_instance->backend.fgBehaviorHook != fgBehaviorHookDefault); // You must have this set to fgBehaviorHookListener or an equivelent for this to do anything!
   int r;
   khint_t iter = kh_put_fgFunctionMap(fgroot_instance->functionhash, fgCopyText(name, __FILE__, __LINE__), &r);
   kh_val(fgroot_instance->functionhash, iter) = fn;

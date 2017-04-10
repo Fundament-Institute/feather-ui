@@ -41,6 +41,7 @@ void fgClassLayout_Init(fgClassLayout* self, const char* type, const char* name,
   self->id = 0;
   memset(&self->children, 0, sizeof(fgVector));
   memset(&self->userdata, 0, sizeof(fgVector));
+  self->userid = 0;
 }
 void fgClassLayout_Destroy(fgClassLayout* self)
 {
@@ -85,6 +86,10 @@ void fgLayout_SaveFileUBJSON(fgLayout* self, const char* file)
 
 void fgClassLayout_LoadAttributesXML(fgClassLayout* self, const cXMLNode* cur, int flags, fgSkinBase* root, const char* path)
 {
+  const cXMLValue* userid = cur->GetAttribute("userid");
+  if(userid)
+    self->userid = userid->Integer;
+
   fgStyle_ParseAttributesXML(&self->layout.style, cur, flags, root, path, &self->id, (fgKeyValueArray*)&self->userdata);
 }
 
@@ -158,266 +163,16 @@ char fgLayout_LoadXML(fgLayout* self, const char* data, FG_UINT length)
   return fgLayout_LoadStreamXML(self, ss, 0);
 }
 
-void fgLayout_WriteFloat(cStr& s, float abs)
-{
-  int len = snprintf(0, 0, "%f", abs);
-  int start = s.size();
-  s.resize(len + start);
-  snprintf(s.UnsafeString(), len, "%f", abs);
-}
-void fgLayout_WriteInt(cStr& s, int64_t i)
-{
-  int len = snprintf(0, 0, "%lli", i);
-  int start = s.size();
-  s.resize(len + start);
-  snprintf(s.UnsafeString(), len, "%lli", i);
-}
-void fgLayout_WriteHex(cStr& s, uint64_t i)
-{
-  int len = snprintf(0, 0, "%08llX", i);
-  int start = s.size();
-  s.resize(len + start);
-  snprintf(s.UnsafeString(), len, "%08llX", i);
-}
-
-void fgLayout_WriteAbsXML(cStr& s, float abs, short unit)
-{
-  fgLayout_WriteFloat(s, abs);
-  if(!abs)
-    return;
-  switch(unit)
-  {
-  case FGUNIT_SP: s += "sp"; break;
-  case FGUNIT_EM: s += "em"; break;
-  case FGUNIT_PX: s += "px"; break;
-  }
-}
-void fgLayout_WriteCoordXML(cStr& s, const Coord& coord, short unit)
-{
-  if(coord.rel == 0.0f)
-    fgLayout_WriteAbsXML(s, coord.abs, unit);
-  else if(coord.abs == 0.0f)
-  {
-    fgLayout_WriteFloat(s, coord.rel * 100);
-    s += "%";
-  }
-  else
-  {
-    fgLayout_WriteFloat(s, coord.abs);
-    s += ":";
-    fgLayout_WriteFloat(s, coord.rel);
-  }
-}
-cStr fgLayout_WriteCVecXML(const CVec& vec, short units)
-{
-  cStr s;
-  fgLayout_WriteCoordXML(s, vec.x, (units&FGUNIT_X_MASK) >> FGUNIT_X);
-  s += ' ';
-  fgLayout_WriteCoordXML(s, vec.y, (units&FGUNIT_Y_MASK) >> FGUNIT_Y);
-  return s;
-}
-
-cStr fgLayout_WriteAbsRectXML(const AbsRect& r, short units)
-{
-  cStr s;
-  fgLayout_WriteAbsXML(s, r.left, (units&FGUNIT_LEFT_MASK) >> FGUNIT_LEFT);
-  s += ' ';
-  fgLayout_WriteAbsXML(s, r.top, (units&FGUNIT_TOP_MASK) >> FGUNIT_TOP);
-  s += ' ';
-  fgLayout_WriteAbsXML(s, r.right, (units&FGUNIT_RIGHT_MASK) >> FGUNIT_RIGHT);
-  s += ' ';
-  fgLayout_WriteAbsXML(s, r.bottom, (units&FGUNIT_BOTTOM_MASK) >> FGUNIT_BOTTOM);
-  return s;
-}
-
-cStr fgLayout_WriteCRectXML(const CRect& r, short units)
-{
-  cStr s;
-  fgLayout_WriteCoordXML(s, r.left, (units&FGUNIT_LEFT_MASK) >> FGUNIT_LEFT);
-  s += ' ';
-  fgLayout_WriteCoordXML(s, r.top, (units&FGUNIT_TOP_MASK) >> FGUNIT_TOP);
-  s += ' ';
-  fgLayout_WriteCoordXML(s, r.right, (units&FGUNIT_RIGHT_MASK) >> FGUNIT_RIGHT);
-  s += ' ';
-  fgLayout_WriteCoordXML(s, r.bottom, (units&FGUNIT_BOTTOM_MASK) >> FGUNIT_BOTTOM);
-  return s;
-}
-
-void fgLayout_WriteTransformXML(cXMLNode* node, const fgTransform& tf, short units)
-{
-  static const CVec EMPTYVEC = { 0 };
-  node->AddAttribute("area")->String = fgLayout_WriteCRectXML(tf.area, units);
-  if(tf.rotation != 0)
-    fgLayout_WriteFloat(node->AddAttribute("rotation")->String, tf.rotation);
-  if(memcmp(&tf.center, &EMPTYVEC, sizeof(CVec)) != 0)
-    node->AddAttribute("center")->String = fgLayout_WriteCVecXML(tf.center, units);
-}
-void fgLayout_WriteFlagsXMLIterate(cStr& s, const char* type, fgFlag flags, bool remove)
-{
-  const fgFlag MAXBITS = 3;
-  const fgFlag END = (sizeof(fgFlag) << 3) - MAXBITS;
-  const char* str;
-  for(fgFlag index = 0; index < END; ++index)
-  {
-    // Checks for a maximum of a 3 bit mask flag combination
-    fgFlag bits = 0;
-    for(fgFlag i = 0; i < MAXBITS; ++i)
-      bits |= (1 << (i + index));
-    for(fgFlag i = MAXBITS; i-- > 0;)
-    {
-      if((str = fgroot_instance->backend.fgFlagMap(type, bits)) != 0)
-      {
-        s += remove ? "|-" : "|";
-        s += str;
-        index += i;
-        break;
-      }
-      bits ^= (1 << (i + index));
-    }
-  }
-}
-
-void fgLayout_WriteFlagsXML(cXMLNode* node, const char* type, fgFlag flags)
-{
-  fgFlag def = fgGetTypeFlags(type);
-  fgFlag rm = def & (~flags);
-  fgFlag add = (~def) & flags;
-
-  cStr s;
-  fgLayout_WriteFlagsXMLIterate(s, type, add, false);
-  fgLayout_WriteFlagsXMLIterate(s, type, rm, true);
-  if(s.length() > 0)
-    node->AddAttribute("flags")->String = s.c_str() + 1; // strip initial '|'
-}
-void fgLayout_WriteStyleAttributesXML(cXMLNode* node, fgStyle& s, fgSkinBase* root)
-{
-  static const char* COLORATTR[8] = { "color", "placecolor", "cursorcolor", "selectcolor", "hovercolor", "dragcolor", "edgecolor", "dividercolor" };
-
-  fgStyleMsg* cur = s.styles;
-  while(cur)
-  {
-    switch(cur->msg.type)
-    {
-    case FG_SETSKIN:
-      if(cur->msg.p)
-        node->AddAttribute("skin")->String = reinterpret_cast<fgSkin*>(cur->msg.p)->name;
-      break;
-    case FG_SETALPHA:
-      fgLayout_WriteFloat(node->AddAttribute("alpha")->String, cur->msg.f);
-      break;
-    case FG_SETMARGIN:
-      node->AddAttribute("margin")->String = fgLayout_WriteAbsRectXML(*(AbsRect*)cur->msg.p, cur->msg.subtype);
-      break;
-    case FG_SETPADDING:
-      node->AddAttribute("padding")->String = fgLayout_WriteAbsRectXML(*(AbsRect*)cur->msg.p, cur->msg.subtype);
-      break;
-    case FG_SETTEXT:
-      switch(cur->msg.subtype & 3)
-      {
-      case FGTEXTFMT_UTF8:
-        node->AddAttribute((cur->msg.subtype&FGTEXTFMT_PLACEHOLDER_UTF8) ? "placeholder" : "text")->String = (const char*)cur->msg.p;
-        break;
-      case FGTEXTFMT_UTF16:
-        node->AddAttribute((cur->msg.subtype&FGTEXTFMT_PLACEHOLDER_UTF8) ? "placeholder" : "text")->String = (const char*)cur->msg.p;
-        break;
-      case FGTEXTFMT_UTF32:
-        node->AddAttribute((cur->msg.subtype&FGTEXTFMT_PLACEHOLDER_UTF8) ? "placeholder" : "text")->String = (const char*)cur->msg.p;
-        break;
-      }
-      break;
-    case FG_SETCOLOR:
-      if(cur->msg.subtype < 8)
-        fgLayout_WriteHex(node->AddAttribute(COLORATTR[cur->msg.subtype])->String, cur->msg.u);
-      break;
-    case FG_SETFONT:
-      if(cur->msg.p)
-      {
-        _FG_FONT_DATA* p = root->GetFont(cur->msg.p);
-        if(p)
-        {
-          cStr& s = node->AddAttribute("font")->String;
-          fgLayout_WriteInt(s, p->size);
-          if(p->weight != 400)
-          {
-            s += ' ';
-            fgLayout_WriteInt(s, p->weight);
-          }
-          if(p->italic)
-            s += " italic";
-          s += p->family;
-        }
-      }
-      break;
-    case FG_SETLINEHEIGHT:
-      fgLayout_WriteFloat(node->AddAttribute("lineheight")->String, cur->msg.f);
-      break;
-    case FG_SETLETTERSPACING:
-      fgLayout_WriteFloat(node->AddAttribute("letterspacing")->String, cur->msg.f);
-      break;
-    case FG_SETVALUE:
-      switch(cur->msg.subtype)
-      {
-        case FGVALUE_FLOAT:
-          fgLayout_WriteFloat(node->AddAttribute("value")->String, cur->msg.f);
-          break;
-        case FGVALUE_INT64:
-          fgLayout_WriteInt(node->AddAttribute("value")->String, cur->msg.i);
-          break;
-      }
-      break;
-    case FG_SETUV:
-      node->AddAttribute("uv")->String = fgLayout_WriteCRectXML(*(CRect*)cur->msg.p, 0);
-      break;
-    case FG_SETASSET:
-      if(cur->msg.p)
-      {
-        _FG_ASSET_DATA* p = root->GetAsset(cur->msg.p);
-        if(p)
-          node->AddAttribute("asset")->String = p->file;
-      }
-      break;
-    case FG_SETRANGE:
-      fgLayout_WriteFloat(node->AddAttribute("range")->String, cur->msg.f);
-      break;
-    case FG_SETOUTLINE:
-      fgLayout_WriteFloat(node->AddAttribute("outline")->String, cur->msg.f);
-      break;
-    case FG_SETUSERDATA:
-      node->AddAttribute((const char*)cur->msg.p)->String = (const char*)cur->msg.p2;
-      break;
-    case FG_SETDIM:
-      switch(cur->msg.subtype)
-      {
-      case FGDIM_MAX:
-        fgLayout_WriteFloat(node->AddAttribute("max-width")->String, cur->msg.f);
-        fgLayout_WriteFloat(node->AddAttribute("max-height")->String, cur->msg.f2);
-        break;
-      case FGDIM_MIN:
-        fgLayout_WriteFloat(node->AddAttribute("min-width")->String, cur->msg.f);
-        fgLayout_WriteFloat(node->AddAttribute("min-height")->String, cur->msg.f2);
-        break;
-      }
-      break;
-    }
-    cur = cur->next;
-  }
-}
-void fgLayout_WriteElementAttributesXML(cXMLNode* node, fgSkinElement& e, fgSkinBase* root)
-{
-  if(e.order != 0)
-    fgLayout_WriteInt(node->AddAttribute("order")->String, e.order);
-  fgLayout_WriteFlagsXML(node, e.type, e.flags);
-  fgLayout_WriteStyleAttributesXML(node, e.style, root);
-  fgLayout_WriteTransformXML(node, e.transform, e.units);
-}
 void fgLayout_SaveElementXML(fgLayout* self, fgClassLayout& e, cXMLNode* parent, const char* path)
 {
   cXMLNode* node = parent->AddNode(e.layout.type);
-  fgLayout_WriteElementAttributesXML(node, e.layout, &self->base);
+  fgSkinBase_WriteElementAttributesXML(node, e.layout, &self->base);
   if(e.id)
     node->AddAttribute("id")->String = e.id;
   if(e.name)
     node->AddAttribute("name")->String = e.name;
+  if(e.name)
+    fgSkinBase_WriteInt(node->AddAttribute("userid")->String, e.userid);
   for(size_t i = 0; i < e.userdata.l; ++i)
     node->AddAttribute(e.userdata.p[i].key)->String = e.userdata.p[i].value;
 
@@ -435,7 +190,7 @@ void fgLayout_SaveStreamXML(fgLayout* self, std::ostream& s, const char* path)
   root->AddAttribute("xmlns:xsi")->String = "http://www.w3.org/2001/XMLSchema-instance";
   root->AddAttribute("xmlns:fg")->String = "featherGUI";
   root->AddAttribute("xsi:schemaLocation")->String = "featherGUI feather.xsd";
-  fgLayout_WriteStyleAttributesXML(root, self->style, &self->base);
+  fgSkinBase_WriteStyleAttributesXML(root, self->style, &self->base);
   
   // Write all children nodes
   for(size_t i = 0; i < self->layout.l; ++i)
@@ -454,11 +209,6 @@ void fgLayout_SaveFileXML(fgLayout* self, const char* file)
     dir[1] = 0;
   std::ofstream fs(file, std::ios_base::out | std::ios_base::binary);
   return fgLayout_SaveStreamXML(self, fs, path.c_str());
-}
-
-void fgLayout_SaveElementXML(fgElement* root, const char* file)
-{
-
 }
 
 FG_UINT fgLayout::AddLayout(const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order) { return fgLayout_AddLayout(this, type, name, flags, transform, units, order); }

@@ -21,6 +21,7 @@ typedef struct _FG_CLASS_LAYOUT {
   const char* id;
   fgVectorClassLayout children; // Type: fgClassLayout
   fgVectorKeyValue userdata; // Custom userdata from unknown attributes
+  FG_UINT userid;
 
 #ifdef  __cplusplus
   FG_DLLEXPORT void AddUserString(const char* key, const char* value);
@@ -61,7 +62,6 @@ FG_EXTERN void fgLayout_SaveFileUBJSON(fgLayout* self, const char* file);
 FG_EXTERN char fgLayout_LoadFileXML(fgLayout* self, const char* file);
 FG_EXTERN char fgLayout_LoadXML(fgLayout* self, const char* data, FG_UINT length);
 FG_EXTERN void fgLayout_SaveFileXML(fgLayout* self, const char* file);
-FG_EXTERN void fgLayout_SaveElementXML(fgElement* root, const char* file);
 
 FG_EXTERN void fgClassLayout_Init(fgClassLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order);
 FG_EXTERN void fgClassLayout_Destroy(fgClassLayout* self);

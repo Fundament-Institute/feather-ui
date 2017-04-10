@@ -355,6 +355,9 @@ struct __VECTOR__UTF16;
 struct __VECTOR__UTF32;
 
 extern fgSkin* fgSkinBase_ParseNodeXML(fgSkinBase* self, const bss_util::cXMLNode* root);
+extern void fgSkinBase_WriteInt(cStr& s, int64_t i);
+extern void fgSkinBase_WriteElementAttributesXML(bss_util::cXMLNode* node, fgSkinElement& e, fgSkinBase* root);
+extern void fgSkinBase_WriteStyleAttributesXML(bss_util::cXMLNode* node, fgStyle& s, fgSkinBase* root);
 extern kh_fgSkins_s *kh_init_fgSkins();
 extern void fgStyle_ParseAttributesXML(struct _FG_STYLE* self, const bss_util::cXMLNode* cur, int flags, struct _FG_SKIN_BASE* root, const char* path, const char** id, fgKeyValueArray* userdata);
 extern int fgStyle_NodeEvalTransform(const bss_util::cXMLNode* node, fgTransform& t);

@@ -241,5 +241,8 @@
     <ClCompile Include="fgCombobox.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="fgSkinWriteXML.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

@@ -118,6 +118,13 @@ int main(int argc, char** argv)
   if(!fgSingleton())
     return 1;
 
+  fgSingleton()->backend.fgBehaviorHook = fgBehaviorHookListener;
+  fgRegisterFunction("menu_file", fgLayoutEditor::MenuFile);
+  fgRegisterFunction("menu_recent", fgLayoutEditor::MenuRecent);
+  fgRegisterFunction("menu_edit", fgLayoutEditor::MenuEdit);
+  fgRegisterFunction("menu_view", fgLayoutEditor::MenuView);
+  fgRegisterFunction("menu_help", fgLayoutEditor::MenuHelp);
+
   fgLayout layout;
   fgLayout_Init(&layout);
   fgLayout_LoadFileXML(&layout, "../media/editor/editor.xml");

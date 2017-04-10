@@ -54,12 +54,12 @@ void fgTerminateD2D()
   PostQuitMessage(0);
   fgDirect2D* d2d = fgDirect2D::instance;
   assert(d2d);
-  fgContext_Destroy(&d2d->context);
   DestroyWindow(d2d->tophwnd);
+  fgContext_Destroy(&d2d->context);
   if(d2d->debughwnd)
   {
-    fgContext_Destroy(&d2d->debugcontext);
     DestroyWindow(d2d->debughwnd);
+    fgContext_Destroy(&d2d->debugcontext);
   }
   VirtualFreeChild(d2d->root.gui);
   if(d2d->factory)

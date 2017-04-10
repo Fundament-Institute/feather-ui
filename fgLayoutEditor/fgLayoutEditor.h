@@ -19,11 +19,11 @@ public:
   explicit fgLayoutEditor(fgLayout* layout);
   ~fgLayoutEditor();
 
-  static void MenuNew(struct _FG_ELEMENT*, const FG_Msg*);
-  static void MenuOpen(struct _FG_ELEMENT*, const FG_Msg*);
-  static void MenuSave(struct _FG_ELEMENT*, const FG_Msg*);
-  static void MenuSaveAs(struct _FG_ELEMENT*, const FG_Msg*);
-  static void MenuExit(struct _FG_ELEMENT*, const FG_Msg*);
+  static void MenuFile(struct _FG_ELEMENT*, const FG_Msg*);
+  static void MenuRecent(struct _FG_ELEMENT*, const FG_Msg*);
+  static void MenuEdit(struct _FG_ELEMENT*, const FG_Msg*);
+  static void MenuView(struct _FG_ELEMENT*, const FG_Msg*);
+  static void MenuHelp(struct _FG_ELEMENT*, const FG_Msg*);
 
   static fgLayoutEditor* Instance;
 

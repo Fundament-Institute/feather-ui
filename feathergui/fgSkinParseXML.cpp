@@ -259,10 +259,10 @@ uint32_t fgStyle_ParseColor(const cXMLValue* attr)
 }
 void fgStyle_ParseAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, fgSkinBase* root, const char* path, const char** id, fgKeyValueArray* userdata)
 {
-  static cTrie<uint16_t, true> t(46, "id", "min-width", "min-height", "max-width", "max-height", "skin", "alpha", "margin", "padding", "text",
+  static cTrie<uint16_t, true> t(47, "id", "min-width", "min-height", "max-width", "max-height", "skin", "alpha", "margin", "padding", "text",
     "placeholder", "color", "placecolor", "cursorcolor", "selectcolor", "hovercolor", "dragcolor", "edgecolor", "dividercolor", "font", "lineheight",
     "letterspacing", "value", "uv", "asset", "outline", "area", "center", "rotation", "left", "top", "right", "bottom", "width", "height",
-    "name", "flags", "order", "inherit", "range", "splitter", "contextmenu", "reorder", "xmlns:xsi", "xmlns:fg", "xsi:schemaLocation");
+    "name", "flags", "order", "inherit", "range", "splitter", "contextmenu", "reorder", "style", "xmlns:xsi", "xmlns:fg", "xsi:schemaLocation");
   static cTrie<uint16_t, true> tvalue(5, "checkbox", "curve", "progressbar", "radiobutton", "slider");
   static cTrie<uint16_t, true> tenum(5, "true", "false", "none", "checked", "indeterminate");
 
@@ -470,9 +470,12 @@ void fgStyle_ParseAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, f
       else if(!STRICMP(attr->String, "bottom"))
         AddStyleSubMsg<FG_SETPARENT>(self, FGSETPARENT_FIRST);
       break;
-    case 43:
+    case 43: // style
+      AddStyleSubMsg<FG_SETSTYLE, size_t>(self, FGSETSTYLE_INDEX, fgStyle_GetAllNames(attr->String.c_str()));
+      break;
     case 44:
-    case 45: // These are all XML specific values that are only used for setting the XSD file
+    case 45:
+    case 46: // These are all XML specific values that are only used for setting the XSD file
       break;
     case 41: // contextmenu is a recognized option, but we put it in as custom userdata anyway because we can't resolve it until the layout is resolved.
     default: // Otherwise, unrecognized attributes are set as custom userdata
