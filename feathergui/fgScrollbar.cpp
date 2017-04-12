@@ -188,7 +188,7 @@ void fgScrollbar_Recalc(fgScrollbar* self)
   {
     float d = r.right - r.left - self->realpadding.left - self->realpadding.right - self->exclude.left - self->exclude.right;
     float length = (self->realsize.x <= 0.0f) ? 1.0f : (d / self->realsize.x);
-    float pos = (d - self->realsize.x) == 0.0f ? 0.0f : self->control.element.padding.left / (d - self->realsize.x);
+    float pos = (d - self->realsize.x) == 0.0f ? 0.0f : (self->control.element.padding.left - self->realpadding.left - self->exclude.left) / (d - self->realsize.x);
     self->bar[0].button->SetArea(CRect { 0, (1.0f - length)*pos, 0, 0, 0, (1.0f - length)*pos + length, 0, 1.0f });
     self->btn[0]->SetFlag(FGCONTROL_DISABLE, length >= 1.0f || pos <= 0.0f);
     self->btn[2]->SetFlag(FGCONTROL_DISABLE, length >= 1.0f || pos >= 1.0f);
@@ -198,7 +198,7 @@ void fgScrollbar_Recalc(fgScrollbar* self)
   {
     float d = r.bottom - r.top - self->realpadding.top - self->realpadding.bottom - self->exclude.top - self->exclude.bottom;
     float length = (self->realsize.y <= 0.0f) ? 1.0f : (d / self->realsize.y);
-    float pos = (d - self->realsize.y) == 0.0f ? 0.0f : self->control.element.padding.top / (d - self->realsize.y);
+    float pos = (d - self->realsize.y) == 0.0f ? 0.0f : (self->control.element.padding.top - self->realpadding.top - self->exclude.top) / (d - self->realsize.y);
     self->bar[1].button->SetArea(CRect { 0, 0, 0, (1.0f - length)*pos, 0, 1.0f, 0, (1.0f - length)*pos + length });
     self->btn[1]->SetFlag(FGCONTROL_DISABLE, length >= 1.0f || pos <= 0.0f);
     self->btn[3]->SetFlag(FGCONTROL_DISABLE, length >= 1.0f || pos >= 1.0f);

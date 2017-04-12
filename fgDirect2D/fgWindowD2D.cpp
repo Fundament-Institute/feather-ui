@@ -62,6 +62,8 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
 #ifdef TEST_DPI
       self->dpi.x = self->dpi.y = TEST_DPI;
 #endif
+      self->window->SetDPI(self->dpi.x, self->dpi.y); // Send a message with the DPI change so fonts get resized correctly
+
       ShowWindow(self->handle, SW_SHOW);
       UpdateWindow(self->handle);
       //SetWindowPos(self->handle, HWND_TOP, INT(wleft), INT(wtop), INT(rwidth), INT(rheight), SWP_NOCOPYBITS | SWP_NOMOVE | SWP_NOACTIVATE);
@@ -100,6 +102,8 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
     self->dpi.y = msg->i2;
     break;
   case FG_GETDPI:
+    if(!self->dpi.x)
+      break;
     return (size_t)&self->dpi;
   case FG_ACTION:
     switch(msg->i)
@@ -122,7 +126,9 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
       RECT r;
       if(SUCCEEDED(GetClientRect(self->handle, &r)))
       {
-        CRect area = { r.left, 0, r.top, 0, r.right, 0, r.bottom };
+        AbsRect rect = { r.left, r.top, r.right, r.bottom };
+        fgInvScaleRectDPI(&rect, self->dpi.x, self->dpi.y);
+        CRect area = { rect.left, 0, rect.top, 0, rect.right, 0, rect.bottom };
         fgSendSubMsg<FG_SETAREA, void*>(self->window, (uint16_t)~0, &area);
       }
       return FG_ACCEPT;

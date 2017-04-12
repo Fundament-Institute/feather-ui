@@ -95,10 +95,12 @@ RETPAIR test_Window()
   fgVoidMessage(&fgSingleton()->gui.element, FG_LAYOUTLOAD, &layout, 0);
 
   fgElement* tabfocus = fgGetID("#tabfocus");
-  fgElement* tabbutton = (fgElement*)fgVoidMessage(tabfocus, FG_GETSELECTEDITEM, 0, 0);
-  FG_Msg m = { FG_ACTION, 0 };
-  fgSendMessageAsync(tabbutton, &m, 0, 0);
-
+  if(tabfocus)
+  {
+    fgElement* tabbutton = (fgElement*)fgVoidMessage(tabfocus, FG_GETSELECTEDITEM, 0, 0);
+    FG_Msg m = { FG_ACTION, 0 };
+    fgSendMessageAsync(tabbutton, &m, 0, 0);
+  }
   while(fgSingleton()->backend.fgProcessMessages());
 
   fgLayout_Destroy(&layout);
@@ -222,7 +224,7 @@ int main(int argc, char** argv)
   srand(time(NULL));
   failedtests=fopen("failedtests.txt","wb");
   
-  printf("Feather GUI Abstraction Layer v%i.%i.%i: Unit Tests\nCopyright ©2017 Black Sphere Studios\n\n",FGUI_VERSION_MAJOR,FGUI_VERSION_MINOR,FGUI_VERSION_REVISION);
+  printf("Feather GUI Abstraction Layer v%i.%i.%i: Unit Tests\nCopyright (c)2017 Black Sphere Studios\n\n",FGUI_VERSION_MAJOR,FGUI_VERSION_MINOR,FGUI_VERSION_REVISION);
   printf("%-*s %-*s %-*s\n",COLUMNS[0],"Test Name", COLUMNS[1],"Subtests", COLUMNS[2],"Pass/Fail");
 
   for(i = 0; i < NUMTESTS; ++i)

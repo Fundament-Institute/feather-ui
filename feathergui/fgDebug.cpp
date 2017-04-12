@@ -111,8 +111,8 @@ void fgDebug_SetHover(fgDebug* self, fgElement* hover)
       self->overlay.SetArea(CRect{ out.left, 0, out.top, 0, out.right, 0, out.bottom, 0 });
       fgSetTopmost(&self->overlay);
     }
-    //else
-      //fgClearTopmost(&self->overlay);
+    else
+      fgClearTopmost(&self->overlay);
     self->overlay.SetFlag(FGELEMENT_HIDDEN, !self->hover);
   }
 }
@@ -243,7 +243,6 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
     }
     return sizeof(fgDebug);
   case FG_DRAW:
-    
     {
       AbsRect clip;
       ResolveRect(self->elements, &clip);
@@ -256,6 +255,7 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
     if((otherint^self->tabs->flags) & FGELEMENT_HIDDEN)
     { // handle a layout flag change
       size_t r = fgTabcontrol_Message(&self->tabs, msg);
+      self->overlay.SetFlag(FGELEMENT_HIDDEN, otherint&FGELEMENT_HIDDEN);
       if(otherint&FGELEMENT_HIDDEN)
       {
         fgroot_instance->backend.fgBehaviorHook = self->behaviorhook;
@@ -421,6 +421,9 @@ size_t fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
   }
   assert(fgdebug_instance->behaviorhook != &fgRoot_BehaviorDebug);
   if(fgdebug_instance->ignore > 0) // If the ignore flag is set, don't log any messages
+    return (*fgdebug_instance->behaviorhook)(self, msg);
+
+  if(self == &fgdebug_instance->overlay)
     return (*fgdebug_instance->behaviorhook)(self, msg);
 
   fgElement* parent = self->parent;
