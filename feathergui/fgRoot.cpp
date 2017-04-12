@@ -829,8 +829,8 @@ fgElement* fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgE
     return 0;
   }
   fgTypeInit& ty = kh_val(fgroot_instance->initmap, i);
-  if(FGELEMENT_USEDEFAULTS&flags)
-    flags = (flags&(~FGELEMENT_USEDEFAULTS)) | ty.flags;
+  if(FGFLAGS_DEFAULTS&flags)
+    flags = (flags&(~FGFLAGS_DEFAULTS)) | ty.flags;
 
   fgElement* r = reinterpret_cast<fgElement*>(fgmalloc<char>(ty.size, type, 0));
   memset(r, 0xFD, ty.size);
@@ -935,23 +935,4 @@ fgInject fgSetInjectFunc(fgInject inject)
   fgInject prev = fgroot_instance->inject;
   fgroot_instance->inject = inject;
   return prev;
-}
-
-void fgRoot_Clear(fgRoot* self)
-{
-  fgMonitor* m = self->monitors;
-  while(m)
-  {
-    fgElement_Clear(&m->element);
-    LList_RemoveAll(&m->element);
-    m = m->mnext;
-  }
-  fgElement_Clear(&self->gui.element);
-  m = self->monitors;
-  while(m)
-  {
-    fgElement_Clear(&m->element);
-    LList_InsertAll(&m->element, 0);
-    m = m->mnext;
-  }
 }

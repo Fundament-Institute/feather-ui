@@ -43,7 +43,6 @@ extern "C" {
     fgTextbox editbox; // Used for autoediting grid controls.
     fgColor columndividercolor;
     fgColor rowevencolor;
-    AbsRect realpadding;
 #ifdef  __cplusplus
     inline operator fgElement*() { return &list.box.scroll.control.element; }
     inline fgElement* operator->() { return operator fgElement*(); }

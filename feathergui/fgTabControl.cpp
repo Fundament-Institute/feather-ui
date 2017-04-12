@@ -130,7 +130,7 @@ size_t fgTabcontrol_Message(fgTabcontrol* self, const FG_Msg* msg)
     memset(&self->realpadding, 0, sizeof(AbsRect));
     fgControl_HoverMessage(&self->control, msg);
     fgTransform TF_HEADER = { { 0, 0, 0, 0, 0, 1, 0, 0 }, 0,{ 0,0,0,0 } };
-    fgList_Init(&self->header, *self, 0, "Tabcontrol$header", FGLIST_SELECT | FGBOX_TILEX | FGELEMENT_EXPANDY | FGELEMENT_BACKGROUND | (self->control->flags&FGLIST_DRAGGABLE), &TF_HEADER, 0);
+    fgList_Init(&self->header, *self, 0, "Tabcontrol$header", FGLIST_SELECT | FGBOX_TILEX | FGELEMENT_EXPANDY | FGELEMENT_BACKGROUND | (self->control->flags&FGLIST_DRAGGABLE) | FGFLAGS_INTERNAL, &TF_HEADER, 0);
     assert(self->header->message == (fgMessage)&fgList_Message);
     self->header->message = (fgMessage)&fgTabcontrolHeader_Message;
     return FG_ACCEPT;

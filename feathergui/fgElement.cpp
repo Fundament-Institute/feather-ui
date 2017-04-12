@@ -70,7 +70,7 @@ typedef bss_util::cArraySort<fgStoredMessage, &CompElementMsg, size_t, bss_util:
 void fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units, void (*destroy)(void*), size_t(*message)(void*, const FG_Msg*))
 {
   assert(self != 0);
-  assert(!(flags&FGELEMENT_USEDEFAULTS));
+  assert(!(flags&FGFLAGS_DEFAULTS));
   memset(self, 0, sizeof(fgElement));
   self->destroy = destroy;
   self->free = 0;
@@ -118,7 +118,8 @@ void fgElement_Destroy(fgElement* self)
   if(self->parent != 0)
     _sendmsg<FG_REMOVECHILD, void*>(self->parent, self);
   self->parent = 0;
-  fgElement_Clear(self);
+  while(self->root) // Destroy all children
+    VirtualFreeChild(self->root);
 
   if(fgroot_instance->fgFocusedWindow == self) // There are some known cases where a child might have focus and destroying it bumps focus back up to us.
     fgroot_instance->fgFocusedWindow = 0; // However, we must detach ourselves from our parents before we clear out our elements, so any focus buried inside our element is simply lost.
@@ -154,6 +155,18 @@ void fgElement_Destroy(fgElement* self)
 #ifdef BSS_DEBUG
   memset(self, 0xfefefefe, sizeof(fgElement));
 #endif
+}
+
+void fgElement_Clear(fgElement* self)
+{
+  fgElement* cur = self->root;
+  fgElement* hold;
+  while(hold = cur)
+  {
+    cur = cur->next;
+    if(!(hold->flags&FGFLAGS_INTERNAL))
+      VirtualFreeChild(hold);
+  }
 }
 
 // (1<<1) resize x (2)
@@ -1195,10 +1208,8 @@ FG_EXTERN void* fgGetPtrMessage(fgElement* self, unsigned short type, unsigned s
   return reinterpret_cast<void*>((*fgroot_instance->backend.fgBehaviorHook)(self, &msg));
 }
 
-void fgElement_Clear(fgElement* self)
+void fgElement_Wipe(fgElement* self)
 {
-  while(self->root) // Destroy all children
-    VirtualFreeChild(self->root);
 }
 
 fgElement* fgElement_GetChildUnderMouse(fgElement* self, float x, float y, AbsRect* cache)
@@ -1538,6 +1549,8 @@ struct _FG_ELEMENT* fgElement::GetItemAt(float x, float y)
 }
 
 size_t fgElement::GetNumItems() { return _sendsubmsg<FG_GETITEM>(this, FGITEM_COUNT); }
+
+void fgElement::Selection(struct _FG_ELEMENT* item) { _sendmsg<FG_SELECTION, fgElement*>(this, item); }
 
 fgElement* fgElement::GetSelectedItem(size_t index) { return reinterpret_cast<fgElement*>(_sendmsg<FG_GETSELECTEDITEM, size_t>(this, index)); }
 

@@ -133,8 +133,6 @@ size_t fgCurve_Message(fgCurve* self, const FG_Msg* msg)
     if(msg->subtype & 1) break;
     AbsRect area = *(AbsRect*)msg->p;
     fgDrawAuxData* data = (fgDrawAuxData*)msg->p2;
-    fgScaleRectDPI(&area, data->dpi.x, data->dpi.y);
-    fgSnapAbsRect(area, self->element.flags);
     AbsVec center = ResolveVec(&self->element.transform.center, &area);
     AbsVec scalevec = AbsVec { 1.0f, 1.0f };
 

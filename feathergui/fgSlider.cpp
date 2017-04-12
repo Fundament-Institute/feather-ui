@@ -21,7 +21,7 @@ size_t fgSlider_Message(fgSlider* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgControl_Message(&self->control, msg);
-    fgElement_Init(&self->slider, *self, 0, "Slider$slider", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER, 0);
+    fgElement_Init(&self->slider, *self, 0, "Slider$slider", FGELEMENT_EXPAND | FGELEMENT_IGNORE | FGFLAGS_INTERNAL, &fgTransform_CENTER, 0);
     self->value = 0;
     self->range = 0;
     return FG_ACCEPT;

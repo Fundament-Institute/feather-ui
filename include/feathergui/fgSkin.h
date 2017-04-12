@@ -91,7 +91,7 @@ typedef struct _FG_SKIN
 #endif
 } fgSkin;
 
-FG_EXTERN void fgSkin_Init(fgSkin* self);
+FG_EXTERN void fgSkin_Init(fgSkin* self, const char* name);
 FG_EXTERN void fgSkin_Destroy(fgSkin* self);
 FG_EXTERN fgSkin* fgSkin_GetSkin(const fgSkin* self, const char* name);
 FG_EXTERN const char* fgSkin_ParseFont(const char* s, char quote, int* size, short* weight, char* italic);

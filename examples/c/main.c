@@ -8,7 +8,7 @@
 
 void statelistener(fgElement* self, const FG_Msg* msg)
 {
-  fgElement* progbar = fgRoot_GetID(fgSingleton(), "#progbar");
+  fgElement* progbar = fgGetID("#progbar");
   fgFloatMessage(progbar, FG_SETVALUE, FGVALUE_FLOAT, fgGetFloatMessage(self, FG_GETVALUE, FGVALUE_FLOAT, 0) / fgGetFloatMessage(self, FG_GETRANGE, FGVALUE_FLOAT, 0), 0);
   char buf[10];
   _itoa_s(fgIntMessage(self, FG_GETVALUE, 0, 0), buf, 10, 10);
@@ -39,7 +39,7 @@ int main(int argc, char** argv)
   fgLayout_LoadFileXML(&layout, "../media/feathertest.xml");
   fgVoidMessage(&fgSingleton()->gui.element, FG_LAYOUTLOAD, &layout, 0);
 
-  fgElement* tabfocus = fgRoot_GetID(fgSingleton(), "#tabfocus");
+  fgElement* tabfocus = fgGetID("#tabfocus");
   if(tabfocus)
   {
     fgElement* tabbutton = (fgElement*)fgVoidMessage(tabfocus, FG_GETSELECTEDITEM, 0, 0);

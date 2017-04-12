@@ -216,14 +216,16 @@ void fgContext::BeginDraw(HWND handle, fgElement* element, const AbsRect* area, 
   target->Clear(D2D1::ColorF(0, 0));
   fgElement* hold = element->root;
   assert(!cliprect.size());
-
-  target->SetTransform(D2D1::Matrix3x2F::Translation(-area->left, -area->top));
-  cliprect.push(*area);
+  AbsRect truearea = *area;
+  fgIntVec& dpi = element->GetDPI();
+  fgScaleRectDPI(&truearea, dpi.x, dpi.y);
+  target->SetTransform(D2D1::Matrix3x2F::Translation(-truearea.left, -truearea.top));
+  cliprect.push(*area); // Dont' use the DPI scale here because the cliprect is scaled later in the pipeline.
 
   exdata = {
     {
       sizeof(fgDrawAuxDataEx),
-      element->GetDPI(),
+      dpi,
       { 1,1 },
       { 0,0 }
     },
@@ -257,6 +259,7 @@ void fgContext::CreateResources(HWND handle)
       hr = target->QueryInterface<ID2D1DeviceContext>(&context);
       if(SUCCEEDED(hr))
       {
+        context->SetUnitMode(D2D1_UNIT_MODE_PIXELS); // Force direct2D to render in pixels because feathergui does the DPI conversion for us.
         hr = context->CreateEffect(CLSID_fgRoundRect, &roundrect);
         hr = context->CreateEffect(CLSID_fgCircle, &circle);
         hr = context->CreateEffect(CLSID_fgTriangle, &triangle);

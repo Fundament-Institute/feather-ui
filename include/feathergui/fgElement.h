@@ -29,7 +29,6 @@ enum FGELEMENT_FLAGS
   FGELEMENT_LAYOUTMOVE = 4, // Called when any child is moved so the layout can adjust as necessary.
   FGELEMENT_LAYOUTREORDER = 5, // Called when any child is reordered
   FGELEMENT_LAYOUTRESET = 6, // Called when something invalidates the entire layout (like adding an EXPAND flag)
-  FGELEMENT_USEDEFAULTS = (1 << ((sizeof(fgFlag)<<3) - 1)),
 };
 
 typedef void (*fgDestroy)(void*);
@@ -150,6 +149,7 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT struct _FG_ELEMENT* GetItem(size_t index);
   FG_DLLEXPORT struct _FG_ELEMENT* GetItemAt(float x, float y);
   FG_DLLEXPORT size_t GetNumItems();
+  FG_DLLEXPORT void Selection(struct _FG_ELEMENT* item);
   FG_DLLEXPORT struct _FG_ELEMENT* GetSelectedItem(size_t index = 0);
   FG_DLLEXPORT size_t GetValue(ptrdiff_t aux = 0);
   FG_DLLEXPORT float GetValueF(ptrdiff_t aux = 0);
@@ -225,7 +225,7 @@ FG_EXTERN void ResolveNoClipRect(const fgElement* self, AbsRect* out, const AbsR
 // Tests if a MOUSEMOVE message (or other valid mouse message) hits the given element
 FG_EXTERN char MsgHitElement(const FG_Msg* msg, const fgElement* element);
 FG_EXTERN void VirtualFreeChild(fgElement* self);
-FG_EXTERN void fgElement_Clear(fgElement* self);
+FG_EXTERN void fgElement_Clear(fgElement* self); // Removes all non-internal children from the element
 FG_EXTERN void fgElement_MouseMoveCheck(fgElement* self);
 FG_EXTERN void fgElement_AddListener(fgElement* self, unsigned short type, fgListener listener);
 

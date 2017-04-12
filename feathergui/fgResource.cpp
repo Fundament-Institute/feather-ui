@@ -110,20 +110,17 @@ size_t fgResource_Message(fgResource* self, const FG_Msg* msg)
   case FG_DRAW:
   {
     if(msg->subtype & 1) break;
-    AbsRect area = *(AbsRect*)msg->p;
-    fgDrawAuxData* data = (fgDrawAuxData*)msg->p2;
-    fgScaleRectDPI(&area, data->dpi.x, data->dpi.y);
-    fgSnapAbsRect(area, self->element.flags);
-    AbsVec center = ResolveVec(&self->element.transform.center, &area);
+    AbsVec center = ResolveVec(&self->element.transform.center, (AbsRect*)msg->p);
 
     if(self->element.flags&FGRESOURCE_UVTILE)
     {
+      AbsRect& area = *(AbsRect*)msg->p;
       self->uv.right.abs = self->uv.left.abs + area.right - area.left;
       self->uv.bottom.abs = self->uv.top.abs + area.bottom - area.top;
-      fgroot_instance->backend.fgDrawAsset(self->asset, &self->uv, self->color.color, self->edge.color, self->outline, &area, self->element.transform.rotation, &center, self->element.flags, data);
+      fgroot_instance->backend.fgDrawAsset(self->asset, &self->uv, self->color.color, self->edge.color, self->outline, (AbsRect*)msg->p, self->element.transform.rotation, &center, self->element.flags, (fgDrawAuxData*)msg->p2);
     }
     else
-      fgroot_instance->backend.fgDrawAsset(self->asset, &self->uv, self->color.color, self->edge.color, self->outline, &area, self->element.transform.rotation, &center, self->element.flags, data);
+      fgroot_instance->backend.fgDrawAsset(self->asset, &self->uv, self->color.color, self->edge.color, self->outline, (AbsRect*)msg->p, self->element.transform.rotation, &center, self->element.flags, (fgDrawAuxData*)msg->p2);
   }
   break;
   case FG_GETCLASSNAME:

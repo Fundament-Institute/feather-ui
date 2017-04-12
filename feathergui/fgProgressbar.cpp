@@ -25,8 +25,8 @@ size_t fgProgressbar_Message(fgProgressbar* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgControl_Message(&self->control, msg);
-    fgElement_Init(&self->bar, *self, 0, "Progressbar$bar", FGELEMENT_BACKGROUND | FGELEMENT_IGNORE, &BAR_ELEMENT, 0);
-    fgText_Init(&self->text, *self, 0, "Progressbar$text", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER, 0);
+    fgElement_Init(&self->bar, *self, 0, "Progressbar$bar", FGELEMENT_BACKGROUND | FGELEMENT_IGNORE | FGFLAGS_INTERNAL, &BAR_ELEMENT, 0);
+    fgText_Init(&self->text, *self, 0, "Progressbar$text", FGELEMENT_EXPAND | FGELEMENT_IGNORE | FGFLAGS_INTERNAL, &fgTransform_CENTER, 0);
     self->value = 0.0f;
     return FG_ACCEPT;
   case FG_CLONE:

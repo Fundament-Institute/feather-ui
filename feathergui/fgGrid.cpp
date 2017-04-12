@@ -7,15 +7,6 @@
 
 size_t fgPlaceholder_Message(fgElement* self, const FG_Msg* msg) { return fgElement_Message(self, msg); }
 
-void fgGrid_AdjustPadding(fgGrid* self)
-{
-  AbsRect padding = self->realpadding;
-  padding.top += self->header->transform.area.bottom.abs;
-  FG_Msg m = { FG_SETPADDING, 0 };
-  m.p = &padding;
-  fgList_Message(&self->list, &m);
-}
-
 size_t fgGridColumn_Message(fgList* self, const FG_Msg* msg)
 {
   switch(msg->type)
@@ -44,9 +35,8 @@ size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_CONSTRUCT:
-    memset(&self->realpadding, 0, sizeof(AbsRect));
     fgList_Message(&self->list, msg);
-    fgList_Init(&self->header, *self, 0, "Grid$header", FGELEMENT_BACKGROUND | FGELEMENT_EXPANDY | FGBOX_TILEX, &ROWTRANSFORM, 0);
+    fgList_Init(&self->header, *self, 0, "Grid$header", FGELEMENT_BACKGROUND | FGELEMENT_EXPANDY | FGBOX_TILEX | FGFLAGS_INTERNAL, &ROWTRANSFORM, 0);
     self->header->message = (fgMessage)fgGridColumn_Message;
     return FG_ACCEPT;
   case FG_CLONE:
@@ -65,7 +55,12 @@ size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
   case FG_MOVE:
     fgList_Message(&self->list, msg);
     if((msg->u2 & FGMOVE_PROPAGATE) != 0 && msg->p == &self->header)
-      fgGrid_AdjustPadding(self);
+    {
+      AbsRect r;
+      ResolveRect(self->header, &r);
+      self->list.box.scroll.exclude.top = r.bottom - r.top;
+      _sendsubmsg<FG_ACTION>(*self, FGSCROLLBAR_CHANGE);
+    }
     return FG_ACCEPT;
   case FG_ADDITEM:
     switch(msg->subtype)
@@ -163,20 +158,6 @@ size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
       return self->rowevencolor.color;
     }
     break;
-  case FG_SETPADDING:
-    if(msg->p != nullptr)
-    {
-      AbsRect* padding = (AbsRect*)msg->p;
-      char diff = CompareMargins(&self->realpadding, padding);
-      memcpy(&self->realpadding, padding, sizeof(AbsRect));
-
-      if(diff) // Only send a move message if the padding change actually changed something
-        fgSubMessage(*self, FG_MOVE, FG_SETPADDING, 0, FGMOVE_PADDING);
-
-      fgGrid_AdjustPadding(self);
-      return FG_ACCEPT;
-    }
-    return 0;
   case FG_ACTION:
     switch(msg->subtype)
     {

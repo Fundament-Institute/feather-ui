@@ -52,6 +52,7 @@ void fgDebug_Destroy(fgDebug* self)
   ((bss_util::cDynArray<fgDebugMessage>&)self->messagelog).~cDynArray();
   self->tabs->message = (fgMessage)fgTabcontrol_Message;
   fgTabcontrol_Destroy(&self->tabs);
+  VirtualFreeChild(&self->overlay);
   fgdebug_instance = 0; // we can't null this until after we're finished destroying ourselves 
 }
 
@@ -98,6 +99,76 @@ void fgDebug_DrawMessages(fgDebug* self, AbsRect* rect, fgDrawAuxData* aux)
     bottom = txtarea.top;
   }
 }
+void fgDebug_SetHover(fgDebug* self, fgElement* hover)
+{
+  if(self->hover != hover)
+  {
+    self->hover = hover;
+    if(self->hover)
+    {
+      AbsRect out;
+      ResolveOuterRect(hover, &out);
+      self->overlay.SetArea(CRect{ out.left, 0, out.top, 0, out.right, 0, out.bottom, 0 });
+      fgSetTopmost(&self->overlay);
+    }
+    //else
+      //fgClearTopmost(&self->overlay);
+    self->overlay.SetFlag(FGELEMENT_HIDDEN, !self->hover);
+  }
+}
+size_t fgDebug_OverlayMessage(fgElement* self, const FG_Msg* msg)
+{
+  switch(msg->type)
+  {
+    case FG_DRAW:
+      if(fgdebug_instance->hover != 0)
+      {
+        AbsRect outer;
+        ResolveOuterRect(fgdebug_instance->hover, &outer);
+        AbsRect clip = outer;
+        clip.left += fgdebug_instance->hover->margin.left;
+        clip.top += fgdebug_instance->hover->margin.top;
+        clip.right -= fgdebug_instance->hover->margin.right;
+        clip.bottom -= fgdebug_instance->hover->margin.bottom;
+        AbsRect inner;
+        GetInnerRect(fgdebug_instance->hover, &inner, &clip);
+        fgDrawAuxData* data = (fgDrawAuxData*)msg->p2;
+
+        const CRect ZeroCRect = { 0,0,0,0,0,0,0,0 };
+        const AbsVec ZeroAbsVec = { 0,0 };
+        fgroot_instance->backend.fgDrawAsset(0, &ZeroCRect, 0x666666FF, 0, 0.0f, &outer, 0, &ZeroAbsVec, FGRESOURCE_RECT, data);
+        fgroot_instance->backend.fgDrawAsset(0, &ZeroCRect, 0x6666FFFF, 0, 0.0f, &clip, 0, &ZeroAbsVec, FGRESOURCE_RECT, data);
+        fgroot_instance->backend.fgDrawAsset(0, &ZeroCRect, 0x6666FF66, 0, 0.0f, &inner, 0, &ZeroAbsVec, FGRESOURCE_RECT, data);
+
+        /*if(self->font)
+        {
+        unsigned int pt, dpi;
+        float lh = self->lineheight;
+        if(lh == 0.0f)
+        fgroot_instance->backend.fgFontGet(self->font, &lh, &pt, &dpi);
+        char utf8buf[50] = { 0 };
+        int utf32buf[50] = { 0 };
+        AbsRect txtarea = totalarea;
+
+        int len = snprintf(utf8buf, 50, "%.0f, %.0f", totalarea.left, totalarea.top);
+        fgUTF8toUTF32(utf8buf, len, utf32buf, 50);
+        txtarea.bottom = totalarea.top;
+        txtarea.top -= lh;
+        fgroot_instance->backend.fgDrawFont(self->font, utf32buf, self->lineheight, self->letterspacing, self->color.color, &txtarea, 0, &AbsVec { 0,0 }, 0, 0);
+
+        len = snprintf(utf8buf, 50, "%.0f, %.0f", totalarea.right, totalarea.bottom);
+        fgUTF8toUTF32(utf8buf, len, utf32buf, 50);
+        txtarea.bottom = totalarea.bottom - lh;
+        txtarea.top = totalarea.bottom;
+        txtarea.left = txtarea.right;
+        fgroot_instance->backend.fgDrawFont(self->font, utf32buf, self->lineheight, self->letterspacing, self->color.color, &txtarea, 0, &AbsVec { 0,0 }, 0, 0);
+        }*/
+      }
+      break;
+  }
+
+  return fgElement_Message(self, msg);
+}
 size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
 {
   assert(fgroot_instance != 0);
@@ -120,9 +191,12 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
 
     const fgTransform tf_properties = { { -300,1,-200,1,0,1,0,1 }, 0,{ 0,0,0,0 } };
     const fgTransform tf_contents = { { 0,0,-200,1,200,0,0,1 }, 0,{ 0,0,0,0 } };
-    fgTreeview_Init(&self->elements, self->tablayout, 0, "Debug$elements", 0, &fgTransform_DEFAULT, 0);
-    fgGrid_Init(&self->properties, self->tablayout, 0, "Debug$properties", FGELEMENT_HIDDEN, &tf_properties, 0);
-    fgText_Init(&self->contents, self->tabmessages, 0, "Debug$contents", FGELEMENT_HIDDEN, &tf_contents, 0);
+    const fgTransform tf_overlay = { { 0,0,0,0,0,0,0,0 }, 0,{ fgroot_instance->gui.element.transform.area.left.abs,fgroot_instance->gui.element.transform.area.top.abs,0,0 } };
+    fgTreeview_Init(&self->elements, self->tablayout, 0, "Debug$elements", FGFLAGS_INTERNAL, &fgTransform_DEFAULT, 0);
+    fgGrid_Init(&self->properties, self->tablayout, 0, "Debug$properties", FGELEMENT_HIDDEN | FGFLAGS_INTERNAL, &tf_properties, 0);
+    fgText_Init(&self->contents, self->tabmessages, 0, "Debug$contents", FGELEMENT_HIDDEN | FGFLAGS_INTERNAL, &tf_contents, 0);
+    fgElement_Init(&self->overlay, fgroot_instance->gui, 0, "Debug$overlay", FGELEMENT_HIDDEN | FGELEMENT_IGNORE | FGELEMENT_BACKGROUND | FGELEMENT_NOCLIP | FGFLAGS_INTERNAL, &tf_overlay, 0);
+    self->overlay.message = (fgMessage)fgDebug_OverlayMessage;
     self->properties.InsertColumn("Name");
     self->properties.InsertColumn("Value");
     for(size_t i = 0; i < sizeof(PROPERTY_LIST) / sizeof(const char*); ++i)
@@ -131,10 +205,10 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
       r->InsertItem(PROPERTY_LIST[i]);
       r->InsertItem("");
     }
-    fgSubmenu_Init(&self->context, *self, 0, "Debug$context", fgGetTypeFlags("Submenu"), &fgTransform_EMPTY, 0);
+    fgSubmenu_Init(&self->context, *self, 0, "Debug$context", fgGetTypeFlags("Submenu") | FGFLAGS_INTERNAL, &fgTransform_EMPTY, 0);
     self->context->AddItemText("Delete");
     self->context->AddItemText("Move");
-    fgIterateControls(fgCreate("Submenu", self->context->AddItemText("Insert"), 0, 0, FGELEMENT_USEDEFAULTS, 0, 0), [](void* p, const char* s) { fgElement* e = (fgElement*)p; e->AddItemText(s); });
+    fgIterateControls(fgCreate("Submenu", self->context->AddItemText("Insert"), 0, 0, FGFLAGS_DEFAULTS, 0, 0), [](void* p, const char* s) { fgElement* e = (fgElement*)p; e->AddItemText(s); });
     self->elements->SetContextMenu(self->context);
     self->behaviorhook = &fgBehaviorHookDefault;
   }
@@ -169,49 +243,6 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
     }
     return sizeof(fgDebug);
   case FG_DRAW:
-    if(self->hover != 0)
-    {
-      AbsRect outer;
-      ResolveOuterRect(self->hover, &outer);
-      AbsRect clip = outer;
-      clip.left += self->hover->margin.left;
-      clip.top += self->hover->margin.top;
-      clip.right -= self->hover->margin.right;
-      clip.bottom -= self->hover->margin.bottom;
-      AbsRect inner;
-      GetInnerRect(self->hover, &inner, &clip);
-      fgDrawAuxData* data = (fgDrawAuxData*)msg->p2;
-
-      const CRect ZeroCRect = { 0,0,0,0,0,0,0,0 };
-      const AbsVec ZeroAbsVec = { 0,0 };
-      fgroot_instance->backend.fgDrawAsset(0, &ZeroCRect, 0x666666FF, 0, 0.0f, &outer, 0, &ZeroAbsVec, FGRESOURCE_RECT, data);
-      fgroot_instance->backend.fgDrawAsset(0, &ZeroCRect, 0x6666FFFF, 0, 0.0f, &clip, 0, &ZeroAbsVec, FGRESOURCE_RECT, data);
-      fgroot_instance->backend.fgDrawAsset(0, &ZeroCRect, 0x6666FF66, 0, 0.0f, &inner, 0, &ZeroAbsVec, FGRESOURCE_RECT, data);
-
-      /*if(self->font)
-      {
-        unsigned int pt, dpi;
-        float lh = self->lineheight;
-        if(lh == 0.0f)
-          fgroot_instance->backend.fgFontGet(self->font, &lh, &pt, &dpi);
-        char utf8buf[50] = { 0 };
-        int utf32buf[50] = { 0 };
-        AbsRect txtarea = totalarea;
-
-        int len = snprintf(utf8buf, 50, "%.0f, %.0f", totalarea.left, totalarea.top);
-        fgUTF8toUTF32(utf8buf, len, utf32buf, 50);
-        txtarea.bottom = totalarea.top;
-        txtarea.top -= lh;
-        fgroot_instance->backend.fgDrawFont(self->font, utf32buf, self->lineheight, self->letterspacing, self->color.color, &txtarea, 0, &AbsVec { 0,0 }, 0, 0);
-        
-        len = snprintf(utf8buf, 50, "%.0f, %.0f", totalarea.right, totalarea.bottom);
-        fgUTF8toUTF32(utf8buf, len, utf32buf, 50);
-        txtarea.bottom = totalarea.bottom - lh;
-        txtarea.top = totalarea.bottom;
-        txtarea.left = txtarea.right;
-        fgroot_instance->backend.fgDrawFont(self->font, utf32buf, self->lineheight, self->letterspacing, self->color.color, &txtarea, 0, &AbsVec { 0,0 }, 0, 0);
-      }*/
-    }
     
     {
       AbsRect clip;
@@ -304,10 +335,10 @@ size_t fgTreeItem_DebugMessage(fgTreeItem* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_MOUSEON:
-    fgdebug_instance->hover = (fgElement*)self->control.element.userdata;
+    fgDebug_SetHover(fgdebug_instance, (fgElement*)self->control.element.userdata);
     return FG_ACCEPT;
   case FG_MOUSEOFF:
-    fgdebug_instance->hover = 0;
+    fgDebug_SetHover(fgdebug_instance, 0);
     return FG_ACCEPT;
   }
 
@@ -408,12 +439,12 @@ size_t fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
     if(fgroot_instance->GetKey(FG_KEY_MENU))
     {
       fgdebug_instance->ignore += 1;
-      fgdebug_instance->hover = fgDebug_GetElementUnderMouse();
+      fgDebug_SetHover(fgdebug_instance, fgDebug_GetElementUnderMouse());
       fgdebug_instance->ignore -= 1;
       return FG_ACCEPT;
     }
     else
-      fgdebug_instance->hover = 0;
+      fgDebug_SetHover(fgdebug_instance, 0);
     break;
   case FG_MOUSEUP:
   case FG_MOUSEDBLCLICK:
@@ -424,7 +455,7 @@ size_t fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
     if(fgroot_instance->GetKey(FG_KEY_MENU))
     {
       fgdebug_instance->ignore += 1;
-      fgdebug_instance->hover = fgDebug_GetElementUnderMouse();
+      fgDebug_SetHover(fgdebug_instance, fgDebug_GetElementUnderMouse());
       fgElement* treeitem = fgDebug_GetTreeItem(fgdebug_instance->elements, fgdebug_instance->hover);
       if(treeitem)
         treeitem->MouseDown(msg->x, msg->y, msg->button, msg->allbtn);
@@ -528,7 +559,7 @@ void fgDebug_Show(const fgTransform* tf, char overlay)
 
   assert(fgroot_instance != 0);
   if(!fgdebug_instance)
-    fgdebug_instance = reinterpret_cast<fgDebug*>(fgCreate("debug", *fgroot_instance, 0, 0, FGELEMENT_HIDDEN | (overlay ? FGDEBUG_OVERLAY : 0), tf, 0));
+    fgdebug_instance = reinterpret_cast<fgDebug*>(fgCreate("debug", *fgroot_instance, 0, 0, FGELEMENT_HIDDEN | (overlay ? FGDEBUG_OVERLAY : 0) | FGELEMENT_BACKGROUND, tf, 0));
   assert(fgdebug_instance != 0);
   if(fgroot_instance->backend.fgBehaviorHook == &fgRoot_BehaviorDebug)
     return; // Prevent an infinite loop
@@ -738,6 +769,7 @@ const char* fgDebug_GetMessageString(unsigned short msg)
   case FG_SETSTYLE: return "FG_SETSTYLE";
   case FG_GETVALUE: return "FG_GETVALUE";
   case FG_GETRANGE: return "FG_GETRANGE";
+  case FG_SELECTION: return "FG_SELECTION";
   case FG_GETSELECTEDITEM: return "FG_GETSELECTEDITEM";
   case FG_SETDPI: return "FG_SETDPI";
   case FG_SETCOLOR: return "FG_SETCOLOR";
@@ -893,6 +925,8 @@ ptrdiff_t fgDebug_WriteMessageFn(fgDebugMessage* msg, F fn, Args... args)
     return (*fn)(args..., "%*sFG_GETVALUE() - %ti", spaces, "", msg->value);
   case FG_GETRANGE:
     return (*fn)(args..., "%*sFG_GETRANGE() - %ti", spaces, "", msg->value);
+  case FG_SELECTION:
+    return (*fn)(args..., "%*sFG_SELECTION(0x%p, 0x%p)", spaces, "", msg->arg1.p, msg->arg2.p);
   case FG_GETSELECTEDITEM:
     return (*fn)(args..., "%*sFG_GETSELECTEDITEM(%zu) - 0x%p", spaces, "", msg->arg1.u, msg->valuep);
   case FG_SETDPI:

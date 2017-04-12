@@ -40,10 +40,10 @@ BOOL __stdcall SpawnMonitorsProc(HMONITOR monitor, HDC hdc, LPRECT, LPARAM lpara
     dpi.x = x;
     dpi.y = y;
   }
-
+  
   AbsRect area = { info.rcMonitor.left, info.rcMonitor.top, info.rcMonitor.right, info.rcMonitor.bottom };
   fgMonitor* cur = reinterpret_cast<fgMonitor*>(calloc(1, sizeof(fgMonitor)));
-  fgMonitor_Init(cur, 0, &root->root, (!info.rcMonitor.left && !info.rcMonitor.top) ? 0 : prev, &area, &dpi); // Attempt to identify the primary monitor and make it the first monitor in the list
+  fgMonitor_Init(cur, FGFLAGS_INTERNAL, &root->root, (!info.rcMonitor.left && !info.rcMonitor.top) ? 0 : prev, &area, &dpi); // Attempt to identify the primary monitor and make it the first monitor in the list
   ((fgElement*)cur)->free = &free;
   prev = cur;
   return TRUE;
@@ -197,32 +197,48 @@ fgElement* fgCreateD2D(const char* type, fgElement* BSS_RESTRICT parent, fgEleme
   return fgCreateDefault(type, parent, next, name, flags, transform, units);
 }
 
-fgFont fgCreateFontD2D(fgFlag flags, const char* family, short weight, char italic, unsigned int size, const fgIntVec* dpi)
+struct fgFontD2D
+{
+  fgFontD2D(IDWriteTextFormat* _f, fgIntVec _dpi, unsigned int _pt) : format(_f), dpi(_dpi), pt(_pt) {}
+  IDWriteTextFormat* format;
+  fgIntVec dpi;
+  unsigned int pt;
+};
+
+fgFont fgCreateFontD2D(fgFlag flags, const char* family, short weight, char italic, unsigned int pt, const fgIntVec* dpi)
 {
   size_t len = fgUTF8toUTF16(family, -1, 0, 0);
   DYNARRAY(wchar_t, wtext, len);
   fgUTF8toUTF16(family, -1, wtext, len);
   IDWriteTextFormat* format = 0;
-  fgDirect2D::instance->writefactory->CreateTextFormat(wtext, 0, DWRITE_FONT_WEIGHT(weight), italic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, size * (96.0f/72.0f), L"en-us", &format);
-  return format;
+  fgDirect2D::instance->writefactory->CreateTextFormat(wtext, 0, DWRITE_FONT_WEIGHT(weight), italic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, pt * (dpi->x/72.0f), L"en-us", &format);
+  if(!format) return 0;
+  return new fgFontD2D(format, *dpi, pt);
 }
 
-void* fgCloneFontD2D(void* font, const struct _FG_FONT_DESC* desc)
+fgFont fgCloneFontD2D(fgFont font, const struct _FG_FONT_DESC* desc)
 {
-  IDWriteTextFormat* f = (IDWriteTextFormat*)font;
-  if(!desc || desc->pt == f->GetFontSize())
-    f->AddRef();
+  fgFontD2D* f = (fgFontD2D*)font;
+  if(!desc || (desc->pt == f->pt && desc->dpi.x == f->dpi.x))
+    f->format->AddRef();
   else
   {
-    DYNARRAY(wchar_t, wtext, f->GetFontFamilyNameLength()+1);
-    f->GetFontFamilyName(wtext, f->GetFontFamilyNameLength() + 1);
-    fgDirect2D::instance->writefactory->CreateTextFormat(wtext, 0, f->GetFontWeight(), f->GetFontStyle(), f->GetFontStretch(), desc->pt, L"en-us", &f);
+    DYNARRAY(wchar_t, wtext, f->format->GetFontFamilyNameLength()+1);
+    f->format->GetFontFamilyName(wtext, f->format->GetFontFamilyNameLength() + 1);
+    IDWriteTextFormat* format = 0;
+    fgDirect2D::instance->writefactory->CreateTextFormat(wtext, 0, f->format->GetFontWeight(), f->format->GetFontStyle(), f->format->GetFontStretch(), desc->pt * (desc->dpi.x / 72.0f), L"en-us", &format);
+    if(!format) return 0;
+    f = new fgFontD2D(format, desc->dpi, desc->pt);
   }
   return f;
 }
-void fgDestroyFontD2D(void* font) { ((IDWriteTextFormat*)font)->Release(); }
-void fgDrawFontD2D(void* font, const void* text, size_t len, float lineheight, float letterspacing, unsigned int color, const AbsRect* area, FABS rotation, const AbsVec* center, fgFlag flags, const fgDrawAuxData* data, void* cache)
+void fgDestroyFontD2D(fgFont font) { fgFontD2D* f = (fgFontD2D*)font; if(!f->format->Release()) delete f; }
+void fgDrawFontD2D(fgFont font, const void* text, size_t len, float lineheight, float letterspacing, unsigned int color, const AbsRect* dpiarea, FABS rotation, const AbsVec* dpicenter, fgFlag flags, const fgDrawAuxData* data, void* cache)
 {
+  fgFontD2D* f = (fgFontD2D*)font;
+  AbsRect area;
+  AbsVec center;
+  fgResolveDrawRect(dpiarea, &area, dpicenter, &center, flags, data);
   GETEXDATA(data);
   IDWriteTextLayout1* layout = (IDWriteTextLayout1*)cache;
   exdata->context->color->SetColor(ToD2Color(color));
@@ -231,19 +247,21 @@ void fgDrawFontD2D(void* font, const void* text, size_t len, float lineheight, f
   { // We CANNOT input the string directly from the DLL for some unbelievably stupid reason. We must make a copy in this DLL and pass that to Direct2D.
     DYNARRAY(wchar_t, wtext, len);
     memcpy_s(wtext, len*sizeof(wchar_t), text, len * sizeof(wchar_t));
-    exdata->context->target->DrawTextW(wtext, len, (IDWriteTextFormat*)font, D2D1::RectF(area->left, area->top, area->right, area->bottom), exdata->context->color, (flags&FGELEMENT_NOCLIP) ? D2D1_DRAW_TEXT_OPTIONS_NONE : D2D1_DRAW_TEXT_OPTIONS_CLIP);
+    exdata->context->target->DrawTextW(wtext, len, f->format, D2D1::RectF(area.left, area.top, area.right, area.bottom), exdata->context->color, (flags&FGELEMENT_NOCLIP) ? D2D1_DRAW_TEXT_OPTIONS_NONE : D2D1_DRAW_TEXT_OPTIONS_CLIP);
   }
   else
-    exdata->context->target->DrawTextLayout(D2D1::Point2F(area->left, area->top), layout, exdata->context->color, D2D1_DRAW_TEXT_OPTIONS_CLIP);
+    exdata->context->target->DrawTextLayout(D2D1::Point2F(area.left, area.top), layout, exdata->context->color, D2D1_DRAW_TEXT_OPTIONS_CLIP);
 }
-void* fgFontFormatD2D(void* font, const void* text, size_t len, float lineheight, float letterspacing, AbsRect* area, fgFlag flags, void* cache)
+void* fgFontFormatD2D(fgFont font, const void* text, size_t len, float lineheight, float letterspacing, AbsRect* area, fgFlag flags, const fgIntVec* dpi, void* cache)
 {
+  fgFontD2D* f = (fgFontD2D*)font;
   IDWriteTextLayout1* layout = (IDWriteTextLayout1*)cache;
   if(layout)
     layout->Release();
   if(!area)
     return 0;
-  layout = CreateD2DLayout((IDWriteTextFormat*)font, (const wchar_t*)text, len, area);
+  fgScaleRectDPI(area, dpi->x, dpi->y);
+  layout = CreateD2DLayout(f->format, (const wchar_t*)text, len, area);
   if(!layout) return 0;
   FLOAT linespacing;
   FLOAT baseline;
@@ -269,54 +287,65 @@ void* fgFontFormatD2D(void* font, const void* text, size_t len, float lineheight
   layout->GetMetrics(&metrics);
   area->right = area->left + metrics.width;
   area->bottom = area->top + metrics.height;
+  fgInvScaleRectDPI(area, dpi->x, dpi->y);
   layout->SetMaxWidth(metrics.width);
   layout->SetMaxHeight(metrics.height);
   return layout;
 }
-void fgFontGetD2D(void* font, struct _FG_FONT_DESC* desc)
+void fgFontGetD2D(fgFont font, struct _FG_FONT_DESC* desc)
 {
-  IDWriteTextFormat* format = (IDWriteTextFormat*)font;
+  fgFontD2D* f = (fgFontD2D*)font;
   if(desc)
   {
     FLOAT lineheight;
     FLOAT baseline;
     DWRITE_LINE_SPACING_METHOD method;
-    format->GetLineSpacing(&method, &lineheight, &baseline);
+    f->format->GetLineSpacing(&method, &lineheight, &baseline);
     desc->lineheight = lineheight;
-    desc->pt = format->GetFontSize();
-    desc->dpi = { 0,0 };
+    desc->pt = f->pt;
+    desc->dpi = f->dpi;
   }
 }
-size_t fgFontIndexD2D(void* font, const void* text, size_t len, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, AbsVec pos, AbsVec* cursor, void* cache)
+size_t fgFontIndexD2D(fgFont font, const void* text, size_t len, float lineheight, float letterspacing, const AbsRect* dpiarea, fgFlag flags, AbsVec pos, AbsVec* cursor, const fgIntVec* dpi, void* cache)
 {
   assert(font != 0);
+  fgFontD2D* f = (fgFontD2D*)font;
   IDWriteTextLayout1* layout = (IDWriteTextLayout1*)cache;
+  AbsRect area = *dpiarea;
+  fgScaleRectDPI(&area, dpi->x, dpi->y);
   if(!layout)
-    layout = CreateD2DLayout((IDWriteTextFormat*)font, (const wchar_t*)text, len, area);
+    layout = CreateD2DLayout(f->format, (const wchar_t*)text, len, &area);
   if(!layout)
     return 0;
 
   BOOL trailing;
   BOOL inside;
   DWRITE_HIT_TEST_METRICS hit;
+  fgScaleVecDPI(&pos, dpi->x, dpi->y);
   layout->HitTestPoint(pos.x, pos.y, &trailing, &inside, &hit);
 
   cursor->x = hit.left;
   cursor->y = hit.top;
+  fgInvScaleVecDPI(cursor, dpi->x, dpi->y);
   return hit.textPosition;
 }
-AbsVec fgFontPosD2D(void* font, const void* text, size_t len, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, size_t index, void* cache)
+AbsVec fgFontPosD2D(fgFont font, const void* text, size_t len, float lineheight, float letterspacing, const AbsRect* dpiarea, fgFlag flags, size_t index, const fgIntVec* dpi, void* cache)
 {
+  fgFontD2D* f = (fgFontD2D*)font;
   IDWriteTextLayout1* layout = (IDWriteTextLayout1*)cache;
+  AbsRect area = *dpiarea;
+  fgScaleRectDPI(&area, dpi->x, dpi->y);
   if(!layout)
-    layout = CreateD2DLayout((IDWriteTextFormat*)font, (const wchar_t*)text, len, area);
+    layout = CreateD2DLayout(f->format, (const wchar_t*)text, len, &area);
   if(!layout)
     return AbsVec{ 0,0 };
 
   FLOAT x, y;
   DWRITE_HIT_TEST_METRICS hit;
   layout->HitTestTextPosition(index, false, &x, &y, &hit);
-  return AbsVec{ x, y };
+  AbsVec p = { x, y };
+  fgInvScaleVecDPI(&p, dpi->x, dpi->y);
+  return p;
 }
 
 void* fgCreateAssetD2D(fgFlag flags, const char* data, size_t length)
@@ -367,8 +396,11 @@ fgAsset fgCloneAssetD2D(fgAsset asset, fgElement* src)
   return bitmap;
 }
 void fgDestroyAssetD2D(fgAsset asset) { ((IUnknown*)asset)->Release(); }
-void fgDrawAssetD2D(fgAsset asset, const CRect* uv, unsigned int color, unsigned int edge, FABS outline, const AbsRect* area, FABS rotation, const AbsVec* center, fgFlag flags, const fgDrawAuxData* data)
+void fgDrawAssetD2D(fgAsset asset, const CRect* uv, unsigned int color, unsigned int edge, FABS outline, const AbsRect* dpiarea, FABS rotation, const AbsVec* dpicenter, fgFlag flags, const fgDrawAuxData* data)
 {
+  AbsRect area;
+  AbsVec center;
+  fgResolveDrawRect(dpiarea, &area, dpicenter, &center, flags, data);
   GETEXDATA(data);
   assert(exdata->context != 0);
   assert(exdata->context->target != 0);
@@ -376,7 +408,7 @@ void fgDrawAssetD2D(fgAsset asset, const CRect* uv, unsigned int color, unsigned
   D2D1_MATRIX_3X2_F world;
   exdata->context->target->GetTransform(&world);
   if(rotation != 0) // WHY THE FUCK DOES THIS TAKE DEGREES?!
-    exdata->context->target->SetTransform(D2D1::Matrix3x2F::Rotation(rotation * 180.0f / PI, D2D1::Point2F(center->x, center->y))*world);
+    exdata->context->target->SetTransform(D2D1::Matrix3x2F::Rotation(rotation * 180.0f / PI, D2D1::Point2F(center.x, center.y))*world);
   
   ID2D1Bitmap* tex = 0;
   if(asset)
@@ -398,7 +430,7 @@ void fgDrawAssetD2D(fgAsset asset, const CRect* uv, unsigned int color, unsigned
     uvresolve = D2D1::RectF(uv->left.abs, uv->top.abs, uv->right.abs, uv->bottom.abs );
 
   //psRectRotate rect(area->left, area->top, area->right, area->bottom, rotation, psVec(center->x - area->left, center->y - area->top));
-  D2D1_RECT_F rect = D2D1::RectF(area->left, area->top, area->right, area->bottom);
+  D2D1_RECT_F rect = D2D1::RectF(area.left, area.top, area.right, area.bottom);
   exdata->context->color->SetColor(ToD2Color(color));
   exdata->context->edgecolor->SetColor(ToD2Color(edge));
   ID2D1Effect* e = 0;
@@ -418,7 +450,7 @@ void fgDrawAssetD2D(fgAsset asset, const CRect* uv, unsigned int color, unsigned
 
   if(e)
   {
-    e->SetValue(0, D2D1::Vector4F(area->left, area->top, area->right, area->bottom));
+    e->SetValue(0, D2D1::Vector4F(area.left, area.top, area.right, area.bottom));
     e->SetValue(1, D2D1::Vector4F(uvresolve.left, uvresolve.top, uvresolve.right, uvresolve.bottom));
     e->SetValue(2, color);
     e->SetValue(3, edge);
@@ -445,14 +477,16 @@ void fgAssetSizeD2D(fgAsset asset, const CRect* uv, AbsVec* dim, fgFlag flags)
 
 void fgDrawLinesD2D(const AbsVec* p, size_t n, unsigned int color, const AbsVec* translate, const AbsVec* scale, FABS rotation, const AbsVec* center, const fgDrawAuxData* data)
 {
+  AbsVec t = *translate;
+  fgScaleVecDPI(&t, data->dpi.x, data->dpi.y);
   GETEXDATA(data);
   D2D1_MATRIX_3X2_F world;
   exdata->context->target->GetTransform(&world);
   exdata->context->target->SetTransform(
     D2D1::Matrix3x2F::Rotation(rotation * 180.0f / PI, D2D1::Point2F(center->x, center->y))*
-    D2D1::Matrix3x2F::Scale(scale->x, scale->y)*
+    D2D1::Matrix3x2F::Scale(scale->x * (data->dpi.x / 96.0f), scale->y * (data->dpi.y / 96.0f))*
     world*
-    D2D1::Matrix3x2F::Translation(translate->x + 0.5, translate->y + 0.5));
+    D2D1::Matrix3x2F::Translation(t.x + 0.5, t.y + 0.5));
 
   exdata->context->color->SetColor(ToD2Color(color));
   for(size_t i = 1; i < n; ++i)
@@ -468,6 +502,7 @@ void fgPushClipRectD2D(const AbsRect* clip, const fgDrawAuxData* data)
   AbsRect cliprect = exdata->context->cliprect.top();
   cliprect = { bssmax(floor(clip->left), cliprect.left), bssmax(floor(clip->top), cliprect.top), bssmin(ceil(clip->right), cliprect.right), bssmin(ceil(clip->bottom), cliprect.bottom) };
   exdata->context->cliprect.push(cliprect);
+  fgScaleRectDPI(&cliprect, data->dpi.x, data->dpi.y);
   exdata->context->target->PushAxisAlignedClip(D2D1::RectF(cliprect.left, cliprect.top, cliprect.right, cliprect.bottom), D2D1_ANTIALIAS_MODE_ALIASED);
 }
 
@@ -494,9 +529,9 @@ void fgDirtyElementD2D(fgElement* e)
     return;
   if(!fgDirect2D::instance->root.topmost && lasttop != 0)
   {
-    SetWindowPos(fgDirect2D::instance->tophwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOSENDCHANGING);
-    lasttop = 0;
     ReleaseCapture();
+    ShowWindow(fgDirect2D::instance->tophwnd, SW_HIDE);
+    lasttop = 0;
   }
   while(e && e->destroy != (fgDestroy)fgWindowD2D_Destroy && e != fgDirect2D::instance->root.topmost && e->destroy != (fgDestroy)fgDebug_Destroy)
     e = e->parent;
@@ -505,8 +540,12 @@ void fgDirtyElementD2D(fgElement* e)
   {
     AbsRect& toprect = fgDirect2D::instance->toprect;
     ResolveNoClipRect(fgDirect2D::instance->root.topmost, &toprect, 0, 0);
-    fgScaleRectDPI(&toprect, 96, 96); // SetWindowPos will resize the direct2D background via the WndProc callback
+    fgIntVec& dpi = fgDirect2D::instance->root.topmost->GetDPI();
+    fgScaleRectDPI(&toprect, dpi.x, dpi.y); // SetWindowPos will resize the direct2D background via the WndProc callback
+    //SetWindowLong(fgDirect2D::instance->tophwnd, GWL_EXSTYLE, WS_EX_COMPOSITED | WS_EX_TOOLWINDOW | (fgDirect2D::instance->root.topmost->flags&FGELEMENT_IGNORE) ? (WS_EX_LAYERED | WS_EX_TRANSPARENT) : 0);
     SetWindowPos(fgDirect2D::instance->tophwnd, HWND_TOP, toprect.left, toprect.top, toprect.right - toprect.left, toprect.bottom - toprect.top, SWP_NOSENDCHANGING);
+    fgInvScaleRectDPI(&toprect, dpi.x, dpi.y);
+    ShowWindow(fgDirect2D::instance->tophwnd, SW_SHOW);
     if(lasttop != fgDirect2D::instance->root.topmost)
     {
       lasttop = fgDirect2D::instance->root.topmost;
@@ -724,6 +763,7 @@ longptr_t __stdcall fgDirect2D::WndProc(HWND__* hWnd, unsigned int message, size
         ResolveRect(self->root.topmost, &area);
         fgDrawAuxDataEx exdata;
         self->context.BeginDraw(self->tophwnd, self->root.topmost, &self->toprect, exdata);
+        self->context.context->Clear(D2D1::ColorF(0, 1.0f));
         self->root.topmost->Draw(&area, &exdata.data);
         self->context.EndDraw();
       }

@@ -23,7 +23,7 @@ size_t fgButton_Message(fgButton* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgControl_HoverMessage(&self->control, msg);
-    fgText_Init(&self->text, *self, 0, "Button$text", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER, 0);
+    fgText_Init(&self->text, *self, 0, "Button$text", FGELEMENT_EXPAND | FGELEMENT_IGNORE | FGFLAGS_INTERNAL, &fgTransform_CENTER, 0);
     fgStandardNeutralSetStyle(*self, (self->control.element.flags & FGCONTROL_DISABLE) ? "disabled" : "neutral");
     return FG_ACCEPT;
   case FG_CLONE:

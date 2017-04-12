@@ -249,11 +249,43 @@ void fgRectIntersection(const AbsRect* BSS_RESTRICT l, const AbsRect* BSS_RESTRI
 void fgScaleRectDPI(AbsRect* rect, int dpix, int dpiy)
 {
   BSS_ALIGN(16) float scale[4];
+  scale[0] = (!dpix) ? 1.0f : ((float)dpix / 96.0f);
+  scale[1] = (!dpiy) ? 1.0f : ((float)dpiy / 96.0f);
+  scale[2] = scale[0];
+  scale[3] = scale[1];
+  (sseVec(BSS_UNALIGNED<const float>(&rect->left))*sseVec(scale)) >> BSS_UNALIGNED<float>(&rect->left);
+}
+void fgInvScaleRectDPI(AbsRect* rect, int dpix, int dpiy)
+{
+  BSS_ALIGN(16) float scale[4];
   scale[0] = (!dpix) ? 1.0f : (96.0f / (float)dpix);
   scale[1] = (!dpiy) ? 1.0f : (96.0f / (float)dpiy);
   scale[2] = scale[0];
   scale[3] = scale[1];
   (sseVec(BSS_UNALIGNED<const float>(&rect->left))*sseVec(scale)) >> BSS_UNALIGNED<float>(&rect->left);
+}
+void fgScaleVecDPI(AbsVec* v, int dpix, int dpiy)
+{
+  v->x *= (!dpix) ? 1.0f : ((float)dpix / 96.0f);
+  v->y *= (!dpiy) ? 1.0f : ((float)dpiy / 96.0f);
+}
+void fgInvScaleVecDPI(AbsVec* v, int dpix, int dpiy)
+{
+  v->x *= (!dpix) ? 1.0f : (96.0f/(float)dpix);
+  v->y *= (!dpiy) ? 1.0f : (96.0f/(float)dpiy);
+}
+void fgResolveDrawRect(const AbsRect* area, AbsRect* outarea, const AbsVec* center, AbsVec* outcenter, fgFlag flags, const fgDrawAuxData* data)
+{
+  BSS_ALIGN(16) float scale[4];
+  scale[0] = (!data->dpi.x) ? 1.0f : ((float)data->dpi.x / 96.0f);
+  scale[1] = (!data->dpi.y) ? 1.0f : ((float)data->dpi.y / 96.0f);
+  scale[2] = scale[0];
+  scale[3] = scale[1];
+  (sseVec(BSS_UNALIGNED<const float>(&area->left))*sseVec(scale)) >> BSS_UNALIGNED<float>(&outarea->left);
+
+  fgSnapAbsRect(*outarea, flags);
+  outcenter->x = center->x*scale[0];
+  outcenter->y = center->y*scale[1];
 }
 
 #ifdef BSS_PLATFORM_WIN32

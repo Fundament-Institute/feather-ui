@@ -27,7 +27,7 @@ namespace fgDotNet {
     fgSkinElement* _p;
   };
 
-  ref class SkinLayout;
+  ref struct SkinLayout;
 
   public ref struct SkinTree
   {
@@ -55,12 +55,10 @@ namespace fgDotNet {
     Skin^ AddSkin(System::String^ name);
     bool RemoveSkin(System::String^ name);
     Skin^ GetSkin(System::String^ name);
-    size_t AddAsset(Asset^ asset);
-    bool RemoveAsset(FG_UINT asset);
-    Asset^ GetAsset(FG_UINT asset);
-    size_t AddFont(Font^ font);
-    bool RemoveFont(FG_UINT font);
-    Font^ GetFont(FG_UINT font);
+    Asset^ AddAssetFile(fgFlag flags, System::String^ file);
+    bool RemoveAsset(Asset^ asset);
+    Font^ AddFont(fgFlag flags, System::String^ families, short weight, char italic, unsigned int size);
+    bool RemoveFont(Font^ font);
 
     Skin^ LoadFileUBJSON(System::String^ file);
     Skin^ LoadUBJSON(cli::array<System::Byte>^ data);
@@ -77,7 +75,7 @@ namespace fgDotNet {
   {
   public:
     explicit Skin(fgSkin* p);
-    Skin();
+    explicit Skin(System::String^ name);
     ~Skin();
     !Skin();
     Skin^ GetSkin(System::String^ name);

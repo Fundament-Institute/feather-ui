@@ -26,7 +26,6 @@ enum FGSCROLLBAR_ACTIONS
   FGSCROLLBAR_BARINIT,
   FGSCROLLBAR_PAGE, // PageUp, PageDown, and click on the spaces between the scrollbars. 0 1 2 3 - left top right bottom
   FGSCROLLBAR_BUTTON, // Clicking the actual buttons. 0 1 2 3 - left top right bottom
-  FGSCROLLBAR_BARCACHE, // resets the barcache
   FGSCROLLBAR_SCROLLTO, // Scrolls to include the given rect in the visible area relative to the parent. If this isn't possible, minimizes the amount of scrolling done while maximizing the visible area.
   FGSCROLLBAR_SCROLLTOABS, // Scrolls to include the given absolute rect in the visible area.
   FGSCROLLBAR_NUM,
@@ -44,7 +43,7 @@ typedef struct _FG_SCROLLBAR {
   struct _FG_SCROLLBAR_INNER bar[2]; // 0 - horz slider, 1 - vert slider
   fgElement bg[3]; // 0 - horizontal background, 1 - vertical background, 2 - corner
   AbsRect realpadding; // We have to intercept and store padding amounts here because we hijack the padding to perform scrolling
-  AbsVec barcache; // Stores scrollbar width/height
+  AbsRect exclude; // Excludes this padded area from the scroll area. Normally, this is just the scrollbars themselves on the bottom right.
   AbsVec realsize; // Stores the total size of the children calculated from the layout.
   AbsVec lastpadding;
 #ifdef  __cplusplus

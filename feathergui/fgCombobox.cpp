@@ -33,7 +33,7 @@ size_t fgCombobox_Message(fgCombobox* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgDropdown_Message(&self->dropdown, msg);
-    fgTextbox_Init(&self->text, *self, 0, "fgCombobox$textbox", FGTEXTBOX_SINGLELINE | FGTEXTBOX_ACTION | FGELEMENT_BACKGROUND | FGSCROLLBAR_HIDEV | FGSCROLLBAR_HIDEH, &fgTransform_DEFAULT, 0);
+    fgTextbox_Init(&self->text, *self, 0, "fgCombobox$textbox", FGTEXTBOX_SINGLELINE | FGTEXTBOX_ACTION | FGELEMENT_BACKGROUND | FGSCROLLBAR_HIDEV | FGSCROLLBAR_HIDEH | FGFLAGS_INTERNAL, &fgTransform_DEFAULT, 0);
     self->dropdown.box->message = (fgMessage)fgComboboxDropdown_Message;
     return FG_ACCEPT;
   case FG_SETTEXT:

@@ -43,7 +43,7 @@ void fgText_WipeDynText(fgText* self)
 void fgText_Destroy(fgText* self)
 {
   assert(self != 0);
-  if(self->layout != 0) fgroot_instance->backend.fgFontLayout(self->font, 0, 0, 0, 0, 0, 0, self->layout);
+  if(self->layout != 0) fgroot_instance->backend.fgFontLayout(self->font, 0, 0, 0, 0, 0, 0, 0, self->layout);
   if(self->font != 0) fgroot_instance->backend.fgDestroyFont(self->font);
   self->font = 0;
   fgElement_Destroy(&self->element);
@@ -182,7 +182,7 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
     return FG_ACCEPT;
   case FG_SETFONT:
   {
-    if(self->layout != 0) fgroot_instance->backend.fgFontLayout(self->font, 0, 0, 0, 0, 0, 0, self->layout);
+    if(self->layout != 0) fgroot_instance->backend.fgFontLayout(self->font, 0, 0, 0, 0, 0, 0, 0, self->layout);
     self->layout = 0;
     void* oldfont = self->font; // We can't delete this up here because it may rely on the same font we're setting.
     self->font = 0;
@@ -241,14 +241,10 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
     fgElement_Message(&self->element, msg);
     if(self->font != 0 && !(msg->subtype & 1))
     {
-      AbsRect area = *(AbsRect*)msg->p;
-      fgDrawAuxData* data = (fgDrawAuxData*)msg->p2;
-      fgScaleRectDPI(&area, data->dpi.x, data->dpi.y);
-      fgSnapAbsRect(area, self->element.flags);
-      AbsVec center = ResolveVec(&self->element.transform.center, &area);
+      AbsVec center = ResolveVec(&self->element.transform.center, (AbsRect*)msg->p);
       fgVector* v = fgText_Conversion(fgroot_instance->backend.BackendTextFormat, &self->text8, &self->text16, &self->text32);
       if(v)
-        fgroot_instance->backend.fgDrawFont(self->font, v->p, v->l, self->lineheight, self->letterspacing, self->color.color, &area, self->element.transform.rotation, &center, self->element.flags, data, self->layout);
+        fgroot_instance->backend.fgDrawFont(self->font, v->p, v->l, self->lineheight, self->letterspacing, self->color.color, (AbsRect*)msg->p, self->element.transform.rotation, &center, self->element.flags, (fgDrawAuxData*)msg->p2, self->layout);
     }
     return FG_ACCEPT;
   case FG_SETDPI:
@@ -273,7 +269,7 @@ void fgText_Recalc(fgText* self)
       area.bottom = area.top + self->element.maxdim.y;
     fgVector* v = fgText_Conversion(fgroot_instance->backend.BackendTextFormat, &self->text8, &self->text16, &self->text32);
     if(v)
-      self->layout = fgroot_instance->backend.fgFontLayout(self->font, v->p, v->l, self->lineheight, self->letterspacing, &area, self->element.flags, self->layout);
+      self->layout = fgroot_instance->backend.fgFontLayout(self->font, v->p, v->l, self->lineheight, self->letterspacing, &area, self->element.flags, &self->element.GetDPI(), self->layout);
     CRect adjust = self->element.transform.area;
     if(self->element.flags&FGELEMENT_EXPANDX)
       adjust.right.abs = adjust.left.abs + area.right - area.left + self->element.padding.left + self->element.padding.right + self->element.margin.left + self->element.margin.right;

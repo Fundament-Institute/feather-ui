@@ -59,6 +59,9 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
       ResolveRect(self->window, &out);
       fgScaleRectDPI(&out, 96, 96);
       self->handle = self->context.WndCreate(out, 0, self, L"fgWindowD2D", self->dpi);
+#ifdef TEST_DPI
+      self->dpi.x = self->dpi.y = TEST_DPI;
+#endif
       ShowWindow(self->handle, SW_SHOW);
       UpdateWindow(self->handle);
       //SetWindowPos(self->handle, HWND_TOP, INT(wleft), INT(wtop), INT(rwidth), INT(rheight), SWP_NOCOPYBITS | SWP_NOMOVE | SWP_NOACTIVATE);
@@ -88,7 +91,7 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
     {
       AbsRect out;
       ResolveRect(self->window, &out);
-      fgScaleRectDPI(&out, 96, 96);
+      fgScaleRectDPI(&out, self->dpi.x, self->dpi.y);
       SetWindowPos(self->handle, HWND_TOP, out.left, out.top, out.right - out.left, out.bottom - out.top, SWP_NOSENDCHANGING);
     }
     break;
@@ -96,6 +99,8 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
     self->dpi.x = msg->i;
     self->dpi.y = msg->i2;
     break;
+  case FG_GETDPI:
+    return (size_t)&self->dpi;
   case FG_ACTION:
     switch(msg->i)
     {

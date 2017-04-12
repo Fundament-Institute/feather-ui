@@ -124,6 +124,7 @@ int main(int argc, char** argv)
   fgRegisterFunction("menu_edit", fgLayoutEditor::MenuEdit);
   fgRegisterFunction("menu_view", fgLayoutEditor::MenuView);
   fgRegisterFunction("menu_help", fgLayoutEditor::MenuHelp);
+  fgRegisterFunction("explorer_onfocus", fgLayoutEditor::ExplorerOnFocus);
 
   fgLayout layout;
   fgLayout_Init(&layout);
@@ -131,6 +132,7 @@ int main(int argc, char** argv)
 
   {
     fgLayoutEditor editor(&layout);
+    editor.OpenLayout(&layout);
     while(fgSingleton()->backend.fgProcessMessages());
   }
   fgLayout_Destroy(&layout);

@@ -34,12 +34,6 @@ typedef unsigned int fgFlag;
 typedef void* fgAsset;
 typedef void* fgFont;
 
-#define FGUI_VERSION_MAJOR 0
-#define FGUI_VERSION_MINOR 1
-#define FGUI_VERSION_REVISION 0
-#define FG_EXTERN extern BSS_COMPILER_DLLEXPORT
-#define FG_ACCEPT 1
-
 #ifndef FG_STATIC_LIB
 #ifdef feathergui_EXPORTS // All implementations need to define this to properly export the C++ functions in the feather static library.
 #pragma warning(disable:4251)
@@ -50,6 +44,12 @@ typedef void* fgFont;
 #else
 #define FG_DLLEXPORT
 #endif
+
+#define FGUI_VERSION_MAJOR 0
+#define FGUI_VERSION_MINOR 1
+#define FGUI_VERSION_REVISION 0
+#define FG_EXTERN extern FG_DLLEXPORT
+#define FG_ACCEPT 1
 
 // A unified coordinate specifies things in terms of absolute and relative positions.
 typedef struct {
@@ -125,6 +125,11 @@ FG_EXTERN const fgTransform fgTransform_CENTER;
 FG_EXTERN const CRect CRect_EMPTY;
 FG_EXTERN const AbsVec AbsVec_EMPTY;
 FG_EXTERN const fgIntVec fgIntVec_EMPTY;
+
+enum FGFLAGS {
+  FGFLAGS_INTERNAL = (1 << ((sizeof(fgFlag) << 3) - 2)),
+  FGFLAGS_DEFAULTS = (1 << ((sizeof(fgFlag) << 3) - 1)),
+};
 
 enum FGMOVE
 {
@@ -337,6 +342,7 @@ enum FG_MSGTYPE
   FG_ADDITEM, // Used for anything involving items (menus, lists, etc)
   FG_REMOVEITEM,
   FG_SETITEM,
+  FG_SELECTION, // The current selection changed
   FG_GETSELECTEDITEM, // Used to get the selected item (or items, or text) in a control.
   // fgCheckbox, fgRadiobutton, fgProgressbar, etc.
   FG_GETVALUE, // Gets the on/off state of a checkbox or the current progress on a progress bar
@@ -660,6 +666,13 @@ typedef struct _FG_MSG {
 #endif
 } FG_Msg;
 
+typedef struct _FG_DRAW_AUX_DATA {
+  size_t fgSZ;
+  fgIntVec dpi;
+  AbsVec scale;
+  AbsVec scalecenter;
+} fgDrawAuxData;
+
 FG_EXTERN AbsVec ResolveVec(const CVec* v, const AbsRect* last);
 FG_EXTERN inline char CompareMargins(const AbsRect* l, const AbsRect* r); // Returns 0 if both are the same or a difference bitset otherwise.
 FG_EXTERN inline char CompareCRects(const CRect* l, const CRect* r); // Returns 0 if both are the same or a difference bitset otherwise.
@@ -676,19 +689,16 @@ FG_EXTERN inline void fgUpdateMouseState(fgMouseState* state, const FG_Msg* msg)
 FG_EXTERN inline char fgRectIntersect(const AbsRect* l, const AbsRect* r); // Returns 1 if the rectangles intersect, or 0 otherwise
 FG_EXTERN inline void fgRectIntersection(const AbsRect* BSS_RESTRICT l, const AbsRect* BSS_RESTRICT r, AbsRect* out);
 FG_EXTERN inline void fgScaleRectDPI(AbsRect* rect, int dpix, int dpiy);
+FG_EXTERN inline void fgInvScaleRectDPI(AbsRect* rect, int dpix, int dpiy);
+FG_EXTERN void fgResolveDrawRect(const AbsRect* area, AbsRect* outarea, const AbsVec* center, AbsVec* outcenter, fgFlag flags, const fgDrawAuxData* data);
+FG_EXTERN void fgScaleVecDPI(AbsVec* v, int dpix, int dpiy);
+FG_EXTERN void fgInvScaleVecDPI(AbsVec* v, int dpix, int dpiy);
 FG_EXTERN size_t fgUTF32toUTF16(const int*BSS_RESTRICT input, ptrdiff_t srclen, wchar_t*BSS_RESTRICT output, size_t buflen);
 FG_EXTERN size_t fgUTF8toUTF16(const char*BSS_RESTRICT input, ptrdiff_t srclen, wchar_t*BSS_RESTRICT output, size_t buflen);
 FG_EXTERN size_t fgUTF16toUTF8(const wchar_t*BSS_RESTRICT input, ptrdiff_t srclen, char*BSS_RESTRICT output, size_t buflen);
 FG_EXTERN size_t fgUTF8toUTF32(const char*BSS_RESTRICT input, ptrdiff_t srclen, int*BSS_RESTRICT output, size_t buflen);
 FG_EXTERN size_t fgUTF32toUTF8(const int*BSS_RESTRICT input, ptrdiff_t srclen, char*BSS_RESTRICT output, size_t buflen);
 FG_EXTERN size_t fgUTF16toUTF32(const wchar_t*BSS_RESTRICT input, ptrdiff_t srclen, int*BSS_RESTRICT output, size_t buflen);
-
-typedef struct _FG_DRAW_AUX_DATA {
-  size_t fgSZ;
-  fgIntVec dpi;
-  AbsVec scale;
-  AbsVec scalecenter;
-} fgDrawAuxData;
 
 #ifdef  __cplusplus
 }

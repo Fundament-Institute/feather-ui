@@ -32,7 +32,7 @@ size_t fgTreeItem_Message(fgTreeItem* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgControl_Message(&self->control, msg);
-    fgElement_Init(&self->arrow, &self->control.element, 0, ARROWNAME, FGELEMENT_BACKGROUND|FGELEMENT_HIDDEN, 0, 0);
+    fgElement_Init(&self->arrow, &self->control.element, 0, ARROWNAME, FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN | FGFLAGS_INTERNAL, 0, 0);
     self->arrow.message = (fgMessage)&fgTreeItemArrow_Message;
     self->count = EXPANDED;
     fgMaskSetStyle(&self->arrow, "visible", fgStyleGetMask("visible", "hidden"));

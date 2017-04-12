@@ -189,6 +189,7 @@ size_t fgList_Message(fgList* self, const FG_Msg* msg)
         {
           fgSetFlagStyle(self->box.selected.p[index], "selected", false);
           ((fgElementArray&)self->box.selected).Remove(index);
+          self->box->Selection(0);
         }
       }
     }
@@ -200,7 +201,10 @@ size_t fgList_Message(fgList* self, const FG_Msg* msg)
       AbsRect cache;
       fgElement* target = fgElement_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
       if(!target)
+      {
+        self->box->Selection(0);
         break;
+      }
       fgBox_SelectTarget(&self->box, target);
     }
     self->split = 0;

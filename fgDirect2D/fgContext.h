@@ -7,6 +7,8 @@
 #include "fgElement.h"
 #include <stack>
 
+//#define TEST_DPI 120
+
 struct HWND__;
 struct tagRECT;
 struct tagPOINTS;

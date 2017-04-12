@@ -61,7 +61,7 @@ size_t fgMenu_Message(fgMenu* self, const FG_Msg* msg)
     fgBox_Message(&self->box, msg);
     self->expanded = 0;
     const fgTransform TF_ARROW = { { 0,0,0,0.5,0,0,0,0.5 }, 0,{ 1.0,0.5 } };
-    fgElement_Init(&self->arrow, 0, 0, "Menu$arrow", FGELEMENT_IGNORE | FGELEMENT_BACKGROUND | FGELEMENT_EXPAND, &TF_ARROW, 0);
+    fgElement_Init(&self->arrow, 0, 0, "Menu$arrow", FGELEMENT_IGNORE | FGELEMENT_BACKGROUND | FGELEMENT_EXPAND | FGFLAGS_INTERNAL, &TF_ARROW, 0);
     return FG_ACCEPT;
   }
   case FG_MOUSEUP:
@@ -106,13 +106,13 @@ size_t fgMenu_Message(fgMenu* self, const FG_Msg* msg)
       break;
     case FGITEM_ELEMENT:
     {
-      fgElement* menuitem = fgroot_instance->backend.fgCreate("MenuItem", *self, 0, 0, FGELEMENT_USEDEFAULTS, 0, 0);
+      fgElement* menuitem = fgroot_instance->backend.fgCreate("MenuItem", *self, 0, 0, FGFLAGS_DEFAULTS, 0, 0);
       fgSendMessage(menuitem, msg);
       return (size_t)menuitem;
     }
     case FGITEM_TEXT:
     {
-      fgElement* menuitem = fgroot_instance->backend.fgCreate("MenuItem", *self, 0, 0, FGELEMENT_USEDEFAULTS, 0, 0);
+      fgElement* menuitem = fgroot_instance->backend.fgCreate("MenuItem", *self, 0, 0, FGFLAGS_DEFAULTS, 0, 0);
       menuitem->SetText((const char*)msg->p, (FGTEXTFMT)msg->u2);
       return (size_t)menuitem;
     }
@@ -146,7 +146,7 @@ size_t fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
     fgBox_Message(&self->box, msg);
     self->expanded = 0;
     const fgTransform TF_ARROW = { { 0,1,0,0.5,0,1,0,0.5 }, 0,{ 0.5,1.0 } };
-    fgElement_Init(&self->arrow, 0, 0, "Submenu$arrow", FGELEMENT_IGNORE | FGELEMENT_BACKGROUND | FGELEMENT_EXPAND, &TF_ARROW, 0);
+    fgElement_Init(&self->arrow, 0, 0, "Submenu$arrow", FGELEMENT_IGNORE | FGELEMENT_BACKGROUND | FGELEMENT_EXPAND | FGFLAGS_INTERNAL, &TF_ARROW, 0);
     return FG_ACCEPT;
   }
   case FG_CLONE:
@@ -220,13 +220,13 @@ size_t fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
       break;
     case FGITEM_ELEMENT:
     {
-      fgElement* menuitem = fgroot_instance->backend.fgCreate("MenuItem", *self, 0, 0, FGELEMENT_USEDEFAULTS, 0, 0);
+      fgElement* menuitem = fgroot_instance->backend.fgCreate("MenuItem", *self, 0, 0, FGFLAGS_DEFAULTS, 0, 0);
       fgSendMessage(menuitem, msg);
       return (size_t)menuitem;
     }
     case FGITEM_TEXT:
     {
-      fgElement* menuitem = fgroot_instance->backend.fgCreate("MenuItem", *self, 0, 0, FGELEMENT_USEDEFAULTS, 0, 0);
+      fgElement* menuitem = fgroot_instance->backend.fgCreate("MenuItem", *self, 0, 0, FGFLAGS_DEFAULTS, 0, 0);
       menuitem->SetText((const char*)msg->p, (FGTEXTFMT)msg->u2);
       return (size_t)menuitem;
     }
@@ -277,7 +277,7 @@ size_t fgMenuItem_Message(fgMenuItem* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgElement_Message(&self->element, msg);
-    fgText_Init(&self->text, &self->element, 0, "MenuItem$text", FGELEMENT_EXPAND, 0, 0);
+    fgText_Init(&self->text, &self->element, 0, "MenuItem$text", FGELEMENT_EXPAND | FGFLAGS_INTERNAL, 0, 0);
     self->submenu = 0;
     return FG_ACCEPT;
   case FG_CLONE:

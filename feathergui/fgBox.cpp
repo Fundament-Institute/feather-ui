@@ -125,13 +125,13 @@ void fgBoxRenderDividers(fgElement* self, const AbsRect* area, const fgDrawAuxDa
     if(self->flags&FGBOX_TILEX)
     {
       float avg = floor((rnext.left + rbegin.right) * 0.5f);
-      AbsVec v[2] = { { avg,floor(rnext.top)}, { avg,floor(rnext.bottom)} };
+      AbsVec v[2] = { { avg,floor(area->top + self->padding.top)}, { avg,floor(area->bottom - self->padding.bottom)} };
       fgroot_instance->backend.fgDrawLines(v,2, dividercolor.color, &offset, &scale, self->transform.rotation, &center, aux);
     }
     else
     {
       float avg = floor((rnext.top + rbegin.bottom) * 0.5f);
-      AbsVec v[2] = { { floor(rnext.left),avg },{ floor(rnext.right),avg } };
+      AbsVec v[2] = { { floor(area->left + self->padding.left),avg },{ floor(area->right - self->padding.right),avg } };
       fgroot_instance->backend.fgDrawLines(v, 2, dividercolor.color, &offset, &scale, self->transform.rotation, &center, aux);
     }
 
@@ -153,6 +153,7 @@ void fgBox_SelectTarget(fgBox* self, fgElement* target)
 
   fgSetFlagStyle(target, "selected", true);
   ((fgElementArray&)self->selected).Insert(target);
+  self->scroll->Selection(target);
 }
 
 size_t fgBox_Message(fgBox* self, const FG_Msg* msg)

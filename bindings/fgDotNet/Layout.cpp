@@ -34,6 +34,5 @@ void Layout::SaveFileUBJSON(System::String^ file) { TOCHAR(file); reinterpret_ca
 void Layout::LoadFileXML(System::String^ file) { TOCHAR(file); reinterpret_cast<fgLayout*>(_p)->LoadFileXML((const char*)pstr); }
 bool Layout::LoadXML(cli::array<System::Byte>^ data) { pin_ptr<const unsigned char> p = &data[0]; return reinterpret_cast<fgLayout*>(_p)->LoadXML((const char*)p, data->Length) != 0; }
 void Layout::SaveFileXML(System::String^ file) { TOCHAR(file); reinterpret_cast<fgLayout*>(_p)->SaveFileXML((const char*)pstr); }
-void Layout::SaveElementXML(Element^ e, System::String^ file) { TOCHAR(file); fgLayout_SaveElementXML(e, (const char*)pstr); }
 
 Layout::operator fgLayout*(Layout^ e) { return reinterpret_cast<fgLayout*>(e->_p); }

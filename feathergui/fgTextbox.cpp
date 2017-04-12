@@ -11,7 +11,7 @@ void fgTextbox_Init(fgTextbox* self, fgElement* BSS_RESTRICT parent, fgElement* 
 }
 void fgTextbox_Destroy(fgTextbox* self)
 {
-  if(self->layout != 0) fgroot_instance->backend.fgFontLayout(self->font, 0, 0, 0, 0, 0, 0, self->layout);
+  if(self->layout != 0) fgroot_instance->backend.fgFontLayout(self->font, 0, 0, 0, 0, 0, 0, 0, self->layout);
   if(self->font != 0) fgroot_instance->backend.fgDestroyFont(self->font);
   if(self->validation != 0) fgFreeText(self->validation, __FILE__, __LINE__);
   if(self->formatting != 0) fgFreeText(self->formatting, __FILE__, __LINE__);
@@ -81,7 +81,7 @@ inline void fgTextbox_fixpos(fgTextbox* self, size_t cursor, AbsVec* r)
   if(self->mask)
     FILLMASK(self, text)
 
-  *r = fgroot_instance->backend.fgFontPos(self->font, text, v->l, self->lineheight, self->letterspacing, &self->areacache, self->scroll->flags, cursor, self->layout);
+  *r = fgroot_instance->backend.fgFontPos(self->font, text, v->l, self->lineheight, self->letterspacing, &self->areacache, self->scroll->flags, cursor, &self->scroll->GetDPI(), self->layout);
   AbsRect to = { r->x, r->y, r->x, r->y + self->lineheight*1.125f }; // We don't know what the descender is, so we estimate it as 1/8 the lineheight.
   _sendsubmsg<FG_ACTION, void*>(*self, FGSCROLLBAR_SCROLLTO, &to);
   self->lastx = self->startpos.x;
@@ -93,7 +93,7 @@ inline size_t fgTextbox_fixindex(fgTextbox* self, AbsVec pos, AbsVec* cursor)
   void* text = v->p;
   if(self->mask)
     FILLMASK(self, text)
-  size_t r = fgroot_instance->backend.fgFontIndex(self->font, text, v->l, self->lineheight, self->letterspacing, &self->areacache, self->scroll->flags, pos, cursor, self->layout);
+  size_t r = fgroot_instance->backend.fgFontIndex(self->font, text, v->l, self->lineheight, self->letterspacing, &self->areacache, self->scroll->flags, pos, cursor, &self->scroll->GetDPI(), self->layout);
   AbsRect to = { cursor->x, cursor->y, cursor->x, cursor->y + self->lineheight*1.125f };
   _sendsubmsg<FG_ACTION, void*>(*self, FGSCROLLBAR_SCROLLTO, &to);
   return r;
@@ -412,7 +412,7 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
     return FG_ACCEPT;
   case FG_SETFONT:
   {
-    if(self->layout != 0) fgroot_instance->backend.fgFontLayout(self->font, 0, 0, 0, 0, 0, 0, self->layout);
+    if(self->layout != 0) fgroot_instance->backend.fgFontLayout(self->font, 0, 0, 0, 0, 0, 0, 0, self->layout);
     self->layout = 0;
     void* oldfont = self->font; // We can't delete this up here because it may rely on the same font we're setting.
     self->font = 0;
@@ -420,7 +420,7 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
     {
       fgFontDesc desc;
       fgroot_instance->backend.fgFontGet(msg->p, &desc);
-      fgIntVec dpi = self->scroll->GetDPI();
+      fgIntVec& dpi = self->scroll->GetDPI();
       bool identical = (dpi.x == desc.dpi.x && dpi.y == desc.dpi.y);
       desc.dpi = dpi;
       self->font = fgroot_instance->backend.fgCloneFont(msg->p, identical ? 0 : &desc);
@@ -495,8 +495,8 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       AbsRect cliparea = area;
       cliparea.left += self->scroll.realpadding.left;
       cliparea.top += self->scroll.realpadding.top;
-      cliparea.right -= self->scroll.realpadding.right + bssmax(self->scroll.barcache.y, 0);
-      cliparea.bottom -= self->scroll.realpadding.bottom + bssmax(self->scroll.barcache.x, 0);
+      cliparea.right -= self->scroll.realpadding.right + self->scroll.exclude.left + self->scroll.exclude.right;
+      cliparea.bottom -= self->scroll.realpadding.bottom + self->scroll.exclude.top + self->scroll.exclude.bottom;
       if(!(self->scroll->flags&FGELEMENT_NOCLIP))
         fgroot_instance->backend.fgPushClipRect(&cliparea, data);
 
@@ -535,10 +535,8 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       }
 
       // Draw text
-      fgScaleRectDPI(&area, data->dpi.x, data->dpi.y);
       //assert(self->areacache.right - self->areacache.left == area.right - area.left);
       //assert(self->areacache.bottom - self->areacache.top == area.bottom - area.top);
-      fgSnapAbsRect(area, self->scroll->flags);
       center = ResolveVec(&self->scroll.control.element.transform.center, &area);
 
       void* text = 0;
@@ -631,8 +629,7 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       if(m->subtype == FGELEMENT_LAYOUTMOVE)
       {
         ResolveInnerRect(*self, &self->areacache);
-        fgIntVec dpi = self->scroll->GetDPI(); // GetDPI can return 0 if we have no parent, which can happen when a layout is being set up or destroyed.
-        fgScaleRectDPI(&self->areacache, dpi.x, dpi.y);
+        fgIntVec& dpi = self->scroll->GetDPI(); // GetDPI can return 0 if we have no parent, which can happen when a layout is being set up or destroyed.
         AbsRect r = self->areacache;
         if(self->scroll->flags&FGELEMENT_EXPANDX) // If maxdim is -1, this will translate into a -1 maxdim for the text and properly deal with all resizing cases.
           r.right = r.left + self->scroll->maxdim.x;
@@ -641,7 +638,7 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
 
         fgVector* v = fgText_Conversion(fgroot_instance->backend.BackendTextFormat, &self->text8, &self->text16, &self->text32);
         if(v)
-          self->layout = fgroot_instance->backend.fgFontLayout(self->font, v->p, v->l, self->lineheight, self->letterspacing, &r, self->scroll->flags, self->layout);
+          self->layout = fgroot_instance->backend.fgFontLayout(self->font, v->p, v->l, self->lineheight, self->letterspacing, &r, self->scroll->flags, &dpi, self->layout);
         dim->x = r.right - r.left;
         dim->y = r.bottom - r.top;
         assert(!isnan(self->scroll.realsize.x) && !isnan(self->scroll.realsize.y));

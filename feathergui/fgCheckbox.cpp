@@ -21,7 +21,7 @@ size_t fgCheckbox_Message(fgCheckbox* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgControl_HoverMessage(&self->control, msg);
-    fgText_Init(&self->text, *self, 0, "Checkbox$text", FGELEMENT_EXPAND | FGELEMENT_IGNORE, &fgTransform_CENTER, 0);
+    fgText_Init(&self->text, *self, 0, "Checkbox$text", FGELEMENT_EXPAND | FGELEMENT_IGNORE | FGFLAGS_INTERNAL, &fgTransform_CENTER, 0);
     fgMaskSetStyle(*self, "default", fgStyleGetMask("default", "checked", "indeterminate"));
     self->checked = FGCHECKED_NONE;
     return FG_ACCEPT;

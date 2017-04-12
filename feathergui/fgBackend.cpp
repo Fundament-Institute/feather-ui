@@ -19,10 +19,10 @@ fgFont fgCreateFontDefault(fgFlag flags, const char* family, short weight, char 
 fgFont fgCloneFontDefault(fgFont font, const struct _FG_FONT_DESC* desc) { return (void*)~0; }
 void fgDestroyFontDefault(fgFont font) { }
 void fgDrawFontDefault(fgFont font, const void* text, size_t len, float lineheight, float letterspacing, unsigned int color, const AbsRect* area, FABS rotation, const AbsVec* center, fgFlag flags, const fgDrawAuxData* data, void* layout) { }
-fgFont fgFontLayoutDefault(fgFont font, const void* text, size_t len, float lineheight, float letterspacing, AbsRect* area, fgFlag flags, void* prevlayout) { return 0; }
+fgFont fgFontLayoutDefault(fgFont font, const void* text, size_t len, float lineheight, float letterspacing, AbsRect* area, fgFlag flags, const fgIntVec* dpi, void* prevlayout) { return 0; }
 void fgFontGetDefault(fgFont font, struct _FG_FONT_DESC* desc) { if(desc) memset(desc, 0, sizeof(struct _FG_FONT_DESC)); }
-size_t fgFontIndexDefault(void* font, const void* text, size_t len, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, AbsVec pos, AbsVec* cursor, void* cache) { return 0; }
-AbsVec fgFontPosDefault(void* font, const void* text, size_t len, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, size_t index, void* cache) { AbsVec a = { 0,0 }; return a; }
+size_t fgFontIndexDefault(void* font, const void* text, size_t len, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, AbsVec pos, AbsVec* cursor, const fgIntVec* dpi, void* cache) { return 0; }
+AbsVec fgFontPosDefault(void* font, const void* text, size_t len, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, size_t index, const fgIntVec* dpi, void* cache) { AbsVec a = { 0,0 }; return a; }
 
 fgAsset fgCreateAssetDefault(fgFlag flags, const char* data, size_t length) { return (void*)~0; }
 fgAsset fgCloneAssetDefault(fgAsset res, fgElement* src) { return (void*)~0; }
@@ -112,7 +112,7 @@ short fgMessageMapDefault(const char* name)
     "SETPARENT", "ADDCHILD", "REMOVECHILD", "REORDERCHILD", "PARENTCHANGE", "LAYOUTCHANGE", "LAYOUTFUNCTION", "LAYOUTLOAD", "DRAGOVER", "DROP", "DRAW", "INJECT", "SETSKIN", "GETSKIN", "SETSTYLE", "GETSTYLE",
     "GETCLASSNAME", "GETDPI", "SETDPI", "SETUSERDATA", "GETUSERDATA", "SETDIM", "GETDIM", "SETSCALING", "GETSCALING", "MOUSEDOWN", "MOUSEDBLCLICK", "MOUSEUP", "MOUSEON", "MOUSEOFF", "MOUSEMOVE",
     "MOUSESCROLL", "TOUCHBEGIN", "TOUCHEND", "TOUCHMOVE", "KEYUP", "KEYDOWN", "KEYCHAR", "JOYBUTTONDOWN", "JOYBUTTONUP", "JOYAXIS", "GOTFOCUS", "LOSTFOCUS", "SETNAME", "GETNAME", "SETCONTEXTMENU",
-    "GETCONTEXTMENU", "NEUTRAL", "HOVER", "ACTIVE", "ACTION", "GETITEM", "ADDITEM", "REMOVEITEM", "SETITEM", "GETSELECTEDITEM", "GETVALUE", "SETVALUE", "GETRANGE", "SETRANGE", "SETASSET", "SETUV",
+    "GETCONTEXTMENU", "NEUTRAL", "HOVER", "ACTIVE", "ACTION", "GETITEM", "ADDITEM", "REMOVEITEM", "SETITEM", "SELECTION", "GETSELECTEDITEM", "GETVALUE", "SETVALUE", "GETRANGE", "SETRANGE", "SETASSET", "SETUV",
     "SETCOLOR", "SETOUTLINE", "SETFONT", "SETLINEHEIGHT", "SETLETTERSPACING", "SETTEXT", "GETASSET", "GETUV", "GETCOLOR", "GETOUTLINE", "GETFONT", "GETLINEHEIGHT", "GETLETTERSPACING", "GETTEXT",
     "$FG_CUSTOMEVENT");
 

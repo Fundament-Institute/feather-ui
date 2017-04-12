@@ -37,7 +37,6 @@ namespace fgDotNet {
     bool LoadXML(cli::array<System::Byte>^ data);
     void SaveFileXML(System::String^ file);
 
-    static void SaveElementXML(Element^ e, System::String^ file);
     static operator fgLayout*(Layout^ e);
   };
 }

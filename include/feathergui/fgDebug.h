@@ -66,6 +66,7 @@ typedef struct _FG_DEBUG_MESSAGE {
 // The debug view is designed as an overlay to help you inspect the current state of the GUI
 typedef struct _FG_DEBUG {
   fgTabcontrol tabs;
+  fgElement overlay;
   fgElement* tablayout;
   fgElement* tabmessages;
   fgTreeview elements; // TreeView of the elements, minus the debug view itself.

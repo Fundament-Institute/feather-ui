@@ -93,7 +93,7 @@ size_t fgDropdown_Message(fgDropdown* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
   {
     fgTransform TF_BOX = { { 0, 0, 0, 1, 0, 1, 0, 1 }, 0, { 0, 0, 0, 0 } };
-    fgBox_Init(&self->box, *self, 0, "Dropdown$box", FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN | FGELEMENT_NOCLIP | FGELEMENT_EXPANDY | FGBOX_TILEY, &TF_BOX, 0);
+    fgBox_Init(&self->box, *self, 0, "Dropdown$box", FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN | FGELEMENT_NOCLIP | FGELEMENT_EXPANDY | FGBOX_TILEY | FGFLAGS_INTERNAL, &TF_BOX, 0);
     self->box.fndraw = &fgDropdown_Draw;
     self->box->message = (fgMessage)&fgDropdownBox_Message;
     self->selected = 0;

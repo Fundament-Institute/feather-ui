@@ -40,9 +40,9 @@ namespace fgDotNet {
     void Update(double delta) { fgRoot_Update(reinterpret_cast<fgRoot*>(_p), delta); }
     void CheckMouseMove() { fgRoot_CheckMouseMove(reinterpret_cast<fgRoot*>(_p)); }
     Monitor^ GetMonitor(RectangleF rect) { return GenNewManagedPtr<Monitor, fgMonitor>(fgRoot_GetMonitor(reinterpret_cast<fgRoot*>(_p), &Element::From(rect))); }
-    Element^ GetID(String^ id) { TOCHAR(id); return GenNewManagedPtr<Element, fgElement>(fgRoot_GetID(reinterpret_cast<fgRoot*>(_p), (const char*)pstr)); }
-    void AddID(String^ id, Element^ element) { TOCHAR(id); return fgRoot_AddID(reinterpret_cast<fgRoot*>(_p), (const char*)pstr, element); }
-    bool RemoveID(Element^ element) { return fgRoot_RemoveID(reinterpret_cast<fgRoot*>(_p), element) != 0; }
+    Element^ GetID(String^ id) { TOCHAR(id); return GenNewManagedPtr<Element, fgElement>(fgGetID((const char*)pstr)); }
+    void AddID(String^ id, Element^ element) { TOCHAR(id); return fgAddID( (const char*)pstr, element); }
+    bool RemoveID(Element^ element) { return fgRemoveID(element) != 0; }
     static Element^ Create(String^ type, Element^ parent, Element^ next, String^ name, fgFlag flags, UnifiedTransform^ transform, unsigned short units)
     {
       TOCHAR(type);

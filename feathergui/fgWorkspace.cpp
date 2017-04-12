@@ -35,10 +35,10 @@ size_t fgWorkspace_Message(fgWorkspace* self, const FG_Msg* msg)
     case FG_CONSTRUCT:
       memsubset<fgWorkspace, fgScrollbar>(self, 0);
       fgScrollbar_Message(&self->scroll, msg);
-      fgElement_Init(&self->rulers[0], *self, 0, "Workspace$LeftRuler", FGELEMENT_BACKGROUND | FGWORKSPACE_RULERX, 0, 0);
-      fgElement_Init(&self->rulers[1], *self, 0, "Workspace$TopRuler", FGELEMENT_BACKGROUND | FGWORKSPACE_RULERY, 0, 0);
-      fgElement_Init(&self->cursors[0], &self->rulers[0], 0, "Workspace$LeftCursor", FGELEMENT_BACKGROUND | FGELEMENT_EXPAND, 0, 0);
-      fgElement_Init(&self->cursors[1], &self->rulers[1], 0, "Workspace$TopCursor", FGELEMENT_BACKGROUND | FGELEMENT_EXPAND, 0, 0);
+      fgElement_Init(&self->rulers[0], *self, 0, "Workspace$LeftRuler", FGELEMENT_BACKGROUND | FGWORKSPACE_RULERX | FGFLAGS_INTERNAL, 0, 0);
+      fgElement_Init(&self->rulers[1], *self, 0, "Workspace$TopRuler", FGELEMENT_BACKGROUND | FGWORKSPACE_RULERY | FGFLAGS_INTERNAL, 0, 0);
+      fgElement_Init(&self->cursors[0], &self->rulers[0], 0, "Workspace$LeftCursor", FGELEMENT_BACKGROUND | FGELEMENT_EXPAND | FGFLAGS_INTERNAL, 0, 0);
+      fgElement_Init(&self->cursors[1], &self->rulers[1], 0, "Workspace$TopCursor", FGELEMENT_BACKGROUND | FGELEMENT_EXPAND | FGFLAGS_INTERNAL, 0, 0);
       self->rulers[0].message = (fgMessage)&fgWorkspace_RulerMessage;
       self->rulers[1].message = (fgMessage)&fgWorkspace_RulerMessage;
       return FG_ACCEPT;
@@ -73,7 +73,7 @@ size_t fgWorkspace_Message(fgWorkspace* self, const FG_Msg* msg)
       return (size_t)"Workspace";
   }
 
-  fgScrollbar_Message(&self->scroll, msg);
+  return fgScrollbar_Message(&self->scroll, msg);
 }
 
 void fgWorkspace_DrawRuler(fgElement* e, const AbsRect* area, const fgDrawAuxData* data, fgElement*)

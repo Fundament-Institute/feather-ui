@@ -25,9 +25,9 @@ struct fgWindowD2D {
 extern "C" {
 #endif
 
-FG_EXTERN void fgWindowD2D_Init(fgWindowD2D* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
-FG_EXTERN void fgWindowD2D_Destroy(fgWindowD2D* self);
-FG_EXTERN size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg);
+extern void fgWindowD2D_Init(fgWindowD2D* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
+extern void fgWindowD2D_Destroy(fgWindowD2D* self);
+extern size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg);
 
 #ifdef  __cplusplus
 }

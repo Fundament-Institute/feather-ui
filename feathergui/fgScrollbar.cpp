@@ -38,7 +38,7 @@ size_t fgScrollbar_bgMessage(fgElement* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgElement_Message(self, msg);
-    _sendsubmsg<FG_ACTION>(self->parent, FGSCROLLBAR_BARCACHE);
+    _sendsubmsg<FG_ACTION>(self->parent, FGSCROLLBAR_CHANGE);
     return FG_ACCEPT;
   case FG_ACTION:
     if(self->parent != 0)
@@ -66,7 +66,7 @@ size_t fgScrollbar_bgMessage(fgElement* self, const FG_Msg* msg)
   case FG_SETAREA:
     size_t ret = fgElement_Message(self, msg);
     if(ret != 0 && self->parent != 0)
-      _sendsubmsg<FG_ACTION>(self->parent, FGSCROLLBAR_BARCACHE);
+      _sendsubmsg<FG_ACTION>(self->parent, FGSCROLLBAR_CHANGE);
     return ret;
   }
 
@@ -128,50 +128,65 @@ void fgScrollbar_Recalc(fgScrollbar* self)
   bool hidev = !!(self->control.element.flags&FGSCROLLBAR_HIDEV);
 
   // We have to figure out which scrollbars are visible based on flags and our dimensions
-  bool scrollx = !hideh && ((dim.x < self->realsize.x + self->realpadding.left + self->realpadding.right + bssmax(self->barcache.y, 0)) || self->control.element.flags&FGSCROLLBAR_SHOWH);
-  bool scrolly = !hidev && ((dim.y < self->realsize.y + self->realpadding.top + self->realpadding.bottom + bssmax(self->barcache.x, 0)) || self->control.element.flags&FGSCROLLBAR_SHOWV);
+  bool scrollx = !hideh && ((dim.x < self->realsize.x + self->realpadding.left + self->realpadding.right + self->exclude.left + self->exclude.right) || self->control.element.flags&FGSCROLLBAR_SHOWH);
+  bool scrolly = !hidev && ((dim.y < self->realsize.y + self->realpadding.top + self->realpadding.bottom + self->exclude.top + self->exclude.bottom) || self->control.element.flags&FGSCROLLBAR_SHOWV);
 
   // If we are adding or removing a scrollbar, this will change the padding and could change everything else (e.g. for textboxes)
-  if((self->barcache.x != 0.0f && scrollx ^ (self->barcache.x > 0)) || (self->barcache.y != 0.0f && scrolly ^ (self->barcache.y > 0)))
+  char dimr = 0;
+  if(scrollx ^ ((self->bg[0].flags&FGELEMENT_HIDDEN) == 0))
   {
-    char dimr = 0;
-    if(scrollx ^ (self->barcache.x > 0))
+    if(scrollx)
     {
-      self->barcache.x = -self->barcache.x;
-      dimr |= FGMOVE_RESIZEY;
+      ResolveRect(&self->bg[0], &r);
+      self->exclude.bottom = r.bottom - r.top;
     }
-    if(scrolly ^ (self->barcache.y > 0))
+    else
+      self->exclude.bottom = 0;
+    dimr |= FGMOVE_RESIZEY;
+  }
+  if(scrolly ^ ((self->bg[1].flags&FGELEMENT_HIDDEN) == 0))
+  {
+    if(scrolly)
     {
-      self->barcache.y = -self->barcache.y;
-      dimr |= FGMOVE_RESIZEY;
+      ResolveRect(&self->bg[1], &r);
+      self->exclude.right = r.right - r.left;
     }
+    else
+      self->exclude.right = 0;
+    dimr |= FGMOVE_RESIZEY;
+  }
+  if(dimr)
+  {
+    self->bg[0].SetFlag(FGELEMENT_HIDDEN, !scrollx);
+    self->bg[1].SetFlag(FGELEMENT_HIDDEN, !scrolly);
     fgScrollbar_ApplyPadding(self, 0, 0);
     self->control->Move(FG_SETPADDING, 0, dimr);
     return;
   }
 
-  // If we get this far, the padding has already been taken care of - append or remove scrollbars.
-  self->bg[0].SetFlag(FGELEMENT_HIDDEN, self->barcache.x <= 0);
-  self->bg[1].SetFlag(FGELEMENT_HIDDEN, self->barcache.y <= 0);
-
   // Expand area in response to adding scrollbars if necessary
   CRect area = self->control.element.transform.area;
   if(self->control.element.flags & FGELEMENT_EXPANDX)
-    area.right.abs = area.left.abs + self->realsize.x + self->realpadding.left + self->realpadding.right + self->control->margin.left + self->control->margin.right + bssmax(self->barcache.y, 0);
+    area.right.abs = area.left.abs + self->realsize.x + self->realpadding.left + self->realpadding.right + self->control->margin.left + self->control->margin.right + self->exclude.left + self->exclude.right;
   if(self->control.element.flags & FGELEMENT_EXPANDY)
-    area.bottom.abs = area.top.abs + self->realsize.y + self->realpadding.top + self->realpadding.bottom + self->control->margin.top + self->control->margin.bottom + bssmax(self->barcache.x, 0);
+    area.bottom.abs = area.top.abs + self->realsize.y + self->realpadding.top + self->realpadding.bottom + self->control->margin.top + self->control->margin.bottom + self->exclude.top + self->exclude.bottom;
   _sendmsg<FG_SETAREA, void*>(*self, &area); // SETAREA will set MAXDIM appropriately
 
   // If both scrollbars are active, set the margins to exclude them from the corner
-  bool exclude = (self->barcache.x >= 0 && self->barcache.y >= 0);
-  self->bg[0].SetMargin(AbsRect { 0,0,exclude ? self->barcache.x : 0,0 });
-  self->bg[1].SetMargin(AbsRect { 0,0,0,exclude ? self->barcache.y : 0 });
-  self->bg[2].SetFlag(FGELEMENT_HIDDEN|FGELEMENT_IGNORE, !exclude);
+  self->bg[0].SetMargin(AbsRect { self->exclude.left,0,self->exclude.right,0 });
+  self->bg[1].SetMargin(AbsRect { 0,self->exclude.top,0, self->exclude.bottom });
+  if(self->exclude.right > 0 && self->exclude.bottom > 0)
+  {
+    self->bg[2].SetFlag(FGELEMENT_HIDDEN | FGELEMENT_IGNORE, false);
+    self->bg[2].SetArea(CRect{ -self->exclude.right, 1, -self->exclude.bottom, 1, 0, 1, 0, 1 });
+  }
+  else
+    self->bg[2].SetFlag(FGELEMENT_HIDDEN | FGELEMENT_IGNORE, true);
 
   // Set bar dimensions appropriately based on padding
-  if(self->barcache.x >= 0)
+  if(scrollx)
   {
-    float d = r.right - r.left - self->realpadding.left - self->realpadding.right - bssmax(self->barcache.y, 0);
+    float d = r.right - r.left - self->realpadding.left - self->realpadding.right - self->exclude.left - self->exclude.right;
     float length = (self->realsize.x <= 0.0f) ? 1.0f : (d / self->realsize.x);
     float pos = (d - self->realsize.x) == 0.0f ? 0.0f : self->control.element.padding.left / (d - self->realsize.x);
     self->bar[0].button->SetArea(CRect { 0, (1.0f - length)*pos, 0, 0, 0, (1.0f - length)*pos + length, 0, 1.0f });
@@ -179,9 +194,9 @@ void fgScrollbar_Recalc(fgScrollbar* self)
     self->btn[2]->SetFlag(FGCONTROL_DISABLE, length >= 1.0f || pos >= 1.0f);
     self->bar[0].button->SetFlag(FGCONTROL_DISABLE, length >= 1.0f);
   }
-  if(self->barcache.y >= 0)
+  if(scrolly)
   {
-    float d = r.bottom - r.top - self->realpadding.top - self->realpadding.bottom - bssmax(self->barcache.x, 0);
+    float d = r.bottom - r.top - self->realpadding.top - self->realpadding.bottom - self->exclude.top - self->exclude.bottom;
     float length = (self->realsize.y <= 0.0f) ? 1.0f : (d / self->realsize.y);
     float pos = (d - self->realsize.y) == 0.0f ? 0.0f : self->control.element.padding.top / (d - self->realsize.y);
     self->bar[1].button->SetArea(CRect { 0, 0, 0, (1.0f - length)*pos, 0, 1.0f, 0, (1.0f - length)*pos + length });
@@ -193,40 +208,36 @@ void fgScrollbar_Recalc(fgScrollbar* self)
 
 void fgScrollbar_ApplyPadding(fgScrollbar* self, float x, float y)
 {
+  AbsRect totalpadding = {
+    self->realpadding.left + self->exclude.left,
+    self->realpadding.top + self->exclude.top,
+    self->realpadding.right + self->exclude.right,
+    self->realpadding.bottom + self->exclude.bottom
+  };
+
   assert(!isnan(self->realsize.x) && !isnan(self->realsize.y));
   self->control.element.padding.left += x;
   self->control.element.padding.top += y;
-  if(self->control.element.padding.left > self->realpadding.left || (self->control->flags & FGSCROLLBAR_HIDEH))
-    self->control.element.padding.left = self->realpadding.left; // if HIDEH is true we don't let you scroll at all
-  if(self->control.element.padding.top > self->realpadding.top || (self->control->flags & FGSCROLLBAR_HIDEV))
-    self->control.element.padding.top = self->realpadding.top; // if HIDEV is true we don't let you scroll at all
+  if(self->control.element.padding.left > totalpadding.left || (self->control->flags & FGSCROLLBAR_HIDEH))
+    self->control.element.padding.left = totalpadding.left; // if HIDEH is true we don't let you scroll at all
+  if(self->control.element.padding.top > totalpadding.top || (self->control->flags & FGSCROLLBAR_HIDEV))
+    self->control.element.padding.top = totalpadding.top; // if HIDEV is true we don't let you scroll at all
 
   AbsRect r;
   ResolveRect(*self, &r);
-  float minpaddingx = (r.right - r.left - self->realpadding.right) - self->realsize.x - bssmax(self->barcache.y, 0);
-  minpaddingx = bssmin(minpaddingx, self->realpadding.left);
-  float minpaddingy = (r.bottom - r.top - self->realpadding.bottom) - self->realsize.y - bssmax(self->barcache.x, 0);
-  minpaddingy = bssmin(minpaddingy, self->realpadding.top);
+  float minpaddingx = (r.right - r.left - totalpadding.right) - self->realsize.x;
+  minpaddingx = bssmin(minpaddingx, totalpadding.left);
+  float minpaddingy = (r.bottom - r.top - totalpadding.bottom) - self->realsize.y;
+  minpaddingy = bssmin(minpaddingy, totalpadding.top);
   if(self->control.element.padding.left < minpaddingx)
     self->control.element.padding.left = minpaddingx;
   if(self->control.element.padding.top < minpaddingy)
     self->control.element.padding.top = minpaddingy;
 
-  self->control.element.padding.right = self->realpadding.right + bssmax(self->barcache.y, 0);
-  self->control.element.padding.bottom = self->realpadding.bottom + bssmax(self->barcache.x, 0);
+  self->control.element.padding.right = totalpadding.right;
+  self->control.element.padding.bottom = totalpadding.bottom;
 
   fgScrollbar_Recalc(self); // recalculate scrollbars from our new padding value
-}
-
-void fgScrollbar_SetBarcache(fgScrollbar* self)
-{
-  AbsRect r;
-  ResolveRect(&self->bg[0], &r);
-  self->barcache.x = r.bottom - r.top;
-  ResolveRect(&self->bg[1], &r);
-  self->barcache.y = r.right - r.left;
-  self->bg[2].SetArea(CRect { -self->barcache.y, 1, -self->barcache.x, 1, 0, 1, 0, 1});
-  fgScrollbar_ApplyPadding(self, 0, 0);
 }
 
 size_t fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
@@ -238,18 +249,18 @@ size_t fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     memset(&self->realpadding, 0, sizeof(AbsRect));
-    memset(&self->barcache, 0, sizeof(AbsVec));
+    memset(&self->exclude, 0, sizeof(AbsRect));
     memset(&self->realsize, 0, sizeof(AbsVec));
     fgControl_Message(&self->control, msg);
-    fgElement_Init(&self->bg[0], *self, 0, "Scrollbar$horzbg", FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN, 0, 0);
-    fgElement_Init(&self->bg[1], *self, 0, "Scrollbar$vertbg", FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN, 0, 0);
-    fgElement_Init(&self->bg[2], *self, 0, "Scrollbar$corner", FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN, 0, 0);
-    fgButton_Init(&self->btn[0], &self->bg[0], 0, "Scrollbar$scrollleft", FGELEMENT_BACKGROUND, 0, 0);
-    fgButton_Init(&self->btn[1], &self->bg[1], 0, "Scrollbar$scrolltop", FGELEMENT_BACKGROUND, 0, 0);
-    fgButton_Init(&self->btn[2], &self->bg[0], 0, "Scrollbar$scrollright", FGELEMENT_BACKGROUND, 0, 0);
-    fgButton_Init(&self->btn[3], &self->bg[1], 0, "Scrollbar$scrollbottom", FGELEMENT_BACKGROUND, 0, 0);
-    fgButton_Init(&self->bar[0].button, &self->bg[0], 0, "Scrollbar$scrollhorz", 0, 0, 0);
-    fgButton_Init(&self->bar[1].button, &self->bg[1], 0, "Scrollbar$scrollvert", 0, 0, 0);
+    fgElement_Init(&self->bg[0], *self, 0, "Scrollbar$horzbg", FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN | FGFLAGS_INTERNAL, 0, 0);
+    fgElement_Init(&self->bg[1], *self, 0, "Scrollbar$vertbg", FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN | FGFLAGS_INTERNAL, 0, 0);
+    fgElement_Init(&self->bg[2], *self, 0, "Scrollbar$corner", FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN | FGFLAGS_INTERNAL, 0, 0);
+    fgButton_Init(&self->btn[0], &self->bg[0], 0, "Scrollbar$scrollleft", FGELEMENT_BACKGROUND | FGFLAGS_INTERNAL, 0, 0);
+    fgButton_Init(&self->btn[1], &self->bg[1], 0, "Scrollbar$scrolltop", FGELEMENT_BACKGROUND | FGFLAGS_INTERNAL, 0, 0);
+    fgButton_Init(&self->btn[2], &self->bg[0], 0, "Scrollbar$scrollright", FGELEMENT_BACKGROUND | FGFLAGS_INTERNAL, 0, 0);
+    fgButton_Init(&self->btn[3], &self->bg[1], 0, "Scrollbar$scrollbottom", FGELEMENT_BACKGROUND | FGFLAGS_INTERNAL, 0, 0);
+    fgButton_Init(&self->bar[0].button, &self->bg[0], 0, "Scrollbar$scrollhorz", FGFLAGS_INTERNAL, 0, 0);
+    fgButton_Init(&self->bar[1].button, &self->bg[1], 0, "Scrollbar$scrollvert", FGFLAGS_INTERNAL, 0, 0);
     self->btn[0]->userid = 0;
     self->btn[1]->userid = 1;
     self->btn[2]->userid = 2;
@@ -268,14 +279,13 @@ size_t fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
     self->btn[3].control.element.message = (fgMessage)&fgScrollbar_buttonMessage;
     self->bar[0].button.control.element.message = (fgMessage)&fgScrollbar_barMessage;
     self->bar[1].button.control.element.message = (fgMessage)&fgScrollbar_barMessage;
-    fgScrollbar_SetBarcache(self);
     return FG_ACCEPT;
   case FG_CLONE:
     if(msg->e)
     {
       fgScrollbar* hold = reinterpret_cast<fgScrollbar*>(msg->e);
       hold->realpadding = self->realpadding;
-      hold->barcache = self->barcache;
+      hold->exclude = self->exclude;
       hold->realsize = self->realsize;
       hold->lastpadding = self->lastpadding;
       fgControl_Message(&self->control, msg);
@@ -326,9 +336,9 @@ size_t fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
         {
           CRect area = self->control.element.transform.area;
           if(self->control.element.flags & FGELEMENT_EXPANDX)
-            area.right.abs = area.left.abs + self->realsize.x + self->realpadding.left + self->realpadding.right + self->control->margin.top + self->control->margin.bottom + bssmax(self->barcache.y, 0);
+            area.right.abs = area.left.abs + self->realsize.x + self->realpadding.left + self->realpadding.right + self->control->margin.left + self->control->margin.right + self->exclude.left + self->exclude.right;
           if(self->control.element.flags & FGELEMENT_EXPANDY)
-            area.bottom.abs = area.top.abs + self->realsize.y + self->realpadding.top + self->realpadding.bottom + self->control->margin.top + self->control->margin.bottom + bssmax(self->barcache.x, 0);
+            area.bottom.abs = area.top.abs + self->realsize.y + self->realpadding.top + self->realpadding.bottom + self->control->margin.top + self->control->margin.bottom + self->exclude.top + self->exclude.bottom;
           self->control.element.SetArea(area);
         }
         fgScrollbar_ApplyPadding(self, 0, 0); // we must do applypadding here so the scroll area responds correctly when realsize shrinks.
@@ -379,9 +389,6 @@ size_t fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
     case FGSCROLLBAR_CHANGE: // corresponds to an actual change amount. First argument is x axis, second argument is y axis.
       fgScrollbar_ApplyPadding(self, msg->f, msg->f2);
       return FG_ACCEPT;
-    case FGSCROLLBAR_BARCACHE:
-      fgScrollbar_SetBarcache(self);
-      return FG_ACCEPT;
     case FGSCROLLBAR_SCROLLTO:
     case FGSCROLLBAR_SCROLLTOABS:
       if(msg->p != 0)
@@ -417,7 +424,7 @@ size_t fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
     }
     return 0;
   case FG_REORDERCHILD:
-    if(msg->e != 0 && msg->e != self->bg && msg->e != (self->bg + 1) && msg->e != (self->bg + 2) && !msg->e2)
+    if(msg->e != 0 && !(msg->e->flags&FGFLAGS_INTERNAL) && !msg->e2)
     {
       FG_Msg m = *msg;
       m.e2 = &self->bg[0];
@@ -425,7 +432,7 @@ size_t fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
     }
     break;
   case FG_ADDCHILD:
-    if(msg->e != 0 && msg->e != self->bg && msg->e != (self->bg + 1) && msg->e != (self->bg + 2) && !msg->e2)
+    if(msg->e != 0 && !(msg->e->flags&FGFLAGS_INTERNAL) && !msg->e2)
     {
       FG_Msg m = *msg;
       m.e2 = &self->bg[0];

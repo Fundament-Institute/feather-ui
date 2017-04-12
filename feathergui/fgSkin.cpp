@@ -15,7 +15,7 @@ static_assert(sizeof(fgSkinLayoutArray) == sizeof(fgVector), "mismatch between v
 static_assert(sizeof(fgClassLayoutArray) == sizeof(fgVector), "mismatch between vector sizes");
 
 _FG_FONT_DATA::_FG_FONT_DATA(void* _font, fgFlag _flags, const char* _family, short _weight, char _italic, unsigned int _size) : 
-  font(_font), flags(_flags), family(fgCopyText(_family, __FILE__, __LINE__)), weight(_weight), italic(_italic), size(_size)
+  font(!_font ? 0 : fgroot_instance->backend.fgCloneFont(_font, 0)), flags(_flags), family(fgCopyText(_family, __FILE__, __LINE__)), weight(_weight), italic(_italic), size(_size)
 {}
 _FG_FONT_DATA::_FG_FONT_DATA(const _FG_FONT_DATA& copy)
 {
@@ -42,7 +42,8 @@ _FG_FONT_DATA& _FG_FONT_DATA::operator=(_FG_FONT_DATA&& mov) { this->~_FG_FONT_D
 _FG_ASSET_DATA::_FG_ASSET_DATA(void* _asset, const char* _file)
 {
   memset(this, 0, sizeof(_FG_ASSET_DATA));
-  asset = _asset;
+  if(_asset) 
+    asset = fgroot_instance->backend.fgCloneAsset(_asset, 0);
   file = fgCopyText(_file, __FILE__, __LINE__);
 }
 _FG_ASSET_DATA::_FG_ASSET_DATA(const _FG_ASSET_DATA& copy)
