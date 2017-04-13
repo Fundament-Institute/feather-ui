@@ -118,33 +118,27 @@ longptr_t __stdcall fgContext::WndProc(HWND__* hWnd, unsigned int message, size_
       break;
     case WM_LBUTTONDOWN:
       SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDOWN, FG_MOUSELBUTTON, wParam, GetMessageTime());
-      SetCapture(hWnd);
       break;
     case WM_LBUTTONUP:
       SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEUP, FG_MOUSELBUTTON, wParam, GetMessageTime());
-      ReleaseCapture();
       break;
     case WM_LBUTTONDBLCLK:
       SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDBLCLICK, FG_MOUSELBUTTON, wParam, GetMessageTime());
       break;
     case WM_RBUTTONDOWN:
-      SetCapture(hWnd);
       SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDOWN, FG_MOUSERBUTTON, wParam, GetMessageTime());
       break;
     case WM_RBUTTONUP:
       SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEUP, FG_MOUSERBUTTON, wParam, GetMessageTime());
-      ReleaseCapture();
       break;
     case WM_RBUTTONDBLCLK:
       SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDBLCLICK, FG_MOUSERBUTTON, wParam, GetMessageTime());
       break;
     case WM_MBUTTONDOWN:
-      SetCapture(hWnd);
       SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDOWN, FG_MOUSEMBUTTON, wParam, GetMessageTime());
       break;
     case WM_MBUTTONUP:
       SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEUP, FG_MOUSEMBUTTON, wParam, GetMessageTime());
-      ReleaseCapture();
       break;
     case WM_MBUTTONDBLCLK:
       SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDBLCLICK, FG_MOUSEMBUTTON, wParam, GetMessageTime());

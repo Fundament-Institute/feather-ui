@@ -158,8 +158,18 @@ longptr_t __stdcall fgWindowD2D::WndProc(HWND__* hWnd, unsigned int message, siz
       VirtualFreeChild(self->window);
       return 1;
     case 0x02E0: //WM_DPICHANGED
-      //self->window->SetDPI(LOWORD(wParam), HIWORD(wParam));
+      self->window->SetDPI(LOWORD(wParam), HIWORD(wParam));
       return 0;
+    case WM_LBUTTONDOWN:
+    case WM_RBUTTONDOWN:
+    case WM_MBUTTONDOWN:
+      SetCapture(hWnd);
+      break;
+    case WM_LBUTTONUP:
+    case WM_RBUTTONUP:
+    case WM_MBUTTONUP:
+      ReleaseCapture();
+      break;
     //case WM_WINDOWPOSCHANGING:
     //{
     //  WINDOWPOS* pos = (WINDOWPOS*)lParam;

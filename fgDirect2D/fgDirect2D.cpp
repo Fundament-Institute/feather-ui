@@ -117,6 +117,16 @@ longptr_t __stdcall fgDirect2D::DebugWndProc(HWND__* hWnd, unsigned int message,
       fgDirect2D::instance->debugcontext.EndDraw();
     }
     return 0;
+    case WM_LBUTTONDOWN:
+    case WM_RBUTTONDOWN:
+    case WM_MBUTTONDOWN:
+      SetCapture(hWnd);
+      break;
+    case WM_LBUTTONUP:
+    case WM_RBUTTONUP:
+    case WM_MBUTTONUP:
+      ReleaseCapture();
+      break;
     }
 
     return fgDirect2D::instance->debugcontext.WndProc(hWnd, message, wParam, lParam, *self);
@@ -549,7 +559,7 @@ void fgDirtyElementD2D(fgElement* e)
     fgScaleRectDPI(&toprect, dpi.x, dpi.y); // SetWindowPos will resize the direct2D background via the WndProc callback
     bool ignore = (fgDirect2D::instance->root.topmost->flags&FGELEMENT_IGNORE) != 0;
     SetWindowLong(fgDirect2D::instance->tophwnd, GWL_EXSTYLE, WS_EX_COMPOSITED | WS_EX_TOOLWINDOW | (ignore ? (WS_EX_LAYERED | WS_EX_TRANSPARENT) : 0));
-    SetWindowPos(fgDirect2D::instance->tophwnd, HWND_TOP, toprect.left, toprect.top, toprect.right - toprect.left, toprect.bottom - toprect.top, SWP_NOSENDCHANGING | (ignore ? SWP_NOACTIVATE : 0));
+    SetWindowPos(fgDirect2D::instance->tophwnd, HWND_TOP, toprect.left, toprect.top, toprect.right - toprect.left, toprect.bottom - toprect.top, SWP_NOSENDCHANGING | SWP_NOACTIVATE | (ignore ? SWP_NOACTIVATE : 0));
     fgInvScaleRectDPI(&toprect, dpi.x, dpi.y);
     ShowWindow(fgDirect2D::instance->tophwnd, SW_SHOW);
     if(lasttop != fgDirect2D::instance->root.topmost)
@@ -756,7 +766,7 @@ char fgProcessMessagesD2D()
   return 1;
 }
 
-longptr_t __stdcall fgDirect2D::WndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam)
+longptr_t __stdcall fgDirect2D::TopmostWndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam)
 {
   fgDirect2D* self = reinterpret_cast<fgDirect2D*>(GetWindowLongPtrW(hWnd, GWLP_USERDATA));
   if(self)
@@ -774,16 +784,6 @@ longptr_t __stdcall fgDirect2D::WndProc(HWND__* hWnd, unsigned int message, size
         self->context.EndDraw();
       }
       return 0;
-    case WM_KILLFOCUS:
-      if(self->root.topmost != 0) // If we lose focus but topmost is not NULL, then we must have clicked somewhere else and we need to generate a MOUSEDOWN message
-        PostMessageW(hWnd, WM_USER, (size_t)self->root.topmost, GetMessagePos()); // However, we can't actually process this now, because it can cause a message deadlock, so we defer this to our own message.
-      break;
-    case WM_LBUTTONDOWN:
-      message = message;
-      break;
-    case WM_USER:
-      //self->context.SetMouse(fgContext::AdjustDPI(&MAKEPOINTS(lParam), (fgElement*)wParam), FG_MOUSEDOWN, FG_MOUSELBUTTON, 0, GetMessageTime());
-      break;
     }
 
     if(self->root.topmost != 0)
@@ -925,7 +925,7 @@ struct _FG_ROOT* fgInitialize()
   fgContext_Construct(&root->context);
   fgContext::SetDWMCallbacks();
   fgContext::WndRegister(fgWindowD2D::WndProc, L"fgWindowD2D"); // Register window class
-  fgContext::WndRegister(fgDirect2D::WndProc, L"fgDirectD2Dtopmost"); // Register topmost class
+  fgContext::WndRegister(fgDirect2D::TopmostWndProc, L"fgDirectD2Dtopmost"); // Register topmost class
   fgContext::WndRegister(fgDirect2D::DebugWndProc, L"fgDebugD2D"); // Register topmost class
 
   AbsRect empty = { 0 };
