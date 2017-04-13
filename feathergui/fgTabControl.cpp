@@ -151,7 +151,6 @@ size_t fgTabcontrol_Message(fgTabcontrol* self, const FG_Msg* msg)
     return FG_ACCEPT;
   case FG_ADDITEM:
   {
-    assert(_CrtCheckMemory());
     fgElement* button = fgroot_instance->backend.fgCreate("ListItem", self->header, 0, "Tabcontrol$toggle", FGELEMENT_EXPAND, 0, 0);
     fgElement* text = fgroot_instance->backend.fgCreate("Text", button, 0, "Tabcontrol$text", FGELEMENT_EXPAND, 0, 0);
     fgElement* panel = fgroot_instance->backend.fgCreate("Element", *self, 0, "Tabcontrol$panel", FGELEMENT_HIDDEN, &fgTransform_DEFAULT, 0);

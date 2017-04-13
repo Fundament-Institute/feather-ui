@@ -641,7 +641,7 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
           self->layout = fgroot_instance->backend.fgFontLayout(self->font, v->p, v->l, self->lineheight, self->letterspacing, &r, self->scroll->flags, &dpi, self->layout);
         dim->x = r.right - r.left;
         dim->y = r.bottom - r.top;
-        assert(!isnan(self->scroll.realsize.x) && !isnan(self->scroll.realsize.y));
+        assert(!std::isnan(self->scroll.realsize.x) && !std::isnan(self->scroll.realsize.y));
         fgTextbox_fixpos(self, self->start, &self->startpos);
         fgTextbox_fixpos(self, self->end, &self->endpos);
       }

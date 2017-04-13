@@ -1,17 +1,18 @@
 // Copyright ©2017 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
-#include "fgWindow.h"
-#include "fgRoot.h"
-#include "fgLayout.h"
+#include "feathergui/fgWindow.h"
+#include "feathergui/fgRoot.h"
+#include "feathergui/fgLayout.h"
 #include <stdlib.h>
+#include <stdio.h>
 
 void statelistener(fgElement* self, const FG_Msg* msg)
 {
   fgElement* progbar = fgGetID("#progbar");
   fgFloatMessage(progbar, FG_SETVALUE, FGVALUE_FLOAT, fgGetFloatMessage(self, FG_GETVALUE, FGVALUE_FLOAT, 0) / fgGetFloatMessage(self, FG_GETRANGE, FGVALUE_FLOAT, 0), 0);
   char buf[10];
-  _itoa_s(fgIntMessage(self, FG_GETVALUE, 0, 0), buf, 10, 10);
+  snprintf(buf, 10, "%zu", fgIntMessage(self, FG_GETVALUE, 0, 0));
   fgVoidMessage(progbar, FG_SETTEXT, buf, 0);
 }
 void makepressed(fgElement* self, const FG_Msg* msg)
@@ -54,6 +55,7 @@ int main(int argc, char** argv)
   return 0;
 }
 
+#ifdef BSS_PLATFORM_WIN32
 struct HINSTANCE__;
 
 // WinMain function, simply a catcher that calls the main function
@@ -61,3 +63,4 @@ int __stdcall WinMain(struct HINSTANCE__* hInstance, struct HINSTANCE__* hPrevIn
 {
   main(0, (char**)hInstance);
 }
+#endif

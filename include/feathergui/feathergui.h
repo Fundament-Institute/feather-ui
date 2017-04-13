@@ -674,22 +674,22 @@ typedef struct _FG_DRAW_AUX_DATA {
 } fgDrawAuxData;
 
 FG_EXTERN AbsVec ResolveVec(const CVec* v, const AbsRect* last);
-FG_EXTERN inline char CompareMargins(const AbsRect* l, const AbsRect* r); // Returns 0 if both are the same or a difference bitset otherwise.
-FG_EXTERN inline char CompareCRects(const CRect* l, const CRect* r); // Returns 0 if both are the same or a difference bitset otherwise.
-FG_EXTERN inline char CompareTransforms(const fgTransform* l, const fgTransform* r);
-FG_EXTERN inline void MoveCRect(FABS x, FABS y, CRect* r);
-FG_EXTERN inline char HitAbsRect(const AbsRect* r, FABS x, FABS y);
+FG_EXTERN char CompareMargins(const AbsRect* l, const AbsRect* r); // Returns 0 if both are the same or a difference bitset otherwise.
+FG_EXTERN char CompareCRects(const CRect* l, const CRect* r); // Returns 0 if both are the same or a difference bitset otherwise.
+FG_EXTERN char CompareTransforms(const fgTransform* l, const fgTransform* r);
+FG_EXTERN void MoveCRect(FABS x, FABS y, CRect* r);
+FG_EXTERN char HitAbsRect(const AbsRect* r, FABS x, FABS y);
 //FG_EXTERN void ToIntAbsRect(const AbsRect* r, int target[static 4]);
-FG_EXTERN inline void ToIntAbsRect(const AbsRect* r, int target[4]);
-FG_EXTERN inline void ToLongAbsRect(const AbsRect* r, long target[4]);
-FG_EXTERN inline char MsgHitAbsRect(const FG_Msg* msg, const AbsRect* r);
+FG_EXTERN void ToIntAbsRect(const AbsRect* r, int target[4]);
+FG_EXTERN void ToLongAbsRect(const AbsRect* r, long target[4]);
+FG_EXTERN char MsgHitAbsRect(const FG_Msg* msg, const AbsRect* r);
 FG_EXTERN const char* fgCopyText(const char* text, const char* file, size_t line);
 FG_EXTERN void fgFreeText(const char* text, const char* file, size_t line);
-FG_EXTERN inline void fgUpdateMouseState(fgMouseState* state, const FG_Msg* msg);
-FG_EXTERN inline char fgRectIntersect(const AbsRect* l, const AbsRect* r); // Returns 1 if the rectangles intersect, or 0 otherwise
-FG_EXTERN inline void fgRectIntersection(const AbsRect* BSS_RESTRICT l, const AbsRect* BSS_RESTRICT r, AbsRect* out);
-FG_EXTERN inline void fgScaleRectDPI(AbsRect* rect, int dpix, int dpiy);
-FG_EXTERN inline void fgInvScaleRectDPI(AbsRect* rect, int dpix, int dpiy);
+FG_EXTERN void fgUpdateMouseState(fgMouseState* state, const FG_Msg* msg);
+FG_EXTERN char fgRectIntersect(const AbsRect* l, const AbsRect* r); // Returns 1 if the rectangles intersect, or 0 otherwise
+FG_EXTERN void fgRectIntersection(const AbsRect* BSS_RESTRICT l, const AbsRect* BSS_RESTRICT r, AbsRect* out);
+FG_EXTERN void fgScaleRectDPI(AbsRect* rect, int dpix, int dpiy);
+FG_EXTERN void fgInvScaleRectDPI(AbsRect* rect, int dpix, int dpiy);
 FG_EXTERN void fgResolveDrawRect(const AbsRect* area, AbsRect* outarea, const AbsVec* center, AbsVec* outcenter, fgFlag flags, const fgDrawAuxData* data);
 FG_EXTERN void fgScaleVecDPI(AbsVec* v, int dpix, int dpiy);
 FG_EXTERN void fgInvScaleVecDPI(AbsVec* v, int dpix, int dpiy);

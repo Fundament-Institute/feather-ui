@@ -663,7 +663,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
       AbsVec newdim = self->layoutdim;
 
       _sendmsg<FG_LAYOUTFUNCTION, const void*, void*>(self, msg, &newdim);
-      assert(!isnan(newdim.x) && !isnan(newdim.y));
+      assert(!std::isnan(newdim.x) && !std::isnan(newdim.y));
       char diff = 0;
       if((self->flags&FGELEMENT_EXPANDX) && newdim.x != self->layoutdim.x) diff |= FGMOVE_RESIZEX;
       if((self->flags&FGELEMENT_EXPANDY) && newdim.y != self->layoutdim.y) diff |= FGMOVE_RESIZEY;
@@ -1072,7 +1072,7 @@ void ResolveOuterRectCache(const fgElement* self, AbsRect* BSS_RESTRICT out, con
   out->right -= center.x;
   out->bottom -= center.y;
 
-  assert(!isnan(out->left) && !isnan(out->top) && !isnan(out->right) && !isnan(out->bottom));
+  assert(!std::isnan(out->left) && !std::isnan(out->top) && !std::isnan(out->right) && !std::isnan(out->bottom));
 }
 
 void ResolveRect(const fgElement* self, AbsRect* out)

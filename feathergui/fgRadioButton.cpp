@@ -9,8 +9,8 @@
 
 KHASH_INIT(fgRadioGroup, fgElement*, fgRadiobutton*, 1, kh_ptr_hash_func, kh_int_hash_equal);
 
-__inline struct kh_fgRadioGroup_s* fgRadioGroup_init() { return kh_init_fgRadioGroup(); }
-__inline void fgRadioGroup_destroy(struct kh_fgRadioGroup_s* p) { kh_destroy_fgRadioGroup(p); }
+struct kh_fgRadioGroup_s* fgRadioGroup_init() { return kh_init_fgRadioGroup(); }
+void fgRadioGroup_destroy(struct kh_fgRadioGroup_s* p) { kh_destroy_fgRadioGroup(p); }
 
 void fgRadiobutton_Init(fgRadiobutton* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {

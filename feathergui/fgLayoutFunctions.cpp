@@ -58,18 +58,6 @@ size_t fgDefaultLayout(fgElement* self, const FG_Msg* msg, AbsVec* dim)
   return 0;
 }
 
-BSS_FORCEINLINE fgElement* fgLayout_GetNext(fgElement* cur)
-{
-  while((cur = cur->next) != 0 && (cur->flags&FGELEMENT_BACKGROUND) != 0);
-  return cur;
-}
-
-BSS_FORCEINLINE fgElement* fgLayout_GetPrev(fgElement* cur)
-{
-  while((cur = cur->prev) != 0 && (cur->flags&FGELEMENT_BACKGROUND) != 0);
-  return cur;
-}
-
 BSS_FORCEINLINE FABS fgLayout_GetChildRight(fgElement* child)
 {
   return child->transform.area.left.abs + fgLayout_GetElementWidth(child);

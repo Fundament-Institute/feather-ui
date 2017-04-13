@@ -391,7 +391,7 @@ size_t fgBehaviorHookListener(fgElement* self, const FG_Msg* msg)
   return ret;
 }
 
-__inline struct kh_fgFunctionMap_s* fgFunctionMap_init()
+struct kh_fgFunctionMap_s* fgFunctionMap_init()
 {
   return kh_init_fgFunctionMap();
 }

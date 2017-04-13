@@ -218,11 +218,11 @@ typedef bss_util::cArraySort<fgClassLayoutConstruct, fgSortClassLayout, size_t, 
 typedef bss_util::cArraySort<struct _FG_ELEMENT*> fgElementArray;
 
 struct kh_fgRadioGroup_s;
-extern __inline struct kh_fgRadioGroup_s* fgRadioGroup_init();
+extern struct kh_fgRadioGroup_s* fgRadioGroup_init();
 extern void fgRadioGroup_destroy(struct kh_fgRadioGroup_s*);
 
 struct kh_fgFunctionMap_s;
-extern __inline struct kh_fgFunctionMap_s* fgFunctionMap_init();
+extern struct kh_fgFunctionMap_s* fgFunctionMap_init();
 extern void fgFunctionMap_destroy(struct kh_fgFunctionMap_s*);
 
 template<FG_MSGTYPE type, typename... Args>
@@ -349,6 +349,18 @@ extern "C" {
   FG_EXTERN size_t fgUTF16toUTF32(const wchar_t*BSS_RESTRICT input, ptrdiff_t srclen, int*BSS_RESTRICT output, size_t buflen);
 }
 
+BSS_FORCEINLINE fgElement* fgLayout_GetNext(fgElement* cur)
+{
+  while((cur = cur->next) != 0 && (cur->flags&FGELEMENT_BACKGROUND) != 0);
+  return cur;
+}
+
+BSS_FORCEINLINE fgElement* fgLayout_GetPrev(fgElement* cur)
+{
+  while((cur = cur->prev) != 0 && (cur->flags&FGELEMENT_BACKGROUND) != 0);
+  return cur;
+}
+
 namespace bss_util { struct cXMLNode; }
 struct __VECTOR__UTF8;
 struct __VECTOR__UTF16;
@@ -358,11 +370,9 @@ extern fgSkin* fgSkinBase_ParseNodeXML(fgSkinBase* self, const bss_util::cXMLNod
 extern void fgSkinBase_WriteInt(cStr& s, int64_t i);
 extern void fgSkinBase_WriteElementAttributesXML(bss_util::cXMLNode* node, fgSkinElement& e, fgSkinBase* root);
 extern void fgSkinBase_WriteStyleAttributesXML(bss_util::cXMLNode* node, fgStyle& s, fgSkinBase* root);
-extern kh_fgSkins_s *kh_init_fgSkins();
+static kh_fgSkins_s *kh_init_fgSkins();
 extern void fgStyle_ParseAttributesXML(struct _FG_STYLE* self, const bss_util::cXMLNode* cur, int flags, struct _FG_SKIN_BASE* root, const char* path, const char** id, fgKeyValueArray* userdata);
 extern int fgStyle_NodeEvalTransform(const bss_util::cXMLNode* node, fgTransform& t);
-extern fgElement* fgLayout_GetNext(fgElement* cur);
-extern fgElement* fgLayout_GetPrev(fgElement* cur);
 extern fgVector* fgText_Conversion(int type, struct __VECTOR__UTF8* text8, struct __VECTOR__UTF16* text16, struct __VECTOR__UTF32* text32);
 extern void fgMenu_Show(struct _FG_MENU* self, bool show);
 extern void LList_RemoveAll(fgElement* self);

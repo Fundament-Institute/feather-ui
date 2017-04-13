@@ -4,7 +4,7 @@ BUILDDIR := bin
 OBJDIR := bin/obj
 C_SRCS := $(wildcard $(SRCDIR)/*.c)
 CXX_SRCS := $(wildcard $(SRCDIR)/*.cpp)
-INCLUDE_DIRS := include feathergui feathergui/bss-util
+INCLUDE_DIRS := include feathergui include/feathergui
 LIBRARY_DIRS := 
 LIBRARIES := rt
 

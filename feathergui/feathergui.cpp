@@ -54,10 +54,10 @@ char MsgHitAbsRect(const FG_Msg* msg, const AbsRect* r)
 char CompareMargins(const AbsRect* l, const AbsRect* r)
 {
   assert(l != 0 && r != 0);
-  assert(!isnan(l->left) && !isnan(r->left));
-  assert(!isnan(l->top) && !isnan(r->top));
-  assert(!isnan(l->right) && !isnan(r->right));
-  assert(!isnan(l->bottom) && !isnan(r->bottom));
+  assert(!std::isnan(l->left) && !std::isnan(r->left));
+  assert(!std::isnan(l->top) && !std::isnan(r->top));
+  assert(!std::isnan(l->right) && !std::isnan(r->right));
+  assert(!std::isnan(l->bottom) && !std::isnan(r->bottom));
   return ((((l->left - r->left) != (l->right + r->right))) << 1)
     | ((((l->top - r->top) != (l->bottom + r->bottom))) << 2)
     | ((((l->left != r->left) || (l->right != r->right))) << 3)
@@ -66,10 +66,10 @@ char CompareMargins(const AbsRect* l, const AbsRect* r)
 char CompareCRects(const CRect* l, const CRect* r)
 {
   assert(l != 0 && r != 0);
-  assert(!isnan(l->left.abs) && !isnan(l->left.rel) && !isnan(r->left.abs) && !isnan(r->left.rel));
-  assert(!isnan(l->top.abs) && !isnan(l->top.rel) && !isnan(r->top.abs) && !isnan(r->top.rel));
-  assert(!isnan(l->right.abs) && !isnan(l->right.rel) && !isnan(r->right.abs) && !isnan(r->right.rel));
-  assert(!isnan(l->bottom.abs) && !isnan(l->bottom.rel) && !isnan(r->bottom.abs) && !isnan(r->bottom.rel));
+  assert(!std::isnan(l->left.abs) && !std::isnan(l->left.rel) && !std::isnan(r->left.abs) && !std::isnan(r->left.rel));
+  assert(!std::isnan(l->top.abs) && !std::isnan(l->top.rel) && !std::isnan(r->top.abs) && !std::isnan(r->top.rel));
+  assert(!std::isnan(l->right.abs) && !std::isnan(l->right.rel) && !std::isnan(r->right.abs) && !std::isnan(r->right.rel));
+  assert(!std::isnan(l->bottom.abs) && !std::isnan(l->bottom.rel) && !std::isnan(r->bottom.abs) && !std::isnan(r->bottom.rel));
   return ((((l->left.abs - r->left.abs) != (l->right.abs - r->right.abs))) << 1)
     | ((((l->top.abs - r->top.abs) != (l->bottom.abs - r->bottom.abs))) << 2)
     | ((((l->left.abs != r->left.abs) || (l->right.abs != r->right.abs))) << 3)

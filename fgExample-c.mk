@@ -6,7 +6,7 @@ C_SRCS := $(wildcard $(SRCDIR)/*.c)
 CXX_SRCS := $(wildcard $(SRCDIR)/*.cpp)
 INCLUDE_DIRS := include
 LIBRARY_DIRS := 
-LIBRARIES := feathergui rt pthread
+LIBRARIES := feathergui rt pthread dl
 
 CPPFLAGS += -w -std=gnu++11 -pthread
 LDFLAGS += -L./bin/

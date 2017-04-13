@@ -260,7 +260,7 @@ void fgText_Recalc(fgText* self)
 {
   if(self->font && (self->element.flags&FGELEMENT_EXPAND) && !(self->element.flags&FGELEMENT_SILENT))
   {
-    assert(!isnan(self->element.transform.area.left.abs) && !isnan(self->element.transform.area.top.abs) && !isnan(self->element.transform.area.right.abs) && !isnan(self->element.transform.area.bottom.abs));
+    assert(!std::isnan(self->element.transform.area.left.abs) && !std::isnan(self->element.transform.area.top.abs) && !std::isnan(self->element.transform.area.right.abs) && !std::isnan(self->element.transform.area.bottom.abs));
     AbsRect area;
     ResolveRect(*self, &area);
     if(self->element.flags&FGELEMENT_EXPANDX) // If maxdim is -1, this will translate into a -1 maxdim for the text and properly deal with all resizing cases.
@@ -275,7 +275,7 @@ void fgText_Recalc(fgText* self)
       adjust.right.abs = adjust.left.abs + area.right - area.left + self->element.padding.left + self->element.padding.right + self->element.margin.left + self->element.margin.right;
     if(self->element.flags&FGELEMENT_EXPANDY)
       adjust.bottom.abs = adjust.top.abs + area.bottom - area.top + self->element.padding.top + self->element.padding.bottom + self->element.margin.top + self->element.margin.bottom;
-    assert(!isnan(adjust.left.abs) && !isnan(adjust.top.abs) && !isnan(adjust.right.abs) && !isnan(adjust.bottom.abs));
+    assert(!std::isnan(adjust.left.abs) && !std::isnan(adjust.top.abs) && !std::isnan(adjust.right.abs) && !std::isnan(adjust.bottom.abs));
     FG_Msg msg = { 0 };
     msg.type = FG_SETAREA;
     msg.p = &adjust;
