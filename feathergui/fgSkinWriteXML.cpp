@@ -11,24 +11,30 @@ using namespace bss_util;
 
 void fgSkinBase_WriteFloat(cStr& s, float abs)
 {
-  int len = snprintf(0, 0, "%f", abs);
+  float i;
+  if(modf(abs, &i) == 0.0f)
+    return fgSkinBase_WriteInt(s, fFastTruncate(i));
+  int len = snprintf(0, 0, "%.2f", abs) + 1;
   int start = s.size();
-  s.resize(len + start);
-  snprintf(s.UnsafeString(), len, "%f", abs);
+  s.resize(start + len);
+  snprintf(s.UnsafeString() + start, len, "%.1f", abs); // snprintf lies about how many characters were written
+  s.resize(strlen(s));
 }
 void fgSkinBase_WriteInt(cStr& s, int64_t i)
 {
-  int len = snprintf(0, 0, "%lli", i);
+  int len = snprintf(0, 0, "%lli", i) + 1;
   int start = s.size();
-  s.resize(len + start);
-  snprintf(s.UnsafeString(), len, "%lli", i);
+  s.resize(start + len);
+  snprintf(s.UnsafeString() + start, len, "%lli", i);
+  s.resize(strlen(s));
 }
 void fgSkinBase_WriteHex(cStr& s, uint64_t i)
 {
-  int len = snprintf(0, 0, "%08llX", i);
+  int len = snprintf(0, 0, "%08llX", i) + 1;
   int start = s.size();
-  s.resize(len + start);
-  snprintf(s.UnsafeString(), len, "%08llX", i);
+  s.resize(start + len);
+  snprintf(s.UnsafeString() + start, len, "%08llX", i);
+  s.resize(strlen(s));
 }
 
 void fgSkinBase_WriteAbsXML(cStr& s, float abs, short unit)
@@ -97,7 +103,8 @@ cStr fgSkinBase_WriteCRectXML(const CRect& r, short units)
 void fgSkinBase_WriteTransformXML(cXMLNode* node, const fgTransform& tf, short units)
 {
   static const CVec EMPTYVEC = { 0 };
-  node->AddAttribute("area")->String = fgSkinBase_WriteCRectXML(tf.area, units);
+  if(memcmp(&tf.area, &CRect_EMPTY, sizeof(CRect)) != 0)
+    node->AddAttribute("area")->String = fgSkinBase_WriteCRectXML(tf.area, units);
   if(tf.rotation != 0)
     fgSkinBase_WriteFloat(node->AddAttribute("rotation")->String, tf.rotation);
   if(memcmp(&tf.center, &EMPTYVEC, sizeof(CVec)) != 0)
@@ -108,15 +115,15 @@ void fgSkinBase_WriteFlagsXMLIterate(cStr& s, const char* type, fgFlag flags, bo
   const fgFlag MAXBITS = 3;
   const fgFlag END = (sizeof(fgFlag) << 3) - MAXBITS;
   const char* str;
+
   for(fgFlag index = 0; index < END; ++index)
   {
-    // Checks for a maximum of a 3 bit mask flag combination
     fgFlag bits = 0;
     for(fgFlag i = 0; i < MAXBITS; ++i)
       bits |= (1 << (i + index));
     for(fgFlag i = MAXBITS; i-- > 0;)
     {
-      if((str = fgroot_instance->backend.fgFlagMap(type, bits)) != 0)
+      if((str = fgroot_instance->backend.fgFlagMap(type, bits&flags)) != 0)
       {
         s += remove ? "|-" : "|";
         s += str;

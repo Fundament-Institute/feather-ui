@@ -616,6 +616,7 @@ xcopy "..\include\feathergui\*.h" "$(VcpkgRoot)include\feathergui" /c /y /q /i /
     <ClCompile Include="fgSkinWriteXML.cpp" />
     <ClCompile Include="fgSlider.cpp" />
     <ClCompile Include="fgStyle.cpp" />
+    <ClCompile Include="fgStyleParse.cpp" />
     <ClCompile Include="fgTabcontrol.cpp" />
     <ClCompile Include="fgText.cpp" />
     <ClCompile Include="fgTextbox.cpp" />

@@ -138,7 +138,7 @@ AbsVec fgTileLayoutReorder(fgElement* cur, fgElement* skip, char axis, float max
     }
     row = prev;
   }
-  if((prev = !cur ? 0 : fgLayout_GetPrev(cur)))
+  if((prev = (!cur ? 0 : fgLayout_GetPrev(cur))))
     pos = axis ? AbsVec{ fgLayout_GetChildBottom(prev), prev->transform.area.left.abs } : AbsVec{ fgLayout_GetChildRight(prev), prev->transform.area.top.abs };
   if(cur != 0 && (flags&FGBOX_IGNOREMARGINEDGEX))
     pos.x -= axis ? cur->margin.top : cur->margin.left;

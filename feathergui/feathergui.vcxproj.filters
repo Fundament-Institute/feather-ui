@@ -244,5 +244,8 @@
     <ClCompile Include="fgSkinWriteXML.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="fgStyleParse.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

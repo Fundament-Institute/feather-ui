@@ -47,37 +47,40 @@ fgLayoutEditor::fgLayoutEditor(fgLayout* layout)
   _workspace = reinterpret_cast<fgWorkspace*>(fgGetID("Editor$workspace"));
   _explorer = reinterpret_cast<fgTreeview*>(fgGetID("Editor$layout"));
   _properties = reinterpret_cast<fgGrid*>(fgGetID("Editor$properties"));
+  fgElement* menu = fgGetID("Editor$main");
   
-  _addprop(_properties, "(Type)");
-  _addprop(_properties, "ID");
-  _addprop(_properties, "Name");
-  _addprop(_properties, "Skin");
-  _addprop(_properties, "Transform");
-  _addprop(_properties, "  Area");
-  _addprop(_properties, "  Rotation");
-  _addprop(_properties, "  Center");
-  _addprop(_properties, "Margin");
-  _addprop(_properties, "Padding");
-  _addprop(_properties, "Flags");
-  _addprop(_properties, "Order");
-  _addprop(_properties, "Style");
-  _addprop(_properties, "Alpha");
-  _addprop(_properties, "Text");
-  _addprop(_properties, "Placeholder");
-  _addprop(_properties, "Color");
-  _addprop(_properties, "Font");
-  _addprop(_properties, "Line Height");
-  _addprop(_properties, "Letter Spacing");
-  _addprop(_properties, "Value");
-  _addprop(_properties, "UV");
-  _addprop(_properties, "Asset");
-  _addprop(_properties, "Outline");
-  _addprop(_properties, "Context Menu");
-  _addprop(_properties, "Min Dim");
-  _addprop(_properties, "Max Dim");
-  _addprop(_properties, "UserID");
-  _addprop(_properties, "UserData");
-
+  if(_properties)
+  {
+    _addprop(_properties, "(Type)");
+    _addprop(_properties, "ID");
+    _addprop(_properties, "Name");
+    _addprop(_properties, "Skin");
+    _addprop(_properties, "Transform");
+    _addprop(_properties, "  Area");
+    _addprop(_properties, "  Rotation");
+    _addprop(_properties, "  Center");
+    _addprop(_properties, "Margin");
+    _addprop(_properties, "Padding");
+    _addprop(_properties, "Flags");
+    _addprop(_properties, "Order");
+    _addprop(_properties, "Style");
+    _addprop(_properties, "Alpha");
+    _addprop(_properties, "Text");
+    _addprop(_properties, "Placeholder");
+    _addprop(_properties, "Color");
+    _addprop(_properties, "Font");
+    _addprop(_properties, "Line Height");
+    _addprop(_properties, "Letter Spacing");
+    _addprop(_properties, "Value");
+    _addprop(_properties, "UV");
+    _addprop(_properties, "Asset");
+    _addprop(_properties, "Outline");
+    _addprop(_properties, "Context Menu");
+    _addprop(_properties, "Min Dim");
+    _addprop(_properties, "Max Dim");
+    _addprop(_properties, "UserID");
+    _addprop(_properties, "UserData");
+  }
   /*
   { // Setup toolbar
     fgElement* mainbar = self->toolbar->box->AddItem(0);
@@ -129,10 +132,13 @@ void fgLayoutEditor::_openlayout(fgElement* root, const fgVectorClassLayout& lay
 }
 void fgLayoutEditor::OpenLayout(fgLayout* layout)
 {
-  fgElement_Clear(*_explorer);
-  
-  fgCreate("Text", *_explorer, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY, 0)->SetText("root");
-  _openlayout(*_explorer, layout->layout);
+  if(_explorer)
+  {
+    fgElement_Clear(*_explorer);
+
+    fgCreate("Text", *_explorer, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY, 0)->SetText("root");
+    _openlayout(*_explorer, layout->layout);
+  }
 }
 void fgLayoutEditor::MenuFile(struct _FG_ELEMENT* e, const FG_Msg* m)
 {

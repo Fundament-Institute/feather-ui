@@ -36,6 +36,14 @@ extern "C" {
   FG_EXTERN fgStyleMsg* fgStyle_CloneStyleMsg(const fgStyleMsg* self);
   FG_EXTERN void fgStyle_RemoveStyleMsg(fgStyle* self, fgStyleMsg* msg);
 
+  FG_EXTERN const char* fgStyle_ParseFont(const char* font, char quote, int* size, short* weight, char* italic);
+  FG_EXTERN int fgStyle_ParseUnit(const char* str, size_t len);
+  FG_EXTERN int fgStyle_ParseCoord(const char* attribute, size_t len, Coord* coord);
+  FG_EXTERN int fgStyle_ParseAbsRect(const char* attribute, AbsRect* r);
+  FG_EXTERN int fgStyle_ParseAbsVec(const char* attribute, AbsVec* r);
+  FG_EXTERN int fgStyle_ParseCRect(const char* attribute, CRect* r);
+  FG_EXTERN int fgStyle_ParseCVec(const char* attribute, CVec* v);
+
 #ifdef  __cplusplus
 }
 

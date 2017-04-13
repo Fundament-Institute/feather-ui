@@ -11,53 +11,6 @@
 
 using namespace bss_util;
 
-const char* fgSkin_ParseFont(const char* font, char quote, int* size, short* weight, char* italic)
-{
-  *size = 14; // Set defaults
-  *weight = 400;
-  *italic = 0;
-  if(!font) return 0;
-  const char* s = strchr(font, ' ');
-  if(!s) return font;
-  while(isspace(*++s));
-  if(!s[0]) return font;
-  *size = (int)strtol(font, 0, 10);
-
-  if(s[0] == quote) return s;
-  const char* f = strchr(s, ' ');
-  size_t slen = f - s;
-  if(!f || f[-1] == ',') return s;
-  while(isspace(*++f));
-  if(!f[0]) return s;
-
-  if(!STRNICMP(s, "bold", slen))
-    *weight = 700;
-  else if(!STRNICMP(s, "bolder", slen))
-    *weight = 900;
-  else if(!STRNICMP(s, "normal", slen))
-    *weight = 400;
-  else if(!STRNICMP(s, "light", slen))
-    *weight = 300;
-  else if(!STRNICMP(s, "lighter", slen))
-    *weight = 100;
-  else if(!STRNICMP(s, "italic", slen))
-    *italic = true;
-  else
-    *weight = (short)strtol(s, 0, 10);
-
-  if(f[0] == quote) return f;
-  const char* g = strchr(f, ' ');
-  size_t flen = g - f;
-  if(!g || g[-1] == ',') return f;
-  while(isspace(*++g));
-  if(!g[0]) return f;
-
-  if(!STRNICMP(f, "italic", flen))
-    *italic = true;
-
-  return g;
-}
-
 char* fgSkin_ParseFontFamily(char* s, char quote, char** context)
 {
   if(!s)
@@ -85,110 +38,6 @@ char* fgSkin_ParseFontFamily(char* s, char quote, char** context)
   return s;
 }
 
-int fgStyle_ParseUnit(const char* str, size_t len)
-{
-  int flags = FGUNIT_DP;
-  if(!len) len = strlen(str);
-  if(len > 2)
-  {
-    if(str[len - 2] == 'e' && str[len - 1] == 'm')
-      flags = FGUNIT_EM;
-    else if(str[len - 2] == 's' && str[len - 1] == 'p')
-      flags = FGUNIT_SP;
-    else if(str[len - 2] == 'p' && str[len - 1] == 'x')
-      flags = FGUNIT_PX;
-  }
-
-  return flags;
-}
-
-int fgStyle_ParseCoord(const char* attribute, size_t len, Coord& coord)
-{
-  coord = Coord{ 0, 0 };
-  if(!attribute) return 0;
-  if(!len) len = strlen(attribute);
-  const char* rel = strchr(attribute, ':');
-  size_t first = len;
-  if(rel)
-  {
-    coord.rel = (FREL)atof(rel + 1);
-    if(attribute[len - 1] == '%') // Check if this is a percentage and scale it accordingly.
-      coord.rel *= 0.01f;
-    first = attribute - rel;
-  }
-  else if(attribute[len - 1] == '%')
-  {
-    coord.rel = (FREL)(atof(attribute) * 0.01);
-    return 0;
-  }
-
-  coord.abs = (FABS)atof(attribute);
-  return fgStyle_ParseUnit(attribute, first);
-}
-int fgStyle_ParseAbsRect(const char* attribute, AbsRect& r)
-{
-  size_t len = strlen(attribute) + 1;
-  DYNARRAY(char, buf, len);
-  MEMCPY(buf, len, attribute, len);
-  char* context;
-  const char* s0 = STRTOK(buf, ", ", &context);
-  const char* s1 = STRTOK(0, ", ", &context);
-  const char* s2 = STRTOK(0, ", ", &context);
-  const char* s3 = STRTOK(0, ", ", &context);
-
-  r.left = (FABS)atof(s0);
-  r.top = (FABS)atof(s1);
-  r.right = (FABS)atof(s2);
-  r.bottom = (FABS)atof(s3);
-  return (fgStyle_ParseUnit(s0, 0) << FGUNIT_LEFT) |
-    (fgStyle_ParseUnit(s1, 0) << FGUNIT_TOP) |
-    (fgStyle_ParseUnit(s2, 0) << FGUNIT_RIGHT) |
-    (fgStyle_ParseUnit(s3, 0) << FGUNIT_BOTTOM);
-}
-
-int fgStyle_ParseAbsVec(const char* attribute, AbsVec& r)
-{
-  size_t len = strlen(attribute) + 1;
-  DYNARRAY(char, buf, len);
-  MEMCPY(buf, len, attribute, len);
-  char* context;
-  const char* s0 = STRTOK(buf, ", ", &context);
-  const char* s1 = STRTOK(0, ", ", &context);
-
-  r.x = (FABS)atof(s0);
-  r.y = (FABS)atof(s1);
-  return (fgStyle_ParseUnit(s0, 0) << FGUNIT_X) |
-    (fgStyle_ParseUnit(s1, 0) << FGUNIT_Y);
-}
-
-int fgStyle_ParseCRect(const char* attribute, CRect& r)
-{
-  size_t len = strlen(attribute) + 1;
-  DYNARRAY(char, buf, len);
-  MEMCPY(buf, len, attribute, len);
-  char* context;
-  const char* s0 = STRTOK(buf, ", ", &context);
-  const char* s1 = STRTOK(0, ", ", &context);
-  const char* s2 = STRTOK(0, ", ", &context);
-  const char* s3 = STRTOK(0, ", ", &context);
-
-  return (fgStyle_ParseCoord(s0, 0, r.left) << FGUNIT_LEFT) |
-    (fgStyle_ParseCoord(s1, 0, r.top) << FGUNIT_TOP) |
-    (fgStyle_ParseCoord(s2, 0, r.right) << FGUNIT_RIGHT) |
-    (fgStyle_ParseCoord(s3, 0, r.bottom) << FGUNIT_BOTTOM);
-}
-
-int fgStyle_ParseCVec(const char* attribute, CVec& v)
-{
-  size_t len = strlen(attribute) + 1;
-  DYNARRAY(char, buf, len);
-  MEMCPY(buf, len, attribute, len);
-  char* context;
-  const char* s0 = STRTOK(buf, ", ", &context);
-  const char* s1 = STRTOK(0, ", ", &context);
-  return (fgStyle_ParseCoord(s0, 0, v.x) << FGUNIT_X) | (fgStyle_ParseCoord(s1, 0, v.y) << FGUNIT_Y);
-}
-
 int fgStyle_NodeEvalTransform(const cXMLNode* node, fgTransform& t)
 {
   static cTrie<uint16_t, true> attr(9, "area", "center", "rotation", "left", "top", "right", "bottom", "width", "height");
@@ -202,26 +51,26 @@ int fgStyle_NodeEvalTransform(const cXMLNode* node, fgTransform& t)
     {
     case 0:
       flags &= (~(FGUNIT_LEFT_MASK | FGUNIT_TOP_MASK | FGUNIT_RIGHT_MASK | FGUNIT_BOTTOM_MASK));
-      flags |= fgStyle_ParseCRect(a->String, t.area);
+      flags |= fgStyle_ParseCRect(a->String, &t.area);
       break;
     case 1:
       flags &= (~(FGUNIT_X_MASK | FGUNIT_Y_MASK));
-      flags |= fgStyle_ParseCVec(a->String, t.center);
+      flags |= fgStyle_ParseCVec(a->String, &t.center);
       break;
     case 2:
       t.rotation = (FABS)a->Float;
       break;
     case 3:
-      flags = (flags&(FGUNIT_LEFT_MASK)) | fgStyle_ParseCoord(a->String, 0, t.area.left);
+      flags = (flags&(FGUNIT_LEFT_MASK)) | fgStyle_ParseCoord(a->String, 0, &t.area.left);
       break;
     case 4:
-      flags = (flags&(FGUNIT_TOP_MASK)) | fgStyle_ParseCoord(a->String, 0, t.area.top);
+      flags = (flags&(FGUNIT_TOP_MASK)) | fgStyle_ParseCoord(a->String, 0, &t.area.top);
       break;
     case 5:
-      flags = (flags&(FGUNIT_RIGHT_MASK)) | fgStyle_ParseCoord(a->String, 0, t.area.right);
+      flags = (flags&(FGUNIT_RIGHT_MASK)) | fgStyle_ParseCoord(a->String, 0, &t.area.right);
       break;
     case 6:
-      flags = (flags&(FGUNIT_BOTTOM_MASK)) | fgStyle_ParseCoord(a->String, 0, t.area.bottom);
+      flags = (flags&(FGUNIT_BOTTOM_MASK)) | fgStyle_ParseCoord(a->String, 0, &t.area.bottom);
       break;
     case 7:
       flags = (flags&(FGUNIT_RIGHT_MASK)) | fgStyle_ParseUnit(a->String, 0) | FGUNIT_RIGHT_WIDTH;
@@ -323,14 +172,14 @@ void fgStyle_ParseAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, f
     case 7:
     {
       AbsRect r;
-      int f = fgStyle_ParseAbsRect(attr->String, r);
+      int f = fgStyle_ParseAbsRect(attr->String, &r);
       AddStyleSubMsgArg<FG_SETMARGIN, AbsRect>(self, f, &r);
       break;
     }
     case 8:
     {
       AbsRect r;
-      int f = fgStyle_ParseAbsRect(attr->String, r);
+      int f = fgStyle_ParseAbsRect(attr->String, &r);
       AddStyleSubMsgArg<FG_SETPADDING, AbsRect>(self, f, &r);
       break;
     }
@@ -373,7 +222,7 @@ void fgStyle_ParseAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, f
       int size;
       short weight;
       char italic;
-      const char* families = fgSkin_ParseFont(attr->String.c_str(), '\'', &size, &weight, &italic);
+      const char* families = fgStyle_ParseFont(attr->String.c_str(), '\'', &size, &weight, &italic);
       _FG_FONT_DATA* index = fgSkinBase_AddFont(root, flags, families, weight, italic, size);
       if(index)
         AddStyleMsg<FG_SETFONT, void*>(self, index->font);
@@ -426,7 +275,7 @@ void fgStyle_ParseAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, f
     case 23: // uv
     {
       CRect uv;
-      int f = fgStyle_ParseCRect(attr->String, uv);
+      int f = fgStyle_ParseCRect(attr->String, &uv);
       AddStyleSubMsgArg<FG_SETUV, CRect>(self, f, &uv);
       break;
     }
@@ -459,7 +308,7 @@ void fgStyle_ParseAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, f
     case 40: // splitter
     {
       AbsVec splitter;
-      int f = fgStyle_ParseAbsVec(attr->String, splitter);
+      int f = fgStyle_ParseAbsVec(attr->String, &splitter);
       AddStyleSubMsg<FG_SETVALUE, float>(self, FGVALUE_FLOAT, splitter.x);
       AddStyleSubMsg<FG_SETRANGE, float>(self, FGVALUE_FLOAT, splitter.y);
       break;

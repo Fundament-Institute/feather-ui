@@ -92,6 +92,8 @@ RETPAIR test_Window()
   fgLayout layout;
   fgLayout_Init(&layout);
   fgLayout_LoadFileXML(&layout, "../media/feathertest.xml");
+  fgLayout_SaveFileXML(&layout, "../media/feathertest.out.xml");
+
   fgVoidMessage(&fgSingleton()->gui.element, FG_LAYOUTLOAD, &layout, 0);
 
   fgElement* tabfocus = fgGetID("#tabfocus");
