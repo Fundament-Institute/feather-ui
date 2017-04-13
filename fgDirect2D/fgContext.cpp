@@ -25,6 +25,7 @@ void fgContext_Construct(fgContext* self)
   self->roundrect = 0;
   self->triangle = 0;
   self->circle = 0;
+  self->context = 0;
   self->inside = false;
   self->invalid = false;
   new (&self->cliprect) std::stack<AbsRect>();
@@ -256,6 +257,8 @@ void fgContext::CreateResources(HWND handle)
     {
       hr = target->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &color);
       hr = target->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &edgecolor);
+      if(FAILED(hr))
+        fgLog("CreateSolidColorBrush failed with error code %li", hr);
       hr = target->QueryInterface<ID2D1DeviceContext>(&context);
       if(SUCCEEDED(hr))
       {
@@ -263,9 +266,14 @@ void fgContext::CreateResources(HWND handle)
         hr = context->CreateEffect(CLSID_fgRoundRect, &roundrect);
         hr = context->CreateEffect(CLSID_fgCircle, &circle);
         hr = context->CreateEffect(CLSID_fgTriangle, &triangle);
+        if(FAILED(hr))
+          fgLog("CreateEffect failed with error code %li", hr);
       }
-      hr = hr;
+      else
+        fgLog("QueryInterface<ID2D1DeviceContext> failed with error code %li, custom effects won't be available. Make sure your device supports Direct2D 1.1", hr);
     }
+    else
+      fgLog("CreateHwndRenderTarget failed with error code %li", hr);
   }
 }
 void fgContext::DiscardResources()

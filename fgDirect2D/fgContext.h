@@ -18,6 +18,11 @@ struct ID2D1Effect;
 struct ID2D1DeviceContext;
 struct fgDrawAuxDataEx;
 
+#define LOGEMPTY
+#define LOGFAILURE(x, f, ...) { HRESULT hr = (x); if(FAILED(hr)) { fgLog(f, __VA_ARGS__); } }
+#define LOGFAILURERET(x, r, f, ...) { HRESULT hr = (x); if(FAILED(hr)) { fgLog(f, __VA_ARGS__); return r; } }
+#define LOGFAILURERETNULL(x, f, ...) LOGFAILURERET(x,LOGEMPTY,f,__VA_ARGS__)
+
 #if defined(_WIN64)
 typedef long long longptr_t;
 #else

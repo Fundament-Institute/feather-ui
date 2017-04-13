@@ -88,16 +88,14 @@ bool IsChildOf(fgElement* cur, fgElement* target)
   return cur == target;
 }
 
-IDWriteTextLayout1* CreateD2DLayout(IDWriteTextFormat* format, const wchar_t* text, size_t len, const AbsRect* area)
+IDWriteTextLayout* CreateD2DLayout(IDWriteTextFormat* format, const wchar_t* text, size_t len, const AbsRect* area)
 {
   if(!text) return 0;
   IDWriteTextLayout* layout = 0;
   FABS x = area->right - area->left;
   FABS y = area->bottom - area->top;
-  fgDirect2D::instance->writefactory->CreateTextLayout(text, len, format, (x <= 0.0f ? INFINITY : x), (y <= 0.0f ? INFINITY : y), &layout);
-  IDWriteTextLayout1* layout1 = 0;
-  layout->QueryInterface<IDWriteTextLayout1>(&layout1);
-  return layout1;
+  LOGFAILURE(fgDirect2D::instance->writefactory->CreateTextLayout(text, len, format, (x <= 0.0f ? INFINITY : x), (y <= 0.0f ? INFINITY : y), &layout), "CreateTextLayout failed with error code %li", hr);
+  return layout;
 }
 
 longptr_t __stdcall fgDirect2D::DebugWndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam)
@@ -211,7 +209,7 @@ fgFont fgCreateFontD2D(fgFlag flags, const char* family, short weight, char ital
   DYNARRAY(wchar_t, wtext, len);
   fgUTF8toUTF16(family, -1, wtext, len);
   IDWriteTextFormat* format = 0;
-  fgDirect2D::instance->writefactory->CreateTextFormat(wtext, 0, DWRITE_FONT_WEIGHT(weight), italic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, pt * (dpi->x/72.0f), L"en-us", &format);
+  LOGFAILURERET(fgDirect2D::instance->writefactory->CreateTextFormat(wtext, 0, DWRITE_FONT_WEIGHT(weight), italic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, pt * (dpi->x / 72.0f), L"en-us", &format), 0, "CreateTextFormat failed with error code %li", hr);
   if(!format) return 0;
   return new fgFontD2D(format, *dpi, pt);
 }
@@ -226,7 +224,7 @@ fgFont fgCloneFontD2D(fgFont font, const struct _FG_FONT_DESC* desc)
     DYNARRAY(wchar_t, wtext, f->format->GetFontFamilyNameLength()+1);
     f->format->GetFontFamilyName(wtext, f->format->GetFontFamilyNameLength() + 1);
     IDWriteTextFormat* format = 0;
-    fgDirect2D::instance->writefactory->CreateTextFormat(wtext, 0, f->format->GetFontWeight(), f->format->GetFontStyle(), f->format->GetFontStretch(), desc->pt * (desc->dpi.x / 72.0f), L"en-us", &format);
+    LOGFAILURERET(fgDirect2D::instance->writefactory->CreateTextFormat(wtext, 0, f->format->GetFontWeight(), f->format->GetFontStyle(), f->format->GetFontStretch(), desc->pt * (desc->dpi.x / 72.0f), L"en-us", &format), 0, "CreateTextFormat failed with error code %li", hr);
     if(!format) return 0;
     f = new fgFontD2D(format, desc->dpi, desc->pt);
   }
@@ -235,12 +233,13 @@ fgFont fgCloneFontD2D(fgFont font, const struct _FG_FONT_DESC* desc)
 void fgDestroyFontD2D(fgFont font) { fgFontD2D* f = (fgFontD2D*)font; if(!f->format->Release()) delete f; }
 void fgDrawFontD2D(fgFont font, const void* text, size_t len, float lineheight, float letterspacing, unsigned int color, const AbsRect* dpiarea, FABS rotation, const AbsVec* dpicenter, fgFlag flags, const fgDrawAuxData* data, void* cache)
 {
+  if(!len) return;
   fgFontD2D* f = (fgFontD2D*)font;
   AbsRect area;
   AbsVec center;
   fgResolveDrawRect(dpiarea, &area, dpicenter, &center, flags, data);
   GETEXDATA(data);
-  IDWriteTextLayout1* layout = (IDWriteTextLayout1*)cache;
+  IDWriteTextLayout* layout = (IDWriteTextLayout*)cache;
   exdata->context->color->SetColor(ToD2Color(color));
   
   if(!layout)
@@ -255,7 +254,7 @@ void fgDrawFontD2D(fgFont font, const void* text, size_t len, float lineheight, 
 void* fgFontFormatD2D(fgFont font, const void* text, size_t len, float lineheight, float letterspacing, AbsRect* area, fgFlag flags, const fgIntVec* dpi, void* cache)
 {
   fgFontD2D* f = (fgFontD2D*)font;
-  IDWriteTextLayout1* layout = (IDWriteTextLayout1*)cache;
+  IDWriteTextLayout* layout = (IDWriteTextLayout*)cache;
   if(layout)
     layout->Release();
   if(!area)
@@ -279,8 +278,10 @@ void* fgFontFormatD2D(fgFont font, const void* text, size_t len, float lineheigh
   {
     DWRITE_TEXT_RANGE range;
     FLOAT leading, trailing, minimum;
-    layout->GetCharacterSpacing(0, &leading, &trailing, &minimum, &range);
-    layout->SetCharacterSpacing(leading, trailing + letterspacing, minimum, range);
+    IDWriteTextLayout1* layout1 = 0;
+    layout->QueryInterface<IDWriteTextLayout1>(&layout1);
+    layout1->GetCharacterSpacing(0, &leading, &trailing, &minimum, &range);
+    layout1->SetCharacterSpacing(leading, trailing + letterspacing, minimum, range);
   }
 
   DWRITE_TEXT_METRICS metrics;
@@ -310,7 +311,7 @@ size_t fgFontIndexD2D(fgFont font, const void* text, size_t len, float lineheigh
 {
   assert(font != 0);
   fgFontD2D* f = (fgFontD2D*)font;
-  IDWriteTextLayout1* layout = (IDWriteTextLayout1*)cache;
+  IDWriteTextLayout* layout = (IDWriteTextLayout*)cache;
   AbsRect area = *dpiarea;
   fgScaleRectDPI(&area, dpi->x, dpi->y);
   if(!layout)
@@ -332,7 +333,7 @@ size_t fgFontIndexD2D(fgFont font, const void* text, size_t len, float lineheigh
 AbsVec fgFontPosD2D(fgFont font, const void* text, size_t len, float lineheight, float letterspacing, const AbsRect* dpiarea, fgFlag flags, size_t index, const fgIntVec* dpi, void* cache)
 {
   fgFontD2D* f = (fgFontD2D*)font;
-  IDWriteTextLayout1* layout = (IDWriteTextLayout1*)cache;
+  IDWriteTextLayout* layout = (IDWriteTextLayout*)cache;
   AbsRect area = *dpiarea;
   fgScaleRectDPI(&area, dpi->x, dpi->y);
   if(!layout)
@@ -361,6 +362,8 @@ void* fgCreateAssetD2D(fgFlag flags, const char* data, size_t length)
     hr = fgDirect2D::instance->wicfactory->CreateDecoderFromStream(stream, NULL, WICDecodeMetadataCacheOnLoad, &decoder);
   if(SUCCEEDED(hr))
     hr = decoder->GetFrame(0, &source);
+  if(FAILED(hr))
+    fgLog("fgCreateAssetD2D failed with error code %li", hr);
 
   if(stream) stream->Release();
   if(decoder) decoder->Release();
@@ -392,6 +395,8 @@ fgAsset fgCloneAssetD2D(fgAsset asset, fgElement* src)
     hr = conv->Initialize((IWICBitmapSource*)asset, GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, NULL, 0.f, WICBitmapPaletteTypeMedianCut);
   if(SUCCEEDED(hr))
     hr = target->CreateBitmapFromWicBitmap(conv, NULL, &bitmap);
+  if(FAILED(hr))
+    fgLog("fgCloneAssetD2D failed with error code %li", hr);
 
   return bitmap;
 }
@@ -887,16 +892,21 @@ struct _FG_ROOT* fgInitialize()
   if(SUCCEEDED(hr))
     hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory1), reinterpret_cast<IUnknown**>(&root->writefactory));
   else
-    fgLog("CoCreateInstance() failed with error: %i", hr);
+    fgLog("CoCreateInstance() failed with error: %li", hr);
+
+  D2D1_FACTORY_OPTIONS d2dopt = { D2D1_DEBUG_LEVEL_NONE };
+#ifdef BSS_DEBUG
+  d2dopt.debugLevel = D2D1_DEBUG_LEVEL_INFORMATION;
+#endif
 
   if(SUCCEEDED(hr))
-    hr = D2D1CreateFactory<ID2D1Factory1>(D2D1_FACTORY_TYPE_SINGLE_THREADED, &root->factory);
+    hr = D2D1CreateFactory<ID2D1Factory1>(D2D1_FACTORY_TYPE_SINGLE_THREADED, d2dopt, &root->factory);
   else
-    fgLog("DWriteCreateFactory() failed with error: %i", hr);
+    fgLog("DWriteCreateFactory() failed with error: %li", hr);
 
   if(FAILED(hr))
   {
-    fgLog("D2D1CreateFactory() failed with error: %i", hr);
+    fgLog("D2D1CreateFactory() failed with error: %li", hr);
     if(root->wicfactory) root->wicfactory->Release();
     if(root->factory) root->factory->Release();
     if(root->writefactory) root->writefactory->Release();
@@ -948,6 +958,8 @@ struct _FG_ROOT* fgInitialize()
     if(sz > 0)
       root->root.cursorblink = _wtoi(buf) / 1000.0;
   }
+  else
+    fgLog("Couldn't get user's cursor blink rate.");
 
   return &root->root;
 }
