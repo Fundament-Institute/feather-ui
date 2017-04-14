@@ -2,12 +2,14 @@
 // For conditions of distribution and use, see copyright notice in "fgDirect2D.h"
 
 #include "fgWindowD2D.h"
+#include "fgDirect2D.h"
 #include "fgRoot.h"
 #include "bss-util/bss_win32_includes.h"
 #include <d2d1_1.h>
 #include "fgRoundRect.h"
 #include "fgCircle.h"
 #include "fgTriangle.h"
+#include "fgDebug.h"
 
 fgWindowD2D* fgWindowD2D::windowlist = 0;
 
@@ -67,7 +69,6 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
       ShowWindow(self->handle, SW_SHOW);
       UpdateWindow(self->handle);
       //SetWindowPos(self->handle, HWND_TOP, INT(wleft), INT(wtop), INT(rwidth), INT(rheight), SWP_NOCOPYBITS | SWP_NOMOVE | SWP_NOACTIVATE);
-      SetCursor(LoadCursor(NULL, IDC_ARROW));
       self->context.CreateResources(self->handle);
     }
     break;
@@ -170,13 +171,20 @@ longptr_t __stdcall fgWindowD2D::WndProc(HWND__* hWnd, unsigned int message, siz
     case WM_MBUTTONUP:
       ReleaseCapture();
       break;
-    //case WM_WINDOWPOSCHANGING:
-    //{
-    //  WINDOWPOS* pos = (WINDOWPOS*)lParam;
-    //  CRect area = { pos->x, 0, pos->y, 0, pos->x + pos->cx, 0, pos->y + pos->cy, 0 };
-    //  fgSendSubMsg<FG_SETAREA, void*>(self->window, 1, &area);
-    //  break;
-    //}
+    case WM_WINDOWPOSCHANGED:
+    case WM_WINDOWPOSCHANGING:
+      if(fgDirect2D::instance->debugtarget != 0 && hWnd == fgDirect2D::instance->debugtarget->handle)
+      {
+        AbsRect area;
+        ResolveRect(fgDirect2D::instance->debugtarget->window, &area);
+        SetWindowPos(fgDirect2D::instance->debughwnd, hWnd, area.right, area.top, 300, area.bottom - area.top, SWP_NOSENDCHANGING | SWP_NOACTIVATE);
+      }
+      //  fgSendSubMsg<FG_SETAREA, void*>(self->window, 1, &area);
+      break;
+    case WM_ACTIVATE:
+      if(fgDirect2D::instance->debugtarget != 0 && hWnd == fgDirect2D::instance->debugtarget->handle)
+        SetWindowPos(fgDirect2D::instance->debughwnd, hWnd, 0,0,0,0, SWP_NOSENDCHANGING | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE);
+      break;
     }
     return self->context.WndProc(hWnd, message, wParam, lParam, self->window);
   }

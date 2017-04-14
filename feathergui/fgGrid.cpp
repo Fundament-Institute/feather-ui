@@ -78,7 +78,7 @@ size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
       return (size_t)text;
     }
     case FGITEM_ROW:
-      return (size_t)fgCreate("gridrow", self->list, msg->u < self->list.box.order.ordered.l ? self->list.box.order.ordered.p[msg->u] : 0, "Grid$row", FGBOX_TILEX | FGELEMENT_EXPANDY, &ROWTRANSFORM, 0);
+      return (size_t)fgCreate("gridrow", self->list, msg->u < self->list.box.order.ordered.l ? self->list.box.order.ordered.p[msg->u] : 0, "Grid$row", FGFLAGS_DEFAULTS, &ROWTRANSFORM, 0);
     }
     return 0;
   case FG_REMOVEITEM:

@@ -121,31 +121,31 @@
 				</Box>
 			</Tab>
 			<Tab name="Tab 4" userid="0">
-				<Grid flags="TILEY|DRAGGABLE" range="2" value="2" margin="20 20 20 20" area="0 0 100% 100%">
+				<Grid flags="DRAGGABLE" range="2" value="2" margin="20 20 20 20" area="0 0 100% 100%">
 					<Column name="Column 1" userid="0"/>
 					<Column name="Column 2" userid="0"/>
 					<Column name="Column 3" userid="0"/>
 					<Column name="Column 4" userid="0"/>
 					<Column name="Column 5" userid="0"/>
-					<GridRow flags="EXPANDX|EXPANDY">
+					<GridRow>
 						<Text flags="EXPANDY" text="text 11"/>
 						<Text flags="EXPANDY" text="text 12"/>
 						<Text flags="EXPANDY" text="text 13"/>
 						<Text flags="EXPANDY" text="text 14"/>
 					</GridRow>
-					<GridRow flags="EXPANDX|EXPANDY">
+					<GridRow>
 						<Text flags="EXPANDY" text="text 21"/>
 						<Text flags="EXPANDY" text="text 22"/>
 						<Text flags="EXPANDY" text="text 23"/>
 						<Text flags="EXPANDY" text="text 24"/>
 					</GridRow>
-					<GridRow flags="EXPANDX|EXPANDY">
+					<GridRow>
 						<Text flags="EXPANDY" text="text 31"/>
 						<Text flags="EXPANDY" text="text 32"/>
 						<Text flags="EXPANDY" text="text 33"/>
 						<Text flags="EXPANDY" text="text 34"/>
 					</GridRow>
-					<GridRow flags="EXPANDX|EXPANDY">
+					<GridRow>
 						<Text flags="EXPANDY" text="text 41"/>
 						<Text flags="EXPANDY" text="text 42"/>
 						<Text flags="EXPANDY" text="text 43"/>

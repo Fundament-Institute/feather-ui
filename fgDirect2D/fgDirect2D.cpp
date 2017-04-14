@@ -183,7 +183,6 @@ void fgDebugD2D_Init(fgDebug* self, fgElement* BSS_RESTRICT parent, fgElement* B
   ShowWindow(fgDirect2D::instance->debughwnd, SW_SHOW);
   UpdateWindow(fgDirect2D::instance->debughwnd);
   //SetWindowPos(fgDirect2D::instance->debughwnd, HWND_TOP, INT(wleft), INT(wtop), INT(rwidth), INT(rheight), SWP_NOCOPYBITS | SWP_NOMOVE | SWP_NOACTIVATE);
-  SetCursor(LoadCursor(NULL, IDC_ARROW));
   fgDirect2D::instance->debugcontext.CreateResources(fgDirect2D::instance->debughwnd);
 }
 
@@ -933,7 +932,6 @@ struct _FG_ROOT* fgInitialize()
   ShowWindow(root->tophwnd, SW_SHOW);
   UpdateWindow(root->tophwnd);
   //SetWindowPos(root->topmost, HWND_TOP, INT(wleft), INT(wtop), INT(rwidth), INT(rheight), SWP_NOCOPYBITS | SWP_NOMOVE | SWP_NOACTIVATE);
-  SetCursor(LoadCursor(NULL, IDC_ARROW));
   root->context.CreateResources(root->tophwnd);
 
   FLOAT dpix;

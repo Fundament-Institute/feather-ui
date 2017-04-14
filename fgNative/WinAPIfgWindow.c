@@ -38,7 +38,6 @@ HWND TopWndCreate(HINSTANCE instance, fgWindow* wn, const wchar_t* name, long st
  //   SetActiveWindow(hWnd);
 	//  SetForegroundWindow(hWnd);
  // }
-  SetCursor(LoadCursor(NULL, IDC_ARROW));
 
   return hWnd;
 }

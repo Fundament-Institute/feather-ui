@@ -189,21 +189,23 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
     self->tabmessages = self->tabs->AddItemText("Messages");
     self->tablayout->GetSelectedItem()->Action();
 
-    const fgTransform tf_properties = { { -300,1,-200,1,0,1,0,1 }, 0,{ 0,0,0,0 } };
-    const fgTransform tf_contents = { { 0,0,-200,1,200,0,0,1 }, 0,{ 0,0,0,0 } };
+    const fgTransform tf_elements = { { 0,0,0,0,0,1,0,0.7 }, 0,{ 0,0,0,0 } };
+    const fgTransform tf_properties = { { 0,0,0,0.7,0,1,0,1 }, 0,{ 0,0,0,0 } };
     const fgTransform tf_overlay = { { 0,0,0,0,0,0,0,0 }, 0,{ fgroot_instance->gui.element.transform.area.left.abs,fgroot_instance->gui.element.transform.area.top.abs,0,0 } };
-    fgTreeview_Init(&self->elements, self->tablayout, 0, "Debug$elements", FGFLAGS_INTERNAL, &fgTransform_DEFAULT, 0);
-    fgGrid_Init(&self->properties, self->tablayout, 0, "Debug$properties", FGELEMENT_HIDDEN | FGFLAGS_INTERNAL, &tf_properties, 0);
-    fgText_Init(&self->contents, self->tabmessages, 0, "Debug$contents", FGELEMENT_HIDDEN | FGFLAGS_INTERNAL, &tf_contents, 0);
+    fgTreeview_Init(&self->elements, self->tablayout, 0, "Debug$elements", FGFLAGS_INTERNAL, &tf_elements, 0);
+    fgGrid_Init(&self->properties, self->tablayout, 0, "Debug$properties", FGBOX_TILEY | FGFLAGS_INTERNAL, &tf_properties, 0);
+    fgText_Init(&self->contents, self->tabmessages, 0, "Debug$contents", FGELEMENT_HIDDEN | FGFLAGS_INTERNAL, &fgTransform_EMPTY, 0);
     fgElement_Init(&self->overlay, fgroot_instance->gui, 0, "Debug$overlay", FGELEMENT_HIDDEN | FGELEMENT_IGNORE | FGELEMENT_BACKGROUND | FGELEMENT_NOCLIP | FGFLAGS_INTERNAL, &tf_overlay, 0);
     self->overlay.message = (fgMessage)fgDebug_OverlayMessage;
     self->properties.InsertColumn("Name");
     self->properties.InsertColumn("Value");
+    self->properties.header->SetValueF(2.0f);
+    //const fgTransform tf_prop = { { 0,0,0,0,0,1,0,0 }, 0,{ 0,0,0,0 } };
     for(size_t i = 0; i < sizeof(PROPERTY_LIST) / sizeof(const char*); ++i)
     {
       fgGridRow* r = self->properties.InsertRow();
-      r->InsertItem(PROPERTY_LIST[i]);
-      r->InsertItem("");
+      fgCreate("text", *r, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY, 0)->SetText(PROPERTY_LIST[i]);
+      fgCreate("text", *r, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY, 0);
     }
     fgSubmenu_Init(&self->context, *self, 0, "Debug$context", fgGetTypeFlags("Submenu") | FGFLAGS_INTERNAL, &fgTransform_EMPTY, 0);
     self->context->AddItemText("Delete");
@@ -326,7 +328,6 @@ char* fgDebug_CopyText(fgDebug* self, const char* s)
   ((bss_util::cDynArray<char*>&)self->messagestrings).AddConstruct(ret);
   return ret;
 }
-
 size_t fgTreeItem_DebugMessage(fgTreeItem* self, const FG_Msg* msg)
 {
   assert(fgdebug_instance != 0);
@@ -340,6 +341,21 @@ size_t fgTreeItem_DebugMessage(fgTreeItem* self, const FG_Msg* msg)
   case FG_MOUSEOFF:
     fgDebug_SetHover(fgdebug_instance, 0);
     return FG_ACCEPT;
+  case FG_GOTFOCUS:
+    if(self->control.element.userdata)
+    {
+      fgElement* e = (fgElement*)self->control.element.userdata;
+      fgGrid& g = fgdebug_instance->properties;
+      g.GetRow(0)->GetItem(1)->SetText(e->GetClassName());
+      g.GetRow(1)->GetItem(1)->SetText(e->GetName());
+      g.GetRow(2)->GetItem(1)->SetText("2");
+      g.GetRow(3)->GetItem(1)->SetText("3");
+      g.GetRow(4)->GetItem(1)->SetText("4");
+      g.GetRow(5)->GetItem(1)->SetText("5");
+      g.GetRow(6)->GetItem(1)->SetText("6");
+      g.GetRow(7)->GetItem(1)->SetText("7");
+      g.GetRow(8)->GetItem(1)->SetText("8");
+    }
   }
 
   return fgTreeItem_Message(self, msg);

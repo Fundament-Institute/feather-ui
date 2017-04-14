@@ -106,8 +106,8 @@ void fgRoot_Init(fgRoot* self, const AbsRect* area, const fgIntVec* dpi, const f
   fgRegisterControl("menu", (fgInitializer)fgMenu_Init, sizeof(fgMenu), FGELEMENT_EXPANDY | FGBOX_TILEX);
   fgRegisterControl("submenu", (fgInitializer)fgSubmenu_Init, sizeof(fgMenu), FGELEMENT_NOCLIP | FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN | FGBOX_TILEY | FGELEMENT_EXPAND);
   fgRegisterControl("menuitem", (fgInitializer)fgMenuItem_Init, sizeof(fgMenuItem), FGELEMENT_EXPAND | FGELEMENT_NOCLIP);
-  fgRegisterControl("grid", (fgInitializer)fgGrid_Init, sizeof(fgGrid), 0);
-  fgRegisterControl("gridrow", (fgInitializer)fgGridRow_Init, sizeof(fgGridRow), 0);
+  fgRegisterControl("grid", (fgInitializer)fgGrid_Init, sizeof(fgGrid), FGBOX_TILEY);
+  fgRegisterControl("gridrow", (fgInitializer)fgGridRow_Init, sizeof(fgGridRow), FGBOX_TILEX|FGELEMENT_EXPAND);
   fgRegisterControl("workspace", (fgInitializer)fgWorkspace_Init, sizeof(fgWorkspace), 0);
   fgRegisterControl("toolbar", (fgInitializer)fgToolbar_Init, sizeof(fgToolbar), 0);
   fgRegisterControl("toolgroup", (fgInitializer)fgToolGroup_Init, sizeof(fgBox), 0);

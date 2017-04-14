@@ -71,7 +71,7 @@ void fgContext::WndRegister(WNDPROC f, const wchar_t* name)
   wcex.hInstance = ((HINSTANCE)&__ImageBase);
   wcex.hbrBackground = NULL;
   wcex.lpszMenuName = NULL;
-  wcex.hCursor = LoadCursor(NULL, IDI_APPLICATION);
+  wcex.hCursor = NULL;
   wcex.lpszClassName = name;
 
   RegisterClassExW(&wcex);
