@@ -55,7 +55,7 @@ void fgTerminateD2D()
   fgDirect2D* d2d = fgDirect2D::instance;
   assert(d2d);
   DestroyWindow(d2d->tophwnd);
-  fgContext_Destroy(&d2d->context);
+  fgContext_Destroy(&d2d->topcontext);
   if(d2d->debughwnd)
   {
     DestroyWindow(d2d->debughwnd);
@@ -567,7 +567,7 @@ void fgDirtyElementD2D(fgElement* e)
       if(!ignore)
         SetCapture(fgDirect2D::instance->tophwnd);
     }
-    fgDirect2D::instance->context.InvalidateHWND(fgDirect2D::instance->tophwnd);
+    fgDirect2D::instance->topcontext.InvalidateHWND(fgDirect2D::instance->tophwnd);
   }
   else if(e != 0 && e->destroy == (fgDestroy)fgDebug_Destroy)
     fgDirect2D::instance->debugcontext.InvalidateHWND(fgDirect2D::instance->debughwnd);
@@ -778,15 +778,15 @@ longptr_t __stdcall fgDirect2D::TopmostWndProc(HWND__* hWnd, unsigned int messag
         AbsRect area;
         ResolveRect(self->root.topmost, &area);
         fgDrawAuxDataEx exdata;
-        self->context.BeginDraw(self->tophwnd, self->root.topmost, &self->toprect, exdata);
+        self->topcontext.BeginDraw(self->tophwnd, self->root.topmost, &self->toprect, exdata);
         self->root.topmost->Draw(&area, &exdata.data);
-        self->context.EndDraw();
+        self->topcontext.EndDraw();
       }
       return 0;
     }
 
     if(self->root.topmost != 0)
-      return self->context.WndProc(hWnd, message, wParam, lParam, self->root.topmost);
+      return self->topcontext.WndProc(hWnd, message, wParam, lParam, self->root.topmost);
   }
   return DefWindowProc(hWnd, message, wParam, lParam);
 }
@@ -921,7 +921,7 @@ struct _FG_ROOT* fgInitialize()
   if(FAILED(fgTriangle::Register(root->factory)))
     fgLog("Failed to register fgTriangle", hr);
 
-  fgContext_Construct(&root->context);
+  fgContext_Construct(&root->topcontext);
   fgContext::SetDWMCallbacks();
   fgContext::WndRegister(fgWindowD2D::WndProc, L"fgWindowD2D"); // Register window class
   fgContext::WndRegister(fgDirect2D::TopmostWndProc, L"fgDirectD2Dtopmost"); // Register topmost class
@@ -932,7 +932,7 @@ struct _FG_ROOT* fgInitialize()
   ShowWindow(root->tophwnd, SW_SHOW);
   UpdateWindow(root->tophwnd);
   //SetWindowPos(root->topmost, HWND_TOP, INT(wleft), INT(wtop), INT(rwidth), INT(rheight), SWP_NOCOPYBITS | SWP_NOMOVE | SWP_NOACTIVATE);
-  root->context.CreateResources(root->tophwnd);
+  root->topcontext.CreateResources(root->tophwnd);
 
   FLOAT dpix;
   FLOAT dpiy;

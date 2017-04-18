@@ -247,6 +247,7 @@ void fgContext::CreateResources(HWND handle)
       D2D1::RenderTargetProperties(D2D1_RENDER_TARGET_TYPE_DEFAULT, D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED)),
       D2D1::HwndRenderTargetProperties(handle, D2D1::SizeU(rc.right - rc.left, rc.bottom - rc.top)),
       &target);
+
     if(SUCCEEDED(hr))
     {
       hr = target->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &color);
@@ -282,6 +283,8 @@ void fgContext::DiscardResources()
     triangle->Release();
   if(circle)
     circle->Release();
+  if(context)
+    context->Release();
   if(target)
     target->Release();
   color = 0;

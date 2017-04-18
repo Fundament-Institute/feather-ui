@@ -29,7 +29,7 @@ struct fgWindowD2D;
 struct fgDirect2D
 {
   fgRoot root;
-  fgContext context;
+  fgContext topcontext;
   fgContext debugcontext;
   HWND__* debughwnd;
   fgWindowD2D* debugtarget;
