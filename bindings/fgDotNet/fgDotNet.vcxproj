@@ -169,6 +169,7 @@
     <ClInclude Include="Monitor.h" />
     <ClInclude Include="Skin.h" />
     <ClInclude Include="Style.h" />
+    <ClInclude Include="Util.h" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.Drawing" />

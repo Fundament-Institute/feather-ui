@@ -34,10 +34,10 @@ namespace fgDotNet {
     !Font();
     Font^ Clone(Desc^ desc);
     void Draw(System::String^ text, float lineheight, float letterspacing, unsigned int color, System::Drawing::RectangleF area, FABS rotation, System::Drawing::PointF center, fgFlag flags, DrawAuxData^ data, TextLayout layout);
-    TextLayout GetLayout(System::String^ text, float lineheight, float letterspacing, System::Drawing::RectangleF^ area, fgFlag flags, TextLayout prevlayout);
+    TextLayout GetLayout(System::String^ text, float lineheight, float letterspacing, System::Drawing::RectangleF^ area, fgFlag flags, System::Drawing::Point dpi, TextLayout prevlayout);
     Desc^ GetDesc();
-    size_t Index(System::String^ text, float lineheight, float letterspacing, System::Drawing::RectangleF area, fgFlag flags, System::Drawing::PointF pos, System::Drawing::PointF^ cursor, TextLayout layout);
-    System::Drawing::PointF Pos(System::String^ text, float lineheight, float letterspacing, System::Drawing::RectangleF area, fgFlag flags, size_t index, TextLayout layout);
+    size_t Index(System::String^ text, float lineheight, float letterspacing, System::Drawing::RectangleF area, fgFlag flags, System::Drawing::PointF pos, System::Drawing::PointF^ cursor, System::Drawing::Point dpi, TextLayout layout);
+    System::Drawing::PointF Pos(System::String^ text, float lineheight, float letterspacing, System::Drawing::RectangleF area, fgFlag flags, size_t index, System::Drawing::Point dpi, TextLayout layout);
 
     inline static operator void*(Font^ r) { return r->_p; }
 

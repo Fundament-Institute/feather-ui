@@ -19,14 +19,17 @@ Layout::Layout(fgLayout* p) : SkinBase(&p->base, false) {}
 Layout::Layout() : SkinBase(reinterpret_cast<fgSkinBase*>(new fgLayout()), true) { fgLayout_Init(reinterpret_cast<fgLayout*>(_p)); }
 Layout::~Layout() { this->!Layout(); }
 Layout::!Layout() { if(_p && _owner) { fgLayout_Destroy(reinterpret_cast<fgLayout*>(_p)); delete reinterpret_cast<fgLayout*>(_p); } }
-FG_UINT Layout::AddLayout(System::String^ type, System::String^ name, fgFlag flags, UnifiedTransform^ transform, short units, int order)
+FG_UINT Layout::AddChild(System::String^ type, System::String^ name, fgFlag flags, UnifiedTransform^ transform, short units, int order)
 {
   TOCHAR(type);
   TOCHARSTR(name, pname);
-  return fgLayout_AddLayout(reinterpret_cast<fgLayout*>(_p), (const char*)pstr, (const char*)pname, flags, &transform->operator fgTransform(), units, order);
+  return fgLayout_AddChild(reinterpret_cast<fgLayout*>(_p), (const char*)pstr, (const char*)pname, flags, &transform->operator fgTransform(), units, order);
 }
-bool Layout::RemoveLayout(FG_UINT layout) { return reinterpret_cast<fgLayout*>(_p)->RemoveLayout(layout) != 0; }
-ClassLayout^ Layout::GetLayout(FG_UINT layout) { return GenNewManagedPtr<ClassLayout, fgClassLayout>(reinterpret_cast<fgLayout*>(_p)->GetLayout(layout)); }
+bool Layout::RemoveChild(FG_UINT layout) { return reinterpret_cast<fgLayout*>(_p)->RemoveChild(layout) != 0; }
+ClassLayout^ Layout::GetChild(FG_UINT layout) { return GenNewManagedPtr<ClassLayout, fgClassLayout>(reinterpret_cast<fgLayout*>(_p)->GetChild(layout)); }
+Layout^ Layout::AddLayout(System::String^ name) { TOCHAR(name); return GenNewManagedPtr<Layout, fgLayout>(reinterpret_cast<fgLayout*>(_p)->AddLayout((const char*)pstr)); }
+bool Layout::RemoveLayout(System::String^ name) { TOCHAR(name); return reinterpret_cast<fgLayout*>(_p)->RemoveLayout((const char*)pstr); }
+Layout^ Layout::GetLayout(System::String^ name) { TOCHAR(name); return GenNewManagedPtr<Layout, fgLayout>(reinterpret_cast<fgLayout*>(_p)->GetLayout((const char*)pstr)); }
 
 void Layout::LoadFileUBJSON(System::String^ file) { TOCHAR(file); reinterpret_cast<fgLayout*>(_p)->LoadFileUBJSON((const char*)pstr); }
 void Layout::LoadUBJSON(cli::array<System::Byte>^ data) { pin_ptr<const unsigned char> p = &data[0]; return reinterpret_cast<fgLayout*>(_p)->LoadUBJSON((const char*)p, data->Length); }

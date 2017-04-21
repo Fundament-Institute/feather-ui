@@ -105,7 +105,7 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT size_t RemoveItem(size_t item);
   FG_DLLEXPORT void LayoutChange(unsigned short subtype, struct _FG_ELEMENT* target, struct _FG_ELEMENT* old);
   FG_DLLEXPORT size_t LayoutFunction(const FG_Msg& msg, const CRect& area, bool scrollbar = false);
-  FG_DLLEXPORT size_t LayoutLoad(struct _FG_LAYOUT* layout);
+  FG_DLLEXPORT struct _FG_ELEMENT* LayoutLoad(struct _FG_LAYOUT* layout);
   FG_DLLEXPORT size_t DragOver(float x, float y);
   FG_DLLEXPORT size_t Drop(float x, float y, unsigned char allbtn);
   FG_DLLEXPORT void Draw(const AbsRect* area, const fgDrawAuxData* aux);
@@ -190,6 +190,7 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT const int* GetPlaceholderU();
   FG_DLLEXPORT int GetMask();
   FG_DLLEXPORT void AddListener(unsigned short type, fgListener listener);
+  FG_DLLEXPORT struct _FG_ELEMENT* GetChildByName(const char* name);
 #endif
 } fgElement;
 
@@ -228,6 +229,7 @@ FG_EXTERN void VirtualFreeChild(fgElement* self);
 FG_EXTERN void fgElement_Clear(fgElement* self); // Removes all non-internal children from the element
 FG_EXTERN void fgElement_MouseMoveCheck(fgElement* self);
 FG_EXTERN void fgElement_AddListener(fgElement* self, unsigned short type, fgListener listener);
+FG_EXTERN struct _FG_ELEMENT* fgElement_GetChildByName(fgElement* self, const char* name);
 
 #ifdef  __cplusplus
 }

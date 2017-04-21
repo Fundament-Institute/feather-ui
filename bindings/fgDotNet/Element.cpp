@@ -4,6 +4,7 @@
 #include "Style.h"
 #include "Layout.h"
 #include "Skin.h"
+#include "Util.h"
 #include "fgRoot.h"
 
 using namespace fgDotNet;
@@ -32,13 +33,13 @@ void Element::SetParent(Element^ parent, Element^ next) { _p->SetParent(parent, 
 size_t Element::AddChild(Element^ child) { return _p->AddChild(child, nullptr); }
 size_t Element::AddChild(Element^ child, Element^ next) { return _p->AddChild(child, next); }
 //Element^ Element::AddItem(void* item, size_t index = (size_t)~0);
-//Element^ Element::AddItemText(String^ item, FGSETTEXT fmt = FGSETTEXT_UTF8);
-//Element^ Element::AddItemElement(Element^ item, size_t index = (size_t)~0);
+Element^ Element::AddItemText(String^ item) { pin_ptr<const wchar_t> p = &item->ToCharArray()[0]; return GenNewManagedPtr<Element, fgElement>(_p->AddItemText((const char*)p, FGTEXTFMT_UTF16)); }
+Element^ Element::AddItemElement(Element^ item) { return GenNewManagedPtr<Element, fgElement>(_p->AddItemElement(item == nullptr ? 0 : item->_p)); }
 size_t Element::RemoveChild(Element^ child) { return _p->RemoveChild(child); }
 size_t Element::RemoveItem(size_t item) { return _p->RemoveItem(item); }
 void Element::LayoutChange(unsigned short subtype, Element^ target, Element^ old) { _p->LayoutChange(subtype, target, old); }
 size_t Element::LayoutFunction(const FG_Msg& msg, UnifiedRect^ area, bool scrollbar) { return _p->LayoutFunction(msg, (CRect&)area, scrollbar); }
-size_t Element::LayoutLoad(Layout^ layout) { return _p->LayoutLoad(layout); }
+Element^ Element::LayoutLoad(Layout^ layout) { return GenNewManagedPtr<Element, fgElement>(_p->LayoutLoad(layout)); }
 size_t Element::DragOver(int x, int y) { return _p->DragOver(x, y); }
 size_t Element::Drop(int x, int y, unsigned char allbtn) { return _p->Drop(x, y, allbtn); }
 void Element::Draw(RectangleF^ area, DrawAuxData^ aux) { _p->Draw(&From(area), &aux->operator fgDrawAuxData()); }
@@ -74,6 +75,9 @@ size_t Element::GotFocus() { return _p->GotFocus(); }
 void Element::LostFocus() { _p->LostFocus(); }
 size_t Element::SetName(String^ name) { TOCHAR(name); return _p->SetName((const char*)pstr); }
 String^ Element::GetName() { return gcnew String(_p->GetName()); }
+
+void Element::SetContextMenu(Element^ menu) { _p->SetContextMenu(menu == nullptr ? 0 : menu->_p); }
+Element^ Element::GetContextMenu() { return GenNewManagedPtr<Element, fgElement>(_p->GetContextMenu()); }
 void Element::Neutral() { _p->Neutral(); }
 void Element::Hover() { _p->Hover(); }
 void Element::Active() { _p->Active(); }
@@ -112,6 +116,7 @@ String^ Element::GetText() { return gcnew System::String(_p->GetTextW()); }
 String^ Element::GetPlaceholder() { return gcnew System::String(_p->GetPlaceholderW()); }
 wchar_t Element::GetMask() { return (wchar_t)_p->GetMask(); }
 void Element::AddListener(unsigned short type, fgListener listener) { _p->AddListener(type, listener); }
+Element^ Element::GetChildByName(System::String^ name) { return GenNewManagedPtr<Element, fgElement>(_p->GetChildByName(StringToUTF8(name).c_str())); }
 
 Element::operator fgElement*(Element^ e) { return e->_p; }
 AbsRect Element::From(System::Drawing::RectangleF^ r) { return AbsRect{ r->Left, r->Top, r->Right, r->Bottom }; }

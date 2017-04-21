@@ -19,10 +19,13 @@
 /fgLayoutEditor/res/
 /fgDirect2D/x64/
 /fgDirect2D/Win32/
+/fgDirect2D/fgDirect2D_fgCircle.h
+/fgDirect2D/fgDirect2D_fgRoundRect.h
+/fgDirect2D/fgDirect2D_fgTriangle.h
 /fgTest/x64/
 /fgTest/Win32/
-/fgWinAPI/x64/
-/fgWinAPI/Win32/
+/fgNative/x64/
+/fgNative/Win32/
 /bindings/fgDotNet/x64/
 /bindings/fgDotNet/Win32/
 /examples/c/x64/

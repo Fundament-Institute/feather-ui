@@ -10,6 +10,7 @@
 extern "C" {
 #endif
 
+struct kh_fgLayoutMap_s;
 struct _FG_CLASS_LAYOUT;
 typedef fgDeclareVector(struct _FG_CLASS_LAYOUT, ClassLayout) fgVectorClassLayout;
 struct _FG_KEY_VALUE { const char* key; const char* value; };
@@ -26,7 +27,7 @@ typedef struct _FG_CLASS_LAYOUT {
 #ifdef  __cplusplus
   FG_DLLEXPORT void AddUserString(const char* key, const char* value);
   FG_DLLEXPORT FG_UINT AddChild(const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order);
-  FG_DLLEXPORT char RemoveChild(FG_UINT child);
+  FG_DLLEXPORT bool RemoveChild(FG_UINT child);
   FG_DLLEXPORT struct _FG_CLASS_LAYOUT* GetChild(FG_UINT child) const;
 #endif
 } fgClassLayout;
@@ -35,26 +36,33 @@ typedef struct _FG_LAYOUT {
   fgSkinBase base;
   fgStyle style;
   fgVectorClassLayout layout; // Type: fgClassLayout
+  struct kh_fgLayoutMap_s* sublayouts;
 
 #ifdef  __cplusplus
-  FG_DLLEXPORT FG_UINT AddLayout(const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order);
-  FG_DLLEXPORT char RemoveLayout(FG_UINT layout);
-  FG_DLLEXPORT fgClassLayout* GetLayout(FG_UINT layout) const;
+  FG_DLLEXPORT FG_UINT AddChild(const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order);
+  FG_DLLEXPORT bool RemoveChild(FG_UINT child);
+  FG_DLLEXPORT fgClassLayout* GetChild(FG_UINT child) const;
+  FG_DLLEXPORT struct _FG_LAYOUT* AddLayout(const char* name);
+  FG_DLLEXPORT bool RemoveLayout(const char* name);
+  FG_DLLEXPORT struct _FG_LAYOUT* GetLayout(const char* name) const;
 
   FG_DLLEXPORT void LoadFileUBJSON(const char* file);
   FG_DLLEXPORT void LoadUBJSON(const char* data, FG_UINT length);
   FG_DLLEXPORT void SaveFileUBJSON(const char* file);
-  FG_DLLEXPORT char LoadFileXML(const char* file);
-  FG_DLLEXPORT char LoadXML(const char* data, FG_UINT length);
+  FG_DLLEXPORT bool LoadFileXML(const char* file);
+  FG_DLLEXPORT bool LoadXML(const char* data, FG_UINT length);
   FG_DLLEXPORT void SaveFileXML(const char* file);
 #endif
 } fgLayout;
 
 FG_EXTERN void fgLayout_Init(fgLayout* self);
 FG_EXTERN void fgLayout_Destroy(fgLayout* self);
-FG_EXTERN FG_UINT fgLayout_AddLayout(fgLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order);
-FG_EXTERN char fgLayout_RemoveLayout(fgLayout* self, FG_UINT layout);
-FG_EXTERN fgClassLayout* fgLayout_GetLayout(const fgLayout* self, FG_UINT layout);
+FG_EXTERN FG_UINT fgLayout_AddChild(fgLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order);
+FG_EXTERN char fgLayout_RemoveChild(fgLayout* self, FG_UINT child);
+FG_EXTERN fgClassLayout* fgLayout_GetChild(const fgLayout* self, FG_UINT child);
+FG_EXTERN fgLayout* fgLayout_AddLayout(fgLayout* self, const char* name);
+FG_EXTERN char fgLayout_RemoveLayout(fgLayout* self, const char* name);
+FG_EXTERN fgLayout* fgLayout_GetLayout(const fgLayout* self, const char* name);
 
 FG_EXTERN void fgLayout_LoadFileUBJSON(fgLayout* self, const char* file);
 FG_EXTERN void fgLayout_LoadUBJSON(fgLayout* self, const char* data, FG_UINT length);

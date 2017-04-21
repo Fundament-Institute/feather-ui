@@ -344,7 +344,7 @@
 
   <xs:complexType name="fgCombobox">
     <xs:complexContent>
-      <xs:extension base="fgLayout">
+      <xs:extension base="fgLayoutText">
         <xs:attribute name="flags" type="fgFlagsCombobox"/>
       </xs:extension>
     </xs:complexContent>
@@ -563,16 +563,19 @@
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
+
+  <xs:complexType name="fgLayoutRoot">
+    <xs:complexContent>
+      <xs:extension base="fgLayout">
+        <xs:choice>
+          <xs:element name="Layout" type="fgLayoutRoot" minOccurs="0" maxOccurs="unbounded" />
+        </xs:choice>
+        <xs:attribute name="flags" type="fgFlagsElement"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
   
-  <xs:element name="Layout">
-    <xs:complexType>
-      <xs:complexContent>
-        <xs:extension base="fgLayout">
-          <xs:attribute name="flags" type="fgFlagsElement"/>
-        </xs:extension>
-      </xs:complexContent>
-    </xs:complexType>
-  </xs:element>
+  <xs:element name="Layout" type="fgLayoutRoot" />
     
   <xs:complexType name="fgStyle">
     <xs:complexContent>

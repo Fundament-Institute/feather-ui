@@ -200,12 +200,12 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
     self->properties.InsertColumn("Name");
     self->properties.InsertColumn("Value");
     self->properties.header->SetValueF(2.0f);
-    //const fgTransform tf_prop = { { 0,0,0,0,0,1,0,0 }, 0,{ 0,0,0,0 } };
+    const fgTransform tf_prop = { { 0,0,0,0,0,1,0,0 }, 0,{ 0,0,0,0 } };
     for(size_t i = 0; i < sizeof(PROPERTY_LIST) / sizeof(const char*); ++i)
     {
       fgGridRow* r = self->properties.InsertRow();
-      fgCreate("text", *r, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY, 0)->SetText(PROPERTY_LIST[i]);
-      fgCreate("text", *r, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY, 0);
+      fgCreate("text", *r, 0, 0, FGELEMENT_EXPANDY, &fgTransform_EMPTY, 0)->SetText(PROPERTY_LIST[i]);
+      fgCreate("text", *r, 0, 0, FGELEMENT_EXPANDY, &fgTransform_EMPTY, 0);
     }
     fgSubmenu_Init(&self->context, *self, 0, "Debug$context", fgGetTypeFlags("Submenu") | FGFLAGS_INTERNAL, &fgTransform_EMPTY, 0);
     self->context->AddItemText("Delete");

@@ -221,9 +221,9 @@
     </Skin>
     <Skin name="Button" color="0x000000" font="14 bold arial" padding="5,5,5,5">
       <Resource uv="5,5,5,5" area="0,0,100%,100%" color="0" edgecolor="0x444444" outline="2" flags="RECT|BACKGROUND|SNAP">
-        <Style name="neutral" color="0" edgecolor="0x444444" transition="1000 ease-in" flags="-NOCLIP"/>
+        <Style name="neutral" color="0" edgecolor="0x444444" transition="1000 ease-in 0" flags="-NOCLIP"/>
         <Style name="active" color="0x333333" edgecolor="0x333333" transition="1000 cubic(0,1,0,1) 0"  flags="NOCLIP"/>
-        <Style name="hover" color="0x444444" edgecolor="0x444444" transition="1000 ease-in"  flags="NOCLIP"/>
+        <Style name="hover" color="0x444444" edgecolor="0x444444" transition="1000 ease-in 0"  flags="NOCLIP"/>
       </Resource>
       <Style name="neutral" color="0x000000" />
       <Style name="active" color="0xFFFFFF" />

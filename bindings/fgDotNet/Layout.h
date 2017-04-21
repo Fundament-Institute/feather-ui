@@ -26,9 +26,12 @@ namespace fgDotNet {
     Layout();
     ~Layout();
     !Layout();
-    FG_UINT AddLayout(System::String^ type, System::String^ name, fgFlag flags, UnifiedTransform^ transform, short units, int order);
-    bool RemoveLayout(FG_UINT layout);
-    ClassLayout^ GetLayout(FG_UINT layout);
+    FG_UINT AddChild(System::String^ type, System::String^ name, fgFlag flags, UnifiedTransform^ transform, short units, int order);
+    bool RemoveChild(FG_UINT layout);
+    ClassLayout^ GetChild(FG_UINT layout);
+    Layout^ AddLayout(System::String^ name);
+    bool RemoveLayout(System::String^ name);
+    Layout^ GetLayout(System::String^ name);
 
     void LoadFileUBJSON(System::String^ file);
     void LoadUBJSON(cli::array<System::Byte>^ data);

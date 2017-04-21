@@ -87,13 +87,13 @@ namespace fgDotNet {
     size_t AddChild(Element^ child);
     size_t AddChild(Element^ child, Element^ next);
     //Element^ AddItem(void* item, size_t index = (size_t)~0);
-    //Element^ AddItemText(System::String^ item, FGSETTEXT fmt = FGSETTEXT_UTF8);
-    //Element^ AddItemElement(Element^ item, size_t index = (size_t)~0);
+    Element^ AddItemText(System::String^ item);
+    Element^ AddItemElement(Element^ item);
     size_t RemoveChild(Element^ child);
     size_t RemoveItem(size_t item);
     void LayoutChange(unsigned short subtype, Element^ target, Element^ old);
     size_t LayoutFunction(const FG_Msg& msg, UnifiedRect^ area, bool scrollbar);
-    size_t LayoutLoad(Layout^ layout);
+    Element^ LayoutLoad(Layout^ layout);
     size_t DragOver(int x, int y);
     size_t Drop(int x, int y, unsigned char allbtn);
     void Draw(System::Drawing::RectangleF^ area, DrawAuxData^ aux);
@@ -129,6 +129,8 @@ namespace fgDotNet {
     void LostFocus();
     size_t SetName(System::String^ name);
     System::String^ GetName();
+    void SetContextMenu(Element^ menu);
+    Element^ GetContextMenu();
     void Neutral();
     void Hover();
     void Active();
@@ -167,6 +169,7 @@ namespace fgDotNet {
     System::String^ GetPlaceholder();
     wchar_t GetMask();
     void AddListener(unsigned short type, fgListener listener);
+    Element^ GetChildByName(System::String^ name);
 
     static operator fgElement*(Element^ e);
     static AbsRect From(System::Drawing::RectangleF^ r);

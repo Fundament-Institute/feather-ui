@@ -692,10 +692,11 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
     if(self->layoutstyle)
       fgElement_ApplyMessageArray(0, self, self->layoutstyle);
 
+    fgElement* last = 0;
     for(FG_UINT i = 0; i < layout->layout.l; ++i)
-      fgElement_LoadLayout(self, 0, layout->layout.p + i);
+      last = fgElement_LoadLayout(self, 0, layout->layout.p + i);
+    return (size_t)last;
   }
-  return FG_ACCEPT;
   case FG_CLONE:
     if(msg->e != 0)
     {
@@ -1284,6 +1285,33 @@ void fgElement_ClearListeners(fgElement* self)
   }
 } 
 
+fgElement* fgElement_GetChildByName(fgElement* self, const char* name)
+{
+  const char* div;
+
+  while(div = strchr(name, '.')) // TODO: implement some sort of cache that's only created the first time you attempt this lookup.
+  {
+    size_t count = div - name; 
+    fgElement* cur;
+    for(cur = self->root; cur != 0; cur = cur->next)
+    {
+      if(!strncmp(name, cur->GetName(), count))
+        break;
+    }
+    if(!cur) // if cur is null then there were no matches
+      return 0;
+    self = cur;
+    name = div + 1;
+  }
+
+  for(fgElement* cur = self->root; cur != 0; cur = cur->next)
+  {
+    if(!strcmp(name, cur->GetName()))
+      return cur;
+  }
+  return 0;
+}
+
 void fgElement::Construct() { _sendmsg<FG_CONSTRUCT>(this); }
 
 void fgElement::Move(unsigned short subtype, fgElement* child, size_t diff) { _sendsubmsg<FG_MOVE, fgElement*, size_t>(this, subtype, child, diff); }
@@ -1320,7 +1348,7 @@ size_t fgElement::LayoutFunction(const FG_Msg& msg, const CRect& area, bool scro
 
 void fgElement::LayoutChange(unsigned short subtype, fgElement* target, fgElement* old) { _sendsubmsg<FG_LAYOUTCHANGE, fgElement*, fgElement*>(this, subtype, target, old); }
 
-size_t fgElement::LayoutLoad(fgLayout* layout) { return _sendmsg<FG_LAYOUTLOAD, void*>(this, layout); }
+fgElement* fgElement::LayoutLoad(fgLayout* layout) { return reinterpret_cast<fgElement*>(_sendmsg<FG_LAYOUTLOAD, void*>(this, layout)); }
 
 size_t fgElement::DragOver(float x, float y)
 {
@@ -1599,3 +1627,4 @@ const int* fgElement::GetPlaceholderU() { return reinterpret_cast<const int*>(_s
 int fgElement::GetMask() { return _sendsubmsg<FG_GETTEXT>(this, FGTEXTFMT_MASK); }
 
 void fgElement::AddListener(unsigned short type, fgListener listener) { fgElement_AddListener(this, type, listener); }
+fgElement* fgElement::GetChildByName(const char* name) { return fgElement_GetChildByName(this, name); }
