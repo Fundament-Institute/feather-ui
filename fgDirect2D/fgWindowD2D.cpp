@@ -4,7 +4,7 @@
 #include "fgWindowD2D.h"
 #include "fgDirect2D.h"
 #include "fgRoot.h"
-#include "bss-util/bss_win32_includes.h"
+#include "win32_includes.h"
 #include <d2d1_1.h>
 #include "fgRoundRect.h"
 #include "fgCircle.h"

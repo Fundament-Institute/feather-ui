@@ -17,6 +17,8 @@ const fgColor fgColor_WHITE = { 0xFFFFFFFF };
 const CRect CRect_EMPTY = { 0,0,0,0,0,0,0,0 };
 const AbsVec AbsVec_EMPTY = { 0,0 };
 const fgIntVec fgIntVec_EMPTY = { 0,0 };
+const fgIntVec fgIntVec_DEFAULTDPI = { 96,96 };
+
 bss_util::cHash<std::pair<fgElement*, unsigned short>, fgListener> fgListenerHash;
 bss_util::cHash<char*> fgStringAllocHash;
 bss_util::cHashBase<const char*, size_t, true, bss_util::KH_POINTER_HASHFUNC<const char* const&>, bss_util::KH_INT_EQUALFUNC<const char*>> fgStringRefHash;
@@ -254,6 +256,10 @@ void fgScaleRectDPI(AbsRect* rect, int dpix, int dpiy)
   scale[2] = scale[0];
   scale[3] = scale[1];
   (sseVec(BSS_UNALIGNED<const float>(&rect->left))*sseVec(scale)) >> BSS_UNALIGNED<float>(&rect->left);
+  if(rect->right < rect->left)
+    rect->right = rect->left;
+  if(rect->bottom < rect->top)
+    rect->bottom = rect->top;
 }
 void fgInvScaleRectDPI(AbsRect* rect, int dpix, int dpiy)
 {
@@ -284,6 +290,10 @@ void fgResolveDrawRect(const AbsRect* area, AbsRect* outarea, const AbsVec* cent
   (sseVec(BSS_UNALIGNED<const float>(&area->left))*sseVec(scale)) >> BSS_UNALIGNED<float>(&outarea->left);
 
   fgSnapAbsRect(*outarea, flags);
+  if(outarea->right < outarea->left)
+    outarea->right = outarea->left;
+  if(outarea->bottom < outarea->top)
+    outarea->bottom = outarea->top;
   outcenter->x = center->x*scale[0];
   outcenter->y = center->y*scale[1];
 }

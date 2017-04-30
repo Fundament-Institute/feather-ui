@@ -62,12 +62,14 @@ inline fgVector* fgText_Conversion(int type, fgVectorUTF8* text8, fgVectorUTF16*
       return reinterpret_cast<fgVector*>(text8);
     if(text16->l)
     {
+      assert(!text16->p[text16->l - 1]);
       size_t len = fgUTF16toUTF8(text16->p, text16->l, 0, 0);
       ((bss_util::cDynArray<char>*)text8)->Reserve(len);
       text8->l = fgUTF16toUTF8(text16->p, text16->l, text8->p, text8->s);
     }
     if(text32->l)
     {
+      assert(!text32->p[text32->l - 1]);
       size_t len = fgUTF32toUTF8(text32->p, text32->l, 0, 0);
       ((bss_util::cDynArray<char>*)text8)->Reserve(len);
       text8->l = fgUTF32toUTF8(text32->p, text32->l, text8->p, text8->s);
@@ -78,12 +80,14 @@ inline fgVector* fgText_Conversion(int type, fgVectorUTF8* text8, fgVectorUTF16*
       return reinterpret_cast<fgVector*>(text16);
     if(text8->l)
     {
+      assert(!text8->p[text8->l - 1]);
       size_t len = fgUTF8toUTF16(text8->p, text8->l, 0, 0);
       ((bss_util::cDynArray<wchar_t>*)text16)->Reserve(len);
       text16->l = fgUTF8toUTF16(text8->p, text8->l, text16->p, text16->s);
     }
     if(text32->l)
     {
+      assert(!text32->p[text32->l - 1]);
       size_t len = fgUTF32toUTF16(text32->p, text32->l, 0, 0);
       ((bss_util::cDynArray<wchar_t>*)text16)->Reserve(len);
       text16->l = fgUTF32toUTF16(text32->p, text32->l, text16->p, text16->s);
@@ -94,12 +98,14 @@ inline fgVector* fgText_Conversion(int type, fgVectorUTF8* text8, fgVectorUTF16*
       return reinterpret_cast<fgVector*>(text32);
     if(text8->l)
     {
+      assert(!text8->p[text8->l - 1]);
       size_t len = fgUTF8toUTF32(text8->p, text8->l, 0, 0);
       ((bss_util::cDynArray<int>*)text32)->Reserve(len);
       text32->l = fgUTF8toUTF32(text8->p, text8->l, text32->p, text32->s);
     }
     if(text16->l)
     {
+      assert(!text16->p[text16->l - 1]);
       size_t len = fgUTF16toUTF32(text16->p, text16->l, 0, 0);
       ((bss_util::cDynArray<int>*)text32)->Reserve(len);
       text32->l = fgUTF16toUTF32(text16->p, text16->l, text32->p, text32->s);
@@ -236,7 +242,7 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
   case FG_SETAREA:
     fgElement_Message(&self->element, msg);
     fgText_Recalc(self);
-    break;
+    return FG_ACCEPT;
   case FG_DRAW:
     fgElement_Message(&self->element, msg);
     if(self->font != 0 && !(msg->subtype & 1))

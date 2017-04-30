@@ -125,6 +125,7 @@ FG_EXTERN const fgTransform fgTransform_CENTER;
 FG_EXTERN const CRect CRect_EMPTY;
 FG_EXTERN const AbsVec AbsVec_EMPTY;
 FG_EXTERN const fgIntVec fgIntVec_EMPTY;
+FG_EXTERN const fgIntVec fgIntVec_DEFAULTDPI;
 
 enum FGFLAGS {
   FGFLAGS_INTERNAL = (1 << ((sizeof(fgFlag) << 3) - 2)),

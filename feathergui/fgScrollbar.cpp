@@ -127,9 +127,9 @@ void fgScrollbar_Recalc(fgScrollbar* self)
   bool hideh = !!(self->control.element.flags&FGSCROLLBAR_HIDEH);
   bool hidev = !!(self->control.element.flags&FGSCROLLBAR_HIDEV);
 
-  // We have to figure out which scrollbars are visible based on flags and our dimensions
-  bool scrollx = !hideh && ((dim.x < self->realsize.x + self->realpadding.left + self->realpadding.right + self->exclude.left + self->exclude.right) || self->control.element.flags&FGSCROLLBAR_SHOWH);
-  bool scrolly = !hidev && ((dim.y < self->realsize.y + self->realpadding.top + self->realpadding.bottom + self->exclude.top + self->exclude.bottom) || self->control.element.flags&FGSCROLLBAR_SHOWV);
+  // We have to figure out which scrollbars are visible based on flags and our dimensions. We use a half-pixel buffer so precision errors don't toggle scrollbars.
+  bool scrollx = !hideh && ((dim.x < self->realsize.x + self->realpadding.left + self->realpadding.right + self->exclude.left + self->exclude.right - 0.5f) || self->control.element.flags&FGSCROLLBAR_SHOWH);
+  bool scrolly = !hidev && ((dim.y < self->realsize.y + self->realpadding.top + self->realpadding.bottom + self->exclude.top + self->exclude.bottom - 0.5f) || self->control.element.flags&FGSCROLLBAR_SHOWV);
 
   // If we are adding or removing a scrollbar, this will change the padding and could change everything else (e.g. for textboxes)
   char dimr = 0;
@@ -322,6 +322,12 @@ size_t fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
     m.f2 = (msg->scrolldelta / 120.0f) * 3.0f * lineheight;
     m.f = (msg->scrollhdelta / -120.0f) * lineheight;
 
+    AbsRect r;
+    ResolveRect(*self, &r);
+    m.f2 = std::min<FABS>(abs(m.f2), r.bottom - r.top - self->exclude.top - self->exclude.bottom) * (std::signbit(m.f2) ? -1.0f : 1.0f);
+
+    if((m.f2 == 0.0f || (self->bg[1].flags&FGELEMENT_HIDDEN)) && (m.f == 0.0f || (self->bg[0].flags&FGELEMENT_HIDDEN)))
+      return 0; // If there is no scrolling to be done, reject this message
     fgSendMessage(*self, &m);
     return FG_ACCEPT;
   }

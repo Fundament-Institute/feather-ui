@@ -107,7 +107,7 @@ void fgList_Draw(fgElement* self, const AbsRect* area, const fgDrawAuxData* data
   }
 
   if(realself->box.dividercolor.a > 0)
-    fgBoxRenderDividers(self, area, data, begin);
+    fgBoxRenderDividers(self, realself->box.dividercolor, area, area, data, begin);
 }
 fgElement* fgList_GetSplit(fgList* self, const FG_Msg* msg)
 {
@@ -122,10 +122,14 @@ fgElement* fgList_GetSplit(fgList* self, const FG_Msg* msg)
       ResolveRectCache(cur, &child, &cache, &self->box->padding);
       bool prev = (self->box->flags&FGBOX_TILEX) ? (msg->x < (child.left + child.right)*0.5f) : (msg->y < (child.top + child.bottom)*0.5f);
       fgElement* p = prev ? fgLayout_GetPrev(cur) : fgLayout_GetNext(cur);
-      if(p) // You can't split if there's no previous or next element to split between.
+      if(p || !prev) // You can't split if there's no previous element
       {
         AbsRect after = child; // By setting after to child we can resolve back to child instead of after if we're resolving a previous element
-        ResolveRectCache(p, prev ? &child : &after, &cache, &self->box->padding);
+        if(p)
+          ResolveRectCache(p, prev ? &child : &after, &cache, &self->box->padding);
+        else
+          after = AbsRect{ child.right, child.bottom, child.right, child.bottom };
+
         FABS mid = (self->box->flags&FGBOX_TILEX) ? (child.right + after.left)*0.5f : (child.bottom + after.top)*0.5f;
         FABS mpos = (self->box->flags&FGBOX_TILEX) ? msg->x : msg->y;
         if(abs(mpos - mid) <= self->splitter)

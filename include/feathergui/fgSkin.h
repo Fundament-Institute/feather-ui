@@ -106,7 +106,7 @@ FG_EXTERN struct _FG_ASSET_DATA* fgSkinBase_GetAsset(const fgSkinBase* self, fgA
 FG_EXTERN struct _FG_FONT_DATA* fgSkinBase_AddFont(fgSkinBase* self, fgFlag flags, const char* family, short weight, char italic, unsigned int size);
 FG_EXTERN char fgSkinBase_RemoveFont(fgSkinBase* self, fgFont font);
 FG_EXTERN struct _FG_FONT_DATA* fgSkinBase_GetFont(const fgSkinBase* self, fgFont font);
-FG_EXTERN fgFlag fgSkinBase_ParseFlagsFromString(const char* s, fgFlag* remove);
+FG_EXTERN fgFlag fgSkinBase_ParseFlagsFromString(const char* s, fgFlag* remove, int divider);
 
 FG_EXTERN fgSkin* fgSkinBase_LoadFileUBJSON(fgSkinBase* self, const char* file);
 FG_EXTERN fgSkin* fgSkinBase_LoadUBJSON(fgSkinBase* self, const void* data, FG_UINT length);

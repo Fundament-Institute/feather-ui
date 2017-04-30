@@ -5,6 +5,7 @@
 #define __FG_BACKEND_H__
 
 #include "fgElement.h"
+#include "fgLayout.h"
 #include <stdarg.h>
 
 #ifdef  __cplusplus

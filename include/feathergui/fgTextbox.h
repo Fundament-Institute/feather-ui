@@ -34,9 +34,6 @@ enum FGTEXTBOX_ACTIONS
 // The textbox only understands single UTF codepoints, so an external library should be used to perform unicode normalization before setting it.
 typedef struct {
   fgScrollbar scroll;
-  const char* validation; // validation regex
-  const char* formatting; // printf formatting string matched to capture groups in the validation regex
-  int mask; // If not zero, stores a unicode character for password masking. 
   fgVectorUTF8 text8;
   fgVectorUTF16 text16;
   fgVectorUTF32 text32;
@@ -53,10 +50,14 @@ typedef struct {
   float lastx; // stores the x coordinate while we are hitting up or down keys.
   AbsRect areacache; // Stores a cache of the last area we knew about. If this changes, startpos and endpos must be recalculated.
   char inserting;
+  const char* validation; // validation regex
+  const char* formatting; // Formatting string
+  int mask; // If not zero, stores a unicode character for password masking. 
   void* font;
   void* layout;
   fgColor color;
   float lineheight;
+  float curlineheight; // Stored lineheight for this font in case lineheight is 0
   float letterspacing;
   double lastclick; // determines the starting point of the cursor blink animation
 #ifdef  __cplusplus

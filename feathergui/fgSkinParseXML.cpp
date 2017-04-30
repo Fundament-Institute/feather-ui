@@ -108,10 +108,10 @@ uint32_t fgStyle_ParseColor(const cXMLValue* attr)
 }
 void fgStyle_ParseAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, fgSkinBase* root, const char* path, const char** id, fgKeyValueArray* userdata)
 {
-  static cTrie<uint16_t, true> t(47, "id", "min-width", "min-height", "max-width", "max-height", "skin", "alpha", "margin", "padding", "text",
-    "placeholder", "color", "placecolor", "cursorcolor", "selectcolor", "hovercolor", "dragcolor", "edgecolor", "dividercolor", "font", "lineheight",
-    "letterspacing", "value", "uv", "asset", "outline", "area", "center", "rotation", "left", "top", "right", "bottom", "width", "height",
-    "name", "flags", "order", "inherit", "range", "splitter", "contextmenu", "reorder", "style", "xmlns:xsi", "xmlns:fg", "xsi:schemaLocation");
+  static cTrie<uint16_t, true> t(48, "id", "min-width", "min-height", "max-width", "max-height", "skin", "alpha", "margin", "padding", "text",
+    "placeholder", "color", "placecolor", "cursorcolor", "selectcolor", "hovercolor", "dragcolor", "edgecolor", "dividercolor", "columndividercolor", 
+    "font", "lineheight", "letterspacing", "value", "uv", "asset", "outline", "area", "center", "rotation", "left", "top", "right", "bottom", "width",
+    "height", "name", "flags", "order", "inherit", "range", "splitter", "contextmenu", "reorder", "style", "xmlns:xsi", "xmlns:fg", "xsi:schemaLocation");
   static cTrie<uint16_t, true> tvalue(5, "checkbox", "curve", "progressbar", "radiobutton", "slider");
   static cTrie<uint16_t, true> tenum(5, "true", "false", "none", "checked", "indeterminate");
 
@@ -217,7 +217,10 @@ void fgStyle_ParseAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, f
     case 18:
       AddStyleSubMsg<FG_SETCOLOR, ptrdiff_t>(self, FGSETCOLOR_DIVIDER, fgStyle_ParseColor(attr));
       break;
-    case 19: // font
+    case 19:
+      AddStyleSubMsg<FG_SETCOLOR, ptrdiff_t>(self, FGSETCOLOR_COLUMNDIVIDER, fgStyle_ParseColor(attr));
+      break;
+    case 20: // font
     {
       int size;
       short weight;
@@ -228,13 +231,13 @@ void fgStyle_ParseAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, f
         AddStyleMsg<FG_SETFONT, void*>(self, index->font);
       break;
     }
-    case 20:
+    case 21:
       AddStyleMsg<FG_SETLINEHEIGHT, FABS>(self, (FABS)attr->Float);
       break;
-    case 21:
+    case 22:
       AddStyleMsg<FG_SETLETTERSPACING, FABS>(self, (FABS)attr->Float);
       break;
-    case 22: // Value's type changes depending on what type we are
+    case 23: // Value's type changes depending on what type we are
       switch(tvalue[cur->GetName()])
       {
       case 0: // Checkbox
@@ -272,61 +275,61 @@ void fgStyle_ParseAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, f
         }
       }
       break;
-    case 23: // uv
+    case 24: // uv
     {
       CRect uv;
       int f = fgStyle_ParseCRect(attr->String, &uv);
       AddStyleSubMsgArg<FG_SETUV, CRect>(self, f, &uv);
       break;
     }
-    case 24: // asset
+    case 25: // asset
     {
       _FG_ASSET_DATA* res = fgSkinBase_AddAssetFile(root, flags, attr->String);
       AddStyleMsg<FG_SETASSET, void*>(self, res->asset);
       break;
     }
-    case 25: // outline
+    case 26: // outline
       AddStyleSubMsg<FG_SETOUTLINE, FABS>(self, fgStyle_ParseUnit(attr->String.c_str(), attr->String.length() + 1), (FABS)attr->Float);
       break;
-    case 26: // area
-    case 27: // center
-    case 28: // rotation
-    case 29: // left
-    case 30: // top
-    case 31: // right
-    case 32: // bottom
-    case 33: // width
-    case 34: // height
-    case 35: // name
-    case 36: // flags
-    case 37: // order
-    case 38: // inherit
+    case 27: // area
+    case 28: // center
+    case 29: // rotation
+    case 30: // left
+    case 31: // top
+    case 32: // right
+    case 33: // bottom
+    case 34: // width
+    case 35: // height
+    case 36: // name
+    case 37: // flags
+    case 38: // order
+    case 39: // inherit
       break; // These are processed before we get here, so ignore them.
-    case 39: // range
+    case 40: // range
       AddStyleSubMsg<FG_SETRANGE, ptrdiff_t>(self, FGVALUE_INT64, attr->Integer);
       break;
-    case 40: // splitter
+    case 41: // splitter
     {
       AbsVec splitter;
-      int f = fgStyle_ParseAbsVec(attr->String, &splitter);
+      fgStyle_ParseAbsVec(attr->String, &splitter);
       AddStyleSubMsg<FG_SETVALUE, float>(self, FGVALUE_FLOAT, splitter.x);
       AddStyleSubMsg<FG_SETRANGE, float>(self, FGVALUE_FLOAT, splitter.y);
       break;
     }
-    case 42: // reorder
+    case 43: // reorder
       if(!STRICMP(attr->String, "top"))
         AddStyleSubMsg<FG_SETPARENT>(self, FGSETPARENT_LAST);
       else if(!STRICMP(attr->String, "bottom"))
         AddStyleSubMsg<FG_SETPARENT>(self, FGSETPARENT_FIRST);
       break;
-    case 43: // style
+    case 44: // style
       AddStyleSubMsg<FG_SETSTYLE, size_t>(self, FGSETSTYLE_INDEX, fgStyle_GetAllNames(attr->String.c_str()));
       break;
-    case 44:
     case 45:
-    case 46: // These are all XML specific values that are only used for setting the XSD file
+    case 46:
+    case 47: // These are all XML specific values that are only used for setting the XSD file
       break;
-    case 41: // contextmenu is a recognized option, but we put it in as custom userdata anyway because we can't resolve it until the layout is resolved.
+    case 42: // contextmenu is a recognized option, but we put it in as custom userdata anyway because we can't resolve it until the layout is resolved.
     default: // Otherwise, unrecognized attributes are set as custom userdata
       if(!userdata)
       {
@@ -353,7 +356,7 @@ void fgStyle_ParseAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, f
 }
 
 
-fgFlag fgSkinBase_ParseFlagsFromString(const char* s, fgFlag* remove)
+fgFlag fgSkinBase_ParseFlagsFromString(const char* s, fgFlag* remove, int divider)
 {
   static cTrie<uint16_t, true> t(54, "BACKGROUND", "NOCLIP", "IGNORE", "HIDDEN", "SILENT", "EXPANDX", "EXPANDY", "DISABLE", "SNAPX", "SNAPY", "HIDEH",
     "HIDEV", "SHOWH", "SHOWV", "IGNOREMARGINEDGEX", "IGNOREMARGINEDGEY", "TILEX", "TILEY", "DISTRIBUTEX", "DISTRIBUTEY", "SINGLESELECT", "MULTISELECT",
@@ -367,7 +370,7 @@ fgFlag fgSkinBase_ParseFlagsFromString(const char* s, fgFlag* remove)
   const char* n;
   while(s)
   {
-    n = strchr(s, '|');
+    n = strchr(s, divider);
     bool del = s[0] == '-';
     if(del)
       ++s;
@@ -443,7 +446,7 @@ void fgSkinBase_ParseStyleNodeXML(fgSkinBase* self, fgStyle* style, fgFlag rootf
 {
   fgStyle_ParseAttributesXML(style, cur, rootflags, self, 0, 0, 0);
   fgFlag remove = 0;
-  fgFlag add = fgSkinBase_ParseFlagsFromString(cur->GetAttributeString("flags"), &remove);
+  fgFlag add = fgSkinBase_ParseFlagsFromString(cur->GetAttributeString("flags"), &remove, '|');
   if(remove)
     AddStyleMsg<FG_SETFLAG, ptrdiff_t, size_t>(style, remove, 0);
   if(add)
@@ -453,7 +456,7 @@ void fgSkinBase_ParseStyleNodeXML(fgSkinBase* self, fgStyle* style, fgFlag rootf
 void fgSkinBase_ParseSubNodeXML(fgSkinTree* tree, fgStyle* style, fgSkinBase* root, fgSkin* skin, const cXMLNode* cur)
 {
   fgFlag remove = 0;
-  fgFlag rootflags = fgSkinBase_ParseFlagsFromString(cur->GetAttributeString("flags"), &remove);
+  fgFlag rootflags = fgSkinBase_ParseFlagsFromString(cur->GetAttributeString("flags"), &remove, '|');
   if(remove)
     AddStyleMsg<FG_SETFLAG, ptrdiff_t, size_t>(style, remove, 0);
   if(rootflags)
@@ -480,7 +483,7 @@ void fgSkinBase_ParseSubNodeXML(fgSkinTree* tree, fgStyle* style, fgSkinBase* ro
       fgTransform transform = { 0 };
       short units = fgStyle_NodeEvalTransform(node, transform);
       fgFlag rmflags = 0;
-      fgFlag flags = fgSkinBase_ParseFlagsFromString(node->GetAttributeString("flags"), &rmflags);
+      fgFlag flags = fgSkinBase_ParseFlagsFromString(node->GetAttributeString("flags"), &rmflags, '|');
       flags = (flags | fgGetTypeFlags(node->GetName()))&(~rmflags);
       fgSkinLayout* child = fgSkinTree_GetChild(tree, (FG_UINT)fgSkinTree_AddChild(tree, node->GetName(), flags, &transform, units, (int)node->GetAttributeInt("order")));
       fgStyle_ParseAttributesXML(&child->layout.style, node, flags, root, 0, 0, 0);

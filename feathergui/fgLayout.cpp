@@ -153,7 +153,7 @@ void fgClassLayout_LoadLayoutXML(fgClassLayout* self, const cXMLNode* cur, fgLay
     fgTransform transform = { 0 };
     int type = fgStyle_NodeEvalTransform(node, transform);
     fgFlag rmflags = 0;
-    fgFlag flags = fgSkinBase_ParseFlagsFromString(node->GetAttributeString("flags"), &rmflags);
+    fgFlag flags = fgSkinBase_ParseFlagsFromString(node->GetAttributeString("flags"), &rmflags, '|');
     flags = (flags | fgGetTypeFlags(node->GetName()))&(~rmflags);
 
     fgTransform TF_SEPERATOR = { { 0,0,0,0,0,1.0,0,0 }, 0,{ 0,0,0,0 } };
@@ -175,7 +175,7 @@ void fgLayout_LoadLayoutNode(fgLayout* self, const cXMLNode* root, std::istream&
   for(size_t i = 0; i < root->GetNodes(); ++i)
   {
     const cXMLNode* node = root->GetNode(i);
-    if(!stricmp(node->GetName(), "layout")) // If it's a layout we need to load this as a sub-layout
+    if(!STRICMP(node->GetName(), "layout")) // If it's a layout we need to load this as a sub-layout
     {
       const char* name = node->GetAttributeString("name");
       if(!name)
@@ -188,7 +188,7 @@ void fgLayout_LoadLayoutNode(fgLayout* self, const cXMLNode* root, std::istream&
       fgTransform transform = { 0 };
       short type = fgStyle_NodeEvalTransform(node, transform);
       fgFlag rmflags = 0;
-      fgFlag flags = fgSkinBase_ParseFlagsFromString(node->GetAttributeString("flags"), &rmflags);
+      fgFlag flags = fgSkinBase_ParseFlagsFromString(node->GetAttributeString("flags"), &rmflags, '|');
       flags = (flags | fgGetTypeFlags(node->GetName()))&(~rmflags);
       FG_UINT index = fgLayout_AddChild(self, node->GetName(), node->GetAttributeString("name"), flags, &transform, type, (int)node->GetAttributeInt("order"));
       fgClassLayout* layout = fgLayout_GetChild(self, index);
@@ -239,7 +239,7 @@ void fgLayout_SaveElementXML(fgLayout* self, fgClassLayout& e, cXMLNode* parent,
   if(e.name)
     node->AddAttribute("name")->String = e.name;
   if(e.name)
-    fgSkinBase_WriteInt(node->AddAttribute("userid")->String, e.userid);
+    fgStyle_WriteInt(node->AddAttribute("userid")->String, e.userid);
   for(size_t i = 0; i < e.userdata.l; ++i)
     node->AddAttribute(e.userdata.p[i].key)->String = e.userdata.p[i].value;
 

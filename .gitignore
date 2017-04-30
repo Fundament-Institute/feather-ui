@@ -12,6 +12,7 @@
 /bin/
 /bin32/
 /media/editor/
+/media/*.out.*
 /feathergui/x64/
 /feathergui/Win32/
 /fgLayoutEditor/x64/

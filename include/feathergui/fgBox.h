@@ -50,7 +50,7 @@ FG_EXTERN void fgBoxOrderedElement_Destroy(struct _FG_BOX_ORDERED_ELEMENTS_* sel
 FG_EXTERN size_t fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_* self, const FG_Msg* msg, fgElement* element, fgMessage callback);
 FG_EXTERN void fgBox_DeselectAll(fgBox* self);
 FG_EXTERN void fgBox_SelectTarget(fgBox* self, fgElement* target);
-FG_EXTERN void fgBoxRenderDividers(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, fgElement* begin);
+FG_EXTERN void fgBoxRenderDividers(fgElement* self, fgColor color, const AbsRect* area, const AbsRect* drawarea, const fgDrawAuxData* aux, fgElement* begin);
 
 #ifdef  __cplusplus
 }

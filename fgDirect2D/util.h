@@ -4,7 +4,7 @@
 #ifndef __FG_UTIL_D2D_H__
 #define __FG_UTIL_D2D_H__
 
-#include "bss-util/bss_win32_includes.h"
+#include "win32_includes.h"
 #include "feathergui.h"
 #include <d2d1_1.h>
 

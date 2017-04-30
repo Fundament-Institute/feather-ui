@@ -269,7 +269,7 @@ BSS_FORCEINLINE size_t fgMaskSetStyle(fgElement* self, const char* style, FG_UIN
   return _sendsubmsg<FG_SETSTYLE, const void*, size_t>(self, FGSETSTYLE_NAME, style, mask);
 }
 
-BSS_FORCEINLINE FABS fgResolveUnit(fgElement* self, FABS x, size_t unit, bool axis, bool snap)
+BSS_FORCEINLINE FABS fgResolveUnit(FABS x, size_t unit, int dpi, FABS lineheight, bool snap)
 {
   switch(unit)
   {
@@ -280,21 +280,21 @@ BSS_FORCEINLINE FABS fgResolveUnit(fgElement* self, FABS x, size_t unit, bool ax
     x *= fgroot_instance->fontscale;
     break;
   case FGUNIT_EM:
-    x *= self->GetLineHeight();
+    x *= lineheight;
     break;
   case FGUNIT_PX:
-    return axis ? (x * ((FABS)self->GetDPI().y / 96.0f)) : (x * ((FABS)self->GetDPI().x / 96.0f));
+    return x * (dpi / 96.0f);
   }
 
   if(snap)
   {
-    const fgIntVec& dpi = self->GetDPI();
-    if(dpi.x != 96 || dpi.y != 96)
+    if(dpi != 96 && dpi != 0)
     {
-      float s = (axis ? dpi.y : dpi.x) / 96.0f;
-      x = (floor((x * s) + 0.49f) - 0.49f) / s;
+      float s = dpi / 96.0f;
+      x = roundf(x * s) / s;
     }
   }
+  assert(!std::isnan(x));
   return x;
 }
 
@@ -312,34 +312,34 @@ BSS_FORCEINLINE void fgSnapAbsRect(AbsRect& r, fgFlag flags)
   }
 }
 
-BSS_FORCEINLINE void fgResolveRectUnit(fgElement* self, AbsRect& r, size_t subtype)
+BSS_FORCEINLINE void fgResolveRectUnit(AbsRect& r, const fgIntVec& dpi, FABS lineheight, size_t subtype)
 {
-  r.left = fgResolveUnit(self, r.left, (subtype & FGUNIT_LEFT_MASK) >> FGUNIT_LEFT, false, (subtype & FGUNIT_SNAP) != 0);
-  r.top = fgResolveUnit(self, r.top, (subtype & FGUNIT_TOP_MASK) >> FGUNIT_TOP, true, (subtype & FGUNIT_SNAP) != 0);
-  r.right = fgResolveUnit(self, r.right, (subtype & FGUNIT_RIGHT_MASK) >> FGUNIT_RIGHT, false, (subtype & FGUNIT_SNAP) != 0);
-  r.bottom = fgResolveUnit(self, r.bottom, (subtype & FGUNIT_BOTTOM_MASK) >> FGUNIT_BOTTOM, true, (subtype & FGUNIT_SNAP) != 0);
+  r.left = fgResolveUnit(r.left, (subtype & FGUNIT_LEFT_MASK) >> FGUNIT_LEFT, dpi.x, lineheight, (subtype & FGUNIT_SNAP) != 0);
+  r.top = fgResolveUnit(r.top, (subtype & FGUNIT_TOP_MASK) >> FGUNIT_TOP, dpi.y, lineheight, (subtype & FGUNIT_SNAP) != 0);
+  r.right = fgResolveUnit(r.right, (subtype & FGUNIT_RIGHT_MASK) >> FGUNIT_RIGHT, dpi.x, lineheight, (subtype & FGUNIT_SNAP) != 0);
+  r.bottom = fgResolveUnit(r.bottom, (subtype & FGUNIT_BOTTOM_MASK) >> FGUNIT_BOTTOM, dpi.y, lineheight, (subtype & FGUNIT_SNAP) != 0);
 }
 
-BSS_FORCEINLINE void fgResolveVecUnit(fgElement* self, AbsVec& v, size_t subtype)
+BSS_FORCEINLINE void fgResolveVecUnit(AbsVec& v, const fgIntVec& dpi, FABS lineheight, size_t subtype)
 {
-  v.x = fgResolveUnit(self, v.x, (subtype & FGUNIT_X_MASK) >> FGUNIT_X, false, (subtype & FGUNIT_SNAP) != 0);
-  v.y = fgResolveUnit(self, v.y, (subtype & FGUNIT_Y_MASK) >> FGUNIT_Y, true, (subtype & FGUNIT_SNAP) != 0);
+  v.x = fgResolveUnit(v.x, (subtype & FGUNIT_X_MASK) >> FGUNIT_X, dpi.x, lineheight, (subtype & FGUNIT_SNAP) != 0);
+  v.y = fgResolveUnit(v.y, (subtype & FGUNIT_Y_MASK) >> FGUNIT_Y, dpi.y, lineheight, (subtype & FGUNIT_SNAP) != 0);
 }
 
-BSS_FORCEINLINE void fgResolveCRectUnit(fgElement* self, CRect& r, size_t subtype)
+BSS_FORCEINLINE void fgResolveCRectUnit(CRect& r, const fgIntVec& dpi, FABS lineheight, size_t subtype)
 {
-  r.left.abs = fgResolveUnit(self, r.left.abs, (subtype & FGUNIT_LEFT_MASK) >> FGUNIT_LEFT, false, (subtype & FGUNIT_SNAP) != 0);
-  r.top.abs = fgResolveUnit(self, r.top.abs, (subtype & FGUNIT_TOP_MASK) >> FGUNIT_TOP, true, (subtype & FGUNIT_SNAP) != 0);
-  r.right.abs = fgResolveUnit(self, r.right.abs, (subtype & FGUNIT_RIGHT_MASK) >> FGUNIT_RIGHT, false, (subtype & FGUNIT_SNAP) != 0);
+  r.left.abs = fgResolveUnit(r.left.abs, (subtype & FGUNIT_LEFT_MASK) >> FGUNIT_LEFT, dpi.x, lineheight, (subtype & FGUNIT_SNAP) != 0);
+  r.top.abs = fgResolveUnit(r.top.abs, (subtype & FGUNIT_TOP_MASK) >> FGUNIT_TOP, dpi.y, lineheight, (subtype & FGUNIT_SNAP) != 0);
+  r.right.abs = fgResolveUnit(r.right.abs,(subtype & FGUNIT_RIGHT_MASK) >> FGUNIT_RIGHT, dpi.x, lineheight, (subtype & FGUNIT_SNAP) != 0);
   if(subtype & FGUNIT_RIGHT_WIDTH) r.right.abs += r.left.abs;
-  r.bottom.abs = fgResolveUnit(self, r.bottom.abs, (subtype & FGUNIT_BOTTOM_MASK) >> FGUNIT_BOTTOM, true, (subtype & FGUNIT_SNAP) != 0);
+  r.bottom.abs = fgResolveUnit(r.bottom.abs, (subtype & FGUNIT_BOTTOM_MASK) >> FGUNIT_BOTTOM, dpi.y, lineheight, (subtype & FGUNIT_SNAP) != 0);
   if(subtype & FGUNIT_BOTTOM_HEIGHT) r.bottom.abs += r.top.abs;
 }
 
-BSS_FORCEINLINE void fgResolveCVecUnit(fgElement* self, CVec& v, size_t subtype)
+BSS_FORCEINLINE void fgResolveCVecUnit(CVec& v, const fgIntVec& dpi, FABS lineheight, size_t subtype)
 {
-  v.x.abs = fgResolveUnit(self, v.x.abs, (subtype & FGUNIT_X_MASK) >> FGUNIT_X, false, (subtype & FGUNIT_SNAP) != 0);
-  v.y.abs = fgResolveUnit(self, v.y.abs, (subtype & FGUNIT_Y_MASK) >> FGUNIT_Y, true, (subtype & FGUNIT_SNAP) != 0);
+  v.x.abs = fgResolveUnit(v.x.abs, (subtype & FGUNIT_X_MASK) >> FGUNIT_X, dpi.x, lineheight, (subtype & FGUNIT_SNAP) != 0);
+  v.y.abs = fgResolveUnit(v.y.abs, (subtype & FGUNIT_Y_MASK) >> FGUNIT_Y, dpi.y, lineheight, (subtype & FGUNIT_SNAP) != 0);
 }
 
 extern "C" {
@@ -367,7 +367,6 @@ struct __VECTOR__UTF16;
 struct __VECTOR__UTF32;
 
 extern fgSkin* fgSkinBase_ParseNodeXML(fgSkinBase* self, const bss_util::cXMLNode* root);
-extern void fgSkinBase_WriteInt(cStr& s, int64_t i);
 extern void fgSkinBase_WriteElementAttributesXML(bss_util::cXMLNode* node, fgSkinElement& e, fgSkinBase* root);
 extern void fgSkinBase_WriteStyleAttributesXML(bss_util::cXMLNode* node, fgStyle& s, fgSkinBase* root);
 static kh_fgSkins_s *kh_init_fgSkins();
@@ -380,12 +379,22 @@ extern void LList_InsertAll(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRIC
 template<fgElement*&(*GET)(fgElement*), fgFlag FLAG>
 extern fgElement* LList_Find(fgElement* BSS_RESTRICT self);
 
+extern void fgStyle_WriteFloat(cStr& s, float abs);
+extern void fgStyle_WriteInt(cStr& s, int64_t i);
+extern void fgStyle_WriteHex(cStr& s, uint64_t i);
+extern void fgStyle_WriteAbs(cStr& s, float abs, short unit);
+extern void fgStyle_WriteCoord(cStr& s, const Coord& coord, short unit);
+extern cStr fgStyle_WriteCVec(const CVec& vec, short units);
+extern cStr fgStyle_WriteAbsRect(const AbsRect& r, short units);
+extern cStr fgStyle_WriteCRect(const CRect& r, short units);
+extern void fgStyle_WriteFlagsIterate(cStr& s, const char* type, const char* divider, fgFlag flags, bool remove);
+
 struct _FG_BOX_ORDERED_ELEMENTS_;
 
 template<fgFlag FLAGS>
-inline fgElement* fgOrderedGet(struct _FG_BOX_ORDERED_ELEMENTS_* self, const AbsRect* area, const AbsRect* cache);
+fgElement* fgOrderedGet(struct _FG_BOX_ORDERED_ELEMENTS_* self, const AbsRect* area, const AbsRect* cache);
 template<fgFlag FLAGS>
-inline fgElement* fgOrderedVec(struct _FG_BOX_ORDERED_ELEMENTS_* order, AbsVec v);
+fgElement* fgOrderedVec(struct _FG_BOX_ORDERED_ELEMENTS_* order, AbsVec v);
 
 // Set a bunch of memory to zero after a given subclass
 template<class T, class SUBCLASS>

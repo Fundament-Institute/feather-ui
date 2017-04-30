@@ -51,7 +51,7 @@ char fgOrderedCompare(const AbsRect& l, const fgElement* const& e, const AbsRect
   return fgBoxVecCompare<FLAGS&(FGBOX_TILE | FGBOX_DISTRIBUTEY)>(l.topleft, r.bottomright);
 }
 template<fgFlag FLAGS>
-inline fgElement* fgOrderedGet(struct _FG_BOX_ORDERED_ELEMENTS_* self, const AbsRect* area, const AbsRect* cache)
+fgElement* fgOrderedGet(struct _FG_BOX_ORDERED_ELEMENTS_* self, const AbsRect* area, const AbsRect* cache)
 {
   if(!self->ordered.l)
     return 0;
@@ -75,7 +75,7 @@ char fgBoxMsgCompare(const AbsVec& l, const fgElement* const& e)
   return fgBoxMsgCompare<FLAGS&(FGBOX_TILE | FGBOX_DISTRIBUTEY)>(l, r);
 }
 template<fgFlag FLAGS>
-inline fgElement* fgOrderedVec(struct _FG_BOX_ORDERED_ELEMENTS_* order, AbsVec v)
+fgElement* fgOrderedVec(struct _FG_BOX_ORDERED_ELEMENTS_* order, AbsVec v)
 {
   if(!order->ordered.l)
     return 0;
@@ -103,9 +103,8 @@ inline fgOrderedDrawGet fgBox_GetDrawOrderFn(fgFlag flags)
   return 0;
 }
 
-void fgBoxRenderDividers(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, fgElement* begin)
+void fgBoxRenderDividers(fgElement* self, fgColor color, const AbsRect* area, const AbsRect* drawarea, const fgDrawAuxData* aux, fgElement* begin)
 {
-  fgColor& dividercolor = reinterpret_cast<fgBox*>(self)->dividercolor;
   fgElement* next = begin;
   begin = fgLayout_GetPrev(begin);
   if(!begin)
@@ -125,14 +124,14 @@ void fgBoxRenderDividers(fgElement* self, const AbsRect* area, const fgDrawAuxDa
     if(self->flags&FGBOX_TILEX)
     {
       float avg = floor((rnext.left + rbegin.right) * 0.5f);
-      AbsVec v[2] = { { avg,floor(area->top + self->padding.top)}, { avg,floor(area->bottom - self->padding.bottom)} };
-      fgroot_instance->backend.fgDrawLines(v,2, dividercolor.color, &offset, &scale, self->transform.rotation, &center, aux);
+      AbsVec v[2] = { { avg,floor(drawarea->top + self->padding.top)}, { avg,floor(drawarea->bottom - self->padding.bottom)} };
+      fgroot_instance->backend.fgDrawLines(v,2, color.color, &offset, &scale, self->transform.rotation, &center, aux);
     }
     else
     {
       float avg = floor((rnext.top + rbegin.bottom) * 0.5f);
-      AbsVec v[2] = { { floor(area->left + self->padding.left),avg },{ floor(area->right - self->padding.right),avg } };
-      fgroot_instance->backend.fgDrawLines(v, 2, dividercolor.color, &offset, &scale, self->transform.rotation, &center, aux);
+      AbsVec v[2] = { { floor(drawarea->left + self->padding.left),avg },{ floor(drawarea->right - self->padding.right),avg } };
+      fgroot_instance->backend.fgDrawLines(v, 2, color.color, &offset, &scale, self->transform.rotation, &center, aux);
     }
 
     begin = next;

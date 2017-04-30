@@ -4,7 +4,7 @@
 #include "fgContext.h"
 #include "fgDirect2D.h"
 #include "fgRoot.h"
-#include "bss-util/bss_win32_includes.h"
+#include "win32_includes.h"
 #include <d2d1_1.h>
 #include <dwmapi.h>
 #include <assert.h>
@@ -106,16 +106,18 @@ longptr_t __stdcall fgContext::WndProc(HWND__* hWnd, unsigned int message, size_
     }
     break;
     case WM_MOUSEMOVE:
-      AdjustPoints(MAKELPPOINTS(lParam), src); // Call this up here so we don't do it twice
+    {
+      AbsVec pt = AdjustPoints(MAKELPPOINTS(lParam), src); // Call this up here so we don't do it twice
       if(!inside)
       {
         _trackingstruct.hwndTrack = hWnd;
         BOOL result = TrackMouseEvent(&_trackingstruct);
         inside = true;
-        SetMouse(MAKELPPOINTS(lParam), FG_MOUSEON, 0, wParam, GetMessageTime());
+        SetMouse(pt, FG_MOUSEON, 0, wParam, GetMessageTime());
       }
-      SetMouse(MAKELPPOINTS(lParam), FG_MOUSEMOVE, 0, wParam, GetMessageTime());
+      SetMouse(pt, FG_MOUSEMOVE, 0, wParam, GetMessageTime());
       break;
+    }
     case WM_LBUTTONDOWN:
       SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDOWN, FG_MOUSELBUTTON, wParam, GetMessageTime());
       break;
@@ -326,31 +328,32 @@ void fgContext::SetChar(int key, unsigned long time)
   root->inject(root, &evt);
 }
 
-tagPOINTS* fgContext::AdjustPoints(tagPOINTS* points, fgElement* src)
+AbsVec fgContext::AdjustPoints(tagPOINTS* points, fgElement* src)
 {
-  AdjustDPI(points, src);
+  AbsVec pt = AdjustDPI(points, src);
   AbsRect out;
   ResolveRect(src, &out);
-  points->x += out.left;
-  points->y += out.top;
-  return points;
+  pt.x += out.left;
+  pt.y += out.top;
+  return pt;
 }
-tagPOINTS* fgContext::AdjustDPI(tagPOINTS* points, fgElement* src)
+AbsVec fgContext::AdjustDPI(tagPOINTS* points, fgElement* src)
 {
+  AbsVec pt = { points->x, points->y };
   fgIntVec dpi = src->GetDPI();
   AbsVec scale = { (!dpi.x) ? 1.0f : (96.0f / (float)dpi.x), (!dpi.y) ? 1.0f : (96.0f / (float)dpi.y) };
-  points->x *= scale.x;
-  points->y *= scale.y;
-  return points;
+  pt.x *= scale.x;
+  pt.y *= scale.y;
+  return pt;
 }
 
-void fgContext::SetMouse(tagPOINTS* points, unsigned short type, unsigned char button, size_t wparam, unsigned long time)
+void fgContext::SetMouse(AbsVec& points, unsigned short type, unsigned char button, size_t wparam, unsigned long time)
 {
   fgRoot* root = fgSingleton();
   FG_Msg evt = { 0 };
   evt.type = type;
-  evt.x = points->x;
-  evt.y = points->y;
+  evt.x = points.x;
+  evt.y = points.y;
 
   if(type == FG_MOUSESCROLL)
   {

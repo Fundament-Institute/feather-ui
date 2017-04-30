@@ -73,6 +73,7 @@ typedef struct _FG_DEBUG {
   fgGrid properties; // element properties
   fgText contents; // message contents
   fgMenu context;
+  fgTextbox editbox;
   size_t(*behaviorhook)(struct _FG_ELEMENT* self, const FG_Msg* msg);
   fgDeclareVector(fgDebugMessage, DebugMessage) messagelog;
   fgDeclareVector(char*, strings) messagestrings;

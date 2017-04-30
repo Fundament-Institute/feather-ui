@@ -104,6 +104,7 @@
       <AdditionalLibraryDirectories>../bin32</AdditionalLibraryDirectories>
       <AdditionalDependencies>feathergui32_d.lib;%(AdditionalDependencies);Windowscodecs.lib;Dwrite.lib;D2d1.lib</AdditionalDependencies>
       <SubSystem>Windows</SubSystem>
+      <MinimumRequiredVersion>6.01</MinimumRequiredVersion>
     </Link>
     <Manifest>
       <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
@@ -128,6 +129,7 @@
       <AdditionalLibraryDirectories>../bin</AdditionalLibraryDirectories>
       <AdditionalDependencies>feathergui_d.lib;Windowscodecs.lib;Dwrite.lib;D2d1.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Windows</SubSystem>
+      <MinimumRequiredVersion>6.01</MinimumRequiredVersion>
     </Link>
     <Manifest>
       <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
@@ -162,6 +164,7 @@
       <AdditionalLibraryDirectories>../bin32</AdditionalLibraryDirectories>
       <AdditionalDependencies>feathergui32.lib;%(AdditionalDependencies);Windowscodecs.lib;Dwrite.lib;D2d1.lib</AdditionalDependencies>
       <SubSystem>Windows</SubSystem>
+      <MinimumRequiredVersion>6.01</MinimumRequiredVersion>
     </Link>
     <Manifest>
       <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
@@ -193,6 +196,7 @@
       <AdditionalLibraryDirectories>../bin</AdditionalLibraryDirectories>
       <AdditionalDependencies>feathergui.lib;%(AdditionalDependencies);Windowscodecs.lib;Dwrite.lib;D2d1.lib</AdditionalDependencies>
       <SubSystem>Windows</SubSystem>
+      <MinimumRequiredVersion>6.01</MinimumRequiredVersion>
     </Link>
     <Manifest>
       <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
@@ -218,6 +222,7 @@
     <ClInclude Include="fgTriangle.h" />
     <ClInclude Include="fgWindowD2D.h" />
     <ClInclude Include="util.h" />
+    <ClInclude Include="win32_includes.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="fgCircle.cpp" />

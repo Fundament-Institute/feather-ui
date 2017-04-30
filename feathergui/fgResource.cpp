@@ -66,6 +66,9 @@ size_t fgResource_Message(fgResource* self, const FG_Msg* msg)
   case FG_SETUV:
     if(msg->p)
       self->uv = *((CRect*)msg->p);
+    if(msg->subtype)
+      fgResolveCRectUnit(self->uv, self->element.GetDPI(), self->element.GetLineHeight(), msg->subtype);
+
     fgResource_Recalc(self);
     fgroot_instance->backend.fgDirtyElement(*self);
     return FG_ACCEPT;
@@ -87,7 +90,7 @@ size_t fgResource_Message(fgResource* self, const FG_Msg* msg)
     fgroot_instance->backend.fgDirtyElement(*self);
     break;
   case FG_SETOUTLINE:
-    self->outline = fgResolveUnit(&self->element, msg->f, msg->subtype, false, (msg->subtype & FGUNIT_SNAP) != 0);
+    self->outline = fgResolveUnit(msg->f, msg->subtype, self->element.GetDPI().x, self->element.GetLineHeight(), (msg->subtype & FGUNIT_SNAP) != 0);
     fgroot_instance->backend.fgDirtyElement(*self);
     break;
   case FG_GETUV:

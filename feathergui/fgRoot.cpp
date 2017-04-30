@@ -358,7 +358,7 @@ void fgOrderedDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* au
 
   while(!cull && cur != 0 && !(cur->flags & FGELEMENT_BACKGROUND)) // Render all ordered elements until they become culled
   {
-    if(cur != fgroot_instance->topmost && cur != selected)
+    if(cur != fgroot_instance->topmost && cur != selected && !(cur->flags&FGELEMENT_HIDDEN))
     {
       ResolveRectCache(cur, &curarea, area, &self->padding); // always apply padding because these are always foreground elements
       AbsRect clip = fgroot_instance->backend.fgPeekClipRect(aux);
@@ -368,7 +368,7 @@ void fgOrderedDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* au
     cur = cur->next;
   }
 
-  if(selected != 0)
+  if(selected != 0 && !(selected->flags&FGELEMENT_HIDDEN))
   {
     ResolveRectCache(selected, &curarea, area, &self->padding); // always apply padding because these are always foreground elements
     AbsRect clip = fgroot_instance->backend.fgPeekClipRect(aux);

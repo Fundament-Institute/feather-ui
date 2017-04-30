@@ -40,7 +40,7 @@ extern "C" {
   typedef struct _FG_GRID {
     fgList list;
     fgList header; // The header is where the labels are
-    fgTextbox editbox; // Used for autoediting grid controls.
+    //fgTextbox editbox; // Used for autoediting grid controls.
     fgColor columndividercolor;
     fgColor rowevencolor;
 #ifdef  __cplusplus

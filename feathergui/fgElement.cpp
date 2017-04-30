@@ -11,6 +11,8 @@
 #include <limits.h>
 
 KHASH_INIT(fgUserdata, const char*, size_t, 1, kh_str_hash_func, kh_str_hash_equal);
+const fgFlag FGELEMENT_REQUIREDPI = FGUNIT_SNAP | FGUNIT_PX | FGUNIT_LEFT_PX | FGUNIT_TOP_PX | FGUNIT_RIGHT_PX | FGUNIT_BOTTOM_PX | FGUNIT_X_PX | FGUNIT_Y_PX;
+const fgFlag FGELEMENT_REQUIRELINEHEIGHT = FGUNIT_EM | FGUNIT_LEFT_EM | FGUNIT_TOP_EM | FGUNIT_RIGHT_EM | FGUNIT_BOTTOM_EM | FGUNIT_X_EM | FGUNIT_Y_EM;
 
 template<typename U, typename V>
 BSS_FORCEINLINE char CompPairInOrder(const std::pair<U, V>& l, const std::pair<U, V>& r) { char ret = SGNCOMPARE(l.first, r.first); return !ret ? SGNCOMPARE(l.second, r.second) : ret; }
@@ -89,8 +91,8 @@ void fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRI
     self->transform = *transform;
     if(units != 0 && units != (uint16_t)~0)
     {
-      fgResolveCRectUnit(self, self->transform.area, units);
-      fgResolveCVecUnit(self, self->transform.center, units);
+      fgResolveCRectUnit(self->transform.area, parent ? parent->GetDPI() : fgIntVec_DEFAULTDPI, parent ? parent->GetLineHeight() : fgroot_instance->lineheight, units);
+      fgResolveCVecUnit(self->transform.center, parent ? parent->GetDPI() : fgIntVec_DEFAULTDPI, parent ? parent->GetLineHeight() : fgroot_instance->lineheight, units);
     }
   }
   _sendmsg<FG_CONSTRUCT>(self);
@@ -108,7 +110,6 @@ void fgElement_Destroy(fgElement* self)
   fgRemoveID(self);
   fgClearTopmost(self); // Ensure we are not the topmost
   fgroot_instance->backend.fgDirtyElement(self);
-  _sendmsg<FG_DESTROY>(self);
   if(fgroot_instance->fgFocusedWindow == self) // We first try to bump focus up to our parents
   {
     fgroot_instance->fgFocusedWindow = 0;
@@ -335,7 +336,7 @@ fgElement* fgElement_LoadLayout(fgElement* parent, fgElement* next, fgClassLayou
 {
   //fgTransform tf;
   //fgElement_SnapTransform(layout->layout.transform, tf, parent->GetDPI()));
-  fgElement* element = fgroot_instance->backend.fgCreate(layout->layout.type, parent, next, layout->name, layout->layout.flags, (layout->layout.units == -1) ? 0 : &layout->layout.transform, layout->layout.units);
+  fgElement* element = fgroot_instance->backend.fgCreate(layout->layout.type, parent, next, layout->name, layout->layout.flags, (layout->layout.units == -1) ? 0 : &layout->layout.transform, layout->layout.units | FGUNIT_SNAP);
   assert(element != 0);
   if(!element)
     return 0;
@@ -473,7 +474,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgroot_instance->backend.fgDirtyElement(self);
         memcpy(&self->transform.area, area, sizeof(CRect));
         if(msg->subtype != 0 && msg->subtype != (uint16_t)~0)
-          fgResolveCRectUnit(self, self->transform.area, msg->subtype);
+          fgResolveCRectUnit(self->transform.area, (msg->subtype&FGELEMENT_REQUIREDPI) ? self->GetDPI() : fgIntVec_DEFAULTDPI, (msg->subtype&FGELEMENT_REQUIRELINEHEIGHT) ? self->GetLineHeight() : 0.0f, msg->subtype);
         fgroot_instance->backend.fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
@@ -495,7 +496,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgroot_instance->backend.fgDirtyElement(self);
         self->transform.center = transform->center;
         if(msg->subtype != 0 && msg->subtype != (uint16_t)~0)
-          fgResolveCVecUnit(self, self->transform.center, msg->subtype);
+          fgResolveCVecUnit(self->transform.center, (msg->subtype&FGELEMENT_REQUIREDPI) ? self->GetDPI() : fgIntVec_DEFAULTDPI, (msg->subtype&FGELEMENT_REQUIRELINEHEIGHT) ? self->GetLineHeight() : 0.0f, msg->subtype);
         self->transform.rotation = transform->rotation;
         fgroot_instance->backend.fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
@@ -554,7 +555,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgroot_instance->backend.fgDirtyElement(self);
         memcpy(&self->margin, margin, sizeof(AbsRect));
         if(msg->subtype != 0 && msg->subtype != (uint16_t)~0)
-          fgResolveRectUnit(self, self->margin, msg->subtype);
+          fgResolveRectUnit(self->margin, (msg->subtype&FGELEMENT_REQUIREDPI) ? self->GetDPI() : fgIntVec_DEFAULTDPI, (msg->subtype&FGELEMENT_REQUIRELINEHEIGHT) ? self->GetLineHeight() : 0.0f, msg->subtype);
         fgroot_instance->backend.fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
@@ -576,7 +577,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgroot_instance->backend.fgDirtyElement(self);
         memcpy(&self->padding, padding, sizeof(AbsRect));
         if(msg->subtype != 0 && msg->subtype != (uint16_t)~0)
-          fgResolveRectUnit(self, self->padding, msg->subtype);
+          fgResolveRectUnit(self->padding, (msg->subtype&FGELEMENT_REQUIREDPI) ? self->GetDPI() : fgIntVec_DEFAULTDPI, (msg->subtype&FGELEMENT_REQUIRELINEHEIGHT) ? self->GetLineHeight() : 0.0f, msg->subtype);
         fgroot_instance->backend.fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
@@ -925,13 +926,13 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
         self->maxdim.x = msg->f;
         self->maxdim.y = msg->f2;
         if((msg->subtype&(FGUNIT_X_MASK | FGUNIT_Y_MASK)) != 0)
-          fgResolveVecUnit(self, self->maxdim, msg->subtype);
+          fgResolveVecUnit(self->maxdim, (msg->subtype&FGELEMENT_REQUIREDPI) ? self->GetDPI() : fgIntVec_DEFAULTDPI, (msg->subtype&FGELEMENT_REQUIRELINEHEIGHT) ? self->GetLineHeight() : 0.0f, msg->subtype);
         break;
       case FGDIM_MIN:
         self->mindim.x = msg->f;
         self->mindim.y = msg->f2;
         if((msg->subtype&(FGUNIT_X_MASK | FGUNIT_Y_MASK)) != 0)
-          fgResolveVecUnit(self, self->mindim, msg->subtype);
+          fgResolveVecUnit(self->mindim, (msg->subtype&FGELEMENT_REQUIREDPI) ? self->GetDPI() : fgIntVec_DEFAULTDPI, (msg->subtype&FGELEMENT_REQUIRELINEHEIGHT) ? self->GetLineHeight() : 0.0f, msg->subtype);
         break;
       }
       fgroot_instance->backend.fgDirtyElement(self);
@@ -997,6 +998,7 @@ void VirtualFreeChild(fgElement* self)
 {
   assert(self != 0);
   void(*free)(void*) = self->free; // Grab the free pointer *before* we call the destroy function.
+  _sendmsg<FG_DESTROY>(self); // Send out the "We're going to be destroyed" notification BEFORE calling the destructor, or the destructor will reset the message function
   (*self->destroy)(self);
   if(free)
     (*free)(self);
@@ -1260,6 +1262,16 @@ void fgElement_AddListener(fgElement* self, unsigned short type, fgListener list
   fgListenerHash.Insert(std::pair<fgElement*, unsigned short>(self, type), listener);
 }
 
+void fgElement_IterateUserHash(fgElement* self, void(*f)(void*, const char*, size_t), void* data)
+{
+  if(self->userhash)
+  {
+    for(khint_t i = 0; i < kh_end(self->userhash); ++i)
+      if(kh_exist(self->userhash, i))
+        f(data, kh_key(self->userhash, i), kh_val(self->userhash, i));
+  }
+}
+
 bss_util::AVL_Node<std::pair<fgElement*, unsigned short>>* fgElement_GetAnyListener(fgElement* key, bss_util::AVL_Node<std::pair<fgElement*, unsigned short>>* cur)
 {
   while(cur)
@@ -1312,6 +1324,37 @@ fgElement* fgElement_GetChildByName(fgElement* self, const char* name)
   return 0;
 }
 
+struct _FG_ELEMENT* fgElement_GetChildByType(fgElement* self, const char* type)
+{
+  for(fgElement* cur = self->root; cur != 0; cur = cur->next)
+  {
+    if(!STRICMP(type, cur->GetClassName()))
+      return cur;
+  }
+  return 0;
+}
+
+
+void fgElement_RelativeTo(const fgElement* self, const fgElement* relative, AbsRect* out)
+{
+  assert(relative != 0);
+  if(self != relative)
+  {
+    AbsRect parent;
+    fgElement_RelativeTo(self->parent, relative, &parent);
+    ResolveRectCache(self, out, &parent, (self->flags&FGELEMENT_BACKGROUND) ? 0 : &self->parent->padding);
+  }
+  else
+  {
+    ResolveRect(self, out);
+    out->right -= out->left;
+    out->left = 0;
+    out->bottom -= out->top;
+    out->top = 0;
+  }
+}
+
+
 void fgElement::Construct() { _sendmsg<FG_CONSTRUCT>(this); }
 
 void fgElement::Move(unsigned short subtype, fgElement* child, size_t diff) { _sendsubmsg<FG_MOVE, fgElement*, size_t>(this, subtype, child, diff); }
@@ -1320,17 +1363,17 @@ size_t fgElement::Clone(struct _FG_ELEMENT* target) { return _sendmsg<FG_CLONE, 
 
 size_t fgElement::SetAlpha(float alpha) { return _sendmsg<FG_SETALPHA, float>(this, alpha); }
 
-size_t fgElement::SetArea(const CRect& area) { return _sendmsg<FG_SETAREA, const void*>(this, &area); }
+size_t fgElement::SetArea(const CRect& area, unsigned short units) { return _sendsubmsg<FG_SETAREA, const void*>(this, units, &area); }
 
-size_t fgElement::SetTransform(const fgTransform& transform) { return _sendmsg<FG_SETTRANSFORM, const void*>(this, &transform); }
+size_t fgElement::SetTransform(const fgTransform& transform, unsigned short units) { return _sendsubmsg<FG_SETTRANSFORM, const void*>(this, units, &transform); }
 
 void fgElement::SetFlag(fgFlag flag, bool value) { _sendmsg<FG_SETFLAG, ptrdiff_t, size_t>(this, flag, value != 0); }
 
 void fgElement::SetFlags(fgFlag flags) { _sendmsg<FG_SETFLAGS, ptrdiff_t>(this, flags); }
 
-size_t fgElement::SetMargin(const AbsRect& margin) { return _sendmsg<FG_SETMARGIN, const void*>(this, &margin); }
+size_t fgElement::SetMargin(const AbsRect& margin, unsigned short units) { return _sendsubmsg<FG_SETMARGIN, const void*>(this, units, &margin); }
 
-size_t fgElement::SetPadding(const AbsRect& padding) { return _sendmsg<FG_SETPADDING, const void*>(this, &padding); }
+size_t fgElement::SetPadding(const AbsRect& padding, unsigned short units) { return _sendsubmsg<FG_SETPADDING, const void*>(this, units, &padding); }
 
 void fgElement::SetParent(fgElement* parent, fgElement* next) { _sendmsg<FG_SETPARENT, fgElement*, fgElement*>(this, parent, next); }
 
@@ -1341,6 +1384,8 @@ fgElement* fgElement::AddItemText(const char* item, FGTEXTFMT fmt) { return (fgE
 fgElement* fgElement::AddItemElement(fgElement* item, size_t index) { return (fgElement*)_sendsubmsg<FG_ADDITEM, const fgElement*, size_t>(this, FGITEM_ELEMENT, item, index); }
 
 size_t fgElement::RemoveChild(fgElement* child) { return _sendmsg<FG_REMOVECHILD, void*>(this, child); }
+
+size_t fgElement::ReorderChild(struct _FG_ELEMENT* child, struct _FG_ELEMENT* next) { return _sendmsg<FG_REORDERCHILD, fgElement*, fgElement*>(this, child, next); }
 
 size_t fgElement::RemoveItem(size_t item) { return _sendmsg<FG_REMOVEITEM, ptrdiff_t>(this, item); }
 
@@ -1385,13 +1430,13 @@ size_t fgElement::SetStyle(FG_UINT index, FG_UINT mask) { return _sendsubmsg<FG_
 
 struct _FG_STYLE* fgElement::GetStyle() { return reinterpret_cast<struct _FG_STYLE*>(_sendmsg<FG_GETSTYLE>(this)); }
 
-fgIntVec& fgElement::GetDPI() { return *reinterpret_cast<fgIntVec*>(_sendmsg<FG_GETDPI>(this)); }
+fgIntVec& fgElement::GetDPI() const { return *reinterpret_cast<fgIntVec*>(_sendmsg<FG_GETDPI>(const_cast<fgElement*>(this))); }
 
 void fgElement::SetDPI(int x, int y) { _sendmsg<FG_SETDPI, ptrdiff_t, ptrdiff_t>(this, x, y); }
 
 const char* fgElement::GetClassName() { return reinterpret_cast<const char*>(_sendmsg<FG_GETCLASSNAME>(this)); }
 
-void* fgElement::GetUserdata(const char* name) { size_t r = _sendmsg<FG_GETUSERDATA, const void*>(this, name); return *reinterpret_cast<void**>(&r); }
+void* fgElement::GetUserdata(const char* name) const { size_t r = _sendmsg<FG_GETUSERDATA, const void*>(const_cast<fgElement*>(this), name); return *reinterpret_cast<void**>(&r); }
 
 void fgElement::SetUserdata(void* data, const char* name) { _sendmsg<FG_SETUSERDATA, void*, const void*>(this, data, name); }
 
@@ -1530,7 +1575,7 @@ const char* fgElement::GetName() { return reinterpret_cast<const char*>(_sendmsg
 
 void fgElement::SetContextMenu(fgElement* menu) { _sendmsg<FG_SETCONTEXTMENU, fgElement*>(this, menu); }
 
-fgElement* fgElement::GetContextMenu() { return reinterpret_cast<fgElement*>(_sendmsg<FG_GETCONTEXTMENU>(this)); }
+fgElement* fgElement::GetContextMenu() const { return reinterpret_cast<fgElement*>(_sendmsg<FG_GETCONTEXTMENU>(const_cast<fgElement*>(this))); }
 
 void fgElement::Neutral() { _sendmsg<FG_NEUTRAL>(this); }
 
@@ -1540,19 +1585,19 @@ void fgElement::Active() { _sendmsg<FG_ACTIVE>(this); }
 
 void fgElement::Action() { _sendmsg<FG_ACTION>(this); }
 
-void fgElement::SetDim(float x, float y, FGDIM type) { _sendsubmsg<FG_SETDIM, float, float>(this, type, x, y); }
+void fgElement::SetDim(float x, float y, FGDIM type, unsigned short units) { _sendsubmsg<FG_SETDIM, float, float>(this, type|units, x, y); }
 
-const AbsVec* fgElement::GetDim(FGDIM type) { size_t r = _sendsubmsg<FG_GETDIM>(this, type); return *reinterpret_cast<AbsVec**>(&r); }
+const AbsVec* fgElement::GetDim(FGDIM type) const { size_t r = _sendsubmsg<FG_GETDIM>(const_cast<fgElement*>(this), type); return *reinterpret_cast<AbsVec**>(&r); }
 
-size_t fgElement::GetValue(ptrdiff_t aux) { return _sendsubmsg<FG_GETVALUE, ptrdiff_t>(this, FGVALUE_INT64, aux); }
+size_t fgElement::GetValue(ptrdiff_t aux) const { return _sendsubmsg<FG_GETVALUE, ptrdiff_t>(const_cast<fgElement*>(this), FGVALUE_INT64, aux); }
 
-float fgElement::GetValueF(ptrdiff_t aux) { size_t r = _sendsubmsg<FG_GETVALUE, ptrdiff_t>(this, FGVALUE_FLOAT, aux); return *reinterpret_cast<float*>(&r); }
+float fgElement::GetValueF(ptrdiff_t aux) const { size_t r = _sendsubmsg<FG_GETVALUE, ptrdiff_t>(const_cast<fgElement*>(this), FGVALUE_FLOAT, aux); return *reinterpret_cast<float*>(&r); }
 
-void* fgElement::GetValueP(ptrdiff_t aux) { size_t r = _sendsubmsg<FG_GETVALUE, ptrdiff_t>(this, FGVALUE_POINTER, aux); return *reinterpret_cast<void**>(&r); }
+void* fgElement::GetValueP(ptrdiff_t aux) const { size_t r = _sendsubmsg<FG_GETVALUE, ptrdiff_t>(const_cast<fgElement*>(this), FGVALUE_POINTER, aux); return *reinterpret_cast<void**>(&r); }
 
-size_t fgElement::GetRange() { return _sendsubmsg<FG_GETRANGE>(this, FGVALUE_INT64); }
+size_t fgElement::GetRange() const { return _sendsubmsg<FG_GETRANGE>(const_cast<fgElement*>(this), FGVALUE_INT64); }
 
-float fgElement::GetRangeF() { size_t r = _sendsubmsg<FG_GETRANGE>(this, FGVALUE_FLOAT); return *reinterpret_cast<float*>(&r); }
+float fgElement::GetRangeF() const { size_t r = _sendsubmsg<FG_GETRANGE>(const_cast<fgElement*>(this), FGVALUE_FLOAT); return *reinterpret_cast<float*>(&r); }
 
 size_t fgElement::SetValue(ptrdiff_t state) { return _sendsubmsg<FG_SETVALUE, ptrdiff_t>(this, FGVALUE_INT64, state); }
 
@@ -1564,27 +1609,27 @@ size_t fgElement::SetRange(ptrdiff_t range) { return _sendsubmsg<FG_SETRANGE, pt
 
 size_t fgElement::SetRangeF(float range) { return _sendsubmsg<FG_SETRANGE, float>(this, FGVALUE_FLOAT, range); }
 
-struct _FG_ELEMENT* fgElement::GetItem(size_t index) { return reinterpret_cast<fgElement*>(_sendmsg<FG_GETITEM, size_t>(this, index)); }
+struct _FG_ELEMENT* fgElement::GetItem(size_t index) const { return reinterpret_cast<fgElement*>(_sendmsg<FG_GETITEM, size_t>(const_cast<fgElement*>(this), index)); }
 
-struct _FG_ELEMENT* fgElement::GetItemAt(float x, float y)
+struct _FG_ELEMENT* fgElement::GetItemAt(float x, float y) const
 {
   FG_Msg m = { 0 };
   m.type = FG_GETITEM;
   m.subtype = FGITEM_LOCATION;
   m.x = x;
   m.y = y;
-  return reinterpret_cast<fgElement*>((*fgroot_instance->backend.fgBehaviorHook)(this, &m));
+  return reinterpret_cast<fgElement*>((*fgroot_instance->backend.fgBehaviorHook)(const_cast<fgElement*>(this), &m));
 }
 
-size_t fgElement::GetNumItems() { return _sendsubmsg<FG_GETITEM>(this, FGITEM_COUNT); }
+size_t fgElement::GetNumItems() const { return _sendsubmsg<FG_GETITEM>(const_cast<fgElement*>(this), FGITEM_COUNT); }
 
 void fgElement::Selection(struct _FG_ELEMENT* item) { _sendmsg<FG_SELECTION, fgElement*>(this, item); }
 
-fgElement* fgElement::GetSelectedItem(size_t index) { return reinterpret_cast<fgElement*>(_sendmsg<FG_GETSELECTEDITEM, size_t>(this, index)); }
+fgElement* fgElement::GetSelectedItem(size_t index) const { return reinterpret_cast<fgElement*>(_sendmsg<FG_GETSELECTEDITEM, size_t>(const_cast<fgElement*>(this), index)); }
 
 size_t fgElement::SetAsset(fgAsset asset) { return _sendmsg<FG_SETASSET, void*>(this, asset); }
 
-size_t fgElement::SetUV(const CRect& uv) { return _sendmsg<FG_SETUV, const void*>(this, &uv); }
+size_t fgElement::SetUV(const CRect& uv, unsigned short units) { return _sendsubmsg<FG_SETUV, const void*>(this, units, &uv); }
 
 size_t fgElement::SetColor(unsigned int color, FGSETCOLOR index) { return _sendsubmsg<FG_SETCOLOR, size_t>(this, index, color); }
 
@@ -1603,20 +1648,21 @@ size_t fgElement::SetPlaceholder(const char* text) { return _sendsubmsg<FG_SETTE
 size_t fgElement::SetPlaceholderW(const wchar_t* text) { return _sendsubmsg<FG_SETTEXT, const void*>(this, FGTEXTFMT_PLACEHOLDER_UTF16, text); }
 size_t fgElement::SetPlaceholderU(const int* text) { return _sendsubmsg<FG_SETTEXT, const void*>(this, FGTEXTFMT_PLACEHOLDER_UTF32, text); }
 size_t fgElement::SetMask(int mask) { return _sendsubmsg<FG_SETTEXT, ptrdiff_t>(this, FGTEXTFMT_MASK, mask); }
+size_t fgElement::SetScaling(float x, float y) { return _sendmsg<FG_SETSCALING, float, float>(this, x, y); }
 
-fgAsset fgElement::GetAsset() { return reinterpret_cast<fgAsset>(_sendmsg<FG_GETASSET>(this)); }
+fgAsset fgElement::GetAsset() const { return reinterpret_cast<fgAsset>(_sendmsg<FG_GETASSET>(const_cast<fgElement*>(this))); }
 
-const CRect* fgElement::GetUV() { return reinterpret_cast<const CRect*>(_sendmsg<FG_GETUV>(this)); }
+const CRect* fgElement::GetUV() const { return reinterpret_cast<const CRect*>(_sendmsg<FG_GETUV>(const_cast<fgElement*>(this))); }
 
-unsigned int fgElement::GetColor(FGSETCOLOR index) { return (unsigned int)_sendsubmsg<FG_GETCOLOR>(this, index); }
+unsigned int fgElement::GetColor(FGSETCOLOR index) const { return (unsigned int)_sendsubmsg<FG_GETCOLOR>(const_cast<fgElement*>(this), index); }
 
-float fgElement::GetOutline() { return *reinterpret_cast<float*>(_sendmsg<FG_GETOUTLINE>(this)); }
+float fgElement::GetOutline() const { return *reinterpret_cast<float*>(_sendmsg<FG_GETOUTLINE>(const_cast<fgElement*>(this))); }
 
-void* fgElement::GetFont() { return reinterpret_cast<void*>(_sendmsg<FG_GETFONT>(this)); }
+void* fgElement::GetFont() const { return reinterpret_cast<void*>(_sendmsg<FG_GETFONT>(const_cast<fgElement*>(this))); }
 
-float fgElement::GetLineHeight() { size_t r = _sendmsg<FG_GETLINEHEIGHT>(this); return *reinterpret_cast<float*>(&r); }
+float fgElement::GetLineHeight() const { size_t r = _sendmsg<FG_GETLINEHEIGHT>(const_cast<fgElement*>(this)); return *reinterpret_cast<float*>(&r); }
 
-float fgElement::GetLetterSpacing() { size_t r = _sendmsg<FG_GETLETTERSPACING>(this); return *reinterpret_cast<float*>(&r); }
+float fgElement::GetLetterSpacing() const { size_t r = _sendmsg<FG_GETLETTERSPACING>(const_cast<fgElement*>(this)); return *reinterpret_cast<float*>(&r); }
 
 const char* fgElement::GetText(FGTEXTFMT mode) { return reinterpret_cast<const char*>(_sendsubmsg<FG_GETTEXT>(this, mode)); }
 const wchar_t* fgElement::GetTextW() { return reinterpret_cast<const wchar_t*>(_sendsubmsg<FG_GETTEXT>(this, FGTEXTFMT_UTF16)); }
@@ -1624,7 +1670,7 @@ const int* fgElement::GetTextU() { return reinterpret_cast<const int*>(_sendsubm
 const char* fgElement::GetPlaceholder() { return reinterpret_cast<const char*>(_sendsubmsg<FG_GETTEXT>(this, FGTEXTFMT_PLACEHOLDER_UTF8)); }
 const wchar_t* fgElement::GetPlaceholderW() { return reinterpret_cast<const wchar_t*>(_sendsubmsg<FG_GETTEXT>(this, FGTEXTFMT_PLACEHOLDER_UTF16)); }
 const int* fgElement::GetPlaceholderU() { return reinterpret_cast<const int*>(_sendsubmsg<FG_GETTEXT>(this, FGTEXTFMT_PLACEHOLDER_UTF32)); }
-int fgElement::GetMask() { return _sendsubmsg<FG_GETTEXT>(this, FGTEXTFMT_MASK); }
-
+int fgElement::GetMask() const { return _sendsubmsg<FG_GETTEXT>(const_cast<fgElement*>(this), FGTEXTFMT_MASK); }
+const AbsVec& fgElement::GetScaling() const { return *reinterpret_cast<const AbsVec*>(_sendmsg<FG_GETSCALING>(const_cast<fgElement*>(this))); }
 void fgElement::AddListener(unsigned short type, fgListener listener) { fgElement_AddListener(this, type, listener); }
-fgElement* fgElement::GetChildByName(const char* name) { return fgElement_GetChildByName(this, name); }
+fgElement* fgElement::GetChildByName(const char* name) const { return fgElement_GetChildByName(const_cast<fgElement*>(this), name); }

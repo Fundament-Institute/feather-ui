@@ -44,7 +44,7 @@ size_t fgDefaultLayout(fgElement* self, const FG_Msg* msg, AbsVec* dim)
 
     while(hold) // O(n) by necessity
     {
-      if(hold != msg->e)
+      if(hold != msg->e && !(hold->flags & FGELEMENT_BACKGROUND))
       {
         dim->x = fgLayout_ExpandX(dim->x, hold);
         dim->y = fgLayout_ExpandY(dim->y, hold);

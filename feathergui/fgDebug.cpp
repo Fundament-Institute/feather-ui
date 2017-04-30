@@ -8,9 +8,9 @@
 
 fgDebug* fgdebug_instance = nullptr;
 
-const char* fgDebug_GetMessageString(unsigned short msg);
+const char* fgDebug_GetMessageString(uint16_t msg);
 
-void fgDebug_Init(fgDebug* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgDebug_Init(fgDebug* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, uint16_t units)
 {
   fgElement_InternalSetup(self->tabs, parent, next, name, flags, transform, units, (fgDestroy)&fgDebug_Destroy, (fgMessage)&fgDebug_Message);
 }
@@ -55,27 +55,6 @@ void fgDebug_Destroy(fgDebug* self)
   VirtualFreeChild(&self->overlay);
   fgdebug_instance = 0; // we can't null this until after we're finished destroying ourselves 
 }
-
-static const char* PROPERTY_LIST[] = {
-  "Class",
-  "Name",
-  "Area",
-  "Center",
-  "Rotation",
-  "Margin",
-  "Padding",
-  "Min Size",
-  "Max Size",
-  "Layout Size",
-  "Scaling",
-  "Parent",
-  "Flags",
-  "Skin",
-  "Style",
-  "User ID",
-  "Userdata",
-  "User Hash",
-};
 
 void fgDebug_DrawMessages(fgDebug* self, AbsRect* rect, fgDrawAuxData* aux)
 {
@@ -169,6 +148,235 @@ size_t fgDebug_OverlayMessage(fgElement* self, const FG_Msg* msg)
 
   return fgElement_Message(self, msg);
 }
+
+static const char* PROPERTY_LIST[] = {
+  "Class",
+  "Name",
+  "Area",
+  "Center",
+  "Rotation",
+  "Margin",
+  "Padding",
+  "Min Size",
+  "Max Size",
+  "Layout Size",
+  "Scaling",
+  "Parent",
+  "Flags",
+  "Skin",
+  "Style",
+  "User ID",
+  "Userdata",
+};
+
+size_t fgDebug_PropertyMessage(fgText* self, const FG_Msg* msg)
+{
+  switch(msg->type)
+  {
+  case FG_MOUSEUP:
+    if(self->element.parent && self->element.parent->parent && self->element.parent->parent->parent)
+    {
+      AbsRect rect;
+      fgElement_RelativeTo(&self->element, self->element.parent->parent->parent, &rect);
+      CRect area = { rect.left, 0, rect.top, 0, rect.right, 0, rect.bottom, 0 };
+      fgElement* textbox = fgdebug_instance->editbox;
+      if(textbox->userdata)
+        ((fgElement*)textbox->userdata)->SetFlag(FGELEMENT_HIDDEN, false);
+      textbox->SetArea(area);
+      textbox->SetText(self->element.GetText());
+      textbox->SetFlag(FGELEMENT_HIDDEN, false);
+      textbox->userdata = self;
+      textbox->userid = self->element.userid;
+      self->element.SetFlag(FGELEMENT_HIDDEN, true);
+    }
+    break;
+  }
+
+  return fgText_Message(self, msg);
+}
+void fgDebug_ApplyProperty(fgElement* target, int id, const char* prop)
+{
+  switch(id)
+  {
+  case 0:
+    return;
+  case 1:
+    target->SetName(prop);
+    break;
+  case 2:
+  {
+    CRect area;
+    uint16_t units = fgStyle_ParseCRect(prop, &area);
+    target->SetArea(area, units);
+  }
+  break;
+  case 3: // center
+  {
+    fgTransform t = target->transform;
+    uint16_t units = fgStyle_ParseCVec(prop, &t.center);
+    target->SetTransform(t, units);
+  }
+  break;
+  case 4: // rotation
+  {
+    char* p;
+    fgTransform t = target->transform;
+    t.rotation = strtof(prop, &p);
+    target->SetTransform(t, 0);
+  }
+    break;
+  case 5:
+  {
+    AbsRect margin;
+    uint16_t units = fgStyle_ParseAbsRect(prop, &margin);
+    target->SetMargin(margin, units);
+  }
+    break;
+  case 6:
+  {
+    AbsRect padding;
+    uint16_t units = fgStyle_ParseAbsRect(prop, &padding);
+    target->SetPadding(padding, units);
+  }
+    break;
+  case 7:
+  {
+    AbsVec dim;
+    uint16_t units = fgStyle_ParseAbsVec(prop, &dim);
+    target->SetDim(dim.x, dim.y, FGDIM_MIN, units);
+  }
+    break;
+  case 8:
+  {
+    AbsVec dim;
+    uint16_t units = fgStyle_ParseAbsVec(prop, &dim);
+    target->SetDim(dim.x, dim.y, FGDIM_MAX, units);
+  }
+  break;
+  case 9:
+    fgStyle_ParseAbsVec(prop, &target->layoutdim);
+    break;
+  case 10:
+  {
+    AbsVec scale;
+    fgStyle_ParseAbsVec(prop, &scale);
+    target->SetScaling(scale.x, scale.y);
+  }
+  break;
+  case 11: // setparent
+    break;
+  case 12:
+  {
+    fgFlag rmflags;
+    fgFlag add = fgSkinBase_ParseFlagsFromString(prop, &rmflags, '\n');
+    fgFlag def = fgGetTypeFlags(target->GetClassName());
+    target->SetFlags((def | add)&(~rmflags));
+  }
+    break;
+  case 13: // skin
+    break;
+  case 14:
+    target->SetStyle(atoi(prop), ~0);
+    break;
+  case 15:
+    target->userid = atoi(prop);
+    break;
+  }
+}
+
+void fgDebug_DisplayProperties(fgElement* e)
+{
+  fgGrid& g = fgdebug_instance->properties;
+  g.GetRow(0)->GetItem(1)->SetText(e->GetClassName());
+  g.GetRow(1)->GetItem(1)->SetText(e->GetName());
+  g.GetRow(2)->GetItem(1)->SetText(fgStyle_WriteCRect(e->transform.area, 0).c_str());
+  g.GetRow(3)->GetItem(1)->SetText(fgStyle_WriteCVec(e->transform.center, 0).c_str());
+  g.GetRow(4)->GetItem(1)->SetText(cStrF("%.2g", e->transform.rotation).c_str());
+  g.GetRow(5)->GetItem(1)->SetText(fgStyle_WriteAbsRect(e->margin, 0).c_str());
+  g.GetRow(6)->GetItem(1)->SetText(fgStyle_WriteAbsRect(e->padding, 0).c_str());
+  g.GetRow(7)->GetItem(1)->SetText(cStrF("%.2g %.2g", e->mindim.x, e->mindim.y).c_str());
+  g.GetRow(8)->GetItem(1)->SetText(cStrF("%.2g %.2g", e->maxdim.x, e->maxdim.y).c_str());
+  g.GetRow(9)->GetItem(1)->SetText(cStrF("%.2g %.2g", e->layoutdim.x, e->layoutdim.y).c_str());
+  g.GetRow(10)->GetItem(1)->SetText(cStrF("%.2g %.2g", e->scaling.x, e->scaling.y).c_str());
+  if(e->parent && e->parent->GetName())
+    g.GetRow(11)->GetItem(1)->SetText(cStrF("%s (%p)", e->parent->GetName(), e->parent).c_str());
+  else if(e->parent)
+    g.GetRow(11)->GetItem(1)->SetText(cStrF("%p", e->parent).c_str());
+  else
+    g.GetRow(11)->GetItem(1)->SetText("");
+
+  fgFlag def = fgGetTypeFlags(e->GetClassName());
+  fgFlag rm = def & (~e->flags);
+  fgFlag add = (~def) & e->flags;
+
+  cStr flags;
+  fgStyle_WriteFlagsIterate(flags, e->GetClassName(), "\n", add, false);
+  fgStyle_WriteFlagsIterate(flags, e->GetClassName(), "\n", rm, true);
+  g.GetRow(12)->GetItem(1)->SetText(flags.c_str()[0] ? (flags.c_str() + 1) : "");
+  g.GetRow(13)->GetItem(1)->SetText(!e->skin ? "[none]" : e->skin->name);
+  g.GetRow(14)->GetItem(1)->SetText(cStrF("%X", e->style).c_str());
+  g.GetRow(15)->GetItem(1)->SetText(cStrF("%u", e->userid).c_str());
+  g.GetRow(16)->GetItem(1)->SetText(cStrF("%p", e->userdata).c_str());
+}
+
+size_t fgDebug_EditBoxMessage(fgTextbox* self, const FG_Msg* msg)
+{
+  fgFlag otherint = (fgFlag)msg->u;
+  switch(msg->type)
+  {
+  case FG_SETFLAG: // If 0 is sent in, disable the flag, otherwise enable. Our internal flag is 1 if clipping disabled, 0 otherwise.
+    otherint = bss_util::bssSetBit<fgFlag>(self->scroll->flags, otherint, msg->u2 != 0);
+  case FG_SETFLAGS:
+    if((self->scroll->flags ^ otherint) & FGELEMENT_HIDDEN)
+    {
+      if(self->scroll->userdata && (otherint & FGELEMENT_HIDDEN))
+      {
+        ((fgElement*)self->scroll->userdata)->SetFlag(FGELEMENT_HIDDEN, false);
+        self->scroll->userdata = 0;
+      }
+    }
+    break;
+  case FG_ACTION:
+    if(!msg->subtype)
+    {
+      fgElement* e = (fgElement*)((fgElement*)fgdebug_instance->elements->userdata)->userdata;
+      fgDebug_ApplyProperty(e, self->scroll->userid, self->scroll->GetText());
+      self->scroll->SetFlag(FGELEMENT_HIDDEN, true);
+      fgDebug_DisplayProperties(e);
+    }
+    break;
+  }
+
+  return fgTextbox_Message(self, msg);
+}
+
+void fgDebug_ContextMenu(struct _FG_ELEMENT* e, const FG_Msg* m)
+{
+  if(m->e)
+  {
+    switch(m->e->userid)
+    {
+    case 0: // delete
+      if(fgdebug_instance->elements->userdata)
+      {
+        fgElement* e = (fgElement*)((fgElement*)fgdebug_instance->elements->userdata)->userdata;
+        if(e)
+          VirtualFreeChild(e);
+      }
+      break;
+    }
+  }
+}
+
+void fgDebug_ContextMenuInsert(struct _FG_ELEMENT* e, const FG_Msg* m)
+{
+  if(m->e && m->e->userdata && fgdebug_instance->elements->userdata)
+  {
+    fgElement* target = (fgElement*)reinterpret_cast<fgElement*>(fgdebug_instance->elements->userdata)->userdata;
+    if(target)
+      fgCreate((const char*)m->e->userdata, target->parent, target, 0, 0, &fgTransform_EMPTY, 0);
+  }
+}
 size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
 {
   assert(fgroot_instance != 0);
@@ -197,20 +405,35 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
     fgText_Init(&self->contents, self->tabmessages, 0, "Debug$contents", FGELEMENT_HIDDEN | FGFLAGS_INTERNAL, &fgTransform_EMPTY, 0);
     fgElement_Init(&self->overlay, fgroot_instance->gui, 0, "Debug$overlay", FGELEMENT_HIDDEN | FGELEMENT_IGNORE | FGELEMENT_BACKGROUND | FGELEMENT_NOCLIP | FGFLAGS_INTERNAL, &tf_overlay, 0);
     self->overlay.message = (fgMessage)fgDebug_OverlayMessage;
-    self->properties.InsertColumn("Name");
-    self->properties.InsertColumn("Value");
+    fgTextbox_Init(&self->editbox, self->tablayout, 0, "Debug$editbox", FGELEMENT_HIDDEN | FGTEXTBOX_SINGLELINE | FGTEXTBOX_ACTION, &fgTransform_EMPTY, 0);
+    self->editbox->message = (fgMessage)fgDebug_EditBoxMessage;
+    
+    fgElement* column0 = self->properties.InsertColumn("Name");
+    fgElement* column1 = self->properties.InsertColumn("Value");
+    column0->SetFlag(FGELEMENT_EXPANDX, false);
+    column1->SetFlag(FGELEMENT_EXPANDX, false);
+    column0->transform.area.right.abs = column0->transform.area.left.abs + 100;
+    column1->transform.area.right.abs = column1->transform.area.left.abs + 300;
+    column0->SetArea(column0->transform.area);
+    column1->SetArea(column1->transform.area);
     self->properties.header->SetValueF(2.0f);
     const fgTransform tf_prop = { { 0,0,0,0,0,1,0,0 }, 0,{ 0,0,0,0 } };
     for(size_t i = 0; i < sizeof(PROPERTY_LIST) / sizeof(const char*); ++i)
     {
       fgGridRow* r = self->properties.InsertRow();
       fgCreate("text", *r, 0, 0, FGELEMENT_EXPANDY, &fgTransform_EMPTY, 0)->SetText(PROPERTY_LIST[i]);
-      fgCreate("text", *r, 0, 0, FGELEMENT_EXPANDY, &fgTransform_EMPTY, 0);
+      fgElement* prop = fgCreate("text", *r, 0, 0, FGELEMENT_EXPANDY, &fgTransform_EMPTY, 0);
+      prop->message = (fgMessage)fgDebug_PropertyMessage;
+      prop->userid = i;
     }
     fgSubmenu_Init(&self->context, *self, 0, "Debug$context", fgGetTypeFlags("Submenu") | FGFLAGS_INTERNAL, &fgTransform_EMPTY, 0);
     self->context->AddItemText("Delete");
-    self->context->AddItemText("Move");
-    fgIterateControls(fgCreate("Submenu", self->context->AddItemText("Insert"), 0, 0, FGFLAGS_DEFAULTS, 0, 0), [](void* p, const char* s) { fgElement* e = (fgElement*)p; e->AddItemText(s); });
+    //self->context->AddItemText("Move");
+    fgElement* insertmenu = fgCreate("Submenu", self->context->AddItemText("Insert"), 0, 0, FGFLAGS_DEFAULTS, 0, 0);
+    fgIterateControls(insertmenu, [](void* p, const char* s) { fgElement* e = (fgElement*)p; e->AddItemText(s)->userdata = (void*)s; });
+    self->context->AddListener(FG_ACTION, fgDebug_ContextMenu);
+    insertmenu->AddListener(FG_ACTION, fgDebug_ContextMenuInsert);
+
     self->elements->SetContextMenu(self->context);
     self->behaviorhook = &fgBehaviorHookDefault;
   }
@@ -335,6 +558,10 @@ size_t fgTreeItem_DebugMessage(fgTreeItem* self, const FG_Msg* msg)
 
   switch(msg->type)
   {
+  case FG_DESTROY:
+    if(fgdebug_instance->elements->userdata == self)
+      fgdebug_instance->elements->userdata = 0;
+    break;
   case FG_MOUSEON:
     fgDebug_SetHover(fgdebug_instance, (fgElement*)self->control.element.userdata);
     return FG_ACCEPT;
@@ -344,17 +571,9 @@ size_t fgTreeItem_DebugMessage(fgTreeItem* self, const FG_Msg* msg)
   case FG_GOTFOCUS:
     if(self->control.element.userdata)
     {
-      fgElement* e = (fgElement*)self->control.element.userdata;
-      fgGrid& g = fgdebug_instance->properties;
-      g.GetRow(0)->GetItem(1)->SetText(e->GetClassName());
-      g.GetRow(1)->GetItem(1)->SetText(e->GetName());
-      g.GetRow(2)->GetItem(1)->SetText("2");
-      g.GetRow(3)->GetItem(1)->SetText("3");
-      g.GetRow(4)->GetItem(1)->SetText("4");
-      g.GetRow(5)->GetItem(1)->SetText("5");
-      g.GetRow(6)->GetItem(1)->SetText("6");
-      g.GetRow(7)->GetItem(1)->SetText("7");
-      g.GetRow(8)->GetItem(1)->SetText("8");
+      fgdebug_instance->editbox->SetFlag(FGELEMENT_HIDDEN, true);
+      fgDebug_DisplayProperties((fgElement*)self->control.element.userdata);
+      fgdebug_instance->elements->userdata = self;
     }
   }
 
@@ -482,6 +701,14 @@ size_t fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
       return FG_ACCEPT;
     }
     break;
+  case FG_REMOVECHILD:
+    if(msg->e && msg->e->parent == self)
+    {
+      fgElement* treeitem = fgDebug_GetTreeItem(fgdebug_instance->elements, msg->e);
+      if(treeitem)
+        VirtualFreeChild(treeitem);
+    }
+    break;
   }
 
   if(msgbuffer)
@@ -530,26 +757,53 @@ size_t fgRoot_BehaviorDebug(fgElement* self, const FG_Msg* msg)
   if(index < fgdebug_instance->messagelog.l)
     fgdebug_instance->messagelog.p[index].value = r;
 
-  if(msg->type == FG_REMOVECHILD && msg->e != 0 && !msg->e->parent)
+  switch(msg->type)
   {
-    fgElement* treeitem = fgDebug_GetTreeItem(fgdebug_instance->elements, msg->e);
-    if(treeitem)
-      VirtualFreeChild(treeitem);
-  }
-  if(msg->type == FG_ADDCHILD && msg->e != 0 && msg->e->parent == self)
+  case FG_ADDCHILD:
+    if(msg->e)
+    {
+      fgElement* treeitem = fgDebug_GetTreeItem(fgdebug_instance->elements, self);
+      if(treeitem)
+        fgDebug_TreeInsert(treeitem, msg->e, treeitem, fgdebug_instance->context);
+      else
+        break;
+    }
+  case FG_REORDERCHILD:
+    if(msg->e && msg->e->parent == self)
+    {
+      fgElement* treeitem = fgDebug_GetTreeItem(fgdebug_instance->elements, msg->e);
+      fgElement* nextitem = !msg->e->next ? 0 : fgDebug_GetTreeItem(fgdebug_instance->elements, msg->e->next);
+      fgElement* selfitem = fgDebug_GetTreeItem(fgdebug_instance->elements, self);
+      if(selfitem && treeitem)
+        selfitem->ReorderChild(treeitem, nextitem);
+    }
+    break;
+  case FG_SETNAME:
   {
     fgElement* treeitem = fgDebug_GetTreeItem(fgdebug_instance->elements, self);
     if(treeitem)
-      fgDebug_TreeInsert(fgdebug_instance->elements, msg->e, 0, fgdebug_instance->context);
+    {
+      fgElement* text = fgElement_GetChildByType(treeitem, "text");
+      if(text)
+        text->SetText(!self->GetName() ? self->GetClassName() : self->GetName());
+    }
   }
-  if(msg->type == FG_REORDERCHILD && msg->e != 0 && msg->e->parent == self)
-  {
-    fgElement* treeitem = fgDebug_GetTreeItem(fgdebug_instance->elements, msg->e);
-    if(treeitem)
-      VirtualFreeChild(treeitem);
-    treeitem = fgDebug_GetTreeItem(fgdebug_instance->elements, self);
-    if(treeitem)
-      fgDebug_TreeInsert(fgdebug_instance->elements, msg->e, 0, fgdebug_instance->context);
+  case FG_SETAREA:
+  case FG_SETTRANSFORM:
+  case FG_SETMARGIN:
+  case FG_SETPADDING:
+  case FG_SETDIM:
+  case FG_SETSCALING:
+  case FG_SETPARENT:
+  case FG_SETFLAG:
+  case FG_SETFLAGS:
+  case FG_SETSKIN:
+  case FG_SETSTYLE:
+  case FG_SETUSERDATA:
+  case FG_LAYOUTCHANGE:
+    if(fgdebug_instance->elements->userdata && self == reinterpret_cast<fgElement*>(fgdebug_instance->elements->userdata)->userdata)
+      fgDebug_DisplayProperties(self);
+    break;
   }
   return r;
 }
@@ -729,7 +983,7 @@ const char* _dbg_getstr(const char* s)
 #define OUTPUT_CVEC(r) r.x.abs,r.x.rel,r.y.abs,r.y.rel
 #define OUTPUT_RECT(r) r.left,r.top,r.right,r.bottom
 
-const char* fgDebug_GetMessageString(unsigned short msg)
+const char* fgDebug_GetMessageString(uint16_t msg)
 {
   switch(msg)
   {

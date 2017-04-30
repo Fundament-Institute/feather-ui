@@ -48,6 +48,9 @@
     <ClInclude Include="fgContext.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="win32_includes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="fgDirect2D.cpp">

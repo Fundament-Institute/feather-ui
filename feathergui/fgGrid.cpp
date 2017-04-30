@@ -38,6 +38,8 @@ size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
     fgList_Message(&self->list, msg);
     fgList_Init(&self->header, *self, 0, "Grid$header", FGELEMENT_BACKGROUND | FGELEMENT_EXPANDY | FGBOX_TILEX | FGFLAGS_INTERNAL, &ROWTRANSFORM, 0);
     self->header->message = (fgMessage)fgGridColumn_Message;
+    self->columndividercolor.color = 0;
+    self->rowevencolor.color = 0;
     return FG_ACCEPT;
   case FG_CLONE:
     if(msg->e)
@@ -45,11 +47,11 @@ size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
       fgGrid* hold = reinterpret_cast<fgGrid*>(msg->e);
       self->header->Clone(hold->header);
       fgList_Message(&self->list, msg);
-      self->editbox->Clone(hold->editbox);
+      //self->editbox->Clone(hold->editbox);
       hold->columndividercolor = self->columndividercolor;
       hold->rowevencolor = self->rowevencolor;
       _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->header);
-      _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->editbox);
+      //_sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->editbox);
     }
     return sizeof(fgGrid);
   case FG_MOVE:
@@ -62,6 +64,14 @@ size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
       _sendsubmsg<FG_ACTION>(*self, FGSCROLLBAR_CHANGE);
     }
     return FG_ACCEPT;
+  case FG_DRAW:
+    if(self->columndividercolor.color != 0 && self->header.box.order.ordered.l > 0)
+    {
+      AbsRect header;
+      ResolveRect(self->header, &header);
+      fgBoxRenderDividers(self->header, self->columndividercolor, &header, (AbsRect*)msg->p, (fgDrawAuxData*)msg->p2, self->header.box.order.ordered.p[0]);
+    }
+    break;
   case FG_ADDITEM:
     switch(msg->subtype)
     {
@@ -69,6 +79,7 @@ size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
     {
       fgElement* text = fgCreate("text", self->header, msg->u2 < self->header.box.order.ordered.l ? self->header.box.order.ordered.p[msg->u2] : 0, "Grid$column", FGELEMENT_EXPAND, &fgTransform_EMPTY, 0);
       text->SetText((const char*)msg->p);
+      text->SetFlag(FGELEMENT_EXPANDX, false);
       for(size_t i = 0; i < self->list.box.order.ordered.l; ++i)
       {
         fgElement* next = self->list.box.order.ordered.p[i]->GetItem(msg->u2);

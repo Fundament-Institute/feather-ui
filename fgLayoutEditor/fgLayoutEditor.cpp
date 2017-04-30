@@ -25,8 +25,8 @@ void fgLayoutEditor::_addprop(fgGrid* e, const char* name)
   static const fgTransform TF1 = { { 0,0,0,0,0,0.5,20,0 }, 0,{ 0,0,0,0 } };
   static const fgTransform TF2 = { {0,0.5,0,0,0,1,20,0}, 0, {0,0,0,0} };
   fgGridRow* row = e->InsertRow();
-  fgCreate("Text", *row, 0, 0, 0, &TF1, 0)->SetText(name);
-  fgCreate("Text", *row, 0, 0, 0, &TF2, 0);
+  fgCreate("Text", *row, 0, 0, FGELEMENT_EXPANDY, &fgTransform_EMPTY, 0)->SetText(name);
+  fgCreate("Textbox", *row, 0, 0, FGELEMENT_EXPANDY, &fgTransform_EMPTY, 0);
 }
 
 void fgLayoutEditor::_setprops(fgGrid* e, fgClassLayout& layout)
@@ -142,10 +142,9 @@ void fgLayoutEditor::OpenLayout(fgLayout* layout)
 }
 void fgLayoutEditor::MenuFile(struct _FG_ELEMENT* e, const FG_Msg* m)
 {
-  fgElement* child = (fgElement*)m->p;
-  if(child)
+  if(m->e)
   {
-    switch(child->userid)
+    switch(m->e->userid)
     {
     case 8:
       if(Instance->_mainwindow)

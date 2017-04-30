@@ -9,6 +9,7 @@
 #include "fgDebug.h"
 #include "bss-util/bss_util.h"
 #include "util.h"
+#include "win32_includes.h"
 #include <stdint.h>
 #include <wincodec.h>
 #include <dwrite_1.h>
@@ -218,8 +219,18 @@ fgFont fgCreateFontD2D(fgFlag flags, const char* family, short weight, char ital
   DYNARRAY(wchar_t, wtext, len);
   fgUTF8toUTF16(family, -1, wtext, len);
   IDWriteTextFormat* format = 0;
-  LOGFAILURERET(fgDirect2D::instance->writefactory->CreateTextFormat(wtext, 0, DWRITE_FONT_WEIGHT(weight), italic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, pt * (dpi->x / 72.0f), L"en-us", &format), 0, "CreateTextFormat failed with error code %li", hr);
+  wchar_t wlocale[LOCALE_NAME_MAX_LENGTH];
+  GetSystemDefaultLocaleName(wlocale, LOCALE_NAME_MAX_LENGTH);
+  LOGFAILURERET(fgDirect2D::instance->writefactory->CreateTextFormat(wtext, 0, DWRITE_FONT_WEIGHT(weight), italic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, pt * (dpi->x / 72.0f), wlocale, &format), 0, "CreateTextFormat failed with error code %li", hr);
+
   if(!format) return 0;
+  FLOAT linespacing;
+  FLOAT baseline;
+  DWRITE_LINE_SPACING_METHOD method;
+  format->GetLineSpacing(&method, &linespacing, &baseline);
+  if(!linespacing) linespacing = pt * (dpi->x / 72.0f);
+  if(!baseline) baseline = linespacing * 0.8;
+  format->SetLineSpacing(method, linespacing, baseline);
   return new fgFontD2D(format, *dpi, pt);
 }
 
@@ -231,9 +242,11 @@ fgFont fgCloneFontD2D(fgFont font, const struct _FG_FONT_DESC* desc)
   else
   {
     DYNARRAY(wchar_t, wtext, f->format->GetFontFamilyNameLength()+1);
+    DYNARRAY(wchar_t, wlocale, f->format->GetLocaleNameLength() + 1);
     f->format->GetFontFamilyName(wtext, f->format->GetFontFamilyNameLength() + 1);
+    f->format->GetLocaleName(wlocale, f->format->GetLocaleNameLength() + 1);
     IDWriteTextFormat* format = 0;
-    LOGFAILURERET(fgDirect2D::instance->writefactory->CreateTextFormat(wtext, 0, f->format->GetFontWeight(), f->format->GetFontStyle(), f->format->GetFontStretch(), desc->pt * (desc->dpi.x / 72.0f), L"en-us", &format), 0, "CreateTextFormat failed with error code %li", hr);
+    LOGFAILURERET(fgDirect2D::instance->writefactory->CreateTextFormat(wtext, 0, f->format->GetFontWeight(), f->format->GetFontStyle(), f->format->GetFontStretch(), desc->pt * (desc->dpi.x / 72.0f), wlocale, &format), 0, "CreateTextFormat failed with error code %li", hr);
     if(!format) return 0;
     f = new fgFontD2D(format, desc->dpi, desc->pt);
   }
@@ -258,9 +271,16 @@ void fgDrawFontD2D(fgFont font, const void* text, size_t len, float lineheight, 
     exdata->context->target->DrawTextW(wtext, len, f->format, D2D1::RectF(area.left, area.top, area.right, area.bottom), exdata->context->color, (flags&FGELEMENT_NOCLIP) ? D2D1_DRAW_TEXT_OPTIONS_NONE : D2D1_DRAW_TEXT_OPTIONS_CLIP);
   }
   else
-    exdata->context->target->DrawTextLayout(D2D1::Point2F(area.left, area.top), layout, exdata->context->color, D2D1_DRAW_TEXT_OPTIONS_CLIP);
+  {
+    if(!(flags&FGELEMENT_NOCLIP))
+    {
+      layout->SetMaxWidth(area.right - area.left);
+      layout->SetMaxHeight(area.bottom - area.top);
+    }
+    exdata->context->target->DrawTextLayout(D2D1::Point2F(area.left, area.top), layout, exdata->context->color, (flags&FGELEMENT_NOCLIP) ? D2D1_DRAW_TEXT_OPTIONS_NONE : D2D1_DRAW_TEXT_OPTIONS_CLIP);
+  }
 }
-void* fgFontFormatD2D(fgFont font, const void* text, size_t len, float lineheight, float letterspacing, AbsRect* area, fgFlag flags, const fgIntVec* dpi, void* cache)
+void* fgFontLayoutD2D(fgFont font, const void* text, size_t len, float lineheight, float letterspacing, AbsRect* area, fgFlag flags, const fgIntVec* dpi, void* cache)
 {
   fgFontD2D* f = (fgFontD2D*)font;
   IDWriteTextLayout* layout = (IDWriteTextLayout*)cache;
@@ -270,7 +290,11 @@ void* fgFontFormatD2D(fgFont font, const void* text, size_t len, float lineheigh
     return 0;
   fgScaleRectDPI(area, dpi->x, dpi->y);
   layout = CreateD2DLayout(f->format, (const wchar_t*)text, len, area);
-  if(!layout) return 0;
+  if(!layout) {
+    area->right = area->left;
+    area->bottom = area->top;
+    return 0;
+  }
   FLOAT linespacing;
   FLOAT baseline;
   DWRITE_LINE_SPACING_METHOD method;
@@ -295,11 +319,11 @@ void* fgFontFormatD2D(fgFont font, const void* text, size_t len, float lineheigh
 
   DWRITE_TEXT_METRICS metrics;
   layout->GetMetrics(&metrics);
-  area->right = area->left + metrics.width;
-  area->bottom = area->top + metrics.height;
+  if(area->right <= area->left) area->right = area->left + metrics.width;
+  if(area->bottom <= area->top) area->bottom = area->top + metrics.height;
+  layout->SetMaxWidth(area->right - area->left);
+  layout->SetMaxHeight(area->bottom - area->top);
   fgInvScaleRectDPI(area, dpi->x, dpi->y);
-  layout->SetMaxWidth(metrics.width);
-  layout->SetMaxHeight(metrics.height);
   return layout;
 }
 void fgFontGetD2D(fgFont font, struct _FG_FONT_DESC* desc)
@@ -335,9 +359,10 @@ size_t fgFontIndexD2D(fgFont font, const void* text, size_t len, float lineheigh
   layout->HitTestPoint(pos.x, pos.y, &trailing, &inside, &hit);
 
   cursor->x = hit.left;
+  if(trailing) cursor->x += hit.width;
   cursor->y = hit.top;
   fgInvScaleVecDPI(cursor, dpi->x, dpi->y);
-  return hit.textPosition;
+  return hit.textPosition + trailing;
 }
 AbsVec fgFontPosD2D(fgFont font, const void* text, size_t len, float lineheight, float letterspacing, const AbsRect* dpiarea, fgFlag flags, size_t index, const fgIntVec* dpi, void* cache)
 {
@@ -803,6 +828,7 @@ int64_t GetRegistryValueW(HKEY__* hKeyRoot, const wchar_t* szKey, const wchar_t*
   return (r == ERROR_MORE_DATA) ? sz : -1;
 }
 
+BSS_COMPILER_DLLEXPORT
 struct _FG_ROOT* fgInitialize()
 {
   static fgBackend BACKEND = {
@@ -811,7 +837,7 @@ struct _FG_ROOT* fgInitialize()
     &fgCloneFontD2D,
     &fgDestroyFontD2D,
     &fgDrawFontD2D,
-    &fgFontFormatD2D,
+    &fgFontLayoutD2D,
     &fgFontGetD2D,
     &fgFontIndexD2D,
     &fgFontPosD2D,
