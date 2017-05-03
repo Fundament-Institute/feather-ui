@@ -374,7 +374,7 @@ void fgDebug_ContextMenuInsert(struct _FG_ELEMENT* e, const FG_Msg* m)
   {
     fgElement* target = (fgElement*)reinterpret_cast<fgElement*>(fgdebug_instance->elements->userdata)->userdata;
     if(target)
-      fgCreate((const char*)m->e->userdata, target->parent, target, 0, 0, &fgTransform_EMPTY, 0);
+      fgCreate((const char*)m->e->userdata, target->parent, target, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY, 0)->SetText((const char*)m->e->userdata);
   }
 }
 size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)

@@ -207,7 +207,7 @@
   <Skin name="Window" flags="RESIZABLE" color="0xFFFFFF" font="14 arial" padding="3, 30, 3, 3">
     <Resource uv="14,14,14,14" area="0,0,100%,100%" color="0xBBBBBB" edgecolor="0xAAAAAA" outline="2" flags="RECT|BACKGROUND" />
     <Resource uv="14,14,0,0" area="0,0,100%,30" color="0x666666" edgecolor="0" outline="1" flags="RECT|BACKGROUND" />
-    <Skin name="Window$text" margin="12,4,0,0"/>
+    <Skin name="Window$text" margin="12,4,0,0" />
     <Skin name="Window$close" area="-25:1, 7, -10:1, 22" >
       <Resource area="50%,50%,150%,70%" color="0xFFFFFFFF" flags="RECT|BACKGROUND|NOCLIP" rotation="0.785" center="50%,50%"/>
       <Resource area="50%,50%,150%,70%" color="0xFFFFFFFF" flags="RECT|BACKGROUND|NOCLIP" rotation="-0.785" center="50%,50%"/>
@@ -265,9 +265,6 @@
       </Skin>
     </Skin>
     <Skin name="Box" inherit="Scrollbar" />
-    <Skin name="Textbox" color="0x000000" font="14 arial" lineheight="16" placecolor="0x00000088" cursorcolor="0x000000" selectcolor="0x0000AAAA" padding="3,3,3,3" inherit="Scrollbar">
-      <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0xFFFFFF99" edgecolor="0xAAAAAA" outline="1" flags="RECT|BACKGROUND|IGNORE" />
-    </Skin>
     <Skin name="Dropdown" hovercolor="0x99990099" selectcolor="0xAAAA0000">
       <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0xFFFFFF99" edgecolor="0xAAAAAA" outline="1" flags="RECT|BACKGROUND|IGNORE" />
       <Skin name="Dropdown$box" inherit="Scrollbar">
@@ -314,7 +311,7 @@
     <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0xFFFFFF99" edgecolor="0xAAAAAA" outline="1" flags="RECT|BACKGROUND|SNAP" />
   </Skin>
   <Skin name="Combobox" hovercolor="0x999999">
-    <Skin name="fgCombobox$textbox" area="0,0,-30:1,0:1" color="0x000000" font="14 arial" lineheight="16" placecolor="0x00000088" cursorcolor="0x000000" selectcolor="0x0000AAAA" padding="3,3,3,3" inherit="Scrollbar"/>
+    <Skin name="fgCombobox$textbox" area="0,0,-30:1,0:1" color="0x000000" font="14 arial" placecolor="0x00000088" cursorcolor="0x000000" selectcolor="0x0000AAAA" padding="3,3,3,3" inherit="Scrollbar"/>
     <Skin name="Dropdown$box" inherit="Scrollbar">
       <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0xFFFFFF99" edgecolor="0xAAAAAA" outline="1" flags="RECT|BACKGROUND|IGNORE" />
     </Skin>
@@ -328,11 +325,14 @@
       <Style name="hover+selected" color="0x00BBBBCC" />
     </Resource>
   </Skin>
-  <Skin name="Grid">
+  <Skin name="Grid" columndividercolor="0x000000FF">
     <Skin name="List">
       <Resource uv="3,3,0,0" area="0,0,100%,100%" color="0x00000022" flags="RECT|BACKGROUND|SNAP" />
     </Skin>
     <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0xFFFFFF99" edgecolor="0xAAAAAA" outline="1" flags="RECT|BACKGROUND" />
+  </Skin>
+  <Skin name="Textbox" color="0x000000" font="14 arial" placecolor="0x00000088" cursorcolor="0x000000" selectcolor="0x0000AAAA" padding="3,3,3,3" inherit="Scrollbar">
+    <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0xFFFFFF99" edgecolor="0xAAAAAA" outline="1" flags="RECT|BACKGROUND|IGNORE" />
   </Skin>
   <Skin name="Text" color="0x000000" font="14 arial" />
   <Skin name="Menu" hovercolor="0xFFFFFFFF">
@@ -348,5 +348,13 @@
       <Resource area="0,0,10,10" color="0xCCCCCCDD" outline="0" flags="RECT|IGNORE" />
     </Skin>
   </Skin>
-  <Skin name="Debug" color="0xFFFFFFFF" font="14 arial" />
+  <Skin name="Debug" color="0xFFFFFFFF" font="14 arial">
+    <Skin name="Grid" dividercolor="0x999999">
+      <Skin name="List">
+        <Resource uv="3,3,0,0" area="0,0,100%,100%" color="0xCCCCCCFF" flags="RECT|BACKGROUND|SNAP" />
+      </Skin>
+      <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0xFFFFFF99" edgecolor="0xAAAAAA" outline="1" flags="RECT|BACKGROUND" />
+    </Skin>
+    <Skin name="Text" color="0x000000" font="14 arial" />
+  </Skin>
 </fg:Skin>

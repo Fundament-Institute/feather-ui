@@ -3,6 +3,7 @@
 
 #include "fgLayoutEditor.h"
 #include <string>
+#include <fstream>
 #include "bss-util/bss_defines.h"
 
 #ifdef BSS_PLATFORM_WIN32 //Windows function
@@ -126,12 +127,36 @@ int main(int argc, char** argv)
   fgRegisterFunction("menu_help", fgLayoutEditor::MenuHelp);
   fgRegisterFunction("explorer_onfocus", fgLayoutEditor::ExplorerOnFocus);
 
+  EditorSettings settings = {
+    false,
+    false,
+    true,
+    true,
+    false,
+    true,
+    false
+  };
+
+  std::ifstream settingsfile("fgLayoutEditor.toml", std::ios_base::binary|std::ios_base::in);
+
+  if(settingsfile.good())
+  {
+    bss_util::cSerializer<bss_util::TOMLEngine> serializer;
+    serializer.Parse(settings, settingsfile, "editor");
+  }
+  else
+  {
+    std::ofstream settingsout("fgLayoutEditor.toml", std::ios_base::binary | std::ios_base::out);
+    bss_util::cSerializer<bss_util::TOMLEngine> serializer;
+    serializer.Serialize(settings, settingsout, "editor");
+  }
+
   fgLayout layout;
   fgLayout_Init(&layout);
   fgLayout_LoadFileXML(&layout, "../media/editor/editor.xml");
-
+  
   {
-    fgLayoutEditor editor(&layout);
+    fgLayoutEditor editor(&layout, settings);
     editor.OpenLayout(&layout);
     while(fgSingleton()->backend.fgProcessMessages());
   }

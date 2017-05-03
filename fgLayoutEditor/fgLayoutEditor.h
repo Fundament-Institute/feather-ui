@@ -5,6 +5,7 @@
 #define __FG_LAYOUT_EDITOR_H__
 
 #include "fgAll.h"
+#include "bss-util/cTOML.h"
 
 typedef struct FG_LAYOUT_ACTION
 {
@@ -13,10 +14,37 @@ typedef struct FG_LAYOUT_ACTION
   struct FG_LAYOUT_ACTION* next;
 } fgLayoutAction;
 
+struct EditorSettings
+{
+  bool showgrid;
+  bool showcrosshairs;
+  bool showrulers;
+  bool showcursors;
+  bool snaptogrid;
+  bool snapnear;
+  bool showwireframe;
+  std::vector<std::string> recent;
+
+  template<typename Engine>
+  void Serialize(bss_util::cSerializer<Engine>& e)
+  {
+    e.template EvaluateType<EditorSettings>(
+      bss_util::GenPair("showgrid", showgrid),
+      bss_util::GenPair("showcrosshairs", showcrosshairs),
+      bss_util::GenPair("showrulers", showrulers),
+      bss_util::GenPair("showcursors", showcursors),
+      bss_util::GenPair("snaptogrid", snaptogrid),
+      bss_util::GenPair("snapnear", snapnear),
+      bss_util::GenPair("showwireframe", showwireframe),
+      bss_util::GenPair("recent", recent)
+      );
+  }
+};
+
 class fgLayoutEditor
 {
 public:
-  explicit fgLayoutEditor(fgLayout* layout);
+  fgLayoutEditor(fgLayout* layout, EditorSettings& settings);
   ~fgLayoutEditor();
   void OpenLayout(fgLayout* layout);
 
@@ -46,6 +74,7 @@ protected:
   fgElement* _selected;
   fgLayoutAction* _undo;
   fgLayoutAction* _redo;
+  EditorSettings _settings;
 };
 
 #endif

@@ -31,6 +31,7 @@ extern "C" {
   FG_EXTERN void fgStyle_Destroy(fgStyle* self);
   FG_EXTERN FG_UINT fgStyle_GetName(const char* name);
   FG_EXTERN FG_UINT fgStyle_GetAllNames(const char* names);
+  FG_EXTERN const char* fgStyle_GetMapIndex(FG_UINT index);
 
   FG_EXTERN fgStyleMsg* fgStyle_AddStyleMsg(fgStyle* self, const FG_Msg* msg, unsigned int arg1size, unsigned int arg2size);
   FG_EXTERN fgStyleMsg* fgStyle_CloneStyleMsg(const fgStyleMsg* self);

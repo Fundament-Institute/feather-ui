@@ -2,6 +2,7 @@
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #include "bss-util/khash.h"
+#include "bss-util/cXML.h"
 #include "fgSkin.h"
 #include "feathercpp.h"
 
@@ -238,6 +239,17 @@ fgSkin* fgSkinBase_LoadFileUBJSON(fgSkinBase* self, const char* file)
 fgSkin* fgSkinBase_LoadUBJSON(fgSkinBase* self, const void* data, FG_UINT length)
 {
   return 0;
+}
+
+void fgSkinBase_WriteXML(cXMLNode* node, fgSkinBase* base, char toplevel)
+{
+  // Write any skins that were stored in the root
+  if(base->skinmap)
+  {
+    for(khiter_t i = 0; i < kh_end(base->skinmap); ++i)
+      if(kh_exist(base->skinmap, i))
+        fgSkin_WriteXML(node->AddNode(toplevel ? "fg:Skin" : "Skin"), kh_val(base->skinmap, i));
+  }
 }
 
 size_t fgSkinTree::AddChild(const char* type, fgFlag flags, const fgTransform* transform, short units, int order) { return fgSkinTree_AddChild(this, type, flags, transform, units, order); }

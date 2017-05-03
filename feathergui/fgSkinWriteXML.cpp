@@ -203,6 +203,7 @@ void fgSkinBase_WriteStyleAttributesXML(cXMLNode* node, fgStyle& s, fgSkinBase* 
           }
           if(p->italic)
             s += " italic";
+          s += ' ';
           s += p->family;
         }
       }
@@ -268,4 +269,47 @@ void fgSkinBase_WriteElementAttributesXML(cXMLNode* node, fgSkinElement& e, fgSk
   fgSkinBase_WriteFlagsXML(node, e.type, e.flags);
   fgSkinBase_WriteStyleAttributesXML(node, e.style, root);
   fgSkinBase_WriteTransform(node, e.transform, e.units);
+}
+
+void fgSkinTree_WriteStyleMap(cStr& s, FG_UINT map)
+{
+  while(map)
+  {
+    FG_UINT index = (1 << bsslog2(map));
+    if(const char* name = fgStyle_GetMapIndex(index))
+    {
+      s += name;
+      s += "+";
+    }
+    map ^= index;
+  }
+  if(s.size() > 1) // chop off trailing +
+    s.resize(s.size() - 1);
+}
+void fgSkinTree_WriteXML(cXMLNode* node, fgSkinTree* tree, fgSkinBase* root)
+{
+  for(size_t i = 0; i < tree->styles.l; ++i)
+  {
+    cXMLNode* style = node->AddNode("Style");
+    fgSkinTree_WriteStyleMap(style->AddAttribute("name")->String, tree->styles.p[i].map); // Reconstruct style name from mapping
+    fgSkinBase_WriteStyleAttributesXML(style, tree->styles.p[i].style, root);
+  }
+  for(size_t i = 0; i < tree->children.l; ++i)
+  {
+    cXMLNode* child = node->AddNode(tree->children.p[i].layout.type);
+    fgSkinBase_WriteElementAttributesXML(child, tree->children.p[i].layout, root);
+    fgSkinTree_WriteXML(child, &tree->children.p[i].tree, root);
+  }
+}
+
+void fgSkin_WriteXML(cXMLNode* node, fgSkin* skin)
+{
+  if(skin->inherit)
+    node->AddAttribute("inherit")->String = skin->inherit->name;
+  if(skin->name)
+    node->AddAttribute("name")->String = skin->name;
+
+  fgSkinBase_WriteStyleAttributesXML(node, skin->style, &skin->base);
+  fgSkinBase_WriteXML(node, &skin->base, 0);
+  fgSkinTree_WriteXML(node, &skin->tree, &skin->base);
 }

@@ -112,6 +112,14 @@ FG_UINT fgStyle_GetName(const char* name)
   return kh_val(fgStyleStatic::Instance.h, iter);
 }
 
+const char* fgStyle_GetMapIndex(FG_UINT index)
+{
+  for(khiter_t i = 0; i < kh_end(fgStyleStatic::Instance.h); ++i)
+    if(kh_exist(fgStyleStatic::Instance.h, i) && kh_val(fgStyleStatic::Instance.h, i) == index)
+      return kh_key(fgStyleStatic::Instance.h, i);
+  return 0;
+}
+
 FG_UINT fgStyle_GetAllNames(const char* names)
 {
   size_t len = strlen(names) + 1;

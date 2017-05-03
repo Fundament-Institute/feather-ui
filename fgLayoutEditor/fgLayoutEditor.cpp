@@ -36,7 +36,7 @@ void fgLayoutEditor::_setprops(fgGrid* e, fgClassLayout& layout)
   e->GetRow(2)->GetItem(1)->SetText(layout.name);
 }
 
-fgLayoutEditor::fgLayoutEditor(fgLayout* layout)
+fgLayoutEditor::fgLayoutEditor(fgLayout* layout, EditorSettings& settings) : _settings(settings)
 {
   memset(this, 0, sizeof(fgLayoutEditor));
   fgLayoutEditor::Instance = this;
@@ -49,6 +49,9 @@ fgLayoutEditor::fgLayoutEditor(fgLayout* layout)
   _properties = reinterpret_cast<fgGrid*>(fgGetID("Editor$properties"));
   fgElement* menu = fgGetID("Editor$main");
   
+  if(_workspace)
+    _workspace->scroll->LayoutLoad(layout);
+
   if(_properties)
   {
     _addprop(_properties, "(Type)");

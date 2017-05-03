@@ -246,6 +246,27 @@ void fgLayout_SaveElementXML(fgLayout* self, fgClassLayout& e, cXMLNode* parent,
   for(size_t i = 0; i < e.children.l; ++i)
     fgLayout_SaveElementXML(self, e.children.p[i], node, path);
 }
+void fgLayout_SaveSubLayoutXML(fgLayout* self, cXMLNode* node, const char* name, const char* path)
+{
+  if(name)
+    node->AddAttribute("Name")->String = name;
+  fgSkinBase_WriteStyleAttributesXML(node, self->style, &self->base);
+
+  // Write all children nodes
+  for(size_t i = 0; i < self->layout.l; ++i)
+    fgLayout_SaveElementXML(self, self->layout.p[i], node, path);
+
+  // Write all sublayouts
+  if(self->sublayouts)
+  {
+    for(khiter_t i = 0; i < kh_end(self->sublayouts); ++i)
+    {
+      if(kh_exist(self->sublayouts, i))
+        fgLayout_SaveSubLayoutXML(kh_val(self->sublayouts, i), node->AddNode("Layout"), kh_key(self->sublayouts, i), path);
+    }
+  }
+}
+
 void fgLayout_SaveStreamXML(fgLayout* self, std::ostream& s, const char* path)
 {
   cXML xml;
@@ -257,14 +278,8 @@ void fgLayout_SaveStreamXML(fgLayout* self, std::ostream& s, const char* path)
   root->AddAttribute("xmlns:xsi")->String = "http://www.w3.org/2001/XMLSchema-instance";
   root->AddAttribute("xmlns:fg")->String = "featherGUI";
   root->AddAttribute("xsi:schemaLocation")->String = "featherGUI feather.xsd";
-  fgSkinBase_WriteStyleAttributesXML(root, self->style, &self->base);
-  
-  // Write all children nodes
-  for(size_t i = 0; i < self->layout.l; ++i)
-    fgLayout_SaveElementXML(self, self->layout.p[i], root, path);
-
-  // Write any skins that were stored in the root
-
+  fgLayout_SaveSubLayoutXML(self, root, 0, path);
+  fgSkinBase_WriteXML(root, &self->base, 1);
   xml.Write(s);
 }
 void fgLayout_SaveFileXML(fgLayout* self, const char* file)
