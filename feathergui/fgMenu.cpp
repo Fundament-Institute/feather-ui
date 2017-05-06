@@ -160,7 +160,7 @@ size_t fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
     }
     return sizeof(fgMenu);
   case FG_SETFLAG: // If 0 is sent in, disable the flag, otherwise enable. Our internal flag is 1 if clipping disabled, 0 otherwise.
-    otherint = bss_util::bssSetBit<fgFlag>(self->box->flags, otherint, msg->u2 != 0);
+    otherint = bss::bssSetBit<fgFlag>(self->box->flags, otherint, msg->u2 != 0);
   case FG_SETFLAGS:
     if(((self->box->flags ^ otherint) & FGELEMENT_HIDDEN) != 0)
     {

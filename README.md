@@ -25,8 +25,8 @@ The library is in very early alpha stages of development right now, so please co
 
 Remember, your GUI toolkit should work for you, not the other way around.
 
-##### The Future
+## The Future
 
-FeatherGUI is in its infancy, and will only grow bigger and better. Feather has the potential to provide a true, universal GUI interface platform, allowing programs on any platform and any system to work together in ways that are impossible today. No longer will GUIs be limited to windows or programs, but instead will be built from encapsulated, data-bound windows, freely embeddable in every conceivable circumstance. Games and other specialty software will finally be able to interop directly with the native system UI and interact with other programs freely.
+FeatherGUI has the potential to provide a true, universal GUI interface platform, allowing programs on any platform and any system to work together in ways that are impossible today. No longer will GUIs be limited to windows or programs, but instead will be built from encapsulated, data-bound windows, freely embeddable in every conceivable circumstance. Games and other specialty software will finally be able to interop directly with the native system UI and interact with other programs freely.
 
 Join the revolution. Break free from the confines of widget toolkits and unleash your app's true potential.

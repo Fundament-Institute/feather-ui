@@ -147,7 +147,7 @@ size_t fgDebugD2D_Message(fgDebug* self, const FG_Msg* msg)
   case FG_SETPARENT:
     return fgDebug_Message(self, msg);
   case FG_SETFLAG: // Do the same thing fgElement does to resolve a SETFLAG into SETFLAGS
-    otherint = bss_util::bssSetBit<fgFlag>(self->tabs->flags, otherint, msg->u2 != 0);
+    otherint = bss::bssSetBit<fgFlag>(self->tabs->flags, otherint, msg->u2 != 0);
   case FG_SETFLAGS:
     if((otherint^self->tabs->flags) & FGELEMENT_HIDDEN)
       ShowWindow(fgDirect2D::instance->debughwnd, (otherint&FGELEMENT_HIDDEN) ? SW_HIDE : SW_SHOW);
@@ -530,7 +530,7 @@ void fgDrawLinesD2D(const AbsVec* p, size_t n, unsigned int color, const AbsVec*
   exdata->context->color->SetColor(ToD2Color(color));
   for(size_t i = 1; i < n; ++i)
     exdata->context->target->DrawLine(D2D1_POINT_2F{ p[i - 1].x, p[i - 1].y }, D2D1_POINT_2F{ p[i].x, p[i].y }, exdata->context->color, 1.0F, 0);
-  //bss_util::Matrix<float, 4, 4>::AffineTransform_T(translate->x, translate->y, 0, rotation, center->x, center->y, m);
+  //bss::Matrix<float, 4, 4>::AffineTransform_T(translate->x, translate->y, 0, rotation, center->x, center->y, m);
   exdata->context->target->SetTransform(world);
 }
 

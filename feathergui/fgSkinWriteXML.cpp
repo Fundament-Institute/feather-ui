@@ -4,12 +4,12 @@
 #include "fgSkin.h"
 #include "fgAll.h"
 #include "feathercpp.h"
-#include "bss-util/cStr.h"
-#include "bss-util/cXML.h"
+#include "bss-util/Str.h"
+#include "bss-util/XML.h"
 
-using namespace bss_util;
+using namespace bss;
 
-void fgStyle_WriteFloat(cStr& s, float abs)
+void fgStyle_WriteFloat(Str& s, float abs)
 {
   float i;
   if(std::modf(abs, &i) == 0.0f)
@@ -20,7 +20,7 @@ void fgStyle_WriteFloat(cStr& s, float abs)
   snprintf(s.UnsafeString() + start, len, "%.1f", abs); // snprintf lies about how many characters were written
   s.resize(strlen(s));
 }
-void fgStyle_WriteInt(cStr& s, int64_t i)
+void fgStyle_WriteInt(Str& s, int64_t i)
 {
   int len = snprintf(0, 0, "%lli", i) + 1;
   int start = s.size();
@@ -28,7 +28,7 @@ void fgStyle_WriteInt(cStr& s, int64_t i)
   snprintf(s.UnsafeString() + start, len, "%lli", i);
   s.resize(strlen(s));
 }
-void fgStyle_WriteHex(cStr& s, uint64_t i)
+void fgStyle_WriteHex(Str& s, uint64_t i)
 {
   int len = snprintf(0, 0, "%08llX", i) + 1;
   int start = s.size();
@@ -37,7 +37,7 @@ void fgStyle_WriteHex(cStr& s, uint64_t i)
   s.resize(strlen(s));
 }
 
-void fgStyle_WriteAbs(cStr& s, float abs, short unit)
+void fgStyle_WriteAbs(Str& s, float abs, short unit)
 {
   fgStyle_WriteFloat(s, abs);
   if(!abs)
@@ -49,7 +49,7 @@ void fgStyle_WriteAbs(cStr& s, float abs, short unit)
   case FGUNIT_PX: s += "px"; break;
   }
 }
-void fgStyle_WriteCoord(cStr& s, const Coord& coord, short unit)
+void fgStyle_WriteCoord(Str& s, const Coord& coord, short unit)
 {
   if(coord.rel == 0.0f)
     fgStyle_WriteAbs(s, coord.abs, unit);
@@ -65,18 +65,40 @@ void fgStyle_WriteCoord(cStr& s, const Coord& coord, short unit)
     fgStyle_WriteFloat(s, coord.rel);
   }
 }
-cStr fgStyle_WriteCVec(const CVec& vec, short units)
+size_t fgStyle_WriteCVec(char* buffer, size_t sz, const CVec* vec, short units)
 {
-  cStr s;
+  Str s = fgStyle_WriteCVec(*vec, units);
+  if(buffer && sz >= s.size())
+    MEMCPY(buffer, sz, s.c_str(), s.size());
+  return s.size();
+}
+size_t fgStyle_WriteAbsRect(char* buffer, size_t sz, const AbsRect* r, short units)
+{
+  Str s = fgStyle_WriteAbsRect(*r, units);
+  if(buffer && sz >= s.size())
+    MEMCPY(buffer, sz, s.c_str(), s.size());
+  return s.size();
+}
+size_t fgStyle_WriteCRect(char* buffer, size_t sz, const CRect* r, short units)
+{
+  Str s = fgStyle_WriteCRect(*r, units);
+  if(buffer && sz >= s.size())
+    MEMCPY(buffer, sz, s.c_str(), s.size());
+  return s.size();
+}
+
+Str fgStyle_WriteCVec(const CVec& vec, short units)
+{
+  Str s;
   fgStyle_WriteCoord(s, vec.x, (units&FGUNIT_X_MASK) >> FGUNIT_X);
   s += ' ';
   fgStyle_WriteCoord(s, vec.y, (units&FGUNIT_Y_MASK) >> FGUNIT_Y);
   return s;
 }
 
-cStr fgStyle_WriteAbsRect(const AbsRect& r, short units)
+Str fgStyle_WriteAbsRect(const AbsRect& r, short units)
 {
-  cStr s;
+  Str s;
   fgStyle_WriteAbs(s, r.left, (units&FGUNIT_LEFT_MASK) >> FGUNIT_LEFT);
   s += ' ';
   fgStyle_WriteAbs(s, r.top, (units&FGUNIT_TOP_MASK) >> FGUNIT_TOP);
@@ -87,9 +109,9 @@ cStr fgStyle_WriteAbsRect(const AbsRect& r, short units)
   return s;
 }
 
-cStr fgStyle_WriteCRect(const CRect& r, short units)
+Str fgStyle_WriteCRect(const CRect& r, short units)
 {
-  cStr s;
+  Str s;
   fgStyle_WriteCoord(s, r.left, (units&FGUNIT_LEFT_MASK) >> FGUNIT_LEFT);
   s += ' ';
   fgStyle_WriteCoord(s, r.top, (units&FGUNIT_TOP_MASK) >> FGUNIT_TOP);
@@ -100,7 +122,7 @@ cStr fgStyle_WriteCRect(const CRect& r, short units)
   return s;
 }
 
-void fgSkinBase_WriteTransform(cXMLNode* node, const fgTransform& tf, short units)
+void fgSkinBase_WriteTransform(XMLNode* node, const fgTransform& tf, short units)
 {
   static const CVec EMPTYVEC = { 0 };
   if(memcmp(&tf.area, &CRect_EMPTY, sizeof(CRect)) != 0)
@@ -110,7 +132,7 @@ void fgSkinBase_WriteTransform(cXMLNode* node, const fgTransform& tf, short unit
   if(memcmp(&tf.center, &EMPTYVEC, sizeof(CVec)) != 0)
     node->AddAttribute("center")->String = fgStyle_WriteCVec(tf.center, units);
 }
-void fgStyle_WriteFlagsIterate(cStr& s, const char* type, const char* divider, fgFlag flags, bool remove)
+void fgStyle_WriteFlagsIterate(Str& s, const char* type, const char* divider, fgFlag flags, bool remove)
 {
   const fgFlag MAXBITS = 3;
   const fgFlag END = (sizeof(fgFlag) << 3) - MAXBITS;
@@ -135,20 +157,28 @@ void fgStyle_WriteFlagsIterate(cStr& s, const char* type, const char* divider, f
     }
   }
 }
+size_t fgStyle_WriteFlagsIterate(char* buffer, size_t sz, const char* type, const char* divider, fgFlag flags, char remove)
+{
+  Str s;
+  fgStyle_WriteFlagsIterate(s, type, divider, flags, remove != 0);
+  if(buffer && sz >= s.size())
+    MEMCPY(buffer, sz, s.c_str(), s.size());
+  return s.size();
+}
 
-void fgSkinBase_WriteFlagsXML(cXMLNode* node, const char* type, fgFlag flags)
+void fgSkinBase_WriteFlagsXML(XMLNode* node, const char* type, fgFlag flags)
 {
   fgFlag def = fgGetTypeFlags(type);
   fgFlag rm = def & (~flags);
   fgFlag add = (~def) & flags;
 
-  cStr s;
+  Str s;
   fgStyle_WriteFlagsIterate(s, type, "|", add, false);
   fgStyle_WriteFlagsIterate(s, type, "|", rm, true);
   if(s.length() > 0)
     node->AddAttribute("flags")->String = s.c_str() + 1; // strip initial '|'
 }
-void fgSkinBase_WriteStyleAttributesXML(cXMLNode* node, fgStyle& s, fgSkinBase* root)
+void fgSkinBase_WriteStyleAttributesXML(XMLNode* node, fgStyle& s, fgSkinBase* root)
 {
   static const char* COLORATTR[10] = { "color", "placecolor", "cursorcolor", "selectcolor", "hovercolor", "dragcolor", "edgecolor", "dividercolor", "columndividercolor", "rowevencolor" };
 
@@ -194,7 +224,7 @@ void fgSkinBase_WriteStyleAttributesXML(cXMLNode* node, fgStyle& s, fgSkinBase* 
         _FG_FONT_DATA* p = root->GetFont(cur->msg.p);
         if(p)
         {
-          cStr& s = node->AddAttribute("font")->String;
+          Str& s = node->AddAttribute("font")->String;
           fgStyle_WriteInt(s, p->size);
           if(p->weight != 400)
           {
@@ -262,7 +292,7 @@ void fgSkinBase_WriteStyleAttributesXML(cXMLNode* node, fgStyle& s, fgSkinBase* 
     cur = cur->next;
   }
 }
-void fgSkinBase_WriteElementAttributesXML(cXMLNode* node, fgSkinElement& e, fgSkinBase* root)
+void fgSkinBase_WriteElementAttributesXML(XMLNode* node, fgSkinElement& e, fgSkinBase* root)
 {
   if(e.order != 0)
     fgStyle_WriteInt(node->AddAttribute("order")->String, e.order);
@@ -271,11 +301,11 @@ void fgSkinBase_WriteElementAttributesXML(cXMLNode* node, fgSkinElement& e, fgSk
   fgSkinBase_WriteTransform(node, e.transform, e.units);
 }
 
-void fgSkinTree_WriteStyleMap(cStr& s, FG_UINT map)
+void fgSkinTree_WriteStyleMap(Str& s, FG_UINT map)
 {
   while(map)
   {
-    FG_UINT index = (1 << bsslog2(map));
+    FG_UINT index = (1 << bssLog2(map));
     if(const char* name = fgStyle_GetMapIndex(index))
     {
       s += name;
@@ -286,23 +316,23 @@ void fgSkinTree_WriteStyleMap(cStr& s, FG_UINT map)
   if(s.size() > 1) // chop off trailing +
     s.resize(s.size() - 1);
 }
-void fgSkinTree_WriteXML(cXMLNode* node, fgSkinTree* tree, fgSkinBase* root)
+void fgSkinTree_WriteXML(XMLNode* node, fgSkinTree* tree, fgSkinBase* root)
 {
   for(size_t i = 0; i < tree->styles.l; ++i)
   {
-    cXMLNode* style = node->AddNode("Style");
+    XMLNode* style = node->AddNode("Style");
     fgSkinTree_WriteStyleMap(style->AddAttribute("name")->String, tree->styles.p[i].map); // Reconstruct style name from mapping
     fgSkinBase_WriteStyleAttributesXML(style, tree->styles.p[i].style, root);
   }
   for(size_t i = 0; i < tree->children.l; ++i)
   {
-    cXMLNode* child = node->AddNode(tree->children.p[i].layout.type);
+    XMLNode* child = node->AddNode(tree->children.p[i].layout.type);
     fgSkinBase_WriteElementAttributesXML(child, tree->children.p[i].layout, root);
     fgSkinTree_WriteXML(child, &tree->children.p[i].tree, root);
   }
 }
 
-void fgSkin_WriteXML(cXMLNode* node, fgSkin* skin)
+void fgSkin_WriteXML(XMLNode* node, fgSkin* skin)
 {
   if(skin->inherit)
     node->AddAttribute("inherit")->String = skin->inherit->name;

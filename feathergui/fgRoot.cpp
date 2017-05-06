@@ -5,7 +5,7 @@
 #include "fgMonitor.h"
 #include "fgAll.h"
 #include "feathercpp.h"
-#include "bss-util/cTrie.h"
+#include "bss-util/Trie.h"
 #include <stdlib.h>
 #include <sstream>
 

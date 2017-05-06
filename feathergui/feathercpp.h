@@ -7,10 +7,10 @@
 #include "fgResource.h"
 #include "fgText.h"
 #include "fgRoot.h"
-#include "bss-util/cArraySort.h"
+#include "bss-util/ArraySort.h"
 #include "fgLayout.h"
-#include "bss-util/cHash.h"
-#include "bss-util/cAVLtree.h"
+#include "bss-util/Hash.h"
+#include "bss-util/AVLTree.h"
 #include "bss-util/rwlock.h"
 
 #ifdef BSS_64BIT
@@ -122,7 +122,7 @@ public:
 
   static fgLeakTracker Tracker;
 protected:
-  bss_util::cHash<void*, LEAKINFO*> _leakinfo;
+  bss::Hash<void*, LEAKINFO*> _leakinfo;
   FILE* f;
 };
 
@@ -212,10 +212,10 @@ char DynArrayRemove(T& a, FG_UINT index)
   return 1;
 }
 
-typedef bss_util::cArraySort<fgSkinLayoutConstruct, fgSortStyleLayout, size_t, bss_util::CARRAY_CONSTRUCT> fgSkinLayoutArray;
-typedef bss_util::cDynArray<typename fgConstruct<struct _FG_KEY_VALUE>::fgConstructor<fgDestructKeyValue, fgConstructKeyValue>, size_t, bss_util::CARRAY_CONSTRUCT> fgKeyValueArray;
-typedef bss_util::cArraySort<fgClassLayoutConstruct, fgSortClassLayout, size_t, bss_util::CARRAY_CONSTRUCT> fgClassLayoutArray;
-typedef bss_util::cArraySort<struct _FG_ELEMENT*> fgElementArray;
+typedef bss::ArraySort<fgSkinLayoutConstruct, fgSortStyleLayout, size_t, bss::ARRAY_CONSTRUCT> fgSkinLayoutArray;
+typedef bss::DynArray<typename fgConstruct<struct _FG_KEY_VALUE>::fgConstructor<fgDestructKeyValue, fgConstructKeyValue>, size_t, bss::ARRAY_CONSTRUCT> fgKeyValueArray;
+typedef bss::ArraySort<fgClassLayoutConstruct, fgSortClassLayout, size_t, bss::ARRAY_CONSTRUCT> fgClassLayoutArray;
+typedef bss::ArraySort<struct _FG_ELEMENT*> fgElementArray;
 
 struct kh_fgRadioGroup_s;
 extern struct kh_fgRadioGroup_s* fgRadioGroup_init();
@@ -244,7 +244,7 @@ inline size_t _sendsubmsg(fgElement* self, unsigned short sub, Args... args)
   return (*fgroot_instance->backend.fgBehaviorHook)(self, &msg);
 }
 
-FG_EXTERN bss_util::cHash<std::pair<fgElement*, unsigned short>, fgListener> fgListenerHash;
+FG_EXTERN bss::Hash<std::pair<fgElement*, unsigned short>, fgListener> fgListenerHash;
 
 inline FG_UINT fgStyleGetMask() { return 0; }
 
@@ -361,19 +361,19 @@ BSS_FORCEINLINE fgElement* fgLayout_GetPrev(fgElement* cur)
   return cur;
 }
 
-namespace bss_util { struct cXMLNode; }
+namespace bss { struct XMLNode; }
 struct __VECTOR__UTF8;
 struct __VECTOR__UTF16;
 struct __VECTOR__UTF32;
 
-extern fgSkin* fgSkinBase_ParseNodeXML(fgSkinBase* self, const bss_util::cXMLNode* root);
-extern void fgSkinBase_WriteElementAttributesXML(bss_util::cXMLNode* node, fgSkinElement& e, fgSkinBase* root);
-extern void fgSkinBase_WriteStyleAttributesXML(bss_util::cXMLNode* node, fgStyle& s, fgSkinBase* root);
-extern void fgSkinBase_WriteXML(bss_util::cXMLNode* node, fgSkinBase* base, char toplevel);
-extern void fgSkin_WriteXML(bss_util::cXMLNode* node, fgSkin* skin);
+extern fgSkin* fgSkinBase_ParseNodeXML(fgSkinBase* self, const bss::XMLNode* root);
+extern void fgSkinBase_WriteElementAttributesXML(bss::XMLNode* node, fgSkinElement& e, fgSkinBase* root);
+extern void fgSkinBase_WriteStyleAttributesXML(bss::XMLNode* node, fgStyle& s, fgSkinBase* root);
+extern void fgSkinBase_WriteXML(bss::XMLNode* node, fgSkinBase* base, char toplevel);
+extern void fgSkin_WriteXML(bss::XMLNode* node, fgSkin* skin);
 static kh_fgSkins_s *kh_init_fgSkins();
-extern void fgStyle_ParseAttributesXML(struct _FG_STYLE* self, const bss_util::cXMLNode* cur, int flags, struct _FG_SKIN_BASE* root, const char* path, const char** id, fgKeyValueArray* userdata);
-extern int fgStyle_NodeEvalTransform(const bss_util::cXMLNode* node, fgTransform& t);
+extern void fgStyle_ParseAttributesXML(struct _FG_STYLE* self, const bss::XMLNode* cur, int flags, struct _FG_SKIN_BASE* root, const char* path, const char** id, fgKeyValueArray* userdata);
+extern int fgStyle_NodeEvalTransform(const bss::XMLNode* node, fgTransform& t);
 extern fgVector* fgText_Conversion(int type, struct __VECTOR__UTF8* text8, struct __VECTOR__UTF16* text16, struct __VECTOR__UTF32* text32);
 extern void fgMenu_Show(struct _FG_MENU* self, bool show);
 extern void LList_RemoveAll(fgElement* self);
@@ -381,15 +381,15 @@ extern void LList_InsertAll(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRIC
 template<fgElement*&(*GET)(fgElement*), fgFlag FLAG>
 extern fgElement* LList_Find(fgElement* BSS_RESTRICT self);
 
-extern void fgStyle_WriteFloat(cStr& s, float abs);
-extern void fgStyle_WriteInt(cStr& s, int64_t i);
-extern void fgStyle_WriteHex(cStr& s, uint64_t i);
-extern void fgStyle_WriteAbs(cStr& s, float abs, short unit);
-extern void fgStyle_WriteCoord(cStr& s, const Coord& coord, short unit);
-extern cStr fgStyle_WriteCVec(const CVec& vec, short units);
-extern cStr fgStyle_WriteAbsRect(const AbsRect& r, short units);
-extern cStr fgStyle_WriteCRect(const CRect& r, short units);
-extern void fgStyle_WriteFlagsIterate(cStr& s, const char* type, const char* divider, fgFlag flags, bool remove);
+extern void fgStyle_WriteFloat(bss::Str& s, float abs);
+extern void fgStyle_WriteInt(bss::Str& s, int64_t i);
+extern void fgStyle_WriteHex(bss::Str& s, uint64_t i);
+extern void fgStyle_WriteAbs(bss::Str& s, float abs, short unit);
+extern void fgStyle_WriteCoord(bss::Str& s, const Coord& coord, short unit);
+extern bss::Str fgStyle_WriteCVec(const CVec& vec, short units);
+extern bss::Str fgStyle_WriteAbsRect(const AbsRect& r, short units);
+extern bss::Str fgStyle_WriteCRect(const CRect& r, short units);
+extern void fgStyle_WriteFlagsIterate(bss::Str& s, const char* type, const char* divider, fgFlag flags, bool remove);
 
 struct _FG_BOX_ORDERED_ELEMENTS_;
 
@@ -458,7 +458,7 @@ inline FABS fgLayout_ExpandY(FABS dimy, fgElement* child)
 
 struct _FG_MESSAGEQUEUE {
   ~_FG_MESSAGEQUEUE() { if(mem.load(std::memory_order_acquire)) free(mem.load(std::memory_order_acquire)); }
-  bss_util::RWLock lock;
+  bss::RWLock lock;
   std::atomic<size_t> length;
   std::atomic<size_t> capacity;
   std::atomic<void*> mem;

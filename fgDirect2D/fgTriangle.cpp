@@ -5,7 +5,7 @@
 #include <initguid.h>
 #include "fgTriangle.h"
 #include "fgDirect2D_fgTriangle.h"
-#include "bss-util/bss_defines.h"
+#include "bss-util/defines.h"
 #include <utility>
 #include <memory>
 

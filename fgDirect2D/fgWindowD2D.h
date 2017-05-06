@@ -14,11 +14,11 @@ struct fgWindowD2D {
   fgContext context;
   HWND__* handle;
   fgIntVec dpi;
-  bss_util::LLBase<fgWindowD2D> list;
+  bss::LLBase<fgWindowD2D> list;
 
   static longptr_t __stdcall WndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam);
   static fgWindowD2D* windowlist;
-  static BSS_FORCEINLINE bss_util::LLBase<fgWindowD2D>& GETNODE(fgWindowD2D* n) { return n->list; }
+  static BSS_FORCEINLINE bss::LLBase<fgWindowD2D>& GETNODE(fgWindowD2D* n) { return n->list; }
 };
 
 #ifdef  __cplusplus

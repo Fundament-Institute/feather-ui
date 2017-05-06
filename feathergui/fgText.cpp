@@ -3,7 +3,7 @@
 
 #include "fgText.h"
 #include "feathercpp.h"
-#include "bss-util/cDynArray.h"
+#include "bss-util/DynArray.h"
 #include <math.h>
 
 fgElement* fgText_Create(char* text, fgFont font, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
@@ -16,9 +16,9 @@ fgElement* fgText_Create(char* text, fgFont font, unsigned int color, fgElement*
 }
 void fgText_Init(fgText* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
-  static_assert(sizeof(fgVectorUTF8) == sizeof(bss_util::cDynArray<char>), "DynArray size mismatch");
-  static_assert(sizeof(fgVectorUTF16) == sizeof(bss_util::cDynArray<wchar_t>), "DynArray size mismatch");
-  static_assert(sizeof(fgVectorUTF32) == sizeof(bss_util::cDynArray<int>), "DynArray size mismatch");
+  static_assert(sizeof(fgVectorUTF8) == sizeof(bss::DynArray<char>), "DynArray size mismatch");
+  static_assert(sizeof(fgVectorUTF16) == sizeof(bss::DynArray<wchar_t>), "DynArray size mismatch");
+  static_assert(sizeof(fgVectorUTF32) == sizeof(bss::DynArray<int>), "DynArray size mismatch");
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgText_Destroy, (fgMessage)&fgText_Message);
 }
 
@@ -48,9 +48,9 @@ void fgText_Destroy(fgText* self)
   self->font = 0;
   fgElement_Destroy(&self->element);
   fgText_WipeDynText(self);
-  ((bss_util::cDynArray<int>*)&self->text32)->~cDynArray();
-  ((bss_util::cDynArray<wchar_t>*)&self->text16)->~cDynArray();
-  ((bss_util::cDynArray<char>*)&self->text8)->~cDynArray();
+  ((bss::DynArray<int>*)&self->text32)->~DynArray();
+  ((bss::DynArray<wchar_t>*)&self->text16)->~DynArray();
+  ((bss::DynArray<char>*)&self->text8)->~DynArray();
 }
 
 inline fgVector* fgText_Conversion(int type, fgVectorUTF8* text8, fgVectorUTF16* text16, fgVectorUTF32* text32)
@@ -64,14 +64,14 @@ inline fgVector* fgText_Conversion(int type, fgVectorUTF8* text8, fgVectorUTF16*
     {
       assert(!text16->p[text16->l - 1]);
       size_t len = fgUTF16toUTF8(text16->p, text16->l, 0, 0);
-      ((bss_util::cDynArray<char>*)text8)->Reserve(len);
+      ((bss::DynArray<char>*)text8)->Reserve(len);
       text8->l = fgUTF16toUTF8(text16->p, text16->l, text8->p, text8->s);
     }
     if(text32->l)
     {
       assert(!text32->p[text32->l - 1]);
       size_t len = fgUTF32toUTF8(text32->p, text32->l, 0, 0);
-      ((bss_util::cDynArray<char>*)text8)->Reserve(len);
+      ((bss::DynArray<char>*)text8)->Reserve(len);
       text8->l = fgUTF32toUTF8(text32->p, text32->l, text8->p, text8->s);
     }
     return reinterpret_cast<fgVector*>(text8);
@@ -82,14 +82,14 @@ inline fgVector* fgText_Conversion(int type, fgVectorUTF8* text8, fgVectorUTF16*
     {
       assert(!text8->p[text8->l - 1]);
       size_t len = fgUTF8toUTF16(text8->p, text8->l, 0, 0);
-      ((bss_util::cDynArray<wchar_t>*)text16)->Reserve(len);
+      ((bss::DynArray<wchar_t>*)text16)->Reserve(len);
       text16->l = fgUTF8toUTF16(text8->p, text8->l, text16->p, text16->s);
     }
     if(text32->l)
     {
       assert(!text32->p[text32->l - 1]);
       size_t len = fgUTF32toUTF16(text32->p, text32->l, 0, 0);
-      ((bss_util::cDynArray<wchar_t>*)text16)->Reserve(len);
+      ((bss::DynArray<wchar_t>*)text16)->Reserve(len);
       text16->l = fgUTF32toUTF16(text32->p, text32->l, text16->p, text16->s);
     }
     return reinterpret_cast<fgVector*>(text16);
@@ -100,14 +100,14 @@ inline fgVector* fgText_Conversion(int type, fgVectorUTF8* text8, fgVectorUTF16*
     {
       assert(!text8->p[text8->l - 1]);
       size_t len = fgUTF8toUTF32(text8->p, text8->l, 0, 0);
-      ((bss_util::cDynArray<int>*)text32)->Reserve(len);
+      ((bss::DynArray<int>*)text32)->Reserve(len);
       text32->l = fgUTF8toUTF32(text8->p, text8->l, text32->p, text32->s);
     }
     if(text16->l)
     {
       assert(!text16->p[text16->l - 1]);
       size_t len = fgUTF16toUTF32(text16->p, text16->l, 0, 0);
-      ((bss_util::cDynArray<int>*)text32)->Reserve(len);
+      ((bss::DynArray<int>*)text32)->Reserve(len);
       text32->l = fgUTF16toUTF32(text16->p, text16->l, text32->p, text32->s);
     }
     return reinterpret_cast<fgVector*>(text32);
@@ -131,9 +131,9 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
       fgText* hold = reinterpret_cast<fgText*>(msg->e);
       memsubset<fgText, fgElement>(hold, 0);
       fgText_WipeDynText(self);
-      reinterpret_cast<bss_util::cDynArray<int>&>(hold->text32) = reinterpret_cast<bss_util::cDynArray<int>&>(self->text32);
-      reinterpret_cast<bss_util::cDynArray<wchar_t>&>(hold->text16) = reinterpret_cast<bss_util::cDynArray<wchar_t>&>(self->text16);
-      reinterpret_cast<bss_util::cDynArray<char>&>(hold->text8) = reinterpret_cast<bss_util::cDynArray<char>&>(self->text8);
+      reinterpret_cast<bss::DynArray<int>&>(hold->text32) = reinterpret_cast<bss::DynArray<int>&>(self->text32);
+      reinterpret_cast<bss::DynArray<wchar_t>&>(hold->text16) = reinterpret_cast<bss::DynArray<wchar_t>&>(self->text16);
+      reinterpret_cast<bss::DynArray<char>&>(hold->text8) = reinterpret_cast<bss::DynArray<char>&>(self->text8);
       if(self->font)
         hold->font = fgroot_instance->backend.fgCloneFont(self->font, 0);
       hold->color = self->color;
@@ -144,22 +144,22 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
     return sizeof(fgText);
   case FG_SETTEXT:
     fgText_WipeDynText(self);
-    ((bss_util::cDynArray<int>*)&self->text32)->Clear();
-    ((bss_util::cDynArray<wchar_t>*)&self->text16)->Clear();
-    ((bss_util::cDynArray<char>*)&self->text8)->Clear();
+    ((bss::DynArray<int>*)&self->text32)->Clear();
+    ((bss::DynArray<wchar_t>*)&self->text16)->Clear();
+    ((bss::DynArray<char>*)&self->text8)->Clear();
     if(msg->p)
     {
       switch(msg->subtype)
       {
       case FGTEXTFMT_UTF8:
-        ((bss_util::cDynArray<char>*)&self->text8)->operator=(bss_util::cArraySlice<const char>((const char*)msg->p, !msg->u2 ? (strlen((const char*)msg->p) + 1) : msg->u2));
+        ((bss::DynArray<char>*)&self->text8)->operator=(bss::ArraySlice<const char>((const char*)msg->p, !msg->u2 ? (strlen((const char*)msg->p) + 1) : msg->u2));
         break;
       case FGTEXTFMT_DYNAMIC_UTF8:
         self->text8.p = (char*)msg->p;
         self->text8.l = !msg->u2 ? (strlen((const char*)msg->p) + 1) : msg->u2;
         break;
       case FGTEXTFMT_UTF16:
-        ((bss_util::cDynArray<wchar_t>*)&self->text16)->operator=(bss_util::cArraySlice<const wchar_t>((const wchar_t*)msg->p, !msg->u2 ? (wcslen((const wchar_t*)msg->p) + 1) : msg->u2));
+        ((bss::DynArray<wchar_t>*)&self->text16)->operator=(bss::ArraySlice<const wchar_t>((const wchar_t*)msg->p, !msg->u2 ? (wcslen((const wchar_t*)msg->p) + 1) : msg->u2));
         break;
       case FGTEXTFMT_DYNAMIC_UTF16:
         self->text16.p = (wchar_t*)msg->p;
@@ -178,7 +178,7 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
           self->text32.l = len;
         }
         else
-          ((bss_util::cDynArray<int>*)&self->text32)->operator=(bss_util::cArraySlice<const int>((const int*)msg->p, len));
+          ((bss::DynArray<int>*)&self->text32)->operator=(bss::ArraySlice<const int>((const int*)msg->p, len));
       }
         break;
       }

@@ -15,12 +15,12 @@ void fgTextbox_Destroy(fgTextbox* self)
   if(self->font != 0) fgroot_instance->backend.fgDestroyFont(self->font);
   if(self->validation != 0) fgFreeText(self->validation, __FILE__, __LINE__);
   if(self->formatting != 0) fgFreeText(self->formatting, __FILE__, __LINE__);
-  ((bss_util::cDynArray<int>*)&self->text32)->~cDynArray();
-  ((bss_util::cDynArray<wchar_t>*)&self->text16)->~cDynArray();
-  ((bss_util::cDynArray<char>*)&self->text8)->~cDynArray();
-  ((bss_util::cDynArray<int>*)&self->placeholder32)->~cDynArray();
-  ((bss_util::cDynArray<wchar_t>*)&self->placeholder16)->~cDynArray();
-  ((bss_util::cDynArray<char>*)&self->placeholder8)->~cDynArray();
+  ((bss::DynArray<int>*)&self->text32)->~DynArray();
+  ((bss::DynArray<wchar_t>*)&self->text16)->~DynArray();
+  ((bss::DynArray<char>*)&self->text8)->~DynArray();
+  ((bss::DynArray<int>*)&self->placeholder32)->~DynArray();
+  ((bss::DynArray<wchar_t>*)&self->placeholder16)->~DynArray();
+  ((bss::DynArray<char>*)&self->placeholder8)->~DynArray();
 
   self->scroll->message = (fgMessage)fgScrollbar_Message;
   fgScrollbar_Destroy(&self->scroll);
@@ -39,11 +39,11 @@ inline size_t fgTextbox_DeleteSelection(fgTextbox* self)
   assert(self->text32.p != 0);
   if(self->start > self->end)
   {
-    bss_util::rswap(self->start, self->end);
-    bss_util::rswap(self->startpos, self->endpos);
+    bss::rswap(self->start, self->end);
+    bss::rswap(self->startpos, self->endpos);
   }
 
-  bss_util::RemoveRangeSimple<int>(self->text32.p, self->text32.l, self->start, self->end - self->start);
+  bss::RemoveRangeSimple<int>(self->text32.p, self->text32.l, self->start, self->end - self->start);
   self->text32.l -= self->end - self->start;
   self->text32.p[self->text32.l - 1] = 0;
   self->text16.l = 0;
@@ -101,11 +101,11 @@ inline size_t fgTextbox_fixindex(fgTextbox* self, AbsVec pos, AbsVec* cursor)
 inline void fgTextbox_Insert(fgTextbox* self, size_t start, const int* s, size_t len)
 {
   if(!s[len - 1]) --len; // We cannot insert a null pointer in the middle of our text, so remove it if it exists.
-  ((bss_util::cDynArray<int>*)&self->text32)->Reserve(self->text32.l + len + 1);
+  ((bss::DynArray<int>*)&self->text32)->Reserve(self->text32.l + len + 1);
   if(!self->text32.l) // If empty, initialize with null pointer
-    ((bss_util::cDynArray<int>*)&self->text32)->Add(0);
+    ((bss::DynArray<int>*)&self->text32)->Add(0);
   assert(self->text32.p != 0);
-  bss_util::InsertRangeSimple<int>(self->text32.p, self->text32.l, start, s, len);
+  bss::InsertRangeSimple<int>(self->text32.p, self->text32.l, start, s, len);
   self->text32.l += len;
   self->text32.p[self->text32.l - 1] = 0;
   self->text16.l = 0;
@@ -175,12 +175,12 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
     {
       fgTextbox* hold = reinterpret_cast<fgTextbox*>(msg->e);
       memsubset<fgTextbox, fgScrollbar>(hold, 0);
-      reinterpret_cast<bss_util::cDynArray<int>&>(hold->text32) = reinterpret_cast<bss_util::cDynArray<int>&>(self->text32);
-      reinterpret_cast<bss_util::cDynArray<wchar_t>&>(hold->text16) = reinterpret_cast<bss_util::cDynArray<wchar_t>&>(self->text16);
-      reinterpret_cast<bss_util::cDynArray<char>&>(hold->text8) = reinterpret_cast<bss_util::cDynArray<char>&>(self->text8);
-      reinterpret_cast<bss_util::cDynArray<int>&>(hold->placeholder32) = reinterpret_cast<bss_util::cDynArray<int>&>(self->placeholder32);
-      reinterpret_cast<bss_util::cDynArray<wchar_t>&>(hold->placeholder16) = reinterpret_cast<bss_util::cDynArray<wchar_t>&>(self->placeholder16);
-      reinterpret_cast<bss_util::cDynArray<char>&>(hold->placeholder8) = reinterpret_cast<bss_util::cDynArray<char>&>(self->placeholder8);
+      reinterpret_cast<bss::DynArray<int>&>(hold->text32) = reinterpret_cast<bss::DynArray<int>&>(self->text32);
+      reinterpret_cast<bss::DynArray<wchar_t>&>(hold->text16) = reinterpret_cast<bss::DynArray<wchar_t>&>(self->text16);
+      reinterpret_cast<bss::DynArray<char>&>(hold->text8) = reinterpret_cast<bss::DynArray<char>&>(self->text8);
+      reinterpret_cast<bss::DynArray<int>&>(hold->placeholder32) = reinterpret_cast<bss::DynArray<int>&>(self->placeholder32);
+      reinterpret_cast<bss::DynArray<wchar_t>&>(hold->placeholder16) = reinterpret_cast<bss::DynArray<wchar_t>&>(self->placeholder16);
+      reinterpret_cast<bss::DynArray<char>&>(hold->placeholder8) = reinterpret_cast<bss::DynArray<char>&>(self->placeholder8);
       if(self->font)
         hold->font = fgroot_instance->backend.fgCloneFont(self->font, 0);
       hold->color = self->color;
@@ -357,25 +357,25 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
   case FG_SETTEXT:
     if(msg->subtype <= FGTEXTFMT_UTF32)
     {
-      ((bss_util::cDynArray<int>*)&self->text32)->Clear();
-      ((bss_util::cDynArray<wchar_t>*)&self->text16)->Clear();
-      ((bss_util::cDynArray<char>*)&self->text8)->Clear();
+      ((bss::DynArray<int>*)&self->text32)->Clear();
+      ((bss::DynArray<wchar_t>*)&self->text16)->Clear();
+      ((bss::DynArray<char>*)&self->text8)->Clear();
     }
     else if(msg->subtype <= FGTEXTFMT_PLACEHOLDER_UTF32)
     {
-      ((bss_util::cDynArray<int>*)&self->placeholder32)->Clear();
-      ((bss_util::cDynArray<wchar_t>*)&self->placeholder16)->Clear();
-      ((bss_util::cDynArray<char>*)&self->placeholder8)->Clear();
+      ((bss::DynArray<int>*)&self->placeholder32)->Clear();
+      ((bss::DynArray<wchar_t>*)&self->placeholder16)->Clear();
+      ((bss::DynArray<char>*)&self->placeholder8)->Clear();
     }
     if(msg->p)
     {
       switch(msg->subtype)
       {
       case FGTEXTFMT_UTF8:
-        ((bss_util::cDynArray<char>*)&self->text8)->operator=(bss_util::cArraySlice<const char>((const char*)msg->p, !msg->u2 ? (strlen((const char*)msg->p) + 1) : msg->u2));
+        ((bss::DynArray<char>*)&self->text8)->operator=(bss::ArraySlice<const char>((const char*)msg->p, !msg->u2 ? (strlen((const char*)msg->p) + 1) : msg->u2));
         break;
       case FGTEXTFMT_UTF16:
-        ((bss_util::cDynArray<wchar_t>*)&self->text16)->operator=(bss_util::cArraySlice<const wchar_t>((const wchar_t*)msg->p, !msg->u2 ? (wcslen((const wchar_t*)msg->p) + 1) : msg->u2));
+        ((bss::DynArray<wchar_t>*)&self->text16)->operator=(bss::ArraySlice<const wchar_t>((const wchar_t*)msg->p, !msg->u2 ? (wcslen((const wchar_t*)msg->p) + 1) : msg->u2));
         break;
       case FGTEXTFMT_UTF32:
       {
@@ -383,14 +383,14 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
         size_t len = msg->u2;
         if(!len)
           while(txt[len++] != 0);
-        ((bss_util::cDynArray<int>*)&self->text32)->operator=(bss_util::cArraySlice<const int>((const int*)msg->p, len));
+        ((bss::DynArray<int>*)&self->text32)->operator=(bss::ArraySlice<const int>((const int*)msg->p, len));
       }
       break;
       case FGTEXTFMT_PLACEHOLDER_UTF8:
-        ((bss_util::cDynArray<char>*)&self->placeholder8)->operator=(bss_util::cArraySlice<const char>((const char*)msg->p, !msg->u2 ? (strlen((const char*)msg->p) + 1) : msg->u2));
+        ((bss::DynArray<char>*)&self->placeholder8)->operator=(bss::ArraySlice<const char>((const char*)msg->p, !msg->u2 ? (strlen((const char*)msg->p) + 1) : msg->u2));
         break;
       case FGTEXTFMT_PLACEHOLDER_UTF16:
-        ((bss_util::cDynArray<wchar_t>*)&self->placeholder16)->operator=(bss_util::cArraySlice<const wchar_t>((const wchar_t*)msg->p, !msg->u2 ? (wcslen((const wchar_t*)msg->p) + 1) : msg->u2));
+        ((bss::DynArray<wchar_t>*)&self->placeholder16)->operator=(bss::ArraySlice<const wchar_t>((const wchar_t*)msg->p, !msg->u2 ? (wcslen((const wchar_t*)msg->p) + 1) : msg->u2));
         break;
       case FGTEXTFMT_PLACEHOLDER_UTF32:
       {
@@ -398,7 +398,7 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
         size_t len = msg->u2;
         if(!len)
           while(txt[len++] != 0);
-        ((bss_util::cDynArray<int>*)&self->placeholder32)->operator=(bss_util::cArraySlice<const int>((const int*)msg->p, len));
+        ((bss::DynArray<int>*)&self->placeholder32)->operator=(bss::ArraySlice<const int>((const int*)msg->p, len));
       }
       break;
       case FGTEXTFMT_MASK:
@@ -584,7 +584,7 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
         (self->mask != 0 || !self->text32.l) ? 0 : self->layout);
 
       // Draw cursor
-      if(fgroot_instance->fgFocusedWindow == *self && bss_util::bssfmod(fgroot_instance->time - self->lastclick, fgroot_instance->cursorblink * 2) < fgroot_instance->cursorblink)
+      if(fgroot_instance->fgFocusedWindow == *self && bss::bssFMod(fgroot_instance->time - self->lastclick, fgroot_instance->cursorblink * 2) < fgroot_instance->cursorblink)
       {
         AbsVec snappos = { roundf(self->startpos.x), roundf(self->startpos.y) };
         AbsVec lines[2] = { snappos, { snappos.x, snappos.y + self->curlineheight } };

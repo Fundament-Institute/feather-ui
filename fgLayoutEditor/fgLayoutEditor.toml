@@ -1,0 +1,10 @@
+[editor]
+showgrid = false
+showcrosshairs = false
+showrulers = true
+showcursors = true
+snaptogrid = false
+snapnear = true
+showwireframe = false
+recent = []
+

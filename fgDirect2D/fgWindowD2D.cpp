@@ -20,7 +20,7 @@ void fgWindowD2D_Init(fgWindowD2D* self, fgElement* BSS_RESTRICT parent, fgEleme
   else
   {
     self->list.next = self->list.prev = 0;
-    bss_util::AltLLAdd<fgWindowD2D, fgWindowD2D::GETNODE>(self, fgWindowD2D::windowlist);
+    bss::AltLLAdd<fgWindowD2D, fgWindowD2D::GETNODE>(self, fgWindowD2D::windowlist);
     fgElement_InternalSetup(self->window, parent, next, name, flags, transform, units, (fgDestroy)&fgWindowD2D_Destroy, (fgMessage)&fgWindowD2D_Message);
   }
 }
@@ -28,7 +28,7 @@ void fgWindowD2D_Destroy(fgWindowD2D* self)
 {
   fgContext_Destroy(&self->context);
 
-  bss_util::AltLLRemove<fgWindowD2D, fgWindowD2D::GETNODE>(self, fgWindowD2D::windowlist);
+  bss::AltLLRemove<fgWindowD2D, fgWindowD2D::GETNODE>(self, fgWindowD2D::windowlist);
   if(!fgWindowD2D::windowlist)
     PostQuitMessage(0);
 

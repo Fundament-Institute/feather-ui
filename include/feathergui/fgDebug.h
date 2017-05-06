@@ -88,6 +88,7 @@ typedef struct _FG_DEBUG {
   fgVectorUTF32 text32;
   fgVectorUTF16 text16;
   fgVectorUTF8 text8;
+  AbsVec lastscroll;
 
 #ifdef  __cplusplus
   inline operator fgElement*() { return &tabs.control.element; }

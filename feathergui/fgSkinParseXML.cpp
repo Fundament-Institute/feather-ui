@@ -4,12 +4,12 @@
 #include "fgSkin.h"
 #include "fgAll.h"
 #include "feathercpp.h"
-#include "bss-util/cXML.h"
-#include "bss-util/cTrie.h"
+#include "bss-util/XML.h"
+#include "bss-util/Trie.h"
 #include <fstream>
 #include <sstream>
 
-using namespace bss_util;
+using namespace bss;
 
 char* fgSkin_ParseFontFamily(char* s, char quote, char** context)
 {
@@ -38,15 +38,15 @@ char* fgSkin_ParseFontFamily(char* s, char quote, char** context)
   return s;
 }
 
-int fgStyle_NodeEvalTransform(const cXMLNode* node, fgTransform& t)
+int fgStyle_NodeEvalTransform(const XMLNode* node, fgTransform& t)
 {
-  static cTrie<uint16_t, true> attr(9, "area", "center", "rotation", "left", "top", "right", "bottom", "width", "height");
+  static Trie<uint16_t, true> attr(9, "area", "center", "rotation", "left", "top", "right", "bottom", "width", "height");
   int flags = 0;
   bool hastransform = false;
 
   for(size_t i = 0; i < node->GetAttributes(); ++i)
   {
-    const cXMLValue* a = node->GetAttribute(i);
+    const XMLValue* a = node->GetAttribute(i);
     switch(attr[a->Name.c_str()])
     {
     case 0:
@@ -90,7 +90,7 @@ int fgStyle_NodeEvalTransform(const cXMLNode* node, fgTransform& t)
   return flags;
 }
 
-uint32_t fgStyle_ParseColor(const cXMLValue* attr)
+uint32_t fgStyle_ParseColor(const XMLValue* attr)
 {
   fgColor color;
   color.color = attr->Integer;
@@ -106,14 +106,14 @@ uint32_t fgStyle_ParseColor(const cXMLValue* attr)
   }
   return color.color;
 }
-void fgStyle_ParseAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, fgSkinBase* root, const char* path, const char** id, fgKeyValueArray* userdata)
+void fgStyle_ParseAttributesXML(fgStyle* self, const XMLNode* cur, int flags, fgSkinBase* root, const char* path, const char** id, fgKeyValueArray* userdata)
 {
-  static cTrie<uint16_t, true> t(48, "id", "min-width", "min-height", "max-width", "max-height", "skin", "alpha", "margin", "padding", "text",
+  static Trie<uint16_t, true> t(48, "id", "min-width", "min-height", "max-width", "max-height", "skin", "alpha", "margin", "padding", "text",
     "placeholder", "color", "placecolor", "cursorcolor", "selectcolor", "hovercolor", "dragcolor", "edgecolor", "dividercolor", "columndividercolor", 
     "font", "lineheight", "letterspacing", "value", "uv", "asset", "outline", "area", "center", "rotation", "left", "top", "right", "bottom", "width",
     "height", "name", "flags", "order", "inherit", "range", "splitter", "contextmenu", "reorder", "style", "xmlns:xsi", "xmlns:fg", "xsi:schemaLocation");
-  static cTrie<uint16_t, true> tvalue(5, "checkbox", "curve", "progressbar", "radiobutton", "slider");
-  static cTrie<uint16_t, true> tenum(5, "true", "false", "none", "checked", "indeterminate");
+  static Trie<uint16_t, true> tvalue(5, "checkbox", "curve", "progressbar", "radiobutton", "slider");
+  static Trie<uint16_t, true> tenum(5, "true", "false", "none", "checked", "indeterminate");
 
   int minflags = 0x8000000;
   AbsVec mindim = { -1, -1 };
@@ -122,7 +122,7 @@ void fgStyle_ParseAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, f
 
   for(size_t i = 0; i < cur->GetAttributes(); ++i)
   {
-    const cXMLValue* attr = cur->GetAttribute(i);
+    const XMLValue* attr = cur->GetAttribute(i);
     const uint16_t ID = t[attr->Name.c_str()];
 
     switch(ID)
@@ -157,11 +157,11 @@ void fgStyle_ParseAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, f
       if(!skin) // Attempt loading it as an absolute XML path
         skin = fgSkinBase_LoadFileXML(root, attr->String);
       if(!skin) // relative XML path
-        skin = fgSkinBase_LoadFileXML(root, cStr(path) + attr->String);
+        skin = fgSkinBase_LoadFileXML(root, Str(path) + attr->String);
       if(!skin) // absolute UBJSON path
         skin = fgSkinBase_LoadFileUBJSON(root, attr->String);
       if(!skin) // relative UBJSON path
-        skin = fgSkinBase_LoadFileUBJSON(root, cStr(path) + attr->String);
+        skin = fgSkinBase_LoadFileUBJSON(root, Str(path) + attr->String);
       if(skin)
         AddStyleMsg<FG_SETSKIN, void*>(self, skin);
     }
@@ -358,7 +358,7 @@ void fgStyle_ParseAttributesXML(fgStyle* self, const cXMLNode* cur, int flags, f
 
 fgFlag fgSkinBase_ParseFlagsFromString(const char* s, fgFlag* remove, int divider)
 {
-  static cTrie<uint16_t, true> t(54, "BACKGROUND", "NOCLIP", "IGNORE", "HIDDEN", "SILENT", "EXPANDX", "EXPANDY", "DISABLE", "SNAPX", "SNAPY", "HIDEH",
+  static Trie<uint16_t, true> t(54, "BACKGROUND", "NOCLIP", "IGNORE", "HIDDEN", "SILENT", "EXPANDX", "EXPANDY", "DISABLE", "SNAPX", "SNAPY", "HIDEH",
     "HIDEV", "SHOWH", "SHOWV", "IGNOREMARGINEDGEX", "IGNOREMARGINEDGEY", "TILEX", "TILEY", "DISTRIBUTEX", "DISTRIBUTEY", "SINGLESELECT", "MULTISELECT",
     "DRAGGABLE", "HIDEH", "HIDEV", "SHOWH", "SHOWV", "CHARWRAP", "WORDWRAP", "ELLIPSES", "RTL", "RIGHTALIGN", "CENTER", "SUBPIXEL", "ACTION",
     "SINGLELINE", "NOFOCUS", "RECT", "CIRCLE", "LINE", "QUADRATIC", "CUBIC", "BSPLINE", "MINIMIZABLE", "MAXIMIZABLE", "RESIZABLE",
@@ -442,7 +442,7 @@ fgSkin* fgSkinBase_GetInherit(fgSkinBase* self, const char* inherit)
 }
 
 // Styles parse flags differently - the attributes use the parent flags for resource/font loading, then creates add and remove flag messages
-void fgSkinBase_ParseStyleNodeXML(fgSkinBase* self, fgStyle* style, fgFlag rootflags, const cXMLNode* cur)
+void fgSkinBase_ParseStyleNodeXML(fgSkinBase* self, fgStyle* style, fgFlag rootflags, const XMLNode* cur)
 {
   fgStyle_ParseAttributesXML(style, cur, rootflags, self, 0, 0, 0);
   fgFlag remove = 0;
@@ -453,7 +453,7 @@ void fgSkinBase_ParseStyleNodeXML(fgSkinBase* self, fgStyle* style, fgFlag rootf
     AddStyleMsg<FG_SETFLAG, ptrdiff_t, size_t>(style, add, 1);
 }
 
-void fgSkinBase_ParseSubNodeXML(fgSkinTree* tree, fgStyle* style, fgSkinBase* root, fgSkin* skin, const cXMLNode* cur)
+void fgSkinBase_ParseSubNodeXML(fgSkinTree* tree, fgStyle* style, fgSkinBase* root, fgSkin* skin, const XMLNode* cur)
 {
   fgFlag remove = 0;
   fgFlag rootflags = fgSkinBase_ParseFlagsFromString(cur->GetAttributeString("flags"), &remove, '|');
@@ -473,7 +473,7 @@ void fgSkinBase_ParseSubNodeXML(fgSkinTree* tree, fgStyle* style, fgSkinBase* ro
 
   for(size_t i = 0; i < cur->GetNodes(); ++i)
   {
-    const cXMLNode* node = cur->GetNode(i);
+    const XMLNode* node = cur->GetNode(i);
     if(skin != nullptr && !STRICMP(node->GetName(), "skin"))
       fgSkinBase_ParseNodeXML(&skin->base, node);
     else if(!STRICMP(node->GetName(), "style"))
@@ -493,7 +493,7 @@ void fgSkinBase_ParseSubNodeXML(fgSkinTree* tree, fgStyle* style, fgSkinBase* ro
   }
 }
 
-fgSkin* fgSkinBase_ParseNodeXML(fgSkinBase* self, const cXMLNode* root)
+fgSkin* fgSkinBase_ParseNodeXML(fgSkinBase* self, const XMLNode* root)
 {
   const char* id = root->GetAttributeString("id");
   if(!id)
@@ -507,9 +507,9 @@ fgSkin* fgSkinBase_ParseNodeXML(fgSkinBase* self, const cXMLNode* root)
 
 fgSkin* fgSkinBase_ParseStreamXML(fgSkinBase* self, std::istream& s)
 {
-  cXML xml(s);
+  XMLFile xml(s);
   size_t index = 0;
-  const cXMLNode* root;
+  const XMLNode* root;
   fgSkin* ret = 0;
 
   while(root = xml.GetNode(index++))

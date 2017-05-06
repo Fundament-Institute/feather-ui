@@ -589,7 +589,6 @@ xcopy "..\include\feathergui\*.h" "$(VcpkgRoot)include\feathergui" /c /y /q /i /
   <ItemGroup>
     <ClCompile Include="ccheck.c" />
     <ClCompile Include="ConvertUTF.c" />
-    <ClCompile Include="cXML.cpp" />
     <ClCompile Include="feathergui.cpp" />
     <ClCompile Include="fgBox.cpp" />
     <ClCompile Include="fgButton.cpp" />
@@ -626,6 +625,7 @@ xcopy "..\include\feathergui\*.h" "$(VcpkgRoot)include\feathergui" /c /y /q /i /
     <ClCompile Include="fgControl.cpp" />
     <ClCompile Include="fgMonitor.cpp" />
     <ClCompile Include="fgWorkspace.cpp" />
+    <ClCompile Include="XML.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

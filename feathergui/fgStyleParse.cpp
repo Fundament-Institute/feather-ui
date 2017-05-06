@@ -2,7 +2,7 @@
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #include "fgStyle.h"
-#include "bss-util/bss_defines.h"
+#include "bss-util/defines.h"
 #include <ctype.h>
 #include <stdlib.h>
 #include <malloc.h>

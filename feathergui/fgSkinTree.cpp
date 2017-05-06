@@ -6,12 +6,12 @@
 
 char CompStylePair(const fgSkinTree::fgStylePair& l, const fgSkinTree::fgStylePair& r)
 {
-  uint8_t lb = bss_util::bitcount(l.map);
-  uint8_t rb = bss_util::bitcount(r.map);
+  uint8_t lb = bss::BitCount(l.map);
+  uint8_t rb = bss::BitCount(r.map);
   char ret = SGNCOMPARE(rb, lb);
   return !ret ? SGNCOMPARE(r.map, l.map) : ret;
 }
-typedef bss_util::cArraySort<fgSkinTree::fgStylePair, &CompStylePair> StyleArraySort;
+typedef bss::ArraySort<fgSkinTree::fgStylePair, &CompStylePair> StyleArraySort;
 
 void fgSkinElement_Init(fgSkinElement* self, const char* type, fgFlag flags, const fgTransform* transform, short units, int order)
 {
@@ -34,7 +34,7 @@ void fgSkinTree_Init(fgSkinTree* self)
 }
 void fgSkinTree_Destroy(fgSkinTree* self)
 {
-  reinterpret_cast<fgSkinLayoutArray&>(self->children).~cArraySort();
+  reinterpret_cast<fgSkinLayoutArray&>(self->children).~ArraySort();
 
   for(size_t i = 0; i < self->styles.l; ++i)
     fgStyle_Destroy(&self->styles.p[i].style);

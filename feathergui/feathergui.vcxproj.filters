@@ -196,9 +196,6 @@
     <ClCompile Include="ConvertUTF.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="cXML.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="fgCurve.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -245,6 +242,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="fgStyleParse.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="XML.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

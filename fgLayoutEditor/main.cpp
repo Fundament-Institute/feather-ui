@@ -67,7 +67,7 @@ int Listdir(const wchar_t* cdir, bool(*fn)(const wchar_t*), char flags)
 
   struct stat st;
   struct dirent* dent;
-  cStr dir(path);
+  Str dir(path);
   if(dir[dir.length() - 1] == '\\') dir.UnsafeString()[dir.length() - 1] = '/';
   if(dir[dir.length() - 1] != '/') dir += '/';
 
@@ -77,7 +77,7 @@ int Listdir(const wchar_t* cdir, bool(*fn)(const wchar_t*), char flags)
       continue;
     if(fstatat(dirfd(srcdir), dent->d_name, &st, 0) == 0)
     {
-      cStr sdir(dir + dent->d_name);
+      Str sdir(dir + dent->d_name);
       if(S_ISDIR(st.st_mode))
       {
         if(flags & 2) if(fn(sdir.c_str())) break;
@@ -141,13 +141,13 @@ int main(int argc, char** argv)
 
   if(settingsfile.good())
   {
-    bss_util::cSerializer<bss_util::TOMLEngine> serializer;
+    bss::cSerializer<bss::TOMLEngine> serializer;
     serializer.Parse(settings, settingsfile, "editor");
   }
   else
   {
     std::ofstream settingsout("fgLayoutEditor.toml", std::ios_base::binary | std::ios_base::out);
-    bss_util::cSerializer<bss_util::TOMLEngine> serializer;
+    bss::cSerializer<bss::TOMLEngine> serializer;
     serializer.Serialize(settings, settingsout, "editor");
   }
 

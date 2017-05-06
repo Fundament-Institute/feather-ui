@@ -4,7 +4,7 @@
 #include "fgCurve.h"
 #include "feathercpp.h"
 
-using namespace bss_util;
+using namespace bss;
 
 fgElement* fgCurve_Create(const AbsVec* points, size_t npoints, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
 {
@@ -21,8 +21,8 @@ void fgCurve_Init(fgCurve* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_
 
 void fgCurve_Destroy(fgCurve* self)
 {
-  reinterpret_cast<cDynArray<AbsVec>&>(self->points).~cDynArray();
-  reinterpret_cast<cDynArray<AbsVec>&>(self->cache).~cDynArray();
+  reinterpret_cast<DynArray<AbsVec>&>(self->points).~DynArray();
+  reinterpret_cast<DynArray<AbsVec>&>(self->cache).~DynArray();
   self->element.message = (fgMessage)&fgElement_Message;
   fgElement_Destroy(&self->element);
 }
@@ -58,7 +58,7 @@ void fgCurve_GenCubic(fgCurve* self, AbsVec* p)
   double d3 = fabs(((p[2].x - p[3].x) * dy - (p[2].y - p[3].y) * dx));
 
   if((d2 + d3)*(d2 + d3) < self->factor * (dx*dx + dy*dy))
-    reinterpret_cast<cDynArray<AbsVec>&>(self->cache).Add(s1[3]);
+    reinterpret_cast<DynArray<AbsVec>&>(self->cache).Add(s1[3]);
   else
   {
     fgCurve_GenCubic(self, s1);
@@ -83,7 +83,7 @@ size_t fgCurve_Message(fgCurve* self, const FG_Msg* msg)
       memsubset<fgCurve, fgElement>(hold, 0);
       hold->color = self->color;
       hold->factor = self->factor;
-      reinterpret_cast<cDynArray<AbsVec>&>(hold->points) = reinterpret_cast<cDynArray<AbsVec>&>(self->points);
+      reinterpret_cast<DynArray<AbsVec>&>(hold->points) = reinterpret_cast<DynArray<AbsVec>&>(self->points);
       fgElement_Message(&self->element, msg);
     }
     return sizeof(fgCurve);
@@ -109,9 +109,9 @@ size_t fgCurve_Message(fgCurve* self, const FG_Msg* msg)
     return 0;
   case FG_ADDITEM:
     if(msg->u2 >= self->points.l)
-      reinterpret_cast<cDynArray<AbsVec>&>(self->points).Add(*(AbsVec*)msg->p);
+      reinterpret_cast<DynArray<AbsVec>&>(self->points).Add(*(AbsVec*)msg->p);
     else
-      reinterpret_cast<cDynArray<AbsVec>&>(self->points).Insert(*(AbsVec*)msg->p, msg->u2);
+      reinterpret_cast<DynArray<AbsVec>&>(self->points).Insert(*(AbsVec*)msg->p, msg->u2);
     self->cache.l = 0;
     break;
   case FG_GETITEM:
@@ -121,11 +121,11 @@ size_t fgCurve_Message(fgCurve* self, const FG_Msg* msg)
       return 0;
     return (size_t)(self->points.p + msg->u);
   case FG_REMOVEITEM:
-    reinterpret_cast<cDynArray<AbsVec>&>(self->points).Remove(msg->u);
+    reinterpret_cast<DynArray<AbsVec>&>(self->points).Remove(msg->u);
     self->cache.l = 0;
     break;
   case FG_SETITEM:
-    reinterpret_cast<cDynArray<AbsVec>&>(self->points).Set((AbsVec*)msg->p, msg->u2);
+    reinterpret_cast<DynArray<AbsVec>&>(self->points).Set((AbsVec*)msg->p, msg->u2);
     self->cache.l = 0;
     break;
   case FG_DRAW:
@@ -157,9 +157,9 @@ size_t fgCurve_Message(fgCurve* self, const FG_Msg* msg)
         case FGCURVE_CUBIC:
           for(size_t i = 4; i <= self->cache.l; i += 4)
           {
-            reinterpret_cast<cDynArray<AbsVec>&>(self->cache).Add(self->cache.p[i - 4]);
+            reinterpret_cast<DynArray<AbsVec>&>(self->cache).Add(self->cache.p[i - 4]);
             fgCurve_GenCubic(self, self->cache.p + i - 4);
-            reinterpret_cast<cDynArray<AbsVec>&>(self->cache).Add(self->cache.p[i - 1]);
+            reinterpret_cast<DynArray<AbsVec>&>(self->cache).Add(self->cache.p[i - 1]);
           }
           break;
         case FGCURVE_BSPLINE:

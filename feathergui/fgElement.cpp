@@ -6,7 +6,7 @@
 #include "fgLayout.h"
 #include "feathercpp.h"
 #include "bss-util/khash.h"
-#include "bss-util/cArraySort.h"
+#include "bss-util/ArraySort.h"
 #include <math.h>
 #include <limits.h>
 
@@ -17,7 +17,7 @@ const fgFlag FGELEMENT_REQUIRELINEHEIGHT = FGUNIT_EM | FGUNIT_LEFT_EM | FGUNIT_T
 template<typename U, typename V>
 BSS_FORCEINLINE char CompPairInOrder(const std::pair<U, V>& l, const std::pair<U, V>& r) { char ret = SGNCOMPARE(l.first, r.first); return !ret ? SGNCOMPARE(l.second, r.second) : ret; }
 
-bss_util::cAVLtree<std::pair<fgElement*, unsigned short>, void, &CompPairInOrder> fgListenerList;
+bss::AVLTree<std::pair<fgElement*, unsigned short>, void, &CompPairInOrder> fgListenerList;
 
 struct fgStoredMessage
 {
@@ -67,7 +67,7 @@ char CompElementMsg(const fgStoredMessage& l, const fgStoredMessage& r)
   return 0;
 }
 
-typedef bss_util::cArraySort<fgStoredMessage, &CompElementMsg, size_t, bss_util::CARRAY_CONSTRUCT> MESSAGESORT;
+typedef bss::ArraySort<fgStoredMessage, &CompElementMsg, size_t, bss::ARRAY_CONSTRUCT> MESSAGESORT;
 
 void fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units, void (*destroy)(void*), size_t(*message)(void*, const FG_Msg*))
 {
@@ -141,12 +141,12 @@ void fgElement_Destroy(fgElement* self)
     fgFreeText(self->name, __FILE__, __LINE__);
   if(self->skinstyle)
   {
-    ((MESSAGESORT*)self->skinstyle)->~cArraySort();
+    ((MESSAGESORT*)self->skinstyle)->~ArraySort();
     fgfree(self->skinstyle, __FILE__, __LINE__); // We do this instead of delete so we can use feather's leak tracker, which has to be based on C allocations anyway.
   }
   if(self->layoutstyle)
   {
-    ((MESSAGESORT*)self->layoutstyle)->~cArraySort();
+    ((MESSAGESORT*)self->layoutstyle)->~ArraySort();
     fgfree(self->layoutstyle, __FILE__, __LINE__);
   }
   fgElement_ClearListeners(self);
@@ -507,7 +507,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
     }
     return FG_ACCEPT;
   case FG_SETFLAG: // If 0 is sent in, disable the flag, otherwise enable.
-    otherint = bss_util::bssSetBit<fgFlag>(self->flags, otherint, msg->u2 != 0);
+    otherint = bss::bssSetBit<fgFlag>(self->flags, otherint, msg->u2 != 0);
   case FG_SETFLAGS:
   {
     fgFlag change = self->flags ^ (fgFlag)otherint;
@@ -1044,7 +1044,7 @@ void ResolveOuterRectCache(const fgElement* self, AbsRect* BSS_RESTRICT out, con
   AbsVec center = { self->transform.center.x.abs, self->transform.center.y.abs };
   const CRect* v = &self->transform.area;
   assert(out != 0 && self != 0 && last != 0);
-  //bss_util::lerp<sseVecT<FABS>, sseVecT<FABS>>(
+  //bss::lerp<sseVecT<FABS>, sseVecT<FABS>>(
   //  sseVecT<FABS>(last->left, last->top, last->left, last->top),
   //  sseVecT<FABS>(last->right, last->bottom, last->right, last->bottom),
   //  sseVecT<FABS>(v->left.rel, v->top.rel, v->right.rel, v->bottom.rel))
@@ -1272,7 +1272,7 @@ void fgElement_IterateUserHash(fgElement* self, void(*f)(void*, const char*, siz
   }
 }
 
-bss_util::AVL_Node<std::pair<fgElement*, unsigned short>>* fgElement_GetAnyListener(fgElement* key, bss_util::AVL_Node<std::pair<fgElement*, unsigned short>>* cur)
+bss::AVL_Node<std::pair<fgElement*, unsigned short>>* fgElement_GetAnyListener(fgElement* key, bss::AVL_Node<std::pair<fgElement*, unsigned short>>* cur)
 {
   while(cur)
   {
@@ -1288,7 +1288,7 @@ bss_util::AVL_Node<std::pair<fgElement*, unsigned short>>* fgElement_GetAnyListe
 }
 void fgElement_ClearListeners(fgElement* self)
 {
-  bss_util::AVL_Node<std::pair<fgElement*, unsigned short>>* cur;
+  bss::AVL_Node<std::pair<fgElement*, unsigned short>>* cur;
 
   while(cur = fgElement_GetAnyListener(self, fgListenerList.GetRoot()))
   {

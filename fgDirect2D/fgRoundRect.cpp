@@ -5,7 +5,7 @@
 #include <initguid.h>
 #include "fgRoundRect.h"
 #include "fgDirect2D_fgRoundRect.h"
-#include "bss-util/bss_defines.h"
+#include "bss-util/defines.h"
 #include <utility>
 #include <memory>
 

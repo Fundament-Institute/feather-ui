@@ -43,7 +43,7 @@ size_t fgWorkspace_Message(fgWorkspace* self, const FG_Msg* msg)
       self->rulers[1].message = (fgMessage)&fgWorkspace_RulerMessage;
       return FG_ACCEPT;
     case FG_SETFLAG: // If 0 is sent in, disable the flag, otherwise enable. Our internal flag is 1 if clipping disabled, 0 otherwise.
-      otherint = bss_util::bssSetBit<fgFlag>(self->scroll->flags, otherint, msg->u2 != 0);
+      otherint = bss::bssSetBit<fgFlag>(self->scroll->flags, otherint, msg->u2 != 0);
     case FG_SETFLAGS:
       if(((self->scroll->flags ^ otherint) & FGWORKSPACE_RULERX) != 0)
       {

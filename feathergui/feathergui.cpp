@@ -4,7 +4,7 @@
 #include "feathergui.h"
 #include "feathercpp.h"
 #include "fgRoot.h"
-#include "bss-util/bss_sse.h"
+#include "bss-util/sseVec.h"
 #include <limits.h>
 #include <math.h>
 
@@ -19,9 +19,9 @@ const AbsVec AbsVec_EMPTY = { 0,0 };
 const fgIntVec fgIntVec_EMPTY = { 0,0 };
 const fgIntVec fgIntVec_DEFAULTDPI = { 96,96 };
 
-bss_util::cHash<std::pair<fgElement*, unsigned short>, fgListener> fgListenerHash;
-bss_util::cHash<char*> fgStringAllocHash;
-bss_util::cHashBase<const char*, size_t, true, bss_util::KH_POINTER_HASHFUNC<const char* const&>, bss_util::KH_INT_EQUALFUNC<const char*>> fgStringRefHash;
+bss::Hash<std::pair<fgElement*, unsigned short>, fgListener> fgListenerHash;
+bss::Hash<char*> fgStringAllocHash;
+bss::HashBase<const char*, size_t, true, bss::KH_POINTER_HASHFUNC<const char* const&>, bss::KH_INT_EQUALFUNC<const char*>> fgStringRefHash;
 
 static_assert(sizeof(unsigned int) == sizeof(fgColor), "ERROR: fgColor not size of 32-bit int!");
 static_assert(sizeof(FG_Msg) <= sizeof(uint64_t) * 3, "FG_Msg is too big!");
@@ -299,7 +299,7 @@ void fgResolveDrawRect(const AbsRect* area, AbsRect* outarea, const AbsVec* cent
 }
 
 #ifdef BSS_PLATFORM_WIN32
-#include "bss-util/bss_win32_includes.h"
+#include "bss-util/win32_includes.h"
 
 size_t fgUTF8toUTF16(const char*BSS_RESTRICT input, ptrdiff_t srclen, wchar_t*BSS_RESTRICT output, size_t buflen)
 {

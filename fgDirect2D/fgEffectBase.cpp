@@ -4,7 +4,7 @@
 #include "util.h"
 #include <initguid.h>
 #include "fgEffectBase.h"
-#include "bss-util/bss_defines.h"
+#include "bss-util/defines.h"
 #include <utility>
 #include <memory>
 #include <assert.h>

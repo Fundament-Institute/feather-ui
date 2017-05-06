@@ -5,7 +5,7 @@
 #include <initguid.h>
 #include "fgCircle.h"
 #include "fgDirect2D_fgCircle.h"
-#include "bss-util/bss_defines.h"
+#include "bss-util/defines.h"
 #include <utility>
 #include <memory>
 

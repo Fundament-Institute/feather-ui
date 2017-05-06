@@ -70,7 +70,7 @@ size_t fgButton_Message(fgButton* self, const FG_Msg* msg)
       return 0;
     break;
   case FG_SETFLAG: // If 0 is sent in, disable the flag, otherwise enable. Our internal flag is 1 if clipping disabled, 0 otherwise.
-    otherint = bss_util::bssSetBit<fgFlag>(self->control.element.flags, otherint, msg->u2 != 0);
+    otherint = bss::bssSetBit<fgFlag>(self->control.element.flags, otherint, msg->u2 != 0);
   case FG_SETFLAGS:
     if((self->control.element.flags ^ (fgFlag)otherint) & FGCONTROL_DISABLE)
     {

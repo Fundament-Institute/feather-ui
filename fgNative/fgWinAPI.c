@@ -1,7 +1,7 @@
 // Copyright ©2012 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
-#include "bss-util/bss_defines.h"
+#include "bss-util/defines.h"
 
 #ifdef BSS_PLATFORM_WIN32
 #include "fgWinAPI.h"
@@ -376,7 +376,7 @@ LRESULT CALLBACK fgWindowWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
     (*_fgroot->root.fgBehaviorHook)((fgWindow*)wn,&msg);
     break;
   //default:
-  //  OutputDebugString(cStr("\n%i",message));
+  //  OutputDebugString(Str("\n%i",message));
   //  break;
   }
 

@@ -3,7 +3,7 @@
 
 #include "fgGrid.h"
 #include "feathercpp.h"
-#include "bss-util/cDynArray.h"
+#include "bss-util/DynArray.h"
 
 size_t fgPlaceholder_Message(fgElement* self, const FG_Msg* msg) { return fgElement_Message(self, msg); }
 
@@ -105,7 +105,11 @@ size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
       }
       return 0;
     case FGITEM_ROW:
-      return self->list->RemoveItem(msg->u);
+    {
+      FG_Msg m = *msg;
+      m.subtype = FGITEM_ELEMENT;
+      return fgList_Message(&self->list, &m);
+    }
     case 0:
     {
       fgElement* row = self->list->GetItem(msg->u2);
@@ -122,6 +126,8 @@ size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
       return (msg->u < self->header.box.order.ordered.l) ? (size_t)self->header.box.order.ordered.p[msg->u] : 0;
     case FGITEM_ROW:
       return (msg->u < self->list.box.order.ordered.l) ? (size_t)self->list.box.order.ordered.p[msg->u] : 0;
+    case FGITEM_COLUMNCOUNT:
+      return self->header.box->GetNumItems();
     case 0:
       if((size_t)msg->u2 < self->list.box.order.ordered.l)
         return _sendmsg<FG_GETITEM, ptrdiff_t>(self->list.box.order.ordered.p[msg->u2], msg->i);
@@ -296,19 +302,18 @@ size_t fgGridRow_Message(fgGridRow* self, const FG_Msg* msg)
 }
 
 fgElement* fgGrid::InsertColumn(const char* name, size_t column) { return reinterpret_cast<fgElement*>(_sendsubmsg<FG_ADDITEM, const void*, size_t>(*this, FGITEM_COLUMN, name, column)); }
-bool fgGrid::SetItem(fgElement* item, size_t column, size_t row) { fgElement* r = *GetRow(row); return row != 0 ? _sendsubmsg<FG_SETITEM, void*, size_t>(r, FGITEM_ELEMENT, item, column) != 0 : false; }
-bool fgGrid::SetItem(const char* item, size_t column, size_t row) { fgElement* r = *GetRow(row); return row != 0 ? _sendsubmsg<FG_SETITEM, const void*, size_t>(r, FGITEM_TEXT, item, column) != 0 : false; }
+bool fgGrid::SetCell(fgElement* item, size_t column, size_t row) { fgElement* r = *GetRow(row); return row != 0 ? _sendsubmsg<FG_SETITEM, void*, size_t>(r, FGITEM_ELEMENT, item, column) != 0 : false; }
+bool fgGrid::SetCell(const char* item, size_t column, size_t row) { fgElement* r = *GetRow(row); return row != 0 ? _sendsubmsg<FG_SETITEM, const void*, size_t>(r, FGITEM_TEXT, item, column) != 0 : false; }
 fgGridRow* fgGrid::InsertRow(size_t row) { return reinterpret_cast<fgGridRow*>(_sendsubmsg<FG_ADDITEM, ptrdiff_t>(*this, FGITEM_ROW, row)); }
 bool fgGrid::RemoveColumn(size_t column) { return _sendsubmsg<FG_REMOVEITEM, ptrdiff_t>(*this, FGITEM_COLUMN, column) != 0; }
 bool fgGrid::RemoveRow(size_t row) { return _sendsubmsg<FG_REMOVEITEM, ptrdiff_t>(*this, FGITEM_ROW, row) != 0; }
-bool fgGrid::RemoveItem(size_t column, size_t row) { return _sendsubmsg<FG_REMOVEITEM, ptrdiff_t>(*this, 0, column, row) != 0; }
-fgElement* fgGrid::GetItem(size_t column, size_t row) { return reinterpret_cast<fgElement*>(_sendsubmsg<FG_GETITEM, ptrdiff_t>(*this, 0, column, row)); }
+bool fgGrid::RemoveCell(size_t column, size_t row) { return _sendsubmsg<FG_REMOVEITEM, ptrdiff_t>(*this, 0, column, row) != 0; }
+fgElement* fgGrid::GetCell(size_t column, size_t row) { return reinterpret_cast<fgElement*>(_sendsubmsg<FG_GETITEM, ptrdiff_t>(*this, 0, column, row)); }
 fgGridRow* fgGrid::GetRow(size_t row) { return reinterpret_cast<fgGridRow*>(_sendsubmsg<FG_GETITEM, ptrdiff_t>(*this, FGITEM_ROW, row)); }
 fgElement* fgGrid::GetColumn(size_t column) { return reinterpret_cast<fgElement*>(_sendsubmsg<FG_GETITEM, ptrdiff_t>(*this, FGITEM_COLUMN, column)); }
+size_t fgGrid::GetNumColumns() const { return _sendsubmsg<FG_GETITEM>(*const_cast<fgGrid*>(this), FGITEM_COLUMNCOUNT); }
 
 void fgGridRow::InsertItem(fgElement* item, size_t column) { _sendmsg<FG_ADDITEM, void*, size_t>(*this, item, column); }
 void fgGridRow::InsertItem(const char* item, size_t column) { _sendmsg<FG_ADDITEM, const void*, size_t>(*this, item, column); }
 bool fgGridRow::SetItem(fgElement* item, size_t column) { return _sendsubmsg<FG_SETITEM, void*, size_t>(*this, FGITEM_ELEMENT, item, column) != 0; }
 bool fgGridRow::SetItem(const char* item, size_t column) { return _sendsubmsg<FG_SETITEM, const void*, size_t>(*this, FGITEM_TEXT, item, column) != 0;  }
-bool fgGridRow::RemoveItem(size_t column) { return _sendmsg<FG_REMOVEITEM, ptrdiff_t>(*this, column) != 0; }
-fgElement* fgGridRow::GetItem(size_t column) { return reinterpret_cast<fgElement*>(_sendmsg<FG_GETITEM, ptrdiff_t>(*this, column)); }

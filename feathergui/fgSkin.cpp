@@ -2,11 +2,11 @@
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #include "bss-util/khash.h"
-#include "bss-util/cXML.h"
+#include "bss-util/XML.h"
 #include "fgSkin.h"
 #include "feathercpp.h"
 
-using namespace bss_util;
+using namespace bss;
 
 KHASH_INIT(fgSkins, const char*, fgSkin*, 1, kh_str_hash_funcins, kh_str_hash_insequal);
 KHASH_INIT(fgAssets, fgAsset, _FG_ASSET_DATA*, 1, kh_ptr_hash_func, kh_int_hash_equal);
@@ -241,7 +241,7 @@ fgSkin* fgSkinBase_LoadUBJSON(fgSkinBase* self, const void* data, FG_UINT length
   return 0;
 }
 
-void fgSkinBase_WriteXML(cXMLNode* node, fgSkinBase* base, char toplevel)
+void fgSkinBase_WriteXML(XMLNode* node, fgSkinBase* base, char toplevel)
 {
   // Write any skins that were stored in the root
   if(base->skinmap)

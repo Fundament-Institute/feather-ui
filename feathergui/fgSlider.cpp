@@ -40,7 +40,7 @@ size_t fgSlider_Message(fgSlider* self, const FG_Msg* msg)
   case FG_SETVALUE:
     if(msg->subtype <= FGVALUE_FLOAT)
     {
-      ptrdiff_t value = (msg->subtype == FGVALUE_FLOAT) ? bss_util::fFastRound(msg->f) : msg->i;
+      ptrdiff_t value = (msg->subtype == FGVALUE_FLOAT) ? bss::fFastRound(msg->f) : msg->i;
       if(msg->type == FG_SETRANGE)
       {
         if(self->range == value)
@@ -69,7 +69,7 @@ size_t fgSlider_Message(fgSlider* self, const FG_Msg* msg)
     ResolveInnerRect(*self, &inner);
 
     double x = (msg->x - inner.left) / (inner.right - inner.left); // we need all the precision in a double here
-    size_t value = bss_util::fFastRound(bssclamp(x, 0.0, 1.0)*self->range); // Clamp to [0,1], multiply into [0, range], then round to nearest integer.
+    size_t value = bss::fFastRound(bssclamp(x, 0.0, 1.0)*self->range); // Clamp to [0,1], multiply into [0, range], then round to nearest integer.
     _sendmsg<FG_SETVALUE, size_t>(*self, value);
   }
     break;

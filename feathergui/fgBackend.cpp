@@ -4,16 +4,16 @@
 #include "fgBackend.h"
 #include "fgAll.h"
 #include "feathercpp.h"
-#include "bss-util/cTrie.h"
+#include "bss-util/Trie.h"
 #ifdef BSS_PLATFORM_WIN32
-#include "bss-util/bss_win32_includes.h"
+#include "bss-util/win32_includes.h"
 #else
 #include <dlfcn.h>
 #endif
 
 KHASH_INIT(fgFunctionMap, const char*, fgListener, 1, kh_str_hash_func, kh_str_hash_equal);
 
-using namespace bss_util;
+using namespace bss;
 
 fgFont fgCreateFontDefault(fgFlag flags, const char* family, short weight, char italic, unsigned int size, const fgIntVec* dpi) { return (void*)~0; }
 fgFont fgCloneFontDefault(fgFont font, const struct _FG_FONT_DESC* desc) { return (void*)~0; }
@@ -108,7 +108,7 @@ BSS_FORCEINLINE fgElement* _create_default(fgElement* BSS_RESTRICT parent, fgEle
 
 short fgMessageMapDefault(const char* name)
 {
-  static bss_util::cTrie<uint16_t, true> t(FG_CUSTOMEVENT+1, "UNKNOWN", "CONSTRUCT", "DESTROY", "CLONE", "MOVE", "SETALPHA", "SETAREA", "SETTRANSFORM", "SETFLAG", "SETFLAGS", "SETMARGIN", "SETPADDING",
+  static bss::Trie<uint16_t, true> t(FG_CUSTOMEVENT+1, "UNKNOWN", "CONSTRUCT", "DESTROY", "CLONE", "MOVE", "SETALPHA", "SETAREA", "SETTRANSFORM", "SETFLAG", "SETFLAGS", "SETMARGIN", "SETPADDING",
     "SETPARENT", "ADDCHILD", "REMOVECHILD", "REORDERCHILD", "PARENTCHANGE", "LAYOUTCHANGE", "LAYOUTFUNCTION", "LAYOUTLOAD", "DRAGOVER", "DROP", "DRAW", "INJECT", "SETSKIN", "GETSKIN", "SETSTYLE", "GETSTYLE",
     "GETCLASSNAME", "GETDPI", "SETDPI", "SETUSERDATA", "GETUSERDATA", "SETDIM", "GETDIM", "SETSCALING", "GETSCALING", "MOUSEDOWN", "MOUSEDBLCLICK", "MOUSEUP", "MOUSEON", "MOUSEOFF", "MOUSEMOVE",
     "MOUSESCROLL", "TOUCHBEGIN", "TOUCHEND", "TOUCHMOVE", "KEYUP", "KEYDOWN", "KEYCHAR", "JOYBUTTONDOWN", "JOYBUTTONUP", "JOYAXIS", "GOTFOCUS", "LOSTFOCUS", "SETNAME", "GETNAME", "SETCONTEXTMENU",
@@ -122,7 +122,7 @@ short fgMessageMapDefault(const char* name)
 
 const char* fgFlagMapDefault(const char* type, fgFlag flag)
 {
-  static cTrie<uint16_t, true> t(30, "element", "control", "scrollbar", "box", "list", "grid", "resource", "text", "button", "window", "checkbox", "radiobutton",
+  static Trie<uint16_t, true> t(30, "element", "control", "scrollbar", "box", "list", "grid", "resource", "text", "button", "window", "checkbox", "radiobutton",
     "progressbar", "slider", "textbox", "treeview", "treeitem", "listitem", "curve", "dropdown", "tabcontrol", "menu", "submenu",
     "menuitem", "gridrow", "workspace", "toolbar", "toolgroup", "combobox", "debug");
 

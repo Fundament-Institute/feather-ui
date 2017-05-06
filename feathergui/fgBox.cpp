@@ -3,7 +3,7 @@
 
 #include "fgBox.h"
 #include "fgRoot.h"
-#include "bss-util/bss_algo.h"
+#include "bss-util/algo.h"
 #include "feathercpp.h"
 
 void fgBox_Init(fgBox* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
@@ -12,14 +12,14 @@ void fgBox_Init(fgBox* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_REST
 }
 void fgBox_Destroy(fgBox* self)
 {
-  ((fgElementArray&)self->selected).~cArraySort();
+  ((fgElementArray&)self->selected).~ArraySort();
   fgBoxOrderedElement_Destroy(&self->order);
   self->scroll->message = (fgMessage)fgScrollbar_Message;
   fgScrollbar_Destroy(&self->scroll); // this will destroy our prechildren for us.
 }
 void fgBoxOrderedElement_Destroy(struct _FG_BOX_ORDERED_ELEMENTS_* self)
 {
-  ((bss_util::cDynArray<fgElement*>&)self->ordered).~cDynArray();
+  ((bss::DynArray<fgElement*>&)self->ordered).~DynArray();
 }
 
 bool BSS_FORCEINLINE checkIsOrdered(fgElement* root)
@@ -55,7 +55,7 @@ fgElement* fgOrderedGet(struct _FG_BOX_ORDERED_ELEMENTS_* self, const AbsRect* a
 {
   if(!self->ordered.l)
     return 0;
-  size_t r = bss_util::binsearch_aux_t<const fgElement*, AbsRect, size_t, &bss_util::CompT_EQ<char>, 1, const AbsRect*>::template binsearch_near<&fgOrderedCompare<FLAGS>>(self->ordered.p, *area, 0, self->ordered.l, cache);
+  size_t r = bss::binsearch_aux_t<const fgElement*, AbsRect, size_t, &bss::CompT_EQ<char>, 1, const AbsRect*>::template BinarySearchNear<&fgOrderedCompare<FLAGS>>(self->ordered.p, *area, 0, self->ordered.l, cache);
   return (r >= self->ordered.l) ? self->ordered.p[0] : self->ordered.p[r];
 }
 template<fgFlag FLAGS>
@@ -79,7 +79,7 @@ fgElement* fgOrderedVec(struct _FG_BOX_ORDERED_ELEMENTS_* order, AbsVec v)
 {
   if(!order->ordered.l)
     return 0;
-  size_t r = bss_util::binsearch_near<const fgElement*, AbsVec, size_t, &fgBoxMsgCompare<FLAGS>, &bss_util::CompT_EQ<char>, 1>(order->ordered.p, v, 0, order->ordered.l);
+  size_t r = bss::BinarySearchNear<const fgElement*, AbsVec, size_t, &fgBoxMsgCompare<FLAGS>, &bss::CompT_EQ<char>, 1>(order->ordered.p, v, 0, order->ordered.l);
   return (r >= order->ordered.l) ? order->ordered.p[0] : order->ordered.p[r];
 }
 
@@ -242,18 +242,18 @@ void fgBoxOrderedRemove(struct _FG_BOX_ORDERED_ELEMENTS_* self, fgElement* targe
 {
   for(size_t i = 0; i < self->ordered.l; ++i)
     if(self->ordered.p[i] == target)
-      ((bss_util::cDynArray<fgElement*>&)self->ordered).Remove(i);
+      ((bss::DynArray<fgElement*>&)self->ordered).Remove(i);
 }
 void fgBoxOrderedInsert(struct _FG_BOX_ORDERED_ELEMENTS_* self, fgElement* target, fgElement* next)
 {
   if(!next || next->flags&FGELEMENT_BACKGROUND)
-    ((bss_util::cDynArray<fgElement*>&)self->ordered).Add(target);
+    ((bss::DynArray<fgElement*>&)self->ordered).Add(target);
   else
   {
     size_t i = self->ordered.l;
     while(i > 0 && self->ordered.p[--i] != next);
     assert(!self->ordered.p || self->ordered.p[i] == next);
-    ((bss_util::cDynArray<fgElement*>&)self->ordered).Insert(target, i);
+    ((bss::DynArray<fgElement*>&)self->ordered).Insert(target, i);
   }
 }
 
@@ -271,7 +271,7 @@ size_t fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_* self, const
     self->fixedsize.y = -1;
     break;
   case FG_SETFLAG: // Do the same thing fgElement does to resolve a SETFLAG into SETFLAGS
-    otherint = bss_util::bssSetBit<fgFlag>(flags, otherint, msg->u2 != 0);
+    otherint = bss::bssSetBit<fgFlag>(flags, otherint, msg->u2 != 0);
   case FG_SETFLAGS:
     if((otherint^flags) & FGBOX_LAYOUTMASK)
     { // handle a layout flag change

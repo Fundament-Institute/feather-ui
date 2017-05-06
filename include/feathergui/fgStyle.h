@@ -45,6 +45,10 @@ extern "C" {
   FG_EXTERN int fgStyle_ParseCRect(const char* attribute, CRect* r);
   FG_EXTERN int fgStyle_ParseCVec(const char* attribute, CVec* v);
 
+  FG_EXTERN size_t fgStyle_WriteCVec(char* buffer, size_t sz, const CVec* vec, short units);
+  FG_EXTERN size_t fgStyle_WriteAbsRect(char* buffer, size_t sz, const AbsRect* r, short units);
+  FG_EXTERN size_t fgStyle_WriteCRect(char* buffer, size_t sz, const CRect* r, short units);
+  FG_EXTERN size_t fgStyle_WriteFlagsIterate(char* buffer, size_t sz, const char* type, const char* divider, fgFlag flags, char remove);
 #ifdef  __cplusplus
 }
 

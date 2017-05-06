@@ -336,7 +336,7 @@ size_t fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
       AbsVec oldsize = self->realsize;
       _sendsubmsg<FG_LAYOUTFUNCTION, const void*, void*>(*self, 1, msg, &self->realsize);
       assert(!std::isnan(self->realsize.x) && !std::isnan(self->realsize.y));
-      if(oldsize.x != self->realsize.x || oldsize.y != self->realsize.y)
+      if(oldsize.x != self->realsize.x || oldsize.y != self->realsize.y || (msg->u2&FGMOVE_RESIZE))
       {
         if(self->control.element.flags & FGELEMENT_EXPAND) // We only need to adjust the actual area if we are expanding. Otherwise we just want to update the padding to the new realsize.
         {

@@ -4,7 +4,7 @@
 #include "fgDebug.h"
 #include "fgRoot.h"
 #include "feathercpp.h"
-#include "bss-util/cDynArray.h"
+#include "bss-util/DynArray.h"
 
 fgDebug* fgdebug_instance = nullptr;
 
@@ -48,8 +48,8 @@ void fgDebug_Destroy(fgDebug* self)
 {
   fgDebug_Hide();
   fgDebug_ClearLog(self);
-  ((bss_util::cDynArray<char*>&)self->messagestrings).~cDynArray();
-  ((bss_util::cDynArray<fgDebugMessage>&)self->messagelog).~cDynArray();
+  ((bss::DynArray<char*>&)self->messagestrings).~DynArray();
+  ((bss::DynArray<fgDebugMessage>&)self->messagelog).~DynArray();
   self->tabs->message = (fgMessage)fgTabcontrol_Message;
   fgTabcontrol_Destroy(&self->tabs);
   VirtualFreeChild(&self->overlay);
@@ -66,11 +66,11 @@ void fgDebug_DrawMessages(fgDebug* self, AbsRect* rect, fgDrawAuxData* aux)
   size_t i = self->messagelog.l;
   while(bottom > rect->top && (i-- > 0))
   {
-    ((bss_util::cDynArray<int>*)&self->text32)->Clear();
-    ((bss_util::cDynArray<wchar_t>*)&self->text16)->Clear();
-    ((bss_util::cDynArray<char>*)&self->text8)->Clear();
+    ((bss::DynArray<int>*)&self->text32)->Clear();
+    ((bss::DynArray<wchar_t>*)&self->text16)->Clear();
+    ((bss::DynArray<char>*)&self->text8)->Clear();
     AbsRect txtarea = { rect->left, bottom - desc.lineheight, rect->right, bottom };
-    ((bss_util::cDynArray<char>*)&self->text8)->Reserve(fgDebug_WriteMessage(self->messagelog.p + i, 0, 0) + 1);
+    ((bss::DynArray<char>*)&self->text8)->Reserve(fgDebug_WriteMessage(self->messagelog.p + i, 0, 0) + 1);
     self->text8.l = fgDebug_WriteMessage(self->messagelog.p + i, self->text8.p, self->text8.s) + 1;
     fgVector* v = fgText_Conversion(fgroot_instance->backend.BackendTextFormat, &self->text8, &self->text16, &self->text32);
     fgroot_instance->backend.fgDrawFont(self->font, v->p, v->l, desc.lineheight, self->letterspacing, self->color.color, &txtarea, 0, &AbsVec_EMPTY, 0, aux, 0);
@@ -174,14 +174,15 @@ size_t fgDebug_PropertyMessage(fgText* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_MOUSEUP:
-    if(self->element.parent && self->element.parent->parent && self->element.parent->parent->parent)
+    if(self->element.parent && self->element.parent->parent)
     {
       AbsRect rect;
-      fgElement_RelativeTo(&self->element, self->element.parent->parent->parent, &rect);
+      fgElement_RelativeTo(&self->element, self->element.parent->parent, &rect);
       CRect area = { rect.left, 0, rect.top, 0, rect.right, 0, rect.bottom, 0 };
       fgElement* textbox = fgdebug_instance->editbox;
       if(textbox->userdata)
         ((fgElement*)textbox->userdata)->SetFlag(FGELEMENT_HIDDEN, false);
+      fgdebug_instance->lastscroll = self->element.parent->parent->padding.topleft;
       textbox->SetArea(area);
       textbox->SetText(self->element.GetText());
       textbox->SetFlag(FGELEMENT_HIDDEN, false);
@@ -291,17 +292,17 @@ void fgDebug_DisplayProperties(fgElement* e)
   g.GetRow(1)->GetItem(1)->SetText(e->GetName());
   g.GetRow(2)->GetItem(1)->SetText(fgStyle_WriteCRect(e->transform.area, 0).c_str());
   g.GetRow(3)->GetItem(1)->SetText(fgStyle_WriteCVec(e->transform.center, 0).c_str());
-  g.GetRow(4)->GetItem(1)->SetText(cStrF("%.2g", e->transform.rotation).c_str());
+  g.GetRow(4)->GetItem(1)->SetText(bss::StrF("%.2g", e->transform.rotation).c_str());
   g.GetRow(5)->GetItem(1)->SetText(fgStyle_WriteAbsRect(e->margin, 0).c_str());
   g.GetRow(6)->GetItem(1)->SetText(fgStyle_WriteAbsRect(e->padding, 0).c_str());
-  g.GetRow(7)->GetItem(1)->SetText(cStrF("%.2g %.2g", e->mindim.x, e->mindim.y).c_str());
-  g.GetRow(8)->GetItem(1)->SetText(cStrF("%.2g %.2g", e->maxdim.x, e->maxdim.y).c_str());
-  g.GetRow(9)->GetItem(1)->SetText(cStrF("%.2g %.2g", e->layoutdim.x, e->layoutdim.y).c_str());
-  g.GetRow(10)->GetItem(1)->SetText(cStrF("%.2g %.2g", e->scaling.x, e->scaling.y).c_str());
+  g.GetRow(7)->GetItem(1)->SetText(bss::StrF("%.2g %.2g", e->mindim.x, e->mindim.y).c_str());
+  g.GetRow(8)->GetItem(1)->SetText(bss::StrF("%.2g %.2g", e->maxdim.x, e->maxdim.y).c_str());
+  g.GetRow(9)->GetItem(1)->SetText(bss::StrF("%.2g %.2g", e->layoutdim.x, e->layoutdim.y).c_str());
+  g.GetRow(10)->GetItem(1)->SetText(bss::StrF("%.2g %.2g", e->scaling.x, e->scaling.y).c_str());
   if(e->parent && e->parent->GetName())
-    g.GetRow(11)->GetItem(1)->SetText(cStrF("%s (%p)", e->parent->GetName(), e->parent).c_str());
+    g.GetRow(11)->GetItem(1)->SetText(bss::StrF("%s (%p)", e->parent->GetName(), e->parent).c_str());
   else if(e->parent)
-    g.GetRow(11)->GetItem(1)->SetText(cStrF("%p", e->parent).c_str());
+    g.GetRow(11)->GetItem(1)->SetText(bss::StrF("%p", e->parent).c_str());
   else
     g.GetRow(11)->GetItem(1)->SetText("");
 
@@ -309,14 +310,14 @@ void fgDebug_DisplayProperties(fgElement* e)
   fgFlag rm = def & (~e->flags);
   fgFlag add = (~def) & e->flags;
 
-  cStr flags;
+  bss::Str flags;
   fgStyle_WriteFlagsIterate(flags, e->GetClassName(), "\n", add, false);
   fgStyle_WriteFlagsIterate(flags, e->GetClassName(), "\n", rm, true);
   g.GetRow(12)->GetItem(1)->SetText(flags.c_str()[0] ? (flags.c_str() + 1) : "");
   g.GetRow(13)->GetItem(1)->SetText(!e->skin ? "[none]" : e->skin->name);
-  g.GetRow(14)->GetItem(1)->SetText(cStrF("%X", e->style).c_str());
-  g.GetRow(15)->GetItem(1)->SetText(cStrF("%u", e->userid).c_str());
-  g.GetRow(16)->GetItem(1)->SetText(cStrF("%p", e->userdata).c_str());
+  g.GetRow(14)->GetItem(1)->SetText(bss::StrF("%X", e->style).c_str());
+  g.GetRow(15)->GetItem(1)->SetText(bss::StrF("%u", e->userid).c_str());
+  g.GetRow(16)->GetItem(1)->SetText(bss::StrF("%p", e->userdata).c_str());
 }
 
 size_t fgDebug_EditBoxMessage(fgTextbox* self, const FG_Msg* msg)
@@ -325,7 +326,7 @@ size_t fgDebug_EditBoxMessage(fgTextbox* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_SETFLAG: // If 0 is sent in, disable the flag, otherwise enable. Our internal flag is 1 if clipping disabled, 0 otherwise.
-    otherint = bss_util::bssSetBit<fgFlag>(self->scroll->flags, otherint, msg->u2 != 0);
+    otherint = bss::bssSetBit<fgFlag>(self->scroll->flags, otherint, msg->u2 != 0);
   case FG_SETFLAGS:
     if((self->scroll->flags ^ otherint) & FGELEMENT_HIDDEN)
     {
@@ -367,7 +368,26 @@ void fgDebug_ContextMenu(struct _FG_ELEMENT* e, const FG_Msg* m)
     }
   }
 }
-
+void fgDebug_PropertiesAction(fgElement* e, const FG_Msg* m)
+{
+  switch(m->subtype)
+  {
+  case FGSCROLLBAR_BAR:
+  case FGSCROLLBAR_PAGE:
+  case FGSCROLLBAR_BUTTON:
+  case FGSCROLLBAR_CHANGE:
+  case FGSCROLLBAR_SCROLLTO:
+  case FGSCROLLBAR_SCROLLTOABS:
+    if(!(fgdebug_instance->editbox->flags&FGELEMENT_HIDDEN))
+    {
+      CRect area = fgdebug_instance->editbox->transform.area;
+      area.top.abs += e->padding.top - fgdebug_instance->lastscroll.y;
+      area.bottom.abs += e->padding.top - fgdebug_instance->lastscroll.y;
+      fgdebug_instance->editbox->SetArea(area);
+      fgdebug_instance->lastscroll = e->padding.topleft;
+    }
+  }
+}
 void fgDebug_ContextMenuInsert(struct _FG_ELEMENT* e, const FG_Msg* m)
 {
   if(m->e && m->e->userdata && fgdebug_instance->elements->userdata)
@@ -405,7 +425,7 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
     fgText_Init(&self->contents, self->tabmessages, 0, "Debug$contents", FGELEMENT_HIDDEN | FGFLAGS_INTERNAL, &fgTransform_EMPTY, 0);
     fgElement_Init(&self->overlay, fgroot_instance->gui, 0, "Debug$overlay", FGELEMENT_HIDDEN | FGELEMENT_IGNORE | FGELEMENT_BACKGROUND | FGELEMENT_NOCLIP | FGFLAGS_INTERNAL, &tf_overlay, 0);
     self->overlay.message = (fgMessage)fgDebug_OverlayMessage;
-    fgTextbox_Init(&self->editbox, self->tablayout, 0, "Debug$editbox", FGELEMENT_HIDDEN | FGTEXTBOX_SINGLELINE | FGTEXTBOX_ACTION, &fgTransform_EMPTY, 0);
+    fgTextbox_Init(&self->editbox, self->properties, 0, "Debug$editbox", FGELEMENT_HIDDEN | FGTEXTBOX_SINGLELINE | FGTEXTBOX_ACTION | FGELEMENT_BACKGROUND, &fgTransform_EMPTY, 0);
     self->editbox->message = (fgMessage)fgDebug_EditBoxMessage;
     
     fgElement* column0 = self->properties.InsertColumn("Name");
@@ -435,6 +455,8 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
     insertmenu->AddListener(FG_ACTION, fgDebug_ContextMenuInsert);
 
     self->elements->SetContextMenu(self->context);
+    self->properties->ReorderChild(self->editbox, 0);
+    self->properties->AddListener(FG_ACTION, fgDebug_PropertiesAction);
     self->behaviorhook = &fgBehaviorHookDefault;
   }
     return FG_ACCEPT;
@@ -451,8 +473,8 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
       _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->properties);
       _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->contents);
       _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->context);
-      reinterpret_cast<bss_util::cDynArray<fgDebugMessage>&>(hold->messagelog) = reinterpret_cast<bss_util::cDynArray<fgDebugMessage>&>(self->messagelog);
-      reinterpret_cast<bss_util::cDynArray<char*>&>(hold->messagestrings) = reinterpret_cast<bss_util::cDynArray<char*>&>(self->messagestrings);
+      reinterpret_cast<bss::DynArray<fgDebugMessage>&>(hold->messagelog) = reinterpret_cast<bss::DynArray<fgDebugMessage>&>(self->messagelog);
+      reinterpret_cast<bss::DynArray<char*>&>(hold->messagestrings) = reinterpret_cast<bss::DynArray<char*>&>(self->messagestrings);
       hold->behaviorhook = self->behaviorhook;
       hold->depth = self->depth;
       hold->hover = self->hover;
@@ -462,9 +484,9 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
       hold->lineheight = self->lineheight;
       hold->letterspacing = self->letterspacing;
       hold->oldpadding = self->oldpadding;
-      reinterpret_cast<bss_util::cDynArray<int>&>(hold->text32) = reinterpret_cast<bss_util::cDynArray<int>&>(self->text32);
-      reinterpret_cast<bss_util::cDynArray<wchar_t>&>(hold->text16) = reinterpret_cast<bss_util::cDynArray<wchar_t>&>(self->text16);
-      reinterpret_cast<bss_util::cDynArray<char>&>(hold->text8) = reinterpret_cast<bss_util::cDynArray<char>&>(self->text8);
+      reinterpret_cast<bss::DynArray<int>&>(hold->text32) = reinterpret_cast<bss::DynArray<int>&>(self->text32);
+      reinterpret_cast<bss::DynArray<wchar_t>&>(hold->text16) = reinterpret_cast<bss::DynArray<wchar_t>&>(self->text16);
+      reinterpret_cast<bss::DynArray<char>&>(hold->text8) = reinterpret_cast<bss::DynArray<char>&>(self->text8);
     }
     return sizeof(fgDebug);
   case FG_DRAW:
@@ -475,7 +497,7 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
     }
     break;
   case FG_SETFLAG: // We need to perform extra logic on show/hide
-    otherint = bss_util::bssSetBit<fgFlag>(self->tabs->flags, otherint, msg->u2 != 0);
+    otherint = bss::bssSetBit<fgFlag>(self->tabs->flags, otherint, msg->u2 != 0);
   case FG_SETFLAGS:
     if((otherint^self->tabs->flags) & FGELEMENT_HIDDEN)
     { // handle a layout flag change
@@ -548,7 +570,7 @@ char* fgDebug_CopyText(fgDebug* self, const char* s)
   size_t len = strlen(s) + 1;
   char* ret = fgmalloc<char>(len, __FILE__, __LINE__);
   memcpy(ret, s, len);
-  ((bss_util::cDynArray<char*>&)self->messagestrings).AddConstruct(ret);
+  ((bss::DynArray<char*>&)self->messagestrings).AddConstruct(ret);
   return ret;
 }
 size_t fgTreeItem_DebugMessage(fgTreeItem* self, const FG_Msg* msg)
@@ -971,7 +993,7 @@ size_t fgDebug_LogMessage(fgDebug* self, const FG_Msg* msg, unsigned long long t
   }
   self->ignore -= 1;
 
-  return ((bss_util::cDynArray<fgDebugMessage>&)self->messagelog).Add(m);
+  return ((bss::DynArray<fgDebugMessage>&)self->messagelog).Add(m);
 }
 
 const char* _dbg_getstr(const char* s)

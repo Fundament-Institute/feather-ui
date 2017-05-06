@@ -85,7 +85,7 @@ size_t fgTreeItem_Message(fgTreeItem* self, const FG_Msg* msg)
     if(self->control.element.parent != 0)
     {
       AbsRect r;
-      ResolveRect(&self->control.element, &r);
+      ResolveRect(&self->arrow, &r);
       _sendsubmsg<FG_ACTION, void*>(self->control.element.parent, FGSCROLLBAR_SCROLLTOABS, &r);
     }
     break;
