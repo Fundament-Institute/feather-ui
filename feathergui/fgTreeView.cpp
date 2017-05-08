@@ -35,7 +35,7 @@ size_t fgTreeItem_Message(fgTreeItem* self, const FG_Msg* msg)
     fgElement_Init(&self->arrow, &self->control.element, 0, ARROWNAME, FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN | FGFLAGS_INTERNAL, 0, 0);
     self->arrow.message = (fgMessage)&fgTreeItemArrow_Message;
     self->count = EXPANDED;
-    fgMaskSetStyle(&self->arrow, "visible", fgStyleGetMask("visible", "hidden"));
+    self->arrow.SetStyle("visible");
     return FG_ACCEPT;
   case FG_CLONE:
     if(msg->e)
@@ -68,7 +68,7 @@ size_t fgTreeItem_Message(fgTreeItem* self, const FG_Msg* msg)
       return !self->control.element.parent ? 0 : fgSendMessage(self->control.element.parent, msg);
 
     self->count = ((self->count&EXPANDED) ^ EXPANDED) | (self->count&(~EXPANDED));
-    fgMaskSetStyle(&self->arrow, (self->count&EXPANDED) ? "visible" : "hidden", fgStyleGetMask("visible", "hidden"));
+    self->arrow.SetStyle((self->count&EXPANDED) ? "visible" : "hidden");
     {
       fgElement* cur = self->control.element.root;
       while(cur)

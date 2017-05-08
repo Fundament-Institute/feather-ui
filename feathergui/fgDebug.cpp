@@ -73,7 +73,8 @@ void fgDebug_DrawMessages(fgDebug* self, AbsRect* rect, fgDrawAuxData* aux)
     ((bss::DynArray<char>*)&self->text8)->Reserve(fgDebug_WriteMessage(self->messagelog.p + i, 0, 0) + 1);
     self->text8.l = fgDebug_WriteMessage(self->messagelog.p + i, self->text8.p, self->text8.s) + 1;
     fgVector* v = fgText_Conversion(fgroot_instance->backend.BackendTextFormat, &self->text8, &self->text16, &self->text32);
-    fgroot_instance->backend.fgDrawFont(self->font, v->p, v->l, desc.lineheight, self->letterspacing, self->color.color, &txtarea, 0, &AbsVec_EMPTY, 0, aux, 0);
+    if(v)
+      fgroot_instance->backend.fgDrawFont(self->font, v->p, v->l, desc.lineheight, self->letterspacing, self->color.color, &txtarea, 0, &AbsVec_EMPTY, 0, aux, 0);
 
     bottom = txtarea.top;
   }

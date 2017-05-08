@@ -4,7 +4,7 @@
 #include "util.h"
 #include <initguid.h>
 #include "fgEffectBase.h"
-#include "bss-util/defines.h"
+#include "bss-util/bss_util.h"
 #include <utility>
 #include <memory>
 #include <assert.h>
@@ -16,7 +16,7 @@ int __cdecl TestHook1(int nReportType, char* szMsg, int* pnRet) { return -1; }
 fgEffectBase::fgEffectBase() : _ref(1), _drawInfo(0)
 { 
   assert(sizeof(_constants) == sizeof(float)*(4*4 + 1));
-  memset(&_constants, 0, sizeof(_constants));
+  bss::bssFill(_constants, 0);
 }
 fgEffectBase::~fgEffectBase()
 {

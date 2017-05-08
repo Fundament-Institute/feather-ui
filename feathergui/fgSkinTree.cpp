@@ -30,7 +30,7 @@ void fgSkinElement_Destroy(fgSkinElement* self)
 
 void fgSkinTree_Init(fgSkinTree* self)
 {
-  memset(self, 0, sizeof(fgSkinTree));
+  bss::bssFill(*self, 0);
 }
 void fgSkinTree_Destroy(fgSkinTree* self)
 {
@@ -83,7 +83,7 @@ fgStyle* fgSkinTree_GetStyle(const fgSkinTree* self, FG_UINT style)
 
 void fgSkinLayout_Init(fgSkinLayout* self, const char* type, fgFlag flags, const fgTransform* transform, short units, int order)
 {
-  memset(self, 0, sizeof(fgSkinLayout));
+  bss::bssFill(*self, 0);
   fgSkinElement_Init(&self->layout, type, flags, transform, units, order);
   self->instance = 0;
 }

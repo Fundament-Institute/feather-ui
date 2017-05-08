@@ -22,7 +22,7 @@ size_t fgCheckbox_Message(fgCheckbox* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     fgControl_HoverMessage(&self->control, msg);
     fgText_Init(&self->text, *self, 0, "Checkbox$text", FGELEMENT_EXPAND | FGELEMENT_IGNORE | FGFLAGS_INTERNAL, &fgTransform_CENTER, 0);
-    fgMaskSetStyle(*self, "default", fgStyleGetMask("default", "checked", "indeterminate"));
+    (*self)->SetStyle("default");
     self->checked = FGCHECKED_NONE;
     return FG_ACCEPT;
   case FG_CLONE:
@@ -36,13 +36,13 @@ size_t fgCheckbox_Message(fgCheckbox* self, const FG_Msg* msg)
     }
     return sizeof(fgCheckbox);
   case FG_NEUTRAL:
-    fgStandardNeutralSetStyle(*self, "neutral");
+    (*self)->SetStyle("neutral");
     return FG_ACCEPT;
   case FG_HOVER:
-    fgStandardNeutralSetStyle(*self, "hover");
+    (*self)->SetStyle("hover");
     return FG_ACCEPT;
   case FG_ACTIVE:
-    fgStandardNeutralSetStyle(*self, "active");
+    (*self)->SetStyle("active");
     return FG_ACCEPT;
   case FG_ACTION:
     _sendmsg<FG_SETVALUE, size_t>(*self, !_sendmsg<FG_GETVALUE>(*self));
@@ -51,7 +51,12 @@ size_t fgCheckbox_Message(fgCheckbox* self, const FG_Msg* msg)
     if(msg->subtype != 0 && msg->subtype != FGVALUE_INT64)
       return 0;
     self->checked = (char)msg->i;
-    fgMaskSetStyle(*self, (self->checked == FGCHECKED_CHECKED) ? "checked" : ((self->checked == FGCHECKED_INDETERMINATE) ? "indeterminate" : "default"), fgStyleGetMask("default", "checked", "indeterminate"));
+    switch(self->checked)
+    {
+    case FGCHECKED_CHECKED: (*self)->SetStyle("checked"); break;
+    case FGCHECKED_INDETERMINATE: (*self)->SetStyle("indeterminate"); break;
+    default: (*self)->SetStyle("default"); break;
+    }
     return FG_ACCEPT;
   case FG_GETVALUE:
     if(!msg->subtype || msg->subtype == FGVALUE_INT64)

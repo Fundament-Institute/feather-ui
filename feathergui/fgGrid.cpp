@@ -236,7 +236,7 @@ size_t fgGridRow_Message(fgGridRow* self, const FG_Msg* msg)
     {
       fgGridRow* hold = reinterpret_cast<fgGridRow*>(msg->e);
       memsubcpy<fgGridRow, fgScrollbar>(hold, self); // We do this first because we have to ensure our messages can process ADDCHILD correctly.
-      memset(&hold->order.ordered, 0, sizeof(fgVectorElement)); 
+      bss::bssFill(hold->order.ordered, 0);
       fgElement_Message(&self->element, msg);
     }
   case FG_ADDITEM:

@@ -279,7 +279,7 @@ void fgLayout_SaveStreamXML(fgLayout* self, std::ostream& s, const char* path)
   root->AddAttribute("xmlns:fg")->String = "featherGUI";
   root->AddAttribute("xsi:schemaLocation")->String = "featherGUI feather.xsd";
   fgLayout_SaveSubLayoutXML(self, root, 0, path);
-  fgSkinBase_WriteXML(root, &self->base, 1);
+  fgSkinBase_WriteXML(root, &self->base, 0);
   xml.Write(s);
 }
 void fgLayout_SaveFileXML(fgLayout* self, const char* file)

@@ -31,6 +31,7 @@ typedef float FREL; // Change this to double for double precision (why on earth 
 typedef float FABS; // We seperate both of these types because then you don't have to guess if a float is relative or absolute
 typedef unsigned int FG_UINT; 
 typedef unsigned int fgFlag;
+typedef unsigned int fgStyleIndex;
 typedef void* fgAsset;
 typedef void* fgFont;
 

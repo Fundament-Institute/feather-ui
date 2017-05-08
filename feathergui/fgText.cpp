@@ -74,6 +74,8 @@ inline fgVector* fgText_Conversion(int type, fgVectorUTF8* text8, fgVectorUTF16*
       ((bss::DynArray<char>*)text8)->Reserve(len);
       text8->l = fgUTF32toUTF8(text32->p, text32->l, text8->p, text8->s);
     }
+    if(!text8->l) // If this is still true, it means everything was empty
+      return 0;
     return reinterpret_cast<fgVector*>(text8);
   case FGTEXTFMT_UTF16:
     if(text16->l)
@@ -92,6 +94,8 @@ inline fgVector* fgText_Conversion(int type, fgVectorUTF8* text8, fgVectorUTF16*
       ((bss::DynArray<wchar_t>*)text16)->Reserve(len);
       text16->l = fgUTF32toUTF16(text32->p, text32->l, text16->p, text16->s);
     }
+    if(!text16->l)
+      return 0;
     return reinterpret_cast<fgVector*>(text16);
   case FGTEXTFMT_UTF32:
     if(text32->l)
@@ -110,6 +114,8 @@ inline fgVector* fgText_Conversion(int type, fgVectorUTF8* text8, fgVectorUTF16*
       ((bss::DynArray<int>*)text32)->Reserve(len);
       text32->l = fgUTF16toUTF32(text16->p, text16->l, text32->p, text32->s);
     }
+    if(!text32->l)
+      return 0;
     return reinterpret_cast<fgVector*>(text32);
   }
   return 0;

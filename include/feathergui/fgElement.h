@@ -64,7 +64,7 @@ typedef struct _FG_ELEMENT {
   struct _FG_ELEMENT* parent;
   const char* name; // Optional name used for mapping to skin collections
   fgFlag flags;
-  FG_UINT style; // Set to -1 if no style has been assigned, in which case the style from its parent will be used.
+  fgStyleIndex style; // Set to -1 if no style has been assigned, in which case the style from its parent will be used.
   FG_UINT userid;
   void* userdata;
   struct kh_fgUserdata_s* userhash;
@@ -113,9 +113,9 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT size_t Inject(const FG_Msg* msg, const AbsRect* area);
   FG_DLLEXPORT size_t SetSkin(struct _FG_SKIN* skin);
   FG_DLLEXPORT struct _FG_SKIN* GetSkin(struct _FG_ELEMENT* child = 0);
-  FG_DLLEXPORT size_t SetStyle(const char* name, FG_UINT mask);
+  FG_DLLEXPORT size_t SetStyle(const char* name);
   FG_DLLEXPORT size_t SetStyle(struct _FG_STYLE* style);
-  FG_DLLEXPORT size_t SetStyle(FG_UINT index, FG_UINT mask);
+  FG_DLLEXPORT size_t SetStyle(fgStyleIndex index, fgStyleIndex mask);
   FG_DLLEXPORT struct _FG_STYLE* GetStyle();
   FG_DLLEXPORT fgIntVec& GetDPI() const;
   FG_DLLEXPORT void SetDPI(int x, int y);

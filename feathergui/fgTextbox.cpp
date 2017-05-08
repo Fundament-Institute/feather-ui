@@ -558,16 +558,22 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       if(!self->text32.l)
       {
         fgVector* v = fgText_Conversion(fgroot_instance->backend.BackendTextFormat, &self->placeholder8, &self->placeholder16, &self->placeholder32);
-        text = v->p;
-        len = v->l;
+        if(v)
+        {
+          text = v->p;
+          len = v->l;
+        }
       }
       else
       {
         fgVector* v = fgText_Conversion(fgroot_instance->backend.BackendTextFormat, &self->text8, &self->text16, &self->text32);
-        text = v->p;
-        len = v->l;
-        if(self->mask)
-          FILLMASK(self, text)
+        if(v)
+        {
+          text = v->p;
+          len = v->l;
+          if(self->mask)
+            FILLMASK(self, text)
+        }
       }
 
       fgroot_instance->backend.fgDrawFont(self->font,

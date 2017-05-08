@@ -127,7 +127,7 @@ size_t fgTabcontrol_Message(fgTabcontrol* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
   {
-    memset(&self->realpadding, 0, sizeof(AbsRect));
+    bss::bssFill(self->realpadding, 0);
     fgControl_HoverMessage(&self->control, msg);
     fgTransform TF_HEADER = { { 0, 0, 0, 0, 0, 1, 0, 0 }, 0,{ 0,0,0,0 } };
     fgList_Init(&self->header, *self, 0, "Tabcontrol$header", FGLIST_SELECT | FGBOX_TILEX | FGELEMENT_EXPANDY | FGELEMENT_BACKGROUND | (self->control->flags&FGLIST_DRAGGABLE) | FGFLAGS_INTERNAL, &TF_HEADER, 0);

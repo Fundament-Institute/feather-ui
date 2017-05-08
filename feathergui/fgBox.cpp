@@ -164,15 +164,15 @@ size_t fgBox_Message(fgBox* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     self->fndraw = 0;
     self->dividercolor.color = 0;
-    memset(&self->selected, 0, sizeof(fgVectorElement));
+    bss::bssFill(self->selected, 0);
     break;
   case FG_CLONE:
     if(msg->e)
     {
       fgBox* hold = reinterpret_cast<fgBox*>(msg->e);
       memsubcpy<fgBox, fgScrollbar>(hold, self); // We do this first because we have to ensure our messages can process ADDCHILD correctly.
-      memset(&hold->order.ordered, 0, sizeof(fgVectorElement));
-      memset(&hold->selected, 0, sizeof(fgVectorElement));
+      bss::bssFill(hold->order.ordered);
+      bss::bssFill(hold->selected);
       fgScrollbar_Message(&self->scroll, msg);
     }
     return sizeof(fgBox);
@@ -265,7 +265,7 @@ size_t fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_* self, const
   switch(msg->type)
   {
   case FG_CONSTRUCT:
-    memset(&self->ordered, 0, sizeof(fgVectorElement));
+    bss::bssFill(self->ordered, 0);
     self->isordered = 1;
     self->fixedsize.x = -1;
     self->fixedsize.y = -1;

@@ -248,9 +248,9 @@ size_t fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_CONSTRUCT:
-    memset(&self->realpadding, 0, sizeof(AbsRect));
-    memset(&self->exclude, 0, sizeof(AbsRect));
-    memset(&self->realsize, 0, sizeof(AbsVec));
+    bss::bssFill(self->realpadding, 0);
+    bss::bssFill(self->exclude, 0);
+    bss::bssFill(self->realsize, 0);
     fgControl_Message(&self->control, msg);
     fgElement_Init(&self->bg[0], *self, 0, "Scrollbar$horzbg", FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN | FGFLAGS_INTERNAL, 0, 0);
     fgElement_Init(&self->bg[1], *self, 0, "Scrollbar$vertbg", FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN | FGFLAGS_INTERNAL, 0, 0);

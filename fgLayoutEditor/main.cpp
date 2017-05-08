@@ -4,10 +4,10 @@
 #include "fgLayoutEditor.h"
 #include <string>
 #include <fstream>
-#include "bss-util/bss_defines.h"
+#include "bss-util/defines.h"
 
 #ifdef BSS_PLATFORM_WIN32 //Windows function
-#include "bss-util/bss_win32_includes.h"
+#include "bss-util/win32_includes.h"
 #include <Shlwapi.h>
 
 template<class R, class T, size_t(*F)(const T* BSS_RESTRICT, ptrdiff_t, R* BSS_RESTRICT, size_t)>
@@ -125,7 +125,6 @@ int main(int argc, char** argv)
   fgRegisterFunction("menu_edit", fgLayoutEditor::MenuEdit);
   fgRegisterFunction("menu_view", fgLayoutEditor::MenuView);
   fgRegisterFunction("menu_help", fgLayoutEditor::MenuHelp);
-  fgRegisterFunction("explorer_onfocus", fgLayoutEditor::ExplorerOnFocus);
 
   EditorSettings settings = {
     false,
@@ -141,13 +140,13 @@ int main(int argc, char** argv)
 
   if(settingsfile.good())
   {
-    bss::cSerializer<bss::TOMLEngine> serializer;
+    bss::Serializer<bss::TOMLEngine> serializer;
     serializer.Parse(settings, settingsfile, "editor");
   }
   else
   {
     std::ofstream settingsout("fgLayoutEditor.toml", std::ios_base::binary | std::ios_base::out);
-    bss::cSerializer<bss::TOMLEngine> serializer;
+    bss::Serializer<bss::TOMLEngine> serializer;
     serializer.Serialize(settings, settingsout, "editor");
   }
 

@@ -12,6 +12,7 @@
 #include "bss-util/Hash.h"
 #include "bss-util/AVLTree.h"
 #include "bss-util/rwlock.h"
+#include "bss-util/DisjointSet.h"
 
 #ifdef BSS_64BIT
 #define kh_ptr_hash_func(key) kh_int64_hash_func((uint64_t)key)
@@ -157,7 +158,7 @@ struct fgConstruct
   template<void (*DESTROY)(T*), void (*CONSTRUCT)(T*, Args...)>
   struct fgConstructor : public T
   {
-    fgConstructor(fgConstructor&& mov) { memcpy(this, &mov, sizeof(T)); memset(&mov, 0, sizeof(T)); }
+    fgConstructor(fgConstructor&& mov) { memcpy(this, &mov, sizeof(T)); bss::bssFill(mov, 0); }
     fgConstructor() {}
     fgConstructor(Args... args) { CONSTRUCT((T*)this, args...); }
     ~fgConstructor() { DESTROY((T*)this); }
@@ -174,7 +175,7 @@ struct fgConstruct<T>
   template<void (*DESTROY)(T*), void (*CONSTRUCT)(T*)>
   struct fgConstructor : public T
   {
-    fgConstructor(fgConstructor&& mov) { memcpy(this, &mov, sizeof(T)); memset(&mov, 0, sizeof(T)); }
+    fgConstructor(fgConstructor&& mov) { memcpy(this, &mov, sizeof(T)); bss::bssFill(mov, 0); }
     fgConstructor() { CONSTRUCT((T*)this); }
     ~fgConstructor() { DESTROY((T*)this); }
     operator T&() { return *this; }
@@ -246,27 +247,10 @@ inline size_t _sendsubmsg(fgElement* self, unsigned short sub, Args... args)
 
 FG_EXTERN bss::Hash<std::pair<fgElement*, unsigned short>, fgListener> fgListenerHash;
 
-inline FG_UINT fgStyleGetMask() { return 0; }
-
-template<typename Arg, typename... Args>
-inline FG_UINT fgStyleGetMask(Arg arg, Args... args)
-{
-  return fgStyle_GetName(arg) | fgStyleGetMask(args...);
-}
-
-BSS_FORCEINLINE size_t fgStandardNeutralSetStyle(fgElement* self, const char* style, unsigned short sub = FGSETSTYLE_NAME)
-{
-  return _sendsubmsg<FG_SETSTYLE, const void*, size_t>(self, sub, style, fgStyleGetMask("neutral", "hover", "active", "disable"));
-}
-
 BSS_FORCEINLINE size_t fgSetFlagStyle(fgElement* self, const char* style, bool value = true)
 {
   size_t f = fgStyle_GetName(style);
   return _sendsubmsg<FG_SETSTYLE, size_t, size_t>(self, FGSETSTYLE_INDEX, !value ? 0 : f, f);
-}
-BSS_FORCEINLINE size_t fgMaskSetStyle(fgElement* self, const char* style, FG_UINT mask)
-{
-  return _sendsubmsg<FG_SETSTYLE, const void*, size_t>(self, FGSETSTYLE_NAME, style, mask);
 }
 
 BSS_FORCEINLINE FABS fgResolveUnit(FABS x, size_t unit, int dpi, FABS lineheight, bool snap)
@@ -477,8 +461,10 @@ struct fgStyleStatic
 {
   fgStyleStatic();
   ~fgStyleStatic();
+  void Init();
   void Clear();
   struct kh_fgStyles_s* h;
+  fgStyleIndex Masks[sizeof(fgStyleIndex) << 3]; // Holds the appropriate mask for each possible bit
 
   static fgStyleStatic Instance;
 };

@@ -61,7 +61,8 @@ void fgRoot_Init(fgRoot* self, const AbsRect* area, const fgIntVec* dpi, const f
     &fgTerminateDefault,
   };
 
-  memset(self, 0, sizeof(fgRoot));
+  fgStyleStatic::Instance.Init();
+  bss::bssFill(*self, 0);
   self->backend = !backend ? DEFAULT_BACKEND : *backend;
   self->dpi = *dpi;
   self->cursorblink = 0.53; // 530 ms is the windows default.
@@ -83,6 +84,10 @@ void fgRoot_Init(fgRoot* self, const AbsRect* area, const fgIntVec* dpi, const f
   fgElement_InternalSetup(*self, 0, 0, 0, 0, &transform, 0, (fgDestroy)&fgRoot_Destroy, (fgMessage)&fgRoot_Message);
   self->gui.element.style = 0;
 
+  fgStyle_AddGroupNames(4, "neutral", "hover", "active", "disable");
+  fgStyle_AddGroupNames(3, "default", "checked", "indeterminate");
+  fgStyle_AddGroupNames(2, "visible", "hidden");
+  
   fgRegisterControl("element", fgElement_Init, sizeof(fgElement), 0);
   fgRegisterControl("control", (fgInitializer)fgControl_Init, sizeof(fgControl), 0);
   fgRegisterControl("resource", (fgInitializer)fgResource_Init, sizeof(fgResource), FGELEMENT_IGNORE);

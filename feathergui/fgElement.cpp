@@ -73,7 +73,7 @@ void fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRI
 {
   assert(self != 0);
   assert(!(flags&FGFLAGS_DEFAULTS));
-  memset(self, 0, sizeof(fgElement));
+  bss::bssFill(*self, 0);
   self->destroy = destroy;
   self->free = 0;
   self->name = fgCopyText(name, __FILE__, __LINE__);
@@ -154,7 +154,7 @@ void fgElement_Destroy(fgElement* self)
   assert(fgroot_instance->fgLastHover != self);
   assert(fgroot_instance->fgCaptureWindow != self);
 #ifdef BSS_DEBUG
-  memset(self, 0xfefefefe, sizeof(fgElement));
+  bss::bssFill(*self, 0xfe);
 #endif
 }
 
@@ -788,17 +788,17 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
     fgStyle* style = 0;
     if(msg->subtype != FGSETSTYLE_POINTER)
     {
-      assert(msg->u2 != 0);
       FG_UINT mask = (FG_UINT)msg->u2;
-      FG_UINT index;
+      FG_UINT index = (FG_UINT)msg->u;
       FG_UINT oldstyle = self->style;
 
       switch(msg->subtype)
       {
       case FGSETSTYLE_NAME:
+        index = fgStyle_GetName((const char*)msg->p);
+        mask = fgStyle_GetIndexGroups(index);
       case FGSETSTYLE_INDEX:
-        index = ((msg->subtype == FGSETSTYLE_NAME) ? fgStyle_GetName((const char*)msg->p) : (FG_UINT)msg->u);
-
+        assert(mask != 0);
         if(index == (FG_UINT)-1)
           index = (FG_UINT)_sendmsg<FG_GETSTYLE>(self);
         else if(self->style == (FG_UINT)-1)
@@ -1272,7 +1272,7 @@ void fgElement_IterateUserHash(fgElement* self, void(*f)(void*, const char*, siz
   }
 }
 
-bss::AVL_Node<std::pair<fgElement*, unsigned short>>* fgElement_GetAnyListener(fgElement* key, bss::AVL_Node<std::pair<fgElement*, unsigned short>>* cur)
+bss::AVLNode<std::pair<fgElement*, unsigned short>>* fgElement_GetAnyListener(fgElement* key, bss::AVLNode<std::pair<fgElement*, unsigned short>>* cur)
 {
   while(cur)
   {
@@ -1288,7 +1288,7 @@ bss::AVL_Node<std::pair<fgElement*, unsigned short>>* fgElement_GetAnyListener(f
 }
 void fgElement_ClearListeners(fgElement* self)
 {
-  bss::AVL_Node<std::pair<fgElement*, unsigned short>>* cur;
+  bss::AVLNode<std::pair<fgElement*, unsigned short>>* cur;
 
   while(cur = fgElement_GetAnyListener(self, fgListenerList.GetRoot()))
   {
@@ -1422,11 +1422,11 @@ size_t fgElement::SetSkin(fgSkin* skin) { return _sendmsg<FG_SETSKIN, void*>(thi
 
 fgSkin* fgElement::GetSkin(fgElement* child) { return reinterpret_cast<fgSkin*>(_sendmsg<FG_GETSKIN, fgElement*>(this, child)); }
 
-size_t fgElement::SetStyle(const char* name, FG_UINT mask) {  return _sendsubmsg<FG_SETSTYLE, const void*, size_t>(this, FGSETSTYLE_NAME, name, mask); }
+size_t fgElement::SetStyle(const char* name) {  return _sendsubmsg<FG_SETSTYLE, const void*>(this, FGSETSTYLE_NAME, name); }
 
-size_t fgElement::SetStyle(struct _FG_STYLE* style) { return _sendsubmsg<FG_SETSTYLE, void*, size_t>(this, FGSETSTYLE_POINTER, style, ~0); }
+size_t fgElement::SetStyle(struct _FG_STYLE* style) { return _sendsubmsg<FG_SETSTYLE, void*>(this, FGSETSTYLE_POINTER, style); }
 
-size_t fgElement::SetStyle(FG_UINT index, FG_UINT mask) { return _sendsubmsg<FG_SETSTYLE, ptrdiff_t, size_t>(this, FGSETSTYLE_INDEX, index, mask); }
+size_t fgElement::SetStyle(fgStyleIndex index, fgStyleIndex mask) { return _sendsubmsg<FG_SETSTYLE, size_t, size_t>(this, FGSETSTYLE_INDEX, index, mask); }
 
 struct _FG_STYLE* fgElement::GetStyle() { return reinterpret_cast<struct _FG_STYLE*>(_sendmsg<FG_GETSTYLE>(this)); }
 

@@ -27,7 +27,7 @@ _FG_FONT_DATA::_FG_FONT_DATA(const _FG_FONT_DATA& copy)
 _FG_FONT_DATA::_FG_FONT_DATA(_FG_FONT_DATA&& mov)
 {
   memcpy(this, &mov, sizeof(_FG_FONT_DATA));
-  memset(&mov, 0, sizeof(_FG_FONT_DATA));
+  bss::bssFill(mov, 0);
 }
 _FG_FONT_DATA::~_FG_FONT_DATA()
 {
@@ -42,7 +42,7 @@ _FG_FONT_DATA& _FG_FONT_DATA::operator=(_FG_FONT_DATA&& mov) { this->~_FG_FONT_D
 
 _FG_ASSET_DATA::_FG_ASSET_DATA(void* _asset, const char* _file)
 {
-  memset(this, 0, sizeof(_FG_ASSET_DATA));
+  bss::bssFill(*this, 0);
   if(_asset) 
     asset = fgroot_instance->backend.fgCloneAsset(_asset, 0);
   file = fgCopyText(_file, __FILE__, __LINE__);
@@ -56,7 +56,7 @@ _FG_ASSET_DATA::_FG_ASSET_DATA(const _FG_ASSET_DATA& copy)
 _FG_ASSET_DATA::_FG_ASSET_DATA(_FG_ASSET_DATA&& mov)
 {
   memcpy(this, &mov, sizeof(_FG_ASSET_DATA));
-  memset(&mov, 0, sizeof(_FG_ASSET_DATA));
+  bss::bssFill(mov, 0);
 }
 _FG_ASSET_DATA::~_FG_ASSET_DATA()
 {
@@ -71,7 +71,7 @@ _FG_ASSET_DATA& _FG_ASSET_DATA::operator=(_FG_ASSET_DATA&& mov) { this->~_FG_ASS
 
 void fgSkin_Init(fgSkin* self, const char* name)
 {
-  memset(self, 0, sizeof(fgSkin));
+  bss::bssFill(*self, 0);
   self->name = fgCopyText(name, __FILE__, __LINE__);
 }
 

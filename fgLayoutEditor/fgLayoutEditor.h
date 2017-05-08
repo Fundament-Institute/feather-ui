@@ -4,8 +4,9 @@
 #ifndef __FG_LAYOUT_EDITOR_H__
 #define __FG_LAYOUT_EDITOR_H__
 
-#include "fgAll.h"
-#include "bss-util/cTOML.h"
+#include "LayoutTab.h"
+#include "SkinTab.h"
+#include "bss-util/TOML.h"
 
 typedef struct FG_LAYOUT_ACTION
 {
@@ -26,7 +27,7 @@ struct EditorSettings
   std::vector<std::string> recent;
 
   template<typename Engine>
-  void Serialize(bss::cSerializer<Engine>& e)
+  void Serialize(bss::Serializer<Engine>& e)
   {
     e.template EvaluateType<EditorSettings>(
       bss::GenPair("showgrid", showgrid),
@@ -41,73 +42,37 @@ struct EditorSettings
   }
 };
 
-class fgLayoutEditor
+class fgLayoutEditor : public EditorBase
 {
 public:
   fgLayoutEditor(fgLayout* layout, EditorSettings& settings);
   ~fgLayoutEditor();
+  inline LayoutTab& Layout() { return _layout; }
+  inline SkinTab& Skin() { return _skin; }
+  void DisplayLayout(fgLayout* layout);
   void OpenLayout(fgLayout* layout);
+  void LoadFile(const char* file);
+  void SaveFile(const char* file);
+  void NewFile();
+  void Close();
 
   static void MenuFile(struct _FG_ELEMENT*, const FG_Msg*);
   static void MenuRecent(struct _FG_ELEMENT*, const FG_Msg*);
   static void MenuEdit(struct _FG_ELEMENT*, const FG_Msg*);
   static void MenuView(struct _FG_ELEMENT*, const FG_Msg*);
   static void MenuHelp(struct _FG_ELEMENT*, const FG_Msg*);
-  static void ExplorerOnFocus(struct _FG_ELEMENT*, const FG_Msg*);
 
   static fgLayoutEditor* Instance;
 
-  enum MUTABLE_PROPERTIES : FG_UINT {
-    PROP_USERID = 1,
-    PROP_USERINFO,
-    PROP_TEXT,
-    PROP_PLACEHOLDER,
-    PROP_FONT,
-    PROP_LINEHEIGHT,
-    PROP_LETTERSPACING,
-    PROP_COLOR,
-    PROP_PLACECOLOR,
-    PROP_CURSORCOLOR,
-    PROP_SELECTCOLOR,
-    PROP_HOVERCOLOR,
-    PROP_DRAGCOLOR,
-    PROP_EDGECOLOR,
-    PROP_DIVIDERCOLOR,
-    PROP_COLUMNDIVIDERCOLOR,
-    PROP_ROWEVENCOLOR,
-    PROP_VALUEI,
-    PROP_VALUEF,
-    PROP_RANGE,
-    PROP_UV,
-    PROP_ASSET,
-    PROP_OUTLINE,
-    PROP_SPLITTER,
-    PROP_CONTEXTMENU,
-    PROP_TOTALPLUSONE,
-  };
-  
-  fgTextbox EditBox;
-
 protected:
-  void _openlayout(fgElement* root, const fgVectorClassLayout& layout);
-  void _addprop(fgGrid& e, const char* name, const char* type = "Text", FG_UINT userid = 0);
-  void _setprops(fgGrid& g, fgClassLayout& layout);
-  void _addmutableprop(fgGrid& g, MUTABLE_PROPERTIES id, const char* type);
-  void _clearprops(fgGrid& g, fgClassLayout& layout);
-  fgElement* FindProp(fgGrid& g, MUTABLE_PROPERTIES prop);
-
   static size_t _inject(fgRoot* self, const FG_Msg* msg);
-  static size_t _propertyMessage(fgText* self, const FG_Msg* msg);
 
   fgWindow* _mainwindow;
-  fgTreeview* _explorer;
-  fgGrid* _properties;
-  fgTreeview* _skinexplorer;
-  fgGrid* _skinprops;
   fgWorkspace* _workspace;
+  fgLayout* displaylayout; // Currently displayed layout or sublayout
 
-  fgLayout* _layout;
-  fgElement* _selected;
+  LayoutTab _layout;
+  SkinTab _skin;
   fgLayoutAction* _undo;
   fgLayoutAction* _redo;
   EditorSettings _settings;

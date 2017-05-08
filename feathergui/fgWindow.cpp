@@ -46,7 +46,7 @@ size_t fgWindow_Message(fgWindow* self, const FG_Msg* msg)
     fgControl_Message(&self->control, msg);
     self->dragged = 0;
     self->maximized = 0;
-    memset(&self->prevrect, 0, sizeof(CRect));
+    bss::bssFill(self->prevrect, 0);
     fgText_Init(&self->caption, *self, 0, "Window$text", FGELEMENT_BACKGROUND | FGELEMENT_IGNORE | FGELEMENT_EXPAND | FGFLAGS_INTERNAL, 0, 0);
     fgButton_Init(&self->controls[0], *self, 0, "Window$close", FGELEMENT_BACKGROUND | FGFLAGS_INTERNAL, 0, 0);
     fgButton_Init(&self->controls[1], *self, 0, "Window$restore", FGELEMENT_BACKGROUND | FGFLAGS_INTERNAL, 0, 0);

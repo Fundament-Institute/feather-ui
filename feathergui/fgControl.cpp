@@ -77,7 +77,7 @@ size_t fgControl_Message(fgControl* self, const FG_Msg* msg)
     self->contextmenu = 0;
     self->tabnext = self->tabprev = self; // This creates an infinite loop of tabbing
     self->sidenext = self->sideprev = self;
-    fgStandardNeutralSetStyle(*self, "neutral");
+    (*self)->SetStyle("neutral");
     return FG_ACCEPT;
   case FG_CLONE:
     if(msg->e)

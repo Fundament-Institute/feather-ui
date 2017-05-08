@@ -24,7 +24,7 @@ size_t fgButton_Message(fgButton* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     fgControl_HoverMessage(&self->control, msg);
     fgText_Init(&self->text, *self, 0, "Button$text", FGELEMENT_EXPAND | FGELEMENT_IGNORE | FGFLAGS_INTERNAL, &fgTransform_CENTER, 0);
-    fgStandardNeutralSetStyle(*self, (self->control.element.flags & FGCONTROL_DISABLE) ? "disabled" : "neutral");
+    (*self)->SetStyle((self->control.element.flags & FGCONTROL_DISABLE) ? "disabled" : "neutral");
     return FG_ACCEPT;
   case FG_CLONE:
     if(msg->e)
@@ -57,13 +57,13 @@ size_t fgButton_Message(fgButton* self, const FG_Msg* msg)
       return self->control->SetText((const char*)msg->p, (FGTEXTFMT)msg->u2);
     break;
   case FG_NEUTRAL:
-    fgStandardNeutralSetStyle(*self, "neutral");
+    (*self)->SetStyle("neutral");
     return FG_ACCEPT;
   case FG_HOVER:
-    fgStandardNeutralSetStyle(*self, "hover");
+    (*self)->SetStyle("hover");
     return FG_ACCEPT;
   case FG_ACTIVE:
-    fgStandardNeutralSetStyle(*self, "active");
+    (*self)->SetStyle("active");
     return FG_ACCEPT;
   case FG_GOTFOCUS:
     if(self->control.element.flags&FGBUTTON_NOFOCUS)
@@ -74,7 +74,7 @@ size_t fgButton_Message(fgButton* self, const FG_Msg* msg)
   case FG_SETFLAGS:
     if((self->control.element.flags ^ (fgFlag)otherint) & FGCONTROL_DISABLE)
     {
-      fgStandardNeutralSetStyle(*self, (otherint & FGCONTROL_DISABLE) ? "disabled" : "neutral");
+      (*self)->SetStyle((otherint & FGCONTROL_DISABLE) ? "disabled" : "neutral");
       fgroot_instance->mouse.state |= FGMOUSE_SEND_MOUSEMOVE;
     }
     break;
@@ -93,4 +93,4 @@ size_t fgButton_Message(fgButton* self, const FG_Msg* msg)
     return fgSendMessage(self->text, msg);
   }
   return fgControl_ActionMessage(&self->control, msg);
-}
+};

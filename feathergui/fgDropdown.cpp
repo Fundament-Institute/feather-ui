@@ -109,7 +109,7 @@ size_t fgDropdown_Message(fgDropdown* self, const FG_Msg* msg)
       hold->hover = self->hover;
       hold->select = self->select;
       hold->dropflag = self->dropflag;
-      memset(&self->mouse, 0, sizeof(fgMouseState));
+      bss::bssFill(self->mouse, 0);
       fgControl_Message(&self->control, msg);
       self->box->Clone(hold->box);
       _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, hold->box);

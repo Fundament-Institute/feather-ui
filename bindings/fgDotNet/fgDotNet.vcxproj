@@ -135,6 +135,7 @@
       <AdditionalDependencies>feathergui32.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>../../bin32</AdditionalLibraryDirectories>
       <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -148,6 +149,7 @@
       <AdditionalDependencies>feathergui.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>../../bin</AdditionalLibraryDirectories>
       <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

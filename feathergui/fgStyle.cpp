@@ -9,8 +9,16 @@
 KHASH_INIT(fgStyles, const char*, FG_UINT, 1, kh_str_hash_funcins, kh_str_hash_insequal);
 fgStyleStatic fgStyleStatic::Instance;
 
-fgStyleStatic::fgStyleStatic() { h = kh_init_fgStyles(); }
+fgStyleStatic::fgStyleStatic() : h(0) {}
 fgStyleStatic::~fgStyleStatic() { Clear(); }
+void fgStyleStatic::Init()
+{
+  Clear();
+  h = kh_init_fgStyles();
+  bss::bssFill(Masks, 0);
+  for(size_t i = 0; i < (sizeof(fgStyleIndex) << 3); ++i)
+    Masks[i] = (1 << i);
+}
 void fgStyleStatic::Clear()
 {
   if(h)
@@ -27,7 +35,7 @@ void fgStyleStatic::Clear()
 
 void fgStyle_Init(fgStyle* self)
 {
-  memset(self, 0, sizeof(fgStyle));
+  bss::bssFill(*self, 0);
 }
 
 void fgStyle_Destroy(fgStyle* self)
@@ -100,8 +108,8 @@ void fgStyle::RemoveStyleMsg(fgStyleMsg* msg) { fgStyle_RemoveStyleMsg(this, msg
 FG_UINT fgStyle_GetName(const char* name)
 {
   static FG_UINT count = 0;
-  assert(count < (sizeof(FG_UINT)<<3));
-  
+  assert(count < (sizeof(FG_UINT) << 3));
+
   int r;
   khiter_t iter = kh_put_fgStyles(fgStyleStatic::Instance.h, name, &r);
   if(r) // if it wasn't in there before, we need to initialize the index
@@ -112,7 +120,51 @@ FG_UINT fgStyle_GetName(const char* name)
   return kh_val(fgStyleStatic::Instance.h, iter);
 }
 
-const char* fgStyle_GetMapIndex(FG_UINT index)
+fgStyleIndex fgStyle_GetIndexGroups(fgStyleIndex index)
+{
+  fgStyleIndex mask = 0;
+  while(index)
+  {
+    fgStyleIndex indice = bss::bssLog2(index);
+    mask |= fgStyleStatic::Instance.Masks[indice];
+    index ^= (1 << indice);
+  }
+  return mask;
+}
+fgStyleIndex fgStyle_AddGroup(fgStyleIndex group)
+{
+  if(!group)
+    return 0;
+  fgStyleIndex index = group;
+  while(index)
+  {
+    fgStyleIndex indice = bss::bssLog2(index);
+    if(fgStyleStatic::Instance.Masks[indice] != (1 << indice))
+      return fgStyleStatic::Instance.Masks[indice];
+    index ^= (1 << indice);
+  }
+
+  index = group;
+  while(index)
+  {
+    fgStyleIndex indice = bss::bssLog2(index);
+    fgStyleStatic::Instance.Masks[indice] = group;
+    index ^= (1 << indice);
+  }
+  return 0;
+}
+fgStyleIndex fgStyle_AddGroupNames(size_t n, ...)
+{
+  fgStyleIndex group = 0;
+  va_list vl;
+  va_start(vl, n);
+  for(size_t i = 0; i < n; i++)
+    group |= fgStyle_GetName(va_arg(vl, const char*));
+  va_end(vl);
+  return fgStyle_AddGroup(group);
+}
+
+const char* fgStyle_GetMapIndex(fgStyleIndex index)
 {
   for(khiter_t i = 0; i < kh_end(fgStyleStatic::Instance.h); ++i)
     if(kh_exist(fgStyleStatic::Instance.h, i) && kh_val(fgStyleStatic::Instance.h, i) == index)
@@ -120,14 +172,14 @@ const char* fgStyle_GetMapIndex(FG_UINT index)
   return 0;
 }
 
-FG_UINT fgStyle_GetAllNames(const char* names)
+fgStyleIndex fgStyle_GetAllNames(const char* names)
 {
   size_t len = strlen(names) + 1;
   DYNARRAY(char, tokenize, len);
   MEMCPY(tokenize, len, names, len);
   char* context;
   char* token = STRTOK(tokenize, "+", &context);
-  FG_UINT style = 0;
+  fgStyleIndex style = 0;
   while(token)
   {
     style |= fgStyle_GetName(token);
