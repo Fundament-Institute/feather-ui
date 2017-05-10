@@ -40,9 +40,9 @@
         </Submenu>
       </MenuItem>
     </Menu>
-    <Submenu id="#testcontext" area="0,0,0,0">
+    <ContextMenu id="#testcontext">
       <MenuItem text="Change Window Text" />
-    </Submenu>
+    </ContextMenu>
     <TabControl area="0 20 100% 100%" flags="DRAGGABLE">
       <Tab name="Tab 1" id="#tabfocus">
         <Button area="0, 0, 0, 0" flags="EXPAND" text="Not Pressed" onaction="makepressed" />

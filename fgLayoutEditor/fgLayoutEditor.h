@@ -55,12 +55,15 @@ public:
   void SaveFile(const char* file);
   void NewFile();
   void Close();
+  virtual void Destroy() override;
 
   static void MenuFile(struct _FG_ELEMENT*, const FG_Msg*);
   static void MenuRecent(struct _FG_ELEMENT*, const FG_Msg*);
   static void MenuEdit(struct _FG_ELEMENT*, const FG_Msg*);
   static void MenuView(struct _FG_ELEMENT*, const FG_Msg*);
   static void MenuHelp(struct _FG_ELEMENT*, const FG_Msg*);
+  static size_t WorkspaceMessage(fgWorkspace* e, const FG_Msg* m);
+  static fgElement* LoadLayout(fgElement* parent, fgElement* next, fgClassLayout* layout);
 
   static fgLayoutEditor* Instance;
 

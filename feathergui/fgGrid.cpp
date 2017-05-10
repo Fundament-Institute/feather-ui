@@ -214,7 +214,10 @@ BSS_FORCEINLINE fgElement* fgGridRowOrder(fgElement* self, const AbsRect* area, 
 template<fgFlag FLAGS>
 inline fgElement* fgGridRowOrderInject(fgElement* self, const FG_Msg* msg)
 {
-  return fgOrderedVec<FLAGS>(&((fgGridRow*)self)->order, AbsVec { (FABS)msg->x, (FABS)msg->y });
+  AbsRect r = { (FABS)msg->x, (FABS)msg->y, (FABS)msg->x, (FABS)msg->y };
+  AbsRect cache;
+  ResolveRect(self, &cache);
+  return fgOrderedGet<FLAGS>(&((fgGridRow*)self)->order, &r, &cache);
 }
 
 void fgGridRow_Init(fgGridRow* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
@@ -268,13 +271,13 @@ size_t fgGridRow_Message(fgGridRow* self, const FG_Msg* msg)
     else
     {
       fgElement* (*fn)(fgElement*, const AbsRect*, const AbsRect*);
-      switch(self->element.flags&(FGBOX_TILE | FGBOX_DISTRIBUTEY))
+      switch(self->element.flags&(FGBOX_TILE | FGBOX_GROWY))
       {
       case 0:
       case FGBOX_TILEX: fn = &fgGridRowOrder<FGBOX_TILEX>; break;
       case FGBOX_TILEY: fn = &fgGridRowOrder<FGBOX_TILEY>; break;
       case FGBOX_TILE: fn = &fgGridRowOrder<FGBOX_TILE>; break;
-      case FGBOX_TILE | FGBOX_DISTRIBUTEY: fn = &fgGridRowOrder<FGBOX_TILE | FGBOX_DISTRIBUTEY>; break;
+      case FGBOX_TILE | FGBOX_GROWY: fn = &fgGridRowOrder<FGBOX_TILE | FGBOX_GROWY>; break;
       }
       fgOrderedDraw(*self, (AbsRect*)msg->p, (fgDrawAuxData*)msg->p2, msg->subtype & 1, self->order.ordered.p[self->order.ordered.l - 1]->next, fn, 0, 0);
     }
@@ -285,13 +288,13 @@ size_t fgGridRow_Message(fgGridRow* self, const FG_Msg* msg)
     else
     {
       fgElement* (*fn)(fgElement*, const FG_Msg*);
-      switch(self->element.flags&(FGBOX_TILE | FGBOX_DISTRIBUTEY))
+      switch(self->element.flags&(FGBOX_TILE | FGBOX_GROWY))
       {
       case 0:
       case FGBOX_TILEX: fn = &fgGridRowOrderInject<FGBOX_TILEX>; break;
       case FGBOX_TILEY: fn = &fgGridRowOrderInject<FGBOX_TILEY>; break;
       case FGBOX_TILE: fn = &fgGridRowOrderInject<FGBOX_TILE>; break;
-      case FGBOX_TILE | FGBOX_DISTRIBUTEY: fn = &fgGridRowOrderInject<FGBOX_TILE | FGBOX_DISTRIBUTEY>; break;
+      case FGBOX_TILE | FGBOX_GROWY: fn = &fgGridRowOrderInject<FGBOX_TILE | FGBOX_GROWY>; break;
       }
       return fgOrderedInject(*self, (const FG_Msg*)msg->p, (const AbsRect*)msg->p2, self->order.ordered.p[self->order.ordered.l - 1]->next, fn, 0);
     }

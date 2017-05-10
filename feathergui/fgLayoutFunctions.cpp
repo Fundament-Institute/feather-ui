@@ -221,7 +221,7 @@ size_t fgTileLayout(fgElement* self, const FG_Msg* msg, fgFlag flags, AbsVec* di
   AbsVec curdim = *dim;
   fgElement* child = msg->e;
   fgElement* skip = child;
-  char axis = ((flags & FGBOX_TILE) && (flags & FGBOX_DISTRIBUTEY)) || ((flags & FGBOX_TILEY) && !(flags & FGBOX_TILEX)); // 0 expands along x-axis, 1 expands along y-axis
+  char axis = ((flags & FGBOX_TILE) && (flags & FGBOX_GROWY)) || ((flags & FGBOX_TILEY) && !(flags & FGBOX_TILEX)); // 0 expands along x-axis, 1 expands along y-axis
   FABS max = INFINITY; // Maximum axis length. If axis is 0, represents maximum length along x axis, otherwise represents maximum length along y-axis.
   if((flags & FGBOX_TILE) == FGBOX_TILE)
   {
@@ -333,7 +333,7 @@ size_t fgDistributeLayout(fgElement* self, const FG_Msg* msg, fgFlag flags, AbsV
   AbsRect cache;
   ResolveRect(self, &cache);
   fgElement* child = msg->e;
-  char axis = (flags&FGBOX_DISTRIBUTEY); // 0 expands along x-axis, 1 expands along y-axis
+  char axis = (flags&FGBOX_GROWY); // 0 expands along x-axis, 1 expands along y-axis
   switch(msg->type)
   {
   case FGELEMENT_LAYOUTRESET:

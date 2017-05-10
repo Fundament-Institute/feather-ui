@@ -54,7 +54,6 @@ void fgRoot_Init(fgRoot* self, const AbsRect* area, const fgIntVec* dpi, const f
     &fgClipboardPasteDefault,
     &fgClipboardFreeDefault,
     &fgDirtyElementDefault,
-    &fgBehaviorHookDefault,
     &fgProcessMessagesDefault,
     &fgLoadExtensionDefault,
     &fgLogHookDefault,
@@ -64,6 +63,7 @@ void fgRoot_Init(fgRoot* self, const AbsRect* area, const fgIntVec* dpi, const f
   fgStyleStatic::Instance.Init();
   bss::bssFill(*self, 0);
   self->backend = !backend ? DEFAULT_BACKEND : *backend;
+  self->fgBehaviorHook = fgBehaviorHookDefault;
   self->dpi = *dpi;
   self->cursorblink = 0.53; // 530 ms is the windows default.
   self->lineheight = 30;
@@ -110,6 +110,7 @@ void fgRoot_Init(fgRoot* self, const AbsRect* area, const fgIntVec* dpi, const f
   fgRegisterControl("tabcontrol", (fgInitializer)fgTabcontrol_Init, sizeof(fgTabcontrol), 0);
   fgRegisterControl("menu", (fgInitializer)fgMenu_Init, sizeof(fgMenu), FGELEMENT_EXPANDY | FGBOX_TILEX);
   fgRegisterControl("submenu", (fgInitializer)fgSubmenu_Init, sizeof(fgMenu), FGELEMENT_NOCLIP | FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN | FGBOX_TILEY | FGELEMENT_EXPAND);
+  fgRegisterControl("contextmenu", (fgInitializer)fgContextMenu_Init, sizeof(fgMenu), FGELEMENT_NOCLIP | FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN | FGBOX_TILEY | FGELEMENT_EXPAND);
   fgRegisterControl("menuitem", (fgInitializer)fgMenuItem_Init, sizeof(fgMenuItem), FGELEMENT_EXPAND | FGELEMENT_NOCLIP);
   fgRegisterControl("grid", (fgInitializer)fgGrid_Init, sizeof(fgGrid), FGBOX_TILEY);
   fgRegisterControl("gridrow", (fgInitializer)fgGridRow_Init, sizeof(fgGridRow), FGBOX_TILEX|FGELEMENT_EXPAND);
@@ -361,7 +362,7 @@ void fgOrderedDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* au
   }
   char cull = 0;
 
-  while(!cull && cur != 0 && !(cur->flags & FGELEMENT_BACKGROUND)) // Render all ordered elements until they become culled
+  while(!cull && cur != 0 && !(cur->flags & FGELEMENT_BACKGROUND)) // Render all ordered elements until they go outside of the culling rect.
   {
     if(cur != fgroot_instance->topmost && cur != selected && !(cur->flags&FGELEMENT_HIDDEN))
     {
@@ -369,6 +370,15 @@ void fgOrderedDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* au
       AbsRect clip = fgroot_instance->backend.fgPeekClipRect(aux);
       cull = !fgRectIntersect(&curarea, &clip);
       _sendsubmsg<FG_DRAW, void*, const void*>(cur, cull, &curarea, aux);
+      switch(self->flags&(FGBOX_TILE | FGBOX_GROWY))
+      {
+      case FGBOX_TILEX:
+      case FGBOX_TILE | FGBOX_GROWY: // TILEX and TILE growing along the Y axis both get culled once we hit an element that is past the right edge of the cliprect
+        cull = curarea.left > clip.right;
+      case FGBOX_TILEY:
+      case FGBOX_TILE: // TILE growing along the X axis gets culled once we hit an element that is past the bottom edge of the cliprect
+        cull = curarea.top > clip.bottom;
+      }
     }
     cur = cur->next;
   }
@@ -424,7 +434,7 @@ size_t fgStandardInject(fgElement* self, const FG_Msg* msg, const AbsRect* area)
   }
 
   // If we get this far either we have no children, the event missed them all, or they all rejected the event...
-  return miss ? 0 : (*fgroot_instance->backend.fgBehaviorHook)(self,msg); // So we give the event to ourselves, but only if it didn't miss us (which can happen if we were evaluating nonclipping elements)
+  return miss ? 0 : (*fgroot_instance->fgBehaviorHook)(self,msg); // So we give the event to ourselves, but only if it didn't miss us (which can happen if we were evaluating nonclipping elements)
 }
 
 size_t fgOrderedInject(fgElement* self, const FG_Msg* msg, const AbsRect* area, fgElement* skip, fgElement* (*fn)(fgElement*, const FG_Msg*), fgElement* selected)
@@ -483,7 +493,7 @@ size_t fgOrderedInject(fgElement* self, const FG_Msg* msg, const AbsRect* area, 
     cur = cur->previnject;
   }
 
-  return (*fgroot_instance->backend.fgBehaviorHook)(self, msg); // So we give the event to ourselves because it couldn't have missed us if we got to this point
+  return (*fgroot_instance->fgBehaviorHook)(self, msg); // So we give the event to ourselves because it couldn't have missed us if we got to this point
 }
 
 BSS_FORCEINLINE size_t fgProcessCursor(fgRoot* self, size_t value, unsigned short type, FG_CURSOR fallback = FGCURSOR_NONE)
@@ -544,7 +554,7 @@ size_t fgRoot_DefaultInject(fgRoot* self, const FG_Msg* msg)
     fgElement* cur = !self->fgFocusedWindow ? *self : self->fgFocusedWindow;
     do
     {
-      if((*self->backend.fgBehaviorHook)(cur, msg))
+      if((*self->fgBehaviorHook)(cur, msg))
         return FG_ACCEPT;
       cur = cur->parent;
     } while(cur);

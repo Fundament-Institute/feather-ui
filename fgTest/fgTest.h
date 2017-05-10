@@ -15,8 +15,9 @@
 #define MAKESTRING(x) MAKESTRING2(x)
 #define BEGINTEST RETPAIR __testret = {0,0}
 #define ENDTEST return __testret
-#define FAILEDTEST(t) fprintf(failedtests, "Test #%u Failed  < %s >\n",  __testret.first,MAKESTRING(t))
-#define TEST(t) { ++__testret.first; if(t) ++__testret.second; else FAILEDTEST(t); }
+#define FAILEDTEST(t,num) fprintf(failedtests, "Test #%zu Failed  < %s >\n", num,MAKESTRING(t))
+#define TEST(t) { ++__testret.first; if(t) ++__testret.second; else FAILEDTEST(t, __testret.first); }
+#define TESTP(t) { ++__testret->first; if(t) ++__testret->second; else FAILEDTEST(t, __testret->first); }
 //#define TESTARRAY(t,f) _ITERFUNC(__testret,t,[&](uint i) -> bool { f });
 //#define TESTALL(t,f) _ITERALL(__testret,t,[&](uint i) -> bool { f });
 //#define TESTCOUNT(c,t) { for(uint i = 0; i < c; ++i) TEST(t) }

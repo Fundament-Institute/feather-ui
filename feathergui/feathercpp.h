@@ -232,7 +232,7 @@ inline size_t _sendmsg(fgElement* self, Args... args)
   FG_Msg msg = { 0 };
   msg.type = type;
   fgSendMsgCall<1, Args...>::F(msg, args...);
-  return (*fgroot_instance->backend.fgBehaviorHook)(self, &msg);
+  return (*fgroot_instance->fgBehaviorHook)(self, &msg);
 }
 
 template<FG_MSGTYPE type, typename... Args>
@@ -242,7 +242,7 @@ inline size_t _sendsubmsg(fgElement* self, unsigned short sub, Args... args)
   msg.type = type;
   msg.subtype = sub;
   fgSendMsgCall<1, Args...>::F(msg, args...);
-  return (*fgroot_instance->backend.fgBehaviorHook)(self, &msg);
+  return (*fgroot_instance->fgBehaviorHook)(self, &msg);
 }
 
 FG_EXTERN bss::Hash<std::pair<fgElement*, unsigned short>, fgListener> fgListenerHash;
@@ -379,8 +379,6 @@ struct _FG_BOX_ORDERED_ELEMENTS_;
 
 template<fgFlag FLAGS>
 fgElement* fgOrderedGet(struct _FG_BOX_ORDERED_ELEMENTS_* self, const AbsRect* area, const AbsRect* cache);
-template<fgFlag FLAGS>
-fgElement* fgOrderedVec(struct _FG_BOX_ORDERED_ELEMENTS_* order, AbsVec v);
 
 // Set a bunch of memory to zero after a given subclass
 template<class T, class SUBCLASS>

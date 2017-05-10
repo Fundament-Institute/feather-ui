@@ -40,66 +40,89 @@ template<fgFlag FLAGS> BSS_FORCEINLINE char fgBoxVecCompare(const AbsVec& l, con
 template<> BSS_FORCEINLINE char fgBoxVecCompare<FGBOX_TILEX>(const AbsVec& l, const AbsVec& r) { return SGNCOMPARE(l.x, r.x); }
 template<> BSS_FORCEINLINE char fgBoxVecCompare<FGBOX_TILEY>(const AbsVec& l, const AbsVec& r) { return SGNCOMPARE(l.y, r.y); }
 template<> BSS_FORCEINLINE char fgBoxVecCompare<FGBOX_TILE>(const AbsVec& l, const AbsVec& r) { char ret = SGNCOMPARE(l.y, r.y); return !ret ? SGNCOMPARE(l.x, r.x) : ret; }
-template<> BSS_FORCEINLINE char fgBoxVecCompare<FGBOX_TILE | FGBOX_DISTRIBUTEY>(const AbsVec& l, const AbsVec& r) { char ret = SGNCOMPARE(l.x, r.x); return !ret ? SGNCOMPARE(l.y, r.y) : ret; }
+template<> BSS_FORCEINLINE char fgBoxVecCompare<FGBOX_TILE | FGBOX_GROWY>(const AbsVec& l, const AbsVec& r) { char ret = SGNCOMPARE(l.x, r.x); return !ret ? SGNCOMPARE(l.y, r.y) : ret; }
 
-template<fgFlag FLAGS>
-char fgOrderedCompare(const AbsRect& l, const fgElement* const& e, const AbsRect* cache)
+BSS_FORCEINLINE AbsVec fgOrderedBottomRight(const AbsRect& r) { return r.bottomright; }
+BSS_FORCEINLINE AbsVec fgOrderedBottomLeft(const AbsRect& r) { return AbsVec{ r.left, r.bottom }; }
+BSS_FORCEINLINE AbsVec fgOrderedTopRight(const AbsRect& r) { return AbsVec{ r.right, r.top }; }
+
+template<fgFlag FLAGS, AbsVec(*CORNER)(const AbsRect&)>
+char fgOrderedCompare(const AbsVec& l, const fgElement* const& e, const AbsRect* cache)
 {
   assert(e->parent != 0);
   AbsRect r;
   ResolveRectCache(e, &r, cache, &e->parent->padding);
-  return fgBoxVecCompare<FLAGS&(FGBOX_TILE | FGBOX_DISTRIBUTEY)>(l.topleft, r.bottomright);
+  return fgBoxVecCompare<FLAGS&(FGBOX_TILE | FGBOX_GROWY)>(l, CORNER(r));
 }
+
 template<fgFlag FLAGS>
 fgElement* fgOrderedGet(struct _FG_BOX_ORDERED_ELEMENTS_* self, const AbsRect* area, const AbsRect* cache)
 {
   if(!self->ordered.l)
     return 0;
-  size_t r = bss::binsearch_aux_t<const fgElement*, AbsRect, size_t, &bss::CompT_EQ<char>, 1, const AbsRect*>::template BinarySearchNear<&fgOrderedCompare<FLAGS>>(self->ordered.p, *area, 0, self->ordered.l, cache);
+  size_t r = 0;
+  if((FLAGS&FGBOX_TILE) != FGBOX_TILE) // Simple case is easy
+    r = bss::binsearch_aux_t<const fgElement*, AbsVec, size_t, &bss::CompT_NEQ<char>, -1, const AbsRect*>::template BinarySearchNear<&fgOrderedCompare<FLAGS, fgOrderedBottomRight>>(self->ordered.p, area->topleft, 0, self->ordered.l, cache);
+  else
+  {
+    AbsVec query = (FLAGS&FGBOX_GROWY) ? AbsVec{ area->left, -INFINITY } : AbsVec{ -INFINITY, area->top }; // First we find the target column we want by querying (x,-infinity)
+    constexpr auto FN = (FLAGS&FGBOX_GROWY) ? fgOrderedBottomLeft : fgOrderedTopRight;
+    r = bss::binsearch_aux_t<const fgElement*, AbsVec, size_t, &bss::CompT_NEQ<char>, -1, const AbsRect*>::template BinarySearchNear<&fgOrderedCompare<FLAGS, FN>>(self->ordered.p, query, 0, self->ordered.l, cache);
+
+    if(r == self->ordered.l) // If this happens, we went past the END of the array
+      r = self->ordered.l - 1;
+    if(r < self->ordered.l) // Then, if this elements left edge is greater than the area left edge, go back one to get the previous column.
+    {
+      AbsRect abs;
+      ResolveOuterRectCache(self->ordered.p[r], &abs, cache, &self->ordered.p[r]->parent->padding);
+      if(((FLAGS&FGBOX_GROWY) && (abs.left > area->left)) || (!(FLAGS&FGBOX_GROWY) && (abs.top > area->top)))
+        r -= 1;
+    }
+    if(r >= self->ordered.l) // Otherwise we went past the START of the array
+      r = 0;
+
+    AbsRect abs;
+    ResolveOuterRectCache(self->ordered.p[r], &abs, cache, &self->ordered.p[r]->parent->padding);
+    query = (FLAGS&FGBOX_GROWY) ? AbsVec{ abs.left, area->top } : AbsVec{ area->left, abs.top }; // Now that we have the correct column, create a query on the y-axis using the left edge of the column.
+    r = bss::binsearch_aux_t<const fgElement*, AbsVec, size_t, &bss::CompT_NEQ<char>, -1, const AbsRect*>::template BinarySearchNear<&fgOrderedCompare<FLAGS, FN>>(self->ordered.p, query, 0, self->ordered.l, cache);
+  }
   return (r >= self->ordered.l) ? self->ordered.p[0] : self->ordered.p[r];
 }
 template<fgFlag FLAGS>
 BSS_FORCEINLINE fgElement* fgBoxOrder(fgElement* self, const AbsRect* area, const AbsRect* cache) { return fgOrderedGet<FLAGS>(&((fgBox*)self)->order, area, cache); }
 
-template<fgFlag FLAGS> BSS_FORCEINLINE char fgBoxMsgCompare(const AbsVec& l, const AbsRect& r);
-template<> BSS_FORCEINLINE char fgBoxMsgCompare<FGBOX_TILEX>(const AbsVec& l, const AbsRect& r) { return (l.x >= r.left) - (l.x < r.right); }
-template<> BSS_FORCEINLINE char fgBoxMsgCompare<FGBOX_TILEY>(const AbsVec& l, const AbsRect& r) { return (l.y >= r.top) - (l.y < r.bottom); }
-template<> BSS_FORCEINLINE char fgBoxMsgCompare<FGBOX_TILE>(const AbsVec& l, const AbsRect& r) { char ret = (l.y >= r.top) - (l.y < r.bottom); return !ret ? ((l.x >= r.left) - (l.x < r.right)) : ret; }
-template<> BSS_FORCEINLINE char fgBoxMsgCompare<FGBOX_TILE | FGBOX_DISTRIBUTEY>(const AbsVec& l, const AbsRect& r) { char ret = (l.x >= r.left) - (l.x < r.right); return !ret ? ((l.y >= r.top) - (l.y < r.bottom)) : ret; }
-
-template<fgFlag FLAGS>
-char fgBoxMsgCompare(const AbsVec& l, const fgElement* const& e)
-{
-  AbsRect r;
-  ResolveRect(e, &r);
-  return fgBoxMsgCompare<FLAGS&(FGBOX_TILE | FGBOX_DISTRIBUTEY)>(l, r);
-}
-template<fgFlag FLAGS>
-fgElement* fgOrderedVec(struct _FG_BOX_ORDERED_ELEMENTS_* order, AbsVec v)
-{
-  if(!order->ordered.l)
-    return 0;
-  size_t r = bss::BinarySearchNear<const fgElement*, AbsVec, size_t, &fgBoxMsgCompare<FLAGS>, &bss::CompT_EQ<char>, 1>(order->ordered.p, v, 0, order->ordered.l);
-  return (r >= order->ordered.l) ? order->ordered.p[0] : order->ordered.p[r];
-}
-
 template<fgFlag FLAGS>
 inline fgElement* fgBoxOrderInject(fgElement* self, const FG_Msg* msg)
 {
-  return fgOrderedVec<FLAGS>(&((fgBox*)self)->order, AbsVec { (FABS)msg->x, (FABS)msg->y });
+  AbsRect r = { (FABS)msg->x, (FABS)msg->y, (FABS)msg->x, (FABS)msg->y };
+  AbsRect cache;
+  ResolveRect(self, &cache);
+  return fgOrderedGet<FLAGS>(&((fgBox*)self)->order, &r, &cache);
 }
 
 inline fgOrderedDrawGet fgBox_GetDrawOrderFn(fgFlag flags)
 {
-  switch(flags&(FGBOX_TILE | FGBOX_DISTRIBUTEY))
+  switch(flags&(FGBOX_TILE | FGBOX_GROWY))
   {
   case 0:
   case FGBOX_TILEX: return &fgBoxOrder<FGBOX_TILEX>;
   case FGBOX_TILEY: return &fgBoxOrder<FGBOX_TILEY>;
   case FGBOX_TILE: return&fgBoxOrder<FGBOX_TILE>;
-  case FGBOX_TILE | FGBOX_DISTRIBUTEY: return &fgBoxOrder<FGBOX_TILE | FGBOX_DISTRIBUTEY>;
+  case FGBOX_TILE | FGBOX_GROWY: return &fgBoxOrder<FGBOX_TILE | FGBOX_GROWY>;
   }
   assert(false);
+  return 0;
+}
+
+fgElement* fgBoxOrderedElement_Get(struct _FG_BOX_ORDERED_ELEMENTS_* self, const AbsRect* target, const AbsRect* area, fgFlag flags)
+{
+  switch(flags&(FGBOX_TILE | FGBOX_GROWY))
+  {
+  case FGBOX_TILEX: return fgOrderedGet<FGBOX_TILEX>(self, target, area);
+  case FGBOX_TILEY: return fgOrderedGet<FGBOX_TILEY>(self, target, area);
+  case FGBOX_TILE: return fgOrderedGet<FGBOX_TILE>(self, target, area);
+  case FGBOX_TILE | FGBOX_GROWY: return fgOrderedGet<FGBOX_TILE|FGBOX_GROWY>(self, target, area);
+  }
   return 0;
 }
 
@@ -197,13 +220,13 @@ size_t fgBox_Message(fgBox* self, const FG_Msg* msg)
     else
     {
       fgElement* (*fn)(fgElement*, const FG_Msg*);
-      switch(self->scroll->flags&(FGBOX_TILE | FGBOX_DISTRIBUTEY))
+      switch(self->scroll->flags&(FGBOX_TILE | FGBOX_GROWY))
       {
       case 0:
       case FGBOX_TILEX: fn = &fgBoxOrderInject<FGBOX_TILEX>; break;
       case FGBOX_TILEY: fn = &fgBoxOrderInject<FGBOX_TILEY>; break;
       case FGBOX_TILE: fn = &fgBoxOrderInject<FGBOX_TILE>; break;
-      case FGBOX_TILE | FGBOX_DISTRIBUTEY: fn = &fgBoxOrderInject<FGBOX_TILE | FGBOX_DISTRIBUTEY>; break;
+      case FGBOX_TILE | FGBOX_GROWY: fn = &fgBoxOrderInject<FGBOX_TILE | FGBOX_GROWY>; break;
       }
       return fgOrderedInject(*self, (const FG_Msg*)msg->p, (const AbsRect*)msg->p2, self->order.ordered.p[self->order.ordered.l - 1]->next, fn, self->selected.l > 0 ? self->selected.p[0] : 0);
     }
@@ -281,10 +304,10 @@ size_t fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_* self, const
     }
     break;
   case FG_LAYOUTFUNCTION:
-    if(element->flags&(FGBOX_TILEX | FGBOX_TILEY)) // TILE flags override DISTRIBUTE flags, if they're specified.
-      return fgTileLayout(element, (const FG_Msg*)msg->p, element->flags&FGBOX_LAYOUTMASK, (AbsVec*)msg->p2);
-    if(element->flags&(FGBOX_DISTRIBUTEX | FGBOX_DISTRIBUTEY))
+    if(element->flags&FGBOX_DISTRIBUTE) // DISTRIBUTE overrides the tiling flags
       return fgDistributeLayout(element, (const FG_Msg*)msg->p, element->flags&FGBOX_LAYOUTMASK, (AbsVec*)msg->p2);
+    if(element->flags&(FGBOX_TILEX | FGBOX_TILEY))
+      return fgTileLayout(element, (const FG_Msg*)msg->p, element->flags&FGBOX_LAYOUTMASK, (AbsVec*)msg->p2);
     break; // If no layout flags are specified, fall back to default layout behavior.
   case FG_REMOVECHILD:
   {
@@ -355,13 +378,17 @@ size_t fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_* self, const
       return self->ordered.l;
     if(msg->subtype == FGITEM_LOCATION) // This means to query for the nearest element to the given coordinates.
     {
-      switch(element->flags&(FGBOX_TILE | FGBOX_DISTRIBUTEY))
+      AbsRect r = { (FABS)msg->x, (FABS)msg->y, (FABS)msg->x, (FABS)msg->y };
+      AbsRect cache;
+      ResolveRect(element, &cache);
+
+      switch(element->flags&(FGBOX_TILE | FGBOX_GROWY))
       {
       case 0:
-      case FGBOX_TILEX: return (size_t)fgOrderedVec<FGBOX_TILEX>(self, AbsVec{ (FABS)msg->x, (FABS)msg->y });
-      case FGBOX_TILEY: return (size_t)fgOrderedVec<FGBOX_TILEY>(self, AbsVec{ (FABS)msg->x, (FABS)msg->y });
-      case FGBOX_TILE: return (size_t)fgOrderedVec<FGBOX_TILE>(self, AbsVec{ (FABS)msg->x, (FABS)msg->y });
-      case FGBOX_TILE | FGBOX_DISTRIBUTEY: return (size_t)fgOrderedVec<FGBOX_TILE | FGBOX_DISTRIBUTEY>(self, AbsVec{ (FABS)msg->x, (FABS)msg->y });
+      case FGBOX_TILEX: return (size_t)fgOrderedGet<FGBOX_TILEX>(self, &r, &cache);
+      case FGBOX_TILEY: return (size_t)fgOrderedGet<FGBOX_TILEY>(self, &r, &cache);
+      case FGBOX_TILE: return (size_t)fgOrderedGet<FGBOX_TILE>(self, &r, &cache);
+      case FGBOX_TILE | FGBOX_GROWY: return (size_t)fgOrderedGet<FGBOX_TILE | FGBOX_GROWY>(self, &r, &cache);
       }
     }
     else if(size_t(msg->i) < self->ordered.l)

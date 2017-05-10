@@ -506,7 +506,7 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
       self->overlay.SetFlag(FGELEMENT_HIDDEN, otherint&FGELEMENT_HIDDEN);
       if(otherint&FGELEMENT_HIDDEN)
       {
-        fgroot_instance->backend.fgBehaviorHook = self->behaviorhook;
+        fgroot_instance->fgBehaviorHook = self->behaviorhook;
         if(!(self->tabs->flags&FGDEBUG_OVERLAY))
           fgroot_instance->gui->SetPadding(self->oldpadding);
         if(self->tabs->flags&FGDEBUG_CLEARONHIDE)
@@ -514,13 +514,13 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
       }
       else
       {
-        self->behaviorhook = fgroot_instance->backend.fgBehaviorHook;
+        self->behaviorhook = fgroot_instance->fgBehaviorHook;
         fgDebug_BuildTree(self->elements);
         self->oldpadding = fgroot_instance->gui->padding;
         if(!(self->tabs->flags&FGDEBUG_OVERLAY))
           fgroot_instance->gui->SetPadding(AbsRect{ self->oldpadding.left, self->oldpadding.top, self->oldpadding.right + 300, self->oldpadding.bottom });
 
-        fgroot_instance->backend.fgBehaviorHook = &fgRoot_BehaviorDebug;
+        fgroot_instance->fgBehaviorHook = &fgRoot_BehaviorDebug;
       }
       return r;
     }
@@ -857,7 +857,7 @@ void fgDebug_Show(const fgTransform* tf, char overlay)
   if(!fgdebug_instance)
     fgdebug_instance = reinterpret_cast<fgDebug*>(fgCreate("debug", *fgroot_instance, 0, 0, FGELEMENT_HIDDEN | (overlay ? FGDEBUG_OVERLAY : 0) | FGELEMENT_BACKGROUND, tf, 0));
   assert(fgdebug_instance != 0);
-  if(fgroot_instance->backend.fgBehaviorHook == &fgRoot_BehaviorDebug)
+  if(fgroot_instance->fgBehaviorHook == &fgRoot_BehaviorDebug)
     return; // Prevent an infinite loop
 
   fgdebug_instance->tabs->SetFlag(FGELEMENT_HIDDEN, false);

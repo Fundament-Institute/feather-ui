@@ -12,7 +12,6 @@ SkinTab::SkinTab()
 }
 SkinTab::~SkinTab()
 {
-  Clear();
 }
 void SkinTab::Init(EditorBase* base)
 {

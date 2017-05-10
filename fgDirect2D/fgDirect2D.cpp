@@ -861,7 +861,6 @@ struct _FG_ROOT* fgInitialize()
     &fgClipboardPasteD2D,
     &fgClipboardFreeD2D,
     &fgDirtyElementD2D,
-    &fgBehaviorHookListener,
     &fgProcessMessagesD2D,
     &fgLoadExtensionDefault,
     &fgLogHookDefault,

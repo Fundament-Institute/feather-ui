@@ -45,19 +45,7 @@ char dcompare(double af, double bf, __int64 maxDiff)
 RETPAIR test_feathergui()
 {
   BEGINTEST;
-  fgElement ch;
-  fgElement ch2;
-  fgElement ch3;
-  fgElement top;
-  fgTransform zeroelement;
-  fgTransform elem;
-  AbsRect out;
   AbsRect last = { 1.1,2.9,3,-4 };
-  CRect crect;
-  CRect cother;
-  CVec vec;
-  AbsVec res;
-  FG_Msg msg;
 
   TEST(fglerp(0.0f,1.0f,0.5f)==0.5f);
   TEST(fglerp(-1.0f,1.0f,0.5f)==0.0f);
@@ -79,6 +67,7 @@ RETPAIR test_feathergui()
   TEST(lrect[3] == -4);
 
   int size = sizeof(fgElement);
+
   ENDTEST;
 }
 
@@ -151,9 +140,92 @@ RETPAIR test_Button()
   ENDTEST;
 }
 
-RETPAIR test_List()
+void test_BoxProbe(RETPAIR* __testret, fgBox* box, const AbsRect* area, fgFlag flags, fgElement* cell, size_t expected, float x, float y)
+{
+  AbsRect target = { x,y,x,y };
+  fgElement* result = fgBoxOrderedElement_Get(&box->order, &target, area, flags);
+  TESTP(result == &cell[expected]);
+  if(result != &cell[expected])
+    printf("\nProbe %f %f failed on #%zu, got %zi instead", x, y, expected, result - cell);
+
+  FG_Msg m = { FG_GETITEM, FGITEM_LOCATION };
+  m.x = x;
+  m.y = y;
+  result = (fgElement*)fgSendMessage((fgElement*)box, &m);
+  TESTP(result == &cell[expected]);
+  if(result != &cell[expected])
+    printf("\nGetItem %f %f failed on #%zu, got %zi instead", x, y, expected, result - cell);
+
+  m.type = FG_DEBUGMESSAGE;
+  result = (fgElement*)fgVoidMessage((fgElement*)box, FG_INJECT, &m, 0);
+  TESTP(result == &cell[expected]);
+  if(result != &cell[expected])
+    printf("\nFG_INJECT %f %f failed on #%zu, got %zi instead", x, y, expected, !result ? 999 : result - cell);
+}
+
+RETPAIR test_Box()
 {
   BEGINTEST;
+
+  fgBox box;
+  fgTransform tf = { 0,0,0,0,300,0,300,0, 0, 0,0,0,0 };
+  fgTransform celltf = { 0,0,0,0,100,0,100,0, 0, 0,0,0,0 };
+  fgBox_Init(&box, 0, 0, 0, FGBOX_TILE | FGBOX_GROWY, &tf, 0);
+  fgElement cell[9];
+  for(size_t i = 0; i < 9; ++i)
+    fgElement_Init(&cell[i], &box, 0, 0, 0, &celltf, 0);
+
+  TEST(fgIntMessage((fgElement*)&box, FG_GETITEM, 0, 0) == &cell[0]);
+  TEST(fgIntMessage((fgElement*)&box, FG_GETITEM, -1, 0) == 0);
+  TEST(fgIntMessage((fgElement*)&box, FG_GETITEM, 9, 0) == 0);
+  TEST(fgIntMessage((fgElement*)&box, FG_GETITEM, 8, 0) == &cell[8]);
+
+  AbsVec probes[] = { { 0,0 },{ 0,50 },{ 0,50 },{ 50,50 },{ 1,1 },{ 0,99 },{ 99,0 },{ 99,99 } };
+
+  AbsRect target = { -1,-1,-1,-1 };
+  AbsRect area;
+  ResolveRect((fgElement*)&box, &area);
+  TEST(fgBoxOrderedElement_Get(&box.order, &target, &area, box.scroll.control.element.flags) == &cell[0]);
+  for(size_t i = 0; i < 3; ++i)
+  {
+    for(size_t j = 0; j < 3; ++j)
+    {
+      for(size_t k = 0; k < sizeof(probes) / sizeof(AbsVec); ++k)
+        test_BoxProbe(&__testret, &box, &area, box.scroll.control.element.flags, cell, i * 3 + j, probes[k].x + i * 100, probes[k].y + j * 100);
+    }
+  }
+
+  fgIntMessage((fgElement*)&box, FG_SETFLAGS, FGBOX_TILE, 0);
+  for(size_t i = 0; i < 3; ++i)
+  {
+    for(size_t j = 0; j < 3; ++j)
+    {
+      for(size_t k = 0; k < sizeof(probes) / sizeof(AbsVec); ++k)
+        test_BoxProbe(&__testret, &box, &area, box.scroll.control.element.flags, cell, i * 3 + j, probes[k].x + j * 100, probes[k].y + i * 100);
+    }
+  }
+
+  fgIntMessage((fgElement*)&box, FG_SETFLAGS, FGBOX_TILEX, 0);
+  target.top = -1;
+  target.left = -1;
+  TEST(fgBoxOrderedElement_Get(&box.order, &target, &area, box.scroll.control.element.flags) == &cell[0]);
+  for(size_t i = 0; i < 9; ++i)
+  {
+    for(size_t k = 0; k < sizeof(probes) / sizeof(AbsVec); ++k)
+      test_BoxProbe(&__testret, &box, &area, box.scroll.control.element.flags, cell, i, probes[k].x + i * 100, probes[k].y);
+  }
+
+  fgIntMessage((fgElement*)&box, FG_SETFLAGS, FGBOX_TILEY, 0);
+  target.top = -1;
+  target.left = -1;
+  TEST(fgBoxOrderedElement_Get(&box.order, &target, &area, box.scroll.control.element.flags) == &cell[0]);
+  for(size_t i = 0; i < 9; ++i)
+  {
+    for(size_t k = 0; k < sizeof(probes) / sizeof(AbsVec); ++k)
+      test_BoxProbe(&__testret, &box, &area, box.scroll.control.element.flags, cell, i, probes[k].x, probes[k].y + i * 100);
+  }
+
+  VirtualFreeChild((fgElement*)&box);
   ENDTEST;
 }
 
@@ -195,10 +267,10 @@ int main(int argc, char** argv)
   static const int COLUMNS[3] = { 24, 11, 8 };
   static TESTDEF tests[] = {
     { "feathergui.h", &test_feathergui },
+    { "fgBox.h", &test_Box },
     { "fgRoot.h", &test_Root },
     { "fgWindow.h", &test_Window },
     { "fgButton.h", &test_Button },
-    { "fgList.h", &test_List },
     { "fgMenu.h", &test_Menu },
   };
 
@@ -233,7 +305,7 @@ int main(int argc, char** argv)
   {
     numpassed=tests[i].FUNC(); //First is total, second is succeeded
     if(numpassed.first!=numpassed.second) failures[nfail++]=i;
-    sprintf(buf,"%u/%u",numpassed.second,numpassed.first);
+    sprintf(buf,"%zu/%zu",numpassed.second,numpassed.first);
     printf("%-*s %*s %-*s\n",COLUMNS[0],tests[i].NAME, COLUMNS[1],buf, COLUMNS[2],(numpassed.first==numpassed.second)?"PASS":"FAIL");
   }
 

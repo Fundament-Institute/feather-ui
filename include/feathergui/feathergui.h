@@ -369,6 +369,7 @@ enum FG_MSGTYPE
   FG_GETLINEHEIGHT,
   FG_GETLETTERSPACING,
   FG_GETTEXT,
+  FG_DEBUGMESSAGE, // Always returns a pointer to the element that recieved the message. Used for debugging message injection handlers.
   FG_CUSTOMEVENT
 };
 

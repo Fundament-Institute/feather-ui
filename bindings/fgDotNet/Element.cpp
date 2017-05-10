@@ -47,7 +47,7 @@ size_t Element::Inject(const FG_Msg* msg, RectangleF^ area) { return _p->Inject(
 size_t Element::SetSkin(Skin^ skin) { return _p->SetSkin(skin); }
 Skin^ Element::GetSkin() { return nullptr; }
 Skin^ Element::GetSkin(Element^ child) { return nullptr; }
-size_t Element::SetStyle(String^ name, FG_UINT mask) { TOCHAR(name); return _p->SetStyle((const char*)pstr, mask); }
+size_t Element::SetStyle(String^ name) { TOCHAR(name); return _p->SetStyle((const char*)pstr); }
 size_t Element::SetStyle(Style^ style) { fgStyle s = fgStyle{ style }; return _p->SetStyle(&s); }
 size_t Element::SetStyle(FG_UINT index, FG_UINT mask) { return _p->SetStyle(index, mask); }
 Style^ Element::GetStyle() { return GenNewManagedPtr<Style, fgStyle>(_p->GetStyle()); }

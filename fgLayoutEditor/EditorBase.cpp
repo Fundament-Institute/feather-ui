@@ -10,12 +10,22 @@ using namespace bss;
 EditorBase::EditorBase(fgLayout* layout)
 {
   bssFill(*this, 0);
-  fgSingleton()->gui->LayoutLoad(layout);
+  _window = fgSingleton()->gui->LayoutLoad(layout);
+  _window->userdata = this;
+  _window->AddListener(FG_DESTROY, WindowOnDestroy);
   fgLayout_Init(&curlayout);
 }
 EditorBase::~EditorBase()
 {
+  if(_window)
+    VirtualFreeChild(_window);
   fgLayout_Destroy(&curlayout);
+}
+void EditorBase::WindowOnDestroy(struct _FG_ELEMENT* e, const FG_Msg*)
+{
+  EditorBase* base = reinterpret_cast<EditorBase*>(e->userdata);
+  base->_window = 0; // Don't delete the window twice
+  base->Destroy();
 }
 
 uint32_t EditorBase::ParseColor(const char* s)
@@ -322,13 +332,13 @@ void EditorBase::RemoveStyleMsg(fgStyle& s, uint16_t type, uint16_t subtype)
   }
 }
 
-void EditorBase::AddProp(fgGrid& g, const char* name, const char* type, FG_UINT userid, fgMessage fn)
+void EditorBase::AddProp(fgGrid& g, const char* name, const char* type, FG_UINT userid, fgMessage fn, fgFlag flags)
 {
   static const fgTransform TF1 = { { 0,0,0,0,0,0.5,20,0 }, 0,{ 0,0,0,0 } };
   static const fgTransform TF2 = { { 0,0.5,0,0,0,1,20,0 }, 0,{ 0,0,0,0 } };
   fgGridRow* row = g.InsertRow();
   fgCreate("Text", *row, 0, 0, FGELEMENT_EXPANDY, &fgTransform_EMPTY, 0)->SetText(name);
-  fgElement* prop = fgCreate(type, *row, 0, 0, FGELEMENT_EXPANDY, &fgTransform_EMPTY, 0);
+  fgElement* prop = fgCreate(type, *row, 0, 0, flags, &fgTransform_EMPTY, 0);
   prop->userid = userid;
   if(fn)
     prop->message = fn;

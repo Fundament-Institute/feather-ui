@@ -50,7 +50,6 @@ typedef struct _FG_BACKEND {
   void (*fgClipboardFree)(const void* mem);
   void (*fgDirtyElement)(fgElement* elem);
 
-  size_t(*fgBehaviorHook)(struct _FG_ELEMENT* self, const FG_Msg* msg);
   char (*fgProcessMessages)();
   size_t (*fgLoadExtension)(const char* extname, void* fg, size_t sz);
   int(*fgLogHook)(const char* format, va_list args);
@@ -96,7 +95,7 @@ FG_EXTERN void fgClipboardFreeDefault(const void* mem);
 FG_EXTERN void fgDirtyElementDefault(fgElement* elem);
 
 FG_EXTERN size_t fgBehaviorHookDefault(fgElement* self, const FG_Msg* msg);
-FG_EXTERN size_t fgBehaviorHookListener(fgElement* self, const FG_Msg* msg);
+FG_EXTERN size_t fgBehaviorHookSimple(fgElement* self, const FG_Msg* msg);
 FG_EXTERN char fgProcessMessagesDefault();
 FG_EXTERN size_t fgLoadExtensionDefault(const char* extname, void* fg, size_t sz);
 FG_EXTERN void fgTerminateDefault();

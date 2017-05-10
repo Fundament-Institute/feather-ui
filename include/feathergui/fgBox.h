@@ -16,12 +16,13 @@ enum FGBOX_FLAGS
   FGBOX_IGNOREMARGINEDGEY = (FGBOX_IGNOREMARGINEDGEX << 1),
   FGBOX_TILEX = (FGBOX_IGNOREMARGINEDGEY << 1),
   FGBOX_TILEY = (FGBOX_TILEX << 1),
-  FGBOX_DISTRIBUTEX = (FGBOX_TILEY << 1), // when combined with TILEX and TILEY, simply makes the tiles expand along the X direction
-  FGBOX_DISTRIBUTEY = (FGBOX_DISTRIBUTEX << 1), // same as above but for the Y direction
+  FGBOX_REVERSE = (FGBOX_TILEY << 1),
+  FGBOX_GROWX = 0,
+  FGBOX_GROWY = (FGBOX_REVERSE << 1),
+  FGBOX_DISTRIBUTE = (FGBOX_GROWY << 1),
   FGBOX_TILE = (FGBOX_TILEX | FGBOX_TILEY),
-  FGBOX_DISTRIBUTE = (FGBOX_DISTRIBUTEX | FGBOX_DISTRIBUTEY),
   FGBOX_IGNOREMARGINEDGE = (FGBOX_IGNOREMARGINEDGEX | FGBOX_IGNOREMARGINEDGEY),
-  FGBOX_LAYOUTMASK = (FGBOX_TILE | FGBOX_DISTRIBUTE | FGBOX_IGNOREMARGINEDGE),
+  FGBOX_LAYOUTMASK = (FGBOX_TILE | FGBOX_GROWX | FGBOX_GROWY | FGBOX_REVERSE | FGBOX_DISTRIBUTE | FGBOX_IGNOREMARGINEDGE),
 };
 
 struct _FG_BOX_ORDERED_ELEMENTS_ {
@@ -48,6 +49,7 @@ FG_EXTERN void fgBox_Destroy(fgBox* self);
 FG_EXTERN size_t fgBox_Message(fgBox* self, const FG_Msg* msg);
 FG_EXTERN void fgBoxOrderedElement_Destroy(struct _FG_BOX_ORDERED_ELEMENTS_* self);
 FG_EXTERN size_t fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_* self, const FG_Msg* msg, fgElement* element, fgMessage callback);
+FG_EXTERN fgElement* fgBoxOrderedElement_Get(struct _FG_BOX_ORDERED_ELEMENTS_* self, const AbsRect* target, const AbsRect* area, fgFlag flags);
 FG_EXTERN void fgBox_DeselectAll(fgBox* self);
 FG_EXTERN void fgBox_SelectTarget(fgBox* self, fgElement* target);
 FG_EXTERN void fgBoxRenderDividers(fgElement* self, fgColor color, const AbsRect* area, const AbsRect* drawarea, const fgDrawAuxData* aux, fgElement* begin);

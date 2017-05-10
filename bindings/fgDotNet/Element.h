@@ -101,7 +101,7 @@ namespace fgDotNet {
     size_t SetSkin(Skin^ skin);
     Skin^ GetSkin();
     Skin^ GetSkin(Element^ child);
-    size_t SetStyle(System::String^ name, FG_UINT mask);
+    size_t SetStyle(System::String^ name);
     size_t SetStyle(Style^ style);
     size_t SetStyle(FG_UINT index, FG_UINT mask);
     Style^ GetStyle();

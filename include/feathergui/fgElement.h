@@ -206,6 +206,7 @@ FG_EXTERN void fgElement_ClearListeners(fgElement* self);
 FG_EXTERN size_t fgElement_CheckLastFocus(fgElement* self);
 FG_EXTERN void fgElement_ApplyMessageArray(fgElement* search, fgElement* target, fgVector* src);
 FG_EXTERN void fgElement_IterateUserHash(fgElement* self, void(*f)(void*, const char*, size_t), void* data);
+FG_EXTERN void fgElement_StyleToMessageArray(const struct _FG_STYLE* src, fgElement* target, fgVector** vdest);
 
 FG_EXTERN size_t fgDimMessage(fgElement* self, unsigned short type, unsigned short subtype, float x, float y);
 FG_EXTERN size_t fgFloatMessage(fgElement* self, unsigned short type, unsigned short subtype, float data, ptrdiff_t aux);

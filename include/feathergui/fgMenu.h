@@ -34,10 +34,14 @@ FG_EXTERN void fgMenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgEleme
 FG_EXTERN void fgMenu_Destroy(fgMenu* self);
 FG_EXTERN size_t fgMenu_Message(fgMenu* self, const FG_Msg* msg);
 //FG_EXTERN char fgMenu_DoDropdown(fgMenu* self);
+
 FG_EXTERN void fgSubmenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
 FG_EXTERN size_t fgSubmenu_Message(fgMenu* self, const FG_Msg* msg);
+
 FG_EXTERN void fgMenuItem_Init(fgMenuItem* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
 FG_EXTERN size_t fgMenuItem_Message(fgMenuItem* self, const FG_Msg* msg);
+
+FG_EXTERN void fgContextMenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
 
 #ifdef  __cplusplus
 }

@@ -57,6 +57,16 @@ int Listdir(const char* cdir, bool(*fn)(const char*), char flags, const char* fi
     FindClose(hdir);
   return 0;
 }
+
+void LoadEmbeddedResource(int id, int type, DWORD& size, const char*& data)
+{
+  HMODULE handle = ::GetModuleHandle(NULL);
+  HRSRC rc = ::FindResource(handle, MAKEINTRESOURCE(id), MAKEINTRESOURCE(type));
+  HGLOBAL rcData = ::LoadResource(handle, rc);
+  size = ::SizeofResource(handle, rc);
+  data = static_cast<const char*>(::LockResource(rcData));
+}
+
 #else //Linux function
 int Listdir(const wchar_t* cdir, bool(*fn)(const wchar_t*), char flags)
 {
@@ -119,7 +129,6 @@ int main(int argc, char** argv)
   if(!fgSingleton())
     return 1;
 
-  fgSingleton()->backend.fgBehaviorHook = fgBehaviorHookListener;
   fgRegisterFunction("menu_file", fgLayoutEditor::MenuFile);
   fgRegisterFunction("menu_recent", fgLayoutEditor::MenuRecent);
   fgRegisterFunction("menu_edit", fgLayoutEditor::MenuEdit);
@@ -152,8 +161,14 @@ int main(int argc, char** argv)
 
   fgLayout layout;
   fgLayout_Init(&layout);
+#ifdef BSS_PLATFORM_WIN32
+  const char* data;
+  DWORD sz;
+  LoadEmbeddedResource(201, 256, sz, data);
+  fgLayout_LoadXML(&layout, data, sz);
+#else
   fgLayout_LoadFileXML(&layout, "../media/editor/editor.xml");
-  
+#endif
   {
     fgLayoutEditor editor(&layout, settings);
     editor.OpenLayout(&layout);

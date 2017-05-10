@@ -113,7 +113,7 @@ short fgMessageMapDefault(const char* name)
     "GETCLASSNAME", "GETDPI", "SETDPI", "SETUSERDATA", "GETUSERDATA", "SETDIM", "GETDIM", "SETSCALING", "GETSCALING", "MOUSEDOWN", "MOUSEDBLCLICK", "MOUSEUP", "MOUSEON", "MOUSEOFF", "MOUSEMOVE",
     "MOUSESCROLL", "TOUCHBEGIN", "TOUCHEND", "TOUCHMOVE", "KEYUP", "KEYDOWN", "KEYCHAR", "JOYBUTTONDOWN", "JOYBUTTONUP", "JOYAXIS", "GOTFOCUS", "LOSTFOCUS", "SETNAME", "GETNAME", "SETCONTEXTMENU",
     "GETCONTEXTMENU", "NEUTRAL", "HOVER", "ACTIVE", "ACTION", "GETITEM", "ADDITEM", "REMOVEITEM", "SETITEM", "SELECTION", "GETSELECTEDITEM", "GETVALUE", "SETVALUE", "GETRANGE", "SETRANGE", "SETASSET", "SETUV",
-    "SETCOLOR", "SETOUTLINE", "SETFONT", "SETLINEHEIGHT", "SETLETTERSPACING", "SETTEXT", "GETASSET", "GETUV", "GETCOLOR", "GETOUTLINE", "GETFONT", "GETLINEHEIGHT", "GETLETTERSPACING", "GETTEXT",
+    "SETCOLOR", "SETOUTLINE", "SETFONT", "SETLINEHEIGHT", "SETLETTERSPACING", "SETTEXT", "GETASSET", "GETUV", "GETCOLOR", "GETOUTLINE", "GETFONT", "GETLINEHEIGHT", "GETLETTERSPACING", "GETTEXT", "DEBUGMESSAGE",
     "$FG_CUSTOMEVENT");
 
   assert(t["$FG_CUSTOMEVENT"] == FG_CUSTOMEVENT); // Ensure this count is correct
@@ -241,9 +241,9 @@ const char* fgFlagMapDefault(const char* type, fgFlag flag)
     case FGBOX_TILEX: return "TILEX";
     case FGBOX_TILEY: return "TILEY";
     case FGBOX_TILEX|FGBOX_TILEY: return "TILE";
-    case FGBOX_DISTRIBUTEX: return "DISTRIBUTEX";
-    case FGBOX_DISTRIBUTEY: return "DISTRIBUTEY";
-    case FGBOX_DISTRIBUTEX|FGBOX_DISTRIBUTEY: return "DISTRIBUTE";
+    case FGBOX_GROWY: return "GROWY";
+    case FGBOX_REVERSE: return "REVERSE";
+    case FGBOX_DISTRIBUTE: return "DISTRIBUTE";
     }
     break;
   }
@@ -375,13 +375,13 @@ void fgUserDataMapCallbacks(fgElement* self, struct __VECTOR__KeyValue* pairs)
     fgUserDataMapCallbacksProcess(self, pairs->p + i);
 }
 
-size_t fgBehaviorHookDefault(fgElement* self, const FG_Msg* msg)
+size_t fgBehaviorHookSimple(fgElement* self, const FG_Msg* msg)
 {
   assert(self != 0);
   return (*self->message)(self, msg);
 }
 
-size_t fgBehaviorHookListener(fgElement* self, const FG_Msg* msg)
+size_t fgBehaviorHookDefault(fgElement* self, const FG_Msg* msg)
 {
   assert(self != 0);
   size_t ret = (*self->message)(self, msg);
@@ -406,7 +406,7 @@ void fgFunctionMap_destroy(struct kh_fgFunctionMap_s* h)
 
 int fgRegisterFunction(const char* name, fgListener fn)
 {
-  assert(fgroot_instance->backend.fgBehaviorHook != fgBehaviorHookDefault); // You must have this set to fgBehaviorHookListener or an equivelent for this to do anything!
+  assert(fgroot_instance->fgBehaviorHook != fgBehaviorHookSimple); // You must have this set to fgBehaviorHookListener or an equivelent for this to do anything!
   int r;
   khint_t iter = kh_put_fgFunctionMap(fgroot_instance->functionhash, fgCopyText(name, __FILE__, __LINE__), &r);
   kh_val(fgroot_instance->functionhash, iter) = fn;

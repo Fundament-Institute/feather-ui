@@ -64,6 +64,7 @@ typedef struct _FG_ROOT {
   fgElement* fgFocusedWindow;
   fgElement* fgLastHover; // Last window the mouse moved over, used to generate MOUSEON and MOUSEOFF events
   fgElement* fgCaptureWindow;
+  size_t(*fgBehaviorHook)(struct _FG_ELEMENT* self, const FG_Msg* msg);
 #ifdef  __cplusplus
   inline bool GetKey(unsigned char key) const { return (keys[key / 32] & (1 << (key % 32))) != 0; }
   inline operator fgElement*() { return &gui.element; }
@@ -114,7 +115,7 @@ inline size_t fgSendMsg(fgElement* self, Args... args)
   FG_Msg msg = { 0 };
   msg.type = type;
   fgSendMsgCall<1, Args...>::F(msg, args...);
-  return (*fgSingleton()->backend.fgBehaviorHook)(self, &msg);
+  return (*fgSingleton()->fgBehaviorHook)(self, &msg);
 }
 
 template<FG_MSGTYPE type, typename... Args>
@@ -124,7 +125,7 @@ inline size_t fgSendSubMsg(fgElement* self, unsigned short sub, Args... args)
   msg.type = type;
   msg.subtype = sub;
   fgSendMsgCall<1, Args...>::F(msg, args...);
-  return (*fgSingleton()->backend.fgBehaviorHook)(self, &msg);
+  return (*fgSingleton()->fgBehaviorHook)(self, &msg);
 }
 #endif
 

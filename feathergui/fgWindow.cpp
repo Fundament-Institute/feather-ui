@@ -226,7 +226,7 @@ size_t fgWindow_Message(fgWindow* self, const FG_Msg* msg)
     }
   case FG_INJECT:
     if(self->dragged != 0) // if we are being dragged, we completely bypass all children
-      return (*fgroot_instance->backend.fgBehaviorHook)(*self, (const FG_Msg*)msg->p);
+      return (*fgroot_instance->fgBehaviorHook)(*self, (const FG_Msg*)msg->p);
     break;
   case FG_GOTFOCUS:
     if(fgElement_CheckLastFocus(*self)) // try to resolve via lastfocus

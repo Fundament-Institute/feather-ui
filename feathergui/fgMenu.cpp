@@ -134,6 +134,12 @@ void fgSubmenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS
   if(!transform) transform = (parent != 0 && parent->parent != 0 && parent->parent->GetClassName() == MENU_NAME) ? &TF_MENU : &TF_SUBMENU;
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgMenu_Destroy, (fgMessage)&fgSubmenu_Message);
 }
+void fgContextMenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+{
+  assert(self != 0);
+  if(!transform) transform = &fgTransform_EMPTY;
+  fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgMenu_Destroy, (fgMessage)&fgSubmenu_Message);
+}
 
 size_t fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
 {

@@ -55,7 +55,7 @@ public:
 
   explicit EditorBase(fgLayout* layout);
   ~EditorBase();
-  void AddProp(fgGrid& e, const char* name, const char* type = "Text", FG_UINT userid = 0, fgMessage fn = 0);
+  void AddProp(fgGrid& e, const char* name, const char* type = "Text", FG_UINT userid = 0, fgMessage fn = 0, fgFlag flags = FGELEMENT_EXPANDY);
   void SetProps(fgGrid& g, fgClassLayout& layout);
   void AddMutableProp(fgGrid& g, PROPERTIES id, const char* type);
   void ClearProps(fgGrid& g);
@@ -64,6 +64,7 @@ public:
   uint32_t ParseColor(const char* s);
   uint16_t GetTransformMsg(const fgStyle& target, fgTransform& out);
   fgElement* FindProp(fgGrid& g, PROPERTIES prop);
+  virtual void Destroy() = 0;
 
   template<typename T, size_t(*F)(char*, size_t, const T*, short)>
   inline bss::Str WrapWrite(const T& v, short u)
@@ -75,7 +76,10 @@ public:
   }
 
   static void RemoveStyleMsg(fgStyle& s, uint16_t type, uint16_t subtype = (uint16_t)~0);
+  static void WindowOnDestroy(struct _FG_ELEMENT*, const FG_Msg*);
 
+protected:
+  fgElement* _window;
   fgLayout curlayout; // Currently loaded root layout
   fgElement* selected; // If applicable, points to the currently selected displayed element in the workspace. DISPLAY PURPOSES ONLY.
 };

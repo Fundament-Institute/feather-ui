@@ -30,7 +30,8 @@ fgLayoutEditor::fgLayoutEditor(fgLayout* layout, EditorSettings& settings) : Edi
 
   _mainwindow = reinterpret_cast<fgWindow*>(fgGetID("Editor$mainwindow"));
   _workspace = reinterpret_cast<fgWorkspace*>(fgGetID("Editor$workspace"));
-
+  if(_workspace)
+    (*_workspace)->message = (fgMessage)WorkspaceMessage;
   /*
   { // Setup toolbar
     fgElement* mainbar = self->toolbar->box->AddItem(0);
@@ -65,9 +66,52 @@ fgLayoutEditor::fgLayoutEditor(fgLayout* layout, EditorSettings& settings) : Edi
 
 fgLayoutEditor::~fgLayoutEditor()
 {
-  fgElement* window = fgGetID("Editor$mainwindow");
-  if(window)
-    VirtualFreeChild(window);
+}
+
+void fgLayoutEditor::Destroy()
+{
+  _layout.Clear();
+  _skin.Clear();
+}
+fgElement* fgLayoutEditor::LoadLayout(fgElement* parent, fgElement* next, fgClassLayout* layout)
+{
+  fgElement* element = fgCreate(layout->layout.type, parent, next, layout->name, layout->layout.flags, (layout->layout.units == -1) ? 0 : &layout->layout.transform, layout->layout.units | FGUNIT_SNAP);
+  assert(element != 0);
+  if(!element)
+    return 0;
+  Instance->_layout.Link(element, layout);
+  element->userid = layout->userid;
+  fgElement_StyleToMessageArray(&layout->layout.style, 0, &element->layoutstyle);
+  if(element->layoutstyle)
+    fgElement_ApplyMessageArray(0, element, element->layoutstyle);
+
+  for(FG_UINT i = 0; i < layout->children.l; ++i)
+    LoadLayout(element, 0, layout->children.p + i);
+
+  return element;
+}
+
+size_t fgLayoutEditor::WorkspaceMessage(fgWorkspace* e, const FG_Msg* m)
+{
+  switch(m->type)
+  {
+  case FG_INJECT:
+    if(!fgSingleton()->GetKey(FG_KEY_MENU))
+      return FG_ACCEPT;
+    break;
+  case FG_LAYOUTLOAD:
+    fgLayout* layout = (fgLayout*)m->p;
+    if(!layout)
+      return 0;
+
+    Instance->_layout.ClearLinks();
+    fgElement* last = 0;
+    for(FG_UINT i = 0; i < layout->layout.l; ++i)
+      last = LoadLayout(*e, 0, layout->layout.p + i);
+    return (size_t)last;
+  }
+
+  return fgWorkspace_Message(e, m);
 }
 void fgLayoutEditor::MenuFile(struct _FG_ELEMENT* e, const FG_Msg* m)
 {
@@ -122,7 +166,9 @@ void fgLayoutEditor::LoadFile(const char* file)
   fgLayout_LoadFileXML(&curlayout, file);
 }
 void fgLayoutEditor::SaveFile(const char* file)
-{}
+{
+  fgLayout_SaveFileXML(&curlayout, file);
+}
 void fgLayoutEditor::NewFile()
 {
   fgLayout_Destroy(&curlayout);

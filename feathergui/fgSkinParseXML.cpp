@@ -359,10 +359,10 @@ void fgStyle_ParseAttributesXML(fgStyle* self, const XMLNode* cur, int flags, fg
 fgFlag fgSkinBase_ParseFlagsFromString(const char* s, fgFlag* remove, int divider)
 {
   static Trie<uint16_t, true> t(54, "BACKGROUND", "NOCLIP", "IGNORE", "HIDDEN", "SILENT", "EXPANDX", "EXPANDY", "DISABLE", "SNAPX", "SNAPY", "HIDEH",
-    "HIDEV", "SHOWH", "SHOWV", "IGNOREMARGINEDGEX", "IGNOREMARGINEDGEY", "TILEX", "TILEY", "DISTRIBUTEX", "DISTRIBUTEY", "SINGLESELECT", "MULTISELECT",
+    "HIDEV", "SHOWH", "SHOWV", "IGNOREMARGINEDGEX", "IGNOREMARGINEDGEY", "TILEX", "TILEY", "REVERSE", "GROWY", "DISTRIBUTE", "SELECT", "MULTISELECT",
     "DRAGGABLE", "HIDEH", "HIDEV", "SHOWH", "SHOWV", "CHARWRAP", "WORDWRAP", "ELLIPSES", "RTL", "RIGHTALIGN", "CENTER", "SUBPIXEL", "ACTION",
     "SINGLELINE", "NOFOCUS", "RECT", "CIRCLE", "LINE", "QUADRATIC", "CUBIC", "BSPLINE", "MINIMIZABLE", "MAXIMIZABLE", "RESIZABLE",
-    "NOTITLEBAR", "NOBORDER", "EXPAND", "SNAP", "TILE", "DISTRIBUTE", "TRIANGLE", "IGNOREMARGINEDGE");
+    "NOTITLEBAR", "NOBORDER", "EXPAND", "SNAP", "TILE", "TRIANGLE", "IGNOREMARGINEDGE");
 
   if(!s)
     return 0;
@@ -383,37 +383,36 @@ fgFlag fgSkinBase_ParseFlagsFromString(const char* s, fgFlag* remove, int divide
       default:
         f = (1 << i);
         break;
-      case 21: f = FGLIST_MULTISELECT; break; // We can't rely on the default method here because MULTISELECT is actually two seperate flags
-      case 22: f = FGLIST_DRAGGABLE; break;
-      case 23: f = FGSCROLLBAR_HIDEH; break;
-      case 24: f = FGSCROLLBAR_HIDEV; break;
-      case 25: f = FGSCROLLBAR_SHOWH; break;
-      case 26: f = FGSCROLLBAR_SHOWV; break;
-      case 27: f = FGTEXT_CHARWRAP; break;
-      case 28: f = FGTEXT_WORDWRAP; break;
-      case 29: f = FGTEXT_ELLIPSES; break;
-      case 30: f = FGTEXT_RTL; break;
-      case 31: f = FGTEXT_RIGHTALIGN;  break;
-      case 32: f = FGTEXT_CENTER;  break;
-      case 33: f = FGTEXT_SUBPIXEL;  break;
-      case 34: f = FGTEXTBOX_ACTION;  break;
-      case 35: f = FGTEXTBOX_SINGLELINE;  break;
-      case 36: f = FGBUTTON_NOFOCUS;  break;
-      case 37: f = FGRESOURCE_RECT;  break;
-      case 38: f = FGRESOURCE_CIRCLE;  break;
-      case 39: f = FGCURVE_LINE;  break;
-      case 40: f = FGCURVE_QUADRATIC;  break;
-      case 41: f = FGCURVE_CUBIC;  break;
-      case 42: f = FGCURVE_BSPLINE;  break;
-      case 43: f = FGWINDOW_MINIMIZABLE;  break;
-      case 44: f = FGWINDOW_MAXIMIZABLE;  break;
-      case 45: f = FGWINDOW_RESIZABLE;  break;
-      case 46: f = FGWINDOW_NOTITLEBAR;  break;
-      case 47: f = FGWINDOW_NOBORDER;  break;
-      case 48: f = FGELEMENT_EXPAND;  break;
-      case 49: f = FGELEMENT_SNAP;  break;
-      case 50: f = FGBOX_TILE;  break;
-      case 51: f = FGBOX_DISTRIBUTEX | FGBOX_DISTRIBUTEY;  break;
+      case 22: f = FGLIST_MULTISELECT; break; // We can't rely on the default method here because MULTISELECT is actually two seperate flags
+      case 23: f = FGLIST_DRAGGABLE; break;
+      case 24: f = FGSCROLLBAR_HIDEH; break;
+      case 25: f = FGSCROLLBAR_HIDEV; break;
+      case 26: f = FGSCROLLBAR_SHOWH; break;
+      case 27: f = FGSCROLLBAR_SHOWV; break;
+      case 28: f = FGTEXT_CHARWRAP; break;
+      case 29: f = FGTEXT_WORDWRAP; break;
+      case 30: f = FGTEXT_ELLIPSES; break;
+      case 31: f = FGTEXT_RTL; break;
+      case 32: f = FGTEXT_RIGHTALIGN;  break;
+      case 33: f = FGTEXT_CENTER;  break;
+      case 34: f = FGTEXT_SUBPIXEL;  break;
+      case 35: f = FGTEXTBOX_ACTION;  break;
+      case 36: f = FGTEXTBOX_SINGLELINE;  break;
+      case 37: f = FGBUTTON_NOFOCUS;  break;
+      case 38: f = FGRESOURCE_RECT;  break;
+      case 39: f = FGRESOURCE_CIRCLE;  break;
+      case 40: f = FGCURVE_LINE;  break;
+      case 41: f = FGCURVE_QUADRATIC;  break;
+      case 42: f = FGCURVE_CUBIC;  break;
+      case 43: f = FGCURVE_BSPLINE;  break;
+      case 44: f = FGWINDOW_MINIMIZABLE;  break;
+      case 45: f = FGWINDOW_MAXIMIZABLE;  break;
+      case 46: f = FGWINDOW_RESIZABLE;  break;
+      case 47: f = FGWINDOW_NOTITLEBAR;  break;
+      case 48: f = FGWINDOW_NOBORDER;  break;
+      case 49: f = FGELEMENT_EXPAND;  break;
+      case 50: f = FGELEMENT_SNAP;  break;
+      case 51: f = FGBOX_TILE;  break;
       case 52: f = FGRESOURCE_TRIANGLE; break;
       case 53: f = FGBOX_IGNOREMARGINEDGE; break;
       }
