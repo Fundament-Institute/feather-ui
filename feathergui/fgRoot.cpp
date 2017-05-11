@@ -299,7 +299,7 @@ char fgDrawSkin(fgElement* self, const fgSkin* skin, const AbsRect* area, const 
 
     AbsRect curarea;
     for(size_t i = 0; i < skin->tree.children.l; ++i)
-      if((skin->tree.children.p[i].layout.order > 0) == foreground)
+      if((skin->tree.children.p[i].element.order > 0) == foreground)
         clipping = fgDrawSkinElement(self, skin->tree.children.p[i], area, aux, curarea, clipping);
   }
 
@@ -950,4 +950,18 @@ fgInject fgSetInjectFunc(fgInject inject)
   fgInject prev = fgroot_instance->inject;
   fgroot_instance->inject = inject;
   return prev;
+}
+
+void fgIterateGroups(void* p, void(*fn)(void*, fgStyleIndex))
+{
+  fgStyleIndex visit = ~0;
+
+  for(size_t i = 0; i < (sizeof(fgStyleIndex) << 3); ++i)
+  {
+    if((visit&(1 << i)) && fgStyleStatic::Instance.Masks[i] != (1 << i))
+    {
+      fn(p, fgStyleStatic::Instance.Masks[i]);
+      visit &= ~fgStyleStatic::Instance.Masks[i];
+    }
+  }
 }

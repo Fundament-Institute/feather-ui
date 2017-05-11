@@ -22,7 +22,7 @@ extern "C" {
     fgStyleMsg* styles;
 
 #ifdef  __cplusplus
-    FG_DLLEXPORT fgStyleMsg* AddStyleMsg(const FG_Msg* msg);
+    FG_DLLEXPORT fgStyleMsg* AddStyleMsg(const FG_Msg* msg, unsigned int arg1size = 0, unsigned int arg2size = 0);
     FG_DLLEXPORT void RemoveStyleMsg(fgStyleMsg* msg);
 #endif
   } fgStyle;

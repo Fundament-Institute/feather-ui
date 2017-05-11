@@ -61,6 +61,7 @@ typedef struct _FG_ROOT {
   struct _FG_MESSAGEQUEUE* queue;
   struct _FG_MESSAGEQUEUE* aux;
   fgInject inject;
+  fgElement* fgPendingFocusedWindow;
   fgElement* fgFocusedWindow;
   fgElement* fgLastHover; // Last window the mouse moved over, used to generate MOUSEON and MOUSEOFF events
   fgElement* fgCaptureWindow;
@@ -93,10 +94,12 @@ FG_EXTERN char fgDrawSkin(fgElement* self, const struct _FG_SKIN* skin, const Ab
 FG_EXTERN fgElement* fgCreate(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
 FG_EXTERN int fgRegisterCursor(int cursor, const void* data, size_t sz);
 FG_EXTERN int fgRegisterFunction(const char* name, fgListener fn);
+FG_EXTERN int fgRegisterDelegate(const char* name, void* p, void(*fn)(void*, struct _FG_ELEMENT*, const FG_Msg*));
 FG_EXTERN fgElement* fgSetTopmost(fgElement* target);
 FG_EXTERN char fgClearTopmost(fgElement* target);
 FG_EXTERN void fgRegisterControl(const char* name, fgInitializer fn, size_t sz, fgFlag flags);
 FG_EXTERN void fgIterateControls(void* p, void(*fn)(void*, const char*));
+FG_EXTERN void fgIterateGroups(void* p, void(*fn)(void*, fgStyleIndex));
 FG_EXTERN void fgSendMessageAsync(fgElement* element, const FG_Msg* msg, unsigned int arg1size, unsigned int arg2size);
 FG_EXTERN size_t fgGetTypeSize(const char* type);
 FG_EXTERN fgFlag fgGetTypeFlags(const char* type);
@@ -108,6 +111,11 @@ FG_EXTERN int fgLog(const char* format, ...);
 
 #ifdef  __cplusplus
 }
+
+template<class T, void(T::*F)(struct _FG_ELEMENT*, const FG_Msg*)>
+inline void fgRegisterDelegate(const char* name, T* src) { fgRegisterDelegate(name, src, &fgDelegateListener::stub<T, F>); }
+template<class T, void(T::*F)(struct _FG_ELEMENT*, const FG_Msg*) const>
+inline void fgRegisterDelegate(const char* name, const T* src) { fgRegisterDelegate(name, const_cast<T*>(src), &fgDelegateListener::stubconst<T, F>); }
 
 template<FG_MSGTYPE type, typename... Args>
 inline size_t fgSendMsg(fgElement* self, Args... args)

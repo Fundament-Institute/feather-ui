@@ -6,5 +6,5 @@ showcursors = true
 snaptogrid = false
 snapnear = true
 showwireframe = false
-recent = []
+recent = ["../media/editor/editor.xml"]
 

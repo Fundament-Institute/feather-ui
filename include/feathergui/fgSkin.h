@@ -100,6 +100,7 @@ FG_EXTERN void fgSkinBase_Destroy(fgSkinBase* self);
 FG_EXTERN fgSkin* fgSkinBase_AddSkin(fgSkinBase* self, const char* name);
 FG_EXTERN char fgSkinBase_RemoveSkin(fgSkinBase* self, const char* name);
 FG_EXTERN fgSkin* fgSkinBase_GetSkin(const fgSkinBase* self, const char* name);
+FG_EXTERN void fgSkinBase_IterateSkins(const fgSkinBase* self, void* p, void(*f)(void*, fgSkin*, const char*));
 FG_EXTERN struct _FG_ASSET_DATA* fgSkinBase_AddAssetFile(fgSkinBase* self, fgFlag flags, const char* file);
 FG_EXTERN char fgSkinBase_RemoveAsset(fgSkinBase* self, fgAsset asset);
 FG_EXTERN struct _FG_ASSET_DATA* fgSkinBase_GetAsset(const fgSkinBase* self, fgAsset asset);

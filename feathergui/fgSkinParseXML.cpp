@@ -355,10 +355,9 @@ void fgStyle_ParseAttributesXML(fgStyle* self, const XMLNode* cur, int flags, fg
     AddStyleSubMsg<FG_SETDIM, FABS, FABS>(self, maxflags | FGDIM_MAX, maxdim.x, maxdim.y);
 }
 
-
 fgFlag fgSkinBase_ParseFlagsFromString(const char* s, fgFlag* remove, int divider)
 {
-  static Trie<uint16_t, true> t(54, "BACKGROUND", "NOCLIP", "IGNORE", "HIDDEN", "SILENT", "EXPANDX", "EXPANDY", "DISABLE", "SNAPX", "SNAPY", "HIDEH",
+  static Trie<uint16_t, true> t(54, "BACKGROUND", "NOCLIP", "IGNORE", "HIDDEN", "SILENT", "EXPANDX", "EXPANDY", "SNAPX", "SNAPY", "DISABLE", "HIDEH",
     "HIDEV", "SHOWH", "SHOWV", "IGNOREMARGINEDGEX", "IGNOREMARGINEDGEY", "TILEX", "TILEY", "REVERSE", "GROWY", "DISTRIBUTE", "SELECT", "MULTISELECT",
     "DRAGGABLE", "HIDEH", "HIDEV", "SHOWH", "SHOWV", "CHARWRAP", "WORDWRAP", "ELLIPSES", "RTL", "RIGHTALIGN", "CENTER", "SUBPIXEL", "ACTION",
     "SINGLELINE", "NOFOCUS", "RECT", "CIRCLE", "LINE", "QUADRATIC", "CUBIC", "BSPLINE", "MINIMIZABLE", "MAXIMIZABLE", "RESIZABLE",
@@ -485,9 +484,9 @@ void fgSkinBase_ParseSubNodeXML(fgSkinTree* tree, fgStyle* style, fgSkinBase* ro
       fgFlag flags = fgSkinBase_ParseFlagsFromString(node->GetAttributeString("flags"), &rmflags, '|');
       flags = (flags | fgGetTypeFlags(node->GetName()))&(~rmflags);
       fgSkinLayout* child = fgSkinTree_GetChild(tree, (FG_UINT)fgSkinTree_AddChild(tree, node->GetName(), flags, &transform, units, (int)node->GetAttributeInt("order")));
-      fgStyle_ParseAttributesXML(&child->layout.style, node, flags, root, 0, 0, 0);
-      _sendsubmsg<FG_SETSTYLE, void*, size_t>(child->instance, FGSETSTYLE_POINTER, (void*)&child->layout.style, ~0);
-      fgSkinBase_ParseSubNodeXML(&child->tree, &child->layout.style, root, 0, node);
+      fgStyle_ParseAttributesXML(&child->element.style, node, flags, root, 0, 0, 0);
+      _sendsubmsg<FG_SETSTYLE, void*, size_t>(child->instance, FGSETSTYLE_POINTER, (void*)&child->element.style, ~0);
+      fgSkinBase_ParseSubNodeXML(&child->tree, &child->element.style, root, 0, node);
     }
   }
 }

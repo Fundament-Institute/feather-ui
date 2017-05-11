@@ -36,7 +36,7 @@ int main(int argc, char** argv)
   fgRegisterFunction("makepressed", &makepressed);
 
   fgLayout layout;
-  fgLayout_Init(&layout);
+  fgLayout_Init(&layout, 0);
   fgLayout_LoadFileXML(&layout, "../media/feathertest.xml");
   fgVoidMessage(&fgSingleton()->gui.element, FG_LAYOUTLOAD, &layout, 0);
 

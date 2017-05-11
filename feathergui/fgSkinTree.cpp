@@ -84,12 +84,12 @@ fgStyle* fgSkinTree_GetStyle(const fgSkinTree* self, FG_UINT style)
 void fgSkinLayout_Init(fgSkinLayout* self, const char* type, fgFlag flags, const fgTransform* transform, short units, int order)
 {
   bss::bssFill(*self, 0);
-  fgSkinElement_Init(&self->layout, type, flags, transform, units, order);
+  fgSkinElement_Init(&self->element, type, flags, transform, units, order);
   self->instance = 0;
 }
 void fgSkinLayout_Destroy(fgSkinLayout* self)
 {
-  fgSkinElement_Destroy(&self->layout);
+  fgSkinElement_Destroy(&self->element);
   if(self->instance) VirtualFreeChild(self->instance);
   fgSkinTree_Destroy(&self->tree);
 }

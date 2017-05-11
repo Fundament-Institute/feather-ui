@@ -36,7 +36,7 @@ typedef void* fgAsset;
 typedef void* fgFont;
 
 #ifndef FG_STATIC_LIB
-#ifdef feathergui_EXPORTS // All implementations need to define this to properly export the C++ functions in the feather static library.
+#ifdef feathergui_EXPORTS 
 #pragma warning(disable:4251)
 #define FG_DLLEXPORT BSS_COMPILER_DLLEXPORT
 #else

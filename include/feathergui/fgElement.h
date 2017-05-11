@@ -7,6 +7,10 @@
 #include "feathergui.h"
 
 #ifdef  __cplusplus
+#include "bss-util/Delegate.h"
+
+typedef bss::Delegate<void, struct _FG_ELEMENT*, const FG_Msg*> fgDelegateListener;
+
 extern "C" {
 #endif
 
@@ -144,7 +148,7 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT void Neutral();
   FG_DLLEXPORT void Hover();
   FG_DLLEXPORT void Active();
-  FG_DLLEXPORT void Action();
+  FG_DLLEXPORT void Action(uint16_t subaction = 0);
   FG_DLLEXPORT void SetDim(float x, float y, FGDIM type = FGDIM_MAX, unsigned short units = 0);
   FG_DLLEXPORT const AbsVec* GetDim(FGDIM type = FGDIM_MAX) const;
   FG_DLLEXPORT struct _FG_ELEMENT* GetItem(size_t index) const;
@@ -193,6 +197,7 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT int GetMask() const;
   FG_DLLEXPORT const AbsVec& GetScaling() const;
   FG_DLLEXPORT void AddListener(unsigned short type, fgListener listener);
+  FG_DLLEXPORT void AddDelegateListener(unsigned short type, void* p, void(*listener)(void*, struct _FG_ELEMENT*, const FG_Msg*));
   FG_DLLEXPORT struct _FG_ELEMENT* GetChildByName(const char* name) const;
 #endif
 } fgElement;
@@ -232,14 +237,21 @@ FG_EXTERN void ResolveNoClipRect(const fgElement* self, AbsRect* out, const AbsR
 FG_EXTERN char MsgHitElement(const FG_Msg* msg, const fgElement* element);
 FG_EXTERN void VirtualFreeChild(fgElement* self);
 FG_EXTERN void fgElement_Clear(fgElement* self); // Removes all non-internal children from the element
+FG_EXTERN void fgElement_ClearType(fgElement* self, const char* type); // Removes all elements of a given type
 FG_EXTERN void fgElement_MouseMoveCheck(fgElement* self);
 FG_EXTERN void fgElement_AddListener(fgElement* self, unsigned short type, fgListener listener);
+FG_EXTERN void fgElement_AddDelegateListener(fgElement* self, unsigned short type, void* p, void(*listener)(void*, struct _FG_ELEMENT*, const FG_Msg*));
 FG_EXTERN struct _FG_ELEMENT* fgElement_GetChildByName(fgElement* self, const char* name);
 FG_EXTERN struct _FG_ELEMENT* fgElement_GetChildByType(fgElement* self, const char* type);
 FG_EXTERN void fgElement_RelativeTo(const fgElement* self, const fgElement* relative, AbsRect* out);
 
 #ifdef  __cplusplus
 }
+
+template<class T, void(T::*F)(struct _FG_ELEMENT*, const FG_Msg*)>
+inline void fgElement_AddDelegateListener(fgElement* self, unsigned short type, T* src) { fgElement_AddDelegateListener(self, type, src, &fgDelegateListener::stub<T, F>); }
+template<class T, void(T::*F)(struct _FG_ELEMENT*, const FG_Msg*) const>
+inline void fgElement_AddDelegateListener(fgElement* self, unsigned short type, const T* src) { fgElement_AddDelegateListener(self, type, const_cast<T*>(src), &fgDelegateListener::stubconst<T, F>); }
 #endif
 
 #endif

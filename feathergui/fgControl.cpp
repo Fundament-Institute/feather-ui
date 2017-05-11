@@ -140,10 +140,15 @@ size_t fgControl_Message(fgControl* self, const FG_Msg* msg)
   case FG_GOTFOCUS:
     if(self->element.flags&FGCONTROL_DISABLE)
       return 0;
+    fgroot_instance->fgPendingFocusedWindow = &self->element; // We have to track our pending focused window so we can detect if the LOSTFOCUS event destroys this control.
     if(fgroot_instance->fgFocusedWindow) // We do this here so you can disable getting focus by blocking this message without messing things up
       _sendmsg<FG_LOSTFOCUS, void*>(fgroot_instance->fgFocusedWindow, self);
-    fgroot_instance->fgFocusedWindow = *self;
-    fgSetFlagStyle(*self, "focused", true);
+    if(fgroot_instance->fgPendingFocusedWindow == &self->element)
+    {
+      fgroot_instance->fgFocusedWindow = *self;
+      fgSetFlagStyle(&self->element, "focused", true);
+      fgroot_instance->fgPendingFocusedWindow = 0;
+    }
     return FG_ACCEPT;
   case FG_LOSTFOCUS:
     assert(fgroot_instance->fgFocusedWindow == *self);

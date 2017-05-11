@@ -128,6 +128,8 @@ void fgElement_Destroy(fgElement* self)
     fgroot_instance->fgLastHover = 0;
   if(fgroot_instance->fgCaptureWindow == self)
     fgroot_instance->fgCaptureWindow = 0;
+  if(fgroot_instance->fgPendingFocusedWindow == self)
+    fgroot_instance->fgPendingFocusedWindow = 0;
 
   if(self->userhash)
   {
@@ -166,6 +168,18 @@ void fgElement_Clear(fgElement* self)
   {
     cur = cur->next;
     if(!(hold->flags&FGFLAGS_INTERNAL))
+      VirtualFreeChild(hold);
+  }
+}
+
+void fgElement_ClearType(fgElement* self, const char* type)
+{
+  fgElement* cur = self->root;
+  fgElement* hold;
+  while(hold = cur)
+  {
+    cur = cur->next;
+    if(!(hold->flags&FGFLAGS_INTERNAL) && !STRICMP(type, hold->GetClassName()))
       VirtualFreeChild(hold);
   }
 }
@@ -335,14 +349,14 @@ void fgElement_StyleToMessageArray(const fgStyle* src, fgElement* target, fgVect
 
 fgElement* fgElement_LoadLayout(fgElement* parent, fgElement* next, fgClassLayout* layout)
 {
-  fgElement* element = fgroot_instance->backend.fgCreate(layout->layout.type, parent, next, layout->name, layout->layout.flags, (layout->layout.units == -1) ? 0 : &layout->layout.transform, layout->layout.units | FGUNIT_SNAP);
+  fgElement* element = fgroot_instance->backend.fgCreate(layout->element.type, parent, next, layout->name, layout->element.flags, (layout->element.units == -1) ? 0 : &layout->element.transform, layout->element.units | FGUNIT_SNAP);
   assert(element != 0);
   if(!element)
     return 0;
   if(layout->id != 0)
     fgAddID(layout->id, element);
   element->userid = layout->userid;
-  fgElement_StyleToMessageArray(&layout->layout.style, 0, &element->layoutstyle);
+  fgElement_StyleToMessageArray(&layout->element.style, 0, &element->layoutstyle);
   if(element->layoutstyle)
     fgElement_ApplyMessageArray(0, element, element->layoutstyle);
   fgroot_instance->backend.fgUserDataMap(element, &layout->userdata); // Map any custom userdata to this element
@@ -693,8 +707,8 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
       fgElement_ApplyMessageArray(0, self, self->layoutstyle);
 
     fgElement* last = 0;
-    for(FG_UINT i = 0; i < layout->layout.l; ++i)
-      last = fgElement_LoadLayout(self, 0, layout->layout.p + i);
+    for(FG_UINT i = 0; i < layout->children.l; ++i)
+      last = fgElement_LoadLayout(self, 0, layout->children.p + i);
     return (size_t)last;
   }
   case FG_CLONE:
@@ -1212,10 +1226,6 @@ FG_EXTERN void* fgGetPtrMessage(fgElement* self, unsigned short type, unsigned s
   return reinterpret_cast<void*>((*fgroot_instance->fgBehaviorHook)(self, &msg));
 }
 
-void fgElement_Wipe(fgElement* self)
-{
-}
-
 fgElement* fgElement_GetChildUnderMouse(fgElement* self, float x, float y, AbsRect* cache)
 {
   ResolveRect(self, cache);
@@ -1259,8 +1269,12 @@ void fgElement_MouseMoveCheck(fgElement* self)
 
 void fgElement_AddListener(fgElement* self, unsigned short type, fgListener listener)
 {
+  fgElement_AddDelegateListener(self, type, (void*)listener, &fgDelegateListener::stubembed);
+}
+void fgElement_AddDelegateListener(fgElement* self, unsigned short type, void* p, void(*listener)(void*, struct _FG_ELEMENT*, const FG_Msg*))
+{
   fgListenerList.Insert(std::pair<fgElement*, unsigned short>(self, type));
-  fgListenerHash.Insert(std::pair<fgElement*, unsigned short>(self, type), listener);
+  fgListenerHash.Insert(std::pair<fgElement*, unsigned short>(self, type), fgDelegateListener(p, listener));
 }
 
 void fgElement_IterateUserHash(fgElement* self, void(*f)(void*, const char*, size_t), void* data)
@@ -1584,7 +1598,7 @@ void fgElement::Hover() { _sendmsg<FG_HOVER>(this); }
 
 void fgElement::Active() { _sendmsg<FG_ACTIVE>(this); }
 
-void fgElement::Action() { _sendmsg<FG_ACTION>(this); }
+void fgElement::Action(uint16_t subaction) { _sendsubmsg<FG_ACTION>(this, subaction); }
 
 void fgElement::SetDim(float x, float y, FGDIM type, unsigned short units) { _sendsubmsg<FG_SETDIM, float, float>(this, type|units, x, y); }
 
@@ -1674,4 +1688,5 @@ const int* fgElement::GetPlaceholderU() { return reinterpret_cast<const int*>(_s
 int fgElement::GetMask() const { return _sendsubmsg<FG_GETTEXT>(const_cast<fgElement*>(this), FGTEXTFMT_MASK); }
 const AbsVec& fgElement::GetScaling() const { return *reinterpret_cast<const AbsVec*>(_sendmsg<FG_GETSCALING>(const_cast<fgElement*>(this))); }
 void fgElement::AddListener(unsigned short type, fgListener listener) { fgElement_AddListener(this, type, listener); }
+void fgElement::AddDelegateListener(unsigned short type, void* p, void(*listener)(void*, struct _FG_ELEMENT*, const FG_Msg*)) { fgElement_AddDelegateListener(this, type, p, listener); }
 fgElement* fgElement::GetChildByName(const char* name) const { return fgElement_GetChildByName(const_cast<fgElement*>(this), name); }

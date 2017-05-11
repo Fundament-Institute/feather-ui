@@ -78,7 +78,7 @@ size_t fgSlider_Message(fgSlider* self, const FG_Msg* msg)
       return self->range;
     if(msg->subtype == FGVALUE_FLOAT)
     {
-      float range = self->range;
+      FABS range = (FABS)self->range;
       return *(size_t*)&range;
     }
     return 0;

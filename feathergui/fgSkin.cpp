@@ -232,6 +232,17 @@ fgSkin* fgSkinBase_GetSkin(const fgSkinBase* self, const char* name)
   return (iter != kh_end(self->skinmap) && kh_exist(self->skinmap, iter)) ? kh_val(self->skinmap, iter) : 0;
 }
 
+void fgSkinBase_IterateSkins(const fgSkinBase* self, void* p, void(*f)(void*, fgSkin*, const char*))
+{
+  if(!self->skinmap)
+    return;
+  for(khiter_t i = 0; i < kh_end(self->skinmap); ++i)
+  {
+    if(kh_exist(self->skinmap, i))
+      f(p, kh_val(self->skinmap, i), kh_key(self->skinmap, i));
+  }
+}
+
 fgSkin* fgSkinBase_LoadFileUBJSON(fgSkinBase* self, const char* file)
 {
   return 0;

@@ -16,7 +16,8 @@ bool ClassLayout::RemoveChild(FG_UINT child) { return _p->RemoveChild(child) != 
 ClassLayout^ ClassLayout::GetChild(FG_UINT child) { return GenNewManagedPtr<ClassLayout, fgClassLayout>(_p->GetChild(child)); }
 
 Layout::Layout(fgLayout* p) : SkinBase(&p->base, false) {}
-Layout::Layout() : SkinBase(reinterpret_cast<fgSkinBase*>(new fgLayout()), true) { fgLayout_Init(reinterpret_cast<fgLayout*>(_p)); }
+Layout::Layout(System::String^ name) : SkinBase(reinterpret_cast<fgSkinBase*>(new fgLayout()), true) { TOCHAR(name); fgLayout_Init(reinterpret_cast<fgLayout*>(_p), (const char*)pstr); }
+Layout::Layout() : SkinBase(reinterpret_cast<fgSkinBase*>(new fgLayout()), true) { fgLayout_Init(reinterpret_cast<fgLayout*>(_p), 0); }
 Layout::~Layout() { this->!Layout(); }
 Layout::!Layout() { if(_p && _owner) { fgLayout_Destroy(reinterpret_cast<fgLayout*>(_p)); delete reinterpret_cast<fgLayout*>(_p); } }
 FG_UINT Layout::AddChild(System::String^ type, System::String^ name, fgFlag flags, UnifiedTransform^ transform, short units, int order)

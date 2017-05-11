@@ -4,6 +4,7 @@
 *.bak
 *.opendb
 *.vcxproj.user
+*.csproj.user
 *.VC.db
 *.exe
 *.aps

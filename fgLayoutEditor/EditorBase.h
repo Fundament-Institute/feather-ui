@@ -55,16 +55,18 @@ public:
 
   explicit EditorBase(fgLayout* layout);
   ~EditorBase();
-  void AddProp(fgGrid& e, const char* name, const char* type = "Text", FG_UINT userid = 0, fgMessage fn = 0, fgFlag flags = FGELEMENT_EXPANDY);
-  void SetProps(fgGrid& g, fgClassLayout& layout);
-  void AddMutableProp(fgGrid& g, PROPERTIES id, const char* type);
+  fgElement* AddProp(fgGrid& e, const char* name, const char* type = "Text", FG_UINT userid = 0, fgMessage fn = 0, fgFlag flags = FGELEMENT_EXPANDY);
+  void SetProps(fgGrid& g, fgClassLayout* layout, fgSkinElement* element, fgStyle& style);
+  void AddMutableProp(fgGrid& g, PROPERTIES id, const char* type, std::function<void(fgElement*, const char*)>& f, fgFlag flags = FGTEXTBOX_ACTION | FGTEXTBOX_SINGLELINE | FGELEMENT_EXPANDY);
   void ClearProps(fgGrid& g);
-  void LoadProps(fgGrid& g, fgClassLayout& layout);
+  void LoadProps(fgGrid& g, fgClassLayout* layout, fgSkinElement* element, fgStyle& style, std::function<void(fgElement*, const char*)>& f);
   void ParseStyleMsg(fgStyle& target, fgElement* instance, fgSkinElement* element, fgClassLayout* layout, PROPERTIES id, const char* s);
   uint32_t ParseColor(const char* s);
   uint16_t GetTransformMsg(const fgStyle& target, fgTransform& out);
   fgElement* FindProp(fgGrid& g, PROPERTIES prop);
   virtual void Destroy() = 0;
+  virtual void DisplayLayout(fgLayout* layout) = 0;
+  void WindowOnDestroy(struct _FG_ELEMENT*, const FG_Msg*);
 
   template<typename T, size_t(*F)(char*, size_t, const T*, short)>
   inline bss::Str WrapWrite(const T& v, short u)
@@ -76,11 +78,12 @@ public:
   }
 
   static void RemoveStyleMsg(fgStyle& s, uint16_t type, uint16_t subtype = (uint16_t)~0);
-  static void WindowOnDestroy(struct _FG_ELEMENT*, const FG_Msg*);
+  static void AddMenuControls(const char* id);
+
+  fgLayout curlayout; // Currently loaded root layout
 
 protected:
   fgElement* _window;
-  fgLayout curlayout; // Currently loaded root layout
   fgElement* selected; // If applicable, points to the currently selected displayed element in the workspace. DISPLAY PURPOSES ONLY.
 };
 

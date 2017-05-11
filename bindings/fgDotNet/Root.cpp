@@ -13,8 +13,13 @@ using namespace System::Drawing;
 using namespace System::Runtime::InteropServices;
 
 namespace fgDotNet {
-  delegate void ControlIterator(void* obj, String^ str);
-  delegate void ControlListener(fgElement* e, FG_Msg* msg);
+  public delegate void ControlIterator(String^ str);
+  public delegate void ControlListener(fgElement* e, FG_Msg* msg);
+
+  inline void _stubControlIterator(void* p, const char* s)
+  {
+    static_cast<ControlIterator^>((GCHandle::operator GCHandle(System::IntPtr(p))).Target)(gcnew System::String(s));
+  }
 
   public ref class Root : public Control
   {
@@ -22,6 +27,8 @@ namespace fgDotNet {
     explicit Root(String^ backend) : Control(0) {
       TOCHAR(backend);
       _p = (fgElement*)fgLoadBackend((const char*)pstr);
+      if(!_p)
+        throw gcnew NullReferenceException("Failed to load the backend (fgLoadBackend returned null)");
       Singleton = this;
     }
     ~Root() {
@@ -30,8 +37,6 @@ namespace fgDotNet {
       this->!Root();
     }
     !Root() {
-      if(_p)
-        ((fgRoot*)_p)->backend.fgTerminate();
       fgUnloadBackend();
     }
 
@@ -43,18 +48,18 @@ namespace fgDotNet {
     Element^ GetID(String^ id) { TOCHAR(id); return GenNewManagedPtr<Element, fgElement>(fgGetID((const char*)pstr)); }
     void AddID(String^ id, Element^ element) { TOCHAR(id); return fgAddID( (const char*)pstr, element); }
     bool RemoveID(Element^ element) { return fgRemoveID(element) != 0; }
-    static Element^ Create(String^ type, Element^ parent, Element^ next, String^ name, fgFlag flags, UnifiedTransform^ transform, unsigned short units)
+    Element^ Create(String^ type, Element^ parent, Element^ next, String^ name, fgFlag flags, UnifiedTransform^ transform, unsigned short units)
     {
       TOCHAR(type);
       TOCHARSTR(name, pname);
       return GenNewManagedPtr<Element, fgElement>(fgCreate((const char*)pstr, parent, next, (const char*)pname, flags, &transform->operator fgTransform(), units));
     }
-    static int RegisterCursor(int cursor, cli::array<Byte>^ data)
+    int RegisterCursor(int cursor, cli::array<Byte>^ data)
     {
       pin_ptr<const unsigned char> pin = &data[0];
       return fgRegisterCursor(cursor, pin, data->Length);
     }
-    static int RegisterFunction(String^ name, ControlListener^ del)
+    int RegisterFunction(String^ name, ControlListener^ del)
     {
       fgListener fn = static_cast<fgListener>(Runtime::InteropServices::Marshal::GetFunctionPointerForDelegate(del).ToPointer());
       GC::KeepAlive(del);
@@ -64,12 +69,11 @@ namespace fgDotNet {
     //generic<typename T> where T : Element
     //static void RegisterControl(String^ name) { Singleton->controls[name] = typeof(T); }
     //static Type^ GetControl(String^ name) { return safe_cast<Type^>(Singleton->controls[name]); }
-    typedef void(*NativeControlIterator)(void*, const char*);
-    static void IterateControls(ControlIterator^ del)
+    void IterateControls(ControlIterator^ del)
     {
-      NativeControlIterator fn = static_cast<NativeControlIterator>(Runtime::InteropServices::Marshal::GetFunctionPointerForDelegate(del).ToPointer());
-      GC::KeepAlive(del);
-      fgIterateControls(nullptr, fn);
+      GCHandle handle = GCHandle::Alloc(del);
+      fgIterateControls((GCHandle::operator System::IntPtr(handle)).ToPointer(), &_stubControlIterator);
+      handle.Free();
     }
     bool ProcessMessages()
     {

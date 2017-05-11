@@ -102,7 +102,7 @@ void fgStyle_RemoveStyleMsg(fgStyle* self, fgStyleMsg* msg)
 }
 
 
-fgStyleMsg* fgStyle::AddStyleMsg(const FG_Msg* msg) { return fgStyle_AddStyleMsg(this, msg, 0, 0); }
+fgStyleMsg* fgStyle::AddStyleMsg(const FG_Msg* msg, unsigned int arg1size, unsigned int arg2size) { return fgStyle_AddStyleMsg(this, msg, arg1size, arg2size); }
 void fgStyle::RemoveStyleMsg(fgStyleMsg* msg) { fgStyle_RemoveStyleMsg(this, msg); }
 
 FG_UINT fgStyle_GetName(const char* name)

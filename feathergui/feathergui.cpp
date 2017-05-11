@@ -19,7 +19,7 @@ const AbsVec AbsVec_EMPTY = { 0,0 };
 const fgIntVec fgIntVec_EMPTY = { 0,0 };
 const fgIntVec fgIntVec_DEFAULTDPI = { 96,96 };
 
-bss::Hash<std::pair<fgElement*, unsigned short>, fgListener> fgListenerHash;
+bss::Hash<std::pair<fgElement*, unsigned short>, fgDelegateListener> fgListenerHash;
 bss::Hash<char*> fgStringAllocHash;
 bss::HashBase<const char*, size_t, true, bss::KH_POINTER_HASHFUNC<const char* const&>, bss::KH_INT_EQUALFUNC<const char*>> fgStringRefHash;
 

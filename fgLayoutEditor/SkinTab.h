@@ -12,15 +12,29 @@ public:
   SkinTab();
   ~SkinTab();
   void Init(EditorBase* base);
+  void OpenSkin(fgSkin* skin);
   void Clear();
+  void AddProp(const char* name, FG_UINT id, const char* type = "textbox");
+
+  void MenuContext(struct _FG_ELEMENT*, const FG_Msg*);
 
 protected:
+  void _textboxOnAction(struct _FG_ELEMENT* e, const FG_Msg* msg);
+  void _editboxOnAction(struct _FG_ELEMENT* e, const FG_Msg* msg);
+  void _treeviewOnMouseDown(struct _FG_ELEMENT* e, const FG_Msg* msg);
+  void _treeItemOnFocus(struct _FG_ELEMENT*, const FG_Msg*);
+  void _openSkinBase(fgElement* root, fgSkinBase& skin);
+  void _openSkinTree(fgElement* root, fgSkinTree& skin);
+
+  static void WriteStyleMap(bss::Str& s, FG_UINT map);
+
+  fgTextbox _editbox;
   EditorBase* _base;
   fgTreeview* _skinview;
   fgGrid* _skinprops;
-  fgTreeItem* _selected; // Current selected item in the tree, if applicable
-  fgTextbox _editbox;
-  AbsVec _lastscroll;
+  fgElement* _contextmenu;
+  fgElement* _selected; // Current selected item in the tree, if applicable
+  std::function<void(fgElement*, const char*)> _propafter;
 };
 
 #endif

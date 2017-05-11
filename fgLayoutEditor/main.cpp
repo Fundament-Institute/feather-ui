@@ -129,12 +129,6 @@ int main(int argc, char** argv)
   if(!fgSingleton())
     return 1;
 
-  fgRegisterFunction("menu_file", fgLayoutEditor::MenuFile);
-  fgRegisterFunction("menu_recent", fgLayoutEditor::MenuRecent);
-  fgRegisterFunction("menu_edit", fgLayoutEditor::MenuEdit);
-  fgRegisterFunction("menu_view", fgLayoutEditor::MenuView);
-  fgRegisterFunction("menu_help", fgLayoutEditor::MenuHelp);
-
   EditorSettings settings = {
     false,
     false,
@@ -160,7 +154,7 @@ int main(int argc, char** argv)
   }
 
   fgLayout layout;
-  fgLayout_Init(&layout);
+  fgLayout_Init(&layout, 0);
 #ifdef BSS_PLATFORM_WIN32
   const char* data;
   DWORD sz;
@@ -171,7 +165,7 @@ int main(int argc, char** argv)
 #endif
   {
     fgLayoutEditor editor(&layout, settings);
-    editor.OpenLayout(&layout);
+    editor.LoadFile("../media/editor/editor.xml");
     while(fgSingleton()->backend.fgProcessMessages());
   }
   fgLayout_Destroy(&layout);

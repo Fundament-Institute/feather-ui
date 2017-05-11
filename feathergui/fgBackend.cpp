@@ -11,7 +11,7 @@
 #include <dlfcn.h>
 #endif
 
-KHASH_INIT(fgFunctionMap, const char*, fgListener, 1, kh_str_hash_func, kh_str_hash_equal);
+KHASH_INIT(fgFunctionMap, const char*, fgDelegateListener, 1, kh_str_hash_func, kh_str_hash_equal);
 
 using namespace bss;
 
@@ -363,7 +363,10 @@ void fgUserDataMapCallbacksProcess(fgElement* self, struct _FG_KEY_VALUE* pair)
     {
       khint_t i = kh_get_fgFunctionMap(fgroot_instance->functionhash, (char*)pair->value);
       if(i != kh_end(fgroot_instance->functionhash))
-        fgElement_AddListener(self, type, kh_val(fgroot_instance->functionhash, i));
+      {
+        auto& d = kh_val(fgroot_instance->functionhash, i);
+        fgElement_AddDelegateListener(self, type, d.RawSource(), d.RawFunc());
+      }
     }
   }
   else
@@ -387,7 +390,7 @@ size_t fgBehaviorHookDefault(fgElement* self, const FG_Msg* msg)
   size_t ret = (*self->message)(self, msg);
   khiter_t iter = fgListenerHash.Iterator(std::pair<fgElement*, unsigned short>(self, msg->type));
   if(fgListenerHash.ExistsIter(iter))
-    fgListenerHash.GetValue(iter)(self, msg);
+    (*fgListenerHash.GetValue(iter))(self, msg);
   return ret;
 }
 
@@ -406,10 +409,15 @@ void fgFunctionMap_destroy(struct kh_fgFunctionMap_s* h)
 
 int fgRegisterFunction(const char* name, fgListener fn)
 {
+  return fgRegisterDelegate(name, (void*)fn, &fgDelegateListener::stubembed);
+}
+
+int fgRegisterDelegate(const char* name, void* p, void(*fn)(void*, struct _FG_ELEMENT*, const FG_Msg*))
+{
   assert(fgroot_instance->fgBehaviorHook != fgBehaviorHookSimple); // You must have this set to fgBehaviorHookListener or an equivelent for this to do anything!
   int r;
   khint_t iter = kh_put_fgFunctionMap(fgroot_instance->functionhash, fgCopyText(name, __FILE__, __LINE__), &r);
-  kh_val(fgroot_instance->functionhash, iter) = fn;
+  kh_val(fgroot_instance->functionhash, iter) = fgDelegateListener(p, fn);
   return r;
 }
 

@@ -11,7 +11,7 @@
 #include "fgLayout.h"
 #include "bss-util/Hash.h"
 #include "bss-util/AVLTree.h"
-#include "bss-util/rwlock.h"
+#include "bss-util/RWLock.h"
 #include "bss-util/DisjointSet.h"
 
 #ifdef BSS_64BIT
@@ -198,8 +198,8 @@ BSS_FORCEINLINE void fgDestructKeyValue(_FG_KEY_VALUE* p)
   if(p->value)
     fgFreeText(p->value, __FILE__, __LINE__);
 }
-BSS_FORCEINLINE char fgSortStyleLayout(const fgSkinLayoutConstruct& l, const fgSkinLayoutConstruct& r) { return -SGNCOMPARE(l.layout.order, r.layout.order); }
-BSS_FORCEINLINE char fgSortClassLayout(const fgClassLayoutConstruct& l, const fgClassLayoutConstruct& r) { return -SGNCOMPARE(l.layout.order, r.layout.order); }
+BSS_FORCEINLINE char fgSortStyleLayout(const fgSkinLayoutConstruct& l, const fgSkinLayoutConstruct& r) { return -SGNCOMPARE(l.element.order, r.element.order); }
+BSS_FORCEINLINE char fgSortClassLayout(const fgClassLayoutConstruct& l, const fgClassLayoutConstruct& r) { return -SGNCOMPARE(l.element.order, r.element.order); }
 
 template<class T>
 typename T::T_ DynGet(const fgVector& r, FG_UINT i) { return ((T&)r)[i]; }
@@ -245,7 +245,7 @@ inline size_t _sendsubmsg(fgElement* self, unsigned short sub, Args... args)
   return (*fgroot_instance->fgBehaviorHook)(self, &msg);
 }
 
-FG_EXTERN bss::Hash<std::pair<fgElement*, unsigned short>, fgListener> fgListenerHash;
+FG_EXTERN bss::Hash<std::pair<fgElement*, unsigned short>, fgDelegateListener> fgListenerHash;
 
 BSS_FORCEINLINE size_t fgSetFlagStyle(fgElement* self, const char* style, bool value = true)
 {
@@ -352,7 +352,7 @@ struct __VECTOR__UTF32;
 
 extern fgSkin* fgSkinBase_ParseNodeXML(fgSkinBase* self, const bss::XMLNode* root);
 extern void fgSkinBase_WriteElementAttributesXML(bss::XMLNode* node, fgSkinElement& e, fgSkinBase* root);
-extern void fgSkinBase_WriteStyleAttributesXML(bss::XMLNode* node, fgStyle& s, fgSkinBase* root);
+extern void fgSkinBase_WriteStyleAttributesXML(bss::XMLNode* node, fgStyle& s, fgSkinBase* root, const char* type);
 extern void fgSkinBase_WriteXML(bss::XMLNode* node, fgSkinBase* base, char toplevel);
 extern void fgSkin_WriteXML(bss::XMLNode* node, fgSkin* skin);
 static kh_fgSkins_s *kh_init_fgSkins();

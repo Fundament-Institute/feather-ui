@@ -17,7 +17,7 @@ void fgStyle_WriteFloat(Str& s, float abs)
   int len = snprintf(0, 0, "%.2f", abs) + 1;
   int start = s.size();
   s.resize(start + len);
-  snprintf(s.UnsafeString() + start, len, "%.1f", abs); // snprintf lies about how many characters were written
+  snprintf(s.UnsafeString() + start, len, "%.2f", abs); // snprintf lies about how many characters were written
   s.resize(strlen(s));
 }
 void fgStyle_WriteInt(Str& s, int64_t i)
@@ -30,10 +30,10 @@ void fgStyle_WriteInt(Str& s, int64_t i)
 }
 void fgStyle_WriteHex(Str& s, uint64_t i)
 {
-  int len = snprintf(0, 0, "%08llX", i) + 1;
+  int len = snprintf(0, 0, "0x%08llX", i) + 1;
   int start = s.size();
   s.resize(start + len);
-  snprintf(s.UnsafeString() + start, len, "%08llX", i);
+  snprintf(s.UnsafeString() + start, len, "0x%08llX", i);
   s.resize(strlen(s));
 }
 
@@ -178,15 +178,34 @@ void fgSkinBase_WriteFlagsXML(XMLNode* node, const char* type, fgFlag flags)
   if(s.length() > 0)
     node->AddAttribute("flags")->String = s.c_str() + 1; // strip initial '|'
 }
-void fgSkinBase_WriteStyleAttributesXML(XMLNode* node, fgStyle& s, fgSkinBase* root)
+void fgSkinBase_WriteStyleAttributesXML(XMLNode* node, fgStyle& s, fgSkinBase* root, const char* type)
 {
   static const char* COLORATTR[10] = { "color", "placecolor", "cursorcolor", "selectcolor", "hovercolor", "dragcolor", "edgecolor", "dividercolor", "columndividercolor", "rowevencolor" };
+  static const CVec EMPTYVEC = { 0 };
 
   fgStyleMsg* cur = s.styles;
   while(cur)
   {
     switch(cur->msg.type)
     {
+    case FG_SETAREA:
+      if(CRect* area = (CRect*)cur->msg.p)
+      {
+        if(memcmp(area, &CRect_EMPTY, sizeof(CRect)) != 0)
+          node->AddAttribute("area")->String = fgStyle_WriteCRect(*area, cur->msg.subtype);
+      }
+      break;
+    case FG_SETTRANSFORM:
+      if(fgTransform* tf = (fgTransform*)cur->msg.p)
+      {
+        if(memcmp(&tf->area, &CRect_EMPTY, sizeof(CRect)) != 0)
+          node->AddAttribute("area")->String = fgStyle_WriteCRect(tf->area, cur->msg.subtype);
+        if(tf->rotation != 0)
+          fgStyle_WriteFloat(node->AddAttribute("rotation")->String, tf->rotation);
+        if(memcmp(&tf->center, &EMPTYVEC, sizeof(CVec)) != 0)
+          node->AddAttribute("center")->String = fgStyle_WriteCVec(tf->center, cur->msg.subtype);
+      }
+      break;
     case FG_SETSKIN:
       if(cur->msg.p)
         node->AddAttribute("skin")->String = reinterpret_cast<fgSkin*>(cur->msg.p)->name;
@@ -216,7 +235,12 @@ void fgSkinBase_WriteStyleAttributesXML(XMLNode* node, fgStyle& s, fgSkinBase* r
       break;
     case FG_SETCOLOR:
       if(cur->msg.subtype < 8)
-        fgStyle_WriteHex(node->AddAttribute(COLORATTR[cur->msg.subtype])->String, cur->msg.u);
+      {
+        fgColor c = { cur->msg.u };
+        rswap(c.colors[0], c.colors[3]);
+        rswap(c.colors[1], c.colors[2]);
+        fgStyle_WriteHex(node->AddAttribute(COLORATTR[cur->msg.subtype])->String, c.color);
+      }
       break;
     case FG_SETFONT:
       if(cur->msg.p)
@@ -273,7 +297,7 @@ void fgSkinBase_WriteStyleAttributesXML(XMLNode* node, fgStyle& s, fgSkinBase* r
       fgStyle_WriteFloat(node->AddAttribute("outline")->String, cur->msg.f);
       break;
     case FG_SETUSERDATA:
-      node->AddAttribute((const char*)cur->msg.p)->String = (const char*)cur->msg.p2;
+      node->AddAttribute((const char*)cur->msg.p2)->String = (const char*)cur->msg.p; // userdata messages have key/value reversed due to how the message works.
       break;
     case FG_SETDIM:
       switch(cur->msg.subtype)
@@ -288,6 +312,16 @@ void fgSkinBase_WriteStyleAttributesXML(XMLNode* node, fgStyle& s, fgSkinBase* r
         break;
       }
       break;
+    case FG_SETFLAG:
+    {
+      if(!type)
+        type = "Element";
+      bss:Str s;
+      fgStyle_WriteFlagsIterate(s, type, "|", cur->msg.u, !cur->msg.u2);
+      if(s.length() > 0)
+        node->AddAttribute("flags")->String = s.c_str() + 1; // strip initial '|'
+    }
+      break;
     }
     cur = cur->next;
   }
@@ -297,7 +331,7 @@ void fgSkinBase_WriteElementAttributesXML(XMLNode* node, fgSkinElement& e, fgSki
   if(e.order != 0)
     fgStyle_WriteInt(node->AddAttribute("order")->String, e.order);
   fgSkinBase_WriteFlagsXML(node, e.type, e.flags);
-  fgSkinBase_WriteStyleAttributesXML(node, e.style, root);
+  fgSkinBase_WriteStyleAttributesXML(node, e.style, root, e.type);
   fgSkinBase_WriteTransform(node, e.transform, e.units);
 }
 
@@ -316,19 +350,19 @@ void fgSkinTree_WriteStyleMap(Str& s, FG_UINT map)
   if(s.size() > 1) // chop off trailing +
     s.resize(s.size() - 1);
 }
-void fgSkinTree_WriteXML(XMLNode* node, fgSkinTree* tree, fgSkinBase* root)
+void fgSkinTree_WriteXML(XMLNode* node, fgSkinTree* tree, fgSkinBase* root, const char* type)
 {
   for(size_t i = 0; i < tree->styles.l; ++i)
   {
     XMLNode* style = node->AddNode("Style");
     fgSkinTree_WriteStyleMap(style->AddAttribute("name")->String, tree->styles.p[i].map); // Reconstruct style name from mapping
-    fgSkinBase_WriteStyleAttributesXML(style, tree->styles.p[i].style, root);
+    fgSkinBase_WriteStyleAttributesXML(style, tree->styles.p[i].style, root, type);
   }
   for(size_t i = 0; i < tree->children.l; ++i)
   {
-    XMLNode* child = node->AddNode(tree->children.p[i].layout.type);
-    fgSkinBase_WriteElementAttributesXML(child, tree->children.p[i].layout, root);
-    fgSkinTree_WriteXML(child, &tree->children.p[i].tree, root);
+    XMLNode* child = node->AddNode(tree->children.p[i].element.type);
+    fgSkinBase_WriteElementAttributesXML(child, tree->children.p[i].element, root);
+    fgSkinTree_WriteXML(child, &tree->children.p[i].tree, root, tree->children.p[i].element.type);
   }
 }
 
@@ -339,7 +373,7 @@ void fgSkin_WriteXML(XMLNode* node, fgSkin* skin)
   if(skin->name)
     node->AddAttribute("name")->String = skin->name;
 
-  fgSkinBase_WriteStyleAttributesXML(node, skin->style, &skin->base);
+  fgSkinBase_WriteStyleAttributesXML(node, skin->style, &skin->base, 0);
   fgSkinBase_WriteXML(node, &skin->base, 0);
-  fgSkinTree_WriteXML(node, &skin->tree, &skin->base);
+  fgSkinTree_WriteXML(node, &skin->tree, &skin->base, 0);
 }
