@@ -163,7 +163,31 @@ void SkinTab::MenuContext(struct _FG_ELEMENT*, const FG_Msg* m)
 
 void SkinTab::_textboxOnAction(struct _FG_ELEMENT* e, const FG_Msg* msg)
 {
+  if(!msg->subtype && _selected && _selected->userdata)
+  {
+    fgSkin* skin;
+    fgStyle* style;
+    fgSkinLayout* layout;
 
+    switch(_selected->userid)
+    {
+    case 0:
+      layout = (fgSkinLayout*)e->userdata;
+      _base->ParseStyleMsg(layout->element.style, 0, &layout->element, 0, EditorBase::PROPERTIES(e->userid), e->GetText());
+      _base->SetProps(*_skinprops, 0, &layout->element, layout->element.style);
+      break;
+    case 1:
+      skin = (fgSkin*)e->userdata;
+      _base->ParseStyleMsg(skin->style, 0, 0, 0, EditorBase::PROPERTIES(e->userid), e->GetText());
+      _base->SetProps(*_skinprops, 0, 0, skin->style);
+      break;
+    case 2:
+      style = (fgStyle*)e->userdata;
+      _base->ParseStyleMsg(*style, 0, 0, 0, EditorBase::PROPERTIES(e->userid), e->GetText());
+      _base->SetProps(*_skinprops, 0, 0, *style);
+      break;
+    }
+  }
 }
 void SkinTab::_editboxOnAction(struct _FG_ELEMENT* e, const FG_Msg* msg)
 {
@@ -171,9 +195,32 @@ void SkinTab::_editboxOnAction(struct _FG_ELEMENT* e, const FG_Msg* msg)
 }
 void SkinTab::_treeviewOnMouseDown(struct _FG_ELEMENT* e, const FG_Msg* msg)
 {
-
+  _selected = 0;
+  (*_skinprops)->GotFocus();
 }
-void SkinTab::_treeItemOnFocus(struct _FG_ELEMENT*, const FG_Msg*)
+void SkinTab::_treeItemOnFocus(struct _FG_ELEMENT* e, const FG_Msg*)
 {
+  if(e->userdata)
+  {
+    fgSkin* skin;
+    fgStyle* style;
+    fgSkinLayout* layout;
 
+    switch(e->userid)
+    {
+    case 0:
+      layout = (fgSkinLayout*)e->userdata;
+      _base->LoadProps(*_skinprops, 0, &layout->element, layout->element.style, _propafter);
+      break;
+    case 1:
+      skin = (fgSkin*)e->userdata;
+      _base->LoadProps(*_skinprops, 0, 0, skin->style, _propafter);
+      break;
+    case 2:
+      style = (fgStyle*)e->userdata;
+      _base->LoadProps(*_skinprops, 0, 0, *style, _propafter);
+      break;
+    }
+    _selected = e;
+  }
 }
