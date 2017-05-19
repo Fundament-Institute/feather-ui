@@ -37,6 +37,7 @@ struct fgContext {
   ID2D1Effect* roundrect;
   ID2D1Effect* triangle;
   ID2D1Effect* circle;
+  ID2D1Effect* scale;
   std::stack<AbsRect> cliprect;
   bool inside;
   bool invalid;

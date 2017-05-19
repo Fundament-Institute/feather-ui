@@ -54,9 +54,9 @@ public:
   void LoadFile(const char* file);
   void SaveFile();
   void NewFile();
-  void Close();
-  void CheckSave();
-  void ShowDialog(const char* text, const char* button1, const char* button2 = 0, const char* button3 = 0);
+  bool Close();
+  bool CheckSave();
+  char ShowDialog(const char* text, const char* button1, const char* button2 = 0, const char* button3 = 0);
   virtual void Destroy() override;
   void MenuFile(struct _FG_ELEMENT*, const FG_Msg*);
   void MenuRecent(struct _FG_ELEMENT*, const FG_Msg*);
@@ -64,8 +64,9 @@ public:
   void MenuView(struct _FG_ELEMENT*, const FG_Msg*);
   void MenuHelp(struct _FG_ELEMENT*, const FG_Msg*);
   void SaveSettings();
+  virtual void ReapplySkin(fgSkin* skin) override;
 
-  static size_t WorkspaceMessage(fgWorkspace* e, const FG_Msg* m);
+  static size_t WorkspaceRootMessage(fgElement* e, const FG_Msg* m);
   static fgElement* LoadLayout(fgElement* parent, fgElement* next, fgClassLayout* layout);
   static std::string FileDialog(bool open, unsigned long flags, const char* file, const wchar_t* filter, const char* initdir, const char* defext);
   
@@ -78,7 +79,11 @@ protected:
   fgWindow* _mainwindow;
   fgWorkspace* _workspace;
   fgLayout* displaylayout; // Currently displayed layout or sublayout
+  fgElement* _curelement; // currently selected element in the workspace
+  fgElement* _hoverelement;
+  fgElement* _workspaceroot;
 
+  bool _needsave;
   LayoutTab _layout;
   SkinTab _skin;
   fgLayoutAction* _undo;

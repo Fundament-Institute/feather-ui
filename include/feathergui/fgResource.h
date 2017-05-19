@@ -38,8 +38,6 @@ FG_EXTERN void fgResource_Init(fgResource* self, fgElement* BSS_RESTRICT parent,
 FG_EXTERN void fgResource_Destroy(fgResource* self);
 FG_EXTERN size_t fgResource_Message(fgResource* self, const FG_Msg* msg);
 
-FG_EXTERN fgAsset fgCreateAssetFile(fgFlag flags, const char* file);
-
 #ifdef  __cplusplus
 }
 #endif

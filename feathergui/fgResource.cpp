@@ -32,12 +32,30 @@ void fgResource_Recalc(fgResource* self)
   if(self->asset && (self->element.flags&FGELEMENT_EXPAND) && !(self->element.flags&FGELEMENT_SILENT))
   {
     AbsVec dim;
+    fgIntVec dpi = (*self)->GetDPI();
     fgroot_instance->backend.fgAssetSize(self->asset, &self->uv, &dim, self->element.flags);
+    dim = { fgSnapAll<ceilf>(dim.x, dpi.x), fgSnapAll<ceilf>(dim.y, dpi.y) };
+
     CRect adjust = self->element.transform.area;
-    if(self->element.flags&FGELEMENT_EXPANDX)
-      adjust.right.abs = adjust.left.abs + dim.x;
-    if(self->element.flags&FGELEMENT_EXPANDY)
-      adjust.bottom.abs = adjust.top.abs + dim.y;
+    if(self->element.flags&FGRESOURCE_SHAPEMASK)
+    {
+      if(self->element.flags&FGELEMENT_EXPANDX)
+        adjust.right.abs = adjust.left.abs + dim.x;
+      if(self->element.flags&FGELEMENT_EXPANDY)
+        adjust.bottom.abs = adjust.top.abs + dim.y;
+    }
+    else if(self->element.flags&FGELEMENT_EXPAND)
+    {
+      if((self->element.flags&FGELEMENT_EXPAND) == FGELEMENT_EXPAND)
+      {
+        adjust.right.abs = adjust.left.abs + dim.x;
+        adjust.bottom.abs = adjust.top.abs + dim.y;
+      }
+      else if(self->element.flags&FGELEMENT_EXPANDX) // Preserve aspect ratio
+        adjust.right.abs = adjust.left.abs + (dim.x * ((adjust.bottom.abs - adjust.top.abs) / dim.y));
+      else if(self->element.flags&FGELEMENT_EXPANDY)
+        adjust.bottom.abs = adjust.top.abs + (dim.y * ((adjust.right.abs - adjust.left.abs) / dim.x));
+    }
     _sendmsg<FG_SETAREA, void*>(*self, &adjust);
   }
 }
@@ -50,6 +68,7 @@ size_t fgResource_Message(fgResource* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     fgElement_Message(&self->element, msg);
     memsubset<fgResource, fgElement>(self, 0);
+    self->color.color = 0xFFFFFFFF;
     self->uv.right.rel = 1.0f;
     self->uv.bottom.rel = 1.0f;
     return FG_ACCEPT;
@@ -130,19 +149,4 @@ size_t fgResource_Message(fgResource* self, const FG_Msg* msg)
     return (size_t)"Resource";
   }
   return fgElement_Message(&self->element, msg);
-}
-
-fgAsset fgCreateAssetFile(fgFlag flags, const char* file)
-{
-  FILE* f;
-  FOPEN(f, file, "rb");
-  if(!f) return 0;
-  fseek(f, 0, SEEK_END);
-  long len = ftell(f);
-  fseek(f, 0, SEEK_SET);
-  DYNARRAY(char, buf, len);
-  fread(buf, 1, len, f);
-  fclose(f);
-  void* r = fgroot_instance->backend.fgCreateAsset(flags, buf, len);
-  return r;
 }

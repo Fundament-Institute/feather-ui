@@ -14,4 +14,10 @@ inline static D2D1_COLOR_F ToD2Color(unsigned int color)
   return D2D1::ColorF((c.r << 16) | (c.g << 8) | c.b, c.a / 255.0f);
 }
 
+#ifdef BSS_DEBUG
+#define fgassert(x) if(!(x)) { int* p = nullptr; *p = 1; }
+#else
+#define fgassert(x) 
+#endif
+
 #endif

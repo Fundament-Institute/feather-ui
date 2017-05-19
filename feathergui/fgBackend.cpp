@@ -24,6 +24,20 @@ void fgFontGetDefault(fgFont font, struct _FG_FONT_DESC* desc) { if(desc) memset
 size_t fgFontIndexDefault(void* font, const void* text, size_t len, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, AbsVec pos, AbsVec* cursor, const fgIntVec* dpi, void* cache) { return 0; }
 AbsVec fgFontPosDefault(void* font, const void* text, size_t len, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, size_t index, const fgIntVec* dpi, void* cache) { AbsVec a = { 0,0 }; return a; }
 
+fgAsset fgCreateAssetFileDefault(fgFlag flags, const char* file)
+{
+  FILE* f;
+  FOPEN(f, file, "rb");
+  if(!f) return 0;
+  fseek(f, 0, SEEK_END);
+  long len = ftell(f);
+  fseek(f, 0, SEEK_SET);
+  DYNARRAY(char, buf, len);
+  fread(buf, 1, len, f);
+  fclose(f);
+  void* r = fgroot_instance->backend.fgCreateAsset(flags, buf, len);
+  return r;
+}
 fgAsset fgCreateAssetDefault(fgFlag flags, const char* data, size_t length) { return (void*)~0; }
 fgAsset fgCloneAssetDefault(fgAsset res, fgElement* src) { return (void*)~0; }
 void fgDestroyAssetDefault(fgAsset res) { }

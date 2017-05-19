@@ -27,6 +27,7 @@ typedef struct _FG_BACKEND {
   size_t(*fgFontIndex)(fgFont font, const void* text, size_t len, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, AbsVec pos, AbsVec* cursor, const fgIntVec* dpi, void* layout);
   AbsVec(*fgFontPos)(fgFont font, const void* text, size_t len, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, size_t index, const fgIntVec* dpi, void* layout);
 
+  fgAsset(*fgCreateAssetFile)(fgFlag flags, const char* file);
   fgAsset(*fgCreateAsset)(fgFlag flags, const char* data, size_t length);
   fgAsset(*fgCloneAsset)(fgAsset asset, fgElement* src);
   void (*fgDestroyAsset)(fgAsset asset);
@@ -68,6 +69,7 @@ FG_EXTERN void fgFontGetDefault(void* font, struct _FG_FONT_DESC* desc);
 FG_EXTERN size_t fgFontIndexDefault(void* font, const void* text, size_t len, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, AbsVec pos, AbsVec* cursor, const fgIntVec* dpi, void* cache);
 FG_EXTERN AbsVec fgFontPosDefault(void* font, const void* text, size_t len, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, size_t index, const fgIntVec* dpi, void* cache);
 
+FG_EXTERN fgAsset fgCreateAssetFileDefault(fgFlag flags, const char* file);
 FG_EXTERN fgAsset fgCreateAssetDefault(fgFlag flags, const char* data, size_t length);
 FG_EXTERN fgAsset fgCloneAssetDefault(fgAsset asset, fgElement* src);
 FG_EXTERN void fgDestroyAssetDefault(fgAsset asset);

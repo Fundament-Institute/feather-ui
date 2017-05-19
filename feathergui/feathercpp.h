@@ -253,6 +253,27 @@ BSS_FORCEINLINE size_t fgSetFlagStyle(fgElement* self, const char* style, bool v
   return _sendsubmsg<FG_SETSTYLE, size_t, size_t>(self, FGSETSTYLE_INDEX, !value ? 0 : f, f);
 }
 
+template<FABS(*F)(FABS)>
+BSS_FORCEINLINE FABS fgSnapDPI(FABS x, int dpi)
+{
+  if(dpi != 96 && dpi != 0)
+  {
+    FABS s = dpi / 96.0f;
+    return F(x * s) / s;
+  }
+  return x;
+}
+template<FABS(*F)(FABS)>
+BSS_FORCEINLINE FABS fgSnapAll(FABS x, int dpi)
+{
+  if(dpi != 96 && dpi != 0)
+  {
+    FABS s = dpi / 96.0f;
+    return F(x * s) / s;
+  }
+  return F(x);
+}
+
 BSS_FORCEINLINE FABS fgResolveUnit(FABS x, size_t unit, int dpi, FABS lineheight, bool snap)
 {
   switch(unit)
@@ -271,13 +292,7 @@ BSS_FORCEINLINE FABS fgResolveUnit(FABS x, size_t unit, int dpi, FABS lineheight
   }
 
   if(snap)
-  {
-    if(dpi != 96 && dpi != 0)
-    {
-      float s = dpi / 96.0f;
-      x = roundf(x * s) / s;
-    }
-  }
+    x = fgSnapDPI<roundf>(x, dpi);
   assert(!std::isnan(x));
   return x;
 }
@@ -315,9 +330,11 @@ BSS_FORCEINLINE void fgResolveCRectUnit(CRect& r, const fgIntVec& dpi, FABS line
   r.left.abs = fgResolveUnit(r.left.abs, (subtype & FGUNIT_LEFT_MASK) >> FGUNIT_LEFT, dpi.x, lineheight, (subtype & FGUNIT_SNAP) != 0);
   r.top.abs = fgResolveUnit(r.top.abs, (subtype & FGUNIT_TOP_MASK) >> FGUNIT_TOP, dpi.y, lineheight, (subtype & FGUNIT_SNAP) != 0);
   r.right.abs = fgResolveUnit(r.right.abs,(subtype & FGUNIT_RIGHT_MASK) >> FGUNIT_RIGHT, dpi.x, lineheight, (subtype & FGUNIT_SNAP) != 0);
-  if(subtype & FGUNIT_RIGHT_WIDTH) r.right.abs += r.left.abs;
+  if(subtype & FGUNIT_RIGHT_WIDTH)
+    r.right.abs += r.left.abs;
   r.bottom.abs = fgResolveUnit(r.bottom.abs, (subtype & FGUNIT_BOTTOM_MASK) >> FGUNIT_BOTTOM, dpi.y, lineheight, (subtype & FGUNIT_SNAP) != 0);
-  if(subtype & FGUNIT_BOTTOM_HEIGHT) r.bottom.abs += r.top.abs;
+  if(subtype & FGUNIT_BOTTOM_HEIGHT)
+    r.bottom.abs += r.top.abs;
 }
 
 BSS_FORCEINLINE void fgResolveCVecUnit(CVec& v, const fgIntVec& dpi, FABS lineheight, size_t subtype)

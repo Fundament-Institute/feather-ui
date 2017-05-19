@@ -43,8 +43,7 @@ _FG_FONT_DATA& _FG_FONT_DATA::operator=(_FG_FONT_DATA&& mov) { this->~_FG_FONT_D
 _FG_ASSET_DATA::_FG_ASSET_DATA(void* _asset, const char* _file)
 {
   bss::bssFill(*this, 0);
-  if(_asset) 
-    asset = fgroot_instance->backend.fgCloneAsset(_asset, 0);
+  asset = _asset;
   file = fgCopyText(_file, __FILE__, __LINE__);
 }
 _FG_ASSET_DATA::_FG_ASSET_DATA(const _FG_ASSET_DATA& copy)
@@ -129,7 +128,7 @@ _FG_ASSET_DATA* fgSkinBase_AddAssetFile(fgSkinBase* self, fgFlag flags, const ch
   if(!self->assets)
     self->assets = kh_init_fgAssets();
 
-  fgAsset asset = fgCreateAssetFile(flags, file);
+  fgAsset asset = fgroot_instance->backend.fgCreateAssetFile(flags, file);
   int r;
   khiter_t iter = kh_put_fgAssets(self->assets, asset, &r);
   if(r != 0) // If r is 0 the element already exists so we don't want to re-initialize it

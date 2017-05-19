@@ -7,10 +7,10 @@
 #include "win32_includes.h"
 #include <d2d1_1.h>
 #include <dwmapi.h>
-#include <assert.h>
 #include "fgRoundRect.h"
 #include "fgCircle.h"
 #include "fgTriangle.h"
+#include "util.h"
 
 EXTERN_C IMAGE_DOS_HEADER __ImageBase;
 typedef HRESULT(STDAPICALLTYPE *DWMCOMPENABLE)(BOOL*);
@@ -25,6 +25,7 @@ void fgContext_Construct(fgContext* self)
   self->roundrect = 0;
   self->triangle = 0;
   self->circle = 0;
+  self->scale = 0;
   self->context = 0;
   self->inside = false;
   self->invalid = false;
@@ -212,7 +213,7 @@ void fgContext::BeginDraw(HWND handle, fgElement* element, const AbsRect* area, 
   target->BeginDraw();
   target->Clear(D2D1::ColorF(0, 0));
   fgElement* hold = element->root;
-  assert(!cliprect.size());
+  fgassert(!cliprect.size());
   AbsRect truearea = *area;
   fgIntVec& dpi = element->GetDPI();
   fgScaleRectDPI(&truearea, dpi.x, dpi.y);
@@ -233,7 +234,7 @@ void fgContext::BeginDraw(HWND handle, fgElement* element, const AbsRect* area, 
 void fgContext::EndDraw()
 {
   cliprect.pop();
-  assert(!cliprect.size());
+  fgassert(!cliprect.size());
   if(target->EndDraw() == 0x8899000C) // D2DERR_RECREATE_TARGET
     DiscardResources();
   invalid = false;
@@ -263,6 +264,7 @@ void fgContext::CreateResources(HWND handle)
         hr = context->CreateEffect(CLSID_fgRoundRect, &roundrect);
         hr = context->CreateEffect(CLSID_fgCircle, &circle);
         hr = context->CreateEffect(CLSID_fgTriangle, &triangle);
+        //hr = context->CreateEffect(CLSID_D2D1Scale, &scale);
         if(FAILED(hr))
           fgLog("CreateEffect failed with error code %li", hr);
       }
@@ -285,6 +287,8 @@ void fgContext::DiscardResources()
     triangle->Release();
   if(circle)
     circle->Release();
+  if(scale)
+    scale->Release();
   if(context)
     context->Release();
   if(target)
@@ -296,6 +300,7 @@ void fgContext::DiscardResources()
   roundrect = 0;
   triangle = 0;
   circle = 0;
+  scale = 0;
 }
 
 size_t fgContext::SetKey(uint8_t keycode, bool down, bool held, unsigned long time)

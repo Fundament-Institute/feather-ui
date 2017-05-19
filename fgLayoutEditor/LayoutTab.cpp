@@ -9,12 +9,20 @@ using namespace bss;
 LayoutTab::LayoutTab()
 {
   bssFill(*this, 0);
-  //fgRegisterFunction("LayoutMenuInsert", MenuInsert);
-  //fgRegisterFunction("layoutmenuadd", MenuAdd);
-  //fgRegisterFunction("LayoutMenuContext", MenuContext);
+  fgRegisterDelegate<LayoutTab, &LayoutTab::MenuInsert>("LayoutMenuInsert", this);
+  fgRegisterDelegate<LayoutTab, &LayoutTab::MenuAdd>("LayoutMenuAdd", this);
+  fgRegisterDelegate<LayoutTab, &LayoutTab::MenuContext>("LayoutMenuContext", this);
 }
 LayoutTab::~LayoutTab()
 {
+}
+fgLayout* LayoutTab::FindParentLayout(fgElement* treeitem)
+{
+  if(treeitem->userid == 1)
+    return (fgLayout*)treeitem->userdata;
+  if(!treeitem->parent)
+    return 0;
+  return FindParentLayout(treeitem->parent);
 }
 void LayoutTab::Init(EditorBase* base)
 {
@@ -62,10 +70,6 @@ void LayoutTab::Init(EditorBase* base)
     AddProp("Alpha", EditorBase::PROP_ALPHA, "slider");
   }
   
-  fgElement* menuadd = fgGetID("LayoutContext$add");
-  fgElement* submenuadd = fgGetID("SublayoutContext$add");
-  fgElement_AddDelegateListener<LayoutTab, &LayoutTab::MenuAdd>(menuadd, FG_ACTION, this);
-  fgElement_AddDelegateListener<LayoutTab, &LayoutTab::MenuAdd>(submenuadd, FG_ACTION, this);
   EditorBase::AddMenuControls("LayoutContext$add");
   EditorBase::AddMenuControls("LayoutContext$insert");
   EditorBase::AddMenuControls("SublayoutContext$add");
@@ -83,6 +87,7 @@ void LayoutTab::AddProp(const char* name, FG_UINT id, const char* type)
 }
 void LayoutTab::_doInsert(const char* type, bool insert)
 {
+  fgLayout* display = FindParentLayout(_selected);
   if(_selected->userid == 1)
   {
     auto p = (fgLayout*)_selected->userdata;
@@ -100,7 +105,7 @@ void LayoutTab::_doInsert(const char* type, bool insert)
     fgElement_ClearType(_selected, "treeitem");
     _openLayout(_selected, p->children);
   }
-  _base->DisplayLayout(&_base->curlayout);
+  _base->DisplayLayout(display);
 }
 void LayoutTab::MenuInsert(struct _FG_ELEMENT*, const FG_Msg* m)
 {
@@ -251,14 +256,17 @@ void LayoutTab::_treeItemOnFocus(struct _FG_ELEMENT* e, const FG_Msg*)
     if(e->userid == 1)
     {
       auto p = (fgLayout*)e->userdata;
-      _base->LoadProps(*_layoutprops, 0, 0, p->style, _propafter);
+      _base->LoadProps(*_layoutprops, 0, 0, 0, p->style, _propafter);
     }
     else
     {
       auto p = (fgClassLayout*)e->userdata;
-      _base->LoadProps(*_layoutprops, p, &p->element, p->element.style, _propafter);
+      _base->LoadProps(*_layoutprops, p->element.type, p, &p->element, p->element.style, _propafter);
     }
     _selected = e;
+    fgLayout* display = FindParentLayout(e);
+    if(display)
+      _base->DisplayLayout(display);
   }
 }
 

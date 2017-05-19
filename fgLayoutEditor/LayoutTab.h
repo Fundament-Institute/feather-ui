@@ -18,6 +18,7 @@ public:
   void Clear();
   void Link(fgElement* e, fgClassLayout* layout);
   inline void ClearLinks() { _elementmap.Clear(); _layoutmap.Clear(); }
+  fgLayout* FindParentLayout(fgElement* treeitem);
 
   void MenuInsert(struct _FG_ELEMENT*, const FG_Msg*);
   void MenuAdd(struct _FG_ELEMENT*, const FG_Msg*);

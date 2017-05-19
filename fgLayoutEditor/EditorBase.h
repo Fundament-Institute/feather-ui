@@ -59,7 +59,7 @@ public:
   void SetProps(fgGrid& g, fgClassLayout* layout, fgSkinElement* element, fgStyle& style);
   void AddMutableProp(fgGrid& g, PROPERTIES id, const char* type, std::function<void(fgElement*, const char*)>& f, fgFlag flags = FGTEXTBOX_ACTION | FGTEXTBOX_SINGLELINE | FGELEMENT_EXPANDY);
   void ClearProps(fgGrid& g);
-  void LoadProps(fgGrid& g, fgClassLayout* layout, fgSkinElement* element, fgStyle& style, std::function<void(fgElement*, const char*)>& f);
+  void LoadProps(fgGrid& g, const char* type, fgClassLayout* layout, fgSkinElement* element, fgStyle& style, std::function<void(fgElement*, const char*)>& f);
   void ParseStyleMsg(fgStyle& target, fgElement* instance, fgSkinElement* element, fgClassLayout* layout, PROPERTIES id, const char* s);
   uint32_t ParseColor(const char* s);
   uint16_t GetTransformMsg(const fgStyle& target, fgTransform& out);
@@ -67,6 +67,7 @@ public:
   virtual void Destroy() = 0;
   virtual void DisplayLayout(fgLayout* layout) = 0;
   void WindowOnDestroy(struct _FG_ELEMENT*, const FG_Msg*);
+  virtual void ReapplySkin(fgSkin* skin) = 0;
 
   template<typename T, size_t(*F)(char*, size_t, const T*, short)>
   inline bss::Str WrapWrite(const T& v, short u)

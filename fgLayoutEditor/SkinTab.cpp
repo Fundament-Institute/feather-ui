@@ -172,23 +172,25 @@ void SkinTab::_textboxOnAction(struct _FG_ELEMENT* e, const FG_Msg* msg)
     switch(_selected->userid)
     {
     case 0:
-      layout = (fgSkinLayout*)e->userdata;
-      _base->ParseStyleMsg(layout->element.style, 0, &layout->element, 0, EditorBase::PROPERTIES(e->userid), e->GetText());
+      layout = (fgSkinLayout*)_selected->userdata;
+      _base->ParseStyleMsg(layout->element.style, layout->instance, &layout->element, 0, EditorBase::PROPERTIES(e->userid), e->GetText());
       _base->SetProps(*_skinprops, 0, &layout->element, layout->element.style);
       break;
     case 1:
-      skin = (fgSkin*)e->userdata;
+      skin = (fgSkin*)_selected->userdata;
       _base->ParseStyleMsg(skin->style, 0, 0, 0, EditorBase::PROPERTIES(e->userid), e->GetText());
+      _base->ReapplySkin(skin);
       _base->SetProps(*_skinprops, 0, 0, skin->style);
       break;
     case 2:
-      style = (fgStyle*)e->userdata;
+      style = (fgStyle*)_selected->userdata;
       _base->ParseStyleMsg(*style, 0, 0, 0, EditorBase::PROPERTIES(e->userid), e->GetText());
       _base->SetProps(*_skinprops, 0, 0, *style);
       break;
     }
   }
 }
+
 void SkinTab::_editboxOnAction(struct _FG_ELEMENT* e, const FG_Msg* msg)
 {
 
@@ -210,15 +212,29 @@ void SkinTab::_treeItemOnFocus(struct _FG_ELEMENT* e, const FG_Msg*)
     {
     case 0:
       layout = (fgSkinLayout*)e->userdata;
-      _base->LoadProps(*_skinprops, 0, &layout->element, layout->element.style, _propafter);
+      _base->LoadProps(*_skinprops, layout->element.type, 0, &layout->element, layout->element.style, _propafter);
       break;
     case 1:
       skin = (fgSkin*)e->userdata;
-      _base->LoadProps(*_skinprops, 0, 0, skin->style, _propafter);
+      _base->LoadProps(*_skinprops, "Skin", 0, 0, skin->style, _propafter);
       break;
     case 2:
       style = (fgStyle*)e->userdata;
-      _base->LoadProps(*_skinprops, 0, 0, *style, _propafter);
+      if(e->parent && e->parent->userdata)
+      {
+        switch(e->parent->userid)
+        {
+        case 0:
+          _base->LoadProps(*_skinprops, ((fgSkinLayout*)e->parent->userdata)->element.type, 0, 0, *style, _propafter);
+          break;
+        case 1:
+          _base->LoadProps(*_skinprops, "Skin", 0, 0, *style, _propafter);
+          break;
+        default:
+          _base->LoadProps(*_skinprops, 0, 0, 0, *style, _propafter);
+          break;
+        }
+      }
       break;
     }
     _selected = e;

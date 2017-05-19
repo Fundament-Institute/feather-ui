@@ -61,6 +61,7 @@
         <Combobox id="#combo" text="combo text" area="190,20,300,50">
           <Text area="0, 0, 100%, 20" text="test text" />
         </Combobox>
+        <Resource asset="feathergui_white.png" flags="EXPANDX" left="210" top="60" height="55"/>
       </Tab>
       <Tab name="Long Tab">
         <Textbox area="140, 30, 210, 150" flags="WORDWRAP" placeholder="placeholder" />

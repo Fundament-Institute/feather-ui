@@ -282,11 +282,16 @@ void fgText_Recalc(fgText* self)
     fgVector* v = fgText_Conversion(fgroot_instance->backend.BackendTextFormat, &self->text8, &self->text16, &self->text32);
     if(v)
       self->layout = fgroot_instance->backend.fgFontLayout(self->font, v->p, v->l, self->lineheight, self->letterspacing, &area, self->element.flags, &self->element.GetDPI(), self->layout);
+    
     CRect adjust = self->element.transform.area;
-    if(self->element.flags&FGELEMENT_EXPANDX)
-      adjust.right.abs = adjust.left.abs + area.right - area.left + self->element.padding.left + self->element.padding.right + self->element.margin.left + self->element.margin.right;
-    if(self->element.flags&FGELEMENT_EXPANDY)
-      adjust.bottom.abs = adjust.top.abs + area.bottom - area.top + self->element.padding.top + self->element.padding.bottom + self->element.margin.top + self->element.margin.bottom;
+    if(self->element.flags&FGELEMENT_EXPAND)
+    {
+      fgIntVec dpi = (*self)->GetDPI();
+      if(self->element.flags&FGELEMENT_EXPANDX)
+        adjust.right.abs = adjust.left.abs + fgSnapAll<ceilf>(area.right - area.left, dpi.x) + self->element.padding.left + self->element.padding.right + self->element.margin.left + self->element.margin.right;
+      if(self->element.flags&FGELEMENT_EXPANDY)
+        adjust.bottom.abs = adjust.top.abs + fgSnapAll<ceilf>(area.bottom - area.top, dpi.y) + self->element.padding.top + self->element.padding.bottom + self->element.margin.top + self->element.margin.bottom;
+    }
     assert(!std::isnan(adjust.left.abs) && !std::isnan(adjust.top.abs) && !std::isnan(adjust.right.abs) && !std::isnan(adjust.bottom.abs));
     FG_Msg msg = { 0 };
     msg.type = FG_SETAREA;

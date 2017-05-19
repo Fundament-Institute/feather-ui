@@ -236,7 +236,7 @@ void EditorBase::ParseStyleMsg(fgStyle& target, fgElement* instance, fgSkinEleme
   case PROP_SKIN:
     break;
   case PROP_ID:
-    if(layout)
+    if(layout && s)
     {
       if(layout->id)
         fgFreeText(layout->id, __FILE__, __LINE__);
@@ -244,7 +244,7 @@ void EditorBase::ParseStyleMsg(fgStyle& target, fgElement* instance, fgSkinEleme
     }
     break;
   case PROP_NAME:
-    if(layout)
+    if(layout && s)
     {
       if(layout->name)
         fgFreeText(layout->name, __FILE__, __LINE__);
@@ -263,6 +263,8 @@ void EditorBase::ParseStyleMsg(fgStyle& target, fgElement* instance, fgSkinEleme
     }
     RemoveStyleMsg(target, FG_SETAREA);
     RemoveStyleMsg(target, FG_SETTRANSFORM);
+    if(!s)
+      return;
     if(element)
     {
       m.p = &element->transform;
@@ -297,7 +299,7 @@ void EditorBase::ParseStyleMsg(fgStyle& target, fgElement* instance, fgSkinEleme
     target.AddStyleMsg(&m);
     break;
   case PROP_ORDER:
-    if(element)
+    if(element && s)
       element->order = strtol(s, &out, 10);
     break;
   case PROP_FLAGS:
@@ -365,16 +367,16 @@ void EditorBase::ClearProps(fgGrid& g)
     g.RemoveRow(g.GetNumRows() - 1);
 }
 
-void EditorBase::LoadProps(fgGrid& g, fgClassLayout* layout, fgSkinElement* element, fgStyle& style, std::function<void(fgElement*, const char*)>& f)
+void EditorBase::LoadProps(fgGrid& g, const char* type, fgClassLayout* layout, fgSkinElement* element, fgStyle& style, std::function<void(fgElement*, const char*)>& f)
 {
-  static Trie<uint16_t, true> t(30, "element", "control", "scrollbar", "box", "list", "grid", "resource", "text", "button", "window", "checkbox", "radiobutton",
+  static Trie<uint16_t, true> t(31, "element", "control", "scrollbar", "box", "list", "grid", "resource", "text", "button", "window", "checkbox", "radiobutton",
     "progressbar", "slider", "textbox", "treeview", "treeitem", "listitem", "curve", "dropdown", "tabcontrol", "menu", "submenu",
-    "menuitem", "gridrow", "workspace", "toolbar", "toolgroup", "combobox", "debug");
+    "menuitem", "gridrow", "workspace", "toolbar", "toolgroup", "combobox", "debug", "skin");
 
   ClearProps(g);
-  if(element)
+  if(type)
   {
-    switch(t[element->type])
+    switch(t[type])
     {
     case 0: // element
     default:
@@ -442,12 +444,31 @@ void EditorBase::LoadProps(fgGrid& g, fgClassLayout* layout, fgSkinElement* elem
       AddMutableProp(g, PROP_VALUEF, "textbox", f);
       AddMutableProp(g, PROP_RANGE, "textbox", f);
       break;
+    case 30: // skin
+      AddMutableProp(g, PROP_TEXT, "textbox", f, FGELEMENT_EXPANDY | FGTEXTBOX_ACTION);
+      AddMutableProp(g, PROP_PLACEHOLDER, "textbox", f);
+      AddMutableProp(g, PROP_COLOR, "textbox", f);
+      AddMutableProp(g, PROP_PLACECOLOR, "textbox", f);
+      AddMutableProp(g, PROP_CURSORCOLOR, "textbox", f);
+      AddMutableProp(g, PROP_SELECTCOLOR, "textbox", f);
+      AddMutableProp(g, PROP_HOVERCOLOR, "textbox", f);
+      AddMutableProp(g, PROP_EDGECOLOR, "textbox", f);
+      AddMutableProp(g, PROP_DRAGCOLOR, "textbox", f);
+      AddMutableProp(g, PROP_FONT, "textbox", f);
+      AddMutableProp(g, PROP_LINEHEIGHT, "textbox", f);
+      AddMutableProp(g, PROP_LETTERSPACING, "textbox", f);
+      AddMutableProp(g, PROP_VALUEF, "textbox", f);
+      AddMutableProp(g, PROP_RANGE, "textbox", f);
+      AddMutableProp(g, PROP_UV, "textbox", f);
+      AddMutableProp(g, PROP_ASSET, "textbox", f);
+      AddMutableProp(g, PROP_OUTLINE, "textbox", f);
+      break;
     }
-
-    //AddMutableProp(g, PROP_CONTEXTMENU, "combobox");
-    AddMutableProp(g, PROP_USERID, "textbox", f);
-    AddMutableProp(g, PROP_USERINFO, "text", f, FGELEMENT_EXPANDY);
   }
+
+  //AddMutableProp(g, PROP_CONTEXTMENU, "combobox");
+  AddMutableProp(g, PROP_USERID, "textbox", f);
+  AddMutableProp(g, PROP_USERINFO, "text", f, FGELEMENT_EXPANDY);
 
   SetProps(g, layout, element, style);
 }

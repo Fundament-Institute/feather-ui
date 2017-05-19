@@ -658,8 +658,9 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
         fgVector* v = fgText_Conversion(fgroot_instance->backend.BackendTextFormat, &self->text8, &self->text16, &self->text32);
         if(v)
           self->layout = fgroot_instance->backend.fgFontLayout(self->font, v->p, v->l - 1, self->lineheight, self->letterspacing, &r, self->scroll->flags, &dpi, self->layout);
-        dim->x = r.right - r.left;
-        dim->y = r.bottom - r.top;
+        dim->x = fgSnapAll<ceilf>(r.right - r.left, dpi.x);
+        dim->y = fgSnapAll<ceilf>(r.bottom - r.top, dpi.y);
+
         if(dim->y < self->curlineheight) // We can never be smaller than a single lineheight
           dim->y = self->curlineheight;
         assert(!std::isnan(self->scroll.realsize.x) && !std::isnan(self->scroll.realsize.y));

@@ -34,6 +34,7 @@ void fgRoot_Init(fgRoot* self, const AbsRect* area, const fgIntVec* dpi, const f
     &fgFontGetDefault,
     &fgFontIndexDefault,
     &fgFontPosDefault,
+    &fgCreateAssetFileDefault,
     &fgCreateAssetDefault,
     &fgCloneAssetDefault,
     &fgDestroyAssetDefault,

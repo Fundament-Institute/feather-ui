@@ -10,6 +10,8 @@
 #include <Commdlg.h>
 #endif
 
+#undef GetClassName // Fucking windows i swear to god
+
 using namespace bss;
 
 fgLayoutEditor* fgLayoutEditor::Instance = 0;
@@ -29,7 +31,8 @@ size_t fgLayoutEditor::_inject(fgRoot* self, const FG_Msg* msg)
   return fgRoot_DefaultInject(self, msg);
 }
 
-fgLayoutEditor::fgLayoutEditor(fgLayout* layout, EditorSettings& settings) : EditorBase(layout), _settings(settings)
+fgLayoutEditor::fgLayoutEditor(fgLayout* layout, EditorSettings& settings) : EditorBase(layout), _settings(settings),
+  _needsave(false), displaylayout(0), _curelement(0), _hoverelement(0), _workspaceroot(0)
 {
   fgLayoutEditor::Instance = this;
   fgRegisterDelegate<fgLayoutEditor, &fgLayoutEditor::MenuFile>("menu_file", this);
@@ -45,7 +48,10 @@ fgLayoutEditor::fgLayoutEditor(fgLayout* layout, EditorSettings& settings) : Edi
   _mainwindow = reinterpret_cast<fgWindow*>(fgGetID("Editor$mainwindow"));
   _workspace = reinterpret_cast<fgWorkspace*>(fgGetID("Editor$workspace"));
   if(_workspace)
-    (*_workspace)->message = (fgMessage)WorkspaceMessage;
+  {
+    _workspaceroot = fgCreate("Element", *_workspace, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY, 0);
+    _workspaceroot->message = (fgMessage)WorkspaceRootMessage;
+  }
   /*
   { // Setup toolbar
     fgElement* mainbar = self->toolbar->box->AddItem(0);
@@ -102,30 +108,77 @@ fgElement* fgLayoutEditor::LoadLayout(fgElement* parent, fgElement* next, fgClas
   for(FG_UINT i = 0; i < layout->children.l; ++i)
     LoadLayout(element, 0, layout->children.p + i);
 
+
   return element;
 }
 
-size_t fgLayoutEditor::WorkspaceMessage(fgWorkspace* e, const FG_Msg* m)
+size_t fgLayoutEditor::WorkspaceRootMessage(fgElement* self, const FG_Msg* m)
 {
   switch(m->type)
   {
   case FG_INJECT:
     if(!fgSingleton()->GetKey(FG_KEY_MENU))
+    {
+      FG_Msg msg = *reinterpret_cast<FG_Msg*>(m->p);
+      msg.type = FG_DEBUGMESSAGE;
+      FG_Msg mwrap = *m;
+      mwrap.p = &msg;
+      fgElement* result = (fgElement*)fgElement_Message(self, &mwrap);
+      if(reinterpret_cast<FG_Msg*>(m->p)->type == FG_MOUSEDOWN)
+        Instance->_curelement = result;
+      Instance->_hoverelement = result;
       return FG_ACCEPT;
+    }
     break;
   case FG_LAYOUTLOAD:
+  {
     fgLayout* layout = (fgLayout*)m->p;
     if(!layout)
       return 0;
+    
+    fgElement_StyleToMessageArray(&layout->style, 0, &self->layoutstyle);
+    if(self->layoutstyle)
+      fgElement_ApplyMessageArray(0, self, self->layoutstyle);
 
     Instance->_layout.ClearLinks();
     fgElement* last = 0;
     for(FG_UINT i = 0; i < layout->children.l; ++i)
-      last = LoadLayout(*e, 0, layout->children.p + i);
+      last = LoadLayout(self, 0, layout->children.p + i);
     return (size_t)last;
   }
+  case FG_DRAW:
+    fgElement_Message(self, m);
+    if(Instance->_hoverelement)
+    {
+      AbsRect out;
+      ResolveRect(Instance->_hoverelement, &out);
+      AbsVec lines[5] = { out.topleft, {out.right, out.top}, out.bottomright, {out.left, out.bottom}, out.topleft };
+      AbsVec scale = { 1,1 };
+      fgSingleton()->backend.fgDrawLines(lines, 5, 0xFF008800, &AbsVec_EMPTY, &scale, 0, &AbsVec_EMPTY, (const fgDrawAuxData*)m->p2);
+    }
+    return FG_ACCEPT;
+  case FG_GETSKIN:
+    if(!m->p) // If msg->p is none we simply return our self->skin, whatever it is
+      return reinterpret_cast<size_t>(self->skin);
+    if(self->skin != 0) // Otherwise we are performing a skin lookup for a child
+    {
+      const char* name = m->e->GetName();
+      if(name)
+      {
+        fgSkin* skin = fgSkin_GetSkin(self->skin, name);
+        if(skin != 0)
+          return reinterpret_cast<size_t>(skin);
+      }
+      name = m->e->GetClassName();
 
-  return fgWorkspace_Message(e, m);
+      fgSkin* skin = fgSkin_GetSkin(self->skin, name);
+      if(skin != 0)
+        return reinterpret_cast<size_t>(skin);
+    }
+    return 0; // Terminate skin lookup
+  }
+
+  return fgElement_Message(self, m);
 }
 void fgLayoutEditor::MenuFile(struct _FG_ELEMENT* e, const FG_Msg* m)
 {
@@ -142,9 +195,11 @@ void fgLayoutEditor::MenuFile(struct _FG_ELEMENT* e, const FG_Msg* m)
       break;
     case 4:
       SaveFile();
+      break;
     case 5:
       _path = "";
       SaveFile();
+      break;
     case 6:
       Close();
       break;
@@ -187,27 +242,32 @@ void fgLayoutEditor::MenuHelp(struct _FG_ELEMENT*, const FG_Msg* m)
     }
   }
 }
-void fgLayoutEditor::Close()
+bool fgLayoutEditor::Close()
 {
-  CheckSave();
-  if(_workspace)
-    fgElement_Clear(*_workspace);
+  if(!CheckSave())
+    return false;
+  if(_workspaceroot)
+    fgElement_Clear(_workspaceroot);
   _layout.Clear();
   _skin.Clear();
+  return true;
 }
 void fgLayoutEditor::OpenLayout()
 {
-  Close();
+  if(!Close())
+    return;
   _layout.OpenLayout(&curlayout);
   fgSkinBase_IterateSkins(&curlayout.base, &_skin, [](void* p, fgSkin* s, const char*) {((SkinTab*)p)->OpenSkin(s); });
   DisplayLayout(&curlayout);
 }
 void fgLayoutEditor::DisplayLayout(fgLayout* layout)
 {
-  if(_workspace)
+  if(displaylayout == layout)
+    return;
+  if(_workspaceroot)
   {
-    fgElement_Clear(*_workspace);
-    (*_workspace)->LayoutLoad(layout);
+    fgElement_Clear(_workspaceroot);
+    _workspaceroot->LayoutLoad(layout);
   }
   displaylayout = layout;
 }
@@ -233,6 +293,7 @@ void fgLayoutEditor::SaveFile()
     _path = FileDialog(false, 0, "newfile.xml", L"XML Files (*.xml)\0*.xml\0", 0, ".xml");
 
   fgLayout_SaveFileXML(&curlayout, _path.c_str());
+  _needsave = false;
 }
 void fgLayoutEditor::NewFile()
 {
@@ -240,13 +301,27 @@ void fgLayoutEditor::NewFile()
   fgLayout_Destroy(&curlayout);
   fgLayout_Init(&curlayout, 0);
 }
-void fgLayoutEditor::CheckSave()
+bool fgLayoutEditor::CheckSave()
 {
+  if(_needsave)
+  {
+    switch(ShowDialog("You have unsaved changes, would you like to save them first?", "Cancel", "Yes", "No"))
+    {
+    case 0:
+      return false;
+    case 1:
+      SaveFile();
+    case 2:
+      _needsave = false;
+      break;
+    }
+  }
 
+  return true;
 }
-void fgLayoutEditor::ShowDialog(const char* text, const char* button1, const char* button2, const char* button3)
+char fgLayoutEditor::ShowDialog(const char* text, const char* button1, const char* button2, const char* button3)
 {
-
+  return 0;
 }
 
 #ifdef BSS_PLATFORM_WIN32 //Windows function
@@ -302,4 +377,22 @@ void fgLayoutEditor::SaveSettings()
   std::ofstream settingsout("fgLayoutEditor.toml", std::ios_base::binary | std::ios_base::out);
   bss::Serializer<bss::TOMLEngine> serializer;
   serializer.Serialize(_settings, settingsout, "editor");
+}
+
+void r_reapplyskin(fgSkin* skin, fgElement* e)
+{
+  if(e->skin == skin)
+  {
+    e->skin = 0; // please never actually do this in any real program ever
+    e->SetSkin(skin);
+  }
+
+  for(fgElement* cur = e->root; cur != 0; cur = cur->next)
+    r_reapplyskin(skin, cur);
+}
+
+void fgLayoutEditor::ReapplySkin(fgSkin* skin)
+{
+  if(_workspaceroot)
+    r_reapplyskin(skin, _workspaceroot);
 }

@@ -61,23 +61,23 @@ int fgStyle_NodeEvalTransform(const XMLNode* node, fgTransform& t)
       t.rotation = (FABS)a->Float;
       break;
     case 3:
-      flags = (flags&(FGUNIT_LEFT_MASK)) | fgStyle_ParseCoord(a->String, 0, &t.area.left);
+      flags = (flags&(~FGUNIT_LEFT_MASK)) | fgStyle_ParseCoord(a->String, 0, &t.area.left);
       break;
     case 4:
-      flags = (flags&(FGUNIT_TOP_MASK)) | fgStyle_ParseCoord(a->String, 0, &t.area.top);
+      flags = (flags&(~FGUNIT_TOP_MASK)) | fgStyle_ParseCoord(a->String, 0, &t.area.top);
       break;
     case 5:
-      flags = (flags&(FGUNIT_RIGHT_MASK)) | fgStyle_ParseCoord(a->String, 0, &t.area.right);
+      flags = (flags&(~FGUNIT_RIGHT_MASK)) | fgStyle_ParseCoord(a->String, 0, &t.area.right);
       break;
     case 6:
-      flags = (flags&(FGUNIT_BOTTOM_MASK)) | fgStyle_ParseCoord(a->String, 0, &t.area.bottom);
+      flags = (flags&(~FGUNIT_BOTTOM_MASK)) | fgStyle_ParseCoord(a->String, 0, &t.area.bottom);
       break;
     case 7:
-      flags = (flags&(FGUNIT_RIGHT_MASK)) | fgStyle_ParseUnit(a->String, 0) | FGUNIT_RIGHT_WIDTH;
+      flags = (flags&(~FGUNIT_RIGHT_MASK)) | fgStyle_ParseUnit(a->String, 0) | FGUNIT_RIGHT_WIDTH;
       t.area.right.abs = (FABS)a->Float;
       break;
     case 8:
-      flags = (flags&(FGUNIT_BOTTOM_MASK)) | fgStyle_ParseUnit(a->String, 0) | FGUNIT_BOTTOM_HEIGHT;
+      flags = (flags&(~FGUNIT_BOTTOM_MASK)) | fgStyle_ParseUnit(a->String, 0) | FGUNIT_BOTTOM_HEIGHT;
       t.area.bottom.abs = (FABS)a->Float;
       break;
     default:
@@ -284,7 +284,8 @@ void fgStyle_ParseAttributesXML(fgStyle* self, const XMLNode* cur, int flags, fg
     }
     case 25: // asset
     {
-      _FG_ASSET_DATA* res = fgSkinBase_AddAssetFile(root, flags, attr->String);
+      Str s = path;
+      _FG_ASSET_DATA* res = fgSkinBase_AddAssetFile(root, flags, s + attr->String);
       AddStyleMsg<FG_SETASSET, void*>(self, res->asset);
       break;
     }
