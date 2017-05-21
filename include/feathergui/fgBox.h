@@ -28,7 +28,6 @@ enum FGBOX_FLAGS
 struct _FG_BOX_ORDERED_ELEMENTS_ {
   char isordered; // If we detect that a BACKGROUND element was inserted in the middle of the foreground elements, we disable fgOrderedDraw until all children are removed.
   fgVectorElement ordered; // Used to implement fgOrderedDraw if TILEX or TILEY layouts are used.
-  AbsVec fixedsize;
 };
 // A List is an arbitrary list of items with a number of different layout options that are selectable and/or draggable.
 typedef struct _FG_BOX_ {
@@ -37,6 +36,8 @@ typedef struct _FG_BOX_ {
   void(*fndraw)(fgElement*, const AbsRect*, const fgDrawAuxData*, fgElement*);
   fgColor dividercolor;
   fgVectorElement selected; // While fgBox does not handle selecting elements, it must have access to them if they exist
+  AbsVec spacing;
+  AbsVec fixedsize;
 
 #ifdef  __cplusplus
   inline operator fgElement*() { return &scroll.control.element; }
@@ -48,7 +49,7 @@ FG_EXTERN void fgBox_Init(fgBox* self, fgElement* BSS_RESTRICT parent, fgElement
 FG_EXTERN void fgBox_Destroy(fgBox* self);
 FG_EXTERN size_t fgBox_Message(fgBox* self, const FG_Msg* msg);
 FG_EXTERN void fgBoxOrderedElement_Destroy(struct _FG_BOX_ORDERED_ELEMENTS_* self);
-FG_EXTERN size_t fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_* self, const FG_Msg* msg, fgElement* element, fgMessage callback);
+FG_EXTERN size_t fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_* self, const FG_Msg* msg, fgElement* element, fgMessage callback, const AbsVec* spacing);
 FG_EXTERN fgElement* fgBoxOrderedElement_Get(struct _FG_BOX_ORDERED_ELEMENTS_* self, const AbsRect* target, const AbsRect* area, fgFlag flags);
 FG_EXTERN void fgBox_DeselectAll(fgBox* self);
 FG_EXTERN void fgBox_SelectTarget(fgBox* self, fgElement* target);

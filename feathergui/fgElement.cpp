@@ -375,7 +375,6 @@ void fgElement_ApplySkin(fgElement* self, const fgSkin* skin)
   fgElement_StyleToMessageArray(&skin->style, 0, &self->skinstyle);
 }
 
-
 size_t fgElement_CheckLastFocus(fgElement* self)
 {
   if(self->lastfocus)
@@ -435,6 +434,25 @@ void fgElement_SetSkinStyle(fgElement* self, FG_UINT style, const fgSkin* skin)
     fgElement_SetSkinStyleElement(self, style, skin->tree.children.p[i]);
 }
 
+BSS_FORCEINLINE void fgElement_PropogateMove(fgElement* self, uint16_t subtype, fgElement* e, size_t u2)
+{
+  if(u2 & (FGMOVE_RESIZE | FGMOVE_PADDING | FGMOVE_MARGIN)) // a layout change can happen on a resize or padding change
+    _sendsubmsg<FG_LAYOUTCHANGE, void*, size_t>(self, FGELEMENT_LAYOUTRESIZE, 0, u2);
+
+  fgElement* ref = !e ? self : e;
+  fgElement* cur = self->root;
+  fgElement* hold;
+  char diff;
+  while(hold = cur)
+  {
+    cur = cur->next;
+    diff = fgElement_PotentialResize(hold);
+
+    //if(diff & msg->u2)
+    _sendsubmsg<FG_MOVE, void*, size_t>(hold, subtype, ref, diff & u2);
+  }
+}
+
 size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
 {
   fgFlag otherint = (fgFlag)msg->u;
@@ -454,23 +472,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
         _sendsubmsg<FG_LAYOUTCHANGE, void*, size_t>(self, FGELEMENT_LAYOUTMOVE, msg->p, msg->u2);
     }
     else if(msg->u2) // This was either internal or propagated down, in which case we must keep propagating it down so long as something changed.
-    {
-      if(msg->u2 & (FGMOVE_RESIZE | FGMOVE_PADDING | FGMOVE_MARGIN)) // a layout change can happen on a resize or padding change
-        _sendsubmsg<FG_LAYOUTCHANGE, void*, size_t>(self, FGELEMENT_LAYOUTRESIZE, 0, msg->u2);
-
-      fgElement* ref = !msg->p ? self : msg->e;
-      fgElement* cur = self->root;
-      fgElement* hold;
-      char diff;
-      while(hold = cur)
-      {
-        cur = cur->next;
-        diff = fgElement_PotentialResize(hold);
-
-        //if(diff & msg->u2)
-        _sendsubmsg<FG_MOVE, void*, size_t>(hold, msg->subtype, ref, diff & msg->u2);
-      }
-    }
+      fgElement_PropogateMove(self, msg->subtype, msg->e, msg->u2);
     return FG_ACCEPT;
   case FG_SETALPHA:
     return 0;
@@ -493,6 +495,8 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
 
         if(msg->subtype != (uint16_t)~0)
           _sendsubmsg<FG_MOVE, void*, size_t>(self, FG_SETAREA, 0, diff);
+        else
+          fgElement_PropogateMove(self, FG_SETAREA, 0, diff);
       }
       return diff;
     }
@@ -516,6 +520,8 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
 
         if(msg->subtype != (uint16_t)~0)
           _sendsubmsg<FG_MOVE, void*, size_t>(self, FG_SETTRANSFORM, 0, diff);
+        else
+          fgElement_PropogateMove(self, FG_SETTRANSFORM, 0, diff);
       }
     }
     return FG_ACCEPT;
@@ -574,6 +580,8 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
 
         if(msg->subtype != (uint16_t)~0)
           _sendsubmsg<FG_MOVE, void*, size_t>(self, FG_SETMARGIN, 0, diff | FGMOVE_MARGIN);
+        else
+          fgElement_PropogateMove(self, FG_SETMARGIN, 0, diff | FGMOVE_MARGIN);
       }
     }
     return FG_ACCEPT;
@@ -596,6 +604,8 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
 
         if(msg->subtype != (uint16_t)~0)
           _sendsubmsg<FG_MOVE, void*, size_t>(self, FG_SETPADDING, 0, diff | FGMOVE_PADDING);
+        else
+          fgElement_PropogateMove(self, FG_SETMARGIN, 0, diff | FGMOVE_PADDING);
       }
     }
     return FG_ACCEPT;
@@ -817,7 +827,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
         else if(self->style == (FG_UINT)-1)
           self->style = index;
         else
-          self->style = (FG_UINT)(index | (self->style&(~mask)));
+          index = self->style = (FG_UINT)(index | (self->style&(~mask)));
         break;
       }
 
@@ -830,7 +840,6 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
       
       if(self->skin != 0) // Only proceed if our skin exists
       {
-        index = self->style;
         fgElement_SetSkinStyle(self, index, self->skin);
         if((self->skin->tree.stylemask&(self->style)) != 0)
         {

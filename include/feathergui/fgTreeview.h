@@ -14,11 +14,13 @@ typedef struct _FG_TREEITEM {
   fgControl control;
   fgElement arrow;
   size_t count;
+  AbsVec spacing;
 } fgTreeItem;
 
 // A treeview visualizes a tree structure as a series of nested lists. 
 typedef struct _FG_TREEVIEW {
   fgScrollbar scrollbar;
+  AbsVec spacing;
 #ifdef  __cplusplus
   inline operator fgElement*() { return &scrollbar.control.element; }
   inline fgElement* operator->() { return operator fgElement*(); }

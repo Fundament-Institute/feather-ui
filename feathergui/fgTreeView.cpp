@@ -36,6 +36,7 @@ size_t fgTreeItem_Message(fgTreeItem* self, const FG_Msg* msg)
     self->arrow.message = (fgMessage)&fgTreeItemArrow_Message;
     self->count = EXPANDED;
     self->arrow.SetStyle("visible");
+    bss::bssFill(self->spacing);
     return FG_ACCEPT;
   case FG_CLONE:
     if(msg->e)
@@ -62,7 +63,7 @@ size_t fgTreeItem_Message(fgTreeItem* self, const FG_Msg* msg)
     }
     break;
   case FG_LAYOUTFUNCTION:
-    return fgTileLayout(&self->control.element, (const FG_Msg*)msg->p, FGBOX_TILEY, (AbsVec*)msg->p2);
+    return fgTileLayout(&self->control.element, (const FG_Msg*)msg->p, FGBOX_TILEY, (AbsVec*)msg->p2, self->spacing);
   case FG_ACTION:
     if(msg->subtype != 0) // If nonzero this action was meant for the root
       return !self->control.element.parent ? 0 : fgSendMessage(self->control.element.parent, msg);
@@ -89,7 +90,16 @@ size_t fgTreeItem_Message(fgTreeItem* self, const FG_Msg* msg)
       _sendsubmsg<FG_ACTION, void*>(self->control.element.parent, FGSCROLLBAR_SCROLLTOABS, &r);
     }
     break;
-  case FG_MOUSEDOWN:
+  case FG_SETDIM:
+    if(msg->subtype == FGDIM_SPACING)
+    {
+      fgBox_SetSpacing(&self->control.element, self->spacing, msg);
+      return FG_ACCEPT;
+    }
+    break;
+  case FG_GETDIM:
+    if(msg->subtype == FGDIM_SPACING)
+      return (size_t)&self->spacing;
     break;
   }
 
@@ -116,18 +126,30 @@ size_t fgTreeview_Message(fgTreeview* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgScrollbar_Message(&self->scrollbar, msg);
+    bss::bssFill(self->spacing);
     return FG_ACCEPT;
   case FG_CLONE:
     if(msg->e)
       fgScrollbar_Message(&self->scrollbar, msg);
     return sizeof(fgTreeview);
   case FG_LAYOUTFUNCTION:
-    return fgTileLayout(*self, (const FG_Msg*)msg->p, FGBOX_TILEY, (AbsVec*)msg->p2);
+    return fgTileLayout(*self, (const FG_Msg*)msg->p, FGBOX_TILEY, (AbsVec*)msg->p2, self->spacing);
   case FG_GETCLASSNAME:
     return (size_t)"TreeView";
   case FG_GOTFOCUS:
     if(fgElement_CheckLastFocus(*self)) // try to resolve via lastfocus
       return FG_ACCEPT;
+    break;
+  case FG_SETDIM:
+    if(msg->subtype == FGDIM_SPACING)
+    {
+      fgBox_SetSpacing(*self, self->spacing, msg);
+      return FG_ACCEPT;
+    }
+    break;
+  case FG_GETDIM:
+    if(msg->subtype == FGDIM_SPACING)
+      return (size_t)&self->spacing;
     break;
   }
   return fgScrollbar_Message(&self->scrollbar, msg);

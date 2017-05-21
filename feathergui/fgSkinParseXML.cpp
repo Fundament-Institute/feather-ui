@@ -108,10 +108,10 @@ uint32_t fgStyle_ParseColor(const XMLValue* attr)
 }
 void fgStyle_ParseAttributesXML(fgStyle* self, const XMLNode* cur, int flags, fgSkinBase* root, const char* path, const char** id, fgKeyValueArray* userdata)
 {
-  static Trie<uint16_t, true> t(48, "id", "min-width", "min-height", "max-width", "max-height", "skin", "alpha", "margin", "padding", "text",
+  static Trie<uint16_t, true> t(49, "id", "min-width", "min-height", "max-width", "max-height", "skin", "alpha", "margin", "padding", "text",
     "placeholder", "color", "placecolor", "cursorcolor", "selectcolor", "hovercolor", "dragcolor", "edgecolor", "dividercolor", "columndividercolor", 
     "font", "lineheight", "letterspacing", "value", "uv", "asset", "outline", "area", "center", "rotation", "left", "top", "right", "bottom", "width",
-    "height", "name", "flags", "order", "inherit", "range", "splitter", "contextmenu", "reorder", "style", "xmlns:xsi", "xmlns:fg", "xsi:schemaLocation");
+    "height", "name", "flags", "order", "inherit", "range", "splitter", "contextmenu", "reorder", "style", "spacing", "xmlns:xsi", "xmlns:fg", "xsi:schemaLocation");
   static Trie<uint16_t, true> tvalue(5, "checkbox", "curve", "progressbar", "radiobutton", "slider");
   static Trie<uint16_t, true> tenum(5, "true", "false", "none", "checked", "indeterminate");
 
@@ -158,10 +158,10 @@ void fgStyle_ParseAttributesXML(fgStyle* self, const XMLNode* cur, int flags, fg
         skin = fgSkinBase_LoadFileXML(root, attr->String);
       if(!skin) // relative XML path
         skin = fgSkinBase_LoadFileXML(root, Str(path) + attr->String);
-      if(!skin) // absolute UBJSON path
-        skin = fgSkinBase_LoadFileUBJSON(root, attr->String);
-      if(!skin) // relative UBJSON path
-        skin = fgSkinBase_LoadFileUBJSON(root, Str(path) + attr->String);
+      //if(!skin) // absolute UBJSON path
+      //  skin = fgSkinBase_LoadFileUBJSON(root, attr->String);
+      //if(!skin) // relative UBJSON path
+      //  skin = fgSkinBase_LoadFileUBJSON(root, Str(path) + attr->String);
       if(skin)
         AddStyleMsg<FG_SETSKIN, void*>(self, skin);
     }
@@ -326,9 +326,16 @@ void fgStyle_ParseAttributesXML(fgStyle* self, const XMLNode* cur, int flags, fg
     case 44: // style
       AddStyleSubMsg<FG_SETSTYLE, size_t>(self, FGSETSTYLE_INDEX, fgStyle_GetAllNames(attr->String.c_str()));
       break;
-    case 45:
+    case 45: // spacing
+    {
+      AbsVec spacing;
+      int units = fgStyle_ParseAbsVec(attr->String, &spacing);
+      AddStyleSubMsg<FG_SETDIM, FABS, FABS>(self, units | FGDIM_SPACING, spacing.x, spacing.y);
+    }
+      break;
     case 46:
-    case 47: // These are all XML specific values that are only used for setting the XSD file
+    case 47:
+    case 48: // These are all XML specific values that are only used for setting the XSD file
       break;
     case 42: // contextmenu is a recognized option, but we put it in as custom userdata anyway because we can't resolve it until the layout is resolved.
     default: // Otherwise, unrecognized attributes are set as custom userdata
@@ -441,9 +448,9 @@ fgSkin* fgSkinBase_GetInherit(fgSkinBase* self, const char* inherit)
 }
 
 // Styles parse flags differently - the attributes use the parent flags for resource/font loading, then creates add and remove flag messages
-void fgSkinBase_ParseStyleNodeXML(fgSkinBase* self, fgStyle* style, fgFlag rootflags, const XMLNode* cur)
+void fgSkinBase_ParseStyleNodeXML(fgSkinBase* self, fgStyle* style, fgFlag rootflags, const XMLNode* cur, const char* path)
 {
-  fgStyle_ParseAttributesXML(style, cur, rootflags, self, 0, 0, 0);
+  fgStyle_ParseAttributesXML(style, cur, rootflags, self, path, 0, 0);
   fgFlag remove = 0;
   fgFlag add = fgSkinBase_ParseFlagsFromString(cur->GetAttributeString("flags"), &remove, '|');
   if(remove)
@@ -452,7 +459,7 @@ void fgSkinBase_ParseStyleNodeXML(fgSkinBase* self, fgStyle* style, fgFlag rootf
     AddStyleMsg<FG_SETFLAG, ptrdiff_t, size_t>(style, add, 1);
 }
 
-void fgSkinBase_ParseSubNodeXML(fgSkinTree* tree, fgStyle* style, fgSkinBase* root, fgSkin* skin, const XMLNode* cur)
+void fgSkinBase_ParseSubNodeXML(fgSkinTree* tree, fgStyle* style, fgSkinBase* root, fgSkin* skin, const XMLNode* cur, const char* path)
 {
   fgFlag remove = 0;
   fgFlag rootflags = fgSkinBase_ParseFlagsFromString(cur->GetAttributeString("flags"), &remove, '|');
@@ -466,7 +473,7 @@ void fgSkinBase_ParseSubNodeXML(fgSkinTree* tree, fgStyle* style, fgSkinBase* ro
   if(tsunits != -1)
     AddStyleSubMsgArg<FG_SETTRANSFORM, fgTransform>(style, tsunits, &ts);
 
-  fgStyle_ParseAttributesXML(style, cur, rootflags, root, 0, 0, 0);
+  fgStyle_ParseAttributesXML(style, cur, rootflags, root, path, 0, 0);
   if(skin)
     skin->inherit = fgSkinBase_GetInherit(&skin->base, cur->GetAttributeString("inherit"));
 
@@ -474,9 +481,9 @@ void fgSkinBase_ParseSubNodeXML(fgSkinTree* tree, fgStyle* style, fgSkinBase* ro
   {
     const XMLNode* node = cur->GetNode(i);
     if(skin != nullptr && !STRICMP(node->GetName(), "skin"))
-      fgSkinBase_ParseNodeXML(&skin->base, node);
+      fgSkinBase_ParseNodeXML(&skin->base, node, path);
     else if(!STRICMP(node->GetName(), "style"))
-      fgSkinBase_ParseStyleNodeXML(root, fgSkinTree_GetStyle(tree, fgSkinTree_AddStyle(tree, node->GetAttributeString("name"))), rootflags, node);
+      fgSkinBase_ParseStyleNodeXML(root, fgSkinTree_GetStyle(tree, fgSkinTree_AddStyle(tree, node->GetAttributeString("name"))), rootflags, node, path);
     else
     {
       fgTransform transform = { 0 };
@@ -485,14 +492,14 @@ void fgSkinBase_ParseSubNodeXML(fgSkinTree* tree, fgStyle* style, fgSkinBase* ro
       fgFlag flags = fgSkinBase_ParseFlagsFromString(node->GetAttributeString("flags"), &rmflags, '|');
       flags = (flags | fgGetTypeFlags(node->GetName()))&(~rmflags);
       fgSkinLayout* child = fgSkinTree_GetChild(tree, (FG_UINT)fgSkinTree_AddChild(tree, node->GetName(), flags, &transform, units, (int)node->GetAttributeInt("order")));
-      fgStyle_ParseAttributesXML(&child->element.style, node, flags, root, 0, 0, 0);
+      fgStyle_ParseAttributesXML(&child->element.style, node, flags, root, path, 0, 0);
       _sendsubmsg<FG_SETSTYLE, void*, size_t>(child->instance, FGSETSTYLE_POINTER, (void*)&child->element.style, ~0);
-      fgSkinBase_ParseSubNodeXML(&child->tree, &child->element.style, root, 0, node);
+      fgSkinBase_ParseSubNodeXML(&child->tree, &child->element.style, root, 0, node, path);
     }
   }
 }
 
-fgSkin* fgSkinBase_ParseNodeXML(fgSkinBase* self, const XMLNode* root)
+fgSkin* fgSkinBase_ParseNodeXML(fgSkinBase* self, const XMLNode* root, const char* path)
 {
   const char* id = root->GetAttributeString("id");
   if(!id)
@@ -500,11 +507,11 @@ fgSkin* fgSkinBase_ParseNodeXML(fgSkinBase* self, const XMLNode* root)
   if(!id)
     return 0;
   fgSkin* s = fgSkinBase_AddSkin(self, id);
-  fgSkinBase_ParseSubNodeXML(&s->tree, &s->style, &s->base, s, root);
+  fgSkinBase_ParseSubNodeXML(&s->tree, &s->style, &s->base, s, root, path);
   return s;
 }
 
-fgSkin* fgSkinBase_ParseStreamXML(fgSkinBase* self, std::istream& s)
+fgSkin* fgSkinBase_ParseStreamXML(fgSkinBase* self, std::istream& s, const char* path)
 {
   XMLFile xml(s);
   size_t index = 0;
@@ -514,7 +521,7 @@ fgSkin* fgSkinBase_ParseStreamXML(fgSkinBase* self, std::istream& s)
   while(root = xml.GetNode(index++))
   {
     if(!STRICMP(root->GetName(), "fg:skin"))
-      ret = fgSkinBase_ParseNodeXML(self, root);
+      ret = fgSkinBase_ParseNodeXML(self, root, path);
   }
 
   return ret;
@@ -522,11 +529,16 @@ fgSkin* fgSkinBase_ParseStreamXML(fgSkinBase* self, std::istream& s)
 
 fgSkin* fgSkinBase_LoadFileXML(fgSkinBase* self, const char* file)
 {
+  Str path(file);
+  path.ReplaceChar('\\', '/');
+  char* dir = strrchr(path.UnsafeString(), '/');
+  if(dir) // If we find a /, we chop off the rest of the string AFTER it, so it becomes a valid directory path.
+    dir[1] = 0;
   std::ifstream s(file, std::ios_base::in | std::ios_base::binary);
-  return fgSkinBase_ParseStreamXML(self, s);
+  return fgSkinBase_ParseStreamXML(self, s, path);
 }
-fgSkin* fgSkinBase_LoadXML(fgSkinBase* self, const char* data, FG_UINT length)
+fgSkin* fgSkinBase_LoadXML(fgSkinBase* self, const char* data, FG_UINT length, const char* path)
 {
   std::istringstream s(std::string(data, length));
-  return fgSkinBase_ParseStreamXML(self, s);
+  return fgSkinBase_ParseStreamXML(self, s, path);
 }

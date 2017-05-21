@@ -48,11 +48,11 @@ typedef struct _FG_LAYOUT {
   FG_DLLEXPORT struct _FG_LAYOUT* GetLayout(const char* name) const;
   FG_DLLEXPORT void IterateLayouts(void* p, void(*f)(struct _FG_LAYOUT*, const char*, void*));
 
-  FG_DLLEXPORT void LoadFileUBJSON(const char* file);
-  FG_DLLEXPORT void LoadUBJSON(const char* data, FG_UINT length);
-  FG_DLLEXPORT void SaveFileUBJSON(const char* file);
+  //FG_DLLEXPORT void LoadFileUBJSON(const char* file);
+  //FG_DLLEXPORT void LoadUBJSON(const char* data, FG_UINT length);
+  //FG_DLLEXPORT void SaveFileUBJSON(const char* file);
   FG_DLLEXPORT bool LoadFileXML(const char* file);
-  FG_DLLEXPORT bool LoadXML(const char* data, FG_UINT length);
+  FG_DLLEXPORT bool LoadXML(const char* data, FG_UINT length, const char* path = 0);
   FG_DLLEXPORT void SaveFileXML(const char* file);
 #endif
 } fgLayout;
@@ -67,11 +67,11 @@ FG_EXTERN char fgLayout_RemoveLayout(fgLayout* self, const char* name);
 FG_EXTERN fgLayout* fgLayout_GetLayout(const fgLayout* self, const char* name);
 FG_EXTERN void fgLayout_IterateLayouts(fgLayout* self, void* p, void(*f)(fgLayout*, const char*, void*));
 
-FG_EXTERN void fgLayout_LoadFileUBJSON(fgLayout* self, const char* file);
-FG_EXTERN void fgLayout_LoadUBJSON(fgLayout* self, const char* data, FG_UINT length);
-FG_EXTERN void fgLayout_SaveFileUBJSON(fgLayout* self, const char* file);
+//FG_EXTERN void fgLayout_LoadFileUBJSON(fgLayout* self, const char* file);
+//FG_EXTERN void fgLayout_LoadUBJSON(fgLayout* self, const char* data, FG_UINT length, const char* path);
+//FG_EXTERN void fgLayout_SaveFileUBJSON(fgLayout* self, const char* file);
 FG_EXTERN char fgLayout_LoadFileXML(fgLayout* self, const char* file);
-FG_EXTERN char fgLayout_LoadXML(fgLayout* self, const char* data, FG_UINT length);
+FG_EXTERN char fgLayout_LoadXML(fgLayout* self, const char* data, FG_UINT length, const char* path);
 FG_EXTERN void fgLayout_SaveFileXML(fgLayout* self, const char* file);
 
 FG_EXTERN void fgClassLayout_Init(fgClassLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order);
@@ -83,7 +83,7 @@ FG_EXTERN fgClassLayout* fgClassLayout_GetChild(const fgClassLayout* self, FG_UI
 
 FG_EXTERN size_t fgDefaultLayout(fgElement* self, const FG_Msg* msg, AbsVec* dim);
 FG_EXTERN size_t fgDistributeLayout(fgElement* self, const FG_Msg* msg, fgFlag flags, AbsVec* dim);
-FG_EXTERN size_t fgTileLayout(fgElement* self, const FG_Msg* msg, fgFlag flags, AbsVec* area);
+FG_EXTERN size_t fgTileLayout(fgElement* self, const FG_Msg* msg, fgFlag flags, AbsVec* area, AbsVec spacing);
 
 #ifdef  __cplusplus
 }

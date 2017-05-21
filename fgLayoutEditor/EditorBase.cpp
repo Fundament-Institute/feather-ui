@@ -517,7 +517,12 @@ void EditorBase::SetProps(fgGrid& g, fgClassLayout* layout, fgSkinElement* eleme
       break;
     case FG_SETCOLOR:
       if(fgElement* e = FindProp(g, PROPERTIES((FG_UINT)PROP_COLOR + m->msg.subtype)))
-        e->SetText(StrF("%X", m->msg.u).c_str());
+      {
+        fgColor c = { m->msg.u };
+        rswap(c.colors[0], c.colors[3]);
+        rswap(c.colors[1], c.colors[2]);
+        e->SetText(StrF("%08llX", c.color).c_str());
+      }
       break;
     case FG_SETTEXT:
       if(m->msg.subtype&FGTEXTFMT_PLACEHOLDER_UTF8)

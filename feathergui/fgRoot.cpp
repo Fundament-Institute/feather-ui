@@ -255,11 +255,11 @@ char BSS_FORCEINLINE fgStandardApplyClipping(fgFlag flags, const AbsRect* area, 
   return clipping;
 }
 
-char BSS_FORCEINLINE fgStandardDrawElement(fgElement* self, fgElement* hold, const AbsRect* area, const fgDrawAuxData* aux, AbsRect& curarea, char clipping)
+char BSS_FORCEINLINE fgStandardDrawElement(AbsRect* padding, fgElement* hold, const AbsRect* area, const fgDrawAuxData* aux, AbsRect& curarea, char clipping)
 {
   if(!(hold->flags&FGELEMENT_HIDDEN) && hold != fgroot_instance->topmost)
   {
-    ResolveRectCache(hold, &curarea, area, (hold->flags & FGELEMENT_BACKGROUND) ? 0 : &self->padding);
+    ResolveRectCache(hold, &curarea, area, (hold->flags & FGELEMENT_BACKGROUND) ? 0 : padding);
     clipping = fgStandardApplyClipping(hold->flags, area, clipping, aux);
 
     AbsRect clip = fgroot_instance->backend.fgPeekClipRect(aux);
@@ -270,38 +270,38 @@ char BSS_FORCEINLINE fgStandardDrawElement(fgElement* self, fgElement* hold, con
 }
 
 // This must be its own function due to the way alloca works.
-inline char fgDrawSkinElement(fgElement* self, fgSkinLayout& child, const AbsRect* area, const fgDrawAuxData* aux, AbsRect& curarea, char clipping)
+inline char fgDrawSkinElement(fgVector* skinstyle, AbsRect* padding, fgSkinLayout& child, const AbsRect* area, const fgDrawAuxData* aux, AbsRect& curarea, char clipping)
 {
   fgElement* element = child.instance;
-  if(self->skinstyle != 0)
+  if(skinstyle != 0)
   {
     element = (fgElement*)ALLOCA(child.instance->Clone());
     child.instance->Clone(element);
     element->free = 0;
     element->flags |= FGELEMENT_SILENT;
-    fgElement_ApplyMessageArray(child.instance, element, self->skinstyle);
+    fgElement_ApplyMessageArray(child.instance, element, skinstyle);
   }
-  char r = fgStandardDrawElement(self, element, area, aux, curarea, clipping);
+  char r = fgStandardDrawElement(padding, element, area, aux, curarea, clipping);
 
   AbsRect childarea;
   for(size_t i = 0; i < child.tree.children.l; ++i)
-    clipping = fgDrawSkinElement(self, child.tree.children.p[i], &curarea, aux, childarea, clipping);
+    clipping = fgDrawSkinElement(skinstyle, padding, child.tree.children.p[i], &curarea, aux, childarea, clipping);
 
-  if(self->skinstyle != 0)
+  if(skinstyle != 0)
     VirtualFreeChild(element);
   return r;
 }
 
-char fgDrawSkin(fgElement* self, const fgSkin* skin, const AbsRect* area, const fgDrawAuxData* aux, char culled, char foreground, char clipping)
+char fgDrawSkin(fgVector* skinstyle, AbsRect* padding, const fgSkin* skin, const AbsRect* area, const fgDrawAuxData* aux, char culled, char foreground, char clipping)
 {
   if(skin != 0)
   {
-    clipping = fgDrawSkin(self, skin->inherit, area, aux, culled, foreground, clipping);
+    clipping = fgDrawSkin(skinstyle, padding, skin->inherit, area, aux, culled, foreground, clipping);
 
     AbsRect curarea;
     for(size_t i = 0; i < skin->tree.children.l; ++i)
       if((skin->tree.children.p[i].element.order > 0) == foreground)
-        clipping = fgDrawSkinElement(self, skin->tree.children.p[i], area, aux, curarea, clipping);
+        clipping = fgDrawSkinElement(skinstyle, padding, skin->tree.children.p[i], area, aux, curarea, clipping);
   }
 
   return clipping;
@@ -313,18 +313,18 @@ void fgStandardDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* a
   AbsRect curarea;
   bool clipping = false;
 
-  clipping = fgDrawSkin(self, self->skin, area, aux, culled, false, clipping);
+  clipping = fgDrawSkin(self->skinstyle, &self->padding, self->skin, area, aux, culled, false, clipping);
 
   if(draw && !culled)
     draw(self, area, aux, hold);
 
   while(hold)
   {
-    clipping = fgStandardDrawElement(self, hold, area, aux, curarea, clipping);
+    clipping = fgStandardDrawElement(&self->padding, hold, area, aux, curarea, clipping);
     hold = culled ? hold->nextnoclip : hold->next;
   }
 
-  clipping = fgDrawSkin(self, self->skin, area, aux, culled, true, clipping);
+  clipping = fgDrawSkin(self->skinstyle, &self->padding, self->skin, area, aux, culled, true, clipping);
 
   if(clipping)
     fgroot_instance->backend.fgPopClipRect(aux);
@@ -339,11 +339,11 @@ void fgOrderedDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* au
   AbsRect curarea;
   bool clipping = false;
 
-  clipping = fgDrawSkin(self, self->skin, area, aux, culled, false, clipping);
+  clipping = fgDrawSkin(self->skinstyle, &self->padding, self->skin, area, aux, culled, false, clipping);
 
   while(cur != 0 && (cur->flags & FGELEMENT_BACKGROUND)) // Render all background elements before the ordered elements
   {
-    clipping = fgStandardDrawElement(self, cur, area, aux, curarea, clipping);
+    clipping = fgStandardDrawElement(&self->padding, cur, area, aux, curarea, clipping);
     cur = cur->next;
   }
 
@@ -395,11 +395,11 @@ void fgOrderedDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* au
   cur = skip;
   while(cur != 0 && (cur->flags & FGELEMENT_BACKGROUND)) // Render all background elements after the ordered elements
   {
-    clipping = fgStandardDrawElement(self, cur, area, aux, curarea, clipping);
+    clipping = fgStandardDrawElement(&self->padding, cur, area, aux, curarea, clipping);
     cur = cur->next;
   }
 
-  clipping = fgDrawSkin(self, self->skin, area, aux, culled, true, clipping);
+  clipping = fgDrawSkin(self->skinstyle, &self->padding, self->skin, area, aux, culled, true, clipping);
 
   if(clipping)
     fgroot_instance->backend.fgPopClipRect(aux);

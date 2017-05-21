@@ -146,13 +146,13 @@ void fgBoxRenderDividers(fgElement* self, fgColor color, const AbsRect* area, co
 
     if(self->flags&FGBOX_TILEX)
     {
-      float avg = floor((rnext.left + rbegin.right) * 0.5f);
+      float avg = fgSnapAll<floor>((rnext.left + rbegin.right) * 0.5f, aux->dpi.x);
       AbsVec v[2] = { { avg,floor(drawarea->top + self->padding.top)}, { avg,floor(drawarea->bottom - self->padding.bottom)} };
       fgroot_instance->backend.fgDrawLines(v,2, color.color, &offset, &scale, self->transform.rotation, &center, aux);
     }
     else
     {
-      float avg = floor((rnext.top + rbegin.bottom) * 0.5f);
+      float avg = fgSnapAll<floor>((rnext.top + rbegin.bottom) * 0.5f, aux->dpi.y);
       AbsVec v[2] = { { floor(drawarea->left + self->padding.left),avg },{ floor(drawarea->right - self->padding.right),avg } };
       fgroot_instance->backend.fgDrawLines(v, 2, color.color, &offset, &scale, self->transform.rotation, &center, aux);
     }
@@ -178,6 +178,20 @@ void fgBox_SelectTarget(fgBox* self, fgElement* target)
   self->scroll->Selection(target);
 }
 
+void fgBox_SetSpacing(fgElement* self, AbsVec& spacing, const FG_Msg* msg)
+{
+  uint16_t diff;
+  if(spacing.x != msg->f) diff |= FGMOVE_RESIZEX;
+  if(spacing.y != msg->f2) diff |= FGMOVE_RESIZEY;
+  if(diff != 0)
+  {
+    spacing.x = msg->f;
+    spacing.y = msg->f2;
+    if((msg->subtype&(FGUNIT_X_MASK | FGUNIT_Y_MASK)) != 0)
+      fgResolveVecUnit(spacing, self->GetDPI(), self->GetLineHeight(), msg->subtype);
+    _sendsubmsg<FG_LAYOUTCHANGE, void*, size_t>(self, FGELEMENT_LAYOUTRESET, 0, 0);
+  }
+}
 size_t fgBox_Message(fgBox* self, const FG_Msg* msg)
 {
   fgFlag flags = self->scroll.control.element.flags;
@@ -187,7 +201,10 @@ size_t fgBox_Message(fgBox* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     self->fndraw = 0;
     self->dividercolor.color = 0;
+    self->fixedsize.x = -1;
+    self->fixedsize.y = -1;
     bss::bssFill(self->selected, 0);
+    bss::bssFill(self->spacing, 0);
     break;
   case FG_CLONE:
     if(msg->e)
@@ -230,13 +247,24 @@ size_t fgBox_Message(fgBox* self, const FG_Msg* msg)
       }
       return fgOrderedInject(*self, (const FG_Msg*)msg->p, (const AbsRect*)msg->p2, self->order.ordered.p[self->order.ordered.l - 1]->next, fn, self->selected.l > 0 ? self->selected.p[0] : 0);
     }
+  case FG_SETDIM:
+    if(msg->subtype == FGDIM_SPACING)
+    {
+      fgBox_SetSpacing(*self, self->spacing, msg);
+      return FG_ACCEPT;
+    }
+    break;
+  case FG_GETDIM:
+    if(msg->subtype == FGDIM_SPACING)
+      return (size_t)&self->spacing;
+    break;
   case FG_GETSELECTEDITEM:
     return (msg->u) < self->selected.l ? (size_t)self->selected.p[msg->u] : 0;
   case FG_GETCLASSNAME:
     return (size_t)"Box";
   }
 
-  return fgBoxOrderedElement_Message(&self->order, msg, *self, (fgMessage)&fgScrollbar_Message);
+  return fgBoxOrderedElement_Message(&self->order, msg, *self, (fgMessage)&fgScrollbar_Message, &self->spacing);
 }
 
 void fgBoxCheckOrdered(struct _FG_BOX_ORDERED_ELEMENTS_* self, const FG_Msg* msg, fgElement* element, fgElement* next)
@@ -280,7 +308,7 @@ void fgBoxOrderedInsert(struct _FG_BOX_ORDERED_ELEMENTS_* self, fgElement* targe
   }
 }
 
-size_t fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_* self, const FG_Msg* msg, fgElement* element, fgMessage callback)
+size_t fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_* self, const FG_Msg* msg, fgElement* element, fgMessage callback, const AbsVec* spacing)
 {
   fgFlag otherint = (fgFlag)msg->u;
   fgFlag flags = element->flags;
@@ -290,8 +318,6 @@ size_t fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_* self, const
   case FG_CONSTRUCT:
     bss::bssFill(self->ordered, 0);
     self->isordered = 1;
-    self->fixedsize.x = -1;
-    self->fixedsize.y = -1;
     break;
   case FG_SETFLAG: // Do the same thing fgElement does to resolve a SETFLAG into SETFLAGS
     otherint = bss::bssSetBit<fgFlag>(flags, otherint, msg->u2 != 0);
@@ -307,7 +333,7 @@ size_t fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_* self, const
     if(element->flags&FGBOX_DISTRIBUTE) // DISTRIBUTE overrides the tiling flags
       return fgDistributeLayout(element, (const FG_Msg*)msg->p, element->flags&FGBOX_LAYOUTMASK, (AbsVec*)msg->p2);
     if(element->flags&(FGBOX_TILEX | FGBOX_TILEY))
-      return fgTileLayout(element, (const FG_Msg*)msg->p, element->flags&FGBOX_LAYOUTMASK, (AbsVec*)msg->p2);
+      return fgTileLayout(element, (const FG_Msg*)msg->p, element->flags&FGBOX_LAYOUTMASK, (AbsVec*)msg->p2, *spacing);
     break; // If no layout flags are specified, fall back to default layout behavior.
   case FG_REMOVECHILD:
   {

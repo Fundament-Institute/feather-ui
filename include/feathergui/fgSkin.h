@@ -71,10 +71,10 @@ typedef struct _FG_SKIN_BASE
   FG_DLLEXPORT char RemoveFont(fgFont font);
   FG_DLLEXPORT struct _FG_FONT_DATA* GetFont(fgFont font) const;
 
-  FG_DLLEXPORT struct _FG_SKIN* LoadFileUBJSON(const char* file);
-  FG_DLLEXPORT struct _FG_SKIN* LoadUBJSON(const void* data, FG_UINT length);
+  //FG_DLLEXPORT struct _FG_SKIN* LoadFileUBJSON(const char* file);
+  //FG_DLLEXPORT struct _FG_SKIN* LoadUBJSON(const void* data, FG_UINT length);
   FG_DLLEXPORT struct _FG_SKIN* LoadFileXML(const char* file);
-  FG_DLLEXPORT struct _FG_SKIN* LoadXML(const char* data, FG_UINT length);
+  FG_DLLEXPORT struct _FG_SKIN* LoadXML(const char* data, FG_UINT length, const char* path);
 #endif
 } fgSkinBase;
 
@@ -109,10 +109,10 @@ FG_EXTERN char fgSkinBase_RemoveFont(fgSkinBase* self, fgFont font);
 FG_EXTERN struct _FG_FONT_DATA* fgSkinBase_GetFont(const fgSkinBase* self, fgFont font);
 FG_EXTERN fgFlag fgSkinBase_ParseFlagsFromString(const char* s, fgFlag* remove, int divider);
 
-FG_EXTERN fgSkin* fgSkinBase_LoadFileUBJSON(fgSkinBase* self, const char* file);
-FG_EXTERN fgSkin* fgSkinBase_LoadUBJSON(fgSkinBase* self, const void* data, FG_UINT length);
+//FG_EXTERN fgSkin* fgSkinBase_LoadFileUBJSON(fgSkinBase* self, const char* file);
+//FG_EXTERN fgSkin* fgSkinBase_LoadUBJSON(fgSkinBase* self, const void* data, FG_UINT length, const char* path);
 FG_EXTERN fgSkin* fgSkinBase_LoadFileXML(fgSkinBase* self, const char* file);
-FG_EXTERN fgSkin* fgSkinBase_LoadXML(fgSkinBase* self, const char* data, FG_UINT length);
+FG_EXTERN fgSkin* fgSkinBase_LoadXML(fgSkinBase* self, const char* data, FG_UINT length, const char* path);
 
 #ifdef  __cplusplus
 }

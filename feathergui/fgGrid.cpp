@@ -301,7 +301,7 @@ size_t fgGridRow_Message(fgGridRow* self, const FG_Msg* msg)
   case FG_GETCLASSNAME:
     return (size_t)"GridRow";
   }
-  return fgBoxOrderedElement_Message(&self->order, msg, &self->element, (fgMessage)fgElement_Message);
+  return fgBoxOrderedElement_Message(&self->order, msg, &self->element, (fgMessage)fgElement_Message, !self->element.parent ? &AbsVec_EMPTY : &((fgGrid*)self->element.parent)->list.box.spacing);
 }
 
 fgElement* fgGrid::InsertColumn(const char* name, size_t column) { return reinterpret_cast<fgElement*>(_sendsubmsg<FG_ADDITEM, const void*, size_t>(*this, FGITEM_COLUMN, name, column)); }

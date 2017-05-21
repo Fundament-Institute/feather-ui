@@ -189,6 +189,7 @@ enum FGDIM
 {
   FGDIM_MIN = 0,
   FGDIM_MAX,
+  FGDIM_SPACING,
   FGDIM_FIXED,
 };
 

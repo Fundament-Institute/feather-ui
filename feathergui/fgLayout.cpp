@@ -128,19 +128,6 @@ fgClassLayout* fgClassLayout_GetChild(const fgClassLayout* self, FG_UINT child)
 {
   return self->children.p + child;
 }
-void fgLayout_LoadFileUBJSON(fgLayout* self, const char* file)
-{
-}
-void fgLayout_LoadUBJSON(fgLayout* self, const char* data, FG_UINT length)
-{
-
-}
-
-void fgLayout_SaveFileUBJSON(fgLayout* self, const char* file)
-{
-
-}
-
 void fgClassLayout_LoadAttributesXML(fgClassLayout* self, const XMLNode* cur, int flags, fgSkinBase* root, const char* path)
 {
   const XMLValue* userid = cur->GetAttribute("userid");
@@ -178,9 +165,9 @@ void fgLayout_LoadLayoutNode(fgLayout* self, const XMLNode* root, std::istream& 
   size_t nodes = root->GetNodes(); // We have to load any skins in the layout BEFORE we parse the attributes, otherwise the skin won't get applied
   for(size_t i = 0; i < nodes; ++i)
     if(!STRICMP(root->GetNode(i)->GetName(), "skin"))
-      fgSkinBase_ParseNodeXML(&self->base, root->GetNode(i));
+      fgSkinBase_ParseNodeXML(&self->base, root->GetNode(i), path);
 
-  fgStyle_ParseAttributesXML(&self->style, root, 0, &self->base, 0, 0, 0); // This will load and apply skins to the layout base
+  fgStyle_ParseAttributesXML(&self->style, root, 0, &self->base, path, 0, 0); // This will load and apply skins to the layout base
 
   for(size_t i = 0; i < root->GetNodes(); ++i)
   {
@@ -231,10 +218,10 @@ char fgLayout_LoadFileXML(fgLayout* self, const char* file)
   return fgLayout_LoadStreamXML(self, fs, path.c_str());
 }
 
-char fgLayout_LoadXML(fgLayout* self, const char* data, FG_UINT length)
+char fgLayout_LoadXML(fgLayout* self, const char* data, FG_UINT length, const char* path)
 {
   std::stringstream ss(std::string(data, length));
-  return fgLayout_LoadStreamXML(self, ss, 0);
+  return fgLayout_LoadStreamXML(self, ss, path);
 }
 
 void fgLayout_SaveElementXML(fgLayout* self, fgClassLayout& e, XMLNode* parent, const char* path)
@@ -318,11 +305,11 @@ bool fgLayout::RemoveLayout(const char* name) { return fgLayout_RemoveLayout(thi
 fgLayout* fgLayout::GetLayout(const char* name) const { return fgLayout_GetLayout(this, name); }
 void fgLayout::IterateLayouts(void* p, void(*f)(fgLayout*, const char*, void*)) { fgLayout_IterateLayouts(this, p, f); }
 
-void fgLayout::LoadFileUBJSON(const char* file) { fgLayout_LoadFileUBJSON(this, file); }
-void fgLayout::LoadUBJSON(const char* data, FG_UINT length) { fgLayout_LoadUBJSON(this, data, length); }
-void fgLayout::SaveFileUBJSON(const char* file) { fgLayout_SaveFileUBJSON(this, file); }
+//void fgLayout::LoadFileUBJSON(const char* file) { fgLayout_LoadFileUBJSON(this, file); }
+//void fgLayout::LoadUBJSON(const char* data, FG_UINT length) { fgLayout_LoadUBJSON(this, data, length); }
+//void fgLayout::SaveFileUBJSON(const char* file) { fgLayout_SaveFileUBJSON(this, file); }
 bool fgLayout::LoadFileXML(const char* file) { return fgLayout_LoadFileXML(this, file) != 0; }
-bool fgLayout::LoadXML(const char* data, FG_UINT length) { return fgLayout_LoadXML(this, data, length) != 0; }
+bool fgLayout::LoadXML(const char* data, FG_UINT length, const char* path) { return fgLayout_LoadXML(this, data, length, path) != 0; }
 void fgLayout::SaveFileXML(const char* file) { fgLayout_SaveFileXML(this, file); }
 
 void fgClassLayout::AddUserString(const char* key, const char* value) { return fgClassLayout_AddUserString(this, key, value); }

@@ -27,6 +27,7 @@ void fgMenu_Show(fgMenu* self, bool show)
   assert(self != 0);
   fgFlag set = show ? (self->box->flags & (~FGELEMENT_HIDDEN)) : (self->box->flags | FGELEMENT_HIDDEN);
   _sendmsg<FG_SETFLAGS, size_t>(*self, set);
+  fgVoidMessage(self->box->parent, show ? FG_ACTIVE : FG_NEUTRAL, 0, 0);
 
   fgMenu* submenu = (fgMenu*)self->box->GetSelectedItem();
   if(submenu)
@@ -323,6 +324,15 @@ size_t fgMenuItem_Message(fgMenuItem* self, const FG_Msg* msg)
     return fgSendMessage(self->text, msg);
   case FG_GETCLASSNAME:
     return (size_t)"MenuItem";
+  case FG_NEUTRAL:
+    self->element.SetStyle("neutral");
+    return FG_ACCEPT;
+  case FG_HOVER:
+    self->element.SetStyle("hover");
+    return FG_ACCEPT;
+  case FG_ACTIVE:
+    self->element.SetStyle("active");
+    return FG_ACCEPT;
   }
   return fgElement_Message(&self->element, msg);
 }

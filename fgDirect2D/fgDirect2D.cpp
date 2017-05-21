@@ -536,21 +536,32 @@ void fgDrawAssetD2D(fgAsset asset, const CRect* uv, unsigned int color, unsigned
 
 void fgAssetSizeD2D(fgAsset asset, const CRect* uv, AbsVec* dim, fgFlag flags)
 {
-  ID2D1Bitmap* tex = 0;
+  D2D1_SIZE_U sz = { 0 };
   if(asset)
   {
+    ID2D1Bitmap* tex = 0;
     ((IUnknown*)asset)->QueryInterface<ID2D1Bitmap>(&tex);
-    fgassert(tex);
+    if(tex)
+    {
+      sz = tex->GetPixelSize();
+      tex->Release();
+    }
+    else // this can happen when we load an asset into a skin that hasn't been assigned to anything yet
+    {
+      IWICBitmapFrameDecode* frame = 0;
+      ((IUnknown*)asset)->QueryInterface<IWICBitmapFrameDecode>(&frame);
+      fgassert(frame);
+      frame->GetSize(&sz.width, &sz.height);
+      frame->Release();
+    }
   }
 
-  auto sz = tex->GetPixelSize();
   D2D1_RECT_F uvresolve = D2D1::RectF(uv->left.abs + (uv->left.rel * sz.width),
     uv->top.abs + (uv->top.rel * sz.height),
     uv->right.abs + (uv->right.rel * sz.width),
     uv->bottom.abs + (uv->bottom.rel * sz.height));
   dim->x = uvresolve.right - uvresolve.left;
   dim->y = uvresolve.bottom - uvresolve.top;
-  tex->Release();
 }
 
 void fgDrawLinesD2D(const AbsVec* p, size_t n, unsigned int color, const AbsVec* translate, const AbsVec* scale, FABS rotation, const AbsVec* center, const fgDrawAuxData* data)

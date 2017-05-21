@@ -322,6 +322,7 @@
     <xs:complexContent>
       <xs:extension base="fgLayout">
         <xs:attribute name="flags" type="fgFlagsBox"/>
+        <xs:attribute name="spacing" type="fgAbsVec"/>
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
@@ -371,6 +372,7 @@
         <xs:attribute name="flags" type="fgFlagsList"/>
         <xs:attribute name="dragcolor" type="fgHex"/>
         <xs:attribute name="value" type="xs:decimal" default="0.0"/>
+        <xs:attribute name="spacing" type="fgAbsVec"/>
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
@@ -393,6 +395,7 @@
         <xs:attribute name="flags" type="fgFlagsGrid"/>
         <xs:attribute name="dragcolor" type="fgHex"/>
         <xs:attribute name="splitter" type="fgAbsVec"/>
+        <xs:attribute name="spacing" type="fgAbsVec"/>
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
@@ -413,6 +416,7 @@
           </xs:element>
         </xs:choice>
         <xs:attribute name="flags" type="fgFlagsBox"/>
+        <xs:attribute name="spacing" type="fgAbsVec"/>
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
@@ -523,6 +527,7 @@
           <xs:group ref="fgControlGroup" minOccurs="0" maxOccurs="unbounded" />
           <xs:element name="TreeItem" type="fgTreeItem" minOccurs="0" maxOccurs="unbounded" />
         </xs:sequence>
+        <xs:attribute name="spacing" type="fgAbsVec"/>
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
@@ -534,6 +539,7 @@
           <xs:element name="TreeItem" type="fgTreeItem" minOccurs="0" maxOccurs="unbounded" />
         </xs:choice>
         <xs:attribute name="flags" type="fgFlagsScrollbar"/>
+        <xs:attribute name="spacing" type="fgAbsVec"/>
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
@@ -547,11 +553,13 @@
               <xs:complexContent>
                 <xs:extension base="fgLayout">
                   <xs:attribute name="flags" type="fgFlagsElement"/>
+                  <xs:attribute name="spacing" type="fgAbsVec"/>
                 </xs:extension>
               </xs:complexContent>
             </xs:complexType>
           </xs:element>
         </xs:choice>
+        <xs:attribute name="spacing" type="fgAbsVec"/>
         <xs:attribute name="flags" type="fgFlagsElement"/>
       </xs:extension>
     </xs:complexContent>

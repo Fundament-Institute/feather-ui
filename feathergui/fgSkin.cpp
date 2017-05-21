@@ -279,9 +279,9 @@ _FG_FONT_DATA* fgSkinBase::AddFont(fgFlag flags, const char* family, short weigh
 char fgSkinBase::RemoveFont(fgFont font) { return fgSkinBase_RemoveFont(this, font); }
 _FG_FONT_DATA* fgSkinBase::GetFont(fgFont font) const { return fgSkinBase_GetFont(this, font); }
 
-fgSkin* fgSkinBase::LoadFileUBJSON(const char* file) { return fgSkinBase_LoadFileUBJSON(this, file); }
-fgSkin* fgSkinBase::LoadUBJSON(const void* data, FG_UINT length) { return fgSkinBase_LoadUBJSON(this, data, length); }
+//fgSkin* fgSkinBase::LoadFileUBJSON(const char* file) { return fgSkinBase_LoadFileUBJSON(this, file); }
+//fgSkin* fgSkinBase::LoadUBJSON(const void* data, FG_UINT length, const char* path) { return fgSkinBase_LoadUBJSON(this, data, length, path); }
 fgSkin* fgSkinBase::LoadFileXML(const char* file) { return fgSkinBase_LoadFileXML(this, file); }
-fgSkin* fgSkinBase::LoadXML(const char* data, FG_UINT length) { return fgSkinBase_LoadXML(this, data, length); }
+fgSkin* fgSkinBase::LoadXML(const char* data, FG_UINT length, const char* path) { return fgSkinBase_LoadXML(this, data, length, path); }
 
 fgSkin* fgSkin::GetSkin(const char* name) const { return fgSkin_GetSkin(this, name); }

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <fg:Layout xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:fg="featherGUI" xsi:schemaLocation="featherGUI feather.xsd" skin="testskin">
   <Window flags="RESIZABLE" text="Test Window" area="130 100 510 420">
-    <Menu>
+    <Menu spacing="10,0">
       <MenuItem text="File">
         <Submenu>
           <MenuItem text="New" />

@@ -367,7 +367,7 @@ struct __VECTOR__UTF8;
 struct __VECTOR__UTF16;
 struct __VECTOR__UTF32;
 
-extern fgSkin* fgSkinBase_ParseNodeXML(fgSkinBase* self, const bss::XMLNode* root);
+extern fgSkin* fgSkinBase_ParseNodeXML(fgSkinBase* self, const bss::XMLNode* root, const char* path);
 extern void fgSkinBase_WriteElementAttributesXML(bss::XMLNode* node, fgSkinElement& e, fgSkinBase* root);
 extern void fgSkinBase_WriteStyleAttributesXML(bss::XMLNode* node, fgStyle& s, fgSkinBase* root, const char* type);
 extern void fgSkinBase_WriteXML(bss::XMLNode* node, fgSkinBase* base, char toplevel);
@@ -391,6 +391,7 @@ extern bss::Str fgStyle_WriteCVec(const CVec& vec, short units);
 extern bss::Str fgStyle_WriteAbsRect(const AbsRect& r, short units);
 extern bss::Str fgStyle_WriteCRect(const CRect& r, short units);
 extern void fgStyle_WriteFlagsIterate(bss::Str& s, const char* type, const char* divider, fgFlag flags, bool remove);
+extern void fgBox_SetSpacing(fgElement* self, AbsVec& spacing, const FG_Msg* msg);
 
 struct _FG_BOX_ORDERED_ELEMENTS_;
 
