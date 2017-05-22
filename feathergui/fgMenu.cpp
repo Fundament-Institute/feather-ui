@@ -36,21 +36,34 @@ void fgMenu_Show(fgMenu* self, bool show)
       self->expanded = 0;
     fgMenu_Show(submenu, show);
   }
+  if(!show)
+  {
+    if(self->hover && !(self->hover->flags&FGCONTROL_DISABLE))
+      self->hover->Neutral();
+    self->hover = 0;
+  }
 }
 
-inline fgMenu* fgMenu_ExpandMenu(fgMenu* self, fgMenu* submenu)
+inline fgMenu* fgMenu_ExpandMenu(fgMenu* self, fgElement* child)
 {
-  if(submenu != self->expanded)
+  fgMenu* submenu = reinterpret_cast<fgMenu*>(child->GetSelectedItem());
+  if(child != self->hover)
   {
     if(self->expanded)
       fgMenu_Show(self->expanded, false);
-    self->expanded = submenu;
+    else if(self->hover && !(self->hover->flags&FGCONTROL_DISABLE))
+      self->hover->Neutral();
+    self->expanded = (child->flags&FGCONTROL_DISABLE) ? 0 : submenu;
+    self->hover = (child->flags&FGCONTROL_DISABLE) ? 0 : child;
     if(self->expanded)
       fgMenu_Show(self->expanded, true);
+    else if(self->hover)
+      self->hover->Active();
   }
 
   return submenu;
 }
+
 size_t fgMenu_Message(fgMenu* self, const FG_Msg* msg)
 {
   assert(self != 0 && msg != 0);
@@ -61,6 +74,7 @@ size_t fgMenu_Message(fgMenu* self, const FG_Msg* msg)
   {
     fgBox_Message(&self->box, msg);
     self->expanded = 0;
+    self->hover = 0;
     const fgTransform TF_ARROW = { { 0,0,0,0.5,0,0,0,0.5 }, 0,{ 1.0,0.5 } };
     fgElement_Init(&self->arrow, 0, 0, "Menu$arrow", FGELEMENT_IGNORE | FGELEMENT_BACKGROUND | FGELEMENT_EXPAND | FGFLAGS_INTERNAL, &TF_ARROW, 0);
     return FG_ACCEPT;
@@ -72,7 +86,7 @@ size_t fgMenu_Message(fgMenu* self, const FG_Msg* msg)
       fgElement* child = fgElement_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
       if(!MsgHitAbsRect(msg, &cache))
         fgroot_instance->fgCaptureWindow = 0;
-      else if(child != 0 && !fgMenu_ExpandMenu(self, (fgMenu*)child->GetSelectedItem()))
+      else if(child != 0 && !fgMenu_ExpandMenu(self, child))
       {
         _sendmsg<FG_ACTION, void*>(*self, child);
         fgroot_instance->fgCaptureWindow = 0;
@@ -81,23 +95,49 @@ size_t fgMenu_Message(fgMenu* self, const FG_Msg* msg)
     return fgControl_Message((fgControl*)self, msg);
   case FG_MOUSEMOVE:
     if(fgroot_instance->fgCaptureWindow != *self)
+    {
+      AbsRect cache;
+      fgElement* child = fgElement_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
+      if(child != self->hover)
+      {
+        if(self->hover && !(self->hover->flags&FGCONTROL_DISABLE))
+          self->hover->Neutral();
+        self->hover = child;
+        if(self->hover && !(self->hover->flags&FGCONTROL_DISABLE))
+          self->hover->Hover();
+      }
       return fgControl_Message((fgControl*)self, msg);
+    }
+    break;
+  case FG_MOUSEOFF:
+    if(fgroot_instance->fgCaptureWindow != *self)
+    {
+      if(self->hover && !(self->hover->flags&FGCONTROL_DISABLE))
+        self->hover->Neutral();
+      self->hover = 0;
+    }
     break;
   case FG_MOUSEDOWN:
   {
     AbsRect cache;
     fgElement* child = fgElement_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
+    if(child != self->hover && self->hover && !(self->hover->flags&FGCONTROL_DISABLE))
+      self->hover->Neutral();
+    self->hover = 0;
     if(fgroot_instance->fgCaptureWindow == *self)
     {
       if(self->expanded)
         fgMenu_Show(self->expanded, false);
       self->expanded = 0;
+      if(self->hover && !(self->hover->flags&FGCONTROL_DISABLE))
+        self->hover->Neutral();
+      self->hover = 0;
       fgroot_instance->fgCaptureWindow = 0;
       return fgControl_Message((fgControl*)self, msg);
     }
     fgroot_instance->fgCaptureWindow = *self;
     if(child != 0)
-      fgMenu_ExpandMenu(self, (fgMenu*)child->GetSelectedItem());
+      fgMenu_ExpandMenu(self, child);
   }
     return fgControl_Message((fgControl*)self, msg);
   case FG_ADDITEM:
@@ -152,6 +192,7 @@ size_t fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
   {
     fgBox_Message(&self->box, msg);
     self->expanded = 0;
+    self->hover = 0;
     const fgTransform TF_ARROW = { { 0,1,0,0.5,0,1,0,0.5 }, 0,{ 0.5,1.0 } };
     fgElement_Init(&self->arrow, 0, 0, "Submenu$arrow", FGELEMENT_IGNORE | FGELEMENT_BACKGROUND | FGELEMENT_EXPAND | FGFLAGS_INTERNAL, &TF_ARROW, 0);
     return FG_ACCEPT;
@@ -162,6 +203,7 @@ size_t fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
       fgMenu* hold = reinterpret_cast<fgMenu*>(msg->e);
       self->arrow.Clone(&hold->arrow);
       hold->expanded = 0;
+      hold->hover = 0;
       fgBox_Message(&self->box, msg);
       _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, &hold->arrow);
     }
@@ -184,7 +226,7 @@ size_t fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
     fgElement* child = fgElement_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
     if(MsgHitAbsRect(msg, &cache))
     {
-      if(child != 0 && !fgMenu_ExpandMenu(self, (fgMenu*)child->GetSelectedItem()) && msg->type == FG_MOUSEUP)
+      if(child != 0 && !fgMenu_ExpandMenu(self, child) && msg->type == FG_MOUSEUP)
         _sendmsg<FG_ACTION, void*>(*self, child);
       else
         return FG_ACCEPT;
@@ -200,6 +242,9 @@ size_t fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
       if(menu->expanded)
         fgMenu_Show(menu->expanded, false);
       menu->expanded = 0;
+      if(menu->hover)
+        menu->hover->Neutral();
+      menu->hover = 0;
       fgroot_instance->fgCaptureWindow = 0;
     }
   }
@@ -209,7 +254,7 @@ size_t fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
     AbsRect cache;
     fgElement* child = fgElement_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
     if(child != 0)
-      fgMenu_ExpandMenu(self, (fgMenu*)child->GetSelectedItem());
+      fgMenu_ExpandMenu(self, child);
   }
   break;
   case FG_ADDITEM:
@@ -280,12 +325,15 @@ void fgMenuItem_Init(fgMenuItem* self, fgElement* BSS_RESTRICT parent, fgElement
 
 size_t fgMenuItem_Message(fgMenuItem* self, const FG_Msg* msg)
 {
+  fgFlag otherint = (fgFlag)msg->u;
+
   switch(msg->type)
   {
   case FG_CONSTRUCT:
     fgElement_Message(&self->element, msg);
     fgText_Init(&self->text, &self->element, 0, "MenuItem$text", FGELEMENT_EXPAND | FGFLAGS_INTERNAL, 0, 0);
     self->submenu = 0;
+    self->element.SetStyle((self->element.flags & FGCONTROL_DISABLE) ? "disabled" : "neutral");
     return FG_ACCEPT;
   case FG_CLONE:
     if(msg->e)
@@ -309,6 +357,15 @@ size_t fgMenuItem_Message(fgMenuItem* self, const FG_Msg* msg)
     if(msg->subtype == FGITEM_TEXT)
       return self->text->SetText((const char*)msg->p, (FGTEXTFMT)msg->u2);
     break;
+  case FG_SETFLAG: // If 0 is sent in, disable the flag, otherwise enable. Our internal flag is 1 if clipping disabled, 0 otherwise.
+    otherint = bss::bssSetBit<fgFlag>(self->element.flags, otherint, msg->u2 != 0);
+  case FG_SETFLAGS:
+    if((self->element.flags ^ (fgFlag)otherint) & FGCONTROL_DISABLE)
+    {
+      self->element.SetStyle((otherint & FGCONTROL_DISABLE) ? "disabled" : "neutral");
+      fgroot_instance->mouse.state |= FGMOUSE_SEND_MOUSEMOVE;
+    }
+    break;
   case FG_GETSELECTEDITEM:
     return (size_t)self->submenu;
   case FG_SETTEXT:
@@ -324,15 +381,6 @@ size_t fgMenuItem_Message(fgMenuItem* self, const FG_Msg* msg)
     return fgSendMessage(self->text, msg);
   case FG_GETCLASSNAME:
     return (size_t)"MenuItem";
-  case FG_NEUTRAL:
-    self->element.SetStyle("neutral");
-    return FG_ACCEPT;
-  case FG_HOVER:
-    self->element.SetStyle("hover");
-    return FG_ACCEPT;
-  case FG_ACTIVE:
-    self->element.SetStyle("active");
-    return FG_ACCEPT;
   }
   return fgElement_Message(&self->element, msg);
 }

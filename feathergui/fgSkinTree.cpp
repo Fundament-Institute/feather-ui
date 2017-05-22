@@ -20,6 +20,7 @@ void fgSkinElement_Init(fgSkinElement* self, const char* type, fgFlag flags, con
   self->units = units;
   self->flags = flags;
   self->order = order;
+  self->skin = 0;
   fgStyle_Init(&self->style);
 }
 void fgSkinElement_Destroy(fgSkinElement* self)

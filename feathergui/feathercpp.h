@@ -373,7 +373,7 @@ extern void fgSkinBase_WriteStyleAttributesXML(bss::XMLNode* node, fgStyle& s, f
 extern void fgSkinBase_WriteXML(bss::XMLNode* node, fgSkinBase* base, char toplevel);
 extern void fgSkin_WriteXML(bss::XMLNode* node, fgSkin* skin);
 static kh_fgSkins_s *kh_init_fgSkins();
-extern void fgStyle_ParseAttributesXML(struct _FG_STYLE* self, const bss::XMLNode* cur, int flags, struct _FG_SKIN_BASE* root, const char* path, const char** id, fgKeyValueArray* userdata);
+extern fgSkin* fgStyle_ParseAttributesXML(struct _FG_STYLE* self, const bss::XMLNode* cur, int flags, struct _FG_SKIN_BASE* root, const char* path, const char** id, fgKeyValueArray* userdata);
 extern int fgStyle_NodeEvalTransform(const bss::XMLNode* node, fgTransform& t);
 extern fgVector* fgText_Conversion(int type, struct __VECTOR__UTF8* text8, struct __VECTOR__UTF16* text16, struct __VECTOR__UTF32* text32);
 extern void fgMenu_Show(struct _FG_MENU* self, bool show);

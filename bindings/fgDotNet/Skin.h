@@ -60,10 +60,11 @@ namespace fgDotNet {
     Font^ AddFont(fgFlag flags, System::String^ families, short weight, char italic, unsigned int size);
     bool RemoveFont(Font^ font);
 
-    Skin^ LoadFileUBJSON(System::String^ file);
-    Skin^ LoadUBJSON(cli::array<System::Byte>^ data);
+    //Skin^ LoadFileUBJSON(System::String^ file);
+    //Skin^ LoadUBJSON(cli::array<System::Byte>^ data);
     Skin^ LoadFileXML(System::String^ file);
     Skin^ LoadXML(cli::array<System::Byte>^ data);
+    Skin^ LoadXML(cli::array<System::Byte>^ data, System::String^ path);
 
   protected:
     SkinBase(fgSkinBase* p, bool owner);

@@ -61,13 +61,16 @@ size_t fgScrollbar_bgMessage(fgElement* self, const FG_Msg* msg)
   case FG_MOUSEDBLCLICK:
   case FG_MOUSEON:
   case FG_MOUSEOFF:
-  case FG_MOUSESCROLL:
     return FG_ACCEPT;
   case FG_SETAREA:
+  {
     size_t ret = fgElement_Message(self, msg);
     if(ret != 0 && self->parent != 0)
       _sendsubmsg<FG_ACTION>(self->parent, FGSCROLLBAR_CHANGE);
     return ret;
+  }
+  case FG_MOUSESCROLL:
+    return 0;
   }
 
   return fgElement_Message(self, msg);
@@ -100,6 +103,8 @@ size_t fgScrollbar_barMessage(_FG_SCROLLBAR_INNER* self, const FG_Msg* msg)
           (!self->button->userid) ? (self->lastmouse.x - (FABS)msg->x) : (self->lastmouse.y - (FABS)msg->y));
     }
     break;
+  case FG_MOUSESCROLL:
+    return 0;
   }
   return fgButton_Message(&self->button, msg);
 }
@@ -112,6 +117,8 @@ size_t fgScrollbar_buttonMessage(fgButton* self, const FG_Msg* msg)
     if(self->control.element.parent != 0)
       _sendsubmsg<FG_ACTION, ptrdiff_t>(self->control.element.parent, FGSCROLLBAR_BUTTON, self->control.element.userid);
     break;
+  case FG_MOUSESCROLL:
+    return 0;
   }
   return fgButton_Message(self, msg);
 }

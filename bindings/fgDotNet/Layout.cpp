@@ -32,11 +32,12 @@ Layout^ Layout::AddLayout(System::String^ name) { TOCHAR(name); return GenNewMan
 bool Layout::RemoveLayout(System::String^ name) { TOCHAR(name); return reinterpret_cast<fgLayout*>(_p)->RemoveLayout((const char*)pstr); }
 Layout^ Layout::GetLayout(System::String^ name) { TOCHAR(name); return GenNewManagedPtr<Layout, fgLayout>(reinterpret_cast<fgLayout*>(_p)->GetLayout((const char*)pstr)); }
 
-void Layout::LoadFileUBJSON(System::String^ file) { TOCHAR(file); reinterpret_cast<fgLayout*>(_p)->LoadFileUBJSON((const char*)pstr); }
-void Layout::LoadUBJSON(cli::array<System::Byte>^ data) { pin_ptr<const unsigned char> p = &data[0]; return reinterpret_cast<fgLayout*>(_p)->LoadUBJSON((const char*)p, data->Length); }
-void Layout::SaveFileUBJSON(System::String^ file) { TOCHAR(file); reinterpret_cast<fgLayout*>(_p)->SaveFileUBJSON((const char*)pstr); }
+//void Layout::LoadFileUBJSON(System::String^ file) { TOCHAR(file); reinterpret_cast<fgLayout*>(_p)->LoadFileUBJSON((const char*)pstr); }
+//void Layout::LoadUBJSON(cli::array<System::Byte>^ data) { pin_ptr<const unsigned char> p = &data[0]; return reinterpret_cast<fgLayout*>(_p)->LoadUBJSON((const char*)p, data->Length); }
+//void Layout::SaveFileUBJSON(System::String^ file) { TOCHAR(file); reinterpret_cast<fgLayout*>(_p)->SaveFileUBJSON((const char*)pstr); }
 void Layout::LoadFileXML(System::String^ file) { TOCHAR(file); reinterpret_cast<fgLayout*>(_p)->LoadFileXML((const char*)pstr); }
 bool Layout::LoadXML(cli::array<System::Byte>^ data) { pin_ptr<const unsigned char> p = &data[0]; return reinterpret_cast<fgLayout*>(_p)->LoadXML((const char*)p, data->Length) != 0; }
+bool Layout::LoadXML(cli::array<System::Byte>^ data, System::String^ path) { TOCHAR(path); pin_ptr<const unsigned char> p = &data[0]; return reinterpret_cast<fgLayout*>(_p)->LoadXML((const char*)p, data->Length, (const char*)pstr) != 0; }
 void Layout::SaveFileXML(System::String^ file) { TOCHAR(file); reinterpret_cast<fgLayout*>(_p)->SaveFileXML((const char*)pstr); }
 
 Layout::operator fgLayout*(Layout^ e) { return reinterpret_cast<fgLayout*>(e->_p); }

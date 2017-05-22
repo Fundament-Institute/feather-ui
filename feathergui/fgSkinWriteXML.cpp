@@ -372,6 +372,8 @@ void fgSkin_WriteXML(XMLNode* node, fgSkin* skin)
     node->AddAttribute("inherit")->String = skin->inherit->name;
   if(skin->name)
     node->AddAttribute("name")->String = skin->name;
+  if(skin->tfunits != (uint16_t)~0)
+    fgSkinBase_WriteTransform(node, skin->tf, skin->tfunits);
 
   fgSkinBase_WriteStyleAttributesXML(node, skin->style, &skin->base, 0);
   fgSkinBase_WriteXML(node, &skin->base, 0);

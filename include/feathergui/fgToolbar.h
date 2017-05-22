@@ -4,7 +4,7 @@
 #ifndef __FG_TOOLBAR_H__
 #define __FG_TOOLBAR_H__
 
-#include "fgList.h"
+#include "fgBox.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -17,7 +17,7 @@ enum FGTOOLBAR_FLAGS
 
 // A toolbar is simply a list of lists containing buttons or other controls.
 typedef struct _FG_TOOLBAR {
-  fgBox box; // ADDITEM adds a toolgroup. ADDITEM on a toolgroup adds a list, to which you then add buttons
+  fgBox box; // ADDITEM adds a toolgroup. ADDITEM on a toolgroup adds an fgBox, to which you then add buttons
 #ifdef  __cplusplus
   inline operator fgElement*() { return &box.scroll.control.element; }
   inline fgElement* operator->() { return operator fgElement*(); }

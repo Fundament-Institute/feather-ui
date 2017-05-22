@@ -106,7 +106,7 @@ uint32_t fgStyle_ParseColor(const XMLValue* attr)
   }
   return color.color;
 }
-void fgStyle_ParseAttributesXML(fgStyle* self, const XMLNode* cur, int flags, fgSkinBase* root, const char* path, const char** id, fgKeyValueArray* userdata)
+fgSkin* fgStyle_ParseAttributesXML(fgStyle* self, const XMLNode* cur, int flags, fgSkinBase* root, const char* path, const char** id, fgKeyValueArray* userdata)
 {
   static Trie<uint16_t, true> t(49, "id", "min-width", "min-height", "max-width", "max-height", "skin", "alpha", "margin", "padding", "text",
     "placeholder", "color", "placecolor", "cursorcolor", "selectcolor", "hovercolor", "dragcolor", "edgecolor", "dividercolor", "columndividercolor", 
@@ -119,6 +119,7 @@ void fgStyle_ParseAttributesXML(fgStyle* self, const XMLNode* cur, int flags, fg
   AbsVec mindim = { -1, -1 };
   int maxflags = 0x8000000;
   AbsVec maxdim = { -1, -1 };
+  fgSkin* skin = 0; // There can only be one skin assignment, so we just return it, if it exists.
 
   for(size_t i = 0; i < cur->GetAttributes(); ++i)
   {
@@ -152,8 +153,7 @@ void fgStyle_ParseAttributesXML(fgStyle* self, const XMLNode* cur, int flags, fg
       maxflags |= (fgStyle_ParseUnit(attr->String, attr->String.length() + 1) << FGUNIT_Y);
       break;
     case 5: // skin
-    {
-      fgSkin* skin = fgSkinBase_GetSkin(root, attr->String);
+      skin = fgSkinBase_GetSkin(root, attr->String);
       if(!skin) // Attempt loading it as an absolute XML path
         skin = fgSkinBase_LoadFileXML(root, attr->String);
       if(!skin) // relative XML path
@@ -162,10 +162,7 @@ void fgStyle_ParseAttributesXML(fgStyle* self, const XMLNode* cur, int flags, fg
       //  skin = fgSkinBase_LoadFileUBJSON(root, attr->String);
       //if(!skin) // relative UBJSON path
       //  skin = fgSkinBase_LoadFileUBJSON(root, Str(path) + attr->String);
-      if(skin)
-        AddStyleMsg<FG_SETSKIN, void*>(self, skin);
-    }
-    break;
+      break;
     case 6:
       AddStyleMsg<FG_SETALPHA, FABS>(self, (FABS)attr->Float);
       break;
@@ -324,7 +321,8 @@ void fgStyle_ParseAttributesXML(fgStyle* self, const XMLNode* cur, int flags, fg
         AddStyleSubMsg<FG_SETPARENT>(self, FGSETPARENT_FIRST);
       break;
     case 44: // style
-      AddStyleSubMsg<FG_SETSTYLE, size_t>(self, FGSETSTYLE_INDEX, fgStyle_GetAllNames(attr->String.c_str()));
+      if(fgStyleIndex index = fgStyle_GetAllNames(attr->String.c_str()))
+        AddStyleSubMsg<FG_SETSTYLE, size_t, size_t>(self, FGSETSTYLE_INDEX, index, fgStyle_GetIndexGroups(index));
       break;
     case 45: // spacing
     {
@@ -361,6 +359,7 @@ void fgStyle_ParseAttributesXML(fgStyle* self, const XMLNode* cur, int flags, fg
     AddStyleSubMsg<FG_SETDIM, FABS, FABS>(self, minflags | FGDIM_MIN, mindim.x, mindim.y);
   if(!(maxflags & 0x8000000))
     AddStyleSubMsg<FG_SETDIM, FABS, FABS>(self, maxflags | FGDIM_MAX, maxdim.x, maxdim.y);
+  return skin;
 }
 
 fgFlag fgSkinBase_ParseFlagsFromString(const char* s, fgFlag* remove, int divider)
@@ -450,7 +449,7 @@ fgSkin* fgSkinBase_GetInherit(fgSkinBase* self, const char* inherit)
 // Styles parse flags differently - the attributes use the parent flags for resource/font loading, then creates add and remove flag messages
 void fgSkinBase_ParseStyleNodeXML(fgSkinBase* self, fgStyle* style, fgFlag rootflags, const XMLNode* cur, const char* path)
 {
-  fgStyle_ParseAttributesXML(style, cur, rootflags, self, path, 0, 0);
+  fgStyle_ParseAttributesXML(style, cur, rootflags, self, path, 0, 0); // Note: styles cannot set skins, because that would make no sense, since the skin defines the styles in the first place.
   fgFlag remove = 0;
   fgFlag add = fgSkinBase_ParseFlagsFromString(cur->GetAttributeString("flags"), &remove, '|');
   if(remove)
@@ -468,12 +467,16 @@ void fgSkinBase_ParseSubNodeXML(fgSkinTree* tree, fgStyle* style, fgSkinBase* ro
   if(rootflags)
     AddStyleMsg<FG_SETFLAG, ptrdiff_t, size_t>(style, rootflags, 1);
 
-  fgTransform ts = { 0 };
-  int tsunits = fgStyle_NodeEvalTransform(cur, ts);
-  if(tsunits != -1)
-    AddStyleSubMsgArg<FG_SETTRANSFORM, fgTransform>(style, tsunits, &ts);
+  if(skin)
+    skin->tfunits = fgStyle_NodeEvalTransform(cur, skin->tf);
+  else
+  {
+    fgTransform tf = { 0 };
+    uint16_t tfunits = fgStyle_NodeEvalTransform(cur, tf);
+    AddStyleSubMsgArg<FG_SETTRANSFORM, fgTransform>(style, tfunits, &tf);
+  }
 
-  fgStyle_ParseAttributesXML(style, cur, rootflags, root, path, 0, 0);
+  fgStyle_ParseAttributesXML(style, cur, rootflags, root, path, 0, 0); // For obvious reasons a skin can't include a SETSKIN message
   if(skin)
     skin->inherit = fgSkinBase_GetInherit(&skin->base, cur->GetAttributeString("inherit"));
 
@@ -492,7 +495,7 @@ void fgSkinBase_ParseSubNodeXML(fgSkinTree* tree, fgStyle* style, fgSkinBase* ro
       fgFlag flags = fgSkinBase_ParseFlagsFromString(node->GetAttributeString("flags"), &rmflags, '|');
       flags = (flags | fgGetTypeFlags(node->GetName()))&(~rmflags);
       fgSkinLayout* child = fgSkinTree_GetChild(tree, (FG_UINT)fgSkinTree_AddChild(tree, node->GetName(), flags, &transform, units, (int)node->GetAttributeInt("order")));
-      fgStyle_ParseAttributesXML(&child->element.style, node, flags, root, path, 0, 0);
+      child->element.skin = fgStyle_ParseAttributesXML(&child->element.style, node, flags, root, path, 0, 0);
       _sendsubmsg<FG_SETSTYLE, void*, size_t>(child->instance, FGSETSTYLE_POINTER, (void*)&child->element.style, ~0);
       fgSkinBase_ParseSubNodeXML(&child->tree, &child->element.style, root, 0, node, path);
     }

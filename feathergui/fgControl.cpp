@@ -77,7 +77,7 @@ size_t fgControl_Message(fgControl* self, const FG_Msg* msg)
     self->contextmenu = 0;
     self->tabnext = self->tabprev = self; // This creates an infinite loop of tabbing
     self->sidenext = self->sideprev = self;
-    (*self)->SetStyle("neutral");
+    (*self)->SetStyle((self->element.flags & FGCONTROL_DISABLE) ? "disabled" : "neutral");
     return FG_ACCEPT;
   case FG_CLONE:
     if(msg->e)
@@ -170,23 +170,26 @@ size_t fgControl_Message(fgControl* self, const FG_Msg* msg)
   case FG_SETFLAG: // If 0 is sent in, disable the flag, otherwise enable. Our internal flag is 1 if clipping disabled, 0 otherwise.
     otherint = bss::bssSetBit<fgFlag>(self->element.flags, otherint, msg->u2 != 0);
   case FG_SETFLAGS:
-  {
-    bool disabled = !(self->element.flags & FGCONTROL_DISABLE) && ((otherint & FGCONTROL_DISABLE) != 0);
-    fgElement_Message(*self, msg); // apply the flag change first or we'll get weird bugs.
-    if(disabled)
+    if((self->element.flags ^ (fgFlag)otherint) & FGCONTROL_DISABLE)
     {
-      if(fgroot_instance->fgFocusedWindow == *self)
-        _sendmsg<FG_LOSTFOCUS, void*>(*self, 0);
-      if(fgroot_instance->fgCaptureWindow == *self) // Remove our control hold on mouse messages.
-        fgroot_instance->fgCaptureWindow = 0;
-      if(fgroot_instance->fgLastHover == *self)
+      fgElement_Message(*self, msg); // apply the flag change first or we'll get weird bugs.
+      if(otherint & FGCONTROL_DISABLE) // Check to see if the disabled flag was added
       {
-        _sendmsg<FG_MOUSEOFF>(*self);
-        fgroot_instance->fgLastHover = 0;
+        if(fgroot_instance->fgFocusedWindow == *self)
+          _sendmsg<FG_LOSTFOCUS, void*>(*self, 0);
+        if(fgroot_instance->fgCaptureWindow == *self) // Remove our control hold on mouse messages.
+          fgroot_instance->fgCaptureWindow = 0;
+        if(fgroot_instance->fgLastHover == *self)
+        {
+          _sendmsg<FG_MOUSEOFF>(*self);
+          fgroot_instance->fgLastHover = 0;
+        }
       }
+      (*self)->SetStyle((otherint & FGCONTROL_DISABLE) ? "disabled" : "neutral");
+      fgroot_instance->mouse.state |= FGMOUSE_SEND_MOUSEMOVE;
+      return FG_ACCEPT;
     }
-  }
-    return FG_ACCEPT;
+    break;
   case FG_SETCONTEXTMENU:
     self->contextmenu = msg->e;
     break;

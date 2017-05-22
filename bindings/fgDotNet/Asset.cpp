@@ -12,7 +12,7 @@ Asset::Asset(void* p, bool owner) : _p(p), _owner(owner) {}
 Asset::Asset(fgFlag flags, System::String^ file) : _owner(true), _p(0)
 {
   TOCHAR(file);
-  fgCreateAssetFile(flags, (const char*)pstr);
+  fgSingleton()->backend.fgCreateAssetFile(flags, (const char*)pstr);
 }
 Asset::Asset(fgFlag flags, cli::array<System::Byte>^ data, size_t length) : _owner(true), _p(0)
 {

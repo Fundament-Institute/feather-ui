@@ -85,7 +85,7 @@ void fgRoot_Init(fgRoot* self, const AbsRect* area, const fgIntVec* dpi, const f
   fgElement_InternalSetup(*self, 0, 0, 0, 0, &transform, 0, (fgDestroy)&fgRoot_Destroy, (fgMessage)&fgRoot_Message);
   self->gui.element.style = 0;
 
-  fgStyle_AddGroupNames(4, "neutral", "hover", "active", "disable");
+  fgStyle_AddGroupNames(4, "neutral", "hover", "active", "disabled");
   fgStyle_AddGroupNames(3, "default", "checked", "indeterminate");
   fgStyle_AddGroupNames(2, "visible", "hidden");
   

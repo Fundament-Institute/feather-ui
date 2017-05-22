@@ -34,11 +34,12 @@ namespace fgDotNet {
     bool RemoveLayout(System::String^ name);
     Layout^ GetLayout(System::String^ name);
 
-    void LoadFileUBJSON(System::String^ file);
-    void LoadUBJSON(cli::array<System::Byte>^ data);
-    void SaveFileUBJSON(System::String^ file);
+    //void LoadFileUBJSON(System::String^ file);
+    //void LoadUBJSON(cli::array<System::Byte>^ data);
+    //void SaveFileUBJSON(System::String^ file);
     void LoadFileXML(System::String^ file);
     bool LoadXML(cli::array<System::Byte>^ data);
+    bool LoadXML(cli::array<System::Byte>^ data, System::String^ path);
     void SaveFileXML(System::String^ file);
 
     static operator fgLayout*(Layout^ e);

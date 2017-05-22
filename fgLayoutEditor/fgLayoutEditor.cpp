@@ -139,6 +139,8 @@ size_t fgLayoutEditor::WorkspaceRootMessage(fgElement* self, const FG_Msg* m)
     fgElement_StyleToMessageArray(&layout->style, 0, &self->layoutstyle);
     if(self->layoutstyle)
       fgElement_ApplyMessageArray(0, self, self->layoutstyle);
+    if(layout->skin)
+      self->SetSkin(layout->skin);
 
     Instance->_layout.ClearLinks();
     fgElement* last = 0;

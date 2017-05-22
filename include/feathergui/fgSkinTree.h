@@ -7,12 +7,15 @@
 #include "fgStyle.h"
 #include "fgElement.h"
 
+struct _FG_SKIN;
+
 typedef struct _FG_SKIN_ELEMENT {
   const char* type;
   fgTransform transform;
   short units;
   fgFlag flags;
   fgStyle style; // style overrides
+  struct _FG_SKIN* skin; // Skin override (cannot be passed as a message because this blows up absolutely everything)
   int order;
 } fgSkinElement;
 

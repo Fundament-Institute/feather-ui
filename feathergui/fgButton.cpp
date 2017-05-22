@@ -17,14 +17,12 @@ void fgButton_Destroy(fgButton* self)
 size_t fgButton_Message(fgButton* self, const FG_Msg* msg)
 {
   assert(self != 0 && msg != 0);
-  fgFlag otherint = (fgFlag)msg->u;
 
   switch(msg->type)
   {
   case FG_CONSTRUCT:
     fgControl_HoverMessage(&self->control, msg);
     fgText_Init(&self->text, *self, 0, "Button$text", FGELEMENT_EXPAND | FGELEMENT_IGNORE | FGFLAGS_INTERNAL, &fgTransform_CENTER, 0);
-    (*self)->SetStyle((self->control.element.flags & FGCONTROL_DISABLE) ? "disabled" : "neutral");
     return FG_ACCEPT;
   case FG_CLONE:
     if(msg->e)
@@ -56,27 +54,9 @@ size_t fgButton_Message(fgButton* self, const FG_Msg* msg)
     if(msg->subtype == FGITEM_TEXT || msg->subtype == FGITEM_DEFAULT)
       return self->control->SetText((const char*)msg->p, (FGTEXTFMT)msg->u2);
     break;
-  case FG_NEUTRAL:
-    (*self)->SetStyle("neutral");
-    return FG_ACCEPT;
-  case FG_HOVER:
-    (*self)->SetStyle("hover");
-    return FG_ACCEPT;
-  case FG_ACTIVE:
-    (*self)->SetStyle("active");
-    return FG_ACCEPT;
   case FG_GOTFOCUS:
     if(self->control.element.flags&FGBUTTON_NOFOCUS)
       return 0;
-    break;
-  case FG_SETFLAG: // If 0 is sent in, disable the flag, otherwise enable. Our internal flag is 1 if clipping disabled, 0 otherwise.
-    otherint = bss::bssSetBit<fgFlag>(self->control.element.flags, otherint, msg->u2 != 0);
-  case FG_SETFLAGS:
-    if((self->control.element.flags ^ (fgFlag)otherint) & FGCONTROL_DISABLE)
-    {
-      (*self)->SetStyle((otherint & FGCONTROL_DISABLE) ? "disabled" : "neutral");
-      fgroot_instance->mouse.state |= FGMOUSE_SEND_MOUSEMOVE;
-    }
     break;
   case FG_GETCLASSNAME:
     return (size_t)"Button";

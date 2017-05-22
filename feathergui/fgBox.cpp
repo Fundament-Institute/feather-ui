@@ -260,6 +260,10 @@ size_t fgBox_Message(fgBox* self, const FG_Msg* msg)
     break;
   case FG_GETSELECTEDITEM:
     return (msg->u) < self->selected.l ? (size_t)self->selected.p[msg->u] : 0;
+  case FG_NEUTRAL: // We don't actually want to set these styles
+  case FG_HOVER:
+  case FG_ACTIVE:
+    return 0;
   case FG_GETCLASSNAME:
     return (size_t)"Box";
   }

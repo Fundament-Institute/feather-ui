@@ -23,6 +23,7 @@ typedef struct _FG_MENU {
   fgBox box;
   fgElement arrow;
   struct _FG_MENU* expanded; // holds the submenu that is currently expanded, if one is.
+  fgElement* hover; // stores the last item hovered over
   //fgDeferAction* dropdown; // Keeps track of our dropdown action in fgRoot
 #ifdef  __cplusplus
   inline operator fgElement*() { return &box.scroll.control.element; }

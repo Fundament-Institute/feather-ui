@@ -30,15 +30,6 @@ size_t fgListItem_Message(fgControl* self, const FG_Msg* msg)
   case FG_MOUSESCROLL:
     fgSendMessage(self->element.parent, msg); // We send these messages to our parent FIRST, then override the resulting hover message by processing them ourselves.
     break;
-  case FG_NEUTRAL:
-    (*self)->SetStyle("neutral");
-    return FG_ACCEPT;
-  case FG_HOVER:
-    (*self)->SetStyle("hover");
-    return FG_ACCEPT;
-  case FG_ACTIVE:
-    (*self)->SetStyle("active");
-    return FG_ACCEPT;
   case FG_GETCLASSNAME:
     return (size_t)FGSTR_LISTITEM;
   }

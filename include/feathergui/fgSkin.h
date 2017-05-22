@@ -82,6 +82,8 @@ typedef struct _FG_SKIN
 {
   struct _FG_SKIN_BASE base;
   struct _FG_SKIN* inherit;
+  fgTransform tf; // If tfunits is not -1, represents the transform requested by the skin
+  unsigned short tfunits; // Represents the units of the transform, or -1 if there is no transform
   fgStyle style; // style overrides
   fgSkinTree tree;
   const char* name;

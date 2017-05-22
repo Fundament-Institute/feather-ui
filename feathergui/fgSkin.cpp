@@ -71,6 +71,7 @@ _FG_ASSET_DATA& _FG_ASSET_DATA::operator=(_FG_ASSET_DATA&& mov) { this->~_FG_ASS
 void fgSkin_Init(fgSkin* self, const char* name)
 {
   bss::bssFill(*self, 0);
+  self->tfunits = (uint16_t)~0;
   self->name = fgCopyText(name, __FILE__, __LINE__);
 }
 

@@ -36,6 +36,7 @@ typedef struct _FG_LAYOUT {
   const char* name;
   fgSkinBase base;
   fgStyle style;
+  fgSkin* skin; // if not null, specifies the skin to assign to this layout.
   fgVectorClassLayout children; // Type: fgClassLayout
   struct kh_fgLayoutMap_s* sublayouts;
 

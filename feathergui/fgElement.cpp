@@ -96,6 +96,7 @@ void fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRI
     }
   }
   _sendmsg<FG_CONSTRUCT>(self);
+
   _sendmsg<FG_SETPARENT, void*, void*>(self, parent, next);
 }
 
@@ -303,12 +304,16 @@ void fgElement_ApplyMessageArray(fgElement* search, fgElement* target, fgVector*
   size_t i = src->FindNear(m, false);
   //assert(i >= src->Length() || i == 0);
   while(i < src->Length() && (*src)[i].target == search)
+  {
+    assert((*src)[i].msg->msg.type != FG_SETSKIN); // This should NEVER be in the style.
     (*fgroot_instance->fgBehaviorHook)(target, &(*src)[i++].msg->msg);
+  }
   m.msg = 0;
 }
 
 inline void fgElement_AddToMessageArray(const fgStyleMsg& msg, fgElement* target, MESSAGESORT& dest)
 {
+  assert(msg.msg.type != FG_SETSKIN); // This should never happen. The special skin layout member should be used instead.
   fgStoredMessage add(target);
   add.msg = const_cast<fgStyleMsg*>(&msg);
   size_t i = dest.Find(add);
@@ -359,6 +364,8 @@ fgElement* fgElement_LoadLayout(fgElement* parent, fgElement* next, fgClassLayou
   fgElement_StyleToMessageArray(&layout->element.style, 0, &element->layoutstyle);
   if(element->layoutstyle)
     fgElement_ApplyMessageArray(0, element, element->layoutstyle);
+  if(layout->element.skin)
+    element->SetSkin(layout->element.skin);
   fgroot_instance->backend.fgUserDataMap(element, &layout->userdata); // Map any custom userdata to this element
 
   for(FG_UINT i = 0; i < layout->children.l; ++i)
@@ -372,6 +379,8 @@ void fgElement_ApplySkin(fgElement* self, const fgSkin* skin)
   if(skin->inherit) // apply inherited skin first so we override it.
     fgElement_ApplySkin(self, skin->inherit);
 
+  if(skin->tfunits != (uint16_t)~0)
+    self->SetTransform(skin->tf, skin->tfunits);
   fgElement_StyleToMessageArray(&skin->style, 0, &self->skinstyle);
 }
 
@@ -715,6 +724,8 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
     fgElement_StyleToMessageArray(&layout->style, 0, &self->layoutstyle);
     if(self->layoutstyle)
       fgElement_ApplyMessageArray(0, self, self->layoutstyle);
+    if(layout->skin)
+      self->SetSkin(layout->skin);
 
     fgElement* last = 0;
     for(FG_UINT i = 0; i < layout->children.l; ++i)
@@ -1011,6 +1022,15 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
     break;
   case FG_GETSCALING:
     return (size_t)&self->scaling;
+  case FG_NEUTRAL: // We use messages to set these, not SetStyle directly, so the onhover/onactive/onnuetral events can be used.
+    self->SetStyle("neutral");
+    return FG_ACCEPT;
+  case FG_HOVER:
+    self->SetStyle("hover");
+    return FG_ACCEPT;
+  case FG_ACTIVE:
+    self->SetStyle("active");
+    return FG_ACCEPT;
   case FG_DEBUGMESSAGE:
     return (size_t)self; // Used to debug the message injector by returning the first element that was sent the message
   }

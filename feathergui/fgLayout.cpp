@@ -134,7 +134,7 @@ void fgClassLayout_LoadAttributesXML(fgClassLayout* self, const XMLNode* cur, in
   if(userid)
     self->userid = userid->Integer;
 
-  fgStyle_ParseAttributesXML(&self->element.style, cur, flags, root, path, &self->id, (fgKeyValueArray*)&self->userdata);
+  self->element.skin = fgStyle_ParseAttributesXML(&self->element.style, cur, flags, root, path, &self->id, (fgKeyValueArray*)&self->userdata);
 }
 
 void fgClassLayout_LoadLayoutXML(fgClassLayout* self, const XMLNode* cur, fgLayout* root, const char* path)
@@ -167,7 +167,7 @@ void fgLayout_LoadLayoutNode(fgLayout* self, const XMLNode* root, std::istream& 
     if(!STRICMP(root->GetNode(i)->GetName(), "skin"))
       fgSkinBase_ParseNodeXML(&self->base, root->GetNode(i), path);
 
-  fgStyle_ParseAttributesXML(&self->style, root, 0, &self->base, path, 0, 0); // This will load and apply skins to the layout base
+  self->skin = fgStyle_ParseAttributesXML(&self->style, root, 0, &self->base, path, 0, 0); // This will load and apply skins to the layout base
 
   for(size_t i = 0; i < root->GetNodes(); ++i)
   {

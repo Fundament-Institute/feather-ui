@@ -29,10 +29,11 @@ bool SkinBase::RemoveAsset(Asset^ asset) { return fgSkinBase_RemoveAsset(_p, ass
 Font^ SkinBase::AddFont(fgFlag flags, System::String^ families, short weight, char italic, unsigned int size) { TOCHAR(families); return GenNewManagedPtr<Font, void>(fgSkinBase_AddFont(_p, flags, (const char*)pstr, weight, italic, size)->font); }
 bool SkinBase::RemoveFont(Font^ font) { return fgSkinBase_RemoveFont(_p, font) != 0; }
 
-Skin^ SkinBase::LoadFileUBJSON(System::String^ file) { TOCHAR(file); return GenNewManagedPtr<Skin, fgSkin>(fgSkinBase_LoadFileUBJSON(_p, (const char*)pstr)); }
-Skin^ SkinBase::LoadUBJSON(cli::array<System::Byte>^ data) { pin_ptr<const unsigned char> pin = &data[0]; return GenNewManagedPtr<Skin, fgSkin>(fgSkinBase_LoadUBJSON(_p, pin, data->Length)); }
+//Skin^ SkinBase::LoadFileUBJSON(System::String^ file) { TOCHAR(file); return GenNewManagedPtr<Skin, fgSkin>(fgSkinBase_LoadFileUBJSON(_p, (const char*)pstr)); }
+//Skin^ SkinBase::LoadUBJSON(cli::array<System::Byte>^ data) { pin_ptr<const unsigned char> pin = &data[0]; return GenNewManagedPtr<Skin, fgSkin>(fgSkinBase_LoadUBJSON(_p, pin, data->Length)); }
 Skin^ SkinBase::LoadFileXML(System::String^ file) { TOCHAR(file); return GenNewManagedPtr<Skin, fgSkin>(fgSkinBase_LoadFileXML(_p, (const char*)pstr)); }
-Skin^ SkinBase::LoadXML(cli::array<System::Byte>^ data) { pin_ptr<const unsigned char> pin = &data[0]; return GenNewManagedPtr<Skin, fgSkin>(fgSkinBase_LoadXML(_p, (const char*)pin, data->Length)); }
+Skin^ SkinBase::LoadXML(cli::array<System::Byte>^ data) { pin_ptr<const unsigned char> pin = &data[0]; return GenNewManagedPtr<Skin, fgSkin>(fgSkinBase_LoadXML(_p, (const char*)pin, data->Length, "")); }
+Skin^ SkinBase::LoadXML(cli::array<System::Byte>^ data, System::String^ path) { TOCHAR(path); pin_ptr<const unsigned char> pin = &data[0]; return GenNewManagedPtr<Skin, fgSkin>(fgSkinBase_LoadXML(_p, (const char*)pin, data->Length, (const char*)pstr)); }
 
 SkinBase::SkinBase(fgSkinBase* p, bool owner) : _p(p), _owner(p) {}
 

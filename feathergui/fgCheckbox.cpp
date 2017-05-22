@@ -35,15 +35,6 @@ size_t fgCheckbox_Message(fgCheckbox* self, const FG_Msg* msg)
       hold->checked = self->checked;
     }
     return sizeof(fgCheckbox);
-  case FG_NEUTRAL:
-    (*self)->SetStyle("neutral");
-    return FG_ACCEPT;
-  case FG_HOVER:
-    (*self)->SetStyle("hover");
-    return FG_ACCEPT;
-  case FG_ACTIVE:
-    (*self)->SetStyle("active");
-    return FG_ACCEPT;
   case FG_ACTION:
     _sendmsg<FG_SETVALUE, size_t>(*self, !_sendmsg<FG_GETVALUE>(*self));
     return FG_ACCEPT;

@@ -43,7 +43,7 @@
     <ContextMenu id="#testcontext">
       <MenuItem text="Change Window Text" />
     </ContextMenu>
-    <TabControl area="0 20 100% 100%" flags="DRAGGABLE">
+    <TabControl area="0 28 100% 100%" flags="DRAGGABLE">
       <Tab name="Tab 1" id="#tabfocus">
         <Button area="0, 0, 0, 0" flags="EXPAND" text="Not Pressed" onaction="makepressed" />
         <Box area="10, 160, 150, 240" flags="TILEY|EXPANDX" max-width="100" margin="2,2,2,2">
@@ -57,7 +57,7 @@
         <Radiobutton area="190, 160, 0, 0" text="Radio Test 2" flags="EXPAND" />
         <Radiobutton area="190, 190, 0, 0" text="Radio Test 3" flags="EXPAND" />
         <Slider area="10, 70, 150, 90" value="200" range="500" onsetvalue="statelistener" />
-        <Progressbar id="#progbar" value="0.35" area="10, 100, 150, 125" text="Progress" />
+        <Progressbar id="#progbar" value="0.35" area="10, 100, 150, 118" text="Progress" />
         <Combobox id="#combo" text="combo text" area="190,20,300,50">
           <Text area="0, 0, 100%, 20" text="test text" />
         </Combobox>
@@ -156,206 +156,301 @@
       </Tab>
     </TabControl>
   </Window>
-  <Skin name="testskin" xmlns:fg="featherGUI">
-    <Skin name="Scrollbar">
-      <Skin name="Scrollbar$horzbg" area="0, -15:1, 0:1, 0:1" padding="15,0,15,0">
-        <Resource uv="0,0,0,0" area="0,0,100%,100%" color="0xBBBBBB" edgecolor="0" outline="0" flags="RECT|BACKGROUND|IGNORE" />
-      </Skin>
-      <Skin name="Scrollbar$vertbg" area="-15:1, 0, 0:1, 0:1" padding="0,15,0,15">
-        <Resource uv="0,0,0,0" area="0,0,100%,100%" color="0xBBBBBB" edgecolor="0" outline="0" flags="RECT|BACKGROUND|IGNORE" />
-      </Skin>
-      <Skin name="Scrollbar$corner">
-        <Resource uv="0,0,0,0" area="0,0,100%,100%" color="0xBBBBBB" edgecolor="0" outline="0" flags="RECT|BACKGROUND|IGNORE" />
-      </Skin>
-      <Skin name="Scrollbar$scrollhorz">
-        <Resource uv="3,3,3,3" area="0,20%,100%,80%" color="0x00000066" flags="RECT|BACKGROUND|IGNORE">
-          <Style name="disabled" color="0x00000022"/>
-          <Style name="neutral" color="0x00000066"/>
+  <Skin name="testskin">
+		<Skin name="Text" font="12 BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial" color="0x000000FF"/>
+		<Skin name="Window" padding="0 30 0 0">
+			<Skin name="Window$text" margin="32 2 0 0" font="14 BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial" color="0xF6F8FA"/>
+			<Skin name="Window$close" area="-35:1 0 0:1 29" padding="10 0 10 0">
+        <Resource flags="BACKGROUND|RECT" color="0" uv="0 3 0 0" area="0 0 100% 100%" >
+              <Style name="neutral" color="0" />
+              <Style name="hover" color="0xE81123" />
+              <Style name="active" color="0xC81123" />
+              <Style name="disabled" color="0" />
         </Resource>
-      </Skin>
-      <Skin name="Scrollbar$scrollvert">
-        <Resource uv="3,3,3,3" area="20%,0,80%,100%" color="0x00000066" flags="RECT|BACKGROUND|IGNORE">
-          <Style name="disabled" color="0x00000022"/>
-          <Style name="neutral" color="0x00000066"/>
+				<Resource flags="NOCLIP|RECT" color="0xFFFFFFFF" area="50% 50% 150% 56%" rotation="0.79" center="50% 50%"/>
+				<Resource flags="NOCLIP|RECT" color="0xFFFFFFFF" area="50% 50% 150% 56%" rotation="-0.79" center="50% 50%"/>
+			</Skin>
+			<Skin name="Window$restore" area="-71:1 0 -35:1 29" padding="10 7 10 8">
+        <Resource flags="BACKGROUND|RECT" color="0" area="0 0 100% 100%" >
+              <Style name="neutral" color="0" />
+              <Style name="hover" color="0x686868" />
+              <Style name="active" color="0x484848" />
+              <Style name="disabled" color="0" />
         </Resource>
-      </Skin>
-      <Skin name="Scrollbar$scrollleft" area="0,0,15,15">
-        <Resource uv="6,6,6,0.5" area="50%,50%,130%,110%" color="0x000000" rotation="4.7123" flags="TRIANGLE|BACKGROUND" center="50%, 50%">
-          <Style name="disabled" edgecolor="0x000000"/>
-          <Style name="neutral" edgecolor="0x000000"/>
+				<Resource flags="RECT" outline="1" edgecolor="0xFFFFFFFF" color="0x00000000" area="0 0 100% 100%"/>
+				<Resource flags="RECT" color="0xFFFFFFFF" area="0 0 100% 25.00%"/>
+			</Skin>
+			<Skin name="Window$minimize" area="-106:1 0 -71:1 29" padding="10 7 10 8">
+        <Resource flags="BACKGROUND|RECT" color="0" area="0 0 100% 100%" >
+              <Style name="neutral" color="0" />
+              <Style name="hover" color="0x686868" />
+              <Style name="active" color="0x484848" />
+              <Style name="disabled" color="0" />
         </Resource>
+				<Resource flags="RECT" color="0xFFFFFFFF" area="0 90% 100% 100%"/>
+			</Skin>
+			<Resource flags="BACKGROUND|RECT" color="0xF6F8FAFF" uv="3 3 3 3" area="0 0 100% 100%"/>
+			<Resource flags="BACKGROUND|RECT"  color="0x333333" uv="3 3 0 0" area="0 0 100% 30"/>
+      <Curve flags="BACKGROUND" color="0x111111FF" area="0 29 100% 30"/>
+		</Skin>
+		<Skin name="Scrollbar">
+			<Skin name="Scrollbar$scrolltop" area="2 2 10 10">
+				<Resource flags="BACKGROUND|TRIANGLE" color="0x686868" uv="0 0 0 0.50" area="50% 60.00% 130% 120.00%" center="50% 50%">
+					<Style name="disabled" edgecolor="0xC2C3C9"/>
+					<Style name="neutral" edgecolor="0x868989"/>
+					<Style name="hover" color="0x686868"/>
+				</Resource>
+			</Skin>
+			<Skin name="Scrollbar$scrollright" area="-10:1 2 -2:1 10">
+				<Resource flags="BACKGROUND|TRIANGLE" color="0x686868" uv="0 0 0 0.50" area="50% 50% 130% 110%" rotation="1.57" center="50% 50%">
+					<Style name="disabled" edgecolor="0xC2C3C9"/>
+					<Style name="neutral" edgecolor="0x868989"/>
+					<Style name="hover" color="0x686868"/>
+				</Resource>
+			</Skin>
+			<Skin name="Scrollbar$horzbg" padding="14 0 14 0" area="0 -12:1 100% 100%">
+				<Resource flags="BACKGROUND|IGNORE|RECT" color="0xE8E8EC" area="0 0 100% 100%"/>
+			</Skin>
+			<Skin name="Scrollbar$corner">
+				<Resource flags="BACKGROUND|IGNORE|RECT" color="0xE8E8EC" area="0 0 100% 100%"/>
+			</Skin>
+			<Skin name="Scrollbar$vertbg" padding="0 14 0 14" area="-12:1 0 100% 100%">
+				<Resource flags="BACKGROUND|IGNORE|RECT" color="0xE8E8EC" area="0 0 100% 100%"/>
+			</Skin>
+			<Skin name="Scrollbar$scrollleft" area="2 2 10 10">
+				<Resource flags="BACKGROUND|TRIANGLE" color="0x686868" uv="0 0 0 0.50" area="50% 50% 130% 110%" rotation="4.71" center="50% 50%">
+					<Style name="disabled" edgecolor="0xC2C3C9"/>
+					<Style name="neutral" edgecolor="0x868989"/>
+					<Style name="hover" color="0x686868"/>
+				</Resource>
+			</Skin>
+			<Skin name="Scrollbar$scrollbottom" area="2 -10:1 10 -2:1">
+				<Resource flags="BACKGROUND|TRIANGLE" color="0x686868" uv="0 0 0 0.50" area="50% 60.00% 130% 120.00%" rotation="3.14" center="50% 50%">
+					<Style name="disabled" edgecolor="0xC2C3C9"/>
+					<Style name="neutral" edgecolor="0x868989"/>
+					<Style name="hover" color="0x686868"/>
+				</Resource>
+			</Skin>
+			<Skin name="Scrollbar$scrollhorz">
+				<Resource flags="BACKGROUND|IGNORE|RECT" color="0x686868" area="0 0 100% 100%">
+					<Style name="disabled" color="0xC2C3C9"/>
+					<Style name="neutral" color="0x868989"/>
+					<Style name="hover" color="0x686868"/>
+				</Resource>
+			</Skin>
+			<Skin name="Scrollbar$scrollvert">
+				<Resource flags="BACKGROUND|IGNORE|RECT" color="0x686868" area="0 0 100% 100%">
+					<Style name="disabled" color="0xC2C3C9"/>
+					<Style name="neutral" color="0x868989"/>
+					<Style name="hover" color="0x686868"/>
+				</Resource>
+			</Skin>
+		</Skin>
+		<Skin name="Menu" padding="12 0 0 0">
+      <Resource flags="RECT|BACKGROUND" area="0,0,100%,100%" color="0x2f2f2f" />
+      <Curve flags="BACKGROUND" color="0x111111FF" area="0 -1:1 100% 0:1"/>
+			<Skin name="MenuItem" padding="12 3 12 3">
+      <Resource area="0,0,100%,100%" color="0x505050" flags="RECT|BACKGROUND" >
+        <Style name="neutral" color="0"/>
+        <Style name="hover" color="0x505050"/>
+        <Style name="active" color="0xFFFFFF"/>
+        <Style name="disabled" color="0"/>
+      </Resource>
+      <Skin name="Text" font="12 BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial">      
+        <Style name="neutral" color="0xDDDDDD"/>
+        <Style name="hover" color="0xFFFFFF"/>
+        <Style name="active" color="0x000000"/>
+        <Style name="disabled" color="0x868989"/>
       </Skin>
-      <Skin name="Scrollbar$scrolltop" area="0,0,15,15">
-        <Resource uv="6,6,6,0.5" area="50%,60%,130%,120%" color="0x000000" flags="TRIANGLE|BACKGROUND" center="50%, 50%">
-          <Style name="disabled" edgecolor="0x000000"/>
-          <Style name="neutral" edgecolor="0x000000"/>
-        </Resource>
       </Skin>
-      <Skin name="Scrollbar$scrollright" area="-15:1, 0, 0:1, 15">
-        <Resource uv="6,6,6,0.5" area="50%,50%,130%,110%" color="0x000000" rotation="1.5708" flags="TRIANGLE|BACKGROUND" center="50%, 50%">
-          <Style name="disabled" edgecolor="0x000000"/>
-          <Style name="neutral" edgecolor="0x000000"/>
-        </Resource>
+		</Skin>
+		<Skin name="Submenu">
+			<Skin flags="EXPAND" name="Submenu$arrow" area="-10:1 -5:0.5 0:1 5:0.5" padding="2 2 2 2">
+				<Resource flags="NOCLIP|IGNORE|TRIANGLE" outline="0" uv="0 0 0 0.5" color="0x0f0f0f" area="0 0 100% 100%" rotation="1.57" />
+			</Skin>
+			<Skin name="MenuItem" padding="12 3 20 3">
+      <Resource area="0,0,100%,100%" color="0x505050" flags="RECT|BACKGROUND" >
+        <Style name="neutral" color="0"/>
+        <Style name="hover" color="0x0366D6"/>
+        <Style name="active" color="0x0366D6"/>
+        <Style name="disabled" color="0"/>
+      </Resource>
+      <Skin name="Text" font="12 BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial">      
+        <Style name="neutral" color="0x000000"/>
+        <Style name="hover" color="0xFFFFFF"/>
+        <Style name="active" color="0xFFFFFF"/>
+        <Style name="disabled" color="0x868989"/>
       </Skin>
-      <Skin name="Scrollbar$scrollbottom" area="0, -15:1, 15, 0:1">
-        <Resource uv="6,6,6,0.5" area="50%,60%,130%,120%" rotation="3.1415" color="0x000000" flags="TRIANGLE|BACKGROUND"center="50%, 50%">
-          <Style name="disabled" edgecolor="0x000000"/>
-          <Style name="neutral" edgecolor="0x000000"/>
-        </Resource>
       </Skin>
-    </Skin>
-    <Skin name="Window" flags="RESIZABLE" color="0xFFFFFF" font="14 arial" padding="3, 30, 3, 3">
-      <Resource flags="BACKGROUND|RECT" outline="2" edgecolor="0xAAAAAAFF" color="0xBBBBBBFF" uv="14 14 14 14" area="0 0 100% 100%" />
-      <Resource uv="14 14 0 0" area="0,0,100%,30" color="0x666666" edgecolor="0" outline="1" flags="RECT|BACKGROUND" />
-      <Skin name="Window$text" margin="12,4,0,0" />
-      <Skin name="Window$close" area="-25:1, 7, -10:1, 22" >
-        <Resource area="50%,50%,150%,70%" color="0xFFFFFFFF" flags="RECT|BACKGROUND|NOCLIP" rotation="0.785" center="50%,50%"/>
-        <Resource area="50%,50%,150%,70%" color="0xFFFFFFFF" flags="RECT|BACKGROUND|NOCLIP" rotation="-0.785" center="50%,50%"/>
+			<Skin name="Submenu$seperator" area="0 0 100% 3">
+				<Resource flags="BACKGROUND|RECT" margin="0 1 0 1" outline="0" color="0xBBBBBFFF" area="0 0 100% 100%"/>
+			</Skin>
+			<Resource flags="BACKGROUND|RECT" color="0xFFFFFF" area="0 0 100% 100%"/>
+		</Skin>
+		<Skin name="TabControl">
+			<Skin name="Tabcontrol$panel">
+				<Resource flags="BACKGROUND|RECT" color="0xEEEEEEFF" uv="0 0 14 14" area="0 0 100% 100%"/>
+			</Skin>
+			<Skin name="Tabcontrol$header"/>
+			<Skin name="Tabcontrol$toggle" padding="12 4 12 2">
+				<Resource flags="BACKGROUND|RECT" color="0xA6C6DFFF" area="0 0 100% 100%">
+					<Style name="selected+active" color="0xF9FCFFFF" margin="0 0 0 0"/>
+					<Style name="selected+hover" color="0xF9FCFFFF" margin="0 0 0 0"/>
+					<Style name="selected+neutral" color="0xEEEEEEFF"  margin="0 0 0 0"/>
+					<Style name="active" color="0xE0E3E9FF" margin="0 2 0 0"/>
+					<Style name="hover" color="0xE0E3E9FF" margin="0 2 0 0"/>
+					<Style name="neutral" color="0xD9DCDFFF" margin="0 2 0 0"/>
+				</Resource>
+        <Style name="selected+active" padding="12 2 12 4" />
+        <Style name="selected+hover" padding="12 2 12 4" />
+        <Style name="selected+neutral" padding="12 2 12 4" />
+        <Style name="active" padding="12 4 12 2" />
+        <Style name="hover" padding="12 4 12 2" />
+        <Style name="neutral" padding="12 4 12 2" />
+			</Skin>
+			<Skin name="Tabcontrol$text" font="12 BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial">
+        <Style name="selected+active" color="0x000000FF"/>
+        <Style name="selected+hover" color="0x000000FF"/>
+        <Style name="selected+neutral" color="0x0a0a0aFF"/>
+        <Style name="active" color="0x333333"/>
+        <Style name="hover" color="0x333333"/>
+        <Style name="neutral" color="0x555555"/>
       </Skin>
-      <Skin name="Window$restore" area="-50:1, 7, -35:1, 22" >
-        <Resource area="0,0,100%,100%" color="0" edgecolor="0xFFFFFFFF" outline="2" flags="RECT|BACKGROUND" />
-        <Resource area="0,0%,100%,30%" color="0xFFFFFFFF" flags="RECT|BACKGROUND" />
-      </Skin>
-      <Skin name="Window$minimize" area="-75:1, 7, -60:1, 22" >
-        <Resource area="0,80%,100%,100%" color="0xFFFFFFFF" flags="RECT|BACKGROUND" />
-      </Skin>
-      <Skin name="Button" color="0x000000" font="14 bold arial" padding="5,5,5,5">
-        <Resource uv="5,5,5,5" area="0,0,100%,100%" color="0" edgecolor="0x444444" outline="2" flags="RECT|BACKGROUND|SNAP">
-          <Style name="neutral" color="0" edgecolor="0x444444" transition="1000 ease-in 0" flags="-NOCLIP"/>
-          <Style name="active" color="0x333333" edgecolor="0x333333" transition="1000 cubic(0,1,0,1) 0"  flags="NOCLIP"/>
-          <Style name="hover" color="0x444444" edgecolor="0x444444" transition="1000 ease-in 0"  flags="NOCLIP"/>
-        </Resource>
-        <Style name="neutral" color="0x000000" />
-        <Style name="active" color="0xFFFFFF" />
-        <Style name="hover" color="0xFFFFFF" />
-      </Skin>
-      <Skin name="Checkbox" color="0xFFFFFFFF" font="14 arial" padding="25,0,5,0">
-        <Resource uv="3,3,3,3" area="5, 0:0.5, 20, 15:0.5" color="0" edgecolor="0x444444" outline="2" flags="RECT|BACKGROUND|SNAP" center="0 50%">
-          <Style name="neutral" color="0" />
-          <Style name="active" color="0x00000022" />
-          <Style name="hover" color="0x00000011" />
-        </Resource>
-        <Resource uv="3,3,3,3" area="8, 0:0.5, 17, 9:0.5" color="0x444444" edgecolor="0" outline="0" flags="RECT|BACKGROUND|SNAP" center="0 50%">
-          <Style name="default" flags="HIDDEN" />
-          <Style name="checked" flags="-HIDDEN" />
-          <Style name="indeterminate" flags="HIDDEN" />
-        </Resource>
-      </Skin>
-      <Skin name="Radiobutton" color="0xFFFFFFFF" font="14 arial" padding="25,5,5,5">
-        <Resource uv="0,6.2832,0,6.2832" margin="0,1,0,-1" area="0, 0:0.5, 17, 17:0.5" color="0" edgecolor="0x444444" outline="2" flags="CIRCLE|BACKGROUND|SNAP" center="0 50%">
-          <Style name="neutral" color="0" />
-          <Style name="active" color="0x00000022" />
-          <Style name="hover" color="0x00000011" />
-        </Resource>
-        <Resource uv="0,6.2832,0,6.2832" margin="0,1,0,-1" area="4, 0:0.5, 13, 9:0.5" color="0x444444" flags="CIRCLE|BACKGROUND|SNAP" center="0 50%">
-          <Style name="default" flags="HIDDEN" />
-          <Style name="checked" flags="-HIDDEN" />
-        </Resource>
-      </Skin>
-      <Skin name="Progressbar" color="0xFFFFFF" font="14 arial" padding="0,0,0,0">
-        <Skin name="Progressbar$bar">
-          <Resource uv="6,6,6,6" area="0,0,100%,100%" color="0xA0A0A0" edgecolor="0" outline="0" flags="RECT" />
-        </Skin>
-        <Resource uv="6,6,6,6" area="0,0,100%,100%" color="0" edgecolor="0x505050" outline="3" flags="RECT|BACKGROUND" order="1"/>
-      </Skin>
-      <Skin name="Slider" padding="5,0,5,0">
-        <Skin name="Slider$slider" area="-5,0,5,20" >
-					<Resource flags="NOCLIP|SNAPX|SNAPY|RECT" outline="0" edgecolor="0x00000000" color="0x666666FF" uv="5 5 5 5" area="0 0 100% 100%"/>
-        </Skin>
-				<Curve flags="SNAPX|SNAPY" color="0x666666FF" area="0 50% 100% 1:0.50"/>
-      </Skin>
-      <Skin name="Box" inherit="Scrollbar" />
-      <Skin name="Dropdown" hovercolor="0x99990099" selectcolor="0xAAAA0000">
-        <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0xFFFFFF99" edgecolor="0xAAAAAA" outline="1" flags="RECT|BACKGROUND|IGNORE" />
-        <Skin name="Dropdown$box" inherit="Scrollbar">
-          <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0xFFFFFF99" edgecolor="0xAAAAAA" outline="1" flags="RECT|BACKGROUND|IGNORE" />
-        </Skin>
-      </Skin>
-    </Skin>
-    <Skin name="TabControl">
-      <Skin name="Tabcontrol$header" flags="TILE"></Skin>
-      <Skin name="Tabcontrol$panel">
-				<Resource flags="BACKGROUND|SNAPX|SNAPY|RECT" color="0xEEEEEEFF" uv="0 0 14 14" area="0 0 100% 100%"/>
-      </Skin>
-      <Skin name="Tabcontrol$toggle" color="0x000000" padding="12,2,12,2" font="14 arial">
-        <Resource uv="5,5,0,0" area="0,0,100%,100%" color="0xA6C6DF" flags="RECT|BACKGROUND|SNAP">
-          <Style name="neutral" color="0xA6C6DF" />
-          <Style name="neutral+selected" color="0xE3EFF9" />
-          <Style name="hover" color="0xB6D6EF" />
-          <Style name="hover+selected" color="0xE9F5FF"  />
-          <Style name="active" color="0xB6D6EF" />
-          <Style name="active+selected" color="0xE9F5FF" />
-        </Resource>
-        <!--<Style name="hover" reorder="bottom"/>-->
-      </Skin>
-    </Skin>
-    <Skin id="Treeview">
-      <Resource uv="3 3 3 3" area="0,0,100%,100%" color="0xFFFFFF99" edgecolor="0xAAAAAAFF" outline="1" flags="RECT|BACKGROUND|IGNORE" />
-      <Skin name="Text" color="0x000000" font="10 arial" />
-      <Skin name="TreeItem" padding="20,0,0,0" flags="EXPAND">
-        <Resource uv="2,2,2,2" area="0,0,100%,100%" color="0x6666AA99" edgecolor="0xAAAAFFAA" outline="1" flags="RECT|BACKGROUND|IGNORE|SNAP">
-          <Style name="neutral+focused" flags="-HIDDEN"/>
-          <Style name="neutral" flags="HIDDEN"/>
-        </Resource>
-        <Skin name="TreeItem$arrow" area="4,1,16,13">
-          <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0" edgecolor="0xDDDDDD" outline="1" flags="RECT|BACKGROUND|IGNORE|SNAP" />
-          <Resource uv="0,0,0,0" area="-1:0.5, 2, 1:0.5, -2:1" color="0xDDDDDD" flags="RECT|BACKGROUND|IGNORE|SNAP">
-            <Style name="hidden" flags="-HIDDEN"/>
-            <Style name="visible" flags="HIDDEN"/>
-          </Resource>
-          <Resource uv="0,0,0,0" area="2, -1:0.5, -2:1, 1:0.5" color="0xDDDDDD" flags="RECT|BACKGROUND|IGNORE|SNAP" />
-        </Skin>
-      </Skin>
-    </Skin>
-    <Skin name="List" selectcolor="0xDD9999" hovercolor="0x999999" dragcolor="0xCCCCCC">
-      <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0xFFFFFF99" edgecolor="0xAAAAAA" outline="1" flags="RECT|BACKGROUND|SNAP" />
-    </Skin>
-    <Skin name="Combobox" hovercolor="0x999999">
-      <Skin name="fgCombobox$textbox" area="0,0,-30:1,0:1" color="0x000000" font="14 arial" placecolor="0x00000088" cursorcolor="0x000000" selectcolor="0x0000AAAA" padding="3,3,3,3" inherit="Scrollbar"/>
-      <Skin name="Dropdown$box" inherit="Scrollbar">
-        <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0xFFFFFF99" edgecolor="0xAAAAAA" outline="1" flags="RECT|BACKGROUND|IGNORE" />
-      </Skin>
-      <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0xFFFFFF99" edgecolor="0xAAAAAA" outline="1" flags="RECT|BACKGROUND|SNAP" />
-    </Skin>
-    <Skin name="ListItem">
-      <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0xFFFFFF99" edgecolor="0xAAAAAA" outline="1" flags="RECT|BACKGROUND|SNAP">
-        <Style name="hover" color="0x00990099" />
-        <Style name="neutral" color="0x99009999" />
-        <Style name="neutral+selected" color="0x009999CC" />
-        <Style name="hover+selected" color="0x00BBBBCC" />
+		</Skin>
+    <Skin name="Checkbox" padding="25 0 5 0" color="0xFFFFFFFF">
+      <Resource flags="BACKGROUND|SNAP|RECT" outline="1" edgecolor="0xA0A3A9FF" color="0xFFFFFF" uv="2 2 2 2" area="5 50% 20 15:0.50" center="0 -1:0.5">
+        <Style name="default+active" color="0xEEEEEE" edgecolor="0x5F5F5FFF"/>
+        <Style name="default+hover" color="0xFFFFFF" edgecolor="0x5F5F5FFF"/>
+        <Style name="default+neutral" color="0xFFFFFF" edgecolor="0xA0A3A9FF"/>
+        <Style name="checked+active" color="0x333333" edgecolor="0x333333"/>
+        <Style name="checked+hover" color="0x444444" edgecolor="0x444444"/>
+        <Style name="checked+neutral" color="0x666666" edgecolor="0x666666"/>
+        <Style name="indeterminate+active" color="0xEEEEEE" edgecolor="0x5F5F5FFF"/>
+        <Style name="indeterminate+hover" color="0xFFFFFF" edgecolor="0x5F5F5FFF"/>
+        <Style name="indeterminate+neutral" color="0xFFFFFF" edgecolor="0xA0A3A9FF"/>
+      </Resource>
+      <Resource flags="BACKGROUND|SNAP|RECT" color="0x5F5F5FFF" uv="2 2 2 2" area="8 50% 17 9:0.50" center="0 -1:0.5">
+        <Style name="indeterminate" flags="-HIDDEN"/>
+        <Style name="checked" flags="HIDDEN"/>
+        <Style name="default" flags="HIDDEN"/>
+      </Resource>
+      <Resource flags="NOCLIP|BACKGROUND|RECT" color="0xFFFFFF" area="9 66% 20 2:0.66" rotation="-0.8">
+        <Style name="indeterminate" flags="HIDDEN"/>
+        <Style name="checked" flags="-HIDDEN"/>
+        <Style name="default" flags="HIDDEN"/>
+      </Resource>
+      <Resource flags="NOCLIP|BACKGROUND|RECT" color="0xFFFFFF" area="10 1:0.66 15 3:0.66" rotation="-2.4">
+        <Style name="indeterminate" flags="HIDDEN"/>
+        <Style name="checked" flags="-HIDDEN"/>
+        <Style name="default" flags="HIDDEN"/>
       </Resource>
     </Skin>
-    <Skin name="Grid" columndividercolor="0x000000FF">
-      <Skin name="List">
-        <Resource uv="3,3,0,0" area="0,0,100%,100%" color="0x00000022" flags="RECT|BACKGROUND|SNAP" />
+    <Skin name="Radiobutton" padding="25 5 5 5" color="0xFFFFFFFF">
+      <Resource flags="BACKGROUND|SNAP|CIRCLE" outline="1" edgecolor="0xC0C3C9FF" color="0xFFFFFF" margin="0 1 0 -1" uv="0 6.28 0 6.28" area="0 50% 17 17:0.50" center="0 50%">
+        <Style name="active" color="0xDDDDDD"/>
+        <Style name="hover" color="0xEEEEEE"/>
+        <Style name="neutral" color="0xFFFFFF"/>
+      </Resource>
+      <Resource flags="BACKGROUND|SNAP|CIRCLE" color="0x444444FF" margin="0 1 0 -1" uv="0 6.28 0 6.28" area="4 50% 13 9:0.50" center="0 50%">
+        <Style name="checked" flags="-HIDDEN"/>
+        <Style name="default" flags="HIDDEN"/>
+      </Resource>
+    </Skin>
+    <Skin name="Slider" padding="7 0 7 0">
+      <Skin name="Slider$slider" area="-7 3 7 17">
+        <Resource flags="NOCLIP|CIRCLE" outline="0" edgecolor="0x555555" color="0x666666" uv="0 6.28 0 6.28" area="0 0 100% 100%">
+          <Style name="active" edgecolor="0x000000" color="0x444444" />
+          <Style name="hover" edgecolor="0x444444" color="0x444444" />
+          <Style name="neutral" edgecolor="0x555555" color="0x666666" />
+        </Resource>
       </Skin>
-      <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0xFFFFFF99" edgecolor="0xAAAAAA" outline="1" flags="RECT|BACKGROUND" />
+      <Curve color="0x999999" area="0 50% 100% 1:0.50"/>
     </Skin>
-    <Skin name="Textbox" color="0x000000" font="14 arial" placecolor="0x00000088" cursorcolor="0x000000" selectcolor="0x0000AAAA" padding="3,3,3,3" inherit="Scrollbar">
-      <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0xFFFFFF99" edgecolor="0xAAAAAA" outline="1" flags="RECT|BACKGROUND|IGNORE" />
-    </Skin>
-    <Skin name="Text" color="0x000000" font="14 arial" />
-    <Skin name="Menu" hovercolor="0xFFFFFFFF">
-      <Resource uv="0,0,0,0" area="0,0,100%,100%" color="0xBBBBBB" edgecolor="0xAAAAAA" outline="0" flags="RECT|BACKGROUND" />
-    </Skin>
-    <Skin name="Submenu">
-      <Resource uv="0,3,3,0" area="0,0,100%,100%" color="0xFFFFFFCC" edgecolor="0xAAAAAA" outline="1" flags="RECT|BACKGROUND" />
-      <Skin name="Submenu$seperator" area="0,0,100%,5">
-        <Resource area="0,0,100%,100%" color="0x000000DD" outline="0" flags="RECT|BACKGROUND" margin="0,2,0,2" />
+    <Skin name="Progressbar" padding="0 0 0 0">
+      <Skin name="Progressbar$bar">
+        <Resource flags="RECT" color="0x3386F6" uv="8 8 8 8" area="0 0 100% 100%"/>
       </Skin>
-      <Skin name="MenuItem" padding="0,0,20,0" />
-      <Skin name="Submenu$arrow" area="100%, 50%, 100%, 50%" center="100%,50%">
-        <Resource area="0,0,10,10" color="0xCCCCCCDD" outline="0" flags="RECT|IGNORE" />
-      </Skin>
+    <Skin name="Text" font="10 700 arial" color="0xFFFFFF"/>
+      <Resource flags="BACKGROUND|RECT" outline="1" edgecolor="0x3386F6" color="0x13233f" uv="8 8 8 8" area="0 0 100% 100%"/>
     </Skin>
-    <Skin name="Debug" color="0xFFFFFFFF" font="14 arial">
-      <Skin name="Grid" dividercolor="0x999999">
-        <Skin name="List">
-          <Resource uv="3,3,0,0" area="0,0,100%,100%" color="0xCCCCCCFF" flags="RECT|BACKGROUND|SNAP" />
-        </Skin>
-        <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0xFFFFFF99" edgecolor="0xAAAAAA" outline="1" flags="RECT|BACKGROUND" />
-      </Skin>
-      <Skin name="Text" color="0x000000" font="14 arial" />
+    <Skin name="Button" padding="8 5 8 5">
+      <Skin name="Text" flags="SNAP" font="14 BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial" color="0xFFFFFF" />
+      <Style name="active" color="0xFFFFFF"/>
+      <Style name="hover" color="0xFFFFFF"/>
+      <Style name="neutral" color="0xFFFFFF"/>
+      <Resource flags="BACKGROUND|SNAPX|SNAPY|RECT" outline="1" edgecolor="0x3f3f3f" color="0x3f3f3f" uv="3 3 3 3" area="0 0 100% 100%">
+        <Style name="active" edgecolor="0x000000" color="0x222222"/>
+        <Style name="hover" edgecolor="0x000000" color="0x4f4f4f"/>
+        <Style name="neutral" edgecolor="0x3f3f3f" color="0x3f3f3f"/>
+      </Resource>
     </Skin>
-  </Skin>
+    <Skin inherit="Scrollbar" name="Box"/>
+    <Skin name="Dropdown" selectcolor="0xAAAA0000" hovercolor="0x99990099" padding="0 0 15 0">
+      <Skin inherit="Scrollbar" name="Dropdown$box">
+        <Resource flags="BACKGROUND|IGNORE|RECT" outline="1" edgecolor="0xC0C3C9FF" color="0xFFFFFF99" uv="3 3 3 3" area="0 0 100% 100%"/>
+      </Skin>
+      <Resource flags="BACKGROUND|IGNORE|RECT" outline="1" edgecolor="0xC0C3C9FF" color="0xFFFFFF99" uv="3 3 3 3" area="0 0 100% 100%"/>
+      <Resource flags="BACKGROUND|NOCLIP|IGNORE|TRIANGLE" uv="0 0 0 0.5" color="0x333333" area="-8:1 4:0.5 0:1 12:0.5" rotation="3.14"/>
+    </Skin>
+		<Skin name="Combobox" hovercolor="0x999999FF">
+			<Skin inherit="Scrollbar" name="fgCombobox$textbox" padding="3 3 3 3" selectcolor="0x0000AAAA" cursorcolor="0x000000FF" placecolor="0x00000088" font="12 BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial" color="0x000000FF" area="0 0 -24:1 100%"/>
+			<Skin inherit="Scrollbar" name="Dropdown$box">
+				<Resource flags="BACKGROUND|IGNORE|RECT" outline="1" edgecolor="0xC0C3C9FF" color="0xFFFFFF99" uv="3 3 3 3" area="0 0 100% 100%"/>
+			</Skin>
+			<Resource flags="BACKGROUND|SNAPX|SNAPY|RECT" outline="1" edgecolor="0xC0C3C9FF" color="0xFFFFFF99" uv="3 3 3 3" area="0 0 100% 100%"/>
+      <Resource flags="BACKGROUND|NOCLIP|IGNORE|TRIANGLE" uv="0 0 0 0.5" color="0x4f4f4f" area="-8:1 4:0.5 0:1 12:0.5" rotation="3.14">
+        <Style name="active" color="0x222222"/>
+        <Style name="hover" color="0x222222"/>
+        <Style name="neutral" color="0x4f4f4f"/>
+      </Resource>
+      <Curve flags="BACKGROUND" color="0xBBBBBFFF" area="-24:1 0 -23:1 100%"/>
+		</Skin>
+		<Skin inherit="Scrollbar" name="Textbox" padding="3 3 3 3" selectcolor="0x0000AAAA" cursorcolor="0x000000FF" placecolor="0xBBB0B9FF" font="12 BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial" color="0x000000FF">
+			<Resource flags="BACKGROUND|IGNORE|RECT" outline="1" edgecolor="0xC0C3C9FF" color="0xFFFFFF99" uv="3 3 3 3" area="0 0 100% 100%"/>
+		</Skin>
+    
+    
+		<Skin name="Treeview">
+			<Skin name="Text" font="10 BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial" color="0x000000FF"/>
+			<Skin name="TreeItem" padding="20 0 0 0" flags="EXPANDX|EXPANDY">
+				<Skin name="TreeItem$arrow" area="4 1 16 13">
+					<Resource flags="BACKGROUND|IGNORE|SNAPX|SNAPY|RECT" outline="1" edgecolor="0xDDDDDDFF" color="0x00000000" uv="3 3 3 3" area="0 0 100% 100%"/>
+					<Resource flags="BACKGROUND|IGNORE|SNAPX|SNAPY|RECT" color="0xDDDDDDFF" uv="0 0 0 0" area="-1:0.50 2 1:0.50 -2:1">
+						<Style name="hidden" flags="-HIDDEN"/>
+						<Style name="visible" flags="HIDDEN"/>
+					</Resource>
+					<Resource flags="BACKGROUND|IGNORE|SNAPX|SNAPY|RECT" color="0xDDDDDDFF" uv="0 0 0 0" area="2 -1:0.50 -2:1 1:0.50"/>
+				</Skin>
+				<Resource flags="BACKGROUND|IGNORE|SNAPX|SNAPY|RECT" outline="1" edgecolor="0xAAAAFFAA" color="0x6666AA99" uv="2 2 2 2" area="0 0 100% 100%">
+					<Style name="focused+neutral" flags="-HIDDEN"/>
+					<Style name="neutral" flags="HIDDEN"/>
+				</Resource>
+			</Skin>
+			<Resource flags="BACKGROUND|IGNORE|RECT" outline="1" edgecolor="0xC0C3C9FF" color="0xFFFFFF99" uv="3 3 3 3" area="0 0 100% 100%"/>
+		</Skin>
+		<Skin name="Grid" dividercolor="0x999999FF">
+			<Skin name="List">
+				<Resource flags="BACKGROUND|SNAPX|SNAPY|RECT" color="0xCCCCCCFF" uv="3 3 0 0" area="0 0 100% 100%"/>
+			</Skin>
+			<Resource flags="BACKGROUND|RECT" outline="1" edgecolor="0xC0C3C9FF" color="0xFFFFFF99" uv="3 3 3 3" area="0 0 100% 100%"/>
+		</Skin>
+		<Skin name="ListItem">
+			<Resource flags="BACKGROUND|SNAPX|SNAPY|RECT" outline="1" edgecolor="0xC0C3C9FF" color="0xFFFFFF99" uv="3 3 3 3" area="0 0 100% 100%">
+				<Style name="selected+hover" color="0x00BBBBCC"/>
+				<Style name="selected+neutral" color="0x009999CC"/>
+				<Style name="hover" color="0x00990099"/>
+				<Style name="neutral" color="0x99009999"/>
+			</Resource>
+		</Skin>
+		<Skin name="Debug" font="14 BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial" color="0xFFFFFFFF"/>
+		<Skin name="Workspace">
+		</Skin>
+		<Skin name="Toolbar" padding="6 2 6 3">
+			<Resource flags="BACKGROUND|RECT" color="0xE6EAEFFF" uv="0 0 0 0" area="0 0 100% 100%"/>
+      <Curve flags="BACKGROUND" color="0xBBBBBFFF" area="0 -1:1 100% 0:1"/>
+		</Skin>
+		<Skin name="List" dragcolor="0xCCCCCCFF" hovercolor="0x999999FF" selectcolor="0xDD9999FF">
+			<Resource flags="BACKGROUND|SNAPX|SNAPY|RECT" outline="1" edgecolor="0xC0C3C9FF" color="0xFFFFFF99" uv="3 3 3 3" area="0 0 100% 100%"/>
+		</Skin>
+	</Skin>
 </fg:Layout>
