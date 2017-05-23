@@ -22,7 +22,7 @@ typedef struct _FG_CHECKBOX {
 #endif
 } fgCheckbox;
 
-FG_EXTERN void fgCheckbox_Init(fgCheckbox* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
+FG_EXTERN void fgCheckbox_Init(fgCheckbox* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units);
 FG_EXTERN void fgCheckbox_Destroy(fgCheckbox* self);
 FG_EXTERN size_t fgCheckbox_Message(fgCheckbox* self, const FG_Msg* msg);
 

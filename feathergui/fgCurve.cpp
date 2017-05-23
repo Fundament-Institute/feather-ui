@@ -6,7 +6,7 @@
 
 using namespace bss;
 
-fgElement* fgCurve_Create(const AbsVec* points, size_t npoints, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+fgElement* fgCurve_Create(const AbsVec* points, size_t npoints, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
   fgElement* r = fgroot_instance->backend.fgCreate("Curve", parent, next, name, flags, transform, units);
   if(color) _sendmsg<FG_SETCOLOR, size_t>(r, color);
@@ -14,7 +14,7 @@ fgElement* fgCurve_Create(const AbsVec* points, size_t npoints, unsigned int col
   return r;
 }
 
-void fgCurve_Init(fgCurve* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgCurve_Init(fgCurve* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
   fgElement_InternalSetup(&self->element, parent, next, name, flags, transform, units, (fgDestroy)&fgCurve_Destroy, (fgMessage)&fgCurve_Message);
 }

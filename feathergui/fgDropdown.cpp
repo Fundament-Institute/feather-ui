@@ -4,7 +4,7 @@
 #include "fgDropdown.h"
 #include "feathercpp.h"
 
-void fgDropdown_Init(fgDropdown* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgDropdown_Init(fgDropdown* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
   memsubset<fgDropdown, fgControl>(self, 0);
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgDropdown_Destroy, (fgMessage)&fgDropdown_Message);
@@ -53,8 +53,9 @@ size_t fgDropdownBox_Message(fgBox* self, const FG_Msg* msg)
   case FG_MOUSEDOWN:
     fgUpdateMouseState(&parent->mouse, msg);
     assert(parent != 0);
-    if(parent->dropflag && !MsgHitElement(msg, *self))
+    if(parent->dropflag > 0 && !MsgHitElement(msg, *self))
     {
+      _sendmsg<FG_NEUTRAL>(*parent);
       self->scroll->SetFlag(FGELEMENT_HIDDEN, true);
       fgClearTopmost(*self);
     }
@@ -73,13 +74,14 @@ size_t fgDropdownBox_Message(fgBox* self, const FG_Msg* msg)
         fgSetFlagStyle(target, "selected", true);
         parent->dropflag = 1;
       }
-      if(parent->dropflag)
+      if(parent->dropflag > 0)
       {
+        _sendmsg<FG_NEUTRAL>(*parent);
         self->scroll->SetFlag(FGELEMENT_HIDDEN, true);
         fgClearTopmost(*self);
       }
     }
-    if(!parent->dropflag)
+    if(parent->dropflag <= 0)
       parent->dropflag = 1;
     break;
   }
@@ -116,7 +118,7 @@ size_t fgDropdown_Message(fgDropdown* self, const FG_Msg* msg)
     }
     return sizeof(fgDropdown);
   case FG_MOUSEDOWN:
-    self->dropflag = 0;
+    self->dropflag = -1;
     self->box->SetFlag(FGELEMENT_HIDDEN, false);
     fgSetTopmost(self->box);
     return (*self->box->message)(self->box, msg);
@@ -172,6 +174,15 @@ size_t fgDropdown_Message(fgDropdown* self, const FG_Msg* msg)
     return (*self->box->message)(self->box, msg);
   case FG_GETSELECTEDITEM:
     return (size_t)self->selected;
+  case FG_MOUSEON:
+    _sendmsg<FG_HOVER>(*self);
+    break;
+  case FG_MOUSEOFF:
+    if(self->dropflag < 0)
+      _sendmsg<FG_ACTIVE>(*self);
+    else
+      _sendmsg<FG_NEUTRAL>(*self);
+    break;
   case FG_GETCLASSNAME:
     return (size_t)"Dropdown";
   }

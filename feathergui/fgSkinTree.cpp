@@ -13,7 +13,7 @@ char CompStylePair(const fgSkinTree::fgStylePair& l, const fgSkinTree::fgStylePa
 }
 typedef bss::ArraySort<fgSkinTree::fgStylePair, &CompStylePair> StyleArraySort;
 
-void fgSkinElement_Init(fgSkinElement* self, const char* type, fgFlag flags, const fgTransform* transform, short units, int order)
+void fgSkinElement_Init(fgSkinElement* self, const char* type, fgFlag flags, const fgTransform* transform, fgMsgType units, int order)
 {
   self->type = fgCopyText(type, __FILE__, __LINE__);
   self->transform = *transform;
@@ -41,10 +41,10 @@ void fgSkinTree_Destroy(fgSkinTree* self)
     fgStyle_Destroy(&self->styles.p[i].style);
 }
 
-size_t fgSkinTree_AddChild(fgSkinTree* self, const char* type, fgFlag flags, const fgTransform* transform, short units, int order)
+size_t fgSkinTree_AddChild(fgSkinTree* self, const char* type, fgFlag flags, const fgTransform* transform, fgMsgType units, int order)
 {
   size_t r = ((fgSkinLayoutArray&)self->children).Insert(fgSkinLayoutConstruct(type, flags, transform, units, order));
-  self->children.p[r].instance = fgroot_instance->backend.fgCreate(type, 0, 0, 0, flags, (units == -1) ? 0 : transform, units);
+  self->children.p[r].instance = fgroot_instance->backend.fgCreate(type, 0, 0, 0, flags, (units == (fgMsgType)~0) ? 0 : transform, units);
   return r;
 }
 char fgSkinTree_RemoveChild(fgSkinTree* self, FG_UINT child)
@@ -82,7 +82,7 @@ fgStyle* fgSkinTree_GetStyle(const fgSkinTree* self, FG_UINT style)
   return (i == (size_t)~0) ? 0 : (&self->styles.p[i].style);
 }
 
-void fgSkinLayout_Init(fgSkinLayout* self, const char* type, fgFlag flags, const fgTransform* transform, short units, int order)
+void fgSkinLayout_Init(fgSkinLayout* self, const char* type, fgFlag flags, const fgTransform* transform, fgMsgType units, int order)
 {
   bss::bssFill(*self, 0);
   fgSkinElement_Init(&self->element, type, flags, transform, units, order);

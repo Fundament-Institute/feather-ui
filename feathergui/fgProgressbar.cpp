@@ -5,7 +5,7 @@
 #include "fgSkin.h"
 #include "feathercpp.h"
 
-void fgProgressbar_Init(fgProgressbar* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgProgressbar_Init(fgProgressbar* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgProgressbar_Destroy, (fgMessage)&fgProgressbar_Message);
 }

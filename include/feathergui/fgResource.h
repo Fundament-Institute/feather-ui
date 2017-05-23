@@ -33,8 +33,8 @@ typedef struct {
 #endif
 } fgResource;
 
-FG_EXTERN fgElement* fgResource_Create(fgAsset asset, const CRect* uv, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
-FG_EXTERN void fgResource_Init(fgResource* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
+FG_EXTERN fgElement* fgResource_Create(fgAsset asset, const CRect* uv, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units);
+FG_EXTERN void fgResource_Init(fgResource* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units);
 FG_EXTERN void fgResource_Destroy(fgResource* self);
 FG_EXTERN size_t fgResource_Message(fgResource* self, const FG_Msg* msg);
 

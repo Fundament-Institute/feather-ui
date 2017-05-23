@@ -4,7 +4,7 @@
 #include "fgTabcontrol.h"
 #include "feathercpp.h"
 
-void fgTabcontrol_Init(fgTabcontrol* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgTabcontrol_Init(fgTabcontrol* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgTabcontrol_Destroy, (fgMessage)&fgTabcontrol_Message);
 }

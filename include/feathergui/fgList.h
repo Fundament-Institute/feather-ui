@@ -34,11 +34,11 @@ typedef struct {
 #endif
 } fgList;
 
-FG_EXTERN void fgList_Init(fgList* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
+FG_EXTERN void fgList_Init(fgList* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units);
 FG_EXTERN void fgList_Destroy(fgList* self);
 FG_EXTERN size_t fgList_Message(fgList* self, const FG_Msg* msg);
 
-FG_EXTERN void fgListItem_Init(fgControl* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
+FG_EXTERN void fgListItem_Init(fgControl* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units);
 FG_EXTERN size_t fgListItem_Message(fgControl* self, const FG_Msg* msg);
 
 #ifdef  __cplusplus

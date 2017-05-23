@@ -35,9 +35,9 @@ typedef struct _FG_BACKEND {
   void (*fgAssetSize)(fgAsset asset, const CRect* uv, AbsVec* dim, fgFlag flags);
 
   void (*fgDrawLines)(const AbsVec* p, size_t n, unsigned int color, const AbsVec* translate, const AbsVec* scale, FABS rotation, const AbsVec* center, const fgDrawAuxData* data);
-  fgElement* (*fgCreate)(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
+  fgElement* (*fgCreate)(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units);
   const char* (*fgFlagMap)(const char* type, fgFlag flag);
-  short (*fgMessageMap)(const char* name);
+  fgMsgType (*fgMessageMap)(const char* name);
   void (*fgUserDataMap)(fgElement* self, struct __VECTOR__KeyValue* pairs);
 
   void (*fgPushClipRect)(const AbsRect* clip, const fgDrawAuxData* data);
@@ -77,9 +77,9 @@ FG_EXTERN void fgDrawAssetDefault(fgAsset asset, const CRect* uv, unsigned int c
 FG_EXTERN void fgAssetSizeDefault(fgAsset asset, const CRect* uv, AbsVec* dim, fgFlag flags);
 
 FG_EXTERN void fgDrawLinesDefault(const AbsVec* p, size_t n, unsigned int color, const AbsVec* translate, const AbsVec* scale, FABS rotation, const AbsVec* center, const fgDrawAuxData* data);
-FG_EXTERN fgElement* fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
+FG_EXTERN fgElement* fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units);
 FG_EXTERN const char* fgFlagMapDefault(const char* type, fgFlag flag);
-FG_EXTERN short fgMessageMapDefault(const char* name);
+FG_EXTERN fgMsgType fgMessageMapDefault(const char* name);
 FG_EXTERN void fgUserDataMapDefault(fgElement* self, struct __VECTOR__KeyValue* pairs);
 FG_EXTERN void fgUserDataMapDefaultProcess(fgElement* self, struct _FG_KEY_VALUE* pair);
 FG_EXTERN void fgUserDataMapCallbacks(fgElement* self, struct __VECTOR__KeyValue* pairs);

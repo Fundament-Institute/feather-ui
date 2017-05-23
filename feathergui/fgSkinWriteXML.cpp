@@ -37,7 +37,7 @@ void fgStyle_WriteHex(Str& s, uint64_t i)
   s.resize(strlen(s));
 }
 
-void fgStyle_WriteAbs(Str& s, float abs, short unit)
+void fgStyle_WriteAbs(Str& s, float abs, fgMsgType unit)
 {
   fgStyle_WriteFloat(s, abs);
   if(!abs)
@@ -49,7 +49,7 @@ void fgStyle_WriteAbs(Str& s, float abs, short unit)
   case FGUNIT_PX: s += "px"; break;
   }
 }
-void fgStyle_WriteCoord(Str& s, const Coord& coord, short unit)
+void fgStyle_WriteCoord(Str& s, const Coord& coord, fgMsgType unit)
 {
   if(coord.rel == 0.0f)
     fgStyle_WriteAbs(s, coord.abs, unit);
@@ -65,21 +65,21 @@ void fgStyle_WriteCoord(Str& s, const Coord& coord, short unit)
     fgStyle_WriteFloat(s, coord.rel);
   }
 }
-size_t fgStyle_WriteCVec(char* buffer, size_t sz, const CVec* vec, short units)
+size_t fgStyle_WriteCVec(char* buffer, size_t sz, const CVec* vec, fgMsgType units)
 {
   Str s = fgStyle_WriteCVec(*vec, units);
   if(buffer && sz >= s.size())
     MEMCPY(buffer, sz, s.c_str(), s.size());
   return s.size();
 }
-size_t fgStyle_WriteAbsRect(char* buffer, size_t sz, const AbsRect* r, short units)
+size_t fgStyle_WriteAbsRect(char* buffer, size_t sz, const AbsRect* r, fgMsgType units)
 {
   Str s = fgStyle_WriteAbsRect(*r, units);
   if(buffer && sz >= s.size())
     MEMCPY(buffer, sz, s.c_str(), s.size());
   return s.size();
 }
-size_t fgStyle_WriteCRect(char* buffer, size_t sz, const CRect* r, short units)
+size_t fgStyle_WriteCRect(char* buffer, size_t sz, const CRect* r, fgMsgType units)
 {
   Str s = fgStyle_WriteCRect(*r, units);
   if(buffer && sz >= s.size())
@@ -87,7 +87,7 @@ size_t fgStyle_WriteCRect(char* buffer, size_t sz, const CRect* r, short units)
   return s.size();
 }
 
-Str fgStyle_WriteCVec(const CVec& vec, short units)
+Str fgStyle_WriteCVec(const CVec& vec, fgMsgType units)
 {
   Str s;
   fgStyle_WriteCoord(s, vec.x, (units&FGUNIT_X_MASK) >> FGUNIT_X);
@@ -96,7 +96,7 @@ Str fgStyle_WriteCVec(const CVec& vec, short units)
   return s;
 }
 
-Str fgStyle_WriteAbsRect(const AbsRect& r, short units)
+Str fgStyle_WriteAbsRect(const AbsRect& r, fgMsgType units)
 {
   Str s;
   fgStyle_WriteAbs(s, r.left, (units&FGUNIT_LEFT_MASK) >> FGUNIT_LEFT);
@@ -109,7 +109,7 @@ Str fgStyle_WriteAbsRect(const AbsRect& r, short units)
   return s;
 }
 
-Str fgStyle_WriteCRect(const CRect& r, short units)
+Str fgStyle_WriteCRect(const CRect& r, fgMsgType units)
 {
   Str s;
   fgStyle_WriteCoord(s, r.left, (units&FGUNIT_LEFT_MASK) >> FGUNIT_LEFT);
@@ -122,7 +122,7 @@ Str fgStyle_WriteCRect(const CRect& r, short units)
   return s;
 }
 
-void fgSkinBase_WriteTransform(XMLNode* node, const fgTransform& tf, short units)
+void fgSkinBase_WriteTransform(XMLNode* node, const fgTransform& tf, fgMsgType units)
 {
   static const CVec EMPTYVEC = { 0 };
   if(memcmp(&tf.area, &CRect_EMPTY, sizeof(CRect)) != 0)
@@ -372,7 +372,7 @@ void fgSkin_WriteXML(XMLNode* node, fgSkin* skin)
     node->AddAttribute("inherit")->String = skin->inherit->name;
   if(skin->name)
     node->AddAttribute("name")->String = skin->name;
-  if(skin->tfunits != (uint16_t)~0)
+  if(skin->tfunits != (fgMsgType)~0)
     fgSkinBase_WriteTransform(node, skin->tf, skin->tfunits);
 
   fgSkinBase_WriteStyleAttributesXML(node, skin->style, &skin->base, 0);

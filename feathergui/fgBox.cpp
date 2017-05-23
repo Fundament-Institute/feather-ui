@@ -6,7 +6,7 @@
 #include "bss-util/algo.h"
 #include "feathercpp.h"
 
-void fgBox_Init(fgBox* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgBox_Init(fgBox* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgBox_Destroy, (fgMessage)&fgBox_Message);
 }
@@ -126,8 +126,10 @@ fgElement* fgBoxOrderedElement_Get(struct _FG_BOX_ORDERED_ELEMENTS_* self, const
   return 0;
 }
 
-void fgBoxRenderDividers(fgElement* self, fgColor color, const AbsRect* area, const AbsRect* drawarea, const fgDrawAuxData* aux, fgElement* begin)
+void fgBoxRenderDividers(fgElement* self, fgColor color, const fgSkin* skin, const AbsRect* area, const AbsRect* drawarea, const fgDrawAuxData* aux, fgElement* begin)
 {
+  if(!color.a && !skin)
+    return;
   fgElement* next = begin;
   begin = fgLayout_GetPrev(begin);
   if(!begin)
@@ -146,20 +148,42 @@ void fgBoxRenderDividers(fgElement* self, fgColor color, const AbsRect* area, co
 
     if(self->flags&FGBOX_TILEX)
     {
-      float avg = fgSnapAll<floor>((rnext.left + rbegin.right) * 0.5f, aux->dpi.x);
-      AbsVec v[2] = { { avg,floor(drawarea->top + self->padding.top)}, { avg,floor(drawarea->bottom - self->padding.bottom)} };
-      fgroot_instance->backend.fgDrawLines(v,2, color.color, &offset, &scale, self->transform.rotation, &center, aux);
+      if(skin)
+      {
+        AbsRect rect = { rbegin.right, drawarea->top, rnext.left, drawarea->bottom };
+        fgDrawSkin(skin, &rect, aux, false);
+      }
+      else
+      {
+        float avg = fgSnapAll<floor>((rnext.left + rbegin.right) * 0.5f, aux->dpi.x);
+        AbsVec v[2] = { { avg,floor(drawarea->top + self->padding.top)}, { avg,floor(drawarea->bottom - self->padding.bottom)} };
+        fgroot_instance->backend.fgDrawLines(v, 2, color.color, &offset, &scale, self->transform.rotation, &center, aux);
+      }
     }
     else
     {
-      float avg = fgSnapAll<floor>((rnext.top + rbegin.bottom) * 0.5f, aux->dpi.y);
-      AbsVec v[2] = { { floor(drawarea->left + self->padding.left),avg },{ floor(drawarea->right - self->padding.right),avg } };
-      fgroot_instance->backend.fgDrawLines(v, 2, color.color, &offset, &scale, self->transform.rotation, &center, aux);
+      if(skin)
+      {
+        AbsRect rect = { drawarea->left, rbegin.bottom, drawarea->right, rnext.top };
+        fgDrawSkin(skin, &rect, aux, false);
+      }
+      else
+      {
+        float avg = fgSnapAll<floor>((rnext.top + rbegin.bottom) * 0.5f, aux->dpi.y);
+        AbsVec v[2] = { { floor(drawarea->left + self->padding.left),avg },{ floor(drawarea->right - self->padding.right),avg } };
+        fgroot_instance->backend.fgDrawLines(v, 2, color.color, &offset, &scale, self->transform.rotation, &center, aux);
+      }
     }
 
     begin = next;
     rbegin = rnext;
   }
+}
+
+void fgBox_Draw(fgElement* self, const AbsRect* area, const fgDrawAuxData* data, fgElement* begin)
+{
+  fgBox* realself = reinterpret_cast<fgBox*>(self);
+  fgBoxRenderDividers(self, realself->dividercolor, realself->dividerskin, area, area, data, begin);
 }
 
 void fgBox_DeselectAll(fgBox* self)
@@ -199,7 +223,7 @@ size_t fgBox_Message(fgBox* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_CONSTRUCT:
-    self->fndraw = 0;
+    self->fndraw = &fgBox_Draw;
     self->dividercolor.color = 0;
     self->fixedsize.x = -1;
     self->fixedsize.y = -1;
@@ -264,6 +288,11 @@ size_t fgBox_Message(fgBox* self, const FG_Msg* msg)
   case FG_HOVER:
   case FG_ACTIVE:
     return 0;
+  case FG_SETSKIN:
+    fgBoxOrderedElement_Message(&self->order, msg, *self, (fgMessage)&fgScrollbar_Message, &self->spacing);
+    if(self->scroll->skin)
+      self->dividerskin = self->scroll->skin->GetSkin("Box$divider");
+    return FG_ACCEPT;
   case FG_GETCLASSNAME:
     return (size_t)"Box";
   }

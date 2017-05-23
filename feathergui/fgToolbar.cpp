@@ -4,7 +4,7 @@
 #include "fgToolbar.h"
 #include "feathercpp.h"
 
-void fgToolbar_Init(fgToolbar* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgToolbar_Init(fgToolbar* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgToolbar_Destroy, (fgMessage)&fgToolbar_Message);
 }
@@ -25,7 +25,7 @@ size_t fgToolbar_Message(fgToolbar* self, const FG_Msg* msg)
   return fgBox_Message(&self->box, msg);
 }
 
-void fgToolGroup_Init(fgBox* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgToolGroup_Init(fgBox* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgBox_Destroy, (fgMessage)&fgToolGroup_Message);
 }

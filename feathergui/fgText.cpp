@@ -6,7 +6,7 @@
 #include "bss-util/DynArray.h"
 #include <math.h>
 
-fgElement* fgText_Create(char* text, fgFont font, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+fgElement* fgText_Create(char* text, fgFont font, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
   fgElement* r = fgroot_instance->backend.fgCreate("Text", parent, next, name, flags, transform, units);
   if(color) _sendmsg<FG_SETCOLOR, size_t>(r, color);
@@ -14,7 +14,7 @@ fgElement* fgText_Create(char* text, fgFont font, unsigned int color, fgElement*
   if(font) _sendmsg<FG_SETFONT, void*>(r, font);
   return r;
 }
-void fgText_Init(fgText* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgText_Init(fgText* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
   static_assert(sizeof(fgVectorUTF8) == sizeof(bss::DynArray<char>), "DynArray size mismatch");
   static_assert(sizeof(fgVectorUTF16) == sizeof(bss::DynArray<wchar_t>), "DynArray size mismatch");
@@ -255,8 +255,10 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
     {
       AbsVec center = ResolveVec(&self->element.transform.center, (AbsRect*)msg->p);
       fgVector* v = fgText_Conversion(fgroot_instance->backend.BackendTextFormat, &self->text8, &self->text16, &self->text32);
+      AbsRect rect;
+      __applyrect(rect, *(AbsRect*)msg->p, self->element.padding);
       if(v)
-        fgroot_instance->backend.fgDrawFont(self->font, v->p, v->l, self->lineheight, self->letterspacing, self->color.color, (AbsRect*)msg->p, self->element.transform.rotation, &center, self->element.flags, (fgDrawAuxData*)msg->p2, self->layout);
+        fgroot_instance->backend.fgDrawFont(self->font, v->p, v->l, self->lineheight, self->letterspacing, self->color.color, &rect, self->element.transform.rotation, &center, self->element.flags, (fgDrawAuxData*)msg->p2, self->layout);
     }
     return FG_ACCEPT;
   case FG_SETDPI:
@@ -274,7 +276,7 @@ void fgText_Recalc(fgText* self)
   {
     assert(!std::isnan(self->element.transform.area.left.abs) && !std::isnan(self->element.transform.area.top.abs) && !std::isnan(self->element.transform.area.right.abs) && !std::isnan(self->element.transform.area.bottom.abs));
     AbsRect area;
-    ResolveRect(*self, &area);
+    ResolveInnerRect(*self, &area);
     if(self->element.flags&FGELEMENT_EXPANDX) // If maxdim is -1, this will translate into a -1 maxdim for the text and properly deal with all resizing cases.
       area.right = area.left + self->element.maxdim.x;
     if(self->element.flags&FGELEMENT_EXPANDY)

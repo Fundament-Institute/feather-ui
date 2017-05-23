@@ -30,8 +30,8 @@ extern "C" {
     float factor; // subdivision factor, set using SETSTATE
   } fgCurve;
 
-  FG_EXTERN fgElement* fgCurve_Create(const AbsVec* points, size_t npoints, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
-  FG_EXTERN void fgCurve_Init(fgCurve* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
+  FG_EXTERN fgElement* fgCurve_Create(const AbsVec* points, size_t npoints, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units);
+  FG_EXTERN void fgCurve_Init(fgCurve* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units);
   FG_EXTERN void fgCurve_Destroy(fgCurve* self);
   FG_EXTERN size_t fgCurve_Message(fgCurve* self, const FG_Msg* msg);
 

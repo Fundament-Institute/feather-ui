@@ -208,14 +208,14 @@ void fgDebug_ApplyProperty(fgElement* target, int id, const char* prop)
   case 2:
   {
     CRect area;
-    uint16_t units = fgStyle_ParseCRect(prop, &area);
+    fgMsgType units = fgStyle_ParseCRect(prop, &area);
     target->SetArea(area, units);
   }
   break;
   case 3: // center
   {
     fgTransform t = target->transform;
-    uint16_t units = fgStyle_ParseCVec(prop, &t.center);
+    fgMsgType units = fgStyle_ParseCVec(prop, &t.center);
     target->SetTransform(t, units);
   }
   break;
@@ -230,28 +230,28 @@ void fgDebug_ApplyProperty(fgElement* target, int id, const char* prop)
   case 5:
   {
     AbsRect margin;
-    uint16_t units = fgStyle_ParseAbsRect(prop, &margin);
+    fgMsgType units = fgStyle_ParseAbsRect(prop, &margin);
     target->SetMargin(margin, units);
   }
     break;
   case 6:
   {
     AbsRect padding;
-    uint16_t units = fgStyle_ParseAbsRect(prop, &padding);
+    fgMsgType units = fgStyle_ParseAbsRect(prop, &padding);
     target->SetPadding(padding, units);
   }
     break;
   case 7:
   {
     AbsVec dim;
-    uint16_t units = fgStyle_ParseAbsVec(prop, &dim);
+    fgMsgType units = fgStyle_ParseAbsVec(prop, &dim);
     target->SetDim(dim.x, dim.y, FGDIM_MIN, units);
   }
     break;
   case 8:
   {
     AbsVec dim;
-    uint16_t units = fgStyle_ParseAbsVec(prop, &dim);
+    fgMsgType units = fgStyle_ParseAbsVec(prop, &dim);
     target->SetDim(dim.x, dim.y, FGDIM_MAX, units);
   }
   break;
@@ -1006,7 +1006,7 @@ const char* _dbg_getstr(const char* s)
 #define OUTPUT_CVEC(r) r.x.abs,r.x.rel,r.y.abs,r.y.rel
 #define OUTPUT_RECT(r) r.left,r.top,r.right,r.bottom
 
-const char* fgDebug_GetMessageString(uint16_t msg)
+const char* fgDebug_GetMessageString(fgMsgType msg)
 {
   switch(msg)
   {

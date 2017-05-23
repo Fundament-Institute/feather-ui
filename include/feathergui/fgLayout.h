@@ -26,7 +26,7 @@ typedef struct _FG_CLASS_LAYOUT {
 
 #ifdef  __cplusplus
   FG_DLLEXPORT void AddUserString(const char* key, const char* value);
-  FG_DLLEXPORT FG_UINT AddChild(const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order);
+  FG_DLLEXPORT FG_UINT AddChild(const char* type, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units, int order);
   FG_DLLEXPORT bool RemoveChild(FG_UINT child);
   FG_DLLEXPORT struct _FG_CLASS_LAYOUT* GetChild(FG_UINT child) const;
 #endif
@@ -41,7 +41,7 @@ typedef struct _FG_LAYOUT {
   struct kh_fgLayoutMap_s* sublayouts;
 
 #ifdef  __cplusplus
-  FG_DLLEXPORT FG_UINT AddChild(const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order);
+  FG_DLLEXPORT FG_UINT AddChild(const char* type, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units, int order);
   FG_DLLEXPORT bool RemoveChild(FG_UINT child);
   FG_DLLEXPORT fgClassLayout* GetChild(FG_UINT child) const;
   FG_DLLEXPORT struct _FG_LAYOUT* AddLayout(const char* name);
@@ -60,7 +60,7 @@ typedef struct _FG_LAYOUT {
 
 FG_EXTERN void fgLayout_Init(fgLayout* self, const char* name);
 FG_EXTERN void fgLayout_Destroy(fgLayout* self);
-FG_EXTERN FG_UINT fgLayout_AddChild(fgLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order);
+FG_EXTERN FG_UINT fgLayout_AddChild(fgLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units, int order);
 FG_EXTERN char fgLayout_RemoveChild(fgLayout* self, FG_UINT child);
 FG_EXTERN fgClassLayout* fgLayout_GetChild(const fgLayout* self, FG_UINT child);
 FG_EXTERN fgLayout* fgLayout_AddLayout(fgLayout* self, const char* name);
@@ -75,10 +75,10 @@ FG_EXTERN char fgLayout_LoadFileXML(fgLayout* self, const char* file);
 FG_EXTERN char fgLayout_LoadXML(fgLayout* self, const char* data, FG_UINT length, const char* path);
 FG_EXTERN void fgLayout_SaveFileXML(fgLayout* self, const char* file);
 
-FG_EXTERN void fgClassLayout_Init(fgClassLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order);
+FG_EXTERN void fgClassLayout_Init(fgClassLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units, int order);
 FG_EXTERN void fgClassLayout_Destroy(fgClassLayout* self);
 FG_EXTERN void fgClassLayout_AddUserString(fgClassLayout* self, const char* key, const char* value);
-FG_EXTERN FG_UINT fgClassLayout_AddChild(fgClassLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order);
+FG_EXTERN FG_UINT fgClassLayout_AddChild(fgClassLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units, int order);
 FG_EXTERN char fgClassLayout_RemoveChild(fgClassLayout* self, FG_UINT child);
 FG_EXTERN fgClassLayout* fgClassLayout_GetChild(const fgClassLayout* self, FG_UINT child);
 

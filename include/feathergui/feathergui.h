@@ -32,6 +32,7 @@ typedef float FABS; // We seperate both of these types because then you don't ha
 typedef unsigned int FG_UINT; 
 typedef unsigned int fgFlag;
 typedef unsigned int fgStyleIndex;
+typedef unsigned short fgMsgType;
 typedef void* fgAsset;
 typedef void* fgFont;
 
@@ -638,8 +639,8 @@ struct _FG_ELEMENT;
 
 // General message structure which contains the message type and then various kinds of information depending on the type.
 typedef struct _FG_MSG {
-  unsigned short type;
-  unsigned short subtype;
+  fgMsgType type;
+  fgMsgType subtype;
   union {
     struct { float x; float y; // Mouse and touch events
       union { 

@@ -9,7 +9,7 @@
 
 static const char* FGSTR_LISTITEM = "ListItem";
 
-void fgListItem_Init(fgControl* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgListItem_Init(fgControl* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgControl_Destroy, (fgMessage)&fgListItem_Message);
 }
@@ -37,7 +37,7 @@ size_t fgListItem_Message(fgControl* self, const FG_Msg* msg)
   return fgControl_HoverMessage(self, msg);
 }
 
-void fgList_Init(fgList* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgList_Init(fgList* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgList_Destroy, (fgMessage)&fgList_Message);
 }
@@ -97,8 +97,7 @@ void fgList_Draw(fgElement* self, const AbsRect* area, const fgDrawAuxData* data
     }
   }
 
-  if(realself->box.dividercolor.a > 0)
-    fgBoxRenderDividers(self, realself->box.dividercolor, area, area, data, begin);
+  fgBoxRenderDividers(self, realself->box.dividercolor, realself->box.dividerskin, area, area, data, begin);
 }
 fgElement* fgList_GetSplit(fgList* self, const FG_Msg* msg)
 {

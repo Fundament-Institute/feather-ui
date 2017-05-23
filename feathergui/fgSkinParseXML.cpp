@@ -38,10 +38,10 @@ char* fgSkin_ParseFontFamily(char* s, char quote, char** context)
   return s;
 }
 
-int fgStyle_NodeEvalTransform(const XMLNode* node, fgTransform& t)
+fgMsgType fgStyle_NodeEvalTransform(const XMLNode* node, fgTransform& t, fgMsgType flags)
 {
   static Trie<uint16_t, true> attr(9, "area", "center", "rotation", "left", "top", "right", "bottom", "width", "height");
-  int flags = 0;
+  flags = 0;
   bool hastransform = false;
 
   for(size_t i = 0; i < node->GetAttributes(); ++i)
@@ -86,7 +86,7 @@ int fgStyle_NodeEvalTransform(const XMLNode* node, fgTransform& t)
     hastransform = true;
   }
 
-  if(!hastransform) return -1;
+  if(!hastransform) return (fgMsgType)~0;
   return flags;
 }
 
@@ -449,6 +449,9 @@ fgSkin* fgSkinBase_GetInherit(fgSkinBase* self, const char* inherit)
 // Styles parse flags differently - the attributes use the parent flags for resource/font loading, then creates add and remove flag messages
 void fgSkinBase_ParseStyleNodeXML(fgSkinBase* self, fgStyle* style, fgFlag rootflags, const XMLNode* cur, const char* path)
 {
+  //tfunits = fgStyle_NodeEvalTransform(cur, tf, tfunits);
+  //if(tfunits != (fgMsgType)~0) // If this style changes the transform, add a transform message
+  //  AddStyleSubMsgArg<FG_SETTRANSFORM, fgTransform>(style, tfunits, &tf);
   fgStyle_ParseAttributesXML(style, cur, rootflags, self, path, 0, 0); // Note: styles cannot set skins, because that would make no sense, since the skin defines the styles in the first place.
   fgFlag remove = 0;
   fgFlag add = fgSkinBase_ParseFlagsFromString(cur->GetAttributeString("flags"), &remove, '|');
@@ -468,12 +471,13 @@ void fgSkinBase_ParseSubNodeXML(fgSkinTree* tree, fgStyle* style, fgSkinBase* ro
     AddStyleMsg<FG_SETFLAG, ptrdiff_t, size_t>(style, rootflags, 1);
 
   if(skin)
-    skin->tfunits = fgStyle_NodeEvalTransform(cur, skin->tf);
+    skin->tfunits = fgStyle_NodeEvalTransform(cur, skin->tf, skin->tfunits);
   else
   {
     fgTransform tf = { 0 };
-    uint16_t tfunits = fgStyle_NodeEvalTransform(cur, tf);
-    AddStyleSubMsgArg<FG_SETTRANSFORM, fgTransform>(style, tfunits, &tf);
+    fgMsgType tfunits = fgStyle_NodeEvalTransform(cur, tf, 0);
+    if(tfunits != (fgMsgType)~0)
+      AddStyleSubMsgArg<FG_SETTRANSFORM, fgTransform>(style, tfunits, &tf);
   }
 
   fgStyle_ParseAttributesXML(style, cur, rootflags, root, path, 0, 0); // For obvious reasons a skin can't include a SETSKIN message
@@ -490,7 +494,7 @@ void fgSkinBase_ParseSubNodeXML(fgSkinTree* tree, fgStyle* style, fgSkinBase* ro
     else
     {
       fgTransform transform = { 0 };
-      short units = fgStyle_NodeEvalTransform(node, transform);
+      fgMsgType units = fgStyle_NodeEvalTransform(node, transform, 0);
       fgFlag rmflags = 0;
       fgFlag flags = fgSkinBase_ParseFlagsFromString(node->GetAttributeString("flags"), &rmflags, '|');
       flags = (flags | fgGetTypeFlags(node->GetName()))&(~rmflags);

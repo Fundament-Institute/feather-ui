@@ -26,7 +26,7 @@ typedef struct _FG_BUTTON {
 #endif
 } fgButton;
 
-FG_EXTERN void fgButton_Init(fgButton* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
+FG_EXTERN void fgButton_Init(fgButton* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units);
 FG_EXTERN void fgButton_Destroy(fgButton* self);
 FG_EXTERN size_t fgButton_Message(fgButton* self, const FG_Msg* msg);
 

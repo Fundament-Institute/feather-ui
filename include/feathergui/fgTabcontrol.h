@@ -21,7 +21,7 @@ typedef struct {
 #endif
 } fgTabcontrol;
 
-FG_EXTERN void fgTabcontrol_Init(fgTabcontrol* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
+FG_EXTERN void fgTabcontrol_Init(fgTabcontrol* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units);
 FG_EXTERN void fgTabcontrol_Destroy(fgTabcontrol* self);
 FG_EXTERN size_t fgTabcontrol_Message(fgTabcontrol* self, const FG_Msg* msg);
 

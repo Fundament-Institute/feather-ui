@@ -39,7 +39,7 @@ void fgLayout_Destroy(fgLayout* self)
     kh_destroy_fgLayoutMap(self->sublayouts);
   }
 }
-FG_UINT fgLayout_AddChild(fgLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order)
+FG_UINT fgLayout_AddChild(fgLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units, int order)
 {
   return ((fgClassLayoutArray&)self->children).Insert(fgClassLayoutConstruct(type, name, flags, transform, units, order));
 }
@@ -91,7 +91,7 @@ fgLayout* fgLayout_GetLayout(const fgLayout* self, const char* name)
   return (i < kh_end(self->sublayouts) && kh_exist(self->sublayouts, i)) ? kh_val(self->sublayouts, i) : 0;
 }
 
-void fgClassLayout_Init(fgClassLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order)
+void fgClassLayout_Init(fgClassLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units, int order)
 {
   fgSkinElement_Init(&self->element, type, flags, transform, units, order);
   self->name = fgCopyText(name, __FILE__, __LINE__);
@@ -116,7 +116,7 @@ void fgClassLayout_AddUserString(fgClassLayout* self, const char* key, const cha
   self->userdata.p[i].value = fgCopyText(value, __FILE__, __LINE__);
 }
 
-FG_UINT fgClassLayout_AddChild(fgClassLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order)
+FG_UINT fgClassLayout_AddChild(fgClassLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units, int order)
 {
   return ((fgClassLayoutArray&)self->children).Insert(fgClassLayoutConstruct(type, name, flags, transform, units, order));
 }
@@ -143,7 +143,7 @@ void fgClassLayout_LoadLayoutXML(fgClassLayout* self, const XMLNode* cur, fgLayo
   { 
     const XMLNode* node = cur->GetNode(i);
     fgTransform transform = { 0 };
-    int type = fgStyle_NodeEvalTransform(node, transform);
+    int type = fgStyle_NodeEvalTransform(node, transform, 0);
     fgFlag rmflags = 0;
     fgFlag flags = fgSkinBase_ParseFlagsFromString(node->GetAttributeString("flags"), &rmflags, '|');
     flags = (flags | fgGetTypeFlags(node->GetName()))&(~rmflags);
@@ -185,7 +185,7 @@ void fgLayout_LoadLayoutNode(fgLayout* self, const XMLNode* root, std::istream& 
     else
     {
       fgTransform transform = { 0 };
-      short type = fgStyle_NodeEvalTransform(node, transform);
+      fgMsgType type = fgStyle_NodeEvalTransform(node, transform, 0);
       fgFlag rmflags = 0;
       fgFlag flags = fgSkinBase_ParseFlagsFromString(node->GetAttributeString("flags"), &rmflags, '|');
       flags = (flags | fgGetTypeFlags(node->GetName()))&(~rmflags);
@@ -297,7 +297,7 @@ void fgLayout_IterateLayouts(fgLayout* self, void* p, void(*f)(fgLayout*, const 
   }
 }
 
-FG_UINT fgLayout::AddChild(const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order) { return fgLayout_AddChild(this, type, name, flags, transform, units, order); }
+FG_UINT fgLayout::AddChild(const char* type, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units, int order) { return fgLayout_AddChild(this, type, name, flags, transform, units, order); }
 bool fgLayout::RemoveChild(FG_UINT layout) { return fgLayout_RemoveChild(this, layout) != 0; }
 fgClassLayout* fgLayout::GetChild(FG_UINT layout) const { return fgLayout_GetChild(this, layout); }
 fgLayout* fgLayout::AddLayout(const char* name) { return fgLayout_AddLayout(this, name); }
@@ -313,6 +313,6 @@ bool fgLayout::LoadXML(const char* data, FG_UINT length, const char* path) { ret
 void fgLayout::SaveFileXML(const char* file) { fgLayout_SaveFileXML(this, file); }
 
 void fgClassLayout::AddUserString(const char* key, const char* value) { return fgClassLayout_AddUserString(this, key, value); }
-FG_UINT fgClassLayout::AddChild(const char* type, const char* name, fgFlag flags, const fgTransform* transform, short units, int order) { return fgClassLayout_AddChild(this, type, name, flags, transform, units, order); }
+FG_UINT fgClassLayout::AddChild(const char* type, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units, int order) { return fgClassLayout_AddChild(this, type, name, flags, transform, units, order); }
 bool fgClassLayout::RemoveChild(FG_UINT child) { return fgClassLayout_RemoveChild(this, child) != 0; }
 fgClassLayout* fgClassLayout::GetChild(FG_UINT child) const { return fgClassLayout_GetChild(this, child); }

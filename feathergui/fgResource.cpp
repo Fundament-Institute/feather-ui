@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include "feathercpp.h"
 
-fgElement* fgResource_Create(fgAsset res, const CRect* uv, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+fgElement* fgResource_Create(fgAsset res, const CRect* uv, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
   fgElement* r = fgroot_instance->backend.fgCreate("Resource", parent, next, name, flags, transform, units);
   if(color) _sendmsg<FG_SETCOLOR, size_t>(r, color);
@@ -14,7 +14,7 @@ fgElement* fgResource_Create(fgAsset res, const CRect* uv, unsigned int color, f
   return r;
 }
 
-void fgResource_Init(fgResource* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgResource_Init(fgResource* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgResource_Destroy, (fgMessage)&fgResource_Message);
 }

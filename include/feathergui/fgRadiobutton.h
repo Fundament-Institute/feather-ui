@@ -21,7 +21,7 @@ typedef struct _FG_RADIOBUTTON {
 #endif
 } fgRadiobutton;
 
-FG_EXTERN void fgRadiobutton_Init(fgRadiobutton* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
+FG_EXTERN void fgRadiobutton_Init(fgRadiobutton* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units);
 FG_EXTERN void fgRadiobutton_Destroy(fgRadiobutton* self);
 FG_EXTERN size_t fgRadiobutton_Message(fgRadiobutton* self, const FG_Msg* msg);
 

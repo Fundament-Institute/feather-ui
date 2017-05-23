@@ -6,7 +6,7 @@
 #include "feathercpp.h"
 #include "fgMenu.h"
 
-void fgControl_Init(fgControl* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgControl_Init(fgControl* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
   fgElement_InternalSetup(&self->element, parent, next, name, flags, transform, units, (fgDestroy)&fgControl_Destroy, (fgMessage)&fgControl_Message);
 }

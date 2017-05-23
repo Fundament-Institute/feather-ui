@@ -18,7 +18,7 @@ size_t fgTreeItemArrow_Message(fgElement* self, const FG_Msg* msg)
   return fgElement_Message(self, msg);
 }
 
-void fgTreeItem_Init(fgTreeItem* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgTreeItem_Init(fgTreeItem* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
   fgElement_InternalSetup(&self->control.element, parent, next, name, flags, transform, units, (fgDestroy)&fgTreeItem_Destroy, (fgMessage)&fgTreeItem_Message);
 }
@@ -111,7 +111,7 @@ void fgTreeItem_Destroy(fgTreeItem* self)
   self->control->message = (fgMessage)fgControl_Message;
   fgControl_Destroy(&self->control);
 }
-void fgTreeview_Init(fgTreeview* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgTreeview_Init(fgTreeview* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
   fgElement_InternalSetup(*self, parent, next, 0, flags, transform, units, (fgDestroy)&fgTreeview_Destroy, (fgMessage)&fgTreeview_Message);
 }

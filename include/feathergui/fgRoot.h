@@ -20,7 +20,7 @@ struct _FG_MONITOR;
 struct _FG_SKIN;
 struct _FG_MESSAGEQUEUE;
 struct _FG_ROOT;
-typedef void(*fgInitializer)(fgElement* BSS_RESTRICT, fgElement* BSS_RESTRICT, fgElement* BSS_RESTRICT, const char*, fgFlag, const fgTransform*, unsigned short);
+typedef void(*fgInitializer)(fgElement* BSS_RESTRICT, fgElement* BSS_RESTRICT, fgElement* BSS_RESTRICT, const char*, fgFlag, const fgTransform*, fgMsgType);
 typedef size_t(*fgInject)(struct _FG_ROOT* self, const FG_Msg* msg);
 typedef fgElement* (*fgOrderedDrawGet)(fgElement*, const AbsRect*, const AbsRect*);
 typedef void(*fgAuxDrawFunction)(fgElement*, const AbsRect*, const fgDrawAuxData*, fgElement*);
@@ -90,8 +90,9 @@ FG_EXTERN size_t fgStandardInject(fgElement* self, const FG_Msg* msg, const AbsR
 FG_EXTERN size_t fgOrderedInject(fgElement* self, const FG_Msg* msg, const AbsRect* area, fgElement* skip, fgElement* (*fn)(fgElement*, const FG_Msg*), fgElement* selected);
 FG_EXTERN void fgStandardDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, char culled, fgAuxDrawFunction draw);
 FG_EXTERN void fgOrderedDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, char culled, fgElement* skip, fgOrderedDrawGet fn, fgAuxDrawFunction draw, fgElement* selected);
-FG_EXTERN char fgDrawSkin(fgVector* skinstyle, AbsRect* padding, const struct _FG_SKIN* skin, const AbsRect* area, const fgDrawAuxData* aux, char culled, char foreground, char clipping);
-FG_EXTERN fgElement* fgCreate(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
+FG_EXTERN char fgDrawSkinPartial(fgVector* skinstyle, AbsRect* padding, const struct _FG_SKIN* skin, const AbsRect* area, const fgDrawAuxData* aux, char culled, char foreground, char clipping);
+FG_EXTERN void fgDrawSkin(const struct _FG_SKIN* skin, const AbsRect* area, const fgDrawAuxData* aux, char culled);
+FG_EXTERN fgElement* fgCreate(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units);
 FG_EXTERN int fgRegisterCursor(int cursor, const void* data, size_t sz);
 FG_EXTERN int fgRegisterFunction(const char* name, fgListener fn);
 FG_EXTERN int fgRegisterDelegate(const char* name, void* p, void(*fn)(void*, struct _FG_ELEMENT*, const FG_Msg*));
@@ -127,7 +128,7 @@ inline size_t fgSendMsg(fgElement* self, Args... args)
 }
 
 template<FG_MSGTYPE type, typename... Args>
-inline size_t fgSendSubMsg(fgElement* self, unsigned short sub, Args... args)
+inline size_t fgSendSubMsg(fgElement* self, fgMsgType sub, Args... args)
 {
   FG_Msg msg = { 0 };
   msg.type = type;

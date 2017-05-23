@@ -19,7 +19,7 @@ size_t fgGridColumn_Message(fgList* self, const FG_Msg* msg)
   return fgList_Message(self, msg);
 }
 
-void fgGrid_Init(fgGrid* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgGrid_Init(fgGrid* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgGrid_Destroy, (fgMessage)&fgGrid_Message);
 }
@@ -65,11 +65,11 @@ size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
     }
     return FG_ACCEPT;
   case FG_DRAW:
-    if(self->columndividercolor.color != 0 && self->header.box.order.ordered.l > 0)
+    if(self->columndividercolor.a > 0 && self->header.box.order.ordered.l > 0)
     {
       AbsRect header;
       ResolveRect(self->header, &header);
-      fgBoxRenderDividers(self->header, self->columndividercolor, &header, (AbsRect*)msg->p, (fgDrawAuxData*)msg->p2, self->header.box.order.ordered.p[0]);
+      fgBoxRenderDividers(self->header, self->columndividercolor, 0, &header, (AbsRect*)msg->p, (fgDrawAuxData*)msg->p2, self->header.box.order.ordered.p[0]);
     }
     break;
   case FG_ADDITEM:
@@ -220,7 +220,7 @@ inline fgElement* fgGridRowOrderInject(fgElement* self, const FG_Msg* msg)
   return fgOrderedGet<FLAGS>(&((fgGridRow*)self)->order, &r, &cache);
 }
 
-void fgGridRow_Init(fgGridRow* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgGridRow_Init(fgGridRow* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgGridRow_Destroy, (fgMessage)&fgGridRow_Message);
 }

@@ -7,7 +7,7 @@
 static const char* SUBMENU_NAME = "Submenu";
 static const char* MENU_NAME = "Menu";
 
-void fgMenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgMenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
   assert(self != 0);
   const fgTransform TF_MENU = { { 0, 0, 0, 0, 0, 1.0, 0, 0 }, 0,{ 0,0,0,0 } };
@@ -16,7 +16,6 @@ void fgMenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RE
 
 void fgMenu_Destroy(fgMenu* self)
 {
-  fgElement_Destroy(&self->arrow); // This must be destroyed manually because it's a ghost entity not attached to the menu.
   self->box->message = (fgMessage)fgBox_Message;
   fgBox_Destroy(&self->box);
   //fgRoot_DeallocAction(fgSingleton(),self->dropdown);
@@ -75,8 +74,7 @@ size_t fgMenu_Message(fgMenu* self, const FG_Msg* msg)
     fgBox_Message(&self->box, msg);
     self->expanded = 0;
     self->hover = 0;
-    const fgTransform TF_ARROW = { { 0,0,0,0.5,0,0,0,0.5 }, 0,{ 1.0,0.5 } };
-    fgElement_Init(&self->arrow, 0, 0, "Menu$arrow", FGELEMENT_IGNORE | FGELEMENT_BACKGROUND | FGELEMENT_EXPAND | FGFLAGS_INTERNAL, &TF_ARROW, 0);
+    self->arrow = 0;
     return FG_ACCEPT;
   }
   case FG_MOUSEUP:
@@ -167,7 +165,7 @@ size_t fgMenu_Message(fgMenu* self, const FG_Msg* msg)
   return fgSubmenu_Message(self, msg);
 }
 
-void fgSubmenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgSubmenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
   assert(self != 0);
   const fgTransform TF_MENU = { { 0, 0, 0, 1.0, 0, 0, 0, 1.0 }, 0,{ 0,0,0,0 } };
@@ -175,7 +173,7 @@ void fgSubmenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS
   if(!transform) transform = (parent != 0 && parent->parent != 0 && parent->parent->GetClassName() == MENU_NAME) ? &TF_MENU : &TF_SUBMENU;
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgMenu_Destroy, (fgMessage)&fgSubmenu_Message);
 }
-void fgContextMenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgContextMenu_Init(fgMenu* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
   assert(self != 0);
   if(!transform) transform = &fgTransform_EMPTY;
@@ -193,19 +191,15 @@ size_t fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
     fgBox_Message(&self->box, msg);
     self->expanded = 0;
     self->hover = 0;
-    const fgTransform TF_ARROW = { { 0,1,0,0.5,0,1,0,0.5 }, 0,{ 0.5,1.0 } };
-    fgElement_Init(&self->arrow, 0, 0, "Submenu$arrow", FGELEMENT_IGNORE | FGELEMENT_BACKGROUND | FGELEMENT_EXPAND | FGFLAGS_INTERNAL, &TF_ARROW, 0);
     return FG_ACCEPT;
   }
   case FG_CLONE:
     if(msg->e)
     {
       fgMenu* hold = reinterpret_cast<fgMenu*>(msg->e);
-      self->arrow.Clone(&hold->arrow);
       hold->expanded = 0;
       hold->hover = 0;
       fgBox_Message(&self->box, msg);
-      _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, &hold->arrow);
     }
     return sizeof(fgMenu);
   case FG_SETFLAG: // If 0 is sent in, disable the flag, otherwise enable. Our internal flag is 1 if clipping disabled, 0 otherwise.
@@ -294,10 +288,8 @@ size_t fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
         if(!(cur->flags & FGELEMENT_BACKGROUND) && cur->GetSelectedItem())
         {
           AbsRect rect;
-          ResolveRectCache(cur, &rect, (const AbsRect*)msg->p, &self->box->padding);
-          AbsRect arrow;
-          ResolveRectCache(&self->arrow, &arrow, &rect, (self->arrow.flags&FGELEMENT_BACKGROUND) ? 0 : &cur->padding);
-          self->arrow.Draw(&arrow, (fgDrawAuxData*)msg->p2);
+          ResolveRectCache(cur, &rect, (const AbsRect*)msg->p, 0);
+          fgDrawSkin(self->arrow, &rect, (fgDrawAuxData*)msg->p2, false);
         }
         cur = cur->next;
       }
@@ -305,7 +297,8 @@ size_t fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
     return FG_ACCEPT;
   case FG_SETSKIN:
     fgBox_Message(&self->box, msg);
-    self->arrow.SetSkin(self->box->GetSkin(&self->arrow)); // Because the arrow is not technically a child of the menu, we must set the skin manually
+    if(self->box->skin)
+      self->arrow = self->box->skin->GetSkin("Submenu$arrow");
     return FG_ACCEPT;
   case FG_GETSELECTEDITEM:
     return (size_t)self->expanded;
@@ -315,7 +308,7 @@ size_t fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
   return fgBox_Message(&self->box, msg);
 }
 
-void fgMenuItem_Init(fgMenuItem* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgMenuItem_Init(fgMenuItem* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
   static const fgTransform MENU_TRANSFORM = fgTransform { { 0,0,0,0,0,1,0,0 }, 0, { 0,0,0,0 } };
   if(!transform) transform = (parent != 0 && parent->GetClassName() == MENU_NAME) ? &fgTransform_EMPTY : &MENU_TRANSFORM;

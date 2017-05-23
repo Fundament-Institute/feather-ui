@@ -4,7 +4,7 @@
 #include "fgWorkspace.h"
 #include "feathercpp.h"
 
-void fgWorkspace_Init(fgWorkspace* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgWorkspace_Init(fgWorkspace* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgWorkspace_Destroy, (fgMessage)&fgWorkspace_Message);
 }

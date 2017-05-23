@@ -48,9 +48,9 @@ extern "C" {
   FG_EXTERN int fgStyle_ParseCRect(const char* attribute, CRect* r);
   FG_EXTERN int fgStyle_ParseCVec(const char* attribute, CVec* v);
 
-  FG_EXTERN size_t fgStyle_WriteCVec(char* buffer, size_t sz, const CVec* vec, short units);
-  FG_EXTERN size_t fgStyle_WriteAbsRect(char* buffer, size_t sz, const AbsRect* r, short units);
-  FG_EXTERN size_t fgStyle_WriteCRect(char* buffer, size_t sz, const CRect* r, short units);
+  FG_EXTERN size_t fgStyle_WriteCVec(char* buffer, size_t sz, const CVec* vec, fgMsgType units);
+  FG_EXTERN size_t fgStyle_WriteAbsRect(char* buffer, size_t sz, const AbsRect* r, fgMsgType units);
+  FG_EXTERN size_t fgStyle_WriteCRect(char* buffer, size_t sz, const CRect* r, fgMsgType units);
   FG_EXTERN size_t fgStyle_WriteFlagsIterate(char* buffer, size_t sz, const char* type, const char* divider, fgFlag flags, char remove);
 #ifdef  __cplusplus
 }
@@ -64,7 +64,7 @@ inline fgStyleMsg* AddStyleMsg(fgStyle* style, Args... args)
   return fgStyle_AddStyleMsg(style, &msg, 0, 0);
 }
 template<FG_MSGTYPE type, typename... Args>
-inline fgStyleMsg* AddStyleSubMsg(fgStyle* style, unsigned short sub, Args... args)
+inline fgStyleMsg* AddStyleSubMsg(fgStyle* style, fgMsgType sub, Args... args)
 {
   FG_Msg msg = { 0 };
   msg.type = type;
@@ -82,7 +82,7 @@ inline fgStyleMsg* AddStyleMsgArg(fgStyle* style, const Arg* arg, Args... args)
   return fgStyle_AddStyleMsg(style, &msg, sizeof(Arg), 0);
 }
 template<FG_MSGTYPE type, typename Arg, typename... Args>
-inline fgStyleMsg* AddStyleSubMsgArg(fgStyle* style, unsigned short sub, const Arg* arg, Args... args)
+inline fgStyleMsg* AddStyleSubMsgArg(fgStyle* style, fgMsgType sub, const Arg* arg, Args... args)
 {
   FG_Msg msg = { 0 };
   msg.type = type;

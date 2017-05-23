@@ -26,7 +26,7 @@ size_t fgWindow_MinimizeMessage(fgButton* self, const FG_Msg* msg)
   return fgButton_Message(self, msg);
 }
 
-void fgWindow_Init(fgWindow* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgWindow_Init(fgWindow* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
   fgElement_InternalSetup(*self, parent, next, name, flags, transform, units, (fgDestroy)&fgWindow_Destroy, (fgMessage)&fgWindow_Message);
 }

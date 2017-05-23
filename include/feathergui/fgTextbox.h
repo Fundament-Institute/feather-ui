@@ -66,7 +66,7 @@ typedef struct {
 #endif
 } fgTextbox;
 
-FG_EXTERN void fgTextbox_Init(fgTextbox* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
+FG_EXTERN void fgTextbox_Init(fgTextbox* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units);
 FG_EXTERN void fgTextbox_Destroy(fgTextbox* self);
 FG_EXTERN size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg);
 

@@ -292,11 +292,11 @@ inline char fgDrawSkinElement(fgVector* skinstyle, AbsRect* padding, fgSkinLayou
   return r;
 }
 
-char fgDrawSkin(fgVector* skinstyle, AbsRect* padding, const fgSkin* skin, const AbsRect* area, const fgDrawAuxData* aux, char culled, char foreground, char clipping)
+char fgDrawSkinPartial(fgVector* skinstyle, AbsRect* padding, const fgSkin* skin, const AbsRect* area, const fgDrawAuxData* aux, char culled, char foreground, char clipping)
 {
   if(skin != 0)
   {
-    clipping = fgDrawSkin(skinstyle, padding, skin->inherit, area, aux, culled, foreground, clipping);
+    clipping = fgDrawSkinPartial(skinstyle, padding, skin->inherit, area, aux, culled, foreground, clipping);
 
     AbsRect curarea;
     for(size_t i = 0; i < skin->tree.children.l; ++i)
@@ -307,13 +307,36 @@ char fgDrawSkin(fgVector* skinstyle, AbsRect* padding, const fgSkin* skin, const
   return clipping;
 }
 
+char fgDrawSkinInherit(const struct _FG_SKIN* skin, const AbsRect* area, const fgDrawAuxData* aux, char culled, char clipping)
+{
+  if(skin != 0)
+  {
+    clipping = fgDrawSkinInherit(skin->inherit, area, aux, culled, clipping);
+
+    AbsRect curarea;
+    for(size_t i = 0; i < skin->tree.children.l; ++i)
+      clipping = fgDrawSkinElement(0, 0, skin->tree.children.p[i], area, aux, curarea, clipping);
+  }
+
+  return clipping;
+}
+
+void fgDrawSkin(const struct _FG_SKIN* skin, const AbsRect* area, const fgDrawAuxData* aux, char culled)
+{
+  bool clipping = false;
+  clipping = fgDrawSkinInherit(skin, area, aux, culled, clipping);
+
+  if(clipping)
+    fgroot_instance->backend.fgPopClipRect(aux);
+}
+
 void fgStandardDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, char culled, fgAuxDrawFunction draw)
 {
   fgElement* hold = culled ? self->rootnoclip : self->root;
   AbsRect curarea;
   bool clipping = false;
 
-  clipping = fgDrawSkin(self->skinstyle, &self->padding, self->skin, area, aux, culled, false, clipping);
+  clipping = fgDrawSkinPartial(self->skinstyle, &self->padding, self->skin, area, aux, culled, false, clipping);
 
   if(draw && !culled)
     draw(self, area, aux, hold);
@@ -324,7 +347,7 @@ void fgStandardDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* a
     hold = culled ? hold->nextnoclip : hold->next;
   }
 
-  clipping = fgDrawSkin(self->skinstyle, &self->padding, self->skin, area, aux, culled, true, clipping);
+  clipping = fgDrawSkinPartial(self->skinstyle, &self->padding, self->skin, area, aux, culled, true, clipping);
 
   if(clipping)
     fgroot_instance->backend.fgPopClipRect(aux);
@@ -339,7 +362,7 @@ void fgOrderedDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* au
   AbsRect curarea;
   bool clipping = false;
 
-  clipping = fgDrawSkin(self->skinstyle, &self->padding, self->skin, area, aux, culled, false, clipping);
+  clipping = fgDrawSkinPartial(self->skinstyle, &self->padding, self->skin, area, aux, culled, false, clipping);
 
   while(cur != 0 && (cur->flags & FGELEMENT_BACKGROUND)) // Render all background elements before the ordered elements
   {
@@ -399,7 +422,7 @@ void fgOrderedDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* au
     cur = cur->next;
   }
 
-  clipping = fgDrawSkin(self->skinstyle, &self->padding, self->skin, area, aux, culled, true, clipping);
+  clipping = fgDrawSkinPartial(self->skinstyle, &self->padding, self->skin, area, aux, culled, true, clipping);
 
   if(clipping)
     fgroot_instance->backend.fgPopClipRect(aux);
@@ -497,7 +520,7 @@ size_t fgOrderedInject(fgElement* self, const FG_Msg* msg, const AbsRect* area, 
   return (*fgroot_instance->fgBehaviorHook)(self, msg); // So we give the event to ourselves because it couldn't have missed us if we got to this point
 }
 
-BSS_FORCEINLINE size_t fgProcessCursor(fgRoot* self, size_t value, unsigned short type, FG_CURSOR fallback = FGCURSOR_NONE)
+BSS_FORCEINLINE size_t fgProcessCursor(fgRoot* self, size_t value, fgMsgType type, FG_CURSOR fallback = FGCURSOR_NONE)
 {
   static bool FROMCHECK = false;
   unsigned int cursor = (unsigned int)value;
@@ -781,7 +804,7 @@ fgRoot* fgSingleton()
   return fgroot_instance;
 }
 
-fgElement* fgCreate(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+fgElement* fgCreate(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
   return fgroot_instance->backend.fgCreate(type, parent, next, name, flags, transform, units);
 }
@@ -821,7 +844,7 @@ int fgRegisterCursor(int cursor, const void* data, size_t sz)
   return r;
 }
 
-fgElement* fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+fgElement* fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
   if(!STRICMP(type, "tab"))
   {

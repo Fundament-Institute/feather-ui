@@ -71,7 +71,7 @@ _FG_ASSET_DATA& _FG_ASSET_DATA::operator=(_FG_ASSET_DATA&& mov) { this->~_FG_ASS
 void fgSkin_Init(fgSkin* self, const char* name)
 {
   bss::bssFill(*self, 0);
-  self->tfunits = (uint16_t)~0;
+  self->tfunits = (fgMsgType)~0;
   self->name = fgCopyText(name, __FILE__, __LINE__);
 }
 
@@ -263,7 +263,7 @@ void fgSkinBase_WriteXML(XMLNode* node, fgSkinBase* base, char toplevel)
   }
 }
 
-size_t fgSkinTree::AddChild(const char* type, fgFlag flags, const fgTransform* transform, short units, int order) { return fgSkinTree_AddChild(this, type, flags, transform, units, order); }
+size_t fgSkinTree::AddChild(const char* type, fgFlag flags, const fgTransform* transform, fgMsgType units, int order) { return fgSkinTree_AddChild(this, type, flags, transform, units, order); }
 char fgSkinTree::RemoveChild(FG_UINT child) { return fgSkinTree_RemoveChild(this, child); }
 fgSkinLayout* fgSkinTree::GetChild(FG_UINT child) const { return fgSkinTree_GetChild(this, child); }
 FG_UINT fgSkinTree::AddStyle(const char* name) { return fgSkinTree_AddStyle(this, name); }

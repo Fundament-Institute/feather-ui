@@ -91,15 +91,15 @@ typedef struct _FG_ELEMENT {
 
 #ifdef  __cplusplus
   FG_DLLEXPORT void Construct();
-  FG_DLLEXPORT void Move(unsigned short subtype, struct _FG_ELEMENT* child, size_t diff);
+  FG_DLLEXPORT void Move(fgMsgType subtype, struct _FG_ELEMENT* child, size_t diff);
   FG_DLLEXPORT size_t Clone(struct _FG_ELEMENT* target = 0);
   FG_DLLEXPORT size_t SetAlpha(float alpha);
-  FG_DLLEXPORT size_t SetArea(const CRect& area, unsigned short units = 0);
-  FG_DLLEXPORT size_t SetTransform(const fgTransform& transform, unsigned short units = 0);
+  FG_DLLEXPORT size_t SetArea(const CRect& area, fgMsgType units = 0);
+  FG_DLLEXPORT size_t SetTransform(const fgTransform& transform, fgMsgType units = 0);
   FG_DLLEXPORT void SetFlag(fgFlag flag, bool value);
   FG_DLLEXPORT void SetFlags(fgFlag flags);
-  FG_DLLEXPORT size_t SetMargin(const AbsRect& margin, unsigned short units = 0);
-  FG_DLLEXPORT size_t SetPadding(const AbsRect& padding, unsigned short units = 0);
+  FG_DLLEXPORT size_t SetMargin(const AbsRect& margin, fgMsgType units = 0);
+  FG_DLLEXPORT size_t SetPadding(const AbsRect& padding, fgMsgType units = 0);
   FG_DLLEXPORT void SetParent(struct _FG_ELEMENT* parent, struct _FG_ELEMENT* next = 0);
   FG_DLLEXPORT size_t AddChild(struct _FG_ELEMENT* child, struct _FG_ELEMENT* next = 0);
   FG_DLLEXPORT struct _FG_ELEMENT* AddItem(void* item, size_t index = (size_t)~0);
@@ -108,7 +108,7 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT size_t RemoveChild(struct _FG_ELEMENT* child);
   FG_DLLEXPORT size_t ReorderChild(struct _FG_ELEMENT* child, struct _FG_ELEMENT* next);
   FG_DLLEXPORT size_t RemoveItem(size_t item);
-  FG_DLLEXPORT void LayoutChange(unsigned short subtype, struct _FG_ELEMENT* target, struct _FG_ELEMENT* old);
+  FG_DLLEXPORT void LayoutChange(fgMsgType subtype, struct _FG_ELEMENT* target, struct _FG_ELEMENT* old);
   FG_DLLEXPORT size_t LayoutFunction(const FG_Msg& msg, const CRect& area, bool scrollbar = false);
   FG_DLLEXPORT struct _FG_ELEMENT* LayoutLoad(struct _FG_LAYOUT* layout);
   FG_DLLEXPORT size_t DragOver(float x, float y);
@@ -148,8 +148,8 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT void Neutral();
   FG_DLLEXPORT void Hover();
   FG_DLLEXPORT void Active();
-  FG_DLLEXPORT void Action(uint16_t subaction = 0);
-  FG_DLLEXPORT void SetDim(float x, float y, FGDIM type = FGDIM_MAX, unsigned short units = 0);
+  FG_DLLEXPORT void Action(fgMsgType subaction = 0);
+  FG_DLLEXPORT void SetDim(float x, float y, FGDIM type = FGDIM_MAX, fgMsgType units = 0);
   FG_DLLEXPORT const AbsVec* GetDim(FGDIM type = FGDIM_MAX) const;
   FG_DLLEXPORT struct _FG_ELEMENT* GetItem(size_t index) const;
   FG_DLLEXPORT struct _FG_ELEMENT* GetItemAt(float x, float y) const;
@@ -167,7 +167,7 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT size_t SetRange(ptrdiff_t value);
   FG_DLLEXPORT size_t SetRangeF(float value);
   FG_DLLEXPORT size_t SetAsset(fgAsset asset);
-  FG_DLLEXPORT size_t SetUV(const CRect& uv, unsigned short units = 0);
+  FG_DLLEXPORT size_t SetUV(const CRect& uv, fgMsgType units = 0);
   FG_DLLEXPORT size_t SetColor(unsigned int color, FGSETCOLOR index);
   FG_DLLEXPORT size_t SetOutline(float outline);
   FG_DLLEXPORT size_t SetFont(void* font);
@@ -196,14 +196,14 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT const int* GetPlaceholderU();
   FG_DLLEXPORT int GetMask() const;
   FG_DLLEXPORT const AbsVec& GetScaling() const;
-  FG_DLLEXPORT void AddListener(unsigned short type, fgListener listener);
-  FG_DLLEXPORT void AddDelegateListener(unsigned short type, void* p, void(*listener)(void*, struct _FG_ELEMENT*, const FG_Msg*));
+  FG_DLLEXPORT void AddListener(fgMsgType type, fgListener listener);
+  FG_DLLEXPORT void AddDelegateListener(fgMsgType type, void* p, void(*listener)(void*, struct _FG_ELEMENT*, const FG_Msg*));
   FG_DLLEXPORT struct _FG_ELEMENT* GetChildByName(const char* name) const;
 #endif
 } fgElement;
 
-FG_EXTERN void fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units, void (*destroy)(void*), size_t(*message)(void*, const FG_Msg*));
-FG_EXTERN void fgElement_Init(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
+FG_EXTERN void fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units, void (*destroy)(void*), size_t(*message)(void*, const FG_Msg*));
+FG_EXTERN void fgElement_Init(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units);
 FG_EXTERN void fgElement_Destroy(fgElement* self);
 FG_EXTERN size_t fgElement_Message(fgElement* self, const FG_Msg* msg);
 FG_EXTERN fgElement* fgElement_GetChildUnderMouse(fgElement* self, float x, float y, AbsRect* cache);
@@ -213,14 +213,14 @@ FG_EXTERN void fgElement_ApplyMessageArray(fgElement* search, fgElement* target,
 FG_EXTERN void fgElement_IterateUserHash(fgElement* self, void(*f)(void*, const char*, size_t), void* data);
 FG_EXTERN void fgElement_StyleToMessageArray(const struct _FG_STYLE* src, fgElement* target, fgVector** vdest);
 
-FG_EXTERN size_t fgDimMessage(fgElement* self, unsigned short type, unsigned short subtype, float x, float y);
-FG_EXTERN size_t fgFloatMessage(fgElement* self, unsigned short type, unsigned short subtype, float data, ptrdiff_t aux);
-FG_EXTERN float fgGetFloatMessage(fgElement* self, unsigned short type, unsigned short subtype, ptrdiff_t aux);
-FG_EXTERN size_t fgIntMessage(fgElement* self, unsigned short type, ptrdiff_t data, size_t aux);
-FG_EXTERN size_t fgVoidMessage(fgElement* self, unsigned short type, void* data, ptrdiff_t aux);
+FG_EXTERN size_t fgDimMessage(fgElement* self, fgMsgType type, fgMsgType subtype, float x, float y);
+FG_EXTERN size_t fgFloatMessage(fgElement* self, fgMsgType type, fgMsgType subtype, float data, ptrdiff_t aux);
+FG_EXTERN float fgGetFloatMessage(fgElement* self, fgMsgType type, fgMsgType subtype, ptrdiff_t aux);
+FG_EXTERN size_t fgIntMessage(fgElement* self, fgMsgType type, ptrdiff_t data, size_t aux);
+FG_EXTERN size_t fgVoidMessage(fgElement* self, fgMsgType type, void* data, ptrdiff_t aux);
 FG_EXTERN size_t fgSendMessage(fgElement* self, const FG_Msg* msg);
-FG_EXTERN size_t fgSubMessage(fgElement* self, unsigned short type, unsigned short subtype, void* data, ptrdiff_t aux);
-FG_EXTERN void* fgGetPtrMessage(fgElement* self, unsigned short type, unsigned short subtype, size_t data, size_t aux);
+FG_EXTERN size_t fgSubMessage(fgElement* self, fgMsgType type, fgMsgType subtype, void* data, ptrdiff_t aux);
+FG_EXTERN void* fgGetPtrMessage(fgElement* self, fgMsgType type, fgMsgType subtype, size_t data, size_t aux);
 
 // The outer (layout) rect does not have margins or padding applied. This is the rect used by the layout.
 FG_EXTERN void ResolveOuterRect(const fgElement* self, AbsRect* out);
@@ -239,8 +239,8 @@ FG_EXTERN void VirtualFreeChild(fgElement* self);
 FG_EXTERN void fgElement_Clear(fgElement* self); // Removes all non-internal children from the element
 FG_EXTERN void fgElement_ClearType(fgElement* self, const char* type); // Removes all elements of a given type
 FG_EXTERN void fgElement_MouseMoveCheck(fgElement* self);
-FG_EXTERN void fgElement_AddListener(fgElement* self, unsigned short type, fgListener listener);
-FG_EXTERN void fgElement_AddDelegateListener(fgElement* self, unsigned short type, void* p, void(*listener)(void*, struct _FG_ELEMENT*, const FG_Msg*));
+FG_EXTERN void fgElement_AddListener(fgElement* self, fgMsgType type, fgListener listener);
+FG_EXTERN void fgElement_AddDelegateListener(fgElement* self, fgMsgType type, void* p, void(*listener)(void*, struct _FG_ELEMENT*, const FG_Msg*));
 FG_EXTERN struct _FG_ELEMENT* fgElement_GetChildByName(fgElement* self, const char* name);
 FG_EXTERN struct _FG_ELEMENT* fgElement_GetChildByType(fgElement* self, const char* type);
 FG_EXTERN void fgElement_RelativeTo(const fgElement* self, const fgElement* relative, AbsRect* out);
@@ -249,9 +249,9 @@ FG_EXTERN void fgElement_RelativeTo(const fgElement* self, const fgElement* rela
 }
 
 template<class T, void(T::*F)(struct _FG_ELEMENT*, const FG_Msg*)>
-inline void fgElement_AddDelegateListener(fgElement* self, unsigned short type, T* src) { fgElement_AddDelegateListener(self, type, src, &fgDelegateListener::stub<T, F>); }
+inline void fgElement_AddDelegateListener(fgElement* self, fgMsgType type, T* src) { fgElement_AddDelegateListener(self, type, src, &fgDelegateListener::stub<T, F>); }
 template<class T, void(T::*F)(struct _FG_ELEMENT*, const FG_Msg*) const>
-inline void fgElement_AddDelegateListener(fgElement* self, unsigned short type, const T* src) { fgElement_AddDelegateListener(self, type, const_cast<T*>(src), &fgDelegateListener::stubconst<T, F>); }
+inline void fgElement_AddDelegateListener(fgElement* self, fgMsgType type, const T* src) { fgElement_AddDelegateListener(self, type, const_cast<T*>(src), &fgDelegateListener::stubconst<T, F>); }
 #endif
 
 #endif

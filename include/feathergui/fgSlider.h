@@ -22,7 +22,7 @@ typedef struct _FG_SLIDER {
 #endif
 } fgSlider;
 
-FG_EXTERN void fgSlider_Init(fgSlider* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units);
+FG_EXTERN void fgSlider_Init(fgSlider* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units);
 FG_EXTERN void fgSlider_Destroy(fgSlider* self);
 FG_EXTERN size_t fgSlider_Message(fgSlider* self, const FG_Msg* msg);
 

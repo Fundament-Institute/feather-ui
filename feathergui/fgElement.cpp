@@ -17,7 +17,7 @@ const fgFlag FGELEMENT_REQUIRELINEHEIGHT = FGUNIT_EM | FGUNIT_LEFT_EM | FGUNIT_T
 template<typename U, typename V>
 BSS_FORCEINLINE char CompPairInOrder(const std::pair<U, V>& l, const std::pair<U, V>& r) { char ret = SGNCOMPARE(l.first, r.first); return !ret ? SGNCOMPARE(l.second, r.second) : ret; }
 
-bss::AVLTree<std::pair<fgElement*, unsigned short>, void, &CompPairInOrder> fgListenerList;
+bss::AVLTree<std::pair<fgElement*, fgMsgType>, void, &CompPairInOrder> fgListenerList;
 
 struct fgStoredMessage
 {
@@ -69,7 +69,7 @@ char CompElementMsg(const fgStoredMessage& l, const fgStoredMessage& r)
 
 typedef bss::ArraySort<fgStoredMessage, &CompElementMsg, size_t, bss::ARRAY_CONSTRUCT> MESSAGESORT;
 
-void fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units, void (*destroy)(void*), size_t(*message)(void*, const FG_Msg*))
+void fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units, void (*destroy)(void*), size_t(*message)(void*, const FG_Msg*))
 {
   assert(self != 0);
   assert(!(flags&FGFLAGS_DEFAULTS));
@@ -89,7 +89,7 @@ void fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRI
   if(transform)
   {
     self->transform = *transform;
-    if(units != 0 && units != (uint16_t)~0)
+    if(units != 0 && units != (fgMsgType)~0)
     {
       fgResolveCRectUnit(self->transform.area, parent ? parent->GetDPI() : fgIntVec_DEFAULTDPI, parent ? parent->GetLineHeight() : fgroot_instance->lineheight, units);
       fgResolveCVecUnit(self->transform.center, parent ? parent->GetDPI() : fgIntVec_DEFAULTDPI, parent ? parent->GetLineHeight() : fgroot_instance->lineheight, units);
@@ -100,7 +100,7 @@ void fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRI
   _sendmsg<FG_SETPARENT, void*, void*>(self, parent, next);
 }
 
-void fgElement_Init(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
+void fgElement_Init(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
   fgElement_InternalSetup(self, parent, next, name, flags, transform, units, (fgDestroy)&fgElement_Destroy, (fgMessage)&fgElement_Message);
 }
@@ -354,7 +354,7 @@ void fgElement_StyleToMessageArray(const fgStyle* src, fgElement* target, fgVect
 
 fgElement* fgElement_LoadLayout(fgElement* parent, fgElement* next, fgClassLayout* layout)
 {
-  fgElement* element = fgroot_instance->backend.fgCreate(layout->element.type, parent, next, layout->name, layout->element.flags, (layout->element.units == -1) ? 0 : &layout->element.transform, layout->element.units | FGUNIT_SNAP);
+  fgElement* element = fgroot_instance->backend.fgCreate(layout->element.type, parent, next, layout->name, layout->element.flags, (layout->element.units == (fgMsgType)~0) ? 0 : &layout->element.transform, layout->element.units | FGUNIT_SNAP);
   assert(element != 0);
   if(!element)
     return 0;
@@ -379,7 +379,7 @@ void fgElement_ApplySkin(fgElement* self, const fgSkin* skin)
   if(skin->inherit) // apply inherited skin first so we override it.
     fgElement_ApplySkin(self, skin->inherit);
 
-  if(skin->tfunits != (uint16_t)~0)
+  if(skin->tfunits != (fgMsgType)~0)
     self->SetTransform(skin->tf, skin->tfunits);
   fgElement_StyleToMessageArray(&skin->style, 0, &self->skinstyle);
 }
@@ -443,7 +443,7 @@ void fgElement_SetSkinStyle(fgElement* self, FG_UINT style, const fgSkin* skin)
     fgElement_SetSkinStyleElement(self, style, skin->tree.children.p[i]);
 }
 
-BSS_FORCEINLINE void fgElement_PropogateMove(fgElement* self, uint16_t subtype, fgElement* e, size_t u2)
+BSS_FORCEINLINE void fgElement_PropogateMove(fgElement* self, fgMsgType subtype, fgElement* e, size_t u2)
 {
   if(u2 & (FGMOVE_RESIZE | FGMOVE_PADDING | FGMOVE_MARGIN)) // a layout change can happen on a resize or padding change
     _sendsubmsg<FG_LAYOUTCHANGE, void*, size_t>(self, FGELEMENT_LAYOUTRESIZE, 0, u2);
@@ -497,12 +497,12 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgElement_MouseMoveCheck(self);
         fgroot_instance->backend.fgDirtyElement(self);
         memcpy(&self->transform.area, area, sizeof(CRect));
-        if(msg->subtype != 0 && msg->subtype != (uint16_t)~0)
+        if(msg->subtype != 0 && msg->subtype != (fgMsgType)~0)
           fgResolveCRectUnit(self->transform.area, (msg->subtype&FGELEMENT_REQUIREDPI) ? self->GetDPI() : fgIntVec_DEFAULTDPI, (msg->subtype&FGELEMENT_REQUIRELINEHEIGHT) ? self->GetLineHeight() : 0.0f, msg->subtype);
         fgroot_instance->backend.fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
-        if(msg->subtype != (uint16_t)~0)
+        if(msg->subtype != (fgMsgType)~0)
           _sendsubmsg<FG_MOVE, void*, size_t>(self, FG_SETAREA, 0, diff);
         else
           fgElement_PropogateMove(self, FG_SETAREA, 0, diff);
@@ -521,13 +521,13 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgElement_MouseMoveCheck(self);
         fgroot_instance->backend.fgDirtyElement(self);
         self->transform.center = transform->center;
-        if(msg->subtype != 0 && msg->subtype != (uint16_t)~0)
+        if(msg->subtype != 0 && msg->subtype != (fgMsgType)~0)
           fgResolveCVecUnit(self->transform.center, (msg->subtype&FGELEMENT_REQUIREDPI) ? self->GetDPI() : fgIntVec_DEFAULTDPI, (msg->subtype&FGELEMENT_REQUIRELINEHEIGHT) ? self->GetLineHeight() : 0.0f, msg->subtype);
         self->transform.rotation = transform->rotation;
         fgroot_instance->backend.fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
-        if(msg->subtype != (uint16_t)~0)
+        if(msg->subtype != (fgMsgType)~0)
           _sendsubmsg<FG_MOVE, void*, size_t>(self, FG_SETTRANSFORM, 0, diff);
         else
           fgElement_PropogateMove(self, FG_SETTRANSFORM, 0, diff);
@@ -582,12 +582,12 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgElement_MouseMoveCheck(self);
         fgroot_instance->backend.fgDirtyElement(self);
         memcpy(&self->margin, margin, sizeof(AbsRect));
-        if(msg->subtype != 0 && msg->subtype != (uint16_t)~0)
+        if(msg->subtype != 0 && msg->subtype != (fgMsgType)~0)
           fgResolveRectUnit(self->margin, (msg->subtype&FGELEMENT_REQUIREDPI) ? self->GetDPI() : fgIntVec_DEFAULTDPI, (msg->subtype&FGELEMENT_REQUIRELINEHEIGHT) ? self->GetLineHeight() : 0.0f, msg->subtype);
         fgroot_instance->backend.fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
-        if(msg->subtype != (uint16_t)~0)
+        if(msg->subtype != (fgMsgType)~0)
           _sendsubmsg<FG_MOVE, void*, size_t>(self, FG_SETMARGIN, 0, diff | FGMOVE_MARGIN);
         else
           fgElement_PropogateMove(self, FG_SETMARGIN, 0, diff | FGMOVE_MARGIN);
@@ -606,12 +606,12 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgElement_MouseMoveCheck(self);
         fgroot_instance->backend.fgDirtyElement(self);
         memcpy(&self->padding, padding, sizeof(AbsRect));
-        if(msg->subtype != 0 && msg->subtype != (uint16_t)~0)
+        if(msg->subtype != 0 && msg->subtype != (fgMsgType)~0)
           fgResolveRectUnit(self->padding, (msg->subtype&FGELEMENT_REQUIREDPI) ? self->GetDPI() : fgIntVec_DEFAULTDPI, (msg->subtype&FGELEMENT_REQUIRELINEHEIGHT) ? self->GetLineHeight() : 0.0f, msg->subtype);
         fgroot_instance->backend.fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
-        if(msg->subtype != (uint16_t)~0)
+        if(msg->subtype != (fgMsgType)~0)
           _sendsubmsg<FG_MOVE, void*, size_t>(self, FG_SETPADDING, 0, diff | FGMOVE_PADDING);
         else
           fgElement_PropogateMove(self, FG_SETMARGIN, 0, diff | FGMOVE_PADDING);
@@ -833,9 +833,9 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
         mask = fgStyle_GetIndexGroups(index);
       case FGSETSTYLE_INDEX:
         assert(mask != 0);
-        if(index == (FG_UINT)-1)
+        if(index == (FG_UINT)~0)
           index = (FG_UINT)_sendmsg<FG_GETSTYLE>(self);
-        else if(self->style == (FG_UINT)-1)
+        else if(self->style == (FG_UINT)~0)
           self->style = index;
         else
           index = self->style = (FG_UINT)(index | (self->style&(~mask)));
@@ -884,7 +884,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
   }
   return FG_ACCEPT;
   case FG_GETSTYLE:
-    return (self->style == (FG_UINT)-1 && self->parent != 0) ? (*fgroot_instance->fgBehaviorHook)(self->parent, msg) : self->style;
+    return (self->style == (FG_UINT)~0 && self->parent != 0) ? (*fgroot_instance->fgBehaviorHook)(self->parent, msg) : self->style;
   case FG_GOTFOCUS:
     if(self->parent)
       return (*fgroot_instance->fgBehaviorHook)(self->parent, msg);
@@ -1048,12 +1048,6 @@ void VirtualFreeChild(fgElement* self)
     (*free)(self);
 }
 
-BSS_FORCEINLINE void __applyrect(AbsRect& dest, const AbsRect& src, const AbsRect& apply) noexcept
-{
-  const sseVecT<FABS> m(1.0f, 1.0f, -1.0f, -1.0f);
-  (sseVecT<FABS>(BSS_UNALIGNED<const float>(&src.left)) + (sseVecT<FABS>(BSS_UNALIGNED<const float>(&apply.left))*m)) >> BSS_UNALIGNED<float>(&dest.left);
-}
-
 // Inner (Child) rect has padding and margins applied and is used by foreground elements
 // Standard (clipping) rect has margins applied is used by background elements and rendering
 // Outer (layout) rect has none of those and is used by layouts
@@ -1177,7 +1171,7 @@ char MsgHitElement(const FG_Msg* msg, const fgElement* child)
   return MsgHitAbsRect(msg, &r);
 }
 
-size_t fgVoidMessage(fgElement* self, unsigned short type, void* data, ptrdiff_t aux)
+size_t fgVoidMessage(fgElement* self, fgMsgType type, void* data, ptrdiff_t aux)
 {
   FG_Msg msg = { 0 };
   msg.type = type;
@@ -1187,7 +1181,7 @@ size_t fgVoidMessage(fgElement* self, unsigned short type, void* data, ptrdiff_t
   return (*fgroot_instance->fgBehaviorHook)(self, &msg);
 }
 
-size_t fgIntMessage(fgElement* self, unsigned short type, ptrdiff_t data, size_t aux)
+size_t fgIntMessage(fgElement* self, fgMsgType type, ptrdiff_t data, size_t aux)
 {
   FG_Msg msg = { 0 };
   msg.type = type;
@@ -1202,7 +1196,7 @@ size_t fgSendMessage(fgElement* self, const FG_Msg* msg)
   return (*fgroot_instance->fgBehaviorHook)(self, msg);
 }
 
-size_t fgSubMessage(fgElement* self, unsigned short type, unsigned short subtype, void* data, ptrdiff_t aux)
+size_t fgSubMessage(fgElement* self, fgMsgType type, fgMsgType subtype, void* data, ptrdiff_t aux)
 {
   FG_Msg msg = { 0 };
   msg.type = type;
@@ -1214,7 +1208,7 @@ size_t fgSubMessage(fgElement* self, unsigned short type, unsigned short subtype
 }
 
 
-FG_EXTERN size_t fgDimMessage(fgElement* self, unsigned short type, unsigned short subtype, float x, float y)
+FG_EXTERN size_t fgDimMessage(fgElement* self, fgMsgType type, fgMsgType subtype, float x, float y)
 {
   FG_Msg msg = { 0 };
   msg.type = type;
@@ -1224,7 +1218,7 @@ FG_EXTERN size_t fgDimMessage(fgElement* self, unsigned short type, unsigned sho
   assert(self != 0);
   return (*fgroot_instance->fgBehaviorHook)(self, &msg);
 }
-FG_EXTERN size_t fgFloatMessage(fgElement* self, unsigned short type, unsigned short subtype, float data, ptrdiff_t aux)
+FG_EXTERN size_t fgFloatMessage(fgElement* self, fgMsgType type, fgMsgType subtype, float data, ptrdiff_t aux)
 {
   FG_Msg msg = { 0 };
   msg.type = type;
@@ -1234,7 +1228,7 @@ FG_EXTERN size_t fgFloatMessage(fgElement* self, unsigned short type, unsigned s
   assert(self != 0);
   return (*fgroot_instance->fgBehaviorHook)(self, &msg);
 }
-FG_EXTERN float fgGetFloatMessage(fgElement* self, unsigned short type, unsigned short subtype, ptrdiff_t aux)
+FG_EXTERN float fgGetFloatMessage(fgElement* self, fgMsgType type, fgMsgType subtype, ptrdiff_t aux)
 {
   FG_Msg msg = { 0 };
   msg.type = type;
@@ -1244,7 +1238,7 @@ FG_EXTERN float fgGetFloatMessage(fgElement* self, unsigned short type, unsigned
   size_t r = (*fgroot_instance->fgBehaviorHook)(self, &msg);
   return *(float*)&r;
 }
-FG_EXTERN void* fgGetPtrMessage(fgElement* self, unsigned short type, unsigned short subtype, size_t data, size_t aux)
+FG_EXTERN void* fgGetPtrMessage(fgElement* self, fgMsgType type, fgMsgType subtype, size_t data, size_t aux)
 {
   FG_Msg msg = { 0 };
   msg.type = type;
@@ -1296,14 +1290,14 @@ void fgElement_MouseMoveCheck(fgElement* self)
     fgroot_instance->mouse.state |= FGMOUSE_SEND_MOUSEMOVE;
 }
 
-void fgElement_AddListener(fgElement* self, unsigned short type, fgListener listener)
+void fgElement_AddListener(fgElement* self, fgMsgType type, fgListener listener)
 {
   fgElement_AddDelegateListener(self, type, (void*)listener, &fgDelegateListener::stubembed);
 }
-void fgElement_AddDelegateListener(fgElement* self, unsigned short type, void* p, void(*listener)(void*, struct _FG_ELEMENT*, const FG_Msg*))
+void fgElement_AddDelegateListener(fgElement* self, fgMsgType type, void* p, void(*listener)(void*, struct _FG_ELEMENT*, const FG_Msg*))
 {
-  fgListenerList.Insert(std::pair<fgElement*, unsigned short>(self, type));
-  fgListenerHash.Insert(std::pair<fgElement*, unsigned short>(self, type), fgDelegateListener(p, listener));
+  fgListenerList.Insert(std::pair<fgElement*, fgMsgType>(self, type));
+  fgListenerHash.Insert(std::pair<fgElement*, fgMsgType>(self, type), fgDelegateListener(p, listener));
 }
 
 void fgElement_IterateUserHash(fgElement* self, void(*f)(void*, const char*, size_t), void* data)
@@ -1316,7 +1310,7 @@ void fgElement_IterateUserHash(fgElement* self, void(*f)(void*, const char*, siz
   }
 }
 
-bss::AVLNode<std::pair<fgElement*, unsigned short>>* fgElement_GetAnyListener(fgElement* key, bss::AVLNode<std::pair<fgElement*, unsigned short>>* cur)
+bss::AVLNode<std::pair<fgElement*, fgMsgType>>* fgElement_GetAnyListener(fgElement* key, bss::AVLNode<std::pair<fgElement*, fgMsgType>>* cur)
 {
   while(cur)
   {
@@ -1332,7 +1326,7 @@ bss::AVLNode<std::pair<fgElement*, unsigned short>>* fgElement_GetAnyListener(fg
 }
 void fgElement_ClearListeners(fgElement* self)
 {
-  bss::AVLNode<std::pair<fgElement*, unsigned short>>* cur;
+  bss::AVLNode<std::pair<fgElement*, fgMsgType>>* cur;
 
   while(cur = fgElement_GetAnyListener(self, fgListenerList.GetRoot()))
   {
@@ -1401,23 +1395,23 @@ void fgElement_RelativeTo(const fgElement* self, const fgElement* relative, AbsR
 
 void fgElement::Construct() { _sendmsg<FG_CONSTRUCT>(this); }
 
-void fgElement::Move(unsigned short subtype, fgElement* child, size_t diff) { _sendsubmsg<FG_MOVE, fgElement*, size_t>(this, subtype, child, diff); }
+void fgElement::Move(fgMsgType subtype, fgElement* child, size_t diff) { _sendsubmsg<FG_MOVE, fgElement*, size_t>(this, subtype, child, diff); }
 
 size_t fgElement::Clone(struct _FG_ELEMENT* target) { return _sendmsg<FG_CLONE, fgElement*>(this, target); }
 
 size_t fgElement::SetAlpha(float alpha) { return _sendmsg<FG_SETALPHA, float>(this, alpha); }
 
-size_t fgElement::SetArea(const CRect& area, unsigned short units) { return _sendsubmsg<FG_SETAREA, const void*>(this, units, &area); }
+size_t fgElement::SetArea(const CRect& area, fgMsgType units) { return _sendsubmsg<FG_SETAREA, const void*>(this, units, &area); }
 
-size_t fgElement::SetTransform(const fgTransform& transform, unsigned short units) { return _sendsubmsg<FG_SETTRANSFORM, const void*>(this, units, &transform); }
+size_t fgElement::SetTransform(const fgTransform& transform, fgMsgType units) { return _sendsubmsg<FG_SETTRANSFORM, const void*>(this, units, &transform); }
 
 void fgElement::SetFlag(fgFlag flag, bool value) { _sendmsg<FG_SETFLAG, ptrdiff_t, size_t>(this, flag, value != 0); }
 
 void fgElement::SetFlags(fgFlag flags) { _sendmsg<FG_SETFLAGS, ptrdiff_t>(this, flags); }
 
-size_t fgElement::SetMargin(const AbsRect& margin, unsigned short units) { return _sendsubmsg<FG_SETMARGIN, const void*>(this, units, &margin); }
+size_t fgElement::SetMargin(const AbsRect& margin, fgMsgType units) { return _sendsubmsg<FG_SETMARGIN, const void*>(this, units, &margin); }
 
-size_t fgElement::SetPadding(const AbsRect& padding, unsigned short units) { return _sendsubmsg<FG_SETPADDING, const void*>(this, units, &padding); }
+size_t fgElement::SetPadding(const AbsRect& padding, fgMsgType units) { return _sendsubmsg<FG_SETPADDING, const void*>(this, units, &padding); }
 
 void fgElement::SetParent(fgElement* parent, fgElement* next) { _sendmsg<FG_SETPARENT, fgElement*, fgElement*>(this, parent, next); }
 
@@ -1435,7 +1429,7 @@ size_t fgElement::RemoveItem(size_t item) { return _sendmsg<FG_REMOVEITEM, ptrdi
 
 size_t fgElement::LayoutFunction(const FG_Msg& msg, const CRect& area, bool scrollbar) { return _sendsubmsg<FG_LAYOUTFUNCTION, const void*, const void*>(this, !!scrollbar, &msg, &area); }
 
-void fgElement::LayoutChange(unsigned short subtype, fgElement* target, fgElement* old) { _sendsubmsg<FG_LAYOUTCHANGE, fgElement*, fgElement*>(this, subtype, target, old); }
+void fgElement::LayoutChange(fgMsgType subtype, fgElement* target, fgElement* old) { _sendsubmsg<FG_LAYOUTCHANGE, fgElement*, fgElement*>(this, subtype, target, old); }
 
 fgElement* fgElement::LayoutLoad(fgLayout* layout) { return reinterpret_cast<fgElement*>(_sendmsg<FG_LAYOUTLOAD, void*>(this, layout)); }
 
@@ -1627,9 +1621,9 @@ void fgElement::Hover() { _sendmsg<FG_HOVER>(this); }
 
 void fgElement::Active() { _sendmsg<FG_ACTIVE>(this); }
 
-void fgElement::Action(uint16_t subaction) { _sendsubmsg<FG_ACTION>(this, subaction); }
+void fgElement::Action(fgMsgType subaction) { _sendsubmsg<FG_ACTION>(this, subaction); }
 
-void fgElement::SetDim(float x, float y, FGDIM type, unsigned short units) { _sendsubmsg<FG_SETDIM, float, float>(this, type|units, x, y); }
+void fgElement::SetDim(float x, float y, FGDIM type, fgMsgType units) { _sendsubmsg<FG_SETDIM, float, float>(this, type|units, x, y); }
 
 const AbsVec* fgElement::GetDim(FGDIM type) const { size_t r = _sendsubmsg<FG_GETDIM>(const_cast<fgElement*>(this), type); return *reinterpret_cast<AbsVec**>(&r); }
 
@@ -1673,7 +1667,7 @@ fgElement* fgElement::GetSelectedItem(size_t index) const { return reinterpret_c
 
 size_t fgElement::SetAsset(fgAsset asset) { return _sendmsg<FG_SETASSET, void*>(this, asset); }
 
-size_t fgElement::SetUV(const CRect& uv, unsigned short units) { return _sendsubmsg<FG_SETUV, const void*>(this, units, &uv); }
+size_t fgElement::SetUV(const CRect& uv, fgMsgType units) { return _sendsubmsg<FG_SETUV, const void*>(this, units, &uv); }
 
 size_t fgElement::SetColor(unsigned int color, FGSETCOLOR index) { return _sendsubmsg<FG_SETCOLOR, size_t>(this, index, color); }
 
@@ -1716,6 +1710,6 @@ const wchar_t* fgElement::GetPlaceholderW() { return reinterpret_cast<const wcha
 const int* fgElement::GetPlaceholderU() { return reinterpret_cast<const int*>(_sendsubmsg<FG_GETTEXT>(this, FGTEXTFMT_PLACEHOLDER_UTF32)); }
 int fgElement::GetMask() const { return _sendsubmsg<FG_GETTEXT>(const_cast<fgElement*>(this), FGTEXTFMT_MASK); }
 const AbsVec& fgElement::GetScaling() const { return *reinterpret_cast<const AbsVec*>(_sendmsg<FG_GETSCALING>(const_cast<fgElement*>(this))); }
-void fgElement::AddListener(unsigned short type, fgListener listener) { fgElement_AddListener(this, type, listener); }
-void fgElement::AddDelegateListener(unsigned short type, void* p, void(*listener)(void*, struct _FG_ELEMENT*, const FG_Msg*)) { fgElement_AddDelegateListener(this, type, p, listener); }
+void fgElement::AddListener(fgMsgType type, fgListener listener) { fgElement_AddListener(this, type, listener); }
+void fgElement::AddDelegateListener(fgMsgType type, void* p, void(*listener)(void*, struct _FG_ELEMENT*, const FG_Msg*)) { fgElement_AddDelegateListener(this, type, p, listener); }
 fgElement* fgElement::GetChildByName(const char* name) const { return fgElement_GetChildByName(const_cast<fgElement*>(this), name); }

@@ -188,8 +188,8 @@ struct fgConstruct<T>
 struct _FG_DEBUG;
 extern struct _FG_DEBUG* fgdebug_instance;
 
-typedef typename fgConstruct<fgSkinLayout, const char*, fgFlag, const fgTransform*, short, int>::fgConstructor<fgSkinLayout_Destroy, fgSkinLayout_Init> fgSkinLayoutConstruct;
-typedef typename fgConstruct<fgClassLayout, const char*, const char*, fgFlag, const fgTransform*, short, int>::fgConstructor<fgClassLayout_Destroy, fgClassLayout_Init> fgClassLayoutConstruct;
+typedef typename fgConstruct<fgSkinLayout, const char*, fgFlag, const fgTransform*, fgMsgType, int>::fgConstructor<fgSkinLayout_Destroy, fgSkinLayout_Init> fgSkinLayoutConstruct;
+typedef typename fgConstruct<fgClassLayout, const char*, const char*, fgFlag, const fgTransform*, fgMsgType, int>::fgConstructor<fgClassLayout_Destroy, fgClassLayout_Init> fgClassLayoutConstruct;
 
 BSS_FORCEINLINE void fgConstructKeyValue(_FG_KEY_VALUE*) {}
 BSS_FORCEINLINE void fgDestructKeyValue(_FG_KEY_VALUE* p)
@@ -236,7 +236,7 @@ inline size_t _sendmsg(fgElement* self, Args... args)
 }
 
 template<FG_MSGTYPE type, typename... Args>
-inline size_t _sendsubmsg(fgElement* self, unsigned short sub, Args... args)
+inline size_t _sendsubmsg(fgElement* self, fgMsgType sub, Args... args)
 {
   FG_Msg msg = { 0 };
   msg.type = type;
@@ -245,7 +245,7 @@ inline size_t _sendsubmsg(fgElement* self, unsigned short sub, Args... args)
   return (*fgroot_instance->fgBehaviorHook)(self, &msg);
 }
 
-FG_EXTERN bss::Hash<std::pair<fgElement*, unsigned short>, fgDelegateListener> fgListenerHash;
+FG_EXTERN bss::Hash<std::pair<fgElement*, fgMsgType>, fgDelegateListener> fgListenerHash;
 
 BSS_FORCEINLINE size_t fgSetFlagStyle(fgElement* self, const char* style, bool value = true)
 {
@@ -374,7 +374,7 @@ extern void fgSkinBase_WriteXML(bss::XMLNode* node, fgSkinBase* base, char tople
 extern void fgSkin_WriteXML(bss::XMLNode* node, fgSkin* skin);
 static kh_fgSkins_s *kh_init_fgSkins();
 extern fgSkin* fgStyle_ParseAttributesXML(struct _FG_STYLE* self, const bss::XMLNode* cur, int flags, struct _FG_SKIN_BASE* root, const char* path, const char** id, fgKeyValueArray* userdata);
-extern int fgStyle_NodeEvalTransform(const bss::XMLNode* node, fgTransform& t);
+extern fgMsgType fgStyle_NodeEvalTransform(const bss::XMLNode* node, fgTransform& tf, fgMsgType units);
 extern fgVector* fgText_Conversion(int type, struct __VECTOR__UTF8* text8, struct __VECTOR__UTF16* text16, struct __VECTOR__UTF32* text32);
 extern void fgMenu_Show(struct _FG_MENU* self, bool show);
 extern void LList_RemoveAll(fgElement* self);
@@ -385,11 +385,11 @@ extern fgElement* LList_Find(fgElement* BSS_RESTRICT self);
 extern void fgStyle_WriteFloat(bss::Str& s, float abs);
 extern void fgStyle_WriteInt(bss::Str& s, int64_t i);
 extern void fgStyle_WriteHex(bss::Str& s, uint64_t i);
-extern void fgStyle_WriteAbs(bss::Str& s, float abs, short unit);
-extern void fgStyle_WriteCoord(bss::Str& s, const Coord& coord, short unit);
-extern bss::Str fgStyle_WriteCVec(const CVec& vec, short units);
-extern bss::Str fgStyle_WriteAbsRect(const AbsRect& r, short units);
-extern bss::Str fgStyle_WriteCRect(const CRect& r, short units);
+extern void fgStyle_WriteAbs(bss::Str& s, float abs, fgMsgType unit);
+extern void fgStyle_WriteCoord(bss::Str& s, const Coord& coord, fgMsgType unit);
+extern bss::Str fgStyle_WriteCVec(const CVec& vec, fgMsgType units);
+extern bss::Str fgStyle_WriteAbsRect(const AbsRect& r, fgMsgType units);
+extern bss::Str fgStyle_WriteCRect(const CRect& r, fgMsgType units);
 extern void fgStyle_WriteFlagsIterate(bss::Str& s, const char* type, const char* divider, fgFlag flags, bool remove);
 extern void fgBox_SetSpacing(fgElement* self, AbsVec& spacing, const FG_Msg* msg);
 
@@ -454,6 +454,12 @@ inline FABS fgLayout_ExpandY(FABS dimy, fgElement* child)
 {
   FABS r = child->transform.area.top.abs + fgLayout_GetElementHeight(child);
   return bssmax(dimy, r);
+}
+
+BSS_FORCEINLINE void __applyrect(AbsRect& dest, const AbsRect& src, const AbsRect& apply) noexcept
+{
+  const sseVecT<FABS> m(1.0f, 1.0f, -1.0f, -1.0f);
+  (sseVecT<FABS>(BSS_UNALIGNED<const float>(&src.left)) + (sseVecT<FABS>(BSS_UNALIGNED<const float>(&apply.left))*m)) >> BSS_UNALIGNED<float>(&dest.left);
 }
 
 struct _FG_MESSAGEQUEUE {

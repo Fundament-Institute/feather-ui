@@ -107,8 +107,8 @@ void fgClipboardFreeDefault(const void* mem)
   free(const_cast<void*>(mem));
 }
 
-template<class T, void (*INIT)(T* BSS_RESTRICT, fgElement* BSS_RESTRICT, fgElement* BSS_RESTRICT, const char*, fgFlag, const fgTransform*, unsigned short)>
-BSS_FORCEINLINE fgElement* _create_default(fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units, const char* file, size_t line)
+template<class T, void (*INIT)(T* BSS_RESTRICT, fgElement* BSS_RESTRICT, fgElement* BSS_RESTRICT, const char*, fgFlag, const fgTransform*, fgMsgType)>
+BSS_FORCEINLINE fgElement* _create_default(fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units, const char* file, size_t line)
 {
   T* r = fgmalloc<T>(1, file, line);
   INIT(r, parent, next, name, flags, transform, units);
@@ -120,9 +120,9 @@ BSS_FORCEINLINE fgElement* _create_default(fgElement* BSS_RESTRICT parent, fgEle
   return (fgElement*)r;
 }
 
-short fgMessageMapDefault(const char* name)
+fgMsgType fgMessageMapDefault(const char* name)
 {
-  static bss::Trie<uint16_t, true> t(FG_CUSTOMEVENT+1, "UNKNOWN", "CONSTRUCT", "DESTROY", "CLONE", "MOVE", "SETALPHA", "SETAREA", "SETTRANSFORM", "SETFLAG", "SETFLAGS", "SETMARGIN", "SETPADDING",
+  static bss::Trie<fgMsgType, true> t(FG_CUSTOMEVENT+1, "UNKNOWN", "CONSTRUCT", "DESTROY", "CLONE", "MOVE", "SETALPHA", "SETAREA", "SETTRANSFORM", "SETFLAG", "SETFLAGS", "SETMARGIN", "SETPADDING",
     "SETPARENT", "ADDCHILD", "REMOVECHILD", "REORDERCHILD", "PARENTCHANGE", "LAYOUTCHANGE", "LAYOUTFUNCTION", "LAYOUTLOAD", "DRAGOVER", "DROP", "DRAW", "INJECT", "SETSKIN", "GETSKIN", "SETSTYLE", "GETSTYLE",
     "GETCLASSNAME", "GETDPI", "SETDPI", "SETUSERDATA", "GETUSERDATA", "SETDIM", "GETDIM", "SETSCALING", "GETSCALING", "MOUSEDOWN", "MOUSEDBLCLICK", "MOUSEUP", "MOUSEON", "MOUSEOFF", "MOUSEMOVE",
     "MOUSESCROLL", "TOUCHBEGIN", "TOUCHEND", "TOUCHMOVE", "KEYUP", "KEYDOWN", "KEYCHAR", "JOYBUTTONDOWN", "JOYBUTTONUP", "JOYAXIS", "GOTFOCUS", "LOSTFOCUS", "SETNAME", "GETNAME", "SETCONTEXTMENU",
@@ -372,8 +372,8 @@ void fgUserDataMapCallbacksProcess(fgElement* self, struct _FG_KEY_VALUE* pair)
 {
   if(!STRNICMP(pair->key, "on", 2))
   {
-    short type = (*fgroot_instance->backend.fgMessageMap)(pair->key + 2);
-    if(type != -1)
+    fgMsgType type = (*fgroot_instance->backend.fgMessageMap)(pair->key + 2);
+    if(type != (fgMsgType)~0)
     {
       khint_t i = kh_get_fgFunctionMap(fgroot_instance->functionhash, (char*)pair->value);
       if(i != kh_end(fgroot_instance->functionhash))
@@ -402,7 +402,7 @@ size_t fgBehaviorHookDefault(fgElement* self, const FG_Msg* msg)
 {
   assert(self != 0);
   size_t ret = (*self->message)(self, msg);
-  khiter_t iter = fgListenerHash.Iterator(std::pair<fgElement*, unsigned short>(self, msg->type));
+  khiter_t iter = fgListenerHash.Iterator(std::pair<fgElement*, fgMsgType>(self, msg->type));
   if(fgListenerHash.ExistsIter(iter))
     (*fgListenerHash.GetValue(iter))(self, msg);
   return ret;
