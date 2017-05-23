@@ -1266,8 +1266,7 @@ fgElement* fgElement_GetChildUnderMouse(fgElement* self, float x, float y, AbsRe
     return 0;
   }
 
-  fgElement* cur = self->root; // we have to go through the whole child list because you can have FG_IGNORE on but still be a hover target, espiecally if you're an fgText control inside a list.
-  while(cur != 0)
+  for(fgElement* cur = self->root; cur != 0; cur = cur->next)
   {
     if(!(cur->flags&FGELEMENT_BACKGROUND))
     {
@@ -1275,7 +1274,6 @@ fgElement* fgElement_GetChildUnderMouse(fgElement* self, float x, float y, AbsRe
       if(HitAbsRect(&child, (FABS)x, (FABS)y))
         return cur;
     }
-    cur = cur->next;
   }
   return 0;
 }

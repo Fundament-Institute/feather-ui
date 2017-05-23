@@ -110,7 +110,7 @@ longptr_t __stdcall fgDirect2D::DebugWndProc(HWND__* hWnd, unsigned int message,
       AbsRect area;
       ResolveRect(*self, &area);
       fgDrawAuxDataEx exdata;
-      fgDirect2D::instance->debugcontext.BeginDraw(hWnd, *self, &area, exdata);
+      fgDirect2D::instance->debugcontext.BeginDraw(hWnd, *self, &area, exdata, 0);
       //fgDirect2D::instance->debugcontext.target->Clear(D2D1::ColorF(0, 1.0));
       AbsRect test = exdata.context->cliprect.top();
       self->tabs->Draw(&area, &exdata.data);
@@ -179,7 +179,7 @@ void fgDebugD2D_Init(fgDebug* self, fgElement* BSS_RESTRICT parent, fgElement* B
 
   AbsRect r = { 0 };
   ResolveRect(*self, &r);
-  fgDirect2D::instance->debughwnd = fgContext::WndCreate(r, WS_EX_TOOLWINDOW, self, L"fgDebugD2D", fgDirect2D::instance->root.dpi);
+  fgDirect2D::instance->debughwnd = fgContext::WndCreate(r, WS_POPUP, WS_EX_TOOLWINDOW, self, L"fgDebugD2D", fgDirect2D::instance->root.dpi);
   ShowWindow(fgDirect2D::instance->debughwnd, SW_SHOW);
   UpdateWindow(fgDirect2D::instance->debughwnd);
   //SetWindowPos(fgDirect2D::instance->debughwnd, HWND_TOP, INT(wleft), INT(wtop), INT(rwidth), INT(rheight), SWP_NOCOPYBITS | SWP_NOMOVE | SWP_NOACTIVATE);
@@ -853,7 +853,7 @@ longptr_t __stdcall fgDirect2D::TopmostWndProc(HWND__* hWnd, unsigned int messag
         AbsRect area;
         ResolveRect(self->root.topmost, &area);
         fgDrawAuxDataEx exdata;
-        self->topcontext.BeginDraw(self->tophwnd, self->root.topmost, &self->toprect, exdata);
+        self->topcontext.BeginDraw(self->tophwnd, self->root.topmost, &self->toprect, exdata, 0);
         self->root.topmost->Draw(&area, &exdata.data);
         self->topcontext.EndDraw();
       }
@@ -1004,7 +1004,7 @@ struct _FG_ROOT* fgInitialize()
   fgContext::WndRegister(fgDirect2D::DebugWndProc, L"fgDebugD2D"); // Register topmost class
 
   AbsRect empty = { 0 };
-  root->tophwnd = fgContext::WndCreate(empty, WS_EX_TOOLWINDOW, root, L"fgDirectD2Dtopmost", dpi);
+  root->tophwnd = fgContext::WndCreate(empty, WS_POPUP, WS_EX_TOOLWINDOW, root, L"fgDirectD2Dtopmost", dpi);
   ShowWindow(root->tophwnd, SW_SHOW);
   UpdateWindow(root->tophwnd);
   //SetWindowPos(root->topmost, HWND_TOP, INT(wleft), INT(wtop), INT(rwidth), INT(rheight), SWP_NOCOPYBITS | SWP_NOMOVE | SWP_NOACTIVATE);

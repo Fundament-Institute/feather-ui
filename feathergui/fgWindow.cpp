@@ -101,7 +101,7 @@ size_t fgWindow_Message(fgWindow* self, const FG_Msg* msg)
       AbsRect out;
       ResolveRect(*self, &out);
       AbsRect inner;
-      GetInnerRect(*self, &inner, &out);
+      __applyrect(inner, out, (*self)->padding);
       AbsRect textout;
       ResolveRectCache(self->caption, &textout, &out, 0);
 
@@ -164,7 +164,7 @@ size_t fgWindow_Message(fgWindow* self, const FG_Msg* msg)
       AbsRect out;
       ResolveRect(*self, &out);
       AbsRect inner;
-      GetInnerRect(*self, &inner, &out);
+      __applyrect(inner, out, (*self)->padding);
       AbsRect textout;
       ResolveRectCache(self->caption, &textout, &out, 0);
 

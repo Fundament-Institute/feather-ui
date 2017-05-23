@@ -4,13 +4,17 @@
 #include "fgContext.h"
 #include "fgDirect2D.h"
 #include "fgRoot.h"
+#include "fgWindow.h"
 #include "win32_includes.h"
+#include "bss-util/sseVec.h"
 #include <d2d1_1.h>
 #include <dwmapi.h>
 #include "fgRoundRect.h"
 #include "fgCircle.h"
 #include "fgTriangle.h"
 #include "util.h"
+
+using namespace bss;
 
 EXTERN_C IMAGE_DOS_HEADER __ImageBase;
 typedef HRESULT(STDAPICALLTYPE *DWMCOMPENABLE)(BOOL*);
@@ -83,116 +87,116 @@ void fgContext::WndRegister(WNDPROC f, const wchar_t* name)
 longptr_t __stdcall fgContext::WndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam, fgElement* src)
 {
   static tagTRACKMOUSEEVENT _trackingstruct = { sizeof(tagTRACKMOUSEEVENT), TME_LEAVE, 0, 0 };
-    switch(message)
+  switch(message)
+  {
+  case WM_SIZE:
+    if(target)
+      target->Resize(D2D1::SizeU(LOWORD(lParam), HIWORD(lParam)));
+    return 0;
+  case WM_DISPLAYCHANGE:
+    InvalidateRect(hWnd, NULL, FALSE);
+    return 0;
+  case WM_MOUSEWHEEL:
+  {
+    POINTS pointstemp = { 0, GET_WHEEL_DELTA_WPARAM(wParam) };
+    DWORD pos = GetMessagePos();
+    SetMouse(AdjustDPI(MAKELPPOINTS(pos), src), FG_MOUSESCROLL, 0, *(size_t*)&pointstemp, GetMessageTime());
+  }
+  break;
+  case 0x020E: // WM_MOUSEHWHEEL - this is only sent on vista machines, but our minimum version is XP, so we manually look for the message anyway and process it if it happens to get sent to us.
+  {
+    POINTS pointstemp = { GET_WHEEL_DELTA_WPARAM(wParam), 0 };
+    DWORD pos = GetMessagePos();
+    SetMouse(AdjustDPI(MAKELPPOINTS(pos), src), FG_MOUSESCROLL, 0, *(size_t*)&pointstemp, GetMessageTime());
+  }
+  break;
+  case WM_MOUSEMOVE:
+  {
+    AbsVec pt = AdjustPoints(MAKELPPOINTS(lParam), src); // Call this up here so we don't do it twice
+    if(!inside)
     {
-    case WM_SIZE:
-      if(target)
-        target->Resize(D2D1::SizeU(LOWORD(lParam), HIWORD(lParam)));
-      return 0;
-    case WM_DISPLAYCHANGE:
-      InvalidateRect(hWnd, NULL, FALSE);
-      return 0;
-    case WM_MOUSEWHEEL:
-    {
-      POINTS pointstemp = { 0, GET_WHEEL_DELTA_WPARAM(wParam) };
-      DWORD pos = GetMessagePos();
-      SetMouse(AdjustDPI(MAKELPPOINTS(pos), src), FG_MOUSESCROLL, 0, *(size_t*)&pointstemp, GetMessageTime());
+      _trackingstruct.hwndTrack = hWnd;
+      BOOL result = TrackMouseEvent(&_trackingstruct);
+      inside = true;
+      SetMouse(pt, FG_MOUSEON, 0, wParam, GetMessageTime());
     }
+    SetMouse(pt, FG_MOUSEMOVE, 0, wParam, GetMessageTime());
     break;
-    case 0x020E: // WM_MOUSEHWHEEL - this is only sent on vista machines, but our minimum version is XP, so we manually look for the message anyway and process it if it happens to get sent to us.
-    {
-      POINTS pointstemp = { GET_WHEEL_DELTA_WPARAM(wParam), 0 };
-      DWORD pos = GetMessagePos();
-      SetMouse(AdjustDPI(MAKELPPOINTS(pos), src), FG_MOUSESCROLL, 0, *(size_t*)&pointstemp, GetMessageTime());
-    }
+  }
+  case WM_LBUTTONDOWN:
+    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDOWN, FG_MOUSELBUTTON, wParam, GetMessageTime());
     break;
-    case WM_MOUSEMOVE:
-    {
-      AbsVec pt = AdjustPoints(MAKELPPOINTS(lParam), src); // Call this up here so we don't do it twice
-      if(!inside)
-      {
-        _trackingstruct.hwndTrack = hWnd;
-        BOOL result = TrackMouseEvent(&_trackingstruct);
-        inside = true;
-        SetMouse(pt, FG_MOUSEON, 0, wParam, GetMessageTime());
-      }
-      SetMouse(pt, FG_MOUSEMOVE, 0, wParam, GetMessageTime());
-      break;
-    }
-    case WM_LBUTTONDOWN:
-      SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDOWN, FG_MOUSELBUTTON, wParam, GetMessageTime());
-      break;
-    case WM_LBUTTONUP:
-      SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEUP, FG_MOUSELBUTTON, wParam, GetMessageTime());
-      break;
-    case WM_LBUTTONDBLCLK:
-      SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDBLCLICK, FG_MOUSELBUTTON, wParam, GetMessageTime());
-      break;
-    case WM_RBUTTONDOWN:
-      SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDOWN, FG_MOUSERBUTTON, wParam, GetMessageTime());
-      break;
-    case WM_RBUTTONUP:
-      SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEUP, FG_MOUSERBUTTON, wParam, GetMessageTime());
-      break;
-    case WM_RBUTTONDBLCLK:
-      SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDBLCLICK, FG_MOUSERBUTTON, wParam, GetMessageTime());
-      break;
-    case WM_MBUTTONDOWN:
-      SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDOWN, FG_MOUSEMBUTTON, wParam, GetMessageTime());
-      break;
-    case WM_MBUTTONUP:
-      SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEUP, FG_MOUSEMBUTTON, wParam, GetMessageTime());
-      break;
-    case WM_MBUTTONDBLCLK:
-      SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDBLCLICK, FG_MOUSEMBUTTON, wParam, GetMessageTime());
-      break;
-    case WM_XBUTTONDOWN:
-      SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDOWN, (GET_XBUTTON_WPARAM(wParam) == XBUTTON1 ? FG_MOUSEXBUTTON1 : FG_MOUSEXBUTTON2), wParam, GetMessageTime());
-      break;
-    case WM_XBUTTONUP:
-      SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEUP, (GET_XBUTTON_WPARAM(wParam) == XBUTTON1 ? FG_MOUSEXBUTTON1 : FG_MOUSEXBUTTON2), wParam, GetMessageTime());
-      break;
-    case WM_XBUTTONDBLCLK:
-      SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDBLCLICK, (GET_XBUTTON_WPARAM(wParam) == XBUTTON1 ? FG_MOUSEXBUTTON1 : FG_MOUSEXBUTTON2), wParam, GetMessageTime());
-      break;
-    case WM_SYSKEYUP:
-    case WM_SYSKEYDOWN:
-    case WM_KEYUP:
-    case WM_KEYDOWN: // Windows return codes are the opposite of feathergui's - returning 0 means we accept, anything else rejects, so we invert the return code here.
-      return !SetKey((uint8_t)wParam, message == WM_KEYDOWN || message == WM_SYSKEYDOWN, (lParam & 0x40000000) != 0, GetMessageTime());
-    case WM_UNICHAR:
-      if(wParam == UNICODE_NOCHAR) return TRUE;
-    case WM_CHAR:
-      SetChar((int)wParam, GetMessageTime());
-      return 0;
-    case WM_MOUSELEAVE:
-    {
-      DWORD pos = GetMessagePos();
-      SetMouse(AdjustDPI(MAKELPPOINTS(pos), src), FG_MOUSEOFF, 0, (size_t)~0, GetMessageTime());
-      inside = false;
-    }
-      break;
-    }
+  case WM_LBUTTONUP:
+    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEUP, FG_MOUSELBUTTON, wParam, GetMessageTime());
+    break;
+  case WM_LBUTTONDBLCLK:
+    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDBLCLICK, FG_MOUSELBUTTON, wParam, GetMessageTime());
+    break;
+  case WM_RBUTTONDOWN:
+    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDOWN, FG_MOUSERBUTTON, wParam, GetMessageTime());
+    break;
+  case WM_RBUTTONUP:
+    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEUP, FG_MOUSERBUTTON, wParam, GetMessageTime());
+    break;
+  case WM_RBUTTONDBLCLK:
+    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDBLCLICK, FG_MOUSERBUTTON, wParam, GetMessageTime());
+    break;
+  case WM_MBUTTONDOWN:
+    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDOWN, FG_MOUSEMBUTTON, wParam, GetMessageTime());
+    break;
+  case WM_MBUTTONUP:
+    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEUP, FG_MOUSEMBUTTON, wParam, GetMessageTime());
+    break;
+  case WM_MBUTTONDBLCLK:
+    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDBLCLICK, FG_MOUSEMBUTTON, wParam, GetMessageTime());
+    break;
+  case WM_XBUTTONDOWN:
+    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDOWN, (GET_XBUTTON_WPARAM(wParam) == XBUTTON1 ? FG_MOUSEXBUTTON1 : FG_MOUSEXBUTTON2), wParam, GetMessageTime());
+    break;
+  case WM_XBUTTONUP:
+    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEUP, (GET_XBUTTON_WPARAM(wParam) == XBUTTON1 ? FG_MOUSEXBUTTON1 : FG_MOUSEXBUTTON2), wParam, GetMessageTime());
+    break;
+  case WM_XBUTTONDBLCLK:
+    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDBLCLICK, (GET_XBUTTON_WPARAM(wParam) == XBUTTON1 ? FG_MOUSEXBUTTON1 : FG_MOUSEXBUTTON2), wParam, GetMessageTime());
+    break;
+  case WM_SYSKEYUP:
+  case WM_SYSKEYDOWN:
+  case WM_KEYUP:
+  case WM_KEYDOWN: // Windows return codes are the opposite of feathergui's - returning 0 means we accept, anything else rejects, so we invert the return code here.
+    return !SetKey((uint8_t)wParam, message == WM_KEYDOWN || message == WM_SYSKEYDOWN, (lParam & 0x40000000) != 0, GetMessageTime());
+  case WM_UNICHAR:
+    if(wParam == UNICODE_NOCHAR) return TRUE;
+  case WM_CHAR:
+    SetChar((int)wParam, GetMessageTime());
+    return 0;
+  case WM_MOUSELEAVE:
+  {
+    DWORD pos = GetMessagePos();
+    SetMouse(AdjustDPI(MAKELPPOINTS(pos), src), FG_MOUSEOFF, 0, (size_t)~0, GetMessageTime());
+    inside = false;
+  }
+  break;
+  }
   return DefWindowProc(hWnd, message, wParam, lParam);
 }
 
-HWND__* fgContext::WndCreate(const AbsRect& out, uint32_t exflags, void* self, const wchar_t* cls, fgIntVec& dpi)
+HWND__* fgContext::WndCreate(const AbsRect& out, unsigned long style, uint32_t exflags, void* self, const wchar_t* cls, fgIntVec& dpi)
 {
-  unsigned long style = WS_POPUP | WS_CLIPCHILDREN | WS_CLIPSIBLINGS;
+  exflags |= WS_EX_COMPOSITED | WS_EX_LAYERED;
 
   RECT rsize = { out.left, out.top, out.right, out.bottom };
 
-  AdjustWindowRect(&rsize, style, FALSE);
+  //AdjustWindowRectEx(&rsize, style, FALSE, exflags); // So long as we are drawing all over the nonclient area, we don't actually want to correct this
   int rwidth = rsize.right - rsize.left;
   int rheight = rsize.bottom - rsize.top;
 
-  HWND handle = CreateWindowExW(WS_EX_COMPOSITED | exflags, cls, L"", style, rsize.left, rsize.top, INT(rwidth), INT(rheight), NULL, NULL, (HINSTANCE)&__ImageBase, NULL);
+  HWND handle = CreateWindowExW(exflags, cls, L"", style, CW_USEDEFAULT, CW_USEDEFAULT, INT(rwidth), INT(rheight), NULL, NULL, (HINSTANCE)&__ImageBase, NULL);
   HDC hdc = GetDC(handle);
   dpi = { (int)GetDeviceCaps(hdc, LOGPIXELSX), (int)GetDeviceCaps(hdc, LOGPIXELSY) };
   ReleaseDC(handle, hdc);
 
   SetWindowLongPtrW(handle, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(self));
-
+  
   if(dwmblurbehind != 0)
   {
     //MARGINS margins = { -1,-1,-1,-1 };
@@ -202,11 +206,11 @@ HWND__* fgContext::WndCreate(const AbsRect& out, uint32_t exflags, void* self, c
     (*dwmblurbehind)(handle, &blurbehind);
     DeleteObject(region);
   }
-
+  
   return handle;
 }
 
-void fgContext::BeginDraw(HWND handle, fgElement* element, const AbsRect* area, fgDrawAuxDataEx& exdata)
+void fgContext::BeginDraw(HWND handle, fgElement* element, const AbsRect* area, fgDrawAuxDataEx& exdata, AbsRect* margin)
 {
   invalid = true;
   CreateResources(handle);
@@ -215,6 +219,11 @@ void fgContext::BeginDraw(HWND handle, fgElement* element, const AbsRect* area, 
   fgElement* hold = element->root;
   fgassert(!cliprect.size());
   AbsRect truearea = *area;
+  if(margin)
+  {
+    const sseVecT<FABS> m(-1.0f, -1.0f, 1.0f, 1.0f);
+    (sseVecT<FABS>(BSS_UNALIGNED<const float>(&area->left)) + (sseVecT<FABS>(BSS_UNALIGNED<const float>(&margin->left))*m)) >> BSS_UNALIGNED<float>(&truearea.left);
+  }
   fgIntVec& dpi = element->GetDPI();
   fgScaleRectDPI(&truearea, dpi.x, dpi.y);
   target->SetTransform(D2D1::Matrix3x2F::Translation(-truearea.left, -truearea.top));
@@ -352,6 +361,24 @@ AbsVec fgContext::AdjustDPI(tagPOINTS* points, fgElement* src)
   return pt;
 }
 
+void fgContext::ApplyWin32Size(fgWindow& self, HWND__* handle, const fgIntVec& dpi)
+{
+  RECT r;
+
+  if(SUCCEEDED(GetWindowRect(handle, &r)))
+  {
+    if(self.maximized)
+      self->SetMargin(AbsRect{ (FABS)-r.left, (FABS)-r.top, (FABS)-r.left, (FABS)-r.top }, (uint16_t)~0);
+    else
+      self->SetMargin(AbsRect{ 0,0,0,0 }, (uint16_t)~0);
+
+    AbsRect rect = { r.left, r.top, r.right, r.bottom };
+    fgInvScaleRectDPI(&rect, dpi.x, dpi.y);
+    CRect area = { rect.left, 0, rect.top, 0, rect.right, 0, rect.bottom };
+    fgSendSubMsg<FG_SETAREA, void*>(self, (uint16_t)~0, &area);
+  }
+}
+
 void fgContext::SetMouse(AbsVec& points, unsigned short type, unsigned char button, size_t wparam, unsigned long time)
 {
   fgRoot* root = fgSingleton();
@@ -366,7 +393,7 @@ void fgContext::SetMouse(AbsVec& points, unsigned short type, unsigned char butt
     evt.scrolldelta = delta.y;
     evt.scrollhdelta = delta.x;
   }
-  else 
+  else
   {
     if(wparam != (size_t)-1) //if wparam is -1 it signals that it is invalid, so we simply leave our assignments at their last known value.
     {

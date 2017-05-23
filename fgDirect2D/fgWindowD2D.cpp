@@ -6,6 +6,7 @@
 #include "fgRoot.h"
 #include "win32_includes.h"
 #include <d2d1_1.h>
+#include <Windowsx.h>
 #include "fgRoundRect.h"
 #include "fgCircle.h"
 #include "fgTriangle.h"
@@ -63,44 +64,41 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
     else if(self->window->parent != 0 && !self->handle)
     {
       AbsRect out;
-      ResolveRect(self->window, &out);
+      ResolveOuterRect(self->window, &out);
       fgScaleRectDPI(&out, 96, 96);
-      self->handle = self->context.WndCreate(out, 0, self, L"fgWindowD2D", self->dpi);
+      self->handle = self->context.WndCreate(out, WS_THICKFRAME | WS_MAXIMIZEBOX | WS_MINIMIZEBOX, WS_EX_APPWINDOW, self, L"fgWindowD2D", self->dpi);
+      fgContext::ApplyWin32Size(self->window, self->handle, self->dpi);
 #ifdef TEST_DPI
       self->dpi.x = self->dpi.y = TEST_DPI;
 #endif
       self->window->SetDPI(self->dpi.x, self->dpi.y); // Send a message with the DPI change so fonts get resized correctly
-
+      RECT rect; // Force the NCCALCSIZE message to fire via SetWindowPos
+      GetWindowRect(self->handle, &rect); 
+      SetWindowPos(self->handle, HWND_TOP, INT(rect.left), INT(rect.top), INT(rect.right - rect.left), INT(rect.bottom - rect.top), SWP_FRAMECHANGED); 
       ShowWindow(self->handle, SW_SHOW);
       UpdateWindow(self->handle);
-      //SetWindowPos(self->handle, HWND_TOP, INT(wleft), INT(wtop), INT(rwidth), INT(rheight), SWP_NOCOPYBITS | SWP_NOMOVE | SWP_NOACTIVATE);
       self->context.CreateResources(self->handle);
     }
     break;
   case FG_DRAW:
   {
     fgDrawAuxDataEx exdata;
-    self->context.BeginDraw(self->handle, self->window, (AbsRect*)msg->p, exdata);
+    self->context.BeginDraw(self->handle, self->window, (AbsRect*)msg->p, exdata, &self->window->margin);
     FG_Msg m = *msg;
     m.p2 = &exdata;
     fgWindow_Message(&self->window, &m);
-    /*fgElement* topmost = fgSingleton()->topmost;
-    if(topmost && GetElementWindow(topmost) == self) // Draw topmost before the drag object
-    {
-    AbsRect out;
-    ResolveRect(topmost, &out);
-    topmost->Draw(&out, &exdata.data);
-    }*/
     self->context.EndDraw();
   }
-    return FG_ACCEPT;
+  return FG_ACCEPT;
   case FG_MOVE:
     if(self->handle && msg->subtype != (uint16_t)~0)
     {
       AbsRect out;
-      ResolveRect(self->window, &out);
+      ResolveOuterRect(self->window, &out);
       fgScaleRectDPI(&out, self->dpi.x, self->dpi.y);
-      SetWindowPos(self->handle, HWND_TOP, out.left, out.top, out.right - out.left, out.bottom - out.top, SWP_NOSENDCHANGING);
+      RECT r = { out.left, out.top, out.right, out.bottom };
+      //AdjustWindowRectEx(&r, GetWindowLong(self->handle, GWL_STYLE), FALSE, GetWindowLong(self->handle, GWL_EXSTYLE));
+      SetWindowPos(self->handle, HWND_TOP, r.left, r.top, r.right - r.left, r.bottom - r.top, SWP_NOSENDCHANGING);
     }
     break;
   case FG_SETDPI:
@@ -122,21 +120,9 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
       return FG_ACCEPT;
     case FGWINDOW_RESTORE:
       ShowWindow(self->handle, SW_RESTORE);
-      self->window.maximized = 0;
+      return FG_ACCEPT;
     case FGWINDOW_MAXIMIZE:
-      if(msg->i == FGWINDOW_MAXIMIZE)
-      {
-        ShowWindow(self->handle, SW_MAXIMIZE);
-        self->window.maximized = 1;
-      }
-      RECT r;
-      if(SUCCEEDED(GetClientRect(self->handle, &r)))
-      {
-        AbsRect rect = { r.left, r.top, r.right, r.bottom };
-        fgInvScaleRectDPI(&rect, self->dpi.x, self->dpi.y);
-        CRect area = { rect.left, 0, rect.top, 0, rect.right, 0, rect.bottom };
-        fgSendSubMsg<FG_SETAREA, void*>(self->window, (uint16_t)~0, &area);
-      }
+      ShowWindow(self->handle, SW_MAXIMIZE);
       return FG_ACCEPT;
     case FGWINDOW_CLOSE:
       VirtualFreeChild(self->window);
@@ -148,11 +134,57 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
 
 longptr_t __stdcall fgWindowD2D::WndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam)
 {
+  static const int BORDERWIDTH = 5;
   fgWindowD2D* self = reinterpret_cast<fgWindowD2D*>(GetWindowLongPtrW(hWnd, GWLP_USERDATA));
   if(self)
   {
     switch(message)
     {
+    case WM_CREATE:
+    {
+      CREATESTRUCT* info = reinterpret_cast<CREATESTRUCT*>(lParam);
+      SetWindowPos(hWnd,HWND_TOP,info->x, info->y, info->cx, info->cy, SWP_FRAMECHANGED);
+    }
+    break; 
+    case WM_NCCALCSIZE:
+      if(wParam == TRUE)
+        return 0;
+      break;
+    case WM_NCHITTEST:
+      if(self->window->flags&(FGWINDOW_RESIZABLE|FGWINDOW_MAXIMIZABLE))
+      {
+        RECT WindowRect;
+        GetWindowRect(hWnd, &WindowRect);
+        int x = GET_X_LPARAM(lParam) - WindowRect.left;
+        int y = GET_Y_LPARAM(lParam) - WindowRect.top;
+        FG_Msg msg = { FG_DEBUGMESSAGE };
+        msg.x = GET_X_LPARAM(lParam);
+        msg.y = GET_Y_LPARAM(lParam);
+
+        if((self->window->flags&FGWINDOW_RESIZABLE) && !self->window.maximized)
+        {
+          if(x < BORDERWIDTH && y < BORDERWIDTH)
+            return HTTOPLEFT;
+          if(x > WindowRect.right - WindowRect.left - BORDERWIDTH && y < BORDERWIDTH)
+            return HTTOPRIGHT;
+          if(x > WindowRect.right - WindowRect.left - BORDERWIDTH && y > WindowRect.bottom - WindowRect.top - BORDERWIDTH)
+            return HTBOTTOMRIGHT;
+          if(x < BORDERWIDTH && y > WindowRect.bottom - WindowRect.top - BORDERWIDTH)
+            return HTBOTTOMLEFT;
+          if(x < BORDERWIDTH)
+            return HTLEFT;
+          if(y < BORDERWIDTH)
+            return HTTOP;
+          if(x > WindowRect.right - WindowRect.left - BORDERWIDTH)
+            return HTRIGHT;
+          if(y > WindowRect.bottom - WindowRect.top - BORDERWIDTH)
+            return HTBOTTOM;
+        }
+        if(y < self->window->padding.top + self->window->margin.top && reinterpret_cast<fgElement*>(fgStandardInject(self->window, &msg, 0)) == self->window)
+          return HTCAPTION;
+        return HTCLIENT;
+      }
+      break;
     case WM_PAINT:
     {
       AbsRect area;
@@ -176,19 +208,29 @@ longptr_t __stdcall fgWindowD2D::WndProc(HWND__* hWnd, unsigned int message, siz
     case WM_MBUTTONUP:
       ReleaseCapture();
       break;
-    case WM_WINDOWPOSCHANGED:
-    case WM_WINDOWPOSCHANGING:
+    case WM_MOVE:
       if(fgDirect2D::instance->debugtarget != 0 && hWnd == fgDirect2D::instance->debugtarget->handle)
       {
         AbsRect area;
         ResolveRect(fgDirect2D::instance->debugtarget->window, &area);
         SetWindowPos(fgDirect2D::instance->debughwnd, hWnd, area.right, area.top, 300, area.bottom - area.top, SWP_NOSENDCHANGING | SWP_NOACTIVATE);
       }
-      //  fgSendSubMsg<FG_SETAREA, void*>(self->window, 1, &area);
+    case WM_SIZE:
+      switch(wParam)
+      {
+      case SIZE_MAXIMIZED:
+        self->window.maximized = 1;
+        break;
+      case SIZE_MINIMIZED:
+      case SIZE_RESTORED:
+        self->window.maximized = 0;
+        break;
+      }
+      fgContext::ApplyWin32Size(self->window, self->handle, self->dpi);
       break;
     case WM_ACTIVATE:
       if(fgDirect2D::instance->debugtarget != 0 && hWnd == fgDirect2D::instance->debugtarget->handle)
-        SetWindowPos(fgDirect2D::instance->debughwnd, hWnd, 0,0,0,0, SWP_NOSENDCHANGING | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE);
+        SetWindowPos(fgDirect2D::instance->debughwnd, hWnd, 0, 0, 0, 0, SWP_NOSENDCHANGING | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE);
       break;
     }
     return self->context.WndProc(hWnd, message, wParam, lParam, self->window);

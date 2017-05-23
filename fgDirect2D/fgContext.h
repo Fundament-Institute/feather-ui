@@ -4,7 +4,7 @@
 #ifndef __FG_CONTEXT_D2D_H__
 #define __FG_CONTEXT_D2D_H__
 
-#include "fgElement.h"
+#include "fgWindow.h"
 #include <stack>
 
 //#define TEST_DPI 120
@@ -44,7 +44,7 @@ struct fgContext {
 
   void CreateResources(HWND__* handle);
   void DiscardResources();
-  void BeginDraw(HWND__* handle, fgElement* element, const AbsRect* area, fgDrawAuxDataEx& exdata);
+  void BeginDraw(HWND__* handle, fgElement* element, const AbsRect* area, fgDrawAuxDataEx& exdata, AbsRect* margin);
   void EndDraw();
   size_t SetKey(uint8_t keycode, bool down, bool held, unsigned long time);
   void SetChar(int key, unsigned long time);
@@ -52,7 +52,8 @@ struct fgContext {
   longptr_t __stdcall WndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam, fgElement* src);
   void InvalidateHWND(HWND__* hWnd);
 
-  static HWND__* WndCreate(const AbsRect& out, uint32_t exflags, void* self, const wchar_t* cls, fgIntVec& dpi);
+  static void ApplyWin32Size(fgWindow& self, HWND__* handle, const fgIntVec& dpi);
+  static HWND__* WndCreate(const AbsRect& out, unsigned long style, uint32_t exflags, void* self, const wchar_t* cls, fgIntVec& dpi);
   static void SetDWMCallbacks();
   static void WndRegister(longptr_t(__stdcall* f)(HWND__*, unsigned int, size_t, longptr_t), const wchar_t* name);
   static AbsVec AdjustPoints(tagPOINTS* points, fgElement* src);
