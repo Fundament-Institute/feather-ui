@@ -202,9 +202,17 @@ size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
         }
       }
     }
-
-      return FG_ACCEPT;
+    return FG_ACCEPT;
+    case 0:
+      break;
+    default:
+      fgSendMessage(self->header, msg);
+      break;
     }
+    break;
+  case FG_SETDIM:
+    if((msg->subtype&FGDIM_MASK) == FGDIM_SPACING)
+      fgSendMessage(self->header, msg);
     break;
   case FG_GETCLASSNAME:
     return (size_t)"Grid";

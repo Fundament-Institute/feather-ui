@@ -235,10 +235,15 @@ void fgLayoutEditor::MenuHelp(struct _FG_ELEMENT*, const FG_Msg* m)
     {
     case 2:
 #ifdef BSS_PLATFORM_WIN32
-      ShellExecute(0, 0, L"http://www.google.com", 0, 0, SW_SHOW);
+      ShellExecuteW(0, 0, L"http://www.blackspherestudios.com/feathergui/docs/", 0, 0, SW_SHOW);
 #endif
       break;
     case 3:
+#ifdef BSS_PLATFORM_WIN32
+      ShellExecuteW(0, 0, L"https://github.com/Black-Sphere-Studios/feathergui/", 0, 0, SW_SHOW);
+#endif
+      break;
+    case 4:
       ShowDialog("FeatherGUI Layout Editor\nVersion v0.1.0\n\n(c)2017 Black Sphere Studios\n\nThis is a free, open-source layout editor for FeatherGUI, maintained as a core part of the FeatherGUI library ecosystem. Please send all feedback and bugs to the FeatherGUI Github: https://github.com/Black-Sphere-Studios/feathergui/", "Close");
       break;
     }

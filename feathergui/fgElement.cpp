@@ -936,7 +936,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
   case FG_SETDIM:
   {
     char diff = 0;
-    switch(msg->subtype)
+    switch(msg->subtype&FGDIM_MASK)
     {
     case FGDIM_MAX:
       if(self->maxdim.x != msg->f) diff |= FGMOVE_RESIZEX;
@@ -953,7 +953,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
     {
       fgElement_MouseMoveCheck(self);
       fgroot_instance->backend.fgDirtyElement(self);
-      switch(msg->subtype)
+      switch(msg->subtype&FGDIM_MASK)
       {
       case FGDIM_MAX:
         self->maxdim.x = msg->f;
@@ -975,7 +975,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
   }
     return FG_ACCEPT;
   case FG_GETDIM:
-    switch(msg->subtype)
+    switch(msg->subtype&FGDIM_MASK)
     {
     case FGDIM_MAX:
       return *reinterpret_cast<size_t*>(&self->maxdim);

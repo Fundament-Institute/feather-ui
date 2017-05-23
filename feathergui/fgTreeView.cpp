@@ -91,14 +91,14 @@ size_t fgTreeItem_Message(fgTreeItem* self, const FG_Msg* msg)
     }
     break;
   case FG_SETDIM:
-    if(msg->subtype == FGDIM_SPACING)
+    if((msg->subtype&FGDIM_MASK) == FGDIM_SPACING)
     {
       fgBox_SetSpacing(&self->control.element, self->spacing, msg);
       return FG_ACCEPT;
     }
     break;
   case FG_GETDIM:
-    if(msg->subtype == FGDIM_SPACING)
+    if((msg->subtype&FGDIM_MASK) == FGDIM_SPACING)
       return (size_t)&self->spacing;
     break;
   }
@@ -141,14 +141,14 @@ size_t fgTreeview_Message(fgTreeview* self, const FG_Msg* msg)
       return FG_ACCEPT;
     break;
   case FG_SETDIM:
-    if(msg->subtype == FGDIM_SPACING)
+    if((msg->subtype&FGDIM_MASK) == FGDIM_SPACING)
     {
       fgBox_SetSpacing(*self, self->spacing, msg);
       return FG_ACCEPT;
     }
     break;
   case FG_GETDIM:
-    if(msg->subtype == FGDIM_SPACING)
+    if((msg->subtype&FGDIM_MASK) == FGDIM_SPACING)
       return (size_t)&self->spacing;
     break;
   }

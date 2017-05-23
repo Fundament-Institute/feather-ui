@@ -217,19 +217,41 @@ fgFont fgCreateFontD2D(fgFlag flags, const char* family, short weight, char ital
   size_t len = fgUTF8toUTF16(family, -1, 0, 0);
   DYNARRAY(wchar_t, wtext, len);
   fgUTF8toUTF16(family, -1, wtext, len);
+  
   IDWriteTextFormat* format = 0;
   wchar_t wlocale[LOCALE_NAME_MAX_LENGTH];
   GetSystemDefaultLocaleName(wlocale, LOCALE_NAME_MAX_LENGTH);
   LOGFAILURERET(fgDirect2D::instance->writefactory->CreateTextFormat(wtext, 0, DWRITE_FONT_WEIGHT(weight), italic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, pt * (dpi->x / 72.0f), wlocale, &format), 0, "CreateTextFormat failed with error code %li", hr);
 
   if(!format) return 0;
-  FLOAT linespacing;
-  FLOAT baseline;
-  DWRITE_LINE_SPACING_METHOD method;
-  format->GetLineSpacing(&method, &linespacing, &baseline);
-  if(!linespacing) linespacing = pt * (dpi->x / 72.0f);
-  if(!baseline) baseline = linespacing * 0.8;
-  format->SetLineSpacing(method, linespacing, baseline);
+  TCHAR name[64];
+  UINT32 findex;
+  BOOL exists;
+  IDWriteFontCollection* collection;
+  format->GetFontFamilyName(name, 64);
+  format->GetFontCollection(&collection);
+  collection->FindFamilyName(name, &findex, &exists);
+  if(!exists) // CreateTextFormat always succeeds even for invalid font names so we have to check to see if we actually loaded a real font
+  {
+    format->Release();
+    collection->Release();
+    return 0;
+  }
+
+  IDWriteFontFamily *ffamily;
+  collection->GetFontFamily(findex, &ffamily);
+  IDWriteFont* font;
+  ffamily->GetFirstMatchingFont(format->GetFontWeight(), format->GetFontStretch(), format->GetFontStyle(), &font);
+  DWRITE_FONT_METRICS metrics;
+  font->GetMetrics(&metrics);
+  float ratio = format->GetFontSize() / (float)metrics.designUnitsPerEm;
+  FLOAT linespacing = (metrics.ascent + metrics.descent + metrics.lineGap) * ratio;
+  FLOAT baseline = metrics.ascent * ratio;
+  ffamily->Release();
+  font->Release();
+  format->SetLineSpacing(DWRITE_LINE_SPACING_METHOD_DEFAULT, linespacing, baseline);
+  collection->Release();
+
   return new fgFontD2D(format, *dpi, pt);
 }
 

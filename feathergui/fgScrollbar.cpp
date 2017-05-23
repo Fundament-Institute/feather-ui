@@ -225,10 +225,10 @@ void fgScrollbar_ApplyPadding(fgScrollbar* self, float x, float y)
   assert(!std::isnan(self->realsize.x) && !std::isnan(self->realsize.y));
   self->control.element.padding.left += x;
   self->control.element.padding.top += y;
-  if(self->control.element.padding.left > totalpadding.left || (self->control->flags & FGSCROLLBAR_HIDEH))
-    self->control.element.padding.left = totalpadding.left; // if HIDEH is true we don't let you scroll at all
-  if(self->control.element.padding.top > totalpadding.top || (self->control->flags & FGSCROLLBAR_HIDEV))
-    self->control.element.padding.top = totalpadding.top; // if HIDEV is true we don't let you scroll at all
+  if(self->control.element.padding.left > totalpadding.left)
+    self->control.element.padding.left = totalpadding.left;
+  if(self->control.element.padding.top > totalpadding.top)
+    self->control.element.padding.top = totalpadding.top;
 
   AbsRect r;
   ResolveRect(*self, &r);

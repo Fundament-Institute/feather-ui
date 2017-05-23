@@ -272,14 +272,14 @@ size_t fgBox_Message(fgBox* self, const FG_Msg* msg)
       return fgOrderedInject(*self, (const FG_Msg*)msg->p, (const AbsRect*)msg->p2, self->order.ordered.p[self->order.ordered.l - 1]->next, fn, self->selected.l > 0 ? self->selected.p[0] : 0);
     }
   case FG_SETDIM:
-    if(msg->subtype == FGDIM_SPACING)
+    if((msg->subtype&FGDIM_MASK) == FGDIM_SPACING)
     {
       fgBox_SetSpacing(*self, self->spacing, msg);
       return FG_ACCEPT;
     }
     break;
   case FG_GETDIM:
-    if(msg->subtype == FGDIM_SPACING)
+    if((msg->subtype&FGDIM_MASK) == FGDIM_SPACING)
       return (size_t)&self->spacing;
     break;
   case FG_GETSELECTEDITEM:

@@ -273,6 +273,14 @@ BSS_FORCEINLINE FABS fgSnapAll(FABS x, int dpi)
   }
   return F(x);
 }
+template<FABS(*F)(FABS)>
+BSS_FORCEINLINE void fgSnapAllRect(AbsRect& r, const fgIntVec& dpi)
+{
+  r.left = fgSnapAll<F>(r.left, dpi.x);
+  r.top = fgSnapAll<F>(r.top, dpi.y);
+  r.right = fgSnapAll<F>(r.right, dpi.x);
+  r.bottom = fgSnapAll<F>(r.bottom, dpi.y);
+}
 
 BSS_FORCEINLINE FABS fgResolveUnit(FABS x, size_t unit, int dpi, FABS lineheight, bool snap)
 {

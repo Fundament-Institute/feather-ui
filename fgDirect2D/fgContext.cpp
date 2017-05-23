@@ -368,7 +368,11 @@ void fgContext::ApplyWin32Size(fgWindow& self, HWND__* handle, const fgIntVec& d
   if(SUCCEEDED(GetWindowRect(handle, &r)))
   {
     if(self.maximized)
-      self->SetMargin(AbsRect{ (FABS)-r.left, (FABS)-r.top, (FABS)-r.left, (FABS)-r.top }, (uint16_t)~0);
+    {
+      RECT rsize = r;
+      AdjustWindowRectEx(&rsize, GetWindowLong(handle, GWL_STYLE), FALSE, GetWindowLong(handle, GWL_EXSTYLE));
+      self->SetMargin(AbsRect{ (FABS)(rsize.right-r.right), (FABS)(rsize.bottom - r.bottom), (FABS)(rsize.right - r.right), (FABS)(rsize.bottom - r.bottom) }, (uint16_t)~0);
+    }
     else
       self->SetMargin(AbsRect{ 0,0,0,0 }, (uint16_t)~0);
 

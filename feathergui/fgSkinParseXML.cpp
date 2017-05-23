@@ -33,6 +33,8 @@ char* fgSkin_ParseFontFamily(char* s, char quote, char** context)
     end = strchr(s, ' ');
   if(!end || !end[0])
     return s;
+  if(end != s && end[-1] == ',')
+    --end; // erase the comma
   *end = 0;
   *context = end + 1;
   return s;

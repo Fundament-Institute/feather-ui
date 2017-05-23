@@ -407,7 +407,7 @@
       </Resource>
     </Skin>
 		<Skin name="Combobox" selectcolor="0xE0E0E0" hovercolor="0xFDF4BF" >
-			<Skin inherit="Scrollbar" name="fgCombobox$textbox" padding="6 3 3 3" selectcolor="0x0000AAAA" cursorcolor="0x000000FF" placecolor="0x00000088" font="12 BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial" color="0x000000" area="0 0 -24:1 100%"/>
+			<Skin inherit="Scrollbar" name="fgCombobox$textbox" padding="6 3 3 3" selectcolor="0xADD6FF" cursorcolor="0x000000" placecolor="0xB9AFB4" font="12 BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial" color="0x000000" area="0 0 -24:1 100%"/>
 			<Skin inherit="Scrollbar" name="Dropdown$box" padding="1 0 1 1">
 				<Resource flags="BACKGROUND|IGNORE|RECT" outline="1" edgecolor="0x9BA7B7" color="0xF5F5F5" uv="0 0 3 3" area="0 -1 100% 100%"/>
 			</Skin>
@@ -423,7 +423,7 @@
       </Resource>
       <Curve flags="BACKGROUND" color="0xBBBBBFFF" area="-24:1 0 -23:1 100%"/>
 		</Skin>
-		<Skin inherit="Scrollbar" name="Textbox" padding="3 3 3 3" selectcolor="0x0000AAAA" cursorcolor="0x000000FF" placecolor="0xBBB0B9FF" font="12 BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial" color="0x000000FF">
+		<Skin inherit="Scrollbar" name="Textbox" padding="3 3 3 3" selectcolor="0xADD6FF" cursorcolor="0x000000" placecolor="0xB9AFB4" font="12 BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial" color="0x000000">
 			<Resource flags="BACKGROUND|IGNORE|RECT" outline="1" edgecolor="0xC0C3C9FF" color="0xFFFFFF99" uv="3 3 3 3" area="0 0 100% 100%"/>
 		</Skin>
 		<Skin name="Treeview" padding="1 1 2 1">
@@ -442,11 +442,11 @@
 			</Skin>
 			<Resource flags="BACKGROUND|IGNORE|RECT" outline="1" edgecolor="0xC0C3C9FF" color="0xFFFFFF" uv="3 3 3 3" area="0 0 100% 100%"/>
 		</Skin>
-		<Skin name="Grid" dividercolor="0x999999" columndividercolor="0x999999" padding="0 2 0 2">
-			<Skin name="Grid$header" padding="8 2 8 2" spacing="6,0">
+		<Skin name="Grid" dividercolor="0x999999" columndividercolor="0x999999" padding="0 2 0 2" spacing="6,0">
+			<Skin name="Grid$header" padding="8 2 8 2" flags="HIDEH">
 				<Resource flags="BACKGROUND|SNAP|RECT" color="0xC0C3C9FF" uv="3 3 0 0" area="0 0 100% 100%"/>
 			</Skin>
-      <Skin name="Gridrow" padding="8 0 8 0" spacing="60,0" />
+      <Skin name="Gridrow" padding="8 0 8 0" />
 			<Resource flags="BACKGROUND|RECT" outline="1" edgecolor="0xC0C3C9FF" color="0xFFFFFF" uv="3 3 3 3" area="0 0 100% 100%"/>
 		</Skin>
 		<Skin name="ListItem">

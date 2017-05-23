@@ -300,7 +300,7 @@ void fgSkinBase_WriteStyleAttributesXML(XMLNode* node, fgStyle& s, fgSkinBase* r
       node->AddAttribute((const char*)cur->msg.p2)->String = (const char*)cur->msg.p; // userdata messages have key/value reversed due to how the message works.
       break;
     case FG_SETDIM:
-      switch(cur->msg.subtype)
+      switch(cur->msg.subtype&FGDIM_MASK)
       {
       case FGDIM_MAX:
         fgStyle_WriteFloat(node->AddAttribute("max-width")->String, cur->msg.f);

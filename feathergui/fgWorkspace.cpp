@@ -51,7 +51,7 @@ size_t fgWorkspace_Message(fgWorkspace* self, const FG_Msg* msg)
       }
       break;
     case FG_SETDIM:
-      if(msg->subtype == FGDIM_FIXED)
+      if((msg->subtype&FGDIM_MASK) == FGDIM_FIXED)
       {
         self->gridsize.x = msg->f;
         self->gridsize.y = msg->f2;
@@ -59,7 +59,7 @@ size_t fgWorkspace_Message(fgWorkspace* self, const FG_Msg* msg)
       }
       break;
     case FG_GETDIM:
-      if(msg->subtype == FGDIM_FIXED)
+      if((msg->subtype&FGDIM_MASK) == FGDIM_FIXED)
         return *reinterpret_cast<size_t*>(&self->gridsize);
       break;
     case FG_DRAW:

@@ -69,8 +69,8 @@ public:
   void WindowOnDestroy(struct _FG_ELEMENT*, const FG_Msg*);
   virtual void ReapplySkin(fgSkin* skin) = 0;
 
-  template<typename T, size_t(*F)(char*, size_t, const T*, short)>
-  inline bss::Str WrapWrite(const T& v, short u)
+  template<typename T, size_t(*F)(char*, size_t, const T*, fgMsgType)>
+  inline bss::Str WrapWrite(const T& v, fgMsgType u)
   {
     bss::Str s;
     s.resize(F(0, 0, &v, u));
