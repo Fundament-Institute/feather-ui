@@ -28,6 +28,18 @@ void fgGrid_Destroy(fgGrid* self)
   self->list->message = (fgMessage)fgList_Message;
   fgList_Destroy(&self->list);
 }
+void fgGrid_Draw(fgElement* self, const AbsRect* area, const fgDrawAuxData* data, fgElement* begin)
+{
+  fgList_Draw(self, area, data, begin);
+
+  fgGrid* realself = reinterpret_cast<fgGrid*>(self);
+  if(realself->columndividercolor.a > 0 && realself->header.box.order.ordered.l > 0)
+  {
+    AbsRect header;
+    ResolveRect(realself->header, &header);
+    fgBoxRenderDividers(realself->header, realself->columndividercolor, 0, &header, area, data, realself->header.box.order.ordered.p[0]);
+  }
+}
 size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
 {
   static fgTransform ROWTRANSFORM = fgTransform{ { 0, 0, 0, 0, 0, 1, 0, 0 }, 0, { 0,0,0,0 } };
@@ -40,6 +52,7 @@ size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
     self->header->message = (fgMessage)fgGridColumn_Message;
     self->columndividercolor.color = 0;
     self->rowevencolor.color = 0;
+    self->list.box.fndraw = &fgGrid_Draw;
     return FG_ACCEPT;
   case FG_CLONE:
     if(msg->e)
@@ -64,14 +77,6 @@ size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
       _sendsubmsg<FG_ACTION>(*self, FGSCROLLBAR_CHANGE);
     }
     return FG_ACCEPT;
-  case FG_DRAW:
-    if(self->columndividercolor.a > 0 && self->header.box.order.ordered.l > 0)
-    {
-      AbsRect header;
-      ResolveRect(self->header, &header);
-      fgBoxRenderDividers(self->header, self->columndividercolor, 0, &header, (AbsRect*)msg->p, (fgDrawAuxData*)msg->p2, self->header.box.order.ordered.p[0]);
-    }
-    break;
   case FG_ADDITEM:
     switch(msg->subtype)
     {
@@ -89,7 +94,7 @@ size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
       return (size_t)text;
     }
     case FGITEM_ROW:
-      return (size_t)fgCreate("gridrow", self->list, msg->u < self->list.box.order.ordered.l ? self->list.box.order.ordered.p[msg->u] : 0, "Grid$row", FGFLAGS_DEFAULTS, &ROWTRANSFORM, 0);
+      return (size_t)fgCreate("gridrow", self->list, msg->u < self->list.box.order.ordered.l ? self->list.box.order.ordered.p[msg->u] : 0, 0, FGFLAGS_DEFAULTS, &ROWTRANSFORM, 0);
     }
     return 0;
   case FG_REMOVEITEM:

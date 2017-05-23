@@ -66,7 +66,15 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
       AbsRect out;
       ResolveOuterRect(self->window, &out);
       fgScaleRectDPI(&out, 96, 96);
-      self->handle = self->context.WndCreate(out, WS_THICKFRAME | WS_MAXIMIZEBOX | WS_MINIMIZEBOX, WS_EX_APPWINDOW, self, L"fgWindowD2D", self->dpi);
+      unsigned long style = 0;
+      if(self->window->flags&FGWINDOW_RESIZABLE)
+        style |= WS_THICKFRAME;
+      if(self->window->flags&FGWINDOW_MINIMIZABLE)
+        style |= WS_MINIMIZEBOX;
+      if(self->window->flags&FGWINDOW_MAXIMIZABLE)
+        style |= WS_MAXIMIZEBOX;
+
+      self->handle = self->context.WndCreate(out, style, style ? WS_EX_APPWINDOW : 0, self, L"fgWindowD2D", self->dpi);
       fgContext::ApplyWin32Size(self->window, self->handle, self->dpi);
 #ifdef TEST_DPI
       self->dpi.x = self->dpi.y = TEST_DPI;

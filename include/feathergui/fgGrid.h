@@ -64,6 +64,7 @@ extern "C" {
   FG_EXTERN void fgGrid_Init(fgGrid* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units);
   FG_EXTERN void fgGrid_Destroy(fgGrid* self);
   FG_EXTERN size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg);
+  FG_EXTERN void fgGrid_Draw(fgElement* self, const AbsRect* area, const fgDrawAuxData* data, fgElement* begin);
 
   FG_EXTERN void fgGridRow_Init(fgGridRow* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units);
   FG_EXTERN size_t fgGridRow_Message(fgGridRow* self, const FG_Msg* msg);

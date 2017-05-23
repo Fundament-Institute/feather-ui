@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <fg:Layout xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:fg="featherGUI" xsi:schemaLocation="featherGUI feather.xsd" skin="testskin">
-  <Window flags="RESIZABLE" text="Test Window" area="0 0 380 320">
+  <Window flags="MINIMIZABLE|MAXIMIZABLE|RESIZABLE" text="Test Window" area="0 0 380 320">
     <Menu spacing="10,0">
       <MenuItem text="File">
         <Submenu>
@@ -190,7 +190,7 @@
         </Resource>
 				<Resource flags="RECT" color="0xFFFFFFFF" area="0 90% 100% 100%"/>
 			</Skin>
-			<Resource flags="BACKGROUND|RECT" color="0xF6F8FAFF" uv="3 3 3 3" area="0 0 100% 100%"/>
+			<Resource flags="BACKGROUND|RECT" color="0xF6F8FAFF" uv="0 0 3 3" area="0 30 100% 100%"/>
 			<Resource flags="BACKGROUND|RECT"  color="0x333333" uv="3 3 0 0" area="0 0 100% 30"/>
       <Curve flags="BACKGROUND" color="0x111111FF" area="0 29 100% 30"/>
 		</Skin>
@@ -446,7 +446,7 @@
 			<Skin name="Grid$header" padding="8 2 8 2" spacing="6,0">
 				<Resource flags="BACKGROUND|SNAP|RECT" color="0xC0C3C9FF" uv="3 3 0 0" area="0 0 100% 100%"/>
 			</Skin>
-      <Skin name="Grid$row" padding="4 0 4 0" />
+      <Skin name="Gridrow" padding="8 0 8 0" spacing="60,0" />
 			<Resource flags="BACKGROUND|RECT" outline="1" edgecolor="0xC0C3C9FF" color="0xFFFFFF" uv="3 3 3 3" area="0 0 100% 100%"/>
 		</Skin>
 		<Skin name="ListItem">

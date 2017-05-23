@@ -187,7 +187,7 @@ const char* fgFlagMapDefault(const char* type, fgFlag flag)
     case FGWINDOW_MINIMIZABLE: return "MINIMIZABLE";
     case FGWINDOW_MAXIMIZABLE: return "MAXIMIZABLE";
     case FGWINDOW_RESIZABLE: return "RESIZABLE";
-    case FGWINDOW_NOTITLEBAR: return "NOTITLEBAR";
+    case FGWINDOW_NOCAPTION: return "NOCAPTION";
     case FGWINDOW_NOBORDER: return "NOBORDER";
     }
     break;

@@ -39,6 +39,7 @@ void fgWindow_Destroy(fgWindow* self)
 size_t fgWindow_Message(fgWindow* self, const FG_Msg* msg)
 {
   assert(self != 0 && msg != 0);
+  fgFlag otherint = (fgFlag)msg->u;
 
   switch(msg->type)
   {
@@ -47,10 +48,10 @@ size_t fgWindow_Message(fgWindow* self, const FG_Msg* msg)
     self->dragged = 0;
     self->maximized = 0;
     bss::bssFill(self->prevrect, 0);
-    fgText_Init(&self->caption, *self, 0, "Window$text", FGELEMENT_BACKGROUND | FGELEMENT_IGNORE | FGELEMENT_EXPAND | FGFLAGS_INTERNAL, 0, 0);
+    fgText_Init(&self->caption, *self, 0, "Window$text", FGELEMENT_BACKGROUND | FGELEMENT_IGNORE | FGELEMENT_EXPAND | FGFLAGS_INTERNAL | ((self->control->flags&FGWINDOW_NOCAPTION) ? FGELEMENT_HIDDEN : 0), 0, 0);
     fgButton_Init(&self->controls[0], *self, 0, "Window$close", FGELEMENT_BACKGROUND | FGFLAGS_INTERNAL, 0, 0);
-    fgButton_Init(&self->controls[1], *self, 0, "Window$restore", FGELEMENT_BACKGROUND | FGFLAGS_INTERNAL, 0, 0);
-    fgButton_Init(&self->controls[2], *self, 0, "Window$minimize", FGELEMENT_BACKGROUND | FGFLAGS_INTERNAL, 0, 0);
+    fgButton_Init(&self->controls[1], *self, 0, "Window$restore", FGELEMENT_BACKGROUND | FGFLAGS_INTERNAL | ((self->control->flags&FGWINDOW_MAXIMIZABLE) ? 0 : FGELEMENT_HIDDEN), 0, 0);
+    fgButton_Init(&self->controls[2], *self, 0, "Window$minimize", FGELEMENT_BACKGROUND | FGFLAGS_INTERNAL | ((self->control->flags&FGWINDOW_MINIMIZABLE) ? 0 : FGELEMENT_HIDDEN), 0, 0);
     self->controls[0].control.element.message = (fgMessage)&fgWindow_CloseMessage;
     self->controls[1].control.element.message = (fgMessage)&fgWindow_MaximizeMessage;
     self->controls[2].control.element.message = (fgMessage)&fgWindow_MinimizeMessage;
@@ -201,6 +202,16 @@ size_t fgWindow_Message(fgWindow* self, const FG_Msg* msg)
     self->dragged = 0;
     if(fgroot_instance->fgCaptureWindow == *self) // Remove our control hold on mouse messages.
       fgroot_instance->fgCaptureWindow = 0;
+    break;
+  case FG_SETFLAG:
+    otherint = bss::bssSetBit<fgFlag>(self->control->flags, otherint, msg->u2 != 0);
+  case FG_SETFLAGS:
+    if((self->control->flags ^ otherint) & FGWINDOW_MAXIMIZABLE)
+      self->controls[1]->SetFlag(FGELEMENT_HIDDEN, !(otherint&FGWINDOW_MAXIMIZABLE));
+    if((self->control->flags ^ otherint) & FGWINDOW_MINIMIZABLE)
+      self->controls[2]->SetFlag(FGELEMENT_HIDDEN, !(otherint&FGWINDOW_MINIMIZABLE));
+    if((self->control->flags ^ otherint) & FGWINDOW_NOCAPTION)
+      self->caption->SetFlag(FGELEMENT_HIDDEN, (otherint&FGWINDOW_NOCAPTION));
     break;
   case FG_ACTION:
     switch(msg->i)

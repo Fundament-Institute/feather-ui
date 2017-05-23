@@ -372,7 +372,7 @@ fgFlag fgSkinBase_ParseFlagsFromString(const char* s, fgFlag* remove, int divide
     "HIDEV", "SHOWH", "SHOWV", "IGNOREMARGINEDGEX", "IGNOREMARGINEDGEY", "TILEX", "TILEY", "REVERSE", "GROWY", "DISTRIBUTE", "SELECT", "MULTISELECT",
     "DRAGGABLE", "HIDEH", "HIDEV", "SHOWH", "SHOWV", "CHARWRAP", "WORDWRAP", "ELLIPSES", "RTL", "RIGHTALIGN", "CENTER", "SUBPIXEL", "ACTION",
     "SINGLELINE", "NOFOCUS", "RECT", "CIRCLE", "LINE", "QUADRATIC", "CUBIC", "BSPLINE", "MINIMIZABLE", "MAXIMIZABLE", "RESIZABLE",
-    "NOTITLEBAR", "NOBORDER", "EXPAND", "SNAP", "TILE", "TRIANGLE", "IGNOREMARGINEDGE");
+    "NOCAPTION", "NOBORDER", "EXPAND", "SNAP", "TILE", "TRIANGLE", "IGNOREMARGINEDGE");
 
   if(!s)
     return 0;
@@ -418,7 +418,7 @@ fgFlag fgSkinBase_ParseFlagsFromString(const char* s, fgFlag* remove, int divide
       case 44: f = FGWINDOW_MINIMIZABLE;  break;
       case 45: f = FGWINDOW_MAXIMIZABLE;  break;
       case 46: f = FGWINDOW_RESIZABLE;  break;
-      case 47: f = FGWINDOW_NOTITLEBAR;  break;
+      case 47: f = FGWINDOW_NOCAPTION;  break;
       case 48: f = FGWINDOW_NOBORDER;  break;
       case 49: f = FGELEMENT_EXPAND;  break;
       case 50: f = FGELEMENT_SNAP;  break;
