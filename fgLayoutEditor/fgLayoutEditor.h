@@ -82,6 +82,7 @@ protected:
   fgElement* _curelement; // currently selected element in the workspace
   fgElement* _hoverelement;
   fgElement* _workspaceroot;
+  fgToolbar* _toolbar;
 
   bool _needsave;
   LayoutTab _layout;

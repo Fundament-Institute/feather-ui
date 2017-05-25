@@ -20,7 +20,7 @@
 
 #include <string.h> // memcpy,memset
 #include <stddef.h>
-#include "bss_compiler.h"
+#include "compiler.h"
 #include <assert.h>
 
 #ifdef  __cplusplus
@@ -128,6 +128,7 @@ FG_EXTERN const CRect CRect_EMPTY;
 FG_EXTERN const AbsVec AbsVec_EMPTY;
 FG_EXTERN const fgIntVec fgIntVec_EMPTY;
 FG_EXTERN const fgIntVec fgIntVec_DEFAULTDPI;
+FG_EXTERN const bssVersionInfo fgVersion;
 
 enum FGFLAGS {
   FGFLAGS_INTERNAL = (1 << ((sizeof(fgFlag) << 3) - 2)),

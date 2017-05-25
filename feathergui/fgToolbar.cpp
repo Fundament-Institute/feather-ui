@@ -18,7 +18,7 @@ size_t fgToolbar_Message(fgToolbar* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_ADDITEM:
-    return (size_t)fgCreate("fgToolGroup", *self, 0, 0, FGFLAGS_DEFAULTS, 0, 0);
+    return (size_t)fgCreate("ToolGroup", *self, 0, 0, FGFLAGS_DEFAULTS, 0, 0);
   case FG_GETCLASSNAME:
     return (size_t)"Toolbar";
   }
@@ -34,7 +34,7 @@ size_t fgToolGroup_Message(fgBox* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_ADDITEM:
-    return (size_t)fgCreate("fgBox", *self, 0, 0, FGFLAGS_DEFAULTS, 0, 0);
+    return (size_t)fgCreate("Box", *self, 0, 0, FGFLAGS_DEFAULTS, 0, 0);
   case FG_GETCLASSNAME:
     return (size_t)"ToolGroup";
   }

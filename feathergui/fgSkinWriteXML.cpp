@@ -237,8 +237,8 @@ void fgSkinBase_WriteStyleAttributesXML(XMLNode* node, fgStyle& s, fgSkinBase* r
       if(cur->msg.subtype < 8)
       {
         fgColor c = { cur->msg.u };
-        rswap(c.colors[0], c.colors[3]);
-        rswap(c.colors[1], c.colors[2]);
+        std::swap(c.colors[0], c.colors[3]);
+        std::swap(c.colors[1], c.colors[2]);
         fgStyle_WriteHex(node->AddAttribute(COLORATTR[cur->msg.subtype])->String, c.color);
       }
       break;

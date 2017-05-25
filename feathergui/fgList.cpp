@@ -289,6 +289,8 @@ size_t fgList_Message(fgList* self, const FG_Msg* msg)
     case FGSETCOLOR_MAIN: self->select.color = (unsigned int)msg->i; return FG_ACCEPT;
     case FGSETCOLOR_HOVER: self->hover.color = (unsigned int)msg->i; return FG_ACCEPT;
     case FGSETCOLOR_DRAG: self->drag.color = (unsigned int)msg->i; return FG_ACCEPT;
+    case FGSETCOLOR_DIVIDER:
+      self->drag.color = self->drag.color;
     }
     break;
   case FG_SETVALUE:

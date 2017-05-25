@@ -62,12 +62,12 @@ fgElement* fgOrderedGet(struct _FG_BOX_ORDERED_ELEMENTS_* self, const AbsRect* a
     return 0;
   size_t r = 0;
   if((FLAGS&FGBOX_TILE) != FGBOX_TILE) // Simple case is easy
-    r = bss::binsearch_aux_t<const fgElement*, AbsVec, size_t, &bss::CompT_NEQ<char>, -1, const AbsRect*>::template BinarySearchNear<&fgOrderedCompare<FLAGS, fgOrderedBottomRight>>(self->ordered.p, area->topleft, 0, self->ordered.l, cache);
+    r = bss::internal::binsearch_aux_t<const fgElement*, AbsVec, size_t, &bss::CompT_NEQ<char>, -1, const AbsRect*>::template BinarySearchNear<&fgOrderedCompare<FLAGS, fgOrderedBottomRight>>(self->ordered.p, area->topleft, 0, self->ordered.l, cache);
   else
   {
     AbsVec query = (FLAGS&FGBOX_GROWY) ? AbsVec{ area->left, -INFINITY } : AbsVec{ -INFINITY, area->top }; // First we find the target column we want by querying (x,-infinity)
     constexpr auto FN = (FLAGS&FGBOX_GROWY) ? fgOrderedBottomLeft : fgOrderedTopRight;
-    r = bss::binsearch_aux_t<const fgElement*, AbsVec, size_t, &bss::CompT_NEQ<char>, -1, const AbsRect*>::template BinarySearchNear<&fgOrderedCompare<FLAGS, FN>>(self->ordered.p, query, 0, self->ordered.l, cache);
+    r = bss::internal::binsearch_aux_t<const fgElement*, AbsVec, size_t, &bss::CompT_NEQ<char>, -1, const AbsRect*>::template BinarySearchNear<&fgOrderedCompare<FLAGS, FN>>(self->ordered.p, query, 0, self->ordered.l, cache);
 
     if(r == self->ordered.l) // If this happens, we went past the END of the array
       r = self->ordered.l - 1;
@@ -84,7 +84,7 @@ fgElement* fgOrderedGet(struct _FG_BOX_ORDERED_ELEMENTS_* self, const AbsRect* a
     AbsRect abs;
     ResolveOuterRectCache(self->ordered.p[r], &abs, cache, &self->ordered.p[r]->parent->padding);
     query = (FLAGS&FGBOX_GROWY) ? AbsVec{ abs.left, area->top } : AbsVec{ area->left, abs.top }; // Now that we have the correct column, create a query on the y-axis using the left edge of the column.
-    r = bss::binsearch_aux_t<const fgElement*, AbsVec, size_t, &bss::CompT_NEQ<char>, -1, const AbsRect*>::template BinarySearchNear<&fgOrderedCompare<FLAGS, FN>>(self->ordered.p, query, 0, self->ordered.l, cache);
+    r = bss::internal::binsearch_aux_t<const fgElement*, AbsVec, size_t, &bss::CompT_NEQ<char>, -1, const AbsRect*>::template BinarySearchNear<&fgOrderedCompare<FLAGS, FN>>(self->ordered.p, query, 0, self->ordered.l, cache);
   }
   return (r >= self->ordered.l) ? self->ordered.p[0] : self->ordered.p[r];
 }
@@ -225,6 +225,7 @@ size_t fgBox_Message(fgBox* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     self->fndraw = &fgBox_Draw;
     self->dividercolor.color = 0;
+    self->dividerskin = 0;
     self->fixedsize.x = -1;
     self->fixedsize.y = -1;
     bss::bssFill(self->selected, 0);

@@ -31,13 +31,13 @@ uint32_t EditorBase::ParseColor(const char* s)
   color.color = strtoul(s, &r, 16);
   if(strlen(s) == 8 && s[0] == '0' && s[1] == 'x') // If this is true, it's a non-alpha color value
   {
-    rswap(color.r, color.b);
+    std::swap(color.r, color.b);
     color.a = 255;
   }
   else
   {
-    rswap(color.r, color.a);
-    rswap(color.g, color.b);
+    std::swap(color.r, color.a);
+    std::swap(color.g, color.b);
   }
   return color.color;
 }
@@ -519,8 +519,8 @@ void EditorBase::SetProps(fgGrid& g, fgClassLayout* layout, fgSkinElement* eleme
       if(fgElement* e = FindProp(g, PROPERTIES((FG_UINT)PROP_COLOR + m->msg.subtype)))
       {
         fgColor c = { m->msg.u };
-        rswap(c.colors[0], c.colors[3]);
-        rswap(c.colors[1], c.colors[2]);
+        std::swap(c.colors[0], c.colors[3]);
+        std::swap(c.colors[1], c.colors[2]);
         e->SetText(StrF("%08llX", c.color).c_str());
       }
       break;

@@ -466,8 +466,8 @@ inline FABS fgLayout_ExpandY(FABS dimy, fgElement* child)
 
 BSS_FORCEINLINE void __applyrect(AbsRect& dest, const AbsRect& src, const AbsRect& apply) noexcept
 {
-  const sseVecT<FABS> m(1.0f, 1.0f, -1.0f, -1.0f);
-  (sseVecT<FABS>(BSS_UNALIGNED<const float>(&src.left)) + (sseVecT<FABS>(BSS_UNALIGNED<const float>(&apply.left))*m)) >> BSS_UNALIGNED<float>(&dest.left);
+  const bss::sseVecT<FABS> m(1.0f, 1.0f, -1.0f, -1.0f);
+  (bss::sseVecT<FABS>(bss::BSS_UNALIGNED<const float>(&src.left)) + (bss::sseVecT<FABS>(bss::BSS_UNALIGNED<const float>(&apply.left))*m)) >> bss::BSS_UNALIGNED<float>(&dest.left);
 }
 
 struct _FG_MESSAGEQUEUE {

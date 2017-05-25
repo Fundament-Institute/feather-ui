@@ -18,10 +18,13 @@ const CRect CRect_EMPTY = { 0,0,0,0,0,0,0,0 };
 const AbsVec AbsVec_EMPTY = { 0,0 };
 const fgIntVec fgIntVec_EMPTY = { 0,0 };
 const fgIntVec fgIntVec_DEFAULTDPI = { 96,96 };
+const bssVersionInfo fgVersion = { FGUI_VERSION_REVISION, FGUI_VERSION_MINOR, FGUI_VERSION_MAJOR };
 
-bss::Hash<std::pair<fgElement*, fgMsgType>, fgDelegateListener> fgListenerHash;
-bss::Hash<char*> fgStringAllocHash;
-bss::HashBase<const char*, size_t, true, bss::KH_POINTER_HASHFUNC<const char* const&>, bss::KH_INT_EQUALFUNC<const char*>> fgStringRefHash;
+using namespace bss;
+
+Hash<std::pair<fgElement*, fgMsgType>, fgDelegateListener> fgListenerHash;
+Hash<char*> fgStringAllocHash;
+HashBase<const char*, size_t, true, KH_POINTER_HASHFUNC<const char* const&>, KH_INT_EQUALFUNC<const char*>> fgStringRefHash;
 
 static_assert(sizeof(unsigned int) == sizeof(fgColor), "ERROR: fgColor not size of 32-bit int!");
 static_assert(sizeof(FG_Msg) <= sizeof(uint64_t) * 3, "FG_Msg is too big!");

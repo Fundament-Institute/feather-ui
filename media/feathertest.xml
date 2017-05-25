@@ -72,7 +72,7 @@
           <Text text="Drop 3" />
           <Text text="Drop 4" />
         </Dropdown>
-        <List area="-350:1, 30, -250:1, 0" flags="TILEY|EXPANDY|MULTISELECT|DRAGGABLE|SNAP" value="3" dividercolor="0x000000">
+        <List area="-350:1, 30, -250:1, 0" flags="TILEY|EXPANDY|MULTISELECT|DRAGGABLE|SNAP" value="3">
           <ListItem area="0, 0, 100%, 20" />
           <Text area="0, 0, 100%, 20" text="List 1" />
           <Text area="0, 0, 100%, 20" text="List 2" />
@@ -450,11 +450,15 @@
 			<Resource flags="BACKGROUND|RECT" outline="1" edgecolor="0xC0C3C9FF" color="0xFFFFFF" uv="3 3 3 3" area="0 0 100% 100%"/>
 		</Skin>
 		<Skin name="ListItem">
-			<Resource flags="BACKGROUND|SNAPX|SNAPY|RECT" outline="1" edgecolor="0xC0C3C9FF" color="0xFFFFFF99" uv="3 3 3 3" area="0 0 100% 100%">
-				<Style name="selected+hover" color="0x00BBBBCC"/>
-				<Style name="selected+neutral" color="0x009999CC"/>
-				<Style name="hover" color="0x00990099"/>
-				<Style name="neutral" color="0x99009999"/>
+			<Resource flags="BACKGROUND|SNAPX|SNAPY|RECT" color="0xF6F8FA" area="0 0 100% 100%">
+				<Style name="selected+hover" color="0xEEEEEB"/>
+				<Style name="selected+neutral" color="0xCCCEDB"/>
+        <Style name="focused+selected+hover" color="0x88CCFF" />
+        <Style name="focused+selected+nuetral" color="0x3399FF" />
+        <Style name="focused+hover" color="0x88CCFF" />
+        <Style name="focused+nuetral" color="0x3399FF" />
+				<Style name="hover" color="0xFFFFFF"/>
+				<Style name="neutral" color="0xF6F8FA"/>
 			</Resource>
 		</Skin>
 		<Skin name="Debug" font="14 BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial" color="0xFFFFFFFF"/>
@@ -464,8 +468,8 @@
 			<Resource flags="BACKGROUND|RECT" color="0xE6EAEFFF" uv="0 0 0 0" area="0 0 100% 100%"/>
       <Curve flags="BACKGROUND" color="0xBBBBBFFF" area="0 -1:1 100% 0:1"/>
 		</Skin>
-		<Skin name="List" dragcolor="0xCCCCCCFF" hovercolor="0x999999FF" selectcolor="0xDD9999FF">
-			<Resource flags="BACKGROUND|SNAPX|SNAPY|RECT" outline="1" edgecolor="0xC0C3C9FF" color="0xFFFFFF99" uv="3 3 3 3" area="0 0 100% 100%"/>
+		<Skin name="List" dividercolor="0xC0C3C9" dragcolor="0x000000FF" hovercolor="0x88CCFF" selectcolor="0x3399FF" spacing="0,1">
+			<Resource flags="BACKGROUND|SNAPX|SNAPY|RECT" outline="1" edgecolor="0xC0C3C9FF" color="0xF6F8FA" uv="3 3 3 3" area="0 0 100% 100%"/>
 		</Skin>
 	</Skin>
 </fg:Layout>

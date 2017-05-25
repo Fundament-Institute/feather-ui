@@ -102,13 +102,13 @@ uint32_t fgStyle_ParseColor(const XMLValue* attr)
   color.color = attr->Integer;
   if(attr->String.length() == 8 && attr->String[0] == '0' && attr->String[1] == 'x') // If this is true, it's a non-alpha color value
   {
-    rswap(color.r, color.b);
+    std::swap(color.r, color.b);
     color.a = 255;
   }
   else
   {
-    rswap(color.r, color.a);
-    rswap(color.g, color.b);
+    std::swap(color.r, color.a);
+    std::swap(color.g, color.b);
   }
   return color.color;
 }

@@ -63,8 +63,6 @@ size_t fgWorkspace_Message(fgWorkspace* self, const FG_Msg* msg)
         return *reinterpret_cast<size_t*>(&self->gridsize);
       break;
     case FG_DRAW:
-      fgStandardDraw(*self, (const AbsRect*)msg->p, (const fgDrawAuxData*)msg->p2, msg->subtype & 1, 0);
-      return FG_ACCEPT;
       fgStandardDraw(*self, (const AbsRect*)msg->p, (const fgDrawAuxData*)msg->p2, msg->subtype & 1, &fgWorkspace_DrawGrid);
       if(self->crosshaircolor.a > 0) // Draw crosshairs over everything, if they are enabled
       {

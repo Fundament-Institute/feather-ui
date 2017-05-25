@@ -39,8 +39,8 @@ inline size_t fgTextbox_DeleteSelection(fgTextbox* self)
   assert(self->text32.p != 0);
   if(self->start > self->end)
   {
-    bss::rswap(self->start, self->end);
-    bss::rswap(self->startpos, self->endpos);
+    std::swap(self->start, self->end);
+    std::swap(self->startpos, self->endpos);
   }
 
   bss::RemoveRangeSimple<int>(self->text32.p, self->text32.l, self->start, self->end - self->start);

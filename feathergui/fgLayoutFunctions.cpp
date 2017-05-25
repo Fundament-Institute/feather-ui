@@ -116,8 +116,8 @@ AbsVec fgTileLayoutReorder(fgElement* cur, fgElement* skip, char axis, float max
 {
   if(axis)
   {
-    bss::rswap(expand.x, expand.y);
-    bss::rswap(spacing.x, spacing.y);
+    std::swap(expand.x, expand.y);
+    std::swap(spacing.x, spacing.y);
     flags = ((flags&FGBOX_IGNOREMARGINEDGEX) >> 1) | ((flags&FGBOX_IGNOREMARGINEDGEY) << 1);
   }
   FABS pitch = 0.0f;
