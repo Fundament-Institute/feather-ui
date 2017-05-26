@@ -7,7 +7,7 @@ using namespace System;
 
 Font::Font(void* p) : _p(p), _owner(false) {}
 Font::Font(void* p, bool owner) : _p(p), _owner(owner) {}
-Font::Font(fgFlag flags, String^ font, short weight, char italic, unsigned int size, System::Drawing::Point dpi) : _p(0), _owner(true)
+Font::Font(fgFlag flags, String^ font, short weight, char italic, unsigned int size, System::Drawing::PointF dpi) : _p(0), _owner(true)
 {
   TOCHAR(font);
   _p = fgSingleton()->backend.fgCreateFont(flags, (const char*)pstr, weight, italic, size, &Element::From(dpi));
@@ -48,17 +48,17 @@ void Font::Draw(String^ text, float lineheight, float letterspacing, unsigned in
   fontProcessString<void, float, float, unsigned int, const AbsRect*, FABS, const AbsVec*, fgFlag, const fgDrawAuxData*, void*>(
     _p, text, fgSingleton()->backend.fgDrawFont, lineheight, letterspacing, color, &Element::From(area), rotation, &Element::From(center), flags, &data->operator fgDrawAuxData(), layout.p);
 }
-Font::TextLayout Font::GetLayout(String^ text, float lineheight, float letterspacing, System::Drawing::RectangleF^ area, fgFlag flags, System::Drawing::Point dpi, Font::TextLayout prevlayout)
+Font::TextLayout Font::GetLayout(String^ text, float lineheight, float letterspacing, System::Drawing::RectangleF^ area, fgFlag flags, System::Drawing::PointF dpi, Font::TextLayout prevlayout)
 {
   AbsRect absarea = Element::From(area);
-  fgIntVec absdpi = Element::From(dpi);
+  AbsVec absdpi = Element::From(dpi);
   switch(fgSingleton()->backend.BackendTextFormat)
   {
   case FGTEXTFMT_UTF8:
   case FGTEXTFMT_UTF16:
   case FGTEXTFMT_UTF32:
   {
-    void* layout = fontProcessString<void*, float, float, AbsRect*, fgFlag, const fgIntVec*, void*>(
+    void* layout = fontProcessString<void*, float, float, AbsRect*, fgFlag, const AbsVec*, void*>(
       _p, text, fgSingleton()->backend.fgFontLayout, lineheight, letterspacing, &absarea, flags, &absdpi, prevlayout.p);
     area->X = absarea.left;
     area->Y = absarea.top;
@@ -75,20 +75,20 @@ Font::Desc^ Font::GetDesc() {
   return gcnew Font::Desc(desc);
 }
 
-size_t Font::Index(System::String^ text, float lineheight, float letterspacing, System::Drawing::RectangleF area, fgFlag flags, System::Drawing::PointF pos, System::Drawing::PointF^ cursor, System::Drawing::Point dpi, TextLayout layout)
+size_t Font::Index(System::String^ text, float lineheight, float letterspacing, System::Drawing::RectangleF area, fgFlag flags, System::Drawing::PointF pos, System::Drawing::PointF^ cursor, System::Drawing::PointF dpi, TextLayout layout)
 {
   AbsVec abscur = Element::From(cursor);
-  fgIntVec absdpi = Element::From(dpi);
-  size_t r = fontProcessString<size_t, float, float, const AbsRect*, fgFlag, AbsVec, AbsVec*, const fgIntVec*, void*>(
+  AbsVec absdpi = Element::From(dpi);
+  size_t r = fontProcessString<size_t, float, float, const AbsRect*, fgFlag, AbsVec, AbsVec*, const AbsVec*, void*>(
     _p, text, fgSingleton()->backend.fgFontIndex, lineheight, letterspacing, &Element::From(area), flags, Element::From(pos), &abscur, &absdpi, layout.p);
   cursor->X = abscur.x;
   cursor->Y = abscur.y;
   return r;
 }
-System::Drawing::PointF Font::Pos(System::String^ text, float lineheight, float letterspacing, System::Drawing::RectangleF area, fgFlag flags, size_t index, System::Drawing::Point dpi, TextLayout layout)
+System::Drawing::PointF Font::Pos(System::String^ text, float lineheight, float letterspacing, System::Drawing::RectangleF area, fgFlag flags, size_t index, System::Drawing::PointF dpi, TextLayout layout)
 {
-  fgIntVec absdpi = Element::From(dpi);
-  AbsVec v = fontProcessString<AbsVec, float, float, const AbsRect*, fgFlag, size_t, const fgIntVec*, void*>(
+  AbsVec absdpi = Element::From(dpi);
+  AbsVec v = fontProcessString<AbsVec, float, float, const AbsRect*, fgFlag, size_t, const AbsVec*, void*>(
     _p, text, fgSingleton()->backend.fgFontPos, lineheight, letterspacing, &Element::From(area), flags, index, &absdpi, layout.p);
   return System::Drawing::PointF(v.x, v.y);
 }

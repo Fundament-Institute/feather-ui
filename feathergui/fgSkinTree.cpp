@@ -71,7 +71,10 @@ char fgSkinTree_RemoveStyle(fgSkinTree* self, FG_UINT style)
   fgSkinTree::fgStylePair pair = { style, 0 };
   size_t i = ((StyleArraySort&)self->styles).Find(pair);
   if(i == (size_t)~0)
+  {
+    fgLog(FGLOG_INFO, "Tried to remove nonexistant style %u", style);
     return 0;
+  }
   fgStyle_Destroy(&self->styles.p[i].style);
   return ((StyleArraySort&)self->styles).Remove(i);
 }

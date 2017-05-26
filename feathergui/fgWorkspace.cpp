@@ -42,6 +42,18 @@ size_t fgWorkspace_Message(fgWorkspace* self, const FG_Msg* msg)
       self->rulers[0].message = (fgMessage)&fgWorkspace_RulerMessage;
       self->rulers[1].message = (fgMessage)&fgWorkspace_RulerMessage;
       return FG_ACCEPT;
+    case FG_CLONE:
+      if(msg->e)
+      {
+        fgWorkspace* hold = reinterpret_cast<fgWorkspace*>(msg->e);
+        memsubcpy<fgWorkspace, fgScrollbar>(hold, self);
+        self->rulers[0].Clone(&hold->rulers[0]);
+        self->rulers[1].Clone(&hold->rulers[1]);
+        self->cursors[0].Clone(&hold->cursors[0]);
+        self->cursors[1].Clone(&hold->cursors[1]);
+        fgScrollbar_Message(&self->scroll, msg);
+      }
+      return sizeof(fgWorkspace);
     case FG_SETFLAG: // If 0 is sent in, disable the flag, otherwise enable. Our internal flag is 1 if clipping disabled, 0 otherwise.
       otherint = bss::bssSetBit<fgFlag>(self->scroll->flags, otherint, msg->u2 != 0);
     case FG_SETFLAGS:

@@ -17,7 +17,7 @@ namespace fgDotNet {
       FABS descender;
       FABS lineheight;
       unsigned int pt;
-      System::Drawing::Point dpi;
+      System::Drawing::PointF dpi;
 
       operator fgFontDesc() { return fgFontDesc{ ascender, descender, lineheight, pt,{ dpi.X, dpi.Y } }; }
       static operator fgFontDesc(Desc^ d) { return d->operator fgFontDesc(); }
@@ -29,15 +29,15 @@ namespace fgDotNet {
     };
 
     explicit Font(void* p);
-    Font(fgFlag flags, System::String^ font, short weight, char italic, unsigned int size, System::Drawing::Point dpi);
+    Font(fgFlag flags, System::String^ font, short weight, char italic, unsigned int size, System::Drawing::PointF dpi);
     ~Font();
     !Font();
     Font^ Clone(Desc^ desc);
     void Draw(System::String^ text, float lineheight, float letterspacing, unsigned int color, System::Drawing::RectangleF area, FABS rotation, System::Drawing::PointF center, fgFlag flags, DrawAuxData^ data, TextLayout layout);
-    TextLayout GetLayout(System::String^ text, float lineheight, float letterspacing, System::Drawing::RectangleF^ area, fgFlag flags, System::Drawing::Point dpi, TextLayout prevlayout);
+    TextLayout GetLayout(System::String^ text, float lineheight, float letterspacing, System::Drawing::RectangleF^ area, fgFlag flags, System::Drawing::PointF dpi, TextLayout prevlayout);
     Desc^ GetDesc();
-    size_t Index(System::String^ text, float lineheight, float letterspacing, System::Drawing::RectangleF area, fgFlag flags, System::Drawing::PointF pos, System::Drawing::PointF^ cursor, System::Drawing::Point dpi, TextLayout layout);
-    System::Drawing::PointF Pos(System::String^ text, float lineheight, float letterspacing, System::Drawing::RectangleF area, fgFlag flags, size_t index, System::Drawing::Point dpi, TextLayout layout);
+    size_t Index(System::String^ text, float lineheight, float letterspacing, System::Drawing::RectangleF area, fgFlag flags, System::Drawing::PointF pos, System::Drawing::PointF^ cursor, System::Drawing::PointF dpi, TextLayout layout);
+    System::Drawing::PointF Pos(System::String^ text, float lineheight, float letterspacing, System::Drawing::RectangleF area, fgFlag flags, size_t index, System::Drawing::PointF dpi, TextLayout layout);
 
     inline static operator void*(Font^ r) { return r->_p; }
 

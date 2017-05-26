@@ -58,6 +58,7 @@ size_t fgSlider_Message(fgSlider* self, const FG_Msg* msg)
       _sendmsg<FG_SETAREA, void*>(&self->slider, &area);
       return FG_ACCEPT;
     }
+    fgLog(FGLOG_INFO, "%s set invalid value/range type: %hu", fgGetFullName(*self).c_str(), msg->subtype);
     return 0;
   case FG_MOUSEMOVE:
   case FG_MOUSEUP:
@@ -81,6 +82,7 @@ size_t fgSlider_Message(fgSlider* self, const FG_Msg* msg)
       FABS range = (FABS)self->range;
       return *(size_t*)&range;
     }
+    fgLog(FGLOG_INFO, "%s requested invalid range type: %hu", fgGetFullName(*self).c_str(), msg->subtype);
     return 0;
   case FG_GETVALUE:
     if(!msg->subtype || msg->subtype == FGVALUE_INT64)
@@ -90,6 +92,7 @@ size_t fgSlider_Message(fgSlider* self, const FG_Msg* msg)
       float value = self->value;
       return *(size_t*)&value;
     }
+    fgLog(FGLOG_INFO, "%s requested invalid value type: %hu", fgGetFullName(*self).c_str(), msg->subtype);
     return 0;
   case FG_GETCLASSNAME:
     return (size_t)"Slider";

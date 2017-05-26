@@ -10,13 +10,13 @@ namespace fgDotNet {
   {
   public:
     explicit Asset(void* p);
-    Asset(fgFlag flags, System::String^ file);
-    Asset(fgFlag flags, cli::array<System::Byte>^ data, size_t length);
+    Asset(fgFlag flags, System::String^ file, System::Drawing::PointF dpi);
+    Asset(fgFlag flags, cli::array<System::Byte>^ data, size_t length, System::Drawing::PointF dpi);
     ~Asset();
     !Asset();
     Asset^ Clone(Element^ src);
     void Draw(UnifiedRect^ uv, unsigned int color, unsigned int edge, FABS outline, System::Drawing::RectangleF^ area, FABS rotation, System::Drawing::PointF^ center, fgFlag flags, DrawAuxData^ data);
-    System::Drawing::PointF^ Size(UnifiedRect^ uv, fgFlag flags);
+    System::Drawing::PointF^ Size(UnifiedRect^ uv, fgFlag flags, System::Drawing::PointF dpi);
 
     inline static operator void*(Asset^ r) { return r->_p; }
 

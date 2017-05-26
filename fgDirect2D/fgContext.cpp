@@ -180,7 +180,7 @@ longptr_t __stdcall fgContext::WndProc(HWND__* hWnd, unsigned int message, size_
   return DefWindowProc(hWnd, message, wParam, lParam);
 }
 
-HWND__* fgContext::WndCreate(const AbsRect& out, unsigned long style, uint32_t exflags, void* self, const wchar_t* cls, fgIntVec& dpi)
+HWND__* fgContext::WndCreate(const AbsRect& out, unsigned long style, uint32_t exflags, void* self, const wchar_t* cls, AbsVec& dpi)
 {
   exflags |= WS_EX_COMPOSITED | WS_EX_LAYERED;
 
@@ -190,9 +190,9 @@ HWND__* fgContext::WndCreate(const AbsRect& out, unsigned long style, uint32_t e
   int rwidth = rsize.right - rsize.left;
   int rheight = rsize.bottom - rsize.top;
 
-  HWND handle = CreateWindowExW(exflags, cls, L"", style, CW_USEDEFAULT, CW_USEDEFAULT, INT(rwidth), INT(rheight), NULL, NULL, (HINSTANCE)&__ImageBase, NULL);
+  HWND handle = CreateWindowExW(exflags, cls, L"", style, (style&WS_POPUP) ? rsize.left : CW_USEDEFAULT, (style&WS_POPUP) ? rsize.top : CW_USEDEFAULT, INT(rwidth), INT(rheight), NULL, NULL, (HINSTANCE)&__ImageBase, NULL);
   HDC hdc = GetDC(handle);
-  dpi = { (int)GetDeviceCaps(hdc, LOGPIXELSX), (int)GetDeviceCaps(hdc, LOGPIXELSY) };
+  dpi = { (FABS)GetDeviceCaps(hdc, LOGPIXELSX), (FABS)GetDeviceCaps(hdc, LOGPIXELSY) };
   ReleaseDC(handle, hdc);
 
   SetWindowLongPtrW(handle, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(self));
@@ -224,7 +224,7 @@ void fgContext::BeginDraw(HWND handle, fgElement* element, const AbsRect* area, 
     const sseVecT<FABS> m(-1.0f, -1.0f, 1.0f, 1.0f);
     (sseVecT<FABS>(BSS_UNALIGNED<const float>(&area->left)) + (sseVecT<FABS>(BSS_UNALIGNED<const float>(&margin->left))*m)) >> BSS_UNALIGNED<float>(&truearea.left);
   }
-  fgIntVec& dpi = element->GetDPI();
+  const AbsVec& dpi = element->GetDPI();
   fgScaleRectDPI(&truearea, dpi.x, dpi.y);
   target->SetTransform(D2D1::Matrix3x2F::Translation(-truearea.left, -truearea.top));
   cliprect.push(*area); // Dont' use the DPI scale here because the cliprect is scaled later in the pipeline.
@@ -265,7 +265,7 @@ void fgContext::CreateResources(HWND handle)
       hr = target->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &color);
       hr = target->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &edgecolor);
       if(FAILED(hr))
-        fgLog("CreateSolidColorBrush failed with error code %li", hr);
+        fgLog(FGLOG_ERROR, "CreateSolidColorBrush failed with error code %li", hr);
       hr = target->QueryInterface<ID2D1DeviceContext>(&context);
       if(SUCCEEDED(hr))
       {
@@ -275,13 +275,13 @@ void fgContext::CreateResources(HWND handle)
         hr = context->CreateEffect(CLSID_fgTriangle, &triangle);
         //hr = context->CreateEffect(CLSID_D2D1Scale, &scale);
         if(FAILED(hr))
-          fgLog("CreateEffect failed with error code %li", hr);
+          fgLog(FGLOG_ERROR, "CreateEffect failed with error code %li", hr);
       }
       else
-        fgLog("QueryInterface<ID2D1DeviceContext> failed with error code %li, custom effects won't be available. Make sure your device supports Direct2D 1.1", hr);
+        fgLog(FGLOG_ERROR, "QueryInterface<ID2D1DeviceContext> failed with error code %li, custom effects won't be available. Make sure your device supports Direct2D 1.1", hr);
     }
     else
-      fgLog("CreateHwndRenderTarget failed with error code %li", hr);
+      fgLog(FGLOG_ERROR, "CreateHwndRenderTarget failed with error code %li", hr);
   }
 }
 void fgContext::DiscardResources()
@@ -354,14 +354,14 @@ AbsVec fgContext::AdjustPoints(tagPOINTS* points, fgElement* src)
 AbsVec fgContext::AdjustDPI(tagPOINTS* points, fgElement* src)
 {
   AbsVec pt = { points->x, points->y };
-  fgIntVec dpi = src->GetDPI();
-  AbsVec scale = { (!dpi.x) ? 1.0f : (96.0f / (float)dpi.x), (!dpi.y) ? 1.0f : (96.0f / (float)dpi.y) };
+  AbsVec dpi = src->GetDPI();
+  AbsVec scale = { (!dpi.x) ? 1.0f : (96.0f / dpi.x), (!dpi.y) ? 1.0f : (96.0f / dpi.y) };
   pt.x *= scale.x;
   pt.y *= scale.y;
   return pt;
 }
 
-void fgContext::ApplyWin32Size(fgWindow& self, HWND__* handle, const fgIntVec& dpi)
+void fgContext::ApplyWin32Size(fgWindow& self, HWND__* handle, const AbsVec& dpi)
 {
   RECT r;
 

@@ -13,7 +13,7 @@ struct fgWindowD2D {
   fgWindow window;
   fgContext context;
   HWND__* handle;
-  fgIntVec dpi;
+  AbsVec dpi;
   bss::LLBase<fgWindowD2D> list;
 
   static longptr_t __stdcall WndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam);

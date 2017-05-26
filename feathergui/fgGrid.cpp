@@ -96,6 +96,7 @@ size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
     case FGITEM_ROW:
       return (size_t)fgCreate("gridrow", self->list, msg->u < self->list.box.order.ordered.l ? self->list.box.order.ordered.p[msg->u] : 0, 0, FGFLAGS_DEFAULTS, &ROWTRANSFORM, 0);
     }
+    fgLog(FGLOG_INFO, "%s unrecognized add item: %hu", fgGetFullName(*self).c_str(), msg->subtype);
     return 0;
   case FG_REMOVEITEM:
     switch(msg->subtype)
@@ -103,11 +104,12 @@ size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
     case FGITEM_COLUMN:
       if(msg->u < self->header.box.order.ordered.l)
       {
-        self->header->RemoveItem(msg->i);
+        self->header->RemoveItem(msg->u);
         for(size_t i = 0; i < self->list.box.order.ordered.l; ++i)
-          self->list.box.order.ordered.p[i]->RemoveItem(msg->i);
+          self->list.box.order.ordered.p[i]->RemoveItem(msg->u);
         return FG_ACCEPT;
       }
+      fgLog(FGLOG_INFO, "%s invalid remove column: %zu", fgGetFullName(*self).c_str(), msg->u);
       return 0;
     case FGITEM_ROW:
     {
@@ -119,10 +121,12 @@ size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
     {
       fgElement* row = self->list->GetItem(msg->u2);
       if(row)
-        return row->RemoveItem(msg->i);
+        return row->RemoveItem(msg->u);
+      fgLog(FGLOG_INFO, "%s invalid remove item: %zu", fgGetFullName(*self).c_str(), msg->subtype, msg->u);
       return 0;
     }
     }
+    fgLog(FGLOG_INFO, "%s unrecognized remove item: %zu,%zu", fgGetFullName(*self).c_str(), msg->u, msg->u2);
     return 0;
   case FG_GETITEM:
     switch(msg->subtype)
@@ -136,6 +140,7 @@ size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
     case 0:
       if((size_t)msg->u2 < self->list.box.order.ordered.l)
         return _sendmsg<FG_GETITEM, ptrdiff_t>(self->list.box.order.ordered.p[msg->u2], msg->i);
+      fgLog(FGLOG_INFO, "%s invalid get index: %zu", fgGetFullName(*self).c_str(), msg->u);
       return 0;
     }
     break;
@@ -151,6 +156,7 @@ size_t fgGrid_Message(fgGrid* self, const FG_Msg* msg)
       return fgList_Message(&self->list, &m);
     }
     }
+    fgLog(FGLOG_INFO, "%s unrecognized set item: %hu", fgGetFullName(*self).c_str(), msg->subtype);
     return 0;
   case FG_SETRANGE:
     {

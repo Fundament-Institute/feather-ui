@@ -85,6 +85,8 @@ size_t fgControl_Message(fgControl* self, const FG_Msg* msg)
       fgControl* hold = reinterpret_cast<fgControl*>(msg->e);
       memsubset<fgControl, fgElement>(hold, 0);
       hold->contextmenu = self->contextmenu;
+      hold->tabnext = hold->tabprev = hold;
+      hold->sidenext = hold->sideprev = hold;
       fgElement_Message(&self->element, msg);
     }
     return sizeof(fgControl);

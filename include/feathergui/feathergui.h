@@ -65,7 +65,6 @@ MAKE_VEC(FREL,RelVec);
 MAKE_VEC(FABS,AbsVec);
 // A coordinate vector specifies a point by unified coordinates
 MAKE_VEC(Coord,CVec);
-MAKE_VEC(int, fgIntVec);
 
 #define MAKE_RECT(_T,_T2,_N) typedef struct { \
   union { \
@@ -126,8 +125,8 @@ FG_EXTERN const fgTransform fgTransform_EMPTY;
 FG_EXTERN const fgTransform fgTransform_CENTER;
 FG_EXTERN const CRect CRect_EMPTY;
 FG_EXTERN const AbsVec AbsVec_EMPTY;
-FG_EXTERN const fgIntVec fgIntVec_EMPTY;
-FG_EXTERN const fgIntVec fgIntVec_DEFAULTDPI;
+FG_EXTERN const AbsVec AbsVec_UNIT;
+FG_EXTERN const AbsVec AbsVec_DEFAULTDPI;
 FG_EXTERN const bssVersionInfo fgVersion;
 
 enum FGFLAGS {
@@ -676,10 +675,20 @@ typedef struct _FG_MSG {
 
 typedef struct _FG_DRAW_AUX_DATA {
   size_t fgSZ;
-  fgIntVec dpi;
+  AbsVec dpi;
   AbsVec scale;
   AbsVec scalecenter;
 } fgDrawAuxData;
+
+enum FG_LOGLEVEL {
+  FGLOG_NONE = -1,
+  FGLOG_FATAL = 0,
+  FGLOG_ERROR = 1,
+  FGLOG_WARNING = 2,
+  FGLOG_NOTICE = 3,
+  FGLOG_INFO = 4,
+  FGLOG_DEBUG = 5,
+};
 
 FG_EXTERN AbsVec ResolveVec(const CVec* v, const AbsRect* last);
 FG_EXTERN char CompareMargins(const AbsRect* l, const AbsRect* r); // Returns 0 if both are the same or a difference bitset otherwise.
@@ -696,11 +705,12 @@ FG_EXTERN void fgFreeText(const char* text, const char* file, size_t line);
 FG_EXTERN void fgUpdateMouseState(fgMouseState* state, const FG_Msg* msg);
 FG_EXTERN char fgRectIntersect(const AbsRect* l, const AbsRect* r); // Returns 1 if the rectangles intersect, or 0 otherwise
 FG_EXTERN void fgRectIntersection(const AbsRect* BSS_RESTRICT l, const AbsRect* BSS_RESTRICT r, AbsRect* out);
-FG_EXTERN void fgScaleRectDPI(AbsRect* rect, int dpix, int dpiy);
-FG_EXTERN void fgInvScaleRectDPI(AbsRect* rect, int dpix, int dpiy);
+FG_EXTERN void fgScaleRectDPI(AbsRect* rect, FABS dpix, FABS dpiy);
+FG_EXTERN void fgInvScaleRectDPI(AbsRect* rect, FABS dpix, FABS dpiy);
 FG_EXTERN void fgResolveDrawRect(const AbsRect* area, AbsRect* outarea, const AbsVec* center, AbsVec* outcenter, fgFlag flags, const fgDrawAuxData* data);
-FG_EXTERN void fgScaleVecDPI(AbsVec* v, int dpix, int dpiy);
-FG_EXTERN void fgInvScaleVecDPI(AbsVec* v, int dpix, int dpiy);
+FG_EXTERN void fgScaleVecDPI(AbsVec* v, FABS dpix, FABS dpiy);
+FG_EXTERN void fgInvScaleVecDPI(AbsVec* v, FABS dpix, FABS dpiy);
+FG_EXTERN int fgLog(char level, const char* format, ...);
 FG_EXTERN size_t fgUTF32toUTF16(const int*BSS_RESTRICT input, ptrdiff_t srclen, wchar_t*BSS_RESTRICT output, size_t buflen);
 FG_EXTERN size_t fgUTF8toUTF16(const char*BSS_RESTRICT input, ptrdiff_t srclen, wchar_t*BSS_RESTRICT output, size_t buflen);
 FG_EXTERN size_t fgUTF16toUTF8(const wchar_t*BSS_RESTRICT input, ptrdiff_t srclen, char*BSS_RESTRICT output, size_t buflen);

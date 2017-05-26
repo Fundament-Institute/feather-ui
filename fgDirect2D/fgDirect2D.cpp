@@ -32,7 +32,7 @@ BOOL __stdcall SpawnMonitorsProc(HMONITOR monitor, HDC hdc, LPRECT, LPARAM lpara
   fgDirect2D* root = reinterpret_cast<fgDirect2D*>(lparam);
   MONITORINFO info = { sizeof(MONITORINFO), 0 };
   GetMonitorInfoW(monitor, &info);
-  fgIntVec dpi = { 0, 0 };
+  AbsVec dpi = { 0, 0 };
   if(pGetDpiForMonitor)
   {
     UINT x, y;
@@ -206,13 +206,13 @@ fgElement* fgCreateD2D(const char* type, fgElement* BSS_RESTRICT parent, fgEleme
 
 struct fgFontD2D
 {
-  fgFontD2D(IDWriteTextFormat* _f, fgIntVec _dpi, unsigned int _pt) : format(_f), dpi(_dpi), pt(_pt) {}
+  fgFontD2D(IDWriteTextFormat* _f, AbsVec _dpi, unsigned int _pt) : format(_f), dpi(_dpi), pt(_pt) {}
   IDWriteTextFormat* format;
-  fgIntVec dpi;
+  AbsVec dpi;
   unsigned int pt;
 };
 
-fgFont fgCreateFontD2D(fgFlag flags, const char* family, short weight, char italic, unsigned int pt, const fgIntVec* dpi)
+fgFont fgCreateFontD2D(fgFlag flags, const char* family, short weight, char italic, unsigned int pt, const AbsVec* dpi)
 {
   size_t len = fgUTF8toUTF16(family, -1, 0, 0);
   DYNARRAY(wchar_t, wtext, len);
@@ -301,7 +301,7 @@ void fgDrawFontD2D(fgFont font, const void* text, size_t len, float lineheight, 
     exdata->context->target->DrawTextLayout(D2D1::Point2F(area.left, area.top), layout, exdata->context->color, (flags&FGELEMENT_NOCLIP) ? D2D1_DRAW_TEXT_OPTIONS_NONE : D2D1_DRAW_TEXT_OPTIONS_CLIP);
   }
 }
-void* fgFontLayoutD2D(fgFont font, const void* text, size_t len, float lineheight, float letterspacing, AbsRect* area, fgFlag flags, const fgIntVec* dpi, void* cache)
+void* fgFontLayoutD2D(fgFont font, const void* text, size_t len, float lineheight, float letterspacing, AbsRect* area, fgFlag flags, const AbsVec* dpi, void* cache)
 {
   fgFontD2D* f = (fgFontD2D*)font;
   IDWriteTextLayout* layout = (IDWriteTextLayout*)cache;
@@ -362,7 +362,7 @@ void fgFontGetD2D(fgFont font, struct _FG_FONT_DESC* desc)
     desc->dpi = f->dpi;
   }
 }
-size_t fgFontIndexD2D(fgFont font, const void* text, size_t len, float lineheight, float letterspacing, const AbsRect* dpiarea, fgFlag flags, AbsVec pos, AbsVec* cursor, const fgIntVec* dpi, void* cache)
+size_t fgFontIndexD2D(fgFont font, const void* text, size_t len, float lineheight, float letterspacing, const AbsRect* dpiarea, fgFlag flags, AbsVec pos, AbsVec* cursor, const AbsVec* dpi, void* cache)
 {
   fgassert(font != 0);
   fgFontD2D* f = (fgFontD2D*)font;
@@ -386,7 +386,7 @@ size_t fgFontIndexD2D(fgFont font, const void* text, size_t len, float lineheigh
   fgInvScaleVecDPI(cursor, dpi->x, dpi->y);
   return hit.textPosition + trailing;
 }
-AbsVec fgFontPosD2D(fgFont font, const void* text, size_t len, float lineheight, float letterspacing, const AbsRect* dpiarea, fgFlag flags, size_t index, const fgIntVec* dpi, void* cache)
+AbsVec fgFontPosD2D(fgFont font, const void* text, size_t len, float lineheight, float letterspacing, const AbsRect* dpiarea, fgFlag flags, size_t index, const AbsVec* dpi, void* cache)
 {
   fgFontD2D* f = (fgFontD2D*)font;
   IDWriteTextLayout* layout = (IDWriteTextLayout*)cache;
@@ -405,7 +405,7 @@ AbsVec fgFontPosD2D(fgFont font, const void* text, size_t len, float lineheight,
   return p;
 }
 
-void* fgCreateAssetFileD2D(fgFlag flags, const char* file)
+void* fgCreateAssetFileD2D(fgFlag flags, const char* file, const AbsVec* dpi)
 {
   IWICBitmapDecoder *decoder = nullptr;
   IWICBitmapFrameDecode *source = nullptr;
@@ -419,14 +419,14 @@ void* fgCreateAssetFileD2D(fgFlag flags, const char* file)
   if(SUCCEEDED(hr))
     hr = decoder->GetFrame(0, &source);
   if(FAILED(hr))
-    fgLog("fgCreateAssetFileD2D failed with error code %li", hr);
+    fgLog(FGLOG_ERROR, "fgCreateAssetFileD2D failed with error code %li", hr);
 
   if(stream) stream->Release();
   if(decoder) decoder->Release();
   return source;
 }
 
-void* fgCreateAssetD2D(fgFlag flags, const char* data, size_t length)
+void* fgCreateAssetD2D(fgFlag flags, const char* data, size_t length, const AbsVec* dpi)
 {
   IWICBitmapDecoder *decoder = nullptr;
   IWICBitmapFrameDecode *source = nullptr;
@@ -440,7 +440,7 @@ void* fgCreateAssetD2D(fgFlag flags, const char* data, size_t length)
   if(SUCCEEDED(hr))
     hr = decoder->GetFrame(0, &source);
   if(FAILED(hr))
-    fgLog("fgCreateAssetD2D failed with error code %li", hr);
+    fgLog(FGLOG_ERROR, "fgCreateAssetD2D failed with error code %li", hr);
 
   if(stream) stream->Release();
   if(decoder) decoder->Release();
@@ -455,13 +455,13 @@ void* fgCreateAssetD2D(fgFlag flags, const char* data, size_t length)
 fgAsset fgCloneAssetD2D(fgAsset asset, fgElement* src)
 { 
   fgWindowD2D* window = GetElementWindow(src);
-  if(!window)
+  fgassert(window->window->destroy == (fgDestroy)fgWindowD2D_Destroy);
+  ID2D1HwndRenderTarget* target = window->context.target;
+  if(!window || !target)
   {
     ((IUnknown*)asset)->AddRef();
     return asset;
   }
-  fgassert(window->window->destroy == (fgDestroy)fgWindowD2D_Destroy);
-  ID2D1HwndRenderTarget* target = window->context.target;
   
   IWICBitmapFrameDecode* tex = 0;
   if(asset)
@@ -473,13 +473,13 @@ fgAsset fgCloneAssetD2D(fgAsset asset, fgElement* src)
   ID2D1Bitmap* bitmap = NULL;
   IWICFormatConverter *conv = NULL;
   HRESULT hr = fgDirect2D::instance->wicfactory->CreateFormatConverter(&conv);
-
+  
   if(SUCCEEDED(hr)) // Convert the image format to 32bppPBGRA (DXGI_FORMAT_B8G8R8A8_UNORM + D2D1_ALPHA_MODE_PREMULTIPLIED).
     hr = conv->Initialize(tex, GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, nullptr, 0.0f, WICBitmapPaletteTypeMedianCut);
   if(SUCCEEDED(hr))
     hr = target->CreateBitmapFromWicBitmap(conv, nullptr, &bitmap);
   if(FAILED(hr))
-    fgLog("fgCloneAssetD2D failed with error code %li", hr);
+    fgLog(FGLOG_ERROR, "fgCloneAssetD2D failed with error code %li", hr);
   if(conv)
     conv->Release();
   if(tex)
@@ -556,9 +556,12 @@ void fgDrawAssetD2D(fgAsset asset, const CRect* uv, unsigned int color, unsigned
   exdata->context->target->SetTransform(world);
 }
 
-void fgAssetSizeD2D(fgAsset asset, const CRect* uv, AbsVec* dim, fgFlag flags)
+void fgAssetSizeD2D(fgAsset asset, const CRect* uv, AbsVec* dim, fgFlag flags, const AbsVec* dpi)
 {
+  if(!dpi)
+    dpi = &AbsVec_DEFAULTDPI;
   D2D1_SIZE_U sz = { 0 };
+  AbsVec srcdpi = AbsVec_DEFAULTDPI;
   if(asset)
   {
     ID2D1Bitmap* tex = 0;
@@ -566,6 +569,7 @@ void fgAssetSizeD2D(fgAsset asset, const CRect* uv, AbsVec* dim, fgFlag flags)
     if(tex)
     {
       sz = tex->GetPixelSize();
+      tex->GetDpi(&srcdpi.x, &srcdpi.y);
       tex->Release();
     }
     else // this can happen when we load an asset into a skin that hasn't been assigned to anything yet
@@ -574,6 +578,10 @@ void fgAssetSizeD2D(fgAsset asset, const CRect* uv, AbsVec* dim, fgFlag flags)
       ((IUnknown*)asset)->QueryInterface<IWICBitmapFrameDecode>(&frame);
       fgassert(frame);
       frame->GetSize(&sz.width, &sz.height);
+      double dpix;
+      double dpiy;
+      frame->GetResolution(&dpix, &dpiy);
+      srcdpi = { (FABS)dpix, (FABS)dpiy };
       frame->Release();
     }
   }
@@ -582,8 +590,8 @@ void fgAssetSizeD2D(fgAsset asset, const CRect* uv, AbsVec* dim, fgFlag flags)
     uv->top.abs + (uv->top.rel * sz.height),
     uv->right.abs + (uv->right.rel * sz.width),
     uv->bottom.abs + (uv->bottom.rel * sz.height));
-  dim->x = uvresolve.right - uvresolve.left;
-  dim->y = uvresolve.bottom - uvresolve.top;
+  dim->x = (uvresolve.right - uvresolve.left) * (dpi->x / srcdpi.x);
+  dim->y = (uvresolve.bottom - uvresolve.top) * (dpi->y / srcdpi.y);
 }
 
 void fgDrawLinesD2D(const AbsVec* p, size_t n, unsigned int color, const AbsVec* translate, const AbsVec* scale, FABS rotation, const AbsVec* center, const fgDrawAuxData* data)
@@ -651,7 +659,7 @@ void fgDirtyElementD2D(fgElement* e)
   {
     AbsRect& toprect = fgDirect2D::instance->toprect;
     ResolveNoClipRect(fgDirect2D::instance->root.topmost, &toprect, 0, 0);
-    fgIntVec& dpi = fgDirect2D::instance->root.topmost->GetDPI();
+    const AbsVec& dpi = fgDirect2D::instance->root.topmost->GetDPI();
     fgScaleRectDPI(&toprect, dpi.x, dpi.y); // SetWindowPos will resize the direct2D background via the WndProc callback
     bool ignore = (fgDirect2D::instance->root.topmost->flags&FGELEMENT_IGNORE) != 0;
     SetWindowLong(fgDirect2D::instance->tophwnd, GWL_EXSTYLE, WS_EX_COMPOSITED | WS_EX_TOOLWINDOW | (ignore ? (WS_EX_LAYERED | WS_EX_TRANSPARENT) : 0));
@@ -975,11 +983,11 @@ struct _FG_ROOT* fgInitialize()
   new(root) fgDirect2D();
   fgDirect2D::instance = root;
   HDC hdc = GetDC(NULL);
-  fgIntVec dpi = { GetDeviceCaps(hdc, LOGPIXELSX), GetDeviceCaps(hdc, LOGPIXELSY) };
+  AbsVec dpi = { GetDeviceCaps(hdc, LOGPIXELSX), GetDeviceCaps(hdc, LOGPIXELSY) };
   ReleaseDC(NULL, hdc);
   fgRoot_Init(&root->root, &extent, &dpi, &BACKEND);
 
-  fgLog("Initializing fgDirect2D...");
+  fgLog(FGLOG_NONE, "Initializing fgDirect2D...");
 
 #ifdef BSS_DEBUG
   HeapSetInformation(NULL, HeapEnableTerminationOnCorruption, NULL, 0);
@@ -989,7 +997,7 @@ struct _FG_ROOT* fgInitialize()
   if(SUCCEEDED(hr))
     hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory1), reinterpret_cast<IUnknown**>(&root->writefactory));
   else
-    fgLog("CoCreateInstance() failed with error: %li", hr);
+    fgLog(FGLOG_ERROR, "CoCreateInstance() failed with error: %li", hr);
 
   D2D1_FACTORY_OPTIONS d2dopt = { D2D1_DEBUG_LEVEL_NONE };
 #ifdef BSS_DEBUG
@@ -999,11 +1007,11 @@ struct _FG_ROOT* fgInitialize()
   if(SUCCEEDED(hr))
     hr = D2D1CreateFactory<ID2D1Factory1>(D2D1_FACTORY_TYPE_SINGLE_THREADED, d2dopt, &root->factory);
   else
-    fgLog("DWriteCreateFactory() failed with error: %li", hr);
+    fgLog(FGLOG_ERROR, "DWriteCreateFactory() failed with error: %li", hr);
 
   if(FAILED(hr))
   {
-    fgLog("D2D1CreateFactory() failed with error: %li", hr);
+    fgLog(FGLOG_ERROR, "D2D1CreateFactory() failed with error: %li", hr);
     if(root->wicfactory) root->wicfactory->Release();
     if(root->factory) root->factory->Release();
     if(root->writefactory) root->writefactory->Release();
@@ -1013,11 +1021,11 @@ struct _FG_ROOT* fgInitialize()
   }
 
   if(FAILED(fgRoundRect::Register(root->factory)))
-    fgLog("Failed to register fgRoundRect", hr);
+    fgLog(FGLOG_ERROR, "Failed to register fgRoundRect", hr);
   if(FAILED(fgCircle::Register(root->factory)))
-    fgLog("Failed to register fgCircle", hr);
+    fgLog(FGLOG_ERROR, "Failed to register fgCircle", hr);
   if(FAILED(fgTriangle::Register(root->factory)))
-    fgLog("Failed to register fgTriangle", hr);
+    fgLog(FGLOG_ERROR, "Failed to register fgTriangle", hr);
 
   fgContext_Construct(&root->topcontext);
   fgContext::SetDWMCallbacks();
@@ -1055,7 +1063,7 @@ struct _FG_ROOT* fgInitialize()
       root->root.cursorblink = _wtoi(buf) / 1000.0;
   }
   else
-    fgLog("Couldn't get user's cursor blink rate.");
+    fgLog(FGLOG_WARNING, "Couldn't get user's cursor blink rate.");
 
   return &root->root;
 }

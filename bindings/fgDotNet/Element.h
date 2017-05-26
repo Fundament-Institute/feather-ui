@@ -53,7 +53,7 @@ namespace fgDotNet {
   };
 
   public ref struct DrawAuxData {
-    System::Drawing::Point dpi;
+    System::Drawing::PointF dpi;
     System::Drawing::PointF scale;
     System::Drawing::PointF scalecenter;
 
@@ -105,20 +105,20 @@ namespace fgDotNet {
     size_t SetStyle(Style^ style);
     size_t SetStyle(FG_UINT index, FG_UINT mask);
     Style^ GetStyle();
-    System::Drawing::Point^ GetDPI();
-    void SetDPI(int x, int y);
+    System::Drawing::PointF^ GetDPI();
+    void SetDPI(FABS x, FABS y);
     System::String^ GetClassName();
     size_t GetUserdata();
     size_t GetUserdata(System::String^ name);
     void SetUserdata(size_t data);
     void SetUserdata(size_t data, System::String^ name);
-    size_t MouseDown(int x, int y, unsigned char button, unsigned char allbtn);
-    size_t MouseDblClick(int x, int y, unsigned char button, unsigned char allbtn);
-    size_t MouseUp(int x, int y, unsigned char button, unsigned char allbtn);
-    size_t MouseOn(int x, int y);
-    size_t MouseOff(int x, int y);
-    size_t MouseMove(int x, int y);
-    size_t MouseScroll(int x, int y, unsigned short delta, unsigned short hdelta);
+    size_t MouseDown(FABS x, FABS y, unsigned char button, unsigned char allbtn);
+    size_t MouseDblClick(FABS x, FABS y, unsigned char button, unsigned char allbtn);
+    size_t MouseUp(FABS x, FABS y, unsigned char button, unsigned char allbtn);
+    size_t MouseOn(FABS x, FABS y);
+    size_t MouseOff(FABS x, FABS y);
+    size_t MouseMove(FABS x, FABS y);
+    size_t MouseScroll(FABS x, FABS y, unsigned short delta, unsigned short hdelta);
     size_t KeyUp(unsigned char keycode, char sigkeys);
     size_t KeyDown(unsigned char keycode, char sigkeys);
     size_t KeyChar(int keychar, char sigkeys);
@@ -174,7 +174,6 @@ namespace fgDotNet {
     static operator fgElement*(Element^ e);
     static AbsRect From(System::Drawing::RectangleF^ r);
     static AbsVec From(System::Drawing::PointF^ p);
-    static fgIntVec From(System::Drawing::Point^ p);
 
   protected:
     fgElement* _p;

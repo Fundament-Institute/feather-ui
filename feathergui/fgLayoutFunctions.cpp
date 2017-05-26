@@ -77,7 +77,7 @@ FABS fgTileGetExtra(fgElement* cur, char axis, FABS dim, FABS max)
   return x - dim;
 }
 
-void fgTileLayoutFill(fgElement* last, fgElement* skip, fgElement* row, FABS space, char axis, FABS max)
+inline void fgTileLayoutFill(fgElement* last, fgElement* skip, fgElement* row, FABS space, char axis, FABS max, AbsVec spacing)
 {
   assert(row != 0);
   if(space < 0) space = 0;
@@ -107,7 +107,7 @@ void fgTileLayoutFill(fgElement* last, fgElement* skip, fgElement* row, FABS spa
       row->transform.area.left.abs = side;
       row->transform.area.right.abs = (row->transform.area.right.rel != row->transform.area.left.rel) ? (side + d + y - max) : (side + d + y);
     }
-    side += d + y;
+    side += d + y + spacing.x;
     row = row->next;
   }
 }
@@ -161,7 +161,7 @@ AbsVec fgTileLayoutReorder(fgElement* cur, fgElement* skip, char axis, float max
 
     if(row != cur && pos.x + dim.x > max)
     {
-      fgTileLayoutFill(cur, skip, row, max - pos.x, axis, max);
+      fgTileLayoutFill(cur, skip, row, max - pos.x, axis, max, spacing);
       pos.y += pitch;
       pos.x = (flags&FGBOX_IGNOREMARGINEDGEX) ? -(axis ? cur->margin.top : cur->margin.left) : 0;
       pitch = 0;
@@ -174,17 +174,18 @@ AbsVec fgTileLayoutReorder(fgElement* cur, fgElement* skip, char axis, float max
     else
       MoveCRect(posy, pos.x, &cur->transform.area);
 
-    pos.x += dim.x + spacing.x;
+    pos.x += dim.x;
     dim.y += posy - pos.y;
     if(dim.y > pitch) pitch = dim.y;
     dim.y += pos.y;
     if(pos.x > expand.x) expand.x = pos.x;
     if(dim.y > expand.y) expand.y = dim.y;
+    pos.x += spacing.x; // add spacing down here so we don't include it in the expand.x calculation
     cur = cur->next;
   }
 
   if(row != 0 && std::isfinite(max))
-    fgTileLayoutFill(0, skip, row, max - pos.x, axis, max);
+    fgTileLayoutFill(0, skip, row, max - pos.x, axis, max, spacing);
   if(axis) { FABS t = expand.x; expand.x = expand.y; expand.y = t; }
   return expand;
 }

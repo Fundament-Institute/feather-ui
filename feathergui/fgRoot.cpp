@@ -22,7 +22,7 @@ KHASH_INIT(fgCursorMap, unsigned int, void*, 1, kh_int_hash_func, kh_int_hash_eq
 
 fgRoot* fgroot_instance = 0;
 
-void fgRoot_Init(fgRoot* self, const AbsRect* area, const fgIntVec* dpi, const fgBackend* backend)
+void fgRoot_Init(fgRoot* self, const AbsRect* area, const AbsVec* dpi, const fgBackend* backend)
 {
   static fgBackend DEFAULT_BACKEND = {
     FGTEXTFMT_UTF8,
@@ -84,6 +84,11 @@ void fgRoot_Init(fgRoot* self, const AbsRect* area, const fgIntVec* dpi, const f
   fgTransform transform = { area->left, 0, area->top, 0, area->right, 0, area->bottom, 0, 0, 0, 0 };
   fgElement_InternalSetup(*self, 0, 0, 0, 0, &transform, 0, (fgDestroy)&fgRoot_Destroy, (fgMessage)&fgRoot_Message);
   self->gui.element.style = 0;
+#ifdef BSS_DEBUG
+  self->maxloglevel = FGLOG_DEBUG;
+#else
+  self->maxloglevel = FGLOG_NOTICE;
+#endif
 
   fgStyle_AddGroupNames(4, "neutral", "hover", "active", "disabled");
   fgStyle_AddGroupNames(3, "default", "checked", "indeterminate");
@@ -116,8 +121,8 @@ void fgRoot_Init(fgRoot* self, const AbsRect* area, const fgIntVec* dpi, const f
   fgRegisterControl("grid", (fgInitializer)fgGrid_Init, sizeof(fgGrid), FGBOX_TILEY);
   fgRegisterControl("gridrow", (fgInitializer)fgGridRow_Init, sizeof(fgGridRow), FGBOX_TILEX|FGELEMENT_EXPAND);
   fgRegisterControl("workspace", (fgInitializer)fgWorkspace_Init, sizeof(fgWorkspace), 0);
-  fgRegisterControl("toolbar", (fgInitializer)fgToolbar_Init, sizeof(fgToolbar), 0);
-  fgRegisterControl("toolgroup", (fgInitializer)fgToolGroup_Init, sizeof(fgBox), 0);
+  fgRegisterControl("toolbar", (fgInitializer)fgToolbar_Init, sizeof(fgToolbar), FGBOX_TILE);
+  fgRegisterControl("toolgroup", (fgInitializer)fgToolGroup_Init, sizeof(fgBox), FGBOX_TILE|FGELEMENT_EXPAND);
   fgRegisterControl("combobox", (fgInitializer)fgCombobox_Init, sizeof(fgCombobox), 0);
   fgRegisterControl("debug", (fgInitializer)fgDebug_Init, sizeof(fgDebug), FGELEMENT_BACKGROUND);
 }
@@ -221,11 +226,11 @@ size_t fgRoot_Message(fgRoot* self, const FG_Msg* msg)
     return (size_t)&self->dpi;
   case FG_SETDPI:
   {
-    AbsVec scale = { !self->dpi.x ? 1.0f : (msg->i / (float)self->dpi.x), !self->dpi.y ? 1.0f : (msg->i / (float)self->dpi.y) };
+    AbsVec scale = { !self->dpi.x ? 1.0f : (msg->f / self->dpi.x), !self->dpi.y ? 1.0f : (msg->f / self->dpi.y) };
     CRect* rootarea = &self->gui.element.transform.area;
     CRect area = { rootarea->left.abs*scale.x, 0, rootarea->top.abs*scale.y, 0, rootarea->right.abs*scale.x, 0, rootarea->bottom.abs*scale.y, 0 };
-    self->dpi.x = msg->i;
-    self->dpi.y = msg->u2;
+    self->dpi.x = msg->f;
+    self->dpi.y = msg->f2;
     return self->gui.element.SetArea(area);
   }
     return FG_ACCEPT;
@@ -772,7 +777,7 @@ void fgAddID(const char* id, fgElement* element)
   if(i != kh_end(fgroot_instance->idmap) && kh_exist(fgroot_instance->idmap, i))  // the key already exists so we need to remove and replace the previous element
   {
     assert(i != kh_end(fgroot_instance->idmap));
-    fgLog("Replacing duplicate element ID: %s (%p -> %p)", id, kh_val(fgroot_instance->idmap, i), element);
+    fgLog(FGLOG_WARNING, "Replacing duplicate element ID: %s (%p -> %p)", id, kh_val(fgroot_instance->idmap, i), element);
     kh_del_fgIDHash(fgroot_instance->idhash, kh_get_fgIDHash(fgroot_instance->idhash, kh_val(fgroot_instance->idmap, i)));
   }
   else
@@ -816,7 +821,7 @@ void fgRegisterControl(const char* name, fgInitializer fn, size_t sz, fgFlag fla
   if(r != 0)
     kh_key(fgroot_instance->initmap, i) = fgCopyText(name, __FILE__, __LINE__);
   else
-    fgLog("Replacing duplicate control name: %s", name);
+    fgLog(FGLOG_WARNING, "Replacing duplicate control name: %s", name);
   kh_val(fgroot_instance->initmap, i).init = fn;
   kh_val(fgroot_instance->initmap, i).size = sz;
   kh_val(fgroot_instance->initmap, i).flags = flags;
@@ -864,7 +869,7 @@ fgElement* fgCreateDefault(const char* type, fgElement* BSS_RESTRICT parent, fgE
   khint_t i = kh_get_fgInitMap(fgroot_instance->initmap, const_cast<char*>(type));
   if(i == kh_end(fgroot_instance->initmap) || !kh_exist(fgroot_instance->initmap, i))
   {
-    fgLog("Attempted to create nonexistant type: %s", type);
+    fgLog(FGLOG_ERROR, "Attempted to create nonexistant type: %s", type);
     return 0;
   }
   fgTypeInit& ty = kh_val(fgroot_instance->initmap, i);
@@ -887,7 +892,7 @@ size_t fgGetTypeSize(const char* type)
   khint_t i = kh_get_fgInitMap(fgroot_instance->initmap, const_cast<char*>(type));
   if(i == kh_end(fgroot_instance->initmap) || !kh_exist(fgroot_instance->initmap, i))
   {
-    fgLog("Attempted to get size of nonexistant type: %s", type);
+    fgLog(FGLOG_ERROR, "Attempted to get size of nonexistant type: %s", type);
     return 0;
   }
   return kh_val(fgroot_instance->initmap, i).size;
@@ -899,7 +904,7 @@ fgFlag fgGetTypeFlags(const char* type)
   khint_t i = kh_get_fgInitMap(fgroot_instance->initmap, const_cast<char*>(type));
   if(i == kh_end(fgroot_instance->initmap) || !kh_exist(fgroot_instance->initmap, i))
   {
-    fgLog("Attempted to get default flags of nonexistant type: %s", type);
+    fgLog(FGLOG_ERROR, "Attempted to get default flags of nonexistant type: %s", type);
     return 0;
   }
   return kh_val(fgroot_instance->initmap, i).flags;
@@ -957,16 +962,6 @@ void fgSendMessageAsync(fgElement* element, const FG_Msg* msg, unsigned int arg1
     MEMCPY(m->msg.p2, arg2size, msg->p2, arg2size);
   }
   q->lock.RUnlock();
-}
-
-int fgLog(const char* format, ...)
-{
-  assert(fgroot_instance != 0);
-  va_list args;
-  va_start(args, format);
-  int r = fgroot_instance->backend.fgLogHook(format, args);
-  va_end(args);
-  return r;
 }
 
 fgInject fgSetInjectFunc(fgInject inject)

@@ -15,16 +15,16 @@ KHASH_INIT(fgFunctionMap, const char*, fgDelegateListener, 1, kh_str_hash_func, 
 
 using namespace bss;
 
-fgFont fgCreateFontDefault(fgFlag flags, const char* family, short weight, char italic, unsigned int size, const fgIntVec* dpi) { return (void*)~0; }
+fgFont fgCreateFontDefault(fgFlag flags, const char* family, short weight, char italic, unsigned int size, const AbsVec* dpi) { return (void*)~0; }
 fgFont fgCloneFontDefault(fgFont font, const struct _FG_FONT_DESC* desc) { return (void*)~0; }
 void fgDestroyFontDefault(fgFont font) { }
 void fgDrawFontDefault(fgFont font, const void* text, size_t len, float lineheight, float letterspacing, unsigned int color, const AbsRect* area, FABS rotation, const AbsVec* center, fgFlag flags, const fgDrawAuxData* data, void* layout) { }
-fgFont fgFontLayoutDefault(fgFont font, const void* text, size_t len, float lineheight, float letterspacing, AbsRect* area, fgFlag flags, const fgIntVec* dpi, void* prevlayout) { return 0; }
+fgFont fgFontLayoutDefault(fgFont font, const void* text, size_t len, float lineheight, float letterspacing, AbsRect* area, fgFlag flags, const AbsVec* dpi, void* prevlayout) { return 0; }
 void fgFontGetDefault(fgFont font, struct _FG_FONT_DESC* desc) { if(desc) memset(desc, 0, sizeof(struct _FG_FONT_DESC)); }
-size_t fgFontIndexDefault(void* font, const void* text, size_t len, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, AbsVec pos, AbsVec* cursor, const fgIntVec* dpi, void* cache) { return 0; }
-AbsVec fgFontPosDefault(void* font, const void* text, size_t len, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, size_t index, const fgIntVec* dpi, void* cache) { AbsVec a = { 0,0 }; return a; }
+size_t fgFontIndexDefault(void* font, const void* text, size_t len, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, AbsVec pos, AbsVec* cursor, const AbsVec* dpi, void* cache) { return 0; }
+AbsVec fgFontPosDefault(void* font, const void* text, size_t len, float lineheight, float letterspacing, const AbsRect* area, fgFlag flags, size_t index, const AbsVec* dpi, void* cache) { AbsVec a = { 0,0 }; return a; }
 
-fgAsset fgCreateAssetFileDefault(fgFlag flags, const char* file)
+fgAsset fgCreateAssetFileDefault(fgFlag flags, const char* file, const AbsVec* dpi)
 {
   FILE* f;
   FOPEN(f, file, "rb");
@@ -35,14 +35,14 @@ fgAsset fgCreateAssetFileDefault(fgFlag flags, const char* file)
   DYNARRAY(char, buf, len);
   fread(buf, 1, len, f);
   fclose(f);
-  void* r = fgroot_instance->backend.fgCreateAsset(flags, buf, len);
+  void* r = fgroot_instance->backend.fgCreateAsset(flags, buf, len, dpi);
   return r;
 }
-fgAsset fgCreateAssetDefault(fgFlag flags, const char* data, size_t length) { return (void*)~0; }
+fgAsset fgCreateAssetDefault(fgFlag flags, const char* data, size_t length, const AbsVec* dpi) { return (void*)~0; }
 fgAsset fgCloneAssetDefault(fgAsset res, fgElement* src) { return (void*)~0; }
 void fgDestroyAssetDefault(fgAsset res) { }
 void fgDrawAssetDefault(fgAsset res, const CRect* uv, unsigned int color, unsigned int edge, FABS outline, const AbsRect* area, FABS rotation, const AbsVec* center, fgFlag flags, const fgDrawAuxData* data) {}
-void fgAssetSizeDefault(fgAsset res, const CRect* uv, AbsVec* dim, fgFlag flags) { }
+void fgAssetSizeDefault(fgAsset res, const CRect* uv, AbsVec* dim, fgFlag flags, const AbsVec* dpi) { }
 
 void fgDrawLinesDefault(const AbsVec* p, size_t n, unsigned int color, const AbsVec* translate, const AbsVec* scale, FABS rotation, const AbsVec* center, const fgDrawAuxData* data) {}
 
@@ -493,12 +493,17 @@ void fgUnloadBackend()
   fgDynLibP = 0;
 }
 
-int fgLogHookDefault(const char* format, va_list args)
+int fgLogHookDefault(char level, const char* format, va_list args)
 {
+  static const char* LEVELS[] = { "FATAL: ", "ERROR: ", "WARNING: ", "NOTICE: ", "INFO: ", "DEBUG: " };
   static std::unique_ptr<FILE, decltype(&fclose)> f(fopen("feathergui.log", "wb"), &fclose);
+  if(level != -1)
+    fprintf(f.get(), LEVELS[level]);
   vfprintf(f.get(), format, args);
   fwrite("\n", 1, 1, f.get());
   fflush(f.get());
+  if(level != -1)
+    printf(LEVELS[level]);
   int n = vprintf(format, args);
   printf("\n");
   return n;

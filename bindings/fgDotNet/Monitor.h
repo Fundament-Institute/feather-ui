@@ -16,10 +16,10 @@ namespace fgDotNet {
         return System::Drawing::RectangleF(r.left, r.top, r.right - r.left, r.bottom - r.top);
       }
     }
-    property System::Drawing::Point Dpi {
-      System::Drawing::Point get() {
-        fgIntVec& r = ((fgMonitor*)_p)->dpi;
-        return System::Drawing::Point(r.x, r.y);
+    property System::Drawing::PointF Dpi {
+      System::Drawing::PointF get() {
+        AbsVec& r = ((fgMonitor*)_p)->dpi;
+        return System::Drawing::PointF(r.x, r.y);
       }
     }
     property Monitor^ Next {

@@ -90,7 +90,7 @@ size_t fgCurve_Message(fgCurve* self, const FG_Msg* msg)
   case FG_SETCOLOR:
     self->color.color = (uint32_t)msg->i;
     fgroot_instance->backend.fgDirtyElement(&self->element);
-    break;
+    return FG_ACCEPT;
   case FG_GETCOLOR:
     return self->color.color;
   case FG_SETVALUE:
@@ -99,13 +99,17 @@ size_t fgCurve_Message(fgCurve* self, const FG_Msg* msg)
     else if(msg->subtype == FGVALUE_INT64)
       self->factor = (float)msg->i;
     else
+    {
+      fgLog(FGLOG_INFO, "%s set invalid value type: %hu", fgGetFullName(&self->element).c_str(), msg->subtype);
       return 0;
+    }
     return FG_ACCEPT;
   case FG_GETVALUE:
     if(!msg->subtype || msg->subtype == FGVALUE_FLOAT)
       return *(size_t*)&self->factor;
     if(msg->subtype == FGVALUE_INT64)
       return (size_t)self->factor;
+    fgLog(FGLOG_INFO, "%s requested invalid value type: %hu", fgGetFullName(&self->element).c_str(), msg->subtype);
     return 0;
   case FG_ADDITEM:
     if(msg->u2 >= self->points.l)
@@ -118,16 +122,29 @@ size_t fgCurve_Message(fgCurve* self, const FG_Msg* msg)
     if(msg->subtype > 0)
       return self->points.l;
     if(msg->u >= self->points.l)
+    {
+      fgLog(FGLOG_INFO, "Invalid get index %zu for curve: %s", msg->u, fgGetFullName(&self->element).c_str());
       return 0;
+    }
     return (size_t)(self->points.p + msg->u);
   case FG_REMOVEITEM:
-    reinterpret_cast<DynArray<AbsVec>&>(self->points).Remove(msg->u);
-    self->cache.l = 0;
-    break;
+    if(msg->u < self->points.l)
+    {
+      reinterpret_cast<DynArray<AbsVec>&>(self->points).Remove(msg->u);
+      self->cache.l = 0;
+      return FG_ACCEPT;
+    }
+    fgLog(FGLOG_INFO, "Invalid remove index %zu for curve: %s", msg->u, fgGetFullName(&self->element).c_str());
+    return 0;
   case FG_SETITEM:
-    reinterpret_cast<DynArray<AbsVec>&>(self->points).Set((AbsVec*)msg->p, msg->u2);
-    self->cache.l = 0;
-    break;
+    if(msg->u2 < self->points.l)
+    {
+      reinterpret_cast<DynArray<AbsVec>&>(self->points).Set((AbsVec*)msg->p, msg->u2);
+      self->cache.l = 0;
+      return FG_ACCEPT;
+    }
+    fgLog(FGLOG_INFO, "Invalid set index %zu for curve: %s", msg->u2, fgGetFullName(&self->element).c_str());
+    return 0;
   case FG_DRAW:
   {
     if(msg->subtype & 1) break;

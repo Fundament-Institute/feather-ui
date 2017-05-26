@@ -110,8 +110,8 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
     }
     break;
   case FG_SETDPI:
-    self->dpi.x = msg->i;
-    self->dpi.y = msg->i2;
+    self->dpi.x = msg->f;
+    self->dpi.y = msg->f2;
     break;
   case FG_GETDPI:
     if(!self->dpi.x)

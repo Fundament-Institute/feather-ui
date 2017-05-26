@@ -40,7 +40,10 @@ size_t fgCheckbox_Message(fgCheckbox* self, const FG_Msg* msg)
     return FG_ACCEPT;
   case FG_SETVALUE:
     if(msg->subtype != 0 && msg->subtype != FGVALUE_INT64)
+    {
+      fgLog(FGLOG_INFO, "%s set invalid value type: %hu", fgGetFullName(*self).c_str(), msg->subtype);
       return 0;
+    }
     self->checked = (char)msg->i;
     switch(self->checked)
     {
@@ -52,6 +55,7 @@ size_t fgCheckbox_Message(fgCheckbox* self, const FG_Msg* msg)
   case FG_GETVALUE:
     if(!msg->subtype || msg->subtype == FGVALUE_INT64)
       return self->checked;
+    fgLog(FGLOG_INFO, "%s requested invalid value type: %hu", fgGetFullName(*self).c_str(), msg->subtype);
     return 0;
   case FG_SETTEXT:
   case FG_SETFONT:

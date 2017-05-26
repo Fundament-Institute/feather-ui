@@ -58,6 +58,8 @@ size_t fgButton_Message(fgButton* self, const FG_Msg* msg)
     if(self->control.element.flags&FGBUTTON_NOFOCUS)
       return 0;
     break;
+  case FG_SETASSET:
+    return fgSendMessage(fgCreate("Resource", *self, 0, "Button$Asset", FGELEMENT_EXPAND, &fgTransform_CENTER, 0), msg);
   case FG_GETCLASSNAME:
     return (size_t)"Button";
   case FG_SETTEXT:

@@ -91,8 +91,8 @@ void fgElement_InternalSetup(fgElement* BSS_RESTRICT self, fgElement* BSS_RESTRI
     self->transform = *transform;
     if(units != 0 && units != (fgMsgType)~0)
     {
-      fgResolveCRectUnit(self->transform.area, parent ? parent->GetDPI() : fgIntVec_DEFAULTDPI, parent ? parent->GetLineHeight() : fgroot_instance->lineheight, units);
-      fgResolveCVecUnit(self->transform.center, parent ? parent->GetDPI() : fgIntVec_DEFAULTDPI, parent ? parent->GetLineHeight() : fgroot_instance->lineheight, units);
+      fgResolveCRectUnit(self->transform.area, parent ? parent->GetDPI() : AbsVec_DEFAULTDPI, parent ? parent->GetLineHeight() : fgroot_instance->lineheight, units);
+      fgResolveCVecUnit(self->transform.center, parent ? parent->GetDPI() : AbsVec_DEFAULTDPI, parent ? parent->GetLineHeight() : fgroot_instance->lineheight, units);
     }
   }
   _sendmsg<FG_CONSTRUCT>(self);
@@ -486,8 +486,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
   case FG_SETALPHA:
     return 0;
   case FG_SETAREA:
-    if(!msg->p)
-      return 0;
+    if(msg->p)
     {
       CRect* area = (CRect*)msg->p;
 
@@ -498,7 +497,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgroot_instance->backend.fgDirtyElement(self);
         memcpy(&self->transform.area, area, sizeof(CRect));
         if(msg->subtype != 0 && msg->subtype != (fgMsgType)~0)
-          fgResolveCRectUnit(self->transform.area, (msg->subtype&FGELEMENT_REQUIREDPI) ? self->GetDPI() : fgIntVec_DEFAULTDPI, (msg->subtype&FGELEMENT_REQUIRELINEHEIGHT) ? self->GetLineHeight() : 0.0f, msg->subtype);
+          fgResolveCRectUnit(self->transform.area, (msg->subtype&FGELEMENT_REQUIREDPI) ? self->GetDPI() : AbsVec_DEFAULTDPI, (msg->subtype&FGELEMENT_REQUIRELINEHEIGHT) ? self->GetLineHeight() : 0.0f, msg->subtype);
         fgroot_instance->backend.fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
@@ -509,9 +508,10 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
       }
       return diff;
     }
+    fgLog(FGLOG_INFO, "%s attempted to set NULL area.", fgGetFullName(self).c_str());
+    return 0;
   case FG_SETTRANSFORM:
-    if(!msg->p)
-      return 0;
+    if(msg->p)
     {
       fgTransform* transform = (fgTransform*)msg->p;
       _sendmsg<FG_SETAREA, void*>(self, &transform->area);
@@ -522,7 +522,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgroot_instance->backend.fgDirtyElement(self);
         self->transform.center = transform->center;
         if(msg->subtype != 0 && msg->subtype != (fgMsgType)~0)
-          fgResolveCVecUnit(self->transform.center, (msg->subtype&FGELEMENT_REQUIREDPI) ? self->GetDPI() : fgIntVec_DEFAULTDPI, (msg->subtype&FGELEMENT_REQUIRELINEHEIGHT) ? self->GetLineHeight() : 0.0f, msg->subtype);
+          fgResolveCVecUnit(self->transform.center, (msg->subtype&FGELEMENT_REQUIREDPI) ? self->GetDPI() : AbsVec_DEFAULTDPI, (msg->subtype&FGELEMENT_REQUIRELINEHEIGHT) ? self->GetLineHeight() : 0.0f, msg->subtype);
         self->transform.rotation = transform->rotation;
         fgroot_instance->backend.fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
@@ -532,8 +532,10 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
         else
           fgElement_PropogateMove(self, FG_SETTRANSFORM, 0, diff);
       }
+      return FG_ACCEPT;
     }
-    return FG_ACCEPT;
+    fgLog(FGLOG_INFO, "%s attempted to set NULL transform.", fgGetFullName(self).c_str());
+    return 0;
   case FG_SETFLAG: // If 0 is sent in, disable the flag, otherwise enable.
     otherint = bss::bssSetBit<fgFlag>(self->flags, otherint, msg->u2 != 0);
   case FG_SETFLAGS:
@@ -571,8 +573,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
   }
   return FG_ACCEPT;
   case FG_SETMARGIN:
-    if(!msg->p)
-      return 0;
+    if(msg->p)
     {
       AbsRect* margin = (AbsRect*)msg->p;
       char diff = CompareMargins(&self->margin, margin);
@@ -583,7 +584,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgroot_instance->backend.fgDirtyElement(self);
         memcpy(&self->margin, margin, sizeof(AbsRect));
         if(msg->subtype != 0 && msg->subtype != (fgMsgType)~0)
-          fgResolveRectUnit(self->margin, (msg->subtype&FGELEMENT_REQUIREDPI) ? self->GetDPI() : fgIntVec_DEFAULTDPI, (msg->subtype&FGELEMENT_REQUIRELINEHEIGHT) ? self->GetLineHeight() : 0.0f, msg->subtype);
+          fgResolveRectUnit(self->margin, (msg->subtype&FGELEMENT_REQUIREDPI) ? self->GetDPI() : AbsVec_DEFAULTDPI, (msg->subtype&FGELEMENT_REQUIRELINEHEIGHT) ? self->GetLineHeight() : 0.0f, msg->subtype);
         fgroot_instance->backend.fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
@@ -592,11 +593,12 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
         else
           fgElement_PropogateMove(self, FG_SETMARGIN, 0, diff | FGMOVE_MARGIN);
       }
+      return FG_ACCEPT;
     }
-    return FG_ACCEPT;
+    fgLog(FGLOG_INFO, "%s attempted to set NULL margin.", fgGetFullName(self).c_str());
+    return 0;
   case FG_SETPADDING:
-    if(!msg->p)
-      return 0;
+    if(msg->p)
     {
       AbsRect* padding = (AbsRect*)msg->p;
       char diff = CompareMargins(&self->padding, padding);
@@ -607,7 +609,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
         fgroot_instance->backend.fgDirtyElement(self);
         memcpy(&self->padding, padding, sizeof(AbsRect));
         if(msg->subtype != 0 && msg->subtype != (fgMsgType)~0)
-          fgResolveRectUnit(self->padding, (msg->subtype&FGELEMENT_REQUIREDPI) ? self->GetDPI() : fgIntVec_DEFAULTDPI, (msg->subtype&FGELEMENT_REQUIRELINEHEIGHT) ? self->GetLineHeight() : 0.0f, msg->subtype);
+          fgResolveRectUnit(self->padding, (msg->subtype&FGELEMENT_REQUIREDPI) ? self->GetDPI() : AbsVec_DEFAULTDPI, (msg->subtype&FGELEMENT_REQUIRELINEHEIGHT) ? self->GetLineHeight() : 0.0f, msg->subtype);
         fgroot_instance->backend.fgDirtyElement(self);
         fgElement_MouseMoveCheck(self);
 
@@ -616,8 +618,10 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
         else
           fgElement_PropogateMove(self, FG_SETMARGIN, 0, diff | FGMOVE_PADDING);
       }
+      return FG_ACCEPT;
     }
-    return FG_ACCEPT;
+    fgLog(FGLOG_INFO, "%s attempted to set NULL padding.", fgGetFullName(self).c_str());
+    return 0;
   case FG_SETPARENT: // Note: Doing everything in SETPARENT is a bad idea because it prevents parents from responding to children being added or removed!
     if(self->parent != 0 && (self->parent == msg->e || msg->subtype != 0))
     {
@@ -636,7 +640,10 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
     return FG_ACCEPT;
   case FG_REORDERCHILD:
     if(!msg->e || msg->e->parent != self)
+    {
+      fgLog(FGLOG_WARNING, "%s attempted to reorder illegal child %s.", fgGetFullName(self).c_str(), !msg->p ? "[NULL]" : fgGetFullName(msg->e).c_str());
       return 0;
+    }
     else if(msg->e->next != msg->e2)
     {
       assert(!msg->e2 || msg->e2->parent == self);
@@ -653,7 +660,10 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
       return 0;
   case FG_ADDCHILD:
     if(!msg->e)
+    {
+      fgLog(FGLOG_WARNING, "%s attempted to add NULL child", fgGetFullName(self).c_str());
       return 0;
+    }
     if(msg->e->parent != 0) // If the parent is nonzero, call SETPARENT to clean things up for us and then call this again after the child is ready.
       return _sendmsg<FG_SETPARENT, void*, void*>(msg->e, self, msg->p2); // We do things this way so parents can respond to children being added or removed
     assert(!msg->e->parent);
@@ -674,8 +684,10 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
     return FG_ACCEPT;
   case FG_REMOVECHILD:
     if(!msg->p || msg->e->parent != self)
+    {
+      fgLog(FGLOG_WARNING, "%s attempted to remove illegal child %s.", fgGetFullName(self).c_str(), !msg->p ? "[NULL]" : fgGetFullName(msg->e).c_str());
       return 0;
-
+    }
     if(!(msg->e->flags&FGELEMENT_BACKGROUND))
       _sendsubmsg<FG_LAYOUTCHANGE, void*, size_t>(self, FGELEMENT_LAYOUTREMOVE, msg->e, 0);
     if(self->lastfocus == msg->e)
@@ -869,6 +881,11 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
         }
       }
     }
+    else if(!msg->p)
+    {
+      fgLog(FGLOG_INFO, "%s attempted to set NULL style.", fgGetFullName(self).c_str());
+      return 0;
+    }
     else
       style = (fgStyle*)msg->p;
 
@@ -906,7 +923,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
   case FG_GETNAME:
     return (size_t)self->name;
   case FG_GETDPI:
-    return self->parent ? (*fgroot_instance->fgBehaviorHook)(self->parent, msg) : (size_t)&fgIntVec_EMPTY;
+    return self->parent ? (*fgroot_instance->fgBehaviorHook)(self->parent, msg) : (size_t)&AbsVec_EMPTY;
   case FG_GETLINEHEIGHT:
     return self->parent ? (*fgroot_instance->fgBehaviorHook)(self->parent, msg) : 0;
   case FG_SETDPI:
@@ -947,6 +964,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
       if(self->mindim.y != msg->f2) diff |= FGMOVE_RESIZEY;
       break;
     default:
+      fgLog(FGLOG_INFO, "%s unrecognized dim set: %hu", fgGetFullName(self).c_str(), msg->subtype);
       return 0;
     }
     if(diff != 0)
@@ -959,13 +977,13 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
         self->maxdim.x = msg->f;
         self->maxdim.y = msg->f2;
         if((msg->subtype&(FGUNIT_X_MASK | FGUNIT_Y_MASK)) != 0)
-          fgResolveVecUnit(self->maxdim, (msg->subtype&FGELEMENT_REQUIREDPI) ? self->GetDPI() : fgIntVec_DEFAULTDPI, (msg->subtype&FGELEMENT_REQUIRELINEHEIGHT) ? self->GetLineHeight() : 0.0f, msg->subtype);
+          fgResolveVecUnit(self->maxdim, (msg->subtype&FGELEMENT_REQUIREDPI) ? self->GetDPI() : AbsVec_DEFAULTDPI, (msg->subtype&FGELEMENT_REQUIRELINEHEIGHT) ? self->GetLineHeight() : 0.0f, msg->subtype);
         break;
       case FGDIM_MIN:
         self->mindim.x = msg->f;
         self->mindim.y = msg->f2;
         if((msg->subtype&(FGUNIT_X_MASK | FGUNIT_Y_MASK)) != 0)
-          fgResolveVecUnit(self->mindim, (msg->subtype&FGELEMENT_REQUIREDPI) ? self->GetDPI() : fgIntVec_DEFAULTDPI, (msg->subtype&FGELEMENT_REQUIRELINEHEIGHT) ? self->GetLineHeight() : 0.0f, msg->subtype);
+          fgResolveVecUnit(self->mindim, (msg->subtype&FGELEMENT_REQUIREDPI) ? self->GetDPI() : AbsVec_DEFAULTDPI, (msg->subtype&FGELEMENT_REQUIRELINEHEIGHT) ? self->GetLineHeight() : 0.0f, msg->subtype);
         break;
       }
       fgroot_instance->backend.fgDirtyElement(self);
@@ -982,12 +1000,16 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
     case FGDIM_MIN:
       return *reinterpret_cast<size_t*>(&self->mindim);
     }
+    fgLog(FGLOG_INFO, "%s unrecognized dim requested: %hu", fgGetFullName(self).c_str(), msg->subtype);
     return 0;
   case FG_GETUSERDATA:
     if(!msg->p2)
       return *reinterpret_cast<size_t*>(&self->userdata);
     if(!self->userhash)
+    {
+      fgLog(FGLOG_ERROR, "userhash failed to initialize on %s", fgGetFullName(self).c_str());
       return 0;
+    }
     {
       khiter_t k = kh_get_fgUserdata(self->userhash, (char*)msg->p2);
       return (k != kh_end(self->userhash) && kh_exist(self->userhash, k)) ? kh_val(self->userhash, k) : 0;
@@ -1001,7 +1023,10 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
     if(!self->userhash)
       self->userhash = kh_init_fgUserdata();
     if(!self->userhash)
+    {
+      fgLog(FGLOG_ERROR, "userhash failed to initialize on %s", fgGetFullName(self).c_str());
       return 0;
+    }
 
     {
       int r = 0;
@@ -1031,6 +1056,21 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
   case FG_ACTIVE:
     self->SetStyle("active");
     return FG_ACCEPT;
+  case FG_SETCOLOR:
+    fgLog(FGLOG_INFO, "%s unrecognized color set: %hu", fgGetFullName(self).c_str(), msg->subtype);
+    return 0;
+  case FG_GETCOLOR:
+    fgLog(FGLOG_INFO, "%s unrecognized color request: %hu", fgGetFullName(self).c_str(), msg->subtype);
+    return 0;
+  case FG_GETITEM:
+    fgLog(FGLOG_INFO, "GetItem (%hu) not supported on %s", msg->u, fgGetFullName(self).c_str());
+    return 0;
+  case FG_SETITEM:
+    fgLog(FGLOG_INFO, "SetItem (%hu) not supported on %s", msg->u2, fgGetFullName(self).c_str());
+    return 0;
+  case FG_REMOVEITEM:
+    fgLog(FGLOG_INFO, "RemoveItem (%hu) not supported on %s", msg->u, fgGetFullName(self).c_str());
+    return 0;
   case FG_DEBUGMESSAGE:
     return (size_t)self; // Used to debug the message injector by returning the first element that was sent the message
   }
@@ -1466,9 +1506,9 @@ size_t fgElement::SetStyle(fgStyleIndex index, fgStyleIndex mask) { return _send
 
 struct _FG_STYLE* fgElement::GetStyle() { return reinterpret_cast<struct _FG_STYLE*>(_sendmsg<FG_GETSTYLE>(this)); }
 
-fgIntVec& fgElement::GetDPI() const { return *reinterpret_cast<fgIntVec*>(_sendmsg<FG_GETDPI>(const_cast<fgElement*>(this))); }
+const AbsVec& fgElement::GetDPI() const { return *reinterpret_cast<AbsVec*>(_sendmsg<FG_GETDPI>(const_cast<fgElement*>(this))); }
 
-void fgElement::SetDPI(int x, int y) { _sendmsg<FG_SETDPI, ptrdiff_t, ptrdiff_t>(this, x, y); }
+void fgElement::SetDPI(FABS x, FABS y) { _sendmsg<FG_SETDPI, FABS, FABS>(this, x, y); }
 
 const char* fgElement::GetClassName() { return reinterpret_cast<const char*>(_sendmsg<FG_GETCLASSNAME>(this)); }
 

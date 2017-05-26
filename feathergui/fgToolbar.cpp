@@ -34,7 +34,7 @@ size_t fgToolGroup_Message(fgBox* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_ADDITEM:
-    return (size_t)fgCreate("Box", *self, 0, 0, FGFLAGS_DEFAULTS, 0, 0);
+    return (size_t)fgCreate("Box", *self, 0, 0, FGBOX_TILEX | FGELEMENT_EXPAND, 0, 0);
   case FG_GETCLASSNAME:
     return (size_t)"ToolGroup";
   }

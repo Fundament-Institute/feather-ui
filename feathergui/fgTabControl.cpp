@@ -183,6 +183,7 @@ size_t fgTabcontrol_Message(fgTabcontrol* self, const FG_Msg* msg)
       fgTabcontrol_AdjustPadding(self);
       return FG_ACCEPT;
     }
+    fgLog(FGLOG_INFO, "%s attempted to set NULL padding", fgGetFullName(*self).c_str());
     return 0;
   case FG_GETSELECTEDITEM:
     return fgSendMessage(self->header, msg);

@@ -159,7 +159,7 @@ int main(int argc, char** argv)
   const char* data;
   DWORD sz;
   LoadEmbeddedResource(201, 256, sz, data);
-  fgLayout_LoadXML(&layout, data, sz, "../media/");
+  fgLayout_LoadXML(&layout, data, sz, "../media/editor/");
 #else
   fgLayout_LoadFileXML(&layout, "../media/editor/editor.xml");
 #endif

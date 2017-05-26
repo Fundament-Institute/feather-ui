@@ -45,7 +45,7 @@ typedef struct _FG_ROOT {
   struct kh_fgIDHash_s* idhash; // reverse ID lookup
   struct kh_fgInitMap_s* initmap;
   struct kh_fgCursorMap_s* cursormap;
-  fgIntVec dpi;
+  AbsVec dpi;
   float lineheight;
   float fontscale;
   double time; // In seconds
@@ -66,6 +66,7 @@ typedef struct _FG_ROOT {
   fgElement* fgLastHover; // Last window the mouse moved over, used to generate MOUSEON and MOUSEOFF events
   fgElement* fgCaptureWindow;
   size_t(*fgBehaviorHook)(struct _FG_ELEMENT* self, const FG_Msg* msg);
+  enum FG_LOGLEVEL maxloglevel;
 #ifdef  __cplusplus
   inline bool GetKey(unsigned char key) const { return (keys[key / 32] & (1 << (key % 32))) != 0; }
   inline operator fgElement*() { return &gui.element; }
@@ -74,7 +75,7 @@ typedef struct _FG_ROOT {
 
 FG_EXTERN fgRoot* fgSingleton();
 FG_EXTERN char fgLoadExtension(const char* extname, void* fg, size_t sz);
-FG_EXTERN void fgRoot_Init(fgRoot* self, const AbsRect* area, const fgIntVec* dpi, const fgBackend* backend);
+FG_EXTERN void fgRoot_Init(fgRoot* self, const AbsRect* area, const AbsVec* dpi, const fgBackend* backend);
 FG_EXTERN void fgRoot_Destroy(fgRoot* self);
 FG_EXTERN size_t fgRoot_Message(fgRoot* self, const FG_Msg* msg);
 FG_EXTERN size_t fgRoot_DefaultInject(fgRoot* self, const FG_Msg* msg); // Returns 0 if handled, 1 otherwise
@@ -108,7 +109,6 @@ FG_EXTERN fgInject fgSetInjectFunc(fgInject inject); // Sets the injection funct
 FG_EXTERN fgElement* fgGetID(const char* id);
 FG_EXTERN void fgAddID(const char* id, fgElement* element);
 FG_EXTERN char fgRemoveID(fgElement* element);
-FG_EXTERN int fgLog(const char* format, ...);
 
 #ifdef  __cplusplus
 }

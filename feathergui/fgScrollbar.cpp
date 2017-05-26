@@ -319,6 +319,7 @@ size_t fgScrollbar_Message(fgScrollbar* self, const FG_Msg* msg)
       fgScrollbar_ApplyPadding(self, 0, 0); // Recalculate scrollbar positions
       return FG_ACCEPT;
     }
+    fgLog(FGLOG_INFO, "%s set NULL padding.", fgGetFullName(*self).c_str(), msg->subtype);
     return 0;
   case FG_MOUSESCROLL:
   {

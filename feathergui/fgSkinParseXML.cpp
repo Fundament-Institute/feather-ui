@@ -168,6 +168,9 @@ fgSkin* fgStyle_ParseAttributesXML(fgStyle* self, const XMLNode* cur, int flags,
       //  skin = fgSkinBase_LoadFileUBJSON(root, attr->String);
       //if(!skin) // relative UBJSON path
       //  skin = fgSkinBase_LoadFileUBJSON(root, Str(path) + attr->String);
+      if(!skin)
+        fgLog(FGLOG_WARNING, "Failed to load %s", attr->String.c_str());
+
       break;
     case 6:
       AddStyleMsg<FG_SETALPHA, FABS>(self, (FABS)attr->Float);
@@ -232,6 +235,8 @@ fgSkin* fgStyle_ParseAttributesXML(fgStyle* self, const XMLNode* cur, int flags,
       _FG_FONT_DATA* index = fgSkinBase_AddFont(root, flags, families, weight, italic, size);
       if(index)
         AddStyleMsg<FG_SETFONT, void*>(self, index->font);
+      else 
+        fgLog(FGLOG_WARNING, "Failed to match any font to: ", attr->String.c_str());
       break;
     }
     case 21:
@@ -523,7 +528,10 @@ fgSkin* fgSkinBase_ParseNodeXML(fgSkinBase* self, const XMLNode* root, const cha
   if(!id)
     id = root->GetAttributeString("name");
   if(!id)
+  {
+    fgLog(FGLOG_WARNING, "Failed to parse fgSkinBase node because it had no ID or Name.");
     return 0;
+  }
   fgSkin* s = fgSkinBase_AddSkin(self, id);
   fgSkinBase_ParseSubNodeXML(&s->tree, &s->style, &s->base, s, root, path);
   return s;

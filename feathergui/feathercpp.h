@@ -51,13 +51,13 @@ public:
   void Dump()
   {
     assert(fgroot_instance != 0);
-    fgLog("--- Memory leaks---\n");
+    fgLog(FGLOG_NONE, "--- Memory leaks---\n");
     LEAKINFO* pinfo;
     for(auto curiter = _leakinfo.begin(); curiter.IsValid(); ++curiter)
     {
       pinfo = _leakinfo.GetValue(*curiter);
       if(!pinfo->freecount)
-        fgLog("%p (Size: %zi) leaked at %s:%zi\n", pinfo->ptr, pinfo->size, pinfo->file, pinfo->line);
+        fgLog(FGLOG_NONE, "%p (Size: %zi) leaked at %s:%zi\n", pinfo->ptr, pinfo->size, pinfo->file, pinfo->line);
 
       free((char*)pinfo->file);
       free(pinfo);
@@ -254,7 +254,7 @@ BSS_FORCEINLINE size_t fgSetFlagStyle(fgElement* self, const char* style, bool v
 }
 
 template<FABS(*F)(FABS)>
-BSS_FORCEINLINE FABS fgSnapDPI(FABS x, int dpi)
+BSS_FORCEINLINE FABS fgSnapDPI(FABS x, FABS dpi)
 {
   if(dpi != 96 && dpi != 0)
   {
@@ -264,7 +264,7 @@ BSS_FORCEINLINE FABS fgSnapDPI(FABS x, int dpi)
   return x;
 }
 template<FABS(*F)(FABS)>
-BSS_FORCEINLINE FABS fgSnapAll(FABS x, int dpi)
+BSS_FORCEINLINE FABS fgSnapAll(FABS x, FABS dpi)
 {
   if(dpi != 96 && dpi != 0)
   {
@@ -274,7 +274,7 @@ BSS_FORCEINLINE FABS fgSnapAll(FABS x, int dpi)
   return F(x);
 }
 template<FABS(*F)(FABS)>
-BSS_FORCEINLINE void fgSnapAllRect(AbsRect& r, const fgIntVec& dpi)
+BSS_FORCEINLINE void fgSnapAllRect(AbsRect& r, const AbsVec& dpi)
 {
   r.left = fgSnapAll<F>(r.left, dpi.x);
   r.top = fgSnapAll<F>(r.top, dpi.y);
@@ -282,7 +282,7 @@ BSS_FORCEINLINE void fgSnapAllRect(AbsRect& r, const fgIntVec& dpi)
   r.bottom = fgSnapAll<F>(r.bottom, dpi.y);
 }
 
-BSS_FORCEINLINE FABS fgResolveUnit(FABS x, size_t unit, int dpi, FABS lineheight, bool snap)
+BSS_FORCEINLINE FABS fgResolveUnit(FABS x, size_t unit, FABS dpi, FABS lineheight, bool snap)
 {
   switch(unit)
   {
@@ -319,7 +319,7 @@ BSS_FORCEINLINE void fgSnapAbsRect(AbsRect& r, fgFlag flags)
   }
 }
 
-BSS_FORCEINLINE void fgResolveRectUnit(AbsRect& r, const fgIntVec& dpi, FABS lineheight, size_t subtype)
+BSS_FORCEINLINE void fgResolveRectUnit(AbsRect& r, const AbsVec& dpi, FABS lineheight, size_t subtype)
 {
   r.left = fgResolveUnit(r.left, (subtype & FGUNIT_LEFT_MASK) >> FGUNIT_LEFT, dpi.x, lineheight, (subtype & FGUNIT_SNAP) != 0);
   r.top = fgResolveUnit(r.top, (subtype & FGUNIT_TOP_MASK) >> FGUNIT_TOP, dpi.y, lineheight, (subtype & FGUNIT_SNAP) != 0);
@@ -327,13 +327,13 @@ BSS_FORCEINLINE void fgResolveRectUnit(AbsRect& r, const fgIntVec& dpi, FABS lin
   r.bottom = fgResolveUnit(r.bottom, (subtype & FGUNIT_BOTTOM_MASK) >> FGUNIT_BOTTOM, dpi.y, lineheight, (subtype & FGUNIT_SNAP) != 0);
 }
 
-BSS_FORCEINLINE void fgResolveVecUnit(AbsVec& v, const fgIntVec& dpi, FABS lineheight, size_t subtype)
+BSS_FORCEINLINE void fgResolveVecUnit(AbsVec& v, const AbsVec& dpi, FABS lineheight, size_t subtype)
 {
   v.x = fgResolveUnit(v.x, (subtype & FGUNIT_X_MASK) >> FGUNIT_X, dpi.x, lineheight, (subtype & FGUNIT_SNAP) != 0);
   v.y = fgResolveUnit(v.y, (subtype & FGUNIT_Y_MASK) >> FGUNIT_Y, dpi.y, lineheight, (subtype & FGUNIT_SNAP) != 0);
 }
 
-BSS_FORCEINLINE void fgResolveCRectUnit(CRect& r, const fgIntVec& dpi, FABS lineheight, size_t subtype)
+BSS_FORCEINLINE void fgResolveCRectUnit(CRect& r, const AbsVec& dpi, FABS lineheight, size_t subtype)
 {
   r.left.abs = fgResolveUnit(r.left.abs, (subtype & FGUNIT_LEFT_MASK) >> FGUNIT_LEFT, dpi.x, lineheight, (subtype & FGUNIT_SNAP) != 0);
   r.top.abs = fgResolveUnit(r.top.abs, (subtype & FGUNIT_TOP_MASK) >> FGUNIT_TOP, dpi.y, lineheight, (subtype & FGUNIT_SNAP) != 0);
@@ -345,7 +345,7 @@ BSS_FORCEINLINE void fgResolveCRectUnit(CRect& r, const fgIntVec& dpi, FABS line
     r.bottom.abs += r.top.abs;
 }
 
-BSS_FORCEINLINE void fgResolveCVecUnit(CVec& v, const fgIntVec& dpi, FABS lineheight, size_t subtype)
+BSS_FORCEINLINE void fgResolveCVecUnit(CVec& v, const AbsVec& dpi, FABS lineheight, size_t subtype)
 {
   v.x.abs = fgResolveUnit(v.x.abs, (subtype & FGUNIT_X_MASK) >> FGUNIT_X, dpi.x, lineheight, (subtype & FGUNIT_SNAP) != 0);
   v.y.abs = fgResolveUnit(v.y.abs, (subtype & FGUNIT_Y_MASK) >> FGUNIT_Y, dpi.y, lineheight, (subtype & FGUNIT_SNAP) != 0);
@@ -368,6 +368,16 @@ BSS_FORCEINLINE fgElement* fgLayout_GetPrev(fgElement* cur)
 {
   while((cur = cur->prev) != 0 && (cur->flags&FGELEMENT_BACKGROUND) != 0);
   return cur;
+}
+
+inline bss::Str fgGetFullName(fgElement* e)
+{
+  const char* n = e->GetName();
+  if(!n)
+    n = e->GetClassName();
+  if(e->parent)
+    return fgGetFullName(e->parent) + "." + n;
+  return n;
 }
 
 namespace bss { struct XMLNode; }

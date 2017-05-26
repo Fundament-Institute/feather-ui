@@ -32,29 +32,29 @@ void fgResource_Recalc(fgResource* self)
   if(self->asset && (self->element.flags&FGELEMENT_EXPAND) && !(self->element.flags&FGELEMENT_SILENT))
   {
     AbsVec dim;
-    fgIntVec dpi = (*self)->GetDPI();
-    fgroot_instance->backend.fgAssetSize(self->asset, &self->uv, &dim, self->element.flags);
+    AbsVec dpi = (*self)->GetDPI();
+    fgroot_instance->backend.fgAssetSize(self->asset, &self->uv, &dim, self->element.flags, &dpi);
     dim = { fgSnapAll<ceilf>(dim.x, dpi.x), fgSnapAll<ceilf>(dim.y, dpi.y) };
 
     CRect adjust = self->element.transform.area;
     if(self->element.flags&FGRESOURCE_SHAPEMASK)
     {
       if(self->element.flags&FGELEMENT_EXPANDX)
-        adjust.right.abs = adjust.left.abs + dim.x;
+        adjust.right.abs = adjust.left.abs + dim.x + self->element.padding.left + self->element.padding.right + self->element.margin.left + self->element.margin.right;
       if(self->element.flags&FGELEMENT_EXPANDY)
-        adjust.bottom.abs = adjust.top.abs + dim.y;
+        adjust.bottom.abs = adjust.top.abs + dim.y + self->element.padding.top + self->element.padding.bottom + self->element.margin.top + self->element.margin.bottom;;
     }
     else if(self->element.flags&FGELEMENT_EXPAND)
     {
       if((self->element.flags&FGELEMENT_EXPAND) == FGELEMENT_EXPAND)
       {
-        adjust.right.abs = adjust.left.abs + dim.x;
-        adjust.bottom.abs = adjust.top.abs + dim.y;
+        adjust.right.abs = adjust.left.abs + dim.x + self->element.padding.left + self->element.padding.right + self->element.margin.left + self->element.margin.right;
+        adjust.bottom.abs = adjust.top.abs + dim.y + self->element.padding.top + self->element.padding.bottom + self->element.margin.top + self->element.margin.bottom;
       }
       else if(self->element.flags&FGELEMENT_EXPANDX) // Preserve aspect ratio
-        adjust.right.abs = adjust.left.abs + (dim.x * ((adjust.bottom.abs - adjust.top.abs) / dim.y));
+        adjust.right.abs = adjust.left.abs + (dim.x * ((adjust.bottom.abs - adjust.top.abs) / dim.y)) + self->element.padding.left + self->element.padding.right + self->element.margin.left + self->element.margin.right;
       else if(self->element.flags&FGELEMENT_EXPANDY)
-        adjust.bottom.abs = adjust.top.abs + (dim.y * ((adjust.right.abs - adjust.left.abs) / dim.x));
+        adjust.bottom.abs = adjust.top.abs + (dim.y * ((adjust.right.abs - adjust.left.abs) / dim.x)) + self->element.padding.top + self->element.padding.bottom + self->element.margin.top + self->element.margin.bottom;;
     }
     _sendmsg<FG_SETAREA, void*>(*self, &adjust);
   }
@@ -103,11 +103,12 @@ size_t fgResource_Message(fgResource* self, const FG_Msg* msg)
   case FG_SETCOLOR:
     switch(msg->subtype)
     {
+    default: return fgElement_Message(&self->element, msg);
     case FGSETCOLOR_EDGE: self->edge.color = (uint32_t)msg->i; break;
     case FGSETCOLOR_MAIN: self->color.color = (uint32_t)msg->i; break;
     }
     fgroot_instance->backend.fgDirtyElement(*self);
-    break;
+    return FG_ACCEPT;
   case FG_SETOUTLINE:
     self->outline = fgResolveUnit(msg->f, msg->subtype, self->element.GetDPI().x, self->element.GetLineHeight(), (msg->subtype & FGUNIT_SNAP) != 0);
     fgroot_instance->backend.fgDirtyElement(*self);
@@ -122,7 +123,7 @@ size_t fgResource_Message(fgResource* self, const FG_Msg* msg)
     case FGSETCOLOR_EDGE: return self->edge.color;
     case FGSETCOLOR_MAIN: return self->color.color;
     }
-    return 0;
+    break;
   case FG_GETOUTLINE:
     return *reinterpret_cast<size_t*>(&self->outline);
   case FG_MOVE:
@@ -133,16 +134,17 @@ size_t fgResource_Message(fgResource* self, const FG_Msg* msg)
   {
     if(msg->subtype & 1) break;
     AbsVec center = ResolveVec(&self->element.transform.center, (AbsRect*)msg->p);
+    AbsRect area;
+    __applyrect(area, *(AbsRect*)msg->p, self->element.padding);
 
     if(self->element.flags&FGRESOURCE_UVTILE)
     {
-      AbsRect& area = *(AbsRect*)msg->p;
       self->uv.right.abs = self->uv.left.abs + area.right - area.left;
       self->uv.bottom.abs = self->uv.top.abs + area.bottom - area.top;
-      fgroot_instance->backend.fgDrawAsset(self->asset, &self->uv, self->color.color, self->edge.color, self->outline, (AbsRect*)msg->p, self->element.transform.rotation, &center, self->element.flags, (fgDrawAuxData*)msg->p2);
+      fgroot_instance->backend.fgDrawAsset(self->asset, &self->uv, self->color.color, self->edge.color, self->outline, &area, self->element.transform.rotation, &center, self->element.flags, (fgDrawAuxData*)msg->p2);
     }
     else
-      fgroot_instance->backend.fgDrawAsset(self->asset, &self->uv, self->color.color, self->edge.color, self->outline, (AbsRect*)msg->p, self->element.transform.rotation, &center, self->element.flags, (fgDrawAuxData*)msg->p2);
+      fgroot_instance->backend.fgDrawAsset(self->asset, &self->uv, self->color.color, self->edge.color, self->outline, &area, self->element.transform.rotation, &center, self->element.flags, (fgDrawAuxData*)msg->p2);
   }
   break;
   case FG_GETCLASSNAME:

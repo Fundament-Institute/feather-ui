@@ -156,19 +156,19 @@ size_t fgDropdown_Message(fgDropdown* self, const FG_Msg* msg)
     case FGSETCOLOR_SELECT:
       return self->select.color;
     }
-    return 0;
+    break;
   case FG_SETCOLOR:
     switch(msg->subtype)
     {
       case FGSETCOLOR_MAIN:
       case FGSETCOLOR_HOVER:
         self->hover.color = (uint32_t)msg->i;
-        break;
+        return FG_ACCEPT;
       case FGSETCOLOR_SELECT:
         self->select.color = (uint32_t)msg->i;
-        break;
+        return FG_ACCEPT;
     }
-    return FG_ACCEPT;
+    break;
   case FG_SETDIM:
   case FG_GETDIM:
     return (*self->box->message)(self->box, msg);

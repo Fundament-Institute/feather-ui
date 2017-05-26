@@ -19,8 +19,8 @@ struct ID2D1DeviceContext;
 struct fgDrawAuxDataEx;
 
 #define LOGEMPTY
-#define LOGFAILURE(x, f, ...) { HRESULT hr = (x); if(FAILED(hr)) { fgLog(f, __VA_ARGS__); } }
-#define LOGFAILURERET(x, r, f, ...) { HRESULT hr = (x); if(FAILED(hr)) { fgLog(f, __VA_ARGS__); return r; } }
+#define LOGFAILURE(x, f, ...) { HRESULT hr = (x); if(FAILED(hr)) { fgLog(FGLOG_ERROR, f, __VA_ARGS__); } }
+#define LOGFAILURERET(x, r, f, ...) { HRESULT hr = (x); if(FAILED(hr)) { fgLog(FGLOG_ERROR, f, __VA_ARGS__); return r; } }
 #define LOGFAILURERETNULL(x, f, ...) LOGFAILURERET(x,LOGEMPTY,f,__VA_ARGS__)
 
 #if defined(_WIN64)
@@ -52,8 +52,8 @@ struct fgContext {
   longptr_t __stdcall WndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam, fgElement* src);
   void InvalidateHWND(HWND__* hWnd);
 
-  static void ApplyWin32Size(fgWindow& self, HWND__* handle, const fgIntVec& dpi);
-  static HWND__* WndCreate(const AbsRect& out, unsigned long style, uint32_t exflags, void* self, const wchar_t* cls, fgIntVec& dpi);
+  static void ApplyWin32Size(fgWindow& self, HWND__* handle, const AbsVec& dpi);
+  static HWND__* WndCreate(const AbsRect& out, unsigned long style, uint32_t exflags, void* self, const wchar_t* cls, AbsVec& dpi);
   static void SetDWMCallbacks();
   static void WndRegister(longptr_t(__stdcall* f)(HWND__*, unsigned int, size_t, longptr_t), const wchar_t* name);
   static AbsVec AdjustPoints(tagPOINTS* points, fgElement* src);

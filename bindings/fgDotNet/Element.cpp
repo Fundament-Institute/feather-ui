@@ -51,20 +51,20 @@ size_t Element::SetStyle(String^ name) { TOCHAR(name); return _p->SetStyle((cons
 size_t Element::SetStyle(Style^ style) { fgStyle s = fgStyle{ style }; return _p->SetStyle(&s); }
 size_t Element::SetStyle(FG_UINT index, FG_UINT mask) { return _p->SetStyle(index, mask); }
 Style^ Element::GetStyle() { return GenNewManagedPtr<Style, fgStyle>(_p->GetStyle()); }
-Point^ Element::GetDPI() { fgIntVec& p = _p->GetDPI(); return Point(p.x, p.y); }
-void Element::SetDPI(int x, int y) { _p->SetDPI(x, y); }
+PointF^ Element::GetDPI() { const AbsVec& p = _p->GetDPI(); return PointF(p.x, p.y); }
+void Element::SetDPI(FABS x, FABS y) { _p->SetDPI(x, y); }
 String^ Element::GetClassName() { return gcnew System::String(_p->GetClassName()); }
 size_t Element::GetUserdata() { return reinterpret_cast<size_t>(_p->GetUserdata(0)); }
 size_t Element::GetUserdata(String^ name) { TOCHAR(name); return reinterpret_cast<size_t>(_p->GetUserdata((const char*)pstr)); }
 void Element::SetUserdata(size_t data) { _p->SetUserdata(reinterpret_cast<void*>(data)); }
 void Element::SetUserdata(size_t data, String^ name) { TOCHAR(name); _p->SetUserdata(reinterpret_cast<void*>(data), (const char*)pstr); }
-size_t Element::MouseDown(int x, int y, unsigned char button, unsigned char allbtn) { return _p->MouseDown(x, y, button, allbtn); }
-size_t Element::MouseDblClick(int x, int y, unsigned char button, unsigned char allbtn) { return _p->MouseDblClick(x, y, button, allbtn); }
-size_t Element::MouseUp(int x, int y, unsigned char button, unsigned char allbtn) { return _p->MouseUp(x, y, button, allbtn); }
-size_t Element::MouseOn(int x, int y) { return _p->MouseOn(x,y); }
-size_t Element::MouseOff(int x, int y) { return _p->MouseOff(x, y); }
-size_t Element::MouseMove(int x, int y) { return _p->MouseMove(x, y); }
-size_t Element::MouseScroll(int x, int y, unsigned short delta, unsigned short hdelta) { return _p->MouseScroll(x, y, delta, hdelta); }
+size_t Element::MouseDown(FABS x, FABS y, unsigned char button, unsigned char allbtn) { return _p->MouseDown(x, y, button, allbtn); }
+size_t Element::MouseDblClick(FABS x, FABS y, unsigned char button, unsigned char allbtn) { return _p->MouseDblClick(x, y, button, allbtn); }
+size_t Element::MouseUp(FABS x, FABS y, unsigned char button, unsigned char allbtn) { return _p->MouseUp(x, y, button, allbtn); }
+size_t Element::MouseOn(FABS x, FABS y) { return _p->MouseOn(x,y); }
+size_t Element::MouseOff(FABS x, FABS y) { return _p->MouseOff(x, y); }
+size_t Element::MouseMove(FABS x, FABS y) { return _p->MouseMove(x, y); }
+size_t Element::MouseScroll(FABS x, FABS y, unsigned short delta, unsigned short hdelta) { return _p->MouseScroll(x, y, delta, hdelta); }
 size_t Element::KeyUp(unsigned char keycode, char sigkeys) { return _p->KeyUp(keycode, sigkeys); }
 size_t Element::KeyDown(unsigned char keycode, char sigkeys) { return _p->KeyDown(keycode, sigkeys); }
 size_t Element::KeyChar(int keychar, char sigkeys) { return _p->KeyChar(keychar, sigkeys); }
@@ -121,4 +121,3 @@ Element^ Element::GetChildByName(System::String^ name) { return GenNewManagedPtr
 Element::operator fgElement*(Element^ e) { return e->_p; }
 AbsRect Element::From(System::Drawing::RectangleF^ r) { return AbsRect{ r->Left, r->Top, r->Right, r->Bottom }; }
 AbsVec Element::From(System::Drawing::PointF^ p) { return AbsVec{ p->X, p->Y }; }
-fgIntVec Element::From(System::Drawing::Point^ p) { return fgIntVec{ p->X, p->Y }; }

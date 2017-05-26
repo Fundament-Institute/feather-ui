@@ -203,7 +203,7 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
       assert(msg->p != (void*)0xcdcdcdcdcdcdcdcd);
       fgFontDesc desc;
       fgroot_instance->backend.fgFontGet(msg->p, &desc);
-      fgIntVec dpi = self->element.GetDPI();
+      AbsVec dpi = self->element.GetDPI();
       bool identical = (dpi.x == desc.dpi.x && dpi.y == desc.dpi.y);
       desc.dpi = dpi;
       self->font = fgroot_instance->backend.fgCloneFont(msg->p, identical ? 0 : &desc);
@@ -288,7 +288,7 @@ void fgText_Recalc(fgText* self)
     CRect adjust = self->element.transform.area;
     if(self->element.flags&FGELEMENT_EXPAND)
     {
-      fgIntVec dpi = (*self)->GetDPI();
+      AbsVec dpi = (*self)->GetDPI();
       if(self->element.flags&FGELEMENT_EXPANDX)
         adjust.right.abs = adjust.left.abs + fgSnapAll<ceilf>(area.right - area.left, dpi.x) + self->element.padding.left + self->element.padding.right + self->element.margin.left + self->element.margin.right;
       if(self->element.flags&FGELEMENT_EXPANDY)

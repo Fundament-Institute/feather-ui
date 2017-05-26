@@ -60,7 +60,7 @@ fgLayout* fgLayout_AddLayout(fgLayout* self, const char* name)
   khint_t i = kh_put_fgLayoutMap(self->sublayouts, name, &r);
   if(!r)
   {
-    fgLog("Sublayout %s already exists.", name);
+    fgLog(FGLOG_WARNING, "Sublayout %s already exists.", name);
     return kh_val(self->sublayouts, i);
   }
   kh_val(self->sublayouts, i) = fgmalloc<fgLayout>(1, __FILE__, __LINE__);
@@ -75,7 +75,7 @@ char fgLayout_RemoveLayout(fgLayout* self, const char* name)
   khint_t i = kh_get_fgLayoutMap(self->sublayouts, name);
   if(i >= kh_end(self->sublayouts) || !kh_exist(self->sublayouts, i))
   {
-    fgLog("Attempted to remove nonexistent sublayout %s", name);
+    fgLog(FGLOG_WARNING, "Attempted to remove nonexistent sublayout %s", name);
     return 0;
   }
   fgLayout_Destroy(kh_val(self->sublayouts, i));
@@ -178,7 +178,7 @@ void fgLayout_LoadLayoutNode(fgLayout* self, const XMLNode* root, std::istream& 
     {
       const char* name = node->GetAttributeString("name");
       if(!name)
-        fgLog("Sublayout failed to load because it had no name attribute.");
+        fgLog(FGLOG_ERROR, "Sublayout failed to load because it had no name attribute.");
       else
         fgLayout_LoadLayoutNode(self->AddLayout(name), root, s, path);
     }
@@ -202,7 +202,10 @@ bool fgLayout_LoadStreamXML(fgLayout* self, std::istream& s, const char* path)
   XMLFile xml(s);
   const XMLNode* root = xml.GetNode("fg:Layout");
   if(!root)
+  {
+    fgLog(FGLOG_ERROR, "No root fg:Layout node found.");
     return false;
+  }
 
   fgLayout_LoadLayoutNode(self, root, s, path);
   return true;

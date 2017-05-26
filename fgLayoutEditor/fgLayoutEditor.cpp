@@ -47,7 +47,7 @@ fgLayoutEditor::fgLayoutEditor(fgLayout* layout, EditorSettings& settings) : Edi
 
   _mainwindow = reinterpret_cast<fgWindow*>(fgGetID("Editor$mainwindow"));
   _workspace = reinterpret_cast<fgWorkspace*>(fgGetID("Editor$workspace"));
-  _toolbar = reinterpret_cast<fgToolbar*>(fgGetID("Editor$toolbar"));
+  _toolbar = fgGetID("Editor$Toolbarcontrols");
 
   if(_workspace)
   {
@@ -55,38 +55,11 @@ fgLayoutEditor::fgLayoutEditor(fgLayout* layout, EditorSettings& settings) : Edi
     _workspaceroot->message = (fgMessage)WorkspaceRootMessage;
   }
   
-
   if(_toolbar)
-  { // Setup toolbar
-    fgElement* mainbar = _toolbar->box->AddItem(0);
-    fgElement* group = mainbar->AddItem(0);
-    fgCreate("Button", group, 0, 0, FGELEMENT_EXPAND, 0, 0)->SetText("New"); // New
-    fgCreate("Button", group, 0, 0, FGFLAGS_DEFAULTS, 0, 0)->SetText("Open"); // Open
-    fgCreate("Button", group, 0, 0, FGFLAGS_DEFAULTS, 0, 0); // Save
-    fgCreate("Button", group, 0, 0, FGFLAGS_DEFAULTS, 0, 0); // Save All
-    group = mainbar->AddItem(0);
-    fgCreate("Button", group, 0, 0, FGFLAGS_DEFAULTS, 0, 0); // Undo
-    fgCreate("Button", group, 0, 0, FGFLAGS_DEFAULTS, 0, 0); // Redo
-    group = mainbar->AddItem(0);
-    fgCreate("Button", group, 0, 0, FGFLAGS_DEFAULTS, 0, 0); // Cut
-    fgCreate("Button", group, 0, 0, FGFLAGS_DEFAULTS, 0, 0); // Copy
-    fgCreate("Button", group, 0, 0, FGFLAGS_DEFAULTS, 0, 0); // Paste
-    fgCreate("Button", group, 0, 0, FGFLAGS_DEFAULTS, 0, 0); // Delete
-
-    fgElement* viewbar = _toolbar->box->AddItem(0);
-    group = viewbar->AddItem(0);
-    fgCreate("Button", group, 0, 0, FGFLAGS_DEFAULTS, 0, 0); // Show Grid
-    fgCreate("Button", group, 0, 0, FGFLAGS_DEFAULTS, 0, 0); // Show Crosshair
-    fgCreate("Button", group, 0, 0, FGFLAGS_DEFAULTS, 0, 0); // Hide Rulers
-    fgCreate("Button", group, 0, 0, FGFLAGS_DEFAULTS, 0, 0); // Hide Cursors
-    group = viewbar->AddItem(0);
-    fgCreate("Button", group, 0, 0, FGFLAGS_DEFAULTS, 0, 0); // Snapping
-    fgCreate("Button", group, 0, 0, FGFLAGS_DEFAULTS, 0, 0); // Toggle Wireframe
-
-    fgElement* insertbar = _toolbar->box->AddItem(0);
-    fgIterateControls(insertbar, [](void* p, const char* s) { fgElement* e = fgCreate("Radiobutton", (fgElement*)p, 0, 0, FGFLAGS_DEFAULTS, 0, 0); e->SetText(s); });
+  {
+    _toolbar = _toolbar->AddItem(0);
+    fgIterateControls(_toolbar, [](void* p, const char* s) { fgElement* e = fgCreate("Radiobutton", (fgElement*)p, 0, 0, FGFLAGS_DEFAULTS, 0, 0); e->SetText(s); });
   }
-
   fgSetInjectFunc(_inject);
 }
 
@@ -101,7 +74,7 @@ void fgLayoutEditor::Destroy()
 }
 fgElement* fgLayoutEditor::LoadLayout(fgElement* parent, fgElement* next, fgClassLayout* layout)
 {
-  fgElement* element = fgCreate(layout->element.type, parent, next, layout->name, layout->element.flags, (layout->element.units == -1) ? 0 : &layout->element.transform, layout->element.units | FGUNIT_SNAP);
+  fgElement* element = fgCreate(layout->element.type, parent, next, layout->name, layout->element.flags, (layout->element.units == (fgMsgType)~0) ? 0 : &layout->element.transform, layout->element.units | FGUNIT_SNAP);
   assert(element != 0);
   if(!element)
     return 0;

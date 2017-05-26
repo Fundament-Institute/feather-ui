@@ -30,7 +30,7 @@ typedef struct _FG_FONT_DESC {
   FABS descender;
   FABS lineheight;
   unsigned int pt;
-  fgIntVec dpi;
+  AbsVec dpi;
 } fgFontDesc;
 
 // fgText stores a string and renders it according to the font and fontcolor that it has.

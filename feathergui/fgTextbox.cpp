@@ -421,7 +421,7 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
     {
       fgFontDesc desc;
       fgroot_instance->backend.fgFontGet(msg->p, &desc);
-      fgIntVec& dpi = self->scroll->GetDPI();
+      const AbsVec& dpi = self->scroll->GetDPI();
       bool identical = (dpi.x == desc.dpi.x && dpi.y == desc.dpi.y);
       desc.dpi = dpi;
       self->font = fgroot_instance->backend.fgCloneFont(msg->p, identical ? 0 : &desc);
@@ -458,13 +458,14 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
   case FG_SETCOLOR:
     switch(msg->subtype)
     {
+    default: return fgScrollbar_Message(&self->scroll, msg);
     case FGSETCOLOR_MAIN: self->color.color = (unsigned int)msg->i; break;
     case FGSETCOLOR_PLACEHOLDER: self->placecolor.color = (unsigned int)msg->i; break;
     case FGSETCOLOR_CURSOR: self->cursorcolor.color = (unsigned int)msg->i; break;
     case FGSETCOLOR_SELECT: self->selector.color = (unsigned int)msg->i; break;
     }
     fgroot_instance->backend.fgDirtyElement(*self);
-    break;
+    return FG_ACCEPT;
   case FG_GETTEXT:
     if(msg->subtype <= FGTEXTFMT_UTF32)
     {
@@ -486,13 +487,12 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
   case FG_GETCOLOR:
     switch(msg->u2)
     {
-    default:
     case 0: return self->color.color;
     case 1: return self->placecolor.color;
     case 2: return self->cursorcolor.color;
     case 3: return self->selector.color;
     }
-    assert(false);
+    break;
   case FG_MOVE:
     if(!(msg->u2 & FGMOVE_PROPAGATE) && (msg->u2 & (FGMOVE_RESIZE | FGMOVE_PADDING | FGMOVE_MARGIN)))
       fgSubMessage(*self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTMOVE, self, FGMOVE_PROPAGATE | FGMOVE_RESIZE);
@@ -653,7 +653,7 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       if(m->subtype == FGELEMENT_LAYOUTMOVE)
       {
         ResolveInnerRect(*self, &self->areacache);
-        fgIntVec& dpi = self->scroll->GetDPI(); // GetDPI can return 0 if we have no parent, which can happen when a layout is being set up or destroyed.
+        const AbsVec& dpi = self->scroll->GetDPI(); // GetDPI can return 0 if we have no parent, which can happen when a layout is being set up or destroyed.
         AbsRect r = self->areacache;
         if(self->scroll->flags&FGELEMENT_EXPANDX) // If maxdim is -1, this will translate into a -1 maxdim for the text and properly deal with all resizing cases.
           r.right = r.left + self->scroll->maxdim.x;

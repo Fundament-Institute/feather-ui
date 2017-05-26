@@ -129,7 +129,7 @@ _FG_ASSET_DATA* fgSkinBase_AddAssetFile(fgSkinBase* self, fgFlag flags, const ch
   if(!self->assets)
     self->assets = kh_init_fgAssets();
 
-  fgAsset asset = fgroot_instance->backend.fgCreateAssetFile(flags, file);
+  fgAsset asset = fgroot_instance->backend.fgCreateAssetFile(flags, file, 0);
   int r;
   khiter_t iter = kh_put_fgAssets(self->assets, asset, &r);
   if(r != 0) // If r is 0 the element already exists so we don't want to re-initialize it

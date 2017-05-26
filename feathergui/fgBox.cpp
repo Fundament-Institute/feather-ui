@@ -424,7 +424,10 @@ size_t fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_* self, const
     }
   case FG_REMOVEITEM:
     if(!self->isordered)
+    {
+      fgLog(FGLOG_INFO, "Attempt to remove by index from unordered box: %s", fgGetFullName(element).c_str());
       return 0; // Can't remove by index if we aren't ordered
+    }
     if(msg->u < self->ordered.l)
     {
       VirtualFreeChild(self->ordered.p[msg->u]);
@@ -451,8 +454,9 @@ size_t fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_* self, const
       case FGBOX_TILE | FGBOX_GROWY: return (size_t)fgOrderedGet<FGBOX_TILE | FGBOX_GROWY>(self, &r, &cache);
       }
     }
-    else if(size_t(msg->i) < self->ordered.l)
-      return (size_t)self->ordered.p[msg->i];
+    else if(msg->u < self->ordered.l)
+      return (size_t)self->ordered.p[msg->u];
+    fgLog(FGLOG_INFO, "Invalid get index %zu from box: %s", msg->u, fgGetFullName(element).c_str());
     return 0;
   case FG_SETITEM:
     if(!self->isordered || msg->subtype != FGITEM_ELEMENT)
@@ -464,6 +468,7 @@ size_t fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_* self, const
       element->AddChild(msg->e, next);
       return FG_ACCEPT;
     }
+    fgLog(FGLOG_INFO, "Invalid set index %zu from box: %s", msg->u2, fgGetFullName(element).c_str());
     return 0;
   }
 

@@ -56,15 +56,12 @@ size_t fgRadiobutton_Message(fgRadiobutton* self, const FG_Msg* msg)
       fgCheckbox_Message(&self->window, msg);
     }
     return sizeof(fgRadiobutton);
-  case FG_MOVE:
-    if(msg->subtype == FG_SETPARENT)
-    {
-
-    }
-    break;
   case FG_SETVALUE:
     if(msg->subtype > FGVALUE_INT64)
+    {
+      fgLog(FGLOG_INFO, "%s set invalid value type: %hu", fgGetFullName(*self).c_str(), msg->subtype);
       return 0;
+    }
     if(msg->i && self->window->parent != 0) // if you about to check this radio button, uncheck all others in it's fgElement group
     {
       fgRadiobutton* cur = fgRadiobutton_GetHashRef(self->window->parent);

@@ -289,8 +289,6 @@ size_t fgList_Message(fgList* self, const FG_Msg* msg)
     case FGSETCOLOR_MAIN: self->select.color = (unsigned int)msg->i; return FG_ACCEPT;
     case FGSETCOLOR_HOVER: self->hover.color = (unsigned int)msg->i; return FG_ACCEPT;
     case FGSETCOLOR_DRAG: self->drag.color = (unsigned int)msg->i; return FG_ACCEPT;
-    case FGSETCOLOR_DIVIDER:
-      self->drag.color = self->drag.color;
     }
     break;
   case FG_SETVALUE:
@@ -299,13 +297,17 @@ size_t fgList_Message(fgList* self, const FG_Msg* msg)
     else if(msg->subtype == FGVALUE_INT64)
       self->splitter = (float)msg->i;
     else
+    {
+      fgLog(FGLOG_INFO, "%s set invalid value type: %hu", fgGetFullName(*self).c_str(), msg->subtype);
       return 0;
+    }
     return FG_ACCEPT;
   case FG_GETVALUE:
     if(!msg->subtype || msg->subtype == FGVALUE_FLOAT)
       return *(size_t*)&self->splitter;
     if(msg->subtype == FGVALUE_INT64)
       return (size_t)self->splitter;
+    fgLog(FGLOG_INFO, "%s requested invalid value type: %hu", fgGetFullName(*self).c_str(), msg->subtype);
     return 0;
   case FG_GETCLASSNAME:
     return (size_t)"List";

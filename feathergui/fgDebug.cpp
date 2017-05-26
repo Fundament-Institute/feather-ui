@@ -532,7 +532,7 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
     {
       fgFontDesc desc;
       fgroot_instance->backend.fgFontGet(msg->p, &desc);
-      fgIntVec dpi = self->tabs->GetDPI();
+      AbsVec dpi = self->tabs->GetDPI();
       bool identical = (dpi.x == desc.dpi.x && dpi.y == desc.dpi.y);
       desc.dpi = dpi;
       self->font = fgroot_instance->backend.fgCloneFont(msg->p, identical ? 0 : &desc);

@@ -464,12 +464,46 @@
 		<Skin name="Debug" font="14 BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial" color="0xFFFFFFFF"/>
 		<Skin name="Workspace">
 		</Skin>
-		<Skin name="Toolbar" padding="6 2 6 3">
+		<Skin name="Toolbar" padding="6 1 6 2" flags="TILE|EXPANDY|HIDEH|DRAGGABLE" spacing="4,2">
 			<Resource flags="BACKGROUND|RECT" color="0xE6EAEFFF" uv="0 0 0 0" area="0 0 100% 100%"/>
       <Curve flags="BACKGROUND" color="0xBBBBBFFF" area="0 -1:1 100% 0:1"/>
+      <Skin name="Toolgroup" padding="12 2 0 2" spacing="3,0" dividercolor="0x808686">
+        <Resource flags="BACKGROUND|RECT" color="0xD0D6E0" uv="2 2 2 2" area="0 0 100% 100%"/>
+        <Resource flags="BACKGROUND|RECT" color="0x808690" uv="2 2 2 2" area="2 2 8 -2:1"/>
+        <Skin name="Box" flags="TILEX|EXPAND" spacing="1,0" />
+      </Skin>
+      <Skin name="Button" flags="EXPAND" padding="6 1 6 1">
+        <Resource flags="BACKGROUND|RECT" color="0" edgecolor="0" outline="1" area="0 0 100% 100%">
+          <Style name="active" color="0xf5e3a5" edgecolor="0xc5b355"/>
+          <Style name="hover" color="0xfdf4bf" edgecolor="0xe5c365"/>
+          <Style name="neutral" color="0" edgecolor="0"/>
+        </Resource>
+        <Skin name="Button$Asset" padding="0 5 0 5" />
+      </Skin>
+      <Skin name="Text" font="10 BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial" color="0x000000"/>
+      <Skin name="Checkbox" flags="EXPAND" padding="6 1 6 1">
+        <Resource flags="BACKGROUND|RECT" color="0" edgecolor="0" outline="1" area="0 0 100% 100%">
+          <Style name="default+active" color="0xf5e3a5" edgecolor="0xc5b355"/>
+          <Style name="default+hover" color="0xfdf4bf" edgecolor="0xe5c365"/>
+          <Style name="default+neutral" color="0" edgecolor="0"/>
+          <Style name="checked+active" color="0xf5e3a5" edgecolor="0xc5b355"/>
+          <Style name="checked+hover" color="0xf5e3a5" edgecolor="0xc5a345"/>
+          <Style name="checked+neutral" color="0xeac96a" edgecolor="0xd5b355" />
+        </Resource>
+      </Skin>
+      <Skin name="Radiobutton" flags="EXPAND" padding="6 1 6 1">
+        <Resource flags="BACKGROUND|RECT" color="0" edgecolor="0" outline="1" area="0 0 100% 100%">
+          <Style name="default+active" color="0xf5e3a5" edgecolor="0xc5b355"/>
+          <Style name="default+hover" color="0xfdf4bf" edgecolor="0xe5c365"/>
+          <Style name="default+neutral" color="0" edgecolor="0"/>
+          <Style name="checked+active" color="0xf5e3a5" edgecolor="0xc5b355"/>
+          <Style name="checked+hover" color="0xf5e3a5" edgecolor="0xc5a345"/>
+          <Style name="checked+neutral" color="0xeac96a" edgecolor="0xd5b355" />
+        </Resource>
+      </Skin>
 		</Skin>
 		<Skin name="List" dividercolor="0xC0C3C9" dragcolor="0x000000FF" hovercolor="0x88CCFF" selectcolor="0x3399FF" spacing="0,1">
-			<Resource flags="BACKGROUND|SNAPX|SNAPY|RECT" outline="1" edgecolor="0xC0C3C9FF" color="0xF6F8FA" uv="3 3 3 3" area="0 0 100% 100%"/>
+			<Resource flags="BACKGROUND|SNAP|RECT" outline="1" edgecolor="0xC0C3C9FF" color="0xF6F8FA" uv="3 3 3 3" area="0 0 100% 100%"/>
 		</Skin>
 	</Skin>
 </fg:Layout>

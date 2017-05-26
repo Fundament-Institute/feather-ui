@@ -5,13 +5,13 @@
 #include "fgRoot.h"
 #include "feathercpp.h"
 
-void fgMonitor_Init(fgMonitor* BSS_RESTRICT self, fgFlag flags, fgRoot* BSS_RESTRICT parent, fgMonitor* BSS_RESTRICT prev, const AbsRect* coverage, const fgIntVec* dpi)
+void fgMonitor_Init(fgMonitor* BSS_RESTRICT self, fgFlag flags, fgRoot* BSS_RESTRICT parent, fgMonitor* BSS_RESTRICT prev, const AbsRect* coverage, const AbsVec* dpi)
 {
   AbsVec scale = { (!dpi || !dpi->x || !parent->dpi.x) ? (FABS)1.0 : (parent->dpi.x / (FABS)dpi->x), (!dpi || !dpi->y || !parent->dpi.y) ? (FABS)1.0 : (parent->dpi.y / (FABS)dpi->y) };
   CRect& rootarea = parent->gui.element.transform.area;
   fgTransform transform = { {coverage->left*scale.x, 0, coverage->top*scale.y, 0, coverage->right*scale.x, 0, coverage->bottom*scale.y, 0,}, 0, {rootarea.left.abs, 0, rootarea.top.abs, 0} };
   self->coverage = *coverage;
-  self->dpi = !dpi ? fgIntVec_EMPTY : *dpi;
+  self->dpi = !dpi ? AbsVec_EMPTY : *dpi;
   self->mnext = !prev ? parent->monitors : 0;
   if(self->mnext) self->mnext->mprev = self;
   self->mprev = prev;
@@ -52,9 +52,9 @@ size_t fgMonitor_Message(fgMonitor* self, const FG_Msg* msg)
     break;
   case FG_SETDPI:
   {
-    self->dpi.x = msg->u;
-    self->dpi.y = (size_t)msg->u2;
-    AbsVec scale = { fgroot_instance->dpi.x / (float)self->dpi.x, fgroot_instance->dpi.y / (float)self->dpi.y };
+    self->dpi.x = msg->f;
+    self->dpi.y = (size_t)msg->f2;
+    AbsVec scale = { fgroot_instance->dpi.x / self->dpi.x, fgroot_instance->dpi.y / self->dpi.y };
     CRect area = { self->coverage.left*scale.x, 0, self->coverage.top*scale.y, 0, self->coverage.right*scale.x, 0, self->coverage.bottom*scale.y, 0 };
     size_t ret = self->element.SetArea(area);
     fgElement_Message(&self->element, msg); // Passes the SETDPI message to all children
@@ -100,6 +100,7 @@ size_t fgMonitor_Message(fgMonitor* self, const FG_Msg* msg)
       m.p = &area;
       return fgElement_Message(&self->element, &m);
     }
+    fgLog(FGLOG_WARNING, "%s set NULL area", fgGetFullName(&self->element).c_str());
     return 0;
   }
   case FG_INJECT:

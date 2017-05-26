@@ -16,8 +16,8 @@ const fgColor fgColor_BLACK = { 0xFF000000 };
 const fgColor fgColor_WHITE = { 0xFFFFFFFF };
 const CRect CRect_EMPTY = { 0,0,0,0,0,0,0,0 };
 const AbsVec AbsVec_EMPTY = { 0,0 };
-const fgIntVec fgIntVec_EMPTY = { 0,0 };
-const fgIntVec fgIntVec_DEFAULTDPI = { 96,96 };
+const AbsVec AbsVec_UNIT = { 1,1 };
+const AbsVec AbsVec_DEFAULTDPI = { 96,96 };
 const bssVersionInfo fgVersion = { FGUI_VERSION_REVISION, FGUI_VERSION_MINOR, FGUI_VERSION_MAJOR };
 
 using namespace bss;
@@ -190,7 +190,7 @@ void fgTextLeakDump()
   {
     const char* str = fgStringRefHash.GetKey(*curiter);
     size_t refs = fgStringRefHash.GetValue(*curiter);
-    fgLog("The string \"%s\" leaked with %zi dangling references\n", str, refs);
+    fgLog(FGLOG_NONE, "The string \"%s\" leaked with %zi dangling references\n", str, refs);
     free(const_cast<char*>(str));
   }
 }
@@ -251,11 +251,11 @@ void fgRectIntersection(const AbsRect* BSS_RESTRICT l, const AbsRect* BSS_RESTRI
   out->right = bssmin(l->right, r->right);
   out->bottom = bssmin(l->bottom, r->bottom);
 }
-void fgScaleRectDPI(AbsRect* rect, int dpix, int dpiy)
+void fgScaleRectDPI(AbsRect* rect, FABS dpix, FABS dpiy)
 {
   BSS_ALIGN(16) float scale[4];
-  scale[0] = (!dpix) ? 1.0f : ((float)dpix / 96.0f);
-  scale[1] = (!dpiy) ? 1.0f : ((float)dpiy / 96.0f);
+  scale[0] = (!dpix) ? 1.0f : (dpix / 96.0f);
+  scale[1] = (!dpiy) ? 1.0f : (dpiy / 96.0f);
   scale[2] = scale[0];
   scale[3] = scale[1];
   (sseVec(BSS_UNALIGNED<const float>(&rect->left))*sseVec(scale)) >> BSS_UNALIGNED<float>(&rect->left);
@@ -264,24 +264,24 @@ void fgScaleRectDPI(AbsRect* rect, int dpix, int dpiy)
   if(rect->bottom < rect->top)
     rect->bottom = rect->top;
 }
-void fgInvScaleRectDPI(AbsRect* rect, int dpix, int dpiy)
+void fgInvScaleRectDPI(AbsRect* rect, FABS dpix, FABS dpiy)
 {
   BSS_ALIGN(16) float scale[4];
-  scale[0] = (!dpix) ? 1.0f : (96.0f / (float)dpix);
-  scale[1] = (!dpiy) ? 1.0f : (96.0f / (float)dpiy);
+  scale[0] = (!dpix) ? 1.0f : (96.0f / dpix);
+  scale[1] = (!dpiy) ? 1.0f : (96.0f / dpiy);
   scale[2] = scale[0];
   scale[3] = scale[1];
   (sseVec(BSS_UNALIGNED<const float>(&rect->left))*sseVec(scale)) >> BSS_UNALIGNED<float>(&rect->left);
 }
-void fgScaleVecDPI(AbsVec* v, int dpix, int dpiy)
+void fgScaleVecDPI(AbsVec* v, FABS dpix, FABS dpiy)
 {
-  v->x *= (!dpix) ? 1.0f : ((float)dpix / 96.0f);
-  v->y *= (!dpiy) ? 1.0f : ((float)dpiy / 96.0f);
+  v->x *= (!dpix) ? 1.0f : (dpix / 96.0f);
+  v->y *= (!dpiy) ? 1.0f : (dpiy / 96.0f);
 }
-void fgInvScaleVecDPI(AbsVec* v, int dpix, int dpiy)
+void fgInvScaleVecDPI(AbsVec* v, FABS dpix, FABS dpiy)
 {
-  v->x *= (!dpix) ? 1.0f : (96.0f/(float)dpix);
-  v->y *= (!dpiy) ? 1.0f : (96.0f/(float)dpiy);
+  v->x *= (!dpix) ? 1.0f : (96.0f/dpix);
+  v->y *= (!dpiy) ? 1.0f : (96.0f/dpiy);
 }
 void fgResolveDrawRect(const AbsRect* area, AbsRect* outarea, const AbsVec* center, AbsVec* outcenter, fgFlag flags, const fgDrawAuxData* data)
 {
@@ -299,6 +299,18 @@ void fgResolveDrawRect(const AbsRect* area, AbsRect* outarea, const AbsVec* cent
     outarea->bottom = outarea->top;
   outcenter->x = center->x*scale[0];
   outcenter->y = center->y*scale[1];
+}
+
+int fgLog(char level, const char* format, ...)
+{
+  assert(fgroot_instance != 0);
+  if((level != -1) && level > fgroot_instance->maxloglevel)
+    return -1;
+  va_list args;
+  va_start(args, format);
+  int r = fgroot_instance->backend.fgLogHook(level, format, args);
+  va_end(args);
+  return r;
 }
 
 #ifdef BSS_PLATFORM_WIN32
