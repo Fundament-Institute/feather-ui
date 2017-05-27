@@ -65,7 +65,7 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
     {
       AbsRect out;
       ResolveOuterRect(self->window, &out);
-      fgScaleRectDPI(&out, 96, 96);
+      fgModulationRectDPI(&out, 96, 96);
       unsigned long style = 0;
       if(self->window->flags&FGWINDOW_RESIZABLE)
         style |= WS_THICKFRAME;
@@ -89,21 +89,22 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
     }
     break;
   case FG_DRAW:
-  {
-    fgDrawAuxDataEx exdata;
-    self->context.BeginDraw(self->handle, self->window, (AbsRect*)msg->p, exdata, &self->window->margin);
-    FG_Msg m = *msg;
-    m.p2 = &exdata;
-    fgWindow_Message(&self->window, &m);
-    self->context.EndDraw();
-  }
-  return FG_ACCEPT;
+    //if(self->context.invalid) // dirty rects need more testing before this is enabled
+    {
+      fgDrawAuxDataEx exdata;
+      self->context.BeginDraw(self->handle, self->window, (AbsRect*)msg->p, exdata, &self->window->margin);
+      FG_Msg m = *msg;
+      m.p2 = &exdata;
+      fgWindow_Message(&self->window, &m);
+      self->context.EndDraw();
+    }
+    return FG_ACCEPT;
   case FG_MOVE:
     if(self->handle && msg->subtype != (uint16_t)~0)
     {
       AbsRect out;
       ResolveOuterRect(self->window, &out);
-      fgScaleRectDPI(&out, self->dpi.x, self->dpi.y);
+      fgModulationRectDPI(&out, self->dpi.x, self->dpi.y);
       RECT r = { out.left, out.top, out.right, out.bottom };
       //AdjustWindowRectEx(&r, GetWindowLong(self->handle, GWL_STYLE), FALSE, GetWindowLong(self->handle, GWL_EXSTYLE));
       SetWindowPos(self->handle, HWND_TOP, r.left, r.top, r.right - r.left, r.bottom - r.top, SWP_NOSENDCHANGING);

@@ -50,6 +50,7 @@ extern "C" {
 
   FG_EXTERN size_t fgStyle_WriteCVec(char* buffer, size_t sz, const CVec* vec, fgMsgType units);
   FG_EXTERN size_t fgStyle_WriteAbsRect(char* buffer, size_t sz, const AbsRect* r, fgMsgType units);
+  FG_EXTERN size_t fgStyle_WriteAbsVec(char* buffer, size_t sz, const AbsVec* r, fgMsgType units);
   FG_EXTERN size_t fgStyle_WriteCRect(char* buffer, size_t sz, const CRect* r, fgMsgType units);
   FG_EXTERN size_t fgStyle_WriteFlagsIterate(char* buffer, size_t sz, const char* type, const char* divider, fgFlag flags, char remove);
 #ifdef  __cplusplus

@@ -79,6 +79,13 @@ size_t fgStyle_WriteAbsRect(char* buffer, size_t sz, const AbsRect* r, fgMsgType
     MEMCPY(buffer, sz, s.c_str(), s.size());
   return s.size();
 }
+size_t fgStyle_WriteAbsVec(char* buffer, size_t sz, const AbsVec* r, fgMsgType units)
+{
+  Str s = fgStyle_WriteAbsVec(*r, units);
+  if(buffer && sz >= s.size())
+    MEMCPY(buffer, sz, s.c_str(), s.size());
+  return s.size();
+}
 size_t fgStyle_WriteCRect(char* buffer, size_t sz, const CRect* r, fgMsgType units)
 {
   Str s = fgStyle_WriteCRect(*r, units);
@@ -109,6 +116,15 @@ Str fgStyle_WriteAbsRect(const AbsRect& r, fgMsgType units)
   return s;
 }
 
+Str fgStyle_WriteAbsVec(const AbsVec& r, fgMsgType units)
+{
+  Str s;
+  fgStyle_WriteAbs(s, r.x, (units&FGUNIT_X_MASK) >> FGUNIT_X);
+  s += ' ';
+  fgStyle_WriteAbs(s, r.y, (units&FGUNIT_Y_MASK) >> FGUNIT_Y);
+  return s;
+}
+
 Str fgStyle_WriteCRect(const CRect& r, fgMsgType units)
 {
   Str s;
@@ -134,26 +150,28 @@ void fgSkinBase_WriteTransform(XMLNode* node, const fgTransform& tf, fgMsgType u
 }
 void fgStyle_WriteFlagsIterate(Str& s, const char* type, const char* divider, fgFlag flags, bool remove)
 {
-  const fgFlag MAXBITS = 3;
-  const fgFlag END = (sizeof(fgFlag) << 3) - MAXBITS;
+  const fgFlag END = (sizeof(fgFlag) << 3);
   const char* str;
 
-  for(fgFlag index = 0; index < END; ++index)
-  {
-    fgFlag bits = 0;
-    for(fgFlag i = 0; i < MAXBITS; ++i)
-      bits |= (1 << (i + index));
-    for(fgFlag i = MAXBITS; i-- > 0;)
+  fgFlag groups[5] = {FGELEMENT_EXPAND, FGELEMENT_SNAP, FGBOX_TILE, FGBOX_IGNOREMARGINEDGE, FGRESOURCE_SHAPEMASK };
+  for(size_t i = 0; i < 5; ++i)
+    if((str = fgroot_instance->backend.fgFlagMap(type, groups[i]&flags)) != 0)
     {
-      if((str = fgroot_instance->backend.fgFlagMap(type, bits&flags)) != 0)
-      {
-        s += divider;
-        if(remove) s += "-";
-        s += str;
-        index += i;
-        break;
-      }
-      bits ^= (1 << (i + index));
+      s += divider;
+      if(remove) s += "-";
+      s += str;
+      flags &= (~groups[i]);
+      break;
+    }
+
+  for(fgFlag i = 0; i < END; ++i)
+  {
+    fgFlag index = (1 << i);
+    if((str = fgroot_instance->backend.fgFlagMap(type, index&flags)) != 0)
+    {
+      s += divider;
+      if(remove) s += "-";
+      s += str;
     }
   }
 }
@@ -309,6 +327,9 @@ void fgSkinBase_WriteStyleAttributesXML(XMLNode* node, fgStyle& s, fgSkinBase* r
       case FGDIM_MIN:
         fgStyle_WriteFloat(node->AddAttribute("min-width")->String, cur->msg.f);
         fgStyle_WriteFloat(node->AddAttribute("min-height")->String, cur->msg.f2);
+        break;
+      case FGDIM_SPACING:
+        node->AddAttribute("spacing")->String = fgStyle_WriteAbsVec(AbsVec{ cur->msg.f, cur->msg.f2 }, 0);
         break;
       }
       break;

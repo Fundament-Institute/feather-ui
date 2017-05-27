@@ -436,7 +436,7 @@ size_t fgBoxOrderedElement_Message(struct _FG_BOX_ORDERED_ELEMENTS_* self, const
     return 0;
   case FG_GETITEM:
     if(!self->isordered)
-      return 0; // If this isn't ordered we can't get an item by index
+      return 0; // If this isn't ordered we can't get an item by index (we don't log this because it's used as a probe test)
     if(msg->subtype == FGITEM_COUNT)
       return self->ordered.l;
     if(msg->subtype == FGITEM_LOCATION) // This means to query for the nearest element to the given coordinates.

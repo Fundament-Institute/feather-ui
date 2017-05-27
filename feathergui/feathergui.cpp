@@ -251,7 +251,7 @@ void fgRectIntersection(const AbsRect* BSS_RESTRICT l, const AbsRect* BSS_RESTRI
   out->right = bssmin(l->right, r->right);
   out->bottom = bssmin(l->bottom, r->bottom);
 }
-void fgScaleRectDPI(AbsRect* rect, FABS dpix, FABS dpiy)
+void fgModulationRectDPI(AbsRect* rect, FABS dpix, FABS dpiy)
 {
   BSS_ALIGN(16) float scale[4];
   scale[0] = (!dpix) ? 1.0f : (dpix / 96.0f);
@@ -273,7 +273,7 @@ void fgInvScaleRectDPI(AbsRect* rect, FABS dpix, FABS dpiy)
   scale[3] = scale[1];
   (sseVec(BSS_UNALIGNED<const float>(&rect->left))*sseVec(scale)) >> BSS_UNALIGNED<float>(&rect->left);
 }
-void fgScaleVecDPI(AbsVec* v, FABS dpix, FABS dpiy)
+void fgModulationVecDPI(AbsVec* v, FABS dpix, FABS dpiy)
 {
   v->x *= (!dpix) ? 1.0f : (dpix / 96.0f);
   v->y *= (!dpiy) ? 1.0f : (dpiy / 96.0f);

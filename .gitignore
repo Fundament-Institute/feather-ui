@@ -24,6 +24,7 @@
 /fgDirect2D/fgDirect2D_fgCircle.h
 /fgDirect2D/fgDirect2D_fgRoundRect.h
 /fgDirect2D/fgDirect2D_fgTriangle.h
+/fgDirect2D/fgDirect2D_fgModulation.h
 /fgTest/x64/
 /fgTest/Win32/
 /fgNative/x64/

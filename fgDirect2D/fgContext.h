@@ -5,6 +5,7 @@
 #define __FG_CONTEXT_D2D_H__
 
 #include "fgWindow.h"
+#include "bss-util/Hash.h"
 #include <stack>
 
 //#define TEST_DPI 120
@@ -17,6 +18,8 @@ struct ID2D1SolidColorBrush;
 struct ID2D1Effect;
 struct ID2D1DeviceContext;
 struct fgDrawAuxDataEx;
+struct ID2D1Bitmap;
+struct IWICBitmapSource;
 
 #define LOGEMPTY
 #define LOGFAILURE(x, f, ...) { HRESULT hr = (x); if(FAILED(hr)) { fgLog(FGLOG_ERROR, f, __VA_ARGS__); } }
@@ -39,6 +42,8 @@ struct fgContext {
   ID2D1Effect* circle;
   ID2D1Effect* scale;
   std::stack<AbsRect> cliprect;
+  bss::Hash<IWICBitmapSource*, ID2D1Bitmap*> wichash;
+
   bool inside;
   bool invalid;
 
@@ -51,6 +56,7 @@ struct fgContext {
   void SetMouse(AbsVec& points, unsigned short type, unsigned char button, size_t wparam, unsigned long time);
   longptr_t __stdcall WndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam, fgElement* src);
   void InvalidateHWND(HWND__* hWnd);
+  ID2D1Bitmap* GetBitmapFromSource(IWICBitmapSource* p);
 
   static void ApplyWin32Size(fgWindow& self, HWND__* handle, const AbsVec& dpi);
   static HWND__* WndCreate(const AbsRect& out, unsigned long style, uint32_t exflags, void* self, const wchar_t* cls, AbsVec& dpi);

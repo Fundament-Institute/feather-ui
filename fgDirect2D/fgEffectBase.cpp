@@ -8,9 +8,7 @@
 #include <utility>
 #include <memory>
 
-#define XML(x) TEXT(#x)
-
-int __cdecl TestHook1(int nReportType, char* szMsg, int* pnRet) { return -1; }
+//int __cdecl TestHook1(int nReportType, char* szMsg, int* pnRet) { return -1; }
 
 fgEffectBase::fgEffectBase() : _ref(1), _drawInfo(0)
 { 

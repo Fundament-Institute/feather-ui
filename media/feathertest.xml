@@ -44,7 +44,7 @@
       <MenuItem text="Change Window Text" />
     </ContextMenu>
     <TabControl area="0 28 100% 100%" flags="DRAGGABLE">
-      <Tab name="Tab 1" id="#tabfocus">
+      <Tab id="#tabfocus" name="Tab 1">
         <Button area="0, 0, 0, 0" flags="EXPAND" text="Not Pressed" onaction="makepressed" />
         <Box area="10, 160, 150, 240" flags="TILEY|EXPANDX" max-width="100" margin="2,2,2,2">
           <Checkbox text="Check test 1" flags="EXPAND" margin="2,2,2,2"/>
@@ -62,7 +62,7 @@
           <Text text="test text" />
           <Text text="test text 2" />
         </Combobox>
-        <Resource asset="feathergui_white.png" flags="EXPANDX" left="210" top="60" height="55"/>
+        <Resource asset="feathergui_white.png" flags="EXPANDX" left="210" top="60" height="55" color="0xFFFF0099"/>
       </Tab>
       <Tab name="Long Tab">
         <Textbox area="140, 30, 210, 150" flags="WORDWRAP" placeholder="placeholder" />
@@ -193,6 +193,7 @@
 			<Resource flags="BACKGROUND|RECT" color="0xF6F8FAFF" uv="0 0 3 3" area="0 30 100% 100%"/>
 			<Resource flags="BACKGROUND|RECT"  color="0x333333" uv="3 3 0 0" area="0 0 100% 30"/>
       <Curve flags="BACKGROUND" color="0x111111FF" area="0 29 100% 30"/>
+    <Resource asset="feathergui_white.png" flags="EXPANDX|BACKGROUND" left="4" top="4" height="22" />
 		</Skin>
 		<Skin name="Scrollbar">
 			<Skin name="Scrollbar$scrolltop" area="2 2 10 10">
@@ -380,7 +381,7 @@
       <Style name="hover" color="0x000000"/>
       <Style name="neutral" color="0x000000"/>
       <Style name="disabled" color="0x555555"/>
-      <Resource flags="BACKGROUND|SNAPX|SNAPY|RECT" outline="1" edgecolor="0x707070" color="0xDDDDDD" area="0 0 100% 100%">
+      <Resource flags="BACKGROUND|SNAP|RECT" outline="1" edgecolor="0x707070" color="0xDDDDDD" area="0 0 100% 100%">
         <Style name="active" edgecolor="0x2C6FA1" color="0xB9E0F8"/>
         <Style name="hover" edgecolor="0x3C7FB1" color="0xBEE6FD"/>
         <Style name="neutral" edgecolor="0x707070" color="0xDDDDDD"/>
@@ -435,7 +436,7 @@
 						<Style name="visible" rotation="3.14" color="0x333333"/>
           </Resource>
 				</Skin>
-				<Resource flags="BACKGROUND|IGNORE|SNAPX|SNAPY|RECT" color="0xBEE6FD" area="0 0 100% 18">
+				<Resource flags="BACKGROUND|IGNORE|SNAP|RECT" color="0xBEE6FD" area="0 0 100% 18">
 					<Style name="focused+neutral" flags="-HIDDEN"/>
 					<Style name="neutral" flags="HIDDEN"/>
 				</Resource>
@@ -450,7 +451,7 @@
 			<Resource flags="BACKGROUND|RECT" outline="1" edgecolor="0xC0C3C9FF" color="0xFFFFFF" uv="3 3 3 3" area="0 0 100% 100%"/>
 		</Skin>
 		<Skin name="ListItem">
-			<Resource flags="BACKGROUND|SNAPX|SNAPY|RECT" color="0xF6F8FA" area="0 0 100% 100%">
+			<Resource flags="BACKGROUND|SNAP|RECT" color="0xF6F8FA" area="0 0 100% 100%">
 				<Style name="selected+hover" color="0xEEEEEB"/>
 				<Style name="selected+neutral" color="0xCCCEDB"/>
         <Style name="focused+selected+hover" color="0x88CCFF" />

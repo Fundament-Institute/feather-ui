@@ -24,16 +24,7 @@
     <ClInclude Include="fgRoundRect.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="fgDirect2D_fgRoundRect.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="util.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="fgDirect2D_fgCircle.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="fgDirect2D_fgTriangle.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="fgEffectBase.h">
@@ -49,6 +40,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="win32_includes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="fgImageEffectBase.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="fgModulation.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -74,6 +71,12 @@
     <ClCompile Include="fgContext.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="fgImageEffectBase.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fgModulation.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="fgDirect2D.rc">
@@ -88,6 +91,9 @@
       <Filter>Resource Files</Filter>
     </FxCompile>
     <FxCompile Include="fgTriangle.hlsl">
+      <Filter>Resource Files</Filter>
+    </FxCompile>
+    <FxCompile Include="fgModulation.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
   </ItemGroup>

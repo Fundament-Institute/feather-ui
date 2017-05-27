@@ -18,6 +18,7 @@
 #include "fgRoundRect.h"
 #include "fgCircle.h"
 #include "fgTriangle.h"
+#include "fgModulation.h"
 
 #define GETEXDATA(data) fgassert(data->fgSZ == sizeof(fgDrawAuxDataEx)); if(data->fgSZ != sizeof(fgDrawAuxDataEx)) return; fgDrawAuxDataEx* exdata = (fgDrawAuxDataEx*)data;
 
@@ -309,7 +310,7 @@ void* fgFontLayoutD2D(fgFont font, const void* text, size_t len, float lineheigh
     layout->Release();
   if(!area)
     return 0;
-  fgScaleRectDPI(area, dpi->x, dpi->y);
+  fgModulationRectDPI(area, dpi->x, dpi->y);
   layout = CreateD2DLayout(f->format, (const wchar_t*)text, len, area);
   if(!layout) {
     area->right = area->left;
@@ -368,7 +369,7 @@ size_t fgFontIndexD2D(fgFont font, const void* text, size_t len, float lineheigh
   fgFontD2D* f = (fgFontD2D*)font;
   IDWriteTextLayout* layout = (IDWriteTextLayout*)cache;
   AbsRect area = *dpiarea;
-  fgScaleRectDPI(&area, dpi->x, dpi->y);
+  fgModulationRectDPI(&area, dpi->x, dpi->y);
   if(!layout)
     layout = CreateD2DLayout(f->format, (const wchar_t*)text, len, &area);
   if(!layout)
@@ -377,7 +378,7 @@ size_t fgFontIndexD2D(fgFont font, const void* text, size_t len, float lineheigh
   BOOL trailing;
   BOOL inside;
   DWRITE_HIT_TEST_METRICS hit;
-  fgScaleVecDPI(&pos, dpi->x, dpi->y);
+  fgModulationVecDPI(&pos, dpi->x, dpi->y);
   layout->HitTestPoint(pos.x, pos.y, &trailing, &inside, &hit);
 
   cursor->x = hit.left;
@@ -391,7 +392,7 @@ AbsVec fgFontPosD2D(fgFont font, const void* text, size_t len, float lineheight,
   fgFontD2D* f = (fgFontD2D*)font;
   IDWriteTextLayout* layout = (IDWriteTextLayout*)cache;
   AbsRect area = *dpiarea;
-  fgScaleRectDPI(&area, dpi->x, dpi->y);
+  fgModulationRectDPI(&area, dpi->x, dpi->y);
   if(!layout)
     layout = CreateD2DLayout(f->format, (const wchar_t*)text, len, &area);
   if(!layout)
@@ -409,6 +410,7 @@ void* fgCreateAssetFileD2D(fgFlag flags, const char* file, const AbsVec* dpi)
 {
   IWICBitmapDecoder *decoder = nullptr;
   IWICBitmapFrameDecode *source = nullptr;
+  IWICFormatConverter *conv = nullptr;
   IWICStream *stream = nullptr;
 
   std::basic_string<wchar_t> wstr;
@@ -418,18 +420,24 @@ void* fgCreateAssetFileD2D(fgFlag flags, const char* file, const AbsVec* dpi)
   HRESULT hr = fgDirect2D::instance->wicfactory->CreateDecoderFromFilename(wstr.c_str(), nullptr, GENERIC_READ, WICDecodeMetadataCacheOnDemand, &decoder);
   if(SUCCEEDED(hr))
     hr = decoder->GetFrame(0, &source);
+  if(SUCCEEDED(hr))
+    hr = fgDirect2D::instance->wicfactory->CreateFormatConverter(&conv);
+  if(SUCCEEDED(hr)) // Convert the image format to 32bppPBGRA (DXGI_FORMAT_B8G8R8A8_UNORM + D2D1_ALPHA_MODE_PREMULTIPLIED).
+    hr = conv->Initialize(source, GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, nullptr, 0.0f, WICBitmapPaletteTypeCustom);
   if(FAILED(hr))
     fgLog(FGLOG_ERROR, "fgCreateAssetFileD2D failed with error code %li", hr);
 
   if(stream) stream->Release();
   if(decoder) decoder->Release();
-  return source;
+  if(source) source->Release();
+  return conv;
 }
 
 void* fgCreateAssetD2D(fgFlag flags, const char* data, size_t length, const AbsVec* dpi)
 {
   IWICBitmapDecoder *decoder = nullptr;
   IWICBitmapFrameDecode *source = nullptr;
+  IWICFormatConverter *conv = nullptr;
   IWICStream *stream = nullptr;
 
   HRESULT hr = fgDirect2D::instance->wicfactory->CreateStream(&stream);
@@ -439,12 +447,17 @@ void* fgCreateAssetD2D(fgFlag flags, const char* data, size_t length, const AbsV
     hr = fgDirect2D::instance->wicfactory->CreateDecoderFromStream(stream, NULL, WICDecodeMetadataCacheOnLoad, &decoder);
   if(SUCCEEDED(hr))
     hr = decoder->GetFrame(0, &source);
+  if(SUCCEEDED(hr))
+    hr = fgDirect2D::instance->wicfactory->CreateFormatConverter(&conv);
+  if(SUCCEEDED(hr)) // Convert the image format to 32bppPBGRA (DXGI_FORMAT_B8G8R8A8_UNORM + D2D1_ALPHA_MODE_PREMULTIPLIED).
+    hr = conv->Initialize(source, GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, nullptr, 0.0f, WICBitmapPaletteTypeCustom);
   if(FAILED(hr))
     fgLog(FGLOG_ERROR, "fgCreateAssetD2D failed with error code %li", hr);
 
   if(stream) stream->Release();
   if(decoder) decoder->Release();
-  return source;
+  if(source) source->Release();
+  return conv;
 
   //if(data[0] == 0xFF && data[1] == 0xD8) // JPEG SOI header
   //else if(data[0] == 'B' && data[1] == 'M') // BMP header
@@ -453,40 +466,31 @@ void* fgCreateAssetD2D(fgFlag flags, const char* data, size_t length, const AbsV
   //else if((data[0] == 'I' && data[1] == 'I' && data[2] == '*' && data[3] == 0) || (data[0] == 'M' && data[1] == 'M' && data[2] == 0 && data[3] == '*')) // TIFF header
 }
 fgAsset fgCloneAssetD2D(fgAsset asset, fgElement* src)
-{ 
+{
   fgWindowD2D* window = GetElementWindow(src);
-  fgassert(window->window->destroy == (fgDestroy)fgWindowD2D_Destroy);
-  ID2D1HwndRenderTarget* target = window->context.target;
+  ID2D1HwndRenderTarget* target = !window ? 0 : window->context.target;
   if(!window || !target)
   {
     ((IUnknown*)asset)->AddRef();
     return asset;
   }
-  
-  IWICBitmapFrameDecode* tex = 0;
-  if(asset)
-  {
-    ((IUnknown*)asset)->QueryInterface<IWICBitmapFrameDecode>(&tex);
-    fgassert(tex);
-  }
-  //IWICBitmapFrameDecode
+
+  fgassert(window->window->destroy == (fgDestroy)fgWindowD2D_Destroy);
+  IWICBitmapSource* tex = 0;
+  ((IUnknown*)asset)->QueryInterface<IWICBitmapSource>(&tex);
+  fgassert(tex);
   ID2D1Bitmap* bitmap = NULL;
-  IWICFormatConverter *conv = NULL;
-  HRESULT hr = fgDirect2D::instance->wicfactory->CreateFormatConverter(&conv);
+  HRESULT hr = target->CreateBitmapFromWicBitmap(tex, nullptr, &bitmap);
   
-  if(SUCCEEDED(hr)) // Convert the image format to 32bppPBGRA (DXGI_FORMAT_B8G8R8A8_UNORM + D2D1_ALPHA_MODE_PREMULTIPLIED).
-    hr = conv->Initialize(tex, GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, nullptr, 0.0f, WICBitmapPaletteTypeMedianCut);
-  if(SUCCEEDED(hr))
-    hr = target->CreateBitmapFromWicBitmap(conv, nullptr, &bitmap);
   if(FAILED(hr))
     fgLog(FGLOG_ERROR, "fgCloneAssetD2D failed with error code %li", hr);
-  if(conv)
-    conv->Release();
-  if(tex)
-    tex->Release();
+  tex->Release();
   return bitmap;
 }
-void fgDestroyAssetD2D(fgAsset asset) { ((IUnknown*)asset)->Release(); }
+void fgDestroyAssetD2D(fgAsset asset)
+{
+  ((IUnknown*)asset)->Release();
+}
 void fgDrawAssetD2D(fgAsset asset, const CRect* uv, unsigned int color, unsigned int edge, FABS outline, const AbsRect* dpiarea, FABS rotation, const AbsVec* dpicenter, fgFlag flags, const fgDrawAuxData* data)
 {
   AbsRect area;
@@ -501,17 +505,25 @@ void fgDrawAssetD2D(fgAsset asset, const CRect* uv, unsigned int color, unsigned
   if(rotation != 0) // WHY THE FUCK DOES THIS TAKE DEGREES?!
     exdata->context->target->SetTransform(D2D1::Matrix3x2F::Rotation(rotation * 180.0f / PI, D2D1::Point2F(center.x, center.y))*world);
   
-  ID2D1Bitmap* tex = 0;
+  ID2D1Bitmap* bitmap = 0;
   if(asset)
   {
-    ((IUnknown*)asset)->QueryInterface<ID2D1Bitmap>(&tex);
-    fgassert(tex);
+    ((IUnknown*)asset)->QueryInterface<ID2D1Bitmap>(&bitmap);
+    if(!bitmap)
+    {
+      IWICBitmapSource* tex = 0;
+      ((IUnknown*)asset)->QueryInterface<IWICBitmapSource>(&tex);
+      fgassert(tex);
+      bitmap = exdata->context->GetBitmapFromSource(tex);
+      tex->Release();
+      fgassert(bitmap);
+    }
   }
 
   D2D1_RECT_F uvresolve;
-  if(tex != 0)
+  if(bitmap != 0)
   {
-    auto sz = tex->GetPixelSize();
+    D2D1_SIZE_U sz = bitmap->GetPixelSize();
     uvresolve = D2D1::RectF(uv->left.abs + (uv->left.rel * sz.width),
       uv->top.abs + (uv->top.rel * sz.height),
       uv->right.abs + (uv->right.rel * sz.width),
@@ -548,11 +560,32 @@ void fgDrawAssetD2D(fgAsset asset, const CRect* uv, unsigned int color, unsigned
     e->SetValue(4, outline);
     exdata->context->context->DrawImage(e, &D2D1::Point2F(rect.left, rect.top), &rect);
   }
-  else if(tex)
-    exdata->context->target->DrawBitmap(tex, rect, (color >> 24) / 255.0f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, &uvresolve);
+  else if(bitmap)
+  {
+    auto scale = D2D1::Vector2F((rect.right - rect.left) / (uvresolve.right - uvresolve.left), (rect.bottom - rect.top) / (uvresolve.bottom - uvresolve.top));
+    if(scale.x == 1.0f && scale.y == 1.0f)
+      exdata->context->target->DrawBitmap(bitmap, rect, (color >> 24) / 255.0f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, &uvresolve);
+    else
+    {
+      e = exdata->context->scale;
+      e->SetValue(D2D1_SCALE_PROP_SCALE, scale);
+      e->SetValue(D2D1_SCALE_PROP_INTERPOLATION_MODE, D2D1_SCALE_INTERPOLATION_MODE_ANISOTROPIC);
+      e->SetInput(0, bitmap);
+      exdata->context->context->DrawImage(e, D2D1::Point2F(rect.left, rect.top), D2D1::RectF(floorf(uvresolve.left * scale.x), floorf(uvresolve.top * scale.y), ceilf(uvresolve.right * scale.x), ceilf(uvresolve.bottom * scale.y + 1.0f)));
+    }
+  }
+  //else if(tex) // This is horrifically slow
+  //{
+  //  e = exdata->context->bitmap;
+  //  auto scale = D2D1::Vector2F((rect.right - rect.left) / (uvresolve.right - uvresolve.left), (rect.bottom - rect.top) / (uvresolve.bottom - uvresolve.top));
+  //  e->SetValue(D2D1_BITMAPSOURCE_PROP_INTERPOLATION_MODE, (scale.x == 1.0f && scale.y == 1.0f) ? D2D1_BITMAPSOURCE_INTERPOLATION_MODE_NEAREST_NEIGHBOR : D2D1_BITMAPSOURCE_INTERPOLATION_MODE_MIPMAP_LINEAR);
+  //  e->SetValue(D2D1_BITMAPSOURCE_PROP_WIC_BITMAP_SOURCE, tex);
+  //  e->SetValue(D2D1_BITMAPSOURCE_PROP_SCALE, scale);
+  //  exdata->context->context->DrawImage(e, D2D1::Point2F(rect.left, rect.top), D2D1::RectF(floorf(uvresolve.left * scale.x), floorf(uvresolve.top * scale.y), ceilf(uvresolve.right * scale.x), ceilf(uvresolve.bottom * scale.y + 1.0f)));
+  //}
 
-  if(tex)
-    tex->Release();
+  if(bitmap)
+    bitmap->Release();
   exdata->context->target->SetTransform(world);
 }
 
@@ -564,25 +597,25 @@ void fgAssetSizeD2D(fgAsset asset, const CRect* uv, AbsVec* dim, fgFlag flags, c
   AbsVec srcdpi = AbsVec_DEFAULTDPI;
   if(asset)
   {
-    ID2D1Bitmap* tex = 0;
-    ((IUnknown*)asset)->QueryInterface<ID2D1Bitmap>(&tex);
-    if(tex)
+    IWICBitmapSource* tex = 0;
+    ID2D1Bitmap* bitmap = 0;
+    ((IUnknown*)asset)->QueryInterface<ID2D1Bitmap>(&bitmap);
+    if(!bitmap)
     {
-      sz = tex->GetPixelSize();
-      tex->GetDpi(&srcdpi.x, &srcdpi.y);
-      tex->Release();
-    }
-    else // this can happen when we load an asset into a skin that hasn't been assigned to anything yet
-    {
-      IWICBitmapFrameDecode* frame = 0;
-      ((IUnknown*)asset)->QueryInterface<IWICBitmapFrameDecode>(&frame);
-      fgassert(frame);
-      frame->GetSize(&sz.width, &sz.height);
+      ((IUnknown*)asset)->QueryInterface<IWICBitmapSource>(&tex);
+      fgassert(tex);
+      tex->GetSize(&sz.width, &sz.height);
       double dpix;
       double dpiy;
-      frame->GetResolution(&dpix, &dpiy);
+      tex->GetResolution(&dpix, &dpiy);
       srcdpi = { (FABS)dpix, (FABS)dpiy };
-      frame->Release();
+      tex->Release();
+    }
+    else
+    {
+      sz = bitmap->GetPixelSize();
+      bitmap->GetDpi(&srcdpi.x, &srcdpi.y);
+      bitmap->Release();
     }
   }
 
@@ -597,7 +630,7 @@ void fgAssetSizeD2D(fgAsset asset, const CRect* uv, AbsVec* dim, fgFlag flags, c
 void fgDrawLinesD2D(const AbsVec* p, size_t n, unsigned int color, const AbsVec* translate, const AbsVec* scale, FABS rotation, const AbsVec* center, const fgDrawAuxData* data)
 {
   AbsVec t = *translate;
-  fgScaleVecDPI(&t, data->dpi.x, data->dpi.y);
+  fgModulationVecDPI(&t, data->dpi.x, data->dpi.y);
   GETEXDATA(data);
   D2D1_MATRIX_3X2_F world;
   exdata->context->target->GetTransform(&world);
@@ -621,7 +654,7 @@ void fgPushClipRectD2D(const AbsRect* clip, const fgDrawAuxData* data)
   AbsRect cliprect = exdata->context->cliprect.top();
   cliprect = { bssmax(floor(clip->left), cliprect.left), bssmax(floor(clip->top), cliprect.top), bssmin(ceil(clip->right), cliprect.right), bssmin(ceil(clip->bottom), cliprect.bottom) };
   exdata->context->cliprect.push(cliprect);
-  fgScaleRectDPI(&cliprect, data->dpi.x, data->dpi.y);
+  fgModulationRectDPI(&cliprect, data->dpi.x, data->dpi.y);
   exdata->context->target->PushAxisAlignedClip(D2D1::RectF(cliprect.left, cliprect.top, cliprect.right, cliprect.bottom), D2D1_ANTIALIAS_MODE_ALIASED);
 }
 
@@ -660,7 +693,7 @@ void fgDirtyElementD2D(fgElement* e)
     AbsRect& toprect = fgDirect2D::instance->toprect;
     ResolveNoClipRect(fgDirect2D::instance->root.topmost, &toprect, 0, 0);
     const AbsVec& dpi = fgDirect2D::instance->root.topmost->GetDPI();
-    fgScaleRectDPI(&toprect, dpi.x, dpi.y); // SetWindowPos will resize the direct2D background via the WndProc callback
+    fgModulationRectDPI(&toprect, dpi.x, dpi.y); // SetWindowPos will resize the direct2D background via the WndProc callback
     bool ignore = (fgDirect2D::instance->root.topmost->flags&FGELEMENT_IGNORE) != 0;
     SetWindowLong(fgDirect2D::instance->tophwnd, GWL_EXSTYLE, WS_EX_COMPOSITED | WS_EX_TOOLWINDOW | (ignore ? (WS_EX_LAYERED | WS_EX_TRANSPARENT) : 0));
     SetWindowPos(fgDirect2D::instance->tophwnd, HWND_TOP, toprect.left, toprect.top, toprect.right - toprect.left, toprect.bottom - toprect.top, SWP_NOSENDCHANGING | SWP_NOACTIVATE | (ignore ? SWP_NOACTIVATE : 0));
@@ -1026,6 +1059,8 @@ struct _FG_ROOT* fgInitialize()
     fgLog(FGLOG_ERROR, "Failed to register fgCircle", hr);
   if(FAILED(fgTriangle::Register(root->factory)))
     fgLog(FGLOG_ERROR, "Failed to register fgTriangle", hr);
+  if(FAILED(fgModulation::Register(root->factory)))
+    fgLog(FGLOG_ERROR, "Failed to register fgModulation", hr);
 
   fgContext_Construct(&root->topcontext);
   fgContext::SetDWMCallbacks();

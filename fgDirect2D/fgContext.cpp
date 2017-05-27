@@ -12,6 +12,7 @@
 #include "fgRoundRect.h"
 #include "fgCircle.h"
 #include "fgTriangle.h"
+#include "fgModulation.h"
 #include "util.h"
 
 using namespace bss;
@@ -34,11 +35,15 @@ void fgContext_Construct(fgContext* self)
   self->inside = false;
   self->invalid = false;
   new (&self->cliprect) std::stack<AbsRect>();
+  new (&self->wichash) Hash<IWICBitmapSource*, ID2D1Bitmap*>();
 }
 void fgContext_Destroy(fgContext* self)
 {
   self->DiscardResources();
   self->cliprect.~stack();
+  for(auto i : self->wichash)
+    self->wichash.GetValue(i)->Release();
+  self->wichash.~Hash();
 }
 
 void fgContext::SetDWMCallbacks()
@@ -225,7 +230,7 @@ void fgContext::BeginDraw(HWND handle, fgElement* element, const AbsRect* area, 
     (sseVecT<FABS>(BSS_UNALIGNED<const float>(&area->left)) + (sseVecT<FABS>(BSS_UNALIGNED<const float>(&margin->left))*m)) >> BSS_UNALIGNED<float>(&truearea.left);
   }
   const AbsVec& dpi = element->GetDPI();
-  fgScaleRectDPI(&truearea, dpi.x, dpi.y);
+  fgModulationRectDPI(&truearea, dpi.x, dpi.y);
   target->SetTransform(D2D1::Matrix3x2F::Translation(-truearea.left, -truearea.top));
   cliprect.push(*area); // Dont' use the DPI scale here because the cliprect is scaled later in the pipeline.
 
@@ -273,7 +278,7 @@ void fgContext::CreateResources(HWND handle)
         hr = context->CreateEffect(CLSID_fgRoundRect, &roundrect);
         hr = context->CreateEffect(CLSID_fgCircle, &circle);
         hr = context->CreateEffect(CLSID_fgTriangle, &triangle);
-        //hr = context->CreateEffect(CLSID_D2D1Scale, &scale);
+        hr = context->CreateEffect(CLSID_D2D1Scale, &scale);
         if(FAILED(hr))
           fgLog(FGLOG_ERROR, "CreateEffect failed with error code %li", hr);
       }
@@ -309,7 +314,6 @@ void fgContext::DiscardResources()
   roundrect = 0;
   triangle = 0;
   circle = 0;
-  scale = 0;
 }
 
 size_t fgContext::SetKey(uint8_t keycode, bool down, bool held, unsigned long time)
@@ -434,4 +438,22 @@ void fgContext::InvalidateHWND(HWND__* hWnd)
     InvalidateRect(hWnd, NULL, FALSE);
     invalid = true;
   }
+}
+ID2D1Bitmap* fgContext::GetBitmapFromSource(IWICBitmapSource* p)
+{
+  ID2D1Bitmap* b = NULL;
+  khiter_t i = wichash.Iterator(p);
+  if(wichash.ExistsIter(i))
+  {
+    ID2D1Bitmap* b = wichash.GetValue(i);
+    b->AddRef();
+    return b;
+  }
+
+  if(FAILED(target->CreateBitmapFromWicBitmap(p, nullptr, &b)))
+    return 0;
+  
+  wichash.Insert(p, b);
+  b->AddRef();
+  return b;
 }

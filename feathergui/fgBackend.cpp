@@ -337,6 +337,7 @@ const char* fgFlagMapDefault(const char* type, fgFlag flag)
   case 20:
   case 21:
   case 22: //submenu
+  case 23:
   case 24:
   case 25:
   case 26:

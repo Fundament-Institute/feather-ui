@@ -246,7 +246,10 @@ void fgLayout_SaveElementXML(fgLayout* self, fgClassLayout& e, XMLNode* parent, 
 void fgLayout_SaveSubLayoutXML(fgLayout* self, XMLNode* node, const char* name, const char* path)
 {
   if(name)
-    node->AddAttribute("Name")->String = name;
+    node->AddAttribute("name")->String = name;
+  if(self->skin)
+    node->AddAttribute("skin")->String = self->skin->name;
+
   fgSkinBase_WriteStyleAttributesXML(node, self->style, &self->base, 0);
 
   // Write all children nodes
@@ -267,6 +270,7 @@ void fgLayout_SaveSubLayoutXML(fgLayout* self, XMLNode* node, const char* name, 
 void fgLayout_SaveStreamXML(fgLayout* self, std::ostream& s, const char* path)
 {
   XMLFile xml;
+  xml.SetName("xml");
   xml.AddAttribute("version")->String = "1.0";
   xml.AddAttribute("encoding")->String = "UTF-8";
   

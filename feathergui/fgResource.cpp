@@ -33,7 +33,8 @@ void fgResource_Recalc(fgResource* self)
   {
     AbsVec dim;
     AbsVec dpi = (*self)->GetDPI();
-    fgroot_instance->backend.fgAssetSize(self->asset, &self->uv, &dim, self->element.flags, &dpi);
+    fgroot_instance->backend.fgAssetSize(self->asset, &self->uv, &dim, self->element.flags, (dpi.x != 0.0f || dpi.y != 0.0f) ? &dpi : 0);
+    assert(std::isfinite(dim.x) && std::isfinite(dim.y));
     dim = { fgSnapAll<ceilf>(dim.x, dpi.x), fgSnapAll<ceilf>(dim.y, dpi.y) };
 
     CRect adjust = self->element.transform.area;
@@ -52,9 +53,9 @@ void fgResource_Recalc(fgResource* self)
         adjust.bottom.abs = adjust.top.abs + dim.y + self->element.padding.top + self->element.padding.bottom + self->element.margin.top + self->element.margin.bottom;
       }
       else if(self->element.flags&FGELEMENT_EXPANDX) // Preserve aspect ratio
-        adjust.right.abs = adjust.left.abs + (dim.x * ((adjust.bottom.abs - adjust.top.abs) / dim.y)) + self->element.padding.left + self->element.padding.right + self->element.margin.left + self->element.margin.right;
+        adjust.right.abs = adjust.left.abs + ((dim.y == 0.0f) ? 0.0f : (dim.x * ((adjust.bottom.abs - adjust.top.abs) / dim.y))) + self->element.padding.left + self->element.padding.right + self->element.margin.left + self->element.margin.right;
       else if(self->element.flags&FGELEMENT_EXPANDY)
-        adjust.bottom.abs = adjust.top.abs + (dim.y * ((adjust.right.abs - adjust.left.abs) / dim.x)) + self->element.padding.top + self->element.padding.bottom + self->element.margin.top + self->element.margin.bottom;;
+        adjust.bottom.abs = adjust.top.abs + ((dim.x == 0.0f) ? 0.0f : (dim.y * ((adjust.right.abs - adjust.left.abs) / dim.x))) + self->element.padding.top + self->element.padding.bottom + self->element.margin.top + self->element.margin.bottom;;
     }
     _sendmsg<FG_SETAREA, void*>(*self, &adjust);
   }

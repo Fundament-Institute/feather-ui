@@ -407,6 +407,7 @@ extern void fgStyle_WriteAbs(bss::Str& s, float abs, fgMsgType unit);
 extern void fgStyle_WriteCoord(bss::Str& s, const Coord& coord, fgMsgType unit);
 extern bss::Str fgStyle_WriteCVec(const CVec& vec, fgMsgType units);
 extern bss::Str fgStyle_WriteAbsRect(const AbsRect& r, fgMsgType units);
+extern bss::Str fgStyle_WriteAbsVec(const AbsVec& r, fgMsgType units);
 extern bss::Str fgStyle_WriteCRect(const CRect& r, fgMsgType units);
 extern void fgStyle_WriteFlagsIterate(bss::Str& s, const char* type, const char* divider, fgFlag flags, bool remove);
 extern void fgBox_SetSpacing(fgElement* self, AbsVec& spacing, const FG_Msg* msg);
