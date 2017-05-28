@@ -192,9 +192,12 @@ AbsVec fgTileLayoutReorder(fgElement* cur, fgElement* skip, char axis, float max
 
 void fgTileRecalcMin(fgElement* self, const FG_Msg* msg, char axis)
 {
+  if((axis && self->mindim.y < 0) || (!axis && self->mindim.x < 0)) // If your mindim is -1, then we aren't using it so bail out.
+    return;
   fgElement* child = msg->e;
   fgElement* cur = self->root;
   FABS w;
+
   switch(msg->subtype)
   {
   case FGELEMENT_LAYOUTRESET:

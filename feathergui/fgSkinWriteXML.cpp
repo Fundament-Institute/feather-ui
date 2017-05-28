@@ -14,10 +14,10 @@ void fgStyle_WriteFloat(Str& s, float abs)
   float i;
   if(std::modf(abs, &i) == 0.0f)
     return fgStyle_WriteInt(s, fFastTruncate(i));
-  int len = snprintf(0, 0, "%.2f", abs) + 1;
+  int len = snprintf(0, 0, "%g", abs) + 1;
   int start = s.size();
   s.resize(start + len);
-  snprintf(s.UnsafeString() + start, len, "%.2f", abs); // snprintf lies about how many characters were written
+  snprintf(s.UnsafeString() + start, len, "%g", abs); // snprintf lies about how many characters were written
   s.resize(strlen(s));
 }
 void fgStyle_WriteInt(Str& s, int64_t i)
@@ -226,7 +226,7 @@ void fgSkinBase_WriteStyleAttributesXML(XMLNode* node, fgStyle& s, fgSkinBase* r
       break;
     case FG_SETSKIN:
       if(cur->msg.p)
-        node->AddAttribute("skin")->String = reinterpret_cast<fgSkin*>(cur->msg.p)->name;
+        node->AddAttribute("skin")->String = reinterpret_cast<fgSkin*>(cur->msg.p)->base.name;
       break;
     case FG_SETALPHA:
       fgStyle_WriteFloat(node->AddAttribute("alpha")->String, cur->msg.f);
@@ -309,7 +309,15 @@ void fgSkinBase_WriteStyleAttributesXML(XMLNode* node, fgStyle& s, fgSkinBase* r
       }
       break;
     case FG_SETRANGE:
-      fgStyle_WriteFloat(node->AddAttribute("range")->String, cur->msg.f);
+      switch(cur->msg.subtype)
+      {
+      case FGVALUE_FLOAT:
+        fgStyle_WriteFloat(node->AddAttribute("range")->String, cur->msg.f);
+        break;
+      case FGVALUE_INT64:
+        fgStyle_WriteInt(node->AddAttribute("range")->String, cur->msg.i);
+        break;
+      }
       break;
     case FG_SETOUTLINE:
       fgStyle_WriteFloat(node->AddAttribute("outline")->String, cur->msg.f);
@@ -321,12 +329,16 @@ void fgSkinBase_WriteStyleAttributesXML(XMLNode* node, fgStyle& s, fgSkinBase* r
       switch(cur->msg.subtype&FGDIM_MASK)
       {
       case FGDIM_MAX:
-        fgStyle_WriteFloat(node->AddAttribute("max-width")->String, cur->msg.f);
-        fgStyle_WriteFloat(node->AddAttribute("max-height")->String, cur->msg.f2);
+        if(cur->msg.f >= 0.0f)
+          fgStyle_WriteFloat(node->AddAttribute("max-width")->String, cur->msg.f);
+        if(cur->msg.f2 >= 0.0f)
+          fgStyle_WriteFloat(node->AddAttribute("max-height")->String, cur->msg.f2);
         break;
       case FGDIM_MIN:
-        fgStyle_WriteFloat(node->AddAttribute("min-width")->String, cur->msg.f);
-        fgStyle_WriteFloat(node->AddAttribute("min-height")->String, cur->msg.f2);
+        if(cur->msg.f >= 0.0f)
+          fgStyle_WriteFloat(node->AddAttribute("min-width")->String, cur->msg.f);
+        if(cur->msg.f2 >= 0.0f)
+          fgStyle_WriteFloat(node->AddAttribute("min-height")->String, cur->msg.f2);
         break;
       case FGDIM_SPACING:
         node->AddAttribute("spacing")->String = fgStyle_WriteAbsVec(AbsVec{ cur->msg.f, cur->msg.f2 }, 0);
@@ -390,13 +402,13 @@ void fgSkinTree_WriteXML(XMLNode* node, fgSkinTree* tree, fgSkinBase* root, cons
 void fgSkin_WriteXML(XMLNode* node, fgSkin* skin)
 {
   if(skin->inherit)
-    node->AddAttribute("inherit")->String = skin->inherit->name;
-  if(skin->name)
-    node->AddAttribute("name")->String = skin->name;
+    node->AddAttribute("inherit")->String = skin->inherit->base.name;
+  if(skin->base.name)
+    node->AddAttribute("name")->String = skin->base.name;
   if(skin->tfunits != (fgMsgType)~0)
     fgSkinBase_WriteTransform(node, skin->tf, skin->tfunits);
 
-  fgSkinBase_WriteStyleAttributesXML(node, skin->style, &skin->base, 0);
+  fgSkinBase_WriteStyleAttributesXML(node, skin->base.style, &skin->base, skin->base.type);
   fgSkinBase_WriteXML(node, &skin->base, 0);
   fgSkinTree_WriteXML(node, &skin->tree, &skin->base, 0);
 }

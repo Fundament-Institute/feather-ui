@@ -112,7 +112,7 @@ uint32_t fgStyle_ParseColor(const XMLValue* attr)
   }
   return color.color;
 }
-fgSkin* fgStyle_ParseAttributesXML(fgStyle* self, const XMLNode* cur, int flags, fgSkinBase* root, const char* path, const char** id, fgKeyValueArray* userdata)
+fgSkin* fgStyle_ParseAttributesXML(fgStyle* self, const XMLNode* cur, int flags, fgSkinBase* root, const char** id, fgKeyValueArray* userdata)
 {
   static Trie<uint16_t, true> t(49, "id", "min-width", "min-height", "max-width", "max-height", "skin", "alpha", "margin", "padding", "text",
     "placeholder", "color", "placecolor", "cursorcolor", "selectcolor", "hovercolor", "dragcolor", "edgecolor", "dividercolor", "columndividercolor", 
@@ -160,14 +160,10 @@ fgSkin* fgStyle_ParseAttributesXML(fgStyle* self, const XMLNode* cur, int flags,
       break;
     case 5: // skin
       skin = fgSkinBase_GetSkin(root, attr->String);
-      if(!skin) // Attempt loading it as an absolute XML path
+      if(!skin) // Attempt loading as XML (this function will attempt both relative and absolute)
         skin = fgSkinBase_LoadFileXML(root, attr->String);
-      if(!skin) // relative XML path
-        skin = fgSkinBase_LoadFileXML(root, Str(path) + attr->String);
-      //if(!skin) // absolute UBJSON path
+      //if(!skin) // attempt UBJSON
       //  skin = fgSkinBase_LoadFileUBJSON(root, attr->String);
-      //if(!skin) // relative UBJSON path
-      //  skin = fgSkinBase_LoadFileUBJSON(root, Str(path) + attr->String);
       if(!skin)
         fgLog(FGLOG_WARNING, "Failed to load %s", attr->String.c_str());
 
@@ -292,8 +288,7 @@ fgSkin* fgStyle_ParseAttributesXML(fgStyle* self, const XMLNode* cur, int flags,
     }
     case 25: // asset
     {
-      Str s = path;
-      _FG_ASSET_DATA* res = fgSkinBase_AddAssetFile(root, flags, s + attr->String);
+      _FG_ASSET_DATA* res = fgSkinBase_AddAssetFile(root, flags, attr->String);
       AddStyleMsg<FG_SETASSET, void*>(self, res->asset);
       break;
     }
@@ -315,7 +310,7 @@ fgSkin* fgStyle_ParseAttributesXML(fgStyle* self, const XMLNode* cur, int flags,
     case 39: // inherit
       break; // These are processed before we get here, so ignore them.
     case 40: // range
-      AddStyleSubMsg<FG_SETRANGE, ptrdiff_t>(self, FGVALUE_INT64, attr->Integer);
+      AddStyleSubMsg<FG_SETRANGE, float>(self, FGVALUE_FLOAT, attr->Float);
       break;
     case 41: // splitter
     {
@@ -373,13 +368,16 @@ fgSkin* fgStyle_ParseAttributesXML(fgStyle* self, const XMLNode* cur, int flags,
   return skin;
 }
 
-fgFlag fgSkinBase_ParseFlagsFromString(const char* s, fgFlag* remove, int divider)
+fgFlag fgSkinBase_ParseFlagsFromString(const char* s, fgFlag* remove, int divider, const char** type)
 {
-  static Trie<uint16_t, true> t(54, "BACKGROUND", "NOCLIP", "IGNORE", "HIDDEN", "SILENT", "EXPANDX", "EXPANDY", "SNAPX", "SNAPY", "DISABLE", "HIDEH",
+  static Trie<uint16_t, true> t(50, "BACKGROUND", "NOCLIP", "IGNORE", "HIDDEN", "SILENT", "EXPANDX", "EXPANDY", "SNAPX", "SNAPY", "DISABLE", "HIDEH",
     "HIDEV", "SHOWH", "SHOWV", "IGNOREMARGINEDGEX", "IGNOREMARGINEDGEY", "TILEX", "TILEY", "REVERSE", "GROWY", "DISTRIBUTE", "SELECT", "MULTISELECT",
-    "DRAGGABLE", "HIDEH", "HIDEV", "SHOWH", "SHOWV", "CHARWRAP", "WORDWRAP", "ELLIPSES", "RTL", "RIGHTALIGN", "CENTER", "SUBPIXEL", "ACTION",
-    "SINGLELINE", "NOFOCUS", "RECT", "CIRCLE", "LINE", "QUADRATIC", "CUBIC", "BSPLINE", "MINIMIZABLE", "MAXIMIZABLE", "RESIZABLE",
-    "NOCAPTION", "NOBORDER", "EXPAND", "SNAP", "TILE", "TRIANGLE", "IGNOREMARGINEDGE");
+    "DRAGGABLE", "CHARWRAP", "WORDWRAP", "ELLIPSES", "RTL", "RIGHTALIGN", "CENTER", "SUBPIXEL", "ACTION",
+    "SINGLELINE", "NOFOCUS", "RECT", "CIRCLE", "TRIANGLE", "LINE", "QUADRATIC", "CUBIC", "BSPLINE", "MINIMIZABLE", "MAXIMIZABLE", "RESIZABLE",
+    "NOCAPTION", "NOBORDER", "EXPAND", "SNAP", "TILE", "IGNOREMARGINEDGE");
+  // These types are in weakly increasing inheritance order, so if a flag of a type to the right of another type is found it will overwrite it.
+  static const char* TYPES[11] = { "element", "control", "scrollbar", "box", "list", "resource", "curve",  "text", "textbox", "button", "window" };
+  char ty = 0; // stored the most specific type we've detected for these flags
 
   if(!s)
     return 0;
@@ -395,6 +393,29 @@ fgFlag fgSkinBase_ParseFlagsFromString(const char* s, fgFlag* remove, int divide
     fgFlag f = 0;
     if(i < t.Length())
     {
+      if(i >= 9 && i <= 9 && ty < 1)
+        ty = 1;
+      if(i >= 10 && i <= 13 && ty < 2)
+        ty = 2;
+      if(i >= 14 && i <= 20 && ty < 3)
+        ty = 3;
+      if(i >= 21 && i <= 23 && ty < 4)
+        ty = 4;
+      if(i >= 24 && i <= 30 && ty < 5)
+        ty = 5;
+      if(i >= 31 && i <= 32 && ty < 6)
+        ty = 6;
+      if(i >= 33 && i <= 33 && ty < 7)
+        ty = 7;
+      if(i >= 34 && i <= 36 && ty < 8)
+        ty = 8;
+      if(i >= 37 && i <= 40 && ty < 9)
+        ty = 9;
+      if(i >= 41 && i <= 45 && ty < 10)
+        ty = 10;
+      if(i >= 48 && i <= 49 && ty < 3)
+        ty = 3;
+
       switch(i)
       {
       default:
@@ -402,36 +423,32 @@ fgFlag fgSkinBase_ParseFlagsFromString(const char* s, fgFlag* remove, int divide
         break;
       case 22: f = FGLIST_MULTISELECT; break; // We can't rely on the default method here because MULTISELECT is actually two seperate flags
       case 23: f = FGLIST_DRAGGABLE; break;
-      case 24: f = FGSCROLLBAR_HIDEH; break;
-      case 25: f = FGSCROLLBAR_HIDEV; break;
-      case 26: f = FGSCROLLBAR_SHOWH; break;
-      case 27: f = FGSCROLLBAR_SHOWV; break;
-      case 28: f = FGTEXT_CHARWRAP; break;
-      case 29: f = FGTEXT_WORDWRAP; break;
-      case 30: f = FGTEXT_ELLIPSES; break;
-      case 31: f = FGTEXT_RTL; break;
-      case 32: f = FGTEXT_RIGHTALIGN;  break;
-      case 33: f = FGTEXT_CENTER;  break;
-      case 34: f = FGTEXT_SUBPIXEL;  break;
-      case 35: f = FGTEXTBOX_ACTION;  break;
-      case 36: f = FGTEXTBOX_SINGLELINE;  break;
-      case 37: f = FGBUTTON_NOFOCUS;  break;
-      case 38: f = FGRESOURCE_RECT;  break;
-      case 39: f = FGRESOURCE_CIRCLE;  break;
-      case 40: f = FGCURVE_LINE;  break;
-      case 41: f = FGCURVE_QUADRATIC;  break;
-      case 42: f = FGCURVE_CUBIC;  break;
-      case 43: f = FGCURVE_BSPLINE;  break;
-      case 44: f = FGWINDOW_MINIMIZABLE;  break;
-      case 45: f = FGWINDOW_MAXIMIZABLE;  break;
-      case 46: f = FGWINDOW_RESIZABLE;  break;
-      case 47: f = FGWINDOW_NOCAPTION;  break;
-      case 48: f = FGWINDOW_NOBORDER;  break;
-      case 49: f = FGELEMENT_EXPAND;  break;
-      case 50: f = FGELEMENT_SNAP;  break;
-      case 51: f = FGBOX_TILE;  break;
-      case 52: f = FGRESOURCE_TRIANGLE; break;
-      case 53: f = FGBOX_IGNOREMARGINEDGE; break;
+      case 24: f = FGTEXT_CHARWRAP; break;
+      case 25: f = FGTEXT_WORDWRAP; break;
+      case 26: f = FGTEXT_ELLIPSES; break;
+      case 27: f = FGTEXT_RTL; break;
+      case 28: f = FGTEXT_RIGHTALIGN;  break;
+      case 29: f = FGTEXT_CENTER;  break;
+      case 30: f = FGTEXT_SUBPIXEL;  break;
+      case 31: f = FGTEXTBOX_ACTION;  break;
+      case 32: f = FGTEXTBOX_SINGLELINE;  break;
+      case 33: f = FGBUTTON_NOFOCUS;  break;
+      case 34: f = FGRESOURCE_RECT;  break;
+      case 35: f = FGRESOURCE_CIRCLE;  break;
+      case 36: f = FGRESOURCE_TRIANGLE; break;
+      case 37: f = FGCURVE_LINE;  break;
+      case 38: f = FGCURVE_QUADRATIC;  break;
+      case 39: f = FGCURVE_CUBIC;  break;
+      case 40: f = FGCURVE_BSPLINE;  break;
+      case 41: f = FGWINDOW_MINIMIZABLE;  break;
+      case 42: f = FGWINDOW_MAXIMIZABLE;  break;
+      case 43: f = FGWINDOW_RESIZABLE;  break;
+      case 44: f = FGWINDOW_NOCAPTION;  break;
+      case 45: f = FGWINDOW_NOBORDER;  break;
+      case 46: f = FGELEMENT_EXPAND;  break;
+      case 47: f = FGELEMENT_SNAP;  break;
+      case 48: f = FGBOX_TILE;  break;
+      case 49: f = FGBOX_IGNOREMARGINEDGE; break;
       }
     }
 
@@ -442,6 +459,8 @@ fgFlag fgSkinBase_ParseFlagsFromString(const char* s, fgFlag* remove, int divide
     s = !n ? 0 : n + 1;
   }
 
+  if(ty && type)
+    *type = TYPES[ty];
   return out;
 }
 
@@ -458,24 +477,24 @@ fgSkin* fgSkinBase_GetInherit(fgSkinBase* self, const char* inherit)
 }
 
 // Styles parse flags differently - the attributes use the parent flags for resource/font loading, then creates add and remove flag messages
-void fgSkinBase_ParseStyleNodeXML(fgSkinBase* self, fgStyle* style, fgFlag rootflags, const XMLNode* cur, const char* path, fgTransform tf, fgMsgType tfunits)
+void fgSkinBase_ParseStyleNodeXML(fgSkinBase* self, fgStyle* style, fgFlag rootflags, const XMLNode* cur, fgTransform tf, fgMsgType tfunits)
 {
   tfunits = fgStyle_NodeEvalTransform(cur, tf, tfunits);
   if(tfunits != (fgMsgType)~0) // If this style changes the transform, add a transform message
     AddStyleSubMsgArg<FG_SETTRANSFORM, fgTransform>(style, tfunits, &tf);
-  fgStyle_ParseAttributesXML(style, cur, rootflags, self, path, 0, 0); // Note: styles cannot set skins, because that would make no sense, since the skin defines the styles in the first place.
+  fgStyle_ParseAttributesXML(style, cur, rootflags, self, 0, 0); // Note: styles cannot set skins, because that would make no sense, since the skin defines the styles in the first place.
   fgFlag remove = 0;
-  fgFlag add = fgSkinBase_ParseFlagsFromString(cur->GetAttributeString("flags"), &remove, '|');
+  fgFlag add = fgSkinBase_ParseFlagsFromString(cur->GetAttributeString("flags"), &remove, '|', 0);
   if(remove)
     AddStyleMsg<FG_SETFLAG, ptrdiff_t, size_t>(style, remove, 0);
   if(add)
     AddStyleMsg<FG_SETFLAG, ptrdiff_t, size_t>(style, add, 1);
 }
 
-void fgSkinBase_ParseSubNodeXML(fgSkinTree* tree, fgStyle* style, fgSkinBase* root, fgSkin* skin, const XMLNode* cur, const char* path)
+void fgSkinBase_ParseSubNodeXML(fgSkinTree* tree, fgStyle* style, fgSkinBase* root, fgSkin* skin, const XMLNode* cur)
 {
   fgFlag remove = 0;
-  fgFlag rootflags = fgSkinBase_ParseFlagsFromString(cur->GetAttributeString("flags"), &remove, '|');
+  fgFlag rootflags = fgSkinBase_ParseFlagsFromString(cur->GetAttributeString("flags"), &remove, '|', skin ? &skin->base.type : 0);
   if(remove)
     AddStyleMsg<FG_SETFLAG, ptrdiff_t, size_t>(style, remove, 0);
   if(rootflags)
@@ -496,7 +515,7 @@ void fgSkinBase_ParseSubNodeXML(fgSkinTree* tree, fgStyle* style, fgSkinBase* ro
       AddStyleSubMsgArg<FG_SETTRANSFORM, fgTransform>(style, tfunits, &tf);
   }
 
-  fgStyle_ParseAttributesXML(style, cur, rootflags, root, path, 0, 0); // For obvious reasons a skin can't include a SETSKIN message
+  fgStyle_ParseAttributesXML(style, cur, rootflags, root, 0, 0); // For obvious reasons a skin can't include a SETSKIN message
   if(skin)
     skin->inherit = fgSkinBase_GetInherit(&skin->base, cur->GetAttributeString("inherit"));
 
@@ -504,25 +523,25 @@ void fgSkinBase_ParseSubNodeXML(fgSkinTree* tree, fgStyle* style, fgSkinBase* ro
   {
     const XMLNode* node = cur->GetNode(i);
     if(skin != nullptr && !STRICMP(node->GetName(), "skin"))
-      fgSkinBase_ParseNodeXML(&skin->base, node, path);
+      fgSkinBase_ParseNodeXML(&skin->base, node);
     else if(!STRICMP(node->GetName(), "style"))
-      fgSkinBase_ParseStyleNodeXML(root, fgSkinTree_GetStyle(tree, fgSkinTree_AddStyle(tree, node->GetAttributeString("name"))), rootflags, node, path, tf, tfunits);
+      fgSkinBase_ParseStyleNodeXML(root, fgSkinTree_GetStyle(tree, fgSkinTree_AddStyle(tree, node->GetAttributeString("name"))), rootflags, node, tf, tfunits);
     else
     {
       fgTransform transform = { 0 };
       fgMsgType units = fgStyle_NodeEvalTransform(node, transform, 0);
       fgFlag rmflags = 0;
-      fgFlag flags = fgSkinBase_ParseFlagsFromString(node->GetAttributeString("flags"), &rmflags, '|');
+      fgFlag flags = fgSkinBase_ParseFlagsFromString(node->GetAttributeString("flags"), &rmflags, '|', 0);
       flags = (flags | fgGetTypeFlags(node->GetName()))&(~rmflags);
       fgSkinLayout* child = fgSkinTree_GetChild(tree, (FG_UINT)fgSkinTree_AddChild(tree, node->GetName(), flags, &transform, units, (int)node->GetAttributeInt("order")));
-      child->element.skin = fgStyle_ParseAttributesXML(&child->element.style, node, flags, root, path, 0, 0);
+      child->element.skin = fgStyle_ParseAttributesXML(&child->element.style, node, flags, root, 0, 0);
       _sendsubmsg<FG_SETSTYLE, void*, size_t>(child->instance, FGSETSTYLE_POINTER, (void*)&child->element.style, ~0);
-      fgSkinBase_ParseSubNodeXML(&child->tree, &child->element.style, root, 0, node, path);
+      fgSkinBase_ParseSubNodeXML(&child->tree, &child->element.style, root, 0, node);
     }
   }
 }
 
-fgSkin* fgSkinBase_ParseNodeXML(fgSkinBase* self, const XMLNode* root, const char* path)
+fgSkin* fgSkinBase_ParseNodeXML(fgSkinBase* self, const XMLNode* root)
 {
   const char* id = root->GetAttributeString("id");
   if(!id)
@@ -533,7 +552,7 @@ fgSkin* fgSkinBase_ParseNodeXML(fgSkinBase* self, const XMLNode* root, const cha
     return 0;
   }
   fgSkin* s = fgSkinBase_AddSkin(self, id);
-  fgSkinBase_ParseSubNodeXML(&s->tree, &s->style, &s->base, s, root, path);
+  fgSkinBase_ParseSubNodeXML(&s->tree, &s->base.style, &s->base, s, root);
   return s;
 }
 
@@ -547,8 +566,10 @@ fgSkin* fgSkinBase_ParseStreamXML(fgSkinBase* self, std::istream& s, const char*
   while(root = xml.GetNode(index++))
   {
     if(!STRICMP(root->GetName(), "fg:skin"))
-      ret = fgSkinBase_ParseNodeXML(self, root, path);
+      ret = fgSkinBase_ParseNodeXML(self, root);
   }
+  if(ret && path)
+    fgSkinBase_SetPath(&ret->base, path);
 
   return ret;
 }
@@ -556,15 +577,18 @@ fgSkin* fgSkinBase_ParseStreamXML(fgSkinBase* self, std::istream& s, const char*
 fgSkin* fgSkinBase_LoadFileXML(fgSkinBase* self, const char* file)
 {
   Str path(file);
-  path.ReplaceChar('\\', '/');
-  char* dir = strrchr(path.UnsafeString(), '/');
-  if(dir) // If we find a /, we chop off the rest of the string AFTER it, so it becomes a valid directory path.
-    dir[1] = 0;
-  std::ifstream s(file, std::ios_base::in | std::ios_base::binary);
+  std::ifstream s(self->path + path, std::ios_base::in | std::ios_base::binary);
+  if(!s.good())
+    s.open(path, std::ios_base::in | std::ios_base::binary);
+  else
+    path = self->path + path;
+  if(!s.good())
+    return 0;
+  fgTrimFileFromPath(path.UnsafeString());
   return fgSkinBase_ParseStreamXML(self, s, path);
 }
-fgSkin* fgSkinBase_LoadXML(fgSkinBase* self, const char* data, FG_UINT length, const char* path)
+fgSkin* fgSkinBase_LoadXML(fgSkinBase* self, const char* data, FG_UINT length)
 {
   std::istringstream s(std::string(data, length));
-  return fgSkinBase_ParseStreamXML(self, s, path);
+  return fgSkinBase_ParseStreamXML(self, s, 0);
 }

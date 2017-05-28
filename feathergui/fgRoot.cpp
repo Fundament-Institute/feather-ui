@@ -821,7 +821,7 @@ void fgRegisterControl(const char* name, fgInitializer fn, size_t sz, fgFlag fla
   if(r != 0)
     kh_key(fgroot_instance->initmap, i) = fgCopyText(name, __FILE__, __LINE__);
   else
-    fgLog(FGLOG_WARNING, "Replacing duplicate control name: %s", name);
+    fgLog(FGLOG_INFO, "Replacing duplicate control name: %s", name);
   kh_val(fgroot_instance->initmap, i).init = fn;
   kh_val(fgroot_instance->initmap, i).size = sz;
   kh_val(fgroot_instance->initmap, i).flags = flags;

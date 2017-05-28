@@ -31,7 +31,7 @@ size_t fgTreeItem_Message(fgTreeItem* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_CONSTRUCT:
-    fgControl_Message(&self->control, msg);
+    fgControl_HoverMessage(&self->control, msg);
     fgElement_Init(&self->arrow, &self->control.element, 0, ARROWNAME, FGELEMENT_BACKGROUND | FGELEMENT_HIDDEN | FGFLAGS_INTERNAL, 0, 0);
     self->arrow.message = (fgMessage)&fgTreeItemArrow_Message;
     self->count = EXPANDED;
@@ -44,7 +44,7 @@ size_t fgTreeItem_Message(fgTreeItem* self, const FG_Msg* msg)
       fgTreeItem* hold = reinterpret_cast<fgTreeItem*>(msg->e);
       self->arrow.Clone(&hold->arrow);
       self->count = 0;
-      fgControl_Message(&self->control, msg);
+      fgControl_HoverMessage(&self->control, msg);
       _sendmsg<FG_ADDCHILD, fgElement*>(msg->e, &hold->arrow);
     }
     return sizeof(fgTreeItem);
@@ -103,12 +103,12 @@ size_t fgTreeItem_Message(fgTreeItem* self, const FG_Msg* msg)
     break;
   }
 
-  return fgControl_Message(&self->control, msg);
+  return fgControl_HoverMessage(&self->control, msg);
 }
 
 void fgTreeItem_Destroy(fgTreeItem* self)
 {
-  self->control->message = (fgMessage)fgControl_Message;
+  self->control->message = (fgMessage)fgControl_HoverMessage;
   fgControl_Destroy(&self->control);
 }
 void fgTreeview_Init(fgTreeview* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)

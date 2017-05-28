@@ -385,13 +385,13 @@ struct __VECTOR__UTF8;
 struct __VECTOR__UTF16;
 struct __VECTOR__UTF32;
 
-extern fgSkin* fgSkinBase_ParseNodeXML(fgSkinBase* self, const bss::XMLNode* root, const char* path);
+extern fgSkin* fgSkinBase_ParseNodeXML(fgSkinBase* self, const bss::XMLNode* root);
 extern void fgSkinBase_WriteElementAttributesXML(bss::XMLNode* node, fgSkinElement& e, fgSkinBase* root);
 extern void fgSkinBase_WriteStyleAttributesXML(bss::XMLNode* node, fgStyle& s, fgSkinBase* root, const char* type);
 extern void fgSkinBase_WriteXML(bss::XMLNode* node, fgSkinBase* base, char toplevel);
 extern void fgSkin_WriteXML(bss::XMLNode* node, fgSkin* skin);
 static kh_fgSkins_s *kh_init_fgSkins();
-extern fgSkin* fgStyle_ParseAttributesXML(struct _FG_STYLE* self, const bss::XMLNode* cur, int flags, struct _FG_SKIN_BASE* root, const char* path, const char** id, fgKeyValueArray* userdata);
+extern fgSkin* fgStyle_ParseAttributesXML(struct _FG_STYLE* self, const bss::XMLNode* cur, int flags, struct _FG_SKIN_BASE* root, const char** id, fgKeyValueArray* userdata);
 extern fgMsgType fgStyle_NodeEvalTransform(const bss::XMLNode* node, fgTransform& tf, fgMsgType units);
 extern fgVector* fgText_Conversion(int type, struct __VECTOR__UTF8* text8, struct __VECTOR__UTF16* text16, struct __VECTOR__UTF32* text32);
 extern void fgMenu_Show(struct _FG_MENU* self, bool show);

@@ -68,6 +68,7 @@ public:
   virtual void DisplayLayout(fgLayout* layout) = 0;
   void WindowOnDestroy(struct _FG_ELEMENT*, const FG_Msg*);
   virtual void ReapplySkin(fgSkin* skin) = 0;
+  virtual void SetNeedSave(bool needsave) = 0;
 
   template<typename T, size_t(*F)(char*, size_t, const T*, fgMsgType)>
   inline bss::Str WrapWrite(const T& v, fgMsgType u)
@@ -82,10 +83,11 @@ public:
   static void AddMenuControls(const char* id);
 
   fgLayout curlayout; // Currently loaded root layout
+  fgElement* hoverelement;
+  fgElement* curelement; // currently selected element in the workspace
 
 protected:
   fgElement* _window;
-  fgElement* selected; // If applicable, points to the currently selected displayed element in the workspace. DISPLAY PURPOSES ONLY.
 };
 
 #endif

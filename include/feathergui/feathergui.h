@@ -710,6 +710,8 @@ FG_EXTERN void fgInvScaleRectDPI(AbsRect* rect, FABS dpix, FABS dpiy);
 FG_EXTERN void fgResolveDrawRect(const AbsRect* area, AbsRect* outarea, const AbsVec* center, AbsVec* outcenter, fgFlag flags, const fgDrawAuxData* data);
 FG_EXTERN void fgModulationVecDPI(AbsVec* v, FABS dpix, FABS dpiy);
 FG_EXTERN void fgInvScaleVecDPI(AbsVec* v, FABS dpix, FABS dpiy);
+FG_EXTERN void fgTrimFileFromPath(char* path);
+FG_EXTERN const char* fgTrimPathFromFile(const char* path);
 FG_EXTERN int fgLog(char level, const char* format, ...);
 FG_EXTERN size_t fgUTF32toUTF16(const int*BSS_RESTRICT input, ptrdiff_t srclen, wchar_t*BSS_RESTRICT output, size_t buflen);
 FG_EXTERN size_t fgUTF8toUTF16(const char*BSS_RESTRICT input, ptrdiff_t srclen, wchar_t*BSS_RESTRICT output, size_t buflen);

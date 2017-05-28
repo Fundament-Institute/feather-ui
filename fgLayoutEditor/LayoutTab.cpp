@@ -67,12 +67,19 @@ void LayoutTab::Init(EditorBase* base)
     AddProp("Order", EditorBase::PROP_ORDER);
     AddProp("Style", EditorBase::PROP_STYLE);
     AddProp("Flags", EditorBase::PROP_FLAGS, "text");
-    AddProp("Alpha", EditorBase::PROP_ALPHA, "slider");
+    AddProp("Alpha", EditorBase::PROP_ALPHA);
   }
   
   EditorBase::AddMenuControls("LayoutContext$add");
   EditorBase::AddMenuControls("LayoutContext$insert");
   EditorBase::AddMenuControls("SublayoutContext$add");
+}
+
+void LayoutTab::_treeItemOnHover(struct _FG_ELEMENT* self, const FG_Msg* m)
+{
+  fgElement* e = _layoutmap[(fgClassLayout*)self->userdata];
+  if(e)
+    _base->hoverelement = e;
 }
 
 void LayoutTab::AddProp(const char* name, FG_UINT id, const char* type)
@@ -144,7 +151,7 @@ void LayoutTab::MenuContext(struct _FG_ELEMENT*, const FG_Msg* m)
       {
         assert(_selected->parent->userid == 1);
         auto p = (fgLayout*)_selected->parent->userdata;
-        p->RemoveLayout(((fgLayout*)_selected->userdata)->name);
+        p->RemoveLayout(((fgLayout*)_selected->userdata)->base.name);
         VirtualFreeChild(_selected);
       }
       else if(_selected->parent->userid == 1)
@@ -213,6 +220,8 @@ void LayoutTab::_openLayout(fgElement* root, const fgVectorClassLayout& layout)
   {
     fgElement* item = fgCreate("TreeItem", root, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY, 0);
     item->userdata = layout.p + i;
+    _treemap.Insert(layout.p + i, item);
+    fgElement_AddDelegateListener<LayoutTab, &LayoutTab::_treeItemOnHover>(item, FG_HOVER, this);
     fgElement_AddDelegateListener<LayoutTab, &LayoutTab::_treeItemOnFocus>(item, FG_GOTFOCUS, this);
     item->SetContextMenu(_contextmenu);
     fgCreate("Text", item, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY, 0)->SetText(layout.p[i].element.type);
@@ -221,17 +230,18 @@ void LayoutTab::_openLayout(fgElement* root, const fgVectorClassLayout& layout)
 }
 void LayoutTab::_openSublayout(fgElement* root, fgLayout* parent)
 {
-  parent->IterateLayouts(&std::pair<LayoutTab*, fgElement*>(this, root), [](fgLayout* l, const char* s, void* p) {
-    auto pair = (std::pair<LayoutTab*, fgElement*>*)p;
-    fgElement* item = fgCreate("TreeItem", pair->second, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY, 0);
+  std::function<void(fgLayout*, const char*)> fn = [this, root](fgLayout* l, const char* s) {
+    fgElement* item = fgCreate("TreeItem", root, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY, 0);
     item->userdata = l;
     item->userid = 1;
-    fgElement_AddDelegateListener<LayoutTab, &LayoutTab::_treeItemOnFocus>(item, FG_GOTFOCUS, pair->first);
-    item->SetContextMenu(pair->first->_contextmenulayout);
+    fgElement_AddDelegateListener<LayoutTab, &LayoutTab::_treeItemOnFocus>(item, FG_GOTFOCUS, this);
+    item->SetContextMenu(_contextmenulayout);
     fgCreate("Text", item, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY, 0)->SetText(s);
-    pair->first->_openSublayout(item, l);
-    pair->first->_openLayout(item, l->children);
-  });
+    _openSublayout(item, l);
+    _openLayout(item, l->children);
+  };
+
+  fgLayout_IterateLayouts(parent, &fn, &Delegate<void, fgLayout*, const char*>::stublambda);
 }
 void LayoutTab::OpenLayout(fgLayout* layout)
 {
@@ -256,12 +266,14 @@ void LayoutTab::_treeItemOnFocus(struct _FG_ELEMENT* e, const FG_Msg*)
     if(e->userid == 1)
     {
       auto p = (fgLayout*)e->userdata;
-      _base->LoadProps(*_layoutprops, 0, 0, 0, p->style, _propafter);
+      _base->LoadProps(*_layoutprops, 0, 0, 0, p->base.style, _propafter);
     }
     else
     {
       auto p = (fgClassLayout*)e->userdata;
       _base->LoadProps(*_layoutprops, p->element.type, p, &p->element, p->element.style, _propafter);
+      if(fgElement* e = _layoutmap[p])
+        _base->curelement = e;
     }
     _selected = e;
     fgLayout* display = FindParentLayout(e);

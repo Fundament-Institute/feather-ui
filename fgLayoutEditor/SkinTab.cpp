@@ -54,7 +54,7 @@ void SkinTab::Init(EditorBase* base)
     AddProp("Order", EditorBase::PROP_ORDER);
     AddProp("Style", EditorBase::PROP_STYLE);
     AddProp("Flags", EditorBase::PROP_FLAGS, "text");
-    AddProp("Alpha", EditorBase::PROP_ALPHA, "slider");
+    AddProp("Alpha", EditorBase::PROP_ALPHA);
   }
 }
 void SkinTab::_openSkinBase(fgElement* root, fgSkinBase& skin)
@@ -178,9 +178,9 @@ void SkinTab::_textboxOnAction(struct _FG_ELEMENT* e, const FG_Msg* msg)
       break;
     case 1:
       skin = (fgSkin*)_selected->userdata;
-      _base->ParseStyleMsg(skin->style, 0, 0, 0, EditorBase::PROPERTIES(e->userid), e->GetText());
+      _base->ParseStyleMsg(skin->base.style, 0, 0, 0, EditorBase::PROPERTIES(e->userid), e->GetText());
       _base->ReapplySkin(skin);
-      _base->SetProps(*_skinprops, 0, 0, skin->style);
+      _base->SetProps(*_skinprops, 0, 0, skin->base.style);
       break;
     case 2:
       style = (fgStyle*)_selected->userdata;
@@ -216,7 +216,7 @@ void SkinTab::_treeItemOnFocus(struct _FG_ELEMENT* e, const FG_Msg*)
       break;
     case 1:
       skin = (fgSkin*)e->userdata;
-      _base->LoadProps(*_skinprops, "Skin", 0, 0, skin->style, _propafter);
+      _base->LoadProps(*_skinprops, "Skin", 0, 0, skin->base.style, _propafter);
       break;
     case 2:
       style = (fgStyle*)e->userdata;

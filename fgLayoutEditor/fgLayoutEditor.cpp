@@ -31,8 +31,8 @@ size_t fgLayoutEditor::_inject(fgRoot* self, const FG_Msg* msg)
   return fgRoot_DefaultInject(self, msg);
 }
 
-fgLayoutEditor::fgLayoutEditor(fgLayout* layout, EditorSettings& settings) : EditorBase(layout), _settings(settings),
-  _needsave(false), displaylayout(0), _curelement(0), _hoverelement(0), _workspaceroot(0), _toolbar(0)
+fgLayoutEditor::fgLayoutEditor(fgLayout* layout, EditorSettings& settings) : EditorBase(layout), _settings(settings), _sizing(HIT_NONE),
+_needsave(false), displaylayout(0), _workspaceroot(0), _toolbar(0), _resizebox(layout->base.GetSkin("Editor$Resizebox"))
 {
   fgLayoutEditor::Instance = this;
   fgRegisterDelegate<fgLayoutEditor, &fgLayoutEditor::MenuFile>("menu_file", this);
@@ -40,13 +40,14 @@ fgLayoutEditor::fgLayoutEditor(fgLayout* layout, EditorSettings& settings) : Edi
   fgRegisterDelegate<fgLayoutEditor, &fgLayoutEditor::MenuEdit>("menu_edit", this);
   fgRegisterDelegate<fgLayoutEditor, &fgLayoutEditor::MenuView>("menu_view", this);
   fgRegisterDelegate<fgLayoutEditor, &fgLayoutEditor::MenuHelp>("menu_help", this);
+  fgRegisterDelegate<fgLayoutEditor, &fgLayoutEditor::ToolAction>("tool_action", this);
   _window = fgSingleton()->gui->LayoutLoad(layout);
   fgElement_AddDelegateListener<EditorBase, &EditorBase::WindowOnDestroy>(_window, FG_DESTROY, this);
   _layout.Init(this);
   _skin.Init(this);
 
-  _mainwindow = reinterpret_cast<fgWindow*>(fgGetID("Editor$mainwindow"));
   _workspace = reinterpret_cast<fgWorkspace*>(fgGetID("Editor$workspace"));
+  _recentmenu = fgGetID("Editor$RecentMenu");
   _toolbar = fgGetID("Editor$Toolbarcontrols");
 
   if(_workspace)
@@ -54,18 +55,18 @@ fgLayoutEditor::fgLayoutEditor(fgLayout* layout, EditorSettings& settings) : Edi
     _workspaceroot = fgCreate("Element", *_workspace, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY, 0);
     _workspaceroot->message = (fgMessage)WorkspaceRootMessage;
   }
-  
+
   if(_toolbar)
   {
     _toolbar = _toolbar->AddItem(0);
     fgIterateControls(_toolbar, [](void* p, const char* s) { fgElement* e = fgCreate("Radiobutton", (fgElement*)p, 0, 0, FGFLAGS_DEFAULTS, 0, 0); e->SetText(s); });
   }
   fgSetInjectFunc(_inject);
+  FillRecentList();
 }
 
 fgLayoutEditor::~fgLayoutEditor()
-{
-}
+{}
 
 void fgLayoutEditor::Destroy()
 {
@@ -91,6 +92,28 @@ fgElement* fgLayoutEditor::LoadLayout(fgElement* parent, fgElement* next, fgClas
   return element;
 }
 
+uint8_t fgLayoutEditor::HitElement(fgElement* target, const FG_Msg* m)
+{
+  static const int MARGIN = 5;
+  if(!target)
+    return HIT_NONE;
+  AbsRect area;
+  ResolveRect(target, &area);
+  AbsRect NCarea = { area.left - MARGIN, area.top - MARGIN, area.right + MARGIN, area.bottom + MARGIN };
+  if(m->x > NCarea.right || m->x < NCarea.left || m->y > NCarea.bottom || m->y < NCarea.top)
+    return HIT_NONE;
+  uint8_t hit = 0;
+  if(m->x <= area.left)
+    hit |= HIT_LEFT;
+  if(m->y <= area.top)
+    hit |= HIT_TOP;
+  if(m->x >= area.right)
+    hit |= HIT_RIGHT;
+  if(m->y >= area.bottom)
+    hit |= HIT_BOTTOM;
+  return hit;
+}
+
 size_t fgLayoutEditor::WorkspaceRootMessage(fgElement* self, const FG_Msg* m)
 {
   switch(m->type)
@@ -98,15 +121,122 @@ size_t fgLayoutEditor::WorkspaceRootMessage(fgElement* self, const FG_Msg* m)
   case FG_INJECT:
     if(!fgSingleton()->GetKey(FG_KEY_MENU))
     {
-      FG_Msg msg = *reinterpret_cast<FG_Msg*>(m->p);
+      FG_Msg* inner = reinterpret_cast<FG_Msg*>(m->p);
+      uint8_t hit = HitElement(Instance->curelement, inner);
+      if(hit != HIT_NONE)
+        Instance->hoverelement = 0;
+      switch(inner->type)
+      {
+      case FG_MOUSEUP:
+        if(fgSingleton()->fgCaptureWindow == self)
+          fgSingleton()->fgCaptureWindow = 0;
+        if(Instance->_sizing != HIT_NONE)
+        {
+          hit = Instance->_sizing;
+          Instance->_sizing = HIT_NONE;
+          switch(hit)
+          {
+          case HIT_TOP | HIT_LEFT:
+          case HIT_BOTTOM | HIT_RIGHT:
+            return FGCURSOR_RESIZENWSE;
+          case HIT_TOP | HIT_RIGHT:
+          case HIT_BOTTOM | HIT_LEFT:
+            return FGCURSOR_RESIZENESW;
+          case HIT_TOP:
+          case HIT_BOTTOM:
+            return FGCURSOR_RESIZENS;
+          case HIT_LEFT:
+          case HIT_RIGHT:
+            return FGCURSOR_RESIZEWE;
+          }
+          return FG_ACCEPT;
+        }
+        else
+          break;
+      case FG_MOUSEMOVE:
+        if(Instance->_sizing == HIT_NONE && hit == 0 && inner->allbtn&FG_MOUSELBUTTON)
+        {
+          Instance->_sizing = 0;
+        }
+        if(Instance->_sizing != HIT_NONE)
+        {
+          hit = Instance->_sizing;
+          CRect area = Instance->curelement->transform.area;
+          AbsVec change = { Instance->_anchor.x + (inner->x - Instance->_lastmouse.x), Instance->_anchor.y + (inner->y - Instance->_lastmouse.y) };
+          if(!hit)
+          {
+            AbsVec dim = { area.right.abs - area.left.abs, area.bottom.abs - area.top.abs };
+            area.left.abs = change.x;
+            area.right.abs = change.x + dim.x;
+            area.top.abs = change.y;
+            area.bottom.abs = change.y + dim.y;
+          }
+          if(hit&HIT_RIGHT)
+            area.right.abs = change.x;
+          else if(hit&HIT_LEFT)
+            area.left.abs = change.x;
+          if(hit&HIT_BOTTOM)
+            area.bottom.abs = change.y;
+          else if(hit&HIT_TOP)
+            area.top.abs = change.y;
+          Instance->curelement->SetArea(area);
+          Instance->_layout.GetClassLayout(Instance->curelement)->element.transform.area = area;
+          Instance->SetNeedSave(true);
+        }
+        switch(hit)
+        {
+        case HIT_TOP | HIT_LEFT:
+        case HIT_BOTTOM|HIT_RIGHT:
+          return FGCURSOR_RESIZENWSE;
+        case HIT_TOP | HIT_RIGHT:
+        case HIT_BOTTOM | HIT_LEFT:
+          return FGCURSOR_RESIZENESW;
+        case HIT_TOP:
+        case HIT_BOTTOM:
+          return FGCURSOR_RESIZENS;
+        case HIT_LEFT:
+        case HIT_RIGHT:
+          return FGCURSOR_RESIZEWE;
+        case 0:
+          if(Instance->_sizing == 0)
+            return FGCURSOR_RESIZEALL;
+        }
+        break;
+      case FG_MOUSEDOWN:
+        if(hit != HIT_NONE)
+        {
+          if(hit != 0)
+            Instance->_sizing = hit;
+          Instance->_lastmouse = { inner->x, inner->y };
+          CRect& area = Instance->curelement->transform.area;
+          Instance->_anchor.x = (hit&HIT_RIGHT) ? area.right.abs : area.left.abs;
+          Instance->_anchor.y = (hit&HIT_BOTTOM) ? area.bottom.abs : area.top.abs;
+          fgSingleton()->fgCaptureWindow = self;
+        }
+        return FG_ACCEPT;
+      }
+      FG_Msg msg = *inner;
       msg.type = FG_DEBUGMESSAGE;
       FG_Msg mwrap = *m;
       mwrap.p = &msg;
       fgElement* result = (fgElement*)fgElement_Message(self, &mwrap);
-      if(reinterpret_cast<FG_Msg*>(m->p)->type == FG_MOUSEDOWN)
-        Instance->_curelement = result;
-      Instance->_hoverelement = result;
-      return FG_ACCEPT;
+      if(inner->type == FG_MOUSEUP || (hit == HIT_NONE && inner->type == FG_MOUSEDOWN))
+      {
+        fgElement* treeitem;
+        while(!(treeitem = Instance->_layout.GetTreeItem(Instance->_layout.GetClassLayout(result))) && result != self && result)
+          result = result->parent;
+        if(result == self || !treeitem)
+          Instance->curelement = 0;
+        else
+        {
+          treeitem->GotFocus();
+          Instance->curelement = result;
+        }
+        return FG_ACCEPT;
+      }
+      if(hit == HIT_NONE && Instance->_layout.GetTreeItem(Instance->_layout.GetClassLayout(result)))
+        Instance->hoverelement = result;
+      return 0;
     }
     break;
   case FG_LAYOUTLOAD:
@@ -114,8 +244,8 @@ size_t fgLayoutEditor::WorkspaceRootMessage(fgElement* self, const FG_Msg* m)
     fgLayout* layout = (fgLayout*)m->p;
     if(!layout)
       return 0;
-    
-    fgElement_StyleToMessageArray(&layout->style, 0, &self->layoutstyle);
+
+    fgElement_StyleToMessageArray(&layout->base.style, 0, &self->layoutstyle);
     if(self->layoutstyle)
       fgElement_ApplyMessageArray(0, self, self->layoutstyle);
     if(layout->skin)
@@ -129,13 +259,19 @@ size_t fgLayoutEditor::WorkspaceRootMessage(fgElement* self, const FG_Msg* m)
   }
   case FG_DRAW:
     fgElement_Message(self, m);
-    if(Instance->_hoverelement)
+    if(Instance->hoverelement)
     {
       AbsRect out;
-      ResolveRect(Instance->_hoverelement, &out);
+      ResolveRect(Instance->hoverelement, &out);
       AbsVec lines[5] = { out.topleft, {out.right, out.top}, out.bottomright, {out.left, out.bottom}, out.topleft };
       AbsVec scale = { 1,1 };
       fgSingleton()->backend.fgDrawLines(lines, 5, 0xFF008800, &AbsVec_EMPTY, &scale, 0, &AbsVec_EMPTY, (const fgDrawAuxData*)m->p2);
+    }
+    if(Instance->curelement && Instance->_resizebox)
+    {
+      AbsRect out;
+      ResolveRect(Instance->curelement, &out);
+      fgDrawSkin(Instance->_resizebox, &out, (const fgDrawAuxData*)m->p2, 0);
     }
     return FG_ACCEPT;
   case FG_GETSKIN:
@@ -161,79 +297,88 @@ size_t fgLayoutEditor::WorkspaceRootMessage(fgElement* self, const FG_Msg* m)
 
   return fgElement_Message(self, m);
 }
+void fgLayoutEditor::ProcessEvent(int id)
+{
+  switch(id)
+  {
+  case EVENT_NEW:
+    NewFile();
+    break;
+  case EVENT_OPEN:
+    CheckSave();
+    LoadFile(FileDialog(true, 0, 0, L"XML Files (*.xml)\0*.xml\0", 0, ".xml").c_str());
+    break;
+  case EVENT_SAVE:
+    SaveFile();
+    break;
+  case EVENT_SAVEAS:
+    _path = "";
+    SaveFile();
+    break;
+  case EVENT_CLOSE:
+    Close();
+    break;
+  case EVENT_EXIT:
+    if(Instance->_window)
+      VirtualFreeChild(Instance->_window);
+    break;
+  case EVENT_CUT:
+  case  EVENT_COPY:
+  case  EVENT_PASTE:
+  case EVENT_DELETE:
+  case  EVENT_UNDO:
+  case  EVENT_REDO:
+    break;
+  case EVENT_HELP_DOCS:
+#ifdef BSS_PLATFORM_WIN32
+    ShellExecuteW(0, 0, L"http://www.blackspherestudios.com/feathergui/docs/", 0, 0, SW_SHOW);
+#endif
+    break;
+  case EVENT_HELP_GITHUB:
+#ifdef BSS_PLATFORM_WIN32
+    ShellExecuteW(0, 0, L"https://github.com/Black-Sphere-Studios/feathergui/", 0, 0, SW_SHOW);
+#endif
+    break;
+  case EVENT_HELP_ABOUT:
+    ShowDialog("FeatherGUI Layout Editor\nVersion v0.1.0\n\n(c)2017 Black Sphere Studios\n\nThis is a free, open-source layout editor for FeatherGUI, maintained as a core part of the FeatherGUI library ecosystem. Please send all feedback and bugs to the FeatherGUI Github: https://github.com/Black-Sphere-Studios/feathergui/", "Close");
+    break;
+  }
+}
 void fgLayoutEditor::MenuFile(struct _FG_ELEMENT* e, const FG_Msg* m)
 {
   if(m->e)
-  {
-    switch(m->e->userid)
-    {
-    case 1:
-      NewFile();
-      break;
-    case 2:
-      CheckSave();
-      LoadFile(FileDialog(true, 0, 0, L"XML Files (*.xml)\0*.xml\0", 0, ".xml").c_str());
-      break;
-    case 4:
-      SaveFile();
-      break;
-    case 5:
-      _path = "";
-      SaveFile();
-      break;
-    case 6:
-      Close();
-      break;
-    case 8:
-      if(Instance->_mainwindow)
-        VirtualFreeChild(*Instance->_mainwindow);
-    }
-  }
+    ProcessEvent(m->e->userid);
 }
-void fgLayoutEditor::MenuRecent(struct _FG_ELEMENT*, const FG_Msg* m)
+void fgLayoutEditor::MenuRecent(struct _FG_ELEMENT* e, const FG_Msg* m)
 {
   if(m->e && m->e->userdata)
-  {
     LoadFile((const char*)m->e->userdata);
-  }
 }
-void fgLayoutEditor::MenuEdit(struct _FG_ELEMENT*, const FG_Msg*)
+void fgLayoutEditor::MenuEdit(struct _FG_ELEMENT* e, const FG_Msg* m)
 {
-
+  if(m->e)
+    ProcessEvent(m->e->userid);
 }
-void fgLayoutEditor::MenuView(struct _FG_ELEMENT*, const FG_Msg*)
+void fgLayoutEditor::MenuView(struct _FG_ELEMENT* e, const FG_Msg* m)
 {
-
+  if(m->e)
+    ProcessEvent(m->e->userid);
 }
 
 void fgLayoutEditor::MenuHelp(struct _FG_ELEMENT*, const FG_Msg* m)
 {
   if(m->e)
-  {
-    switch(m->e->userid)
-    {
-    case 2:
-#ifdef BSS_PLATFORM_WIN32
-      ShellExecuteW(0, 0, L"http://www.blackspherestudios.com/feathergui/docs/", 0, 0, SW_SHOW);
-#endif
-      break;
-    case 3:
-#ifdef BSS_PLATFORM_WIN32
-      ShellExecuteW(0, 0, L"https://github.com/Black-Sphere-Studios/feathergui/", 0, 0, SW_SHOW);
-#endif
-      break;
-    case 4:
-      ShowDialog("FeatherGUI Layout Editor\nVersion v0.1.0\n\n(c)2017 Black Sphere Studios\n\nThis is a free, open-source layout editor for FeatherGUI, maintained as a core part of the FeatherGUI library ecosystem. Please send all feedback and bugs to the FeatherGUI Github: https://github.com/Black-Sphere-Studios/feathergui/", "Close");
-      break;
-    }
-  }
+    ProcessEvent(m->e->userid);
+}
+void fgLayoutEditor::ToolAction(struct _FG_ELEMENT* e, const FG_Msg* m)
+{
+  ProcessEvent(e->userid);
 }
 bool fgLayoutEditor::Close()
 {
   if(!CheckSave())
     return false;
-  if(_workspaceroot)
-    fgElement_Clear(_workspaceroot);
+  DisplayLayout(0);
   _layout.Clear();
   _skin.Clear();
   return true;
@@ -245,6 +390,9 @@ void fgLayoutEditor::OpenLayout()
   _layout.OpenLayout(&curlayout);
   fgSkinBase_IterateSkins(&curlayout.base, &_skin, [](void* p, fgSkin* s, const char*) {((SkinTab*)p)->OpenSkin(s); });
   DisplayLayout(&curlayout);
+  if(fgElement* tab = fgGetID("Editor$tablayout"))
+    tab->Action();
+  SetNeedSave(false);
 }
 void fgLayoutEditor::DisplayLayout(fgLayout* layout)
 {
@@ -253,7 +401,11 @@ void fgLayoutEditor::DisplayLayout(fgLayout* layout)
   if(_workspaceroot)
   {
     fgElement_Clear(_workspaceroot);
-    _workspaceroot->LayoutLoad(layout);
+    curelement = 0;
+    hoverelement = 0;
+    _workspaceroot->SetSkin(0);
+    if(layout)
+      _workspaceroot->LayoutLoad(layout);
   }
   displaylayout = layout;
 }
@@ -270,6 +422,7 @@ void fgLayoutEditor::LoadFile(const char* file)
     if(_settings.recent.size() > MAX_OPEN_HISTORY)
       _settings.recent.erase(_settings.recent.end());
     SaveSettings();
+    FillRecentList();
   }
   OpenLayout();
 }
@@ -279,13 +432,14 @@ void fgLayoutEditor::SaveFile()
     _path = FileDialog(false, 0, "newfile.xml", L"XML Files (*.xml)\0*.xml\0", 0, ".xml");
 
   fgLayout_SaveFileXML(&curlayout, _path.c_str());
-  _needsave = false;
+  SetNeedSave(false);
 }
 void fgLayoutEditor::NewFile()
 {
+  Close();
   _path = "";
   fgLayout_Destroy(&curlayout);
-  fgLayout_Init(&curlayout, 0);
+  fgLayout_Init(&curlayout, 0, 0);
 }
 bool fgLayoutEditor::CheckSave()
 {
@@ -298,7 +452,7 @@ bool fgLayoutEditor::CheckSave()
     case 1:
       SaveFile();
     case 2:
-      _needsave = false;
+      SetNeedSave(false);
       break;
     }
   }
@@ -381,4 +535,31 @@ void fgLayoutEditor::ReapplySkin(fgSkin* skin)
 {
   if(_workspaceroot)
     r_reapplyskin(skin, _workspaceroot);
+}
+
+void fgLayoutEditor::FillRecentList()
+{
+  if(_recentmenu)
+  {
+    fgElement_Clear(_recentmenu);
+    if(!_settings.recent.size())
+      _recentmenu->parent->SetFlag(FGCONTROL_DISABLE, true);
+    else
+    {
+      _recentmenu->parent->SetFlag(FGCONTROL_DISABLE, false);
+      for(const auto& s : _settings.recent)
+        _recentmenu->AddItemText(fgTrimPathFromFile(s.c_str()))->userdata = (void*)s.c_str();
+    }
+  }
+}
+
+void fgLayoutEditor::SetNeedSave(bool needsave)
+{
+  _needsave = needsave;
+  Str name("FeatherGUI Layout Editor - ");
+  name += fgTrimPathFromFile(_path.c_str());
+  if(_needsave)
+    name += "*";
+  if(_window && _window->GetText() != name)
+    _window->SetText(name.c_str());
 }

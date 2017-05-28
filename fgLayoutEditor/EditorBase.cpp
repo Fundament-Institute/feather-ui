@@ -10,7 +10,7 @@ using namespace bss;
 EditorBase::EditorBase(fgLayout* layout)
 {
   bssFill(*this, 0);
-  fgLayout_Init(&curlayout, 0);
+  fgLayout_Init(&curlayout, 0, 0);
 }
 EditorBase::~EditorBase()
 {
@@ -324,6 +324,7 @@ void EditorBase::ParseStyleMsg(fgStyle& target, fgElement* instance, fgSkinEleme
 
   if(m.type != FG_CUSTOMEVENT && instance != 0)
     fgSendMessage(instance, &m);
+  SetNeedSave(true);
 }
 void EditorBase::RemoveStyleMsg(fgStyle& s, uint16_t type, uint16_t subtype)
 {

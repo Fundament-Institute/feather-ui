@@ -36,6 +36,10 @@ size_t fgTabcontrolPanel_Message(fgElement* self, const FG_Msg* msg)
 {
   switch(msg->type)
   {
+  case FG_ACTION:
+    if(self->userdata)
+      return fgSendMessage((fgElement*)self->userdata, msg);
+    return 0;
   case FG_GETSELECTEDITEM:
     return (size_t)self->userdata;
   }

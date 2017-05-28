@@ -63,27 +63,57 @@ public:
   void MenuEdit(struct _FG_ELEMENT*, const FG_Msg*);
   void MenuView(struct _FG_ELEMENT*, const FG_Msg*);
   void MenuHelp(struct _FG_ELEMENT*, const FG_Msg*);
+  void ToolAction(struct _FG_ELEMENT*, const FG_Msg*);
   void SaveSettings();
   virtual void ReapplySkin(fgSkin* skin) override;
+  void FillRecentList();
+  void ProcessEvent(int id);
+  virtual void SetNeedSave(bool needsave) override;
 
   static size_t WorkspaceRootMessage(fgElement* e, const FG_Msg* m);
   static fgElement* LoadLayout(fgElement* parent, fgElement* next, fgClassLayout* layout);
   static std::string FileDialog(bool open, unsigned long flags, const char* file, const wchar_t* filter, const char* initdir, const char* defext);
-  
+  static uint8_t HitElement(fgElement* target, const FG_Msg* m);
+    
   static fgLayoutEditor* Instance;
   static const int MAX_OPEN_HISTORY = 10;
+
+  enum EVENTS {
+    EVENT_NEW = 1,
+    EVENT_OPEN,
+    EVENT_SAVE,
+    EVENT_SAVEAS,
+    EVENT_CLOSE,
+    EVENT_EXIT,
+    EVENT_CUT,
+    EVENT_COPY,
+    EVENT_PASTE,
+    EVENT_DELETE,
+    EVENT_UNDO,
+    EVENT_REDO,
+    EVENT_HELP_MANUAL,
+    EVENT_HELP_DOCS,
+    EVENT_HELP_GITHUB,
+    EVENT_HELP_ABOUT,
+  };
+  enum CORNERHIT {
+    HIT_TOP = 1,
+    HIT_BOTTOM = 2,
+    HIT_LEFT = 4,
+    HIT_RIGHT = 8,
+    HIT_NONE = 15,
+  };
 
 protected:
   static size_t _inject(fgRoot* self, const FG_Msg* msg);
 
-  fgWindow* _mainwindow;
   fgWorkspace* _workspace;
   fgLayout* displaylayout; // Currently displayed layout or sublayout
-  fgElement* _curelement; // currently selected element in the workspace
-  fgElement* _hoverelement;
   fgElement* _workspaceroot;
   fgElement* _toolbar;
-
+  fgElement* _recentmenu;
+  fgSkin* _resizebox;
+  
   bool _needsave;
   LayoutTab _layout;
   SkinTab _skin;
@@ -91,6 +121,9 @@ protected:
   fgLayoutAction* _redo;
   EditorSettings _settings;
   std::string _path;
+  uint8_t _sizing;
+  AbsVec _lastmouse;
+  AbsVec _anchor;
 };
 
 #endif

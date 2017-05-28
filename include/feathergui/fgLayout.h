@@ -33,9 +33,7 @@ typedef struct _FG_CLASS_LAYOUT {
 } fgClassLayout;
 
 typedef struct _FG_LAYOUT {
-  const char* name;
   fgSkinBase base;
-  fgStyle style;
   fgSkin* skin; // if not null, specifies the skin to assign to this layout.
   fgVectorClassLayout children; // Type: fgClassLayout
   struct kh_fgLayoutMap_s* sublayouts;
@@ -47,7 +45,7 @@ typedef struct _FG_LAYOUT {
   FG_DLLEXPORT struct _FG_LAYOUT* AddLayout(const char* name);
   FG_DLLEXPORT bool RemoveLayout(const char* name);
   FG_DLLEXPORT struct _FG_LAYOUT* GetLayout(const char* name) const;
-  FG_DLLEXPORT void IterateLayouts(void* p, void(*f)(struct _FG_LAYOUT*, const char*, void*));
+  FG_DLLEXPORT void IterateLayouts(void* p, void(*f)(void*, struct _FG_LAYOUT*, const char*));
 
   //FG_DLLEXPORT void LoadFileUBJSON(const char* file);
   //FG_DLLEXPORT void LoadUBJSON(const char* data, FG_UINT length);
@@ -58,7 +56,7 @@ typedef struct _FG_LAYOUT {
 #endif
 } fgLayout;
 
-FG_EXTERN void fgLayout_Init(fgLayout* self, const char* name);
+FG_EXTERN void fgLayout_Init(fgLayout* self, const char* name, const char* path);
 FG_EXTERN void fgLayout_Destroy(fgLayout* self);
 FG_EXTERN FG_UINT fgLayout_AddChild(fgLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units, int order);
 FG_EXTERN char fgLayout_RemoveChild(fgLayout* self, FG_UINT child);
@@ -66,7 +64,7 @@ FG_EXTERN fgClassLayout* fgLayout_GetChild(const fgLayout* self, FG_UINT child);
 FG_EXTERN fgLayout* fgLayout_AddLayout(fgLayout* self, const char* name);
 FG_EXTERN char fgLayout_RemoveLayout(fgLayout* self, const char* name);
 FG_EXTERN fgLayout* fgLayout_GetLayout(const fgLayout* self, const char* name);
-FG_EXTERN void fgLayout_IterateLayouts(fgLayout* self, void* p, void(*f)(fgLayout*, const char*, void*));
+FG_EXTERN void fgLayout_IterateLayouts(fgLayout* self, void* p, void(*f)(void*, fgLayout*, const char*));
 
 //FG_EXTERN void fgLayout_LoadFileUBJSON(fgLayout* self, const char* file);
 //FG_EXTERN void fgLayout_LoadUBJSON(fgLayout* self, const char* data, FG_UINT length, const char* path);

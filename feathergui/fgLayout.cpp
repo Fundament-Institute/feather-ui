@@ -13,18 +13,15 @@ using namespace bss;
 
 KHASH_INIT(fgLayoutMap, const char*, fgLayout*, 1, kh_str_hash_funcins, kh_str_hash_insequal);
 
-void fgLayout_Init(fgLayout* self, const char* name)
+void fgLayout_Init(fgLayout* self, const char* name, const char* path)
 {
   bssFill(*self, 0);
-  if(name)
-    self->name = fgCopyText(name, __FILE__, __LINE__);
+  self->base.name = fgCopyText(name, __FILE__, __LINE__);
+  self->base.path = fgCopyText(path, __FILE__, __LINE__);
 }
 void fgLayout_Destroy(fgLayout* self)
 {
   fgSkinBase_Destroy(&self->base);
-  fgStyle_Destroy(&self->style);
-  if(self->name)
-    fgFreeText(self->name, __FILE__, __LINE__);
   reinterpret_cast<fgClassLayoutArray&>(self->children).~ArraySort();
   if(self->sublayouts != 0)
   {
@@ -64,8 +61,8 @@ fgLayout* fgLayout_AddLayout(fgLayout* self, const char* name)
     return kh_val(self->sublayouts, i);
   }
   kh_val(self->sublayouts, i) = fgmalloc<fgLayout>(1, __FILE__, __LINE__);
-  fgLayout_Init(kh_val(self->sublayouts, i), name);
-  kh_key(self->sublayouts, i) = kh_val(self->sublayouts, i)->name;
+  fgLayout_Init(kh_val(self->sublayouts, i), name, self->base.path);
+  kh_key(self->sublayouts, i) = kh_val(self->sublayouts, i)->base.name;
   return kh_val(self->sublayouts, i);
 }
 char fgLayout_RemoveLayout(fgLayout* self, const char* name)
@@ -128,16 +125,16 @@ fgClassLayout* fgClassLayout_GetChild(const fgClassLayout* self, FG_UINT child)
 {
   return self->children.p + child;
 }
-void fgClassLayout_LoadAttributesXML(fgClassLayout* self, const XMLNode* cur, int flags, fgSkinBase* root, const char* path)
+void fgClassLayout_LoadAttributesXML(fgClassLayout* self, const XMLNode* cur, int flags, fgSkinBase* root)
 {
   const XMLValue* userid = cur->GetAttribute("userid");
   if(userid)
     self->userid = userid->Integer;
 
-  self->element.skin = fgStyle_ParseAttributesXML(&self->element.style, cur, flags, root, path, &self->id, (fgKeyValueArray*)&self->userdata);
+  self->element.skin = fgStyle_ParseAttributesXML(&self->element.style, cur, flags, root, &self->id, (fgKeyValueArray*)&self->userdata);
 }
 
-void fgClassLayout_LoadLayoutXML(fgClassLayout* self, const XMLNode* cur, fgLayout* root, const char* path)
+void fgClassLayout_LoadLayoutXML(fgClassLayout* self, const XMLNode* cur, fgLayout* root)
 {
   for(size_t i = 0; i < cur->GetNodes(); ++i)
   { 
@@ -145,7 +142,7 @@ void fgClassLayout_LoadLayoutXML(fgClassLayout* self, const XMLNode* cur, fgLayo
     fgTransform transform = { 0 };
     int type = fgStyle_NodeEvalTransform(node, transform, 0);
     fgFlag rmflags = 0;
-    fgFlag flags = fgSkinBase_ParseFlagsFromString(node->GetAttributeString("flags"), &rmflags, '|');
+    fgFlag flags = fgSkinBase_ParseFlagsFromString(node->GetAttributeString("flags"), &rmflags, '|', 0);
     flags = (flags | fgGetTypeFlags(node->GetName()))&(~rmflags);
 
     fgTransform TF_SEPERATOR = { { 0,0,0,0,0,1.0,0,0 }, 0,{ 0,0,0,0 } };
@@ -155,19 +152,19 @@ void fgClassLayout_LoadLayoutXML(fgClassLayout* self, const XMLNode* cur, fgLayo
     {
       FG_UINT index = fgClassLayout_AddChild(self, node->GetName(), node->GetAttributeString("name"), flags, &transform, type, (int)node->GetAttributeInt("order"));
       fgClassLayout* layout = fgClassLayout_GetChild(self, index);
-      fgClassLayout_LoadAttributesXML(layout, node, flags, &root->base, path);
-      fgClassLayout_LoadLayoutXML(layout, node, root, path);
+      fgClassLayout_LoadAttributesXML(layout, node, flags, &root->base);
+      fgClassLayout_LoadLayoutXML(layout, node, root);
     }
   }
 }
-void fgLayout_LoadLayoutNode(fgLayout* self, const XMLNode* root, std::istream& s, const char* path)
+void fgLayout_LoadLayoutNode(fgLayout* self, const XMLNode* root, std::istream& s)
 {
   size_t nodes = root->GetNodes(); // We have to load any skins in the layout BEFORE we parse the attributes, otherwise the skin won't get applied
   for(size_t i = 0; i < nodes; ++i)
     if(!STRICMP(root->GetNode(i)->GetName(), "skin"))
-      fgSkinBase_ParseNodeXML(&self->base, root->GetNode(i), path);
+      fgSkinBase_ParseNodeXML(&self->base, root->GetNode(i));
 
-  self->skin = fgStyle_ParseAttributesXML(&self->style, root, 0, &self->base, path, 0, 0); // This will load and apply skins to the layout base
+  self->skin = fgStyle_ParseAttributesXML(&self->base.style, root, 0, &self->base, 0, 0); // This will load and apply skins to the layout base
 
   for(size_t i = 0; i < root->GetNodes(); ++i)
   {
@@ -180,19 +177,19 @@ void fgLayout_LoadLayoutNode(fgLayout* self, const XMLNode* root, std::istream& 
       if(!name)
         fgLog(FGLOG_ERROR, "Sublayout failed to load because it had no name attribute.");
       else
-        fgLayout_LoadLayoutNode(self->AddLayout(name), root, s, path);
+        fgLayout_LoadLayoutNode(self->AddLayout(name), root, s);
     }
     else
     {
       fgTransform transform = { 0 };
       fgMsgType type = fgStyle_NodeEvalTransform(node, transform, 0);
       fgFlag rmflags = 0;
-      fgFlag flags = fgSkinBase_ParseFlagsFromString(node->GetAttributeString("flags"), &rmflags, '|');
+      fgFlag flags = fgSkinBase_ParseFlagsFromString(node->GetAttributeString("flags"), &rmflags, '|', 0);
       flags = (flags | fgGetTypeFlags(node->GetName()))&(~rmflags);
       FG_UINT index = fgLayout_AddChild(self, node->GetName(), node->GetAttributeString("name"), flags, &transform, type, (int)node->GetAttributeInt("order"));
       fgClassLayout* layout = fgLayout_GetChild(self, index);
-      fgClassLayout_LoadAttributesXML(layout, node, flags, &self->base, path);
-      fgClassLayout_LoadLayoutXML(layout, node, self, path);
+      fgClassLayout_LoadAttributesXML(layout, node, flags, &self->base);
+      fgClassLayout_LoadLayoutXML(layout, node, self);
     }
   }
 }
@@ -207,16 +204,14 @@ bool fgLayout_LoadStreamXML(fgLayout* self, std::istream& s, const char* path)
     return false;
   }
 
-  fgLayout_LoadLayoutNode(self, root, s, path);
+  fgSkinBase_SetPath(&self->base, path);
+  fgLayout_LoadLayoutNode(self, root, s);
   return true;
 }
 char fgLayout_LoadFileXML(fgLayout* self, const char* file)
 {
   Str path(file);
-  path.ReplaceChar('\\', '/');
-  char* dir = strrchr(path.UnsafeString(), '/');
-  if(dir) // If we find a /, we chop off the rest of the string AFTER it, so it becomes a valid directory path.
-    dir[1] = 0;
+  fgTrimFileFromPath(path.UnsafeString());
   std::ifstream fs(file, std::ios_base::in|std::ios_base::binary);
   return fgLayout_LoadStreamXML(self, fs, path.c_str());
 }
@@ -248,9 +243,9 @@ void fgLayout_SaveSubLayoutXML(fgLayout* self, XMLNode* node, const char* name, 
   if(name)
     node->AddAttribute("name")->String = name;
   if(self->skin)
-    node->AddAttribute("skin")->String = self->skin->name;
+    node->AddAttribute("skin")->String = self->skin->base.name;
 
-  fgSkinBase_WriteStyleAttributesXML(node, self->style, &self->base, 0);
+  fgSkinBase_WriteStyleAttributesXML(node, self->base.style, &self->base, self->base.type);
 
   // Write all children nodes
   for(size_t i = 0; i < self->children.l; ++i)
@@ -286,21 +281,18 @@ void fgLayout_SaveStreamXML(fgLayout* self, std::ostream& s, const char* path)
 void fgLayout_SaveFileXML(fgLayout* self, const char* file)
 {
   Str path(file);
-  path.ReplaceChar('\\', '/');
-  char* dir = strrchr(path.UnsafeString(), '/');
-  if(dir) // If we find a /, we chop off the rest of the string AFTER it, so it becomes a valid directory path.
-    dir[1] = 0;
+  fgTrimFileFromPath(path.UnsafeString());
   std::ofstream fs(file, std::ios_base::out | std::ios_base::binary);
   return fgLayout_SaveStreamXML(self, fs, path.c_str());
 }
-void fgLayout_IterateLayouts(fgLayout* self, void* p, void(*f)(fgLayout*, const char*, void*))
+void fgLayout_IterateLayouts(fgLayout* self, void* p, void(*f)(void*, fgLayout*, const char*))
 {
   if(!self->sublayouts)
     return;
   for(khiter_t i = 0; i < kh_end(self->sublayouts); ++i)
   {
     if(kh_exist(self->sublayouts, i))
-      f(kh_val(self->sublayouts, i), kh_key(self->sublayouts, i), p);
+      f(p, kh_val(self->sublayouts, i), kh_key(self->sublayouts, i));
   }
 }
 
@@ -310,7 +302,7 @@ fgClassLayout* fgLayout::GetChild(FG_UINT layout) const { return fgLayout_GetChi
 fgLayout* fgLayout::AddLayout(const char* name) { return fgLayout_AddLayout(this, name); }
 bool fgLayout::RemoveLayout(const char* name) { return fgLayout_RemoveLayout(this, name) != 0; }
 fgLayout* fgLayout::GetLayout(const char* name) const { return fgLayout_GetLayout(this, name); }
-void fgLayout::IterateLayouts(void* p, void(*f)(fgLayout*, const char*, void*)) { fgLayout_IterateLayouts(this, p, f); }
+void fgLayout::IterateLayouts(void* p, void(*f)(void*, fgLayout*, const char*)) { fgLayout_IterateLayouts(this, p, f); }
 
 //void fgLayout::LoadFileUBJSON(const char* file) { fgLayout_LoadFileUBJSON(this, file); }
 //void fgLayout::LoadUBJSON(const char* data, FG_UINT length) { fgLayout_LoadUBJSON(this, data, length); }

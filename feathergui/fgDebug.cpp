@@ -270,7 +270,7 @@ void fgDebug_ApplyProperty(fgElement* target, int id, const char* prop)
   case 12:
   {
     fgFlag rmflags;
-    fgFlag add = fgSkinBase_ParseFlagsFromString(prop, &rmflags, '\n');
+    fgFlag add = fgSkinBase_ParseFlagsFromString(prop, &rmflags, '\n', 0);
     fgFlag def = fgGetTypeFlags(target->GetClassName());
     target->SetFlags((def | add)&(~rmflags));
   }
@@ -293,13 +293,13 @@ void fgDebug_DisplayProperties(fgElement* e)
   g.GetRow(1)->GetItem(1)->SetText(e->GetName());
   g.GetRow(2)->GetItem(1)->SetText(fgStyle_WriteCRect(e->transform.area, 0).c_str());
   g.GetRow(3)->GetItem(1)->SetText(fgStyle_WriteCVec(e->transform.center, 0).c_str());
-  g.GetRow(4)->GetItem(1)->SetText(bss::StrF("%.2g", e->transform.rotation).c_str());
+  g.GetRow(4)->GetItem(1)->SetText(bss::StrF("%g", e->transform.rotation).c_str());
   g.GetRow(5)->GetItem(1)->SetText(fgStyle_WriteAbsRect(e->margin, 0).c_str());
   g.GetRow(6)->GetItem(1)->SetText(fgStyle_WriteAbsRect(e->padding, 0).c_str());
-  g.GetRow(7)->GetItem(1)->SetText(bss::StrF("%.2g %.2g", e->mindim.x, e->mindim.y).c_str());
-  g.GetRow(8)->GetItem(1)->SetText(bss::StrF("%.2g %.2g", e->maxdim.x, e->maxdim.y).c_str());
-  g.GetRow(9)->GetItem(1)->SetText(bss::StrF("%.2g %.2g", e->layoutdim.x, e->layoutdim.y).c_str());
-  g.GetRow(10)->GetItem(1)->SetText(bss::StrF("%.2g %.2g", e->scaling.x, e->scaling.y).c_str());
+  g.GetRow(7)->GetItem(1)->SetText(bss::StrF("%g %g", e->mindim.x, e->mindim.y).c_str());
+  g.GetRow(8)->GetItem(1)->SetText(bss::StrF("%g %g", e->maxdim.x, e->maxdim.y).c_str());
+  g.GetRow(9)->GetItem(1)->SetText(bss::StrF("%g %g", e->layoutdim.x, e->layoutdim.y).c_str());
+  g.GetRow(10)->GetItem(1)->SetText(bss::StrF("%g %g", e->scaling.x, e->scaling.y).c_str());
   if(e->parent && e->parent->GetName())
     g.GetRow(11)->GetItem(1)->SetText(bss::StrF("%s (%p)", e->parent->GetName(), e->parent).c_str());
   else if(e->parent)
@@ -315,7 +315,7 @@ void fgDebug_DisplayProperties(fgElement* e)
   fgStyle_WriteFlagsIterate(flags, e->GetClassName(), "\n", add, false);
   fgStyle_WriteFlagsIterate(flags, e->GetClassName(), "\n", rm, true);
   g.GetRow(12)->GetItem(1)->SetText(flags.c_str()[0] ? (flags.c_str() + 1) : "");
-  g.GetRow(13)->GetItem(1)->SetText(!e->skin ? "[none]" : e->skin->name);
+  g.GetRow(13)->GetItem(1)->SetText(!e->skin ? "[none]" : e->skin->base.name);
   g.GetRow(14)->GetItem(1)->SetText(bss::StrF("%X", e->style).c_str());
   g.GetRow(15)->GetItem(1)->SetText(bss::StrF("%u", e->userid).c_str());
   g.GetRow(16)->GetItem(1)->SetText(bss::StrF("%p", e->userdata).c_str());
@@ -1272,11 +1272,11 @@ ptrdiff_t fgDebug_WriteMessageFn(fgDebugMessage* msg, F fn, Args... args)
   case FG_SETUV:
     return (*fn)(args..., "%*sFG_SETUV(CRect{%f,%f,%f,%f,%f,%f,%f,%f})", spaces, "", OUTPUT_CRECT(msg->arg2.crect));
   case FG_SETLETTERSPACING:
-    return (*fn)(args..., "%*sFG_SETLETTERSPACING(%.2g)", spaces, "", msg->arg1.f);
+    return (*fn)(args..., "%*sFG_SETLETTERSPACING(%g)", spaces, "", msg->arg1.f);
   case FG_SETLINEHEIGHT:
-    return (*fn)(args..., "%*sFG_SETLINEHEIGHT(%.2g)", spaces, "", msg->arg1.f);
+    return (*fn)(args..., "%*sFG_SETLINEHEIGHT(%g)", spaces, "", msg->arg1.f);
   case FG_SETOUTLINE:
-    return (*fn)(args..., "%*sFG_SETOUTLINE(%.2g)", spaces, "", msg->arg1.f);
+    return (*fn)(args..., "%*sFG_SETOUTLINE(%g)", spaces, "", msg->arg1.f);
   }
 
   return 0;

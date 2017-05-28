@@ -43,7 +43,7 @@
     <ContextMenu id="#testcontext">
       <MenuItem text="Change Window Text" />
     </ContextMenu>
-    <TabControl area="0 28 100% 100%" flags="DRAGGABLE">
+    <TabControl area="0 28 100% 100%">
       <Tab id="#tabfocus" name="Tab 1">
         <Button area="0, 0, 0, 0" flags="EXPAND" text="Not Pressed" onaction="makepressed" />
         <Box area="10, 160, 150, 240" flags="TILEY|EXPANDX" max-width="100" margin="2,2,2,2">
@@ -113,7 +113,7 @@
             <Resource uv="3,3,3,3" area="0,0,50,25" color="0xDDDDDD" flags="RECT" margin="0,5,0,0" />
             <Resource uv="3,3,3,3" area="0,0,30,25" color="0xDDDDDD" flags="RECT" margin="10,5,0,0" />
           </Box>
-          <Box area="0,0,100%,0" flags="TILE|EXPANDY|IGNOREMARGINEDGE" padding="5,5,5,5" margin="10,5,0,0" max-width="250">
+          <Box area="0,0,100%,0" flags="TILE|EXPANDY|IGNOREMARGINEDGE" padding="5,5,5,5" margin="10,5,0,0" max-width="250" min-width="0">
             <Resource uv="3,3,3,3" area="0,0,100%,100%" color="0xBBBBBB" flags="RECT|BACKGROUND|IGNORE"/>
             <Resource uv="3,3,3,3" area="0,0,30,25" color="0xDDDDDD" flags="RECT" margin="10,5,0,0" />
             <Resource uv="3,3,3,3" area="0,0,100%,25" color="0xDDDDDD" flags="RECT" margin="10,5,0,0" min-width="60" max-width="100"/>

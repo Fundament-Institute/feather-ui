@@ -187,24 +187,6 @@ void fgDebugD2D_Init(fgDebug* self, fgElement* BSS_RESTRICT parent, fgElement* B
   fgDirect2D::instance->debugcontext.CreateResources(fgDirect2D::instance->debughwnd);
 }
 
-template<class T, void (*INIT)(T* BSS_RESTRICT, fgElement* BSS_RESTRICT, fgElement* BSS_RESTRICT, const char*, fgFlag, const fgTransform*, unsigned short)>
-BSS_FORCEINLINE fgElement* d2d_create_default(fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units, const char* file, size_t line)
-{
-  T* r = (T*)malloc(sizeof(T));
-  INIT(r, parent, next, name, flags, transform, units);
-  ((fgElement*)r)->free = &free;
-  return (fgElement*)r;
-}
-
-fgElement* fgCreateD2D(const char* type, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, unsigned short units)
-{
-  if(!_stricmp(type, "window")) // Neither of these have default flags so we don't bother with them.
-    return d2d_create_default<fgWindowD2D, fgWindowD2D_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
-  if(!_stricmp(type, "debug"))
-    return d2d_create_default<fgDebug, fgDebugD2D_Init>(parent, next, name, flags, transform, units, __FILE__, __LINE__);
-  return fgCreateDefault(type, parent, next, name, flags, transform, units);
-}
-
 struct fgFontD2D
 {
   fgFontD2D(IDWriteTextFormat* _f, AbsVec _dpi, unsigned int _pt) : format(_f), dpi(_dpi), pt(_pt) {}
@@ -484,7 +466,7 @@ fgAsset fgCloneAssetD2D(fgAsset asset, fgElement* src)
   
   if(FAILED(hr))
     fgLog(FGLOG_ERROR, "fgCloneAssetD2D failed with error code %li", hr);
-  tex->Release();
+  //tex->Release();
   return bitmap;
 }
 void fgDestroyAssetD2D(fgAsset asset)
@@ -961,7 +943,7 @@ struct _FG_ROOT* fgInitialize()
     &fgDrawAssetD2D,
     &fgAssetSizeD2D,
     &fgDrawLinesD2D,
-    &fgCreateD2D,
+    &fgCreateDefault,
     &fgFlagMapDefault,
     &fgMessageMapDefault,
     &fgUserDataMapCallbacks,
@@ -1021,6 +1003,8 @@ struct _FG_ROOT* fgInitialize()
   fgRoot_Init(&root->root, &extent, &dpi, &BACKEND);
 
   fgLog(FGLOG_NONE, "Initializing fgDirect2D...");
+  fgRegisterControl("window", (fgInitializer)fgWindowD2D_Init, sizeof(fgWindowD2D), 0);
+  fgRegisterControl("debug", (fgInitializer)fgDebugD2D_Init, sizeof(fgDebug), FGELEMENT_BACKGROUND);
 
 #ifdef BSS_DEBUG
   HeapSetInformation(NULL, HeapEnableTerminationOnCorruption, NULL, 0);

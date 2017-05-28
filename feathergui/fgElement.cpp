@@ -381,7 +381,7 @@ void fgElement_ApplySkin(fgElement* self, const fgSkin* skin)
 
   if(skin->tfunits != (fgMsgType)~0)
     self->SetTransform(skin->tf, skin->tfunits);
-  fgElement_StyleToMessageArray(&skin->style, 0, &self->skinstyle);
+  fgElement_StyleToMessageArray(&skin->base.style, 0, &self->skinstyle);
 }
 
 size_t fgElement_CheckLastFocus(fgElement* self)
@@ -733,7 +733,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
     if(!layout)
       return 0;
 
-    fgElement_StyleToMessageArray(&layout->style, 0, &self->layoutstyle);
+    fgElement_StyleToMessageArray(&layout->base.style, 0, &self->layoutstyle);
     if(self->layoutstyle)
       fgElement_ApplyMessageArray(0, self, self->layoutstyle);
     if(layout->skin)

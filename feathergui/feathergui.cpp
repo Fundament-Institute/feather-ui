@@ -352,3 +352,20 @@ extern size_t fgUTF16toUTF8(const wchar_t*BSS_RESTRICT input, ptrdiff_t srclen, 
 }
 #endif
 
+
+void fgTrimFileFromPath(char* path)
+{
+   char* r = strrchr(path, '/');
+   char* r2 = strrchr(path, '\\');
+  r = std::max(r, r2);
+  if(r && r[0])
+    r[1] = 0;
+}
+
+const char* fgTrimPathFromFile(const char* path)
+{
+  const char* r = strrchr(path, '/');
+  const char* r2 = strrchr(path, '\\');
+  r = std::max(r, r2);
+  return (!r) ? path : (r + 1);
+}

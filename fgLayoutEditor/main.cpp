@@ -154,7 +154,7 @@ int main(int argc, char** argv)
   }
 
   fgLayout layout;
-  fgLayout_Init(&layout, 0);
+  fgLayout_Init(&layout, 0, 0);
 #ifdef BSS_PLATFORM_WIN32
   const char* data;
   DWORD sz;
@@ -165,7 +165,6 @@ int main(int argc, char** argv)
 #endif
   {
     fgLayoutEditor editor(&layout, settings);
-    editor.LoadFile("../media/editor/editor.xml");
     while(fgSingleton()->backend.fgProcessMessages());
   }
   fgLayout_Destroy(&layout);

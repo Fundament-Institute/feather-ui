@@ -68,11 +68,12 @@ _FG_ASSET_DATA::~_FG_ASSET_DATA()
 _FG_ASSET_DATA& _FG_ASSET_DATA::operator=(const _FG_ASSET_DATA& copy) { this->~_FG_ASSET_DATA(); new (this) _FG_ASSET_DATA(copy); return *this; }
 _FG_ASSET_DATA& _FG_ASSET_DATA::operator=(_FG_ASSET_DATA&& mov) { this->~_FG_ASSET_DATA(); new (this) _FG_ASSET_DATA(std::move(mov)); return *this; }
 
-void fgSkin_Init(fgSkin* self, const char* name)
+void fgSkin_Init(fgSkin* self, const char* name, const char* path)
 {
   bss::bssFill(*self, 0);
   self->tfunits = (fgMsgType)~0;
-  self->name = fgCopyText(name, __FILE__, __LINE__);
+  self->base.name = fgCopyText(name, __FILE__, __LINE__);
+  self->base.path = fgCopyText(path, __FILE__, __LINE__);
 }
 
 template<class HASH, class T, void (*DESTROY)(T*), void(*DEL)(HASH*, khint_t)>
@@ -100,11 +101,8 @@ void DestroyHash(HASH* self)
 }
 void fgSkin_Destroy(fgSkin* self)
 {
-  fgStyle_Destroy(&self->style);
   fgSkinTree_Destroy(&self->tree);
   fgSkinBase_Destroy(&self->base);
-  if(self->name)
-    fgFreeText(self->name, __FILE__, __LINE__);
 }
 
 fgSkin* fgSkin_GetSkin(const fgSkin* self, const char* name)
@@ -122,6 +120,17 @@ void fgSkinBase_Destroy(fgSkinBase* self)
   DestroyHash<kh_fgAssets_t, _FG_ASSET_DATA, &_FG_ASSET_DATA_DESTROY, &kh_del_fgAssets, &kh_destroy_fgAssets>(self->assets);
   DestroyHash<kh_fgFonts_t, _FG_FONT_DATA, &_FG_FONT_DATA_DESTROY, &kh_del_fgFonts, &kh_destroy_fgFonts>(self->fonts);
   DestroyHash<kh_fgSkins_t, fgSkin, &fgSkin_Destroy, &kh_del_fgSkins, &kh_destroy_fgSkins>(self->skinmap);
+  fgStyle_Destroy(&self->style);
+  if(self->name)
+    fgFreeText(self->name, __FILE__, __LINE__);
+  if(self->path)
+    fgFreeText(self->path, __FILE__, __LINE__);
+}
+void fgSkinBase_SetPath(fgSkinBase* self, const char* path)
+{
+  if(self->path)
+    fgFreeText(self->path, __FILE__, __LINE__);
+  self->path = fgCopyText(path, __FILE__, __LINE__);
 }
 
 _FG_ASSET_DATA* fgSkinBase_AddAssetFile(fgSkinBase* self, fgFlag flags, const char* file)
@@ -129,7 +138,9 @@ _FG_ASSET_DATA* fgSkinBase_AddAssetFile(fgSkinBase* self, fgFlag flags, const ch
   if(!self->assets)
     self->assets = kh_init_fgAssets();
 
-  fgAsset asset = fgroot_instance->backend.fgCreateAssetFile(flags, file, 0);
+  fgAsset asset = fgroot_instance->backend.fgCreateAssetFile(flags, bss::Str(self->path) + file, 0);
+  if(!asset)
+    asset = fgroot_instance->backend.fgCreateAssetFile(flags, file, 0);
   int r;
   khiter_t iter = kh_put_fgAssets(self->assets, asset, &r);
   if(r != 0) // If r is 0 the element already exists so we don't want to re-initialize it
@@ -210,9 +221,9 @@ fgSkin* fgSkinBase_AddSkin(fgSkinBase* self, const char* name)
   if(r != 0) // If r is 0 the element already exists so we don't want to re-initialize it
   {
     kh_val(self->skinmap, iter) = fgmalloc<fgSkin>(1, __FILE__, __LINE__);
-    fgSkin_Init(kh_val(self->skinmap, iter), name);
+    fgSkin_Init(kh_val(self->skinmap, iter), name, self->path);
     kh_val(self->skinmap, iter)->base.parent = self;
-    kh_key(self->skinmap, iter) = kh_val(self->skinmap, iter)->name;
+    kh_key(self->skinmap, iter) = kh_val(self->skinmap, iter)->base.name;
   }
 
   return kh_val(self->skinmap, iter);
@@ -283,6 +294,6 @@ _FG_FONT_DATA* fgSkinBase::GetFont(fgFont font) const { return fgSkinBase_GetFon
 //fgSkin* fgSkinBase::LoadFileUBJSON(const char* file) { return fgSkinBase_LoadFileUBJSON(this, file); }
 //fgSkin* fgSkinBase::LoadUBJSON(const void* data, FG_UINT length, const char* path) { return fgSkinBase_LoadUBJSON(this, data, length, path); }
 fgSkin* fgSkinBase::LoadFileXML(const char* file) { return fgSkinBase_LoadFileXML(this, file); }
-fgSkin* fgSkinBase::LoadXML(const char* data, FG_UINT length, const char* path) { return fgSkinBase_LoadXML(this, data, length, path); }
+fgSkin* fgSkinBase::LoadXML(const char* data, FG_UINT length) { return fgSkinBase_LoadXML(this, data, length); }
 
 fgSkin* fgSkin::GetSkin(const char* name) const { return fgSkin_GetSkin(this, name); }

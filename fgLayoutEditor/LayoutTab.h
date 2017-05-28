@@ -19,6 +19,8 @@ public:
   void Link(fgElement* e, fgClassLayout* layout);
   inline void ClearLinks() { _elementmap.Clear(); _layoutmap.Clear(); }
   fgLayout* FindParentLayout(fgElement* treeitem);
+  inline fgElement* GetTreeItem(fgClassLayout* p) { return _treemap[p]; }
+  inline fgClassLayout* GetClassLayout(fgElement* p) { return _elementmap[p]; }
 
   void MenuInsert(struct _FG_ELEMENT*, const FG_Msg*);
   void MenuAdd(struct _FG_ELEMENT*, const FG_Msg*);
@@ -29,6 +31,7 @@ protected:
   void _openLayout(fgElement* root, const fgVectorClassLayout& layout);
   void _doInsert(const char* type, bool insert);
   void _treeItemOnFocus(struct _FG_ELEMENT*, const FG_Msg*);
+  void _treeItemOnHover(struct _FG_ELEMENT*, const FG_Msg*);
   void _textboxOnAction(struct _FG_ELEMENT* e, const FG_Msg* msg);
   void _editboxOnAction(struct _FG_ELEMENT* e, const FG_Msg* msg);
   void _treeviewOnMouseDown(struct _FG_ELEMENT* e, const FG_Msg* msg);
@@ -45,6 +48,7 @@ protected:
   fgElement* _selected; // Current selected item in the tree, if applicable
   bss::Hash<fgElement*, fgClassLayout*> _elementmap; // Map of elements to their corresponding class layout
   bss::Hash<fgClassLayout*, fgElement*> _layoutmap; // reverse hash of the above
+  bss::Hash<fgClassLayout*, fgElement*> _treemap; // Map of class layout to the corresponding treeitem
   std::function<void(fgElement*, const char*)> _propafter;
 };
 

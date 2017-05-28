@@ -24,6 +24,7 @@ namespace fgDotNet {
   public:
     Layout(fgLayout* p);
     Layout(System::String^ name);
+    Layout(System::String^ name, System::String^ path);
     Layout();
     ~Layout();
     !Layout();

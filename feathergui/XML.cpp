@@ -11,8 +11,8 @@ using namespace bss;
 
 XMLFile::XMLFile(const XMLFile& copy) : XMLNode(copy) {}
 XMLFile::XMLFile(XMLFile&& mov) : XMLNode(std::move(mov)) {}
-XMLFile::XMLFile(const char* source) { if(source) { Str buf; std::istringstream ss(source); _initialParse(ss, buf); _parseInner(ss, buf); } }
-XMLFile::XMLFile(std::istream& stream) { Str buf; _initialParse(stream, buf); _parseInner(stream, buf); }
+XMLFile::XMLFile(const char* source) { _name = "xml"; if(source) { Str buf; std::istringstream ss(source); _initialParse(ss, buf); _parseInner(ss, buf); } }
+XMLFile::XMLFile(std::istream& stream) { _name = "xml"; Str buf; _initialParse(stream, buf); _parseInner(stream, buf); }
 
 void XMLFile::_initialParse(std::istream& stream, Str& buf)
 {
@@ -293,24 +293,31 @@ void XMLNode::_writeAttribute(std::ostream& stream) const
   for(size_t i = 0; i < _attributes.Length(); ++i)
   {
     stream << ' ' << _attributes[i].Name << "=\"";
-    _writeString(stream, _attributes[i].String);
+    _writeString(stream, _attributes[i].String, true);
     stream.put('"');
   }
 }
 
-void XMLNode::_writeString(std::ostream& stream, const char* s)
+void XMLNode::_writeString(std::ostream& stream, const char* s, bool attribute)
 {
   while(*s)
   {
-    switch(*s)
+    if(!attribute)
     {
-    case '<': stream << "&lt;"; break;
-    case '>': stream << "&gt;"; break;
-    case '&': stream << "&amp;"; break;
-    case '\'': stream << "&apos;"; break;
-    case '"': stream << "&quot;"; break;
-    default: stream.put(*s); break;
+      switch(*s)
+      {
+      case '<': stream << "&lt;"; break;
+      case '>': stream << "&gt;"; break;
+      case '&': stream << "&amp;"; break;
+      case '\'': stream << "&apos;"; break;
+      case '"': stream << "&quot;"; break;
+      default: stream.put(*s); break;
+      }
     }
+    else if(*s == '"')
+      stream << "&quot;";
+    else
+      stream.put(*s);
     ++s;
   }
 }
@@ -332,7 +339,7 @@ void XMLNode::_write(std::ostream& stream, bool pretty, int depth) const
   }
 
   stream.put('>');
-  if(content) _writeString(stream, _value.String);
+  if(content) _writeString(stream, _value.String, false);
 
   for(size_t i = 0; i < _nodes.Length(); ++i)
     _nodes[i]->_write(stream, pretty, depth + 1);
