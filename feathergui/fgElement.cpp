@@ -376,8 +376,8 @@ fgElement* fgElement_LoadLayout(fgElement* parent, fgElement* next, fgClassLayou
 
 void fgElement_ApplySkin(fgElement* self, const fgSkin* skin)
 {
-  if(skin->inherit) // apply inherited skin first so we override it.
-    fgElement_ApplySkin(self, skin->inherit);
+  if(skin->base.inherit) // apply inherited skin first so we override it.
+    fgElement_ApplySkin(self, skin->base.inherit);
 
   if(skin->tfunits != (fgMsgType)~0)
     self->SetTransform(skin->tf, skin->tfunits);
@@ -437,7 +437,7 @@ void fgElement_SetSkinStyle(fgElement* self, FG_UINT style, const fgSkin* skin)
 {
   if(!skin)
     return;
-  fgElement_SetSkinStyle(self, style, skin->inherit);
+  fgElement_SetSkinStyle(self, style, skin->base.inherit);
 
   for(size_t i = 0; i < skin->tree.children.l; ++i)
     fgElement_SetSkinStyleElement(self, style, skin->tree.children.p[i]);
@@ -670,6 +670,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
     assert(msg->p2 != self);
     assert(msg->p2 != msg->e);
     msg->e->parent = self;
+
     LList_InsertAll(msg->e, (fgElement*)msg->p2);
     assert(!msg->e->prev || msg->e->prev != msg->e->next);
     _sendmsg<FG_SETSKIN>(msg->e);
@@ -790,13 +791,13 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
       const char* name = msg->e->GetName();
       if(name)
       {
-        fgSkin* skin = fgSkin_GetSkin(self->skin, name);
+        fgSkin* skin = fgSkinBase_GetSkin(&self->skin->base, name);
         if(skin != 0)
           return reinterpret_cast<size_t>(skin);
       }
       name = msg->e->GetClassName();
 
-      fgSkin* skin = fgSkin_GetSkin(self->skin, name);
+      fgSkin* skin = fgSkinBase_GetSkin(&self->skin->base, name);
       if(skin != 0)
         return reinterpret_cast<size_t>(skin);
     }
@@ -1047,6 +1048,18 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
     break;
   case FG_GETSCALING:
     return (size_t)&self->scaling;
+  case FG_CLEAR:
+  {
+    fgElement* cur = self->root;
+    fgElement* hold;
+    while(hold = cur)
+    {
+      cur = cur->next;
+      if(!(hold->flags&(FGFLAGS_INTERNAL|FGELEMENT_BACKGROUND)))
+        VirtualFreeChild(hold);
+    }
+  }
+    break;
   case FG_NEUTRAL: // We use messages to set these, not SetStyle directly, so the onhover/onactive/onnuetral events can be used.
     self->SetStyle("neutral");
     return FG_ACCEPT;
@@ -1464,6 +1477,8 @@ size_t fgElement::RemoveChild(fgElement* child) { return _sendmsg<FG_REMOVECHILD
 size_t fgElement::ReorderChild(struct _FG_ELEMENT* child, struct _FG_ELEMENT* next) { return _sendmsg<FG_REORDERCHILD, fgElement*, fgElement*>(this, child, next); }
 
 size_t fgElement::RemoveItem(size_t item) { return _sendmsg<FG_REMOVEITEM, ptrdiff_t>(this, item); }
+
+void fgElement::Clear() { _sendmsg<FG_CLEAR>(this); }
 
 size_t fgElement::LayoutFunction(const FG_Msg& msg, const CRect& area, bool scrollbar) { return _sendsubmsg<FG_LAYOUTFUNCTION, const void*, const void*>(this, !!scrollbar, &msg, &area); }
 

@@ -38,6 +38,7 @@ protected:
 
   // Message handler for the edit box
   static size_t _treeviewMessage(fgTreeview* self, const FG_Msg* msg);
+  static void _addLayoutSkins(fgSkinBase* layout, fgElement* target);
 
   fgTextbox _editbox;
   EditorBase* _base;

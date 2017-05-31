@@ -108,6 +108,7 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT size_t RemoveChild(struct _FG_ELEMENT* child);
   FG_DLLEXPORT size_t ReorderChild(struct _FG_ELEMENT* child, struct _FG_ELEMENT* next);
   FG_DLLEXPORT size_t RemoveItem(size_t item);
+  FG_DLLEXPORT void Clear();
   FG_DLLEXPORT void LayoutChange(fgMsgType subtype, struct _FG_ELEMENT* target, struct _FG_ELEMENT* old);
   FG_DLLEXPORT size_t LayoutFunction(const FG_Msg& msg, const CRect& area, bool scrollbar = false);
   FG_DLLEXPORT struct _FG_ELEMENT* LayoutLoad(struct _FG_LAYOUT* layout);

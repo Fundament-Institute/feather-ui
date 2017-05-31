@@ -57,8 +57,9 @@ uint16_t EditorBase::GetTransformMsg(const fgStyle& target, fgTransform& out)
   return 0;
 }
 
-void EditorBase::ParseStyleMsg(fgStyle& target, fgElement* instance, fgSkinElement* element, fgClassLayout* layout, PROPERTIES id, const char* s)
+void EditorBase::ParseStyleMsg(fgStyle& target, fgElement* instance, fgSkinElement* element, fgClassLayout* layout, fgSkin** skin, const char** name, PROPERTIES id, const char* s)
 {
+  AddUndo();
   FG_Msg m = { FG_CUSTOMEVENT };
   char* out;
   if(s && !s[0])
@@ -234,6 +235,8 @@ void EditorBase::ParseStyleMsg(fgStyle& target, fgElement* instance, fgSkinEleme
     target.AddStyleMsg(&m);
     break;
   case PROP_SKIN:
+    if(skin && s)
+      *skin = curlayout.base.GetAnySkin(s);
     break;
   case PROP_ID:
     if(layout && s)
@@ -244,11 +247,11 @@ void EditorBase::ParseStyleMsg(fgStyle& target, fgElement* instance, fgSkinEleme
     }
     break;
   case PROP_NAME:
-    if(layout && s)
+    if(name && s)
     {
-      if(layout->name)
-        fgFreeText(layout->name, __FILE__, __LINE__);
-      layout->name = fgCopyText(s, __FILE__, __LINE__);
+      if(*name)
+        fgFreeText(*name, __FILE__, __LINE__);
+      *name = fgCopyText(s, __FILE__, __LINE__);
     }
     break;
   case PROP_AREA:
@@ -362,13 +365,14 @@ void EditorBase::AddMutableProp(fgGrid& g, PROPERTIES id, const char* type, std:
 void EditorBase::ClearProps(fgGrid& g)
 {
   for(size_t i = 0; i < 17; ++i)
-    g.GetRow(i)->GetItem(1)->SetText("");
-
+  {
+    g.GetRow(i)->GetItem(1)->Clear();
+  }
   while(g.GetNumRows() > 17)
     g.RemoveRow(g.GetNumRows() - 1);
 }
 
-void EditorBase::LoadProps(fgGrid& g, const char* type, fgClassLayout* layout, fgSkinElement* element, fgStyle& style, std::function<void(fgElement*, const char*)>& f)
+void EditorBase::LoadProps(fgGrid& g, const char* type, fgClassLayout* layout, fgSkinElement* element, const fgSkin* skin, const char* name, fgStyle& style, std::function<void(fgElement*, const char*)>& f)
 {
   static Trie<uint16_t, true> t(31, "element", "control", "scrollbar", "box", "list", "grid", "resource", "text", "button", "window", "checkbox", "radiobutton",
     "progressbar", "slider", "textbox", "treeview", "treeitem", "listitem", "curve", "dropdown", "tabcontrol", "menu", "submenu",
@@ -471,7 +475,7 @@ void EditorBase::LoadProps(fgGrid& g, const char* type, fgClassLayout* layout, f
   AddMutableProp(g, PROP_USERID, "textbox", f);
   AddMutableProp(g, PROP_USERINFO, "text", f, FGELEMENT_EXPANDY);
 
-  SetProps(g, layout, element, style);
+  SetProps(g, layout, element, skin, name, style);
 }
 fgElement* EditorBase::FindProp(fgGrid& g, PROPERTIES prop)
 {
@@ -485,8 +489,13 @@ fgElement* EditorBase::FindProp(fgGrid& g, PROPERTIES prop)
   return 0;
 }
 
-void EditorBase::SetProps(fgGrid& g, fgClassLayout* layout, fgSkinElement* element, fgStyle& style)
+void EditorBase::SetProps(fgGrid& g, fgClassLayout* layout, fgSkinElement* element, const fgSkin* skin, const char* name, fgStyle& style)
 {
+  if(skin)
+    g.GetRow(3)->GetItem(1)->SetText(skin->base.name);
+  if(name)
+    g.GetRow(2)->GetItem(1)->SetText(name);
+
   if(element)
   {
     g.GetRow(0)->GetItem(1)->SetText(element->type);
@@ -582,7 +591,6 @@ void EditorBase::SetProps(fgGrid& g, fgClassLayout* layout, fgSkinElement* eleme
   if(layout)
   {
     g.GetRow(1)->GetItem(1)->SetText(layout->id);
-    g.GetRow(2)->GetItem(1)->SetText(layout->name);
     if(fgElement* e = FindProp(g, PROP_USERID))
       e->SetText(StrF("%u", layout->userid).c_str());
     if(fgElement* e = FindProp(g, PROP_USERINFO))

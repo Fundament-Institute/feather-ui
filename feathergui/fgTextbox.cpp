@@ -494,9 +494,10 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
     }
     break;
   case FG_MOVE:
+    fgScrollbar_Message(&self->scroll, msg);
     if(!(msg->u2 & FGMOVE_PROPAGATE) && (msg->u2 & (FGMOVE_RESIZE | FGMOVE_PADDING | FGMOVE_MARGIN)))
       fgSubMessage(*self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTMOVE, self, FGMOVE_PROPAGATE | FGMOVE_RESIZE);
-    break;
+    return FG_ACCEPT;
   case FG_DRAW:
     fgScrollbar_Message(&self->scroll, msg); // Render everything else first
     
@@ -676,6 +677,8 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
   case FG_SETDPI:
     (*self)->SetFont(self->font); // By setting the font to itself we'll clone it into the correct DPI
     break;
+  case FG_CLEAR:
+    return (*self)->SetText(0);
   case FG_GETCLASSNAME:
     return (size_t)"Textbox";
   }

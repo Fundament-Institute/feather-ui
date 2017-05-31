@@ -348,6 +348,7 @@ enum FG_MSGTYPE
   FG_ADDITEM, // Used for anything involving items (menus, lists, etc)
   FG_REMOVEITEM,
   FG_SETITEM,
+  FG_CLEAR, // Removes all non-internal foreground elements and wipes all text
   FG_SELECTION, // The current selection changed
   FG_GETSELECTEDITEM, // Used to get the selected item (or items, or text) in a control.
   // fgCheckbox, fgRadiobutton, fgProgressbar, etc.
@@ -710,6 +711,7 @@ FG_EXTERN void fgInvScaleRectDPI(AbsRect* rect, FABS dpix, FABS dpiy);
 FG_EXTERN void fgResolveDrawRect(const AbsRect* area, AbsRect* outarea, const AbsVec* center, AbsVec* outcenter, fgFlag flags, const fgDrawAuxData* data);
 FG_EXTERN void fgModulationVecDPI(AbsVec* v, FABS dpix, FABS dpiy);
 FG_EXTERN void fgInvScaleVecDPI(AbsVec* v, FABS dpix, FABS dpiy);
+FG_EXTERN void fgGenAbsRect(AbsRect* out, const AbsVec* p1, const AbsVec* p2);
 FG_EXTERN void fgTrimFileFromPath(char* path);
 FG_EXTERN const char* fgTrimPathFromFile(const char* path);
 FG_EXTERN int fgLog(char level, const char* format, ...);

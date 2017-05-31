@@ -369,3 +369,11 @@ const char* fgTrimPathFromFile(const char* path)
   r = std::max(r, r2);
   return (!r) ? path : (r + 1);
 }
+
+void fgGenAbsRect(AbsRect* out, const AbsVec* p1, const AbsVec* p2)
+{
+  out->left = bssmin(p1->x, p2->x);
+  out->right = bssmax(p1->x, p2->x);
+  out->top = bssmin(p1->y, p2->y);
+  out->bottom = bssmax(p1->y, p2->y);
+}

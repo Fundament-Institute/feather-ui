@@ -41,7 +41,7 @@ void SkinTab::Init(EditorBase* base)
     AddProp("(Type)", 0, "text");
     AddProp("ID", EditorBase::PROP_ID);
     AddProp("Name", EditorBase::PROP_NAME);
-    AddProp("Skin", EditorBase::PROP_SKIN, "combobox");
+    AddProp("Skin", EditorBase::PROP_SKIN, "text");
     AddProp("Transform", 0, "text");
     AddProp("  Area", EditorBase::PROP_AREA);
     AddProp("  Rotation", EditorBase::PROP_ROTATION);
@@ -173,19 +173,19 @@ void SkinTab::_textboxOnAction(struct _FG_ELEMENT* e, const FG_Msg* msg)
     {
     case 0:
       layout = (fgSkinLayout*)_selected->userdata;
-      _base->ParseStyleMsg(layout->element.style, layout->instance, &layout->element, 0, EditorBase::PROPERTIES(e->userid), e->GetText());
-      _base->SetProps(*_skinprops, 0, &layout->element, layout->element.style);
+      _base->ParseStyleMsg(layout->element.style, layout->instance, &layout->element, 0, &layout->element.skin, 0, EditorBase::PROPERTIES(e->userid), e->GetText());
+      _base->SetProps(*_skinprops, 0, &layout->element, layout->element.skin, 0, layout->element.style);
       break;
     case 1:
       skin = (fgSkin*)_selected->userdata;
-      _base->ParseStyleMsg(skin->base.style, 0, 0, 0, EditorBase::PROPERTIES(e->userid), e->GetText());
+      _base->ParseStyleMsg(skin->base.style, 0, 0, 0, 0, &skin->base.name, EditorBase::PROPERTIES(e->userid), e->GetText());
       _base->ReapplySkin(skin);
-      _base->SetProps(*_skinprops, 0, 0, skin->base.style);
+      _base->SetProps(*_skinprops, 0, 0, 0, skin->base.name, skin->base.style);
       break;
     case 2:
       style = (fgStyle*)_selected->userdata;
-      _base->ParseStyleMsg(*style, 0, 0, 0, EditorBase::PROPERTIES(e->userid), e->GetText());
-      _base->SetProps(*_skinprops, 0, 0, *style);
+      _base->ParseStyleMsg(*style, 0, 0, 0, 0, 0, EditorBase::PROPERTIES(e->userid), e->GetText());
+      _base->SetProps(*_skinprops, 0, 0, 0, 0, *style);
       break;
     }
   }
@@ -212,11 +212,11 @@ void SkinTab::_treeItemOnFocus(struct _FG_ELEMENT* e, const FG_Msg*)
     {
     case 0:
       layout = (fgSkinLayout*)e->userdata;
-      _base->LoadProps(*_skinprops, layout->element.type, 0, &layout->element, layout->element.style, _propafter);
+      _base->LoadProps(*_skinprops, layout->element.type, 0, &layout->element, layout->element.skin, 0, layout->element.style, _propafter);
       break;
     case 1:
       skin = (fgSkin*)e->userdata;
-      _base->LoadProps(*_skinprops, "Skin", 0, 0, skin->base.style, _propafter);
+      _base->LoadProps(*_skinprops, "Skin", 0, 0, 0, skin->base.name, skin->base.style, _propafter);
       break;
     case 2:
       style = (fgStyle*)e->userdata;
@@ -225,13 +225,13 @@ void SkinTab::_treeItemOnFocus(struct _FG_ELEMENT* e, const FG_Msg*)
         switch(e->parent->userid)
         {
         case 0:
-          _base->LoadProps(*_skinprops, ((fgSkinLayout*)e->parent->userdata)->element.type, 0, 0, *style, _propafter);
+          _base->LoadProps(*_skinprops, ((fgSkinLayout*)e->parent->userdata)->element.type, 0, 0, 0, 0, *style, _propafter);
           break;
         case 1:
-          _base->LoadProps(*_skinprops, "Skin", 0, 0, *style, _propafter);
+          _base->LoadProps(*_skinprops, "Skin", 0, 0, 0, 0, *style, _propafter);
           break;
         default:
-          _base->LoadProps(*_skinprops, 0, 0, 0, *style, _propafter);
+          _base->LoadProps(*_skinprops, 0, 0, 0, 0, 0, *style, _propafter);
           break;
         }
       }

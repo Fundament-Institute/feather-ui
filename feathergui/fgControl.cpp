@@ -174,6 +174,11 @@ size_t fgControl_Message(fgControl* self, const FG_Msg* msg)
   case FG_SETFLAGS:
     if((self->element.flags ^ otherint) & FGCONTROL_DISABLE)
     {
+      if((otherint&FGCONTROL_DISABLE) && fgroot_instance->fgLastHover == *self) // if we were hovered, remove hover before adding disable flag (or we'll never get the message)
+      {
+        _sendmsg<FG_MOUSEOFF>(*self);
+        fgroot_instance->fgLastHover = 0;
+      }
       fgElement_Message(*self, msg); // apply the flag change first or we'll get weird bugs.
       if(otherint & FGCONTROL_DISABLE) // Check to see if the disabled flag was added
       {
@@ -181,11 +186,6 @@ size_t fgControl_Message(fgControl* self, const FG_Msg* msg)
           _sendmsg<FG_LOSTFOCUS, void*>(*self, 0);
         if(fgroot_instance->fgCaptureWindow == *self) // Remove our control hold on mouse messages.
           fgroot_instance->fgCaptureWindow = 0;
-        if(fgroot_instance->fgLastHover == *self)
-        {
-          _sendmsg<FG_MOUSEOFF>(*self);
-          fgroot_instance->fgLastHover = 0;
-        }
       }
       (*self)->SetStyle((otherint & FGCONTROL_DISABLE) ? "disabled" : "neutral");
       fgroot_instance->mouse.state |= FGMOUSE_SEND_MOUSEMOVE;

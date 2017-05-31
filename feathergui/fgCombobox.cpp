@@ -14,6 +14,27 @@ void fgCombobox_Destroy(fgCombobox* self)
   fgDropdown_Destroy(&self->dropdown);
 }
 
+size_t fgComboboxTextbox_Message(fgTextbox* self, const FG_Msg* msg)
+{
+  switch(msg->type)
+  {
+  case FG_ACTION:
+    if(!msg->subtype && (*self)->parent)
+      return fgSendMessage((*self)->parent, msg);
+    break;
+  case FG_LOSTFOCUS:
+    if((*self)->parent)
+    {
+      fgTextbox_Message(self, msg);
+      fgroot_instance->fgFocusedWindow = (*self)->parent;
+      return fgSendMessage((*self)->parent, msg);
+    }
+    break;
+  }
+
+  return fgTextbox_Message(self, msg);
+}
+
 size_t fgComboboxDropdown_Message(fgBox* self, const FG_Msg* msg)
 {
   switch(msg->type)
@@ -32,9 +53,13 @@ size_t fgCombobox_Message(fgCombobox* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_CONSTRUCT:
+  {
     fgDropdown_Message(&self->dropdown, msg);
-    fgTextbox_Init(&self->text, *self, 0, "fgCombobox$textbox", FGTEXTBOX_SINGLELINE | FGTEXTBOX_ACTION | FGELEMENT_BACKGROUND | FGSCROLLBAR_HIDEV | FGSCROLLBAR_HIDEH | FGFLAGS_INTERNAL, &fgTransform_DEFAULT, 0);
+    fgTransform tf = { 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0 };
+    fgTextbox_Init(&self->text, *self, 0, "fgCombobox$textbox", FGTEXTBOX_SINGLELINE | FGTEXTBOX_ACTION | FGELEMENT_EXPANDY | FGSCROLLBAR_HIDEV | FGSCROLLBAR_HIDEH | FGFLAGS_INTERNAL, &tf, 0);
+    self->text->message = (fgMessage)fgComboboxTextbox_Message;
     self->dropdown.box->message = (fgMessage)fgComboboxDropdown_Message;
+  }
     return FG_ACCEPT;
   case FG_SETTEXT:
   case FG_SETFONT:
@@ -51,6 +76,20 @@ size_t fgCombobox_Message(fgCombobox* self, const FG_Msg* msg)
     return (size_t)&self->text;
   case FG_DRAW:
     return fgControl_Message(&self->dropdown.control, msg);
+  case FG_REMOVECHILD:
+  case FG_ADDCHILD:
+  case FG_REORDERCHILD:
+    if(msg->e == self->text)
+      return fgControl_Message(&self->dropdown.control, msg);
+    break;
+  case FG_GOTFOCUS:
+    return fgSendMessage(self->text, msg);
+  case FG_LAYOUTCHANGE:
+    msg = msg;
+    break;
+  case FG_CLEAR:
+    fgSendMessage(self->text, msg);
+    break;
   case FG_GETCLASSNAME:
     return (size_t)"Combobox";
   }

@@ -242,9 +242,10 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
   case FG_GETCOLOR:
     return self->color.color;
   case FG_MOVE:
+    fgElement_Message(&self->element, msg);
     if((msg->subtype != FG_SETAREA || msg->p) && !(msg->u2 & FGMOVE_PROPAGATE) && (msg->u2 & FGMOVE_RESIZE))
       fgText_Recalc(self);
-    break;
+    return FG_ACCEPT;
   case FG_SETAREA:
     fgElement_Message(&self->element, msg);
     fgText_Recalc(self);
@@ -264,6 +265,8 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
   case FG_SETDPI:
     (*self)->SetFont(self->font); // By setting the font to itself we'll clone it into the correct DPI
     break;
+  case FG_CLEAR:
+    return self->element.SetText(0);
   case FG_GETCLASSNAME:
     return (size_t)"Text";
   }

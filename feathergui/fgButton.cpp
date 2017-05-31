@@ -62,6 +62,9 @@ size_t fgButton_Message(fgButton* self, const FG_Msg* msg)
     return fgSendMessage(fgCreate("Resource", *self, 0, "Button$Asset", FGELEMENT_EXPAND, &fgTransform_CENTER, 0), msg);
   case FG_GETCLASSNAME:
     return (size_t)"Button";
+  case FG_CLEAR:
+    fgSendMessage(self->text, msg);
+    break;
   case FG_SETTEXT:
   case FG_SETFONT:
   case FG_SETLINEHEIGHT:

@@ -57,6 +57,7 @@ typedef struct _FG_LAYOUT {
 } fgLayout;
 
 FG_EXTERN void fgLayout_Init(fgLayout* self, const char* name, const char* path);
+FG_EXTERN void fgLayout_InitCopy(fgLayout* self, const fgLayout* from, fgSkinBase* parent);
 FG_EXTERN void fgLayout_Destroy(fgLayout* self);
 FG_EXTERN FG_UINT fgLayout_AddChild(fgLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units, int order);
 FG_EXTERN char fgLayout_RemoveChild(fgLayout* self, FG_UINT child);
@@ -74,6 +75,7 @@ FG_EXTERN char fgLayout_LoadXML(fgLayout* self, const char* data, FG_UINT length
 FG_EXTERN void fgLayout_SaveFileXML(fgLayout* self, const char* file);
 
 FG_EXTERN void fgClassLayout_Init(fgClassLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units, int order);
+FG_EXTERN void fgClassLayout_InitCopy(fgClassLayout* self, const fgClassLayout* from, fgSkinBase* parent);
 FG_EXTERN void fgClassLayout_Destroy(fgClassLayout* self);
 FG_EXTERN void fgClassLayout_AddUserString(fgClassLayout* self, const char* key, const char* value);
 FG_EXTERN FG_UINT fgClassLayout_AddChild(fgClassLayout* self, const char* type, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units, int order);

@@ -292,7 +292,7 @@ size_t fgBox_Message(fgBox* self, const FG_Msg* msg)
   case FG_SETSKIN:
     fgBoxOrderedElement_Message(&self->order, msg, *self, (fgMessage)&fgScrollbar_Message, &self->spacing);
     if(self->scroll->skin)
-      self->dividerskin = self->scroll->skin->GetSkin("Box$divider");
+      self->dividerskin = self->scroll->skin->base.GetSkin("Box$divider");
     return FG_ACCEPT;
   case FG_GETCLASSNAME:
     return (size_t)"Box";

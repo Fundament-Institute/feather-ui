@@ -13,7 +13,9 @@
 /bin/
 /bin32/
 /media/editor/
+!/media/editor/editor.xml
 /media/*.out.*
+/media/*.png
 /feathergui/x64/
 /feathergui/Win32/
 /fgLayoutEditor/x64/

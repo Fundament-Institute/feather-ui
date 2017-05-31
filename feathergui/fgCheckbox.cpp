@@ -22,7 +22,7 @@ size_t fgCheckbox_Message(fgCheckbox* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     fgControl_HoverMessage(&self->control, msg);
     fgText_Init(&self->text, *self, 0, "Checkbox$text", FGELEMENT_EXPAND | FGELEMENT_IGNORE | FGFLAGS_INTERNAL, &fgTransform_CENTER, 0);
-    (*self)->SetStyle("default");
+    (*self)->SetStyle("unchecked");
     self->checked = FGCHECKED_NONE;
     return FG_ACCEPT;
   case FG_CLONE:
@@ -49,7 +49,7 @@ size_t fgCheckbox_Message(fgCheckbox* self, const FG_Msg* msg)
     {
     case FGCHECKED_CHECKED: (*self)->SetStyle("checked"); break;
     case FGCHECKED_INDETERMINATE: (*self)->SetStyle("indeterminate"); break;
-    default: (*self)->SetStyle("default"); break;
+    default: (*self)->SetStyle("unchecked"); break;
     }
     return FG_ACCEPT;
   case FG_GETVALUE:
@@ -57,6 +57,9 @@ size_t fgCheckbox_Message(fgCheckbox* self, const FG_Msg* msg)
       return self->checked;
     fgLog(FGLOG_INFO, "%s requested invalid value type: %hu", fgGetFullName(*self).c_str(), msg->subtype);
     return 0;
+  case FG_CLEAR:
+    fgSendMessage(self->text, msg);
+    break;
   case FG_SETTEXT:
   case FG_SETFONT:
   case FG_SETLINEHEIGHT:

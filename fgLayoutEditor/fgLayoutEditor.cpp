@@ -27,19 +27,35 @@ size_t fgLayoutEditor::_inject(fgRoot* self, const FG_Msg* msg)
       else
         fgDebug_Show(0, 1);
     }
+    if(msg->IsCtrlDown())
+    {
+      switch(msg->keycode)
+      {
+      case FG_KEY_Z:
+        Instance->ProcessEvent(EVENT_UNDO);
+        return FG_ACCEPT;
+      case FG_KEY_Y:
+        Instance->ProcessEvent(EVENT_REDO);
+        return FG_ACCEPT;
+      case FG_KEY_S:
+        Instance->ProcessEvent(EVENT_SAVE);
+        return FG_ACCEPT;
+      case FG_KEY_N:
+        Instance->ProcessEvent(EVENT_NEW);
+        return FG_ACCEPT;
+      }
+    }
   }
   return fgRoot_DefaultInject(self, msg);
 }
 
 fgLayoutEditor::fgLayoutEditor(fgLayout* layout, EditorSettings& settings) : EditorBase(layout), _settings(settings), _sizing(HIT_NONE),
-_needsave(false), displaylayout(0), _workspaceroot(0), _toolbar(0), _resizebox(layout->base.GetSkin("Editor$Resizebox"))
+_needsave(false), displaylayout(0), _workspaceroot(0), _toolbar(0), _resizebox(layout->base.GetSkin("Editor$Resizebox")),
+_curelement(0), _historypos(-1), _insert(0), _insertdest(0)
 {
   fgLayoutEditor::Instance = this;
-  fgRegisterDelegate<fgLayoutEditor, &fgLayoutEditor::MenuFile>("menu_file", this);
+  fgRegisterDelegate<fgLayoutEditor, &fgLayoutEditor::MenuAction>("menu_action", this);
   fgRegisterDelegate<fgLayoutEditor, &fgLayoutEditor::MenuRecent>("menu_recent", this);
-  fgRegisterDelegate<fgLayoutEditor, &fgLayoutEditor::MenuEdit>("menu_edit", this);
-  fgRegisterDelegate<fgLayoutEditor, &fgLayoutEditor::MenuView>("menu_view", this);
-  fgRegisterDelegate<fgLayoutEditor, &fgLayoutEditor::MenuHelp>("menu_help", this);
   fgRegisterDelegate<fgLayoutEditor, &fgLayoutEditor::ToolAction>("tool_action", this);
   _window = fgSingleton()->gui->LayoutLoad(layout);
   fgElement_AddDelegateListener<EditorBase, &EditorBase::WindowOnDestroy>(_window, FG_DESTROY, this);
@@ -48,7 +64,9 @@ _needsave(false), displaylayout(0), _workspaceroot(0), _toolbar(0), _resizebox(l
 
   _workspace = reinterpret_cast<fgWorkspace*>(fgGetID("Editor$workspace"));
   _recentmenu = fgGetID("Editor$RecentMenu");
-  _toolbar = fgGetID("Editor$Toolbarcontrols");
+  _toolbar = fgGetID("Editor$Toolbar");
+  _toolbarcontrols = fgGetID("Editor$Toolbarcontrols");
+  _menu = fgGetID("Editor$Menu");
 
   if(_workspace)
   {
@@ -56,10 +74,25 @@ _needsave(false), displaylayout(0), _workspaceroot(0), _toolbar(0), _resizebox(l
     _workspaceroot->message = (fgMessage)WorkspaceRootMessage;
   }
 
-  if(_toolbar)
+  if(_toolbarcontrols)
   {
-    _toolbar = _toolbar->AddItem(0);
-    fgIterateControls(_toolbar, [](void* p, const char* s) { fgElement* e = fgCreate("Radiobutton", (fgElement*)p, 0, 0, FGFLAGS_DEFAULTS, 0, 0); e->SetText(s); });
+    _toolbarcontrols = _toolbarcontrols->AddItem(0);
+    std::function<void(const char*)> fn = [this](const char* s) {
+      fgElement* e = fgCreate("Radiobutton", _toolbarcontrols, 0, 0, FGFLAGS_DEFAULTS, 0, 0);
+      e->SetText(s);
+      e->userdata = (void*)e->GetText();
+      fgElement_AddDelegateListener<fgLayoutEditor, &fgLayoutEditor::ControlAction>(e, FG_ACTION, this);
+    };
+    fgIterateControls(&fn, &bss::Delegate<void, const char*>::stublambda);
+  }
+
+  if(_toolbar && _menu)
+  {
+    for(FG_UINT i = 1; i < EVENT_NUM; ++i)
+    {
+      _toolbarbuttons[i] = FindUserID(_toolbar, i);
+      _menubuttons[i] = FindUserID(_menu, i);
+    }
   }
   fgSetInjectFunc(_inject);
   FillRecentList();
@@ -87,7 +120,6 @@ fgElement* fgLayoutEditor::LoadLayout(fgElement* parent, fgElement* next, fgClas
 
   for(FG_UINT i = 0; i < layout->children.l; ++i)
     LoadLayout(element, 0, layout->children.p + i);
-
 
   return element;
 }
@@ -122,18 +154,70 @@ size_t fgLayoutEditor::WorkspaceRootMessage(fgElement* self, const FG_Msg* m)
     if(!fgSingleton()->GetKey(FG_KEY_MENU))
     {
       FG_Msg* inner = reinterpret_cast<FG_Msg*>(m->p);
-      uint8_t hit = HitElement(Instance->curelement, inner);
+      uint8_t hit = HitElement(Instance->_curelement, inner);
       if(hit != HIT_NONE)
         Instance->hoverelement = 0;
-      switch(inner->type)
+      if(!Instance->_insert)
       {
-      case FG_MOUSEUP:
-        if(fgSingleton()->fgCaptureWindow == self)
-          fgSingleton()->fgCaptureWindow = 0;
-        if(Instance->_sizing != HIT_NONE)
+        switch(inner->type)
         {
-          hit = Instance->_sizing;
-          Instance->_sizing = HIT_NONE;
+        case FG_MOUSEUP:
+          if(fgSingleton()->fgCaptureWindow == self)
+            fgSingleton()->fgCaptureWindow = 0;
+          if(Instance->_sizing != HIT_NONE)
+          {
+            hit = Instance->_sizing;
+            Instance->_sizing = HIT_NONE;
+            switch(hit)
+            {
+            case HIT_TOP | HIT_LEFT:
+            case HIT_BOTTOM | HIT_RIGHT:
+              return FGCURSOR_RESIZENWSE;
+            case HIT_TOP | HIT_RIGHT:
+            case HIT_BOTTOM | HIT_LEFT:
+              return FGCURSOR_RESIZENESW;
+            case HIT_TOP:
+            case HIT_BOTTOM:
+              return FGCURSOR_RESIZENS;
+            case HIT_LEFT:
+            case HIT_RIGHT:
+              return FGCURSOR_RESIZEWE;
+            }
+            return FG_ACCEPT;
+          }
+          else
+            break;
+        case FG_MOUSEMOVE:
+          if(Instance->_sizing == HIT_NONE && hit == 0 && inner->allbtn&FG_MOUSELBUTTON)
+          {
+            Instance->AddUndo();
+            Instance->_sizing = 0;
+          }
+          if(Instance->_sizing != HIT_NONE)
+          {
+            hit = Instance->_sizing;
+            CRect area = Instance->_curelement->transform.area;
+            AbsVec change = { Instance->_anchor.x + (inner->x - Instance->_lastmouse.x), Instance->_anchor.y + (inner->y - Instance->_lastmouse.y) };
+            if(!hit)
+            {
+              AbsVec dim = { area.right.abs - area.left.abs, area.bottom.abs - area.top.abs };
+              area.left.abs = change.x;
+              area.right.abs = change.x + dim.x;
+              area.top.abs = change.y;
+              area.bottom.abs = change.y + dim.y;
+            }
+            if(hit&HIT_RIGHT)
+              area.right.abs = change.x;
+            else if(hit&HIT_LEFT)
+              area.left.abs = change.x;
+            if(hit&HIT_BOTTOM)
+              area.bottom.abs = change.y;
+            else if(hit&HIT_TOP)
+              area.top.abs = change.y;
+            Instance->_curelement->SetArea(area);
+            Instance->_layout.GetClassLayout(Instance->_curelement)->element.transform.area = area;
+            Instance->SetNeedSave(true);
+          }
           switch(hit)
           {
           case HIT_TOP | HIT_LEFT:
@@ -148,89 +232,76 @@ size_t fgLayoutEditor::WorkspaceRootMessage(fgElement* self, const FG_Msg* m)
           case HIT_LEFT:
           case HIT_RIGHT:
             return FGCURSOR_RESIZEWE;
+          case 0:
+            if(Instance->_sizing == 0)
+              return FGCURSOR_RESIZEALL;
+          }
+          break;
+        case FG_MOUSEDOWN:
+          if(hit != HIT_NONE)
+          {
+            if(hit != 0)
+            {
+              Instance->AddUndo();
+              Instance->_sizing = hit;
+            }
+            Instance->_lastmouse = { inner->x, inner->y };
+            CRect& area = Instance->_curelement->transform.area;
+            Instance->_anchor.x = (hit&HIT_RIGHT) ? area.right.abs : area.left.abs;
+            Instance->_anchor.y = (hit&HIT_BOTTOM) ? area.bottom.abs : area.top.abs;
+            fgSingleton()->fgCaptureWindow = self;
           }
           return FG_ACCEPT;
         }
-        else
-          break;
-      case FG_MOUSEMOVE:
-        if(Instance->_sizing == HIT_NONE && hit == 0 && inner->allbtn&FG_MOUSELBUTTON)
-        {
-          Instance->_sizing = 0;
-        }
-        if(Instance->_sizing != HIT_NONE)
-        {
-          hit = Instance->_sizing;
-          CRect area = Instance->curelement->transform.area;
-          AbsVec change = { Instance->_anchor.x + (inner->x - Instance->_lastmouse.x), Instance->_anchor.y + (inner->y - Instance->_lastmouse.y) };
-          if(!hit)
-          {
-            AbsVec dim = { area.right.abs - area.left.abs, area.bottom.abs - area.top.abs };
-            area.left.abs = change.x;
-            area.right.abs = change.x + dim.x;
-            area.top.abs = change.y;
-            area.bottom.abs = change.y + dim.y;
-          }
-          if(hit&HIT_RIGHT)
-            area.right.abs = change.x;
-          else if(hit&HIT_LEFT)
-            area.left.abs = change.x;
-          if(hit&HIT_BOTTOM)
-            area.bottom.abs = change.y;
-          else if(hit&HIT_TOP)
-            area.top.abs = change.y;
-          Instance->curelement->SetArea(area);
-          Instance->_layout.GetClassLayout(Instance->curelement)->element.transform.area = area;
-          Instance->SetNeedSave(true);
-        }
-        switch(hit)
-        {
-        case HIT_TOP | HIT_LEFT:
-        case HIT_BOTTOM|HIT_RIGHT:
-          return FGCURSOR_RESIZENWSE;
-        case HIT_TOP | HIT_RIGHT:
-        case HIT_BOTTOM | HIT_LEFT:
-          return FGCURSOR_RESIZENESW;
-        case HIT_TOP:
-        case HIT_BOTTOM:
-          return FGCURSOR_RESIZENS;
-        case HIT_LEFT:
-        case HIT_RIGHT:
-          return FGCURSOR_RESIZEWE;
-        case 0:
-          if(Instance->_sizing == 0)
-            return FGCURSOR_RESIZEALL;
-        }
-        break;
-      case FG_MOUSEDOWN:
-        if(hit != HIT_NONE)
-        {
-          if(hit != 0)
-            Instance->_sizing = hit;
-          Instance->_lastmouse = { inner->x, inner->y };
-          CRect& area = Instance->curelement->transform.area;
-          Instance->_anchor.x = (hit&HIT_RIGHT) ? area.right.abs : area.left.abs;
-          Instance->_anchor.y = (hit&HIT_BOTTOM) ? area.bottom.abs : area.top.abs;
-          fgSingleton()->fgCaptureWindow = self;
-        }
-        return FG_ACCEPT;
       }
       FG_Msg msg = *inner;
       msg.type = FG_DEBUGMESSAGE;
       FG_Msg mwrap = *m;
       mwrap.p = &msg;
       fgElement* result = (fgElement*)fgElement_Message(self, &mwrap);
+      if(Instance->_insert)
+      {
+        if(!Instance->_insertdest)
+        {
+          if(inner->type == FG_MOUSEDOWN)
+          {
+            Instance->_insertdest = result;
+            Instance->_insertend = Instance->_insertbegin = AbsVec{ inner->x, inner->y };
+            return FGCURSOR_CROSS;
+          }
+        }
+        else
+        {
+          Instance->_insertend = AbsVec{ inner->x, inner->y };
+          if(inner->type == FG_MOUSEUP)
+          {
+            AbsRect out;
+            fgGenAbsRect(&out, &Instance->_insertbegin, &Instance->_insertend);
+            AbsRect relative;
+            ResolveInnerRect(Instance->_insertdest, &relative);
+            out.left -= relative.left;
+            out.right -= relative.left;
+            out.top -= relative.top;
+            out.bottom -= relative.top;
+            fgTransform tf = { {out.left, 0, out.top, 0, out.right, 0, out.bottom, 0 }, 0, {0, 0, 0, 0} };
+
+            fgCreate(Instance->_insert, Instance->_insertdest, 0, 0, 0, &tf, 0)->SetText(Instance->_insert);
+            Instance->_insertdest = 0;
+          }
+          return FGCURSOR_CROSS;
+        }
+      }
       if(inner->type == FG_MOUSEUP || (hit == HIT_NONE && inner->type == FG_MOUSEDOWN))
       {
         fgElement* treeitem;
         while(!(treeitem = Instance->_layout.GetTreeItem(Instance->_layout.GetClassLayout(result))) && result != self && result)
           result = result->parent;
         if(result == self || !treeitem)
-          Instance->curelement = 0;
+          Instance->SetCurElement(0);
         else
         {
           treeitem->GotFocus();
-          Instance->curelement = result;
+          Instance->SetCurElement(result);
         }
         return FG_ACCEPT;
       }
@@ -267,10 +338,16 @@ size_t fgLayoutEditor::WorkspaceRootMessage(fgElement* self, const FG_Msg* m)
       AbsVec scale = { 1,1 };
       fgSingleton()->backend.fgDrawLines(lines, 5, 0xFF008800, &AbsVec_EMPTY, &scale, 0, &AbsVec_EMPTY, (const fgDrawAuxData*)m->p2);
     }
-    if(Instance->curelement && Instance->_resizebox)
+    if(Instance->_insertdest)
+    {
+      AbsVec lines[5] = { Instance->_insertbegin,{ Instance->_insertend.x, Instance->_insertbegin.y }, Instance->_insertend,{ Instance->_insertbegin.x, Instance->_insertend.y }, Instance->_insertbegin };
+      AbsVec scale = { 1,1 };
+      fgSingleton()->backend.fgDrawLines(lines, 5, 0xFF008800, &AbsVec_EMPTY, &scale, 0, &AbsVec_EMPTY, (const fgDrawAuxData*)m->p2);
+    }
+    if(Instance->_curelement && Instance->_resizebox)
     {
       AbsRect out;
-      ResolveRect(Instance->curelement, &out);
+      ResolveRect(Instance->_curelement, &out);
       fgDrawSkin(Instance->_resizebox, &out, (const fgDrawAuxData*)m->p2, 0);
     }
     return FG_ACCEPT;
@@ -282,17 +359,34 @@ size_t fgLayoutEditor::WorkspaceRootMessage(fgElement* self, const FG_Msg* m)
       const char* name = m->e->GetName();
       if(name)
       {
-        fgSkin* skin = fgSkin_GetSkin(self->skin, name);
+        fgSkin* skin = self->skin->base.GetSkin(name);
         if(skin != 0)
           return reinterpret_cast<size_t>(skin);
       }
       name = m->e->GetClassName();
 
-      fgSkin* skin = fgSkin_GetSkin(self->skin, name);
+      fgSkin* skin = self->skin->base.GetSkin(name);
       if(skin != 0)
         return reinterpret_cast<size_t>(skin);
     }
     return 0; // Terminate skin lookup
+  case FG_KEYDOWN:
+    switch(m->keycode)
+    {
+      case FG_KEY_DELETE:
+        Instance->ProcessEvent(EVENT_DELETE);
+        return FG_ACCEPT;
+      case FG_KEY_X:
+        Instance->ProcessEvent(EVENT_CUT);
+        return FG_ACCEPT;
+      case FG_KEY_C:
+        Instance->ProcessEvent(EVENT_COPY);
+        return FG_ACCEPT;
+      case FG_KEY_V:
+        Instance->ProcessEvent(EVENT_PASTE);
+        return FG_ACCEPT;
+    }
+    break;
   }
 
   return fgElement_Message(self, m);
@@ -326,8 +420,29 @@ void fgLayoutEditor::ProcessEvent(int id)
   case  EVENT_COPY:
   case  EVENT_PASTE:
   case EVENT_DELETE:
+    break;
   case  EVENT_UNDO:
-  case  EVENT_REDO:
+    if(_history.size() > 0 && _historypos < (ptrdiff_t)(_history.size() - 1))
+    {
+      if(_historypos < 0)
+      {
+        fgLayout* layout = bssMalloc<fgLayout>(1);
+        fgLayout_InitCopy(layout, &curlayout, 0);
+        _history.push_back(layout);
+        _historypos = 0;
+      }
+      ApplyLayoutCopy(_history[_history.size() - (++_historypos) - 1]);
+      EnableEvent(EVENT_UNDO, _history.size() > 0 && _historypos < (ptrdiff_t)(_history.size() - 1));
+      EnableEvent(EVENT_REDO, _historypos > 0);
+    }
+    break;
+  case EVENT_REDO:
+    if(_historypos > 0)
+    {
+      ApplyLayoutCopy(_history[_history.size() - (--_historypos) - 1]);
+      EnableEvent(EVENT_UNDO, _history.size() > 0 && _historypos < (ptrdiff_t)(_history.size() - 1));
+      EnableEvent(EVENT_REDO, _historypos > 0);
+    }
     break;
   case EVENT_HELP_DOCS:
 #ifdef BSS_PLATFORM_WIN32
@@ -344,7 +459,7 @@ void fgLayoutEditor::ProcessEvent(int id)
     break;
   }
 }
-void fgLayoutEditor::MenuFile(struct _FG_ELEMENT* e, const FG_Msg* m)
+void fgLayoutEditor::MenuAction(struct _FG_ELEMENT* e, const FG_Msg* m)
 {
   if(m->e)
     ProcessEvent(m->e->userid);
@@ -354,30 +469,26 @@ void fgLayoutEditor::MenuRecent(struct _FG_ELEMENT* e, const FG_Msg* m)
   if(m->e && m->e->userdata)
     LoadFile((const char*)m->e->userdata);
 }
-void fgLayoutEditor::MenuEdit(struct _FG_ELEMENT* e, const FG_Msg* m)
-{
-  if(m->e)
-    ProcessEvent(m->e->userid);
-}
-void fgLayoutEditor::MenuView(struct _FG_ELEMENT* e, const FG_Msg* m)
-{
-  if(m->e)
-    ProcessEvent(m->e->userid);
-}
-
-void fgLayoutEditor::MenuHelp(struct _FG_ELEMENT*, const FG_Msg* m)
-{
-  if(m->e)
-    ProcessEvent(m->e->userid);
-}
 void fgLayoutEditor::ToolAction(struct _FG_ELEMENT* e, const FG_Msg* m)
 {
   ProcessEvent(e->userid);
 }
+void fgLayoutEditor::ControlAction(struct _FG_ELEMENT* e, const FG_Msg*)
+{
+  if(_insert != (const char*)e->userdata)
+    _insert = (const char*)e->userdata;
+  else
+  {
+    e->SetValue(0);
+    _insert = 0;
+  }
+}
+
 bool fgLayoutEditor::Close()
 {
   if(!CheckSave())
     return false;
+  ClearLayoutVector(_history);
   DisplayLayout(0);
   _layout.Clear();
   _skin.Clear();
@@ -401,7 +512,7 @@ void fgLayoutEditor::DisplayLayout(fgLayout* layout)
   if(_workspaceroot)
   {
     fgElement_Clear(_workspaceroot);
-    curelement = 0;
+    SetCurElement(0);
     hoverelement = 0;
     _workspaceroot->SetSkin(0);
     if(layout)
@@ -420,7 +531,7 @@ void fgLayoutEditor::LoadFile(const char* file)
   {
     _settings.recent.insert(_settings.recent.begin(), _path);
     if(_settings.recent.size() > MAX_OPEN_HISTORY)
-      _settings.recent.erase(_settings.recent.end());
+      _settings.recent.pop_back();
     SaveSettings();
     FillRecentList();
   }
@@ -562,4 +673,66 @@ void fgLayoutEditor::SetNeedSave(bool needsave)
     name += "*";
   if(_window && _window->GetText() != name)
     _window->SetText(name.c_str());
+}
+
+void fgLayoutEditor::ClearLayoutVector(std::vector<fgLayout*>& v)
+{
+  for(size_t i = 0; i < v.size(); ++i)
+  {
+    fgLayout_Destroy(v[i]);
+    free(v[i]);
+  }
+  v.clear();
+}
+
+void fgLayoutEditor::EnableEvent(FG_UINT id, bool enable)
+{
+  if(_toolbarbuttons[id])
+    _toolbarbuttons[id]->SetFlag(FGCONTROL_DISABLE, !enable);
+  if(_menubuttons[id])
+    _menubuttons[id]->SetFlag(FGCONTROL_DISABLE, !enable);
+}
+void fgLayoutEditor::AddUndo()
+{
+  for(ptrdiff_t i = 0; i < _historypos; ++i)
+  {
+    fgLayout_Destroy(_history.back());
+    free(_history.back());
+    _history.pop_back();
+  }
+  if(_historypos < 0)
+  {
+    fgLayout* layout = bssMalloc<fgLayout>(1);
+    fgLayout_InitCopy(layout, &curlayout, 0);
+    _history.push_back(layout);
+  }
+  EnableEvent(EVENT_UNDO, true);
+  EnableEvent(EVENT_REDO, false);
+  _historypos = -1;
+}
+
+void fgLayoutEditor::ApplyLayoutCopy(fgLayout* layout)
+{
+  DisplayLayout(0);
+  _layout.Clear();
+  _skin.Clear();
+  fgLayout_Destroy(&curlayout);
+  fgLayout_InitCopy(&curlayout, layout, 0);
+  _layout.OpenLayout(&curlayout);
+  fgSkinBase_IterateSkins(&curlayout.base, &_skin, [](void* p, fgSkin* s, const char*) {((SkinTab*)p)->OpenSkin(s); });
+  DisplayLayout(&curlayout);
+  if(fgElement* tab = fgGetID("Editor$tablayout"))
+    tab->Action();
+}
+
+fgElement* fgLayoutEditor::FindUserID(fgElement* parent, FG_UINT userid)
+{
+  for(fgElement* e = parent->root; e != 0; e = e->next)
+  {
+    if(!(e->flags&FGELEMENT_BACKGROUND) && e->userid == userid)
+      return e;
+    if(fgElement* child = FindUserID(e, userid))
+      return child;
+  }
+  return 0;
 }

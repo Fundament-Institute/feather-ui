@@ -28,6 +28,7 @@ extern "C" {
   } fgStyle;
 
   FG_EXTERN void fgStyle_Init(fgStyle* self);
+  FG_EXTERN void fgStyle_InitCopy(fgStyle* self, const fgStyle* from);
   FG_EXTERN void fgStyle_Destroy(fgStyle* self);
   FG_EXTERN fgStyleIndex fgStyle_GetName(const char* name);
   FG_EXTERN fgStyleIndex fgStyle_GetAllNames(const char* names);

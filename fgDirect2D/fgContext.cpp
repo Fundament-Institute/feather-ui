@@ -350,7 +350,7 @@ AbsVec fgContext::AdjustPoints(tagPOINTS* points, fgElement* src)
 {
   AbsVec pt = AdjustDPI(points, src);
   AbsRect out;
-  ResolveRect(src, &out);
+  ResolveOuterRect(src, &out);
   pt.x += out.left;
   pt.y += out.top;
   return pt;

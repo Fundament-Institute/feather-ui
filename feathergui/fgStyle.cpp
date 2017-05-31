@@ -38,6 +38,17 @@ void fgStyle_Init(fgStyle* self)
   bss::bssFill(*self, 0);
 }
 
+void fgStyle_InitCopy(fgStyle* self, const fgStyle* from)
+{
+  self->styles = 0;
+  for(fgStyleMsg* cur = from->styles; cur != 0; cur = cur->next)
+  {
+    fgStyleMsg* m = fgStyle_CloneStyleMsg(cur);
+    m->next = self->styles;
+    self->styles = m;
+  }
+}
+
 void fgStyle_Destroy(fgStyle* self)
 {
   while(self->styles)

@@ -59,6 +59,7 @@ typedef struct _FG_SKIN_BASE
   struct kh_fgFonts_s* fonts;
   struct kh_fgSkins_s* skinmap;
   struct _FG_SKIN_BASE* parent;
+  struct _FG_SKIN* inherit; // Only valid for skins, but needs to be here so GetSkin can be resolved properly
   fgStyle style;
   const char* path;
   const char* name;
@@ -68,6 +69,7 @@ typedef struct _FG_SKIN_BASE
   FG_DLLEXPORT struct _FG_SKIN* AddSkin(const char* name);
   FG_DLLEXPORT char RemoveSkin(const char* name);
   FG_DLLEXPORT struct _FG_SKIN* GetSkin(const char* name) const;
+  FG_DLLEXPORT struct _FG_SKIN* GetAnySkin(const char* name) const; // Goes up parents to find a skin, not normally used except for copying
   FG_DLLEXPORT struct _FG_ASSET_DATA* AddAssetFile(fgFlag flags, const char* file);
   FG_DLLEXPORT char RemoveAsset(fgAsset asset);
   FG_DLLEXPORT struct _FG_ASSET_DATA* GetAsset(fgAsset asset) const;
@@ -85,25 +87,24 @@ typedef struct _FG_SKIN_BASE
 typedef struct _FG_SKIN
 {
   fgSkinBase base;
-  struct _FG_SKIN* inherit;
   fgTransform tf; // If tfunits is not -1, represents the transform requested by the skin
   fgMsgType tfunits; // Represents the units of the transform, or -1 if there is no transform
   fgSkinTree tree;
-
-#ifdef  __cplusplus
-  FG_DLLEXPORT struct _FG_SKIN* GetSkin(const char* name) const;
-#endif
 } fgSkin;
 
 FG_EXTERN void fgSkin_Init(fgSkin* self, const char* name, const char* path);
+FG_EXTERN void fgSkin_ResolveCopy(fgSkin* self, fgSkinBase* parent);
+FG_EXTERN void fgSkin_InitCopy(fgSkin* self, const fgSkin* from);
 FG_EXTERN void fgSkin_Destroy(fgSkin* self);
-FG_EXTERN fgSkin* fgSkin_GetSkin(const fgSkin* self, const char* name);
 FG_EXTERN char* fgSkin_ParseFontFamily(char* s, char quote, char** context);
 
+FG_EXTERN void fgSkinBase_InitCopy(fgSkinBase* self, const fgSkinBase* from);
+FG_EXTERN void fgSkinBase_ResolveCopy(fgSkinBase* self, struct _FG_SKIN_BASE* parent);
 FG_EXTERN void fgSkinBase_Destroy(fgSkinBase* self);
 FG_EXTERN fgSkin* fgSkinBase_AddSkin(fgSkinBase* self, const char* name);
 FG_EXTERN char fgSkinBase_RemoveSkin(fgSkinBase* self, const char* name);
 FG_EXTERN fgSkin* fgSkinBase_GetSkin(const fgSkinBase* self, const char* name);
+FG_EXTERN fgSkin* fgSkinBase_GetAnySkin(const fgSkinBase* self, const char* name);
 FG_EXTERN void fgSkinBase_IterateSkins(const fgSkinBase* self, void* p, void(*f)(void*, fgSkin*, const char*));
 FG_EXTERN struct _FG_ASSET_DATA* fgSkinBase_AddAssetFile(fgSkinBase* self, fgFlag flags, const char* file);
 FG_EXTERN char fgSkinBase_RemoveAsset(fgSkinBase* self, fgAsset asset);

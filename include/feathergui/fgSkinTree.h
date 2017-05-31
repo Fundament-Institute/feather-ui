@@ -8,6 +8,7 @@
 #include "fgElement.h"
 
 struct _FG_SKIN;
+struct _FG_SKIN_BASE;
 
 typedef struct _FG_SKIN_ELEMENT {
   const char* type;
@@ -49,9 +50,13 @@ typedef struct _FG_SKIN_LAYOUT {
 } fgSkinLayout;
 
 FG_EXTERN void fgSkinElement_Init(fgSkinElement* self, const char* type, fgFlag flags, const fgTransform* transform, fgMsgType units, int order);
+FG_EXTERN void fgSkinElement_InitCopy(fgSkinElement* self, const fgSkinElement* from);
+FG_EXTERN void fgSkinElement_ResolveCopy(fgSkinElement* self, struct _FG_SKIN_BASE* parent);
 FG_EXTERN void fgSkinElement_Destroy(fgSkinElement* self);
 
 FG_EXTERN void fgSkinTree_Init(fgSkinTree* self);
+FG_EXTERN void fgSkinTree_InitCopy(fgSkinTree* self, const fgSkinTree* from);
+FG_EXTERN void fgSkinTree_ResolveCopy(fgSkinTree* self, struct _FG_SKIN_BASE* parent);
 FG_EXTERN void fgSkinTree_Destroy(fgSkinTree* self);
 FG_EXTERN size_t fgSkinTree_AddChild(fgSkinTree* self, const char* type, fgFlag flags, const fgTransform* transform, fgMsgType units, int order);
 FG_EXTERN char fgSkinTree_RemoveChild(fgSkinTree* self, FG_UINT child);
@@ -61,6 +66,7 @@ FG_EXTERN char fgSkinTree_RemoveStyle(fgSkinTree* self, FG_UINT style);
 FG_EXTERN fgStyle* fgSkinTree_GetStyle(const fgSkinTree* self, FG_UINT style);
 
 FG_EXTERN void fgSkinLayout_Init(fgSkinLayout* self, const char* type, fgFlag flags, const fgTransform* transform, fgMsgType units, int order);
+FG_EXTERN void fgSkinLayout_InitCopy(fgSkinLayout* self, const fgSkinLayout* from);
 FG_EXTERN void fgSkinLayout_Destroy(fgSkinLayout* self);
 
 #endif

@@ -56,11 +56,11 @@ public:
   explicit EditorBase(fgLayout* layout);
   ~EditorBase();
   fgElement* AddProp(fgGrid& e, const char* name, const char* type = "Text", FG_UINT userid = 0, fgMessage fn = 0, fgFlag flags = FGELEMENT_EXPANDY);
-  void SetProps(fgGrid& g, fgClassLayout* layout, fgSkinElement* element, fgStyle& style);
+  void SetProps(fgGrid& g, fgClassLayout* layout, fgSkinElement* element, const fgSkin* skin, const char* name, fgStyle& style);
   void AddMutableProp(fgGrid& g, PROPERTIES id, const char* type, std::function<void(fgElement*, const char*)>& f, fgFlag flags = FGTEXTBOX_ACTION | FGTEXTBOX_SINGLELINE | FGELEMENT_EXPANDY);
   void ClearProps(fgGrid& g);
-  void LoadProps(fgGrid& g, const char* type, fgClassLayout* layout, fgSkinElement* element, fgStyle& style, std::function<void(fgElement*, const char*)>& f);
-  void ParseStyleMsg(fgStyle& target, fgElement* instance, fgSkinElement* element, fgClassLayout* layout, PROPERTIES id, const char* s);
+  void LoadProps(fgGrid& g, const char* type, fgClassLayout* layout, fgSkinElement* element, const fgSkin* skin, const char* name, fgStyle& style, std::function<void(fgElement*, const char*)>& f);
+  void ParseStyleMsg(fgStyle& target, fgElement* instance, fgSkinElement* element, fgClassLayout* layout, fgSkin** skin, const char** name, PROPERTIES id, const char* s);
   uint32_t ParseColor(const char* s);
   uint16_t GetTransformMsg(const fgStyle& target, fgTransform& out);
   fgElement* FindProp(fgGrid& g, PROPERTIES prop);
@@ -69,6 +69,8 @@ public:
   void WindowOnDestroy(struct _FG_ELEMENT*, const FG_Msg*);
   virtual void ReapplySkin(fgSkin* skin) = 0;
   virtual void SetNeedSave(bool needsave) = 0;
+  virtual void AddUndo() = 0;
+  virtual void SetCurElement(fgElement* cur) = 0;
 
   template<typename T, size_t(*F)(char*, size_t, const T*, fgMsgType)>
   inline bss::Str WrapWrite(const T& v, fgMsgType u)
@@ -84,7 +86,6 @@ public:
 
   fgLayout curlayout; // Currently loaded root layout
   fgElement* hoverelement;
-  fgElement* curelement; // currently selected element in the workspace
 
 protected:
   fgElement* _window;

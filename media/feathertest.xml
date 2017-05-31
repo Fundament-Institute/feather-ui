@@ -321,9 +321,9 @@
 		</Skin>
     <Skin name="Checkbox" padding="25 0 5 0" color="0xFFFFFFFF">
       <Resource flags="BACKGROUND|SNAP|RECT" outline="1" edgecolor="0xA0A3A9FF" color="0xFFFFFF" uv="2 2 2 2" area="5 50% 20 15:0.50" center="0 -1:0.5">
-        <Style name="default+active" color="0xEEEEEE" edgecolor="0x5F5F5FFF"/>
-        <Style name="default+hover" color="0xFFFFFF" edgecolor="0x5F5F5FFF"/>
-        <Style name="default+neutral" color="0xFFFFFF" edgecolor="0xA0A3A9FF"/>
+        <Style name="unchecked+active" color="0xEEEEEE" edgecolor="0x5F5F5FFF"/>
+        <Style name="unchecked+hover" color="0xFFFFFF" edgecolor="0x5F5F5FFF"/>
+        <Style name="unchecked+neutral" color="0xFFFFFF" edgecolor="0xA0A3A9FF"/>
         <Style name="checked+active" color="0x333333" edgecolor="0x333333"/>
         <Style name="checked+hover" color="0x444444" edgecolor="0x444444"/>
         <Style name="checked+neutral" color="0x666666" edgecolor="0x666666"/>
@@ -334,17 +334,17 @@
       <Resource flags="BACKGROUND|SNAP|RECT" color="0x5F5F5FFF" uv="2 2 2 2" area="8 50% 17 9:0.50" center="0 -1:0.5">
         <Style name="indeterminate" flags="-HIDDEN"/>
         <Style name="checked" flags="HIDDEN"/>
-        <Style name="default" flags="HIDDEN"/>
+        <Style name="unchecked" flags="HIDDEN"/>
       </Resource>
       <Resource flags="NOCLIP|BACKGROUND|RECT" color="0xFFFFFF" area="9 66% 20 2:0.66" rotation="-0.8">
         <Style name="indeterminate" flags="HIDDEN"/>
         <Style name="checked" flags="-HIDDEN"/>
-        <Style name="default" flags="HIDDEN"/>
+        <Style name="unchecked" flags="HIDDEN"/>
       </Resource>
       <Resource flags="NOCLIP|BACKGROUND|RECT" color="0xFFFFFF" area="10 1:0.66 15 3:0.66" rotation="-2.4">
         <Style name="indeterminate" flags="HIDDEN"/>
         <Style name="checked" flags="-HIDDEN"/>
-        <Style name="default" flags="HIDDEN"/>
+        <Style name="unchecked" flags="HIDDEN"/>
       </Resource>
     </Skin>
     <Skin name="Radiobutton" padding="25 5 5 5" color="0xFFFFFFFF">
@@ -355,7 +355,7 @@
       </Resource>
       <Resource flags="BACKGROUND|SNAP|CIRCLE" color="0x444444FF" margin="0 1 0 -1" uv="0 6.28 0 6.28" area="4 50% 13 9:0.50" center="0 50%">
         <Style name="checked" flags="-HIDDEN"/>
-        <Style name="default" flags="HIDDEN"/>
+        <Style name="unchecked" flags="HIDDEN"/>
       </Resource>
     </Skin>
     <Skin name="Slider" padding="7 0 7 0">
@@ -408,7 +408,7 @@
       </Resource>
     </Skin>
 		<Skin name="Combobox" selectcolor="0xE0E0E0" hovercolor="0xFDF4BF" >
-			<Skin inherit="Scrollbar" name="fgCombobox$textbox" padding="6 3 3 3" selectcolor="0xADD6FF" cursorcolor="0x000000" placecolor="0xB9AFB4" font="12 BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial" color="0x000000" area="0 0 -24:1 100%"/>
+			<Skin name="fgCombobox$textbox" padding="6 3 3 3" selectcolor="0xADD6FF" cursorcolor="0x000000" placecolor="0xB9AFB4" font="12 BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial" color="0x000000" area="0 0 -24:1 0" flags="SINGLELINE"/>
 			<Skin inherit="Scrollbar" name="Dropdown$box" padding="1 0 1 1">
 				<Resource flags="BACKGROUND|IGNORE|RECT" outline="1" edgecolor="0x9BA7B7" color="0xF5F5F5" uv="0 0 3 3" area="0 -1 100% 100%"/>
 			</Skin>
@@ -455,14 +455,18 @@
 				<Style name="selected+hover" color="0xEEEEEB"/>
 				<Style name="selected+neutral" color="0xCCCEDB"/>
         <Style name="focused+selected+hover" color="0x88CCFF" />
-        <Style name="focused+selected+nuetral" color="0x3399FF" />
+        <Style name="focused+selected+neutral" color="0x3399FF" />
         <Style name="focused+hover" color="0x88CCFF" />
-        <Style name="focused+nuetral" color="0x3399FF" />
+        <Style name="focused+neutral" color="0x3399FF" />
 				<Style name="hover" color="0xFFFFFF"/>
 				<Style name="neutral" color="0xF6F8FA"/>
 			</Resource>
 		</Skin>
-		<Skin name="Debug" font="14 BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial" color="0xFFFFFFFF"/>
+		<Skin name="Debug" font="14 BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial" color="0xFFFFFFFF">
+      <Skin name="Textbox" selectcolor="0xADD6FF" cursorcolor="0x000000" placecolor="0xB9AFB4" font="12 BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial" color="0x000000">
+        <Resource flags="BACKGROUND|IGNORE|RECT" outline="1" edgecolor="0xC0C3C9FF" color="0xFFFFFF99" uv="3 3 3 3" area="0 0 100% 100%"/>
+      </Skin>
+    </Skin>
 		<Skin name="Workspace">
 		</Skin>
 		<Skin name="Toolbar" padding="6 1 6 2" flags="TILE|EXPANDY|HIDEH|DRAGGABLE" spacing="4,2">
@@ -479,14 +483,17 @@
           <Style name="hover" color="0xfdf4bf" edgecolor="0xe5c365"/>
           <Style name="neutral" color="0" edgecolor="0"/>
         </Resource>
-        <Skin name="Button$Asset" padding="0 5 0 5" />
+        <Skin name="Button$Asset" padding="0 5 0 5" color="0xFFFFFFFF">
+          <Style name="disabled" color="0xFFFFFF66" />
+          <Style name="neutral" color="0xFFFFFFFF" />
+        </Skin>
       </Skin>
       <Skin name="Text" font="10 BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial" color="0x000000"/>
       <Skin name="Checkbox" flags="EXPAND" padding="6 1 6 1">
         <Resource flags="BACKGROUND|RECT" color="0" edgecolor="0" outline="1" area="0 0 100% 100%">
-          <Style name="default+active" color="0xf5e3a5" edgecolor="0xc5b355"/>
-          <Style name="default+hover" color="0xfdf4bf" edgecolor="0xe5c365"/>
-          <Style name="default+neutral" color="0" edgecolor="0"/>
+          <Style name="unchecked+active" color="0xf5e3a5" edgecolor="0xc5b355"/>
+          <Style name="unchecked+hover" color="0xfdf4bf" edgecolor="0xe5c365"/>
+          <Style name="unchecked+neutral" color="0" edgecolor="0"/>
           <Style name="checked+active" color="0xf5e3a5" edgecolor="0xc5b355"/>
           <Style name="checked+hover" color="0xf5e3a5" edgecolor="0xc5a345"/>
           <Style name="checked+neutral" color="0xeac96a" edgecolor="0xd5b355" />
@@ -494,9 +501,9 @@
       </Skin>
       <Skin name="Radiobutton" flags="EXPAND" padding="6 1 6 1">
         <Resource flags="BACKGROUND|RECT" color="0" edgecolor="0" outline="1" area="0 0 100% 100%">
-          <Style name="default+active" color="0xf5e3a5" edgecolor="0xc5b355"/>
-          <Style name="default+hover" color="0xfdf4bf" edgecolor="0xe5c365"/>
-          <Style name="default+neutral" color="0" edgecolor="0"/>
+          <Style name="unchecked+active" color="0xf5e3a5" edgecolor="0xc5b355"/>
+          <Style name="unchecked+hover" color="0xfdf4bf" edgecolor="0xe5c365"/>
+          <Style name="unchecked+neutral" color="0" edgecolor="0"/>
           <Style name="checked+active" color="0xf5e3a5" edgecolor="0xc5b355"/>
           <Style name="checked+hover" color="0xf5e3a5" edgecolor="0xc5a345"/>
           <Style name="checked+neutral" color="0xeac96a" edgecolor="0xd5b355" />

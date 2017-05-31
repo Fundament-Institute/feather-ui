@@ -63,6 +63,9 @@ size_t fgProgressbar_Message(fgProgressbar* self, const FG_Msg* msg)
       return (size_t)self->value;
     fgLog(FGLOG_INFO, "%s requested invalid value type: %hu", fgGetFullName(*self).c_str(), msg->subtype);
     return 0;
+  case FG_CLEAR:
+    fgSendMessage(self->text, msg);
+    break;
   case FG_SETTEXT:
   case FG_SETFONT:
   case FG_SETLINEHEIGHT:

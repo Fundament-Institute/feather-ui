@@ -401,8 +401,8 @@ void fgSkinTree_WriteXML(XMLNode* node, fgSkinTree* tree, fgSkinBase* root, cons
 
 void fgSkin_WriteXML(XMLNode* node, fgSkin* skin)
 {
-  if(skin->inherit)
-    node->AddAttribute("inherit")->String = skin->inherit->base.name;
+  if(skin->base.inherit)
+    node->AddAttribute("inherit")->String = skin->base.inherit->base.name;
   if(skin->base.name)
     node->AddAttribute("name")->String = skin->base.name;
   if(skin->tfunits != (fgMsgType)~0)

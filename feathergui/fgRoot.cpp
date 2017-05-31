@@ -15,7 +15,7 @@ struct fgTypeInit {
   fgFlag flags;
 };
 
-KHASH_INIT(fgIDMap, const char*, fgElement*, 1, kh_str_hash_func, kh_str_hash_equal);
+KHASH_INIT(fgIDMap, const char*, fgElement*, 1, kh_str_hash_funcins, kh_str_hash_insequal);
 KHASH_INIT(fgIDHash, fgElement*, const char*, 1, kh_ptr_hash_func, kh_int_hash_equal);
 KHASH_INIT(fgInitMap, const char*, fgTypeInit, 1, kh_str_hash_funcins, kh_str_hash_insequal);
 KHASH_INIT(fgCursorMap, unsigned int, void*, 1, kh_int_hash_func, kh_int_hash_equal);
@@ -91,7 +91,7 @@ void fgRoot_Init(fgRoot* self, const AbsRect* area, const AbsVec* dpi, const fgB
 #endif
 
   fgStyle_AddGroupNames(4, "neutral", "hover", "active", "disabled");
-  fgStyle_AddGroupNames(3, "default", "checked", "indeterminate");
+  fgStyle_AddGroupNames(3, "unchecked", "checked", "indeterminate");
   fgStyle_AddGroupNames(2, "visible", "hidden");
   
   fgRegisterControl("element", fgElement_Init, sizeof(fgElement), 0);
@@ -301,7 +301,7 @@ char fgDrawSkinPartial(fgVector* skinstyle, AbsRect* padding, const fgSkin* skin
 {
   if(skin != 0)
   {
-    clipping = fgDrawSkinPartial(skinstyle, padding, skin->inherit, area, aux, culled, foreground, clipping);
+    clipping = fgDrawSkinPartial(skinstyle, padding, skin->base.inherit, area, aux, culled, foreground, clipping);
 
     AbsRect curarea;
     for(size_t i = 0; i < skin->tree.children.l; ++i)
@@ -316,7 +316,7 @@ char fgDrawSkinInherit(const struct _FG_SKIN* skin, const AbsRect* area, const f
 {
   if(skin != 0)
   {
-    clipping = fgDrawSkinInherit(skin->inherit, area, aux, culled, clipping);
+    clipping = fgDrawSkinInherit(skin->base.inherit, area, aux, culled, clipping);
 
     AbsRect curarea;
     for(size_t i = 0; i < skin->tree.children.l; ++i)

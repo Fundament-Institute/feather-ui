@@ -58,23 +58,27 @@ public:
   bool CheckSave();
   char ShowDialog(const char* text, const char* button1, const char* button2 = 0, const char* button3 = 0);
   virtual void Destroy() override;
-  void MenuFile(struct _FG_ELEMENT*, const FG_Msg*);
+  void MenuAction(struct _FG_ELEMENT*, const FG_Msg*);
   void MenuRecent(struct _FG_ELEMENT*, const FG_Msg*);
-  void MenuEdit(struct _FG_ELEMENT*, const FG_Msg*);
-  void MenuView(struct _FG_ELEMENT*, const FG_Msg*);
-  void MenuHelp(struct _FG_ELEMENT*, const FG_Msg*);
   void ToolAction(struct _FG_ELEMENT*, const FG_Msg*);
+  void ControlAction(struct _FG_ELEMENT*, const FG_Msg*);
   void SaveSettings();
   virtual void ReapplySkin(fgSkin* skin) override;
   void FillRecentList();
   void ProcessEvent(int id);
   virtual void SetNeedSave(bool needsave) override;
+  virtual void AddUndo() override;
+  void ApplyLayoutCopy(fgLayout* layout);
+  void EnableEvent(FG_UINT id, bool enable);
+  virtual void SetCurElement(fgElement* cur) override { _curelement = cur; EnableEvent(EVENT_DELETE, cur != 0); }
 
   static size_t WorkspaceRootMessage(fgElement* e, const FG_Msg* m);
   static fgElement* LoadLayout(fgElement* parent, fgElement* next, fgClassLayout* layout);
   static std::string FileDialog(bool open, unsigned long flags, const char* file, const wchar_t* filter, const char* initdir, const char* defext);
   static uint8_t HitElement(fgElement* target, const FG_Msg* m);
-    
+  static void ClearLayoutVector(std::vector<fgLayout*>& v);
+  static fgElement* FindUserID(fgElement* parent, FG_UINT userid);
+
   static fgLayoutEditor* Instance;
   static const int MAX_OPEN_HISTORY = 10;
 
@@ -95,6 +99,7 @@ public:
     EVENT_HELP_DOCS,
     EVENT_HELP_GITHUB,
     EVENT_HELP_ABOUT,
+    EVENT_NUM,
   };
   enum CORNERHIT {
     HIT_TOP = 1,
@@ -111,19 +116,28 @@ protected:
   fgLayout* displaylayout; // Currently displayed layout or sublayout
   fgElement* _workspaceroot;
   fgElement* _toolbar;
+  fgElement* _toolbarcontrols;
+  fgElement* _menu;
   fgElement* _recentmenu;
   fgSkin* _resizebox;
-  
+  fgElement* _toolbarbuttons[EVENT_NUM];
+  fgElement* _menubuttons[EVENT_NUM];
+
+  const char* _insert;
+  fgElement* _insertdest;
+  AbsVec _insertbegin;
+  AbsVec _insertend;
   bool _needsave;
   LayoutTab _layout;
   SkinTab _skin;
-  fgLayoutAction* _undo;
-  fgLayoutAction* _redo;
+  std::vector<fgLayout*> _history;
+  ptrdiff_t _historypos; // location of where we are in our history (can be -1 to represent the current state if it hasn't been added to the history stack)
   EditorSettings _settings;
   std::string _path;
   uint8_t _sizing;
   AbsVec _lastmouse;
   AbsVec _anchor;
+  fgElement* _curelement; // currently selected element in the workspace
 };
 
 #endif

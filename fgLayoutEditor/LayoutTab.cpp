@@ -42,7 +42,7 @@ void LayoutTab::Init(EditorBase* base)
   fgElement_AddDelegateListener<LayoutTab, &LayoutTab::_editboxOnAction>(_editbox, FG_LOSTFOCUS, this);
 
   _propafter = [this](fgElement* e, const char* type) {
-    if(!STRICMP(type, "textbox"))
+    if(!STRICMP(type, "textbox") || !STRICMP(type, "combobox"))
     {
       fgElement_AddDelegateListener<LayoutTab, &LayoutTab::_textboxOnAction>(e, FG_ACTION, this);
       fgElement_AddDelegateListener<LayoutTab, &LayoutTab::_textboxOnAction>(e, FG_LOSTFOCUS, this);
@@ -87,9 +87,7 @@ void LayoutTab::AddProp(const char* name, FG_UINT id, const char* type)
   fgFlag flags = FGELEMENT_EXPANDY;
   fgMessage f = nullptr;
   if(!STRICMP(type, "textbox"))
-  {
     flags |= FGTEXTBOX_ACTION | FGTEXTBOX_SINGLELINE;
-  }
   _propafter(_base->AddProp(*_layoutprops, name, type, id, f, flags), type);
 }
 void LayoutTab::_doInsert(const char* type, bool insert)
@@ -184,13 +182,24 @@ void LayoutTab::_treeviewOnMouseDown(struct _FG_ELEMENT* e, const FG_Msg* msg)
 
 void LayoutTab::_textboxOnAction(struct _FG_ELEMENT* e, const FG_Msg* msg)
 {
-  if(!msg->subtype)
+  if(!msg->subtype && _selected && _selected->userdata)
   {
-    if(_selected && _selected->userdata && _selected->userid == 0)
+    switch(_selected->userid)
+    {
+    case 0:
     {
       auto p = (fgClassLayout*)_selected->userdata;
-      _base->ParseStyleMsg(p->element.style, _layoutmap[p], &p->element, p, EditorBase::PROPERTIES(e->userid), e->GetText());
-      _base->SetProps(*_layoutprops, p, &p->element, p->element.style);
+      _base->ParseStyleMsg(p->element.style, _layoutmap[p], &p->element, p, &p->element.skin, &p->name, EditorBase::PROPERTIES(e->userid), e->GetText());
+      _base->SetProps(*_layoutprops, p, &p->element, p->element.skin, p->name, p->element.style);
+    }
+      break;
+    case 1:
+    {
+      auto p = (fgLayout*)_selected->userdata;
+      _base->ParseStyleMsg(p->base.style, 0, 0, 0, &p->skin, &p->base.name, EditorBase::PROPERTIES(e->userid), e->GetText());
+      _base->SetProps(*_layoutprops, 0, 0, p->skin, p->base.name, p->base.style);
+    }
+    break;
     }
   }
 }
@@ -259,6 +268,13 @@ void LayoutTab::OpenLayout(fgLayout* layout)
     _openLayout(*_layoutview, layout->children);
   }
 }
+void LayoutTab::_addLayoutSkins(fgSkinBase* base, fgElement* target)
+{
+  if(!base)
+    return;
+  fgSkinBase_IterateSkins(base, target, [](void* p, fgSkin* s, const char* n) { fgCreate("text", (fgElement*)p, 0, 0, FGELEMENT_EXPAND, 0, 0)->SetText(n); });
+  _addLayoutSkins(base->parent, target);
+}
 void LayoutTab::_treeItemOnFocus(struct _FG_ELEMENT* e, const FG_Msg*)
 {
   if(e->userdata)
@@ -266,19 +282,22 @@ void LayoutTab::_treeItemOnFocus(struct _FG_ELEMENT* e, const FG_Msg*)
     if(e->userid == 1)
     {
       auto p = (fgLayout*)e->userdata;
-      _base->LoadProps(*_layoutprops, 0, 0, 0, p->base.style, _propafter);
+      _base->LoadProps(*_layoutprops, 0, 0, 0, p->skin, p->base.name, p->base.style, _propafter);
     }
     else
     {
       auto p = (fgClassLayout*)e->userdata;
-      _base->LoadProps(*_layoutprops, p->element.type, p, &p->element, p->element.style, _propafter);
+      _base->LoadProps(*_layoutprops, p->element.type, p, &p->element, p->element.skin, p->name, p->element.style, _propafter);
       if(fgElement* e = _layoutmap[p])
-        _base->curelement = e;
+        _base->SetCurElement(e);
     }
     _selected = e;
     fgLayout* display = FindParentLayout(e);
     if(display)
+    {
       _base->DisplayLayout(display);
+      _addLayoutSkins(&display->base, _layoutprops->GetRow(3)->GetItem(1));
+    }
   }
 }
 

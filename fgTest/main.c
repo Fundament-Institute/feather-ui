@@ -266,10 +266,10 @@ int main(int argc, char** argv)
 {
   static const int COLUMNS[3] = { 24, 11, 8 };
   static TESTDEF tests[] = {
+    { "fgWindow.h", &test_Window },
     { "feathergui.h", &test_feathergui },
     { "fgBox.h", &test_Box },
     { "fgRoot.h", &test_Root },
-    { "fgWindow.h", &test_Window },
     { "fgButton.h", &test_Button },
     { "fgMenu.h", &test_Menu },
   };

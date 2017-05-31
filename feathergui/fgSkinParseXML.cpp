@@ -159,7 +159,7 @@ fgSkin* fgStyle_ParseAttributesXML(fgStyle* self, const XMLNode* cur, int flags,
       maxflags |= (fgStyle_ParseUnit(attr->String, attr->String.length() + 1) << FGUNIT_Y);
       break;
     case 5: // skin
-      skin = fgSkinBase_GetSkin(root, attr->String);
+      skin = fgSkinBase_GetAnySkin(root, attr->String);
       if(!skin) // Attempt loading as XML (this function will attempt both relative and absolute)
         skin = fgSkinBase_LoadFileXML(root, attr->String);
       //if(!skin) // attempt UBJSON
@@ -467,13 +467,7 @@ fgFlag fgSkinBase_ParseFlagsFromString(const char* s, fgFlag* remove, int divide
 fgSkin* fgSkinBase_GetInherit(fgSkinBase* self, const char* inherit)
 {
   if(!inherit) return 0;
-  fgSkin* r = 0;
-  while(!r && self != 0)
-  {
-    r = fgSkinBase_GetSkin(self, inherit);
-    self = self->parent;
-  }
-  return r;
+  return fgSkinBase_GetAnySkin(self, inherit);
 }
 
 // Styles parse flags differently - the attributes use the parent flags for resource/font loading, then creates add and remove flag messages
@@ -517,7 +511,7 @@ void fgSkinBase_ParseSubNodeXML(fgSkinTree* tree, fgStyle* style, fgSkinBase* ro
 
   fgStyle_ParseAttributesXML(style, cur, rootflags, root, 0, 0); // For obvious reasons a skin can't include a SETSKIN message
   if(skin)
-    skin->inherit = fgSkinBase_GetInherit(&skin->base, cur->GetAttributeString("inherit"));
+    skin->base.inherit = fgSkinBase_GetInherit(&skin->base, cur->GetAttributeString("inherit"));
 
   for(size_t i = 0; i < cur->GetNodes(); ++i)
   {

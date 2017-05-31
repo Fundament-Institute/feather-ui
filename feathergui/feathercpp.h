@@ -97,14 +97,14 @@ public:
     assert(fgroot_instance != 0);
     auto i = _leakinfo.Iterator(ptr);
     if(!_leakinfo.ExistsIter(i))
-      fprintf(f, "Attempt to delete unassigned memory location (%p) at %s:%zi\n", ptr, file, line);
+      fgLog(FGLOG_ERROR, "Attempt to delete unassigned memory location (%p) at %s:%zi\n", ptr, file, line);
     else
     {
       LEAKINFO* info = _leakinfo.GetValue(i);
       ++info->freecount;
 
       if(info->freecount > 1)
-        fprintf(f, "Attempted to delete memory location (%p) at least %zi times at %s:%zi. First free location at %s:%zi\n", ptr, info->freecount, file, line, info->freefile, info->freeline);
+        fgLog(FGLOG_ERROR, "Attempted to delete memory location (%p) at least %zi times at %s:%zi. First free location at %s:%zi\n", ptr, info->freecount, file, line, info->freefile, info->freeline);
       else
       {
         info->freefile = file;
@@ -124,7 +124,6 @@ public:
   static fgLeakTracker Tracker;
 protected:
   bss::Hash<void*, LEAKINFO*> _leakinfo;
-  FILE* f;
 };
 
 template<typename T>
@@ -155,10 +154,11 @@ BSS_FORCEINLINE void fgfreeblank(void* p)
 template<class T, typename... Args>
 struct fgConstruct
 {
-  template<void (*DESTROY)(T*), void (*CONSTRUCT)(T*, Args...)>
+  template<void (*DESTROY)(T*), void (*CONSTRUCT)(T*, Args...), void (*COPY)(T*, const T*)>
   struct fgConstructor : public T
   {
     fgConstructor(fgConstructor&& mov) { memcpy(this, &mov, sizeof(T)); bss::bssFill(mov, 0); }
+    fgConstructor(const fgConstructor& copy) { COPY(this, &copy); }
     fgConstructor() {}
     fgConstructor(Args... args) { CONSTRUCT((T*)this, args...); }
     ~fgConstructor() { DESTROY((T*)this); }
@@ -172,10 +172,11 @@ struct fgConstruct
 template<class T>
 struct fgConstruct<T>
 {
-  template<void (*DESTROY)(T*), void (*CONSTRUCT)(T*)>
+  template<void (*DESTROY)(T*), void (*CONSTRUCT)(T*), void(*COPY)(T*, const T*)>
   struct fgConstructor : public T
   {
     fgConstructor(fgConstructor&& mov) { memcpy(this, &mov, sizeof(T)); bss::bssFill(mov, 0); }
+    fgConstructor(const fgConstructor& copy) { COPY(this, &copy); }
     fgConstructor() { CONSTRUCT((T*)this); }
     ~fgConstructor() { DESTROY((T*)this); }
     operator T&() { return *this; }
@@ -188,10 +189,16 @@ struct fgConstruct<T>
 struct _FG_DEBUG;
 extern struct _FG_DEBUG* fgdebug_instance;
 
-typedef typename fgConstruct<fgSkinLayout, const char*, fgFlag, const fgTransform*, fgMsgType, int>::fgConstructor<fgSkinLayout_Destroy, fgSkinLayout_Init> fgSkinLayoutConstruct;
-typedef typename fgConstruct<fgClassLayout, const char*, const char*, fgFlag, const fgTransform*, fgMsgType, int>::fgConstructor<fgClassLayout_Destroy, fgClassLayout_Init> fgClassLayoutConstruct;
+inline void fgClassLayoutEmptyCopy(fgClassLayout*, const fgClassLayout*) {} // We manually call this because we need to pass the parent so we just fill this with an empty one.
+typedef typename fgConstruct<fgSkinLayout, const char*, fgFlag, const fgTransform*, fgMsgType, int>::fgConstructor<fgSkinLayout_Destroy, fgSkinLayout_Init, fgSkinLayout_InitCopy> fgSkinLayoutConstruct;
+typedef typename fgConstruct<fgClassLayout, const char*, const char*, fgFlag, const fgTransform*, fgMsgType, int>::fgConstructor < fgClassLayout_Destroy, fgClassLayout_Init, fgClassLayoutEmptyCopy> fgClassLayoutConstruct;
 
 BSS_FORCEINLINE void fgConstructKeyValue(_FG_KEY_VALUE*) {}
+BSS_FORCEINLINE void fgCopyKeyValue(_FG_KEY_VALUE* self, const _FG_KEY_VALUE* from)
+{ 
+  self->key = fgCopyText(from->key, __FILE__, __LINE__);
+  self->value = fgCopyText(from->value, __FILE__, __LINE__);
+}
 BSS_FORCEINLINE void fgDestructKeyValue(_FG_KEY_VALUE* p)
 {
   fgFreeText(p->key, __FILE__, __LINE__);
@@ -214,7 +221,7 @@ char DynArrayRemove(T& a, FG_UINT index)
 }
 
 typedef bss::ArraySort<fgSkinLayoutConstruct, fgSortStyleLayout, size_t, bss::ARRAY_CONSTRUCT> fgSkinLayoutArray;
-typedef bss::DynArray<typename fgConstruct<struct _FG_KEY_VALUE>::fgConstructor<fgDestructKeyValue, fgConstructKeyValue>, size_t, bss::ARRAY_CONSTRUCT> fgKeyValueArray;
+typedef bss::DynArray<typename fgConstruct<struct _FG_KEY_VALUE>::fgConstructor<fgDestructKeyValue, fgConstructKeyValue, fgCopyKeyValue>, size_t, bss::ARRAY_CONSTRUCT> fgKeyValueArray;
 typedef bss::ArraySort<fgClassLayoutConstruct, fgSortClassLayout, size_t, bss::ARRAY_CONSTRUCT> fgClassLayoutArray;
 typedef bss::ArraySort<struct _FG_ELEMENT*> fgElementArray;
 
@@ -509,5 +516,23 @@ struct fgStyleStatic
 
   static fgStyleStatic Instance;
 };
+
+template<class T, class KEY, T* (*INIT)(), khint_t(*PUT)(T*, KEY, int*)>
+T* fgCopyHashPointer(T* from, const std::function<void(T*, khint_t, T*, khint_t)>& copy)
+{
+  if(!from)
+    return 0;
+  T* self = INIT();
+  for(khiter_t i = 0; i < kh_end(from); ++i)
+  {
+    if(kh_exist(from, i))
+    {
+      int r;
+      khint_t k = PUT(self, kh_key(from, i), &r);
+      copy(self, k, from, i);
+    }
+  }
+  return self;
+}
 
 #endif

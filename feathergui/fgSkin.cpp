@@ -76,6 +76,20 @@ void fgSkin_Init(fgSkin* self, const char* name, const char* path)
   self->base.path = fgCopyText(path, __FILE__, __LINE__);
 }
 
+void fgSkin_ResolveCopy(fgSkin* self, fgSkinBase* parent)
+{
+  fgSkinBase_ResolveCopy(&self->base, parent);
+  fgSkinTree_ResolveCopy(&self->tree, parent);
+}
+
+void fgSkin_InitCopy(fgSkin* self, const fgSkin* from)
+{
+  fgSkinBase_InitCopy(&self->base, &from->base);
+  fgSkinTree_InitCopy(&self->tree, &from->tree);
+  self->tf = from->tf;
+  self->tfunits = from->tfunits;
+}
+
 template<class HASH, class T, void (*DESTROY)(T*), void(*DEL)(HASH*, khint_t)>
 char DestroyHashElement(HASH* self, khiter_t iter)
 {
@@ -105,12 +119,43 @@ void fgSkin_Destroy(fgSkin* self)
   fgSkinBase_Destroy(&self->base);
 }
 
-fgSkin* fgSkin_GetSkin(const fgSkin* self, const char* name)
+// We have to split the copy operation up because we need to have all the skins initialized before actually resolving them
+void fgSkinBase_ResolveCopy(fgSkinBase* self, struct _FG_SKIN_BASE* parent)
 {
-  if(!self || !name)
-    return 0;
-  fgSkin* r = fgSkinBase_GetSkin(&self->base, name);
-  return !r ? fgSkin_GetSkin(self->inherit, name) : r;
+  self->parent = parent;
+  if(self->inherit)
+    self->inherit = self->GetAnySkin(self->inherit->base.name);
+  if(self->skinmap)
+    for(khiter_t i = 0; i < kh_end(self->skinmap); ++i)
+      if(kh_exist(self->skinmap, i))
+        fgSkin_ResolveCopy(kh_val(self->skinmap, i), self);
+}
+
+void fgSkinBase_InitCopy(fgSkinBase* self, const fgSkinBase* from)
+{
+  fgStyle_InitCopy(&self->style, &from->style);
+  self->path = fgCopyText(from->path, __FILE__, __LINE__);
+  self->name = fgCopyText(from->name, __FILE__, __LINE__);
+  self->type = fgCopyText(from->type, __FILE__, __LINE__);
+  self->parent = 0;
+
+  self->assets = fgCopyHashPointer<kh_fgAssets_s, fgAsset, kh_init_fgAssets, kh_put_fgAssets>(from->assets,
+    [](kh_fgAssets_s* self, khint_t index, kh_fgAssets_s* from, khint_t i) {
+    kh_val(self, index) = new _FG_ASSET_DATA(*kh_val(from, i));
+    kh_key(self, index) = kh_val(self, index)->asset;
+  });
+  self->fonts = fgCopyHashPointer<kh_fgFonts_s, fgFont, kh_init_fgFonts, kh_put_fgFonts>(from->fonts,
+    [](kh_fgFonts_s* self, khint_t index, kh_fgFonts_s* from, khint_t i) {
+    kh_val(self, index) = new _FG_FONT_DATA(*kh_val(from, i));
+    kh_key(self, index) = kh_val(self, index)->font;
+  });
+  self->skinmap = fgCopyHashPointer<kh_fgSkins_s, const char*, kh_init_fgSkins, kh_put_fgSkins>(from->skinmap,
+    [self](kh_fgSkins_s* target, khint_t index, kh_fgSkins_s* from, khint_t i) {
+    kh_val(target, index) = fgmalloc<fgSkin>(1, __FILE__, __LINE__);
+    fgSkin_InitCopy(kh_val(target, index), kh_val(from, i));
+    kh_key(target, index) = kh_val(target, index)->base.name;
+  });
+  self->inherit = from->inherit;
 }
 
 void _FG_ASSET_DATA_DESTROY(_FG_ASSET_DATA* p) { p->~_FG_ASSET_DATA(); }
@@ -237,10 +282,23 @@ char fgSkinBase_RemoveSkin(fgSkinBase* self, const char* name)
 }
 fgSkin* fgSkinBase_GetSkin(const fgSkinBase* self, const char* name)
 {
-  if(!self || !name || !self->skinmap)
+  if(!self || !name)
     return 0;
-  khiter_t iter = kh_get(fgSkins, self->skinmap, name);
-  return (iter != kh_end(self->skinmap) && kh_exist(self->skinmap, iter)) ? kh_val(self->skinmap, iter) : 0;
+  if(self->skinmap)
+  {
+    khiter_t iter = kh_get(fgSkins, self->skinmap, name);
+    if(iter != kh_end(self->skinmap) && kh_exist(self->skinmap, iter))
+      return kh_val(self->skinmap, iter);
+  }
+  return fgSkinBase_GetSkin((fgSkinBase*)self->inherit, name);
+}
+fgSkin* fgSkinBase_GetAnySkin(const fgSkinBase* self, const char* name)
+{
+  if(!self || !name)
+    return 0;
+  if(fgSkin* s = fgSkinBase_GetSkin(self, name))
+    return s;
+  return fgSkinBase_GetSkin(self->parent, name);
 }
 
 void fgSkinBase_IterateSkins(const fgSkinBase* self, void* p, void(*f)(void*, fgSkin*, const char*))
@@ -284,6 +342,7 @@ fgStyle* fgSkinTree::GetStyle(FG_UINT style) const { return fgSkinTree_GetStyle(
 fgSkin* fgSkinBase::AddSkin(const char* name) { return fgSkinBase_AddSkin(this, name); }
 char fgSkinBase::RemoveSkin(const char* name) { return fgSkinBase_RemoveSkin(this, name); }
 fgSkin* fgSkinBase::GetSkin(const char* name) const { return fgSkinBase_GetSkin(this, name); }
+fgSkin* fgSkinBase::GetAnySkin(const char* name) const { return fgSkinBase_GetAnySkin(this, name); }
 _FG_ASSET_DATA* fgSkinBase::AddAssetFile(fgFlag flags, const char* file) { return fgSkinBase_AddAssetFile(this, flags, file); }
 char fgSkinBase::RemoveAsset(fgAsset asset) { return fgSkinBase_RemoveAsset(this, asset); }
 _FG_ASSET_DATA* fgSkinBase::GetAsset(fgAsset asset) const { return fgSkinBase_GetAsset(this, asset); }
@@ -295,5 +354,3 @@ _FG_FONT_DATA* fgSkinBase::GetFont(fgFont font) const { return fgSkinBase_GetFon
 //fgSkin* fgSkinBase::LoadUBJSON(const void* data, FG_UINT length, const char* path) { return fgSkinBase_LoadUBJSON(this, data, length, path); }
 fgSkin* fgSkinBase::LoadFileXML(const char* file) { return fgSkinBase_LoadFileXML(this, file); }
 fgSkin* fgSkinBase::LoadXML(const char* data, FG_UINT length) { return fgSkinBase_LoadXML(this, data, length); }
-
-fgSkin* fgSkin::GetSkin(const char* name) const { return fgSkin_GetSkin(this, name); }

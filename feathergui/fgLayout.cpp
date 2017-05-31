@@ -157,8 +157,9 @@ void fgClassLayout_LoadLayoutXML(fgClassLayout* self, const XMLNode* cur, fgLayo
     }
   }
 }
-void fgLayout_LoadLayoutNode(fgLayout* self, const XMLNode* root, std::istream& s)
+void fgLayout_LoadLayoutNode(fgLayout* self, fgSkinBase* parent, const XMLNode* root, std::istream& s)
 {
+  self->base.parent = parent;
   size_t nodes = root->GetNodes(); // We have to load any skins in the layout BEFORE we parse the attributes, otherwise the skin won't get applied
   for(size_t i = 0; i < nodes; ++i)
     if(!STRICMP(root->GetNode(i)->GetName(), "skin"))
@@ -177,7 +178,7 @@ void fgLayout_LoadLayoutNode(fgLayout* self, const XMLNode* root, std::istream& 
       if(!name)
         fgLog(FGLOG_ERROR, "Sublayout failed to load because it had no name attribute.");
       else
-        fgLayout_LoadLayoutNode(self->AddLayout(name), root, s);
+        fgLayout_LoadLayoutNode(self->AddLayout(name), &self->base, node, s);
     }
     else
     {
@@ -205,7 +206,7 @@ bool fgLayout_LoadStreamXML(fgLayout* self, std::istream& s, const char* path)
   }
 
   fgSkinBase_SetPath(&self->base, path);
-  fgLayout_LoadLayoutNode(self, root, s);
+  fgLayout_LoadLayoutNode(self, 0, root, s);
   return true;
 }
 char fgLayout_LoadFileXML(fgLayout* self, const char* file)
@@ -296,6 +297,37 @@ void fgLayout_IterateLayouts(fgLayout* self, void* p, void(*f)(void*, fgLayout*,
   }
 }
 
+void fgLayout_InitCopy(fgLayout* self, const fgLayout* from, fgSkinBase* parent)
+{
+  fgSkinBase_InitCopy(&self->base, &from->base);
+  fgSkinBase_ResolveCopy(&self->base, parent);
+  self->skin = !from->skin ? 0 : self->base.GetSkin(from->skin->base.name);
+  self->children.s = from->children.s;
+  self->children.l = from->children.l;
+  self->children.p = bss::bssMalloc<fgClassLayout>(self->children.s); // do NOT use fgmalloc, this is not freed via fgfree
+  for(size_t i = 0; i < from->children.l; ++i)
+    fgClassLayout_InitCopy(&self->children.p[i], &from->children.p[i], &self->base);
+  self->sublayouts = fgCopyHashPointer<kh_fgLayoutMap_s, const char*, kh_init_fgLayoutMap, kh_put_fgLayoutMap>(from->sublayouts, 
+    [self](kh_fgLayoutMap_s* target, khint_t index, kh_fgLayoutMap_s* from, khint_t i) {
+      kh_val(target, index) = fgmalloc<fgLayout>(1, __FILE__, __LINE__);
+      fgLayout_InitCopy(kh_val(target, index), kh_val(from, i), &self->base);
+      kh_key(target, index) = kh_val(target, index)->base.name;
+  });
+}
+
+void fgClassLayout_InitCopy(fgClassLayout* self, const fgClassLayout* from, fgSkinBase* parent)
+{
+  fgSkinElement_InitCopy(&self->element, &from->element);
+  self->name = fgCopyText(from->name, __FILE__, __LINE__);
+  self->id = fgCopyText(from->id, __FILE__, __LINE__);
+  self->children.s = from->children.s;
+  self->children.l = from->children.l;
+  self->children.p = bss::bssMalloc<fgClassLayout>(self->children.s); // do NOT use fgmalloc, this is not freed via fgfree
+  for(size_t i = 0; i < from->children.l; ++i)
+    fgClassLayout_InitCopy(&self->children.p[i], &from->children.p[i], parent);
+  new ((fgKeyValueArray*)&self->userdata) fgKeyValueArray((fgKeyValueArray&)from->userdata);
+  self->userid = from->userid;
+}
 FG_UINT fgLayout::AddChild(const char* type, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units, int order) { return fgLayout_AddChild(this, type, name, flags, transform, units, order); }
 bool fgLayout::RemoveChild(FG_UINT layout) { return fgLayout_RemoveChild(this, layout) != 0; }
 fgClassLayout* fgLayout::GetChild(FG_UINT layout) const { return fgLayout_GetChild(this, layout); }

@@ -298,7 +298,7 @@ size_t fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
   case FG_SETSKIN:
     fgBox_Message(&self->box, msg);
     if(self->box->skin)
-      self->arrow = self->box->skin->GetSkin("Submenu$arrow");
+      self->arrow = self->box->skin->base.GetSkin("Submenu$arrow");
     return FG_ACCEPT;
   case FG_GETSELECTEDITEM:
     return (size_t)self->expanded;

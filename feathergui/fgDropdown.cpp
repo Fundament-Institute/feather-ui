@@ -169,6 +169,7 @@ size_t fgDropdown_Message(fgDropdown* self, const FG_Msg* msg)
         return FG_ACCEPT;
     }
     break;
+  case FG_CLEAR:
   case FG_SETDIM:
   case FG_GETDIM:
     return (*self->box->message)(self->box, msg);

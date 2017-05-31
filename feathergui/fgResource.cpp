@@ -128,9 +128,10 @@ size_t fgResource_Message(fgResource* self, const FG_Msg* msg)
   case FG_GETOUTLINE:
     return *reinterpret_cast<size_t*>(&self->outline);
   case FG_MOVE:
+    fgElement_Message(&self->element, msg);
     if(!(msg->u2 & FGMOVE_PROPAGATE) && (msg->u2 & FGMOVE_RESIZE))
       fgResource_Recalc(self);
-    break;
+    return FG_ACCEPT;
   case FG_DRAW:
   {
     if(msg->subtype & 1) break;
@@ -148,6 +149,8 @@ size_t fgResource_Message(fgResource* self, const FG_Msg* msg)
       fgroot_instance->backend.fgDrawAsset(self->asset, &self->uv, self->color.color, self->edge.color, self->outline, &area, self->element.transform.rotation, &center, self->element.flags, (fgDrawAuxData*)msg->p2);
   }
   break;
+  case FG_CLEAR:
+    return self->element.SetAsset(0);
   case FG_GETCLASSNAME:
     return (size_t)"Resource";
   }
