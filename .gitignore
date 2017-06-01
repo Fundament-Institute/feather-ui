@@ -12,8 +12,9 @@
 *.log
 /bin/
 /bin32/
-/media/editor/
-!/media/editor/editor.xml
+/media/editor/16
+/media/editor/*.out.*
+/media/editor/*.png
 /media/*.out.*
 /media/*.png
 /feathergui/x64/
