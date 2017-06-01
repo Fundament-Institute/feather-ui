@@ -997,15 +997,15 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
     switch(msg->subtype&FGDIM_MASK)
     {
     case FGDIM_MAX:
-      return *reinterpret_cast<size_t*>(&self->maxdim);
+      return reinterpret_cast<size_t>(&self->maxdim);
     case FGDIM_MIN:
-      return *reinterpret_cast<size_t*>(&self->mindim);
+      return reinterpret_cast<size_t>(&self->mindim);
     }
     fgLog(FGLOG_INFO, "%s unrecognized dim requested: %hu", fgGetFullName(self).c_str(), msg->subtype);
     return 0;
   case FG_GETUSERDATA:
     if(!msg->p2)
-      return *reinterpret_cast<size_t*>(&self->userdata);
+      return reinterpret_cast<size_t>(&self->userdata);
     if(!self->userhash)
     {
       fgLog(FGLOG_ERROR, "userhash failed to initialize on %s", fgGetFullName(self).c_str());

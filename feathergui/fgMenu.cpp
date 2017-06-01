@@ -21,10 +21,38 @@ void fgMenu_Destroy(fgMenu* self)
   //fgRoot_DeallocAction(fgSingleton(),self->dropdown);
 }
 
-void fgMenu_Show(fgMenu* self, bool show)
+void fgMenu_Adjust(fgMenu* self, bool zero)
+{
+  if(zero)
+  {
+    CRect area = self->box->transform.area;
+    area.bottom.abs -= area.top.abs;
+    area.top.abs = 0;
+    self->box->SetArea(area);
+  }
+  AbsRect out;
+  ResolveRect(*self, &out);
+  fgElement* e = (fgElement*)fgRoot_GetMonitor(fgroot_instance, &out);
+  if(!e)
+    e = &fgroot_instance->gui.element;
+  AbsRect max;
+  ResolveRect(e, &max);
+  self->box->SetDim(self->box->GetDim(FGDIM_MAX)->x, max.bottom - max.top, FGDIM_MAX);
+  FABS adjust = bssmin(0, max.bottom - out.bottom);
+  if(adjust)
+  {
+    CRect area = self->box->transform.area;
+    area.top.abs += adjust;
+    area.bottom.abs += adjust;
+    self->box->SetArea(area);
+  }
+}
+void fgMenu_Show(fgMenu* self, bool show, bool zero)
 {
   assert(self != 0);
   fgFlag set = show ? (self->box->flags & (~FGELEMENT_HIDDEN)) : (self->box->flags | FGELEMENT_HIDDEN);
+  if(show)
+    fgMenu_Adjust(self, zero);
   _sendmsg<FG_SETFLAGS, size_t>(*self, set);
   fgVoidMessage(self->box->parent, show ? FG_ACTIVE : FG_NEUTRAL, 0, 0);
 
@@ -33,7 +61,7 @@ void fgMenu_Show(fgMenu* self, bool show)
   {
     if(!show)
       self->expanded = 0;
-    fgMenu_Show(submenu, show);
+    fgMenu_Show(submenu, show, true);
   }
   if(!show)
   {
@@ -49,13 +77,13 @@ inline fgMenu* fgMenu_ExpandMenu(fgMenu* self, fgElement* child)
   if(child != self->hover)
   {
     if(self->expanded)
-      fgMenu_Show(self->expanded, false);
+      fgMenu_Show(self->expanded, false, true);
     else if(self->hover && !(self->hover->flags&FGCONTROL_DISABLE))
       self->hover->Neutral();
     self->expanded = (child->flags&FGCONTROL_DISABLE) ? 0 : submenu;
     self->hover = (child->flags&FGCONTROL_DISABLE) ? 0 : child;
     if(self->expanded)
-      fgMenu_Show(self->expanded, true);
+      fgMenu_Show(self->expanded, true, true);
     else if(self->hover)
       self->hover->Active();
   }
@@ -125,7 +153,7 @@ size_t fgMenu_Message(fgMenu* self, const FG_Msg* msg)
     if(fgroot_instance->fgCaptureWindow == *self)
     {
       if(self->expanded)
-        fgMenu_Show(self->expanded, false);
+        fgMenu_Show(self->expanded, false, true);
       self->expanded = 0;
       if(self->hover && !(self->hover->flags&FGCONTROL_DISABLE))
         self->hover->Neutral();
@@ -227,14 +255,14 @@ size_t fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
     }
     if((fgroot_instance->fgCaptureWindow != 0) && (fgroot_instance->fgCaptureWindow == *self || fgroot_instance->fgCaptureWindow->GetClassName() == SUBMENU_NAME))
     {
-      fgMenu_Show((fgMenu*)fgroot_instance->fgCaptureWindow, false);
+      fgMenu_Show((fgMenu*)fgroot_instance->fgCaptureWindow, false, true);
       fgroot_instance->fgCaptureWindow = 0;
     }
     if(fgroot_instance->fgCaptureWindow != 0 && (fgroot_instance->fgCaptureWindow->GetClassName() == MENU_NAME))
     {
       fgMenu* menu = reinterpret_cast<fgMenu*>(fgroot_instance->fgCaptureWindow);
       if(menu->expanded)
-        fgMenu_Show(menu->expanded, false);
+        fgMenu_Show(menu->expanded, false, true);
       menu->expanded = 0;
       if(menu->hover)
         menu->hover->Neutral();

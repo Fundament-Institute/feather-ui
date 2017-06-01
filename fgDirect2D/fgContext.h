@@ -8,7 +8,7 @@
 #include "bss-util/Hash.h"
 #include <stack>
 
-//#define TEST_DPI 120
+#define TEST_DPI 120
 
 struct HWND__;
 struct tagRECT;
@@ -25,6 +25,8 @@ struct IWICBitmapSource;
 #define LOGFAILURE(x, f, ...) { HRESULT hr = (x); if(FAILED(hr)) { fgLog(FGLOG_ERROR, f, __VA_ARGS__); } }
 #define LOGFAILURERET(x, r, f, ...) { HRESULT hr = (x); if(FAILED(hr)) { fgLog(FGLOG_ERROR, f, __VA_ARGS__); return r; } }
 #define LOGFAILURERETNULL(x, f, ...) LOGFAILURERET(x,LOGEMPTY,f,__VA_ARGS__)
+
+#define MAKELPPOINTS(l)       ((POINTS FAR *)&(l))
 
 #if defined(_WIN64)
 typedef long long longptr_t;
@@ -62,8 +64,9 @@ struct fgContext {
   static HWND__* WndCreate(const AbsRect& out, unsigned long style, uint32_t exflags, void* self, const wchar_t* cls, AbsVec& dpi);
   static void SetDWMCallbacks();
   static void WndRegister(longptr_t(__stdcall* f)(HWND__*, unsigned int, size_t, longptr_t), const wchar_t* name);
-  static AbsVec AdjustPoints(tagPOINTS* points, fgElement* src);
-  static AbsVec AdjustDPI(tagPOINTS* points, fgElement* src);
+  static AbsVec AdjustPoints(struct tagPOINTS* points, HWND__* hWnd);
+  static AbsVec AdjustPointsDPI(tagPOINTS* points);
+  static void AdjustDPI(AbsVec& points, AbsVec& dpi);
 
   static uint32_t wincount;
 };

@@ -88,6 +88,7 @@ FG_EXTERN void fgRoot_RemoveAction(fgRoot* self, fgDeferAction* action); // Remo
 FG_EXTERN void fgRoot_ModifyAction(fgRoot* self, fgDeferAction* action); // Moves action if it needs to be moved, or inserts it if it isn't already in the list.
 FG_EXTERN struct _FG_MONITOR* fgRoot_GetMonitor(const fgRoot* self, const AbsRect* rect);
 FG_EXTERN size_t fgStandardInject(fgElement* self, const FG_Msg* msg, const AbsRect* area);
+FG_EXTERN size_t fgInjectDPIChange(fgElement* self, const FG_Msg* msg, const AbsRect* area, const AbsVec* dpi, const AbsVec* olddpi);
 FG_EXTERN size_t fgOrderedInject(fgElement* self, const FG_Msg* msg, const AbsRect* area, fgElement* skip, fgElement* (*fn)(fgElement*, const FG_Msg*), fgElement* selected);
 FG_EXTERN void fgStandardDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, char culled, fgAuxDrawFunction draw);
 FG_EXTERN void fgOrderedDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* aux, char culled, fgElement* skip, fgOrderedDrawGet fn, fgAuxDrawFunction draw, fgElement* selected);

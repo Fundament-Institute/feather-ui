@@ -15,6 +15,8 @@ struct fgTypeInit {
   fgFlag flags;
 };
 
+using namespace bss;
+
 KHASH_INIT(fgIDMap, const char*, fgElement*, 1, kh_str_hash_funcins, kh_str_hash_insequal);
 KHASH_INIT(fgIDHash, fgElement*, const char*, 1, kh_ptr_hash_func, kh_int_hash_equal);
 KHASH_INIT(fgInitMap, const char*, fgTypeInit, 1, kh_str_hash_funcins, kh_str_hash_insequal);
@@ -62,10 +64,12 @@ void fgRoot_Init(fgRoot* self, const AbsRect* area, const AbsVec* dpi, const fgB
   };
 
   fgStyleStatic::Instance.Init();
-  bss::bssFill(*self, 0);
+  bssFill(*self, 0);
   self->backend = !backend ? DEFAULT_BACKEND : *backend;
   self->fgBehaviorHook = fgBehaviorHookDefault;
   self->dpi = *dpi;
+  if(self->dpi.x == 0.0f && self->dpi.y == 0.0f)
+    self->dpi = AbsVec_DEFAULTDPI;
   self->cursorblink = 0.53; // 530 ms is the windows default.
   self->lineheight = 30;
   self->fontscale = 1.0f;
@@ -555,6 +559,19 @@ BSS_FORCEINLINE size_t fgProcessCursor(fgRoot* self, size_t value, fgMsgType typ
   return value;
 }
 
+// Before directly injecting messages to topmost/captured windows, we have to manually scale the message DPI if necessary.
+size_t _doRootInject(fgRoot* self, fgElement* target, const FG_Msg* msg)
+{
+  const AbsVec& dpi = target->GetDPI();
+  if((dpi.x == 0.0f || dpi.x == self->dpi.x) && (dpi.y == 0.0f || dpi.y == self->dpi.y))
+    return _sendmsg<FG_INJECT, const void*, const void*>(target, msg, 0);
+
+  FG_Msg m = *msg;
+  m.x *= (self->dpi.x / dpi.x);
+  m.y *= (self->dpi.y / dpi.y);
+  return _sendmsg<FG_INJECT, const void*, const void*>(target, &m, 0);
+}
+
 size_t fgRoot_DefaultInject(fgRoot* self, const FG_Msg* msg)
 {
   assert(self != 0);
@@ -599,11 +616,11 @@ size_t fgRoot_DefaultInject(fgRoot* self, const FG_Msg* msg)
       MoveCRect((FABS)msg->x, (FABS)msg->y, &self->dragdraw->transform.area);
 
     if(self->fgCaptureWindow)
-      if(fgProcessCursor(self, _sendmsg<FG_INJECT, const void*, const void*>(self->fgCaptureWindow, msg, 0), msg->type)) // If it's captured, send the message to the captured window with NULL area.
+      if(fgProcessCursor(self, _doRootInject(self, self->fgCaptureWindow, msg), msg->type)) // If it's captured, send the message to the captured window with NULL area.
         return FG_ACCEPT;
 
     if(self->topmost) // After we attempt sending the message to the captured window, try sending it to the topmost
-      if(fgProcessCursor(self, _sendmsg<FG_INJECT, const void*, const void*>(self->topmost, msg, 0), msg->type))
+      if(fgProcessCursor(self, _doRootInject(self, self->topmost, msg), msg->type))
         return FG_ACCEPT;
 
     if(fgProcessCursor(self, _sendmsg<FG_INJECT, const void*, const void*>(*self, msg, 0), msg->type))
@@ -679,13 +696,14 @@ fgMonitor* fgRoot_GetMonitor(const fgRoot* self, const AbsRect* rect)
 
   while(cur)
   {
-    CRect& area = cur->element.transform.area;
-    AbsRect monitor = { area.left.abs > rect->left ? area.left.abs : rect->left,
-      area.top.abs > rect->top ? area.top.abs : rect->top,
-      area.right.abs < rect->right ? area.right.abs : rect->right,
-      area.bottom.abs < rect->bottom ? area.bottom.abs : rect->bottom };
+    AbsRect area;
+    ResolveRect(&cur->element, &area);
+    AbsRect monitor = { area.left > rect->left ? area.left : rect->left,
+      area.top > rect->top ? area.top : rect->top,
+      area.right < rect->right ? area.right : rect->right,
+      area.bottom < rect->bottom ? area.bottom : rect->bottom };
 
-    float total = (monitor.right - monitor.left)*(monitor.bottom - monitor.top);
+    float total = bssmax(monitor.right - monitor.left, 0)*bssmax(monitor.bottom - monitor.top, 0);
     if(total > largest) // This must be GREATER THAN to ensure that a value of "0" is not ever assigned a monitor.
     {
       largest = total;
@@ -983,4 +1001,25 @@ void fgIterateGroups(void* p, void(*fn)(void*, fgStyleIndex))
       visit &= ~fgStyleStatic::Instance.Masks[i];
     }
   }
+}
+
+size_t fgInjectDPIChange(fgElement* self, const FG_Msg* msg, const AbsRect* area, const AbsVec* dpi, const AbsVec* olddpi)
+{
+  if((dpi->x == 0 || dpi->x == olddpi->x) && (dpi->y == 0 || dpi->y == olddpi->y))
+    return fgStandardInject(self, msg, area);
+  FG_Msg m = *msg;
+  m.x *= (olddpi->x / dpi->x);
+  m.y *= (olddpi->y / dpi->y);
+  if(area)
+  {
+    BSS_ALIGN(16) AbsRect rect = *area;
+    BSS_ALIGN(16) float scale[4];
+    scale[0] = (olddpi->x / dpi->x);
+    scale[1] = (olddpi->y / dpi->y);
+    scale[2] = scale[0];
+    scale[3] = scale[1];
+    (sseVec(rect._array)*sseVec(scale)) >> rect._array;
+    return fgStandardInject(self, &m, &rect);
+  }
+  return fgStandardInject(self, &m, NULL);
 }

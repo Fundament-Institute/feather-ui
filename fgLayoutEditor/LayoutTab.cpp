@@ -73,6 +73,7 @@ void LayoutTab::Init(EditorBase* base)
   EditorBase::AddMenuControls("LayoutContext$add");
   EditorBase::AddMenuControls("LayoutContext$insert");
   EditorBase::AddMenuControls("SublayoutContext$add");
+  EditorBase::AddMenuControls("Editor$EditInsert");
 }
 
 void LayoutTab::_treeItemOnHover(struct _FG_ELEMENT* self, const FG_Msg* m)

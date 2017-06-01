@@ -1,8 +1,8 @@
-<? version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <fg:Layout xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:fg="featherGUI" xsi:schemaLocation="featherGUI feather.xsd" skin="fgEditor">
 	<Window flags="MINIMIZABLE|MAXIMIZABLE|RESIZABLE" text="FeatherGUI Layout Editor" area="0 0 800 600" id="Editor$mainwindow">
 		<Box flags="TILEX|TILEY|GROWY" area="0 0 100% 100%" id="Editor$main">
-			<Menu id="Editor$Menu"
+			<Menu id="Editor$Menu">
 				<MenuItem text="File">
 					<Submenu onaction="menu_action">
 						<MenuItem text="New" userid="1"/>
@@ -18,7 +18,9 @@
 				</MenuItem>
 				<MenuItem text="Edit">
 					<Submenu onaction="menu_action">
-						<MenuItem text="Insert"/>
+						<MenuItem text="Insert">
+              <Submenu id="Editor$EditInsert" onaction="menu_insert"></Submenu>
+            </MenuItem>
 						<MenuItem text="Add"/>
 						<MenuItem text="Delete" userid="10" flags="DISABLE"/>
 						<MenuItem text="Move" userid="3" flags="DISABLE" />

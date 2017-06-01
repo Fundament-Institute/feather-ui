@@ -64,7 +64,7 @@ typedef struct {
 MAKE_VEC(FREL,RelVec);
 MAKE_VEC(FABS,AbsVec);
 // A coordinate vector specifies a point by unified coordinates
-MAKE_VEC(Coord,CVec);
+MAKE_VEC(Coord, CVec);
 
 #define MAKE_RECT(_T,_T2,_N) typedef struct { \
   union { \
@@ -78,6 +78,7 @@ MAKE_VEC(Coord,CVec);
       _T2 topleft; \
       _T2 bottomright; \
     }; \
+    _T _array[4]; \
   }; \
 } _N
 

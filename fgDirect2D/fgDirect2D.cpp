@@ -903,6 +903,9 @@ longptr_t __stdcall fgDirect2D::TopmostWndProc(HWND__* hWnd, unsigned int messag
         self->topcontext.EndDraw();
       }
       return 0;
+    case WM_MOUSEMOVE:
+      if(self->root.topmost != 0)
+        return self->topcontext.WndProc(hWnd, message, wParam, lParam, self->root.topmost);
     }
 
     if(self->root.topmost != 0)

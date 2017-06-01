@@ -130,7 +130,7 @@ size_t fgControl_Message(fgControl* self, const FG_Msg* msg)
       if(self->contextmenu->parent)
         ResolveRect(self->contextmenu->parent, &area);
       MoveCRect(msg->x - area.left, msg->y - area.top, &self->contextmenu->transform.area);
-      fgMenu_Show((fgMenu*)self->contextmenu, true);
+      fgMenu_Show((fgMenu*)self->contextmenu, true, false);
       fgroot_instance->fgCaptureWindow = self->contextmenu;
     }
   { // Any control that gets a MOUSEUP event immediately fires a MOUSEMOVE event at that location, which will force the focus to shift to a different control if the mouseup occured elsewhere.

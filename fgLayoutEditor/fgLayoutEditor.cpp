@@ -86,6 +86,8 @@ _curelement(0), _historypos(-1), _insert(0), _insertdest(0)
     fgIterateControls(&fn, &bss::Delegate<void, const char*>::stublambda);
   }
 
+  bssFill(_toolbarbuttons, 0);
+  bssFill(_menubuttons, 0);
   if(_toolbar && _menu)
   {
     for(FG_UINT i = 1; i < EVENT_NUM; ++i)

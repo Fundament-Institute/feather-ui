@@ -87,8 +87,6 @@ void fgContext::WndRegister(WNDPROC f, const wchar_t* name)
   RegisterClassExW(&wcex);
 }
 
-#define MAKELPPOINTS(l)       ((POINTS FAR *)&(l))
-
 longptr_t __stdcall fgContext::WndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam, fgElement* src)
 {
   static tagTRACKMOUSEEVENT _trackingstruct = { sizeof(tagTRACKMOUSEEVENT), TME_LEAVE, 0, 0 };
@@ -105,19 +103,19 @@ longptr_t __stdcall fgContext::WndProc(HWND__* hWnd, unsigned int message, size_
   {
     POINTS pointstemp = { 0, GET_WHEEL_DELTA_WPARAM(wParam) };
     DWORD pos = GetMessagePos();
-    SetMouse(AdjustDPI(MAKELPPOINTS(pos), src), FG_MOUSESCROLL, 0, *(size_t*)&pointstemp, GetMessageTime());
+    SetMouse(AdjustPointsDPI(MAKELPPOINTS(pos)), FG_MOUSESCROLL, 0, *(size_t*)&pointstemp, GetMessageTime());
   }
   break;
   case 0x020E: // WM_MOUSEHWHEEL - this is only sent on vista machines, but our minimum version is XP, so we manually look for the message anyway and process it if it happens to get sent to us.
   {
     POINTS pointstemp = { GET_WHEEL_DELTA_WPARAM(wParam), 0 };
     DWORD pos = GetMessagePos();
-    SetMouse(AdjustDPI(MAKELPPOINTS(pos), src), FG_MOUSESCROLL, 0, *(size_t*)&pointstemp, GetMessageTime());
+    SetMouse(AdjustPointsDPI(MAKELPPOINTS(pos)), FG_MOUSESCROLL, 0, *(size_t*)&pointstemp, GetMessageTime());
   }
   break;
   case WM_MOUSEMOVE:
   {
-    AbsVec pt = AdjustPoints(MAKELPPOINTS(lParam), src); // Call this up here so we don't do it twice
+    AbsVec pt = AdjustPoints(MAKELPPOINTS(lParam), hWnd); // Call this up here so we don't do it twice
     if(!inside)
     {
       _trackingstruct.hwndTrack = hWnd;
@@ -129,40 +127,40 @@ longptr_t __stdcall fgContext::WndProc(HWND__* hWnd, unsigned int message, size_
     break;
   }
   case WM_LBUTTONDOWN:
-    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDOWN, FG_MOUSELBUTTON, wParam, GetMessageTime());
+    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), hWnd), FG_MOUSEDOWN, FG_MOUSELBUTTON, wParam, GetMessageTime());
     break;
   case WM_LBUTTONUP:
-    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEUP, FG_MOUSELBUTTON, wParam, GetMessageTime());
+    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), hWnd), FG_MOUSEUP, FG_MOUSELBUTTON, wParam, GetMessageTime());
     break;
   case WM_LBUTTONDBLCLK:
-    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDBLCLICK, FG_MOUSELBUTTON, wParam, GetMessageTime());
+    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), hWnd), FG_MOUSEDBLCLICK, FG_MOUSELBUTTON, wParam, GetMessageTime());
     break;
   case WM_RBUTTONDOWN:
-    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDOWN, FG_MOUSERBUTTON, wParam, GetMessageTime());
+    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), hWnd), FG_MOUSEDOWN, FG_MOUSERBUTTON, wParam, GetMessageTime());
     break;
   case WM_RBUTTONUP:
-    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEUP, FG_MOUSERBUTTON, wParam, GetMessageTime());
+    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), hWnd), FG_MOUSEUP, FG_MOUSERBUTTON, wParam, GetMessageTime());
     break;
   case WM_RBUTTONDBLCLK:
-    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDBLCLICK, FG_MOUSERBUTTON, wParam, GetMessageTime());
+    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), hWnd), FG_MOUSEDBLCLICK, FG_MOUSERBUTTON, wParam, GetMessageTime());
     break;
   case WM_MBUTTONDOWN:
-    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDOWN, FG_MOUSEMBUTTON, wParam, GetMessageTime());
+    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), hWnd), FG_MOUSEDOWN, FG_MOUSEMBUTTON, wParam, GetMessageTime());
     break;
   case WM_MBUTTONUP:
-    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEUP, FG_MOUSEMBUTTON, wParam, GetMessageTime());
+    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), hWnd), FG_MOUSEUP, FG_MOUSEMBUTTON, wParam, GetMessageTime());
     break;
   case WM_MBUTTONDBLCLK:
-    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDBLCLICK, FG_MOUSEMBUTTON, wParam, GetMessageTime());
+    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), hWnd), FG_MOUSEDBLCLICK, FG_MOUSEMBUTTON, wParam, GetMessageTime());
     break;
   case WM_XBUTTONDOWN:
-    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDOWN, (GET_XBUTTON_WPARAM(wParam) == XBUTTON1 ? FG_MOUSEXBUTTON1 : FG_MOUSEXBUTTON2), wParam, GetMessageTime());
+    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), hWnd), FG_MOUSEDOWN, (GET_XBUTTON_WPARAM(wParam) == XBUTTON1 ? FG_MOUSEXBUTTON1 : FG_MOUSEXBUTTON2), wParam, GetMessageTime());
     break;
   case WM_XBUTTONUP:
-    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEUP, (GET_XBUTTON_WPARAM(wParam) == XBUTTON1 ? FG_MOUSEXBUTTON1 : FG_MOUSEXBUTTON2), wParam, GetMessageTime());
+    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), hWnd), FG_MOUSEUP, (GET_XBUTTON_WPARAM(wParam) == XBUTTON1 ? FG_MOUSEXBUTTON1 : FG_MOUSEXBUTTON2), wParam, GetMessageTime());
     break;
   case WM_XBUTTONDBLCLK:
-    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), src), FG_MOUSEDBLCLICK, (GET_XBUTTON_WPARAM(wParam) == XBUTTON1 ? FG_MOUSEXBUTTON1 : FG_MOUSEXBUTTON2), wParam, GetMessageTime());
+    SetMouse(AdjustPoints(MAKELPPOINTS(lParam), hWnd), FG_MOUSEDBLCLICK, (GET_XBUTTON_WPARAM(wParam) == XBUTTON1 ? FG_MOUSEXBUTTON1 : FG_MOUSEXBUTTON2), wParam, GetMessageTime());
     break;
   case WM_SYSKEYUP:
   case WM_SYSKEYDOWN:
@@ -177,7 +175,7 @@ longptr_t __stdcall fgContext::WndProc(HWND__* hWnd, unsigned int message, size_
   case WM_MOUSELEAVE:
   {
     DWORD pos = GetMessagePos();
-    SetMouse(AdjustDPI(MAKELPPOINTS(pos), src), FG_MOUSEOFF, 0, (size_t)~0, GetMessageTime());
+    SetMouse(AdjustPointsDPI(MAKELPPOINTS(pos)), FG_MOUSEOFF, 0, (size_t)~0, GetMessageTime());
     inside = false;
   }
   break;
@@ -346,22 +344,23 @@ void fgContext::SetChar(int key, unsigned long time)
   root->inject(root, &evt);
 }
 
-AbsVec fgContext::AdjustPoints(tagPOINTS* points, fgElement* src)
+AbsVec fgContext::AdjustPoints(tagPOINTS* points, HWND hWnd)
 {
-  AbsVec pt = AdjustDPI(points, src);
-  AbsRect out;
-  ResolveOuterRect(src, &out);
-  pt.x += out.left;
-  pt.y += out.top;
+  RECT rect;
+  GetWindowRect(hWnd, &rect);
+  AbsVec pt = { points->x + rect.left, points->y + rect.top };
+  AdjustDPI(pt, fgSingleton()->dpi);
   return pt;
 }
-AbsVec fgContext::AdjustDPI(tagPOINTS* points, fgElement* src)
+void fgContext::AdjustDPI(AbsVec& pt, AbsVec& dpi)
+{
+  pt.x *= (96.0f / dpi.x);
+  pt.y *= (96.0f / dpi.y);
+}
+AbsVec fgContext::AdjustPointsDPI(tagPOINTS* points)
 {
   AbsVec pt = { points->x, points->y };
-  AbsVec dpi = src->GetDPI();
-  AbsVec scale = { (!dpi.x) ? 1.0f : (96.0f / dpi.x), (!dpi.y) ? 1.0f : (96.0f / dpi.y) };
-  pt.x *= scale.x;
-  pt.y *= scale.y;
+  AdjustDPI(pt, fgSingleton()->dpi);
   return pt;
 }
 

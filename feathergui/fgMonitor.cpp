@@ -88,7 +88,7 @@ size_t fgMonitor_Message(fgMonitor* self, const FG_Msg* msg)
     if(!msg->subtype)
     {
       size_t r = fgElement_Message(&self->element, msg);
-      self->coverage = AbsRect { self->element.transform.area.left.abs / scale.x, self->element.transform.area.top.abs / scale.y, self->element.transform.area.right.abs / scale.x, self->element.transform.area.bottom.abs / scale.y };
+      self->coverage = AbsRect{ self->element.transform.area.left.abs / scale.x, self->element.transform.area.top.abs / scale.y, self->element.transform.area.right.abs / scale.x, self->element.transform.area.bottom.abs / scale.y };
       return r;
     }
     if(msg->p != 0)
@@ -104,7 +104,7 @@ size_t fgMonitor_Message(fgMonitor* self, const FG_Msg* msg)
     return 0;
   }
   case FG_INJECT:
-    return fgStandardInject(&self->element, (const FG_Msg*)msg->p, NULL);
+    return fgInjectDPIChange(&self->element, (const FG_Msg*)msg->p, NULL, &self->dpi, &fgroot_instance->dpi);
   case FG_GETCLASSNAME:
     return (size_t)"Monitor";
   }
