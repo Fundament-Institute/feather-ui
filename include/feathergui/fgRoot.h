@@ -66,6 +66,8 @@ typedef struct _FG_ROOT {
   fgElement* fgLastHover; // Last window the mouse moved over, used to generate MOUSEON and MOUSEOFF events
   fgElement* fgCaptureWindow;
   size_t(*fgBehaviorHook)(struct _FG_ELEMENT* self, const FG_Msg* msg);
+  fgElement* fgTooltip;
+  double tooltipdelay; // defaults to 400 ms (the windows default)
   enum FG_LOGLEVEL maxloglevel;
 #ifdef  __cplusplus
   inline bool GetKey(unsigned char key) const { return (keys[key / 32] & (1 << (key % 32))) != 0; }
@@ -81,12 +83,12 @@ FG_EXTERN size_t fgRoot_Message(fgRoot* self, const FG_Msg* msg);
 FG_EXTERN size_t fgRoot_DefaultInject(fgRoot* self, const FG_Msg* msg); // Returns 0 if handled, 1 otherwise
 FG_EXTERN void fgRoot_Update(fgRoot* self, double delta);
 FG_EXTERN void fgRoot_CheckMouseMove(fgRoot* self);
-FG_EXTERN fgDeferAction* fgRoot_AllocAction(char (*action)(void*), void* arg, double time);
-FG_EXTERN void fgRoot_DeallocAction(fgRoot* self, fgDeferAction* action); // Removes action from the list if necessary
-FG_EXTERN void fgRoot_AddAction(fgRoot* self, fgDeferAction* action); // Adds an action. Action can't already be in list.
-FG_EXTERN void fgRoot_RemoveAction(fgRoot* self, fgDeferAction* action); // Removes an action. Action must be in list.
-FG_EXTERN void fgRoot_ModifyAction(fgRoot* self, fgDeferAction* action); // Moves action if it needs to be moved, or inserts it if it isn't already in the list.
+FG_EXTERN void fgRoot_ShowTooltip(fgRoot* self, const char* tooltip); // if tooltip is NULL, hides the tooltip instead
 FG_EXTERN struct _FG_MONITOR* fgRoot_GetMonitor(const fgRoot* self, const AbsRect* rect);
+FG_EXTERN fgDeferAction* fgAllocAction(char(*action)(void*), void* arg, double time);
+FG_EXTERN void fgDeallocAction(fgDeferAction* action); // Removes action from the list if necessary
+FG_EXTERN void fgAddAction(fgDeferAction* action); // Moves action if it needs to be moved, or adds it if it isn't already in the list.
+FG_EXTERN void fgRemoveAction(fgDeferAction* action); // Removes an action if it's in the list
 FG_EXTERN size_t fgStandardInject(fgElement* self, const FG_Msg* msg, const AbsRect* area);
 FG_EXTERN size_t fgInjectDPIChange(fgElement* self, const FG_Msg* msg, const AbsRect* area, const AbsVec* dpi, const AbsVec* olddpi);
 FG_EXTERN size_t fgOrderedInject(fgElement* self, const FG_Msg* msg, const AbsRect* area, fgElement* skip, fgElement* (*fn)(fgElement*, const FG_Msg*), fgElement* selected);

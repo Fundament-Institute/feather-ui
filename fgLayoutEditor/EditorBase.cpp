@@ -209,7 +209,10 @@ void EditorBase::ParseStyleMsg(fgStyle& target, fgElement* instance, fgSkinEleme
     for(fgStyleMsg* msg = target.styles; msg != 0; msg = msg->next)
     {
       if(msg->msg.type == FG_SETDIM && (msg->msg.subtype & 3) == m.subtype)
+      {
         target.RemoveStyleMsg(msg);
+        break;
+      }
     }
     if(!s)
       return;
@@ -336,7 +339,10 @@ void EditorBase::RemoveStyleMsg(fgStyle& s, uint16_t type, uint16_t subtype)
     fgStyleMsg* hold = m;
     m = m->next;
     if(hold->msg.type == type && (subtype == (uint16_t)~0 || hold->msg.subtype == subtype))
+    {
       s.RemoveStyleMsg(hold);
+      break;
+    }
   }
 }
 
@@ -501,7 +507,7 @@ void EditorBase::SetProps(fgGrid& g, fgClassLayout* layout, fgSkinElement* eleme
     g.GetRow(0)->GetItem(1)->SetText(element->type);
 
     g.GetRow(5)->GetItem(1)->SetText(WrapWrite<CRect, fgStyle_WriteCRect>(element->transform.area, element->units).c_str());
-    g.GetRow(6)->GetItem(1)->SetText(StrF("%.2g", element->transform.rotation).c_str());
+    g.GetRow(6)->GetItem(1)->SetText(StrF("%g", element->transform.rotation).c_str());
     g.GetRow(7)->GetItem(1)->SetText(WrapWrite<CVec, fgStyle_WriteCVec>(element->transform.center, element->units).c_str());
     g.GetRow(13)->GetItem(1)->SetText(StrF("%zi", element->order).c_str());
 
@@ -559,15 +565,15 @@ void EditorBase::SetProps(fgGrid& g, fgClassLayout* layout, fgSkinElement* eleme
       switch(m->msg.subtype)
       {
       case FGDIM_MIN:
-        g.GetRow(10)->GetItem(1)->SetText(StrF("%.2g %.2g", m->msg.f, m->msg.f2).c_str());
+        g.GetRow(10)->GetItem(1)->SetText(StrF("%g %g", m->msg.f, m->msg.f2).c_str());
         break;
       case FGDIM_MAX:
-        g.GetRow(11)->GetItem(1)->SetText(StrF("%.2g %.2g", m->msg.f, m->msg.f2).c_str());
+        g.GetRow(11)->GetItem(1)->SetText(StrF("%g %g", m->msg.f, m->msg.f2).c_str());
         break;
       }
       break;
     case FG_SETSCALING:
-      g.GetRow(12)->GetItem(1)->SetText(StrF("%.2g %.2g", m->msg.f, m->msg.f2).c_str());
+      g.GetRow(12)->GetItem(1)->SetText(StrF("%g %g", m->msg.f, m->msg.f2).c_str());
       break;
     case FG_SETALPHA:
       g.GetRow(16)->GetItem(1)->SetValueF(m->msg.f);
@@ -577,7 +583,7 @@ void EditorBase::SetProps(fgGrid& g, fgClassLayout* layout, fgSkinElement* eleme
       {
       case FGVALUE_FLOAT:
         if(fgElement* e = FindProp(g, PROP_VALUEF))
-          e->SetText(StrF("%.2g", m->msg.f).c_str());
+          e->SetText(StrF("%g", m->msg.f).c_str());
         break;
       case FGVALUE_INT64:
         if(fgElement* e = FindProp(g, PROP_VALUEI))

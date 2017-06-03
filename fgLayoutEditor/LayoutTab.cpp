@@ -18,7 +18,7 @@ LayoutTab::~LayoutTab()
 }
 fgLayout* LayoutTab::FindParentLayout(fgElement* treeitem)
 {
-  if(treeitem->userid == 1)
+  if(treeitem->userid == EditorBase::TYPE_LAYOUT)
     return (fgLayout*)treeitem->userdata;
   if(!treeitem->parent)
     return 0;
@@ -91,48 +91,47 @@ void LayoutTab::AddProp(const char* name, FG_UINT id, const char* type)
     flags |= FGTEXTBOX_ACTION | FGTEXTBOX_SINGLELINE;
   _propafter(_base->AddProp(*_layoutprops, name, type, id, f, flags), type);
 }
-void LayoutTab::_doInsert(const char* type, bool insert)
+void LayoutTab::InsertElement(fgElement* e, const char* type, bool insert, fgTransform* tf)
 {
-  fgLayout* display = FindParentLayout(_selected);
-  if(_selected->userid == 1)
+  if(!e)
+    return;
+  fgLayout* display = FindParentLayout(e);
+  if(e->userid == EditorBase::TYPE_LAYOUT)
   {
-    auto p = (fgLayout*)_selected->userdata;
+    auto p = (fgLayout*)e->userdata;
     if(!insert)
-      p->AddChild(type, type, FGELEMENT_EXPAND, &fgTransform_EMPTY, 0, 0);
-    fgElement_ClearType(_selected, "treeitem");
-    _openSublayout(_selected, p);
-    _openLayout(_selected, p->children);
+      p->AddChild(type, type, !tf ? FGELEMENT_EXPAND : 0, !tf ? &fgTransform_EMPTY : tf, 0, 0);
+    fgElement_ClearType(e, "treeitem");
+    _openSublayout(e, p);
+    _openLayout(e, p->children);
   }
-  else
+  else if(e->userid = EditorBase::TYPE_CLASSLAYOUT)
   {
-    auto p = (fgClassLayout*)_selected->userdata;
+    auto p = (fgClassLayout*)e->userdata;
     if(!insert)
-      p->AddChild(type, type, FGELEMENT_EXPAND, &fgTransform_EMPTY, 0, 0);
-    fgElement_ClearType(_selected, "treeitem");
-    _openLayout(_selected, p->children);
+      p->AddChild(type, type, !tf ? FGELEMENT_EXPAND : 0, !tf ? &fgTransform_EMPTY : tf, 0, 0);
+    fgElement_ClearType(e, "treeitem");
+    _openLayout(e, p->children);
   }
+  _base->DisplayLayout(0); // Reload layout, as it has now changed
   _base->DisplayLayout(display);
 }
 void LayoutTab::MenuInsert(struct _FG_ELEMENT*, const FG_Msg* m)
 {
   if(m->e && m->e->userdata)
-  {
-    _doInsert((const char*)m->e->userdata, true);
-  }
+    InsertElement(_selected, (const char*)m->e->userdata, true, 0);
 }
 void LayoutTab::MenuAdd(struct _FG_ELEMENT*, const FG_Msg* m)
 {
   if(m->e && m->e->userdata)
-  {
-    _doInsert((const char*)m->e->userdata, false);
-  }
+    InsertElement(_selected, (const char*)m->e->userdata, false, 0);
 }
 void LayoutTab::MenuContext(struct _FG_ELEMENT*, const FG_Msg* m)
 {
   switch(m->e->userid)
   {
   case 1: // insert layout
-    if(_selected && _selected->userid == 0)
+    if(_selected && _selected->userid != EditorBase::TYPE_LAYOUT)
       break; // Can't insert layouts on non-layout elements
     _editbox->userdata = !_selected ? &_base->curlayout : _selected->userdata;
     _editbox->SetParent(!_selected ? *_layoutview : _selected, 0);
@@ -144,35 +143,40 @@ void LayoutTab::MenuContext(struct _FG_ELEMENT*, const FG_Msg* m)
     _editbox->GotFocus();
     break;
   case 4: // remove
-    if(_selected && _selected->userdata && _selected->parent && _selected->parent->userdata)
-    {
-      if(_selected->userid == 1)
-      {
-        assert(_selected->parent->userid == 1);
-        auto p = (fgLayout*)_selected->parent->userdata;
-        p->RemoveLayout(((fgLayout*)_selected->userdata)->base.name);
-        VirtualFreeChild(_selected);
-      }
-      else if(_selected->parent->userid == 1)
-      {
-        fgElement* parent = _selected->parent;
-        auto p = (fgLayout*)parent->userdata;
-        p->RemoveChild((fgClassLayout*)_selected->userdata - p->children.p);
-        fgElement_ClearType(parent, "treeitem");
-        _openSublayout(parent, p);
-        _openLayout(parent, p->children);
-      }
-      else
-      {
-        fgElement* parent = _selected->parent;
-        auto p = (fgClassLayout*)parent->userdata;
-        p->RemoveChild((fgClassLayout*)_selected->userdata - p->children.p);
-        fgElement_ClearType(parent, "treeitem");
-        _openLayout(parent, p->children);
-      }
-      _base->DisplayLayout(&_base->curlayout);
-    }
+    RemoveElement(_selected);
     break;
+  }
+}
+void LayoutTab::RemoveElement(fgElement* e)
+{
+  if(e && e->userdata && e->parent && e->parent->userdata)
+  {
+    if(e->userid == EditorBase::TYPE_LAYOUT)
+    {
+      assert(e->parent->userid == EditorBase::TYPE_LAYOUT);
+      auto p = (fgLayout*)e->parent->userdata;
+      p->RemoveLayout(((fgLayout*)e->userdata)->base.name);
+      VirtualFreeChild(e);
+    }
+    else if(e->parent->userid == EditorBase::TYPE_LAYOUT && e->userid == EditorBase::TYPE_CLASSLAYOUT)
+    {
+      fgElement* parent = e->parent;
+      auto p = (fgLayout*)parent->userdata;
+      p->RemoveChild((fgClassLayout*)e->userdata - p->children.p);
+      fgElement_ClearType(parent, "treeitem");
+      _openSublayout(parent, p);
+      _openLayout(parent, p->children);
+    }
+    else if(e->userid == EditorBase::TYPE_CLASSLAYOUT)
+    {
+      fgElement* parent = e->parent;
+      auto p = (fgClassLayout*)parent->userdata;
+      p->RemoveChild((fgClassLayout*)e->userdata - p->children.p);
+      fgElement_ClearType(parent, "treeitem");
+      _openLayout(parent, p->children);
+    }
+    _base->DisplayLayout(0); // Reload layout, as it has now changed
+    _base->DisplayLayout(&_base->curlayout);
   }
 }
 void LayoutTab::_treeviewOnMouseDown(struct _FG_ELEMENT* e, const FG_Msg* msg)
@@ -187,14 +191,14 @@ void LayoutTab::_textboxOnAction(struct _FG_ELEMENT* e, const FG_Msg* msg)
   {
     switch(_selected->userid)
     {
-    case 0:
+    case EditorBase::TYPE_CLASSLAYOUT:
     {
       auto p = (fgClassLayout*)_selected->userdata;
       _base->ParseStyleMsg(p->element.style, _layoutmap[p], &p->element, p, &p->element.skin, &p->name, EditorBase::PROPERTIES(e->userid), e->GetText());
       _base->SetProps(*_layoutprops, p, &p->element, p->element.skin, p->name, p->element.style);
     }
       break;
-    case 1:
+    case EditorBase::TYPE_LAYOUT:
     {
       auto p = (fgLayout*)_selected->userdata;
       _base->ParseStyleMsg(p->base.style, 0, 0, 0, &p->skin, &p->base.name, EditorBase::PROPERTIES(e->userid), e->GetText());
@@ -230,6 +234,7 @@ void LayoutTab::_openLayout(fgElement* root, const fgVectorClassLayout& layout)
   {
     fgElement* item = fgCreate("TreeItem", root, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY, 0);
     item->userdata = layout.p + i;
+    item->userid = EditorBase::TYPE_CLASSLAYOUT;
     _treemap.Insert(layout.p + i, item);
     fgElement_AddDelegateListener<LayoutTab, &LayoutTab::_treeItemOnHover>(item, FG_HOVER, this);
     fgElement_AddDelegateListener<LayoutTab, &LayoutTab::_treeItemOnFocus>(item, FG_GOTFOCUS, this);
@@ -243,7 +248,7 @@ void LayoutTab::_openSublayout(fgElement* root, fgLayout* parent)
   std::function<void(fgLayout*, const char*)> fn = [this, root](fgLayout* l, const char* s) {
     fgElement* item = fgCreate("TreeItem", root, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY, 0);
     item->userdata = l;
-    item->userid = 1;
+    item->userid = EditorBase::TYPE_LAYOUT;
     fgElement_AddDelegateListener<LayoutTab, &LayoutTab::_treeItemOnFocus>(item, FG_GOTFOCUS, this);
     item->SetContextMenu(_contextmenulayout);
     fgCreate("Text", item, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY, 0)->SetText(s);
@@ -263,7 +268,7 @@ void LayoutTab::OpenLayout(fgLayout* layout)
     root->SetText("root");
     fgElement_AddDelegateListener<LayoutTab, &LayoutTab::_treeviewOnMouseDown>(root, FG_MOUSEDOWN, this);
     (*_layoutview)->userdata = layout;
-    (*_layoutview)->userid = 1;
+    (*_layoutview)->userid = EditorBase::TYPE_LAYOUT;
     (*_layoutview)->SetContextMenu(_contextmenulayout);
     _openSublayout(*_layoutview, layout);
     _openLayout(*_layoutview, layout->children);
@@ -280,12 +285,12 @@ void LayoutTab::_treeItemOnFocus(struct _FG_ELEMENT* e, const FG_Msg*)
 {
   if(e->userdata)
   {
-    if(e->userid == 1)
+    if(e->userid == EditorBase::TYPE_LAYOUT)
     {
       auto p = (fgLayout*)e->userdata;
       _base->LoadProps(*_layoutprops, 0, 0, 0, p->skin, p->base.name, p->base.style, _propafter);
     }
-    else
+    else if(e->userid == EditorBase::TYPE_CLASSLAYOUT)
     {
       auto p = (fgClassLayout*)e->userdata;
       _base->LoadProps(*_layoutprops, p->element.type, p, &p->element, p->element.skin, p->name, p->element.style, _propafter);

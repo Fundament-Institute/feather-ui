@@ -62,7 +62,7 @@ void SkinTab::_openSkinBase(fgElement* root, fgSkinBase& skin)
   std::function<void(fgSkin*, const char*)> fn = [this, root](fgSkin* s, const char* name) {
     fgElement* item = fgCreate("TreeItem", root, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY, 0);
     item->userdata = s;
-    item->userid = 1;
+    item->userid = EditorBase::TYPE_SKIN;
     fgElement_AddDelegateListener<SkinTab, &SkinTab::_treeItemOnFocus>(item, FG_GOTFOCUS, this);
     item->SetContextMenu(_contextmenu);
     fgCreate("Text", item, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY, 0)->SetText(name);
@@ -94,8 +94,8 @@ void SkinTab::_openSkinTree(fgElement* root, fgSkinTree& skin)
     Str s;
     WriteStyleMap(s, skin.styles.p[i].map);
     fgElement* item = fgCreate("TreeItem", root, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY, 0);
-    item->userdata = &skin.styles.p[i].style;
-    item->userid = 2;
+    item->userdata = skin.styles.p + i;
+    item->userid = EditorBase::TYPE_STYLE;
     fgElement_AddDelegateListener<SkinTab, &SkinTab::_treeItemOnFocus>(item, FG_GOTFOCUS, this);
     item->SetContextMenu(_contextmenu);
     fgCreate("Text", item, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY, 0)->SetText(s);
@@ -103,8 +103,8 @@ void SkinTab::_openSkinTree(fgElement* root, fgSkinTree& skin)
   for(size_t i = 0; i < skin.children.l; ++i)
   {
     fgElement* item = fgCreate("TreeItem", root, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY, 0);
-    item->userdata = &skin.children.p[i];
-    item->userid = 0;
+    item->userdata = skin.children.p + i;
+    item->userid = EditorBase::TYPE_SKINLAYOUT;
     fgElement_AddDelegateListener<SkinTab, &SkinTab::_treeItemOnFocus>(item, FG_GOTFOCUS, this);
     item->SetContextMenu(_contextmenu);
     fgCreate("Text", item, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY, 0)->SetText(skin.children.p[i].element.type);
@@ -120,7 +120,7 @@ void SkinTab::OpenSkin(fgSkin* skin)
     fgElement* root = fgCreate("Text", *_skinview, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY, 0);
     root->SetText("root");
     (*_skinview)->userdata = skin;
-    (*_skinview)->userid = 1;
+    (*_skinview)->userid = EditorBase::TYPE_SKIN;
     fgElement_AddDelegateListener<SkinTab, &SkinTab::_treeviewOnMouseDown>(root, FG_MOUSEDOWN, this);
     _openSkinBase(*_skinview, skin->base);
     _openSkinTree(*_skinview, skin->tree);
@@ -144,6 +144,88 @@ void SkinTab::AddProp(const char* name, FG_UINT id, const char* type)
   _propafter(_base->AddProp(*_skinprops, name, type, id, f, flags), type);
 }
 
+void SkinTab::InsertElement(fgElement* e, const char* type, const char* name, bool insert, fgTransform* tf)
+{
+  auto playout = (fgSkinLayout*)e->userdata;
+  auto pskin = (fgSkin*)e->userdata;
+
+  switch(e->userid)
+  {
+  case EditorBase::TYPE_SKINLAYOUT:
+    if(!STRICMP(type, "skin"))
+      return; // Can't insert skin to skinlayout
+    if(!insert)
+    {
+      if(!STRICMP(type, "style"))
+        playout->tree.AddStyle(name);
+      else
+        playout->tree.AddChild(type, !tf ? FGELEMENT_EXPAND : 0, !tf ? &fgTransform_EMPTY : tf, 0, 0);
+    }
+    fgElement_ClearType(e, "treeitem");
+    _openSkinTree(e, playout->tree);
+    break;
+  case EditorBase::TYPE_SKIN:
+    if(!insert)
+    {
+      if(!STRICMP(type, "skin"))
+        pskin->base.AddSkin(name);
+      else if(!STRICMP(type, "style"))
+        pskin->tree.AddStyle(name);
+      else
+        pskin->tree.AddChild(type, !tf ? FGELEMENT_EXPAND : 0, !tf ? &fgTransform_EMPTY : tf, 0, 0);
+    }
+
+    fgElement_ClearType(e, "treeitem");
+    _openSkinBase(e, pskin->base);
+    _openSkinTree(e, pskin->tree);
+    break;
+  }
+}
+
+void SkinTab::RemoveElement(fgElement* e)
+{
+  if(e && e->userdata && e->parent && e->parent->userdata)
+  {
+    fgElement* parent = e->parent;
+    auto playout = (fgSkinLayout*)parent->userdata;
+    auto pskin = (fgSkin*)parent->userdata;
+    switch(parent->userid)
+    {
+    case EditorBase::TYPE_SKINLAYOUT:
+      switch(e->userid)
+      {
+      case EditorBase::TYPE_SKINLAYOUT:
+        playout->tree.RemoveChild(reinterpret_cast<fgSkinLayout*>(e->userdata) - playout->tree.children.p);
+        break;
+      case EditorBase::TYPE_STYLE:
+        playout->tree.RemoveStyle(reinterpret_cast<fgSkinTree::fgStylePair*>(e->userdata)->map);
+        break;
+      }
+      fgElement_ClearType(parent, "treeitem");
+      _openSkinTree(parent, playout->tree);
+      break;
+    case EditorBase::TYPE_SKIN:
+      switch(e->userid)
+      {
+      case EditorBase::TYPE_SKIN:
+        pskin->base.RemoveSkin(reinterpret_cast<fgSkin*>(e->userdata)->base.name);
+        break;
+      case EditorBase::TYPE_SKINLAYOUT:
+        pskin->tree.RemoveChild(reinterpret_cast<fgSkinLayout*>(e->userdata) - pskin->tree.children.p);
+        break;
+      case EditorBase::TYPE_STYLE:
+        pskin->tree.RemoveStyle(reinterpret_cast<fgSkinTree::fgStylePair*>(e->userdata)->map);
+        break;
+      }
+      _base->ReapplySkin(pskin);
+      fgElement_ClearType(parent, "treeitem");
+      _openSkinBase(parent, pskin->base);
+      _openSkinTree(parent, pskin->tree);
+      break;
+    }
+  }
+}
+
 void SkinTab::MenuContext(struct _FG_ELEMENT*, const FG_Msg* m)
 {
   if(m->e)
@@ -151,11 +233,22 @@ void SkinTab::MenuContext(struct _FG_ELEMENT*, const FG_Msg* m)
     switch(m->e->userid)
     {
     case 1:
+      InsertElement(_selected, "skin", "newskin", false, 0);
+      break;
     case 2:
+      InsertElement(_selected, "style", "neutral", false, 0);
+      break;
     case 3:
+      InsertElement(_selected, "resource", 0, false, 0);
+      break;
     case 4:
+      InsertElement(_selected, "text", 0, false, 0);
+      break;
     case 5:
+      InsertElement(_selected, "curve", 0, false, 0);
+      break;
     case 7:
+      RemoveElement(_selected);
       break;
     }
   }
@@ -166,26 +259,26 @@ void SkinTab::_textboxOnAction(struct _FG_ELEMENT* e, const FG_Msg* msg)
   if(!msg->subtype && _selected && _selected->userdata)
   {
     fgSkin* skin;
-    fgStyle* style;
+    fgSkinTree::fgStylePair* style;
     fgSkinLayout* layout;
 
     switch(_selected->userid)
     {
-    case 0:
+    case EditorBase::TYPE_SKINLAYOUT:
       layout = (fgSkinLayout*)_selected->userdata;
       _base->ParseStyleMsg(layout->element.style, layout->instance, &layout->element, 0, &layout->element.skin, 0, EditorBase::PROPERTIES(e->userid), e->GetText());
       _base->SetProps(*_skinprops, 0, &layout->element, layout->element.skin, 0, layout->element.style);
       break;
-    case 1:
+    case EditorBase::TYPE_SKIN:
       skin = (fgSkin*)_selected->userdata;
       _base->ParseStyleMsg(skin->base.style, 0, 0, 0, 0, &skin->base.name, EditorBase::PROPERTIES(e->userid), e->GetText());
       _base->ReapplySkin(skin);
       _base->SetProps(*_skinprops, 0, 0, 0, skin->base.name, skin->base.style);
       break;
-    case 2:
-      style = (fgStyle*)_selected->userdata;
-      _base->ParseStyleMsg(*style, 0, 0, 0, 0, 0, EditorBase::PROPERTIES(e->userid), e->GetText());
-      _base->SetProps(*_skinprops, 0, 0, 0, 0, *style);
+    case EditorBase::TYPE_STYLE:
+      style = (fgSkinTree::fgStylePair*)_selected->userdata;
+      _base->ParseStyleMsg(style->style, 0, 0, 0, 0, 0, EditorBase::PROPERTIES(e->userid), e->GetText());
+      _base->SetProps(*_skinprops, 0, 0, 0, 0, style->style);
       break;
     }
   }
@@ -205,33 +298,33 @@ void SkinTab::_treeItemOnFocus(struct _FG_ELEMENT* e, const FG_Msg*)
   if(e->userdata)
   {
     fgSkin* skin;
-    fgStyle* style;
+    fgSkinTree::fgStylePair* style;
     fgSkinLayout* layout;
 
     switch(e->userid)
     {
-    case 0:
+    case EditorBase::TYPE_SKINLAYOUT:
       layout = (fgSkinLayout*)e->userdata;
       _base->LoadProps(*_skinprops, layout->element.type, 0, &layout->element, layout->element.skin, 0, layout->element.style, _propafter);
       break;
-    case 1:
+    case EditorBase::TYPE_SKIN:
       skin = (fgSkin*)e->userdata;
       _base->LoadProps(*_skinprops, "Skin", 0, 0, 0, skin->base.name, skin->base.style, _propafter);
       break;
-    case 2:
-      style = (fgStyle*)e->userdata;
+    case EditorBase::TYPE_STYLE:
+      style = (fgSkinTree::fgStylePair*)e->userdata;
       if(e->parent && e->parent->userdata)
       {
         switch(e->parent->userid)
         {
-        case 0:
-          _base->LoadProps(*_skinprops, ((fgSkinLayout*)e->parent->userdata)->element.type, 0, 0, 0, 0, *style, _propafter);
+        case EditorBase::TYPE_SKINLAYOUT:
+          _base->LoadProps(*_skinprops, ((fgSkinLayout*)e->parent->userdata)->element.type, 0, 0, 0, 0, style->style, _propafter);
           break;
-        case 1:
-          _base->LoadProps(*_skinprops, "Skin", 0, 0, 0, 0, *style, _propafter);
+        case EditorBase::TYPE_SKIN:
+          _base->LoadProps(*_skinprops, "Skin", 0, 0, 0, 0, style->style, _propafter);
           break;
         default:
-          _base->LoadProps(*_skinprops, 0, 0, 0, 0, 0, *style, _propafter);
+          _base->LoadProps(*_skinprops, 0, 0, 0, 0, 0, style->style, _propafter);
           break;
         }
       }

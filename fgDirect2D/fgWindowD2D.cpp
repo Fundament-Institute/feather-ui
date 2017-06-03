@@ -144,15 +144,6 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
   return fgWindow_Message(&self->window, msg);
 }
 
-longptr_t __stdcall fgWindowD2D::ProcessNCHit(longptr_t hit, longptr_t lParam)
-{
-  //if(fgSingleton()->fgCaptureWindow)
-  //{
-  //  AbsVec v = fgContext::AdjustPoints(MAKELPPOINTS(lParam), &window.control.element);
-  //  fgSingleton()->fgCaptureWindow->MouseDown(v.x, v.y, );
-  //}
-  return hit;
-}
 longptr_t __stdcall fgWindowD2D::WndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam)
 {
   static const int BORDERWIDTH = 5;
@@ -179,30 +170,31 @@ longptr_t __stdcall fgWindowD2D::WndProc(HWND__* hWnd, unsigned int message, siz
         int x = GET_X_LPARAM(lParam) - WindowRect.left;
         int y = GET_Y_LPARAM(lParam) - WindowRect.top;
         FG_Msg msg = { FG_DEBUGMESSAGE };
-        msg.x = GET_X_LPARAM(lParam);
-        msg.y = GET_Y_LPARAM(lParam);
+        AbsVec pt = fgContext::AdjustPointsDPI(MAKELPPOINTS(lParam));
+        msg.x = pt.x;
+        msg.y = pt.y;
 
         if((self->window->flags&FGWINDOW_RESIZABLE) && !self->window.maximized)
         {
           if(x < BORDERWIDTH && y < BORDERWIDTH)
-            return self->ProcessNCHit(HTTOPLEFT, lParam);
+            return HTTOPLEFT;
           if(x > WindowRect.right - WindowRect.left - BORDERWIDTH && y < BORDERWIDTH)
-            return self->ProcessNCHit(HTTOPRIGHT, lParam);
+            return HTTOPRIGHT;
           if(x > WindowRect.right - WindowRect.left - BORDERWIDTH && y > WindowRect.bottom - WindowRect.top - BORDERWIDTH)
-            return self->ProcessNCHit(HTBOTTOMRIGHT, lParam);
+            return HTBOTTOMRIGHT;
           if(x < BORDERWIDTH && y > WindowRect.bottom - WindowRect.top - BORDERWIDTH)
-            return self->ProcessNCHit(HTBOTTOMLEFT, lParam);
+            return HTBOTTOMLEFT;
           if(x < BORDERWIDTH)
-            return self->ProcessNCHit(HTLEFT, lParam);
+            return HTLEFT;
           if(y < BORDERWIDTH)
-            return self->ProcessNCHit(HTTOP, lParam);
+            return HTTOP;
           if(x > WindowRect.right - WindowRect.left - BORDERWIDTH)
-            return self->ProcessNCHit(HTRIGHT, lParam);
+            return HTRIGHT;
           if(y > WindowRect.bottom - WindowRect.top - BORDERWIDTH)
-            return self->ProcessNCHit(HTBOTTOM, lParam);
+            return HTBOTTOM;
         }
-        if(y < self->window->padding.top + self->window->margin.top && reinterpret_cast<fgElement*>(fgStandardInject(self->window, &msg, 0)) == self->window)
-          return self->ProcessNCHit(HTCAPTION, lParam);
+        if(y < (self->window->padding.top * (fgSingleton()->dpi.y / 96.0f)) + self->window->margin.top && reinterpret_cast<fgElement*>(fgStandardInject(self->window, &msg, 0)) == self->window)
+          return HTCAPTION;
         return HTCLIENT;
       }
       break;

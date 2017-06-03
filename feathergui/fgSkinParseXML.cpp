@@ -114,10 +114,10 @@ uint32_t fgStyle_ParseColor(const XMLValue* attr)
 }
 fgSkin* fgStyle_ParseAttributesXML(fgStyle* self, const XMLNode* cur, int flags, fgSkinBase* root, const char** id, fgKeyValueArray* userdata)
 {
-  static Trie<uint16_t, true> t(49, "id", "min-width", "min-height", "max-width", "max-height", "skin", "alpha", "margin", "padding", "text",
+  static Trie<uint16_t, true> t(50, "id", "min-width", "min-height", "max-width", "max-height", "skin", "alpha", "margin", "padding", "text",
     "placeholder", "color", "placecolor", "cursorcolor", "selectcolor", "hovercolor", "dragcolor", "edgecolor", "dividercolor", "columndividercolor", 
     "font", "lineheight", "letterspacing", "value", "uv", "asset", "outline", "area", "center", "rotation", "left", "top", "right", "bottom", "width",
-    "height", "name", "flags", "order", "inherit", "range", "splitter", "contextmenu", "reorder", "style", "spacing", "xmlns:xsi", "xmlns:fg", "xsi:schemaLocation");
+    "height", "name", "flags", "order", "inherit", "range", "splitter", "contextmenu", "reorder", "style", "spacing", "tooltip", "xmlns:xsi", "xmlns:fg", "xsi:schemaLocation");
   static Trie<uint16_t, true> tvalue(5, "checkbox", "curve", "progressbar", "radiobutton", "slider");
   static Trie<uint16_t, true> tenum(5, "true", "false", "none", "checked", "indeterminate");
 
@@ -337,9 +337,18 @@ fgSkin* fgStyle_ParseAttributesXML(fgStyle* self, const XMLNode* cur, int flags,
       AddStyleSubMsg<FG_SETDIM, FABS, FABS>(self, units | FGDIM_SPACING, spacing.x, spacing.y);
     }
       break;
-    case 46:
+    case 46: // tooltip
+    {
+      FG_Msg msg = { 0 };
+      msg.type = FG_SETTOOLTIP;
+      msg.subtype = FGTEXTFMT_UTF8;
+      msg.p = const_cast<char*>(attr->String.c_str());
+      fgStyle_AddStyleMsg(self, &msg, attr->String.length() + 1, 0);
+      break;
+    }
     case 47:
-    case 48: // These are all XML specific values that are only used for setting the XSD file
+    case 48:
+    case 49: // These are all XML specific values that are only used for setting the XSD file
       break;
     case 42: // contextmenu is a recognized option, but we put it in as custom userdata anyway because we can't resolve it until the layout is resolved.
     default: // Otherwise, unrecognized attributes are set as custom userdata

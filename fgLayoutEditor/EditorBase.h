@@ -53,6 +53,13 @@ public:
     PROP_ALPHA,
   };
 
+  enum TARGETTYPE {
+    TYPE_LAYOUT = 1,
+    TYPE_CLASSLAYOUT,
+    TYPE_SKINLAYOUT,
+    TYPE_SKIN,
+    TYPE_STYLE,
+  };
   explicit EditorBase(fgLayout* layout);
   ~EditorBase();
   fgElement* AddProp(fgGrid& e, const char* name, const char* type = "Text", FG_UINT userid = 0, fgMessage fn = 0, fgFlag flags = FGELEMENT_EXPANDY);

@@ -122,6 +122,30 @@ void ToLongAbsRect(const AbsRect* r, long target[4])
 
 }
 
+const char* fgCopyTextToUTF8(const void* text, uint16_t format, const char* file, size_t line)
+{
+  switch(format & 3)
+  {
+  case FGTEXTFMT_UTF8:
+    return fgCopyText((const char*)text, file, line);
+  case FGTEXTFMT_UTF16:
+  {
+    size_t len = fgUTF16toUTF8((const wchar_t*)text, -1, 0, 0);
+    DYNARRAY(char, out, len);
+    fgUTF16toUTF8((const wchar_t*)text, -1, out, len);
+    return fgCopyText(out, file, line);
+  }
+  case FGTEXTFMT_UTF32:
+  {
+    size_t len = fgUTF32toUTF8((const int*)text, -1, 0, 0);
+    DYNARRAY(char, out, len);
+    fgUTF32toUTF8((const int*)text, -1, out, len);
+    return fgCopyText(out, file, line);
+  }
+  }
+  return 0;
+}
+
 const char* fgCopyText(const char* text, const char* file, size_t line)
 {
   if(!text) return 0;

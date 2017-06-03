@@ -84,11 +84,11 @@ typedef struct _FG_DEBUG {
   fgColor color;
   float lineheight;
   float letterspacing;
-  AbsRect oldpadding;
   fgVectorUTF32 text32;
   fgVectorUTF16 text16;
   fgVectorUTF8 text8;
   AbsVec lastscroll;
+  AbsRect oldpadding;
 
 #ifdef  __cplusplus
   inline operator fgElement*() { return &tabs.control.element; }

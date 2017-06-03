@@ -1070,6 +1070,8 @@ const char* fgDebug_GetMessageString(fgMsgType msg)
   case FG_GETNAME: return "FG_GETNAME";
   case FG_SETCONTEXTMENU: return "FG_SETCONTEXTMENU";
   case FG_GETCONTEXTMENU: return "FG_GETCONTEXTMENU";
+  case FG_SETTOOLTIP: return "FG_SETTOOLTIP";
+  case FG_GETTOOLTIP: return "FG_GETTOOLTIP";
   case FG_NEUTRAL: return "FG_NEUTRAL";
   case FG_HOVER: return "FG_HOVER";
   case FG_ACTIVE: return "FG_ACTIVE";
@@ -1285,6 +1287,8 @@ ptrdiff_t fgDebug_WriteMessageFn(fgDebugMessage* msg, F fn, Args... args)
     return (*fn)(args..., "%*sFG_SETLINEHEIGHT(%g)", spaces, "", msg->arg1.f);
   case FG_SETOUTLINE:
     return (*fn)(args..., "%*sFG_SETOUTLINE(%g)", spaces, "", msg->arg1.f);
+  case FG_SETTOOLTIP:
+    return (*fn)(args..., "%*sFG_SETTOOLTIP(%s)", spaces, "", _dbg_getstr(msg->arg1.s));
   }
 
   return 0;

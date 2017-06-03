@@ -111,7 +111,12 @@ size_t fgMenu_Message(fgMenu* self, const FG_Msg* msg)
       AbsRect cache;
       fgElement* child = fgElement_GetChildUnderMouse(*self, msg->x, msg->y, &cache);
       if(!MsgHitAbsRect(msg, &cache))
+      {
+        if(self->expanded)
+          fgMenu_Show(self->expanded, false, true);
+        self->expanded = 0;
         fgroot_instance->fgCaptureWindow = 0;
+      }
       else if(child != 0 && !fgMenu_ExpandMenu(self, child))
       {
         _sendmsg<FG_ACTION, void*>(*self, child);
@@ -242,6 +247,7 @@ size_t fgSubmenu_Message(fgMenu* self, const FG_Msg* msg)
     }
     break;
   case FG_MOUSEUP:
+    msg = msg;
   case FG_MOUSEDOWN:
   {
     AbsRect cache;

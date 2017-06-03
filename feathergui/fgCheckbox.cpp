@@ -60,6 +60,8 @@ size_t fgCheckbox_Message(fgCheckbox* self, const FG_Msg* msg)
   case FG_CLEAR:
     fgSendMessage(self->text, msg);
     break;
+  case FG_SETASSET:
+    return fgSendMessage(fgCreate("Resource", *self, 0, "Checkbox$Asset", FGELEMENT_EXPAND, &fgTransform_CENTER, 0), msg);
   case FG_SETTEXT:
   case FG_SETFONT:
   case FG_SETLINEHEIGHT:

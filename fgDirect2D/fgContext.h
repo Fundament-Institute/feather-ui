@@ -8,7 +8,7 @@
 #include "bss-util/Hash.h"
 #include <stack>
 
-#define TEST_DPI 120
+//#define TEST_DPI 120
 
 struct HWND__;
 struct tagRECT;

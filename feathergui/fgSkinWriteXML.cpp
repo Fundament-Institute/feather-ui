@@ -251,6 +251,20 @@ void fgSkinBase_WriteStyleAttributesXML(XMLNode* node, fgStyle& s, fgSkinBase* r
         break;
       }
       break;
+    case FG_SETTOOLTIP:
+      switch(cur->msg.subtype & 3)
+      {
+      case FGTEXTFMT_UTF8:
+        node->AddAttribute("tooltip")->String = (const char*)cur->msg.p;
+        break;
+      case FGTEXTFMT_UTF16:
+        node->AddAttribute("tooltip")->String = (const char*)cur->msg.p;
+        break;
+      case FGTEXTFMT_UTF32:
+        node->AddAttribute("tooltip")->String = (const char*)cur->msg.p;
+        break;
+      }
+      break;
     case FG_SETCOLOR:
       if(cur->msg.subtype < 8)
       {

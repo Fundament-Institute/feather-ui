@@ -45,6 +45,7 @@ BOOL __stdcall SpawnMonitorsProc(HMONITOR monitor, HDC hdc, LPRECT, LPARAM lpara
   AbsRect area = { info.rcMonitor.left, info.rcMonitor.top, info.rcMonitor.right, info.rcMonitor.bottom };
   fgMonitor* cur = reinterpret_cast<fgMonitor*>(calloc(1, sizeof(fgMonitor)));
   fgMonitor_Init(cur, FGFLAGS_INTERNAL, &root->root, (!info.rcMonitor.left && !info.rcMonitor.top) ? 0 : prev, &area, &dpi); // Attempt to identify the primary monitor and make it the first monitor in the list
+  ResolveRect((fgElement*)cur, &area);
   ((fgElement*)cur)->free = &free;
   prev = cur;
   return TRUE;
@@ -858,9 +859,13 @@ void fgDragStartD2D(char type, void* data, fgElement* draw)
 
 char fgProcessMessagesD2D()
 {
+  static ULONGLONG last = GetTickCount64();
   fgProcessMessagesDefault();
   MSG msg;
-
+  ULONGLONG now = GetTickCount64();
+  if(now != last)
+    fgRoot_Update(fgSingleton(), (now - last) / 1000.0f);
+  last = now;
   while(PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE))
   {
     LRESULT r = DispatchMessageW(&msg);
@@ -1004,6 +1009,7 @@ struct _FG_ROOT* fgInitialize()
   AbsVec dpi = { GetDeviceCaps(hdc, LOGPIXELSX), GetDeviceCaps(hdc, LOGPIXELSY) };
   ReleaseDC(NULL, hdc);
   fgRoot_Init(&root->root, &extent, &dpi, &BACKEND);
+  root->root.gui.element.transform.center = { root->root.gui.element.transform.area.left.abs, 0, root->root.gui.element.transform.area.top.abs, 0 };
 
   fgLog(FGLOG_NONE, "Initializing fgDirect2D...");
   fgRegisterControl("window", (fgInitializer)fgWindowD2D_Init, sizeof(fgWindowD2D), 0);
@@ -1086,6 +1092,16 @@ struct _FG_ROOT* fgInitialize()
   }
   else
     fgLog(FGLOG_WARNING, "Couldn't get user's cursor blink rate.");
+  sz = GetRegistryValueW(HKEY_CURRENT_USER, L"Control Panel\\Mouse", L"MouseHoverTime", 0, 0);
+  if(sz > 0)
+  {
+    DYNARRAY(wchar_t, buf, sz / 2);
+    sz = GetRegistryValueW(HKEY_CURRENT_USER, L"Control Panel\\Mouse", L"MouseHoverTime", (unsigned char*)buf, sz);
+    if(sz > 0)
+      root->root.tooltipdelay = _wtoi(buf) / 1000.0;
+  }
+  else
+    fgLog(FGLOG_WARNING, "Couldn't get user's mouse hover time.");
 
   return &root->root;
 }

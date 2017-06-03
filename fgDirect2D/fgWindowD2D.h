@@ -16,8 +16,6 @@ struct fgWindowD2D {
   AbsVec dpi;
   bss::LLBase<fgWindowD2D> list;
 
-  longptr_t __stdcall ProcessNCHit(longptr_t hit, longptr_t lParam);
-
   static longptr_t __stdcall WndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam);
   static fgWindowD2D* windowlist;
   static BSS_FORCEINLINE bss::LLBase<fgWindowD2D>& GETNODE(fgWindowD2D* n) { return n->list; }

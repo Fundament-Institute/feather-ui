@@ -71,6 +71,7 @@ void fgRoot_Init(fgRoot* self, const AbsRect* area, const AbsVec* dpi, const fgB
   if(self->dpi.x == 0.0f && self->dpi.y == 0.0f)
     self->dpi = AbsVec_DEFAULTDPI;
   self->cursorblink = 0.53; // 530 ms is the windows default.
+  self->tooltipdelay = 0.4; // 400 ms is the windows default for tooltip display time.
   self->lineheight = 30;
   self->fontscale = 1.0f;
   self->radiohash = fgRadioGroup_init();
@@ -129,6 +130,8 @@ void fgRoot_Init(fgRoot* self, const AbsRect* area, const AbsVec* dpi, const fgB
   fgRegisterControl("toolgroup", (fgInitializer)fgToolGroup_Init, sizeof(fgBox), FGBOX_TILE|FGELEMENT_EXPAND);
   fgRegisterControl("combobox", (fgInitializer)fgCombobox_Init, sizeof(fgCombobox), 0);
   fgRegisterControl("debug", (fgInitializer)fgDebug_Init, sizeof(fgDebug), FGELEMENT_BACKGROUND);
+
+  self->fgTooltip = fgCreate("text", &self->gui.element, 0, "Root$Tooltip", FGELEMENT_EXPAND | FGFLAGS_INTERNAL | FGELEMENT_HIDDEN | FGELEMENT_IGNORE | FGELEMENT_BACKGROUND, &fgTransform_EMPTY, 0);
 }
 
 void fgRoot_Destroy(fgRoot* self)
@@ -682,7 +685,7 @@ void fgRoot_Update(fgRoot* self, double delta)
 
   while((cur = self->updateroot) && (cur->time <= self->time))
   {
-    self->updateroot = cur->next;
+    self->updateroot = cur->next; // Remove the node from the update list
     if((*cur->action)(cur->arg)) // If this returns true, we deallocate the node
       fgfree(cur, __FILE__, __LINE__);
   }
@@ -716,7 +719,7 @@ fgMonitor* fgRoot_GetMonitor(const fgRoot* self, const AbsRect* rect)
   return last;
 }
 
-fgDeferAction* fgRoot_AllocAction(char (*action)(void*), void* arg, double time)
+fgDeferAction* fgAllocAction(char (*action)(void*), void* arg, double time)
 {
   fgDeferAction* r = fgmalloc<fgDeferAction>(1, __FILE__, __LINE__);
   r->action = action;
@@ -727,18 +730,22 @@ fgDeferAction* fgRoot_AllocAction(char (*action)(void*), void* arg, double time)
   return r;
 }
 
-void fgRoot_DeallocAction(fgRoot* self, fgDeferAction* action)
+void fgDeallocAction(fgDeferAction* action)
 {
-  if(action->prev != 0 || action == self->updateroot) // If true you are in the list and must be removed
-    fgRoot_RemoveAction(self, action);
+  fgRemoveAction(action);
   fgfree(action, __FILE__, __LINE__);
 }
 
-void fgRoot_AddAction(fgRoot* self, fgDeferAction* action)
+void fgAddAction(fgDeferAction* action)
 {
-  fgDeferAction* cur = self->updateroot;
+  if((action->next != 0 && action->next->time < action->time) || (action->prev != 0 && action->prev->time > action->time))
+    fgRemoveAction(action);
+  else if(action->prev != 0 || action == fgroot_instance->updateroot) // If true, you're already in the list and we didn't need to move you
+    return;
+
+  fgDeferAction* cur = fgroot_instance->updateroot;
   fgDeferAction* prev = 0; // Sadly the elegant pointer to pointer method doesn't work for doubly linked lists.
-  assert(action != 0 && !action->prev && action != self->updateroot);
+  assert(action != 0 && !action->prev && action != fgroot_instance->updateroot);
   while(cur != 0 && cur->time < action->time)
   {
     prev = cur;
@@ -747,30 +754,22 @@ void fgRoot_AddAction(fgRoot* self, fgDeferAction* action)
   action->next = cur;
   action->prev = prev;
   if(prev) prev->next = action;
-  else self->updateroot = action; // Prev is only null if we're inserting before the root, which means we must reassign the root.
+  else fgroot_instance->updateroot = action; // Prev is only null if we're inserting before the root, which means we must reassign the root.
   if(cur) cur->prev = action; // Cur is null if we are at the end of the list.
 }
 
-void fgRoot_RemoveAction(fgRoot* self, fgDeferAction* action)
+void fgRemoveAction(fgDeferAction* action)
 {
-  assert(action != 0 && (action->prev != 0 || action == self->updateroot));
-  if(action->prev != 0) action->prev->next = action->next;
-  else self->updateroot = action->next;
-  if(action->next != 0) action->next->prev = action->prev;
-  action->next = 0; // We do this so its never ambigious if an action is in the list already or not
-  action->prev = 0;
+  if(action->prev != 0 || action == fgroot_instance->updateroot)
+  {
+    if(action->prev != 0) action->prev->next = action->next;
+    else fgroot_instance->updateroot = action->next;
+    if(action->next != 0) action->next->prev = action->prev;
+    action->next = 0; // We do this so its never ambigious if an action is in the list already or not
+    action->prev = 0;
+  }
 }
 
-void fgRoot_ModifyAction(fgRoot* self, fgDeferAction* action)
-{
-  if((action->next != 0 && action->next->time < action->time) || (action->prev != 0 && action->prev->time > action->time))
-  {
-    fgRoot_RemoveAction(self, action);
-    fgRoot_AddAction(self, action);
-  }
-  else if(!action->prev && action != self->updateroot) // If true you aren't in the list so we need to add you
-    fgRoot_AddAction(self, action);
-}
 fgElement* fgGetID(const char* id)
 {
   khiter_t i = kh_get_fgIDMap(fgroot_instance->idmap, const_cast<char*>(id));
@@ -1022,4 +1021,27 @@ size_t fgInjectDPIChange(fgElement* self, const FG_Msg* msg, const AbsRect* area
     return fgStandardInject(self, &m, &rect);
   }
   return fgStandardInject(self, &m, NULL);
+}
+
+void fgRoot_ShowTooltip(fgRoot* self, const char* tooltip)
+{
+  if(!tooltip)
+  {
+    fgClearTopmost(self->fgTooltip);
+    self->fgTooltip->SetFlag(FGELEMENT_HIDDEN, true);
+  }
+  else
+  {
+    self->fgTooltip->SetText(tooltip);
+    CRect area = self->fgTooltip->transform.area;
+    area.right.abs -= area.left.abs;
+    area.bottom.abs -= area.top.abs;
+    area.left.abs = self->mouse.x;
+    area.top.abs = self->mouse.y + 16;
+    area.right.abs += area.left.abs;
+    area.bottom.abs += area.top.abs;
+    self->fgTooltip->SetArea(area);
+    self->fgTooltip->SetFlag(FGELEMENT_HIDDEN, false);
+    fgSetTopmost(self->fgTooltip);
+  }
 }

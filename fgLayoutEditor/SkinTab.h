@@ -15,6 +15,9 @@ public:
   void OpenSkin(fgSkin* skin);
   void Clear();
   void AddProp(const char* name, FG_UINT id, const char* type = "textbox");
+  void InsertElement(fgElement* e, const char* type, const char* name, bool insert, fgTransform* tf);
+  void RemoveElement(fgElement* e);
+  inline fgElement* GetSelected() { return _selected; }
 
   void MenuContext(struct _FG_ELEMENT*, const FG_Msg*);
 

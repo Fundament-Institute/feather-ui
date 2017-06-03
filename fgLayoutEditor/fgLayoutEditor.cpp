@@ -79,8 +79,13 @@ _curelement(0), _historypos(-1), _insert(0), _insertdest(0)
     _toolbarcontrols = _toolbarcontrols->AddItem(0);
     std::function<void(const char*)> fn = [this](const char* s) {
       fgElement* e = fgCreate("Radiobutton", _toolbarcontrols, 0, 0, FGFLAGS_DEFAULTS, 0, 0);
-      e->SetText(s);
-      e->userdata = (void*)e->GetText();
+      Str path = Str("../media/editor/controls/") + s + ".png";
+      fgAsset asset = fgSingleton()->backend.fgCreateAssetFile(0, path.c_str(), 0);
+      e->userdata = (void*)s;
+      if(asset)
+        e->SetAsset(asset);
+      else
+        e->SetText(s);
       fgElement_AddDelegateListener<fgLayoutEditor, &fgLayoutEditor::ControlAction>(e, FG_ACTION, this);
     };
     fgIterateControls(&fn, &bss::Delegate<void, const char*>::stublambda);
@@ -156,111 +161,35 @@ size_t fgLayoutEditor::WorkspaceRootMessage(fgElement* self, const FG_Msg* m)
     if(!fgSingleton()->GetKey(FG_KEY_MENU))
     {
       FG_Msg* inner = reinterpret_cast<FG_Msg*>(m->p);
-      uint8_t hit = HitElement(Instance->_curelement, inner);
-      if(hit != HIT_NONE)
-        Instance->hoverelement = 0;
-      if(!Instance->_insert)
-      {
-        switch(inner->type)
-        {
-        case FG_MOUSEUP:
-          if(fgSingleton()->fgCaptureWindow == self)
-            fgSingleton()->fgCaptureWindow = 0;
-          if(Instance->_sizing != HIT_NONE)
-          {
-            hit = Instance->_sizing;
-            Instance->_sizing = HIT_NONE;
-            switch(hit)
-            {
-            case HIT_TOP | HIT_LEFT:
-            case HIT_BOTTOM | HIT_RIGHT:
-              return FGCURSOR_RESIZENWSE;
-            case HIT_TOP | HIT_RIGHT:
-            case HIT_BOTTOM | HIT_LEFT:
-              return FGCURSOR_RESIZENESW;
-            case HIT_TOP:
-            case HIT_BOTTOM:
-              return FGCURSOR_RESIZENS;
-            case HIT_LEFT:
-            case HIT_RIGHT:
-              return FGCURSOR_RESIZEWE;
-            }
-            return FG_ACCEPT;
-          }
-          else
-            break;
-        case FG_MOUSEMOVE:
-          if(Instance->_sizing == HIT_NONE && hit == 0 && inner->allbtn&FG_MOUSELBUTTON)
-          {
-            Instance->AddUndo();
-            Instance->_sizing = 0;
-          }
-          if(Instance->_sizing != HIT_NONE)
-          {
-            hit = Instance->_sizing;
-            CRect area = Instance->_curelement->transform.area;
-            AbsVec change = { Instance->_anchor.x + (inner->x - Instance->_lastmouse.x), Instance->_anchor.y + (inner->y - Instance->_lastmouse.y) };
-            if(!hit)
-            {
-              AbsVec dim = { area.right.abs - area.left.abs, area.bottom.abs - area.top.abs };
-              area.left.abs = change.x;
-              area.right.abs = change.x + dim.x;
-              area.top.abs = change.y;
-              area.bottom.abs = change.y + dim.y;
-            }
-            if(hit&HIT_RIGHT)
-              area.right.abs = change.x;
-            else if(hit&HIT_LEFT)
-              area.left.abs = change.x;
-            if(hit&HIT_BOTTOM)
-              area.bottom.abs = change.y;
-            else if(hit&HIT_TOP)
-              area.top.abs = change.y;
-            Instance->_curelement->SetArea(area);
-            Instance->_layout.GetClassLayout(Instance->_curelement)->element.transform.area = area;
-            Instance->SetNeedSave(true);
-          }
-          switch(hit)
-          {
-          case HIT_TOP | HIT_LEFT:
-          case HIT_BOTTOM | HIT_RIGHT:
-            return FGCURSOR_RESIZENWSE;
-          case HIT_TOP | HIT_RIGHT:
-          case HIT_BOTTOM | HIT_LEFT:
-            return FGCURSOR_RESIZENESW;
-          case HIT_TOP:
-          case HIT_BOTTOM:
-            return FGCURSOR_RESIZENS;
-          case HIT_LEFT:
-          case HIT_RIGHT:
-            return FGCURSOR_RESIZEWE;
-          case 0:
-            if(Instance->_sizing == 0)
-              return FGCURSOR_RESIZEALL;
-          }
-          break;
-        case FG_MOUSEDOWN:
-          if(hit != HIT_NONE)
-          {
-            if(hit != 0)
-            {
-              Instance->AddUndo();
-              Instance->_sizing = hit;
-            }
-            Instance->_lastmouse = { inner->x, inner->y };
-            CRect& area = Instance->_curelement->transform.area;
-            Instance->_anchor.x = (hit&HIT_RIGHT) ? area.right.abs : area.left.abs;
-            Instance->_anchor.y = (hit&HIT_BOTTOM) ? area.bottom.abs : area.top.abs;
-            fgSingleton()->fgCaptureWindow = self;
-          }
-          return FG_ACCEPT;
-        }
-      }
       FG_Msg msg = *inner;
       msg.type = FG_DEBUGMESSAGE;
       FG_Msg mwrap = *m;
       mwrap.p = &msg;
       fgElement* result = (fgElement*)fgElement_Message(self, &mwrap);
+      if(inner->button == FG_MOUSERBUTTON)
+      {
+        if(inner->type == FG_MOUSEDOWN)
+        {
+          fgElement* treeitem;
+          while(!(treeitem = Instance->_layout.GetTreeItem(Instance->_layout.GetClassLayout(result))) && result != self && result)
+            result = result->parent;
+          if(result == self || !treeitem)
+            Instance->SetCurElement(0);
+          else
+          {
+            treeitem->GotFocus();
+            Instance->SetCurElement(result);
+          }
+        }
+        else if(inner->type == FG_MOUSEUP && Instance->_curelement)
+          fgElement_TriggerContextMenu(Instance->_layout._contextmenulayout, inner);
+        return FG_ACCEPT;
+      }
+
+      uint8_t hit = HitElement(Instance->_curelement, inner);
+      if(hit != HIT_NONE)
+        Instance->hoverelement = 0;
+
       if(Instance->_insert)
       {
         if(!Instance->_insertdest)
@@ -277,21 +206,122 @@ size_t fgLayoutEditor::WorkspaceRootMessage(fgElement* self, const FG_Msg* m)
           Instance->_insertend = AbsVec{ inner->x, inner->y };
           if(inner->type == FG_MOUSEUP)
           {
-            AbsRect out;
-            fgGenAbsRect(&out, &Instance->_insertbegin, &Instance->_insertend);
-            AbsRect relative;
-            ResolveInnerRect(Instance->_insertdest, &relative);
-            out.left -= relative.left;
-            out.right -= relative.left;
-            out.top -= relative.top;
-            out.bottom -= relative.top;
-            fgTransform tf = { {out.left, 0, out.top, 0, out.right, 0, out.bottom, 0 }, 0, {0, 0, 0, 0} };
+            if(Instance->_insertbegin.x != Instance->_insertend.x || Instance->_insertbegin.y != Instance->_insertend.y)
+            {
+              AbsRect out;
+              fgGenAbsRect(&out, &Instance->_insertbegin, &Instance->_insertend);
+              AbsRect relative;
+              ResolveInnerRect(Instance->_insertdest, &relative);
+              out.left -= relative.left;
+              out.right -= relative.left;
+              out.top -= relative.top;
+              out.bottom -= relative.top;
+              fgTransform tf = { { out.left, 0, out.top, 0, out.right, 0, out.bottom, 0 }, 0,{ 0, 0, 0, 0 } };
 
-            fgCreate(Instance->_insert, Instance->_insertdest, 0, 0, 0, &tf, 0)->SetText(Instance->_insert);
-            Instance->_insertdest = 0;
+              Instance->_layout.InsertElement(Instance->_layout.GetTreeItem(Instance->_layout.GetClassLayout(Instance->_insertdest)), Instance->_insert, false, &tf);
+              Instance->_insertdest = 0;
+              return FGCURSOR_CROSS;
+            } // If these are the same drop into noninsert handler
+            else
+              Instance->_insertdest = 0;
           }
-          return FGCURSOR_CROSS;
+          else
+            return FGCURSOR_CROSS;
         }
+      }
+      switch(inner->type)
+      {
+      case FG_MOUSEUP:
+        if(fgSingleton()->fgCaptureWindow == self)
+          fgSingleton()->fgCaptureWindow = 0;
+        if(Instance->_sizing != HIT_NONE)
+        {
+          hit = Instance->_sizing;
+          Instance->_sizing = HIT_NONE;
+          switch(hit)
+          {
+          case HIT_TOP | HIT_LEFT:
+          case HIT_BOTTOM | HIT_RIGHT:
+            return FGCURSOR_RESIZENWSE;
+          case HIT_TOP | HIT_RIGHT:
+          case HIT_BOTTOM | HIT_LEFT:
+            return FGCURSOR_RESIZENESW;
+          case HIT_TOP:
+          case HIT_BOTTOM:
+            return FGCURSOR_RESIZENS;
+          case HIT_LEFT:
+          case HIT_RIGHT:
+            return FGCURSOR_RESIZEWE;
+          }
+          return FG_ACCEPT;
+        }
+        else
+          break;
+      case FG_MOUSEMOVE:
+        if(Instance->_sizing == HIT_NONE && hit == 0 && inner->allbtn&FG_MOUSELBUTTON)
+        {
+          Instance->AddUndo();
+          Instance->_sizing = 0;
+        }
+        if(Instance->_sizing != HIT_NONE)
+        {
+          hit = Instance->_sizing;
+          CRect area = Instance->_curelement->transform.area;
+          AbsVec change = { Instance->_anchor.x + (inner->x - Instance->_lastmouse.x), Instance->_anchor.y + (inner->y - Instance->_lastmouse.y) };
+          if(!hit)
+          {
+            AbsVec dim = { area.right.abs - area.left.abs, area.bottom.abs - area.top.abs };
+            area.left.abs = change.x;
+            area.right.abs = change.x + dim.x;
+            area.top.abs = change.y;
+            area.bottom.abs = change.y + dim.y;
+          }
+          if(hit&HIT_RIGHT)
+            area.right.abs = change.x;
+          else if(hit&HIT_LEFT)
+            area.left.abs = change.x;
+          if(hit&HIT_BOTTOM)
+            area.bottom.abs = change.y;
+          else if(hit&HIT_TOP)
+            area.top.abs = change.y;
+          Instance->_curelement->SetArea(area);
+          Instance->_layout.GetClassLayout(Instance->_curelement)->element.transform.area = area;
+          Instance->SetNeedSave(true);
+        }
+        switch(hit)
+        {
+        case HIT_TOP | HIT_LEFT:
+        case HIT_BOTTOM | HIT_RIGHT:
+          return FGCURSOR_RESIZENWSE;
+        case HIT_TOP | HIT_RIGHT:
+        case HIT_BOTTOM | HIT_LEFT:
+          return FGCURSOR_RESIZENESW;
+        case HIT_TOP:
+        case HIT_BOTTOM:
+          return FGCURSOR_RESIZENS;
+        case HIT_LEFT:
+        case HIT_RIGHT:
+          return FGCURSOR_RESIZEWE;
+        case 0:
+          if(Instance->_sizing == 0)
+            return FGCURSOR_RESIZEALL;
+        }
+        break;
+      case FG_MOUSEDOWN:
+        if(hit != HIT_NONE)
+        {
+          if(hit != 0)
+          {
+            Instance->AddUndo();
+            Instance->_sizing = hit;
+          }
+          Instance->_lastmouse = { inner->x, inner->y };
+          CRect& area = Instance->_curelement->transform.area;
+          Instance->_anchor.x = (hit&HIT_RIGHT) ? area.right.abs : area.left.abs;
+          Instance->_anchor.y = (hit&HIT_BOTTOM) ? area.bottom.abs : area.top.abs;
+          fgSingleton()->fgCaptureWindow = self;
+        }
+        return FG_ACCEPT;
       }
       if(inner->type == FG_MOUSEUP || (hit == HIT_NONE && inner->type == FG_MOUSEDOWN))
       {
@@ -421,7 +451,12 @@ void fgLayoutEditor::ProcessEvent(int id)
   case EVENT_CUT:
   case  EVENT_COPY:
   case  EVENT_PASTE:
+    break;
   case EVENT_DELETE:
+    if(_curelement)
+      _layout.RemoveElement(_layout.GetSelected());
+    if(_skin.GetSelected())
+      _skin.RemoveElement(_skin.GetSelected());
     break;
   case  EVENT_UNDO:
     if(_history.size() > 0 && _historypos < (ptrdiff_t)(_history.size() - 1))

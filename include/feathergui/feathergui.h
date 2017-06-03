@@ -82,7 +82,6 @@ MAKE_VEC(Coord, CVec);
   }; \
 } _N
 
-MAKE_RECT(FREL,RelVec,RelRect);
 MAKE_RECT(FABS,AbsVec,AbsRect);
 // A coordinate rect specifies its topleft and bottomright corners in terms of coordinate vectors.
 MAKE_RECT(Coord,CVec,CRect);
@@ -339,6 +338,8 @@ enum FG_MSGTYPE
   FG_GETNAME, // May return a unique string for this object, or will return NULL.
   FG_SETCONTEXTMENU,
   FG_GETCONTEXTMENU,
+  FG_GETTOOLTIP,
+  FG_SETTOOLTIP,
   // fgButton and others
   FG_NEUTRAL, // Sent when a button or other hover-enabled control switches to it's neutral state
   FG_HOVER, // Sent when a hover-enabled control switches to its hover state
@@ -703,6 +704,7 @@ FG_EXTERN void ToIntAbsRect(const AbsRect* r, int target[4]);
 FG_EXTERN void ToLongAbsRect(const AbsRect* r, long target[4]);
 FG_EXTERN char MsgHitAbsRect(const FG_Msg* msg, const AbsRect* r);
 FG_EXTERN const char* fgCopyText(const char* text, const char* file, size_t line);
+FG_EXTERN const char* fgCopyTextToUTF8(const void* text, unsigned short format, const char* file, size_t line);
 FG_EXTERN void fgFreeText(const char* text, const char* file, size_t line);
 FG_EXTERN void fgUpdateMouseState(fgMouseState* state, const FG_Msg* msg);
 FG_EXTERN char fgRectIntersect(const AbsRect* l, const AbsRect* r); // Returns 1 if the rectangles intersect, or 0 otherwise

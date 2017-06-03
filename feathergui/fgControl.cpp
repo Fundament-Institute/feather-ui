@@ -21,6 +21,11 @@ void fgControl_Destroy(fgControl* self)
   self->tabnext = self->tabprev = 0;
   self->sidenext = self->sideprev = 0;
 
+  if(self->tooltip)
+    fgFreeText(self->tooltip, __FILE__, __LINE__);
+  if(self->tooltipaction)
+    fgDeallocAction(self->tooltipaction);
+
   self->element.message = (fgMessage)fgElement_Message; // Setting the message function to the element message function after the destructor mimics destroying this class's virtual functions, as C++ would have done.
   fgElement_Destroy(&self->element);
 }
@@ -34,6 +39,22 @@ void fgElement_DoHoverCalc(fgElement* self) // This is a seperate function so so
     fgroot_instance->fgLastHover = self;
     _sendmsg<FG_MOUSEON>(self);
   }
+}
+
+void fgElement_TriggerContextMenu(fgElement* contextmenu, const FG_Msg* msg)
+{
+  AbsRect area = { 0 };
+  if(contextmenu->parent)
+    ResolveRect(contextmenu->parent, &area);
+  MoveCRect(msg->x - area.left, msg->y - area.top, &contextmenu->transform.area);
+  fgMenu_Show((fgMenu*)contextmenu, true, false);
+  fgroot_instance->fgCaptureWindow = contextmenu;
+}
+
+char fgControl_TooltipAction(void* p)
+{
+  fgRoot_ShowTooltip(fgroot_instance, reinterpret_cast<fgControl*>(p)->tooltip);
+  return 0; // We don't want to deallocate the node
 }
 
 size_t fgControl_Message(fgControl* self, const FG_Msg* msg)
@@ -75,6 +96,8 @@ size_t fgControl_Message(fgControl* self, const FG_Msg* msg)
   case FG_CONSTRUCT:
     fgElement_Message(*self, msg);
     self->contextmenu = 0;
+    self->tooltip = 0;
+    self->tooltipaction = fgAllocAction(&fgControl_TooltipAction, self, fgroot_instance->time);
     self->tabnext = self->tabprev = self; // This creates an infinite loop of tabbing
     self->sidenext = self->sideprev = self;
     (*self)->SetStyle((self->element.flags & FGCONTROL_DISABLE) ? "disabled" : "neutral");
@@ -116,6 +139,11 @@ size_t fgControl_Message(fgControl* self, const FG_Msg* msg)
   }
     return FG_ACCEPT;
   case FG_MOUSEDOWN:
+    if(self->tooltip)
+    {
+      fgRemoveAction(self->tooltipaction);
+      fgRoot_ShowTooltip(fgroot_instance, 0);
+    }
     fgElement_DoHoverCalc(*self);
     if(fgroot_instance->fgFocusedWindow != *self)
       _sendmsg<FG_GOTFOCUS>(*self);
@@ -125,14 +153,7 @@ size_t fgControl_Message(fgControl* self, const FG_Msg* msg)
     return FGCURSOR_ARROW;
   case FG_MOUSEUP:
     if(msg->button == FG_MOUSERBUTTON && self->contextmenu != 0)
-    {
-      AbsRect area = { 0 };
-      if(self->contextmenu->parent)
-        ResolveRect(self->contextmenu->parent, &area);
-      MoveCRect(msg->x - area.left, msg->y - area.top, &self->contextmenu->transform.area);
-      fgMenu_Show((fgMenu*)self->contextmenu, true, false);
-      fgroot_instance->fgCaptureWindow = self->contextmenu;
-    }
+      fgElement_TriggerContextMenu(self->contextmenu, msg);
   { // Any control that gets a MOUSEUP event immediately fires a MOUSEMOVE event at that location, which will force the focus to shift to a different control if the mouseup occured elsewhere.
     FG_Msg m = *msg;
     m.type = FG_MOUSEMOVE;
@@ -198,6 +219,27 @@ size_t fgControl_Message(fgControl* self, const FG_Msg* msg)
   case FG_GETCONTEXTMENU:
     return (size_t)self->contextmenu;
     break;
+  case FG_SETTOOLTIP:
+    if(self->tooltip)
+      fgFreeText(self->tooltip, __FILE__, __LINE__);
+    self->tooltip = fgCopyTextToUTF8(msg->p, msg->subtype, __FILE__, __LINE__);
+    return self->tooltip != 0;
+  case FG_MOUSEON:
+    if(self->tooltip)
+    {
+      self->tooltipaction->time = fgroot_instance->time + fgroot_instance->tooltipdelay;
+      fgAddAction(self->tooltipaction);
+    }
+    break;
+  case FG_MOUSEOFF:
+    if(self->tooltip)
+    {
+      fgRemoveAction(self->tooltipaction);
+      fgRoot_ShowTooltip(fgroot_instance, 0);
+    }
+    break;
+  case FG_GETTOOLTIP:
+    return (size_t)self->tooltip;
   case FG_GETCLASSNAME:
     return (size_t)"Control";
   }

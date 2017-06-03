@@ -21,7 +21,7 @@
 						<MenuItem text="Insert">
               <Submenu id="Editor$EditInsert" onaction="menu_insert"></Submenu>
             </MenuItem>
-						<MenuItem text="Add"/>
+						<MenuItem text="Add" flags="DISABLE"/>
 						<MenuItem text="Delete" userid="10" flags="DISABLE"/>
 						<MenuItem text="Move" userid="3" flags="DISABLE" />
 						<MenuItem/>

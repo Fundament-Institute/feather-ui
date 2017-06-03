@@ -45,7 +45,7 @@
     </ContextMenu>
     <TabControl area="0 28 100% 100%">
       <Tab id="#tabfocus" name="Tab 1">
-        <Button area="0, 0, 0, 0" flags="EXPAND" text="Not Pressed" onaction="makepressed" />
+        <Button area="0, 0, 0, 0" flags="EXPAND" text="Not Pressed" onaction="makepressed" tooltip="TEST TOOLTIP"/>
         <Box area="10, 160, 150, 240" flags="TILEY|EXPANDX" max-width="100" margin="2,2,2,2">
           <Checkbox text="Check test 1" flags="EXPAND" margin="2,2,2,2"/>
           <Checkbox text="Check test 22" flags="EXPAND" margin="2,2,2,2"/>

@@ -84,6 +84,10 @@ size_t fgDropdownBox_Message(fgBox* self, const FG_Msg* msg)
     if(parent->dropflag <= 0)
       parent->dropflag = 1;
     break;
+  case FG_REMOVECHILD:
+    if(parent && msg->e == parent->selected)
+      parent->selected = 0;
+    break;
   }
   return fgBox_Message(self, msg);
 }
@@ -142,6 +146,8 @@ size_t fgDropdown_Message(fgDropdown* self, const FG_Msg* msg)
     }
     return FG_ACCEPT;
   case FG_REMOVECHILD:
+    if(msg->e == self->selected)
+      self->selected = 0;
   case FG_ADDCHILD:
   case FG_REORDERCHILD:
     if(msg->e->flags & FGELEMENT_BACKGROUND)

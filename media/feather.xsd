@@ -221,6 +221,7 @@
     <xs:attribute name="margin" type="Rect"/>
     <xs:attribute name="padding" type="Rect"/>
     <xs:attribute name="contextmenu" type="xs:string"/>
+    <xs:attribute name="tooltip" type="xs:string"/>
     
     <xs:attribute name="onconstruct" type="xs:string"/>
     <xs:attribute name="ondestroy" type="xs:string"/>
@@ -276,6 +277,7 @@
     <xs:attribute name="onsetlineheight" type="xs:string"/>
     <xs:attribute name="onsetletterspacing" type="xs:string"/>
     <xs:attribute name="onsettext" type="xs:string"/>
+    <xs:attribute name="onsettooltip" type="xs:string"/>
   </xs:complexType>
 
   <xs:complexType name="fgLayout">

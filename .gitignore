@@ -13,6 +13,7 @@
 /bin/
 /bin32/
 /media/editor/16
+/media/editor/controls
 /media/editor/*.out.*
 /media/editor/*.png
 /media/*.out.*

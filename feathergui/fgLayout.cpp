@@ -62,6 +62,7 @@ fgLayout* fgLayout_AddLayout(fgLayout* self, const char* name)
   }
   kh_val(self->sublayouts, i) = fgmalloc<fgLayout>(1, __FILE__, __LINE__);
   fgLayout_Init(kh_val(self->sublayouts, i), name, self->base.path);
+  kh_val(self->sublayouts, i)->base.parent = &self->base;
   kh_key(self->sublayouts, i) = kh_val(self->sublayouts, i)->base.name;
   return kh_val(self->sublayouts, i);
 }

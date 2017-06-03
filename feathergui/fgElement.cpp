@@ -1115,6 +1115,11 @@ void ResolveOuterRect(const fgElement* self, AbsRect* out)
     out->top = v.top.abs;
     out->right = v.right.abs;
     out->bottom = v.bottom.abs;
+    AbsVec center = { self->transform.center.x.abs + (out->right - out->left)*self->transform.center.x.rel, self->transform.center.y.abs + (out->bottom - out->top)*self->transform.center.y.rel };
+    out->left -= center.x;
+    out->top -= center.y;
+    out->right -= center.x;
+    out->bottom -= center.y;
     return;
   }
 
