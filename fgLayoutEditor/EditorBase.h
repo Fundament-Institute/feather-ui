@@ -35,6 +35,7 @@ public:
     PROP_ASSET,
     PROP_OUTLINE,
     PROP_CONTEXTMENU,
+    PROP_TOOLTIP,
     PROP_TOTALPLUSONE, // End of mutable properties
     PROP_ID,
     PROP_NAME,
@@ -78,6 +79,9 @@ public:
   virtual void SetNeedSave(bool needsave) = 0;
   virtual void AddUndo() = 0;
   virtual void SetCurElement(fgElement* cur) = 0;
+  void AddFlagCheckboxes(fgElement* parent, const char* type, fgFlag& flags);
+  fgFlag GetFlagCheckboxes(fgElement* box);
+  void ParseFlagMsg(fgStyle& target, fgElement* instance, fgSkinElement* element, fgFlag flags);
 
   template<typename T, size_t(*F)(char*, size_t, const T*, fgMsgType)>
   inline bss::Str WrapWrite(const T& v, fgMsgType u)

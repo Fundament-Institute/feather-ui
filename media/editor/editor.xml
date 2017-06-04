@@ -59,27 +59,27 @@
 			<Toolbar area="0 0 100% 30" id="Editor$toolbar">
         <Toolgroup>
           <Box>
-            <Button asset="16/new-document.png" userid="1" onaction="tool_action"/>
-            <Button asset="16/folder.png" userid="2" onaction="tool_action" />
-            <Button asset="16/save.png" userid="3" onaction="tool_action" />
+            <Button asset="16/new-document.png" userid="1" onaction="tool_action" tooltip="New"/>
+            <Button asset="16/folder.png" userid="2" onaction="tool_action" tooltip="Open"/>
+            <Button asset="16/save.png" userid="3" onaction="tool_action" tooltip="Save"/>
           </Box>
           <Box>
-            <Button asset="16/undo.png" userid="11" onaction="tool_action" flags="DISABLE"/>
-            <Button asset="16/redo.png" userid="12" onaction="tool_action" flags="DISABLE"/>
+            <Button asset="16/undo.png" userid="11" onaction="tool_action" flags="DISABLE" tooltip="Undo"/>
+            <Button asset="16/redo.png" userid="12" onaction="tool_action" flags="DISABLE" tooltip="Redo"/>
           </Box>
           <Box>
-            <Button asset="16/cut.png" userid="7" onaction="tool_action" flags="DISABLE"/>
-            <Button asset="16/copy.png" userid="8" onaction="tool_action" flags="DISABLE"/>
-            <Button asset="16/paste.png" userid="9" onaction="tool_action" flags="DISABLE"/>
-            <Button asset="16/delete-2.png" userid="10" onaction="tool_action" flags="DISABLE"/>
+            <Button asset="16/cut.png" userid="7" onaction="tool_action" flags="DISABLE" tooltip="Cut"/>
+            <Button asset="16/copy.png" userid="8" onaction="tool_action" flags="DISABLE" tooltip="Copy"/>
+            <Button asset="16/paste.png" userid="9" onaction="tool_action" flags="DISABLE" tooltip="Paste"/>
+            <Button asset="16/delete-2.png" userid="10" onaction="tool_action" flags="DISABLE" tooltip="Delete"/>
           </Box>
         </Toolgroup>
         <Toolgroup>
           <Box>
-            <Button asset="16/grid.png" onaction="tool_action" flags="DISABLE"/>
-            <Button asset="16/cross.png" onaction="tool_action" flags="DISABLE"/>
-            <Button asset="16/ruler.png" onaction="tool_action" flags="DISABLE"/>
-            <Button asset="16/cursor.png" onaction="tool_action" flags="DISABLE"/>
+            <Button asset="16/grid.png" onaction="tool_action" flags="DISABLE" tooltip="Show Grid"/>
+            <Button asset="16/cross.png" onaction="tool_action" flags="DISABLE" tooltip="Show Crosshairs"/>
+            <Button asset="16/ruler.png" onaction="tool_action" flags="DISABLE" tooltip="Show Ruler"/>
+            <Button asset="16/cursor.png" onaction="tool_action" flags="DISABLE" tooltip="Show Cursor"/>
           </Box>
         </Toolgroup>
         <Toolgroup id="Editor$Toolbarcontrols">
@@ -129,8 +129,20 @@
 				</TabControl>
 			</Element>
 		</Box>
-    <Resource name="Editor$ModalOverlay" flags="RECT|HIDDEN" color="0x00000066" area="0 28 100% 100%" />
+    <Control id="Editor$ModalOverlay" flags="HIDDEN" area="0 0 100% 100%">
+      <Resource flags="RECT" color="0x00000066" area="0 0 100% 100%" />
+    </Control>
 	</Window>
+	<Layout name="dialog" skin="fgEditor">
+		<window flags="EXPAND" min-width="300" area="0 0 0 0" id="Dialog$Window">
+			<text flags="EXPAND|WORDWRAP" max-width="380" text="test" margin="10 10 10 60" area="50% 0 143:0.5 100" center="50% 0" id="dialog$text"/>
+			<box flags="EXPAND|TILEX" margin="0 0 20 20" area="100% 100% 100% 100%" center="100% 100%" spacing="10,0">
+				<button flags="EXPAND" id="dialog$button3" userid="2" />
+				<button flags="EXPAND" id="dialog$button2" userid="1" />
+				<button flags="EXPAND" id="dialog$button1" userid="0" />
+			</box>
+		</window>
+	</Layout>
 	<Skin name="fgEditor">
 		<Skin name="Text" font="12 BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial" color="0x000000FF"/>
 		<Skin name="Window" padding="0 30 0 0">
@@ -488,6 +500,9 @@
 		</Skin>
 		<Skin name="List" dividercolor="0xC0C3C9" dragcolor="0x000000FF" hovercolor="0x88CCFF" selectcolor="0x3399FF" spacing="0,1">
 			<Resource flags="BACKGROUND|SNAP|RECT" outline="1" edgecolor="0xC0C3C9FF" color="0xF6F8FA" uv="3 3 3 3" area="0 0 100% 100%"/>
+		</Skin>
+		<Skin name="Root$Tooltip" font="10 BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial" color="0x606369" padding="8 4 8 4">
+			<Resource flags="BACKGROUND|SNAP|RECT" outline="1" edgecolor="0x909399" color="0xF6F8FA" uv="3 3 3 3" area="0 0 100% 100%"/>
 		</Skin>
 	</Skin>
   <Skin name="Editor$Resizebox">

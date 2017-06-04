@@ -58,6 +58,7 @@ _curelement(0), _historypos(-1), _insert(0), _insertdest(0)
   fgRegisterDelegate<fgLayoutEditor, &fgLayoutEditor::MenuRecent>("menu_recent", this);
   fgRegisterDelegate<fgLayoutEditor, &fgLayoutEditor::ToolAction>("tool_action", this);
   _window = fgSingleton()->gui->LayoutLoad(layout);
+  _dialog = layout->GetLayout("dialog");
   fgElement_AddDelegateListener<EditorBase, &EditorBase::WindowOnDestroy>(_window, FG_DESTROY, this);
   _layout.Init(this);
   _skin.Init(this);
@@ -86,6 +87,7 @@ _curelement(0), _historypos(-1), _insert(0), _insertdest(0)
         e->SetAsset(asset);
       else
         e->SetText(s);
+      e->SetTooltip(s);
       fgElement_AddDelegateListener<fgLayoutEditor, &fgLayoutEditor::ControlAction>(e, FG_ACTION, this);
     };
     fgIterateControls(&fn, &bss::Delegate<void, const char*>::stublambda);
@@ -103,6 +105,7 @@ _curelement(0), _historypos(-1), _insert(0), _insertdest(0)
   }
   fgSetInjectFunc(_inject);
   FillRecentList();
+  NewFile([this]() { OpenLayout(); });
 }
 
 fgLayoutEditor::~fgLayoutEditor()
@@ -428,11 +431,12 @@ void fgLayoutEditor::ProcessEvent(int id)
   switch(id)
   {
   case EVENT_NEW:
-    NewFile();
+    NewFile([this]() { OpenLayout(); });
     break;
   case EVENT_OPEN:
-    CheckSave();
-    LoadFile(FileDialog(true, 0, 0, L"XML Files (*.xml)\0*.xml\0", 0, ".xml").c_str());
+    CheckSave([this]() {
+      LoadFile(FileDialog(true, 0, 0, L"XML Files (*.xml)\0*.xml\0", 0, ".xml").c_str());
+    });
     break;
   case EVENT_SAVE:
     SaveFile();
@@ -441,12 +445,13 @@ void fgLayoutEditor::ProcessEvent(int id)
     _path = "";
     SaveFile();
     break;
-  case EVENT_CLOSE:
-    Close();
-    break;
+  //case EVENT_CLOSE:
+  //  break;
   case EVENT_EXIT:
-    if(Instance->_window)
-      VirtualFreeChild(Instance->_window);
+    CheckSave([this]() {
+      if(Instance->_window)
+        VirtualFreeChild(Instance->_window);
+    });
     break;
   case EVENT_CUT:
   case  EVENT_COPY:
@@ -458,7 +463,7 @@ void fgLayoutEditor::ProcessEvent(int id)
     if(_skin.GetSelected())
       _skin.RemoveElement(_skin.GetSelected());
     break;
-  case  EVENT_UNDO:
+  case EVENT_UNDO:
     if(_history.size() > 0 && _historypos < (ptrdiff_t)(_history.size() - 1))
     {
       if(_historypos < 0)
@@ -492,7 +497,7 @@ void fgLayoutEditor::ProcessEvent(int id)
 #endif
     break;
   case EVENT_HELP_ABOUT:
-    ShowDialog("FeatherGUI Layout Editor\nVersion v0.1.0\n\n(c)2017 Black Sphere Studios\n\nThis is a free, open-source layout editor for FeatherGUI, maintained as a core part of the FeatherGUI library ecosystem. Please send all feedback and bugs to the FeatherGUI Github: https://github.com/Black-Sphere-Studios/feathergui/", "Close");
+    ShowDialog("About", "FeatherGUI Layout Editor\nVersion v0.1.0\n\n(c)2017 Black Sphere Studios\n\nThis is a free, open-source layout editor for FeatherGUI, maintained as a core part of the FeatherGUI library ecosystem. Please send all feedback and bugs to the FeatherGUI Github: https://github.com/Black-Sphere-Studios/feathergui/", [](char) {}, "Close");
     break;
   }
 }
@@ -521,26 +526,26 @@ void fgLayoutEditor::ControlAction(struct _FG_ELEMENT* e, const FG_Msg*)
   }
 }
 
-bool fgLayoutEditor::Close()
+void fgLayoutEditor::Close(std::function<void()> fn)
 {
-  if(!CheckSave())
-    return false;
-  ClearLayoutVector(_history);
-  DisplayLayout(0);
-  _layout.Clear();
-  _skin.Clear();
-  return true;
+  CheckSave([=]() {
+    ClearLayoutVector(_history);
+    DisplayLayout(0);
+    _layout.Clear();
+    _skin.Clear();
+    fn();
+  });
 }
 void fgLayoutEditor::OpenLayout()
 {
-  if(!Close())
-    return;
-  _layout.OpenLayout(&curlayout);
-  fgSkinBase_IterateSkins(&curlayout.base, &_skin, [](void* p, fgSkin* s, const char*) {((SkinTab*)p)->OpenSkin(s); });
-  DisplayLayout(&curlayout);
-  if(fgElement* tab = fgGetID("Editor$tablayout"))
-    tab->Action();
-  SetNeedSave(false);
+  Close([this]() {
+    _layout.OpenLayout(&curlayout);
+    fgSkinBase_IterateSkins(&curlayout.base, &_skin, [](void* p, fgSkin* s, const char*) {((SkinTab*)p)->OpenSkin(s); });
+    DisplayLayout(&curlayout);
+    if(fgElement* tab = fgGetID("Editor$tablayout"))
+      tab->Action();
+    SetNeedSave(false);
+  });
 }
 void fgLayoutEditor::DisplayLayout(fgLayout* layout)
 {
@@ -561,18 +566,19 @@ void fgLayoutEditor::LoadFile(const char* file)
 {
   if(!file || !file[0])
     return;
-  NewFile();
-  fgLayout_LoadFileXML(&curlayout, file);
-  _path = file;
-  if(std::find(_settings.recent.begin(), _settings.recent.end(), _path) == _settings.recent.end())
-  {
-    _settings.recent.insert(_settings.recent.begin(), _path);
-    if(_settings.recent.size() > MAX_OPEN_HISTORY)
-      _settings.recent.pop_back();
-    SaveSettings();
-    FillRecentList();
-  }
-  OpenLayout();
+  NewFile([this, file]() {
+    fgLayout_LoadFileXML(&curlayout, file);
+    _path = file;
+    if(std::find(_settings.recent.begin(), _settings.recent.end(), _path) == _settings.recent.end())
+    {
+      _settings.recent.insert(_settings.recent.begin(), _path);
+      if(_settings.recent.size() > MAX_OPEN_HISTORY)
+        _settings.recent.pop_back();
+      SaveSettings();
+      FillRecentList();
+    }
+    OpenLayout();
+  });
 }
 void fgLayoutEditor::SaveFile()
 {
@@ -582,34 +588,67 @@ void fgLayoutEditor::SaveFile()
   fgLayout_SaveFileXML(&curlayout, _path.c_str());
   SetNeedSave(false);
 }
-void fgLayoutEditor::NewFile()
+void fgLayoutEditor::NewFile(std::function<void()> fn)
 {
-  Close();
-  _path = "";
-  fgLayout_Destroy(&curlayout);
-  fgLayout_Init(&curlayout, 0, 0);
+  Close([this, fn]() {
+    _path = "";
+    fgLayout_Destroy(&curlayout);
+    fgLayout_Init(&curlayout, 0, 0);
+    fn();
+  });
 }
-bool fgLayoutEditor::CheckSave()
+void fgLayoutEditor::CheckSave(std::function<void()> fn)
 {
   if(_needsave)
   {
-    switch(ShowDialog("You have unsaved changes, would you like to save them first?", "Cancel", "Yes", "No"))
-    {
+    ShowDialog("Unsaved Changes", "You have unsaved changes, would you like to save them first?", [=](char r) {
+      switch(r)
+      {
     case 0:
-      return false;
+      return;
     case 1:
       SaveFile();
     case 2:
       SetNeedSave(false);
       break;
-    }
+      }
+      fn();
+    }, "Cancel", "Yes", "No");
   }
-
-  return true;
+  else
+    fn();
 }
-char fgLayoutEditor::ShowDialog(const char* text, const char* button1, const char* button2, const char* button3)
+
+void fgLayoutEditor::ShowDialog(const char* title, const char* text, std::function<void(char)> fn, const char* button1, const char* button2, const char* button3)
 {
-  return 0;
+  if(!_dialog)
+    return;
+  fgElement* window = fgSingleton()->gui->LayoutLoad(_dialog);
+  window->SetText(title);
+  fgGetID("dialog$text")->SetText(text);
+  fgElement* b1 = fgGetID("dialog$button1");
+  fgElement* b2 = fgGetID("dialog$button2");
+  fgElement* b3 = fgGetID("dialog$button3");
+  fgElement* overlay = fgGetID("Editor$ModalOverlay");
+  // TODO: Fix this memory leak or just implement proper threading so callbacks aren't necessary
+  auto ret = new std::function<void(struct _FG_ELEMENT*, const FG_Msg*)>([=](struct _FG_ELEMENT* e, const FG_Msg*) { fn(e->userid); if(e != window) VirtualFreeChild(window); overlay->SetFlag(FGELEMENT_HIDDEN, true); });
+  auto ret2 = new std::function<void(struct _FG_ELEMENT*, const FG_Msg*)>([=](struct _FG_ELEMENT* e, const FG_Msg*) { window->GotFocus(); });
+  fgElement_AddDelegateListener(b1, FG_ACTION, ret, &Delegate<void, struct _FG_ELEMENT*, const FG_Msg*>::stublambda);
+  fgElement_AddDelegateListener(b2, FG_ACTION, ret, &Delegate<void, struct _FG_ELEMENT*, const FG_Msg*>::stublambda);
+  fgElement_AddDelegateListener(b3, FG_ACTION, ret, &Delegate<void, struct _FG_ELEMENT*, const FG_Msg*>::stublambda);
+  fgElement_AddDelegateListener(window, FG_DESTROY, ret, &Delegate<void, struct _FG_ELEMENT*, const FG_Msg*>::stublambda);
+  fgElement_AddDelegateListener(overlay, FG_MOUSEDOWN, ret2, &Delegate<void, struct _FG_ELEMENT*, const FG_Msg*>::stublambda);
+  fgElement_AddDelegateListener(overlay, FG_MOUSEUP, ret2, &Delegate<void, struct _FG_ELEMENT*, const FG_Msg*>::stublambda);
+  if(button1)
+    b1->SetText(button1);
+  b1->SetFlag(FGELEMENT_HIDDEN, button1 == 0);
+  if(button2)
+    b2->SetText(button2);
+  b2->SetFlag(FGELEMENT_HIDDEN, button2 == 0);
+  if(button3)
+    b3->SetText(button3);
+  b3->SetFlag(FGELEMENT_HIDDEN, button3 == 0);
+  overlay->SetFlag(FGELEMENT_HIDDEN, false);
 }
 
 #ifdef BSS_PLATFORM_WIN32 //Windows function
@@ -705,10 +744,13 @@ void fgLayoutEditor::SetNeedSave(bool needsave)
 {
   _needsave = needsave;
   Str name("FeatherGUI Layout Editor - ");
-  name += fgTrimPathFromFile(_path.c_str());
+  const char* trim = fgTrimPathFromFile(_path.c_str());
+  if(!trim[0])
+    trim = "untitled";
+  name += trim;
   if(_needsave)
     name += "*";
-  if(_window && _window->GetText() != name)
+  if(_window && (!_window->GetText() || _window->GetText() != name))
     _window->SetText(name.c_str());
 }
 

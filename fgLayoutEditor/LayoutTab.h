@@ -37,6 +37,7 @@ protected:
   void _treeItemOnFocus(struct _FG_ELEMENT*, const FG_Msg*);
   void _treeItemOnHover(struct _FG_ELEMENT*, const FG_Msg*);
   void _textboxOnAction(struct _FG_ELEMENT* e, const FG_Msg* msg);
+  void _flagOnAction(struct _FG_ELEMENT* e, const FG_Msg* msg);
   void _editboxOnAction(struct _FG_ELEMENT* e, const FG_Msg* msg);
   void _treeviewOnMouseDown(struct _FG_ELEMENT* e, const FG_Msg* msg);
 

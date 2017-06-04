@@ -53,10 +53,10 @@ public:
   void OpenLayout();
   void LoadFile(const char* file);
   void SaveFile();
-  void NewFile();
-  bool Close();
-  bool CheckSave();
-  char ShowDialog(const char* text, const char* button1, const char* button2 = 0, const char* button3 = 0);
+  void NewFile(std::function<void()> fn);
+  void Close(std::function<void()> fn);
+  void CheckSave(std::function<void()> fn);
+  void ShowDialog(const char* title, const char* text, std::function<void(char)> fn, const char* button1, const char* button2 = 0, const char* button3 = 0);
   virtual void Destroy() override;
   void MenuAction(struct _FG_ELEMENT*, const FG_Msg*);
   void MenuRecent(struct _FG_ELEMENT*, const FG_Msg*);
@@ -137,6 +137,7 @@ protected:
   uint8_t _sizing;
   AbsVec _lastmouse;
   AbsVec _anchor;
+  fgLayout* _dialog;
   fgElement* _curelement; // currently selected element in the workspace
 };
 

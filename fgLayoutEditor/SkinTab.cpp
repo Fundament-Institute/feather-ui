@@ -53,7 +53,7 @@ void SkinTab::Init(EditorBase* base)
     AddProp("Scaling", EditorBase::PROP_SCALING);
     AddProp("Order", EditorBase::PROP_ORDER);
     AddProp("Style", EditorBase::PROP_STYLE);
-    AddProp("Flags", EditorBase::PROP_FLAGS, "text");
+    AddProp("Flags", EditorBase::PROP_FLAGS, "box");
     AddProp("Alpha", EditorBase::PROP_ALPHA);
   }
 }
@@ -138,9 +138,9 @@ void SkinTab::AddProp(const char* name, FG_UINT id, const char* type)
   fgFlag flags = FGELEMENT_EXPANDY;
   fgMessage f = nullptr;
   if(!STRICMP(type, "textbox"))
-  {
     flags |= FGTEXTBOX_ACTION | FGTEXTBOX_SINGLELINE;
-  }
+  if(!STRICMP(type, "box"))
+    flags |= FGBOX_TILEY;
   _propafter(_base->AddProp(*_skinprops, name, type, id, f, flags), type);
 }
 

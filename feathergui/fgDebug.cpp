@@ -420,11 +420,10 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
 
     const fgTransform tf_elements = { { 0,0,0,0,0,1,0,0.7 }, 0,{ 0,0,0,0 } };
     const fgTransform tf_properties = { { 0,0,0,0.7,0,1,0,1 }, 0,{ 0,0,0,0 } };
-    const fgTransform tf_overlay = { { 0,0,0,0,0,0,0,0 }, 0,{ fgroot_instance->gui.element.transform.area.left.abs,0,fgroot_instance->gui.element.transform.area.top.abs,0 } };
     fgTreeview_Init(&self->elements, self->tablayout, 0, "Debug$elements", FGFLAGS_INTERNAL, &tf_elements, 0);
     fgGrid_Init(&self->properties, self->tablayout, 0, "Debug$properties", FGBOX_TILEY | FGFLAGS_INTERNAL, &tf_properties, 0);
     fgText_Init(&self->contents, self->tabmessages, 0, "Debug$contents", FGELEMENT_HIDDEN | FGFLAGS_INTERNAL, &fgTransform_EMPTY, 0);
-    fgElement_Init(&self->overlay, fgroot_instance->gui, 0, "Debug$overlay", FGELEMENT_HIDDEN | FGELEMENT_IGNORE | FGELEMENT_BACKGROUND | FGELEMENT_NOCLIP | FGFLAGS_INTERNAL, &tf_overlay, 0);
+    fgElement_Init(&self->overlay, fgroot_instance->gui, 0, "Debug$overlay", FGELEMENT_HIDDEN | FGELEMENT_IGNORE | FGELEMENT_BACKGROUND | FGELEMENT_NOCLIP | FGFLAGS_INTERNAL, &fgTransform_EMPTY, 0);
     self->overlay.message = (fgMessage)fgDebug_OverlayMessage;
     fgTextbox_Init(&self->editbox, self->properties, 0, "Debug$editbox", FGELEMENT_HIDDEN | FGTEXTBOX_SINGLELINE | FGTEXTBOX_ACTION | FGELEMENT_BACKGROUND, &fgTransform_EMPTY, 0);
     self->editbox->message = (fgMessage)fgDebug_EditBoxMessage;

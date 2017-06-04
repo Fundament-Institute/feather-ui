@@ -511,7 +511,10 @@
       </Skin>
 		</Skin>
 		<Skin name="List" dividercolor="0xC0C3C9" dragcolor="0x000000FF" hovercolor="0x88CCFF" selectcolor="0x3399FF" spacing="0,1">
-			<Resource flags="BACKGROUND|SNAP|RECT" outline="1" edgecolor="0xC0C3C9FF" color="0xF6F8FA" uv="3 3 3 3" area="0 0 100% 100%"/>
+			<Resource flags="BACKGROUND|SNAP|RECT" outline="1" edgecolor="0xC0C3C9" color="0xF6F8FA" uv="3 3 3 3" area="0 0 100% 100%"/>
+		</Skin>
+		<Skin name="Root$Tooltip" font="10 BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial" color="0x606369" padding="8 4 8 4">
+			<Resource flags="BACKGROUND|SNAP|RECT" outline="1" edgecolor="0x909399" color="0xF6F8FA" uv="3 3 3 3" area="0 0 100% 100%"/>
 		</Skin>
 	</Skin>
 </fg:Layout>

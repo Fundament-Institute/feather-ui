@@ -32,13 +32,13 @@ bool SkinBase::RemoveFont(Font^ font) { return fgSkinBase_RemoveFont(_p, font) !
 //Skin^ SkinBase::LoadFileUBJSON(System::String^ file) { TOCHAR(file); return GenNewManagedPtr<Skin, fgSkin>(fgSkinBase_LoadFileUBJSON(_p, (const char*)pstr)); }
 //Skin^ SkinBase::LoadUBJSON(cli::array<System::Byte>^ data) { pin_ptr<const unsigned char> pin = &data[0]; return GenNewManagedPtr<Skin, fgSkin>(fgSkinBase_LoadUBJSON(_p, pin, data->Length)); }
 Skin^ SkinBase::LoadFileXML(System::String^ file) { TOCHAR(file); return GenNewManagedPtr<Skin, fgSkin>(fgSkinBase_LoadFileXML(_p, (const char*)pstr)); }
-Skin^ SkinBase::LoadXML(cli::array<System::Byte>^ data) { pin_ptr<const unsigned char> pin = &data[0]; return GenNewManagedPtr<Skin, fgSkin>(fgSkinBase_LoadXML(_p, (const char*)pin, data->Length, "")); }
-Skin^ SkinBase::LoadXML(cli::array<System::Byte>^ data, System::String^ path) { TOCHAR(path); pin_ptr<const unsigned char> pin = &data[0]; return GenNewManagedPtr<Skin, fgSkin>(fgSkinBase_LoadXML(_p, (const char*)pin, data->Length, (const char*)pstr)); }
+Skin^ SkinBase::LoadXML(cli::array<System::Byte>^ data) { pin_ptr<const unsigned char> pin = &data[0]; return GenNewManagedPtr<Skin, fgSkin>(fgSkinBase_LoadXML(_p, (const char*)pin, data->Length)); }
 
 SkinBase::SkinBase(fgSkinBase* p, bool owner) : _p(p), _owner(p) {}
 
 Skin::Skin(fgSkin* p) : SkinBase(&p->base, false) {}
-Skin::Skin(System::String^ name) : SkinBase(reinterpret_cast<fgSkinBase*>(new fgSkin()), true) { TOCHAR(name); fgSkin_Init(reinterpret_cast<fgSkin*>(_p), (const char*)pstr); }
+Skin::Skin(System::String^ name) : SkinBase(reinterpret_cast<fgSkinBase*>(new fgSkin()), true) { TOCHAR(name); fgSkin_Init(reinterpret_cast<fgSkin*>(_p), (const char*)pstr, ""); }
+Skin::Skin(System::String^ name, System::String^ path) : SkinBase(reinterpret_cast<fgSkinBase*>(new fgSkin()), true) { TOCHAR(name); TOCHARSTR(path, spath); fgSkin_Init(reinterpret_cast<fgSkin*>(_p), (const char*)pstr, (const char*)spath); }
 Skin::~Skin() { this->!Skin(); }
 Skin::!Skin()
 { 
@@ -48,6 +48,5 @@ Skin::!Skin()
     delete reinterpret_cast<fgSkin*>(_p);
   }
 }
-Skin^ Skin::GetSkin(System::String^ name) { TOCHAR(name); return GenNewManagedPtr<Skin, fgSkin>(fgSkin_GetSkin(reinterpret_cast<fgSkin*>(_p), (const char*)pstr)); }
 
 Skin::operator fgSkin*(Skin^ e) { return reinterpret_cast<fgSkin*>(e->_p); }

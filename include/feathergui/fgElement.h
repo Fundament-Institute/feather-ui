@@ -146,6 +146,10 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT const char* GetName();
   FG_DLLEXPORT void SetContextMenu(struct _FG_ELEMENT* menu);
   FG_DLLEXPORT struct _FG_ELEMENT* GetContextMenu() const;
+  FG_DLLEXPORT void SetTooltip(const char* tooltip);
+  FG_DLLEXPORT void SetTooltipW(const wchar_t* tooltip);
+  FG_DLLEXPORT void SetTooltipU(const int* tooltip);
+  FG_DLLEXPORT const char* GetTooltip() const;
   FG_DLLEXPORT void Neutral();
   FG_DLLEXPORT void Hover();
   FG_DLLEXPORT void Active();

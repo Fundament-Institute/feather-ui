@@ -149,6 +149,8 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
     }
     return sizeof(fgText);
   case FG_SETTEXT:
+    if(self->layout != 0) fgroot_instance->backend.fgFontLayout(self->font, 0, 0, 0, 0, 0, 0, 0, self->layout);
+    self->layout = 0;
     fgText_WipeDynText(self);
     ((bss::DynArray<int>*)&self->text32)->Clear();
     ((bss::DynArray<wchar_t>*)&self->text16)->Clear();

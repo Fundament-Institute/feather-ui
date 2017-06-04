@@ -1673,6 +1673,14 @@ void fgElement::SetContextMenu(fgElement* menu) { _sendmsg<FG_SETCONTEXTMENU, fg
 
 fgElement* fgElement::GetContextMenu() const { return reinterpret_cast<fgElement*>(_sendmsg<FG_GETCONTEXTMENU>(const_cast<fgElement*>(this))); }
 
+void fgElement::SetTooltip(const char* tooltip) { _sendsubmsg<FG_SETTOOLTIP, const void*>(this, FGTEXTFMT_UTF8, tooltip); }
+
+void fgElement::SetTooltipW(const wchar_t* tooltip) { _sendsubmsg<FG_SETTOOLTIP, const void*>(this, FGTEXTFMT_UTF16, tooltip); }
+
+void fgElement::SetTooltipU(const int* tooltip) { _sendsubmsg<FG_SETTOOLTIP, const void*>(this, FGTEXTFMT_UTF32, tooltip); }
+
+const char* fgElement::GetTooltip() const { return (const char*)_sendmsg<FG_GETTOOLTIP>(const_cast<fgElement*>(this)); }
+
 void fgElement::Neutral() { _sendmsg<FG_NEUTRAL>(this); }
 
 void fgElement::Hover() { _sendmsg<FG_HOVER>(this); }

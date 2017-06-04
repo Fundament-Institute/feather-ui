@@ -47,6 +47,8 @@ void LayoutTab::Init(EditorBase* base)
       fgElement_AddDelegateListener<LayoutTab, &LayoutTab::_textboxOnAction>(e, FG_ACTION, this);
       fgElement_AddDelegateListener<LayoutTab, &LayoutTab::_textboxOnAction>(e, FG_LOSTFOCUS, this);
     }
+    if(!STRICMP(type, "box"))
+      fgElement_AddDelegateListener<LayoutTab, &LayoutTab::_flagOnAction>(e, FG_ACTION, this);
   };
 
   if(_layoutprops)
@@ -66,7 +68,7 @@ void LayoutTab::Init(EditorBase* base)
     AddProp("Scaling", EditorBase::PROP_SCALING);
     AddProp("Order", EditorBase::PROP_ORDER);
     AddProp("Style", EditorBase::PROP_STYLE);
-    AddProp("Flags", EditorBase::PROP_FLAGS, "text");
+    AddProp("Flags", EditorBase::PROP_FLAGS, "box");
     AddProp("Alpha", EditorBase::PROP_ALPHA);
   }
   
@@ -89,6 +91,8 @@ void LayoutTab::AddProp(const char* name, FG_UINT id, const char* type)
   fgMessage f = nullptr;
   if(!STRICMP(type, "textbox"))
     flags |= FGTEXTBOX_ACTION | FGTEXTBOX_SINGLELINE;
+  if(!STRICMP(type, "box"))
+    flags |= FGBOX_TILEY;
   _propafter(_base->AddProp(*_layoutprops, name, type, id, f, flags), type);
 }
 void LayoutTab::InsertElement(fgElement* e, const char* type, bool insert, fgTransform* tf)
@@ -225,6 +229,29 @@ void LayoutTab::_editboxOnAction(struct _FG_ELEMENT* e, const FG_Msg* msg)
     }
     e->SetParent(0);
     e->SetText(0);
+  }
+}
+void LayoutTab::_flagOnAction(struct _FG_ELEMENT* e, const FG_Msg* msg)
+{
+  if(!msg->subtype && _selected && _selected->userdata)
+  {
+    switch(_selected->userid)
+    {
+    case EditorBase::TYPE_CLASSLAYOUT:
+    {
+      auto p = (fgClassLayout*)_selected->userdata;
+      _base->ParseFlagMsg(p->element.style, _layoutmap[p], &p->element, _base->GetFlagCheckboxes(e));
+      _base->SetProps(*_layoutprops, p, &p->element, p->element.skin, p->name, p->element.style);
+    }
+    break;
+    case EditorBase::TYPE_LAYOUT:
+    {
+      auto p = (fgLayout*)_selected->userdata;
+      _base->ParseFlagMsg(p->base.style, 0, 0, _base->GetFlagCheckboxes(e));
+      _base->SetProps(*_layoutprops, 0, 0, p->skin, p->base.name, p->base.style);
+    }
+    break;
+    }
   }
 }
 

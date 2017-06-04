@@ -91,6 +91,7 @@ namespace fgDotNet {
     Element^ AddItemElement(Element^ item);
     size_t RemoveChild(Element^ child);
     size_t RemoveItem(size_t item);
+    void Clear();
     void LayoutChange(unsigned short subtype, Element^ target, Element^ old);
     size_t LayoutFunction(const FG_Msg& msg, UnifiedRect^ area, bool scrollbar);
     Element^ LayoutLoad(Layout^ layout);
@@ -131,6 +132,8 @@ namespace fgDotNet {
     System::String^ GetName();
     void SetContextMenu(Element^ menu);
     Element^ GetContextMenu();
+    System::String^ GetTooltip();
+    size_t SetTooltip(System::String^ tooltip);
     void Neutral();
     void Hover();
     void Active();

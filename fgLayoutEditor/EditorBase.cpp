@@ -57,6 +57,23 @@ uint16_t EditorBase::GetTransformMsg(const fgStyle& target, fgTransform& out)
   return 0;
 }
 
+void EditorBase::ParseFlagMsg(fgStyle& target, fgElement* instance, fgSkinElement* element, fgFlag flags)
+{
+  AddUndo();
+  if(element)
+    element->flags = flags;
+  else
+  {
+    RemoveStyleMsg(target, FG_SETFLAG);
+    RemoveStyleMsg(target, FG_SETFLAGS);
+    FG_Msg m = { FG_SETFLAGS };
+    m.u = flags;
+    target.AddStyleMsg(&m);
+  }
+  if(instance)
+    instance->SetFlags(flags);
+  SetNeedSave(true);
+}
 void EditorBase::ParseStyleMsg(fgStyle& target, fgElement* instance, fgSkinElement* element, fgClassLayout* layout, fgSkin** skin, const char** name, PROPERTIES id, const char* s)
 {
   AddUndo();
@@ -90,6 +107,17 @@ void EditorBase::ParseStyleMsg(fgStyle& target, fgElement* instance, fgSkinEleme
       return;
     m.type = FG_SETTEXT;
     m.subtype = FGTEXTFMT_PLACEHOLDER_UTF8;
+    m.p = const_cast<char*>(s);
+    target.AddStyleMsg(&m, strlen(s) + 1);
+    break;
+  case PROP_TOOLTIP:
+    RemoveStyleMsg(target, FG_SETTOOLTIP, FGTEXTFMT_UTF8);
+    RemoveStyleMsg(target, FG_SETTOOLTIP, FGTEXTFMT_UTF16);
+    RemoveStyleMsg(target, FG_SETTOOLTIP, FGTEXTFMT_UTF32);
+    if(!s)
+      return;
+    m.type = FG_SETTOOLTIP;
+    m.subtype = FGTEXTFMT_UTF8;
     m.p = const_cast<char*>(s);
     target.AddStyleMsg(&m, strlen(s) + 1);
     break;
@@ -309,15 +337,7 @@ void EditorBase::ParseStyleMsg(fgStyle& target, fgElement* instance, fgSkinEleme
       element->order = strtol(s, &out, 10);
     break;
   case PROP_FLAGS:
-    //RemoveStyleMsg(target, FG_SETFLAGS);
-    //RemoveStyleMsg(target, FG_SETFLAG);
-    if(!s)
-      return;
-    //if(element)
-    //{
-    //  element->flags = 
-    //}
-    break;
+    return;
   case PROP_ALPHA:
     RemoveStyleMsg(target, FG_SETALPHA);
     if(!s)
@@ -363,7 +383,7 @@ void EditorBase::AddMutableProp(fgGrid& g, PROPERTIES id, const char* type, std:
 {
   const char* names[PROP_TOTALPLUSONE - 1] = { "UserID", "UserInfo", "Text", "Placeholder", "Font", "Line Height", "Letter Spacing", "Color",
     "Color:Placeholder", "Color:Cursor", "Color:Select", "Color:Hover", "Color:Drag","Color:Edge", "Color:Divider", "Color:ColumnDivider", "Value",
-    "Value", "Range", "UV", "Asset", "Outline", "Splitter", "Context Menu" };
+    "Value", "Range", "UV", "Asset", "Outline", "Splitter", "Context Menu", "Tooltip" };
 
   f(AddProp(g, names[id - 1], type, id, 0, flags), type);
 }
@@ -404,6 +424,7 @@ void EditorBase::LoadProps(fgGrid& g, const char* type, fgClassLayout* layout, f
       AddMutableProp(g, PROP_FONT, "textbox", f);
       AddMutableProp(g, PROP_LINEHEIGHT, "textbox", f);
       AddMutableProp(g, PROP_LETTERSPACING, "textbox", f);
+      AddMutableProp(g, PROP_TOOLTIP, "textbox", f);
       break;
     case 12: // progressbar
       AddMutableProp(g, PROP_VALUEF, "textbox", f);
@@ -412,6 +433,7 @@ void EditorBase::LoadProps(fgGrid& g, const char* type, fgClassLayout* layout, f
       AddMutableProp(g, PROP_FONT, "textbox", f);
       AddMutableProp(g, PROP_LINEHEIGHT, "textbox", f);
       AddMutableProp(g, PROP_LETTERSPACING, "textbox", f);
+      AddMutableProp(g, PROP_TOOLTIP, "textbox", f);
       break;
     case 14: // textbox
       AddMutableProp(g, PROP_TEXT, "textbox", f, FGELEMENT_EXPANDY | FGTEXTBOX_ACTION);
@@ -423,22 +445,27 @@ void EditorBase::LoadProps(fgGrid& g, const char* type, fgClassLayout* layout, f
       AddMutableProp(g, PROP_FONT, "textbox", f);
       AddMutableProp(g, PROP_LINEHEIGHT, "textbox", f);
       AddMutableProp(g, PROP_LETTERSPACING, "textbox", f);
+      AddMutableProp(g, PROP_TOOLTIP, "textbox", f);
       break;
     case 19: // dropdown
       AddMutableProp(g, PROP_SELECTCOLOR, "textbox", f);
       AddMutableProp(g, PROP_HOVERCOLOR, "textbox", f);
+      AddMutableProp(g, PROP_TOOLTIP, "textbox", f);
       break;
     case 4: // list
       AddMutableProp(g, PROP_DRAGCOLOR, "textbox", f);
       AddMutableProp(g, PROP_VALUEF, "textbox", f);
+      AddMutableProp(g, PROP_TOOLTIP, "textbox", f);
       break;
     case 5: // grid
       AddMutableProp(g, PROP_DRAGCOLOR, "textbox", f);
       AddMutableProp(g, PROP_VALUEF, "textbox", f);
       AddMutableProp(g, PROP_RANGE, "textbox", f);
+      AddMutableProp(g, PROP_TOOLTIP, "textbox", f);
       break;
     case 23: // menuitem:
       AddMutableProp(g, PROP_TEXT, "textbox", f);
+      AddMutableProp(g, PROP_TOOLTIP, "textbox", f);
       break;
     case 6: // resource
       AddMutableProp(g, PROP_UV, "textbox", f);
@@ -446,6 +473,7 @@ void EditorBase::LoadProps(fgGrid& g, const char* type, fgClassLayout* layout, f
       AddMutableProp(g, PROP_OUTLINE, "textbox", f);
       AddMutableProp(g, PROP_COLOR, "textbox", f);
       AddMutableProp(g, PROP_EDGECOLOR, "textbox", f);
+      AddMutableProp(g, PROP_TOOLTIP, "textbox", f);
       break;
     case 18: // curve
       AddMutableProp(g, PROP_COLOR, "textbox", f);
@@ -454,6 +482,7 @@ void EditorBase::LoadProps(fgGrid& g, const char* type, fgClassLayout* layout, f
     case 13: // slider
       AddMutableProp(g, PROP_VALUEF, "textbox", f);
       AddMutableProp(g, PROP_RANGE, "textbox", f);
+      AddMutableProp(g, PROP_TOOLTIP, "textbox", f);
       break;
     case 30: // skin
       AddMutableProp(g, PROP_TEXT, "textbox", f, FGELEMENT_EXPANDY | FGTEXTBOX_ACTION);
@@ -495,6 +524,38 @@ fgElement* EditorBase::FindProp(fgGrid& g, PROPERTIES prop)
   return 0;
 }
 
+fgFlag EditorBase::GetFlagCheckboxes(fgElement* box)
+{
+  size_t len = box->GetNumItems();
+  fgFlag flags = 0;
+  for(size_t i = 0; i < len; ++i)
+    if(box->GetItem(i)->GetValue())
+      flags |= box->GetItem(i)->userid;
+  return flags;
+}
+
+void EditorBase::AddFlagCheckboxes(fgElement* parent, const char* type, fgFlag& flags)
+{
+  const fgFlag END = (sizeof(fgFlag) << 3);
+  const char* str;
+  size_t len = 0;
+  for(fgFlag i = 0; i < END; ++i)
+  {
+    fgFlag index = (1 << i);
+    if((str = fgSingleton()->backend.fgFlagMap(type, index)) != 0)
+    {
+      fgElement* add = parent->GetItem(len++);
+      if(!add)
+      {
+        add = fgCreate("checkbox", parent, 0, 0, FGELEMENT_EXPAND, &fgTransform_EMPTY, 0);
+        fgElement_AddListener(add, FG_ACTION, [](fgElement* e, const FG_Msg* m) { if(e->parent) fgSendMessage(e->parent, m); });
+      }
+      add->userid = index;
+      add->SetText(str);
+      add->SetValue((flags&index) != 0);
+    }
+  }
+}
 void EditorBase::SetProps(fgGrid& g, fgClassLayout* layout, fgSkinElement* element, const fgSkin* skin, const char* name, fgStyle& style)
 {
   if(skin)
@@ -515,13 +576,14 @@ void EditorBase::SetProps(fgGrid& g, fgClassLayout* layout, fgSkinElement* eleme
     fgFlag rm = def & (~element->flags);
     fgFlag add = (~def) & element->flags;
 
-    Str flags;
-    flags.resize(fgStyle_WriteFlagsIterate(0, 0, element->type, "\n", add, 0));
+    AddFlagCheckboxes(g.GetRow(15)->GetItem(1), element->type, element->flags);
+    /*Str flags;
+    flags.resize(fgStyle_WriteFlagsIterate(0, 0, element->type, "|", add, 0));
     flags.resize(fgStyle_WriteFlagsIterate(flags.UnsafeString(), flags.size(), element->type, "\n", add, 0));
     size_t len = flags.size();
     flags.resize(len + fgStyle_WriteFlagsIterate(0, 0, element->type, "\n", add, 0));
     fgStyle_WriteFlagsIterate(flags.UnsafeString() + len, flags.size() - len, element->type, "\n", rm, 1);
-    g.GetRow(15)->GetItem(1)->SetText(flags.c_str()[0] ? (flags.c_str() + 1) : "");
+    g.GetRow(15)->GetItem(1)->SetText(flags.c_str()[0] ? (flags.c_str() + 1) : "");*/
   }
 
   for(fgStyleMsg* m = style.styles; m != 0; m = m->next)
@@ -551,6 +613,10 @@ void EditorBase::SetProps(fgGrid& g, fgClassLayout* layout, fgSkinElement* eleme
         }
       }
       else if(fgElement* e = FindProp(g, PROP_TEXT))
+        fgSendMessage(e, &m->msg);
+      break;
+    case FG_SETTOOLTIP:
+      if(fgElement* e = FindProp(g, PROP_TOOLTIP))
         fgSendMessage(e, &m->msg);
       break;
     case FG_SETMARGIN:

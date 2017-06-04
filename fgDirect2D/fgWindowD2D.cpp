@@ -118,6 +118,12 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
     if(!self->dpi.x)
       break;
     return (size_t)&self->dpi;
+  case FG_SETTEXT:
+    SetWindowTextA(self->handle, (const char*)msg->p);
+    break;
+  case FG_GOTFOCUS:
+    SetActiveWindow(self->handle);
+    break;
   case FG_ACTION:
     switch(msg->i)
     {

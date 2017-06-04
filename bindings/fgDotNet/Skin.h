@@ -64,7 +64,6 @@ namespace fgDotNet {
     //Skin^ LoadUBJSON(cli::array<System::Byte>^ data);
     Skin^ LoadFileXML(System::String^ file);
     Skin^ LoadXML(cli::array<System::Byte>^ data);
-    Skin^ LoadXML(cli::array<System::Byte>^ data, System::String^ path);
 
   protected:
     SkinBase(fgSkinBase* p, bool owner);
@@ -77,9 +76,9 @@ namespace fgDotNet {
   public:
     explicit Skin(fgSkin* p);
     explicit Skin(System::String^ name);
+    explicit Skin(System::String^ name, System::String^ path);
     ~Skin();
     !Skin();
-    Skin^ GetSkin(System::String^ name);
     property SkinTree^ Tree { SkinTree^ get() { return gcnew SkinTree(&reinterpret_cast<fgSkinLayout*>(_p)->tree); } }
 
     static operator fgSkin*(Skin^ e);

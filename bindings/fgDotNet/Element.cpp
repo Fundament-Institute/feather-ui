@@ -37,6 +37,7 @@ Element^ Element::AddItemText(String^ item) { pin_ptr<const wchar_t> p = &item->
 Element^ Element::AddItemElement(Element^ item) { return GenNewManagedPtr<Element, fgElement>(_p->AddItemElement(item == nullptr ? 0 : item->_p)); }
 size_t Element::RemoveChild(Element^ child) { return _p->RemoveChild(child); }
 size_t Element::RemoveItem(size_t item) { return _p->RemoveItem(item); }
+void Element::Clear() { _p->Clear(); }
 void Element::LayoutChange(unsigned short subtype, Element^ target, Element^ old) { _p->LayoutChange(subtype, target, old); }
 size_t Element::LayoutFunction(const FG_Msg& msg, UnifiedRect^ area, bool scrollbar) { return _p->LayoutFunction(msg, (CRect&)area, scrollbar); }
 Element^ Element::LayoutLoad(Layout^ layout) { return GenNewManagedPtr<Element, fgElement>(_p->LayoutLoad(layout)); }
@@ -78,6 +79,8 @@ String^ Element::GetName() { return gcnew String(_p->GetName()); }
 
 void Element::SetContextMenu(Element^ menu) { _p->SetContextMenu(menu == nullptr ? 0 : menu->_p); }
 Element^ Element::GetContextMenu() { return GenNewManagedPtr<Element, fgElement>(_p->GetContextMenu()); }
+System::String^ Element::GetTooltip() { return gcnew String(_p->GetTooltip()); }
+size_t Element::SetTooltip(System::String^ tooltip) { TOCHAR(tooltip); return _p->SetName((const char*)pstr); }
 void Element::Neutral() { _p->Neutral(); }
 void Element::Hover() { _p->Hover(); }
 void Element::Active() { _p->Active(); }
