@@ -155,7 +155,7 @@ void fgBoxRenderDividers(fgElement* self, fgColor color, const fgSkin* skin, con
       }
       else
       {
-        float avg = fgSnapAll<floor>((rnext.left + rbegin.right) * 0.5f, aux->dpi.x);
+        float avg = fgSnapAll<floorf>((rnext.left + rbegin.right) * 0.5f, aux->dpi.x);
         AbsVec v[2] = { { avg,floor(drawarea->top + self->padding.top)}, { avg,floor(drawarea->bottom - self->padding.bottom)} };
         fgroot_instance->backend.fgDrawLines(v, 2, color.color, &offset, &scale, self->transform.rotation, &center, aux);
       }
@@ -169,7 +169,7 @@ void fgBoxRenderDividers(fgElement* self, fgColor color, const fgSkin* skin, con
       }
       else
       {
-        float avg = fgSnapAll<floor>((rnext.top + rbegin.bottom) * 0.5f, aux->dpi.y);
+        float avg = fgSnapAll<floorf>((rnext.top + rbegin.bottom) * 0.5f, aux->dpi.y);
         AbsVec v[2] = { { floor(drawarea->left + self->padding.left),avg },{ floor(drawarea->right - self->padding.right),avg } };
         fgroot_instance->backend.fgDrawLines(v, 2, color.color, &offset, &scale, self->transform.rotation, &center, aux);
       }

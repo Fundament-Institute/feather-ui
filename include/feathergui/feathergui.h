@@ -729,7 +729,7 @@ FG_EXTERN size_t fgUTF16toUTF32(const wchar_t*BSS_RESTRICT input, ptrdiff_t srcl
 }
 
 template<int I, typename T>
-void BSS_FORCEINLINE fgSendMsgArg(FG_Msg&, T) { static_assert(false, "invalid template argument passed to fgSendMsgArg"); }
+void BSS_FORCEINLINE fgSendMsgArg(FG_Msg&, T); // { static_assert(false, "invalid template argument passed to fgSendMsgArg"); }
 
 template<> void BSS_FORCEINLINE fgSendMsgArg<1, const void*>(FG_Msg& msg, const void* p) { msg.p = const_cast<void*>(p); }
 template<> void BSS_FORCEINLINE fgSendMsgArg<1, void*>(FG_Msg& msg, void* p) { msg.p = p; }

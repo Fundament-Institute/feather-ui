@@ -534,22 +534,22 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       if(begin.y == end.y)
       {
         AbsRect srect = { area.left + begin.x, area.top + begin.y, area.left + end.x, area.top + begin.y + self->curlineheight };
-        fgSnapAllRect<floor>(srect, data->dpi);
+        fgSnapAllRect<floorf>(srect, data->dpi);
         fgroot_instance->backend.fgDrawAsset(0, &uv, self->selector.color, 0, 0, &srect, 0, &center, FGRESOURCE_RECT, data);
       }
       else
       {
         AbsRect srect = AbsRect{ area.left + begin.x, area.top + begin.y, area.right, area.top + begin.y + self->curlineheight };
-        fgSnapAllRect<floor>(srect, data->dpi);
+        fgSnapAllRect<floorf>(srect, data->dpi);
         fgroot_instance->backend.fgDrawAsset(0, &uv, self->selector.color, 0, 0, &srect, 0, &center, FGRESOURCE_RECT, data);
         if(begin.y + self->curlineheight + 0.5 < end.y)
         {
           srect = AbsRect{ area.left, area.top + begin.y + self->curlineheight, area.right, area.top + end.y };
-          fgSnapAllRect<floor>(srect, data->dpi);
+          fgSnapAllRect<floorf>(srect, data->dpi);
           fgroot_instance->backend.fgDrawAsset(0, &uv, self->selector.color, 0, 0, &srect, 0, &center, FGRESOURCE_RECT, data);
         }
         srect = AbsRect{ area.left, area.top + end.y, area.left + end.x, area.top + end.y + self->curlineheight };
-        fgSnapAllRect<floor>(srect, data->dpi);
+        fgSnapAllRect<floorf>(srect, data->dpi);
         fgroot_instance->backend.fgDrawAsset(0, &uv, self->selector.color, 0, 0, &srect, 0, &center, FGRESOURCE_RECT, data);
       }
 

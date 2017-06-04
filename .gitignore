@@ -40,6 +40,7 @@
 /examples/cs/obj/
 /lib/
 /.vs/
+/include/bss-util/
 
 # Rust
 bindings/fgRust/feathergui-sys/target/

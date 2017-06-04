@@ -8,7 +8,6 @@
 void fgMonitor_Init(fgMonitor* BSS_RESTRICT self, fgFlag flags, fgRoot* BSS_RESTRICT parent, fgMonitor* BSS_RESTRICT prev, const AbsRect* coverage, const AbsVec* dpi)
 {
   AbsVec scale = { (!dpi || !dpi->x || !parent->dpi.x) ? (FABS)1.0 : (parent->dpi.x / (FABS)dpi->x), (!dpi || !dpi->y || !parent->dpi.y) ? (FABS)1.0 : (parent->dpi.y / (FABS)dpi->y) };
-  CRect& rootarea = parent->gui.element.transform.area;
   fgTransform transform = { {coverage->left*scale.x, 0, coverage->top*scale.y, 0, coverage->right*scale.x, 0, coverage->bottom*scale.y, 0,}, 0, {0, 0, 0, 0} };
   self->coverage = *coverage;
   self->dpi = !dpi ? AbsVec_EMPTY : *dpi;
