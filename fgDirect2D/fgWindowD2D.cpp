@@ -65,7 +65,7 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
     {
       AbsRect out;
       ResolveOuterRect(self->window, &out);
-      fgModulationRectDPI(&out, 96, 96);
+      fgScaleRectDPI(&out, 96, 96);
       unsigned long style = 0;
       if(self->window->flags&FGWINDOW_RESIZABLE)
         style |= WS_THICKFRAME;
@@ -104,7 +104,7 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
     {
       AbsRect out;
       ResolveOuterRect(self->window, &out);
-      fgModulationRectDPI(&out, self->dpi.x, self->dpi.y);
+      fgScaleRectDPI(&out, self->dpi.x, self->dpi.y);
       RECT r = { out.left, out.top, out.right, out.bottom };
       //AdjustWindowRectEx(&r, GetWindowLong(self->handle, GWL_STYLE), FALSE, GetWindowLong(self->handle, GWL_EXSTYLE));
       SetWindowPos(self->handle, HWND_TOP, r.left, r.top, r.right - r.left, r.bottom - r.top, SWP_NOSENDCHANGING);

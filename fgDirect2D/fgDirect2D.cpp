@@ -293,7 +293,7 @@ void* fgFontLayoutD2D(fgFont font, const void* text, size_t len, float lineheigh
     layout->Release();
   if(!area)
     return 0;
-  fgModulationRectDPI(area, dpi->x, dpi->y);
+  fgScaleRectDPI(area, dpi->x, dpi->y);
   layout = CreateD2DLayout(f->format, (const wchar_t*)text, len, area);
   if(!layout) {
     area->right = area->left;
@@ -352,7 +352,7 @@ size_t fgFontIndexD2D(fgFont font, const void* text, size_t len, float lineheigh
   fgFontD2D* f = (fgFontD2D*)font;
   IDWriteTextLayout* layout = (IDWriteTextLayout*)cache;
   AbsRect area = *dpiarea;
-  fgModulationRectDPI(&area, dpi->x, dpi->y);
+  fgScaleRectDPI(&area, dpi->x, dpi->y);
   if(!layout)
     layout = CreateD2DLayout(f->format, (const wchar_t*)text, len, &area);
   if(!layout)
@@ -361,7 +361,7 @@ size_t fgFontIndexD2D(fgFont font, const void* text, size_t len, float lineheigh
   BOOL trailing;
   BOOL inside;
   DWRITE_HIT_TEST_METRICS hit;
-  fgModulationVecDPI(&pos, dpi->x, dpi->y);
+  fgScaleVecDPI(&pos, dpi->x, dpi->y);
   layout->HitTestPoint(pos.x, pos.y, &trailing, &inside, &hit);
 
   cursor->x = hit.left;
@@ -375,7 +375,7 @@ AbsVec fgFontPosD2D(fgFont font, const void* text, size_t len, float lineheight,
   fgFontD2D* f = (fgFontD2D*)font;
   IDWriteTextLayout* layout = (IDWriteTextLayout*)cache;
   AbsRect area = *dpiarea;
-  fgModulationRectDPI(&area, dpi->x, dpi->y);
+  fgScaleRectDPI(&area, dpi->x, dpi->y);
   if(!layout)
     layout = CreateD2DLayout(f->format, (const wchar_t*)text, len, &area);
   if(!layout)
@@ -613,7 +613,7 @@ void fgAssetSizeD2D(fgAsset asset, const CRect* uv, AbsVec* dim, fgFlag flags, c
 void fgDrawLinesD2D(const AbsVec* p, size_t n, unsigned int color, const AbsVec* translate, const AbsVec* scale, FABS rotation, const AbsVec* center, const fgDrawAuxData* data)
 {
   AbsVec t = *translate;
-  fgModulationVecDPI(&t, data->dpi.x, data->dpi.y);
+  fgScaleVecDPI(&t, data->dpi.x, data->dpi.y);
   GETEXDATA(data);
   D2D1_MATRIX_3X2_F world;
   exdata->context->target->GetTransform(&world);
@@ -637,7 +637,7 @@ void fgPushClipRectD2D(const AbsRect* clip, const fgDrawAuxData* data)
   AbsRect cliprect = exdata->context->cliprect.top();
   cliprect = { bssmax(floor(clip->left), cliprect.left), bssmax(floor(clip->top), cliprect.top), bssmin(ceil(clip->right), cliprect.right), bssmin(ceil(clip->bottom), cliprect.bottom) };
   exdata->context->cliprect.push(cliprect);
-  fgModulationRectDPI(&cliprect, data->dpi.x, data->dpi.y);
+  fgScaleRectDPI(&cliprect, data->dpi.x, data->dpi.y);
   exdata->context->target->PushAxisAlignedClip(D2D1::RectF(cliprect.left, cliprect.top, cliprect.right, cliprect.bottom), D2D1_ANTIALIAS_MODE_ALIASED);
 }
 
@@ -676,7 +676,7 @@ void fgDirtyElementD2D(fgElement* e)
     AbsRect& toprect = fgDirect2D::instance->toprect;
     ResolveNoClipRect(fgDirect2D::instance->root.topmost, &toprect, 0, 0);
     const AbsVec& dpi = fgDirect2D::instance->root.topmost->GetDPI();
-    fgModulationRectDPI(&toprect, dpi.x, dpi.y); // SetWindowPos will resize the direct2D background via the WndProc callback
+    fgScaleRectDPI(&toprect, dpi.x, dpi.y); // SetWindowPos will resize the direct2D background via the WndProc callback
     bool ignore = (fgDirect2D::instance->root.topmost->flags&FGELEMENT_IGNORE) != 0;
     SetWindowLong(fgDirect2D::instance->tophwnd, GWL_EXSTYLE, WS_EX_COMPOSITED | WS_EX_TOOLWINDOW | (ignore ? (WS_EX_LAYERED | WS_EX_TRANSPARENT) : 0));
     SetWindowPos(fgDirect2D::instance->tophwnd, HWND_TOP, toprect.left, toprect.top, toprect.right - toprect.left, toprect.bottom - toprect.top, SWP_NOSENDCHANGING | SWP_NOACTIVATE | (ignore ? SWP_NOACTIVATE : 0));

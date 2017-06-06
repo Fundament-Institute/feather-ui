@@ -228,7 +228,7 @@ void fgContext::BeginDraw(HWND handle, fgElement* element, const AbsRect* area, 
     (sseVecT<FABS>(BSS_UNALIGNED<const float>(&area->left)) + (sseVecT<FABS>(BSS_UNALIGNED<const float>(&margin->left))*m)) >> BSS_UNALIGNED<float>(&truearea.left);
   }
   const AbsVec& dpi = element->GetDPI();
-  fgModulationRectDPI(&truearea, dpi.x, dpi.y);
+  fgScaleRectDPI(&truearea, dpi.x, dpi.y);
   target->SetTransform(D2D1::Matrix3x2F::Translation(-truearea.left, -truearea.top));
   cliprect.push(*area); // Dont' use the DPI scale here because the cliprect is scaled later in the pipeline.
 

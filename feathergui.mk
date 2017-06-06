@@ -8,7 +8,7 @@ INCLUDE_DIRS := include feathergui include/feathergui
 LIBRARY_DIRS := 
 LIBRARIES := rt
 
-CPPFLAGS += -fPIC -D BSS_UTIL_EXPORTS -std=gnu++11 -Wall -Wno-attributes -Wno-unknown-pragmas -Wno-reorder -Wno-missing-braces -Wno-unused-function -Wno-comment -Wno-char-subscripts
+CPPFLAGS += -fPIC -D BSS_UTIL_EXPORTS -std=c++11 -Wall -Wno-attributes -Wno-unknown-pragmas -Wno-reorder -Wno-missing-braces -Wno-unused-function -Wno-comment -Wno-char-subscripts -Wno-switch -Wparentheses
 LDFLAGS += -shared
 
 include base.mk
@@ -16,3 +16,19 @@ include base.mk
 distclean:
 	@- $(RM) $(OBJS)
 	@- $(RM) -r $(OBJDIR)
+
+PREFIX = /usr
+
+.PHONY: install
+install:
+	test -d $(PREFIX) || mkdir $(PREFIX)
+	test -d $(PREFIX)/lib || mkdir $(PREFIX)/lib
+	test -d $(PREFIX)/include || mkdir $(PREFIX)/include
+	test -d $(PREFIX)/include/$(SRCDIR) || mkdir $(PREFIX)/include/$(SRCDIR)
+	cp $(BUILDDIR)/$(TARGET) $(PREFIX)/lib/$(TARGET)
+	cp include/$(SRCDIR)/*.h $(PREFIX)/include/$(SRCDIR)/
+
+.PHONY: uninstall
+uninstall:
+	rm -f $(PREFIX)/lib/$(TARGET)
+	rm -f -r $(PREFIX)/include/$(SRCDIR)

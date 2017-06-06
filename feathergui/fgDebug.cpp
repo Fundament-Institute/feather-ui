@@ -437,7 +437,6 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
     column0->SetArea(column0->transform.area);
     column1->SetArea(column1->transform.area);
     self->properties.header->SetValueF(2.0f);
-    const fgTransform tf_prop = { { 0,0,0,0,0,1,0,0 }, 0,{ 0,0,0,0 } };
     for(size_t i = 0; i < sizeof(PROPERTY_LIST) / sizeof(const char*); ++i)
     {
       fgGridRow* r = self->properties.InsertRow();

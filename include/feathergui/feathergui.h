@@ -709,10 +709,10 @@ FG_EXTERN void fgFreeText(const char* text, const char* file, size_t line);
 FG_EXTERN void fgUpdateMouseState(fgMouseState* state, const FG_Msg* msg);
 FG_EXTERN char fgRectIntersect(const AbsRect* l, const AbsRect* r); // Returns 1 if the rectangles intersect, or 0 otherwise
 FG_EXTERN void fgRectIntersection(const AbsRect* BSS_RESTRICT l, const AbsRect* BSS_RESTRICT r, AbsRect* out);
-FG_EXTERN void fgModulationRectDPI(AbsRect* rect, FABS dpix, FABS dpiy);
+FG_EXTERN void fgScaleRectDPI(AbsRect* rect, FABS dpix, FABS dpiy);
 FG_EXTERN void fgInvScaleRectDPI(AbsRect* rect, FABS dpix, FABS dpiy);
 FG_EXTERN void fgResolveDrawRect(const AbsRect* area, AbsRect* outarea, const AbsVec* center, AbsVec* outcenter, fgFlag flags, const fgDrawAuxData* data);
-FG_EXTERN void fgModulationVecDPI(AbsVec* v, FABS dpix, FABS dpiy);
+FG_EXTERN void fgScaleVecDPI(AbsVec* v, FABS dpix, FABS dpiy);
 FG_EXTERN void fgInvScaleVecDPI(AbsVec* v, FABS dpix, FABS dpiy);
 FG_EXTERN void fgGenAbsRect(AbsRect* out, const AbsVec* p1, const AbsVec* p2);
 FG_EXTERN void fgTrimFileFromPath(char* path);

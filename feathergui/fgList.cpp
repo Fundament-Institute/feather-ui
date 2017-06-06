@@ -132,8 +132,6 @@ fgElement* fgList_GetSplit(fgList* self, const FG_Msg* msg)
 
 size_t fgList_Message(fgList* self, const FG_Msg* msg)
 {
-  fgFlag flags = self->box->flags;
-
   switch(msg->type)
   {
   case FG_CONSTRUCT:

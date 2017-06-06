@@ -89,7 +89,7 @@ size_t fgWindow_Message(fgWindow* self, const FG_Msg* msg)
       AbsRect out;
       ResolveRect(*self, &out);
       if(msg->y < out.top + self->control.element.padding.top)
-        _sendmsg<FG_ACTION, size_t>(*self, FGWINDOW_MAXIMIZE);
+        _sendmsg<FG_ACTION, size_t>(*self, self->maximized ? FGWINDOW_RESTORE : FGWINDOW_MAXIMIZE);
       return FG_ACCEPT;
     }
     break;

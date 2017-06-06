@@ -837,7 +837,6 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
     {
       FG_UINT mask = (FG_UINT)msg->u2;
       FG_UINT index = (FG_UINT)msg->u;
-      FG_UINT oldstyle = self->style;
 
       switch(msg->subtype)
       {
@@ -1031,7 +1030,6 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
 
     {
       int r = 0;
-      const char* name = (const char*)msg->p2;
       khiter_t iter = kh_get_fgUserdata(self->userhash, (char*)msg->p2);
       if(iter == kh_end(self->userhash) || !kh_exist(self->userhash, iter))
         iter = kh_put_fgUserdata(self->userhash, fgCopyText((const char*)msg->p2, __FILE__, __LINE__), &r);

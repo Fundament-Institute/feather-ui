@@ -363,7 +363,7 @@ void fgSkinBase_WriteStyleAttributesXML(XMLNode* node, fgStyle& s, fgSkinBase* r
     {
       if(!type)
         type = "Element";
-      bss:Str s;
+      Str s;
       fgStyle_WriteFlagsIterate(s, type, "|", cur->msg.u, !cur->msg.u2);
       if(s.length() > 0)
         node->AddAttribute("flags")->String = s.c_str() + 1; // strip initial '|'

@@ -802,7 +802,6 @@ void fgAddID(const char* id, fgElement* element)
 
   kh_val(fgroot_instance->idmap, i) = element;
   khiter_t j = kh_put_fgIDHash(fgroot_instance->idhash, element, &r);
-  const char* test = kh_key(fgroot_instance->idmap, i);
   kh_val(fgroot_instance->idhash, j) = kh_key(fgroot_instance->idmap, i);
 }
 char fgRemoveID(fgElement* element)

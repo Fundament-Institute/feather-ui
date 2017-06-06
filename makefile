@@ -18,3 +18,9 @@ distclean:
 debug:
 	make debug -f feathergui.mk
 	make debug -f fgExample-c.mk
+
+install: all
+	make install -f feathergui.mk
+  
+uninstall:
+	make uninstall -f feathergui.mk

@@ -43,8 +43,10 @@ template<> BSS_FORCEINLINE char fgBoxVecCompare<FGBOX_TILE>(const AbsVec& l, con
 template<> BSS_FORCEINLINE char fgBoxVecCompare<FGBOX_TILE | FGBOX_GROWY>(const AbsVec& l, const AbsVec& r) { char ret = SGNCOMPARE(l.x, r.x); return !ret ? SGNCOMPARE(l.y, r.y) : ret; }
 
 BSS_FORCEINLINE AbsVec fgOrderedBottomRight(const AbsRect& r) { return r.bottomright; }
-BSS_FORCEINLINE AbsVec fgOrderedBottomLeft(const AbsRect& r) { return AbsVec{ r.left, r.bottom }; }
-BSS_FORCEINLINE AbsVec fgOrderedTopRight(const AbsRect& r) { return AbsVec{ r.right, r.top }; }
+template<fgFlag FLAGS>
+BSS_FORCEINLINE AbsVec fgOrderedCorner(const AbsRect& r) { return AbsVec{ r.right, r.top }; } // TopRight
+template<>
+BSS_FORCEINLINE AbsVec fgOrderedCorner<FGBOX_GROWY>(const AbsRect& r) { return AbsVec{ r.left, r.bottom }; } // BottomLeft
 
 template<fgFlag FLAGS, AbsVec(*CORNER)(const AbsRect&)>
 char fgOrderedCompare(const AbsVec& l, const fgElement* const& e, const AbsRect* cache)
@@ -60,14 +62,15 @@ fgElement* fgOrderedGet(struct _FG_BOX_ORDERED_ELEMENTS_* self, const AbsRect* a
 {
   if(!self->ordered.l)
     return 0;
+
   size_t r = 0;
+
   if((FLAGS&FGBOX_TILE) != FGBOX_TILE) // Simple case is easy
-    r = bss::internal::binsearch_aux_t<const fgElement*, AbsVec, size_t, &bss::CompT_NEQ<char>, -1, const AbsRect*>::template BinarySearchNear<&fgOrderedCompare<FLAGS, fgOrderedBottomRight>>(self->ordered.p, area->topleft, 0, self->ordered.l, cache);
+    r = bss::internal::binsearch_aux_t<const fgElement*, AbsVec, size_t, &bss::CompT_NEQ<char>, (size_t)~0, const AbsRect*>::template BinarySearchNear<&fgOrderedCompare<FLAGS, &fgOrderedBottomRight>>(self->ordered.p, area->topleft, 0, self->ordered.l, cache);
   else
   {
     AbsVec query = (FLAGS&FGBOX_GROWY) ? AbsVec{ area->left, -INFINITY } : AbsVec{ -INFINITY, area->top }; // First we find the target column we want by querying (x,-infinity)
-    constexpr auto FN = (FLAGS&FGBOX_GROWY) ? fgOrderedBottomLeft : fgOrderedTopRight;
-    r = bss::internal::binsearch_aux_t<const fgElement*, AbsVec, size_t, &bss::CompT_NEQ<char>, -1, const AbsRect*>::template BinarySearchNear<&fgOrderedCompare<FLAGS, FN>>(self->ordered.p, query, 0, self->ordered.l, cache);
+    r = bss::internal::binsearch_aux_t<const fgElement*, AbsVec, size_t, &bss::CompT_NEQ<char>, (size_t)~0, const AbsRect*>::template BinarySearchNear<&fgOrderedCompare<FLAGS, fgOrderedCorner<FLAGS&FGBOX_GROWY>>>(self->ordered.p, query, 0, self->ordered.l, cache);
 
     if(r == self->ordered.l) // If this happens, we went past the END of the array
       r = self->ordered.l - 1;
@@ -84,7 +87,7 @@ fgElement* fgOrderedGet(struct _FG_BOX_ORDERED_ELEMENTS_* self, const AbsRect* a
     AbsRect abs;
     ResolveOuterRectCache(self->ordered.p[r], &abs, cache, &self->ordered.p[r]->parent->padding);
     query = (FLAGS&FGBOX_GROWY) ? AbsVec{ abs.left, area->top } : AbsVec{ area->left, abs.top }; // Now that we have the correct column, create a query on the y-axis using the left edge of the column.
-    r = bss::internal::binsearch_aux_t<const fgElement*, AbsVec, size_t, &bss::CompT_NEQ<char>, -1, const AbsRect*>::template BinarySearchNear<&fgOrderedCompare<FLAGS, FN>>(self->ordered.p, query, 0, self->ordered.l, cache);
+    r = bss::internal::binsearch_aux_t<const fgElement*, AbsVec, size_t, &bss::CompT_NEQ<char>, (size_t)~0, const AbsRect*>::template BinarySearchNear<&fgOrderedCompare<FLAGS, fgOrderedCorner<FLAGS&FGBOX_GROWY>>>(self->ordered.p, query, 0, self->ordered.l, cache);
   }
   return (r >= self->ordered.l) ? self->ordered.p[0] : self->ordered.p[r];
 }
@@ -204,7 +207,7 @@ void fgBox_SelectTarget(fgBox* self, fgElement* target)
 
 void fgBox_SetSpacing(fgElement* self, AbsVec& spacing, const FG_Msg* msg)
 {
-  uint16_t diff;
+  uint16_t diff = 0;
   if(spacing.x != msg->f) diff |= FGMOVE_RESIZEX;
   if(spacing.y != msg->f2) diff |= FGMOVE_RESIZEY;
   if(diff != 0)
@@ -218,8 +221,6 @@ void fgBox_SetSpacing(fgElement* self, AbsVec& spacing, const FG_Msg* msg)
 }
 size_t fgBox_Message(fgBox* self, const FG_Msg* msg)
 {
-  fgFlag flags = self->scroll.control.element.flags;
-
   switch(msg->type)
   {
   case FG_CONSTRUCT:
