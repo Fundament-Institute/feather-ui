@@ -105,7 +105,7 @@ namespace fgDotNet {
     size_t SetStyle(System::String^ name);
     size_t SetStyle(Style^ style);
     size_t SetStyle(FG_UINT index, FG_UINT mask);
-    Style^ GetStyle();
+    FG_UINT GetStyle();
     System::Drawing::PointF^ GetDPI();
     void SetDPI(FABS x, FABS y);
     System::String^ GetClassName();

@@ -89,7 +89,9 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
     }
     break;
   case FG_DRAW:
-    //if(self->context.invalid) // dirty rects need more testing before this is enabled
+  {
+    RECT region;
+    //if(GetUpdateRect(self->handle, &region, FALSE)) // dirty rects need more testing before this is enabled
     {
       fgDrawAuxDataEx exdata;
       self->context.BeginDraw(self->handle, self->window, (AbsRect*)msg->p, exdata, &self->window->margin);
@@ -97,7 +99,9 @@ size_t fgWindowD2D_Message(fgWindowD2D* self, const FG_Msg* msg)
       m.p2 = &exdata;
       fgWindow_Message(&self->window, &m);
       self->context.EndDraw();
+      ValidateRect(self->handle, NULL);
     }
+  }
     return FG_ACCEPT;
   case FG_MOVE:
     if(self->handle && msg->subtype != (uint16_t)~0)

@@ -901,7 +901,7 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
   }
   return FG_ACCEPT;
   case FG_GETSTYLE:
-    return (self->style == (FG_UINT)~0 && self->parent != 0) ? (*fgroot_instance->fgBehaviorHook)(self->parent, msg) : self->style;
+    return (self->style == (fgStyleIndex)~0 && self->parent != 0) ? (*fgroot_instance->fgBehaviorHook)(self->parent, msg) : self->style;
   case FG_GOTFOCUS:
     if(self->parent)
       return (*fgroot_instance->fgBehaviorHook)(self->parent, msg);
@@ -1522,7 +1522,7 @@ size_t fgElement::SetStyle(struct _FG_STYLE* style) { return _sendsubmsg<FG_SETS
 
 size_t fgElement::SetStyle(fgStyleIndex index, fgStyleIndex mask) { return _sendsubmsg<FG_SETSTYLE, size_t, size_t>(this, FGSETSTYLE_INDEX, index, mask); }
 
-struct _FG_STYLE* fgElement::GetStyle() { return reinterpret_cast<struct _FG_STYLE*>(_sendmsg<FG_GETSTYLE>(this)); }
+fgStyleIndex fgElement::GetStyle() { return _sendmsg<FG_GETSTYLE>(this); }
 
 const AbsVec& fgElement::GetDPI() const { return *reinterpret_cast<AbsVec*>(_sendmsg<FG_GETDPI>(const_cast<fgElement*>(this))); }
 

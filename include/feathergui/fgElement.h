@@ -121,7 +121,7 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT size_t SetStyle(const char* name);
   FG_DLLEXPORT size_t SetStyle(struct _FG_STYLE* style);
   FG_DLLEXPORT size_t SetStyle(fgStyleIndex index, fgStyleIndex mask);
-  FG_DLLEXPORT struct _FG_STYLE* GetStyle();
+  FG_DLLEXPORT fgStyleIndex GetStyle();
   FG_DLLEXPORT const AbsVec& GetDPI() const;
   FG_DLLEXPORT void SetDPI(FABS x, FABS y);
   FG_DLLEXPORT const char* GetClassName();

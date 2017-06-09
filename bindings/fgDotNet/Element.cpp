@@ -51,7 +51,7 @@ Skin^ Element::GetSkin(Element^ child) { return nullptr; }
 size_t Element::SetStyle(String^ name) { TOCHAR(name); return _p->SetStyle((const char*)pstr); }
 size_t Element::SetStyle(Style^ style) { fgStyle s = fgStyle{ style }; return _p->SetStyle(&s); }
 size_t Element::SetStyle(FG_UINT index, FG_UINT mask) { return _p->SetStyle(index, mask); }
-Style^ Element::GetStyle() { return GenNewManagedPtr<Style, fgStyle>(_p->GetStyle()); }
+FG_UINT Element::GetStyle() { return _p->GetStyle(); }
 PointF^ Element::GetDPI() { const AbsVec& p = _p->GetDPI(); return PointF(p.x, p.y); }
 void Element::SetDPI(FABS x, FABS y) { _p->SetDPI(x, y); }
 String^ Element::GetClassName() { return gcnew System::String(_p->GetClassName()); }
