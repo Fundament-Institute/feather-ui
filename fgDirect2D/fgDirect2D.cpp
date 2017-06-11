@@ -931,7 +931,9 @@ int64_t GetRegistryValueW(HKEY__* hKeyRoot, const wchar_t* szKey, const wchar_t*
   return (r == ERROR_MORE_DATA) ? sz : -1;
 }
 
+#ifndef FG_STATIC_LIB
 BSS_COMPILER_DLLEXPORT
+#endif
 struct _FG_ROOT* fgInitialize()
 {
   static fgBackend BACKEND = {

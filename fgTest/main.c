@@ -235,18 +235,6 @@ RETPAIR test_Menu()
   ENDTEST;
 }
 
-// Visual studio cannot debug a dynamically loaded DLL, so for debugging purposes we statically link to the backend we are testing
-#if defined(BSS_DEBUG) && defined(BSS_CPU_x86_64)
-#pragma comment(lib, "../bin/fgDirect2D_d.lib")
-#elif defined(BSS_CPU_x86_64)
-#pragma comment(lib, "../bin/fgDirect2D.lib")
-#elif defined(BSS_DEBUG)
-#pragma comment(lib, "../bin32/fgDirect2D32_d.lib")
-#else
-#pragma comment(lib, "../bin32/fgDirect2D32.lib")
-#endif
-
-
 size_t test_inject(fgRoot* self, const FG_Msg* msg)
 {
   if(msg->type == FG_KEYDOWN)
@@ -283,7 +271,7 @@ int main(int argc, char** argv)
 
   fgInitialize();
   fgSetInjectFunc(&test_inject);
-  /*
+  /* For debugging purposes, this DLL is statically linked. This also allows us to test the full static library without modifications.
 #if defined(BSS_DEBUG) && defined(BSS_CPU_x86_64)
   fgLoadBackend("fgDirect2D_d.dll");
 #elif defined(BSS_CPU_x86_64)
