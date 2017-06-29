@@ -36,15 +36,15 @@ typedef unsigned short fgMsgType;
 typedef void* fgAsset;
 typedef void* fgFont;
 
-#ifndef FG_STATIC_LIB
 #ifdef feathergui_EXPORTS 
 #pragma warning(disable:4251)
 #define FG_DLLEXPORT BSS_COMPILER_DLLEXPORT
 #else
+#ifndef FG_STATIC_LIB
 #define FG_DLLEXPORT BSS_COMPILER_DLLIMPORT
-#endif
 #else
 #define FG_DLLEXPORT
+#endif
 #endif
 
 #define FGUI_VERSION_MAJOR 0

@@ -18,7 +18,7 @@ const CRect CRect_EMPTY = { 0,0,0,0,0,0,0,0 };
 const AbsVec AbsVec_EMPTY = { 0,0 };
 const AbsVec AbsVec_UNIT = { 1,1 };
 const AbsVec AbsVec_DEFAULTDPI = { 96,96 };
-const bssVersionInfo fgVersion = { FGUI_VERSION_REVISION, FGUI_VERSION_MINOR, FGUI_VERSION_MAJOR };
+const bssVersionInfo fgVersion = { 0, FGUI_VERSION_REVISION, FGUI_VERSION_MINOR, FGUI_VERSION_MAJOR };
 
 using namespace bss;
 

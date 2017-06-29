@@ -113,10 +113,6 @@
 #define __has_builtin(x) 0
 #endif
 
-#ifdef BSS_64BIT
-#define BSS_HASINT128
-#endif
-
 #if __has_builtin(__builtin_unreachable) || __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 5)
 #define PORTABLE_UNREACHABLE() __builtin_unreachable()
 #define PORTABLE_ASSUME(x) do { if (!(x)) { __builtin_unreachable(); } } while (0)
@@ -242,23 +238,25 @@
 #undef BSS_SSE_ENABLED
 #endif
 
-#ifndef BSS_STATIC_LIB
 #ifdef BSS_UTIL_EXPORTS
 #define BSS_DLLEXPORT BSS_COMPILER_DLLEXPORT
 #else
+#ifndef BSS_STATIC_LIB
 #define BSS_DLLEXPORT BSS_COMPILER_DLLIMPORT
-#endif
 #else
 #define BSS_DLLEXPORT
+#endif
 #endif
 
 typedef union BSS_VERSION_INFO {
   struct {
+    unsigned short Build;
     unsigned short Revision;
-    unsigned char Minor;
-    unsigned char Major;
+    unsigned short Minor;
+    unsigned short Major;
   };
-  unsigned int version;
+  unsigned short v[4];
+  unsigned long long version;
 } bssVersionInfo;
 
 #endif
