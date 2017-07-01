@@ -160,14 +160,14 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
       switch(msg->subtype)
       {
       case FGTEXTFMT_UTF8:
-        ((bss::DynArray<char>*)&self->text8)->operator=(bss::ArraySlice<const char>((const char*)msg->p, !msg->u2 ? (strlen((const char*)msg->p) + 1) : msg->u2));
+        ((bss::DynArray<char>*)&self->text8)->operator=(bss::Slice<const char>((const char*)msg->p, !msg->u2 ? (strlen((const char*)msg->p) + 1) : msg->u2));
         break;
       case FGTEXTFMT_DYNAMIC_UTF8:
         self->text8.p = (char*)msg->p;
         self->text8.l = !msg->u2 ? (strlen((const char*)msg->p) + 1) : msg->u2;
         break;
       case FGTEXTFMT_UTF16:
-        ((bss::DynArray<wchar_t>*)&self->text16)->operator=(bss::ArraySlice<const wchar_t>((const wchar_t*)msg->p, !msg->u2 ? (wcslen((const wchar_t*)msg->p) + 1) : msg->u2));
+        ((bss::DynArray<wchar_t>*)&self->text16)->operator=(bss::Slice<const wchar_t>((const wchar_t*)msg->p, !msg->u2 ? (wcslen((const wchar_t*)msg->p) + 1) : msg->u2));
         break;
       case FGTEXTFMT_DYNAMIC_UTF16:
         self->text16.p = (wchar_t*)msg->p;
@@ -186,7 +186,7 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
           self->text32.l = len;
         }
         else
-          ((bss::DynArray<int>*)&self->text32)->operator=(bss::ArraySlice<const int>((const int*)msg->p, len));
+          ((bss::DynArray<int>*)&self->text32)->operator=(bss::Slice<const int>((const int*)msg->p, len));
       }
         break;
       }
