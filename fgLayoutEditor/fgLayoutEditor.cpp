@@ -633,12 +633,12 @@ void fgLayoutEditor::ShowDialog(const char* title, const char* text, std::functi
   // TODO: Fix this memory leak or just implement proper threading so callbacks aren't necessary
   auto ret = new std::function<void(struct _FG_ELEMENT*, const FG_Msg*)>([=](struct _FG_ELEMENT* e, const FG_Msg*) { fn(e->userid); if(e != window) VirtualFreeChild(window); overlay->SetFlag(FGELEMENT_HIDDEN, true); });
   auto ret2 = new std::function<void(struct _FG_ELEMENT*, const FG_Msg*)>([=](struct _FG_ELEMENT* e, const FG_Msg*) { window->GotFocus(); });
-  fgElement_AddDelegateListener(b1, FG_ACTION, ret, &Delegate<void, struct _FG_ELEMENT*, const FG_Msg*>::stublambda);
-  fgElement_AddDelegateListener(b2, FG_ACTION, ret, &Delegate<void, struct _FG_ELEMENT*, const FG_Msg*>::stublambda);
-  fgElement_AddDelegateListener(b3, FG_ACTION, ret, &Delegate<void, struct _FG_ELEMENT*, const FG_Msg*>::stublambda);
-  fgElement_AddDelegateListener(window, FG_DESTROY, ret, &Delegate<void, struct _FG_ELEMENT*, const FG_Msg*>::stublambda);
-  fgElement_AddDelegateListener(overlay, FG_MOUSEDOWN, ret2, &Delegate<void, struct _FG_ELEMENT*, const FG_Msg*>::stublambda);
-  fgElement_AddDelegateListener(overlay, FG_MOUSEUP, ret2, &Delegate<void, struct _FG_ELEMENT*, const FG_Msg*>::stublambda);
+  fgElement_AddLambdaListener(b1, FG_ACTION, *ret);
+  fgElement_AddLambdaListener(b2, FG_ACTION, *ret);
+  fgElement_AddLambdaListener(b3, FG_ACTION, *ret);
+  fgElement_AddLambdaListener(window, FG_DESTROY, *ret);
+  fgElement_AddLambdaListener(overlay, FG_MOUSEDOWN, *ret2);
+  fgElement_AddLambdaListener(overlay, FG_MOUSEUP, *ret2);
   if(button1)
     b1->SetText(button1);
   b1->SetFlag(FGELEMENT_HIDDEN, button1 == 0);

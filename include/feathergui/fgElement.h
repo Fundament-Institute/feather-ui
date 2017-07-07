@@ -10,6 +10,7 @@
 #include "bss-util/Delegate.h"
 
 typedef bss::Delegate<void, struct _FG_ELEMENT*, const FG_Msg*> fgDelegateListener;
+typedef std::function<void(struct _FG_ELEMENT*, const FG_Msg*)> fgLambdaListener;
 
 extern "C" {
 #endif
@@ -178,12 +179,12 @@ typedef struct _FG_ELEMENT {
   FG_DLLEXPORT size_t SetFont(void* font);
   FG_DLLEXPORT size_t SetLineHeight(float lineheight);
   FG_DLLEXPORT size_t SetLetterSpacing(float letterspacing);
-  FG_DLLEXPORT size_t SetText(const char* text, FGTEXTFMT fmt = FGTEXTFMT_UTF8);
-  FG_DLLEXPORT size_t SetTextW(const wchar_t* text);
-  FG_DLLEXPORT size_t SetTextU(const int* text);
-  FG_DLLEXPORT size_t SetPlaceholder(const char* text);
-  FG_DLLEXPORT size_t SetPlaceholderW(const wchar_t* text);
-  FG_DLLEXPORT size_t SetPlaceholderU(const int* text);
+  FG_DLLEXPORT size_t SetText(const char* text, size_t len = 0, FGTEXTFMT fmt = FGTEXTFMT_UTF8);
+  FG_DLLEXPORT size_t SetTextW(const wchar_t* text, size_t len = 0);
+  FG_DLLEXPORT size_t SetTextU(const int* text, size_t len = 0);
+  FG_DLLEXPORT size_t SetPlaceholder(const char* text, size_t len = 0);
+  FG_DLLEXPORT size_t SetPlaceholderW(const wchar_t* text, size_t len = 0);
+  FG_DLLEXPORT size_t SetPlaceholderU(const int* text, size_t len = 0);
   FG_DLLEXPORT size_t SetMask(int mask);
   FG_DLLEXPORT size_t SetScaling(float x, float y);
   FG_DLLEXPORT fgAsset GetAsset() const;
@@ -257,6 +258,7 @@ template<class T, void(T::*F)(struct _FG_ELEMENT*, const FG_Msg*)>
 inline void fgElement_AddDelegateListener(fgElement* self, fgMsgType type, T* src) { fgElement_AddDelegateListener(self, type, src, &fgDelegateListener::stub<T, F>); }
 template<class T, void(T::*F)(struct _FG_ELEMENT*, const FG_Msg*) const>
 inline void fgElement_AddDelegateListener(fgElement* self, fgMsgType type, const T* src) { fgElement_AddDelegateListener(self, type, const_cast<T*>(src), &fgDelegateListener::stubconst<T, F>); }
+inline void fgElement_AddLambdaListener(fgElement* self, fgMsgType type, const fgLambdaListener& f) { fgElement_AddDelegateListener(self, type, const_cast<fgLambdaListener*>(&f), &fgDelegateListener::stublambda); }
 #endif
 
 #endif

@@ -407,6 +407,16 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
       }
     }
     fgText_Conversion(FGTEXTFMT_UTF32, &self->text8, &self->text16, &self->text32); // the textbox requires a UTF32 format be available at all times
+    if(self->start >= self->text32.l)
+    {
+      self->start = self->text32.l - 1;
+      fgTextbox_fixpos(self, self->start, &self->startpos);
+    }
+    if(self->end >= self->text32.l)
+    {
+      self->end = self->text32.l - 1;
+      fgTextbox_fixpos(self, self->end, &self->endpos);
+    }
     if(!(self->scroll->flags&FGELEMENT_SILENT))
       fgSubMessage(*self, FG_LAYOUTCHANGE, FGELEMENT_LAYOUTMOVE, self, FGMOVE_PROPAGATE | FGMOVE_RESIZE);
     fgroot_instance->backend.fgDirtyElement(*self);

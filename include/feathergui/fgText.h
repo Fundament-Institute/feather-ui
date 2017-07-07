@@ -43,6 +43,7 @@ typedef struct _FG_TEXT {
   void* layout;
   fgColor color;
   float lineheight;
+  float fontlineheight;
   float letterspacing;
 #ifdef  __cplusplus
   inline operator fgElement*() { return &element; }

@@ -1743,12 +1743,12 @@ size_t fgElement::SetLineHeight(float lineheight) { return _sendmsg<FG_SETLINEHE
 
 size_t fgElement::SetLetterSpacing(float letterspacing) { return _sendmsg<FG_SETLETTERSPACING, float>(this, letterspacing); }
 
-size_t fgElement::SetText(const char* text, FGTEXTFMT mode) { return _sendsubmsg<FG_SETTEXT, const void*>(this, mode, text); }
-size_t fgElement::SetTextW(const wchar_t* text) { return _sendsubmsg<FG_SETTEXT, const void*>(this, FGTEXTFMT_UTF16, text); }
-size_t fgElement::SetTextU(const int* text) { return _sendsubmsg<FG_SETTEXT, const void*>(this, FGTEXTFMT_UTF32, text); }
-size_t fgElement::SetPlaceholder(const char* text) { return _sendsubmsg<FG_SETTEXT, const void*>(this, FGTEXTFMT_PLACEHOLDER_UTF8, text); }
-size_t fgElement::SetPlaceholderW(const wchar_t* text) { return _sendsubmsg<FG_SETTEXT, const void*>(this, FGTEXTFMT_PLACEHOLDER_UTF16, text); }
-size_t fgElement::SetPlaceholderU(const int* text) { return _sendsubmsg<FG_SETTEXT, const void*>(this, FGTEXTFMT_PLACEHOLDER_UTF32, text); }
+size_t fgElement::SetText(const char* text, size_t len, FGTEXTFMT mode) { return _sendsubmsg<FG_SETTEXT, const void*, size_t>(this, mode, text, len); }
+size_t fgElement::SetTextW(const wchar_t* text, size_t len) { return _sendsubmsg<FG_SETTEXT, const void*, size_t>(this, FGTEXTFMT_UTF16, text, len); }
+size_t fgElement::SetTextU(const int* text, size_t len) { return _sendsubmsg<FG_SETTEXT, const void*, size_t>(this, FGTEXTFMT_UTF32, text, len); }
+size_t fgElement::SetPlaceholder(const char* text, size_t len) { return _sendsubmsg<FG_SETTEXT, const void*, size_t>(this, FGTEXTFMT_PLACEHOLDER_UTF8, text, len); }
+size_t fgElement::SetPlaceholderW(const wchar_t* text, size_t len) { return _sendsubmsg<FG_SETTEXT, const void*, size_t>(this, FGTEXTFMT_PLACEHOLDER_UTF16, text, len); }
+size_t fgElement::SetPlaceholderU(const int* text, size_t len) { return _sendsubmsg<FG_SETTEXT, const void*, size_t>(this, FGTEXTFMT_PLACEHOLDER_UTF32, text, len); }
 size_t fgElement::SetMask(int mask) { return _sendsubmsg<FG_SETTEXT, ptrdiff_t>(this, FGTEXTFMT_MASK, mask); }
 size_t fgElement::SetScaling(float x, float y) { return _sendmsg<FG_SETSCALING, float, float>(this, x, y); }
 

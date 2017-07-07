@@ -161,6 +161,8 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
       {
       case FGTEXTFMT_UTF8:
         ((bss::DynArray<char>*)&self->text8)->operator=(bss::Slice<const char>((const char*)msg->p, !msg->u2 ? (strlen((const char*)msg->p) + 1) : msg->u2));
+        if(((bss::DynArray<char>*)&self->text8)->Back() != 0)
+          ((bss::DynArray<char>*)&self->text8)->Add(0);
         break;
       case FGTEXTFMT_DYNAMIC_UTF8:
         self->text8.p = (char*)msg->p;
@@ -168,6 +170,8 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
         break;
       case FGTEXTFMT_UTF16:
         ((bss::DynArray<wchar_t>*)&self->text16)->operator=(bss::Slice<const wchar_t>((const wchar_t*)msg->p, !msg->u2 ? (wcslen((const wchar_t*)msg->p) + 1) : msg->u2));
+        if(((bss::DynArray<wchar_t>*)&self->text16)->Back() != 0)
+          ((bss::DynArray<wchar_t>*)&self->text16)->Add(0);
         break;
       case FGTEXTFMT_DYNAMIC_UTF16:
         self->text16.p = (wchar_t*)msg->p;
@@ -186,7 +190,11 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
           self->text32.l = len;
         }
         else
+        {
           ((bss::DynArray<int>*)&self->text32)->operator=(bss::Slice<const int>((const int*)msg->p, len));
+          if(((bss::DynArray<int>*)&self->text32)->Back() != 0)
+            ((bss::DynArray<int>*)&self->text32)->Add(0);
+        }
       }
         break;
       }
@@ -205,6 +213,7 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
       assert(msg->p != (void*)0xcdcdcdcdcdcdcdcd);
       fgFontDesc desc;
       fgroot_instance->backend.fgFontGet(msg->p, &desc);
+      self->fontlineheight = desc.lineheight;
       AbsVec dpi = self->element.GetDPI();
       bool identical = (dpi.x == desc.dpi.x && dpi.y == desc.dpi.y);
       desc.dpi = dpi;
@@ -238,7 +247,7 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
   case FG_GETFONT:
     return reinterpret_cast<size_t>((void*)self->font);
   case FG_GETLINEHEIGHT:
-    return *reinterpret_cast<size_t*>(&self->lineheight);
+    return self->lineheight == 0.0f ? *reinterpret_cast<size_t*>(&self->fontlineheight) : *reinterpret_cast<size_t*>(&self->lineheight);
   case FG_GETLETTERSPACING:
     return *reinterpret_cast<size_t*>(&self->letterspacing);
   case FG_GETCOLOR:
