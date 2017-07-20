@@ -425,13 +425,6 @@ template<fgFlag FLAGS>
 fgElement* fgOrderedGet(struct _FG_BOX_ORDERED_ELEMENTS_* self, const AbsRect* area, const AbsRect* cache);
 
 // Set a bunch of memory to zero after a given subclass
-template<class T, class SUBCLASS>
-void memsubset(T* p, int v) { memset(reinterpret_cast<char*>(p) + sizeof(SUBCLASS), v, sizeof(T) - sizeof(SUBCLASS)); }
-template<class T, class SUBCLASS>
-void memsubcpy(T* dest, const T* src)
-{
-  MEMCPY(((char*)dest) + sizeof(SUBCLASS), sizeof(T) - sizeof(SUBCLASS), ((char*)src) + sizeof(SUBCLASS), sizeof(T) - sizeof(SUBCLASS));
-}
 template<class T>
 T* memcpyalloc(const T* src, size_t len)
 {

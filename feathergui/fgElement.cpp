@@ -569,7 +569,11 @@ size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
       _sendsubmsg<FG_LAYOUTCHANGE, void*, size_t>(self, FGELEMENT_LAYOUTRESET, 0, 0);
     }
     if(change&FGELEMENT_HIDDEN || change&FGELEMENT_NOCLIP)
+    {
       fgroot_instance->backend.fgDirtyElement(self);
+      if(self->flags&FGELEMENT_HIDDEN && fgroot_instance->fgFocusedWindow == self)
+        _sendmsg<FG_LOSTFOCUS>(self);
+    }
   }
   return FG_ACCEPT;
   case FG_SETMARGIN:

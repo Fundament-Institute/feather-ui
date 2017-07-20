@@ -164,9 +164,11 @@ longptr_t __stdcall fgContext::WndProc(HWND__* hWnd, unsigned int message, size_
     break;
   case WM_SYSKEYUP:
   case WM_SYSKEYDOWN:
+    SetKey((uint8_t)wParam, message == WM_SYSKEYDOWN, (lParam & 0x40000000) != 0, GetMessageTime());
+    break;
   case WM_KEYUP:
   case WM_KEYDOWN: // Windows return codes are the opposite of feathergui's - returning 0 means we accept, anything else rejects, so we invert the return code here.
-    return !SetKey((uint8_t)wParam, message == WM_KEYDOWN || message == WM_SYSKEYDOWN, (lParam & 0x40000000) != 0, GetMessageTime());
+    return !SetKey((uint8_t)wParam, message == WM_KEYDOWN, (lParam & 0x40000000) != 0, GetMessageTime());
   case WM_UNICHAR:
     if(wParam == UNICODE_NOCHAR) return TRUE;
   case WM_CHAR:

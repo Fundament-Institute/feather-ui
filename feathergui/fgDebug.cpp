@@ -412,7 +412,7 @@ size_t fgDebug_Message(fgDebug* self, const FG_Msg* msg)
       VirtualFreeChild(*fgdebug_instance);
 
     fgdebug_instance = self;
-    memsubset<fgDebug, fgElement>(self, 0); // lineheight must be zero'd before a potential transform unit resolution.
+    bss::memsubset<fgDebug, fgElement>(self, 0); // lineheight must be zero'd before a potential transform unit resolution.
     fgTabcontrol_Message(&self->tabs, msg);
     self->tablayout = self->tabs->AddItemText("Layout");
     self->tabmessages = self->tabs->AddItemText("Messages");

@@ -127,7 +127,7 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_CONSTRUCT:
-    memsubset<fgText, fgElement>(self, 0); // lineheight must be zero'd before a potential transform unit resolution.
+    bss::memsubset<fgText, fgElement>(self, 0); // lineheight must be zero'd before a potential transform unit resolution.
     fgElement_Message(&self->element, msg);
     return FG_ACCEPT;
   case FG_CLONE:
@@ -135,7 +135,7 @@ size_t fgText_Message(fgText* self, const FG_Msg* msg)
     {
       fgElement_Message(&self->element, msg);
       fgText* hold = reinterpret_cast<fgText*>(msg->e);
-      memsubset<fgText, fgElement>(hold, 0);
+      bss::memsubset<fgText, fgElement>(hold, 0);
       fgText_WipeDynText(self);
       reinterpret_cast<bss::DynArray<int>&>(hold->text32) = reinterpret_cast<bss::DynArray<int>&>(self->text32);
       reinterpret_cast<bss::DynArray<wchar_t>&>(hold->text16) = reinterpret_cast<bss::DynArray<wchar_t>&>(self->text16);

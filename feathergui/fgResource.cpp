@@ -68,7 +68,7 @@ size_t fgResource_Message(fgResource* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgElement_Message(&self->element, msg);
-    memsubset<fgResource, fgElement>(self, 0);
+    bss::memsubset<fgResource, fgElement>(self, 0);
     self->color.color = 0xFFFFFFFF;
     self->uv.right.rel = 1.0f;
     self->uv.bottom.rel = 1.0f;
@@ -77,7 +77,7 @@ size_t fgResource_Message(fgResource* self, const FG_Msg* msg)
     if(msg->e)
     {
       fgResource* hold = reinterpret_cast<fgResource*>(msg->e);
-      memsubcpy<fgResource, fgElement>(hold, self);
+      bss::memsubcpy<fgResource, fgElement>(hold, self);
       fgElement_Message(&self->element, msg);
       if(self->asset) 
         hold->asset = fgroot_instance->backend.fgCloneAsset(self->asset, &hold->element);

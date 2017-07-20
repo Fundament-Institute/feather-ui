@@ -136,14 +136,14 @@ size_t fgList_Message(fgList* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgBox_Message(&self->box, msg);
-    memsubset<fgList, fgBox>(self, 0);
+    bss::memsubset<fgList, fgBox>(self, 0);
     self->box.fndraw = &fgList_Draw;
     return FG_ACCEPT;
   case FG_CLONE:
     if(msg->e)
     {
       fgList* hold = reinterpret_cast<fgList*>(msg->e);
-      memsubcpy<fgList, fgBox>(hold, self); // We do this first because we have to ensure our messages can process ADDCHILD correctly.
+      bss::memsubcpy<fgList, fgBox>(hold, self); // We do this first because we have to ensure our messages can process ADDCHILD correctly.
       memset(&hold->mouse, 0, sizeof(fgMouseState));
       hold->split = 0;
       fgBox_Message(&self->box, msg);

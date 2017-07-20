@@ -33,7 +33,7 @@ size_t fgWorkspace_Message(fgWorkspace* self, const FG_Msg* msg)
   switch(msg->type)
   {
     case FG_CONSTRUCT:
-      memsubset<fgWorkspace, fgScrollbar>(self, 0);
+      bss::memsubset<fgWorkspace, fgScrollbar>(self, 0);
       fgScrollbar_Message(&self->scroll, msg);
       fgElement_Init(&self->rulers[0], *self, 0, "Workspace$LeftRuler", FGELEMENT_BACKGROUND | FGWORKSPACE_RULERX | FGFLAGS_INTERNAL, 0, 0);
       fgElement_Init(&self->rulers[1], *self, 0, "Workspace$TopRuler", FGELEMENT_BACKGROUND | FGWORKSPACE_RULERY | FGFLAGS_INTERNAL, 0, 0);
@@ -46,7 +46,7 @@ size_t fgWorkspace_Message(fgWorkspace* self, const FG_Msg* msg)
       if(msg->e)
       {
         fgWorkspace* hold = reinterpret_cast<fgWorkspace*>(msg->e);
-        memsubcpy<fgWorkspace, fgScrollbar>(hold, self);
+        bss::memsubcpy<fgWorkspace, fgScrollbar>(hold, self);
         self->rulers[0].Clone(&hold->rulers[0]);
         self->rulers[1].Clone(&hold->rulers[1]);
         self->cursors[0].Clone(&hold->cursors[0]);
