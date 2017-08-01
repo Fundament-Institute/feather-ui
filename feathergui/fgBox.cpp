@@ -236,7 +236,7 @@ size_t fgBox_Message(fgBox* self, const FG_Msg* msg)
     if(msg->e)
     {
       fgBox* hold = reinterpret_cast<fgBox*>(msg->e);
-      memsubcpy<fgBox, fgScrollbar>(hold, self); // We do this first because we have to ensure our messages can process ADDCHILD correctly.
+      bss::memsubcpy<fgBox, fgScrollbar>(hold, self); // We do this first because we have to ensure our messages can process ADDCHILD correctly.
       bss::bssFill(hold->order.ordered);
       bss::bssFill(hold->selected);
       fgScrollbar_Message(&self->scroll, msg);

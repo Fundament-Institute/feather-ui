@@ -39,7 +39,7 @@ size_t fgMonitor_Message(fgMonitor* self, const FG_Msg* msg)
     if(msg->e)
     {
       fgMonitor* hold = reinterpret_cast<fgMonitor*>(msg->e);
-      memsubcpy<fgMonitor, fgElement>(hold, self);
+      bss::memsubcpy<fgMonitor, fgElement>(hold, self);
       hold->mnext = 0;
       hold->mprev = 0;
       fgElement_Message(&self->element, msg);

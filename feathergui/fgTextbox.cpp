@@ -4,6 +4,7 @@
 #include "fgTextbox.h"
 #include "feathercpp.h"
 #include "fgCurve.h"
+#include "bss-util/bss_util.h"
 
 void fgTextbox_Init(fgTextbox* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
@@ -163,7 +164,7 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
   switch(msg->type)
   {
   case FG_CONSTRUCT:
-    memsubset<fgTextbox, fgScrollbar>(self, 0);
+    bss::memsubset<fgTextbox, fgScrollbar>(self, 0);
     self->selector.color = ~0;
     self->placecolor.color = ~0;
     self->cursorcolor.color = 0xFF000000;
@@ -174,7 +175,7 @@ size_t fgTextbox_Message(fgTextbox* self, const FG_Msg* msg)
     if(msg->e)
     {
       fgTextbox* hold = reinterpret_cast<fgTextbox*>(msg->e);
-      memsubset<fgTextbox, fgScrollbar>(hold, 0);
+      bss::memsubset<fgTextbox, fgScrollbar>(hold, 0);
       reinterpret_cast<bss::DynArray<int>&>(hold->text32) = reinterpret_cast<bss::DynArray<int>&>(self->text32);
       reinterpret_cast<bss::DynArray<wchar_t>&>(hold->text16) = reinterpret_cast<bss::DynArray<wchar_t>&>(self->text16);
       reinterpret_cast<bss::DynArray<char>&>(hold->text8) = reinterpret_cast<bss::DynArray<char>&>(self->text8);

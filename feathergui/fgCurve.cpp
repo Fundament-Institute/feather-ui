@@ -73,14 +73,14 @@ size_t fgCurve_Message(fgCurve* self, const FG_Msg* msg)
   {
   case FG_CONSTRUCT:
     fgElement_Message(&self->element, msg);
-    memsubset<fgCurve, fgElement>(self, 0);
+    bss::memsubset<fgCurve, fgElement>(self, 0);
     self->factor = 0.1f;
     return FG_ACCEPT;
   case FG_CLONE:
     if(msg->e)
     {
       fgCurve* hold = reinterpret_cast<fgCurve*>(msg->e);
-      memsubset<fgCurve, fgElement>(hold, 0);
+      bss::memsubset<fgCurve, fgElement>(hold, 0);
       hold->color = self->color;
       hold->factor = self->factor;
       reinterpret_cast<DynArray<AbsVec>&>(hold->points) = reinterpret_cast<DynArray<AbsVec>&>(self->points);
