@@ -424,7 +424,6 @@ struct _FG_BOX_ORDERED_ELEMENTS_;
 template<fgFlag FLAGS>
 fgElement* fgOrderedGet(struct _FG_BOX_ORDERED_ELEMENTS_* self, const AbsRect* area, const AbsRect* cache);
 
-// Set a bunch of memory to zero after a given subclass
 template<class T>
 T* memcpyalloc(const T* src, size_t len)
 {

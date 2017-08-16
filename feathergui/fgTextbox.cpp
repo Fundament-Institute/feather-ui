@@ -4,6 +4,7 @@
 #include "fgTextbox.h"
 #include "feathercpp.h"
 #include "fgCurve.h"
+#include "bss-util/bss_util.h"
 
 void fgTextbox_Init(fgTextbox* self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {
