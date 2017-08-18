@@ -524,6 +524,12 @@ xcopy "$(TargetDir)$(TargetName).dll" "$(VcpkgRoot)bin" /c /y /q /i
 xcopy "$(TargetDir)$(TargetName).pdb" "$(VcpkgRoot)bin" /c /y /q /i
 xcopy "..\include\feathergui\*.h" "$(VcpkgRoot)include\feathergui" /c /y /q /i /s</Command>
     </PostBuildEvent>
+    <ClCompile>
+      <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdcpplatest</LanguageStandard>
+    </ClCompile>
+    <ClCompile>
+      <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdcpplatest</LanguageStandard>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(VcpkgEnabled)'=='Release-Static|true'">
     <PostBuildEvent>
@@ -539,6 +545,12 @@ xcopy "$(TargetDir)$(TargetName).dll" "$(VcpkgRoot)debug\bin" /c /y /q /i
 xcopy "$(TargetDir)$(TargetName).pdb" "$(VcpkgRoot)debug\bin" /c /y /q /i
 xcopy "..\include\feathergui\*.h" "$(VcpkgRoot)include\feathergui" /c /y /q /i /s</Command>
     </PostBuildEvent>
+    <ClCompile>
+      <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">stdcpplatest</LanguageStandard>
+    </ClCompile>
+    <ClCompile>
+      <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdcpplatest</LanguageStandard>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(VcpkgEnabled)'=='Debug-Static|true'">
     <PostBuildEvent>
