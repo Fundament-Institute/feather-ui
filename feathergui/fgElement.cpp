@@ -464,9 +464,9 @@ BSS_FORCEINLINE void fgElement_PropogateMove(fgElement* self, fgMsgType subtype,
 
 size_t fgElement_Message(fgElement* self, const FG_Msg* msg)
 {
-  fgFlag otherint = (fgFlag)msg->u;
   assert(self != 0);
   assert(msg != 0);
+  fgFlag otherint = (fgFlag)msg->u;
 
   switch(msg->type)
   {
@@ -1138,10 +1138,9 @@ void ResolveOuterRectCache(const fgElement* self, AbsRect* BSS_RESTRICT out, con
     __applyrect(replace, *last, *padding);
     last = &replace;
   }
-
+  assert(out != 0 && self != 0 && last != 0);
   AbsVec center = { self->transform.center.x.abs, self->transform.center.y.abs };
   const CRect* v = &self->transform.area;
-  assert(out != 0 && self != 0 && last != 0);
   //bss::lerp<sseVecT<FABS>, sseVecT<FABS>>(
   //  sseVecT<FABS>(last->left, last->top, last->left, last->top),
   //  sseVecT<FABS>(last->right, last->bottom, last->right, last->bottom),
@@ -1461,19 +1460,19 @@ size_t fgElement::SetAlpha(float alpha) { return _sendmsg<FG_SETALPHA, float>(th
 
 size_t fgElement::SetArea(const CRect& area, fgMsgType units) { return _sendsubmsg<FG_SETAREA, const void*>(this, units, &area); }
 
-size_t fgElement::SetTransform(const fgTransform& transform, fgMsgType units) { return _sendsubmsg<FG_SETTRANSFORM, const void*>(this, units, &transform); }
+size_t fgElement::SetTransform(const fgTransform& tf, fgMsgType units) { return _sendsubmsg<FG_SETTRANSFORM, const void*>(this, units, &tf); }
 
 void fgElement::SetFlag(fgFlag flag, bool value) { _sendmsg<FG_SETFLAG, ptrdiff_t, size_t>(this, flag, value != 0); }
 
-void fgElement::SetFlags(fgFlag flags) { _sendmsg<FG_SETFLAGS, ptrdiff_t>(this, flags); }
+void fgElement::SetFlags(fgFlag f) { _sendmsg<FG_SETFLAGS, ptrdiff_t>(this, f); }
 
-size_t fgElement::SetMargin(const AbsRect& margin, fgMsgType units) { return _sendsubmsg<FG_SETMARGIN, const void*>(this, units, &margin); }
+size_t fgElement::SetMargin(const AbsRect& m, fgMsgType units) { return _sendsubmsg<FG_SETMARGIN, const void*>(this, units, &m); }
 
-size_t fgElement::SetPadding(const AbsRect& padding, fgMsgType units) { return _sendsubmsg<FG_SETPADDING, const void*>(this, units, &padding); }
+size_t fgElement::SetPadding(const AbsRect& pad, fgMsgType units) { return _sendsubmsg<FG_SETPADDING, const void*>(this, units, &pad); }
 
-void fgElement::SetParent(fgElement* parent, fgElement* next) { _sendmsg<FG_SETPARENT, fgElement*, fgElement*>(this, parent, next); }
+void fgElement::SetParent(fgElement* p, fgElement* n) { _sendmsg<FG_SETPARENT, fgElement*, fgElement*>(this, p, n); }
 
-size_t fgElement::AddChild(fgElement* child, fgElement* next) { return _sendmsg<FG_ADDCHILD, fgElement*, fgElement*>(this, child, next); }
+size_t fgElement::AddChild(fgElement* child, fgElement* n) { return _sendmsg<FG_ADDCHILD, fgElement*, fgElement*>(this, child, n); }
 
 fgElement* fgElement::AddItem(void* item, size_t index) { return (fgElement*)_sendsubmsg<FG_ADDITEM, const void*, size_t>(this, FGITEM_DEFAULT, item, index); }
 fgElement* fgElement::AddItemText(const char* item, FGTEXTFMT fmt) { return (fgElement*)_sendsubmsg<FG_ADDITEM, const void*, size_t>(this, FGITEM_TEXT, item, fmt); }
@@ -1481,7 +1480,7 @@ fgElement* fgElement::AddItemElement(fgElement* item, size_t index) { return (fg
 
 size_t fgElement::RemoveChild(fgElement* child) { return _sendmsg<FG_REMOVECHILD, void*>(this, child); }
 
-size_t fgElement::ReorderChild(struct _FG_ELEMENT* child, struct _FG_ELEMENT* next) { return _sendmsg<FG_REORDERCHILD, fgElement*, fgElement*>(this, child, next); }
+size_t fgElement::ReorderChild(struct _FG_ELEMENT* child, struct _FG_ELEMENT* n) { return _sendmsg<FG_REORDERCHILD, fgElement*, fgElement*>(this, child, n); }
 
 size_t fgElement::RemoveItem(size_t item) { return _sendmsg<FG_REMOVEITEM, ptrdiff_t>(this, item); }
 
@@ -1516,13 +1515,13 @@ void fgElement::Draw(const AbsRect* area, const fgDrawAuxData* aux) { _sendmsg<F
 
 size_t fgElement::Inject(const FG_Msg* msg, const AbsRect* area) { return _sendmsg<FG_INJECT, const void*, const void*>(this, msg, area); }
 
-size_t fgElement::SetSkin(fgSkin* skin) { return _sendmsg<FG_SETSKIN, void*>(this, skin); }
+size_t fgElement::SetSkin(fgSkin* s) { return _sendmsg<FG_SETSKIN, void*>(this, s); }
 
 fgSkin* fgElement::GetSkin(fgElement* child) { return reinterpret_cast<fgSkin*>(_sendmsg<FG_GETSKIN, fgElement*>(this, child)); }
 
-size_t fgElement::SetStyle(const char* name) {  return _sendsubmsg<FG_SETSTYLE, const void*>(this, FGSETSTYLE_NAME, name); }
+size_t fgElement::SetStyle(const char* n) {  return _sendsubmsg<FG_SETSTYLE, const void*>(this, FGSETSTYLE_NAME, n); }
 
-size_t fgElement::SetStyle(struct _FG_STYLE* style) { return _sendsubmsg<FG_SETSTYLE, void*>(this, FGSETSTYLE_POINTER, style); }
+size_t fgElement::SetStyle(struct _FG_STYLE* s) { return _sendsubmsg<FG_SETSTYLE, void*>(this, FGSETSTYLE_POINTER, s); }
 
 size_t fgElement::SetStyle(fgStyleIndex index, fgStyleIndex mask) { return _sendsubmsg<FG_SETSTYLE, size_t, size_t>(this, FGSETSTYLE_INDEX, index, mask); }
 
@@ -1534,9 +1533,9 @@ void fgElement::SetDPI(FABS x, FABS y) { _sendmsg<FG_SETDPI, FABS, FABS>(this, x
 
 const char* fgElement::GetClassName() { return reinterpret_cast<const char*>(_sendmsg<FG_GETCLASSNAME>(this)); }
 
-void* fgElement::GetUserdata(const char* name) const { size_t r = _sendmsg<FG_GETUSERDATA, const void*>(const_cast<fgElement*>(this), name); return *reinterpret_cast<void**>(&r); }
+void* fgElement::GetUserdata(const char* n) const { size_t r = _sendmsg<FG_GETUSERDATA, const void*>(const_cast<fgElement*>(this), n); return *reinterpret_cast<void**>(&r); }
 
-void fgElement::SetUserdata(void* data, const char* name) { _sendmsg<FG_SETUSERDATA, void*, const void*>(this, data, name); }
+void fgElement::SetUserdata(void* data, const char* n) { _sendmsg<FG_SETUSERDATA, void*, const void*>(this, data, n); }
 
 size_t fgElement::MouseDown(float x, float y, unsigned char button, unsigned char allbtn)
 {

@@ -15,7 +15,7 @@ KHASH_INIT(fgFonts, fgFont, _FG_FONT_DATA*, 1, kh_ptr_hash_func, kh_int_hash_equ
 static_assert(sizeof(fgSkinLayoutArray) == sizeof(fgVector), "mismatch between vector sizes");
 static_assert(sizeof(fgClassLayoutArray) == sizeof(fgVector), "mismatch between vector sizes");
 
-_FG_FONT_DATA::_FG_FONT_DATA(void* _font, fgFlag _flags, const char* _family, short _weight, char _italic, unsigned int _size) : 
+_FG_FONT_DATA::_FG_FONT_DATA(void* _font, fgFlag _flags, const char* _family, short _weight, char _italic, unsigned int _size) :
   font(!_font ? 0 : fgroot_instance->backend.fgCloneFont(_font, 0)), flags(_flags), family(fgCopyText(_family, __FILE__, __LINE__)), weight(_weight), italic(_italic), size(_size)
 {}
 _FG_FONT_DATA::_FG_FONT_DATA(const _FG_FONT_DATA& copy)
@@ -37,8 +37,8 @@ _FG_FONT_DATA::~_FG_FONT_DATA()
     fgFreeText(family, __FILE__, __LINE__);
 }
 
-_FG_FONT_DATA& _FG_FONT_DATA::operator=(const _FG_FONT_DATA& copy) { this->~_FG_FONT_DATA(); new (this) _FG_FONT_DATA(copy); return *this; }
-_FG_FONT_DATA& _FG_FONT_DATA::operator=(_FG_FONT_DATA&& mov) { this->~_FG_FONT_DATA(); new (this) _FG_FONT_DATA(std::move(mov)); return *this; }
+_FG_FONT_DATA& _FG_FONT_DATA::operator=(const _FG_FONT_DATA& copy) { if(this != &copy) { this->~_FG_FONT_DATA(); new (this) _FG_FONT_DATA(copy); } return *this; }
+_FG_FONT_DATA& _FG_FONT_DATA::operator=(_FG_FONT_DATA&& mov) { if(this != &mov) { this->~_FG_FONT_DATA(); new (this) _FG_FONT_DATA(std::move(mov)); } return *this; }
 
 _FG_ASSET_DATA::_FG_ASSET_DATA(void* _asset, const char* _file)
 {
@@ -65,8 +65,8 @@ _FG_ASSET_DATA::~_FG_ASSET_DATA()
     fgFreeText(file, __FILE__, __LINE__);
 }
 
-_FG_ASSET_DATA& _FG_ASSET_DATA::operator=(const _FG_ASSET_DATA& copy) { this->~_FG_ASSET_DATA(); new (this) _FG_ASSET_DATA(copy); return *this; }
-_FG_ASSET_DATA& _FG_ASSET_DATA::operator=(_FG_ASSET_DATA&& mov) { this->~_FG_ASSET_DATA(); new (this) _FG_ASSET_DATA(std::move(mov)); return *this; }
+_FG_ASSET_DATA& _FG_ASSET_DATA::operator=(const _FG_ASSET_DATA& copy) { if(this != &copy) { this->~_FG_ASSET_DATA(); new (this) _FG_ASSET_DATA(copy); } return *this; }
+_FG_ASSET_DATA& _FG_ASSET_DATA::operator=(_FG_ASSET_DATA&& mov) { if(this != &mov) { this->~_FG_ASSET_DATA(); new (this) _FG_ASSET_DATA(std::move(mov)); } return *this; }
 
 void fgSkin_Init(fgSkin* self, const char* name, const char* path)
 {
@@ -90,7 +90,7 @@ void fgSkin_InitCopy(fgSkin* self, const fgSkin* from)
   self->tfunits = from->tfunits;
 }
 
-template<class HASH, class T, void (*DESTROY)(T*), void(*DEL)(HASH*, khint_t)>
+template<class HASH, class T, void(*DESTROY)(T*), void(*DEL)(HASH*, khint_t)>
 char DestroyHashElement(HASH* self, khiter_t iter)
 {
   if(kh_exist(self, iter))
@@ -213,7 +213,7 @@ _FG_ASSET_DATA* fgSkinBase_GetAsset(const fgSkinBase* self, fgAsset asset)
 _FG_FONT_DATA* fgSkinBase_AddFont(fgSkinBase* self, fgFlag flags, const char* families, short weight, char italic, unsigned int size)
 {
   size_t len = strlen(families) + 1;
-  DYNARRAY(char, buf, len);
+  VARARRAY(char, buf, len);
   memcpy(buf, families, len);
 
   char* context = 0;

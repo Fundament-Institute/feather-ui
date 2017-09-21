@@ -49,13 +49,13 @@ void fgCurve_GenCubic(fgCurve* self, AbsVec* p)
   s1[2].x = (s1[0].x + p12.x) / 2.0f;
   s1[2].y = (s1[0].y + p12.y) / 2.0f;
   s1[3].x = s2[0].x = (s1[2].x + s2[1].x) / 2.0f;
-  s1[3].y = s2[0].x = (s1[2].y + s2[1].y) / 2.0f;
+  s1[3].y = s2[0].y = (s1[2].y + s2[1].y) / 2.0f;
 
   double dx = p[3].x - p[0].x;
   double dy = p[3].y - p[0].y;
 
-  double d2 = fabs(((p[1].x - p[3].x) * dy - (p[1].y - p[3].y) * dx));
-  double d3 = fabs(((p[2].x - p[3].x) * dy - (p[2].y - p[3].y) * dx));
+  double d2 = fabs((p[1].x - p[3].x) * dy - (p[1].y - p[3].y) * dx);
+  double d3 = fabs((p[2].x - p[3].x) * dy - (p[2].y - p[3].y) * dx);
 
   if((d2 + d3)*(d2 + d3) < self->factor * (dx*dx + dy*dy))
     reinterpret_cast<DynArray<AbsVec>&>(self->cache).Add(s1[3]);

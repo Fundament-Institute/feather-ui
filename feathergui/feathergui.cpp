@@ -104,13 +104,13 @@ void MoveCRect(FABS x, FABS y, CRect* r)
 
 void ToIntAbsRect(const AbsRect* r, int target[4])
 {
-  sseVeci(sseVec(BSS_UNALIGNED<const float>(&r->left))) >> BSS_UNALIGNED<int>(target);
+  sseVeci(sseVec(BSS_UNALIGNED<const float>(&r->left))).Set(BSS_UNALIGNED<int>(target));
 }
 
 void ToLongAbsRect(const AbsRect* r, long target[4])
 {
 #if ULONG_MAX==UINT_MAX
-  sseVeci(sseVec(BSS_UNALIGNED<const float>(&r->left))) >> BSS_UNALIGNED<int>((int*)target);
+  sseVeci(sseVec(BSS_UNALIGNED<const float>(&r->left))).Set(BSS_UNALIGNED<int>((int*)target));
 #else
   int hold[4];
   _mm_storeu_si128((__m128i*)hold, _mm_cvtps_epi32(_mm_loadu_ps(&r->left)));
@@ -131,14 +131,14 @@ const char* fgCopyTextToUTF8(const void* text, uint16_t format, const char* file
   case FGTEXTFMT_UTF16:
   {
     size_t len = fgUTF16toUTF8((const wchar_t*)text, -1, 0, 0);
-    DYNARRAY(char, out, len);
+    VARARRAY(char, out, len);
     fgUTF16toUTF8((const wchar_t*)text, -1, out, len);
     return fgCopyText(out, file, line);
   }
   case FGTEXTFMT_UTF32:
   {
     size_t len = fgUTF32toUTF8((const int*)text, -1, 0, 0);
-    DYNARRAY(char, out, len);
+    VARARRAY(char, out, len);
     fgUTF32toUTF8((const int*)text, -1, out, len);
     return fgCopyText(out, file, line);
   }
@@ -282,7 +282,7 @@ void fgScaleRectDPI(AbsRect* rect, FABS dpix, FABS dpiy)
   scale[1] = (!dpiy) ? 1.0f : (dpiy / 96.0f);
   scale[2] = scale[0];
   scale[3] = scale[1];
-  (sseVec(BSS_UNALIGNED<const float>(&rect->left))*sseVec(scale)) >> BSS_UNALIGNED<float>(&rect->left);
+  (sseVec(BSS_UNALIGNED<const float>(&rect->left))*sseVec(scale)).Set(BSS_UNALIGNED<float>(&rect->left));
   if(rect->right < rect->left)
     rect->right = rect->left;
   if(rect->bottom < rect->top)
@@ -295,7 +295,7 @@ void fgInvScaleRectDPI(AbsRect* rect, FABS dpix, FABS dpiy)
   scale[1] = (!dpiy) ? 1.0f : (96.0f / dpiy);
   scale[2] = scale[0];
   scale[3] = scale[1];
-  (sseVec(BSS_UNALIGNED<const float>(&rect->left))*sseVec(scale)) >> BSS_UNALIGNED<float>(&rect->left);
+  (sseVec(BSS_UNALIGNED<const float>(&rect->left))*sseVec(scale)).Set(BSS_UNALIGNED<float>(&rect->left));
 }
 void fgScaleVecDPI(AbsVec* v, FABS dpix, FABS dpiy)
 {
@@ -314,7 +314,7 @@ void fgResolveDrawRect(const AbsRect* area, AbsRect* outarea, const AbsVec* cent
   scale[1] = (!data->dpi.y) ? 1.0f : ((float)data->dpi.y / 96.0f);
   scale[2] = scale[0];
   scale[3] = scale[1];
-  (sseVec(BSS_UNALIGNED<const float>(&area->left))*sseVec(scale)) >> BSS_UNALIGNED<float>(&outarea->left);
+  (sseVec(BSS_UNALIGNED<const float>(&area->left))*sseVec(scale)).Set(BSS_UNALIGNED<float>(&outarea->left));
 
   fgSnapAbsRect(*outarea, flags);
   if(outarea->right < outarea->left)

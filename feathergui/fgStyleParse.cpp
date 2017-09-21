@@ -2,7 +2,7 @@
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #include "fgStyle.h"
-#include "bss-util/defines.h"
+#include "bss-util/Array.h"
 #include <ctype.h>
 #include <stdlib.h>
 #include <malloc.h>
@@ -97,7 +97,7 @@ int fgStyle_ParseCoord(const char* attribute, size_t len, Coord* coord)
 int fgStyle_ParseAbsRect(const char* attribute, AbsRect* r)
 {
   size_t len = strlen(attribute) + 1;
-  DYNARRAY(char, buf, len);
+  VARARRAY(char, buf, len);
   MEMCPY(buf, len, attribute, len);
   char* context;
   const char* s0 = STRTOK(buf, ", ", &context);
@@ -118,7 +118,7 @@ int fgStyle_ParseAbsRect(const char* attribute, AbsRect* r)
 int fgStyle_ParseAbsVec(const char* attribute, AbsVec* r)
 {
   size_t len = strlen(attribute) + 1;
-  DYNARRAY(char, buf, len);
+  VARARRAY(char, buf, len);
   MEMCPY(buf, len, attribute, len);
   char* context;
   const char* s0 = STRTOK(buf, ", ", &context);
@@ -133,7 +133,7 @@ int fgStyle_ParseAbsVec(const char* attribute, AbsVec* r)
 int fgStyle_ParseCRect(const char* attribute, CRect* r)
 {
   size_t len = strlen(attribute) + 1;
-  DYNARRAY(char, buf, len);
+  VARARRAY(char, buf, len);
   MEMCPY(buf, len, attribute, len);
   char* context;
   const char* s0 = STRTOK(buf, ", ", &context);
@@ -150,7 +150,7 @@ int fgStyle_ParseCRect(const char* attribute, CRect* r)
 int fgStyle_ParseCVec(const char* attribute, CVec* v)
 {
   size_t len = strlen(attribute) + 1;
-  DYNARRAY(char, buf, len);
+  VARARRAY(char, buf, len);
   MEMCPY(buf, len, attribute, len);
   char* context;
   const char* s0 = STRTOK(buf, ", ", &context);

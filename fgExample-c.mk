@@ -8,7 +8,7 @@ INCLUDE_DIRS := include
 LIBRARY_DIRS := 
 LIBRARIES := feathergui rt pthread dl
 
-CPPFLAGS += -w -std=gnu++11 -pthread
+CPPFLAGS += -w -std=c++17 -pthread
 LDFLAGS += -L./bin/
 
 include base.mk

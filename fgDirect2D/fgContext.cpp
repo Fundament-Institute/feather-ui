@@ -227,7 +227,7 @@ void fgContext::BeginDraw(HWND handle, fgElement* element, const AbsRect* area, 
   if(margin)
   {
     const sseVecT<FABS> m(-1.0f, -1.0f, 1.0f, 1.0f);
-    (sseVecT<FABS>(BSS_UNALIGNED<const float>(&area->left)) + (sseVecT<FABS>(BSS_UNALIGNED<const float>(&margin->left))*m)) >> BSS_UNALIGNED<float>(&truearea.left);
+    (sseVecT<FABS>(BSS_UNALIGNED<const float>(&area->left)) + (sseVecT<FABS>(BSS_UNALIGNED<const float>(&margin->left))*m)).Set(BSS_UNALIGNED<float>(&truearea.left));
   }
   const AbsVec& dpi = element->GetDPI();
   fgScaleRectDPI(&truearea, dpi.x, dpi.y);

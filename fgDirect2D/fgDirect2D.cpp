@@ -199,7 +199,7 @@ struct fgFontD2D
 fgFont fgCreateFontD2D(fgFlag flags, const char* family, short weight, char italic, unsigned int pt, const AbsVec* dpi)
 {
   size_t len = fgUTF8toUTF16(family, -1, 0, 0);
-  DYNARRAY(wchar_t, wtext, len);
+  VARARRAY(wchar_t, wtext, len);
   fgUTF8toUTF16(family, -1, wtext, len);
   
   IDWriteTextFormat* format = 0;
@@ -246,8 +246,8 @@ fgFont fgCloneFontD2D(fgFont font, const struct _FG_FONT_DESC* desc)
     f->format->AddRef();
   else
   {
-    DYNARRAY(wchar_t, wtext, f->format->GetFontFamilyNameLength()+1);
-    DYNARRAY(wchar_t, wlocale, f->format->GetLocaleNameLength() + 1);
+    VARARRAY(wchar_t, wtext, f->format->GetFontFamilyNameLength()+1);
+    VARARRAY(wchar_t, wlocale, f->format->GetLocaleNameLength() + 1);
     f->format->GetFontFamilyName(wtext, f->format->GetFontFamilyNameLength() + 1);
     f->format->GetLocaleName(wlocale, f->format->GetLocaleNameLength() + 1);
     IDWriteTextFormat* format = 0;
@@ -271,7 +271,7 @@ void fgDrawFontD2D(fgFont font, const void* text, size_t len, float lineheight, 
   
   if(!layout)
   { // We CANNOT input the string directly from the DLL for some unbelievably stupid reason. We must make a copy in this DLL and pass that to Direct2D.
-    DYNARRAY(wchar_t, wtext, len);
+    VARARRAY(wchar_t, wtext, len);
     memcpy_s(wtext, len*sizeof(wchar_t), text, len * sizeof(wchar_t));
     exdata->context->target->DrawTextW(wtext, len, f->format, D2D1::RectF(area.left, area.top, area.right, area.bottom), exdata->context->color, (flags&FGELEMENT_NOCLIP) ? D2D1_DRAW_TEXT_OPTIONS_NONE : D2D1_DRAW_TEXT_OPTIONS_CLIP);
   }
@@ -1087,8 +1087,8 @@ struct _FG_ROOT* fgInitialize()
   int64_t sz = GetRegistryValueW(HKEY_CURRENT_USER, L"Control Panel\\Desktop", L"CursorBlinkRate", 0, 0);
   if(sz > 0)
   {
-    DYNARRAY(wchar_t, buf, sz / 2);
-    sz = GetRegistryValueW(HKEY_CURRENT_USER, L"Control Panel\\Desktop", L"CursorBlinkRate", (unsigned char*)buf, sz);
+    VARARRAY(wchar_t, buf, sz / 2);
+    sz = GetRegistryValueW(HKEY_CURRENT_USER, L"Control Panel\\Desktop", L"CursorBlinkRate", reinterpret_cast<unsigned char*>((wchar_t*)buf), sz);
     if(sz > 0)
       root->root.cursorblink = _wtoi(buf) / 1000.0;
   }
@@ -1097,8 +1097,8 @@ struct _FG_ROOT* fgInitialize()
   sz = GetRegistryValueW(HKEY_CURRENT_USER, L"Control Panel\\Mouse", L"MouseHoverTime", 0, 0);
   if(sz > 0)
   {
-    DYNARRAY(wchar_t, buf, sz / 2);
-    sz = GetRegistryValueW(HKEY_CURRENT_USER, L"Control Panel\\Mouse", L"MouseHoverTime", (unsigned char*)buf, sz);
+    VARARRAY(wchar_t, buf, sz / 2);
+    sz = GetRegistryValueW(HKEY_CURRENT_USER, L"Control Panel\\Mouse", L"MouseHoverTime", reinterpret_cast<unsigned char*>((wchar_t*)buf), sz);
     if(sz > 0)
       root->root.tooltipdelay = _wtoi(buf) / 1000.0;
   }

@@ -48,11 +48,12 @@ size_t fgDropdownBox_Message(fgBox* self, const FG_Msg* msg)
   case FG_MOUSEMOVE:
   case FG_MOUSEOFF:
   case FG_MOUSEON:
+    assert(parent != 0);
     fgUpdateMouseState(&parent->mouse, msg);
     break;
   case FG_MOUSEDOWN:
-    fgUpdateMouseState(&parent->mouse, msg);
     assert(parent != 0);
+    fgUpdateMouseState(&parent->mouse, msg);
     if(parent->dropflag > 0 && !MsgHitElement(msg, *self))
     {
       _sendmsg<FG_NEUTRAL>(*parent);
@@ -61,8 +62,8 @@ size_t fgDropdownBox_Message(fgBox* self, const FG_Msg* msg)
     }
     break;
   case FG_MOUSEUP:
-    fgUpdateMouseState(&parent->mouse, msg);
     assert(parent != 0);
+    fgUpdateMouseState(&parent->mouse, msg);
     {
       AbsRect cache;
       fgElement* target = MsgHitElement(msg, *self) ? fgElement_GetChildUnderMouse(*self, msg->x, msg->y, &cache) : 0;

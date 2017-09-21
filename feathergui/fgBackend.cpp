@@ -32,7 +32,7 @@ fgAsset fgCreateAssetFileDefault(fgFlag flags, const char* file, const AbsVec* d
   fseek(f, 0, SEEK_END);
   long len = ftell(f);
   fseek(f, 0, SEEK_SET);
-  DYNARRAY(char, buf, len);
+  VARARRAY(char, buf, len);
   fread(buf, 1, len, f);
   fclose(f);
   void* r = fgroot_instance->backend.fgCreateAsset(flags, buf, len, dpi);
@@ -475,7 +475,7 @@ struct _FG_ROOT* fgLoadBackend(const char* dll)
   fgDynLibP = LOADDYNLIB(dll);
   if(!fgDynLibP)
     return 0;
-  FN_INITIALIZE init = (FN_INITIALIZE)GETDYNFUNC(fgDynLibP, "fgInitialize");
+  FN_INITIALIZE init = (FN_INITIALIZE)GETDYNFUNC(fgDynLibP, fgInitialize);
   if(!init)
   {
     FREEDYNLIB(fgDynLibP);

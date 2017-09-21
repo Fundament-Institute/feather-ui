@@ -11,8 +11,25 @@ using namespace bss;
 
 XMLFile::XMLFile(const XMLFile& copy) : XMLNode(copy) {}
 XMLFile::XMLFile(XMLFile&& mov) : XMLNode(std::move(mov)) {}
-XMLFile::XMLFile(const char* source) { _name = "xml"; if(source) { Str buf; std::istringstream ss(source); _initialParse(ss, buf); _parseInner(ss, buf); } }
-XMLFile::XMLFile(std::istream& stream) { _name = "xml"; Str buf; _initialParse(stream, buf); _parseInner(stream, buf); }
+XMLFile::XMLFile(const char* source) { _name = "xml"; Read(source); }
+XMLFile::XMLFile(std::istream& stream) { _name = "xml"; Read(stream); }
+XMLFile::XMLFile() { _name = "xml"; }
+
+void XMLFile::Read(const char* source)
+{
+  if(source) 
+  { 
+    std::istringstream ss(source); 
+    Read(ss); 
+  }
+}
+
+void XMLFile::Read(std::istream& stream)
+{
+  Str buf; 
+  _initialParse(stream, buf); 
+  _parseInner(stream, buf);
+}
 
 void XMLFile::_initialParse(std::istream& stream, Str& buf)
 {
@@ -83,7 +100,8 @@ XMLValue* XMLNode::AddAttribute(const XMLValue& value) { return _addAttribute(XM
 XMLValue* XMLNode::AddAttribute(const char* name) { XMLValue v; v.Name = name; return _addAttribute(std::move(v)); }
 bool XMLNode::RemoveNode(size_t index)
 {
-  if(index >= _nodes.Length()) return false;
+  if(index >= _nodes.Length()) 
+    return false;
   khiter_t iter = _nodehash.Iterator(_nodes[index]->_name);
   if(_nodes[index]->next)
   {
@@ -106,7 +124,8 @@ bool XMLNode::RemoveNode(size_t index)
 bool XMLNode::RemoveNode(const char* name) { return RemoveNode(_nodehash[name]); }
 bool XMLNode::RemoveAttribute(size_t index)
 {
-  if(index >= _nodes.Length()) return false;
+  if(index >= _nodes.Length()) 
+    return false;
   _attrhash.Remove(_nodes[index]->_name);
   _nodes.Remove(index);
   return true;
@@ -115,10 +134,18 @@ bool XMLNode::RemoveAttribute(const char* name) { return RemoveAttribute(_attrha
 void XMLNode::SetValue(double value) { _value.Float = value; _value.Integer = (int64_t)value; _value.String = std::to_string(value); }
 void XMLNode::SetValue(int64_t value) { _value.Integer = value; _value.Float = (double)value; _value.String = std::to_string(value); }
 void XMLNode::SetValue(const char* value) { _value.String = value; _evalValue(_value); }
+void XMLNode::Clear()
+{
+  _nodes.Clear();
+  _nodehash.Clear();
+  _attributes.Clear();
+  _attrhash.Clear();
+}
 
 XMLNode* XMLNode::_addNode(std::unique_ptr<XMLNode> && n)
 {
   khiter_t iter = _nodehash.Iterator(n->_name);
+
   if(!_nodehash.ExistsIter(iter))
     _nodehash.Insert(n->_name, _nodes.Length());
   else
@@ -134,12 +161,14 @@ XMLNode* XMLNode::_addNode(std::unique_ptr<XMLNode> && n)
 XMLValue* XMLNode::_addAttribute(XMLValue && v)
 {
   khiter_t iter = _attrhash.Iterator(v.Name);
+
   if(!_attrhash.ExistsIter(iter))
   {
     _attributes.Add(std::move(v));
     _attrhash.Insert(_attributes.Back().Name, _attributes.Length() - 1);
     return &_attributes.Back();
   }
+
   size_t i = _attrhash.GetValue(iter);
   _attributes[i] = std::move(v);
   return &_attributes[i];
@@ -148,9 +177,11 @@ XMLValue* XMLNode::_addAttribute(XMLValue && v)
 // Instead of including an entire regex library, we just do a dead simple pattern match of the form "<characters>*<characters>" where * is put into out.
 bool XMLNode::_match(std::istream& stream, Str& out, const char* pattern, bool reset)
 {
-  while(stream.peek() != -1 && stream && isspace(stream.peek())) stream.get(); //eat whitespace
+  while(stream.peek() != -1 && stream && isspace(stream.peek())) //eat whitespace
+    stream.get(); 
   std::streamoff start = stream.tellg(); // get start of sequence
   int i;
+
   for(i = 0; stream.peek() != -1 && stream && (pattern[i] != 0) && (pattern[i] != '*'); ++i)
   {
     if(stream.get() != pattern[i])
@@ -160,8 +191,19 @@ bool XMLNode::_match(std::istream& stream, Str& out, const char* pattern, bool r
     }
   }
 
-  if(!pattern[i]) { if(reset) stream.seekg(start); return true; }
-  if(stream.peek() == -1 || !stream) { stream.seekg(start); return false; }
+  if(!pattern[i]) 
+  { 
+    if(reset) 
+      stream.seekg(start); 
+    return true; 
+  }
+
+  if(stream.peek() == -1 || !stream) 
+  {
+    stream.seekg(start);
+    return false; 
+  }
+
   int end = ++i; // increment by 1 to skip past * marker
   std::streamoff mid = stream.tellg();
   out.clear();
@@ -171,8 +213,15 @@ bool XMLNode::_match(std::istream& stream, Str& out, const char* pattern, bool r
     end = (stream.peek() == pattern[end]) ? (end + 1) : i;
     out += stream.get();
   }
+
   out.resize(i - end + out.length()); // trim off ending
-  if(!pattern[end]) { if(reset) stream.seekg(mid); return true; } // If we got through the entire pattern, the match was a success (even if the file ended).
+  if(!pattern[end])  // If we got through the entire pattern, the match was a success (even if the file ended).
+  { 
+    if(reset) 
+      stream.seekg(mid);
+    return true; 
+  }
+
   stream.seekg(start); // otherwise we failed so reset everything
   return false;
 }
@@ -226,9 +275,13 @@ void XMLNode::_parseAttribute(Str& buf)
   buf = buf.Trim();
   size_t i;
   for(i = 0; i < buf.length() && !isspace(buf[i]); ++i);
+
   _name.assign(buf, 0, i);
-  while(i < buf.length() && isspace(buf[i])) ++i;
-  if(i >= buf.length()) return;
+  while(i < buf.length() && isspace(buf[i]))
+    ++i;
+
+  if(i >= buf.length()) 
+    return;
   const char* c = ((const char*)buf) + i;
 
   std::istringstream ss(c);
@@ -240,15 +293,18 @@ void XMLNode::_parseAttribute(Str& buf)
       v.Name = v.Name.Trim();
       if(!_match(ss, v.String, "\"*\"")) // If we can't get a valid string just eat everything until the next space.
       {
-        while(ss.peek() != -1 && ss && !isspace(ss.peek())) v.String += ss.get();
+        while(ss.peek() != -1 && ss && !isspace(ss.peek())) 
+          v.String += ss.get();
       }
 
       _evalValue(v);
     }
     else
     { // If we can't find an equals sign, we'll just have to eat the whole thing.
-      while(ss.peek() != -1 && ss && !isspace(ss.peek())) v.Name += ss.get();
+      while(ss.peek() != -1 && ss && !isspace(ss.peek()))
+        v.Name += ss.get();
     }
+
     _addAttribute(std::move(v));
   }
 }
@@ -282,6 +338,7 @@ void XMLNode::_evalValue(XMLValue& val)
       val.Integer = (int64_t)strtoull(val.String, &c, 2);
     else
       val.Integer = (int64_t)strtoull(val.String, &c, 10);
+
     val.Float = atof(val.String);
   }
 }
@@ -318,6 +375,7 @@ void XMLNode::_writeString(std::ostream& stream, const char* s, bool attribute)
       stream << "&quot;";
     else
       stream.put(*s);
+
     ++s;
   }
 }
@@ -329,9 +387,11 @@ void XMLNode::_write(std::ostream& stream, bool pretty, int depth) const
     stream << std::endl;
     for(int i = 0; i < depth; ++i) stream.put('\t');
   }
+
   stream.put('<');
   _writeAttribute(stream);
   bool content = _value.String.Trim().length() > 0;
+
   if(!content && !_nodes.Length()) // If there is no content and no nodes, assume this is a self-closing tag.
   {
     stream << "/>";

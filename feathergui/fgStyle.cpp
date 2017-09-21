@@ -186,7 +186,7 @@ const char* fgStyle_GetMapIndex(fgStyleIndex index)
 fgStyleIndex fgStyle_GetAllNames(const char* names)
 {
   size_t len = strlen(names) + 1;
-  DYNARRAY(char, tokenize, len);
+  VARARRAY(char, tokenize, len);
   MEMCPY(tokenize, len, names, len);
   char* context;
   char* token = STRTOK(tokenize, "+", &context);

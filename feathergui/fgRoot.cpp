@@ -411,9 +411,11 @@ void fgOrderedDraw(fgElement* self, const AbsRect* area, const fgDrawAuxData* au
       case FGBOX_TILEX:
       case FGBOX_TILE | FGBOX_GROWY: // TILEX and TILE growing along the Y axis both get culled once we hit an element that is past the right edge of the cliprect
         cull = curarea.left > clip.right;
+        break;
       case FGBOX_TILEY:
       case FGBOX_TILE: // TILE growing along the X axis gets culled once we hit an element that is past the bottom edge of the cliprect
         cull = curarea.top > clip.bottom;
+        break;
       }
     }
     cur = cur->next;
@@ -555,8 +557,6 @@ BSS_FORCEINLINE size_t fgProcessCursor(fgRoot* self, size_t value, fgMsgType typ
     }
     if(cursor == FGCURSOR_IBEAM)
       FROMCHECK = true;
-    if(cursor != FGCURSOR_IBEAM && FROMCHECK)
-      cursor = cursor;
     self->backend.fgSetCursor(cursor, data);
   }
   return value;
@@ -612,7 +612,6 @@ size_t fgRoot_DefaultInject(fgRoot* self, const FG_Msg* msg)
   case FG_MOUSESCROLL:
   case FG_MOUSEDBLCLICK:
   case FG_MOUSEDOWN:
-    rootarea = rootarea;
   case FG_MOUSEUP:
   case FG_MOUSEMOVE:
     if(self->dragdraw != 0 && self->dragdraw->parent == *self)
@@ -1016,7 +1015,7 @@ size_t fgInjectDPIChange(fgElement* self, const FG_Msg* msg, const AbsRect* area
     scale[1] = (olddpi->y / dpi->y);
     scale[2] = scale[0];
     scale[3] = scale[1];
-    (sseVec(rect._array)*sseVec(scale)) >> rect._array;
+    (sseVec(rect._array)*sseVec(scale)).Set(rect._array);
     return fgStandardInject(self, &m, &rect);
   }
   return fgStandardInject(self, &m, NULL);
