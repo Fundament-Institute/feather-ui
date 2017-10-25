@@ -70,7 +70,7 @@ void fgDebug_DrawMessages(fgDebug* self, AbsRect* rect, fgDrawAuxData* aux)
     ((bss::DynArray<wchar_t>*)&self->text16)->Clear();
     ((bss::DynArray<char>*)&self->text8)->Clear();
     AbsRect txtarea = { rect->left, bottom - desc.lineheight, rect->right, bottom };
-    ((bss::DynArray<char>*)&self->text8)->Reserve(fgDebug_WriteMessage(self->messagelog.p + i, 0, 0) + 1);
+    ((bss::DynArray<char>*)&self->text8)->SetCapacity(fgDebug_WriteMessage(self->messagelog.p + i, 0, 0) + 1);
     self->text8.l = fgDebug_WriteMessage(self->messagelog.p + i, self->text8.p, self->text8.s) + 1;
     fgVector* v = fgText_Conversion(fgroot_instance->backend.BackendTextFormat, &self->text8, &self->text16, &self->text32);
     if(v)

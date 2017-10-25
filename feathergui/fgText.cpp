@@ -64,14 +64,14 @@ inline fgVector* fgText_Conversion(int type, fgVectorUTF8* text8, fgVectorUTF16*
     {
       assert(!text16->p[text16->l - 1]);
       size_t len = fgUTF16toUTF8(text16->p, text16->l, 0, 0);
-      ((bss::DynArray<char>*)text8)->Reserve(len);
+      ((bss::DynArray<char>*)text8)->SetCapacity(len);
       text8->l = fgUTF16toUTF8(text16->p, text16->l, text8->p, text8->s);
     }
     if(text32->l)
     {
       assert(!text32->p[text32->l - 1]);
       size_t len = fgUTF32toUTF8(text32->p, text32->l, 0, 0);
-      ((bss::DynArray<char>*)text8)->Reserve(len);
+      ((bss::DynArray<char>*)text8)->SetCapacity(len);
       text8->l = fgUTF32toUTF8(text32->p, text32->l, text8->p, text8->s);
     }
     if(!text8->l) // If this is still true, it means everything was empty
@@ -84,14 +84,14 @@ inline fgVector* fgText_Conversion(int type, fgVectorUTF8* text8, fgVectorUTF16*
     {
       assert(!text8->p[text8->l - 1]);
       size_t len = fgUTF8toUTF16(text8->p, text8->l, 0, 0);
-      ((bss::DynArray<wchar_t>*)text16)->Reserve(len);
+      ((bss::DynArray<wchar_t>*)text16)->SetCapacity(len);
       text16->l = fgUTF8toUTF16(text8->p, text8->l, text16->p, text16->s);
     }
     if(text32->l)
     {
       assert(!text32->p[text32->l - 1]);
       size_t len = fgUTF32toUTF16(text32->p, text32->l, 0, 0);
-      ((bss::DynArray<wchar_t>*)text16)->Reserve(len);
+      ((bss::DynArray<wchar_t>*)text16)->SetCapacity(len);
       text16->l = fgUTF32toUTF16(text32->p, text32->l, text16->p, text16->s);
     }
     if(!text16->l)
@@ -104,14 +104,14 @@ inline fgVector* fgText_Conversion(int type, fgVectorUTF8* text8, fgVectorUTF16*
     {
       assert(!text8->p[text8->l - 1]);
       size_t len = fgUTF8toUTF32(text8->p, text8->l, 0, 0);
-      ((bss::DynArray<int>*)text32)->Reserve(len);
+      ((bss::DynArray<int>*)text32)->SetCapacity(len);
       text32->l = fgUTF8toUTF32(text8->p, text8->l, text32->p, text32->s);
     }
     if(text16->l)
     {
       assert(!text16->p[text16->l - 1]);
       size_t len = fgUTF16toUTF32(text16->p, text16->l, 0, 0);
-      ((bss::DynArray<int>*)text32)->Reserve(len);
+      ((bss::DynArray<int>*)text32)->SetCapacity(len);
       text32->l = fgUTF16toUTF32(text16->p, text16->l, text32->p, text32->s);
     }
     if(!text32->l)

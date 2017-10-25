@@ -102,7 +102,7 @@ inline size_t fgTextbox_fixindex(fgTextbox* self, AbsVec pos, AbsVec* cursor)
 inline void fgTextbox_Insert(fgTextbox* self, size_t start, const int* s, size_t len)
 {
   if(!s[len - 1]) --len; // We cannot insert a null pointer in the middle of our text, so remove it if it exists.
-  ((bss::DynArray<int>*)&self->text32)->Reserve(self->text32.l + len + 1);
+  ((bss::DynArray<int>*)&self->text32)->SetCapacity(self->text32.l + len + 1);
   if(!self->text32.l) // If empty, initialize with null pointer
     ((bss::DynArray<int>*)&self->text32)->Add(0);
   assert(self->text32.p != 0);
