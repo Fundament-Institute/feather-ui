@@ -1,8 +1,8 @@
 // Copyright ©2017 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
-#include "fgCombobox.h"
 #include "feathercpp.h"
+#include "fgCombobox.h"
 
 void fgCombobox_Init(fgCombobox* BSS_RESTRICT self, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {

@@ -1,9 +1,9 @@
 // Copyright ©2017 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
+#include "feathercpp.h"
 #include "fgBackend.h"
 #include "fgAll.h"
-#include "feathercpp.h"
 #include "bss-util/Trie.h"
 #ifdef BSS_PLATFORM_WIN32
 #include "bss-util/win32_includes.h"

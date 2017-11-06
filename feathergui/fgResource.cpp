@@ -1,9 +1,9 @@
 // Copyright ©2017 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
+#include "feathercpp.h"
 #include "fgResource.h"
 #include <stdio.h>
-#include "feathercpp.h"
 
 fgElement* fgResource_Create(fgAsset res, const CRect* uv, unsigned int color, fgElement* BSS_RESTRICT parent, fgElement* BSS_RESTRICT next, const char* name, fgFlag flags, const fgTransform* transform, fgMsgType units)
 {

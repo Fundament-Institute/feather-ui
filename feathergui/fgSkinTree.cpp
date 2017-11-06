@@ -1,8 +1,8 @@
 // Copyright ©2017 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
-#include "fgSkinTree.h"
 #include "feathercpp.h"
+#include "fgSkinTree.h"
 
 char CompStylePair(const fgSkinTree::fgStylePair& l, const fgSkinTree::fgStylePair& r)
 {

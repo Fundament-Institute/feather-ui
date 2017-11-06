@@ -1,8 +1,8 @@
 // Copyright ©2017 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
-#include "fgMenu.h"
 #include "feathercpp.h"
+#include "fgMenu.h"
 
 static const char* SUBMENU_NAME = "Submenu";
 static const char* MENU_NAME = "Menu";

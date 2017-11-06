@@ -10,6 +10,8 @@
 *.aps
 *.txt
 *.log
+*.h.gch
+*.pch
 /bin/
 /bin32/
 /media/editor/16

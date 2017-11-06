@@ -1,10 +1,10 @@
 // Copyright ©2017 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
+#include "feathercpp.h"
 #include "bss-util/khash.h"
 #include "bss-util/bss_util.h"
 #include "fgStyle.h"
-#include "feathercpp.h"
 
 KHASH_INIT(fgStyles, const char*, FG_UINT, 1, kh_str_hash_funcins, kh_str_hash_insequal);
 fgStyleStatic fgStyleStatic::Instance;

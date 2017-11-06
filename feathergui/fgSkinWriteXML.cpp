@@ -1,9 +1,9 @@
 // Copyright ©2017 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
+#include "feathercpp.h"
 #include "fgSkin.h"
 #include "fgAll.h"
-#include "feathercpp.h"
 #include "bss-util/Str.h"
 #include "bss-util/XML.h"
 

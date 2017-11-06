@@ -1,10 +1,10 @@
 // Copyright ©2017 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
+#include "feathercpp.h"
 #include "fgLayout.h"
 #include "fgBox.h"
 #include "bss-util/bss_util.h"
-#include "feathercpp.h"
 #include <math.h>
 
 size_t fgDefaultLayout(fgElement* self, const FG_Msg* msg, AbsVec* dim)

@@ -1,10 +1,10 @@
 // Copyright ©2017 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
+#include "feathercpp.h"
 #include "fgRoot.h"
 #include "fgMonitor.h"
 #include "fgAll.h"
-#include "feathercpp.h"
 #include "bss-util/Trie.h"
 #include <stdlib.h>
 #include <sstream>

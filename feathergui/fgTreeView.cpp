@@ -1,10 +1,10 @@
 // Copyright ©2017 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
+#include "feathercpp.h"
 #include "fgTreeview.h"
 #include "fgBox.h"
 #include "bss-util/bss_util.h"
-#include "feathercpp.h"
 
 size_t fgTreeItemArrow_Message(fgElement* self, const FG_Msg* msg)
 {

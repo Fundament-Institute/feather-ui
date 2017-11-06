@@ -1,8 +1,8 @@
 // Copyright ©2017 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
-#include "fgGrid.h"
 #include "feathercpp.h"
+#include "fgGrid.h"
 #include "bss-util/DynArray.h"
 
 size_t fgPlaceholder_Message(fgElement* self, const FG_Msg* msg) { return fgElement_Message(self, msg); }

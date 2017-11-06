@@ -1,8 +1,8 @@
 // Copyright ©2017 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
-#include "fgText.h"
 #include "feathercpp.h"
+#include "fgText.h"
 #include "bss-util/DynArray.h"
 #include <math.h>
 

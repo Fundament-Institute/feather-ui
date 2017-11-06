@@ -1,9 +1,9 @@
 // Copyright ©2017 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
+#include "feathercpp.h"
 #include "fgDebug.h"
 #include "fgRoot.h"
-#include "feathercpp.h"
 #include "bss-util/DynArray.h"
 
 fgDebug* fgdebug_instance = nullptr;
