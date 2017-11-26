@@ -52,10 +52,8 @@ public:
   {
     assert(fgroot_instance != 0);
     fgLog(FGLOG_NONE, "--- Memory leaks---\n");
-    LEAKINFO* pinfo;
-    for(auto curiter = _leakinfo.begin(); curiter.IsValid(); ++curiter)
+    for(auto[k, pinfo] : _leakinfo)
     {
-      pinfo = _leakinfo.GetValue(*curiter);
       if(!pinfo->freecount)
         fgLog(FGLOG_NONE, "%p (Size: %zi) leaked at %s:%zi\n", pinfo->ptr, pinfo->size, pinfo->file, pinfo->line);
 

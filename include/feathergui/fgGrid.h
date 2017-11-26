@@ -57,7 +57,7 @@ extern "C" {
     FG_DLLEXPORT fgGridRow* GetRow(size_t row);
     FG_DLLEXPORT fgElement* GetColumn(size_t column);
     FG_DLLEXPORT size_t GetNumColumns() const;
-    inline size_t GetNumRows() const { return const_cast<_FG_GRID*>(this)->list->GetNumItems(); }
+    inline size_t GetNumRows() const { return list.box.scroll.control.element.GetNumItems(); }
 #endif
   } fgGrid;
 

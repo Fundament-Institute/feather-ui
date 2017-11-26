@@ -311,11 +311,11 @@ void fgElement_ApplyMessageArray(fgElement* search, fgElement* target, fgVector*
   m.msg = 0;
 }
 
-inline void fgElement_AddToMessageArray(const fgStyleMsg& msg, fgElement* target, MESSAGESORT& dest)
+inline void fgElement_AddToMessageArray(fgStyleMsg& msg, fgElement* target, MESSAGESORT& dest)
 {
   assert(msg.msg.type != FG_SETSKIN); // This should never happen. The special skin layout member should be used instead.
   fgStoredMessage add(target);
-  add.msg = const_cast<fgStyleMsg*>(&msg);
+  add.msg = &msg;
   size_t i = dest.Find(add);
   if(i < dest.Length())
     dest[i].Replace(msg);

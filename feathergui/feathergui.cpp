@@ -24,7 +24,7 @@ using namespace bss;
 
 Hash<std::pair<fgElement*, fgMsgType>, fgDelegateListener> fgListenerHash;
 Hash<char*> fgStringAllocHash;
-HashBase<const char*, size_t, KH_INT_HASH<const char* const&>, KH_DEFAULT_EQUAL<const char*>> fgStringRefHash;
+Hash<const char*, size_t, ARRAY_SIMPLE, KH_INT_HASH<const char* const&>, KH_DEFAULT_EQUAL<const char*>> fgStringRefHash;
 
 static_assert(sizeof(unsigned int) == sizeof(fgColor), "ERROR: fgColor not size of 32-bit int!");
 static_assert(sizeof(FG_Msg) <= sizeof(uint64_t) * 3, "FG_Msg is too big!");
@@ -153,7 +153,7 @@ const char* fgCopyText(const char* text, const char* file, size_t line)
   khiter_t i = fgStringRefHash.Iterator(text);
   if(fgStringRefHash.ExistsIter(i))
   {
-    fgStringRefHash.MutableValue(i)++;
+    fgStringRefHash.Value(i)++;
     return text;
   }
 
@@ -163,7 +163,7 @@ const char* fgCopyText(const char* text, const char* file, size_t line)
     text = fgStringAllocHash.GetKey(i);
     i = fgStringRefHash.Iterator(text);
     assert(fgStringRefHash.ExistsIter(i));
-    fgStringRefHash.MutableValue(i)++;
+    fgStringRefHash.Value(i)++;
     return text;
   }
 
@@ -192,7 +192,7 @@ void fgFreeText(const char* text, const char* file, size_t line)
   khiter_t i = fgStringRefHash.Iterator(text);
   if(fgStringRefHash.ExistsIter(i))
   {
-    if(--fgStringRefHash.MutableValue(i) <= 0)
+    if(--fgStringRefHash.Value(i) <= 0)
     {
       if(!fgStringAllocHash.Remove(const_cast<char*>(text)))
         assert(false);
@@ -210,10 +210,8 @@ void fgFreeText(const char* text, const char* file, size_t line)
 
 void fgTextLeakDump()
 {
-  for(auto curiter = fgStringRefHash.begin(); curiter.IsValid(); ++curiter)
+  for(auto[str, refs] : fgStringRefHash)
   {
-    const char* str = fgStringRefHash.GetKey(*curiter);
-    size_t refs = fgStringRefHash.GetValue(*curiter);
     fgLog(FGLOG_NONE, "The string \"%s\" leaked with %zi dangling references\n", str, refs);
     free(const_cast<char*>(str));
   }
