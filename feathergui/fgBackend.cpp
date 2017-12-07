@@ -424,7 +424,7 @@ void fgFunctionMap_destroy(struct kh_fgFunctionMap_s* h)
 
 int fgRegisterFunction(const char* name, fgListener fn)
 {
-  return fgRegisterDelegate(name, (void*)fn, &fgDelegateListener::stubembed);
+  return fgRegisterDelegate(name, (void*)fn, &fgDelegateListener::StubEmbed);
 }
 
 int fgRegisterDelegate(const char* name, void* p, void(*fn)(void*, struct _FG_ELEMENT*, const FG_Msg*))

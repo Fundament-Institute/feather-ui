@@ -8,7 +8,7 @@ INCLUDE_DIRS := include feathergui include/feathergui
 LIBRARY_DIRS := 
 LIBRARIES := rt
 
-CPPFLAGS += -fPIC -D BSS_UTIL_EXPORTS -std=c++17 -Wall -Wno-attributes -Wno-unknown-pragmas -Wno-reorder -Wno-missing-braces -Wno-unused-function -Wno-comment -Wno-char-subscripts -Wno-switch -Wno-parentheses
+CPPFLAGS += -fPIC -D BSS_UTIL_EXPORTS -std=c++17 -Wall -Wshadow -Wno-attributes -Wno-unknown-pragmas -Wno-reorder -Wno-missing-braces -Wno-unused-function -Wno-comment -Wno-char-subscripts -Wno-switch -Wno-parentheses
 LDFLAGS += -shared
 
 include base.mk

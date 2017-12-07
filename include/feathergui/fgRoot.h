@@ -117,10 +117,10 @@ FG_EXTERN char fgRemoveID(fgElement* element);
 }
 
 template<class T, void(T::*F)(struct _FG_ELEMENT*, const FG_Msg*)>
-inline void fgRegisterDelegate(const char* name, T* src) { fgRegisterDelegate(name, src, &fgDelegateListener::stub<T, F>); }
+inline void fgRegisterDelegate(const char* name, T* src) { fgRegisterDelegate(name, src, &fgDelegateListener::Stub<T, F>); }
 template<class T, void(T::*F)(struct _FG_ELEMENT*, const FG_Msg*) const>
-inline void fgRegisterDelegate(const char* name, const T* src) { fgRegisterDelegate(name, const_cast<T*>(src), &fgDelegateListener::stubconst<T, F>); }
-inline void fgRegisterLambda(const char* name, const fgLambdaListener& f) { fgRegisterDelegate(name, const_cast<fgLambdaListener*>(&f), &fgDelegateListener::stublambda); }
+inline void fgRegisterDelegate(const char* name, const T* src) { fgRegisterDelegate(name, const_cast<T*>(src), &fgDelegateListener::StubConst<T, F>); }
+inline void fgRegisterLambda(const char* name, const fgLambdaListener& f) { fgRegisterDelegate(name, const_cast<fgLambdaListener*>(&f), &fgDelegateListener::StubLambda); }
 
 template<FG_MSGTYPE type, typename... Args>
 inline size_t fgSendMsg(fgElement* self, Args... args)

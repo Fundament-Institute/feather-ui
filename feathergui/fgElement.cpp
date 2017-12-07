@@ -1349,7 +1349,7 @@ void fgElement_MouseMoveCheck(fgElement* self)
 
 void fgElement_AddListener(fgElement* self, fgMsgType type, fgListener listener)
 {
-  fgElement_AddDelegateListener(self, type, (void*)listener, &fgDelegateListener::stubembed);
+  fgElement_AddDelegateListener(self, type, (void*)listener, &fgDelegateListener::StubEmbed);
 }
 void fgElement_AddDelegateListener(fgElement* self, fgMsgType type, void* p, void(*listener)(void*, struct _FG_ELEMENT*, const FG_Msg*))
 {

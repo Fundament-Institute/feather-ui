@@ -255,10 +255,10 @@ FG_EXTERN void fgElement_RelativeTo(const fgElement* self, const fgElement* rela
 }
 
 template<class T, void(T::*F)(struct _FG_ELEMENT*, const FG_Msg*)>
-inline void fgElement_AddDelegateListener(fgElement* self, fgMsgType type, T* src) { fgElement_AddDelegateListener(self, type, src, &fgDelegateListener::stub<T, F>); }
+inline void fgElement_AddDelegateListener(fgElement* self, fgMsgType type, T* src) { fgElement_AddDelegateListener(self, type, src, &fgDelegateListener::Stub<T, F>); }
 template<class T, void(T::*F)(struct _FG_ELEMENT*, const FG_Msg*) const>
-inline void fgElement_AddDelegateListener(fgElement* self, fgMsgType type, const T* src) { fgElement_AddDelegateListener(self, type, const_cast<T*>(src), &fgDelegateListener::stubconst<T, F>); }
-inline void fgElement_AddLambdaListener(fgElement* self, fgMsgType type, const fgLambdaListener& f) { fgElement_AddDelegateListener(self, type, const_cast<fgLambdaListener*>(&f), &fgDelegateListener::stublambda); }
+inline void fgElement_AddDelegateListener(fgElement* self, fgMsgType type, const T* src) { fgElement_AddDelegateListener(self, type, const_cast<T*>(src), &fgDelegateListener::StubConst<T, F>); }
+inline void fgElement_AddLambdaListener(fgElement* self, fgMsgType type, const fgLambdaListener& f) { fgElement_AddDelegateListener(self, type, const_cast<fgLambdaListener*>(&f), &fgDelegateListener::StubLambda); }
 #endif
 
 #endif

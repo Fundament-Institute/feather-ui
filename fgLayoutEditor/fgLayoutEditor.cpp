@@ -90,7 +90,7 @@ _curelement(0), _historypos(-1), _insert(0), _insertdest(0)
       e->SetTooltip(s);
       fgElement_AddDelegateListener<fgLayoutEditor, &fgLayoutEditor::ControlAction>(e, FG_ACTION, this);
     };
-    fgIterateControls(&fn, &bss::Delegate<void, const char*>::stublambda);
+    fgIterateControls(&fn, &bss::Delegate<void, const char*>::StubLambda);
   }
 
   bssFill(_toolbarbuttons, 0);

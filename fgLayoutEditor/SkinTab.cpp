@@ -70,7 +70,7 @@ void SkinTab::_openSkinBase(fgElement* root, fgSkinBase& skin)
     _openSkinTree(item, s->tree);
   };
 
-  fgSkinBase_IterateSkins(&skin, &fn, &Delegate<void, fgSkin*, const char*>::stublambda);
+  fgSkinBase_IterateSkins(&skin, &fn, &Delegate<void, fgSkin*, const char*>::StubLambda);
 }
 void SkinTab::WriteStyleMap(Str& s, FG_UINT map)
 {

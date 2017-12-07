@@ -283,7 +283,7 @@ void LayoutTab::_openSublayout(fgElement* root, fgLayout* parent)
     _openLayout(item, l->children);
   };
 
-  fgLayout_IterateLayouts(parent, &fn, &Delegate<void, fgLayout*, const char*>::stublambda);
+  fgLayout_IterateLayouts(parent, &fn, &Delegate<void, fgLayout*, const char*>::StubLambda);
 }
 void LayoutTab::OpenLayout(fgLayout* layout)
 {
