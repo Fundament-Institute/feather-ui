@@ -1,4 +1,4 @@
-// Copyright ©2017 Black Sphere Studios
+// Copyright ©2018 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #include "fgTest.h"
@@ -286,7 +286,7 @@ int main(int argc, char** argv)
   srand(time(NULL));
   failedtests=fopen("failedtests.txt","wb");
   
-  printf("Feather GUI Abstraction Layer v%i.%i.%i: Unit Tests\nCopyright (c)2017 Black Sphere Studios\n\n",FGUI_VERSION_MAJOR,FGUI_VERSION_MINOR,FGUI_VERSION_REVISION);
+  printf("Feather GUI Abstraction Layer v%i.%i.%i: Unit Tests\nCopyright (c)2018 Black Sphere Studios\n\n",FGUI_VERSION_MAJOR,FGUI_VERSION_MINOR,FGUI_VERSION_REVISION);
   printf("%-*s %-*s %-*s\n",COLUMNS[0],"Test Name", COLUMNS[1],"Subtests", COLUMNS[2],"Pass/Fail");
 
   for(i = 0; i < NUMTESTS; ++i)

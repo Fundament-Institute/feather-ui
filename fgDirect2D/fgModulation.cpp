@@ -1,6 +1,7 @@
-// Copyright ©2017 Black Sphere Studios
+// Copyright ©2018 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "fgDirect2D.h"
 
+#include "win32_includes.h"
 #include <d2d1effecthelpers.h>
 #include <initguid.h>
 #include "fgModulation.h"

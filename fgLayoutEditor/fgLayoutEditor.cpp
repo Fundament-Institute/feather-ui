@@ -1,4 +1,4 @@
-// Copyright ©2017 Black Sphere Studios
+// Copyright ©2018 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "feathergui.h"
 
 #include "fgLayoutEditor.h"
@@ -497,7 +497,7 @@ void fgLayoutEditor::ProcessEvent(int id)
 #endif
     break;
   case EVENT_HELP_ABOUT:
-    ShowDialog("About", "FeatherGUI Layout Editor\nVersion v0.1.0\n\n(c)2017 Black Sphere Studios\n\nThis is a free, open-source layout editor for FeatherGUI, maintained as a core part of the FeatherGUI library ecosystem. Please send all feedback and bugs to the FeatherGUI Github: https://github.com/Black-Sphere-Studios/feathergui/", [](char) {}, "Close");
+    ShowDialog("About", "FeatherGUI Layout Editor\nVersion v0.1.0\n\n(c)2018 Black Sphere Studios\n\nThis is a free, open-source layout editor for FeatherGUI, maintained as a core part of the FeatherGUI library ecosystem. Please send all feedback and bugs to the FeatherGUI Github: https://github.com/Black-Sphere-Studios/feathergui/", [](char) {}, "Close");
     break;
   }
 }

@@ -9,6 +9,10 @@
 #ifndef NOMINMAX // Some compilers enable this by default
 #define NOMINMAX
 #endif
+#define NOBITMAP
+#define NOMCX
+#define NOSERVICE
+#define NOHELP
 #include <windows.h>
 #pragma pack(pop)
 #endif

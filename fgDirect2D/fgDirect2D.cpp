@@ -1,4 +1,4 @@
-// Copyright ©2017 Black Sphere Studios
+// Copyright ©2018 Black Sphere Studios
 // For conditions of distribution and use, see copyright notice in "fgDirect2D.h"
 
 #include "fgDirect2D.h"
@@ -9,7 +9,6 @@
 #include "fgDebug.h"
 #include "bss-util/bss_util.h"
 #include "util.h"
-#include "win32_includes.h"
 #include <stdint.h>
 #include <wincodec.h>
 #include <dwrite_1.h>

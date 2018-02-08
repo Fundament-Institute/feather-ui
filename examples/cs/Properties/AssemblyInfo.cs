@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Black Sphere Studios")]
 [assembly: AssemblyProduct("fgExample-cs")]
-[assembly: AssemblyCopyright("Copyright ©2017 Black Sphere Studios")]
+[assembly: AssemblyCopyright("Copyright ©2018 Black Sphere Studios")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

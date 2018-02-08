@@ -1,4 +1,4 @@
-// Copyright ©2017 Black Sphere Studios
+// Copyright ©2018 Black Sphere Studios
 
 #define D2D_INPUT_COUNT 1
 #define D2D_INPUT1_SIMPLE
