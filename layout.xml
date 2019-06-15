@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fg:Skin id="testskin" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:fg="featherGUI" xsi:schemaLocation="featherGUI feather.xsd">
+  <!-- top level layout node that binds to the root data structure -->
+  <Bind Target="." Template="window" name="window" title=".title" icon=".icon" x="0" y="0" height="600" width="800" buttons=".buttons" toolbars=".toolbars" inner=".app" footer=".status" />
+
+  <Template id="window" title="string" icon="binary" x="f32" y="f32" height="f32" width="f32" buttons="[binary]" toolbars="[]" inner="*" footer="*">
+    <Window x="$x" y="$y" height="$height" width="$width" layout="flex" flex="y">
+      <Element x="0" y="0" height="auto" width=":1.0">
+        <Image data="$icon" center-y=":0.5" y="0.5" />
+        <Text data="$title" center-y=":0.5" y="0.5" />
+        <Element x=":1" center=":1;:0.5" y="0.5">
+          <Data expand="$buttons" />
+        </Element>
+      </Element>
+      <Element id="header" layout="flex" flex="y">
+        <Data expand="$toolbars" />
+      </Element>
+      <Scroll width="1.0" height="1.0">
+        <Data load="$inner" />
+      </Scroll>
+      <Element id="footer">
+        <Data load="$footer" />
+      </Element>
+    </Window>
+  </Template>
+</fg:Skin>
