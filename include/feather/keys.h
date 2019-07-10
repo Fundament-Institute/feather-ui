@@ -4,6 +4,10 @@
 #ifndef FG__KEYS_H
 #define FG__KEYS_H
 
+#ifdef  __cplusplus
+extern "C" {
+#endif
+
 enum FG_KEYS
 {
   FG_KEY_NULL = 0, //because its possible to have _lastkey Set to this
@@ -211,11 +215,15 @@ enum FG_JOYBUTTONS
 
 enum FG_MOUSEBUTTON // Used in FG_Msg.button and FG_Msg.allbtn
 {
-  FG_MOUSELBUTTON = 1,
-  FG_MOUSERBUTTON = 2,
-  FG_MOUSEMBUTTON = 4,
-  FG_MOUSEXBUTTON1 = 8,
-  FG_MOUSEXBUTTON2 = 16,
+  FG_MOUSE_LBUTTON = 1,
+  FG_MOUSE_RBUTTON = 2,
+  FG_MOUSE_MBUTTON = 4,
+  FG_MOUSE_XBUTTON1 = 8,
+  FG_MOUSE_XBUTTON2 = 16,
 };
+
+#ifdef  __cplusplus
+}
+#endif
 
 #endif

@@ -31,6 +31,7 @@ extern "C" {
 
 typedef unsigned int fgFlag;
 typedef int fgError;
+typedef void(*fgDelegate)(void*);
 
 // A point in 2D space
 typedef struct
@@ -59,10 +60,10 @@ typedef union
 {
   struct
   {
-    float l;
-    float t;
-    float r;
-    float b;
+    float left;
+    float top;
+    float right;
+    float bottom;
   };
 
   struct
@@ -71,8 +72,7 @@ typedef union
     fgVec bottomright;
   };
 
-  float e[4];
-
+  float ltrb[4];
 } fgRect;
 
 // Unified vector that contains both absolute and relative coordinates
@@ -89,17 +89,17 @@ typedef struct
   fgRect rel;
 } URect;
 
-// A 64-bit RGBA, 16-bit per channel color used for all rendering.
+// A 32-bit RGBA, 8-bit per channel color used for all rendering.
 typedef union
 {
-  unsigned long long color;
-  unsigned short colors[4];
+  unsigned int color;
+  unsigned char colors[4];
   struct
   {
-    unsigned short r;
-    unsigned short g;
-    unsigned short b;
-    unsigned short a;
+    unsigned char r;
+    unsigned char g;
+    unsigned char b;
+    unsigned char a;
   };
 } fgColor;
 
@@ -111,6 +111,7 @@ enum LAYOUT_FLAGS
   LAYOUT_ALLOW_TOUCH_EVENTS = (1 << 3),
   LAYOUT_ALLOW_JOYSTICK_EVENTS = (1 << 4),
   LAYOUT_CLIP_CHILDREN = (1 << 5),
+  LAYOUT_HIDDEN = (1 << 6),
 };
 
 // Standard boolean states shared by most behavior components
@@ -122,6 +123,18 @@ enum STATE_FLAGS
   STATE_KEY_FOCUS = (1 << 3), // Has keyboard focus (usually the same as tabFocus, but some elements reject the key focus)
   STATE_SELECTED = (1 << 4),
   STATE_DISABLED = (1 << 5),
+};
+
+enum FG_UNIT
+{
+  UNIT_DP = 0, // DPI scaled units by default
+  UNIT_SP,
+  UNIT_EM, // Scales on font-size
+  UNIT_LN,
+  UNIT_PT,
+  UNIT_MM,
+  UNIT_PX, // Exactly this many pixels regardless of DPI
+  UNIT_MASK = 7,
 };
 
 enum WORD_WRAP
@@ -183,6 +196,12 @@ enum FG_LOGLEVEL {
   FGLOG_INFO = 4,
   FGLOG_DEBUG = 5,
 };
+
+FG_COMPILER_DLLEXPORT void fgScaleRectDPI(fgRect* rect, float dpix, float dpiy);
+FG_COMPILER_DLLEXPORT void fgInvScaleRectDPI(fgRect* rect, float dpix, float dpiy);
+FG_COMPILER_DLLEXPORT void fgScaleVecDPI(fgVec* v, float dpix, float dpiy);
+FG_COMPILER_DLLEXPORT void fgInvScaleVecDPI(fgVec* v, float dpix, float dpiy);
+FG_COMPILER_DLLEXPORT void fgMergeRect(fgRect* target, const fgRect* src);
 
 #ifdef  __cplusplus
 }

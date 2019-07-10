@@ -1,1 +1,10 @@
 /.vs/
+/bin-Win32/
+/bin-x64/
+/examples/simple/Win32/
+/examples/simple/x64/
+/feather/Win32/
+/feather/x64/
+/fgDirect2D/Win32/
+/fgDirect2D/x64/
+*.user

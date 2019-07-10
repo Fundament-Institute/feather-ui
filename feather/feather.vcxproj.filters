@@ -16,6 +16,18 @@
     <Filter Include="include">
       <UniqueIdentifier>{15dbdd3a-0d04-4cc6-be0f-e58def2c2bcd}</UniqueIdentifier>
     </Filter>
+    <Filter Include="include\layout">
+      <UniqueIdentifier>{6270ed2e-62ee-4736-a469-11ffa3423164}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\component">
+      <UniqueIdentifier>{e01570bd-bf4e-44fc-8b95-62322ee66a75}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\component">
+      <UniqueIdentifier>{03f45777-85ba-4f84-bdfb-e380fe31caf6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\layout">
+      <UniqueIdentifier>{e30ed5dd-0789-4989-981c-a80ba840c4b0}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\feather\feather.h">
@@ -27,16 +39,94 @@
     <ClInclude Include="..\include\feather\backend.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="message.h">
+    <ClInclude Include="..\include\feather\keys.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="keys.h">
+    <ClInclude Include="..\include\feather\message.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\feather\rtree.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\feather\outline.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\feather\document.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\feather\component\layer.h">
+      <Filter>include\component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\feather\component\box.h">
+      <Filter>include\component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\feather\component\window.h">
+      <Filter>include\component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\feather\root.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="util.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\feather\layout\default.h">
+      <Filter>include\layout</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\feather\layout\flex.h">
+      <Filter>include\layout</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\feather\calc.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\feather\skin.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\feather\data.h">
       <Filter>include</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="feather.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="backend.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="message.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="root.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rtree.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="outline.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="document.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="component\box.cpp">
+      <Filter>Source Files\component</Filter>
+    </ClCompile>
+    <ClCompile Include="component\layer.cpp">
+      <Filter>Source Files\component</Filter>
+    </ClCompile>
+    <ClCompile Include="layout\default.cpp">
+      <Filter>Source Files\layout</Filter>
+    </ClCompile>
+    <ClCompile Include="flex.cpp">
+      <Filter>Source Files\layout</Filter>
+    </ClCompile>
+    <ClCompile Include="calc.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="skin.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="component\window.cpp">
+      <Filter>Source Files\component</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

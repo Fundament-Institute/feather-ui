@@ -162,4 +162,18 @@
 #endif
 #endif
 
+#ifdef FG_PLATFORM_WIN32
+#define ALLOCA(x) _alloca(x)
+#define MEMCPY(d, size, s, len) memcpy_s(d, size, s, len)
+#else
+#define ALLOCA(x) alloca(x)
+#define MEMCPY(d, size, s, len) memcpy(d, s, len)
+#endif
+
+#ifdef FG_32BIT
+#define kh_ptr_hash_func kh_int_hash_func
+#else
+#define kh_ptr_hash_func kh_int64_hash_func
+#endif
+
 #endif
