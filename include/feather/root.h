@@ -35,15 +35,21 @@ typedef struct
   fgResolver resolver;
 } fgLayoutDefinition;
 
-typedef struct
+typedef void(*fgDataListener)(struct FG__ROOT*, void*, const void*, unsigned int, unsigned int);
+
+typedef struct FG__DATA_HOOK
 {
-  void* obj;
-  void(*f)(struct FG__ROOT*, void*, const void*, unsigned int, unsigned int);
-} fgDataListener;
+  const void* data;
+  void* self;
+  fgDataListener f;
+  void (*remove)(struct FG__DATA_HOOK*);
+  struct FG__DATA_HOOK* next;
+  struct FG__DATA_HOOK* prev;
+} fgDataHook;
 
 KHASH_DECLARE(component, const char*, fgBehaviorDefinition);
 KHASH_DECLARE(layout, const char*, fgLayoutDefinition);
-KHASH_DECLARE(data, const void*, fgDataListener);
+KHASH_DECLARE(data, const void*, fgDataHook*);
 
 typedef struct FG__ROOT
 {
@@ -63,6 +69,7 @@ typedef struct FG__ROOT
   kh_layout_t* layouts;
   kh_component_t* components;
   kh_data_t* listeners;
+  kh_eventnode_t* eventnodes; // Tracks the number of event listener edges we have so we only keep one instance at once.
 } fgRoot;
 
 FG_COMPILER_DLLEXPORT void fgLog(fgRoot* root, FG_LOGLEVEL level, const char* format, ...);
@@ -71,6 +78,9 @@ FG_COMPILER_DLLEXPORT bool fgGetKey(fgRoot* root, unsigned char key);
 FG_COMPILER_DLLEXPORT fgDataField fgGetData(struct FG__ROOT* root, void* data, const char* accessor);
 FG_COMPILER_DLLEXPORT void fgUpdateData(struct FG__ROOT* root, const void* obj);
 FG_COMPILER_DLLEXPORT void fgUpdateDataRange(struct FG__ROOT* root, const void* obj, unsigned int offset, unsigned int count);
+FG_COMPILER_DLLEXPORT fgDataHook* fgAddDataHook(struct FG__ROOT* root, const void* data, void* obj, fgDataListener f, void (*remove)(struct FG__DATA_HOOK*), unsigned int aux);
+FG_COMPILER_DLLEXPORT void fgRemoveDataHook(struct FG__ROOT* root, fgDataHook* hook);
+FG_COMPILER_DLLEXPORT void fgRemoveData(struct FG__ROOT* root, void* data);
 FG_COMPILER_DLLEXPORT void fgInitialize(fgRoot* root);
 FG_COMPILER_DLLEXPORT void fgTerminate(fgRoot* root);
 FG_COMPILER_DLLEXPORT fgError fgProcessMessages(fgRoot* root);

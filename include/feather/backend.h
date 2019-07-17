@@ -25,20 +25,25 @@ enum FG_BACKEND_FEATURES
   FEATURE_CIRCLE_BORDER      = (1 << 9),
   FEATURE_CIRCLE_BLUR        = (1 << 10),
   FEATURE_CIRCLE_ALPHA       = (1 << 11),
-  FEATURE_LINES_ALPHA        = (1 << 12),
-  FEATURE_CURVE_STROKE       = (1 << 13), // If both stroke and fill are false, it doesn't support curves at all
-  FEATURE_CURVE_FILL         = (1 << 14),
-  FEATURE_LAYER_TRANSFORM    = (1 << 15),
-  FEATURE_LAYER_OPACITY      = (1 << 16),
-  FEATURE_SHADER_GLSL2       = (1 << 17),
-  FEATURE_SHADER_GLSL4       = (1 << 18),
-  FEATURE_SHADER_HLSL2       = (1 << 19),
-  FEATURE_BACKGROUND_OPACITY = (1 << 20),
-  FEATURE_IMMEDIATE_MODE     = (1 << 21), // Does not indicate a feature, simply signifies whether this tends to redraw every frame or tries to only update dirty regions.
+  FEATURE_TRIANGLE_CORNERS   = (1 << 12),
+  FEATURE_TRIANGLE_BORDER    = (1 << 13),
+  FEATURE_TRIANGLE_BLUR      = (1 << 14),
+  FEATURE_TRIANGLE_ALPHA     = (1 << 15),
+  FEATURE_LINES_ALPHA        = (1 << 16),
+  FEATURE_CURVE_STROKE       = (1 << 17), // If both stroke and fill are false, it doesn't support curves at all
+  FEATURE_CURVE_FILL         = (1 << 18),
+  FEATURE_LAYER_TRANSFORM    = (1 << 19),
+  FEATURE_LAYER_OPACITY      = (1 << 20),
+  FEATURE_SHADER_GLSL2       = (1 << 21),
+  FEATURE_SHADER_GLSL4       = (1 << 22),
+  FEATURE_SHADER_HLSL2       = (1 << 23),
+  FEATURE_BACKGROUND_OPACITY = (1 << 24),
+  FEATURE_IMMEDIATE_MODE     = (1 << 25), // Does not indicate a feature, simply signifies whether this tends to redraw every frame or tries to only update dirty regions.
 };
 
 enum FG_BACKEND_FORMATS
 {
+  BACKEND_GRADIENT,
   BACKEND_BMP,
   BACKEND_JPG,
   BACKEND_PNG,
@@ -101,8 +106,9 @@ typedef struct FG__BACKEND
 {
   fgError (*drawFont)(struct FG__BACKEND* self, void* data, const fgFont* font, fgFontLayout layout, const fgRect* area, fgColor color, float lineHeight, float letterSpacing, float blur, enum FG_TEXT_ANTIALIASING aa);
   fgError (*drawAsset)(struct FG__BACKEND* self, void* data, const fgAsset* asset, const fgRect* area, const fgRect* source, fgColor color, float time);
-  fgError (*drawRect)(struct FG__BACKEND* self, void* data, const fgRect* area, const fgRect* corners, fgColor fillColor, float border, fgColor borderColor, float blur);
-  fgError (*drawCircle)(struct FG__BACKEND* self, void* data, const fgRect* area, const fgRect* arcs, fgColor fillColor, float border, fgColor borderColor, float blur);
+  fgError (*drawRect)(struct FG__BACKEND* self, void* data, const fgRect* area, const fgRect* corners, fgColor fillColor, float border, fgColor borderColor, float blur, const fgAsset* asset);
+  fgError (*drawCircle)(struct FG__BACKEND* self, void* data, const fgRect* area, const fgRect* arcs, fgColor fillColor, float border, fgColor borderColor, float blur, const fgAsset* asset);
+  fgError (*drawTriangle)(struct FG__BACKEND* self, void* data, const fgRect* area, const fgRect* corners, fgColor fillColor, float border, fgColor borderColor, float blur, const fgAsset* asset);
   fgError (*drawLines)(struct FG__BACKEND* self, void* data, const fgVec* points, size_t count, fgColor color);
   fgError (*drawCurve)(struct FG__BACKEND* self, void* data, const fgVec* anchors, size_t count, fgColor fillColor, float stroke, fgColor strokeColor);
   // fgError(*drawShader)(struct FG__BACKEND* self, void* data,fgShader);

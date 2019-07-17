@@ -3,7 +3,7 @@
 
 #include "feather/component/layer.h"
 
-fgMessageResult fgLayerBehavior(const struct FG__ROOT* root, struct FG__OUTLINE_NODE* outline, struct FG__DOCUMENT_NODE* node, fgMessage* msg)
+extern "C" fgMessageResult fgLayerBehavior(const struct FG__ROOT* root, struct FG__DOCUMENT_NODE* node, const fgMessage* msg)
 {
   return fgMessageResult{ 0 };
 }

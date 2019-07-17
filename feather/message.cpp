@@ -47,11 +47,21 @@ extern "C" fgMessageResult fgDefaultBehavior(const struct FG__ROOT* root, struct
     DrawRTNode(msg->draw.area.topleft, root, node->rtnode, msg);
     break;
   case FG_MSG_STATE_GET:
-    if(!msg->getState.id)
+  {
+    unsigned int err = fgStandardResolver(node->outline, msg->subtype, msg->getState.value, msg->getState.id);
+    if(err == ~0)
+      err = (*node->outline->stateresolver)(node->outline->data, msg->subtype, msg->getState.value, msg->getState.id);
+    if(err == ~0)
+      err = (*node->outline->auxresolver)(node->outline->auxdata, msg->subtype, msg->getState.value, msg->getState.id);
+    return fgMessageResult{ (fgError)err };
+  }
+  case FG_MSG_STATE_SET:
+    if(unsigned int err = (*node->outline->stateresolver)(node->outline->data, msg->subtype, const_cast<fgCalcNode*>(&msg->setState.value), msg->setState.id); err == ~0)
       return fgMessageResult{ -1 };
-    if(fgError err = (*node->outline->stateresolver)(node->outline->data, msg->getState.id, msg->getState.value, 0); err >= 0)
-      return fgMessageResult{ err };
-    return fgMessageResult{ (*node->outline->auxresolver)(node->outline->auxdata, msg->getState.id, msg->getState.value, 0) };
+    break;
+  case FG_MSG_TEXT_SCALE:
+  case FG_MSG_DPI:
+    return node->outline->parent ? (*node->outline->parent->behavior)(root, node, msg) : fgMessageResult{ -1 };
   }
   return fgMessageResult{ 0 };
 }

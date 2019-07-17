@@ -92,12 +92,10 @@ void fgLayoutDefault(fgDocumentNode* node, const fgRect* area, const fgOutlineNo
   }
 }
 
-unsigned char fgLayoutDefaultResolver(void* ptr, const char* id, fgCalcResult* out, int* n)
+extern "C" unsigned int fgLayoutDefaultResolver(void* outline, unsigned int index, fgCalcNode* out, const char* id)
 {
-  if(id)
-    return ~0;
+  //if(id)
+  //  return ~0;
 
-  *n = 0;
-  out->p = 0;
-  return 0;
+  return ~0;
 }

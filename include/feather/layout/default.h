@@ -10,8 +10,8 @@
 extern "C" {
 #endif
 
-void fgLayoutDefault(fgDocumentNode*, const fgRect* area, const fgOutlineNode* parent, float scale, fgVec dpi);
-unsigned char fgLayoutDefaultResolver(void* ptr, const char* id, fgCalcResult* out, int* n);
+FG_COMPILER_DLLEXPORT void fgLayoutDefault(fgDocumentNode*, const fgRect* area, const fgOutlineNode* parent, float scale, fgVec dpi);
+FG_COMPILER_DLLEXPORT unsigned int fgLayoutDefaultResolver(void* outline, unsigned int index, fgCalcNode* out, const char* id);
 
 #ifdef  __cplusplus
 }

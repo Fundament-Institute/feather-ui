@@ -5,6 +5,7 @@
 #define FG__BOX_H
 
 #include "../message.h"
+#include "../backend.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -18,9 +19,10 @@ typedef struct
   float border;
   fgColor borderColor;
   float blur;
+  fgAsset* asset;
 } fgBoxData;
 
-fgMessageResult fgBoxBehavior(const struct FG__ROOT* root, struct FG__DOCUMENT_NODE* node, const fgMessage* msg);
+FG_COMPILER_DLLEXPORT fgMessageResult fgBoxBehavior(const struct FG__ROOT* root, struct FG__DOCUMENT_NODE* node, const fgMessage* msg);
 
 #ifdef  __cplusplus
 }

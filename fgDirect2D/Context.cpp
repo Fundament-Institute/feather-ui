@@ -41,23 +41,30 @@ FG_FORCEINLINE fgVec AdjustPoints(longptr_t lParam, HWND__* hWnd)
   return fgVec{ v.x + (float)rect.left, v.y + (float)rect.top };
 }
 
-Context::Context(struct FG__OUTLINE_NODE* display)
+Context::Context(const fgRoot* root, fgDocumentNode* _node, struct FG__OUTLINE_NODE* _display)
 {
-  display = display;
-  dpi = reinterpret_cast<DisplayData*>(display->auxdata)->dpi;
+  target = 0;
+  context = 0;
   color = 0;
   edgecolor = 0;
-  target = 0;
   roundrect = 0;
   triangle = 0;
   circle = 0;
   scale = 0;
-  context = 0;
+  node = _node;
+  backend = static_cast<Direct2D*>(root->backend);
+  margin = { 0 };
+  assets = kh_init_wic();
+  display = _display;
   inside = false;
   invalid = false;
-  assets = kh_init_wic();
 
-  hWnd = Context::WndCreate(fgRect{ 0 }, WS_POPUP, WS_EX_TOOLWINDOW, backend, L"fgDirectD2Dtopmost", dpi);
+  dpi = reinterpret_cast<DisplayData*>(display->auxdata)->dpi;
+  //hWnd = Context::WndCreate(fgRect{ 0 }, WS_POPUP, WS_EX_TOOLWINDOW, backend, L"WindowD2D", dpi);
+  hWnd = Context::WndCreate(fgRect{ 0, 0, 800, 600 }, WS_THICKFRAME, WS_EX_APPWINDOW, this, L"WindowD2D", dpi);
+  
+  ShowWindow(hWnd, SW_SHOW);
+  UpdateWindow(hWnd);
 }
 Context::~Context()
 {
@@ -102,17 +109,17 @@ longptr_t __stdcall Context::TopWndProc(HWND__* hWnd, unsigned int message, size
     case WM_NCHITTEST: // TODO: Make this a custom message passed to the window behavior
     {
       fgMessage msg = { FG_MSG_STATE_GET, FG_WINDOW_STATE };
-      fgCalcResult flags;
+      fgCalcNode flags;
       msg.getState = { 0, &flags };
       fgSendMessage(self->backend->root, self->node, &msg);
-      if(flags.i & (FG_WINDOW_RESIZABLE | FG_WINDOW_MAXIMIZABLE))
+      if(flags.value.i & (FG_WINDOW_RESIZABLE | FG_WINDOW_MAXIMIZABLE))
       {
         RECT WindowRect;
         GetWindowRect(hWnd, &WindowRect);
         int x = GET_X_LPARAM(lParam) - WindowRect.left;
         int y = GET_Y_LPARAM(lParam) - WindowRect.top;
 
-        if((flags.i & FG_WINDOW_RESIZABLE) && !(flags.i & FG_WINDOW_MAXIMIZED))
+        if((flags.value.i & FG_WINDOW_RESIZABLE) && !(flags.value.i & FG_WINDOW_MAXIMIZED))
         {
           if(x < BORDERWIDTH && y < BORDERWIDTH)
             return HTTOPLEFT;
@@ -143,7 +150,7 @@ longptr_t __stdcall Context::TopWndProc(HWND__* hWnd, unsigned int message, size
       fgMessage get = { FG_MSG_STATE_GET, FG_WINDOW_STATE };
       get.getState = { 0, &msg.setState.value };
       fgSendMessage(self->backend->root, self->node, &get);
-      msg.setState.value.i |= FG_WINDOW_CLOSED;
+      msg.setState.value.value.i |= FG_WINDOW_CLOSED;
       fgSendMessage(self->backend->root, self->node, &msg);
       msg = { FG_MSG_ACTION, FG_WINDOW_ONCLOSE };
       fgSendMessage(self->backend->root, self->node, &msg);
@@ -171,14 +178,14 @@ longptr_t __stdcall Context::TopWndProc(HWND__* hWnd, unsigned int message, size
       switch(wParam)
       {
       case SIZE_MAXIMIZED:
-        msg.setState.value.i |= FG_WINDOW_MAXIMIZED;
+        msg.setState.value.value.i |= FG_WINDOW_MAXIMIZED;
         fgSendMessage(self->backend->root, self->node, &msg);
         break;
       case SIZE_MINIMIZED:
-        msg.setState.value.i &= ~FG_WINDOW_MINIMIZED;
+        msg.setState.value.value.i &= ~FG_WINDOW_MINIMIZED;
         fgSendMessage(self->backend->root, self->node, &msg);
       case SIZE_RESTORED:
-        msg.setState.value.i &= ~(FG_WINDOW_MAXIMIZED & FG_WINDOW_MINIMIZED);
+        msg.setState.value.value.i &= ~(FG_WINDOW_MAXIMIZED & FG_WINDOW_MINIMIZED);
         fgSendMessage(self->backend->root, self->node, &msg);
         break;
       }
@@ -478,10 +485,10 @@ void Context::ApplyWin32Size(HWND__* handle)
   if(SUCCEEDED(GetWindowRect(handle, &r)))
   {
     fgMessage msg = { FG_MSG_STATE_GET, FG_WINDOW_STATE };
-    fgCalcResult flags;
+    fgCalcNode flags;
     msg.getState.value = &flags;
     fgSendMessage(backend->root, node, &msg);
-    if(flags.i & FG_WINDOW_MAXIMIZED)
+    if(flags.value.i & FG_WINDOW_MAXIMIZED)
     {
       RECT rsize = r;
       AdjustWindowRectEx(&rsize, GetWindowLong(handle, GWL_STYLE), FALSE, GetWindowLong(handle, GWL_EXSTYLE));
@@ -491,8 +498,17 @@ void Context::ApplyWin32Size(HWND__* handle)
       margin = { 0,0,0,0 };
 
     fgRect rect = { (float)r.left, (float)r.top, (float)r.right, (float)r.bottom };
-    msg = { FG_MSG_STATE_SET, FG_WINDOW_RECT };
-    msg.setState.value.p = &rect;
+    msg = { FG_MSG_STATE_SET, FG_WINDOW_LEFT };
+    msg.setState.value = { FG_CALC_FLOAT, r.left };
+    fgSendMessage(backend->root, node, &msg);
+    msg.type = FG_WINDOW_TOP;
+    msg.setState.value = { FG_CALC_FLOAT, r.top };
+    fgSendMessage(backend->root, node, &msg);
+    msg.type = FG_WINDOW_RIGHT;
+    msg.setState.value = { FG_CALC_FLOAT, r.right };
+    fgSendMessage(backend->root, node, &msg);
+    msg.type = FG_WINDOW_BOTTOM;
+    msg.setState.value = { FG_CALC_FLOAT, r.bottom };
     fgSendMessage(backend->root, node, &msg);
   }
 }

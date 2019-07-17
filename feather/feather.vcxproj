@@ -24,9 +24,11 @@
     <ClInclude Include="..\include\feather\compiler.h" />
     <ClInclude Include="..\include\feather\component\box.h" />
     <ClInclude Include="..\include\feather\component\layer.h" />
+    <ClInclude Include="..\include\feather\component\text.h" />
     <ClInclude Include="..\include\feather\component\window.h" />
     <ClInclude Include="..\include\feather\data.h" />
     <ClInclude Include="..\include\feather\document.h" />
+    <ClInclude Include="..\include\feather\event.h" />
     <ClInclude Include="..\include\feather\feather.h" />
     <ClInclude Include="..\include\feather\keys.h" />
     <ClInclude Include="..\include\feather\layout\default.h" />
@@ -43,8 +45,10 @@
     <ClCompile Include="calc.cpp" />
     <ClCompile Include="component\box.cpp" />
     <ClCompile Include="component\layer.cpp" />
+    <ClCompile Include="component\text.cpp" />
     <ClCompile Include="component\window.cpp" />
     <ClCompile Include="document.cpp" />
+    <ClCompile Include="event.cpp" />
     <ClCompile Include="feather.cpp" />
     <ClCompile Include="flex.cpp" />
     <ClCompile Include="layout\default.cpp" />

@@ -25,7 +25,7 @@ typedef struct
   enum LAYER_MOUSE mouse;
 } fgLayerData;
 
-fgMessageResult fgLayerBehavior(const struct FG__ROOT* root, struct FG__DOCUMENT_NODE* node, const fgMessage* msg);
+FG_COMPILER_DLLEXPORT fgMessageResult fgLayerBehavior(const struct FG__ROOT* root, struct FG__DOCUMENT_NODE* node, const fgMessage* msg);
 
 #ifdef  __cplusplus
 }

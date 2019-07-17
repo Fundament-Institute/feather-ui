@@ -3,13 +3,13 @@
 
 #include "feather/skin.h"
 #include "feather/root.h"
+#include "feather/layout/default.h"
 #include "util.h"
 #include <string>
 
-extern "C" {
-  __KHASH_IMPL(field, , const char*, fgCalculation, 1, kh_str_hash_funcins, kh_str_hash_equal);
-  __KHASH_IMPL(outline, , const char*, struct FG__SKIN_NODE*, 1, kh_str_hash_funcins, kh_str_hash_equal);
-}
+__KHASH_IMPL(field, extern "C", unsigned int, fgCalculation, 1, kh_int_hash_func, kh_int_hash_equal);
+__KHASH_IMPL(outline, extern "C", const char*, struct FG__SKIN_NODE*, 1, kh_str_hash_funcins, kh_str_hash_equal);
+__KHASH_IMPL(unresolved, extern "C", const char*, fgCalculation, 1, kh_str_hash_funcins, kh_str_hash_equal);
 
 fgSkinNode* fgGetSkin(fgSkin* skin, char* selector)
 {
@@ -19,12 +19,12 @@ fgSkinNode* fgGetSkin(fgSkin* skin, char* selector)
   {
     *type = '.';
     khiter_t i = kh_get_outline(skin->generators, selector);
-    if(i <= kh_end(skin->generators) && kh_exist(skin->generators, i))
+    if(kh_exist2(skin->generators, i))
       return kh_val(skin->generators, i);
 
     *type = 0;
     i = kh_get_outline(skin->generators, selector);
-    if(i <= kh_end(skin->generators) && kh_exist(skin->generators, i))
+    if(kh_exist2(skin->generators, i))
       return kh_val(skin->generators, i);
 
     selector = strchr(selector, '.');
@@ -35,6 +35,24 @@ fgSkinNode* fgGetSkin(fgSkin* skin, char* selector)
   return 0;
 }
 
+extern "C" void fgSkinResolveFields(kh_field_t* fields, kh_unresolved_t* unresolved, fgResolver resolver)
+{
+  for(khiter_t i = kh_begin(unresolved); i < kh_end(unresolved); ++i)
+  {
+    if(kh_exist(unresolved, i))
+    {
+      unsigned int field = resolver(0, 0, 0, kh_key(unresolved, i));
+      if(field != ~0)
+      {
+        int r;
+        khiter_t iter = kh_put_field(fields, field, &r);
+        if(r > 0)
+          kh_val(fields, iter) = kh_val(unresolved, i);
+        kh_del_unresolved(unresolved, i); // This is safe to do while iterating because khash doesn't reallocate until things are added.
+      }
+    }
+  }
+}
 
 extern "C" fgOutlineNode* fgSkinGeneratorInner(struct FG__ROOT* root, fgSkin* skin, struct FG__SKIN_NODE* node, void* data, fgOutlineNode* parent, float scale, fgVec dpi, std::string& selector)
 {
@@ -83,11 +101,25 @@ extern "C" fgOutlineNode* fgSkinGeneratorInner(struct FG__ROOT* root, fgSkin* sk
       outline->gendata = node;
       outline->data = data;
       outline->parent = parent;
+      outline->layout = &fgLayoutDefault;
+      outline->auxresolver = &fgLayoutDefaultResolver;
+      outline->behavior = &fgDefaultBehavior;
+      outline->stateresolver = &fgNullResolver;
+
       if(parent)
         LLAdd(outline, parent->children);
 
       outline->listeners = kh_init_event();
-      (*outline->generator)(root, outline, scale, dpi);
+      if(node->unresolved) // Resolve strings to enumerators
+        fgSkinResolveFields(node->fields, node->unresolved, &fgStandardResolver);
+
+      (*outline->generator)(root, outline, 0, scale, dpi);
+
+      for(khiter_t i = kh_begin(node->fields); i < kh_end(node->fields); ++i)
+      {
+        if(kh_exist(node->fields, i))
+          fgGatherEvents(root, outline, kh_key(node->fields, i), kh_val(node->fields, i).nodes, kh_val(node->fields, i).count);
+      }
 
       for(fgSkinNode* cur = node->children; cur; cur = cur->sibling)
         fgSkinGeneratorInner(root, skin, cur, cur->data, outline, scale, dpi, selector);
@@ -101,5 +133,8 @@ extern "C" fgOutlineNode* fgSkinGeneratorInner(struct FG__ROOT* root, fgSkin* sk
 extern "C" fgOutlineNode* fgSkinGenerator(struct FG__ROOT* root, fgSkin* skin, float scale, fgVec dpi)
 {
   std::string selector;
-  return fgSkinGeneratorInner(root, skin, skin->root, skin->root->data, 0, scale, dpi, selector);
+  // The root node is just a list of child skin nodes to add to a display, for now
+  for(fgSkinNode* cur = skin->root->children; cur; cur = cur->sibling)
+    fgSkinGeneratorInner(root, skin, cur, cur->data, root->backend->displays[0], scale, dpi, selector);
+  return root->backend->displays[0];
 }

@@ -4,6 +4,7 @@
 #include "Direct2D.h"
 #include "feather/outline.h"
 #include "feather/rtree.h"
+#include "feather/layout/default.h"
 #include "util.h"
 #include <stdint.h>
 #include <wincodec.h>
@@ -87,7 +88,7 @@ fgError DrawAssetD2D(struct FG__BACKEND* self, void* data, const fgAsset* asset,
   return 0;
 }
 
-fgError DrawRectD2D(struct FG__BACKEND* self, void* data, const fgRect* area, const fgRect* corners, fgColor fillColor, float border, fgColor borderColor, float blur)
+fgError DrawRectD2D(struct FG__BACKEND* self, void* data, const fgRect* area, const fgRect* corners, fgColor fillColor, float border, fgColor borderColor, float blur, const fgAsset* asset)
 {
   auto context = reinterpret_cast<Context*>(data);
   fgassert(context != 0);
@@ -105,7 +106,7 @@ fgError DrawRectD2D(struct FG__BACKEND* self, void* data, const fgRect* area, co
   return 0;
 }
 
-fgError DrawCircleD2D(struct FG__BACKEND* self, void* data, const fgRect* area, const fgRect* arcs, fgColor fillColor, float border, fgColor borderColor, float blur)
+fgError DrawCircleD2D(struct FG__BACKEND* self, void* data, const fgRect* area, const fgRect* arcs, fgColor fillColor, float border, fgColor borderColor, float blur, const fgAsset* asset)
 {
   auto context = reinterpret_cast<Context*>(data);
   fgassert(context != 0);
@@ -117,6 +118,23 @@ fgError DrawCircleD2D(struct FG__BACKEND* self, void* data, const fgRect* area, 
     *area,
     D2D1::Vector4F(area->left, area->top, area->right, area->bottom),
     D2D1::Vector4F(arcs->left, arcs->top, arcs->right, arcs->bottom),
+    fillColor,
+    borderColor,
+    border);
+  return 0;
+}
+fgError DrawTriangleD2D(struct FG__BACKEND* self, void* data, const fgRect* area, const fgRect* corners, fgColor fillColor, float border, fgColor borderColor, float blur, const fgAsset* asset)
+{
+  auto context = reinterpret_cast<Context*>(data);
+  fgassert(context != 0);
+  fgassert(context->target != 0);
+
+  DrawEffectD2D<0>(
+    context,
+    context->triangle,
+    *area,
+    D2D1::Vector4F(area->left, area->top, area->right, area->bottom),
+    D2D1::Vector4F(corners->left, corners->top, corners->right, corners->bottom),
     fillColor,
     borderColor,
     border);
@@ -423,7 +441,7 @@ inline fgAsset* Direct2D::LoadAsset(const char* data, size_t count)
 
 fgAsset* CreateAssetD2D(struct FG__BACKEND* self, const char* data, size_t count, enum FG_BACKEND_FORMATS format)
 {
-  return reinterpret_cast<Direct2D*>(self)->LoadAsset(data, count);
+  return static_cast<Direct2D*>(self)->LoadAsset(data, count);
 }
 
 fgError DestroyAssetD2D(struct FG__BACKEND* self, fgAsset* asset)
@@ -546,9 +564,9 @@ fgError ClearClipboardD2D(struct FG__BACKEND* self, enum FG_CLIPBOARD kind)
 
 fgOutlineNode* Direct2D::GetDisplay(struct HMONITOR__* monitor)
 {
-  for(unsigned int i = 0; i < base.n_displays; ++i)
-    if(base.displays[i]->statedata == monitor)
-      return base.displays[i];
+  for(unsigned int i = 0; i < n_displays; ++i)
+    if(displays[i]->statedata == monitor)
+      return displays[i];
 
   return nullptr;
 }
@@ -620,7 +638,7 @@ fgError SetCursorD2D(struct FG__BACKEND* self, void* data, enum FG_CURSOR cursor
 void DestroyD2D(struct FG__BACKEND* self)
 {
   PostQuitMessage(0);
-  auto d2d = reinterpret_cast<Direct2D*>(self);
+  auto d2d = static_cast<Direct2D*>(self);
   if(!d2d)
     return;
 
@@ -638,9 +656,9 @@ Direct2D::~Direct2D()
   if(writefactory)
     writefactory->Release();
   WipeMonitors();
-  if(base.displays)
-    free(base.displays);
-  base.n_displays = 0;
+  if(displays)
+    free(displays);
+  n_displays = 0;
 }
 
 inline fgVec operator-(const fgVec& l, const fgVec& r) { return fgVec{ l.x - r.x, l.y - r.y }; }
@@ -649,11 +667,11 @@ BOOL __stdcall EnumerateMonitorsProc(HMONITOR monitor, HDC hdc, LPRECT, LPARAM l
 {
   Direct2D* root = reinterpret_cast<Direct2D*>(lparam);
   fgOutlineNode* display = nullptr;
-  for(unsigned int i = 0; i < root->base.n_displays; ++i)
+  for(unsigned int i = 0; i < root->n_displays; ++i)
   {
-    if(root->base.displays[i]->statedata == monitor)
+    if(root->displays[i]->statedata == monitor)
     {
-      display = root->base.displays[i];
+      display = root->displays[i];
       break;
     }
   }
@@ -663,8 +681,11 @@ BOOL __stdcall EnumerateMonitorsProc(HMONITOR monitor, HDC hdc, LPRECT, LPARAM l
     display = (fgOutlineNode*)calloc(1, sizeof(fgOutlineNode));
     display->auxdata = calloc(1, sizeof(DisplayData));
     display->statedata = monitor;
-    root->base.displays = (fgOutlineNode**)realloc(root->base.displays, (++root->base.n_displays) * sizeof(fgOutlineNode*));
-    root->base.displays[root->base.n_displays - 1] = display;
+    display->layout = &fgLayoutDefault;
+    display->auxresolver = &fgNullResolver;
+    display->stateresolver = &fgNullResolver;
+    root->displays = (fgOutlineNode**)realloc(root->displays, (++root->n_displays) * sizeof(fgOutlineNode*));
+    root->displays[root->n_displays - 1] = display;
   }
 
   DisplayData& data = *reinterpret_cast<DisplayData*>(display->auxdata);
@@ -677,7 +698,7 @@ BOOL __stdcall EnumerateMonitorsProc(HMONITOR monitor, HDC hdc, LPRECT, LPARAM l
     data.dpi = { (float)x, (float)y };
   }
   else
-    data.dpi = root->base.dpi;
+    data.dpi = root->dpi;
   
   if(root->getScaleFactorForMonitor)
   {
@@ -735,19 +756,19 @@ BOOL __stdcall EnumerateMonitorsProc(HMONITOR monitor, HDC hdc, LPRECT, LPARAM l
 
 void Direct2D::WipeMonitors()
 {
-  for(unsigned int i = 0; i < base.n_displays; ++i)
+  for(unsigned int i = 0; i < n_displays; ++i)
   {
-    if(base.displays[i]->layoutFlags & Direct2D::VALID_DISPLAY)
-      base.displays[i]->layoutFlags &= ~Direct2D::VALID_DISPLAY;
+    if(displays[i]->layoutFlags & Direct2D::VALID_DISPLAY)
+      displays[i]->layoutFlags &= ~Direct2D::VALID_DISPLAY;
     else
     {
-      free(base.displays[i]->auxdata);
-      base.displays[i]->auxdata = nullptr;
-      base.displays[i]->statedata = nullptr;
-      fgDestroyOutlineNode(root, base.displays[i], 0, fgVec{});
-      free(base.displays[i]);
-      if(i != --base.n_displays)
-        base.displays[i--] = base.displays[base.n_displays];
+      free(displays[i]->auxdata);
+      displays[i]->auxdata = nullptr;
+      displays[i]->statedata = nullptr;
+      fgDestroyOutlineNode(root, displays[i], 0, fgVec{});
+      free(displays[i]);
+      if(i != --n_displays)
+        displays[i--] = displays[n_displays];
     }
   }
 }
@@ -851,11 +872,12 @@ extern "C" FG_COMPILER_DLLEXPORT fgBackend* fgDirect2D(struct FG__ROOT* root)
   new(backend) Direct2D();
 
   backend->root = root;
-  backend->base = fgBackend{
+  *static_cast<fgBackend*>(backend) = fgBackend{
     &DrawFontD2D,
     &DrawAssetD2D,
     &DrawRectD2D,
     &DrawCircleD2D,
+    &DrawTriangleD2D,
     &DrawLinesD2D,
     &DrawCurveD2D,
     // &DrawShaderD2D,
@@ -912,7 +934,7 @@ extern "C" FG_COMPILER_DLLEXPORT fgBackend* fgDirect2D(struct FG__ROOT* root)
   //backend->base.extent.bottom += backend->base.extent.top;
 
   HDC hdc = GetDC(NULL);
-  backend->base.dpi = { (float)GetDeviceCaps(hdc, LOGPIXELSX), (float)GetDeviceCaps(hdc, LOGPIXELSY) };
+  backend->dpi = { (float)GetDeviceCaps(hdc, LOGPIXELSX), (float)GetDeviceCaps(hdc, LOGPIXELSY) };
   ReleaseDC(NULL, hdc);
 
   fgLog(backend->root, FGLOG_NONE, "Initializing fgDirect2D...");
@@ -940,7 +962,7 @@ extern "C" FG_COMPILER_DLLEXPORT fgBackend* fgDirect2D(struct FG__ROOT* root)
   if(FAILED(hr))
   {
     fgLog(backend->root, FGLOG_ERROR, "D2D1CreateFactory() failed with error: %li", hr);
-    DestroyD2D(&backend->base);
+    DestroyD2D(backend);
     return 0;
   }
 
@@ -977,7 +999,7 @@ extern "C" FG_COMPILER_DLLEXPORT fgBackend* fgDirect2D(struct FG__ROOT* root)
   Context::WndRegister(Context::TopWndProc, L"WindowD2D"); // Register window class
   Context::WndRegister(Context::WndProc, L"BaseWindowD2D");
 
-  backend->factory->GetDesktopDpi(&backend->base.dpi.x, &backend->base.dpi.y);
+  backend->factory->GetDesktopDpi(&backend->dpi.x, &backend->dpi.y);
   
   if(shcoreD2D)
   {
@@ -994,7 +1016,7 @@ extern "C" FG_COMPILER_DLLEXPORT fgBackend* fgDirect2D(struct FG__ROOT* root)
     buf.resize(sz / 2);
     sz = GetRegistryValueW(HKEY_CURRENT_USER, L"Control Panel\\Desktop", L"CursorBlinkRate", reinterpret_cast<unsigned char*>(buf.data()), (unsigned long)sz);
     if(sz > 0)
-      backend->base.cursorblink = _wtoi(buf.data());
+      backend->cursorblink = _wtoi(buf.data());
   }
   else
     fgLog(backend->root, FGLOG_WARNING, "Couldn't get user's cursor blink rate.");
@@ -1005,10 +1027,10 @@ extern "C" FG_COMPILER_DLLEXPORT fgBackend* fgDirect2D(struct FG__ROOT* root)
     buf.resize(sz / 2);
     sz = GetRegistryValueW(HKEY_CURRENT_USER, L"Control Panel\\Mouse", L"MouseHoverTime", reinterpret_cast<unsigned char*>(buf.data()), (unsigned long)sz);
     if(sz > 0)
-      backend->base.tooltipdelay = _wtoi(buf.data());
+      backend->tooltipdelay = _wtoi(buf.data());
   }
   else
     fgLog(backend->root, FGLOG_WARNING, "Couldn't get user's mouse hover time.");
 
-  return &backend->base;
+  return backend;
 }

@@ -176,4 +176,16 @@
 #define kh_ptr_hash_func kh_int64_hash_func
 #endif
 
+#define EXPORT__KHASH_PROTOTYPES(name, khkey_t, khval_t)	 					\
+  __KHASH_TYPE(name, khkey_t, khval_t) \
+	FG_COMPILER_DLLEXPORT kh_##name##_t *kh_init_##name(void);							\
+	FG_COMPILER_DLLEXPORT void kh_destroy_##name(kh_##name##_t *h);					\
+	FG_COMPILER_DLLEXPORT void kh_clear_##name(kh_##name##_t *h);						\
+	FG_COMPILER_DLLEXPORT khint_t kh_get_##name(const kh_##name##_t *h, khkey_t key); 	\
+	FG_COMPILER_DLLEXPORT int kh_resize_##name(kh_##name##_t *h, khint_t new_n_buckets); \
+	FG_COMPILER_DLLEXPORT khint_t kh_put_##name(kh_##name##_t *h, khkey_t key, int *ret); \
+	FG_COMPILER_DLLEXPORT void kh_del_##name(kh_##name##_t *h, khint_t x);
+
+#define kh_exist2(h, i) (i < kh_end(h) && kh_exist(h, i))
+
 #endif

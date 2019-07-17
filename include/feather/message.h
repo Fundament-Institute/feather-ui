@@ -49,6 +49,8 @@ enum FG_MESSAGE_TYPE
   FG_MSG_ADD_CHILD,
   FG_MSG_REMOVE_CHILD,
   FG_MSG_ACTION,
+  FG_MSG_DPI,
+  FG_MSG_TEXT_SCALE,
 };
 
 typedef struct
@@ -72,8 +74,8 @@ typedef struct
     struct GotFocus {} gotFocus;
     struct LostFocus {} lostFocus;
     struct DragDrop {} dragDrop;
-    struct GetState { const char* id; fgCalcResult* value; } getState;
-    struct SetState { const char* id; fgCalcResult value; } setState;
+    struct GetState { const char* id; fgCalcNode* value; } getState;
+    struct SetState { const char* id; fgCalcNode value; } setState;
     struct Child { struct FG__DOCUMENT_NODE* node; float scale; fgVec dpi; } child;
   };
 } fgMessage;
@@ -84,16 +86,8 @@ typedef union
   void* ptr;
   struct Custom { } custom;
   struct Construct { size_t size; } construct;
-  struct Destroy {} destroy;
-  struct Draw { } draw;
-  struct Mouse {} mouse;
-  struct Touch {} touch;
-  struct Key {} key;
-  struct JoyButton {} joyButton;
-  struct JoyAxis {} joyAxis;
-  struct GotFocus {} gotFocus;
-  struct LostFocus {} lostFocus;
-  struct DragDrop {} dragDrop;
+  struct DPI { fgVec* dpi; } dpi;
+  struct Scale { float scale; } scale;
 } fgMessageResult;
 
 typedef fgMessageResult(*fgBehaviorFunction)(const struct FG__ROOT*, struct FG__DOCUMENT_NODE*, const fgMessage*);

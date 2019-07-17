@@ -17,23 +17,6 @@ typedef struct
   const void* icon;
 } fgWindowData;
 
-enum FG_WINDOW_STATES
-{
-  FG_WINDOW_TITLE = 0x10,
-  FG_WINDOW_ICON,
-  FG_WINDOW_RECT,
-  FG_WINDOW_STATE,
-  FG_WINDOW_QUIET = 0x8000,
-};
-
-enum FG_WINDOW_ACTIONS
-{
-  FG_WINDOW_ONMINIMIZE = 1,
-  FG_WINDOW_ONMAXIMIZE,
-  FG_WINDOW_ONOPEN,
-  FG_WINDOW_ONCLOSE,
-};
-
 enum FG_WINDOW_FLAGS
 {
   FG_WINDOW_MAXIMIZABLE = (1 << 0),
@@ -51,8 +34,8 @@ typedef struct
   int flags;
 } fgWindowState;
 
-fgMessageResult fgWindowBehavior(const struct FG__ROOT* root, struct FG__DOCUMENT_NODE* node, const fgMessage* msg);
-unsigned char fgWindowResolver(void* data, const char* id, fgCalcResult* out, int* n);
+FG_COMPILER_DLLEXPORT fgMessageResult fgWindowBehavior(const struct FG__ROOT* root, struct FG__DOCUMENT_NODE* node, const fgMessage* msg);
+FG_COMPILER_DLLEXPORT unsigned int fgWindowResolver(void* ptr, unsigned int index, fgCalcNode* out, const char* id);
 
 #ifdef  __cplusplus
 }

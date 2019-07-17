@@ -64,7 +64,7 @@ extern "C" fgInitBackend fgLoadBackend(const char* path, void** library, const c
   }
 
   if(library)
-    *library = l;
+    * library = l;
 
   return reinterpret_cast<fgInitBackend>(f);
 }

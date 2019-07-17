@@ -84,6 +84,12 @@
     <ClInclude Include="..\include\feather\data.h">
       <Filter>include</Filter>
     </ClInclude>
+    <ClInclude Include="..\include\feather\event.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\feather\component\text.h">
+      <Filter>include\component</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="feather.cpp">
@@ -126,6 +132,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="component\window.cpp">
+      <Filter>Source Files\component</Filter>
+    </ClCompile>
+    <ClCompile Include="event.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="component\text.cpp">
       <Filter>Source Files\component</Filter>
     </ClCompile>
   </ItemGroup>

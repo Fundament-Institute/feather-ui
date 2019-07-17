@@ -8,9 +8,7 @@
 #include <malloc.h>
 #include <assert.h>
 
-extern "C" {
-  __KHASH_IMPL(function, , const char*, fgCalcFunc, 1, kh_str_hash_funcins, kh_str_hash_equal);
-}
+__KHASH_IMPL(function, extern "C", const char*, fgCalcFunc, 1, kh_str_hash_funcins, kh_str_hash_equal);
 
 extern "C" bool fgVerify(fgCalcNode* nodes, unsigned int n, kh_function_t* functions, FG_CALC_NODES expected)
 {
@@ -59,7 +57,7 @@ extern "C" bool fgVerify(fgCalcNode* nodes, unsigned int n, kh_function_t* funct
         if(c < 1 || (stack[--c] != FG_CALC_STRING))
           return false; // both data and state accept 1 string argument
       }
-      
+
       switch(nodes[i].type & FG_CALC_MASK)
       {
       case FG_CALC_STRING:
@@ -101,12 +99,12 @@ extern "C" fgCalcResult fgResolveCalc(fgCalcResult result, unsigned char type, f
 
 extern "C" fgCalcNode fgEvaluate(struct FG__ROOT* root, fgCalcNode* nodes, unsigned int n, void* data, struct FG__DOCUMENT_NODE* node, float font, float line, float dpi, float scale)
 {
-  assert(n > MAX_CALC_SIZE);
+  assert(n < MAX_CALC_SIZE);
 
   // This function assumes that fgVerify has been called so it can skip the safety checks.
   auto stack = (fgCalcResult*)_alloca(n * sizeof(fgCalcResult));
   unsigned int c = 0;
-  unsigned char last = FG_CALC_OPERATOR;
+  unsigned char last = FG_CALC_NONE;
   kh_function_t* functions = root->operators;
 
   for(unsigned int i = 0; i < n; ++i)
@@ -124,8 +122,11 @@ extern "C" fgCalcNode fgEvaluate(struct FG__ROOT* root, fgCalcNode* nodes, unsig
     else if(nodes[i].type & FG_CALC_STATE)
     {
       fgMessage msg = { FG_MSG_STATE_GET, 0 };
-      msg.getState = { nodes[i].value.s, &stack[c] };
+      fgCalcNode calc = { FG_CALC_DATA };
+      msg.getState = { nodes[i].value.s, &calc };
+      stack[c] = calc.value;
       last = nodes[i].type & FG_CALC_MASK;
+      assert(last == calc.type);
       fgSendMessage(root, node, &msg);
       stack[c] = fgResolveCalc(stack[c], nodes[i].type & (FG_CALC_MASK | FG_CALC_UNIT_MASK), font, line, dpi, scale);
       c++;
@@ -155,6 +156,7 @@ extern "C" fgCalcNode fgEvaluate(struct FG__ROOT* root, fgCalcNode* nodes, unsig
     }
     else
     {
+      last = nodes[i].type;
       stack[c++] = nodes[i].value;
     }
   }

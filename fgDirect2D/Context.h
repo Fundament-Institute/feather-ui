@@ -5,8 +5,7 @@
 #define D2D__CONTEXT_H
 
 #include "feather/document.h"
-#include "feather/backend.h"
-#include "feather/khash.h"
+#include "feather/root.h"
 #include "CompactArray.h"
 #include "Display.h"
 #include <stack>
@@ -70,7 +69,7 @@ namespace D2D {
     bool inside;
     bool invalid;
 
-    Context(struct FG__OUTLINE_NODE* display);
+    Context(const fgRoot* root, fgDocumentNode* node, struct FG__OUTLINE_NODE* display);
     ~Context();
     void CreateResources(HWND__* handle);
     void DiscardResources();

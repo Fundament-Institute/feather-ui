@@ -15,6 +15,7 @@ extern "C" {
 // Defines the types of calculator nodes our script interpreter understands
 enum FG_CALC_NODES
 {
+  FG_CALC_NONE,
   FG_CALC_INT,
   FG_CALC_FLOAT,
   FG_CALC_STRING,

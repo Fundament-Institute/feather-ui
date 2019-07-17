@@ -42,7 +42,7 @@ extern "C" void fgDestroyRTNode(fgRTNode* node)
         }
     }
   }
-  
+
   while(node->children) // This will efficiently remove the root child until there aren't any left
     fgDestroyRTNode(node->children);
 
@@ -53,6 +53,8 @@ extern "C" void fgDestroyRTNode(fgRTNode* node)
 
 extern "C" void fgFixRTNode(fgRTNode* node)
 {
+  if(!node->parent)
+    return;
   bool fix = false;
 
   // Two fix cases: either we broke the topleft barrier, which requires recalculating everything, or we broke bottomright, which is easy to fix

@@ -32,7 +32,7 @@ typedef long(__stdcall* DWMCOMPENABLE)(int*);
 typedef long(__stdcall* DWMBLURBEHIND)(struct HWND__*, const struct _DWM_BLURBEHIND*);
 
 namespace D2D {
-  struct Direct2D
+  struct Direct2D : fgBackend
   {
     ~Direct2D();
     void RefreshMonitors();
@@ -40,7 +40,6 @@ namespace D2D {
     fgOutlineNode* GetDisplay(struct HMONITOR__* hWnd);
     fgAsset* LoadAsset(const char* data, size_t count);
 
-    fgBackend base;
     ID2D1Factory1* factory;
     IWICImagingFactory* wicfactory;
     IDWriteFactory1* writefactory;
