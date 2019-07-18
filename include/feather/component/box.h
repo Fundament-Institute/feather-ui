@@ -23,6 +23,7 @@ typedef struct
 } fgBoxData;
 
 FG_COMPILER_DLLEXPORT fgMessageResult fgBoxBehavior(const struct FG__ROOT* root, struct FG__DOCUMENT_NODE* node, const fgMessage* msg);
+FG_COMPILER_DLLEXPORT unsigned int fgBoxResolver(void* ptr, unsigned int index, fgCalcNode* out, const char* id);
 
 #ifdef  __cplusplus
 }

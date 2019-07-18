@@ -7,7 +7,7 @@
 
 extern "C" fgMessageResult fgTextBehavior(const struct FG__ROOT* root, struct FG__DOCUMENT_NODE* node, const fgMessage* msg)
 {
-  auto data = reinterpret_cast<fgTextData*>(node->outline->data);
+  auto data = reinterpret_cast<fgTextData*>(node->outline->statedata);
   auto state = reinterpret_cast<fgTextState*>(node->state);
 
   switch(msg->type)

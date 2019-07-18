@@ -60,10 +60,49 @@ int main(int argc, char** argv)
         &data,
         {
           { "behavior", { MakeCalc("window") } },
+          { "title", { MakeCalc("feather test") } },
+          { "left-abs", { MakeCalc(0.0f) } },
+          { "top-abs", { MakeCalc(0.0f) } },
+          { "right-abs", { MakeCalc(800.0f) } },
+          { "bottom-abs", { MakeCalc(600.0f) } },
         },
         {
+          Skin{ "bg", &data, 
+        {
+          { "behavior", { MakeCalc("box") } },
+          { "left-abs", { MakeCalc(0.0f) } },
+          { "top-abs", { MakeCalc(0.0f) } },
+          { "right-abs", { MakeCalc(800.0f) } },
+          { "bottom-abs", { MakeCalc(600.0f) } },
+          { "fillcolor", { MakeCalc(0xFFCCCCCC) } },
+          { "bordercolor", { MakeCalc(0xFF000000) } },
+          { "border", { MakeCalc(5.0f) } },
+        }
+          },
           Skin{ "titlebar", &data.o["title"], { { "behavior", { MakeCalc("text") } } } },
-          Skin{ "button", &data.o["button"], { { "behavior", { MakeCalc("button") } } } },
+          Skin{ "button", &data.o["button"], 
+            { 
+              { "behavior", { MakeCalc("button") } },
+              { "left-abs", { MakeCalc(200.0f) } },
+              { "top-abs", { MakeCalc(200.0f) } },
+              { "right-abs", { MakeCalc(280.0f) } },
+              { "bottom-abs", { MakeCalc(224.0f) } },
+            },
+  {
+          Skin{ "bg", &data,
+        {
+          { "behavior", { MakeCalc("box") } },
+          { "left-abs", { MakeCalc(0.0f) } },
+          { "top-abs", { MakeCalc(0.0f) } },
+          { "right-abs", { MakeCalc(80.0f) } },
+          { "bottom-abs", { MakeCalc(24.0f) } },
+          { "fillcolor", { MakeCalc(0xFFFFFFFF) } },
+          { "bordercolor", { MakeCalc(0xFFCCCCCC) } },
+          { "border", { MakeCalc(1.0f) } },
+        }
+}
+}
+          },
         },
       }
     }
@@ -88,6 +127,8 @@ int main(int argc, char** argv)
   fgSkinGenerator(&root, &def, root.backend->scale, root.backend->dpi);
 
   while(fgProcessMessages(&root) == 0);
+  for(;;)
+    fgProcessMessages(&root);
 
   fgTerminate(&root);
 

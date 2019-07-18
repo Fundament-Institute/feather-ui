@@ -15,14 +15,15 @@ fgMessageResult D2D::DisplayBehavior(const struct FG__ROOT* root, struct FG__DOC
   switch(msg->type)
   { // Note that we do not process drawing here - we control when we call the draw function.
   case FG_MSG_ADD_CHILD:
+    r = fgDefaultBehavior(root, node, msg);
     if(msg->child.node->backend)
       delete reinterpret_cast<Context*>(msg->child.node->backend);
     msg->child.node->backend = new Context(root, msg->child.node, node->outline); // Create the window and attach our node to it, but don't show it (we don't know where it is yet)
-    break;
+    return r;
   case FG_MSG_REMOVE_CHILD:
     if(msg->child.node->backend) // Destroy the window 
       delete reinterpret_cast<Context*>(msg->child.node->backend);
-    break;
+    return fgDefaultBehavior(root, node, msg);
   case FG_MSG_TEXT_SCALE:
     r.scale.scale = data.scale;
     return r;

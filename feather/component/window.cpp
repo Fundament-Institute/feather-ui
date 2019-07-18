@@ -67,7 +67,7 @@ extern "C" unsigned int fgWindowResolver(void* ptr, unsigned int index, fgCalcNo
 extern "C" fgMessageResult fgWindowBehavior(const struct FG__ROOT* root, struct FG__DOCUMENT_NODE* node, const fgMessage* msg)
 {
   auto state = reinterpret_cast<fgWindowState*>(node->state);
-  auto data = reinterpret_cast<fgWindowData*>(node->outline->data);
+  auto data = reinterpret_cast<fgWindowData*>(node->outline->statedata);
 
   switch(msg->type)
   {

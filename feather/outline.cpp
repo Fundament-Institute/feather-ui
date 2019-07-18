@@ -174,14 +174,14 @@ extern "C" void fgDefaultOutlineGenerator(fgRoot* root, fgOutlineNode* node, uns
             fgMessage msg = { FG_MSG_CONSTRUCT };
             auto sz = fgSendMessage(root, document, &msg).construct.size;
             if(sz > 0)
-              document->state = malloc(sz);
+              document->state = calloc(1, sz);
 
             msg.construct.ptr = document->state;
             fgSendMessage(root, document, &msg);
 
             if(def.sz > 0)
             {
-              node->statedata = malloc(def.sz);
+              node->statedata = calloc(1, def.sz);
               fgEvalCustomFields(node->statedata, node->stateresolver, root, fields, document, scale, dpi.x);
             }
             fgSendEvent(root, node->listeners, FG_EVENT_BEHAVIOR, node, &node->behavior);
@@ -233,7 +233,7 @@ extern "C" void fgDefaultOutlineGenerator(fgRoot* root, fgOutlineNode* node, uns
 
             if(def.sz > 0)
             {
-              node->auxdata = malloc(def.sz);
+              node->auxdata = calloc(1, def.sz);
               fgEvalCustomFields(node->auxdata, node->auxresolver, root, fields, document, scale, dpi.x);
             }
             fgSendEvent(root, node->listeners, FG_EVENT_LAYOUT, node, &node->layout);

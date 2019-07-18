@@ -84,6 +84,8 @@ FG_COMPILER_DLLEXPORT void fgRemoveData(struct FG__ROOT* root, void* data);
 FG_COMPILER_DLLEXPORT void fgInitialize(fgRoot* root);
 FG_COMPILER_DLLEXPORT void fgTerminate(fgRoot* root);
 FG_COMPILER_DLLEXPORT fgError fgProcessMessages(fgRoot* root);
+FG_COMPILER_DLLEXPORT void fgAddComponent(fgRoot* root, const char* name, fgBehaviorFunction fn, fgResolver resolver, unsigned int sz);
+FG_COMPILER_DLLEXPORT void fgAddLayout(fgRoot* root, const char* name, fgLayout fn, fgResolver resolver, unsigned int sz);
 
 #ifdef  __cplusplus
 }

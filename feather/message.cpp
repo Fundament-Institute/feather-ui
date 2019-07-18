@@ -22,10 +22,8 @@ extern "C" void DrawRTNode(fgVec parent, const struct FG__ROOT* root, fgRTNode* 
       fgSendMessage(root, node->document, &m);
     }
     else
-    {
       DrawRTNode(parent, root, node, msg);
-      node = node->sibling;
-    }
+    node = node->sibling;
   }
 }
 

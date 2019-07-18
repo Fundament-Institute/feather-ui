@@ -27,9 +27,7 @@ EXTERN_C IMAGE_DOS_HEADER __ImageBase;
 
 FG_FORCEINLINE fgVec GetPoints(longptr_t lParam)
 {
-  union { POINTS FAR* p; longptr_t l; } u;
-  u.l = lParam;
-  return fgVec{ (float)u.p->x, (float)u.p->y };
+  return fgVec{ (float)GET_X_LPARAM(lParam), (float)GET_Y_LPARAM(lParam) };
 }
 FG_FORCEINLINE fgVec AdjustPoints(longptr_t lParam, HWND__* hWnd)
 {
@@ -60,9 +58,12 @@ Context::Context(const fgRoot* root, fgDocumentNode* _node, struct FG__OUTLINE_N
   invalid = false;
 
   dpi = reinterpret_cast<DisplayData*>(display->auxdata)->dpi;
-  //hWnd = Context::WndCreate(fgRect{ 0 }, WS_POPUP, WS_EX_TOOLWINDOW, backend, L"WindowD2D", dpi);
-  hWnd = Context::WndCreate(fgRect{ 0, 0, 800, 600 }, WS_THICKFRAME, WS_EX_APPWINDOW, this, L"WindowD2D", dpi);
-  
+  //hWnd = Context::WndCreate(node->area, WS_POPUP, WS_EX_TOOLWINDOW, backend, L"WindowD2D", dpi);
+  hWnd = Context::WndCreate(node->area, WS_THICKFRAME, WS_EX_APPWINDOW, this, L"WindowD2D", dpi);
+
+  RECT rect; // Force the NCCALCSIZE message to fire via SetWindowPos
+  GetWindowRect(hWnd, &rect);
+  //SetWindowPos(hWnd, HWND_TOP, INT(rect.left), INT(rect.top), INT(rect.right - rect.left), INT(rect.bottom - rect.top), SWP_FRAMECHANGED);
   ShowWindow(hWnd, SW_SHOW);
   UpdateWindow(hWnd);
 }

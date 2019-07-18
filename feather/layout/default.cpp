@@ -19,17 +19,16 @@ fgRect fgResolveArea(const URect& in, const UVec& center, const fgRect& resolved
     (in.rel.right * parentSize.x),
     (in.rel.bottom * parentSize.y),
   };
-  area += in.abs;
+  area.topleft += in.abs.topleft;
+  area.bottomright += in.abs.bottomright;
 
   // The center offset is relative to our own resolved area, which is what allows perfect centering.
   fgVec size = { area.right - area.left, area.bottom - area.top };
   fgVec offset = { (center.rel.x * size.x), (center.rel.y * size.y) };
   offset += center.abs;
 
-  area.left -= offset.x;
-  area.top -= offset.y;
-  area.right -= offset.x;
-  area.bottom -= offset.y;
+  area.topleft -= offset;
+  area.bottomright -= offset;
 
   return area;
 }
