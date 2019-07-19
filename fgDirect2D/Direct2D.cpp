@@ -43,7 +43,8 @@ fgError DrawFontD2D(struct FG__BACKEND* self, void* data, const fgFont* font, fg
 
   layout->SetMaxWidth(area->right - area->left);
   layout->SetMaxHeight(area->bottom - area->top);
-  context->target->DrawTextLayout(D2D1::Point2F(area->left, area->top), layout, context->color, D2D1_DRAW_TEXT_OPTIONS_CLIP);
+  context->target->DrawTextLayout(D2D1::Point2F(area->left, area->top), layout, context->color, D2D1_DRAW_TEXT_OPTIONS_NONE);
+
   return 0;
 }
 
@@ -287,7 +288,7 @@ fgFontLayout FontLayoutD2D(struct FG__BACKEND* self, fgFont* font, const char* t
     return 0;
 
   std::wstring utf;
-  utf.reserve(MultiByteToWideChar(CP_UTF8, 0, text, -1, 0, 0));
+  utf.resize(MultiByteToWideChar(CP_UTF8, 0, text, -1, 0, 0));
   utf.resize(MultiByteToWideChar(CP_UTF8, 0, text, -1, utf.data(), utf.capacity()));
 
   if(!text) return 0;

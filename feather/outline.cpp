@@ -4,6 +4,7 @@
 #include "feather/outline.h"
 #include "feather/skin.h"
 #include "feather/root.h"
+#include "feather/component/text.h"
 #include "util.h"
 #include <assert.h>
 #include <math.h>
@@ -184,6 +185,7 @@ extern "C" void fgDefaultOutlineGenerator(fgRoot* root, fgOutlineNode* node, uns
               node->statedata = calloc(1, def.sz);
               fgEvalCustomFields(node->statedata, node->stateresolver, root, fields, document, scale, dpi.x);
             }
+            auto view = (fgTextData*)node->statedata;
             fgSendEvent(root, node->listeners, FG_EVENT_BEHAVIOR, node, &node->behavior);
           }
         }

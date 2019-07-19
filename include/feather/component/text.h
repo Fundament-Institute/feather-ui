@@ -31,6 +31,7 @@ typedef struct
 } fgTextState;
 
 FG_COMPILER_DLLEXPORT fgMessageResult fgTextBehavior(const struct FG__ROOT* root, struct FG__DOCUMENT_NODE* node, const fgMessage* msg);
+FG_COMPILER_DLLEXPORT unsigned int fgTextResolver(void* ptr, unsigned int index, fgCalcNode* out, const char* id);
 
 #ifdef  __cplusplus
 }

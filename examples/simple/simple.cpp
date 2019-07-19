@@ -63,8 +63,8 @@ int main(int argc, char** argv)
           { "title", { MakeCalc("feather test") } },
           { "left-abs", { MakeCalc(0.0f) } },
           { "top-abs", { MakeCalc(0.0f) } },
-          { "right-abs", { MakeCalc(800.0f) } },
-          { "bottom-abs", { MakeCalc(600.0f) } },
+          { "right-abs", { MakeCalc(300.0f) } },
+          { "bottom-abs", { MakeCalc(200.0f) } },
         },
         {
           Skin{ "bg", &data, 
@@ -72,37 +72,52 @@ int main(int argc, char** argv)
           { "behavior", { MakeCalc("box") } },
           { "left-abs", { MakeCalc(0.0f) } },
           { "top-abs", { MakeCalc(0.0f) } },
-          { "right-abs", { MakeCalc(800.0f) } },
-          { "bottom-abs", { MakeCalc(600.0f) } },
+          { "right-abs", { MakeCalc(300.0f) } },
+          { "bottom-abs", { MakeCalc(200.0f) } },
           { "fillcolor", { MakeCalc(0xFFCCCCCC) } },
           { "bordercolor", { MakeCalc(0xFF000000) } },
-          { "border", { MakeCalc(5.0f) } },
+          { "border", { MakeCalc(1.0f) } },
         }
           },
-          Skin{ "titlebar", &data.o["title"], { { "behavior", { MakeCalc("text") } } } },
+          /*Skin{ "titlebar", &data.o["title"], { { "behavior", { MakeCalc("text") } } } },*/
           Skin{ "button", &data.o["button"], 
             { 
               { "behavior", { MakeCalc("button") } },
-              { "left-abs", { MakeCalc(200.0f) } },
-              { "top-abs", { MakeCalc(200.0f) } },
-              { "right-abs", { MakeCalc(280.0f) } },
-              { "bottom-abs", { MakeCalc(224.0f) } },
+              { "left-abs", { MakeCalc(50.0f) } },
+              { "top-abs", { MakeCalc(50.0f) } },
+              { "right-abs", { MakeCalc(140.0f) } },
+              { "bottom-abs", { MakeCalc(74.0f) } },
             },
-  {
-          Skin{ "bg", &data,
-        {
-          { "behavior", { MakeCalc("box") } },
-          { "left-abs", { MakeCalc(0.0f) } },
-          { "top-abs", { MakeCalc(0.0f) } },
-          { "right-abs", { MakeCalc(80.0f) } },
-          { "bottom-abs", { MakeCalc(24.0f) } },
-          { "fillcolor", { MakeCalc(0xFFFFFFFF) } },
-          { "bordercolor", { MakeCalc(0xFFCCCCCC) } },
-          { "border", { MakeCalc(1.0f) } },
-        }
-}
-}
-          },
+            {
+              Skin{ "bg", &data,
+                {
+                  { "behavior", { MakeCalc("box") } },
+                  { "left-abs", { MakeCalc(0.0f) } },
+                  { "top-abs", { MakeCalc(0.0f) } },
+                  { "right-abs", { MakeCalc(90.0f) } },
+                  { "bottom-abs", { MakeCalc(24.0f) } },
+                  { "fillcolor", { MakeCalc(0xFF5D6B99) } },
+                  { "bordercolor", { MakeCalc(0xFFCCCFF0) } },
+                  { "border", { MakeCalc(1.0f) } },
+                }
+              },
+              Skin{ "caption", &data,
+                {
+                  { "behavior", { MakeCalc("text") } },
+                  { "left-abs", { MakeCalc(10.0f) } },
+                  { "top-abs", { MakeCalc(4.0f) } },
+                  { "right-abs", { MakeCalc(80.0f) } },
+                  { "bottom-abs", { MakeCalc(20.0f) } },
+                  { "fillcolor", { MakeCalc(0xFFFFFFFF) } },
+                  { "text", { MakeCalc("Push Me") } },
+                  { "font-weight", { MakeCalc(400) } },
+                  { "fontsize", { MakeCalc(12.0f) } },
+                  { "lineheight", { MakeCalc(16.0f) } },
+                  { "font-family", { MakeCalc("Verdana") } },
+                }
+              },
+            },
+          }
         },
       }
     }

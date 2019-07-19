@@ -141,7 +141,7 @@ extern "C" void fgInitialize(fgRoot* root)
   root->listeners = kh_init_data();
 
   fgAddComponent(root, "box", &fgBoxBehavior, &fgBoxResolver, sizeof(fgBoxData));
-  fgAddComponent(root, "text", &fgTextBehavior, &fgNullResolver, sizeof(fgTextData));
+  fgAddComponent(root, "text", &fgTextBehavior, &fgTextResolver, sizeof(fgTextData));
   fgAddComponent(root, "window", &fgWindowBehavior, &fgWindowResolver, sizeof(fgWindowData));
   fgAddLayout(root, "default", &fgLayoutDefault, &fgLayoutDefaultResolver, 0);
 }

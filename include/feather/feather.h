@@ -96,9 +96,9 @@ typedef union
   unsigned char colors[4];
   struct
   {
-    unsigned char r;
-    unsigned char g;
     unsigned char b;
+    unsigned char g;
+    unsigned char r;
     unsigned char a;
   };
 } fgColor;
