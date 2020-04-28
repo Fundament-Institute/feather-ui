@@ -41,12 +41,6 @@ terra M.Reciever:DragDrop() : F.Err return 0 end
 
 local msgenum = {}
 
-struct M.Msg {
-  type : M.Idx
-  subtype : M.Idx
-  union {}
-}
-
 methods = {}
 for k in pairs(M.Reciever.methods) do
   table.insert(methods, k)
@@ -75,7 +69,6 @@ end
 -- This needs to take the base type, and then call MakeBehaviorFunction recursively on that so that only one switch statement
 -- pointing to the highest possible function level is created with zero indirection. This may require figuring out what
 -- functions have already been added to the switch statement somehow.
-
 function M.MakeBehaviorSwitch(lst, T)
 
 end

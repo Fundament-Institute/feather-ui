@@ -8,7 +8,7 @@ return function(pairs, type)
 
   e.enum_values = {}
 
-  function build(name, value, ...)
+  local function build(name, value, ...)
     if value ~= nil then
       e.methods[name] = constant(`[e]{[uint](value)})
       e.enum_values[name] = value
@@ -17,6 +17,6 @@ return function(pairs, type)
   end
   
   build(unpack(pairs))
-  convertible = "enum"
+  e.convertible = "enum"
   return e
 end

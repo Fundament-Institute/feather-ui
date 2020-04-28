@@ -146,9 +146,20 @@ M.Keys = Enumset{
   "OEM_8", 0xDF
 }
 
-terra M.JoyButton(x : uint8) : uint8 return x - 1 end
+function GenJoyEnum() 
+  local l = {}
+  for i=0,31 do 
+    table.insert(l, "Button"..i+1) 
+    table.insert(l, i)
+  end 
+  for i=0,15 do
+    table.insert(l, "ID"..i+1) 
+    table.insert(l, i * 256) -- i << 8
+  end
+  return l
+end
 
-terra M.JoystickID(x : uint8) : uint8 return (x - 1) << 8 end
+M.Joy = Enumset(GenJoyEnum())
 
 M.JoyAxis = Enumset{
   "X", 0,
@@ -159,3 +170,13 @@ M.JoyAxis = Enumset{
   "V", 5,
   "INVALID", 0xFFFF
 }
+
+M.MouseButton = Enumset{
+  "L", 0x01,
+  "R", 0x02,
+  "M", 0x10,
+  "X1", 0x20,
+  "X2", 0x40,
+}
+
+return M

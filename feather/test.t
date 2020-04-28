@@ -201,6 +201,21 @@ terra TestHarness:message()
 
 end
 
+terra TestHarness:conststring()
+  var s : F.conststring
+  s.s = "other"
+  self:Test(s.s, "other")
+  var str : rawstring = "test"
+  s = str
+  self:Test(s.s, "test")
+  s = "foo"
+  self:Test(s.s, "foo")
+  self:Test(str, "test")
+  str = s
+  self:Test(str, "foo")
+
+end
+
 terra TestHarness:rect()
   var a = F.Rect{array(1f,2f,3f,4f)}
   self:Test(a.l, 1)
