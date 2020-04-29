@@ -35,6 +35,10 @@ terra M.Reciever:KeyChar(unicode : int32, sigkeys : uint8) : F.Err return 0 end
 terra M.Reciever:JoyButtonDown(button : uint16) : F.Err return 0 end
 terra M.Reciever:JoyButtonUp(button : uint16) : F.Err return 0 end
 terra M.Reciever:JoyAxis(value : float, axis : uint16) : F.Err return 0 end
+terra M.Reciever:SetWindowFlags(flags : uint) : F.Err return 0 end
+terra M.Reciever:SetWindowRect(rect : F.Rect) : F.Err return 0 end
+terra M.Reciever:GetWindowFlags() : uint return 0 end
+terra M.Reciever:Action() : F.Err return 0 end
 terra M.Reciever:GotFocus() : F.Err return 0 end
 terra M.Reciever:LostFocus() : F.Err return 0 end
 terra M.Reciever:DragDrop() : F.Err return 0 end

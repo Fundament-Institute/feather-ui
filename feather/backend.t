@@ -196,7 +196,7 @@ B.Log = terralib.types.funcpointer({&opaque, L.Level, F.conststring}, &B.Backend
 B.Behavior = {&opaque, &opaque, &M.Msg} -> M.Result
 B.InitBackend = {&opaque, B.Log, B.Behavior} -> &B.Backend
 
-terra LoadDynamicBackend(ui : &opaque, path : rawstring, name : rawstring) : {&B.Backend, &opaque}
+terra LoadDynamicBackend(ui : &opaque, behavior : B.Behavior, log : B.Log, path : rawstring, name : rawstring) : {&B.Backend, &opaque}
   var l : &opaque = OS.LoadLibrary(path)
 
   if l == nil then
@@ -228,7 +228,7 @@ terra LoadDynamicBackend(ui : &opaque, path : rawstring, name : rawstring) : {&B
   end
 
   if f ~= nil then
-    var b : &B.Backend = f(ui, nil, nil)
+    var b : &B.Backend = f(ui, log, behavior)
     if b ~= nil then
       return b, l
     end

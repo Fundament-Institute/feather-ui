@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="prebuild.t" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="backend.h" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <ProjectGuid>{036EA85F-6B07-41AB-8839-04BADEF1E5BC}</ProjectGuid>
+    <RootNamespace>feather</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>prebuild</ProjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <LinkIncremental>false</LinkIncremental>
+    <IntDir>$(SolutionDir)bin-$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)bin-$(Platform)\</OutDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <CustomBuildStep>
+      <Command>terra prebuild.t</Command>
+      <Outputs>$(SolutionDir)backend.h</Outputs>
+      <Inputs>prebuild.t;$(SolutionDir)feather\abstract-codegen.t;$(SolutionDir)feather\array.t;$(SolutionDir)feather\backend.t;$(SolutionDir)feather\c-headers.t;$(SolutionDir)feather\calc.t;$(SolutionDir)feather\color.t;$(SolutionDir)feather\enum.t;$(SolutionDir)feather\enumset.t;$(SolutionDir)feather\flags.t;$(SolutionDir)feather\hash.t;$(SolutionDir)feather\init.t;$(SolutionDir)feather\libc.t;$(SolutionDir)feather\log.t;$(SolutionDir)feather\message.t;$(SolutionDir)feather\messages.t;$(SolutionDir)feather\os.t;$(SolutionDir)feather\partitioner.t;$(SolutionDir)feather\partition_simple.t;$(SolutionDir)feather\proto.t;$(SolutionDir)feather\rect.t;$(SolutionDir)feather\shared.t;$(SolutionDir)feather\string.t;$(SolutionDir)feather\util.t;$(SolutionDir)feather\vec.t</Inputs>
+    </CustomBuildStep>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

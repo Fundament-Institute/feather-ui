@@ -179,4 +179,14 @@ M.MouseButton = Enumset{
   "X2", 0x40,
 }
 
+M.Window = Enumset{
+  "MINIMIZABLE", 0x01,
+  "MAXIMIZABLE", 0x02,
+  "RESIZABLE", 0x04,
+  "NOCAPTION", 0x08,
+  "NOBORDER", 0x10,
+  "MINIMIZED", 0x20,
+  "MAXIMIZED", 0x40,
+  "CLOSED", 0x80,
+}
 return M

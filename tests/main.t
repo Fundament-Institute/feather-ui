@@ -579,9 +579,7 @@ local terra PrintColumns(a : rawstring, b : rawstring, c : rawstring) : {}
   C.printf("%-*s %-*s %-*s\n", 24, a, [SUBTESTLEN], b, 8, c);
 end
 
-local T = {}
-
-terra T.main(argc : int, argv : &rawstring) : int
+terra main(argc : int, argv : &rawstring) : int
   C.printf("Feather v%i.%i.%i Test Utility\n\n", [F.Version[1]], [F.Version[2]], [F.Version[3]])
 
   var harness = TestHarness{ }
@@ -606,4 +604,8 @@ terra T.main(argc : int, argv : &rawstring) : int
   return 0;
 end
 
-return T
+if terralib.saveobj("bin-"..jit.arch.."/fgTests.exe", {main = main}) ~= nil then
+  return -1
+end
+
+main(0, nil)
