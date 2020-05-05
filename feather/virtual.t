@@ -3,15 +3,20 @@ local M = {}
 
 local virtual_invoke = macro(function(obj, funcname)
   local result = macro(function(self, ...)
+      local args = {...}
       local info = obj:gettype().virtualinfo.info[funcname:asvalue()]
       if not info then
         error("type "..tostring(obj:gettype()) .. " does not have a virtual method named "..funcname:asvalue())
-      end
+        end
+      print(funcname, ...)
       --TODO: handle overloaded functions
       return quote
           var temp = [ not obj:islvalue() and not obj:gettype():ispointer() and obj or `&obj ]
         in
-          [info.pointertype](temp.vftable[ [info.index] ])([info.selftype]([temp:gettype():ispointer() and temp or `&temp]), [...])
+          [info.pointertype](temp.vftable[ [info.index] ])(
+            [info.selftype]([temp.type:ispointer() and temp or `&temp]),
+            [args]
+                                                          )
              end
   end)
   return result
