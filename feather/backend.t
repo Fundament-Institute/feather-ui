@@ -6,10 +6,12 @@ local B = {}
 local F = require 'feather.shared'
 local Flags = require 'feather.flags'
 local Enum = require 'feather.enum'
+local Element = require 'feather.element'
 local OS = require 'feather.os'
 local Alloc = require 'std.alloc'
 local M = require 'feather.message'
 local L = require 'feather.log'
+local U = require 'feather.util'
 
 B.Features = Flags{
   "TEXT_ANTIALIAS", 
@@ -132,6 +134,7 @@ struct B.Backend {
   tooltipdelay : uint64
 }
 
+-- Define a dynamic backend object (a static backend would be a seperate type that also provides these functions).
 terra B.Backend:DrawFont(data : &opaque, font : &B.Font, layout : &opaque, area : &F.Rect, color : F.Color, lineHeight : float, letterSpacing : float, blur : float, aa : B.AntiAliasing) : F.Err return 0 end
 terra B.Backend:DrawAsset(data : &opaque, asset : &B.Asset, area : &F.Rect, source : &F.Rect, color : F.Color, time : float) : F.Err return 0 end
 terra B.Backend:DrawRect(data : &opaque, area : &F.Rect, corners : &F.Rect, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, asset : &B.Asset) : F.Err return 0 end
@@ -192,11 +195,10 @@ terra B.Backend:free(library : &opaque) : {}
   end
 end
 
-B.Log = terralib.types.funcpointer({&opaque, L.Level, F.conststring}, &B.Backend, true)
-B.Behavior = {&opaque, &opaque, &M.Msg} -> M.Result
-B.InitBackend = {&opaque, B.Log, B.Behavior} -> &B.Backend
+B.Log = terralib.types.funcpointer({&opaque, L.Level, F.conststring}, {}, true)
+B.InitBackend = {&opaque, B.Log, M.Behavior} -> &B.Backend
 
-terra LoadDynamicBackend(ui : &opaque, behavior : B.Behavior, log : B.Log, path : rawstring, name : rawstring) : {&B.Backend, &opaque}
+terra LoadDynamicBackend(ui : &opaque, behavior : M.Behavior, log : B.Log, path : rawstring, name : rawstring) : {&B.Backend, &opaque}
   var l : &opaque = OS.LoadLibrary(path)
 
   if l == nil then
@@ -239,8 +241,8 @@ terra LoadDynamicBackend(ui : &opaque, behavior : B.Behavior, log : B.Log, path 
 end
 
 -- In cases where the backend is not known at compile time, we must load it via a shared library at runtime 
-function B.Backend:new(root, path, name)
-  return quote in LoadDynamicBackend(root, path, name) end
+terra B.Backend.methods.new(ui : &opaque, behavior : M.Behavior, log : B.Log, path : rawstring, name : rawstring) : {&B.Backend, &opaque}
+  return LoadDynamicBackend(ui, behavior, log, path, name)
 end
 
 return B

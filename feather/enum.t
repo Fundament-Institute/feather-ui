@@ -13,6 +13,13 @@ return function(lst, type)
     e.enum_values[name] = i - 1
   end
 
+  e.metamethods.__cast = function(from, to, exp)
+    if from == e and to:isintegral() then
+      return `[to](exp.val)
+    end
+    error(("unknown conversion %s to %s"):format(tostring(from),tostring(to)))
+  end
+
   e.convertible = "enum"
   return e
 end

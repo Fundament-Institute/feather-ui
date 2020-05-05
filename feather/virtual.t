@@ -3,9 +3,9 @@ local M = {}
 
 local virtual_invoke = macro(function(obj, funcname)
   local result = macro(function(self, ...)
-      local info = obj:gettype().virtualinfo.info[funcname]
+      local info = obj:gettype().virtualinfo.info[funcname:asvalue()]
       if not info then
-        error("type "..tostring(obj:gettype()) .. " does not have a virtual method named "..funcname)
+        error("type "..tostring(obj:gettype()) .. " does not have a virtual method named "..funcname:asvalue())
       end
       --TODO: handle overloaded functions
       return quote
@@ -14,6 +14,7 @@ local virtual_invoke = macro(function(obj, funcname)
           [info.pointertype](temp.vftable[ [info.index] ])([info.selftype]([temp:gettype():ispointer() and temp or `&temp]), [...])
              end
   end)
+  return result
 end)
 
 local function get_funcpointer(class, name)
@@ -32,10 +33,10 @@ local function virtual_staticinitialize(class)
   for k, v in pairs(class.methods) do
     if terralib.isfunction(v) then
       --TODO: handle overloaded functions
-      if v:gettype().params[1] == &class then
+      if v:gettype().parameters[1] == &class then
         info[k] = {
           selftype = &class,
-          pointertype = &(k:gettype())
+          pointertype = &(v:gettype())
         }
         if not class.parent or not class.parent.virtualinfo.info[k] then
           names:insert(k)
@@ -62,7 +63,7 @@ local function virtual_staticinitialize(class)
   else
     combined_names = names
   end
-  class.virtual_initializer = `arrayof(&opaque, [combined_names:map(function(name) return get_funcpointer(class, name) end)])
+  class.virtual_initializer = `arrayof([&opaque], [combined_names:map(function(name) return get_funcpointer(class, name) end)])
   class.virtualinfo = {
     info = info,
     names = combined_names,
@@ -72,13 +73,13 @@ local function virtual_staticinitialize(class)
 end
 
 function M.virtualize(class)
-  table.insert(class.entries, 1, {name = "vftable", type = &&opaque})
+  table.insert(class.entries, 1, {field = "vftable", type = &&opaque})
   class.metamethods.__staticinitialize = virtual_staticinitialize
 end
 
 function M.extends(parent)
   return function(class)
-    table.insert(class.entries, 1, {name = "super", type = parent})
+    table.insert(class.entries, 1, {field = "super", type = parent})
     for _, name in ipairs(parent.virtualinfo.names) do
       if not class.methods[name] then
         class.methods[name] = macro(function(self, ...)

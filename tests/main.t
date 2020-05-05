@@ -2,10 +2,10 @@ local C = require 'feather.libc'
 
 local Array = require 'feather.array'
 local F = require 'feather.shared'
-local Backend = require 'feather.backend'
+local B = require 'feather.backend'
 local Enum = require 'feather.enum'
 local Flags = require 'feather.flags'
-local Message = require 'feather.message'
+local M = require 'feather.message'
 local Hash = require 'feather.hash'
 local cond = require 'std.cond'
 local OS = require 'feather.os'
@@ -82,9 +82,13 @@ terra TestHarness:array()
 end
 
 local UIMock = struct{}
+terra FakeLog(root : &opaque, level : L.Level, f : F.conststring, ...)
+
+end
 
 terra TestHarness:backend()
-
+  var b = B.Backend.new(nil, M.DefaultBehavior, FakeLog, "fgDirect2D.dll", nil)
+  
 end
 
 local printraw = macro(function(a) terralib.printraw(a:gettype()) return `a == a end)

@@ -138,7 +138,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-Static|Win32'">
     <IntDir>$(ProjectDir)\$(Platform)\$(Configuration)\</IntDir>
     <OutDir>$(ProjectDir)..\bin-$(Platform)\</OutDir>
-    <TargetName>$(ProjectName)32_s</TargetName>
+    <TargetName>$(ProjectName)_s</TargetName>
     <ExecutablePath>$(UniversalCRTSdkDir)bin\x86;$(VC_ExecutablePath_x86);$(WindowsSdk_71A_ExecutablePath);$(WindowsSDK_ExecutablePath);$(VS_ExecutablePath);$(MSBuild_ExecutablePath);$(SystemRoot)\SysWow64;$(FxCopDir);$(PATH)</ExecutablePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -150,7 +150,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug-Static|Win32'">
     <IntDir>$(ProjectDir)\$(Platform)\$(Configuration)\</IntDir>
     <OutDir>$(ProjectDir)..\bin-$(Platform)\</OutDir>
-    <TargetName>$(ProjectName)32_d_s</TargetName>
+    <TargetName>$(ProjectName)_d_s</TargetName>
     <ExecutablePath>$(UniversalCRTSdkDir)bin\x86;$(VC_ExecutablePath_x86);$(WindowsSdk_71A_ExecutablePath);$(WindowsSDK_ExecutablePath);$(VS_ExecutablePath);$(MSBuild_ExecutablePath);$(SystemRoot)\SysWow64;$(FxCopDir);$(PATH)</ExecutablePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -229,6 +229,12 @@
     <CustomBuildStep />
     <CustomBuildStep />
     <CustomBuildStep />
+    <ProjectReference>
+      <LinkLibraryDependencies>true</LinkLibraryDependencies>
+    </ProjectReference>
+    <Lib>
+      <AdditionalDependencies>Windowscodecs.lib;Dwrite.lib;D2d1.lib;dxguid.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -289,6 +295,12 @@
     <FxCompile>
       <ShaderModel>4.0_level_9_3</ShaderModel>
     </FxCompile>
+    <ProjectReference>
+      <LinkLibraryDependencies>true</LinkLibraryDependencies>
+    </ProjectReference>
+    <Lib>
+      <AdditionalDependencies>Windowscodecs.lib;Dwrite.lib;D2d1.lib;dxguid.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -359,6 +371,12 @@
     <CustomBuildStep />
     <CustomBuildStep />
     <CustomBuildStep />
+    <ProjectReference>
+      <LinkLibraryDependencies>true</LinkLibraryDependencies>
+    </ProjectReference>
+    <Lib>
+      <AdditionalDependencies>Windowscodecs.lib;Dwrite.lib;D2d1.lib;dxguid.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -435,6 +453,12 @@
     <FxCompile>
       <ShaderModel>4.0_level_9_3</ShaderModel>
     </FxCompile>
+    <ProjectReference>
+      <LinkLibraryDependencies>true</LinkLibraryDependencies>
+    </ProjectReference>
+    <Lib>
+      <AdditionalDependencies>Windowscodecs.lib;Dwrite.lib;D2d1.lib;dxguid.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(VcpkgEnabled)' == 'true'">
     <PostBuildEvent>

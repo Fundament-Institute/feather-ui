@@ -16,6 +16,13 @@ return function(pairs, type)
     end
   end
   
+  e.metamethods.__cast = function(from, to, exp)
+    if from == e and to:isintegral() then
+      return `[to](exp.val)
+    end
+    error(("unknown conversion %s to %s"):format(tostring(from),tostring(to)))
+  end
+
   build(unpack(pairs))
   e.convertible = "enum"
   return e
