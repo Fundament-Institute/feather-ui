@@ -8,6 +8,7 @@
 #include "../backend.h"
 #include "compiler.h"
 #include <d2d1_1.h>
+#include <xmmintrin.h>
 
 namespace D2D {
   inline static D2D1_COLOR_F ToD2Color(unsigned int color)
@@ -18,6 +19,11 @@ namespace D2D {
 
   FG_COMPILER_DLLEXPORT size_t UTF8toUTF16(const char* FG_RESTRICT input, ptrdiff_t srclen, wchar_t* FG_RESTRICT output, size_t buflen);
   FG_COMPILER_DLLEXPORT size_t UTF16toUTF8(const wchar_t* FG_RESTRICT input, ptrdiff_t srclen, char* FG_RESTRICT output, size_t buflen);
+
+  inline int FastTruncate(float f) noexcept
+  {
+    return _mm_cvtt_ss2si(_mm_load_ss(&f));
+  }
 }
 
 #endif

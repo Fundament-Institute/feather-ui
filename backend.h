@@ -5,152 +5,39 @@
 #include <stdint.h> // for integers
 #include <stdbool.h> // for bool
 
-enum FG_Cursor {
-  FG_Cursor_NONE = 0,
-  FG_Cursor_RESIZEWE = 7,
-  FG_Cursor_RESIZEALL = 10,
-  FG_Cursor_RESIZENS = 6,
-  FG_Cursor_CUSTOM = 14,
-  FG_Cursor_IBEAM = 2,
-  FG_Cursor_ARROW = 1,
-  FG_Cursor_DRAG = 13,
-  FG_Cursor_RESIZENESW = 9,
-  FG_Cursor_NO = 11,
-  FG_Cursor_RESIZENWSE = 8,
-  FG_Cursor_HELP = 12,
-  FG_Cursor_WAIT = 4,
-  FG_Cursor_HAND = 5,
-  FG_Cursor_CROSS = 3
-};
-enum FG_JoyAxis {
-  FG_JoyAxis_X = 0,
-  FG_JoyAxis_INVALID = 65535,
-  FG_JoyAxis_U = 4,
-  FG_JoyAxis_Y = 1,
-  FG_JoyAxis_V = 5,
-  FG_JoyAxis_Z = 2,
-  FG_JoyAxis_R = 3
-};
-typedef struct FG_Data__ FG_Data;
-struct FG_Data__ {
-  void * data;
-};
-enum FG_Kind {
-  FG_Kind_DESTROY = 2,
-  FG_Kind_TOUCHEND = 24,
-  FG_Kind_KEYCHAR = 10,
-  FG_Kind_GETWINDOWFLAGS = 5,
-  FG_Kind_MOUSEDBLCLICK = 14,
-  FG_Kind_ACTION = 0,
-  FG_Kind_GOTFOCUS = 6,
-  FG_Kind_JOYBUTTONDOWN = 8,
-  FG_Kind_MOUSEOFF = 17,
-  FG_Kind_SETWINDOWFLAGS = 21,
-  FG_Kind_MOUSEON = 18,
-  FG_Kind_DRAW = 4,
-  FG_Kind_TOUCHBEGIN = 23,
-  FG_Kind_SETWINDOWRECT = 22,
-  FG_Kind_MOUSEUP = 20,
-  FG_Kind_JOYBUTTONUP = 9,
-  FG_Kind_MOUSEDOWN = 15,
-  FG_Kind_MOUSESCROLL = 19,
-  FG_Kind_JOYAXIS = 7,
-  FG_Kind_LOSTFOCUS = 13,
-  FG_Kind_DRAGDROP = 3,
-  FG_Kind_TOUCHMOVE = 25,
-  FG_Kind_MOUSEMOVE = 16,
-  FG_Kind_CONSTRUCT = 1,
-  FG_Kind_KEYDOWN = 11,
-  FG_Kind_KEYUP = 12
-};
-typedef struct FG_Backend__ FG_Backend;
-typedef void (* FG_anon_1)(FG_Backend *);
-enum FG_Features {
-  FG_Features_CIRCLE_ALPHA = 2048,
-  FG_Features_RECT_BLUR = 64,
-  FG_Features_CIRCLE_ARCS = 256,
-  FG_Features_LINES_ALPHA = 65536,
-  FG_Features_RECT_CORNERS = 16,
-  FG_Features_CIRCLE_BORDER = 512,
-  FG_Features_LAYER_TRANSFORM = 524288,
-  FG_Features_TEXT_ANTIALIAS = 1,
-  FG_Features_TEXT_BLUR = 4,
-  FG_Features_TRIANGLE_BLUR = 16384,
-  FG_Features_TRIANGLE_ALPHA = 32768,
-  FG_Features_RECT_BORDER = 32,
-  FG_Features_CURVE_STROKE = 131072,
-  FG_Features_IMMEDIATE_MODE = 33554432,
-  FG_Features_RECT_ALPHA = 128,
-  FG_Features_TEXT_ALPHA = 8,
-  FG_Features_BACKGROUND_OPACITY = 16777216,
-  FG_Features_TRIANGLE_BORDER = 8192,
-  FG_Features_SHADER_HLSL2 = 8388608,
-  FG_Features_CIRCLE_BLUR = 1024,
-  FG_Features_SHADER_GLSL4 = 4194304,
-  FG_Features_TRIANGLE_CORNERS = 4096,
-  FG_Features_SHADER_GLSL2 = 2097152,
-  FG_Features_LAYER_OPACITY = 1048576,
-  FG_Features_CURVE_FILL = 262144,
-  FG_Features_TEXT_SUBPIXEL = 2
+enum FG_Format {
+  FG_Format_JPG = 2,
+  FG_Format_SVG = 11,
+  FG_Format_BMP = 1,
+  FG_Format_ICO = 4,
+  FG_Format_WEBP = 8,
+  FG_Format_GIF = 5,
+  FG_Format_MKV = 14,
+  FG_Format_DDS = 9,
+  FG_Format_MP4 = 13,
+  FG_Format_WIC = 10,
+  FG_Format_UNKNOWN = 255,
+  FG_Format_GRADIENT = 0,
+  FG_Format_PNG = 3,
+  FG_Format_TIFF = 6,
+  FG_Format_AVI = 12,
+  FG_Format_TGA = 7,
+  FG_Format_WEBM = 15
 };
 typedef struct FG_Vec__ FG_Vec;
 struct FG_Vec__ {
   float x;
   float y;
 };
-typedef struct FG_Asset__ FG_Asset;
-typedef struct FG_Veci__ FG_Veci;
-struct FG_Veci__ {
-  int x;
-  int y;
+enum FG_Level {
+  FG_Level_NONE = -1,
+  FG_Level_FATAL = 0,
+  FG_Level_DEBUG = 4,
+  FG_Level_WARNING = 2,
+  FG_Level_ERROR = 1,
+  FG_Level_NOTICE = 3
 };
-enum FG_Formats {
-  FG_Formats_JPG = 2,
-  FG_Formats_SVG = 11,
-  FG_Formats_BMP = 1,
-  FG_Formats_ICO = 4,
-  FG_Formats_WEBP = 8,
-  FG_Formats_GIF = 5,
-  FG_Formats_MKV = 14,
-  FG_Formats_DDS = 9,
-  FG_Formats_MP4 = 13,
-  FG_Formats_WIC = 10,
-  FG_Formats_UNKNOWN = 255,
-  FG_Formats_GRADIENT = 0,
-  FG_Formats_PNG = 3,
-  FG_Formats_TIFF = 6,
-  FG_Formats_AVI = 12,
-  FG_Formats_TGA = 7,
-  FG_Formats_WEBM = 15
-};
-struct FG_Asset__ {
-  FG_Data data;
-  FG_Veci size;
-  FG_Vec dpi;
-  FG_Formats format;
-};
-typedef FG_Asset * (* FG_anon_2)(FG_Backend *, const char*, uint32_t, FG_Formats);
-enum FG_Clipboard {
-  FG_Clipboard_NONE = 0,
-  FG_Clipboard_ALL = 7,
-  FG_Clipboard_CUSTOM = 6,
-  FG_Clipboard_WAVE = 2,
-  FG_Clipboard_BITMAP = 3,
-  FG_Clipboard_ELEMENT = 5,
-  FG_Clipboard_FILE = 4,
-  FG_Clipboard_TEXT = 1
-};
-typedef int32_t (* FG_anon_3)(FG_Backend *, FG_Clipboard);
-typedef struct FG_Display__ FG_Display;
-struct FG_Display__ {
-  FG_Veci size;
-  FG_Veci offset;
-  FG_Vec dpi;
-  float scale;
-  uint64_t handle;
-  bool primary;
-};
-typedef int32_t (* FG_anon_4)(FG_Backend *, uint32_t, FG_Display *);
+typedef void (* FG_Log)(void *, FG_Level, const char*, ...);
 typedef struct FG_Rect__ FG_Rect;
 struct FG_Rect__ {
   union {
@@ -171,9 +58,334 @@ struct FG_Rect__ {
     float ltrb[4];
   };
 };
-typedef int32_t (* FG_anon_5)(FG_Backend *, void *, FG_Rect);
-typedef int32_t (* FG_anon_6)(FG_Backend *);
-typedef void * (* FG_anon_7)(FG_Backend *, void *, uint64_t, FG_Rect *, const char*, uint64_t);
+typedef struct FG_Asset__ FG_Asset;
+typedef struct FG_Data__ FG_Data;
+struct FG_Data__ {
+  void * data;
+};
+typedef struct FG_Veci__ FG_Veci;
+struct FG_Veci__ {
+  int x;
+  int y;
+};
+struct FG_Asset__ {
+  FG_Data data;
+  FG_Veci size;
+  FG_Vec dpi;
+  FG_Format format;
+};
+enum FG_AntiAliasing {
+  FG_AntiAliasing_NO_AA = 0,
+  FG_AntiAliasing_LCD_V = 3,
+  FG_AntiAliasing_AA = 1,
+  FG_AntiAliasing_LCD = 2
+};
+enum FG_Kind {
+  FG_Kind_MOUSEOFF = 17,
+  FG_Kind_TOUCHEND = 24,
+  FG_Kind_KEYCHAR = 10,
+  FG_Kind_KEYDOWN = 11,
+  FG_Kind_MOUSEDBLCLICK = 14,
+  FG_Kind_ACTION = 0,
+  FG_Kind_GOTFOCUS = 6,
+  FG_Kind_JOYBUTTONDOWN = 8,
+  FG_Kind_JOYAXIS = 7,
+  FG_Kind_SETWINDOWFLAGS = 21,
+  FG_Kind_MOUSEON = 18,
+  FG_Kind_DRAW = 4,
+  FG_Kind_SETWINDOWRECT = 22,
+  FG_Kind_MOUSEUP = 20,
+  FG_Kind_DESTROY = 2,
+  FG_Kind_JOYBUTTONUP = 9,
+  FG_Kind_MOUSEDOWN = 15,
+  FG_Kind_MOUSESCROLL = 19,
+  FG_Kind_MOUSEMOVE = 16,
+  FG_Kind_TOUCHBEGIN = 23,
+  FG_Kind_DRAGDROP = 3,
+  FG_Kind_TOUCHMOVE = 25,
+  FG_Kind_LOSTFOCUS = 13,
+  FG_Kind_CONSTRUCT = 1,
+  FG_Kind_GETWINDOWFLAGS = 5,
+  FG_Kind_KEYUP = 12
+};
+typedef void (* FG_Delegate)(void *);
+enum FG_MouseButton {
+  FG_MouseButton_X2 = 64,
+  FG_MouseButton_M = 16,
+  FG_MouseButton_R = 2,
+  FG_MouseButton_L = 1,
+  FG_MouseButton_X1 = 32
+};
+typedef struct FG_Color16__ FG_Color16;
+struct FG_Color16__ {
+  uint64_t v;
+};
+enum FG_Cursor {
+  FG_Cursor_NONE = 0,
+  FG_Cursor_RESIZEWE = 7,
+  FG_Cursor_RESIZEALL = 10,
+  FG_Cursor_RESIZENS = 6,
+  FG_Cursor_CUSTOM = 14,
+  FG_Cursor_IBEAM = 2,
+  FG_Cursor_ARROW = 1,
+  FG_Cursor_DRAG = 13,
+  FG_Cursor_RESIZENESW = 9,
+  FG_Cursor_NO = 11,
+  FG_Cursor_RESIZENWSE = 8,
+  FG_Cursor_HELP = 12,
+  FG_Cursor_WAIT = 4,
+  FG_Cursor_HAND = 5,
+  FG_Cursor_CROSS = 3
+};
+typedef struct FG_Result__ FG_Result;
+struct FG_Result__ {
+  union {
+  int32_t draw;
+  int32_t mouseScroll;
+  int32_t mouseOn;
+  int32_t joyButtonUp;
+  int32_t mouseOff;
+  int32_t keyUp;
+  uint32_t getWindowFlags;
+  int32_t keyDown;
+  int32_t action;
+  int32_t keyChar;
+  int32_t dragDrop;
+  int32_t touchEnd;
+  int32_t touchMove;
+  int32_t touchBegin;
+  int32_t setWindowFlags;
+  int32_t mouseMove;
+  int32_t mouseDblClick;
+  int32_t destroy;
+  int32_t lostFocus;
+  int32_t mouseDown;
+  uint64_t construct;
+  int32_t joyButtonDown;
+  int32_t mouseUp;
+  int32_t setWindowRect;
+  int32_t gotFocus;
+  int32_t joyAxis;
+};;
+};
+typedef struct FG_Element__ FG_Element;
+struct FG_Element__ {
+  void * * vftable;
+};
+typedef struct FG_Msg__ FG_Msg;
+typedef struct FG_anon_1__ FG_anon_1;
+struct FG_anon_1__ {
+  void * data;
+  FG_Rect area;
+};
+typedef struct FG_anon_2__ FG_anon_2;
+struct FG_anon_2__ {
+  float x;
+  float y;
+  int16_t delta;
+  int16_t hdelta;
+};
+typedef struct FG_anon_3__ FG_anon_3;
+struct FG_anon_3__ {
+  float x;
+  float y;
+  uint8_t button;
+  uint8_t all;
+};
+typedef struct FG_anon_4__ FG_anon_4;
+struct FG_anon_4__ {
+  uint16_t button;
+};
+typedef struct FG_anon_5__ FG_anon_5;
+struct FG_anon_5__ {
+  float x;
+  float y;
+  uint8_t button;
+  uint8_t all;
+};
+typedef struct FG_anon_6__ FG_anon_6;
+struct FG_anon_6__ {
+  uint8_t code;
+  uint8_t sigkeys;
+};
+typedef struct FG_anon_7__ FG_anon_7;
+struct FG_anon_7__ {
+  ;
+};
+typedef struct FG_anon_8__ FG_anon_8;
+struct FG_anon_8__ {
+  uint8_t code;
+  uint8_t sigkeys;
+};
+typedef struct FG_anon_9__ FG_anon_9;
+struct FG_anon_9__ {
+  ;
+};
+typedef struct FG_anon_10__ FG_anon_10;
+struct FG_anon_10__ {
+  int32_t unicode;
+  uint8_t sigkeys;
+};
+typedef struct FG_anon_11__ FG_anon_11;
+struct FG_anon_11__ {
+  ;
+};
+typedef struct FG_anon_12__ FG_anon_12;
+struct FG_anon_12__ {
+  float x;
+  float y;
+  int16_t index;
+};
+typedef struct FG_anon_13__ FG_anon_13;
+struct FG_anon_13__ {
+  float x;
+  float y;
+  int16_t index;
+};
+typedef struct FG_anon_14__ FG_anon_14;
+struct FG_anon_14__ {
+  float x;
+  float y;
+  int16_t index;
+};
+typedef struct FG_anon_15__ FG_anon_15;
+struct FG_anon_15__ {
+  uint32_t flags;
+};
+typedef struct FG_anon_16__ FG_anon_16;
+struct FG_anon_16__ {
+  float x;
+  float y;
+  uint8_t button;
+  uint8_t all;
+};
+typedef struct FG_anon_17__ FG_anon_17;
+struct FG_anon_17__ {
+  float x;
+  float y;
+  uint8_t button;
+  uint8_t all;
+};
+typedef struct FG_anon_18__ FG_anon_18;
+struct FG_anon_18__ {
+  ;
+};
+typedef struct FG_anon_19__ FG_anon_19;
+struct FG_anon_19__ {
+  ;
+};
+typedef struct FG_anon_20__ FG_anon_20;
+struct FG_anon_20__ {
+  float x;
+  float y;
+  uint8_t button;
+  uint8_t all;
+};
+typedef struct FG_anon_21__ FG_anon_21;
+struct FG_anon_21__ {
+  void * target;
+};
+typedef struct FG_anon_22__ FG_anon_22;
+struct FG_anon_22__ {
+  uint16_t button;
+};
+typedef struct FG_anon_23__ FG_anon_23;
+struct FG_anon_23__ {
+  float x;
+  float y;
+  uint8_t button;
+  uint8_t all;
+};
+typedef struct FG_anon_24__ FG_anon_24;
+struct FG_anon_24__ {
+  FG_Rect rect;
+};
+typedef struct FG_anon_25__ FG_anon_25;
+struct FG_anon_25__ {
+  ;
+};
+typedef struct FG_anon_26__ FG_anon_26;
+struct FG_anon_26__ {
+  float value;
+  uint16_t axis;
+};
+struct FG_Msg__ {
+  FG_Kind kind;
+  uint16_t subkind;
+  union {
+  FG_anon_1 draw;
+  FG_anon_2 mouseScroll;
+  FG_anon_3 mouseOn;
+  FG_anon_4 joyButtonUp;
+  FG_anon_5 mouseOff;
+  FG_anon_6 keyUp;
+  FG_anon_7 getWindowFlags;
+  FG_anon_8 keyDown;
+  FG_anon_9 action;
+  FG_anon_10 keyChar;
+  FG_anon_11 dragDrop;
+  FG_anon_12 touchEnd;
+  FG_anon_13 touchMove;
+  FG_anon_14 touchBegin;
+  FG_anon_15 setWindowFlags;
+  FG_anon_16 mouseMove;
+  FG_anon_17 mouseDblClick;
+  FG_anon_18 destroy;
+  FG_anon_19 lostFocus;
+  FG_anon_20 mouseDown;
+  FG_anon_21 construct;
+  FG_anon_22 joyButtonDown;
+  FG_anon_23 mouseUp;
+  FG_anon_24 setWindowRect;
+  FG_anon_25 gotFocus;
+  FG_anon_26 joyAxis;
+};;
+};
+typedef FG_Result (* FG_Behavior)(FG_Element *, void *, void *, FG_Msg *);
+typedef struct FG_Vec3D__ FG_Vec3D;
+struct FG_Vec3D__ {
+  float x;
+  float y;
+  float z;
+};
+typedef struct FG_Backend__ FG_Backend;
+typedef void (* FG_anon_27)(FG_Backend *);
+enum FG_Feature {
+  FG_Feature_CIRCLE_ALPHA = 2048,
+  FG_Feature_RECT_BLUR = 64,
+  FG_Feature_CIRCLE_ARCS = 256,
+  FG_Feature_LINES_ALPHA = 65536,
+  FG_Feature_RECT_CORNERS = 16,
+  FG_Feature_CIRCLE_BORDER = 512,
+  FG_Feature_LAYER_TRANSFORM = 524288,
+  FG_Feature_TEXT_ANTIALIAS = 1,
+  FG_Feature_TEXT_BLUR = 4,
+  FG_Feature_TRIANGLE_BLUR = 16384,
+  FG_Feature_TRIANGLE_ALPHA = 32768,
+  FG_Feature_RECT_BORDER = 32,
+  FG_Feature_CURVE_STROKE = 131072,
+  FG_Feature_IMMEDIATE_MODE = 33554432,
+  FG_Feature_RECT_ALPHA = 128,
+  FG_Feature_TEXT_ALPHA = 8,
+  FG_Feature_BACKGROUND_OPACITY = 16777216,
+  FG_Feature_TRIANGLE_BORDER = 8192,
+  FG_Feature_SHADER_HLSL2 = 8388608,
+  FG_Feature_CIRCLE_BLUR = 1024,
+  FG_Feature_SHADER_GLSL4 = 4194304,
+  FG_Feature_TRIANGLE_CORNERS = 4096,
+  FG_Feature_SHADER_GLSL2 = 2097152,
+  FG_Feature_LAYER_OPACITY = 1048576,
+  FG_Feature_CURVE_FILL = 262144,
+  FG_Feature_TEXT_SUBPIXEL = 2
+};
+typedef struct FG_Font__ FG_Font;
+struct FG_Font__ {
+  FG_Data data;
+  FG_Vec dpi;
+  float baseline;
+  float lineheight;
+  uint32_t pt;
+};
 typedef struct FG_Color__ FG_Color;
 struct FG_Color__ {
   union {
@@ -188,405 +400,99 @@ struct FG_Color__ {
     };
   };
 };
-typedef int32_t (* FG_anon_8)(FG_Backend *, void *, FG_Rect *, FG_Rect *, FG_Color, float, FG_Color, float, FG_Asset *);
-typedef struct FG_Font__ FG_Font;
-struct FG_Font__ {
-  FG_Data data;
+typedef int32_t (* FG_anon_28)(FG_Backend *, void *, FG_Font *, void *, FG_Rect *, FG_Color, float, float, float, FG_AntiAliasing);
+typedef FG_Asset * (* FG_anon_29)(FG_Backend *, const char*, uint32_t, FG_Format);
+enum FG_Clipboard {
+  FG_Clipboard_NONE = 0,
+  FG_Clipboard_ALL = 7,
+  FG_Clipboard_CUSTOM = 6,
+  FG_Clipboard_WAVE = 2,
+  FG_Clipboard_BITMAP = 3,
+  FG_Clipboard_ELEMENT = 5,
+  FG_Clipboard_FILE = 4,
+  FG_Clipboard_TEXT = 1
+};
+typedef int32_t (* FG_anon_30)(FG_Backend *, FG_Clipboard);
+typedef struct FG_Display__ FG_Display;
+struct FG_Display__ {
+  FG_Veci size;
+  FG_Veci offset;
   FG_Vec dpi;
-  float baseline;
-  float lineheight;
-  uint32_t pt;
+  float scale;
+  uint64_t handle;
+  bool primary;
 };
-enum FG_AntiAliasing {
-  FG_AntiAliasing_NO_AA = 0,
-  FG_AntiAliasing_LCD_V = 3,
-  FG_AntiAliasing_AA = 1,
-  FG_AntiAliasing_LCD = 2
-};
-typedef int32_t (* FG_anon_9)(FG_Backend *, void *, FG_Font *, void *, FG_Rect *, FG_Color, float, float, float, FG_AntiAliasing);
-typedef int32_t (* FG_anon_10)(FG_Backend *, FG_Clipboard, const char*, uint32_t);
-typedef FG_Vec (* FG_anon_11)(FG_Backend *, FG_Font *, void *, FG_Rect *, float, float, uint32_t, FG_Vec);
-typedef int32_t (* FG_anon_12)(FG_Backend *, uint64_t, FG_Display *);
-typedef void * (* FG_anon_13)(FG_Backend *);
-typedef int32_t (* FG_anon_14)(FG_Backend *, void *, FG_Display *);
-typedef int32_t (* FG_anon_15)(FG_Backend *, void *, FG_Asset *, FG_Rect *, FG_Rect *, FG_Color, float);
-typedef uint32_t (* FG_anon_16)(FG_Backend *, FG_Clipboard, void *, uint32_t);
-typedef int32_t (* FG_anon_17)(FG_Backend *, void *, void *, uint64_t, FG_Rect *, const char*, uint64_t);
-typedef int32_t (* FG_anon_18)(FG_Backend *, void *, FG_Vec *, uint32_t, FG_Color, float, FG_Color);
-typedef int32_t (* FG_anon_19)(FG_Backend *, FG_Font *);
-typedef int32_t (* FG_anon_20)(FG_Backend *, void *, FG_Rect, float *, float);
-typedef int32_t (* FG_anon_21)(FG_Backend *, void *);
-typedef int32_t (* FG_anon_22)(FG_Backend *, void *, FG_Cursor);
-typedef FG_Font * (* FG_anon_23)(FG_Backend *, const char*, uint16_t, bool, uint32_t, FG_Vec);
-typedef void * (* FG_anon_24)(FG_Backend *, FG_Font *, const char*, FG_Rect *, float, float, void *, FG_Vec);
-typedef uint32_t (* FG_anon_25)(FG_Backend *, FG_Font *, void *, FG_Rect *, float, float, FG_Vec, FG_Vec *, FG_Vec);
-typedef int32_t (* FG_anon_26)(FG_Backend *, void *, uint64_t);
-typedef int32_t (* FG_anon_27)(FG_Backend *, void *, FG_Vec *, uint32_t, FG_Color);
-typedef int32_t (* FG_anon_28)(FG_Backend *, FG_Asset *);
-typedef bool (* FG_anon_29)(FG_Backend *, FG_Clipboard);
+typedef int32_t (* FG_anon_31)(FG_Backend *, uint32_t, FG_Display *);
+typedef int32_t (* FG_anon_32)(FG_Backend *, void *, FG_Rect *);
+typedef void * (* FG_anon_33)(FG_Backend *, FG_Element *, uint64_t, FG_Rect *, const char*, uint64_t);
+typedef int32_t (* FG_anon_34)(FG_Backend *, void *, FG_Rect *, FG_Rect *, FG_Color, float, FG_Color, float, FG_Asset *);
+typedef int32_t (* FG_anon_35)(FG_Backend *, FG_Clipboard, const char*, uint32_t);
+typedef FG_Vec (* FG_anon_36)(FG_Backend *, FG_Font *, void *, FG_Rect *, float, float, uint32_t, FG_Vec);
+typedef int32_t (* FG_anon_37)(FG_Backend *, uint64_t, FG_Display *);
+typedef void * (* FG_anon_38)(FG_Backend *);
+typedef int32_t (* FG_anon_39)(FG_Backend *, void *, FG_Display *);
+typedef int32_t (* FG_anon_40)(FG_Backend *, void *, FG_Asset *, FG_Rect *, FG_Rect *, FG_Color, float);
+typedef int32_t (* FG_anon_41)(FG_Backend *, void *);
+typedef int32_t (* FG_anon_42)(FG_Backend *, void *, FG_Vec *, uint32_t, FG_Color);
+typedef int32_t (* FG_anon_43)(FG_Backend *, void *, FG_Rect *, float *, float);
+typedef int32_t (* FG_anon_44)(FG_Backend *, void *, FG_Element *, uint64_t, FG_Rect *, const char*, uint64_t);
+typedef FG_Font * (* FG_anon_45)(FG_Backend *, const char*, uint16_t, bool, uint32_t, FG_Vec);
+typedef int32_t (* FG_anon_46)(FG_Backend *, FG_Font *);
+typedef int32_t (* FG_anon_47)(FG_Backend *, void *, FG_Cursor);
+typedef void * (* FG_anon_48)(FG_Backend *, FG_Font *, const char*, FG_Rect *, float, float, void *, FG_Vec);
+typedef int32_t (* FG_anon_49)(FG_Backend *, FG_Asset *);
+typedef uint32_t (* FG_anon_50)(FG_Backend *, FG_Font *, void *, FG_Rect *, float, float, FG_Vec, FG_Vec *, FG_Vec);
+typedef int32_t (* FG_anon_51)(FG_Backend *, void *, FG_Vec *, uint32_t, FG_Color, float, FG_Color);
+typedef int32_t (* FG_anon_52)(FG_Backend *, void *, uint64_t);
+typedef uint32_t (* FG_anon_53)(FG_Backend *, FG_Clipboard, void *, uint32_t);
+typedef bool (* FG_anon_54)(FG_Backend *, FG_Clipboard);
+typedef int32_t (* FG_anon_55)(FG_Backend *);
 struct FG_Backend__ {
-  FG_anon_1 destroy;
-  FG_Features features;
+  FG_anon_27 destroy;
+  FG_Feature features;
   uint32_t formats;
   FG_Vec dpi;
   float scale;
   uint64_t cursorblink;
   uint64_t tooltipdelay;
-  FG_anon_2 createAsset;
-  FG_anon_3 clearClipboard;
-  FG_anon_4 getDisplayIndex;
-  FG_anon_5 pushClip;
-  FG_anon_6 processMessages;
-  FG_anon_5 dirtyRect;
-  FG_anon_7 createWindow;
-  FG_anon_8 drawTriangle;
-  FG_anon_9 drawFont;
-  FG_anon_10 putClipboard;
-  FG_anon_11 fontPos;
-  FG_anon_8 drawRect;
-  FG_anon_12 getDisplay;
-  FG_anon_13 getSyncObject;
-  FG_anon_14 getDisplayWindow;
-  FG_anon_15 drawAsset;
-  FG_anon_16 getClipboard;
-  FG_anon_17 setWindow;
-  FG_anon_18 drawCurve;
-  FG_anon_19 destroyFont;
-  FG_anon_20 pushLayer;
-  FG_anon_21 popClip;
-  FG_anon_22 setCursor;
-  FG_anon_23 createFont;
-  FG_anon_24 fontLayout;
-  FG_anon_21 popLayer;
-  FG_anon_25 fontIndex;
-  FG_anon_21 destroyWindow;
-  FG_anon_8 drawCircle;
-  FG_anon_26 requestAnimationFrame;
-  FG_anon_27 drawLines;
-  FG_anon_28 destroyAsset;
-  FG_anon_29 checkClipboard;
+  FG_anon_28 drawText;
+  FG_anon_29 createAsset;
+  FG_anon_30 clearClipboard;
+  FG_anon_31 getDisplayIndex;
+  FG_anon_32 pushClip;
+  FG_anon_32 beginDraw;
+  FG_anon_32 dirtyRect;
+  FG_anon_33 createWindow;
+  FG_anon_34 drawTriangle;
+  FG_anon_35 putClipboard;
+  FG_anon_36 fontPos;
+  FG_anon_34 drawRect;
+  FG_anon_37 getDisplay;
+  FG_anon_38 getSyncObject;
+  FG_anon_39 getDisplayWindow;
+  FG_anon_40 drawAsset;
+  FG_anon_41 endDraw;
+  FG_anon_42 drawLines;
+  FG_anon_43 pushLayer;
+  FG_anon_44 setWindow;
+  FG_anon_45 createFont;
+  FG_anon_41 popLayer;
+  FG_anon_46 destroyFont;
+  FG_anon_41 destroyLayout;
+  FG_anon_41 popClip;
+  FG_anon_47 setCursor;
+  FG_anon_34 drawCircle;
+  FG_anon_48 fontLayout;
+  FG_anon_49 destroyAsset;
+  FG_anon_50 fontIndex;
+  FG_anon_41 destroyWindow;
+  FG_anon_51 drawCurve;
+  FG_anon_52 requestAnimationFrame;
+  FG_anon_53 getClipboard;
+  FG_anon_54 checkClipboard;
+  FG_anon_55 processMessages;
 };
-enum FG_Level {
-  FG_Level_NONE = -1,
-  FG_Level_FATAL = 0,
-  FG_Level_DEBUG = 4,
-  FG_Level_WARNING = 2,
-  FG_Level_ERROR = 1,
-  FG_Level_NOTICE = 3
-};
-typedef FG_Backend * (* FG_Log)(void *, FG_Level, const char*, ...);
-typedef struct FG_Vec3D__ FG_Vec3D;
-struct FG_Vec3D__ {
-  float x;
-  float y;
-  float z;
-};
-typedef struct FG_Result__ FG_Result;
-struct FG_Result__ {
-  union {
-  int32_t action;
-  uint64_t construct;
-  int32_t destroy;
-  int32_t dragDrop;
-  int32_t draw;
-  uint32_t getWindowFlags;
-  int32_t gotFocus;
-  int32_t joyAxis;
-  int32_t joyButtonDown;
-  int32_t joyButtonUp;
-  int32_t keyChar;
-  int32_t keyDown;
-  int32_t keyUp;
-  int32_t lostFocus;
-  int32_t mouseDblClick;
-  int32_t mouseDown;
-  int32_t mouseMove;
-  int32_t mouseOff;
-  int32_t mouseOn;
-  int32_t mouseScroll;
-  int32_t mouseUp;
-  int32_t setWindowFlags;
-  int32_t setWindowRect;
-  int32_t touchBegin;
-  int32_t touchEnd;
-  int32_t touchMove;
-};;
-};
-typedef struct FG_Msg__ FG_Msg;
-typedef struct FG_anon_30__ FG_anon_30;
-typedef struct FG_anon_31__ FG_anon_31;
-struct FG_anon_31__ {
-  ;
-};
-struct FG_anon_30__ {
-  FG_anon_31 * self;
-};
-typedef struct FG_anon_32__ FG_anon_32;
-struct FG_anon_32__ {
-  FG_anon_31 * self;
-  void * target;
-};
-typedef struct FG_anon_33__ FG_anon_33;
-struct FG_anon_33__ {
-  FG_anon_31 * self;
-};
-typedef struct FG_anon_34__ FG_anon_34;
-struct FG_anon_34__ {
-  FG_anon_31 * self;
-};
-typedef struct FG_anon_35__ FG_anon_35;
-struct FG_anon_35__ {
-  FG_anon_31 * self;
-  void * data;
-  FG_Rect area;
-};
-typedef struct FG_anon_36__ FG_anon_36;
-struct FG_anon_36__ {
-  FG_anon_31 * self;
-};
-typedef struct FG_anon_37__ FG_anon_37;
-struct FG_anon_37__ {
-  FG_anon_31 * self;
-};
-typedef struct FG_anon_38__ FG_anon_38;
-struct FG_anon_38__ {
-  FG_anon_31 * self;
-  float value;
-  uint16_t axis;
-};
-typedef struct FG_anon_39__ FG_anon_39;
-struct FG_anon_39__ {
-  FG_anon_31 * self;
-  uint16_t button;
-};
-typedef struct FG_anon_40__ FG_anon_40;
-struct FG_anon_40__ {
-  FG_anon_31 * self;
-  uint16_t button;
-};
-typedef struct FG_anon_41__ FG_anon_41;
-struct FG_anon_41__ {
-  FG_anon_31 * self;
-  int32_t unicode;
-  uint8_t sigkeys;
-};
-typedef struct FG_anon_42__ FG_anon_42;
-struct FG_anon_42__ {
-  FG_anon_31 * self;
-  uint8_t code;
-  uint8_t sigkeys;
-};
-typedef struct FG_anon_43__ FG_anon_43;
-struct FG_anon_43__ {
-  FG_anon_31 * self;
-  uint8_t code;
-  uint8_t sigkeys;
-};
-typedef struct FG_anon_44__ FG_anon_44;
-struct FG_anon_44__ {
-  FG_anon_31 * self;
-};
-typedef struct FG_anon_45__ FG_anon_45;
-struct FG_anon_45__ {
-  FG_anon_31 * self;
-  float x;
-  float y;
-  uint8_t button;
-  uint8_t all;
-};
-typedef struct FG_anon_46__ FG_anon_46;
-struct FG_anon_46__ {
-  FG_anon_31 * self;
-  float x;
-  float y;
-  uint8_t button;
-  uint8_t all;
-};
-typedef struct FG_anon_47__ FG_anon_47;
-struct FG_anon_47__ {
-  FG_anon_31 * self;
-  float x;
-  float y;
-  uint8_t button;
-  uint8_t all;
-};
-typedef struct FG_anon_48__ FG_anon_48;
-struct FG_anon_48__ {
-  FG_anon_31 * self;
-  float x;
-  float y;
-  uint8_t button;
-  uint8_t all;
-};
-typedef struct FG_anon_49__ FG_anon_49;
-struct FG_anon_49__ {
-  FG_anon_31 * self;
-  float x;
-  float y;
-  uint8_t button;
-  uint8_t all;
-};
-typedef struct FG_anon_50__ FG_anon_50;
-struct FG_anon_50__ {
-  FG_anon_31 * self;
-  float x;
-  float y;
-  int16_t delta;
-  int16_t hdelta;
-};
-typedef struct FG_anon_51__ FG_anon_51;
-struct FG_anon_51__ {
-  FG_anon_31 * self;
-  float x;
-  float y;
-  uint8_t button;
-  uint8_t all;
-};
-typedef struct FG_anon_52__ FG_anon_52;
-struct FG_anon_52__ {
-  FG_anon_31 * self;
-  uint32_t flags;
-};
-typedef struct FG_anon_53__ FG_anon_53;
-struct FG_anon_53__ {
-  FG_anon_31 * self;
-  FG_Rect rect;
-};
-typedef struct FG_anon_54__ FG_anon_54;
-struct FG_anon_54__ {
-  FG_anon_31 * self;
-  float x;
-  float y;
-  int16_t index;
-};
-typedef struct FG_anon_55__ FG_anon_55;
-struct FG_anon_55__ {
-  FG_anon_31 * self;
-  float x;
-  float y;
-  int16_t index;
-};
-typedef struct FG_anon_56__ FG_anon_56;
-struct FG_anon_56__ {
-  FG_anon_31 * self;
-  float x;
-  float y;
-  int16_t index;
-};
-struct FG_Msg__ {
-  FG_Kind type;
-  uint16_t subtype;
-  union {
-  FG_anon_30 action;
-  FG_anon_32 construct;
-  FG_anon_33 destroy;
-  FG_anon_34 dragDrop;
-  FG_anon_35 draw;
-  FG_anon_36 getWindowFlags;
-  FG_anon_37 gotFocus;
-  FG_anon_38 joyAxis;
-  FG_anon_39 joyButtonDown;
-  FG_anon_40 joyButtonUp;
-  FG_anon_41 keyChar;
-  FG_anon_42 keyDown;
-  FG_anon_43 keyUp;
-  FG_anon_44 lostFocus;
-  FG_anon_45 mouseDblClick;
-  FG_anon_46 mouseDown;
-  FG_anon_47 mouseMove;
-  FG_anon_48 mouseOff;
-  FG_anon_49 mouseOn;
-  FG_anon_50 mouseScroll;
-  FG_anon_51 mouseUp;
-  FG_anon_52 setWindowFlags;
-  FG_anon_53 setWindowRect;
-  FG_anon_54 touchBegin;
-  FG_anon_55 touchEnd;
-  FG_anon_56 touchMove;
-};;
-};
-enum FG_Window {
-  FG_Window_MINIMIZABLE = 1,
-  FG_Window_NOCAPTION = 8,
-  FG_Window_RESIZABLE = 4,
-  FG_Window_MINIMIZED = 32,
-  FG_Window_MAXIMIZED = 64,
-  FG_Window_CLOSED = 128,
-  FG_Window_MAXIMIZABLE = 2,
-  FG_Window_NOBORDER = 16
-};
-enum FG_MouseButton {
-  FG_MouseButton_X2 = 64,
-  FG_MouseButton_M = 16,
-  FG_MouseButton_R = 2,
-  FG_MouseButton_L = 1,
-  FG_MouseButton_X1 = 32
-};
-enum FG_Joy {
-  FG_Joy_Button4 = 3,
-  FG_Joy_Button21 = 20,
-  FG_Joy_Button11 = 10,
-  FG_Joy_Button12 = 11,
-  FG_Joy_Button25 = 24,
-  FG_Joy_Button3 = 2,
-  FG_Joy_Button15 = 14,
-  FG_Joy_ID2 = 256,
-  FG_Joy_Button31 = 30,
-  FG_Joy_Button32 = 31,
-  FG_Joy_Button2 = 1,
-  FG_Joy_Button28 = 27,
-  FG_Joy_Button18 = 17,
-  FG_Joy_ID7 = 1536,
-  FG_Joy_ID15 = 3584,
-  FG_Joy_ID14 = 3328,
-  FG_Joy_Button22 = 21,
-  FG_Joy_Button9 = 8,
-  FG_Joy_ID12 = 2816,
-  FG_Joy_ID3 = 512,
-  FG_Joy_ID11 = 2560,
-  FG_Joy_ID10 = 2304,
-  FG_Joy_ID9 = 2048,
-  FG_Joy_ID1 = 0,
-  FG_Joy_ID8 = 1792,
-  FG_Joy_Button20 = 19,
-  FG_Joy_ID16 = 3840,
-  FG_Joy_Button8 = 7,
-  FG_Joy_ID6 = 1280,
-  FG_Joy_Button26 = 25,
-  FG_Joy_ID5 = 1024,
-  FG_Joy_Button23 = 22,
-  FG_Joy_Button1 = 0,
-  FG_Joy_Button24 = 23,
-  FG_Joy_ID4 = 768,
-  FG_Joy_Button29 = 28,
-  FG_Joy_Button16 = 15,
-  FG_Joy_Button7 = 6,
-  FG_Joy_Button10 = 9,
-  FG_Joy_Button27 = 26,
-  FG_Joy_Button30 = 29,
-  FG_Joy_Button5 = 4,
-  FG_Joy_Button17 = 16,
-  FG_Joy_Button19 = 18,
-  FG_Joy_ID13 = 3072,
-  FG_Joy_Button14 = 13,
-  FG_Joy_Button13 = 12,
-  FG_Joy_Button6 = 5
-};
-typedef struct FG_Color16__ FG_Color16;
-struct FG_Color16__ {
-  uint64_t v;
-};
-typedef struct FG_URect__ FG_URect;
-struct FG_URect__ {
-  FG_Rect abs;
-  FG_Rect rel;
-};
-typedef void (* FG_Delegate)(void *);
-typedef struct FG_UVec__ FG_UVec;
-struct FG_UVec__ {
-  FG_Vec abs;
-  FG_Vec rel;
-};
+typedef FG_Backend * (* FG_InitBackend)(void *, FG_Log, FG_Behavior);
 enum FG_Keys {
   FG_Keys_4 = 52,
   FG_Keys_S = 83,
@@ -731,7 +637,84 @@ enum FG_Keys {
   FG_Keys_F17 = 128,
   FG_Keys_F16 = 127
 };
-typedef FG_Result (* FG_Behavior)(void *, void *, FG_Msg *);
-typedef FG_Backend * (* FG_InitBackend)(void *, FG_Log, FG_Behavior);
+typedef struct FG_URect__ FG_URect;
+struct FG_URect__ {
+  FG_Rect abs;
+  FG_Rect rel;
+};
+enum FG_Joy {
+  FG_Joy_Button4 = 3,
+  FG_Joy_Button21 = 20,
+  FG_Joy_Button11 = 10,
+  FG_Joy_Button12 = 11,
+  FG_Joy_Button25 = 24,
+  FG_Joy_Button3 = 2,
+  FG_Joy_Button15 = 14,
+  FG_Joy_ID2 = 256,
+  FG_Joy_Button31 = 30,
+  FG_Joy_Button32 = 31,
+  FG_Joy_Button2 = 1,
+  FG_Joy_Button28 = 27,
+  FG_Joy_Button18 = 17,
+  FG_Joy_ID7 = 1536,
+  FG_Joy_ID15 = 3584,
+  FG_Joy_ID14 = 3328,
+  FG_Joy_Button22 = 21,
+  FG_Joy_Button9 = 8,
+  FG_Joy_ID12 = 2816,
+  FG_Joy_ID3 = 512,
+  FG_Joy_ID11 = 2560,
+  FG_Joy_ID10 = 2304,
+  FG_Joy_ID9 = 2048,
+  FG_Joy_ID1 = 0,
+  FG_Joy_ID8 = 1792,
+  FG_Joy_Button20 = 19,
+  FG_Joy_ID16 = 3840,
+  FG_Joy_Button8 = 7,
+  FG_Joy_ID6 = 1280,
+  FG_Joy_Button26 = 25,
+  FG_Joy_ID5 = 1024,
+  FG_Joy_Button23 = 22,
+  FG_Joy_Button1 = 0,
+  FG_Joy_Button24 = 23,
+  FG_Joy_ID4 = 768,
+  FG_Joy_Button29 = 28,
+  FG_Joy_Button16 = 15,
+  FG_Joy_Button7 = 6,
+  FG_Joy_Button10 = 9,
+  FG_Joy_Button27 = 26,
+  FG_Joy_Button30 = 29,
+  FG_Joy_Button5 = 4,
+  FG_Joy_Button17 = 16,
+  FG_Joy_Button19 = 18,
+  FG_Joy_ID13 = 3072,
+  FG_Joy_Button14 = 13,
+  FG_Joy_Button13 = 12,
+  FG_Joy_Button6 = 5
+};
+enum FG_JoyAxis {
+  FG_JoyAxis_X = 0,
+  FG_JoyAxis_INVALID = 65535,
+  FG_JoyAxis_U = 4,
+  FG_JoyAxis_Y = 1,
+  FG_JoyAxis_V = 5,
+  FG_JoyAxis_Z = 2,
+  FG_JoyAxis_R = 3
+};
+typedef struct FG_UVec__ FG_UVec;
+struct FG_UVec__ {
+  FG_Vec abs;
+  FG_Vec rel;
+};
+enum FG_Window {
+  FG_Window_MINIMIZABLE = 1,
+  FG_Window_NOCAPTION = 8,
+  FG_Window_RESIZABLE = 4,
+  FG_Window_MINIMIZED = 32,
+  FG_Window_MAXIMIZED = 64,
+  FG_Window_CLOSED = 128,
+  FG_Window_MAXIMIZABLE = 2,
+  FG_Window_NOBORDER = 16
+};
 
 #endif

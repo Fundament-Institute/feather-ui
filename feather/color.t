@@ -46,6 +46,13 @@ M_mt.__call = terralib.memoize(function(self, abits, rbits, gbits, bbits)
     end
   end)
 
+  s.metamethods.__cast = function(from, to, exp)
+    if from == s.metamethods.type and to == s then
+      return `s{exp}
+    end
+    error(("unknown conversion %s to %s"):format(tostring(from),tostring(to)))
+  end
+
   return s
 end)
 

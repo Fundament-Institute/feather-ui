@@ -31,6 +31,13 @@ local function Flags(lst)
       end
   end)
 
+  flagset.metamethods.__cast = function(from, to, exp)
+    if from == flagset and to:isintegral() then
+      return `[to](exp.val)
+    end
+    error(("unknown conversion %s to %s"):format(tostring(from),tostring(to)))
+  end
+
   flagset.enum_values = {}
 
   for i, v in ipairs(lst) do

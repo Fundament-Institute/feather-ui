@@ -2,6 +2,7 @@ local Backend = require 'feather.backend'
 local Export = require 'feather.c-headers'
 local Shared = require 'feather.shared'
 local Log = require 'feather.log'
+local Element = require 'feather.element'
 local Message = require 'feather.message'
 local Messages = require 'feather.messages'
 
@@ -16,6 +17,8 @@ Backend.Level = Log.Level
 Backend.Msg = Message.Msg
 Backend.Result = Message.Result
 Backend.Kind = Message.Kind
+Backend.Behavior = Message.Behavior
+Backend.Element = Element
 
 local f = io.open("backend.h", "wb")
 f:write(Export({short_name="FG", long_name="BACKEND"}, Backend))

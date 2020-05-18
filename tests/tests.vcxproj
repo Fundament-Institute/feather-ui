@@ -46,7 +46,26 @@
     <OutDir>$(ProjectDir)..\bin-$(Platform)\</OutDir>
     <IntDir>$(ProjectDir)\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
-  <ItemDefinitionGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <TargetName>fgTests_d.exe</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <TargetName>fgTests.exe</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <TargetName>fgTests_d.exe</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <TargetName>fgTests.exe</TargetName>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
+    <CustomBuildStep>
+      <Command>cd .. &amp;&amp; terra "$(ProjectDir)main.t" -debug</Command>
+      <Outputs>$(OutDir)fgTests.exe</Outputs>
+      <Inputs>main.t;../backend.h</Inputs>
+    </CustomBuildStep>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
     <CustomBuildStep>
       <Command>cd .. &amp;&amp; terra "$(ProjectDir)main.t"</Command>
       <Outputs>$(OutDir)fgTests.exe</Outputs>

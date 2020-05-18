@@ -27,6 +27,7 @@ for k, v in pairs(Element.virtualinfo.info) do
     s.name = "Msg"..k
     k = F.camelCase(k)
     s.entries = f.definition.parameters:map(function(e) return {field = e.symbol.displayname, type = e.symbol.type} end)
+    table.remove(s.entries, 1) -- Remove self
     M.Msg.entries[3]:insert({field = k, type = s})
     M.Msg.typelist[v.index] = {field = k, type = s}
     M.Result.entries[1]:insert({field = k, type = f.type.returntype})
@@ -42,20 +43,22 @@ if terralib.sizeof(M.Result) ~= terralib.sizeof(intptr) then
   error("Msg.Result ("..terralib.sizeof(M.Result)..") should be the size of a pointer ("..terralib.sizeof(intptr)..")")
 end
 
-M.Behavior = {&opaque, &Element, &M.Msg} -> M.Result
+M.Behavior = {&Element, &opaque, &opaque, &M.Msg} -> M.Result
 
 -- Our default message handler just calls the appropriate vftable pointer and maps our parameters back to it.
-terra M.DefaultBehavior(ui : &opaque, e : &Element, m : M.Msg) : M.Result
-  switch m.kind.val do
+terra M.DefaultBehavior(self : &Element, w : &opaque, ui : &opaque, m : &M.Msg) : M.Result
+  switch [int](m.kind.val) do
     escape 
       for k, v in pairs(M.Kind.methods) do
-        local idx = M.Kind.enum_values[k] + 1
+        local idx = M.Kind.enum_values[k]
         local args = M.Msg.typelist[idx].type.entries:map(function(x) return `m.[M.Msg.typelist[idx].field].[x.field] end)
-        emit(quote case [uint](v) then e:virtual([ Element.virtualinfo.names[idx] ])([args]) end end)
+        emit(quote case [idx] then self:virtual([ Element.virtualinfo.names[idx + 1] ])(self, [args]) end end)
       end
     end
   end
-  return -1
+  var r : M.Result;
+  r.[M.Msg.typelist[0].field] = -1;
+  return r
 end
 
 return M

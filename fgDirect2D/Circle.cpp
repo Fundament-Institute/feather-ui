@@ -47,16 +47,21 @@ HRESULT Circle::Register(_In_ ID2D1Factory1* pFactory)
             <Property name='DisplayName' type='string' value='Arcs'/>
             <Property name='Default' type='vector4' value='(0.0, 0.0, 0.0, 0.0)' />
         </Property>
-        <Property name='Color' type='uint32'>
-            <Property name='DisplayName' type='string' value='Color'/>
+        <Property name='Fill' type='uint32'>
+            <Property name='DisplayName' type='string' value='Fill'/>
             <Property name='Default' type='uint32' value='0' />
         </Property>
-        <Property name='OutlineColor' type='uint32'>
+        <Property name='Outline' type='uint32'>
             <Property name='DisplayName' type='string' value='Outline Color'/>
             <Property name='Default' type='uint32' value='0' />
         </Property>
-        <Property name='Outline' type='float'>
+        <Property name='Border' type='float'>
             <Property name='DisplayName' type='string' value='Outline Width'/>
+            <Property name='Min' type='float' value='0.0' />
+            <Property name='Default' type='float' value='0.0' />
+        </Property>
+        <Property name='Blur' type='float'>
+            <Property name='DisplayName' type='string' value='Blur Amount'/>
             <Property name='Min' type='float' value='0.0' />
             <Property name='Default' type='float' value='0.0' />
         </Property>
@@ -69,9 +74,10 @@ HRESULT Circle::Register(_In_ ID2D1Factory1* pFactory)
   {
     D2D1_VALUE_TYPE_BINDING(L"Rect", &SetRect, &GetRect),
     D2D1_VALUE_TYPE_BINDING(L"Arcs", &SetCorners, &GetCorners),
-    D2D1_VALUE_TYPE_BINDING(L"Color", &SetColor, &GetColor),
-    D2D1_VALUE_TYPE_BINDING(L"OutlineColor", &SetOutlineColor, &GetOutlineColor),
+    D2D1_VALUE_TYPE_BINDING(L"Fill", &SetFill, &GetFill),
     D2D1_VALUE_TYPE_BINDING(L"Outline", &SetOutline, &GetOutline),
+    D2D1_VALUE_TYPE_BINDING(L"Border", &SetBorder, &GetBorder),
+    D2D1_VALUE_TYPE_BINDING(L"Blur", &SetBlur, &GetBlur),
   };
 
   return pFactory->RegisterEffectFromString(

@@ -12,8 +12,9 @@ local Alloc = require 'std.alloc'
 local M = require 'feather.message'
 local L = require 'feather.log'
 local U = require 'feather.util'
+local C = require 'feather.libc'
 
-B.Features = Flags{
+B.Feature = Flags{
   "TEXT_ANTIALIAS", 
   "TEXT_SUBPIXEL",
   "TEXT_BLUR",
@@ -41,7 +42,7 @@ B.Features = Flags{
   "BACKGROUND_OPACITY",
   "IMMEDIATE_MODE"}
 
-B.Formats = Enum{
+B.Format = Enum{
   "GRADIENT",
   "BMP",
   "JPG",
@@ -59,8 +60,8 @@ B.Formats = Enum{
   "MKV",
   "WEBM"}
 
-B.Formats.methods["UNKNOWN"] = constant(`0xff)
-B.Formats.enum_values["UNKNOWN"] = 0xff
+B.Format.methods["UNKNOWN"] = constant(`0xff)
+B.Format.enum_values["UNKNOWN"] = 0xff
 
 B.AntiAliasing = Enum{
   "NO_AA",
@@ -111,7 +112,7 @@ struct B.Asset {
   data : B.Data
   size : F.Veci
   dpi : F.Vec
-  format : B.Formats
+  format : B.Format
 }
 
 struct B.Display {
@@ -126,7 +127,7 @@ struct B.Display {
 struct B.Backend {
   destroy : {&B.Backend} -> {}
 
-  features : B.Features
+  features : B.Feature
   formats : uint
   dpi : F.Vec
   scale : float
@@ -135,26 +136,29 @@ struct B.Backend {
 }
 
 -- Define a dynamic backend object (a static backend would be a seperate type that also provides these functions).
-terra B.Backend:DrawFont(data : &opaque, font : &B.Font, layout : &opaque, area : &F.Rect, color : F.Color, lineHeight : float, letterSpacing : float, blur : float, aa : B.AntiAliasing) : F.Err return 0 end
-terra B.Backend:DrawAsset(data : &opaque, asset : &B.Asset, area : &F.Rect, source : &F.Rect, color : F.Color, time : float) : F.Err return 0 end
-terra B.Backend:DrawRect(data : &opaque, area : &F.Rect, corners : &F.Rect, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, asset : &B.Asset) : F.Err return 0 end
-terra B.Backend:DrawCircle(data : &opaque, area : &F.Rect, arcs : &F.Rect, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, asset : &B.Asset) : F.Err return 0 end
-terra B.Backend:DrawTriangle(data : &opaque, area : &F.Rect, corners : &F.Rect, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, asset : &B.Asset) : F.Err return 0 end
-terra B.Backend:DrawLines(data : &opaque, points : &F.Vec, count : uint, color : F.Color) : F.Err return 0 end
-terra B.Backend:DrawCurve(data : &opaque, anchors : &F.Vec, count : uint, fillColor : F.Color, stroke : float, strokeColor : F.Color) : F.Err return 0 end
-terra B.Backend:PushLayer(data : &opaque, area : F.Rect, transform : &float, opacity : float) : F.Err return 0 end
-terra B.Backend:PopLayer(data : &opaque) : F.Err return 0 end
-terra B.Backend:PushClip(data : &opaque, area : F.Rect) : F.Err return 0 end
-terra B.Backend:PopClip(data : &opaque) : F.Err return 0 end
-terra B.Backend:DirtyRect(data : &opaque, area : F.Rect) : F.Err return 0 end
+terra B.Backend:DrawText(window : &opaque, font : &B.Font, layout : &opaque, area : &F.Rect, color : F.Color, lineHeight : float, letterSpacing : float, blur : float, aa : B.AntiAliasing) : F.Err return 0 end
+terra B.Backend:DrawAsset(window : &opaque, asset : &B.Asset, area : &F.Rect, source : &F.Rect, color : F.Color, time : float) : F.Err return 0 end
+terra B.Backend:DrawRect(window : &opaque, area : &F.Rect, corners : &F.Rect, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, asset : &B.Asset) : F.Err return 0 end
+terra B.Backend:DrawCircle(window : &opaque, area : &F.Rect, arcs : &F.Rect, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, asset : &B.Asset) : F.Err return 0 end
+terra B.Backend:DrawTriangle(window : &opaque, area : &F.Rect, corners : &F.Rect, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, asset : &B.Asset) : F.Err return 0 end
+terra B.Backend:DrawLines(window : &opaque, points : &F.Vec, count : uint, color : F.Color) : F.Err return 0 end
+terra B.Backend:DrawCurve(window : &opaque, anchors : &F.Vec, count : uint, fillColor : F.Color, stroke : float, strokeColor : F.Color) : F.Err return 0 end
+terra B.Backend:PushLayer(window : &opaque, area : &F.Rect, transform : &float, opacity : float) : F.Err return 0 end
+terra B.Backend:PopLayer(window : &opaque) : F.Err return 0 end
+terra B.Backend:PushClip(window : &opaque, area : &F.Rect) : F.Err return 0 end
+terra B.Backend:PopClip(window : &opaque) : F.Err return 0 end
+terra B.Backend:DirtyRect(window : &opaque, area : &F.Rect) : F.Err return 0 end
+terra B.Backend:BeginDraw(window : &opaque, area : &F.Rect) : F.Err return 0 end
+terra B.Backend:EndDraw(window : &opaque) : F.Err return 0 end
 
 terra B.Backend:CreateFont(family : F.conststring, weight : uint16, italic : bool, pt : uint32, dpi : F.Vec) : &B.Font return nil end
 terra B.Backend:DestroyFont(font : &B.Font) : F.Err return 0 end
 terra B.Backend:FontLayout(font : &B.Font, text : F.conststring, area : &F.Rect, lineHeight : float, letterSpacing : float, previous : &opaque, dpi : F.Vec) : &opaque return nil end
+terra B.Backend:DestroyLayout(layout : &opaque) : F.Err return 0 end
 terra B.Backend:FontIndex(font : &B.Font, layout : &opaque, area : &F.Rect, lineHeight : float, letterSpacing : float, pos : F.Vec, cursor : &F.Vec, dpi : F.Vec) : uint return 0 end
 terra B.Backend:FontPos(font : &B.Font, layout : &opaque, area :&F.Rect, lineHeight : float, letterSpacing : float, index : uint, dpi : F.Vec) : F.Vec return F.Vec{} end
 
-terra B.Backend:CreateAsset(data : F.conststring, count : uint, format : B.Formats) : &B.Asset return nil end
+terra B.Backend:CreateAsset(data : F.conststring, count : uint, format : B.Format) : &B.Asset return nil end
 terra B.Backend:DestroyAsset(asset : &B.Asset) : F.Err return 0 end
 
 terra B.Backend:PutClipboard(kind : B.Clipboard, data : F.conststring, count : uint) : F.Err return 0 end
@@ -169,8 +173,8 @@ terra B.Backend:RequestAnimationFrame(window : &opaque, delay : uint64) : F.Err 
 terra B.Backend:GetDisplayIndex(index : uint, out : &B.Display) : F.Err return 0 end
 terra B.Backend:GetDisplay(handle : uint64, out : &B.Display) : F.Err return 0 end
 terra B.Backend:GetDisplayWindow(window : &opaque, out : &B.Display) : F.Err return 0 end
-terra B.Backend:CreateWindow(data : &opaque, display : uint64, area : &F.Rect, caption : F.conststring, flags : uint64) : &opaque return nil end
-terra B.Backend:SetWindow(window : &opaque, data : &opaque, display : uint64, area : &F.Rect, caption : F.conststring, flags : uint64) : F.Err return 0 end
+terra B.Backend:CreateWindow(element : &Element, display : uint64, area : &F.Rect, caption : F.conststring, flags : uint64) : &opaque return nil end
+terra B.Backend:SetWindow(window : &opaque, element : &Element, display : uint64, area : &F.Rect, caption : F.conststring, flags : uint64) : F.Err return 0 end
 terra B.Backend:DestroyWindow(window : &opaque) : F.Err return 0 end
 
 -- Generate both the function pointer field and redefine the function to call the generated function pointer

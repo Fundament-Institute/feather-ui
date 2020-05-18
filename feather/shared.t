@@ -72,8 +72,14 @@ S.conststring.metamethods.__cast = function(from, to, exp)
   if from == rawstring and to == S.conststring then
     return `S.conststring{exp}
   end
+  if from == niltype and to == S.conststring then
+    return `S.conststring{nil}
+  end
   if from == S.conststring and to == rawstring then
     return `exp.s
+  end
+  if from == niltype and to == rawstring then
+    return `nil
   end
   error(("unknown conversion %s to %s"):format(tostring(from),tostring(to)))
 end

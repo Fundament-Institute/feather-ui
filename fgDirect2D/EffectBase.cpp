@@ -13,7 +13,7 @@ using namespace D2D;
 
 EffectBase::EffectBase() : _ref(1), _drawInfo(0)
 { 
-  fgassert(sizeof(_constants) == sizeof(float)*(4*4 + 1));
+  fgassert(sizeof(_constants) == sizeof(float)*(4*4 + 2));
   memset(&_constants, 0, sizeof(_constants));
 }
 EffectBase::~EffectBase()
@@ -83,24 +83,27 @@ D2D_VECTOR_4F EffectBase::GetRect() const { return _constants.rect; }
 HRESULT EffectBase::SetCorners(D2D_VECTOR_4F corners) { _constants.corners = corners; return S_OK; }
 D2D_VECTOR_4F EffectBase::GetCorners() const { return _constants.corners; }
 
-HRESULT EffectBase::SetOutline(FLOAT outline) { _constants.outline = outline; return S_OK; }
-FLOAT EffectBase::GetOutline() const { return _constants.outline; }
+HRESULT EffectBase::SetBorder(FLOAT border) { _constants.borderblur.x = border; return S_OK; }
+FLOAT EffectBase::GetBorder() const { return _constants.borderblur.x; }
 
-HRESULT EffectBase::SetColor(UINT color)
+HRESULT EffectBase::SetBlur(FLOAT blur) { _constants.borderblur.y = blur; return S_OK; }
+FLOAT EffectBase::GetBlur() const { return _constants.borderblur.y; }
+
+HRESULT EffectBase::SetFill(UINT color)
 {
-  _color = color;
-  _constants.color = ToD2Color(color);
+  _fill = color;
+  _constants.fill = ToD2Color(color);
   return S_OK;
 }
-UINT EffectBase::GetColor() const { return _color; }
+UINT EffectBase::GetFill() const { return _fill; }
 
-HRESULT EffectBase::SetOutlineColor(UINT color)
+HRESULT EffectBase::SetOutline(UINT color)
 {
-  _outlinecolor = color;
-  _constants.outlinecolor = ToD2Color(color);
+  _outline = color;
+  _constants.outline = ToD2Color(color);
   return S_OK;
 }
-UINT EffectBase::GetOutlineColor() const { return _outlinecolor; }
+UINT EffectBase::GetOutline() const { return _outline; }
 
 IFACEMETHODIMP EffectBase::MapOutputRectToInputRects(_In_ const D2D1_RECT_L* pOutputRect, _Out_writes_(inputRectCount) D2D1_RECT_L* pInputRects, UINT32 inputRectCount) const
 {

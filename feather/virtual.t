@@ -8,7 +8,6 @@ local virtual_invoke = macro(function(obj, funcname)
       if not info then
         error("type "..tostring(obj:gettype()) .. " does not have a virtual method named "..funcname:asvalue())
         end
-      print(funcname, ...)
       --TODO: handle overloaded functions
       return quote
           var temp = [ not obj:islvalue() and not obj:gettype():ispointer() and obj or `&obj ]
@@ -68,7 +67,7 @@ local function virtual_staticinitialize(class)
   else
     combined_names = names
   end
-  class.virtual_initializer = `arrayof([&opaque], [combined_names:map(function(name) return get_funcpointer(class, name) end)])
+  class.methods.virtual_initializer = `arrayof([&opaque], [combined_names:map(function(name) return get_funcpointer(class, name) end)])
   class.virtualinfo = {
     info = info,
     names = combined_names,

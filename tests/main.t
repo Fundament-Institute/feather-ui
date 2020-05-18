@@ -6,6 +6,7 @@ local B = require 'feather.backend'
 local Enum = require 'feather.enum'
 local Flags = require 'feather.flags'
 local M = require 'feather.message'
+local Msg = require 'feather.messages'
 local Hash = require 'feather.hash'
 local cond = require 'std.cond'
 local OS = require 'feather.os'
@@ -16,8 +17,12 @@ local Alloc = require 'std.alloc'
 local P = require 'feather.partitioner'
 local SimplePartition = require 'feather.partition_simple'
 local Math = require 'std.math'
+local Element = require 'feather.element'
+local V = require 'feather.virtual'
 
 --local String = require 'feather.string'
+
+local isdebug = arg[1] == "-debug" or arg[1] == "-g"
 
 local struct TestHarness {
   passed : int;
@@ -81,14 +86,128 @@ terra TestHarness:array()
   self:Test(a(0), 1)
 end
 
-local UIMock = struct{}
-terra FakeLog(root : &opaque, level : L.Level, f : F.conststring, ...)
+local va_start = terralib.intrinsic("llvm.va_start", {&int8} -> {})
+local va_end = terralib.intrinsic("llvm.va_end", {&int8} -> {})
 
+local UIMock = struct{}
+terra FakeLog(root : &opaque, level : L.Level, f : F.conststring, ...) : {}
+  if level.val >= 0 then
+    C.printf(L.Levels[level.val])
+  end
+  var vl : C.va_list
+  va_start([&int8](&vl))
+  C.vprintf(f, vl)
+  va_end([&int8](&vl))
+  C.printf("\n");
 end
 
+local target_backend = "fgDirect2D.dll"
+if isdebug then
+  target_backend = "fgDirect2D_d.dll"
+end
+
+struct MockElement {
+  image : &B.Asset
+  font : &B.Font
+  layout : &opaque
+  flags : uint64
+  close : bool
+}
+
+V.extends(Element)(MockElement)
+
+terra MockElement:Behavior(w : &opaque, ui : &opaque, m : &M.Msg) : M.Result
+  if m.kind.val == [Element.virtualinfo.info["Draw"].index] then
+    var b = @[&&B.Backend](ui)
+    var r = F.Rect{array(50f, 100f, 200f, 300f)}
+    var c = F.Rect{array(0f, 4f, 8f, 12f)}
+    b:DrawRect(w, &r, &c, 0xFF0000FF, 5.0f, 0xFF00FFFF, 0.0f, nil)
+
+    var r2 = F.Rect{array(350f, 100f, 500f, 300f)}
+    var c2 = F.Rect{array(0f, 4f, 8f, 12f)}
+    b:DrawCircle(w, &r2, &c2, 0xFF0000FF, 5.0f, 0xFF00FFFF, 0.0f, nil)
+    
+    var r3 = F.Rect{array(150f, 300f, 300f, 500f)}
+    var c3 = F.Rect{array(0f, 4f, 8f, 0.5f)}
+    b:DrawTriangle(w, &r3, &c3, 0xFF0000FF, 5.0f, 0xFF00FFFF, 0.0f, nil)
+
+    var r4 = F.Rect{array(300f, 300f, 620f, 580f)}
+    b:DrawAsset(w, self.image, &r4, nil, 0xFFFFFFFF, 0f)
+
+    var r5 = F.Rect{array(10f, 10f, 450f, 40f)}
+    b:DrawText(w, self.font, self.layout, &r5, 0xFFFFFFFF, 32.0f, 10.0f, 0.0f, B.AntiAliasing.LCD)
+    return M.Result{0}
+  end
+  if m.kind.val == [Element.virtualinfo.info["KeyDown"].index] or m.kind.val == [Element.virtualinfo.info["MouseDown"].index] then
+    self.close = true
+  end
+  return M.DefaultBehavior(&self.super, w, ui, m)
+end
+
+local TEST_TEXT = constant("testtext")
+
 terra TestHarness:backend()
-  var b = B.Backend.new(nil, M.DefaultBehavior, FakeLog, "fgDirect2D.dll", nil)
+  var fakeUI : &B.Backend = nil
+
+  var bl = B.Backend.new(&fakeUI, [M.Behavior](MockElement.Behavior), FakeLog, [target_backend], nil)
+  if bl._0 == nil then
+    bl = B.Backend.new(&fakeUI, [M.Behavior](MockElement.Behavior), FakeLog, [".\\bin-x64\\" .. target_backend], nil)
+  end
+  self:Test(bl._0 == nil, false)
+  if bl._0 == nil then
+    return
+  end
+
+  fakeUI = bl._0
+  var b = bl._0
+  var textrect = F.Rect{array(0f,0f,1000f,700f)}
+  var e = MockElement{Element{Element.virtual_initializer}}
+  e.flags = Msg.Window.RESIZABLE
+  e.image = b:CreateAsset("../tests/example.png", 0, B.Format.PNG)
+  e.font = b:CreateFont("Arial", 700, false, 16, F.Vec{array(96f, 96f)})
+  e.layout = b:FontLayout(e.font, "Example Text!", &textrect, 16f, 0f, nil, F.Vec{array(96f, 96f)});
+  e.close = false
+
+  var rect = F.Rect{array(200f,100f,1000f,700f)}
+  var w = b:CreateWindow(&e.super, 0, &rect, "Feather Test", e.flags)
   
+  self:Test(w ~= nil, true)
+  self:Test(b:ProcessMessages() ~= 0, true)
+  self:Test(b:ClearClipboard(B.Clipboard.ALL), 0)
+  self:Test(b:CheckClipboard(B.Clipboard.TEXT), false)
+  self:Test(b:CheckClipboard(B.Clipboard.WAVE), false)
+  self:Test(b:CheckClipboard(B.Clipboard.ALL), false)
+  self:Test(b:PutClipboard(B.Clipboard.TEXT, TEST_TEXT, 9), 0)
+  self:Test(b:CheckClipboard(B.Clipboard.TEXT), true)
+  self:Test(b:CheckClipboard(B.Clipboard.WAVE), false)
+  self:Test(b:CheckClipboard(B.Clipboard.ALL), true)
+
+  var hold : int8[10]
+
+  self:Test(b:GetClipboard(B.Clipboard.TEXT, [&int8](hold), 10), 9)
+  for i = 0,8 do 
+    self:Test(TEST_TEXT[i], hold[i])
+  end
+
+  self:Test(b:GetClipboard(B.Clipboard.WAVE, [&int8](hold), 10), 0)
+  self:Test(b:SetCursor(w, B.Cursor.RESIZEALL), 0)
+  self:Test(b:RequestAnimationFrame(w, 0), 0)
+
+  self:Test(b:SetWindow(w, nil, 0, nil, nil, Msg.Window.RESIZABLE), 0)
+  self:Test(b:SetWindow(w, &e.super, 0, nil, "Feather Test Changed", Msg.Window.RESIZABLE), 0)
+
+  self:Test(b:ProcessMessages() ~= 0, true)
+
+  while b:ProcessMessages() ~= 0 and e.close == false do
+    --C.printf("FRAME\n") 
+  end
+
+  self:Test(b:DestroyWindow(w), 0)
+  self:Test(b:DestroyAsset(e.image), 0)
+  self:Test(b:DestroyLayout(e.layout), 0)
+  self:Test(b:DestroyFont(e.font), 0)
+  b:free(bl._1)
+  self:Test(true, true) -- ensure tests didn't crash
 end
 
 local printraw = macro(function(a) terralib.printraw(a:gettype()) return `a == a end)
@@ -608,7 +727,20 @@ terra main(argc : int, argv : &rawstring) : int
   return 0;
 end
 
-if terralib.saveobj("bin-"..jit.arch.."/fgTests.exe", {main = main}) ~= nil then
+local targetname = "fgTests"
+local clangargs = {}
+if isdebug then
+  table.insert(clangargs, "-g")
+  table.insert(clangargs, "/DEBUG")
+  targetname = targetname .. "_d"
+end
+
+if jit.os == "Windows" then
+  targetname = targetname .. ".exe"
+end
+
+print(clangargs[0])
+if terralib.saveobj("bin-"..jit.arch.."/"..targetname, "executable", {main = main}, clangargs) ~= nil then
   return -1
 end
 

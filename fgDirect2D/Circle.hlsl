@@ -6,6 +6,8 @@
 
 //#include "d2d1effecthelpers.hlsli"
 
+static const float PI = 3.14159265359;
+  
 cbuffer constants : register(b0)
 {
   float4 rect : packoffset(c0);
@@ -13,6 +15,7 @@ cbuffer constants : register(b0)
   float4 color : packoffset(c2);
   float4 outlinecolor : packoffset(c3);
   float outline : packoffset(c4.x);
+  float blur : packoffset(c4.y);
 };
 
 float fmod(float n, float d)
@@ -20,19 +23,21 @@ float fmod(float n, float d)
   return n - floor(n/d)*d;
 }
 
+float smootharc(float2 arcs, float angle, float anglew)
+{
+    angle = fmod(angle-arcs.x+anglew, PI*2) - anglew; // Instead of enclosing within [0, 2PI], we shift to [-anglew, PI*2-anglew] which prevents the smoothstep from breaking
+    return smoothstep(-anglew, anglew, angle) - smoothstep(arcs.y-anglew, arcs.y+anglew, angle);
+}
+ 
 float getarc(float2 arcs, float angle, float anglew)
 {
-  const float PI = 3.14159265359;
   if(arcs.y > PI) // we can only deal with an empty circle, not a full circle, so we invert the arc if it's greater than PI
   {
     arcs.x += arcs.y; // Note: this is probably mathematically equivelent to constructing something using abs()
     arcs.y = PI*2 - arcs.y;
-    // Copy paste from below becuase no recursive functions in HLSL :C
-    angle = fmod(angle-arcs.x+anglew, PI*2) - anglew;
-    return 1.0 - (smoothstep(-anglew, anglew, angle) - smoothstep(arcs.y-anglew, arcs.y+anglew, angle));
+    return 1.0f - smootharc(arcs, angle, anglew);
   }
-  angle = fmod(angle-arcs.x+anglew, PI*2) - anglew; // Instead of enclosing within [0, 2PI], we shift to [-anglew, PI*2-anglew] which prevents the smoothstep from breaking
-  return smoothstep(-anglew, anglew, angle) - smoothstep(arcs.y-anglew, arcs.y+anglew, angle);
+  return smootharc(arcs, angle, anglew);
 }
 
 float4 main(float4 pos : SV_POSITION, float4 posScene : SCENE_POSITION) : SV_TARGET

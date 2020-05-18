@@ -51,7 +51,7 @@ namespace D2D {
     ID2D1Effect* triangle;
     ID2D1Effect* circle;
     ID2D1Effect* scale;
-    void* element;
+    FG_Element* element;
     Backend* backend;
     FG_Rect margin; // When maximized, the actual window area is larger than the area we intend to draw on, so we must compensate
     std::stack<ID2D1Layer*> layers;
@@ -61,15 +61,16 @@ namespace D2D {
     bool inside;
     bool invalid;
 
-    Window(Backend* backend, void* element, const FG_Rect& area, uint64_t flags, const char* caption);
+    Window(Backend* backend, FG_Element* element, const FG_Rect& area, uint64_t flags, const char* caption);
     ~Window();
     void CreateResources(HWND__* handle);
     void DiscardResources();
+    void DiscardAsset(const Asset* p);
     void BeginDraw(HWND__* handle, const FG_Rect& area);
     void EndDraw();
     void SetCaption(const char* caption);
     void SetArea(const FG_Rect& rect);
-    void SetFlags(uint32_t flags);
+    void SetFlags(uint64_t flags);
     size_t SetKey(uint8_t keycode, bool down, bool held, unsigned long time);
     size_t SetChar(int key, unsigned long time);
     size_t SetMouse(FG_Vec& points, FG_Kind type, unsigned char button, size_t wparam, unsigned long time);
@@ -82,7 +83,7 @@ namespace D2D {
 
     static void WndRegister(longptr_t(__stdcall* f)(HWND__*, unsigned int, size_t, longptr_t), const wchar_t* name);
     static longptr_t __stdcall WndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam);
-    static longptr_t __stdcall TopWndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam);
+    static longptr_t __stdcall BorderlessWndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam);
     
     static uint32_t wincount;
   };

@@ -22,14 +22,17 @@ namespace D2D {
     HRESULT SetCorners(D2D_VECTOR_4F corners);
     D2D_VECTOR_4F GetCorners() const;
 
-    HRESULT SetColor(UINT color);
-    UINT GetColor() const;
+    HRESULT SetFill(UINT color);
+    UINT GetFill() const;
 
-    HRESULT SetOutlineColor(UINT color);
-    UINT GetOutlineColor() const;
+    HRESULT SetOutline(UINT color);
+    UINT GetOutline() const;
 
-    HRESULT SetOutline(FLOAT outline);
-    FLOAT GetOutline() const;
+    HRESULT SetBorder(FLOAT border);
+    FLOAT GetBorder() const;
+
+    HRESULT SetBlur(FLOAT border);
+    FLOAT GetBlur() const;
 
     IFACEMETHODIMP MapOutputRectToInputRects(_In_ const D2D1_RECT_L* pOutputRect, _Out_writes_(inputRectCount) D2D1_RECT_L* pInputRects, UINT32 inputRectCount) const;
     IFACEMETHODIMP MapInputRectsToOutputRect(_In_reads_(inputRectCount) CONST D2D1_RECT_L* pInputRects, _In_reads_(inputRectCount) CONST D2D1_RECT_L* pInputOpaqueSubRects, UINT32 inputRectCount, _Out_ D2D1_RECT_L* pOutputRect, _Out_ D2D1_RECT_L* pOutputOpaqueSubRect);
@@ -44,16 +47,16 @@ namespace D2D {
     ID2D1DrawInfo* _drawInfo;
     D2D1_RECT_L _rect;
     LONG _ref;
-    UINT _color;
-    UINT _outlinecolor;
+    UINT _fill;
+    UINT _outline;
 
     struct
     {
       D2D_VECTOR_4F rect;
       D2D_VECTOR_4F corners;
-      D2D1_COLOR_F color;
-      D2D1_COLOR_F outlinecolor;
-      float outline;
+      D2D1_COLOR_F fill;
+      D2D1_COLOR_F outline;
+      D2D_VECTOR_2F borderblur;
     } _constants;
   };
 }
