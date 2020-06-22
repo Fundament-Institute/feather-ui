@@ -146,6 +146,7 @@ end
 
 local TEST_TEXT = constant("testtext")
 
+if jit.os == "Windows" then
 terra TestHarness:backend()
   var fakeUI : &B.Backend = nil
 
@@ -208,6 +209,7 @@ terra TestHarness:backend()
   self:Test(b:DestroyFont(e.font), 0)
   b:free(bl._1)
   self:Test(true, true) -- ensure tests didn't crash
+end
 end
 
 local printraw = macro(function(a) terralib.printraw(a:gettype()) return `a == a end)
@@ -710,7 +712,7 @@ terra main(argc : int, argv : &rawstring) : int
   PrintColumns("Internal Tests", "Subtests", "Pass/Fail")
   PrintColumns("--------------", "--------", "---------")
 
-  escape 
+  escape
     for k, v in pairs(TestHarness.methods) do
       if not terralib.ismacro(v) then
         emit(quote
