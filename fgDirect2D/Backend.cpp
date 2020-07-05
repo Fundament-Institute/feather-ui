@@ -21,7 +21,6 @@
 using namespace D2D;
 namespace fs = std::filesystem;
 
-
 typedef HRESULT(STDAPICALLTYPE* DWMCOMPENABLE)(BOOL*);
 typedef HRESULT(STDAPICALLTYPE* DWMBLURBEHIND)(HWND, const DWM_BLURBEHIND*);
 typedef HRESULT(STDAPICALLTYPE* GETDPIFORMONITOR)(HMONITOR, int, UINT*, UINT*);
@@ -606,7 +605,7 @@ bool Backend::CheckClipboard(FG_Backend* self, FG_Clipboard kind)
   case FG_Clipboard_ALL:
     return IsClipboardFormatAvailable(CF_TEXT) | IsClipboardFormatAvailable(CF_UNICODETEXT) | IsClipboardFormatAvailable(CF_WAVE) | IsClipboardFormatAvailable(CF_BITMAP) | IsClipboardFormatAvailable(CF_PRIVATEFIRST);
   }
-  return 0;
+  return false;
 }
 
 FG_Err Backend::ClearClipboard(FG_Backend* self, FG_Clipboard kind)
@@ -693,7 +692,7 @@ FG_Err Backend::GetDisplayIndex(FG_Backend* self, unsigned int index, FG_Display
   return 0;
 }
 
-FG_Err Backend::GetDisplay(FG_Backend* self, unsigned long long handle, FG_Display* out)
+FG_Err Backend::GetDisplay(FG_Backend* self, void* handle, FG_Display* out)
 {
   for(auto& i : static_cast<Backend*>(self)->_displays)
     if(i.handle == handle)
@@ -709,7 +708,7 @@ FG_Err Backend::GetDisplayWindow(FG_Backend* self, void* window, FG_Display* out
 {
   HMONITOR monitor = MonitorFromWindow(reinterpret_cast<HWND>(window), MONITOR_DEFAULTTONEAREST);
   for(auto& i : static_cast<Backend*>(self)->_displays)
-    if(i.handle == reinterpret_cast<size_t>(monitor))
+    if(i.handle == monitor)
     {
       *out = i;
       return 0;
@@ -718,23 +717,26 @@ FG_Err Backend::GetDisplayWindow(FG_Backend* self, void* window, FG_Display* out
   return -1;
 }
 
-void* Backend::CreateWindowD2D(FG_Backend* self, FG_Element* element, uint64_t display, FG_Rect* area, const char* caption, uint64_t flags)
+void* Backend::CreateWindowD2D(FG_Backend* self, FG_Element* element, void* display, FG_Vec* pos, FG_Vec* dim, const char* caption, uint64_t flags)
 {
-  auto window = new Window(static_cast<Backend*>(self), element, *area, flags, caption);
+  // TODO: If a display other than the primary monitor is specified AND pos == NULL, then we should recreate Windows' DWM new window logic by incrementing
+  // _lastwindowpos on both the x and y axis by the height of a standard window titlebar and shifting it into that monitor's rectangle.
+  auto window = new Window(static_cast<Backend*>(self), element, pos, dim, flags, caption);
   return window->hWnd;
 }
 
-FG_Err Backend::SetWindowD2D(FG_Backend* self, void* window, FG_Element* element, uint64_t display, FG_Rect* area, const char* caption, uint64_t flags)
+FG_Err Backend::SetWindowD2D(FG_Backend* self, void* window, FG_Element* element, void* display, FG_Vec* pos, FG_Vec* dim, const char* caption, uint64_t flags)
 {
   Window* ptr = reinterpret_cast<Window*>(GetWindowLongPtrW(reinterpret_cast<HWND>(window), GWLP_USERDATA));
   if(!ptr)
     return -1;
   ptr->element = element;
-  if(area)
-    ptr->SetArea(*area);
+  if(pos || dim)
+    ptr->SetArea(pos, dim);
   if(caption)
     ptr->SetCaption(caption);
-  ptr->SetFlags(flags);
+  if(flags != ~0ULL)
+    ptr->SetFlags(flags);
   return 0;
 }
 
@@ -804,7 +806,7 @@ BOOL __stdcall Backend::EnumerateMonitorsProc(HMONITOR monitor, HDC hdc, LPRECT,
         { info.rcMonitor.left, info.rcMonitor.top },
         instance->dpi,
         1.0f,
-        reinterpret_cast<size_t>(monitor),
+        monitor,
         (info.dwFlags & MONITORINFOF_PRIMARY) != 0
       });
 
@@ -985,10 +987,6 @@ _log(log), _behavior(behavior), _factory(factory), _wicfactory(wicfactory), _wri
   destroyWindow = &DestroyWindow;
   destroy = &DestroyD2D;
 
-  //backend->base.extent = { static_cast<float>GetSystemMetrics(SM_XVIRTUALSCREEN), static_cast<float>GetSystemMetrics(SM_YVIRTUALSCREEN), static_cast<float>GetSystemMetrics(SM_CXVIRTUALSCREEN), static_cast<float>GetSystemMetrics(SM_CYVIRTUALSCREEN) };
-  //backend->base.extent.right += backend->base.extent.left;
-  //backend->base.extent.bottom += backend->base.extent.top;
-
   HDC hdc = GetDC(NULL);
   dpi = { static_cast<float>(GetDeviceCaps(hdc, LOGPIXELSX)), static_cast<float>(GetDeviceCaps(hdc, LOGPIXELSY)) };
   ReleaseDC(NULL, hdc);
@@ -1041,7 +1039,6 @@ _log(log), _behavior(behavior), _factory(factory), _wicfactory(wicfactory), _wri
   }
   RefreshMonitors();*/
 
-  DWORD blinkrate = 0;
   int64_t sz = GetRegistryValueW(HKEY_CURRENT_USER, L"Control Panel\\Desktop", L"CursorBlinkRate", 0, 0);
   if(sz > 0)
   {

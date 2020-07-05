@@ -36,7 +36,7 @@ FG_FORCEINLINE FG_Vec AdjustPoints(longptr_t lParam, HWND__* hWnd)
   return FG_Vec{ v.x + static_cast<float>(rect.left), v.y + static_cast<float>(rect.top) };
 }
 
-Window::Window(Backend* _backend, FG_Element* _element, const FG_Rect& area, uint64_t flags, const char* caption)
+Window::Window(Backend* _backend, FG_Element* _element, FG_Vec* pos, FG_Vec* dim, uint64_t flags, const char* caption)
 {
   target = 0;
   context = 0;
@@ -61,7 +61,7 @@ Window::Window(Backend* _backend, FG_Element* _element, const FG_Rect& area, uin
   if(flags & FG_Window_MAXIMIZABLE)
     style |= WS_MAXIMIZEBOX | WS_SYSMENU;
 
-  hWnd = Window::WndCreate(area, style, exstyle, this, Backend::WindowClass, caption, dpi);
+  hWnd = Window::WndCreate(pos, dim, style, exstyle, this, Backend::WindowClass, caption, dpi);
 
   RECT rect;
   GetWindowRect(hWnd, &rect);
@@ -283,7 +283,7 @@ longptr_t __stdcall Window::WndProc(HWND__* hWnd, unsigned int message, size_t w
     case WM_PAINT:
     {
       FG_Msg msg = { FG_Kind_DRAW };
-      msg.draw.data = self;
+      msg.draw.data = self->hWnd;
       RECT WindowRect;
       GetWindowRect(hWnd, &WindowRect);
       msg.draw.area.left = 0;
@@ -305,7 +305,7 @@ longptr_t __stdcall Window::WndProc(HWND__* hWnd, unsigned int message, size_t w
   return DefWindowProc(hWnd, message, wParam, lParam);
 }
 
-HWND__* Window::WndCreate(const FG_Rect& out, unsigned long style, uint32_t exflags, void* self, const wchar_t* cls, const char* caption, FG_Vec& dpi)
+HWND__* Window::WndCreate(FG_Vec* pos, FG_Vec* dim, unsigned long style, uint32_t exflags, void* self, const wchar_t* cls, const char* caption, FG_Vec& dpi)
 {
   exflags |= WS_EX_COMPOSITED | WS_EX_LAYERED;
 
@@ -319,13 +319,13 @@ HWND__* Window::WndCreate(const FG_Rect& out, unsigned long style, uint32_t exfl
     UTF8toUTF16(caption, -1, wcaption, len);
   }
 
-  RECT rsize = { (LONG)floor(out.left), (LONG)floor(out.top), (LONG)ceil(out.right), (LONG)ceil(out.bottom) };
-
   //AdjustWindowRectEx(&rsize, style, FALSE, exflags); // So long as we are drawing all over the nonclient area, we don't actually want to correct this
-  int rwidth = rsize.right - rsize.left;
-  int rheight = rsize.bottom - rsize.top;
+  int rwidth = !dim ? CW_USEDEFAULT : static_cast<int>(ceil(dim->x));
+  int rheight = !dim ? CW_USEDEFAULT : static_cast<int>(ceil(dim->y));
+  int rleft = !pos ? CW_USEDEFAULT : static_cast<int>(floor(pos->x));
+  int rtop = !pos ? CW_USEDEFAULT : static_cast<int>(floor(pos->y));
 
-  HWND handle = CreateWindowExW(exflags, cls, wcaption, style, (style & WS_POPUP) ? rsize.left : CW_USEDEFAULT, (style & WS_POPUP) ? rsize.top : CW_USEDEFAULT, INT(rwidth), INT(rheight), NULL, NULL, (HINSTANCE)&__ImageBase, self);
+  HWND handle = CreateWindowExW(exflags, cls, wcaption, style, (style & WS_POPUP) ? rleft : CW_USEDEFAULT, (style & WS_POPUP) ? rtop : CW_USEDEFAULT, rwidth, rheight, NULL, NULL, (HINSTANCE)&__ImageBase, self);
   HDC hdc = GetDC(handle);
   dpi = { static_cast<float>(GetDeviceCaps(hdc, LOGPIXELSX)), static_cast<float>(GetDeviceCaps(hdc, LOGPIXELSY)) };
   ReleaseDC(handle, hdc);
@@ -463,9 +463,22 @@ void Window::SetCaption(const char* caption)
     }
   }
 }
-void Window::SetArea(const FG_Rect& r)
+void Window::SetArea(FG_Vec* pos, FG_Vec* dim)
 {
-  SetWindowPos(hWnd, HWND_TOP, static_cast<int>(floorf(r.left)), static_cast<int>(floorf(r.top)), static_cast<int>(ceilf(r.right - r.left)), static_cast<int>(ceilf(r.bottom - r.top)), SWP_NOSENDCHANGING);
+  FG_Vec zero = {};
+  UINT flags = SWP_NOSENDCHANGING;
+  if(!pos)
+  {
+    flags |= SWP_NOMOVE;
+    pos = &zero;
+  }
+  if(!dim)
+  {
+    flags |= SWP_NOSIZE;
+    dim = &zero;
+  }
+
+  SetWindowPos(hWnd, HWND_TOP, static_cast<int>(floorf(pos->x)), static_cast<int>(floorf(pos->y)), static_cast<int>(ceilf(dim->x)), static_cast<int>(ceilf(dim->y)), SWP_NOSENDCHANGING);
 }
 void Window::SetFlags(uint64_t flags)
 {

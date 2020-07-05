@@ -58,22 +58,17 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <TargetName>fgTests.exe</TargetName>
   </PropertyGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
-    <CustomBuildStep>
-      <Command>cd .. &amp;&amp; terra "$(ProjectDir)main.t" -debug</Command>
-      <Outputs>$(OutDir)fgTests.exe</Outputs>
-      <Inputs>main.t;../backend.h</Inputs>
-    </CustomBuildStep>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
-    <CustomBuildStep>
-      <Command>cd .. &amp;&amp; terra "$(ProjectDir)main.t"</Command>
-      <Outputs>$(OutDir)fgTests.exe</Outputs>
-      <Inputs>main.t;../backend.h</Inputs>
-    </CustomBuildStep>
-  </ItemDefinitionGroup>
   <ItemGroup>
-    <None Include="main.t" />
+    <CustomBuild Include="main.t">
+      <FileType>Document</FileType>
+      <Command Condition="'$(Configuration)'=='Debug'">set TERRA_PATH=.\?.t;.\deps\?.t &amp;&amp; set LUA_PATH=.\?.lua;.\deps\?.lua &amp;&amp; cd .. &amp;&amp; terra "%(FullPath)" -debug</Command>
+      <Command Condition="'$(Configuration)'=='Release'">set TERRA_PATH=.\?.t;.\deps\?.t &amp;&amp; set LUA_PATH=.\?.lua;.\deps\?.lua &amp;&amp; cd .. &amp;&amp; terra "%(FullPath)"</Command>
+      <Message>Compiling %(Identity) with Terra</Message>
+      <Outputs>$(OutDir)fgTests.exe</Outputs>
+      <AdditionalInputs>../backend.h</AdditionalInputs>
+      <LinkObjects>false</LinkObjects>
+      <OutputItemType>ClInclude</OutputItemType>
+    </CustomBuild>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

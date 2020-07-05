@@ -189,5 +189,6 @@ M.Window = Flags{
   "MINIMIZED", 
   "MAXIMIZED", 
   "CLOSED",
+  "FULLSCREEN",
 }
 return M

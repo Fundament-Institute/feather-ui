@@ -1,6 +1,19 @@
-[submodule "std"]
-	path = std
-	url = https://github.com/Fundament-Software/terra-stdlib
-[submodule "LuLPeg"]
-	path = LuLPeg
+[submodule "deps/glfw"]
+	path = deps/glfw
+	url = https://github.com/glfw/glfw.git
+	branch = 3.3-stable
+[submodule "deps/harfbuzz"]
+	path = deps/harfbuzz
+	url = https://github.com/harfbuzz/harfbuzz.git
+[submodule "deps/freetype2"]
+	path = deps/freetype2
+	url = https://git.savannah.gnu.org/git/freetype/freetype2.git
+[submodule "deps/LuLPeg"]
+	path = deps/LuLPeg
 	url = https://github.com/pygy/LuLPeg
+[submodule "deps/std"]
+	path = deps/std
+	url = https://github.com/Fundament-Software/terra-stdlib
+[submodule "deps/SOIL"]
+	path = deps/SOIL
+	url = https://github.com/kbranigan/Simple-OpenGL-Image-Library.git

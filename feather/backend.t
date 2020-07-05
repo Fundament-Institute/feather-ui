@@ -120,7 +120,7 @@ struct B.Display {
   offset : F.Veci
   dpi : F.Vec
   scale : float
-  handle : uint64
+  handle : &opaque
   primary : bool
 }
 
@@ -171,10 +171,10 @@ terra B.Backend:ProcessMessages() : F.Err return 0 end
 terra B.Backend:SetCursor(window : &opaque, cursor : B.Cursor) : F.Err return 0 end
 terra B.Backend:RequestAnimationFrame(window : &opaque, delay : uint64) : F.Err return 0 end
 terra B.Backend:GetDisplayIndex(index : uint, out : &B.Display) : F.Err return 0 end
-terra B.Backend:GetDisplay(handle : uint64, out : &B.Display) : F.Err return 0 end
+terra B.Backend:GetDisplay(handle : &opaque, out : &B.Display) : F.Err return 0 end
 terra B.Backend:GetDisplayWindow(window : &opaque, out : &B.Display) : F.Err return 0 end
-terra B.Backend:CreateWindow(element : &Element, display : uint64, area : &F.Rect, caption : F.conststring, flags : uint64) : &opaque return nil end
-terra B.Backend:SetWindow(window : &opaque, element : &Element, display : uint64, area : &F.Rect, caption : F.conststring, flags : uint64) : F.Err return 0 end
+terra B.Backend:CreateWindow(element : &Element, display : &opaque, pos : &F.Vec, dim : &F.Vec, caption : F.conststring, flags : uint64) : &opaque return nil end
+terra B.Backend:SetWindow(window : &opaque, element : &Element, display : &opaque, pos : &F.Vec, dim : &F.Vec, caption : F.conststring, flags : uint64) : F.Err return 0 end
 terra B.Backend:DestroyWindow(window : &opaque) : F.Err return 0 end
 
 -- Generate both the function pointer field and redefine the function to call the generated function pointer

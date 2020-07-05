@@ -14,37 +14,31 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-#ifndef FG__DIRECT2D_H
-#define FG__DIRECT2D_H
+#ifndef FG__OPENGL_H
+#define FG__OPENGL_H
 
 #include "Window.h"
 #include <vector>
 
-struct ID2D1Factory1;
-struct IWICImagingFactory;
-struct IDWriteFactory1;
-struct IWICFormatConverter;
-struct _DWM_BLURBEHIND;
-struct HDC__;
-struct D2D1_HWND_RENDER_TARGET_PROPERTIES;
-struct D2D1_RENDER_TARGET_PROPERTIES;
-
-typedef long(__stdcall* DWMCOMPENABLE)(int*);
-typedef long(__stdcall* DWMBLURBEHIND)(struct HWND__*, const struct _DWM_BLURBEHIND*);
 typedef int FG_Err;
 
-namespace D2D {
+namespace GL {
+  struct Asset : FG_Asset
+  {
+    uint32_t count;
+  };
+
+  KHASH_DECLARE(assets, const FG_Asset*, char);
+
   class Backend : public FG_Backend
   {
   public:
-    Backend(void* root, FG_Log log, FG_Behavior behavior, ID2D1Factory1* factory, IWICImagingFactory* wicfactory, IDWriteFactory1* writefactory);
+    Backend(void* root, FG_Log log, FG_Behavior behavior);
     ~Backend();
-    void RefreshMonitors();
-    Asset* LoadAsset(const char* data, size_t count);
+    bool AssetExists(const FG_Asset*);
     FG_Result Behavior(Window* data, FG_Msg& msg);
-    long CreateHWNDTarget(const D2D1_RENDER_TARGET_PROPERTIES& rtprop, const D2D1_HWND_RENDER_TARGET_PROPERTIES& hprop, ID2D1HwndRenderTarget** target);
 
-    static FG_Err DrawTextD2D(FG_Backend* self, void* window, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Color color, float lineHeight, float letterSpacing, float blur, FG_AntiAliasing aa);
+    static FG_Err DrawTextGL(FG_Backend* self, void* window, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Color color, float lineHeight, float letterSpacing, float blur, FG_AntiAliasing aa);
     static FG_Err DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Rect* area, FG_Rect* source, FG_Color color, float time);
     static FG_Err DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor, float border, FG_Color borderColor, float blur, FG_Asset* asset);
     static FG_Err DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* arcs, FG_Color fillColor, float border, FG_Color borderColor, float blur, FG_Asset* asset);
@@ -56,12 +50,12 @@ namespace D2D {
     static FG_Err PushClip(FG_Backend* self, void* window, FG_Rect* area);
     static FG_Err PopClip(FG_Backend* self, void* window);
     static FG_Err DirtyRect(FG_Backend* self, void* window, FG_Rect* area);
-    static FG_Font* CreateFontD2D(FG_Backend* self, const char* family, unsigned short weight, bool italic, unsigned int pt, FG_Vec dpi);
+    static FG_Font* CreateFontGL(FG_Backend* self, const char* family, unsigned short weight, bool italic, unsigned int pt, FG_Vec dpi);
     static FG_Err DestroyFont(FG_Backend* self, FG_Font* font);
     static void* FontLayout(FG_Backend* self, FG_Font* font, const char* text, FG_Rect* area, float lineHeight, float letterSpacing, void* prev, FG_Vec dpi);
     static FG_Err DestroyLayout(FG_Backend* self, void* layout);
     static uint32_t FontIndex(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, float lineHeight, float letterSpacing, FG_Vec pos, FG_Vec* cursor, FG_Vec dpi);
-    static FG_Vec FontPos(FG_Backend* self, FG_Font* font, void* fontlayout,  FG_Rect* area, float lineHeight, float letterSpacing, uint32_t index, FG_Vec dpi);
+    static FG_Vec FontPos(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, float lineHeight, float letterSpacing, uint32_t index, FG_Vec dpi);
     static FG_Asset* CreateAsset(FG_Backend* self, const char* data, uint32_t count, FG_Format format);
     static FG_Err DestroyAsset(FG_Backend* self, FG_Asset* asset);
     static FG_Err PutClipboard(FG_Backend* self, FG_Clipboard kind, const char* data, uint32_t count);
@@ -69,38 +63,28 @@ namespace D2D {
     static bool CheckClipboard(FG_Backend* self, FG_Clipboard kind);
     static FG_Err ClearClipboard(FG_Backend* self, FG_Clipboard kind);
     static FG_Err ProcessMessages(FG_Backend* self);
-    static FG_Err SetCursorD2D(FG_Backend* self, void* window, FG_Cursor cursor);
+    static FG_Err SetCursorGL(FG_Backend* self, void* window, FG_Cursor cursor);
     static FG_Err RequestAnimationFrame(FG_Backend* self, void* window, unsigned long long microdelay);
     static FG_Err GetDisplayIndex(FG_Backend* self, unsigned int index, FG_Display* out);
     static FG_Err GetDisplay(FG_Backend* self, void* handle, FG_Display* out);
     static FG_Err GetDisplayWindow(FG_Backend* self, void* window, FG_Display* out);
-    static void* CreateWindowD2D(FG_Backend* self, FG_Element* element, void* display, FG_Vec* pos, FG_Vec* dim, const char* caption, uint64_t flags);
-    static FG_Err SetWindowD2D(FG_Backend* self, void* window, FG_Element* element, void* display, FG_Vec* pos, FG_Vec* dim, const char* caption, uint64_t flags);
+    static void* CreateWindowGL(FG_Backend* self, FG_Element* element, void* display, FG_Vec* pos, FG_Vec* dim, const char* caption, uint64_t flags);
+    static FG_Err SetWindowGL(FG_Backend* self, void* window, FG_Element* element, void* display, FG_Vec* pos, FG_Vec* dim, const char* caption, uint64_t flags);
     static FG_Err DestroyWindow(FG_Backend* self, void* window);
     static FG_Err BeginDraw(FG_Backend* self, void* window, FG_Rect* area);
     static FG_Err EndDraw(FG_Backend* self, void* window);
+    static void ErrorCallback(int error, const char* description);
 
-    DWMBLURBEHIND dwmblurbehind;
     FG_Log _log;
     void* _root;
 
-    static constexpr wchar_t WindowClass[] = L"WindowD2D";
+    static int _lasterr;
+    static int _refcount;
+    static char _lasterrdesc[1024]; // 1024 is from GLFW internals
 
   protected:
-    static int __stdcall EnumerateMonitorsProc(struct HMONITOR__* monitor, struct HDC__* hdc, struct tagRECT*, longptr_t lparam);
-    template<int N, typename Arg, typename... Args>
-    static inline FG_Err DrawEffect(const Window* ctx, ID2D1Effect* effect, const FG_Rect& area, const Arg arg, const Args&... args);
-    static Window* FromHWND(void* p);
-
-    ID2D1Factory1* _factory;
-    IWICImagingFactory* _wicfactory;
-    IDWriteFactory1* _writefactory;
-    CompactArray<FG_Display> _displays;
     FG_Behavior _behavior;
-    long(__stdcall* getDpiForMonitor)(struct HMONITOR__*, int, unsigned int*, unsigned int*);
-    long(__stdcall* getScaleFactorForMonitor)(struct HMONITOR__*, int*);
-    
-    static const unsigned char VALID_DISPLAY = 0x40;
+    kh_assets_t* _assethash;
   };
 }
 

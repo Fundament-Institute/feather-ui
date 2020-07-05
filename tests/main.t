@@ -101,11 +101,6 @@ terra FakeLog(root : &opaque, level : L.Level, f : F.conststring, ...) : {}
   C.printf("\n");
 end
 
-local target_backend = "fgDirect2D.dll"
-if isdebug then
-  target_backend = "fgDirect2D_d.dll"
-end
-
 struct MockElement {
   image : &B.Asset
   font : &B.Font
@@ -147,12 +142,19 @@ end
 local TEST_TEXT = constant("testtext")
 
 if jit.os == "Windows" then
-terra TestHarness:backend()
+
+local target_d2d = "fgDirect2D.dll"
+if isdebug then
+  target_d2d = "fgDirect2D_d.dll"
+end
+
+terra TestHarness:backendD2D()
   var fakeUI : &B.Backend = nil
 
-  var bl = B.Backend.new(&fakeUI, [M.Behavior](MockElement.Behavior), FakeLog, [target_backend], nil)
+
+  var bl = B.Backend.new(&fakeUI, [M.Behavior](MockElement.Behavior), FakeLog, [target_d2d], nil)
   if bl._0 == nil then
-    bl = B.Backend.new(&fakeUI, [M.Behavior](MockElement.Behavior), FakeLog, [".\\bin-x64\\" .. target_backend], nil)
+    bl = B.Backend.new(&fakeUI, [M.Behavior](MockElement.Behavior), FakeLog, [".\\bin-x64\\" .. target_d2d], nil)
   end
   self:Test(bl._0 == nil, false)
   if bl._0 == nil then
@@ -169,8 +171,9 @@ terra TestHarness:backend()
   e.layout = b:FontLayout(e.font, "Example Text!", &textrect, 16f, 0f, nil, F.Vec{array(96f, 96f)});
   e.close = false
 
-  var rect = F.Rect{array(200f,100f,1000f,700f)}
-  var w = b:CreateWindow(&e.super, 0, &rect, "Feather Test", e.flags)
+  var pos = F.Vec{array(200f,100f)}
+  var dim = F.Vec{array(800f,600f)}
+  var w = b:CreateWindow(&e.super, nil, &pos, &dim, "Feather Test", e.flags)
   
   self:Test(w ~= nil, true)
   self:Test(b:ProcessMessages() ~= 0, true)
@@ -194,8 +197,8 @@ terra TestHarness:backend()
   self:Test(b:SetCursor(w, B.Cursor.RESIZEALL), 0)
   self:Test(b:RequestAnimationFrame(w, 0), 0)
 
-  self:Test(b:SetWindow(w, nil, 0, nil, nil, Msg.Window.RESIZABLE), 0)
-  self:Test(b:SetWindow(w, &e.super, 0, nil, "Feather Test Changed", Msg.Window.RESIZABLE), 0)
+  self:Test(b:SetWindow(w, nil, nil, nil, nil, nil, Msg.Window.RESIZABLE), 0)
+  self:Test(b:SetWindow(w, &e.super, nil, nil, nil, "Feather Test Changed", Msg.Window.RESIZABLE), 0)
 
   self:Test(b:ProcessMessages() ~= 0, true)
 
@@ -210,6 +213,76 @@ terra TestHarness:backend()
   b:free(bl._1)
   self:Test(true, true) -- ensure tests didn't crash
 end
+end
+
+local target_backend = "fgOpenGL.dll"
+if isdebug then
+  target_backend = "fgOpenGL_d.dll"
+end
+
+terra TestHarness:backendOGL()
+  var fakeUI : &B.Backend = nil
+
+  var bl = B.Backend.new(&fakeUI, [M.Behavior](MockElement.Behavior), FakeLog, [target_backend], nil)
+  if bl._0 == nil then
+    bl = B.Backend.new(&fakeUI, [M.Behavior](MockElement.Behavior), FakeLog, [".\\bin-x64\\" .. target_backend], nil)
+  end
+  self:Test(bl._0 == nil, false)
+  if bl._0 == nil then
+    return
+  end
+
+  fakeUI = bl._0
+  var b = bl._0
+  var textrect = F.Rect{array(0f,0f,1000f,700f)}
+  var e = MockElement{Element{Element.virtual_initializer}}
+  e.flags = Msg.Window.RESIZABLE
+  e.image = b:CreateAsset("../tests/example.png", 0, B.Format.PNG)
+  e.font = b:CreateFont("Arial", 700, false, 16, F.Vec{array(96f, 96f)})
+  e.layout = b:FontLayout(e.font, "Example Text!", &textrect, 16f, 0f, nil, F.Vec{array(96f, 96f)});
+  e.close = false
+
+  var pos = F.Vec{array(200f,100f)}
+  var dim = F.Vec{array(800f,600f)}
+  var w = b:CreateWindow(&e.super, nil, &pos, &dim, "Feather Test", e.flags)
+  
+  self:Test(w ~= nil, true)
+  self:Test(b:ProcessMessages() ~= 0, true)
+  self:Test(b:ClearClipboard(B.Clipboard.ALL), 0)
+  self:Test(b:CheckClipboard(B.Clipboard.TEXT), false)
+  self:Test(b:CheckClipboard(B.Clipboard.WAVE), false)
+  self:Test(b:CheckClipboard(B.Clipboard.ALL), false)
+  self:Test(b:PutClipboard(B.Clipboard.TEXT, TEST_TEXT, 9), 0)
+  self:Test(b:CheckClipboard(B.Clipboard.TEXT), true)
+  self:Test(b:CheckClipboard(B.Clipboard.WAVE), false)
+  self:Test(b:CheckClipboard(B.Clipboard.ALL), true)
+
+  var hold : int8[10]
+
+  self:Test(b:GetClipboard(B.Clipboard.TEXT, [&int8](hold), 10), 9)
+  for i = 0,8 do 
+    self:Test(TEST_TEXT[i], hold[i])
+  end
+
+  self:Test(b:GetClipboard(B.Clipboard.WAVE, [&int8](hold), 10), 0)
+  self:Test(b:SetCursor(w, B.Cursor.RESIZEALL), 0)
+  self:Test(b:RequestAnimationFrame(w, 0), 0)
+
+  self:Test(b:SetWindow(w, nil, nil, nil, nil, nil, Msg.Window.RESIZABLE), 0)
+  self:Test(b:SetWindow(w, &e.super, nil, nil, nil, "Feather Test Changed", Msg.Window.RESIZABLE), 0)
+
+  self:Test(b:ProcessMessages() ~= 0, true)
+
+  while b:ProcessMessages() ~= 0 and e.close == false do
+    --C.printf("FRAME\n") 
+  end
+
+  self:Test(b:DestroyWindow(w), 0)
+  self:Test(b:DestroyAsset(e.image), 0)
+  self:Test(b:DestroyLayout(e.layout), 0)
+  self:Test(b:DestroyFont(e.font), 0)
+  b:free(bl._1)
+  self:Test(true, true) -- ensure tests didn't crash
 end
 
 local printraw = macro(function(a) terralib.printraw(a:gettype()) return `a == a end)

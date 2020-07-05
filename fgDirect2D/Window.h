@@ -61,7 +61,7 @@ namespace D2D {
     bool inside;
     bool invalid;
 
-    Window(Backend* backend, FG_Element* element, const FG_Rect& area, uint64_t flags, const char* caption);
+    Window(Backend* backend, FG_Element* element, FG_Vec* pos, FG_Vec* dim, uint64_t flags, const char* caption);
     ~Window();
     void CreateResources(HWND__* handle);
     void DiscardResources();
@@ -69,21 +69,20 @@ namespace D2D {
     void BeginDraw(HWND__* handle, const FG_Rect& area);
     void EndDraw();
     void SetCaption(const char* caption);
-    void SetArea(const FG_Rect& rect);
+    void SetArea(FG_Vec* pos, FG_Vec* dim);
     void SetFlags(uint64_t flags);
     size_t SetKey(uint8_t keycode, bool down, bool held, unsigned long time);
     size_t SetChar(int key, unsigned long time);
     size_t SetMouse(FG_Vec& points, FG_Kind type, unsigned char button, size_t wparam, unsigned long time);
     void InvalidateHWND(HWND__* hWnd);
     ID2D1Bitmap* GetBitmapFromSource(const Asset* p);
-    HWND__* WndCreate(const FG_Rect& out, unsigned long style, uint32_t exflags, void* self, const wchar_t* cls, const char* caption, FG_Vec& dpi);
+    HWND__* WndCreate(FG_Vec* pos, FG_Vec* dim, unsigned long style, uint32_t exflags, void* self, const wchar_t* cls, const char* caption, FG_Vec& dpi);
     void ApplyWin32Size(HWND__* handle);
     int PushClip(FG_Rect area);
     int PopClip();
 
     static void WndRegister(longptr_t(__stdcall* f)(HWND__*, unsigned int, size_t, longptr_t), const wchar_t* name);
     static longptr_t __stdcall WndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam);
-    static longptr_t __stdcall BorderlessWndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam);
     
     static uint32_t wincount;
   };

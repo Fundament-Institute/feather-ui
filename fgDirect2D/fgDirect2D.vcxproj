@@ -186,7 +186,7 @@
       <AdditionalIncludeDirectories>../include/feather;../include;directx</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <ExceptionHandling>Sync</ExceptionHandling>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
@@ -198,11 +198,6 @@
     <Manifest>
       <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
     </Manifest>
-    <CustomBuildStep />
-    <CustomBuildStep />
-    <CustomBuildStep />
-    <CustomBuildStep />
-    <CustomBuildStep />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug-Static|Win32'">
     <ClCompile>
@@ -213,7 +208,7 @@
       <AdditionalIncludeDirectories>../include/feather;../include;directx</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <ExceptionHandling>Sync</ExceptionHandling>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>../bin32</AdditionalLibraryDirectories>
@@ -225,11 +220,6 @@
     <Manifest>
       <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
     </Manifest>
-    <CustomBuildStep />
-    <CustomBuildStep />
-    <CustomBuildStep />
-    <CustomBuildStep />
-    <CustomBuildStep />
     <ProjectReference>
       <LinkLibraryDependencies>true</LinkLibraryDependencies>
     </ProjectReference>
@@ -246,7 +236,7 @@
       <AdditionalIncludeDirectories>../include/feather;../include;directx</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <ExceptionHandling>Sync</ExceptionHandling>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
@@ -258,11 +248,6 @@
     <Manifest>
       <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
     </Manifest>
-    <CustomBuildStep />
-    <CustomBuildStep />
-    <CustomBuildStep />
-    <CustomBuildStep />
-    <CustomBuildStep />
     <FxCompile>
       <ShaderModel>4.0_level_9_3</ShaderModel>
     </FxCompile>
@@ -276,7 +261,7 @@
       <AdditionalIncludeDirectories>../include/feather;../include;directx</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <ExceptionHandling>Sync</ExceptionHandling>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>../bin</AdditionalLibraryDirectories>
@@ -288,11 +273,6 @@
     <Manifest>
       <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
     </Manifest>
-    <CustomBuildStep />
-    <CustomBuildStep />
-    <CustomBuildStep />
-    <CustomBuildStep />
-    <CustomBuildStep />
     <FxCompile>
       <ShaderModel>4.0_level_9_3</ShaderModel>
     </FxCompile>
@@ -317,8 +297,9 @@
       <AdditionalIncludeDirectories>../include/feather;../include;directx</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard>stdcpp17</LanguageStandard>
       <PreprocessorDefinitions>NDEBUG;_WINDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -332,11 +313,6 @@
     <Manifest>
       <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
     </Manifest>
-    <CustomBuildStep />
-    <CustomBuildStep />
-    <CustomBuildStep />
-    <CustomBuildStep />
-    <CustomBuildStep />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release-Static|Win32'">
     <ClCompile>
@@ -352,7 +328,7 @@
       <AdditionalIncludeDirectories>../include/feather;../include;directx</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard>stdcpp17</LanguageStandard>
       <PreprocessorDefinitions>NDEBUG;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
@@ -367,11 +343,6 @@
     <Manifest>
       <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
     </Manifest>
-    <CustomBuildStep />
-    <CustomBuildStep />
-    <CustomBuildStep />
-    <CustomBuildStep />
-    <CustomBuildStep />
     <ProjectReference>
       <LinkLibraryDependencies>true</LinkLibraryDependencies>
     </ProjectReference>
@@ -393,8 +364,9 @@
       <AdditionalIncludeDirectories>../include/feather;../include;directx</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard>stdcpp17</LanguageStandard>
       <PreprocessorDefinitions>NDEBUG;_WINDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -408,11 +380,6 @@
     <Manifest>
       <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
     </Manifest>
-    <CustomBuildStep />
-    <CustomBuildStep />
-    <CustomBuildStep />
-    <CustomBuildStep />
-    <CustomBuildStep />
     <FxCompile>
       <ShaderModel>4.0_level_9_3</ShaderModel>
     </FxCompile>
@@ -431,7 +398,7 @@
       <AdditionalIncludeDirectories>../include/feather;../include;directx</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard>stdcpp17</LanguageStandard>
       <PreprocessorDefinitions>NDEBUG;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
@@ -446,11 +413,6 @@
     <Manifest>
       <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
     </Manifest>
-    <CustomBuildStep />
-    <CustomBuildStep />
-    <CustomBuildStep />
-    <CustomBuildStep />
-    <CustomBuildStep />
     <FxCompile>
       <ShaderModel>4.0_level_9_3</ShaderModel>
     </FxCompile>
@@ -520,6 +482,18 @@ xcopy "$(TargetDir)$(TargetName).pdb" "$(VcpkgRoot)debug\bin" /c /y /q /i</Comma
       <ProgramDataBaseFileName Condition="'$(Configuration)|$(Platform)'=='Debug-Static|x64'">$(TargetDir)$(TargetName).pdb</ProgramDataBaseFileName>
     </ClCompile>
   </ItemDefinitionGroup>
+  <ItemGroup>
+    <CustomBuild Include="../prebuild.t">
+      <FileType>Document</FileType>
+      <Command Condition="'$(Configuration)'=='Debug'">set TERRA_PATH=.\?.t;.\deps\?.t &amp;&amp; set LUA_PATH=.\?.lua;.\deps\?.lua &amp;&amp; cd .. &amp;&amp; terra "%(FullPath)" -debug</Command>
+      <Command Condition="'$(Configuration)'=='Release'">set TERRA_PATH=.\?.t;.\deps\?.t &amp;&amp; set LUA_PATH=.\?.lua;.\deps\?.lua &amp;&amp; cd .. &amp;&amp; terra "%(FullPath)"</Command>
+      <Message>Compiling %(Identity) with Terra</Message>
+      <Outputs>$(SolutionDir)backend.h</Outputs>
+      <AdditionalInputs>../feather/shared.t;../feather/backend.t;../feather/message.t;../feather/messages.t;../feather/log.t;../feather/element.t</AdditionalInputs>
+      <LinkObjects>false</LinkObjects>
+      <OutputItemType>ClInclude</OutputItemType>
+    </CustomBuild>
+  </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Alloc.h" />
     <ClInclude Include="Circle.h" />
