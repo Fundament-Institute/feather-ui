@@ -27,59 +27,66 @@ typedef HRESULT(STDAPICALLTYPE* GETDPIFORMONITOR)(HMONITOR, int, UINT*, UINT*);
 typedef HRESULT(STDAPICALLTYPE* GETSCALEFACTORFORMONITOR)(HMONITOR, int*);
 static float PI = 3.14159265359f;
 
-static std::unique_ptr<struct HINSTANCE__, void(*)(struct HINSTANCE__*)> shcoreD2D(LoadLibraryW(L"Shcore.dll"), [](HMODULE h) { FreeLibrary(h); });
+static std::unique_ptr<struct HINSTANCE__, void (*)(struct HINSTANCE__*)> shcoreD2D(LoadLibraryW(L"Shcore.dll"),
+                                                                                    [](HMODULE h) { FreeLibrary(h); });
 
 Window* Backend::FromHWND(void* p)
 {
   return reinterpret_cast<Window*>(GetWindowLongPtrW(reinterpret_cast<HWND>(p), GWLP_USERDATA));
 }
 
-FG_Err Backend::DrawTextD2D(FG_Backend* self, void* window, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Color color, float lineHeight, float letterSpacing, float blur, FG_AntiAliasing aa)
+FG_Err Backend::DrawTextD2D(FG_Backend* self, void* window, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Color color,
+                            float lineHeight, float letterSpacing, float blur, FG_AntiAliasing aa)
 {
   if(!fontlayout)
     return -1;
   auto instance = static_cast<Backend*>(self);
-  auto context = FromHWND(window);
+  auto context  = FromHWND(window);
 
   IDWriteTextLayout* layout = (IDWriteTextLayout*)fontlayout;
   context->color->SetColor(ToD2Color(color.v));
 
   layout->SetMaxWidth(area->right - area->left);
   layout->SetMaxHeight(area->bottom - area->top);
-  context->target->DrawTextLayout(D2D1::Point2F(area->left, area->top), layout, context->color, D2D1_DRAW_TEXT_OPTIONS_NONE);
+  context->target->DrawTextLayout(D2D1::Point2F(area->left, area->top), layout, context->color,
+                                  D2D1_DRAW_TEXT_OPTIONS_NONE);
 
   return 0;
 }
 
 template<int N, typename Arg, typename... Args>
-inline FG_Err Backend::DrawEffect(const Window* ctx, ID2D1Effect* effect, const FG_Rect& area, const Arg arg, const Args&... args)
+inline FG_Err Backend::DrawEffect(const Window* ctx, ID2D1Effect* effect, const FG_Rect& area, const Arg arg,
+                                  const Args&... args)
 {
   effect->SetValue<Arg, int>(N, arg);
   if constexpr(sizeof...(args) > 0)
     return DrawEffect<N + 1, Args...>(ctx, effect, area, args...);
 
   D2D1_RECT_F rect = D2D1::RectF(area.left, area.top, area.right, area.bottom);
-  ctx->context->DrawImage(effect, &D2D1::Point2F(area.left, area.top), &rect, D2D1_INTERPOLATION_MODE_LINEAR, D2D1_COMPOSITE_MODE_SOURCE_OVER);
+  ctx->context->DrawImage(effect, &D2D1::Point2F(area.left, area.top), &rect, D2D1_INTERPOLATION_MODE_LINEAR,
+                          D2D1_COMPOSITE_MODE_SOURCE_OVER);
   return 0;
 }
 
-FG_Err Backend::DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Rect* area, FG_Rect* source, FG_Color color, float time)
+FG_Err Backend::DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Rect* area, FG_Rect* source, FG_Color color,
+                          float time)
 {
   auto instance = static_cast<Backend*>(self);
-  auto context = FromHWND(window);
+  auto context  = FromHWND(window);
   fgassert(context != 0);
   fgassert(context->target != 0);
 
   ID2D1Bitmap* bitmap = context->GetBitmapFromSource(static_cast<const Asset*>(asset));
   fgassert(bitmap);
 
-  D2D1_RECT_F rect = D2D1::RectF(area->left, area->top, area->right, area->bottom);
-  auto size = bitmap->GetPixelSize();
+  D2D1_RECT_F rect      = D2D1::RectF(area->left, area->top, area->right, area->bottom);
+  auto size             = bitmap->GetPixelSize();
   D2D1_RECT_F uvresolve = D2D1::RectF(0, 0, size.width, size.height);
   if(source)
     uvresolve = D2D1::RectF(source->left, source->top, source->right, source->bottom);
 
-  auto scale = D2D1::Vector2F((rect.right - rect.left) / (uvresolve.right - uvresolve.left), (rect.bottom - rect.top) / (uvresolve.bottom - uvresolve.top));
+  auto scale = D2D1::Vector2F((rect.right - rect.left) / (uvresolve.right - uvresolve.left),
+                              (rect.bottom - rect.top) / (uvresolve.bottom - uvresolve.top));
   if(scale.x == 1.0f && scale.y == 1.0f)
     context->target->DrawBitmap(bitmap, rect, color.a / 255.0f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, &uvresolve);
   else
@@ -88,68 +95,50 @@ FG_Err Backend::DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Re
     e->SetValue(D2D1_SCALE_PROP_SCALE, scale);
     e->SetValue(D2D1_SCALE_PROP_INTERPOLATION_MODE, D2D1_SCALE_INTERPOLATION_MODE_ANISOTROPIC);
     e->SetInput(0, bitmap);
-    context->context->DrawImage(e, D2D1::Point2F(rect.left, rect.top), D2D1::RectF(floorf(uvresolve.left * scale.x), floorf(uvresolve.top * scale.y), ceilf(uvresolve.right * scale.x), ceilf(uvresolve.bottom * scale.y + 1.0f)));
+    context->context->DrawImage(e, D2D1::Point2F(rect.left, rect.top),
+                                D2D1::RectF(floorf(uvresolve.left * scale.x), floorf(uvresolve.top * scale.y),
+                                            ceilf(uvresolve.right * scale.x), ceilf(uvresolve.bottom * scale.y + 1.0f)));
   }
 
   bitmap->Release();
   return 0;
 }
 
-FG_Err Backend::DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor, float border, FG_Color borderColor, float blur, FG_Asset* asset)
+FG_Err Backend::DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor, float border,
+                         FG_Color borderColor, float blur, FG_Asset* asset)
 {
   auto context = FromHWND(window);
   fgassert(context != 0);
   fgassert(context->target != 0);
   FG_Rect expand = { area->left - blur, area->top - blur, area->right + blur, area->bottom + blur };
 
-  DrawEffect<0>(
-    context,
-    context->roundrect,
-    expand,
-    D2D1::Vector4F(expand.left, expand.top, expand.right, expand.bottom),
-    D2D1::Vector4F(corners->left, corners->top, corners->right, corners->bottom),
-    fillColor,
-    borderColor,
-    border,
-    blur
-    );
+  DrawEffect<0>(context, context->roundrect, expand, D2D1::Vector4F(expand.left, expand.top, expand.right, expand.bottom),
+                D2D1::Vector4F(corners->left, corners->top, corners->right, corners->bottom), fillColor, borderColor,
+                border, blur);
   return 0;
 }
 
-FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* arcs, FG_Color fillColor, float border, FG_Color borderColor, float blur, FG_Asset* asset)
+FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* arcs, FG_Color fillColor, float border,
+                           FG_Color borderColor, float blur, FG_Asset* asset)
 {
   auto context = FromHWND(window);
   fgassert(context != 0);
   fgassert(context->target != 0);
 
-  DrawEffect<0>(
-    context,
-    context->circle,
-    *area,
-    D2D1::Vector4F(area->left, area->top, area->right, area->bottom),
-    D2D1::Vector4F(arcs->left, arcs->top, arcs->right, arcs->bottom),
-    fillColor,
-    borderColor,
-    border,
-    blur);
+  DrawEffect<0>(context, context->circle, *area, D2D1::Vector4F(area->left, area->top, area->right, area->bottom),
+                D2D1::Vector4F(arcs->left, arcs->top, arcs->right, arcs->bottom), fillColor, borderColor, border, blur);
   return 0;
 }
-FG_Err Backend::DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor, float border, FG_Color borderColor, float blur, FG_Asset* asset)
+FG_Err Backend::DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
+                             float border, FG_Color borderColor, float blur, FG_Asset* asset)
 {
   auto context = FromHWND(window);
   fgassert(context != 0);
   fgassert(context->target != 0);
 
-  DrawEffect<0>(
-    context,
-    context->triangle,
-    *area,
-    D2D1::Vector4F(area->left, area->top, area->right, area->bottom),
-    D2D1::Vector4F(corners->left, corners->top, corners->right, corners->bottom),
-    fillColor,
-    borderColor,
-    border,
-    blur);
+  DrawEffect<0>(context, context->triangle, *area, D2D1::Vector4F(area->left, area->top, area->right, area->bottom),
+                D2D1::Vector4F(corners->left, corners->top, corners->right, corners->bottom), fillColor, borderColor,
+                border, blur);
   return 0;
 }
 
@@ -159,11 +148,13 @@ FG_Err Backend::DrawLines(FG_Backend* self, void* window, FG_Vec* points, uint32
 
   context->color->SetColor(ToD2Color(color.v));
   for(size_t i = 1; i < count; ++i)
-    context->target->DrawLine(D2D1_POINT_2F{ points[i - 1].x, points[i - 1].y }, D2D1_POINT_2F{ points[i].x, points[i].y }, context->color, 1.0F, 0);
+    context->target->DrawLine(D2D1_POINT_2F{ points[i - 1].x, points[i - 1].y }, D2D1_POINT_2F{ points[i].x, points[i].y },
+                              context->color, 1.0F, 0);
   return 0;
 }
 
-FG_Err Backend::DrawCurve(FG_Backend* self, void* window, FG_Vec* anchors, uint32_t count, FG_Color fillColor, float stroke, FG_Color strokeColor)
+FG_Err Backend::DrawCurve(FG_Backend* self, void* window, FG_Vec* anchors, uint32_t count, FG_Color fillColor, float stroke,
+                          FG_Color strokeColor)
 {
   auto instance = static_cast<Backend*>(self);
 
@@ -179,10 +170,8 @@ FG_Err Backend::PushLayer(FG_Backend* self, void* window, FG_Rect* area, float* 
   context->layers.push(0);
 
   // TODO: Properly project 3D transform into 2D transform
-  context->target->SetTransform(D2D1::Matrix3x2F(
-    transform[0], transform[1],
-    transform[4], transform[5],
-    transform[3], transform[7]));
+  context->target->SetTransform(
+    D2D1::Matrix3x2F(transform[0], transform[1], transform[4], transform[5], transform[3], transform[7]));
 
   // We only need a proper layer if we are doing opacity, otherwise the transform is sufficient
   if(opacity != 1.0)
@@ -210,7 +199,7 @@ FG_Err Backend::PopLayer(FG_Backend* self, void* window)
   if(!window)
     return -1;
   auto context = FromHWND(window);
-  auto p = context->layers.top();
+  auto p       = context->layers.top();
   context->layers.pop();
   if(p != (ID2D1Layer*)~0)
   {
@@ -240,24 +229,31 @@ FG_Err Backend::PopClip(FG_Backend* self, void* window)
 FG_Err Backend::DirtyRect(FG_Backend* self, void* window, FG_Rect* area)
 {
   auto instance = static_cast<Backend*>(self);
-  RECT rect = { static_cast<LONG>(floorf(area->left)), static_cast<LONG>(floorf(area->top)), static_cast<LONG>(ceilf(area->right)), static_cast<LONG>(ceilf(area->bottom)) };
+  RECT rect     = { static_cast<LONG>(floorf(area->left)), static_cast<LONG>(floorf(area->top)),
+                static_cast<LONG>(ceilf(area->right)), static_cast<LONG>(ceilf(area->bottom)) };
   InvalidateRect(reinterpret_cast<HWND>(window), &rect, false);
   return 0;
 }
 
-FG_Font* Backend::CreateFontD2D(FG_Backend* self, const char* family, unsigned short weight, bool italic, unsigned int pt, FG_Vec dpi)
+FG_Font* Backend::CreateFontD2D(FG_Backend* self, const char* family, unsigned short weight, bool italic, unsigned int pt,
+                                FG_Vec dpi)
 {
   auto instance = static_cast<Backend*>(self);
-  size_t len = UTF8toUTF16(family, -1, 0, 0);
-  auto wtext = (wchar_t*)ALLOCA(sizeof(wchar_t) * len);
+  size_t len    = UTF8toUTF16(family, -1, 0, 0);
+  auto wtext    = (wchar_t*)ALLOCA(sizeof(wchar_t) * len);
   UTF8toUTF16(family, -1, wtext, len);
 
   IDWriteTextFormat* format = 0;
   wchar_t wlocale[LOCALE_NAME_MAX_LENGTH];
   GetSystemDefaultLocaleName(wlocale, LOCALE_NAME_MAX_LENGTH);
-  LOGFAILURERET(instance->_writefactory->CreateTextFormat(wtext, 0, DWRITE_FONT_WEIGHT(weight), italic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, pt * (dpi.x / 72.0f), wlocale, &format), 0, "CreateTextFormat failed with error code %li", hr);
+  LOGFAILURERET(instance->_writefactory->CreateTextFormat(wtext, 0, DWRITE_FONT_WEIGHT(weight),
+                                                          italic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL,
+                                                          DWRITE_FONT_STRETCH_NORMAL, pt * (dpi.x / 72.0f), wlocale,
+                                                          &format),
+                0, "CreateTextFormat failed with error code %li", hr);
 
-  if(!format) return 0;
+  if(!format)
+    return 0;
   TCHAR name[64];
   UINT32 findex;
   BOOL exists;
@@ -265,7 +261,8 @@ FG_Font* Backend::CreateFontD2D(FG_Backend* self, const char* family, unsigned s
   format->GetFontFamilyName(name, 64);
   format->GetFontCollection(&collection);
   collection->FindFamilyName(name, &findex, &exists);
-  if(!exists) // CreateTextFormat always succeeds even for invalid font names so we have to check to see if we actually loaded a real font
+  if(!exists) // CreateTextFormat always succeeds even for invalid font names so we have to check to see if we actually
+              // loaded a real font
   {
     format->Release();
     collection->Release();
@@ -278,9 +275,9 @@ FG_Font* Backend::CreateFontD2D(FG_Backend* self, const char* family, unsigned s
   ffamily->GetFirstMatchingFont(format->GetFontWeight(), format->GetFontStretch(), format->GetFontStyle(), &font);
   DWRITE_FONT_METRICS metrics;
   font->GetMetrics(&metrics);
-  float ratio = format->GetFontSize() / static_cast<float>(metrics.designUnitsPerEm);
+  float ratio       = format->GetFontSize() / static_cast<float>(metrics.designUnitsPerEm);
   FLOAT linespacing = (metrics.ascent + metrics.descent + metrics.lineGap) * ratio;
-  FLOAT baseline = metrics.ascent * ratio;
+  FLOAT baseline    = metrics.ascent * ratio;
   ffamily->Release();
   font->Release();
   format->SetLineSpacing(DWRITE_LINE_SPACING_METHOD_DEFAULT, linespacing, baseline);
@@ -305,7 +302,8 @@ FG_Err Backend::DestroyLayout(FG_Backend* self, void* layout)
   return 0;
 }
 
-void* Backend::FontLayout(FG_Backend* self, FG_Font* font, const char* text, FG_Rect* area, float lineHeight, float letterSpacing, void* prev, FG_Vec dpi)
+void* Backend::FontLayout(FG_Backend* self, FG_Font* font, const char* text, FG_Rect* area, float lineHeight,
+                          float letterSpacing, void* prev, FG_Vec dpi)
 {
   auto instance = static_cast<Backend*>(self);
   fgassert(font);
@@ -319,14 +317,18 @@ void* Backend::FontLayout(FG_Backend* self, FG_Font* font, const char* text, FG_
   utf.resize(MultiByteToWideChar(CP_UTF8, 0, text, -1, 0, 0));
   utf.resize(MultiByteToWideChar(CP_UTF8, 0, text, -1, utf.data(), static_cast<int>(utf.capacity())));
 
-  if(!text) return 0;
+  if(!text)
+    return 0;
   float x = area->right - area->left;
   float y = area->bottom - area->top;
-  LOGFAILURE(instance->_writefactory->CreateTextLayout(utf.c_str(), (UINT32)utf.size(), reinterpret_cast<IDWriteTextFormat*>(font->data.data), (x <= 0.0f ? INFINITY : x), (y <= 0.0f ? INFINITY : y), &layout), "CreateTextLayout failed with error code %li", hr);
+  LOGFAILURE(instance->_writefactory->CreateTextLayout(utf.c_str(), (UINT32)utf.size(),
+                                                       reinterpret_cast<IDWriteTextFormat*>(font->data.data),
+                                                       (x <= 0.0f ? INFINITY : x), (y <= 0.0f ? INFINITY : y), &layout),
+             "CreateTextLayout failed with error code %li", hr);
 
   if(!layout)
   {
-    area->right = area->left;
+    area->right  = area->left;
     area->bottom = area->top;
     return 0;
   }
@@ -336,9 +338,9 @@ void* Backend::FontLayout(FG_Backend* self, FG_Font* font, const char* text, FG_
   layout->GetLineSpacing(&method, &linespacing, &baseline);
   if(lineHeight > 0.0f)
     layout->SetLineSpacing(DWRITE_LINE_SPACING_METHOD_UNIFORM, lineHeight, baseline * (lineHeight / linespacing));
-  /*layout->SetWordWrapping((flags & (FGTEXT_CHARWRAP | FGTEXT_WORDWRAP)) ? DWRITE_WORD_WRAPPING_WRAP : DWRITE_WORD_WRAPPING_NO_WRAP);
-  layout->SetReadingDirection((flags & FGTEXT_RTL) ? DWRITE_READING_DIRECTION_RIGHT_TO_LEFT : DWRITE_READING_DIRECTION_LEFT_TO_RIGHT);
-  if(flags & FGTEXT_RIGHTALIGN)
+  /*layout->SetWordWrapping((flags & (FGTEXT_CHARWRAP | FGTEXT_WORDWRAP)) ? DWRITE_WORD_WRAPPING_WRAP :
+  DWRITE_WORD_WRAPPING_NO_WRAP); layout->SetReadingDirection((flags & FGTEXT_RTL) ? DWRITE_READING_DIRECTION_RIGHT_TO_LEFT :
+  DWRITE_READING_DIRECTION_LEFT_TO_RIGHT); if(flags & FGTEXT_RIGHTALIGN)
     layout->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_FAR);
   if(flags & FGTEXT_CENTER)
     layout->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);*/
@@ -355,14 +357,17 @@ void* Backend::FontLayout(FG_Backend* self, FG_Font* font, const char* text, FG_
 
   DWRITE_TEXT_METRICS metrics;
   layout->GetMetrics(&metrics);
-  if(area->right <= area->left) area->right = area->left + metrics.width;
-  if(area->bottom <= area->top) area->bottom = area->top + metrics.height;
+  if(area->right <= area->left)
+    area->right = area->left + metrics.width;
+  if(area->bottom <= area->top)
+    area->bottom = area->top + metrics.height;
   layout->SetMaxWidth(area->right - area->left);
   layout->SetMaxHeight(area->bottom - area->top);
   return layout;
 }
 
-uint32_t Backend::FontIndex(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, float lineHeight, float letterSpacing, FG_Vec pos, FG_Vec* cursor, FG_Vec dpi)
+uint32_t Backend::FontIndex(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, float lineHeight,
+                            float letterSpacing, FG_Vec pos, FG_Vec* cursor, FG_Vec dpi)
 {
   fgassert(font != 0);
   IDWriteTextLayout* layout = (IDWriteTextLayout*)fontlayout;
@@ -375,16 +380,18 @@ uint32_t Backend::FontIndex(FG_Backend* self, FG_Font* font, void* fontlayout, F
   layout->HitTestPoint(pos.x - area->left, pos.y - area->top, &trailing, &inside, &hit);
 
   cursor->x = hit.left;
-  if(trailing) cursor->x += hit.width;
+  if(trailing)
+    cursor->x += hit.width;
   cursor->y = hit.top;
   return hit.textPosition + trailing;
 }
 
-FG_Vec Backend::FontPos(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, float lineHeight, float letterSpacing, uint32_t index, FG_Vec dpi)
+FG_Vec Backend::FontPos(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, float lineHeight,
+                        float letterSpacing, uint32_t index, FG_Vec dpi)
 {
   IDWriteTextLayout* layout = (IDWriteTextLayout*)fontlayout;
   if(!layout)
-    return FG_Vec{ 0,0 };
+    return FG_Vec{ 0, 0 };
 
   FLOAT x, y;
   DWRITE_HIT_TEST_METRICS hit;
@@ -394,23 +401,24 @@ FG_Vec Backend::FontPos(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Re
 
 inline Asset* Backend::LoadAsset(const char* data, size_t count)
 {
-  IWICBitmapDecoder* decoder = nullptr;
+  IWICBitmapDecoder* decoder    = nullptr;
   IWICBitmapFrameDecode* source = nullptr;
-  IWICFormatConverter* conv = nullptr;
-  IWICStream* stream = nullptr;
-  HRESULT hr = 0;
+  IWICFormatConverter* conv     = nullptr;
+  IWICStream* stream            = nullptr;
+  HRESULT hr                    = 0;
 
   if(!count && data)
   {
     fs::path p(data);
-    hr = _wicfactory->CreateDecoderFromFilename(p.wstring().c_str(), nullptr, GENERIC_READ, WICDecodeMetadataCacheOnDemand, &decoder);
+    hr = _wicfactory->CreateDecoderFromFilename(p.wstring().c_str(), nullptr, GENERIC_READ, WICDecodeMetadataCacheOnDemand,
+                                                &decoder);
   }
   else
   {
     hr = _wicfactory->CreateStream(&stream);
     if(SUCCEEDED(hr))
       stream->InitializeFromMemory((BYTE*)data, (DWORD)count);
-    if(SUCCEEDED(hr)) //WICDecodeMetadataCacheOnDemand
+    if(SUCCEEDED(hr)) // WICDecodeMetadataCacheOnDemand
       hr = _wicfactory->CreateDecoderFromStream(stream, NULL, WICDecodeMetadataCacheOnLoad, &decoder);
   }
   if(SUCCEEDED(hr))
@@ -418,16 +426,17 @@ inline Asset* Backend::LoadAsset(const char* data, size_t count)
   if(SUCCEEDED(hr))
     hr = _wicfactory->CreateFormatConverter(&conv);
   if(SUCCEEDED(hr)) // Convert the image format to 32bppPBGRA (DXGI_FORMAT_B8G8R8A8_UNORM + D2D1_ALPHA_MODE_PREMULTIPLIED).
-    hr = conv->Initialize(source, GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, nullptr, 0.0f, WICBitmapPaletteTypeCustom);
+    hr = conv->Initialize(source, GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, nullptr, 0.0f,
+                          WICBitmapPaletteTypeCustom);
   if(FAILED(hr))
   {
     (*_log)(_root, FG_Level_ERROR, "fgCreateAssetD2D failed with error code %li", hr);
     return 0;
   }
 
-  Asset* asset = new Asset();
+  Asset* asset     = new Asset();
   asset->data.data = conv;
-  asset->format = FG_Format_UNKNOWN;
+  asset->format    = FG_Format_UNKNOWN;
 
   GUID format;
   decoder->GetContainerFormat(&format);
@@ -447,9 +456,12 @@ inline Asset* Backend::LoadAsset(const char* data, size_t count)
   else if(format == GUID_ContainerFormatWebp)
     asset->format = FG_Format_WEBP;
 
-  if(stream) stream->Release();
-  if(decoder) decoder->Release();
-  if(source) source->Release();
+  if(stream)
+    stream->Release();
+  if(decoder)
+    decoder->Release();
+  if(source)
+    source->Release();
 
   D2D1_SIZE_U sz = { 0 };
   double dpix, dpiy;
@@ -457,15 +469,16 @@ inline Asset* Backend::LoadAsset(const char* data, size_t count)
   conv->GetSize(&sz.width, &sz.height);
   conv->GetResolution(&dpix, &dpiy);
 
-  asset->dpi = { static_cast<float>(dpix), static_cast<float>(dpiy) };
+  asset->dpi  = { static_cast<float>(dpix), static_cast<float>(dpiy) };
   asset->size = { static_cast<int>(sz.width), static_cast<int>(sz.height) };
   return asset;
 
-  //if(data[0] == 0xFF && data[1] == 0xD8) // JPEG SOI header
-  //else if(data[0] == 'B' && data[1] == 'M') // BMP header
-  //else if(data[0] == 137 && data[1] == 80 && data[2] == 78 && data[3] == 71) // PNG file signature
-  //else if(data[0] == 'G' && data[1] == 'I' && data[2] == 'F') // GIF header
-  //else if((data[0] == 'I' && data[1] == 'I' && data[2] == '*' && data[3] == 0) || (data[0] == 'M' && data[1] == 'M' && data[2] == 0 && data[3] == '*')) // TIFF header
+  // if(data[0] == 0xFF && data[1] == 0xD8) // JPEG SOI header
+  // else if(data[0] == 'B' && data[1] == 'M') // BMP header
+  // else if(data[0] == 137 && data[1] == 80 && data[2] == 78 && data[3] == 71) // PNG file signature
+  // else if(data[0] == 'G' && data[1] == 'I' && data[2] == 'F') // GIF header
+  // else if((data[0] == 'I' && data[1] == 'I' && data[2] == '*' && data[3] == 0) || (data[0] == 'M' && data[1] == 'M' &&
+  // data[2] == 0 && data[3] == '*')) // TIFF header
 }
 
 FG_Asset* Backend::CreateAsset(FG_Backend* self, const char* data, uint32_t count, FG_Format format)
@@ -492,12 +505,12 @@ FG_Err Backend::PutClipboard(FG_Backend* self, FG_Clipboard kind, const char* da
   {
     if(kind == FG_Clipboard_TEXT)
     {
-      size_t unilen = UTF8toUTF16(data, count, 0, 0);
+      size_t unilen  = UTF8toUTF16(data, count, 0, 0);
       HGLOBAL unimem = GlobalAlloc(GMEM_MOVEABLE, unilen * sizeof(wchar_t));
       if(unimem)
       {
         wchar_t* uni = (wchar_t*)GlobalLock(unimem);
-        size_t sz = UTF8toUTF16(data, count, uni, unilen);
+        size_t sz    = UTF8toUTF16(data, count, uni, unilen);
         if(sz < unilen) // ensure we have a null terminator
           uni[sz] = 0;
         GlobalUnlock(unimem);
@@ -546,10 +559,10 @@ uint32_t Backend::GetClipboard(FG_Backend* self, FG_Clipboard kind, void* target
     if(IsClipboardFormatAvailable(CF_UNICODETEXT))
     {
       HANDLE gdata = GetClipboardData(CF_UNICODETEXT);
-      SIZE_T len = 0;
+      SIZE_T len   = 0;
       if(gdata)
       {
-        SIZE_T size = GlobalSize(gdata) / 2;
+        SIZE_T size        = GlobalSize(gdata) / 2;
         const wchar_t* str = (const wchar_t*)GlobalLock(gdata);
         if(str)
         {
@@ -570,7 +583,7 @@ uint32_t Backend::GetClipboard(FG_Backend* self, FG_Clipboard kind, void* target
   case FG_Clipboard_BITMAP: format = CF_BITMAP; break;
   }
   HANDLE gdata = GetClipboardData(format);
-  SIZE_T size = 0;
+  SIZE_T size  = 0;
   if(gdata)
   {
     size = GlobalSize(gdata);
@@ -594,16 +607,14 @@ bool Backend::CheckClipboard(FG_Backend* self, FG_Clipboard kind)
 {
   switch(kind)
   {
-  case FG_Clipboard_TEXT:
-    return IsClipboardFormatAvailable(CF_TEXT) | IsClipboardFormatAvailable(CF_UNICODETEXT);
-  case FG_Clipboard_WAVE:
-    return IsClipboardFormatAvailable(CF_WAVE);
-  case FG_Clipboard_BITMAP:
-    return IsClipboardFormatAvailable(CF_BITMAP);
-  case FG_Clipboard_CUSTOM:
-    return IsClipboardFormatAvailable(CF_PRIVATEFIRST);
+  case FG_Clipboard_TEXT: return IsClipboardFormatAvailable(CF_TEXT) | IsClipboardFormatAvailable(CF_UNICODETEXT);
+  case FG_Clipboard_WAVE: return IsClipboardFormatAvailable(CF_WAVE);
+  case FG_Clipboard_BITMAP: return IsClipboardFormatAvailable(CF_BITMAP);
+  case FG_Clipboard_CUSTOM: return IsClipboardFormatAvailable(CF_PRIVATEFIRST);
   case FG_Clipboard_ALL:
-    return IsClipboardFormatAvailable(CF_TEXT) | IsClipboardFormatAvailable(CF_UNICODETEXT) | IsClipboardFormatAvailable(CF_WAVE) | IsClipboardFormatAvailable(CF_BITMAP) | IsClipboardFormatAvailable(CF_PRIVATEFIRST);
+    return IsClipboardFormatAvailable(CF_TEXT) | IsClipboardFormatAvailable(CF_UNICODETEXT) |
+           IsClipboardFormatAvailable(CF_WAVE) | IsClipboardFormatAvailable(CF_BITMAP) |
+           IsClipboardFormatAvailable(CF_PRIVATEFIRST);
   }
   return false;
 }
@@ -631,13 +642,11 @@ FG_Err Backend::ProcessMessages(FG_Backend* self)
     case WM_SYSKEYDOWN:
     case WM_KEYUP:
     case WM_KEYDOWN:
-      if(!r) // if the return value is zero, we already processed the keydown message successfully, so DON'T turn it into a character.
+      if(!r) // if the return value is zero, we already processed the keydown message successfully, so DON'T turn it into a
+             // character.
         break;
-    default:
-      TranslateMessage(&msg);
-      break;
-    case WM_QUIT:
-      return 0;
+    default: TranslateMessage(&msg); break;
+    case WM_QUIT: return 0;
     }
   }
 
@@ -646,19 +655,19 @@ FG_Err Backend::ProcessMessages(FG_Backend* self)
 
 FG_Err Backend::SetCursorD2D(FG_Backend* self, void* window, FG_Cursor cursor)
 {
-  static HCURSOR hArrow = LoadCursor(NULL, IDC_ARROW);
-  static HCURSOR hIBeam = LoadCursor(NULL, IDC_IBEAM);
-  static HCURSOR hCross = LoadCursor(NULL, IDC_CROSS);
-  static HCURSOR hWait = LoadCursor(NULL, IDC_WAIT);
-  static HCURSOR hHand = LoadCursor(NULL, IDC_HAND);
-  static HCURSOR hSizeNS = LoadCursor(NULL, IDC_SIZENS);
-  static HCURSOR hSizeWE = LoadCursor(NULL, IDC_SIZEWE);
+  static HCURSOR hArrow    = LoadCursor(NULL, IDC_ARROW);
+  static HCURSOR hIBeam    = LoadCursor(NULL, IDC_IBEAM);
+  static HCURSOR hCross    = LoadCursor(NULL, IDC_CROSS);
+  static HCURSOR hWait     = LoadCursor(NULL, IDC_WAIT);
+  static HCURSOR hHand     = LoadCursor(NULL, IDC_HAND);
+  static HCURSOR hSizeNS   = LoadCursor(NULL, IDC_SIZENS);
+  static HCURSOR hSizeWE   = LoadCursor(NULL, IDC_SIZEWE);
   static HCURSOR hSizeNWSE = LoadCursor(NULL, IDC_SIZENWSE);
   static HCURSOR hSizeNESW = LoadCursor(NULL, IDC_SIZENESW);
-  static HCURSOR hSizeAll = LoadCursor(NULL, IDC_SIZEALL);
-  static HCURSOR hNo = LoadCursor(NULL, IDC_NO);
-  static HCURSOR hHelp = LoadCursor(NULL, IDC_HELP);
-  static HCURSOR hDrag = hSizeAll;
+  static HCURSOR hSizeAll  = LoadCursor(NULL, IDC_SIZEALL);
+  static HCURSOR hNo       = LoadCursor(NULL, IDC_NO);
+  static HCURSOR hHelp     = LoadCursor(NULL, IDC_HELP);
+  static HCURSOR hDrag     = hSizeAll;
 
   switch(cursor)
   {
@@ -675,13 +684,11 @@ FG_Err Backend::SetCursorD2D(FG_Backend* self, void* window, FG_Cursor cursor)
   case FG_Cursor_NO: SetCursor(hNo); break;
   case FG_Cursor_HELP: SetCursor(hHelp); break;
   case FG_Cursor_DRAG: SetCursor(hDrag); break;
-  default:
-    return -1;
+  default: return -1;
   }
 
   return 0;
 }
-
 
 FG_Err Backend::GetDisplayIndex(FG_Backend* self, unsigned int index, FG_Display* out)
 {
@@ -717,15 +724,18 @@ FG_Err Backend::GetDisplayWindow(FG_Backend* self, void* window, FG_Display* out
   return -1;
 }
 
-void* Backend::CreateWindowD2D(FG_Backend* self, FG_Element* element, void* display, FG_Vec* pos, FG_Vec* dim, const char* caption, uint64_t flags)
+void* Backend::CreateWindowD2D(FG_Backend* self, FG_Element* element, void* display, FG_Vec* pos, FG_Vec* dim,
+                               const char* caption, uint64_t flags)
 {
-  // TODO: If a display other than the primary monitor is specified AND pos == NULL, then we should recreate Windows' DWM new window logic by incrementing
-  // _lastwindowpos on both the x and y axis by the height of a standard window titlebar and shifting it into that monitor's rectangle.
+  // TODO: If a display other than the primary monitor is specified AND pos == NULL, then we should recreate Windows' DWM
+  // new window logic by incrementing _lastwindowpos on both the x and y axis by the height of a standard window titlebar
+  // and shifting it into that monitor's rectangle.
   auto window = new Window(static_cast<Backend*>(self), element, pos, dim, flags, caption);
   return window->hWnd;
 }
 
-FG_Err Backend::SetWindowD2D(FG_Backend* self, void* window, FG_Element* element, void* display, FG_Vec* pos, FG_Vec* dim, const char* caption, uint64_t flags)
+FG_Err Backend::SetWindowD2D(FG_Backend* self, void* window, FG_Element* element, void* display, FG_Vec* pos, FG_Vec* dim,
+                             const char* caption, uint64_t flags)
 {
   Window* ptr = reinterpret_cast<Window*>(GetWindowLongPtrW(reinterpret_cast<HWND>(window), GWLP_USERDATA));
   if(!ptr)
@@ -777,7 +787,8 @@ void DestroyD2D(FG_Backend* self)
   free(d2d);
 }
 
-long Backend::CreateHWNDTarget(const D2D1_RENDER_TARGET_PROPERTIES& rtprop, const D2D1_HWND_RENDER_TARGET_PROPERTIES& hprop, ID2D1HwndRenderTarget** target)
+long Backend::CreateHWNDTarget(const D2D1_RENDER_TARGET_PROPERTIES& rtprop, const D2D1_HWND_RENDER_TARGET_PROPERTIES& hprop,
+                               ID2D1HwndRenderTarget** target)
 {
   return _factory->CreateHwndRenderTarget(rtprop, hprop, target);
 }
@@ -801,14 +812,12 @@ BOOL __stdcall Backend::EnumerateMonitorsProc(HMONITOR monitor, HDC hdc, LPRECT,
   {
     Backend* instance = reinterpret_cast<Backend*>(lparam);
     instance->_displays.Add(
-      FG_Display{
-        { info.rcMonitor.right - info.rcMonitor.left, info.rcMonitor.bottom - info.rcMonitor.top },
-        { info.rcMonitor.left, info.rcMonitor.top },
-        instance->dpi,
-        1.0f,
-        monitor,
-        (info.dwFlags & MONITORINFOF_PRIMARY) != 0
-      });
+      FG_Display{ { info.rcMonitor.right - info.rcMonitor.left, info.rcMonitor.bottom - info.rcMonitor.top },
+                  { info.rcMonitor.left, info.rcMonitor.top },
+                  instance->dpi,
+                  1.0f,
+                  monitor,
+                  (info.dwFlags & MONITORINFOF_PRIMARY) != 0 });
 
     if(instance->getDpiForMonitor)
     {
@@ -857,23 +866,50 @@ void Backend::RefreshMonitors()
   EnumDisplayMonitors(0, 0, EnumerateMonitorsProc, (LPARAM)this);
 }
 
-FG_Result Backend::Behavior(Window* w, FG_Msg& msg)
-{
-  return (*_behavior)(w->element, w->hWnd, _root, &msg);
-}
+FG_Result Backend::Behavior(Window* w, FG_Msg& msg) { return (*_behavior)(w->element, w->hWnd, _root, &msg); }
 
 FG_Err Backend::RequestAnimationFrame(FG_Backend* self, void* window, unsigned long long microdelay)
 {
-  //if(context->nextframe < 0 || context->nextframe > microdelay)
+  // if(context->nextframe < 0 || context->nextframe > microdelay)
   //  context->nextframe = microdelay;
   return 0;
 }
 
-int64_t GetRegistryValueW(HKEY__* hKeyRoot, const wchar_t* szKey, const wchar_t* szValue, unsigned char* data, unsigned long sz)
+uint16_t Backend::GetTouchIndex(DWORD index, bool up)
+{
+  uint16_t n = _touchid.Length();
+
+  for(uint16_t i = 0; i < _touchid.Length(); ++i)
+  {
+    if(_touchid[i] == index)
+    {
+      n = i;
+      break;
+    }
+    if(_touchid[i] == ~0ULL && i < n)
+      n = i;
+  }
+
+  if(n < _touchid.Length())
+  {
+    if(!up)
+      _touchid[n] = index;
+    else
+      _touchid[n] = ~0ULL;
+  }
+  else if(!up)
+    _touchid.Add(index);
+
+  return n;
+}
+
+int64_t GetRegistryValueW(HKEY__* hKeyRoot, const wchar_t* szKey, const wchar_t* szValue, unsigned char* data,
+                          unsigned long sz)
 {
   HKEY__* hKey;
   LRESULT e = RegOpenKeyExW(hKeyRoot, szKey, 0, KEY_READ, &hKey);
-  if(!hKey) return -2;
+  if(!hKey)
+    return -2;
   LSTATUS r = RegQueryValueExW(hKey, szValue, 0, 0, data, &sz);
   RegCloseKey(hKey);
   if(r == ERROR_SUCCESS)
@@ -882,16 +918,17 @@ int64_t GetRegistryValueW(HKEY__* hKeyRoot, const wchar_t* szKey, const wchar_t*
 }
 
 #ifdef FG_DEBUG
-#define FG_MAIN_FUNCTION fgDirect2D_d
+  #define FG_MAIN_FUNCTION fgDirect2D_d
 #else
-#define FG_MAIN_FUNCTION fgDirect2D
+  #define FG_MAIN_FUNCTION fgDirect2D
 #endif
 
-extern "C" FG_COMPILER_DLLEXPORT FG_Backend * FG_MAIN_FUNCTION(void* root, FG_Log log, FG_Behavior behavior)
+extern "C" FG_COMPILER_DLLEXPORT FG_Backend* FG_MAIN_FUNCTION(void* root, FG_Log log, FG_Behavior behavior)
 {
-  static_assert(std::is_same<FG_InitBackend, decltype(&(FG_MAIN_FUNCTION))>::value, "fgDirect2D must match InitBackend function pointer");
-  typedef BOOL(WINAPI* tGetPolicy)(LPDWORD lpFlags);
-  typedef BOOL(WINAPI* tSetPolicy)(DWORD dwFlags);
+  static_assert(std::is_same<FG_InitBackend, decltype(&(FG_MAIN_FUNCTION))>::value,
+                "fgDirect2D must match InitBackend function pointer");
+  typedef BOOL(WINAPI * tGetPolicy)(LPDWORD lpFlags);
+  typedef BOOL(WINAPI * tSetPolicy)(DWORD dwFlags);
   const DWORD EXCEPTION_SWALLOWING = 0x1;
   DWORD dwFlags;
 
@@ -900,14 +937,14 @@ extern "C" FG_COMPILER_DLLEXPORT FG_Backend * FG_MAIN_FUNCTION(void* root, FG_Lo
   tGetPolicy pGetPolicy = (tGetPolicy)GetProcAddress(kernel32, "GetProcessUserModeExceptionPolicy");
   tSetPolicy pSetPolicy = (tSetPolicy)GetProcAddress(kernel32, "SetProcessUserModeExceptionPolicy");
   if(pGetPolicy && pSetPolicy && pGetPolicy(&dwFlags))
-    pSetPolicy(dwFlags & ~EXCEPTION_SWALLOWING); // Turn off the filter 
-
+    pSetPolicy(dwFlags & ~EXCEPTION_SWALLOWING); // Turn off the filter
 
   HRESULT hr = CoInitialize(NULL); // If this fails for some reason we can't even log an error
   if(FAILED(hr))
     return 0;
 
-  if(FAILED(hr = CoInitializeSecurity(NULL, -1, NULL, NULL, RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_DYNAMIC_CLOAKING, NULL)))
+  if(FAILED(hr = CoInitializeSecurity(NULL, -1, NULL, NULL, RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_IMP_LEVEL_IMPERSONATE,
+                                      NULL, EOAC_DYNAMIC_CLOAKING, NULL)))
     return 0;
 
   IGlobalOptions* pGlobalOptions;
@@ -918,12 +955,13 @@ extern "C" FG_COMPILER_DLLEXPORT FG_Backend * FG_MAIN_FUNCTION(void* root, FG_Lo
     pGlobalOptions->Release();
   }
 
-  ID2D1Factory1* factory = 0;
+  ID2D1Factory1* factory         = 0;
   IWICImagingFactory* wicfactory = 0;
-  IDWriteFactory1* writefactory = 0;
+  IDWriteFactory1* writefactory  = 0;
   hr = CoCreateInstance(CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER, IID_IWICImagingFactory, (LPVOID*)&wicfactory);
   if(SUCCEEDED(hr))
-    hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory1), reinterpret_cast<IUnknown**>(&writefactory));
+    hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory1),
+                             reinterpret_cast<IUnknown**>(&writefactory));
   else
     (*log)(root, FG_Level_ERROR, "CoCreateInstance() failed with error: %li", hr);
 
@@ -946,49 +984,50 @@ extern "C" FG_COMPILER_DLLEXPORT FG_Backend * FG_MAIN_FUNCTION(void* root, FG_Lo
   return new Backend(root, log, behavior, factory, wicfactory, writefactory);
 }
 
-Backend::Backend(void* root, FG_Log log, FG_Behavior behavior, ID2D1Factory1* factory, IWICImagingFactory* wicfactory, IDWriteFactory1* writefactory) : _root(root),
-_log(log), _behavior(behavior), _factory(factory), _wicfactory(wicfactory), _writefactory(writefactory)
+Backend::Backend(void* root, FG_Log log, FG_Behavior behavior, ID2D1Factory1* factory, IWICImagingFactory* wicfactory,
+                 IDWriteFactory1* writefactory) :
+  _root(root), _log(log), _behavior(behavior), _factory(factory), _wicfactory(wicfactory), _writefactory(writefactory)
 {
-  drawText = &DrawTextD2D;
-  drawAsset = &DrawAsset;
-  drawRect = &DrawRect;
-  drawCircle = &DrawCircle;
+  drawText     = &DrawTextD2D;
+  drawAsset    = &DrawAsset;
+  drawRect     = &DrawRect;
+  drawCircle   = &DrawCircle;
   drawTriangle = &DrawTriangle;
-  drawLines = &DrawLines;
-  drawCurve = &DrawCurve;
+  drawLines    = &DrawLines;
+  drawCurve    = &DrawCurve;
   // drawShader =&DrawShader;
-  pushLayer = &PushLayer;
-  popLayer = &PopLayer;
-  pushClip = &PushClip;
-  popClip = &PopClip;
-  dirtyRect = &DirtyRect;
-  beginDraw = &BeginDraw;
-  endDraw = &EndDraw;
-  createFont = &CreateFontD2D;
-  destroyFont = &DestroyFont;
-  fontLayout = &FontLayout;
-  destroyLayout = &DestroyLayout;
-  fontIndex = &FontIndex;
-  fontPos = &FontPos;
-  createAsset = &CreateAsset;
-  destroyAsset = &DestroyAsset;
-  putClipboard = &PutClipboard;
-  getClipboard = &GetClipboard;
-  checkClipboard = &CheckClipboard;
-  clearClipboard = &ClearClipboard;
-  processMessages = &ProcessMessages;
-  setCursor = &SetCursorD2D;
+  pushLayer             = &PushLayer;
+  popLayer              = &PopLayer;
+  pushClip              = &PushClip;
+  popClip               = &PopClip;
+  dirtyRect             = &DirtyRect;
+  beginDraw             = &BeginDraw;
+  endDraw               = &EndDraw;
+  createFont            = &CreateFontD2D;
+  destroyFont           = &DestroyFont;
+  fontLayout            = &FontLayout;
+  destroyLayout         = &DestroyLayout;
+  fontIndex             = &FontIndex;
+  fontPos               = &FontPos;
+  createAsset           = &CreateAsset;
+  destroyAsset          = &DestroyAsset;
+  putClipboard          = &PutClipboard;
+  getClipboard          = &GetClipboard;
+  checkClipboard        = &CheckClipboard;
+  clearClipboard        = &ClearClipboard;
+  processMessages       = &ProcessMessages;
+  setCursor             = &SetCursorD2D;
   requestAnimationFrame = &RequestAnimationFrame;
-  getDisplayIndex = &GetDisplayIndex;
-  getDisplay = &GetDisplay;
-  getDisplayWindow = &GetDisplayWindow;
-  createWindow = &CreateWindowD2D;
-  setWindow = &SetWindowD2D;
-  destroyWindow = &DestroyWindow;
-  destroy = &DestroyD2D;
+  getDisplayIndex       = &GetDisplayIndex;
+  getDisplay            = &GetDisplay;
+  getDisplayWindow      = &GetDisplayWindow;
+  createWindow          = &CreateWindowD2D;
+  setWindow             = &SetWindowD2D;
+  destroyWindow         = &DestroyWindow;
+  destroy               = &DestroyD2D;
 
   HDC hdc = GetDC(NULL);
-  dpi = { static_cast<float>(GetDeviceCaps(hdc, LOGPIXELSX)), static_cast<float>(GetDeviceCaps(hdc, LOGPIXELSY)) };
+  dpi     = { static_cast<float>(GetDeviceCaps(hdc, LOGPIXELSX)), static_cast<float>(GetDeviceCaps(hdc, LOGPIXELSY)) };
   ReleaseDC(NULL, hdc);
 
   (*_log)(_root, FG_Level_NONE, "Initializing fgDirect2D...");
@@ -1012,12 +1051,20 @@ _log(log), _behavior(behavior), _factory(factory), _wicfactory(wicfactory), _wri
   if(dwm)
   {
     DWMCOMPENABLE dwmcomp = (DWMCOMPENABLE)GetProcAddress(dwm, "DwmIsCompositionEnabled");
-    if(!dwmcomp) { FreeLibrary(dwm); dwm = 0; }
+    if(!dwmcomp)
+    {
+      FreeLibrary(dwm);
+      dwm = 0;
+    }
     else
     {
       BOOL res;
       (*dwmcomp)(&res);
-      if(res == FALSE) { FreeLibrary(dwm); dwm = 0; } //fail
+      if(res == FALSE)
+      {
+        FreeLibrary(dwm);
+        dwm = 0;
+      } // fail
     }
     dwmblurbehind = (DWMBLURBEHIND)GetProcAddress(dwm, "DwmEnableBlurBehindWindow");
 
@@ -1030,7 +1077,7 @@ _log(log), _behavior(behavior), _factory(factory), _wicfactory(wicfactory), _wri
 
   Window::WndRegister(Window::WndProc, WindowClass);
 
-  //factory->GetDesktopDpi(&dpi.x, &dpi.y);
+  // factory->GetDesktopDpi(&dpi.x, &dpi.y);
 
   /*if(shcoreD2D)
   {
@@ -1044,7 +1091,8 @@ _log(log), _behavior(behavior), _factory(factory), _wicfactory(wicfactory), _wri
   {
     std::wstring buf;
     buf.resize(sz / 2);
-    sz = GetRegistryValueW(HKEY_CURRENT_USER, L"Control Panel\\Desktop", L"CursorBlinkRate", reinterpret_cast<unsigned char*>(buf.data()), (unsigned long)sz);
+    sz = GetRegistryValueW(HKEY_CURRENT_USER, L"Control Panel\\Desktop", L"CursorBlinkRate",
+                           reinterpret_cast<unsigned char*>(buf.data()), (unsigned long)sz);
     if(sz > 0)
       cursorblink = _wtoi(buf.data());
   }
@@ -1056,7 +1104,8 @@ _log(log), _behavior(behavior), _factory(factory), _wicfactory(wicfactory), _wri
   {
     std::wstring buf;
     buf.resize(sz / 2);
-    sz = GetRegistryValueW(HKEY_CURRENT_USER, L"Control Panel\\Mouse", L"MouseHoverTime", reinterpret_cast<unsigned char*>(buf.data()), (unsigned long)sz);
+    sz = GetRegistryValueW(HKEY_CURRENT_USER, L"Control Panel\\Mouse", L"MouseHoverTime",
+                           reinterpret_cast<unsigned char*>(buf.data()), (unsigned long)sz);
     if(sz > 0)
       tooltipdelay = _wtoi(buf.data());
   }

@@ -14,9 +14,7 @@
 using namespace D2D;
 
 RoundRect::RoundRect() {}
-RoundRect::~RoundRect()
-{
-}
+RoundRect::~RoundRect() {}
 IFACEMETHODIMP RoundRect::Initialize(_In_ ID2D1EffectContext* pContextInternal, _In_ ID2D1TransformGraph* pTransformGraph)
 {
   HRESULT hr = pContextInternal->LoadPixelShader(CLSID_RoundRectPixelShader, RoundRect_main, sizeof(RoundRect_main));
@@ -72,8 +70,7 @@ HRESULT RoundRect::Register(_In_ ID2D1Factory1* pFactory)
 
   // This defines the bindings from specific properties to the callback functions
   // on the class that ID2D1Effect::SetValue() & GetValue() will call.
-  const D2D1_PROPERTY_BINDING bindings[] =
-  {
+  const D2D1_PROPERTY_BINDING bindings[] = {
     D2D1_VALUE_TYPE_BINDING(L"Rect", &SetRect, &GetRect),
     D2D1_VALUE_TYPE_BINDING(L"Corners", &SetCorners, &GetCorners),
     D2D1_VALUE_TYPE_BINDING(L"Fill", &SetFill, &GetFill),
@@ -81,14 +78,8 @@ HRESULT RoundRect::Register(_In_ ID2D1Factory1* pFactory)
     D2D1_VALUE_TYPE_BINDING(L"Border", &SetBorder, &GetBorder),
     D2D1_VALUE_TYPE_BINDING(L"Blur", &SetBlur, &GetBlur),
   };
-  
-  return pFactory->RegisterEffectFromString(
-    CLSID_RoundRect,
-    pszXml,
-    bindings,
-    ARRAYSIZE(bindings),
-    CreateEffect
-  );
+
+  return pFactory->RegisterEffectFromString(CLSID_RoundRect, pszXml, bindings, ARRAYSIZE(bindings), CreateEffect);
 }
 
 HRESULT __stdcall RoundRect::CreateEffect(_Outptr_ IUnknown** ppEffectImpl)

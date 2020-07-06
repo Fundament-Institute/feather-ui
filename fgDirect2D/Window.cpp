@@ -24,7 +24,7 @@ EXTERN_C IMAGE_DOS_HEADER __ImageBase; // Accesses the HINSTANCE for this module
 
 FG_FORCEINLINE FG_Vec GetPoints(longptr_t lParam)
 {
-  return FG_Vec{ static_cast<float>GET_X_LPARAM(lParam), static_cast<float>GET_Y_LPARAM(lParam) };
+  return FG_Vec{ static_cast<float> GET_X_LPARAM(lParam), static_cast<float> GET_Y_LPARAM(lParam) };
 }
 FG_FORCEINLINE FG_Vec AdjustPoints(longptr_t lParam, HWND__* hWnd)
 {
@@ -38,21 +38,21 @@ FG_FORCEINLINE FG_Vec AdjustPoints(longptr_t lParam, HWND__* hWnd)
 
 Window::Window(Backend* _backend, FG_Element* _element, FG_Vec* pos, FG_Vec* dim, uint64_t flags, const char* caption)
 {
-  target = 0;
-  context = 0;
-  color = 0;
-  edgecolor = 0;
-  roundrect = 0;
-  triangle = 0;
-  circle = 0;
-  scale = 0;
-  element = _element;
-  backend = _backend;
-  margin = { 0 };
-  assets = kh_init_wic();
-  inside = false;
-  invalid = false;
-  unsigned long style = (flags & FG_Window_NOBORDER) ? WS_POPUP : 0;
+  target                = 0;
+  context               = 0;
+  color                 = 0;
+  edgecolor             = 0;
+  roundrect             = 0;
+  triangle              = 0;
+  circle                = 0;
+  scale                 = 0;
+  element               = _element;
+  backend               = _backend;
+  margin                = { 0 };
+  assets                = kh_init_wic();
+  inside                = false;
+  invalid               = false;
+  unsigned long style   = (flags & FG_Window_NOBORDER) ? WS_POPUP : 0;
   unsigned long exstyle = (flags & FG_Window_NOCAPTION) ? WS_EX_TOOLWINDOW : WS_EX_APPWINDOW;
   if(flags & FG_Window_MINIMIZABLE)
     style |= WS_MINIMIZEBOX | WS_SYSMENU;
@@ -68,23 +68,20 @@ Window::Window(Backend* _backend, FG_Element* _element, FG_Vec* pos, FG_Vec* dim
   ShowWindow(hWnd, SW_SHOW);
   UpdateWindow(hWnd);
 }
-Window::~Window()
-{
-  DiscardResources();
-}
+Window::~Window() { DiscardResources(); }
 
 void Window::WndRegister(WNDPROC f, const wchar_t* name)
 {
   // Register window class
-  WNDCLASSEX wcex = { sizeof(WNDCLASSEX) };
-  wcex.style = CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
-  wcex.lpfnWndProc = f;
-  wcex.cbClsExtra = 0;
-  wcex.cbWndExtra = sizeof(LONG_PTR);
-  wcex.hInstance = ((HINSTANCE)&__ImageBase);
+  WNDCLASSEX wcex    = { sizeof(WNDCLASSEX) };
+  wcex.style         = CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
+  wcex.lpfnWndProc   = f;
+  wcex.cbClsExtra    = 0;
+  wcex.cbWndExtra    = sizeof(LONG_PTR);
+  wcex.hInstance     = ((HINSTANCE)&__ImageBase);
   wcex.hbrBackground = NULL;
-  wcex.lpszMenuName = NULL;
-  wcex.hCursor = NULL;
+  wcex.lpszMenuName  = NULL;
+  wcex.hCursor       = NULL;
   wcex.lpszClassName = name;
 
   RegisterClassExW(&wcex);
@@ -92,9 +89,9 @@ void Window::WndRegister(WNDPROC f, const wchar_t* name)
 
 longptr_t __stdcall Window::WndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam)
 {
-  static const int BORDERWIDTH = 5;
+  static const int BORDERWIDTH              = 5;
   static tagTRACKMOUSEEVENT _trackingstruct = { sizeof(tagTRACKMOUSEEVENT), TME_LEAVE, 0, 0 };
-  Window* self = reinterpret_cast<Window*>(GetWindowLongPtrW(hWnd, GWLP_USERDATA));
+  Window* self                              = reinterpret_cast<Window*>(GetWindowLongPtrW(hWnd, GWLP_USERDATA));
 
   switch(message)
   {
@@ -111,14 +108,10 @@ longptr_t __stdcall Window::WndProc(HWND__* hWnd, unsigned int message, size_t w
     break;
   case WM_LBUTTONDOWN:
   case WM_RBUTTONDOWN:
-  case WM_MBUTTONDOWN:
-    SetCapture(hWnd);
-    break;
+  case WM_MBUTTONDOWN: SetCapture(hWnd); break;
   case WM_LBUTTONUP:
   case WM_RBUTTONUP:
-  case WM_MBUTTONUP:
-    ReleaseCapture();
-    break;
+  case WM_MBUTTONUP: ReleaseCapture(); break;
   }
 
   if(self)
@@ -130,7 +123,7 @@ longptr_t __stdcall Window::WndProc(HWND__* hWnd, unsigned int message, size_t w
         self->target->Resize(D2D1::SizeU(LOWORD(lParam), HIWORD(lParam)));
     case WM_MOVE:
     {
-      FG_Msg msg = { FG_Kind_SETWINDOWFLAGS };
+      FG_Msg msg               = { FG_Kind_SETWINDOWFLAGS };
       msg.setWindowFlags.flags = self->backend->Behavior(self, FG_Msg{ FG_Kind_GETWINDOWFLAGS }).getWindowFlags;
 
       switch(wParam)
@@ -139,9 +132,7 @@ longptr_t __stdcall Window::WndProc(HWND__* hWnd, unsigned int message, size_t w
         msg.setWindowFlags.flags |= FG_Window_MAXIMIZED;
         self->backend->Behavior(self, msg);
         break;
-      case SIZE_MINIMIZED:
-        msg.setWindowFlags.flags &= ~FG_Window_MINIMIZED;
-        self->backend->Behavior(self, msg);
+      case SIZE_MINIMIZED: msg.setWindowFlags.flags &= ~FG_Window_MINIMIZED; self->backend->Behavior(self, msg);
       case SIZE_RESTORED:
         msg.setWindowFlags.flags &= ~(FG_Window_MAXIMIZED & FG_Window_MINIMIZED);
         self->backend->Behavior(self, msg);
@@ -179,7 +170,7 @@ longptr_t __stdcall Window::WndProc(HWND__* hWnd, unsigned int message, size_t w
           if(y > WindowRect.bottom - WindowRect.top - BORDERWIDTH)
             return HTBOTTOM;
         }
-        //if(y < (self->window->padding.top * (fgSingleton()->dpi.y / 96.0f)) + self->window->margin.top)
+        // if(y < (self->window->padding.top * (fgSingleton()->dpi.y / 96.0f)) + self->window->margin.top)
         //  return HTCAPTION;
         return HTCLIENT;
       }
@@ -187,8 +178,9 @@ longptr_t __stdcall Window::WndProc(HWND__* hWnd, unsigned int message, size_t w
     }
     case WM_DESTROY:
     {
-      FG_Msg msg = { FG_Kind_SETWINDOWFLAGS };
-      msg.setWindowFlags.flags = self->backend->Behavior(self, FG_Msg{ FG_Kind_GETWINDOWFLAGS }).getWindowFlags | FG_Window_CLOSED;
+      FG_Msg msg               = { FG_Kind_SETWINDOWFLAGS };
+      msg.setWindowFlags.flags = self->backend->Behavior(self, FG_Msg{ FG_Kind_GETWINDOWFLAGS }).getWindowFlags |
+                                 FG_Window_CLOSED;
       self->backend->Behavior(self, msg);
       self->backend->Behavior(self, FG_Msg{ FG_Kind_ACTION, 1 }); // FG_WINDOW_ONCLOSE
       delete self;
@@ -196,30 +188,28 @@ longptr_t __stdcall Window::WndProc(HWND__* hWnd, unsigned int message, size_t w
     }
     case WM_MOUSEWHEEL:
     {
-      POINTS pointstemp = { 0, GET_WHEEL_DELTA_WPARAM(wParam) };
       DWORD pos = GetMessagePos();
-      self->SetMouse(GetPoints(pos), FG_Kind_MOUSESCROLL, 0, *(size_t*)&pointstemp, GetMessageTime());
+      self->SetMouseScroll(GetPoints(pos), 0, GET_WHEEL_DELTA_WPARAM(wParam), GetMessageTime());
+      break;
     }
-    break;
+    case WM_MOUSEHWHEEL:
+    {
+      DWORD pos = GetMessagePos();
+      self->SetMouseScroll(GetPoints(pos), GET_WHEEL_DELTA_WPARAM(wParam), 0, GetMessageTime());
+      break;
+    }
     case WM_DPICHANGED:
       self->dpi = FG_Vec{ static_cast<float>(LOWORD(wParam)), static_cast<float>(HIWORD(wParam)) };
       self->backend->RefreshMonitors();
       return 0;
-    case WM_MOUSEHWHEEL:
-    {
-      POINTS pointstemp = { GET_WHEEL_DELTA_WPARAM(wParam), 0 };
-      DWORD pos = GetMessagePos();
-      self->SetMouse(GetPoints(pos), FG_Kind_MOUSESCROLL, 0, *(size_t*)&pointstemp, GetMessageTime());
-    }
-    break;
     case WM_MOUSEMOVE:
     {
       FG_Vec pt = AdjustPoints(lParam, hWnd); // Call this up here so we don't do it twice
       if(!self->inside)
       {
         _trackingstruct.hwndTrack = hWnd;
-        BOOL result = TrackMouseEvent(&_trackingstruct);
-        self->inside = true;
+        BOOL result               = TrackMouseEvent(&_trackingstruct);
+        self->inside              = true;
         self->SetMouse(pt, FG_Kind_MOUSEON, 0, wParam, GetMessageTime());
       }
       self->SetMouse(pt, FG_Kind_MOUSEMOVE, 0, wParam, GetMessageTime());
@@ -253,26 +243,33 @@ longptr_t __stdcall Window::WndProc(HWND__* hWnd, unsigned int message, size_t w
       self->SetMouse(AdjustPoints(lParam, hWnd), FG_Kind_MOUSEDBLCLICK, FG_MouseButton_M, wParam, GetMessageTime());
       break;
     case WM_XBUTTONDOWN:
-      self->SetMouse(AdjustPoints(lParam, hWnd), FG_Kind_MOUSEDOWN, (GET_XBUTTON_WPARAM(wParam) == XBUTTON1 ? FG_MouseButton_X1 : FG_MouseButton_X2), wParam, GetMessageTime());
+      self->SetMouse(AdjustPoints(lParam, hWnd), FG_Kind_MOUSEDOWN,
+                     (GET_XBUTTON_WPARAM(wParam) == XBUTTON1 ? FG_MouseButton_X1 : FG_MouseButton_X2), wParam,
+                     GetMessageTime());
       break;
     case WM_XBUTTONUP:
-      self->SetMouse(AdjustPoints(lParam, hWnd), FG_Kind_MOUSEUP, (GET_XBUTTON_WPARAM(wParam) == XBUTTON1 ? FG_MouseButton_X1 : FG_MouseButton_X2), wParam, GetMessageTime());
+      self->SetMouse(AdjustPoints(lParam, hWnd), FG_Kind_MOUSEUP,
+                     (GET_XBUTTON_WPARAM(wParam) == XBUTTON1 ? FG_MouseButton_X1 : FG_MouseButton_X2), wParam,
+                     GetMessageTime());
       break;
     case WM_XBUTTONDBLCLK:
-      self->SetMouse(AdjustPoints(lParam, hWnd), FG_Kind_MOUSEDBLCLICK, (GET_XBUTTON_WPARAM(wParam) == XBUTTON1 ? FG_MouseButton_X1 : FG_MouseButton_X2), wParam, GetMessageTime());
+      self->SetMouse(AdjustPoints(lParam, hWnd), FG_Kind_MOUSEDBLCLICK,
+                     (GET_XBUTTON_WPARAM(wParam) == XBUTTON1 ? FG_MouseButton_X1 : FG_MouseButton_X2), wParam,
+                     GetMessageTime());
       break;
     case WM_SYSKEYUP:
     case WM_SYSKEYDOWN:
       self->SetKey(static_cast<uint8_t>(wParam), message == WM_SYSKEYDOWN, (lParam & 0x40000000) != 0, GetMessageTime());
       break;
     case WM_KEYUP:
-    case WM_KEYDOWN: // Windows return codes are the opposite of feathergui's - returning 0 means we accept, anything else rejects, so we invert the return code here.
-      return !self->SetKey(static_cast<uint8_t>(wParam), message == WM_KEYDOWN, (lParam & 0x40000000) != 0, GetMessageTime());
+    case WM_KEYDOWN: // Windows return codes are the opposite of feathergui's - returning 0 means we accept, anything else
+                     // rejects, so we invert the return code here.
+      return !self->SetKey(static_cast<uint8_t>(wParam), message == WM_KEYDOWN, (lParam & 0x40000000) != 0,
+                           GetMessageTime());
     case WM_UNICHAR:
-      if(wParam == UNICODE_NOCHAR) return TRUE;
-    case WM_CHAR:
-      self->SetChar(static_cast<int>(wParam), GetMessageTime());
-      return 0;
+      if(wParam == UNICODE_NOCHAR)
+        return TRUE;
+    case WM_CHAR: self->SetChar(static_cast<int>(wParam), GetMessageTime()); return 0;
     case WM_MOUSELEAVE:
     {
       DWORD pos = GetMessagePos();
@@ -280,15 +277,32 @@ longptr_t __stdcall Window::WndProc(HWND__* hWnd, unsigned int message, size_t w
       self->inside = false;
       break;
     }
+    case WM_TOUCH:
+    {
+      auto count  = LOWORD(wParam);
+      auto inputs = reinterpret_cast<TOUCHINPUT*>(_alloca(sizeof(TOUCHINPUT) * count));
+      GetTouchInputInfo((HTOUCHINPUT)lParam, count, inputs, sizeof(TOUCHINPUT));
+      bool handled = false;
+
+      for(uint16_t i = 0; i < count; ++i)
+        handled = handled || (self->SetTouch(inputs[i]) != 0);
+
+      if(!handled)
+        break; // If we don't handle it, break to DefWindowProc, which will close the touch handle
+
+      CloseTouchInputHandle((HTOUCHINPUT)lParam);
+      return 0;
+    }
+    case WM_DROPFILES: break; // TODO: http://www.catch22.net/tuts/win32/drag-and-drop-introduction
     case WM_PAINT:
     {
-      FG_Msg msg = { FG_Kind_DRAW };
+      FG_Msg msg    = { FG_Kind_DRAW };
       msg.draw.data = self->hWnd;
       RECT WindowRect;
       GetWindowRect(hWnd, &WindowRect);
-      msg.draw.area.left = 0;
-      msg.draw.area.top = 0;
-      msg.draw.area.right = static_cast<float>(WindowRect.right - WindowRect.left);
+      msg.draw.area.left   = 0;
+      msg.draw.area.top    = 0;
+      msg.draw.area.right  = static_cast<float>(WindowRect.right - WindowRect.left);
       msg.draw.area.bottom = static_cast<float>(WindowRect.bottom - WindowRect.top);
       self->backend->BeginDraw(self->backend, hWnd, &msg.draw.area);
       self->backend->Behavior(self, msg);
@@ -302,10 +316,12 @@ longptr_t __stdcall Window::WndProc(HWND__* hWnd, unsigned int message, size_t w
       return 0;
     }
   }
+
   return DefWindowProc(hWnd, message, wParam, lParam);
 }
 
-HWND__* Window::WndCreate(FG_Vec* pos, FG_Vec* dim, unsigned long style, uint32_t exflags, void* self, const wchar_t* cls, const char* caption, FG_Vec& dpi)
+HWND__* Window::WndCreate(FG_Vec* pos, FG_Vec* dim, unsigned long style, uint32_t exflags, void* self, const wchar_t* cls,
+                          const char* caption, FG_Vec& dpi)
 {
   exflags |= WS_EX_COMPOSITED | WS_EX_LAYERED;
 
@@ -319,23 +335,25 @@ HWND__* Window::WndCreate(FG_Vec* pos, FG_Vec* dim, unsigned long style, uint32_
     UTF8toUTF16(caption, -1, wcaption, len);
   }
 
-  //AdjustWindowRectEx(&rsize, style, FALSE, exflags); // So long as we are drawing all over the nonclient area, we don't actually want to correct this
-  int rwidth = !dim ? CW_USEDEFAULT : static_cast<int>(ceil(dim->x));
+  // AdjustWindowRectEx(&rsize, style, FALSE, exflags); // So long as we are drawing all over the nonclient area, we don't
+  // actually want to correct this
+  int rwidth  = !dim ? CW_USEDEFAULT : static_cast<int>(ceil(dim->x));
   int rheight = !dim ? CW_USEDEFAULT : static_cast<int>(ceil(dim->y));
-  int rleft = !pos ? CW_USEDEFAULT : static_cast<int>(floor(pos->x));
-  int rtop = !pos ? CW_USEDEFAULT : static_cast<int>(floor(pos->y));
+  int rleft   = !pos ? CW_USEDEFAULT : static_cast<int>(floor(pos->x));
+  int rtop    = !pos ? CW_USEDEFAULT : static_cast<int>(floor(pos->y));
 
-  HWND handle = CreateWindowExW(exflags, cls, wcaption, style, (style & WS_POPUP) ? rleft : CW_USEDEFAULT, (style & WS_POPUP) ? rtop : CW_USEDEFAULT, rwidth, rheight, NULL, NULL, (HINSTANCE)&__ImageBase, self);
-  HDC hdc = GetDC(handle);
-  dpi = { static_cast<float>(GetDeviceCaps(hdc, LOGPIXELSX)), static_cast<float>(GetDeviceCaps(hdc, LOGPIXELSY)) };
+  HWND handle = CreateWindowExW(exflags, cls, wcaption, style, (style & WS_POPUP) ? rleft : CW_USEDEFAULT,
+                                (style & WS_POPUP) ? rtop : CW_USEDEFAULT, rwidth, rheight, NULL, NULL,
+                                (HINSTANCE)&__ImageBase, self);
+  HDC hdc     = GetDC(handle);
+  dpi         = { static_cast<float>(GetDeviceCaps(hdc, LOGPIXELSX)), static_cast<float>(GetDeviceCaps(hdc, LOGPIXELSY)) };
   ReleaseDC(handle, hdc);
-
 
   if(backend->dwmblurbehind != 0)
   {
-    //MARGINS margins = { -1,-1,-1,-1 };
+    // MARGINS margins = { -1,-1,-1,-1 };
     //(*dwmextend)(handle, &margins); //extends glass effect
-    HRGN region = CreateRectRgn(-1, -1, 0, 0);
+    HRGN region               = CreateRectRgn(-1, -1, 0, 0);
     DWM_BLURBEHIND blurbehind = { DWM_BB_ENABLE | DWM_BB_BLURREGION | DWM_BB_TRANSITIONONMAXIMIZED, TRUE, region, FALSE };
     (*backend->dwmblurbehind)(handle, &blurbehind);
     DeleteObject(region);
@@ -361,7 +379,7 @@ void Window::BeginDraw(HWND handle, const FG_Rect& area)
   CreateResources(handle);
   target->BeginDraw();
   target->Clear(D2D1::ColorF(0, 0));
-  //target->SetTransform(D2D1::Matrix3x2F::Translation(-area.left, -area.top));
+  // target->SetTransform(D2D1::Matrix3x2F::Translation(-area.left, -area.top));
   PushClip(area);
 }
 
@@ -380,9 +398,9 @@ void Window::CreateResources(HWND handle)
     RECT rc;
     GetClientRect(handle, &rc);
     HRESULT hr = backend->CreateHWNDTarget(
-      D2D1::RenderTargetProperties(D2D1_RENDER_TARGET_TYPE_DEFAULT, D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED)),
-      D2D1::HwndRenderTargetProperties(handle, D2D1::SizeU(rc.right - rc.left, rc.bottom - rc.top)),
-      &target);
+      D2D1::RenderTargetProperties(D2D1_RENDER_TARGET_TYPE_DEFAULT,
+                                   D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED)),
+      D2D1::HwndRenderTargetProperties(handle, D2D1::SizeU(rc.right - rc.left, rc.bottom - rc.top)), &target);
 
     if(SUCCEEDED(hr))
     {
@@ -393,7 +411,8 @@ void Window::CreateResources(HWND handle)
       hr = target->QueryInterface<ID2D1DeviceContext>(&context);
       if(SUCCEEDED(hr))
       {
-        context->SetUnitMode(D2D1_UNIT_MODE_PIXELS); // Force direct2D to render in pixels because feathergui does the DPI conversion for us.
+        context->SetUnitMode(
+          D2D1_UNIT_MODE_PIXELS); // Force direct2D to render in pixels because feathergui does the DPI conversion for us.
         hr = context->CreateEffect(CLSID_RoundRect, &roundrect);
         hr = context->CreateEffect(CLSID_Circle, &circle);
         hr = context->CreateEffect(CLSID_Triangle, &triangle);
@@ -402,7 +421,10 @@ void Window::CreateResources(HWND handle)
           (*backend->_log)(backend->_root, FG_Level_ERROR, "CreateEffect failed with error code %li", hr);
       }
       else
-        (*backend->_log)(backend->_root, FG_Level_ERROR, "QueryInterface<ID2D1DeviceContext> failed with error code %li, custom effects won't be available. Make sure your device supports Direct2D 1.1", hr);
+        (*backend->_log)(
+          backend->_root, FG_Level_ERROR,
+          "QueryInterface<ID2D1DeviceContext> failed with error code %li, custom effects won't be available. Make sure your device supports Direct2D 1.1",
+          hr);
     }
     else
       (*backend->_log)(backend->_root, FG_Level_ERROR, "CreateHwndRenderTarget failed with error code %li", hr);
@@ -442,13 +464,13 @@ void Window::DiscardResources()
     context->Release();
   if(target)
     target->Release();
-  color = 0;
+  color     = 0;
   edgecolor = 0;
-  context = 0;
+  context   = 0;
   roundrect = 0;
-  triangle = 0;
-  circle = 0;
-  target = 0;
+  triangle  = 0;
+  circle    = 0;
+  target    = 0;
 }
 void Window::SetCaption(const char* caption)
 {
@@ -466,7 +488,7 @@ void Window::SetCaption(const char* caption)
 void Window::SetArea(FG_Vec* pos, FG_Vec* dim)
 {
   FG_Vec zero = {};
-  UINT flags = SWP_NOSENDCHANGING;
+  UINT flags  = SWP_NOSENDCHANGING;
   if(!pos)
   {
     flags |= SWP_NOMOVE;
@@ -478,7 +500,8 @@ void Window::SetArea(FG_Vec* pos, FG_Vec* dim)
     dim = &zero;
   }
 
-  SetWindowPos(hWnd, HWND_TOP, static_cast<int>(floorf(pos->x)), static_cast<int>(floorf(pos->y)), static_cast<int>(ceilf(dim->x)), static_cast<int>(ceilf(dim->y)), SWP_NOSENDCHANGING);
+  SetWindowPos(hWnd, HWND_TOP, static_cast<int>(floorf(pos->x)), static_cast<int>(floorf(pos->y)),
+               static_cast<int>(ceilf(dim->x)), static_cast<int>(ceilf(dim->y)), SWP_NOSENDCHANGING);
 }
 void Window::SetFlags(uint64_t flags)
 {
@@ -494,36 +517,46 @@ void Window::SetFlags(uint64_t flags)
   if(!(flags & FG_Window_CLOSED) && !IsWindowVisible(hWnd))
     ShowWindow(hWnd, SW_SHOW);
 
-  //LONG curstyle = GetWindowLongA(hWnd, GWL_STYLE);
-  //LONG check = curstyle & 
+  // LONG curstyle = GetWindowLongA(hWnd, GWL_STYLE);
+  // LONG check = curstyle &
+}
+
+uint8_t Window::GetModKey()
+{
+  // GetKeyState only reflects keyboard state up to this current keyboard event, which is what we want
+  uint8_t m = 0;
+  if(GetKeyState(VK_SHIFT) & 0x8000)
+    m |= FG_ModKey_SHIFT;
+  if(GetKeyState(VK_CONTROL) & 0x8000)
+    m |= FG_ModKey_CONTROL;
+  if(GetKeyState(VK_MENU) & 0x8000)
+    m |= FG_ModKey_ALT;
+  if((GetKeyState(VK_LWIN) | GetKeyState(VK_RWIN)) & 0x8000)
+    m |= FG_ModKey_SUPER;
+  if(GetKeyState(VK_CAPITAL) & 1)
+    m |= FG_ModKey_CAPSLOCK;
+  if(GetKeyState(VK_NUMLOCK) & 1)
+    m |= FG_ModKey_NUMLOCK;
+  return m;
 }
 
 size_t Window::SetKey(uint8_t keycode, bool down, bool held, unsigned long time)
 {
-  FG_Msg evt = { down ? FG_Kind_KEYDOWN : FG_Kind_KEYUP };
-  evt.keyUp.code = keycode;
-  evt.keyUp.sigkeys = 0;
+  FG_Msg evt        = { down ? FG_Kind_KEYDOWN : FG_Kind_KEYUP };
+  evt.keyUp.code    = keycode;
+  evt.keyUp.modkeys = GetModKey();
 
-  // GetKeyState only reflects keyboard state up to this current keyboard event, which is what we want
-  if(GetKeyState(VK_SHIFT)) evt.keyUp.sigkeys = evt.keyUp.sigkeys | 1;
-  if(GetKeyState(VK_CONTROL)) evt.keyUp.sigkeys = evt.keyUp.sigkeys | 2;
-  if(GetKeyState(VK_MENU)) evt.keyUp.sigkeys = evt.keyUp.sigkeys | 4;
-  if(held) evt.keyUp.sigkeys = evt.keyUp.sigkeys | 8;
+  if(held)
+    evt.keyUp.modkeys |= FG_ModKey_HELD;
 
   return backend->Behavior(this, evt).keyUp;
 }
 
 size_t Window::SetChar(int key, unsigned long time)
 {
-  FG_Msg evt = { FG_Kind_KEYCHAR };
+  FG_Msg evt          = { FG_Kind_KEYCHAR };
   evt.keyChar.unicode = key;
-  evt.keyChar.sigkeys = 0;
-
-  // GetKeyState only reflects keyboard state up to this current keyboard event, which is what we want
-  if(GetKeyState(VK_SHIFT)) evt.keyChar.sigkeys = evt.keyChar.sigkeys | 1;
-  if(GetKeyState(VK_CONTROL)) evt.keyChar.sigkeys = evt.keyChar.sigkeys | 2;
-  if(GetKeyState(VK_MENU)) evt.keyChar.sigkeys = evt.keyChar.sigkeys | 4;
-  // if(held) evt.keyChar.sigkeys = evt.keyChar.sigkeys | 8;
+  evt.keyChar.modkeys = GetModKey();
 
   return backend->Behavior(this, evt).keyChar;
 }
@@ -539,63 +572,99 @@ void Window::ApplyWin32Size(HWND__* handle)
     {
       RECT rsize = r;
       AdjustWindowRectEx(&rsize, GetWindowLong(handle, GWL_STYLE), FALSE, GetWindowLong(handle, GWL_EXSTYLE));
-      margin = { static_cast<float>(rsize.right - r.right), static_cast<float>(rsize.bottom - r.bottom), static_cast<float>(rsize.right - r.right), static_cast<float>(rsize.bottom - r.bottom) };
+      margin = { static_cast<float>(rsize.right - r.right), static_cast<float>(rsize.bottom - r.bottom),
+                 static_cast<float>(rsize.right - r.right), static_cast<float>(rsize.bottom - r.bottom) };
     }
     else
-      margin = { 0,0,0,0 };
+      margin = { 0, 0, 0, 0 };
 
-    FG_Msg msg = { FG_Kind_SETWINDOWRECT };
-    msg.setWindowRect.rect = { static_cast<float>(r.left), static_cast<float>(r.top), static_cast<float>(r.right), static_cast<float>(r.bottom) };
+    FG_Msg msg             = { FG_Kind_SETWINDOWRECT };
+    msg.setWindowRect.rect = { static_cast<float>(r.left), static_cast<float>(r.top), static_cast<float>(r.right),
+                               static_cast<float>(r.bottom) };
     backend->Behavior(this, msg);
   }
 }
 
 size_t Window::SetMouse(FG_Vec& points, FG_Kind type, unsigned char button, size_t wparam, unsigned long time)
 {
-  FG_Msg evt = { type };
+  FG_Msg evt      = { type };
   evt.mouseMove.x = points.x;
   evt.mouseMove.y = points.y;
 
-  if(type == FG_Kind_MOUSESCROLL)
+  if(wparam != (size_t)-1)
   {
-    POINTS delta = MAKEPOINTS(wparam);
-    evt.mouseScroll.delta = delta.y;
-    evt.mouseScroll.hdelta = delta.x;
+    evt.mouseMove.all = 0; // we must keep these bools accurate at all times
+    evt.mouseMove.all |= FG_MouseButton_L & (-((wparam & MK_LBUTTON) != 0));
+    evt.mouseMove.all |= FG_MouseButton_R & (-((wparam & MK_RBUTTON) != 0));
+    evt.mouseMove.all |= FG_MouseButton_M & (-((wparam & MK_MBUTTON) != 0));
+    evt.mouseMove.all |= FG_MouseButton_X1 & (-((wparam & MK_XBUTTON1) != 0));
+    evt.mouseMove.all |= FG_MouseButton_X2 & (-((wparam & MK_XBUTTON2) != 0));
   }
-  else
+  else // if wparam is -1 it signals that it is invalid, so we simply leave our assignments at their last known value.
   {
-    if(wparam != (size_t)-1)
-    {
-      evt.mouseMove.all = 0; // we must keep these bools accurate at all times
-      evt.mouseMove.all |= FG_MouseButton_L & (-((wparam & MK_LBUTTON) != 0));
-      evt.mouseMove.all |= FG_MouseButton_R & (-((wparam & MK_RBUTTON) != 0));
-      evt.mouseMove.all |= FG_MouseButton_M & (-((wparam & MK_MBUTTON) != 0));
-      evt.mouseMove.all |= FG_MouseButton_X1 & (-((wparam & MK_XBUTTON1) != 0));
-      evt.mouseMove.all |= FG_MouseButton_X2 & (-((wparam & MK_XBUTTON2) != 0));
-    }
-    else // if wparam is -1 it signals that it is invalid, so we simply leave our assignments at their last known value.
-    {
-      evt.mouseMove.all |= ((GetKeyState(VK_LBUTTON) != 0) << 0);
-      evt.mouseMove.all |= ((GetKeyState(VK_RBUTTON) != 0) << 1);
-      evt.mouseMove.all |= ((GetKeyState(VK_MBUTTON) != 0) << 4);
-      evt.mouseMove.all |= ((GetKeyState(VK_XBUTTON1) != 0) << 5);
-      evt.mouseMove.all |= ((GetKeyState(VK_XBUTTON2) != 0) << 6);
-    }
-    evt.mouseMove.button = button;
+    evt.mouseMove.all |= ((GetKeyState(VK_LBUTTON) != 0) << 0);
+    evt.mouseMove.all |= ((GetKeyState(VK_RBUTTON) != 0) << 1);
+    evt.mouseMove.all |= ((GetKeyState(VK_MBUTTON) != 0) << 4);
+    evt.mouseMove.all |= ((GetKeyState(VK_XBUTTON1) != 0) << 5);
+    evt.mouseMove.all |= ((GetKeyState(VK_XBUTTON2) != 0) << 6);
   }
+
+  if(!button)
+    return backend->Behavior(this, evt).mouseMove;
+
+  evt.mouseDown.button = button;
 
   switch(type)
   {
-  case FG_Kind_MOUSEDBLCLICK: //L down
-  case FG_Kind_MOUSEDOWN: //L down
-    evt.mouseMove.all |= evt.mouseMove.button; // Ensure the correct button position is reflected in the allbtn parameter regardless of the current state of the mouse
+  case FG_Kind_MOUSEDBLCLICK:                  // L down
+  case FG_Kind_MOUSEDOWN:                      // L down
+    evt.mouseDown.all |= evt.mouseDown.button; // Ensure the correct button position is reflected in the allbtn parameter
+                                               // regardless of the current state of the mouse
     break;
-  case FG_Kind_MOUSEUP: //L up
-    evt.mouseMove.all &= ~evt.mouseMove.button;
+  case FG_Kind_MOUSEUP: // L up
+    evt.mouseDown.all &= ~evt.mouseDown.button;
     break;
   }
 
-  return backend->Behavior(this, evt).mouseMove;
+  return backend->Behavior(this, evt).mouseDown;
+}
+
+size_t Window::SetTouch(TOUCHINPUT& input)
+{
+  FG_Msg evt = { FG_Kind_TOUCHMOVE };
+
+  if(input.dwFlags & TOUCHEVENTF_MOVE)
+    evt.touchMove.flags |= FG_Touch_MOVE;
+  if(input.dwFlags & TOUCHEVENTF_PALM)
+    evt.touchMove.flags |= FG_Touch_PALM;
+  if(input.dwFlags & TOUCHEVENTF_INRANGE)
+    evt.touchMove.flags |= FG_Touch_HOVER;
+  if(input.dwFlags & TOUCHEVENTF_DOWN)
+    evt.kind = FG_Kind_TOUCHBEGIN;
+  if(input.dwFlags & TOUCHEVENTF_UP)
+    evt.kind = FG_Kind_TOUCHEND;
+
+  evt.touchMove.x   = input.x;
+  evt.touchMove.y   = input.y;
+  evt.touchMove.z   = NAN;
+  if(input.dwMask & TOUCHINPUTMASKF_CONTACTAREA)
+    evt.touchMove.r = (input.cxContact > input.cyContact) ? input.cxContact : input.cyContact;
+
+  evt.touchMove.pressure = NAN;
+  evt.touchMove.index    = backend->GetTouchIndex(input.dwID, evt.kind);
+
+  return backend->Behavior(this, evt).touchMove;
+}
+
+size_t Window::SetMouseScroll(FG_Vec& points, uint16_t x, uint16_t y, unsigned long time)
+{
+  FG_Msg evt             = { FG_Kind_MOUSESCROLL };
+  evt.mouseScroll.x      = points.x;
+  evt.mouseScroll.y      = points.y;
+  evt.mouseScroll.delta  = y / (float)WHEEL_DELTA;
+  evt.mouseScroll.hdelta = -x / (float)WHEEL_DELTA; // inverted for consistency with X11 and MacOSX
+
+  return backend->Behavior(this, evt).mouseScroll;
 }
 
 void Window::InvalidateHWND(HWND__* hWnd)

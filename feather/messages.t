@@ -191,4 +191,21 @@ M.Window = Flags{
   "CLOSED",
   "FULLSCREEN",
 }
+
+M.ModKey = Flags{
+  "SHIFT",
+  "CONTROL",
+  "ALT",
+  "SUPER",
+  "CAPSLOCK",
+  "NUMLOCK",
+  "HELD",
+}
+
+M.Touch = Flags{
+  "MOVE",
+  "HOVER",
+  "PALM",
+}
+
 return M

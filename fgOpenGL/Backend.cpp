@@ -1,39 +1,7 @@
 // Copyright (c)2020 Fundament Software
 // For conditions of distribution and use, see copyright notice in "Backend.h"
 
-#include "compiler.h"
-
-#ifdef FG_PLATFORM_WIN32
-#pragma pack(push)
-#pragma pack(8)
-#define WINVER 0x0601 //_WIN32_WINNT_WIN7   
-#define _WIN32_WINNT 0x0601
-#define NTDDI_VERSION 0x06010000 //NTDDI_WIN7 
-#define WIN32_LEAN_AND_MEAN
-#ifndef NOMINMAX // Some compilers enable this by default
-#define NOMINMAX
-#endif
-#define NOBITMAP
-#define NOMCX
-#define NOSERVICE
-#define NOHELP
-#include <windows.h>
-#pragma pack(pop)
-
-long long GetRegistryValueW(HKEY__* hKeyRoot, const wchar_t* szKey, const wchar_t* szValue, unsigned char* data, unsigned long sz)
-{
-  HKEY__* hKey;
-  LRESULT e = RegOpenKeyExW(hKeyRoot, szKey, 0, KEY_READ, &hKey);
-  if(!hKey) return -2;
-  LSTATUS r = RegQueryValueExW(hKey, szValue, 0, 0, data, &sz);
-  RegCloseKey(hKey);
-  if(r == ERROR_SUCCESS)
-    return sz;
-  return (r == ERROR_MORE_DATA) ? sz : -1;
-}
-
-#endif
-
+#include "platform.h"
 #include "Backend.h"
 #include <filesystem>
 
@@ -44,40 +12,43 @@ namespace GL {
   __KHASH_IMPL(assets, , const FG_Asset*, char, 0, kh_ptr_hash_func, kh_int_hash_equal);
 }
 
-int Backend::_lasterr = 0;
-int Backend::_refcount = 0;
+int Backend::_lasterr            = 0;
+int Backend::_refcount           = 0;
 char Backend::_lasterrdesc[1024] = {};
 
-FG_Err Backend::DrawTextGL(FG_Backend* self, void* window, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Color color, float lineHeight, float letterSpacing, float blur, FG_AntiAliasing aa)
+FG_Err Backend::DrawTextGL(FG_Backend* self, void* window, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Color color,
+                           float lineHeight, float letterSpacing, float blur, FG_AntiAliasing aa)
 {
   return -1;
 }
 
-FG_Err Backend::DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Rect* area, FG_Rect* source, FG_Color color, float time)
+FG_Err Backend::DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Rect* area, FG_Rect* source, FG_Color color,
+                          float time)
 {
   return -1;
 }
 
-FG_Err Backend::DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor, float border, FG_Color borderColor, float blur, FG_Asset* asset)
+FG_Err Backend::DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor, float border,
+                         FG_Color borderColor, float blur, FG_Asset* asset)
 {
   return -1;
 }
 
-FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* arcs, FG_Color fillColor, float border, FG_Color borderColor, float blur, FG_Asset* asset)
+FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* arcs, FG_Color fillColor, float border,
+                           FG_Color borderColor, float blur, FG_Asset* asset)
 {
   return -1;
 }
-FG_Err Backend::DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor, float border, FG_Color borderColor, float blur, FG_Asset* asset)
+FG_Err Backend::DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
+                             float border, FG_Color borderColor, float blur, FG_Asset* asset)
 {
   return -1;
 }
 
-FG_Err Backend::DrawLines(FG_Backend* self, void* window, FG_Vec* points, uint32_t count, FG_Color color)
-{
-  return -1;
-}
+FG_Err Backend::DrawLines(FG_Backend* self, void* window, FG_Vec* points, uint32_t count, FG_Color color) { return -1; }
 
-FG_Err Backend::DrawCurve(FG_Backend* self, void* window, FG_Vec* anchors, uint32_t count, FG_Color fillColor, float stroke, FG_Color strokeColor)
+FG_Err Backend::DrawCurve(FG_Backend* self, void* window, FG_Vec* anchors, uint32_t count, FG_Color fillColor, float stroke,
+                          FG_Color strokeColor)
 {
   auto instance = static_cast<Backend*>(self);
 
@@ -85,67 +56,50 @@ FG_Err Backend::DrawCurve(FG_Backend* self, void* window, FG_Vec* anchors, uint3
 }
 
 // FG_Err DrawShader(FG_Backend* self, fgShader);
-FG_Err Backend::PushLayer(FG_Backend* self, void* window, FG_Rect* area, float* transform, float opacity)
-{
-  return -1;
-}
+FG_Err Backend::PushLayer(FG_Backend* self, void* window, FG_Rect* area, float* transform, float opacity) { return -1; }
 
-FG_Err Backend::PopLayer(FG_Backend* self, void* window)
-{
-  return -1;
-}
+FG_Err Backend::PopLayer(FG_Backend* self, void* window) { return -1; }
 
-FG_Err Backend::PushClip(FG_Backend* self, void* window, FG_Rect* area)
-{
-  return -1;
-}
+FG_Err Backend::PushClip(FG_Backend* self, void* window, FG_Rect* area) { return -1; }
 
-FG_Err Backend::PopClip(FG_Backend* self, void* window)
-{
-  return -1;
-}
+FG_Err Backend::PopClip(FG_Backend* self, void* window) { return -1; }
 
-FG_Err Backend::DirtyRect(FG_Backend* self, void* window, FG_Rect* area)
-{
-  return -1;
-}
+FG_Err Backend::DirtyRect(FG_Backend* self, void* window, FG_Rect* area) { return -1; }
 
-FG_Font* Backend::CreateFontGL(FG_Backend* self, const char* family, unsigned short weight, bool italic, unsigned int pt, FG_Vec dpi)
+FG_Font* Backend::CreateFontGL(FG_Backend* self, const char* family, unsigned short weight, bool italic, unsigned int pt,
+                               FG_Vec dpi)
 {
   return nullptr;
 }
 
-FG_Err Backend::DestroyFont(FG_Backend* self, FG_Font* font)
-{
-  return -1;
-}
-FG_Err Backend::DestroyLayout(FG_Backend* self, void* layout)
-{
-  return -1;
-}
+FG_Err Backend::DestroyFont(FG_Backend* self, FG_Font* font) { return -1; }
+FG_Err Backend::DestroyLayout(FG_Backend* self, void* layout) { return -1; }
 
-void* Backend::FontLayout(FG_Backend* self, FG_Font* font, const char* text, FG_Rect* area, float lineHeight, float letterSpacing, void* prev, FG_Vec dpi)
+void* Backend::FontLayout(FG_Backend* self, FG_Font* font, const char* text, FG_Rect* area, float lineHeight,
+                          float letterSpacing, void* prev, FG_Vec dpi)
 {
   return nullptr;
 }
 
-uint32_t Backend::FontIndex(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, float lineHeight, float letterSpacing, FG_Vec pos, FG_Vec* cursor, FG_Vec dpi)
+uint32_t Backend::FontIndex(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, float lineHeight,
+                            float letterSpacing, FG_Vec pos, FG_Vec* cursor, FG_Vec dpi)
 {
   return ~0;
 }
 
-FG_Vec Backend::FontPos(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, float lineHeight, float letterSpacing, uint32_t index, FG_Vec dpi)
+FG_Vec Backend::FontPos(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, float lineHeight,
+                        float letterSpacing, uint32_t index, FG_Vec dpi)
 {
   return FG_Vec{};
 }
 
 FG_Asset* Backend::CreateAsset(FG_Backend* self, const char* data, uint32_t count, FG_Format format)
 {
-  auto backend = static_cast<Backend*>(self);
-  Asset* asset = reinterpret_cast<Asset*>(malloc(count + sizeof(Asset)));
+  auto backend     = static_cast<Backend*>(self);
+  Asset* asset     = reinterpret_cast<Asset*>(malloc(count + sizeof(Asset)));
   asset->data.data = asset + 1;
   MEMCPY(asset->data.data, count, data, count);
-  asset->count = count;
+  asset->count  = count;
   asset->format = format;
   int r;
   kh_put_assets(backend->_assethash, asset, &r);
@@ -174,12 +128,12 @@ FG_Err Backend::PutClipboard(FG_Backend* self, FG_Clipboard kind, const char* da
   {
     if(kind == FG_Clipboard_TEXT)
     {
-      size_t unilen = MultiByteToWideChar(CP_UTF8, 0, data, (int)count, 0, 0);
+      size_t unilen  = MultiByteToWideChar(CP_UTF8, 0, data, (int)count, 0, 0);
       HGLOBAL unimem = GlobalAlloc(GMEM_MOVEABLE, unilen * sizeof(wchar_t));
       if(unimem)
       {
         wchar_t* uni = (wchar_t*)GlobalLock(unimem);
-        size_t sz = MultiByteToWideChar(CP_UTF8, 0, data, (int)count, uni, (int)unilen);
+        size_t sz    = MultiByteToWideChar(CP_UTF8, 0, data, (int)count, uni, (int)unilen);
         if(sz < unilen) // ensure we have a null terminator
           uni[sz] = 0;
         GlobalUnlock(unimem);
@@ -232,10 +186,10 @@ uint32_t Backend::GetClipboard(FG_Backend* self, FG_Clipboard kind, void* target
     if(IsClipboardFormatAvailable(CF_UNICODETEXT))
     {
       HANDLE gdata = GetClipboardData(CF_UNICODETEXT);
-      SIZE_T len = 0;
+      SIZE_T len   = 0;
       if(gdata)
       {
-        SIZE_T size = GlobalSize(gdata) / 2;
+        SIZE_T size        = GlobalSize(gdata) / 2;
         const wchar_t* str = (const wchar_t*)GlobalLock(gdata);
         if(str)
         {
@@ -256,7 +210,7 @@ uint32_t Backend::GetClipboard(FG_Backend* self, FG_Clipboard kind, void* target
   case FG_Clipboard_BITMAP: format = CF_BITMAP; break;
   }
   HANDLE gdata = GetClipboardData(format);
-  SIZE_T size = 0;
+  SIZE_T size  = 0;
   if(gdata)
   {
     size = GlobalSize(gdata);
@@ -275,8 +229,7 @@ uint32_t Backend::GetClipboard(FG_Backend* self, FG_Clipboard kind, void* target
   CloseClipboard();
   return (uint32_t)size;
 #else
-  glfwGetClipboardString()
-  return -1;
+  glfwGetClipboardString() return -1;
 #endif
 }
 
@@ -285,16 +238,14 @@ bool Backend::CheckClipboard(FG_Backend* self, FG_Clipboard kind)
 #ifdef FG_PLATFORM_WIN32
   switch(kind)
   {
-  case FG_Clipboard_TEXT:
-    return IsClipboardFormatAvailable(CF_TEXT) | IsClipboardFormatAvailable(CF_UNICODETEXT);
-  case FG_Clipboard_WAVE:
-    return IsClipboardFormatAvailable(CF_WAVE);
-  case FG_Clipboard_BITMAP:
-    return IsClipboardFormatAvailable(CF_BITMAP);
-  case FG_Clipboard_CUSTOM:
-    return IsClipboardFormatAvailable(CF_PRIVATEFIRST);
+  case FG_Clipboard_TEXT: return IsClipboardFormatAvailable(CF_TEXT) | IsClipboardFormatAvailable(CF_UNICODETEXT);
+  case FG_Clipboard_WAVE: return IsClipboardFormatAvailable(CF_WAVE);
+  case FG_Clipboard_BITMAP: return IsClipboardFormatAvailable(CF_BITMAP);
+  case FG_Clipboard_CUSTOM: return IsClipboardFormatAvailable(CF_PRIVATEFIRST);
   case FG_Clipboard_ALL:
-    return IsClipboardFormatAvailable(CF_TEXT) | IsClipboardFormatAvailable(CF_UNICODETEXT) | IsClipboardFormatAvailable(CF_WAVE) | IsClipboardFormatAvailable(CF_BITMAP) | IsClipboardFormatAvailable(CF_PRIVATEFIRST);
+    return IsClipboardFormatAvailable(CF_TEXT) | IsClipboardFormatAvailable(CF_UNICODETEXT) |
+           IsClipboardFormatAvailable(CF_WAVE) | IsClipboardFormatAvailable(CF_BITMAP) |
+           IsClipboardFormatAvailable(CF_PRIVATEFIRST);
   }
   return false;
 #else
@@ -320,15 +271,18 @@ FG_Err Backend::ClearClipboard(FG_Backend* self, FG_Clipboard kind)
 FG_Err Backend::ProcessMessages(FG_Backend* self)
 {
   glfwPollEvents();
-  return 0;
+
+  // Clean up any deleted windows
+
+  return 1; // GLFW eats WM_QUIT and just closes all windows, so the application will have to detect this
 }
 
 FG_Err Backend::SetCursorGL(FG_Backend* self, void* window, FG_Cursor cursor)
 {
-  static GLFWcursor* arrow = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
-  static GLFWcursor* ibeam = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
-  static GLFWcursor* cross = glfwCreateStandardCursor(GLFW_CROSSHAIR_CURSOR);
-  static GLFWcursor* hand = glfwCreateStandardCursor(GLFW_HAND_CURSOR);
+  static GLFWcursor* arrow   = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
+  static GLFWcursor* ibeam   = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
+  static GLFWcursor* cross   = glfwCreateStandardCursor(GLFW_CROSSHAIR_CURSOR);
+  static GLFWcursor* hand    = glfwCreateStandardCursor(GLFW_HAND_CURSOR);
   static GLFWcursor* hresize = glfwCreateStandardCursor(GLFW_HRESIZE_CURSOR);
   static GLFWcursor* vresize = glfwCreateStandardCursor(GLFW_VRESIZE_CURSOR);
 
@@ -351,6 +305,7 @@ FG_Err Backend::RequestAnimationFrame(FG_Backend* self, void* window, unsigned l
   if(!window)
     return -1;
   reinterpret_cast<Window*>(glfwGetWindowUserPointer(reinterpret_cast<GLFWwindow*>(window)))->Draw(nullptr);
+  return 0;
 }
 
 FG_Err Backend::GetDisplayIndex(FG_Backend* self, unsigned int index, FG_Display* out)
@@ -366,9 +321,10 @@ FG_Err Backend::GetDisplay(FG_Backend* self, void* handle, FG_Display* out)
 {
   if(!handle || !out)
     return -1;
-  out->handle = handle;
+  out->handle  = handle;
   out->primary = glfwGetPrimaryMonitor() == handle;
-  glfwGetMonitorWorkarea(reinterpret_cast<GLFWmonitor*>(handle), &out->offset.x, &out->offset.y, &out->size.x, &out->size.y);
+  glfwGetMonitorWorkarea(reinterpret_cast<GLFWmonitor*>(handle), &out->offset.x, &out->offset.y, &out->size.x,
+                         &out->size.y);
   glfwGetMonitorContentScale(reinterpret_cast<GLFWmonitor*>(handle), &out->dpi.x, &out->dpi.y);
   out->dpi.x *= 96.0f;
   out->dpi.y *= 96.0f;
@@ -381,12 +337,14 @@ FG_Err Backend::GetDisplayWindow(FG_Backend* self, void* window, FG_Display* out
   return GetDisplay(self, glfwGetWindowMonitor(reinterpret_cast<GLFWwindow*>(window)), out);
 }
 
-void* Backend::CreateWindowGL(FG_Backend* self, FG_Element* element, void* display, FG_Vec* pos, FG_Vec* dim, const char* caption, uint64_t flags)
+void* Backend::CreateWindowGL(FG_Backend* self, FG_Element* element, void* display, FG_Vec* pos, FG_Vec* dim,
+                              const char* caption, uint64_t flags)
 {
   _lasterr = 0;
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-  Window* window = new Window(static_cast<Backend*>(self), reinterpret_cast<GLFWmonitor*>(display), element, pos, dim, flags, caption);
+  Window* window =
+    new Window(static_cast<Backend*>(self), reinterpret_cast<GLFWmonitor*>(display), element, pos, dim, flags, caption);
   if(!_lasterr)
     return window->GetWindow();
 
@@ -394,12 +352,13 @@ void* Backend::CreateWindowGL(FG_Backend* self, FG_Element* element, void* displ
   return nullptr;
 }
 
-FG_Err Backend::SetWindowGL(FG_Backend* self, void* window, FG_Element* element, void* display, FG_Vec* pos, FG_Vec* dim, const char* caption, uint64_t flags)
+FG_Err Backend::SetWindowGL(FG_Backend* self, void* window, FG_Element* element, void* display, FG_Vec* pos, FG_Vec* dim,
+                            const char* caption, uint64_t flags)
 {
   if(!window)
     return -1;
   auto glwindow = reinterpret_cast<GLFWwindow*>(window);
-  auto w = reinterpret_cast<Window*>(glfwGetWindowUserPointer(glwindow));
+  auto w        = reinterpret_cast<Window*>(glfwGetWindowUserPointer(glwindow));
 
   w->_element = element;
   if(caption)
@@ -412,9 +371,11 @@ FG_Err Backend::SetWindowGL(FG_Backend* self, void* window, FG_Element* element,
     glfwGetWindowPos(glwindow, &posx, &posy);
     glfwGetWindowSize(glwindow, &dimx, &dimy);
     if(flags & FG_Window_FULLSCREEN)
-      glfwSetWindowMonitor(glwindow, (GLFWmonitor*)display, 0, 0, !dim ? dimx : (int)dim->x, !dim ? dimy : (int)dim->y, GLFW_DONT_CARE);
+      glfwSetWindowMonitor(glwindow, (GLFWmonitor*)display, 0, 0, !dim ? dimx : (int)dim->x, !dim ? dimy : (int)dim->y,
+                           GLFW_DONT_CARE);
     else
-      glfwSetWindowMonitor(glwindow, NULL, !pos ? posx : (int)pos->x, !pos ? posy : (int)pos->y, !dim ? dimx : (int)dim->x, !dim ? dimy : (int)dim->y, GLFW_DONT_CARE);
+      glfwSetWindowMonitor(glwindow, NULL, !pos ? posx : (int)pos->x, !pos ? posy : (int)pos->y, !dim ? dimx : (int)dim->x,
+                           !dim ? dimy : (int)dim->y, GLFW_DONT_CARE);
   }
   else
   {
@@ -433,7 +394,7 @@ FG_Err Backend::SetWindowGL(FG_Backend* self, void* window, FG_Element* element,
     glfwIconifyWindow(glwindow);
   else
     glfwRestoreWindow(glwindow);
-  
+
   w->_flags = flags;
   return 0;
 }
@@ -475,18 +436,19 @@ void DestroyGL(FG_Backend* self)
 }
 
 #ifdef FG_DEBUG
-#define FG_MAIN_FUNCTION fgOpenGL_d
+  #define FG_MAIN_FUNCTION fgOpenGL_d
 #else
-#define FG_MAIN_FUNCTION fgOpenGL
+  #define FG_MAIN_FUNCTION fgOpenGL
 #endif
 
-extern "C" FG_COMPILER_DLLEXPORT FG_Backend * FG_MAIN_FUNCTION(void* root, FG_Log log, FG_Behavior behavior)
+extern "C" FG_COMPILER_DLLEXPORT FG_Backend* FG_MAIN_FUNCTION(void* root, FG_Log log, FG_Behavior behavior)
 {
-  static_assert(std::is_same<FG_InitBackend, decltype(&(FG_MAIN_FUNCTION))>::value, "fgOpenGL must match InitBackend function pointer");
+  static_assert(std::is_same<FG_InitBackend, decltype(&(FG_MAIN_FUNCTION))>::value,
+                "fgOpenGL must match InitBackend function pointer");
 
 #ifdef FG_PLATFORM_WIN32
-  typedef BOOL(WINAPI* tGetPolicy)(LPDWORD lpFlags);
-  typedef BOOL(WINAPI* tSetPolicy)(DWORD dwFlags);
+  typedef BOOL(WINAPI * tGetPolicy)(LPDWORD lpFlags);
+  typedef BOOL(WINAPI * tSetPolicy)(DWORD dwFlags);
   const DWORD EXCEPTION_SWALLOWING = 0x1;
   DWORD dwFlags;
 
@@ -495,7 +457,7 @@ extern "C" FG_COMPILER_DLLEXPORT FG_Backend * FG_MAIN_FUNCTION(void* root, FG_Lo
   tGetPolicy pGetPolicy = (tGetPolicy)GetProcAddress(kernel32, "GetProcessUserModeExceptionPolicy");
   tSetPolicy pSetPolicy = (tSetPolicy)GetProcAddress(kernel32, "SetProcessUserModeExceptionPolicy");
   if(pGetPolicy && pSetPolicy && pGetPolicy(&dwFlags))
-    pSetPolicy(dwFlags & ~EXCEPTION_SWALLOWING); // Turn off the filter 
+    pSetPolicy(dwFlags & ~EXCEPTION_SWALLOWING); // Turn off the filter
 #endif
 
   if(++Backend::_refcount == 1)
@@ -508,64 +470,83 @@ extern "C" FG_COMPILER_DLLEXPORT FG_Backend * FG_MAIN_FUNCTION(void* root, FG_Lo
     }
 
     glfwSetErrorCallback(&Backend::ErrorCallback);
+    // glfwSetJoystickCallback(&Backend::JoystickCallback);
   }
 
   return new Backend(root, log, behavior);
 }
 
-Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) : _root(root), _log(log), _behavior(behavior), _assethash(kh_init_assets())
+#ifdef FG_PLATFORM_WIN32
+long long GetRegistryValueW(HKEY__* hKeyRoot, const wchar_t* szKey, const wchar_t* szValue, unsigned char* data,
+                            unsigned long sz)
 {
-  drawText = &DrawTextGL;
-  drawAsset = &DrawAsset;
-  drawRect = &DrawRect;
-  drawCircle = &DrawCircle;
+  HKEY__* hKey;
+  LRESULT e = RegOpenKeyExW(hKeyRoot, szKey, 0, KEY_READ, &hKey);
+  if(!hKey)
+    return -2;
+  LSTATUS r = RegQueryValueExW(hKey, szValue, 0, 0, data, &sz);
+  RegCloseKey(hKey);
+  if(r == ERROR_SUCCESS)
+    return sz;
+  return (r == ERROR_MORE_DATA) ? sz : -1;
+}
+#endif
+
+Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
+  _root(root), _log(log), _behavior(behavior), _assethash(kh_init_assets())
+{
+  drawText     = &DrawTextGL;
+  drawAsset    = &DrawAsset;
+  drawRect     = &DrawRect;
+  drawCircle   = &DrawCircle;
   drawTriangle = &DrawTriangle;
-  drawLines = &DrawLines;
-  drawCurve = &DrawCurve;
+  drawLines    = &DrawLines;
+  drawCurve    = &DrawCurve;
   // drawShader =&DrawShader;
-  pushLayer = &PushLayer;
-  popLayer = &PopLayer;
-  pushClip = &PushClip;
-  popClip = &PopClip;
-  dirtyRect = &DirtyRect;
-  beginDraw = &BeginDraw;
-  endDraw = &EndDraw;
-  createFont = &CreateFontGL;
-  destroyFont = &DestroyFont;
-  fontLayout = &FontLayout;
-  destroyLayout = &DestroyLayout;
-  fontIndex = &FontIndex;
-  fontPos = &FontPos;
-  createAsset = &CreateAsset;
-  destroyAsset = &DestroyAsset;
-  putClipboard = &PutClipboard;
-  getClipboard = &GetClipboard;
-  checkClipboard = &CheckClipboard;
-  clearClipboard = &ClearClipboard;
-  processMessages = &ProcessMessages;
-  setCursor = &SetCursorGL;
+  pushLayer             = &PushLayer;
+  popLayer              = &PopLayer;
+  pushClip              = &PushClip;
+  popClip               = &PopClip;
+  dirtyRect             = &DirtyRect;
+  beginDraw             = &BeginDraw;
+  endDraw               = &EndDraw;
+  createFont            = &CreateFontGL;
+  destroyFont           = &DestroyFont;
+  fontLayout            = &FontLayout;
+  destroyLayout         = &DestroyLayout;
+  fontIndex             = &FontIndex;
+  fontPos               = &FontPos;
+  createAsset           = &CreateAsset;
+  destroyAsset          = &DestroyAsset;
+  putClipboard          = &PutClipboard;
+  getClipboard          = &GetClipboard;
+  checkClipboard        = &CheckClipboard;
+  clearClipboard        = &ClearClipboard;
+  processMessages       = &ProcessMessages;
+  setCursor             = &SetCursorGL;
   requestAnimationFrame = &RequestAnimationFrame;
-  getDisplayIndex = &GetDisplayIndex;
-  getDisplay = &GetDisplay;
-  getDisplayWindow = &GetDisplayWindow;
-  createWindow = &CreateWindowGL;
-  setWindow = &SetWindowGL;
-  destroyWindow = &DestroyWindow;
-  destroy = &DestroyGL;
+  getDisplayIndex       = &GetDisplayIndex;
+  getDisplay            = &GetDisplay;
+  getDisplayWindow      = &GetDisplayWindow;
+  createWindow          = &CreateWindowGL;
+  setWindow             = &SetWindowGL;
+  destroyWindow         = &DestroyWindow;
+  destroy               = &DestroyGL;
 
   (*_log)(_root, FG_Level_NONE, "Initializing fgOpenGL...");
 
 #ifdef FG_PLATFORM_WIN32
-#ifdef FG_DEBUG
+  #ifdef FG_DEBUG
   HeapSetInformation(NULL, HeapEnableTerminationOnCorruption, NULL, 0);
-#endif
-  
+  #endif
+
   int64_t sz = GetRegistryValueW(HKEY_CURRENT_USER, L"Control Panel\\Desktop", L"CursorBlinkRate", 0, 0);
   if(sz > 0)
   {
     std::wstring buf;
     buf.resize(sz / 2);
-    sz = GetRegistryValueW(HKEY_CURRENT_USER, L"Control Panel\\Desktop", L"CursorBlinkRate", reinterpret_cast<unsigned char*>(buf.data()), (unsigned long)sz);
+    sz = GetRegistryValueW(HKEY_CURRENT_USER, L"Control Panel\\Desktop", L"CursorBlinkRate",
+                           reinterpret_cast<unsigned char*>(buf.data()), (unsigned long)sz);
     if(sz > 0)
       cursorblink = _wtoi(buf.data());
   }
@@ -577,30 +558,27 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) : _root(root), _l
   {
     std::wstring buf;
     buf.resize(sz / 2);
-    sz = GetRegistryValueW(HKEY_CURRENT_USER, L"Control Panel\\Mouse", L"MouseHoverTime", reinterpret_cast<unsigned char*>(buf.data()), (unsigned long)sz);
+    sz = GetRegistryValueW(HKEY_CURRENT_USER, L"Control Panel\\Mouse", L"MouseHoverTime",
+                           reinterpret_cast<unsigned char*>(buf.data()), (unsigned long)sz);
     if(sz > 0)
       tooltipdelay = _wtoi(buf.data());
   }
   else
     (*_log)(_root, FG_Level_WARNING, "Couldn't get user's mouse hover time.");
 #else
-  cursorblink = 530;
+  cursorblink  = 530;
   tooltipdelay = 500;
 #endif
-
 }
 
-Backend::~Backend()
-{
-  kh_destroy_assets(_assethash);
-}
+Backend::~Backend() { kh_destroy_assets(_assethash); }
 void Backend::ErrorCallback(int error, const char* description)
 {
   _lasterr = error;
   strncpy(_lasterrdesc, description, 1024);
 }
 
-FG_Result Backend::Behavior(Window* w, FG_Msg& msg)
+FG_Result Backend::Behavior(Window* w, const FG_Msg& msg)
 {
-  return (*_behavior)(w->_element, w->GetWindow(), _root, &msg);
+  return (*_behavior)(w->_element, w->GetWindow(), _root, const_cast<FG_Msg*>(&msg));
 }

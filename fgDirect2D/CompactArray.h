@@ -11,9 +11,9 @@
 #include "../backend.h"
 
 namespace D2D {
-  // Helper function for inserting a range into a simple array
+  // Helper function for inserting a range into a simple array.
   template<class T, typename CType = size_t>
-  inline void InsertRangeSimple(T * dest, CType length, CType index, const T * src, CType srcsize) noexcept
+  inline void InsertRangeSimple(T* dest, CType length, CType index, const T* src, CType srcsize) noexcept
   {
     assert(index >= 0 && length >= index && dest != 0);
     memmove(dest + index + srcsize, dest + index, sizeof(T) * (length - index));
@@ -21,13 +21,13 @@ namespace D2D {
   }
 
   template<class T, typename CType = size_t>
-  inline void RemoveRangeSimple(T * dest, CType length, CType index, CType range) noexcept
+  inline void RemoveRangeSimple(T* dest, CType length, CType index, CType range) noexcept
   {
     assert(index >= 0 && length > index && dest != 0);
     memmove(dest + index, dest + index + range, sizeof(T) * (length - index - range));
   }
 
-  // Array that uses a inline stack for smaller arrays before allocating something on the heap. Can only be used with simple data.
+  // Array using an inline stack for small arrays before allocating on the heap. Can only be used with simple data.
   template<class T, int I = 2, class CType = size_t, class Alloc = StandardAllocator<T>>
   class FG_COMPILER_DLLEXPORT CompactArray final : Alloc
   {
@@ -54,8 +54,8 @@ namespace D2D {
     {
       SetLength(list.size());
       auto end = list.end();
-      CT j = 0;
-      CT len = Length();
+      CT j     = 0;
+      CT len   = Length();
 
       for(auto i = list.begin(); i != end && j < len; ++i)
         new(_array + (j++)) T(*i);
@@ -102,34 +102,50 @@ namespace D2D {
 
         if(_length & COMPACTFLAG)
         {
-          T* a = Alloc::allocate(capacity, 0);
+          T* a    = Alloc::allocate(capacity, 0);
           _length = Length();
 
           if(_length)
             MEMCPY(a, capacity * sizeof(T), _internal, _length * sizeof(T));
 
-          _array = a;
+          _array    = a;
           _capacity = capacity;
         }
         else
         {
-          _array = Alloc::allocate(capacity, _array, _capacity);
+          _array    = Alloc::allocate(capacity, _array, _capacity);
           _capacity = capacity;
         }
       }
     }
     FG_FORCEINLINE CT Length() const { return _length & COMPACTMASK; }
     FG_FORCEINLINE CT Capacity() const { return (_length & COMPACTFLAG) ? I : _capacity; }
-    FG_FORCEINLINE const T& Front() const { assert(Length() > 0); return begin()[0]; }
-    FG_FORCEINLINE const T& Back() const { assert(Length() > 0); return begin()[Length() - 1]; }
-    FG_FORCEINLINE T& Front() { assert(Length() > 0); return begin()[0]; }
-    FG_FORCEINLINE T& Back() { assert(Length() > 0); return begin()[Length() - 1]; }
+    FG_FORCEINLINE const T& Front() const
+    {
+      assert(Length() > 0);
+      return begin()[0];
+    }
+    FG_FORCEINLINE const T& Back() const
+    {
+      assert(Length() > 0);
+      return begin()[Length() - 1];
+    }
+    FG_FORCEINLINE T& Front()
+    {
+      assert(Length() > 0);
+      return begin()[0];
+    }
+    FG_FORCEINLINE T& Back()
+    {
+      assert(Length() > 0);
+      return begin()[Length() - 1];
+    }
     FG_FORCEINLINE const T* begin() const noexcept { return (_length & COMPACTFLAG) ? _internal : _array; }
     FG_FORCEINLINE const T* end() const noexcept { return begin() + Length(); }
     FG_FORCEINLINE T* begin() noexcept { return (_length & COMPACTFLAG) ? _internal : _array; }
     FG_FORCEINLINE T* end() noexcept { return begin() + Length(); }
-    FG_FORCEINLINE operator T* () { return begin(); }
-    FG_FORCEINLINE operator const T* () const { return begin(); }
+    FG_FORCEINLINE operator T*() { return begin(); }
+    FG_FORCEINLINE operator const T*() const { return begin(); }
     inline CompactArray& operator=(const CompactArray& copy)
     {
       SetLength(copy.Length());

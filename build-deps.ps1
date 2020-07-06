@@ -17,9 +17,17 @@ if(!(Test-Path ".\cmake\bin\cmake.exe" -PathType Leaf)) {
   Remove-Item cmake-$cmakever-win32-x86.zip
 }
 
-$deps = @("freetype2", "glfw", "harfbuzz", "SOIL")
+# Fix broken CMakeLists.txt that harfbuzz refuses to fix
+#(Get-Content -path .\deps\harfbuzz\CMakeLists.txt -Raw) -replace 'include \(FindFreetype\)','find_package(Freetype REQUIRED)' | Set-Content -Path .\deps\harfbuzz\CMakeLists.txt
 
-foreach ($dep in $deps) {
+$deps = @{
+  freetype2 = ""
+  harfbuzz = "" #'-DHB_HAVE_FREETYPE=ON -DCMAKE_PREFIX_PATH="D:\Erik Documents\Visual Studio 2019\Projects\feathergui\deps\freetype2"'
+  glfw = ""
+  SOIL = ""
+}
+
+foreach ($dep in $deps.Keys) {
   if(Test-Path -path "./$bin/$dep") {
     Remove-Item -Recurse -Force ./$bin/$dep
   }
@@ -27,9 +35,9 @@ foreach ($dep in $deps) {
 
 Start-Sleep -Seconds 1
 
-foreach ($dep in $deps) {
+foreach ($dep in $deps.Keys) {
   mkdir -p ./$bin/$dep
-  .\cmake\bin\cmake.exe "-Tv142,host=$arch" -DCMAKE_GENERATOR_PLATFORM="$platform" -DCMAKE_CXX_STANDARD="17" -DCMAKE_CXX_FLAGS="/D _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS /D _CRT_SECURE_NO_WARNINGS" -B./$bin/$dep -S./deps/$dep
+  .\cmake\bin\cmake.exe "-Tv142,host=$arch" -DCMAKE_GENERATOR_PLATFORM="$platform" -DCMAKE_CXX_STANDARD="17" -DCMAKE_CXX_FLAGS="/D _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS /D _CRT_SECURE_NO_WARNINGS" $($deps.Item($dep)) -B./$bin/$dep -S./deps/$dep
 
   $env:_CL_="/MT"
   .\cmake\bin\cmake.exe --build ./$bin/$dep --config MinSizeRel

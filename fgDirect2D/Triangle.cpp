@@ -14,9 +14,7 @@
 using namespace D2D;
 
 Triangle::Triangle() {}
-Triangle::~Triangle()
-{
-}
+Triangle::~Triangle() {}
 IFACEMETHODIMP Triangle::Initialize(_In_ ID2D1EffectContext* pContextInternal, _In_ ID2D1TransformGraph* pTransformGraph)
 {
   HRESULT hr = pContextInternal->LoadPixelShader(CLSID_TrianglePixelShader, Triangle_main, sizeof(Triangle_main));
@@ -28,6 +26,7 @@ IFACEMETHODIMP Triangle::Initialize(_In_ ID2D1EffectContext* pContextInternal, _
 }
 HRESULT Triangle::Register(_In_ ID2D1Factory1* pFactory)
 {
+  /* clang-format off */
   PCWSTR pszXml =
     XML(
       <?xml version='1.0'?>
@@ -67,11 +66,11 @@ HRESULT Triangle::Register(_In_ ID2D1Factory1* pFactory)
         </Property>
       </Effect>
       );
+  /* clang-format on */
 
   // This defines the bindings from specific properties to the callback functions
   // on the class that ID2D1Effect::SetValue() & GetValue() will call.
-  const D2D1_PROPERTY_BINDING bindings[] =
-  {
+  const D2D1_PROPERTY_BINDING bindings[] = {
     D2D1_VALUE_TYPE_BINDING(L"Rect", &SetRect, &GetRect),
     D2D1_VALUE_TYPE_BINDING(L"Corners", &SetCorners, &GetCorners),
     D2D1_VALUE_TYPE_BINDING(L"Fill", &SetFill, &GetFill),
@@ -80,13 +79,7 @@ HRESULT Triangle::Register(_In_ ID2D1Factory1* pFactory)
     D2D1_VALUE_TYPE_BINDING(L"Blur", &SetBlur, &GetBlur),
   };
 
-  return pFactory->RegisterEffectFromString(
-    CLSID_Triangle,
-    pszXml,
-    bindings,
-    ARRAYSIZE(bindings),
-    CreateEffect
-  );
+  return pFactory->RegisterEffectFromString(CLSID_Triangle, pszXml, bindings, ARRAYSIZE(bindings), CreateEffect);
 }
 
 HRESULT __stdcall Triangle::CreateEffect(_Outptr_ IUnknown** ppEffectImpl)

@@ -14,8 +14,7 @@
 using namespace D2D;
 
 Modulation::Modulation() {}
-Modulation::~Modulation()
-{}
+Modulation::~Modulation() {}
 IFACEMETHODIMP Modulation::Initialize(_In_ ID2D1EffectContext* pContextInternal, _In_ ID2D1TransformGraph* pTransformGraph)
 {
   HRESULT hr = pContextInternal->LoadPixelShader(CLSID_ModulationPixelShader, Modulation_main, sizeof(Modulation_main));
@@ -27,6 +26,7 @@ IFACEMETHODIMP Modulation::Initialize(_In_ ID2D1EffectContext* pContextInternal,
 }
 HRESULT Modulation::Register(_In_ ID2D1Factory1* pFactory)
 {
+  /* clang-format off */
   PCWSTR pszXml =
     XML(
       <?xml version='1.0'?>
@@ -45,21 +45,15 @@ HRESULT Modulation::Register(_In_ ID2D1Factory1* pFactory)
         </Property>
       </Effect>
     );
+  /* clang-format on */
 
   // This defines the bindings from specific properties to the callback functions
   // on the class that ID2D1Effect::SetValue() & GetValue() will call.
-  const D2D1_PROPERTY_BINDING bindings[] =
-  {
+  const D2D1_PROPERTY_BINDING bindings[] = {
     D2D1_VALUE_TYPE_BINDING(L"Color", &SetColor, &GetColor),
   };
 
-  return pFactory->RegisterEffectFromString(
-    CLSID_Modulation,
-    pszXml,
-    bindings,
-    ARRAYSIZE(bindings),
-    CreateEffect
-  );
+  return pFactory->RegisterEffectFromString(CLSID_Modulation, pszXml, bindings, ARRAYSIZE(bindings), CreateEffect);
 }
 
 HRESULT __stdcall Modulation::CreateEffect(_Outptr_ IUnknown** ppEffectImpl)

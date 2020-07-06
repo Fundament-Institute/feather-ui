@@ -25,11 +25,13 @@ namespace D2D {
 #endif
   }
 
-  FG_FORCEINLINE static constexpr size_t AlignSize(size_t sz, size_t align) { return ((sz / align) + ((sz % align) != 0)) * align; }
+  FG_FORCEINLINE static constexpr size_t AlignSize(size_t sz, size_t align)
+  {
+    return ((sz / align) + ((sz % align) != 0)) * align;
+  }
 
   // An implementation of a standard allocator, with optional alignment
-  template<typename T, int ALIGN = 0>
-  class FG_COMPILER_DLLEXPORT StandardAllocator
+  template<typename T, int ALIGN = 0> class FG_COMPILER_DLLEXPORT StandardAllocator
   {
     union SIZETRACK
     {
@@ -41,23 +43,24 @@ namespace D2D {
     typedef T value_type;
     typedef void policy_type;
     template<class U> using rebind = StandardAllocator<U, ALIGN>;
-    StandardAllocator() = default;
-    template <class U> constexpr StandardAllocator(const StandardAllocator<U>&) noexcept {}
+    StandardAllocator()            = default;
+    template<class U> constexpr StandardAllocator(const StandardAllocator<U>&) noexcept {}
 
     inline T* allocate(size_t cnt, T* p = nullptr, size_t old = 0) noexcept
     {
 #ifdef FG_DEBUG
-      static_assert(sizeof(SIZETRACK) == (sizeof(size_t) > ALIGN ? sizeof(size_t) : ALIGN), "SIZETRACK has unexpected padding");
+      static_assert(sizeof(SIZETRACK) == (sizeof(size_t) > ALIGN ? sizeof(size_t) : ALIGN),
+                    "SIZETRACK has unexpected padding");
       if(SIZETRACK* r = reinterpret_cast<SIZETRACK*>(p))
       {
         assert(!old || r[-1].sz == (old * sizeof(T)));
         p = reinterpret_cast<T*>(r - 1);
-#ifdef FG_COMPILER_MSC
+  #ifdef FG_COMPILER_MSC
         if constexpr(ALIGN > alignof(void*))
           assert(old > 0 && old <= _aligned_msize(p, ALIGN, 0));
         else
           assert(old > 0 && old <= _msize(p));
-#endif
+  #endif
       }
       SIZETRACK* r;
       if constexpr(ALIGN > alignof(void*)) // realloc/malloc always return pointer-size aligned memory anyway
@@ -89,10 +92,9 @@ namespace D2D {
     }
   };
 
-  template<typename T>
-  struct FG_COMPILER_DLLEXPORT AlignedAllocator : StandardAllocator<T, alignof(T)>
+  template<typename T> struct FG_COMPILER_DLLEXPORT AlignedAllocator : StandardAllocator<T, alignof(T)>
   {
     AlignedAllocator() = default;
-    template <class U> constexpr AlignedAllocator(const AlignedAllocator<U>&) noexcept {}
+    template<class U> constexpr AlignedAllocator(const AlignedAllocator<U>&) noexcept {}
   };
 }

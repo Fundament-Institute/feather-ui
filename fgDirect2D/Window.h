@@ -22,6 +22,7 @@ struct ID2D1DeviceContext;
 struct ID2D1Bitmap;
 struct ID2D1Layer;
 struct HMONITOR__;
+struct tagTOUCHINPUT;
 
 #if defined(_WIN64)
 typedef long long longptr_t;
@@ -53,7 +54,7 @@ namespace D2D {
     ID2D1Effect* scale;
     FG_Element* element;
     Backend* backend;
-    FG_Rect margin; // When maximized, the actual window area is larger than the area we intend to draw on, so we must compensate
+    FG_Rect margin; // When maximized, the actual window area is larger than what we need to draw on, so we must compensate
     std::stack<ID2D1Layer*> layers;
     struct kh_wic_s* assets;
     FG_Vec dpi; // The DPI should always be per-display, but windows is insane so we must be prepared to override this.
@@ -74,16 +75,20 @@ namespace D2D {
     size_t SetKey(uint8_t keycode, bool down, bool held, unsigned long time);
     size_t SetChar(int key, unsigned long time);
     size_t SetMouse(FG_Vec& points, FG_Kind type, unsigned char button, size_t wparam, unsigned long time);
+    size_t SetMouseScroll(FG_Vec& points, uint16_t x, uint16_t y, unsigned long time);
+    size_t SetTouch(tagTOUCHINPUT& input);
     void InvalidateHWND(HWND__* hWnd);
     ID2D1Bitmap* GetBitmapFromSource(const Asset* p);
-    HWND__* WndCreate(FG_Vec* pos, FG_Vec* dim, unsigned long style, uint32_t exflags, void* self, const wchar_t* cls, const char* caption, FG_Vec& dpi);
+    HWND__* WndCreate(FG_Vec* pos, FG_Vec* dim, unsigned long style, uint32_t exflags, void* self, const wchar_t* cls,
+                      const char* caption, FG_Vec& dpi);
     void ApplyWin32Size(HWND__* handle);
     int PushClip(FG_Rect area);
     int PopClip();
 
     static void WndRegister(longptr_t(__stdcall* f)(HWND__*, unsigned int, size_t, longptr_t), const wchar_t* name);
     static longptr_t __stdcall WndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam);
-    
+    static uint8_t GetModKey();
+
     static uint32_t wincount;
   };
 }

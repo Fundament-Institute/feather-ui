@@ -19,9 +19,15 @@ namespace D2D {
     HRESULT SetColor(UINT color);
     UINT GetColor() const;
 
-    IFACEMETHODIMP MapOutputRectToInputRects(_In_ const D2D1_RECT_L* pOutputRect, _Out_writes_(inputRectCount) D2D1_RECT_L* pInputRects, UINT32 inputRectCount) const;
-    IFACEMETHODIMP MapInputRectsToOutputRect(_In_reads_(inputRectCount) CONST D2D1_RECT_L* pInputRects, _In_reads_(inputRectCount) CONST D2D1_RECT_L* pInputOpaqueSubRects, UINT32 inputRectCount, _Out_ D2D1_RECT_L* pOutputRect, _Out_ D2D1_RECT_L* pOutputOpaqueSubRect);
-    IFACEMETHODIMP MapInvalidRect(UINT32 inputIndex, D2D1_RECT_L invalidInputRect, _Out_ D2D1_RECT_L* pInvalidOutputRect) const;
+    IFACEMETHODIMP MapOutputRectToInputRects(_In_ const D2D1_RECT_L* pOutputRect,
+                                             _Out_writes_(inputRectCount) D2D1_RECT_L* pInputRects,
+                                             UINT32 inputRectCount) const;
+    IFACEMETHODIMP MapInputRectsToOutputRect(_In_reads_(inputRectCount) CONST D2D1_RECT_L* pInputRects,
+                                             _In_reads_(inputRectCount) CONST D2D1_RECT_L* pInputOpaqueSubRects,
+                                             UINT32 inputRectCount, _Out_ D2D1_RECT_L* pOutputRect,
+                                             _Out_ D2D1_RECT_L* pOutputOpaqueSubRect);
+    IFACEMETHODIMP MapInvalidRect(UINT32 inputIndex, D2D1_RECT_L invalidInputRect,
+                                  _Out_ D2D1_RECT_L* pInvalidOutputRect) const;
     IFACEMETHODIMP_(UINT32) GetInputCount() const;
 
   protected:
