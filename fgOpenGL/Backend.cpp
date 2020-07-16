@@ -15,6 +15,21 @@ namespace GL {
 int Backend::_lasterr            = 0;
 int Backend::_refcount           = 0;
 char Backend::_lasterrdesc[1024] = {};
+int Backend::_maxjoy             = 0;
+
+void Backend::DrawBoundBuffer(Shader* shader, GLuint instance, size_t stride, GLsizei count, const Attribute* data,
+                              size_t n_data, int primitive)
+{
+  glUseProgram(instance);
+  LogError("glUseProgram");
+
+  shader->SetVertices(this, instance, stride);
+  for(size_t i = 0; i < n_data; ++i)
+    Shader::SetUniform(instance, data[i]);
+   
+  glDrawArrays(primitive, 0, count);
+  LogError("glDrawArrays");
+}
 
 FG_Err Backend::DrawTextGL(FG_Backend* self, void* window, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Color color,
                            float lineHeight, float letterSpacing, float blur, FG_AntiAliasing aa)
@@ -56,15 +71,42 @@ FG_Err Backend::DrawCurve(FG_Backend* self, void* window, FG_Vec* anchors, uint3
 }
 
 // FG_Err DrawShader(FG_Backend* self, fgShader);
-FG_Err Backend::PushLayer(FG_Backend* self, void* window, FG_Rect* area, float* transform, float opacity) { return -1; }
+FG_Err Backend::PushLayer(FG_Backend* self, void* window, FG_Rect* area, float* transform, float opacity, void* cache)
+{
+  if(!area)
+    return -1;
+  reinterpret_cast<Context*>(window)->PushLayer(*area, transform, opacity, reinterpret_cast<Layer*>(cache));
+  return 0;
+}
 
-FG_Err Backend::PopLayer(FG_Backend* self, void* window) { return -1; }
+void* Backend::PopLayer(FG_Backend* self, void* window)
+{
+  return !window ? 0 : reinterpret_cast<Context*>(window)->PopLayer();
+}
+FG_Err Backend::DestroyLayer(FG_Backend* self, void* window, void* layer)
+{
+  if(!layer)
+    return -1;
 
-FG_Err Backend::PushClip(FG_Backend* self, void* window, FG_Rect* area) { return -1; }
+  delete reinterpret_cast<Layer*>(layer);
+  return 0;
+}
 
-FG_Err Backend::PopClip(FG_Backend* self, void* window) { return -1; }
+FG_Err Backend::PushClip(FG_Backend* self, void* window, FG_Rect* area)
+{
+  if(!area)
+    return -1;
+  reinterpret_cast<Context*>(window)->PushClip(*area);
+  return 0;
+}
 
-FG_Err Backend::DirtyRect(FG_Backend* self, void* window, FG_Rect* area) { return -1; }
+FG_Err Backend::PopClip(FG_Backend* self, void* window)
+{
+  reinterpret_cast<Context*>(window)->PopClip();
+  return 0;
+}
+
+FG_Err Backend::DirtyRect(FG_Backend* self, void* window, void* layer, FG_Rect* area) { return -1; }
 
 FG_Font* Backend::CreateFontGL(FG_Backend* self, const char* family, unsigned short weight, bool italic, unsigned int pt,
                                FG_Vec dpi)
@@ -270,9 +312,10 @@ FG_Err Backend::ClearClipboard(FG_Backend* self, FG_Clipboard kind)
 
 FG_Err Backend::ProcessMessages(FG_Backend* self)
 {
+  auto backend = static_cast<Backend*>(self);
   glfwPollEvents();
 
-  // Clean up any deleted windows
+  // TODO: Process all joystick events
 
   return 1; // GLFW eats WM_QUIT and just closes all windows, so the application will have to detect this
 }
@@ -286,7 +329,7 @@ FG_Err Backend::SetCursorGL(FG_Backend* self, void* window, FG_Cursor cursor)
   static GLFWcursor* hresize = glfwCreateStandardCursor(GLFW_HRESIZE_CURSOR);
   static GLFWcursor* vresize = glfwCreateStandardCursor(GLFW_VRESIZE_CURSOR);
 
-  auto glwindow = reinterpret_cast<GLFWwindow*>(window);
+  auto glwindow = reinterpret_cast<Context*>(window)->GetWindow();
   switch(cursor)
   {
   case FG_Cursor_ARROW: glfwSetCursor(glwindow, arrow); return _lasterr;
@@ -304,7 +347,7 @@ FG_Err Backend::RequestAnimationFrame(FG_Backend* self, void* window, unsigned l
 {
   if(!window)
     return -1;
-  reinterpret_cast<Window*>(glfwGetWindowUserPointer(reinterpret_cast<GLFWwindow*>(window)))->Draw(nullptr);
+  reinterpret_cast<Context*>(window)->Draw(nullptr);
   return 0;
 }
 
@@ -334,19 +377,28 @@ FG_Err Backend::GetDisplay(FG_Backend* self, void* handle, FG_Display* out)
 
 FG_Err Backend::GetDisplayWindow(FG_Backend* self, void* window, FG_Display* out)
 {
-  return GetDisplay(self, glfwGetWindowMonitor(reinterpret_cast<GLFWwindow*>(window)), out);
+  return GetDisplay(self, glfwGetWindowMonitor(reinterpret_cast<Context*>(window)->GetWindow()), out);
 }
 
 void* Backend::CreateWindowGL(FG_Backend* self, FG_Element* element, void* display, FG_Vec* pos, FG_Vec* dim,
-                              const char* caption, uint64_t flags)
+                              const char* caption, uint64_t flags, void* context)
 {
-  _lasterr = 0;
+  auto backend = reinterpret_cast<Backend*>(self);
+  _lasterr     = 0;
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-  Window* window =
-    new Window(static_cast<Backend*>(self), reinterpret_cast<GLFWmonitor*>(display), element, pos, dim, flags, caption);
+  Window* window = new Window(static_cast<Backend*>(self), reinterpret_cast<GLFWmonitor*>(display), element, pos, dim,
+                              flags, caption, context);
+
   if(!_lasterr)
-    return window->GetWindow();
+  {
+    window->_next     = backend->_windows;
+    backend->_windows = window;
+    if(window->_next)
+      window->_next->_prev = window;
+
+    return static_cast<Context*>(window);
+  }
 
   delete window;
   return nullptr;
@@ -357,10 +409,13 @@ FG_Err Backend::SetWindowGL(FG_Backend* self, void* window, FG_Element* element,
 {
   if(!window)
     return -1;
-  auto glwindow = reinterpret_cast<GLFWwindow*>(window);
-  auto w        = reinterpret_cast<Window*>(glfwGetWindowUserPointer(glwindow));
+  auto context      = reinterpret_cast<Context*>(window);
+  context->_element = element;
 
-  w->_element = element;
+  auto glwindow = context->GetWindow();
+  if(!glwindow)
+    return 0;
+  auto w = static_cast<Window*>(context);
   if(caption)
     glfwSetWindowTitle(glwindow, caption);
 
@@ -404,21 +459,21 @@ FG_Err Backend::DestroyWindow(FG_Backend* self, void* window)
   if(!window)
     return -1;
   _lasterr = 0;
-  delete reinterpret_cast<Window*>(glfwGetWindowUserPointer(reinterpret_cast<GLFWwindow*>(window)));
+  delete reinterpret_cast<Context*>(window);
   return _lasterr;
 }
-FG_Err Backend::BeginDraw(FG_Backend* self, void* window, FG_Rect* area)
+FG_Err Backend::BeginDraw(FG_Backend* self, void* window, FG_Rect* area, bool clear)
 {
   if(!window)
     return -1;
   _lasterr = 0;
-  reinterpret_cast<Window*>(glfwGetWindowUserPointer(reinterpret_cast<GLFWwindow*>(window)))->BeginDraw(area);
+  reinterpret_cast<Context*>(window)->BeginDraw(area, clear);
   return _lasterr;
 }
 FG_Err Backend::EndDraw(FG_Backend* self, void* window)
 {
   _lasterr = 0;
-  reinterpret_cast<Window*>(glfwGetWindowUserPointer(reinterpret_cast<GLFWwindow*>(window)))->EndDraw();
+  reinterpret_cast<Context*>(window)->EndDraw();
   return _lasterr;
 }
 
@@ -432,7 +487,23 @@ void DestroyGL(FG_Backend* self)
   free(gl);
 
   if(--Backend::_refcount == 0)
+  {
+    Backend::_maxjoy  = 0;
+    Backend::_lasterr = 0;
     glfwTerminate();
+  }
+}
+
+bool Backend::LogError(const char* call)
+{
+  int err = glGetError();
+  if(err != GL_NO_ERROR)
+  {
+    (*_log)(_root, FG_Level_ERROR, "%s: 0x%04X", call, err);
+    return true;
+  }
+
+  return false;
 }
 
 #ifdef FG_DEBUG
@@ -470,7 +541,7 @@ extern "C" FG_COMPILER_DLLEXPORT FG_Backend* FG_MAIN_FUNCTION(void* root, FG_Log
     }
 
     glfwSetErrorCallback(&Backend::ErrorCallback);
-    // glfwSetJoystickCallback(&Backend::JoystickCallback);
+    glfwSetJoystickCallback(&Backend::JoystickCallback);
   }
 
   return new Backend(root, log, behavior);
@@ -493,7 +564,7 @@ long long GetRegistryValueW(HKEY__* hKeyRoot, const wchar_t* szKey, const wchar_
 #endif
 
 Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
-  _root(root), _log(log), _behavior(behavior), _assethash(kh_init_assets())
+  _root(root), _log(log), _behavior(behavior), _assethash(kh_init_assets()), _windows(nullptr)
 {
   drawText     = &DrawTextGL;
   drawAsset    = &DrawAsset;
@@ -535,6 +606,29 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
 
   (*_log)(_root, FG_Level_NONE, "Initializing fgOpenGL...");
 
+  static const char* vertex_shader_text = "#version 110\n"
+                                          "uniform mat4 MVP;\n"
+                                          "attribute vec3 vCol;\n"
+                                          "attribute vec2 vPos;\n"
+                                          "varying vec3 color;\n"
+                                          "void main()\n"
+                                          "{\n"
+                                          "    gl_Position = MVP * vec4(vPos, 0.0, 1.0);\n"
+                                          "    color = vCol;\n"
+                                          "}\n";
+
+  static const char* fragment_shader_text = "#version 110\n"
+                                            "varying vec3 color;\n"
+                                            "void main()\n"
+                                            "{\n"
+                                            "    gl_FragColor = vec4(color, 1.0);\n"
+                                            "}\n";
+
+  _imageshader = Shader(fragment_shader_text, vertex_shader_text, 0,
+                        Shader::Data{ Shader::VERTEX, GL_FLOAT_VEC3, "vCol", 2 * sizeof(float) },
+                        Shader::Data{ Shader::VERTEX, GL_FLOAT_VEC2, "vPos", 0 },
+                        Shader::Data{ Shader::GLOBAL, GL_FLOAT_MAT4, "MVP" });
+
 #ifdef FG_PLATFORM_WIN32
   #ifdef FG_DEBUG
   HeapSetInformation(NULL, HeapEnableTerminationOnCorruption, NULL, 0);
@@ -571,14 +665,38 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
 #endif
 }
 
-Backend::~Backend() { kh_destroy_assets(_assethash); }
+Backend::~Backend()
+{
+  while(_windows)
+  {
+    auto p = _windows->_next;
+    delete _windows;
+    _windows = p;
+  }
+
+#ifdef FG_PLATFORM_WIN32
+  PostQuitMessage(0);
+#endif
+
+  kh_destroy_assets(_assethash);
+}
 void Backend::ErrorCallback(int error, const char* description)
 {
   _lasterr = error;
   strncpy(_lasterrdesc, description, 1024);
 }
 
-FG_Result Backend::Behavior(Window* w, const FG_Msg& msg)
+FG_Result Backend::Behavior(Context* w, const FG_Msg& msg)
 {
-  return (*_behavior)(w->_element, w->GetWindow(), _root, const_cast<FG_Msg*>(&msg));
+  return (*_behavior)(w->_element, w, _root, const_cast<FG_Msg*>(&msg));
+}
+
+void Backend::JoystickCallback(int id, int connected)
+{
+  // This only keeps an approximate count of the highest joy ID because internally, GLFW has it's own array of joysticks
+  // that it derives the ID from anyway, with a maximum of 16.
+  if(connected && id > _maxjoy)
+    _maxjoy = id;
+  if(!connected && id == _maxjoy)
+    --_maxjoy;
 }

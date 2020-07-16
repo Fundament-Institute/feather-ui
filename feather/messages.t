@@ -175,9 +175,12 @@ M.JoyAxis = Enumset{
 M.MouseButton = Enumset{
   "L", 0x01,
   "R", 0x02,
-  "M", 0x10,
-  "X1", 0x20,
-  "X2", 0x40,
+  "M", 0x04,
+  "X1", 0x08,
+  "X2", 0x10,
+  "X3", 0x20,
+  "X4", 0x40,
+  "X5", 0x80,
 }
 
 M.Window = Flags{

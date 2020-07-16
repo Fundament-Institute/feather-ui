@@ -143,12 +143,13 @@ terra B.Backend:DrawCircle(window : &opaque, area : &F.Rect, arcs : &F.Rect, fil
 terra B.Backend:DrawTriangle(window : &opaque, area : &F.Rect, corners : &F.Rect, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, asset : &B.Asset) : F.Err return 0 end
 terra B.Backend:DrawLines(window : &opaque, points : &F.Vec, count : uint, color : F.Color) : F.Err return 0 end
 terra B.Backend:DrawCurve(window : &opaque, anchors : &F.Vec, count : uint, fillColor : F.Color, stroke : float, strokeColor : F.Color) : F.Err return 0 end
-terra B.Backend:PushLayer(window : &opaque, area : &F.Rect, transform : &float, opacity : float) : F.Err return 0 end
-terra B.Backend:PopLayer(window : &opaque) : F.Err return 0 end
+terra B.Backend:PushLayer(window : &opaque, area : &F.Rect, transform : &float, opacity : float, cache : &opaque) : F.Err return 0 end
+terra B.Backend:PopLayer(window : &opaque) : &opaque return nil end
+terra B.Backend:DestroyLayer(window : &opaque, layer : &opaque) : F.Err return 0 end
 terra B.Backend:PushClip(window : &opaque, area : &F.Rect) : F.Err return 0 end
 terra B.Backend:PopClip(window : &opaque) : F.Err return 0 end
-terra B.Backend:DirtyRect(window : &opaque, area : &F.Rect) : F.Err return 0 end
-terra B.Backend:BeginDraw(window : &opaque, area : &F.Rect) : F.Err return 0 end
+terra B.Backend:DirtyRect(window : &opaque, layer : &opaque, area : &F.Rect) : F.Err return 0 end
+terra B.Backend:BeginDraw(window : &opaque, area : &F.Rect, clear : bool) : F.Err return 0 end
 terra B.Backend:EndDraw(window : &opaque) : F.Err return 0 end
 
 terra B.Backend:CreateFont(family : F.conststring, weight : uint16, italic : bool, pt : uint32, dpi : F.Vec) : &B.Font return nil end
@@ -173,7 +174,7 @@ terra B.Backend:RequestAnimationFrame(window : &opaque, delay : uint64) : F.Err 
 terra B.Backend:GetDisplayIndex(index : uint, out : &B.Display) : F.Err return 0 end
 terra B.Backend:GetDisplay(handle : &opaque, out : &B.Display) : F.Err return 0 end
 terra B.Backend:GetDisplayWindow(window : &opaque, out : &B.Display) : F.Err return 0 end
-terra B.Backend:CreateWindow(element : &Element, display : &opaque, pos : &F.Vec, dim : &F.Vec, caption : F.conststring, flags : uint64) : &opaque return nil end
+terra B.Backend:CreateWindow(element : &Element, display : &opaque, pos : &F.Vec, dim : &F.Vec, caption : F.conststring, flags : uint64, context : &opaque) : &opaque return nil end
 terra B.Backend:SetWindow(window : &opaque, element : &Element, display : &opaque, pos : &F.Vec, dim : &F.Vec, caption : F.conststring, flags : uint64) : F.Err return 0 end
 terra B.Backend:DestroyWindow(window : &opaque) : F.Err return 0 end
 

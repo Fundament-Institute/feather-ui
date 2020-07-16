@@ -23,11 +23,6 @@ limitations under the License.
 typedef int FG_Err;
 
 namespace GL {
-  struct Asset : FG_Asset
-  {
-    uint32_t count;
-  };
-
   KHASH_DECLARE(assets, const FG_Asset*, char);
 
   class Backend : public FG_Backend
@@ -35,8 +30,10 @@ namespace GL {
   public:
     Backend(void* root, FG_Log log, FG_Behavior behavior);
     ~Backend();
-    bool AssetExists(const FG_Asset*);
-    FG_Result Behavior(Window* data, const FG_Msg& msg);
+    FG_Result Behavior(Context* data, const FG_Msg& msg);
+    void DrawBoundBuffer(Shader* shader, GLuint instance, size_t stride, GLsizei count, const Attribute* data,
+                         size_t n_data, int primitive);
+    bool LogError(const char* call);
 
     static FG_Err DrawTextGL(FG_Backend* self, void* window, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Color color,
                              float lineHeight, float letterSpacing, float blur, FG_AntiAliasing aa);
@@ -51,11 +48,12 @@ namespace GL {
     static FG_Err DrawLines(FG_Backend* self, void* window, FG_Vec* points, uint32_t count, FG_Color color);
     static FG_Err DrawCurve(FG_Backend* self, void* window, FG_Vec* anchors, uint32_t count, FG_Color fillColor,
                             float stroke, FG_Color strokeColor);
-    static FG_Err PushLayer(FG_Backend* self, void* window, FG_Rect* area, float* transform, float opacity);
-    static FG_Err PopLayer(FG_Backend* self, void* window);
+    static FG_Err PushLayer(FG_Backend* self, void* window, FG_Rect* area, float* transform, float opacity, void* cache);
+    static void* PopLayer(FG_Backend* self, void* window);
+    static FG_Err DestroyLayer(FG_Backend* self, void* window, void* layer);
     static FG_Err PushClip(FG_Backend* self, void* window, FG_Rect* area);
     static FG_Err PopClip(FG_Backend* self, void* window);
-    static FG_Err DirtyRect(FG_Backend* self, void* window, FG_Rect* area);
+    static FG_Err DirtyRect(FG_Backend* self, void* window, void* layer, FG_Rect* area);
     static FG_Font* CreateFontGL(FG_Backend* self, const char* family, unsigned short weight, bool italic, unsigned int pt,
                                  FG_Vec dpi);
     static FG_Err DestroyFont(FG_Backend* self, FG_Font* font);
@@ -79,20 +77,27 @@ namespace GL {
     static FG_Err GetDisplay(FG_Backend* self, void* handle, FG_Display* out);
     static FG_Err GetDisplayWindow(FG_Backend* self, void* window, FG_Display* out);
     static void* CreateWindowGL(FG_Backend* self, FG_Element* element, void* display, FG_Vec* pos, FG_Vec* dim,
-                                const char* caption, uint64_t flags);
+                                const char* caption, uint64_t flags, void* context);
     static FG_Err SetWindowGL(FG_Backend* self, void* window, FG_Element* element, void* display, FG_Vec* pos, FG_Vec* dim,
                               const char* caption, uint64_t flags);
     static FG_Err DestroyWindow(FG_Backend* self, void* window);
-    static FG_Err BeginDraw(FG_Backend* self, void* window, FG_Rect* area);
+    static FG_Err BeginDraw(FG_Backend* self, void* window, FG_Rect* area, bool clear);
     static FG_Err EndDraw(FG_Backend* self, void* window);
     static void ErrorCallback(int error, const char* description);
+    static void JoystickCallback(int id, int connected);
 
     FG_Log _log;
     void* _root;
+    Window* _windows;
+    Shader _imageshader; // used for text
+    Shader _rectshader;
+    Shader _circleshader;
+    Shader _trishader;
 
     static int _lasterr;
     static int _refcount;
     static char _lasterrdesc[1024]; // 1024 is from GLFW internals
+    static int _maxjoy;
 
   protected:
     FG_Behavior _behavior;

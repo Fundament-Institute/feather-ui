@@ -11,8 +11,8 @@
 using namespace GL;
 
 Window::Window(Backend* backend, GLFWmonitor* display, FG_Element* element, FG_Vec* pos, FG_Vec* dim, uint64_t flags,
-               const char* caption) :
-  _backend(backend), _element(element), _next(0)
+               const char* caption, void* context) :
+  Context(backend, element), _next(nullptr), _prev(nullptr)
 {
   if(flags & FG_Window_NOCAPTION)
     caption = "";
@@ -21,6 +21,7 @@ Window::Window(Backend* backend, GLFWmonitor* display, FG_Element* element, FG_V
   glfwWindowHint(GLFW_AUTO_ICONIFY, flags & FG_Window_MINIMIZED);
   glfwWindowHint(GLFW_RESIZABLE, flags & FG_Window_RESIZABLE);
   glfwWindowHint(GLFW_MAXIMIZED, flags & FG_Window_MAXIMIZED);
+  // glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GL_TRUE);
 
   _window = glfwCreateWindow(!dim ? 0 : dim->x, !dim ? 0 : dim->y, caption, NULL, NULL);
   if(_window)
@@ -39,34 +40,30 @@ Window::Window(Backend* backend, GLFWmonitor* display, FG_Element* element, FG_V
 
 #ifdef FG_PLATFORM_WIN32
   // Remove the transparency hack. We force repainting on the transparent bit.
-  HWND hWnd = glfwGetWin32Window(_window);
-  SetLayeredWindowAttributes(hWnd, ~0, 0, LWA_COLORKEY);
+  // HWND hWnd = glfwGetWin32Window(_window);
+  // SetLayeredWindowAttributes(hWnd, ~0, 0, LWA_COLORKEY);
 #endif
-}
 
-Window::~Window() { glfwDestroyWindow(_window); }
-
-void Window::BeginDraw(const FG_Rect* area)
-{
   glfwMakeContextCurrent(_window);
-
-  GLsizei w;
-  GLsizei h;
-  glfwGetFramebufferSize(_window, &w, &h);
-  glViewport(0, 0, w, h);
-
-  glClearColor(0, 0, 0, 1.0f);
-  glClear(GL_COLOR_BUFFER_BIT);
+  gladLoadGL(glfwGetProcAddress);
+  _backend->LogError("gladLoadGL");
+  CreateResources();
 }
-void Window::EndDraw() { glfwSwapBuffers(_window); }
 
-void Window::Draw(const FG_Rect* area)
+Window::~Window()
 {
-  FG_Msg msg    = { FG_Kind_DRAW };
-  msg.draw.data = _window;
-  _backend->BeginDraw(_backend, _window, &msg.draw.area);
-  _backend->Behavior(this, msg);
-  _backend->EndDraw(_backend, _window);
+  if(!_prev)
+    _backend->_windows = _next;
+  else
+    _prev->_next = _next;
+
+  if(_next)
+    _next->_prev = _prev;
+
+  if(!glfwWindowShouldClose(_window))
+    CloseCallback(_window);
+
+  glfwDestroyWindow(_window);
 }
 
 uint8_t Window::GetModKeys(int mods)
@@ -110,12 +107,12 @@ void Window::CharCallback(GLFWwindow* window, unsigned int key)
   self->_backend->Behavior(reinterpret_cast<Window*>(glfwGetWindowUserPointer(window)), evt);
 }
 
-void Window::MouseButtonCallback(GLFWwindow* window, int action, int button, int mods)
+void Window::MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 {
   auto self             = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
   FG_Msg evt            = { (action == GLFW_PRESS) ? FG_Kind_MOUSEDOWN : FG_Kind_MOUSEUP };
-  evt.mouseDown.all     = button;
-  evt.mouseDown.button  = button;
+  evt.mouseDown.all     = (1 << button);
+  evt.mouseDown.button  = (1 << button);
   evt.mouseDown.modkeys = GetModKeys(mods);
   double x, y;
   glfwGetCursorPos(window, &x, &y);
@@ -193,5 +190,4 @@ void Window::CloseCallback(GLFWwindow* window)
                              FG_Window_CLOSED;
   self->_backend->Behavior(self, msg);
   self->_backend->Behavior(self, FG_Msg{ FG_Kind_ACTION, 1 }); // FG_WINDOW_ONCLOSE
-  delete self;
 }

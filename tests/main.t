@@ -133,6 +133,16 @@ terra MockElement:Behavior(w : &opaque, ui : &opaque, m : &M.Msg) : M.Result
     b:DrawText(w, self.font, self.layout, &r5, 0xFFFFFFFF, 32.0f, 10.0f, 0.0f, B.AntiAliasing.LCD)
     return M.Result{0}
   end
+  if m.kind.val == [Element.virtualinfo.info["GetWindowFlags"].index] then
+    if self.close then
+      return M.Result{Msg.Window.CLOSED}
+    else
+      return M.Result{0}
+    end
+  end
+  if m.kind.val == [Element.virtualinfo.info["SetWindowFlags"].index] then
+    self.close = self.close or ((m.setWindowFlags.flags and [Msg.Window.enum_values.CLOSED]) ~= 0)
+  end
   if m.kind.val == [Element.virtualinfo.info["KeyDown"].index] or m.kind.val == [Element.virtualinfo.info["MouseDown"].index] then
     self.close = true
   end
@@ -150,7 +160,6 @@ end
 
 terra TestHarness:backendD2D()
   var fakeUI : &B.Backend = nil
-
 
   var bl = B.Backend.new(&fakeUI, [M.Behavior](MockElement.Behavior), FakeLog, [target_d2d], nil)
   if bl._0 == nil then
@@ -173,7 +182,7 @@ terra TestHarness:backendD2D()
 
   var pos = F.Vec{array(200f,100f)}
   var dim = F.Vec{array(800f,600f)}
-  var w = b:CreateWindow(&e.super, nil, &pos, &dim, "Feather Test", e.flags)
+  var w = b:CreateWindow(&e.super, nil, &pos, &dim, "Feather Test", e.flags, nil)
   
   self:Test(w ~= nil, true)
   self:Test(b:ProcessMessages() ~= 0, true)
@@ -203,7 +212,7 @@ terra TestHarness:backendD2D()
   self:Test(b:ProcessMessages() ~= 0, true)
 
   while b:ProcessMessages() ~= 0 and e.close == false do
-    --C.printf("FRAME\n") 
+    b:RequestAnimationFrame(w, 0)
   end
 
   self:Test(b:DestroyWindow(w), 0)
@@ -244,7 +253,7 @@ terra TestHarness:backendOGL()
 
   var pos = F.Vec{array(200f,100f)}
   var dim = F.Vec{array(800f,600f)}
-  var w = b:CreateWindow(&e.super, nil, &pos, &dim, "Feather Test", e.flags)
+  var w = b:CreateWindow(&e.super, nil, &pos, &dim, "Feather Test", e.flags, nil)
   
   self:Test(w ~= nil, true)
   self:Test(b:ProcessMessages() ~= 0, true)
@@ -274,7 +283,7 @@ terra TestHarness:backendOGL()
   self:Test(b:ProcessMessages() ~= 0, true)
 
   while b:ProcessMessages() ~= 0 and e.close == false do
-    --C.printf("FRAME\n") 
+    b:RequestAnimationFrame(w, 0)
   end
 
   self:Test(b:DestroyWindow(w), 0)

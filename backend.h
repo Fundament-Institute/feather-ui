@@ -132,11 +132,14 @@ enum FG_Joy {
 };
 typedef void (* FG_Delegate)(void *);
 enum FG_MouseButton {
-  FG_MouseButton_X2 = 64,
-  FG_MouseButton_M = 16,
+  FG_MouseButton_X2 = 16,
+  FG_MouseButton_M = 4,
+  FG_MouseButton_X4 = 64,
+  FG_MouseButton_X3 = 32,
   FG_MouseButton_R = 2,
+  FG_MouseButton_X5 = 128,
   FG_MouseButton_L = 1,
-  FG_MouseButton_X1 = 32
+  FG_MouseButton_X1 = 8
 };
 enum FG_ModKey {
   FG_ModKey_CONTROL = 2,
@@ -514,28 +517,32 @@ struct FG_Display__ {
 };
 typedef int32_t (* FG_anon_32)(FG_Backend *, uint32_t, FG_Display *);
 typedef int32_t (* FG_anon_33)(FG_Backend *, void *, FG_Rect *);
-typedef void * (* FG_anon_34)(FG_Backend *, FG_Element *, void *, FG_Vec *, FG_Vec *, const char*, uint64_t);
-typedef int32_t (* FG_anon_35)(FG_Backend *, void *, FG_Rect *, FG_Rect *, FG_Color, float, FG_Color, float, FG_Asset *);
-typedef int32_t (* FG_anon_36)(FG_Backend *, FG_Clipboard, const char*, uint32_t);
-typedef FG_Vec (* FG_anon_37)(FG_Backend *, FG_Font *, void *, FG_Rect *, float, float, uint32_t, FG_Vec);
-typedef int32_t (* FG_anon_38)(FG_Backend *, void *, FG_Display *);
-typedef void * (* FG_anon_39)(FG_Backend *);
-typedef int32_t (* FG_anon_40)(FG_Backend *, void *, FG_Asset *, FG_Rect *, FG_Rect *, FG_Color, float);
-typedef int32_t (* FG_anon_41)(FG_Backend *, void *);
-typedef int32_t (* FG_anon_42)(FG_Backend *, void *, FG_Vec *, uint32_t, FG_Color);
-typedef int32_t (* FG_anon_43)(FG_Backend *, void *, FG_Rect *, float *, float);
-typedef int32_t (* FG_anon_44)(FG_Backend *, void *, FG_Element *, void *, FG_Vec *, FG_Vec *, const char*, uint64_t);
-typedef FG_Font * (* FG_anon_45)(FG_Backend *, const char*, uint16_t, bool, uint32_t, FG_Vec);
-typedef int32_t (* FG_anon_46)(FG_Backend *, FG_Font *);
-typedef int32_t (* FG_anon_47)(FG_Backend *, void *, FG_Cursor);
-typedef void * (* FG_anon_48)(FG_Backend *, FG_Font *, const char*, FG_Rect *, float, float, void *, FG_Vec);
-typedef int32_t (* FG_anon_49)(FG_Backend *, FG_Asset *);
-typedef uint32_t (* FG_anon_50)(FG_Backend *, FG_Font *, void *, FG_Rect *, float, float, FG_Vec, FG_Vec *, FG_Vec);
-typedef int32_t (* FG_anon_51)(FG_Backend *, void *, FG_Vec *, uint32_t, FG_Color, float, FG_Color);
-typedef int32_t (* FG_anon_52)(FG_Backend *, void *, uint64_t);
-typedef uint32_t (* FG_anon_53)(FG_Backend *, FG_Clipboard, void *, uint32_t);
-typedef bool (* FG_anon_54)(FG_Backend *, FG_Clipboard);
-typedef int32_t (* FG_anon_55)(FG_Backend *);
+typedef int32_t (* FG_anon_34)(FG_Backend *, void *, FG_Rect *, bool);
+typedef int32_t (* FG_anon_35)(FG_Backend *, void *, void *, FG_Rect *);
+typedef void * (* FG_anon_36)(FG_Backend *, FG_Element *, void *, FG_Vec *, FG_Vec *, const char*, uint64_t, void *);
+typedef int32_t (* FG_anon_37)(FG_Backend *, void *, FG_Rect *, FG_Rect *, FG_Color, float, FG_Color, float, FG_Asset *);
+typedef int32_t (* FG_anon_38)(FG_Backend *, FG_Clipboard, const char*, uint32_t);
+typedef FG_Vec (* FG_anon_39)(FG_Backend *, FG_Font *, void *, FG_Rect *, float, float, uint32_t, FG_Vec);
+typedef FG_Font * (* FG_anon_40)(FG_Backend *, const char*, uint16_t, bool, uint32_t, FG_Vec);
+typedef void * (* FG_anon_41)(FG_Backend *);
+typedef int32_t (* FG_anon_42)(FG_Backend *, void *, FG_Display *);
+typedef int32_t (* FG_anon_43)(FG_Backend *, void *, FG_Asset *, FG_Rect *, FG_Rect *, FG_Color, float);
+typedef int32_t (* FG_anon_44)(FG_Backend *, void *);
+typedef bool (* FG_anon_45)(FG_Backend *, FG_Clipboard);
+typedef int32_t (* FG_anon_46)(FG_Backend *, void *, FG_Rect *, float *, float, void *);
+typedef int32_t (* FG_anon_47)(FG_Backend *, void *, FG_Element *, void *, FG_Vec *, FG_Vec *, const char*, uint64_t);
+typedef int32_t (* FG_anon_48)(FG_Backend *, void *, FG_Vec *, uint32_t, FG_Color);
+typedef void * (* FG_anon_49)(FG_Backend *, void *);
+typedef int32_t (* FG_anon_50)(FG_Backend *, FG_Font *);
+typedef int32_t (* FG_anon_51)(FG_Backend *, void *, FG_Cursor);
+typedef void * (* FG_anon_52)(FG_Backend *, FG_Font *, const char*, FG_Rect *, float, float, void *, FG_Vec);
+typedef int32_t (* FG_anon_53)(FG_Backend *, void *, void *);
+typedef uint32_t (* FG_anon_54)(FG_Backend *, FG_Font *, void *, FG_Rect *, float, float, FG_Vec, FG_Vec *, FG_Vec);
+typedef int32_t (* FG_anon_55)(FG_Backend *, void *, FG_Vec *, uint32_t, FG_Color, float, FG_Color);
+typedef int32_t (* FG_anon_56)(FG_Backend *, void *, uint64_t);
+typedef int32_t (* FG_anon_57)(FG_Backend *, FG_Asset *);
+typedef uint32_t (* FG_anon_58)(FG_Backend *, FG_Clipboard, void *, uint32_t);
+typedef int32_t (* FG_anon_59)(FG_Backend *);
 struct FG_Backend__ {
   FG_anon_28 destroy;
   FG_Feature features;
@@ -549,37 +556,38 @@ struct FG_Backend__ {
   FG_anon_31 clearClipboard;
   FG_anon_32 getDisplayIndex;
   FG_anon_33 pushClip;
-  FG_anon_33 beginDraw;
-  FG_anon_33 dirtyRect;
-  FG_anon_34 createWindow;
-  FG_anon_35 drawTriangle;
-  FG_anon_36 putClipboard;
-  FG_anon_37 fontPos;
-  FG_anon_35 drawRect;
-  FG_anon_38 getDisplay;
-  FG_anon_39 getSyncObject;
-  FG_anon_38 getDisplayWindow;
-  FG_anon_40 drawAsset;
-  FG_anon_41 endDraw;
-  FG_anon_42 drawLines;
-  FG_anon_43 pushLayer;
-  FG_anon_44 setWindow;
-  FG_anon_45 createFont;
-  FG_anon_41 popLayer;
-  FG_anon_46 destroyFont;
-  FG_anon_41 destroyLayout;
-  FG_anon_41 popClip;
-  FG_anon_47 setCursor;
-  FG_anon_35 drawCircle;
-  FG_anon_48 fontLayout;
-  FG_anon_49 destroyAsset;
-  FG_anon_50 fontIndex;
-  FG_anon_41 destroyWindow;
-  FG_anon_51 drawCurve;
-  FG_anon_52 requestAnimationFrame;
-  FG_anon_53 getClipboard;
-  FG_anon_54 checkClipboard;
-  FG_anon_55 processMessages;
+  FG_anon_34 beginDraw;
+  FG_anon_35 dirtyRect;
+  FG_anon_36 createWindow;
+  FG_anon_37 drawTriangle;
+  FG_anon_38 putClipboard;
+  FG_anon_39 fontPos;
+  FG_anon_37 drawRect;
+  FG_anon_40 createFont;
+  FG_anon_41 getSyncObject;
+  FG_anon_42 getDisplayWindow;
+  FG_anon_43 drawAsset;
+  FG_anon_44 endDraw;
+  FG_anon_45 checkClipboard;
+  FG_anon_46 pushLayer;
+  FG_anon_42 getDisplay;
+  FG_anon_47 setWindow;
+  FG_anon_48 drawLines;
+  FG_anon_49 popLayer;
+  FG_anon_50 destroyFont;
+  FG_anon_44 destroyLayout;
+  FG_anon_44 popClip;
+  FG_anon_51 setCursor;
+  FG_anon_37 drawCircle;
+  FG_anon_52 fontLayout;
+  FG_anon_53 destroyLayer;
+  FG_anon_54 fontIndex;
+  FG_anon_44 destroyWindow;
+  FG_anon_55 drawCurve;
+  FG_anon_56 requestAnimationFrame;
+  FG_anon_57 destroyAsset;
+  FG_anon_58 getClipboard;
+  FG_anon_59 processMessages;
 };
 typedef FG_Backend * (* FG_InitBackend)(void *, FG_Log, FG_Behavior);
 typedef struct FG_URect__ FG_URect;

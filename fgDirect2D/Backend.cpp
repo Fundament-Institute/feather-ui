@@ -162,19 +162,19 @@ FG_Err Backend::DrawCurve(FG_Backend* self, void* window, FG_Vec* anchors, uint3
 }
 
 // FG_Err DrawShader(FG_Backend* self, fgShader);
-FG_Err Backend::PushLayer(FG_Backend* self, void* window, FG_Rect* area, float* transform, float opacity)
+FG_Err Backend::PushLayer(FG_Backend* self, void* window, FG_Rect* area, float* transform, float opacity, void* cache)
 {
   if(!window || !area || !transform)
     return -1;
   auto context = FromHWND(window);
-  context->layers.push(0);
+  context->layers.push(reinterpret_cast<ID2D1Layer*>(cache));
 
   // TODO: Properly project 3D transform into 2D transform
   context->target->SetTransform(
     D2D1::Matrix3x2F(transform[0], transform[1], transform[4], transform[5], transform[3], transform[7]));
 
   // We only need a proper layer if we are doing opacity, otherwise the transform is sufficient
-  if(opacity != 1.0)
+  if(opacity != 1.0 || context->layers.top() != nullptr)
   {
     D2D1_LAYER_PARAMETERS params = {
       D2D1::RectF(area->left, area->top, area->right, area->bottom),
@@ -186,27 +186,36 @@ FG_Err Backend::PushLayer(FG_Backend* self, void* window, FG_Rect* area, float* 
       D2D1_LAYER_OPTIONS_INITIALIZE_FOR_CLEARTYPE,
     };
 
-    context->target->CreateLayer(NULL, &context->layers.top());
-    context->target->PushLayer(params, !context->layers.top() ? NULL : context->layers.top());
+    if(!context->layers.top())
+      context->target->CreateLayer(NULL, &context->layers.top());
+    context->target->PushLayer(params, context->layers.top());
+    if(!context->layers.top())
+      context->layers.top() = (ID2D1Layer*)~0;
   }
-  else
-    context->layers.top() = (ID2D1Layer*)~0;
+
+  context->PushClip(*area);
   return 0;
 }
 
-FG_Err Backend::PopLayer(FG_Backend* self, void* window)
+void* Backend::PopLayer(FG_Backend* self, void* window)
 {
   if(!window)
-    return -1;
+    return nullptr;
   auto context = FromHWND(window);
   auto p       = context->layers.top();
   context->layers.pop();
-  if(p != (ID2D1Layer*)~0)
-  {
+  if(p)
     context->target->PopLayer();
-    if(p)
-      p->Release();
-  }
+  context->PopClip();
+
+  return p;
+}
+
+FG_Err Backend::DestroyLayer(FG_Backend* self, void* window, void* cache)
+{
+  auto p = reinterpret_cast<ID2D1Layer*>(cache);
+  if(p != nullptr && p != (ID2D1Layer*)~0)
+    p->Release();
   return 0;
 }
 
@@ -226,7 +235,7 @@ FG_Err Backend::PopClip(FG_Backend* self, void* window)
   return 0;
 }
 
-FG_Err Backend::DirtyRect(FG_Backend* self, void* window, FG_Rect* area)
+FG_Err Backend::DirtyRect(FG_Backend* self, void* window, void* layer, FG_Rect* area)
 {
   auto instance = static_cast<Backend*>(self);
   RECT rect     = { static_cast<LONG>(floorf(area->left)), static_cast<LONG>(floorf(area->top)),
@@ -725,12 +734,12 @@ FG_Err Backend::GetDisplayWindow(FG_Backend* self, void* window, FG_Display* out
 }
 
 void* Backend::CreateWindowD2D(FG_Backend* self, FG_Element* element, void* display, FG_Vec* pos, FG_Vec* dim,
-                               const char* caption, uint64_t flags)
+                               const char* caption, uint64_t flags, void* context)
 {
   // TODO: If a display other than the primary monitor is specified AND pos == NULL, then we should recreate Windows' DWM
   // new window logic by incrementing _lastwindowpos on both the x and y axis by the height of a standard window titlebar
   // and shifting it into that monitor's rectangle.
-  auto window = new Window(static_cast<Backend*>(self), element, pos, dim, flags, caption);
+  auto window = new Window(static_cast<Backend*>(self), element, pos, dim, flags, caption, context);
   return window->hWnd;
 }
 
@@ -758,12 +767,12 @@ FG_Err Backend::DestroyWindow(FG_Backend* self, void* window)
   delete ptr;
   return 0;
 }
-FG_Err Backend::BeginDraw(FG_Backend* self, void* window, FG_Rect* area)
+FG_Err Backend::BeginDraw(FG_Backend* self, void* window, FG_Rect* area, bool clear)
 {
   Window* ptr = reinterpret_cast<Window*>(GetWindowLongPtrW(reinterpret_cast<HWND>(window), GWLP_USERDATA));
   if(!ptr)
     return -1;
-  ptr->BeginDraw(reinterpret_cast<HWND>(window), *area);
+  ptr->BeginDraw(reinterpret_cast<HWND>(window), *area, clear);
   return 0;
 }
 FG_Err Backend::EndDraw(FG_Backend* self, void* window)

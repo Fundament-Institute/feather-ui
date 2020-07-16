@@ -60,11 +60,12 @@ namespace D2D {
     static FG_Err DrawLines(FG_Backend* self, void* window, FG_Vec* points, uint32_t count, FG_Color color);
     static FG_Err DrawCurve(FG_Backend* self, void* window, FG_Vec* anchors, uint32_t count, FG_Color fillColor,
                             float stroke, FG_Color strokeColor);
-    static FG_Err PushLayer(FG_Backend* self, void* window, FG_Rect* area, float* transform, float opacity);
-    static FG_Err PopLayer(FG_Backend* self, void* window);
+    static FG_Err PushLayer(FG_Backend* self, void* window, FG_Rect* area, float* transform, float opacity, void* cache);
+    static void* PopLayer(FG_Backend* self, void* window);
+    static FG_Err DestroyLayer(FG_Backend* self, void* window, void* layer);
     static FG_Err PushClip(FG_Backend* self, void* window, FG_Rect* area);
     static FG_Err PopClip(FG_Backend* self, void* window);
-    static FG_Err DirtyRect(FG_Backend* self, void* window, FG_Rect* area);
+    static FG_Err DirtyRect(FG_Backend* self, void* window, void* layer, FG_Rect* area);
     static FG_Font* CreateFontD2D(FG_Backend* self, const char* family, unsigned short weight, bool italic, unsigned int pt,
                                   FG_Vec dpi);
     static FG_Err DestroyFont(FG_Backend* self, FG_Font* font);
@@ -88,11 +89,11 @@ namespace D2D {
     static FG_Err GetDisplay(FG_Backend* self, void* handle, FG_Display* out);
     static FG_Err GetDisplayWindow(FG_Backend* self, void* window, FG_Display* out);
     static void* CreateWindowD2D(FG_Backend* self, FG_Element* element, void* display, FG_Vec* pos, FG_Vec* dim,
-                                 const char* caption, uint64_t flags);
+                                 const char* caption, uint64_t flags, void* context);
     static FG_Err SetWindowD2D(FG_Backend* self, void* window, FG_Element* element, void* display, FG_Vec* pos, FG_Vec* dim,
                                const char* caption, uint64_t flags);
     static FG_Err DestroyWindow(FG_Backend* self, void* window);
-    static FG_Err BeginDraw(FG_Backend* self, void* window, FG_Rect* area);
+    static FG_Err BeginDraw(FG_Backend* self, void* window, FG_Rect* area, bool clear);
     static FG_Err EndDraw(FG_Backend* self, void* window);
 
     DWMBLURBEHIND dwmblurbehind;

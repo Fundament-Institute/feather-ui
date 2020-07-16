@@ -41,6 +41,7 @@ namespace D2D {
 
   KHASH_DECLARE(wic, const Asset*, ID2D1Bitmap*);
 
+  // A window wraps a drawing context and processes messages for it
   struct Window
   {
     HWND__* hWnd;
@@ -62,12 +63,13 @@ namespace D2D {
     bool inside;
     bool invalid;
 
-    Window(Backend* backend, FG_Element* element, FG_Vec* pos, FG_Vec* dim, uint64_t flags, const char* caption);
+    Window(Backend* backend, FG_Element* element, FG_Vec* pos, FG_Vec* dim, uint64_t flags, const char* caption,
+           void* context);
     ~Window();
     void CreateResources(HWND__* handle);
     void DiscardResources();
     void DiscardAsset(const Asset* p);
-    void BeginDraw(HWND__* handle, const FG_Rect& area);
+    void BeginDraw(HWND__* handle, const FG_Rect& area, bool clear);
     void EndDraw();
     void SetCaption(const char* caption);
     void SetArea(FG_Vec* pos, FG_Vec* dim);
@@ -82,7 +84,7 @@ namespace D2D {
     HWND__* WndCreate(FG_Vec* pos, FG_Vec* dim, unsigned long style, uint32_t exflags, void* self, const wchar_t* cls,
                       const char* caption, FG_Vec& dpi);
     void ApplyWin32Size(HWND__* handle);
-    int PushClip(FG_Rect area);
+    int PushClip(const FG_Rect& area);
     int PopClip();
 
     static void WndRegister(longptr_t(__stdcall* f)(HWND__*, unsigned int, size_t, longptr_t), const wchar_t* name);

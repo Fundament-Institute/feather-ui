@@ -36,7 +36,8 @@ FG_FORCEINLINE FG_Vec AdjustPoints(longptr_t lParam, HWND__* hWnd)
   return FG_Vec{ v.x + static_cast<float>(rect.left), v.y + static_cast<float>(rect.top) };
 }
 
-Window::Window(Backend* _backend, FG_Element* _element, FG_Vec* pos, FG_Vec* dim, uint64_t flags, const char* caption)
+Window::Window(Backend* _backend, FG_Element* _element, FG_Vec* pos, FG_Vec* dim, uint64_t flags, const char* caption,
+               void* context)
 {
   target                = 0;
   context               = 0;
@@ -62,6 +63,7 @@ Window::Window(Backend* _backend, FG_Element* _element, FG_Vec* pos, FG_Vec* dim
     style |= WS_MAXIMIZEBOX | WS_SYSMENU;
 
   hWnd = Window::WndCreate(pos, dim, style, exstyle, this, Backend::WindowClass, caption, dpi);
+  target = reinterpret_cast<ID2D1HwndRenderTarget*>(context);
 
   RECT rect;
   GetWindowRect(hWnd, &rect);
@@ -304,7 +306,7 @@ longptr_t __stdcall Window::WndProc(HWND__* hWnd, unsigned int message, size_t w
       msg.draw.area.top    = 0;
       msg.draw.area.right  = static_cast<float>(WindowRect.right - WindowRect.left);
       msg.draw.area.bottom = static_cast<float>(WindowRect.bottom - WindowRect.top);
-      self->backend->BeginDraw(self->backend, hWnd, &msg.draw.area);
+      self->backend->BeginDraw(self->backend, hWnd, &msg.draw.area, true);
       self->backend->Behavior(self, msg);
       self->backend->EndDraw(self->backend, hWnd);
       ValidateRect(self->hWnd, NULL);
@@ -362,7 +364,7 @@ HWND__* Window::WndCreate(FG_Vec* pos, FG_Vec* dim, unsigned long style, uint32_
   return handle;
 }
 
-FG_Err Window::PushClip(FG_Rect area)
+FG_Err Window::PushClip(const FG_Rect& area)
 {
   target->PushAxisAlignedClip(D2D1::RectF(area.left, area.top, area.right, area.bottom), D2D1_ANTIALIAS_MODE_ALIASED);
   return 0;
@@ -373,12 +375,13 @@ FG_Err Window::PopClip()
   return 0;
 }
 
-void Window::BeginDraw(HWND handle, const FG_Rect& area)
+void Window::BeginDraw(HWND handle, const FG_Rect& area, bool clear)
 {
   invalid = true;
   CreateResources(handle);
   target->BeginDraw();
-  target->Clear(D2D1::ColorF(0, 0));
+  if(clear)
+    target->Clear(D2D1::ColorF(0, 0));
   // target->SetTransform(D2D1::Matrix3x2F::Translation(-area.left, -area.top));
   PushClip(area);
 }
@@ -604,9 +607,9 @@ size_t Window::SetMouse(FG_Vec& points, FG_Kind type, unsigned char button, size
   {
     evt.mouseMove.all |= ((GetKeyState(VK_LBUTTON) != 0) << 0);
     evt.mouseMove.all |= ((GetKeyState(VK_RBUTTON) != 0) << 1);
-    evt.mouseMove.all |= ((GetKeyState(VK_MBUTTON) != 0) << 4);
-    evt.mouseMove.all |= ((GetKeyState(VK_XBUTTON1) != 0) << 5);
-    evt.mouseMove.all |= ((GetKeyState(VK_XBUTTON2) != 0) << 6);
+    evt.mouseMove.all |= ((GetKeyState(VK_MBUTTON) != 0) << 2);
+    evt.mouseMove.all |= ((GetKeyState(VK_XBUTTON1) != 0) << 3);
+    evt.mouseMove.all |= ((GetKeyState(VK_XBUTTON2) != 0) << 4);
   }
 
   if(!button)
