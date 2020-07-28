@@ -3,7 +3,11 @@
 
 #include "platform.h"
 #include "Backend.h"
+#include "Font.h"
+#include "linmath.h"
+#include "utf.h"
 #include <filesystem>
+#include "freetype/freetype.h"
 
 using namespace GL;
 namespace fs = std::filesystem;
@@ -16,23 +20,18 @@ int Backend::_lasterr            = 0;
 int Backend::_refcount           = 0;
 char Backend::_lasterrdesc[1024] = {};
 int Backend::_maxjoy             = 0;
+const float Backend::BASE_DPI    = 96.0f;
 
-void Backend::DrawBoundBuffer(Shader* shader, GLuint instance, size_t stride, GLsizei count, const Attribute* data,
-                              size_t n_data, int primitive)
+void Backend::ColorFloats(const FG_Color& c, float (&colors)[4])
 {
-  glUseProgram(instance);
-  LogError("glUseProgram");
-
-  shader->SetVertices(this, instance, stride);
-  for(size_t i = 0; i < n_data; ++i)
-    Shader::SetUniform(instance, data[i]);
-   
-  glDrawArrays(primitive, 0, count);
-  LogError("glDrawArrays");
+  colors[0] = c.r / 255.0f;
+  colors[1] = c.g / 255.0f;
+  colors[2] = c.b / 255.0f;
+  colors[3] = c.a / 255.0f;
 }
 
 FG_Err Backend::DrawTextGL(FG_Backend* self, void* window, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Color color,
-                           float lineHeight, float letterSpacing, float blur, FG_AntiAliasing aa)
+                           float lineHeight, float letterSpacing, float blur)
 {
   return -1;
 }
@@ -40,27 +39,129 @@ FG_Err Backend::DrawTextGL(FG_Backend* self, void* window, FG_Font* font, void* 
 FG_Err Backend::DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Rect* area, FG_Rect* source, FG_Color color,
                           float time)
 {
-  return -1;
+  auto backend = static_cast<Backend*>(self);
+  auto context = reinterpret_cast<Context*>(window);
+  GLuint tex   = context->LoadAsset(static_cast<Asset*>(asset));
+
+  FG_Rect full = { 0, 0, (float)asset->size.x, (float)asset->size.y };
+  if(!source)
+    source = &full;
+  ImageVertex v[4];
+  _buildPosUV(v, *area, *source, (float)asset->size.x, (float)asset->size.y);
+
+  for(int i = 0; i < 4; ++i)
+    ColorFloats(color, v[i].color);
+
+  Attribute MVP("MVP", GL_FLOAT_MAT4, (float*)context->proj);
+
+  glUseProgram(context->_imageshader);
+  backend->LogError("glUseProgram");
+  glBindVertexArray(context->_imageobject);
+  backend->LogError("glBindVertexArray");
+
+  glEnable(GL_TEXTURE_2D);
+  backend->LogError("glEnable");
+  glActiveTexture(GL_TEXTURE0);
+  backend->LogError("glActiveTexture");
+  glBindTexture(GL_TEXTURE_2D, tex);
+  backend->LogError("glBindTexture");
+
+  glBindBuffer(GL_ARRAY_BUFFER, context->_imagebuffer);
+  backend->LogError("glBindBuffer");
+  context->AppendBatch(v, sizeof(v), 4);
+  Shader::SetUniform(backend, context->_imageshader, MVP);
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, context->FlushBatch());
+  backend->LogError("glDrawArrays");
+  glBindVertexArray(0);
+  backend->LogError("glBindVertexArray");
+
+  glDisable(GL_TEXTURE_2D);
+  backend->LogError("glDisable");
+  return 0;
+}
+
+void Backend::GenTransform(float (&target)[4][4], const FG_Rect& area)
+{
+  // mat4x4_translate(v, area->left, area->top, 0);
+  // mat4x4_scale_aniso(mv, v, area->right - area->left, area->bottom - area->top, 1);
+  memset(target, 0, sizeof(float) * 4 * 4);
+  target[0][0] = area.right - area.left;
+  target[1][1] = area.bottom - area.top;
+  target[2][2] = 1.0f;
+  target[3][3] = 1.0f;
+  target[3][0] = area.left;
+  target[3][1] = area.top;
+}
+
+void Backend::_drawStandard(GLuint shader, GLuint vao, float (&proj)[4][4], const FG_Rect& area, const FG_Rect& corners,
+                            FG_Color fillColor, float border, FG_Color borderColor, float blur)
+{
+  mat4x4 mvp;
+  GenTransform(mvp, area);
+  mat4x4_mul(mvp, proj, mvp);
+  Attribute MVP("MVP", GL_FLOAT_MAT4, (float*)mvp);
+  Attribute DimBorderBlur("DimBorderBlur", GL_FLOAT_VEC4);
+  DimBorderBlur.data[0] = area.right - area.left;
+  DimBorderBlur.data[1] = area.bottom - area.top;
+  DimBorderBlur.data[2] = border;
+  DimBorderBlur.data[3] = blur;
+
+  Attribute Corners("Corners", GL_FLOAT_VEC4, (float*)corners.ltrb);
+  Attribute Fill("Fill", GL_FLOAT_VEC4);
+  ColorFloats(fillColor, Fill.data);
+  Attribute Outline("Outline", GL_FLOAT_VEC4);
+  ColorFloats(borderColor, Outline.data);
+
+  _drawVAO(shader, vao, GL_TRIANGLE_STRIP, 4, MVP, DimBorderBlur, Corners, Fill, Outline);
 }
 
 FG_Err Backend::DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor, float border,
                          FG_Color borderColor, float blur, FG_Asset* asset)
 {
-  return -1;
+  auto backend = static_cast<Backend*>(self);
+  auto context = reinterpret_cast<Context*>(window);
+  backend->_drawStandard(context->_rectshader, context->_quadobject, context->proj, *area, *corners, fillColor, border,
+                         borderColor, blur);
+  return 0;
 }
 
 FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* arcs, FG_Color fillColor, float border,
                            FG_Color borderColor, float blur, FG_Asset* asset)
 {
-  return -1;
+  auto backend = static_cast<Backend*>(self);
+  auto context = reinterpret_cast<Context*>(window);
+  backend->_drawStandard(context->_circleshader, context->_quadobject, context->proj, *area, *arcs, fillColor, border,
+                         borderColor, blur);
+  return 0;
 }
 FG_Err Backend::DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
                              float border, FG_Color borderColor, float blur, FG_Asset* asset)
 {
-  return -1;
+  auto backend = static_cast<Backend*>(self);
+  auto context = reinterpret_cast<Context*>(window);
+  backend->_drawStandard(context->_trishader, context->_quadobject, context->proj, *area, *corners, fillColor, border,
+                         borderColor, blur);
+  return 0;
 }
 
-FG_Err Backend::DrawLines(FG_Backend* self, void* window, FG_Vec* points, uint32_t count, FG_Color color) { return -1; }
+FG_Err Backend::DrawLines(FG_Backend* self, void* window, FG_Vec* points, uint32_t count, FG_Color color)
+{
+  auto backend = static_cast<Backend*>(self);
+  auto context = reinterpret_cast<Context*>(window);
+
+  /*struct LineVertex
+  {
+    float x, y;
+    float a, r, g, b;
+  } vertex;
+
+  context->AppendBatch(&vertex, sizeof(LineVertex), 0);
+  for(uint32_t i = 1; i < count; ++i)
+    context->AppendBatch(&vertex, sizeof(LineVertex), 1);
+  context->FlushBatch(backend->_lineshader, context->_lineshader, GL_LINE_STRIP, 0, 0);*/
+
+  return glGetError();
+}
 
 FG_Err Backend::DrawCurve(FG_Backend* self, void* window, FG_Vec* anchors, uint32_t count, FG_Color fillColor, float stroke,
                           FG_Color strokeColor)
@@ -106,41 +207,100 @@ FG_Err Backend::PopClip(FG_Backend* self, void* window)
   return 0;
 }
 
-FG_Err Backend::DirtyRect(FG_Backend* self, void* window, void* layer, FG_Rect* area) { return -1; }
+FG_Err Backend::DirtyRect(FG_Backend* self, void* window, void* layer, FG_Rect* area)
+{
+  if(!self || !window)
+    return -1;
+  if(layer)
+    reinterpret_cast<Layer*>(layer)->Dirty(area);
+  return 0; // TODO: Handle dirty backbuffers
+}
 
 FG_Font* Backend::CreateFontGL(FG_Backend* self, const char* family, unsigned short weight, bool italic, unsigned int pt,
-                               FG_Vec dpi)
+                               FG_Vec dpi, FG_AntiAliasing aa)
 {
-  return nullptr;
+  return new Font(static_cast<Backend*>(self), family, pt, aa, dpi);
 }
 
-FG_Err Backend::DestroyFont(FG_Backend* self, FG_Font* font) { return -1; }
-FG_Err Backend::DestroyLayout(FG_Backend* self, void* layout) { return -1; }
+FG_Err Backend::DestroyFont(FG_Backend* self, FG_Font* font)
+{
+  if(!self || !font)
+    return -1;
+  delete static_cast<Font*>(font);
+  return 0;
+}
+FG_Err Backend::DestroyLayout(FG_Backend* self, void* layout)
+{
+  if(!self || !layout)
+    return -1;
+  free(reinterpret_cast<TextLayout*>(layout)->text);
+  free(layout);
+  return 0;
+}
 
 void* Backend::FontLayout(FG_Backend* self, FG_Font* font, const char* text, FG_Rect* area, float lineHeight,
-                          float letterSpacing, void* prev, FG_Vec dpi)
+                          float letterSpacing, FG_BreakStyle breakStyle, void* prev)
 {
-  return nullptr;
+  DestroyLayout(self, prev); // Figuring out if prev can be reused ends up being too costly to bother with
+
+  // Simple layout to be replaced by Harfbuzz eventually
+  std::vector<const char32_t*> breaks;
+  Font* f        = static_cast<Font*>(font);
+  float maxwidth = area->right - area->left;
+  size_t len     = strlen(text) + 1;
+  char32_t* utf  = (char32_t*)malloc(len * sizeof(char32_t)); // overallocate for UTF32
+  UTF8toUTF32(text, len, utf, len);
+  const char32_t* cur = utf;
+
+  do
+  {
+    breaks.push_back(cur);
+    f->GetLineWidth(cur, maxwidth, breakStyle, letterSpacing);
+  } while(*cur);
+
+  auto layout           = reinterpret_cast<TextLayout*>(malloc(sizeof(TextLayout) + (breaks.size() * sizeof(char32_t*))));
+  layout->text          = utf;
+  layout->lines         = reinterpret_cast<const char32_t**>(layout + 1);
+  layout->n_lines       = breaks.size();
+  layout->area          = *area;
+  layout->lineheight    = lineHeight;
+  layout->letterspacing = letterSpacing;
+  layout->breakstyle    = breakStyle;
+  for(size_t i = 0; i < breaks.size(); ++i)
+    layout->lines[i] = breaks[i];
+
+  return layout;
+}
+uint32_t Backend::FontIndex(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Vec pos, FG_Vec* cursor)
+{
+  if(!self || !font || !fontlayout || !area)
+    return ~0U;
+  auto layout = reinterpret_cast<TextLayout*>(fontlayout);
+  Font* f     = static_cast<Font*>(font);
+  auto r      = f->GetIndex(layout->text, area->right - area->left, layout->breakstyle, layout->lineheight, layout->letterspacing, pos);
+  cursor->x   = r.second.x;
+  cursor->y   = r.second.y;
+  return r.first;
 }
 
-uint32_t Backend::FontIndex(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, float lineHeight,
-                            float letterSpacing, FG_Vec pos, FG_Vec* cursor, FG_Vec dpi)
+FG_Vec Backend::FontPos(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, uint32_t index)
 {
-  return ~0;
-}
-
-FG_Vec Backend::FontPos(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, float lineHeight,
-                        float letterSpacing, uint32_t index, FG_Vec dpi)
-{
-  return FG_Vec{};
+  if(!self || !font || !fontlayout || !area)
+    return { NAN, NAN };
+  auto layout = reinterpret_cast<TextLayout*>(fontlayout);
+  Font* f     = static_cast<Font*>(font);
+  auto r      = f->GetPos(layout->text, area->right - area->left, layout->breakstyle, layout->lineheight, layout->letterspacing, index);
+  FG_Vec c    = { r.second.x, r.second.y };
+  return c;
 }
 
 FG_Asset* Backend::CreateAsset(FG_Backend* self, const char* data, uint32_t count, FG_Format format)
 {
   auto backend     = static_cast<Backend*>(self);
-  Asset* asset     = reinterpret_cast<Asset*>(malloc(count + sizeof(Asset)));
+  uint32_t len     = !count ? strlen(data) + 1 : count;
+  Asset* asset     = reinterpret_cast<Asset*>(malloc(len + sizeof(Asset)));
   asset->data.data = asset + 1;
-  MEMCPY(asset->data.data, count, data, count);
+  MEMCPY(asset->data.data, len, data, len);
   asset->count  = count;
   asset->format = format;
   int r;
@@ -369,8 +529,8 @@ FG_Err Backend::GetDisplay(FG_Backend* self, void* handle, FG_Display* out)
   glfwGetMonitorWorkarea(reinterpret_cast<GLFWmonitor*>(handle), &out->offset.x, &out->offset.y, &out->size.x,
                          &out->size.y);
   glfwGetMonitorContentScale(reinterpret_cast<GLFWmonitor*>(handle), &out->dpi.x, &out->dpi.y);
-  out->dpi.x *= 96.0f;
-  out->dpi.y *= 96.0f;
+  out->dpi.x *= BASE_DPI;
+  out->dpi.y *= BASE_DPI;
   out->scale = 1.0f; // GLFW doesn't know what text scaling is
   return 0;
 }
@@ -414,7 +574,11 @@ FG_Err Backend::SetWindowGL(FG_Backend* self, void* window, FG_Element* element,
 
   auto glwindow = context->GetWindow();
   if(!glwindow)
+  {
+    if(dim)
+      context->SetDim(*dim);
     return 0;
+  }
   auto w = static_cast<Window*>(context);
   if(caption)
     glfwSetWindowTitle(glwindow, caption);
@@ -491,6 +655,9 @@ void DestroyGL(FG_Backend* self)
     Backend::_maxjoy  = 0;
     Backend::_lasterr = 0;
     glfwTerminate();
+#ifdef FG_PLATFORM_POSIX
+    FcFini();
+#endif
   }
 }
 
@@ -533,6 +700,10 @@ extern "C" FG_COMPILER_DLLEXPORT FG_Backend* FG_MAIN_FUNCTION(void* root, FG_Log
 
   if(++Backend::_refcount == 1)
   {
+#ifdef FG_PLATFORM_POSIX
+    FcInit();
+#endif
+
     if(!glfwInit())
     {
       (*log)(root, FG_Level_ERROR, "glfwInit() failed!");
@@ -562,6 +733,9 @@ long long GetRegistryValueW(HKEY__* hKeyRoot, const wchar_t* szKey, const wchar_
   return (r == ERROR_MORE_DATA) ? sz : -1;
 }
 #endif
+
+#define _STRINGIFY(x) x
+#define TXT(x)        _STRINGIFY(#x)
 
 Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   _root(root), _log(log), _behavior(behavior), _assethash(kh_init_assets()), _windows(nullptr)
@@ -605,29 +779,49 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   destroy               = &DestroyGL;
 
   (*_log)(_root, FG_Level_NONE, "Initializing fgOpenGL...");
+  FT_Init_FreeType(&_ftlib);
 
-  static const char* vertex_shader_text = "#version 110\n"
-                                          "uniform mat4 MVP;\n"
-                                          "attribute vec3 vCol;\n"
-                                          "attribute vec2 vPos;\n"
-                                          "varying vec3 color;\n"
-                                          "void main()\n"
-                                          "{\n"
-                                          "    gl_Position = MVP * vec4(vPos, 0.0, 1.0);\n"
-                                          "    color = vCol;\n"
-                                          "}\n";
+  const char* image_vs =
+#include "Image.vs.glsl"
+    ;
 
-  static const char* fragment_shader_text = "#version 110\n"
-                                            "varying vec3 color;\n"
-                                            "void main()\n"
-                                            "{\n"
-                                            "    gl_FragColor = vec4(color, 1.0);\n"
-                                            "}\n";
+  const char* image_fs =
+#include "Image.fs.glsl"
+    ;
 
-  _imageshader = Shader(fragment_shader_text, vertex_shader_text, 0,
-                        Shader::Data{ Shader::VERTEX, GL_FLOAT_VEC3, "vCol", 2 * sizeof(float) },
-                        Shader::Data{ Shader::VERTEX, GL_FLOAT_VEC2, "vPos", 0 },
-                        Shader::Data{ Shader::GLOBAL, GL_FLOAT_MAT4, "MVP" });
+  _imageshader = Shader(image_fs, image_vs, 0,
+                        { Shader::Data{ Shader::VERTEX, GL_FLOAT_VEC4, "vPosUV", 0 },
+                          Shader::Data{ Shader::VERTEX, GL_FLOAT_VEC4, "vColor", 4 * sizeof(float) },
+                          Shader::Data{ Shader::GLOBAL, GL_FLOAT_MAT4, "MVP" } });
+
+  const char* standard_vs =
+#include "standard.vs.glsl"
+    ;
+
+  const char* roundrect_fs =
+#include "RoundRect.fs.glsl"
+    ;
+
+  const char* triangle_fs =
+#include "Triangle.fs.glsl"
+    ;
+
+  const char* circle_fs =
+#include "Circle.fs.glsl"
+    ;
+
+  std::initializer_list<Shader::Data> standardLayout = {
+    Shader::Data{ Shader::VERTEX, GL_FLOAT_VEC2, "vPos", 0 },
+    Shader::Data{ Shader::GLOBAL, GL_FLOAT_MAT4, "MVP" },
+    Shader::Data{ Shader::GLOBAL, GL_FLOAT_VEC4, "DimBorderBlur" },
+    Shader::Data{ Shader::GLOBAL, GL_FLOAT_VEC4, "Corners" },
+    Shader::Data{ Shader::GLOBAL, GL_FLOAT_VEC4, "Fill" },
+    Shader::Data{ Shader::GLOBAL, GL_FLOAT_VEC4, "Outline" },
+  };
+
+  _rectshader   = Shader(roundrect_fs, standard_vs, 0, standardLayout);
+  _trishader    = Shader(triangle_fs, standard_vs, 0, standardLayout);
+  _circleshader = Shader(circle_fs, standard_vs, 0, standardLayout);
 
 #ifdef FG_PLATFORM_WIN32
   #ifdef FG_DEBUG
@@ -678,6 +872,7 @@ Backend::~Backend()
   PostQuitMessage(0);
 #endif
 
+  FT_Done_FreeType(_ftlib);
   kh_destroy_assets(_assethash);
 }
 void Backend::ErrorCallback(int error, const char* description)

@@ -20,6 +20,17 @@ namespace GL {
     uint32_t count;
     uint32_t element;
   };
+
+  struct QuadVertex
+  {
+    float pos[2];
+  };
+
+  struct ImageVertex
+  {
+    float posUV[4];
+    float color[4];
+  };
 }
 
 #endif

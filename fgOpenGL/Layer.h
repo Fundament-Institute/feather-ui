@@ -15,6 +15,7 @@ namespace GL {
     ~Layer();
     // Reallocates the texture if necessary
     bool Update(FG_Rect a, float* tf, float o, GLFWwindow* window);
+    void Dirty(const FG_Rect* area);
     void Destroy();
     bool Create();
 
@@ -25,6 +26,7 @@ namespace GL {
     float opacity;
     GLFWwindow* window;
     FG_Rect dirty; // Stores how much of the layer is actually dirty. If nothing is dirty, we ignore all draw calls.
+    bool initialized;
   };
 }
 

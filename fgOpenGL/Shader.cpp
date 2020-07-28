@@ -2,8 +2,9 @@
 // For conditions of distribution and use, see copyright notice in "Backend.h"
 
 #include "Backend.h"
-#include <string.h>
 #include "glad/gl.h"
+#include <string.h>
+#include <memory>
 
 using namespace GL;
 
@@ -86,6 +87,16 @@ GLuint Shader::Create(Backend* backend) const
       backend->LogError("glShaderSource");
       glCompileShader(shader);
       backend->LogError("glCompileShader");
+      GLint isCompiled = 0;
+      glGetShaderiv(shader, GL_COMPILE_STATUS, &isCompiled);
+      if(isCompiled == GL_FALSE)
+      {
+        GLint l;
+        glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &l);
+        std::unique_ptr<char[]> buffer(new char[l]);
+        glGetShaderInfoLog(shader, l, &l, buffer.get());
+        (backend->_log)(backend->_root, FG_Level_WARNING, "Shader compilation failed: %s", buffer.get());
+      }
       glAttachShader(program, shader);
       backend->LogError("glAttachShader");
     }
@@ -98,27 +109,16 @@ GLuint Shader::Create(Backend* backend) const
   glLinkProgram(program);
   backend->LogError("glLinkProgram");
 
-  for(khint_t i = 0; i < kh_end(_layout); ++i)
-  {
-    if(kh_val(_layout, i).kind == VERTEX)
-    {
-      auto loc = glGetAttribLocation(program, kh_key(_layout, i));
-      backend->LogError("glGetAttribLocation");
-      glEnableVertexAttribArray(loc);
-      backend->LogError("glEnableVertexAttribArray");
-    }
-  }
-
   glValidateProgram(program);
   GLint status;
   glGetProgramiv(program, GL_VALIDATE_STATUS, &status);
   if(status == GL_FALSE)
   {
-    char buffer[2048];
-    int l;
-    glGetProgramInfoLog(program, 2048, &l, buffer);
-    buffer[l] = 0;
-    (backend->_log)(backend->_root, FG_Level_WARNING, "Validation failed: %s", buffer);
+    GLint l = -1;
+    glGetProgramiv(program, GL_INFO_LOG_LENGTH, &l);
+    std::unique_ptr<char[]> buffer(new char[l]);
+    glGetProgramInfoLog(program, l, &l, buffer.get());
+    (backend->_log)(backend->_root, FG_Level_WARNING, "Validation failed: %s", buffer.get());
   }
   return program;
 }
@@ -129,34 +129,36 @@ void Shader::Destroy(Backend* backend, unsigned int shader) const
   backend->LogError("glDeleteProgram");
 }
 
-void Shader::SetUniform(unsigned int shader, const Attribute& attr)
+void Shader::SetUniform(Backend* backend, unsigned int shader, const Attribute& attr)
 {
   auto loc = glGetUniformLocation(shader, attr.name);
+  backend->LogError("glGetUniformLocation");
   switch(attr.type)
   {
-  case GL_FLOAT_MAT2: return glUniformMatrix2fv(loc, 1, GL_FALSE, attr.pdata);
-  case GL_FLOAT_MAT2x3: return glUniformMatrix2x3fv(loc, 1, GL_FALSE, attr.pdata);
-  case GL_FLOAT_MAT2x4: return glUniformMatrix2x4fv(loc, 1, GL_FALSE, attr.pdata);
-  case GL_FLOAT_MAT3x2: return glUniformMatrix3x2fv(loc, 1, GL_FALSE, attr.pdata);
-  case GL_FLOAT_MAT3: return glUniformMatrix3fv(loc, 1, GL_FALSE, attr.pdata);
-  case GL_FLOAT_MAT3x4: return glUniformMatrix3x4fv(loc, 1, GL_FALSE, attr.pdata);
-  case GL_FLOAT_MAT4x2: return glUniformMatrix4x2fv(loc, 1, GL_FALSE, attr.pdata);
-  case GL_FLOAT_MAT4x3: return glUniformMatrix4x3fv(loc, 1, GL_FALSE, attr.pdata);
-  case GL_FLOAT_MAT4: return glUniformMatrix4fv(loc, 1, GL_FALSE, attr.pdata);
+  case GL_FLOAT_MAT2: glUniformMatrix2fv(loc, 1, GL_FALSE, attr.pdata); break;
+  case GL_FLOAT_MAT2x3: glUniformMatrix2x3fv(loc, 1, GL_FALSE, attr.pdata); break;
+  case GL_FLOAT_MAT2x4: glUniformMatrix2x4fv(loc, 1, GL_FALSE, attr.pdata); break;
+  case GL_FLOAT_MAT3x2: glUniformMatrix3x2fv(loc, 1, GL_FALSE, attr.pdata); break;
+  case GL_FLOAT_MAT3: glUniformMatrix3fv(loc, 1, GL_FALSE, attr.pdata); break;
+  case GL_FLOAT_MAT3x4: glUniformMatrix3x4fv(loc, 1, GL_FALSE, attr.pdata); break;
+  case GL_FLOAT_MAT4x2: glUniformMatrix4x2fv(loc, 1, GL_FALSE, attr.pdata); break;
+  case GL_FLOAT_MAT4x3: glUniformMatrix4x3fv(loc, 1, GL_FALSE, attr.pdata); break;
+  case GL_FLOAT_MAT4: glUniformMatrix4fv(loc, 1, GL_FALSE, attr.pdata); break;
   case GL_FLOAT_VEC2:
   case GL_INT_VEC2:
   case GL_UNSIGNED_INT_VEC2:
-  case GL_BOOL_VEC2: return glUniform2fv(loc, 2, attr.data);
+  case GL_BOOL_VEC2: glUniform2fv(loc, 1, attr.data); break;
   case GL_FLOAT_VEC3:
   case GL_INT_VEC3:
   case GL_UNSIGNED_INT_VEC3:
-  case GL_BOOL_VEC3: return glUniform3fv(loc, 3, attr.data);
+  case GL_BOOL_VEC3: glUniform3fv(loc, 1, attr.data); break;
   case GL_FLOAT_VEC4:
   case GL_INT_VEC4:
   case GL_UNSIGNED_INT_VEC4:
-  case GL_BOOL_VEC4: return glUniform4fv(loc, 4, attr.data);
+  case GL_BOOL_VEC4: glUniform4fv(loc, 1, attr.data); break;
+  default: glUniform1f(loc, attr.data[0]); break;
   }
-  glUniform1f(loc, attr.data[0]);
+  backend->LogError("glUniform1f");
 }
 
 void Shader::SetVertices(Backend* backend, unsigned int shader, size_t stride) const
@@ -165,10 +167,11 @@ void Shader::SetVertices(Backend* backend, unsigned int shader, size_t stride) c
   {
     if(kh_exist(_layout, i) && kh_val(_layout, i).kind == VERTEX)
     {
-      auto loc       = glGetAttribLocation(shader, kh_key(_layout, i));
+      auto loc = glGetAttribLocation(shader, kh_key(_layout, i));
       backend->LogError("glGetAttribLocation");
       auto typecount = GetTypeCount(kh_value(_layout, i).type);
       glEnableVertexAttribArray(loc);
+      backend->LogError("glEnableVertexAttribArray");
       glVertexAttribPointer(loc, typecount >> 24, typecount & 0x00FFFFFF, GL_FALSE, stride,
                             (void*)kh_value(_layout, i).offset);
       backend->LogError("glVertexAttribPointer");
@@ -300,7 +303,6 @@ Attribute::Attribute(const char* n, int t, float* d) : name(n), type(t)
   int num = Shader::GetTypeCount(type) >> 24;
   if(num > 4)
     pdata = d;
-  else
+  else if(d)
     memcpy(data, d, num * sizeof(float));
 }
-Attribute::~Attribute() {}

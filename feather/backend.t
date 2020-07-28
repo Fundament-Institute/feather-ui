@@ -69,6 +69,12 @@ B.AntiAliasing = Enum{
   "LCD",
   "LCD_V"}
 
+B.BreakStyle = Enum{
+  "NONE",
+  "WORD",
+  "CHARACTER",
+}
+
 B.Clipboard = Enum{
   "NONE",
   "TEXT",
@@ -106,6 +112,7 @@ struct B.Font {
   baseline : float
   lineheight : float
   pt : uint
+  aa : B.AntiAliasing
 }
 
 struct B.Asset {
@@ -136,7 +143,7 @@ struct B.Backend {
 }
 
 -- Define a dynamic backend object (a static backend would be a seperate type that also provides these functions).
-terra B.Backend:DrawText(window : &opaque, font : &B.Font, layout : &opaque, area : &F.Rect, color : F.Color, lineHeight : float, letterSpacing : float, blur : float, aa : B.AntiAliasing) : F.Err return 0 end
+terra B.Backend:DrawText(window : &opaque, font : &B.Font, layout : &opaque, area : &F.Rect, color : F.Color, lineHeight : float, letterSpacing : float, blur : float) : F.Err return 0 end
 terra B.Backend:DrawAsset(window : &opaque, asset : &B.Asset, area : &F.Rect, source : &F.Rect, color : F.Color, time : float) : F.Err return 0 end
 terra B.Backend:DrawRect(window : &opaque, area : &F.Rect, corners : &F.Rect, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, asset : &B.Asset) : F.Err return 0 end
 terra B.Backend:DrawCircle(window : &opaque, area : &F.Rect, arcs : &F.Rect, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, asset : &B.Asset) : F.Err return 0 end
@@ -152,12 +159,12 @@ terra B.Backend:DirtyRect(window : &opaque, layer : &opaque, area : &F.Rect) : F
 terra B.Backend:BeginDraw(window : &opaque, area : &F.Rect, clear : bool) : F.Err return 0 end
 terra B.Backend:EndDraw(window : &opaque) : F.Err return 0 end
 
-terra B.Backend:CreateFont(family : F.conststring, weight : uint16, italic : bool, pt : uint32, dpi : F.Vec) : &B.Font return nil end
+terra B.Backend:CreateFont(family : F.conststring, weight : uint16, italic : bool, pt : uint32, dpi : F.Vec, aa : B.AntiAliasing) : &B.Font return nil end
 terra B.Backend:DestroyFont(font : &B.Font) : F.Err return 0 end
-terra B.Backend:FontLayout(font : &B.Font, text : F.conststring, area : &F.Rect, lineHeight : float, letterSpacing : float, previous : &opaque, dpi : F.Vec) : &opaque return nil end
+terra B.Backend:FontLayout(font : &B.Font, text : F.conststring, area : &F.Rect, lineHeight : float, letterSpacing : float, breakStyle : B.BreakStyle, previous : &opaque) : &opaque return nil end
 terra B.Backend:DestroyLayout(layout : &opaque) : F.Err return 0 end
-terra B.Backend:FontIndex(font : &B.Font, layout : &opaque, area : &F.Rect, lineHeight : float, letterSpacing : float, pos : F.Vec, cursor : &F.Vec, dpi : F.Vec) : uint return 0 end
-terra B.Backend:FontPos(font : &B.Font, layout : &opaque, area :&F.Rect, lineHeight : float, letterSpacing : float, index : uint, dpi : F.Vec) : F.Vec return F.Vec{} end
+terra B.Backend:FontIndex(font : &B.Font, layout : &opaque, area : &F.Rect, pos : F.Vec, cursor : &F.Vec) : uint return 0 end
+terra B.Backend:FontPos(font : &B.Font, layout : &opaque, area :&F.Rect, index : uint) : F.Vec return F.Vec{} end
 
 terra B.Backend:CreateAsset(data : F.conststring, count : uint, format : B.Format) : &B.Asset return nil end
 terra B.Backend:DestroyAsset(asset : &B.Asset) : F.Err return 0 end

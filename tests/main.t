@@ -130,7 +130,7 @@ terra MockElement:Behavior(w : &opaque, ui : &opaque, m : &M.Msg) : M.Result
     b:DrawAsset(w, self.image, &r4, nil, 0xFFFFFFFF, 0f)
 
     var r5 = F.Rect{array(10f, 10f, 450f, 40f)}
-    b:DrawText(w, self.font, self.layout, &r5, 0xFFFFFFFF, 32.0f, 10.0f, 0.0f, B.AntiAliasing.LCD)
+    b:DrawText(w, self.font, self.layout, &r5, 0xFFFFFFFF, 32.0f, 10.0f, 0.0f)
     return M.Result{0}
   end
   if m.kind.val == [Element.virtualinfo.info["GetWindowFlags"].index] then
@@ -176,8 +176,8 @@ terra TestHarness:backendD2D()
   var e = MockElement{Element{Element.virtual_initializer}}
   e.flags = Msg.Window.RESIZABLE
   e.image = b:CreateAsset("../tests/example.png", 0, B.Format.PNG)
-  e.font = b:CreateFont("Arial", 700, false, 16, F.Vec{array(96f, 96f)})
-  e.layout = b:FontLayout(e.font, "Example Text!", &textrect, 16f, 0f, nil, F.Vec{array(96f, 96f)});
+  e.font = b:CreateFont("Arial", 700, false, 16, F.Vec{array(96f, 96f)}, B.AntiAliasing.LCD)
+  e.layout = b:FontLayout(e.font, "Example Text!", &textrect, 16f, 0f, B.BreakStyle.NONE, nil);
   e.close = false
 
   var pos = F.Vec{array(200f,100f)}
@@ -247,8 +247,8 @@ terra TestHarness:backendOGL()
   var e = MockElement{Element{Element.virtual_initializer}}
   e.flags = Msg.Window.RESIZABLE
   e.image = b:CreateAsset("../tests/example.png", 0, B.Format.PNG)
-  e.font = b:CreateFont("Arial", 700, false, 16, F.Vec{array(96f, 96f)})
-  e.layout = b:FontLayout(e.font, "Example Text!", &textrect, 16f, 0f, nil, F.Vec{array(96f, 96f)});
+  e.font = b:CreateFont("Arial", 700, false, 16, F.Vec{array(96f, 96f)}, B.AntiAliasing.LCD)
+  e.layout = b:FontLayout(e.font, "Example Text!", &textrect, 16f, 0f, B.BreakStyle.NONE, nil);
   e.close = false
 
   var pos = F.Vec{array(200f,100f)}

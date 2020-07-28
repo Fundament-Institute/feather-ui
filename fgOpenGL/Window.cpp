@@ -12,7 +12,7 @@ using namespace GL;
 
 Window::Window(Backend* backend, GLFWmonitor* display, FG_Element* element, FG_Vec* pos, FG_Vec* dim, uint64_t flags,
                const char* caption, void* context) :
-  Context(backend, element), _next(nullptr), _prev(nullptr)
+  Context(backend, element, dim), _next(nullptr), _prev(nullptr)
 {
   if(flags & FG_Window_NOCAPTION)
     caption = "";
@@ -21,9 +21,9 @@ Window::Window(Backend* backend, GLFWmonitor* display, FG_Element* element, FG_V
   glfwWindowHint(GLFW_AUTO_ICONIFY, flags & FG_Window_MINIMIZED);
   glfwWindowHint(GLFW_RESIZABLE, flags & FG_Window_RESIZABLE);
   glfwWindowHint(GLFW_MAXIMIZED, flags & FG_Window_MAXIMIZED);
-  // glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GL_TRUE);
+  glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GL_TRUE);
 
-  _window = glfwCreateWindow(!dim ? 0 : dim->x, !dim ? 0 : dim->y, caption, NULL, NULL);
+  _window = glfwCreateWindow(!dim ? 0 : static_cast<int>(dim->x), !dim ? 0 : static_cast<int>(dim->y), caption, NULL, NULL);
   if(_window)
   {
     glfwSetWindowUserPointer(_window, this);
@@ -39,9 +39,10 @@ Window::Window(Backend* backend, GLFWmonitor* display, FG_Element* element, FG_V
   }
 
 #ifdef FG_PLATFORM_WIN32
-  // Remove the transparency hack. We force repainting on the transparent bit.
-  // HWND hWnd = glfwGetWin32Window(_window);
-  // SetLayeredWindowAttributes(hWnd, ~0, 0, LWA_COLORKEY);
+  // Remove the transparency hack by removing the layered flag that ISN'T NECESSARY >:C
+  HWND hWnd     = glfwGetWin32Window(_window);
+  DWORD exStyle = GetWindowLongW(hWnd, GWL_EXSTYLE);
+  SetWindowLongW(hWnd, GWL_EXSTYLE, exStyle & (~WS_EX_LAYERED));
 #endif
 
   glfwMakeContextCurrent(_window);
@@ -63,6 +64,8 @@ Window::~Window()
   if(!glfwWindowShouldClose(_window))
     CloseCallback(_window);
 
+  if(_initialized) // We have to call this up here before we destroy the context
+    DestroyResources();
   glfwDestroyWindow(_window);
 }
 
@@ -116,8 +119,8 @@ void Window::MouseButtonCallback(GLFWwindow* window, int button, int action, int
   evt.mouseDown.modkeys = GetModKeys(mods);
   double x, y;
   glfwGetCursorPos(window, &x, &y);
-  evt.mouseOn.x = x;
-  evt.mouseOn.y = y;
+  evt.mouseOn.x = static_cast<float>(x);
+  evt.mouseOn.y = static_cast<float>(y);
 
   self->_backend->Behavior(reinterpret_cast<Window*>(glfwGetWindowUserPointer(window)), evt);
 }
@@ -126,8 +129,8 @@ void Window::MousePosCallback(GLFWwindow* window, double x, double y)
 {
   auto self       = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
   FG_Msg evt      = { FG_Kind_MOUSEMOVE };
-  evt.mouseMove.x = x;
-  evt.mouseMove.y = y;
+  evt.mouseMove.x = static_cast<float>(x);
+  evt.mouseMove.y = static_cast<float>(y);
 
   self->_backend->Behavior(reinterpret_cast<Window*>(glfwGetWindowUserPointer(window)), evt);
 }
@@ -138,8 +141,8 @@ void Window::EnterCallback(GLFWwindow* window, int entered)
   FG_Msg evt = { entered ? FG_Kind_MOUSEON : FG_Kind_MOUSEOFF };
   double x, y;
   glfwGetCursorPos(window, &x, &y);
-  evt.mouseOn.x = x;
-  evt.mouseOn.y = y;
+  evt.mouseOn.x = static_cast<float>(x);
+  evt.mouseOn.y = static_cast<float>(y);
 
   self->_backend->Behavior(reinterpret_cast<Window*>(glfwGetWindowUserPointer(window)), evt);
 }
@@ -148,12 +151,12 @@ void Window::ScrollCallback(GLFWwindow* window, double xdelta, double ydelta)
 {
   auto self              = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
   FG_Msg evt             = { FG_Kind_MOUSESCROLL };
-  evt.mouseScroll.delta  = ydelta;
-  evt.mouseScroll.hdelta = xdelta;
+  evt.mouseScroll.delta  = static_cast<float>(ydelta);
+  evt.mouseScroll.hdelta = static_cast<float>(xdelta);
   double x, y;
   glfwGetCursorPos(window, &x, &y);
-  evt.mouseOn.x = x;
-  evt.mouseOn.y = y;
+  evt.mouseOn.x = static_cast<float>(x);
+  evt.mouseOn.y = static_cast<float>(y);
 
   self->_backend->Behavior(reinterpret_cast<Window*>(glfwGetWindowUserPointer(window)), evt);
 }
@@ -168,7 +171,7 @@ void Window::DropCallback(GLFWwindow* window, int count, const char* paths[])
   {
     evt.drop.kind   = FG_Clipboard_FILE;
     evt.drop.target = (void*)paths[0];
-    evt.drop.count  = strlen(paths[0]);
+    evt.drop.count  = static_cast<uint32_t>(strlen(paths[0]));
   }
 
   self->_backend->Behavior(reinterpret_cast<Window*>(glfwGetWindowUserPointer(window)), evt);

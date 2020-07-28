@@ -4,9 +4,6 @@
 #ifndef GL__WINDOW_H
 #define GL__WINDOW_H
 
-#include "glad/gl.h"
-#define GLFW_INCLUDE_NONE
-#include <GLFW/glfw3.h>
 #include "compiler.h"
 #include "Context.h"
 

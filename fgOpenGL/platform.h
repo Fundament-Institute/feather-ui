@@ -23,7 +23,7 @@
   #include <windows.h>
   #pragma pack(pop)
 #else
-
+  #include <fontconfig/fontconfig.h>
 #endif
 
 #endif

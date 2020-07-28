@@ -48,7 +48,7 @@ namespace D2D {
     uint16_t GetTouchIndex(unsigned long index, bool up);
 
     static FG_Err DrawTextD2D(FG_Backend* self, void* window, FG_Font* font, void* fontlayout, FG_Rect* area,
-                              FG_Color color, float lineHeight, float letterSpacing, float blur, FG_AntiAliasing aa);
+                              FG_Color color, float lineHeight, float letterSpacing, float blur);
     static FG_Err DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Rect* area, FG_Rect* source, FG_Color color,
                             float time);
     static FG_Err DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
@@ -67,15 +67,13 @@ namespace D2D {
     static FG_Err PopClip(FG_Backend* self, void* window);
     static FG_Err DirtyRect(FG_Backend* self, void* window, void* layer, FG_Rect* area);
     static FG_Font* CreateFontD2D(FG_Backend* self, const char* family, unsigned short weight, bool italic, unsigned int pt,
-                                  FG_Vec dpi);
+                                  FG_Vec dpi, FG_AntiAliasing aa);
     static FG_Err DestroyFont(FG_Backend* self, FG_Font* font);
     static void* FontLayout(FG_Backend* self, FG_Font* font, const char* text, FG_Rect* area, float lineHeight,
-                            float letterSpacing, void* prev, FG_Vec dpi);
+                            float letterSpacing, FG_BreakStyle breakStyle, void* prev);
     static FG_Err DestroyLayout(FG_Backend* self, void* layout);
-    static uint32_t FontIndex(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, float lineHeight,
-                              float letterSpacing, FG_Vec pos, FG_Vec* cursor, FG_Vec dpi);
-    static FG_Vec FontPos(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, float lineHeight,
-                          float letterSpacing, uint32_t index, FG_Vec dpi);
+    static uint32_t FontIndex(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Vec pos, FG_Vec* cursor);
+    static FG_Vec FontPos(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, uint32_t index);
     static FG_Asset* CreateAsset(FG_Backend* self, const char* data, uint32_t count, FG_Format format);
     static FG_Err DestroyAsset(FG_Backend* self, FG_Asset* asset);
     static FG_Err PutClipboard(FG_Backend* self, FG_Clipboard kind, const char* data, uint32_t count);

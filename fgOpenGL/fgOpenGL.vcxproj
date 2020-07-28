@@ -188,18 +188,22 @@
     <ClInclude Include="Backend.h" />
     <ClInclude Include="compiler.h" />
     <ClInclude Include="Context.h" />
+    <ClInclude Include="Font.h" />
     <ClInclude Include="glad\gl.h" />
     <ClInclude Include="Layer.h" />
     <ClInclude Include="platform.h" />
     <ClInclude Include="Shader.h" />
+    <ClInclude Include="utf.h" />
     <ClInclude Include="Window.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Backend.cpp" />
     <ClCompile Include="Context.cpp" />
+    <ClCompile Include="Font.cpp" />
     <ClCompile Include="glad_gl.c" />
     <ClCompile Include="Layer.cpp" />
     <ClCompile Include="Shader.cpp" />
+    <ClCompile Include="utf.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

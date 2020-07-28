@@ -16,15 +16,14 @@ namespace GL {
 
   struct Attribute
   {
-    Attribute(const char* name, int type, float* data);
-    ~Attribute();
-
+    Attribute(const char* name, int type, float* d = nullptr);
+    
     const char* name;
     int type; // GL_VEC2, GL_FLOAT, etc.
     union
     {
       float data[4]; // store up to 4 in the struct
-      float* pdata;  // Allocate for large matrices
+      float* pdata;
     };
   };
 
@@ -70,7 +69,7 @@ namespace GL {
     // Sets vertex data for an EXISTING vertex data buffer that has ALREADY been bound via glBufferData
     void SetVertices(Backend* backend, unsigned int shader, size_t stride) const;
     static int GetTypeCount(int type);
-    static void SetUniform(unsigned int shader, const Attribute& attr);
+    static void SetUniform(Backend* backend, unsigned int shader, const Attribute& attr);
 
     Shader& operator=(const Shader& copy);
     Shader& operator=(Shader&& mov);

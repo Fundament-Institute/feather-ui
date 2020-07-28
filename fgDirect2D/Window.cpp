@@ -172,7 +172,7 @@ longptr_t __stdcall Window::WndProc(HWND__* hWnd, unsigned int message, size_t w
           if(y > WindowRect.bottom - WindowRect.top - BORDERWIDTH)
             return HTBOTTOM;
         }
-        // if(y < (self->window->padding.top * (fgSingleton()->dpi.y / 96.0f)) + self->window->margin.top)
+        // if(y < (self->window->padding.top * (fgSingleton()->dpi.y / Backend::BASE_DPI)) + self->window->margin.top)
         //  return HTCAPTION;
         return HTCLIENT;
       }

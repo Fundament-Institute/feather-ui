@@ -36,7 +36,7 @@ Window* Backend::FromHWND(void* p)
 }
 
 FG_Err Backend::DrawTextD2D(FG_Backend* self, void* window, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Color color,
-                            float lineHeight, float letterSpacing, float blur, FG_AntiAliasing aa)
+                            float lineHeight, float letterSpacing, float blur)
 {
   if(!fontlayout)
     return -1;
@@ -45,11 +45,11 @@ FG_Err Backend::DrawTextD2D(FG_Backend* self, void* window, FG_Font* font, void*
 
   IDWriteTextLayout* layout = (IDWriteTextLayout*)fontlayout;
   context->color->SetColor(ToD2Color(color.v));
-
+  
   layout->SetMaxWidth(area->right - area->left);
   layout->SetMaxHeight(area->bottom - area->top);
   context->target->DrawTextLayout(D2D1::Point2F(area->left, area->top), layout, context->color,
-                                  D2D1_DRAW_TEXT_OPTIONS_NONE);
+                                  D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
 
   return 0;
 }
@@ -245,7 +245,7 @@ FG_Err Backend::DirtyRect(FG_Backend* self, void* window, void* layer, FG_Rect* 
 }
 
 FG_Font* Backend::CreateFontD2D(FG_Backend* self, const char* family, unsigned short weight, bool italic, unsigned int pt,
-                                FG_Vec dpi)
+                                FG_Vec dpi, FG_AntiAliasing aa)
 {
   auto instance = static_cast<Backend*>(self);
   size_t len    = UTF8toUTF16(family, -1, 0, 0);
@@ -292,7 +292,7 @@ FG_Font* Backend::CreateFontD2D(FG_Backend* self, const char* family, unsigned s
   format->SetLineSpacing(DWRITE_LINE_SPACING_METHOD_DEFAULT, linespacing, baseline);
   collection->Release();
 
-  return new FG_Font{ format, dpi, baseline, linespacing, pt };
+  return new FG_Font{ format, dpi, baseline, linespacing, pt, aa };
 }
 
 FG_Err Backend::DestroyFont(FG_Backend* self, FG_Font* font)
@@ -312,7 +312,7 @@ FG_Err Backend::DestroyLayout(FG_Backend* self, void* layout)
 }
 
 void* Backend::FontLayout(FG_Backend* self, FG_Font* font, const char* text, FG_Rect* area, float lineHeight,
-                          float letterSpacing, void* prev, FG_Vec dpi)
+                          float letterSpacing, FG_BreakStyle breakStyle, void* prev)
 {
   auto instance = static_cast<Backend*>(self);
   fgassert(font);
@@ -372,11 +372,18 @@ void* Backend::FontLayout(FG_Backend* self, FG_Font* font, const char* text, FG_
     area->bottom = area->top + metrics.height;
   layout->SetMaxWidth(area->right - area->left);
   layout->SetMaxHeight(area->bottom - area->top);
+  
+  switch(breakStyle)
+  {
+  case FG_BreakStyle_NONE: layout->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP); break;
+  case FG_BreakStyle_WORD: layout->SetWordWrapping(DWRITE_WORD_WRAPPING_EMERGENCY_BREAK); break;
+  case FG_BreakStyle_CHARACTER: layout->SetWordWrapping(DWRITE_WORD_WRAPPING_CHARACTER); break;
+  }
+
   return layout;
 }
 
-uint32_t Backend::FontIndex(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, float lineHeight,
-                            float letterSpacing, FG_Vec pos, FG_Vec* cursor, FG_Vec dpi)
+uint32_t Backend::FontIndex(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Vec pos, FG_Vec* cursor)
 {
   fgassert(font != 0);
   IDWriteTextLayout* layout = (IDWriteTextLayout*)fontlayout;
@@ -395,8 +402,7 @@ uint32_t Backend::FontIndex(FG_Backend* self, FG_Font* font, void* fontlayout, F
   return hit.textPosition + trailing;
 }
 
-FG_Vec Backend::FontPos(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, float lineHeight,
-                        float letterSpacing, uint32_t index, FG_Vec dpi)
+FG_Vec Backend::FontPos(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, uint32_t index)
 {
   IDWriteTextLayout* layout = (IDWriteTextLayout*)fontlayout;
   if(!layout)

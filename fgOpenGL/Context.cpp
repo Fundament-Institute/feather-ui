@@ -3,25 +3,39 @@
 
 #include "Backend.h"
 #include "linmath.h"
+#include "SOIL.h"
+#include "Font.h"
 #include <algorithm>
 #include <assert.h>
 
+namespace GL {
+  __KHASH_IMPL(tex, , const Asset*, GLuint, 1, kh_ptr_hash_func, kh_int_hash_equal);
+  __KHASH_IMPL(font, , const Font*, uint64_t, 1, kh_ptr_hash_func, kh_int_hash_equal);
+  __KHASH_IMPL(glyph, , uint32_t, char, 0, kh_int_hash_func2, kh_int_hash_equal);
+}
+
 using namespace GL;
 
-Context::Context(Backend* backend, FG_Element* element) :
-  _backend(backend), _element(element), _window(nullptr), _initialized(false)
-{}
+Context::Context(Backend* backend, FG_Element* element, FG_Vec* dim) :
+  _backend(backend),
+  _element(element),
+  _window(nullptr),
+  _initialized(false),
+  _buffercount(0),
+  _bufferoffset(0),
+  _texhash(kh_init_tex()),
+  _fonthash(kh_init_font()),
+  _glyphhash(kh_init_glyph())
+{
+  if(dim)
+    SetDim(*dim);
+}
 Context::~Context()
 {
   if(_initialized)
     DestroyResources();
+  kh_destroy_tex(_texhash);
 }
-
-static const struct
-{
-  float x, y;
-  float r, g, b;
-} global_vertices[3] = { { -0.6f, -0.4f, 1.f, 0.f, 0.f }, { 0.6f, -0.4f, 0.f, 1.f, 0.f }, { 0.f, 0.6f, 0.f, 0.f, 1.f } };
 
 void Context::BeginDraw(const FG_Rect* area, bool clear)
 {
@@ -38,7 +52,7 @@ void Context::BeginDraw(const FG_Rect* area, bool clear)
 
   if(clear)
   {
-    glClearColor(0, 0, 0, 1.0f);
+    glClearColor(0, 0, 0, 0);
     _backend->LogError("glClearColor");
     glClear(GL_COLOR_BUFFER_BIT);
     _backend->LogError("glClear");
@@ -46,29 +60,10 @@ void Context::BeginDraw(const FG_Rect* area, bool clear)
 }
 void Context::EndDraw()
 {
-  mat4x4 m, p, mvp;
-
-  int width, height;
-  glfwGetFramebufferSize(_window, &width, &height);
-  float ratio = width / (float)height;
-
-  mat4x4_identity(m);
-  mat4x4_rotate_Z(m, m, (float)glfwGetTime());
-  mat4x4_ortho(p, -ratio, ratio, -1.f, 1.f, 1.f, -1.f);
-  mat4x4_mul(mvp, p, m);
-
-  ratio = width / (float)height;
-
-  Attribute MVP("MVP", GL_FLOAT_MAT4, (float*)mvp);
-
-  BeginBatch();
-  AppendBatch(global_vertices, sizeof(global_vertices), 3);
-  FlushBatch(&_backend->_imageshader, _imageshader, GL_TRIANGLES, &MVP, 1);
-
   if(_window)
     glfwSwapBuffers(_window);
 }
-
+void Context::SetDim(const FG_Vec& dim) { mat4x4_ortho(proj, 0, dim.x, dim.y, 0, 1, -1); }
 void Context::Draw(const FG_Rect* area)
 {
   FG_Msg msg    = { FG_Kind_DRAW };
@@ -137,29 +132,20 @@ void Context::PushLayer(const FG_Rect& area, float* transform, float opacity, La
   Viewport(layer->area, layer->area.left, layer->area.top);
 }
 
-void Context::BeginBatch()
-{
-  glBindBuffer(GL_ARRAY_BUFFER, _batchbuffer);
-  _backend->LogError("glBindBuffer");
-  _bufferoffset = 0;
-  _buffercount  = 0;
-  _bufferstride = 0;
-}
-void Context::AppendBatch(const void* vertices, size_t bytes, int count)
+void Context::AppendBatch(const void* vertices, GLsizeiptr bytes, GLsizei count)
 {
   glBufferSubData(GL_ARRAY_BUFFER, _bufferoffset, bytes, vertices);
   _backend->LogError("glBufferSubData");
   _bufferoffset += bytes;
   _buffercount += count;
-  if(!_bufferstride)
-    _bufferstride = bytes / count;
-  else
-    assert(_bufferstride == (bytes / count));
 }
 
-void Context::FlushBatch(Shader* shader, GLuint instance, int primitive, const Attribute* data, size_t n_data)
+GLsizei Context::FlushBatch()
 {
-  _backend->DrawBoundBuffer(shader, instance, _bufferstride, _buffercount, data, n_data, primitive);
+  GLsizei count = _buffercount;
+  _bufferoffset = 0;
+  _buffercount  = 0;
+  return count;
 }
 
 Layer* Context::PopLayer()
@@ -179,29 +165,139 @@ Layer* Context::PopLayer()
   return p;
 }
 
+void Context::_createVAO(Shader& shader, GLuint instance, GLuint* object, GLuint* buffer, const void* init, size_t size,
+                         size_t count)
+{
+  glGenVertexArrays(1, object);
+  _backend->LogError("glGenVertexArrays");
+  glGenBuffers(1, buffer);
+  _backend->LogError("glGenBuffers");
+  glBindVertexArray(*object);
+  _backend->LogError("glBindVertexArray");
+  glBindBuffer(GL_ARRAY_BUFFER, *buffer);
+  _backend->LogError("glBindBuffer");
+  glBufferData(GL_ARRAY_BUFFER, size * count, init, !init ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+  _backend->LogError("glBufferData");
+  shader.SetVertices(_backend, instance, size);
+
+  glBindVertexArray(0);
+  _backend->LogError("glBindVertexArray");
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  _backend->LogError("glBindBuffer");
+}
 void Context::CreateResources()
 {
-  _imageshader = _backend->_imageshader.Create(_backend);
-  //_rectshader   = _backend->_rectshader.Create(_backend);
-  //_circleshader = _backend->_circleshader.Create(_backend);
-  //_trishader    = _backend->_trishader.Create(_backend);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-  glGenBuffers(1, &_batchbuffer);
-  _backend->LogError("glGenBuffers");
-  glBindBuffer(GL_ARRAY_BUFFER, _batchbuffer);
-  _backend->LogError("glBindBuffer");
-  glBufferData(GL_ARRAY_BUFFER, BATCH_BYTES, 0, GL_DYNAMIC_DRAW);
-  _backend->LogError("glBufferData");
+  _imageshader  = _backend->_imageshader.Create(_backend);
+  _rectshader   = _backend->_rectshader.Create(_backend);
+  _circleshader = _backend->_circleshader.Create(_backend);
+  _trishader    = _backend->_trishader.Create(_backend);
+  //_lineshader    = _backend->_trishader.Create(_backend);
+
+  QuadVertex rect[4] = {
+    { 0, 0 },
+    { 1, 0 },
+    { 0, 1 },
+    { 1, 1 },
+  };
+  CreateVAO(_backend->_rectshader, _rectshader, &_quadobject, &_quadbuffer, rect);
+  _createVAO(_backend->_imageshader, _imageshader, &_imageobject, &_imagebuffer, nullptr, sizeof(ImageVertex),
+             BATCH_BYTES / sizeof(ImageVertex));
+
+  for(auto& l : _layers)
+    l->Create();
+
   _initialized = true;
+}
+GLuint Context::LoadAsset(Asset* asset)
+{
+  khiter_t iter = kh_get_tex(_texhash, asset);
+  if(iter < kh_end(_texhash) && kh_exist(_texhash, iter))
+    return kh_val(_texhash, iter);
+
+  GLuint idx;
+  if(!asset->count)
+    idx = SOIL_load_OGL_texture((const char*)asset->data.data, SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
+  else
+    idx = SOIL_load_OGL_texture_from_memory((const unsigned char*)asset->data.data, asset->count, SOIL_LOAD_AUTO,
+                                            SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
+  int r;
+  iter = kh_put_tex(_texhash, asset, &r);
+  glBindTexture(GL_TEXTURE_2D, idx);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glBindTexture(GL_TEXTURE_2D, 0);
+
+  if(r >= 0)
+    kh_val(_texhash, iter) = idx;
+  return idx;
 }
 void Context::DestroyResources()
 {
-  _backend->_imageshader.Destroy(_backend, _imageshader);
-  //_backend->_imageshader.Destroy(_backend, _rectshader);
-  //_backend->_imageshader.Destroy(_backend, _circleshader);
-  //_backend->_imageshader.Destroy(_backend, _trishader);
+  for(khiter_t i = 0; i < kh_end(_texhash); ++i)
+  {
+    if(kh_exist(_texhash, i))
+    {
+      GLuint idx = kh_val(_texhash, i);
+      glDeleteTextures(1, &idx);
+    }
+  }
+  kh_clear_tex(_texhash);
 
-  glDeleteBuffers(1, &_batchbuffer);
+  _backend->_imageshader.Destroy(_backend, _imageshader);
+  _backend->_imageshader.Destroy(_backend, _rectshader);
+  _backend->_imageshader.Destroy(_backend, _circleshader);
+  _backend->_imageshader.Destroy(_backend, _trishader);
+  //_lineshader    = _backend->_trishader.Create(_backend);
+
+  glDeleteVertexArrays(1, &_quadobject);
+  _backend->LogError("glDeleteVertexArrays");
+  glDeleteBuffers(1, &_quadbuffer);
   _backend->LogError("glDeleteBuffers");
+  glDeleteVertexArrays(1, &_imageobject);
+  _backend->LogError("glDeleteVertexArrays");
+  glDeleteBuffers(1, &_imagebuffer);
+  _backend->LogError("glDeleteBuffers");
+
+  for(auto& l : _layers)
+    l->Destroy();
+
   _initialized = false;
+}
+
+bool Context::CheckGlyph(uint32_t g)
+{
+  auto i = kh_get_glyph(_glyphhash, g);
+  return i < kh_end(_glyphhash) && kh_exist(_glyphhash, i);
+}
+
+GLuint Context::GetFont(const Font* font, uint32_t powsize)
+{
+  int r;
+  auto i = kh_put_font(_fonthash, font, &r);
+  GLuint tex;
+  if(r > 0)
+  {
+    auto pair = kh_val(_fonthash, i);
+    tex   = uint32_t(pair & 0xFFFFFFFF);
+    auto size = uint32_t(pair >> 32);
+    if(powsize <= size)
+      return tex;
+    powsize = size;
+  }
+  else if(r < 0)
+    return 0;
+  else
+    glGenTextures(1, &tex);
+  
+  glBindTexture(GL_TEXTURE_2D, tex);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (1 << powsize), (1 << powsize), 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+  glBindTexture(GL_TEXTURE_2D, 0);
+
+  kh_val(_fonthash, i) = tex | (uint64_t(powsize) << 32);
+  return tex;
 }

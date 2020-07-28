@@ -21,6 +21,7 @@ limitations under the License.
 #include <vector>
 
 typedef int FG_Err;
+struct FT_LibraryRec_;
 
 namespace GL {
   KHASH_DECLARE(assets, const FG_Asset*, char);
@@ -31,12 +32,10 @@ namespace GL {
     Backend(void* root, FG_Log log, FG_Behavior behavior);
     ~Backend();
     FG_Result Behavior(Context* data, const FG_Msg& msg);
-    void DrawBoundBuffer(Shader* shader, GLuint instance, size_t stride, GLsizei count, const Attribute* data,
-                         size_t n_data, int primitive);
     bool LogError(const char* call);
 
     static FG_Err DrawTextGL(FG_Backend* self, void* window, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Color color,
-                             float lineHeight, float letterSpacing, float blur, FG_AntiAliasing aa);
+                             float lineHeight, float letterSpacing, float blur);
     static FG_Err DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Rect* area, FG_Rect* source, FG_Color color,
                             float time);
     static FG_Err DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
@@ -55,15 +54,13 @@ namespace GL {
     static FG_Err PopClip(FG_Backend* self, void* window);
     static FG_Err DirtyRect(FG_Backend* self, void* window, void* layer, FG_Rect* area);
     static FG_Font* CreateFontGL(FG_Backend* self, const char* family, unsigned short weight, bool italic, unsigned int pt,
-                                 FG_Vec dpi);
+                                 FG_Vec dpi, FG_AntiAliasing aa);
     static FG_Err DestroyFont(FG_Backend* self, FG_Font* font);
     static void* FontLayout(FG_Backend* self, FG_Font* font, const char* text, FG_Rect* area, float lineHeight,
-                            float letterSpacing, void* prev, FG_Vec dpi);
+                            float letterSpacing, FG_BreakStyle breakStyle, void* prev);
     static FG_Err DestroyLayout(FG_Backend* self, void* layout);
-    static uint32_t FontIndex(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, float lineHeight,
-                              float letterSpacing, FG_Vec pos, FG_Vec* cursor, FG_Vec dpi);
-    static FG_Vec FontPos(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, float lineHeight,
-                          float letterSpacing, uint32_t index, FG_Vec dpi);
+    static uint32_t FontIndex(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Vec pos, FG_Vec* cursor);
+    static FG_Vec FontPos(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, uint32_t index);
     static FG_Asset* CreateAsset(FG_Backend* self, const char* data, uint32_t count, FG_Format format);
     static FG_Err DestroyAsset(FG_Backend* self, FG_Asset* asset);
     static FG_Err PutClipboard(FG_Backend* self, FG_Clipboard kind, const char* data, uint32_t count);
@@ -85,6 +82,8 @@ namespace GL {
     static FG_Err EndDraw(FG_Backend* self, void* window);
     static void ErrorCallback(int error, const char* description);
     static void JoystickCallback(int id, int connected);
+    static void ColorFloats(const FG_Color& c, float (&colors)[4]);
+    static void GenTransform(float (&target)[4][4], const FG_Rect& area);
 
     FG_Log _log;
     void* _root;
@@ -93,13 +92,54 @@ namespace GL {
     Shader _rectshader;
     Shader _circleshader;
     Shader _trishader;
+    Shader _lineshader;
+    struct FT_LibraryRec_* _ftlib;
 
     static int _lasterr;
     static int _refcount;
     static char _lasterrdesc[1024]; // 1024 is from GLFW internals
     static int _maxjoy;
+    static const float BASE_DPI;
 
   protected:
+    template<class... Args>
+    inline void _drawVAO(GLuint instance, GLuint vao, int primitive, GLsizei count, const Args&... args)
+    {
+      glUseProgram(instance);
+      LogError("glUseProgram");
+      glBindVertexArray(vao);
+      LogError("glBindVertexArray");
+      (Shader::SetUniform(this, instance, args), ...);
+      glDrawArrays(primitive, 0, count);
+      LogError("glDrawArrays");
+      glBindVertexArray(0);
+    }
+    template<class T> 
+    inline static void _buildPosUV(T (&v)[4], const FG_Rect& area, const FG_Rect& uv, float x, float y)
+    {
+      v[0].posUV[0] = area.left;
+      v[0].posUV[1] = area.top;
+      v[0].posUV[2] = uv.left / x;
+      v[0].posUV[3] = uv.top / y;
+
+      v[1].posUV[0] = area.right;
+      v[1].posUV[1] = area.top;
+      v[2].posUV[2] = uv.right / x;
+      v[2].posUV[3] = uv.top / y;
+
+      v[2].posUV[0] = area.left;
+      v[2].posUV[1] = area.bottom;
+      v[1].posUV[2] = uv.left / x;
+      v[1].posUV[3] = uv.bottom / y;
+
+      v[3].posUV[0] = area.right;
+      v[3].posUV[1] = area.bottom;
+      v[3].posUV[2] = uv.right / x;
+      v[3].posUV[3] = uv.bottom / y;
+    }
+    void _drawStandard(GLuint shader, GLuint vao, float (&proj)[4][4], const FG_Rect& area, const FG_Rect& corners,
+                       FG_Color fillColor, float border, FG_Color borderColor, float blur);
+
     FG_Behavior _behavior;
     kh_assets_t* _assethash;
   };

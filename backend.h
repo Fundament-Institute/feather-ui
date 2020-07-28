@@ -58,21 +58,33 @@ struct FG_Rect__ {
     float ltrb[4];
   };
 };
-typedef struct FG_Asset__ FG_Asset;
-typedef struct FG_Data__ FG_Data;
-struct FG_Data__ {
-  void * data;
-};
-typedef struct FG_Veci__ FG_Veci;
-struct FG_Veci__ {
-  int x;
-  int y;
-};
-struct FG_Asset__ {
-  FG_Data data;
-  FG_Veci size;
-  FG_Vec dpi;
-  FG_Format format;
+enum FG_Feature {
+  FG_Feature_CIRCLE_ALPHA = 2048,
+  FG_Feature_RECT_BLUR = 64,
+  FG_Feature_CIRCLE_ARCS = 256,
+  FG_Feature_LINES_ALPHA = 65536,
+  FG_Feature_RECT_CORNERS = 16,
+  FG_Feature_CIRCLE_BORDER = 512,
+  FG_Feature_LAYER_TRANSFORM = 524288,
+  FG_Feature_TEXT_ANTIALIAS = 1,
+  FG_Feature_TEXT_BLUR = 4,
+  FG_Feature_TRIANGLE_BLUR = 16384,
+  FG_Feature_TRIANGLE_ALPHA = 32768,
+  FG_Feature_RECT_BORDER = 32,
+  FG_Feature_CURVE_STROKE = 131072,
+  FG_Feature_IMMEDIATE_MODE = 33554432,
+  FG_Feature_RECT_ALPHA = 128,
+  FG_Feature_TEXT_ALPHA = 8,
+  FG_Feature_BACKGROUND_OPACITY = 16777216,
+  FG_Feature_TRIANGLE_BORDER = 8192,
+  FG_Feature_SHADER_HLSL2 = 8388608,
+  FG_Feature_CIRCLE_BLUR = 1024,
+  FG_Feature_SHADER_GLSL4 = 4194304,
+  FG_Feature_TRIANGLE_CORNERS = 4096,
+  FG_Feature_SHADER_GLSL2 = 2097152,
+  FG_Feature_LAYER_OPACITY = 1048576,
+  FG_Feature_CURVE_FILL = 262144,
+  FG_Feature_TEXT_SUBPIXEL = 2
 };
 enum FG_AntiAliasing {
   FG_AntiAliasing_NO_AA = 0,
@@ -131,6 +143,17 @@ enum FG_Joy {
   FG_Joy_Button6 = 5
 };
 typedef void (* FG_Delegate)(void *);
+enum FG_Window {
+  FG_Window_NOBORDER = 16,
+  FG_Window_NOCAPTION = 8,
+  FG_Window_FULLSCREEN = 256,
+  FG_Window_MINIMIZED = 32,
+  FG_Window_CLOSED = 128,
+  FG_Window_MAXIMIZABLE = 2,
+  FG_Window_MINIMIZABLE = 1,
+  FG_Window_RESIZABLE = 4,
+  FG_Window_MAXIMIZED = 64
+};
 enum FG_MouseButton {
   FG_MouseButton_X2 = 16,
   FG_MouseButton_M = 4,
@@ -141,14 +164,9 @@ enum FG_MouseButton {
   FG_MouseButton_L = 1,
   FG_MouseButton_X1 = 8
 };
-enum FG_ModKey {
-  FG_ModKey_CONTROL = 2,
-  FG_ModKey_SHIFT = 1,
-  FG_ModKey_NUMLOCK = 32,
-  FG_ModKey_HELD = 64,
-  FG_ModKey_ALT = 4,
-  FG_ModKey_CAPSLOCK = 16,
-  FG_ModKey_SUPER = 8
+typedef struct FG_Color16__ FG_Color16;
+struct FG_Color16__ {
+  uint64_t v;
 };
 enum FG_Cursor {
   FG_Cursor_NONE = 0,
@@ -166,6 +184,10 @@ enum FG_Cursor {
   FG_Cursor_WAIT = 4,
   FG_Cursor_HAND = 5,
   FG_Cursor_CROSS = 3
+};
+typedef struct FG_Data__ FG_Data;
+struct FG_Data__ {
+  void * data;
 };
 typedef struct FG_Result__ FG_Result;
 struct FG_Result__ {
@@ -443,34 +465,6 @@ struct FG_Msg__ {
 typedef FG_Result (* FG_Behavior)(FG_Element *, void *, void *, FG_Msg *);
 typedef struct FG_Backend__ FG_Backend;
 typedef void (* FG_anon_28)(FG_Backend *);
-enum FG_Feature {
-  FG_Feature_CIRCLE_ALPHA = 2048,
-  FG_Feature_RECT_BLUR = 64,
-  FG_Feature_CIRCLE_ARCS = 256,
-  FG_Feature_LINES_ALPHA = 65536,
-  FG_Feature_RECT_CORNERS = 16,
-  FG_Feature_CIRCLE_BORDER = 512,
-  FG_Feature_LAYER_TRANSFORM = 524288,
-  FG_Feature_TEXT_ANTIALIAS = 1,
-  FG_Feature_TEXT_BLUR = 4,
-  FG_Feature_TRIANGLE_BLUR = 16384,
-  FG_Feature_TRIANGLE_ALPHA = 32768,
-  FG_Feature_RECT_BORDER = 32,
-  FG_Feature_CURVE_STROKE = 131072,
-  FG_Feature_IMMEDIATE_MODE = 33554432,
-  FG_Feature_RECT_ALPHA = 128,
-  FG_Feature_TEXT_ALPHA = 8,
-  FG_Feature_BACKGROUND_OPACITY = 16777216,
-  FG_Feature_TRIANGLE_BORDER = 8192,
-  FG_Feature_SHADER_HLSL2 = 8388608,
-  FG_Feature_CIRCLE_BLUR = 1024,
-  FG_Feature_SHADER_GLSL4 = 4194304,
-  FG_Feature_TRIANGLE_CORNERS = 4096,
-  FG_Feature_SHADER_GLSL2 = 2097152,
-  FG_Feature_LAYER_OPACITY = 1048576,
-  FG_Feature_CURVE_FILL = 262144,
-  FG_Feature_TEXT_SUBPIXEL = 2
-};
 typedef struct FG_Font__ FG_Font;
 struct FG_Font__ {
   FG_Data data;
@@ -478,6 +472,7 @@ struct FG_Font__ {
   float baseline;
   float lineheight;
   uint32_t pt;
+  FG_AntiAliasing aa;
 };
 typedef struct FG_Color__ FG_Color;
 struct FG_Color__ {
@@ -493,7 +488,19 @@ struct FG_Color__ {
     };
   };
 };
-typedef int32_t (* FG_anon_29)(FG_Backend *, void *, FG_Font *, void *, FG_Rect *, FG_Color, float, float, float, FG_AntiAliasing);
+typedef int32_t (* FG_anon_29)(FG_Backend *, void *, FG_Font *, void *, FG_Rect *, FG_Color, float, float, float);
+typedef struct FG_Asset__ FG_Asset;
+typedef struct FG_Veci__ FG_Veci;
+struct FG_Veci__ {
+  int x;
+  int y;
+};
+struct FG_Asset__ {
+  FG_Data data;
+  FG_Veci size;
+  FG_Vec dpi;
+  FG_Format format;
+};
 typedef FG_Asset * (* FG_anon_30)(FG_Backend *, const char*, uint32_t, FG_Format);
 enum FG_Clipboard {
   FG_Clipboard_NONE = 0,
@@ -522,8 +529,8 @@ typedef int32_t (* FG_anon_35)(FG_Backend *, void *, void *, FG_Rect *);
 typedef void * (* FG_anon_36)(FG_Backend *, FG_Element *, void *, FG_Vec *, FG_Vec *, const char*, uint64_t, void *);
 typedef int32_t (* FG_anon_37)(FG_Backend *, void *, FG_Rect *, FG_Rect *, FG_Color, float, FG_Color, float, FG_Asset *);
 typedef int32_t (* FG_anon_38)(FG_Backend *, FG_Clipboard, const char*, uint32_t);
-typedef FG_Vec (* FG_anon_39)(FG_Backend *, FG_Font *, void *, FG_Rect *, float, float, uint32_t, FG_Vec);
-typedef FG_Font * (* FG_anon_40)(FG_Backend *, const char*, uint16_t, bool, uint32_t, FG_Vec);
+typedef FG_Vec (* FG_anon_39)(FG_Backend *, FG_Font *, void *, FG_Rect *, uint32_t);
+typedef FG_Font * (* FG_anon_40)(FG_Backend *, const char*, uint16_t, bool, uint32_t, FG_Vec, FG_AntiAliasing);
 typedef void * (* FG_anon_41)(FG_Backend *);
 typedef int32_t (* FG_anon_42)(FG_Backend *, void *, FG_Display *);
 typedef int32_t (* FG_anon_43)(FG_Backend *, void *, FG_Asset *, FG_Rect *, FG_Rect *, FG_Color, float);
@@ -535,9 +542,14 @@ typedef int32_t (* FG_anon_48)(FG_Backend *, void *, FG_Vec *, uint32_t, FG_Colo
 typedef void * (* FG_anon_49)(FG_Backend *, void *);
 typedef int32_t (* FG_anon_50)(FG_Backend *, FG_Font *);
 typedef int32_t (* FG_anon_51)(FG_Backend *, void *, FG_Cursor);
-typedef void * (* FG_anon_52)(FG_Backend *, FG_Font *, const char*, FG_Rect *, float, float, void *, FG_Vec);
+enum FG_BreakStyle {
+  FG_BreakStyle_NONE = 0,
+  FG_BreakStyle_CHARACTER = 2,
+  FG_BreakStyle_WORD = 1
+};
+typedef void * (* FG_anon_52)(FG_Backend *, FG_Font *, const char*, FG_Rect *, float, float, FG_BreakStyle, void *);
 typedef int32_t (* FG_anon_53)(FG_Backend *, void *, void *);
-typedef uint32_t (* FG_anon_54)(FG_Backend *, FG_Font *, void *, FG_Rect *, float, float, FG_Vec, FG_Vec *, FG_Vec);
+typedef uint32_t (* FG_anon_54)(FG_Backend *, FG_Font *, void *, FG_Rect *, FG_Vec, FG_Vec *);
 typedef int32_t (* FG_anon_55)(FG_Backend *, void *, FG_Vec *, uint32_t, FG_Color, float, FG_Color);
 typedef int32_t (* FG_anon_56)(FG_Backend *, void *, uint64_t);
 typedef int32_t (* FG_anon_57)(FG_Backend *, FG_Asset *);
@@ -744,10 +756,6 @@ enum FG_Keys {
   FG_Keys_F17 = 128,
   FG_Keys_F16 = 127
 };
-typedef struct FG_Color16__ FG_Color16;
-struct FG_Color16__ {
-  uint64_t v;
-};
 enum FG_JoyAxis {
   FG_JoyAxis_X = 0,
   FG_JoyAxis_INVALID = 65535,
@@ -762,16 +770,14 @@ struct FG_UVec__ {
   FG_Vec abs;
   FG_Vec rel;
 };
-enum FG_Window {
-  FG_Window_NOBORDER = 16,
-  FG_Window_NOCAPTION = 8,
-  FG_Window_FULLSCREEN = 256,
-  FG_Window_MINIMIZED = 32,
-  FG_Window_CLOSED = 128,
-  FG_Window_MAXIMIZABLE = 2,
-  FG_Window_MINIMIZABLE = 1,
-  FG_Window_RESIZABLE = 4,
-  FG_Window_MAXIMIZED = 64
+enum FG_ModKey {
+  FG_ModKey_CONTROL = 2,
+  FG_ModKey_SHIFT = 1,
+  FG_ModKey_NUMLOCK = 32,
+  FG_ModKey_HELD = 64,
+  FG_ModKey_ALT = 4,
+  FG_ModKey_CAPSLOCK = 16,
+  FG_ModKey_SUPER = 8
 };
 
 #endif

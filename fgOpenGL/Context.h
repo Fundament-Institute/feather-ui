@@ -4,6 +4,9 @@
 #ifndef GL__CONTEXT_H
 #define GL__CONTEXT_H
 
+#include "glad/gl.h"
+#define GLFW_INCLUDE_NONE
+#include <GLFW/glfw3.h>
 #include "compiler.h"
 #include "khash.h"
 #include "Layer.h"
@@ -14,11 +17,17 @@
 namespace GL {
   class Backend;
   struct Asset;
+  struct Font;
+  struct Glyph;
+
+  KHASH_DECLARE(tex, const Asset*, GLuint);
+  KHASH_DECLARE(font, const Font*, uint64_t);
+  KHASH_DECLARE(glyph, uint32_t, char);
 
   // A context may or may not have an associated OS window, for use inside other 3D engines.
   struct Context
   {
-    Context(Backend* backend, FG_Element* element);
+    Context(Backend* backend, FG_Element* element, FG_Vec* dim);
     virtual ~Context();
     void BeginDraw(const FG_Rect* area, bool clear);
     void EndDraw();
@@ -32,28 +41,45 @@ namespace GL {
     GLFWwindow* GetWindow() const { return _window; }
     void Scissor(const FG_Rect& rect, float x, float y) const;
     void Viewport(const FG_Rect& rect, float x, float y) const;
-    void BeginBatch();
-    void AppendBatch(const void* vertices, size_t bytes, int count);
-    void FlushBatch(Shader* shader, unsigned int instance, int primitive, const Attribute* data, size_t n_data);
+    void AppendBatch(const void* vertices, GLsizeiptr bytes, GLsizei count);
+    GLsizei FlushBatch();
+    void SetDim(const FG_Vec& dim);
+    GLuint LoadAsset(Asset* asset);
+    bool CheckGlyph(uint32_t g);
+    GLuint GetFont(const Font* font, uint32_t powsize);
 
     FG_Element* _element;
-    unsigned int _imageshader;
-    unsigned int _rectshader;
-    unsigned int _circleshader;
-    unsigned int _trishader;
+    GLuint _imageshader;
+    GLuint _rectshader;
+    GLuint _circleshader;
+    GLuint _trishader;
+    GLuint _lineshader;
+    GLuint _quadobject;
+    GLuint _quadbuffer;
+    GLuint _imageobject;
+    GLuint _imagebuffer;
+    float proj[4][4];
 
-    static const size_t BATCH_BYTES = (1 << 14);
+    static const size_t BATCH_BYTES = (1 << 12);
 
   protected:
+    template<class T, int I>
+    void CreateVAO(Shader& shader, GLuint instance, GLuint* object, GLuint* buffer, const T(&init)[I])
+    {
+      _createVAO(shader, instance, object, buffer, init, sizeof(T), I);
+    }
+    void _createVAO(Shader& shader, GLuint instance, GLuint* object, GLuint* buffer, const void* init, size_t size, size_t count);
+
     GLFWwindow* _window;
     Backend* _backend;
     std::vector<FG_Rect> _clipstack;
     std::vector<Layer*> _layers;
-    unsigned int _batchbuffer;
-    size_t _bufferoffset;
-    int _buffercount;
-    int _bufferstride;
+    GLintptr _bufferoffset;
+    GLsizei _buffercount;
     bool _initialized;
+    kh_tex_s* _texhash;
+    kh_font_s* _fonthash; // Holds the initialized texture for this font on this context
+    kh_glyph_s* _glyphhash; // The set of all glyphs that have been initialized
   };
 }
 
