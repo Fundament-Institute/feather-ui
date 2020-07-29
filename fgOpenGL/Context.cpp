@@ -166,7 +166,7 @@ Layer* Context::PopLayer()
 }
 
 void Context::_createVAO(Shader& shader, GLuint instance, GLuint* object, GLuint* buffer, const void* init, size_t size,
-                         size_t count)
+                         size_t count, GLuint* indices, size_t num)
 {
   glGenVertexArrays(1, object);
   _backend->LogError("glGenVertexArrays");
@@ -180,9 +180,31 @@ void Context::_createVAO(Shader& shader, GLuint instance, GLuint* object, GLuint
   _backend->LogError("glBufferData");
   shader.SetVertices(_backend, instance, size);
 
+  if(indices)
+  {
+    glGenBuffers(1, indices);
+    _backend->LogError("glGenBuffers");
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, *indices);
+    _backend->LogError("glBindBuffer");
+    std::unique_ptr<GLuint[]> buf(new GLuint[num]);
+
+    for(size_t i = 5, k = 0; i < num; i += 6, k += 4)
+    {
+      buf[i - 5] = k + 0;
+      buf[i - 4] = k + 1;
+      buf[i - 3] = k + 2;
+      buf[i - 2] = k + 1;
+      buf[i - 1] = k + 2;
+      buf[i - 0] = k + 3;
+    }
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, num * sizeof(GLuint), buf.get(), GL_STATIC_DRAW);
+    _backend->LogError("glBufferData");
+  }
   glBindVertexArray(0);
   _backend->LogError("glBindVertexArray");
   glBindBuffer(GL_ARRAY_BUFFER, 0);
+  _backend->LogError("glBindBuffer");
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   _backend->LogError("glBindBuffer");
 }
 void Context::CreateResources()
@@ -194,7 +216,7 @@ void Context::CreateResources()
   _rectshader   = _backend->_rectshader.Create(_backend);
   _circleshader = _backend->_circleshader.Create(_backend);
   _trishader    = _backend->_trishader.Create(_backend);
-  //_lineshader    = _backend->_trishader.Create(_backend);
+  _lineshader   = _backend->_trishader.Create(_backend);
 
   QuadVertex rect[4] = {
     { 0, 0 },
@@ -204,7 +226,10 @@ void Context::CreateResources()
   };
   CreateVAO(_backend->_rectshader, _rectshader, &_quadobject, &_quadbuffer, rect);
   _createVAO(_backend->_imageshader, _imageshader, &_imageobject, &_imagebuffer, nullptr, sizeof(ImageVertex),
-             BATCH_BYTES / sizeof(ImageVertex));
+             BATCH_BYTES / sizeof(ImageVertex), &_imageindices, BATCH_BYTES / sizeof(GLuint));
+
+  _createVAO(_backend->_lineshader, _lineshader, &_lineobject, &_linebuffer, nullptr, sizeof(FG_Vec),
+             BATCH_BYTES / sizeof(FG_Vec), nullptr, 0);
 
   for(auto& l : _layers)
     l->Create();
@@ -246,11 +271,23 @@ void Context::DestroyResources()
   }
   kh_clear_tex(_texhash);
 
+  for(khiter_t i = 0; i < kh_end(_fonthash); ++i)
+  {
+    if(kh_exist(_fonthash, i))
+    {
+      GLuint idx = static_cast<GLuint>(kh_val(_fonthash, i) & 0xFFFFFFFF);
+      glDeleteTextures(1, &idx);
+    }
+  }
+  kh_clear_font(_fonthash);
+
+  kh_clear_glyph(_glyphhash);
+
   _backend->_imageshader.Destroy(_backend, _imageshader);
   _backend->_imageshader.Destroy(_backend, _rectshader);
   _backend->_imageshader.Destroy(_backend, _circleshader);
   _backend->_imageshader.Destroy(_backend, _trishader);
-  //_lineshader    = _backend->_trishader.Create(_backend);
+  _backend->_imageshader.Destroy(_backend, _lineshader);
 
   glDeleteVertexArrays(1, &_quadobject);
   _backend->LogError("glDeleteVertexArrays");
@@ -259,6 +296,12 @@ void Context::DestroyResources()
   glDeleteVertexArrays(1, &_imageobject);
   _backend->LogError("glDeleteVertexArrays");
   glDeleteBuffers(1, &_imagebuffer);
+  _backend->LogError("glDeleteBuffers");
+  glDeleteBuffers(1, &_imageindices);
+  _backend->LogError("glDeleteBuffers");
+  glDeleteVertexArrays(1, &_lineobject);
+  _backend->LogError("glDeleteVertexArrays");
+  glDeleteBuffers(1, &_linebuffer);
   _backend->LogError("glDeleteBuffers");
 
   for(auto& l : _layers)
@@ -272,16 +315,22 @@ bool Context::CheckGlyph(uint32_t g)
   auto i = kh_get_glyph(_glyphhash, g);
   return i < kh_end(_glyphhash) && kh_exist(_glyphhash, i);
 }
-
-GLuint Context::GetFont(const Font* font, uint32_t powsize)
+void Context::AddGlyph(uint32_t g)
 {
   int r;
-  auto i = kh_put_font(_fonthash, font, &r);
+  kh_put_glyph(_glyphhash, g, &r);
+}
+
+GLuint Context::GetFontTexture(const Font* font)
+{
+  int r;
+  auto i      = kh_put_font(_fonthash, font, &r);
+  int powsize = font->GetSizePower();
   GLuint tex;
-  if(r > 0)
+  if(!r)
   {
     auto pair = kh_val(_fonthash, i);
-    tex   = uint32_t(pair & 0xFFFFFFFF);
+    tex       = uint32_t(pair & 0xFFFFFFFF);
     auto size = uint32_t(pair >> 32);
     if(powsize <= size)
       return tex;
@@ -290,13 +339,22 @@ GLuint Context::GetFont(const Font* font, uint32_t powsize)
   else if(r < 0)
     return 0;
   else
+  {
     glGenTextures(1, &tex);
-  
+    _backend->LogError("glGenTextures");
+  }
+
   glBindTexture(GL_TEXTURE_2D, tex);
+  _backend->LogError("glBindTexture");
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  _backend->LogError("glTexParameteri");
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  _backend->LogError("glTexParameteri");
+
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (1 << powsize), (1 << powsize), 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+  _backend->LogError("glTexImage2D");
   glBindTexture(GL_TEXTURE_2D, 0);
+  _backend->LogError("glBindTexture");
 
   kh_val(_fonthash, i) = tex | (uint64_t(powsize) << 32);
   return tex;

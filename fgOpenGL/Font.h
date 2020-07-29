@@ -33,7 +33,7 @@ namespace GL {
     Font(Backend* backend, const char* font, int psize, FG_AntiAliasing antialias, const FG_Vec& dpi);
     ~Font();
     Glyph* LoadGlyph(char32_t codepoint);
-    float _loadkerning(char32_t prev, char32_t cur);
+    float GetKerning(char32_t prev, char32_t cur);
     FG_Vec CalcTextDim(const char32_t* text, const FG_Vec& maxdim, float lineheight, float letterspacing,
                        FG_BreakStyle breakstyle);
     float GetLineWidth(const char32_t*& text, float maxwidth, FG_BreakStyle breakstyle, float letterspacing);
@@ -42,6 +42,8 @@ namespace GL {
                                        float letterspacing, FG_Vec pos);
     std::pair<size_t, FG_Vec> GetPos(const char32_t* text, float maxwidth, FG_BreakStyle breakstyle, float lineheight,
                                      float letterspacing, size_t index);
+    inline int GetSizePower() const { return _curpower; }
+    inline float GetAscender() const { return _ascender; }
 
   protected:
     void _cleanup();

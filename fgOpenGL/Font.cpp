@@ -23,8 +23,8 @@ Font::Font(Backend* backend, const char* font, int psize, FG_AntiAliasing antial
 {
   _cur = { 1, 1 };
   pt   = psize;
-  dpi = _dpi;
-  aa  = antialias;
+  dpi  = _dpi;
+  aa   = antialias;
 #ifdef FG_PLATFORM_WIN32
   if(!std::filesystem::exists(_path)) // we only adjust the path if our current path doesn't exist
   {
@@ -193,26 +193,16 @@ Glyph* Font::LoadGlyph(char32_t codepoint)
   }
   if(_cur.y + height + 1 > (1 << _curpower)) // if true we need to resize the texture
   {
-    ++_curpower;
+    _last = { float(1 << _curpower), float(1 << _curpower) };
 
-    for(khiter_t i = 0; i < kh_end(_glyphs); ++i)
-    {
-      if(kh_exist(_glyphs, i))
-      {
-        auto& v = kh_val(_glyphs, i);
-        for(int k = 0; k < 4; ++k)
-          v.uv.ltrb[k] *= 0.5f;
-      }
-    }
-    _last  = { float(1 << _curpower), float(1 << _curpower) };
+    ++_curpower;
     _cur.y = 0;
-    _cur.x = 1;
+    _cur.x = (_cur.y < _last.y) ? 1 + _last.x : 1;
     _nexty = 1;
   }
 
-  float dim          = (1 << _curpower) / 4;
   FG_Vec invdpiscale = { Backend::BASE_DPI / dpi.x, Backend::BASE_DPI / dpi.y };
-  g.uv               = { _cur.x / dim, _cur.y / dim, (_cur.x + width) / dim, (_cur.y + height) / dim };
+  g.uv               = { _cur.x, _cur.y, (_cur.x + width), (_cur.y + height) };
   g.advance          = (_face->glyph->advance.x * FT_COEF * invdpiscale.x);
   g.bearing.x        = (_face->glyph->metrics.horiBearingX * FT_COEF * invdpiscale.x);
   g.bearing.y        = (_face->glyph->metrics.horiBearingY * FT_COEF * invdpiscale.y);
@@ -248,7 +238,7 @@ Glyph* Font::RenderGlyph(Context* context, char32_t codepoint)
   uint32_t width  = (gbmp.pixel_mode == FT_PIXEL_MODE_LCD) ? (gbmp.width / 3) : gbmp.width;
 
   // Get the texture from our context, creating it if necessary
-  GLuint tex = context->GetFont(this, _curpower);
+  GLuint tex = context->GetFontTexture(this);
   _enforceantialias(_ftaa(aa));
   std::unique_ptr<uint8_t[]> buf(new uint8_t[width * 4 * gbmp.rows]);
 
@@ -296,15 +286,19 @@ Glyph* Font::RenderGlyph(Context* context, char32_t codepoint)
   default: return nullptr;
   }
 
-  float dim = (1 << _curpower) / 4;
   glBindTexture(GL_TEXTURE_2D, tex);
-  glTexSubImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(g->uv.left * dim), static_cast<GLint>(g->uv.top * dim), width,
-                  gbmp.rows, GL_RGBA, GL_UNSIGNED_BYTE, buf.get());
+  _backend->LogError("glBindTexture");
+  glTexSubImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(g->uv.left), static_cast<GLint>(g->uv.top), width, gbmp.rows,
+                  GL_RGBA, GL_UNSIGNED_BYTE, buf.get());
+  _backend->LogError("glTexSubImage2D");
   glBindTexture(GL_TEXTURE_2D, 0);
+  _backend->LogError("glBindTexture");
+
+  context->AddGlyph(codepoint);
   return &kh_val(_glyphs, iter);
 }
 
-float Font::_loadkerning(char32_t prev, char32_t cur)
+float Font::GetKerning(char32_t prev, char32_t cur)
 {
   if(!_haskerning)
     return 0.0f;
@@ -380,7 +374,7 @@ Glyph* Font::_getchar(const char32_t* text, float maxwidth, FG_BreakStyle breaks
 
   if(c != '\n' && c != '\r')
   {
-    advance = g->advance + letterspacing + _loadkerning(last, c);
+    advance = g->advance + letterspacing + GetKerning(last, c);
     box.left += g->bearing.x;
     box.top -= g->bearing.y;
     box.right  = box.left + g->width;
@@ -407,7 +401,7 @@ Glyph* Font::_getchar(const char32_t* text, float maxwidth, FG_BreakStyle breaks
           break;
         }
         // cur[-1] is safe here because we incremented cur before entering this loop.
-        right += gword->advance + letterspacing + _loadkerning(cur[-1], cur[0]);
+        right += gword->advance + letterspacing + GetKerning(cur[-1], cur[0]);
       }
       ++cur;
     }

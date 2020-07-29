@@ -30,10 +30,96 @@ void Backend::ColorFloats(const FG_Color& c, float (&colors)[4])
   colors[3] = c.a / 255.0f;
 }
 
-FG_Err Backend::DrawTextGL(FG_Backend* self, void* window, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Color color,
-                           float lineHeight, float letterSpacing, float blur)
+FG_Err Backend::DrawTextGL(FG_Backend* self, void* window, FG_Font* fgfont, void* textlayout, FG_Rect* area, FG_Color color,
+                           float blur)
 {
-  return -1;
+  auto backend = static_cast<Backend*>(self);
+  auto context = reinterpret_cast<Context*>(window);
+  auto font    = static_cast<Font*>(fgfont);
+  auto layout  = reinterpret_cast<TextLayout*>(textlayout);
+
+  glUseProgram(context->_imageshader);
+  backend->LogError("glUseProgram");
+  glBindVertexArray(context->_imageobject);
+  backend->LogError("glBindVertexArray");
+
+  glBindBuffer(GL_ARRAY_BUFFER, context->_imagebuffer);
+  backend->LogError("glBindBuffer");
+
+  Attribute MVP("MVP", GL_FLOAT_MAT4, (float*)context->proj);
+  Shader::SetUniform(backend, context->_imageshader, MVP);
+
+  float dim  = (1 << font->GetSizePower());
+  FG_Vec pen = { area->left, area->top + ((layout->lineheight / font->lineheight) * font->GetAscender()) };
+  FG_Rect rect;
+  ImageVertex v[4];
+
+  auto batchdraw = [](Backend* backend, Context* context, Font* font) {
+    glEnable(GL_TEXTURE_2D);
+    backend->LogError("glEnable");
+    glActiveTexture(GL_TEXTURE0);
+    backend->LogError("glActiveTexture");
+    glBindTexture(GL_TEXTURE_2D, context->GetFontTexture(font));
+    backend->LogError("glBindTexture");
+
+    // We've already set up our batch indices so we can just use them
+    glDrawElements(GL_TRIANGLES, context->FlushBatch() * 6, GL_UNSIGNED_INT, nullptr);
+    backend->LogError("glDrawElements");
+    glBindVertexArray(0);
+    backend->LogError("glBindVertexArray");
+
+    glDisable(GL_TEXTURE_2D);
+    backend->LogError("glDisable");
+  };
+
+  for(int i = 0; i < layout->n_lines;)
+  {
+    const char32_t* pos  = layout->lines[i];
+    const char32_t* next = 0;
+    if(++i != layout->n_lines)
+      next = layout->lines[i];
+
+    pen.y      = ceilf(pen.y); // Always pixel snap the baseline.
+    pen.x      = area->left;
+    char32_t c = 0;
+
+    while(*pos && pos != next)
+    {
+      char32_t last = c;
+      c             = *pos;
+      auto g        = font->RenderGlyph(context, c);
+      if(!g)
+      {
+        ++pos;
+        continue;
+      }
+
+      // We add the kerning amount to the pen position for this character pair first, before doing anything else.
+      pen.x += font->GetKerning(last, c);
+      ++pos;
+
+      rect.left   = pen.x + g->bearing.x;
+      rect.top    = pen.y - g->bearing.y;
+      rect.right  = rect.left + g->width;
+      rect.bottom = rect.top + g->height;
+
+      _buildPosUV(v, rect, g->uv, dim, dim);
+
+      for(int i = 0; i < 4; ++i)
+        ColorFloats(color, v[i].color);
+
+      if(context->CheckFlush(sizeof(v)))
+        batchdraw(backend, context, font);
+      context->AppendBatch(v, sizeof(v), 1);
+
+      pen.x += g->advance + layout->letterspacing;
+    }
+    pen.y += layout->lineheight;
+  }
+
+  batchdraw(backend, context, font);
+
+  return glGetError();
 }
 
 FG_Err Backend::DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Rect* area, FG_Rect* source, FG_Color color,
@@ -77,7 +163,7 @@ FG_Err Backend::DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Re
 
   glDisable(GL_TEXTURE_2D);
   backend->LogError("glDisable");
-  return 0;
+  return glGetError();
 }
 
 void Backend::GenTransform(float (&target)[4][4], const FG_Rect& area)
@@ -122,7 +208,7 @@ FG_Err Backend::DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect*
   auto context = reinterpret_cast<Context*>(window);
   backend->_drawStandard(context->_rectshader, context->_quadobject, context->proj, *area, *corners, fillColor, border,
                          borderColor, blur);
-  return 0;
+  return glGetError();
 }
 
 FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* arcs, FG_Color fillColor, float border,
@@ -132,7 +218,7 @@ FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Rec
   auto context = reinterpret_cast<Context*>(window);
   backend->_drawStandard(context->_circleshader, context->_quadobject, context->proj, *area, *arcs, fillColor, border,
                          borderColor, blur);
-  return 0;
+  return glGetError();
 }
 FG_Err Backend::DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
                              float border, FG_Color borderColor, float blur, FG_Asset* asset)
@@ -141,7 +227,7 @@ FG_Err Backend::DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_R
   auto context = reinterpret_cast<Context*>(window);
   backend->_drawStandard(context->_trishader, context->_quadobject, context->proj, *area, *corners, fillColor, border,
                          borderColor, blur);
-  return 0;
+  return glGetError();
 }
 
 FG_Err Backend::DrawLines(FG_Backend* self, void* window, FG_Vec* points, uint32_t count, FG_Color color)
@@ -149,16 +235,28 @@ FG_Err Backend::DrawLines(FG_Backend* self, void* window, FG_Vec* points, uint32
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(window);
 
-  /*struct LineVertex
-  {
-    float x, y;
-    float a, r, g, b;
-  } vertex;
+  Attribute MVP("MVP", GL_FLOAT_MAT4, (float*)context->proj);
 
-  context->AppendBatch(&vertex, sizeof(LineVertex), 0);
-  for(uint32_t i = 1; i < count; ++i)
-    context->AppendBatch(&vertex, sizeof(LineVertex), 1);
-  context->FlushBatch(backend->_lineshader, context->_lineshader, GL_LINE_STRIP, 0, 0);*/
+  float colors[4];
+  ColorFloats(color, colors);
+  Attribute Color("Color", GL_FLOAT_VEC4, colors);
+
+  glUseProgram(context->_lineshader);
+  backend->LogError("glUseProgram");
+  glBindVertexArray(context->_lineobject);
+  backend->LogError("glBindVertexArray");
+
+  glBindBuffer(GL_ARRAY_BUFFER, context->_linebuffer);
+  backend->LogError("glBindBuffer");
+
+  context->AppendBatch(points, sizeof(FG_Vec) * count, count);
+  Shader::SetUniform(backend, context->_lineshader, MVP);
+  Shader::SetUniform(backend, context->_lineshader, Color);
+
+  glDrawArrays(GL_LINE_STRIP, 0, context->FlushBatch());
+  backend->LogError("glDrawArrays");
+  glBindVertexArray(0);
+  backend->LogError("glBindVertexArray");
 
   return glGetError();
 }
@@ -277,9 +375,10 @@ uint32_t Backend::FontIndex(FG_Backend* self, FG_Font* font, void* fontlayout, F
     return ~0U;
   auto layout = reinterpret_cast<TextLayout*>(fontlayout);
   Font* f     = static_cast<Font*>(font);
-  auto r      = f->GetIndex(layout->text, area->right - area->left, layout->breakstyle, layout->lineheight, layout->letterspacing, pos);
-  cursor->x   = r.second.x;
-  cursor->y   = r.second.y;
+  auto r =
+    f->GetIndex(layout->text, area->right - area->left, layout->breakstyle, layout->lineheight, layout->letterspacing, pos);
+  cursor->x = r.second.x;
+  cursor->y = r.second.y;
   return r.first;
 }
 
@@ -289,15 +388,16 @@ FG_Vec Backend::FontPos(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Re
     return { NAN, NAN };
   auto layout = reinterpret_cast<TextLayout*>(fontlayout);
   Font* f     = static_cast<Font*>(font);
-  auto r      = f->GetPos(layout->text, area->right - area->left, layout->breakstyle, layout->lineheight, layout->letterspacing, index);
-  FG_Vec c    = { r.second.x, r.second.y };
+  auto r =
+    f->GetPos(layout->text, area->right - area->left, layout->breakstyle, layout->lineheight, layout->letterspacing, index);
+  FG_Vec c = { r.second.x, r.second.y };
   return c;
 }
 
 FG_Asset* Backend::CreateAsset(FG_Backend* self, const char* data, uint32_t count, FG_Format format)
 {
   auto backend     = static_cast<Backend*>(self);
-  uint32_t len     = !count ? strlen(data) + 1 : count;
+  size_t len       = !count ? strlen(data) + 1 : count;
   Asset* asset     = reinterpret_cast<Asset*>(malloc(len + sizeof(Asset)));
   asset->data.data = asset + 1;
   MEMCPY(asset->data.data, len, data, len);
@@ -793,6 +893,19 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
                         { Shader::Data{ Shader::VERTEX, GL_FLOAT_VEC4, "vPosUV", 0 },
                           Shader::Data{ Shader::VERTEX, GL_FLOAT_VEC4, "vColor", 4 * sizeof(float) },
                           Shader::Data{ Shader::GLOBAL, GL_FLOAT_MAT4, "MVP" } });
+
+  const char* line_vs =
+#include "Line.vs.glsl"
+    ;
+
+  const char* line_fs =
+#include "Line.fs.glsl"
+    ;
+
+  _lineshader = Shader(line_fs, line_vs, 0,
+                       { Shader::Data{ Shader::VERTEX, GL_FLOAT_VEC2, "vPos", 0 },
+                         Shader::Data{ Shader::GLOBAL, GL_FLOAT_VEC4, "Color" },
+                         Shader::Data{ Shader::GLOBAL, GL_FLOAT_MAT4, "MVP" } });
 
   const char* standard_vs =
 #include "standard.vs.glsl"

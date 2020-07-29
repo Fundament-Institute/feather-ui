@@ -488,7 +488,7 @@ struct FG_Color__ {
     };
   };
 };
-typedef int32_t (* FG_anon_29)(FG_Backend *, void *, FG_Font *, void *, FG_Rect *, FG_Color, float, float, float);
+typedef int32_t (* FG_anon_29)(FG_Backend *, void *, FG_Font *, void *, FG_Rect *, FG_Color, float);
 typedef struct FG_Asset__ FG_Asset;
 typedef struct FG_Veci__ FG_Veci;
 struct FG_Veci__ {

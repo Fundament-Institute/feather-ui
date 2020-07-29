@@ -35,8 +35,7 @@ Window* Backend::FromHWND(void* p)
   return reinterpret_cast<Window*>(GetWindowLongPtrW(reinterpret_cast<HWND>(p), GWLP_USERDATA));
 }
 
-FG_Err Backend::DrawTextD2D(FG_Backend* self, void* window, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Color color,
-                            float lineHeight, float letterSpacing, float blur)
+FG_Err Backend::DrawTextD2D(FG_Backend* self, void* window, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Color color, float blur)
 {
   if(!fontlayout)
     return -1;
@@ -45,7 +44,6 @@ FG_Err Backend::DrawTextD2D(FG_Backend* self, void* window, FG_Font* font, void*
 
   IDWriteTextLayout* layout = (IDWriteTextLayout*)fontlayout;
   context->color->SetColor(ToD2Color(color.v));
-  
   layout->SetMaxWidth(area->right - area->left);
   layout->SetMaxHeight(area->bottom - area->top);
   context->target->DrawTextLayout(D2D1::Point2F(area->left, area->top), layout, context->color,

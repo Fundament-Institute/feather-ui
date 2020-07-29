@@ -46,7 +46,9 @@ namespace GL {
     void SetDim(const FG_Vec& dim);
     GLuint LoadAsset(Asset* asset);
     bool CheckGlyph(uint32_t g);
-    GLuint GetFont(const Font* font, uint32_t powsize);
+    void AddGlyph(uint32_t g);
+    GLuint GetFontTexture(const Font* font);
+    bool CheckFlush(GLintptr bytes) { return (_bufferoffset + bytes > BATCH_BYTES); }
 
     FG_Element* _element;
     GLuint _imageshader;
@@ -58,17 +60,22 @@ namespace GL {
     GLuint _quadbuffer;
     GLuint _imageobject;
     GLuint _imagebuffer;
+    GLuint _imageindices;
+    GLuint _lineobject;
+    GLuint _linebuffer;
     float proj[4][4];
 
-    static const size_t BATCH_BYTES = (1 << 12);
+    static const size_t BATCH_BYTES = (1 << 14);
+    static const size_t MAX_INDICES = BATCH_BYTES / sizeof(GLuint);
 
   protected:
     template<class T, int I>
-    void CreateVAO(Shader& shader, GLuint instance, GLuint* object, GLuint* buffer, const T(&init)[I])
+    void CreateVAO(Shader& shader, GLuint instance, GLuint* object, GLuint* buffer, const T (&init)[I])
     {
-      _createVAO(shader, instance, object, buffer, init, sizeof(T), I);
+      _createVAO(shader, instance, object, buffer, init, sizeof(T), I, nullptr, 0);
     }
-    void _createVAO(Shader& shader, GLuint instance, GLuint* object, GLuint* buffer, const void* init, size_t size, size_t count);
+    void _createVAO(Shader& shader, GLuint instance, GLuint* object, GLuint* buffer, const void* init, size_t size,
+                    size_t count, GLuint* indices, size_t num);
 
     GLFWwindow* _window;
     Backend* _backend;
@@ -78,7 +85,7 @@ namespace GL {
     GLsizei _buffercount;
     bool _initialized;
     kh_tex_s* _texhash;
-    kh_font_s* _fonthash; // Holds the initialized texture for this font on this context
+    kh_font_s* _fonthash;   // Holds the initialized texture for this font on this context
     kh_glyph_s* _glyphhash; // The set of all glyphs that have been initialized
   };
 }

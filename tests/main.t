@@ -129,8 +129,8 @@ terra MockElement:Behavior(w : &opaque, ui : &opaque, m : &M.Msg) : M.Result
     var r4 = F.Rect{array(300f, 300f, 620f, 580f)}
     b:DrawAsset(w, self.image, &r4, nil, 0xFFFFFFFF, 0f)
 
-    var r5 = F.Rect{array(10f, 10f, 450f, 40f)}
-    b:DrawText(w, self.font, self.layout, &r5, 0xFFFFFFFF, 32.0f, 10.0f, 0.0f)
+    var r5 = F.Rect{array(200f, 10f, 550f, 40f)}
+    b:DrawText(w, self.font, self.layout, &r5, 0xFFFFFFFF, 0.0f)
     return M.Result{0}
   end
   if m.kind.val == [Element.virtualinfo.info["GetWindowFlags"].index] then
@@ -151,19 +151,12 @@ end
 
 local TEST_TEXT = constant("testtext")
 
-if jit.os == "Windows" then
-
-local target_d2d = "fgDirect2D.dll"
-if isdebug then
-  target_d2d = "fgDirect2D_d.dll"
-end
-
-terra TestHarness:backendD2D()
+terra TestHarness:TestBackend(dllpath : rawstring, binpath : rawstring, aa : B.AntiAliasing)
   var fakeUI : &B.Backend = nil
 
-  var bl = B.Backend.new(&fakeUI, [M.Behavior](MockElement.Behavior), FakeLog, [target_d2d], nil)
+  var bl = B.Backend.new(&fakeUI, [M.Behavior](MockElement.Behavior), FakeLog, dllpath, nil)
   if bl._0 == nil then
-    bl = B.Backend.new(&fakeUI, [M.Behavior](MockElement.Behavior), FakeLog, [".\\bin-x64\\" .. target_d2d], nil)
+    bl = B.Backend.new(&fakeUI, [M.Behavior](MockElement.Behavior), FakeLog, binpath, nil)
   end
   self:Test(bl._0 == nil, false)
   if bl._0 == nil then
@@ -176,7 +169,7 @@ terra TestHarness:backendD2D()
   var e = MockElement{Element{Element.virtual_initializer}}
   e.flags = Msg.Window.RESIZABLE
   e.image = b:CreateAsset("../tests/example.png", 0, B.Format.PNG)
-  e.font = b:CreateFont("Arial", 700, false, 16, F.Vec{array(96f, 96f)}, B.AntiAliasing.LCD)
+  e.font = b:CreateFont("Arial", 700, false, 16, F.Vec{array(96f, 96f)}, aa)
   e.layout = b:FontLayout(e.font, "Example Text!", &textrect, 16f, 0f, B.BreakStyle.NONE, nil);
   e.close = false
 
@@ -221,7 +214,6 @@ terra TestHarness:backendD2D()
   self:Test(b:DestroyFont(e.font), 0)
   b:free(bl._1)
   self:Test(true, true) -- ensure tests didn't crash
-end
 end
 
 local target_backend = "fgOpenGL.dll"
@@ -230,68 +222,18 @@ if isdebug then
 end
 
 terra TestHarness:backendOGL()
-  var fakeUI : &B.Backend = nil
+  self:TestBackend([target_backend], [".\\bin-x64\\" .. target_backend], B.AntiAliasing.AA)
+end
 
-  var bl = B.Backend.new(&fakeUI, [M.Behavior](MockElement.Behavior), FakeLog, [target_backend], nil)
-  if bl._0 == nil then
-    bl = B.Backend.new(&fakeUI, [M.Behavior](MockElement.Behavior), FakeLog, [".\\bin-x64\\" .. target_backend], nil)
-  end
-  self:Test(bl._0 == nil, false)
-  if bl._0 == nil then
-    return
+if jit.os == "Windows" then
+  local target_d2d = "fgDirect2D.dll"
+  if isdebug then
+    target_d2d = "fgDirect2D_d.dll"
   end
 
-  fakeUI = bl._0
-  var b = bl._0
-  var textrect = F.Rect{array(0f,0f,1000f,700f)}
-  var e = MockElement{Element{Element.virtual_initializer}}
-  e.flags = Msg.Window.RESIZABLE
-  e.image = b:CreateAsset("../tests/example.png", 0, B.Format.PNG)
-  e.font = b:CreateFont("Arial", 700, false, 16, F.Vec{array(96f, 96f)}, B.AntiAliasing.LCD)
-  e.layout = b:FontLayout(e.font, "Example Text!", &textrect, 16f, 0f, B.BreakStyle.NONE, nil);
-  e.close = false
-
-  var pos = F.Vec{array(200f,100f)}
-  var dim = F.Vec{array(800f,600f)}
-  var w = b:CreateWindow(&e.super, nil, &pos, &dim, "Feather Test", e.flags, nil)
-  
-  self:Test(w ~= nil, true)
-  self:Test(b:ProcessMessages() ~= 0, true)
-  self:Test(b:ClearClipboard(B.Clipboard.ALL), 0)
-  self:Test(b:CheckClipboard(B.Clipboard.TEXT), false)
-  self:Test(b:CheckClipboard(B.Clipboard.WAVE), false)
-  self:Test(b:CheckClipboard(B.Clipboard.ALL), false)
-  self:Test(b:PutClipboard(B.Clipboard.TEXT, TEST_TEXT, 9), 0)
-  self:Test(b:CheckClipboard(B.Clipboard.TEXT), true)
-  self:Test(b:CheckClipboard(B.Clipboard.WAVE), false)
-  self:Test(b:CheckClipboard(B.Clipboard.ALL), true)
-
-  var hold : int8[10]
-
-  self:Test(b:GetClipboard(B.Clipboard.TEXT, [&int8](hold), 10), 9)
-  for i = 0,8 do 
-    self:Test(TEST_TEXT[i], hold[i])
+  terra TestHarness:backendD2D()
+    self:TestBackend([target_d2d], [".\\bin-x64\\" .. target_d2d], B.AntiAliasing.LCD)
   end
-
-  self:Test(b:GetClipboard(B.Clipboard.WAVE, [&int8](hold), 10), 0)
-  self:Test(b:SetCursor(w, B.Cursor.RESIZEALL), 0)
-  self:Test(b:RequestAnimationFrame(w, 0), 0)
-
-  self:Test(b:SetWindow(w, nil, nil, nil, nil, nil, Msg.Window.RESIZABLE), 0)
-  self:Test(b:SetWindow(w, &e.super, nil, nil, nil, "Feather Test Changed", Msg.Window.RESIZABLE), 0)
-
-  self:Test(b:ProcessMessages() ~= 0, true)
-
-  while b:ProcessMessages() ~= 0 and e.close == false do
-    b:RequestAnimationFrame(w, 0)
-  end
-
-  self:Test(b:DestroyWindow(w), 0)
-  self:Test(b:DestroyAsset(e.image), 0)
-  self:Test(b:DestroyLayout(e.layout), 0)
-  self:Test(b:DestroyFont(e.font), 0)
-  b:free(bl._1)
-  self:Test(true, true) -- ensure tests didn't crash
 end
 
 local printraw = macro(function(a) terralib.printraw(a:gettype()) return `a == a end)
@@ -796,7 +738,7 @@ terra main(argc : int, argv : &rawstring) : int
 
   escape
     for k, v in pairs(TestHarness.methods) do
-      if not terralib.ismacro(v) then
+      if not terralib.ismacro(v) and #v.type.parameters == 1 then
         emit(quote
           harness.passed, harness.total = 0, 0
           harness:[k]()

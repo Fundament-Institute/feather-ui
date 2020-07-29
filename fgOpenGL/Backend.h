@@ -35,7 +35,7 @@ namespace GL {
     bool LogError(const char* call);
 
     static FG_Err DrawTextGL(FG_Backend* self, void* window, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Color color,
-                             float lineHeight, float letterSpacing, float blur);
+                             float blur);
     static FG_Err DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Rect* area, FG_Rect* source, FG_Color color,
                             float time);
     static FG_Err DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
@@ -114,28 +114,28 @@ namespace GL {
       LogError("glDrawArrays");
       glBindVertexArray(0);
     }
-    template<class T> 
-    inline static void _buildPosUV(T (&v)[4], const FG_Rect& area, const FG_Rect& uv, float x, float y)
+    template<class T> inline static void _buildPosUV(T (&v)[4], const FG_Rect& area, const FG_Rect& uv, float x, float y)
     {
+      // Due to counter-clockwise windings, we have to go topleft, bottomleft, topright, which also requires flipping the UV x/y coordinates
       v[0].posUV[0] = area.left;
       v[0].posUV[1] = area.top;
-      v[0].posUV[2] = uv.left / x;
-      v[0].posUV[3] = uv.top / y;
+      v[0].posUV[2] = uv.top / y;
+      v[0].posUV[3] = uv.left / x;
 
-      v[1].posUV[0] = area.right;
-      v[1].posUV[1] = area.top;
-      v[2].posUV[2] = uv.right / x;
-      v[2].posUV[3] = uv.top / y;
+      v[1].posUV[0] = area.left;
+      v[1].posUV[1] = area.bottom;
+      v[1].posUV[2] = uv.bottom / y;
+      v[1].posUV[3] = uv.left / x;
 
-      v[2].posUV[0] = area.left;
-      v[2].posUV[1] = area.bottom;
-      v[1].posUV[2] = uv.left / x;
-      v[1].posUV[3] = uv.bottom / y;
+      v[2].posUV[0] = area.right;
+      v[2].posUV[1] = area.top;
+      v[2].posUV[2] = uv.top / y;
+      v[2].posUV[3] = uv.right / x;
 
       v[3].posUV[0] = area.right;
       v[3].posUV[1] = area.bottom;
-      v[3].posUV[2] = uv.right / x;
-      v[3].posUV[3] = uv.bottom / y;
+      v[3].posUV[2] = uv.bottom / y;
+      v[3].posUV[3] = uv.right / x;
     }
     void _drawStandard(GLuint shader, GLuint vao, float (&proj)[4][4], const FG_Rect& area, const FG_Rect& corners,
                        FG_Color fillColor, float border, FG_Color borderColor, float blur);

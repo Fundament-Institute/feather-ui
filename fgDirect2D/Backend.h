@@ -48,7 +48,7 @@ namespace D2D {
     uint16_t GetTouchIndex(unsigned long index, bool up);
 
     static FG_Err DrawTextD2D(FG_Backend* self, void* window, FG_Font* font, void* fontlayout, FG_Rect* area,
-                              FG_Color color, float lineHeight, float letterSpacing, float blur);
+                              FG_Color color, float blur);
     static FG_Err DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Rect* area, FG_Rect* source, FG_Color color,
                             float time);
     static FG_Err DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,

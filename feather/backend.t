@@ -143,7 +143,7 @@ struct B.Backend {
 }
 
 -- Define a dynamic backend object (a static backend would be a seperate type that also provides these functions).
-terra B.Backend:DrawText(window : &opaque, font : &B.Font, layout : &opaque, area : &F.Rect, color : F.Color, lineHeight : float, letterSpacing : float, blur : float) : F.Err return 0 end
+terra B.Backend:DrawText(window : &opaque, font : &B.Font, layout : &opaque, area : &F.Rect, color : F.Color, blur : float) : F.Err return 0 end
 terra B.Backend:DrawAsset(window : &opaque, asset : &B.Asset, area : &F.Rect, source : &F.Rect, color : F.Color, time : float) : F.Err return 0 end
 terra B.Backend:DrawRect(window : &opaque, area : &F.Rect, corners : &F.Rect, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, asset : &B.Asset) : F.Err return 0 end
 terra B.Backend:DrawCircle(window : &opaque, area : &F.Rect, arcs : &F.Rect, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, asset : &B.Asset) : F.Err return 0 end
