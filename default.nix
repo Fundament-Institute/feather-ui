@@ -11,6 +11,9 @@ let
 
     buildInputs = [ terra ];
 
+    TERRA_PATH = "./?.t;deps/?.t";
+    LUA_PATH = "./?.lua;deps/?.lua";
+
     dontConfigure = true;
 
     buildPhase = ''
@@ -28,6 +31,9 @@ let
       src = ./.;
       buildInputs = [ terra glibc.dev ];
       propagatedBuildInputs = backends;
+
+      TERRA_PATH = "./?.t;deps/?.t";
+      LUA_PATH = "./?.lua;deps/?.lua";
 
       installPhase = ''
         install -m 444 -Dt $out/share/terra/feather/ feather/*.t
