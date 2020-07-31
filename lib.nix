@@ -37,6 +37,27 @@ let
 
     };
   });
+  SOIL = pkgs.stdenv.mkDerivation {
+      name = "innative-deps";
+      version = "1.16";
+      src = "./deps/SOIL/";
+      buildInputs = [ pkgs.cmake pkgs.libglvnd ];
+    };
+  freetype2 = pkgs.stdenv.mkDerivation {
+      name = "innative-deps";
+      version = "1.16";
+      src = "./deps/freetype2/";
+      buildInputs = [ pkgs.cmake ];
+    };
+  harfbuzz = pkgs.stdenv.mkDerivation {
+      name = "innative-deps";
+      version = "1.16";
+      src = "./deps/harfbuzz/";
+      buildInputs = [ pkgs.cmake freetype2 ];
+    };
+  glfw = pkgs.glfw3.overrideAttrs (old: {
+    src = "./deps/glfw/";
+  });
   terraIncludes = lst:
     builtins.concatStringsSep ";" (map (pkg: "${getDev pkg}/include") lst);
   terraLibs = lst:
@@ -47,4 +68,4 @@ let
       LIBRARY_PATH = terraLibs buildInputs;
       buildInputs = [ terra ] ++ buildInputs;
     });
-in { inherit terraShell terra; }
+in { inherit terraShell terra SOIL harfbuzz glfw freetype2; }

@@ -37,7 +37,7 @@ let
 
       installPhase = ''
         install -m 444 -Dt $out/share/terra/feather/ feather/*.t
-        install -m 444 -Dt $out/share/terra/std std/*.t
+        install -m 444 -Dt $out/share/terra/std deps/std/*.t
       '';
       dontConfigure = true;
       dontBuild = true;
@@ -52,7 +52,7 @@ let
       '';
       doCheck = true;
 
-      passthru = { inherit withBackends backendInterface terra; };
+      passthru = { inherit withBackends backendInterface terra SOIL harfbuzz glfw freetype2; };
     };
   # feather = stdenv.mkDerivation {
   #   name = "feather";

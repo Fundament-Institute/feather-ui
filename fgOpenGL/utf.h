@@ -6,6 +6,7 @@
 
 #include "compiler.h"
 #include <stdint.h>
+#include <stddef.h>
 
 size_t UTF8toUTF32(const char* FG_RESTRICT input, ptrdiff_t srclen, char32_t* FG_RESTRICT output, size_t buflen);
 

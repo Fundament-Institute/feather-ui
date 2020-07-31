@@ -217,8 +217,15 @@ terra TestHarness:TestBackend(dllpath : rawstring, binpath : rawstring, aa : B.A
 end
 
 local target_backend = "fgOpenGL.dll"
-if isdebug then
-  target_backend = "fgOpenGL_d.dll"
+if jit.os == "Windows" then
+  if isdebug then
+    target_backend = "fgOpenGL_d.dll"
+  end
+else
+  target_backend = "libfgOpenGL.so"
+  if isdebug then
+    target_backend = "libfgOpenGL_d.so"
+  end
 end
 
 terra TestHarness:backendOGL()
@@ -763,6 +770,10 @@ end
 
 if jit.os == "Windows" then
   targetname = targetname .. ".exe"
+end
+
+if jit.os == "Linux" then
+  table.insert(clangargs, "-ldl")
 end
 
 print(clangargs[0])
