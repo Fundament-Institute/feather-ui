@@ -512,7 +512,7 @@ enum FG_Clipboard {
   FG_Clipboard_FILE = 4,
   FG_Clipboard_TEXT = 1
 };
-typedef int32_t (* FG_anon_31)(FG_Backend *, FG_Clipboard);
+typedef int32_t (* FG_anon_31)(FG_Backend *, void *, FG_Clipboard);
 typedef struct FG_Display__ FG_Display;
 struct FG_Display__ {
   FG_Veci size;
@@ -528,14 +528,14 @@ typedef int32_t (* FG_anon_34)(FG_Backend *, void *, FG_Rect *, bool);
 typedef int32_t (* FG_anon_35)(FG_Backend *, void *, void *, FG_Rect *);
 typedef void * (* FG_anon_36)(FG_Backend *, FG_Element *, void *, FG_Vec *, FG_Vec *, const char*, uint64_t, void *);
 typedef int32_t (* FG_anon_37)(FG_Backend *, void *, FG_Rect *, FG_Rect *, FG_Color, float, FG_Color, float, FG_Asset *);
-typedef int32_t (* FG_anon_38)(FG_Backend *, FG_Clipboard, const char*, uint32_t);
+typedef int32_t (* FG_anon_38)(FG_Backend *, void *, FG_Clipboard, const char*, uint32_t);
 typedef FG_Vec (* FG_anon_39)(FG_Backend *, FG_Font *, void *, FG_Rect *, uint32_t);
 typedef FG_Font * (* FG_anon_40)(FG_Backend *, const char*, uint16_t, bool, uint32_t, FG_Vec, FG_AntiAliasing);
 typedef void * (* FG_anon_41)(FG_Backend *);
 typedef int32_t (* FG_anon_42)(FG_Backend *, void *, FG_Display *);
 typedef int32_t (* FG_anon_43)(FG_Backend *, void *, FG_Asset *, FG_Rect *, FG_Rect *, FG_Color, float);
 typedef int32_t (* FG_anon_44)(FG_Backend *, void *);
-typedef bool (* FG_anon_45)(FG_Backend *, FG_Clipboard);
+typedef bool (* FG_anon_45)(FG_Backend *, void *, FG_Clipboard);
 typedef int32_t (* FG_anon_46)(FG_Backend *, void *, FG_Rect *, float *, float, void *);
 typedef int32_t (* FG_anon_47)(FG_Backend *, void *, FG_Element *, void *, FG_Vec *, FG_Vec *, const char*, uint64_t);
 typedef int32_t (* FG_anon_48)(FG_Backend *, void *, FG_Vec *, uint32_t, FG_Color);
@@ -553,7 +553,7 @@ typedef uint32_t (* FG_anon_54)(FG_Backend *, FG_Font *, void *, FG_Rect *, FG_V
 typedef int32_t (* FG_anon_55)(FG_Backend *, void *, FG_Vec *, uint32_t, FG_Color, float, FG_Color);
 typedef int32_t (* FG_anon_56)(FG_Backend *, void *, uint64_t);
 typedef int32_t (* FG_anon_57)(FG_Backend *, FG_Asset *);
-typedef uint32_t (* FG_anon_58)(FG_Backend *, FG_Clipboard, void *, uint32_t);
+typedef uint32_t (* FG_anon_58)(FG_Backend *, void *, FG_Clipboard, void *, uint32_t);
 typedef int32_t (* FG_anon_59)(FG_Backend *);
 struct FG_Backend__ {
   FG_anon_28 destroy;

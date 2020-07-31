@@ -488,7 +488,7 @@ xcopy "$(TargetDir)$(TargetName).pdb" "$(VcpkgRoot)debug\bin" /c /y /q /i</Comma
       <Command Condition="'$(Configuration)'=='Debug'">set TERRA_PATH=.\?.t;.\deps\?.t &amp;&amp; set LUA_PATH=.\?.lua;.\deps\?.lua &amp;&amp; cd .. &amp;&amp; terra "%(FullPath)" -debug</Command>
       <Command Condition="'$(Configuration)'=='Release'">set TERRA_PATH=.\?.t;.\deps\?.t &amp;&amp; set LUA_PATH=.\?.lua;.\deps\?.lua &amp;&amp; cd .. &amp;&amp; terra "%(FullPath)"</Command>
       <Message>Compiling %(Identity) with Terra</Message>
-      <Outputs>$(SolutionDir)backend.h</Outputs>
+      <Outputs>$(SolutionDir)include/backend.h</Outputs>
       <AdditionalInputs>../feather/shared.t;../feather/backend.t;../feather/message.t;../feather/messages.t;../feather/log.t;../feather/element.t</AdditionalInputs>
       <LinkObjects>false</LinkObjects>
       <OutputItemType>ClInclude</OutputItemType>
@@ -501,7 +501,7 @@ xcopy "$(TargetDir)$(TargetName).pdb" "$(VcpkgRoot)debug\bin" /c /y /q /i</Comma
     <ClInclude Include="compiler.h" />
     <ClInclude Include="khash.h" />
     <ClInclude Include="Window.h" />
-    <ClInclude Include="Backend.h" />
+    <ClInclude Include="BackendD2D.h" />
     <ClInclude Include="EffectBase.h" />
     <ClInclude Include="Modulation.h" />
     <ClInclude Include="ImageEffectBase.h" />
@@ -514,7 +514,7 @@ xcopy "$(TargetDir)$(TargetName).pdb" "$(VcpkgRoot)debug\bin" /c /y /q /i</Comma
     <ClCompile Include="Circle.cpp" />
     <ClCompile Include="util.cpp" />
     <ClCompile Include="Window.cpp" />
-    <ClCompile Include="Backend.cpp" />
+    <ClCompile Include="BackendD2D.cpp" />
     <ClCompile Include="EffectBase.cpp" />
     <ClCompile Include="Modulation.cpp" />
     <ClCompile Include="ImageEffectBase.cpp" />

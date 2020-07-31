@@ -29,8 +29,8 @@ void FreeDLL(void* dll) { FreeLibrary((HMODULE)dll); }
 char* LoadDLLError()
 {
   char* p;
-  FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr,
-                  ::GetLastError(), 0, (LPTSTR)&p, 0, nullptr);
+  FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, 0,
+                  GetLastError(), 0, (LPTSTR)&p, 0, 0);
   return p;
 }
 
@@ -56,7 +56,6 @@ size_t fgUTF8toUTF16(const char* restrict input, ptrdiff_t srclen, wchar_t* rest
   terra S.LoadDLLError() : rawstring
     return C.LoadDLLError()
   end
-
 else
   C = terralib.includecstring [[
 #include <dlfcn.h>
@@ -73,14 +72,14 @@ else
   terra S.LoadFunction(ptr : &opaque, name : rawstring) : &opaque
     return C.dlsym(ptr, name)
   end
+
+  terra S.LoadDLLError() : rawstring
+    return C.dlerror()
+  end
 end
 
 terra S.FreeLibrary(ptr : &opaque) : {}
   C.FreeDLL(ptr)
-end
-
-terra S.LoadDLLError() : rawstring
-  return C.dlerror()
 end
 
 return S

@@ -18,7 +18,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Backend.h">
+    <ClInclude Include="BackendGL.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="compiler.h">
@@ -53,7 +53,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Backend.cpp">
+    <ClCompile Include="BackendGL.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Window.cpp">

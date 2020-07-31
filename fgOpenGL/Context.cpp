@@ -1,9 +1,13 @@
 // Copyright (c)2020 Fundament Software
 // For conditions of distribution and use, see copyright notice in "fgOpenGL.h"
 
-#include "Backend.h"
+#include "BackendGL.h"
 #include "linmath.h"
+#ifdef FG_PLATFORM_WIN32
+#include "SOIL.h"
+#else
 #include "SOIL/SOIL.h"
+#endif
 #include "Font.h"
 #include <algorithm>
 #include <assert.h>
@@ -248,7 +252,7 @@ GLuint Context::LoadAsset(Asset* asset)
   else
     idx = SOIL_load_OGL_texture_from_memory((const unsigned char*)asset->data.data, asset->count, SOIL_LOAD_AUTO,
                                             SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
-  return 0;
+
   int r;
   iter = kh_put_tex(_texhash, asset, &r);
   glBindTexture(GL_TEXTURE_2D, idx);

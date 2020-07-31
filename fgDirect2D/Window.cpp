@@ -2,7 +2,7 @@
 // For conditions of distribution and use, see copyright notice in "fgDirect2D.h"
 
 #include "Window.h"
-#include "Backend.h"
+#include "BackendD2D.h"
 #include "win32_includes.h"
 #include <d2d1_1.h>
 #include <dwmapi.h>

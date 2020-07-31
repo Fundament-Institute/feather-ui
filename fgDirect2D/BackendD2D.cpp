@@ -1,7 +1,7 @@
 // Copyright (c)2020 Fundament Software
 // For conditions of distribution and use, see copyright notice in "Backend.h"
 
-#include "Backend.h"
+#include "BackendD2D.h"
 #include "Window.h"
 #include "util.h"
 #include <stdint.h>
@@ -930,15 +930,9 @@ int64_t GetRegistryValueW(HKEY__* hKeyRoot, const wchar_t* szKey, const wchar_t*
   return (r == ERROR_MORE_DATA) ? sz : -1;
 }
 
-#ifdef FG_DEBUG
-  #define FG_MAIN_FUNCTION fgDirect2D_d
-#else
-  #define FG_MAIN_FUNCTION fgDirect2D
-#endif
-
-extern "C" FG_COMPILER_DLLEXPORT FG_Backend* FG_MAIN_FUNCTION(void* root, FG_Log log, FG_Behavior behavior)
+extern "C" FG_COMPILER_DLLEXPORT FG_Backend* fgDirect2D(void* root, FG_Log log, FG_Behavior behavior)
 {
-  static_assert(std::is_same<FG_InitBackend, decltype(&(FG_MAIN_FUNCTION))>::value,
+  static_assert(std::is_same<FG_InitBackend, decltype(&(fgDirect2D))>::value,
                 "fgDirect2D must match InitBackend function pointer");
   typedef BOOL(WINAPI * tGetPolicy)(LPDWORD lpFlags);
   typedef BOOL(WINAPI * tSetPolicy)(DWORD dwFlags);

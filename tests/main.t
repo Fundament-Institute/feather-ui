@@ -164,7 +164,7 @@ terra TestHarness:TestBackend(dllpath : rawstring, aa : B.AntiAliasing)
   var fakeUI : &B.Backend = nil
 
   C.printf("Loading Backend: %s\n", dllpath) 
-  var bl = B.Backend.new(&fakeUI, [M.Behavior](MockElement.Behavior), FakeLog, dllpath, "fgOpenGL")
+  var bl = B.Backend.new(&fakeUI, [M.Behavior](MockElement.Behavior), FakeLog, dllpath, nil)
   self:Test(bl._0 == nil, false)
   if bl._0 == nil then
     return

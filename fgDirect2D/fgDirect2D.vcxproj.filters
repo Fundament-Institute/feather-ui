@@ -42,7 +42,7 @@
     <ClInclude Include="CompactArray.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Backend.h">
+    <ClInclude Include="BackendD2D.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Window.h">
@@ -77,7 +77,7 @@
     <ClCompile Include="Triangle.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Backend.cpp">
+    <ClCompile Include="BackendD2D.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Window.cpp">

@@ -87,7 +87,7 @@
       <Command Condition="'$(Configuration)'=='Debug'">set TERRA_PATH=.\?.t;.\deps\?.t &amp;&amp; set LUA_PATH=.\?.lua;.\deps\?.lua &amp;&amp; cd .. &amp;&amp; terra "%(FullPath)" -debug</Command>
       <Command Condition="'$(Configuration)'=='Release'">set TERRA_PATH=.\?.t;.\deps\?.t &amp;&amp; set LUA_PATH=.\?.lua;.\deps\?.lua &amp;&amp; cd .. &amp;&amp; terra "%(FullPath)"</Command>
       <Message>Compiling %(Identity) with Terra</Message>
-      <Outputs>$(SolutionDir)backend.h</Outputs>
+      <Outputs>$(SolutionDir)include/backend.h</Outputs>
       <AdditionalInputs>../feather/shared.t;../feather/backend.t;../feather/message.t;../feather/messages.t;../feather/log.t;../feather/element.t</AdditionalInputs>
       <LinkObjects>false</LinkObjects>
       <OutputItemType>ClInclude</OutputItemType>
@@ -185,7 +185,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Asset.h" />
-    <ClInclude Include="Backend.h" />
+    <ClInclude Include="BackendGL.h" />
     <ClInclude Include="compiler.h" />
     <ClInclude Include="Context.h" />
     <ClInclude Include="Font.h" />
@@ -197,7 +197,7 @@
     <ClInclude Include="Window.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Backend.cpp" />
+    <ClCompile Include="BackendGL.cpp" />
     <ClCompile Include="Context.cpp" />
     <ClCompile Include="Font.cpp" />
     <ClCompile Include="glad_gl.c" />

@@ -1,7 +1,7 @@
 // Copyright (c)2020 Fundament Software
 // For conditions of distribution and use, see copyright notice in "fgOpenGL.h"
 
-#include "Backend.h"
+#include "BackendGL.h"
 
 #ifdef FG_PLATFORM_WIN32
   #define GLFW_EXPOSE_NATIVE_WIN32

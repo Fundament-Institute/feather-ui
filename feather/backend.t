@@ -226,6 +226,10 @@ terra LoadDynamicBackend(ui : &opaque, behavior : M.Behavior, log : B.Log, path 
     end
     name = terralib.select(name == nil, path, name)
 
+    if C.strncmp(name, "lib", 3) == 0 then
+      name = name + 3
+    end
+
     str = Alloc.default_allocator:alloc(int8, C.strlen(name) + 1)
     C.strcpy(str, name)
     name = str
@@ -233,6 +237,12 @@ terra LoadDynamicBackend(ui : &opaque, behavior : M.Behavior, log : B.Log, path 
     var ext : rawstring = C.strrchr(str, (".")[0])
     if ext ~= nil then
       @ext = 0
+    end
+
+    -- strip _d from the name
+    var sub : rawstring = C.strrchr(str, ("_")[0])
+    if sub ~= nil and sub[1] ~= 0 and sub[1] == ("d")[0] then
+      @sub = 0
     end
   end
 
