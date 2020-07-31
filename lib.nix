@@ -38,25 +38,25 @@ let
     };
   });
   SOIL = pkgs.stdenv.mkDerivation {
-      name = "innative-deps";
+      name = "SOIL";
       version = "1.16";
-      src = "./deps/SOIL/";
-      buildInputs = [ pkgs.cmake pkgs.libglvnd ];
+      src = ./deps/SOIL;
+      buildInputs = [ pkgs.cmake pkgs.libglvnd pkgs.xorg.libX11 ];
     };
   freetype2 = pkgs.stdenv.mkDerivation {
-      name = "innative-deps";
-      version = "1.16";
-      src = "./deps/freetype2/";
+      name = "Freetype2";
+      version = "2.10.0";
+      src = ./deps/freetype2;
       buildInputs = [ pkgs.cmake ];
     };
   harfbuzz = pkgs.stdenv.mkDerivation {
-      name = "innative-deps";
-      version = "1.16";
-      src = "./deps/harfbuzz/";
+      name = "Harfbuzz";
+      version = "2.6.8";
+      src = ./deps/harfbuzz;
       buildInputs = [ pkgs.cmake freetype2 ];
     };
   glfw = pkgs.glfw3.overrideAttrs (old: {
-    src = "./deps/glfw/";
+    src = ./deps/glfw;
   });
   terraIncludes = lst:
     builtins.concatStringsSep ";" (map (pkg: "${getDev pkg}/include") lst);

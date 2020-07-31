@@ -169,10 +169,10 @@ terra B.Backend:FontPos(font : &B.Font, layout : &opaque, area :&F.Rect, index :
 terra B.Backend:CreateAsset(data : F.conststring, count : uint, format : B.Format) : &B.Asset return nil end
 terra B.Backend:DestroyAsset(asset : &B.Asset) : F.Err return 0 end
 
-terra B.Backend:PutClipboard(kind : B.Clipboard, data : F.conststring, count : uint) : F.Err return 0 end
-terra B.Backend:GetClipboard(kind : B.Clipboard, target : &opaque, count : uint) : uint return 0 end
-terra B.Backend:CheckClipboard(kind : B.Clipboard) : bool return false end
-terra B.Backend:ClearClipboard(kind : B.Clipboard) : F.Err return 0 end
+terra B.Backend:PutClipboard(window : &opaque, kind : B.Clipboard, data : F.conststring, count : uint) : F.Err return 0 end
+terra B.Backend:GetClipboard(window : &opaque, kind : B.Clipboard, target : &opaque, count : uint) : uint return 0 end
+terra B.Backend:CheckClipboard(window : &opaque, kind : B.Clipboard) : bool return false end
+terra B.Backend:ClearClipboard(window : &opaque, kind : B.Clipboard) : F.Err return 0 end
 
 terra B.Backend:GetSyncObject() : &opaque return nil end
 terra B.Backend:ProcessMessages() : F.Err return 0 end

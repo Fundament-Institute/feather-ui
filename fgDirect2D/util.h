@@ -5,7 +5,7 @@
 #define D2D__UTIL_H
 
 #include "win32_includes.h"
-#include "../backend.h"
+#include "backend.h"
 #include "compiler.h"
 #include <d2d1_1.h>
 #include <xmmintrin.h>

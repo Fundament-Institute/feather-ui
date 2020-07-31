@@ -1,5 +1,4 @@
-TXT(
-#version 110\n
+TXT(#version 110\n
 uniform mat4 MVP;\n
 attribute vec4 vPosUV;\n
 attribute vec4 vColor;\n

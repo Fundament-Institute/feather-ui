@@ -8,7 +8,7 @@
 #include <string.h>
 #include <assert.h>
 #include "Alloc.h"
-#include "../backend.h"
+#include "backend.h"
 
 namespace D2D {
   // Helper function for inserting a range into a simple array.

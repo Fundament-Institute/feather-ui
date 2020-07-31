@@ -73,38 +73,39 @@ bool Shader::add(const Data& data)
   return r <= 0; // return false if it failed or already existed
 }
 
+void Shader::compile(Backend* backend, GLuint program, const char* src, int type)
+{
+  if(src)
+  {
+    auto shader = glCreateShader(type);
+    backend->LogError("glCreateShader");
+    glShaderSource(shader, 1, &src, NULL);
+    backend->LogError("glShaderSource");
+    glCompileShader(shader);
+    backend->LogError("glCompileShader");
+    GLint isCompiled = 0;
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &isCompiled);
+    if(isCompiled == GL_FALSE)
+    {
+      GLint l;
+      glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &l);
+      std::unique_ptr<char[]> buffer(new char[l]);
+      glGetShaderInfoLog(shader, l, &l, buffer.get());
+      (backend->_log)(backend->_root, FG_Level_WARNING, "Shader compilation failed: %s", buffer.get());
+    }
+    glAttachShader(program, shader);
+    backend->LogError("glAttachShader");
+  }
+}
+
 GLuint Shader::Create(Backend* backend) const
 {
   auto program = glCreateProgram();
   backend->LogError("glCreateProgram");
 
-  auto fn = [](Backend* backend, GLuint program, const char* src, int type) {
-    if(src)
-    {
-      auto shader = glCreateShader(type);
-      backend->LogError("glCreateShader");
-      glShaderSource(shader, 1, &src, NULL);
-      backend->LogError("glShaderSource");
-      glCompileShader(shader);
-      backend->LogError("glCompileShader");
-      GLint isCompiled = 0;
-      glGetShaderiv(shader, GL_COMPILE_STATUS, &isCompiled);
-      if(isCompiled == GL_FALSE)
-      {
-        GLint l;
-        glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &l);
-        std::unique_ptr<char[]> buffer(new char[l]);
-        glGetShaderInfoLog(shader, l, &l, buffer.get());
-        (backend->_log)(backend->_root, FG_Level_WARNING, "Shader compilation failed: %s", buffer.get());
-      }
-      glAttachShader(program, shader);
-      backend->LogError("glAttachShader");
-    }
-  };
-
-  fn(backend, program, _vertex, GL_VERTEX_SHADER);
-  fn(backend, program, _pixel, GL_FRAGMENT_SHADER);
-  fn(backend, program, _geometry, GL_GEOMETRY_SHADER);
+  compile(backend, program, _vertex, GL_VERTEX_SHADER);
+  compile(backend, program, _pixel, GL_FRAGMENT_SHADER);
+  compile(backend, program, _geometry, GL_GEOMETRY_SHADER);
 
   glLinkProgram(program);
   backend->LogError("glLinkProgram");

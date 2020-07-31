@@ -179,23 +179,23 @@ terra TestHarness:TestBackend(dllpath : rawstring, binpath : rawstring, aa : B.A
   
   self:Test(w ~= nil, true)
   self:Test(b:ProcessMessages() ~= 0, true)
-  self:Test(b:ClearClipboard(B.Clipboard.ALL), 0)
-  self:Test(b:CheckClipboard(B.Clipboard.TEXT), false)
-  self:Test(b:CheckClipboard(B.Clipboard.WAVE), false)
-  self:Test(b:CheckClipboard(B.Clipboard.ALL), false)
-  self:Test(b:PutClipboard(B.Clipboard.TEXT, TEST_TEXT, 9), 0)
-  self:Test(b:CheckClipboard(B.Clipboard.TEXT), true)
-  self:Test(b:CheckClipboard(B.Clipboard.WAVE), false)
-  self:Test(b:CheckClipboard(B.Clipboard.ALL), true)
+  self:Test(b:ClearClipboard(w, B.Clipboard.ALL), 0)
+  self:Test(b:CheckClipboard(w, B.Clipboard.TEXT), false)
+  self:Test(b:CheckClipboard(w, B.Clipboard.WAVE), false)
+  self:Test(b:CheckClipboard(w, B.Clipboard.ALL), false)
+  self:Test(b:PutClipboard(w, B.Clipboard.TEXT, TEST_TEXT, 9), 0)
+  self:Test(b:CheckClipboard(w, B.Clipboard.TEXT), true)
+  self:Test(b:CheckClipboard(w, B.Clipboard.WAVE), false)
+  self:Test(b:CheckClipboard(w, B.Clipboard.ALL), true)
 
   var hold : int8[10]
 
-  self:Test(b:GetClipboard(B.Clipboard.TEXT, [&int8](hold), 10), 9)
+  self:Test(b:GetClipboard(w, B.Clipboard.TEXT, [&int8](hold), 10), 9)
   for i = 0,8 do 
     self:Test(TEST_TEXT[i], hold[i])
   end
 
-  self:Test(b:GetClipboard(B.Clipboard.WAVE, [&int8](hold), 10), 0)
+  self:Test(b:GetClipboard(w, B.Clipboard.WAVE, [&int8](hold), 10), 0)
   self:Test(b:SetCursor(w, B.Cursor.RESIZEALL), 0)
   self:Test(b:RequestAnimationFrame(w, 0), 0)
 

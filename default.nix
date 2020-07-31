@@ -21,7 +21,7 @@ let
     '';
     installPhase = ''
       mkdir -p $out/include
-      cp backend.h $out/include/backend.h
+      cp ./include/backend.h $out/include/backend.h
     '';
   };
   withBackends = backends:
@@ -52,7 +52,7 @@ let
       '';
       doCheck = true;
 
-      passthru = { inherit withBackends backendInterface terra SOIL harfbuzz glfw freetype2; };
+      passthru = { inherit withBackends backendInterface terra; };
     };
   # feather = stdenv.mkDerivation {
   #   name = "feather";
@@ -60,6 +60,6 @@ let
   #   src = ./.;
   #   buildInputs = [ terra ];
   # };
-  feather = withBackends [ (callPackage ./fgOpenGL { feather = feather; }) ];
+  feather = withBackends [ (callPackage ./fgOpenGL { inherit feather SOIL harfbuzz glfw freetype2; }) ];
   inherit terra;
 in feather

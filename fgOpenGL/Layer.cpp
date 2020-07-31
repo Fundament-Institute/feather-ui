@@ -3,6 +3,7 @@
 
 #include "Backend.h"
 #include <assert.h>
+#include <math.h>
 
 using namespace GL;
 

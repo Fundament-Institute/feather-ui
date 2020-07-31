@@ -1,5 +1,4 @@
-TXT(
-#version 110\n
+TXT(#version 110\n
 varying vec2 uv;\n
 varying vec4 color;\n
 

@@ -510,9 +510,9 @@ FG_Err Backend::DestroyAsset(FG_Backend* self, FG_Asset* fgasset)
   return e;
 }
 
-FG_Err Backend::PutClipboard(FG_Backend* self, FG_Clipboard kind, const char* data, uint32_t count)
+FG_Err Backend::PutClipboard(FG_Backend* self, void* window, FG_Clipboard kind, const char* data, uint32_t count)
 {
-  if(!OpenClipboard(GetActiveWindow()))
+  if(!OpenClipboard(reinterpret_cast<HWND>(window)))
     return -1;
   if(data != 0 && count > 0 && EmptyClipboard())
   {
@@ -561,9 +561,9 @@ FG_Err Backend::PutClipboard(FG_Backend* self, FG_Clipboard kind, const char* da
   return 0;
 }
 
-uint32_t Backend::GetClipboard(FG_Backend* self, FG_Clipboard kind, void* target, uint32_t count)
+uint32_t Backend::GetClipboard(FG_Backend* self, void* window, FG_Clipboard kind, void* target, uint32_t count)
 {
-  if(!OpenClipboard(GetActiveWindow()))
+  if(!OpenClipboard(reinterpret_cast<HWND>(window)))
     return 0;
   UINT format = CF_PRIVATEFIRST;
   switch(kind)
@@ -616,7 +616,7 @@ uint32_t Backend::GetClipboard(FG_Backend* self, FG_Clipboard kind, void* target
   return (uint32_t)size;
 }
 
-bool Backend::CheckClipboard(FG_Backend* self, FG_Clipboard kind)
+bool Backend::CheckClipboard(FG_Backend* self, void* window, FG_Clipboard kind)
 {
   switch(kind)
   {
@@ -632,9 +632,9 @@ bool Backend::CheckClipboard(FG_Backend* self, FG_Clipboard kind)
   return false;
 }
 
-FG_Err Backend::ClearClipboard(FG_Backend* self, FG_Clipboard kind)
+FG_Err Backend::ClearClipboard(FG_Backend* self, void* window, FG_Clipboard kind)
 {
-  if(!OpenClipboard(GetActiveWindow()))
+  if(!OpenClipboard(reinterpret_cast<HWND>(window)))
     return -1;
   if(!EmptyClipboard())
     return -1;

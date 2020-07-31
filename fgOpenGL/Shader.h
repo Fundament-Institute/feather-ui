@@ -4,7 +4,7 @@
 #ifndef GL__SHADER_H
 #define GL__SHADER_H
 
-#include "../backend.h"
+#include "backend.h"
 #include "khash.h"
 #include <utility>
 
@@ -78,6 +78,7 @@ namespace GL {
     void init(const char* pixel, const char* vertex, const char* geometry);
     bool add(const Data& data);
     void destruct();
+    static void compile(Backend* backend, GLuint program, const char* src, int type);
 
     char* _pixel;
     char* _vertex;

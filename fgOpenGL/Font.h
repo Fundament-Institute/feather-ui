@@ -4,7 +4,7 @@
 #ifndef GL__FONT_H
 #define GL__FONT_H
 
-#include "../backend.h"
+#include "backend.h"
 #include "compiler.h"
 #include <filesystem>
 #include "khash.h"

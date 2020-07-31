@@ -7,6 +7,8 @@
 #include "linmath.h"
 #include "utf.h"
 #include <filesystem>
+#include "ft2build.h"
+#include FT_FREETYPE_H
 #include "freetype/freetype.h"
 
 using namespace GL;
@@ -28,6 +30,25 @@ void Backend::ColorFloats(const FG_Color& c, float (&colors)[4])
   colors[1] = c.g / 255.0f;
   colors[2] = c.b / 255.0f;
   colors[3] = c.a / 255.0f;
+}
+
+void Backend::_flushbatchdraw(Backend* backend, Context* context, Font* font)
+{
+  glEnable(GL_TEXTURE_2D);
+  backend->LogError("glEnable");
+  glActiveTexture(GL_TEXTURE0);
+  backend->LogError("glActiveTexture");
+  glBindTexture(GL_TEXTURE_2D, context->GetFontTexture(font));
+  backend->LogError("glBindTexture");
+
+  // We've already set up our batch indices so we can just use them
+  glDrawElements(GL_TRIANGLES, context->FlushBatch() * 6, GL_UNSIGNED_INT, nullptr);
+  backend->LogError("glDrawElements");
+  glBindVertexArray(0);
+  backend->LogError("glBindVertexArray");
+
+  glDisable(GL_TEXTURE_2D);
+  backend->LogError("glDisable");
 }
 
 FG_Err Backend::DrawTextGL(FG_Backend* self, void* window, FG_Font* fgfont, void* textlayout, FG_Rect* area, FG_Color color,
@@ -53,24 +74,6 @@ FG_Err Backend::DrawTextGL(FG_Backend* self, void* window, FG_Font* fgfont, void
   FG_Vec pen = { area->left, area->top + ((layout->lineheight / font->lineheight) * font->GetAscender()) };
   FG_Rect rect;
   ImageVertex v[4];
-
-  auto batchdraw = [](Backend* backend, Context* context, Font* font) {
-    glEnable(GL_TEXTURE_2D);
-    backend->LogError("glEnable");
-    glActiveTexture(GL_TEXTURE0);
-    backend->LogError("glActiveTexture");
-    glBindTexture(GL_TEXTURE_2D, context->GetFontTexture(font));
-    backend->LogError("glBindTexture");
-
-    // We've already set up our batch indices so we can just use them
-    glDrawElements(GL_TRIANGLES, context->FlushBatch() * 6, GL_UNSIGNED_INT, nullptr);
-    backend->LogError("glDrawElements");
-    glBindVertexArray(0);
-    backend->LogError("glBindVertexArray");
-
-    glDisable(GL_TEXTURE_2D);
-    backend->LogError("glDisable");
-  };
 
   for(int i = 0; i < layout->n_lines;)
   {
@@ -105,11 +108,11 @@ FG_Err Backend::DrawTextGL(FG_Backend* self, void* window, FG_Font* fgfont, void
 
       _buildPosUV(v, rect, g->uv, dim, dim);
 
-      for(int i = 0; i < 4; ++i)
-        ColorFloats(color, v[i].color);
+      for(int k = 0; k < 4; ++k)
+        ColorFloats(color, v[k].color);
 
       if(context->CheckFlush(sizeof(v)))
-        batchdraw(backend, context, font);
+        _flushbatchdraw(backend, context, font);
       context->AppendBatch(v, sizeof(v), 1);
 
       pen.x += g->advance + layout->letterspacing;
@@ -117,7 +120,7 @@ FG_Err Backend::DrawTextGL(FG_Backend* self, void* window, FG_Font* fgfont, void
     pen.y += layout->lineheight;
   }
 
-  batchdraw(backend, context, font);
+  _flushbatchdraw(backend, context, font);
 
   return glGetError();
 }
@@ -421,7 +424,7 @@ FG_Err Backend::DestroyAsset(FG_Backend* self, FG_Asset* fgasset)
   return 0;
 }
 
-FG_Err Backend::PutClipboard(FG_Backend* self, FG_Clipboard kind, const char* data, uint32_t count)
+FG_Err Backend::PutClipboard(FG_Backend* self, void* window, FG_Clipboard kind, const char* data, uint32_t count)
 {
 #ifdef FG_PLATFORM_WIN32
   if(!OpenClipboard(GetActiveWindow()))
@@ -472,11 +475,15 @@ FG_Err Backend::PutClipboard(FG_Backend* self, FG_Clipboard kind, const char* da
   CloseClipboard();
   return 0;
 #else
-  return -1;
+  if(kind != FG_Clipboard_TEXT)
+    return -1;
+
+  glfwSetClipboardString(reinterpret_cast<Context*>(window)->GetWindow(), data);
+  return 0;
 #endif
 }
 
-uint32_t Backend::GetClipboard(FG_Backend* self, FG_Clipboard kind, void* target, uint32_t count)
+uint32_t Backend::GetClipboard(FG_Backend* self, void* window, FG_Clipboard kind, void* target, uint32_t count)
 {
 #ifdef FG_PLATFORM_WIN32
   if(!OpenClipboard(GetActiveWindow()))
@@ -531,11 +538,14 @@ uint32_t Backend::GetClipboard(FG_Backend* self, FG_Clipboard kind, void* target
   CloseClipboard();
   return (uint32_t)size;
 #else
-  glfwGetClipboardString() return -1;
+  auto str = glfwGetClipboardString(reinterpret_cast<Context*>(window)->GetWindow());
+  if(target)
+    strncpy(reinterpret_cast<char*>(target), str, count);
+  return strlen(str) + 1;
 #endif
 }
 
-bool Backend::CheckClipboard(FG_Backend* self, FG_Clipboard kind)
+bool Backend::CheckClipboard(FG_Backend* self, void* window, FG_Clipboard kind)
 {
 #ifdef FG_PLATFORM_WIN32
   switch(kind)
@@ -551,11 +561,11 @@ bool Backend::CheckClipboard(FG_Backend* self, FG_Clipboard kind)
   }
   return false;
 #else
-  return glfwGetClipboardString() != nullptr;
+  return glfwGetClipboardString(reinterpret_cast<Context*>(window)->GetWindow()) != nullptr;
 #endif
 }
 
-FG_Err Backend::ClearClipboard(FG_Backend* self, FG_Clipboard kind)
+FG_Err Backend::ClearClipboard(FG_Backend* self, void* window, FG_Clipboard kind)
 {
 #ifdef FG_PLATFORM_WIN32
   if(!OpenClipboard(GetActiveWindow()))
@@ -565,7 +575,7 @@ FG_Err Backend::ClearClipboard(FG_Backend* self, FG_Clipboard kind)
   CloseClipboard();
   return 0;
 #else
-  glfwSetClipboardString(nullptr, "");
+  glfwSetClipboardString(reinterpret_cast<Context*>(window)->GetWindow(), "");
   return 0;
 #endif
 }
@@ -603,7 +613,7 @@ FG_Err Backend::SetCursorGL(FG_Backend* self, void* window, FG_Cursor cursor)
   return -1;
 }
 
-FG_Err Backend::RequestAnimationFrame(FG_Backend* self, void* window, unsigned long long microdelay)
+FG_Err Backend::RequestAnimationFrame(FG_Backend* self, void* window, uint64_t microdelay)
 {
   if(!window)
     return -1;

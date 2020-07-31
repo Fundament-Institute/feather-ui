@@ -1,16 +1,16 @@
 { config ? { }, lib ? { }, pkgs ? import <nixpkgs> { }
-, feather ? pkgs.callPackage ../. { }, ... }:
+, feather ? pkgs.callPackage ../. { }, SOIL, harfbuzz, glfw, freetype2, ... }:
 
 let inherit (pkgs) stdenv;
 in stdenv.mkDerivation {
   name = "fgOpenGL";
   version = "0.0.1";
-  makeflags = [ "BINDIR=bin" "LIBDIR=lib" "OBJDIR=bin/obj" ];
+  makeFlags = [ "BINDIR=bin" "LIBDIR=lib" "OBJDIR=bin/obj" ];
   src = ./.;
   CXXLD="$(CXX)";
-  CPPFLAGS = "-Wall -Wshadow -Wno-attributes -Wno-unknown-pragmas -Wno-missing-braces -Wno-unused-function -Wno-comment -Wno-char-subscripts -Wno-sign-compare -Wno-unused-variable -Wno-switch";
+  CPPFLAGS = "-I. -Wall -Wshadow -Wno-attributes -Wno-unknown-pragmas -Wno-missing-braces -Wno-unused-function -Wno-comment -Wno-char-subscripts -Wno-sign-compare -Wno-unused-variable -Wno-switch -std=c++17 -msse -msse2 -msse3 -mmmx -m3dnow -mcx16";
 
-  buildInputs = [ feather.backendInterface feather.SOIL feather.harfbuzz feather.glfw feather.freetype2 ];
+  buildInputs = [ feather.backendInterface SOIL harfbuzz glfw freetype2 pkgs.fontconfig ];
   
   dontConfigure = true;
   installPhase = ''

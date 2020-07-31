@@ -3,7 +3,7 @@
 
 #include "Backend.h"
 #include "linmath.h"
-#include "SOIL.h"
+#include "SOIL/SOIL.h"
 #include "Font.h"
 #include <algorithm>
 #include <assert.h>

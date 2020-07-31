@@ -4,9 +4,12 @@
 #include "Backend.h"
 #include "Font.h"
 #include "platform.h"
+#include "ft2build.h"
+#include FT_FREETYPE_H
 #include "freetype/freetype.h"
 #include <assert.h>
 #include <malloc.h>
+#include <math.h>
 
 #ifdef FG_PLATFORM_WIN32
   #include <Shlobj.h>
@@ -45,17 +48,17 @@ Font::Font(Backend* backend, const char* font, int psize, FG_AntiAliasing antial
 
   char* fontFile;
   FcResult result;
-  FcPattern* font = FcFontMatch(config, pat, &result);
+  FcPattern* match = FcFontMatch(config, pat, &result);
 
-  if(font)
+  if(match)
   {
-    FcChar8* file = NULL;
+    FcChar8* str = NULL;
 
-    if(FcPatternGetString(font, FC_FILE, 0, &file) == FcResultMatch)
-      _path = std::filesystem::path(file);
+    if(FcPatternGetString(match, FC_FILE, 0, &str) == FcResultMatch)
+      _path = std::filesystem::path((const char*)str);
   }
 
-  FcPatternDestroy(font);
+  FcPatternDestroy(match);
   FcPatternDestroy(pat);
   FcConfigDestroy(config);
 #endif
@@ -308,7 +311,7 @@ float Font::GetKerning(char32_t prev, char32_t cur)
   return kerning.x * (1.0f / 64.0f); // this would return .y for vertical layouts
 }
 
-FG_Vec Font::CalcTextDim(const char32_t* text, const FG_Vec& maxdim, float lineheight, float letterspacing,
+FG_Vec Font::CalcTextDim(const char32_t* text, const FG_Vec& maxdim, float curlineheight, float letterspacing,
                          FG_BreakStyle breakstyle)
 {
   FG_Vec dest       = { 0, 0 };
@@ -316,12 +319,12 @@ FG_Vec Font::CalcTextDim(const char32_t* text, const FG_Vec& maxdim, float lineh
   char32_t last     = 0;
   float lastadvance = 0;
   FG_Rect box       = { 0, 0, 0, 0 };
-  FG_Vec cursor     = { 0, !lineheight ? 0 : ((lineheight / lineheight) * _ascender) };
+  FG_Vec cursor     = { 0, !lineheight ? 0 : ((curlineheight / lineheight) * _ascender) };
 
   float width = 0.0f;
   while(*text != 0)
   {
-    _getchar(text++, maxdim.x, breakstyle, lineheight, letterspacing, cursor, box, last, lastadvance, dobreak);
+    _getchar(text++, maxdim.x, breakstyle, curlineheight, letterspacing, cursor, box, last, lastadvance, dobreak);
     if(box.right > dest.x)
       dest.x = box.right;
   }
@@ -348,7 +351,7 @@ bool Font::_isspace(int c) // We have to make our own isspace implementation bec
   return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\v' || c == '\f';
 }
 
-Glyph* Font::_getchar(const char32_t* text, float maxwidth, FG_BreakStyle breakstyle, float lineheight, float letterspacing,
+Glyph* Font::_getchar(const char32_t* text, float maxwidth, FG_BreakStyle breakstyle, float curlineheight, float letterspacing,
                       FG_Vec& cursor, FG_Rect& box, char32_t& last, float& lastadvance, bool& dobreak)
 {
   cursor.x += lastadvance;
@@ -411,17 +414,17 @@ Glyph* Font::_getchar(const char32_t* text, float maxwidth, FG_BreakStyle breaks
   {
     box.left -= cursor.x;
     box.right -= cursor.x;
-    box.top += lineheight;
-    box.bottom += lineheight;
+    box.top += curlineheight;
+    box.bottom += curlineheight;
     cursor.x = 0;
-    cursor.y += lineheight;
+    cursor.y += curlineheight;
   }
 
   lastadvance = advance;
   last        = c;
   return g;
 }
-std::pair<size_t, FG_Vec> Font::GetIndex(const char32_t* text, float maxwidth, FG_BreakStyle breakstyle, float lineheight,
+std::pair<size_t, FG_Vec> Font::GetIndex(const char32_t* text, float maxwidth, FG_BreakStyle breakstyle, float curlineheight,
                                          float letterspacing, FG_Vec pos)
 {
   std::pair<size_t, FG_Vec> cache = { 0, { 0, 0 } };
@@ -436,9 +439,9 @@ std::pair<size_t, FG_Vec> Font::GetIndex(const char32_t* text, float maxwidth, F
   {
     std::pair<size_t, FG_Vec> lastcache = cache;
     lastcache.second.x += lastadvance;
-    g = _getchar(text + cache.first, maxwidth, breakstyle, lineheight, letterspacing, cache.second, box, last, lastadvance,
+    g = _getchar(text + cache.first, maxwidth, breakstyle, curlineheight, letterspacing, cache.second, box, last, lastadvance,
                  dobreak);
-    if(pos.y <= cache.second.y + lineheight && pos.x < cache.second.x + (g ? g->bearing.x + (g->width * 0.5f) : 0.0f))
+    if(pos.y <= cache.second.y + curlineheight && pos.x < cache.second.x + (g ? g->bearing.x + (g->width * 0.5f) : 0.0f))
       return cache;             // we immediately terminate and return, WITHOUT adding the lastadvance on.
     if(pos.y <= cache.second.y) // Too far! return our previous cache.
       return lastcache;
@@ -447,7 +450,7 @@ std::pair<size_t, FG_Vec> Font::GetIndex(const char32_t* text, float maxwidth, F
     lastadvance; // We have to add the lastadvance on here because we left the loop at the end of the string.
   return cache;
 }
-std::pair<size_t, FG_Vec> Font::GetPos(const char32_t* text, float maxwidth, FG_BreakStyle breakstyle, float lineheight,
+std::pair<size_t, FG_Vec> Font::GetPos(const char32_t* text, float maxwidth, FG_BreakStyle breakstyle, float curlineheight,
                                        float letterspacing, size_t index)
 {
   std::pair<size_t, FG_Vec> cache = { 0, { 0, 0 } };
@@ -458,7 +461,7 @@ std::pair<size_t, FG_Vec> Font::GetPos(const char32_t* text, float maxwidth, FG_
   float lastadvance = 0;
   FG_Rect box       = { 0, 0, 0, 0 };
   for(cache.first = 0; cache.first < index && text[cache.first] != 0; ++cache.first)
-    _getchar(text + cache.first, maxwidth, breakstyle, lineheight, letterspacing, cache.second, box, last, lastadvance,
+    _getchar(text + cache.first, maxwidth, breakstyle, curlineheight, letterspacing, cache.second, box, last, lastadvance,
              dobreak);
   cache.second.x += lastadvance;
   return cache;

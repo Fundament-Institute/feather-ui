@@ -63,13 +63,13 @@ namespace GL {
     static FG_Vec FontPos(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, uint32_t index);
     static FG_Asset* CreateAsset(FG_Backend* self, const char* data, uint32_t count, FG_Format format);
     static FG_Err DestroyAsset(FG_Backend* self, FG_Asset* asset);
-    static FG_Err PutClipboard(FG_Backend* self, FG_Clipboard kind, const char* data, uint32_t count);
-    static uint32_t GetClipboard(FG_Backend* self, FG_Clipboard kind, void* target, uint32_t count);
-    static bool CheckClipboard(FG_Backend* self, FG_Clipboard kind);
-    static FG_Err ClearClipboard(FG_Backend* self, FG_Clipboard kind);
+    static FG_Err PutClipboard(FG_Backend* self, void* window, FG_Clipboard kind, const char* data, uint32_t count);
+    static uint32_t GetClipboard(FG_Backend* self, void* window, FG_Clipboard kind, void* target, uint32_t count);
+    static bool CheckClipboard(FG_Backend* self, void* window, FG_Clipboard kind);
+    static FG_Err ClearClipboard(FG_Backend* self, void* window, FG_Clipboard kind);
     static FG_Err ProcessMessages(FG_Backend* self);
     static FG_Err SetCursorGL(FG_Backend* self, void* window, FG_Cursor cursor);
-    static FG_Err RequestAnimationFrame(FG_Backend* self, void* window, unsigned long long microdelay);
+    static FG_Err RequestAnimationFrame(FG_Backend* self, void* window, uint64_t microdelay);
     static FG_Err GetDisplayIndex(FG_Backend* self, unsigned int index, FG_Display* out);
     static FG_Err GetDisplay(FG_Backend* self, void* handle, FG_Display* out);
     static FG_Err GetDisplayWindow(FG_Backend* self, void* window, FG_Display* out);
@@ -139,7 +139,8 @@ namespace GL {
     }
     void _drawStandard(GLuint shader, GLuint vao, float (&proj)[4][4], const FG_Rect& area, const FG_Rect& corners,
                        FG_Color fillColor, float border, FG_Color borderColor, float blur);
-
+    static void _flushbatchdraw(Backend* backend, Context* context, Font* font);
+    
     FG_Behavior _behavior;
     kh_assets_t* _assethash;
   };

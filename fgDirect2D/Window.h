@@ -6,7 +6,7 @@
 
 #include "CompactArray.h"
 #include "khash.h"
-#include "../backend.h"
+#include "backend.h"
 #include <stack>
 #include <vector>
 

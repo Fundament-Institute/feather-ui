@@ -20,7 +20,7 @@ Backend.Kind = Message.Kind
 Backend.Behavior = Message.Behavior
 Backend.Element = Element
 
-local f = io.open("backend.h", "wb")
+local f = io.open("include/backend.h", "wb")
 f:write(Export({short_name="FG", long_name="BACKEND"}, Backend))
 
 return 0

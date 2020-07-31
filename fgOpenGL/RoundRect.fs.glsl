@@ -1,5 +1,4 @@
-TXT(
-#version 110\n
+TXT(#version 110\n
 varying vec2 pos;\n
 uniform vec4 DimBorderBlur;\n
 uniform vec4 Corners;\n

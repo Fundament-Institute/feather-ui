@@ -76,10 +76,10 @@ namespace D2D {
     static FG_Vec FontPos(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, uint32_t index);
     static FG_Asset* CreateAsset(FG_Backend* self, const char* data, uint32_t count, FG_Format format);
     static FG_Err DestroyAsset(FG_Backend* self, FG_Asset* asset);
-    static FG_Err PutClipboard(FG_Backend* self, FG_Clipboard kind, const char* data, uint32_t count);
-    static uint32_t GetClipboard(FG_Backend* self, FG_Clipboard kind, void* target, uint32_t count);
-    static bool CheckClipboard(FG_Backend* self, FG_Clipboard kind);
-    static FG_Err ClearClipboard(FG_Backend* self, FG_Clipboard kind);
+    static FG_Err PutClipboard(FG_Backend* self, void* window, FG_Clipboard kind, const char* data, uint32_t count);
+    static uint32_t GetClipboard(FG_Backend* self, void* window, FG_Clipboard kind, void* target, uint32_t count);
+    static bool CheckClipboard(FG_Backend* self, void* window, FG_Clipboard kind);
+    static FG_Err ClearClipboard(FG_Backend* self, void* window, FG_Clipboard kind);
     static FG_Err ProcessMessages(FG_Backend* self);
     static FG_Err SetCursorD2D(FG_Backend* self, void* window, FG_Cursor cursor);
     static FG_Err RequestAnimationFrame(FG_Backend* self, void* window, unsigned long long microdelay);
