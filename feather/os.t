@@ -26,6 +26,13 @@ if ffi.os == "Windows" then
 #pragma pack(pop)
 
 void FreeDLL(void* dll) { FreeLibrary((HMODULE)dll); }
+char* LoadDLLError()
+{
+  char* p;
+  FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr,
+                  ::GetLastError(), 0, (LPTSTR)&p, 0, nullptr);
+  return p;
+}
 
 size_t fgUTF8toUTF16(const char* restrict input, ptrdiff_t srclen, wchar_t* restrict output, size_t buflen) {
   return (size_t)MultiByteToWideChar(CP_UTF8, 0, input, (int)srclen, output, (int)(!output ? 0 : buflen));
@@ -46,12 +53,17 @@ size_t fgUTF8toUTF16(const char* restrict input, ptrdiff_t srclen, wchar_t* rest
     return C.GetProcAddress([C.HMODULE](ptr), name)
   end
 
+  terra S.LoadDLLError() : rawstring
+    return C.LoadDLLError()
+  end
+
 else
   C = terralib.includecstring [[
 #include <dlfcn.h>
 #include <iconv.h>
 
   void FreeDLL(void* dll) { dlclose(dll); }
+
   ]]
 
   terra S.LoadLibrary(path : rawstring) : &opaque
@@ -65,6 +77,10 @@ end
 
 terra S.FreeLibrary(ptr : &opaque) : {}
   C.FreeDLL(ptr)
+end
+
+terra S.LoadDLLError() : rawstring
+  return C.dlerror()
 end
 
 return S

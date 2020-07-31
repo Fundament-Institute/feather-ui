@@ -214,6 +214,7 @@ terra LoadDynamicBackend(ui : &opaque, behavior : M.Behavior, log : B.Log, path 
   var l : &opaque = OS.LoadLibrary(path)
 
   if l == nil then
+    C.printf("Error loading %s: %s\n", path, OS.LoadDLLError())
     return nil, nil
   end
 
@@ -246,6 +247,9 @@ terra LoadDynamicBackend(ui : &opaque, behavior : M.Behavior, log : B.Log, path 
     if b ~= nil then
       return b, l
     end
+    C.printf("Init function failed in %s", path)
+  else
+    C.printf("Can't find init function %s() in %s", name, path)
   end
 
   OS.FreeLibrary(l)

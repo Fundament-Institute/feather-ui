@@ -38,6 +38,7 @@ let
       installPhase = ''
         install -m 444 -Dt $out/share/terra/feather/ feather/*.t
         install -m 444 -Dt $out/share/terra/std deps/std/*.t
+        install -m 555 -Dt $out/bin bin-x64/fgTests
       '';
       dontConfigure = true;
       dontBuild = true;
@@ -45,7 +46,7 @@ let
       checkPhase = ''
         mkdir bin-x64
         echo Testing phase 1
-        terra tests/main.t
+        terra tests/main.t ${lib.concatStringsSep " " (map (x: "${x}/lib/lib${x.backendPath}.so") backends)} 
         echo
         echo Testing phase 2
         ./bin-x64/fgTests

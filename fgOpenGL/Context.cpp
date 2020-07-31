@@ -243,11 +243,12 @@ GLuint Context::LoadAsset(Asset* asset)
     return kh_val(_texhash, iter);
 
   GLuint idx;
-  if(!asset->count)
+  /*if(!asset->count)
     idx = SOIL_load_OGL_texture((const char*)asset->data.data, SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
   else
     idx = SOIL_load_OGL_texture_from_memory((const unsigned char*)asset->data.data, asset->count, SOIL_LOAD_AUTO,
-                                            SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
+                                            SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);*/
+  return 0;
   int r;
   iter = kh_put_tex(_texhash, asset, &r);
   glBindTexture(GL_TEXTURE_2D, idx);

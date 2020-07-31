@@ -22,7 +22,16 @@ local V = require 'feather.virtual'
 
 --local String = require 'feather.string'
 
-local isdebug = arg[1] == "-debug" or arg[1] == "-g"
+local backends = {}
+local isdebug = false
+for i,v in ipairs(arg) do
+  if v == "-debug" or v == "-g" then
+    isdebug = true
+  else
+    table.insert(backends, v)
+  end
+end
+
 
 local struct TestHarness {
   passed : int;
@@ -151,13 +160,11 @@ end
 
 local TEST_TEXT = constant("testtext")
 
-terra TestHarness:TestBackend(dllpath : rawstring, binpath : rawstring, aa : B.AntiAliasing)
+terra TestHarness:TestBackend(dllpath : rawstring, aa : B.AntiAliasing)
   var fakeUI : &B.Backend = nil
 
-  var bl = B.Backend.new(&fakeUI, [M.Behavior](MockElement.Behavior), FakeLog, dllpath, nil)
-  if bl._0 == nil then
-    bl = B.Backend.new(&fakeUI, [M.Behavior](MockElement.Behavior), FakeLog, binpath, nil)
-  end
+  C.printf("Loading Backend: %s\n", dllpath) 
+  var bl = B.Backend.new(&fakeUI, [M.Behavior](MockElement.Behavior), FakeLog, dllpath, "fgOpenGL")
   self:Test(bl._0 == nil, false)
   if bl._0 == nil then
     return
@@ -177,6 +184,14 @@ terra TestHarness:TestBackend(dllpath : rawstring, binpath : rawstring, aa : B.A
   var dim = F.Vec{array(800f,600f)}
   var w = b:CreateWindow(&e.super, nil, &pos, &dim, "Feather Test", e.flags, nil)
   
+  self:Test(b:SetCursor(w, B.Cursor.RESIZEALL), 0)
+  self:Test(b:RequestAnimationFrame(w, 0), 0)
+
+  self:Test(b:SetWindow(w, nil, nil, nil, nil, nil, Msg.Window.RESIZABLE), 0)
+  self:Test(b:SetWindow(w, &e.super, nil, nil, nil, "Feather Test Changed", Msg.Window.RESIZABLE), 0)
+
+  self:Test(b:ProcessMessages() ~= 0, true)
+
   self:Test(w ~= nil, true)
   self:Test(b:ProcessMessages() ~= 0, true)
   self:Test(b:ClearClipboard(w, B.Clipboard.ALL), 0)
@@ -196,13 +211,6 @@ terra TestHarness:TestBackend(dllpath : rawstring, binpath : rawstring, aa : B.A
   end
 
   self:Test(b:GetClipboard(w, B.Clipboard.WAVE, [&int8](hold), 10), 0)
-  self:Test(b:SetCursor(w, B.Cursor.RESIZEALL), 0)
-  self:Test(b:RequestAnimationFrame(w, 0), 0)
-
-  self:Test(b:SetWindow(w, nil, nil, nil, nil, nil, Msg.Window.RESIZABLE), 0)
-  self:Test(b:SetWindow(w, &e.super, nil, nil, nil, "Feather Test Changed", Msg.Window.RESIZABLE), 0)
-
-  self:Test(b:ProcessMessages() ~= 0, true)
 
   while b:ProcessMessages() ~= 0 and e.close == false do
     b:RequestAnimationFrame(w, 0)
@@ -216,30 +224,11 @@ terra TestHarness:TestBackend(dllpath : rawstring, binpath : rawstring, aa : B.A
   self:Test(true, true) -- ensure tests didn't crash
 end
 
-local target_backend = "fgOpenGL.dll"
-if jit.os == "Windows" then
-  if isdebug then
-    target_backend = "fgOpenGL_d.dll"
-  end
-else
-  target_backend = "libfgOpenGL.so"
-  if isdebug then
-    target_backend = "libfgOpenGL_d.so"
-  end
-end
-
-terra TestHarness:backendOGL()
-  self:TestBackend([target_backend], [".\\bin-x64\\" .. target_backend], B.AntiAliasing.AA)
-end
-
-if jit.os == "Windows" then
-  local target_d2d = "fgDirect2D.dll"
-  if isdebug then
-    target_d2d = "fgDirect2D_d.dll"
-  end
-
-  terra TestHarness:backendD2D()
-    self:TestBackend([target_d2d], [".\\bin-x64\\" .. target_d2d], B.AntiAliasing.LCD)
+terra TestHarness:TestBackends()
+  escape 
+    for i,v in ipairs(backends) do
+      emit(quote self:TestBackend([v], B.AntiAliasing.AA) end)
+    end
   end
 end
 

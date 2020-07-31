@@ -783,15 +783,9 @@ bool Backend::LogError(const char* call)
   return false;
 }
 
-#ifdef FG_DEBUG
-  #define FG_MAIN_FUNCTION fgOpenGL_d
-#else
-  #define FG_MAIN_FUNCTION fgOpenGL
-#endif
-
-extern "C" FG_COMPILER_DLLEXPORT FG_Backend* FG_MAIN_FUNCTION(void* root, FG_Log log, FG_Behavior behavior)
+extern "C" FG_COMPILER_DLLEXPORT FG_Backend* fgOpenGL(void* root, FG_Log log, FG_Behavior behavior)
 {
-  static_assert(std::is_same<FG_InitBackend, decltype(&(FG_MAIN_FUNCTION))>::value,
+  static_assert(std::is_same<FG_InitBackend, decltype(&fgOpenGL)>::value,
                 "fgOpenGL must match InitBackend function pointer");
 
 #ifdef FG_PLATFORM_WIN32
@@ -813,15 +807,15 @@ extern "C" FG_COMPILER_DLLEXPORT FG_Backend* FG_MAIN_FUNCTION(void* root, FG_Log
 #ifdef FG_PLATFORM_POSIX
     FcInit();
 #endif
+    glfwSetErrorCallback(&Backend::ErrorCallback);
 
     if(!glfwInit())
     {
-      (*log)(root, FG_Level_ERROR, "glfwInit() failed!");
+      (*log)(root, FG_Level_ERROR, "glfwInit() failed with %i! %s", Backend::_lasterr, Backend::_lasterrdesc);
       --Backend::_refcount;
       return nullptr;
     }
 
-    glfwSetErrorCallback(&Backend::ErrorCallback);
     glfwSetJoystickCallback(&Backend::JoystickCallback);
   }
 
