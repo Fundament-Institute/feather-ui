@@ -6,7 +6,7 @@ CXX_OBJS          	  := $(foreach rule,$(CXX_FILES:.cpp=.o),$(OPENGL_OBJDIR)/$(r
 C_OBJS          	  := $(foreach rule,$(C_FILES:.c=.o),$(OPENGL_OBJDIR)/$(rule))
 OPENGL_CPPFLAGS       := $(CPPFLAGS) -fPIC
 OPENGL_DEBUG_CPPFLAGS := $(CPPFLAGS) -g3 -fPIC
-LDFLAGS 			  := -lglfw -lharfbuzz -lfontconfig $(shell pkg-config --libs freetype2) -lSOIL
+LDFLAGS 			  := -lglfw -lharfbuzz -lfontconfig $(shell pkg-config --libs freetype2) -lSOIL -lGL
 .PHONY: all clean
 
 all: $(LIBDIR)/libfgOpenGL.so
@@ -16,7 +16,7 @@ clean:
 
 $(LIBDIR)/libfgOpenGL.so: $(CXX_OBJS) $(C_OBJS)
 	@mkdir -p $(LIBDIR)
-	$(CXX) $(LDFLAGS) $(CXX_OBJS) $(C_OBJS) -shared -o $@
+	$(CXX) $(CXX_OBJS) $(C_OBJS) $(LDFLAGS) -shared -o $@
 
 $(OPENGL_OBJDIR)/%.o: ./%.cpp
 	@mkdir -p $(OPENGL_OBJDIR)
