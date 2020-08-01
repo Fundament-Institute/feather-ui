@@ -158,7 +158,15 @@ terra MockElement:Behavior(w : &opaque, ui : &opaque, m : &M.Msg) : M.Result
   return M.DefaultBehavior(&self.super, w, ui, m)
 end
 
+function dumpfile(path)
+  local f = io.open(path, "rb")
+  local dump = f:read("*all")
+  f:close()
+  return dump
+end
+
 local TEST_TEXT = constant("testtext")
+local example_png = dumpfile("tests/example.png")
 
 terra TestHarness:TestBackend(dllpath : rawstring, aa : B.AntiAliasing)
   var fakeUI : &B.Backend = nil
@@ -175,7 +183,8 @@ terra TestHarness:TestBackend(dllpath : rawstring, aa : B.AntiAliasing)
   var textrect = F.Rect{array(0f,0f,1000f,700f)}
   var e = MockElement{Element{Element.virtual_initializer}}
   e.flags = Msg.Window.RESIZABLE
-  e.image = b:CreateAsset("../tests/example.png", 0, B.Format.PNG)
+  -- e.image = b:CreateAsset("../tests/example.png", 0, B.Format.PNG)
+  e.image = b:CreateAsset([constant(`example_png)], [#example_png], B.Format.PNG)
   e.font = b:CreateFont("Arial", 700, false, 16, F.Vec{array(96f, 96f)}, aa)
   e.layout = b:FontLayout(e.font, "Example Text!", &textrect, 16f, 0f, B.BreakStyle.NONE, nil);
   e.close = false

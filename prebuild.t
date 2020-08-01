@@ -22,5 +22,6 @@ Backend.Element = Element
 
 local f = io.open("include/backend.h", "wb")
 f:write(Export({short_name="FG", long_name="BACKEND"}, Backend))
+f:close()
 
 return 0
