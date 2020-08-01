@@ -224,7 +224,7 @@ terra LoadDynamicBackend(ui : &opaque, behavior : M.Behavior, log : B.Log, path 
     if name == nil then
       name = C.strrchr(path, ("/")[0])
     end
-    name = terralib.select(name == nil, path, name)
+    name = terralib.select(name == nil, path, name + 1)
 
     if C.strncmp(name, "lib", 3) == 0 then
       name = name + 3
@@ -248,9 +248,7 @@ terra LoadDynamicBackend(ui : &opaque, behavior : M.Behavior, log : B.Log, path 
 
   var f : B.InitBackend = [B.InitBackend](OS.LoadFunction(l, name))
 
-  if str ~= nil then
-    Alloc.free(str)
-  end
+  defer [terra (s : rawstring) : {} if s ~= nil then Alloc.free(s) end end](str)
 
   if f ~= nil then
     var b : &B.Backend = f(ui, log, behavior)
