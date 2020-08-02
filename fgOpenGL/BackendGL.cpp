@@ -7,6 +7,7 @@
 #include "linmath.h"
 #include "utf.h"
 #include <filesystem>
+#include "SOIL.h"
 #include "ft2build.h"
 #include FT_FREETYPE_H
 #include "freetype/freetype.h"
@@ -133,6 +134,7 @@ FG_Err Backend::DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Re
   GLuint tex   = context->LoadAsset(static_cast<Asset*>(asset));
 
   FG_Rect full = { 0, 0, (float)asset->size.x, (float)asset->size.y };
+
   if(!source)
     source = &full;
   ImageVertex v[4];
@@ -401,11 +403,30 @@ FG_Asset* Backend::CreateAsset(FG_Backend* self, const char* data, uint32_t coun
 {
   auto backend     = static_cast<Backend*>(self);
   size_t len       = !count ? strlen(data) + 1 : count;
-  Asset* asset     = reinterpret_cast<Asset*>(malloc(len + sizeof(Asset)));
-  asset->data.data = asset + 1;
-  MEMCPY(asset->data.data, len, data, len);
+  void* image;
+  int width, height, channels;
+  if(!count)
+    image = SOIL_load_image(data, &width, &height, &channels, SOIL_LOAD_AUTO);
+  else
+    image = SOIL_load_image_from_memory(reinterpret_cast<const unsigned char*>(data), count, &width, &height, &channels, SOIL_LOAD_AUTO);
+
+  if(!image)
+  {
+    (*backend->_log)(backend->_root, FG_Level_ERROR, "%s failed!", !count ? "SOIL_load_image" : "SOIL_load_image_from_memory");
+    return nullptr;
+  }
+
+  // We don't currently force channels, but if we do in the future this check needs to happen
+  //if( (force_channels >= 1) && (force_channels <= 4) )
+	//	channels = force_channels;
+
+  Asset* asset     = reinterpret_cast<Asset*>(malloc(sizeof(Asset)));
+  asset->data.data = image;
   asset->count  = count;
   asset->format = format;
+  asset->size.x = width;
+  asset->size.y = height;
+  asset->channels = channels;
   int r;
   kh_put_assets(backend->_assethash, asset, &r);
   return asset;
@@ -478,8 +499,9 @@ FG_Err Backend::PutClipboard(FG_Backend* self, void* window, FG_Clipboard kind, 
   if(kind != FG_Clipboard_TEXT)
     return -1;
 
+  _lasterr = 0;
   glfwSetClipboardString(reinterpret_cast<Context*>(window)->GetWindow(), data);
-  return 0;
+  return _lasterr;
 #endif
 }
 
@@ -538,6 +560,9 @@ uint32_t Backend::GetClipboard(FG_Backend* self, void* window, FG_Clipboard kind
   CloseClipboard();
   return (uint32_t)size;
 #else
+  if(kind != FG_Clipboard_TEXT)
+    return 0;
+
   auto str = glfwGetClipboardString(reinterpret_cast<Context*>(window)->GetWindow());
   if(target)
     strncpy(reinterpret_cast<char*>(target), str, count);
@@ -561,7 +586,13 @@ bool Backend::CheckClipboard(FG_Backend* self, void* window, FG_Clipboard kind)
   }
   return false;
 #else
-  return glfwGetClipboardString(reinterpret_cast<Context*>(window)->GetWindow()) != nullptr;
+  if(kind != FG_Clipboard_TEXT && kind != FG_Clipboard_ALL)
+    return false;
+
+  auto p = glfwGetClipboardString(reinterpret_cast<Context*>(window)->GetWindow());
+  if(!p)
+    return false;
+  return p[0] != 0;
 #endif
 }
 
@@ -575,8 +606,9 @@ FG_Err Backend::ClearClipboard(FG_Backend* self, void* window, FG_Clipboard kind
   CloseClipboard();
   return 0;
 #else
+  _lasterr = 0;
   glfwSetClipboardString(reinterpret_cast<Context*>(window)->GetWindow(), "");
-  return 0;
+  return _lasterr;
 #endif
 }
 

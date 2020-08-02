@@ -193,7 +193,7 @@ terra TestHarness:TestBackend(dllpath : rawstring, aa : B.AntiAliasing)
   var dim = F.Vec{array(800f,600f)}
   var w = b:CreateWindow(&e.super, nil, &pos, &dim, "Feather Test", e.flags, nil)
   
-  self:Test(b:SetCursor(w, B.Cursor.RESIZEALL), 0)
+  self:Test(b:SetCursor(w, B.Cursor.CROSS), 0)
   self:Test(b:RequestAnimationFrame(w, 0), 0)
 
   self:Test(b:SetWindow(w, nil, nil, nil, nil, nil, Msg.Window.RESIZABLE), 0)
