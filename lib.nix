@@ -42,6 +42,9 @@ let
       version = "1.16";
       src = ./deps/SOIL;
       buildInputs = [ pkgs.cmake pkgs.libglvnd pkgs.xorg.libX11 ];
+      postInstall = ''
+      mv $out/include/SOIL/* $out/include/
+      '';
     };
   freetype2 = pkgs.stdenv.mkDerivation {
       name = "Freetype2";

@@ -3,11 +3,7 @@
 
 #include "BackendGL.h"
 #include "linmath.h"
-#ifdef FG_PLATFORM_WIN32
 #include "SOIL.h"
-#else
-#include "SOIL/SOIL.h"
-#endif
 #include "Font.h"
 #include <algorithm>
 #include <assert.h>
@@ -214,7 +210,9 @@ void Context::_createVAO(Shader& shader, GLuint instance, GLuint* object, GLuint
 void Context::CreateResources()
 {
   glEnable(GL_BLEND);
+  _backend->LogError("glEnable");
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  _backend->LogError("glBlendFunc");
 
   _imageshader  = _backend->_imageshader.Create(_backend);
   _rectshader   = _backend->_rectshader.Create(_backend);
@@ -246,19 +244,25 @@ GLuint Context::LoadAsset(Asset* asset)
   if(iter < kh_end(_texhash) && kh_exist(_texhash, iter))
     return kh_val(_texhash, iter);
 
-  GLuint idx;
-  if(!asset->count)
-    idx = SOIL_load_OGL_texture((const char*)asset->data.data, SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
-  else
-    idx = SOIL_load_OGL_texture_from_memory((const unsigned char*)asset->data.data, asset->count, SOIL_LOAD_AUTO,
-                                            SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
+  GLuint idx = SOIL_create_OGL_texture((const unsigned char*)asset->data.data, asset->size.x, asset->size.y, asset->channels, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
+
+  if(!idx)
+  {
+    _backend->LogError("SOIL_create_OGL_texture");
+    (*_backend->_log)(_backend->_root, FG_Level_ERROR, "%s failed (returned 0).", "SOIL_create_OGL_texture");
+    return 0;
+  }
 
   int r;
   iter = kh_put_tex(_texhash, asset, &r);
   glBindTexture(GL_TEXTURE_2D, idx);
+  _backend->LogError("glBindTexture");
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  _backend->LogError("glTexParameteri");
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  _backend->LogError("glTexParameteri");
   glBindTexture(GL_TEXTURE_2D, 0);
+  _backend->LogError("glBindTexture");
 
   if(r >= 0)
     kh_val(_texhash, iter) = idx;
@@ -272,6 +276,7 @@ void Context::DestroyResources()
     {
       GLuint idx = kh_val(_texhash, i);
       glDeleteTextures(1, &idx);
+      _backend->LogError("glDeleteTextures");
     }
   }
   kh_clear_tex(_texhash);
@@ -282,6 +287,7 @@ void Context::DestroyResources()
     {
       GLuint idx = static_cast<GLuint>(kh_val(_fonthash, i) & 0xFFFFFFFF);
       glDeleteTextures(1, &idx);
+      _backend->LogError("glDeleteTextures");
     }
   }
   kh_clear_font(_fonthash);

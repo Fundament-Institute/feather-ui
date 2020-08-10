@@ -19,6 +19,7 @@ namespace GL {
   {
     uint32_t count;
     uint32_t element;
+    int channels;
   };
 
   struct QuadVertex
