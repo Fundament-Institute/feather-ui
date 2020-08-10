@@ -38,6 +38,20 @@ Vec = terralib.memoize(function(T, N)
     return not [s.metamethods.__eq](a, b)
   end
 
+  terra s:norm() : s
+    var length = 0
+    var normalized : s
+    escape
+      for i = 0,(N - 1) do
+        emit(quote length = length + self.v[i] * self.v[i] end)
+      end
+      for i = 0,(N - 1) do
+        emit(quote normalized.v[i] = self.v[i] / length end)
+      end
+    end
+    return normalized
+  end
+
   local lookups = {x = 0, y = 1, z = 2, w = 3 }
   s.metamethods.__entrymissing = macro(function(entryname, expr)
     if #entryname > 1 then

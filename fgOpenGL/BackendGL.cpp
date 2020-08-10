@@ -51,8 +51,21 @@ void Backend::_flushbatchdraw(Backend* backend, Context* context, Font* font)
   backend->LogError("glDisable");
 }
 
+float* GetRotationMatrix(mat4x4& m, float rotate, float z, mat4x4& proj)
+{
+  if(rotate != 0.0f || z != 0.0f)
+  {
+    mat4x4_translate(m, 0, 0, z);
+    mat4x4_rotate_Z(m, m, rotate);
+    mat4x4_mul(m, m, proj);
+    return (float*)m;
+  }
+
+  return (float*)proj;
+}
+
 FG_Err Backend::DrawTextGL(FG_Backend* self, void* window, FG_Font* fgfont, void* textlayout, FG_Rect* area, FG_Color color,
-                           float blur)
+                           float blur, float rotate, float z)
 {
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(window);
@@ -67,7 +80,8 @@ FG_Err Backend::DrawTextGL(FG_Backend* self, void* window, FG_Font* fgfont, void
   glBindBuffer(GL_ARRAY_BUFFER, context->_imagebuffer);
   backend->LogError("glBindBuffer");
 
-  Attribute MVP("MVP", GL_FLOAT_MAT4, (float*)context->proj);
+  mat4x4 mv;
+  Attribute MVP("MVP", GL_FLOAT_MAT4, GetRotationMatrix(mv, rotate, z, context->proj));
   Shader::SetUniform(backend, context->_imageshader, MVP);
 
   float dim  = (1 << font->GetSizePower());
@@ -126,7 +140,7 @@ FG_Err Backend::DrawTextGL(FG_Backend* self, void* window, FG_Font* fgfont, void
 }
 
 FG_Err Backend::DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Rect* area, FG_Rect* source, FG_Color color,
-                          float time)
+                          float time, float rotate, float z)
 {
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(window);
@@ -141,7 +155,8 @@ FG_Err Backend::DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Re
   for(int i = 0; i < 4; ++i)
     ColorFloats(color, v[i].color);
 
-  Attribute MVP("MVP", GL_FLOAT_MAT4, (float*)context->proj);
+  mat4x4 mv;
+  Attribute MVP("MVP", GL_FLOAT_MAT4, GetRotationMatrix(mv, rotate, z, context->proj));
 
   glUseProgram(context->_imageshader);
   backend->LogError("glUseProgram");
@@ -169,24 +184,41 @@ FG_Err Backend::DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Re
   return glGetError();
 }
 
-void Backend::GenTransform(float (&target)[4][4], const FG_Rect& area)
+void Backend::GenTransform(float (&target)[4][4], const FG_Rect& area, float rotate, float z)
 {
-  // mat4x4_translate(v, area->left, area->top, 0);
+  // mat4x4_translate(v, area->left, area->top, z);
   // mat4x4_scale_aniso(mv, v, area->right - area->left, area->bottom - area->top, 1);
+  // mat4x4_rotate_Z(target, target, rotate);
   memset(target, 0, sizeof(float) * 4 * 4);
+
   target[0][0] = area.right - area.left;
   target[1][1] = area.bottom - area.top;
   target[2][2] = 1.0f;
   target[3][3] = 1.0f;
-  target[3][0] = area.left;
-  target[3][1] = area.top;
+  if(rotate != 0.0f)
+  {
+    float w      = target[0][0] / 2;
+    float h      = target[1][1] / 2;
+    target[3][0] = -w;
+    target[3][1] = -h;
+    float s      = sinf(rotate);
+    float c      = cosf(rotate);
+    mat4x4 R     = { { c, s, 0.f, 0.f }, { -s, c, 0.f, 0.f }, { 0.f, 0.f, 1.f, 0.f }, { 0.f, 0.f, 0.f, 1.f } };
+    mat4x4_mul(target, R, target);
+    target[3][0] += w;
+    target[3][1] += h;
+  }
+
+  target[3][0] += area.left;
+  target[3][1] += area.top;
+  target[3][2] = z;
 }
 
 void Backend::_drawStandard(GLuint shader, GLuint vao, float (&proj)[4][4], const FG_Rect& area, const FG_Rect& corners,
-                            FG_Color fillColor, float border, FG_Color borderColor, float blur)
+                            FG_Color fillColor, float border, FG_Color borderColor, float blur, float rotate, float z)
 {
   mat4x4 mvp;
-  GenTransform(mvp, area);
+  GenTransform(mvp, area, rotate, z);
   mat4x4_mul(mvp, proj, mvp);
   Attribute MVP("MVP", GL_FLOAT_MAT4, (float*)mvp);
   Attribute DimBorderBlur("DimBorderBlur", GL_FLOAT_VEC4);
@@ -205,31 +237,31 @@ void Backend::_drawStandard(GLuint shader, GLuint vao, float (&proj)[4][4], cons
 }
 
 FG_Err Backend::DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor, float border,
-                         FG_Color borderColor, float blur, FG_Asset* asset)
+                         FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z)
 {
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(window);
   backend->_drawStandard(context->_rectshader, context->_quadobject, context->proj, *area, *corners, fillColor, border,
-                         borderColor, blur);
+                         borderColor, blur, rotate, z);
   return glGetError();
 }
 
 FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* arcs, FG_Color fillColor, float border,
-                           FG_Color borderColor, float blur, FG_Asset* asset)
+                           FG_Color borderColor, float blur, FG_Asset* asset, float z)
 {
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(window);
   backend->_drawStandard(context->_circleshader, context->_quadobject, context->proj, *area, *arcs, fillColor, border,
-                         borderColor, blur);
+                         borderColor, blur, 0.0f, z);
   return glGetError();
 }
 FG_Err Backend::DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
-                             float border, FG_Color borderColor, float blur, FG_Asset* asset)
+                             float border, FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z)
 {
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(window);
   backend->_drawStandard(context->_trishader, context->_quadobject, context->proj, *area, *corners, fillColor, border,
-                         borderColor, blur);
+                         borderColor, blur, rotate, z);
   return glGetError();
 }
 

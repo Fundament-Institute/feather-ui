@@ -35,39 +35,58 @@ Window* Backend::FromHWND(void* p)
   return reinterpret_cast<Window*>(GetWindowLongPtrW(reinterpret_cast<HWND>(p), GWLP_USERDATA));
 }
 
-FG_Err Backend::DrawTextD2D(FG_Backend* self, void* window, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Color color, float blur)
+void Backend::PushRotate(D2D::Window* context, float rotate, const FG_Rect& area)
+{
+  if(rotate != 0.0f)
+    context->PushTransform(
+      D2D1::Matrix3x2F::Rotation(rotate * (180.0f / PI), D2D1::Point2F((area.left + area.right) / 2, (area.top + area.bottom) / 2)));
+}
+
+void Backend::PopRotate(D2D::Window* context, float rotate)
+{
+  if(rotate != 0.0f)
+    context->PopTransform();
+}
+
+FG_Err Backend::DrawTextD2D(FG_Backend* self, void* window, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Color color,
+                            float blur, float rotate, float z)
 {
   if(!fontlayout)
     return -1;
   auto instance = static_cast<Backend*>(self);
   auto context  = FromHWND(window);
 
+  PushRotate(context, rotate, *area);
   IDWriteTextLayout* layout = (IDWriteTextLayout*)fontlayout;
   context->color->SetColor(ToD2Color(color.v));
   layout->SetMaxWidth(area->right - area->left);
   layout->SetMaxHeight(area->bottom - area->top);
   context->target->DrawTextLayout(D2D1::Point2F(area->left, area->top), layout, context->color,
                                   D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
+  PopRotate(context, rotate);
 
   return 0;
 }
 
 template<int N, typename Arg, typename... Args>
-inline FG_Err Backend::DrawEffect(const Window* ctx, ID2D1Effect* effect, const FG_Rect& area, const Arg arg,
+inline FG_Err Backend::DrawEffect(Window* ctx, ID2D1Effect* effect, const FG_Rect& area, float rotate, const Arg arg,
                                   const Args&... args)
 {
   effect->SetValue<Arg, int>(N, arg);
   if constexpr(sizeof...(args) > 0)
-    return DrawEffect<N + 1, Args...>(ctx, effect, area, args...);
+    return DrawEffect<N + 1, Args...>(ctx, effect, area, rotate, args...);
 
+  PushRotate(ctx, rotate, area);
   D2D1_RECT_F rect = D2D1::RectF(area.left, area.top, area.right, area.bottom);
   ctx->context->DrawImage(effect, &D2D1::Point2F(area.left, area.top), &rect, D2D1_INTERPOLATION_MODE_LINEAR,
                           D2D1_COMPOSITE_MODE_SOURCE_OVER);
+  PopRotate(ctx, rotate);
+
   return 0;
 }
 
 FG_Err Backend::DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Rect* area, FG_Rect* source, FG_Color color,
-                          float time)
+                          float time, float rotate, float z)
 {
   auto instance = static_cast<Backend*>(self);
   auto context  = FromHWND(window);
@@ -85,6 +104,7 @@ FG_Err Backend::DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Re
 
   auto scale = D2D1::Vector2F((rect.right - rect.left) / (uvresolve.right - uvresolve.left),
                               (rect.bottom - rect.top) / (uvresolve.bottom - uvresolve.top));
+  PushRotate(context, rotate, *area);
   if(scale.x == 1.0f && scale.y == 1.0f)
     context->target->DrawBitmap(bitmap, rect, color.a / 255.0f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, &uvresolve);
   else
@@ -98,43 +118,45 @@ FG_Err Backend::DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Re
                                             ceilf(uvresolve.right * scale.x), ceilf(uvresolve.bottom * scale.y + 1.0f)));
   }
 
+  PopRotate(context, rotate);
   bitmap->Release();
   return 0;
 }
 
 FG_Err Backend::DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor, float border,
-                         FG_Color borderColor, float blur, FG_Asset* asset)
+                         FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z)
 {
   auto context = FromHWND(window);
   fgassert(context != 0);
   fgassert(context->target != 0);
   FG_Rect expand = { area->left - blur, area->top - blur, area->right + blur, area->bottom + blur };
 
-  DrawEffect<0>(context, context->roundrect, expand, D2D1::Vector4F(expand.left, expand.top, expand.right, expand.bottom),
+  DrawEffect<0>(context, context->roundrect, expand, rotate,
+                D2D1::Vector4F(expand.left, expand.top, expand.right, expand.bottom),
                 D2D1::Vector4F(corners->left, corners->top, corners->right, corners->bottom), fillColor, borderColor,
                 border, blur);
   return 0;
 }
 
 FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* arcs, FG_Color fillColor, float border,
-                           FG_Color borderColor, float blur, FG_Asset* asset)
+                           FG_Color borderColor, float blur, FG_Asset* asset, float z)
 {
   auto context = FromHWND(window);
   fgassert(context != 0);
   fgassert(context->target != 0);
 
-  DrawEffect<0>(context, context->circle, *area, D2D1::Vector4F(area->left, area->top, area->right, area->bottom),
+  DrawEffect<0>(context, context->circle, *area, 0.0f, D2D1::Vector4F(area->left, area->top, area->right, area->bottom),
                 D2D1::Vector4F(arcs->left, arcs->top, arcs->right, arcs->bottom), fillColor, borderColor, border, blur);
   return 0;
 }
 FG_Err Backend::DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
-                             float border, FG_Color borderColor, float blur, FG_Asset* asset)
+                             float border, FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z)
 {
   auto context = FromHWND(window);
   fgassert(context != 0);
   fgassert(context->target != 0);
 
-  DrawEffect<0>(context, context->triangle, *area, D2D1::Vector4F(area->left, area->top, area->right, area->bottom),
+  DrawEffect<0>(context, context->triangle, *area, rotate, D2D1::Vector4F(area->left, area->top, area->right, area->bottom),
                 D2D1::Vector4F(corners->left, corners->top, corners->right, corners->bottom), fillColor, borderColor,
                 border, blur);
   return 0;
@@ -168,7 +190,7 @@ FG_Err Backend::PushLayer(FG_Backend* self, void* window, FG_Rect* area, float* 
   context->layers.push(reinterpret_cast<ID2D1Layer*>(cache));
 
   // TODO: Properly project 3D transform into 2D transform
-  context->target->SetTransform(
+  context->PushTransform(
     D2D1::Matrix3x2F(transform[0], transform[1], transform[4], transform[5], transform[3], transform[7]));
 
   // We only need a proper layer if we are doing opacity, otherwise the transform is sufficient
@@ -201,10 +223,11 @@ void* Backend::PopLayer(FG_Backend* self, void* window)
     return nullptr;
   auto context = FromHWND(window);
   auto p       = context->layers.top();
+  context->PopClip();
   context->layers.pop();
   if(p)
     context->target->PopLayer();
-  context->PopClip();
+  context->PopTransform();
 
   return p;
 }
@@ -370,7 +393,7 @@ void* Backend::FontLayout(FG_Backend* self, FG_Font* font, const char* text, FG_
     area->bottom = area->top + metrics.height;
   layout->SetMaxWidth(area->right - area->left);
   layout->SetMaxHeight(area->bottom - area->top);
-  
+
   switch(breakStyle)
   {
   case FG_BreakStyle_NONE: layout->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP); break;
@@ -776,7 +799,7 @@ FG_Err Backend::BeginDraw(FG_Backend* self, void* window, FG_Rect* area, bool cl
   Window* ptr = reinterpret_cast<Window*>(GetWindowLongPtrW(reinterpret_cast<HWND>(window), GWLP_USERDATA));
   if(!ptr)
     return -1;
-  ptr->BeginDraw(reinterpret_cast<HWND>(window), *area, clear);
+  ptr->BeginDraw(*area, clear);
   return 0;
 }
 FG_Err Backend::EndDraw(FG_Backend* self, void* window)
@@ -883,8 +906,10 @@ FG_Result Backend::Behavior(Window* w, FG_Msg& msg) { return (*_behavior)(w->ele
 
 FG_Err Backend::RequestAnimationFrame(FG_Backend* self, void* window, unsigned long long microdelay)
 {
+  reinterpret_cast<Window*>(GetWindowLongPtrW(reinterpret_cast<HWND>(window), GWLP_USERDATA))->InvalidateHWND();
   // if(context->nextframe < 0 || context->nextframe > microdelay)
   //  context->nextframe = microdelay;
+  
   return 0;
 }
 

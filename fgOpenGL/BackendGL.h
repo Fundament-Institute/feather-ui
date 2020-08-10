@@ -35,15 +35,15 @@ namespace GL {
     bool LogError(const char* call);
 
     static FG_Err DrawTextGL(FG_Backend* self, void* window, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Color color,
-                             float blur);
+                             float blur, float rotate, float z);
     static FG_Err DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Rect* area, FG_Rect* source, FG_Color color,
-                            float time);
+                            float time, float rotate, float z);
     static FG_Err DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
-                           float border, FG_Color borderColor, float blur, FG_Asset* asset);
+                           float border, FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z);
     static FG_Err DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* arcs, FG_Color fillColor, float border,
-                             FG_Color borderColor, float blur, FG_Asset* asset);
+                             FG_Color borderColor, float blur, FG_Asset* asset, float rotate);
     static FG_Err DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
-                               float border, FG_Color borderColor, float blur, FG_Asset* asset);
+                               float border, FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z);
     static FG_Err DrawLines(FG_Backend* self, void* window, FG_Vec* points, uint32_t count, FG_Color color);
     static FG_Err DrawCurve(FG_Backend* self, void* window, FG_Vec* anchors, uint32_t count, FG_Color fillColor,
                             float stroke, FG_Color strokeColor);
@@ -83,7 +83,7 @@ namespace GL {
     static void ErrorCallback(int error, const char* description);
     static void JoystickCallback(int id, int connected);
     static void ColorFloats(const FG_Color& c, float (&colors)[4]);
-    static void GenTransform(float (&target)[4][4], const FG_Rect& area);
+    static void GenTransform(float (&target)[4][4], const FG_Rect& area, float rotate, float z);
 
     FG_Log _log;
     void* _root;
@@ -138,7 +138,7 @@ namespace GL {
       v[3].posUV[3] = uv.right / x;
     }
     void _drawStandard(GLuint shader, GLuint vao, float (&proj)[4][4], const FG_Rect& area, const FG_Rect& corners,
-                       FG_Color fillColor, float border, FG_Color borderColor, float blur);
+                       FG_Color fillColor, float border, FG_Color borderColor, float blur, float rotate, float z);
     static void _flushbatchdraw(Backend* backend, Context* context, Font* font);
     
     FG_Behavior _behavior;

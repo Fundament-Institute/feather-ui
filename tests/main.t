@@ -15,7 +15,7 @@ local List = require 'terralist'
 local Object = require 'std.object'
 local Alloc = require 'std.alloc'
 local P = require 'feather.partitioner'
-local SimplePartition = require 'feather.partition_simple'
+local RTree = require 'feather.rtree'
 local Math = require 'std.math'
 local Element = require 'feather.element'
 local V = require 'feather.virtual'
@@ -125,21 +125,21 @@ terra MockElement:Behavior(w : &opaque, ui : &opaque, m : &M.Msg) : M.Result
     var b = @[&&B.Backend](ui)
     var r = F.Rect{array(50f, 100f, 200f, 300f)}
     var c = F.Rect{array(0f, 4f, 8f, 12f)}
-    b:DrawRect(w, &r, &c, 0xFF0000FF, 5.0f, 0xFF00FFFF, 0.0f, nil)
+    b:DrawRect(w, &r, &c, 0xFF0000FF, 5f, 0xFF00FFFF, 0f, nil, 0f, 0f)
 
     var r2 = F.Rect{array(350f, 100f, 500f, 300f)}
     var c2 = F.Rect{array(0f, 4f, 8f, 12f)}
-    b:DrawCircle(w, &r2, &c2, 0xFF0000FF, 5.0f, 0xFF00FFFF, 0.0f, nil)
+    b:DrawCircle(w, &r2, &c2, 0xFF0000FF, 5f, 0xFF00FFFF, 0f, nil, 0f)
     
     var r3 = F.Rect{array(150f, 300f, 300f, 500f)}
     var c3 = F.Rect{array(0f, 4f, 8f, 0.5f)}
-    b:DrawTriangle(w, &r3, &c3, 0xFF0000FF, 5.0f, 0xFF00FFFF, 0.0f, nil)
+    b:DrawTriangle(w, &r3, &c3, 0xFF0000FF, 5f, 0xFF00FFFF, 0f, nil, 0.45f, 0f)
 
     var r4 = F.Rect{array(300f, 300f, 620f, 580f)}
-    b:DrawAsset(w, self.image, &r4, nil, 0xFFFFFFFF, 0f)
+    b:DrawAsset(w, self.image, &r4, nil, 0xFFFFFFFF, 0f, 0f, 0f)
 
     var r5 = F.Rect{array(200f, 10f, 550f, 40f)}
-    b:DrawText(w, self.font, self.layout, &r5, 0xFFFFFFFF, 0.0f)
+    b:DrawText(w, self.font, self.layout, &r5, 0xFFFFFFFF, 0f, 0f, 0f)
     return M.Result{0}
   end
   if m.kind.val == [Element.virtualinfo.info["GetWindowFlags"].index] then
@@ -716,14 +716,15 @@ terra TestHarness:switchstat()
   self:Test(a, 9)
 end
 
-P(SimplePartition)
+local RTreeDefault = RTree(Alloc.libc_allocator)
+P(RTreeDefault)
 
-terra testquery(n : &SimplePartition.Node, i : int) : bool return true end
+terra testquery(n : &RTreeDefault.Node, p : &F.Vec3D, r : &F.Vec3D, i : int) : bool return true end
 
 terra TestHarness:partition()
-  var simple : SimplePartition
+  var simple : RTreeDefault
   simple:init()
-  simple:orthoquery(F.Vec{array(3.0f,4.0f)}, 3, testquery)
+  simple:query(F.Vec3D{array(3.0f,4.0f,0.0f)}, F.Vec3D{array(0.0f,0.0f,1.0f)}, 3, testquery)
   simple:destruct()
 end
 

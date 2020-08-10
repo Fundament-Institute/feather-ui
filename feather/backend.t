@@ -122,6 +122,30 @@ struct B.Asset {
   format : B.Format
 }
 
+B.ShaderType = Enum{
+  "HALF",
+  "FLOAT",
+  "DOUBLE",
+  "INT",
+  "UINT",
+  "COLOR32",
+  "TEXTURE",
+  "TEXCUBE",
+}
+
+struct B.ShaderParameter {
+  type : B.ShaderType
+  length : uint -- for arrays
+  multi : uint -- for matrices, or to indicate TEX1D, TEX2D, TEX3D
+  name : rawstring
+}
+
+struct B.Shader {
+  data : &opaque
+  parameters : &B.ShaderParameter
+  n_parameters : uint
+}
+
 struct B.Display {
   size : F.Veci
   offset : F.Veci
@@ -143,13 +167,14 @@ struct B.Backend {
 }
 
 -- Define a dynamic backend object (a static backend would be a seperate type that also provides these functions).
-terra B.Backend:DrawText(window : &opaque, font : &B.Font, layout : &opaque, area : &F.Rect, color : F.Color, blur : float) : F.Err return 0 end
-terra B.Backend:DrawAsset(window : &opaque, asset : &B.Asset, area : &F.Rect, source : &F.Rect, color : F.Color, time : float) : F.Err return 0 end
-terra B.Backend:DrawRect(window : &opaque, area : &F.Rect, corners : &F.Rect, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, asset : &B.Asset) : F.Err return 0 end
-terra B.Backend:DrawCircle(window : &opaque, area : &F.Rect, arcs : &F.Rect, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, asset : &B.Asset) : F.Err return 0 end
-terra B.Backend:DrawTriangle(window : &opaque, area : &F.Rect, corners : &F.Rect, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, asset : &B.Asset) : F.Err return 0 end
+terra B.Backend:DrawText(window : &opaque, font : &B.Font, layout : &opaque, area : &F.Rect, color : F.Color, blur : float, rotate : float, z : float) : F.Err return 0 end
+terra B.Backend:DrawAsset(window : &opaque, asset : &B.Asset, area : &F.Rect, source : &F.Rect, color : F.Color, time : float, rotate : float, z : float) : F.Err return 0 end
+terra B.Backend:DrawRect(window : &opaque, area : &F.Rect, corners : &F.Rect, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, asset : &B.Asset, rotate : float, z : float) : F.Err return 0 end
+terra B.Backend:DrawCircle(window : &opaque, area : &F.Rect, arcs : &F.Rect, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, asset : &B.Asset, z : float) : F.Err return 0 end
+terra B.Backend:DrawTriangle(window : &opaque, area : &F.Rect, corners : &F.Rect, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, asset : &B.Asset, rotate : float, z : float) : F.Err return 0 end
 terra B.Backend:DrawLines(window : &opaque, points : &F.Vec, count : uint, color : F.Color) : F.Err return 0 end
 terra B.Backend:DrawCurve(window : &opaque, anchors : &F.Vec, count : uint, fillColor : F.Color, stroke : float, strokeColor : F.Color) : F.Err return 0 end
+terra B.Backend:DrawShader(window : &opaque, shader : &B.Shader, asset : &B.Asset, ...) : F.Err return 0 end
 terra B.Backend:PushLayer(window : &opaque, area : &F.Rect, transform : &float, opacity : float, cache : &opaque) : F.Err return 0 end
 terra B.Backend:PopLayer(window : &opaque) : &opaque return nil end
 terra B.Backend:DestroyLayer(window : &opaque, layer : &opaque) : F.Err return 0 end
@@ -158,6 +183,9 @@ terra B.Backend:PopClip(window : &opaque) : F.Err return 0 end
 terra B.Backend:DirtyRect(window : &opaque, layer : &opaque, area : &F.Rect) : F.Err return 0 end
 terra B.Backend:BeginDraw(window : &opaque, area : &F.Rect, clear : bool) : F.Err return 0 end
 terra B.Backend:EndDraw(window : &opaque) : F.Err return 0 end
+
+terra B.Backend:CreateShader(ps : rawstring, vs : rawstring, gs : rawstring, cs : rawstring, ds : rawstring, hs : rawstring, parameters : &B.ShaderParameter, n_parameters : uint) : &B.Shader return nil end
+terra B.Backend:DestroyShader(shader : &B.Shader) : F.Err return 0 end
 
 terra B.Backend:CreateFont(family : F.conststring, weight : uint16, italic : bool, pt : uint32, dpi : F.Vec, aa : B.AntiAliasing) : &B.Font return nil end
 terra B.Backend:DestroyFont(font : &B.Font) : F.Err return 0 end
@@ -196,7 +224,11 @@ do
 
   for k, v in pairs(map) do
     local args = v.type.parameters:map(symbol)
-    v:resetdefinition(terra([args]): v.type.returntype return [args[1]].[k]([args]) end)
+    if v.type.isvararg then
+      v:resetdefinition(terra([args], ...): v.type.returntype return [args[1]].[k]([args]) end)
+    else
+      v:resetdefinition(terra([args]): v.type.returntype return [args[1]].[k]([args]) end)
+    end
   end
 end
 

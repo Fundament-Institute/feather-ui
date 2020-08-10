@@ -20,14 +20,8 @@ limitations under the License.
 #include "Window.h"
 #include <vector>
 
-struct ID2D1Factory1;
-struct IWICImagingFactory;
 struct IDWriteFactory1;
-struct IWICFormatConverter;
 struct _DWM_BLURBEHIND;
-struct HDC__;
-struct D2D1_HWND_RENDER_TARGET_PROPERTIES;
-struct D2D1_RENDER_TARGET_PROPERTIES;
 
 typedef long(__stdcall* DWMCOMPENABLE)(int*);
 typedef long(__stdcall* DWMBLURBEHIND)(struct HWND__*, const struct _DWM_BLURBEHIND*);
@@ -48,15 +42,15 @@ namespace D2D {
     uint16_t GetTouchIndex(unsigned long index, bool up);
 
     static FG_Err DrawTextD2D(FG_Backend* self, void* window, FG_Font* font, void* fontlayout, FG_Rect* area,
-                              FG_Color color, float blur);
+                              FG_Color color, float blur, float rotate, float z);
     static FG_Err DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Rect* area, FG_Rect* source, FG_Color color,
-                            float time);
+                            float time, float rotate, float z);
     static FG_Err DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
-                           float border, FG_Color borderColor, float blur, FG_Asset* asset);
+                           float border, FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z);
     static FG_Err DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* arcs, FG_Color fillColor, float border,
-                             FG_Color borderColor, float blur, FG_Asset* asset);
+                             FG_Color borderColor, float blur, FG_Asset* asset, float z);
     static FG_Err DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
-                               float border, FG_Color borderColor, float blur, FG_Asset* asset);
+                               float border, FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z);
     static FG_Err DrawLines(FG_Backend* self, void* window, FG_Vec* points, uint32_t count, FG_Color color);
     static FG_Err DrawCurve(FG_Backend* self, void* window, FG_Vec* anchors, uint32_t count, FG_Color fillColor,
                             float stroke, FG_Color strokeColor);
@@ -93,7 +87,8 @@ namespace D2D {
     static FG_Err DestroyWindow(FG_Backend* self, void* window);
     static FG_Err BeginDraw(FG_Backend* self, void* window, FG_Rect* area, bool clear);
     static FG_Err EndDraw(FG_Backend* self, void* window);
-
+    static void PushRotate(D2D::Window* context, float rotate, const FG_Rect& area);
+    static void PopRotate(D2D::Window* context, float rotate);
     DWMBLURBEHIND dwmblurbehind;
     FG_Log _log;
     void* _root;
@@ -105,8 +100,8 @@ namespace D2D {
     static int __stdcall EnumerateMonitorsProc(struct HMONITOR__* monitor, struct HDC__* hdc, struct tagRECT*,
                                                longptr_t lparam);
     template<int N, typename Arg, typename... Args>
-    static inline FG_Err DrawEffect(const Window* ctx, ID2D1Effect* effect, const FG_Rect& area, const Arg arg,
-                                    const Args&... args);
+    static inline FG_Err DrawEffect(Window* ctx, ID2D1Effect* effect, const FG_Rect& area, float rotate,
+                                    const Arg arg, const Args&... args);
     static Window* FromHWND(void* p);
 
     ID2D1Factory1* _factory;

@@ -3,8 +3,6 @@
 
 #include "Window.h"
 #include "BackendD2D.h"
-#include "win32_includes.h"
-#include <d2d1_1.h>
 #include <dwmapi.h>
 #include <Windowsx.h>
 #include <wincodec.h>
@@ -140,7 +138,7 @@ longptr_t __stdcall Window::WndProc(HWND__* hWnd, unsigned int message, size_t w
         self->backend->Behavior(self, msg);
         break;
       }
-      self->ApplyWin32Size(hWnd);
+      self->ApplyWin32Size();
       break;
     }
     case WM_NCHITTEST: // TODO: Make this a custom message passed to the window behavior
@@ -375,14 +373,13 @@ FG_Err Window::PopClip()
   return 0;
 }
 
-void Window::BeginDraw(HWND handle, const FG_Rect& area, bool clear)
+void Window::BeginDraw(const FG_Rect& area, bool clear)
 {
   invalid = true;
-  CreateResources(handle);
+  CreateResources();
   target->BeginDraw();
   if(clear)
     target->Clear(D2D1::ColorF(0, 0));
-  // target->SetTransform(D2D1::Matrix3x2F::Translation(-area.left, -area.top));
   PushClip(area);
 }
 
@@ -394,16 +391,16 @@ void Window::EndDraw()
   invalid = false;
 }
 
-void Window::CreateResources(HWND handle)
+void Window::CreateResources()
 {
   if(!target)
   {
     RECT rc;
-    GetClientRect(handle, &rc);
+    GetClientRect(hWnd, &rc);
     HRESULT hr = backend->CreateHWNDTarget(
       D2D1::RenderTargetProperties(D2D1_RENDER_TARGET_TYPE_DEFAULT,
                                    D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED)),
-      D2D1::HwndRenderTargetProperties(handle, D2D1::SizeU(rc.right - rc.left, rc.bottom - rc.top)), &target);
+      D2D1::HwndRenderTargetProperties(hWnd, D2D1::SizeU(rc.right - rc.left, rc.bottom - rc.top)), &target);
 
     if(SUCCEEDED(hr))
     {
@@ -564,17 +561,17 @@ size_t Window::SetChar(int key, unsigned long time)
   return backend->Behavior(this, evt).keyChar;
 }
 
-void Window::ApplyWin32Size(HWND__* handle)
+void Window::ApplyWin32Size()
 {
   RECT r;
 
-  if(SUCCEEDED(GetWindowRect(handle, &r)))
+  if(SUCCEEDED(GetWindowRect(hWnd, &r)))
   {
     auto flags = backend->Behavior(this, FG_Msg{ FG_Kind_GETWINDOWFLAGS }).getWindowFlags;
     if(flags & FG_Window_MAXIMIZED)
     {
       RECT rsize = r;
-      AdjustWindowRectEx(&rsize, GetWindowLong(handle, GWL_STYLE), FALSE, GetWindowLong(handle, GWL_EXSTYLE));
+      AdjustWindowRectEx(&rsize, GetWindowLong(hWnd, GWL_STYLE), FALSE, GetWindowLong(hWnd, GWL_EXSTYLE));
       margin = { static_cast<float>(rsize.right - r.right), static_cast<float>(rsize.bottom - r.bottom),
                  static_cast<float>(rsize.right - r.right), static_cast<float>(rsize.bottom - r.bottom) };
     }
@@ -670,7 +667,7 @@ size_t Window::SetMouseScroll(FG_Vec& points, uint16_t x, uint16_t y, unsigned l
   return backend->Behavior(this, evt).mouseScroll;
 }
 
-void Window::InvalidateHWND(HWND__* hWnd)
+void Window::InvalidateHWND()
 {
   if(!invalid)
   {
@@ -716,4 +713,17 @@ void Window::DiscardAsset(const Asset* p)
     kh_val(assets, iter)->Release();
     kh_del_wic(assets, iter);
   }
+}
+
+void Window::PushTransform(const D2D_MATRIX_3X2_F& m)
+{
+  D2D1::Matrix3x2F old;
+  context->GetTransform(&old);
+  transforms.push(old * m);
+  context->SetTransform(transforms.top());
+}
+void Window::PopTransform()
+{
+  transforms.pop();
+  context->SetTransform(transforms.empty() ? D2D1::IdentityMatrix() : transforms.top());
 }

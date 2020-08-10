@@ -7,22 +7,12 @@
 #include "CompactArray.h"
 #include "khash.h"
 #include "backend.h"
+#include "win32_includes.h"
+#include <d2d1_1.h>
 #include <stack>
 #include <vector>
 
 //#define TEST_DPI 120
-
-struct HWND__;
-struct tagRECT;
-struct tagPOINTS;
-struct ID2D1HwndRenderTarget;
-struct ID2D1SolidColorBrush;
-struct ID2D1Effect;
-struct ID2D1DeviceContext;
-struct ID2D1Bitmap;
-struct ID2D1Layer;
-struct HMONITOR__;
-struct tagTOUCHINPUT;
 
 #if defined(_WIN64)
 typedef long long longptr_t;
@@ -57,6 +47,7 @@ namespace D2D {
     Backend* backend;
     FG_Rect margin; // When maximized, the actual window area is larger than what we need to draw on, so we must compensate
     std::stack<ID2D1Layer*> layers;
+    std::stack<D2D_MATRIX_3X2_F> transforms;
     struct kh_wic_s* assets;
     FG_Vec dpi; // The DPI should always be per-display, but windows is insane so we must be prepared to override this.
 
@@ -66,10 +57,10 @@ namespace D2D {
     Window(Backend* backend, FG_Element* element, FG_Vec* pos, FG_Vec* dim, uint64_t flags, const char* caption,
            void* context);
     ~Window();
-    void CreateResources(HWND__* handle);
+    void CreateResources();
     void DiscardResources();
     void DiscardAsset(const Asset* p);
-    void BeginDraw(HWND__* handle, const FG_Rect& area, bool clear);
+    void BeginDraw(const FG_Rect& area, bool clear);
     void EndDraw();
     void SetCaption(const char* caption);
     void SetArea(FG_Vec* pos, FG_Vec* dim);
@@ -79,13 +70,15 @@ namespace D2D {
     size_t SetMouse(FG_Vec& points, FG_Kind type, unsigned char button, size_t wparam, unsigned long time);
     size_t SetMouseScroll(FG_Vec& points, uint16_t x, uint16_t y, unsigned long time);
     size_t SetTouch(tagTOUCHINPUT& input);
-    void InvalidateHWND(HWND__* hWnd);
+    void InvalidateHWND();
     ID2D1Bitmap* GetBitmapFromSource(const Asset* p);
     HWND__* WndCreate(FG_Vec* pos, FG_Vec* dim, unsigned long style, uint32_t exflags, void* self, const wchar_t* cls,
                       const char* caption, FG_Vec& dpi);
-    void ApplyWin32Size(HWND__* handle);
+    void ApplyWin32Size();
     int PushClip(const FG_Rect& area);
     int PopClip();
+    void PushTransform(const D2D_MATRIX_3X2_F& m);
+    void PopTransform();
 
     static void WndRegister(longptr_t(__stdcall* f)(HWND__*, unsigned int, size_t, longptr_t), const wchar_t* name);
     static longptr_t __stdcall WndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam);

@@ -64,7 +64,7 @@
       <Command Condition="'$(Configuration)'=='Debug'">set TERRA_PATH=.\?.t;.\deps\?.t &amp;&amp; set LUA_PATH=.\?.lua;.\deps\?.lua &amp;&amp; cd .. &amp;&amp; terra "%(FullPath)" fgOpenGL_d.dll fgDirect2D_d.dll -debug</Command>
       <Command Condition="'$(Configuration)'=='Release'">set TERRA_PATH=.\?.t;.\deps\?.t &amp;&amp; set LUA_PATH=.\?.lua;.\deps\?.lua &amp;&amp; cd .. &amp;&amp; terra "%(FullPath) fgOpenGL.dll fgDirect2D.dll"</Command>
       <Message>Compiling %(Identity) with Terra</Message>
-      <Outputs>$(OutDir)fgTests.exe</Outputs>
+      <Outputs>$(OutDir)$(TargetName)</Outputs>
       <AdditionalInputs>../include/backend.h</AdditionalInputs>
       <LinkObjects>false</LinkObjects>
       <OutputItemType>ClInclude</OutputItemType>
