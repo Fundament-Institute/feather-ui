@@ -36,6 +36,7 @@ Window::Window(Backend* backend, GLFWmonitor* display, FG_Element* element, FG_V
     glfwSetScrollCallback(_window, ScrollCallback);
     glfwSetDropCallback(_window, DropCallback);
     glfwSetWindowFocusCallback(_window, FocusCallback);
+    glfwSetWindowSizeCallback(_window, SizeCallback);
   }
 
 #ifdef FG_PLATFORM_WIN32
@@ -193,4 +194,10 @@ void Window::CloseCallback(GLFWwindow* window)
                              FG_Window_CLOSED;
   self->_backend->Behavior(self, msg);
   self->_backend->Behavior(self, FG_Msg{ FG_Kind_ACTION, 1 }); // FG_WINDOW_ONCLOSE
+}
+
+void Window::SizeCallback(GLFWwindow* window, int width, int height)
+{
+  auto self = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
+  self->SetDim(FG_Vec{ (float)width, (float)height });
 }

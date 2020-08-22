@@ -29,6 +29,7 @@ namespace GL {
     static void ScrollCallback(GLFWwindow* window, double xdelta, double ydelta);
     static void DropCallback(GLFWwindow* window, int count, const char* paths[]);
     static void FocusCallback(GLFWwindow* window, int focused);
+    static void SizeCallback(GLFWwindow* window, int width, int height);
 
     uint64_t _flags;
     Window* _next; // GLFW doesn't let us detect when it destroys a window so we have to do it ourselves.
