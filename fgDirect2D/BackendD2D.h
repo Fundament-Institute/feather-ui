@@ -36,7 +36,7 @@ namespace D2D {
     ~Backend();
     void RefreshMonitors();
     Asset* LoadAsset(const char* data, size_t count);
-    FG_Result Behavior(Window* data, FG_Msg& msg);
+    FG_Result Behavior(Window* data, const FG_Msg& msg);
     long CreateHWNDTarget(const D2D1_RENDER_TARGET_PROPERTIES& rtprop, const D2D1_HWND_RENDER_TARGET_PROPERTIES& hprop,
                           ID2D1HwndRenderTarget** target);
     uint16_t GetTouchIndex(unsigned long index, bool up);

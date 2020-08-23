@@ -325,14 +325,14 @@ HWND__* Window::WndCreate(FG_Vec* pos, FG_Vec* dim, unsigned long style, uint32_
 {
   exflags |= WS_EX_COMPOSITED | WS_EX_LAYERED;
 
-  wchar_t* wcaption = L"";
+  const wchar_t* wcaption = L"";
   if(caption)
   {
     size_t len = UTF8toUTF16(caption, -1, 0, 0);
     if(len > 4096)
       return 0;
     wcaption = (wchar_t*)ALLOCA(sizeof(wchar_t) * len);
-    UTF8toUTF16(caption, -1, wcaption, len);
+    UTF8toUTF16(caption, -1, const_cast<wchar_t*>(wcaption), len);
   }
 
   // AdjustWindowRectEx(&rsize, style, FALSE, exflags); // So long as we are drawing all over the nonclient area, we don't
@@ -585,7 +585,7 @@ void Window::ApplyWin32Size()
   }
 }
 
-size_t Window::SetMouse(FG_Vec& points, FG_Kind type, unsigned char button, size_t wparam, unsigned long time)
+size_t Window::SetMouse(const FG_Vec& points, FG_Kind type, unsigned char button, size_t wparam, unsigned long time)
 {
   FG_Msg evt      = { type };
   evt.mouseMove.x = points.x;
@@ -644,8 +644,8 @@ size_t Window::SetTouch(TOUCHINPUT& input)
   if(input.dwFlags & TOUCHEVENTF_UP)
     evt.kind = FG_Kind_TOUCHEND;
 
-  evt.touchMove.x   = input.x;
-  evt.touchMove.y   = input.y;
+  evt.touchMove.x   = static_cast<float>(input.x);
+  evt.touchMove.y   = static_cast<float>(input.y);
   evt.touchMove.z   = NAN;
   if(input.dwMask & TOUCHINPUTMASKF_CONTACTAREA)
     evt.touchMove.r = (input.cxContact > input.cyContact) ? input.cxContact : input.cyContact;
@@ -656,7 +656,7 @@ size_t Window::SetTouch(TOUCHINPUT& input)
   return backend->Behavior(this, evt).touchMove;
 }
 
-size_t Window::SetMouseScroll(FG_Vec& points, uint16_t x, uint16_t y, unsigned long time)
+size_t Window::SetMouseScroll(const FG_Vec& points, uint16_t x, uint16_t y, unsigned long time)
 {
   FG_Msg evt             = { FG_Kind_MOUSESCROLL };
   evt.mouseScroll.x      = points.x;

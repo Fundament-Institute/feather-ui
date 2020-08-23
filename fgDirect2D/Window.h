@@ -67,8 +67,8 @@ namespace D2D {
     void SetFlags(uint64_t flags);
     size_t SetKey(uint8_t keycode, bool down, bool held, unsigned long time);
     size_t SetChar(int key, unsigned long time);
-    size_t SetMouse(FG_Vec& points, FG_Kind type, unsigned char button, size_t wparam, unsigned long time);
-    size_t SetMouseScroll(FG_Vec& points, uint16_t x, uint16_t y, unsigned long time);
+    size_t SetMouse(const FG_Vec& points, FG_Kind type, unsigned char button, size_t wparam, unsigned long time);
+    size_t SetMouseScroll(const FG_Vec& points, uint16_t x, uint16_t y, unsigned long time);
     size_t SetTouch(tagTOUCHINPUT& input);
     void InvalidateHWND();
     ID2D1Bitmap* GetBitmapFromSource(const Asset* p);

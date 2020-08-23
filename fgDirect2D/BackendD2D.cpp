@@ -903,7 +903,7 @@ void Backend::RefreshMonitors()
   EnumDisplayMonitors(0, 0, EnumerateMonitorsProc, (LPARAM)this);
 }
 
-FG_Result Backend::Behavior(Window* w, FG_Msg& msg) { return (*_behavior)(w->element, w->hWnd, _root, &msg); }
+FG_Result Backend::Behavior(Window* w, const FG_Msg& msg) { return (*_behavior)(w->element, w->hWnd, _root, const_cast<FG_Msg*>(&msg)); }
 
 FG_Err Backend::RequestAnimationFrame(FG_Backend* self, void* window, unsigned long long microdelay)
 {
