@@ -19,6 +19,7 @@ local RTree = require 'feather.rtree'
 local Math = require 'std.math'
 local Element = require 'feather.element'
 local V = require 'feather.virtual'
+local L = require 'feather.log'
 
 --local String = require 'feather.string'
 
@@ -31,7 +32,6 @@ for i,v in ipairs(arg) do
     table.insert(backends, v)
   end
 end
-
 
 local struct TestHarness {
   passed : int;
@@ -128,8 +128,8 @@ terra MockElement:Behavior(w : &opaque, ui : &opaque, m : &M.Msg) : M.Result
     b:DrawRect(w, &r, &c, 0xFF0000FF, 5f, 0xFF00FFFF, 0f, nil, 0f, 0f)
 
     var r2 = F.Rect{array(350f, 100f, 500f, 300f)}
-    var c2 = F.Rect{array(0f, 4f, 8f, 12f)}
-    b:DrawCircle(w, &r2, &c2, 0xFF0000FF, 5f, 0xFF00FFFF, 0f, nil, 0f)
+    var c2 = F.Vec{array(0f, 3f)}
+    b:DrawCircle(w, &r2, &c2, 0xFF0000FF, 5f, 0xFF00FFFF, 0f, 10f, 2f, nil, 0f)
     
     var r3 = F.Rect{array(150f, 300f, 300f, 500f)}
     var c3 = F.Rect{array(0f, 4f, 8f, 0.5f)}
@@ -678,9 +678,9 @@ do
   expect(Constraint.IsConstraint, false, {})
 end
 
-local ObjectTest = struct{ i : bool, d : bool }
+local struct ObjectTest(Object.Object) { i : bool, d : bool }
 terra ObjectTest:init()
-  Object._init(self, { true, false })
+  self:_init{ true, false }
 end
 terra ObjectTest:destruct()
   self.d = true

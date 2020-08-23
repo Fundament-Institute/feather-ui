@@ -248,12 +248,13 @@ FG_Err Backend::DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect*
   return glGetError();
 }
 
-FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* arcs, FG_Color fillColor, float border,
-                           FG_Color borderColor, float blur, FG_Asset* asset, float z)
+FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Vec* angles, FG_Color fillColor, float border,
+                           FG_Color borderColor, float blur, float innerRadius, float innerBorder, FG_Asset* asset, float z)
 {
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(window);
-  backend->_drawStandard(context->_circleshader, context->_quadobject, context->proj, *area, *arcs, fillColor, border,
+  backend->_drawStandard(context->_circleshader, context->_quadobject, context->proj, *area,
+                         FG_Rect{ angles->x, angles->y, innerRadius, innerBorder }, fillColor, border,
                          borderColor, blur, 0.0f, z);
   return glGetError();
 }

@@ -61,7 +61,7 @@
   <ItemGroup>
     <CustomBuild Include="main.t">
       <FileType>Document</FileType>
-      <Command Condition="'$(Configuration)'=='Debug'">set TERRA_PATH=.\?.t;.\deps\?.t &amp;&amp; set LUA_PATH=.\?.lua;.\deps\?.lua &amp;&amp; cd .. &amp;&amp; terra "%(FullPath)" fgOpenGL_d.dll fgDirect2D_d.dll -debug</Command>
+      <Command Condition="'$(Configuration)'=='Debug'">set TERRA_PATH=.\?.t;.\deps\?.t &amp;&amp; set LUA_PATH=.\?.lua;.\deps\?.lua &amp;&amp; cd .. &amp;&amp; terra -g "%(FullPath)" fgOpenGL_d.dll fgDirect2D_d.dll -debug</Command>
       <Command Condition="'$(Configuration)'=='Release'">set TERRA_PATH=.\?.t;.\deps\?.t &amp;&amp; set LUA_PATH=.\?.lua;.\deps\?.lua &amp;&amp; cd .. &amp;&amp; terra "%(FullPath) fgOpenGL.dll fgDirect2D.dll"</Command>
       <Message>Compiling %(Identity) with Terra</Message>
       <Outputs>$(OutDir)$(TargetName)</Outputs>
@@ -69,6 +69,34 @@
       <LinkObjects>false</LinkObjects>
       <OutputItemType>ClInclude</OutputItemType>
     </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\feather\abstract-codegen.t" />
+    <None Include="..\feather\array.t" />
+    <None Include="..\feather\backend.t" />
+    <None Include="..\feather\c-headers.t" />
+    <None Include="..\feather\calc.t" />
+    <None Include="..\feather\color.t" />
+    <None Include="..\feather\element.t" />
+    <None Include="..\feather\enum.t" />
+    <None Include="..\feather\enumset.t" />
+    <None Include="..\feather\flags.t" />
+    <None Include="..\feather\hash.t" />
+    <None Include="..\feather\init.t" />
+    <None Include="..\feather\libc.t" />
+    <None Include="..\feather\log.t" />
+    <None Include="..\feather\message.t" />
+    <None Include="..\feather\messages.t" />
+    <None Include="..\feather\os.t" />
+    <None Include="..\feather\partitioner.t" />
+    <None Include="..\feather\proto.t" />
+    <None Include="..\feather\rect.t" />
+    <None Include="..\feather\rtree.t" />
+    <None Include="..\feather\shared.t" />
+    <None Include="..\feather\string.t" />
+    <None Include="..\feather\util.t" />
+    <None Include="..\feather\vec.t" />
+    <None Include="..\feather\virtual.t" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

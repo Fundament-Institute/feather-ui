@@ -20,9 +20,8 @@ float rectangle(vec2 samplePosition, vec2 halfSize, vec4 edges) {\n
 
 void main()\n
 {\n
-  
-	//float w = (abs(dFdx(pos.x)) + abs(dFdy(pos.y))) * 0.5;\n
-    float w = 0.75 + DimBorderBlur.w;\n    
+    //float w = fwidth(((pos.x*DimBorderBlur.x + pos.y*DimBorderBlur.y) / 2.0)) + DimBorderBlur.w;\n
+    float w = 0.701 + DimBorderBlur.w;\n
     vec2 uv = (pos * DimBorderBlur.xy) - (DimBorderBlur.xy * 0.5);\n
     
     float dist = rectangle(uv, DimBorderBlur.xy * 0.5, Corners);\n
@@ -30,7 +29,7 @@ void main()\n
     float s = smoothstep(-DimBorderBlur.z + w, -DimBorderBlur.z - w, dist);\n
     
     // Output to screen\n
-    //gl_FragColor = vec4(Fill.rgb * alpha,1);\n    
+    //gl_FragColor = vec4(dist,dist,dist,1);\n    
     gl_FragColor = (vec4(Fill.rgb, 1)*Fill.a*s) + (vec4(Outline.rgb, 1)*Outline.a*clamp(alpha - s, 0.0, 1.0));\n
 }\n
 )

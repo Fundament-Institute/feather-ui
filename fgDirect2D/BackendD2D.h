@@ -47,8 +47,9 @@ namespace D2D {
                             float time, float rotate, float z);
     static FG_Err DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
                            float border, FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z);
-    static FG_Err DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* arcs, FG_Color fillColor, float border,
-                             FG_Color borderColor, float blur, FG_Asset* asset, float z);
+    static FG_Err DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Vec* angles, FG_Color fillColor,
+                             float border, FG_Color borderColor, float blur, float innerRadius, float innerBorder,
+                             FG_Asset* asset, float rotate);
     static FG_Err DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
                                float border, FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z);
     static FG_Err DrawLines(FG_Backend* self, void* window, FG_Vec* points, uint32_t count, FG_Color color);

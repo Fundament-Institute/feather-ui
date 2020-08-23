@@ -170,7 +170,7 @@ struct B.Backend {
 terra B.Backend:DrawText(window : &opaque, font : &B.Font, layout : &opaque, area : &F.Rect, color : F.Color, blur : float, rotate : float, z : float) : F.Err return 0 end
 terra B.Backend:DrawAsset(window : &opaque, asset : &B.Asset, area : &F.Rect, source : &F.Rect, color : F.Color, time : float, rotate : float, z : float) : F.Err return 0 end
 terra B.Backend:DrawRect(window : &opaque, area : &F.Rect, corners : &F.Rect, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, asset : &B.Asset, rotate : float, z : float) : F.Err return 0 end
-terra B.Backend:DrawCircle(window : &opaque, area : &F.Rect, arcs : &F.Rect, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, asset : &B.Asset, z : float) : F.Err return 0 end
+terra B.Backend:DrawCircle(window : &opaque, area : &F.Rect, angles : &F.Vec, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, innerRadius : float, innerBorder : float, asset : &B.Asset, z : float) : F.Err return 0 end
 terra B.Backend:DrawTriangle(window : &opaque, area : &F.Rect, corners : &F.Rect, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, asset : &B.Asset, rotate : float, z : float) : F.Err return 0 end
 terra B.Backend:DrawLines(window : &opaque, points : &F.Vec, count : uint, color : F.Color) : F.Err return 0 end
 terra B.Backend:DrawCurve(window : &opaque, anchors : &F.Vec, count : uint, fillColor : F.Color, stroke : float, strokeColor : F.Color) : F.Err return 0 end

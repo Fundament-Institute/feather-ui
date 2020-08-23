@@ -40,8 +40,9 @@ namespace GL {
                             float time, float rotate, float z);
     static FG_Err DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
                            float border, FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z);
-    static FG_Err DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* arcs, FG_Color fillColor, float border,
-                             FG_Color borderColor, float blur, FG_Asset* asset, float rotate);
+    static FG_Err DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Vec* angles, FG_Color fillColor,
+                             float border, FG_Color borderColor, float blur, float innerRadius, float innerBorder,
+                             FG_Asset* asset, float rotate);
     static FG_Err DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
                                float border, FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z);
     static FG_Err DrawLines(FG_Backend* self, void* window, FG_Vec* points, uint32_t count, FG_Color color);
@@ -116,7 +117,8 @@ namespace GL {
     }
     template<class T> inline static void _buildPosUV(T (&v)[4], const FG_Rect& area, const FG_Rect& uv, float x, float y)
     {
-      // Due to counter-clockwise windings, we have to go topleft, bottomleft, topright, which also requires flipping the UV x/y coordinates
+      // Due to counter-clockwise windings, we have to go topleft, bottomleft, topright, which also requires flipping the UV
+      // x/y coordinates
       v[0].posUV[0] = area.left;
       v[0].posUV[1] = area.top;
       v[0].posUV[2] = uv.top / y;
@@ -140,7 +142,7 @@ namespace GL {
     void _drawStandard(GLuint shader, GLuint vao, float (&proj)[4][4], const FG_Rect& area, const FG_Rect& corners,
                        FG_Color fillColor, float border, FG_Color borderColor, float blur, float rotate, float z);
     static void _flushbatchdraw(Backend* backend, Context* context, Font* font);
-    
+
     FG_Behavior _behavior;
     kh_assets_t* _assethash;
   };
