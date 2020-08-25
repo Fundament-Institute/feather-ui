@@ -49,7 +49,7 @@ void Backend::PopRotate(D2D::Window* context, float rotate)
 }
 
 FG_Err Backend::DrawTextD2D(FG_Backend* self, void* window, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Color color,
-                            float blur, float rotate, float z)
+                            float blur, float rotate, float z, FG_BlendState* blend)
 {
   if(!fontlayout)
     return -1;
@@ -61,8 +61,22 @@ FG_Err Backend::DrawTextD2D(FG_Backend* self, void* window, FG_Font* font, void*
   context->color->SetColor(ToD2Color(color.v));
   layout->SetMaxWidth(area->right - area->left);
   layout->SetMaxHeight(area->bottom - area->top);
+  
+  D2D1_TEXT_ANTIALIAS_MODE aa = D2D1_TEXT_ANTIALIAS_MODE_DEFAULT;
+  switch(font->aa)
+  {
+  case FG_AntiAliasing_NO_AA: aa = D2D1_TEXT_ANTIALIAS_MODE_ALIASED; break;
+  case FG_AntiAliasing_AA: aa = D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE; break;
+  case FG_AntiAliasing_LCD: 
+  case FG_AntiAliasing_LCD_V: aa = D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE; break;
+  }
+
+  if(aa != context->target->GetTextAntialiasMode())
+    context->target->SetTextAntialiasMode(aa);
+
   context->target->DrawTextLayout(D2D1::Point2F(area->left, area->top), layout, context->color,
                                   D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
+  
   PopRotate(context, rotate);
 
   return 0;
@@ -86,7 +100,7 @@ inline FG_Err Backend::DrawEffect(Window* ctx, ID2D1Effect* effect, const FG_Rec
 }
 
 FG_Err Backend::DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Rect* area, FG_Rect* source, FG_Color color,
-                          float time, float rotate, float z)
+                          float time, float rotate, float z, FG_BlendState* blend)
 {
   auto instance = static_cast<Backend*>(self);
   auto context  = FromHWND(window);
@@ -124,7 +138,7 @@ FG_Err Backend::DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Re
 }
 
 FG_Err Backend::DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor, float border,
-                         FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z)
+                         FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z, FG_BlendState* blend)
 {
   auto context = FromHWND(window);
   fgassert(context != 0);
@@ -140,7 +154,7 @@ FG_Err Backend::DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect*
 
 FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Vec* angles, FG_Color fillColor, float border,
                          FG_Color borderColor, float blur, float innerRadius, float innerBorder, FG_Asset* asset,
-                         float rotate)
+                           float rotate, FG_BlendState* blend)
 {
   auto context = FromHWND(window);
   fgassert(context != 0);
@@ -151,7 +165,8 @@ FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Vec
   return 0;
 }
 FG_Err Backend::DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
-                             float border, FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z)
+                             float border, FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z,
+                             FG_BlendState* blend)
 {
   auto context = FromHWND(window);
   fgassert(context != 0);
@@ -163,7 +178,8 @@ FG_Err Backend::DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_R
   return 0;
 }
 
-FG_Err Backend::DrawLines(FG_Backend* self, void* window, FG_Vec* points, uint32_t count, FG_Color color)
+FG_Err Backend::DrawLines(FG_Backend* self, void* window, FG_Vec* points, uint32_t count, FG_Color color,
+                          FG_BlendState* blend)
 {
   auto context = FromHWND(window);
 
@@ -175,7 +191,7 @@ FG_Err Backend::DrawLines(FG_Backend* self, void* window, FG_Vec* points, uint32
 }
 
 FG_Err Backend::DrawCurve(FG_Backend* self, void* window, FG_Vec* anchors, uint32_t count, FG_Color fillColor, float stroke,
-                          FG_Color strokeColor)
+                          FG_Color strokeColor, FG_BlendState* blend)
 {
   auto instance = static_cast<Backend*>(self);
 

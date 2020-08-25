@@ -13,6 +13,7 @@
 #include "Shader.h"
 #include "Asset.h"
 #include <vector>
+#include <utility>
 
 namespace GL {
   class Backend;
@@ -20,7 +21,11 @@ namespace GL {
   struct Font;
   struct Glyph;
 
+  typedef std::pair<const Shader*, const Asset*> ShaderAsset;
+
   KHASH_DECLARE(tex, const Asset*, GLuint);
+  KHASH_DECLARE(shader, const Shader*, GLuint);
+  KHASH_DECLARE(vao, ShaderAsset, GLuint);
   KHASH_DECLARE(font, const Font*, uint64_t);
   KHASH_DECLARE(glyph, uint32_t, char);
 
@@ -45,10 +50,18 @@ namespace GL {
     GLsizei FlushBatch();
     void SetDim(const FG_Vec& dim);
     GLuint LoadAsset(Asset* asset);
+    GLuint LoadShader(Shader* shader);
+    GLuint LoadVAO(Shader* shader, Asset* asset);
     bool CheckGlyph(uint32_t g);
     void AddGlyph(uint32_t g);
     GLuint GetFontTexture(const Font* font);
     bool CheckFlush(GLintptr bytes) { return (_bufferoffset + bytes > BATCH_BYTES); }
+    void ApplyBlend(const FG_BlendState* blend);
+
+    static GLenum BlendOp(uint8_t op);
+    static GLenum BlendValue(uint8_t value);
+    static int GetBytes(GLenum type);
+    static inline int GetMultiCount(int length, int multi) { return length * (!multi ? 1 : multi); }
 
     FG_Element* _element;
     GLuint _imageshader;
@@ -64,18 +77,17 @@ namespace GL {
     GLuint _lineobject;
     GLuint _linebuffer;
     float proj[4][4];
+    FG_BlendState _lastblend;
 
     static const size_t BATCH_BYTES = (1 << 14);
     static const size_t MAX_INDICES = BATCH_BYTES / sizeof(GLuint);
+    static const FG_BlendState DEFAULT_BLEND;
 
   protected:
-    template<class T, int I>
-    void CreateVAO(Shader& shader, GLuint instance, GLuint* object, GLuint* buffer, const T (&init)[I])
-    {
-      _createVAO(shader, instance, object, buffer, init, sizeof(T), I, nullptr, 0);
-    }
-    void _createVAO(Shader& shader, GLuint instance, GLuint* object, GLuint* buffer, const void* init, size_t size,
-                    size_t count, GLuint* indices, size_t num);
+    GLuint _createVAO(GLuint shader, const FG_ShaderParameter* parameters, size_t n_parameters, GLuint buffer,
+                      size_t stride, GLuint indices);
+    GLuint _createBuffer(size_t stride, size_t count, const void* init);
+    GLuint _genIndices(size_t num);
 
     GLFWwindow* _window;
     Backend* _backend;
@@ -87,6 +99,8 @@ namespace GL {
     kh_tex_s* _texhash;
     kh_font_s* _fonthash;   // Holds the initialized texture for this font on this context
     kh_glyph_s* _glyphhash; // The set of all glyphs that have been initialized
+    kh_shader_s* _shaderhash;
+    kh_vao_s* _vaohash;
   };
 }
 

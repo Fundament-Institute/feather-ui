@@ -6,6 +6,8 @@
 
 #include <d2d1effectauthor.h>
 
+struct FG_BlendState__;
+
 namespace D2D {
   class EffectBase : public ID2D1EffectImpl, public ID2D1DrawTransform
   {
@@ -44,6 +46,10 @@ namespace D2D {
     IFACEMETHODIMP MapInvalidRect(UINT32 inputIndex, D2D1_RECT_L invalidInputRect,
                                   _Out_ D2D1_RECT_L* pInvalidOutputRect) const;
     IFACEMETHODIMP_(UINT32) GetInputCount() const;
+
+    static D2D1_BLEND_DESCRIPTION GetBlend(const FG_BlendState__& blend);
+    static D2D1_BLEND GetBlendValue(unsigned char v);
+    static D2D1_BLEND_OPERATION GetBlendOp(unsigned char op);
 
   protected:
     EffectBase();

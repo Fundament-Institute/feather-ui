@@ -35,25 +35,34 @@ namespace GL {
     bool LogError(const char* call);
 
     static FG_Err DrawTextGL(FG_Backend* self, void* window, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Color color,
-                             float blur, float rotate, float z);
+                             float blur, float rotate, float z, FG_BlendState* blend);
     static FG_Err DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Rect* area, FG_Rect* source, FG_Color color,
-                            float time, float rotate, float z);
+                            float time, float rotate, float z, FG_BlendState* blend);
     static FG_Err DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
-                           float border, FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z);
+                           float border, FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z,
+                           FG_BlendState* blend);
     static FG_Err DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Vec* angles, FG_Color fillColor,
                              float border, FG_Color borderColor, float blur, float innerRadius, float innerBorder,
-                             FG_Asset* asset, float rotate);
+                             FG_Asset* asset, float rotate, FG_BlendState* blend);
     static FG_Err DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
-                               float border, FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z);
-    static FG_Err DrawLines(FG_Backend* self, void* window, FG_Vec* points, uint32_t count, FG_Color color);
+                               float border, FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z,
+                               FG_BlendState* blend);
+    static FG_Err DrawLines(FG_Backend* self, void* window, FG_Vec* points, uint32_t count, FG_Color color,
+                            FG_BlendState* blend);
     static FG_Err DrawCurve(FG_Backend* self, void* window, FG_Vec* anchors, uint32_t count, FG_Color fillColor,
-                            float stroke, FG_Color strokeColor);
+                            float stroke, FG_Color strokeColor, FG_BlendState* blend);
+    static FG_Err DrawShader(FG_Backend* self, void* window, FG_Shader* shader, FG_Asset* vertices, FG_Asset* indices,
+                             FG_BlendState* blend, ...);
     static FG_Err PushLayer(FG_Backend* self, void* window, FG_Rect* area, float* transform, float opacity, void* cache);
     static void* PopLayer(FG_Backend* self, void* window);
     static FG_Err DestroyLayer(FG_Backend* self, void* window, void* layer);
     static FG_Err PushClip(FG_Backend* self, void* window, FG_Rect* area);
     static FG_Err PopClip(FG_Backend* self, void* window);
     static FG_Err DirtyRect(FG_Backend* self, void* window, void* layer, FG_Rect* area);
+    static FG_Shader* CreateShader(FG_Backend* self, const char* ps, const char* vs, const char* gs, const char* cs,
+                                   const char* ds, const char* hs, FG_ShaderParameter* parameters, uint32_t n_parameters);
+    static FG_Err DestroyShader(FG_Backend* self, FG_Shader* shader);
+    static FG_Err GetProjection(FG_Backend* self, void* window, void* layer, float* proj4x4);
     static FG_Font* CreateFontGL(FG_Backend* self, const char* family, unsigned short weight, bool italic, unsigned int pt,
                                  FG_Vec dpi, FG_AntiAliasing aa);
     static FG_Err DestroyFont(FG_Backend* self, FG_Font* font);
@@ -63,6 +72,8 @@ namespace GL {
     static uint32_t FontIndex(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Vec pos, FG_Vec* cursor);
     static FG_Vec FontPos(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, uint32_t index);
     static FG_Asset* CreateAsset(FG_Backend* self, const char* data, uint32_t count, FG_Format format);
+    static FG_Asset* CreateBuffer(FG_Backend* self, void* data, uint32_t bytes, uint8_t primitive,
+                                  FG_ShaderParameter* parameters, uint32_t n_parameters);
     static FG_Err DestroyAsset(FG_Backend* self, FG_Asset* asset);
     static FG_Err PutClipboard(FG_Backend* self, void* window, FG_Clipboard kind, const char* data, uint32_t count);
     static uint32_t GetClipboard(FG_Backend* self, void* window, FG_Clipboard kind, void* target, uint32_t count);
@@ -103,18 +114,6 @@ namespace GL {
     static const float BASE_DPI;
 
   protected:
-    template<class... Args>
-    inline void _drawVAO(GLuint instance, GLuint vao, int primitive, GLsizei count, const Args&... args)
-    {
-      glUseProgram(instance);
-      LogError("glUseProgram");
-      glBindVertexArray(vao);
-      LogError("glBindVertexArray");
-      (Shader::SetUniform(this, instance, args), ...);
-      glDrawArrays(primitive, 0, count);
-      LogError("glDrawArrays");
-      glBindVertexArray(0);
-    }
     template<class T> inline static void _buildPosUV(T (&v)[4], const FG_Rect& area, const FG_Rect& uv, float x, float y)
     {
       // Due to counter-clockwise windings, we have to go topleft, bottomleft, topright, which also requires flipping the UV

@@ -8,13 +8,28 @@
 #include <algorithm>
 #include <assert.h>
 
+#define kh_pair_hash_func(key) \
+  kh_int64_hash_func((static_cast<uint64_t>(kh_ptr_hash_func(key.first)) << 32) | kh_ptr_hash_func(key.first))
+
 namespace GL {
   __KHASH_IMPL(tex, , const Asset*, GLuint, 1, kh_ptr_hash_func, kh_int_hash_equal);
+  __KHASH_IMPL(shader, , const Shader*, GLuint, 1, kh_ptr_hash_func, kh_int_hash_equal);
+  __KHASH_IMPL(vao, , ShaderAsset, GLuint, 1, kh_pair_hash_func, kh_int_hash_equal);
   __KHASH_IMPL(font, , const Font*, uint64_t, 1, kh_ptr_hash_func, kh_int_hash_equal);
   __KHASH_IMPL(glyph, , uint32_t, char, 0, kh_int_hash_func2, kh_int_hash_equal);
 }
 
 using namespace GL;
+
+const FG_BlendState Context::DEFAULT_BLEND = {
+  FG_BlendValue_SRC_ALPHA,
+  FG_BlendValue_INV_SRC_ALPHA,
+  FG_BlendOp_ADD,
+  FG_BlendValue_SRC_ALPHA,
+  FG_BlendValue_INV_SRC_ALPHA,
+  FG_BlendOp_ADD,
+  0b1111,
+};
 
 Context::Context(Backend* backend, FG_Element* element, FG_Vec* dim) :
   _backend(backend),
@@ -25,7 +40,18 @@ Context::Context(Backend* backend, FG_Element* element, FG_Vec* dim) :
   _bufferoffset(0),
   _texhash(kh_init_tex()),
   _fonthash(kh_init_font()),
-  _glyphhash(kh_init_glyph())
+  _glyphhash(kh_init_glyph()),
+  _vaohash(kh_init_vao()),
+  _shaderhash(kh_init_shader()),
+  _lastblend({
+    FG_BlendValue_ONE,
+    FG_BlendValue_ZERO,
+    FG_BlendOp_ADD,
+    FG_BlendValue_ONE,
+    FG_BlendValue_ZERO,
+    FG_BlendOp_ADD,
+    0b1111,
+  })
 {
   if(dim)
     SetDim(*dim);
@@ -35,6 +61,10 @@ Context::~Context()
   if(_initialized)
     DestroyResources();
   kh_destroy_tex(_texhash);
+  kh_destroy_font(_fonthash);
+  kh_destroy_glyph(_glyphhash);
+  kh_destroy_vao(_vaohash);
+  kh_destroy_shader(_shaderhash);
 }
 
 void Context::BeginDraw(const FG_Rect* area, bool clear)
@@ -63,7 +93,39 @@ void Context::EndDraw()
   if(_window)
     glfwSwapBuffers(_window);
 }
-void Context::SetDim(const FG_Vec& dim) { mat4x4_ortho(proj, 0, dim.x, dim.y, 0, 1, -1); }
+
+void mat4x4_custom(mat4x4 M, float l, float r, float b, float t, float n, float f)
+{
+  memset(M, 0, sizeof(mat4x4));
+
+  M[0][0] = 2.0f / (r - l);
+  M[0][1] = 0.f;
+  M[0][2] = 0.f;
+  M[0][3] = 0.f;
+
+  M[1][0] = 0.f;
+  M[1][1] = 2.0f / (t - b);
+  M[1][2] = 0.f;
+  M[1][3] = 0.f;
+
+  M[2][0] = 0.f;
+  M[2][1] = 0.f;
+  M[2][2] = -((f + n) / (f - n));
+  M[2][3] = -1.0f;
+
+  M[3][0] = -(r + l) / (r - l);
+  M[3][1] = -(t + b) / (t - b);
+  M[3][2] = -((2.f * f * n) / (f - n));
+  M[3][3] = 0.f;
+
+  mat4x4_translate_in_place(M, 0, 0, -1.0f);
+}
+
+void Context::SetDim(const FG_Vec& dim)
+{
+  // mat4x4_ortho(proj, 0, dim.x, dim.y, 0, -1, 1);
+  mat4x4_custom(proj, 0, dim.x, dim.y, 0, 0.2, 100);
+}
 void Context::Draw(const FG_Rect* area)
 {
   FG_Msg msg    = { FG_Kind_DRAW };
@@ -165,53 +227,115 @@ Layer* Context::PopLayer()
   return p;
 }
 
-void Context::_createVAO(Shader& shader, GLuint instance, GLuint* object, GLuint* buffer, const void* init, size_t size,
-                         size_t count, GLuint* indices, size_t num)
+int Context::GetBytes(GLenum type)
 {
-  glGenVertexArrays(1, object);
-  _backend->LogError("glGenVertexArrays");
-  glGenBuffers(1, buffer);
+  switch(type)
+  {
+  case GL_BYTE:
+  case GL_UNSIGNED_BYTE: return 1;
+  case GL_SHORT:
+  case GL_UNSIGNED_SHORT:
+  case GL_HALF_FLOAT: return 2;
+  case GL_INT:
+  case GL_UNSIGNED_INT:
+  case GL_FLOAT: return 4;
+  case GL_DOUBLE: return 8;
+  }
+  assert(false);
+  return 0;
+}
+
+GLuint Context::_createBuffer(size_t stride, size_t count, const void* init)
+{
+  GLuint buffer;
+  glGenBuffers(1, &buffer);
   _backend->LogError("glGenBuffers");
-  glBindVertexArray(*object);
-  _backend->LogError("glBindVertexArray");
-  glBindBuffer(GL_ARRAY_BUFFER, *buffer);
+  glBindBuffer(GL_ARRAY_BUFFER, buffer);
   _backend->LogError("glBindBuffer");
-  glBufferData(GL_ARRAY_BUFFER, size * count, init, !init ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, stride * count, init, !init ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
   _backend->LogError("glBufferData");
-  shader.SetVertices(_backend, instance, size);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  _backend->LogError("glBindBuffer");
+  return buffer;
+}
+
+GLuint Context::_genIndices(size_t num)
+{
+  GLuint indices;
+  glGenBuffers(1, &indices);
+  _backend->LogError("glGenBuffers");
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices);
+  _backend->LogError("glBindBuffer");
+  std::unique_ptr<GLuint[]> buf(new GLuint[num]);
+
+  GLuint k = 0;
+  for(size_t i = 5; i < num; i += 6, k += 4)
+  {
+    buf[i - 5] = k + 0;
+    buf[i - 4] = k + 1;
+    buf[i - 3] = k + 2;
+    buf[i - 2] = k + 1;
+    buf[i - 1] = k + 2;
+    buf[i - 0] = k + 3;
+  }
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, num * sizeof(GLuint), buf.get(), GL_STATIC_DRAW);
+  _backend->LogError("glBufferData");
+  return indices;
+}
+
+GLuint Context::_createVAO(GLuint shader, const FG_ShaderParameter* parameters, size_t n_parameters, GLuint buffer,
+                           size_t stride, GLuint indices)
+{
+  GLuint object;
+  glGenVertexArrays(1, &object);
+  _backend->LogError("glGenVertexArrays");
+  glBindVertexArray(object);
+  _backend->LogError("glBindVertexArray");
+  glBindBuffer(GL_ARRAY_BUFFER, buffer);
+  _backend->LogError("glBindBuffer");
 
   if(indices)
   {
-    glGenBuffers(1, indices);
-    _backend->LogError("glGenBuffers");
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, *indices);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices);
     _backend->LogError("glBindBuffer");
-    std::unique_ptr<GLuint[]> buf(new GLuint[num]);
-
-    for(size_t i = 5, k = 0; i < num; i += 6, k += 4)
-    {
-      buf[i - 5] = k + 0;
-      buf[i - 4] = k + 1;
-      buf[i - 3] = k + 2;
-      buf[i - 2] = k + 1;
-      buf[i - 1] = k + 2;
-      buf[i - 0] = k + 3;
-    }
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, num * sizeof(GLuint), buf.get(), GL_STATIC_DRAW);
-    _backend->LogError("glBufferData");
   }
+
+  GLuint offset = 0;
+  for(size_t i = 0; i < n_parameters; ++i)
+  {
+    auto loc = glGetAttribLocation(shader, parameters[i].name);
+    _backend->LogError("glGetAttribLocation");
+    glEnableVertexAttribArray(loc);
+    _backend->LogError("glEnableVertexAttribArray");
+    size_t sz   = GetMultiCount(parameters[i].length, parameters[i].multi);
+    GLenum type = 0;
+    switch(parameters->type)
+    {
+    case FG_ShaderType_FLOAT: type = GL_FLOAT; break;
+    case FG_ShaderType_INT: type = GL_INT; break;
+    case FG_ShaderType_UINT: type = GL_UNSIGNED_INT; break;
+    }
+
+    glVertexAttribPointer(loc, sz, type, GL_FALSE, stride, (void*)offset);
+    offset += GetBytes(type) * sz;
+    _backend->LogError("glVertexAttribPointer");
+  }
+
   glBindVertexArray(0);
   _backend->LogError("glBindVertexArray");
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   _backend->LogError("glBindBuffer");
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-  _backend->LogError("glBindBuffer");
+  if(indices)
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  return object;
 }
 void Context::CreateResources()
 {
   glEnable(GL_BLEND);
   _backend->LogError("glEnable");
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glEnable(GL_TEXTURE_2D);
+  _backend->LogError("glEnable");
+  ApplyBlend(0);
   _backend->LogError("glBlendFunc");
 
   _imageshader  = _backend->_imageshader.Create(_backend);
@@ -226,12 +350,19 @@ void Context::CreateResources()
     { 0, 1 },
     { 1, 1 },
   };
-  CreateVAO(_backend->_rectshader, _rectshader, &_quadobject, &_quadbuffer, rect);
-  _createVAO(_backend->_imageshader, _imageshader, &_imageobject, &_imagebuffer, nullptr, sizeof(ImageVertex),
-             BATCH_BYTES / sizeof(ImageVertex), &_imageindices, BATCH_BYTES / sizeof(GLuint));
 
-  _createVAO(_backend->_lineshader, _lineshader, &_lineobject, &_linebuffer, nullptr, sizeof(FG_Vec),
-             BATCH_BYTES / sizeof(FG_Vec), nullptr, 0);
+  FG_ShaderParameter rectparams[1] = { { FG_ShaderType_FLOAT, 2, 0, "vPos" } };
+  FG_ShaderParameter imgparams[2]  = { { FG_ShaderType_FLOAT, 4, 0, "vPosUV" }, { FG_ShaderType_FLOAT, 4, 0, "vColor" } };
+
+  _quadbuffer = _createBuffer(sizeof(QuadVertex), 4, rect);
+  _quadobject = _createVAO(_rectshader, rectparams, 1, _quadbuffer, sizeof(QuadVertex), 0);
+
+  _imagebuffer  = _createBuffer(sizeof(ImageVertex), BATCH_BYTES / sizeof(ImageVertex), nullptr);
+  _imageindices = _genIndices(BATCH_BYTES / sizeof(GLuint));
+  _imageobject  = _createVAO(_imageshader, imgparams, 2, _imagebuffer, sizeof(ImageVertex), _imageindices);
+
+  _linebuffer = _createBuffer(sizeof(FG_Vec), BATCH_BYTES / sizeof(FG_Vec), nullptr);
+  _lineobject = _createVAO(_lineshader, rectparams, 1, _linebuffer, sizeof(FG_Vec), 0);
 
   for(auto& l : _layers)
     l->Create();
@@ -244,30 +375,96 @@ GLuint Context::LoadAsset(Asset* asset)
   if(iter < kh_end(_texhash) && kh_exist(_texhash, iter))
     return kh_val(_texhash, iter);
 
-  GLuint idx = SOIL_create_OGL_texture((const unsigned char*)asset->data.data, asset->size.x, asset->size.y, asset->channels, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
-
-  if(!idx)
+  GLuint idx;
+  if(asset->format == FG_Format_BUFFER)
   {
-    _backend->LogError("SOIL_create_OGL_texture");
-    (*_backend->_log)(_backend->_root, FG_Level_ERROR, "%s failed (returned 0).", "SOIL_create_OGL_texture");
-    return 0;
+    glGenBuffers(1, &idx);
+    _backend->LogError("glGenBuffers");
+
+    GLenum kind = GL_ARRAY_BUFFER;
+    switch(asset->primitive)
+    {
+    case FG_Primitive_INDEX_BYTE:
+    case FG_Primitive_INDEX_SHORT:
+    case FG_Primitive_INDEX_INT: kind = GL_ELEMENT_ARRAY_BUFFER; break;
+    }
+
+    glBindBuffer(kind, idx);
+    _backend->LogError("glBindBuffer");
+    glBufferData(kind, asset->stride * asset->count, asset->data.data, GL_STATIC_DRAW);
+    _backend->LogError("glBufferData");
+    glBindBuffer(kind, 0);
+  }
+  else
+  {
+    idx = SOIL_create_OGL_texture((const unsigned char*)asset->data.data, asset->size.x, asset->size.y, asset->channels,
+                                  SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
+
+    if(!idx)
+    {
+      _backend->LogError("SOIL_create_OGL_texture");
+      (*_backend->_log)(_backend->_root, FG_Level_ERROR, "%s failed (returned 0).", "SOIL_create_OGL_texture");
+      return 0;
+    }
+
+    glBindTexture(GL_TEXTURE_2D, idx);
+    _backend->LogError("glBindTexture");
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    _backend->LogError("glTexParameteri");
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    _backend->LogError("glTexParameteri");
+    glBindTexture(GL_TEXTURE_2D, 0);
+    _backend->LogError("glBindTexture");
   }
 
   int r;
   iter = kh_put_tex(_texhash, asset, &r);
-  glBindTexture(GL_TEXTURE_2D, idx);
-  _backend->LogError("glBindTexture");
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  _backend->LogError("glTexParameteri");
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  _backend->LogError("glTexParameteri");
-  glBindTexture(GL_TEXTURE_2D, 0);
-  _backend->LogError("glBindTexture");
 
   if(r >= 0)
     kh_val(_texhash, iter) = idx;
   return idx;
 }
+GLuint Context::LoadShader(Shader* shader)
+{
+  khiter_t iter = kh_get_shader(_shaderhash, shader);
+  if(iter < kh_end(_shaderhash) && kh_exist(_shaderhash, iter))
+    return kh_val(_shaderhash, iter);
+
+  GLuint instance = shader->Create(_backend);
+  if(!instance)
+    return 0;
+
+  int r;
+  iter = kh_put_shader(_shaderhash, shader, &r);
+
+  if(r >= 0)
+    kh_val(_shaderhash, iter) = instance;
+  return instance;
+}
+
+GLuint Context::LoadVAO(Shader* shader, Asset* asset)
+{
+  GLuint instance = LoadShader(shader);
+  GLuint buffer   = LoadAsset(asset);
+  if(!buffer || !instance || asset->format != FG_Format_BUFFER)
+    return 0;
+
+  ShaderAsset pair = { shader, asset };
+
+  khiter_t iter = kh_get_vao(_vaohash, pair);
+  if(iter < kh_end(_vaohash) && kh_exist(_vaohash, iter))
+    return kh_val(_vaohash, iter);
+
+  GLuint object = _createVAO(instance, asset->parameters, asset->n_parameters, buffer, asset->stride, 0);
+
+  int r;
+  iter = kh_put_vao(_vaohash, pair, &r);
+
+  if(r >= 0)
+    kh_val(_vaohash, iter) = object;
+  return object;
+}
+
 void Context::DestroyResources()
 {
   for(khiter_t i = 0; i < kh_end(_texhash); ++i)
@@ -275,8 +472,16 @@ void Context::DestroyResources()
     if(kh_exist(_texhash, i))
     {
       GLuint idx = kh_val(_texhash, i);
-      glDeleteTextures(1, &idx);
-      _backend->LogError("glDeleteTextures");
+      if(kh_key(_texhash, i)->format == FG_Format_BUFFER)
+      {
+        glDeleteBuffers(1, &idx);
+        _backend->LogError("glDeleteBuffers");
+      }
+      else
+      {
+        glDeleteTextures(1, &idx);
+        _backend->LogError("glDeleteTextures");
+      }
     }
   }
   kh_clear_tex(_texhash);
@@ -291,8 +496,25 @@ void Context::DestroyResources()
     }
   }
   kh_clear_font(_fonthash);
-
   kh_clear_glyph(_glyphhash);
+
+  for(khiter_t i = 0; i < kh_end(_shaderhash); ++i)
+  {
+    if(kh_exist(_shaderhash, i))
+      kh_key(_shaderhash, i)->Destroy(_backend, kh_val(_shaderhash, i));
+  }
+  kh_clear_shader(_shaderhash);
+
+  for(khiter_t i = 0; i < kh_end(_vaohash); ++i)
+  {
+    if(kh_exist(_vaohash, i))
+    {
+      GLuint idx = static_cast<GLuint>(kh_val(_fonthash, i) & 0xFFFFFFFF);
+      glDeleteVertexArrays(1, &idx);
+      _backend->LogError("glDeleteVertexArrays");
+    }
+  }
+  kh_clear_vao(_vaohash);
 
   _backend->_imageshader.Destroy(_backend, _imageshader);
   _backend->_imageshader.Destroy(_backend, _rectshader);
@@ -342,7 +564,7 @@ GLuint Context::GetFontTexture(const Font* font)
   {
     auto pair = kh_val(_fonthash, i);
     tex       = uint32_t(pair & 0xFFFFFFFF);
-    auto size = uint32_t(pair >> 32);
+    int size  = uint32_t(pair >> 32);
     if(powsize <= size)
       return tex;
     powsize = size;
@@ -369,4 +591,66 @@ GLuint Context::GetFontTexture(const Font* font)
 
   kh_val(_fonthash, i) = tex | (uint64_t(powsize) << 32);
   return tex;
+}
+
+GLenum Context::BlendValue(uint8_t value)
+{
+  switch(value)
+  {
+  case FG_BlendValue_DST_COLOR: return GL_DST_COLOR;
+  case FG_BlendValue_INV_CONSTANT_ALPHA: return GL_ONE_MINUS_CONSTANT_ALPHA;
+  case FG_BlendValue_CONSTANT_COLOR: return GL_CONSTANT_COLOR;
+  case FG_BlendValue_SRC_ALPHA_SATURATE: return GL_SRC_ALPHA_SATURATE;
+  case FG_BlendValue_CONSTANT_ALPHA: return GL_CONSTANT_ALPHA;
+  case FG_BlendValue_INV_SRC_COLOR: return GL_ONE_MINUS_SRC_COLOR;
+  case FG_BlendValue_ZERO: return GL_ZERO;
+  case FG_BlendValue_INV_SRC_ALPHA: return GL_ONE_MINUS_SRC_ALPHA;
+  case FG_BlendValue_INV_CONSTANT_COLOR: return GL_ONE_MINUS_CONSTANT_COLOR;
+  case FG_BlendValue_ONE: return GL_ONE;
+  case FG_BlendValue_SRC_ALPHA: return GL_SRC_ALPHA;
+  case FG_BlendValue_SRC_COLOR: return GL_SRC_COLOR;
+  case FG_BlendValue_INV_DST_ALPHA: return GL_ONE_MINUS_DST_ALPHA;
+  case FG_BlendValue_DST_ALPHA: return GL_DST_ALPHA;
+  case FG_BlendValue_INV_DST_COLOR: return GL_ONE_MINUS_DST_COLOR;
+  }
+  assert(false);
+  return 0;
+}
+
+GLenum Context::BlendOp(uint8_t op)
+{
+  switch(op)
+  {
+  case FG_BlendOp_ADD: return GL_FUNC_ADD;
+  case FG_BlendOp_SUBTRACT: return GL_FUNC_SUBTRACT;
+  case FG_BlendOp_REV_SUBTRACT: return GL_FUNC_REVERSE_SUBTRACT;
+  }
+  assert(false);
+  return 0;
+}
+
+void Context::ApplyBlend(const FG_BlendState* blend)
+{
+  if(!blend)
+    blend = &DEFAULT_BLEND;
+
+  // This comparison should get optimized out to a 64-bit integer equality check
+  if(memcmp(blend, &_lastblend, sizeof(FG_BlendState)) != 0)
+  {
+    glBlendFuncSeparate(BlendValue(blend->srcBlend), BlendValue(blend->destBlend), BlendValue(blend->srcBlendAlpha),
+                        BlendValue(blend->destBlendAlpha));
+    glBlendEquationSeparate(BlendOp(blend->colorBlend), BlendOp(blend->alphaBlend));
+
+    if(_lastblend.constant.v != blend->constant.v)
+    {
+      float colors[4];
+      _backend->ColorFloats(blend->constant, colors);
+      glBlendColor(colors[0], colors[1], colors[2], colors[3]);
+    }
+
+    if(_lastblend.mask != blend->mask)
+      glColorMask(blend->mask & 0b0001, blend->mask & 0b0010, blend->mask & 0b0100, blend->mask & 0b1000);
+
+    _lastblend = *blend;
+  }
 }

@@ -8,94 +8,59 @@
 
 using namespace GL;
 
-namespace GL {
-  KHASH_INIT2(attributes, , const char*, Shader::Data, 1, kh_str_hash_func, kh_str_hash_equal);
+Shader::Shader(const Shader& copy) : _pixel(copy._pixel), _vertex(copy._vertex), _geometry(copy._geometry)
+{
+  n_parameters = copy.n_parameters;
+  parameters   = new FG_ShaderParameter[n_parameters];
+  memcpy(parameters, copy.parameters, sizeof(FG_ShaderParameter) * n_parameters);
 }
 
-Shader::Shader(const Shader& copy)
+Shader::Shader(const char* pixel, const char* vertex, const char* geometry,
+               std::initializer_list<FG_ShaderParameter> data) :
+  _pixel(!pixel ? "" : pixel), _vertex(!vertex ? "" : vertex), _geometry(!geometry ? "" : geometry)
 {
-  init(copy._pixel, copy._vertex, copy._geometry);
+  n_parameters = data.size();
+  parameters   = new FG_ShaderParameter[n_parameters];
+  auto cur     = parameters;
 
-  for(khint_t i = 0; i < kh_end(_layout); ++i)
-  {
-    if(kh_exist(_layout, i))
-      add(kh_value(_layout, i));
-  }
+  for(auto p = data.begin(); p != data.end(); ++p)
+    *(cur++) = *p;
 }
 
-Shader::Shader(const char* pixel, const char* vertex, const char* geometry, std::initializer_list<Data> data)
+Shader::Shader(const char* pixel, const char* vertex, const char* geometry, FG_ShaderParameter* params, size_t n_params) :
+  _pixel(!pixel ? "" : pixel), _vertex(!vertex ? "" : vertex), _geometry(!geometry ? "" : geometry)
 {
-  init(pixel, vertex, geometry);
-  for(auto datum : data)
-    add(datum);
+  n_parameters = n_params;
+  parameters   = new FG_ShaderParameter[n_parameters];
+  memcpy(parameters, params, sizeof(FG_ShaderParameter) * n_parameters);
 }
 
-Shader::~Shader() { destruct(); }
-
-void Shader::destruct()
+Shader::~Shader()
 {
-  if(_pixel)
-    delete[] _pixel;
-  if(_vertex)
-    delete[] _vertex;
-  if(_geometry)
-    delete[] _geometry;
-  if(_layout)
-    kh_destroy_attributes(_layout);
-}
-
-void Shader::init(const char* pixel, const char* vertex, const char* geometry)
-{
-  auto loader = [](char** target, const char* src) {
-    if(src)
-    {
-      size_t len = strlen(src) + 1; // include null terminator
-      *target    = new char[len];
-      strncpy(*target, src, len);
-    }
-    else
-      *target = nullptr;
-  };
-
-  loader(&_pixel, pixel);
-  loader(&_vertex, vertex);
-  loader(&_geometry, geometry);
-  _layout = kh_init_attributes();
-}
-
-bool Shader::add(const Data& data)
-{
-  int r;
-  khiter_t i = kh_put_attributes(_layout, data.name, &r);
-  if(r > 0)
-    kh_value(_layout, i) = data;
-
-  return r <= 0; // return false if it failed or already existed
+  if(parameters)
+    delete[] parameters;
 }
 
 void Shader::compile(Backend* backend, GLuint program, const char* src, int type)
 {
-  if(src)
+  auto shader = glCreateShader(type);
+  backend->LogError("glCreateShader");
+  glShaderSource(shader, 1, &src, NULL);
+  backend->LogError("glShaderSource");
+  glCompileShader(shader);
+  backend->LogError("glCompileShader");
+  GLint isCompiled = 0;
+  glGetShaderiv(shader, GL_COMPILE_STATUS, &isCompiled);
+  if(isCompiled == GL_FALSE)
   {
-    auto shader = glCreateShader(type);
-    backend->LogError("glCreateShader");
-    glShaderSource(shader, 1, &src, NULL);
-    backend->LogError("glShaderSource");
-    glCompileShader(shader);
-    backend->LogError("glCompileShader");
-    GLint isCompiled = 0;
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &isCompiled);
-    if(isCompiled == GL_FALSE)
-    {
-      GLint l;
-      glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &l);
-      std::unique_ptr<char[]> buffer(new char[l]);
-      glGetShaderInfoLog(shader, l, &l, buffer.get());
-      (backend->_log)(backend->_root, FG_Level_WARNING, "Shader compilation failed: %s", buffer.get());
-    }
-    glAttachShader(program, shader);
-    backend->LogError("glAttachShader");
+    GLint l;
+    glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &l);
+    std::unique_ptr<char[]> buffer(new char[l]);
+    glGetShaderInfoLog(shader, l, &l, buffer.get());
+    (backend->_log)(backend->_root, FG_Level_WARNING, "Shader compilation failed: %s", buffer.get());
   }
+  glAttachShader(program, shader);
+  backend->LogError("glAttachShader");
 }
 
 GLuint Shader::Create(Backend* backend) const
@@ -103,9 +68,12 @@ GLuint Shader::Create(Backend* backend) const
   auto program = glCreateProgram();
   backend->LogError("glCreateProgram");
 
-  compile(backend, program, _vertex, GL_VERTEX_SHADER);
-  compile(backend, program, _pixel, GL_FRAGMENT_SHADER);
-  compile(backend, program, _geometry, GL_GEOMETRY_SHADER);
+  if(!_vertex.empty())
+    compile(backend, program, _vertex.c_str(), GL_VERTEX_SHADER);
+  if(!_pixel.empty())
+    compile(backend, program, _pixel.c_str(), GL_FRAGMENT_SHADER);
+  if(!_geometry.empty())
+    compile(backend, program, _geometry.c_str(), GL_GEOMETRY_SHADER);
 
   glLinkProgram(program);
   backend->LogError("glLinkProgram");
@@ -130,180 +98,158 @@ void Shader::Destroy(Backend* backend, unsigned int shader) const
   backend->LogError("glDeleteProgram");
 }
 
-void Shader::SetUniform(Backend* backend, unsigned int shader, const Attribute& attr)
+void Shader::SetUniform(Backend* backend, unsigned int shader, const char* name, GLenum type, float* data)
 {
-  auto loc = glGetUniformLocation(shader, attr.name);
-  backend->LogError("glGetUniformLocation");
-  switch(attr.type)
+  if(type >= GL_TEXTURE0 && type <= GL_TEXTURE31)
   {
-  case GL_FLOAT_MAT2: glUniformMatrix2fv(loc, 1, GL_FALSE, attr.pdata); break;
-  case GL_FLOAT_MAT2x3: glUniformMatrix2x3fv(loc, 1, GL_FALSE, attr.pdata); break;
-  case GL_FLOAT_MAT2x4: glUniformMatrix2x4fv(loc, 1, GL_FALSE, attr.pdata); break;
-  case GL_FLOAT_MAT3x2: glUniformMatrix3x2fv(loc, 1, GL_FALSE, attr.pdata); break;
-  case GL_FLOAT_MAT3: glUniformMatrix3fv(loc, 1, GL_FALSE, attr.pdata); break;
-  case GL_FLOAT_MAT3x4: glUniformMatrix3x4fv(loc, 1, GL_FALSE, attr.pdata); break;
-  case GL_FLOAT_MAT4x2: glUniformMatrix4x2fv(loc, 1, GL_FALSE, attr.pdata); break;
-  case GL_FLOAT_MAT4x3: glUniformMatrix4x3fv(loc, 1, GL_FALSE, attr.pdata); break;
-  case GL_FLOAT_MAT4: glUniformMatrix4fv(loc, 1, GL_FALSE, attr.pdata); break;
-  case GL_FLOAT_VEC2:
-  case GL_INT_VEC2:
-  case GL_UNSIGNED_INT_VEC2:
-  case GL_BOOL_VEC2: glUniform2fv(loc, 1, attr.data); break;
-  case GL_FLOAT_VEC3:
-  case GL_INT_VEC3:
-  case GL_UNSIGNED_INT_VEC3:
-  case GL_BOOL_VEC3: glUniform3fv(loc, 1, attr.data); break;
-  case GL_FLOAT_VEC4:
-  case GL_INT_VEC4:
-  case GL_UNSIGNED_INT_VEC4:
-  case GL_BOOL_VEC4: glUniform4fv(loc, 1, attr.data); break;
-  default: glUniform1f(loc, attr.data[0]); break;
+    if(name) // Names are optional for textures
+    {
+      auto loc = glGetUniformLocation(shader, name);
+      backend->LogError("glGetUniformLocation");
+      if(loc > 0)
+        type = GL_TEXTURE0 + loc - 1;
+    }
+
+    glActiveTexture(type);
+    backend->LogError("glActiveTexture");
+    glBindTexture(GL_TEXTURE_2D, *reinterpret_cast<GLuint*>(data));
+    backend->LogError("glBindTexture");
   }
-  backend->LogError("glUniform1f");
+  else
+  {
+    auto loc = glGetUniformLocation(shader, name);
+    backend->LogError("glGetUniformLocation");
+    switch(type)
+    {
+    case GL_FLOAT_MAT2: glUniformMatrix2fv(loc, 1, GL_FALSE, data); break;
+    case GL_FLOAT_MAT2x3: glUniformMatrix2x3fv(loc, 1, GL_FALSE, data); break;
+    case GL_FLOAT_MAT2x4: glUniformMatrix2x4fv(loc, 1, GL_FALSE, data); break;
+    case GL_FLOAT_MAT3x2: glUniformMatrix3x2fv(loc, 1, GL_FALSE, data); break;
+    case GL_FLOAT_MAT3: glUniformMatrix3fv(loc, 1, GL_FALSE, data); break;
+    case GL_FLOAT_MAT3x4: glUniformMatrix3x4fv(loc, 1, GL_FALSE, data); break;
+    case GL_FLOAT_MAT4x2: glUniformMatrix4x2fv(loc, 1, GL_FALSE, data); break;
+    case GL_FLOAT_MAT4x3: glUniformMatrix4x3fv(loc, 1, GL_FALSE, data); break;
+    case GL_FLOAT_MAT4: glUniformMatrix4fv(loc, 1, GL_FALSE, data); break;
+    case GL_FLOAT_VEC2:
+    case GL_INT_VEC2:
+    case GL_UNSIGNED_INT_VEC2:
+    case GL_BOOL_VEC2: glUniform2fv(loc, 1, data); break;
+    case GL_FLOAT_VEC3:
+    case GL_INT_VEC3:
+    case GL_UNSIGNED_INT_VEC3:
+    case GL_BOOL_VEC3: glUniform3fv(loc, 1, data); break;
+    case GL_FLOAT_VEC4:
+    case GL_INT_VEC4:
+    case GL_UNSIGNED_INT_VEC4:
+    case GL_BOOL_VEC4: glUniform4fv(loc, 1, data); break;
+    case GL_DOUBLE: backend->LogError("Cannot assign GL_DOUBLE!"); break;
+    default: glUniform1f(loc, data[0]); break;
+    }
+    backend->LogError("glUniform1f");
+  }
 }
 
-void Shader::SetVertices(Backend* backend, unsigned int shader, size_t stride) const
+GLenum Shader::GetType(const FG_ShaderParameter& param)
 {
-  for(khint_t i = 0; i < kh_end(_layout); ++i)
+  if(param.multi > 1 && param.type != FG_ShaderType_FLOAT)
+    return 0;
+
+  switch(param.type)
   {
-    if(kh_exist(_layout, i) && kh_val(_layout, i).kind == VERTEX)
+  case FG_ShaderType_TEXTURE: return GL_TEXTURE0 + param.length;
+  case FG_ShaderType_FLOAT:
+    switch(param.multi)
     {
-      auto loc = glGetAttribLocation(shader, kh_key(_layout, i));
-      backend->LogError("glGetAttribLocation");
-      auto typecount = GetTypeCount(kh_value(_layout, i).type);
-      glEnableVertexAttribArray(loc);
-      backend->LogError("glEnableVertexAttribArray");
-      glVertexAttribPointer(loc, typecount >> 24, typecount & 0x00FFFFFF, GL_FALSE, stride,
-                            (void*)kh_value(_layout, i).offset);
-      backend->LogError("glVertexAttribPointer");
+    case 0:
+    case 1:
+      switch(param.length)
+      {
+      case 1: return GL_FLOAT;
+      case 2: return GL_FLOAT_VEC2;
+      case 3: return GL_FLOAT_VEC3;
+      case 4: return GL_FLOAT_VEC4;
+      }
+      return 0;
+    case 2:
+      switch(param.length)
+      {
+      case 1: return GL_FLOAT_VEC2;
+      case 2: return GL_FLOAT_MAT2;
+      case 3: return GL_FLOAT_MAT2x3;
+      case 4: return GL_FLOAT_MAT2x4;
+      }
+      return 0;
+    case 3:
+      switch(param.length)
+      {
+      case 1: return GL_FLOAT_VEC3;
+      case 2: return GL_FLOAT_MAT3x2;
+      case 3: return GL_FLOAT_MAT3;
+      case 4: return GL_FLOAT_MAT3x4;
+      }
+      return 0;
+    case 4:
+      switch(param.length)
+      {
+      case 1: return GL_FLOAT_VEC4;
+      case 2: return GL_FLOAT_MAT4x2;
+      case 3: return GL_FLOAT_MAT4x3;
+      case 4: return GL_FLOAT_MAT4;
+      }
+      return 0;
+    }
+    return 0;
+  case FG_ShaderType_DOUBLE:
+    if(param.length == 1)
+      return GL_DOUBLE;
+    return 0;
+  case FG_ShaderType_HALF:
+    if(param.length == 1)
+      return GL_HALF_FLOAT;
+    return 0;
+  case FG_ShaderType_INT:
+    switch(param.length)
+    {
+    case 1: return GL_INT;
+    case 2: return GL_INT_VEC2;
+    case 3: return GL_INT_VEC3;
+    case 4: return GL_INT_VEC4;
+    }
+  case FG_ShaderType_UINT:
+    switch(param.length)
+    {
+    case 1: return GL_UNSIGNED_INT;
+    case 2: return GL_UNSIGNED_INT_VEC2;
+    case 3: return GL_UNSIGNED_INT_VEC3;
+    case 4: return GL_UNSIGNED_INT_VEC4;
     }
   }
-}
-
-int Shader::GetTypeCount(int type)
-{
-  int count = 1;
-  switch(type)
-  {
-  case GL_FLOAT_VEC2:
-    type  = GL_FLOAT;
-    count = 2;
-    break;
-  case GL_FLOAT_MAT2:
-    type  = GL_FLOAT;
-    count = 2 * 2;
-    break;
-  case GL_FLOAT_MAT2x3:
-    type  = GL_FLOAT;
-    count = 2 * 3;
-    break;
-  case GL_FLOAT_MAT2x4:
-    type  = GL_FLOAT;
-    count = 2 * 4;
-    break;
-  case GL_FLOAT_VEC3:
-    type  = GL_FLOAT;
-    count = 3;
-    break;
-  case GL_FLOAT_MAT3x2:
-    type  = GL_FLOAT;
-    count = 3 * 2;
-    break;
-  case GL_FLOAT_MAT3:
-    type  = GL_FLOAT;
-    count = 3 * 3;
-    break;
-  case GL_FLOAT_MAT3x4:
-    type  = GL_FLOAT;
-    count = 3 * 4;
-    break;
-  case GL_FLOAT_VEC4:
-    type  = GL_FLOAT;
-    count = 4;
-    break;
-  case GL_FLOAT_MAT4x2:
-    type  = GL_FLOAT;
-    count = 4 * 2;
-    break;
-  case GL_FLOAT_MAT4x3:
-    type  = GL_FLOAT;
-    count = 4 * 3;
-    break;
-  case GL_FLOAT_MAT4:
-    type  = GL_FLOAT;
-    count = 4 * 4;
-    break;
-  case GL_INT_VEC2:
-    type  = GL_INT;
-    count = 2;
-    break;
-  case GL_INT_VEC3:
-    type  = GL_INT;
-    count = 3;
-    break;
-  case GL_INT_VEC4:
-    type  = GL_INT;
-    count = 4;
-    break;
-  case GL_UNSIGNED_INT_VEC2:
-    type  = GL_UNSIGNED_INT;
-    count = 2;
-    break;
-  case GL_UNSIGNED_INT_VEC3:
-    type  = GL_UNSIGNED_INT;
-    count = 3;
-    break;
-  case GL_UNSIGNED_INT_VEC4:
-    type  = GL_UNSIGNED_INT;
-    count = 4;
-    break;
-  case GL_BOOL_VEC2:
-    type  = GL_BOOL;
-    count = 2;
-    break;
-  case GL_BOOL_VEC3:
-    type  = GL_BOOL;
-    count = 3;
-    break;
-  case GL_BOOL_VEC4:
-    type  = GL_BOOL;
-    count = 4;
-    break;
-  }
-  return type | (count << 24);
+  return 0;
 }
 
 Shader& Shader::operator=(const Shader& copy)
 {
-  destruct();
-  init(copy._pixel, copy._vertex, copy._geometry);
-
-  for(khint_t i = 0; i < kh_end(_layout); ++i)
-  {
-    if(kh_exist(_layout, i))
-      add(kh_value(_layout, i));
-  }
+  if(parameters)
+    delete[] parameters;
+  _pixel       = copy._pixel;
+  _vertex      = copy._vertex;
+  _geometry    = copy._geometry;
+  n_parameters = copy.n_parameters;
+  parameters   = new FG_ShaderParameter[n_parameters];
+  memcpy(parameters, copy.parameters, sizeof(FG_ShaderParameter) * n_parameters);
   return *this;
 }
 
-Shader& Shader::operator=(Shader&& mov)
+Shader& Shader::operator=(Shader&& mov) noexcept
 {
-  destruct();
-  _pixel        = mov._pixel;
-  _vertex       = mov._vertex;
-  _geometry     = mov._geometry;
-  _layout       = mov._layout;
-  mov._pixel    = nullptr;
-  mov._vertex   = nullptr;
-  mov._geometry = nullptr;
-  mov._layout   = nullptr;
+  if(parameters)
+    delete[] parameters;
+  _pixel           = std::move(mov._pixel);
+  _vertex          = std::move(mov._vertex);
+  _geometry        = std::move(mov._geometry);
+  n_parameters     = mov.n_parameters;
+  parameters       = mov.parameters;
+  mov.parameters   = nullptr;
+  mov.n_parameters = 0;
   return *this;
-}
-Attribute::Attribute(const char* n, int t, float* d) : name(n), type(t)
-{
-  int num = Shader::GetTypeCount(type) >> 24;
-  if(num > 4)
-    pdata = d;
-  else if(d)
-    memcpy(data, d, num * sizeof(float));
 }

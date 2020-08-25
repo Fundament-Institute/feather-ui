@@ -7,83 +7,51 @@
 #include "backend.h"
 #include "khash.h"
 #include <utility>
+#include <vector>
+#include <string>
 
 struct GLFWwindow;
 
 namespace GL {
-  struct kh_attributes_s;
   class Backend;
 
-  struct Attribute
+  struct Shader : FG_Shader
   {
-    Attribute(const char* name, int type, float* d = nullptr);
-    
-    const char* name;
-    int type; // GL_VEC2, GL_FLOAT, etc.
-    union
+    Shader()
     {
-      float data[4]; // store up to 4 in the struct
-      float* pdata;
-    };
-  };
-
-  struct Shader
-  {
-    enum KIND : unsigned int
-    {
-      GLOBAL = 0,
-      VERTEX,
-      PIXEL,
-      MAX,
-    };
-
-    struct Data
-    {
-      KIND kind;
-      int type;
-      const char* name;
-      ptrdiff_t offset; // For vertex data
-    };
-
-    Shader() : _pixel(nullptr), _vertex(nullptr), _geometry(nullptr), _layout(nullptr) {}
+      parameters   = nullptr;
+      n_parameters = 0;
+    }
     Shader(const Shader& copy);
-    Shader(Shader&& mov) : _pixel(mov._pixel), _vertex(mov._vertex), _geometry(mov._geometry), _layout(mov._layout)
+    Shader(Shader&& mov) :
+      _pixel(std::move(mov._pixel)), _vertex(std::move(mov._vertex)), _geometry(std::move(mov._geometry))
     {
-      mov._pixel    = nullptr;
-      mov._vertex   = nullptr;
-      mov._geometry = nullptr;
-      mov._layout   = nullptr;
+      n_parameters   = mov.n_parameters;
+      parameters     = mov.parameters;
+      mov.parameters = nullptr;
     }
-    Shader(const char* pixel, const char* vertex, const char* geometry, std::initializer_list<Data> data);
-    template<typename... Args> Shader(const char* pixel, const char* vertex, const char* geometry, Args&&... data)
-    {
-      init(pixel, vertex, geometry);
-      (add(data), ...);
-    }
-
+    Shader(const char* pixel, const char* vertex, const char* geometry, std::initializer_list<FG_ShaderParameter> data);
+    Shader(const char* pixel, const char* vertex, const char* geometry, FG_ShaderParameter* parameters,
+           size_t n_parameters);
     ~Shader();
+
     // Creates the shader in the current context
     unsigned int Create(Backend* backend) const;
     // Destroys the shader from the current context
     void Destroy(Backend* backend, unsigned int shader) const;
-    // Sets vertex data for an EXISTING vertex data buffer that has ALREADY been bound via glBufferData
-    void SetVertices(Backend* backend, unsigned int shader, size_t stride) const;
-    static int GetTypeCount(int type);
-    static void SetUniform(Backend* backend, unsigned int shader, const Attribute& attr);
+
+    static GLenum GetType(const FG_ShaderParameter& param);
+    static void SetUniform(Backend* backend, unsigned int shader, const char* name, GLenum type, float* data);
 
     Shader& operator=(const Shader& copy);
-    Shader& operator=(Shader&& mov);
+    Shader& operator=(Shader&& mov) noexcept;
 
   private:
-    void init(const char* pixel, const char* vertex, const char* geometry);
-    bool add(const Data& data);
-    void destruct();
     static void compile(Backend* backend, GLuint program, const char* src, int type);
 
-    char* _pixel;
-    char* _vertex;
-    char* _geometry;
-    kh_attributes_s* _layout;
+    std::string _pixel;
+    std::string _vertex;
+    std::string _geometry;
   };
 }
 

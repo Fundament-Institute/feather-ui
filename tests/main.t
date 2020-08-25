@@ -125,21 +125,21 @@ terra MockElement:Behavior(w : &opaque, ui : &opaque, m : &M.Msg) : M.Result
     var b = @[&&B.Backend](ui)
     var r = F.Rect{array(50f, 100f, 200f, 300f)}
     var c = F.Rect{array(0f, 4f, 8f, 12f)}
-    b:DrawRect(w, &r, &c, 0xFF0000FF, 5f, 0xFF00FFFF, 0f, nil, 0f, 0f)
+    b:DrawRect(w, &r, &c, 0xFF0000FF, 5f, 0xFF00FFFF, 0f, nil, 0f, 0f, nil)
 
     var r2 = F.Rect{array(350f, 100f, 500f, 300f)}
     var c2 = F.Vec{array(0f, 3f)}
-    b:DrawCircle(w, &r2, &c2, 0xFF0000FF, 5f, 0xFF00FFFF, 0f, 10f, 2f, nil, 0f)
+    b:DrawCircle(w, &r2, &c2, 0xFF0000FF, 5f, 0xFF00FFFF, 0f, 10f, 2f, nil, 0f, nil)
     
     var r3 = F.Rect{array(150f, 300f, 300f, 500f)}
     var c3 = F.Rect{array(0f, 4f, 8f, 0.5f)}
-    b:DrawTriangle(w, &r3, &c3, 0xFF0000FF, 5f, 0xFF00FFFF, 0f, nil, 0.45f, 0f)
+    b:DrawTriangle(w, &r3, &c3, 0xFF0000FF, 5f, 0xFF00FFFF, 0f, nil, 0.45f, 0f, nil)
 
     var r4 = F.Rect{array(300f, 300f, 620f, 580f)}
-    b:DrawAsset(w, self.image, &r4, nil, 0xFFFFFFFF, 0f, 0f, 0f)
+    b:DrawAsset(w, self.image, &r4, nil, 0xFFFFFFFF, 0f, 0f, 0f, nil)
 
     var r5 = F.Rect{array(200f, 10f, 550f, 40f)}
-    b:DrawText(w, self.font, self.layout, &r5, 0xFFFFFFFF, 0f, 0f, 0f)
+    b:DrawText(w, self.font, self.layout, &r5, 0xFFFFFFFF, 0f, 0f, 0f, nil)
     return M.Result{0}
   end
   if m.kind.val == [Element.virtualinfo.info["GetWindowFlags"].index] then
@@ -152,9 +152,10 @@ terra MockElement:Behavior(w : &opaque, ui : &opaque, m : &M.Msg) : M.Result
   if m.kind.val == [Element.virtualinfo.info["SetWindowFlags"].index] then
     self.close = self.close or ((m.setWindowFlags.flags and [Msg.Window.enum_values.CLOSED]) ~= 0)
   end
-  if m.kind.val == [Element.virtualinfo.info["KeyDown"].index] or m.kind.val == [Element.virtualinfo.info["MouseDown"].index] then
+  if (m.kind.val == [Element.virtualinfo.info["KeyDown"].index] and m.keyDown.code ~= 56 and m.keyDown.code ~= 84) or m.kind.val == [Element.virtualinfo.info["MouseDown"].index] then
     self.close = true
   end
+  
   return M.DefaultBehavior(&self.super, w, ui, m)
 end
 
