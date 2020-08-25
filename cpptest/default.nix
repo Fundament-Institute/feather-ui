@@ -1,5 +1,5 @@
 { config ? { }, lib ? { }, pkgs ? import <nixpkgs> { }
-, feather ? pkgs.callPackage ../. { }, fgOpenGL, ... }:
+, feather ? pkgs.callPackage ../. { }, ... }:
 
 let inherit (pkgs) stdenv;
 in stdenv.mkDerivation rec {
@@ -12,7 +12,7 @@ in stdenv.mkDerivation rec {
 
   buildInputs = [
     feather.backendInterface
-    fgOpenGL
+    feather.backends
     pkgs.pkgconfig
   ];
 

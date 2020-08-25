@@ -7,6 +7,7 @@
 #include "linmath.h"
 #include "utf.h"
 #include <filesystem>
+#include <stdarg.h>
 #include "SOIL.h"
 #include "ft2build.h"
 #include FT_FREETYPE_H
@@ -342,11 +343,21 @@ FG_Err Backend::DrawShader(FG_Backend* self, void* window, FG_Shader* fgshader, 
     float* data;
     switch(type)
     {
-    case GL_DOUBLE: data = (float*)&va_arg(vl, double); break;
+    case GL_DOUBLE: 
+	{
+	const double& d2 = va_arg(vl, double);
+	data = (float*)&d2;
+	break;
+	}
     case GL_HALF_FLOAT: // we assume you pass in a proper float to fill this
     case GL_FLOAT:
     case GL_INT:
-    case GL_UNSIGNED_INT: data = &va_arg(vl, float); break;
+    case GL_UNSIGNED_INT: 
+	{
+	const float& d1 = va_arg(vl, float);
+	data = (float*)&d1;
+	break;
+	}
     default:
       data = va_arg(vl, float*); break;
     }
@@ -359,7 +370,7 @@ FG_Err Backend::DrawShader(FG_Backend* self, void* window, FG_Shader* fgshader, 
     else
       Shader::SetUniform(backend, instance, shader->parameters[i].name, type, data);
   }
-  va_end(vl, blend);
+  va_end(vl);
 
   GLenum kind = 0;
   switch(vertices->primitive)

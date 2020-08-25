@@ -16,7 +16,7 @@ const char* LEVELS[] = { "FATAL: ", "ERROR: ", "WARNING: ", "NOTICE: ", "DEBUG: 
 void FakeLog(void* root, FG_Level level, const char* f, ...)
 {
   if(level >= 0)
-    printf(LEVELS[level]);
+    printf("%s", LEVELS[level]);
 
   va_list args;
   va_start(args, f);
@@ -94,6 +94,12 @@ int main(int argc, char* argv[])
 {
   FG_Backend* ui;
   auto b        = BACKEND(&ui, FakeLog, behavior);
+  if(!b)
+  {
+    printf("Failed to load backend!");
+    return -1;
+  }
+
   ui            = b;
   auto textrect = FG_Rect{ 0.f, 0.f, 1000.f, 700.f };
   auto e        = MockElement{};

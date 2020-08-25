@@ -53,6 +53,7 @@ let
       '';
       doCheck = true;
 
+      backends = backends;
       passthru = { inherit withBackends backendInterface terra; };
     };
   # feather = stdenv.mkDerivation {
