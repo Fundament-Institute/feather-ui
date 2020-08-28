@@ -80,8 +80,8 @@ M.Keys = Enumset{
   "X", 0x58,
   "Y", 0x59,
   "Z", 0x5A,
-  "LWIN", 0x5B,
-  "RWIN", 0x5C,
+  "LSUPER", 0x5B,
+  "RSUPER", 0x5C,
   "APPS", 0x5D,
   "SLEEP", 0x5F,
   "NUMPAD0", 0x60,
@@ -94,12 +94,12 @@ M.Keys = Enumset{
   "NUMPAD7", 0x67,
   "NUMPAD8", 0x68,
   "NUMPAD9", 0x69,
-  "MULTIPLY", 0x6A,
-  "ADD", 0x6B,
+  "NUMPAD_MULTIPLY", 0x6A,
+  "NUMPAD_ADD", 0x6B,
   "SEPARATOR", 0x6C,
-  "SUBTRACT", 0x6D,
-  "DECIMAL", 0x6E,
-  "DIVIDE", 0x6F,
+  "NUMPAD_SUBTRACT", 0x6D,
+  "NUMPAD_DECIMAL", 0x6E,
+  "NUMPAD_DIVIDE", 0x6F,
   "F1", 0x70,
   "F2", 0x71,
   "F3", 0x72,
@@ -124,26 +124,27 @@ M.Keys = Enumset{
   "F22", 0x85,
   "F23", 0x86,
   "F24", 0x87,
+  "F25", 0x88,
   "NUMLOCK", 0x90,
   "SCROLL", 0x91,
-  "OEM_NEC_EQUAL", 0x92,   -- '=' key on numpad
+  "NUMPAD_EQUAL", 0x92,   -- '=' key on numpad
   "LSHIFT", 0xA0,
   "RSHIFT", 0xA1,
   "LCONTROL", 0xA2,
   "RCONTROL", 0xA3,
   "LMENU", 0xA4,
   "RMENU", 0xA5,
-  "OEM_1", 0xBA,   -- ';:' for US
-  "OEM_PLUS", 0xBB,   -- '+' any country
-  "OEM_COMMA", 0xBC,   -- ',' any country
-  "OEM_MINUS", 0xBD,   -- '-' any country
-  "OEM_PERIOD", 0xBE,   -- '.' any country
-  "OEM_2", 0xBF,   -- '/?' for US
-  "OEM_3", 0xC0,   -- '`virtual ~' for US
-  "OEM_4", 0xDB,  --  '[{' for US
-  "OEM_5", 0xDC,  --  '\|' for US
-  "OEM_6", 0xDD,  --  ']}' for US
-  "OEM_7", 0xDE,  --  ''"' for US
+  "SEMICOLON", 0xBA,   -- ';:' for US (OEM_1)
+  "PLUS", 0xBB,   -- '+' any country (OEM_PLUS)
+  "COMMA", 0xBC,   -- ',' any country (OEM_COMMA)
+  "MINUS", 0xBD,   -- '-' any country (OEM_MINUS)
+  "PERIOD", 0xBE,   -- '.' any country (OEM_PERIOD)
+  "SLASH", 0xBF,   -- '/?' for US (OEM_2)
+  "GRAVE", 0xC0,   -- '`virtual ~' for US (OEM_3)
+  "LEFT_BRACKET", 0xDB,  --  '[{' for US (OEM_4)
+  "BACKSLASH", 0xDC,  --  '\|' for US (OEM_5)
+  "RIGHT_BRACKET", 0xDD,  --  ']}' for US (OEM_6)
+  "APOSTROPHE", 0xDE,  --  ''"' for US (OEM_7)
   "OEM_8", 0xDF
 }
 

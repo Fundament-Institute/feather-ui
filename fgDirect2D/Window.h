@@ -65,7 +65,7 @@ namespace D2D {
     void SetCaption(const char* caption);
     void SetArea(FG_Vec* pos, FG_Vec* dim);
     void SetFlags(uint64_t flags);
-    size_t SetKey(uint8_t keycode, bool down, bool held, unsigned long time);
+    size_t SetKey(uint8_t keycode, uint16_t scancode, bool down, bool held, unsigned long time);
     size_t SetChar(int key, unsigned long time);
     size_t SetMouse(const FG_Vec& points, FG_Kind type, unsigned char button, size_t wparam, unsigned long time);
     size_t SetMouseScroll(const FG_Vec& points, uint16_t x, uint16_t y, unsigned long time);

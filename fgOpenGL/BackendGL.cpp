@@ -343,23 +343,22 @@ FG_Err Backend::DrawShader(FG_Backend* self, void* window, FG_Shader* fgshader, 
     float* data;
     switch(type)
     {
-    case GL_DOUBLE: 
-	{
-	const double& d2 = va_arg(vl, double);
-	data = (float*)&d2;
-	break;
-	}
+    case GL_DOUBLE:
+    {
+      const double& d2 = va_arg(vl, double);
+      data             = (float*)&d2;
+      break;
+    }
     case GL_HALF_FLOAT: // we assume you pass in a proper float to fill this
     case GL_FLOAT:
     case GL_INT:
-    case GL_UNSIGNED_INT: 
-	{
-	const float& d1 = va_arg(vl, float);
-	data = (float*)&d1;
-	break;
-	}
-    default:
-      data = va_arg(vl, float*); break;
+    case GL_UNSIGNED_INT:
+    {
+      const float& d1 = va_arg(vl, float);
+      data            = (float*)&d1;
+      break;
+    }
+    default: data = va_arg(vl, float*); break;
     }
 
     if(type >= GL_TEXTURE0 && type <= GL_TEXTURE31)
@@ -681,6 +680,10 @@ FG_Err Backend::DestroyAsset(FG_Backend* self, FG_Asset* fgasset)
   free(static_cast<Asset*>(fgasset));
   return 0;
 }
+
+void* Backend::CreateSystemControl(FG_Backend* self, void* window, const char* id, FG_Rect* area, ...) { return 0; }
+FG_Err Backend::SetSystemControl(FG_Backend* self, void* window, void* control, FG_Rect* area, ...) { return -1; }
+FG_Err Backend::DestroySystemControl(FG_Backend* self, void* window, void* control) { return -1; }
 
 FG_Err Backend::PutClipboard(FG_Backend* self, void* window, FG_Clipboard kind, const char* data, uint32_t count)
 {
@@ -1154,6 +1157,9 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   setWindow             = &SetWindowGL;
   destroyWindow         = &DestroyWindow;
   destroy               = &DestroyGL;
+  createSystemControl   = &CreateSystemControl;
+  setSystemControl      = &SetSystemControl;
+  destroySystemControl  = &DestroySystemControl;
 
   (*_log)(_root, FG_Level_NONE, "Initializing fgOpenGL...");
   FT_Init_FreeType(&_ftlib);

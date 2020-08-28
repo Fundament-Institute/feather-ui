@@ -152,7 +152,7 @@ terra MockElement:Behavior(w : &opaque, ui : &opaque, m : &M.Msg) : M.Result
   if m.kind.val == [Element.virtualinfo.info["SetWindowFlags"].index] then
     self.close = self.close or ((m.setWindowFlags.flags and [Msg.Window.enum_values.CLOSED]) ~= 0)
   end
-  if (m.kind.val == [Element.virtualinfo.info["KeyDown"].index] and m.keyDown.code ~= 56 and m.keyDown.code ~= 84) or m.kind.val == [Element.virtualinfo.info["MouseDown"].index] then
+  if (m.kind.val == [Element.virtualinfo.info["KeyDown"].index] and m.keyDown.key ~= Msg.Keys.LMENU.val and m.keyDown.scancode ~= 84) or m.kind.val == [Element.virtualinfo.info["MouseDown"].index] then
     self.close = true
   end
   

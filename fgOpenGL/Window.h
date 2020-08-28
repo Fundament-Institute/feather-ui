@@ -34,6 +34,9 @@ namespace GL {
     uint64_t _flags;
     Window* _next; // GLFW doesn't let us detect when it destroys a window so we have to do it ourselves.
     Window* _prev;
+
+    static uint8_t KeyMap[512];
+    static void FillKeyMap();
   };
 }
 

@@ -1,4 +1,5 @@
 #include "backend.h"
+#include "resource.h"
 #include <stdio.h>
 #include <stdarg.h>
 
@@ -83,7 +84,7 @@ FG_Result behavior(FG_Element* element, void* w, void* ui, FG_Msg* m)
   {
     e.close = e.close || ((m->setWindowFlags.flags and FG_Window_CLOSED) != 0);
   }
-  if((m->kind == FG_Kind_KEYDOWN && m->keyDown.code != 56 && m->keyDown.code != 84) || m->kind == FG_Kind_MOUSEDOWN)
+  if((m->kind == FG_Kind_KEYDOWN && m->keyDown.key != FG_Keys_LMENU && m->keyDown.scancode != 84) || m->kind == FG_Kind_MOUSEDOWN)
   {
     e.close = true;
   }
@@ -126,7 +127,7 @@ int main(int argc, char* argv[])
   FG_ShaderParameter vertparams[] = { { FG_ShaderType_FLOAT, 2, 0, "vPos" }, { FG_ShaderType_FLOAT, 2, 0, "vUV" } };
 
   e.flags  = FG_Window_RESIZABLE;
-  e.image  = (*b->createAsset)(b, "../tests/example.png", 0, FG_Format_PNG);
+  e.image  = (*b->createAsset)(b, (const char*)EXAMPLE_PNG_ARRAY, sizeof(EXAMPLE_PNG_ARRAY), FG_Format_PNG);
   e.font   = (*b->createFont)(b, "Arial", 700, false, 16, FG_Vec{ 96.f, 96.f }, FG_AntiAliasing_AA);
   e.layout = (*b->fontLayout)(b, e.font, "Example Text!", &textrect, 16.f, 0.f, FG_BreakStyle_NONE, nullptr);
   e.shader = (*b->createShader)(b, shader_fs, shader_vs, 0, 0, 0, 0, params, 2);

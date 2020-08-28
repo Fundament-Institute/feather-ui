@@ -16,8 +16,8 @@ terra Elem:MouseScroll(x : float, y : float, delta : float, hdelta : float) : F.
 terra Elem:TouchBegin(x : float, y : float, z : float, r : float, pressure : float, index : uint16, flags : uint8, modkeys : uint8) : F.Err return -1 end
 terra Elem:TouchMove(x : float, y : float, z : float, r : float, pressure : float, index : uint16, flags : uint8, modkeys : uint8) : F.Err return -1 end
 terra Elem:TouchEnd(x : float, y : float, z : float, r : float, pressure : float, index : uint16, flags : uint8, modkeys : uint8) : F.Err return -1 end
-terra Elem:KeyUp(code : uint8, modkeys : uint8) : F.Err return -1 end
-terra Elem:KeyDown(code : uint8, modkeys : uint8) : F.Err return -1 end
+terra Elem:KeyUp(key : uint8, modkeys : uint8, scancode : uint16) : F.Err return -1 end
+terra Elem:KeyDown(key : uint8, modkeys : uint8, scancode : uint16) : F.Err return -1 end
 terra Elem:KeyChar(unicode : int32, modkeys : uint8) : F.Err return -1 end
 terra Elem:JoyButtonDown(index : uint16, button : uint16, modkeys : uint8) : F.Err return -1 end
 terra Elem:JoyButtonUp(index : uint16, button : uint16, modkeys : uint8) : F.Err return -1 end

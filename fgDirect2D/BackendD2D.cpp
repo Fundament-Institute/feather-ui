@@ -38,8 +38,8 @@ Window* Backend::FromHWND(void* p)
 void Backend::PushRotate(D2D::Window* context, float rotate, const FG_Rect& area)
 {
   if(rotate != 0.0f)
-    context->PushTransform(
-      D2D1::Matrix3x2F::Rotation(rotate * (180.0f / PI), D2D1::Point2F((area.left + area.right) / 2, (area.top + area.bottom) / 2)));
+    context->PushTransform(D2D1::Matrix3x2F::Rotation(rotate * (180.0f / PI), D2D1::Point2F((area.left + area.right) / 2,
+                                                                                            (area.top + area.bottom) / 2)));
 }
 
 void Backend::PopRotate(D2D::Window* context, float rotate)
@@ -61,13 +61,13 @@ FG_Err Backend::DrawTextD2D(FG_Backend* self, void* window, FG_Font* font, void*
   context->color->SetColor(ToD2Color(color.v));
   layout->SetMaxWidth(area->right - area->left);
   layout->SetMaxHeight(area->bottom - area->top);
-  
+
   D2D1_TEXT_ANTIALIAS_MODE aa = D2D1_TEXT_ANTIALIAS_MODE_DEFAULT;
   switch(font->aa)
   {
   case FG_AntiAliasing_NO_AA: aa = D2D1_TEXT_ANTIALIAS_MODE_ALIASED; break;
   case FG_AntiAliasing_AA: aa = D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE; break;
-  case FG_AntiAliasing_LCD: 
+  case FG_AntiAliasing_LCD:
   case FG_AntiAliasing_LCD_V: aa = D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE; break;
   }
 
@@ -76,7 +76,7 @@ FG_Err Backend::DrawTextD2D(FG_Backend* self, void* window, FG_Font* font, void*
 
   context->target->DrawTextLayout(D2D1::Point2F(area->left, area->top), layout, context->color,
                                   D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
-  
+
   PopRotate(context, rotate);
 
   return 0;
@@ -153,7 +153,7 @@ FG_Err Backend::DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect*
 }
 
 FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Vec* angles, FG_Color fillColor, float border,
-                         FG_Color borderColor, float blur, float innerRadius, float innerBorder, FG_Asset* asset,
+                           FG_Color borderColor, float blur, float innerRadius, float innerBorder, FG_Asset* asset,
                            float rotate, FG_BlendState* blend)
 {
   auto context = FromHWND(window);
@@ -198,7 +198,12 @@ FG_Err Backend::DrawCurve(FG_Backend* self, void* window, FG_Vec* anchors, uint3
   return -1;
 }
 
-// FG_Err DrawShader(FG_Backend* self, fgShader);
+FG_Err Backend::DrawShader(FG_Backend* self, void* window, FG_Shader* shader, FG_Asset* vertices, FG_Asset* indices,
+                           FG_BlendState* blend, ...)
+{
+  return -1;
+}
+
 FG_Err Backend::PushLayer(FG_Backend* self, void* window, FG_Rect* area, float* transform, float opacity, void* cache)
 {
   if(!window || !area || !transform)
@@ -281,6 +286,10 @@ FG_Err Backend::DirtyRect(FG_Backend* self, void* window, void* layer, FG_Rect* 
   InvalidateRect(reinterpret_cast<HWND>(window), &rect, false);
   return 0;
 }
+
+void* Backend::CreateSystemControl(FG_Backend* self, void* window, const char* id, FG_Rect* area, ...) { return 0; }
+FG_Err Backend::SetSystemControl(FG_Backend* self, void* window, void* control, FG_Rect* area, ...) { return -1; }
+FG_Err Backend::DestroySystemControl(FG_Backend* self, void* window, void* control) { return -1; }
 
 FG_Font* Backend::CreateFontD2D(FG_Backend* self, const char* family, unsigned short weight, bool italic, unsigned int pt,
                                 FG_Vec dpi, FG_AntiAliasing aa)
@@ -538,8 +547,13 @@ FG_Asset* Backend::CreateAsset(FG_Backend* self, const char* data, uint32_t coun
 {
   return static_cast<Backend*>(self)->LoadAsset(data, count);
 }
+FG_Asset* Backend::CreateBuffer(FG_Backend* self, void* data, uint32_t bytes, uint8_t primitive,
+                                FG_ShaderParameter* parameters, uint32_t n_parameters)
+{
+  return 0;
+}
 
-FG_Err Backend::DestroyAsset(FG_Backend* self, FG_Asset* fgasset)
+  FG_Err Backend::DestroyAsset(FG_Backend* self, FG_Asset* fgasset)
 {
   auto asset = reinterpret_cast<Asset*>(fgasset);
   for(auto& i : asset->instances)
@@ -550,6 +564,13 @@ FG_Err Backend::DestroyAsset(FG_Backend* self, FG_Asset* fgasset)
   return e;
 }
 
+FG_Shader* Backend::CreateShader(FG_Backend* self, const char* ps, const char* vs, const char* gs, const char* cs,
+                                 const char* ds, const char* hs, FG_ShaderParameter* parameters, uint32_t n_parameters)
+{
+  return 0;
+}
+FG_Err Backend::DestroyShader(FG_Backend* self, FG_Shader* shader) { return -1; }
+FG_Err Backend::GetProjection(FG_Backend* self, void* window, void* layer, float* proj4x4) { return -1; }
 FG_Err Backend::PutClipboard(FG_Backend* self, void* window, FG_Clipboard kind, const char* data, uint32_t count)
 {
   if(!OpenClipboard(reinterpret_cast<HWND>(window)))
@@ -919,14 +940,17 @@ void Backend::RefreshMonitors()
   EnumDisplayMonitors(0, 0, EnumerateMonitorsProc, (LPARAM)this);
 }
 
-FG_Result Backend::Behavior(Window* w, const FG_Msg& msg) { return (*_behavior)(w->element, w->hWnd, _root, const_cast<FG_Msg*>(&msg)); }
+FG_Result Backend::Behavior(Window* w, const FG_Msg& msg)
+{
+  return (*_behavior)(w->element, w->hWnd, _root, const_cast<FG_Msg*>(&msg));
+}
 
 FG_Err Backend::RequestAnimationFrame(FG_Backend* self, void* window, unsigned long long microdelay)
 {
   reinterpret_cast<Window*>(GetWindowLongPtrW(reinterpret_cast<HWND>(window), GWLP_USERDATA))->InvalidateHWND();
   // if(context->nextframe < 0 || context->nextframe > microdelay)
   //  context->nextframe = microdelay;
-  
+
   return 0;
 }
 
@@ -1037,14 +1061,14 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior, ID2D1Factory1* fa
                  IDWriteFactory1* writefactory) :
   _root(root), _log(log), _behavior(behavior), _factory(factory), _wicfactory(wicfactory), _writefactory(writefactory)
 {
-  drawText     = &DrawTextD2D;
-  drawAsset    = &DrawAsset;
-  drawRect     = &DrawRect;
-  drawCircle   = &DrawCircle;
-  drawTriangle = &DrawTriangle;
-  drawLines    = &DrawLines;
-  drawCurve    = &DrawCurve;
-  // drawShader =&DrawShader;
+  drawText              = &DrawTextD2D;
+  drawAsset             = &DrawAsset;
+  drawRect              = &DrawRect;
+  drawCircle            = &DrawCircle;
+  drawTriangle          = &DrawTriangle;
+  drawLines             = &DrawLines;
+  drawCurve             = &DrawCurve;
+  drawShader            = &DrawShader;
   pushLayer             = &PushLayer;
   popLayer              = &PopLayer;
   pushClip              = &PushClip;
@@ -1052,6 +1076,8 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior, ID2D1Factory1* fa
   dirtyRect             = &DirtyRect;
   beginDraw             = &BeginDraw;
   endDraw               = &EndDraw;
+  createShader          = &CreateShader;
+  destroyShader         = &DestroyShader;
   createFont            = &CreateFontD2D;
   destroyFont           = &DestroyFont;
   fontLayout            = &FontLayout;
@@ -1059,7 +1085,9 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior, ID2D1Factory1* fa
   fontIndex             = &FontIndex;
   fontPos               = &FontPos;
   createAsset           = &CreateAsset;
+  createBuffer          = &CreateBuffer;
   destroyAsset          = &DestroyAsset;
+  getProjection         = &GetProjection;
   putClipboard          = &PutClipboard;
   getClipboard          = &GetClipboard;
   checkClipboard        = &CheckClipboard;
@@ -1074,6 +1102,9 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior, ID2D1Factory1* fa
   setWindow             = &SetWindowD2D;
   destroyWindow         = &DestroyWindow;
   destroy               = &DestroyD2D;
+  createSystemControl   = &CreateSystemControl;
+  setSystemControl      = &SetSystemControl;
+  destroySystemControl  = &DestroySystemControl;
 
   HDC hdc = GetDC(NULL);
   dpi     = { static_cast<float>(GetDeviceCaps(hdc, LOGPIXELSX)), static_cast<float>(GetDeviceCaps(hdc, LOGPIXELSY)) };

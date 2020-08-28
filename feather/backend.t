@@ -266,6 +266,10 @@ terra B.Backend:GetClipboard(window : &opaque, kind : B.Clipboard, target : &opa
 terra B.Backend:CheckClipboard(window : &opaque, kind : B.Clipboard) : bool return false end
 terra B.Backend:ClearClipboard(window : &opaque, kind : B.Clipboard) : F.Err return 0 end
 
+terra B.Backend:CreateSystemControl(window : &opaque, id : F.conststring, area : &F.Rect, ...) : &opaque return nil end
+terra B.Backend:SetSystemControl(window : &opaque, control : &opaque, area : &F.Rect, ...) : F.Err return 0 end
+terra B.Backend:DestroySystemControl(window : &opaque, control : &opaque) : F.Err return 0 end
+
 terra B.Backend:GetSyncObject() : &opaque return nil end
 terra B.Backend:ProcessMessages() : F.Err return 0 end
 terra B.Backend:SetCursor(window : &opaque, cursor : B.Cursor) : F.Err return 0 end

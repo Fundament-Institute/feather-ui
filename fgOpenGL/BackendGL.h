@@ -92,6 +92,9 @@ namespace GL {
     static FG_Err DestroyWindow(FG_Backend* self, void* window);
     static FG_Err BeginDraw(FG_Backend* self, void* window, FG_Rect* area, bool clear);
     static FG_Err EndDraw(FG_Backend* self, void* window);
+    static void* CreateSystemControl(FG_Backend* self, void* window, const char* id, FG_Rect* area, ...);
+    static FG_Err SetSystemControl(FG_Backend* self, void* window, void* control, FG_Rect* area, ...);
+    static FG_Err DestroySystemControl(FG_Backend* self, void* window, void* control);
     static void ErrorCallback(int error, const char* description);
     static void JoystickCallback(int id, int connected);
     static void ColorFloats(const FG_Color& c, float (&colors)[4]);
