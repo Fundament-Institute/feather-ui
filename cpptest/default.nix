@@ -16,6 +16,7 @@ in stdenv.mkDerivation rec {
     pkgs.pkgconfig
   ];
 
+  dontStrip = true;
   dontConfigure = true;
   installPhase = ''
     mkdir -p $out/bin/

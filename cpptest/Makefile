@@ -4,8 +4,8 @@ C_FILES := $(notdir $(wildcard ./*.c))
 CPPTEST_OBJDIR 		  := $(OBJDIR)/cpptest
 CXX_OBJS          	  := $(foreach rule,$(CXX_FILES:.cpp=.o),$(CPPTEST_OBJDIR)/$(rule))
 C_OBJS          	  := $(foreach rule,$(C_FILES:.c=.o),$(CPPTEST_OBJDIR)/$(rule))
-CPPTEST_CPPFLAGS       := $(CPPFLAGS) -fPIC
-CPPTEST_DEBUG_CPPFLAGS := $(CPPFLAGS) -g3 -fPIC
+CPPTEST_CPPFLAGS       := $(CPPFLAGS)
+CPPTEST_DEBUG_CPPFLAGS := $(CPPFLAGS) -g3
 LDFLAGS 			  := -lfgOpenGL
 .PHONY: all clean
 
@@ -16,7 +16,7 @@ clean:
 
 $(BINDIR)/cpptest: $(CXX_OBJS) $(C_OBJS)
 	@mkdir -p $(BINDIR)
-	$(CXX) $(CXX_OBJS) $(C_OBJS) $(LDFLAGS) -shared -o $@
+	$(CXX) $(CXX_OBJS) $(C_OBJS) $(LDFLAGS) -o $@
 
 $(CPPTEST_OBJDIR)/%.o: ./%.cpp
 	@mkdir -p $(CPPTEST_OBJDIR)
