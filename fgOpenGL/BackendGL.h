@@ -115,6 +115,7 @@ namespace GL {
     static char _lasterrdesc[1024]; // 1024 is from GLFW internals
     static int _maxjoy;
     static const float BASE_DPI;
+    static Backend* _singleton;
 
   protected:
     template<class T> inline static void _buildPosUV(T (&v)[4], const FG_Rect& area, const FG_Rect& uv, float x, float y)

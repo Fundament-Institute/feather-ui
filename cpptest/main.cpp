@@ -97,7 +97,7 @@ int main(int argc, char* argv[])
   auto b        = BACKEND(&ui, FakeLog, behavior);
   if(!b)
   {
-    printf("Failed to load backend!");
+    printf("Failed to load backend!\n");
     return -1;
   }
 
@@ -137,6 +137,13 @@ int main(int argc, char* argv[])
   auto pos = FG_Vec{ 200.f, 100.f };
   auto dim = FG_Vec{ 800.f, 600.f };
   auto w   = (*b->createWindow)(b, &e, nullptr, &pos, &dim, "Feather Test", e.flags, nullptr);
+  TEST(w != nullptr);
+
+  if(!w)
+  {
+    printf("failed to create window!\n");
+    return -1;
+  }
 
   TEST((*b->setCursor)(b, w, FG_Cursor_CROSS) == 0);
   TEST((*b->requestAnimationFrame)(b, w, 0) == 0);
@@ -148,7 +155,6 @@ int main(int argc, char* argv[])
 
   const char TEST_TEXT[] = "testtext";
 
-  TEST(w != nullptr);
   TEST((*b->processMessages)(b) != 0);
   TEST((*b->clearClipboard)(b, w, FG_Clipboard_ALL) == 0);
   TEST((*b->checkClipboard)(b, w, FG_Clipboard_TEXT) == false);

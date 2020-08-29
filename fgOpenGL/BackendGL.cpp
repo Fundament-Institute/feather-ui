@@ -24,6 +24,7 @@ int Backend::_lasterr            = 0;
 int Backend::_refcount           = 0;
 char Backend::_lasterrdesc[1024] = {};
 int Backend::_maxjoy             = 0;
+Backend* Backend::_singleton     = nullptr;
 const float Backend::BASE_DPI    = 96.0f;
 
 void Backend::ColorFloats(const FG_Color& c, float (&colors)[4])
@@ -80,7 +81,7 @@ FG_Err Backend::DrawTextGL(FG_Backend* self, void* window, FG_Font* fgfont, void
   mat4x4 mv;
   Shader::SetUniform(backend, context->_imageshader, "MVP", GL_FLOAT_MAT4, GetRotationMatrix(mv, rotate, z, context->proj));
 
-  float dim  = (1 << font->GetSizePower());
+  float dim  = (float)(1 << font->GetSizePower());
   FG_Vec pen = { area->left, area->top + ((layout->lineheight / font->lineheight) * font->GetAscender()) };
   FG_Rect rect;
   ImageVertex v[4];
@@ -144,12 +145,12 @@ FG_Err Backend::DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Re
   auto context = reinterpret_cast<Context*>(window);
   GLuint tex   = context->LoadAsset(static_cast<Asset*>(asset));
 
-  FG_Rect full = { 0, 0, (float)asset->size.x, (float)asset->size.y };
+  FG_Rect full = { 0, 0, static_cast<float>(asset->size.x), static_cast<float>(asset->size.y) };
 
   if(!source)
     source = &full;
   ImageVertex v[4];
-  _buildPosUV(v, *area, *source, (float)asset->size.x, (float)asset->size.y);
+  _buildPosUV(v, *area, *source, static_cast<float>(asset->size.x), static_cast<float>(asset->size.y));
 
   for(int i = 0; i < 4; ++i)
     ColorFloats(color, v[i].color);
@@ -337,7 +338,7 @@ FG_Err Backend::DrawShader(FG_Backend* self, void* window, FG_Shader* fgshader, 
 
   va_list vl;
   va_start(vl, blend);
-  for(int i = 0; i < shader->n_parameters; ++i)
+  for(uint32_t i = 0; i < shader->n_parameters; ++i)
   {
     auto type = Shader::GetType(shader->parameters[i]);
     float* data;
@@ -418,7 +419,7 @@ void* Backend::PopLayer(FG_Backend* self, void* window)
 }
 FG_Err Backend::DestroyLayer(FG_Backend* self, void* window, void* layer)
 {
-  if(!layer)
+  if(!self || !layer)
     return -1;
 
   delete reinterpret_cast<Layer*>(layer);
@@ -455,6 +456,8 @@ FG_Shader* Backend::CreateShader(FG_Backend* self, const char* ps, const char* v
 }
 FG_Err Backend::DestroyShader(FG_Backend* self, FG_Shader* shader)
 {
+  if(!self || !shader)
+    return -1;
   delete static_cast<Shader*>(shader);
   return 0;
 }
@@ -591,7 +594,7 @@ FG_Asset* Backend::CreateBuffer(FG_Backend* self, void* data, uint32_t bytes, ui
   uint32_t count  = 0;
   uint32_t stride = 0;
 
-  for(int i = 0; i < n_parameters; ++i)
+  for(uint32_t i = 0; i < n_parameters; ++i)
   {
     GLenum type = 0;
     switch(parameters[i].type)
@@ -670,6 +673,9 @@ FG_Asset* Backend::CreateBuffer(FG_Backend* self, void* data, uint32_t bytes, ui
 
 FG_Err Backend::DestroyAsset(FG_Backend* self, FG_Asset* fgasset)
 {
+  if(!self || !fgasset)
+    return -1;
+
   auto backend = static_cast<Backend*>(self);
 
   // Once we remove the asset from the hash, contexts who reach a reference count of 0 for an asset will destroy it.
@@ -694,12 +700,12 @@ FG_Err Backend::PutClipboard(FG_Backend* self, void* window, FG_Clipboard kind, 
   {
     if(kind == FG_Clipboard_TEXT)
     {
-      size_t unilen  = MultiByteToWideChar(CP_UTF8, 0, data, (int)count, 0, 0);
+      size_t unilen  = MultiByteToWideChar(CP_UTF8, 0, data, static_cast<int>(count), 0, 0);
       HGLOBAL unimem = GlobalAlloc(GMEM_MOVEABLE, unilen * sizeof(wchar_t));
       if(unimem)
       {
-        wchar_t* uni = (wchar_t*)GlobalLock(unimem);
-        size_t sz    = MultiByteToWideChar(CP_UTF8, 0, data, (int)count, uni, (int)unilen);
+        wchar_t* uni = reinterpret_cast<wchar_t*>(GlobalLock(unimem));
+        size_t sz    = MultiByteToWideChar(CP_UTF8, 0, data, static_cast<int>(count), uni, static_cast<int>(unilen));
         if(sz < unilen) // ensure we have a null terminator
           uni[sz] = 0;
         GlobalUnlock(unimem);
@@ -708,7 +714,7 @@ FG_Err Backend::PutClipboard(FG_Backend* self, void* window, FG_Clipboard kind, 
       HGLOBAL gmem = GlobalAlloc(GMEM_MOVEABLE, count + 1);
       if(gmem)
       {
-        char* mem = (char*)GlobalLock(gmem);
+        char* mem = reinterpret_cast<char*>(GlobalLock(gmem));
         MEMCPY(mem, count + 1, data, count);
         mem[count] = 0;
         GlobalUnlock(gmem);
@@ -764,10 +770,10 @@ uint32_t Backend::GetClipboard(FG_Backend* self, void* window, FG_Clipboard kind
         const wchar_t* str = (const wchar_t*)GlobalLock(gdata);
         if(str)
         {
-          len = WideCharToMultiByte(CP_UTF8, 0, str, (int)size, 0, 0, NULL, NULL);
+          len = WideCharToMultiByte(CP_UTF8, 0, str, static_cast<int>(size), 0, 0, NULL, NULL);
 
           if(target && count >= len)
-            len = WideCharToMultiByte(CP_UTF8, 0, str, (int)size, (char*)target, (int)count, NULL, NULL);
+            len = WideCharToMultiByte(CP_UTF8, 0, str, static_cast<int>(size), (char*)target, static_cast<int>(count), NULL, NULL);
 
           GlobalUnlock(gdata);
         }
@@ -972,18 +978,18 @@ FG_Err Backend::SetWindowGL(FG_Backend* self, void* window, FG_Element* element,
     glfwGetWindowPos(glwindow, &posx, &posy);
     glfwGetWindowSize(glwindow, &dimx, &dimy);
     if(flags & FG_Window_FULLSCREEN)
-      glfwSetWindowMonitor(glwindow, (GLFWmonitor*)display, 0, 0, !dim ? dimx : (int)dim->x, !dim ? dimy : (int)dim->y,
+      glfwSetWindowMonitor(glwindow, (GLFWmonitor*)display, 0, 0, !dim ? dimx : static_cast<int>(ceilf(dim->x)), !dim ? dimy : static_cast<int>(ceilf(dim->y)),
                            GLFW_DONT_CARE);
     else
-      glfwSetWindowMonitor(glwindow, NULL, !pos ? posx : (int)pos->x, !pos ? posy : (int)pos->y, !dim ? dimx : (int)dim->x,
-                           !dim ? dimy : (int)dim->y, GLFW_DONT_CARE);
+      glfwSetWindowMonitor(glwindow, NULL, !pos ? posx : static_cast<int>(ceilf(pos->x)), !pos ? posy : static_cast<int>(ceilf(pos->y)), !dim ? dimx : static_cast<int>(ceilf(dim->x)),
+                           !dim ? dimy : static_cast<int>(ceilf(dim->y)), GLFW_DONT_CARE);
   }
   else
   {
     if(pos)
-      glfwSetWindowPos(glwindow, (int)pos->x, (int)pos->y);
+      glfwSetWindowPos(glwindow, static_cast<int>(ceilf(pos->x)), static_cast<int>(ceilf(pos->y)));
     if(dim)
-      glfwSetWindowSize(glwindow, (int)dim->x, (int)dim->y);
+      glfwSetWindowSize(glwindow, static_cast<int>(ceilf(dim->x)), static_cast<int>(ceilf(dim->y)));
   }
 
   if(flags & FG_Window_MAXIMIZED)
@@ -1002,8 +1008,9 @@ FG_Err Backend::SetWindowGL(FG_Backend* self, void* window, FG_Element* element,
 
 FG_Err Backend::DestroyWindow(FG_Backend* self, void* window)
 {
-  if(!window)
+  if(!self || !window)
     return -1;
+
   _lasterr = 0;
   delete reinterpret_cast<Context*>(window);
   return _lasterr;
@@ -1025,9 +1032,9 @@ FG_Err Backend::EndDraw(FG_Backend* self, void* window)
 
 void DestroyGL(FG_Backend* self)
 {
-  auto gl = static_cast<Backend*>(self);
-  if(!gl)
+  if(!self)
     return;
+  auto gl = static_cast<Backend*>(self);
 
   gl->~Backend();
   free(gl);
@@ -1162,7 +1169,9 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   destroySystemControl  = &DestroySystemControl;
 
   (*_log)(_root, FG_Level_NONE, "Initializing fgOpenGL...");
-  FT_Init_FreeType(&_ftlib);
+  if(FT_Error err = FT_Init_FreeType(&_ftlib))
+    (*_log)(_root, FG_Level_ERROR, "Error %i occured while initializing FreeType", err);
+  ;
 
   const char* image_vs =
 #include "Image.vs.glsl"
@@ -1246,6 +1255,7 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   cursorblink  = 530;
   tooltipdelay = 500;
 #endif
+  _singleton = this;
 }
 
 Backend::~Backend()
@@ -1256,6 +1266,9 @@ Backend::~Backend()
     delete _windows;
     _windows = p;
   }
+
+  if(_singleton == this)
+    _singleton = nullptr;
 
 #ifdef FG_PLATFORM_WIN32
   PostQuitMessage(0);
@@ -1268,6 +1281,8 @@ void Backend::ErrorCallback(int error, const char* description)
 {
   _lasterr = error;
   strncpy(_lasterrdesc, description, 1024);
+  if(_singleton)
+    (*_singleton->_log)(_singleton->_root, FG_Level_ERROR, description);
 }
 
 FG_Result Backend::Behavior(Context* w, const FG_Msg& msg)

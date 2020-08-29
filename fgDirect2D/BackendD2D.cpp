@@ -583,7 +583,7 @@ FG_Err Backend::PutClipboard(FG_Backend* self, void* window, FG_Clipboard kind, 
       HGLOBAL unimem = GlobalAlloc(GMEM_MOVEABLE, unilen * sizeof(wchar_t));
       if(unimem)
       {
-        wchar_t* uni = (wchar_t*)GlobalLock(unimem);
+        wchar_t* uni = reinterpret_cast<wchar_t*>(GlobalLock(unimem));
         size_t sz    = UTF8toUTF16(data, count, uni, unilen);
         if(sz < unilen) // ensure we have a null terminator
           uni[sz] = 0;
@@ -593,7 +593,7 @@ FG_Err Backend::PutClipboard(FG_Backend* self, void* window, FG_Clipboard kind, 
       HGLOBAL gmem = GlobalAlloc(GMEM_MOVEABLE, count + 1);
       if(gmem)
       {
-        char* mem = (char*)GlobalLock(gmem);
+        char* mem = reinterpret_cast<char*>(GlobalLock(gmem));
         MEMCPY(mem, count + 1, data, count);
         mem[count] = 0;
         GlobalUnlock(gmem);

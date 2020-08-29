@@ -167,19 +167,22 @@ Window::Window(Backend* backend, GLFWmonitor* display, FG_Element* element, FG_V
     glfwSetDropCallback(_window, DropCallback);
     glfwSetWindowFocusCallback(_window, FocusCallback);
     glfwSetWindowSizeCallback(_window, SizeCallback);
-  }
 
 #ifdef FG_PLATFORM_WIN32
-  // Remove the transparency hack by removing the layered flag that ISN'T NECESSARY >:C
-  HWND hWnd     = glfwGetWin32Window(_window);
-  DWORD exStyle = GetWindowLongW(hWnd, GWL_EXSTYLE);
-  SetWindowLongW(hWnd, GWL_EXSTYLE, exStyle & (~WS_EX_LAYERED));
+    // Remove the transparency hack by removing the layered flag that ISN'T NECESSARY >:C
+    HWND hWnd     = glfwGetWin32Window(_window);
+    DWORD exStyle = GetWindowLongW(hWnd, GWL_EXSTYLE);
+    SetWindowLongW(hWnd, GWL_EXSTYLE, exStyle & (~WS_EX_LAYERED));
 #endif
 
-  glfwMakeContextCurrent(_window);
-  gladLoadGL(glfwGetProcAddress);
-  _backend->LogError("gladLoadGL");
-  CreateResources();
+    glfwMakeContextCurrent(_window);
+    if(!gladLoadGL(glfwGetProcAddress))
+      (*_backend->_log)(_backend->_root, FG_Level_ERROR, "gladLoadGL failed");
+    _backend->LogError("gladLoadGL");
+    CreateResources();
+  }
+  else
+    (*_backend->_log)(_backend->_root, FG_Level_ERROR, "glfwCreateWindow failed");
 }
 
 Window::~Window()
@@ -221,7 +224,7 @@ uint8_t Window::GetModKeys(int mods)
 void Window::KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
   auto self          = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
-  FG_Msg evt         = { (action == GLFW_RELEASE) ? FG_Kind_KEYUP : FG_Kind_KEYDOWN };
+  FG_Msg evt         = { static_cast<uint16_t>((action == GLFW_RELEASE) ? FG_Kind_KEYUP : FG_Kind_KEYDOWN) };
   evt.keyUp.key      = KeyMap[key];
   evt.keyUp.scancode = scancode;
   evt.keyUp.modkeys  = GetModKeys(mods);
@@ -245,7 +248,7 @@ void Window::CharCallback(GLFWwindow* window, unsigned int key)
 void Window::MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 {
   auto self             = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
-  FG_Msg evt            = { (action == GLFW_PRESS) ? FG_Kind_MOUSEDOWN : FG_Kind_MOUSEUP };
+  FG_Msg evt            = { static_cast<uint16_t>((action == GLFW_PRESS) ? FG_Kind_MOUSEDOWN : FG_Kind_MOUSEUP) };
   evt.mouseDown.all     = (1 << button);
   evt.mouseDown.button  = (1 << button);
   evt.mouseDown.modkeys = GetModKeys(mods);
@@ -312,7 +315,7 @@ void Window::DropCallback(GLFWwindow* window, int count, const char* paths[])
 void Window::FocusCallback(GLFWwindow* window, int focused)
 {
   auto self  = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
-  FG_Msg evt = { focused ? FG_Kind_GOTFOCUS : FG_Kind_LOSTFOCUS };
+  FG_Msg evt = { static_cast<uint16_t>(focused ? FG_Kind_GOTFOCUS : FG_Kind_LOSTFOCUS) };
 
   self->_backend->Behavior(reinterpret_cast<Window*>(glfwGetWindowUserPointer(window)), evt);
 }
