@@ -109,4 +109,12 @@ terra M.MatrixAbs(m : &float[4][4])
   end
 end
 
+
+function M.override(a, b)
+  local res = {}
+  for k, v in pairs(a) do res[k] = v end
+  for k, v in pairs(b) do res[k] = v end
+  return res
+end
+
 return M

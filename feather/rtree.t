@@ -36,7 +36,7 @@ local terra GenAABB(pos : F.Vec3D, extent : F.Vec3D, rot : F.Vec3D) : {F.Vec3D, 
   return {p,e}
 end
 
-terra TransformRay(n : &Node, p : &F.Vec3D, v : &F.Vec3D) : {}
+local terra TransformRay(n : &Node, p : &F.Vec3D, v : &F.Vec3D) : {}
   @p = @p - n.pos -- We first fix the point relative to this node, since all rotations are done around this node's origin
 
   if n.rot.x ~= 0 or n.rot.y ~= 0 then
@@ -52,7 +52,7 @@ end
 
 -- Ray intersection with a 3D AABB centered on the origin
 -- adapted from https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-box-intersection
-terra RayBoxIntersect(pos : &F.Vec3D, v : &F.Vec3D, extent : &F.Vec3D) : float
+local terra RayBoxIntersect(pos : &F.Vec3D, v : &F.Vec3D, extent : &F.Vec3D) : float
   var txmin = (-extent.x - pos.x) / v.x
   var txmax = (extent.x - pos.x) / v.x
 

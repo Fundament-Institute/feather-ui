@@ -38,6 +38,14 @@ Vec = terralib.memoize(function(T, N)
     return not [s.metamethods.__eq](a, b)
   end
 
+  terra s.metamethods.__unm(a : s): s
+    var res: s
+    for i = 0, N do
+      res.v[i] = -a.v[i]
+    end
+    return res
+  end
+
   terra s:norm() : s
     var length = 0
     var normalized : s
