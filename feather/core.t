@@ -3,6 +3,8 @@ local alloc = require 'std.alloc'
 local rtree = require 'feather.rtree'
 local backend = require 'feather.backend'
 local override = require 'feather.util'.override
+local message = require 'feather.message'
+local Element = require 'feather.element'
 
 local M = {}
 
@@ -83,24 +85,14 @@ local function make_body(body)
     for i, b in ipairs(body) do
       elements[i], types[i] = b:generate(context, type_environment)
     end
-    print("body values")
-    terralib.printraw(types)
-    terralib.printraw(elements)
-    terralib.printraw(context)
 
     return {
       enter = function(self, context, environment)
-        terralib.printraw(context)
         return `{
           escape
-              print("inside escape")
-              terralib.printraw(context)
             for i, e in ipairs(elements) do
-              print("inside loop")
-              terralib.printraw(context)
               local x = `self.["_"..(i-1)]
-              print(x, context, environment)
-              emit(e.enter(x, "fubar", "environment"))
+              emit(e.enter(x, context, environment))
             end
           end
         }
@@ -196,7 +188,7 @@ function template_mt:__call(desc)
         for k, v in pairs(self.args) do
           binds[k] = expression_enter(v, context, environment)
         end
-        return fns.enter(data, binds)
+        return fns.enter(data, context, binds)
       end,
       update = function(data, context, environment)
         local binds = {
@@ -497,8 +489,8 @@ function M.ui(desc)
   table.sort(query_names)
 
   local query_name_lookup = {}
-  local query_binding = terralib.types.newstruct("query_struct")
-  local query_store = (&opaque)[#query_names]
+  local query_binding = terralib.types.newstruct("query_store")
+  -- local query_store = (&opaque)[#query_names]
   local query_store_initializers = {}
   for i, v in ipairs(query_names) do
     queries_binding_type.entries:insert {field = v, type = desc.queries[v]}
@@ -523,7 +515,10 @@ function M.ui(desc)
     backend: backend_type
                   }
 
+  ui.query_store = query_binding
+
   -- terralib.printraw(ui)
+  terralib.printraw(query_binding)
 
   terra ui:init(application: application_type, queries: query_binding, backend: backend_type)
     self.rtree:init()
@@ -539,6 +534,10 @@ function M.ui(desc)
       end]]
     self.queries = queries
     self.backend = backend
+  end
+
+  terra ui:destruct()
+    self.rtree:destruct()
   end
 
   local function make_context(self)
@@ -560,16 +559,6 @@ function M.ui(desc)
     return res
   end
 
-  do
-    --DEBUG
-    local self = symbol(ui)
-    local blk = body_fns.enter(`self.data,
-                               make_context(self),
-                               make_environment(self)
-    )
-    print(blk)
-  end
-
   terra ui:enter()
     [body_fns.enter(`self.data,
                     make_context(self),
@@ -588,6 +577,12 @@ function M.ui(desc)
   end
   terra ui:render()
     [body_fns.render(`self.data, make_context(self))]
+  end
+
+  terra ui:behavior(w: &opaque, _ui: &opaque, m: message.Msg)
+    if m.kind.val == [Element.virtualinfo.info["Draw"].index] then
+      [&ui](_ui):render()
+    end
   end
 
   return ui

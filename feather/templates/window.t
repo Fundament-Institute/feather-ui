@@ -18,15 +18,11 @@ return core.raw_template {
 
     return {
       enter = function(self, context, environment)
-        print("printing body context")
-        print(self)
-        terralib.printraw(context)
-        terralib.printraw(environment)
         return quote
             var pos = shared.Vec{array(0f, 0f)}
           var size = shared.Vec{array(800f, 600f)}
           var transform = core.transform.identity()
-          self.window = [context.backend]:CreateWindow(nil, nil, &pos, &size, "feather window", messages.Window.RESIZEABLE, nil)
+          self.window = [context.backend]:CreateWindow(nil, nil, &pos, &size, "feather window", messages.Window.RESIZABLE, nil)
           ;[body_fns.enter(`self.body, override(context, {window = `self.window, transform = `transform}), environment)]
                end
       end,
