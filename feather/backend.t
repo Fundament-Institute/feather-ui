@@ -36,7 +36,7 @@ B.Feature = Flags{
   "CURVE_FILL",
   "LAYER_TRANSFORM",
   "LAYER_OPACITY",
-  "SHADER_GLSL2",
+  "SHADER_GLSL_ES2", -- Shader type determines what CreateShader will accept
   "SHADER_GLSL4",
   "SHADER_HLSL2",
   "BACKGROUND_OPACITY",
@@ -44,6 +44,7 @@ B.Feature = Flags{
 
 B.Format = Enum{
   "GRADIENT",
+  "BUFFER",
   "BMP",
   "JPG",
   "PNG",
@@ -115,12 +116,38 @@ struct B.Font {
   aa : B.AntiAliasing
 }
 
+B.Primitive = Enum({
+  "POINT",
+  "LINE",
+  "TRIANGLE",
+  "LINE_STRIP",
+  "TRIANGLE_STRIP",
+  "INDEX_BYTE",
+  "INDEX_SHORT",
+  "INDEX_INT",
+}, uint8)
+
 struct B.Asset {
   data : B.Data
+  format : B.Format
   size : F.Veci
   dpi : F.Vec
-  format : B.Format
 }
+B.Asset.c_export = [[FG_Data data;
+  FG_Format format;
+  union {
+    struct {
+      FG_Veci size;
+      FG_Vec dpi;
+    };
+    struct {
+      unsigned int count;
+      unsigned short stride;
+      unsigned char primitive;
+      FG_ShaderParameter * parameters;
+      unsigned int n_parameters;
+    };
+  };]]
 
 B.ShaderType = Enum{
   "HALF",
@@ -137,7 +164,7 @@ struct B.ShaderParameter {
   type : B.ShaderType
   length : uint -- for arrays
   multi : uint -- for matrices, or to indicate TEX1D, TEX2D, TEX3D
-  name : rawstring
+  name : F.conststring
 }
 
 struct B.Shader {
@@ -155,6 +182,41 @@ struct B.Display {
   primary : bool
 }
 
+B.BlendValue = Enum({
+  "ZERO", 
+  "ONE", 
+  "SRC_COLOR", 
+  "INV_SRC_COLOR",
+  "DST_COLOR", 
+  "INV_DST_COLOR", 
+  "SRC_ALPHA",
+  "INV_SRC_ALPHA",
+  "DST_ALPHA", 
+  "INV_DST_ALPHA",
+  "CONSTANT_COLOR", 
+  "INV_CONSTANT_COLOR",
+  "CONSTANT_ALPHA", 
+  "INV_CONSTANT_ALPHA",
+  "SRC_ALPHA_SATURATE",
+}, uint8)
+
+B.BlendOp = Enum({
+  "ADD",
+  "SUBTRACT",
+  "REV_SUBTRACT",
+}, uint8)
+
+struct B.BlendState {
+  srcBlend : B.BlendValue
+  destBlend : B.BlendValue
+  colorBlend : B.BlendOp
+  srcBlendAlpha : B.BlendValue
+  destBlendAlpha : B.BlendValue
+  alphaBlend : B.BlendOp
+  mask : uint8 -- RGBA mask, R is bit 1, A is bit 4
+  constant : F.Color
+}
+
 struct B.Backend {
   destroy : {&B.Backend} -> {}
 
@@ -167,14 +229,14 @@ struct B.Backend {
 }
 
 -- Define a dynamic backend object (a static backend would be a seperate type that also provides these functions).
-terra B.Backend:DrawText(window : &opaque, font : &B.Font, layout : &opaque, area : &F.Rect, color : F.Color, blur : float, rotate : float, z : float) : F.Err return 0 end
-terra B.Backend:DrawAsset(window : &opaque, asset : &B.Asset, area : &F.Rect, source : &F.Rect, color : F.Color, time : float, rotate : float, z : float) : F.Err return 0 end
-terra B.Backend:DrawRect(window : &opaque, area : &F.Rect, corners : &F.Rect, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, asset : &B.Asset, rotate : float, z : float) : F.Err return 0 end
-terra B.Backend:DrawCircle(window : &opaque, area : &F.Rect, arcs : &F.Rect, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, asset : &B.Asset, z : float) : F.Err return 0 end
-terra B.Backend:DrawTriangle(window : &opaque, area : &F.Rect, corners : &F.Rect, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, asset : &B.Asset, rotate : float, z : float) : F.Err return 0 end
-terra B.Backend:DrawLines(window : &opaque, points : &F.Vec, count : uint, color : F.Color) : F.Err return 0 end
-terra B.Backend:DrawCurve(window : &opaque, anchors : &F.Vec, count : uint, fillColor : F.Color, stroke : float, strokeColor : F.Color) : F.Err return 0 end
-terra B.Backend:DrawShader(window : &opaque, shader : &B.Shader, asset : &B.Asset, ...) : F.Err return 0 end
+terra B.Backend:DrawText(window : &opaque, font : &B.Font, layout : &opaque, area : &F.Rect, color : F.Color, blur : float, rotate : float, z : float, blendstate : &B.BlendState) : F.Err return 0 end
+terra B.Backend:DrawAsset(window : &opaque, asset : &B.Asset, area : &F.Rect, source : &F.Rect, color : F.Color, time : float, rotate : float, z : float, blendstate : &B.BlendState) : F.Err return 0 end
+terra B.Backend:DrawRect(window : &opaque, area : &F.Rect, corners : &F.Rect, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, asset : &B.Asset, rotate : float, z : float, blendstate : &B.BlendState) : F.Err return 0 end
+terra B.Backend:DrawCircle(window : &opaque, area : &F.Rect, angles : &F.Vec, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, innerRadius : float, innerBorder : float, asset : &B.Asset, z : float, blendstate : &B.BlendState) : F.Err return 0 end
+terra B.Backend:DrawTriangle(window : &opaque, area : &F.Rect, corners : &F.Rect, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, asset : &B.Asset, rotate : float, z : float, blendstate : &B.BlendState) : F.Err return 0 end
+terra B.Backend:DrawLines(window : &opaque, points : &F.Vec, count : uint, color : F.Color, blendstate : &B.BlendState) : F.Err return 0 end
+terra B.Backend:DrawCurve(window : &opaque, anchors : &F.Vec, count : uint, fillColor : F.Color, stroke : float, strokeColor : F.Color, blendstate : &B.BlendState) : F.Err return 0 end
+terra B.Backend:DrawShader(window : &opaque, shader : &B.Shader, vertices : &B.Asset, indices : &B.Asset, blendstate : &B.BlendState, ...) : F.Err return 0 end
 terra B.Backend:PushLayer(window : &opaque, area : &F.Rect, transform : &float, opacity : float, cache : &opaque) : F.Err return 0 end
 terra B.Backend:PopLayer(window : &opaque) : &opaque return nil end
 terra B.Backend:DestroyLayer(window : &opaque, layer : &opaque) : F.Err return 0 end
@@ -184,7 +246,7 @@ terra B.Backend:DirtyRect(window : &opaque, layer : &opaque, area : &F.Rect) : F
 terra B.Backend:BeginDraw(window : &opaque, area : &F.Rect, clear : bool) : F.Err return 0 end
 terra B.Backend:EndDraw(window : &opaque) : F.Err return 0 end
 
-terra B.Backend:CreateShader(ps : rawstring, vs : rawstring, gs : rawstring, cs : rawstring, ds : rawstring, hs : rawstring, parameters : &B.ShaderParameter, n_parameters : uint) : &B.Shader return nil end
+terra B.Backend:CreateShader(ps : F.conststring, vs : F.conststring, gs : F.conststring, cs : F.conststring, ds : F.conststring, hs : F.conststring, parameters : &B.ShaderParameter, n_parameters : uint) : &B.Shader return nil end
 terra B.Backend:DestroyShader(shader : &B.Shader) : F.Err return 0 end
 
 terra B.Backend:CreateFont(family : F.conststring, weight : uint16, italic : bool, pt : uint32, dpi : F.Vec, aa : B.AntiAliasing) : &B.Font return nil end
@@ -195,12 +257,18 @@ terra B.Backend:FontIndex(font : &B.Font, layout : &opaque, area : &F.Rect, pos 
 terra B.Backend:FontPos(font : &B.Font, layout : &opaque, area :&F.Rect, index : uint) : F.Vec return F.Vec{} end
 
 terra B.Backend:CreateAsset(data : F.conststring, count : uint, format : B.Format) : &B.Asset return nil end
+terra B.Backend:CreateBuffer(data : &opaque, bytes : uint, primitive : B.Primitive, parameters : &B.ShaderParameter, n_parameters : uint) : &B.Asset return nil end
 terra B.Backend:DestroyAsset(asset : &B.Asset) : F.Err return 0 end
+terra B.Backend:GetProjection(window : &opaque, layer : &opaque, proj4x4 : &float) : F.Err return 0 end
 
 terra B.Backend:PutClipboard(window : &opaque, kind : B.Clipboard, data : F.conststring, count : uint) : F.Err return 0 end
 terra B.Backend:GetClipboard(window : &opaque, kind : B.Clipboard, target : &opaque, count : uint) : uint return 0 end
 terra B.Backend:CheckClipboard(window : &opaque, kind : B.Clipboard) : bool return false end
 terra B.Backend:ClearClipboard(window : &opaque, kind : B.Clipboard) : F.Err return 0 end
+
+terra B.Backend:CreateSystemControl(window : &opaque, id : F.conststring, area : &F.Rect, ...) : &opaque return nil end
+terra B.Backend:SetSystemControl(window : &opaque, control : &opaque, area : &F.Rect, ...) : F.Err return 0 end
+terra B.Backend:DestroySystemControl(window : &opaque, control : &opaque) : F.Err return 0 end
 
 terra B.Backend:GetSyncObject() : &opaque return nil end
 terra B.Backend:ProcessMessages() : F.Err return 0 end

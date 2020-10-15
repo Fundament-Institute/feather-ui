@@ -17,8 +17,6 @@ namespace GL {
 
   struct Asset : FG_Asset
   {
-    uint32_t count;
-    uint32_t element;
     int channels;
   };
 

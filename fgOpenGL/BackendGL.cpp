@@ -7,6 +7,7 @@
 #include "linmath.h"
 #include "utf.h"
 #include <filesystem>
+#include <stdarg.h>
 #include "SOIL.h"
 #include "ft2build.h"
 #include FT_FREETYPE_H
@@ -23,6 +24,7 @@ int Backend::_lasterr            = 0;
 int Backend::_refcount           = 0;
 char Backend::_lasterrdesc[1024] = {};
 int Backend::_maxjoy             = 0;
+Backend* Backend::_singleton     = nullptr;
 const float Backend::BASE_DPI    = 96.0f;
 
 void Backend::ColorFloats(const FG_Color& c, float (&colors)[4])
@@ -35,8 +37,6 @@ void Backend::ColorFloats(const FG_Color& c, float (&colors)[4])
 
 void Backend::_flushbatchdraw(Backend* backend, Context* context, Font* font)
 {
-  glEnable(GL_TEXTURE_2D);
-  backend->LogError("glEnable");
   glActiveTexture(GL_TEXTURE0);
   backend->LogError("glActiveTexture");
   glBindTexture(GL_TEXTURE_2D, context->GetFontTexture(font));
@@ -47,9 +47,6 @@ void Backend::_flushbatchdraw(Backend* backend, Context* context, Font* font)
   backend->LogError("glDrawElements");
   glBindVertexArray(0);
   backend->LogError("glBindVertexArray");
-
-  glDisable(GL_TEXTURE_2D);
-  backend->LogError("glDisable");
 }
 
 float* GetRotationMatrix(mat4x4& m, float rotate, float z, mat4x4& proj)
@@ -66,7 +63,7 @@ float* GetRotationMatrix(mat4x4& m, float rotate, float z, mat4x4& proj)
 }
 
 FG_Err Backend::DrawTextGL(FG_Backend* self, void* window, FG_Font* fgfont, void* textlayout, FG_Rect* area, FG_Color color,
-                           float blur, float rotate, float z)
+                           float blur, float rotate, float z, FG_BlendState* blend)
 {
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(window);
@@ -82,13 +79,14 @@ FG_Err Backend::DrawTextGL(FG_Backend* self, void* window, FG_Font* fgfont, void
   backend->LogError("glBindBuffer");
 
   mat4x4 mv;
-  Attribute MVP("MVP", GL_FLOAT_MAT4, GetRotationMatrix(mv, rotate, z, context->proj));
-  Shader::SetUniform(backend, context->_imageshader, MVP);
+  Shader::SetUniform(backend, context->_imageshader, "MVP", GL_FLOAT_MAT4, GetRotationMatrix(mv, rotate, z, context->proj));
 
-  float dim  = (1 << font->GetSizePower());
+  float dim  = (float)(1 << font->GetSizePower());
   FG_Vec pen = { area->left, area->top + ((layout->lineheight / font->lineheight) * font->GetAscender()) };
   FG_Rect rect;
   ImageVertex v[4];
+
+  context->ApplyBlend(blend);
 
   for(int i = 0; i < layout->n_lines;)
   {
@@ -141,48 +139,40 @@ FG_Err Backend::DrawTextGL(FG_Backend* self, void* window, FG_Font* fgfont, void
 }
 
 FG_Err Backend::DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Rect* area, FG_Rect* source, FG_Color color,
-                          float time, float rotate, float z)
+                          float time, float rotate, float z, FG_BlendState* blend)
 {
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(window);
   GLuint tex   = context->LoadAsset(static_cast<Asset*>(asset));
 
-  FG_Rect full = { 0, 0, (float)asset->size.x, (float)asset->size.y };
+  FG_Rect full = { 0, 0, static_cast<float>(asset->size.x), static_cast<float>(asset->size.y) };
 
   if(!source)
     source = &full;
   ImageVertex v[4];
-  _buildPosUV(v, *area, *source, (float)asset->size.x, (float)asset->size.y);
+  _buildPosUV(v, *area, *source, static_cast<float>(asset->size.x), static_cast<float>(asset->size.y));
 
   for(int i = 0; i < 4; ++i)
     ColorFloats(color, v[i].color);
 
   mat4x4 mv;
-  Attribute MVP("MVP", GL_FLOAT_MAT4, GetRotationMatrix(mv, rotate, z, context->proj));
+  context->ApplyBlend(blend);
 
   glUseProgram(context->_imageshader);
   backend->LogError("glUseProgram");
   glBindVertexArray(context->_imageobject);
   backend->LogError("glBindVertexArray");
 
-  glEnable(GL_TEXTURE_2D);
-  backend->LogError("glEnable");
-  glActiveTexture(GL_TEXTURE0);
-  backend->LogError("glActiveTexture");
-  glBindTexture(GL_TEXTURE_2D, tex);
-  backend->LogError("glBindTexture");
-
   glBindBuffer(GL_ARRAY_BUFFER, context->_imagebuffer);
   backend->LogError("glBindBuffer");
   context->AppendBatch(v, sizeof(v), 4);
-  Shader::SetUniform(backend, context->_imageshader, MVP);
+  Shader::SetUniform(backend, context->_imageshader, "MVP", GL_FLOAT_MAT4, GetRotationMatrix(mv, rotate, z, context->proj));
+  Shader::SetUniform(backend, context->_imageshader, 0, GL_TEXTURE0, (float*)&tex);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, context->FlushBatch());
   backend->LogError("glDrawArrays");
   glBindVertexArray(0);
   backend->LogError("glBindVertexArray");
 
-  glDisable(GL_TEXTURE_2D);
-  backend->LogError("glDisable");
   return glGetError();
 }
 
@@ -222,61 +212,78 @@ void Backend::_drawStandard(GLuint shader, GLuint vao, float (&proj)[4][4], cons
   mat4x4 mvp;
   GenTransform(mvp, area, rotate, z);
   mat4x4_mul(mvp, proj, mvp);
-  Attribute MVP("MVP", GL_FLOAT_MAT4, (float*)mvp);
-  Attribute DimBorderBlur("DimBorderBlur", GL_FLOAT_VEC4);
-  DimBorderBlur.data[0] = area.right - area.left;
-  DimBorderBlur.data[1] = area.bottom - area.top;
-  DimBorderBlur.data[2] = border;
-  DimBorderBlur.data[3] = blur;
 
-  Attribute Corners("Corners", GL_FLOAT_VEC4, (float*)corners.ltrb);
-  Attribute Fill("Fill", GL_FLOAT_VEC4);
-  ColorFloats(fillColor, Fill.data);
-  Attribute Outline("Outline", GL_FLOAT_VEC4);
-  ColorFloats(borderColor, Outline.data);
+  float dimdata[4];
+  dimdata[0] = area.right - area.left;
+  dimdata[1] = area.bottom - area.top;
+  dimdata[2] = border;
+  dimdata[3] = blur;
 
-  _drawVAO(shader, vao, GL_TRIANGLE_STRIP, 4, MVP, DimBorderBlur, Corners, Fill, Outline);
+  float fill[4];
+  ColorFloats(fillColor, fill);
+  float outline[4];
+  ColorFloats(borderColor, outline);
+
+  glUseProgram(shader);
+  LogError("glUseProgram");
+  glBindVertexArray(vao);
+  LogError("glBindVertexArray");
+
+  Shader::SetUniform(this, shader, "MVP", GL_FLOAT_MAT4, (float*)mvp);
+  Shader::SetUniform(this, shader, "DimBorderBlur", GL_FLOAT_VEC4, dimdata);
+  Shader::SetUniform(this, shader, "Corners", GL_FLOAT_VEC4, (float*)corners.ltrb);
+  Shader::SetUniform(this, shader, "Fill", GL_FLOAT_VEC4, fill);
+  Shader::SetUniform(this, shader, "Outline", GL_FLOAT_VEC4, outline);
+
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  LogError("glDrawArrays");
+  glBindVertexArray(0);
 }
 
 FG_Err Backend::DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor, float border,
-                         FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z)
+                         FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z, FG_BlendState* blend)
 {
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(window);
+  context->ApplyBlend(blend);
   backend->_drawStandard(context->_rectshader, context->_quadobject, context->proj, *area, *corners, fillColor, border,
                          borderColor, blur, rotate, z);
   return glGetError();
 }
 
-FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* arcs, FG_Color fillColor, float border,
-                           FG_Color borderColor, float blur, FG_Asset* asset, float z)
+FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Vec* angles, FG_Color fillColor, float border,
+                           FG_Color borderColor, float blur, float innerRadius, float innerBorder, FG_Asset* asset, float z,
+                           FG_BlendState* blend)
 {
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(window);
-  backend->_drawStandard(context->_circleshader, context->_quadobject, context->proj, *area, *arcs, fillColor, border,
-                         borderColor, blur, 0.0f, z);
+  context->ApplyBlend(blend);
+  backend->_drawStandard(context->_circleshader, context->_quadobject, context->proj, *area,
+                         FG_Rect{ angles->x, angles->y, innerRadius, innerBorder }, fillColor, border, borderColor, blur,
+                         0.0f, z);
   return glGetError();
 }
 FG_Err Backend::DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
-                             float border, FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z)
+                             float border, FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z,
+                             FG_BlendState* blend)
 {
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(window);
+  context->ApplyBlend(blend);
   backend->_drawStandard(context->_trishader, context->_quadobject, context->proj, *area, *corners, fillColor, border,
                          borderColor, blur, rotate, z);
   return glGetError();
 }
 
-FG_Err Backend::DrawLines(FG_Backend* self, void* window, FG_Vec* points, uint32_t count, FG_Color color)
+FG_Err Backend::DrawLines(FG_Backend* self, void* window, FG_Vec* points, uint32_t count, FG_Color color,
+                          FG_BlendState* blend)
 {
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(window);
 
-  Attribute MVP("MVP", GL_FLOAT_MAT4, (float*)context->proj);
-
   float colors[4];
   ColorFloats(color, colors);
-  Attribute Color("Color", GL_FLOAT_VEC4, colors);
+  context->ApplyBlend(blend);
 
   glUseProgram(context->_lineshader);
   backend->LogError("glUseProgram");
@@ -287,8 +294,8 @@ FG_Err Backend::DrawLines(FG_Backend* self, void* window, FG_Vec* points, uint32
   backend->LogError("glBindBuffer");
 
   context->AppendBatch(points, sizeof(FG_Vec) * count, count);
-  Shader::SetUniform(backend, context->_lineshader, MVP);
-  Shader::SetUniform(backend, context->_lineshader, Color);
+  Shader::SetUniform(backend, context->_lineshader, "MVP", GL_FLOAT_MAT4, (float*)context->proj);
+  Shader::SetUniform(backend, context->_lineshader, "Color", GL_FLOAT_VEC4, colors);
 
   glDrawArrays(GL_LINE_STRIP, 0, context->FlushBatch());
   backend->LogError("glDrawArrays");
@@ -299,14 +306,105 @@ FG_Err Backend::DrawLines(FG_Backend* self, void* window, FG_Vec* points, uint32
 }
 
 FG_Err Backend::DrawCurve(FG_Backend* self, void* window, FG_Vec* anchors, uint32_t count, FG_Color fillColor, float stroke,
-                          FG_Color strokeColor)
+                          FG_Color strokeColor, FG_BlendState* blend)
 {
   auto instance = static_cast<Backend*>(self);
 
+  if(fillColor.v != 0)
+    return -1;
+
+  if(stroke == 0.0f)
+    return 0;
+
+  return -1;
+}
+FG_Err Backend::DrawShader(FG_Backend* self, void* window, FG_Shader* fgshader, FG_Asset* vertices, FG_Asset* indices,
+                           FG_BlendState* blend, ...)
+{
+  if(!self || !window || !fgshader || !vertices)
+    return -1;
+
+  auto backend  = static_cast<Backend*>(self);
+  auto context  = reinterpret_cast<Context*>(window);
+  auto shader   = static_cast<Shader*>(fgshader);
+  auto instance = context->LoadShader(shader);
+
+  context->ApplyBlend(blend);
+
+  glUseProgram(instance);
+  backend->LogError("glUseProgram");
+  glBindVertexArray(context->LoadVAO(shader, static_cast<Asset*>(vertices)));
+  backend->LogError("glBindVertexArray");
+
+  va_list vl;
+  va_start(vl, blend);
+  for(uint32_t i = 0; i < shader->n_parameters; ++i)
+  {
+    auto type = Shader::GetType(shader->parameters[i]);
+    float* data;
+    switch(type)
+    {
+    case GL_DOUBLE:
+    {
+      const double& d2 = va_arg(vl, double);
+      data             = (float*)&d2;
+      break;
+    }
+    case GL_HALF_FLOAT: // we assume you pass in a proper float to fill this
+    case GL_FLOAT:
+    case GL_INT:
+    case GL_UNSIGNED_INT:
+    {
+      const float& d1 = va_arg(vl, float);
+      data            = (float*)&d1;
+      break;
+    }
+    default: data = va_arg(vl, float*); break;
+    }
+
+    if(type >= GL_TEXTURE0 && type <= GL_TEXTURE31)
+    {
+      GLuint idx = context->LoadAsset((Asset*)data);
+      Shader::SetUniform(backend, instance, shader->parameters[i].name, type, (float*)&idx);
+    }
+    else
+      Shader::SetUniform(backend, instance, shader->parameters[i].name, type, data);
+  }
+  va_end(vl);
+
+  GLenum kind = 0;
+  switch(vertices->primitive)
+  {
+  case FG_Primitive_TRIANGLE: kind = GL_TRIANGLES; break;
+  case FG_Primitive_TRIANGLE_STRIP: kind = GL_TRIANGLE_STRIP; break;
+  case FG_Primitive_LINE: kind = GL_LINES; break;
+  case FG_Primitive_LINE_STRIP: kind = GL_LINE_STRIP; break;
+  case FG_Primitive_POINT: kind = GL_POINT; break;
+  }
+
+  if(!indices)
+  {
+    glDrawArrays(kind, 0, vertices->count);
+    backend->LogError("glDrawArrays");
+  }
+  else
+  {
+    GLenum index = 0;
+    switch(indices->primitive)
+    {
+    case FG_Primitive_INDEX_BYTE: index = GL_UNSIGNED_BYTE; break;
+    case FG_Primitive_INDEX_SHORT: index = GL_UNSIGNED_SHORT; break;
+    case FG_Primitive_INDEX_INT: index = GL_UNSIGNED_INT; break;
+    }
+
+    glDrawElements(kind, indices->count, index, indices->data.data);
+    backend->LogError("glDrawElements");
+  }
+
+  glBindVertexArray(0);
   return -1;
 }
 
-// FG_Err DrawShader(FG_Backend* self, fgShader);
 FG_Err Backend::PushLayer(FG_Backend* self, void* window, FG_Rect* area, float* transform, float opacity, void* cache)
 {
   if(!area)
@@ -321,7 +419,7 @@ void* Backend::PopLayer(FG_Backend* self, void* window)
 }
 FG_Err Backend::DestroyLayer(FG_Backend* self, void* window, void* layer)
 {
-  if(!layer)
+  if(!self || !layer)
     return -1;
 
   delete reinterpret_cast<Layer*>(layer);
@@ -349,6 +447,29 @@ FG_Err Backend::DirtyRect(FG_Backend* self, void* window, void* layer, FG_Rect* 
   if(layer)
     reinterpret_cast<Layer*>(layer)->Dirty(area);
   return 0; // TODO: Handle dirty backbuffers
+}
+
+FG_Shader* Backend::CreateShader(FG_Backend* self, const char* ps, const char* vs, const char* gs, const char* cs,
+                                 const char* ds, const char* hs, FG_ShaderParameter* parameters, uint32_t n_parameters)
+{
+  return new Shader(ps, vs, gs, parameters, n_parameters);
+}
+FG_Err Backend::DestroyShader(FG_Backend* self, FG_Shader* shader)
+{
+  if(!self || !shader)
+    return -1;
+  delete static_cast<Shader*>(shader);
+  return 0;
+}
+
+FG_Err Backend::GetProjection(FG_Backend* self, void* window, void* layer, float* proj4x4)
+{
+  if(!self || !window || !proj4x4)
+    return -1;
+
+  // TODO: layers need their own custom projection matrices
+  memcpy(proj4x4, reinterpret_cast<Context*>(window)->proj, 4 * 4 * sizeof(float));
+  return 0;
 }
 
 FG_Font* Backend::CreateFontGL(FG_Backend* self, const char* family, unsigned short weight, bool italic, unsigned int pt,
@@ -433,32 +554,118 @@ FG_Vec Backend::FontPos(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Re
 
 FG_Asset* Backend::CreateAsset(FG_Backend* self, const char* data, uint32_t count, FG_Format format)
 {
-  auto backend     = static_cast<Backend*>(self);
-  size_t len       = !count ? strlen(data) + 1 : count;
+  auto backend = static_cast<Backend*>(self);
+  size_t len   = !count ? strlen(data) + 1 : count;
   void* image;
   int width, height, channels;
   if(!count)
     image = SOIL_load_image(data, &width, &height, &channels, SOIL_LOAD_AUTO);
   else
-    image = SOIL_load_image_from_memory(reinterpret_cast<const unsigned char*>(data), count, &width, &height, &channels, SOIL_LOAD_AUTO);
+    image = SOIL_load_image_from_memory(reinterpret_cast<const unsigned char*>(data), count, &width, &height, &channels,
+                                        SOIL_LOAD_AUTO);
 
   if(!image)
   {
-    (*backend->_log)(backend->_root, FG_Level_ERROR, "%s failed!", !count ? "SOIL_load_image" : "SOIL_load_image_from_memory");
+    (*backend->_log)(backend->_root, FG_Level_ERROR, "%s failed!",
+                     !count ? "SOIL_load_image" : "SOIL_load_image_from_memory");
     return nullptr;
   }
 
   // We don't currently force channels, but if we do in the future this check needs to happen
-  //if( (force_channels >= 1) && (force_channels <= 4) )
-	//	channels = force_channels;
+  // if( (force_channels >= 1) && (force_channels <= 4) )
+  //	channels = force_channels;
 
   Asset* asset     = reinterpret_cast<Asset*>(malloc(sizeof(Asset)));
   asset->data.data = image;
-  asset->count  = count;
-  asset->format = format;
-  asset->size.x = width;
-  asset->size.y = height;
-  asset->channels = channels;
+  asset->count     = count;
+  asset->format    = format;
+  asset->size.x    = width;
+  asset->size.y    = height;
+  asset->channels  = channels;
+  int r;
+  kh_put_assets(backend->_assethash, asset, &r);
+  return asset;
+}
+
+FG_Asset* Backend::CreateBuffer(FG_Backend* self, void* data, uint32_t bytes, uint8_t primitive,
+                                FG_ShaderParameter* parameters, uint32_t n_parameters)
+{
+  auto backend    = static_cast<Backend*>(self);
+  uint32_t count  = 0;
+  uint32_t stride = 0;
+
+  for(uint32_t i = 0; i < n_parameters; ++i)
+  {
+    GLenum type = 0;
+    switch(parameters[i].type)
+    {
+    case FG_ShaderType_FLOAT: type = GL_FLOAT; break;
+    case FG_ShaderType_INT: type = GL_INT; break;
+    case FG_ShaderType_UINT: type = GL_UNSIGNED_INT; break;
+    }
+    stride += Context::GetBytes(type) * Context::GetMultiCount(parameters[i].length, parameters[i].multi);
+  }
+
+  switch(primitive)
+  {
+  case FG_Primitive_INDEX_BYTE: stride = sizeof(char); break;
+  case FG_Primitive_INDEX_SHORT: stride = sizeof(short); break;
+  case FG_Primitive_INDEX_INT: stride = sizeof(int); break;
+  }
+
+  if((bytes % stride) > 0)
+  {
+    (*backend->_log)(backend->_root, FG_Level_ERROR,
+                     "%u bytes can't be evenly divided by %u stride (remainder %u), required by primitive type %hhu!",
+                     bytes, stride, bytes % stride, primitive);
+    return 0;
+  }
+
+  count = bytes / stride;
+
+  switch(primitive)
+  {
+  case FG_Primitive_TRIANGLE:
+    if((count % 3) != 0)
+    {
+      (*backend->_log)(backend->_root, FG_Level_ERROR, "A list of triangles must have a multiple of 3 vertices, got %u!",
+                       count);
+      return 0;
+    }
+  case FG_Primitive_TRIANGLE_STRIP:
+    if(count < 3)
+    {
+      (*backend->_log)(backend->_root, FG_Level_ERROR, "Can't have less than 3 vertices for triangles, got %u!", count);
+      return 0;
+    }
+    break;
+  case FG_Primitive_LINE:
+    if((count % 2) != 0)
+    {
+      (*backend->_log)(backend->_root, FG_Level_ERROR, "A list of lines must have a multiple of 2 vertices, got %u!",
+                       count);
+      return 0;
+    }
+  case FG_Primitive_LINE_STRIP:
+    if(count < 2)
+    {
+      (*backend->_log)(backend->_root, FG_Level_ERROR, "Can't have less than 2 vertices for lines, got %u!", count);
+      return 0;
+    }
+    break;
+  }
+
+  Asset* asset     = reinterpret_cast<Asset*>(malloc(sizeof(Asset) + bytes + sizeof(FG_ShaderParameter) * n_parameters));
+  asset->format    = FG_Format_BUFFER;
+  asset->count     = count;
+  asset->stride    = stride;
+  asset->primitive = primitive;
+  asset->data.data = asset + 1;
+  memcpy(asset->data.data, data, bytes);
+  asset->parameters   = reinterpret_cast<FG_ShaderParameter*>(reinterpret_cast<char*>(asset + 1) + bytes);
+  asset->n_parameters = n_parameters;
+  memcpy(asset->parameters, parameters, sizeof(FG_ShaderParameter) * n_parameters);
+
   int r;
   kh_put_assets(backend->_assethash, asset, &r);
   return asset;
@@ -466,6 +673,9 @@ FG_Asset* Backend::CreateAsset(FG_Backend* self, const char* data, uint32_t coun
 
 FG_Err Backend::DestroyAsset(FG_Backend* self, FG_Asset* fgasset)
 {
+  if(!self || !fgasset)
+    return -1;
+
   auto backend = static_cast<Backend*>(self);
 
   // Once we remove the asset from the hash, contexts who reach a reference count of 0 for an asset will destroy it.
@@ -477,6 +687,10 @@ FG_Err Backend::DestroyAsset(FG_Backend* self, FG_Asset* fgasset)
   return 0;
 }
 
+void* Backend::CreateSystemControl(FG_Backend* self, void* window, const char* id, FG_Rect* area, ...) { return 0; }
+FG_Err Backend::SetSystemControl(FG_Backend* self, void* window, void* control, FG_Rect* area, ...) { return -1; }
+FG_Err Backend::DestroySystemControl(FG_Backend* self, void* window, void* control) { return -1; }
+
 FG_Err Backend::PutClipboard(FG_Backend* self, void* window, FG_Clipboard kind, const char* data, uint32_t count)
 {
 #ifdef FG_PLATFORM_WIN32
@@ -486,12 +700,12 @@ FG_Err Backend::PutClipboard(FG_Backend* self, void* window, FG_Clipboard kind, 
   {
     if(kind == FG_Clipboard_TEXT)
     {
-      size_t unilen  = MultiByteToWideChar(CP_UTF8, 0, data, (int)count, 0, 0);
+      size_t unilen  = MultiByteToWideChar(CP_UTF8, 0, data, static_cast<int>(count), 0, 0);
       HGLOBAL unimem = GlobalAlloc(GMEM_MOVEABLE, unilen * sizeof(wchar_t));
       if(unimem)
       {
-        wchar_t* uni = (wchar_t*)GlobalLock(unimem);
-        size_t sz    = MultiByteToWideChar(CP_UTF8, 0, data, (int)count, uni, (int)unilen);
+        wchar_t* uni = reinterpret_cast<wchar_t*>(GlobalLock(unimem));
+        size_t sz    = MultiByteToWideChar(CP_UTF8, 0, data, static_cast<int>(count), uni, static_cast<int>(unilen));
         if(sz < unilen) // ensure we have a null terminator
           uni[sz] = 0;
         GlobalUnlock(unimem);
@@ -500,7 +714,7 @@ FG_Err Backend::PutClipboard(FG_Backend* self, void* window, FG_Clipboard kind, 
       HGLOBAL gmem = GlobalAlloc(GMEM_MOVEABLE, count + 1);
       if(gmem)
       {
-        char* mem = (char*)GlobalLock(gmem);
+        char* mem = reinterpret_cast<char*>(GlobalLock(gmem));
         MEMCPY(mem, count + 1, data, count);
         mem[count] = 0;
         GlobalUnlock(gmem);
@@ -556,10 +770,10 @@ uint32_t Backend::GetClipboard(FG_Backend* self, void* window, FG_Clipboard kind
         const wchar_t* str = (const wchar_t*)GlobalLock(gdata);
         if(str)
         {
-          len = WideCharToMultiByte(CP_UTF8, 0, str, (int)size, 0, 0, NULL, NULL);
+          len = WideCharToMultiByte(CP_UTF8, 0, str, static_cast<int>(size), 0, 0, NULL, NULL);
 
           if(target && count >= len)
-            len = WideCharToMultiByte(CP_UTF8, 0, str, (int)size, (char*)target, (int)count, NULL, NULL);
+            len = WideCharToMultiByte(CP_UTF8, 0, str, static_cast<int>(size), (char*)target, static_cast<int>(count), NULL, NULL);
 
           GlobalUnlock(gdata);
         }
@@ -764,18 +978,18 @@ FG_Err Backend::SetWindowGL(FG_Backend* self, void* window, FG_Element* element,
     glfwGetWindowPos(glwindow, &posx, &posy);
     glfwGetWindowSize(glwindow, &dimx, &dimy);
     if(flags & FG_Window_FULLSCREEN)
-      glfwSetWindowMonitor(glwindow, (GLFWmonitor*)display, 0, 0, !dim ? dimx : (int)dim->x, !dim ? dimy : (int)dim->y,
+      glfwSetWindowMonitor(glwindow, (GLFWmonitor*)display, 0, 0, !dim ? dimx : static_cast<int>(ceilf(dim->x)), !dim ? dimy : static_cast<int>(ceilf(dim->y)),
                            GLFW_DONT_CARE);
     else
-      glfwSetWindowMonitor(glwindow, NULL, !pos ? posx : (int)pos->x, !pos ? posy : (int)pos->y, !dim ? dimx : (int)dim->x,
-                           !dim ? dimy : (int)dim->y, GLFW_DONT_CARE);
+      glfwSetWindowMonitor(glwindow, NULL, !pos ? posx : static_cast<int>(ceilf(pos->x)), !pos ? posy : static_cast<int>(ceilf(pos->y)), !dim ? dimx : static_cast<int>(ceilf(dim->x)),
+                           !dim ? dimy : static_cast<int>(ceilf(dim->y)), GLFW_DONT_CARE);
   }
   else
   {
     if(pos)
-      glfwSetWindowPos(glwindow, (int)pos->x, (int)pos->y);
+      glfwSetWindowPos(glwindow, static_cast<int>(ceilf(pos->x)), static_cast<int>(ceilf(pos->y)));
     if(dim)
-      glfwSetWindowSize(glwindow, (int)dim->x, (int)dim->y);
+      glfwSetWindowSize(glwindow, static_cast<int>(ceilf(dim->x)), static_cast<int>(ceilf(dim->y)));
   }
 
   if(flags & FG_Window_MAXIMIZED)
@@ -794,8 +1008,9 @@ FG_Err Backend::SetWindowGL(FG_Backend* self, void* window, FG_Element* element,
 
 FG_Err Backend::DestroyWindow(FG_Backend* self, void* window)
 {
-  if(!window)
+  if(!self || !window)
     return -1;
+
   _lasterr = 0;
   delete reinterpret_cast<Context*>(window);
   return _lasterr;
@@ -817,9 +1032,9 @@ FG_Err Backend::EndDraw(FG_Backend* self, void* window)
 
 void DestroyGL(FG_Backend* self)
 {
-  auto gl = static_cast<Backend*>(self);
-  if(!gl)
+  if(!self)
     return;
+  auto gl = static_cast<Backend*>(self);
 
   gl->~Backend();
   free(gl);
@@ -908,14 +1123,14 @@ long long GetRegistryValueW(HKEY__* hKeyRoot, const wchar_t* szKey, const wchar_
 Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   _root(root), _log(log), _behavior(behavior), _assethash(kh_init_assets()), _windows(nullptr)
 {
-  drawText     = &DrawTextGL;
-  drawAsset    = &DrawAsset;
-  drawRect     = &DrawRect;
-  drawCircle   = &DrawCircle;
-  drawTriangle = &DrawTriangle;
-  drawLines    = &DrawLines;
-  drawCurve    = &DrawCurve;
-  // drawShader =&DrawShader;
+  drawText              = &DrawTextGL;
+  drawAsset             = &DrawAsset;
+  drawRect              = &DrawRect;
+  drawCircle            = &DrawCircle;
+  drawTriangle          = &DrawTriangle;
+  drawLines             = &DrawLines;
+  drawCurve             = &DrawCurve;
+  drawShader            = &DrawShader;
   pushLayer             = &PushLayer;
   popLayer              = &PopLayer;
   pushClip              = &PushClip;
@@ -923,6 +1138,8 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   dirtyRect             = &DirtyRect;
   beginDraw             = &BeginDraw;
   endDraw               = &EndDraw;
+  createShader          = &CreateShader;
+  destroyShader         = &DestroyShader;
   createFont            = &CreateFontGL;
   destroyFont           = &DestroyFont;
   fontLayout            = &FontLayout;
@@ -930,7 +1147,9 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   fontIndex             = &FontIndex;
   fontPos               = &FontPos;
   createAsset           = &CreateAsset;
+  createBuffer          = &CreateBuffer;
   destroyAsset          = &DestroyAsset;
+  getProjection         = &GetProjection;
   putClipboard          = &PutClipboard;
   getClipboard          = &GetClipboard;
   checkClipboard        = &CheckClipboard;
@@ -945,9 +1164,14 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   setWindow             = &SetWindowGL;
   destroyWindow         = &DestroyWindow;
   destroy               = &DestroyGL;
+  createSystemControl   = &CreateSystemControl;
+  setSystemControl      = &SetSystemControl;
+  destroySystemControl  = &DestroySystemControl;
 
   (*_log)(_root, FG_Level_NONE, "Initializing fgOpenGL...");
-  FT_Init_FreeType(&_ftlib);
+  if(FT_Error err = FT_Init_FreeType(&_ftlib))
+    (*_log)(_root, FG_Level_ERROR, "Error %i occured while initializing FreeType", err);
+  ;
 
   const char* image_vs =
 #include "Image.vs.glsl"
@@ -957,10 +1181,8 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
 #include "Image.fs.glsl"
     ;
 
-  _imageshader = Shader(image_fs, image_vs, 0,
-                        { Shader::Data{ Shader::VERTEX, GL_FLOAT_VEC4, "vPosUV", 0 },
-                          Shader::Data{ Shader::VERTEX, GL_FLOAT_VEC4, "vColor", 4 * sizeof(float) },
-                          Shader::Data{ Shader::GLOBAL, GL_FLOAT_MAT4, "MVP" } });
+  _imageshader =
+    Shader(image_fs, image_vs, 0, { { FG_ShaderType_FLOAT, 4, 4, "MVP" }, { FG_ShaderType_TEXTURE, 0, 0, "texture" } });
 
   const char* line_vs =
 #include "Line.vs.glsl"
@@ -970,10 +1192,8 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
 #include "Line.fs.glsl"
     ;
 
-  _lineshader = Shader(line_fs, line_vs, 0,
-                       { Shader::Data{ Shader::VERTEX, GL_FLOAT_VEC2, "vPos", 0 },
-                         Shader::Data{ Shader::GLOBAL, GL_FLOAT_VEC4, "Color" },
-                         Shader::Data{ Shader::GLOBAL, GL_FLOAT_MAT4, "MVP" } });
+  _lineshader =
+    Shader(line_fs, line_vs, 0, { { FG_ShaderType_FLOAT, 4, 4, "MVP" }, { FG_ShaderType_FLOAT, 4, 1, "Color" } });
 
   const char* standard_vs =
 #include "standard.vs.glsl"
@@ -991,13 +1211,10 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
 #include "Circle.fs.glsl"
     ;
 
-  std::initializer_list<Shader::Data> standardLayout = {
-    Shader::Data{ Shader::VERTEX, GL_FLOAT_VEC2, "vPos", 0 },
-    Shader::Data{ Shader::GLOBAL, GL_FLOAT_MAT4, "MVP" },
-    Shader::Data{ Shader::GLOBAL, GL_FLOAT_VEC4, "DimBorderBlur" },
-    Shader::Data{ Shader::GLOBAL, GL_FLOAT_VEC4, "Corners" },
-    Shader::Data{ Shader::GLOBAL, GL_FLOAT_VEC4, "Fill" },
-    Shader::Data{ Shader::GLOBAL, GL_FLOAT_VEC4, "Outline" },
+  std::initializer_list<FG_ShaderParameter> standardLayout = {
+    { FG_ShaderType_FLOAT, 4, 4, "MVP" },     { FG_ShaderType_FLOAT, 4, 1, "DimBorderBlur" },
+    { FG_ShaderType_FLOAT, 4, 1, "Corners" }, { FG_ShaderType_FLOAT, 4, 1, "Fill" },
+    { FG_ShaderType_FLOAT, 4, 1, "Outline" },
   };
 
   _rectshader   = Shader(roundrect_fs, standard_vs, 0, standardLayout);
@@ -1038,6 +1255,7 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   cursorblink  = 530;
   tooltipdelay = 500;
 #endif
+  _singleton = this;
 }
 
 Backend::~Backend()
@@ -1048,6 +1266,9 @@ Backend::~Backend()
     delete _windows;
     _windows = p;
   }
+
+  if(_singleton == this)
+    _singleton = nullptr;
 
 #ifdef FG_PLATFORM_WIN32
   PostQuitMessage(0);
@@ -1060,6 +1281,8 @@ void Backend::ErrorCallback(int error, const char* description)
 {
   _lasterr = error;
   strncpy(_lasterrdesc, description, 1024);
+  if(_singleton)
+    (*_singleton->_log)(_singleton->_root, FG_Level_ERROR, description);
 }
 
 FG_Result Backend::Behavior(Context* w, const FG_Msg& msg)

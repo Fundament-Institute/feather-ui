@@ -60,7 +60,7 @@ Window::Window(Backend* _backend, FG_Element* _element, FG_Vec* pos, FG_Vec* dim
   if(flags & FG_Window_MAXIMIZABLE)
     style |= WS_MAXIMIZEBOX | WS_SYSMENU;
 
-  hWnd = Window::WndCreate(pos, dim, style, exstyle, this, Backend::WindowClass, caption, dpi);
+  hWnd   = Window::WndCreate(pos, dim, style, exstyle, this, Backend::WindowClass, caption, dpi);
   target = reinterpret_cast<ID2D1HwndRenderTarget*>(context);
 
   RECT rect;
@@ -259,13 +259,14 @@ longptr_t __stdcall Window::WndProc(HWND__* hWnd, unsigned int message, size_t w
       break;
     case WM_SYSKEYUP:
     case WM_SYSKEYDOWN:
-      self->SetKey(static_cast<uint8_t>(wParam), message == WM_SYSKEYDOWN, (lParam & 0x40000000) != 0, GetMessageTime());
+      self->SetKey(static_cast<uint8_t>(wParam), (HIWORD(lParam) & (KF_EXTENDED | 0xff)), message == WM_SYSKEYDOWN,
+                   (lParam & 0x40000000) != 0, GetMessageTime());
       break;
     case WM_KEYUP:
     case WM_KEYDOWN: // Windows return codes are the opposite of feathergui's - returning 0 means we accept, anything else
                      // rejects, so we invert the return code here.
-      return !self->SetKey(static_cast<uint8_t>(wParam), message == WM_KEYDOWN, (lParam & 0x40000000) != 0,
-                           GetMessageTime());
+      return !self->SetKey(static_cast<uint8_t>(wParam), (HIWORD(lParam) & (KF_EXTENDED | 0xff)), message == WM_KEYDOWN,
+                           (lParam & 0x40000000) != 0, GetMessageTime());
     case WM_UNICHAR:
       if(wParam == UNICODE_NOCHAR)
         return TRUE;
@@ -325,14 +326,14 @@ HWND__* Window::WndCreate(FG_Vec* pos, FG_Vec* dim, unsigned long style, uint32_
 {
   exflags |= WS_EX_COMPOSITED | WS_EX_LAYERED;
 
-  wchar_t* wcaption = L"";
+  const wchar_t* wcaption = L"";
   if(caption)
   {
     size_t len = UTF8toUTF16(caption, -1, 0, 0);
     if(len > 4096)
       return 0;
     wcaption = (wchar_t*)ALLOCA(sizeof(wchar_t) * len);
-    UTF8toUTF16(caption, -1, wcaption, len);
+    UTF8toUTF16(caption, -1, const_cast<wchar_t*>(wcaption), len);
   }
 
   // AdjustWindowRectEx(&rsize, style, FALSE, exflags); // So long as we are drawing all over the nonclient area, we don't
@@ -540,11 +541,15 @@ uint8_t Window::GetModKey()
   return m;
 }
 
-size_t Window::SetKey(uint8_t keycode, bool down, bool held, unsigned long time)
+size_t Window::SetKey(uint8_t keycode, uint16_t scancode, bool down, bool held, unsigned long time)
 {
-  FG_Msg evt        = { down ? FG_Kind_KEYDOWN : FG_Kind_KEYUP };
-  evt.keyUp.code    = keycode;
-  evt.keyUp.modkeys = GetModKey();
+  if(!scancode)
+    scancode = (uint16_t)MapVirtualKeyW((UINT)keycode, MAPVK_VK_TO_VSC);
+
+  FG_Msg evt         = { down ? FG_Kind_KEYDOWN : FG_Kind_KEYUP };
+  evt.keyUp.key      = keycode;
+  evt.keyUp.scancode = scancode;
+  evt.keyUp.modkeys  = GetModKey();
 
   if(held)
     evt.keyUp.modkeys |= FG_ModKey_HELD;
@@ -585,7 +590,7 @@ void Window::ApplyWin32Size()
   }
 }
 
-size_t Window::SetMouse(FG_Vec& points, FG_Kind type, unsigned char button, size_t wparam, unsigned long time)
+size_t Window::SetMouse(const FG_Vec& points, FG_Kind type, unsigned char button, size_t wparam, unsigned long time)
 {
   FG_Msg evt      = { type };
   evt.mouseMove.x = points.x;
@@ -644,9 +649,9 @@ size_t Window::SetTouch(TOUCHINPUT& input)
   if(input.dwFlags & TOUCHEVENTF_UP)
     evt.kind = FG_Kind_TOUCHEND;
 
-  evt.touchMove.x   = input.x;
-  evt.touchMove.y   = input.y;
-  evt.touchMove.z   = NAN;
+  evt.touchMove.x = static_cast<float>(input.x);
+  evt.touchMove.y = static_cast<float>(input.y);
+  evt.touchMove.z = NAN;
   if(input.dwMask & TOUCHINPUTMASKF_CONTACTAREA)
     evt.touchMove.r = (input.cxContact > input.cyContact) ? input.cxContact : input.cyContact;
 
@@ -656,7 +661,7 @@ size_t Window::SetTouch(TOUCHINPUT& input)
   return backend->Behavior(this, evt).touchMove;
 }
 
-size_t Window::SetMouseScroll(FG_Vec& points, uint16_t x, uint16_t y, unsigned long time)
+size_t Window::SetMouseScroll(const FG_Vec& points, uint16_t x, uint16_t y, unsigned long time)
 {
   FG_Msg evt             = { FG_Kind_MOUSESCROLL };
   evt.mouseScroll.x      = points.x;

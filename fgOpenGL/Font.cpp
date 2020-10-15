@@ -156,12 +156,12 @@ int Font::_ftaa(FG_AntiAliasing antialias)
 
 void Font::_enforceantialias(int ftaa)
 {
-  switch(ftaa)
+  /*switch(ftaa)
   {
-    // case FT_LOAD_TARGET_LCD:
-    // case FT_LOAD_TARGET_LCD_V: FT_Library_SetLcdFilter(_backend->_ftlib, FT_LCD_FILTER_LIGHT); break;
-    // default: FT_Library_SetLcdFilter(_backend->_ftlib, FT_LCD_FILTER_NONE); break;
-  }
+     case FT_LOAD_TARGET_LCD:
+     case FT_LOAD_TARGET_LCD_V: FT_Library_SetLcdFilter(_backend->_ftlib, FT_LCD_FILTER_LIGHT); break;
+     default: FT_Library_SetLcdFilter(_backend->_ftlib, FT_LCD_FILTER_NONE); break;
+  }*/
 }
 Glyph* Font::LoadGlyph(char32_t codepoint)
 {

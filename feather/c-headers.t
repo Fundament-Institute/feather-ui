@@ -60,7 +60,10 @@ local function handle_declaration(object, prefix, cache, sequence, symbols)
         sequence:insert{ kind = "enum", name = name, entries = entries }
         cache[object].gen = true
         cache[object].name = name
-        return name
+        if terralib.sizeof(object.entries[1].type) ~= 4 then
+          cache[object].name = handle_declaration(object.entries[1].type, prefix, cache, sequence, symbols)
+        end
+        return cache[object].name
       end
       local name = cache[object].name or prefix .. anon_name()
       sequence:insert { kind = "struct_fd", name = name}
@@ -80,6 +83,12 @@ local function handle_declaration(object, prefix, cache, sequence, symbols)
         end
         sequence:insert { kind = "struct", name = name, entries = entries }
       else
+        -- Even if we have a custom export string, make sure all the types we are going to use still exist
+        for i, entry in ipairs(object.entries) do
+          if entry.type ~= nil then
+            handle_declaration(entry.type, prefix, cache, sequence, symbols)
+          end
+        end
         sequence:insert { kind = "customstruct", name = name, inner = object.c_export }
       end
       return name

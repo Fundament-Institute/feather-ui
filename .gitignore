@@ -7,5 +7,7 @@
 /fgDirect2D/Win32/
 /tests/x64/
 /tests/Win32/
+/cpptest/x64/
+/cpptest/Win32/
 /cmake/
 *.user

@@ -11,9 +11,9 @@
 [submodule "deps/LuLPeg"]
 	path = deps/LuLPeg
 	url = https://github.com/pygy/LuLPeg
-[submodule "deps/std"]
-	path = deps/std
-	url = https://github.com/Fundament-Software/terra-stdlib
 [submodule "deps/SOIL"]
 	path = deps/SOIL
 	url = https://github.com/kbranigan/Simple-OpenGL-Image-Library.git
+[submodule "deps/std"]
+	path = deps/std
+	url = https://github.com/terralang/std.git
