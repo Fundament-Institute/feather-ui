@@ -725,6 +725,18 @@ terra testquery(n : &RTreeDefault.Node, p : &F.Vec3D, r : &F.Vec3D, i : int) : b
 terra TestHarness:partition()
   var simple : RTreeDefault
   simple:init()
+  var vec0 = F.Vec3D{array(0.0f,0.0f,0.0f)}
+  var vec1000 = F.Vec3D{array(1000.0f,1000.0f,0.0f)}
+  var vec100 = F.Vec3D{array(100.0f,100.0f,0.0f)}
+  var vec0i = F.Veci{array(0,0)}
+  var root = simple:create(nil, &vec0, &vec1000, &vec0, &vec0i)
+  self:Test(root ~= nil, true)
+  var child1 = simple:create(root, &vec0, &vec100, &vec0, &vec0i)
+  self:Test(child1 ~= nil, true)
+  var child2 = simple:create(root, &vec100, &vec100, &vec0, &vec0i)
+  self:Test(child2 ~= nil, true)
+  var child3 = simple:create(child2, &vec0, &vec100, &vec0, &vec0i)
+  var child4 = simple:create(child2, &vec0, &vec100, &vec0, &vec0i)
   simple:query(F.Vec3D{array(3.0f,4.0f,0.0f)}, F.Vec3D{array(0.0f,0.0f,1.0f)}, 3, testquery)
   simple:destruct()
 end

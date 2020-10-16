@@ -117,6 +117,10 @@ local RTree = Util.type_template(function(A)
     var n : &Node = self.allocator:alloc(Node, 1)
     n.prev = nil
     n.next = nil
+    n.children = nil
+    n.last = nil
+    n.parent = parent
+    n.planar = true
     if parent ~= nil then
       LL.Prepend(n, &parent.children, &parent.last)
     else
