@@ -69,7 +69,7 @@ H.Hash = Util.type_template(function(Key, Value, Hasher, Equality)
   local set_isboth_false = macro(function(flag, i) return quote flag[i] = 0 end end)
   local set_isdel_true = macro(function(flag, i) return quote flag[i] = (flag[i] or 1) end end)
 
-  terra s:destroy() : {}
+  terra s:destruct() : {}
     Util.SafeFree(self.keys, self.flags, self)
     escape if is_map then emit(`Util.SafeFree(self.vals)) end end
   end

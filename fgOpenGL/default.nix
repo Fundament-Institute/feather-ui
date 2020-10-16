@@ -8,7 +8,7 @@ in stdenv.mkDerivation rec {
   makeFlags = [ "BINDIR=bin" "LIBDIR=lib" "OBJDIR=bin/obj" ];
   src = ./.;
   CPPFLAGS =
-    "-I. -Wall -Wshadow -Wno-attributes -Wno-unknown-pragmas -Wno-missing-braces -Wno-unused-function -Wno-comment -Wno-char-subscripts -Wno-sign-compare -Wno-unused-variable -Wno-switch -std=c++17 -msse -msse2 -msse3 -mmmx -m3dnow -mcx16";
+    "-I. -Wall -Wshadow -Wno-reorder -Wno-attributes -Wno-unknown-pragmas -Wno-missing-braces -Wno-unused-function -Wno-comment -Wno-char-subscripts -Wno-sign-compare -Wno-unused-variable -Wno-switch -std=c++17 -msse -msse2 -msse3 -mmmx -m3dnow -mcx16";
 
   buildInputs = [
     feather.backendInterface

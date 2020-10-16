@@ -1,4 +1,5 @@
 .vs/
+.vscode/
 *.exe
 /bin-*/
 /fgOpenGL/x64/

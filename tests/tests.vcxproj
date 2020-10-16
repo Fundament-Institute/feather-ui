@@ -61,8 +61,8 @@
   <ItemGroup>
     <CustomBuild Include="main.t">
       <FileType>Document</FileType>
-      <Command Condition="'$(Configuration)'=='Debug'">set TERRA_PATH=.\?.t;.\deps\?.t &amp;&amp; set LUA_PATH=.\?.lua;.\deps\?.lua &amp;&amp; cd .. &amp;&amp; terra -g "%(FullPath)" fgOpenGL_d.dll fgDirect2D_d.dll -debug</Command>
-      <Command Condition="'$(Configuration)'=='Release'">set TERRA_PATH=.\?.t;.\deps\?.t &amp;&amp; set LUA_PATH=.\?.lua;.\deps\?.lua &amp;&amp; cd .. &amp;&amp; terra "%(FullPath)" fgOpenGL.dll fgDirect2D.dll</Command>
+      <Command Condition="'$(Configuration)'=='Debug'">set TERRA_PATH=.\?.t;.\deps\?.t;.\?\init.t &amp;&amp; set LUA_PATH=.\?.lua;.\deps\?.lua &amp;&amp; cd "$(SolutionDir)" &amp;&amp; terra -g "%(FullPath)" fgOpenGL_d.dll fgDirect2D_d.dll -debug</Command>
+      <Command Condition="'$(Configuration)'=='Release'">set TERRA_PATH=.\?.t;.\deps\?.t;.\?\init.t &amp;&amp; set LUA_PATH=.\?.lua;.\deps\?.lua &amp;&amp; cd "$(SolutionDir)" &amp;&amp; terra "%(FullPath)" fgOpenGL.dll fgDirect2D.dll</Command>
       <Message>Compiling %(Identity) with Terra</Message>
       <Outputs>$(OutDir)$(TargetName)</Outputs>
       <AdditionalInputs>../include/backend.h</AdditionalInputs>
