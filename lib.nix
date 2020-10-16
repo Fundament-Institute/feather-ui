@@ -14,9 +14,9 @@ let
     src = pkgs.fetchFromGitHub {
       owner = "terralang";
       repo = "terra";
-      rev = "acce1f174bc06a1252fa4fd065e7681e11e324f8";
-      sha256 = "1n82n1gdqw2g33j7cf09gr4r6jqp7xg820psj7j1x4xc6l2bfryy";
-      # date = 2020-05-26T21:44:09-07:00;
+      rev = "4b94a993c2f5d38fe899e2cc7d3daa9c56af5567";
+      sha256 = "11vplcdajh8bjl6rb8n7dz83ymdi4hsicsrp2jwg41298va744gx";
+      # date = 2020-10-12T13:54:03-07:00;
     };
 
     buildInputs = with llvmPackages; [ llvm clang-unwrapped pkgs.ncurses ];
@@ -38,29 +38,27 @@ let
     };
   });
   SOIL = pkgs.stdenv.mkDerivation {
-      name = "SOIL";
-      version = "1.16";
-      src = ./deps/SOIL;
-      buildInputs = [ pkgs.cmake pkgs.libglvnd pkgs.xorg.libX11 ];
-      postInstall = ''
+    name = "SOIL";
+    version = "1.16";
+    src = ./deps/SOIL;
+    buildInputs = [ pkgs.cmake pkgs.libglvnd pkgs.xorg.libX11 ];
+    postInstall = ''
       mv $out/include/SOIL/* $out/include/
-      '';
-    };
+    '';
+  };
   freetype2 = pkgs.stdenv.mkDerivation {
-      name = "Freetype2";
-      version = "2.10.0";
-      src = ./deps/freetype2;
-      buildInputs = [ pkgs.cmake ];
-    };
+    name = "Freetype2";
+    version = "2.10.0";
+    src = ./deps/freetype2;
+    buildInputs = [ pkgs.cmake ];
+  };
   harfbuzz = pkgs.stdenv.mkDerivation {
-      name = "Harfbuzz";
-      version = "2.6.8";
-      src = ./deps/harfbuzz;
-      buildInputs = [ pkgs.cmake freetype2 ];
-    };
-  glfw = pkgs.glfw3.overrideAttrs (old: {
-    src = ./deps/glfw;
-  });
+    name = "Harfbuzz";
+    version = "2.6.8";
+    src = ./deps/harfbuzz;
+    buildInputs = [ pkgs.cmake freetype2 ];
+  };
+  glfw = pkgs.glfw3.overrideAttrs (old: { src = ./deps/glfw; });
   terraIncludes = lst:
     builtins.concatStringsSep ";" (map (pkg: "${getDev pkg}/include") lst);
   terraLibs = lst:

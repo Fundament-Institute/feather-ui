@@ -4,8 +4,9 @@ local override = require 'feather.util'.override
 local messages = require 'feather.messages'
 
 return core.raw_template {
+  core.body
 } (
-  function(context, type_environment)
+  function(self, context, type_environment)
     if context.window then
       error "NYI: instantiating a window inside another window"
     end

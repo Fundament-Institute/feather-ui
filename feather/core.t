@@ -69,8 +69,18 @@ M.context = {}
 
 --Expression instantiation functions
 --TODO: rewrite with implementations that handle the real expressions
-local function constant_expression(v) return v end
+local function constant_expression(v) return function() return v end end
 local function expression_parse(expr) return expr end
+local function type_expression(expr, context, type_environment)
+  return expr(map_pairs(type_environment, function(k, v) return k, symbol(v) end)):gettype()
+end
+local function expression_enter(expr, context, environment)
+  return expr(environment)
+end
+local function expression_update(expr, context, environment)
+  return expr(environment)
+end
+
 
 M.body = setmetatable({
     generate = function(type_environment)
@@ -88,11 +98,14 @@ local function make_body(body)
 
     return {
       enter = function(self, context, environment)
+        print(self, `self._0, (`self._0):gettype())
+        terralib.printraw(elements)
+        terralib.printraw(types)
         return `{
           escape
             for i, e in ipairs(elements) do
               local x = `self.["_"..(i-1)]
-              emit(e.enter(x, context, environment))
+              emit(require'feather.debug'.whereis(e.enter, "enter in body")(x, context, environment))
             end
           end
         }
@@ -145,11 +158,13 @@ function template_mt:__call(desc)
       body[i] = desc[i]
     end
     outline.body = make_body(body)
+  elseif desc[1] then
+    error "attempted to pass a body to a template which doesn't accept one"
   end
   function outline:generate(context, type_environment)
     local binds = {}
     if self.body then
-      local body_fns, body_type = self.body(contex, type_environment)
+      local body_fns, body_type = self.body(context, type_environment)
       binds[M.body] = function()
         return {
           enter = function(self, context, environment)
@@ -177,9 +192,11 @@ function template_mt:__call(desc)
       end
     end
     for k, v in pairs(self.args) do
-      binds[k] = type_expression(v, type_environment)
+      binds[k] = type_expression(v, context, type_environment)
     end
-    local fns, type = self.template.generate(context, binds)
+    terralib.printraw(binds)
+    require'feather.debug'.whereis(self.template.generate, "generate")
+    local fns, type = self.template:generate(context, binds)
     return {
       enter = function(data, context, environment)
         local binds = {
@@ -250,16 +267,15 @@ function M.basic_template(params)
   table.insert(params_full.names, "pos")
   table.insert(params_full.names, "ext")
   table.insert(params_full.names, "rot")
-  local zerovec = `[shared.Vec3D]{array(0.0f, 0.0f, 0.0f)}
+  local zerovec = constant_expression(`[shared.Vec3D]{array(0.0f, 0.0f, 0.0f)})
   params_full.defaults.pos = zerovec
   params_full.defaults.ext = zerovec
   params_full.defaults.rot = zerovec
 
   return function(render)
     local function generate(self, context, type_environment)
-      --TODO: write this
-      local typ = terralib.types.newstruct("template_store")
-      for i, name in ipairs(params.names) do
+      local typ = terralib.types.newstruct("basic_template")
+      for i, name in ipairs(params_abbrev.names) do
         typ.entries[i] = {field = name, type = type_environment[name]}
       end
       typ.entries:insert{field = "_node", type = context.rtree_node}
@@ -289,9 +305,10 @@ function M.basic_template(params)
             var pos = [environment.pos]
             var ext = [environment.ext]
             var rot = [environment.rot]
-            var z_index = [shared.Veci]{0, 0}
-            self._0._node = [context.rtree]:create([context.rtree_node], &pos, &ext, &rot, z_index)
-            var transform = [context.transform]:compose(M.transform{self._0._node.pos})
+            var z_index = [shared.Veci]{array(0, 0)}
+            self._0._node = [context.rtree]:create([context.rtree_node], &pos, &ext, &rot, &z_index)
+            var local_transform = M.transform{self._0._node.pos}
+            var transform = [context.transform]:compose(&local_transform)
             escape
               if params_abbrev.body then
                 emit(body_fns.enter(
@@ -313,7 +330,8 @@ function M.basic_template(params)
             self._0._node.pos = [environment.pos]
             self._0._node.extent = [environment.ext]
             self._0._node.rot = [environment.rot]
-            var transform = [context.transform]:compose(M.transform{self._0._node.pos})
+            var local_transform = M.transform{self._0._node.pos}
+            var transform = [context.transform]:compose(&local_transform)
             escape
               if params_abbrev.body then
                 emit(body_fns.update(
@@ -337,16 +355,17 @@ function M.basic_template(params)
         end,
         render = function(self, context)
           return quote
-            var tranform = [context.transform]:compose(M.transform{self._0._node.pos})
+            var local_transform = M.transform{self._0._node.pos}
+            var transform = [context.transform]:compose(&local_transform)
             [render(override(context, {transform = `transform}), unpack_store(`self._0))]
                  end
         end
-      }
+      }, tuple(typ, body_type or terralib.types.unit)
     end
 
     local self = {
       params = params_full,
-      generate = generate
+      generate = generate,
     }
     return setmetatable(self, template_mt)
   end
@@ -518,7 +537,7 @@ function M.ui(desc)
   ui.query_store = query_binding
 
   -- terralib.printraw(ui)
-  terralib.printraw(query_binding)
+  terralib.printraw(body_type)
 
   terra ui:init(application: application_type, queries: query_binding, backend: backend_type)
     self.rtree:init()
@@ -559,8 +578,16 @@ function M.ui(desc)
     return res
   end
 
+  do
+    local self = symbol(ui)
+    local foo = require'feather.debug'.whereis(body_fns.enter, "body enter")(`self.data,
+                    make_context(self),
+                    make_environment(self)
+                                                                )
+  end
+
   terra ui:enter()
-    [body_fns.enter(`self.data,
+    [require'feather.debug'.whereis(body_fns.enter, "body enter")(`self.data,
                     make_context(self),
                     make_environment(self)
     )]

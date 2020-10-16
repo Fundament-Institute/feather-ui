@@ -7,9 +7,9 @@ local ui = f.ui {
   application = terralib.types.unit,
   f.window {
     f.rect {
-      pos = `[f.Vec3D]{array(20f, 20f, 0f)},
-      ext = `[f.Vec3D]{array(40f, 40f, 0f)},
-      color = `[f.Color]{0x888888ff}
+      pos = function(env) return `[f.Vec3D]{array(20f, 20f, 0f)} end,
+      ext = function(env) return `[f.Vec3D]{array(40f, 40f, 0f)} end,
+      color = function(env) return `[f.Color]{0x888888ff} end
     }
   }
 }
@@ -41,7 +41,7 @@ local terra run_app(dllpath: rawstring)
   u:enter()
   while b:ProcessMessages() ~= 0 do
     u:update()
-    u:render()
+    -- u:render()
   end
   u:exit()
 
@@ -53,4 +53,6 @@ local terra main(argc: int, argv: &rawstring)
   run_app(argv[1])
 end
 
-terralib.saveobj("ui_test", {main = main}, {"-ldl"})
+print(ui.methods.render)
+
+terralib.saveobj("ui_test", {main = main}, {"-ldl", "-g"})
