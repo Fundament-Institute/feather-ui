@@ -16,14 +16,14 @@ Shader::Shader(const Shader& copy) : _pixel(copy._pixel), _vertex(copy._vertex),
 }
 
 Shader::Shader(const char* pixel, const char* vertex, const char* geometry,
-               std::initializer_list<FG_ShaderParameter> data) :
+               std::initializer_list<FG_ShaderParameter> params) :
   _pixel(!pixel ? "" : pixel), _vertex(!vertex ? "" : vertex), _geometry(!geometry ? "" : geometry)
 {
-  n_parameters = data.size();
+  n_parameters = params.size();
   parameters   = new FG_ShaderParameter[n_parameters];
   auto cur     = parameters;
 
-  for(auto p = data.begin(); p != data.end(); ++p)
+  for(auto p = params.begin(); p != params.end(); ++p)
     *(cur++) = *p;
 }
 

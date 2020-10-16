@@ -153,6 +153,10 @@ Window::Window(Backend* backend, GLFWmonitor* display, FG_Element* element, FG_V
   glfwWindowHint(GLFW_MAXIMIZED, flags & FG_Window_MAXIMIZED);
   glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GL_TRUE);
 
+//#if defined(__linux__) || defined(__linux)
+//  glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API);
+//#endif
+
   _window = glfwCreateWindow(!dim ? 0 : static_cast<int>(dim->x), !dim ? 0 : static_cast<int>(dim->y), caption, NULL, NULL);
   if(_window)
   {
@@ -195,12 +199,15 @@ Window::~Window()
   if(_next)
     _next->_prev = _prev;
 
-  if(!glfwWindowShouldClose(_window))
-    CloseCallback(_window);
+  if(_window)
+  {
+    if(!glfwWindowShouldClose(_window))
+      CloseCallback(_window);
 
-  if(_initialized) // We have to call this up here before we destroy the context
-    DestroyResources();
-  glfwDestroyWindow(_window);
+    if(_initialized) // We have to call this up here before we destroy the context
+      DestroyResources();
+    glfwDestroyWindow(_window);
+  }
 }
 
 uint8_t Window::GetModKeys(int mods)

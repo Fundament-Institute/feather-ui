@@ -345,17 +345,12 @@ FG_Err Backend::DrawShader(FG_Backend* self, void* window, FG_Shader* fgshader, 
     switch(type)
     {
     case GL_DOUBLE:
-    {
-      const double& d2 = va_arg(vl, double);
-      data             = (float*)&d2;
-      break;
-    }
     case GL_HALF_FLOAT: // we assume you pass in a proper float to fill this
     case GL_FLOAT:
     case GL_INT:
     case GL_UNSIGNED_INT:
-    {
-      const float& d1 = va_arg(vl, float);
+    { // Floats get promoted to doubles in va_arg contexts
+      float d1 = va_arg(vl, double);
       data            = (float*)&d1;
       break;
     }

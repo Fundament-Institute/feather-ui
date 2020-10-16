@@ -1,9 +1,11 @@
 local C = require 'feather.libc'
 local Util = require 'feather.util'
 local Alloc = require 'std.alloc'
+local IT = require 'std.iterator'
+local Object = require 'std.object'.Object
 
 local Array = Util.type_template(function(T)
-	local struct s {
+	local struct s(Object) {
 		data : &T;
 		size : uint;
     capacity : uint;
@@ -39,6 +41,10 @@ local Array = Util.type_template(function(T)
     return true
   end
 
+  terra s:iter() : IT.FromSlice(T)
+    return [IT.FromSlice(T)]{self.data, self.data + self.size}
+  end
+  
   local terra checkcapacity(self : &s, n : uint) : bool 
     if n > self.capacity then return self:reserve(n * 2) end
     return true

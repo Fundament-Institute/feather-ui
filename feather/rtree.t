@@ -6,6 +6,7 @@ local CT = require 'std.constraint'
 local Math = require 'std.math'
 local Util = require 'feather.util'
 local C = require 'feather.libc'
+local LL = require 'std.ll'
 
 local struct Node {
   pos : F.Vec3D
@@ -16,9 +17,16 @@ local struct Node {
   next : &Node -- next sibling
   prev : &Node
   children : &Node -- first child
+  last : &Node -- last child
   parent : &Node
   planar : bool
 }
+
+terra Node:iter()
+  var it : LL.MakeIterator(Node)
+  it.cur = self.children
+  return it
+end
 
 -- https://zeux.io/2010/10/17/aabb-from-obb-with-component-wise-abs/
 -- Generates an AABB from an OBB
@@ -108,19 +116,26 @@ local RTree = Util.type_template(function(A)
   terra rtree:create(parent : &Node, pos : &F.Vec3D, extent : &F.Vec3D, rot : &F.Vec3D, zindex : &F.Veci) : &Node
     var n : &Node = self.allocator:alloc(Node, 1)
     n.prev = nil
-    var root : &&Node = terralib.select(parent ~= nil, &parent.children, &self.root)
-    n.next = @root
-    if n.next == nil then
-      @root = n
+    n.next = nil
+    if parent ~= nil then
+      LL.Prepend(n, &parent.children, &parent.last)
     else
-      n.next.prev = n
+      LL.Prepend(n, &self.root)
     end
     self:set(n, pos, extent, rot, zindex)
     return n
   end
 
+  local terra detach(node : &Node, root : &&Node) : {}
+    if node.parent ~= nil then
+      LL.Remove(node, &node.parent.children, &node.parent.last)
+    else
+      LL.Remove(node, root)
+    end
+  end
+
   terra rtree:destroy(node : &Node) : {}
-    self:_detach(node)
+    detach(node, &self.root)
 
     while node.children ~= nil do
       self:destroy(node.children)
@@ -169,33 +184,46 @@ local RTree = Util.type_template(function(A)
     node.zindex = @zindex
   end
 
+  terra rtree:sort(node : &Node, child : &Node) : {}
+    if child ~= nil then
+      -- Assume children are all sorted
+      if child.parent == node then
+        for i in node:iter() do
+          if child.zindex.x < i.zindex.x then
+            LL.Insert(child, i, &node.children)
+            return
+          end
+        end
+        LL.Append(child, &node.last, &node.children)
+      end
+    else
+      -- To do a full sort, we detach all children temporarily, then rebuild the list
+      var children = node.children
+      node.children = nil
+      node.last = nil
+
+      while children ~= nil do
+        var cur = children
+        children = children.next
+        children.prev = nil
+        cur.next = nil
+        self:sort(node, cur)
+      end
+    end
+  end
+
   terra rtree:setdata(node : &Node, data : &opaque) : {}
     node.data = data
   end
 
   terra rtree:setparent(node : &Node, parent : &Node) : {}
-    self:_detach(node)
-    if(parent == nil) then
-      node.next = self.root;
-      self.root = node;
-    else
-      node.next = parent.children;
-      parent.children = node;
-    end
-    if node.next ~= nil then
-      node.next.prev = node;
-    end
-  end
+    detach(node, &self.root)
+    node.parent = parent
 
-  terra rtree:_detach(node : &Node) : {}
-    if node.prev == nil then
-      if node.parent == nil then
-        self.root = node.next
-      else
-        node.parent.children = node.next
-      end
+    if node.parent ~= nil then
+      LL.Prepend(node, &node.parent.children, &node.parent.last)
     else
-      node.prev.next = node.next
+      LL.Prepend(node, &self.root)
     end
   end
 
@@ -321,12 +349,17 @@ local RTree = Util.type_template(function(A)
     self.root = nil
   end
 
-  terra rtree:destruct() : {}
-    while self.root ~= nil do
-      var n : &Node = self.root.next
-      Alloc.free(self.root)
-      self.root = n
+  local terra freenode(cur : &Node) : {}
+    while cur ~= nil do
+      freenode(cur.children)
+      var n : &Node = cur.next
+      Alloc.free(cur)
+      cur = n
     end
+  end
+
+  terra rtree:destruct() : {}
+    freenode(self.root)
   end
 
   return rtree

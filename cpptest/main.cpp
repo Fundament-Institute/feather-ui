@@ -82,7 +82,7 @@ FG_Result behavior(FG_Element* element, void* w, void* ui, FG_Msg* m)
   }
   if(m->kind == FG_Kind_SETWINDOWFLAGS)
   {
-    e.close = e.close || ((m->setWindowFlags.flags and FG_Window_CLOSED) != 0);
+    e.close = e.close || ((m->setWindowFlags.flags & FG_Window_CLOSED) != 0);
   }
   if((m->kind == FG_Kind_KEYDOWN && m->keyDown.key != FG_Keys_LMENU && m->keyDown.scancode != 84) || m->kind == FG_Kind_MOUSEDOWN)
   {
