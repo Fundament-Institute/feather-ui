@@ -102,7 +102,7 @@ local function make_body(body)
           escape
             for i, e in ipairs(elements) do
               local x = `self.["_"..(i-1)]
-              emit(require'feather.debug'.whereis(e.enter, "enter in body")(x, context, environment))
+              emit(e.enter(x, context, environment))
             end
           end
                end
@@ -191,7 +191,6 @@ function template_mt:__call(desc)
     for k, v in pairs(self.args) do
       binds[k] = type_expression(v, context, type_environment)
     end
-    require'feather.debug'.whereis(self.template.generate, "generate")
     local fns, type = self.template:generate(context, binds)
     return {
       enter = function(data, context, environment)
@@ -583,7 +582,7 @@ function M.ui(desc)
   end
 
   terra ui:enter()
-    [require'feather.debug'.whereis(body_fns.enter, "body enter")(`self.data,
+    [body_fns.enter(`self.data,
                     make_context(self),
                     make_environment(self)
     )]
