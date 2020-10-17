@@ -98,17 +98,14 @@ local function make_body(body)
 
     return {
       enter = function(self, context, environment)
-        print(self, `self._0, (`self._0):gettype())
-        terralib.printraw(elements)
-        terralib.printraw(types)
-        return `{
+        return quote
           escape
             for i, e in ipairs(elements) do
               local x = `self.["_"..(i-1)]
               emit(require'feather.debug'.whereis(e.enter, "enter in body")(x, context, environment))
             end
           end
-        }
+               end
       end,
       update = function(self, context, environment)
         return quote
@@ -194,7 +191,6 @@ function template_mt:__call(desc)
     for k, v in pairs(self.args) do
       binds[k] = type_expression(v, context, type_environment)
     end
-    terralib.printraw(binds)
     require'feather.debug'.whereis(self.template.generate, "generate")
     local fns, type = self.template:generate(context, binds)
     return {
@@ -357,7 +353,7 @@ function M.basic_template(params)
           return quote
             var local_transform = M.transform{self._0._node.pos}
             var transform = [context.transform]:compose(&local_transform)
-            [render(override(context, {transform = `transform}), unpack_store(`self._0))]
+            [render(override(context, {transform = `transform, rtree_node = `self._0._node}), unpack_store(`self._0))]
                  end
         end
       }, tuple(typ, body_type or terralib.types.unit)
@@ -374,7 +370,6 @@ end
 function M.template(params)
   local params = parse_params(params)
   return function(defn)
-    print(desc, defn)
     local defn_body = make_body(defn)
 
     local function generate(self, context, type_environment)
@@ -516,6 +511,8 @@ function M.ui(desc)
     query_name_lookup[v] = i
   end
 
+  type_environment.app = application_type
+
   local type_context = {
     rtree = rtree_type,
     rtree_node = &rtree_type.Node,
@@ -537,7 +534,6 @@ function M.ui(desc)
   ui.query_store = query_binding
 
   -- terralib.printraw(ui)
-  terralib.printraw(body_type)
 
   terra ui:init(application: application_type, queries: query_binding, backend: backend_type)
     self.rtree:init()
@@ -570,7 +566,7 @@ function M.ui(desc)
 
   local function make_environment(self)
     local res = {
-
+      app = `self.application
     }
     for i, v in ipairs(query_names) do
       res[v] = macro(function(...) local args = {...}; return `self.queries.[v](self.application, [args]) end)
@@ -580,7 +576,7 @@ function M.ui(desc)
 
   do
     local self = symbol(ui)
-    local foo = require'feather.debug'.whereis(body_fns.enter, "body enter")(`self.data,
+    local foo = body_fns.enter(`self.data,
                     make_context(self),
                     make_environment(self)
                                                                 )

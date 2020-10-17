@@ -1,15 +1,20 @@
 local f = require 'feather'
 local shared = require 'feather.shared'
 local C = require 'feather.libc'
+terralib.fulltrace = true
+
+local struct app {
+  pos: f.Vec3D
+                 }
 
 local ui = f.ui {
   queries = {},
-  application = terralib.types.unit,
+  application = &app,
   f.window {
     f.rect {
-      pos = function(env) return `[f.Vec3D]{array(20f, 20f, 0f)} end,
-      ext = function(env) return `[f.Vec3D]{array(40f, 40f, 0f)} end,
-      color = function(env) return `[f.Color]{0x888888ff} end
+      pos = function(env) return `[env.app].pos end,
+      ext = function(env) return `[f.Vec3D]{array(20f, 20f, 0f)} end,
+      color = function(env) return `[f.Color]{0xffffffff} end
     }
   }
 }
@@ -31,16 +36,20 @@ end
 local terra run_app(dllpath: rawstring)
   var u: ui
   var b: &f.Backend
+  var a = app {
+    f.Vec3D{array(60f, 60f, 0f)}
+  }
 
   b = f.Backend.new(&u, [f.Behavior](ui.behavior), FakeLog, dllpath, nil)._0
   if b == nil then
     return 1
   end
-  u:init({}, [ui.query_store]{}, b)
+  u:init(&a, [ui.query_store]{}, b)
 
   u:enter()
   while b:ProcessMessages() ~= 0 do
     u:update()
+    b:RequestAnimationFrame(u.data._0.window, 0)
     -- u:render()
   end
   u:exit()
@@ -53,6 +62,8 @@ local terra main(argc: int, argv: &rawstring)
   run_app(argv[1])
 end
 
+print(ui.methods.enter)
 print(ui.methods.render)
 
-terralib.saveobj("ui_test", {main = main}, {"-ldl", "-g"})
+-- terralib.saveobj("ui_test", {main = main}, {"-ldl", "-g"})
+run_app("/nix/store/dkda6rwy6036gcg00yhndlipirz26f70-fgOpenGL/lib/libfgOpenGL.so")
