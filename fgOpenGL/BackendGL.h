@@ -33,6 +33,8 @@ namespace GL {
     ~Backend();
     FG_Result Behavior(Context* data, const FG_Msg& msg);
     bool LogError(const char* call);
+    FG_Err DrawTextureQuad(Context* context, GLuint tex, ImageVertex* v, FG_Color color, float* transform,
+                           FG_BlendState* blend);
 
     static FG_Err DrawTextGL(FG_Backend* self, void* window, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Color color,
                              float blur, float rotate, float z, FG_BlendState* blend);
@@ -53,12 +55,12 @@ namespace GL {
                             float stroke, FG_Color strokeColor, FG_BlendState* blend);
     static FG_Err DrawShader(FG_Backend* self, void* window, FG_Shader* shader, FG_Asset* vertices, FG_Asset* indices,
                              FG_BlendState* blend, ...);
-    static FG_Err PushLayer(FG_Backend* self, void* window, FG_Rect* area, float* transform, float opacity, void* cache);
-    static void* PopLayer(FG_Backend* self, void* window);
-    static FG_Err DestroyLayer(FG_Backend* self, void* window, void* layer);
+    static FG_Err PushLayer(FG_Backend* self, void* window, FG_Asset* layer, float* transform, float opacity);
+    static FG_Err PopLayer(FG_Backend* self, void* window);
+    static FG_Err SetRenderTarget(FG_Backend* self, void* window, FG_Asset* target);
     static FG_Err PushClip(FG_Backend* self, void* window, FG_Rect* area);
     static FG_Err PopClip(FG_Backend* self, void* window);
-    static FG_Err DirtyRect(FG_Backend* self, void* window, void* layer, FG_Rect* area);
+    static FG_Err DirtyRect(FG_Backend* self, void* window, FG_Rect* area);
     static FG_Shader* CreateShader(FG_Backend* self, const char* ps, const char* vs, const char* gs, const char* cs,
                                    const char* ds, const char* hs, FG_ShaderParameter* parameters, uint32_t n_parameters);
     static FG_Err DestroyShader(FG_Backend* self, FG_Shader* shader);
@@ -74,6 +76,7 @@ namespace GL {
     static FG_Asset* CreateAsset(FG_Backend* self, const char* data, uint32_t count, FG_Format format);
     static FG_Asset* CreateBuffer(FG_Backend* self, void* data, uint32_t bytes, uint8_t primitive,
                                   FG_ShaderParameter* parameters, uint32_t n_parameters);
+    static FG_Asset* CreateLayer(FG_Backend* self, void* window, FG_Vec* size, bool cache);
     static FG_Err DestroyAsset(FG_Backend* self, FG_Asset* asset);
     static FG_Err PutClipboard(FG_Backend* self, void* window, FG_Clipboard kind, const char* data, uint32_t count);
     static uint32_t GetClipboard(FG_Backend* self, void* window, FG_Clipboard kind, void* target, uint32_t count);
@@ -81,7 +84,6 @@ namespace GL {
     static FG_Err ClearClipboard(FG_Backend* self, void* window, FG_Clipboard kind);
     static FG_Err ProcessMessages(FG_Backend* self);
     static FG_Err SetCursorGL(FG_Backend* self, void* window, FG_Cursor cursor);
-    static FG_Err RequestAnimationFrame(FG_Backend* self, void* window, uint64_t microdelay);
     static FG_Err GetDisplayIndex(FG_Backend* self, unsigned int index, FG_Display* out);
     static FG_Err GetDisplay(FG_Backend* self, void* handle, FG_Display* out);
     static FG_Err GetDisplayWindow(FG_Backend* self, void* window, FG_Display* out);
@@ -116,6 +118,31 @@ namespace GL {
     static int _maxjoy;
     static const float BASE_DPI;
     static Backend* _singleton;
+
+    template<class T> inline static void _buildQuad(T (&v)[4], const FG_Rect& area)
+    {
+      // Due to counter-clockwise windings, we have to go topleft, bottomleft, topright, which also requires flipping the UV
+      // x/y coordinates
+      v[0].posUV[0] = area.left;
+      v[0].posUV[1] = area.top;
+      v[0].posUV[2] = 0;
+      v[0].posUV[3] = 0;
+
+      v[1].posUV[0] = area.left;
+      v[1].posUV[1] = area.bottom;
+      v[1].posUV[2] = 1.0f;
+      v[1].posUV[3] = 0;
+
+      v[2].posUV[0] = area.right;
+      v[2].posUV[1] = area.top;
+      v[2].posUV[2] = 0;
+      v[2].posUV[3] = 1.0f;
+
+      v[3].posUV[0] = area.right;
+      v[3].posUV[1] = area.bottom;
+      v[3].posUV[2] = 1.0f;
+      v[3].posUV[3] = 1.0f;
+    }
 
   protected:
     template<class T> inline static void _buildPosUV(T (&v)[4], const FG_Rect& area, const FG_Rect& uv, float x, float y)

@@ -46,7 +46,7 @@ namespace D2D {
     FG_Element* element;
     Backend* backend;
     FG_Rect margin; // When maximized, the actual window area is larger than what we need to draw on, so we must compensate
-    std::stack<ID2D1Layer*> layers;
+    std::stack<FG_Asset*> layers;
     std::stack<D2D_MATRIX_3X2_F> transforms;
     struct kh_wic_s* assets;
     FG_Vec dpi; // The DPI should always be per-display, but windows is insane so we must be prepared to override this.
@@ -70,7 +70,7 @@ namespace D2D {
     size_t SetMouse(const FG_Vec& points, FG_Kind type, unsigned char button, size_t wparam, unsigned long time);
     size_t SetMouseScroll(const FG_Vec& points, uint16_t x, uint16_t y, unsigned long time);
     size_t SetTouch(tagTOUCHINPUT& input);
-    void InvalidateHWND();
+    void InvalidateHWND(const FG_Rect* area);
     ID2D1Bitmap* GetBitmapFromSource(const Asset* p);
     HWND__* WndCreate(FG_Vec* pos, FG_Vec* dim, unsigned long style, uint32_t exflags, void* self, const wchar_t* cls,
                       const char* caption, FG_Vec& dpi);

@@ -138,6 +138,32 @@ FG_Err Backend::DrawTextGL(FG_Backend* self, void* window, FG_Font* fgfont, void
   return glGetError();
 }
 
+FG_Err Backend::DrawTextureQuad(Context* context, GLuint tex, ImageVertex* v, FG_Color color, float* transform,
+                                FG_BlendState* blend)
+{
+  for(int i = 0; i < 4; ++i)
+    ColorFloats(color, v[i].color);
+
+  context->ApplyBlend(blend);
+
+  glUseProgram(context->_imageshader);
+  LogError("glUseProgram");
+  glBindVertexArray(context->_imageobject);
+  LogError("glBindVertexArray");
+
+  glBindBuffer(GL_ARRAY_BUFFER, context->_imagebuffer);
+  LogError("glBindBuffer");
+  context->AppendBatch(v, sizeof(ImageVertex)*4, 4);
+  Shader::SetUniform(this, context->_imageshader, "MVP", GL_FLOAT_MAT4, transform);
+  Shader::SetUniform(this, context->_imageshader, 0, GL_TEXTURE0, (float*)&tex);
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, context->FlushBatch());
+  LogError("glDrawArrays");
+  glBindVertexArray(0);
+  LogError("glBindVertexArray");
+
+  return glGetError();
+}
+
 FG_Err Backend::DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Rect* area, FG_Rect* source, FG_Color color,
                           float time, float rotate, float z, FG_BlendState* blend)
 {
@@ -152,28 +178,8 @@ FG_Err Backend::DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Re
   ImageVertex v[4];
   _buildPosUV(v, *area, *source, static_cast<float>(asset->size.x), static_cast<float>(asset->size.y));
 
-  for(int i = 0; i < 4; ++i)
-    ColorFloats(color, v[i].color);
-
   mat4x4 mv;
-  context->ApplyBlend(blend);
-
-  glUseProgram(context->_imageshader);
-  backend->LogError("glUseProgram");
-  glBindVertexArray(context->_imageobject);
-  backend->LogError("glBindVertexArray");
-
-  glBindBuffer(GL_ARRAY_BUFFER, context->_imagebuffer);
-  backend->LogError("glBindBuffer");
-  context->AppendBatch(v, sizeof(v), 4);
-  Shader::SetUniform(backend, context->_imageshader, "MVP", GL_FLOAT_MAT4, GetRotationMatrix(mv, rotate, z, context->proj));
-  Shader::SetUniform(backend, context->_imageshader, 0, GL_TEXTURE0, (float*)&tex);
-  glDrawArrays(GL_TRIANGLE_STRIP, 0, context->FlushBatch());
-  backend->LogError("glDrawArrays");
-  glBindVertexArray(0);
-  backend->LogError("glBindVertexArray");
-
-  return glGetError();
+  return backend->DrawTextureQuad(context, tex, v, color, GetRotationMatrix(mv, rotate, z, context->proj), blend);
 }
 
 void Backend::GenTransform(float (&target)[4][4], const FG_Rect& area, float rotate, float z)
@@ -351,7 +357,7 @@ FG_Err Backend::DrawShader(FG_Backend* self, void* window, FG_Shader* fgshader, 
     case GL_UNSIGNED_INT:
     { // Floats get promoted to doubles in va_arg contexts
       float d1 = va_arg(vl, double);
-      data            = (float*)&d1;
+      data     = (float*)&d1;
       break;
     }
     default: data = va_arg(vl, float*); break;
@@ -400,25 +406,17 @@ FG_Err Backend::DrawShader(FG_Backend* self, void* window, FG_Shader* fgshader, 
   return -1;
 }
 
-FG_Err Backend::PushLayer(FG_Backend* self, void* window, FG_Rect* area, float* transform, float opacity, void* cache)
+FG_Err Backend::PushLayer(FG_Backend* self, void* window, FG_Asset* layer, float* transform, float opacity)
 {
-  if(!area)
+  if(!self || !window)
     return -1;
-  reinterpret_cast<Context*>(window)->PushLayer(*area, transform, opacity, reinterpret_cast<Layer*>(cache));
+  reinterpret_cast<Context*>(window)->PushLayer(reinterpret_cast<Layer*>(layer->data.data), transform, opacity);
   return 0;
 }
 
-void* Backend::PopLayer(FG_Backend* self, void* window)
+FG_Err Backend::PopLayer(FG_Backend* self, void* window)
 {
-  return !window ? 0 : reinterpret_cast<Context*>(window)->PopLayer();
-}
-FG_Err Backend::DestroyLayer(FG_Backend* self, void* window, void* layer)
-{
-  if(!self || !layer)
-    return -1;
-
-  delete reinterpret_cast<Layer*>(layer);
-  return 0;
+  return !window ? -1 : reinterpret_cast<Context*>(window)->PopLayer();
 }
 
 FG_Err Backend::PushClip(FG_Backend* self, void* window, FG_Rect* area)
@@ -435,13 +433,13 @@ FG_Err Backend::PopClip(FG_Backend* self, void* window)
   return 0;
 }
 
-FG_Err Backend::DirtyRect(FG_Backend* self, void* window, void* layer, FG_Rect* area)
+FG_Err Backend::DirtyRect(FG_Backend* self, void* window, FG_Rect* area)
 {
   if(!self || !window)
     return -1;
-  if(layer)
-    reinterpret_cast<Layer*>(layer)->Dirty(area);
-  return 0; // TODO: Handle dirty backbuffers
+
+  reinterpret_cast<Context*>(window)->DirtyRect(area);
+  return 0;
 }
 
 FG_Shader* Backend::CreateShader(FG_Backend* self, const char* ps, const char* vs, const char* gs, const char* cs,
@@ -666,10 +664,25 @@ FG_Asset* Backend::CreateBuffer(FG_Backend* self, void* data, uint32_t bytes, ui
   return asset;
 }
 
+FG_Asset* Backend::CreateLayer(FG_Backend* self, void* window, FG_Vec* size, bool cache)
+{
+  auto context = reinterpret_cast<Context*>(window);
+
+  GLsizei w;
+  GLsizei h;
+  glfwGetFramebufferSize(context->GetWindow(), &w, &h);
+  return new Layer(!size ? FG_Vec{ static_cast<float>(w), static_cast<float>(h) } : *size, context->GetWindow());
+}
+
 FG_Err Backend::DestroyAsset(FG_Backend* self, FG_Asset* fgasset)
 {
   if(!self || !fgasset)
     return -1;
+
+  if(fgasset->format == FG_Format_LAYER)
+  {
+    delete static_cast<Layer*>(fgasset);
+  }
 
   auto backend = static_cast<Backend*>(self);
 
@@ -768,7 +781,8 @@ uint32_t Backend::GetClipboard(FG_Backend* self, void* window, FG_Clipboard kind
           len = WideCharToMultiByte(CP_UTF8, 0, str, static_cast<int>(size), 0, 0, NULL, NULL);
 
           if(target && count >= len)
-            len = WideCharToMultiByte(CP_UTF8, 0, str, static_cast<int>(size), (char*)target, static_cast<int>(count), NULL, NULL);
+            len = WideCharToMultiByte(CP_UTF8, 0, str, static_cast<int>(size), (char*)target, static_cast<int>(count), NULL,
+                                      NULL);
 
           GlobalUnlock(gdata);
         }
@@ -886,14 +900,6 @@ FG_Err Backend::SetCursorGL(FG_Backend* self, void* window, FG_Cursor cursor)
   return -1;
 }
 
-FG_Err Backend::RequestAnimationFrame(FG_Backend* self, void* window, uint64_t microdelay)
-{
-  if(!window)
-    return -1;
-  reinterpret_cast<Context*>(window)->Draw(nullptr);
-  return 0;
-}
-
 FG_Err Backend::GetDisplayIndex(FG_Backend* self, unsigned int index, FG_Display* out)
 {
   int count;
@@ -973,10 +979,11 @@ FG_Err Backend::SetWindowGL(FG_Backend* self, void* window, FG_Element* element,
     glfwGetWindowPos(glwindow, &posx, &posy);
     glfwGetWindowSize(glwindow, &dimx, &dimy);
     if(flags & FG_Window_FULLSCREEN)
-      glfwSetWindowMonitor(glwindow, (GLFWmonitor*)display, 0, 0, !dim ? dimx : static_cast<int>(ceilf(dim->x)), !dim ? dimy : static_cast<int>(ceilf(dim->y)),
-                           GLFW_DONT_CARE);
+      glfwSetWindowMonitor(glwindow, (GLFWmonitor*)display, 0, 0, !dim ? dimx : static_cast<int>(ceilf(dim->x)),
+                           !dim ? dimy : static_cast<int>(ceilf(dim->y)), GLFW_DONT_CARE);
     else
-      glfwSetWindowMonitor(glwindow, NULL, !pos ? posx : static_cast<int>(ceilf(pos->x)), !pos ? posy : static_cast<int>(ceilf(pos->y)), !dim ? dimx : static_cast<int>(ceilf(dim->x)),
+      glfwSetWindowMonitor(glwindow, NULL, !pos ? posx : static_cast<int>(ceilf(pos->x)),
+                           !pos ? posy : static_cast<int>(ceilf(pos->y)), !dim ? dimx : static_cast<int>(ceilf(dim->x)),
                            !dim ? dimy : static_cast<int>(ceilf(dim->y)), GLFW_DONT_CARE);
   }
   else
@@ -1118,50 +1125,50 @@ long long GetRegistryValueW(HKEY__* hKeyRoot, const wchar_t* szKey, const wchar_
 Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   _root(root), _log(log), _behavior(behavior), _assethash(kh_init_assets()), _windows(nullptr)
 {
-  drawText              = &DrawTextGL;
-  drawAsset             = &DrawAsset;
-  drawRect              = &DrawRect;
-  drawCircle            = &DrawCircle;
-  drawTriangle          = &DrawTriangle;
-  drawLines             = &DrawLines;
-  drawCurve             = &DrawCurve;
-  drawShader            = &DrawShader;
-  pushLayer             = &PushLayer;
-  popLayer              = &PopLayer;
-  pushClip              = &PushClip;
-  popClip               = &PopClip;
-  dirtyRect             = &DirtyRect;
-  beginDraw             = &BeginDraw;
-  endDraw               = &EndDraw;
-  createShader          = &CreateShader;
-  destroyShader         = &DestroyShader;
-  createFont            = &CreateFontGL;
-  destroyFont           = &DestroyFont;
-  fontLayout            = &FontLayout;
-  destroyLayout         = &DestroyLayout;
-  fontIndex             = &FontIndex;
-  fontPos               = &FontPos;
-  createAsset           = &CreateAsset;
-  createBuffer          = &CreateBuffer;
-  destroyAsset          = &DestroyAsset;
-  getProjection         = &GetProjection;
-  putClipboard          = &PutClipboard;
-  getClipboard          = &GetClipboard;
-  checkClipboard        = &CheckClipboard;
-  clearClipboard        = &ClearClipboard;
-  processMessages       = &ProcessMessages;
-  setCursor             = &SetCursorGL;
-  requestAnimationFrame = &RequestAnimationFrame;
-  getDisplayIndex       = &GetDisplayIndex;
-  getDisplay            = &GetDisplay;
-  getDisplayWindow      = &GetDisplayWindow;
-  createWindow          = &CreateWindowGL;
-  setWindow             = &SetWindowGL;
-  destroyWindow         = &DestroyWindow;
-  destroy               = &DestroyGL;
-  createSystemControl   = &CreateSystemControl;
-  setSystemControl      = &SetSystemControl;
-  destroySystemControl  = &DestroySystemControl;
+  drawText             = &DrawTextGL;
+  drawAsset            = &DrawAsset;
+  drawRect             = &DrawRect;
+  drawCircle           = &DrawCircle;
+  drawTriangle         = &DrawTriangle;
+  drawLines            = &DrawLines;
+  drawCurve            = &DrawCurve;
+  drawShader           = &DrawShader;
+  pushLayer            = &PushLayer;
+  popLayer             = &PopLayer;
+  pushClip             = &PushClip;
+  popClip              = &PopClip;
+  dirtyRect            = &DirtyRect;
+  beginDraw            = &BeginDraw;
+  endDraw              = &EndDraw;
+  createShader         = &CreateShader;
+  destroyShader        = &DestroyShader;
+  createFont           = &CreateFontGL;
+  destroyFont          = &DestroyFont;
+  fontLayout           = &FontLayout;
+  destroyLayout        = &DestroyLayout;
+  fontIndex            = &FontIndex;
+  fontPos              = &FontPos;
+  createAsset          = &CreateAsset;
+  createBuffer         = &CreateBuffer;
+  createLayer          = &CreateLayer;
+  destroyAsset         = &DestroyAsset;
+  getProjection        = &GetProjection;
+  putClipboard         = &PutClipboard;
+  getClipboard         = &GetClipboard;
+  checkClipboard       = &CheckClipboard;
+  clearClipboard       = &ClearClipboard;
+  processMessages      = &ProcessMessages;
+  setCursor            = &SetCursorGL;
+  getDisplayIndex      = &GetDisplayIndex;
+  getDisplay           = &GetDisplay;
+  getDisplayWindow     = &GetDisplayWindow;
+  createWindow         = &CreateWindowGL;
+  setWindow            = &SetWindowGL;
+  destroyWindow        = &DestroyWindow;
+  destroy              = &DestroyGL;
+  createSystemControl  = &CreateSystemControl;
+  setSystemControl     = &SetSystemControl;
+  destroySystemControl = &DestroySystemControl;
 
   (*_log)(_root, FG_Level_NONE, "Initializing fgOpenGL...");
   if(FT_Error err = FT_Init_FreeType(&_ftlib))

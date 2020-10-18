@@ -45,6 +45,8 @@ B.Feature = Flags{
 B.Format = Enum{
   "GRADIENT",
   "BUFFER",
+  "LAYER",
+  "WEAK_LAYER",
   "BMP",
   "JPG",
   "PNG",
@@ -104,7 +106,10 @@ B.Cursor = Enum{
   "CUSTOM"}
 
 struct B.Data {
-  data : &opaque
+  union {
+    data : &opaque
+    index : uint
+  }
 }
 
 struct B.Font {
@@ -237,12 +242,12 @@ terra B.Backend:DrawTriangle(window : &opaque, area : &F.Rect, corners : &F.Rect
 terra B.Backend:DrawLines(window : &opaque, points : &F.Vec, count : uint, color : F.Color, blendstate : &B.BlendState) : F.Err return 0 end
 terra B.Backend:DrawCurve(window : &opaque, anchors : &F.Vec, count : uint, fillColor : F.Color, stroke : float, strokeColor : F.Color, blendstate : &B.BlendState) : F.Err return 0 end
 terra B.Backend:DrawShader(window : &opaque, shader : &B.Shader, vertices : &B.Asset, indices : &B.Asset, blendstate : &B.BlendState, ...) : F.Err return 0 end
-terra B.Backend:PushLayer(window : &opaque, area : &F.Rect, transform : &float, opacity : float, cache : &opaque) : F.Err return 0 end
-terra B.Backend:PopLayer(window : &opaque) : &opaque return nil end
-terra B.Backend:DestroyLayer(window : &opaque, layer : &opaque) : F.Err return 0 end
+terra B.Backend:PushLayer(window : &opaque, layer : &B.Asset, transform : &float, opacity : float) : F.Err return 0 end
+terra B.Backend:PopLayer(window : &opaque) : F.Err return 0 end
+terra B.Backend:SetRenderTarget(window : &opaque, target : &B.Asset) : F.Err return 0 end
 terra B.Backend:PushClip(window : &opaque, area : &F.Rect) : F.Err return 0 end
 terra B.Backend:PopClip(window : &opaque) : F.Err return 0 end
-terra B.Backend:DirtyRect(window : &opaque, layer : &opaque, area : &F.Rect) : F.Err return 0 end
+terra B.Backend:DirtyRect(window : &opaque, area : &F.Rect) : F.Err return 0 end
 terra B.Backend:BeginDraw(window : &opaque, area : &F.Rect, clear : bool) : F.Err return 0 end
 terra B.Backend:EndDraw(window : &opaque) : F.Err return 0 end
 
@@ -258,6 +263,7 @@ terra B.Backend:FontPos(font : &B.Font, layout : &opaque, area :&F.Rect, index :
 
 terra B.Backend:CreateAsset(data : F.conststring, count : uint, format : B.Format) : &B.Asset return nil end
 terra B.Backend:CreateBuffer(data : &opaque, bytes : uint, primitive : B.Primitive, parameters : &B.ShaderParameter, n_parameters : uint) : &B.Asset return nil end
+terra B.Backend:CreateLayer(window : &opaque, size : &F.Vec, cache : bool) : &B.Asset return nil end
 terra B.Backend:DestroyAsset(asset : &B.Asset) : F.Err return 0 end
 terra B.Backend:GetProjection(window : &opaque, layer : &opaque, proj4x4 : &float) : F.Err return 0 end
 
@@ -273,7 +279,6 @@ terra B.Backend:DestroySystemControl(window : &opaque, control : &opaque) : F.Er
 terra B.Backend:GetSyncObject() : &opaque return nil end
 terra B.Backend:ProcessMessages() : F.Err return 0 end
 terra B.Backend:SetCursor(window : &opaque, cursor : B.Cursor) : F.Err return 0 end
-terra B.Backend:RequestAnimationFrame(window : &opaque, delay : uint64) : F.Err return 0 end
 terra B.Backend:GetDisplayIndex(index : uint, out : &B.Display) : F.Err return 0 end
 terra B.Backend:GetDisplay(handle : &opaque, out : &B.Display) : F.Err return 0 end
 terra B.Backend:GetDisplayWindow(window : &opaque, out : &B.Display) : F.Err return 0 end

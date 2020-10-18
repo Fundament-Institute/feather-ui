@@ -7,9 +7,12 @@
 
 using namespace GL;
 
-Layer::Layer(FG_Rect a, float* tf, float o, GLFWwindow* w) : area(a), dirty(a), opacity(o), window(w), initialized(false)
+Layer::Layer(FG_Vec s, GLFWwindow* w) : window(w), initialized(false)
 {
-  MEMCPY(transform, sizeof(transform), tf, 16 * sizeof(float));
+  format      = FG_Format_LAYER;
+  size.x      = s.x;
+  size.y      = s.y;
+  glfwGetWindowContentScale(w, &dpi.x, &dpi.y);
   initialized = Create();
 }
 
@@ -20,6 +23,7 @@ void Layer::Destroy()
   if(initialized)
   {
     glDeleteFramebuffers(1, &framebuffer);
+    GLuint texture = data.index;
     glDeleteTextures(1, &texture);
   }
   initialized = false;
@@ -33,9 +37,10 @@ bool Layer::Create()
   glGenFramebuffers(1, &framebuffer);
   glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 
+  GLuint texture;
   glGenTextures(1, &texture);
   glBindTexture(GL_TEXTURE_2D, texture);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)ceilf(area.right - area.left), (GLsizei)ceilf(area.bottom - area.top), 0,
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)ceilf(size.x), (GLsizei)ceilf(size.y), 0,
                GL_RGBA, GL_UNSIGNED_BYTE, 0);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -45,10 +50,11 @@ bool Layer::Create()
   if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
     return false;
 
+  data.index = texture;
   return true;
 }
 
-bool Layer::Update(FG_Rect a, float* tf, float o, GLFWwindow* w)
+bool Layer::Update(float* tf, float o, GLFWwindow* w)
 {
   opacity = o;
   if(w != window) // If true we have to go BACK to the original window context, delete everything, then recreate it
@@ -59,8 +65,6 @@ bool Layer::Update(FG_Rect a, float* tf, float o, GLFWwindow* w)
     glfwMakeContextCurrent(cur);
 
     window = w;
-    dirty  = a;
-    area   = a;
     initialized = Create();
     return initialized;
   }
@@ -69,33 +73,5 @@ bool Layer::Update(FG_Rect a, float* tf, float o, GLFWwindow* w)
   if(tf)
     MEMCPY(transform, sizeof(transform), tf, 16 * sizeof(float));
 
-  // Resize the texture
-  if(a.left != area.left || a.top != area.top || a.right != area.right || a.bottom != area.bottom)
-  {
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)ceilf(area.right - area.left), (GLsizei)ceilf(area.bottom - area.top),
-                 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
-    area  = a;
-    dirty = a;
-  }
-
   return true;
-}
-
-void Layer::Dirty(const FG_Rect* rect)
-{
-  if(!rect)
-    dirty = area;
-  else if(dirty.left != NAN || dirty.top != NAN || dirty.right != NAN || dirty.bottom != NAN)
-    dirty = *rect;
-  else
-  {
-    if(rect->left < dirty.left)
-      dirty.left = rect->left;
-    if(rect->top < dirty.top)
-      dirty.top = rect->top;
-    if(rect->right > dirty.right)
-      dirty.right = rect->right;
-    if(rect->bottom > dirty.bottom)
-      dirty.bottom = rect->bottom;
-  }
 }

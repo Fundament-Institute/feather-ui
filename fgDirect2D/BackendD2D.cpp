@@ -204,45 +204,41 @@ FG_Err Backend::DrawShader(FG_Backend* self, void* window, FG_Shader* shader, FG
   return -1;
 }
 
-FG_Err Backend::PushLayer(FG_Backend* self, void* window, FG_Rect* area, float* transform, float opacity, void* cache)
+FG_Err Backend::PushLayer(FG_Backend* self, void* window, FG_Asset* asset, float* transform, float opacity)
 {
-  if(!window || !area || !transform)
+  if(!window || !transform)
     return -1;
   auto context = FromHWND(window);
-  context->layers.push(reinterpret_cast<ID2D1Layer*>(cache));
+  auto layer = reinterpret_cast<ID2D1Layer*>(asset->data.data);
+  auto size  = layer->GetSize();
 
   // TODO: Properly project 3D transform into 2D transform
   context->PushTransform(
     D2D1::Matrix3x2F(transform[0], transform[1], transform[4], transform[5], transform[3], transform[7]));
 
   // We only need a proper layer if we are doing opacity, otherwise the transform is sufficient
-  if(opacity != 1.0 || context->layers.top() != nullptr)
+  if(opacity != 1.0)
   {
+    context->layers.push(asset);
+
     D2D1_LAYER_PARAMETERS params = {
-      D2D1::RectF(area->left, area->top, area->right, area->bottom),
-      0,
-      D2D1_ANTIALIAS_MODE_ALIASED,
-      D2D1::IdentityMatrix(),
-      opacity,
-      0,
+      D2D1::RectF(0, 0, size.width, size.height),  0, D2D1_ANTIALIAS_MODE_ALIASED, D2D1::IdentityMatrix(), opacity, 0,
       D2D1_LAYER_OPTIONS_INITIALIZE_FOR_CLEARTYPE,
     };
 
-    if(!context->layers.top())
-      context->target->CreateLayer(NULL, &context->layers.top());
-    context->target->PushLayer(params, context->layers.top());
-    if(!context->layers.top())
-      context->layers.top() = (ID2D1Layer*)~0;
+    context->target->PushLayer(params, layer);
   }
+  else
+    context->layers.push(nullptr);
 
-  context->PushClip(*area);
+  context->PushClip(FG_Rect{ 0, 0, size.width, size.height });
   return 0;
 }
 
-void* Backend::PopLayer(FG_Backend* self, void* window)
+FG_Err Backend::PopLayer(FG_Backend* self, void* window)
 {
   if(!window)
-    return nullptr;
+    return -1;
   auto context = FromHWND(window);
   auto p       = context->layers.top();
   context->PopClip();
@@ -251,16 +247,10 @@ void* Backend::PopLayer(FG_Backend* self, void* window)
     context->target->PopLayer();
   context->PopTransform();
 
-  return p;
-}
-
-FG_Err Backend::DestroyLayer(FG_Backend* self, void* window, void* cache)
-{
-  auto p = reinterpret_cast<ID2D1Layer*>(cache);
-  if(p != nullptr && p != (ID2D1Layer*)~0)
-    p->Release();
   return 0;
 }
+
+FG_Err Backend::SetRenderTarget(FG_Backend* self, void* window, FG_Asset* target) { return -1; }
 
 FG_Err Backend::PushClip(FG_Backend* self, void* window, FG_Rect* area)
 {
@@ -278,12 +268,9 @@ FG_Err Backend::PopClip(FG_Backend* self, void* window)
   return 0;
 }
 
-FG_Err Backend::DirtyRect(FG_Backend* self, void* window, void* layer, FG_Rect* area)
+FG_Err Backend::DirtyRect(FG_Backend* self, void* window, FG_Rect* area)
 {
-  auto instance = static_cast<Backend*>(self);
-  RECT rect     = { static_cast<LONG>(floorf(area->left)), static_cast<LONG>(floorf(area->top)),
-                static_cast<LONG>(ceilf(area->right)), static_cast<LONG>(ceilf(area->bottom)) };
-  InvalidateRect(reinterpret_cast<HWND>(window), &rect, false);
+  reinterpret_cast<Window*>(GetWindowLongPtrW(reinterpret_cast<HWND>(window), GWLP_USERDATA))->InvalidateHWND(area);
   return 0;
 }
 
@@ -553,14 +540,38 @@ FG_Asset* Backend::CreateBuffer(FG_Backend* self, void* data, uint32_t bytes, ui
   return 0;
 }
 
-  FG_Err Backend::DestroyAsset(FG_Backend* self, FG_Asset* fgasset)
+FG_Asset* Backend::CreateLayer(FG_Backend* self, void* window, FG_Vec* size, bool cache)
 {
-  auto asset = reinterpret_cast<Asset*>(fgasset);
+  if(!self || !window)
+    return nullptr;
+
+  auto context = FromHWND(window);
+  ID2D1Layer* layer;
+  if(FAILED(context->target->CreateLayer(!size ? context->target->GetSize() : D2D1::SizeF(size->x, size->y), &layer)))
+    return nullptr;
+
+  auto psize   = context->target->GetPixelSize();
+  auto p       = new FG_Asset();
+  p->data.data = layer;
+  p->size      = FG_Veci{ (int)psize.width, (int)psize.height };
+  p->format    = FG_Format_WEAK_LAYER;
+  context->target->GetDpi(&p->dpi.x, &p->dpi.y);
+  return p;
+}
+
+FG_Err Backend::DestroyAsset(FG_Backend* self, FG_Asset* fgasset)
+{
+  if(fgasset->format == FG_Format_WEAK_LAYER || fgasset->format == FG_Format_LAYER)
+  {
+    reinterpret_cast<ID2D1Layer*>(fgasset->data.data)->Release();
+    delete fgasset;
+  }
+  auto asset = static_cast<Asset*>(fgasset);
   for(auto& i : asset->instances)
     i->DiscardAsset(asset);
 
   FG_Err e = reinterpret_cast<IUnknown*>(asset->data.data)->Release();
-  free(asset);
+  delete asset;
   return e;
 }
 
@@ -945,15 +956,6 @@ FG_Result Backend::Behavior(Window* w, const FG_Msg& msg)
   return (*_behavior)(w->element, w->hWnd, _root, const_cast<FG_Msg*>(&msg));
 }
 
-FG_Err Backend::RequestAnimationFrame(FG_Backend* self, void* window, unsigned long long microdelay)
-{
-  reinterpret_cast<Window*>(GetWindowLongPtrW(reinterpret_cast<HWND>(window), GWLP_USERDATA))->InvalidateHWND();
-  // if(context->nextframe < 0 || context->nextframe > microdelay)
-  //  context->nextframe = microdelay;
-
-  return 0;
-}
-
 uint16_t Backend::GetTouchIndex(DWORD index, bool up)
 {
   uint16_t n = _touchid.Length();
@@ -1086,6 +1088,7 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior, ID2D1Factory1* fa
   fontPos               = &FontPos;
   createAsset           = &CreateAsset;
   createBuffer          = &CreateBuffer;
+  createLayer           = &CreateLayer;
   destroyAsset          = &DestroyAsset;
   getProjection         = &GetProjection;
   putClipboard          = &PutClipboard;
@@ -1094,7 +1097,6 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior, ID2D1Factory1* fa
   clearClipboard        = &ClearClipboard;
   processMessages       = &ProcessMessages;
   setCursor             = &SetCursorD2D;
-  requestAnimationFrame = &RequestAnimationFrame;
   getDisplayIndex       = &GetDisplayIndex;
   getDisplay            = &GetDisplay;
   getDisplayWindow      = &GetDisplayWindow;

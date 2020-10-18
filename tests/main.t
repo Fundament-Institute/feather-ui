@@ -195,7 +195,7 @@ terra TestHarness:TestBackend(dllpath : rawstring, aa : B.AntiAliasing)
   var w = b:CreateWindow(&e.super, nil, &pos, &dim, "Feather Test", e.flags, nil)
   
   self:Test(b:SetCursor(w, B.Cursor.CROSS), 0)
-  self:Test(b:RequestAnimationFrame(w, 0), 0)
+  self:Test(b:DirtyRect(w, nil), 0)
 
   self:Test(b:SetWindow(w, nil, nil, nil, nil, nil, Msg.Window.RESIZABLE), 0)
   self:Test(b:SetWindow(w, &e.super, nil, nil, nil, "Feather Test Changed", Msg.Window.RESIZABLE), 0)
@@ -223,7 +223,7 @@ terra TestHarness:TestBackend(dllpath : rawstring, aa : B.AntiAliasing)
   self:Test(b:GetClipboard(w, B.Clipboard.WAVE, [&int8](hold), 10), 0)
 
   while b:ProcessMessages() ~= 0 and e.close == false do
-    b:RequestAnimationFrame(w, 0)
+    b:DirtyRect(w, nil)
   end
 
   self:Test(b:DestroyWindow(w), 0)

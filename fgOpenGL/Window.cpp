@@ -153,11 +153,12 @@ Window::Window(Backend* backend, GLFWmonitor* display, FG_Element* element, FG_V
   glfwWindowHint(GLFW_MAXIMIZED, flags & FG_Window_MAXIMIZED);
   glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GL_TRUE);
 
-//#if defined(__linux__) || defined(__linux)
-//  glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API);
-//#endif
+  //#if defined(__linux__) || defined(__linux)
+  //  glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API);
+  //#endif
 
   _window = glfwCreateWindow(!dim ? 0 : static_cast<int>(dim->x), !dim ? 0 : static_cast<int>(dim->y), caption, NULL, NULL);
+
   if(_window)
   {
     glfwSetWindowUserPointer(_window, this);
@@ -171,6 +172,7 @@ Window::Window(Backend* backend, GLFWmonitor* display, FG_Element* element, FG_V
     glfwSetDropCallback(_window, DropCallback);
     glfwSetWindowFocusCallback(_window, FocusCallback);
     glfwSetWindowSizeCallback(_window, SizeCallback);
+    glfwSetWindowRefreshCallback(_window, RefreshCallback);
 
 #ifdef FG_PLATFORM_WIN32
     // Remove the transparency hack by removing the layered flag that ISN'T NECESSARY >:C
@@ -208,6 +210,24 @@ Window::~Window()
       DestroyResources();
     glfwDestroyWindow(_window);
   }
+}
+
+void Window::DirtyRect(const FG_Rect* area)
+{
+#ifdef FG_PLATFORM_WIN32
+  auto hWnd = glfwGetWin32Window(_window);
+
+  if(!area)
+    InvalidateRect(hWnd, NULL, FALSE);
+  else
+  {
+    RECT rect = { static_cast<LONG>(floorf(area->left)), static_cast<LONG>(floorf(area->top)),
+                  static_cast<LONG>(ceilf(area->right)), static_cast<LONG>(ceilf(area->bottom)) };
+    InvalidateRect(hWnd, &rect, FALSE);
+  }
+#else
+  Draw(rect);
+#endif
 }
 
 uint8_t Window::GetModKeys(int mods)
@@ -341,4 +361,9 @@ void Window::SizeCallback(GLFWwindow* window, int width, int height)
 {
   auto self = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
   self->SetDim(FG_Vec{ (float)width, (float)height });
+}
+
+void Window::RefreshCallback(GLFWwindow* window)
+{
+  reinterpret_cast<Window*>(glfwGetWindowUserPointer(window))->Draw(nullptr);
 }

@@ -126,6 +126,7 @@ void Context::SetDim(const FG_Vec& dim)
   // mat4x4_ortho(proj, 0, dim.x, dim.y, 0, -1, 1);
   mat4x4_custom(proj, 0, dim.x, dim.y, 0, 0.2, 100);
 }
+
 void Context::Draw(const FG_Rect* area)
 {
   FG_Msg msg    = { FG_Kind_DRAW };
@@ -150,6 +151,7 @@ void Context::PushClip(const FG_Rect& rect)
   }
   Scissor(_clipstack.back(), 0, 0);
 }
+
 void Context::Scissor(const FG_Rect& rect, float x, float y) const
 {
   int l = static_cast<int>(floorf(rect.left - x));
@@ -159,6 +161,7 @@ void Context::Scissor(const FG_Rect& rect, float x, float y) const
   glScissor(l, t, r - l, b - t);
   _backend->LogError("glScissor");
 }
+
 void Context::Viewport(const FG_Rect& rect, float x, float y) const
 {
   int l = static_cast<int>(floorf(rect.left - x));
@@ -168,30 +171,32 @@ void Context::Viewport(const FG_Rect& rect, float x, float y) const
   glViewport(l, t, r - l, b - t);
   _backend->LogError("glViewport");
 }
+
 void Context::PopClip()
 {
   _clipstack.pop_back();
   Scissor(_clipstack.back(), 0, 0);
 }
-void Context::PushLayer(const FG_Rect& area, float* transform, float opacity, Layer* layer)
+
+Layer* Context::CreateLayer(const FG_Vec* psize) {
+  GLsizei w;
+  GLsizei h;
+  glfwGetFramebufferSize(_window, &w, &h);
+  FG_Vec size = { w, h };
+  return new Layer(!psize ? size : *psize, _window);
+}
+
+int Context::PushLayer(Layer* layer, float* transform, float opacity)
 {
   if(!layer)
-    layer = new Layer(area, transform, opacity, _window);
-  else
-    layer->Update(area, transform, opacity, _window);
-
+    return -1;
+  
+  layer->Update(transform, opacity, _window);
   _layers.push_back(layer);
-  if(layer->dirty.left != NAN || layer->dirty.top != NAN || layer->dirty.right != NAN || layer->dirty.bottom != NAN)
-    _clipstack.push_back(layer->dirty); // We override the clip stack here with our new clipping rect without intersection
-  else
-    _clipstack.push_back({ 0, 0, 0, 0 });
-
-  auto& r = _clipstack.back();
-  Scissor(_clipstack.back(), 0, 0);
 
   glBindFramebuffer(GL_FRAMEBUFFER, layer->framebuffer);
   _backend->LogError("glBindFramebuffer");
-  Viewport(layer->area, layer->area.left, layer->area.top);
+  return 0;
 }
 
 void Context::AppendBatch(const void* vertices, GLsizeiptr bytes, GLsizei count)
@@ -210,21 +215,21 @@ GLsizei Context::FlushBatch()
   return count;
 }
 
-Layer* Context::PopLayer()
+int Context::PopLayer()
 {
-  auto p = _layers.back();
+  Layer* p = _layers.back();
   _layers.pop_back();
-  p->dirty = {
-    NAN,
-    NAN,
-    NAN,
-    NAN,
-  };
-  PopClip();
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glBindFramebuffer(GL_FRAMEBUFFER, !_layers.size() ? 0 : _layers.back()->framebuffer);
   _backend->LogError("glBindFramebuffer");
 
-  return p;
+  FG_Rect full = { 0, 0, p->size.x, p->size.y };
+
+  ImageVertex v[4];
+  _backend->_buildQuad(v, full);
+
+  mat4x4 mvp;
+  mat4x4_mul(mvp, (vec4*)p->transform, proj);
+  return _backend->DrawTextureQuad(this, p->data.index, v, FG_Color{ 0x00FFFFFF + ((unsigned int)roundf(0xFF * p->opacity) << 24) }, (float*)mvp, nullptr);
 }
 
 int Context::GetBytes(GLenum type)

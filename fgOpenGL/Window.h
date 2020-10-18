@@ -19,6 +19,7 @@ namespace GL {
     size_t SetKey(uint8_t keycode, bool down, bool held, unsigned long time);
     size_t SetChar(int key, unsigned long time);
     size_t SetMouse(FG_Vec& points, FG_Kind type, unsigned char button, size_t wparam, unsigned long time);
+    virtual void DirtyRect(const FG_Rect* rect) override;
     static uint8_t GetModKeys(int mods);
     static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
     static void CloseCallback(GLFWwindow* window);
@@ -30,6 +31,7 @@ namespace GL {
     static void DropCallback(GLFWwindow* window, int count, const char* paths[]);
     static void FocusCallback(GLFWwindow* window, int focused);
     static void SizeCallback(GLFWwindow* window, int width, int height);
+    static void RefreshCallback(GLFWwindow* window);
 
     uint64_t _flags;
     Window* _next; // GLFW doesn't let us detect when it destroys a window so we have to do it ourselves.

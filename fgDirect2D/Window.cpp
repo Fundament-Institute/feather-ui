@@ -672,13 +672,18 @@ size_t Window::SetMouseScroll(const FG_Vec& points, uint16_t x, uint16_t y, unsi
   return backend->Behavior(this, evt).mouseScroll;
 }
 
-void Window::InvalidateHWND()
+void Window::InvalidateHWND(const FG_Rect* area)
 {
-  if(!invalid)
-  {
+  if(!area)
     InvalidateRect(hWnd, NULL, FALSE);
-    invalid = true;
+  else
+  {
+    RECT rect = { static_cast<LONG>(floorf(area->left)), static_cast<LONG>(floorf(area->top)),
+                  static_cast<LONG>(ceilf(area->right)), static_cast<LONG>(ceilf(area->bottom)) };
+    InvalidateRect(hWnd, &rect, FALSE);
   }
+
+  InvalidateRect(hWnd, NULL, FALSE);
 }
 ID2D1Bitmap* Window::GetBitmapFromSource(const Asset* p)
 {

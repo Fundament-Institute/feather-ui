@@ -39,8 +39,9 @@ namespace GL {
     void Draw(const FG_Rect* area);
     void PushClip(const FG_Rect& rect);
     void PopClip();
-    void PushLayer(const FG_Rect& area, float* transform, float opacity, Layer* cache);
-    Layer* PopLayer();
+    Layer* CreateLayer(const FG_Vec* area);
+    int PushLayer(Layer* layer, float* transform, float opacity);
+    int PopLayer();
     void CreateResources();
     void DestroyResources();
     GLFWwindow* GetWindow() const { return _window; }
@@ -57,6 +58,7 @@ namespace GL {
     GLuint GetFontTexture(const Font* font);
     bool CheckFlush(GLintptr bytes) { return (_bufferoffset + bytes > BATCH_BYTES); }
     void ApplyBlend(const FG_BlendState* blend);
+    virtual void DirtyRect(const FG_Rect* rect) { }
 
     static GLenum BlendOp(uint8_t op);
     static GLenum BlendValue(uint8_t value);

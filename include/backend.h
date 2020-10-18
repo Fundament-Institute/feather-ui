@@ -6,24 +6,26 @@
 #include <stdbool.h> // for bool
 
 enum FG_Format {
-  FG_Format_JPG = 3,
-  FG_Format_SVG = 12,
-  FG_Format_BMP = 2,
-  FG_Format_ICO = 5,
-  FG_Format_WEBP = 9,
-  FG_Format_GIF = 6,
-  FG_Format_MKV = 15,
-  FG_Format_DDS = 10,
-  FG_Format_MP4 = 14,
-  FG_Format_WIC = 11,
+  FG_Format_JPG = 5,
+  FG_Format_WEAK_LAYER = 3,
+  FG_Format_SVG = 14,
+  FG_Format_BMP = 4,
+  FG_Format_ICO = 7,
+  FG_Format_WEBP = 11,
+  FG_Format_LAYER = 2,
+  FG_Format_GIF = 8,
+  FG_Format_MKV = 17,
+  FG_Format_AVI = 15,
+  FG_Format_MP4 = 16,
+  FG_Format_WIC = 13,
   FG_Format_UNKNOWN = 255,
-  FG_Format_AVI = 13,
+  FG_Format_DDS = 12,
   FG_Format_GRADIENT = 0,
-  FG_Format_PNG = 4,
-  FG_Format_TIFF = 7,
+  FG_Format_PNG = 6,
+  FG_Format_TIFF = 9,
   FG_Format_BUFFER = 1,
-  FG_Format_TGA = 8,
-  FG_Format_WEBM = 16
+  FG_Format_TGA = 10,
+  FG_Format_WEBM = 18
 };
 typedef struct FG_Vec__ FG_Vec;
 typedef float FG_anon_1[2];
@@ -233,7 +235,10 @@ enum FG_Cursor {
 };
 typedef struct FG_Data__ FG_Data;
 struct FG_Data__ {
+  union {
   void * data;
+  uint32_t index;
+};;
 };
 typedef struct FG_Result__ FG_Result;
 struct FG_Result__ {
@@ -618,44 +623,43 @@ struct FG_Display__ {
 typedef int32_t (* FG_anon_36)(FG_Backend *, uint32_t, FG_Display *);
 typedef int32_t (* FG_anon_37)(FG_Backend *, void *, FG_Rect *);
 typedef int32_t (* FG_anon_38)(FG_Backend *, void *, FG_Rect *, bool);
-typedef int32_t (* FG_anon_39)(FG_Backend *, void *, void *, FG_Rect *);
-typedef void * (* FG_anon_40)(FG_Backend *, FG_Element *, void *, FG_Vec *, FG_Vec *, const char*, uint64_t, void *);
-typedef int32_t (* FG_anon_41)(FG_Backend *, void *, FG_Rect *, FG_Rect *, FG_Color, float, FG_Color, float, FG_Asset *, float, float, FG_BlendState *);
-typedef int32_t (* FG_anon_42)(FG_Backend *, void *, FG_Clipboard, const char*, uint32_t);
-typedef FG_Vec (* FG_anon_43)(FG_Backend *, FG_Font *, void *, FG_Rect *, uint32_t);
-typedef FG_Font * (* FG_anon_44)(FG_Backend *, const char*, uint16_t, bool, uint32_t, FG_Vec, FG_AntiAliasing);
-typedef int32_t (* FG_anon_45)(FG_Backend *, FG_Shader *);
+typedef void * (* FG_anon_39)(FG_Backend *, FG_Element *, void *, FG_Vec *, FG_Vec *, const char*, uint64_t, void *);
+typedef int32_t (* FG_anon_40)(FG_Backend *, void *, FG_Rect *, FG_Rect *, FG_Color, float, FG_Color, float, FG_Asset *, float, float, FG_BlendState *);
+typedef int32_t (* FG_anon_41)(FG_Backend *, void *, FG_Clipboard, const char*, uint32_t);
+typedef FG_Vec (* FG_anon_42)(FG_Backend *, FG_Font *, void *, FG_Rect *, uint32_t);
+typedef FG_Font * (* FG_anon_43)(FG_Backend *, const char*, uint16_t, bool, uint32_t, FG_Vec, FG_AntiAliasing);
+typedef int32_t (* FG_anon_44)(FG_Backend *, FG_Shader *);
+typedef int32_t (* FG_anon_45)(FG_Backend *, void *, FG_Asset *);
 typedef void * (* FG_anon_46)(FG_Backend *);
 typedef int32_t (* FG_anon_47)(FG_Backend *, void *, FG_Display *);
 typedef FG_Asset * (* FG_anon_48)(FG_Backend *, void *, uint32_t, uint8_t, FG_ShaderParameter *, uint32_t);
-typedef int32_t (* FG_anon_49)(FG_Backend *, void *, FG_Rect *, float *, float, void *);
-typedef int32_t (* FG_anon_50)(FG_Backend *, void *, FG_Vec *, uint32_t, FG_Color, FG_BlendState *);
-typedef int32_t (* FG_anon_51)(FG_Backend *, void *, FG_Asset *, FG_Rect *, FG_Rect *, FG_Color, float, float, float, FG_BlendState *);
-typedef int32_t (* FG_anon_52)(FG_Backend *, void *);
-typedef int32_t (* FG_anon_53)(FG_Backend *, void *, uint64_t);
-typedef uint32_t (* FG_anon_54)(FG_Backend *, void *, FG_Clipboard, void *, uint32_t);
-typedef int32_t (* FG_anon_55)(FG_Backend *, void *, FG_Shader *, FG_Asset *, FG_Asset *, FG_BlendState *, ...);
-typedef int32_t (* FG_anon_56)(FG_Backend *);
-typedef int32_t (* FG_anon_57)(FG_Backend *, void *, void *);
-typedef int32_t (* FG_anon_58)(FG_Backend *, void *, void *, FG_Rect *, ...);
-typedef int32_t (* FG_anon_59)(FG_Backend *, void *, FG_Element *, void *, FG_Vec *, FG_Vec *, const char*, uint64_t);
-typedef void * (* FG_anon_60)(FG_Backend *, void *);
-typedef int32_t (* FG_anon_61)(FG_Backend *, FG_Font *);
-typedef int32_t (* FG_anon_62)(FG_Backend *, void *, FG_Rect *, FG_Vec *, FG_Color, float, FG_Color, float, float, float, FG_Asset *, float, FG_BlendState *);
-typedef int32_t (* FG_anon_63)(FG_Backend *, void *, FG_Cursor);
-typedef FG_Shader * (* FG_anon_64)(FG_Backend *, const char*, const char*, const char*, const char*, const char*, const char*, FG_ShaderParameter *, uint32_t);
+typedef int32_t (* FG_anon_49)(FG_Backend *, void *, FG_Shader *, FG_Asset *, FG_Asset *, FG_BlendState *, ...);
+typedef int32_t (* FG_anon_50)(FG_Backend *, void *, FG_Asset *, FG_Rect *, FG_Rect *, FG_Color, float, float, float, FG_BlendState *);
+typedef int32_t (* FG_anon_51)(FG_Backend *, void *);
+typedef int32_t (* FG_anon_52)(FG_Backend *, void *, FG_Vec *, uint32_t, FG_Color, FG_BlendState *);
+typedef bool (* FG_anon_53)(FG_Backend *, void *, FG_Clipboard);
+typedef FG_Shader * (* FG_anon_54)(FG_Backend *, const char*, const char*, const char*, const char*, const char*, const char*, FG_ShaderParameter *, uint32_t);
+typedef int32_t (* FG_anon_55)(FG_Backend *);
+typedef int32_t (* FG_anon_56)(FG_Backend *, void *, void *);
+typedef int32_t (* FG_anon_57)(FG_Backend *, void *, void *, FG_Rect *, ...);
+typedef int32_t (* FG_anon_58)(FG_Backend *, void *, FG_Element *, void *, FG_Vec *, FG_Vec *, const char*, uint64_t);
+typedef int32_t (* FG_anon_59)(FG_Backend *, FG_Font *);
+typedef int32_t (* FG_anon_60)(FG_Backend *, void *, FG_Rect *, FG_Vec *, FG_Color, float, FG_Color, float, float, float, FG_Asset *, float, FG_BlendState *);
+typedef FG_Asset * (* FG_anon_61)(FG_Backend *, void *, FG_Vec *, bool);
+typedef int32_t (* FG_anon_62)(FG_Backend *, void *, FG_Cursor);
 enum FG_BreakStyle {
   FG_BreakStyle_NONE = 0,
   FG_BreakStyle_CHARACTER = 2,
   FG_BreakStyle_WORD = 1
 };
-typedef void * (* FG_anon_65)(FG_Backend *, FG_Font *, const char*, FG_Rect *, float, float, FG_BreakStyle, void *);
-typedef uint32_t (* FG_anon_66)(FG_Backend *, FG_Font *, void *, FG_Rect *, FG_Vec, FG_Vec *);
-typedef int32_t (* FG_anon_67)(FG_Backend *, void *, FG_Vec *, uint32_t, FG_Color, float, FG_Color, FG_BlendState *);
-typedef int32_t (* FG_anon_68)(FG_Backend *, void *, void *, float *);
-typedef void * (* FG_anon_69)(FG_Backend *, void *, const char*, FG_Rect *, ...);
-typedef int32_t (* FG_anon_70)(FG_Backend *, FG_Asset *);
-typedef bool (* FG_anon_71)(FG_Backend *, void *, FG_Clipboard);
+typedef void * (* FG_anon_63)(FG_Backend *, FG_Font *, const char*, FG_Rect *, float, float, FG_BreakStyle, void *);
+typedef int32_t (* FG_anon_64)(FG_Backend *, void *, FG_Asset *, float *, float);
+typedef uint32_t (* FG_anon_65)(FG_Backend *, FG_Font *, void *, FG_Rect *, FG_Vec, FG_Vec *);
+typedef int32_t (* FG_anon_66)(FG_Backend *, void *, FG_Vec *, uint32_t, FG_Color, float, FG_Color, FG_BlendState *);
+typedef int32_t (* FG_anon_67)(FG_Backend *, void *, void *, float *);
+typedef void * (* FG_anon_68)(FG_Backend *, void *, const char*, FG_Rect *, ...);
+typedef int32_t (* FG_anon_69)(FG_Backend *, FG_Asset *);
+typedef uint32_t (* FG_anon_70)(FG_Backend *, void *, FG_Clipboard, void *, uint32_t);
 struct FG_Backend__ {
   FG_anon_31 destroy;
   FG_Feature features;
@@ -670,45 +674,45 @@ struct FG_Backend__ {
   FG_anon_36 getDisplayIndex;
   FG_anon_37 pushClip;
   FG_anon_38 beginDraw;
-  FG_anon_39 dirtyRect;
-  FG_anon_40 createWindow;
-  FG_anon_41 drawTriangle;
-  FG_anon_42 putClipboard;
-  FG_anon_43 fontPos;
-  FG_anon_41 drawRect;
-  FG_anon_44 createFont;
-  FG_anon_45 destroyShader;
+  FG_anon_37 dirtyRect;
+  FG_anon_39 createWindow;
+  FG_anon_40 drawTriangle;
+  FG_anon_41 putClipboard;
+  FG_anon_42 fontPos;
+  FG_anon_40 drawRect;
+  FG_anon_43 createFont;
+  FG_anon_44 destroyShader;
+  FG_anon_45 setRenderTarget;
   FG_anon_46 getSyncObject;
   FG_anon_47 getDisplayWindow;
   FG_anon_48 createBuffer;
-  FG_anon_49 pushLayer;
-  FG_anon_50 drawLines;
-  FG_anon_51 drawAsset;
-  FG_anon_52 endDraw;
+  FG_anon_49 drawShader;
+  FG_anon_50 drawAsset;
+  FG_anon_51 endDraw;
+  FG_anon_52 drawLines;
   FG_anon_47 getDisplay;
-  FG_anon_53 requestAnimationFrame;
-  FG_anon_54 getClipboard;
-  FG_anon_55 drawShader;
-  FG_anon_56 processMessages;
-  FG_anon_57 destroySystemControl;
-  FG_anon_58 setSystemControl;
-  FG_anon_59 setWindow;
-  FG_anon_60 popLayer;
-  FG_anon_52 destroyLayout;
-  FG_anon_61 destroyFont;
-  FG_anon_62 drawCircle;
-  FG_anon_52 popClip;
-  FG_anon_63 setCursor;
-  FG_anon_64 createShader;
-  FG_anon_65 fontLayout;
-  FG_anon_57 destroyLayer;
-  FG_anon_66 fontIndex;
-  FG_anon_52 destroyWindow;
-  FG_anon_67 drawCurve;
-  FG_anon_68 getProjection;
-  FG_anon_69 createSystemControl;
-  FG_anon_70 destroyAsset;
-  FG_anon_71 checkClipboard;
+  FG_anon_53 checkClipboard;
+  FG_anon_54 createShader;
+  FG_anon_55 processMessages;
+  FG_anon_56 destroySystemControl;
+  FG_anon_57 setSystemControl;
+  FG_anon_58 setWindow;
+  FG_anon_51 popLayer;
+  FG_anon_51 destroyLayout;
+  FG_anon_59 destroyFont;
+  FG_anon_60 drawCircle;
+  FG_anon_61 createLayer;
+  FG_anon_62 setCursor;
+  FG_anon_51 popClip;
+  FG_anon_63 fontLayout;
+  FG_anon_64 pushLayer;
+  FG_anon_65 fontIndex;
+  FG_anon_51 destroyWindow;
+  FG_anon_66 drawCurve;
+  FG_anon_67 getProjection;
+  FG_anon_68 createSystemControl;
+  FG_anon_69 destroyAsset;
+  FG_anon_70 getClipboard;
 };
 enum FG_JoyAxis {
   FG_JoyAxis_X = 0,

@@ -146,7 +146,7 @@ int main(int argc, char* argv[])
   }
 
   TEST((*b->setCursor)(b, w, FG_Cursor_CROSS) == 0);
-  TEST((*b->requestAnimationFrame)(b, w, 0) == 0);
+  TEST((*b->dirtyRect)(b, w, 0) == 0);
 
   TEST((*b->setWindow)(b, w, nullptr, nullptr, nullptr, nullptr, nullptr, FG_Window_RESIZABLE) == 0);
   TEST((*b->setWindow)(b, w, &e, nullptr, nullptr, nullptr, "Feather Test Changed", FG_Window_RESIZABLE) == 0);
@@ -177,7 +177,7 @@ int main(int argc, char* argv[])
 
   while((*b->processMessages)(b) != 0 && e.close == false)
   {
-    (*b->requestAnimationFrame)(b, w, 0);
+    (*b->dirtyRect)(b, w, 0);
   }
 
   TEST((*b->destroyWindow)(b, w) == 0)
