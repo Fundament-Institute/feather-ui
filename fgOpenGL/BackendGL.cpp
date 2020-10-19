@@ -153,7 +153,7 @@ FG_Err Backend::DrawTextureQuad(Context* context, GLuint tex, ImageVertex* v, FG
 
   glBindBuffer(GL_ARRAY_BUFFER, context->_imagebuffer);
   LogError("glBindBuffer");
-  context->AppendBatch(v, sizeof(ImageVertex)*4, 4);
+  context->AppendBatch(v, sizeof(ImageVertex) * 4, 4);
   Shader::SetUniform(this, context->_imageshader, "MVP", GL_FLOAT_MAT4, transform);
   Shader::SetUniform(this, context->_imageshader, 0, GL_TEXTURE0, (float*)&tex);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, context->FlushBatch());
@@ -404,6 +404,18 @@ FG_Err Backend::DrawShader(FG_Backend* self, void* window, FG_Shader* fgshader, 
 
   glBindVertexArray(0);
   return -1;
+}
+
+bool Backend::Clear(FG_Backend* self, void* window, FG_Color color)
+{
+  auto backend = static_cast<Backend*>(self);
+
+  glClearColor(color.r / 255.0f, color.g / 255.0f, color.b / 255.0f, color.a / 255.0f);
+  backend->LogError("glClearColor");
+  glClear(GL_COLOR_BUFFER_BIT);
+  backend->LogError("glClear");
+
+  return true;
 }
 
 FG_Err Backend::PushLayer(FG_Backend* self, void* window, FG_Asset* layer, float* transform, float opacity)
@@ -1017,12 +1029,12 @@ FG_Err Backend::DestroyWindow(FG_Backend* self, void* window)
   delete reinterpret_cast<Context*>(window);
   return _lasterr;
 }
-FG_Err Backend::BeginDraw(FG_Backend* self, void* window, FG_Rect* area, bool clear)
+FG_Err Backend::BeginDraw(FG_Backend* self, void* window, FG_Rect* area)
 {
   if(!window)
     return -1;
   _lasterr = 0;
-  reinterpret_cast<Context*>(window)->BeginDraw(area, clear);
+  reinterpret_cast<Context*>(window)->BeginDraw(area);
   return _lasterr;
 }
 FG_Err Backend::EndDraw(FG_Backend* self, void* window)
@@ -1133,6 +1145,7 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   drawLines            = &DrawLines;
   drawCurve            = &DrawCurve;
   drawShader           = &DrawShader;
+  clear                = &Clear;
   pushLayer            = &PushLayer;
   popLayer             = &PopLayer;
   pushClip             = &PushClip;

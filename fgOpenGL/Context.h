@@ -34,7 +34,7 @@ namespace GL {
   {
     Context(Backend* backend, FG_Element* element, FG_Vec* dim);
     virtual ~Context();
-    void BeginDraw(const FG_Rect* area, bool clear);
+    void BeginDraw(const FG_Rect* area);
     void EndDraw();
     void Draw(const FG_Rect* area);
     void PushClip(const FG_Rect& rect);
@@ -97,12 +97,13 @@ namespace GL {
     std::vector<Layer*> _layers;
     GLintptr _bufferoffset;
     GLsizei _buffercount;
-    bool _initialized;
     kh_tex_s* _texhash;
     kh_font_s* _fonthash;   // Holds the initialized texture for this font on this context
     kh_glyph_s* _glyphhash; // The set of all glyphs that have been initialized
     kh_shader_s* _shaderhash;
     kh_vao_s* _vaohash;
+    bool _initialized;
+    bool _clipped;
   };
 }
 

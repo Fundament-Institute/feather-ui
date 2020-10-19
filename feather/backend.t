@@ -242,13 +242,15 @@ terra B.Backend:DrawTriangle(window : &opaque, area : &F.Rect, corners : &F.Rect
 terra B.Backend:DrawLines(window : &opaque, points : &F.Vec, count : uint, color : F.Color, blendstate : &B.BlendState) : F.Err return 0 end
 terra B.Backend:DrawCurve(window : &opaque, anchors : &F.Vec, count : uint, fillColor : F.Color, stroke : float, strokeColor : F.Color, blendstate : &B.BlendState) : F.Err return 0 end
 terra B.Backend:DrawShader(window : &opaque, shader : &B.Shader, vertices : &B.Asset, indices : &B.Asset, blendstate : &B.BlendState, ...) : F.Err return 0 end
+
+terra B.Backend:Clear(window : &opaque, color : F.Color) : bool return false end -- Clears whatever is inside the current clipping rect
 terra B.Backend:PushLayer(window : &opaque, layer : &B.Asset, transform : &float, opacity : float) : F.Err return 0 end
 terra B.Backend:PopLayer(window : &opaque) : F.Err return 0 end
 terra B.Backend:SetRenderTarget(window : &opaque, target : &B.Asset) : F.Err return 0 end
 terra B.Backend:PushClip(window : &opaque, area : &F.Rect) : F.Err return 0 end
 terra B.Backend:PopClip(window : &opaque) : F.Err return 0 end
 terra B.Backend:DirtyRect(window : &opaque, area : &F.Rect) : F.Err return 0 end
-terra B.Backend:BeginDraw(window : &opaque, area : &F.Rect, clear : bool) : F.Err return 0 end
+terra B.Backend:BeginDraw(window : &opaque, area : &F.Rect) : F.Err return 0 end
 terra B.Backend:EndDraw(window : &opaque) : F.Err return 0 end
 
 terra B.Backend:CreateShader(ps : F.conststring, vs : F.conststring, gs : F.conststring, cs : F.conststring, ds : F.conststring, hs : F.conststring, parameters : &B.ShaderParameter, n_parameters : uint) : &B.Shader return nil end

@@ -49,7 +49,7 @@ local terra run_app(dllpath: rawstring)
   u:enter()
   while b:ProcessMessages() ~= 0 do
     u:update()
-    b:RequestAnimationFrame(u.data._0.window, 0)
+    b:DirtyRect(u.data._0.window, nil)
     -- u:render()
   end
   u:exit()
@@ -65,5 +65,20 @@ end
 print(ui.methods.enter)
 print(ui.methods.render)
 
--- terralib.saveobj("ui_test", {main = main}, {"-ldl", "-g"})
-run_app("/nix/store/dkda6rwy6036gcg00yhndlipirz26f70-fgOpenGL/lib/libfgOpenGL.so")
+
+local targetname = "ui_test"
+local clangargs = { "-g" }
+
+if jit.os == "Windows" then
+  targetname = "bin-"..jit.arch.."/".. targetname .. ".exe"
+end
+
+if jit.os == "Linux" then
+  table.insert(clangargs, "-ldl")
+end
+
+if terralib.saveobj(targetname, "executable", {main = main}, clangargs) ~= nil then
+  return -1
+end
+
+

@@ -50,7 +50,6 @@ Window::Window(Backend* _backend, FG_Element* _element, FG_Vec* pos, FG_Vec* dim
   margin                = { 0 };
   assets                = kh_init_wic();
   inside                = false;
-  invalid               = false;
   unsigned long style   = (flags & FG_Window_NOBORDER) ? WS_POPUP : 0;
   unsigned long exstyle = (flags & FG_Window_NOCAPTION) ? WS_EX_TOOLWINDOW : WS_EX_APPWINDOW;
   if(flags & FG_Window_MINIMIZABLE)
@@ -305,7 +304,7 @@ longptr_t __stdcall Window::WndProc(HWND__* hWnd, unsigned int message, size_t w
       msg.draw.area.top    = 0;
       msg.draw.area.right  = static_cast<float>(WindowRect.right - WindowRect.left);
       msg.draw.area.bottom = static_cast<float>(WindowRect.bottom - WindowRect.top);
-      self->backend->BeginDraw(self->backend, hWnd, &msg.draw.area, true);
+      self->backend->BeginDraw(self->backend, hWnd, &msg.draw.area);
       self->backend->Behavior(self, msg);
       self->backend->EndDraw(self->backend, hWnd);
       ValidateRect(self->hWnd, NULL);
@@ -336,16 +335,17 @@ HWND__* Window::WndCreate(FG_Vec* pos, FG_Vec* dim, unsigned long style, uint32_
     UTF8toUTF16(caption, -1, const_cast<wchar_t*>(wcaption), len);
   }
 
-  // AdjustWindowRectEx(&rsize, style, FALSE, exflags); // So long as we are drawing all over the nonclient area, we don't
-  // actually want to correct this
-  int rwidth  = !dim ? CW_USEDEFAULT : static_cast<int>(ceil(dim->x));
-  int rheight = !dim ? CW_USEDEFAULT : static_cast<int>(ceil(dim->y));
-  int rleft   = !pos ? CW_USEDEFAULT : static_cast<int>(floor(pos->x));
-  int rtop    = !pos ? CW_USEDEFAULT : static_cast<int>(floor(pos->y));
+  RECT rsize = {
+    !pos ? CW_USEDEFAULT : static_cast<int>(floor(pos->x)),
+    !pos ? CW_USEDEFAULT : static_cast<int>(floor(pos->y)),
+  };
+  rsize.right  = rsize.left + (!dim ? CW_USEDEFAULT : static_cast<int>(ceil(dim->x)));
+  rsize.bottom = rsize.top + (!dim ? CW_USEDEFAULT : static_cast<int>(ceil(dim->y)));
 
-  HWND handle = CreateWindowExW(exflags, cls, wcaption, style, (style & WS_POPUP) ? rleft : CW_USEDEFAULT,
-                                (style & WS_POPUP) ? rtop : CW_USEDEFAULT, rwidth, rheight, NULL, NULL,
-                                (HINSTANCE)&__ImageBase, self);
+  AdjustWindowRectEx(&rsize, style, (style & WS_POPUP) ? FALSE : TRUE, exflags);
+  HWND handle = CreateWindowExW(exflags, cls, wcaption, style, (style & WS_POPUP) ? rsize.left : CW_USEDEFAULT,
+                                (style & WS_POPUP) ? rsize.top : CW_USEDEFAULT, rsize.right - rsize.left,
+                                rsize.bottom - rsize.top, NULL, NULL, (HINSTANCE)&__ImageBase, self);
   HDC hdc     = GetDC(handle);
   dpi         = { static_cast<float>(GetDeviceCaps(hdc, LOGPIXELSX)), static_cast<float>(GetDeviceCaps(hdc, LOGPIXELSY)) };
   ReleaseDC(handle, hdc);
@@ -374,22 +374,20 @@ FG_Err Window::PopClip()
   return 0;
 }
 
-void Window::BeginDraw(const FG_Rect& area, bool clear)
+void Window::BeginDraw(const FG_Rect& area)
 {
-  invalid = true;
   CreateResources();
   target->BeginDraw();
-  if(clear)
-    target->Clear(D2D1::ColorF(0, 0));
   PushClip(area);
 }
+
+void Window::Clear(FG_Color color) { target->Clear(ToD2Color(color.v)); }
 
 void Window::EndDraw()
 {
   PopClip();
   if(target->EndDraw() == D2DERR_RECREATE_TARGET)
     DiscardResources();
-  invalid = false;
 }
 
 void Window::CreateResources()

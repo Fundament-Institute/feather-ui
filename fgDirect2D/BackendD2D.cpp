@@ -204,13 +204,20 @@ FG_Err Backend::DrawShader(FG_Backend* self, void* window, FG_Shader* shader, FG
   return -1;
 }
 
+bool Backend::Clear(FG_Backend* self, void* window, FG_Color color)
+{
+  auto context = FromHWND(window);
+  context->Clear(color);
+  return true;
+}
+
 FG_Err Backend::PushLayer(FG_Backend* self, void* window, FG_Asset* asset, float* transform, float opacity)
 {
   if(!window || !transform)
     return -1;
   auto context = FromHWND(window);
-  auto layer = reinterpret_cast<ID2D1Layer*>(asset->data.data);
-  auto size  = layer->GetSize();
+  auto layer   = reinterpret_cast<ID2D1Layer*>(asset->data.data);
+  auto size    = layer->GetSize();
 
   // TODO: Properly project 3D transform into 2D transform
   context->PushTransform(
@@ -843,12 +850,12 @@ FG_Err Backend::DestroyWindow(FG_Backend* self, void* window)
   delete ptr;
   return 0;
 }
-FG_Err Backend::BeginDraw(FG_Backend* self, void* window, FG_Rect* area, bool clear)
+FG_Err Backend::BeginDraw(FG_Backend* self, void* window, FG_Rect* area)
 {
   Window* ptr = reinterpret_cast<Window*>(GetWindowLongPtrW(reinterpret_cast<HWND>(window), GWLP_USERDATA));
   if(!ptr)
     return -1;
-  ptr->BeginDraw(*area, clear);
+  ptr->BeginDraw(*area);
   return 0;
 }
 FG_Err Backend::EndDraw(FG_Backend* self, void* window)
@@ -1063,50 +1070,51 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior, ID2D1Factory1* fa
                  IDWriteFactory1* writefactory) :
   _root(root), _log(log), _behavior(behavior), _factory(factory), _wicfactory(wicfactory), _writefactory(writefactory)
 {
-  drawText              = &DrawTextD2D;
-  drawAsset             = &DrawAsset;
-  drawRect              = &DrawRect;
-  drawCircle            = &DrawCircle;
-  drawTriangle          = &DrawTriangle;
-  drawLines             = &DrawLines;
-  drawCurve             = &DrawCurve;
-  drawShader            = &DrawShader;
-  pushLayer             = &PushLayer;
-  popLayer              = &PopLayer;
-  pushClip              = &PushClip;
-  popClip               = &PopClip;
-  dirtyRect             = &DirtyRect;
-  beginDraw             = &BeginDraw;
-  endDraw               = &EndDraw;
-  createShader          = &CreateShader;
-  destroyShader         = &DestroyShader;
-  createFont            = &CreateFontD2D;
-  destroyFont           = &DestroyFont;
-  fontLayout            = &FontLayout;
-  destroyLayout         = &DestroyLayout;
-  fontIndex             = &FontIndex;
-  fontPos               = &FontPos;
-  createAsset           = &CreateAsset;
-  createBuffer          = &CreateBuffer;
-  createLayer           = &CreateLayer;
-  destroyAsset          = &DestroyAsset;
-  getProjection         = &GetProjection;
-  putClipboard          = &PutClipboard;
-  getClipboard          = &GetClipboard;
-  checkClipboard        = &CheckClipboard;
-  clearClipboard        = &ClearClipboard;
-  processMessages       = &ProcessMessages;
-  setCursor             = &SetCursorD2D;
-  getDisplayIndex       = &GetDisplayIndex;
-  getDisplay            = &GetDisplay;
-  getDisplayWindow      = &GetDisplayWindow;
-  createWindow          = &CreateWindowD2D;
-  setWindow             = &SetWindowD2D;
-  destroyWindow         = &DestroyWindow;
-  destroy               = &DestroyD2D;
-  createSystemControl   = &CreateSystemControl;
-  setSystemControl      = &SetSystemControl;
-  destroySystemControl  = &DestroySystemControl;
+  drawText             = &DrawTextD2D;
+  drawAsset            = &DrawAsset;
+  drawRect             = &DrawRect;
+  drawCircle           = &DrawCircle;
+  drawTriangle         = &DrawTriangle;
+  drawLines            = &DrawLines;
+  drawCurve            = &DrawCurve;
+  drawShader           = &DrawShader;
+  clear                = &Clear;
+  pushLayer            = &PushLayer;
+  popLayer             = &PopLayer;
+  pushClip             = &PushClip;
+  popClip              = &PopClip;
+  dirtyRect            = &DirtyRect;
+  beginDraw            = &BeginDraw;
+  endDraw              = &EndDraw;
+  createShader         = &CreateShader;
+  destroyShader        = &DestroyShader;
+  createFont           = &CreateFontD2D;
+  destroyFont          = &DestroyFont;
+  fontLayout           = &FontLayout;
+  destroyLayout        = &DestroyLayout;
+  fontIndex            = &FontIndex;
+  fontPos              = &FontPos;
+  createAsset          = &CreateAsset;
+  createBuffer         = &CreateBuffer;
+  createLayer          = &CreateLayer;
+  destroyAsset         = &DestroyAsset;
+  getProjection        = &GetProjection;
+  putClipboard         = &PutClipboard;
+  getClipboard         = &GetClipboard;
+  checkClipboard       = &CheckClipboard;
+  clearClipboard       = &ClearClipboard;
+  processMessages      = &ProcessMessages;
+  setCursor            = &SetCursorD2D;
+  getDisplayIndex      = &GetDisplayIndex;
+  getDisplay           = &GetDisplay;
+  getDisplayWindow     = &GetDisplayWindow;
+  createWindow         = &CreateWindowD2D;
+  setWindow            = &SetWindowD2D;
+  destroyWindow        = &DestroyWindow;
+  destroy              = &DestroyD2D;
+  createSystemControl  = &CreateSystemControl;
+  setSystemControl     = &SetSystemControl;
+  destroySystemControl = &DestroySystemControl;
 
   HDC hdc = GetDC(NULL);
   dpi     = { static_cast<float>(GetDeviceCaps(hdc, LOGPIXELSX)), static_cast<float>(GetDeviceCaps(hdc, LOGPIXELSY)) };

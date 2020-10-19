@@ -35,7 +35,6 @@ Context::Context(Backend* backend, FG_Element* element, FG_Vec* dim) :
   _backend(backend),
   _element(element),
   _window(nullptr),
-  _initialized(false),
   _buffercount(0),
   _bufferoffset(0),
   _texhash(kh_init_tex()),
@@ -43,6 +42,8 @@ Context::Context(Backend* backend, FG_Element* element, FG_Vec* dim) :
   _glyphhash(kh_init_glyph()),
   _vaohash(kh_init_vao()),
   _shaderhash(kh_init_shader()),
+  _initialized(false),
+  _clipped(false),
   _lastblend({
     FG_BlendValue_ONE,
     FG_BlendValue_ZERO,
@@ -67,7 +68,7 @@ Context::~Context()
   kh_destroy_shader(_shaderhash);
 }
 
-void Context::BeginDraw(const FG_Rect* area, bool clear)
+void Context::BeginDraw(const FG_Rect* area)
 {
   if(_window)
   {
@@ -80,16 +81,15 @@ void Context::BeginDraw(const FG_Rect* area, bool clear)
     _backend->LogError("glViewport");
   }
 
-  if(clear)
-  {
-    glClearColor(0, 0, 0, 0);
-    _backend->LogError("glClearColor");
-    glClear(GL_COLOR_BUFFER_BIT);
-    _backend->LogError("glClear");
-  }
+  _clipped = area != nullptr;
+  if(_clipped)
+    PushClip(*area);
 }
 void Context::EndDraw()
 {
+  if(_clipped)
+    PopClip();
+  _clipped = false;
   if(_window)
     glfwSwapBuffers(_window);
 }
@@ -131,7 +131,18 @@ void Context::Draw(const FG_Rect* area)
 {
   FG_Msg msg    = { FG_Kind_DRAW };
   msg.draw.data = this;
-  _backend->BeginDraw(_backend, this, &msg.draw.area, true);
+  if(area)
+    msg.draw.area = *area;
+  else
+  {
+    GLsizei w;
+    GLsizei h;
+    glfwGetFramebufferSize(_window, &w, &h);
+    msg.draw.area.right = w;
+    msg.draw.area.bottom = h;
+  }
+
+  _backend->BeginDraw(_backend, this, &msg.draw.area);
   _backend->Behavior(this, msg);
   _backend->EndDraw(_backend, this);
 }
@@ -139,7 +150,10 @@ void Context::Draw(const FG_Rect* area)
 void Context::PushClip(const FG_Rect& rect)
 {
   if(_clipstack.empty())
+  {
     _clipstack.push_back(rect);
+    glEnable(GL_SCISSOR_TEST);
+  }
   else // Push intersection of previous clip rect with new clip rect
   {
     auto cur   = _clipstack.back();
@@ -175,7 +189,10 @@ void Context::Viewport(const FG_Rect& rect, float x, float y) const
 void Context::PopClip()
 {
   _clipstack.pop_back();
-  Scissor(_clipstack.back(), 0, 0);
+  if(!_clipstack.empty())
+    Scissor(_clipstack.back(), 0, 0);
+  else
+    glDisable(GL_SCISSOR_TEST);
 }
 
 Layer* Context::CreateLayer(const FG_Vec* psize) {

@@ -43,6 +43,8 @@ FG_Result behavior(FG_Element* element, void* w, void* ui, FG_Msg* m)
   if(m->kind == FG_Kind_DRAW)
   {
     FG_Backend* b = *(FG_Backend**)ui;
+    (*b->clear)(b, w, FG_Color{ 0 });
+
     auto r        = FG_Rect{ 50.f, 100.f, 200.f, 300.f };
     auto c        = FG_Rect{ 0.f, 4.f, 8.f, 12.f };
     (*b->drawRect)(b, w, &r, &c, FG_Color{ 0xFF0000FF }, 5.f, FG_Color{ 0xFF00FFFF }, 0.f, nullptr, 0.f, 0.f, nullptr);

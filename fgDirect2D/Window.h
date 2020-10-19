@@ -52,7 +52,6 @@ namespace D2D {
     FG_Vec dpi; // The DPI should always be per-display, but windows is insane so we must be prepared to override this.
 
     bool inside;
-    bool invalid;
 
     Window(Backend* backend, FG_Element* element, FG_Vec* pos, FG_Vec* dim, uint64_t flags, const char* caption,
            void* context);
@@ -60,7 +59,7 @@ namespace D2D {
     void CreateResources();
     void DiscardResources();
     void DiscardAsset(const Asset* p);
-    void BeginDraw(const FG_Rect& area, bool clear);
+    void BeginDraw(const FG_Rect& area);
     void EndDraw();
     void SetCaption(const char* caption);
     void SetArea(FG_Vec* pos, FG_Vec* dim);
@@ -75,6 +74,7 @@ namespace D2D {
     HWND__* WndCreate(FG_Vec* pos, FG_Vec* dim, unsigned long style, uint32_t exflags, void* self, const wchar_t* cls,
                       const char* caption, FG_Vec& dpi);
     void ApplyWin32Size();
+    void Clear(FG_Color color);
     int PushClip(const FG_Rect& area);
     int PopClip();
     void PushTransform(const D2D_MATRIX_3X2_F& m);

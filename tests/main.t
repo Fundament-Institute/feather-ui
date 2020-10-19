@@ -123,6 +123,8 @@ V.extends(Element)(MockElement)
 terra MockElement:Behavior(w : &opaque, ui : &opaque, m : &M.Msg) : M.Result
   if m.kind.val == [Element.virtualinfo.info["Draw"].index] then
     var b = @[&&B.Backend](ui)
+    b:Clear(w, 0x00000000U)
+
     var r = F.Rect{array(50f, 100f, 200f, 300f)}
     var c = F.Rect{array(0f, 4f, 8f, 12f)}
     b:DrawRect(w, &r, &c, 0xFF0000FF, 5f, 0xFF00FFFF, 0f, nil, 0f, 0f, nil)
