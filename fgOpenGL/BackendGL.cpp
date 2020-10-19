@@ -79,7 +79,8 @@ FG_Err Backend::DrawTextGL(FG_Backend* self, void* window, FG_Font* fgfont, void
   backend->LogError("glBindBuffer");
 
   mat4x4 mv;
-  Shader::SetUniform(backend, context->_imageshader, "MVP", GL_FLOAT_MAT4, GetRotationMatrix(mv, rotate, z, context->proj));
+  Shader::SetUniform(backend, context->_imageshader, "MVP", GL_FLOAT_MAT4,
+                     GetRotationMatrix(mv, rotate, z, context->GetProjection()));
 
   float dim  = (float)(1 << font->GetSizePower());
   FG_Vec pen = { area->left, area->top + ((layout->lineheight / font->lineheight) * font->GetAscender()) };
@@ -179,7 +180,8 @@ FG_Err Backend::DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Re
   _buildPosUV(v, *area, *source, static_cast<float>(asset->size.x), static_cast<float>(asset->size.y));
 
   mat4x4 mv;
-  return backend->DrawTextureQuad(context, tex, v, color, GetRotationMatrix(mv, rotate, z, context->proj), blend);
+  return backend->DrawTextureQuad(context, tex, v, color, GetRotationMatrix(mv, rotate, z, context->GetProjection()),
+                                  blend);
 }
 
 void Backend::GenTransform(float (&target)[4][4], const FG_Rect& area, float rotate, float z)
@@ -252,7 +254,8 @@ FG_Err Backend::DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect*
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(window);
   context->ApplyBlend(blend);
-  backend->_drawStandard(context->_rectshader, context->_quadobject, context->proj, *area, *corners, fillColor, border,
+  backend->_drawStandard(context->_rectshader, context->_quadobject, context->GetProjection(), *area, *corners, fillColor,
+                         border,
                          borderColor, blur, rotate, z);
   return glGetError();
 }
@@ -264,7 +267,7 @@ FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Vec
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(window);
   context->ApplyBlend(blend);
-  backend->_drawStandard(context->_circleshader, context->_quadobject, context->proj, *area,
+  backend->_drawStandard(context->_circleshader, context->_quadobject, context->GetProjection(), *area,
                          FG_Rect{ angles->x, angles->y, innerRadius, innerBorder }, fillColor, border, borderColor, blur,
                          0.0f, z);
   return glGetError();
@@ -276,7 +279,8 @@ FG_Err Backend::DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_R
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(window);
   context->ApplyBlend(blend);
-  backend->_drawStandard(context->_trishader, context->_quadobject, context->proj, *area, *corners, fillColor, border,
+  backend->_drawStandard(context->_trishader, context->_quadobject, context->GetProjection(), *area, *corners, fillColor,
+                         border,
                          borderColor, blur, rotate, z);
   return glGetError();
 }
@@ -300,7 +304,7 @@ FG_Err Backend::DrawLines(FG_Backend* self, void* window, FG_Vec* points, uint32
   backend->LogError("glBindBuffer");
 
   context->AppendBatch(points, sizeof(FG_Vec) * count, count);
-  Shader::SetUniform(backend, context->_lineshader, "MVP", GL_FLOAT_MAT4, (float*)context->proj);
+  Shader::SetUniform(backend, context->_lineshader, "MVP", GL_FLOAT_MAT4, (float*)context->GetProjection());
   Shader::SetUniform(backend, context->_lineshader, "Color", GL_FLOAT_VEC4, colors);
 
   glDrawArrays(GL_LINE_STRIP, 0, context->FlushBatch());
@@ -418,11 +422,12 @@ bool Backend::Clear(FG_Backend* self, void* window, FG_Color color)
   return true;
 }
 
-FG_Err Backend::PushLayer(FG_Backend* self, void* window, FG_Asset* layer, float* transform, float opacity)
+FG_Err Backend::PushLayer(FG_Backend* self, void* window, FG_Asset* layer, float* transform, float opacity,
+                          FG_BlendState* blend)
 {
   if(!self || !window)
     return -1;
-  reinterpret_cast<Context*>(window)->PushLayer(reinterpret_cast<Layer*>(layer->data.data), transform, opacity);
+  reinterpret_cast<Context*>(window)->PushLayer(static_cast<Layer*>(layer), transform, opacity, blend);
   return 0;
 }
 
@@ -472,8 +477,10 @@ FG_Err Backend::GetProjection(FG_Backend* self, void* window, void* layer, float
   if(!self || !window || !proj4x4)
     return -1;
 
-  // TODO: layers need their own custom projection matrices
-  memcpy(proj4x4, reinterpret_cast<Context*>(window)->proj, 4 * 4 * sizeof(float));
+  if(!layer)
+    memcpy(proj4x4, reinterpret_cast<Context*>(window)->proj, 4 * 4 * sizeof(float));
+  else
+    memcpy(proj4x4, reinterpret_cast<Context*>(window)->lproj, 4 * 4 * sizeof(float));
   return 0;
 }
 
@@ -683,7 +690,7 @@ FG_Asset* Backend::CreateLayer(FG_Backend* self, void* window, FG_Vec* size, boo
   GLsizei w;
   GLsizei h;
   glfwGetFramebufferSize(context->GetWindow(), &w, &h);
-  return new Layer(!size ? FG_Vec{ static_cast<float>(w), static_cast<float>(h) } : *size, context->GetWindow());
+  return new Layer(!size ? FG_Vec{ static_cast<float>(w), static_cast<float>(h) } : *size, context);
 }
 
 FG_Err Backend::DestroyAsset(FG_Backend* self, FG_Asset* fgasset)
@@ -694,6 +701,7 @@ FG_Err Backend::DestroyAsset(FG_Backend* self, FG_Asset* fgasset)
   if(fgasset->format == FG_Format_LAYER)
   {
     delete static_cast<Layer*>(fgasset);
+    return 0;
   }
 
   auto backend = static_cast<Backend*>(self);

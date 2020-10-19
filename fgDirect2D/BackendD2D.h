@@ -61,7 +61,8 @@ namespace D2D {
     static FG_Err DrawShader(FG_Backend* self, void* window, FG_Shader* shader, FG_Asset* vertices, FG_Asset* indices,
                              FG_BlendState* blend, ...);
     static bool Clear(FG_Backend* self, void* window, FG_Color color);
-    static FG_Err PushLayer(FG_Backend* self, void* window, FG_Asset* layer, float* transform, float opacity);
+    static FG_Err PushLayer(FG_Backend* self, void* window, FG_Asset* layer, float* transform, float opacity,
+                            FG_BlendState* blend);
     static FG_Err PopLayer(FG_Backend* self, void* window);
     static FG_Err SetRenderTarget(FG_Backend* self, void* window, FG_Asset* target);
     static FG_Err PushClip(FG_Backend* self, void* window, FG_Rect* area);

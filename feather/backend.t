@@ -244,7 +244,7 @@ terra B.Backend:DrawCurve(window : &opaque, anchors : &F.Vec, count : uint, fill
 terra B.Backend:DrawShader(window : &opaque, shader : &B.Shader, vertices : &B.Asset, indices : &B.Asset, blendstate : &B.BlendState, ...) : F.Err return 0 end
 
 terra B.Backend:Clear(window : &opaque, color : F.Color) : bool return false end -- Clears whatever is inside the current clipping rect
-terra B.Backend:PushLayer(window : &opaque, layer : &B.Asset, transform : &float, opacity : float) : F.Err return 0 end
+terra B.Backend:PushLayer(window : &opaque, layer : &B.Asset, transform : &float, opacity : float, blendstate : &B.BlendState) : F.Err return 0 end
 terra B.Backend:PopLayer(window : &opaque) : F.Err return 0 end
 terra B.Backend:SetRenderTarget(window : &opaque, target : &B.Asset) : F.Err return 0 end
 terra B.Backend:PushClip(window : &opaque, area : &F.Rect) : F.Err return 0 end

@@ -6,23 +6,24 @@
 
 #include "backend.h"
 
-struct GLFWwindow;
-
 namespace GL {
+  struct Context;
+
   struct Layer : FG_Asset
   {
-    Layer(FG_Vec s, GLFWwindow* w);
+    Layer(FG_Vec s, Context* c);
     ~Layer();
     // Moves the texture to another window if necessary
-    bool Update(float* tf, float o, GLFWwindow* window);
+    bool Update(float* tf, float o, FG_BlendState* blend, Context* context);
     void Destroy();
     bool Create();
 
     unsigned int framebuffer;
     float transform[16];
     float opacity;
-    GLFWwindow* window;
+    Context* context;
     bool initialized;
+    FG_BlendState blend;
   };
 }
 

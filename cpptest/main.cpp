@@ -32,6 +32,7 @@ struct MockElement : FG_Element
   FG_Font* font;
   FG_Shader* shader;
   FG_Asset* vertices;
+  FG_Asset* layer;
   void* layout;
   uint64_t flags;
   bool close;
@@ -45,8 +46,8 @@ FG_Result behavior(FG_Element* element, void* w, void* ui, FG_Msg* m)
     FG_Backend* b = *(FG_Backend**)ui;
     (*b->clear)(b, w, FG_Color{ 0 });
 
-    auto r        = FG_Rect{ 50.f, 100.f, 200.f, 300.f };
-    auto c        = FG_Rect{ 0.f, 4.f, 8.f, 12.f };
+    auto r = FG_Rect{ 50.f, 100.f, 200.f, 300.f };
+    auto c = FG_Rect{ 0.f, 4.f, 8.f, 12.f };
     (*b->drawRect)(b, w, &r, &c, FG_Color{ 0xFF0000FF }, 5.f, FG_Color{ 0xFF00FFFF }, 0.f, nullptr, 0.f, 0.f, nullptr);
 
     auto r2 = FG_Rect{ 350.f, 100.f, 500.f, 300.f };
@@ -69,12 +70,19 @@ FG_Result behavior(FG_Element* element, void* w, void* ui, FG_Msg* m)
     (*b->getProjection)(b, w, 0, proj);
     (*b->drawShader)(b, w, e.shader, e.vertices, 0, 0, (float*)proj, e.image);
 
-    auto r6 = FG_Rect{ 650.f, 125.f, 800.f, 275.f };
-    auto c6 = FG_Vec{ 0.f, 3.14159f };
-    FG_BlendState blend6 = { FG_BlendValue_ZERO, FG_BlendValue_SRC_ALPHA, FG_BlendOp_ADD, FG_BlendValue_ZERO,
-                             FG_BlendValue_SRC_ALPHA, FG_BlendOp_ADD,          0b1111
-    };
+    auto r6              = FG_Rect{ 650.f, 125.f, 800.f, 275.f };
+    auto c6              = FG_Vec{ 0.f, 3.14159f };
+    FG_BlendState blend6 = { FG_BlendValue_ZERO,      FG_BlendValue_SRC_ALPHA, FG_BlendOp_ADD, FG_BlendValue_ZERO,
+                             FG_BlendValue_SRC_ALPHA, FG_BlendOp_ADD,          0b1111 };
     (*b->drawCircle)(b, w, &r6, &c6, FG_Color{ 0xFFFFFFFF }, 30.f, FG_Color{ 0 }, 0.f, 0.f, 0.f, nullptr, 0.f, &blend6);
+
+    float transform[16] = {
+      1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 550, 50, 0, 1,
+    };
+    (*b->pushLayer)(b, w, e.layer, transform, 0.5f, nullptr);
+    auto r7 = FG_Rect{ 0.f, 0.f, 100.f, 80.f };
+    (*b->drawRect)(b, w, &r7, &c, FG_Color{ 0xFFFF0000 }, 5.f, FG_Color{ 0xFFFFFF00 }, 0.f, nullptr, 0.f, 0.f, nullptr);
+    (*b->popLayer)(b, w);
 
     return FG_Result{ 0 };
   }
@@ -86,7 +94,8 @@ FG_Result behavior(FG_Element* element, void* w, void* ui, FG_Msg* m)
   {
     e.close = e.close || ((m->setWindowFlags.flags & FG_Window_CLOSED) != 0);
   }
-  if((m->kind == FG_Kind_KEYDOWN && m->keyDown.key != FG_Keys_LMENU && m->keyDown.scancode != 84) || m->kind == FG_Kind_MOUSEDOWN)
+  if((m->kind == FG_Kind_KEYDOWN && m->keyDown.key != FG_Keys_LMENU && m->keyDown.scancode != 84) ||
+     m->kind == FG_Kind_MOUSEDOWN)
   {
     e.close = true;
   }
@@ -96,7 +105,7 @@ FG_Result behavior(FG_Element* element, void* w, void* ui, FG_Msg* m)
 int main(int argc, char* argv[])
 {
   FG_Backend* ui;
-  auto b        = BACKEND(&ui, FakeLog, behavior);
+  auto b = BACKEND(&ui, FakeLog, behavior);
   if(!b)
   {
     printf("Failed to load backend!\n");
@@ -120,19 +129,39 @@ int main(int argc, char* argv[])
                           "void main() { gl_FragColor = texture2D(texture, uv).rgba; }";
 
   float verts[4][4] = {
-    { 850.f, 10.f, 0.0f, 0.0f, },
-    { 850.f, 210.f, 0.0f, 1.0f, },
-    { 1050.f, 10.f, 1.0f, 0.0f, },
-    { 1050.f, 210.f, 1.0f, 1.0f, },
+    {
+      850.f,
+      10.f,
+      0.0f,
+      0.0f,
+    },
+    {
+      850.f,
+      210.f,
+      0.0f,
+      1.0f,
+    },
+    {
+      1050.f,
+      10.f,
+      1.0f,
+      0.0f,
+    },
+    {
+      1050.f,
+      210.f,
+      1.0f,
+      1.0f,
+    },
   };
-  FG_ShaderParameter params[]      = { { FG_ShaderType_FLOAT, 4, 4, "MVP" }, { FG_ShaderType_TEXTURE, 0, 0, 0 } };
+  FG_ShaderParameter params[]     = { { FG_ShaderType_FLOAT, 4, 4, "MVP" }, { FG_ShaderType_TEXTURE, 0, 0, 0 } };
   FG_ShaderParameter vertparams[] = { { FG_ShaderType_FLOAT, 2, 0, "vPos" }, { FG_ShaderType_FLOAT, 2, 0, "vUV" } };
 
-  e.flags  = FG_Window_RESIZABLE;
-  e.image  = (*b->createAsset)(b, (const char*)EXAMPLE_PNG_ARRAY, sizeof(EXAMPLE_PNG_ARRAY), FG_Format_PNG);
-  e.font   = (*b->createFont)(b, "Arial", 700, false, 16, FG_Vec{ 96.f, 96.f }, FG_AntiAliasing_AA);
-  e.layout = (*b->fontLayout)(b, e.font, "Example Text!", &textrect, 16.f, 0.f, FG_BreakStyle_NONE, nullptr);
-  e.shader = (*b->createShader)(b, shader_fs, shader_vs, 0, 0, 0, 0, params, 2);
+  e.flags    = FG_Window_RESIZABLE;
+  e.image    = (*b->createAsset)(b, (const char*)EXAMPLE_PNG_ARRAY, sizeof(EXAMPLE_PNG_ARRAY), FG_Format_PNG);
+  e.font     = (*b->createFont)(b, "Arial", 700, false, 16, FG_Vec{ 96.f, 96.f }, FG_AntiAliasing_AA);
+  e.layout   = (*b->fontLayout)(b, e.font, "Example Text!", &textrect, 16.f, 0.f, FG_BreakStyle_NONE, nullptr);
+  e.shader   = (*b->createShader)(b, shader_fs, shader_vs, 0, 0, 0, 0, params, 2);
   e.vertices = (*b->createBuffer)(b, verts, sizeof(verts), FG_Primitive_TRIANGLE_STRIP, vertparams, 2);
   e.close    = false;
 
@@ -146,6 +175,9 @@ int main(int argc, char* argv[])
     printf("failed to create window!\n");
     return -1;
   }
+
+  FG_Vec layerdim = { 200, 100 };
+  e.layer = (*b->createLayer)(b, w, &layerdim, false);
 
   TEST((*b->setCursor)(b, w, FG_Cursor_CROSS) == 0);
   TEST((*b->dirtyRect)(b, w, 0) == 0);
@@ -182,10 +214,11 @@ int main(int argc, char* argv[])
     (*b->dirtyRect)(b, w, 0);
   }
 
-  TEST((*b->destroyWindow)(b, w) == 0)
-  TEST((*b->destroyAsset)(b, e.image) == 0)
-  TEST((*b->destroyLayout)(b, e.layout) == 0)
-  TEST((*b->destroyFont)(b, e.font) == 0)
-  TEST((*b->destroyShader)(b, e.shader) == 0)
+  TEST((*b->destroyAsset)(b, e.layer) == 0); // Must destroy layers before destroying the window
+  TEST((*b->destroyWindow)(b, w) == 0);
+  TEST((*b->destroyAsset)(b, e.image) == 0);
+  TEST((*b->destroyLayout)(b, e.layout) == 0);
+  TEST((*b->destroyFont)(b, e.font) == 0);
+  TEST((*b->destroyShader)(b, e.shader) == 0);
   (*b->destroy)(b);
 }

@@ -646,7 +646,7 @@ typedef bool (* FG_anon_58)(FG_Backend *, void *, FG_Color);
 typedef int32_t (* FG_anon_59)(FG_Backend *, FG_Font *);
 typedef FG_Asset * (* FG_anon_60)(FG_Backend *, void *, FG_Vec *, bool);
 typedef int32_t (* FG_anon_61)(FG_Backend *, void *, FG_Cursor);
-typedef int32_t (* FG_anon_62)(FG_Backend *, void *, FG_Asset *, float *, float);
+typedef int32_t (* FG_anon_62)(FG_Backend *, void *, FG_Asset *, float *, float, FG_BlendState *);
 enum FG_BreakStyle {
   FG_BreakStyle_NONE = 0,
   FG_BreakStyle_CHARACTER = 2,

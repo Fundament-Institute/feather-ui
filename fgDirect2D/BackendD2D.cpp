@@ -211,7 +211,8 @@ bool Backend::Clear(FG_Backend* self, void* window, FG_Color color)
   return true;
 }
 
-FG_Err Backend::PushLayer(FG_Backend* self, void* window, FG_Asset* asset, float* transform, float opacity)
+FG_Err Backend::PushLayer(FG_Backend* self, void* window, FG_Asset* asset, float* transform, float opacity,
+                          FG_BlendState* blend)
 {
   if(!window || !transform)
     return -1;
@@ -219,9 +220,9 @@ FG_Err Backend::PushLayer(FG_Backend* self, void* window, FG_Asset* asset, float
   auto layer   = reinterpret_cast<ID2D1Layer*>(asset->data.data);
   auto size    = layer->GetSize();
 
-  // TODO: Properly project 3D transform into 2D transform
+  // TODO: Properly project 3D transform into a transposed 2D transform
   context->PushTransform(
-    D2D1::Matrix3x2F(transform[0], transform[1], transform[4], transform[5], transform[3], transform[7]));
+    D2D1::Matrix3x2F(transform[0], transform[4], transform[1], transform[5], transform[12], transform[13]));
 
   // We only need a proper layer if we are doing opacity, otherwise the transform is sufficient
   if(opacity != 1.0)
@@ -570,9 +571,11 @@ FG_Err Backend::DestroyAsset(FG_Backend* self, FG_Asset* fgasset)
 {
   if(fgasset->format == FG_Format_WEAK_LAYER || fgasset->format == FG_Format_LAYER)
   {
-    reinterpret_cast<ID2D1Layer*>(fgasset->data.data)->Release();
+    FG_Err e = reinterpret_cast<ID2D1Layer*>(fgasset->data.data)->Release();
     delete fgasset;
+    return e;
   }
+  
   auto asset = static_cast<Asset*>(fgasset);
   for(auto& i : asset->instances)
     i->DiscardAsset(asset);

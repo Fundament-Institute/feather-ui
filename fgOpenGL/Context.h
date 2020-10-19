@@ -40,7 +40,7 @@ namespace GL {
     void PushClip(const FG_Rect& rect);
     void PopClip();
     Layer* CreateLayer(const FG_Vec* area);
-    int PushLayer(Layer* layer, float* transform, float opacity);
+    int PushLayer(Layer* layer, float* transform, float opacity, FG_BlendState* blend);
     int PopLayer();
     void CreateResources();
     void DestroyResources();
@@ -59,6 +59,10 @@ namespace GL {
     bool CheckFlush(GLintptr bytes) { return (_bufferoffset + bytes > BATCH_BYTES); }
     void ApplyBlend(const FG_BlendState* blend);
     virtual void DirtyRect(const FG_Rect* rect) { }
+    inline Backend* GetBackend() const { return _backend; }
+    float (&GetProjection())[4][4] { return _layers.size() > 0 ? lproj : proj; }
+    float proj[4][4];
+    float lproj[4][4];
 
     static GLenum BlendOp(uint8_t op);
     static GLenum BlendValue(uint8_t value);
@@ -78,7 +82,6 @@ namespace GL {
     GLuint _imageindices;
     GLuint _lineobject;
     GLuint _linebuffer;
-    float proj[4][4];
     FG_BlendState _lastblend;
 
     static const size_t BATCH_BYTES = (1 << 14);

@@ -114,6 +114,7 @@ struct MockElement {
   image : &B.Asset
   font : &B.Font
   layout : &opaque
+  layer : &B.Asset
   flags : uint64
   close : bool
 }
@@ -142,6 +143,15 @@ terra MockElement:Behavior(w : &opaque, ui : &opaque, m : &M.Msg) : M.Result
 
     var r5 = F.Rect{array(200f, 10f, 550f, 40f)}
     b:DrawText(w, self.font, self.layout, &r5, 0xFFFFFFFF, 0f, 0f, 0f, nil)
+    
+    if self.layer ~= nil then -- On the initial window creation the layer won't exist
+      var transform = array(1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 550.0f, 50.0f, 0.0f, 1.0f);
+      b:PushLayer(w, self.layer, transform, 0.5f, nil);
+      var r7 = F.Rect{array(0.0f, 0.0f, 100.0f, 80.0f)};
+      b:DrawRect(w, &r7, &c, 0xFFFF0000U, 5.0f, 0xFFFFFF00U, 0.0f, nil, 0.0f, 0.0f, nil);
+      b:PopLayer(w);
+    end
+
     return M.Result{0}
   end
   if m.kind.val == [Element.virtualinfo.info["GetWindowFlags"].index] then
@@ -190,12 +200,18 @@ terra TestHarness:TestBackend(dllpath : rawstring, aa : B.AntiAliasing)
   e.image = b:CreateAsset([constant(`example_png)], [#example_png], B.Format.PNG)
   e.font = b:CreateFont("Arial", 700, false, 16, F.Vec{array(96f, 96f)}, aa)
   e.layout = b:FontLayout(e.font, "Example Text!", &textrect, 16f, 0f, B.BreakStyle.NONE, nil);
+  e.layer = nil
   e.close = false
 
   var pos = F.Vec{array(200f,100f)}
   var dim = F.Vec{array(800f,600f)}
   var w = b:CreateWindow(&e.super, nil, &pos, &dim, "Feather Test", e.flags, nil)
-  
+  self:Test(w ~= nil, true)
+
+  var layerdim = F.Vec{array(200.0f,80.0f)}
+  e.layer = b:CreateLayer(w, &layerdim, false)
+  self:Test(e.layer ~= nil, true)
+
   self:Test(b:SetCursor(w, B.Cursor.CROSS), 0)
   self:Test(b:DirtyRect(w, nil), 0)
 
@@ -228,6 +244,7 @@ terra TestHarness:TestBackend(dllpath : rawstring, aa : B.AntiAliasing)
     b:DirtyRect(w, nil)
   end
 
+  self:Test(b:DestroyAsset(e.layer), 0) -- must be destroyed before the window is destroyed
   self:Test(b:DestroyWindow(w), 0)
   self:Test(b:DestroyAsset(e.image), 0)
   self:Test(b:DestroyLayout(e.layout), 0)

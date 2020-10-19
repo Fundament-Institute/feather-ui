@@ -125,6 +125,7 @@ void Context::SetDim(const FG_Vec& dim)
 {
   // mat4x4_ortho(proj, 0, dim.x, dim.y, 0, -1, 1);
   mat4x4_custom(proj, 0, dim.x, dim.y, 0, 0.2, 100);
+  mat4x4_custom(lproj, 0, dim.x, 0, dim.y, 0.2, 100);
 }
 
 void Context::Draw(const FG_Rect* area)
@@ -200,15 +201,15 @@ Layer* Context::CreateLayer(const FG_Vec* psize) {
   GLsizei h;
   glfwGetFramebufferSize(_window, &w, &h);
   FG_Vec size = { w, h };
-  return new Layer(!psize ? size : *psize, _window);
+  return new Layer(!psize ? size : *psize, this);
 }
 
-int Context::PushLayer(Layer* layer, float* transform, float opacity)
+int Context::PushLayer(Layer* layer, float* transform, float opacity, FG_BlendState* blend)
 {
   if(!layer)
     return -1;
   
-  layer->Update(transform, opacity, _window);
+  layer->Update(transform, opacity, blend, this);
   _layers.push_back(layer);
 
   glBindFramebuffer(GL_FRAMEBUFFER, layer->framebuffer);
@@ -245,7 +246,7 @@ int Context::PopLayer()
   _backend->_buildQuad(v, full);
 
   mat4x4 mvp;
-  mat4x4_mul(mvp, (vec4*)p->transform, proj);
+  mat4x4_mul(mvp, proj, (vec4*)p->transform);
   return _backend->DrawTextureQuad(this, p->data.index, v, FG_Color{ 0x00FFFFFF + ((unsigned int)roundf(0xFF * p->opacity) << 24) }, (float*)mvp, nullptr);
 }
 
