@@ -193,7 +193,7 @@ local RTree = Util.type_template(function(A)
       -- Assume children are all sorted
       if child.parent == node then
         for i in node:iter() do
-          if child.zindex.x < i.zindex.x then
+          if child.zindex.x > i.zindex.x then
             LL.Insert(child, i, &node.children)
             return
           end
@@ -207,9 +207,9 @@ local RTree = Util.type_template(function(A)
       node.last = nil
 
       while children ~= nil do
+        children.prev = nil
         var cur = children
         children = children.next
-        children.prev = nil
         cur.next = nil
         self:sort(node, cur)
       end

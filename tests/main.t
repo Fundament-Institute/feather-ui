@@ -739,25 +739,52 @@ end
 local RTreeDefault = RTree(Alloc.libc_allocator)
 P(RTreeDefault)
 
-terra testquery(n : &RTreeDefault.Node, p : &F.Vec3D, r : &F.Vec3D, i : int) : bool return true end
+local verify_num = global(int[10], `array(-1,-1,-1,-1,-1,-1,-1,-1,-1,-1))
+local verify_index = global(int, `0)
 
-terra TestHarness:partition()
+terra verifywalk(n : &RTreeDefault.Node, p : &F.Vec3D, r : &F.Vec3D, i : int) : bool 
+  verify_num[verify_index] = [intptr](n.data)
+  verify_index = verify_index + 1
+  return false 
+end
+
+terra testquery(n : &RTreeDefault.Node, p : &F.Vec3D, r : &F.Vec3D, i : int) : bool 
+  verify_num[verify_index] = [intptr](n.data)
+  verify_index = verify_index + 1
+  return n.data == [&opaque](3)
+end
+
+terra TestHarness:rtree()
   var simple : RTreeDefault
-  simple:init()
+  Object.new(simple)
   var vec0 = F.Vec3D{array(0.0f,0.0f,0.0f)}
   var vec1000 = F.Vec3D{array(1000.0f,1000.0f,0.0f)}
   var vec100 = F.Vec3D{array(100.0f,100.0f,0.0f)}
   var vec0i = F.Veci{array(0,0)}
+  var vec1i = F.Veci{array(1,1)}
   var root = simple:create(nil, &vec0, &vec1000, &vec0, &vec0i)
   self:Test(root ~= nil, true)
   var child1 = simple:create(root, &vec0, &vec100, &vec0, &vec0i)
   self:Test(child1 ~= nil, true)
   var child2 = simple:create(root, &vec100, &vec100, &vec0, &vec0i)
   self:Test(child2 ~= nil, true)
-  var child3 = simple:create(child2, &vec0, &vec100, &vec0, &vec0i)
+  var child3 = simple:create(child2, &vec0, &vec100, &vec0, &vec1i)
   var child4 = simple:create(child2, &vec0, &vec100, &vec0, &vec0i)
-  simple:query(F.Vec3D{array(3.0f,4.0f,0.0f)}, F.Vec3D{array(0.0f,0.0f,1.0f)}, 3, testquery)
-  simple:destruct()
+  simple:sort(child2, nil)
+  root.data = [&opaque](0)
+  child1.data = [&opaque](1)
+  child2.data = [&opaque](2)
+  child3.data = [&opaque](3)
+  child4.data = [&opaque](4)
+  simple:query(F.Vec3D{array(3.0f,4.0f,0.0f)}, F.Vec3D{array(0.0f,0.0f,1.0f)}, 3, verifywalk)
+
+  escape
+    local vals = {3, 4, 2, 1, 0}
+    for i,v in ipairs(vals) do
+      emit(`self:Test(verify_num[ [i-1] ], [v]))
+    end
+    emit(`self:Test(verify_num[ [#vals] ], -1))
+  end
 end
 
 local SUBTESTLEN = 11
