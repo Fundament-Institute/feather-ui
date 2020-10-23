@@ -15,6 +15,16 @@ local ui = f.ui {
       pos = function(env) return `[env.app].pos end,
       ext = function(env) return `[f.Vec3D]{array(20f, 20f, 0f)} end,
       color = function(env) return `[f.Color]{0xffffffff} end
+    },
+    f.triangle {
+      pos = function(env) return `[env.app].pos + [f.Vec3D]{array(50f, 50f, 0f)} end,
+      ext = function(env) return `[f.Vec3D]{array(20f, 20f, 0f)} end,
+      color = function(env) return `[f.Color]{0xffffffff} end
+    },
+    f.circle {
+      pos = function(env) return `[env.app].pos + [f.Vec3D]{array(50f, 0f, 0f)} end,
+      ext = function(env) return `[f.Vec3D]{array(20f, 20f, 0f)} end,
+      color = function(env) return `[f.Color]{0xffffffff} end
     }
   }
 }

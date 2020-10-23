@@ -260,7 +260,7 @@ FG_Err Backend::DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect*
   return glGetError();
 }
 
-FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Vec* angles, FG_Color fillColor, float border,
+FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Vec angles, FG_Color fillColor, float border,
                            FG_Color borderColor, float blur, float innerRadius, float innerBorder, FG_Asset* asset, float z,
                            FG_BlendState* blend)
 {
@@ -268,7 +268,7 @@ FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Vec
   auto context = reinterpret_cast<Context*>(window);
   context->ApplyBlend(blend);
   backend->_drawStandard(context->_circleshader, context->_quadobject, context->GetProjection(), *area,
-                         FG_Rect{ angles->x, angles->y, innerRadius, innerBorder }, fillColor, border, borderColor, blur,
+                         FG_Rect{ angles.x, angles.y, innerRadius, innerBorder }, fillColor, border, borderColor, blur,
                          0.0f, z);
   return glGetError();
 }

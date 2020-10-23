@@ -152,7 +152,7 @@ FG_Err Backend::DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect*
   return 0;
 }
 
-FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Vec* angles, FG_Color fillColor, float border,
+FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Vec angles, FG_Color fillColor, float border,
                            FG_Color borderColor, float blur, float innerRadius, float innerBorder, FG_Asset* asset,
                            float rotate, FG_BlendState* blend)
 {
@@ -161,7 +161,7 @@ FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Vec
   fgassert(context->target != 0);
 
   DrawEffect<0>(context, context->circle, *area, 0.0f, D2D1::Vector4F(area->left, area->top, area->right, area->bottom),
-                D2D1::Vector4F(angles->x, angles->y, innerRadius, innerBorder), fillColor, borderColor, border, blur);
+                D2D1::Vector4F(angles.x, angles.y, innerRadius, innerBorder), fillColor, borderColor, border, blur);
   return 0;
 }
 FG_Err Backend::DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,

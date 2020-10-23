@@ -131,8 +131,7 @@ terra MockElement:Behavior(w : &opaque, ui : &opaque, m : &M.Msg) : M.Result
     b:DrawRect(w, &r, &c, 0xFF0000FF, 5f, 0xFF00FFFF, 0f, nil, 0f, 0f, nil)
 
     var r2 = F.Rect{array(350f, 100f, 500f, 300f)}
-    var c2 = F.Vec{array(0f, 3f)}
-    b:DrawCircle(w, &r2, &c2, 0xFF0000FF, 5f, 0xFF00FFFF, 0f, 10f, 2f, nil, 0f, nil)
+    b:DrawCircle(w, &r2, F.Vec{array(0f, 3f)}, 0xFF0000FF, 5f, 0xFF00FFFF, 0f, 10f, 2f, nil, 0f, nil)
     
     var r3 = F.Rect{array(150f, 300f, 300f, 500f)}
     var c3 = F.Rect{array(0f, 4f, 8f, 0.5f)}

@@ -636,7 +636,7 @@ typedef int32_t (* FG_anon_48)(FG_Backend *, void *);
 typedef bool (* FG_anon_49)(FG_Backend *, void *, FG_Clipboard);
 typedef int32_t (* FG_anon_50)(FG_Backend *, void *, FG_Asset *, FG_Rect *, FG_Rect *, FG_Color, float, float, float, FG_BlendState *);
 typedef int32_t (* FG_anon_51)(FG_Backend *, void *, FG_Shader *, FG_Asset *, FG_Asset *, FG_BlendState *, ...);
-typedef int32_t (* FG_anon_52)(FG_Backend *, void *, FG_Rect *, FG_Vec *, FG_Color, float, FG_Color, float, float, float, FG_Asset *, float, FG_BlendState *);
+typedef int32_t (* FG_anon_52)(FG_Backend *, void *, FG_Rect *, FG_Vec, FG_Color, float, FG_Color, float, float, float, FG_Asset *, float, FG_BlendState *);
 typedef uint32_t (* FG_anon_53)(FG_Backend *, void *, FG_Clipboard, void *, uint32_t);
 typedef int32_t (* FG_anon_54)(FG_Backend *);
 typedef int32_t (* FG_anon_55)(FG_Backend *, void *, void *);

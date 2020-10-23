@@ -4,7 +4,7 @@ local shared = require 'feather.shared'
 local backend = require 'feather.backend'
 local message = require 'feather.message'
 
-local template_names = {"window", "rect"}
+local template_names = {"window", "rect", "triangle", "circle"}
 
 local templates = {}
 for i, name in ipairs(template_names) do
