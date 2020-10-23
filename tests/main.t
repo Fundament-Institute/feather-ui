@@ -754,6 +754,10 @@ terra testquery(n : &RTreeDefault.Node, p : &F.Vec3D, r : &F.Vec3D, i : int) : b
   return n.data == [&opaque](3)
 end
 
+terra TestRayBoxIntersect(pos : F.Vec3D, v : F.Vec3D, extent : F.Vec3D) : float
+  return RTreeDefault.RayBoxIntersect(&pos, &v, &extent)
+end
+
 terra TestHarness:rtree()
   var simple : RTreeDefault
   Object.new(simple)
@@ -785,6 +789,31 @@ terra TestHarness:rtree()
     end
     emit(`self:Test(verify_num[ [#vals] ], -1))
   end
+
+  self:Test(TestRayBoxIntersect(F.Vec3D{array(0f, 0f, 0f)}, F.Vec3D{array(0f, 0f, 1f)}, F.Vec3D{array(1f, 1f, 1f)}), 1f)
+  self:Test(TestRayBoxIntersect(F.Vec3D{array(0f, 0f, 0f)}, F.Vec3D{array(0f, 1f, 0f)}, F.Vec3D{array(1f, 1f, 1f)}), 1f)
+  self:Test(TestRayBoxIntersect(F.Vec3D{array(0f, 0f, 0f)}, F.Vec3D{array(1f, 0f, 0f)}, F.Vec3D{array(1f, 1f, 1f)}), 1f)
+  self:Test(TestRayBoxIntersect(F.Vec3D{array(2f, 2f, 2f)}, F.Vec3D{array(0f, 0f, -1f)}, F.Vec3D{array(1f, 1f, 1f)}), -1f)
+  self:Test(TestRayBoxIntersect(F.Vec3D{array(2f, 2f, 2f)}, F.Vec3D{array(-1f, -1f, -1f)}, F.Vec3D{array(1f, 1f, 1f)}), 1f)
+  self:Test(TestRayBoxIntersect(F.Vec3D{array(4f, 4f, 4f)}, F.Vec3D{array(-1f, -1f, -1f)}, F.Vec3D{array(1f, 1f, 1f)}), 3f)
+  self:Test(TestRayBoxIntersect(F.Vec3D{array(0f, 0f, 0f)}, F.Vec3D{array(0f, 0f, 1f)}, F.Vec3D{array(10f, 10f, 0f)}), 0f)
+  self:Test(TestRayBoxIntersect(F.Vec3D{array(0f, 0f, 0f)}, F.Vec3D{array(0f, 1f, 0f)}, F.Vec3D{array(10f, 10f, 0f)}), 10f)
+  self:Test(TestRayBoxIntersect(F.Vec3D{array(0f, 0f, 0f)}, F.Vec3D{array(1f, 0f, 0f)}, F.Vec3D{array(10f, 10f, 0f)}), 10f)
+  self:Test(TestRayBoxIntersect(F.Vec3D{array(0f, 0f, 100f)}, F.Vec3D{array(0f, 0f, 1f)}, F.Vec3D{array(10f, 10f, 0f)}), -100f)
+  self:Test(TestRayBoxIntersect(F.Vec3D{array(0f, 0f, 100f)}, F.Vec3D{array(0f, 0f, -1f)}, F.Vec3D{array(10f, 10f, 0f)}), 100f)
+  self:Test(TestRayBoxIntersect(F.Vec3D{array(0f, 0f, -10f)}, F.Vec3D{array(0f, 0f, 1f)}, F.Vec3D{array(10f, 10f, 0f)}), 10f)
+  self:Test(TestRayBoxIntersect(F.Vec3D{array(9.9f, 0f, 0f)}, F.Vec3D{array(0f, 0f, 1f)}, F.Vec3D{array(10f, 10f, 0f)}), 0f)
+  self:Test(TestRayBoxIntersect(F.Vec3D{array(10.1f, 0f, 0f)}, F.Vec3D{array(0f, 0f, 1f)}, F.Vec3D{array(10f, 10f, 0f)}), -1f)
+  self:Test(TestRayBoxIntersect(F.Vec3D{array(9.9f, 9.9f, 0f)}, F.Vec3D{array(0f, 0f, 1f)}, F.Vec3D{array(10f, 10f, 0f)}), 0f)
+  self:Test(TestRayBoxIntersect(F.Vec3D{array(10.1f, 9.9f, 0f)}, F.Vec3D{array(0f, 0f, 1f)}, F.Vec3D{array(10f, 10f, 0f)}), -1f)
+  self:Test(TestRayBoxIntersect(F.Vec3D{array(10.1f, 10.1f, 0f)}, F.Vec3D{array(0f, 0f, 1f)}, F.Vec3D{array(10f, 10f, 0f)}), -1f)
+  self:Test(TestRayBoxIntersect(F.Vec3D{array(0f, 0f, -10f)}, F.Vec3D{array(0f, 0f, -1f)}, F.Vec3D{array(10f, 10f, 0f)}), -10f)
+  self:Test(TestRayBoxIntersect(F.Vec3D{array(9.9f, 0f, 0f)}, F.Vec3D{array(0f, 0f, -1f)}, F.Vec3D{array(10f, 10f, 0f)}), 0f)
+  self:Test(TestRayBoxIntersect(F.Vec3D{array(9.9f, 0f, 1f)}, F.Vec3D{array(0f, 0f, -1f)}, F.Vec3D{array(10f, 10f, 0f)}), 1f)
+  self:Test(TestRayBoxIntersect(F.Vec3D{array(10.1f, 0f, 1f)}, F.Vec3D{array(0f, 0f, -1f)}, F.Vec3D{array(10f, 10f, 0f)}), -1f)
+  self:Test(TestRayBoxIntersect(F.Vec3D{array(9.9f, 9.9f, 1f)}, F.Vec3D{array(0f, 0f, -1f)}, F.Vec3D{array(10f, 10f, 0f)}), 1f)
+  self:Test(TestRayBoxIntersect(F.Vec3D{array(10.1f, 9.9f, 1f)}, F.Vec3D{array(0f, 0f, -1f)}, F.Vec3D{array(10f, 10f, 0f)}), -1f)
+  self:Test(TestRayBoxIntersect(F.Vec3D{array(10.1f, 10.1f, 1f)}, F.Vec3D{array(0f, 0f, -1f)}, F.Vec3D{array(10f, 10f, 0f)}), -1f)
 end
 
 local SUBTESTLEN = 11

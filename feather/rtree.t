@@ -111,7 +111,7 @@ local RTree = Util.type_template(function(A)
 	}
 
   rtree.Node = Node
-  rtree.RayBoxIntersect = RayBoxIntersect
+  rtree.methods.RayBoxIntersect = RayBoxIntersect
 
   terra rtree:create(parent : &Node, pos : &F.Vec3D, extent : &F.Vec3D, rot : &F.Vec3D, zindex : &F.Veci) : &Node
     var n : &Node = self.allocator:alloc(Node, 1)
