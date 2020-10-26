@@ -6,12 +6,10 @@ local B = {}
 local F = require 'feather.shared'
 local Flags = require 'feather.flags'
 local Enum = require 'feather.enum'
-local Element = require 'feather.element'
 local OS = require 'feather.os'
 local Alloc = require 'std.alloc'
-local M = require 'feather.message'
-local L = require 'feather.log'
-local U = require 'feather.util'
+local Msg = require 'feather.message'
+local Log = require 'feather.log'
 local C = require 'feather.libc'
 
 B.Feature = Flags{
@@ -284,8 +282,8 @@ terra B.Backend:SetCursor(window : &opaque, cursor : B.Cursor) : F.Err return 0 
 terra B.Backend:GetDisplayIndex(index : uint, out : &B.Display) : F.Err return 0 end
 terra B.Backend:GetDisplay(handle : &opaque, out : &B.Display) : F.Err return 0 end
 terra B.Backend:GetDisplayWindow(window : &opaque, out : &B.Display) : F.Err return 0 end
-terra B.Backend:CreateWindow(element : &Element, display : &opaque, pos : &F.Vec, dim : &F.Vec, caption : F.conststring, flags : uint64, context : &opaque) : &opaque return nil end
-terra B.Backend:SetWindow(window : &opaque, element : &Element, display : &opaque, pos : &F.Vec, dim : &F.Vec, caption : F.conststring, flags : uint64) : F.Err return 0 end
+terra B.Backend:CreateWindow(element : &Msg.Receiver, display : &opaque, pos : &F.Vec, dim : &F.Vec, caption : F.conststring, flags : uint64, context : &opaque) : &opaque return nil end
+terra B.Backend:SetWindow(window : &opaque, element : &Msg.Receiver, display : &opaque, pos : &F.Vec, dim : &F.Vec, caption : F.conststring, flags : uint64) : F.Err return 0 end
 terra B.Backend:DestroyWindow(window : &opaque) : F.Err return 0 end
 
 -- Generate both the function pointer field and redefine the function to call the generated function pointer
@@ -314,10 +312,10 @@ terra B.Backend:free(library : &opaque) : {}
   end
 end
 
-B.Log = terralib.types.funcpointer({&opaque, L.Level, F.conststring}, {}, true)
-B.InitBackend = {&opaque, B.Log, M.Behavior} -> &B.Backend
+B.Log = terralib.types.funcpointer({&opaque, Log.Level, F.conststring}, {}, true)
+B.InitBackend = {&opaque, B.Log, Msg.Behavior} -> &B.Backend
 
-terra LoadDynamicBackend(ui : &opaque, behavior : M.Behavior, log : B.Log, path : rawstring, name : rawstring) : {&B.Backend, &opaque}
+terra LoadDynamicBackend(ui : &opaque, behavior : Msg.Behavior, log : B.Log, path : rawstring, name : rawstring) : {&B.Backend, &opaque}
   var l : &opaque = OS.LoadLibrary(path)
 
   if l == nil then
@@ -372,7 +370,7 @@ terra LoadDynamicBackend(ui : &opaque, behavior : M.Behavior, log : B.Log, path 
 end
 
 -- In cases where the backend is not known at compile time, we must load it via a shared library at runtime 
-terra B.Backend.methods.new(ui : &opaque, behavior : M.Behavior, log : B.Log, path : rawstring, name : rawstring) : {&B.Backend, &opaque}
+terra B.Backend.methods.new(ui : &opaque, behavior : Msg.Behavior, log : B.Log, path : rawstring, name : rawstring) : {&B.Backend, &opaque}
   return LoadDynamicBackend(ui, behavior, log, path, name)
 end
 

@@ -175,6 +175,10 @@ enum FG_Primitive {
   FG_Primitive_TRIANGLE_STRIP = 4
 };
 typedef void (* FG_Delegate)(void *);
+typedef struct FG_MsgReceiver__ FG_MsgReceiver;
+struct FG_MsgReceiver__ {
+  void * * vftable;
+};
 typedef struct FG_Color__ FG_Color;
 struct FG_Color__ {
   union {
@@ -271,10 +275,6 @@ struct FG_Result__ {
   int32_t mouseMove;
   int32_t gotFocus;
 };;
-};
-typedef struct FG_Element__ FG_Element;
-struct FG_Element__ {
-  void * * vftable;
 };
 typedef struct FG_Msg__ FG_Msg;
 enum FG_Kind {
@@ -516,7 +516,7 @@ struct FG_Msg__ {
   FG_anon_30 gotFocus;
 };;
 };
-typedef FG_Result (* FG_Behavior)(FG_Element *, void *, void *, FG_Msg *);
+typedef FG_Result (* FG_Behavior)(FG_MsgReceiver *, void *, void *, FG_Msg *);
 enum FG_Window {
   FG_Window_NOBORDER = 16,
   FG_Window_NOCAPTION = 8,
@@ -622,7 +622,7 @@ struct FG_Display__ {
 };
 typedef int32_t (* FG_anon_36)(FG_Backend *, uint32_t, FG_Display *);
 typedef int32_t (* FG_anon_37)(FG_Backend *, void *, FG_Rect *);
-typedef void * (* FG_anon_38)(FG_Backend *, FG_Element *, void *, FG_Vec *, FG_Vec *, const char*, uint64_t, void *);
+typedef void * (* FG_anon_38)(FG_Backend *, FG_MsgReceiver *, void *, FG_Vec *, FG_Vec *, const char*, uint64_t, void *);
 typedef int32_t (* FG_anon_39)(FG_Backend *, void *, FG_Rect *, FG_Rect *, FG_Color, float, FG_Color, float, FG_Asset *, float, float, FG_BlendState *);
 typedef int32_t (* FG_anon_40)(FG_Backend *, void *, FG_Clipboard, const char*, uint32_t);
 typedef FG_Vec (* FG_anon_41)(FG_Backend *, FG_Font *, void *, FG_Rect *, uint32_t);
@@ -641,7 +641,7 @@ typedef uint32_t (* FG_anon_53)(FG_Backend *, void *, FG_Clipboard, void *, uint
 typedef int32_t (* FG_anon_54)(FG_Backend *);
 typedef int32_t (* FG_anon_55)(FG_Backend *, void *, void *);
 typedef int32_t (* FG_anon_56)(FG_Backend *, void *, void *, FG_Rect *, ...);
-typedef int32_t (* FG_anon_57)(FG_Backend *, void *, FG_Element *, void *, FG_Vec *, FG_Vec *, const char*, uint64_t);
+typedef int32_t (* FG_anon_57)(FG_Backend *, void *, FG_MsgReceiver *, void *, FG_Vec *, FG_Vec *, const char*, uint64_t);
 typedef bool (* FG_anon_58)(FG_Backend *, void *, FG_Color);
 typedef int32_t (* FG_anon_59)(FG_Backend *, FG_Font *);
 typedef FG_Asset * (* FG_anon_60)(FG_Backend *, void *, FG_Vec *, bool);

@@ -26,7 +26,7 @@ void FakeLog(void* root, FG_Level level, const char* f, ...)
   printf("\n");
 }
 
-struct MockElement : FG_Element
+struct MockElement : FG_MsgReceiver
 {
   FG_Asset* image;
   FG_Font* font;
@@ -38,7 +38,7 @@ struct MockElement : FG_Element
   bool close;
 };
 
-FG_Result behavior(FG_Element* element, void* w, void* ui, FG_Msg* m)
+FG_Result behavior(FG_MsgReceiver* element, void* w, void* ui, FG_Msg* m)
 {
   MockElement& e = *static_cast<MockElement*>(element);
   if(m->kind == FG_Kind_DRAW)
@@ -52,7 +52,7 @@ FG_Result behavior(FG_Element* element, void* w, void* ui, FG_Msg* m)
 
     auto r2 = FG_Rect{ 350.f, 100.f, 500.f, 300.f };
     auto c2 = FG_Vec{ 0.f, 3.f };
-    (*b->drawCircle)(b, w, &r2, &c2, FG_Color{ 0xFF0000FF }, 5.f, FG_Color{ 0xFF00FFFF }, 0.f, 10.f, 2.f, nullptr, 0.f,
+    (*b->drawCircle)(b, w, &r2, c2, FG_Color{ 0xFF0000FF }, 5.f, FG_Color{ 0xFF00FFFF }, 0.f, 10.f, 2.f, nullptr, 0.f,
                      nullptr);
 
     auto r3 = FG_Rect{ 150.f, 300.f, 300.f, 500.f };
@@ -74,7 +74,7 @@ FG_Result behavior(FG_Element* element, void* w, void* ui, FG_Msg* m)
     auto c6              = FG_Vec{ 0.f, 3.14159f };
     FG_BlendState blend6 = { FG_BlendValue_ZERO,      FG_BlendValue_SRC_ALPHA, FG_BlendOp_ADD, FG_BlendValue_ZERO,
                              FG_BlendValue_SRC_ALPHA, FG_BlendOp_ADD,          0b1111 };
-    (*b->drawCircle)(b, w, &r6, &c6, FG_Color{ 0xFFFFFFFF }, 30.f, FG_Color{ 0 }, 0.f, 0.f, 0.f, nullptr, 0.f, &blend6);
+    (*b->drawCircle)(b, w, &r6, c6, FG_Color{ 0xFFFFFFFF }, 30.f, FG_Color{ 0 }, 0.f, 0.f, 0.f, nullptr, 0.f, &blend6);
 
     float transform[16] = {
       1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 550, 50, 0, 1,

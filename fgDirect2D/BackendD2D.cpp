@@ -819,7 +819,7 @@ FG_Err Backend::GetDisplayWindow(FG_Backend* self, void* window, FG_Display* out
   return -1;
 }
 
-void* Backend::CreateWindowD2D(FG_Backend* self, FG_Element* element, void* display, FG_Vec* pos, FG_Vec* dim,
+void* Backend::CreateWindowD2D(FG_Backend* self, FG_MsgReceiver* element, void* display, FG_Vec* pos, FG_Vec* dim,
                                const char* caption, uint64_t flags, void* context)
 {
   // TODO: If a display other than the primary monitor is specified AND pos == NULL, then we should recreate Windows' DWM
@@ -829,7 +829,7 @@ void* Backend::CreateWindowD2D(FG_Backend* self, FG_Element* element, void* disp
   return window->hWnd;
 }
 
-FG_Err Backend::SetWindowD2D(FG_Backend* self, void* window, FG_Element* element, void* display, FG_Vec* pos, FG_Vec* dim,
+FG_Err Backend::SetWindowD2D(FG_Backend* self, void* window, FG_MsgReceiver* element, void* display, FG_Vec* pos, FG_Vec* dim,
                              const char* caption, uint64_t flags)
 {
   Window* ptr = reinterpret_cast<Window*>(GetWindowLongPtrW(reinterpret_cast<HWND>(window), GWLP_USERDATA));

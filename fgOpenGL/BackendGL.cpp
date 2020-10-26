@@ -949,7 +949,7 @@ FG_Err Backend::GetDisplayWindow(FG_Backend* self, void* window, FG_Display* out
   return GetDisplay(self, glfwGetWindowMonitor(reinterpret_cast<Context*>(window)->GetWindow()), out);
 }
 
-void* Backend::CreateWindowGL(FG_Backend* self, FG_Element* element, void* display, FG_Vec* pos, FG_Vec* dim,
+void* Backend::CreateWindowGL(FG_Backend* self, FG_MsgReceiver* element, void* display, FG_Vec* pos, FG_Vec* dim,
                               const char* caption, uint64_t flags, void* context)
 {
   auto backend = reinterpret_cast<Backend*>(self);
@@ -973,7 +973,7 @@ void* Backend::CreateWindowGL(FG_Backend* self, FG_Element* element, void* displ
   return nullptr;
 }
 
-FG_Err Backend::SetWindowGL(FG_Backend* self, void* window, FG_Element* element, void* display, FG_Vec* pos, FG_Vec* dim,
+FG_Err Backend::SetWindowGL(FG_Backend* self, void* window, FG_MsgReceiver* element, void* display, FG_Vec* pos, FG_Vec* dim,
                             const char* caption, uint64_t flags)
 {
   if(!window)

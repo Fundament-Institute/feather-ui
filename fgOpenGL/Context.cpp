@@ -31,7 +31,7 @@ const FG_BlendState Context::DEFAULT_BLEND = {
   0b1111,
 };
 
-Context::Context(Backend* backend, FG_Element* element, FG_Vec* dim) :
+Context::Context(Backend* backend, FG_MsgReceiver* element, FG_Vec* dim) :
   _backend(backend),
   _element(element),
   _window(nullptr),

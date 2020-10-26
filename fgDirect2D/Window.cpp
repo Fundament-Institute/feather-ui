@@ -34,7 +34,7 @@ FG_FORCEINLINE FG_Vec AdjustPoints(longptr_t lParam, HWND__* hWnd)
   return FG_Vec{ v.x + static_cast<float>(rect.left), v.y + static_cast<float>(rect.top) };
 }
 
-Window::Window(Backend* _backend, FG_Element* _element, FG_Vec* pos, FG_Vec* dim, uint64_t flags, const char* caption,
+Window::Window(Backend* _backend, FG_MsgReceiver* _element, FG_Vec* pos, FG_Vec* dim, uint64_t flags, const char* caption,
                void* context)
 {
   target                = 0;

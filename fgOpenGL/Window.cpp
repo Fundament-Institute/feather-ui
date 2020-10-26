@@ -139,7 +139,7 @@ void Window::FillKeyMap()
   Window::KeyMap[GLFW_KEY_MENU]          = FG_Keys_MENU;
 }
 
-Window::Window(Backend* backend, GLFWmonitor* display, FG_Element* element, FG_Vec* pos, FG_Vec* dim, uint64_t flags,
+Window::Window(Backend* backend, GLFWmonitor* display, FG_MsgReceiver* element, FG_Vec* pos, FG_Vec* dim, uint64_t flags,
                const char* caption, void* context) :
   Context(backend, element, dim), _next(nullptr), _prev(nullptr)
 {

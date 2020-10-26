@@ -32,7 +32,7 @@ namespace GL {
   // A context may or may not have an associated OS window, for use inside other 3D engines.
   struct Context
   {
-    Context(Backend* backend, FG_Element* element, FG_Vec* dim);
+    Context(Backend* backend, FG_MsgReceiver* element, FG_Vec* dim);
     virtual ~Context();
     void BeginDraw(const FG_Rect* area);
     void EndDraw();
@@ -69,7 +69,7 @@ namespace GL {
     static int GetBytes(GLenum type);
     static inline int GetMultiCount(int length, int multi) { return length * (!multi ? 1 : multi); }
 
-    FG_Element* _element;
+    FG_MsgReceiver* _element;
     GLuint _imageshader;
     GLuint _rectshader;
     GLuint _circleshader;

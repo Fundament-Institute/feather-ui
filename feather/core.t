@@ -3,8 +3,8 @@ local alloc = require 'std.alloc'
 local rtree = require 'feather.rtree'
 local backend = require 'feather.backend'
 local override = require 'feather.util'.override
-local message = require 'feather.message'
-local Element = require 'feather.element'
+local Msg = require 'feather.message'
+local Virtual = require 'feather.virtual'
 
 local M = {}
 
@@ -274,6 +274,7 @@ function M.basic_template(params)
         typ.entries[i] = {field = name, type = type_environment[name]}
       end
       typ.entries:insert{field = "_node", type = context.rtree_node}
+      Virtual.extends(Msg.Receiver)(typ)
 
       local function unpack_store(store)
         local res = {}
@@ -378,6 +379,7 @@ function M.template(params)
       for i, name in ipairs(params.names) do
         typ.entries[i] = {field = name, type = type_environment[name]}
       end
+      Virtual.extends(Msg.Receiver)(typ)
 
       local function unpack_store(store)
         local res = {}
@@ -578,7 +580,7 @@ function M.ui(desc)
     local foo = body_fns.enter(`self.data,
                     make_context(self),
                     make_environment(self)
-                                                                )
+    )
   end
 
   terra ui:enter()
@@ -601,8 +603,8 @@ function M.ui(desc)
     [body_fns.render(`self.data, make_context(self))]
   end
 
-  terra ui:behavior(w: &opaque, _ui: &opaque, m: message.Msg)
-    if m.kind.val == [Element.virtualinfo.info["Draw"].index] then
+  terra ui:behavior(w: &opaque, _ui: &opaque, m: Msg.Message)
+    if m.kind.val == [Msg.Receiver.virtualinfo.info["Draw"].index] then
       [&ui](_ui):render()
     end
   end

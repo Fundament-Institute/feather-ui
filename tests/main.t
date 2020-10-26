@@ -5,8 +5,8 @@ local F = require 'feather.shared'
 local B = require 'feather.backend'
 local Enum = require 'feather.enum'
 local Flags = require 'feather.flags'
-local M = require 'feather.message'
-local Msg = require 'feather.messages'
+local Msg = require 'feather.message'
+local Messages = require 'feather.messages'
 local Hash = require 'feather.hash'
 local cond = require 'std.cond'
 local OS = require 'feather.os'
@@ -14,12 +14,11 @@ local Constraint = require 'std.constraint'
 local List = require 'terralist'
 local Object = require 'std.object'
 local Alloc = require 'std.alloc'
-local P = require 'feather.partitioner'
 local RTree = require 'feather.rtree'
 local Math = require 'std.math'
-local Element = require 'feather.element'
-local V = require 'feather.virtual'
-local L = require 'feather.log'
+local Virtual = require 'feather.virtual'
+local Log = require 'feather.log'
+local Partitioner = require 'feather.partitioner'
 
 --local String = require 'feather.string'
 
@@ -99,9 +98,9 @@ local va_start = terralib.intrinsic("llvm.va_start", {&int8} -> {})
 local va_end = terralib.intrinsic("llvm.va_end", {&int8} -> {})
 
 local UIMock = struct{}
-terra FakeLog(root : &opaque, level : L.Level, f : F.conststring, ...) : {}
+terra FakeLog(root : &opaque, level : Log.Level, f : F.conststring, ...) : {}
   if level.val >= 0 then
-    C.printf(L.Levels[level.val])
+    C.printf(Log.Levels[level.val])
   end
   var vl : C.va_list
   va_start([&int8](&vl))
@@ -110,7 +109,7 @@ terra FakeLog(root : &opaque, level : L.Level, f : F.conststring, ...) : {}
   C.printf("\n");
 end
 
-struct MockElement {
+struct MockMsgReceiver {
   image : &B.Asset
   font : &B.Font
   layout : &opaque
@@ -119,10 +118,10 @@ struct MockElement {
   close : bool
 }
 
-V.extends(Element)(MockElement)
+Virtual.extends(Msg.Receiver)(MockMsgReceiver)
 
-terra MockElement:Behavior(w : &opaque, ui : &opaque, m : &M.Msg) : M.Result
-  if m.kind.val == [Element.virtualinfo.info["Draw"].index] then
+terra MockMsgReceiver:Behavior(w : &opaque, ui : &opaque, m : &Msg.Message) : Msg.Result
+  if m.kind.val == [Msg.Receiver.virtualinfo.info["Draw"].index] then
     var b = @[&&B.Backend](ui)
     b:Clear(w, 0x00000000U)
 
@@ -151,23 +150,23 @@ terra MockElement:Behavior(w : &opaque, ui : &opaque, m : &M.Msg) : M.Result
       b:PopLayer(w);
     end
 
-    return M.Result{0}
+    return Msg.Result{0}
   end
-  if m.kind.val == [Element.virtualinfo.info["GetWindowFlags"].index] then
+  if m.kind.val == [Msg.Receiver.virtualinfo.info["GetWindowFlags"].index] then
     if self.close then
-      return M.Result{Msg.Window.CLOSED}
+      return Msg.Result{Messages.Window.CLOSED}
     else
-      return M.Result{0}
+      return Msg.Result{0}
     end
   end
-  if m.kind.val == [Element.virtualinfo.info["SetWindowFlags"].index] then
-    self.close = self.close or ((m.setWindowFlags.flags and [Msg.Window.enum_values.CLOSED]) ~= 0)
+  if m.kind.val == [Msg.Receiver.virtualinfo.info["SetWindowFlags"].index] then
+    self.close = self.close or ((m.setWindowFlags.flags and [Messages.Window.enum_values.CLOSED]) ~= 0)
   end
-  if (m.kind.val == [Element.virtualinfo.info["KeyDown"].index] and m.keyDown.key ~= Msg.Keys.LMENU.val and m.keyDown.scancode ~= 84) or m.kind.val == [Element.virtualinfo.info["MouseDown"].index] then
+  if (m.kind.val == [Msg.Receiver.virtualinfo.info["KeyDown"].index] and m.keyDown.key ~= Messages.Keys.LMENU.val and m.keyDown.scancode ~= 84) or m.kind.val == [Msg.Receiver.virtualinfo.info["MouseDown"].index] then
     self.close = true
   end
   
-  return M.DefaultBehavior(&self.super, w, ui, m)
+  return Msg.DefaultBehavior(&self.super, w, ui, m)
 end
 
 function dumpfile(path)
@@ -184,7 +183,7 @@ terra TestHarness:TestBackend(dllpath : rawstring, aa : B.AntiAliasing)
   var fakeUI : &B.Backend = nil
 
   C.printf("Loading Backend: %s\n", dllpath) 
-  var bl = B.Backend.new(&fakeUI, [M.Behavior](MockElement.Behavior), FakeLog, dllpath, nil)
+  var bl = B.Backend.new(&fakeUI, [Msg.Behavior](MockMsgReceiver.Behavior), FakeLog, dllpath, nil)
   self:Test(bl._0 == nil, false)
   if bl._0 == nil then
     return
@@ -193,8 +192,8 @@ terra TestHarness:TestBackend(dllpath : rawstring, aa : B.AntiAliasing)
   fakeUI = bl._0
   var b = bl._0
   var textrect = F.Rect{array(0f,0f,1000f,700f)}
-  var e = MockElement{Element{Element.virtual_initializer}}
-  e.flags = Msg.Window.RESIZABLE
+  var e = MockMsgReceiver{Msg.Receiver{Msg.Receiver.virtual_initializer}}
+  e.flags = Messages.Window.RESIZABLE
   -- e.image = b:CreateAsset("../tests/example.png", 0, B.Format.PNG)
   e.image = b:CreateAsset([constant(`example_png)], [#example_png], B.Format.PNG)
   e.font = b:CreateFont("Arial", 700, false, 16, F.Vec{array(96f, 96f)}, aa)
@@ -214,8 +213,8 @@ terra TestHarness:TestBackend(dllpath : rawstring, aa : B.AntiAliasing)
   self:Test(b:SetCursor(w, B.Cursor.CROSS), 0)
   self:Test(b:DirtyRect(w, nil), 0)
 
-  self:Test(b:SetWindow(w, nil, nil, nil, nil, nil, Msg.Window.RESIZABLE), 0)
-  self:Test(b:SetWindow(w, &e.super, nil, nil, nil, "Feather Test Changed", Msg.Window.RESIZABLE), 0)
+  self:Test(b:SetWindow(w, nil, nil, nil, nil, nil, Messages.Window.RESIZABLE), 0)
+  self:Test(b:SetWindow(w, &e.super, nil, nil, nil, "Feather Test Changed", Messages.Window.RESIZABLE), 0)
 
   self:Test(b:ProcessMessages() ~= 0, true)
 
@@ -736,7 +735,7 @@ terra TestHarness:switchstat()
 end
 
 local RTreeDefault = RTree(Alloc.libc_allocator)
-P(RTreeDefault)
+Partitioner(RTreeDefault)
 
 local verify_num = global(int[10], `array(-1,-1,-1,-1,-1,-1,-1,-1,-1,-1))
 local verify_index = global(int, `0)

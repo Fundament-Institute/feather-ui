@@ -43,7 +43,7 @@ namespace D2D {
     ID2D1Effect* triangle;
     ID2D1Effect* circle;
     ID2D1Effect* scale;
-    FG_Element* element;
+    FG_MsgReceiver* element;
     Backend* backend;
     FG_Rect margin; // When maximized, the actual window area is larger than what we need to draw on, so we must compensate
     std::stack<FG_Asset*> layers;
@@ -53,7 +53,7 @@ namespace D2D {
 
     bool inside;
 
-    Window(Backend* backend, FG_Element* element, FG_Vec* pos, FG_Vec* dim, uint64_t flags, const char* caption,
+    Window(Backend* backend, FG_MsgReceiver* element, FG_Vec* pos, FG_Vec* dim, uint64_t flags, const char* caption,
            void* context);
     ~Window();
     void CreateResources();

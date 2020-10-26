@@ -89,9 +89,9 @@ namespace GL {
     static FG_Err GetDisplayIndex(FG_Backend* self, unsigned int index, FG_Display* out);
     static FG_Err GetDisplay(FG_Backend* self, void* handle, FG_Display* out);
     static FG_Err GetDisplayWindow(FG_Backend* self, void* window, FG_Display* out);
-    static void* CreateWindowGL(FG_Backend* self, FG_Element* element, void* display, FG_Vec* pos, FG_Vec* dim,
+    static void* CreateWindowGL(FG_Backend* self, FG_MsgReceiver* element, void* display, FG_Vec* pos, FG_Vec* dim,
                                 const char* caption, uint64_t flags, void* context);
-    static FG_Err SetWindowGL(FG_Backend* self, void* window, FG_Element* element, void* display, FG_Vec* pos, FG_Vec* dim,
+    static FG_Err SetWindowGL(FG_Backend* self, void* window, FG_MsgReceiver* element, void* display, FG_Vec* pos, FG_Vec* dim,
                               const char* caption, uint64_t flags);
     static FG_Err DestroyWindow(FG_Backend* self, void* window);
     static FG_Err BeginDraw(FG_Backend* self, void* window, FG_Rect* area);

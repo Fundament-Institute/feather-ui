@@ -13,7 +13,7 @@ namespace GL {
 
   struct Window : Context
   {
-    Window(Backend* backend, GLFWmonitor* display, FG_Element* element, FG_Vec* pos, FG_Vec* dim, uint64_t flags,
+    Window(Backend* backend, GLFWmonitor* display, FG_MsgReceiver* element, FG_Vec* pos, FG_Vec* dim, uint64_t flags,
            const char* caption, void* context);
     virtual ~Window();
     size_t SetKey(uint8_t keycode, bool down, bool held, unsigned long time);
