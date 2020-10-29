@@ -472,7 +472,7 @@ FG_Err Backend::DestroyShader(FG_Backend* self, FG_Shader* shader)
   return 0;
 }
 
-FG_Err Backend::GetProjection(FG_Backend* self, void* window, void* layer, float* proj4x4)
+FG_Err Backend::GetProjection(FG_Backend* self, void* window, FG_Asset* layer, float* proj4x4)
 {
   if(!self || !window || !proj4x4)
     return -1;
@@ -480,7 +480,7 @@ FG_Err Backend::GetProjection(FG_Backend* self, void* window, void* layer, float
   if(!layer)
     memcpy(proj4x4, reinterpret_cast<Context*>(window)->proj, 4 * 4 * sizeof(float));
   else
-    memcpy(proj4x4, reinterpret_cast<Context*>(window)->lproj, 4 * 4 * sizeof(float));
+    memcpy(proj4x4, static_cast<Layer*>(layer)->proj, 4 * 4 * sizeof(float));
   return 0;
 }
 

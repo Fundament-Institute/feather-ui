@@ -5,6 +5,7 @@
 #define GL__LAYER_H
 
 #include "backend.h"
+#include "linmath.h"
 
 namespace GL {
   struct Context;
@@ -18,8 +19,13 @@ namespace GL {
     void Destroy();
     bool Create();
 
+    static void mat4x4_proj(mat4x4 M, float l, float r, float b, float t, float n, float f);
+    static const float NEARZ;
+    static const float FARZ;
+
     unsigned int framebuffer;
     float transform[16];
+    float proj[4][4];
     float opacity;
     Context* context;
     bool initialized;

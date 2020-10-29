@@ -265,7 +265,7 @@ terra B.Backend:CreateAsset(data : F.conststring, count : uint, format : B.Forma
 terra B.Backend:CreateBuffer(data : &opaque, bytes : uint, primitive : B.Primitive, parameters : &B.ShaderParameter, n_parameters : uint) : &B.Asset return nil end
 terra B.Backend:CreateLayer(window : &opaque, size : &F.Vec, cache : bool) : &B.Asset return nil end
 terra B.Backend:DestroyAsset(asset : &B.Asset) : F.Err return 0 end
-terra B.Backend:GetProjection(window : &opaque, layer : &opaque, proj4x4 : &float) : F.Err return 0 end
+terra B.Backend:GetProjection(window : &opaque, layer : &B.Asset, proj4x4 : &float) : F.Err return 0 end
 
 terra B.Backend:PutClipboard(window : &opaque, kind : B.Clipboard, data : F.conststring, count : uint) : F.Err return 0 end
 terra B.Backend:GetClipboard(window : &opaque, kind : B.Clipboard, target : &opaque, count : uint) : uint return 0 end

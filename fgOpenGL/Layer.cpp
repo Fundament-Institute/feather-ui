@@ -7,11 +7,16 @@
 
 using namespace GL;
 
+const float Layer::NEARZ = 0.2f;
+const float Layer::FARZ = 100.0f;
+
 Layer::Layer(FG_Vec s, Context* c) : context(c), opacity(0), initialized(false)
 {
   format      = FG_Format_LAYER;
   size.x      = s.x;
   size.y      = s.y;
+  Layer::mat4x4_proj(proj, 0, size.x, size.y, 0, NEARZ, FARZ);
+
   if(c->GetWindow())
     glfwGetWindowContentScale(c->GetWindow(), &dpi.x, &dpi.y);
   initialized = Create();
@@ -96,4 +101,31 @@ bool Layer::Update(float* tf, float o, FG_BlendState* b, Context* c)
 
   context = c;
   return true;
+}
+
+void Layer::mat4x4_proj(mat4x4 M, float l, float r, float b, float t, float n, float f)
+{
+  memset(M, 0, sizeof(mat4x4));
+
+  M[0][0] = 2.0f / (r - l);
+  M[0][1] = 0.f;
+  M[0][2] = 0.f;
+  M[0][3] = 0.f;
+
+  M[1][0] = 0.f;
+  M[1][1] = 2.0f / (t - b);
+  M[1][2] = 0.f;
+  M[1][3] = 0.f;
+
+  M[2][0] = 0.f;
+  M[2][1] = 0.f;
+  M[2][2] = -((f + n) / (f - n));
+  M[2][3] = -1.0f;
+
+  M[3][0] = -(r + l) / (r - l);
+  M[3][1] = -(t + b) / (t - b);
+  M[3][2] = -((2.f * f * n) / (f - n));
+  M[3][3] = 0.f;
+
+  mat4x4_translate_in_place(M, 0, 0, -1.0f);
 }

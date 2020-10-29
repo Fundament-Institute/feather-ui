@@ -66,7 +66,7 @@ namespace GL {
     static FG_Shader* CreateShader(FG_Backend* self, const char* ps, const char* vs, const char* gs, const char* cs,
                                    const char* ds, const char* hs, FG_ShaderParameter* parameters, uint32_t n_parameters);
     static FG_Err DestroyShader(FG_Backend* self, FG_Shader* shader);
-    static FG_Err GetProjection(FG_Backend* self, void* window, void* layer, float* proj4x4);
+    static FG_Err GetProjection(FG_Backend* self, void* window, FG_Asset* layer, float* proj4x4);
     static FG_Font* CreateFontGL(FG_Backend* self, const char* family, unsigned short weight, bool italic, unsigned int pt,
                                  FG_Vec dpi, FG_AntiAliasing aa);
     static FG_Err DestroyFont(FG_Backend* self, FG_Font* font);
@@ -121,55 +121,28 @@ namespace GL {
     static const float BASE_DPI;
     static Backend* _singleton;
 
-    template<class T> inline static void _buildQuad(T (&v)[4], const FG_Rect& area)
-    {
-      // Due to counter-clockwise windings, we have to go topleft, bottomleft, topright, which also requires flipping the UV
-      // x/y coordinates
-      v[0].posUV[0] = area.left;
-      v[0].posUV[1] = area.top;
-      v[0].posUV[2] = 0;
-      v[0].posUV[3] = 0;
-
-      v[1].posUV[0] = area.left;
-      v[1].posUV[1] = area.bottom;
-      v[1].posUV[2] = 1.0f;
-      v[1].posUV[3] = 0;
-
-      v[2].posUV[0] = area.right;
-      v[2].posUV[1] = area.top;
-      v[2].posUV[2] = 0;
-      v[2].posUV[3] = 1.0f;
-
-      v[3].posUV[0] = area.right;
-      v[3].posUV[1] = area.bottom;
-      v[3].posUV[2] = 1.0f;
-      v[3].posUV[3] = 1.0f;
-    }
-
   protected:
     template<class T> inline static void _buildPosUV(T (&v)[4], const FG_Rect& area, const FG_Rect& uv, float x, float y)
     {
-      // Due to counter-clockwise windings, we have to go topleft, bottomleft, topright, which also requires flipping the UV
-      // x/y coordinates
       v[0].posUV[0] = area.left;
       v[0].posUV[1] = area.top;
-      v[0].posUV[2] = uv.top / y;
-      v[0].posUV[3] = uv.left / x;
+      v[0].posUV[2] = uv.left / x;
+      v[0].posUV[3] = uv.top / y;
 
-      v[1].posUV[0] = area.left;
-      v[1].posUV[1] = area.bottom;
-      v[1].posUV[2] = uv.bottom / y;
-      v[1].posUV[3] = uv.left / x;
+      v[1].posUV[0] = area.right;
+      v[1].posUV[1] = area.top;
+      v[1].posUV[2] = uv.right / x;
+      v[1].posUV[3] = uv.top / y;
 
-      v[2].posUV[0] = area.right;
-      v[2].posUV[1] = area.top;
-      v[2].posUV[2] = uv.top / y;
-      v[2].posUV[3] = uv.right / x;
-
+      v[2].posUV[0] = area.left;
+      v[2].posUV[1] = area.bottom;
+      v[2].posUV[2] = uv.left / x;
+      v[2].posUV[3] = uv.bottom / y;
+      
       v[3].posUV[0] = area.right;
       v[3].posUV[1] = area.bottom;
-      v[3].posUV[2] = uv.bottom / y;
-      v[3].posUV[3] = uv.right / x;
+      v[3].posUV[2] = uv.right / x;
+      v[3].posUV[3] = uv.bottom / y;
     }
     void _drawStandard(GLuint shader, GLuint vao, float (&proj)[4][4], const FG_Rect& area, const FG_Rect& corners,
                        FG_Color fillColor, float border, FG_Color borderColor, float blur, float rotate, float z);

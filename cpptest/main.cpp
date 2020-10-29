@@ -75,7 +75,7 @@ FG_Result behavior(FG_MsgReceiver* element, void* w, void* ui, FG_Msg* m)
     FG_BlendState blend6 = { FG_BlendValue_ZERO,      FG_BlendValue_SRC_ALPHA, FG_BlendOp_ADD, FG_BlendValue_ZERO,
                              FG_BlendValue_SRC_ALPHA, FG_BlendOp_ADD,          0b1111 };
     (*b->drawCircle)(b, w, &r6, c6, FG_Color{ 0xFFFFFFFF }, 30.f, FG_Color{ 0 }, 0.f, 0.f, 0.f, nullptr, 0.f, &blend6);
-
+    
     float transform[16] = {
       1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 550, 50, 0, 1,
     };
@@ -136,16 +136,16 @@ int main(int argc, char* argv[])
       0.0f,
     },
     {
-      850.f,
-      210.f,
-      0.0f,
-      1.0f,
-    },
-    {
       1050.f,
       10.f,
       1.0f,
       0.0f,
+    },
+    {
+      850.f,
+      210.f,
+      0.0f,
+      1.0f,
     },
     {
       1050.f,

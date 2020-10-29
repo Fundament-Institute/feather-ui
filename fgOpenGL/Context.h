@@ -46,7 +46,8 @@ namespace GL {
     void DestroyResources();
     GLFWwindow* GetWindow() const { return _window; }
     void Scissor(const FG_Rect& rect, float x, float y) const;
-    void Viewport(const FG_Rect& rect, float x, float y) const;
+    void Viewport(float w, float h) const;
+    void StandardViewport() const;
     void AppendBatch(const void* vertices, GLsizeiptr bytes, GLsizei count);
     GLsizei FlushBatch();
     void SetDim(const FG_Vec& dim);
@@ -60,9 +61,10 @@ namespace GL {
     void ApplyBlend(const FG_BlendState* blend);
     virtual void DirtyRect(const FG_Rect* rect) { }
     inline Backend* GetBackend() const { return _backend; }
-    float (&GetProjection())[4][4] { return _layers.size() > 0 ? lproj : proj; }
+    float (&GetProjection())[4][4] {
+      return _layers.size() > 0 ? _layers.back()->proj : proj;
+    }
     float proj[4][4];
-    float lproj[4][4];
 
     static GLenum BlendOp(uint8_t op);
     static GLenum BlendValue(uint8_t value);

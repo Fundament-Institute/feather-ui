@@ -71,7 +71,7 @@ namespace D2D {
     static FG_Shader* CreateShader(FG_Backend* self, const char* ps, const char* vs, const char* gs, const char* cs,
                                    const char* ds, const char* hs, FG_ShaderParameter* parameters, uint32_t n_parameters);
     static FG_Err DestroyShader(FG_Backend* self, FG_Shader* shader);
-    static FG_Err GetProjection(FG_Backend* self, void* window, void* layer, float* proj4x4);
+    static FG_Err GetProjection(FG_Backend* self, void* window, FG_Asset* layer, float* proj4x4);
     static FG_Font* CreateFontD2D(FG_Backend* self, const char* family, unsigned short weight, bool italic, unsigned int pt,
                                   FG_Vec dpi, FG_AntiAliasing aa);
     static FG_Err DestroyFont(FG_Backend* self, FG_Font* font);

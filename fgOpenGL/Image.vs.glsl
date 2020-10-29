@@ -8,7 +8,7 @@ varying vec4 color;\n
 void main()\n
 {\n
   gl_Position = MVP * vec4(vPosUV.xy, 0, 1);\n
-  uv = vPosUV.wz;\n
+  uv = vPosUV.zw;\n
   color = vColor;\n
 }\n
 )

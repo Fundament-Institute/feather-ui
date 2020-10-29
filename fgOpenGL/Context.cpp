@@ -73,12 +73,7 @@ void Context::BeginDraw(const FG_Rect* area)
   if(_window)
   {
     glfwMakeContextCurrent(_window);
-
-    GLsizei w;
-    GLsizei h;
-    glfwGetFramebufferSize(_window, &w, &h);
-    glViewport(0, 0, w, h);
-    _backend->LogError("glViewport");
+    StandardViewport();
   }
 
   _clipped = area != nullptr;
@@ -94,38 +89,11 @@ void Context::EndDraw()
     glfwSwapBuffers(_window);
 }
 
-void mat4x4_custom(mat4x4 M, float l, float r, float b, float t, float n, float f)
-{
-  memset(M, 0, sizeof(mat4x4));
-
-  M[0][0] = 2.0f / (r - l);
-  M[0][1] = 0.f;
-  M[0][2] = 0.f;
-  M[0][3] = 0.f;
-
-  M[1][0] = 0.f;
-  M[1][1] = 2.0f / (t - b);
-  M[1][2] = 0.f;
-  M[1][3] = 0.f;
-
-  M[2][0] = 0.f;
-  M[2][1] = 0.f;
-  M[2][2] = -((f + n) / (f - n));
-  M[2][3] = -1.0f;
-
-  M[3][0] = -(r + l) / (r - l);
-  M[3][1] = -(t + b) / (t - b);
-  M[3][2] = -((2.f * f * n) / (f - n));
-  M[3][3] = 0.f;
-
-  mat4x4_translate_in_place(M, 0, 0, -1.0f);
-}
-
 void Context::SetDim(const FG_Vec& dim)
 {
   // mat4x4_ortho(proj, 0, dim.x, dim.y, 0, -1, 1);
-  mat4x4_custom(proj, 0, dim.x, dim.y, 0, 0.2, 100);
-  mat4x4_custom(lproj, 0, dim.x, 0, dim.y, 0.2, 100);
+  Layer::mat4x4_proj(proj, 0, dim.x, dim.y, 0, Layer::NEARZ, Layer::FARZ);
+  //mat4x4_custom(lproj, 0, dim.x, 0, dim.y, 0.2, 100);
 }
 
 void Context::Draw(const FG_Rect* area)
@@ -177,13 +145,17 @@ void Context::Scissor(const FG_Rect& rect, float x, float y) const
   _backend->LogError("glScissor");
 }
 
-void Context::Viewport(const FG_Rect& rect, float x, float y) const
+void Context::StandardViewport() const
 {
-  int l = static_cast<int>(floorf(rect.left - x));
-  int t = static_cast<int>(floorf(rect.top - y));
-  int r = static_cast<int>(ceilf(rect.right - x));
-  int b = static_cast<int>(ceilf(rect.bottom - y));
-  glViewport(l, t, r - l, b - t);
+  GLsizei w;
+  GLsizei h;
+  glfwGetFramebufferSize(_window, &w, &h);
+  glViewport(0, 0, w, h);
+  _backend->LogError("glViewport");
+}
+void Context::Viewport(float w, float h) const
+{
+  glViewport(0, 0, static_cast<int>(ceilf(w)), static_cast<int>(ceilf(h)));
   _backend->LogError("glViewport");
 }
 
@@ -214,6 +186,7 @@ int Context::PushLayer(Layer* layer, float* transform, float opacity, FG_BlendSt
 
   glBindFramebuffer(GL_FRAMEBUFFER, layer->framebuffer);
   _backend->LogError("glBindFramebuffer");
+  Viewport(layer->size.x, layer->size.y);
   return 0;
 }
 
@@ -239,14 +212,35 @@ int Context::PopLayer()
   _layers.pop_back();
   glBindFramebuffer(GL_FRAMEBUFFER, !_layers.size() ? 0 : _layers.back()->framebuffer);
   _backend->LogError("glBindFramebuffer");
-
-  FG_Rect full = { 0, 0, p->size.x, p->size.y };
+  if(_layers.size() > 0)
+    Viewport(_layers.back()->size.x, _layers.back()->size.y);
+  else
+    StandardViewport();
 
   ImageVertex v[4];
-  _backend->_buildQuad(v, full);
+
+  v[0].posUV[0] = 0;
+  v[0].posUV[1] = 0;
+  v[0].posUV[2] = 0;
+  v[0].posUV[3] = 1.0f;
+
+  v[1].posUV[0] = p->size.x;
+  v[1].posUV[1] = 0;
+  v[1].posUV[2] = 1.0f;
+  v[1].posUV[3] = 1.0f;
+
+  v[2].posUV[0] = 0;
+  v[2].posUV[1] = p->size.y;
+  v[2].posUV[2] = 0;
+  v[2].posUV[3] = 0;
+
+  v[3].posUV[0] = p->size.x;
+  v[3].posUV[1] = p->size.y;
+  v[3].posUV[2] = 1.0f;
+  v[3].posUV[3] = 0;
 
   mat4x4 mvp;
-  mat4x4_mul(mvp, proj, (vec4*)p->transform);
+  mat4x4_mul(mvp, GetProjection(), (vec4*)p->transform);
   return _backend->DrawTextureQuad(this, p->data.index, v, FG_Color{ 0x00FFFFFF + ((unsigned int)roundf(0xFF * p->opacity) << 24) }, (float*)mvp, nullptr);
 }
 
@@ -298,8 +292,8 @@ GLuint Context::_genIndices(size_t num)
     buf[i - 4] = k + 1;
     buf[i - 3] = k + 2;
     buf[i - 2] = k + 1;
-    buf[i - 1] = k + 2;
-    buf[i - 0] = k + 3;
+    buf[i - 1] = k + 3;
+    buf[i - 0] = k + 2;
   }
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, num * sizeof(GLuint), buf.get(), GL_STATIC_DRAW);
   _backend->LogError("glBufferData");
@@ -358,6 +352,11 @@ void Context::CreateResources()
   _backend->LogError("glEnable");
   glEnable(GL_TEXTURE_2D);
   _backend->LogError("glEnable");
+  glFrontFace(GL_CW);
+  _backend->LogError("glFrontFace");
+  glEnable(GL_CULL_FACE);
+  _backend->LogError("glEnable");
+
   ApplyBlend(0);
   _backend->LogError("glBlendFunc");
 

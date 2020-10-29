@@ -591,7 +591,7 @@ FG_Shader* Backend::CreateShader(FG_Backend* self, const char* ps, const char* v
   return 0;
 }
 FG_Err Backend::DestroyShader(FG_Backend* self, FG_Shader* shader) { return -1; }
-FG_Err Backend::GetProjection(FG_Backend* self, void* window, void* layer, float* proj4x4) { return -1; }
+FG_Err Backend::GetProjection(FG_Backend* self, void* window, FG_Asset* layer, float* proj4x4) { return -1; }
 FG_Err Backend::PutClipboard(FG_Backend* self, void* window, FG_Clipboard kind, const char* data, uint32_t count)
 {
   if(!OpenClipboard(reinterpret_cast<HWND>(window)))

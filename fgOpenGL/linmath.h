@@ -3,10 +3,6 @@
 
 #include <math.h>
 
-#ifdef _MSC_VER
-#define inline __inline
-#endif
-
 #define LINMATH_H_DEFINE_VEC(n) \
 typedef float vec##n[n]; \
 static inline void vec##n##_add(vec##n r, vec##n const a, vec##n const b) \

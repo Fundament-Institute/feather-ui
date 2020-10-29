@@ -656,7 +656,7 @@ typedef void * (* FG_anon_63)(FG_Backend *, FG_Font *, const char*, FG_Rect *, f
 typedef FG_Shader * (* FG_anon_64)(FG_Backend *, const char*, const char*, const char*, const char*, const char*, const char*, FG_ShaderParameter *, uint32_t);
 typedef uint32_t (* FG_anon_65)(FG_Backend *, FG_Font *, void *, FG_Rect *, FG_Vec, FG_Vec *);
 typedef int32_t (* FG_anon_66)(FG_Backend *, void *, FG_Vec *, uint32_t, FG_Color, float, FG_Color, FG_BlendState *);
-typedef int32_t (* FG_anon_67)(FG_Backend *, void *, void *, float *);
+typedef int32_t (* FG_anon_67)(FG_Backend *, void *, FG_Asset *, float *);
 typedef void * (* FG_anon_68)(FG_Backend *, void *, const char*, FG_Rect *, ...);
 typedef int32_t (* FG_anon_69)(FG_Backend *, void *, FG_Vec *, uint32_t, FG_Color, FG_BlendState *);
 typedef int32_t (* FG_anon_70)(FG_Backend *, FG_Asset *);
