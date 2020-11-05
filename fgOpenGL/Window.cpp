@@ -226,7 +226,7 @@ void Window::DirtyRect(const FG_Rect* area)
     InvalidateRect(hWnd, &rect, FALSE);
   }
 #else
-  Draw(rect);
+  Draw(area);
 #endif
 }
 

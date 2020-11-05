@@ -859,6 +859,7 @@ end
 
 if jit.os == "Linux" then
   table.insert(clangargs, "-ldl")
+  table.insert(clangargs, "-lm")
 end
 
 print(clangargs[0])
