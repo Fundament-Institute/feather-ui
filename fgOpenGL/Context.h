@@ -12,6 +12,7 @@
 #include "Layer.h"
 #include "Shader.h"
 #include "Asset.h"
+#include "VAO.h"
 #include <vector>
 #include <utility>
 
@@ -25,7 +26,7 @@ namespace GL {
 
   KHASH_DECLARE(tex, const Asset*, GLuint);
   KHASH_DECLARE(shader, const Shader*, GLuint);
-  KHASH_DECLARE(vao, ShaderAsset, GLuint);
+  KHASH_DECLARE(vao, ShaderAsset, VAO*);
   KHASH_DECLARE(font, const Font*, uint64_t);
   KHASH_DECLARE(glyph, uint32_t, char);
 
@@ -53,17 +54,15 @@ namespace GL {
     void SetDim(const FG_Vec& dim);
     GLuint LoadAsset(Asset* asset);
     GLuint LoadShader(Shader* shader);
-    GLuint LoadVAO(Shader* shader, Asset* asset);
+    VAO* LoadVAO(Shader* shader, Asset* asset);
     bool CheckGlyph(uint32_t g);
     void AddGlyph(uint32_t g);
     GLuint GetFontTexture(const Font* font);
     bool CheckFlush(GLintptr bytes) { return (_bufferoffset + bytes > BATCH_BYTES); }
     void ApplyBlend(const FG_BlendState* blend);
-    virtual void DirtyRect(const FG_Rect* rect) { }
+    virtual void DirtyRect(const FG_Rect* rect) {}
     inline Backend* GetBackend() const { return _backend; }
-    float (&GetProjection())[4][4] {
-      return _layers.size() > 0 ? _layers.back()->proj : proj;
-    }
+    float (&GetProjection())[4][4] { return _layers.size() > 0 ? _layers.back()->proj : proj; }
     float proj[4][4];
 
     static GLenum BlendOp(uint8_t op);
@@ -77,12 +76,12 @@ namespace GL {
     GLuint _circleshader;
     GLuint _trishader;
     GLuint _lineshader;
-    GLuint _quadobject;
+    VAO* _quadobject;
     GLuint _quadbuffer;
-    GLuint _imageobject;
+    VAO* _imageobject;
     GLuint _imagebuffer;
     GLuint _imageindices;
-    GLuint _lineobject;
+    VAO* _lineobject;
     GLuint _linebuffer;
     FG_BlendState _lastblend;
 
@@ -91,8 +90,6 @@ namespace GL {
     static const FG_BlendState DEFAULT_BLEND;
 
   protected:
-    GLuint _createVAO(GLuint shader, const FG_ShaderParameter* parameters, size_t n_parameters, GLuint buffer,
-                      size_t stride, GLuint indices);
     GLuint _createBuffer(size_t stride, size_t count, const void* init);
     GLuint _genIndices(size_t num);
 
