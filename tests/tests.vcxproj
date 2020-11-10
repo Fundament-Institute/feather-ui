@@ -95,7 +95,6 @@
     <None Include="..\feather\shared.t" />
     <None Include="..\feather\string.t" />
     <None Include="..\feather\util.t" />
-    <None Include="..\feather\vec.t" />
     <None Include="..\feather\virtual.t" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

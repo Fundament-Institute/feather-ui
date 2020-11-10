@@ -46,19 +46,33 @@ struct S.URect {
   rel : S.Rect
 }
 
-local Vec = require 'feather.vec'
+local GA = require 'std.ga'
+local GA3 = GA(float, 3)
 
-S.Vec = Vec(float, 2)
-S.Vec3D = Vec(float, 3)
-S.Veci = Vec(int, 2)
+S.Vec = GA(float, 2).vector_t
+S.Vec3D = GA3.vector_t
+S.Bivector3 = GA3.bivector_t
+S.Veci = GA(int, 2).vector_t
 
-S.Vec.c_export = [[float x;
-  float y;]]
-S.Veci.c_export = [[int x;
-  int y;]]
-S.Vec3D.c_export = [[float x;
-  float y;
-  float z;]]
+local veclookups = { [1] = "x", [2] = "y", [4] = "z", [8] = "w" }
+
+local function vecexport(v, type)
+  v.c_export = ""
+  for x,i in ipairs(v.metamethods.components) do
+    local name = type .. " "
+    for k,c in pairs(veclookups) do
+      if bit.band(k, i) ~= 0 then
+        name = name .. c
+      end
+    end
+    v.c_export = v.c_export..name..";\n    "
+  end
+end
+
+vecexport(S.Vec, "float")
+vecexport(S.Vec3D, "float")
+vecexport(S.Bivector3, "float")
+vecexport(S.Veci, "int")
 
 struct S.UVec {
   abs : S.Vec

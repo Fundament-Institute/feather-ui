@@ -473,20 +473,21 @@ terra TestHarness:vec()
   c = a - b
   self:Test(c.x, 8)
   self:Test(c.y, 10)
-  c = a * b
+
+  c = a * -3
   self:Test(c.x, -15)
-  self:Test(c.y, -24)
+  self:Test(c.y, -18)
   a.x = 1
   a.y = 2
-  c = b / a
-  self:Test(c.x, -3)
-  self:Test(c.y, -2)
+  c = b / -1
+  self:Test(c.x, 3)
+  self:Test(c.y, 4)
 
-  c = a + 3
+  c = a + F.Veci{array(3,3)}
   self:Test(c.x, 4)
   self:Test(c.y, 5)
 
-  c = 4 - b
+  c = F.Veci{array(4,4)} - b
   self:Test(c.x, 7)
   self:Test(c.y, 8)
 
@@ -496,7 +497,7 @@ terra TestHarness:vec()
   self:Test(a, b)
 end
 
-do
+--[[do
   local primitives = List{int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, bool, function() end,
     float, double, tuple(), tuple(int, float), int32[8], vector(float, 4), "string", 3.14, {}, {"fake"}, `6, `3.2,
     &float, &&float }
@@ -812,7 +813,7 @@ terra TestHarness:rtree()
   self:Test(TestRayBoxIntersect(F.Vec3D{array(9.9f, 9.9f, 1f)}, F.Vec3D{array(0f, 0f, -1f)}, F.Vec3D{array(10f, 10f, 0f)}), 1f)
   self:Test(TestRayBoxIntersect(F.Vec3D{array(10.1f, 9.9f, 1f)}, F.Vec3D{array(0f, 0f, -1f)}, F.Vec3D{array(10f, 10f, 0f)}), -1f)
   self:Test(TestRayBoxIntersect(F.Vec3D{array(10.1f, 10.1f, 1f)}, F.Vec3D{array(0f, 0f, -1f)}, F.Vec3D{array(10f, 10f, 0f)}), -1f)
-end
+end]]
 
 local SUBTESTLEN = 11
 

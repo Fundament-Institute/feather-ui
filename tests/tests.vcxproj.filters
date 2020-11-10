@@ -81,9 +81,6 @@
     <None Include="..\feather\util.t">
       <Filter>feather</Filter>
     </None>
-    <None Include="..\feather\vec.t">
-      <Filter>feather</Filter>
-    </None>
     <None Include="..\feather\virtual.t">
       <Filter>feather</Filter>
     </None>

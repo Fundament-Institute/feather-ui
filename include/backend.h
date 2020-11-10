@@ -31,7 +31,8 @@ typedef struct FG_Vec__ FG_Vec;
 typedef float FG_anon_1[2];
 struct FG_Vec__ {
   float x;
-  float y;
+    float y;
+    
 };
 enum FG_BlendValue {
   FG_BlendValue_DST_COLOR = 4,
@@ -447,8 +448,9 @@ typedef struct FG_Vec3D__ FG_Vec3D;
 typedef float FG_anon_25[3];
 struct FG_Vec3D__ {
   float x;
-  float y;
-  float z;
+    float y;
+    float z;
+    
 };
 struct FG_anon_24__ {
   uint16_t index;
@@ -580,7 +582,8 @@ typedef struct FG_Veci__ FG_Veci;
 typedef int32_t FG_anon_34[2];
 struct FG_Veci__ {
   int x;
-  int y;
+    int y;
+    
 };
 struct FG_Asset__ {
   FG_Data data;

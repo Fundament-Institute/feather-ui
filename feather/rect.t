@@ -1,4 +1,5 @@
-local Vec = require 'feather.vec'
+local GA = require 'std.ga'
+local GA2 = GA(float, 2)
 local Math = require 'std.math'
 
 local Rect = terralib.memoize(function(T)
@@ -63,10 +64,10 @@ local Rect = terralib.memoize(function(T)
   local lookups = {left = 0, top = 1, right = 2, bottom = 3, l = 0, t = 1, r = 2, b = 3 }
   s.metamethods.__entrymissing = macro(function(entryname, expr)
     if entryname == "topleft" then 
-      return `[Vec(T, 2)]{array(expr.ltrb[0], expr.ltrb[1])}
+      return `GA2.vector(expr.ltrb[0], expr.ltrb[1])
     end
     if entryname == "bottomright" then 
-      return `[Vec(T, 2)]{array(expr.ltrb[2], expr.ltrb[3])}
+      return `GA2.vector(expr.ltrb[2], expr.ltrb[3])
     end
     if lookups[entryname] then
       if lookups[entryname] < 4 then
