@@ -72,8 +72,7 @@ FG_Err Backend::DrawTextGL(FG_Backend* self, void* window, FG_Font* fgfont, void
 
   glUseProgram(context->_imageshader);
   backend->LogError("glUseProgram");
-  glBindVertexArray(context->_imageobject);
-  backend->LogError("glBindVertexArray");
+  context->_imageobject->Bind();
 
   glBindBuffer(GL_ARRAY_BUFFER, context->_imagebuffer);
   backend->LogError("glBindBuffer");
@@ -149,8 +148,7 @@ FG_Err Backend::DrawTextureQuad(Context* context, GLuint tex, ImageVertex* v, FG
 
   glUseProgram(context->_imageshader);
   LogError("glUseProgram");
-  glBindVertexArray(context->_imageobject);
-  LogError("glBindVertexArray");
+  context->_imageobject->Bind();
 
   glBindBuffer(GL_ARRAY_BUFFER, context->_imagebuffer);
   LogError("glBindBuffer");
@@ -214,7 +212,7 @@ void Backend::GenTransform(float (&target)[4][4], const FG_Rect& area, float rot
   target[3][2] = z;
 }
 
-void Backend::_drawStandard(GLuint shader, GLuint vao, float (&proj)[4][4], const FG_Rect& area, const FG_Rect& corners,
+void Backend::_drawStandard(GLuint shader, VAO* vao, float (&proj)[4][4], const FG_Rect& area, const FG_Rect& corners,
                             FG_Color fillColor, float border, FG_Color borderColor, float blur, float rotate, float z)
 {
   mat4x4 mvp;
@@ -234,8 +232,7 @@ void Backend::_drawStandard(GLuint shader, GLuint vao, float (&proj)[4][4], cons
 
   glUseProgram(shader);
   LogError("glUseProgram");
-  glBindVertexArray(vao);
-  LogError("glBindVertexArray");
+  vao->Bind();
 
   Shader::SetUniform(this, shader, "MVP", GL_FLOAT_MAT4, (float*)mvp);
   Shader::SetUniform(this, shader, "DimBorderBlur", GL_FLOAT_VEC4, dimdata);
@@ -245,7 +242,7 @@ void Backend::_drawStandard(GLuint shader, GLuint vao, float (&proj)[4][4], cons
 
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
   LogError("glDrawArrays");
-  glBindVertexArray(0);
+  vao->Unbind();
 }
 
 FG_Err Backend::DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor, float border,
@@ -255,8 +252,7 @@ FG_Err Backend::DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect*
   auto context = reinterpret_cast<Context*>(window);
   context->ApplyBlend(blend);
   backend->_drawStandard(context->_rectshader, context->_quadobject, context->GetProjection(), *area, *corners, fillColor,
-                         border,
-                         borderColor, blur, rotate, z);
+                         border, borderColor, blur, rotate, z);
   return glGetError();
 }
 
@@ -280,8 +276,7 @@ FG_Err Backend::DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_R
   auto context = reinterpret_cast<Context*>(window);
   context->ApplyBlend(blend);
   backend->_drawStandard(context->_trishader, context->_quadobject, context->GetProjection(), *area, *corners, fillColor,
-                         border,
-                         borderColor, blur, rotate, z);
+                         border, borderColor, blur, rotate, z);
   return glGetError();
 }
 
@@ -297,8 +292,7 @@ FG_Err Backend::DrawLines(FG_Backend* self, void* window, FG_Vec* points, uint32
 
   glUseProgram(context->_lineshader);
   backend->LogError("glUseProgram");
-  glBindVertexArray(context->_lineobject);
-  backend->LogError("glBindVertexArray");
+  context->_lineobject->Bind();
 
   glBindBuffer(GL_ARRAY_BUFFER, context->_linebuffer);
   backend->LogError("glBindBuffer");
@@ -309,8 +303,7 @@ FG_Err Backend::DrawLines(FG_Backend* self, void* window, FG_Vec* points, uint32
 
   glDrawArrays(GL_LINE_STRIP, 0, context->FlushBatch());
   backend->LogError("glDrawArrays");
-  glBindVertexArray(0);
-  backend->LogError("glBindVertexArray");
+  context->_lineobject->Unbind();
 
   return glGetError();
 }
@@ -343,8 +336,7 @@ FG_Err Backend::DrawShader(FG_Backend* self, void* window, FG_Shader* fgshader, 
 
   glUseProgram(instance);
   backend->LogError("glUseProgram");
-  glBindVertexArray(context->LoadVAO(shader, static_cast<Asset*>(vertices)));
-  backend->LogError("glBindVertexArray");
+  context->LoadVAO(shader, static_cast<Asset*>(vertices))->Bind();
 
   va_list vl;
   va_start(vl, blend);
@@ -973,8 +965,8 @@ void* Backend::CreateWindowGL(FG_Backend* self, FG_MsgReceiver* element, void* d
   return nullptr;
 }
 
-FG_Err Backend::SetWindowGL(FG_Backend* self, void* window, FG_MsgReceiver* element, void* display, FG_Vec* pos, FG_Vec* dim,
-                            const char* caption, uint64_t flags)
+FG_Err Backend::SetWindowGL(FG_Backend* self, void* window, FG_MsgReceiver* element, void* display, FG_Vec* pos,
+                            FG_Vec* dim, const char* caption, uint64_t flags)
 {
   if(!window)
     return -1;

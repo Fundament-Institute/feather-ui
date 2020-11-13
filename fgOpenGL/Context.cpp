@@ -5,6 +5,7 @@
 #include "linmath.h"
 #include "SOIL.h"
 #include "Font.h"
+#include "VAO.h"
 #include <algorithm>
 #include <assert.h>
 
@@ -14,7 +15,7 @@
 namespace GL {
   __KHASH_IMPL(tex, , const Asset*, GLuint, 1, kh_ptr_hash_func, kh_int_hash_equal);
   __KHASH_IMPL(shader, , const Shader*, GLuint, 1, kh_ptr_hash_func, kh_int_hash_equal);
-  __KHASH_IMPL(vao, , ShaderAsset, GLuint, 1, kh_pair_hash_func, kh_int_hash_equal);
+  __KHASH_IMPL(vao, , ShaderAsset, VAO*, 1, kh_pair_hash_func, kh_int_hash_equal);
   __KHASH_IMPL(font, , const Font*, uint64_t, 1, kh_ptr_hash_func, kh_int_hash_equal);
   __KHASH_IMPL(glyph, , uint32_t, char, 0, kh_int_hash_func2, kh_int_hash_equal);
 }
@@ -93,7 +94,7 @@ void Context::SetDim(const FG_Vec& dim)
 {
   // mat4x4_ortho(proj, 0, dim.x, dim.y, 0, -1, 1);
   Layer::mat4x4_proj(proj, 0, dim.x, dim.y, 0, Layer::NEARZ, Layer::FARZ);
-  //mat4x4_custom(lproj, 0, dim.x, 0, dim.y, 0.2, 100);
+  // mat4x4_custom(lproj, 0, dim.x, 0, dim.y, 0.2, 100);
 }
 
 void Context::Draw(const FG_Rect* area)
@@ -107,7 +108,7 @@ void Context::Draw(const FG_Rect* area)
     GLsizei w;
     GLsizei h;
     glfwGetFramebufferSize(_window, &w, &h);
-    msg.draw.area.right = w;
+    msg.draw.area.right  = w;
     msg.draw.area.bottom = h;
   }
 
@@ -168,7 +169,8 @@ void Context::PopClip()
     glDisable(GL_SCISSOR_TEST);
 }
 
-Layer* Context::CreateLayer(const FG_Vec* psize) {
+Layer* Context::CreateLayer(const FG_Vec* psize)
+{
   GLsizei w;
   GLsizei h;
   glfwGetFramebufferSize(_window, &w, &h);
@@ -180,7 +182,7 @@ int Context::PushLayer(Layer* layer, float* transform, float opacity, FG_BlendSt
 {
   if(!layer)
     return -1;
-  
+
   layer->Update(transform, opacity, blend, this);
   _layers.push_back(layer);
 
@@ -241,7 +243,9 @@ int Context::PopLayer()
 
   mat4x4 mvp;
   mat4x4_mul(mvp, GetProjection(), (vec4*)p->transform);
-  return _backend->DrawTextureQuad(this, p->data.index, v, FG_Color{ 0x00FFFFFF + ((unsigned int)roundf(0xFF * p->opacity) << 24) }, (float*)mvp, nullptr);
+  return _backend->DrawTextureQuad(this, p->data.index, v,
+                                   FG_Color{ 0x00FFFFFF + ((unsigned int)roundf(0xFF * p->opacity) << 24) }, (float*)mvp,
+                                   nullptr);
 }
 
 int Context::GetBytes(GLenum type)
@@ -300,52 +304,6 @@ GLuint Context::_genIndices(size_t num)
   return indices;
 }
 
-GLuint Context::_createVAO(GLuint shader, const FG_ShaderParameter* parameters, size_t n_parameters, GLuint buffer,
-                           size_t stride, GLuint indices)
-{
-  GLuint object;
-  glGenVertexArrays(1, &object);
-  _backend->LogError("glGenVertexArrays");
-  glBindVertexArray(object);
-  _backend->LogError("glBindVertexArray");
-  glBindBuffer(GL_ARRAY_BUFFER, buffer);
-  _backend->LogError("glBindBuffer");
-
-  if(indices)
-  {
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices);
-    _backend->LogError("glBindBuffer");
-  }
-
-  GLuint offset = 0;
-  for(size_t i = 0; i < n_parameters; ++i)
-  {
-    auto loc = glGetAttribLocation(shader, parameters[i].name);
-    _backend->LogError("glGetAttribLocation");
-    glEnableVertexAttribArray(loc);
-    _backend->LogError("glEnableVertexAttribArray");
-    size_t sz   = GetMultiCount(parameters[i].length, parameters[i].multi);
-    GLenum type = 0;
-    switch(parameters->type)
-    {
-    case FG_ShaderType_FLOAT: type = GL_FLOAT; break;
-    case FG_ShaderType_INT: type = GL_INT; break;
-    case FG_ShaderType_UINT: type = GL_UNSIGNED_INT; break;
-    }
-
-    glVertexAttribPointer(loc, sz, type, GL_FALSE, stride, (void*)offset);
-    offset += GetBytes(type) * sz;
-    _backend->LogError("glVertexAttribPointer");
-  }
-
-  glBindVertexArray(0);
-  _backend->LogError("glBindVertexArray");
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  _backend->LogError("glBindBuffer");
-  if(indices)
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-  return object;
-}
 void Context::CreateResources()
 {
   glEnable(GL_BLEND);
@@ -377,14 +335,14 @@ void Context::CreateResources()
   FG_ShaderParameter imgparams[2]  = { { FG_ShaderType_FLOAT, 4, 0, "vPosUV" }, { FG_ShaderType_FLOAT, 4, 0, "vColor" } };
 
   _quadbuffer = _createBuffer(sizeof(QuadVertex), 4, rect);
-  _quadobject = _createVAO(_rectshader, rectparams, 1, _quadbuffer, sizeof(QuadVertex), 0);
+  _quadobject = new VAO(_backend, _rectshader, rectparams, 1, _quadbuffer, sizeof(QuadVertex), 0);
 
   _imagebuffer  = _createBuffer(sizeof(ImageVertex), BATCH_BYTES / sizeof(ImageVertex), nullptr);
   _imageindices = _genIndices(BATCH_BYTES / sizeof(GLuint));
-  _imageobject  = _createVAO(_imageshader, imgparams, 2, _imagebuffer, sizeof(ImageVertex), _imageindices);
+  _imageobject  = new VAO(_backend, _imageshader, imgparams, 2, _imagebuffer, sizeof(ImageVertex), _imageindices);
 
   _linebuffer = _createBuffer(sizeof(FG_Vec), BATCH_BYTES / sizeof(FG_Vec), nullptr);
-  _lineobject = _createVAO(_lineshader, rectparams, 1, _linebuffer, sizeof(FG_Vec), 0);
+  _lineobject = new VAO(_backend, _lineshader, rectparams, 1, _linebuffer, sizeof(FG_Vec), 0);
 
   for(auto& l : _layers)
     l->Create();
@@ -464,7 +422,7 @@ GLuint Context::LoadShader(Shader* shader)
   return instance;
 }
 
-GLuint Context::LoadVAO(Shader* shader, Asset* asset)
+VAO* Context::LoadVAO(Shader* shader, Asset* asset)
 {
   GLuint instance = LoadShader(shader);
   GLuint buffer   = LoadAsset(asset);
@@ -472,12 +430,11 @@ GLuint Context::LoadVAO(Shader* shader, Asset* asset)
     return 0;
 
   ShaderAsset pair = { shader, asset };
-
-  khiter_t iter = kh_get_vao(_vaohash, pair);
+  khiter_t iter    = kh_get_vao(_vaohash, pair);
   if(iter < kh_end(_vaohash) && kh_exist(_vaohash, iter))
     return kh_val(_vaohash, iter);
 
-  GLuint object = _createVAO(instance, asset->parameters, asset->n_parameters, buffer, asset->stride, 0);
+  VAO* object = new VAO(_backend, instance, asset->parameters, asset->n_parameters, buffer, asset->stride, 0);
 
   int r;
   iter = kh_put_vao(_vaohash, pair, &r);
@@ -544,18 +501,16 @@ void Context::DestroyResources()
   _backend->_imageshader.Destroy(_backend, _trishader);
   _backend->_imageshader.Destroy(_backend, _lineshader);
 
-  glDeleteVertexArrays(1, &_quadobject);
+  delete _quadobject;
   _backend->LogError("glDeleteVertexArrays");
   glDeleteBuffers(1, &_quadbuffer);
   _backend->LogError("glDeleteBuffers");
-  glDeleteVertexArrays(1, &_imageobject);
-  _backend->LogError("glDeleteVertexArrays");
+  delete _imageobject;
   glDeleteBuffers(1, &_imagebuffer);
   _backend->LogError("glDeleteBuffers");
   glDeleteBuffers(1, &_imageindices);
   _backend->LogError("glDeleteBuffers");
-  glDeleteVertexArrays(1, &_lineobject);
-  _backend->LogError("glDeleteVertexArrays");
+  delete _lineobject;
   glDeleteBuffers(1, &_linebuffer);
   _backend->LogError("glDeleteBuffers");
 

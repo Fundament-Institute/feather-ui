@@ -43,9 +43,9 @@ namespace GL {
     static FG_Err DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
                            float border, FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z,
                            FG_BlendState* blend);
-    static FG_Err DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Vec angles, FG_Color fillColor,
-                             float border, FG_Color borderColor, float blur, float innerRadius, float innerBorder,
-                             FG_Asset* asset, float rotate, FG_BlendState* blend);
+    static FG_Err DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Vec angles, FG_Color fillColor, float border,
+                             FG_Color borderColor, float blur, float innerRadius, float innerBorder, FG_Asset* asset,
+                             float rotate, FG_BlendState* blend);
     static FG_Err DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
                                float border, FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z,
                                FG_BlendState* blend);
@@ -91,8 +91,8 @@ namespace GL {
     static FG_Err GetDisplayWindow(FG_Backend* self, void* window, FG_Display* out);
     static void* CreateWindowGL(FG_Backend* self, FG_MsgReceiver* element, void* display, FG_Vec* pos, FG_Vec* dim,
                                 const char* caption, uint64_t flags, void* context);
-    static FG_Err SetWindowGL(FG_Backend* self, void* window, FG_MsgReceiver* element, void* display, FG_Vec* pos, FG_Vec* dim,
-                              const char* caption, uint64_t flags);
+    static FG_Err SetWindowGL(FG_Backend* self, void* window, FG_MsgReceiver* element, void* display, FG_Vec* pos,
+                              FG_Vec* dim, const char* caption, uint64_t flags);
     static FG_Err DestroyWindow(FG_Backend* self, void* window);
     static FG_Err BeginDraw(FG_Backend* self, void* window, FG_Rect* area);
     static FG_Err EndDraw(FG_Backend* self, void* window);
@@ -138,13 +138,13 @@ namespace GL {
       v[2].posUV[1] = area.bottom;
       v[2].posUV[2] = uv.left / x;
       v[2].posUV[3] = uv.bottom / y;
-      
+
       v[3].posUV[0] = area.right;
       v[3].posUV[1] = area.bottom;
       v[3].posUV[2] = uv.right / x;
       v[3].posUV[3] = uv.bottom / y;
     }
-    void _drawStandard(GLuint shader, GLuint vao, float (&proj)[4][4], const FG_Rect& area, const FG_Rect& corners,
+    void _drawStandard(GLuint shader, VAO* vao, float (&proj)[4][4], const FG_Rect& area, const FG_Rect& corners,
                        FG_Color fillColor, float border, FG_Color borderColor, float blur, float rotate, float z);
     static void _flushbatchdraw(Backend* backend, Context* context, Font* font);
 
