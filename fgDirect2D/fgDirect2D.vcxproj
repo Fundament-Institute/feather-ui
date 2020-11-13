@@ -495,31 +495,11 @@ xcopy "$(TargetDir)$(TargetName).pdb" "$(VcpkgRoot)debug\bin" /c /y /q /i</Comma
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Alloc.h" />
-    <ClInclude Include="Circle.h" />
-    <ClInclude Include="CompactArray.h" />
-    <ClInclude Include="compiler.h" />
-    <ClInclude Include="khash.h" />
-    <ClInclude Include="Window.h" />
-    <ClInclude Include="BackendD2D.h" />
-    <ClInclude Include="EffectBase.h" />
-    <ClInclude Include="Modulation.h" />
-    <ClInclude Include="ImageEffectBase.h" />
-    <ClInclude Include="RoundRect.h" />
-    <ClInclude Include="Triangle.h" />
-    <ClInclude Include="util.h" />
-    <ClInclude Include="win32_includes.h" />
+    <ClInclude Include="*.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Circle.cpp" />
-    <ClCompile Include="util.cpp" />
-    <ClCompile Include="Window.cpp" />
-    <ClCompile Include="BackendD2D.cpp" />
-    <ClCompile Include="EffectBase.cpp" />
-    <ClCompile Include="Modulation.cpp" />
-    <ClCompile Include="ImageEffectBase.cpp" />
-    <ClCompile Include="RoundRect.cpp" />
-    <ClCompile Include="Triangle.cpp" />
+    <ClCompile Include="*.cpp" />
+    <ClCompile Include="*.c" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="fgDirect2D.rc" />

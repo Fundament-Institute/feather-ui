@@ -375,27 +375,11 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="Asset.h" />
-    <ClInclude Include="BackendGL.h" />
-    <ClInclude Include="compiler.h" />
-    <ClInclude Include="Context.h" />
-    <ClInclude Include="Font.h" />
-    <ClInclude Include="glad\gl.h" />
-    <ClInclude Include="Layer.h" />
-    <ClInclude Include="platform.h" />
-    <ClInclude Include="Shader.h" />
-    <ClInclude Include="utf.h" />
-    <ClInclude Include="Window.h" />
+    <ClInclude Include="*.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="BackendGL.cpp" />
-    <ClCompile Include="Context.cpp" />
-    <ClCompile Include="Font.cpp" />
-    <ClCompile Include="glad_gl.c" />
-    <ClCompile Include="Layer.cpp" />
-    <ClCompile Include="Shader.cpp" />
-    <ClCompile Include="utf.cpp" />
-    <ClCompile Include="Window.cpp" />
+    <ClCompile Include="*.cpp" />
+    <ClCompile Include="*.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
