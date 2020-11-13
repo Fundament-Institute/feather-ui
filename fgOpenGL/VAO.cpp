@@ -131,10 +131,10 @@ void VAO::Unbind()
 
   if(_indexBuffer != 0)
   {
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _indexBuffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     _backend->LogError("glBindBuffer");
   }
-  glBindBuffer(GL_ARRAY_BUFFER, _vertexBuffer);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
   _backend->LogError("glBindBuffer");
 }
 #endif
