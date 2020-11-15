@@ -76,6 +76,7 @@ local function virtual_staticinitialize(class)
   class.methods.virtual = virtual_invoke
 end
 
+-- You must MANUALLY initialize vftable by assigning it to .virtual_initializer
 function M.virtualize(class)
   table.insert(class.entries, 1, {field = "vftable", type = &&opaque})
   class.metamethods.__staticinitialize = virtual_staticinitialize

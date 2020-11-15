@@ -497,7 +497,7 @@ terra TestHarness:vec()
   self:Test(a, b)
 end
 
---[[do
+do
   local primitives = List{int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, bool, function() end,
     float, double, tuple(), tuple(int, float), int32[8], vector(float, 4), "string", 3.14, {}, {"fake"}, `6, `3.2,
     &float, &&float }
@@ -813,7 +813,7 @@ terra TestHarness:rtree()
   self:Test(TestRayBoxIntersect(F.Vec3D{array(9.9f, 9.9f, 1f)}, F.Vec3D{array(0f, 0f, -1f)}, F.Vec3D{array(10f, 10f, 0f)}), 1f)
   self:Test(TestRayBoxIntersect(F.Vec3D{array(10.1f, 9.9f, 1f)}, F.Vec3D{array(0f, 0f, -1f)}, F.Vec3D{array(10f, 10f, 0f)}), -1f)
   self:Test(TestRayBoxIntersect(F.Vec3D{array(10.1f, 10.1f, 1f)}, F.Vec3D{array(0f, 0f, -1f)}, F.Vec3D{array(10f, 10f, 0f)}), -1f)
-end]]
+end
 
 local SUBTESTLEN = 11
 

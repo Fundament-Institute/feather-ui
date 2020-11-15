@@ -100,7 +100,6 @@ void Context::SetDim(const FG_Vec& dim)
 void Context::Draw(const FG_Rect* area)
 {
   FG_Msg msg    = { FG_Kind_DRAW };
-  msg.draw.data = this;
   if(area)
     msg.draw.area = *area;
   else

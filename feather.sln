@@ -18,6 +18,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cpptest", "cpptest\cpptest.
 		{2DACCFB1-7863-4451-91A7-B4BB844C7746} = {2DACCFB1-7863-4451-91A7-B4BB844C7746}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ui_test", "tests\ui_test.vcxproj", "{8E4E1953-48F3-4BFC-95B6-961B73BB641C}"
+	ProjectSection(ProjectDependencies) = postProject
+		{2DACCFB1-7863-4451-91A7-B4BB844C7746} = {2DACCFB1-7863-4451-91A7-B4BB844C7746}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -94,6 +99,22 @@ Global
 		{0D9EFFFC-2418-43F7-A4DE-C8C2AA472BD2}.Release-Static|x64.Build.0 = Release Static|x64
 		{0D9EFFFC-2418-43F7-A4DE-C8C2AA472BD2}.Release-Static|x86.ActiveCfg = Release|Win32
 		{0D9EFFFC-2418-43F7-A4DE-C8C2AA472BD2}.Release-Static|x86.Build.0 = Release|Win32
+		{8E4E1953-48F3-4BFC-95B6-961B73BB641C}.Debug|x64.ActiveCfg = Debug|x64
+		{8E4E1953-48F3-4BFC-95B6-961B73BB641C}.Debug|x64.Build.0 = Debug|x64
+		{8E4E1953-48F3-4BFC-95B6-961B73BB641C}.Debug|x86.ActiveCfg = Debug|Win32
+		{8E4E1953-48F3-4BFC-95B6-961B73BB641C}.Debug|x86.Build.0 = Debug|Win32
+		{8E4E1953-48F3-4BFC-95B6-961B73BB641C}.Debug-Static|x64.ActiveCfg = Debug|x64
+		{8E4E1953-48F3-4BFC-95B6-961B73BB641C}.Debug-Static|x64.Build.0 = Debug|x64
+		{8E4E1953-48F3-4BFC-95B6-961B73BB641C}.Debug-Static|x86.ActiveCfg = Debug|Win32
+		{8E4E1953-48F3-4BFC-95B6-961B73BB641C}.Debug-Static|x86.Build.0 = Debug|Win32
+		{8E4E1953-48F3-4BFC-95B6-961B73BB641C}.Release|x64.ActiveCfg = Release|x64
+		{8E4E1953-48F3-4BFC-95B6-961B73BB641C}.Release|x64.Build.0 = Release|x64
+		{8E4E1953-48F3-4BFC-95B6-961B73BB641C}.Release|x86.ActiveCfg = Release|Win32
+		{8E4E1953-48F3-4BFC-95B6-961B73BB641C}.Release|x86.Build.0 = Release|Win32
+		{8E4E1953-48F3-4BFC-95B6-961B73BB641C}.Release-Static|x64.ActiveCfg = Release|x64
+		{8E4E1953-48F3-4BFC-95B6-961B73BB641C}.Release-Static|x64.Build.0 = Release|x64
+		{8E4E1953-48F3-4BFC-95B6-961B73BB641C}.Release-Static|x86.ActiveCfg = Release|Win32
+		{8E4E1953-48F3-4BFC-95B6-961B73BB641C}.Release-Static|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

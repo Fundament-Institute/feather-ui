@@ -257,7 +257,7 @@ local RTree = Util.type_template(function(A)
         if n.planar then
           dir.x = 0f
           dir.y = 0f
-          dir = dir:norm()
+          dir = dir:normalize()
         end
 
         -- 2D nodes are sorted from highest to lowest z-index, regardless of any 3D rotation that was applied
@@ -340,7 +340,7 @@ local RTree = Util.type_template(function(A)
     return terra(self : S, pos : P, dir : V, data : D, fn : FN) : bool
       var cur = self.root
       while cur ~= nil do
-        var v = dir:norm()
+        var v = dir:normalize()
         var p = pos
         TransformRay(cur, &p, &v)
         return recurse(cur, p, v, data, fn)

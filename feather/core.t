@@ -88,11 +88,11 @@ M.body = setmetatable({
     end
                       }, outline_mt)
 
-local function make_body(body)
+local function make_body(rawbody)
   local function generate(context, type_environment)
     local elements = {}
     local types = {}
-    for i, b in ipairs(body) do
+    for i, b in ipairs(rawbody) do
       elements[i], types[i] = b:generate(context, type_environment)
     end
 
@@ -149,12 +149,12 @@ function template_mt:__call(desc)
     end
     outline.args[name] = desc[name] ~= nil and expression_parse(desc[name]) or self.params.defaults[name]
   end
-  if self.params.body then
-    local body = {n = #desc}
+  if self.params.has_body then
+    local rawbody = {n = #desc}
     for i = 1, #desc do
-      body[i] = desc[i]
+      rawbody[i] = desc[i]
     end
-    outline.body = make_body(body)
+    outline.body = make_body(rawbody)
   elseif desc[1] then
     error "attempted to pass a body to a template which doesn't accept one"
   end
@@ -224,11 +224,11 @@ end
 
 -- parse an argument declaration table into a usable specification
 local function parse_params(desc)
-  local res = {required = {}, defaults = {}, names = {}, body = false}
+  local res = {required = {}, defaults = {}, names = {}, has_body = false}
   for k, v in pairs(desc) do
     if type(k) ~= "string" then
       if k == 1 and v == M.body then
-        res.body = true
+        res.has_body = true
       else
         error("invalid argument specifier provided to declaration", 2)
       end
@@ -288,7 +288,6 @@ function M.basic_template(params)
       if params_abbrev.body then
         body_fns, body_type = type_environment[M.body](context, type_environment)
       end
-
 
       return {
         enter = function(self, context, environment)
@@ -375,11 +374,11 @@ function M.template(params)
     local function generate(self, context, type_environment)
       local defn_body_fns, defn_body_type = defn_body(context, type_environment)
 
-      local typ = terralib.types.newstruct("template_store")
+      local element = terralib.types.newstruct("template_store")
       for i, name in ipairs(params.names) do
-        typ.entries[i] = {field = name, type = type_environment[name]}
+        element.entries[i] = {field = name, type = type_environment[name]}
       end
-      Virtual.extends(Msg.Receiver)(typ)
+      Virtual.extends(Msg.Receiver)(element)
 
       local function unpack_store(store)
         local res = {}
@@ -412,7 +411,7 @@ function M.template(params)
         render = function(self, context)
           return defn_body_fns.render(`self._1, context)
         end
-      }
+      }, element
     end
 
     local self = {
@@ -428,8 +427,8 @@ function M.let(bindings)
   for k, v in pairs(bindings) do
     exprs[k] = expression_parse(v)
   end
-  return function(body)
-    local body = make_body(body)
+  return function(rawbody)
+    local body = make_body(rawbody)
     local function generate(self, context, type_environment)
       local texprs = {}
       for k, v in pairs(exprs) do
@@ -485,9 +484,12 @@ function M.let(bindings)
   end
 end
 
+terra window_behavior(r : &Msg.Receiver, w: &opaque, _ui: &opaque, m: Msg.Message) : Msg.Result
+
+end
 
 function M.ui(desc)
-  local body = make_body(desc)
+  local body_gen = make_body(desc)
 
   local type_environment = {}
   local query_names = {}
@@ -514,22 +516,29 @@ function M.ui(desc)
 
   type_environment.app = application_type
 
+  local struct ui_base {
+    allocator: allocator_type
+    application: application_type
+    queries: query_binding
+    backend: backend_type
+  }
+
   local type_context = {
+    ui = ui_base,
     rtree = rtree_type,
     rtree_node = &rtree_type.Node,
     allocator = allocator_type,
     backend = backend_type
   }
 
-  local body_fns, body_type = body(type_context, type_environment)
+  local body_fns, body_type = body_gen(type_context, type_environment)
 
   local struct ui {
-    data: body_type
-    rtree: rtree_type
     allocator: allocator_type
     application: application_type
     queries: query_binding
     backend: backend_type
+    data: body_type
                   }
 
   ui.query_store = query_binding
@@ -537,10 +546,6 @@ function M.ui(desc)
   -- terralib.printraw(ui)
 
   terra ui:init(application: application_type, queries: query_binding, backend: backend_type)
-    self.rtree:init()
-    var zero = [shared.Vec3D] {array(0.0f, 0.0f, 0.0f)}
-    var zindex = [shared.Veci] {array(0, 0)}
-    self.rtree:create(nil, &zero, &zero, &zero, &zindex)
     self.allocator = alloc.default_allocator
     self.application = application
     --[[escape
@@ -553,14 +558,11 @@ function M.ui(desc)
   end
 
   terra ui:destruct()
-    self.rtree:destruct()
+    
   end
 
   local function make_context(self)
     return {
-      rtree = `self.rtree,
-      rtree_node = `self.rtree.root,
-      allocator = `self.rtree.allocator,
       backend = `self.backend
     }
   end
@@ -603,10 +605,14 @@ function M.ui(desc)
     [body_fns.render(`self.data, make_context(self))]
   end
 
-  terra ui:behavior(w: &opaque, _ui: &opaque, m: Msg.Message)
-    if m.kind.val == [Msg.Receiver.virtualinfo.info["Draw"].index] then
-      [&ui](_ui):render()
+  terra ui.methods.behavior(r : &Msg.Receiver, w: &opaque, ui: &opaque, m: &Msg.Message) : Msg.Result
+    switch [int32](m.kind.val) do
+      case [Msg.Receiver.virtualinfo.info["Draw"].index] then
+        return Msg.DefaultBehavior(r, w, ui, m)
+      end
     end
+
+    return Msg.DefaultBehavior(r, w, ui, m)
   end
 
   return ui

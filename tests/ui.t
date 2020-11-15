@@ -26,6 +26,23 @@ local ui = f.ui {
       ext = function(env) return `[f.Vec3D]{array(20f, 20f, 0f)} end,
       color = function(env) return `[f.Color]{0xffffffff} end
     }
+  },
+  f.window {
+    f.rect {
+      pos = function(env) return `[env.app].pos end,
+      ext = function(env) return `[f.Vec3D]{array(20f, 20f, 0f)} end,
+      color = function(env) return `[f.Color]{0xffffffff} end
+    },
+    f.triangle {
+      pos = function(env) return `[env.app].pos + [f.Vec3D]{array(50f, 50f, 0f)} end,
+      ext = function(env) return `[f.Vec3D]{array(20f, 20f, 0f)} end,
+      color = function(env) return `[f.Color]{0xffffffff} end
+    },
+    f.circle {
+      pos = function(env) return `[env.app].pos + [f.Vec3D]{array(50f, 0f, 0f)} end,
+      ext = function(env) return `[f.Vec3D]{array(20f, 20f, 0f)} end,
+      color = function(env) return `[f.Color]{0xffffffff} end
+    }
   }
 }
 
@@ -60,7 +77,6 @@ local terra run_app(dllpath: rawstring)
   while b:ProcessMessages() ~= 0 do
     u:update()
     b:DirtyRect(u.data._0.window, nil)
-    -- u:render()
   end
   u:exit()
 
@@ -77,7 +93,14 @@ print(ui.methods.render)
 
 
 local targetname = "ui_test"
-local clangargs = { "-g" }
+local clangargs = { }
+
+for i,v in ipairs(arg) do
+  if v == "-debug" or v == "-g" then
+    targetname = targetname .. "_d"
+    table.insert(clangargs, "-g")
+  end
+end
 
 if jit.os == "Windows" then
   targetname = "bin-"..jit.arch.."/".. targetname .. ".exe"
