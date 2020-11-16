@@ -5,6 +5,7 @@ local backend = require 'feather.backend'
 local override = require 'feather.util'.override
 local Msg = require 'feather.message'
 local Virtual = require 'feather.virtual'
+local C = terralib.includecstring [[#include <stdio.h>]]
 
 local M = {}
 
@@ -484,10 +485,6 @@ function M.let(bindings)
   end
 end
 
-terra window_behavior(r : &Msg.Receiver, w: &opaque, _ui: &opaque, m: Msg.Message) : Msg.Result
-
-end
-
 function M.ui(desc)
   local body_gen = make_body(desc)
 
@@ -606,13 +603,12 @@ function M.ui(desc)
   end
 
   terra ui.methods.behavior(r : &Msg.Receiver, w: &opaque, ui: &opaque, m: &Msg.Message) : Msg.Result
-    switch [int32](m.kind.val) do
-      case [Msg.Receiver.virtualinfo.info["Draw"].index] then
-        return Msg.DefaultBehavior(r, w, ui, m)
-      end
-    end
 
-    return Msg.DefaultBehavior(r, w, ui, m)
+    if r ~= nil then 
+      return Msg.DefaultBehavior(r, w, ui, m)
+    end
+    -- handle global events here (like global key hooks)
+    return Msg.Result{-1}
   end
 
   return ui

@@ -886,7 +886,7 @@ FG_Err Backend::ProcessMessages(FG_Backend* self)
 
   // TODO: Process all joystick events
 
-  return 1; // GLFW eats WM_QUIT and just closes all windows, so the application will have to detect this
+  return backend->_windows != nullptr;
 }
 
 FG_Err Backend::SetCursorGL(FG_Backend* self, void* window, FG_Cursor cursor)

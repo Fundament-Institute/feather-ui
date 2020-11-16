@@ -77,6 +77,7 @@ local terra run_app(dllpath: rawstring)
   while b:ProcessMessages() ~= 0 do
     u:update()
     b:DirtyRect(u.data._0.window, nil)
+    b:DirtyRect(u.data._1.window, nil)
   end
   u:exit()
 
@@ -99,6 +100,9 @@ for i,v in ipairs(arg) do
   if v == "-debug" or v == "-g" then
     targetname = targetname .. "_d"
     table.insert(clangargs, "-g")
+    if jit.os == "Windows" then
+      table.insert(clangargs, "/DEBUG")
+    end
   end
 end
 

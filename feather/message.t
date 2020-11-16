@@ -28,7 +28,7 @@ terra M.Receiver:JoyOrientation(ui : &opaque, index : uint16, velocity : F.Vec3D
 terra M.Receiver:SetWindowFlags(ui : &opaque, flags : uint) : F.Err return -1 end
 terra M.Receiver:SetWindowRect(ui : &opaque, rect : F.Rect) : F.Err return -1 end
 terra M.Receiver:GetWindowFlags(ui : &opaque) : uint return -1 end
-terra M.Receiver:Action(ui : &opaque) : F.Err return -1 end
+terra M.Receiver:Action(ui : &opaque, subkind : int) : F.Err return -1 end
 terra M.Receiver:GotFocus(ui : &opaque) : F.Err return -1 end
 terra M.Receiver:LostFocus(ui : &opaque) : F.Err return -1 end
 terra M.Receiver:Drop(ui : &opaque, kind : int, target : &opaque, count : uint) : &opaque return nil end
@@ -38,7 +38,6 @@ M.Receiver:complete()
 
 struct M.Message {
   kind : M.Idx
-  subkind : M.Idx
   union {}
 }
 M.Message.typelist = {}
@@ -59,7 +58,7 @@ for k, v in pairs(M.Receiver.virtualinfo.info) do
     s.entries = f.definition.parameters:map(function(e) return {field = e.symbol.displayname, type = e.symbol.type} end)
     table.remove(s.entries, 1) -- Remove self
     table.remove(s.entries, 1) -- Remove ui pointer
-    M.Message.entries[3]:insert({field = k, type = s})
+    M.Message.entries[2]:insert({field = k, type = s})
     M.Message.typelist[v.index] = {field = k, type = s}
     M.Result.entries[1]:insert({field = k, type = f.type.returntype})
     M.Result.typelist[v.index] = f.type.returntype

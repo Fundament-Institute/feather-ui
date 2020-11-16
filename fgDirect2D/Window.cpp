@@ -181,7 +181,9 @@ longptr_t __stdcall Window::WndProc(HWND__* hWnd, unsigned int message, size_t w
       msg.setWindowFlags.flags = self->backend->Behavior(self, FG_Msg{ FG_Kind_GETWINDOWFLAGS }).getWindowFlags |
                                  FG_Window_CLOSED;
       self->backend->Behavior(self, msg);
-      self->backend->Behavior(self, FG_Msg{ FG_Kind_ACTION, 1 }); // FG_WINDOW_ONCLOSE
+      FG_Msg action  = FG_Msg{ FG_Kind_ACTION };
+      action.action.subkind = 1; // FG_WINDOW_ONCLOSE
+      self->backend->Behavior(self, action);
       delete self;
       return 1;
     }
