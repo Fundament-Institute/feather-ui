@@ -4,8 +4,16 @@ local override = require 'feather.util'.override
 local messages = require 'feather.messages'
 local Msg = require 'feather.message'
 local Virtual = require 'feather.virtual'
-local C = terralib.includecstring [[#include <stdio.h>]]
 
+local gen_window_node = terralib.memoize(function(body_type, rtree_node, window_base)
+  local struct window_node(Virtual.extends(window_base)) {
+    window: &opaque
+    body: body_type
+    node : rtree_node
+  }
+  return window_node
+  end)
+  
 return core.raw_template {
   core.body
 } (
@@ -41,22 +49,23 @@ return core.raw_template {
     local fn_table = {
       enter = function(self, context, environment)
         return quote
-          self.super.vftable = [self:gettype()].virtual_initializer
-            var pos = F.Vec{array(0f, 0f)}
+          self.vftable = [self:gettype()].virtual_initializer
+          var pos = F.Vec{array(0f, 0f)}
           var size = F.Vec{array(800f, 600f)}
           var transform = core.transform.identity()
           var zero = [F.Vec3D] {array(0.0f, 0.0f, 0.0f)}
           var zindex = [F.Veci] {array(0, 0)}
           self.rtree:init()
-          self.rtree:create(nil, &zero, &zero, &zero, &zindex)
-          self.window = [context.backend]:CreateWindow(&self.super, nil, &pos, &size, "feather window", messages.Window.RESIZABLE, nil)
-          ;[body_fns.enter(`self.body, override_context(self, context), environment)]
+          self.node = self.rtree:create(nil, &zero, &zero, &zero, &zindex)
+          self.node.data = &self.super.super
+          self.window = [context.backend]:CreateWindow(self.node.data, nil, &pos, &size, "feather window", messages.Window.RESIZABLE, nil)
+          [body_fns.enter(`self.body, override_context(self, context), environment)]
         end
       end,
       update = function(self, context, environment)
         return quote
             var transform = core.transform.identity()
-            [body_fns.enter(`self.body, override_context(self, context), environment)]
+            [body_fns.update(`self.body, override_context(self, context), environment)]
           end
       end,
       exit = function(self, context)
@@ -78,12 +87,8 @@ return core.raw_template {
       end
     }
 
-    local struct window_node(Virtual.extends(Msg.Receiver)) {
-      window: &opaque
-      body: body_type
-      rtree: rtree_type
-    }
-
+    local window_node = gen_window_node(body_type, context.rtree_node, context.window_base)
+    
     terra window_node:Draw(ui : &opaque) : F.Err
       [body_fns.render(`self.body, make_context(self, `[&context.ui](ui)))]
       return 0
@@ -96,6 +101,21 @@ return core.raw_template {
         end
       end
     end
+  
+    -- Everything rejects messages by default, but a standard window has to consume mouse events by default
+    terra window_node:MouseDown(ui : &opaque, x : float, y : float, all : uint8, modkeys : uint8, button : uint8) : F.Err return 0 end
+    terra window_node:MouseDblClick(ui : &opaque, x : float, y : float, all : uint8, modkeys : uint8, button : uint8) : F.Err return 0 end
+    terra window_node:MouseUp(ui : &opaque, x : float, y : float, all : uint8, modkeys : uint8, button : uint8) : F.Err return 0 end
+    terra window_node:MouseOn(ui : &opaque, x : float, y : float, all : uint8, modkeys : uint8) : F.Err return 0 end
+    terra window_node:MouseOff(ui : &opaque, x : float, y : float, all : uint8, modkeys : uint8) : F.Err return 0 end
+    terra window_node:MouseMove(ui : &opaque, x : float, y : float, all : uint8, modkeys : uint8) : F.Err return 0 end
+    terra window_node:MouseScroll(ui : &opaque, x : float, y : float, delta : float, hdelta : float) : F.Err return 0 end
+    terra window_node:TouchBegin(ui : &opaque, x : float, y : float, z : float, r : float, pressure : float, index : uint16, flags : uint8, modkeys : uint8) : F.Err return 0 end
+    terra window_node:TouchMove(ui : &opaque, x : float, y : float, z : float, r : float, pressure : float, index : uint16, flags : uint8, modkeys : uint8) : F.Err return 0 end
+    terra window_node:TouchEnd(ui : &opaque, x : float, y : float, z : float, r : float, pressure : float, index : uint16, flags : uint8, modkeys : uint8) : F.Err return 0 end
+    terra window_node:KeyUp(ui : &opaque, key : uint8, modkeys : uint8, scancode : uint16) : F.Err return 0 end
+    terra window_node:KeyDown(ui : &opaque, key : uint8, modkeys : uint8, scancode : uint16) : F.Err return 0 end
+    terra window_node:KeyChar(ui : &opaque, unicode : int32, modkeys : uint8) : F.Err return 0 end
 
     return fn_table, window_node
   end

@@ -100,4 +100,8 @@ end
 
 function S.camelCase(k) return string.lower(k:sub(1,1)) .. k:sub(2, -1) end
 
+-- Accepts any number of arguments and always returns -1
+struct S.EmptyCallable {}
+S.EmptyCallable.metamethods.__apply = macro(function(...) return `-1 end)
+
 return S

@@ -25,7 +25,11 @@ local ui = f.ui {
       pos = function(env) return `[env.app].pos + [f.Vec3D]{array(50f, 0f, 0f)} end,
       ext = function(env) return `[f.Vec3D]{array(20f, 20f, 0f)} end,
       color = function(env) return `[f.Color]{0xffffffff} end
-    }
+    },
+    f.mousearea {
+      pos = function(env) return `[env.app].pos + [f.Vec3D]{array(100f, 100f, 0f)} end,
+      ext = function(env) return `[f.Vec3D]{array(20f, 20f, 0f)} end
+    },
   },
   f.window {
     f.rect {
@@ -88,10 +92,6 @@ end
 local terra main(argc: int, argv: &rawstring)
   run_app(argv[1])
 end
-
-print(ui.methods.enter)
-print(ui.methods.render)
-
 
 local targetname = "ui_test"
 local clangargs = { }

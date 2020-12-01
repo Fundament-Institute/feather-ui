@@ -7,13 +7,14 @@ local Math = require 'std.math'
 local Util = require 'feather.util'
 local C = require 'feather.libc'
 local LL = require 'std.ll'
+local Msg = require 'feather.message'
 
 local struct Node {
   pos : F.Vec3D
   extent : F.Vec3D
   rot : F.Vec3D
   zindex : F.Veci
-  data : &opaque
+  data : &Msg.Receiver
   next : &Node -- next sibling
   prev : &Node
   children : &Node -- first child
@@ -214,10 +215,6 @@ local RTree = Util.type_template(function(A)
         self:sort(node, cur)
       end
     end
-  end
-
-  terra rtree:setdata(node : &Node, data : &opaque) : {}
-    node.data = data
   end
 
   terra rtree:setparent(node : &Node, parent : &Node) : {}

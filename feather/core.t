@@ -1,4 +1,4 @@
-local shared = require 'feather.shared'
+local F = require 'feather.shared'
 local alloc = require 'std.alloc'
 local rtree = require 'feather.rtree'
 local backend = require 'feather.backend'
@@ -8,8 +8,6 @@ local Virtual = require 'feather.virtual'
 local C = terralib.includecstring [[#include <stdio.h>]]
 
 local M = {}
-
-
 local shadow_parent = {}
 local shadow_mt = {
   __index = function(self, key)
@@ -51,7 +49,7 @@ end
 
   --Simple translation for now
 struct M.transform {
-  r: shared.Vec3D
+  r: F.Vec3D
                    }
 terra M.transform:compose(other: &M.transform)
   return M.transform{self.r + other.r}
@@ -60,7 +58,7 @@ terra M.transform:invert()
   return M.transform{-self.r}
 end
 terra M.transform.methods.identity()
-  return M.transform{shared.Vec3D{array(0.0f, 0.0f, 0.0f)}}
+  return M.transform{F.Vec3D{array(0.0f, 0.0f, 0.0f)}}
 end
 
 local template_mt = {}
@@ -263,7 +261,7 @@ function M.basic_template(params)
   table.insert(params_full.names, "pos")
   table.insert(params_full.names, "ext")
   table.insert(params_full.names, "rot")
-  local zerovec = constant_expression(`[shared.Vec3D]{array(0.0f, 0.0f, 0.0f)})
+  local zerovec = constant_expression(`[F.Vec3D]{array(0.0f, 0.0f, 0.0f)})
   params_full.defaults.pos = zerovec
   params_full.defaults.ext = zerovec
   params_full.defaults.rot = zerovec
@@ -274,9 +272,9 @@ function M.basic_template(params)
       for i, name in ipairs(params_abbrev.names) do
         typ.entries[i] = {field = name, type = type_environment[name]}
       end
-      typ.entries:insert{field = "_node", type = context.rtree_node}
       Virtual.extends(Msg.Receiver)(typ)
-
+      typ:complete()
+      
       local function unpack_store(store)
         local res = {}
         for i, name in ipairs(params_abbrev.names) do
@@ -298,23 +296,26 @@ function M.basic_template(params)
                 emit quote self._0.[name] = [environment[name] ] end
               end
             end
+
+            self._0.vftable = [self:gettype().entries[1][2]].virtual_initializer
             var pos = [environment.pos]
             var ext = [environment.ext]
             var rot = [environment.rot]
-            var z_index = [shared.Veci]{array(0, 0)}
-            self._0._node = [context.rtree]:create([context.rtree_node], &pos, &ext, &rot, &z_index)
-            var local_transform = M.transform{self._0._node.pos}
+            var z_index = [F.Veci]{array(0, 0)}
+            self._2 = [context.rtree]:create([context.rtree_node], &pos, &ext, &rot, &z_index)
+            self._2.data = [&Msg.Receiver](&self._0)
+            var local_transform = M.transform{self._2.pos}
             var transform = [context.transform]:compose(&local_transform)
             escape
               if params_abbrev.body then
                 emit(body_fns.enter(
                        `self._1,
-                       override(context, {rtree_node = `self._0._node, transform = `transform}),
+                       override(context, {rtree_node = `self._2, transform = `transform}),
                        override(environment, unpack_store(`self._0))
                 ))
               end
             end
-                 end
+          end
         end,
         update = function(self, context, environment)
           return quote
@@ -323,40 +324,40 @@ function M.basic_template(params)
                 emit quote self._0.[name] = [environment[name] ] end
               end
             end
-            self._0._node.pos = [environment.pos]
-            self._0._node.extent = [environment.ext]
-            self._0._node.rot = [environment.rot]
-            var local_transform = M.transform{self._0._node.pos}
+            self._2.pos = [environment.pos]
+            self._2.extent = [environment.ext]
+            self._2.rot = [environment.rot]
+            var local_transform = M.transform{self._2.pos}
             var transform = [context.transform]:compose(&local_transform)
             escape
               if params_abbrev.body then
                 emit(body_fns.update(
                        `self._1,
-                       override(context, {rtree_node = `self._0._node, transform = `transform}),
+                       override(context, {rtree_node = `self._2, transform = `transform}),
                        override(environment, unpack_store(`self._0))
                 ))
               end
             end
-                 end
+          end
         end,
         exit = function(self, context)
           return quote
             escape
               if params_abbrev.body then
-                emit(body_fns.exit(`self._1, override(context, {rtree_node = `self._0._node})))
+                emit(body_fns.exit(`self._1, override(context, {rtree_node = `self._2})))
               end
             end
-            [context.rtree]:destroy(self._0._node)
-                 end
+            [context.rtree]:destroy(self._2)
+          end
         end,
         render = function(self, context)
           return quote
-            var local_transform = M.transform{self._0._node.pos}
+            var local_transform = M.transform{self._2.pos}
             var transform = [context.transform]:compose(&local_transform)
-            [render(override(context, {transform = `transform, rtree_node = `self._0._node}), unpack_store(`self._0))]
-                 end
+            [render(override(context, {transform = `transform, rtree_node = `self._2}), unpack_store(`self._0))]
+          end
         end
-      }, tuple(typ, body_type or terralib.types.unit)
+      }, tuple(typ, body_type or terralib.types.unit, context.rtree_node)
     end
 
     local self = {
@@ -520,8 +521,14 @@ function M.ui(desc)
     backend: backend_type
   }
 
+  local struct window_base(Virtual.extends(Msg.Receiver)) {
+    rtree: rtree_type
+  }
+  window_base:complete()
+
   local type_context = {
     ui = ui_base,
+    window_base = window_base,
     rtree = rtree_type,
     rtree_node = &rtree_type.Node,
     allocator = allocator_type,
@@ -602,11 +609,44 @@ function M.ui(desc)
     [body_fns.render(`self.data, make_context(self))]
   end
 
-  terra ui.methods.behavior(r : &Msg.Receiver, w: &opaque, ui: &opaque, m: &Msg.Message) : Msg.Result
+  local struct BehaviorParamPack {
+    w: &opaque
+    ui: &opaque
+    m: &Msg.Message
+  }
 
+  local terra mousequery(n : &rtree_type.Node, p : &F.Vec3D, r : &F.Vec3D, params : BehaviorParamPack) : bool 
+    if n.data ~= nil then
+      return Msg.DefaultBehavior([&Msg.Receiver](n.data), params.w, params.ui, params.m).mouseMove >= 0
+    end
+    return false
+  end
+
+  terra ui.methods.behavior(r : &Msg.Receiver, w: &opaque, ui: &opaque, m: &Msg.Message) : Msg.Result
     if r ~= nil then 
+      switch [int32](m.kind.val) do
+        case [Msg.Receiver.virtualinfo.info["MouseDown"].index] then
+          goto MouseEvent
+        case [Msg.Receiver.virtualinfo.info["MouseDblClick"].index] then
+          goto MouseEvent
+        case [Msg.Receiver.virtualinfo.info["MouseUp"].index] then
+          goto MouseEvent
+        case [Msg.Receiver.virtualinfo.info["MouseOn"].index] then
+          goto MouseEvent
+        case [Msg.Receiver.virtualinfo.info["MouseOff"].index] then
+          goto MouseEvent
+        case [Msg.Receiver.virtualinfo.info["MouseMove"].index] then
+          goto MouseEvent
+        case [Msg.Receiver.virtualinfo.info["MouseScroll"].index] then
+          ::MouseEvent::
+          var base = [&window_base](r)
+          var params = BehaviorParamPack{w, ui, m}
+          return Msg.Result{terralib.select(base.rtree:query(F.Vec3D{array(m.mouseMove.x,m.mouseMove.y,0.0f)}, F.Vec3D{array(0.0f,0.0f,1.0f)}, params, mousequery), 0, -1)}
+        end
+      end
       return Msg.DefaultBehavior(r, w, ui, m)
     end
+
     -- handle global events here (like global key hooks)
     return Msg.Result{-1}
   end
