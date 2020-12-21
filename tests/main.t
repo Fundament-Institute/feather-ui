@@ -750,7 +750,7 @@ end
 terra testquery(n : &RTreeDefault.Node, p : &F.Vec3D, r : &F.Vec3D, i : int) : bool 
   verify_num[verify_index] = [intptr](n.data)
   verify_index = verify_index + 1
-  return n.data == [&opaque](3)
+  return n.data == [&Msg.Receiver](3)
 end
 
 terra TestRayBoxIntersect(pos : F.Vec3D, v : F.Vec3D, extent : F.Vec3D) : float
@@ -774,11 +774,11 @@ terra TestHarness:rtree()
   var child3 = simple:create(child2, &vec0, &vec100, &vec0, &vec1i)
   var child4 = simple:create(child2, &vec0, &vec100, &vec0, &vec0i)
   simple:sort(child2, nil)
-  root.data = [&opaque](0)
-  child1.data = [&opaque](1)
-  child2.data = [&opaque](2)
-  child3.data = [&opaque](3)
-  child4.data = [&opaque](4)
+  root.data = [&Msg.Receiver](0)
+  child1.data = [&Msg.Receiver](1)
+  child2.data = [&Msg.Receiver](2)
+  child3.data = [&Msg.Receiver](3)
+  child4.data = [&Msg.Receiver](4)
   simple:query(F.Vec3D{array(3.0f,4.0f,0.0f)}, F.Vec3D{array(0.0f,0.0f,1.0f)}, 3, verifywalk)
 
   escape
