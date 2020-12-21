@@ -25,7 +25,11 @@ local ui = f.ui {
       pos = function(env) return `[env.app].pos + [f.Vec3D]{array(50f, 0f, 0f)} end,
       ext = function(env) return `[f.Vec3D]{array(20f, 20f, 0f)} end,
       color = function(env) return `[f.Color]{0xffffffff} end
-    }
+    },
+    f.mousearea {
+      pos = function(env) return `[env.app].pos + [f.Vec3D]{array(100f, 100f, 0f)} end,
+      ext = function(env) return `[f.Vec3D]{array(20f, 20f, 0f)} end
+    },
   },
   f.window {
     f.rect {
@@ -77,6 +81,7 @@ local terra run_app(dllpath: rawstring)
   while b:ProcessMessages() ~= 0 do
     u:update()
     b:DirtyRect(u.data._0.window, nil)
+    b:DirtyRect(u.data._1.window, nil)
   end
   u:exit()
 
@@ -88,10 +93,6 @@ local terra main(argc: int, argv: &rawstring)
   run_app(argv[1])
 end
 
-print(ui.methods.enter)
-print(ui.methods.render)
-
-
 local targetname = "ui_test"
 local clangargs = { }
 
@@ -99,6 +100,9 @@ for i,v in ipairs(arg) do
   if v == "-debug" or v == "-g" then
     targetname = targetname .. "_d"
     table.insert(clangargs, "-g")
+    if jit.os == "Windows" then
+      table.insert(clangargs, "/DEBUG")
+    end
   end
 end
 

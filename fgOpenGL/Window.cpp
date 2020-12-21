@@ -354,7 +354,9 @@ void Window::CloseCallback(GLFWwindow* window)
   msg.setWindowFlags.flags = self->_backend->Behavior(self, FG_Msg{ FG_Kind_GETWINDOWFLAGS }).getWindowFlags |
                              FG_Window_CLOSED;
   self->_backend->Behavior(self, msg);
-  self->_backend->Behavior(self, FG_Msg{ FG_Kind_ACTION, 1 }); // FG_WINDOW_ONCLOSE
+  FG_Msg action = FG_Msg{ FG_Kind_ACTION };
+  action.action.subkind = 1; // FG_WINDOW_ONCLOSE
+  self->_backend->Behavior(self, action);
 }
 
 void Window::SizeCallback(GLFWwindow* window, int width, int height)

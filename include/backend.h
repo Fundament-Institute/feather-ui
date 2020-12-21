@@ -359,7 +359,7 @@ struct FG_anon_10__ {
 };
 typedef struct FG_anon_11__ FG_anon_11;
 struct FG_anon_11__ {
-  ;
+  int32_t subkind;
 };
 typedef struct FG_anon_12__ FG_anon_12;
 struct FG_anon_12__ {
@@ -474,7 +474,6 @@ struct FG_anon_28__ {
 };
 struct FG_Msg__ {
   uint16_t kind;
-  uint16_t subkind;
   union {
   FG_anon_3 touchMove;
   FG_anon_4 mouseScroll;

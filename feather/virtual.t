@@ -94,6 +94,9 @@ function M.extends(parent)
     end
     class.parent = parent
     class.metamethods.__staticinitialize = virtual_staticinitialize
+    class.metamethods.__entrymissing = macro(function(entryname,myobj)
+      return `myobj.super.[entryname]
+    end)
   end
 end
 
