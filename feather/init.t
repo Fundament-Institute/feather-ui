@@ -22,5 +22,5 @@ end
 return merge{
   core,
   templates,
-  {Vec3D = shared.Vec3D, Color = shared.Color, Backend = backend.Backend, Behavior = message.Behavior}
+  {Vec3D = shared.Vec3D, Vec = shared.Vec, Color = shared.Color, Backend = backend.Backend, Behavior = message.Behavior}
 }

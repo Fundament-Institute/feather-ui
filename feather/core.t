@@ -66,13 +66,14 @@ local template_mt = {}
 local outline_mt = {__index = {}}
 
 M.context = {}
+M.required = {}
 
 --Expression instantiation functions
 --TODO: rewrite with implementations that handle the real expressions
 local function constant_expression(v) return function() return v end end
 local function expression_parse(expr) return expr end
 local function type_expression(expr, context, type_environment)
-  return expr(map_pairs(type_environment, function(k, v) return k, symbol(v) end)):gettype()
+  return expr(map_pairs(type_environment, function(k, v) if terralib.types.istype(v) then return k, symbol(v) else return k, nil end end)):gettype()
 end
 local function expression_enter(expr, context, environment)
   return expr(environment)
@@ -144,7 +145,7 @@ function template_mt:__call(desc)
   local outline = {args = {}, template = self, has_unbound_body = false}
   for i = 1, #self.params.names do
     local name = self.params.names[i]
-    if desc[name] ~= nil and self.params.required[name] then
+    if desc[name] == nil and self.params.required[name] then
       error("parameter " .. name .. " is required but not specified in outline definition")
     end
     outline.args[name] = desc[name] ~= nil and expression_parse(desc[name]) or self.params.defaults[name]
@@ -385,6 +386,7 @@ function M.template(params)
         for i, name in ipairs(params.names) do
           res[name] = `store.[name]
         end
+        return res
       end
 
       return {
@@ -395,7 +397,7 @@ function M.template(params)
           end
           return quote
             [initializers]
-            [defn_body_fns.enter(self._1, context, override(environment, unpack_store(self._0)))]
+            [defn_body_fns.enter(`self._1, context, override(environment, unpack_store(`self._0)))]
                  end
         end,
         update = function(self, context, environment)
@@ -403,7 +405,7 @@ function M.template(params)
           for i, name in ipairs(params.names) do
             updates[i] = quote self._0.[name] = [environment[name] ] end
           end
-          return {updates, defn_body_fns.update(`self._1, context, override(environment, unpack_store(self._0)))}
+          return {updates, defn_body_fns.update(`self._1, context, override(environment, unpack_store(`self._0)))}
         end,
         exit = function(self, context)
           return defn_body_fns.exit(`self._1, context)
@@ -411,7 +413,7 @@ function M.template(params)
         render = function(self, context)
           return defn_body_fns.render(`self._1, context)
         end
-      }, element
+      }, tuple(element, defn_body_type)
     end
 
     local self = {
