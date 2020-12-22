@@ -114,6 +114,8 @@ if jit.os == "Linux" then
   table.insert(clangargs, "-ldl")
 end
 
+table.insert(clangargs, "-lm")
+
 if terralib.saveobj(targetname, "executable", {main = main}, clangargs) ~= nil then
   return -1
 end
