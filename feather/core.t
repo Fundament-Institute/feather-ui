@@ -407,7 +407,10 @@ function M.template(params)
           for i, name in ipairs(params.names) do
             updates[i] = quote self._0.[name] = [environment[name] ] end
           end
-          return {updates, defn_body_fns.update(`self._1, context, override(environment, unpack_store(`self._0)))}
+          return quote
+            [updates];
+            [defn_body_fns.update(`self._1, context, override(environment, unpack_store(`self._0)))]
+          end
         end,
         exit = function(self, context)
           return defn_body_fns.exit(`self._1, context)

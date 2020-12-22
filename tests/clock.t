@@ -16,23 +16,27 @@ local clockring = f.template {
   radius = f.required,
   width = f.required,
   progress = f.required,
-  color = `f.Color{0xccccccff}
+  color = `f.Color{0xccccccff},
+  pos = f.required
 }
 {
   f.circle {
     outline = pass "color",
     color = K(`f.Color{0}),
-    innerRadius = pass "radius",
-    border = pass "width",
+    innerRadius = function(env) return `env.radius - env.width end,
+    -- border = pass "width",
+    innerBorder = pass "width",
     angles = function(env)
       -- for k, v in pairs(env) do print("circle env", k, v) end
       return `f.Vec {
         array(
-          env.progress * [float]([math.pi]),
+          0f,--env.progress * [float]([math.pi])/2f,
           env.progress * [float]([math.pi])
         )
                     }
-    end
+    end,
+    ext = function(env) return `f.Vec3D{arrayof(float, env.radius * 2, env.radius * 2, 0)} end,
+    pos = pass "pos"
   }
 }
 
@@ -40,23 +44,27 @@ local clock = f.template {
   hour = f.required,
   minute = f.required,
   second = f.required,
-  radius = f.required
+  radius = f.required,
+  pos = f.required
 }
 {
   clockring {
     radius = pass "radius",
+    pos = pass "pos",
     width = function(env) return `env.radius * 0.1f end,
-    progress = function(env) return `env.hour / 24.0f end
+    progress = function(env) return `env.second /60.0f end
   },
   clockring {
     radius = function(env) return `env.radius * 0.85f end,
+    pos = pass "pos",
     width = function(env) return `env.radius * 0.1f end,
     progress = function(env) return `env.minute / 60.0f end
   },
   clockring {
     radius = function(env) return `env.radius * 0.7f end,
+    pos = pass "pos",
     width = function(env) return `env.radius * 0.1f end,
-    progress = function(env) return `env.second /60.0f end
+    progress = function(env) return `env.hour / 24.0f end
   }
 }
 
@@ -82,7 +90,8 @@ local ui = f.ui {
       hour = function(env) return `env.app.time.tm_hour end,
       minute = function(env) return `env.app.time.tm_min end,
       second = function(env) return `env.app.time.tm_sec end,
-      radius = K(`200)
+      radius = K(`200),
+      pos = K(`f.Vec3D{arrayof(float, 500, 500, 0)})
     }
   }
 }
@@ -129,6 +138,8 @@ end
 local terra main(argc: int, argv: &rawstring)
   run_app(argv[1])
 end
+
+print(ui.methods.update)
 
 local targetname = "clock_test"
 local clangargs = { }

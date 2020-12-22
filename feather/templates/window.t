@@ -10,11 +10,13 @@ local gen_window_node = terralib.memoize(function(body_type, rtree_node, window_
     window: &opaque
     body: body_type
     node : rtree_node
+    color: F.Color
   }
   return window_node
   end)
   
 return core.raw_template {
+  color = `F.Color{0},
   core.body
 } (
   function(self, context, type_environment)
@@ -59,14 +61,16 @@ return core.raw_template {
           self.node = self.rtree:create(nil, &zero, &zero, &zero, &zindex)
           self.node.data = &self.super.super
           self.window = [context.backend]:CreateWindow(self.node.data, nil, &pos, &size, "feather window", messages.Window.RESIZABLE, nil)
+          self.color = environment.color
           [body_fns.enter(`self.body, override_context(self, context), environment)]
         end
       end,
       update = function(self, context, environment)
         return quote
-            var transform = core.transform.identity()
-            [body_fns.update(`self.body, override_context(self, context), environment)]
-          end
+          var transform = core.transform.identity()
+          self.color = environment.color
+          [body_fns.update(`self.body, override_context(self, context), environment)]
+        end
       end,
       exit = function(self, context)
         return quote
@@ -90,6 +94,7 @@ return core.raw_template {
     local window_node = gen_window_node(body_type, context.rtree_node, context.window_base)
     
     terra window_node:Draw(ui : &opaque) : F.Err
+      [&context.ui](ui).backend:Clear(self.window, self.color)
       [body_fns.render(`self.body, make_context(self, `[&context.ui](ui)))]
       return 0
     end
