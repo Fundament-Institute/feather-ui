@@ -70,6 +70,7 @@ return core.raw_template {
           var transform = core.transform.identity()
           self.color = environment.color
           [body_fns.update(`self.body, override_context(self, context), environment)]
+          [context.backend]:DirtyRect(self.window, nil) --TODO: make this smart enough to only call for a redraw if something changed.
         end
       end,
       exit = function(self, context)
