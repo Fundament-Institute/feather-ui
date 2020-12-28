@@ -1,16 +1,6 @@
 local f = require 'feather'
 local scaffolding = require 'feather.scaffolding'
-
-local function pass(name)
-  return function(env)
-    return `[env[name] ]
-  end
-end
-local function K(value)
-  return function(env)
-    return value
-  end
-end
+import 'feather/bind'
 
 local clockring = f.template {
   radius = f.required,
@@ -21,22 +11,18 @@ local clockring = f.template {
 }
 {
   f.circle {
-    outline = pass "color",
-    color = K(`f.Color{0}),
-    innerRadius = function(env) return `env.radius - env.width end,
-    -- border = pass "width",
-    innerBorder = pass "width",
-    angles = function(env)
-      -- for k, v in pairs(env) do print("circle env", k, v) end
-      return `f.Vec {
+    outline = bind color,
+    color = bind f.Color{0},
+    innerRadius = bind radius - width,
+    innerBorder = bind width,
+    angles = bind f.Vec {
         array(
-          0f,--env.progress * [float]([math.pi])/2f,
-          env.progress * [float]([math.pi])
+          0f,
+          progress * [float]([math.pi])
         )
-                    }
-    end,
-    ext = function(env) return `f.Vec3D{arrayof(float, env.radius * 2, env.radius * 2, 0)} end,
-    pos = pass "pos"
+                    },
+    ext = bind f.Vec3D{arrayof(float, radius * 2, radius * 2, 0)},
+    pos = bind pos
   }
 }
 
@@ -49,22 +35,22 @@ local clock = f.template {
 }
 {
   clockring {
-    radius = pass "radius",
-    pos = pass "pos",
-    width = function(env) return `env.radius * 0.1f end,
-    progress = function(env) return `env.second /60.0f end
+    radius = bind radius,
+    pos = bind pos,
+    width = bind radius * 0.1f,
+    progress = bind second /60.0f
   },
   clockring {
-    radius = function(env) return `env.radius * 0.85f end,
-    pos = pass "pos",
-    width = function(env) return `env.radius * 0.1f end,
-    progress = function(env) return `env.minute / 60.0f end
+    radius = bind radius * 0.85f,
+    pos = bind pos,
+    width = bind radius * 0.1f,
+    progress = bind minute / 60.0f
   },
   clockring {
-    radius = function(env) return `env.radius * 0.7f end,
-    pos = pass "pos",
-    width = function(env) return `env.radius * 0.1f end,
-    progress = function(env) return `env.hour / 24.0f end
+    radius = bind radius * 0.7f,
+    pos = bind pos,
+    width = bind radius * 0.1f,
+    progress = bind hour / 24.0f
   }
 }
 
@@ -90,11 +76,11 @@ local ui = f.ui {
   queries = {},
   f.window {
     clock {
-      hour = function(env) return `env.app.time.tm_hour end,
-      minute = function(env) return `env.app.time.tm_min end,
-      second = function(env) return `env.app.time.tm_sec end,
-      radius = K(`200),
-      pos = K(`f.Vec3D{arrayof(float, 500, 500, 0)})
+      hour = bind app.time.tm_hour,
+      minute = bind app.time.tm_min,
+      second = bind app.time.tm_sec,
+      radius = bind 200,
+      pos = bind f.Vec3D{arrayof(float, 500, 500, 0)}
     }
   }
 }
