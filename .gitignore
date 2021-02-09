@@ -11,4 +11,5 @@
 /cpptest/x64/
 /cpptest/Win32/
 /cmake/
+/build/
 *.user

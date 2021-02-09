@@ -180,7 +180,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(OutDir);$(OutDir)/Debug</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir);$(OutDir)/Debug/SOIL/lib;$(OutDir)/Debug/freetype2/lib;$(OutDir)/Debug/glfw/lib;$(OutDir)/Debug/harfbuzz/lib;</AdditionalLibraryDirectories>
       <MinimumRequiredVersion>6.01</MinimumRequiredVersion>
       <AdditionalDependencies>OpenGL32.lib;glfw3.lib;freetyped.lib;harfbuzz.lib;SOIL.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
@@ -199,7 +199,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(OutDir);$(OutDir)/Debug</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir);$(OutDir)/Debug/SOIL/lib;$(OutDir)/Debug/freetype2/lib;$(OutDir)/Debug/glfw/lib;$(OutDir)/Debug/harfbuzz/lib;</AdditionalLibraryDirectories>
       <MinimumRequiredVersion>6.01</MinimumRequiredVersion>
       <AdditionalDependencies>OpenGL32.lib;glfw3.lib;freetyped.lib;harfbuzz.lib;SOIL.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
@@ -208,7 +208,7 @@
     </ProjectReference>
     <Lib>
       <AdditionalDependencies>glfw3.lib;freetype.lib;harfbuzz.lib;SOIL.lib;OpenGL32.lib;</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(OutDir)/Debug</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir)/Debug/SOIL/lib;$(OutDir)/Debug/freetype2/lib;$(OutDir)/Debug/glfw/lib;$(OutDir)/Debug/harfbuzz/lib;</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -232,7 +232,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(OutDir);$(OutDir)/MinSizeRel</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir);$(OutDir)/MinSizeRel/SOIL/lib;$(OutDir)/MinSizeRel/freetype2/lib;$(OutDir)/MinSizeRel/glfw/lib;$(OutDir)/MinSizeRel/harfbuzz/lib;</AdditionalLibraryDirectories>
       <MinimumRequiredVersion>6.01</MinimumRequiredVersion>
       <AdditionalDependencies>OpenGL32.lib;glfw3.lib;freetype.lib;harfbuzz.lib;SOIL.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
@@ -258,7 +258,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(OutDir);$(OutDir)/MinSizeRel</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir);$(OutDir)/MinSizeRel/SOIL/lib;$(OutDir)/MinSizeRel/freetype2/lib;$(OutDir)/MinSizeRel/glfw/lib;$(OutDir)/MinSizeRel/harfbuzz/lib;</AdditionalLibraryDirectories>
       <MinimumRequiredVersion>6.01</MinimumRequiredVersion>
       <AdditionalDependencies>OpenGL32.lib;glfw3.lib;freetype.lib;harfbuzz.lib;SOIL.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
@@ -267,7 +267,7 @@
     </ProjectReference>
     <Lib>
       <AdditionalDependencies>glfw3.lib;freetype.lib;harfbuzz.lib;SOIL.lib;OpenGL32.lib;</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(OutDir)/MinSizeRel</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir)/MinSizeRel/SOIL/lib;$(OutDir)/MinSizeRel/freetype2/lib;$(OutDir)/MinSizeRel/glfw/lib;$(OutDir)/MinSizeRel/harfbuzz/lib;</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -284,7 +284,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(OutDir);$(OutDir)/Debug</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir);$(OutDir)/Debug/SOIL/lib;$(OutDir)/Debug/freetype2/lib;$(OutDir)/Debug/glfw/lib;$(OutDir)/Debug/harfbuzz/lib;</AdditionalLibraryDirectories>
       <MinimumRequiredVersion>6.01</MinimumRequiredVersion>
       <AdditionalDependencies>OpenGL32.lib;glfw3.lib;freetyped.lib;harfbuzz.lib;SOIL.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
@@ -303,7 +303,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(OutDir);$(OutDir)/Debug</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir);$(OutDir)/Debug/SOIL/lib;$(OutDir)/Debug/freetype2/lib;$(OutDir)/Debug/glfw/lib;$(OutDir)/Debug/harfbuzz/lib;</AdditionalLibraryDirectories>
       <MinimumRequiredVersion>6.01</MinimumRequiredVersion>
       <AdditionalDependencies>OpenGL32.lib;glfw3.lib;freetyped.lib;harfbuzz.lib;SOIL.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
@@ -312,7 +312,7 @@
     </ProjectReference>
     <Lib>
       <AdditionalDependencies>glfw3.lib;freetype.lib;harfbuzz.lib;SOIL.lib;OpenGL32.lib;</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(OutDir)/Debug</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir)/Debug/SOIL/lib;$(OutDir)/Debug/freetype2/lib;$(OutDir)/Debug/glfw/lib;$(OutDir)/Debug/harfbuzz/lib;</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -336,7 +336,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(OutDir);$(OutDir)/MinSizeRel</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir);$(OutDir)/MinSizeRel/SOIL/lib;$(OutDir)/MinSizeRel/freetype2/lib;$(OutDir)/MinSizeRel/glfw/lib;$(OutDir)/MinSizeRel/harfbuzz/lib;</AdditionalLibraryDirectories>
       <MinimumRequiredVersion>6.01</MinimumRequiredVersion>
       <AdditionalDependencies>OpenGL32.lib;glfw3.lib;freetype.lib;harfbuzz.lib;SOIL.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
@@ -362,7 +362,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(OutDir);$(OutDir)/MinSizeRel</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir);$(OutDir)/MinSizeRel/SOIL/lib;$(OutDir)/MinSizeRel/freetype2/lib;$(OutDir)/MinSizeRel/glfw/lib;$(OutDir)/MinSizeRel/harfbuzz/lib;</AdditionalLibraryDirectories>
       <MinimumRequiredVersion>6.01</MinimumRequiredVersion>
       <AdditionalDependencies>OpenGL32.lib;glfw3.lib;freetype.lib;harfbuzz.lib;SOIL.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
@@ -371,7 +371,7 @@
     </ProjectReference>
     <Lib>
       <AdditionalDependencies>glfw3.lib;freetype.lib;harfbuzz.lib;SOIL.lib;OpenGL32.lib;</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(OutDir)/MinSizeRel</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir)/MinSizeRel/SOIL/lib;$(OutDir)/MinSizeRel/freetype2/lib;$(OutDir)/MinSizeRel/glfw/lib;$(OutDir)/MinSizeRel/harfbuzz/lib;</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
