@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.13.4)
-project(fgOpenGL LANGUAGES CXX VERSION 0.1.0)
+project(fgOpenGL LANGUAGES C CXX VERSION 0.1.0)
 option(DYNAMIC_RUNTIME "if true, dynamically links (/MD) to the C++ runtime on MSVC. Otherwise, statically links (/MT)" OFF)
 option(BUILD_SHARED_LIBS "enable shared library" ON)
 
@@ -34,20 +34,14 @@ endif()
 set(CMAKE_VERBOSE_MAKEFILE TRUE)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
+#set(CMAKE_CXX_EXTENSIONS OFF) # we use these for (&float)[4][4]
 
 file(GLOB_RECURSE fgOpenGL_SOURCES "./*.cpp")
 list(APPEND fgOpenGL_SOURCES "glad_gl.c")
 
 add_library(fgOpenGL ${fgOpenGL_SOURCES})
 set_target_properties(fgOpenGL PROPERTIES OUTPUT_NAME_DEBUG "fgOpenGL-d")
-target_include_directories(fgOpenGL PUBLIC ${CMAKE_SOURCE_DIR}/../include)
-
-get_cmake_property(_variableNames VARIABLES)
-list (SORT _variableNames)
-foreach (_variableName ${_variableNames})
-    message(STATUS "${_variableName}=${${_variableName}}")
-endforeach()
+target_include_directories(fgOpenGL PUBLIC ${PROJECT_SOURCE_DIR}/../include)
 
 if(WIN32)
 target_include_directories(fgOpenGL PRIVATE ${OPENGL_INCLUDE_DIRS} ${FREETYPE_INCLUDE_DIRS} ${SOIL_INCLUDE_DIRS})
@@ -58,15 +52,15 @@ endif()
 # May not be necessary if compiling with nix 
 set_target_properties(fgOpenGL
     PROPERTIES
-    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/../${BIN_DIR}"
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/../${BIN_DIR}"
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/../${BIN_DIR}"
-    ARCHIVE_OUTPUT_DIRECTORY_DEBUG "${CMAKE_SOURCE_DIR}/../${BIN_DIR}"
-    LIBRARY_OUTPUT_DIRECTORY_DEBUG "${CMAKE_SOURCE_DIR}/../${BIN_DIR}"
-    RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_SOURCE_DIR}/../${BIN_DIR}"
-    ARCHIVE_OUTPUT_DIRECTORY_MINSIZEREL "${CMAKE_SOURCE_DIR}/../${BIN_DIR}"
-    LIBRARY_OUTPUT_DIRECTORY_MINSIZEREL "${CMAKE_SOURCE_DIR}/../${BIN_DIR}"
-    RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL "${CMAKE_SOURCE_DIR}/../${BIN_DIR}"
+    ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/../${BIN_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/../${BIN_DIR}"
+    RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/../${BIN_DIR}"
+    ARCHIVE_OUTPUT_DIRECTORY_DEBUG "${PROJECT_SOURCE_DIR}/../${BIN_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY_DEBUG "${PROJECT_SOURCE_DIR}/../${BIN_DIR}"
+    RUNTIME_OUTPUT_DIRECTORY_DEBUG "${PROJECT_SOURCE_DIR}/../${BIN_DIR}"
+    ARCHIVE_OUTPUT_DIRECTORY_MINSIZEREL "${PROJECT_SOURCE_DIR}/../${BIN_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY_MINSIZEREL "${PROJECT_SOURCE_DIR}/../${BIN_DIR}"
+    RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL "${PROJECT_SOURCE_DIR}/../${BIN_DIR}"
 )
 
 if(WIN32)
