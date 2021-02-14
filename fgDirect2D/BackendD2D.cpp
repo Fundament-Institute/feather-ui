@@ -92,7 +92,7 @@ inline FG_Err Backend::DrawEffect(Window* ctx, ID2D1Effect* effect, const FG_Rec
 
   PushRotate(ctx, rotate, area);
   D2D1_RECT_F rect = D2D1::RectF(area.left, area.top, area.right, area.bottom);
-  ctx->context->DrawImage(effect, &D2D1::Point2F(area.left, area.top), &rect, D2D1_INTERPOLATION_MODE_LINEAR,
+  ctx->context->DrawImage(effect, D2D1::Point2F(area.left, area.top), rect, D2D1_INTERPOLATION_MODE_LINEAR,
                           D2D1_COMPOSITE_MODE_SOURCE_OVER);
   PopRotate(ctx, rotate);
 
@@ -161,7 +161,9 @@ FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Vec
   fgassert(context->target != 0);
 
   DrawEffect<0>(context, context->circle, *area, 0.0f, D2D1::Vector4F(area->left, area->top, area->right, area->bottom),
-                D2D1::Vector4F(angles.x, angles.y, innerRadius, innerBorder), fillColor, borderColor, border, blur);
+                D2D1::Vector4F(angles.x + (angles.y / 2.0f) - (3.14159265359f / 2.0f), angles.y / 2.0f, innerRadius,
+                               innerBorder),
+                fillColor, borderColor, border, blur);
   return 0;
 }
 FG_Err Backend::DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
@@ -575,7 +577,7 @@ FG_Err Backend::DestroyAsset(FG_Backend* self, FG_Asset* fgasset)
     delete fgasset;
     return e;
   }
-  
+
   auto asset = static_cast<Asset*>(fgasset);
   for(auto& i : asset->instances)
     i->DiscardAsset(asset);
@@ -829,8 +831,8 @@ void* Backend::CreateWindowD2D(FG_Backend* self, FG_MsgReceiver* element, void* 
   return window->hWnd;
 }
 
-FG_Err Backend::SetWindowD2D(FG_Backend* self, void* window, FG_MsgReceiver* element, void* display, FG_Vec* pos, FG_Vec* dim,
-                             const char* caption, uint64_t flags)
+FG_Err Backend::SetWindowD2D(FG_Backend* self, void* window, FG_MsgReceiver* element, void* display, FG_Vec* pos,
+                             FG_Vec* dim, const char* caption, uint64_t flags)
 {
   Window* ptr = reinterpret_cast<Window*>(GetWindowLongPtrW(reinterpret_cast<HWND>(window), GWLP_USERDATA));
   if(!ptr)

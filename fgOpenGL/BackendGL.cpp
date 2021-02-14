@@ -264,7 +264,9 @@ FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Vec
   auto context = reinterpret_cast<Context*>(window);
   context->ApplyBlend(blend);
   backend->_drawStandard(context->_circleshader, context->_quadobject, context->GetProjection(), *area,
-                         FG_Rect{ angles.x, angles.y, innerRadius, innerBorder }, fillColor, border, borderColor, blur,
+                         FG_Rect{ angles.x + (angles.y / 2.0f) - (3.14159265359f / 2.0f), angles.y / 2.0f, innerRadius, innerBorder },
+                         fillColor, border, borderColor,
+                         blur,
                          0.0f, z);
   return glGetError();
 }

@@ -4,7 +4,7 @@ local shared = require 'feather.shared'
 return core.basic_template {
   color = `[shared.Color]{0},
   outline = `[shared.Color]{0},
-  angles = `shared.Vec{array(0f, 3.142f)}, -- specified in (center, extent)
+  angles = `shared.Vec{array(0f, 6.284f)}, -- specified in (start angle, end angle)
   border = `0.0f,
   innerRadius = `0.0f,
   innerBorder = `0.0f,

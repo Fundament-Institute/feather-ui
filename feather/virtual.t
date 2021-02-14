@@ -67,7 +67,7 @@ local function virtual_staticinitialize(class)
   else
     combined_names = names
   end
-  class.methods.virtual_initializer = `arrayof([&opaque], [combined_names:map(function(name) return get_funcpointer(class, name) end)])
+  class.methods.virtual_initializer = global(`arrayof([&opaque], [combined_names:map(function(name) return get_funcpointer(class, name) end)]))
   class.virtualinfo = {
     info = info,
     names = combined_names,

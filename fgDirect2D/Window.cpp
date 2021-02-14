@@ -299,7 +299,6 @@ longptr_t __stdcall Window::WndProc(HWND__* hWnd, unsigned int message, size_t w
     case WM_PAINT:
     {
       FG_Msg msg    = { FG_Kind_DRAW };
-      msg.draw.data = self->hWnd;
       RECT WindowRect;
       GetWindowRect(hWnd, &WindowRect);
       msg.draw.area.left   = 0;

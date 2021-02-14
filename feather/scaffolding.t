@@ -65,6 +65,9 @@ function M.simple_application(executable_name, application, ui, flags)
     if v == "-debug" or v == "-g" then
       executable_name = executable_name .. "_d"
       table.insert(clangargs, "-g")
+      if jit.os == "Windows" then
+        table.insert(clangargs, "/DEBUG")
+      end
     end
   end
 
