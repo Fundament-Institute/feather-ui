@@ -269,10 +269,12 @@ Glyph* Font::RenderGlyph(Context* context, char32_t codepoint)
       uint8_t* dst = buf.get() + (4 * width * i);
       for(uint32_t j = 0; j < gbmp.width; ++j) // RGBA
       {
-        *dst++ = 0xFF;
-        *dst++ = 0xFF;
-        *dst++ = 0xFF;
-        *dst++ = *src++;
+        uint8_t v = *src++;
+        // v = (uint8_t)(powf(v / 255.0f, 1.44f) * 255.0f);
+        *dst++ = v; // premultiply alpha
+        *dst++ = v;
+        *dst++ = v;
+        *dst++ = v;
       }
     }
     break;

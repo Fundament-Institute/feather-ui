@@ -87,7 +87,8 @@ namespace GL {
 
     static const size_t BATCH_BYTES = (1 << 14);
     static const size_t MAX_INDICES = BATCH_BYTES / sizeof(GLuint);
-    static const FG_BlendState DEFAULT_BLEND;
+    static const FG_BlendState NORMAL_BLEND; // For straight-alpha blending
+    static const FG_BlendState PREMULTIPLY_BLEND; // For premultiplied blending (the default)
 
   protected:
     GLuint _createBuffer(size_t stride, size_t count, const void* init);

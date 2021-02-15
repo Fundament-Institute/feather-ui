@@ -21,7 +21,8 @@ float rectangle(vec2 samplePosition, vec2 halfSize, vec4 edges) {\n
 void main()\n
 {\n
     //float w = fwidth(((pos.x*DimBorderBlur.x + pos.y*DimBorderBlur.y) / 2.0)) + DimBorderBlur.w;\n
-    float w = 0.701 + DimBorderBlur.w;\n
+    //float w = 0.701 + DimBorderBlur.w;\n
+    float w = fwidth(length(DimBorderBlur.xy*pos)) * 0.5 * (1.0 + DimBorderBlur.w);\n
     vec2 uv = (pos * DimBorderBlur.xy) - (DimBorderBlur.xy * 0.5);\n
     
     float dist = rectangle(uv, DimBorderBlur.xy * 0.5, Corners);\n

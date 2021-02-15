@@ -22,11 +22,22 @@ namespace GL {
 
 using namespace GL;
 
-const FG_BlendState Context::DEFAULT_BLEND = {
+// Feather uses a premultiplied compositing pipeline: https://apoorvaj.io/alpha-compositing-opengl-blending-and-premultiplied-alpha/
+const FG_BlendState Context::PREMULTIPLY_BLEND = {
+  FG_BlendValue_ONE,
+  FG_BlendValue_INV_SRC_ALPHA,
+  FG_BlendOp_ADD,
+  FG_BlendValue_ONE,
+  FG_BlendValue_INV_SRC_ALPHA,
+  FG_BlendOp_ADD,
+  0b1111,
+};
+
+const FG_BlendState Context::NORMAL_BLEND = {
   FG_BlendValue_SRC_ALPHA,
   FG_BlendValue_INV_SRC_ALPHA,
   FG_BlendOp_ADD,
-  FG_BlendValue_SRC_ALPHA,
+  FG_BlendValue_ONE,
   FG_BlendValue_INV_SRC_ALPHA,
   FG_BlendOp_ADD,
   0b1111,
@@ -99,7 +110,7 @@ void Context::SetDim(const FG_Vec& dim)
 
 void Context::Draw(const FG_Rect* area)
 {
-  FG_Msg msg    = { FG_Kind_DRAW };
+  FG_Msg msg = { FG_Kind_DRAW };
   if(area)
     msg.draw.area = *area;
   else
@@ -242,9 +253,12 @@ int Context::PopLayer()
 
   mat4x4 mvp;
   mat4x4_mul(mvp, GetProjection(), (vec4*)p->transform);
+
+  // We use "normal" blending here, because while the contents of the framebuffer are premultiplied, the opacity has not
+  // been applied yet. Since the opacity is uniform, this doesn't cause mipmap problems.
   return _backend->DrawTextureQuad(this, p->data.index, v,
                                    FG_Color{ 0x00FFFFFF + ((unsigned int)roundf(0xFF * p->opacity) << 24) }, (float*)mvp,
-                                   nullptr);
+                                   const_cast<FG_BlendState*>(&NORMAL_BLEND));
 }
 
 int Context::GetBytes(GLenum type)
@@ -377,7 +391,7 @@ GLuint Context::LoadAsset(Asset* asset)
   else
   {
     idx = SOIL_create_OGL_texture((const unsigned char*)asset->data.data, asset->size.x, asset->size.y, asset->channels,
-                                  SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
+                                  SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS | SOIL_FLAG_MULTIPLY_ALPHA);
 
     if(!idx)
     {
@@ -608,7 +622,7 @@ GLenum Context::BlendOp(uint8_t op)
 void Context::ApplyBlend(const FG_BlendState* blend)
 {
   if(!blend)
-    blend = &DEFAULT_BLEND;
+    blend = &PREMULTIPLY_BLEND;
 
   // This comparison should get optimized out to a 64-bit integer equality check
   if(memcmp(blend, &_lastblend, sizeof(FG_BlendState)) != 0)

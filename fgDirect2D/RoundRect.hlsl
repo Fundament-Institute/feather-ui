@@ -34,7 +34,7 @@ float4 main(float4 pos : SV_POSITION, float4 posScene : SCENE_POSITION) : SV_TAR
   float2 d = (rect.zw - rect.xy) / 2.0f;
   float2 p = posScene.xy - rect.xy - d.xy;
   d -= float2(blur, blur);
-  float w = (float)(fwidth(posScene.xy) * 0.5) + blur;
+  float w = (float)(fwidth(posScene.xy) * 0.5) * (1.0f + blur);
   float dist = rectangle(p,d,corners);
 
   float alpha = smoothstep(0.0 + w, 0.0 - w, dist);

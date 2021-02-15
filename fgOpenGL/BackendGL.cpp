@@ -1050,10 +1050,7 @@ void DestroyGL(FG_Backend* self)
 {
   if(!self)
     return;
-  auto gl = static_cast<Backend*>(self);
-
-  gl->~Backend();
-  free(gl);
+  delete static_cast<Backend*>(self);
 
   if(--Backend::_refcount == 0)
   {

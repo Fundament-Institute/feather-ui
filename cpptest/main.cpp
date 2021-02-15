@@ -46,13 +46,22 @@ FG_Result behavior(FG_MsgReceiver* element, void* w, void* ui, FG_Msg* m)
     FG_Backend* b = *(FG_Backend**)ui;
     (*b->clear)(b, w, FG_Color{ 0 });
 
-    auto r = FG_Rect{ 50.f, 100.f, 200.f, 300.f };
-    auto c = FG_Rect{ 0.f, 4.f, 8.f, 12.f };
-    (*b->drawRect)(b, w, &r, &c, FG_Color{ 0xFF0000FF }, 5.f, FG_Color{ 0xFF00FFFF }, 0.f, nullptr, 0.f, 0.f, nullptr);
+    auto r1 = FG_Rect{ 50.f, 100.f, 200.f, 300.f };
+    auto c1 = FG_Rect{ 0.f, 4.f, 8.f, 12.f };
+    (*b->drawRect)(b, w, &r1, &c1, FG_Color{ 0xFF0000FF }, 5.f, FG_Color{ 0xFF00FFFF }, 0.f, nullptr, 0.f, 0.f, nullptr);
+
+    auto r1b = FG_Rect{ 300.f, 150.f, 340.f, 190.f };
+    auto c1b = FG_Rect{ 0.f,  0.f, 0.f, 0.f, };
+    (*b->drawRect)(b, w, &r1b, &c1b, FG_Color{ 0xFFFFFFFF }, 0, FG_Color{ 0xFF00FFFF }, 0.f, nullptr, 0.f, 0.f, nullptr);
 
     auto r2 = FG_Rect{ 350.f, 100.f, 500.f, 300.f };
     auto c2 = FG_Vec{ 0.f, 3.f };
     (*b->drawCircle)(b, w, &r2, c2, FG_Color{ 0xFF0000FF }, 5.f, FG_Color{ 0xFF00FFFF }, 0.f, 10.f, 2.f, nullptr, 0.f,
+                     nullptr);
+
+    auto r2b = FG_Rect{ 300.f, 200.f, 341.f, 241.f };
+    auto c2b = FG_Vec{ 0.f, 6.283f };
+    (*b->drawCircle)(b, w, &r2b, c2b, FG_Color{ 0xFFFFFFFF }, 0.f, FG_Color{ 0xFF00FFFF }, 0.f, -0.0f, 0.f, nullptr, 0.f,
                      nullptr);
 
     auto r3 = FG_Rect{ 150.f, 300.f, 300.f, 500.f };
@@ -71,7 +80,7 @@ FG_Result behavior(FG_MsgReceiver* element, void* w, void* ui, FG_Msg* m)
     (*b->drawShader)(b, w, e.shader, e.vertices, 0, 0, (float*)proj, e.image);
 
     auto r6              = FG_Rect{ 650.f, 125.f, 800.f, 275.f };
-    auto c6              = FG_Vec{ 0.f, 3.14159f };
+    auto c6              = FG_Vec{ 0.f, 6.283f };
     FG_BlendState blend6 = { FG_BlendValue_ZERO,      FG_BlendValue_SRC_ALPHA, FG_BlendOp_ADD, FG_BlendValue_ZERO,
                              FG_BlendValue_SRC_ALPHA, FG_BlendOp_ADD,          0b1111 };
     (*b->drawCircle)(b, w, &r6, c6, FG_Color{ 0xFFFFFFFF }, 30.f, FG_Color{ 0 }, 0.f, 0.f, 0.f, nullptr, 0.f, &blend6);
@@ -81,7 +90,7 @@ FG_Result behavior(FG_MsgReceiver* element, void* w, void* ui, FG_Msg* m)
     };
     (*b->pushLayer)(b, w, e.layer, transform, 0.5f, nullptr);
     auto r7 = FG_Rect{ 0.f, 0.f, 100.f, 80.f };
-    (*b->drawRect)(b, w, &r7, &c, FG_Color{ 0xFFFF0000 }, 5.f, FG_Color{ 0xFFFFFF00 }, 0.f, nullptr, 0.f, 0.f, nullptr);
+    (*b->drawRect)(b, w, &r7, &c1, FG_Color{ 0xFFFF0000 }, 5.f, FG_Color{ 0xFFFFFF00 }, 0.f, nullptr, 0.f, 0.f, nullptr);
     (*b->popLayer)(b, w);
 
     return FG_Result{ 0 };

@@ -34,7 +34,7 @@ float4 main(float4 pos : SV_POSITION, float4 posScene : SCENE_POSITION) : SV_TAR
   float r = max(r1, r2);
   r = max(r, p.y - d.y);
 
-  float w = fwidth((p.x + p.y / 2)) + blur;
+  float w = fwidth(length(p)) * (1.0f + blur);
   float s = 1 - smoothstep(1 - outline - w, 1 - outline, r);
   float alpha = smoothstep(1, 1 - w, r);
   float4 fill = float4(color.rgb, 1);

@@ -23,7 +23,7 @@ void main()\n
   float r = max(r1, r2);\n
   r = max(r, p.y - d.y);\n
   \n
-  float w = fwidth((p.x + p.y / 2.0)) + DimBorderBlur.w;\n
+  float w = fwidth(length(p)) * (1.0 + DimBorderBlur.w);\n
   float s = 1.0 - smoothstep(1.0 - DimBorderBlur.z - w, 1.0 - DimBorderBlur.z, r);\n
   float alpha = smoothstep(1.0, 1.0 - w, r);\n
   vec4 fill = vec4(Fill.rgb, 1.0);\n
