@@ -161,7 +161,7 @@ FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Vec
   fgassert(context->target != 0);
 
   DrawEffect<0>(context, context->circle, *area, 0.0f, D2D1::Vector4F(area->left, area->top, area->right, area->bottom),
-                D2D1::Vector4F(angles.x + (angles.y / 2.0f) - (3.14159265359f / 2.0f), angles.y / 2.0f, innerRadius,
+                D2D1::Vector4F(angles.x + (angles.y / 2.0f) - (PI / 2.0f), angles.y / 2.0f, innerRadius,
                                innerBorder),
                 fillColor, borderColor, border, blur);
   return 0;

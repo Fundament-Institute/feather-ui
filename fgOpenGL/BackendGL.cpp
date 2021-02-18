@@ -26,6 +26,7 @@ char Backend::_lasterrdesc[1024] = {};
 int Backend::_maxjoy             = 0;
 Backend* Backend::_singleton     = nullptr;
 const float Backend::BASE_DPI    = 96.0f;
+const float Backend::PI          = 3.14159265359f;
 
 void Backend::ColorFloats(const FG_Color& c, float (&colors)[4])
 {
@@ -229,6 +230,8 @@ void Backend::_drawStandard(GLuint shader, VAO* vao, float (&proj)[4][4], const 
   ColorFloats(fillColor, fill);
   float outline[4];
   ColorFloats(borderColor, outline);
+  float amount     = blur + ((abs(fmod(rotate, PI/2.0f)) <= FLT_EPSILON) ? 0.0f : 1.0f);
+  float inflate[2] = { 1.0f + (amount/dimdata[0]), 1.0f + (amount/dimdata[1]) };
 
   glUseProgram(shader);
   LogError("glUseProgram");
@@ -239,6 +242,7 @@ void Backend::_drawStandard(GLuint shader, VAO* vao, float (&proj)[4][4], const 
   Shader::SetUniform(this, shader, "Corners", GL_FLOAT_VEC4, (float*)corners.ltrb);
   Shader::SetUniform(this, shader, "Fill", GL_FLOAT_VEC4, fill);
   Shader::SetUniform(this, shader, "Outline", GL_FLOAT_VEC4, outline);
+  Shader::SetUniform(this, shader, "Inflate", GL_FLOAT_VEC2, inflate);
 
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
   LogError("glDrawArrays");
@@ -264,10 +268,8 @@ FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Vec
   auto context = reinterpret_cast<Context*>(window);
   context->ApplyBlend(blend);
   backend->_drawStandard(context->_circleshader, context->_quadobject, context->GetProjection(), *area,
-                         FG_Rect{ angles.x + (angles.y / 2.0f) - (3.14159265359f / 2.0f), angles.y / 2.0f, innerRadius, innerBorder },
-                         fillColor, border, borderColor,
-                         blur,
-                         0.0f, z);
+                         FG_Rect{ angles.x + (angles.y / 2.0f) - (PI / 2.0f), angles.y / 2.0f, innerRadius, innerBorder },
+                         fillColor, border, borderColor, blur, 0.0f, z);
   return glGetError();
 }
 FG_Err Backend::DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
@@ -277,7 +279,12 @@ FG_Err Backend::DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_R
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(window);
   context->ApplyBlend(blend);
-  backend->_drawStandard(context->_trishader, context->_quadobject, context->GetProjection(), *area, *corners, fillColor,
+  FG_Rect shift = *area;
+  shift.ltrb[0] -= 0.5f;
+  shift.ltrb[1] -= 0.5f;
+  shift.ltrb[2] -= 0.5f;
+  shift.ltrb[3] -= 0.5f;
+  backend->_drawStandard(context->_trishader, context->_quadobject, context->GetProjection(), shift, *corners, fillColor,
                          border, borderColor, blur, rotate, z);
   return glGetError();
 }

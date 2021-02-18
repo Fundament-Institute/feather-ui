@@ -5,6 +5,7 @@ uniform vec4 Corners;\n
 uniform vec4 Fill;\n
 uniform vec4 Outline;\n
 
+float linearstep(float low, float high, float x) { return clamp((x - low) / (high - low), 0.0, 1.0); }\n
 float linetopoint(vec2 p1, vec2 p2, vec2 p)\n
 {\n
   vec2 n = p2 - p1;\n
@@ -23,9 +24,10 @@ void main()\n
   float r = max(r1, r2);\n
   r = max(r, p.y - d.y);\n
   \n
-  float w = fwidth(length(p)) * (1.0 + DimBorderBlur.w);\n
-  float s = 1.0 - smoothstep(1.0 - DimBorderBlur.z - w, 1.0 - DimBorderBlur.z, r);\n
-  float alpha = smoothstep(1.0, 1.0 - w, r);\n
+  // Ideally we would get DPI for both height and width, but for now we just assume DPI isn't weird
+  float w = fwidth(p.x) * (1.0 + DimBorderBlur.w);\n
+  float s = 1.0 - linearstep(1.0 - DimBorderBlur.z - w, 1.0 - DimBorderBlur.z, r);\n
+  float alpha = linearstep(1.0, 1.0 - w, r);\n
   vec4 fill = vec4(Fill.rgb, 1.0);\n
   vec4 edge = vec4(Outline.rgb, 1.0);\n
   gl_FragColor = (fill*Fill.a*s) + (edge*Outline.a*clamp(alpha - s,0.0,1.0));\n
