@@ -491,6 +491,28 @@ function M.let(bindings)
   end
 end
 
+function M.each(name)
+  error "NYI: each loop is not yet implemented" --TODO: complete implementation
+  return function(collection)
+    return function(raw_body)
+      local collection_expr = expression_parse(collection)
+      local body = make_body(raw_body)
+      local function generate(self, context, type_environment)
+        local collection_type = type_expression(collection_expr, context, type_environment)
+        local body_fn, body_type = body(context, override(type_environment, {[name] = collection_type.elem}))
+        local struct each_elem {
+          collection: collection_type
+          bodies: ArrayList(body_type) --this type doesn't exist yet
+                               }
+        
+        --TODO: IMPLEMENT ME
+      end
+    end
+  end
+end
+
+
+
 function M.ui(desc)
   local body_gen = make_body(desc)
 
