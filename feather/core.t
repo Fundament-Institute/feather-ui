@@ -8,6 +8,9 @@ local Virtual = require 'feather.virtual'
 local C = terralib.includecstring [[#include <stdio.h>]]
 
 local M = {}
+
+
+-- shadow is a function for handling lexical scoping in Feather templates by building tables that shadow the namespaces of enclosing scopes
 local shadow_parent = {}
 local shadow_mt = {
   __index = function(self, key)
@@ -29,7 +32,7 @@ local function map_pairs(tab, fn)
 end
 
 
-
+  --NYI, maybe unneeded
 local struct layout {}
 
 local struct layout_stack {
@@ -47,6 +50,7 @@ local function make_outline(info)
 
 end
 
+  --store the data of a transformation, used for accumulating transformations while traversing the rtree.
   --Simple translation for now
 struct M.transform {
   r: F.Vec3D
@@ -61,33 +65,52 @@ terra M.transform.methods.identity()
   return M.transform{F.Vec3D{array(0.0f, 0.0f, 0.0f)}}
 end
 
+
+--metatables
 local template_mt = {}
 local outline_mt = {__index = {}}
 
+--unique values for use as key identifiers
 M.context = {}
 M.required = {}
 
+
 --Expression instantiation functions
 --TODO: rewrite with implementations that handle the real expressions
+
+--make a user-provided constant value into an interface-conforming expression
 local function constant_expression(v) return function() return v end end
+
+--ensure that a user-provided expression-thing is a proper expression object
 local function expression_parse(expr) return expr end
+
+--compute the type of an expression in a particular type_environment and context.
+--TODO: this interface needs t obe changed to support expressions wiht intermediate caching or auxiliary storage
 local function type_expression(expr, context, type_environment)
   return expr(map_pairs(type_environment, function(k, v) if terralib.types.istype(v) then return k, symbol(v) else return k, nil end end)):gettype()
 end
+
+-- handle an expression being evaluated for the first time
+-- TODO: this interface needs to be changed to support expressions with intermediate caching or auxiliary storage
 local function expression_enter(expr, context, environment)
   return expr(environment)
 end
+
+-- handle an expression being reevaluated after some data changed.
+-- TODO: this interface needs to be changed to support expressions with intermediate caching or auxiliary storage
 local function expression_update(expr, context, environment)
   return expr(environment)
 end
 
 
+-- body is used both as a distinguished unique value and as an outline which looks up the provided body in the enclosing environment under it's own key
 M.body = setmetatable({
     generate = function(type_environment)
       return type_environment[M.body](type_environment)
     end
                       }, outline_mt)
 
+-- build an outline object as the body of a template from a user provided table.
 local function make_body(rawbody)
   local function generate(context, type_environment)
     local elements = {}
@@ -222,7 +245,7 @@ function template_mt:__call(desc)
   return setmetatable(outline, outline_mt)
 end
 
--- parse an argument declaration table into a usable specification
+-- parse an argument declaration table into a usable specification object
 local function parse_params(desc)
   local res = {required = {}, defaults = {}, names = {}, has_body = false}
   for k, v in pairs(desc) do
@@ -244,6 +267,9 @@ local function parse_params(desc)
   return res
 end
 
+-- A raw template allows taking full control of the outline generation, including custom memory layout, caching behavior, and the full details of positioning and rendering.
+-- this should be used primarily for internal core templates and should rarely if ever appear in user code.
+-- if this gets used in user code, it probably means that either the code is doing something wrong or Feather is missing features.
 function M.raw_template(params)
   local params = parse_params(params)
   return function(generate)
@@ -255,6 +281,9 @@ function M.raw_template(params)
   end
 end
 
+-- A basic template automatically scaffolds sensible default generation behavior including handling positioning, layout, and caching, but leaves rendering up to custom code.
+-- This can be used to implement custom rendering behavior that needs to interact directly with the backend which can't be represented in existing standard templates.
+-- User code should use this sparingly, prefering to build templates from provided standard templates instead of custom rendering code.
 function M.basic_template(params)
   local params_abbrev = parse_params(params)
   local params_full = parse_params(params)
@@ -369,6 +398,7 @@ function M.basic_template(params)
   end
 end
 
+-- build a template from an outline defined in terms of existing templates; this should be the primary method of defining templates in user code.
 function M.template(params)
   local params = parse_params(params)
   return function(defn)
@@ -429,6 +459,7 @@ function M.template(params)
   end
 end
 
+-- Let outline, which binds some variables into scope for the body.
 function M.let(bindings)
   local exprs = {}
   for k, v in pairs(bindings) do
@@ -491,6 +522,7 @@ function M.let(bindings)
   end
 end
 
+-- Each loop, which instantiates a body for each element in a provided collection
 function M.each(name)
   error "NYI: each loop is not yet implemented" --TODO: complete implementation
   return function(collection)
@@ -512,7 +544,7 @@ function M.each(name)
 end
 
 
-
+-- The UI root, accepting a descriptor of the entire application's UI and the interface it binds against, producing a UI object which can be compiled and instantiated to actually put things on screen.
 function M.ui(desc)
   local body_gen = make_body(desc)
 
@@ -576,6 +608,7 @@ function M.ui(desc)
 
   -- terralib.printraw(ui)
 
+  -- method to initialize the UI
   terra ui:init(application: application_type, queries: query_binding, backend: backend_type)
     self.allocator = alloc.default_allocator
     self.application = application
@@ -616,6 +649,7 @@ function M.ui(desc)
     )
   end
 
+  -- UI lifecycle methods.
   terra ui:enter()
     [body_fns.enter(`self.data,
                     make_context(self),
