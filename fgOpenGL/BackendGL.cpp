@@ -8,6 +8,7 @@
 #include "utf.h"
 #include <filesystem>
 #include <stdarg.h>
+#include <float.h>
 #include "SOIL.h"
 #include "ft2build.h"
 #include FT_FREETYPE_H
