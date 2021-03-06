@@ -2,6 +2,7 @@
 #include "resource.h"
 #include <stdio.h>
 #include <stdarg.h>
+#include <math.h>
 
 #define BACKEND fgOpenGL
 #define TEST(x)                      \
@@ -40,13 +41,15 @@ struct MockElement : FG_MsgReceiver
 
 FG_Result behavior(FG_MsgReceiver* element, void* w, void* ui, FG_Msg* m)
 {
+  static int counter = 0;
   MockElement& e = *static_cast<MockElement*>(element);
   if(m->kind == FG_Kind_DRAW)
   {
+    ++counter;
     FG_Backend* b = *(FG_Backend**)ui;
-    (*b->clear)(b, w, FG_Color{ 0 });
+    (*b->clear)(b, w, FG_Color{ 0xFF000000 });
 
-    auto r1 = FG_Rect{ 50.f, 100.f, 200.f, 300.f };
+    auto r1 = FG_Rect{ 0.f, 0.f, 100.f, 80.f };
     auto c1 = FG_Rect{ 0.f, 4.f, 8.f, 12.f };
     (*b->drawRect)(b, w, &r1, &c1, FG_Color{ 0xFF0000FF }, 5.f, FG_Color{ 0xFF00FFFF }, 0.f, nullptr, 0.f, 0.f, nullptr);
 
@@ -56,17 +59,18 @@ FG_Result behavior(FG_MsgReceiver* element, void* w, void* ui, FG_Msg* m)
 
     auto r2 = FG_Rect{ 350.f, 100.f, 500.f, 300.f };
     auto c2 = FG_Vec{ 0.f, 3.f };
-    (*b->drawCircle)(b, w, &r2, c2, FG_Color{ 0xFF0000FF }, 5.f, FG_Color{ 0xFF00FFFF }, 0.f, 10.f, 2.f, nullptr, 0.f,
+    (*b->drawCircle)(b, w, &r2, c2, FG_Color{ 0xFF0000FF }, 5.f, FG_Color{ 0xFF00FFFF }, 0.f, 20.f, 2.f, nullptr, 0.f,
                      nullptr);
 
-    auto r2b = FG_Rect{ 300.f, 200.f, 341.f, 241.f };
-    auto c2b = FG_Vec{ 0.f, 6.283f };
-    (*b->drawCircle)(b, w, &r2b, c2b, FG_Color{ 0xFFFFFFFF }, 0.f, FG_Color{ 0xFF00FFFF }, 0.f, -0.0f, 0.f, nullptr, 0.f,
+    auto r2b = FG_Rect{ 300.f, 200.f, 380.f, 280.f };
+    auto c2b = FG_Vec{ 0.f, 3.1416f * (sinf(counter*0.01f)+1.0f) };
+    //auto c2b = FG_Vec{ 0.f, 4.0f };
+    (*b->drawCircle)(b, w, &r2b, c2b, FG_Color{ 0xFFFFFFFF }, 3.f, FG_Color{ 0xFFFFFFFF }, 0.f, 0.f, 0.f, nullptr, 0.f,
                      nullptr);
 
     auto r3 = FG_Rect{ 150.f, 300.f, 300.f, 500.f };
     auto c3 = FG_Rect{ 0.f, 4.f, 8.f, 0.5f };
-    (*b->drawTriangle)(b, w, &r3, &c3, FG_Color{ 0xFF0000FF }, 5.f, FG_Color{ 0xFF00FFFF }, 0.f, nullptr, 0.45f, 0.f,
+    (*b->drawTriangle)(b, w, &r3, &c3, FG_Color{ 0xFF0000FF }, 5.f, FG_Color{ 0xFF00FFFF }, 0.f, nullptr, 0.4f, 0.f,
                        nullptr);
 
     auto r4 = FG_Rect{ 300.f, 300.f, 620.f, 580.f };

@@ -15,7 +15,7 @@ float linetopoint(vec2 p1, vec2 p2, vec2 p)\n
 void main()\n
 {\n
   vec2 d = DimBorderBlur.xy;\n
-  vec2 p = pos * d;\n
+  vec2 p = pos * d + vec2(-0.5,0.5);\n
   vec4 c = Corners;\n
   vec2 dist;\n
   vec2 p2 = vec2(c.w*d.x, 0.0);\n
@@ -26,8 +26,8 @@ void main()\n
   \n
   // Ideally we would get DPI for both height and width, but for now we just assume DPI isn't weird
   float w = fwidth(p.x) * (1.0 + DimBorderBlur.w);\n
-  float s = 1.0 - linearstep(1.0 - DimBorderBlur.z - w, 1.0 - DimBorderBlur.z, r);\n
-  float alpha = linearstep(1.0, 1.0 - w, r);\n
+  float s = 1.0 - linearstep(1.0 - DimBorderBlur.z - w*2.0, 1.0 - DimBorderBlur.z - w, r);\n
+  float alpha = linearstep(1.0 - w, 1.0 - w*2.0, r);\n
   vec4 fill = vec4(Fill.rgb, 1.0);\n
   vec4 edge = vec4(Outline.rgb, 1.0);\n
   gl_FragColor = (fill*Fill.a*s) + (edge*Outline.a*clamp(alpha - s,0.0,1.0));\n

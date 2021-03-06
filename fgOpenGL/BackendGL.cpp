@@ -232,7 +232,7 @@ void Backend::_drawStandard(GLuint shader, VAO* vao, float (&proj)[4][4], const 
   float outline[4];
   ColorFloats(borderColor, outline);
   float amount     = blur + ((abs(fmod(rotate, PI/2.0f)) <= FLT_EPSILON) ? 0.0f : 1.0f);
-  float inflate[2] = { 1.0f + (amount/dimdata[0]), 1.0f + (amount/dimdata[1]) };
+  float inflate[2] = { 1.0f + (amount / dimdata[0]), 1.0f + (amount / dimdata[1]) };
 
   glUseProgram(shader);
   LogError("glUseProgram");
@@ -280,12 +280,7 @@ FG_Err Backend::DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_R
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(window);
   context->ApplyBlend(blend);
-  FG_Rect shift = *area;
-  shift.ltrb[0] -= 0.5f;
-  shift.ltrb[1] -= 0.5f;
-  shift.ltrb[2] -= 0.5f;
-  shift.ltrb[3] -= 0.5f;
-  backend->_drawStandard(context->_trishader, context->_quadobject, context->GetProjection(), shift, *corners, fillColor,
+  backend->_drawStandard(context->_trishader, context->_quadobject, context->GetProjection(), *area, *corners, fillColor,
                          border, borderColor, blur, rotate, z);
   return glGetError();
 }
