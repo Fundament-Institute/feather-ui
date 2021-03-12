@@ -10,18 +10,17 @@ local clockring = f.template {
   pos = f.required
 }
 {
-  f.circle {
-    outline = bind color,
-    color = bind f.Color{0},
+  f.arc {
+    outline = bind f.Color{0},
+    color = bind color,
     innerRadius = bind radius - width,
-    innerBorder = bind width,
     angles = bind f.Vec {
         array(
           0f,
           progress * [float]([math.pi])
         )
                     },
-    ext = bind f.Vec3D{arrayof(float, radius * 2, radius * 2, 0)},
+    ext = bind f.Vec3D{arrayof(float, radius, radius, 0)},
     pos = bind pos
   }
 }
@@ -56,6 +55,11 @@ local clock = f.template {
 
 local C = terralib.includecstring [[
 #include <time.h>
+
+time_t feathertime(time_t* const _Time) { return time(_Time); }
+#if defined(WIN32) || defined(_WIN32) || defined(_WIN64)
+struct tm *feathergmtime(const time_t *timep, struct tm *result) { gmtime_s(result, timep); return result; }
+#endif
 ]]
 
 local struct clockapp {
@@ -63,8 +67,8 @@ local struct clockapp {
                       }
 
 terra clockapp:update()
-  var rawtime = C.time(nil)
-  C.gmtime_r(&rawtime, &self.time)
+  var rawtime = C.feathertime(nil)
+  [jit.os == "Windows" and C.feathergmtime or C.gmtime_r](&rawtime, &self.time)
 end
 terra clockapp:init(argc: int, argv: &rawstring)
   self:update()
@@ -80,7 +84,7 @@ local ui = f.ui {
       minute = bind app.time.tm_min,
       second = bind app.time.tm_sec,
       radius = bind 200,
-      pos = bind f.Vec3D{arrayof(float, 500, 500, 0)}
+      pos = bind f.Vec3D{arrayof(float, 250, 250, 0)}
     }
   }
 }

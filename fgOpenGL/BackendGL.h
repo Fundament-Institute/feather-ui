@@ -43,9 +43,12 @@ namespace GL {
     static FG_Err DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
                            float border, FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z,
                            FG_BlendState* blend);
-    static FG_Err DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Vec angles, FG_Color fillColor, float border,
+    static FG_Err DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Color fillColor, float border,
                              FG_Color borderColor, float blur, float innerRadius, float innerBorder, FG_Asset* asset,
-                             float rotate, FG_BlendState* blend);
+                             float z, FG_BlendState* blend);
+    static FG_Err DrawArc(FG_Backend* self, void* window, FG_Rect* area, FG_Vec angles, FG_Color fillColor, float border,
+                          FG_Color borderColor, float blur, float innerRadius, FG_Asset* asset, float z,
+                          FG_BlendState* blend);
     static FG_Err DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
                                float border, FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z,
                                FG_BlendState* blend);
@@ -110,6 +113,7 @@ namespace GL {
     Shader _imageshader; // used for text
     Shader _rectshader;
     Shader _circleshader;
+    Shader _arcshader;
     Shader _trishader;
     Shader _lineshader;
     struct FT_LibraryRec_* _ftlib;

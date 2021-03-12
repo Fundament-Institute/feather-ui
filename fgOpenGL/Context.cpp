@@ -22,7 +22,8 @@ namespace GL {
 
 using namespace GL;
 
-// Feather uses a premultiplied compositing pipeline: https://apoorvaj.io/alpha-compositing-opengl-blending-and-premultiplied-alpha/
+// Feather uses a premultiplied compositing pipeline:
+// https://apoorvaj.io/alpha-compositing-opengl-blending-and-premultiplied-alpha/
 const FG_BlendState Context::PREMULTIPLY_BLEND = {
   FG_BlendValue_ONE,
   FG_BlendValue_INV_SRC_ALPHA,
@@ -164,9 +165,9 @@ void Context::StandardViewport() const
   glViewport(0, 0, w, h);
   _backend->LogError("glViewport");
 }
-void Context::Viewport(float w, float h) const
+void Context::Viewport(GLsizei w, GLsizei h) const
 {
-  glViewport(0, 0, static_cast<int>(ceilf(w)), static_cast<int>(ceilf(h)));
+  glViewport(0, 0, w, h);
   _backend->LogError("glViewport");
 }
 
@@ -184,7 +185,7 @@ Layer* Context::CreateLayer(const FG_Vec* psize)
   GLsizei w;
   GLsizei h;
   glfwGetFramebufferSize(_window, &w, &h);
-  FG_Vec size = { w, h };
+  FG_Vec size = { (float)w, (float)h };
   return new Layer(!psize ? size : *psize, this);
 }
 
@@ -325,8 +326,10 @@ void Context::CreateResources()
   _backend->LogError("glEnable");
   glFrontFace(GL_CW);
   _backend->LogError("glFrontFace");
-  glEnable(GL_CULL_FACE);
-  _backend->LogError("glEnable");
+  // glEnable(GL_CULL_FACE);
+  //_backend->LogError("glEnable");
+  // glEnable(GL_FRAMEBUFFER_SRGB);
+  //_backend->LogError("glEnable");
 
   ApplyBlend(0);
   _backend->LogError("glBlendFunc");
@@ -334,6 +337,7 @@ void Context::CreateResources()
   _imageshader  = _backend->_imageshader.Create(_backend);
   _rectshader   = _backend->_rectshader.Create(_backend);
   _circleshader = _backend->_circleshader.Create(_backend);
+  _arcshader    = _backend->_arcshader.Create(_backend);
   _trishader    = _backend->_trishader.Create(_backend);
   _lineshader   = _backend->_trishader.Create(_backend);
 
@@ -511,6 +515,7 @@ void Context::DestroyResources()
   _backend->_imageshader.Destroy(_backend, _imageshader);
   _backend->_imageshader.Destroy(_backend, _rectshader);
   _backend->_imageshader.Destroy(_backend, _circleshader);
+  _backend->_imageshader.Destroy(_backend, _arcshader);
   _backend->_imageshader.Destroy(_backend, _trishader);
   _backend->_imageshader.Destroy(_backend, _lineshader);
 
@@ -574,7 +579,7 @@ GLuint Context::GetFontTexture(const Font* font)
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   _backend->LogError("glTexParameteri");
 
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (1 << powsize), (1 << powsize), 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, (1 << powsize), (1 << powsize), 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
   _backend->LogError("glTexImage2D");
   glBindTexture(GL_TEXTURE_2D, 0);
   _backend->LogError("glBindTexture");

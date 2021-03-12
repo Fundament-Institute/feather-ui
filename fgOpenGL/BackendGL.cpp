@@ -231,8 +231,8 @@ void Backend::_drawStandard(GLuint shader, VAO* vao, float (&proj)[4][4], const 
   ColorFloats(fillColor, fill);
   float outline[4];
   ColorFloats(borderColor, outline);
-  float amount     = blur + ((abs(fmod(rotate, PI/2.0f)) <= FLT_EPSILON) ? 0.0f : 1.0f);
-  float inflate[2] = { 1.0f + (amount / dimdata[0]), 1.0f + (amount / dimdata[1]) };
+  float amount     = blur + ((abs(fmod(rotate, PI / 2.0f)) <= FLT_EPSILON) ? 0.0f : 1.0f);
+  float inflate[2] = { 2.0f + (amount / dimdata[0]), 2.0f + (amount / dimdata[1]) };
 
   glUseProgram(shader);
   LogError("glUseProgram");
@@ -261,7 +261,7 @@ FG_Err Backend::DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect*
   return glGetError();
 }
 
-FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Vec angles, FG_Color fillColor, float border,
+FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Color fillColor, float border,
                            FG_Color borderColor, float blur, float innerRadius, float innerBorder, FG_Asset* asset, float z,
                            FG_BlendState* blend)
 {
@@ -269,10 +269,22 @@ FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Vec
   auto context = reinterpret_cast<Context*>(window);
   context->ApplyBlend(blend);
   backend->_drawStandard(context->_circleshader, context->_quadobject, context->GetProjection(), *area,
-                         FG_Rect{ angles.x + (angles.y / 2.0f) - (PI / 2.0f), angles.y / 2.0f, innerRadius, innerBorder },
+                         FG_Rect{ innerRadius, innerBorder, 0.0f, 0.0f }, fillColor, border, borderColor, blur, 0.0f, z);
+  return glGetError();
+}
+
+FG_Err Backend::DrawArc(FG_Backend* self, void* window, FG_Rect* area, FG_Vec angles, FG_Color fillColor, float border,
+                        FG_Color borderColor, float blur, float innerRadius, FG_Asset* asset, float z, FG_BlendState* blend)
+{
+  auto backend = static_cast<Backend*>(self);
+  auto context = reinterpret_cast<Context*>(window);
+  context->ApplyBlend(blend);
+  backend->_drawStandard(context->_arcshader, context->_quadobject, context->GetProjection(), *area,
+                         FG_Rect{ angles.x + (angles.y / 2.0f) - (PI / 2.0f), angles.y / 2.0f, innerRadius, 0.0f },
                          fillColor, border, borderColor, blur, 0.0f, z);
   return glGetError();
 }
+
 FG_Err Backend::DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
                              float border, FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z,
                              FG_BlendState* blend)
@@ -1143,6 +1155,7 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   drawAsset            = &DrawAsset;
   drawRect             = &DrawRect;
   drawCircle           = &DrawCircle;
+  drawArc              = &DrawArc;
   drawTriangle         = &DrawTriangle;
   drawLines            = &DrawLines;
   drawCurve            = &DrawCurve;
@@ -1228,6 +1241,10 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
 #include "Circle.fs.glsl"
     ;
 
+  const char* arc_fs =
+#include "Arc.fs.glsl"
+    ;
+
   std::initializer_list<FG_ShaderParameter> standardLayout = {
     { FG_ShaderType_FLOAT, 4, 4, "MVP" },     { FG_ShaderType_FLOAT, 4, 1, "DimBorderBlur" },
     { FG_ShaderType_FLOAT, 4, 1, "Corners" }, { FG_ShaderType_FLOAT, 4, 1, "Fill" },
@@ -1237,6 +1254,7 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   _rectshader   = Shader(roundrect_fs, standard_vs, 0, standardLayout);
   _trishader    = Shader(triangle_fs, standard_vs, 0, standardLayout);
   _circleshader = Shader(circle_fs, standard_vs, 0, standardLayout);
+  _arcshader    = Shader(arc_fs, standard_vs, 0, standardLayout);
 
 #ifdef FG_PLATFORM_WIN32
   #ifdef FG_DEBUG

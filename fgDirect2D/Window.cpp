@@ -7,6 +7,7 @@
 #include <Windowsx.h>
 #include <wincodec.h>
 #include "RoundRect.h"
+#include "Arc.h"
 #include "Circle.h"
 #include "Triangle.h"
 #include "Modulation.h"
@@ -43,6 +44,7 @@ Window::Window(Backend* _backend, FG_MsgReceiver* _element, FG_Vec* pos, FG_Vec*
   edgecolor             = 0;
   roundrect             = 0;
   triangle              = 0;
+  arc                   = 0;
   circle                = 0;
   scale                 = 0;
   element               = _element;
@@ -181,7 +183,7 @@ longptr_t __stdcall Window::WndProc(HWND__* hWnd, unsigned int message, size_t w
       msg.setWindowFlags.flags = self->backend->Behavior(self, FG_Msg{ FG_Kind_GETWINDOWFLAGS }).getWindowFlags |
                                  FG_Window_CLOSED;
       self->backend->Behavior(self, msg);
-      FG_Msg action  = FG_Msg{ FG_Kind_ACTION };
+      FG_Msg action         = FG_Msg{ FG_Kind_ACTION };
       action.action.subkind = 1; // FG_WINDOW_ONCLOSE
       self->backend->Behavior(self, action);
       delete self;
@@ -298,7 +300,7 @@ longptr_t __stdcall Window::WndProc(HWND__* hWnd, unsigned int message, size_t w
     case WM_DROPFILES: break; // TODO: http://www.catch22.net/tuts/win32/drag-and-drop-introduction
     case WM_PAINT:
     {
-      FG_Msg msg    = { FG_Kind_DRAW };
+      FG_Msg msg = { FG_Kind_DRAW };
       RECT WindowRect;
       GetWindowRect(hWnd, &WindowRect);
       msg.draw.area.left   = 0;
@@ -413,8 +415,9 @@ void Window::CreateResources()
       {
         context->SetUnitMode(
           D2D1_UNIT_MODE_PIXELS); // Force direct2D to render in pixels because feathergui does the DPI conversion for us.
-        hr = context->CreateEffect(CLSID_RoundRect, &roundrect);
+        hr = context->CreateEffect(CLSID_Arc, &arc);
         hr = context->CreateEffect(CLSID_Circle, &circle);
+        hr = context->CreateEffect(CLSID_RoundRect, &roundrect);
         hr = context->CreateEffect(CLSID_Triangle, &triangle);
         hr = context->CreateEffect(CLSID_D2D1Scale, &scale);
         if(FAILED(hr))
@@ -456,6 +459,8 @@ void Window::DiscardResources()
     roundrect->Release();
   if(triangle)
     triangle->Release();
+  if(arc)
+    arc->Release();
   if(circle)
     circle->Release();
   if(scale)
@@ -469,6 +474,7 @@ void Window::DiscardResources()
   context   = 0;
   roundrect = 0;
   triangle  = 0;
+  arc       = 0;
   circle    = 0;
   target    = 0;
 }

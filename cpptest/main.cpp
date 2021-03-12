@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <math.h>
+#include <time.h>
 
 #define BACKEND fgOpenGL
 #define TEST(x)                      \
@@ -42,7 +43,7 @@ struct MockElement : FG_MsgReceiver
 FG_Result behavior(FG_MsgReceiver* element, void* w, void* ui, FG_Msg* m)
 {
   static int counter = 0;
-  MockElement& e = *static_cast<MockElement*>(element);
+  MockElement& e     = *static_cast<MockElement*>(element);
   if(m->kind == FG_Kind_DRAW)
   {
     ++counter;
@@ -54,19 +55,22 @@ FG_Result behavior(FG_MsgReceiver* element, void* w, void* ui, FG_Msg* m)
     (*b->drawRect)(b, w, &r1, &c1, FG_Color{ 0xFF0000FF }, 5.f, FG_Color{ 0xFF00FFFF }, 0.f, nullptr, 0.f, 0.f, nullptr);
 
     auto r1b = FG_Rect{ 300.f, 150.f, 340.f, 190.f };
-    auto c1b = FG_Rect{ 0.f,  0.f, 0.f, 0.f, };
+    auto c1b = FG_Rect{ 0.0f, 0.0f, 0.0f, 0.0f };
     (*b->drawRect)(b, w, &r1b, &c1b, FG_Color{ 0xFFFFFFFF }, 0, FG_Color{ 0xFF00FFFF }, 0.f, nullptr, 0.f, 0.f, nullptr);
 
     auto r2 = FG_Rect{ 350.f, 100.f, 500.f, 300.f };
     auto c2 = FG_Vec{ 0.f, 3.f };
-    (*b->drawCircle)(b, w, &r2, c2, FG_Color{ 0xFF0000FF }, 5.f, FG_Color{ 0xFF00FFFF }, 0.f, 20.f, 2.f, nullptr, 0.f,
+    (*b->drawArc)(b, w, &r2, c2, FG_Color{ 0xFF0000FF }, 5.f, FG_Color{ 0xFF00FFFF }, 0.f, 10.f, nullptr, 0.f, nullptr);
+
+    auto r2a = FG_Rect{ 100.f, 150.f, 250.f, 300.f };
+    (*b->drawCircle)(b, w, &r2a, FG_Color{ 0xFFFFFFFF }, 10.f, FG_Color{ 0xFF00FFFF }, 0.f, 10.f, 2.f, nullptr, 0.f,
                      nullptr);
 
-    auto r2b = FG_Rect{ 300.f, 200.f, 380.f, 280.f };
-    auto c2b = FG_Vec{ 0.f, 3.1416f * (sinf(counter*0.01f)+1.0f) };
-    //auto c2b = FG_Vec{ 0.f, 4.0f };
-    (*b->drawCircle)(b, w, &r2b, c2b, FG_Color{ 0xFFFFFFFF }, 3.f, FG_Color{ 0xFFFFFFFF }, 0.f, 0.f, 0.f, nullptr, 0.f,
-                     nullptr);
+    auto r2b = FG_Rect{ 300.f, 200.f, 380.0f, 280.0f };
+    auto c2b = FG_Vec{ 0.0f, 3.1416f * (sinf(counter * 0.01f) + 1.0f) };
+    // auto c2b = FG_Vec{ 0.f, 4.0f };
+    //(*b->drawRect)(b, w, &r2b, &c1b, FG_Color{ 0xFF999999 }, 0, FG_Color{ 0 }, 0.f, nullptr, 0.f, 0.f, nullptr);
+    (*b->drawArc)(b, w, &r2b, c2b, FG_Color{ 0xFFFFFFFF }, 5.f, FG_Color{ 0xFFFFFF00 }, 0.f, 0.f, nullptr, 0.f, nullptr);
 
     auto r3 = FG_Rect{ 150.f, 300.f, 300.f, 500.f };
     auto c3 = FG_Rect{ 0.f, 4.f, 8.f, 0.5f };
@@ -84,11 +88,10 @@ FG_Result behavior(FG_MsgReceiver* element, void* w, void* ui, FG_Msg* m)
     (*b->drawShader)(b, w, e.shader, e.vertices, 0, 0, (float*)proj, e.image);
 
     auto r6              = FG_Rect{ 650.f, 125.f, 800.f, 275.f };
-    auto c6              = FG_Vec{ 0.f, 6.283f };
     FG_BlendState blend6 = { FG_BlendValue_ZERO,      FG_BlendValue_SRC_ALPHA, FG_BlendOp_ADD, FG_BlendValue_ZERO,
                              FG_BlendValue_SRC_ALPHA, FG_BlendOp_ADD,          0b1111 };
-    (*b->drawCircle)(b, w, &r6, c6, FG_Color{ 0xFFFFFFFF }, 30.f, FG_Color{ 0 }, 0.f, 0.f, 0.f, nullptr, 0.f, &blend6);
-    
+    (*b->drawCircle)(b, w, &r6, FG_Color{ 0xFFFFFFFF }, 30.f, FG_Color{ 0 }, 0.f, 0.f, 0.f, nullptr, 0.f, &blend6);
+
     float transform[16] = {
       1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 550, 50, 0, 1,
     };
@@ -190,7 +193,7 @@ int main(int argc, char* argv[])
   }
 
   FG_Vec layerdim = { 200, 100 };
-  e.layer = (*b->createLayer)(b, w, &layerdim, false);
+  e.layer         = (*b->createLayer)(b, w, &layerdim, false);
 
   TEST((*b->setCursor)(b, w, FG_Cursor_CROSS) == 0);
   TEST((*b->dirtyRect)(b, w, 0) == 0);

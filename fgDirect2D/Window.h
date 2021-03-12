@@ -39,9 +39,10 @@ namespace D2D {
     ID2D1DeviceContext* context;
     ID2D1SolidColorBrush* color;
     ID2D1SolidColorBrush* edgecolor;
+    ID2D1Effect* arc;
+    ID2D1Effect* circle;
     ID2D1Effect* roundrect;
     ID2D1Effect* triangle;
-    ID2D1Effect* circle;
     ID2D1Effect* scale;
     FG_MsgReceiver* element;
     Backend* backend;

@@ -47,7 +47,8 @@ namespace GL {
     void DestroyResources();
     GLFWwindow* GetWindow() const { return _window; }
     void Scissor(const FG_Rect& rect, float x, float y) const;
-    void Viewport(float w, float h) const;
+    inline void Viewport(float w, float h) const { Viewport(static_cast<int>(ceilf(w)), static_cast<int>(ceilf(h))); }
+    void Viewport(int w, int h) const;
     void StandardViewport() const;
     void AppendBatch(const void* vertices, GLsizeiptr bytes, GLsizei count);
     GLsizei FlushBatch();
@@ -74,6 +75,7 @@ namespace GL {
     GLuint _imageshader;
     GLuint _rectshader;
     GLuint _circleshader;
+    GLuint _arcshader;
     GLuint _trishader;
     GLuint _lineshader;
     VAO* _quadobject;
