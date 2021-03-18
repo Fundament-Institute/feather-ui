@@ -8,6 +8,7 @@
 #include "VAO.h"
 #include <algorithm>
 #include <assert.h>
+#include <float.h>
 
 #define kh_pair_hash_func(key) \
   kh_int64_hash_func((static_cast<uint64_t>(kh_ptr_hash_func(key.first)) << 32) | kh_ptr_hash_func(key.first))
