@@ -6,6 +6,7 @@
 #include <dwmapi.h>
 #include <Windowsx.h>
 #include <wincodec.h>
+#include <dwrite_1.h>
 #include "RoundRect.h"
 #include "Arc.h"
 #include "Circle.h"
@@ -18,6 +19,7 @@ namespace D2D {
 }
 
 using namespace D2D;
+static float PI = 3.14159265359f;
 
 EXTERN_C IMAGE_DOS_HEADER __ImageBase; // Accesses the HINSTANCE for this module
 
@@ -46,7 +48,7 @@ Window::Window(Backend* _backend, FG_MsgReceiver* _element, FG_Vec* pos, FG_Vec*
   triangle              = 0;
   arc                   = 0;
   circle                = 0;
-  scale                 = 0;
+  scaling               = 0;
   element               = _element;
   backend               = _backend;
   margin                = { 0 };
@@ -419,7 +421,7 @@ void Window::CreateResources()
         hr = context->CreateEffect(CLSID_Circle, &circle);
         hr = context->CreateEffect(CLSID_RoundRect, &roundrect);
         hr = context->CreateEffect(CLSID_Triangle, &triangle);
-        hr = context->CreateEffect(CLSID_D2D1Scale, &scale);
+        hr = context->CreateEffect(CLSID_D2D1Scale, &scaling);
         if(FAILED(hr))
           (*backend->_log)(backend->_root, FG_Level_ERROR, "CreateEffect failed with error code %li", hr);
       }
@@ -463,8 +465,8 @@ void Window::DiscardResources()
     arc->Release();
   if(circle)
     circle->Release();
-  if(scale)
-    scale->Release();
+  if(scaling)
+    scaling->Release();
   if(context)
     context->Release();
   if(target)
@@ -742,3 +744,148 @@ void Window::PopTransform()
   transforms.pop();
   context->SetTransform(transforms.empty() ? D2D1::IdentityMatrix() : transforms.top());
 }
+
+void Window::PushRotate(float rotate, const FG_Rect& area)
+{
+  if(rotate != 0.0f)
+    PushTransform(D2D1::Matrix3x2F::Rotation(rotate * (180.0f / PI),
+                                             D2D1::Point2F((area.left + area.right) / 2, (area.top + area.bottom) / 2)));
+}
+
+void Window::PopRotate(float rotate)
+{
+  if(rotate != 0.0f)
+    PopTransform();
+}
+
+FG_Err Window::DrawTextD2D(FG_Font* font, void* fontlayout, FG_Rect* area, FG_Color fill, float blur, float rotate, float z)
+{
+  if(!fontlayout)
+    return -1;
+
+  PushRotate(rotate, *area);
+  IDWriteTextLayout* layout = (IDWriteTextLayout*)fontlayout;
+  color->SetColor(ToD2Color(fill.v));
+  layout->SetMaxWidth(area->right - area->left);
+  layout->SetMaxHeight(area->bottom - area->top);
+
+  D2D1_TEXT_ANTIALIAS_MODE aa = D2D1_TEXT_ANTIALIAS_MODE_DEFAULT;
+  switch(font->aa)
+  {
+  case FG_AntiAliasing_NO_AA: aa = D2D1_TEXT_ANTIALIAS_MODE_ALIASED; break;
+  case FG_AntiAliasing_AA: aa = D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE; break;
+  case FG_AntiAliasing_LCD:
+  case FG_AntiAliasing_LCD_V: aa = D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE; break;
+  }
+
+  if(aa != target->GetTextAntialiasMode())
+    target->SetTextAntialiasMode(aa);
+
+  target->DrawTextLayout(D2D1::Point2F(area->left, area->top), layout, color, D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
+
+  PopRotate(rotate);
+
+  return 0;
+}
+
+template<int N, typename Arg, typename... Args>
+inline FG_Err Window::DrawEffect(ID2D1Effect* effect, const FG_Rect& area, float rotate, const Arg arg, const Args&... args)
+{
+  effect->SetValue<Arg, int>(N, arg);
+  if constexpr(sizeof...(args) > 0)
+    return DrawEffect<N + 1, Args...>(effect, area, rotate, args...);
+
+  PushRotate(rotate, area);
+  D2D1_RECT_F rect = D2D1::RectF(area.left, area.top, area.right, area.bottom);
+  context->DrawImage(effect, D2D1::Point2F(area.left, area.top), rect, D2D1_INTERPOLATION_MODE_LINEAR,
+                     D2D1_COMPOSITE_MODE_SOURCE_OVER);
+  PopRotate(rotate);
+
+  return 0;
+}
+
+FG_Err Window::DrawAsset(FG_Asset* asset, const FG_Rect& area, FG_Rect* source, FG_Color color, float time, float rotate,
+                         float z)
+{
+  ID2D1Bitmap* bitmap = GetBitmapFromSource(static_cast<const Asset*>(asset));
+  fgassert(bitmap);
+
+  D2D1_RECT_F rect      = D2D1::RectF(area.left, area.top, area.right, area.bottom);
+  auto size             = bitmap->GetPixelSize();
+  D2D1_RECT_F uvresolve = D2D1::RectF(0, 0, size.width, size.height);
+  if(source)
+    uvresolve = D2D1::RectF(source->left, source->top, source->right, source->bottom);
+
+  auto scale = D2D1::Vector2F((rect.right - rect.left) / (uvresolve.right - uvresolve.left),
+                              (rect.bottom - rect.top) / (uvresolve.bottom - uvresolve.top));
+  PushRotate(rotate, area);
+  if(scale.x == 1.0f && scale.y == 1.0f)
+    target->DrawBitmap(bitmap, rect, color.a / 255.0f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, &uvresolve);
+  else
+  {
+    auto e = scaling;
+    e->SetValue(D2D1_SCALE_PROP_SCALE, scale);
+    e->SetValue(D2D1_SCALE_PROP_INTERPOLATION_MODE, D2D1_SCALE_INTERPOLATION_MODE_ANISOTROPIC);
+    e->SetInput(0, bitmap);
+    context->DrawImage(e, D2D1::Point2F(rect.left, rect.top),
+                       D2D1::RectF(floorf(uvresolve.left * scale.x), floorf(uvresolve.top * scale.y),
+                                   ceilf(uvresolve.right * scale.x), ceilf(uvresolve.bottom * scale.y + 1.0f)));
+  }
+
+  PopRotate(rotate);
+  bitmap->Release();
+  return 0;
+}
+
+FG_Err Window::DrawRect(const FG_Rect& area, const FG_Rect& corners, FG_Color fillColor, float border, FG_Color borderColor,
+                        float blur, FG_Asset* asset, float rotate, float z)
+{
+  FG_Rect expand = { area.left - blur, area.top - blur, area.right + blur, area.bottom + blur };
+
+  DrawEffect<0>(roundrect, expand, rotate, D2D1::Vector4F(expand.left, expand.top, expand.right, expand.bottom),
+                D2D1::Vector4F(corners.left, corners.top, corners.right, corners.bottom), fillColor, borderColor, border,
+                blur);
+  return 0;
+}
+
+FG_Err Window::DrawArc(const FG_Rect& area, FG_Vec angles, FG_Color fillColor, float border, FG_Color borderColor,
+                       float blur, float innerRadius, FG_Asset* asset, float z)
+{
+  DrawEffect<0>(arc, area, 0.0f, D2D1::Vector4F(area.left, area.top, area.right, area.bottom),
+                D2D1::Vector4F(angles.x + (angles.y / 2.0f) - (PI / 2.0f), angles.y / 2.0f, innerRadius, 0.0f), fillColor,
+                borderColor, border, blur);
+  return 0;
+}
+
+FG_Err Window::DrawCircle(const FG_Rect& area, FG_Color fillColor, float border, FG_Color borderColor, float blur,
+                          float innerRadius, float innerBorder, FG_Asset* asset, float z)
+{
+  DrawEffect<0>(circle, area, 0.0f, D2D1::Vector4F(area.left, area.top, area.right, area.bottom),
+                D2D1::Vector4F(innerRadius, innerBorder, 0.0f, 0.0f), fillColor, borderColor, border, blur);
+  return 0;
+}
+
+FG_Err Window::DrawTriangle(const FG_Rect& area, const FG_Rect& corners, FG_Color fillColor, float border,
+                            FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z)
+{
+  DrawEffect<0>(triangle, area, rotate, D2D1::Vector4F(area.left, area.top, area.right, area.bottom),
+                D2D1::Vector4F(corners.left, corners.top, corners.right, corners.bottom), fillColor, borderColor, border,
+                blur);
+  return 0;
+}
+
+FG_Err Window::DrawLines(FG_Vec* points, uint32_t count, FG_Color fill)
+{
+  color->SetColor(ToD2Color(fill.v));
+  for(size_t i = 1; i < count; ++i)
+    target->DrawLine(D2D1_POINT_2F{ points[i - 1].x, points[i - 1].y }, D2D1_POINT_2F{ points[i].x, points[i].y }, color,
+                     1.0F, 0);
+  return 0;
+}
+
+FG_Err Window::DrawCurve(FG_Vec* anchors, uint32_t count, FG_Color fillColor, float stroke, FG_Color strokeColor)
+{
+  return -1;
+}
+
+FG_Err Window::DrawShader(FG_Shader* shader, FG_Asset* vertices, FG_Asset* indices, ...) { return -1; }

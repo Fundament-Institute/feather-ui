@@ -38,7 +38,7 @@ end
 -- ensures that the cache contains an entry from this type to the serialized name
 -- appends the serialization data and any dependencies to the sequence in the correct order
 -- returns the serialized name of the declaration
-local function handle_declaration(object, prefix, cache, sequence, symbols)
+function handle_declaration(object, prefix, cache, sequence, symbols)
   if terralib.types.istype(object) then
     if cache[object] and cache[object].gen then
       return cache[object].name
@@ -87,6 +87,10 @@ local function handle_declaration(object, prefix, cache, sequence, symbols)
         for i, entry in ipairs(object.entries) do
           if entry.type ~= nil then
             handle_declaration(entry.type, prefix, cache, sequence, symbols)
+          else -- this is a union
+            for j, element in ipairs(entry) do
+              handle_declaration(element.type, prefix, cache, sequence, symbols)
+            end
           end
         end
         sequence:insert { kind = "customstruct", name = name, inner = object.c_export }

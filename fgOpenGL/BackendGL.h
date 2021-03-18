@@ -20,7 +20,6 @@ limitations under the License.
 #include "Window.h"
 #include <vector>
 
-typedef int FG_Err;
 struct FT_LibraryRec_;
 
 namespace GL {
@@ -33,31 +32,9 @@ namespace GL {
     ~Backend();
     FG_Result Behavior(Context* data, const FG_Msg& msg);
     bool LogError(const char* call);
-    FG_Err DrawTextureQuad(Context* context, GLuint tex, ImageVertex* v, FG_Color color, float* transform,
-                           FG_BlendState* blend);
 
-    static FG_Err DrawTextGL(FG_Backend* self, void* window, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Color color,
-                             float blur, float rotate, float z, FG_BlendState* blend);
-    static FG_Err DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Rect* area, FG_Rect* source, FG_Color color,
-                            float time, float rotate, float z, FG_BlendState* blend);
-    static FG_Err DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
-                           float border, FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z,
-                           FG_BlendState* blend);
-    static FG_Err DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Color fillColor, float border,
-                             FG_Color borderColor, float blur, float innerRadius, float innerBorder, FG_Asset* asset,
-                             float z, FG_BlendState* blend);
-    static FG_Err DrawArc(FG_Backend* self, void* window, FG_Rect* area, FG_Vec angles, FG_Color fillColor, float border,
-                          FG_Color borderColor, float blur, float innerRadius, FG_Asset* asset, float z,
-                          FG_BlendState* blend);
-    static FG_Err DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
-                               float border, FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z,
-                               FG_BlendState* blend);
-    static FG_Err DrawLines(FG_Backend* self, void* window, FG_Vec* points, uint32_t count, FG_Color color,
-                            FG_BlendState* blend);
-    static FG_Err DrawCurve(FG_Backend* self, void* window, FG_Vec* anchors, uint32_t count, FG_Color fillColor,
-                            float stroke, FG_Color strokeColor, FG_BlendState* blend);
-    static FG_Err DrawShader(FG_Backend* self, void* window, FG_Shader* shader, FG_Asset* vertices, FG_Asset* indices,
-                             FG_BlendState* blend, ...);
+    static FG_Err DrawGL(FG_Backend* self, void* window, FG_Command* commandlist, unsigned int n_commands,
+                         FG_BlendState* blend);
     static bool Clear(FG_Backend* self, void* window, FG_Color color);
     static FG_Err PushLayer(FG_Backend* self, void* window, FG_Asset* layer, float* transform, float opacity,
                             FG_BlendState* blend);
@@ -104,8 +81,6 @@ namespace GL {
     static FG_Err DestroySystemControl(FG_Backend* self, void* window, void* control);
     static void ErrorCallback(int error, const char* description);
     static void JoystickCallback(int id, int connected);
-    static void ColorFloats(const FG_Color& c, float (&colors)[4]);
-    static void GenTransform(float (&target)[4][4], const FG_Rect& area, float rotate, float z);
 
     FG_Log _log;
     void* _root;
@@ -127,32 +102,6 @@ namespace GL {
     static const float PI;
 
   protected:
-    template<class T> inline static void _buildPosUV(T (&v)[4], const FG_Rect& area, const FG_Rect& uv, float x, float y)
-    {
-      v[0].posUV[0] = area.left;
-      v[0].posUV[1] = area.top;
-      v[0].posUV[2] = uv.left / x;
-      v[0].posUV[3] = uv.top / y;
-
-      v[1].posUV[0] = area.right;
-      v[1].posUV[1] = area.top;
-      v[1].posUV[2] = uv.right / x;
-      v[1].posUV[3] = uv.top / y;
-
-      v[2].posUV[0] = area.left;
-      v[2].posUV[1] = area.bottom;
-      v[2].posUV[2] = uv.left / x;
-      v[2].posUV[3] = uv.bottom / y;
-
-      v[3].posUV[0] = area.right;
-      v[3].posUV[1] = area.bottom;
-      v[3].posUV[2] = uv.right / x;
-      v[3].posUV[3] = uv.bottom / y;
-    }
-    void _drawStandard(GLuint shader, VAO* vao, float (&proj)[4][4], const FG_Rect& area, const FG_Rect& corners,
-                       FG_Color fillColor, float border, FG_Color borderColor, float blur, float rotate, float z);
-    static void _flushbatchdraw(Backend* backend, Context* context, Font* font);
-
     FG_Behavior _behavior;
     kh_assets_t* _assethash;
   };

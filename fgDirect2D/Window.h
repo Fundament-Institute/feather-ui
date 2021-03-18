@@ -43,7 +43,7 @@ namespace D2D {
     ID2D1Effect* circle;
     ID2D1Effect* roundrect;
     ID2D1Effect* triangle;
-    ID2D1Effect* scale;
+    ID2D1Effect* scaling;
     FG_MsgReceiver* element;
     Backend* backend;
     FG_Rect margin; // When maximized, the actual window area is larger than what we need to draw on, so we must compensate
@@ -80,6 +80,27 @@ namespace D2D {
     int PopClip();
     void PushTransform(const D2D_MATRIX_3X2_F& m);
     void PopTransform();
+    void PushRotate(float rotate, const FG_Rect& area);
+    void PopRotate(float rotate);
+    int DrawTextD2D(FG_Font* font, void* fontlayout, FG_Rect* area, FG_Color color, float blur, float rotate, float z);
+    template<int N, typename Arg, typename... Args>
+    inline int DrawEffect(ID2D1Effect* effect, const FG_Rect& area, float rotate, const Arg arg, const Args&... args);
+    int DrawAsset(FG_Asset* asset, const FG_Rect& area, FG_Rect* source, FG_Color color, float time, float rotate, float z);
+    int DrawRect(const FG_Rect& area, const FG_Rect& corners, FG_Color fillColor, float border, FG_Color borderColor,
+                 float blur,
+                    FG_Asset* asset, float rotate, float z);
+    int DrawArc(const FG_Rect& area, FG_Vec angles, FG_Color fillColor, float border, FG_Color borderColor, float blur,
+                   float innerRadius, FG_Asset* asset, float z);
+    int DrawCircle(const FG_Rect& area, FG_Color fillColor, float border, FG_Color borderColor, float blur,
+                   float innerRadius,
+                      float innerBorder, FG_Asset* asset, float z);
+    int DrawTriangle(const FG_Rect& area, const FG_Rect& corners, FG_Color fillColor, float border, FG_Color borderColor,
+                     float blur,
+                        FG_Asset* asset, float rotate, float z);
+
+    int DrawLines(FG_Vec* points, uint32_t count, FG_Color color);
+    int DrawCurve(FG_Vec* anchors, uint32_t count, FG_Color fillColor, float stroke, FG_Color strokeColor);
+    int DrawShader(FG_Shader* shader, FG_Asset* vertices, FG_Asset* indices, ...);
 
     static void WndRegister(longptr_t(__stdcall* f)(HWND__*, unsigned int, size_t, longptr_t), const wchar_t* name);
     static longptr_t __stdcall WndProc(HWND__* hWnd, unsigned int message, size_t wParam, longptr_t lParam);

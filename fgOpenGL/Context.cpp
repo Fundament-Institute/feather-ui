@@ -44,6 +44,16 @@ const FG_BlendState Context::NORMAL_BLEND = {
   0b1111,
 };
 
+const FG_BlendState Context::DEFAULT_BLEND = {
+  FG_BlendValue_ONE,
+  FG_BlendValue_ZERO,
+  FG_BlendOp_ADD,
+  FG_BlendValue_ONE,
+  FG_BlendValue_ZERO,
+  FG_BlendOp_ADD,
+  0b1111,
+};
+
 Context::Context(Backend* backend, FG_MsgReceiver* element, FG_Vec* dim) :
   _backend(backend),
   _element(element),
@@ -109,6 +119,19 @@ void Context::SetDim(const FG_Vec& dim)
   // mat4x4_custom(lproj, 0, dim.x, 0, dim.y, 0.2, 100);
 }
 
+float* Context::GetRotationMatrix(mat4x4& m, float rotate, float z, mat4x4& proj)
+{
+  if(rotate != 0.0f || z != 0.0f)
+  {
+    mat4x4_translate(m, 0, 0, z);
+    mat4x4_rotate_Z(m, m, rotate);
+    mat4x4_mul(m, m, proj);
+    return (float*)m;
+  }
+
+  return (float*)proj;
+}
+
 void Context::Draw(const FG_Rect* area)
 {
   FG_Msg msg = { FG_Kind_DRAW };
@@ -126,6 +149,309 @@ void Context::Draw(const FG_Rect* area)
   _backend->BeginDraw(_backend, this, &msg.draw.area);
   _backend->Behavior(this, msg);
   _backend->EndDraw(_backend, this);
+}
+
+FG_Err Context::DrawTextureQuad(GLuint tex, ImageVertex* v, FG_Color color, float* transform)
+{
+  for(int i = 0; i < 4; ++i)
+    ColorFloats(color, v[i].color);
+
+  glUseProgram(_imageshader);
+  _backend->LogError("glUseProgram");
+  _imageobject->Bind();
+
+  glBindBuffer(GL_ARRAY_BUFFER, _imagebuffer);
+  _backend->LogError("glBindBuffer");
+  AppendBatch(v, sizeof(ImageVertex) * 4, 4);
+  Shader::SetUniform(_backend, _imageshader, "MVP", GL_FLOAT_MAT4, transform);
+  Shader::SetUniform(_backend, _imageshader, 0, GL_TEXTURE0, (float*)&tex);
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, FlushBatch());
+  _backend->LogError("glDrawArrays");
+  glBindVertexArray(0);
+  _backend->LogError("glBindVertexArray");
+
+  return glGetError();
+}
+
+FG_Err Context::DrawTextGL(FG_Font* fgfont, void* textlayout, FG_Rect* area, FG_Color color, float blur, float rotate,
+                           float z)
+{
+  auto font   = static_cast<Font*>(fgfont);
+  auto layout = reinterpret_cast<TextLayout*>(textlayout);
+
+  glUseProgram(_imageshader);
+  _backend->LogError("glUseProgram");
+  _imageobject->Bind();
+
+  glBindBuffer(GL_ARRAY_BUFFER, _imagebuffer);
+  _backend->LogError("glBindBuffer");
+
+  mat4x4 mv;
+  Shader::SetUniform(_backend, _imageshader, "MVP", GL_FLOAT_MAT4, GetRotationMatrix(mv, rotate, z, GetProjection()));
+
+  float dim  = (float)(1 << font->GetSizePower());
+  FG_Vec pen = { area->left, area->top + ((layout->lineheight / font->lineheight) * font->GetAscender()) };
+  FG_Rect rect;
+  ImageVertex v[4];
+
+  for(int i = 0; i < layout->n_lines;)
+  {
+    const char32_t* pos  = layout->lines[i];
+    const char32_t* next = 0;
+    if(++i != layout->n_lines)
+      next = layout->lines[i];
+
+    pen.y      = ceilf(pen.y); // Always pixel snap the baseline.
+    pen.x      = area->left;
+    char32_t c = 0;
+
+    while(*pos && pos != next)
+    {
+      char32_t last = c;
+      c             = *pos;
+      auto g        = font->RenderGlyph(this, c);
+      if(!g)
+      {
+        ++pos;
+        continue;
+      }
+
+      // We add the kerning amount to the pen position for this character pair first, before doing anything else.
+      pen.x += font->GetKerning(last, c);
+      ++pos;
+
+      rect.left   = pen.x + g->bearing.x;
+      rect.top    = pen.y - g->bearing.y;
+      rect.right  = rect.left + g->width;
+      rect.bottom = rect.top + g->height;
+
+      _buildPosUV(v, rect, g->uv, dim, dim);
+
+      for(int k = 0; k < 4; ++k)
+        ColorFloats(color, v[k].color);
+
+      if(CheckFlush(sizeof(v)))
+        _flushbatchdraw(font);
+      AppendBatch(v, sizeof(v), 1);
+
+      pen.x += g->advance + layout->letterspacing;
+    }
+    pen.y += layout->lineheight;
+  }
+
+  _flushbatchdraw(font);
+
+  return glGetError();
+}
+
+FG_Err Context::DrawAsset(FG_Asset* asset, FG_Rect* area, FG_Rect* source, FG_Color color, float time, float rotate,
+                          float z)
+{
+  GLuint tex = LoadAsset(static_cast<Asset*>(asset));
+
+  FG_Rect full = { 0, 0, static_cast<float>(asset->size.x), static_cast<float>(asset->size.y) };
+
+  if(!source)
+    source = &full;
+  ImageVertex v[4];
+  _buildPosUV(v, *area, *source, static_cast<float>(asset->size.x), static_cast<float>(asset->size.y));
+
+  mat4x4 mv;
+  return DrawTextureQuad(tex, v, color, GetRotationMatrix(mv, rotate, z, GetProjection()));
+}
+
+void Context::GenTransform(float (&target)[4][4], const FG_Rect& area, float rotate, float z)
+{
+  // mat4x4_translate(v, area->left, area->top, z);
+  // mat4x4_scale_aniso(mv, v, area->right - area->left, area->bottom - area->top, 1);
+  // mat4x4_rotate_Z(target, target, rotate);
+  memset(target, 0, sizeof(float) * 4 * 4);
+
+  target[0][0] = area.right - area.left;
+  target[1][1] = area.bottom - area.top;
+  target[2][2] = 1.0f;
+  target[3][3] = 1.0f;
+  if(rotate != 0.0f)
+  {
+    float w      = target[0][0] / 2;
+    float h      = target[1][1] / 2;
+    target[3][0] = -w;
+    target[3][1] = -h;
+    float s      = sinf(rotate);
+    float c      = cosf(rotate);
+    mat4x4 R     = { { c, s, 0.f, 0.f }, { -s, c, 0.f, 0.f }, { 0.f, 0.f, 1.f, 0.f }, { 0.f, 0.f, 0.f, 1.f } };
+    mat4x4_mul(target, R, target);
+    target[3][0] += w;
+    target[3][1] += h;
+  }
+
+  target[3][0] += area.left;
+  target[3][1] += area.top;
+  target[3][2] = z;
+}
+
+void Context::_drawStandard(GLuint shader, VAO* vao, float (&proj)[4][4], const FG_Rect& area, const FG_Rect& corners,
+                            FG_Color fillColor, float border, FG_Color borderColor, float blur, float rotate, float z)
+{
+  mat4x4 mvp;
+  GenTransform(mvp, area, rotate, z);
+  mat4x4_mul(mvp, proj, mvp);
+
+  float dimdata[4];
+  dimdata[0] = area.right - area.left;
+  dimdata[1] = area.bottom - area.top;
+  dimdata[2] = border;
+  dimdata[3] = blur;
+
+  float fill[4];
+  ColorFloats(fillColor, fill);
+  float outline[4];
+  ColorFloats(borderColor, outline);
+  float amount     = blur + ((abs(fmod(rotate, Backend::PI / 2.0f)) <= FLT_EPSILON) ? 0.0f : 1.0f);
+  float inflate[2] = { 1.0f + (amount / dimdata[0]), 1.0f + (amount / dimdata[1]) };
+
+  glUseProgram(shader);
+  _backend->LogError("glUseProgram");
+  vao->Bind();
+
+  Shader::SetUniform(_backend, shader, "MVP", GL_FLOAT_MAT4, (float*)mvp);
+  Shader::SetUniform(_backend, shader, "DimBorderBlur", GL_FLOAT_VEC4, dimdata);
+  Shader::SetUniform(_backend, shader, "Corners", GL_FLOAT_VEC4, (float*)corners.ltrb);
+  Shader::SetUniform(_backend, shader, "Fill", GL_FLOAT_VEC4, fill);
+  Shader::SetUniform(_backend, shader, "Outline", GL_FLOAT_VEC4, outline);
+  Shader::SetUniform(_backend, shader, "Inflate", GL_FLOAT_VEC2, inflate);
+
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  _backend->LogError("glDrawArrays");
+  vao->Unbind();
+}
+
+FG_Err Context::DrawRect(FG_Rect& area, FG_Rect& corners, FG_Color fillColor, float border, FG_Color borderColor,
+                         float blur, FG_Asset* asset, float rotate, float z)
+{
+  _drawStandard(_rectshader, _quadobject, GetProjection(), area, corners, fillColor, border, borderColor, blur, rotate, z);
+  return glGetError();
+}
+
+FG_Err Context::DrawCircle(FG_Rect& area, FG_Color fillColor, float border, FG_Color borderColor, float blur,
+                           float innerRadius, float innerBorder, FG_Asset* asset, float z)
+{
+  _drawStandard(_circleshader, _quadobject, GetProjection(), area, FG_Rect{ innerRadius, innerBorder, 0.0f, 0.0f },
+                fillColor, border, borderColor, blur, 0.0f, z);
+  return glGetError();
+}
+
+FG_Err Context::DrawArc(FG_Rect& area, FG_Vec angles, FG_Color fillColor, float border, FG_Color borderColor, float blur,
+                        float innerRadius, FG_Asset* asset, float z)
+{
+  _drawStandard(_arcshader, _quadobject, GetProjection(), area,
+                FG_Rect{ angles.x + (angles.y / 2.0f) - (Backend::PI / 2.0f), angles.y / 2.0f, innerRadius, 0.0f },
+                fillColor, border, borderColor, blur, 0.0f, z);
+  return glGetError();
+}
+
+FG_Err Context::DrawTriangle(FG_Rect& area, FG_Rect& corners, FG_Color fillColor, float border, FG_Color borderColor,
+                             float blur, FG_Asset* asset, float rotate, float z)
+{
+  _drawStandard(_trishader, _quadobject, GetProjection(), area, corners, fillColor, border, borderColor, blur, rotate, z);
+  return glGetError();
+}
+
+FG_Err Context::DrawLines(FG_Vec* points, uint32_t count, FG_Color color)
+{
+  float colors[4];
+  ColorFloats(color, colors);
+
+  glUseProgram(_lineshader);
+  _backend->LogError("glUseProgram");
+  _lineobject->Bind();
+
+  glBindBuffer(GL_ARRAY_BUFFER, _linebuffer);
+  _backend->LogError("glBindBuffer");
+
+  AppendBatch(points, sizeof(FG_Vec) * count, count);
+  Shader::SetUniform(_backend, _lineshader, "MVP", GL_FLOAT_MAT4, (float*)GetProjection());
+  Shader::SetUniform(_backend, _lineshader, "Color", GL_FLOAT_VEC4, colors);
+
+  glDrawArrays(GL_LINE_STRIP, 0, FlushBatch());
+  _backend->LogError("glDrawArrays");
+  _lineobject->Unbind();
+
+  return glGetError();
+}
+
+FG_Err Context::DrawCurve(FG_Vec* anchors, uint32_t count, FG_Color fillColor, float stroke, FG_Color strokeColor)
+{
+  if(fillColor.v != 0)
+    return -1;
+
+  if(stroke == 0.0f)
+    return 0;
+
+  return -1;
+}
+FG_Err Context::DrawShader(FG_Shader* fgshader, FG_Asset* vertices, FG_Asset* indices, FG_ShaderValue* values)
+{
+  auto shader   = static_cast<Shader*>(fgshader);
+  auto instance = LoadShader(shader);
+
+  glUseProgram(instance);
+  _backend->LogError("glUseProgram");
+  LoadVAO(shader, static_cast<Asset*>(vertices))->Bind();
+
+  for(uint32_t i = 0; i < shader->n_parameters; ++i)
+  {
+    auto type = Shader::GetType(shader->parameters[i]);
+    switch(type)
+    {
+    case GL_DOUBLE:
+    case GL_HALF_FLOAT: // we assume you pass in a proper float to fill this
+    case GL_FLOAT:
+    case GL_INT:
+    case GL_UNSIGNED_INT: Shader::SetUniform(_backend, instance, shader->parameters[i].name, type, &values[i].f32); break;
+    default:
+      if(type >= GL_TEXTURE0 && type <= GL_TEXTURE31)
+      {
+        GLuint idx = LoadAsset(static_cast<Asset*>(values[i].asset));
+        Shader::SetUniform(_backend, instance, shader->parameters[i].name, type, (float*)&idx);
+      }
+      else
+        Shader::SetUniform(_backend, instance, shader->parameters[i].name, type, values[i].pf32);
+      break;
+    }
+  }
+
+  GLenum kind = 0;
+  switch(vertices->primitive)
+  {
+  case FG_Primitive_TRIANGLE: kind = GL_TRIANGLES; break;
+  case FG_Primitive_TRIANGLE_STRIP: kind = GL_TRIANGLE_STRIP; break;
+  case FG_Primitive_LINE: kind = GL_LINES; break;
+  case FG_Primitive_LINE_STRIP: kind = GL_LINE_STRIP; break;
+  case FG_Primitive_POINT: kind = GL_POINT; break;
+  }
+
+  if(!indices)
+  {
+    glDrawArrays(kind, 0, vertices->count);
+    _backend->LogError("glDrawArrays");
+  }
+  else
+  {
+    GLenum index = 0;
+    switch(indices->primitive)
+    {
+    case FG_Primitive_INDEX_BYTE: index = GL_UNSIGNED_BYTE; break;
+    case FG_Primitive_INDEX_SHORT: index = GL_UNSIGNED_SHORT; break;
+    case FG_Primitive_INDEX_INT: index = GL_UNSIGNED_INT; break;
+    }
+
+    glDrawElements(kind, indices->count, index, indices->data.data);
+    _backend->LogError("glDrawElements");
+  }
+
+  glBindVertexArray(0);
+  return -1;
 }
 
 void Context::PushClip(const FG_Rect& rect)
@@ -255,11 +581,9 @@ int Context::PopLayer()
   mat4x4 mvp;
   mat4x4_mul(mvp, GetProjection(), (vec4*)p->transform);
 
-  // We use "normal" blending here, because while the contents of the framebuffer are premultiplied, the opacity has not
-  // been applied yet. Since the opacity is uniform, this doesn't cause mipmap problems.
-  return _backend->DrawTextureQuad(this, p->data.index, v,
-                                   FG_Color{ 0x00FFFFFF + ((unsigned int)roundf(0xFF * p->opacity) << 24) }, (float*)mvp,
-                                   const_cast<FG_BlendState*>(&NORMAL_BLEND));
+  ApplyBlend(const_cast<FG_BlendState*>(&PREMULTIPLY_BLEND));
+  return DrawTextureQuad(p->data.index, v, FG_Color{ 0x00FFFFFF + ((unsigned int)roundf(0xFF * p->opacity) << 24) },
+                         (float*)mvp);
 }
 
 int Context::GetBytes(GLenum type)
@@ -629,7 +953,6 @@ void Context::ApplyBlend(const FG_BlendState* blend)
   if(!blend)
     blend = &PREMULTIPLY_BLEND;
 
-  // This comparison should get optimized out to a 64-bit integer equality check
   if(memcmp(blend, &_lastblend, sizeof(FG_BlendState)) != 0)
   {
     glBlendFuncSeparate(BlendValue(blend->srcBlend), BlendValue(blend->destBlend), BlendValue(blend->srcBlendAlpha),
@@ -639,7 +962,7 @@ void Context::ApplyBlend(const FG_BlendState* blend)
     if(_lastblend.constant.v != blend->constant.v)
     {
       float colors[4];
-      _backend->ColorFloats(blend->constant, colors);
+      ColorFloats(blend->constant, colors);
       glBlendColor(colors[0], colors[1], colors[2], colors[3]);
     }
 
@@ -648,4 +971,18 @@ void Context::ApplyBlend(const FG_BlendState* blend)
 
     _lastblend = *blend;
   }
+}
+
+void Context::_flushbatchdraw(Font* font)
+{
+  glActiveTexture(GL_TEXTURE0);
+  _backend->LogError("glActiveTexture");
+  glBindTexture(GL_TEXTURE_2D, GetFontTexture(font));
+  _backend->LogError("glBindTexture");
+
+  // We've already set up our batch indices so we can just use them
+  glDrawElements(GL_TRIANGLES, FlushBatch() * 6, GL_UNSIGNED_INT, nullptr);
+  _backend->LogError("glDrawElements");
+  glBindVertexArray(0);
+  _backend->LogError("glBindVertexArray");
 }

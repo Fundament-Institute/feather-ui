@@ -1,6 +1,7 @@
 local core = require 'feather.core'
 local F = require 'feather.shared'
 local Msg = require 'feather.message'
+local B = require 'feather.backend'
 local override = require 'feather.util'.override
 local Virtual = require 'feather.virtual'
 local C = terralib.includecstring [[#include <stdio.h>]]
@@ -60,7 +61,18 @@ return core.raw_template {
         var w, h = self.node.extent.x, self.node.extent.y
         var rect = F.Rect{array(x-w, y-h, x+w, y+h)}
         var corners = F.Rect{array(0f, 0f, 0f, 0f)}
-        [context.backend]:DrawRect([context.window], &rect, &corners, [F.Color]{0xffffffff}, 0, [F.Color]{0xffffffff}, 0, nil, 0, 0, nil)
+        var command : B.Command
+        command.category = B.Category.RECT
+        command.shape.rect.corners = &corners
+        command.shape.rect.rotate = 0.0f
+        command.shape.area = &rect
+        command.shape.fillColor = [F.Color]{0xffffffff}
+        command.shape.border = 0.0f
+        command.shape.borderColor = [F.Color]{0xffffffff}
+        command.shape.blur = 0.0f
+        command.shape.asset = nil
+        command.shape.z = 0.0f
+        [context.backend]:Draw([context.window], &command, 1, nil)
           end
         end
       }

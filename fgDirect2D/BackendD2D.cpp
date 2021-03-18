@@ -26,7 +26,6 @@ typedef HRESULT(STDAPICALLTYPE* DWMCOMPENABLE)(BOOL*);
 typedef HRESULT(STDAPICALLTYPE* DWMBLURBEHIND)(HWND, const DWM_BLURBEHIND*);
 typedef HRESULT(STDAPICALLTYPE* GETDPIFORMONITOR)(HMONITOR, int, UINT*, UINT*);
 typedef HRESULT(STDAPICALLTYPE* GETSCALEFACTORFORMONITOR)(HMONITOR, int*);
-static float PI = 3.14159265359f;
 
 static std::unique_ptr<struct HINSTANCE__, void (*)(struct HINSTANCE__*)> shcoreD2D(LoadLibraryW(L"Shcore.dll"),
                                                                                     [](HMODULE h) { FreeLibrary(h); });
@@ -36,187 +35,54 @@ Window* Backend::FromHWND(void* p)
   return reinterpret_cast<Window*>(GetWindowLongPtrW(reinterpret_cast<HWND>(p), GWLP_USERDATA));
 }
 
-void Backend::PushRotate(D2D::Window* context, float rotate, const FG_Rect& area)
+FG_Err Backend::DrawD2D(FG_Backend* self, void* window, FG_Command* commandlist, unsigned int n_commands,
+                        FG_BlendState* blend)
 {
-  if(rotate != 0.0f)
-    context->PushTransform(D2D1::Matrix3x2F::Rotation(rotate * (180.0f / PI), D2D1::Point2F((area.left + area.right) / 2,
-                                                                                            (area.top + area.bottom) / 2)));
-}
-
-void Backend::PopRotate(D2D::Window* context, float rotate)
-{
-  if(rotate != 0.0f)
-    context->PopTransform();
-}
-
-FG_Err Backend::DrawTextD2D(FG_Backend* self, void* window, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Color color,
-                            float blur, float rotate, float z, FG_BlendState* blend)
-{
-  if(!fontlayout)
+  if(!self || !window)
     return -1;
-  auto instance = static_cast<Backend*>(self);
-  auto context  = FromHWND(window);
 
-  PushRotate(context, rotate, *area);
-  IDWriteTextLayout* layout = (IDWriteTextLayout*)fontlayout;
-  context->color->SetColor(ToD2Color(color.v));
-  layout->SetMaxWidth(area->right - area->left);
-  layout->SetMaxHeight(area->bottom - area->top);
+  auto backend = static_cast<Backend*>(self);
+  auto context = FromHWND(window);
 
-  D2D1_TEXT_ANTIALIAS_MODE aa = D2D1_TEXT_ANTIALIAS_MODE_DEFAULT;
-  switch(font->aa)
+  for(unsigned int i = 0; i < n_commands; ++i)
   {
-  case FG_AntiAliasing_NO_AA: aa = D2D1_TEXT_ANTIALIAS_MODE_ALIASED; break;
-  case FG_AntiAliasing_AA: aa = D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE; break;
-  case FG_AntiAliasing_LCD:
-  case FG_AntiAliasing_LCD_V: aa = D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE; break;
+    auto& c = commandlist[i];
+    switch(c.category)
+    {
+    case FG_Category_ARC:
+      context->DrawArc(*c.shape.area, c.shape.arc.angles, c.shape.fillColor, c.shape.border, c.shape.borderColor,
+                       c.shape.blur, c.shape.arc.innerRadius, c.shape.asset, c.shape.z);
+      break;
+    case FG_Category_CIRCLE:
+      context->DrawCircle(*c.shape.area, c.shape.fillColor, c.shape.border, c.shape.borderColor, c.shape.blur,
+                          c.shape.circle.innerRadius, c.shape.circle.innerBorder, c.shape.asset, c.shape.z);
+      break;
+    case FG_Category_RECT:
+      context->DrawRect(*c.shape.area, *c.shape.rect.corners, c.shape.fillColor, c.shape.border, c.shape.borderColor,
+                        c.shape.blur, c.shape.asset, c.shape.rect.rotate, c.shape.z);
+      break;
+    case FG_Category_TRIANGLE:
+      context->DrawTriangle(*c.shape.area, *c.shape.triangle.corners, c.shape.fillColor, c.shape.border,
+                            c.shape.borderColor, c.shape.blur, c.shape.asset, c.shape.triangle.rotate, c.shape.z);
+      break;
+    case FG_Category_TEXT:
+      context->DrawTextD2D(c.text.font, c.text.layout, c.text.area, c.text.color, c.text.blur, c.text.rotate, c.text.z);
+      break;
+    case FG_Category_ASSET:
+      context->DrawAsset(c.asset.asset, *c.asset.area, c.asset.source, c.asset.color, c.asset.time, c.asset.rotate,
+                         c.asset.z);
+      break;
+    case FG_Category_LINES: context->DrawLines(c.lines.points, c.lines.count, c.lines.color); break;
+    case FG_Category_CURVE:
+      context->DrawCurve(c.curve.anchors, c.curve.count, c.curve.fillColor, c.curve.stroke, c.curve.strokeColor);
+      break;
+    case FG_Category_SHADER:
+      context->DrawShader(c.shader.shader, c.shader.vertices, c.shader.indices, c.shader.values);
+      break;
+    default: return -20;
+    }
   }
-
-  if(aa != context->target->GetTextAntialiasMode())
-    context->target->SetTextAntialiasMode(aa);
-
-  context->target->DrawTextLayout(D2D1::Point2F(area->left, area->top), layout, context->color,
-                                  D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
-
-  PopRotate(context, rotate);
-
   return 0;
-}
-
-template<int N, typename Arg, typename... Args>
-inline FG_Err Backend::DrawEffect(Window* ctx, ID2D1Effect* effect, const FG_Rect& area, float rotate, const Arg arg,
-                                  const Args&... args)
-{
-  effect->SetValue<Arg, int>(N, arg);
-  if constexpr(sizeof...(args) > 0)
-    return DrawEffect<N + 1, Args...>(ctx, effect, area, rotate, args...);
-
-  PushRotate(ctx, rotate, area);
-  D2D1_RECT_F rect = D2D1::RectF(area.left, area.top, area.right, area.bottom);
-  ctx->context->DrawImage(effect, D2D1::Point2F(area.left, area.top), rect, D2D1_INTERPOLATION_MODE_LINEAR,
-                          D2D1_COMPOSITE_MODE_SOURCE_OVER);
-  PopRotate(ctx, rotate);
-
-  return 0;
-}
-
-FG_Err Backend::DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Rect* area, FG_Rect* source, FG_Color color,
-                          float time, float rotate, float z, FG_BlendState* blend)
-{
-  auto instance = static_cast<Backend*>(self);
-  auto context  = FromHWND(window);
-  fgassert(context != 0);
-  fgassert(context->target != 0);
-
-  ID2D1Bitmap* bitmap = context->GetBitmapFromSource(static_cast<const Asset*>(asset));
-  fgassert(bitmap);
-
-  D2D1_RECT_F rect      = D2D1::RectF(area->left, area->top, area->right, area->bottom);
-  auto size             = bitmap->GetPixelSize();
-  D2D1_RECT_F uvresolve = D2D1::RectF(0, 0, size.width, size.height);
-  if(source)
-    uvresolve = D2D1::RectF(source->left, source->top, source->right, source->bottom);
-
-  auto scale = D2D1::Vector2F((rect.right - rect.left) / (uvresolve.right - uvresolve.left),
-                              (rect.bottom - rect.top) / (uvresolve.bottom - uvresolve.top));
-  PushRotate(context, rotate, *area);
-  if(scale.x == 1.0f && scale.y == 1.0f)
-    context->target->DrawBitmap(bitmap, rect, color.a / 255.0f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, &uvresolve);
-  else
-  {
-    auto e = context->scale;
-    e->SetValue(D2D1_SCALE_PROP_SCALE, scale);
-    e->SetValue(D2D1_SCALE_PROP_INTERPOLATION_MODE, D2D1_SCALE_INTERPOLATION_MODE_ANISOTROPIC);
-    e->SetInput(0, bitmap);
-    context->context->DrawImage(e, D2D1::Point2F(rect.left, rect.top),
-                                D2D1::RectF(floorf(uvresolve.left * scale.x), floorf(uvresolve.top * scale.y),
-                                            ceilf(uvresolve.right * scale.x), ceilf(uvresolve.bottom * scale.y + 1.0f)));
-  }
-
-  PopRotate(context, rotate);
-  bitmap->Release();
-  return 0;
-}
-
-FG_Err Backend::DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor, float border,
-                         FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z, FG_BlendState* blend)
-{
-  auto context = FromHWND(window);
-  fgassert(context != 0);
-  fgassert(context->target != 0);
-  FG_Rect expand = { area->left - blur, area->top - blur, area->right + blur, area->bottom + blur };
-
-  DrawEffect<0>(context, context->roundrect, expand, rotate,
-                D2D1::Vector4F(expand.left, expand.top, expand.right, expand.bottom),
-                D2D1::Vector4F(corners->left, corners->top, corners->right, corners->bottom), fillColor, borderColor,
-                border, blur);
-  return 0;
-}
-
-FG_Err Backend::DrawArc(FG_Backend* self, void* window, FG_Rect* area, FG_Vec angles, FG_Color fillColor, float border,
-                        FG_Color borderColor, float blur, float innerRadius, FG_Asset* asset, float z, FG_BlendState* blend)
-{
-  auto context = FromHWND(window);
-  fgassert(context != 0);
-  fgassert(context->target != 0);
-
-  DrawEffect<0>(context, context->arc, *area, 0.0f, D2D1::Vector4F(area->left, area->top, area->right, area->bottom),
-                D2D1::Vector4F(angles.x + (angles.y / 2.0f) - (PI / 2.0f), angles.y / 2.0f, innerRadius, 0.0f), fillColor,
-                borderColor, border, blur);
-  return 0;
-}
-
-FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Color fillColor, float border,
-                           FG_Color borderColor, float blur, float innerRadius, float innerBorder, FG_Asset* asset, float z,
-                           FG_BlendState* blend)
-{
-  auto context = FromHWND(window);
-  fgassert(context != 0);
-  fgassert(context->target != 0);
-
-  DrawEffect<0>(context, context->circle, *area, 0.0f, D2D1::Vector4F(area->left, area->top, area->right, area->bottom),
-                D2D1::Vector4F(innerRadius, innerBorder, 0.0f, 0.0f), fillColor, borderColor, border, blur);
-  return 0;
-}
-
-FG_Err Backend::DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
-                             float border, FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z,
-                             FG_BlendState* blend)
-{
-  auto context = FromHWND(window);
-  fgassert(context != 0);
-  fgassert(context->target != 0);
-
-  DrawEffect<0>(context, context->triangle, *area, rotate, D2D1::Vector4F(area->left, area->top, area->right, area->bottom),
-                D2D1::Vector4F(corners->left, corners->top, corners->right, corners->bottom), fillColor, borderColor,
-                border, blur);
-  return 0;
-}
-
-FG_Err Backend::DrawLines(FG_Backend* self, void* window, FG_Vec* points, uint32_t count, FG_Color color,
-                          FG_BlendState* blend)
-{
-  auto context = FromHWND(window);
-
-  context->color->SetColor(ToD2Color(color.v));
-  for(size_t i = 1; i < count; ++i)
-    context->target->DrawLine(D2D1_POINT_2F{ points[i - 1].x, points[i - 1].y }, D2D1_POINT_2F{ points[i].x, points[i].y },
-                              context->color, 1.0F, 0);
-  return 0;
-}
-
-FG_Err Backend::DrawCurve(FG_Backend* self, void* window, FG_Vec* anchors, uint32_t count, FG_Color fillColor, float stroke,
-                          FG_Color strokeColor, FG_BlendState* blend)
-{
-  auto instance = static_cast<Backend*>(self);
-
-  return -1;
-}
-
-FG_Err Backend::DrawShader(FG_Backend* self, void* window, FG_Shader* shader, FG_Asset* vertices, FG_Asset* indices,
-                           FG_BlendState* blend, ...)
-{
-  return -1;
 }
 
 bool Backend::Clear(FG_Backend* self, void* window, FG_Color color)
@@ -1088,15 +954,7 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior, ID2D1Factory1* fa
                  IDWriteFactory1* writefactory) :
   _root(root), _log(log), _behavior(behavior), _factory(factory), _wicfactory(wicfactory), _writefactory(writefactory)
 {
-  drawText             = &DrawTextD2D;
-  drawAsset            = &DrawAsset;
-  drawRect             = &DrawRect;
-  drawArc              = &DrawArc;
-  drawCircle           = &DrawCircle;
-  drawTriangle         = &DrawTriangle;
-  drawLines            = &DrawLines;
-  drawCurve            = &DrawCurve;
-  drawShader           = &DrawShader;
+  draw                 = &DrawD2D;
   clear                = &Clear;
   pushLayer            = &PushLayer;
   popLayer             = &PopLayer;

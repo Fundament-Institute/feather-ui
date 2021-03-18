@@ -4,10 +4,14 @@ uniform vec4 DimBorderBlur;\n
 uniform vec4 Corners;\n
 uniform vec4 Fill;\n
 uniform vec4 Outline;\n
+//uniform vec4 AssetSource; // If the source height is negative, it encodes a type of gradient, otherwise it's an image. \n 
+//uniform vec4 AssetDest;\n
+
 const float PI = 3.14159265359;\n
 \n
 float linearstep(float low, float high, float x) { return clamp((x - low) / (high - low), 0.0, 1.0); }\n
 vec2 rotate(vec2 p, float a) { return vec2(p.x*cos(a) + p.y*sin(a), p.x*sin(a) - p.y*cos(a)); }\n
+
 void main()\n
 {\n
     float l = (DimBorderBlur.x + DimBorderBlur.y) * 0.5;\n
@@ -24,8 +28,6 @@ void main()\n
     // SDF for circle\n
     float d0 = abs(length(uv) - r) - t + border;\n
     float d1 = abs(length(uv) - r) - t;\n
-    //float s1 = linearstep(w1*2.0, 0.0, d0); \n
-    //float alpha1 = linearstep(w1*2.0, 0.0, d1); \n
 
     // SDF for lines that make up arc\n   
     vec2 omega1 = rotate(uv, Corners.x - Corners.y);\n
@@ -46,14 +48,10 @@ void main()\n
     
     float d2 = d - border + w1;\n
     float d3 = min(d, omega1.x + Corners.y) + w1;\n
-    //float s2 = linearstep(w1*2.0,0.0, d2);\n
-    //float alpha2 = linearstep(w1*2.0,0.0,d3);\n
     
     // Merge results of both SDFs\n
-    //float s = s1*(1.0 - s2);\n
-    //float alpha = alpha1*(1.0 - alpha2);\n
-    float s = linearstep(0.0, w1*2.0, min(-d0, d2));\n
-    float alpha = linearstep(0.0, w1*2.0, min(-d1, d3));\n
+    float s = linearstep(-w1, w1, min(-d0, d2) - w1);\n 
+    float alpha = linearstep(-w1, w1, min(-d1, d3) - w1);\n
   
   // Output to screen\n 
   gl_FragColor = (vec4(Fill.rgb, 1)*Fill.a*s) + (vec4(Outline.rgb, 1)*Outline.a*clamp(alpha - s, 0.0, 1.0));\n

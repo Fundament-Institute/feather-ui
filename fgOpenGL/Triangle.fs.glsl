@@ -28,8 +28,6 @@ void main()\n
   float w = fwidth(p.x) * (1.0 + DimBorderBlur.w);\n
   float s = 1.0 - linearstep(1.0 - DimBorderBlur.z - w*2.0, 1.0 - DimBorderBlur.z - w, r);\n
   float alpha = linearstep(1.0 - w, 1.0 - w*2.0, r);\n
-  vec4 fill = vec4(Fill.rgb, 1.0);\n
-  vec4 edge = vec4(Outline.rgb, 1.0);\n
-  gl_FragColor = (fill*Fill.a*s) + (edge*Outline.a*clamp(alpha - s,0.0,1.0));\n
+  gl_FragColor = (vec4(Fill.rgb, 1.0)*Fill.a*s) + (vec4(Outline.rgb, 1.0)*Outline.a*clamp(alpha - s,0.0,1.0));\n
 }\n
 )
