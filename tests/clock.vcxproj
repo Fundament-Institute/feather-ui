@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <ProjectGuid>{B4B91EE9-7085-4CEA-A9B6-4CA6E23F684B}</ProjectGuid>
+    <RootNamespace>tests</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>$(ProjectDir)..\bin-$(Platform)\</OutDir>
+    <IntDir>$(ProjectDir)\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <TargetName>clock_d.exe</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <TargetName>clock.exe</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <TargetName>clock_d.exe</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <TargetName>clock.exe</TargetName>
+  </PropertyGroup>
+  <ItemGroup>
+    <CustomBuild Include="clock.t">
+      <FileType>Document</FileType>
+      <Command Condition="'$(Configuration)'=='Debug'">set TERRA_PATH=.\?.t;.\deps\?.t;.\?\init.t &amp;&amp; set LUA_PATH=.\?.lua;.\deps\?.lua &amp;&amp; set FEATHER_BACKEND=fgOpenGL_d &amp;&amp; cd "$(SolutionDir)" &amp;&amp; terra -g "%(FullPath)" -debug</Command>
+      <Command Condition="'$(Configuration)'=='Release'">set TERRA_PATH=.\?.t;.\deps\?.t;.\?\init.t &amp;&amp; set LUA_PATH=.\?.lua;.\deps\?.lua &amp;&amp; set FEATHER_BACKEND=fgOpenGL &amp;&amp; cd "$(SolutionDir)" &amp;&amp; terra "%(FullPath)"</Command>
+      <Message>Compiling %(Identity) with Terra</Message>
+      <Outputs>$(OutDir)$(TargetName)</Outputs>
+      <AdditionalInputs>../include/backend.h</AdditionalInputs>
+      <LinkObjects>false</LinkObjects>
+      <OutputItemType>ClInclude</OutputItemType>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\feather\array.t" />
+    <None Include="..\feather\backend.t" />
+    <None Include="..\feather\c-headers.t" />
+    <None Include="..\feather\calc.t" />
+    <None Include="..\feather\color.t" />
+    <None Include="..\feather\core.t" />
+    <None Include="..\feather\element.t" />
+    <None Include="..\feather\enum.t" />
+    <None Include="..\feather\enumset.t" />
+    <None Include="..\feather\flags.t" />
+    <None Include="..\feather\hash.t" />
+    <None Include="..\feather\init.t" />
+    <None Include="..\feather\libc.t" />
+    <None Include="..\feather\log.t" />
+    <None Include="..\feather\message.t" />
+    <None Include="..\feather\messages.t" />
+    <None Include="..\feather\os.t" />
+    <None Include="..\feather\partitioner.t" />
+    <None Include="..\feather\proto.t" />
+    <None Include="..\feather\rect.t" />
+    <None Include="..\feather\rtree.t" />
+    <None Include="..\feather\shared.t" />
+    <None Include="..\feather\string.t" />
+    <None Include="..\feather\util.t" />
+    <None Include="..\feather\virtual.t" />
+    <None Include="..\feather\templates\window.t" />
+    <None Include="..\feather\templates\rect.t" />
+    <None Include="..\feather\templates\triangle.t" />
+    <None Include="..\feather\templates\circle.t" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

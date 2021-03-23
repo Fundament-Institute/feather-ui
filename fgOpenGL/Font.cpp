@@ -270,11 +270,11 @@ Glyph* Font::RenderGlyph(Context* context, char32_t codepoint)
       for(uint32_t j = 0; j < gbmp.width; ++j) // RGBA
       {
         uint8_t v = *src++;
-        // v = (uint8_t)(powf(v / 255.0f, 1.44f) * 255.0f);
-        *dst++ = v; // premultiply alpha
-        *dst++ = v;
-        *dst++ = v;
-        *dst++ = v;
+        v         = (uint8_t)(powf(v / 255.0f, (1.0f / 2.2f)) * 255.0f);
+        *dst++    = v; // premultiply alpha
+        *dst++    = v;
+        *dst++    = v;
+        *dst++    = v;
       }
     }
     break;
@@ -353,8 +353,8 @@ bool Font::_isspace(int c) // We have to make our own isspace implementation bec
   return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\v' || c == '\f';
 }
 
-Glyph* Font::_getchar(const char32_t* text, float maxwidth, FG_BreakStyle breakstyle, float curlineheight, float letterspacing,
-                      FG_Vec& cursor, FG_Rect& box, char32_t& last, float& lastadvance, bool& dobreak)
+Glyph* Font::_getchar(const char32_t* text, float maxwidth, FG_BreakStyle breakstyle, float curlineheight,
+                      float letterspacing, FG_Vec& cursor, FG_Rect& box, char32_t& last, float& lastadvance, bool& dobreak)
 {
   cursor.x += lastadvance;
   char32_t c = *text;
@@ -426,8 +426,8 @@ Glyph* Font::_getchar(const char32_t* text, float maxwidth, FG_BreakStyle breaks
   last        = c;
   return g;
 }
-std::pair<size_t, FG_Vec> Font::GetIndex(const char32_t* text, float maxwidth, FG_BreakStyle breakstyle, float curlineheight,
-                                         float letterspacing, FG_Vec pos)
+std::pair<size_t, FG_Vec> Font::GetIndex(const char32_t* text, float maxwidth, FG_BreakStyle breakstyle,
+                                         float curlineheight, float letterspacing, FG_Vec pos)
 {
   std::pair<size_t, FG_Vec> cache = { 0, { 0, 0 } };
   if(!text)
@@ -441,8 +441,8 @@ std::pair<size_t, FG_Vec> Font::GetIndex(const char32_t* text, float maxwidth, F
   {
     std::pair<size_t, FG_Vec> lastcache = cache;
     lastcache.second.x += lastadvance;
-    g = _getchar(text + cache.first, maxwidth, breakstyle, curlineheight, letterspacing, cache.second, box, last, lastadvance,
-                 dobreak);
+    g = _getchar(text + cache.first, maxwidth, breakstyle, curlineheight, letterspacing, cache.second, box, last,
+                 lastadvance, dobreak);
     if(pos.y <= cache.second.y + curlineheight && pos.x < cache.second.x + (g ? g->bearing.x + (g->width * 0.5f) : 0.0f))
       return cache;             // we immediately terminate and return, WITHOUT adding the lastadvance on.
     if(pos.y <= cache.second.y) // Too far! return our previous cache.

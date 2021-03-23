@@ -18,40 +18,30 @@ cbuffer constants : register(b0)
   float blur : packoffset(c4.y);
 };
 
+float linearstep(float low, float high, float x) { return saturate((x - low) / (high - low)); }
+
 float4 main(float4 pos : SV_POSITION, float4 posScene : SCENE_POSITION) : SV_TARGET
 {
-  float2 d = rect.zw - rect.xy;
-  float2 p = (posScene.xy - rect.xy)/d;
+  float2 dim = rect.zw - rect.xy;
+  float2 p = (posScene.xy - rect.xy)/dim;
 
-  float l = (d.x + d.y) * 0.5;
+  float l = (dim.x + dim.y) * 0.5;
   float2 uv = (p*2.0) - 1.0;
-  
-  float t = 0.50 - (angles.z / l) * 2.0;
-  float r = 1.0 - t;
- 
-  float2 up = float2(cos(angles.x), sin(angles.x));
-  
-  float outer = (outline / l) * 2.0; // double because UV is in range [-1,1], not [0,1]
-  float inner = (angles.w / l) * 2.0;
-  float b = 1.0 + (blur * 0.5); // halve blur amount because of UV again
+  float w1 = (1.0 + blur)*fwidth(p.x); 
+
+  float border = (outline / l) * 2.0; // double because UV is in range [-1,1], not [0,1]
+  float t = 0.50 - (angles.x / l);
+  // We have to compensate for needing to do smoothstep starting from 0, which combined with abs()
+  // acts as a ceil() function, creating one extra half pixel.
+  float r = 1.0 - t - w1;
   
   // SDF for circle
-  float w1 = fwidth(length(p))*b; // Don't take fwidth of abs() because it's discontinuous
-  float d0 = abs(length(uv) - r + (outer*0.5) - (inner*0.5)) - t + (outer*0.5) + (inner*0.5);
+  float inner = (angles.y / l) * 2.0;
+  float d0 = abs(length(uv) - r + (border*0.5) - (inner*0.5)) - t + (border*0.5) + (inner*0.5);
   float d1 = abs(length(uv) - r) - t;
-  float s1 = smoothstep(w1, -w1, d0); 
-  float alpha1 = smoothstep(w1, -w1, d1); 
-
-  // SDF for arc
-  float d2 = dot(up, normalize(uv)) - cos(angles.y);
-  float w2 = fwidth(d2)*b;
-  float alpha2 = smoothstep(w2, -w2, d2); 
-  //float s2 = smoothstep(w2 + border, -w2 + border, d2); // doesn't work
-  alpha2 *= smoothstep(0.0, w1, abs(angles.y - PI));
+  float s = linearstep(w1*2.0, 0.0, d0); 
+  float alpha = linearstep(w1*2.0, 0.0, d1); 
   
-  // Merge alpha results of both SDFs
-  float s = s1*(1.0 - alpha2);
-  float alpha = alpha1*(1.0 - alpha2);
-  
+  // Output to screen 
   return (float4(color.rgb, 1)*color.a*s) + (float4(outlinecolor.rgb, 1)*outlinecolor.a*saturate(alpha - s));
 }

@@ -11,7 +11,7 @@ using namespace D2D;
 
 ImageEffectBase::ImageEffectBase() : _ref(1), _drawInfo(0)
 {
-  fgassert(sizeof(_constants) == sizeof(float)*4);
+  fgassert(sizeof(_constants) == sizeof(float) * 4);
   memset(&_constants, 0, sizeof(_constants));
 }
 ImageEffectBase::~ImageEffectBase()
@@ -19,10 +19,7 @@ ImageEffectBase::~ImageEffectBase()
   if(_drawInfo)
     _drawInfo->Release();
 }
-IFACEMETHODIMP ImageEffectBase::PrepareForRender(D2D1_CHANGE_TYPE changeType)
-{
-  return UpdateConstants();
-}
+IFACEMETHODIMP ImageEffectBase::PrepareForRender(D2D1_CHANGE_TYPE changeType) { return UpdateConstants(); }
 IFACEMETHODIMP ImageEffectBase::SetGraph(_In_ ID2D1TransformGraph* pGraph) { return E_NOTIMPL; }
 IFACEMETHODIMP_(ULONG) ImageEffectBase::AddRef() { return ++_ref; }
 IFACEMETHODIMP_(ULONG) ImageEffectBase::Release()
@@ -34,7 +31,7 @@ IFACEMETHODIMP_(ULONG) ImageEffectBase::Release()
 }
 IFACEMETHODIMP ImageEffectBase::QueryInterface(_In_ REFIID riid, _Outptr_ void** ppOutput)
 {
-  *ppOutput = nullptr;
+  *ppOutput  = nullptr;
   HRESULT hr = S_OK;
 
   if(riid == __uuidof(ID2D1EffectImpl))
@@ -72,13 +69,15 @@ IFACEMETHODIMP ImageEffectBase::QueryInterface(_In_ REFIID riid, _Outptr_ void**
 
 HRESULT ImageEffectBase::SetColor(UINT color)
 {
-  _color = color;
+  _color           = color;
   _constants.color = ToD2Color(color);
   return S_OK;
 }
 UINT ImageEffectBase::GetColor() const { return _color; }
 
-IFACEMETHODIMP ImageEffectBase::MapOutputRectToInputRects(_In_ const D2D1_RECT_L* pOutputRect, _Out_writes_(inputRectCount) D2D1_RECT_L* pInputRects, UINT32 inputRectCount) const
+IFACEMETHODIMP ImageEffectBase::MapOutputRectToInputRects(_In_ const D2D1_RECT_L* pOutputRect,
+                                                          _Out_writes_(inputRectCount) D2D1_RECT_L* pInputRects,
+                                                          UINT32 inputRectCount) const
 {
   if(inputRectCount != 1)
     return E_INVALIDARG;
@@ -86,8 +85,12 @@ IFACEMETHODIMP ImageEffectBase::MapOutputRectToInputRects(_In_ const D2D1_RECT_L
   pInputRects[0] = *pOutputRect;
   return S_OK;
 }
-IFACEMETHODIMP ImageEffectBase::MapInputRectsToOutputRect(_In_reads_(inputRectCount) CONST D2D1_RECT_L* pInputRects, _In_reads_(inputRectCount) CONST D2D1_RECT_L* pInputOpaqueSubRects, UINT32 inputRectCount, _Out_ D2D1_RECT_L* pOutputRect, _Out_ D2D1_RECT_L* pOutputOpaqueSubRect)
-{    
+IFACEMETHODIMP ImageEffectBase::MapInputRectsToOutputRect(_In_reads_(inputRectCount) CONST D2D1_RECT_L* pInputRects,
+                                                          _In_reads_(inputRectCount)
+                                                            CONST D2D1_RECT_L* pInputOpaqueSubRects,
+                                                          UINT32 inputRectCount, _Out_ D2D1_RECT_L* pOutputRect,
+                                                          _Out_ D2D1_RECT_L* pOutputOpaqueSubRect)
+{
   if(inputRectCount != 1)
     return E_INVALIDARG;
 
@@ -100,8 +103,9 @@ IFACEMETHODIMP ImageEffectBase::MapInputRectsToOutputRect(_In_reads_(inputRectCo
 
   return S_OK;
 }
-IFACEMETHODIMP ImageEffectBase::MapInvalidRect(UINT32 inputIndex, D2D1_RECT_L invalidInputRect, _Out_ D2D1_RECT_L* pInvalidOutputRect) const
-{  
+IFACEMETHODIMP ImageEffectBase::MapInvalidRect(UINT32 inputIndex, D2D1_RECT_L invalidInputRect,
+                                               _Out_ D2D1_RECT_L* pInvalidOutputRect) const
+{
   if(inputIndex != 0)
     return E_INVALIDARG;
   *pInvalidOutputRect = invalidInputRect;

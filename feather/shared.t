@@ -79,6 +79,10 @@ struct S.UVec {
   rel : S.Vec
 }
 
+S.vec = macro(function (x, y) return `S.Vec { arrayof(float, x, y) } end)
+S.vec3D = macro(function (x, y, z) return `S.Vec3D { arrayof(float, x, y, z) } end)
+S.veci = macro(function (x, y) return `S.Veci { arrayof(int, x, y) } end)
+
 struct S.conststring {
   s : rawstring
 }

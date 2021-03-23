@@ -41,25 +41,8 @@ namespace D2D {
                           ID2D1HwndRenderTarget** target);
     uint16_t GetTouchIndex(unsigned long index, bool up);
 
-    static FG_Err DrawTextD2D(FG_Backend* self, void* window, FG_Font* font, void* fontlayout, FG_Rect* area,
-                              FG_Color color, float blur, float rotate, float z, FG_BlendState* blend);
-    static FG_Err DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Rect* area, FG_Rect* source, FG_Color color,
-                            float time, float rotate, float z, FG_BlendState* blend);
-    static FG_Err DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
-                           float border, FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z,
-                           FG_BlendState* blend);
-    static FG_Err DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Vec angles, FG_Color fillColor,
-                             float border, FG_Color borderColor, float blur, float innerRadius, float innerBorder,
-                             FG_Asset* asset, float rotate, FG_BlendState* blend);
-    static FG_Err DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
-                               float border, FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z,
-                               FG_BlendState* blend);
-    static FG_Err DrawLines(FG_Backend* self, void* window, FG_Vec* points, uint32_t count, FG_Color color,
-                            FG_BlendState* blend);
-    static FG_Err DrawCurve(FG_Backend* self, void* window, FG_Vec* anchors, uint32_t count, FG_Color fillColor,
-                            float stroke, FG_Color strokeColor, FG_BlendState* blend);
-    static FG_Err DrawShader(FG_Backend* self, void* window, FG_Shader* shader, FG_Asset* vertices, FG_Asset* indices,
-                             FG_BlendState* blend, ...);
+    static FG_Err DrawD2D(FG_Backend* self, void* window, FG_Command* commandlist, unsigned int n_commands,
+                          FG_BlendState* blend);
     static bool Clear(FG_Backend* self, void* window, FG_Color color);
     static FG_Err PushLayer(FG_Backend* self, void* window, FG_Asset* layer, float* transform, float opacity,
                             FG_BlendState* blend);
@@ -67,7 +50,7 @@ namespace D2D {
     static FG_Err SetRenderTarget(FG_Backend* self, void* window, FG_Asset* target);
     static FG_Err PushClip(FG_Backend* self, void* window, FG_Rect* area);
     static FG_Err PopClip(FG_Backend* self, void* window);
-    static FG_Err DirtyRect(FG_Backend* self, void* window,  FG_Rect* area);
+    static FG_Err DirtyRect(FG_Backend* self, void* window, FG_Rect* area);
     static FG_Shader* CreateShader(FG_Backend* self, const char* ps, const char* vs, const char* gs, const char* cs,
                                    const char* ds, const char* hs, FG_ShaderParameter* parameters, uint32_t n_parameters);
     static FG_Err DestroyShader(FG_Backend* self, FG_Shader* shader);
@@ -96,8 +79,8 @@ namespace D2D {
     static FG_Err GetDisplayWindow(FG_Backend* self, void* window, FG_Display* out);
     static void* CreateWindowD2D(FG_Backend* self, FG_MsgReceiver* element, void* display, FG_Vec* pos, FG_Vec* dim,
                                  const char* caption, uint64_t flags, void* context);
-    static FG_Err SetWindowD2D(FG_Backend* self, void* window, FG_MsgReceiver* element, void* display, FG_Vec* pos, FG_Vec* dim,
-                               const char* caption, uint64_t flags);
+    static FG_Err SetWindowD2D(FG_Backend* self, void* window, FG_MsgReceiver* element, void* display, FG_Vec* pos,
+                               FG_Vec* dim, const char* caption, uint64_t flags);
     static FG_Err DestroyWindow(FG_Backend* self, void* window);
     static FG_Err BeginDraw(FG_Backend* self, void* window, FG_Rect* area);
     static FG_Err EndDraw(FG_Backend* self, void* window);

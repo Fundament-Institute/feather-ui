@@ -2,6 +2,8 @@
 #include "resource.h"
 #include <stdio.h>
 #include <stdarg.h>
+#include <math.h>
+#include <time.h>
 
 #define BACKEND fgOpenGL
 #define TEST(x)                      \
@@ -38,59 +40,111 @@ struct MockElement : FG_MsgReceiver
   bool close;
 };
 
+static FG_Command FAKE_CMD;
+
+void SetShape(decltype(FAKE_CMD.shape)& shape, FG_Rect& area, float border, FG_Color fill, FG_Color outline, float blur)
+{
+  shape.area        = &area;
+  shape.border      = border;
+  shape.blur        = blur;
+  shape.fillColor   = fill;
+  shape.borderColor = outline;
+  shape.z           = 0.0f;
+  shape.asset       = NULL;
+}
+
 FG_Result behavior(FG_MsgReceiver* element, void* w, void* ui, FG_Msg* m)
 {
-  MockElement& e = *static_cast<MockElement*>(element);
+  static int counter = 0;
+  MockElement& e     = *static_cast<MockElement*>(element);
   if(m->kind == FG_Kind_DRAW)
   {
+    ++counter;
     FG_Backend* b = *(FG_Backend**)ui;
-    (*b->clear)(b, w, FG_Color{ 0 });
+    (*b->clear)(b, w, FG_Color{ 0x00000000 });
+    FG_Command list[8] = {};
 
-    auto r1 = FG_Rect{ 50.f, 100.f, 200.f, 300.f };
-    auto c1 = FG_Rect{ 0.f, 4.f, 8.f, 12.f };
-    (*b->drawRect)(b, w, &r1, &c1, FG_Color{ 0xFF0000FF }, 5.f, FG_Color{ 0xFF00FFFF }, 0.f, nullptr, 0.f, 0.f, nullptr);
+    list[0].category = FG_Category_RECT;
+    auto r1          = FG_Rect{ 0.f, 0.f, 100.f, 80.f };
+    auto c1          = FG_Rect{ 0.f, 4.f, 8.f, 12.f };
+    SetShape(list[0].shape, r1, 5.0f, FG_Color{ 0xFF0000FF }, FG_Color{ 0xFF00FFFF }, 0.0f);
+    list[0].shape.rect.corners = &c1;
+    
+    list[1].category = FG_Category_RECT;
+    auto r1b         = FG_Rect{ 300.f, 150.f, 340.f, 190.f };
+    auto c1b         = FG_Rect{ 0.0f, 0.0f, 0.0f, 0.0f };
+    SetShape(list[1].shape, r1b, 0.0f, FG_Color{ 0xFFFFFFFF }, FG_Color{ 0xFF00FFFF }, 0.0f);
+    list[1].shape.rect.corners = &c1b;
 
-    auto r1b = FG_Rect{ 300.f, 150.f, 340.f, 190.f };
-    auto c1b = FG_Rect{ 0.f,  0.f, 0.f, 0.f, };
-    (*b->drawRect)(b, w, &r1b, &c1b, FG_Color{ 0xFFFFFFFF }, 0, FG_Color{ 0xFF00FFFF }, 0.f, nullptr, 0.f, 0.f, nullptr);
+    list[2].category = FG_Category_ARC;
+    auto r2          = FG_Rect{ 350.f, 100.f, 500.f, 300.f };
+    SetShape(list[2].shape, r2, 5.0f, FG_Color{ 0xFF0000FF }, FG_Color{ 0xFF00FFFF }, 0.0f);
+    list[2].shape.arc.angles      = FG_Vec{ 0.f, 3.f };
+    list[2].shape.arc.innerRadius = 10.0f;
 
-    auto r2 = FG_Rect{ 350.f, 100.f, 500.f, 300.f };
-    auto c2 = FG_Vec{ 0.f, 3.f };
-    (*b->drawCircle)(b, w, &r2, c2, FG_Color{ 0xFF0000FF }, 5.f, FG_Color{ 0xFF00FFFF }, 0.f, 10.f, 2.f, nullptr, 0.f,
-                     nullptr);
+    list[3].category = FG_Category_CIRCLE;
+    auto r2a         = FG_Rect{ 100.f, 150.f, 250.f, 300.f };
+    SetShape(list[3].shape, r2a, 10.0f, FG_Color{ 0xFFFFFFFF }, FG_Color{ 0xFF00FFFF }, 0.0f);
+    list[3].shape.circle.innerRadius = 10.0f;
+    list[3].shape.circle.innerBorder = 2.0f;
 
-    auto r2b = FG_Rect{ 300.f, 200.f, 341.f, 241.f };
-    auto c2b = FG_Vec{ 0.f, 6.283f };
-    (*b->drawCircle)(b, w, &r2b, c2b, FG_Color{ 0xFFFFFFFF }, 0.f, FG_Color{ 0xFF00FFFF }, 0.f, -0.0f, 0.f, nullptr, 0.f,
-                     nullptr);
+    list[4].category = FG_Category_ARC;
+    auto r2b         = FG_Rect{ 300.f, 200.f, 380.0f, 280.0f };
+    SetShape(list[4].shape, r2b, 5.0f, FG_Color{ 0xFFFFFFFF }, FG_Color{ 0xFFFFFF00 }, 0.0f);
+    list[4].shape.arc.angles = FG_Vec{ 0.0f, 3.1416f * (sinf(counter * 0.01f) + 1.0f) };
 
-    auto r3 = FG_Rect{ 150.f, 300.f, 300.f, 500.f };
-    auto c3 = FG_Rect{ 0.f, 4.f, 8.f, 0.5f };
-    (*b->drawTriangle)(b, w, &r3, &c3, FG_Color{ 0xFF0000FF }, 5.f, FG_Color{ 0xFF00FFFF }, 0.f, nullptr, 0.45f, 0.f,
-                       nullptr);
+    list[5].category = FG_Category_TRIANGLE;
+    auto r3          = FG_Rect{ 150.f, 300.f, 300.f, 500.f };
+    auto c3          = FG_Rect{ 0.f, 4.f, 8.f, 0.5f };
+    SetShape(list[5].shape, r3, 5.0f, FG_Color{ 0xFF0000FF }, FG_Color{ 0xFF00FFFF }, 0.0f);
+    list[5].shape.triangle.corners = &c3;
 
-    auto r4 = FG_Rect{ 300.f, 300.f, 620.f, 580.f };
-    (*b->drawAsset)(b, w, e.image, &r4, nullptr, FG_Color{ 0xFFFFFFFF }, 0.f, 0.f, 0.f, nullptr);
+    list[6].category    = FG_Category_ASSET;
+    auto r4             = FG_Rect{ 300.f, 300.f, 620.f, 580.f };
+    list[6].asset.area  = &r4;
+    list[6].asset.asset = e.image;
+    list[6].asset.color = FG_Color{ 0xFFFFFFFF };
 
-    auto r5 = FG_Rect{ 200.f, 10.f, 550.f, 40.f };
-    (*b->drawText)(b, w, e.font, e.layout, &r5, FG_Color{ 0xFFFFFFFF }, 0.f, 0.f, 0.f, nullptr);
+    list[7].category    = FG_Category_TEXT;
+    auto r5             = FG_Rect{ 200.f, 10.f, 550.f, 40.f };
+    list[7].text.area   = &r5;
+    list[7].text.font   = e.font;
+    list[7].text.layout = e.layout;
+    list[7].text.color  = FG_Color{ 0xFFFFFFFF };
+
+    //(*b->drawRect)(b, w, &r2b, &c1b, FG_Color{ 0xFF999999 }, 0, FG_Color{ 0 }, 0.f, nullptr, 0.f, 0.f, nullptr);
+    (b->draw)(b, w, list, sizeof(list) / sizeof(FG_Command), nullptr);
 
     float proj[4 * 4];
     (*b->getProjection)(b, w, 0, proj);
-    (*b->drawShader)(b, w, e.shader, e.vertices, 0, 0, (float*)proj, e.image);
+    FG_ShaderValue values[2];
+    values[0].pf32         = (float*)proj;
+    values[1].asset        = e.image;
+    FG_Command shader      = { FG_Category_SHADER };
+    shader.shader.shader   = e.shader;
+    shader.shader.vertices = e.vertices;
+    shader.shader.values = values;
+    (b->draw)(b, w, &shader, 1, nullptr);
 
     auto r6              = FG_Rect{ 650.f, 125.f, 800.f, 275.f };
-    auto c6              = FG_Vec{ 0.f, 6.283f };
     FG_BlendState blend6 = { FG_BlendValue_ZERO,      FG_BlendValue_SRC_ALPHA, FG_BlendOp_ADD, FG_BlendValue_ZERO,
                              FG_BlendValue_SRC_ALPHA, FG_BlendOp_ADD,          0b1111 };
-    (*b->drawCircle)(b, w, &r6, c6, FG_Color{ 0xFFFFFFFF }, 30.f, FG_Color{ 0 }, 0.f, 0.f, 0.f, nullptr, 0.f, &blend6);
-    
+    FG_Command circle    = { FG_Category_CIRCLE };
+    SetShape(circle.shape, r6, 30.0f, FG_Color{ 0xFFFFFFFF }, FG_Color{ 0 }, 0.0f);
+    (b->draw)(b, w, &circle, 1, &blend6);
+
     float transform[16] = {
       1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 550, 50, 0, 1,
     };
     (*b->pushLayer)(b, w, e.layer, transform, 0.5f, nullptr);
-    auto r7 = FG_Rect{ 0.f, 0.f, 100.f, 80.f };
-    (*b->drawRect)(b, w, &r7, &c1, FG_Color{ 0xFFFF0000 }, 5.f, FG_Color{ 0xFFFFFF00 }, 0.f, nullptr, 0.f, 0.f, nullptr);
+    (*b->clear)(b, w, FG_Color{ 0 });
+
+    FG_Command rect = { FG_Category_RECT };
+    auto r7         = FG_Rect{ 0.f, 0.f, 100.f, 80.f };
+    SetShape(rect.shape, r7, 5.0f, FG_Color{ 0xFFFF0000 }, FG_Color{ 0xFFFFFF00 }, 0.0f);
+    rect.shape.rect.corners = &c1;
+    (b->draw)(b, w, &rect, 1, nullptr);
+
     (*b->popLayer)(b, w);
 
     return FG_Result{ 0 };
@@ -103,7 +157,8 @@ FG_Result behavior(FG_MsgReceiver* element, void* w, void* ui, FG_Msg* m)
   {
     e.close = e.close || ((m->setWindowFlags.flags & FG_Window_CLOSED) != 0);
   }
-  if((m->kind == FG_Kind_KEYDOWN && m->keyDown.key != FG_Keys_LMENU && m->keyDown.scancode != 84) ||
+  if((m->kind == FG_Kind_KEYDOWN && m->keyDown.key != FG_Keys_LMENU && m->keyDown.scancode != 84 &&
+      m->keyDown.scancode != 88) ||
      m->kind == FG_Kind_MOUSEDOWN)
   {
     e.close = true;
@@ -186,7 +241,7 @@ int main(int argc, char* argv[])
   }
 
   FG_Vec layerdim = { 200, 100 };
-  e.layer = (*b->createLayer)(b, w, &layerdim, false);
+  e.layer         = (*b->createLayer)(b, w, &layerdim, false);
 
   TEST((*b->setCursor)(b, w, FG_Cursor_CROSS) == 0);
   TEST((*b->dirtyRect)(b, w, 0) == 0);

@@ -120,35 +120,73 @@ struct MockMsgReceiver {
 
 Virtual.extends(Msg.Receiver)(MockMsgReceiver)
 
+SetShape = macro(function(c, kind, area, fill, border, outline, blur)
+  local r = symbol(F.Rect)
+  return quote
+    var r = [area]
+    c.category          = [kind]
+    c.shape.area        = &r
+    c.shape.border      = [border]
+    c.shape.blur        = [blur]
+    c.shape.fillColor   = [fill]
+    c.shape.borderColor = [outline]
+    c.shape.z           = 0.0f
+    c.shape.asset       = nil
+  end
+end)
+
 terra MockMsgReceiver:Behavior(w : &opaque, ui : &opaque, m : &Msg.Message) : Msg.Result
   if m.kind.val == [Msg.Receiver.virtualinfo.info["Draw"].index] then
     var b = @[&&B.Backend](ui)
     b:Clear(w, 0x00000000U)
+    var list : B.Command[6]
 
-    var r = F.Rect{array(50f, 100f, 200f, 300f)}
     var c = F.Rect{array(0f, 4f, 8f, 12f)}
-    b:DrawRect(w, &r, &c, 0xFF0000FF, 5f, 0xFF00FFFF, 0f, nil, 0f, 0f, nil)
-
-    var r2 = F.Rect{array(350f, 100f, 500f, 300f)}
-    b:DrawCircle(w, &r2, F.Vec{array(0f, 3f)}, 0xFF0000FF, 5f, 0xFF00FFFF, 0f, 20f, 2f, nil, 0f, nil)
-    var r2b = F.Rect{array(400f, 175f, 450f, 225f)}
-    b:DrawCircle(w, &r2b, F.Vec{array(0f, 6.289f)}, 0xFFFFFFFF, 0f, 0xFFFFFFFF, 0f, 0f, 0f, nil, 0f, nil)
+    SetShape(list[0], B.Category.RECT, F.Rect{array(50f, 100f, 200f, 300f)}, 0xFF0000FF, 5f, 0xFF00FFFF, 0f)
+    list[0].shape.rect.corners = &c
+    list[0].shape.rect.rotate = 0.0f
     
-    var r3 = F.Rect{array(150f, 300f, 300f, 500f)}
+    SetShape(list[1], B.Category.ARC, F.Rect{array(350f, 100f, 500f, 300f)}, 0xFF0000FF, 5f, 0xFF00FFFF, 0f)
+    list[1].shape.arc.angles = F.Vec{array(0f, 3f)}
+    list[1].shape.arc.innerRadius = 10.0f
+
+    SetShape(list[2], B.Category.CIRCLE, F.Rect{array(250f, 150f, 300f, 200f)}, 0xFFFFFFFF, 0f, 0xFFFFFFFF, 0f)
+    list[2].shape.circle.innerRadius = 10.0f
+    list[2].shape.circle.innerBorder = 2.0f
+    
     var c3 = F.Rect{array(0f, 4f, 8f, 0.5f)}
-    b:DrawTriangle(w, &r3, &c3, 0xFF0000FF, 5f, 0xFF00FFFF, 0f, nil, 0.45f, 0f, nil)
+    SetShape(list[3], B.Category.TRIANGLE, F.Rect{array(150f, 300f, 300f, 500f)}, 0xFF0000FF, 5f, 0xFF00FFFF, 0f)
+    list[3].shape.triangle.corners = &c3
+    list[3].shape.triangle.rotate = 0.45f
 
+    list[4].category    = B.Category.ASSET
     var r4 = F.Rect{array(300f, 300f, 620f, 580f)}
-    b:DrawAsset(w, self.image, &r4, nil, 0xFFFFFFFF, 0f, 0f, 0f, nil)
+    list[4].asset.area  = &r4
+    list[4].asset.asset = self.image
+    list[4].asset.color = 0xFFFFFFFF
+    list[4].asset.source = nil
+    list[4].asset.rotate = 0.0f
+    list[4].asset.z = 0.0f
 
+    list[5].category    = B.Category.TEXT
     var r5 = F.Rect{array(200f, 10f, 550f, 40f)}
-    b:DrawText(w, self.font, self.layout, &r5, 0xFFFFFFFF, 0f, 0f, 0f, nil)
+    list[5].text.area  = &r5
+    list[5].text.font = self.font
+    list[5].text.layout = self.layout
+    list[5].text.color = 0xFFFFFFFF
+    list[5].text.rotate = 0.0f
+    list[5].text.z = 0.0f
     
+    b:Draw(w, list, 6, nil)
+
     if self.layer ~= nil then -- On the initial window creation the layer won't exist
       var transform = array(1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 550.0f, 50.0f, 0.0f, 1.0f);
       b:PushLayer(w, self.layer, transform, 0.5f, nil);
-      var r7 = F.Rect{array(0.0f, 0.0f, 100.0f, 80.0f)};
-      b:DrawRect(w, &r7, &c, 0xFFFF0000U, 5.0f, 0xFFFFFF00U, 0.0f, nil, 0.0f, 0.0f, nil);
+      var lshape : B.Command 
+      SetShape(lshape, B.Category.RECT, F.Rect{array(0.0f, 0.0f, 100.0f, 80.0f)}, 0xFFFF0000U, 5.0f, 0xFFFFFF00U, 0.0f)
+      lshape.shape.rect.corners = &c
+      lshape.shape.rect.rotate = 0.0f
+      b:Draw(w, &lshape, 1, nil)
       b:PopLayer(w);
     end
 

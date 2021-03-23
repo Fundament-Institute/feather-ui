@@ -8,14 +8,14 @@
 using namespace GL;
 
 const float Layer::NEARZ = 0.2f;
-const float Layer::FARZ = 100.0f;
+const float Layer::FARZ  = 100.0f;
 
 Layer::Layer(FG_Vec s, Context* c) : context(c), opacity(0), initialized(false)
 {
-  format      = FG_Format_LAYER;
-  size.x      = s.x;
-  size.y      = s.y;
-  Layer::mat4x4_proj(proj, 0, size.x, size.y, 0, NEARZ, FARZ);
+  format = FG_Format_LAYER;
+  size.x = static_cast<int>(ceilf(s.x));
+  size.y = static_cast<int>(ceilf(s.y));
+  Layer::mat4x4_proj(proj, 0, static_cast<float>(size.x), static_cast<float>(size.y), 0, NEARZ, FARZ);
 
   if(c->GetWindow())
     glfwGetWindowContentScale(c->GetWindow(), &dpi.x, &dpi.y);
@@ -41,7 +41,7 @@ bool Layer::Create()
 {
   if(initialized)
     return true;
-  
+
   auto backend = context->GetBackend();
 
   glGenFramebuffers(1, &framebuffer);
@@ -54,8 +54,7 @@ bool Layer::Create()
   backend->LogError("glGenTextures");
   glBindTexture(GL_TEXTURE_2D, texture);
   backend->LogError("glBindTexture");
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)ceilf(size.x), (GLsizei)ceilf(size.y), 0,
-               GL_RGBA, GL_UNSIGNED_BYTE, 0);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, size.x, size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
   backend->LogError("glTexImage2D");
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   backend->LogError("glTexParameteri");

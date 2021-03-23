@@ -26,8 +26,8 @@ void main()\n
     vec2 uv = (pos * DimBorderBlur.xy) - (DimBorderBlur.xy * 0.5);\n
     
     float dist = rectangle(uv, DimBorderBlur.xy * 0.5, Corners);\n
-  	float alpha = linearstep(0.0 + w, 0.0 - w, dist);\n
-    float s = linearstep(-DimBorderBlur.z + w, -DimBorderBlur.z - w, dist);\n
+  	float alpha = linearstep(w, -w, dist);\n
+    float s = linearstep(w, -w, dist + DimBorderBlur.z);\n 
     
     // Output to screen\n
     //gl_FragColor = vec4(dist,dist,dist,1);\n    

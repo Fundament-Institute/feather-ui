@@ -4,7 +4,7 @@ local shared = require 'feather.shared'
 local backend = require 'feather.backend'
 local message = require 'feather.message'
 
-local template_names = {"window", "rect", "triangle", "circle", "mousearea"}
+local template_names = {"window", "rect", "triangle", "circle", "mousearea", "arc"}
 
 local templates = {}
 for i, name in ipairs(template_names) do
@@ -22,5 +22,5 @@ end
 return merge{
   core,
   templates,
-  {Vec3D = shared.Vec3D, Vec = shared.Vec, Color = shared.Color, Backend = backend.Backend, Behavior = message.Behavior}
+  {veci = shared.veci, vec3D = shared.vec3D, vec = shared.vec, Veci = shared.Veci, Vec3D = shared.Vec3D, Vec = shared.Vec, Color = shared.Color, Backend = backend.Backend, Behavior = message.Behavior}
 }

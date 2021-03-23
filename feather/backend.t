@@ -103,6 +103,15 @@ B.Cursor = Enum{
   "DRAG",
   "CUSTOM"}
 
+
+B.DrawFlags = Flags({
+  "CCW_FRONT_FACE",
+  "CULL_FACE",
+  "WIREFRAME",
+  "POINTMODE",
+  "INSTANCED",
+}, uint8)
+
 struct B.Data {
   union {
     data : &opaque
@@ -125,32 +134,14 @@ B.Primitive = Enum({
   "TRIANGLE",
   "LINE_STRIP",
   "TRIANGLE_STRIP",
+  "LINE_ADJACENCY",
+  "TRIANGLE_ADJACENCY",
+  "LINE_STRIP_ADJACENCY",
+  "TRIANGLE_STRIP_ADJACENCY",
   "INDEX_BYTE",
   "INDEX_SHORT",
   "INDEX_INT",
 }, uint8)
-
-struct B.Asset {
-  data : B.Data
-  format : B.Format
-  size : F.Veci
-  dpi : F.Vec
-}
-B.Asset.c_export = [[FG_Data data;
-  FG_Format format;
-  union {
-    struct {
-      FG_Veci size;
-      FG_Vec dpi;
-    };
-    struct {
-      unsigned int count;
-      unsigned short stride;
-      unsigned char primitive;
-      FG_ShaderParameter * parameters;
-      unsigned int n_parameters;
-    };
-  };]]
 
 B.ShaderType = Enum{
   "HALF",
@@ -168,6 +159,53 @@ struct B.ShaderParameter {
   length : uint -- for arrays
   multi : uint -- for matrices, or to indicate TEX1D, TEX2D, TEX3D
   name : F.conststring
+}
+
+struct B.Asset {
+  data : B.Data
+  format : B.Format
+  union {
+    texture : struct {
+      size : F.Veci
+      dpi : F.Vec
+    }
+    resource : struct {
+      count : uint
+      stride : uint16
+      primitive : uint8
+      parameters : &B.ShaderParameter
+      n_parameters : uint
+    }
+  }
+}
+B.Asset.c_export = [[FG_Data data;
+  FG_Format format;
+  union {
+    struct {
+      FG_Veci size;
+      FG_Vec dpi;
+    };
+    struct {
+      unsigned int count;
+      unsigned short stride;
+      unsigned char primitive;
+      FG_ShaderParameter * parameters;
+      unsigned int n_parameters;
+    };
+  };]]
+
+struct B.ShaderValue {
+  union {
+    f32 : float
+    f64 : double
+    i32 : int
+    u32 : uint
+    pf32 : &float
+    pf64 : &double
+    pi32 : &int
+    pu32 : &uint
+    asset : &B.Asset
+  }
 }
 
 struct B.Shader {
@@ -217,7 +255,92 @@ struct B.BlendState {
   destBlendAlpha : B.BlendValue
   alphaBlend : B.BlendOp
   mask : uint8 -- RGBA mask, R is bit 1, A is bit 4
+  flags : B.DrawFlags
   constant : F.Color
+}
+
+B.Category = Enum({
+  "TEXT",
+  "ASSET",
+  "RECT",
+  "CIRCLE",
+  "ARC",
+  "TRIANGLE",
+  "LINES",
+  "CURVE",
+  "CUBE",
+  "ICOSPHERE",
+  "CYLINDER",
+  "SHADER"
+}, uint8)
+
+struct B.Command {
+  category : B.Category
+  union {
+    text : struct { 
+      font : &B.Font, 
+      layout : &opaque, 
+      area : &F.Rect, 
+      color : F.Color,
+      blur : float, 
+      rotate : float, 
+      z : float 
+    }
+    asset : struct { 
+      asset : &B.Asset, 
+      area : &F.Rect, 
+      source : &F.Rect, 
+      color : F.Color, 
+      time : float, 
+      rotate : float, 
+      z : float 
+    }
+    shape : struct {
+      area : &F.Rect, 
+      fillColor : F.Color
+      border : float
+      borderColor : F.Color
+      blur : float, 
+      asset : &B.Asset
+      z : float
+      union {
+        rect : struct {
+          corners : &F.Rect, 
+          rotate : float, 
+        }
+        circle : struct {
+          innerRadius : float
+          innerBorder : float
+        }
+        arc : struct {
+          angles : F.Vec
+          innerRadius : float
+        }
+        triangle : struct {
+          corners : &F.Rect
+          rotate : float
+        }
+      }
+    }
+    lines : struct {
+      points : &F.Vec
+      count : uint
+      color : F.Color
+    }
+    curve : struct {
+      anchors : &F.Vec
+      count : uint
+      fillColor : F.Color
+      stroke : float
+      strokeColor : F.Color
+    }
+    shader : struct {
+      shader : &B.Shader
+      vertices : &B.Asset
+      indices : &B.Asset
+      values : &B.ShaderValue
+    }
+  }
 }
 
 struct B.Backend {
@@ -232,15 +355,7 @@ struct B.Backend {
 }
 
 -- Define a dynamic backend object (a static backend would be a seperate type that also provides these functions).
-terra B.Backend:DrawText(window : &opaque, font : &B.Font, layout : &opaque, area : &F.Rect, color : F.Color, blur : float, rotate : float, z : float, blendstate : &B.BlendState) : F.Err return 0 end
-terra B.Backend:DrawAsset(window : &opaque, asset : &B.Asset, area : &F.Rect, source : &F.Rect, color : F.Color, time : float, rotate : float, z : float, blendstate : &B.BlendState) : F.Err return 0 end
-terra B.Backend:DrawRect(window : &opaque, area : &F.Rect, corners : &F.Rect, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, asset : &B.Asset, rotate : float, z : float, blendstate : &B.BlendState) : F.Err return 0 end
-terra B.Backend:DrawCircle(window : &opaque, area : &F.Rect, angles : F.Vec, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, innerRadius : float, innerBorder : float, asset : &B.Asset, z : float, blendstate : &B.BlendState) : F.Err return 0 end
-terra B.Backend:DrawTriangle(window : &opaque, area : &F.Rect, corners : &F.Rect, fillColor : F.Color, border : float, borderColor : F.Color, blur : float, asset : &B.Asset, rotate : float, z : float, blendstate : &B.BlendState) : F.Err return 0 end
-terra B.Backend:DrawLines(window : &opaque, points : &F.Vec, count : uint, color : F.Color, blendstate : &B.BlendState) : F.Err return 0 end
-terra B.Backend:DrawCurve(window : &opaque, anchors : &F.Vec, count : uint, fillColor : F.Color, stroke : float, strokeColor : F.Color, blendstate : &B.BlendState) : F.Err return 0 end
-terra B.Backend:DrawShader(window : &opaque, shader : &B.Shader, vertices : &B.Asset, indices : &B.Asset, blendstate : &B.BlendState, ...) : F.Err return 0 end
-
+terra B.Backend:Draw(window : &opaque, commands : &B.Command, n_commands : uint, blendstate : &B.BlendState) : F.Err return 0 end
 terra B.Backend:Clear(window : &opaque, color : F.Color) : bool return false end -- Clears whatever is inside the current clipping rect
 terra B.Backend:PushLayer(window : &opaque, layer : &B.Asset, transform : &float, opacity : float, blendstate : &B.BlendState) : F.Err return 0 end
 terra B.Backend:PopLayer(window : &opaque) : F.Err return 0 end

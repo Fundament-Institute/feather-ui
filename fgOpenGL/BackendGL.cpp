@@ -7,7 +7,7 @@
 #include "linmath.h"
 #include "utf.h"
 #include <filesystem>
-#include <stdarg.h>
+#include <float.h>
 #include "SOIL.h"
 #include "ft2build.h"
 #include FT_FREETYPE_H
@@ -28,387 +28,55 @@ Backend* Backend::_singleton     = nullptr;
 const float Backend::BASE_DPI    = 96.0f;
 const float Backend::PI          = 3.14159265359f;
 
-void Backend::ColorFloats(const FG_Color& c, float (&colors)[4])
+FG_Err Backend::DrawGL(FG_Backend* self, void* window, FG_Command* commandlist, unsigned int n_commands,
+                       FG_BlendState* blend)
 {
-  colors[0] = c.r / 255.0f;
-  colors[1] = c.g / 255.0f;
-  colors[2] = c.b / 255.0f;
-  colors[3] = c.a / 255.0f;
-}
-
-void Backend::_flushbatchdraw(Backend* backend, Context* context, Font* font)
-{
-  glActiveTexture(GL_TEXTURE0);
-  backend->LogError("glActiveTexture");
-  glBindTexture(GL_TEXTURE_2D, context->GetFontTexture(font));
-  backend->LogError("glBindTexture");
-
-  // We've already set up our batch indices so we can just use them
-  glDrawElements(GL_TRIANGLES, context->FlushBatch() * 6, GL_UNSIGNED_INT, nullptr);
-  backend->LogError("glDrawElements");
-  glBindVertexArray(0);
-  backend->LogError("glBindVertexArray");
-}
-
-float* GetRotationMatrix(mat4x4& m, float rotate, float z, mat4x4& proj)
-{
-  if(rotate != 0.0f || z != 0.0f)
-  {
-    mat4x4_translate(m, 0, 0, z);
-    mat4x4_rotate_Z(m, m, rotate);
-    mat4x4_mul(m, m, proj);
-    return (float*)m;
-  }
-
-  return (float*)proj;
-}
-
-FG_Err Backend::DrawTextGL(FG_Backend* self, void* window, FG_Font* fgfont, void* textlayout, FG_Rect* area, FG_Color color,
-                           float blur, float rotate, float z, FG_BlendState* blend)
-{
-  auto backend = static_cast<Backend*>(self);
-  auto context = reinterpret_cast<Context*>(window);
-  auto font    = static_cast<Font*>(fgfont);
-  auto layout  = reinterpret_cast<TextLayout*>(textlayout);
-
-  glUseProgram(context->_imageshader);
-  backend->LogError("glUseProgram");
-  context->_imageobject->Bind();
-
-  glBindBuffer(GL_ARRAY_BUFFER, context->_imagebuffer);
-  backend->LogError("glBindBuffer");
-
-  mat4x4 mv;
-  Shader::SetUniform(backend, context->_imageshader, "MVP", GL_FLOAT_MAT4,
-                     GetRotationMatrix(mv, rotate, z, context->GetProjection()));
-
-  float dim  = (float)(1 << font->GetSizePower());
-  FG_Vec pen = { area->left, area->top + ((layout->lineheight / font->lineheight) * font->GetAscender()) };
-  FG_Rect rect;
-  ImageVertex v[4];
-
-  context->ApplyBlend(blend);
-
-  for(int i = 0; i < layout->n_lines;)
-  {
-    const char32_t* pos  = layout->lines[i];
-    const char32_t* next = 0;
-    if(++i != layout->n_lines)
-      next = layout->lines[i];
-
-    pen.y      = ceilf(pen.y); // Always pixel snap the baseline.
-    pen.x      = area->left;
-    char32_t c = 0;
-
-    while(*pos && pos != next)
-    {
-      char32_t last = c;
-      c             = *pos;
-      auto g        = font->RenderGlyph(context, c);
-      if(!g)
-      {
-        ++pos;
-        continue;
-      }
-
-      // We add the kerning amount to the pen position for this character pair first, before doing anything else.
-      pen.x += font->GetKerning(last, c);
-      ++pos;
-
-      rect.left   = pen.x + g->bearing.x;
-      rect.top    = pen.y - g->bearing.y;
-      rect.right  = rect.left + g->width;
-      rect.bottom = rect.top + g->height;
-
-      _buildPosUV(v, rect, g->uv, dim, dim);
-
-      for(int k = 0; k < 4; ++k)
-        ColorFloats(color, v[k].color);
-
-      if(context->CheckFlush(sizeof(v)))
-        _flushbatchdraw(backend, context, font);
-      context->AppendBatch(v, sizeof(v), 1);
-
-      pen.x += g->advance + layout->letterspacing;
-    }
-    pen.y += layout->lineheight;
-  }
-
-  _flushbatchdraw(backend, context, font);
-
-  return glGetError();
-}
-
-FG_Err Backend::DrawTextureQuad(Context* context, GLuint tex, ImageVertex* v, FG_Color color, float* transform,
-                                FG_BlendState* blend)
-{
-  for(int i = 0; i < 4; ++i)
-    ColorFloats(color, v[i].color);
-
-  context->ApplyBlend(blend);
-
-  glUseProgram(context->_imageshader);
-  LogError("glUseProgram");
-  context->_imageobject->Bind();
-
-  glBindBuffer(GL_ARRAY_BUFFER, context->_imagebuffer);
-  LogError("glBindBuffer");
-  context->AppendBatch(v, sizeof(ImageVertex) * 4, 4);
-  Shader::SetUniform(this, context->_imageshader, "MVP", GL_FLOAT_MAT4, transform);
-  Shader::SetUniform(this, context->_imageshader, 0, GL_TEXTURE0, (float*)&tex);
-  glDrawArrays(GL_TRIANGLE_STRIP, 0, context->FlushBatch());
-  LogError("glDrawArrays");
-  glBindVertexArray(0);
-  LogError("glBindVertexArray");
-
-  return glGetError();
-}
-
-FG_Err Backend::DrawAsset(FG_Backend* self, void* window, FG_Asset* asset, FG_Rect* area, FG_Rect* source, FG_Color color,
-                          float time, float rotate, float z, FG_BlendState* blend)
-{
-  auto backend = static_cast<Backend*>(self);
-  auto context = reinterpret_cast<Context*>(window);
-  GLuint tex   = context->LoadAsset(static_cast<Asset*>(asset));
-
-  FG_Rect full = { 0, 0, static_cast<float>(asset->size.x), static_cast<float>(asset->size.y) };
-
-  if(!source)
-    source = &full;
-  ImageVertex v[4];
-  _buildPosUV(v, *area, *source, static_cast<float>(asset->size.x), static_cast<float>(asset->size.y));
-
-  mat4x4 mv;
-  return backend->DrawTextureQuad(context, tex, v, color, GetRotationMatrix(mv, rotate, z, context->GetProjection()),
-                                  blend);
-}
-
-void Backend::GenTransform(float (&target)[4][4], const FG_Rect& area, float rotate, float z)
-{
-  // mat4x4_translate(v, area->left, area->top, z);
-  // mat4x4_scale_aniso(mv, v, area->right - area->left, area->bottom - area->top, 1);
-  // mat4x4_rotate_Z(target, target, rotate);
-  memset(target, 0, sizeof(float) * 4 * 4);
-
-  target[0][0] = area.right - area.left;
-  target[1][1] = area.bottom - area.top;
-  target[2][2] = 1.0f;
-  target[3][3] = 1.0f;
-  if(rotate != 0.0f)
-  {
-    float w      = target[0][0] / 2;
-    float h      = target[1][1] / 2;
-    target[3][0] = -w;
-    target[3][1] = -h;
-    float s      = sinf(rotate);
-    float c      = cosf(rotate);
-    mat4x4 R     = { { c, s, 0.f, 0.f }, { -s, c, 0.f, 0.f }, { 0.f, 0.f, 1.f, 0.f }, { 0.f, 0.f, 0.f, 1.f } };
-    mat4x4_mul(target, R, target);
-    target[3][0] += w;
-    target[3][1] += h;
-  }
-
-  target[3][0] += area.left;
-  target[3][1] += area.top;
-  target[3][2] = z;
-}
-
-void Backend::_drawStandard(GLuint shader, VAO* vao, float (&proj)[4][4], const FG_Rect& area, const FG_Rect& corners,
-                            FG_Color fillColor, float border, FG_Color borderColor, float blur, float rotate, float z)
-{
-  mat4x4 mvp;
-  GenTransform(mvp, area, rotate, z);
-  mat4x4_mul(mvp, proj, mvp);
-
-  float dimdata[4];
-  dimdata[0] = area.right - area.left;
-  dimdata[1] = area.bottom - area.top;
-  dimdata[2] = border;
-  dimdata[3] = blur;
-
-  float fill[4];
-  ColorFloats(fillColor, fill);
-  float outline[4];
-  ColorFloats(borderColor, outline);
-  float amount     = blur + ((abs(fmod(rotate, PI/2.0f)) <= FLT_EPSILON) ? 0.0f : 1.0f);
-  float inflate[2] = { 1.0f + (amount/dimdata[0]), 1.0f + (amount/dimdata[1]) };
-
-  glUseProgram(shader);
-  LogError("glUseProgram");
-  vao->Bind();
-
-  Shader::SetUniform(this, shader, "MVP", GL_FLOAT_MAT4, (float*)mvp);
-  Shader::SetUniform(this, shader, "DimBorderBlur", GL_FLOAT_VEC4, dimdata);
-  Shader::SetUniform(this, shader, "Corners", GL_FLOAT_VEC4, (float*)corners.ltrb);
-  Shader::SetUniform(this, shader, "Fill", GL_FLOAT_VEC4, fill);
-  Shader::SetUniform(this, shader, "Outline", GL_FLOAT_VEC4, outline);
-  Shader::SetUniform(this, shader, "Inflate", GL_FLOAT_VEC2, inflate);
-
-  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-  LogError("glDrawArrays");
-  vao->Unbind();
-}
-
-FG_Err Backend::DrawRect(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor, float border,
-                         FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z, FG_BlendState* blend)
-{
-  auto backend = static_cast<Backend*>(self);
-  auto context = reinterpret_cast<Context*>(window);
-  context->ApplyBlend(blend);
-  backend->_drawStandard(context->_rectshader, context->_quadobject, context->GetProjection(), *area, *corners, fillColor,
-                         border, borderColor, blur, rotate, z);
-  return glGetError();
-}
-
-FG_Err Backend::DrawCircle(FG_Backend* self, void* window, FG_Rect* area, FG_Vec angles, FG_Color fillColor, float border,
-                           FG_Color borderColor, float blur, float innerRadius, float innerBorder, FG_Asset* asset, float z,
-                           FG_BlendState* blend)
-{
-  auto backend = static_cast<Backend*>(self);
-  auto context = reinterpret_cast<Context*>(window);
-  context->ApplyBlend(blend);
-  backend->_drawStandard(context->_circleshader, context->_quadobject, context->GetProjection(), *area,
-                         FG_Rect{ angles.x + (angles.y / 2.0f) - (PI / 2.0f), angles.y / 2.0f, innerRadius, innerBorder },
-                         fillColor, border, borderColor, blur, 0.0f, z);
-  return glGetError();
-}
-FG_Err Backend::DrawTriangle(FG_Backend* self, void* window, FG_Rect* area, FG_Rect* corners, FG_Color fillColor,
-                             float border, FG_Color borderColor, float blur, FG_Asset* asset, float rotate, float z,
-                             FG_BlendState* blend)
-{
-  auto backend = static_cast<Backend*>(self);
-  auto context = reinterpret_cast<Context*>(window);
-  context->ApplyBlend(blend);
-  FG_Rect shift = *area;
-  shift.ltrb[0] -= 0.5f;
-  shift.ltrb[1] -= 0.5f;
-  shift.ltrb[2] -= 0.5f;
-  shift.ltrb[3] -= 0.5f;
-  backend->_drawStandard(context->_trishader, context->_quadobject, context->GetProjection(), shift, *corners, fillColor,
-                         border, borderColor, blur, rotate, z);
-  return glGetError();
-}
-
-FG_Err Backend::DrawLines(FG_Backend* self, void* window, FG_Vec* points, uint32_t count, FG_Color color,
-                          FG_BlendState* blend)
-{
-  auto backend = static_cast<Backend*>(self);
-  auto context = reinterpret_cast<Context*>(window);
-
-  float colors[4];
-  ColorFloats(color, colors);
-  context->ApplyBlend(blend);
-
-  glUseProgram(context->_lineshader);
-  backend->LogError("glUseProgram");
-  context->_lineobject->Bind();
-
-  glBindBuffer(GL_ARRAY_BUFFER, context->_linebuffer);
-  backend->LogError("glBindBuffer");
-
-  context->AppendBatch(points, sizeof(FG_Vec) * count, count);
-  Shader::SetUniform(backend, context->_lineshader, "MVP", GL_FLOAT_MAT4, (float*)context->GetProjection());
-  Shader::SetUniform(backend, context->_lineshader, "Color", GL_FLOAT_VEC4, colors);
-
-  glDrawArrays(GL_LINE_STRIP, 0, context->FlushBatch());
-  backend->LogError("glDrawArrays");
-  context->_lineobject->Unbind();
-
-  return glGetError();
-}
-
-FG_Err Backend::DrawCurve(FG_Backend* self, void* window, FG_Vec* anchors, uint32_t count, FG_Color fillColor, float stroke,
-                          FG_Color strokeColor, FG_BlendState* blend)
-{
-  auto instance = static_cast<Backend*>(self);
-
-  if(fillColor.v != 0)
+  if(!self || !window)
     return -1;
 
-  if(stroke == 0.0f)
-    return 0;
-
-  return -1;
-}
-FG_Err Backend::DrawShader(FG_Backend* self, void* window, FG_Shader* fgshader, FG_Asset* vertices, FG_Asset* indices,
-                           FG_BlendState* blend, ...)
-{
-  if(!self || !window || !fgshader || !vertices)
-    return -1;
-
-  auto backend  = static_cast<Backend*>(self);
-  auto context  = reinterpret_cast<Context*>(window);
-  auto shader   = static_cast<Shader*>(fgshader);
-  auto instance = context->LoadShader(shader);
+  auto backend = static_cast<Backend*>(self);
+  auto context = reinterpret_cast<Context*>(window);
 
   context->ApplyBlend(blend);
-
-  glUseProgram(instance);
-  backend->LogError("glUseProgram");
-  context->LoadVAO(shader, static_cast<Asset*>(vertices))->Bind();
-
-  va_list vl;
-  va_start(vl, blend);
-  for(uint32_t i = 0; i < shader->n_parameters; ++i)
+  for(unsigned int i = 0; i < n_commands; ++i)
   {
-    auto type = Shader::GetType(shader->parameters[i]);
-    float* data;
-    switch(type)
+    auto& c = commandlist[i];
+    switch(c.category)
     {
-    case GL_DOUBLE:
-    case GL_HALF_FLOAT: // we assume you pass in a proper float to fill this
-    case GL_FLOAT:
-    case GL_INT:
-    case GL_UNSIGNED_INT:
-    { // Floats get promoted to doubles in va_arg contexts
-      float d1 = va_arg(vl, double);
-      data     = (float*)&d1;
+    case FG_Category_ARC:
+      context->DrawArc(*c.shape.area, c.shape.arc.angles, c.shape.fillColor, c.shape.border, c.shape.borderColor,
+                       c.shape.blur, c.shape.arc.innerRadius, c.shape.asset, c.shape.z);
       break;
+    case FG_Category_CIRCLE:
+      context->DrawCircle(*c.shape.area, c.shape.fillColor, c.shape.border, c.shape.borderColor, c.shape.blur,
+                          c.shape.circle.innerRadius, c.shape.circle.innerBorder, c.shape.asset, c.shape.z);
+      break;
+    case FG_Category_RECT:
+      context->DrawRect(*c.shape.area, *c.shape.rect.corners, c.shape.fillColor, c.shape.border, c.shape.borderColor,
+                        c.shape.blur, c.shape.asset, c.shape.rect.rotate, c.shape.z);
+      break;
+    case FG_Category_TRIANGLE:
+      context->DrawTriangle(*c.shape.area, *c.shape.triangle.corners, c.shape.fillColor, c.shape.border,
+                            c.shape.borderColor, c.shape.blur, c.shape.asset, c.shape.triangle.rotate, c.shape.z);
+      break;
+    case FG_Category_TEXT:
+      context->DrawTextGL(c.text.font, c.text.layout, c.text.area, c.text.color, c.text.blur, c.text.rotate, c.text.z);
+      break;
+    case FG_Category_ASSET:
+      context->DrawAsset(c.asset.asset, c.asset.area, c.asset.source, c.asset.color, c.asset.time, c.asset.rotate,
+                         c.asset.z);
+      break;
+    case FG_Category_LINES: context->DrawLines(c.lines.points, c.lines.count, c.lines.color); break;
+    case FG_Category_CURVE:
+      context->DrawCurve(c.curve.anchors, c.curve.count, c.curve.fillColor, c.curve.stroke, c.curve.strokeColor);
+      break;
+    case FG_Category_SHADER:
+      context->DrawShader(c.shader.shader, c.shader.vertices, c.shader.indices, c.shader.values);
+      break;
+    default: return -20;
     }
-    default: data = va_arg(vl, float*); break;
-    }
-
-    if(type >= GL_TEXTURE0 && type <= GL_TEXTURE31)
-    {
-      GLuint idx = context->LoadAsset((Asset*)data);
-      Shader::SetUniform(backend, instance, shader->parameters[i].name, type, (float*)&idx);
-    }
-    else
-      Shader::SetUniform(backend, instance, shader->parameters[i].name, type, data);
   }
-  va_end(vl);
-
-  GLenum kind = 0;
-  switch(vertices->primitive)
-  {
-  case FG_Primitive_TRIANGLE: kind = GL_TRIANGLES; break;
-  case FG_Primitive_TRIANGLE_STRIP: kind = GL_TRIANGLE_STRIP; break;
-  case FG_Primitive_LINE: kind = GL_LINES; break;
-  case FG_Primitive_LINE_STRIP: kind = GL_LINE_STRIP; break;
-  case FG_Primitive_POINT: kind = GL_POINT; break;
-  }
-
-  if(!indices)
-  {
-    glDrawArrays(kind, 0, vertices->count);
-    backend->LogError("glDrawArrays");
-  }
-  else
-  {
-    GLenum index = 0;
-    switch(indices->primitive)
-    {
-    case FG_Primitive_INDEX_BYTE: index = GL_UNSIGNED_BYTE; break;
-    case FG_Primitive_INDEX_SHORT: index = GL_UNSIGNED_SHORT; break;
-    case FG_Primitive_INDEX_INT: index = GL_UNSIGNED_INT; break;
-    }
-
-    glDrawElements(kind, indices->count, index, indices->data.data);
-    backend->LogError("glDrawElements");
-  }
-
-  glBindVertexArray(0);
-  return -1;
+  return 0;
 }
 
 bool Backend::Clear(FG_Backend* self, void* window, FG_Color color)
@@ -955,7 +623,7 @@ void* Backend::CreateWindowGL(FG_Backend* self, FG_MsgReceiver* element, void* d
 {
   auto backend = reinterpret_cast<Backend*>(self);
   _lasterr     = 0;
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
   Window* window = new Window(static_cast<Backend*>(self), reinterpret_cast<GLFWmonitor*>(display), element, pos, dim,
                               flags, caption, context);
@@ -1143,14 +811,7 @@ long long GetRegistryValueW(HKEY__* hKeyRoot, const wchar_t* szKey, const wchar_
 Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   _root(root), _log(log), _behavior(behavior), _assethash(kh_init_assets()), _windows(nullptr)
 {
-  drawText             = &DrawTextGL;
-  drawAsset            = &DrawAsset;
-  drawRect             = &DrawRect;
-  drawCircle           = &DrawCircle;
-  drawTriangle         = &DrawTriangle;
-  drawLines            = &DrawLines;
-  drawCurve            = &DrawCurve;
-  drawShader           = &DrawShader;
+  draw                 = &DrawGL;
   clear                = &Clear;
   pushLayer            = &PushLayer;
   popLayer             = &PopLayer;
@@ -1232,6 +893,10 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
 #include "Circle.fs.glsl"
     ;
 
+  const char* arc_fs =
+#include "Arc.fs.glsl"
+    ;
+
   std::initializer_list<FG_ShaderParameter> standardLayout = {
     { FG_ShaderType_FLOAT, 4, 4, "MVP" },     { FG_ShaderType_FLOAT, 4, 1, "DimBorderBlur" },
     { FG_ShaderType_FLOAT, 4, 1, "Corners" }, { FG_ShaderType_FLOAT, 4, 1, "Fill" },
@@ -1241,6 +906,7 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   _rectshader   = Shader(roundrect_fs, standard_vs, 0, standardLayout);
   _trishader    = Shader(triangle_fs, standard_vs, 0, standardLayout);
   _circleshader = Shader(circle_fs, standard_vs, 0, standardLayout);
+  _arcshader    = Shader(arc_fs, standard_vs, 0, standardLayout);
 
 #ifdef FG_PLATFORM_WIN32
   #ifdef FG_DEBUG
