@@ -52,8 +52,8 @@ return core.raw_template {
       enter = function(self, context, environment)
         return quote
           self.vftable = [self:gettype()].virtual_initializer
-          var pos = F.Vec{array(0f, 0f)}
-          var size = F.Vec{array(800f, 600f)}
+          var pos = F.vec(0f, 0f)
+          var size = F.vec(800f, 600f)
           var transform = core.transform.identity()
           var zero = [F.Vec3D] {array(0.0f, 0.0f, 0.0f)}
           var zindex = [F.Veci] {array(0, 0)}

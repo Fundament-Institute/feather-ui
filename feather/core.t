@@ -62,7 +62,7 @@ terra M.transform:invert()
   return M.transform{-self.r}
 end
 terra M.transform.methods.identity()
-  return M.transform{F.Vec3D{array(0.0f, 0.0f, 0.0f)}}
+  return M.transform{F.vec3D(0.0f, 0.0f, 0.0f)}
 end
 
 
@@ -702,7 +702,7 @@ function M.ui(desc)
           ::MouseEvent::
           var base = [&window_base](r)
           var params = BehaviorParamPack{w, ui, m}
-          return Msg.Result{terralib.select(base.rtree:query(F.Vec3D{array(m.mouseMove.x,m.mouseMove.y,0.0f)}, F.Vec3D{array(0.0f,0.0f,1.0f)}, params, mousequery), 0, -1)}
+          return Msg.Result{terralib.select(base.rtree:query(F.vec3D(m.mouseMove.x,m.mouseMove.y,0.0f), F.vec3D(0.0f,0.0f,1.0f), params, mousequery), 0, -1)}
         end
       end
       return Msg.DefaultBehavior(r, w, ui, m)

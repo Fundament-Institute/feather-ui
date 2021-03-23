@@ -13,7 +13,7 @@ return core.basic_template {
     return quote
         var x, y = context.transform.r.x, context.transform.r.y
         var w, h = context.rtree_node.extent.x, context.rtree_node.extent.y
-        var rect = shared.Rect{array(x-w, y-h, x+w, y+h)}
+        var rect = shared.rect(x-w, y-h, x+w, y+h)
         var command : B.Command
         command.category = B.Category.CIRCLE
         command.shape.circle.innerRadius = [params.innerRadius]

@@ -147,7 +147,7 @@ terra MockMsgReceiver:Behavior(w : &opaque, ui : &opaque, m : &Msg.Message) : Ms
     list[0].shape.rect.rotate = 0.0f
     
     SetShape(list[1], B.Category.ARC, F.Rect{array(350f, 100f, 500f, 300f)}, 0xFF0000FF, 5f, 0xFF00FFFF, 0f)
-    list[1].shape.arc.angles = F.Vec{array(0f, 3f)}
+    list[1].shape.arc.angles = F.vec(0f, 3f)
     list[1].shape.arc.innerRadius = 10.0f
 
     SetShape(list[2], B.Category.CIRCLE, F.Rect{array(250f, 150f, 300f, 200f)}, 0xFFFFFFFF, 0f, 0xFFFFFFFF, 0f)
@@ -236,17 +236,17 @@ terra TestHarness:TestBackend(dllpath : rawstring, aa : B.AntiAliasing)
   e.flags = Messages.Window.RESIZABLE
   -- e.image = b:CreateAsset("../tests/example.png", 0, B.Format.PNG)
   e.image = b:CreateAsset([constant(`example_png)], [#example_png], B.Format.PNG)
-  e.font = b:CreateFont("Arial", 700, false, 16, F.Vec{array(96f, 96f)}, aa)
+  e.font = b:CreateFont("Arial", 700, false, 16, F.vec(96f, 96f), aa)
   e.layout = b:FontLayout(e.font, "Example Text!", &textrect, 16f, 0f, B.BreakStyle.NONE, nil);
   e.layer = nil
   e.close = false
 
-  var pos = F.Vec{array(200f,100f)}
-  var dim = F.Vec{array(800f,600f)}
+  var pos = F.vec(200f,100f)
+  var dim = F.vec(800f,600f)
   var w = b:CreateWindow(&e.super, nil, &pos, &dim, "Feather Test", e.flags, nil)
   self:Test(w ~= nil, true)
 
-  var layerdim = F.Vec{array(200.0f,80.0f)}
+  var layerdim = F.vec(200.0f,80.0f)
   e.layer = b:CreateLayer(w, &layerdim, false)
   self:Test(e.layer ~= nil, true)
 
@@ -496,7 +496,7 @@ terra TestHarness:rect()
 end
 
 terra TestHarness:vec()
-  var a = F.Veci{array(1,2)}
+  var a = F.veci(1,2)
   self:Test(a.x, 1)
   self:Test(a.y, 2)
   self:Test(a.v[0], 1)
@@ -506,7 +506,7 @@ terra TestHarness:vec()
   self:Test(a.x, 5)
   self:Test(a.y, 6)
 
-  var b = F.Veci{array(-3,-4)}
+  var b = F.veci(-3,-4)
   var c = a + b
   self:Test(c.x, 2)
   self:Test(c.y, 2)
@@ -523,11 +523,11 @@ terra TestHarness:vec()
   self:Test(c.x, 3)
   self:Test(c.y, 4)
 
-  c = a + F.Veci{array(3,3)}
+  c = a + F.veci(3,3)
   self:Test(c.x, 4)
   self:Test(c.y, 5)
 
-  c = F.Veci{array(4,4)} - b
+  c = F.veci(4,4) - b
   self:Test(c.x, 7)
   self:Test(c.y, 8)
 
@@ -800,11 +800,11 @@ end
 terra TestHarness:rtree()
   var simple : RTreeDefault
   Object.new(simple)
-  var vec0 = F.Vec3D{array(0.0f,0.0f,0.0f)}
-  var vec1000 = F.Vec3D{array(1000.0f,1000.0f,0.0f)}
-  var vec100 = F.Vec3D{array(100.0f,100.0f,0.0f)}
-  var vec0i = F.Veci{array(0,0)}
-  var vec1i = F.Veci{array(1,1)}
+  var vec0 = F.vec3D(0.0f,0.0f,0.0f)
+  var vec1000 = F.vec3D(1000.0f,1000.0f,0.0f)
+  var vec100 = F.vec3D(100.0f,100.0f,0.0f)
+  var vec0i = F.veci(0,0)
+  var vec1i = F.veci(1,1)
   var root = simple:create(nil, &vec0, &vec1000, &vec0, &vec0i)
   self:Test(root ~= nil, true)
   var child1 = simple:create(root, &vec0, &vec100, &vec0, &vec0i)
@@ -819,7 +819,7 @@ terra TestHarness:rtree()
   child2.data = [&Msg.Receiver](2)
   child3.data = [&Msg.Receiver](3)
   child4.data = [&Msg.Receiver](4)
-  simple:query(F.Vec3D{array(3.0f,4.0f,0.0f)}, F.Vec3D{array(0.0f,0.0f,1.0f)}, 3, verifywalk)
+  simple:query(F.vec3D(3.0f,4.0f,0.0f), F.vec3D(0.0f,0.0f,1.0f), 3, verifywalk)
 
   escape
     local vals = {3, 4, 2, 1, 0}
@@ -829,30 +829,30 @@ terra TestHarness:rtree()
     emit(`self:Test(verify_num[ [#vals] ], -1))
   end
 
-  self:Test(TestRayBoxIntersect(F.Vec3D{array(0f, 0f, 0f)}, F.Vec3D{array(0f, 0f, 1f)}, F.Vec3D{array(1f, 1f, 1f)}), 1f)
-  self:Test(TestRayBoxIntersect(F.Vec3D{array(0f, 0f, 0f)}, F.Vec3D{array(0f, 1f, 0f)}, F.Vec3D{array(1f, 1f, 1f)}), 1f)
-  self:Test(TestRayBoxIntersect(F.Vec3D{array(0f, 0f, 0f)}, F.Vec3D{array(1f, 0f, 0f)}, F.Vec3D{array(1f, 1f, 1f)}), 1f)
-  self:Test(TestRayBoxIntersect(F.Vec3D{array(2f, 2f, 2f)}, F.Vec3D{array(0f, 0f, -1f)}, F.Vec3D{array(1f, 1f, 1f)}), -1f)
-  self:Test(TestRayBoxIntersect(F.Vec3D{array(2f, 2f, 2f)}, F.Vec3D{array(-1f, -1f, -1f)}, F.Vec3D{array(1f, 1f, 1f)}), 1f)
-  self:Test(TestRayBoxIntersect(F.Vec3D{array(4f, 4f, 4f)}, F.Vec3D{array(-1f, -1f, -1f)}, F.Vec3D{array(1f, 1f, 1f)}), 3f)
-  self:Test(TestRayBoxIntersect(F.Vec3D{array(0f, 0f, 0f)}, F.Vec3D{array(0f, 0f, 1f)}, F.Vec3D{array(10f, 10f, 0f)}), 0f)
-  self:Test(TestRayBoxIntersect(F.Vec3D{array(0f, 0f, 0f)}, F.Vec3D{array(0f, 1f, 0f)}, F.Vec3D{array(10f, 10f, 0f)}), 10f)
-  self:Test(TestRayBoxIntersect(F.Vec3D{array(0f, 0f, 0f)}, F.Vec3D{array(1f, 0f, 0f)}, F.Vec3D{array(10f, 10f, 0f)}), 10f)
-  self:Test(TestRayBoxIntersect(F.Vec3D{array(0f, 0f, 100f)}, F.Vec3D{array(0f, 0f, 1f)}, F.Vec3D{array(10f, 10f, 0f)}), -100f)
-  self:Test(TestRayBoxIntersect(F.Vec3D{array(0f, 0f, 100f)}, F.Vec3D{array(0f, 0f, -1f)}, F.Vec3D{array(10f, 10f, 0f)}), 100f)
-  self:Test(TestRayBoxIntersect(F.Vec3D{array(0f, 0f, -10f)}, F.Vec3D{array(0f, 0f, 1f)}, F.Vec3D{array(10f, 10f, 0f)}), 10f)
-  self:Test(TestRayBoxIntersect(F.Vec3D{array(9.9f, 0f, 0f)}, F.Vec3D{array(0f, 0f, 1f)}, F.Vec3D{array(10f, 10f, 0f)}), 0f)
-  self:Test(TestRayBoxIntersect(F.Vec3D{array(10.1f, 0f, 0f)}, F.Vec3D{array(0f, 0f, 1f)}, F.Vec3D{array(10f, 10f, 0f)}), -1f)
-  self:Test(TestRayBoxIntersect(F.Vec3D{array(9.9f, 9.9f, 0f)}, F.Vec3D{array(0f, 0f, 1f)}, F.Vec3D{array(10f, 10f, 0f)}), 0f)
-  self:Test(TestRayBoxIntersect(F.Vec3D{array(10.1f, 9.9f, 0f)}, F.Vec3D{array(0f, 0f, 1f)}, F.Vec3D{array(10f, 10f, 0f)}), -1f)
-  self:Test(TestRayBoxIntersect(F.Vec3D{array(10.1f, 10.1f, 0f)}, F.Vec3D{array(0f, 0f, 1f)}, F.Vec3D{array(10f, 10f, 0f)}), -1f)
-  self:Test(TestRayBoxIntersect(F.Vec3D{array(0f, 0f, -10f)}, F.Vec3D{array(0f, 0f, -1f)}, F.Vec3D{array(10f, 10f, 0f)}), -10f)
-  self:Test(TestRayBoxIntersect(F.Vec3D{array(9.9f, 0f, 0f)}, F.Vec3D{array(0f, 0f, -1f)}, F.Vec3D{array(10f, 10f, 0f)}), 0f)
-  self:Test(TestRayBoxIntersect(F.Vec3D{array(9.9f, 0f, 1f)}, F.Vec3D{array(0f, 0f, -1f)}, F.Vec3D{array(10f, 10f, 0f)}), 1f)
-  self:Test(TestRayBoxIntersect(F.Vec3D{array(10.1f, 0f, 1f)}, F.Vec3D{array(0f, 0f, -1f)}, F.Vec3D{array(10f, 10f, 0f)}), -1f)
-  self:Test(TestRayBoxIntersect(F.Vec3D{array(9.9f, 9.9f, 1f)}, F.Vec3D{array(0f, 0f, -1f)}, F.Vec3D{array(10f, 10f, 0f)}), 1f)
-  self:Test(TestRayBoxIntersect(F.Vec3D{array(10.1f, 9.9f, 1f)}, F.Vec3D{array(0f, 0f, -1f)}, F.Vec3D{array(10f, 10f, 0f)}), -1f)
-  self:Test(TestRayBoxIntersect(F.Vec3D{array(10.1f, 10.1f, 1f)}, F.Vec3D{array(0f, 0f, -1f)}, F.Vec3D{array(10f, 10f, 0f)}), -1f)
+  self:Test(TestRayBoxIntersect(F.vec3D(0f, 0f, 0f), F.vec3D(0f, 0f, 1f), F.vec3D(1f, 1f, 1f)), 1f)
+  self:Test(TestRayBoxIntersect(F.vec3D(0f, 0f, 0f), F.vec3D(0f, 1f, 0f), F.vec3D(1f, 1f, 1f)), 1f)
+  self:Test(TestRayBoxIntersect(F.vec3D(0f, 0f, 0f), F.vec3D(1f, 0f, 0f), F.vec3D(1f, 1f, 1f)), 1f)
+  self:Test(TestRayBoxIntersect(F.vec3D(2f, 2f, 2f), F.vec3D(0f, 0f, -1f), F.vec3D(1f, 1f, 1f)), -1f)
+  self:Test(TestRayBoxIntersect(F.vec3D(2f, 2f, 2f), F.vec3D(-1f, -1f, -1f), F.vec3D(1f, 1f, 1f)), 1f)
+  self:Test(TestRayBoxIntersect(F.vec3D(4f, 4f, 4f), F.vec3D(-1f, -1f, -1f), F.vec3D(1f, 1f, 1f)), 3f)
+  self:Test(TestRayBoxIntersect(F.vec3D(0f, 0f, 0f), F.vec3D(0f, 0f, 1f), F.vec3D(10f, 10f, 0f)), 0f)
+  self:Test(TestRayBoxIntersect(F.vec3D(0f, 0f, 0f), F.vec3D(0f, 1f, 0f), F.vec3D(10f, 10f, 0f)), 10f)
+  self:Test(TestRayBoxIntersect(F.vec3D(0f, 0f, 0f), F.vec3D(1f, 0f, 0f), F.vec3D(10f, 10f, 0f)), 10f)
+  self:Test(TestRayBoxIntersect(F.vec3D(0f, 0f, 100f), F.vec3D(0f, 0f, 1f), F.vec3D(10f, 10f, 0f)), -100f)
+  self:Test(TestRayBoxIntersect(F.vec3D(0f, 0f, 100f), F.vec3D(0f, 0f, -1f), F.vec3D(10f, 10f, 0f)), 100f)
+  self:Test(TestRayBoxIntersect(F.vec3D(0f, 0f, -10f), F.vec3D(0f, 0f, 1f), F.vec3D(10f, 10f, 0f)), 10f)
+  self:Test(TestRayBoxIntersect(F.vec3D(9.9f, 0f, 0f), F.vec3D(0f, 0f, 1f), F.vec3D(10f, 10f, 0f)), 0f)
+  self:Test(TestRayBoxIntersect(F.vec3D(10.1f, 0f, 0f), F.vec3D(0f, 0f, 1f), F.vec3D(10f, 10f, 0f)), -1f)
+  self:Test(TestRayBoxIntersect(F.vec3D(9.9f, 9.9f, 0f), F.vec3D(0f, 0f, 1f), F.vec3D(10f, 10f, 0f)), 0f)
+  self:Test(TestRayBoxIntersect(F.vec3D(10.1f, 9.9f, 0f), F.vec3D(0f, 0f, 1f), F.vec3D(10f, 10f, 0f)), -1f)
+  self:Test(TestRayBoxIntersect(F.vec3D(10.1f, 10.1f, 0f), F.vec3D(0f, 0f, 1f), F.vec3D(10f, 10f, 0f)), -1f)
+  self:Test(TestRayBoxIntersect(F.vec3D(0f, 0f, -10f), F.vec3D(0f, 0f, -1f), F.vec3D(10f, 10f, 0f)), -10f)
+  self:Test(TestRayBoxIntersect(F.vec3D(9.9f, 0f, 0f), F.vec3D(0f, 0f, -1f), F.vec3D(10f, 10f, 0f)), 0f)
+  self:Test(TestRayBoxIntersect(F.vec3D(9.9f, 0f, 1f), F.vec3D(0f, 0f, -1f), F.vec3D(10f, 10f, 0f)), 1f)
+  self:Test(TestRayBoxIntersect(F.vec3D(10.1f, 0f, 1f), F.vec3D(0f, 0f, -1f), F.vec3D(10f, 10f, 0f)), -1f)
+  self:Test(TestRayBoxIntersect(F.vec3D(9.9f, 9.9f, 1f), F.vec3D(0f, 0f, -1f), F.vec3D(10f, 10f, 0f)), 1f)
+  self:Test(TestRayBoxIntersect(F.vec3D(10.1f, 9.9f, 1f), F.vec3D(0f, 0f, -1f), F.vec3D(10f, 10f, 0f)), -1f)
+  self:Test(TestRayBoxIntersect(F.vec3D(10.1f, 10.1f, 1f), F.vec3D(0f, 0f, -1f), F.vec3D(10f, 10f, 0f)), -1f)
 end
 
 local SUBTESTLEN = 11
