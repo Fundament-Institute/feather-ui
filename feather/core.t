@@ -5,6 +5,7 @@ local backend = require 'feather.backend'
 local override = require 'feather.util'.override
 local Msg = require 'feather.message'
 local Virtual = require 'feather.virtual'
+local Closure = require 'feather.closure' 
 local C = terralib.includecstring [[#include <stdio.h>]]
 
 local M = {}
@@ -77,7 +78,7 @@ M.required = {}
 local typed_event_spec_mt = {}
 local event_spec_mt = {
     __call = function(self, ...)
-      return setmetatable({args = {...}, required = self.required}, typed_event_spec_metatable)
+      return setmetatable({args = {...}, required = self.required}, typed_event_spec_mt)
     end
 }
 M.event = setmetatable({required = false}, event_spec_mt)
@@ -221,7 +222,11 @@ function template_mt:__call(desc)
       end
     end
     for k, v in pairs(self.args) do
-      binds[k] = type_expression(v, context, type_environment)
+      if self.template.params.events[k] then
+        binds[k] = Closure.closure(self.template.params.events[k].args -> {})
+      else
+        binds[k] = type_expression(v, context, type_environment)
+      end
     end
     local fns, type = self.template:generate(context, binds)
     return {
@@ -276,7 +281,7 @@ local function parse_params(desc)
           else
             res.defaults[k] = constant_expression(`F.EmptyCallable {})
           end
-          res.events[k] = true
+          res.events[k] = v
         else
           res.defaults[k] = constant_expression(v)
         end
