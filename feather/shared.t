@@ -47,16 +47,12 @@ struct S.URect {
 }
 
 local GA = require 'std.ga'
-local GA3 = GA(float, 3)
-
-S.Vec = GA(float, 2).vector_t
-S.Vec3D = GA3.vector_t
-S.Bivector3 = GA3.bivector_t
-S.Veci = GA(int, 2).vector_t
+local Iter = require 'std.iterator'
 
 local veclookups = { [1] = "x", [2] = "y", [4] = "z", [8] = "w" }
 
-local function vecexport(v, type)
+local function VecExport(v)
+  local type = v.entries[1].type.type == int and "int" or tostring(v.entries[1].type.type)
   v.c_export = ""
   for x,i in ipairs(v.metamethods.components) do
     local name = type .. " "
@@ -69,19 +65,38 @@ local function vecexport(v, type)
   end
 end
 
-vecexport(S.Vec, "float")
-vecexport(S.Vec3D, "float")
-vecexport(S.Bivector3, "float")
-vecexport(S.Veci, "int")
+function AutoVecFunc(type)
+  return macro(function(...) 
+    local args = {...}
+    return `[type] { arrayof([type.entries[1].type.type], [args]) }
+  end)
+end
+
+local prefixes = { "Vec", "Bivector", "Trivector", "Quadvector" }
+
+function AutoVecGen(type, min, max)
+  local tpost = type == float and "" or "i"
+  for d=min, max do
+    local post = d == 2 and tpost or tpost..d.."D"
+    for i=1,d do 
+      local v = prefixes[i] .. post
+      S[v] = GA(type, d)["vector"..i.."_t"]
+      VecExport(S[v])
+      local k = string.lower(v:sub(1,1)) .. v:sub(2, -1)
+      S[k] = AutoVecFunc(S[v])
+    end
+  end
+end
+
+AutoVecGen(float, 2, 4)
+AutoVecGen(int, 2, 2)
+
+S.rect = AutoVecFunc(S.Rect)
 
 struct S.UVec {
   abs : S.Vec
   rel : S.Vec
 }
-
-S.vec = macro(function (x, y) return `S.Vec { arrayof(float, x, y) } end)
-S.vec3D = macro(function (x, y, z) return `S.Vec3D { arrayof(float, x, y, z) } end)
-S.veci = macro(function (x, y) return `S.Veci { arrayof(int, x, y) } end)
 
 struct S.conststring {
   s : rawstring
