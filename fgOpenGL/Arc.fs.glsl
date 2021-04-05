@@ -11,7 +11,8 @@ const float PI = 3.14159265359;\n
 \n
 float linearstep(float low, float high, float x) { return clamp((x - low) / (high - low), 0.0, 1.0); }\n
 vec2 rotate(vec2 p, float a) { return vec2(p.x*cos(a) + p.y*sin(a), p.x*sin(a) - p.y*cos(a)); }\n
-
+vec4 sRGB(vec4 linearRGB) { return vec4(1.055 * pow(linearRGB.rgb, vec3(1.0 / 2.4) - 0.055), linearRGB.a); }\n
+vec4 linearRGB(vec4 sRGB) { return vec4(pow((sRGB.rgb + 0.055) / 1.055, vec3(2.4)), sRGB.a); }\n
 void main()\n
 {\n
     float l = (DimBorderBlur.x + DimBorderBlur.y) * 0.5;\n
@@ -54,7 +55,7 @@ void main()\n
     float alpha = linearstep(-w1, w1, min(-d1, d3) - w1);\n
   
   // Output to screen\n 
-  gl_FragColor = (vec4(Fill.rgb, 1)*Fill.a*s) + (vec4(Outline.rgb, 1)*Outline.a*clamp(alpha - s, 0.0, 1.0));\n
+  gl_FragColor = vec4(Fill.rgb, 1)*Fill.a*s + vec4(Outline.rgb, 1)*Outline.a*clamp(alpha - s, 0.0, 1.0);\n
 }
 )
 

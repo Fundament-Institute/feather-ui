@@ -36,6 +36,7 @@
   #define FG_ALIGNED(sn, n)     FG_ALIGN(n) sn
   #define FG_SSE_ENABLED
   #define FG_ASSUME(x)    __assume(x)
+  #undef _HAS_EXCEPTIONS
   #define _HAS_EXCEPTIONS 0
 #endif
 

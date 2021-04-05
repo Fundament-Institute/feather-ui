@@ -553,7 +553,7 @@ size_t Window::SetKey(uint8_t keycode, uint16_t scancode, bool down, bool held, 
   if(!scancode)
     scancode = (uint16_t)MapVirtualKeyW((UINT)keycode, MAPVK_VK_TO_VSC);
 
-  FG_Msg evt         = { down ? FG_Kind_KEYDOWN : FG_Kind_KEYUP };
+  FG_Msg evt         = { (uint16_t)(down ? FG_Kind_KEYDOWN : FG_Kind_KEYUP) };
   evt.keyUp.key      = keycode;
   evt.keyUp.scancode = scancode;
   evt.keyUp.modkeys  = GetModKey();
@@ -599,7 +599,7 @@ void Window::ApplyWin32Size()
 
 size_t Window::SetMouse(const FG_Vec& points, FG_Kind type, unsigned char button, size_t wparam, unsigned long time)
 {
-  FG_Msg evt      = { type };
+  FG_Msg evt      = { (uint16_t)type };
   evt.mouseMove.x = points.x;
   evt.mouseMove.y = points.y;
 
@@ -812,7 +812,7 @@ FG_Err Window::DrawAsset(FG_Asset* asset, const FG_Rect& area, FG_Rect* source, 
 
   D2D1_RECT_F rect      = D2D1::RectF(area.left, area.top, area.right, area.bottom);
   auto size             = bitmap->GetPixelSize();
-  D2D1_RECT_F uvresolve = D2D1::RectF(0, 0, size.width, size.height);
+  D2D1_RECT_F uvresolve = D2D1::RectF(0, 0, (FLOAT)size.width, (FLOAT)size.height);
   if(source)
     uvresolve = D2D1::RectF(source->left, source->top, source->right, source->bottom);
 

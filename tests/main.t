@@ -182,6 +182,7 @@ terra MockMsgReceiver:Behavior(w : &opaque, ui : &opaque, m : &Msg.Message) : Ms
     if self.layer ~= nil then -- On the initial window creation the layer won't exist
       var transform = array(1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 550.0f, 50.0f, 0.0f, 1.0f);
       b:PushLayer(w, self.layer, transform, 0.5f, nil);
+      b:Clear(w, 0x00000000U)
       var lshape : B.Command 
       SetShape(lshape, B.Category.RECT, F.Rect{array(0.0f, 0.0f, 100.0f, 80.0f)}, 0xFFFF0000U, 5.0f, 0xFFFFFF00U, 0.0f)
       lshape.shape.rect.corners = &c
@@ -235,7 +236,7 @@ terra TestHarness:TestBackend(dllpath : rawstring, aa : B.AntiAliasing)
   var e = MockMsgReceiver{Msg.Receiver{Msg.Receiver.virtual_initializer}}
   e.flags = Messages.Window.RESIZABLE
   -- e.image = b:CreateAsset("../tests/example.png", 0, B.Format.PNG)
-  e.image = b:CreateAsset([constant(`example_png)], [#example_png], B.Format.PNG)
+  e.image = b:CreateAsset([constant(`example_png)], [#example_png], B.Format.PNG, 0)
   e.font = b:CreateFont("Arial", 700, false, 16, F.vec(96f, 96f), aa)
   e.layout = b:FontLayout(e.font, "Example Text!", &textrect, 16f, 0f, B.BreakStyle.NONE, nil);
   e.layer = nil
@@ -247,7 +248,7 @@ terra TestHarness:TestBackend(dllpath : rawstring, aa : B.AntiAliasing)
   self:Test(w ~= nil, true)
 
   var layerdim = F.vec(200.0f,80.0f)
-  e.layer = b:CreateLayer(w, &layerdim, false)
+  e.layer = b:CreateLayer(w, &layerdim, 0)
   self:Test(e.layer ~= nil, true)
 
   self:Test(b:SetCursor(w, B.Cursor.CROSS), 0)

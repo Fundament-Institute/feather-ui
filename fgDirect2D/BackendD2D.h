@@ -63,10 +63,10 @@ namespace D2D {
     static FG_Err DestroyLayout(FG_Backend* self, void* layout);
     static uint32_t FontIndex(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Vec pos, FG_Vec* cursor);
     static FG_Vec FontPos(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, uint32_t index);
-    static FG_Asset* CreateAsset(FG_Backend* self, const char* data, uint32_t count, FG_Format format);
+    static FG_Asset* CreateAsset(FG_Backend* self, const char* data, uint32_t count, FG_Format format, int flags);
     static FG_Asset* CreateBuffer(FG_Backend* self, void* data, uint32_t bytes, uint8_t primitive,
                                   FG_ShaderParameter* parameters, uint32_t n_parameters);
-    static FG_Asset* CreateLayer(FG_Backend* self, void* window, FG_Vec* size, bool cache);
+    static FG_Asset* CreateLayer(FG_Backend* self, void* window, FG_Vec* size, int flags);
     static FG_Err DestroyAsset(FG_Backend* self, FG_Asset* asset);
     static FG_Err PutClipboard(FG_Backend* self, void* window, FG_Clipboard kind, const char* data, uint32_t count);
     static uint32_t GetClipboard(FG_Backend* self, void* window, FG_Clipboard kind, void* target, uint32_t count);

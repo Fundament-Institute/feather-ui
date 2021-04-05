@@ -23,8 +23,8 @@ void main()\n
     float inner = (Corners.y / l) * 2.0;\n
     float d0 = abs(length(uv) - r + (border*0.5) - (inner*0.5)) - t + (border*0.5) + (inner*0.5);\n
     float d1 = abs(length(uv) - r) - t;\n
-    float s = linearstep(w1*2.0, 0.0, d0); \n
-    float alpha = linearstep(w1*2.0, 0.0, d1); \n
+    float s = pow(linearstep(w1*2.0, 0.0, d0), 2.2); \n
+    float alpha = pow(linearstep(w1*2.0, 0.0, d1), 2.2); \n
   
   // Output to screen\n 
   gl_FragColor = (vec4(Fill.rgb, 1)*Fill.a*s) + (vec4(Outline.rgb, 1)*Outline.a*clamp(alpha - s, 0.0, 1.0));\n
