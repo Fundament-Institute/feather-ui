@@ -49,7 +49,7 @@ local bind_syntax = {
           for i = 1, #param_names do
             arg_env[param_names[i]] = args_passed[i]
           end
-          local env_inside = merge_envs(env_outside, arg_env)
+          local env_inside = merge_envs(arg_env, env_outside)
           return body(env_inside)
         end
       end
