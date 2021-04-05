@@ -5,6 +5,7 @@ local backend = require 'feather.backend'
 local override = require 'feather.util'.override
 local Msg = require 'feather.message'
 local Virtual = require 'feather.virtual'
+local Closure = require 'feather.closure' 
 local C = terralib.includecstring [[#include <stdio.h>]]
 
 local M = {}
@@ -66,13 +67,22 @@ terra M.transform.methods.identity()
 end
 
 
---metatables
+--metatables for templates and outlines
 local template_mt = {}
 local outline_mt = {__index = {}}
+
 
 --unique values for use as key identifiers
 M.context = {}
 M.required = {}
+local typed_event_spec_mt = {}
+local event_spec_mt = {
+    __call = function(self, ...)
+      return setmetatable({args = {...}, required = self.required}, typed_event_spec_mt)
+    end
+}
+M.event = setmetatable({required = false}, event_spec_mt)
+M.requiredevent = setmetatable({required = true}, event_spec_mt)
 
 
 --Expression instantiation functions
@@ -212,7 +222,11 @@ function template_mt:__call(desc)
       end
     end
     for k, v in pairs(self.args) do
-      binds[k] = type_expression(v, context, type_environment)
+      if self.template.params.events[k] then
+        binds[k] = Closure.closure(self.template.params.events[k].args -> {})
+      else
+        binds[k] = type_expression(v, context, type_environment)
+      end
     end
     local fns, type = self.template:generate(context, binds)
     return {
@@ -247,7 +261,7 @@ end
 
 -- parse an argument declaration table into a usable specification object
 local function parse_params(desc)
-  local res = {required = {}, defaults = {}, names = {}, has_body = false}
+  local res = {required = {}, defaults = {}, names = {}, events = {}, has_body = false}
   for k, v in pairs(desc) do
     if type(k) ~= "string" then
       if k == 1 and v == M.body then
@@ -260,7 +274,17 @@ local function parse_params(desc)
       if v == M.required then
         res.required[k] = true
       else
-        res.defaults[k] = constant_expression(v)
+        local val_mt = getmetatable(v)
+        if val_mt == event_spec_mt or val_mt == typed_event_spec_mt then
+          if v.required then
+            res.required[k] = true
+          else
+            res.defaults[k] = constant_expression(`F.EmptyCallable {})
+          end
+          res.events[k] = v
+        else
+          res.defaults[k] = constant_expression(v)
+        end
       end
     end
   end
