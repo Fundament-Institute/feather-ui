@@ -27,8 +27,11 @@ local bind_syntax = {
     elseif lex:nextif "bindevent" then
       lex:expect "("
       local param_names = terralib.newlist()
+      local param_types = terralib.newlist()
       while not lex:nextif ")" do
         param_names:insert(lex:expect(lex.name).value)
+        lex:expect ":"
+        param_types:insert(lex:expr())
         if not lex:matches ")" then
           lex:expect ","
         end
