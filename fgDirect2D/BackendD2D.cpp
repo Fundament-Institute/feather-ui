@@ -419,7 +419,7 @@ inline Asset* Backend::LoadAsset(const char* data, size_t count)
   // data[2] == 0 && data[3] == '*')) // TIFF header
 }
 
-FG_Asset* Backend::CreateAsset(FG_Backend* self, const char* data, uint32_t count, FG_Format format)
+FG_Asset* Backend::CreateAsset(FG_Backend* self, const char* data, uint32_t count, FG_Format format, int flags)
 {
   return static_cast<Backend*>(self)->LoadAsset(data, count);
 }
@@ -429,7 +429,7 @@ FG_Asset* Backend::CreateBuffer(FG_Backend* self, void* data, uint32_t bytes, ui
   return 0;
 }
 
-FG_Asset* Backend::CreateLayer(FG_Backend* self, void* window, FG_Vec* size, bool cache)
+FG_Asset* Backend::CreateLayer(FG_Backend* self, void* window, FG_Vec* size, int flags)
 {
   if(!self || !window)
     return nullptr;

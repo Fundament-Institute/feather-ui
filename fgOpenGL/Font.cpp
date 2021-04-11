@@ -270,7 +270,7 @@ Glyph* Font::RenderGlyph(Context* context, char32_t codepoint)
       for(uint32_t j = 0; j < gbmp.width; ++j) // RGBA
       {
         uint8_t v = *src++;
-        v         = (uint8_t)(powf(v / 255.0f, (1.0f / 2.2f)) * 255.0f);
+        //v         = (uint8_t)(powf(v / 255.0f, (1.0f / 2.2f)) * 255.0f);
         *dst++    = v; // premultiply alpha
         *dst++    = v;
         *dst++    = v;

@@ -4,6 +4,7 @@
 #include "BackendGL.h"
 #include "linmath.h"
 #include "SOIL.h"
+#include "image_helper.h"
 #include "Font.h"
 #include "VAO.h"
 #include <algorithm>
@@ -46,13 +47,7 @@ const FG_BlendState Context::NORMAL_BLEND = {
 };
 
 const FG_BlendState Context::DEFAULT_BLEND = {
-  FG_BlendValue_ONE,
-  FG_BlendValue_ZERO,
-  FG_BlendOp_ADD,
-  FG_BlendValue_ONE,
-  FG_BlendValue_ZERO,
-  FG_BlendOp_ADD,
-  0b1111,
+  FG_BlendValue_ONE, FG_BlendValue_ZERO, FG_BlendOp_ADD, FG_BlendValue_ONE, FG_BlendValue_ZERO, FG_BlendOp_ADD, 0b1111,
 };
 
 Context::Context(Backend* backend, FG_MsgReceiver* element, FG_Vec* dim) :
@@ -120,17 +115,17 @@ void Context::SetDim(const FG_Vec& dim)
   // mat4x4_custom(lproj, 0, dim.x, 0, dim.y, 0.2, 100);
 }
 
-float* Context::GetRotationMatrix(mat4x4& m, float rotate, float z, mat4x4& proj)
+mat4x4& Context::GetRotationMatrix(mat4x4& m, float rotate, float z, mat4x4& proj)
 {
   if(rotate != 0.0f || z != 0.0f)
   {
     mat4x4_translate(m, 0, 0, z);
     mat4x4_rotate_Z(m, m, rotate);
     mat4x4_mul(m, m, proj);
-    return (float*)m;
+    return m;
   }
 
-  return (float*)proj;
+  return proj;
 }
 
 void Context::Draw(const FG_Rect* area)
@@ -152,10 +147,10 @@ void Context::Draw(const FG_Rect* area)
   _backend->EndDraw(_backend, this);
 }
 
-FG_Err Context::DrawTextureQuad(GLuint tex, ImageVertex* v, FG_Color color, float* transform)
+FG_Err Context::DrawTextureQuad(GLuint tex, ImageVertex* v, FG_Color color, mat4x4 transform, bool linearize)
 {
   for(int i = 0; i < 4; ++i)
-    ColorFloats(color, v[i].color);
+    ColorFloats(color, v[i].color, linearize);
 
   glUseProgram(_imageshader);
   _backend->LogError("glUseProgram");
@@ -164,7 +159,7 @@ FG_Err Context::DrawTextureQuad(GLuint tex, ImageVertex* v, FG_Color color, floa
   glBindBuffer(GL_ARRAY_BUFFER, _imagebuffer);
   _backend->LogError("glBindBuffer");
   AppendBatch(v, sizeof(ImageVertex) * 4, 4);
-  Shader::SetUniform(_backend, _imageshader, "MVP", GL_FLOAT_MAT4, transform);
+  Shader::SetUniform(_backend, _imageshader, "MVP", GL_FLOAT_MAT4, (float*)transform);
   Shader::SetUniform(_backend, _imageshader, 0, GL_TEXTURE0, (float*)&tex);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, FlushBatch());
   _backend->LogError("glDrawArrays");
@@ -175,7 +170,7 @@ FG_Err Context::DrawTextureQuad(GLuint tex, ImageVertex* v, FG_Color color, floa
 }
 
 FG_Err Context::DrawTextGL(FG_Font* fgfont, void* textlayout, FG_Rect* area, FG_Color color, float blur, float rotate,
-                           float z)
+                           float z, bool linearize)
 {
   auto font   = static_cast<Font*>(fgfont);
   auto layout = reinterpret_cast<TextLayout*>(textlayout);
@@ -188,7 +183,7 @@ FG_Err Context::DrawTextGL(FG_Font* fgfont, void* textlayout, FG_Rect* area, FG_
   _backend->LogError("glBindBuffer");
 
   mat4x4 mv;
-  Shader::SetUniform(_backend, _imageshader, "MVP", GL_FLOAT_MAT4, GetRotationMatrix(mv, rotate, z, GetProjection()));
+  Shader::SetUniform(_backend, _imageshader, "MVP", GL_FLOAT_MAT4, (float*)GetRotationMatrix(mv, rotate, z, GetProjection()));
 
   float dim  = (float)(1 << font->GetSizePower());
   FG_Vec pen = { area->left, area->top + ((layout->lineheight / font->lineheight) * font->GetAscender()) };
@@ -229,7 +224,7 @@ FG_Err Context::DrawTextGL(FG_Font* fgfont, void* textlayout, FG_Rect* area, FG_
       _buildPosUV(v, rect, g->uv, dim, dim);
 
       for(int k = 0; k < 4; ++k)
-        ColorFloats(color, v[k].color);
+        ColorFloats(color, v[k].color, linearize);
 
       if(CheckFlush(sizeof(v)))
         _flushbatchdraw(font);
@@ -246,7 +241,7 @@ FG_Err Context::DrawTextGL(FG_Font* fgfont, void* textlayout, FG_Rect* area, FG_
 }
 
 FG_Err Context::DrawAsset(FG_Asset* asset, FG_Rect* area, FG_Rect* source, FG_Color color, float time, float rotate,
-                          float z)
+                          float z, bool linearize)
 {
   GLuint tex = LoadAsset(static_cast<Asset*>(asset));
 
@@ -258,10 +253,10 @@ FG_Err Context::DrawAsset(FG_Asset* asset, FG_Rect* area, FG_Rect* source, FG_Co
   _buildPosUV(v, *area, *source, static_cast<float>(asset->size.x), static_cast<float>(asset->size.y));
 
   mat4x4 mv;
-  return DrawTextureQuad(tex, v, color, GetRotationMatrix(mv, rotate, z, GetProjection()));
+  return DrawTextureQuad(tex, v, color, GetRotationMatrix(mv, rotate, z, GetProjection()), linearize);
 }
 
-void Context::GenTransform(float (&target)[4][4], const FG_Rect& area, float rotate, float z)
+void Context::GenTransform(mat4x4 target, const FG_Rect& area, float rotate, float z)
 {
   // mat4x4_translate(v, area->left, area->top, z);
   // mat4x4_scale_aniso(mv, v, area->right - area->left, area->bottom - area->top, 1);
@@ -291,8 +286,9 @@ void Context::GenTransform(float (&target)[4][4], const FG_Rect& area, float rot
   target[3][2] = z;
 }
 
-void Context::_drawStandard(GLuint shader, VAO* vao, float (&proj)[4][4], const FG_Rect& area, const FG_Rect& corners,
-                            FG_Color fillColor, float border, FG_Color borderColor, float blur, float rotate, float z)
+void Context::_drawStandard(GLuint shader, VAO* vao, mat4x4 proj, const FG_Rect& area, const FG_Rect& corners,
+                            FG_Color fillColor, float border, FG_Color borderColor, float blur, float rotate, float z,
+                            bool linearize)
 {
   mat4x4 mvp;
   GenTransform(mvp, area, rotate, z);
@@ -305,9 +301,9 @@ void Context::_drawStandard(GLuint shader, VAO* vao, float (&proj)[4][4], const 
   dimdata[3] = blur;
 
   float fill[4];
-  ColorFloats(fillColor, fill);
+  ColorFloats(fillColor, fill, linearize);
   float outline[4];
-  ColorFloats(borderColor, outline);
+  ColorFloats(borderColor, outline, linearize);
   float amount     = blur + ((abs(fmod(rotate, Backend::PI / 2.0f)) <= FLT_EPSILON) ? 0.0f : 1.0f);
   float inflate[2] = { 1.0f + (amount / dimdata[0]), 1.0f + (amount / dimdata[1]) };
 
@@ -328,40 +324,42 @@ void Context::_drawStandard(GLuint shader, VAO* vao, float (&proj)[4][4], const 
 }
 
 FG_Err Context::DrawRect(FG_Rect& area, FG_Rect& corners, FG_Color fillColor, float border, FG_Color borderColor,
-                         float blur, FG_Asset* asset, float rotate, float z)
+                         float blur, FG_Asset* asset, float rotate, float z, bool linearize)
 {
-  _drawStandard(_rectshader, _quadobject, GetProjection(), area, corners, fillColor, border, borderColor, blur, rotate, z);
+  _drawStandard(_rectshader, _quadobject, GetProjection(), area, corners, fillColor, border, borderColor, blur, rotate, z,
+                linearize);
   return glGetError();
 }
 
 FG_Err Context::DrawCircle(FG_Rect& area, FG_Color fillColor, float border, FG_Color borderColor, float blur,
-                           float innerRadius, float innerBorder, FG_Asset* asset, float z)
+                           float innerRadius, float innerBorder, FG_Asset* asset, float z, bool linearize)
 {
   _drawStandard(_circleshader, _quadobject, GetProjection(), area, FG_Rect{ innerRadius, innerBorder, 0.0f, 0.0f },
-                fillColor, border, borderColor, blur, 0.0f, z);
+                fillColor, border, borderColor, blur, 0.0f, z, linearize);
   return glGetError();
 }
 
 FG_Err Context::DrawArc(FG_Rect& area, FG_Vec angles, FG_Color fillColor, float border, FG_Color borderColor, float blur,
-                        float innerRadius, FG_Asset* asset, float z)
+                        float innerRadius, FG_Asset* asset, float z, bool linearize)
 {
   _drawStandard(_arcshader, _quadobject, GetProjection(), area,
                 FG_Rect{ angles.x + (angles.y / 2.0f) - (Backend::PI / 2.0f), angles.y / 2.0f, innerRadius, 0.0f },
-                fillColor, border, borderColor, blur, 0.0f, z);
+                fillColor, border, borderColor, blur, 0.0f, z, linearize);
   return glGetError();
 }
 
 FG_Err Context::DrawTriangle(FG_Rect& area, FG_Rect& corners, FG_Color fillColor, float border, FG_Color borderColor,
-                             float blur, FG_Asset* asset, float rotate, float z)
+                             float blur, FG_Asset* asset, float rotate, float z, bool linearize)
 {
-  _drawStandard(_trishader, _quadobject, GetProjection(), area, corners, fillColor, border, borderColor, blur, rotate, z);
+  _drawStandard(_trishader, _quadobject, GetProjection(), area, corners, fillColor, border, borderColor, blur, rotate, z,
+                linearize);
   return glGetError();
 }
 
-FG_Err Context::DrawLines(FG_Vec* points, uint32_t count, FG_Color color)
+FG_Err Context::DrawLines(FG_Vec* points, uint32_t count, FG_Color color, bool linearize)
 {
   float colors[4];
-  ColorFloats(color, colors);
+  ColorFloats(color, colors, linearize);
 
   glUseProgram(_lineshader);
   _backend->LogError("glUseProgram");
@@ -381,7 +379,8 @@ FG_Err Context::DrawLines(FG_Vec* points, uint32_t count, FG_Color color)
   return glGetError();
 }
 
-FG_Err Context::DrawCurve(FG_Vec* anchors, uint32_t count, FG_Color fillColor, float stroke, FG_Color strokeColor)
+FG_Err Context::DrawCurve(FG_Vec* anchors, uint32_t count, FG_Color fillColor, float stroke, FG_Color strokeColor,
+                          bool linearize)
 {
   if(fillColor.v != 0)
     return -1;
@@ -507,13 +506,12 @@ void Context::PopClip()
     glDisable(GL_SCISSOR_TEST);
 }
 
-Layer* Context::CreateLayer(const FG_Vec* psize)
+Layer* Context::CreateLayer(const FG_Vec* psize, int flags)
 {
   GLsizei w;
   GLsizei h;
   glfwGetFramebufferSize(_window, &w, &h);
-  FG_Vec size = { (float)w, (float)h };
-  return new Layer(!psize ? size : *psize, this);
+  return new Layer(!psize ? FG_Vec{ static_cast<float>(w), static_cast<float>(h) } : *psize, flags, this);
 }
 
 int Context::PushLayer(Layer* layer, float* transform, float opacity, FG_BlendState* blend)
@@ -526,6 +524,8 @@ int Context::PushLayer(Layer* layer, float* transform, float opacity, FG_BlendSt
 
   glBindFramebuffer(GL_FRAMEBUFFER, layer->framebuffer);
   _backend->LogError("glBindFramebuffer");
+
+  _backend->LogError("glEnable");
   Viewport(layer->size.x, layer->size.y);
   return 0;
 }
@@ -552,39 +552,13 @@ int Context::PopLayer()
   _layers.pop_back();
   glBindFramebuffer(GL_FRAMEBUFFER, !_layers.size() ? 0 : _layers.back()->framebuffer);
   _backend->LogError("glBindFramebuffer");
+
   if(_layers.size() > 0)
     Viewport(_layers.back()->size.x, _layers.back()->size.y);
   else
     StandardViewport();
 
-  ImageVertex v[4];
-
-  v[0].posUV[0] = 0;
-  v[0].posUV[1] = 0;
-  v[0].posUV[2] = 0;
-  v[0].posUV[3] = 1.0f;
-
-  v[1].posUV[0] = p->size.x;
-  v[1].posUV[1] = 0;
-  v[1].posUV[2] = 1.0f;
-  v[1].posUV[3] = 1.0f;
-
-  v[2].posUV[0] = 0;
-  v[2].posUV[1] = p->size.y;
-  v[2].posUV[2] = 0;
-  v[2].posUV[3] = 0;
-
-  v[3].posUV[0] = p->size.x;
-  v[3].posUV[1] = p->size.y;
-  v[3].posUV[2] = 1.0f;
-  v[3].posUV[3] = 0;
-
-  mat4x4 mvp;
-  mat4x4_mul(mvp, GetProjection(), (vec4*)p->transform);
-
-  ApplyBlend(const_cast<FG_BlendState*>(&PREMULTIPLY_BLEND));
-  return DrawTextureQuad(p->data.index, v, FG_Color{ 0x00FFFFFF + ((unsigned int)roundf(0xFF * p->opacity) << 24) },
-                         (float*)mvp);
+  return p->Composite();
 }
 
 int Context::GetBytes(GLenum type)
@@ -653,8 +627,8 @@ void Context::CreateResources()
   _backend->LogError("glFrontFace");
   // glEnable(GL_CULL_FACE);
   //_backend->LogError("glEnable");
-  // glEnable(GL_FRAMEBUFFER_SRGB);
-  //_backend->LogError("glEnable");
+  glEnable(GL_FRAMEBUFFER_SRGB);
+  _backend->LogError("glEnable");
 
   ApplyBlend(0);
   _backend->LogError("glBlendFunc");
@@ -719,8 +693,12 @@ GLuint Context::LoadAsset(Asset* asset)
   }
   else
   {
-    idx = SOIL_create_OGL_texture((const unsigned char*)asset->data.data, asset->size.x, asset->size.y, asset->channels,
-                                  SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS | SOIL_FLAG_MULTIPLY_ALPHA);
+    unsigned int flags = SOIL_FLAG_MULTIPLY_ALPHA;
+    if(!(asset->flags & FG_AssetFlags_NO_MIPMAP))
+      flags |= SOIL_FLAG_MIPMAPS;
+
+    idx = _createTexture((const unsigned char*)asset->data.data, asset->size.x, asset->size.y, asset->channels,
+                         SOIL_CREATE_NEW_ID, flags, GL_TEXTURE_2D, GL_TEXTURE_2D, GL_MAX_TEXTURE_SIZE);
 
     if(!idx)
     {
@@ -949,7 +927,18 @@ GLenum Context::BlendOp(uint8_t op)
   return 0;
 }
 
-void Context::ApplyBlend(const FG_BlendState* blend)
+void Context::FlipFlag(int diff, int flags, int flag, int option)
+{
+  if(diff & flag)
+  {
+    if(flags & flag)
+      glEnable(option);
+    else
+      glDisable(option);
+  }
+}
+
+const FG_BlendState& Context::ApplyBlend(const FG_BlendState* blend)
 {
   if(!blend)
     blend = &PREMULTIPLY_BLEND;
@@ -963,15 +952,33 @@ void Context::ApplyBlend(const FG_BlendState* blend)
     if(_lastblend.constant.v != blend->constant.v)
     {
       float colors[4];
-      ColorFloats(blend->constant, colors);
+      ColorFloats(blend->constant, colors, !(blend->flags & FG_DrawFlags_LINEAR));
       glBlendColor(colors[0], colors[1], colors[2], colors[3]);
     }
 
     if(_lastblend.mask != blend->mask)
       glColorMask(blend->mask & 0b0001, blend->mask & 0b0010, blend->mask & 0b0100, blend->mask & 0b1000);
 
+    auto diff = _lastblend.flags ^ blend->flags;
+    if(diff & FG_DrawFlags_CCW_FRONT_FACE)
+      glFrontFace(blend->flags ? GL_CCW : GL_CW);
+    FlipFlag(diff, blend->flags, FG_DrawFlags_CULL_FACE, GL_CULL_FACE);
+    FlipFlag(diff, _lastblend.flags, FG_DrawFlags_LINEAR, GL_FRAMEBUFFER_SRGB);
+
+    if(diff & (FG_DrawFlags_WIREFRAME | FG_DrawFlags_POINTMODE))
+    {
+      if(blend->flags & FG_DrawFlags_WIREFRAME)
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+      else if(blend->flags & FG_DrawFlags_POINTMODE)
+        glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
+      else
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    }
+
     _lastblend = *blend;
   }
+
+  return _lastblend;
 }
 
 void Context::_flushbatchdraw(Font* font)
@@ -986,4 +993,285 @@ void Context::_flushbatchdraw(Font* font)
   _backend->LogError("glDrawElements");
   glBindVertexArray(0);
   _backend->LogError("glBindVertexArray");
+}
+
+int mipmapImageGamma(const unsigned char* const orig, int width, int height, int channels, unsigned char* resampled,
+                     int block_size_x, int block_size_y)
+{
+  /*	error check	*/
+  if((width < 1) || (height < 1) || (channels < 1) || (orig == NULL) || (resampled == NULL) || (block_size_x < 1) ||
+     (block_size_y < 1))
+  {
+    return 0;
+  }
+  int mip_width  = std::max(width / block_size_x, 1);
+  int mip_height = std::max(height / block_size_y, 1);
+
+  for(int j = 0; j < mip_height; ++j)
+  {
+    for(int i = 0; i < mip_width; ++i)
+    {
+      for(int c = 0; c < channels; ++c)
+      {
+        const int index = (j * block_size_y) * width * channels + (i * block_size_x) * channels + c;
+        int u_block     = block_size_x;
+        int v_block     = block_size_y;
+        /*	do a bit of checking so we don't over-run the boundaries
+          (necessary for non-square textures!)	*/
+        if(block_size_x * (i + 1) > width)
+        {
+          u_block = width - i * block_size_y;
+        }
+        if(block_size_y * (j + 1) > height)
+        {
+          v_block = height - j * block_size_y;
+        }
+        int block_area  = u_block * v_block;
+        float sum_value = 0.0f;
+        for(int v = 0; v < v_block; ++v)
+          for(int u = 0; u < u_block; ++u)
+          {
+            sum_value += Context::ToLinearRGB(orig[index + v * width * channels + u * channels] / 255.0f); // Linearize
+          }
+        resampled[j * mip_width * channels + i * channels + c] =
+          (unsigned char)roundf(Context::ToSRGB(sum_value / block_area) * 255.0f); // De-linearize
+      }
+    }
+  }
+  return 1;
+}
+
+unsigned int Context::_createTexture(const unsigned char* const data, int width, int height, int channels,
+                                     unsigned int reuse_texture_ID, unsigned int flags, unsigned int opengl_texture_type,
+                                     unsigned int opengl_texture_target, unsigned int texture_check_size_enum)
+{
+  /*	variables	*/
+  unsigned char* img;
+  unsigned int tex_id;
+  unsigned int internal_texture_format = 0, original_texture_format = 0;
+  int max_supported_size;
+
+  /*	create a copy the image data	*/
+  img = (unsigned char*)malloc(width * height * channels);
+  memcpy(img, data, width * height * channels);
+
+  /*	does the user want me to convert from straight to pre-multiplied alpha?	*/
+  if(flags & SOIL_FLAG_MULTIPLY_ALPHA)
+  {
+    if(flags & SOIL_FLAG_LINEAR_RGB)
+    {
+      switch(channels)
+      {
+      case 2:
+        for(int i = 0; i < 2 * width * height; i += 2)
+        {
+          img[i] = (img[i] * img[i + 1] + 128) >> 8;
+        }
+        break;
+      case 4:
+        for(int i = 0; i < 4 * width * height; i += 4)
+        {
+          img[i + 0] = (img[i + 0] * img[i + 3] + 128) >> 8;
+          img[i + 1] = (img[i + 1] * img[i + 3] + 128) >> 8;
+          img[i + 2] = (img[i + 2] * img[i + 3] + 128) >> 8;
+        }
+        break;
+      }
+    }
+    else
+    {
+      switch(channels)
+      {
+      case 2:
+        for(int i = 0; i < 2 * width * height; i += 2)
+        {
+          img[i] = (img[i] * img[i + 1] + 128) >> 8;
+        }
+        break;
+      case 4:
+        for(int i = 0; i < 4 * width * height; i += 4)
+        {
+          // TODO: This can be SSE optimized, but needs a non-SSE implementation for other architectures
+          float alpha = ToSRGB(img[i + 3] / 255.0f);
+          img[i + 0]  = (unsigned char)roundf(((img[i + 0] / 255.0f) * alpha) * 255.0f);
+          img[i + 1]  = (unsigned char)roundf(((img[i + 1] / 255.0f) * alpha) * 255.0f);
+          img[i + 2]  = (unsigned char)roundf(((img[i + 2] / 255.0f) * alpha) * 255.0f);
+        }
+        break;
+      }
+    }
+  }
+  /*	how large of a texture can this OpenGL implementation handle?	*/
+  /*	texture_check_size_enum will be GL_MAX_TEXTURE_SIZE or SOIL_MAX_CUBE_MAP_TEXTURE_SIZE	*/
+  glGetIntegerv(texture_check_size_enum, &max_supported_size);
+  /*	do I need to make it a power of 2?	*/
+  if((flags & SOIL_FLAG_MIPMAPS) ||  /*	mipmaps	*/
+     (width > max_supported_size) || /*	it's too big, (make sure it's	*/
+     (height > max_supported_size))  /*	2^n for later down-sampling)	*/
+  {
+    int new_width  = 1;
+    int new_height = 1;
+    while(new_width < width)
+    {
+      new_width *= 2;
+    }
+    while(new_height < height)
+    {
+      new_height *= 2;
+    }
+    /*	still?	*/
+    if((new_width != width) || (new_height != height))
+    {
+      /*	yep, resize	*/
+      unsigned char* resampled = (unsigned char*)malloc(channels * new_width * new_height);
+      up_scale_image(img, width, height, channels, resampled, new_width, new_height);
+      /*	nuke the old guy, then point it at the new guy	*/
+      SOIL_free_image_data(img);
+      img    = resampled;
+      width  = new_width;
+      height = new_height;
+    }
+  }
+  /*	now, if it is too large...	*/
+  if((width > max_supported_size) || (height > max_supported_size))
+  {
+    /*	I've already made it a power of two, so simply use the MIPmapping
+      code to reduce its size to the allowable maximum.	*/
+    unsigned char* resampled;
+    int reduce_block_x = 1, reduce_block_y = 1;
+    int new_width, new_height;
+    if(width > max_supported_size)
+    {
+      reduce_block_x = width / max_supported_size;
+    }
+    if(height > max_supported_size)
+    {
+      reduce_block_y = height / max_supported_size;
+    }
+    new_width  = width / reduce_block_x;
+    new_height = height / reduce_block_y;
+    resampled  = (unsigned char*)malloc(channels * new_width * new_height);
+    /*	perform the actual reduction	*/
+    if(SOIL_FLAG_LINEAR_RGB)
+      mipmap_image(img, width, height, channels, resampled, reduce_block_x, reduce_block_y);
+    else
+      mipmapImageGamma(img, width, height, channels, resampled, reduce_block_x, reduce_block_y);
+
+    /*	nuke the old guy, then point it at the new guy	*/
+    SOIL_free_image_data(img);
+    img    = resampled;
+    width  = new_width;
+    height = new_height;
+  }
+  /*	create the OpenGL texture ID handle
+      (note: allowing a forced texture ID lets me reload a texture)	*/
+  tex_id = reuse_texture_ID;
+  if(tex_id == 0)
+  {
+    glGenTextures(1, &tex_id);
+  }
+  _backend->LogError("glGenTextures");
+
+  /* Note: sometimes glGenTextures fails (usually no OpenGL context)	*/
+  if(tex_id)
+  {
+    /*	and what type am I using as the internal texture format?	*/
+    switch(channels)
+    {
+    case 1: original_texture_format = GL_LUMINANCE; break;
+    case 2: original_texture_format = GL_LUMINANCE_ALPHA; break;
+    case 3: original_texture_format = GL_RGB; break;
+    case 4: original_texture_format = GL_RGBA; break;
+    }
+    internal_texture_format = original_texture_format;
+    if(!(flags & SOIL_FLAG_LINEAR_RGB))
+    {
+      switch(channels)
+      {
+      case 3: internal_texture_format = GL_SRGB8;
+      case 4: internal_texture_format = GL_SRGB8_ALPHA8;
+      }
+    }
+
+    /*  bind an OpenGL texture ID	*/
+    glBindTexture(opengl_texture_type, tex_id);
+    _backend->LogError("glBindTexture");
+
+    /*	user want OpenGL to do all the work!	*/
+    glTexImage2D(opengl_texture_target, 0, internal_texture_format, width, height, 0, original_texture_format,
+                 GL_UNSIGNED_BYTE, img);
+    _backend->LogError("glTexImage2D");
+    /*printf( "OpenGL DXT compressor\n" );	*/
+
+    /*	are any MIPmaps desired?	*/
+    if(flags & SOIL_FLAG_MIPMAPS)
+    {
+      int MIPlevel             = 1;
+      int MIPwidth             = (width + 1) / 2;
+      int MIPheight            = (height + 1) / 2;
+      unsigned char* resampled = (unsigned char*)malloc(channels * MIPwidth * MIPheight);
+      while(((1 << MIPlevel) <= width) || ((1 << MIPlevel) <= height))
+      {
+        /*	do this MIPmap level	*/
+        if(SOIL_FLAG_LINEAR_RGB)
+          mipmap_image(img, width, height, channels, resampled, (1 << MIPlevel), (1 << MIPlevel));
+        else
+          mipmapImageGamma(img, width, height, channels, resampled, (1 << MIPlevel), (1 << MIPlevel));
+
+        /*  upload the MIPmaps	*/
+        glTexImage2D(opengl_texture_target, MIPlevel, internal_texture_format, MIPwidth, MIPheight, 0,
+                     original_texture_format, GL_UNSIGNED_BYTE, resampled);
+        _backend->LogError("glTexImage2D");
+
+        /*	prep for the next level	*/
+        ++MIPlevel;
+        MIPwidth  = (MIPwidth + 1) / 2;
+        MIPheight = (MIPheight + 1) / 2;
+      }
+      SOIL_free_image_data(resampled);
+      /*	instruct OpenGL to use the MIPmaps	*/
+      glTexParameteri(opengl_texture_type, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      _backend->LogError("glTexParameteri");
+      glTexParameteri(opengl_texture_type, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+      _backend->LogError("glTexParameteri");
+    }
+    else
+    {
+      /*	instruct OpenGL _NOT_ to use the MIPmaps	*/
+      glTexParameteri(opengl_texture_type, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      _backend->LogError("glTexParameteri");
+      glTexParameteri(opengl_texture_type, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      _backend->LogError("glTexParameteri");
+    }
+    /*	does the user want clamping, or wrapping?	*/
+    if(flags & SOIL_FLAG_TEXTURE_REPEATS)
+    {
+      glTexParameteri(opengl_texture_type, GL_TEXTURE_WRAP_S, GL_REPEAT);
+      _backend->LogError("glTexParameteri");
+      glTexParameteri(opengl_texture_type, GL_TEXTURE_WRAP_T, GL_REPEAT);
+      _backend->LogError("glTexParameteri");
+      if(opengl_texture_type == GL_TEXTURE_CUBE_MAP)
+      {
+        /*	SOIL_TEXTURE_WRAP_R is invalid if cubemaps aren't supported	*/
+        glTexParameteri(opengl_texture_type, GL_TEXTURE_WRAP_R, GL_REPEAT);
+        _backend->LogError("glTexParameteri");
+      }
+    }
+    else
+    {
+      unsigned int clamp_mode = GL_CLAMP_TO_EDGE;
+      glTexParameteri(opengl_texture_type, GL_TEXTURE_WRAP_S, clamp_mode);
+      _backend->LogError("glTexParameteri");
+      glTexParameteri(opengl_texture_type, GL_TEXTURE_WRAP_T, clamp_mode);
+      _backend->LogError("glTexParameteri");
+      if(opengl_texture_type == GL_TEXTURE_CUBE_MAP)
+      {
+        /*	SOIL_TEXTURE_WRAP_R is invalid if cubemaps aren't supported	*/
+        glTexParameteri(opengl_texture_type, GL_TEXTURE_WRAP_R, clamp_mode);
+        _backend->LogError("glTexParameteri");
+      }
+    }
+  }
+  SOIL_free_image_data(img);
+  return tex_id;
 }

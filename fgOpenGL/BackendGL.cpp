@@ -37,7 +37,8 @@ FG_Err Backend::DrawGL(FG_Backend* self, void* window, FG_Command* commandlist, 
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(window);
 
-  context->ApplyBlend(blend);
+  auto dflags    = context->ApplyBlend(blend).flags;
+  bool linearize = !(dflags & FG_DrawFlags_LINEAR);
   for(unsigned int i = 0; i < n_commands; ++i)
   {
     auto& c = commandlist[i];
@@ -45,30 +46,32 @@ FG_Err Backend::DrawGL(FG_Backend* self, void* window, FG_Command* commandlist, 
     {
     case FG_Category_ARC:
       context->DrawArc(*c.shape.area, c.shape.arc.angles, c.shape.fillColor, c.shape.border, c.shape.borderColor,
-                       c.shape.blur, c.shape.arc.innerRadius, c.shape.asset, c.shape.z);
+                       c.shape.blur, c.shape.arc.innerRadius, c.shape.asset, c.shape.z, linearize);
       break;
     case FG_Category_CIRCLE:
       context->DrawCircle(*c.shape.area, c.shape.fillColor, c.shape.border, c.shape.borderColor, c.shape.blur,
-                          c.shape.circle.innerRadius, c.shape.circle.innerBorder, c.shape.asset, c.shape.z);
+                          c.shape.circle.innerRadius, c.shape.circle.innerBorder, c.shape.asset, c.shape.z, linearize);
       break;
     case FG_Category_RECT:
       context->DrawRect(*c.shape.area, *c.shape.rect.corners, c.shape.fillColor, c.shape.border, c.shape.borderColor,
-                        c.shape.blur, c.shape.asset, c.shape.rect.rotate, c.shape.z);
+                        c.shape.blur, c.shape.asset, c.shape.rect.rotate, c.shape.z, linearize);
       break;
     case FG_Category_TRIANGLE:
       context->DrawTriangle(*c.shape.area, *c.shape.triangle.corners, c.shape.fillColor, c.shape.border,
-                            c.shape.borderColor, c.shape.blur, c.shape.asset, c.shape.triangle.rotate, c.shape.z);
+                            c.shape.borderColor, c.shape.blur, c.shape.asset, c.shape.triangle.rotate, c.shape.z,
+                            linearize);
       break;
     case FG_Category_TEXT:
-      context->DrawTextGL(c.text.font, c.text.layout, c.text.area, c.text.color, c.text.blur, c.text.rotate, c.text.z);
+      context->DrawTextGL(c.text.font, c.text.layout, c.text.area, c.text.color, c.text.blur, c.text.rotate, c.text.z,
+                          linearize);
       break;
     case FG_Category_ASSET:
       context->DrawAsset(c.asset.asset, c.asset.area, c.asset.source, c.asset.color, c.asset.time, c.asset.rotate,
-                         c.asset.z);
+                         c.asset.z, linearize);
       break;
-    case FG_Category_LINES: context->DrawLines(c.lines.points, c.lines.count, c.lines.color); break;
+    case FG_Category_LINES: context->DrawLines(c.lines.points, c.lines.count, c.lines.color, linearize); break;
     case FG_Category_CURVE:
-      context->DrawCurve(c.curve.anchors, c.curve.count, c.curve.fillColor, c.curve.stroke, c.curve.strokeColor);
+      context->DrawCurve(c.curve.anchors, c.curve.count, c.curve.fillColor, c.curve.stroke, c.curve.strokeColor, linearize);
       break;
     case FG_Category_SHADER:
       context->DrawShader(c.shader.shader, c.shader.vertices, c.shader.indices, c.shader.values);
@@ -233,7 +236,7 @@ FG_Vec Backend::FontPos(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Re
   return c;
 }
 
-FG_Asset* Backend::CreateAsset(FG_Backend* self, const char* data, uint32_t count, FG_Format format)
+FG_Asset* Backend::CreateAsset(FG_Backend* self, const char* data, uint32_t count, FG_Format format, int flags)
 {
   auto backend = static_cast<Backend*>(self);
   size_t len   = !count ? strlen(data) + 1 : count;
@@ -263,6 +266,7 @@ FG_Asset* Backend::CreateAsset(FG_Backend* self, const char* data, uint32_t coun
   asset->size.x    = width;
   asset->size.y    = height;
   asset->channels  = channels;
+  asset->flags     = flags;
   int r;
   kh_put_assets(backend->_assethash, asset, &r);
   return asset;
@@ -352,14 +356,9 @@ FG_Asset* Backend::CreateBuffer(FG_Backend* self, void* data, uint32_t bytes, ui
   return asset;
 }
 
-FG_Asset* Backend::CreateLayer(FG_Backend* self, void* window, FG_Vec* size, bool cache)
+FG_Asset* Backend::CreateLayer(FG_Backend* self, void* window, FG_Vec* size, int flags)
 {
-  auto context = reinterpret_cast<Context*>(window);
-
-  GLsizei w;
-  GLsizei h;
-  glfwGetFramebufferSize(context->GetWindow(), &w, &h);
-  return new Layer(!size ? FG_Vec{ static_cast<float>(w), static_cast<float>(h) } : *size, context);
+  return reinterpret_cast<Context*>(window)->CreateLayer(size, flags);
 }
 
 FG_Err Backend::DestroyAsset(FG_Backend* self, FG_Asset* fgasset)

@@ -17,23 +17,23 @@ B.Feature = Flags{
   "TEXT_SUBPIXEL",
   "TEXT_BLUR",
   "TEXT_ALPHA",
+  "SHAPE_BLUR",
+  "SHAPE_ALPHA",
   "RECT_CORNERS",
   "RECT_BORDER",
-  "RECT_BLUR",
-  "RECT_ALPHA",
-  "CIRCLE_ARCS",
+  "CIRCLE_INNER",
   "CIRCLE_BORDER",
-  "CIRCLE_BLUR",
-  "CIRCLE_ALPHA",
+  "ARC_INNER",
+  "ARC_BORDER",
   "TRIANGLE_CORNERS",
   "TRIANGLE_BORDER",
-  "TRIANGLE_BLUR",
-  "TRIANGLE_ALPHA",
   "LINES_ALPHA",
   "CURVE_STROKE", -- If both stroke and fill are false, it doesn't support curves at all
   "CURVE_FILL",
   "LAYER_TRANSFORM",
   "LAYER_OPACITY",
+  "GAMMA",
+  "BATCHING", -- If true, the backend is capable of batching certain command lists together. 
   "SHADER_GLSL_ES2", -- Shader type determines what CreateShader will accept
   "SHADER_GLSL4",
   "SHADER_HLSL2",
@@ -45,6 +45,7 @@ B.Format = Enum{
   "BUFFER",
   "LAYER",
   "WEAK_LAYER",
+  "ATLAS",
   "BMP",
   "JPG",
   "PNG",
@@ -110,6 +111,7 @@ B.DrawFlags = Flags({
   "WIREFRAME",
   "POINTMODE",
   "INSTANCED",
+  "LINEAR",
 }, uint8)
 
 struct B.Data {
@@ -161,9 +163,17 @@ struct B.ShaderParameter {
   name : F.conststring
 }
 
+B.AssetFlags = Flags({
+  "LINEAR",
+  "NO_MIPMAP",
+  "CACHE_LAYER",
+  "CUBE_MAP",
+})
+
 struct B.Asset {
   data : B.Data
   format : B.Format
+  flags : B.AssetFlags
   union {
     texture : struct {
       size : F.Veci
@@ -180,6 +190,7 @@ struct B.Asset {
 }
 B.Asset.c_export = [[FG_Data data;
   FG_Format format;
+  int flags;
   union {
     struct {
       FG_Veci size;
@@ -376,9 +387,12 @@ terra B.Backend:DestroyLayout(layout : &opaque) : F.Err return 0 end
 terra B.Backend:FontIndex(font : &B.Font, layout : &opaque, area : &F.Rect, pos : F.Vec, cursor : &F.Vec) : uint return 0 end
 terra B.Backend:FontPos(font : &B.Font, layout : &opaque, area :&F.Rect, index : uint) : F.Vec return F.Vec{} end
 
-terra B.Backend:CreateAsset(data : F.conststring, count : uint, format : B.Format) : &B.Asset return nil end
+terra B.Backend:CreateAsset(data : F.conststring, count : uint, format : B.Format, flags : int) : &B.Asset return nil end
 terra B.Backend:CreateBuffer(data : &opaque, bytes : uint, primitive : B.Primitive, parameters : &B.ShaderParameter, n_parameters : uint) : &B.Asset return nil end
-terra B.Backend:CreateLayer(window : &opaque, size : &F.Vec, cache : bool) : &B.Asset return nil end
+terra B.Backend:CreateLayer(window : &opaque, size : &F.Vec, flags : int) : &B.Asset return nil end
+--terra B.Backend:CreateAtlas(assets : &B.Asset, count : uint, flags : int) : &B.Asset return nil end
+--terra B.Backend:AddAtlas(atlas : &B.Asset, assets : &B.Asset, count : uint, flags : int) : F.Err return 0 end
+--terra B.Backend:RemoveAtlas(atlas : &B.Asset, assets : &B.Asset, count : uint, flags : int) : F.Err return 0 end
 terra B.Backend:DestroyAsset(asset : &B.Asset) : F.Err return 0 end
 terra B.Backend:GetProjection(window : &opaque, layer : &B.Asset, proj4x4 : &float) : F.Err return 0 end
 

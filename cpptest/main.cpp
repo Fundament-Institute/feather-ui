@@ -61,13 +61,13 @@ FG_Result behavior(FG_MsgReceiver* element, void* w, void* ui, FG_Msg* m)
   {
     ++counter;
     FG_Backend* b = *(FG_Backend**)ui;
-    (*b->clear)(b, w, FG_Color{ 0x00000000 });
+    (*b->clear)(b, w, FG_Color{ 0xFF000000 });
     FG_Command list[8] = {};
 
     list[0].category = FG_Category_RECT;
     auto r1          = FG_Rect{ 0.f, 0.f, 100.f, 80.f };
     auto c1          = FG_Rect{ 0.f, 4.f, 8.f, 12.f };
-    SetShape(list[0].shape, r1, 5.0f, FG_Color{ 0xFF0000FF }, FG_Color{ 0xFF00FFFF }, 0.0f);
+    SetShape(list[0].shape, r1, 5.0f, FG_Color{ 0xFF18eac8 }, FG_Color{ 0xFFee46a6 }, 0.0f);
     list[0].shape.rect.corners = &c1;
     
     list[1].category = FG_Category_RECT;
@@ -78,7 +78,7 @@ FG_Result behavior(FG_MsgReceiver* element, void* w, void* ui, FG_Msg* m)
 
     list[2].category = FG_Category_ARC;
     auto r2          = FG_Rect{ 350.f, 100.f, 500.f, 300.f };
-    SetShape(list[2].shape, r2, 5.0f, FG_Color{ 0xFF0000FF }, FG_Color{ 0xFF00FFFF }, 0.0f);
+    SetShape(list[2].shape, r2, 5.0f, FG_Color{ 0xFF0000FF }, FG_Color{ 0xFFFFFFFF }, 0.0f);
     list[2].shape.arc.angles      = FG_Vec{ 0.f, 3.f };
     list[2].shape.arc.innerRadius = 10.0f;
 
@@ -112,7 +112,17 @@ FG_Result behavior(FG_MsgReceiver* element, void* w, void* ui, FG_Msg* m)
     list[7].text.layout = e.layout;
     list[7].text.color  = FG_Color{ 0xFFFFFFFF };
 
-    //(*b->drawRect)(b, w, &r2b, &c1b, FG_Color{ 0xFF999999 }, 0, FG_Color{ 0 }, 0.f, nullptr, 0.f, 0.f, nullptr);
+    /*list[8].category    = FG_Category_ASSET;
+    auto r8             = FG_Rect{ 0.0f, 100.f, 330.f, 320.f };
+    list[8].asset.area  = &r8;
+    list[8].asset.asset = e.gamma1;
+    list[8].asset.color = FG_Color{ 0xFFFFFFFF };
+
+    list[9].category    = FG_Category_ASSET;
+    list[9].asset.area  = &r8;
+    list[9].asset.asset = e.gamma2;
+    list[9].asset.color = FG_Color{ 0xFFFFFFFF };*/
+
     (b->draw)(b, w, list, sizeof(list) / sizeof(FG_Command), nullptr);
 
     float proj[4 * 4];
@@ -222,7 +232,7 @@ int main(int argc, char* argv[])
   FG_ShaderParameter vertparams[] = { { FG_ShaderType_FLOAT, 2, 0, "vPos" }, { FG_ShaderType_FLOAT, 2, 0, "vUV" } };
 
   e.flags    = FG_Window_RESIZABLE;
-  e.image    = (*b->createAsset)(b, (const char*)EXAMPLE_PNG_ARRAY, sizeof(EXAMPLE_PNG_ARRAY), FG_Format_PNG);
+  e.image    = (*b->createAsset)(b, (const char*)EXAMPLE_PNG_ARRAY, sizeof(EXAMPLE_PNG_ARRAY), FG_Format_PNG, 0);
   e.font     = (*b->createFont)(b, "Arial", 700, false, 16, FG_Vec{ 96.f, 96.f }, FG_AntiAliasing_AA);
   e.layout   = (*b->fontLayout)(b, e.font, "Example Text!", &textrect, 16.f, 0.f, FG_BreakStyle_NONE, nullptr);
   e.shader   = (*b->createShader)(b, shader_fs, shader_vs, 0, 0, 0, 0, params, 2);
@@ -241,7 +251,7 @@ int main(int argc, char* argv[])
   }
 
   FG_Vec layerdim = { 200, 100 };
-  e.layer         = (*b->createLayer)(b, w, &layerdim, false);
+  e.layer         = (*b->createLayer)(b, w, &layerdim, 0);
 
   TEST((*b->setCursor)(b, w, FG_Cursor_CROSS) == 0);
   TEST((*b->dirtyRect)(b, w, 0) == 0);

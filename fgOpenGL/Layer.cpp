@@ -10,9 +10,12 @@ using namespace GL;
 const float Layer::NEARZ = 0.2f;
 const float Layer::FARZ  = 100.0f;
 
-Layer::Layer(FG_Vec s, Context* c) : context(c), opacity(0), initialized(false)
+Layer::Layer(FG_Vec s, int f, Context* c) : context(c), opacity(0), initialized(false)
 {
+  flags  = f;
   format = FG_Format_LAYER;
+  blend  = Context::PREMULTIPLY_BLEND;
+  mat4x4_identity(transform);
   size.x = static_cast<int>(ceilf(s.x));
   size.y = static_cast<int>(ceilf(s.y));
   Layer::mat4x4_proj(proj, 0, static_cast<float>(size.x), static_cast<float>(size.y), 0, NEARZ, FARZ);
@@ -54,7 +57,12 @@ bool Layer::Create()
   backend->LogError("glGenTextures");
   glBindTexture(GL_TEXTURE_2D, texture);
   backend->LogError("glBindTexture");
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, size.x, size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+
+  if(flags & FG_AssetFlags_LINEAR)
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, size.x, size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+  else
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, size.x, size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+
   backend->LogError("glTexImage2D");
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   backend->LogError("glTexParameteri");
@@ -127,4 +135,36 @@ void Layer::mat4x4_proj(mat4x4 M, float l, float r, float b, float t, float n, f
   M[3][3] = 0.f;
 
   mat4x4_translate_in_place(M, 0, 0, -1.0f);
+}
+
+int Layer::Composite()
+{
+  ImageVertex v[4];
+
+  v[0].posUV[0] = 0;
+  v[0].posUV[1] = 0;
+  v[0].posUV[2] = 0;
+  v[0].posUV[3] = 1.0f;
+
+  v[1].posUV[0] = size.x;
+  v[1].posUV[1] = 0;
+  v[1].posUV[2] = 1.0f;
+  v[1].posUV[3] = 1.0f;
+
+  v[2].posUV[0] = 0;
+  v[2].posUV[1] = size.y;
+  v[2].posUV[2] = 0;
+  v[2].posUV[3] = 0;
+
+  v[3].posUV[0] = size.x;
+  v[3].posUV[1] = size.y;
+  v[3].posUV[2] = 1.0f;
+  v[3].posUV[3] = 0;
+
+  mat4x4 mvp;
+  mat4x4_mul(mvp, context->GetProjection(), transform);
+
+  context->ApplyBlend(&blend);
+  return context->DrawTextureQuad(data.index, v, FG_Color{ 0x00FFFFFF + ((unsigned int)roundf(0xFF * opacity) << 24) }, mvp,
+                                  false);
 }
