@@ -1,3 +1,5 @@
+local Closure = require 'feather.closure'
+
 local function merge_envs(env_local, env_passed)
   local env_merged = setmetatable({}, {
       __index = function(_, k)
@@ -11,6 +13,18 @@ local function merge_envs(env_local, env_passed)
   return env_merged
 end
 
+local function logged_fake_env(type_environment)
+  local environment_log = {}
+  local logged_fake_environment = setmetatable({}, {
+      __index = function(_, k)
+        local v = type_environment[k]
+        environment_log[k] = v
+        return v
+      end
+  })
+  return logged_fake_environment, environment_log
+end
+
 local bind_syntax = {
   name = "bind_syntax";
   entrypoints = {"bind", "bindevent"};
@@ -21,7 +35,7 @@ local bind_syntax = {
     if lex:nextif("bind") then
       local expr = lex:terraexpr()
 
-      local function binding(local_environment)
+      return function(local_environment)
         local function generate(context, type_environment)
           local fake_environment = {}
           for sym, typ in pairs(type_environment) do
@@ -58,7 +72,6 @@ local bind_syntax = {
         end
         return generate
       end
-      return binding
       
     elseif lex:nextif "bindevent" then
       
@@ -76,7 +89,74 @@ local bind_syntax = {
       
       local body = lex:terrastats()
       lex:expect "end"
+
+      return function(local_environment)
+        local function generate(context, type_environment)
+          local logged_fake_environment, environment_log = logged_fake_env(type_environment)
+
+          local function body_fn(merged_environment)
+            local function closed_fn(call_store, call_params)
+              -- TODO: Inject magic
+            end
+          end
+
+          -- FIXME: This probably isn't right, but it's a sketch
+          body_fn(merge_envs(param_names, merge_envs(logged_fake_environment, local_environment)))
+
+          local store = terralib.types.newstruct("closure_store")
+          local logged_fields = {}
+
+          for k,v in pairs(environment_log) do
+            table.insert(logged_fields, {field = k, type = v})
+          end
+
+          store.entries = logged_fields
+
+          local closure = Closure.closure(param_types -> {})
+          
+          local closure_methods = {
+            enter = function(self, context, passed_environment)
+              return quote
+                self.store = [context.allocator]:alloc([store])
+                escape
+                  for k, _ in pairs(environment_log) do
+                    emit(`self.store.[k] = [passed_environment[k]])
+                  end
+                end
+                -- FIXME: This probably isn't right, but it's a sketch
+                self.fn = [body_fn(merge_envs(call_params, merge_envs(passed_environment, local_environment)))]
+              end
+            end,
+            
+            update = function(self, context, passed_environment)
+              return quote
+                escape
+                  for k, _ in pairs(environment_log) do
+                    emit(`self.store.[k] = [passed_environment[k]])
+                  end
+                end
+              end
+            end,
+            
+            exit = function(self, context)
+              return quote
+                [context.allocator]:delete(self.store)
+              end
+            end,
+            
+            get = function(self, context)
+              return quote
+                -- FIXME: Again, probably not right, but a sketch
+                [self](...)
+              end
+            end
+          }
+          return closure_methods, closure
+        end
+        return generate
+      end
       
+      -- old version
       return function(env_local_fn)
         local env_local = env_local_fn()
         return function(env_passed, args_passed)
