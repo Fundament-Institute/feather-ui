@@ -12,7 +12,7 @@
     <None Include="..\feather\abstract-codegen.t">
       <Filter>feather</Filter>
     </None>
-    <None Include="..\feather\array.t">
+    <None Include="..\feather\dynarray.t">
       <Filter>feather</Filter>
     </None>
     <None Include="..\feather\backend.t">

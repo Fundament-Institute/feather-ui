@@ -9,7 +9,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\feather\array.t">
+    <None Include="..\feather\dynarray.t">
       <Filter>feather</Filter>
     </None>
     <None Include="..\feather\backend.t">

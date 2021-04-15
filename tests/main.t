@@ -1,6 +1,6 @@
 local C = require 'feather.libc'
 
-local Array = require 'feather.array'
+local DynArray = require 'feather.dynarray'
 local F = require 'feather.shared'
 local B = require 'feather.backend'
 local Enum = require 'feather.enum'
@@ -56,8 +56,8 @@ function(self, result, expected, op)
   end
 end) end, Constraint.TerraType)
 
-terra TestHarness:array()
-  var a : Array(int)
+terra TestHarness:dynarray()
+  var a : DynArray(int)
   a:init()
   a:add(1)
   self:Test(a(0), 1)
@@ -87,6 +87,12 @@ terra TestHarness:array()
   self:Test(a(4), 4)
   self:Test(a(5), 5)
 
+  var t : int = 0
+  for v in a do
+    t = t + v
+  end
+  self:Test(t, 15)
+  
   a:clear()
   self:Test(a.size, 0)
   a:add(1)
@@ -141,26 +147,26 @@ terra MockMsgReceiver:Behavior(w : &opaque, ui : &opaque, m : &Msg.Message) : Ms
     b:Clear(w, 0x00000000U)
     var list : B.Command[6]
 
-    var c = F.Rect{array(0f, 4f, 8f, 12f)}
-    SetShape(list[0], B.Category.RECT, F.Rect{array(50f, 100f, 200f, 300f)}, 0xFF0000FF, 5f, 0xFF00FFFF, 0f)
+    var c = F.rect(0f, 4f, 8f, 12f)
+    SetShape(list[0], B.Category.RECT, F.rect(50f, 100f, 200f, 300f), 0xFF0000FF, 5f, 0xFF00FFFF, 0f)
     list[0].shape.rect.corners = &c
     list[0].shape.rect.rotate = 0.0f
     
-    SetShape(list[1], B.Category.ARC, F.Rect{array(350f, 100f, 500f, 300f)}, 0xFF0000FF, 5f, 0xFF00FFFF, 0f)
+    SetShape(list[1], B.Category.ARC, F.rect(350f, 100f, 500f, 300f), 0xFF0000FF, 5f, 0xFF00FFFF, 0f)
     list[1].shape.arc.angles = F.vec(0f, 3f)
     list[1].shape.arc.innerRadius = 10.0f
 
-    SetShape(list[2], B.Category.CIRCLE, F.Rect{array(250f, 150f, 300f, 200f)}, 0xFFFFFFFF, 0f, 0xFFFFFFFF, 0f)
+    SetShape(list[2], B.Category.CIRCLE, F.rect(250f, 150f, 300f, 200f), 0xFFFFFFFF, 0f, 0xFFFFFFFF, 0f)
     list[2].shape.circle.innerRadius = 10.0f
     list[2].shape.circle.innerBorder = 2.0f
     
-    var c3 = F.Rect{array(0f, 4f, 8f, 0.5f)}
-    SetShape(list[3], B.Category.TRIANGLE, F.Rect{array(150f, 300f, 300f, 500f)}, 0xFF0000FF, 5f, 0xFF00FFFF, 0f)
+    var c3 = F.rect(0f, 4f, 8f, 0.5f)
+    SetShape(list[3], B.Category.TRIANGLE, F.rect(150f, 300f, 300f, 500f), 0xFF0000FF, 5f, 0xFF00FFFF, 0f)
     list[3].shape.triangle.corners = &c3
     list[3].shape.triangle.rotate = 0.45f
 
     list[4].category    = B.Category.ASSET
-    var r4 = F.Rect{array(300f, 300f, 620f, 580f)}
+    var r4 = F.rect(300f, 300f, 620f, 580f)
     list[4].asset.area  = &r4
     list[4].asset.asset = self.image
     list[4].asset.color = 0xFFFFFFFF
@@ -169,7 +175,7 @@ terra MockMsgReceiver:Behavior(w : &opaque, ui : &opaque, m : &Msg.Message) : Ms
     list[4].asset.z = 0.0f
 
     list[5].category    = B.Category.TEXT
-    var r5 = F.Rect{array(200f, 10f, 550f, 40f)}
+    var r5 = F.rect(200f, 10f, 550f, 40f)
     list[5].text.area  = &r5
     list[5].text.font = self.font
     list[5].text.layout = self.layout
@@ -184,7 +190,7 @@ terra MockMsgReceiver:Behavior(w : &opaque, ui : &opaque, m : &Msg.Message) : Ms
       b:PushLayer(w, self.layer, transform, 0.5f, nil);
       b:Clear(w, 0x00000000U)
       var lshape : B.Command 
-      SetShape(lshape, B.Category.RECT, F.Rect{array(0.0f, 0.0f, 100.0f, 80.0f)}, 0xFFFF0000U, 5.0f, 0xFFFFFF00U, 0.0f)
+      SetShape(lshape, B.Category.RECT, F.rect(0.0f, 0.0f, 100.0f, 80.0f), 0xFFFF0000U, 5.0f, 0xFFFFFF00U, 0.0f)
       lshape.shape.rect.corners = &c
       lshape.shape.rect.rotate = 0.0f
       b:Draw(w, &lshape, 1, nil)
@@ -232,7 +238,7 @@ terra TestHarness:TestBackend(dllpath : rawstring, aa : B.AntiAliasing)
 
   fakeUI = bl._0
   var b = bl._0
-  var textrect = F.Rect{array(0f,0f,1000f,700f)}
+  var textrect = F.rect(0f,0f,1000f,700f)
   var e = MockMsgReceiver{Msg.Receiver{Msg.Receiver.virtual_initializer}}
   e.flags = Messages.Window.RESIZABLE
   -- e.image = b:CreateAsset("../tests/example.png", 0, B.Format.PNG)
@@ -430,7 +436,7 @@ terra TestHarness:conststring()
 end
 
 terra TestHarness:rect()
-  var a = F.Rect{array(1f,2f,3f,4f)}
+  var a = F.rect(1f,2f,3f,4f)
   self:Test(a.l, 1)
   self:Test(a.t, 2)
   self:Test(a.r, 3)
@@ -444,7 +450,7 @@ terra TestHarness:rect()
   self:Test(a.ltrb[2], 3)
   self:Test(a.ltrb[3], 4)
 
-  var b = F.Rect{array(5f,6f,7f,8f)}
+  var b = F.rect(5f,6f,7f,8f)
   var c = a + b
   self:Test(c.l, 6f)
   self:Test(c.t, 8f)

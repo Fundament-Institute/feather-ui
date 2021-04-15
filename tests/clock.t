@@ -1,5 +1,6 @@
 local f = require 'feather'
 local scaffolding = require 'feather.scaffolding'
+local Iterator = require 'std.iterator'
 import 'feather/bind'
 
 local clockring = f.template {
@@ -17,7 +18,7 @@ local clockring = f.template {
     angles = bind f.Vec {
         array(
           0f,
-          progress * [float]([math.pi])
+          progress * [float]([math.pi * 2.0])
         )
                     },
     ext = bind f.Vec3D{arrayof(float, radius, radius, 0)},
@@ -26,30 +27,18 @@ local clockring = f.template {
 }
 
 local clock = f.template {
-  hour = f.required,
-  minute = f.required,
-  second = f.required,
+  times = f.required,
   radius = f.required,
   pos = f.required
 }
 {
-  clockring {
-    radius = bind radius,
-    pos = bind pos,
-    width = bind radius * 0.1f,
-    progress = bind second /60.0f
-  },
-  clockring {
-    radius = bind radius * 0.85f,
-    pos = bind pos,
-    width = bind radius * 0.1f,
-    progress = bind minute / 60.0f
-  },
-  clockring {
-    radius = bind radius * 0.7f,
-    pos = bind pos,
-    width = bind radius * 0.1f,
-    progress = bind hour / 24.0f
+  f.each "val" (bind times) {
+    clockring {
+      radius = bind (radius * 1.0f) * val._1,
+      pos = bind pos,
+      width = bind radius * 0.1f,
+      progress = bind val._0
+    }
   }
 }
 
@@ -64,7 +53,7 @@ struct tm *feathergmtime(const time_t *timep, struct tm *result) { gmtime_s(resu
 
 local struct clockapp {
   time: C.tm
-                      }
+}
 
 terra clockapp:update()
   var rawtime = C.feathertime(nil)
@@ -75,14 +64,21 @@ terra clockapp:init(argc: int, argv: &rawstring)
 end
 terra clockapp:exit() end
 
+local TimePair = tuple(float, float)
+local Triplet = tuple(TimePair, TimePair, TimePair)
+Triplet.metamethods.__for = Iterator.Tuple
+Triplet.elem = TimePair
+
 local ui = f.ui {
   application = &clockapp,
   queries = {},
   f.window {
     clock {
-      hour = bind app.time.tm_hour,
-      minute = bind app.time.tm_min,
-      second = bind app.time.tm_sec,
+      times = bind Triplet{
+        TimePair{app.time.tm_hour/24.0f, 0.7f},
+        TimePair{app.time.tm_min/60.0f, 0.85f},
+        TimePair{app.time.tm_sec/60.0f, 1.0f}
+      },
       radius = bind 200,
       pos = bind f.Vec3D{arrayof(float, 250, 250, 0)}
     }

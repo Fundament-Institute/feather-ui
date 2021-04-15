@@ -7,9 +7,9 @@ local Msg = require 'feather.message'
 local Virtual = require 'feather.virtual'
 local Closure = require 'feather.closure' 
 local C = terralib.includecstring [[#include <stdio.h>]]
+local DynArray = require 'feather.dynarray'
 
 local M = {}
-
 
 -- shadow is a function for handling lexical scoping in Feather templates by building tables that shadow the namespaces of enclosing scopes
 local shadow_parent = {}
@@ -548,21 +548,78 @@ end
 
 -- Each loop, which instantiates a body for each element in a provided collection
 function M.each(name)
-  error "NYI: each loop is not yet implemented" --TODO: complete implementation
   return function(collection)
     return function(raw_body)
       local collection_expr = expression_parse(collection)
       local body = make_body(raw_body)
       local function generate(self, context, type_environment)
         local collection_type = type_expression(collection_expr, context, type_environment)
+        if collection_type.elem == nil then
+          error("Collection type " .. tostring(collection_type) .. " has no .elem entry! All valid collections must include the element type in [collection].elem")
+        end
         local body_fn, body_type = body(context, override(type_environment, {[name] = collection_type.elem}))
-        local struct each_elem {
+        local struct each_result_elem {
           collection: collection_type
-          bodies: ArrayList(body_type) --this type doesn't exist yet
-                               }
+          bodies: DynArray(body_type)
+        }
         
-        --TODO: IMPLEMENT ME
+        -- Loop through and call update on each element in both arrays
+        -- If collection ends first, call exit on remaining bodies elements
+        -- If bodies ends first, initialize new elements in bodies
+        local function update_bodies(self, context, environment)
+          return quote
+            var index : int = 0
+            for v in self.collection do 
+              if index < self.bodies.size then
+                [body_fn.update(`self.bodies(index), context, override(environment, {[name] = `v}))]
+              else
+                self.bodies:resize(index + 1)
+                [body_fn.enter(`self.bodies(index), context, override(environment, {[name] = `v}))]
+              end
+              index = index + 1
+            end 
+
+            for i=index, self.bodies.size do
+              [body_fn.exit(`self.bodies(i), context)]
+            end
+
+            self.bodies:resize(index)
+          end
+        end
+
+        return {
+          enter = function(self, context, environment)
+            return quote
+              self.collection = [expression_enter(collection_expr, context, environment)]
+              self.bodies:init()
+              [update_bodies(self, context, environment)]
+            end
+          end,
+          update = function(self, context, environment)
+            return quote
+              self.collection = [expression_update(collection_expr, context, environment)]
+              [update_bodies(self, context, environment)]
+            end
+          end,
+          exit = function(self, context)
+            return quote
+              --self.collection = [expression_exit(collection_expr, context, environment)]
+              for v in self.bodies do
+                [body_fn.exit(`v, context)]
+              end
+            end
+          end,
+          render = function(self, context)
+            return quote
+              for v in self.bodies do
+                [body_fn.render(`v, context)]
+              end
+            end
+          end
+        }, each_result_elem
       end
+
+      return setmetatable({generate = generate}, outline_mt)
     end
   end
 end
