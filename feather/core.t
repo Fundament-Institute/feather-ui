@@ -519,7 +519,7 @@ function M.let(bindings)
               end
             end
             [body_fn.enter(`self._1, context, body_env(environment, `self._0))]
-                 end
+          end
         end,
         update = function(self, context, environment)
           return quote
@@ -529,12 +529,12 @@ function M.let(bindings)
               end
             end
             [body_fn.update(`self._1, context, body_env(environment, `self._0))]
-                 end
+          end
         end,
         exit = function(self, context)
           return quote
             [body_fn.exit(`self._1, context)]
-                 end
+          end
         end,
         render = function(self, context)
           return body_fn.render(`self._1, context)
