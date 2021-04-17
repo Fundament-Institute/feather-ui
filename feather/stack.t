@@ -1,28 +1,28 @@
 local IT = require 'std.iterator'
 local Object = require 'std.object'.Object
-local Array = require 'feather.array'
+local DynArray = require 'feather.dynarray'
 
 local Stack = Util.type_template(function(T)
 	local struct s(Object) {
-		array : Array(T)
+		base : DynArray(T)
 	}
   
 	function s.metamethods.__typename(self)
 	    return "Stack("..tostring(T)..")"
 	end
 
-	terra s:reserve(n : uint) return self.array:reserve(n) end
+	terra s:reserve(n : uint) return self.base:reserve(n) end
 
-	terra s:push(obj : T) return self.array:push(obj) end
-	terra s:pop() return self.array:pop() end
-  terra s:top() return self.array.data[self.array.size - 1] end
+	terra s:push(obj : T) return self.base:push(obj) end
+	terra s:pop() return self.base:pop() end
+  terra s:top() return self.base.data[self.base.size - 1] end
 
-	terra s:insert(obj : T, index : uint) return self.array:insert(obj, index) end
+	terra s:insert(obj : T, index : uint) return self.base:insert(obj, index) end
 
-  terra s:clear() : {} self.array:clear() end
+  terra s:clear() : {} self.base:clear() end
 
 	s.metamethods.__apply = macro(function(self,idx)
-		return `self.array.data[self.array.size - 1 - idx]
+		return `self.base.data[self.base.size - 1 - idx]
 	end)
 
   s.metamethods.__for = function(iter, body)

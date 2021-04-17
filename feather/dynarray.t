@@ -4,15 +4,16 @@ local Alloc = require 'std.alloc'
 local IT = require 'std.iterator'
 local Object = require 'std.object'.Object
 
-local Array = Util.type_template(function(T)
+local DynArray = Util.type_template(function(T)
 	local struct s(Object) {
 		data : &T;
 		size : uint;
     capacity : uint;
 	}
-
+  s.elem = T
+  
 	function s.metamethods.__typename(self)
-	    return "Array("..tostring(T)..")"
+	    return "DynArray("..tostring(T)..")"
 	end
 
   terra s:init() : {}
@@ -40,14 +41,22 @@ local Array = Util.type_template(function(T)
     end
     return true
   end
-
-  terra s:iter() : IT.FromSlice(T)
-    return [IT.FromSlice(T)]{self.data, self.data + self.size}
-  end
   
   local terra checkcapacity(self : &s, n : uint) : bool 
     if n > self.capacity then return self:reserve(n * 2) end
     return true
+  end
+
+  terra s:resize(n : uint) : bool
+    if not checkcapacity(self, n) then 
+      return false
+    end
+    -- TODO: if size increases, construct objects, if it decreases, destruct objects
+    self.size = n
+  end
+
+  terra s:iter() : IT.FromSlice(T)
+    return [IT.FromSlice(T)]{self.data, self.data + self.size}
   end
 
 	terra s:add(obj : T) : bool
@@ -88,9 +97,8 @@ local Array = Util.type_template(function(T)
 
   s.metamethods.__for = function(iter, body)
     return quote
-      var it = iter
-      for i = 0, it.size do
-        body(it(i))
+      for i = 0, iter.size do
+        [body(`iter(i))]
       end
     end
   end
@@ -98,4 +106,4 @@ local Array = Util.type_template(function(T)
 	return s
 end)
 
-return Array
+return DynArray

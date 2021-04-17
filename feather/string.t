@@ -1,5 +1,5 @@
 
-local array = require 'feather.array'
+local array = require 'feather.dynarray'
 local alloc = require 'alloc'
 local C = require 'libc'
 
