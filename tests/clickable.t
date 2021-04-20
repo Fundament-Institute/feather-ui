@@ -33,7 +33,7 @@ terra clickapp:exit() end
 local stroke_color = bind f.Color { 0xccccccff }
 
 local clickable_box = f.template {
-  pos = `f.vec(0, 0, 0),
+  pos = `f.vec3D(0, 0, 0),
   ext = f.required,
   fill = `f.Color {0x000000ff},
   onclick = f.requiredevent()
@@ -59,23 +59,23 @@ local ui = f.ui {
   queries = {},
   f.window {
     clickable_box {
-      pos = bind f.vec(10, 10, 0),
-      ext = bind f.vec(100, 100, 0),
+      pos = bind f.vec3D(10, 10, 0),
+      ext = bind f.vec3D(100, 100, 0),
       onclick = bindevent()
         app:enable()
       end
     },
     clickable_box {
-      pos = bind f.vec(120, 10, 0),
-      ext = bind f.vec(100, 100, 0),
+      pos = bind f.vec3D(120, 10, 0),
+      ext = bind f.vec3D(100, 100, 0),
       onclick = bindevent()
         app:toggle()
       end,
       color = bind terralib.select(app.state, f.Color {0xbbbbbbff}, f.Color {0x000000ff})
     },
     clickable_box {
-      pos = bind f.vec(230, 10, 0),
-      ext = bind f.vec(100, 100, 0),
+      pos = bind f.vec3D(230, 10, 0),
+      ext = bind f.vec3D(100, 100, 0),
       onclick = bindevent()
         app:disable()
       end

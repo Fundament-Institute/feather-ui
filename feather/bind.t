@@ -1,12 +1,12 @@
 local Closure = require 'feather.closure'
 
-local function merge_envs(env_local, env_passed)
+local function merge_envs(env_inner, env_outer)
   local env_merged = setmetatable({}, {
       __index = function(_, k)
-        if env_local[k] ~= nil then
-          return env_local[k]
+        if env_inner[k] ~= nil then
+          return env_inner[k]
         else
-          return env_passed[k]
+          return env_outer[k]
         end
       end
   })
@@ -23,6 +23,17 @@ local function logged_fake_env(type_environment)
       end
   })
   return logged_fake_environment, environment_log
+end
+
+local function extract_store(store_exp)
+  local env = {}
+  local store_t = store_exp:gettype()
+  if store_t:ispointer() then store_t = store_t.type end
+  if not store_t:isstruct() then error "a store type must be a struct or a pointer to a struct" end
+  for _, v in ipairs(store_t.entries) do
+    env[v.field] = `store_exp.[v.field]
+  end
+  return env
 end
 
 local bind_syntax = {
@@ -94,14 +105,13 @@ local bind_syntax = {
         local function generate(context, type_environment)
           local logged_fake_environment, environment_log = logged_fake_env(type_environment)
 
-          local function body_fn(merged_environment)
-            local function closed_fn(call_store, call_params)
-              -- TODO: Inject magic
-            end
+          local params_env = {}
+          for i, name in ipairs(param_names) do
+            fake_params_env[name] = symbol(param_types[i], name)
           end
 
-          -- FIXME: This probably isn't right, but it's a sketch
-          body_fn(merge_envs(param_names, merge_envs(logged_fake_environment, local_environment)))
+            -- generate the body against a fake instrumented environment to capture the environmental dependencies which must be stored, then discard the resulting tree
+          body(merge_envs(params_env, merge_envs(logged_fake_environment, local_environment)))
 
           local store = terralib.types.newstruct("closure_store")
           local logged_fields = {}
@@ -113,6 +123,12 @@ local bind_syntax = {
           store.entries = logged_fields
 
           local closure = Closure.closure(param_types -> {})
+
+          local handler_params = {}
+          for i, name in ipairs(param_names) do handler_params[i] = params_env[name] end
+          local terra event_handler(store: store, [handler_params])
+            [body(merge_envs(params_env, merge_envs(extract_store(store), local_environment)))]
+          end
           
           local closure_methods = {
             enter = function(self, context, passed_environment)
@@ -120,11 +136,10 @@ local bind_syntax = {
                 self.store = [context.allocator]:alloc([store])
                 escape
                   for k, _ in pairs(environment_log) do
-                    emit(`self.store.[k] = [passed_environment[k]])
+                    emit(quote self.store.[k] = [passed_environment[k]] end)
                   end
                 end
-                -- FIXME: This probably isn't right, but it's a sketch
-                self.fn = [body_fn(merge_envs(call_params, merge_envs(passed_environment, local_environment)))]
+                self.fn = event_handler
               end
             end,
             
@@ -132,7 +147,7 @@ local bind_syntax = {
               return quote
                 escape
                   for k, _ in pairs(environment_log) do
-                    emit(`self.store.[k] = [passed_environment[k]])
+                    emit(quote self.store.[k] = [passed_environment[k]] end)
                   end
                 end
               end
@@ -145,37 +160,13 @@ local bind_syntax = {
             end,
             
             get = function(self, context)
-              return quote
-                -- FIXME: Again, probably not right, but a sketch
-                [self](...)
-              end
+              return self
             end
           }
           return closure_methods, closure
         end
         return generate
       end
-      
-      -- old version
-      return function(env_local_fn)
-        local env_local = env_local_fn()
-        return function(env_passed, args_passed)
-          if #args_passed ~= #param_names then
-            error "wrong number of args provided for event binding"
-          end
-          
-          local env_outside = merge_envs(env_local, env_passed)
-          local arg_env = {}
-          
-          for i = 1, #param_names do
-            arg_env[param_names[i]] = args_passed[i]
-          end
-          
-          local env_inside = merge_envs(arg_env, env_outside)
-          return body(env_inside)
-        end
-      end
-      
     else
       lexer:errorexpected "bind or bindevent"
     end
