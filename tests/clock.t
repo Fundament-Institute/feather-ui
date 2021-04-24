@@ -32,12 +32,17 @@ local clock = f.template {
   pos = f.required
 }
 {
-  f.each "val" (bind times) {
-    clockring {
-      radius = bind (radius * 1.0f) * val._1,
-      pos = bind pos,
-      width = bind radius * 0.1f,
-      progress = bind val._0
+  f.each "times" (bind times) {
+    f.let {
+      radius = bind (radius * 1.0f) * times._1
+    }
+    {
+      clockring {
+        radius = bind radius,
+        pos = bind pos,
+        width = bind radius * 0.1f,
+        progress = bind times._0
+      }
     }
   }
 }

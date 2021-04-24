@@ -1,4 +1,6 @@
 local Closure = require 'feather.closure'
+local Util = require 'feather.util'
+local Expression = require 'feather.expression'
 
 local function merge_envs(env_inner, env_outer)
   local env_merged = setmetatable({}, {
@@ -47,41 +49,45 @@ local bind_syntax = {
       local expr = lex:terraexpr()
 
       return function(local_environment)
-        local function generate(context, type_environment)
-          local fake_environment = {}
-          for sym, typ in pairs(type_environment) do
-            fake_environment[sym] = symbol(typ)
+        return setmetatable({
+          generate = function(context, type_environment)
+          print("TEST 2")
+            local fake_env = Util.fake_environment(type_environment)
+          print("TEST 3")
+            local expr_type = expr(fake_env):gettype()
+          print("TEST 4")
+            print(expr_type)
+            local expr_methods = {
+              enter = function(self, context, passed_environment)
+                return quote
+                  @[self] = [expr(merge_envs(local_environment,
+                                            passed_environment))]
+                end
+              end,
+              
+              update = function(self, context, passed_environment)
+                return quote
+                  @[self] = [expr(merge_envs(local_environment,
+                                            passed_environment))]
+                end
+              end,
+              
+              exit = function(self, context)
+                return quote
+                  
+                end
+              end,
+              
+              get = function(self, context, passed_environment)
+                return `@[self]
+              end,
+
+              storage_type = expr_type
+            }
+            
+            return expr_methods
           end
-          local expr_type = expr(fake_environment):gettype()
-          
-          local expr_methods = {
-            enter = function(self, context, passed_environment)
-              return quote
-                @[self] = [expr(merge_envs(local_environment,
-                                           passed_environment))]
-              end
-            end,
-            
-            update = function(self, context, passed_environment)
-              return quote
-                @[self] = [expr(merge_envs(local_environment,
-                                           passed_environment))]
-              end
-            end,
-            
-            exit = function(self, context)
-              return quote
-                
-              end
-            end,
-            
-            get = function(self, context)
-              return `@[self]
-            end
-          }
-          return expr_methods, expr_type
-        end
-        return generate
+        }, Expression.expression_spec_mt)
       end
       
     elseif lex:nextif "bindevent" then
@@ -103,6 +109,7 @@ local bind_syntax = {
 
       return function(local_environment)
         local function generate(context, type_environment)
+          print("TEST 1")
           local logged_fake_environment, environment_log = logged_fake_env(type_environment)
 
           local params_env = {}
@@ -159,7 +166,7 @@ local bind_syntax = {
               end
             end,
             
-            get = function(self, context)
+            get = function(self, context, passed_environment)
               return self
             end
           }

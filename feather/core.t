@@ -3,11 +3,13 @@ local alloc = require 'std.alloc'
 local rtree = require 'feather.rtree'
 local backend = require 'feather.backend'
 local override = require 'feather.util'.override
+local map_pairs = require 'feather.util'.map_pairs
 local Msg = require 'feather.message'
 local Virtual = require 'feather.virtual'
 local Closure = require 'feather.closure' 
 local C = terralib.includecstring [[#include <stdio.h>]]
 local DynArray = require 'feather.dynarray'
+local Expression = require 'feather.expression'
 
 local M = {}
 
@@ -22,34 +24,17 @@ local function shadow(base)
   return setmetatable({[shadow_parent] = base}, shadow_mt)
 end
 
-
-local function map_pairs(tab, fn)
-  local res = {}
-  for k, v in pairs(tab) do
-    local k_, v_ = fn(k, v)
-    res[k_] = v_
-  end
-  return res
-end
-
-
   --NYI, maybe unneeded
 local struct layout {}
 
 local struct layout_stack {
   head: layout
   tail: &layout_stack
-                         }
+}
 
 local struct outline_context {
   layouts: layout_stack
-                             }
-
-
-local function make_outline(info)
-
-
-end
+}
 
   --store the data of a transformation, used for accumulating transformations while traversing the rtree.
   --Simple translation for now
@@ -84,41 +69,12 @@ local event_spec_mt = {
 M.event = setmetatable({required = false}, event_spec_mt)
 M.requiredevent = setmetatable({required = true}, event_spec_mt)
 
-
---Expression instantiation functions
---TODO: rewrite with implementations that handle the real expressions
-
---make a user-provided constant value into an interface-conforming expression
-local function constant_expression(v) return function() return v end end
-
---ensure that a user-provided expression-thing is a proper expression object
-local function expression_parse(expr) return expr end
-
---compute the type of an expression in a particular type_environment and context.
---TODO: this interface needs t obe changed to support expressions wiht intermediate caching or auxiliary storage
-local function type_expression(expr, context, type_environment)
-  return expr(map_pairs(type_environment, function(k, v) if terralib.types.istype(v) then return k, symbol(v) else return k, nil end end)):gettype()
-end
-
--- handle an expression being evaluated for the first time
--- TODO: this interface needs to be changed to support expressions with intermediate caching or auxiliary storage
-local function expression_enter(expr, context, environment)
-  return expr(environment)
-end
-
--- handle an expression being reevaluated after some data changed.
--- TODO: this interface needs to be changed to support expressions with intermediate caching or auxiliary storage
-local function expression_update(expr, context, environment)
-  return expr(environment)
-end
-
-
 -- body is used both as a distinguished unique value and as an outline which looks up the provided body in the enclosing environment under it's own key
 M.body = setmetatable({
     generate = function(type_environment)
       return type_environment[M.body](type_environment)
     end
-                      }, outline_mt)
+    }, outline_mt)
 
 -- build an outline object as the body of a template from a user provided table.
 local function make_body(rawbody)
@@ -158,11 +114,11 @@ local function make_body(rawbody)
           end
         end
       end,
-      render = function(self, context)
+      render = function(self, context, environment)
         return quote
           escape
             for i, e in ipairs(elements) do
-              emit(e.render(`self.["_"..(i-1)], context))
+              emit(e.render(`self.["_"..(i-1)], context, environment))
             end
           end
         end
@@ -180,7 +136,7 @@ function template_mt:__call(desc)
     if desc[name] == nil and self.params.required[name] then
       error("parameter " .. name .. " is required but not specified in outline definition")
     end
-    outline.args[name] = desc[name] ~= nil and expression_parse(desc[name]) or self.params.defaults[name]
+    outline.args[name] = desc[name] ~= nil and Expression.parse(desc[name]) or self.params.defaults[name]
   end
   if self.params.has_body then
     local rawbody = {n = #desc}
@@ -193,6 +149,7 @@ function template_mt:__call(desc)
   end
   function outline:generate(context, type_environment)
     local binds = {}
+    local concrete = map_pairs(self.args, function(k, v) return k, v:generate(context, type_environment) end)
     if self.body then
       local body_fns, body_type = self.body(context, type_environment)
       binds[M.body] = function()
@@ -206,8 +163,8 @@ function template_mt:__call(desc)
           exit = function(self, context)
             return body_fns.exit(self, context)
           end,
-          render = function(self, context)
-            return body_fns.render(self, context)
+          render = function(self, context, environment)
+            return body_fns.render(self, context, environment)
           end
         }, body_type
       end
@@ -225,36 +182,66 @@ function template_mt:__call(desc)
       if self.template.params.events[k] then
         binds[k] = Closure.closure(self.template.params.events[k].args -> {})
       else
-        binds[k] = type_expression(v, context, type_environment)
+        binds[k] = Expression.type(v, context, type_environment)
       end
     end
     local fns, type = self.template:generate(context, binds)
+    
+    local store = terralib.types.newstruct("outline_store")
+    for k, v in pairs(self.args) do
+      table.insert(store.entries, {field = k, type = v.storage_type})
+    end
+
     return {
       enter = function(data, context, environment)
         local binds = {
           [M.body] = environment,
         }
         for k, v in pairs(self.args) do
-          binds[k] = expression_enter(v, context, environment)
+          binds[k] = v.get(`data._1.[k], context, environment)
         end
-        return fns.enter(data, context, binds)
+        return quote
+          escape
+            for k, v in pairs(self.args) do
+              emit(v.enter(`data._1.[k], context, environment))
+            end
+          end
+          [fns.enter(data._0, context, binds)]
+        end
       end,
       update = function(data, context, environment)
         local binds = {
           [M.body] = environment,
         }
         for k, v in pairs(self.args) do
-          binds[k] = expression_update(v, context, environment)
+           v.update(`data._1.[k], context, environment)
         end
-        return fns.update(data, context, binds)
+        return quote
+          escape
+            for k, v in pairs(self.args) do
+              emit(v.update(`data._1.[k], context, environment))
+            end
+          end
+          [fns.update(data._0, context, binds)]
+        end
       end,
       exit = function(data, context)
-        return fns.exit(data, context)
+        for k, v in pairs(self.args) do
+          v.exit(`data._1.[k], context, environment)
+        end
+        return quote
+          [fns.exit(data._0, context)]
+          escape
+            for k, v in pairs(self.args) do
+              emit(v.exit(`data._1.[k], context))
+            end
+          end
+        end
       end,
-      render = function(data, context)
-        return fns.render(data, context)
+      render = function(data, context, environment)
+        return fns.render(data._0, context, environment)
       end
-    }, type
+    }, tupleof(type, store)
   end
   return setmetatable(outline, outline_mt)
 end
@@ -279,11 +266,11 @@ local function parse_params(desc)
           if v.required then
             res.required[k] = true
           else
-            res.defaults[k] = constant_expression(`F.EmptyCallable {})
+            res.defaults[k] = Expression.constant(`F.EmptyCallable {})
           end
           res.events[k] = v
         else
-          res.defaults[k] = constant_expression(v)
+          res.defaults[k] = Expression.constant(v)
         end
       end
     end
@@ -315,7 +302,7 @@ function M.basic_template(params)
   table.insert(params_full.names, "pos")
   table.insert(params_full.names, "ext")
   table.insert(params_full.names, "rot")
-  local zerovec = constant_expression(`[F.Vec3D]{array(0.0f, 0.0f, 0.0f)})
+  local zerovec = Expression.constant(`[F.Vec3D]{array(0.0f, 0.0f, 0.0f)})
   params_full.defaults.pos = zerovec
   params_full.defaults.ext = zerovec
   params_full.defaults.rot = zerovec
@@ -469,8 +456,8 @@ function M.template(params)
         exit = function(self, context)
           return defn_body_fns.exit(`self._1, context)
         end,
-        render = function(self, context)
-          return defn_body_fns.render(`self._1, context)
+        render = function(self, context, environment)
+          return defn_body_fns.render(`self._1, context, environment)
         end
       }, tuple(element, defn_body_type)
     end
@@ -487,35 +474,34 @@ end
 function M.let(bindings)
   local exprs = {}
   for k, v in pairs(bindings) do
-    exprs[k] = expression_parse(v)
+    exprs[k] = Expression.parse(v)
   end
   return function(rawbody)
     local body = make_body(rawbody)
     local function generate(self, context, type_environment)
       local texprs = {}
       for k, v in pairs(exprs) do
-        texprs[k] = type_expression(v, context, type_environment)
+        texprs[k] = Expression.type(v, context, type_environment)
       end
       local variables = {}
-      for k, v in pairs(texprs) do
-        table.insert(variables, {field = k, type = v})
+      for k, v in pairs(exprs) do
+        table.insert(variables, {field = k, type = v.storage_type})
       end
       local store = terralib.types.newstruct("let_store")
       store.entries = variables
 
       local function body_env(environment, s)
-        return override(environment, map_pairs(exprs, function(k, v) return k, `s.[k] end))
+        return override(environment, map_pairs(exprs, function(k, v) return k, v.get(`s.[k]) end))
       end
 
       local body_fn, body_type = body(context, override(type_environment, texprs))
-
 
       return {
         enter = function(self, context, environment)
           return quote
             escape
               for k, v in pairs(exprs) do
-                emit quote self._0.[k] = [expression_enter(v, context, environment)] end
+                emit quote [v.enter(`self._0.[k], context, environment)] end
               end
             end
             [body_fn.enter(`self._1, context, body_env(environment, `self._0))]
@@ -525,7 +511,7 @@ function M.let(bindings)
           return quote
             escape
               for k, v in pairs(exprs) do
-                emit quote self._0.[k] = [expression_update(v, context, environment)] end
+                emit quote [v.update(`self._0.[k], context, environment)] end
               end
             end
             [body_fn.update(`self._1, context, body_env(environment, `self._0))]
@@ -533,11 +519,16 @@ function M.let(bindings)
         end,
         exit = function(self, context)
           return quote
+            escape
+              for k, v in pairs(exprs) do
+                emit quote [v.exit(`self._0.[k], context, environment)] end
+              end
+            end
             [body_fn.exit(`self._1, context)]
           end
         end,
-        render = function(self, context)
-          return body_fn.render(`self._1, context)
+        render = function(self, context, environment)
+          return body_fn.render(`self._1, context, environment)
         end
       }, tuple(store, body_type)
     end
@@ -550,10 +541,10 @@ end
 function M.each(name)
   return function(collection)
     return function(raw_body)
-      local collection_expr = expression_parse(collection)
+      local collection_expr = Expression.parse(collection)
       local body = make_body(raw_body)
       local function generate(self, context, type_environment)
-        local collection_type = type_expression(collection_expr, context, type_environment)
+        local collection_type = Expression.type(collection_expr, context, type_environment)
         if collection_type.elem == nil then
           error("Collection type " .. tostring(collection_type) .. " has no .elem entry! All valid collections must include the element type in [collection].elem")
         end
@@ -590,29 +581,29 @@ function M.each(name)
         return {
           enter = function(self, context, environment)
             return quote
-              self.collection = [expression_enter(collection_expr, context, environment)]
+              [collection_expr.enter(`self.collection, context, environment)]
               self.bodies:init()
               [update_bodies(self, context, environment)]
             end
           end,
           update = function(self, context, environment)
             return quote
-              self.collection = [expression_update(collection_expr, context, environment)]
+              [collection_expr.update(`self.collection, context, environment)]
               [update_bodies(self, context, environment)]
             end
           end,
           exit = function(self, context)
             return quote
-              --self.collection = [expression_exit(collection_expr, context, environment)]
+              [collection_expr.exit(`self.collection, context, environment)]
               for v in self.bodies do
                 [body_fn.exit(`v, context)]
               end
             end
           end,
-          render = function(self, context)
+          render = function(self, context, environment)
             return quote
               for v in self.bodies do
-                [body_fn.render(`v, context)]
+                [body_fn.render(`v, context, environment)]
               end
             end
           end
@@ -748,7 +739,11 @@ function M.ui(desc)
     [body_fns.exit(`self.data, make_context(self))]
   end
   terra ui:render()
-    [body_fns.render(`self.data, make_context(self))]
+    [body_fns.render(
+      `self.data,
+      make_context(self),
+      make_environment(self)
+    )]
   end
 
   local struct BehaviorParamPack {
