@@ -18,6 +18,7 @@ Backend.Result = Msg.Result
 Backend.Kind = Msg.Kind
 Backend.Behavior = Msg.Behavior
 Backend.MsgReceiver = Msg.Receiver
+Backend.Window = Msg.Window
 
 local f = io.open("include/backend.h", "wb")
 f:write(Export({short_name="FG", long_name="BACKEND"}, Backend))

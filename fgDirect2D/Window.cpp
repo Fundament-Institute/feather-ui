@@ -37,8 +37,7 @@ FG_FORCEINLINE FG_Vec AdjustPoints(longptr_t lParam, HWND__* hWnd)
   return FG_Vec{ v.x + static_cast<float>(rect.left), v.y + static_cast<float>(rect.top) };
 }
 
-Window::Window(Backend* _backend, FG_MsgReceiver* _element, FG_Vec* pos, FG_Vec* dim, uint64_t flags, const char* caption,
-               void* context)
+Window::Window(Backend* _backend, FG_MsgReceiver* _element, FG_Vec* pos, FG_Vec* dim, uint64_t flags, const char* caption)
 {
   target                = 0;
   context               = 0;
@@ -54,17 +53,18 @@ Window::Window(Backend* _backend, FG_MsgReceiver* _element, FG_Vec* pos, FG_Vec*
   margin                = { 0 };
   assets                = kh_init_wic();
   inside                = false;
-  unsigned long style   = (flags & FG_Window_NOBORDER) ? WS_POPUP : 0;
-  unsigned long exstyle = (flags & FG_Window_NOCAPTION) ? WS_EX_TOOLWINDOW : WS_EX_APPWINDOW;
-  if(flags & FG_Window_MINIMIZABLE)
+  unsigned long style   = (flags & FG_WindowFlag_NOBORDER) ? WS_POPUP : 0;
+  unsigned long exstyle = (flags & FG_WindowFlag_NOCAPTION) ? WS_EX_TOOLWINDOW : WS_EX_APPWINDOW;
+  if(flags & FG_WindowFlag_MINIMIZABLE)
     style |= WS_MINIMIZEBOX | WS_SYSMENU;
-  if(flags & FG_Window_RESIZABLE)
+  if(flags & FG_WindowFlag_RESIZABLE)
     style |= WS_THICKFRAME;
-  if(flags & FG_Window_MAXIMIZABLE)
+  if(flags & FG_WindowFlag_MAXIMIZABLE)
     style |= WS_MAXIMIZEBOX | WS_SYSMENU;
 
-  hWnd   = Window::WndCreate(pos, dim, style, exstyle, this, Backend::WindowClass, caption, dpi);
-  target = reinterpret_cast<ID2D1HwndRenderTarget*>(context);
+  auto hWnd = Window::WndCreate(pos, dim, style, exstyle, this, Backend::WindowClass, caption, dpi);
+  handle    = hWnd;
+  target    = reinterpret_cast<ID2D1HwndRenderTarget*>(context);
 
   RECT rect;
   GetWindowRect(hWnd, &rect);
@@ -132,12 +132,12 @@ longptr_t __stdcall Window::WndProc(HWND__* hWnd, unsigned int message, size_t w
       switch(wParam)
       {
       case SIZE_MAXIMIZED:
-        msg.setWindowFlags.flags |= FG_Window_MAXIMIZED;
+        msg.setWindowFlags.flags |= FG_WindowFlag_MAXIMIZED;
         self->backend->Behavior(self, msg);
         break;
-      case SIZE_MINIMIZED: msg.setWindowFlags.flags &= ~FG_Window_MINIMIZED; self->backend->Behavior(self, msg);
+      case SIZE_MINIMIZED: msg.setWindowFlags.flags &= ~FG_WindowFlag_MINIMIZED; self->backend->Behavior(self, msg);
       case SIZE_RESTORED:
-        msg.setWindowFlags.flags &= ~(FG_Window_MAXIMIZED & FG_Window_MINIMIZED);
+        msg.setWindowFlags.flags &= ~(FG_WindowFlag_MAXIMIZED & FG_WindowFlag_MINIMIZED);
         self->backend->Behavior(self, msg);
         break;
       }
@@ -147,14 +147,14 @@ longptr_t __stdcall Window::WndProc(HWND__* hWnd, unsigned int message, size_t w
     case WM_NCHITTEST: // TODO: Make this a custom message passed to the window behavior
     {
       auto flags = self->backend->Behavior(self, FG_Msg{ FG_Kind_GETWINDOWFLAGS }).getWindowFlags;
-      if(flags & (FG_Window_RESIZABLE | FG_Window_MAXIMIZABLE))
+      if(flags & (FG_WindowFlag_RESIZABLE | FG_WindowFlag_MAXIMIZABLE))
       {
         RECT WindowRect;
         GetWindowRect(hWnd, &WindowRect);
         int x = GET_X_LPARAM(lParam) - WindowRect.left;
         int y = GET_Y_LPARAM(lParam) - WindowRect.top;
 
-        if((flags & FG_Window_RESIZABLE) && !(flags & FG_Window_MAXIMIZED))
+        if((flags & FG_WindowFlag_RESIZABLE) && !(flags & FG_WindowFlag_MAXIMIZED))
         {
           if(x < BORDERWIDTH && y < BORDERWIDTH)
             return HTTOPLEFT;
@@ -183,7 +183,7 @@ longptr_t __stdcall Window::WndProc(HWND__* hWnd, unsigned int message, size_t w
     {
       FG_Msg msg               = { FG_Kind_SETWINDOWFLAGS };
       msg.setWindowFlags.flags = self->backend->Behavior(self, FG_Msg{ FG_Kind_GETWINDOWFLAGS }).getWindowFlags |
-                                 FG_Window_CLOSED;
+                                 FG_WindowFlag_CLOSED;
       self->backend->Behavior(self, msg);
       FG_Msg action         = FG_Msg{ FG_Kind_ACTION };
       action.action.subkind = 1; // FG_WINDOW_ONCLOSE
@@ -309,10 +309,10 @@ longptr_t __stdcall Window::WndProc(HWND__* hWnd, unsigned int message, size_t w
       msg.draw.area.top    = 0;
       msg.draw.area.right  = static_cast<float>(WindowRect.right - WindowRect.left);
       msg.draw.area.bottom = static_cast<float>(WindowRect.bottom - WindowRect.top);
-      self->backend->BeginDraw(self->backend, hWnd, &msg.draw.area);
+      self->backend->BeginDraw(self->backend, self, &msg.draw.area);
       self->backend->Behavior(self, msg);
-      self->backend->EndDraw(self->backend, hWnd);
-      ValidateRect(self->hWnd, NULL);
+      self->backend->EndDraw(self->backend, self);
+      ValidateRect(reinterpret_cast<HWND>(self->handle), NULL);
       return 0;
     }
     case WM_DISPLAYCHANGE:
@@ -400,28 +400,30 @@ void Window::CreateResources()
   if(!target)
   {
     RECT rc;
-    GetClientRect(hWnd, &rc);
+    GetClientRect((HWND)handle, &rc);
     HRESULT hr = backend->CreateHWNDTarget(
       D2D1::RenderTargetProperties(D2D1_RENDER_TARGET_TYPE_DEFAULT,
                                    D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED)),
-      D2D1::HwndRenderTargetProperties(hWnd, D2D1::SizeU(rc.right - rc.left, rc.bottom - rc.top)), &target);
+      D2D1::HwndRenderTargetProperties((HWND)handle, D2D1::SizeU(rc.right - rc.left, rc.bottom - rc.top)), &target);
 
+    ID2D1DeviceContext* ctx = nullptr;
     if(SUCCEEDED(hr))
     {
       hr = target->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &color);
       hr = target->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &edgecolor);
       if(FAILED(hr))
         (*backend->_log)(backend->_root, FG_Level_ERROR, "CreateSolidColorBrush failed with error code %li", hr);
-      hr = target->QueryInterface<ID2D1DeviceContext>(&context);
+      hr      = target->QueryInterface<ID2D1DeviceContext>(&ctx);
+      context = ctx;
       if(SUCCEEDED(hr))
       {
-        context->SetUnitMode(
+        ctx->SetUnitMode(
           D2D1_UNIT_MODE_PIXELS); // Force direct2D to render in pixels because feathergui does the DPI conversion for us.
-        hr = context->CreateEffect(CLSID_Arc, &arc);
-        hr = context->CreateEffect(CLSID_Circle, &circle);
-        hr = context->CreateEffect(CLSID_RoundRect, &roundrect);
-        hr = context->CreateEffect(CLSID_Triangle, &triangle);
-        hr = context->CreateEffect(CLSID_D2D1Scale, &scaling);
+        hr = ctx->CreateEffect(CLSID_Arc, &arc);
+        hr = ctx->CreateEffect(CLSID_Circle, &circle);
+        hr = ctx->CreateEffect(CLSID_RoundRect, &roundrect);
+        hr = ctx->CreateEffect(CLSID_Triangle, &triangle);
+        hr = ctx->CreateEffect(CLSID_D2D1Scale, &scaling);
         if(FAILED(hr))
           (*backend->_log)(backend->_root, FG_Level_ERROR, "CreateEffect failed with error code %li", hr);
       }
@@ -468,7 +470,7 @@ void Window::DiscardResources()
   if(scaling)
     scaling->Release();
   if(context)
-    context->Release();
+    reinterpret_cast<ID2D1DeviceContext*>(context)->Release();
   if(target)
     target->Release();
   color     = 0;
@@ -489,7 +491,7 @@ void Window::SetCaption(const char* caption)
     {
       auto wcaption = reinterpret_cast<wchar_t*>(ALLOCA(sizeof(wchar_t) * len));
       UTF8toUTF16(caption, -1, wcaption, len);
-      SetWindowTextW(hWnd, wcaption);
+      SetWindowTextW((HWND)handle, wcaption);
     }
   }
 }
@@ -508,21 +510,22 @@ void Window::SetArea(FG_Vec* pos, FG_Vec* dim)
     dim = &zero;
   }
 
-  SetWindowPos(hWnd, HWND_TOP, static_cast<int>(floorf(pos->x)), static_cast<int>(floorf(pos->y)),
+  SetWindowPos((HWND)handle, HWND_TOP, static_cast<int>(floorf(pos->x)), static_cast<int>(floorf(pos->y)),
                static_cast<int>(ceilf(dim->x)), static_cast<int>(ceilf(dim->y)), SWP_NOSENDCHANGING);
 }
 void Window::SetFlags(uint64_t flags)
 {
-  if((flags & FG_Window_MINIMIZED) && !IsIconic(hWnd))
+  auto hWnd = (HWND)handle;
+  if((flags & FG_WindowFlag_MINIMIZED) && !IsIconic(hWnd))
     ShowWindow(hWnd, SW_MINIMIZE);
-  if((flags & FG_Window_MAXIMIZED) && !IsZoomed(hWnd))
+  if((flags & FG_WindowFlag_MAXIMIZED) && !IsZoomed(hWnd))
     ShowWindow(hWnd, SW_MAXIMIZE);
-  if(!(flags & (FG_Window_MINIMIZED | FG_Window_MAXIMIZED)) && (IsIconic(hWnd) || IsZoomed(hWnd)))
+  if(!(flags & (FG_WindowFlag_MINIMIZED | FG_WindowFlag_MAXIMIZED)) && (IsIconic(hWnd) || IsZoomed(hWnd)))
     ShowWindow(hWnd, SW_RESTORE);
 
-  if((flags & FG_Window_CLOSED) && IsWindowVisible(hWnd))
+  if((flags & FG_WindowFlag_CLOSED) && IsWindowVisible(hWnd))
     ShowWindow(hWnd, SW_HIDE);
-  if(!(flags & FG_Window_CLOSED) && !IsWindowVisible(hWnd))
+  if(!(flags & FG_WindowFlag_CLOSED) && !IsWindowVisible(hWnd))
     ShowWindow(hWnd, SW_SHOW);
 
   // LONG curstyle = GetWindowLongA(hWnd, GWL_STYLE);
@@ -576,11 +579,12 @@ size_t Window::SetChar(int key, unsigned long time)
 void Window::ApplyWin32Size()
 {
   RECT r;
+  auto hWnd = (HWND)handle;
 
   if(SUCCEEDED(GetWindowRect(hWnd, &r)))
   {
     auto flags = backend->Behavior(this, FG_Msg{ FG_Kind_GETWINDOWFLAGS }).getWindowFlags;
-    if(flags & FG_Window_MAXIMIZED)
+    if(flags & FG_WindowFlag_MAXIMIZED)
     {
       RECT rsize = r;
       AdjustWindowRectEx(&rsize, GetWindowLong(hWnd, GWL_STYLE), FALSE, GetWindowLong(hWnd, GWL_EXSTYLE));
@@ -681,6 +685,8 @@ size_t Window::SetMouseScroll(const FG_Vec& points, uint16_t x, uint16_t y, unsi
 
 void Window::InvalidateHWND(const FG_Rect* area)
 {
+  auto hWnd = (HWND)handle;
+
   if(!area)
     InvalidateRect(hWnd, NULL, FALSE);
   else
@@ -735,14 +741,15 @@ void Window::DiscardAsset(const Asset* p)
 void Window::PushTransform(const D2D_MATRIX_3X2_F& m)
 {
   D2D1::Matrix3x2F old;
-  context->GetTransform(&old);
+  reinterpret_cast<ID2D1DeviceContext*>(context)->GetTransform(&old);
   transforms.push(old * m);
-  context->SetTransform(transforms.top());
+  reinterpret_cast<ID2D1DeviceContext*>(context)->SetTransform(transforms.top());
 }
 void Window::PopTransform()
 {
   transforms.pop();
-  context->SetTransform(transforms.empty() ? D2D1::IdentityMatrix() : transforms.top());
+  reinterpret_cast<ID2D1DeviceContext*>(context)->SetTransform(transforms.empty() ? D2D1::IdentityMatrix() :
+                                                                                    transforms.top());
 }
 
 void Window::PushRotate(float rotate, const FG_Rect& area)
@@ -772,7 +779,7 @@ FG_Err Window::DrawTextD2D(FG_Font* font, void* fontlayout, FG_Rect* area, FG_Co
   D2D1_TEXT_ANTIALIAS_MODE aa = D2D1_TEXT_ANTIALIAS_MODE_DEFAULT;
   switch(font->aa)
   {
-  case FG_AntiAliasing_NO_AA: aa = D2D1_TEXT_ANTIALIAS_MODE_ALIASED; break;
+  case 0: aa = D2D1_TEXT_ANTIALIAS_MODE_ALIASED; break;
   case FG_AntiAliasing_AA: aa = D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE; break;
   case FG_AntiAliasing_LCD:
   case FG_AntiAliasing_LCD_V: aa = D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE; break;
@@ -797,7 +804,8 @@ inline FG_Err Window::DrawEffect(ID2D1Effect* effect, const FG_Rect& area, float
 
   PushRotate(rotate, area);
   D2D1_RECT_F rect = D2D1::RectF(area.left, area.top, area.right, area.bottom);
-  context->DrawImage(effect, D2D1::Point2F(area.left, area.top), rect, D2D1_INTERPOLATION_MODE_LINEAR,
+  reinterpret_cast<ID2D1DeviceContext*>(context)->DrawImage(effect, D2D1::Point2F(area.left, area.top), rect,
+                                                            D2D1_INTERPOLATION_MODE_LINEAR,
                      D2D1_COMPOSITE_MODE_SOURCE_OVER);
   PopRotate(rotate);
 
@@ -827,9 +835,10 @@ FG_Err Window::DrawAsset(FG_Asset* asset, const FG_Rect& area, FG_Rect* source, 
     e->SetValue(D2D1_SCALE_PROP_SCALE, scale);
     e->SetValue(D2D1_SCALE_PROP_INTERPOLATION_MODE, D2D1_SCALE_INTERPOLATION_MODE_ANISOTROPIC);
     e->SetInput(0, bitmap);
-    context->DrawImage(e, D2D1::Point2F(rect.left, rect.top),
-                       D2D1::RectF(floorf(uvresolve.left * scale.x), floorf(uvresolve.top * scale.y),
-                                   ceilf(uvresolve.right * scale.x), ceilf(uvresolve.bottom * scale.y + 1.0f)));
+    reinterpret_cast<ID2D1DeviceContext*>(context)->DrawImage(
+      e, D2D1::Point2F(rect.left, rect.top),
+      D2D1::RectF(floorf(uvresolve.left * scale.x), floorf(uvresolve.top * scale.y), ceilf(uvresolve.right * scale.x),
+                  ceilf(uvresolve.bottom * scale.y + 1.0f)));
   }
 
   PopRotate(rotate);

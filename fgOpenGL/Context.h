@@ -46,7 +46,7 @@ namespace GL {
   };
 
   // A context may or may not have an associated OS window, for use inside other 3D engines.
-  struct Context
+  struct Context : FG_Window
   {
     Context(Backend* backend, FG_MsgReceiver* element, FG_Vec* dim);
     virtual ~Context();
@@ -92,11 +92,12 @@ namespace GL {
     void AddGlyph(uint32_t g);
     GLuint GetFontTexture(const Font* font);
     bool CheckFlush(GLintptr bytes) { return (_bufferoffset + bytes > BATCH_BYTES); }
-    const FG_BlendState& ApplyBlend(const FG_BlendState* blend);
+    const FG_BlendState& ApplyBlend(const FG_BlendState* blend, bool force = false);
     void FlipFlag(int diff, int flags, int flag, int option);
     virtual void DirtyRect(const FG_Rect* rect) {}
     inline Backend* GetBackend() const { return _backend; }
     mat4x4& GetProjection() { return _layers.size() > 0 ? _layers.back()->proj : proj; }
+    void SetDefaultState();
 
     inline void ColorFloats(const FG_Color& c, float (&colors)[4], bool linearize)
     {
@@ -124,6 +125,7 @@ namespace GL {
     {
       return linearRGB <= 0.0031308f ? linearRGB * 12.92f : 1.055f * powf(linearRGB, 1.0f / 2.4f) - 0.055f;
     }
+    static void StandardDrawFunction();
 
     mat4x4 proj;
     FG_MsgReceiver* _element;
@@ -149,6 +151,24 @@ namespace GL {
     static const FG_BlendState DEFAULT_BLEND;     // OpenGL default settings
 
     static const int SOIL_FLAG_LINEAR_RGB = 1024;
+
+    struct GLState
+    {
+      GLboolean blend;
+      GLboolean tex2d;
+      GLboolean framebuffer_srgb;
+      GLboolean cullface;
+      char blendmask;
+      GLint frontface;
+      GLint polymode[2];
+      GLfloat blendcolor[4];
+      GLint colorsrc;
+      GLint colordest;
+      GLint colorop;
+      GLint alphasrc;
+      GLint alphadest;
+      GLint alphaop;
+    } _statestore;
 
   protected:
     GLuint _createBuffer(size_t stride, size_t count, const void* init);

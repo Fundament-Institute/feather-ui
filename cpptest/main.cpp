@@ -53,7 +53,7 @@ void SetShape(decltype(FAKE_CMD.shape)& shape, FG_Rect& area, float border, FG_C
   shape.asset       = NULL;
 }
 
-FG_Result behavior(FG_MsgReceiver* element, void* w, void* ui, FG_Msg* m)
+FG_Result behavior(FG_MsgReceiver* element, FG_Window* w, void* ui, FG_Msg* m)
 {
   static int counter = 0;
   MockElement& e     = *static_cast<MockElement*>(element);
@@ -161,11 +161,11 @@ FG_Result behavior(FG_MsgReceiver* element, void* w, void* ui, FG_Msg* m)
   }
   if(m->kind == FG_Kind_GETWINDOWFLAGS)
   {
-    return e.close ? FG_Result{ FG_Window_CLOSED } : FG_Result{ 0 };
+    return e.close ? FG_Result{ FG_WindowFlag_CLOSED } : FG_Result{ 0 };
   }
   if(m->kind == FG_Kind_SETWINDOWFLAGS)
   {
-    e.close = e.close || ((m->setWindowFlags.flags & FG_Window_CLOSED) != 0);
+    e.close = e.close || ((m->setWindowFlags.flags & FG_WindowFlag_CLOSED) != 0);
   }
   if((m->kind == FG_Kind_KEYDOWN && m->keyDown.key != FG_Keys_LMENU && m->keyDown.scancode != 84 &&
       m->keyDown.scancode != 88) ||
@@ -231,7 +231,7 @@ int main(int argc, char* argv[])
   FG_ShaderParameter params[]     = { { FG_ShaderType_FLOAT, 4, 4, "MVP" }, { FG_ShaderType_TEXTURE, 0, 0, 0 } };
   FG_ShaderParameter vertparams[] = { { FG_ShaderType_FLOAT, 2, 0, "vPos" }, { FG_ShaderType_FLOAT, 2, 0, "vUV" } };
 
-  e.flags    = FG_Window_RESIZABLE;
+  e.flags    = FG_WindowFlag_RESIZABLE;
   e.image    = (*b->createAsset)(b, (const char*)EXAMPLE_PNG_ARRAY, sizeof(EXAMPLE_PNG_ARRAY), FG_Format_PNG, 0);
   e.font     = (*b->createFont)(b, "Arial", 700, false, 16, FG_Vec{ 96.f, 96.f }, FG_AntiAliasing_AA);
   e.layout   = (*b->fontLayout)(b, e.font, "Example Text!", &textrect, 16.f, 0.f, FG_BreakStyle_NONE, nullptr);
@@ -241,7 +241,7 @@ int main(int argc, char* argv[])
 
   auto pos = FG_Vec{ 200.f, 100.f };
   auto dim = FG_Vec{ 800.f, 600.f };
-  auto w   = (*b->createWindow)(b, &e, nullptr, &pos, &dim, "Feather Test", e.flags, nullptr);
+  auto w   = (*b->createWindow)(b, &e, nullptr, &pos, &dim, "Feather Test", e.flags);
   TEST(w != nullptr);
 
   if(!w)
@@ -256,8 +256,8 @@ int main(int argc, char* argv[])
   TEST((*b->setCursor)(b, w, FG_Cursor_CROSS) == 0);
   TEST((*b->dirtyRect)(b, w, 0) == 0);
 
-  TEST((*b->setWindow)(b, w, nullptr, nullptr, nullptr, nullptr, nullptr, FG_Window_RESIZABLE) == 0);
-  TEST((*b->setWindow)(b, w, &e, nullptr, nullptr, nullptr, "Feather Test Changed", FG_Window_RESIZABLE) == 0);
+  TEST((*b->setWindow)(b, w, nullptr, nullptr, nullptr, nullptr, nullptr, FG_WindowFlag_RESIZABLE) == 0);
+  TEST((*b->setWindow)(b, w, &e, nullptr, nullptr, nullptr, "Feather Test Changed", FG_WindowFlag_RESIZABLE) == 0);
 
   TEST((*b->processMessages)(b) != 0);
 

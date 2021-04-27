@@ -13,6 +13,10 @@
 #include FT_FREETYPE_H
 #include "freetype/freetype.h"
 
+#ifdef FG_PLATFORM_WIN32
+  #include <dwrite_1.h>
+#endif
+
 using namespace GL;
 namespace fs = std::filesystem;
 
@@ -27,15 +31,16 @@ int Backend::_maxjoy             = 0;
 Backend* Backend::_singleton     = nullptr;
 const float Backend::BASE_DPI    = 96.0f;
 const float Backend::PI          = 3.14159265359f;
+void* Backend::_library          = 0;
 
-FG_Err Backend::DrawGL(FG_Backend* self, void* window, FG_Command* commandlist, unsigned int n_commands,
+FG_Err Backend::DrawGL(FG_Backend* self, FG_Window* window, FG_Command* commandlist, unsigned int n_commands,
                        FG_BlendState* blend)
 {
   if(!self || !window)
     return -1;
 
   auto backend = static_cast<Backend*>(self);
-  auto context = reinterpret_cast<Context*>(window);
+  auto context = static_cast<Context*>(window);
 
   auto dflags    = context->ApplyBlend(blend).flags;
   bool linearize = !(dflags & FG_DrawFlags_LINEAR);
@@ -71,7 +76,7 @@ FG_Err Backend::DrawGL(FG_Backend* self, void* window, FG_Command* commandlist, 
       break;
     case FG_Category_LINES: context->DrawLines(c.lines.points, c.lines.count, c.lines.color, linearize); break;
     case FG_Category_CURVE:
-      context->DrawCurve(c.curve.anchors, c.curve.count, c.curve.fillColor, c.curve.stroke, c.curve.strokeColor, linearize);
+      context->DrawCurve(c.curve.points, c.curve.count, c.curve.fillColor, c.curve.stroke, c.curve.strokeColor, linearize);
       break;
     case FG_Category_SHADER:
       context->DrawShader(c.shader.shader, c.shader.vertices, c.shader.indices, c.shader.values);
@@ -82,7 +87,7 @@ FG_Err Backend::DrawGL(FG_Backend* self, void* window, FG_Command* commandlist, 
   return 0;
 }
 
-bool Backend::Clear(FG_Backend* self, void* window, FG_Color color)
+bool Backend::Clear(FG_Backend* self, FG_Window* window, FG_Color color)
 {
   auto backend = static_cast<Backend*>(self);
 
@@ -94,40 +99,40 @@ bool Backend::Clear(FG_Backend* self, void* window, FG_Color color)
   return true;
 }
 
-FG_Err Backend::PushLayer(FG_Backend* self, void* window, FG_Asset* layer, float* transform, float opacity,
+FG_Err Backend::PushLayer(FG_Backend* self, FG_Window* window, FG_Asset* layer, float* transform, float opacity,
                           FG_BlendState* blend)
 {
   if(!self || !window)
     return -1;
-  reinterpret_cast<Context*>(window)->PushLayer(static_cast<Layer*>(layer), transform, opacity, blend);
+  static_cast<Context*>(window)->PushLayer(static_cast<Layer*>(layer), transform, opacity, blend);
   return 0;
 }
 
-FG_Err Backend::PopLayer(FG_Backend* self, void* window)
+FG_Err Backend::PopLayer(FG_Backend* self, FG_Window* window)
 {
-  return !window ? -1 : reinterpret_cast<Context*>(window)->PopLayer();
+  return !window ? -1 : static_cast<Context*>(window)->PopLayer();
 }
 
-FG_Err Backend::PushClip(FG_Backend* self, void* window, FG_Rect* area)
+FG_Err Backend::PushClip(FG_Backend* self, FG_Window* window, FG_Rect* area)
 {
   if(!area)
     return -1;
-  reinterpret_cast<Context*>(window)->PushClip(*area);
+  static_cast<Context*>(window)->PushClip(*area);
   return 0;
 }
 
-FG_Err Backend::PopClip(FG_Backend* self, void* window)
+FG_Err Backend::PopClip(FG_Backend* self, FG_Window* window)
 {
-  reinterpret_cast<Context*>(window)->PopClip();
+  static_cast<Context*>(window)->PopClip();
   return 0;
 }
 
-FG_Err Backend::DirtyRect(FG_Backend* self, void* window, FG_Rect* area)
+FG_Err Backend::DirtyRect(FG_Backend* self, FG_Window* window, FG_Rect* area)
 {
   if(!self || !window)
     return -1;
 
-  reinterpret_cast<Context*>(window)->DirtyRect(area);
+  static_cast<Context*>(window)->DirtyRect(area);
   return 0;
 }
 
@@ -144,13 +149,13 @@ FG_Err Backend::DestroyShader(FG_Backend* self, FG_Shader* shader)
   return 0;
 }
 
-FG_Err Backend::GetProjection(FG_Backend* self, void* window, FG_Asset* layer, float* proj4x4)
+FG_Err Backend::GetProjection(FG_Backend* self, FG_Window* window, FG_Asset* layer, float* proj4x4)
 {
   if(!self || !window || !proj4x4)
     return -1;
 
   if(!layer)
-    memcpy(proj4x4, reinterpret_cast<Context*>(window)->proj, 4 * 4 * sizeof(float));
+    memcpy(proj4x4, static_cast<Context*>(window)->proj, 4 * 4 * sizeof(float));
   else
     memcpy(proj4x4, static_cast<Layer*>(layer)->proj, 4 * 4 * sizeof(float));
   return 0;
@@ -159,7 +164,7 @@ FG_Err Backend::GetProjection(FG_Backend* self, void* window, FG_Asset* layer, f
 FG_Font* Backend::CreateFontGL(FG_Backend* self, const char* family, unsigned short weight, bool italic, unsigned int pt,
                                FG_Vec dpi, FG_AntiAliasing aa)
 {
-  return new Font(static_cast<Backend*>(self), family, pt, aa, dpi);
+  return new Font(static_cast<Backend*>(self), family, weight, italic, pt, aa, dpi);
 }
 
 FG_Err Backend::DestroyFont(FG_Backend* self, FG_Font* font)
@@ -356,9 +361,9 @@ FG_Asset* Backend::CreateBuffer(FG_Backend* self, void* data, uint32_t bytes, ui
   return asset;
 }
 
-FG_Asset* Backend::CreateLayer(FG_Backend* self, void* window, FG_Vec* size, int flags)
+FG_Asset* Backend::CreateLayer(FG_Backend* self, FG_Window* window, FG_Vec* size, int flags)
 {
-  return reinterpret_cast<Context*>(window)->CreateLayer(size, flags);
+  return static_cast<Context*>(window)->CreateLayer(size, flags);
 }
 
 FG_Err Backend::DestroyAsset(FG_Backend* self, FG_Asset* fgasset)
@@ -383,11 +388,11 @@ FG_Err Backend::DestroyAsset(FG_Backend* self, FG_Asset* fgasset)
   return 0;
 }
 
-void* Backend::CreateSystemControl(FG_Backend* self, void* window, const char* id, FG_Rect* area, ...) { return 0; }
-FG_Err Backend::SetSystemControl(FG_Backend* self, void* window, void* control, FG_Rect* area, ...) { return -1; }
-FG_Err Backend::DestroySystemControl(FG_Backend* self, void* window, void* control) { return -1; }
+void* Backend::CreateSystemControl(FG_Backend* self, FG_Window* window, const char* id, FG_Rect* area, ...) { return 0; }
+FG_Err Backend::SetSystemControl(FG_Backend* self, FG_Window* window, void* control, FG_Rect* area, ...) { return -1; }
+FG_Err Backend::DestroySystemControl(FG_Backend* self, FG_Window* window, void* control) { return -1; }
 
-FG_Err Backend::PutClipboard(FG_Backend* self, void* window, FG_Clipboard kind, const char* data, uint32_t count)
+FG_Err Backend::PutClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard kind, const char* data, uint32_t count)
 {
 #ifdef FG_PLATFORM_WIN32
   if(!OpenClipboard(GetActiveWindow()))
@@ -442,12 +447,12 @@ FG_Err Backend::PutClipboard(FG_Backend* self, void* window, FG_Clipboard kind, 
     return -1;
 
   _lasterr = 0;
-  glfwSetClipboardString(reinterpret_cast<Context*>(window)->GetWindow(), data);
+  glfwSetClipboardString(static_cast<Context*>(window)->GetWindow(), data);
   return _lasterr;
 #endif
 }
 
-uint32_t Backend::GetClipboard(FG_Backend* self, void* window, FG_Clipboard kind, void* target, uint32_t count)
+uint32_t Backend::GetClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard kind, void* target, uint32_t count)
 {
 #ifdef FG_PLATFORM_WIN32
   if(!OpenClipboard(GetActiveWindow()))
@@ -506,14 +511,14 @@ uint32_t Backend::GetClipboard(FG_Backend* self, void* window, FG_Clipboard kind
   if(kind != FG_Clipboard_TEXT)
     return 0;
 
-  auto str = glfwGetClipboardString(reinterpret_cast<Context*>(window)->GetWindow());
+  auto str = glfwGetClipboardString(static_cast<Context*>(window)->GetWindow());
   if(target)
     strncpy(reinterpret_cast<char*>(target), str, count);
   return strlen(str) + 1;
 #endif
 }
 
-bool Backend::CheckClipboard(FG_Backend* self, void* window, FG_Clipboard kind)
+bool Backend::CheckClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard kind)
 {
 #ifdef FG_PLATFORM_WIN32
   switch(kind)
@@ -532,14 +537,14 @@ bool Backend::CheckClipboard(FG_Backend* self, void* window, FG_Clipboard kind)
   if(kind != FG_Clipboard_TEXT && kind != FG_Clipboard_ALL)
     return false;
 
-  auto p = glfwGetClipboardString(reinterpret_cast<Context*>(window)->GetWindow());
+  auto p = glfwGetClipboardString(static_cast<Context*>(window)->GetWindow());
   if(!p)
     return false;
   return p[0] != 0;
 #endif
 }
 
-FG_Err Backend::ClearClipboard(FG_Backend* self, void* window, FG_Clipboard kind)
+FG_Err Backend::ClearClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard kind)
 {
 #ifdef FG_PLATFORM_WIN32
   if(!OpenClipboard(GetActiveWindow()))
@@ -550,7 +555,7 @@ FG_Err Backend::ClearClipboard(FG_Backend* self, void* window, FG_Clipboard kind
   return 0;
 #else
   _lasterr = 0;
-  glfwSetClipboardString(reinterpret_cast<Context*>(window)->GetWindow(), "");
+  glfwSetClipboardString(static_cast<Context*>(window)->GetWindow(), "");
   return _lasterr;
 #endif
 }
@@ -565,7 +570,7 @@ FG_Err Backend::ProcessMessages(FG_Backend* self)
   return backend->_windows != nullptr;
 }
 
-FG_Err Backend::SetCursorGL(FG_Backend* self, void* window, FG_Cursor cursor)
+FG_Err Backend::SetCursorGL(FG_Backend* self, FG_Window* window, FG_Cursor cursor)
 {
   static GLFWcursor* arrow   = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
   static GLFWcursor* ibeam   = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
@@ -574,7 +579,7 @@ FG_Err Backend::SetCursorGL(FG_Backend* self, void* window, FG_Cursor cursor)
   static GLFWcursor* hresize = glfwCreateStandardCursor(GLFW_HRESIZE_CURSOR);
   static GLFWcursor* vresize = glfwCreateStandardCursor(GLFW_VRESIZE_CURSOR);
 
-  auto glwindow = reinterpret_cast<Context*>(window)->GetWindow();
+  auto glwindow = static_cast<Context*>(window)->GetWindow();
   switch(cursor)
   {
   case FG_Cursor_ARROW: glfwSetCursor(glwindow, arrow); return _lasterr;
@@ -612,20 +617,45 @@ FG_Err Backend::GetDisplay(FG_Backend* self, void* handle, FG_Display* out)
   return 0;
 }
 
-FG_Err Backend::GetDisplayWindow(FG_Backend* self, void* window, FG_Display* out)
+FG_Err Backend::GetDisplayWindow(FG_Backend* self, FG_Window* window, FG_Display* out)
 {
-  return GetDisplay(self, glfwGetWindowMonitor(reinterpret_cast<Context*>(window)->GetWindow()), out);
+  return GetDisplay(self, glfwGetWindowMonitor(static_cast<Context*>(window)->GetWindow()), out);
 }
 
-void* Backend::CreateWindowGL(FG_Backend* self, FG_MsgReceiver* element, void* display, FG_Vec* pos, FG_Vec* dim,
-                              const char* caption, uint64_t flags, void* context)
+GLFWglproc glGetProcAddress(const char* procname)
+{
+#ifdef FG_PLATFORM_WIN32
+  return (GLFWglproc)GetProcAddress((HMODULE)Backend::_library, procname);
+#else
+  return (GLFWglproc)dlsym(Backend::_library, procname);
+#endif
+}
+
+FG_Window* Backend::CreateRegionGL(FG_Backend* self, FG_MsgReceiver* element, FG_Window desc, FG_Vec3D pos, FG_Vec3D dim)
+{
+  auto backend                      = reinterpret_cast<Backend*>(self);
+  FG_Vec d                          = { dim.x, dim.y };
+  Context* context                  = new Context(backend, element, &d);
+  *static_cast<FG_Window*>(context) = desc;
+
+  // glfwMakeContextCurrent(_window); // TODO: Make the context current
+  if(!gladLoadGL(glGetProcAddress))
+    (*backend->_log)(backend->_root, FG_Level_ERROR, "gladLoadGL failed");
+  backend->LogError("gladLoadGL");
+  context->CreateResources();
+
+  return context;
+}
+
+FG_Window* Backend::CreateWindowGL(FG_Backend* self, FG_MsgReceiver* element, void* display, FG_Vec* pos, FG_Vec* dim,
+                                   const char* caption, uint64_t flags)
 {
   auto backend = reinterpret_cast<Backend*>(self);
   _lasterr     = 0;
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-  Window* window = new Window(static_cast<Backend*>(self), reinterpret_cast<GLFWmonitor*>(display), element, pos, dim,
-                              flags, caption, context);
+  Window* window =
+    new Window(static_cast<Backend*>(self), reinterpret_cast<GLFWmonitor*>(display), element, pos, dim, flags, caption);
 
   if(!_lasterr)
   {
@@ -634,19 +664,19 @@ void* Backend::CreateWindowGL(FG_Backend* self, FG_MsgReceiver* element, void* d
     if(window->_next)
       window->_next->_prev = window;
 
-    return static_cast<Context*>(window);
+    return window;
   }
 
   delete window;
   return nullptr;
 }
 
-FG_Err Backend::SetWindowGL(FG_Backend* self, void* window, FG_MsgReceiver* element, void* display, FG_Vec* pos,
+FG_Err Backend::SetWindowGL(FG_Backend* self, FG_Window* window, FG_MsgReceiver* element, void* display, FG_Vec* pos,
                             FG_Vec* dim, const char* caption, uint64_t flags)
 {
   if(!window)
     return -1;
-  auto context      = reinterpret_cast<Context*>(window);
+  auto context      = static_cast<Context*>(window);
   context->_element = element;
 
   auto glwindow = context->GetWindow();
@@ -660,13 +690,13 @@ FG_Err Backend::SetWindowGL(FG_Backend* self, void* window, FG_MsgReceiver* elem
   if(caption)
     glfwSetWindowTitle(glwindow, caption);
 
-  if((w->_flags ^ flags) & FG_Window_FULLSCREEN) // If we toggled fullscreen we need a different code path
+  if((w->_flags ^ flags) & FG_WindowFlag_FULLSCREEN) // If we toggled fullscreen we need a different code path
   {
     int posx, posy;
     int dimx, dimy;
     glfwGetWindowPos(glwindow, &posx, &posy);
     glfwGetWindowSize(glwindow, &dimx, &dimy);
-    if(flags & FG_Window_FULLSCREEN)
+    if(flags & FG_WindowFlag_FULLSCREEN)
       glfwSetWindowMonitor(glwindow, (GLFWmonitor*)display, 0, 0, !dim ? dimx : static_cast<int>(ceilf(dim->x)),
                            !dim ? dimy : static_cast<int>(ceilf(dim->y)), GLFW_DONT_CARE);
     else
@@ -682,12 +712,12 @@ FG_Err Backend::SetWindowGL(FG_Backend* self, void* window, FG_MsgReceiver* elem
       glfwSetWindowSize(glwindow, static_cast<int>(ceilf(dim->x)), static_cast<int>(ceilf(dim->y)));
   }
 
-  if(flags & FG_Window_MAXIMIZED)
+  if(flags & FG_WindowFlag_MAXIMIZED)
     glfwMaximizeWindow(glwindow);
   else
     glfwRestoreWindow(glwindow);
 
-  if(flags & FG_Window_MINIMIZED)
+  if(flags & FG_WindowFlag_MINIMIZED)
     glfwIconifyWindow(glwindow);
   else
     glfwRestoreWindow(glwindow);
@@ -696,27 +726,27 @@ FG_Err Backend::SetWindowGL(FG_Backend* self, void* window, FG_MsgReceiver* elem
   return 0;
 }
 
-FG_Err Backend::DestroyWindow(FG_Backend* self, void* window)
+FG_Err Backend::DestroyWindow(FG_Backend* self, FG_Window* window)
 {
   if(!self || !window)
     return -1;
 
   _lasterr = 0;
-  delete reinterpret_cast<Context*>(window);
+  delete static_cast<Context*>(window);
   return _lasterr;
 }
-FG_Err Backend::BeginDraw(FG_Backend* self, void* window, FG_Rect* area)
+FG_Err Backend::BeginDraw(FG_Backend* self, FG_Window* window, FG_Rect* area)
 {
   if(!window)
     return -1;
   _lasterr = 0;
-  reinterpret_cast<Context*>(window)->BeginDraw(area);
+  static_cast<Context*>(window)->BeginDraw(area);
   return _lasterr;
 }
-FG_Err Backend::EndDraw(FG_Backend* self, void* window)
+FG_Err Backend::EndDraw(FG_Backend* self, FG_Window* window)
 {
   _lasterr = 0;
-  reinterpret_cast<Context*>(window)->EndDraw();
+  static_cast<Context*>(window)->EndDraw();
   return _lasterr;
 }
 
@@ -731,7 +761,13 @@ void DestroyGL(FG_Backend* self)
     Backend::_maxjoy  = 0;
     Backend::_lasterr = 0;
     glfwTerminate();
+#ifdef FG_PLATFORM_WIN32
+    if(Backend::_library)
+      FreeLibrary((HMODULE)Backend::_library);
+#endif
 #ifdef FG_PLATFORM_POSIX
+    if(Backend::_library)
+      dlclose(Backend::_library);
     FcFini();
 #endif
   }
@@ -770,7 +806,18 @@ extern "C" FG_COMPILER_DLLEXPORT FG_Backend* fgOpenGL(void* root, FG_Log log, FG
 
   if(++Backend::_refcount == 1)
   {
+#ifdef FG_PLATFORM_WIN32
+    Backend::_library = LoadLibraryA("opengl32.dll");
+#endif
 #ifdef FG_PLATFORM_POSIX
+  #ifdef __CYGWIN__
+    Backend::_library = dlopen("libGL-1.so");
+  #endif
+    if(!Backend::_library)
+      Backend::_library = dlopen("libGL.so.1");
+    if(!Backend::_library)
+      Backend::_library = dlopen("libGL.so");
+
     FcInit();
 #endif
     glfwSetErrorCallback(&Backend::ErrorCallback);
@@ -841,6 +888,7 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   getDisplayIndex      = &GetDisplayIndex;
   getDisplay           = &GetDisplay;
   getDisplayWindow     = &GetDisplayWindow;
+  createRegion         = &CreateRegionGL;
   createWindow         = &CreateWindowGL;
   setWindow            = &SetWindowGL;
   destroyWindow        = &DestroyWindow;
@@ -937,6 +985,12 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   }
   else
     (*_log)(_root, FG_Level_WARNING, "Couldn't get user's mouse hover time.");
+
+  HRESULT hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory1),
+                                   reinterpret_cast<IUnknown**>(&_writefactory));
+  if(FAILED(hr))
+    (*_log)(_root, FG_Level_ERROR, "DWriteCreateFactory() failed with error: %li", hr);
+
 #else
   cursorblink  = 530;
   tooltipdelay = 500;
@@ -958,6 +1012,9 @@ Backend::~Backend()
 
 #ifdef FG_PLATFORM_WIN32
   PostQuitMessage(0);
+
+  if(_writefactory)
+    _writefactory->Release();
 #endif
 
   FT_Done_FreeType(_ftlib);

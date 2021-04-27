@@ -21,6 +21,7 @@ limitations under the License.
 #include <vector>
 
 struct FT_LibraryRec_;
+struct IDWriteFactory1;
 
 namespace GL {
   KHASH_DECLARE(assets, const FG_Asset*, char);
@@ -33,20 +34,20 @@ namespace GL {
     FG_Result Behavior(Context* data, const FG_Msg& msg);
     bool LogError(const char* call);
 
-    static FG_Err DrawGL(FG_Backend* self, void* window, FG_Command* commandlist, unsigned int n_commands,
+    static FG_Err DrawGL(FG_Backend* self, FG_Window* window, FG_Command* commandlist, unsigned int n_commands,
                          FG_BlendState* blend);
-    static bool Clear(FG_Backend* self, void* window, FG_Color color);
-    static FG_Err PushLayer(FG_Backend* self, void* window, FG_Asset* layer, float* transform, float opacity,
+    static bool Clear(FG_Backend* self, FG_Window* window, FG_Color color);
+    static FG_Err PushLayer(FG_Backend* self, FG_Window* window, FG_Asset* layer, float* transform, float opacity,
                             FG_BlendState* blend);
-    static FG_Err PopLayer(FG_Backend* self, void* window);
-    static FG_Err SetRenderTarget(FG_Backend* self, void* window, FG_Asset* target);
-    static FG_Err PushClip(FG_Backend* self, void* window, FG_Rect* area);
-    static FG_Err PopClip(FG_Backend* self, void* window);
-    static FG_Err DirtyRect(FG_Backend* self, void* window, FG_Rect* area);
+    static FG_Err PopLayer(FG_Backend* self, FG_Window* window);
+    static FG_Err SetRenderTarget(FG_Backend* self, FG_Window* window, FG_Asset* target);
+    static FG_Err PushClip(FG_Backend* self, FG_Window* window, FG_Rect* area);
+    static FG_Err PopClip(FG_Backend* self, FG_Window* window);
+    static FG_Err DirtyRect(FG_Backend* self, FG_Window* window, FG_Rect* area);
     static FG_Shader* CreateShader(FG_Backend* self, const char* ps, const char* vs, const char* gs, const char* cs,
                                    const char* ds, const char* hs, FG_ShaderParameter* parameters, uint32_t n_parameters);
     static FG_Err DestroyShader(FG_Backend* self, FG_Shader* shader);
-    static FG_Err GetProjection(FG_Backend* self, void* window, FG_Asset* layer, float* proj4x4);
+    static FG_Err GetProjection(FG_Backend* self, FG_Window* window, FG_Asset* layer, float* proj4x4);
     static FG_Font* CreateFontGL(FG_Backend* self, const char* family, unsigned short weight, bool italic, unsigned int pt,
                                  FG_Vec dpi, FG_AntiAliasing aa);
     static FG_Err DestroyFont(FG_Backend* self, FG_Font* font);
@@ -58,27 +59,28 @@ namespace GL {
     static FG_Asset* CreateAsset(FG_Backend* self, const char* data, uint32_t count, FG_Format format, int flags);
     static FG_Asset* CreateBuffer(FG_Backend* self, void* data, uint32_t bytes, uint8_t primitive,
                                   FG_ShaderParameter* parameters, uint32_t n_parameters);
-    static FG_Asset* CreateLayer(FG_Backend* self, void* window, FG_Vec* size, int flags);
+    static FG_Asset* CreateLayer(FG_Backend* self, FG_Window* window, FG_Vec* size, int flags);
     static FG_Err DestroyAsset(FG_Backend* self, FG_Asset* asset);
-    static FG_Err PutClipboard(FG_Backend* self, void* window, FG_Clipboard kind, const char* data, uint32_t count);
-    static uint32_t GetClipboard(FG_Backend* self, void* window, FG_Clipboard kind, void* target, uint32_t count);
-    static bool CheckClipboard(FG_Backend* self, void* window, FG_Clipboard kind);
-    static FG_Err ClearClipboard(FG_Backend* self, void* window, FG_Clipboard kind);
+    static FG_Err PutClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard kind, const char* data, uint32_t count);
+    static uint32_t GetClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard kind, void* target, uint32_t count);
+    static bool CheckClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard kind);
+    static FG_Err ClearClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard kind);
     static FG_Err ProcessMessages(FG_Backend* self);
-    static FG_Err SetCursorGL(FG_Backend* self, void* window, FG_Cursor cursor);
+    static FG_Err SetCursorGL(FG_Backend* self, FG_Window* window, FG_Cursor cursor);
     static FG_Err GetDisplayIndex(FG_Backend* self, unsigned int index, FG_Display* out);
     static FG_Err GetDisplay(FG_Backend* self, void* handle, FG_Display* out);
-    static FG_Err GetDisplayWindow(FG_Backend* self, void* window, FG_Display* out);
-    static void* CreateWindowGL(FG_Backend* self, FG_MsgReceiver* element, void* display, FG_Vec* pos, FG_Vec* dim,
-                                const char* caption, uint64_t flags, void* context);
-    static FG_Err SetWindowGL(FG_Backend* self, void* window, FG_MsgReceiver* element, void* display, FG_Vec* pos,
+    static FG_Err GetDisplayWindow(FG_Backend* self, FG_Window* window, FG_Display* out);
+    static FG_Window* CreateRegionGL(FG_Backend* self, FG_MsgReceiver* element, FG_Window desc, FG_Vec3D pos, FG_Vec3D dim);
+    static FG_Window* CreateWindowGL(FG_Backend* self, FG_MsgReceiver* element, void* display, FG_Vec* pos, FG_Vec* dim,
+                                     const char* caption, uint64_t flags);
+    static FG_Err SetWindowGL(FG_Backend* self, FG_Window* window, FG_MsgReceiver* element, void* display, FG_Vec* pos,
                               FG_Vec* dim, const char* caption, uint64_t flags);
-    static FG_Err DestroyWindow(FG_Backend* self, void* window);
-    static FG_Err BeginDraw(FG_Backend* self, void* window, FG_Rect* area);
-    static FG_Err EndDraw(FG_Backend* self, void* window);
-    static void* CreateSystemControl(FG_Backend* self, void* window, const char* id, FG_Rect* area, ...);
-    static FG_Err SetSystemControl(FG_Backend* self, void* window, void* control, FG_Rect* area, ...);
-    static FG_Err DestroySystemControl(FG_Backend* self, void* window, void* control);
+    static FG_Err DestroyWindow(FG_Backend* self, FG_Window* window);
+    static FG_Err BeginDraw(FG_Backend* self, FG_Window* window, FG_Rect* area);
+    static FG_Err EndDraw(FG_Backend* self, FG_Window* window);
+    static void* CreateSystemControl(FG_Backend* self, FG_Window* window, const char* id, FG_Rect* area, ...);
+    static FG_Err SetSystemControl(FG_Backend* self, FG_Window* window, void* control, FG_Rect* area, ...);
+    static FG_Err DestroySystemControl(FG_Backend* self, FG_Window* window, void* control);
     static void ErrorCallback(int error, const char* description);
     static void JoystickCallback(int id, int connected);
 
@@ -100,6 +102,11 @@ namespace GL {
     static const float BASE_DPI;
     static Backend* _singleton;
     static const float PI;
+    static void* _library;
+
+    #ifdef FG_PLATFORM_WIN32
+    IDWriteFactory1* _writefactory = 0;
+    #endif
 
   protected:
     FG_Behavior _behavior;

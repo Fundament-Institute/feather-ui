@@ -141,7 +141,7 @@ SetShape = macro(function(c, kind, area, fill, border, outline, blur)
   end
 end)
 
-terra MockMsgReceiver:Behavior(w : &opaque, ui : &opaque, m : &Msg.Message) : Msg.Result
+terra MockMsgReceiver:Behavior(w : &Msg.Window, ui : &opaque, m : &Msg.Message) : Msg.Result
   if m.kind.val == [Msg.Receiver.virtualinfo.info["Draw"].index] then
     var b = @[&&B.Backend](ui)
     b:Clear(w, 0x00000000U)
@@ -201,13 +201,13 @@ terra MockMsgReceiver:Behavior(w : &opaque, ui : &opaque, m : &Msg.Message) : Ms
   end
   if m.kind.val == [Msg.Receiver.virtualinfo.info["GetWindowFlags"].index] then
     if self.close then
-      return Msg.Result{Messages.Window.CLOSED}
+      return Msg.Result{Messages.WindowFlag.CLOSED}
     else
       return Msg.Result{0}
     end
   end
   if m.kind.val == [Msg.Receiver.virtualinfo.info["SetWindowFlags"].index] then
-    self.close = self.close or ((m.setWindowFlags.flags and [Messages.Window.enum_values.CLOSED]) ~= 0)
+    self.close = self.close or ((m.setWindowFlags.flags and [Messages.WindowFlag.enum_values.CLOSED]) ~= 0)
   end
   if (m.kind.val == [Msg.Receiver.virtualinfo.info["KeyDown"].index] and m.keyDown.key ~= Messages.Keys.LMENU.val and m.keyDown.scancode ~= 84) or m.kind.val == [Msg.Receiver.virtualinfo.info["MouseDown"].index] then
     self.close = true
@@ -240,7 +240,7 @@ terra TestHarness:TestBackend(dllpath : rawstring, aa : B.AntiAliasing)
   var b = bl._0
   var textrect = F.rect(0f,0f,1000f,700f)
   var e = MockMsgReceiver{Msg.Receiver{Msg.Receiver.virtual_initializer}}
-  e.flags = Messages.Window.RESIZABLE
+  e.flags = Messages.WindowFlag.RESIZABLE
   -- e.image = b:CreateAsset("../tests/example.png", 0, B.Format.PNG)
   e.image = b:CreateAsset([constant(`example_png)], [#example_png], B.Format.PNG, 0)
   e.font = b:CreateFont("Arial", 700, false, 16, F.vec(96f, 96f), aa)
@@ -250,7 +250,7 @@ terra TestHarness:TestBackend(dllpath : rawstring, aa : B.AntiAliasing)
 
   var pos = F.vec(200f,100f)
   var dim = F.vec(800f,600f)
-  var w = b:CreateWindow(&e.super, nil, &pos, &dim, "Feather Test", e.flags, nil)
+  var w = b:CreateWindow(&e.super, nil, &pos, &dim, "Feather Test", e.flags)
   self:Test(w ~= nil, true)
 
   var layerdim = F.vec(200.0f,80.0f)
@@ -260,8 +260,8 @@ terra TestHarness:TestBackend(dllpath : rawstring, aa : B.AntiAliasing)
   self:Test(b:SetCursor(w, B.Cursor.CROSS), 0)
   self:Test(b:DirtyRect(w, nil), 0)
 
-  self:Test(b:SetWindow(w, nil, nil, nil, nil, nil, Messages.Window.RESIZABLE), 0)
-  self:Test(b:SetWindow(w, &e.super, nil, nil, nil, "Feather Test Changed", Messages.Window.RESIZABLE), 0)
+  self:Test(b:SetWindow(w, nil, nil, nil, nil, nil, Messages.WindowFlag.RESIZABLE), 0)
+  self:Test(b:SetWindow(w, &e.super, nil, nil, nil, "Feather Test Changed", Messages.WindowFlag.RESIZABLE), 0)
 
   self:Test(b:ProcessMessages() ~= 0, true)
 

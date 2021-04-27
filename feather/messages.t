@@ -184,7 +184,7 @@ M.MouseButton = Enumset{
   "X5", 0x80,
 }
 
-M.Window = Flags{
+M.WindowFlag = Flags{
   "MINIMIZABLE",
   "MAXIMIZABLE",
   "RESIZABLE",

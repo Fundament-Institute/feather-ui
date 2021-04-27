@@ -87,6 +87,36 @@ Context::~Context()
   kh_destroy_shader(_shaderhash);
 }
 
+/*
+glBlendFuncSeparate(BlendValue(blend->srcBlend), BlendValue(blend->destBlend), BlendValue(blend->srcBlendAlpha),
+                        BlendValue(blend->destBlendAlpha));
+    glBlendEquationSeparate(BlendOp(blend->colorBlend), BlendOp(blend->alphaBlend));
+
+    if(_lastblend.constant.v != blend->constant.v)
+    {
+      float colors[4];
+      ColorFloats(blend->constant, colors, !(blend->flags & FG_DrawFlags_LINEAR));
+      glBlendColor(colors[0], colors[1], colors[2], colors[3]);
+    }
+
+    if(_lastblend.mask != blend->mask)
+      glColorMask(blend->mask & 0b0001, blend->mask & 0b0010, blend->mask & 0b0100, blend->mask & 0b1000);
+
+    auto diff = _lastblend.flags ^ blend->flags;
+    if(diff & FG_DrawFlags_CCW_FRONT_FACE)
+      glFrontFace((blend->flags & FG_DrawFlags_CCW_FRONT_FACE) ? GL_CCW : GL_CW);
+    FlipFlag(diff, blend->flags, FG_DrawFlags_CULL_FACE, GL_CULL_FACE);
+    FlipFlag(diff, _lastblend.flags, FG_DrawFlags_LINEAR, GL_FRAMEBUFFER_SRGB);
+
+    if(diff & (FG_DrawFlags_WIREFRAME | FG_DrawFlags_POINTMODE))
+    {
+      if(blend->flags & FG_DrawFlags_WIREFRAME)
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+      else if(blend->flags & FG_DrawFlags_POINTMODE)
+        glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
+      else
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+*/
 void Context::BeginDraw(const FG_Rect* area)
 {
   if(_window)
@@ -94,7 +124,32 @@ void Context::BeginDraw(const FG_Rect* area)
     glfwMakeContextCurrent(_window);
     StandardViewport();
   }
+  else
+  {
+    // If we don't control the context, store OpenGL state so we don't stomp on it
+    glGetBooleanv(GL_BLEND, &_statestore.blend);
+    glGetBooleanv(GL_TEXTURE_2D, &_statestore.tex2d);
+    glGetBooleanv(GL_FRAMEBUFFER_SRGB, &_statestore.framebuffer_srgb);
+    glGetBooleanv(GL_CULL_FACE, &_statestore.cullface);
+    glGetIntegerv(GL_FRONT_FACE, &_statestore.frontface);
+    glGetIntegerv(GL_POLYGON_MODE, _statestore.polymode);
 
+    GLboolean mask[4];
+    glGetBooleanv(GL_COLOR_WRITEMASK, mask);
+    _statestore.blendmask = 0;
+    for(int i = 0; i < 4; ++i)
+      _statestore.blendmask |= (mask[i] << i);
+
+    glGetFloatv(GL_BLEND_COLOR, _statestore.blendcolor);
+    glGetIntegerv(GL_BLEND_SRC, &_statestore.colorsrc);
+    glGetIntegerv(GL_BLEND_DST, &_statestore.colordest);
+    glGetIntegerv(GL_BLEND_EQUATION, &_statestore.colorop);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &_statestore.alphasrc);
+    glGetIntegerv(GL_BLEND_DST_ALPHA, &_statestore.alphadest);
+    glGetIntegerv(GL_BLEND_EQUATION_ALPHA, &_statestore.alphaop);
+  }
+  
+  SetDefaultState();
   _clipped = area != nullptr;
   if(_clipped)
     PushClip(*area);
@@ -106,6 +161,34 @@ void Context::EndDraw()
   _clipped = false;
   if(_window)
     glfwSwapBuffers(_window);
+  else
+  {
+    // Restore saved OpenGL state
+    FlipFlag(1, _statestore.blend, 1, GL_BLEND);
+    _backend->LogError("glEnable");
+    FlipFlag(1, _statestore.tex2d, 1, GL_TEXTURE_2D);
+    _backend->LogError("glEnable");
+    FlipFlag(1, _statestore.framebuffer_srgb, 1, GL_FRAMEBUFFER_SRGB);
+    _backend->LogError("glEnable");
+    FlipFlag(1, _statestore.cullface, 1, GL_CULL_FACE);
+    _backend->LogError("glEnable");
+    glFrontFace(_statestore.frontface);
+    _backend->LogError("glFrontFace");
+    glPolygonMode(GL_FRONT, _statestore.polymode[0]);
+    _backend->LogError("glPolygonMode");
+    glPolygonMode(GL_BACK, _statestore.polymode[1]);
+    _backend->LogError("glPolygonMode");
+    glColorMask(_statestore.blendmask & 0b0001, _statestore.blendmask & 0b0010, _statestore.blendmask & 0b0100,
+                _statestore.blendmask & 0b1000);
+    _backend->LogError("glColorMask");
+    glBlendColor(_statestore.blendcolor[0], _statestore.blendcolor[1], _statestore.blendcolor[2],
+                 _statestore.blendcolor[3]);
+    _backend->LogError("glBlendColor");
+    glBlendFuncSeparate(_statestore.colorsrc, _statestore.colordest, _statestore.alphasrc, _statestore.alphadest);
+    _backend->LogError("glBlendFuncSeparate");
+    glBlendEquationSeparate(_statestore.colorop, _statestore.alphaop);
+    _backend->LogError("glBlendEquationSeparate");
+  }
 }
 
 void Context::SetDim(const FG_Vec& dim)
@@ -617,7 +700,7 @@ GLuint Context::_genIndices(size_t num)
   return indices;
 }
 
-void Context::CreateResources()
+void Context::SetDefaultState()
 {
   glEnable(GL_BLEND);
   _backend->LogError("glEnable");
@@ -630,8 +713,13 @@ void Context::CreateResources()
   glEnable(GL_FRAMEBUFFER_SRGB);
   _backend->LogError("glEnable");
 
-  ApplyBlend(0);
+  ApplyBlend(0, true);
   _backend->LogError("glBlendFunc");
+}
+
+void Context::CreateResources()
+{
+  SetDefaultState();
 
   _imageshader  = _backend->_imageshader.Create(_backend);
   _rectshader   = _backend->_rectshader.Create(_backend);
@@ -938,12 +1026,12 @@ void Context::FlipFlag(int diff, int flags, int flag, int option)
   }
 }
 
-const FG_BlendState& Context::ApplyBlend(const FG_BlendState* blend)
+const FG_BlendState& Context::ApplyBlend(const FG_BlendState* blend, bool force)
 {
   if(!blend)
     blend = &PREMULTIPLY_BLEND;
 
-  if(memcmp(blend, &_lastblend, sizeof(FG_BlendState)) != 0)
+  if(force || memcmp(blend, &_lastblend, sizeof(FG_BlendState)) != 0)
   {
     glBlendFuncSeparate(BlendValue(blend->srcBlend), BlendValue(blend->destBlend), BlendValue(blend->srcBlendAlpha),
                         BlendValue(blend->destBlendAlpha));
@@ -961,7 +1049,7 @@ const FG_BlendState& Context::ApplyBlend(const FG_BlendState* blend)
 
     auto diff = _lastblend.flags ^ blend->flags;
     if(diff & FG_DrawFlags_CCW_FRONT_FACE)
-      glFrontFace(blend->flags ? GL_CCW : GL_CW);
+      glFrontFace((blend->flags & FG_DrawFlags_CCW_FRONT_FACE) ? GL_CCW : GL_CW);
     FlipFlag(diff, blend->flags, FG_DrawFlags_CULL_FACE, GL_CULL_FACE);
     FlipFlag(diff, _lastblend.flags, FG_DrawFlags_LINEAR, GL_FRAMEBUFFER_SRGB);
 
@@ -1274,4 +1362,9 @@ unsigned int Context::_createTexture(const unsigned char* const data, int width,
   }
   SOIL_free_image_data(img);
   return tex_id;
+}
+
+void Context::StandardDrawFunction()
+{
+
 }

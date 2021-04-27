@@ -30,19 +30,14 @@ typedef HRESULT(STDAPICALLTYPE* GETSCALEFACTORFORMONITOR)(HMONITOR, int*);
 static std::unique_ptr<struct HINSTANCE__, void (*)(struct HINSTANCE__*)> shcoreD2D(LoadLibraryW(L"Shcore.dll"),
                                                                                     [](HMODULE h) { FreeLibrary(h); });
 
-Window* Backend::FromHWND(void* p)
-{
-  return reinterpret_cast<Window*>(GetWindowLongPtrW(reinterpret_cast<HWND>(p), GWLP_USERDATA));
-}
-
-FG_Err Backend::DrawD2D(FG_Backend* self, void* window, FG_Command* commandlist, unsigned int n_commands,
+FG_Err Backend::DrawD2D(FG_Backend* self, FG_Window* window, FG_Command* commandlist, unsigned int n_commands,
                         FG_BlendState* blend)
 {
   if(!self || !window)
     return -1;
 
   auto backend = static_cast<Backend*>(self);
-  auto context = FromHWND(window);
+  auto context = static_cast<Window*>(window);
 
   for(unsigned int i = 0; i < n_commands; ++i)
   {
@@ -74,7 +69,7 @@ FG_Err Backend::DrawD2D(FG_Backend* self, void* window, FG_Command* commandlist,
       break;
     case FG_Category_LINES: context->DrawLines(c.lines.points, c.lines.count, c.lines.color); break;
     case FG_Category_CURVE:
-      context->DrawCurve(c.curve.anchors, c.curve.count, c.curve.fillColor, c.curve.stroke, c.curve.strokeColor);
+      context->DrawCurve(c.curve.points, c.curve.count, c.curve.fillColor, c.curve.stroke, c.curve.strokeColor);
       break;
     case FG_Category_SHADER:
       context->DrawShader(c.shader.shader, c.shader.vertices, c.shader.indices, c.shader.values);
@@ -85,19 +80,19 @@ FG_Err Backend::DrawD2D(FG_Backend* self, void* window, FG_Command* commandlist,
   return 0;
 }
 
-bool Backend::Clear(FG_Backend* self, void* window, FG_Color color)
+bool Backend::Clear(FG_Backend* self, FG_Window* window, FG_Color color)
 {
-  auto context = FromHWND(window);
+  auto context = static_cast<Window*>(window);
   context->Clear(color);
   return true;
 }
 
-FG_Err Backend::PushLayer(FG_Backend* self, void* window, FG_Asset* asset, float* transform, float opacity,
+FG_Err Backend::PushLayer(FG_Backend* self, FG_Window* window, FG_Asset* asset, float* transform, float opacity,
                           FG_BlendState* blend)
 {
   if(!window || !transform)
     return -1;
-  auto context = FromHWND(window);
+  auto context = static_cast<Window*>(window);
   auto layer   = reinterpret_cast<ID2D1Layer*>(asset->data.data);
   auto size    = layer->GetSize();
 
@@ -124,11 +119,11 @@ FG_Err Backend::PushLayer(FG_Backend* self, void* window, FG_Asset* asset, float
   return 0;
 }
 
-FG_Err Backend::PopLayer(FG_Backend* self, void* window)
+FG_Err Backend::PopLayer(FG_Backend* self, FG_Window* window)
 {
   if(!window)
     return -1;
-  auto context = FromHWND(window);
+  auto context = static_cast<Window*>(window);
   auto p       = context->layers.top();
   context->PopClip();
   context->layers.pop();
@@ -139,33 +134,33 @@ FG_Err Backend::PopLayer(FG_Backend* self, void* window)
   return 0;
 }
 
-FG_Err Backend::SetRenderTarget(FG_Backend* self, void* window, FG_Asset* target) { return -1; }
+FG_Err Backend::SetRenderTarget(FG_Backend* self, FG_Window* window, FG_Asset* target) { return -1; }
 
-FG_Err Backend::PushClip(FG_Backend* self, void* window, FG_Rect* area)
+FG_Err Backend::PushClip(FG_Backend* self, FG_Window* window, FG_Rect* area)
 {
   if(!window || !area)
     return -1;
-  FromHWND(window)->PushClip(*area);
+  static_cast<Window*>(window)->PushClip(*area);
   return 0;
 }
 
-FG_Err Backend::PopClip(FG_Backend* self, void* window)
+FG_Err Backend::PopClip(FG_Backend* self, FG_Window* window)
 {
   if(!window)
     return -1;
-  FromHWND(window)->PopClip();
+  static_cast<Window*>(window)->PopClip();
   return 0;
 }
 
-FG_Err Backend::DirtyRect(FG_Backend* self, void* window, FG_Rect* area)
+FG_Err Backend::DirtyRect(FG_Backend* self, FG_Window* window, FG_Rect* area)
 {
-  reinterpret_cast<Window*>(GetWindowLongPtrW(reinterpret_cast<HWND>(window), GWLP_USERDATA))->InvalidateHWND(area);
+  static_cast<Window*>(window)->InvalidateHWND(area);
   return 0;
 }
 
-void* Backend::CreateSystemControl(FG_Backend* self, void* window, const char* id, FG_Rect* area, ...) { return 0; }
-FG_Err Backend::SetSystemControl(FG_Backend* self, void* window, void* control, FG_Rect* area, ...) { return -1; }
-FG_Err Backend::DestroySystemControl(FG_Backend* self, void* window, void* control) { return -1; }
+void* Backend::CreateSystemControl(FG_Backend* self, FG_Window* window, const char* id, FG_Rect* area, ...) { return 0; }
+FG_Err Backend::SetSystemControl(FG_Backend* self, FG_Window* window, void* control, FG_Rect* area, ...) { return -1; }
+FG_Err Backend::DestroySystemControl(FG_Backend* self, FG_Window* window, void* control) { return -1; }
 
 FG_Font* Backend::CreateFontD2D(FG_Backend* self, const char* family, unsigned short weight, bool italic, unsigned int pt,
                                 FG_Vec dpi, FG_AntiAliasing aa)
@@ -205,6 +200,7 @@ FG_Font* Backend::CreateFontD2D(FG_Backend* self, const char* family, unsigned s
   collection->GetFontFamily(findex, &ffamily);
   IDWriteFont* font;
   ffamily->GetFirstMatchingFont(format->GetFontWeight(), format->GetFontStretch(), format->GetFontStyle(), &font);
+
   DWRITE_FONT_METRICS metrics;
   font->GetMetrics(&metrics);
   float ratio       = format->GetFontSize() / static_cast<float>(metrics.designUnitsPerEm);
@@ -429,12 +425,12 @@ FG_Asset* Backend::CreateBuffer(FG_Backend* self, void* data, uint32_t bytes, ui
   return 0;
 }
 
-FG_Asset* Backend::CreateLayer(FG_Backend* self, void* window, FG_Vec* size, int flags)
+FG_Asset* Backend::CreateLayer(FG_Backend* self, FG_Window* window, FG_Vec* size, int flags)
 {
   if(!self || !window)
     return nullptr;
 
-  auto context = FromHWND(window);
+  auto context = static_cast<Window*>(window);
   ID2D1Layer* layer;
   if(FAILED(context->target->CreateLayer(!size ? context->target->GetSize() : D2D1::SizeF(size->x, size->y), &layer)))
     return nullptr;
@@ -472,10 +468,10 @@ FG_Shader* Backend::CreateShader(FG_Backend* self, const char* ps, const char* v
   return 0;
 }
 FG_Err Backend::DestroyShader(FG_Backend* self, FG_Shader* shader) { return -1; }
-FG_Err Backend::GetProjection(FG_Backend* self, void* window, FG_Asset* layer, float* proj4x4) { return -1; }
-FG_Err Backend::PutClipboard(FG_Backend* self, void* window, FG_Clipboard kind, const char* data, uint32_t count)
+FG_Err Backend::GetProjection(FG_Backend* self, FG_Window* window, FG_Asset* layer, float* proj4x4) { return -1; }
+FG_Err Backend::PutClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard kind, const char* data, uint32_t count)
 {
-  if(!OpenClipboard(reinterpret_cast<HWND>(window)))
+  if(!OpenClipboard(reinterpret_cast<HWND>(window->handle)))
     return -1;
   if(data != 0 && count > 0 && EmptyClipboard())
   {
@@ -524,9 +520,9 @@ FG_Err Backend::PutClipboard(FG_Backend* self, void* window, FG_Clipboard kind, 
   return 0;
 }
 
-uint32_t Backend::GetClipboard(FG_Backend* self, void* window, FG_Clipboard kind, void* target, uint32_t count)
+uint32_t Backend::GetClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard kind, void* target, uint32_t count)
 {
-  if(!OpenClipboard(reinterpret_cast<HWND>(window)))
+  if(!OpenClipboard(reinterpret_cast<HWND>(window->handle)))
     return 0;
   UINT format = CF_PRIVATEFIRST;
   switch(kind)
@@ -579,7 +575,7 @@ uint32_t Backend::GetClipboard(FG_Backend* self, void* window, FG_Clipboard kind
   return (uint32_t)size;
 }
 
-bool Backend::CheckClipboard(FG_Backend* self, void* window, FG_Clipboard kind)
+bool Backend::CheckClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard kind)
 {
   switch(kind)
   {
@@ -595,9 +591,9 @@ bool Backend::CheckClipboard(FG_Backend* self, void* window, FG_Clipboard kind)
   return false;
 }
 
-FG_Err Backend::ClearClipboard(FG_Backend* self, void* window, FG_Clipboard kind)
+FG_Err Backend::ClearClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard kind)
 {
-  if(!OpenClipboard(reinterpret_cast<HWND>(window)))
+  if(!OpenClipboard(reinterpret_cast<HWND>(window->handle)))
     return -1;
   if(!EmptyClipboard())
     return -1;
@@ -629,7 +625,7 @@ FG_Err Backend::ProcessMessages(FG_Backend* self)
   return 1;
 }
 
-FG_Err Backend::SetCursorD2D(FG_Backend* self, void* window, FG_Cursor cursor)
+FG_Err Backend::SetCursorD2D(FG_Backend* self, FG_Window* window, FG_Cursor cursor)
 {
   static HCURSOR hArrow    = LoadCursor(NULL, IDC_ARROW);
   static HCURSOR hIBeam    = LoadCursor(NULL, IDC_IBEAM);
@@ -687,9 +683,9 @@ FG_Err Backend::GetDisplay(FG_Backend* self, void* handle, FG_Display* out)
   return -1;
 }
 
-FG_Err Backend::GetDisplayWindow(FG_Backend* self, void* window, FG_Display* out)
+FG_Err Backend::GetDisplayWindow(FG_Backend* self, FG_Window* window, FG_Display* out)
 {
-  HMONITOR monitor = MonitorFromWindow(reinterpret_cast<HWND>(window), MONITOR_DEFAULTTONEAREST);
+  HMONITOR monitor = MonitorFromWindow(reinterpret_cast<HWND>(window->handle), MONITOR_DEFAULTTONEAREST);
   for(auto& i : static_cast<Backend*>(self)->_displays)
     if(i.handle == monitor)
     {
@@ -700,20 +696,20 @@ FG_Err Backend::GetDisplayWindow(FG_Backend* self, void* window, FG_Display* out
   return -1;
 }
 
-void* Backend::CreateWindowD2D(FG_Backend* self, FG_MsgReceiver* element, void* display, FG_Vec* pos, FG_Vec* dim,
-                               const char* caption, uint64_t flags, void* context)
+FG_Window* Backend::CreateWindowD2D(FG_Backend* self, FG_MsgReceiver* element, void* display, FG_Vec* pos, FG_Vec* dim,
+                               const char* caption, uint64_t flags)
 {
   // TODO: If a display other than the primary monitor is specified AND pos == NULL, then we should recreate Windows' DWM
   // new window logic by incrementing _lastwindowpos on both the x and y axis by the height of a standard window titlebar
   // and shifting it into that monitor's rectangle.
-  auto window = new Window(static_cast<Backend*>(self), element, pos, dim, flags, caption, context);
-  return window->hWnd;
+  auto window = new Window(static_cast<Backend*>(self), element, pos, dim, flags, caption);
+  return window;
 }
 
-FG_Err Backend::SetWindowD2D(FG_Backend* self, void* window, FG_MsgReceiver* element, void* display, FG_Vec* pos,
+FG_Err Backend::SetWindowD2D(FG_Backend* self, FG_Window* window, FG_MsgReceiver* element, void* display, FG_Vec* pos,
                              FG_Vec* dim, const char* caption, uint64_t flags)
 {
-  Window* ptr = reinterpret_cast<Window*>(GetWindowLongPtrW(reinterpret_cast<HWND>(window), GWLP_USERDATA));
+  Window* ptr = static_cast<Window*>(window);
   if(!ptr)
     return -1;
   ptr->element = element;
@@ -726,25 +722,25 @@ FG_Err Backend::SetWindowD2D(FG_Backend* self, void* window, FG_MsgReceiver* ele
   return 0;
 }
 
-FG_Err Backend::DestroyWindow(FG_Backend* self, void* window)
+FG_Err Backend::DestroyWindow(FG_Backend* self, FG_Window* window)
 {
-  Window* ptr = reinterpret_cast<Window*>(GetWindowLongPtrW(reinterpret_cast<HWND>(window), GWLP_USERDATA));
+  Window* ptr = static_cast<Window*>(window);
   if(!ptr)
     return -1;
   delete ptr;
   return 0;
 }
-FG_Err Backend::BeginDraw(FG_Backend* self, void* window, FG_Rect* area)
+FG_Err Backend::BeginDraw(FG_Backend* self, FG_Window* window, FG_Rect* area)
 {
-  Window* ptr = reinterpret_cast<Window*>(GetWindowLongPtrW(reinterpret_cast<HWND>(window), GWLP_USERDATA));
+  Window* ptr = static_cast<Window*>(window);
   if(!ptr)
     return -1;
   ptr->BeginDraw(*area);
   return 0;
 }
-FG_Err Backend::EndDraw(FG_Backend* self, void* window)
+FG_Err Backend::EndDraw(FG_Backend* self, FG_Window* window)
 {
-  Window* ptr = reinterpret_cast<Window*>(GetWindowLongPtrW(reinterpret_cast<HWND>(window), GWLP_USERDATA));
+  Window* ptr = static_cast<Window*>(window);
   if(!ptr)
     return -1;
   ptr->EndDraw();
@@ -844,7 +840,7 @@ void Backend::RefreshMonitors()
 
 FG_Result Backend::Behavior(Window* w, const FG_Msg& msg)
 {
-  return (*_behavior)(w->element, w->hWnd, _root, const_cast<FG_Msg*>(&msg));
+  return (*_behavior)(w->element, w, _root, const_cast<FG_Msg*>(&msg));
 }
 
 uint16_t Backend::GetTouchIndex(DWORD index, bool up)
@@ -1045,6 +1041,8 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior, ID2D1Factory1* fa
   }
 
   Window::WndRegister(Window::WndProc, WindowClass);
+  getDpiForMonitor = 0;
+  getScaleFactorForMonitor = 0;
 
   // factory->GetDesktopDpi(&dpi.x, &dpi.y);
 

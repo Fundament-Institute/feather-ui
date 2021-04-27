@@ -73,10 +73,17 @@ if terralib.sizeof(M.Result) ~= terralib.sizeof(intptr) then
   error("Message.Result ("..terralib.sizeof(M.Result)..") should be the size of a pointer ("..terralib.sizeof(intptr)..")")
 end
 
-M.Behavior = {&M.Receiver, &opaque, &opaque, &M.Message} -> M.Result
+struct M.Window {
+  handle : &opaque
+  device : &opaque
+  context : &opaque
+  memory : &opaque
+}
+
+M.Behavior = {&M.Receiver, &M.Window, &opaque, &M.Message} -> M.Result
 
 -- Our default message handler just calls the appropriate vftable pointer and maps our parameters back to it.
-terra M.DefaultBehavior(self : &M.Receiver, w : &opaque, ui : &opaque, m : &M.Message) : M.Result
+terra M.DefaultBehavior(self : &M.Receiver, w : &M.Window, ui : &opaque, m : &M.Message) : M.Result
   switch [int](m.kind.val) do
     escape 
       for k, v in pairs(M.Kind.methods) do

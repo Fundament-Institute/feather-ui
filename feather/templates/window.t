@@ -60,7 +60,7 @@ return core.raw_template {
           self.rtree:init()
           self.node = self.rtree:create(nil, &zero, &zero, &zero, &zindex)
           self.node.data = &self.super.super
-          self.window = [context.backend]:CreateWindow(self.node.data, nil, &pos, &size, "feather window", messages.Window.RESIZABLE, nil)
+          self.window = [context.backend]:CreateWindow(self.node.data, nil, &pos, &size, "feather window", messages.WindowFlag.RESIZABLE, nil)
           self.color = environment.color
           [body_fns.enter(`self.body, override_context(self, context), environment)]
         end

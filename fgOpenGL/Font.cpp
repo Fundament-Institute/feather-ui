@@ -13,6 +13,7 @@
 
 #ifdef FG_PLATFORM_WIN32
   #include <Shlobj.h>
+  #include <dwrite_1.h>
 #endif
 
 namespace GL {
@@ -21,28 +22,151 @@ namespace GL {
 
 using namespace GL;
 
-Font::Font(Backend* backend, const char* font, int psize, FG_AntiAliasing antialias, const FG_Vec& _dpi) :
-  _backend(backend), _path(font), _glyphs(kh_init_glyphmap()), _curpower(0), _nexty(1)
+Font::Font(Backend* backend, const char* family, int weight, bool italic, int psize, FG_AntiAliasing antialias,
+           const FG_Vec& _dpi) :
+  _backend(backend), _path(family), _glyphs(kh_init_glyphmap()), _curpower(0), _nexty(1)
 {
   _cur = { 1, 1 };
   pt   = psize;
   dpi  = _dpi;
   aa   = antialias;
 #ifdef FG_PLATFORM_WIN32
-  if(!std::filesystem::exists(_path)) // we only adjust the path if our current path doesn't exist
+  FT_Error err;
+  if(std::filesystem::exists(_path)) // Check if we were just passed an entire path instead of a font family
+    err = FT_New_Face(_backend->_ftlib, _path.u8string().c_str(), 0, &_face);
+  else
   {
-    wchar_t buf[MAX_PATH];
-    HRESULT res = SHGetFolderPathW(0, CSIDL_FONTS, 0, SHGFP_TYPE_CURRENT, buf);
-    if(res == E_FAIL)
-      return;
+    IDWriteTextFormat* format = 0;
+    wchar_t wlocale[LOCALE_NAME_MAX_LENGTH];
+    GetSystemDefaultLocaleName(wlocale, LOCALE_NAME_MAX_LENGTH);
+    HRESULT hr = _backend->_writefactory->CreateTextFormat(_path.c_str(), 0, DWRITE_FONT_WEIGHT(weight),
+                                                           italic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL,
+                                                           DWRITE_FONT_STRETCH_NORMAL, pt * (dpi.x / 72.0f), wlocale,
+                                                           &format);
 
-    _path = std::filesystem::path(buf) / _path;
-    _path += ".ttf"; // HACK
+    if(FAILED(hr) || !format)
+    {
+      (*_backend->_log)(_backend->_root, FG_Level_ERROR, "Font %s does not exist or cannot be found.",
+                        _path.u8string().c_str());
+      return;
+    }
+    TCHAR name[64];
+    UINT32 findex;
+    BOOL exists;
+    IDWriteFontCollection* collection;
+    format->GetFontFamilyName(name, 64);
+    format->GetFontCollection(&collection);
+    collection->FindFamilyName(name, &findex, &exists);
+    if(!exists) // CreateTextFormat always succeeds even for invalid font names so we have to check to see if we actually
+                // loaded a real font
+    {
+      (*_backend->_log)(_backend->_root, FG_Level_ERROR, "Font %s does not exist or cannot be found.",
+                        _path.u8string().c_str());
+      format->Release();
+      collection->Release();
+      return;
+    }
+
+    IDWriteFontFamily* ffamily = nullptr;
+    hr                         = collection->GetFontFamily(findex, &ffamily);
+    IDWriteFont* font          = nullptr;
+    if(SUCCEEDED(hr))
+      hr = ffamily->GetFirstMatchingFont(format->GetFontWeight(), format->GetFontStretch(), format->GetFontStyle(), &font);
+    IDWriteFontFace* face = nullptr;
+    if(SUCCEEDED(hr))
+      hr = font->CreateFontFace(&face);
+    UINT32 n_files = 0;
+    if(SUCCEEDED(hr))
+      hr = face->GetFiles(&n_files, NULL);
+    IDWriteFontFile** files = (IDWriteFontFile**)ALLOCA(sizeof(IDWriteFontFile*) * n_files);
+
+    if(SUCCEEDED(hr))
+      hr = face->GetFiles(&n_files, files);
+
+    if(SUCCEEDED(hr) && n_files > 0)
+    {
+      const void* refkey;
+      UINT32 refkeysize;
+      hr = files[0]->GetReferenceKey(&refkey, &refkeysize);
+
+      if(SUCCEEDED(hr))
+      {
+        IDWriteFontFileLoader* loader = nullptr;
+        files[0]->GetLoader(&loader);
+        if(loader != nullptr)
+        {
+          IDWriteFontFileStream* stream;
+          hr = loader->CreateStreamFromKey(refkey, refkeysize, &stream);
+          if(SUCCEEDED(hr))
+          {
+            UINT64 filesize;
+            const void* start;
+            void* ctx;
+
+            hr = stream->GetFileSize(&filesize);
+
+            if(SUCCEEDED(hr))
+            {
+              hr = stream->ReadFileFragment(&start, 0, filesize, &ctx);
+
+              if(SUCCEEDED(hr))
+              {
+                err = FT_New_Memory_Face(_backend->_ftlib, (const FT_Byte*)start, filesize, 0, &_face);
+                stream->ReleaseFileFragment(ctx);
+              }
+            }
+          }
+          loader->Release();
+        }
+      }
+
+      if(FAILED(hr))
+      {
+        (*_backend->_log)(_backend->_root, FG_Level_ERROR, "Could not load files for Font %s: %li",
+                          _path.u8string().c_str(), hr);
+        return;
+      }
+    }
+    else
+    {
+      (*_backend->_log)(_backend->_root, FG_Level_ERROR, "Could not load files for Font %s: %li", _path.u8string().c_str(),
+                        hr);
+      return;
+    }
+
+    if(ffamily)
+      ffamily->Release();
+    if(font)
+      font->Release();
+    if(face)
+      face->Release();
+    for(UINT32 i = 0; i < n_files; ++i)
+      files[i]->Release();
+    format->Release();
+    collection->Release();
   }
 #else
-  FcConfig* config = FcInitLoadConfigAndFonts();
-  FcPattern* pat   = FcNameParse((const FcChar8*)font);
+  switch(weight)
+  {
+  case 100: weight = FC_WEIGHT_THIN; break;
+  case 200: weight = FC_WEIGHT_EXTRALIGHT; break;
+  case 300: weight = FC_WEIGHT_LIGHT; break;
+  case 350: weight = FC_WEIGHT_LIGHT; break;
+  case 400: weight = FC_WEIGHT_NORMAL; break;
+  case 500: weight = FC_WEIGHT_MEDIUM; break;
+  case 600: weight = FC_WEIGHT_SEMIBOLD; break;
+  case 700: weight = FC_WEIGHT_BOLD; break;
+  case 800: weight = FC_WEIGHT_EXTRABOLD; break;
+  case 900: weight = FC_WEIGHT_BLACK; break;
+  case 950: weight = FC_WEIGHT_EXTRABLACK; break;
+  default: weight /= 5; break; // This doesn't really work but we try anyway
+  }
 
+  FcConfig* config = FcInitLoadConfigAndFonts();
+  FcPattern* pat   = FcNameParse((const FcChar8*)family);
+  FcPatternAddInteger(pat, FC_SIZE, pt);
+  FcPatternAddInteger(pat, FC_WEIGHT, weight);
+  FcPatternAddInteger(pat, FC_SLANT, italic ? 100 : 0);
   FcConfigSubstitute(config, pat, FcMatchPattern);
   FcDefaultSubstitute(pat);
 
@@ -55,7 +179,7 @@ Font::Font(Backend* backend, const char* font, int psize, FG_AntiAliasing antial
     FcChar8* str = NULL;
 
     if(FcPatternGetString(match, FC_FILE, 0, &str) == FcResultMatch)
-      _path = std::filesystem::path((const char*)str);
+      err = FT_New_Face(_backend->_ftlib, (const char*)str, 0, &_face);
   }
 
   FcPatternDestroy(match);
@@ -65,7 +189,6 @@ Font::Font(Backend* backend, const char* font, int psize, FG_AntiAliasing antial
 
   const float FT_COEF = (1.0f / 64.0f);
 
-  FT_Error err = FT_New_Face(_backend->_ftlib, _path.u8string().c_str(), 0, &_face);
   if(err != 0 || !_face)
   {
     (*_backend->_log)(_backend->_root, FG_Level_ERROR, "Font %s does not exist or cannot be found.",
@@ -75,7 +198,7 @@ Font::Font(Backend* backend, const char* font, int psize, FG_AntiAliasing antial
 
   if(!_face->charmap)
   {
-    (*_backend->_log)(_backend->_root, FG_Level_ERROR, "Font face %s does not have a unicode character map.", font);
+    (*_backend->_log)(_backend->_root, FG_Level_ERROR, "Font face %s does not have a unicode character map.", family);
     _cleanup();
     return;
   }
@@ -94,7 +217,7 @@ Font::Font(Backend* backend, const char* font, int psize, FG_AntiAliasing antial
     }
     if(FT_Set_Char_Size(_face, 0, cur, 0, 0) != 0)
     {
-      (*_backend->_log)(_backend->_root, FG_Level_ERROR, "Font face %s can't be rendered at size %i.", font, pt);
+      (*_backend->_log)(_backend->_root, FG_Level_ERROR, "Font face %s can't be rendered at size %i.", family, pt);
       _cleanup();
       return;
     }
@@ -144,10 +267,10 @@ void Font::_cleanup()
 
 int Font::_ftaa(FG_AntiAliasing antialias)
 {
-  switch(antialias)
+  switch(antialias&(~FG_AntiAliasing_SDF))
   {
   default:
-  case FG_AntiAliasing_NO_AA: return FT_LOAD_TARGET_MONO;
+  case 0: return FT_LOAD_TARGET_MONO;
   case FG_AntiAliasing_AA: return FT_LOAD_TARGET_NORMAL;
   case FG_AntiAliasing_LCD: return FT_LOAD_TARGET_LCD;
   case FG_AntiAliasing_LCD_V: return FT_LOAD_TARGET_LCD_V;
@@ -270,11 +393,11 @@ Glyph* Font::RenderGlyph(Context* context, char32_t codepoint)
       for(uint32_t j = 0; j < gbmp.width; ++j) // RGBA
       {
         uint8_t v = *src++;
-        //v         = (uint8_t)(powf(v / 255.0f, (1.0f / 2.2f)) * 255.0f);
-        *dst++    = v; // premultiply alpha
-        *dst++    = v;
-        *dst++    = v;
-        *dst++    = v;
+        // v         = (uint8_t)(powf(v / 255.0f, (1.0f / 2.2f)) * 255.0f);
+        *dst++ = v; // premultiply alpha
+        *dst++ = v;
+        *dst++ = v;
+        *dst++ = v;
       }
     }
     break;

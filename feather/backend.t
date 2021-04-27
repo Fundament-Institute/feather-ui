@@ -65,11 +65,12 @@ B.Format = Enum{
 B.Format.methods["UNKNOWN"] = constant(`0xff)
 B.Format.enum_values["UNKNOWN"] = 0xff
 
-B.AntiAliasing = Enum{
-  "NO_AA",
+B.AntiAliasing = Flags{
   "AA",
   "LCD",
-  "LCD_V"}
+  "LCD_V",
+  "SDF",
+}
 
 B.BreakStyle = Enum{
   "NONE",
@@ -85,7 +86,8 @@ B.Clipboard = Enum{
   "FILE",
   "ELEMENT",
   "CUSTOM",
-  "ALL"}
+  "ALL",
+}
 
 B.Cursor = Enum{
   "NONE",
@@ -102,7 +104,8 @@ B.Cursor = Enum{
   "NO",
   "HELP",
   "DRAG",
-  "CUSTOM"}
+  "CUSTOM",
+}
 
 
 B.DrawFlags = Flags({
@@ -279,6 +282,8 @@ B.Category = Enum({
   "TRIANGLE",
   "LINES",
   "CURVE",
+  "LINES3D",
+  "CURVE3D",
   "CUBE",
   "ICOSPHERE",
   "CYLINDER",
@@ -334,16 +339,27 @@ struct B.Command {
       }
     }
     lines : struct {
-      points : &F.Vec
+      union {
+        points : &F.Vec
+        points3D : &F.Vec3D
+      }
       count : uint
       color : F.Color
     }
     curve : struct {
-      anchors : &F.Vec
+      union {
+        points : &F.Vec
+        points3D : &F.Vec3D
+      }
       count : uint
       fillColor : F.Color
       stroke : float
       strokeColor : F.Color
+    }
+    shape3D : struct {
+      shader : &B.Shader
+      subdivision : int
+      values : &B.ShaderValue
     }
     shader : struct {
       shader : &B.Shader
@@ -366,16 +382,16 @@ struct B.Backend {
 }
 
 -- Define a dynamic backend object (a static backend would be a seperate type that also provides these functions).
-terra B.Backend:Draw(window : &opaque, commands : &B.Command, n_commands : uint, blendstate : &B.BlendState) : F.Err return 0 end
-terra B.Backend:Clear(window : &opaque, color : F.Color) : bool return false end -- Clears whatever is inside the current clipping rect
-terra B.Backend:PushLayer(window : &opaque, layer : &B.Asset, transform : &float, opacity : float, blendstate : &B.BlendState) : F.Err return 0 end
-terra B.Backend:PopLayer(window : &opaque) : F.Err return 0 end
-terra B.Backend:SetRenderTarget(window : &opaque, target : &B.Asset) : F.Err return 0 end
-terra B.Backend:PushClip(window : &opaque, area : &F.Rect) : F.Err return 0 end
-terra B.Backend:PopClip(window : &opaque) : F.Err return 0 end
-terra B.Backend:DirtyRect(window : &opaque, area : &F.Rect) : F.Err return 0 end
-terra B.Backend:BeginDraw(window : &opaque, area : &F.Rect) : F.Err return 0 end
-terra B.Backend:EndDraw(window : &opaque) : F.Err return 0 end
+terra B.Backend:Draw(window : &Msg.Window, commands : &B.Command, n_commands : uint, blendstate : &B.BlendState) : F.Err return 0 end
+terra B.Backend:Clear(window : &Msg.Window, color : F.Color) : bool return false end -- Clears whatever is inside the current clipping rect
+terra B.Backend:PushLayer(window : &Msg.Window, layer : &B.Asset, transform : &float, opacity : float, blendstate : &B.BlendState) : F.Err return 0 end
+terra B.Backend:PopLayer(window : &Msg.Window) : F.Err return 0 end
+terra B.Backend:SetRenderTarget(window : &Msg.Window, target : &B.Asset) : F.Err return 0 end
+terra B.Backend:PushClip(window : &Msg.Window, area : &F.Rect) : F.Err return 0 end
+terra B.Backend:PopClip(window : &Msg.Window) : F.Err return 0 end
+terra B.Backend:DirtyRect(window : &Msg.Window, area : &F.Rect) : F.Err return 0 end
+terra B.Backend:BeginDraw(window : &Msg.Window, area : &F.Rect) : F.Err return 0 end
+terra B.Backend:EndDraw(window : &Msg.Window) : F.Err return 0 end
 
 terra B.Backend:CreateShader(ps : F.conststring, vs : F.conststring, gs : F.conststring, cs : F.conststring, ds : F.conststring, hs : F.conststring, parameters : &B.ShaderParameter, n_parameters : uint) : &B.Shader return nil end
 terra B.Backend:DestroyShader(shader : &B.Shader) : F.Err return 0 end
@@ -389,31 +405,32 @@ terra B.Backend:FontPos(font : &B.Font, layout : &opaque, area :&F.Rect, index :
 
 terra B.Backend:CreateAsset(data : F.conststring, count : uint, format : B.Format, flags : int) : &B.Asset return nil end
 terra B.Backend:CreateBuffer(data : &opaque, bytes : uint, primitive : B.Primitive, parameters : &B.ShaderParameter, n_parameters : uint) : &B.Asset return nil end
-terra B.Backend:CreateLayer(window : &opaque, size : &F.Vec, flags : int) : &B.Asset return nil end
+terra B.Backend:CreateLayer(window : &Msg.Window, size : &F.Vec, flags : int) : &B.Asset return nil end
 --terra B.Backend:CreateAtlas(assets : &B.Asset, count : uint, flags : int) : &B.Asset return nil end
 --terra B.Backend:AddAtlas(atlas : &B.Asset, assets : &B.Asset, count : uint, flags : int) : F.Err return 0 end
 --terra B.Backend:RemoveAtlas(atlas : &B.Asset, assets : &B.Asset, count : uint, flags : int) : F.Err return 0 end
 terra B.Backend:DestroyAsset(asset : &B.Asset) : F.Err return 0 end
-terra B.Backend:GetProjection(window : &opaque, layer : &B.Asset, proj4x4 : &float) : F.Err return 0 end
+terra B.Backend:GetProjection(window : &Msg.Window, layer : &B.Asset, proj4x4 : &float) : F.Err return 0 end
 
-terra B.Backend:PutClipboard(window : &opaque, kind : B.Clipboard, data : F.conststring, count : uint) : F.Err return 0 end
-terra B.Backend:GetClipboard(window : &opaque, kind : B.Clipboard, target : &opaque, count : uint) : uint return 0 end
-terra B.Backend:CheckClipboard(window : &opaque, kind : B.Clipboard) : bool return false end
-terra B.Backend:ClearClipboard(window : &opaque, kind : B.Clipboard) : F.Err return 0 end
+terra B.Backend:PutClipboard(window : &Msg.Window, kind : B.Clipboard, data : F.conststring, count : uint) : F.Err return 0 end
+terra B.Backend:GetClipboard(window : &Msg.Window, kind : B.Clipboard, target : &opaque, count : uint) : uint return 0 end
+terra B.Backend:CheckClipboard(window : &Msg.Window, kind : B.Clipboard) : bool return false end
+terra B.Backend:ClearClipboard(window : &Msg.Window, kind : B.Clipboard) : F.Err return 0 end
 
-terra B.Backend:CreateSystemControl(window : &opaque, id : F.conststring, area : &F.Rect, ...) : &opaque return nil end
-terra B.Backend:SetSystemControl(window : &opaque, control : &opaque, area : &F.Rect, ...) : F.Err return 0 end
-terra B.Backend:DestroySystemControl(window : &opaque, control : &opaque) : F.Err return 0 end
+terra B.Backend:CreateSystemControl(window : &Msg.Window, id : F.conststring, area : &F.Rect, ...) : &opaque return nil end
+terra B.Backend:SetSystemControl(window : &Msg.Window, control : &opaque, area : &F.Rect, ...) : F.Err return 0 end
+terra B.Backend:DestroySystemControl(window : &Msg.Window, control : &opaque) : F.Err return 0 end
 
 terra B.Backend:GetSyncObject() : &opaque return nil end
 terra B.Backend:ProcessMessages() : F.Err return 0 end
-terra B.Backend:SetCursor(window : &opaque, cursor : B.Cursor) : F.Err return 0 end
+terra B.Backend:SetCursor(window : &Msg.Window, cursor : B.Cursor) : F.Err return 0 end
 terra B.Backend:GetDisplayIndex(index : uint, out : &B.Display) : F.Err return 0 end
 terra B.Backend:GetDisplay(handle : &opaque, out : &B.Display) : F.Err return 0 end
-terra B.Backend:GetDisplayWindow(window : &opaque, out : &B.Display) : F.Err return 0 end
-terra B.Backend:CreateWindow(element : &Msg.Receiver, display : &opaque, pos : &F.Vec, dim : &F.Vec, caption : F.conststring, flags : uint64, context : &opaque) : &opaque return nil end
-terra B.Backend:SetWindow(window : &opaque, element : &Msg.Receiver, display : &opaque, pos : &F.Vec, dim : &F.Vec, caption : F.conststring, flags : uint64) : F.Err return 0 end
-terra B.Backend:DestroyWindow(window : &opaque) : F.Err return 0 end
+terra B.Backend:GetDisplayWindow(window : &Msg.Window, out : &B.Display) : F.Err return 0 end
+terra B.Backend:CreateRegion(element : &Msg.Receiver, window : Msg.Window, pos : F.Vec3D, dim : F.Vec3D) : &Msg.Window return nil end
+terra B.Backend:CreateWindow(element : &Msg.Receiver, display : &opaque, pos : &F.Vec, dim : &F.Vec, caption : F.conststring, flags : uint64) : &Msg.Window return nil end
+terra B.Backend:SetWindow(window : &Msg.Window, element : &Msg.Receiver, display : &opaque, pos : &F.Vec, dim : &F.Vec, caption : F.conststring, flags : uint64) : F.Err return 0 end
+terra B.Backend:DestroyWindow(window : &Msg.Window) : F.Err return 0 end
 
 -- Generate both the function pointer field and redefine the function to call the generated function pointer
 do

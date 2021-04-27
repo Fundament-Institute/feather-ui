@@ -32,11 +32,9 @@ namespace D2D {
   KHASH_DECLARE(wic, const Asset*, ID2D1Bitmap*);
 
   // A window wraps a drawing context and processes messages for it
-  struct Window
+  struct Window : FG_Window
   {
-    HWND__* hWnd;
     ID2D1HwndRenderTarget* target;
-    ID2D1DeviceContext* context;
     ID2D1SolidColorBrush* color;
     ID2D1SolidColorBrush* edgecolor;
     ID2D1Effect* arc;
@@ -54,8 +52,7 @@ namespace D2D {
 
     bool inside;
 
-    Window(Backend* backend, FG_MsgReceiver* element, FG_Vec* pos, FG_Vec* dim, uint64_t flags, const char* caption,
-           void* context);
+    Window(Backend* backend, FG_MsgReceiver* element, FG_Vec* pos, FG_Vec* dim, uint64_t flags, const char* caption);
     ~Window();
     void CreateResources();
     void DiscardResources();

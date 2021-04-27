@@ -140,17 +140,17 @@ void Window::FillKeyMap()
 }
 
 Window::Window(Backend* backend, GLFWmonitor* display, FG_MsgReceiver* element, FG_Vec* pos, FG_Vec* dim, uint64_t flags,
-               const char* caption, void* context) :
+               const char* caption) :
   Context(backend, element, dim), _next(nullptr), _prev(nullptr)
 {
   FillKeyMap();
-  if(flags & FG_Window_NOCAPTION)
+  if(flags & FG_WindowFlag_NOCAPTION)
     caption = "";
 
-  glfwWindowHint(GLFW_DECORATED, !(flags & FG_Window_NOBORDER));
-  glfwWindowHint(GLFW_AUTO_ICONIFY, flags & FG_Window_MINIMIZED);
-  glfwWindowHint(GLFW_RESIZABLE, flags & FG_Window_RESIZABLE);
-  glfwWindowHint(GLFW_MAXIMIZED, flags & FG_Window_MAXIMIZED);
+  glfwWindowHint(GLFW_DECORATED, !(flags & FG_WindowFlag_NOBORDER));
+  glfwWindowHint(GLFW_AUTO_ICONIFY, flags & FG_WindowFlag_MINIMIZED);
+  glfwWindowHint(GLFW_RESIZABLE, flags & FG_WindowFlag_RESIZABLE);
+  glfwWindowHint(GLFW_MAXIMIZED, flags & FG_WindowFlag_MAXIMIZED);
   glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GL_TRUE);
 
   //#if defined(__linux__) || defined(__linux)
@@ -179,6 +179,8 @@ Window::Window(Backend* backend, GLFWmonitor* display, FG_MsgReceiver* element, 
     HWND hWnd     = glfwGetWin32Window(_window);
     DWORD exStyle = GetWindowLongW(hWnd, GWL_EXSTYLE);
     SetWindowLongW(hWnd, GWL_EXSTYLE, exStyle & (~WS_EX_LAYERED));
+
+    this->handle = glfwGetWin32Window(_window);
 #endif
 
     glfwMakeContextCurrent(_window);
@@ -352,7 +354,7 @@ void Window::CloseCallback(GLFWwindow* window)
   auto self                = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
   FG_Msg msg               = { FG_Kind_SETWINDOWFLAGS };
   msg.setWindowFlags.flags = self->_backend->Behavior(self, FG_Msg{ FG_Kind_GETWINDOWFLAGS }).getWindowFlags |
-                             FG_Window_CLOSED;
+                             FG_WindowFlag_CLOSED;
   self->_backend->Behavior(self, msg);
   FG_Msg action         = FG_Msg{ FG_Kind_ACTION };
   action.action.subkind = 1; // FG_WINDOW_ONCLOSE

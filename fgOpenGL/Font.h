@@ -30,7 +30,8 @@ namespace GL {
   // Internal Font object
   struct Font : FG_Font
   {
-    Font(Backend* backend, const char* font, int psize, FG_AntiAliasing antialias, const FG_Vec& dpi);
+    Font(Backend* backend, const char* font, int weight, bool italic, int psize, FG_AntiAliasing antialias,
+         const FG_Vec& dpi);
     ~Font();
     Glyph* LoadGlyph(char32_t codepoint);
     float GetKerning(char32_t prev, char32_t cur);
