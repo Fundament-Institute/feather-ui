@@ -7,9 +7,9 @@ local Virtual = require 'feather.virtual'
 local C = terralib.includecstring [[#include <stdio.h>]]
 
 return core.raw_template {
-  pos = constant(`[F.Vec3D]{array(0.0f, 0.0f, 0.0f)}),
-  ext = constant(`[F.Vec3D]{array(0.0f, 0.0f, 0.0f)}),
-  rot = constant(`[F.Vec3D]{array(0.0f, 0.0f, 0.0f)}),
+  pos = constant(`[F.Vec3]{array(0.0f, 0.0f, 0.0f)}),
+  ext = constant(`[F.Vec3]{array(0.0f, 0.0f, 0.0f)}),
+  rot = constant(`[F.Vec3]{array(0.0f, 0.0f, 0.0f)}),
   mousedown = `F.EmptyCallable{},
   mousedblclick = `F.EmptyCallable{},
   mouseup = `F.EmptyCallable{},

@@ -304,9 +304,9 @@ struct FG_anon_8__ {
 };;
 };
 typedef struct FG_anon_13__ FG_anon_13;
-typedef struct FG_Vec3D__ FG_Vec3D;
+typedef struct FG_Vec3__ FG_Vec3;
 typedef float FG_anon_14[3];
-struct FG_Vec3D__ {
+struct FG_Vec3__ {
   float x;
     float y;
     float z;
@@ -315,7 +315,7 @@ struct FG_Vec3D__ {
 struct FG_anon_13__ {
   union {
   FG_Vec * points;
-  FG_Vec3D * points3D;
+  FG_Vec3 * points3D;
 };;
   uint32_t count;
   FG_Color color;
@@ -324,7 +324,7 @@ typedef struct FG_anon_15__ FG_anon_15;
 struct FG_anon_15__ {
   union {
   FG_Vec * points;
-  FG_Vec3D * points3D;
+  FG_Vec3 * points3D;
 };;
   uint32_t count;
   FG_Color fillColor;
@@ -615,8 +615,8 @@ struct FG_anon_36__ {
 typedef struct FG_anon_37__ FG_anon_37;
 struct FG_anon_37__ {
   uint16_t index;
-  FG_Vec3D velocity;
-  FG_Vec3D rotation;
+  FG_Vec3 velocity;
+  FG_Vec3 rotation;
 };
 typedef struct FG_anon_38__ FG_anon_38;
 struct FG_anon_38__ {
@@ -674,14 +674,15 @@ struct FG_Msg__ {
 };;
 };
 typedef FG_Result (* FG_Behavior)(FG_MsgReceiver *, FG_Window *, void *, FG_Msg *);
-enum FG_ModKey {
-  FG_ModKey_CONTROL = 2,
-  FG_ModKey_SHIFT = 1,
-  FG_ModKey_NUMLOCK = 32,
-  FG_ModKey_HELD = 64,
-  FG_ModKey_ALT = 4,
-  FG_ModKey_CAPSLOCK = 16,
-  FG_ModKey_SUPER = 8
+enum FG_MouseButton {
+  FG_MouseButton_X2 = 16,
+  FG_MouseButton_M = 4,
+  FG_MouseButton_X4 = 64,
+  FG_MouseButton_X3 = 32,
+  FG_MouseButton_R = 2,
+  FG_MouseButton_X5 = 128,
+  FG_MouseButton_L = 1,
+  FG_MouseButton_X1 = 8
 };
 enum FG_Feature {
   FG_Feature_BACKGROUND_OPACITY = 16777216,
@@ -711,15 +712,14 @@ enum FG_Feature {
   FG_Feature_CURVE_FILL = 65536,
   FG_Feature_CIRCLE_INNER = 256
 };
-enum FG_MouseButton {
-  FG_MouseButton_X2 = 16,
-  FG_MouseButton_M = 4,
-  FG_MouseButton_X4 = 64,
-  FG_MouseButton_X3 = 32,
-  FG_MouseButton_R = 2,
-  FG_MouseButton_X5 = 128,
-  FG_MouseButton_L = 1,
-  FG_MouseButton_X1 = 8
+enum FG_ModKey {
+  FG_ModKey_CONTROL = 2,
+  FG_ModKey_SHIFT = 1,
+  FG_ModKey_NUMLOCK = 32,
+  FG_ModKey_HELD = 64,
+  FG_ModKey_ALT = 4,
+  FG_ModKey_CAPSLOCK = 16,
+  FG_ModKey_SUPER = 8
 };
 typedef struct FG_BlendState__ FG_BlendState;
 enum FG_BlendOp {
@@ -775,7 +775,7 @@ typedef int32_t (* FG_anon_47)(FG_Backend *, uint32_t, FG_Display *);
 typedef int32_t (* FG_anon_48)(FG_Backend *, FG_Window *, FG_Rect *);
 typedef int32_t (* FG_anon_49)(FG_Backend *);
 typedef FG_Window * (* FG_anon_50)(FG_Backend *, FG_MsgReceiver *, void *, FG_Vec *, FG_Vec *, const char*, uint64_t);
-typedef FG_Window * (* FG_anon_51)(FG_Backend *, FG_MsgReceiver *, FG_Window, FG_Vec3D, FG_Vec3D);
+typedef FG_Window * (* FG_anon_51)(FG_Backend *, FG_MsgReceiver *, FG_Window, FG_Vec3, FG_Vec3);
 typedef int32_t (* FG_anon_52)(FG_Backend *, FG_Window *, FG_Clipboard, const char*, uint32_t);
 typedef FG_Vec (* FG_anon_53)(FG_Backend *, FG_Font *, void *, FG_Rect *, uint32_t);
 typedef int32_t (* FG_anon_54)(FG_Backend *, FG_Window *);

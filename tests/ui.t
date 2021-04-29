@@ -5,7 +5,7 @@ import 'feather/bind'
 terralib.fulltrace = true
 
 local struct app {
-  pos: f.Vec3D
+  pos: f.Vec3
                  }
 
 local ui = f.ui {
@@ -14,38 +14,38 @@ local ui = f.ui {
   f.window {
     f.rect {
       pos = bind app.pos,
-      ext = bind [f.Vec3D]{array(20f, 20f, 0f)},
+      ext = bind [f.Vec3]{array(20f, 20f, 0f)},
       color = bind [f.Color]{0xffffffff},
     },
     f.triangle {
-      pos = bind app.pos + [f.Vec3D]{array(50f, 50f, 0f)},
-      ext = bind [f.Vec3D]{array(20f, 20f, 0f)},
+      pos = bind app.pos + [f.Vec3]{array(50f, 50f, 0f)},
+      ext = bind [f.Vec3]{array(20f, 20f, 0f)},
       color = bind [f.Color]{0xffffffff},
     },
     f.circle {
-      pos = bind app.pos + [f.Vec3D]{array(50f, 0f, 0f)},
-      ext = bind[f.Vec3D]{array(20f, 20f, 0f)},
+      pos = bind app.pos + [f.Vec3]{array(50f, 0f, 0f)},
+      ext = bind[f.Vec3]{array(20f, 20f, 0f)},
       color = bind[f.Color]{0xffffffff},
     },
     f.mousearea {
-      pos = bind app.pos + [f.Vec3D]{array(100f, 100f, 0f)},
-      ext = bind[f.Vec3D]{array(20f, 20f, 0f)},
+      pos = bind app.pos + [f.Vec3]{array(100f, 100f, 0f)},
+      ext = bind[f.Vec3]{array(20f, 20f, 0f)},
     },
   },
   f.window {
     f.rect {
       pos = bind app.pos,
-      ext = bind [f.Vec3D]{array(20f, 20f, 0f)},
+      ext = bind [f.Vec3]{array(20f, 20f, 0f)},
       color = bind [f.Color]{0xffffffff},
     },
     f.triangle {
-      pos = bind app.pos + [f.Vec3D]{array(50f, 50f, 0f)},
-      ext = bind [f.Vec3D]{array(20f, 20f, 0f)},
+      pos = bind app.pos + [f.Vec3]{array(50f, 50f, 0f)},
+      ext = bind [f.Vec3]{array(20f, 20f, 0f)},
       color = bind [f.Color]{0xffffffff},
     },
     f.circle {
-      pos = bind app.pos + [f.Vec3D]{array(50f, 0f, 0f)},
-      ext = bind [f.Vec3D]{array(20f, 20f, 0f)},
+      pos = bind app.pos + [f.Vec3]{array(50f, 0f, 0f)},
+      ext = bind [f.Vec3]{array(20f, 20f, 0f)},
       color = bind [f.Color]{0xffffffff},
     }
   }
@@ -69,7 +69,7 @@ local terra run_app(dllpath: rawstring)
   var u: ui
   var b: &f.Backend
   var a = app {
-    f.Vec3D{array(60f, 60f, 0f)}
+    f.Vec3{array(60f, 60f, 0f)}
   }
 
   b = f.Backend.new(&u, [f.Behavior](ui.behavior), FakeLog, dllpath, nil)._0

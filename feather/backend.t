@@ -341,7 +341,7 @@ struct B.Command {
     lines : struct {
       union {
         points : &F.Vec
-        points3D : &F.Vec3D
+        points3D : &F.Vec3
       }
       count : uint
       color : F.Color
@@ -349,7 +349,7 @@ struct B.Command {
     curve : struct {
       union {
         points : &F.Vec
-        points3D : &F.Vec3D
+        points3D : &F.Vec3
       }
       count : uint
       fillColor : F.Color
@@ -427,7 +427,7 @@ terra B.Backend:SetCursor(window : &Msg.Window, cursor : B.Cursor) : F.Err retur
 terra B.Backend:GetDisplayIndex(index : uint, out : &B.Display) : F.Err return 0 end
 terra B.Backend:GetDisplay(handle : &opaque, out : &B.Display) : F.Err return 0 end
 terra B.Backend:GetDisplayWindow(window : &Msg.Window, out : &B.Display) : F.Err return 0 end
-terra B.Backend:CreateRegion(element : &Msg.Receiver, window : Msg.Window, pos : F.Vec3D, dim : F.Vec3D) : &Msg.Window return nil end
+terra B.Backend:CreateRegion(element : &Msg.Receiver, window : Msg.Window, pos : F.Vec3, dim : F.Vec3) : &Msg.Window return nil end
 terra B.Backend:CreateWindow(element : &Msg.Receiver, display : &opaque, pos : &F.Vec, dim : &F.Vec, caption : F.conststring, flags : uint64) : &Msg.Window return nil end
 terra B.Backend:SetWindow(window : &Msg.Window, element : &Msg.Receiver, display : &opaque, pos : &F.Vec, dim : &F.Vec, caption : F.conststring, flags : uint64) : F.Err return 0 end
 terra B.Backend:DestroyWindow(window : &Msg.Window) : F.Err return 0 end

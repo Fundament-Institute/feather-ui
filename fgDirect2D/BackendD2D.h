@@ -1,5 +1,5 @@
 /* fgDirect2D - Direct2D Backend for Feather GUI
-Copyright (c)2020 Fundament Software
+Copyright (c)2021 Fundament Software
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

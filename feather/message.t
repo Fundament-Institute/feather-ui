@@ -24,7 +24,7 @@ terra M.Receiver:KeyChar(ui : &opaque, unicode : int32, modkeys : uint8) : F.Err
 terra M.Receiver:JoyButtonDown(ui : &opaque, index : uint16, button : uint16, modkeys : uint8) : F.Err return -1 end
 terra M.Receiver:JoyButtonUp(ui : &opaque, index : uint16, button : uint16, modkeys : uint8) : F.Err return -1 end
 terra M.Receiver:JoyAxis(ui : &opaque, index : uint16, value : float, axis : uint16, modkeys : uint8) : F.Err return -1 end
-terra M.Receiver:JoyOrientation(ui : &opaque, index : uint16, velocity : F.Vec3D, rotation : F.Vec3D ) : F.Err return -1 end
+terra M.Receiver:JoyOrientation(ui : &opaque, index : uint16, velocity : F.Vec3, rotation : F.Vec3 ) : F.Err return -1 end
 terra M.Receiver:SetWindowFlags(ui : &opaque, flags : uint) : F.Err return -1 end
 terra M.Receiver:SetWindowRect(ui : &opaque, rect : F.Rect) : F.Err return -1 end
 terra M.Receiver:GetWindowFlags(ui : &opaque) : uint return -1 end

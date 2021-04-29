@@ -1,5 +1,5 @@
 /* fgOpenGL - OpenGL Backend for Feather GUI
-Copyright (c)2020 Fundament Software
+Copyright (c)2021 Fundament Software
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -70,7 +70,7 @@ namespace GL {
     static FG_Err GetDisplayIndex(FG_Backend* self, unsigned int index, FG_Display* out);
     static FG_Err GetDisplay(FG_Backend* self, void* handle, FG_Display* out);
     static FG_Err GetDisplayWindow(FG_Backend* self, FG_Window* window, FG_Display* out);
-    static FG_Window* CreateRegionGL(FG_Backend* self, FG_MsgReceiver* element, FG_Window desc, FG_Vec3D pos, FG_Vec3D dim);
+    static FG_Window* CreateRegionGL(FG_Backend* self, FG_MsgReceiver* element, FG_Window desc, FG_Vec3 pos, FG_Vec3 dim);
     static FG_Window* CreateWindowGL(FG_Backend* self, FG_MsgReceiver* element, void* display, FG_Vec* pos, FG_Vec* dim,
                                      const char* caption, uint64_t flags);
     static FG_Err SetWindowGL(FG_Backend* self, FG_Window* window, FG_MsgReceiver* element, void* display, FG_Vec* pos,

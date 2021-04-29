@@ -21,7 +21,7 @@ local clockring = f.template {
           progress * [float]([math.pi * 2.0])
         )
                     },
-    ext = bind f.Vec3D{arrayof(float, radius, radius, 0)},
+    ext = bind f.Vec3{arrayof(float, radius, radius, 0)},
     pos = bind pos
   }
 }
@@ -85,7 +85,7 @@ local ui = f.ui {
         TimePair{app.time.tm_sec/60.0f, 1.0f}
       },
       radius = bind 200,
-      pos = bind f.Vec3D{arrayof(float, 250, 250, 0)}
+      pos = bind f.Vec3{arrayof(float, 250, 250, 0)}
     }
   }
 }

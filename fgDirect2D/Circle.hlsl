@@ -1,4 +1,4 @@
-// Copyright (c)2020 Fundament Software
+// Copyright (c)2021 Fundament Software
 
 #define D2D_INPUT_COUNT 0
 #define D2D_INPUT0_SIMPLE

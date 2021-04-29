@@ -5,7 +5,7 @@ local Log = require 'feather.log'
 local Msg = require 'feather.message'
 local Messages = require 'feather.messages'
 
-local transfer = {"Vec","URect","Rect","Delegate","UVec","Color","Veci","Color16","Vec3D","Err"}
+local transfer = {"Vec","URect","Rect","Delegate","UVec","Color","Veci","Color16","Vec3","Err"}
 for i,k in ipairs(transfer) do
   Backend[k] = Shared[k]
 end

@@ -1,4 +1,4 @@
-// Copyright (c)2020 Fundament Software
+// Copyright (c)2021 Fundament Software
 // For conditions of distribution and use, see copyright notice in "Backend.h"
 
 #include "platform.h"
@@ -631,7 +631,7 @@ GLFWglproc glGetProcAddress(const char* procname)
 #endif
 }
 
-FG_Window* Backend::CreateRegionGL(FG_Backend* self, FG_MsgReceiver* element, FG_Window desc, FG_Vec3D pos, FG_Vec3D dim)
+FG_Window* Backend::CreateRegionGL(FG_Backend* self, FG_MsgReceiver* element, FG_Window desc, FG_Vec3 pos, FG_Vec3 dim)
 {
   auto backend                      = reinterpret_cast<Backend*>(self);
   FG_Vec d                          = { dim.x, dim.y };

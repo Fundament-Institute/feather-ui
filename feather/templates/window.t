@@ -55,7 +55,7 @@ return core.raw_template {
           var pos = F.vec(0f, 0f)
           var size = F.vec(800f, 600f)
           var transform = core.transform.identity()
-          var zero = [F.Vec3D] {array(0.0f, 0.0f, 0.0f)}
+          var zero = [F.Vec3] {array(0.0f, 0.0f, 0.0f)}
           var zindex = [F.Veci] {array(0, 0)}
           self.rtree:init()
           self.node = self.rtree:create(nil, &zero, &zero, &zero, &zindex)

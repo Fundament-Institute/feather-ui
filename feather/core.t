@@ -39,7 +39,7 @@ local struct outline_context {
   --store the data of a transformation, used for accumulating transformations while traversing the rtree.
   --Simple translation for now
 struct M.transform {
-  r: F.Vec3D
+  r: F.Vec3
                    }
 terra M.transform:compose(other: &M.transform)
   return M.transform{self.r + other.r}
@@ -48,7 +48,7 @@ terra M.transform:invert()
   return M.transform{-self.r}
 end
 terra M.transform.methods.identity()
-  return M.transform{F.vec3D(0.0f, 0.0f, 0.0f)}
+  return M.transform{F.vec3(0.0f, 0.0f, 0.0f)}
 end
 
 
@@ -310,7 +310,7 @@ function M.basic_template(params)
   table.insert(params_full.names, "pos")
   table.insert(params_full.names, "ext")
   table.insert(params_full.names, "rot")
-  local zerovec = Expression.constant(`[F.Vec3D]{array(0.0f, 0.0f, 0.0f)})
+  local zerovec = Expression.constant(`[F.Vec3]{array(0.0f, 0.0f, 0.0f)})
   params_full.defaults.pos = zerovec
   params_full.defaults.ext = zerovec
   params_full.defaults.rot = zerovec
@@ -763,7 +763,7 @@ function M.ui(desc)
     m: &Msg.Message
   }
 
-  local terra mousequery(n : &rtree_type.Node, p : &F.Vec3D, r : &F.Vec3D, params : BehaviorParamPack) : bool 
+  local terra mousequery(n : &rtree_type.Node, p : &F.Vec3, r : &F.Vec3, params : BehaviorParamPack) : bool 
     if n.data ~= nil then
       return Msg.DefaultBehavior([&Msg.Receiver](n.data), params.w, params.ui, params.m).mouseMove >= 0
     end
@@ -789,7 +789,7 @@ function M.ui(desc)
           ::MouseEvent::
           var base = [&window_base](r)
           var params = BehaviorParamPack{w, ui, m}
-          return Msg.Result{terralib.select(base.rtree:query(F.vec3D(m.mouseMove.x,m.mouseMove.y,0.0f), F.vec3D(0.0f,0.0f,1.0f), params, mousequery), 0, -1)}
+          return Msg.Result{terralib.select(base.rtree:query(F.vec3(m.mouseMove.x,m.mouseMove.y,0.0f), F.vec3(0.0f,0.0f,1.0f), params, mousequery), 0, -1)}
         end
       end
       return Msg.DefaultBehavior(r, w, ui, m)

@@ -1,4 +1,4 @@
-// Copyright (c)2020 Fundament Software
+// Copyright (c)2021 Fundament Software
 // For conditions of distribution and use, see copyright notice in "fgDirect2D.h"
 
 #ifndef D2D__UTIL_H

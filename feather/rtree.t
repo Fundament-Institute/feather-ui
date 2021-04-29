@@ -10,9 +10,9 @@ local LL = require 'std.ll'
 local Msg = require 'feather.message'
 
 local struct Node {
-  pos : F.Vec3D
-  extent : F.Vec3D
-  rot : F.Vec3D
+  pos : F.Vec3
+  extent : F.Vec3
+  rot : F.Vec3
   zindex : F.Veci
   data : &Msg.Receiver
   next : &Node -- next sibling
@@ -31,21 +31,21 @@ end
 
 -- https://zeux.io/2010/10/17/aabb-from-obb-with-component-wise-abs/
 -- Generates an AABB from an OBB
-local terra GenAABB(pos : F.Vec3D, extent : F.Vec3D, rot : F.Vec3D) : {F.Vec3D, F.Vec3D}
+local terra GenAABB(pos : F.Vec3, extent : F.Vec3, rot : F.Vec3) : {F.Vec3, F.Vec3}
   if rot.x == 0.0f and rot.y == 0.0f and rot.z == 0.0f then
     return {pos,extent}
   end
 
   var rmat = Util.MatrixRotation(rot.x, rot.y, rot.z)
-  var p = F.Vec3D{Util.VecMultiply3D(pos.v, rmat)}
+  var p = F.Vec3{Util.VecMultiply3D(pos.v, rmat)}
   
   Util.MatrixAbs(&rmat)
-  var e = F.Vec3D{Util.VecMultiply3D(extent.v, rmat)}
+  var e = F.Vec3{Util.VecMultiply3D(extent.v, rmat)}
 
   return {p,e}
 end
 
-local terra TransformRay(n : &Node, p : &F.Vec3D, v : &F.Vec3D) : {}
+local terra TransformRay(n : &Node, p : &F.Vec3, v : &F.Vec3) : {}
   @p = @p - n.pos -- We first fix the point relative to this node, since all rotations are done around this node's origin
 
   if n.rot.x ~= 0 or n.rot.y ~= 0 then
@@ -61,7 +61,7 @@ end
 
 -- Ray intersection with a 3D AABB centered on the origin
 -- adapted from https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-box-intersection
-local terra RayBoxIntersect(pos : &F.Vec3D, v : &F.Vec3D, extent : &F.Vec3D) : float
+local terra RayBoxIntersect(pos : &F.Vec3, v : &F.Vec3, extent : &F.Vec3) : float
   var txmin = (-extent.x - pos.x) / v.x
   var txmax = (extent.x - pos.x) / v.x
 
@@ -114,7 +114,7 @@ local RTree = Util.type_template(function(A)
   rtree.Node = Node
   rtree.methods.RayBoxIntersect = RayBoxIntersect
 
-  terra rtree:create(parent : &Node, pos : &F.Vec3D, extent : &F.Vec3D, rot : &F.Vec3D, zindex : &F.Veci) : &Node
+  terra rtree:create(parent : &Node, pos : &F.Vec3, extent : &F.Vec3, rot : &F.Vec3, zindex : &F.Veci) : &Node
     var n : &Node = self.allocator:alloc(Node, 1)
     n.prev = nil
     n.next = nil
@@ -153,12 +153,12 @@ local RTree = Util.type_template(function(A)
   terra rtree:contain(node : &Node) : {}
     var cur : &Node = node.children
     if cur ~= nil then
-      var pos : F.Vec3D = cur.pos
-      var dim : F.Vec3D = [F.Vec3D]{array(0.0f,0.0f,0.0f)}
+      var pos : F.Vec3 = cur.pos
+      var dim : F.Vec3 = [F.Vec3]{array(0.0f,0.0f,0.0f)}
 
       while cur ~= nil do
-        var curextent : F.Vec3D
-        var curpos : F.Vec3D
+        var curextent : F.Vec3
+        var curpos : F.Vec3
         curpos, curextent = GenAABB(cur.pos, cur.extent, cur.rot)
         escape
           for i = 0,2 do emit(quote pos.v[i] = Math.min(pos.v[i], cur.pos.v[i] - cur.extent.v[i]) end) end
@@ -182,7 +182,7 @@ local RTree = Util.type_template(function(A)
     end
   end
 
-  terra rtree:set(node : &Node, pos : &F.Vec3D, extent : &F.Vec3D, rot : &F.Vec3D, zindex : &F.Veci) : {}
+  terra rtree:set(node : &Node, pos : &F.Vec3, extent : &F.Vec3, rot : &F.Vec3, zindex : &F.Veci) : {}
     node.pos = @pos
     node.extent = @extent
     node.rot = @rot
@@ -228,10 +228,10 @@ local RTree = Util.type_template(function(A)
     end
   end
 
-  rtree.methods.query = CT(function(t) return CT.TemplateMethod(rtree, {F.Vec3D, F.Vec3D, CT.Value(t), CT.Function({&Node, &F.Vec3D, &F.Vec3D, CT.Value(t)}, bool)}, bool,
+  rtree.methods.query = CT(function(t) return CT.TemplateMethod(rtree, {F.Vec3, F.Vec3, CT.Value(t), CT.Function({&Node, &F.Vec3, &F.Vec3, CT.Value(t)}, bool)}, bool,
   function (S, P, V, D, FN)
-    local terra recurse :: { &Node, F.Vec3D, F.Vec3D, D, FN } -> bool
-    local terra check2D(cur : &Node, p : F.Vec3D, v : F.Vec3D, d : D, f : FN) : bool 
+    local terra recurse :: { &Node, F.Vec3, F.Vec3, D, FN } -> bool
+    local terra check2D(cur : &Node, p : F.Vec3, v : F.Vec3, d : D, f : FN) : bool 
       TransformRay(cur, &p, &v)
 
       if cur.extent.z ~= 0 or cur.pos.z ~= 0 or cur.rot.x ~= 0 or cur.rot.y ~= 0 then
@@ -248,8 +248,8 @@ local RTree = Util.type_template(function(A)
       return false
     end
 
-    local struct NodeList { n : &Node, t : float, p : F.Vec3D, v : F.Vec3D, next : &NodeList };
-    terra recurse(n : &Node, pos : F.Vec3D, dir : F.Vec3D, d : D, f : FN) : bool      
+    local struct NodeList { n : &Node, t : float, p : F.Vec3, v : F.Vec3, next : &NodeList };
+    terra recurse(n : &Node, pos : F.Vec3, dir : F.Vec3, d : D, f : FN) : bool      
       if n.extent.z == 0 then
         if n.planar then
           dir.x = 0f

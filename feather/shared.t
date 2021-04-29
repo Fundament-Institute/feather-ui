@@ -77,7 +77,7 @@ local prefixes = { "Vec", "Bivector", "Trivector", "Quadvector" }
 function AutoVecGen(type, min, max)
   local tpost = type == float and "" or "i"
   for d=min, max do
-    local post = d == 2 and tpost or tpost..d.."D"
+    local post = d == 2 and tpost or tpost..d
     for i=1,d do 
       local v = prefixes[i] .. post
       S[v] = GA(type, d)["vector"..i.."_t"]
