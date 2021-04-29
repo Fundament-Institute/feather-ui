@@ -8,7 +8,6 @@ local Msg = require 'feather.message'
 local Virtual = require 'feather.virtual'
 local Closure = require 'feather.closure' 
 local C = terralib.includecstring [[#include <stdio.h>]]
-local DynArray = require 'feather.dynarray'
 local Expression = require 'feather.expression'
 
 local M = {}
@@ -54,8 +53,7 @@ end
 
 --metatables for templates and outlines
 local template_mt = {}
-local outline_mt = {__index = {}}
-
+M.outline_mt = {__index = {}}
 
 --unique values for use as key identifiers
 M.context = {}
@@ -74,10 +72,10 @@ M.body = setmetatable({
     generate = function(type_environment)
       return type_environment[M.body](type_environment)
     end
-    }, outline_mt)
+    }, M.outline_mt)
 
 -- build an outline object as the body of a template from a user provided table.
-local function make_body(rawbody)
+function M.make_body(rawbody)
   local function generate(context, type_environment)
     local elements = {}
     local types = {}
@@ -143,7 +141,7 @@ function template_mt:__call(desc)
     for i = 1, #desc do
       rawbody[i] = desc[i]
     end
-    outline.body = make_body(rawbody)
+    outline.body = M.make_body(rawbody)
   elseif desc[1] then
     error "attempted to pass a body to a template which doesn't accept one"
   end
@@ -251,7 +249,7 @@ function template_mt:__call(desc)
       end
     }, tuple(type, store)
   end
-  return setmetatable(outline, outline_mt)
+  return setmetatable(outline, M.outline_mt)
 end
 
 -- parse an argument declaration table into a usable specification object
@@ -421,7 +419,7 @@ end
 function M.template(params)
   local params = parse_params(params)
   return function(defn)
-    local defn_body = make_body(defn)
+    local defn_body = M.make_body(defn)
 
     local function generate(self, context, type_environment)
       local defn_body_fns, defn_body_type = defn_body(context, type_environment)
@@ -478,158 +476,9 @@ function M.template(params)
   end
 end
 
--- Let outline, which binds some variables into scope for the body.
-function M.let(bindings)
-  local exprs = {}
-  for k, v in pairs(bindings) do
-    exprs[k] = Expression.parse(v)
-  end
-  return function(rawbody)
-    local body = make_body(rawbody)
-    local function generate(self, context, type_environment)
-      local concrete_exprs = {}
-      local texprs = {}
-      for k, v in pairs(exprs) do
-        concrete_exprs[k] = v:generate(context, type_environment)
-        texprs[k] = Expression.type(concrete_exprs[k], context, type_environment)
-      end
-      local variables = {}
-      for k, v in pairs(concrete_exprs) do
-        table.insert(variables, {field = k, type = v.storage_type})
-      end
-      local store = terralib.types.newstruct("let_store")
-      store.entries = variables
-
-      local function body_env(environment, s)
-        return override(environment, map_pairs(concrete_exprs, function(k, v) return k, v.get(`s.[k]) end))
-      end
-
-      local body_fn, body_type = body(context, override(type_environment, texprs))
-
-      return {
-        enter = function(self, context, environment)
-          return quote
-            escape
-              for k, v in pairs(concrete_exprs) do
-                emit quote [v.enter(`self._0.[k], context, environment)] end
-              end
-            end
-            [body_fn.enter(`self._1, context, body_env(environment, `self._0))]
-          end
-        end,
-        update = function(self, context, environment)
-          return quote
-            escape
-              for k, v in pairs(concrete_exprs) do
-                emit quote [v.update(`self._0.[k], context, environment)] end
-              end
-            end
-            [body_fn.update(`self._1, context, body_env(environment, `self._0))]
-          end
-        end,
-        exit = function(self, context)
-          return quote
-            escape
-              for k, v in pairs(concrete_exprs) do
-                emit quote [v.exit(`self._0.[k], context, environment)] end
-              end
-            end
-            [body_fn.exit(`self._1, context)]
-          end
-        end,
-        render = function(self, context, environment)
-          return body_fn.render(`self._1, context, environment)
-        end
-      }, tuple(store, body_type)
-    end
-
-    return setmetatable({generate = generate}, outline_mt)
-  end
-end
-
--- Each loop, which instantiates a body for each element in a provided collection
-function M.each(name)
-  return function(collection)
-    return function(raw_body)
-      local collection_expr = Expression.parse(collection)
-      local body = make_body(raw_body)
-      local function generate(self, context, type_environment)
-        local concrete_collection_expr = collection_expr:generate(context, type_environment)
-        local collection_type = Expression.type(concrete_collection_expr, context, type_environment)
-        if collection_type.elem == nil then
-          error("Collection type " .. tostring(collection_type) .. " has no .elem entry! All valid collections must include the element type in [collection].elem")
-        end
-        local body_fn, body_type = body(context, override(type_environment, {[name] = collection_type.elem}))
-        local struct each_result_elem {
-          collection: collection_type
-          bodies: DynArray(body_type)
-        }
-        
-        -- Loop through and call update on each element in both arrays
-        -- If collection ends first, call exit on remaining bodies elements
-        -- If bodies ends first, initialize new elements in bodies
-        local function update_bodies(self, context, environment)
-          return quote
-            var index : int = 0
-            for v in self.collection do 
-              if index < self.bodies.size then
-                [body_fn.update(`self.bodies(index), context, override(environment, {[name] = `v}))]
-              else
-                self.bodies:resize(index + 1)
-                [body_fn.enter(`self.bodies(index), context, override(environment, {[name] = `v}))]
-              end
-              index = index + 1
-            end 
-
-            for i=index, self.bodies.size do
-              [body_fn.exit(`self.bodies(i), context)]
-            end
-
-            self.bodies:resize(index)
-          end
-        end
-
-        return {
-          enter = function(self, context, environment)
-            return quote
-              [concrete_collection_expr.enter(`self.collection, context, environment)]
-              self.bodies:init()
-              [update_bodies(self, context, environment)]
-            end
-          end,
-          update = function(self, context, environment)
-            return quote
-              [concrete_collection_expr.update(`self.collection, context, environment)]
-              [update_bodies(self, context, environment)]
-            end
-          end,
-          exit = function(self, context)
-            return quote
-              [concrete_collection_expr.exit(`self.collection, context, environment)]
-              for v in self.bodies do
-                [body_fn.exit(`v, context)]
-              end
-            end
-          end,
-          render = function(self, context, environment)
-            return quote
-              for v in self.bodies do
-                [body_fn.render(`v, context, environment)]
-              end
-            end
-          end
-        }, each_result_elem
-      end
-
-      return setmetatable({generate = generate}, outline_mt)
-    end
-  end
-end
-
-
 -- The UI root, accepting a descriptor of the entire application's UI and the interface it binds against, producing a UI object which can be compiled and instantiated to actually put things on screen.
 function M.ui(desc)
-  local body_gen = make_body(desc)
+  local body_gen = M.make_body(desc)
 
   local type_environment = {}
   local query_names = {}

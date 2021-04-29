@@ -59,7 +59,7 @@
     <TargetName>ui_test.exe</TargetName>
   </PropertyGroup>
   <ItemGroup>
-    <CustomBuild Include="ui.t">
+    <CustomBuild Include="ui_test.t">
       <FileType>Document</FileType>
       <Command Condition="'$(Configuration)'=='Debug'">set TERRA_PATH=.\?.t;.\deps\?.t;.\?\init.t &amp;&amp; set LUA_PATH=.\?.lua;.\deps\?.lua &amp;&amp; cd "$(SolutionDir)" &amp;&amp; terra -g "%(FullPath)" -debug</Command>
       <Command Condition="'$(Configuration)'=='Release'">set TERRA_PATH=.\?.t;.\deps\?.t;.\?\init.t &amp;&amp; set LUA_PATH=.\?.lua;.\deps\?.lua &amp;&amp; cd "$(SolutionDir)" &amp;&amp; terra "%(FullPath)"</Command>
