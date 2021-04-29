@@ -71,7 +71,7 @@ FG_Err Backend::DrawGL(FG_Backend* self, void* window, FG_Command* commandlist, 
       break;
     case FG_Category_LINES: context->DrawLines(c.lines.points, c.lines.count, c.lines.color, linearize); break;
     case FG_Category_CURVE:
-      context->DrawCurve(c.curve.anchors, c.curve.count, c.curve.fillColor, c.curve.stroke, c.curve.strokeColor, linearize);
+      context->DrawCurve(c.curve.points, c.curve.count, c.curve.fillColor, c.curve.stroke, c.curve.strokeColor, linearize);
       break;
     case FG_Category_SHADER:
       context->DrawShader(c.shader.shader, c.shader.vertices, c.shader.indices, c.shader.values);

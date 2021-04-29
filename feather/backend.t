@@ -279,6 +279,8 @@ B.Category = Enum({
   "TRIANGLE",
   "LINES",
   "CURVE",
+  "LINES3D",
+  "CURVE3D",
   "CUBE",
   "ICOSPHERE",
   "CYLINDER",
@@ -334,16 +336,27 @@ struct B.Command {
       }
     }
     lines : struct {
-      points : &F.Vec
+      union {
+        points : &F.Vec
+        points3D : &F.Vec3D
+      }
       count : uint
       color : F.Color
     }
     curve : struct {
-      anchors : &F.Vec
+      union {
+        points : &F.Vec
+        points3D : &F.Vec3D
+      }
       count : uint
       fillColor : F.Color
       stroke : float
       strokeColor : F.Color
+    }
+    shape3D : struct {
+      shader : &B.Shader
+      subdivision : int
+      values : &B.ShaderValue
     }
     shader : struct {
       shader : &B.Shader

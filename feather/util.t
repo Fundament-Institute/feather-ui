@@ -2,6 +2,15 @@ local tunpack = unpack or table.unpack
 local Math = require 'std.math'
 local M = {}
 
+function M.map_pairs(tab, fn)
+  local res = {}
+  for k, v in pairs(tab) do
+    local k_, v_ = fn(k, v)
+    res[k_] = v_
+  end
+  return res
+end
+
 function M.astype(typ)
   if terralib.types.istype(typ) then
     return typ
@@ -22,6 +31,16 @@ function M.type_template(typefn)
     return typefn(tunpack(args))
   end
   return macro(fn, fn)
+end
+
+function M.fake_environment(type_environment)
+  return M.map_pairs(type_environment, function(k, v)
+      if terralib.types.istype(v) then
+        return k, symbol(v)
+      else
+        return k, nil
+      end
+    end)
 end
 
 function M.SafeFree(...)
