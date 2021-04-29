@@ -1,4 +1,6 @@
 local Closure = require 'feather.closure'
+local Util = require 'feather.util'
+local Expression = require 'feather.expression'
 
 local function merge_envs(env_inner, env_outer)
   local env_merged = setmetatable({}, {
@@ -13,11 +15,11 @@ local function merge_envs(env_inner, env_outer)
   return env_merged
 end
 
-local function logged_fake_env(type_environment)
+local function logged_fake_env(base_env)
   local environment_log = {}
   local logged_fake_environment = setmetatable({}, {
       __index = function(_, k)
-        local v = type_environment[k]
+        local v = base_env[k]
         environment_log[k] = v
         return v
       end
@@ -47,41 +49,42 @@ local bind_syntax = {
       local expr = lex:terraexpr()
 
       return function(local_environment)
-        local function generate(context, type_environment)
-          local fake_environment = {}
-          for sym, typ in pairs(type_environment) do
-            fake_environment[sym] = symbol(typ)
+        return setmetatable({
+          generate = function(self, context, type_environment)
+            local local_env = local_environment()
+            local fake_env = Util.fake_environment(type_environment)
+            local expr_type = expr(merge_envs(fake_env, local_env)):gettype()
+            local expr_methods = {
+              enter = function(self, context, passed_env)
+                return quote
+                  [self] = [expr(merge_envs(passed_env,
+                                             local_env))]
+                end
+              end,
+              
+              update = function(self, context, passed_env)
+                return quote
+                  [self] = [expr(merge_envs(passed_env,
+                                             local_env))]
+                end
+              end,
+              
+              exit = function(self, context)
+                return quote
+                  
+                end
+              end,
+              
+              get = function(self, context, passed_env)
+                return `[self]
+              end,
+
+              storage_type = expr_type
+            }
+            
+            return expr_methods
           end
-          local expr_type = expr(fake_environment):gettype()
-          
-          local expr_methods = {
-            enter = function(self, context, passed_environment)
-              return quote
-                @[self] = [expr(merge_envs(local_environment,
-                                           passed_environment))]
-              end
-            end,
-            
-            update = function(self, context, passed_environment)
-              return quote
-                @[self] = [expr(merge_envs(local_environment,
-                                           passed_environment))]
-              end
-            end,
-            
-            exit = function(self, context)
-              return quote
-                
-              end
-            end,
-            
-            get = function(self, context)
-              return `@[self]
-            end
-          }
-          return expr_methods, expr_type
-        end
-        return generate
+        }, Expression.expression_spec_mt)
       end
       
     elseif lex:nextif "bindevent" then
@@ -102,70 +105,73 @@ local bind_syntax = {
       lex:expect "end"
 
       return function(local_environment)
-        local function generate(context, type_environment)
-          local logged_fake_environment, environment_log = logged_fake_env(type_environment)
+        return setmetatable({
+          generate = function(self, context, type_env)
+            local fake_env = Util.fake_environment(type_environment)
+            local logged_fake_env, environment_log = logged_fake_env(fake_env)
+            local local_env = local_environment()
 
-          local params_env = {}
-          for i, name in ipairs(param_names) do
-            fake_params_env[name] = symbol(param_types[i], name)
-          end
+            local params_env = {}
+            for i, name in ipairs(param_names) do
+              params_env[name] = symbol(param_types[i], name)
+            end
 
             -- generate the body against a fake instrumented environment to capture the environmental dependencies which must be stored, then discard the resulting tree
-          body(merge_envs(params_env, merge_envs(logged_fake_environment, local_environment)))
+            body(merge_envs(params_env, merge_envs(logged_fake_env, local_env)))
 
-          local store = terralib.types.newstruct("closure_store")
-          local logged_fields = {}
+            local store = terralib.types.newstruct("closure_store")
+            local logged_fields = {}
 
-          for k,v in pairs(environment_log) do
-            table.insert(logged_fields, {field = k, type = v})
-          end
-
-          store.entries = logged_fields
-
-          local closure = Closure.closure(param_types -> {})
-
-          local handler_params = {}
-          for i, name in ipairs(param_names) do handler_params[i] = params_env[name] end
-          local terra event_handler(store: store, [handler_params])
-            [body(merge_envs(params_env, merge_envs(extract_store(store), local_environment)))]
-          end
-          
-          local closure_methods = {
-            enter = function(self, context, passed_environment)
-              return quote
-                self.store = [context.allocator]:alloc([store])
-                escape
-                  for k, _ in pairs(environment_log) do
-                    emit(quote self.store.[k] = [passed_environment[k]] end)
-                  end
-                end
-                self.fn = event_handler
-              end
-            end,
-            
-            update = function(self, context, passed_environment)
-              return quote
-                escape
-                  for k, _ in pairs(environment_log) do
-                    emit(quote self.store.[k] = [passed_environment[k]] end)
-                  end
-                end
-              end
-            end,
-            
-            exit = function(self, context)
-              return quote
-                [context.allocator]:delete(self.store)
-              end
-            end,
-            
-            get = function(self, context)
-              return self
+            for k,v in pairs(environment_log) do
+              table.insert(logged_fields, {field = k, type = v})
             end
-          }
-          return closure_methods, closure
-        end
-        return generate
+
+            store.entries = logged_fields
+
+            local closure = Closure.closure(param_types -> {})
+
+            local handler_params = {}
+            for i, name in ipairs(param_names) do handler_params[i] = params_env[name] end
+            local terra event_handler(store: store, [handler_params])
+              [body(merge_envs(params_env, merge_envs(extract_store(store), local_environment)))]
+                  end
+            
+            local closure_methods = {
+              enter = function(self, context, passed_env)
+                return quote
+                  self.store = [context.allocator]:alloc([store])
+                  escape
+                    for k, _ in pairs(environment_log) do
+                      emit(quote self.store.[k] = [passed_environment[k]] end)
+                    end
+                  end
+                  self.fn = event_handler
+                end
+              end,
+              
+              update = function(self, context, passed_environment)
+                return quote
+                  escape
+                    for k, _ in pairs(environment_log) do
+                      emit(quote self.store.[k] = [passed_environment[k]] end)
+                    end
+                  end
+                end
+              end,
+              
+              exit = function(self, context)
+                return quote
+                  [context.allocator]:delete(self.store)
+                end
+              end,
+              
+              get = function(self, context, passed_environment)
+                return self
+              end
+            }
+            return closure_methods, closure
+          end
+                            }, Expression.expression_spec_mt)
       end
     else
       lexer:errorexpected "bind or bindevent"
