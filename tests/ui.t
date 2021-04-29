@@ -1,6 +1,7 @@
 local f = require 'feather'
 local shared = require 'feather.shared'
 local C = require 'feather.libc'
+import 'feather/bind'
 terralib.fulltrace = true
 
 local struct app {
@@ -12,40 +13,40 @@ local ui = f.ui {
   application = &app,
   f.window {
     f.rect {
-      pos = function(env) return `[env.app].pos end,
-      ext = function(env) return `[f.Vec3D]{array(20f, 20f, 0f)} end,
-      color = function(env) return `[f.Color]{0xffffffff} end
+      pos = bind app.pos,
+      ext = bind [f.Vec3D]{array(20f, 20f, 0f)},
+      color = bind [f.Color]{0xffffffff},
     },
     f.triangle {
-      pos = function(env) return `[env.app].pos + [f.Vec3D]{array(50f, 50f, 0f)} end,
-      ext = function(env) return `[f.Vec3D]{array(20f, 20f, 0f)} end,
-      color = function(env) return `[f.Color]{0xffffffff} end
+      pos = bind app.pos + [f.Vec3D]{array(50f, 50f, 0f)},
+      ext = bind [f.Vec3D]{array(20f, 20f, 0f)},
+      color = bind [f.Color]{0xffffffff},
     },
     f.circle {
-      pos = function(env) return `[env.app].pos + [f.Vec3D]{array(50f, 0f, 0f)} end,
-      ext = function(env) return `[f.Vec3D]{array(20f, 20f, 0f)} end,
-      color = function(env) return `[f.Color]{0xffffffff} end
+      pos = bind app.pos + [f.Vec3D]{array(50f, 0f, 0f)},
+      ext = bind[f.Vec3D]{array(20f, 20f, 0f)},
+      color = bind[f.Color]{0xffffffff},
     },
     f.mousearea {
-      pos = function(env) return `[env.app].pos + [f.Vec3D]{array(100f, 100f, 0f)} end,
-      ext = function(env) return `[f.Vec3D]{array(20f, 20f, 0f)} end
+      pos = bind app.pos + [f.Vec3D]{array(100f, 100f, 0f)},
+      ext = bind[f.Vec3D]{array(20f, 20f, 0f)},
     },
   },
   f.window {
     f.rect {
-      pos = function(env) return `[env.app].pos end,
-      ext = function(env) return `[f.Vec3D]{array(20f, 20f, 0f)} end,
-      color = function(env) return `[f.Color]{0xffffffff} end
+      pos = bind app.pos,
+      ext = bind [f.Vec3D]{array(20f, 20f, 0f)},
+      color = bind [f.Color]{0xffffffff},
     },
     f.triangle {
-      pos = function(env) return `[env.app].pos + [f.Vec3D]{array(50f, 50f, 0f)} end,
-      ext = function(env) return `[f.Vec3D]{array(20f, 20f, 0f)} end,
-      color = function(env) return `[f.Color]{0xffffffff} end
+      pos = bind app.pos + [f.Vec3D]{array(50f, 50f, 0f)},
+      ext = bind [f.Vec3D]{array(20f, 20f, 0f)},
+      color = bind [f.Color]{0xffffffff},
     },
     f.circle {
-      pos = function(env) return `[env.app].pos + [f.Vec3D]{array(50f, 0f, 0f)} end,
-      ext = function(env) return `[f.Vec3D]{array(20f, 20f, 0f)} end,
-      color = function(env) return `[f.Color]{0xffffffff} end
+      pos = bind app.pos + [f.Vec3D]{array(50f, 0f, 0f)},
+      ext = bind [f.Vec3D]{array(20f, 20f, 0f)},
+      color = bind [f.Color]{0xffffffff},
     }
   }
 }
@@ -80,8 +81,6 @@ local terra run_app(dllpath: rawstring)
   u:enter()
   while b:ProcessMessages() ~= 0 do
     u:update()
-    b:DirtyRect(u.data._0.window, nil)
-    b:DirtyRect(u.data._1.window, nil)
   end
   u:exit()
 

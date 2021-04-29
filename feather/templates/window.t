@@ -7,7 +7,7 @@ local Virtual = require 'feather.virtual'
 
 local gen_window_node = terralib.memoize(function(body_type, rtree_node, window_base)
   local struct window_node(Virtual.extends(window_base)) {
-    window: &opaque
+    window: &Msg.Window
     body: body_type
     node : rtree_node
     color: F.Color
@@ -24,7 +24,7 @@ return core.raw_template {
       error "NYI: instantiating a window inside another window"
     end
     local rtree_type = context.rtree
-    local context_ = override(context, {window = &opaque, transform = &core.transform})
+    local context_ = override(context, {window = &Msg.Window, transform = &core.transform})
     local body_fns, body_type = type_environment[core.body](context_, type_environment)
     
     local function make_context(self, ui)
@@ -60,7 +60,7 @@ return core.raw_template {
           self.rtree:init()
           self.node = self.rtree:create(nil, &zero, &zero, &zero, &zindex)
           self.node.data = &self.super.super
-          self.window = [context.backend]:CreateWindow(self.node.data, nil, &pos, &size, "feather window", messages.WindowFlag.RESIZABLE, nil)
+          self.window = [context.backend]:CreateWindow(self.node.data, nil, &pos, &size, "feather window", messages.WindowFlag.RESIZABLE)
           self.color = environment.color
           [body_fns.enter(`self.body, override_context(self, context), environment)]
         end

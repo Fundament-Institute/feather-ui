@@ -758,7 +758,7 @@ function M.ui(desc)
   end
 
   local struct BehaviorParamPack {
-    w: &opaque
+    w: &Msg.Window
     ui: &opaque
     m: &Msg.Message
   }
@@ -770,7 +770,7 @@ function M.ui(desc)
     return false
   end
 
-  terra ui.methods.behavior(r : &Msg.Receiver, w: &opaque, ui: &opaque, m: &Msg.Message) : Msg.Result
+  terra ui.methods.behavior(r : &Msg.Receiver, w: &Msg.Window, ui: &opaque, m: &Msg.Message) : Msg.Result
     if r ~= nil then 
       switch [int32](m.kind.val) do
         case [Msg.Receiver.virtualinfo.info["MouseDown"].index] then
