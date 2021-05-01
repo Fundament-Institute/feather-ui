@@ -50,7 +50,7 @@ local bind_syntax = {
 
       return function(local_environment)
         return setmetatable({
-          generate = function(self, context, type_environment)
+          generate = function(self, type_context, type_environment)
             local local_env = local_environment()
             local fake_env = Util.fake_environment(type_environment)
             local expr_type = expr(merge_envs(fake_env, local_env)):gettype()
@@ -106,7 +106,7 @@ local bind_syntax = {
 
       return function(local_environment)
         return setmetatable({
-          generate = function(self, context, type_env)
+          generate = function(self, type_context, type_env)
             local fake_env = Util.fake_environment(type_environment)
             local logged_fake_env, environment_log = logged_fake_env(fake_env)
             local local_env = local_environment()

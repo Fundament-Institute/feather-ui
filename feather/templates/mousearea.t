@@ -21,9 +21,8 @@ return core.raw_template {
   touchmove = `F.EmptyCallable{},
   touchend = `F.EmptyCallable{},
 } (
-  function(self, context, type_environment)
-    local context_ = override(context, {window = &opaque, transform = &core.transform})
-    local body_fns, body_type = type_environment[core.body](context_, type_environment)
+  function(self, type_context, type_environment)
+    local body_fns, body_type = type_environment[core.body](override(type_context, {window = &opaque, transform = &core.transform}), type_environment)
     
     local fn_table = {
         enter = function(self, context, environment)
@@ -78,7 +77,7 @@ return core.raw_template {
       }
 
     local struct mousearea(Virtual.extends(Msg.Receiver)) {
-      node : context.rtree_node
+      node : type_context.rtree_node
       body: body_type
     }
     -- Store all callables. The default empty ones are zero-size types, which take up no space.

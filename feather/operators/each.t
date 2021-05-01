@@ -11,13 +11,13 @@ return function(name)
     return function(raw_body)
       local collection_expr = Expression.parse(collection)
       local body = core.make_body(raw_body)
-      local function generate(self, context, type_environment)
-        local concrete_collection_expr = collection_expr:generate(context, type_environment)
-        local collection_type = Expression.type(concrete_collection_expr, context, type_environment)
+      local function generate(self, type_context, type_environment)
+        local concrete_collection_expr = collection_expr:generate(type_context, type_environment)
+        local collection_type = Expression.type(concrete_collection_expr, type_context, type_environment)
         if collection_type.elem == nil then
           error("Collection type " .. tostring(collection_type) .. " has no .elem entry! All valid collections must include the element type in [collection].elem")
         end
-        local body_fn, body_type = body(context, override(type_environment, {[name] = collection_type.elem}))
+        local body_fn, body_type = body(type_context, override(type_environment, {[name] = collection_type.elem}))
         local struct each_result_elem {
           collection: collection_type
           bodies: DynArray(body_type)

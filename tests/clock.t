@@ -7,13 +7,12 @@ local clockring = f.template {
   radius = f.required,
   width = f.required,
   progress = f.required,
-  color = `f.Color{0xccccccff},
   pos = f.required
 }
 {
   f.arc {
     outline = bind f.Color{0},
-    color = bind color,
+    color = f.getcontext.clockcolor,
     innerRadius = bind radius - width,
     angles = bind f.Vec {
         array(
@@ -77,15 +76,20 @@ Triplet.elem = TimePair
 local ui = f.ui {
   application = &clockapp,
   queries = {},
-  f.window {
-    clock {
-      times = bind Triplet{
-        TimePair{app.time.tm_hour/24.0f, 0.7f},
-        TimePair{app.time.tm_min/60.0f, 0.85f},
-        TimePair{app.time.tm_sec/60.0f, 1.0f}
-      },
-      radius = bind 200,
-      pos = bind f.Vec3{arrayof(float, 250, 250, 0)}
+  f.letcontext {
+    clockcolor = bind `f.Color{0xccccccff}
+  }
+  {
+    f.window {
+      clock {
+        times = bind Triplet{
+          TimePair{app.time.tm_hour/24.0f, 0.7f},
+          TimePair{app.time.tm_min/60.0f, 0.85f},
+          TimePair{app.time.tm_sec/60.0f, 1.0f}
+        },
+        radius = bind 200,
+        pos = bind f.Vec3{arrayof(float, 250, 250, 0)}
+      }
     }
   }
 }
