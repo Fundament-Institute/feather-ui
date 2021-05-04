@@ -6,7 +6,6 @@
 #include "Font.h"
 #include "linmath.h"
 #include "utf.h"
-#include <filesystem>
 #include <float.h>
 #include "SOIL.h"
 #include "ft2build.h"
@@ -20,7 +19,6 @@
 #endif
 
 using namespace GL;
-namespace fs = std::filesystem;
 
 namespace GL {
   __KHASH_IMPL(assets, , const FG_Asset*, char, 0, kh_ptr_hash_func, kh_int_hash_equal);
