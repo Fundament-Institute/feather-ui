@@ -811,12 +811,12 @@ extern "C" FG_COMPILER_DLLEXPORT FG_Backend* fgOpenGL(void* root, FG_Log log, FG
 #endif
 #ifdef FG_PLATFORM_POSIX
   #ifdef __CYGWIN__
-    Backend::_library = dlopen("libGL-1.so");
+    Backend::_library = dlopen("libGL-1.so", 0);
   #endif
     if(!Backend::_library)
-      Backend::_library = dlopen("libGL.so.1");
+      Backend::_library = dlopen("libGL.so.1", 0);
     if(!Backend::_library)
-      Backend::_library = dlopen("libGL.so");
+      Backend::_library = dlopen("libGL.so", 0);
 
     FcInit();
 #endif

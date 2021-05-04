@@ -67,5 +67,5 @@ set_target_properties(fgOpenGL
 if(WIN32)
   target_link_libraries(fgOpenGL PRIVATE ${OPENGL_LIBRARIES} glfw ${FREETYPE_LIBRARIES} harfbuzz ${SOIL_LIBRARIES} )
 else()
-  target_link_libraries(fgOpenGL PRIVATE ${Fontconfig_LIBRARIES} ${OPENGL_LIBRARIES} glfw ${FREETYPE_LIBRARIES} harfbuzz ${SOIL_LIBRARIES} )
+  target_link_libraries(fgOpenGL PRIVATE ${Fontconfig_LIBRARIES} ${OPENGL_LIBRARIES} glfw ${FREETYPE_LIBRARIES} ${SOIL_LIBRARIES} )
 endif()
