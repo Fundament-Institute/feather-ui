@@ -24,6 +24,8 @@ cd cpptest
 # build it
 CPPFLAGS='-I../include' LDFLAGS='-L../bin-x64' BINDIR=bin OBJDIR=bin/obj LIBDIR=lib make
 
+If you get an error about std::experimental::filesystem, your compiler is old and will require you to add `-lstdc++fs` to the linker flags to link the experimental filesystem.
+
 # run it
 LD_LIBRARY_PATH='../bin-x64' bin/cpptest
 ```

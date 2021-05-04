@@ -6,7 +6,7 @@ CXX_OBJS          	  := $(foreach rule,$(CXX_FILES:.cpp=.o),$(CPPTEST_OBJDIR)/$(
 C_OBJS          	  := $(foreach rule,$(C_FILES:.c=.o),$(CPPTEST_OBJDIR)/$(rule))
 CPPTEST_CPPFLAGS       := $(CPPFLAGS)
 CPPTEST_DEBUG_CPPFLAGS := $(CPPFLAGS) -g3
-LDFLAGS 			  := $(LDFLAGS) -lfgOpenGL
+LDFLAGS 			  := $(LDFLAGS) -lfgOpenGL -lGL
 .PHONY: all clean
 
 all: $(BINDIR)/cpptest
