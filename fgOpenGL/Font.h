@@ -6,7 +6,7 @@
 
 #include "backend.h"
 #include "compiler.h"
-#include <filesystem>
+#include "filesys.h"
 #include "khash.h"
 
 struct FT_FaceRec_;
@@ -55,7 +55,7 @@ namespace GL {
                     FG_Vec& cursor, FG_Rect& box, char32_t& last, float& lastadvance, bool& dobreak);
 
     Backend* _backend;
-    std::filesystem::path _path;
+    path _path;
     unsigned int _texture;
     struct FT_FaceRec_* _face;
     float _ascender;

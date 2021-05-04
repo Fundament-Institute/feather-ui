@@ -6,7 +6,6 @@
 #include "Font.h"
 #include "linmath.h"
 #include "utf.h"
-#include <filesystem>
 #include <float.h>
 #include "SOIL.h"
 #include "ft2build.h"
@@ -15,10 +14,11 @@
 
 #ifdef FG_PLATFORM_WIN32
   #include <dwrite_1.h>
+#else
+  #include <dlfcn.h>
 #endif
 
 using namespace GL;
-namespace fs = std::filesystem;
 
 namespace GL {
   __KHASH_IMPL(assets, , const FG_Asset*, char, 0, kh_ptr_hash_func, kh_int_hash_equal);
@@ -811,12 +811,12 @@ extern "C" FG_COMPILER_DLLEXPORT FG_Backend* fgOpenGL(void* root, FG_Log log, FG
 #endif
 #ifdef FG_PLATFORM_POSIX
   #ifdef __CYGWIN__
-    Backend::_library = dlopen("libGL-1.so");
+    Backend::_library = dlopen("libGL-1.so", 0);
   #endif
     if(!Backend::_library)
-      Backend::_library = dlopen("libGL.so.1");
+      Backend::_library = dlopen("libGL.so.1", 0);
     if(!Backend::_library)
-      Backend::_library = dlopen("libGL.so");
+      Backend::_library = dlopen("libGL.so", 0);
 
     FcInit();
 #endif

@@ -30,9 +30,9 @@ Font::Font(Backend* backend, const char* family, int weight, bool italic, int ps
   pt   = psize;
   dpi  = _dpi;
   aa   = antialias;
-#ifdef FG_PLATFORM_WIN32
   FT_Error err;
-  if(std::filesystem::exists(_path)) // Check if we were just passed an entire path instead of a font family
+#ifdef FG_PLATFORM_WIN32
+  if(exists(_path)) // Check if we were just passed an entire path instead of a font family
     err = FT_New_Face(_backend->_ftlib, _path.u8string().c_str(), 0, &_face);
   else
   {

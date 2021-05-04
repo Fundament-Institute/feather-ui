@@ -23,14 +23,14 @@ return function(bindings)
       for k, v in pairs(concrete_exprs) do
         table.insert(variables, {field = k, type = v.storage_type})
       end
-      local store = terralib.types.newstruct("let_store")
+      local store = terralib.types.newstruct("letcontext_store")
       store.entries = variables
 
-      local function body_env(environment, s)
-        return override(environment, map_pairs(concrete_exprs, function(k, v) return k, v.get(`s.[k]) end))
+      local function body_ctx(context, s)
+        return override(context, map_pairs(concrete_exprs, function(k, v) return k, v.get(`s.[k]) end))
       end
 
-      local body_fn, body_type = body(type_context, override(type_environment, texprs))
+      local body_fn, body_type = body(override(type_context, texprs), type_environment)
 
       return {
         enter = function(self, context, environment)
@@ -40,7 +40,7 @@ return function(bindings)
                 emit quote [v.enter(`self._0.[k], context, environment)] end
               end
             end
-            [body_fn.enter(`self._1, context, body_env(environment, `self._0))]
+            [body_fn.enter(`self._1, body_ctx(context, `self._0), environment)]
           end
         end,
         update = function(self, context, environment)
@@ -50,12 +50,12 @@ return function(bindings)
                 emit quote [v.update(`self._0.[k], context, environment)] end
               end
             end
-            [body_fn.update(`self._1, context, body_env(environment, `self._0))]
+            [body_fn.update(`self._1, body_ctx(context, `self._0), environment)]
           end
         end,
         exit = function(self, context)
           return quote
-            [body_fn.exit(`self._1, context)]
+            [body_fn.exit(`self._1, body_ctx(context, `self._0))]
             escape
               for k, v in pairs(concrete_exprs) do
                 emit quote [v.exit(`self._0.[k], context, environment)] end
@@ -64,7 +64,7 @@ return function(bindings)
           end
         end,
         render = function(self, context, environment)
-          return body_fn.render(`self._1, context, body_env(environment, `self._0))
+          return body_fn.render(`self._1, body_ctx(context, `self._0), environment)
         end
       }, tuple(store, body_type)
     end

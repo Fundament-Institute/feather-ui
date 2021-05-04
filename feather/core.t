@@ -76,11 +76,11 @@ M.body = setmetatable({
 
 -- build an outline object as the body of a template from a user provided table.
 function M.make_body(rawbody)
-  local function generate(context, type_environment)
+  local function generate(type_context, type_environment)
     local elements = {}
     local types = {}
     for i, b in ipairs(rawbody) do
-      elements[i], types[i] = b:generate(context, type_environment)
+      elements[i], types[i] = b:generate(type_context, type_environment)
     end
 
     return {
@@ -145,11 +145,11 @@ function template_mt:__call(desc)
   elseif desc[1] then
     error "attempted to pass a body to a template which doesn't accept one"
   end
-  function outline:generate(context, type_environment)
+  function outline:generate(type_context, type_environment)
     local binds = {}
-    local concrete_args = map_pairs(self.args, function(k, v) return k, v:generate(context, type_environment) end)
+    local concrete_args = map_pairs(self.args, function(k, v) return k, v:generate(type_context, type_environment) end)
     if self.body then
-      local body_fns, body_type = self.body(context, type_environment)
+      local body_fns, body_type = self.body(type_context, type_environment)
       binds[M.body] = function()
         return {
           enter = function(self, context, environment)
@@ -180,10 +180,10 @@ function template_mt:__call(desc)
       -- if self.template.params.events[k] then
       --   binds[k] = Closure.closure(self.template.params.events[k].args -> {})
       -- else
-        binds[k] = Expression.type(v, context, type_environment)
+        binds[k] = Expression.type(v, type_context, type_environment)
       -- end
     end
-    local fns, type = self.template:generate(context, binds)
+    local fns, type = self.template:generate(type_context, binds)
     
     local store = terralib.types.newstruct("outline_store")
     for k, v in pairs(concrete_args) do
@@ -314,7 +314,7 @@ function M.basic_template(params)
   params_full.defaults.rot = zerovec
 
   return function(render)
-    local function generate(self, context, type_environment)
+    local function generate(self, type_context, type_environment)
       local typ = terralib.types.newstruct("basic_template")
       for i, name in ipairs(params_abbrev.names) do
         typ.entries[i] = {field = name, type = type_environment[name]}
@@ -332,7 +332,7 @@ function M.basic_template(params)
 
       local body_fns, body_type
       if params_abbrev.body then
-        body_fns, body_type = type_environment[M.body](context, type_environment)
+        body_fns, body_type = type_environment[M.body](type_context, type_environment)
       end
 
       return {
@@ -404,7 +404,7 @@ function M.basic_template(params)
             [render(override(context, {transform = `transform, rtree_node = `self._2}), unpack_store(`self._0))]
           end
         end
-      }, tuple(typ, body_type or terralib.types.unit, context.rtree_node)
+      }, tuple(typ, body_type or terralib.types.unit, type_context.rtree_node)
     end
 
     local self = {
@@ -421,8 +421,8 @@ function M.template(params)
   return function(defn)
     local defn_body = M.make_body(defn)
 
-    local function generate(self, context, type_environment)
-      local defn_body_fns, defn_body_type = defn_body(context, type_environment)
+    local function generate(self, type_context, type_environment)
+      local defn_body_fns, defn_body_type = defn_body(type_context, type_environment)
 
       local element = terralib.types.newstruct("template_store")
       for i, name in ipairs(params.names) do

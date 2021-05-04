@@ -19,13 +19,12 @@ return core.raw_template {
   color = `F.Color{0},
   core.body
 } (
-  function(self, context, type_environment)
-    if context.window then
+  function(self, type_context, type_environment)
+    if type_context.window then
       error "NYI: instantiating a window inside another window"
     end
-    local rtree_type = context.rtree
-    local context_ = override(context, {window = &Msg.Window, transform = &core.transform})
-    local body_fns, body_type = type_environment[core.body](context_, type_environment)
+    local rtree_type = type_context.rtree
+    local body_fns, body_type = type_environment[core.body](override(type_context, {window = &Msg.Window, transform = &core.transform}), type_environment)
     
     local function make_context(self, ui)
       return {
@@ -92,18 +91,18 @@ return core.raw_template {
       end
     }
 
-    local window_node = gen_window_node(body_type, context.rtree_node, context.window_base)
+    local window_node = gen_window_node(body_type, type_context.rtree_node, type_context.window_base)
     
     terra window_node:Draw(ui : &opaque) : F.Err
-      [&context.ui](ui).backend:Clear(self.window, self.color)
-      [body_fns.render(`self.body, make_context(self, `[&context.ui](ui)))]
+      [&type_context.ui](ui).backend:Clear(self.window, self.color)
+      [body_fns.render(`self.body, make_context(self, `[&type_context.ui](ui)))]
       return 0
     end
     
     terra window_node:Action(ui : &opaque, subkind : int) : F.Err
       switch subkind do
         case 1 then
-          [fn_table.exit(`self, make_context(self, `[&context.ui](ui)))]
+          [fn_table.exit(`self, make_context(self, `[&type_context.ui](ui)))]
         end
       end
     end

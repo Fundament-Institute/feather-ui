@@ -43,6 +43,8 @@ function M.fake_environment(type_environment)
     end)
 end
 
+M.fake_context = M.fake_environment
+
 function M.SafeFree(...)
   return quote
     escape
