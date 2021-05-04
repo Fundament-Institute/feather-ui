@@ -50,7 +50,7 @@ Font::Font(Backend* backend, const char* family, int weight, bool italic, int ps
                         _path.u8string().c_str());
       return;
     }
-    TCHAR name[64];
+    WCHAR name[64];
     UINT32 findex;
     BOOL exists;
     IDWriteFontCollection* collection;

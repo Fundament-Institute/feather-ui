@@ -34,7 +34,7 @@ endif()
 set(CMAKE_VERBOSE_MAKEFILE TRUE)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-#set(CMAKE_CXX_EXTENSIONS OFF) # we use these for (&float)[4][4]
+set(CMAKE_CXX_EXTENSIONS OFF) # we use these for (&float)[4][4]
 
 file(GLOB_RECURSE fgOpenGL_SOURCES "./*.cpp")
 list(APPEND fgOpenGL_SOURCES "glad_gl.c")
@@ -65,7 +65,7 @@ set_target_properties(fgOpenGL
 )
 
 if(WIN32)
-  target_link_libraries(fgOpenGL PRIVATE ${OPENGL_LIBRARIES} glfw ${FREETYPE_LIBRARIES} harfbuzz ${SOIL_LIBRARIES} )
+  target_link_libraries(fgOpenGL PRIVATE ${OPENGL_LIBRARIES} glfw "Dwrite.lib" ${FREETYPE_LIBRARIES} ${SOIL_LIBRARIES} )
 else()
   target_link_libraries(fgOpenGL PRIVATE ${Fontconfig_LIBRARIES} ${OPENGL_LIBRARIES} glfw ${FREETYPE_LIBRARIES} ${SOIL_LIBRARIES} )
 endif()

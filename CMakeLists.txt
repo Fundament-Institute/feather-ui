@@ -56,3 +56,4 @@ list(APPEND CMAKE_MODULE_PATH ${DEPS_DIR})
 list(APPEND CMAKE_PREFIX_PATH ${BIN_DIR}/glfw ${BIN_DIR}/freetype2 ${BIN_DIR}/SOIL ${BIN_DIR}/harfbuzz)
 
 add_subdirectory("${CMAKE_SOURCE_DIR}/fgOpenGL")
+add_subdirectory("${CMAKE_SOURCE_DIR}/cpptest")

@@ -323,7 +323,7 @@
       <LinkLibraryDependencies>true</LinkLibraryDependencies>
     </ProjectReference>
     <Lib>
-      <AdditionalDependencies>glfw3.lib;freetype.lib;harfbuzz.lib;SOIL.lib;OpenGL32.lib;</AdditionalDependencies>
+      <AdditionalDependencies>glfw3.lib;freetyped.lib;harfbuzz.lib;SOIL.lib;OpenGL32.lib;Dwrite.lib;</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir)/Debug/SOIL/lib;$(OutDir)/Debug/freetype2/lib;$(OutDir)/Debug/glfw/lib;$(OutDir)/Debug/harfbuzz/lib;</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
@@ -386,7 +386,7 @@
       <LinkLibraryDependencies>true</LinkLibraryDependencies>
     </ProjectReference>
     <Lib>
-      <AdditionalDependencies>glfw3.lib;freetype.lib;harfbuzz.lib;SOIL.lib;OpenGL32.lib;</AdditionalDependencies>
+      <AdditionalDependencies>glfw3.lib;freetype.lib;harfbuzz.lib;SOIL.lib;OpenGL32.lib;Dwrite.lib;</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir)/MinSizeRel/SOIL/lib;$(OutDir)/MinSizeRel/freetype2/lib;$(OutDir)/MinSizeRel/glfw/lib;$(OutDir)/MinSizeRel/harfbuzz/lib;</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
