@@ -18,19 +18,6 @@ else()
   set(CPP_WARNINGS "-Wall -Wno-attributes -Wno-unknown-pragmas -Wno-missing-braces -Wno-unused-function -Wno-comment -Wno-char-subscripts -Wno-sign-compare -Wno-unused-variable -Wno-switch -Wno-parentheses")
 endif()
 
-if(NOT WIN32)
-  find_package(ZLIB REQUIRED)
-  if(ZLIB_FOUND)
-    # Check if zlib we found is usable; for example, we may have found a 32-bit
-    # library on a 64-bit system which would result in a link-time failure.
-    cmake_push_check_state()
-    set(CMAKE_REQUIRED_INCLUDES ${ZLIB_INCLUDE_DIRS})
-    set(CMAKE_REQUIRED_LIBRARIES ${ZLIB_LIBRARY})
-    check_symbol_exists(compress2 zlib.h HAVE_ZLIB)
-    cmake_pop_check_state()
-  endif()
-endif()
-
 set(CMAKE_POSITION_INDEPENDENT_CODE OFF)
 
 if(MSVC)
