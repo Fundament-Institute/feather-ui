@@ -53,7 +53,7 @@ end
 
 --metatables for templates and outlines
 local template_mt = {}
-M.outline_mt = {__index = {}}
+M.outline_mt = {__index = {}, __call = function(self, ...) return self:generate(...) end}
 
 --unique values for use as key identifiers
 M.context = {}
