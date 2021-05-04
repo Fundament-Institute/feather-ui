@@ -10,7 +10,7 @@ find_package(SOIL REQUIRED)
 find_package(OpenGL REQUIRED)
 
 if(NOT WIN32)
-  find_package(FindFontconfig REQUIRED)
+  find_package(Fontconfig REQUIRED)
   if(NOT Fontconfig_FOUND)
     message(FATAL_ERROR "Can't find fontconfig! Required to make fonts work on linux.")
   endif()

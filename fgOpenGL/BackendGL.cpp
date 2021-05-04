@@ -15,6 +15,8 @@
 
 #ifdef FG_PLATFORM_WIN32
   #include <dwrite_1.h>
+#else
+  #include <dlfcn.h>
 #endif
 
 using namespace GL;
