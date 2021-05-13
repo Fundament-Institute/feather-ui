@@ -11,6 +11,7 @@ local Alloc = require 'std.alloc'
 local Msg = require 'feather.message'
 local Log = require 'feather.log'
 local C = require 'feather.libc'
+local tunpack = table.unpack or unpack
 
 B.Feature = Flags{
   "TEXT_ANTIALIAS", 
@@ -436,13 +437,27 @@ terra B.Backend:DestroyWindow(window : &Msg.Window) : F.Err return 0 end
 do
   local map = {}
   for k, v in pairs(B.Backend.methods) do
-    k = string.lower(k:sub(1,1)) .. k:sub(2, -1)
-    B.Backend.entries:insert({field = k, type = terralib.types.pointer(v:gettype())})
-    map[k] = v -- TODO: alphabetically sort map before putting in entries, or use a C struct sorting method on the resulting struct
+    klow = string.lower(k:sub(1,1)) .. k:sub(2, -1)
+    v.c_body = "return (*self->"..klow..")("
+
+    for i, p in ipairs(v.definition.parameters) do
+      if i > 1 then 
+        v.c_body = v.c_body .. ", "
+      end
+      v.c_body = v.c_body .. p.name
+    end
+    
+    v.c_body = v.c_body .. ");"
+
+    v.type.parameters:map(symbol)
+    B[k] = v
+    B.Backend.entries:insert({field = klow, type = terralib.types.pointer(v:gettype())})
+    
+    map[klow] = v -- TODO: alphabetically sort map before putting in entries, or use a C struct sorting method on the resulting struct
   end
 
   for k, v in pairs(map) do
-    local args = v.type.parameters:map(symbol)
+    local args = v.definition.parameters:map(function(x) return x.symbol end)
     if v.type.isvararg then
       v:resetdefinition(terra([args], ...): v.type.returntype return [args[1]].[k]([args]) end)
     else

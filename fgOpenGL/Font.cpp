@@ -497,8 +497,10 @@ Glyph* Font::_getchar(const char32_t* text, float maxwidth, FG_BreakStyle breaks
     g = &kh_val(_glyphs, iter);
 
   float advance   = 0.0f;
-  box.topleft     = cursor;
-  box.bottomright = cursor;
+  box.left        = cursor.x;
+  box.top         = cursor.y;
+  box.right       = cursor.x;
+  box.bottom      = cursor.y;
 
   if(c != '\n' && c != '\r')
   {

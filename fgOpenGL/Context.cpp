@@ -87,36 +87,6 @@ Context::~Context()
   kh_destroy_shader(_shaderhash);
 }
 
-/*
-glBlendFuncSeparate(BlendValue(blend->srcBlend), BlendValue(blend->destBlend), BlendValue(blend->srcBlendAlpha),
-                        BlendValue(blend->destBlendAlpha));
-    glBlendEquationSeparate(BlendOp(blend->colorBlend), BlendOp(blend->alphaBlend));
-
-    if(_lastblend.constant.v != blend->constant.v)
-    {
-      float colors[4];
-      ColorFloats(blend->constant, colors, !(blend->flags & FG_DrawFlags_LINEAR));
-      glBlendColor(colors[0], colors[1], colors[2], colors[3]);
-    }
-
-    if(_lastblend.mask != blend->mask)
-      glColorMask(blend->mask & 0b0001, blend->mask & 0b0010, blend->mask & 0b0100, blend->mask & 0b1000);
-
-    auto diff = _lastblend.flags ^ blend->flags;
-    if(diff & FG_DrawFlags_CCW_FRONT_FACE)
-      glFrontFace((blend->flags & FG_DrawFlags_CCW_FRONT_FACE) ? GL_CCW : GL_CW);
-    FlipFlag(diff, blend->flags, FG_DrawFlags_CULL_FACE, GL_CULL_FACE);
-    FlipFlag(diff, _lastblend.flags, FG_DrawFlags_LINEAR, GL_FRAMEBUFFER_SRGB);
-
-    if(diff & (FG_DrawFlags_WIREFRAME | FG_DrawFlags_POINTMODE))
-    {
-      if(blend->flags & FG_DrawFlags_WIREFRAME)
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-      else if(blend->flags & FG_DrawFlags_POINTMODE)
-        glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
-      else
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-*/
 void Context::BeginDraw(const FG_Rect* area)
 {
   if(_window)
@@ -556,6 +526,7 @@ void Context::PushClip(const FG_Rect& rect)
   Scissor(_clipstack.back(), 0, 0);
 }
 
+// Should only be used when mapping floats to a scissor rect. Otherwise the precise integer version should be used.
 void Context::Scissor(const FG_Rect& rect, float x, float y) const
 {
   int l = static_cast<int>(floorf(rect.left - x));
@@ -1146,6 +1117,7 @@ unsigned int Context::_createTexture(const unsigned char* const data, int width,
   /*	does the user want me to convert from straight to pre-multiplied alpha?	*/
   if(flags & SOIL_FLAG_MULTIPLY_ALPHA)
   {
+    // Only calculate mipmap without linearizing if the user says so
     if(flags & SOIL_FLAG_LINEAR_RGB)
     {
       switch(channels)
@@ -1173,6 +1145,7 @@ unsigned int Context::_createTexture(const unsigned char* const data, int width,
       case 2:
         for(int i = 0; i < 2 * width * height; i += 2)
         {
+          // TODO: It is not clear if 2 channel images can be meaningfully linearized.
           img[i] = (img[i] * img[i + 1] + 128) >> 8;
         }
         break;
@@ -1362,9 +1335,4 @@ unsigned int Context::_createTexture(const unsigned char* const data, int width,
   }
   SOIL_free_image_data(img);
   return tex_id;
-}
-
-void Context::StandardDrawFunction()
-{
-
 }

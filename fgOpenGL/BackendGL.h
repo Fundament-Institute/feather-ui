@@ -26,6 +26,19 @@ struct IDWriteFactory1;
 namespace GL {
   KHASH_DECLARE(assets, const FG_Asset*, char);
 
+  enum GL_Err : FG_Err
+  {
+    ERR_SUCCESS = 0,
+    ERR_UNKNOWN    = -1,
+    ERR_NOT_IMPLEMENTED = -2,
+    ERR_MISSING_PARAMETER = -0xFFFD,
+    ERR_UNKNOWN_COMMAND_CATEGORY,
+    ERR_INVALID_KIND,
+    ERR_CLIPBOARD_FAILURE,
+    ERR_INVALID_CURSOR,
+    ERR_INVALID_DISPLAY,
+    ERR_NULL,
+  };
   class Backend : public FG_Backend
   {
   public:

@@ -37,7 +37,7 @@ FG_Err Backend::DrawGL(FG_Backend* self, FG_Window* window, FG_Command* commandl
                        FG_BlendState* blend)
 {
   if(!self || !window)
-    return -1;
+    return ERR_MISSING_PARAMETER;
 
   auto backend = static_cast<Backend*>(self);
   auto context = static_cast<Context*>(window);
@@ -81,10 +81,10 @@ FG_Err Backend::DrawGL(FG_Backend* self, FG_Window* window, FG_Command* commandl
     case FG_Category_SHADER:
       context->DrawShader(c.shader.shader, c.shader.vertices, c.shader.indices, c.shader.values);
       break;
-    default: return -20;
+    default: return ERR_UNKNOWN_COMMAND_CATEGORY;
     }
   }
-  return 0;
+  return ERR_SUCCESS;
 }
 
 bool Backend::Clear(FG_Backend* self, FG_Window* window, FG_Color color)
@@ -103,37 +103,37 @@ FG_Err Backend::PushLayer(FG_Backend* self, FG_Window* window, FG_Asset* layer, 
                           FG_BlendState* blend)
 {
   if(!self || !window)
-    return -1;
+    return ERR_MISSING_PARAMETER;
   static_cast<Context*>(window)->PushLayer(static_cast<Layer*>(layer), transform, opacity, blend);
-  return 0;
+  return ERR_SUCCESS;
 }
 
 FG_Err Backend::PopLayer(FG_Backend* self, FG_Window* window)
 {
-  return !window ? -1 : static_cast<Context*>(window)->PopLayer();
+  return !window ? ERR_MISSING_PARAMETER : static_cast<Context*>(window)->PopLayer();
 }
 
 FG_Err Backend::PushClip(FG_Backend* self, FG_Window* window, FG_Rect* area)
 {
   if(!area)
-    return -1;
+    return ERR_MISSING_PARAMETER;
   static_cast<Context*>(window)->PushClip(*area);
-  return 0;
+  return ERR_SUCCESS;
 }
 
 FG_Err Backend::PopClip(FG_Backend* self, FG_Window* window)
 {
   static_cast<Context*>(window)->PopClip();
-  return 0;
+  return ERR_SUCCESS;
 }
 
 FG_Err Backend::DirtyRect(FG_Backend* self, FG_Window* window, FG_Rect* area)
 {
   if(!self || !window)
-    return -1;
+    return ERR_MISSING_PARAMETER;
 
   static_cast<Context*>(window)->DirtyRect(area);
-  return 0;
+  return ERR_SUCCESS;
 }
 
 FG_Shader* Backend::CreateShader(FG_Backend* self, const char* ps, const char* vs, const char* gs, const char* cs,
@@ -144,21 +144,22 @@ FG_Shader* Backend::CreateShader(FG_Backend* self, const char* ps, const char* v
 FG_Err Backend::DestroyShader(FG_Backend* self, FG_Shader* shader)
 {
   if(!self || !shader)
-    return -1;
+    return ERR_MISSING_PARAMETER;
   delete static_cast<Shader*>(shader);
-  return 0;
+  return ERR_SUCCESS;
 }
 
 FG_Err Backend::GetProjection(FG_Backend* self, FG_Window* window, FG_Asset* layer, float* proj4x4)
 {
   if(!self || !window || !proj4x4)
-    return -1;
+    return ERR_MISSING_PARAMETER;
 
+  // All render targets have their own projection matrices
   if(!layer)
     memcpy(proj4x4, static_cast<Context*>(window)->proj, 4 * 4 * sizeof(float));
   else
     memcpy(proj4x4, static_cast<Layer*>(layer)->proj, 4 * 4 * sizeof(float));
-  return 0;
+  return ERR_SUCCESS;
 }
 
 FG_Font* Backend::CreateFontGL(FG_Backend* self, const char* family, unsigned short weight, bool italic, unsigned int pt,
@@ -170,17 +171,17 @@ FG_Font* Backend::CreateFontGL(FG_Backend* self, const char* family, unsigned sh
 FG_Err Backend::DestroyFont(FG_Backend* self, FG_Font* font)
 {
   if(!self || !font)
-    return -1;
+    return ERR_MISSING_PARAMETER;
   delete static_cast<Font*>(font);
-  return 0;
+  return ERR_SUCCESS;
 }
 FG_Err Backend::DestroyLayout(FG_Backend* self, void* layout)
 {
   if(!self || !layout)
-    return -1;
+    return ERR_MISSING_PARAMETER;
   free(reinterpret_cast<TextLayout*>(layout)->text);
   free(layout);
-  return 0;
+  return ERR_SUCCESS;
 }
 
 void* Backend::FontLayout(FG_Backend* self, FG_Font* font, const char* text, FG_Rect* area, float lineHeight,
@@ -188,7 +189,7 @@ void* Backend::FontLayout(FG_Backend* self, FG_Font* font, const char* text, FG_
 {
   DestroyLayout(self, prev); // Figuring out if prev can be reused ends up being too costly to bother with
 
-  // Simple layout to be replaced by Harfbuzz eventually
+  // Simple layout to be replaced by Harfbuzz and moved into feather eventually
   std::vector<const char32_t*> breaks;
   Font* f        = static_cast<Font*>(font);
   float maxwidth = area->right - area->left;
@@ -247,6 +248,9 @@ FG_Asset* Backend::CreateAsset(FG_Backend* self, const char* data, uint32_t coun
   size_t len   = !count ? strlen(data) + 1 : count;
   void* image;
   int width, height, channels;
+
+  // We only load the image into memory, we don't actually load it into a GL context because feather assets are context-independent. The
+  // asset will load itself into a context as soon as it is used on that context.
   if(!count)
     image = SOIL_load_image(data, &width, &height, &channels, SOIL_LOAD_AUTO);
   else
@@ -308,7 +312,7 @@ FG_Asset* Backend::CreateBuffer(FG_Backend* self, void* data, uint32_t bytes, ui
     (*backend->_log)(backend->_root, FG_Level_ERROR,
                      "%u bytes can't be evenly divided by %u stride (remainder %u), required by primitive type %hhu!",
                      bytes, stride, bytes % stride, primitive);
-    return 0;
+    return nullptr;
   }
 
   count = bytes / stride;
@@ -320,13 +324,13 @@ FG_Asset* Backend::CreateBuffer(FG_Backend* self, void* data, uint32_t bytes, ui
     {
       (*backend->_log)(backend->_root, FG_Level_ERROR, "A list of triangles must have a multiple of 3 vertices, got %u!",
                        count);
-      return 0;
+      return nullptr;
     }
   case FG_Primitive_TRIANGLE_STRIP:
     if(count < 3)
     {
       (*backend->_log)(backend->_root, FG_Level_ERROR, "Can't have less than 3 vertices for triangles, got %u!", count);
-      return 0;
+      return nullptr;
     }
     break;
   case FG_Primitive_LINE:
@@ -334,13 +338,13 @@ FG_Asset* Backend::CreateBuffer(FG_Backend* self, void* data, uint32_t bytes, ui
     {
       (*backend->_log)(backend->_root, FG_Level_ERROR, "A list of lines must have a multiple of 2 vertices, got %u!",
                        count);
-      return 0;
+      return nullptr;
     }
   case FG_Primitive_LINE_STRIP:
     if(count < 2)
     {
       (*backend->_log)(backend->_root, FG_Level_ERROR, "Can't have less than 2 vertices for lines, got %u!", count);
-      return 0;
+      return nullptr;
     }
     break;
   }
@@ -369,12 +373,12 @@ FG_Asset* Backend::CreateLayer(FG_Backend* self, FG_Window* window, FG_Vec* size
 FG_Err Backend::DestroyAsset(FG_Backend* self, FG_Asset* fgasset)
 {
   if(!self || !fgasset)
-    return -1;
+    return ERR_MISSING_PARAMETER;
 
   if(fgasset->format == FG_Format_LAYER)
   {
     delete static_cast<Layer*>(fgasset);
-    return 0;
+    return ERR_SUCCESS;
   }
 
   auto backend = static_cast<Backend*>(self);
@@ -385,18 +389,21 @@ FG_Err Backend::DestroyAsset(FG_Backend* self, FG_Asset* fgasset)
     kh_del_assets(backend->_assethash, iter);
 
   free(static_cast<Asset*>(fgasset));
-  return 0;
+  return ERR_SUCCESS;
 }
 
-void* Backend::CreateSystemControl(FG_Backend* self, FG_Window* window, const char* id, FG_Rect* area, ...) { return 0; }
-FG_Err Backend::SetSystemControl(FG_Backend* self, FG_Window* window, void* control, FG_Rect* area, ...) { return -1; }
-FG_Err Backend::DestroySystemControl(FG_Backend* self, FG_Window* window, void* control) { return -1; }
+void* Backend::CreateSystemControl(FG_Backend* self, FG_Window* window, const char* id, FG_Rect* area, ...) { return nullptr; }
+FG_Err Backend::SetSystemControl(FG_Backend* self, FG_Window* window, void* control, FG_Rect* area, ...)
+{
+  return ERR_NOT_IMPLEMENTED;
+}
+FG_Err Backend::DestroySystemControl(FG_Backend* self, FG_Window* window, void* control) { return ERR_NOT_IMPLEMENTED; }
 
 FG_Err Backend::PutClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard kind, const char* data, uint32_t count)
 {
 #ifdef FG_PLATFORM_WIN32
   if(!OpenClipboard(GetActiveWindow()))
-    return -1;
+    return ERR_CLIPBOARD_FAILURE;
   if(data != 0 && count > 0 && EmptyClipboard())
   {
     if(kind == FG_Clipboard_TEXT)
@@ -441,10 +448,10 @@ FG_Err Backend::PutClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard k
     }
   }
   CloseClipboard();
-  return 0;
+  return ERR_SUCCESS;
 #else
   if(kind != FG_Clipboard_TEXT)
-    return -1;
+    return ERR_INVALID_KIND;
 
   _lasterr = 0;
   glfwSetClipboardString(static_cast<Context*>(window)->GetWindow(), data);
@@ -456,7 +463,7 @@ uint32_t Backend::GetClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard
 {
 #ifdef FG_PLATFORM_WIN32
   if(!OpenClipboard(GetActiveWindow()))
-    return 0;
+    return ERR_SUCCESS;
   UINT format = CF_PRIVATEFIRST;
   switch(kind)
   {
@@ -509,7 +516,7 @@ uint32_t Backend::GetClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard
   return (uint32_t)size;
 #else
   if(kind != FG_Clipboard_TEXT)
-    return 0;
+    return ERR_SUCCESS;
 
   auto str = glfwGetClipboardString(static_cast<Context*>(window)->GetWindow());
   if(target)
@@ -548,11 +555,11 @@ FG_Err Backend::ClearClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard
 {
 #ifdef FG_PLATFORM_WIN32
   if(!OpenClipboard(GetActiveWindow()))
-    return -1;
+    return ERR_CLIPBOARD_FAILURE;
   if(!EmptyClipboard())
-    return -1;
+    return ERR_CLIPBOARD_FAILURE;
   CloseClipboard();
-  return 0;
+  return ERR_SUCCESS;
 #else
   _lasterr = 0;
   glfwSetClipboardString(static_cast<Context*>(window)->GetWindow(), "");
@@ -590,7 +597,7 @@ FG_Err Backend::SetCursorGL(FG_Backend* self, FG_Window* window, FG_Cursor curso
   case FG_Cursor_RESIZENS: glfwSetCursor(glwindow, vresize); return _lasterr;
   }
 
-  return -1;
+  return ERR_INVALID_CURSOR;
 }
 
 FG_Err Backend::GetDisplayIndex(FG_Backend* self, unsigned int index, FG_Display* out)
@@ -598,14 +605,14 @@ FG_Err Backend::GetDisplayIndex(FG_Backend* self, unsigned int index, FG_Display
   int count;
   auto monitors = glfwGetMonitors(&count);
   if(index >= static_cast<unsigned int>(count))
-    return -1;
+    return ERR_INVALID_DISPLAY;
   return GetDisplay(self, monitors[index], out);
 }
 
 FG_Err Backend::GetDisplay(FG_Backend* self, void* handle, FG_Display* out)
 {
   if(!handle || !out)
-    return -1;
+    return ERR_MISSING_PARAMETER;
   out->handle  = handle;
   out->primary = glfwGetPrimaryMonitor() == handle;
   glfwGetMonitorWorkarea(reinterpret_cast<GLFWmonitor*>(handle), &out->offset.x, &out->offset.y, &out->size.x,
@@ -614,7 +621,7 @@ FG_Err Backend::GetDisplay(FG_Backend* self, void* handle, FG_Display* out)
   out->dpi.x *= BASE_DPI;
   out->dpi.y *= BASE_DPI;
   out->scale = 1.0f; // GLFW doesn't know what text scaling is
-  return 0;
+  return ERR_SUCCESS;
 }
 
 FG_Err Backend::GetDisplayWindow(FG_Backend* self, FG_Window* window, FG_Display* out)
@@ -631,6 +638,7 @@ GLFWglproc glGetProcAddress(const char* procname)
 #endif
 }
 
+// This allows a game with a pre-existing openGL context to define a "region" for feather to draw in
 FG_Window* Backend::CreateRegionGL(FG_Backend* self, FG_MsgReceiver* element, FG_Window desc, FG_Vec3 pos, FG_Vec3 dim)
 {
   auto backend                      = reinterpret_cast<Backend*>(self);
@@ -675,7 +683,7 @@ FG_Err Backend::SetWindowGL(FG_Backend* self, FG_Window* window, FG_MsgReceiver*
                             FG_Vec* dim, const char* caption, uint64_t flags)
 {
   if(!window)
-    return -1;
+    return ERR_MISSING_PARAMETER;
   auto context      = static_cast<Context*>(window);
   context->_element = element;
 
@@ -684,7 +692,7 @@ FG_Err Backend::SetWindowGL(FG_Backend* self, FG_Window* window, FG_MsgReceiver*
   {
     if(dim)
       context->SetDim(*dim);
-    return 0;
+    return ERR_SUCCESS;
   }
   auto w = static_cast<Window*>(context);
   if(caption)
@@ -723,13 +731,13 @@ FG_Err Backend::SetWindowGL(FG_Backend* self, FG_Window* window, FG_MsgReceiver*
     glfwRestoreWindow(glwindow);
 
   w->_flags = flags;
-  return 0;
+  return ERR_SUCCESS;
 }
 
 FG_Err Backend::DestroyWindow(FG_Backend* self, FG_Window* window)
 {
   if(!self || !window)
-    return -1;
+    return ERR_MISSING_PARAMETER;
 
   _lasterr = 0;
   delete static_cast<Context*>(window);
@@ -738,7 +746,7 @@ FG_Err Backend::DestroyWindow(FG_Backend* self, FG_Window* window)
 FG_Err Backend::BeginDraw(FG_Backend* self, FG_Window* window, FG_Rect* area)
 {
   if(!window)
-    return -1;
+    return ERR_MISSING_PARAMETER;
   _lasterr = 0;
   static_cast<Context*>(window)->BeginDraw(area);
   return _lasterr;

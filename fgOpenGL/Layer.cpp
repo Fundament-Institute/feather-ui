@@ -40,6 +40,7 @@ void Layer::Destroy()
   initialized = false;
 }
 
+// Creates the layer on the current openGL context based on the assetflags assigned to this layer object
 bool Layer::Create()
 {
   if(initialized)
@@ -110,6 +111,7 @@ bool Layer::Update(float* tf, float o, FG_BlendState* b, Context* c)
   return true;
 }
 
+// This assembles a custom projection matrix specifically designed for 2D drawing.
 void Layer::mat4x4_proj(mat4x4 M, float l, float r, float b, float t, float n, float f)
 {
   memset(M, 0, sizeof(mat4x4));
@@ -137,8 +139,11 @@ void Layer::mat4x4_proj(mat4x4 M, float l, float r, float b, float t, float n, f
   mat4x4_translate_in_place(M, 0, 0, -1.0f);
 }
 
+// Assembles a Quad mesh and calls DrawTextureQuad with this layer's backing texture, while also applying
+// this layer's opacity to the alpha channel color modulation.
 int Layer::Composite()
 {
+  // Our quad mesh is the real pixel size of the layer, but has [0,1] UV coordinates.
   ImageVertex v[4];
 
   v[0].posUV[0] = 0;

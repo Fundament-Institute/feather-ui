@@ -16,6 +16,7 @@ extern "C" FG_Backend* BACKEND(void* root, FG_Log log, FG_Behavior behavior);
 
 const char* LEVELS[] = { "FATAL: ", "ERROR: ", "WARNING: ", "NOTICE: ", "DEBUG: " };
 
+// A logging function that just forwards everything to printf
 void FakeLog(void* root, FG_Level level, const char* f, ...)
 {
   if(level >= 0)
@@ -28,6 +29,7 @@ void FakeLog(void* root, FG_Level level, const char* f, ...)
   printf("\n");
 }
 
+// This "mock element" serves as a fake UI object that contains our state and will do our drawing.
 struct MockElement : FG_MsgReceiver
 {
   FG_Asset* image;
@@ -53,6 +55,7 @@ void SetShape(decltype(FAKE_CMD.shape)& shape, FG_Rect& area, float border, FG_C
   shape.asset       = NULL;
 }
 
+// The behavior function simply processes all window messages from the host OS.
 FG_Result behavior(FG_MsgReceiver* element, FG_Window* w, void* ui, FG_Msg* m)
 {
   static int counter = 0;
@@ -61,7 +64,13 @@ FG_Result behavior(FG_MsgReceiver* element, FG_Window* w, void* ui, FG_Msg* m)
   {
     ++counter;
     FG_Backend* b = *(FG_Backend**)ui;
-    (*b->clear)(b, w, FG_Color{ 0xFF000000 });
+    FG_Clear(b, w, FG_Color{ 0xFF000000 });
+
+    // Here we batch 8 different draw calls all at once. We do not know if the backend is actually capable of drawing
+    // all of them in a single draw call, but by batching them together we give the backend the option of doing so. Some
+    // backends will only be able to merge the first two rectangle calls. Some backends may be able to merge the rect,
+    // arc, circle, and triangle calls. Some might be able to include the first asset draw, but the text draw afterwards
+    // can't be batched because the text glyphs would not be in the same texture atlas as the asset draw.
     FG_Command list[8] = {};
 
     list[0].category = FG_Category_RECT;
@@ -123,10 +132,12 @@ FG_Result behavior(FG_MsgReceiver* element, FG_Window* w, void* ui, FG_Msg* m)
     list[9].asset.asset = e.gamma2;
     list[9].asset.color = FG_Color{ 0xFFFFFFFF };*/
 
-    (b->draw)(b, w, list, sizeof(list) / sizeof(FG_Command), nullptr);
+    // Now that we've assembled our draw call list, send it to the backend
+    FG_Draw(b, w, list, sizeof(list) / sizeof(FG_Command), nullptr);
 
+    // Try drawing a custom shader.
     float proj[4 * 4];
-    (*b->getProjection)(b, w, 0, proj);
+    FG_GetProjection(b, w, 0, proj);
     FG_ShaderValue values[2];
     values[0].pf32         = (float*)proj;
     values[1].asset        = e.image;
@@ -134,31 +145,35 @@ FG_Result behavior(FG_MsgReceiver* element, FG_Window* w, void* ui, FG_Msg* m)
     shader.shader.shader   = e.shader;
     shader.shader.vertices = e.vertices;
     shader.shader.values = values;
-    (b->draw)(b, w, &shader, 1, nullptr);
+    FG_Draw(b, w, &shader, 1, nullptr);
 
+    // Try drawing with a custom blend function
     auto r6              = FG_Rect{ 650.f, 125.f, 800.f, 275.f };
     FG_BlendState blend6 = { FG_BlendValue_ZERO,      FG_BlendValue_SRC_ALPHA, FG_BlendOp_ADD, FG_BlendValue_ZERO,
                              FG_BlendValue_SRC_ALPHA, FG_BlendOp_ADD,          0b1111 };
     FG_Command circle    = { FG_Category_CIRCLE };
     SetShape(circle.shape, r6, 30.0f, FG_Color{ 0xFFFFFFFF }, FG_Color{ 0 }, 0.0f);
-    (b->draw)(b, w, &circle, 1, &blend6);
+    FG_Draw(b, w, &circle, 1, &blend6);
 
+    // Draw a layer with partial opacity and a custom transform to ensure it is blended correctly.
     float transform[16] = {
       1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 550, 50, 0, 1,
     };
-    (*b->pushLayer)(b, w, e.layer, transform, 0.5f, nullptr);
-    (*b->clear)(b, w, FG_Color{ 0 });
+    FG_PushLayer(b, w, e.layer, transform, 0.5f, nullptr);
+    FG_Clear(b, w, FG_Color{ 0 });
 
     FG_Command rect = { FG_Category_RECT };
     auto r7         = FG_Rect{ 0.f, 0.f, 100.f, 80.f };
     SetShape(rect.shape, r7, 5.0f, FG_Color{ 0xFFFF0000 }, FG_Color{ 0xFFFFFF00 }, 0.0f);
     rect.shape.rect.corners = &c1;
-    (b->draw)(b, w, &rect, 1, nullptr);
+    FG_Draw(b, w, &rect, 1, nullptr);
 
-    (*b->popLayer)(b, w);
+    FG_PopLayer(b, w);
 
     return FG_Result{ 0 };
   }
+
+  // These are simply some input handling boilerplate code
   if(m->kind == FG_Kind_GETWINDOWFLAGS)
   {
     return e.close ? FG_Result{ FG_WindowFlag_CLOSED } : FG_Result{ 0 };
@@ -167,6 +182,7 @@ FG_Result behavior(FG_MsgReceiver* element, FG_Window* w, void* ui, FG_Msg* m)
   {
     e.close = e.close || ((m->setWindowFlags.flags & FG_WindowFlag_CLOSED) != 0);
   }
+  // We normally close when any keypress happens, but we don't want to close if the user is trying to take a screenshot.
   if((m->kind == FG_Kind_KEYDOWN && m->keyDown.key != FG_Keys_LMENU && m->keyDown.scancode != 84 &&
       m->keyDown.scancode != 88) ||
      m->kind == FG_Kind_MOUSEDOWN)
@@ -232,16 +248,16 @@ int main(int argc, char* argv[])
   FG_ShaderParameter vertparams[] = { { FG_ShaderType_FLOAT, 2, 0, "vPos" }, { FG_ShaderType_FLOAT, 2, 0, "vUV" } };
 
   e.flags    = FG_WindowFlag_RESIZABLE;
-  e.image    = (*b->createAsset)(b, (const char*)EXAMPLE_PNG_ARRAY, sizeof(EXAMPLE_PNG_ARRAY), FG_Format_PNG, 0);
-  e.font     = (*b->createFont)(b, "Arial", 700, false, 16, FG_Vec{ 96.f, 96.f }, FG_AntiAliasing_AA);
-  e.layout   = (*b->fontLayout)(b, e.font, "Example Text!", &textrect, 16.f, 0.f, FG_BreakStyle_NONE, nullptr);
-  e.shader   = (*b->createShader)(b, shader_fs, shader_vs, 0, 0, 0, 0, params, 2);
-  e.vertices = (*b->createBuffer)(b, verts, sizeof(verts), FG_Primitive_TRIANGLE_STRIP, vertparams, 2);
+  e.image    = FG_CreateAsset(b, (const char*)EXAMPLE_PNG_ARRAY, sizeof(EXAMPLE_PNG_ARRAY), FG_Format_PNG, 0);
+  e.font     = FG_CreateFont(b, "Arial", 700, false, 16, FG_Vec{ 96.f, 96.f }, FG_AntiAliasing_AA);
+  e.layout   = FG_FontLayout(b, e.font, "Example Text!", &textrect, 16.f, 0.f, FG_BreakStyle_NONE, nullptr);
+  e.shader   = FG_CreateShader(b, shader_fs, shader_vs, 0, 0, 0, 0, params, 2);
+  e.vertices = FG_CreateBuffer(b, verts, sizeof(verts), FG_Primitive_TRIANGLE_STRIP, vertparams, 2);
   e.close    = false;
 
   auto pos = FG_Vec{ 200.f, 100.f };
   auto dim = FG_Vec{ 800.f, 600.f };
-  auto w   = (*b->createWindow)(b, &e, nullptr, &pos, &dim, "Feather Test", e.flags);
+  auto w   = FG_CreateWindow(b, &e, nullptr, &pos, &dim, "Feather Test", e.flags);
   TEST(w != nullptr);
 
   if(!w)
@@ -251,48 +267,48 @@ int main(int argc, char* argv[])
   }
 
   FG_Vec layerdim = { 200, 100 };
-  e.layer         = (*b->createLayer)(b, w, &layerdim, 0);
+  e.layer         = FG_CreateLayer(b, w, &layerdim, 0);
 
-  TEST((*b->setCursor)(b, w, FG_Cursor_CROSS) == 0);
-  TEST((*b->dirtyRect)(b, w, 0) == 0);
+  TEST(FG_SetCursor(b, w, FG_Cursor_CROSS) == 0);
+  TEST(FG_DirtyRect(b, w, 0) == 0);
 
-  TEST((*b->setWindow)(b, w, nullptr, nullptr, nullptr, nullptr, nullptr, FG_WindowFlag_RESIZABLE) == 0);
-  TEST((*b->setWindow)(b, w, &e, nullptr, nullptr, nullptr, "Feather Test Changed", FG_WindowFlag_RESIZABLE) == 0);
+  TEST(FG_SetWindow(b, w, nullptr, nullptr, nullptr, nullptr, nullptr, FG_WindowFlag_RESIZABLE) == 0);
+  TEST(FG_SetWindow(b, w, &e, nullptr, nullptr, nullptr, "Feather Test Changed", FG_WindowFlag_RESIZABLE) == 0);
 
-  TEST((*b->processMessages)(b) != 0);
+  TEST(FG_ProcessMessages(b) != 0);
 
   const char TEST_TEXT[] = "testtext";
 
-  TEST((*b->processMessages)(b) != 0);
-  TEST((*b->clearClipboard)(b, w, FG_Clipboard_ALL) == 0);
-  TEST((*b->checkClipboard)(b, w, FG_Clipboard_TEXT) == false);
-  TEST((*b->checkClipboard)(b, w, FG_Clipboard_WAVE) == false);
-  TEST((*b->checkClipboard)(b, w, FG_Clipboard_ALL) == false);
-  TEST((*b->putClipboard)(b, w, FG_Clipboard_TEXT, TEST_TEXT, 9) == 0);
-  TEST((*b->checkClipboard)(b, w, FG_Clipboard_TEXT) == true);
-  TEST((*b->checkClipboard)(b, w, FG_Clipboard_WAVE) == false);
-  TEST((*b->checkClipboard)(b, w, FG_Clipboard_ALL) == true);
+  TEST(FG_ProcessMessages(b) != 0);
+  TEST(FG_ClearClipboard(b, w, FG_Clipboard_ALL) == 0);
+  TEST(FG_CheckClipboard(b, w, FG_Clipboard_TEXT) == false);
+  TEST(FG_CheckClipboard(b, w, FG_Clipboard_WAVE) == false);
+  TEST(FG_CheckClipboard(b, w, FG_Clipboard_ALL) == false);
+  TEST(FG_PutClipboard(b, w, FG_Clipboard_TEXT, TEST_TEXT, 9) == 0);
+  TEST(FG_CheckClipboard(b, w, FG_Clipboard_TEXT) == true);
+  TEST(FG_CheckClipboard(b, w, FG_Clipboard_WAVE) == false);
+  TEST(FG_CheckClipboard(b, w, FG_Clipboard_ALL) == true);
 
   char hold[10];
 
-  TEST((*b->getClipboard)(b, w, FG_Clipboard_TEXT, hold, 10) == 9)
+  TEST(FG_GetClipboard(b, w, FG_Clipboard_TEXT, hold, 10) == 9)
   for(int i = 0; i < 8; ++i)
   {
     TEST(TEST_TEXT[i] == hold[i]);
   }
 
-  TEST((*b->getClipboard)(b, w, FG_Clipboard_WAVE, hold, 10) == 0)
+  TEST(FG_GetClipboard(b, w, FG_Clipboard_WAVE, hold, 10) == 0)
 
-  while((*b->processMessages)(b) != 0 && e.close == false)
+  while(FG_ProcessMessages(b) != 0 && e.close == false)
   {
-    (*b->dirtyRect)(b, w, 0);
+    FG_DirtyRect(b, w, 0);
   }
 
-  TEST((*b->destroyAsset)(b, e.layer) == 0); // Must destroy layers before destroying the window
-  TEST((*b->destroyWindow)(b, w) == 0);
-  TEST((*b->destroyAsset)(b, e.image) == 0);
-  TEST((*b->destroyLayout)(b, e.layout) == 0);
-  TEST((*b->destroyFont)(b, e.font) == 0);
-  TEST((*b->destroyShader)(b, e.shader) == 0);
+  TEST(FG_DestroyAsset(b, e.layer) == 0); // Must destroy layers before destroying the window
+  TEST(FG_DestroyWindow(b, w) == 0);
+  TEST(FG_DestroyAsset(b, e.image) == 0);
+  TEST(FG_DestroyLayout(b, e.layout) == 0);
+  TEST(FG_DestroyFont(b, e.font) == 0);
+  TEST(FG_DestroyShader(b, e.shader) == 0);
   (*b->destroy)(b);
 }

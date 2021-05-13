@@ -20,7 +20,8 @@ $(
   ['union'] = "union {\n  $(;\n  )entries;\n};",
   variable = "$type $name",
   variable_fp = "$rettype (* $name)($(, )args$vararg)",
-  ['function'] = "$result $name($(, )args$vararg);",
+  ['function'] = "$rettype $name($(, )parameters$vararg);",
+  function_body = "static $rettype $name($(, )parameters$vararg) { $body }",
   fp_type = "typedef $rettype (* $name)($(, )parameters$vararg);",
   arg = "$type $name",
   enum = "enum $name {\n  $(,\n  )entries\n};",
@@ -110,7 +111,7 @@ function handle_declaration(object, prefix, cache, sequence, symbols)
         vararg = ", ..."
       end
 
-      sequence:insert{ kind = "fp_type", name = name, rettype = rettype, parameters = parameters, vararg = vararg}
+      sequence:insert{ kind = "fp_type", name = name, rettype = rettype, parameters = parameters, vararg = vararg }
       cache[object].gen = true
       return name
     end
@@ -136,17 +137,27 @@ function handle_declaration(object, prefix, cache, sequence, symbols)
   end
   if terralib.isfunction(object) then
     local name = cache[object].name
-    local rettype = object:gettype().returntype
+    local rettype = handle_declaration(object:gettype().returntype, prefix, cache, sequence, symbols) 
     local parameters = terralib.newlist()
-    for i, parameter in ipairs(object:gettype().parameters) do
-      parameters:insert(handle_declaration(parameter, prefix, cache, sequence, symbols))
+    if object.definition then
+      for i, parameter in ipairs(object.definition.parameters) do
+        parameters:insert { kind = "variable", type = handle_declaration(parameter.type, prefix, cache, sequence, symbols), name = parameter.symbol.displayname }
+      end
+    else
+      for i, parameter in ipairs(object:gettype().parameters) do
+        parameters:insert(handle_declaration(parameter, prefix, cache, sequence, symbols))
+      end
     end
+    
     local vararg = ""
     if object.type.isvararg then 
       vararg = ", ..."
     end
-
-    sequence:insert { kind = "function", name = prefix..name, rettype = rettype, parameters = parameters, vararg = vararg}
+    local kind = "function"
+    if object.c_body then 
+      kind = "function_body"
+    end
+    sequence:insert { kind = kind, name = name, rettype = rettype, parameters = parameters, vararg = vararg, body=object.c_body}
     return prefix .. name
   end
   print("unclassified object", object)

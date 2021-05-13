@@ -32,12 +32,6 @@ S.Rect.c_export = [[union {
       float bottom;
     };
 
-    struct
-    {
-      FG_Vec topleft;
-      FG_Vec bottomright;
-    };
-
     float ltrb[4];
   };]]
 

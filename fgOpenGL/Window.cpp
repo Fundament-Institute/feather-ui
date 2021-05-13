@@ -10,6 +10,7 @@
 
 using namespace GL;
 
+// We have to translate all of GLFW's key values into Feather's universal key codes.
 uint8_t Window::KeyMap[512] = { 1, 0 };
 void Window::FillKeyMap()
 {
@@ -301,6 +302,7 @@ void Window::MousePosCallback(GLFWwindow* window, double x, double y)
   self->_backend->Behavior(reinterpret_cast<Window*>(glfwGetWindowUserPointer(window)), evt);
 }
 
+// Hooks the mouse event for a mouse entering or exiting the window
 void Window::EnterCallback(GLFWwindow* window, int entered)
 {
   auto self  = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
@@ -313,6 +315,7 @@ void Window::EnterCallback(GLFWwindow* window, int entered)
   self->_backend->Behavior(reinterpret_cast<Window*>(glfwGetWindowUserPointer(window)), evt);
 }
 
+// Hooks mouse wheel scroll (both dimensions)
 void Window::ScrollCallback(GLFWwindow* window, double xdelta, double ydelta)
 {
   auto self              = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
@@ -327,6 +330,7 @@ void Window::ScrollCallback(GLFWwindow* window, double xdelta, double ydelta)
   self->_backend->Behavior(reinterpret_cast<Window*>(glfwGetWindowUserPointer(window)), evt);
 }
 
+// TODO: Should handle drag and drop somehow
 void Window::DropCallback(GLFWwindow* window, int count, const char* paths[])
 {
   auto self     = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));

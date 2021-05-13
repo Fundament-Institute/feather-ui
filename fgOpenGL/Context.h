@@ -125,7 +125,6 @@ namespace GL {
     {
       return linearRGB <= 0.0031308f ? linearRGB * 12.92f : 1.055f * powf(linearRGB, 1.0f / 2.4f) - 0.055f;
     }
-    static void StandardDrawFunction();
 
     mat4x4 proj;
     FG_MsgReceiver* _element;
