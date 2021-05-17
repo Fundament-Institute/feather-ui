@@ -14,6 +14,7 @@ in stdenv.mkDerivation rec {
     feather.backendInterface
     feather.backends
     pkgs.pkgconfig
+    pkgs.libglvnd
   ];
 
   dontStrip = true;
