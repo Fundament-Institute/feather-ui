@@ -29,7 +29,7 @@ end
 
 local function extract_store(store_exp)
   local env = {}
-  local store_t = store_exp:gettype()
+  local store_t = (`[store_exp]):gettype()
   if store_t:ispointer() then store_t = store_t.type end
   if not store_t:isstruct() then error "a store type must be a struct or a pointer to a struct" end
   for _, v in ipairs(store_t.entries) do
@@ -107,7 +107,7 @@ local bind_syntax = {
       return function(local_environment)
         return setmetatable({
           generate = function(self, type_context, type_env)
-            local fake_env = Util.fake_environment(type_environment)
+            local fake_env = Util.fake_environment(type_env)
             local logged_fake_env, environment_log = logged_fake_env(fake_env)
             local local_env = local_environment()
 
@@ -123,7 +123,7 @@ local bind_syntax = {
             local logged_fields = {}
 
             for k,v in pairs(environment_log) do
-              table.insert(logged_fields, {field = k, type = v})
+              table.insert(logged_fields, {field = k, type = (`[v]):gettype()})
             end
 
             store.entries = logged_fields
@@ -132,8 +132,8 @@ local bind_syntax = {
 
             local handler_params = {}
             for i, name in ipairs(param_names) do handler_params[i] = params_env[name] end
-            local terra event_handler(store: store, [handler_params])
-              [body(merge_envs(params_env, merge_envs(extract_store(store), local_environment)))]
+            local terra event_handler(store: &store, [handler_params])
+              [body(merge_envs(params_env, merge_envs(extract_store(store), local_env)))]
                   end
             
             local closure_methods = {
@@ -142,10 +142,11 @@ local bind_syntax = {
                   self.store = [context.allocator]:alloc([store])
                   escape
                     for k, _ in pairs(environment_log) do
-                      emit(quote self.store.[k] = [passed_environment[k]] end)
+                      print("debugging self.store", self)
+                      emit(quote [&store](self.store).[k] = [passed_env[k]] end)
                     end
                   end
-                  self.fn = event_handler
+                  self.fn = [(`self):gettype().fn_type](event_handler)
                 end
               end,
               
@@ -153,7 +154,7 @@ local bind_syntax = {
                 return quote
                   escape
                     for k, _ in pairs(environment_log) do
-                      emit(quote self.store.[k] = [passed_environment[k]] end)
+                      emit(quote [&store](self.store).[k] = [passed_environment[k]] end)
                     end
                   end
                 end
@@ -167,9 +168,10 @@ local bind_syntax = {
               
               get = function(self, context, passed_environment)
                 return self
-              end
+              end,
+              storage_type = closure
             }
-            return closure_methods, closure
+            return closure_methods
           end
                             }, Expression.expression_spec_mt)
       end

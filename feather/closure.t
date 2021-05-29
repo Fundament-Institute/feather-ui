@@ -24,6 +24,7 @@ M.closure = terralib.memoize(
       fn: params -> func_type.returntype
       store: &opaque
                          }
+    closure.fn_type = params -> func_type.returntype
 
     local call_params = func_type.parameters:map(symbol)
     terra closure.metamethods.__apply(self: closure, [call_params])
