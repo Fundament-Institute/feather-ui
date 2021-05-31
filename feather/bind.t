@@ -2,6 +2,8 @@ local Closure = require 'feather.closure'
 local Util = require 'feather.util'
 local Expression = require 'feather.expression'
 
+local C = terralib.includec "stdio.h"
+
 local function merge_envs(env_inner, env_outer)
   local env_merged = setmetatable({}, {
       __index = function(_, k)
@@ -128,13 +130,13 @@ local bind_syntax = {
 
             store.entries = logged_fields
 
-            local closure = Closure.closure(param_types -> {})
-
             local handler_params = {}
             for i, name in ipairs(param_names) do handler_params[i] = params_env[name] end
             local terra event_handler(store: &store, [handler_params])
               [body(merge_envs(params_env, merge_envs(extract_store(store), local_env)))]
                   end
+
+            local closure = Closure.closure(param_types -> event_handler.type.returntype)
             
             local closure_methods = {
               enter = function(self, context, passed_env)
@@ -142,7 +144,6 @@ local bind_syntax = {
                   self.store = [context.allocator]:alloc([store])
                   escape
                     for k, _ in pairs(environment_log) do
-                      print("debugging self.store", self)
                       emit(quote [&store](self.store).[k] = [passed_env[k]] end)
                     end
                   end

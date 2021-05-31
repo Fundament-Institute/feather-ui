@@ -1,4 +1,4 @@
-
+local C = terralib.includec "stdio.h"
 
 local M = {}
 
@@ -28,7 +28,7 @@ M.closure = terralib.memoize(
 
     local call_params = func_type.parameters:map(symbol)
     terra closure.metamethods.__apply(self: closure, [call_params])
-      self.fn(self.store, [call_params])
+      return self.fn(self.store, [call_params])
     end
 
     return closure

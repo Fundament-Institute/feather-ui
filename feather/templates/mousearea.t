@@ -34,6 +34,7 @@ return core.raw_template {
             var z_index = [F.Veci]{array(0, 0)}
             self.node = [context.rtree]:create([context.rtree_node], &pos, &ext, &rot, &z_index)
             self.node.data = &self.super
+            self.mousedown = environment.mousedown
             --var local_transform = M.transform{self.node.pos}
             --var transform = [context.transform]:compose(&local_transform)
             --;[body_fns.enter(`self.body, core.override(context, {rtree_node = `self._2, transform = `transform}), environment)]
@@ -54,24 +55,24 @@ return core.raw_template {
         render = function(self, context)
           return quote 
           -- Temporarily draws a white rectangle so you know where the mousearea is
-        var local_transform = [core.transform]{self.node.pos}
-        var transform = [context.transform]:compose(&local_transform)
-        var x, y = transform.r.x, transform.r.y
-        var w, h = self.node.extent.x, self.node.extent.y
-        var rect = F.Rect{array(x-w, y-h, x+w, y+h)}
-        var corners = F.Rect{array(0f, 0f, 0f, 0f)}
-        var command : B.Command
-        command.category = B.Category.RECT
-        command.shape.rect.corners = &corners
-        command.shape.rect.rotate = 0.0f
-        command.shape.area = &rect
-        command.shape.fillColor = [F.Color]{0xffffffff}
-        command.shape.border = 0.0f
-        command.shape.borderColor = [F.Color]{0xffffffff}
-        command.shape.blur = 0.0f
-        command.shape.asset = nil
-        command.shape.z = 0.0f
-        [context.backend]:Draw([context.window], &command, 1, nil)
+        -- var local_transform = [core.transform]{self.node.pos}
+        -- var transform = [context.transform]:compose(&local_transform)
+        -- var x, y = transform.r.x, transform.r.y
+        -- var w, h = self.node.extent.x, self.node.extent.y
+        -- var rect = F.Rect{array(x-w, y-h, x+w, y+h)}
+        -- var corners = F.Rect{array(0f, 0f, 0f, 0f)}
+        -- var command : B.Command
+        -- command.category = B.Category.RECT
+        -- command.shape.rect.corners = &corners
+        -- command.shape.rect.rotate = 0.0f
+        -- command.shape.area = &rect
+        -- command.shape.fillColor = [F.Color]{0xffffffff}
+        -- command.shape.border = 0.0f
+        -- command.shape.borderColor = [F.Color]{0xffffffff}
+        -- command.shape.blur = 0.0f
+        -- command.shape.asset = nil
+        -- command.shape.z = 0.0f
+        -- [context.backend]:Draw([context.window], &command, 1, nil)
           end
         end
       }
@@ -85,12 +86,13 @@ return core.raw_template {
       mousearea.entries:insert {field = v, type = type_environment[v]}
     end
 
+
     terra mousearea:MouseDown(ui : &opaque, x : float, y : float, all : uint8, modkeys : uint8, button : uint8) : F.Err return self.mousedown() end
     terra mousearea:MouseDblClick(ui : &opaque, x : float, y : float, all : uint8, modkeys : uint8, button : uint8) : F.Err return self.mousedblclick() end
     terra mousearea:MouseUp(ui : &opaque, x : float, y : float, all : uint8, modkeys : uint8, button : uint8) : F.Err return self.mouseup() end
     terra mousearea:MouseOn(ui : &opaque, x : float, y : float, all : uint8, modkeys : uint8) : F.Err return self.mouseon() end
     terra mousearea:MouseOff(ui : &opaque, x : float, y : float, all : uint8, modkeys : uint8) : F.Err return self.mouseoff() end
-    terra mousearea:MouseMove(ui : &opaque, x : float, y : float, all : uint8, modkeys : uint8) : F.Err C.printf("TEST %g %g\n", x, y) return self.mousemove() end
+    terra mousearea:MouseMove(ui : &opaque, x : float, y : float, all : uint8, modkeys : uint8) : F.Err --[[C.printf("TEST %g %g\n", x, y)]] return self.mousemove() end
     terra mousearea:MouseScroll(ui : &opaque, x : float, y : float, delta : float, hdelta : float) : F.Err return self.mousescroll() end
     terra mousearea:TouchBegin(ui : &opaque, x : float, y : float, z : float, r : float, pressure : float, index : uint16, flags : uint8, modkeys : uint8) : F.Err return self.touchbegin() end
     terra mousearea:TouchMove(ui : &opaque, x : float, y : float, z : float, r : float, pressure : float, index : uint16, flags : uint8, modkeys : uint8) : F.Err return self.touchmove() end

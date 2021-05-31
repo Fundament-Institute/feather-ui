@@ -1,4 +1,5 @@
-
+local C = terralib.includec "stdio.h"
+local cond = require 'std.cond'
 
 local f = require 'feather'
 local scaffolding = require 'feather.scaffolding'
@@ -30,12 +31,12 @@ terra clickapp:init(argc: int, argv: &rawstring)
 end
 terra clickapp:exit() end
 
-local stroke_color = bind f.Color { 0xccccccff }
+local stroke_color = bind f.Color { 0xffcccccc }
 
 local clickable_box = f.template {
   pos = `f.vec3(0, 0, 0),
   ext = f.required,
-  fill = `f.Color {0x000000ff},
+  fill = `f.Color {0xff000000},
   onclick = f.requiredevent()
 } {
   f.rect {
@@ -48,8 +49,10 @@ local clickable_box = f.template {
   f.mousearea {
     pos = bind pos,
     ext = bind ext,
-    onmousedown = bindevent()
+    mousedown = bindevent()
+      C.printf("in clickable_box mousedown\n")
       onclick()
+      return 1
     end
   }
 }
@@ -59,24 +62,27 @@ local ui = f.ui {
   queries = {},
   f.window {
     clickable_box {
-      pos = bind f.vec3(10, 10, 0),
-      ext = bind f.vec3(100, 100, 0),
+      pos = bind f.vec3(60, 60, 0),
+      ext = bind f.vec3(50, 50, 0),
       onclick = bindevent()
+        C.printf("in enablebutton onclick\n")
         app:enable()
       end
     },
     clickable_box {
-      pos = bind f.vec3(120, 10, 0),
-      ext = bind f.vec3(100, 100, 0),
+      pos = bind f.vec3(170, 60, 0),
+      ext = bind f.vec3(50, 50, 0),
       onclick = bindevent()
+        C.printf("in togglebutton onclick\n")
         app:toggle()
       end,
-      color = bind terralib.select(app.state, f.Color {0xbbbbbbff}, f.Color {0x000000ff})
+      fill = bind terralib.select(app.state, f.Color {0xffbbbbbb}, f.Color {0xff000000})
     },
     clickable_box {
-      pos = bind f.vec3(230, 10, 0),
-      ext = bind f.vec3(100, 100, 0),
+      pos = bind f.vec3(280, 60, 0),
+      ext = bind f.vec3(50, 50, 0),
       onclick = bindevent()
+        C.printf("in disablebutton onclick\n")
         app:disable()
       end
     }

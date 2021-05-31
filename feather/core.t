@@ -129,6 +129,11 @@ end
 -- Calling a template produces an outline node.
 function template_mt:__call(desc)
   local outline = {args = {}, template = self, has_unbound_body = false}
+  for k, v in pairs(desc) do
+    if not self.params.names_map[k] and type(k) == "string" then
+      print(debug.traceback("WARNING: passed parameter to template that it doesn't declare: "..k, 2))
+    end
+  end
   for i = 1, #self.params.names do
     local name = self.params.names[i]
     if desc[name] == nil and self.params.required[name] then
@@ -254,7 +259,7 @@ end
 
 -- parse an argument declaration table into a usable specification object
 local function parse_params(desc)
-  local res = {required = {}, defaults = {}, names = {}, events = {}, has_body = false}
+  local res = {required = {}, defaults = {}, names = {}, names_map = {}, events = {}, has_body = false}
   for k, v in pairs(desc) do
     if type(k) ~= "string" then
       if k == 1 and v == M.body then
@@ -264,6 +269,7 @@ local function parse_params(desc)
       end
     else
       table.insert(res.names, k)
+      res.names_map[k] = true
       if v == M.required then
         res.required[k] = true
       else
@@ -308,6 +314,9 @@ function M.basic_template(params)
   table.insert(params_full.names, "pos")
   table.insert(params_full.names, "ext")
   table.insert(params_full.names, "rot")
+  params_full.names_map.pos = true
+  params_full.names_map.ext = true
+  params_full.names_map.rot = true
   local zerovec = Expression.constant(`[F.Vec3]{array(0.0f, 0.0f, 0.0f)})
   params_full.defaults.pos = zerovec
   params_full.defaults.ext = zerovec
