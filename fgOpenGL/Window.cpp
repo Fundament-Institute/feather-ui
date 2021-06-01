@@ -306,7 +306,7 @@ void Window::MousePosCallback(GLFWwindow* window, double x, double y)
 void Window::EnterCallback(GLFWwindow* window, int entered)
 {
   auto self  = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
-  FG_Msg evt = { entered ? FG_Kind_MOUSEON : FG_Kind_MOUSEOFF };
+  FG_Msg evt = { static_cast<uint16_t>(entered ? FG_Kind_MOUSEON : FG_Kind_MOUSEOFF) };
   double x, y;
   glfwGetCursorPos(window, &x, &y);
   evt.mouseOn.x = static_cast<float>(x);

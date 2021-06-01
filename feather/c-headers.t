@@ -17,7 +17,7 @@ $(
   struct_fd = "typedef struct $name__ $name;",
   ['struct'] = "struct $name__ {\n  $(;\n  )entries;\n};",
   customstruct = "struct $name__ {\n  $inner\n};",
-  ['union'] = "union {\n  $(;\n  )entries;\n};",
+  ['union'] = "union {\n  $(;\n  )entries;\n}",
   variable = "$type $name",
   variable_fp = "$rettype (* $name)($(, )args$vararg)",
   ['function'] = "$rettype $name($(, )parameters$vararg);",
@@ -60,7 +60,7 @@ function handle_declaration(object, prefix, cache, sequence, symbols)
         end
         sequence:insert{ kind = "enum", name = name, entries = entries }
         cache[object].gen = true
-        cache[object].name = name
+        cache[object].name = "enum " .. name
         if terralib.sizeof(object.entries[1].type) ~= 4 then
           cache[object].name = handle_declaration(object.entries[1].type, prefix, cache, sequence, symbols)
         end
@@ -82,7 +82,11 @@ function handle_declaration(object, prefix, cache, sequence, symbols)
             entries:insert { kind = "union", entries = nset }
           end
         end
-        sequence:insert { kind = "struct", name = name, entries = entries }
+        if #object.entries == 0 then
+          sequence:insert { kind = "customstruct", name = name, inner = "char __padding;" }
+        else
+          sequence:insert { kind = "struct", name = name, entries = entries }
+        end
       else
         -- Even if we have a custom export string, make sure all the types we are going to use still exist
         for i, entry in ipairs(object.entries) do

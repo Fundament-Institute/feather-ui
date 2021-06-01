@@ -43,9 +43,14 @@ B.Feature = Flags{
 
 B.Format = Enum{
   "GRADIENT",
-  "BUFFER",
+  "VERTEX_BUFFER",
+  "ELEMENT_BUFFER",
+  "UNIFORM_BUFFER",
+  "STORAGE_BUFFER",
+  "UNKNOWN_BUFFER",
   "LAYER",
   "WEAK_LAYER",
+  "RENDERTARGET",
   "ATLAS",
   "BMP",
   "JPG",
@@ -134,6 +139,127 @@ struct B.Font {
   aa : B.AntiAliasing
 }
 
+B.BufferFormat = Enum({
+  "UNKNOWN",
+  "R32G32B32A32_TYPELESS",
+  "R32G32B32A32_FLOAT",
+  "R32G32B32A32_UINT",
+  "R32G32B32A32_INT",
+  "R32G32B32_TYPELESS",
+  "R32G32B32_FLOAT",
+  "R32G32B32_UINT",
+  "R32G32B32_INT",
+  "R16G16B16A16_TYPELESS",
+  "R16G16B16A16_FLOAT",
+  "R16G16B16A16_UNORM",
+  "R16G16B16A16_UINT",
+  "R16G16B16A16_SNORM",
+  "R16G16B16A16_INT",
+  "R32G32_TYPELESS",
+  "R32G32_FLOAT",
+  "R32G32_UINT",
+  "R32G32_INT",
+  "R32G8X24_TYPELESS",
+  "D32_FLOAT_S8X24_UINT",
+  "R32_FLOAT_X8X24_TYPELESS",
+  "X32_TYPELESS_G8X24_UINT",
+  "R10G10B10A2_TYPELESS",
+  "R10G10B10A2_UNORM",
+  "R10G10B10A2_UINT",
+  "R11G11B10_FLOAT",
+  "R8G8B8A8_TYPELESS",
+  "R8G8B8A8_UNORM",
+  "R8G8B8A8_UNORM_SRGB",
+  "R8G8B8A8_UINT",
+  "R8G8B8A8_SNORM",
+  "R8G8B8A8_INT",
+  "R16G16_TYPELESS",
+  "R16G16_FLOAT",
+  "R16G16_UNORM",
+  "R16G16_UINT",
+  "R16G16_SNORM",
+  "R16G16_INT",
+  "R32_TYPELESS",
+  "D32_FLOAT",
+  "R32_FLOAT",
+  "R32_UINT",
+  "R32_INT",
+  "R24G8_TYPELESS",
+  "D24_UNORM_S8_UINT",
+  "R24_UNORM_X8_TYPELESS",
+  "X24_TYPELESS_G8_UINT",
+  "R8G8_TYPELESS",
+  "R8G8_UNORM",
+  "R8G8_UINT",
+  "R8G8_SNORM",
+  "R8G8_INT",
+  "R16_TYPELESS",
+  "R16_FLOAT",
+  "D16_UNORM",
+  "R16_UNORM",
+  "R16_UINT",
+  "R16_SNORM",
+  "R16_INT",
+  "R8_TYPELESS",
+  "R8_UNORM",
+  "R8_UINT",
+  "R8_SNORM",
+  "R8_INT",
+  "A8_UNORM",
+  "R1_UNORM",
+  "R9G9B9E5_SHAREDEXP",
+  "R8G8_B8G8_UNORM",
+  "G8R8_G8B8_UNORM",
+  "BC1_TYPELESS",
+  "BC1_UNORM",
+  "BC1_UNORM_SRGB",
+  "BC2_TYPELESS",
+  "BC2_UNORM",
+  "BC2_UNORM_SRGB",
+  "BC3_TYPELESS",
+  "BC3_UNORM",
+  "BC3_UNORM_SRGB",
+  "BC4_TYPELESS",
+  "BC4_UNORM",
+  "BC4_SNORM",
+  "BC5_TYPELESS",
+  "BC5_UNORM",
+  "BC5_SNORM",
+  "B5G6R5_UNORM",
+  "B5G5R5A1_UNORM",
+  "B8G8R8A8_UNORM",
+  "B8G8R8X8_UNORM",
+  "R10G10B10_XR_BIAS_A2_UNORM",
+  "B8G8R8A8_TYPELESS",
+  "B8G8R8A8_UNORM_SRGB",
+  "B8G8R8X8_TYPELESS",
+  "B8G8R8X8_UNORM_SRGB",
+  "BC6H_TYPELESS",
+  "BC6H_UF16",
+  "BC6H_SF16",
+  "BC7_TYPELESS",
+  "BC7_UNORM",
+  "BC7_UNORM_SRGB",
+  "AYUV",
+  "Y410",
+  "Y416",
+  "NV12",
+  "P010",
+  "P016",
+  "YUY2",
+  "Y210",
+  "Y216",
+  "NV11",
+  "AI44",
+  "IA44",
+  "P8",
+  "A8P8",
+  "B4G4R4A4_UNORM",
+  "P208",
+  "V208",
+  "V408"
+}, uint8)
+
 B.Primitive = Enum({
   "POINT",
   "LINE",
@@ -144,9 +270,6 @@ B.Primitive = Enum({
   "TRIANGLE_ADJACENCY",
   "LINE_STRIP_ADJACENCY",
   "TRIANGLE_STRIP_ADJACENCY",
-  "INDEX_BYTE",
-  "INDEX_SHORT",
-  "INDEX_INT",
 }, uint8)
 
 B.ShaderType = Enum{
@@ -165,6 +288,8 @@ struct B.ShaderParameter {
   length : uint -- for arrays
   multi : uint -- for matrices, or to indicate TEX1D, TEX2D, TEX3D
   name : F.conststring
+  index : uint16 -- says what buffer index this is for
+  step : uint16 -- instanced data step
 }
 
 B.AssetFlags = Flags({
@@ -184,16 +309,13 @@ struct B.Asset {
       dpi : F.Vec
     }
     resource : struct {
-      count : uint
-      stride : uint16
-      primitive : uint8
-      parameters : &B.ShaderParameter
-      n_parameters : uint
+      bytes : uint
+      subformat : B.BufferFormat
     }
   }
 }
 B.Asset.c_export = [[FG_Data data;
-  FG_Format format;
+  enum FG_Format format;
   int flags;
   union {
     struct {
@@ -201,11 +323,8 @@ B.Asset.c_export = [[FG_Data data;
       FG_Vec dpi;
     };
     struct {
-      unsigned int count;
-      unsigned short stride;
-      unsigned char primitive;
-      FG_ShaderParameter * parameters;
-      unsigned int n_parameters;
+      uint32_t bytes;
+      uint8_t subformat;
     };
   };]]
 
@@ -364,8 +483,9 @@ struct B.Command {
     }
     shader : struct {
       shader : &B.Shader
-      vertices : &B.Asset
-      indices : &B.Asset
+      primitive : B.Primitive
+      input : &opaque
+      count : uint
       values : &B.ShaderValue
     }
   }
@@ -387,7 +507,8 @@ terra B.Backend:Draw(window : &Msg.Window, commands : &B.Command, n_commands : u
 terra B.Backend:Clear(window : &Msg.Window, color : F.Color) : bool return false end -- Clears whatever is inside the current clipping rect
 terra B.Backend:PushLayer(window : &Msg.Window, layer : &B.Asset, transform : &float, opacity : float, blendstate : &B.BlendState) : F.Err return 0 end
 terra B.Backend:PopLayer(window : &Msg.Window) : F.Err return 0 end
-terra B.Backend:SetRenderTarget(window : &Msg.Window, target : &B.Asset) : F.Err return 0 end
+terra B.Backend:PushRenderTarget(window : &Msg.Window, target : &B.Asset) : F.Err return 0 end
+terra B.Backend:PopRenderTarget(window : &Msg.Window) : F.Err return 0 end
 terra B.Backend:PushClip(window : &Msg.Window, area : &F.Rect) : F.Err return 0 end
 terra B.Backend:PopClip(window : &Msg.Window) : F.Err return 0 end
 terra B.Backend:DirtyRect(window : &Msg.Window, area : &F.Rect) : F.Err return 0 end
@@ -396,6 +517,8 @@ terra B.Backend:EndDraw(window : &Msg.Window) : F.Err return 0 end
 
 terra B.Backend:CreateShader(ps : F.conststring, vs : F.conststring, gs : F.conststring, cs : F.conststring, ds : F.conststring, hs : F.conststring, parameters : &B.ShaderParameter, n_parameters : uint) : &B.Shader return nil end
 terra B.Backend:DestroyShader(shader : &B.Shader) : F.Err return 0 end
+terra B.Backend:CreateShaderInput(buffers : &&B.Asset, n_buffers : uint, parameters : &B.ShaderParameter, n_parameters : uint) : &opaque return nil end
+terra B.Backend:DestroyShaderInput(input : &opaque) : F.Err return 0 end
 
 terra B.Backend:CreateFont(family : F.conststring, weight : uint16, italic : bool, pt : uint32, dpi : F.Vec, aa : B.AntiAliasing) : &B.Font return nil end
 terra B.Backend:DestroyFont(font : &B.Font) : F.Err return 0 end
@@ -404,12 +527,16 @@ terra B.Backend:DestroyLayout(layout : &opaque) : F.Err return 0 end
 terra B.Backend:FontIndex(font : &B.Font, layout : &opaque, area : &F.Rect, pos : F.Vec, cursor : &F.Vec) : uint return 0 end
 terra B.Backend:FontPos(font : &B.Font, layout : &opaque, area :&F.Rect, index : uint) : F.Vec return F.Vec{} end
 
-terra B.Backend:CreateAsset(data : F.conststring, count : uint, format : B.Format, flags : int) : &B.Asset return nil end
-terra B.Backend:CreateBuffer(data : &opaque, bytes : uint, primitive : B.Primitive, parameters : &B.ShaderParameter, n_parameters : uint) : &B.Asset return nil end
+terra B.Backend:CreateAsset(window : &Msg.Window, data : F.conststring, count : uint, format : B.Format, flags : int) : &B.Asset return nil end
+terra B.Backend:CreateBuffer(window : &Msg.Window, data : &opaque, bytes : uint, format : B.BufferFormat, type : B.Format) : &B.Asset return nil end
 terra B.Backend:CreateLayer(window : &Msg.Window, size : &F.Vec, flags : int) : &B.Asset return nil end
+terra B.Backend:CreateRenderTarget(window : &Msg.Window, size : &F.Vec, format : B.BufferFormat, flags : int) : &B.Asset return nil end
 --terra B.Backend:CreateAtlas(assets : &B.Asset, count : uint, flags : int) : &B.Asset return nil end
 --terra B.Backend:AddAtlas(atlas : &B.Asset, assets : &B.Asset, count : uint, flags : int) : F.Err return 0 end
 --terra B.Backend:RemoveAtlas(atlas : &B.Asset, assets : &B.Asset, count : uint, flags : int) : F.Err return 0 end
+--terra B.Backend:AsyncLoadAsset(window : &Msg.Window, data : F.conststring, count : uint, format : B.Format, flags : int) : &B.Asset return nil end
+terra B.Backend:PrefetchAsset(asset: &B.Asset, time : float) : F.Err return 0 end
+--terra B.Backend:QueryAssetStatus(asset: &B.Asset, time : float) : F.Err return 0 end
 terra B.Backend:DestroyAsset(asset : &B.Asset) : F.Err return 0 end
 terra B.Backend:GetProjection(window : &Msg.Window, layer : &B.Asset, proj4x4 : &float) : F.Err return 0 end
 

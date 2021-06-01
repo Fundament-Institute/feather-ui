@@ -4,18 +4,19 @@
 #ifndef GL__CONTEXT_H
 #define GL__CONTEXT_H
 
+#include "compiler.h"
 #include "glad/gl.h"
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
-#include "compiler.h"
 #include "khash.h"
 #include "Layer.h"
 #include "Shader.h"
 #include "Asset.h"
-#include "VAO.h"
+#include "Signature.h"
 #include <math.h>
 #include <vector>
 #include <utility>
+#include <memory>
 
 namespace GL {
   class Backend;
@@ -24,11 +25,11 @@ namespace GL {
   struct Glyph;
 
   typedef int FG_Err;
-  typedef std::pair<const Shader*, const Asset*> ShaderAsset;
+  typedef std::pair<const Signature*, GLuint> ShaderInput;
 
   KHASH_DECLARE(tex, const Asset*, GLuint);
   KHASH_DECLARE(shader, const Shader*, GLuint);
-  KHASH_DECLARE(vao, ShaderAsset, VAO*);
+  KHASH_DECLARE(vao, ShaderInput, VAO*);
   KHASH_DECLARE(font, const Font*, uint64_t);
   KHASH_DECLARE(glyph, uint32_t, char);
 
@@ -69,7 +70,7 @@ namespace GL {
     FG_Err DrawLines(FG_Vec* points, uint32_t count, FG_Color color, bool linearize);
     FG_Err DrawCurve(FG_Vec* anchors, uint32_t count, FG_Color fillColor, float stroke, FG_Color strokeColor,
                      bool linearize);
-    FG_Err DrawShader(FG_Shader* shader, FG_Asset* vertices, FG_Asset* indices, FG_ShaderValue* values);
+    FG_Err DrawShader(FG_Shader* fgshader, uint8_t primitive, Signature* input, GLsizei count, FG_ShaderValue* values);
     void PushClip(const FG_Rect& rect);
     void PopClip();
     Layer* CreateLayer(const FG_Vec* area, int flags);
@@ -82,12 +83,13 @@ namespace GL {
     inline void Viewport(float w, float h) const { Viewport(static_cast<int>(ceilf(w)), static_cast<int>(ceilf(h))); }
     void Viewport(int w, int h) const;
     void StandardViewport() const;
+    void AppendBatch(const void* vertices, GLsizeiptr bytes, GLsizei count, GLuint bind);
     void AppendBatch(const void* vertices, GLsizeiptr bytes, GLsizei count);
     GLsizei FlushBatch();
     void SetDim(const FG_Vec& dim);
     GLuint LoadAsset(Asset* asset);
     GLuint LoadShader(Shader* shader);
-    VAO* LoadVAO(Shader* shader, Asset* asset);
+    VAO* LoadSignature(Signature* input, GLuint shader);
     bool CheckGlyph(uint32_t g);
     void AddGlyph(uint32_t g);
     GLuint GetFontTexture(const Font* font);
@@ -117,6 +119,7 @@ namespace GL {
     static inline int GetMultiCount(int length, int multi) { return length * (!multi ? 1 : multi); }
     static mat4x4& GetRotationMatrix(mat4x4& m, float rotate, float z, mat4x4& proj);
     static void GenTransform(mat4x4 target, const FG_Rect& area, float rotate, float z);
+    static GLenum GetShaderType(uint8_t type);
     static inline float ToLinearRGB(float sRGB)
     {
       return (sRGB <= 0.04045f) ? sRGB / 12.92f : powf((sRGB + 0.055f) / 1.055f, 2.4f);
@@ -134,12 +137,12 @@ namespace GL {
     GLuint _arcshader;
     GLuint _trishader;
     GLuint _lineshader;
-    VAO* _quadobject;
+    std::unique_ptr<VAO> _quadobject;
     GLuint _quadbuffer;
-    VAO* _imageobject;
+    std::unique_ptr<VAO> _imageobject;
     GLuint _imagebuffer;
     GLuint _imageindices;
-    VAO* _lineobject;
+    std::unique_ptr<VAO> _lineobject;
     GLuint _linebuffer;
     FG_BlendState _lastblend;
 

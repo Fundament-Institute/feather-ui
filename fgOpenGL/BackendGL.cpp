@@ -79,7 +79,8 @@ FG_Err Backend::DrawGL(FG_Backend* self, FG_Window* window, FG_Command* commandl
       context->DrawCurve(c.curve.points, c.curve.count, c.curve.fillColor, c.curve.stroke, c.curve.strokeColor, linearize);
       break;
     case FG_Category_SHADER:
-      context->DrawShader(c.shader.shader, c.shader.vertices, c.shader.indices, c.shader.values);
+      context->DrawShader(c.shader.shader, c.shader.primitive, reinterpret_cast<Signature*>(c.shader.input), c.shader.count,
+                          c.shader.values);
       break;
     default: return ERR_UNKNOWN_COMMAND_CATEGORY;
     }
@@ -146,6 +147,19 @@ FG_Err Backend::DestroyShader(FG_Backend* self, FG_Shader* shader)
   if(!self || !shader)
     return ERR_MISSING_PARAMETER;
   delete static_cast<Shader*>(shader);
+  return ERR_SUCCESS;
+}
+
+void* Backend::CreateShaderInput(FG_Backend* self, FG_Asset** buffers, uint32_t n_buffers,
+                                 FG_ShaderParameter* parameters, uint32_t n_parameters)
+{
+  return new Signature(static_cast<Backend*>(self), std::span{ buffers, n_buffers }, std::span{ parameters, n_parameters });
+}
+FG_Err Backend::DestroyShaderInput(FG_Backend* self, void* input)
+{
+  if(!input)
+    return ERR_MISSING_PARAMETER;
+  delete reinterpret_cast<ShaderInput*>(input);
   return ERR_SUCCESS;
 }
 
@@ -242,25 +256,26 @@ FG_Vec Backend::FontPos(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Re
   return c;
 }
 
-FG_Asset* Backend::CreateAsset(FG_Backend* self, const char* data, uint32_t count, FG_Format format, int flags)
+FG_Asset* Backend::CreateAsset(FG_Backend* self, FG_Window* window, const char* data, uint32_t bytes, FG_Format format,
+                               int flags)
 {
   auto backend = static_cast<Backend*>(self);
-  size_t len   = !count ? strlen(data) + 1 : count;
+  size_t len   = !bytes ? strlen(data) + 1 : bytes;
   void* image;
   int width, height, channels;
 
-  // We only load the image into memory, we don't actually load it into a GL context because feather assets are context-independent. The
-  // asset will load itself into a context as soon as it is used on that context.
-  if(!count)
+  // We only load the image into memory, we don't actually load it into a GL context because feather assets are
+  // context-independent. The asset will load itself into a context as soon as it is used on that context.
+  if(!bytes)
     image = SOIL_load_image(data, &width, &height, &channels, SOIL_LOAD_AUTO);
   else
-    image = SOIL_load_image_from_memory(reinterpret_cast<const unsigned char*>(data), count, &width, &height, &channels,
+    image = SOIL_load_image_from_memory(reinterpret_cast<const unsigned char*>(data), bytes, &width, &height, &channels,
                                         SOIL_LOAD_AUTO);
 
   if(!image)
   {
     (*backend->_log)(backend->_root, FG_Level_ERROR, "%s failed!",
-                     !count ? "SOIL_load_image" : "SOIL_load_image_from_memory");
+                     !bytes ? "SOIL_load_image" : "SOIL_load_image_from_memory");
     return nullptr;
   }
 
@@ -270,7 +285,6 @@ FG_Asset* Backend::CreateAsset(FG_Backend* self, const char* data, uint32_t coun
 
   Asset* asset     = reinterpret_cast<Asset*>(malloc(sizeof(Asset)));
   asset->data.data = image;
-  asset->count     = count;
   asset->format    = format;
   asset->size.x    = width;
   asset->size.y    = height;
@@ -281,84 +295,17 @@ FG_Asset* Backend::CreateAsset(FG_Backend* self, const char* data, uint32_t coun
   return asset;
 }
 
-FG_Asset* Backend::CreateBuffer(FG_Backend* self, void* data, uint32_t bytes, uint8_t primitive,
-                                FG_ShaderParameter* parameters, uint32_t n_parameters)
+FG_Asset* Backend::CreateBuffer(FG_Backend* self, FG_Window* window, void* data, uint32_t bytes, uint8_t format,
+                                FG_Format type)
 {
-  auto backend    = static_cast<Backend*>(self);
-  uint32_t count  = 0;
-  uint32_t stride = 0;
+  auto backend = static_cast<Backend*>(self);
 
-  for(uint32_t i = 0; i < n_parameters; ++i)
-  {
-    GLenum type = 0;
-    switch(parameters[i].type)
-    {
-    case FG_ShaderType_FLOAT: type = GL_FLOAT; break;
-    case FG_ShaderType_INT: type = GL_INT; break;
-    case FG_ShaderType_UINT: type = GL_UNSIGNED_INT; break;
-    }
-    stride += Context::GetBytes(type) * Context::GetMultiCount(parameters[i].length, parameters[i].multi);
-  }
-
-  switch(primitive)
-  {
-  case FG_Primitive_INDEX_BYTE: stride = sizeof(char); break;
-  case FG_Primitive_INDEX_SHORT: stride = sizeof(short); break;
-  case FG_Primitive_INDEX_INT: stride = sizeof(int); break;
-  }
-
-  if((bytes % stride) > 0)
-  {
-    (*backend->_log)(backend->_root, FG_Level_ERROR,
-                     "%u bytes can't be evenly divided by %u stride (remainder %u), required by primitive type %hhu!",
-                     bytes, stride, bytes % stride, primitive);
-    return nullptr;
-  }
-
-  count = bytes / stride;
-
-  switch(primitive)
-  {
-  case FG_Primitive_TRIANGLE:
-    if((count % 3) != 0)
-    {
-      (*backend->_log)(backend->_root, FG_Level_ERROR, "A list of triangles must have a multiple of 3 vertices, got %u!",
-                       count);
-      return nullptr;
-    }
-  case FG_Primitive_TRIANGLE_STRIP:
-    if(count < 3)
-    {
-      (*backend->_log)(backend->_root, FG_Level_ERROR, "Can't have less than 3 vertices for triangles, got %u!", count);
-      return nullptr;
-    }
-    break;
-  case FG_Primitive_LINE:
-    if((count % 2) != 0)
-    {
-      (*backend->_log)(backend->_root, FG_Level_ERROR, "A list of lines must have a multiple of 2 vertices, got %u!",
-                       count);
-      return nullptr;
-    }
-  case FG_Primitive_LINE_STRIP:
-    if(count < 2)
-    {
-      (*backend->_log)(backend->_root, FG_Level_ERROR, "Can't have less than 2 vertices for lines, got %u!", count);
-      return nullptr;
-    }
-    break;
-  }
-
-  Asset* asset     = reinterpret_cast<Asset*>(malloc(sizeof(Asset) + bytes + sizeof(FG_ShaderParameter) * n_parameters));
-  asset->format    = FG_Format_BUFFER;
-  asset->count     = count;
-  asset->stride    = stride;
-  asset->primitive = primitive;
+  Asset* asset     = reinterpret_cast<Asset*>(malloc(sizeof(Asset) + bytes));
+  asset->format    = type;
+  asset->bytes     = bytes;
+  asset->subformat = format;
   asset->data.data = asset + 1;
   memcpy(asset->data.data, data, bytes);
-  asset->parameters   = reinterpret_cast<FG_ShaderParameter*>(reinterpret_cast<char*>(asset + 1) + bytes);
-  asset->n_parameters = n_parameters;
-  memcpy(asset->parameters, parameters, sizeof(FG_ShaderParameter) * n_parameters);
 
   int r;
   kh_put_assets(backend->_assethash, asset, &r);
@@ -392,7 +339,10 @@ FG_Err Backend::DestroyAsset(FG_Backend* self, FG_Asset* fgasset)
   return ERR_SUCCESS;
 }
 
-void* Backend::CreateSystemControl(FG_Backend* self, FG_Window* window, const char* id, FG_Rect* area, ...) { return nullptr; }
+void* Backend::CreateSystemControl(FG_Backend* self, FG_Window* window, const char* id, FG_Rect* area, ...)
+{
+  return nullptr;
+}
 FG_Err Backend::SetSystemControl(FG_Backend* self, FG_Window* window, void* control, FG_Rect* area, ...)
 {
   return ERR_NOT_IMPLEMENTED;
@@ -876,6 +826,8 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   endDraw              = &EndDraw;
   createShader         = &CreateShader;
   destroyShader        = &DestroyShader;
+  createShaderInput    = &CreateShaderInput;
+  destroyShaderInput   = &DestroyShaderInput;
   createFont           = &CreateFontGL;
   destroyFont          = &DestroyFont;
   fontLayout           = &FontLayout;

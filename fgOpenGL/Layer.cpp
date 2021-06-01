@@ -151,18 +151,18 @@ int Layer::Composite()
   v[0].posUV[2] = 0;
   v[0].posUV[3] = 1.0f;
 
-  v[1].posUV[0] = size.x;
+  v[1].posUV[0] = static_cast<float>(size.x);
   v[1].posUV[1] = 0;
   v[1].posUV[2] = 1.0f;
   v[1].posUV[3] = 1.0f;
 
   v[2].posUV[0] = 0;
-  v[2].posUV[1] = size.y;
+  v[2].posUV[1] = static_cast<float>(size.y);
   v[2].posUV[2] = 0;
   v[2].posUV[3] = 0;
 
-  v[3].posUV[0] = size.x;
-  v[3].posUV[1] = size.y;
+  v[3].posUV[0] = static_cast<float>(size.x);
+  v[3].posUV[1] = static_cast<float>(size.y);
   v[3].posUV[2] = 1.0f;
   v[3].posUV[3] = 0;
 

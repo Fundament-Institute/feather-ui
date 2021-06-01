@@ -28,9 +28,9 @@ namespace GL {
 
   enum GL_Err : FG_Err
   {
-    ERR_SUCCESS = 0,
-    ERR_UNKNOWN    = -1,
-    ERR_NOT_IMPLEMENTED = -2,
+    ERR_SUCCESS           = 0,
+    ERR_UNKNOWN           = -1,
+    ERR_NOT_IMPLEMENTED   = -2,
     ERR_MISSING_PARAMETER = -0xFFFD,
     ERR_UNKNOWN_COMMAND_CATEGORY,
     ERR_INVALID_KIND,
@@ -39,6 +39,7 @@ namespace GL {
     ERR_INVALID_DISPLAY,
     ERR_NULL,
   };
+
   class Backend : public FG_Backend
   {
   public:
@@ -60,6 +61,9 @@ namespace GL {
     static FG_Shader* CreateShader(FG_Backend* self, const char* ps, const char* vs, const char* gs, const char* cs,
                                    const char* ds, const char* hs, FG_ShaderParameter* parameters, uint32_t n_parameters);
     static FG_Err DestroyShader(FG_Backend* self, FG_Shader* shader);
+    static void* CreateShaderInput(FG_Backend* self, FG_Asset** buffers, uint32_t n_buffers, FG_ShaderParameter* parameters,
+                                   uint32_t n_parameters);
+    static FG_Err DestroyShaderInput(FG_Backend* self, void* input);
     static FG_Err GetProjection(FG_Backend* self, FG_Window* window, FG_Asset* layer, float* proj4x4);
     static FG_Font* CreateFontGL(FG_Backend* self, const char* family, unsigned short weight, bool italic, unsigned int pt,
                                  FG_Vec dpi, FG_AntiAliasing aa);
@@ -69,9 +73,10 @@ namespace GL {
     static FG_Err DestroyLayout(FG_Backend* self, void* layout);
     static uint32_t FontIndex(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, FG_Vec pos, FG_Vec* cursor);
     static FG_Vec FontPos(FG_Backend* self, FG_Font* font, void* fontlayout, FG_Rect* area, uint32_t index);
-    static FG_Asset* CreateAsset(FG_Backend* self, const char* data, uint32_t count, FG_Format format, int flags);
-    static FG_Asset* CreateBuffer(FG_Backend* self, void* data, uint32_t bytes, uint8_t primitive,
-                                  FG_ShaderParameter* parameters, uint32_t n_parameters);
+    static FG_Asset* CreateAsset(FG_Backend* self, FG_Window* window, const char* data, uint32_t count, FG_Format format,
+                                 int flags);
+    static FG_Asset* CreateBuffer(FG_Backend* self, FG_Window* window, void* data, uint32_t bytes, uint8_t format,
+                                  FG_Format type);
     static FG_Asset* CreateLayer(FG_Backend* self, FG_Window* window, FG_Vec* size, int flags);
     static FG_Err DestroyAsset(FG_Backend* self, FG_Asset* asset);
     static FG_Err PutClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard kind, const char* data, uint32_t count);
@@ -117,9 +122,9 @@ namespace GL {
     static const float PI;
     static void* _library;
 
-    #ifdef FG_PLATFORM_WIN32
+#ifdef FG_PLATFORM_WIN32
     IDWriteFactory1* _writefactory = 0;
-    #endif
+#endif
 
   protected:
     FG_Behavior _behavior;

@@ -4,6 +4,7 @@
 #ifndef GL__LAYER_H
 #define GL__LAYER_H
 
+#include "compiler.h"
 #include "backend.h"
 #include "linmath.h"
 

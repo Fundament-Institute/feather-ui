@@ -4,6 +4,7 @@
 #ifndef GL__ASSET_H
 #define GL__ASSET_H
 
+#include "compiler.h"
 #include "backend.h"
 
 namespace GL {

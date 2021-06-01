@@ -12,12 +12,12 @@
 #include <float.h>
 
 #define kh_pair_hash_func(key) \
-  kh_int64_hash_func((static_cast<uint64_t>(kh_ptr_hash_func(key.first)) << 32) | kh_ptr_hash_func(key.first))
+  kh_int64_hash_func((static_cast<uint64_t>(kh_ptr_hash_func(key.first)) << 32) | kh_int_hash_func(key.second))
 
 namespace GL {
   __KHASH_IMPL(tex, , const Asset*, GLuint, 1, kh_ptr_hash_func, kh_int_hash_equal);
   __KHASH_IMPL(shader, , const Shader*, GLuint, 1, kh_ptr_hash_func, kh_int_hash_equal);
-  __KHASH_IMPL(vao, , ShaderAsset, VAO*, 1, kh_pair_hash_func, kh_int_hash_equal);
+  __KHASH_IMPL(vao, , ShaderInput, VAO*, 1, kh_pair_hash_func, kh_int_hash_equal);
   __KHASH_IMPL(font, , const Font*, uint64_t, 1, kh_ptr_hash_func, kh_int_hash_equal);
   __KHASH_IMPL(glyph, , uint32_t, char, 0, kh_int_hash_func2, kh_int_hash_equal);
 }
@@ -118,7 +118,7 @@ void Context::BeginDraw(const FG_Rect* area)
     glGetIntegerv(GL_BLEND_DST_ALPHA, &_statestore.alphadest);
     glGetIntegerv(GL_BLEND_EQUATION_ALPHA, &_statestore.alphaop);
   }
-  
+
   SetDefaultState();
   _clipped = area != nullptr;
   if(_clipped)
@@ -205,13 +205,12 @@ FG_Err Context::DrawTextureQuad(GLuint tex, ImageVertex* v, FG_Color color, mat4
   for(int i = 0; i < 4; ++i)
     ColorFloats(color, v[i].color, linearize);
 
+  AppendBatch(v, sizeof(ImageVertex) * 4, 4, _imagebuffer);
+
   glUseProgram(_imageshader);
   _backend->LogError("glUseProgram");
   _imageobject->Bind();
 
-  glBindBuffer(GL_ARRAY_BUFFER, _imagebuffer);
-  _backend->LogError("glBindBuffer");
-  AppendBatch(v, sizeof(ImageVertex) * 4, 4);
   Shader::SetUniform(_backend, _imageshader, "MVP", GL_FLOAT_MAT4, (float*)transform);
   Shader::SetUniform(_backend, _imageshader, 0, GL_TEXTURE0, (float*)&tex);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, FlushBatch());
@@ -236,7 +235,8 @@ FG_Err Context::DrawTextGL(FG_Font* fgfont, void* textlayout, FG_Rect* area, FG_
   _backend->LogError("glBindBuffer");
 
   mat4x4 mv;
-  Shader::SetUniform(_backend, _imageshader, "MVP", GL_FLOAT_MAT4, (float*)GetRotationMatrix(mv, rotate, z, GetProjection()));
+  Shader::SetUniform(_backend, _imageshader, "MVP", GL_FLOAT_MAT4,
+                     (float*)GetRotationMatrix(mv, rotate, z, GetProjection()));
 
   float dim  = (float)(1 << font->GetSizePower());
   FG_Vec pen = { area->left, area->top + ((layout->lineheight / font->lineheight) * font->GetAscender()) };
@@ -379,15 +379,15 @@ void Context::_drawStandard(GLuint shader, VAO* vao, mat4x4 proj, const FG_Rect&
 FG_Err Context::DrawRect(FG_Rect& area, FG_Rect& corners, FG_Color fillColor, float border, FG_Color borderColor,
                          float blur, FG_Asset* asset, float rotate, float z, bool linearize)
 {
-  _drawStandard(_rectshader, _quadobject, GetProjection(), area, corners, fillColor, border, borderColor, blur, rotate, z,
-                linearize);
+  _drawStandard(_rectshader, _quadobject.get(), GetProjection(), area, corners, fillColor, border, borderColor, blur,
+                rotate, z, linearize);
   return glGetError();
 }
 
 FG_Err Context::DrawCircle(FG_Rect& area, FG_Color fillColor, float border, FG_Color borderColor, float blur,
                            float innerRadius, float innerBorder, FG_Asset* asset, float z, bool linearize)
 {
-  _drawStandard(_circleshader, _quadobject, GetProjection(), area, FG_Rect{ innerRadius, innerBorder, 0.0f, 0.0f },
+  _drawStandard(_circleshader, _quadobject.get(), GetProjection(), area, FG_Rect{ innerRadius, innerBorder, 0.0f, 0.0f },
                 fillColor, border, borderColor, blur, 0.0f, z, linearize);
   return glGetError();
 }
@@ -395,7 +395,7 @@ FG_Err Context::DrawCircle(FG_Rect& area, FG_Color fillColor, float border, FG_C
 FG_Err Context::DrawArc(FG_Rect& area, FG_Vec angles, FG_Color fillColor, float border, FG_Color borderColor, float blur,
                         float innerRadius, FG_Asset* asset, float z, bool linearize)
 {
-  _drawStandard(_arcshader, _quadobject, GetProjection(), area,
+  _drawStandard(_arcshader, _quadobject.get(), GetProjection(), area,
                 FG_Rect{ angles.x + (angles.y / 2.0f) - (Backend::PI / 2.0f), angles.y / 2.0f, innerRadius, 0.0f },
                 fillColor, border, borderColor, blur, 0.0f, z, linearize);
   return glGetError();
@@ -404,8 +404,8 @@ FG_Err Context::DrawArc(FG_Rect& area, FG_Vec angles, FG_Color fillColor, float 
 FG_Err Context::DrawTriangle(FG_Rect& area, FG_Rect& corners, FG_Color fillColor, float border, FG_Color borderColor,
                              float blur, FG_Asset* asset, float rotate, float z, bool linearize)
 {
-  _drawStandard(_trishader, _quadobject, GetProjection(), area, corners, fillColor, border, borderColor, blur, rotate, z,
-                linearize);
+  _drawStandard(_trishader, _quadobject.get(), GetProjection(), area, corners, fillColor, border, borderColor, blur, rotate,
+                z, linearize);
   return glGetError();
 }
 
@@ -413,15 +413,12 @@ FG_Err Context::DrawLines(FG_Vec* points, uint32_t count, FG_Color color, bool l
 {
   float colors[4];
   ColorFloats(color, colors, linearize);
+  AppendBatch(points, sizeof(FG_Vec) * count, count, _linebuffer);
 
   glUseProgram(_lineshader);
   _backend->LogError("glUseProgram");
   _lineobject->Bind();
 
-  glBindBuffer(GL_ARRAY_BUFFER, _linebuffer);
-  _backend->LogError("glBindBuffer");
-
-  AppendBatch(points, sizeof(FG_Vec) * count, count);
   Shader::SetUniform(_backend, _lineshader, "MVP", GL_FLOAT_MAT4, (float*)GetProjection());
   Shader::SetUniform(_backend, _lineshader, "Color", GL_FLOAT_VEC4, colors);
 
@@ -443,14 +440,16 @@ FG_Err Context::DrawCurve(FG_Vec* anchors, uint32_t count, FG_Color fillColor, f
 
   return -1;
 }
-FG_Err Context::DrawShader(FG_Shader* fgshader, FG_Asset* vertices, FG_Asset* indices, FG_ShaderValue* values)
+
+FG_Err Context::DrawShader(FG_Shader* fgshader, uint8_t primitive, Signature* input, GLsizei count, FG_ShaderValue* values)
 {
   auto shader   = static_cast<Shader*>(fgshader);
   auto instance = LoadShader(shader);
+  auto vao      = LoadSignature(input, instance);
 
   glUseProgram(instance);
   _backend->LogError("glUseProgram");
-  LoadVAO(shader, static_cast<Asset*>(vertices))->Bind();
+  vao->Bind();
 
   for(uint32_t i = 0; i < shader->n_parameters; ++i)
   {
@@ -475,7 +474,7 @@ FG_Err Context::DrawShader(FG_Shader* fgshader, FG_Asset* vertices, FG_Asset* in
   }
 
   GLenum kind = 0;
-  switch(vertices->primitive)
+  switch(primitive)
   {
   case FG_Primitive_TRIANGLE: kind = GL_TRIANGLES; break;
   case FG_Primitive_TRIANGLE_STRIP: kind = GL_TRIANGLE_STRIP; break;
@@ -484,22 +483,14 @@ FG_Err Context::DrawShader(FG_Shader* fgshader, FG_Asset* vertices, FG_Asset* in
   case FG_Primitive_POINT: kind = GL_POINT; break;
   }
 
-  if(!indices)
+  if(!vao->ElementType())
   {
-    glDrawArrays(kind, 0, vertices->count);
+    glDrawArrays(kind, 0, count);
     _backend->LogError("glDrawArrays");
   }
   else
   {
-    GLenum index = 0;
-    switch(indices->primitive)
-    {
-    case FG_Primitive_INDEX_BYTE: index = GL_UNSIGNED_BYTE; break;
-    case FG_Primitive_INDEX_SHORT: index = GL_UNSIGNED_SHORT; break;
-    case FG_Primitive_INDEX_INT: index = GL_UNSIGNED_INT; break;
-    }
-
-    glDrawElements(kind, indices->count, index, indices->data.data);
+    glDrawElements(kind, count, vao->ElementType(), nullptr);
     _backend->LogError("glDrawElements");
   }
 
@@ -582,6 +573,13 @@ int Context::PushLayer(Layer* layer, float* transform, float opacity, FG_BlendSt
   _backend->LogError("glEnable");
   Viewport(layer->size.x, layer->size.y);
   return 0;
+}
+
+void Context::AppendBatch(const void* vertices, GLsizeiptr bytes, GLsizei count, GLuint bind)
+{
+  glBindBuffer(GL_ARRAY_BUFFER, bind);
+  AppendBatch(vertices, bytes, count);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 void Context::AppendBatch(const void* vertices, GLsizeiptr bytes, GLsizei count)
@@ -708,16 +706,20 @@ void Context::CreateResources()
 
   FG_ShaderParameter rectparams[1] = { { FG_ShaderType_FLOAT, 2, 0, "vPos" } };
   FG_ShaderParameter imgparams[2]  = { { FG_ShaderType_FLOAT, 4, 0, "vPosUV" }, { FG_ShaderType_FLOAT, 4, 0, "vColor" } };
+  GLsizei quadstride               = sizeof(QuadVertex);
+  GLsizei imagestride              = sizeof(ImageVertex);
+  GLsizei linestride               = sizeof(FG_Vec);
 
   _quadbuffer = _createBuffer(sizeof(QuadVertex), 4, rect);
-  _quadobject = new VAO(_backend, _rectshader, rectparams, 1, _quadbuffer, sizeof(QuadVertex), 0);
+  _quadobject = std::make_unique<VAO>(_backend, _rectshader, rectparams, &_quadbuffer, &quadstride, 1, 0, 0);
 
   _imagebuffer  = _createBuffer(sizeof(ImageVertex), BATCH_BYTES / sizeof(ImageVertex), nullptr);
   _imageindices = _genIndices(BATCH_BYTES / sizeof(GLuint));
-  _imageobject  = new VAO(_backend, _imageshader, imgparams, 2, _imagebuffer, sizeof(ImageVertex), _imageindices);
+  _imageobject  = std::make_unique<VAO>(_backend, _imageshader, imgparams, &_imagebuffer, &imagestride, 1, _imageindices,
+                                       GL_UNSIGNED_INT);
 
   _linebuffer = _createBuffer(sizeof(FG_Vec), BATCH_BYTES / sizeof(FG_Vec), nullptr);
-  _lineobject = new VAO(_backend, _lineshader, rectparams, 1, _linebuffer, sizeof(FG_Vec), 0);
+  _lineobject = std::make_unique<VAO>(_backend, _lineshader, rectparams, &_linebuffer, &linestride, 1, 0, 0);
 
   for(auto& l : _layers)
     l->Create();
@@ -731,22 +733,22 @@ GLuint Context::LoadAsset(Asset* asset)
     return kh_val(_texhash, iter);
 
   GLuint idx;
-  if(asset->format == FG_Format_BUFFER)
+  if(asset->format >= FG_Format_VERTEX_BUFFER && asset->format <= FG_Format_UNKNOWN_BUFFER)
   {
     glGenBuffers(1, &idx);
     _backend->LogError("glGenBuffers");
 
-    GLenum kind = GL_ARRAY_BUFFER;
-    switch(asset->primitive)
+    GLenum kind = 0;
+    switch(asset->format)
     {
-    case FG_Primitive_INDEX_BYTE:
-    case FG_Primitive_INDEX_SHORT:
-    case FG_Primitive_INDEX_INT: kind = GL_ELEMENT_ARRAY_BUFFER; break;
+    case FG_Format_VERTEX_BUFFER: kind = GL_ARRAY_BUFFER; break;
+    case FG_Format_UNIFORM_BUFFER: kind = GL_UNIFORM_BUFFER; break;
+    case FG_Format_ELEMENT_BUFFER: kind = GL_ELEMENT_ARRAY_BUFFER; break;
     }
 
     glBindBuffer(kind, idx);
     _backend->LogError("glBindBuffer");
-    glBufferData(kind, asset->stride * asset->count, asset->data.data, GL_STATIC_DRAW);
+    glBufferData(kind, asset->bytes, asset->data.data, GL_STATIC_DRAW);
     _backend->LogError("glBufferData");
     glBindBuffer(kind, 0);
   }
@@ -801,25 +803,54 @@ GLuint Context::LoadShader(Shader* shader)
   return instance;
 }
 
-VAO* Context::LoadVAO(Shader* shader, Asset* asset)
+VAO* Context::LoadSignature(Signature* input, GLuint shader)
 {
-  GLuint instance = LoadShader(shader);
-  GLuint buffer   = LoadAsset(asset);
-  if(!buffer || !instance || asset->format != FG_Format_BUFFER)
-    return 0;
-
-  ShaderAsset pair = { shader, asset };
-  khiter_t iter    = kh_get_vao(_vaohash, pair);
+  khiter_t iter = kh_get_vao(_vaohash, { input, shader });
   if(iter < kh_end(_vaohash) && kh_exist(_vaohash, iter))
     return kh_val(_vaohash, iter);
 
-  VAO* object = new VAO(_backend, instance, asset->parameters, asset->n_parameters, buffer, asset->stride, 0);
+  size_t n_bindings = 0;
+  GLuint bindings[16]; // the maximum number of vertex buffers is almost always 16
+  GLsizei strides[16];
+  GLuint indices = 0;
+  GLuint element = 0;
+  for(size_t i = 0; i < input->_buffers.size(); ++i)
+  {
+    auto idx = LoadAsset(static_cast<Asset*>(input->_buffers[i]));
+    switch(input->_buffers[i]->format)
+    {
+    case FG_Format_VERTEX_BUFFER:
+      if(n_bindings > 15)
+        return 0;
+      strides[n_bindings]    = input->_strides[i];
+      bindings[n_bindings++] = idx;
+      break;
+    case FG_Format_ELEMENT_BUFFER:
+      indices = idx;
+      switch(input->_buffers[i]->subformat)
+      {
+      case FG_BufferFormat_R8_UINT: element = GL_UNSIGNED_BYTE; break;
+      case FG_BufferFormat_R16_UINT: element = GL_UNSIGNED_SHORT; break;
+      case FG_BufferFormat_R32_UINT: element = GL_UNSIGNED_INT; break;
+      default: return 0;
+      }
+      break;
+    default: return 0;
+    }
+  }
+
+  VAO* object = new VAO(_backend, shader, input->_parameters, bindings, strides, n_bindings, indices, element);
+  if(!object)
+    return 0;
 
   int r;
-  iter = kh_put_vao(_vaohash, pair, &r);
+  iter = kh_put_vao(_vaohash, { input, shader }, &r);
 
+  if(r == 0)
+    delete kh_val(_vaohash, iter);
   if(r >= 0)
     kh_val(_vaohash, iter) = object;
+
   return object;
 }
 
@@ -830,7 +861,7 @@ void Context::DestroyResources()
     if(kh_exist(_texhash, i))
     {
       GLuint idx = kh_val(_texhash, i);
-      if(kh_key(_texhash, i)->format == FG_Format_BUFFER)
+      if(kh_key(_texhash, i)->format >= FG_Format_VERTEX_BUFFER && kh_key(_texhash, i)->format >= FG_Format_UNKNOWN_BUFFER)
       {
         glDeleteBuffers(1, &idx);
         _backend->LogError("glDeleteBuffers");
@@ -881,16 +912,16 @@ void Context::DestroyResources()
   _backend->_imageshader.Destroy(_backend, _trishader);
   _backend->_imageshader.Destroy(_backend, _lineshader);
 
-  delete _quadobject;
+  _quadobject.reset();
   _backend->LogError("glDeleteVertexArrays");
   glDeleteBuffers(1, &_quadbuffer);
   _backend->LogError("glDeleteBuffers");
-  delete _imageobject;
+  _imageobject.reset();
   glDeleteBuffers(1, &_imagebuffer);
   _backend->LogError("glDeleteBuffers");
   glDeleteBuffers(1, &_imageindices);
   _backend->LogError("glDeleteBuffers");
-  delete _lineobject;
+  _lineobject.reset();
   glDeleteBuffers(1, &_linebuffer);
   _backend->LogError("glDeleteBuffers");
 
@@ -1335,4 +1366,18 @@ unsigned int Context::_createTexture(const unsigned char* const data, int width,
   }
   SOIL_free_image_data(img);
   return tex_id;
+}
+
+GLenum Context::GetShaderType(uint8_t type)
+{
+  switch(type)
+  {
+  case FG_ShaderType_HALF: return GL_HALF_FLOAT; break;
+  case FG_ShaderType_DOUBLE: return GL_DOUBLE; break;
+  case FG_ShaderType_FLOAT: return GL_FLOAT; break;
+  case FG_ShaderType_INT: return GL_INT; break;
+  case FG_ShaderType_COLOR32:
+  case FG_ShaderType_UINT: return GL_UNSIGNED_INT; break;
+  }
+  return 0;
 }

@@ -4,7 +4,6 @@
 #ifndef GL__WINDOW_H
 #define GL__WINDOW_H
 
-#include "compiler.h"
 #include "Context.h"
 
 namespace GL {
@@ -32,7 +31,7 @@ namespace GL {
     static void FocusCallback(GLFWwindow* window, int focused);
     static void SizeCallback(GLFWwindow* window, int width, int height);
     static void RefreshCallback(GLFWwindow* window);
-
+    
     uint64_t _flags;
     Window* _next; // GLFW doesn't let us detect when it destroys a window so we have to do it ourselves.
     Window* _prev;

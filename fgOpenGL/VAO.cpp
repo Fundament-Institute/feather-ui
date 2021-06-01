@@ -9,16 +9,14 @@ using namespace GL;
 
 #ifndef USE_EMULATED_VAOS
 
-VAO::VAO(Backend* backend, GLuint shader, const FG_ShaderParameter* parameters, size_t n_parameters, GLuint buffer,
-         size_t stride, GLuint indices) :
-  _backend(backend)
+VAO::VAO(Backend* backend, GLuint shader, std::span<FG_ShaderParameter> parameters, GLuint* vbuffers, GLsizei* vstrides,
+         size_t n_vbuffers, GLuint indices, GLuint element) :
+  _backend(backend), _element(element)
 {
   glGenVertexArrays(1, &_vaoID);
   _backend->LogError("glGenVertexArrays");
   glBindVertexArray(_vaoID);
   _backend->LogError("glBindVertexArray");
-  glBindBuffer(GL_ARRAY_BUFFER, buffer);
-  _backend->LogError("glBindBuffer");
 
   if(indices)
   {
@@ -26,31 +24,36 @@ VAO::VAO(Backend* backend, GLuint shader, const FG_ShaderParameter* parameters, 
     _backend->LogError("glBindBuffer");
   }
 
-  GLuint offset = 0;
-  for(size_t i = 0; i < n_parameters; ++i)
+  char* offset = 0;
+  for(auto& param : parameters)
   {
-    auto loc = glGetAttribLocation(shader, parameters[i].name);
+    if(param.index >= n_vbuffers)
+    {
+      (*_backend->_log)(_backend->_root, FG_Level_ERROR, "Parameter index %zu exceeds buffer count: %zu", param.index,
+                        n_vbuffers);
+      return;
+    }
+
+    glBindBuffer(GL_ARRAY_BUFFER, vbuffers[param.index]);
+    _backend->LogError("glBindBuffer");
+    auto loc = glGetAttribLocation(shader, param.name);
     _backend->LogError("glGetAttribLocation");
     glEnableVertexAttribArray(loc);
     _backend->LogError("glEnableVertexAttribArray");
-    size_t sz   = Context::GetMultiCount(parameters[i].length, parameters[i].multi);
-    GLenum type = 0;
-    switch(parameters->type)
-    {
-    case FG_ShaderType_FLOAT: type = GL_FLOAT; break;
-    case FG_ShaderType_INT: type = GL_INT; break;
-    case FG_ShaderType_UINT: type = GL_UNSIGNED_INT; break;
-    }
+    int sz      = Context::GetMultiCount(param.length, param.multi);
+    GLenum type = Context::GetShaderType(param.type);
 
-    glVertexAttribPointer(loc, sz, type, GL_FALSE, stride, (void*)offset);
+    glVertexAttribPointer(loc, sz, type, GL_FALSE, vstrides[param.index], offset);
     offset += Context::GetBytes(type) * sz;
     _backend->LogError("glVertexAttribPointer");
+    glVertexAttribDivisor(loc, param.step);
+    _backend->LogError("glVertexAttribDivisor");
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    _backend->LogError("glBindBuffer");
   }
 
   glBindVertexArray(0);
   _backend->LogError("glBindVertexArray");
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  _backend->LogError("glBindBuffer");
   if(indices)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
@@ -75,64 +78,82 @@ void VAO::Unbind()
 
 #else
 
-VAO::VAO(Backend* backend, GLuint shader, const FG_ShaderParameter* parameters, size_t n_parameters, GLuint buffer,
-         size_t stride, GLuint indices) :
-  _n_attribs(n_parameters), _vertexBuffer(buffer), _stride(stride), _indexBuffer(indices), _backend(backend)
+VAO::VAO(Backend* backend, GLuint shader, std::span<FG_ShaderParameter> parameters, GLuint* vbuffers, GLsizei* vstrides,
+         size_t n_vbuffers, GLuint indices, GLuint element) :
+  _backend(backend), _element(element), _indexBuffer(indices)
 {
-  _attribs = new VAO::VertexAttrib[n_parameters];
+  _attribs.reserve(parameters.size());
+  _vertexBuffer.reserve(n_vbuffers);
 
-  for(size_t i = 0; i < n_parameters; ++i)
+  for(size_t i = 0; i < n_vbuffers; ++i)
   {
-    _attribs[i].location = glGetAttribLocation(shader, parameters[i].name);
-    _backend->LogError("glGetAttribLocation");
+    size_t start = _attribs.size();
 
-    _attribs[i].numElements = Context::GetMultiCount(parameters[i].length, parameters[i].multi);
-    switch(parameters->type)
+    for(auto& param : parameters)
     {
-    case FG_ShaderType_FLOAT: _attribs[i].type = GL_FLOAT; break;
-    case FG_ShaderType_INT: _attribs[i].type = GL_INT; break;
-    case FG_ShaderType_UINT: _attribs[i].type = GL_UNSIGNED_INT; break;
+      if(param.index == i)
+      {
+        _attribs.push_back(VertexAttrib{ glGetAttribLocation(shader, param.name),
+                                         Context::GetMultiCount(parameters[i].length, parameters[i].multi),
+                                         Context::GetShaderType(param.type), param.step });
+      }
     }
+    
+    _vertexBuffer.push_back(
+      VertexBuffer{ vbuffers[i], vstrides[i], std::make_span(_attribs).subspan(start, _attribs.size() - start) });
   }
 }
 
-VAO::~VAO() { delete[] _attribs; }
+VAO::~VAO() {}
 
 void VAO::Bind()
 {
-  glBindBuffer(GL_ARRAY_BUFFER, _vertexBuffer);
-  _backend->LogError("glBindBuffer");
   if(_indexBuffer != 0)
   {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _indexBuffer);
     _backend->LogError("glBindBuffer");
   }
 
-  GLuint offset = 0;
-  for(size_t i = 0; i < _n_attribs; ++i)
+  for(auto& buffer : _vertexBuffer)
   {
-    glEnableVertexAttribArray(_attribs[i].location);
-    _backend->LogError("glEnableVertexAttribArray");
+    glBindBuffer(GL_ARRAY_BUFFER, buffer.id);
+    _backend->LogError("glBindBuffer");
+    char* offset = 0;
+    for(auto& attrib : buffer.attributes)
+    {
+      glEnableVertexAttribArray(attrib.location);
+      _backend->LogError("glEnableVertexAttribArray");
 
-    glVertexAttribPointer(_attribs[i].location, _attribs[i].numElements, _attribs[i].type, GL_FALSE, _stride,
-                          (void*)offset);
-    _backend->LogError("glVertexAttribPointer");
-    offset += Context::GetBytes(_attribs[i].type) * _attribs[i].numElements;
+      glVertexAttribPointer(attrib.location, attrib.numElements, attrib.type, GL_FALSE, buffer.stride, offset);
+      _backend->LogError("glVertexAttribPointer");
+      glVertexAttribDivisor(attrib.location, attrib.divisor);
+      _backend->LogError("glVertexAttribDivisor");
+      offset += Context::GetBytes(attrib.type) * attrib.numElements;
+    }
   }
+
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  _backend->LogError("glBindBuffer");
 }
 
 void VAO::Unbind()
 {
-  for(size_t i = 0; i < _n_attribs; ++i)
-  {
-    glDisableVertexAttribArray(_attribs[i].location);
-    _backend->LogError("glDisableVertexAttribArray");
-  }
-
   if(_indexBuffer != 0)
   {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     _backend->LogError("glBindBuffer");
+  }
+
+  for(auto& buffer : _vertexBuffer)
+  {
+    glBindBuffer(GL_ARRAY_BUFFER, buffer.id);
+    _backend->LogError("glBindBuffer");
+    GLuint offset = 0;
+    for(auto& attrib : buffer.attributes)
+    {
+      glDisableVertexAttribArray(attrib.location);
+      _backend->LogError("glEnableVertexAttribArray");
+    }
   }
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   _backend->LogError("glBindBuffer");

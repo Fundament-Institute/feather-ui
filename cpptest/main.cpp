@@ -38,6 +38,7 @@ struct MockElement : FG_MsgReceiver
   FG_Asset* vertices;
   FG_Asset* layer;
   void* layout;
+  void* input;
   uint64_t flags;
   bool close;
 };
@@ -143,7 +144,9 @@ FG_Result behavior(FG_MsgReceiver* element, FG_Window* w, void* ui, FG_Msg* m)
     values[1].asset        = e.image;
     FG_Command shader      = { FG_Category_SHADER };
     shader.shader.shader   = e.shader;
-    shader.shader.vertices = e.vertices;
+    shader.shader.input    = e.input;
+    shader.shader.primitive = FG_Primitive_TRIANGLE_STRIP;
+    shader.shader.count     = 4;
     shader.shader.values = values;
     FG_Draw(b, w, &shader, 1, nullptr);
 
@@ -248,11 +251,12 @@ int main(int argc, char* argv[])
   FG_ShaderParameter vertparams[] = { { FG_ShaderType_FLOAT, 2, 0, "vPos" }, { FG_ShaderType_FLOAT, 2, 0, "vUV" } };
 
   e.flags    = FG_WindowFlag_RESIZABLE;
-  e.image    = FG_CreateAsset(b, (const char*)EXAMPLE_PNG_ARRAY, sizeof(EXAMPLE_PNG_ARRAY), FG_Format_PNG, 0);
+  e.image    = FG_CreateAsset(b, 0, (const char*)EXAMPLE_PNG_ARRAY, sizeof(EXAMPLE_PNG_ARRAY), FG_Format_PNG, 0);
   e.font     = FG_CreateFont(b, "Arial", 700, false, 16, FG_Vec{ 96.f, 96.f }, FG_AntiAliasing_AA);
   e.layout   = FG_FontLayout(b, e.font, "Example Text!", &textrect, 16.f, 0.f, FG_BreakStyle_NONE, nullptr);
   e.shader   = FG_CreateShader(b, shader_fs, shader_vs, 0, 0, 0, 0, params, 2);
-  e.vertices = FG_CreateBuffer(b, verts, sizeof(verts), FG_Primitive_TRIANGLE_STRIP, vertparams, 2);
+  e.vertices = FG_CreateBuffer(b, 0, verts, sizeof(verts), 0, FG_Format_VERTEX_BUFFER);
+  e.input    = FG_CreateShaderInput(b, &e.vertices, 1, vertparams, 2);
   e.close    = false;
 
   auto pos = FG_Vec{ 200.f, 100.f };

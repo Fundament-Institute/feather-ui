@@ -1,12 +1,13 @@
 // Copyright (c)2021 Fundament Software
 // For conditions of distribution and use, see copyright notice in "fgOpenGL.h"
 
-#include "BackendGL.h"
-#include "Font.h"
-#include "platform.h"
+#include "compiler.h"
 #include "ft2build.h"
 #include FT_FREETYPE_H
 #include "freetype/freetype.h"
+#include "BackendGL.h"
+#include "Font.h"
+#include "platform.h"
 #include <assert.h>
 #include <malloc.h>
 #include <math.h>

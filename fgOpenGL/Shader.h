@@ -4,6 +4,7 @@
 #ifndef GL__SHADER_H
 #define GL__SHADER_H
 
+#include "compiler.h"
 #include "backend.h"
 #include "khash.h"
 #include <utility>

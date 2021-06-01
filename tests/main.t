@@ -242,7 +242,7 @@ terra TestHarness:TestBackend(dllpath : rawstring, aa : B.AntiAliasing)
   var e = MockMsgReceiver{Msg.Receiver{Msg.Receiver.virtual_initializer}}
   e.flags = Messages.WindowFlag.RESIZABLE
   -- e.image = b:CreateAsset("../tests/example.png", 0, B.Format.PNG)
-  e.image = b:CreateAsset([constant(`example_png)], [#example_png], B.Format.PNG, 0)
+  e.image = b:CreateAsset(nil, [constant(`example_png)], [#example_png], B.Format.PNG, 0)
   e.font = b:CreateFont("Arial", 700, false, 16, F.vec(96f, 96f), aa)
   e.layout = b:FontLayout(e.font, "Example Text!", &textrect, 16f, 0f, B.BreakStyle.NONE, nil);
   e.layer = nil
