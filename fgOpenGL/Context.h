@@ -74,8 +74,11 @@ namespace GL {
     void PushClip(const FG_Rect& rect);
     void PopClip();
     Layer* CreateLayer(const FG_Vec* area, int flags);
+    RenderTarget* CreateRenderTarget(const FG_Vec* psize, uint8_t format, int flags);
     int PushLayer(Layer* layer, float* transform, float opacity, FG_BlendState* blend);
     int PopLayer();
+    int PushRenderTarget(RenderTarget* asset);
+    int PopRenderTarget();
     void CreateResources();
     void DestroyResources();
     GLFWwindow* GetWindow() const { return _window; }
@@ -210,6 +213,7 @@ namespace GL {
     Backend* _backend;
     std::vector<FG_Rect> _clipstack;
     std::vector<Layer*> _layers;
+    std::vector<RenderTarget*> _rts;
     GLintptr _bufferoffset;
     GLsizei _buffercount;
     kh_tex_s* _texhash;

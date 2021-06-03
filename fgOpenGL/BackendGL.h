@@ -54,7 +54,8 @@ namespace GL {
     static FG_Err PushLayer(FG_Backend* self, FG_Window* window, FG_Asset* layer, float* transform, float opacity,
                             FG_BlendState* blend);
     static FG_Err PopLayer(FG_Backend* self, FG_Window* window);
-    static FG_Err SetRenderTarget(FG_Backend* self, FG_Window* window, FG_Asset* target);
+    static FG_Err PushRenderTarget(FG_Backend* self, FG_Window* window, FG_Asset* target);
+    static FG_Err PopRenderTarget(FG_Backend* self, FG_Window* window);
     static FG_Err PushClip(FG_Backend* self, FG_Window* window, FG_Rect* area);
     static FG_Err PopClip(FG_Backend* self, FG_Window* window);
     static FG_Err DirtyRect(FG_Backend* self, FG_Window* window, FG_Rect* area);
@@ -78,6 +79,7 @@ namespace GL {
     static FG_Asset* CreateBuffer(FG_Backend* self, FG_Window* window, void* data, uint32_t bytes, uint8_t format,
                                   FG_Format type);
     static FG_Asset* CreateLayer(FG_Backend* self, FG_Window* window, FG_Vec* size, int flags);
+    static FG_Asset* CreateRenderTarget(FG_Backend* self, FG_Window* window, FG_Vec* size, uint8_t format, int32_t flags);
     static FG_Err DestroyAsset(FG_Backend* self, FG_Asset* asset);
     static FG_Err PutClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard kind, const char* data, uint32_t count);
     static uint32_t GetClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard kind, void* target, uint32_t count);

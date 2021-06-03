@@ -314,5 +314,6 @@ int main(int argc, char* argv[])
   TEST(FG_DestroyLayout(b, e.layout) == 0);
   TEST(FG_DestroyFont(b, e.font) == 0);
   TEST(FG_DestroyShader(b, e.shader) == 0);
+  TEST(FG_DestroyShaderInput(b, e.input) == 0);
   (*b->destroy)(b);
 }

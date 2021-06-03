@@ -191,8 +191,8 @@ void Context::Draw(const FG_Rect* area)
     GLsizei w;
     GLsizei h;
     glfwGetFramebufferSize(_window, &w, &h);
-    msg.draw.area.right  = w;
-    msg.draw.area.bottom = h;
+    msg.draw.area.right  = static_cast<float>(w);
+    msg.draw.area.bottom = static_cast<float>(h);
   }
 
   _backend->BeginDraw(_backend, this, &msg.draw.area);
@@ -559,19 +559,56 @@ Layer* Context::CreateLayer(const FG_Vec* psize, int flags)
   return new Layer(!psize ? FG_Vec{ static_cast<float>(w), static_cast<float>(h) } : *psize, flags, this);
 }
 
+RenderTarget* Context::CreateRenderTarget(const FG_Vec* psize, uint8_t format, int flags)
+{
+  GLsizei w;
+  GLsizei h;
+  glfwGetFramebufferSize(_window, &w, &h);
+  return new RenderTarget(!psize ? FG_Vec{ static_cast<float>(w), static_cast<float>(h) } : *psize, flags, format, this);
+}
+
 int Context::PushLayer(Layer* layer, float* transform, float opacity, FG_BlendState* blend)
 {
   if(!layer)
     return -1;
 
-  layer->Update(transform, opacity, blend, this);
+  layer->Update(transform, opacity, blend);
   _layers.push_back(layer);
 
-  glBindFramebuffer(GL_FRAMEBUFFER, layer->framebuffer);
+  return PushRenderTarget(layer);
+}
+
+int Context::PopLayer()
+{
+  Layer* p = _layers.back();
+  _layers.pop_back();
+  PopRenderTarget();
+  return p->Composite();
+}
+
+int Context::PushRenderTarget(RenderTarget* asset)
+{
+  _rts.push_back(asset);
+  if(!asset->Set(this))
+    return -1;
+
+  glBindFramebuffer(GL_FRAMEBUFFER, asset->framebuffer);
+  _backend->LogError("glBindFramebuffer");
+  Viewport(asset->size.x, asset->size.y);
+  return 0;
+}
+
+int Context::PopRenderTarget()
+{
+  _rts.pop_back();
+  glBindFramebuffer(GL_FRAMEBUFFER, _rts.empty() ? 0 : _rts.back()->framebuffer);
   _backend->LogError("glBindFramebuffer");
 
-  _backend->LogError("glEnable");
-  Viewport(layer->size.x, layer->size.y);
+  if(!_rts.empty())
+    Viewport(_rts.back()->size.x, _rts.back()->size.y);
+  else
+    StandardViewport();
+
   return 0;
 }
 
@@ -596,21 +633,6 @@ GLsizei Context::FlushBatch()
   _bufferoffset = 0;
   _buffercount  = 0;
   return count;
-}
-
-int Context::PopLayer()
-{
-  Layer* p = _layers.back();
-  _layers.pop_back();
-  glBindFramebuffer(GL_FRAMEBUFFER, !_layers.size() ? 0 : _layers.back()->framebuffer);
-  _backend->LogError("glBindFramebuffer");
-
-  if(_layers.size() > 0)
-    Viewport(_layers.back()->size.x, _layers.back()->size.y);
-  else
-    StandardViewport();
-
-  return p->Composite();
 }
 
 int Context::GetBytes(GLenum type)
@@ -829,9 +851,9 @@ VAO* Context::LoadSignature(Signature* input, GLuint shader)
       indices = idx;
       switch(input->_buffers[i]->subformat)
       {
-      case FG_BufferFormat_R8_UINT: element = GL_UNSIGNED_BYTE; break;
-      case FG_BufferFormat_R16_UINT: element = GL_UNSIGNED_SHORT; break;
-      case FG_BufferFormat_R32_UINT: element = GL_UNSIGNED_INT; break;
+      case FG_PixelFormat_R8_UINT: element = GL_UNSIGNED_BYTE; break;
+      case FG_PixelFormat_R16_UINT: element = GL_UNSIGNED_SHORT; break;
+      case FG_PixelFormat_R32_UINT: element = GL_UNSIGNED_INT; break;
       default: return 0;
       }
       break;

@@ -8,14 +8,6 @@
 #include "backend.h"
 
 namespace GL {
-  // Internal format trackers
-  enum Format : int
-  {
-    FORMAT_UNKNOWN  = FG_Format_UNKNOWN,
-    FORMAT_VERTEX   = (1 << 8) | FG_Format_UNKNOWN,
-    FORMAT_GRADIENT = (2 << 8) | FG_Format_UNKNOWN,
-  };
-
   struct Asset : FG_Asset
   {
     int channels;

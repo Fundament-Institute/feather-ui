@@ -103,8 +103,11 @@ bool Backend::Clear(FG_Backend* self, FG_Window* window, FG_Color color)
 FG_Err Backend::PushLayer(FG_Backend* self, FG_Window* window, FG_Asset* layer, float* transform, float opacity,
                           FG_BlendState* blend)
 {
-  if(!self || !window)
+  if(!self || !window || !layer)
     return ERR_MISSING_PARAMETER;
+  if(layer->format != FG_Format_LAYER && layer->format != FG_Format_WEAK_LAYER)
+    return ERR_INVALID_KIND;
+
   static_cast<Context*>(window)->PushLayer(static_cast<Layer*>(layer), transform, opacity, blend);
   return ERR_SUCCESS;
 }
@@ -112,6 +115,20 @@ FG_Err Backend::PushLayer(FG_Backend* self, FG_Window* window, FG_Asset* layer, 
 FG_Err Backend::PopLayer(FG_Backend* self, FG_Window* window)
 {
   return !window ? ERR_MISSING_PARAMETER : static_cast<Context*>(window)->PopLayer();
+}
+
+FG_Err Backend::PushRenderTarget(FG_Backend* self, FG_Window* window, FG_Asset* target)
+{
+  if(!self || !window || !target)
+    return ERR_MISSING_PARAMETER;
+  if(target->format != FG_Format_TEXTURE)
+    return ERR_INVALID_KIND;
+  return static_cast<Context*>(window)->PushRenderTarget(static_cast<RenderTarget*>(target));
+}
+
+FG_Err Backend::PopRenderTarget(FG_Backend* self, FG_Window* window)
+{
+  return !window ? ERR_MISSING_PARAMETER : static_cast<Context*>(window)->PopRenderTarget();
 }
 
 FG_Err Backend::PushClip(FG_Backend* self, FG_Window* window, FG_Rect* area)
@@ -150,8 +167,8 @@ FG_Err Backend::DestroyShader(FG_Backend* self, FG_Shader* shader)
   return ERR_SUCCESS;
 }
 
-void* Backend::CreateShaderInput(FG_Backend* self, FG_Asset** buffers, uint32_t n_buffers,
-                                 FG_ShaderParameter* parameters, uint32_t n_parameters)
+void* Backend::CreateShaderInput(FG_Backend* self, FG_Asset** buffers, uint32_t n_buffers, FG_ShaderParameter* parameters,
+                                 uint32_t n_parameters)
 {
   return new Signature(static_cast<Backend*>(self), std::span{ buffers, n_buffers }, std::span{ parameters, n_parameters });
 }
@@ -317,17 +334,26 @@ FG_Asset* Backend::CreateLayer(FG_Backend* self, FG_Window* window, FG_Vec* size
   return static_cast<Context*>(window)->CreateLayer(size, flags);
 }
 
+FG_Asset* Backend::CreateRenderTarget(FG_Backend* self, FG_Window* window, FG_Vec* size, uint8_t format, int32_t flags)
+{
+  return static_cast<Context*>(window)->CreateRenderTarget(size, format, flags);
+}
+
 FG_Err Backend::DestroyAsset(FG_Backend* self, FG_Asset* fgasset)
 {
   if(!self || !fgasset)
     return ERR_MISSING_PARAMETER;
 
-  if(fgasset->format == FG_Format_LAYER)
+  switch(fgasset->format)
   {
+  case FG_Format_LAYER:
+  case FG_Format_WEAK_LAYER:
     delete static_cast<Layer*>(fgasset);
     return ERR_SUCCESS;
+  case FG_Format_TEXTURE:
+    delete static_cast<RenderTarget*>(fgasset);
+    return ERR_SUCCESS;
   }
-
   auto backend = static_cast<Backend*>(self);
 
   // Once we remove the asset from the hash, contexts who reach a reference count of 0 for an asset will destroy it.
@@ -819,6 +845,8 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   clear                = &Clear;
   pushLayer            = &PushLayer;
   popLayer             = &PopLayer;
+  pushRenderTarget     = &PushRenderTarget;
+  popRenderTarget      = &PopRenderTarget;
   pushClip             = &PushClip;
   popClip              = &PopClip;
   dirtyRect            = &DirtyRect;
@@ -837,6 +865,7 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   createAsset          = &CreateAsset;
   createBuffer         = &CreateBuffer;
   createLayer          = &CreateLayer;
+  createRenderTarget   = &CreateRenderTarget;
   destroyAsset         = &DestroyAsset;
   getProjection        = &GetProjection;
   putClipboard         = &PutClipboard;
@@ -983,7 +1012,12 @@ Backend::~Backend()
 void Backend::ErrorCallback(int error, const char* description)
 {
   _lasterr = error;
+#ifdef _WIN32
+  strncpy_s(_lasterrdesc, description, 1024);
+#else
   strncpy(_lasterrdesc, description, 1024);
+#endif
+
   if(_singleton)
     (*_singleton->_log)(_singleton->_root, FG_Level_ERROR, description);
 }
