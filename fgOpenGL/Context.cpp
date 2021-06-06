@@ -188,11 +188,9 @@ void Context::Draw(const FG_Rect* area)
     msg.draw.area = *area;
   else
   {
-    GLsizei w;
-    GLsizei h;
-    glfwGetFramebufferSize(_window, &w, &h);
-    msg.draw.area.right  = static_cast<float>(w);
-    msg.draw.area.bottom = static_cast<float>(h);
+    auto vp              = GetViewportf();
+    msg.draw.area.right  = vp.x;
+    msg.draw.area.bottom = vp.y;
   }
 
   _backend->BeginDraw(_backend, this, &msg.draw.area);
@@ -415,13 +413,20 @@ FG_Err Context::DrawLines(FG_Vec* points, uint32_t count, FG_Color color, bool l
   ColorFloats(color, colors, linearize);
   AppendBatch(points, sizeof(FG_Vec) * count, count, _linebuffer);
 
+  mat4x4 mvp;
+  mat4x4_translate(mvp, -0.5f, -0.5f, 0.0f);
+  mat4x4_mul(mvp, proj, mvp);
+
   glUseProgram(_lineshader);
   _backend->LogError("glUseProgram");
   _lineobject->Bind();
+  glLineWidth(3.0f);
 
-  Shader::SetUniform(_backend, _lineshader, "MVP", GL_FLOAT_MAT4, (float*)GetProjection());
+  Shader::SetUniform(_backend, _lineshader, "MVP", GL_FLOAT_MAT4, (float*)mvp);
   Shader::SetUniform(_backend, _lineshader, "Color", GL_FLOAT_VEC4, colors);
-
+  auto vp = GetViewportf();
+  Shader::SetUniform(_backend, _lineshader, "ViewPort", GL_FLOAT_VEC2, &vp.x);
+  
   glDrawArrays(GL_LINE_STRIP, 0, FlushBatch());
   _backend->LogError("glDrawArrays");
   _lineobject->Unbind();
@@ -528,12 +533,17 @@ void Context::Scissor(const FG_Rect& rect, float x, float y) const
   _backend->LogError("glScissor");
 }
 
+FG_Veci Context::GetViewport() const
+{
+  FG_Veci vp;
+  glfwGetFramebufferSize(_window, &vp.x, &vp.y);
+  return vp;
+}
+
 void Context::StandardViewport() const
 {
-  GLsizei w;
-  GLsizei h;
-  glfwGetFramebufferSize(_window, &w, &h);
-  glViewport(0, 0, w, h);
+  auto vp = GetViewport();
+  glViewport(0, 0, vp.x, vp.y);
   _backend->LogError("glViewport");
 }
 void Context::Viewport(GLsizei w, GLsizei h) const
@@ -553,18 +563,12 @@ void Context::PopClip()
 
 Layer* Context::CreateLayer(const FG_Vec* psize, int flags)
 {
-  GLsizei w;
-  GLsizei h;
-  glfwGetFramebufferSize(_window, &w, &h);
-  return new Layer(!psize ? FG_Vec{ static_cast<float>(w), static_cast<float>(h) } : *psize, flags, this);
+  return new Layer(!psize ? GetViewportf() : *psize, flags, this);
 }
 
 RenderTarget* Context::CreateRenderTarget(const FG_Vec* psize, uint8_t format, int flags)
 {
-  GLsizei w;
-  GLsizei h;
-  glfwGetFramebufferSize(_window, &w, &h);
-  return new RenderTarget(!psize ? FG_Vec{ static_cast<float>(w), static_cast<float>(h) } : *psize, flags, format, this);
+  return new RenderTarget(!psize ? GetViewportf() : *psize, flags, format, this);
 }
 
 int Context::PushLayer(Layer* layer, float* transform, float opacity, FG_BlendState* blend)
@@ -703,7 +707,7 @@ void Context::SetDefaultState()
   //_backend->LogError("glEnable");
   glEnable(GL_FRAMEBUFFER_SRGB);
   _backend->LogError("glEnable");
-
+  
   ApplyBlend(0, true);
   _backend->LogError("glBlendFunc");
 }
@@ -717,7 +721,7 @@ void Context::CreateResources()
   _circleshader = _backend->_circleshader.Create(_backend);
   _arcshader    = _backend->_arcshader.Create(_backend);
   _trishader    = _backend->_trishader.Create(_backend);
-  _lineshader   = _backend->_trishader.Create(_backend);
+  _lineshader   = _backend->_lineshader.Create(_backend);
 
   QuadVertex rect[4] = {
     { 0, 0 },
@@ -920,9 +924,7 @@ void Context::DestroyResources()
   {
     if(kh_exist(_vaohash, i))
     {
-      GLuint idx = static_cast<GLuint>(kh_val(_fonthash, i) & 0xFFFFFFFF);
-      glDeleteVertexArrays(1, &idx);
-      _backend->LogError("glDeleteVertexArrays");
+      delete kh_val(_vaohash, i);
     }
   }
   kh_clear_vao(_vaohash);

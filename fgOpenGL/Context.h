@@ -86,6 +86,15 @@ namespace GL {
     inline void Viewport(float w, float h) const { Viewport(static_cast<int>(ceilf(w)), static_cast<int>(ceilf(h))); }
     void Viewport(int w, int h) const;
     void StandardViewport() const;
+    FG_Veci GetViewport() const;
+    inline FG_Vec GetViewportf() const
+    {
+      auto vp = GetViewport();
+      return {
+        static_cast<float>(vp.x),
+        static_cast<float>(vp.y),
+      };
+    }
     void AppendBatch(const void* vertices, GLsizeiptr bytes, GLsizei count, GLuint bind);
     void AppendBatch(const void* vertices, GLsizeiptr bytes, GLsizei count);
     GLsizei FlushBatch();
