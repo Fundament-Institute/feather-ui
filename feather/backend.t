@@ -50,7 +50,7 @@ B.Format = Enum{
   "UNKNOWN_BUFFER",
   "LAYER",
   "WEAK_LAYER",
-  "RENDERTARGET",
+  "TEXTURE",
   "ATLAS",
   "BMP",
   "JPG",
@@ -139,7 +139,7 @@ struct B.Font {
   aa : B.AntiAliasing
 }
 
-B.BufferFormat = Enum({
+B.PixelFormat = Enum({
   "UNKNOWN",
   "R32G32B32A32_TYPELESS",
   "R32G32B32A32_FLOAT",
@@ -155,6 +155,12 @@ B.BufferFormat = Enum({
   "R16G16B16A16_UINT",
   "R16G16B16A16_SNORM",
   "R16G16B16A16_INT",
+  "R16G16B16_TYPELESS",
+  "R16G16B16_FLOAT",
+  "R16G16B16_UNORM",
+  "R16G16B16_UINT",
+  "R16G16B16_SNORM",
+  "R16G16B16_INT",
   "R32G32_TYPELESS",
   "R32G32_FLOAT",
   "R32G32_UINT",
@@ -173,6 +179,11 @@ B.BufferFormat = Enum({
   "R8G8B8A8_UINT",
   "R8G8B8A8_SNORM",
   "R8G8B8A8_INT",
+  "R8G8B8X8_TYPELESS",
+  "R8G8B8X8_UNORM",
+  "R8G8B8X8_SNORM",
+  "R8G8B8X8_UINT",
+  "R8G8B8X8_INT",
   "R16G16_TYPELESS",
   "R16G16_FLOAT",
   "R16G16_UNORM",
@@ -186,6 +197,7 @@ B.BufferFormat = Enum({
   "R32_INT",
   "R24G8_TYPELESS",
   "D24_UNORM_S8_UINT",
+  "D24_UNORM_X8_TYPELESS",
   "R24_UNORM_X8_TYPELESS",
   "X24_TYPELESS_G8_UINT",
   "R8G8_TYPELESS",
@@ -225,6 +237,8 @@ B.BufferFormat = Enum({
   "BC5_TYPELESS",
   "BC5_UNORM",
   "BC5_SNORM",
+  "R5G6B5_UNORM",
+  "R5G5B5A1_UNORM",
   "B5G6R5_UNORM",
   "B5G5R5A1_UNORM",
   "B8G8R8A8_UNORM",
@@ -310,7 +324,7 @@ struct B.Asset {
     }
     resource : struct {
       bytes : uint
-      subformat : B.BufferFormat
+      subformat : B.PixelFormat
     }
   }
 }
@@ -528,9 +542,9 @@ terra B.Backend:FontIndex(font : &B.Font, layout : &opaque, area : &F.Rect, pos 
 terra B.Backend:FontPos(font : &B.Font, layout : &opaque, area :&F.Rect, index : uint) : F.Vec return F.Vec{} end
 
 terra B.Backend:CreateAsset(window : &Msg.Window, data : F.conststring, count : uint, format : B.Format, flags : int) : &B.Asset return nil end
-terra B.Backend:CreateBuffer(window : &Msg.Window, data : &opaque, bytes : uint, format : B.BufferFormat, type : B.Format) : &B.Asset return nil end
+terra B.Backend:CreateBuffer(window : &Msg.Window, data : &opaque, bytes : uint, format : B.PixelFormat, type : B.Format) : &B.Asset return nil end
 terra B.Backend:CreateLayer(window : &Msg.Window, size : &F.Vec, flags : int) : &B.Asset return nil end
-terra B.Backend:CreateRenderTarget(window : &Msg.Window, size : &F.Vec, format : B.BufferFormat, flags : int) : &B.Asset return nil end
+terra B.Backend:CreateRenderTarget(window : &Msg.Window, size : &F.Vec, format : B.PixelFormat, flags : int) : &B.Asset return nil end
 --terra B.Backend:CreateAtlas(assets : &B.Asset, count : uint, flags : int) : &B.Asset return nil end
 --terra B.Backend:AddAtlas(atlas : &B.Asset, assets : &B.Asset, count : uint, flags : int) : F.Err return 0 end
 --terra B.Backend:RemoveAtlas(atlas : &B.Asset, assets : &B.Asset, count : uint, flags : int) : F.Err return 0 end

@@ -72,7 +72,7 @@ FG_Result behavior(FG_MsgReceiver* element, FG_Window* w, void* ui, FG_Msg* m)
     // backends will only be able to merge the first two rectangle calls. Some backends may be able to merge the rect,
     // arc, circle, and triangle calls. Some might be able to include the first asset draw, but the text draw afterwards
     // can't be batched because the text glyphs would not be in the same texture atlas as the asset draw.
-    FG_Command list[8] = {};
+    FG_Command list[9] = {};
 
     list[0].category = FG_Category_RECT;
     auto r1          = FG_Rect{ 0.f, 0.f, 100.f, 80.f };
@@ -122,16 +122,22 @@ FG_Result behavior(FG_MsgReceiver* element, FG_Window* w, void* ui, FG_Msg* m)
     list[7].text.layout = e.layout;
     list[7].text.color  = FG_Color{ 0xFFFFFFFF };
 
-    /*list[8].category    = FG_Category_ASSET;
-    auto r8             = FG_Rect{ 0.0f, 100.f, 330.f, 320.f };
-    list[8].asset.area  = &r8;
-    list[8].asset.asset = e.gamma1;
-    list[8].asset.color = FG_Color{ 0xFFFFFFFF };
+    list[8].category    = FG_Category_LINES;
+    FG_Vec lines[]       = { { 100.0f, 100.0f }, { 100.0f, 150.0f }, { 225.0f, 125.0f } };
+    list[8].lines.color = FG_Color{ 0xFFFFFFFF };
+    list[8].lines.count = sizeof(lines) / sizeof(FG_Vec);
+    list[8].lines.points = lines;
 
-    list[9].category    = FG_Category_ASSET;
-    list[9].asset.area  = &r8;
-    list[9].asset.asset = e.gamma2;
-    list[9].asset.color = FG_Color{ 0xFFFFFFFF };*/
+    /*list[9].category    = FG_Category_ASSET;
+    auto r9             = FG_Rect{ 0.0f, 100.f, 330.f, 320.f };
+    list[9].asset.area  = &r9;
+    list[9].asset.asset = e.gamma1;
+    list[9].asset.color = FG_Color{ 0xFFFFFFFF };
+
+    list[10].category    = FG_Category_ASSET;
+    list[10].asset.area  = &r9;
+    list[10].asset.asset = e.gamma2;
+    list[10].asset.color = FG_Color{ 0xFFFFFFFF };*/
 
     // Now that we've assembled our draw call list, send it to the backend
     FG_Draw(b, w, list, sizeof(list) / sizeof(FG_Command), nullptr);
@@ -314,5 +320,6 @@ int main(int argc, char* argv[])
   TEST(FG_DestroyLayout(b, e.layout) == 0);
   TEST(FG_DestroyFont(b, e.font) == 0);
   TEST(FG_DestroyShader(b, e.shader) == 0);
+  TEST(FG_DestroyShaderInput(b, e.input) == 0);
   (*b->destroy)(b);
 }

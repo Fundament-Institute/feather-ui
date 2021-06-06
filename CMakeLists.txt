@@ -2,6 +2,8 @@
 cmake_minimum_required(VERSION 3.13.4)
 project(feathergui)
 
+
+
 if (MSVC)
   set(BIN_DIR "${CMAKE_SOURCE_DIR}/bin-x64/MinSizeRel")
 else()
@@ -12,6 +14,10 @@ set(DEPS_DIR "${CMAKE_SOURCE_DIR}/deps")
 file(MAKE_DIRECTORY ${BIN_DIR})
 
 macro(buildfix target type)
+  if(NOT EXISTS "${DEPS_DIR}/${target}/.git")
+    message(FATAL_ERROR "Could not find ${DEPS_DIR}/${target}! Have you cloned the submodules? Make sure you run 'git submodule update --init --recursive'")
+  endif()
+  
   file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/${target}")
   if (MSVC)
     execute_process(COMMAND_ECHO STDOUT WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/${target}" COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" ${DEPS_DIR}/${target} ${ARGN})

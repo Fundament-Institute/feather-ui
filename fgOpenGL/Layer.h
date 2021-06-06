@@ -4,33 +4,21 @@
 #ifndef GL__LAYER_H
 #define GL__LAYER_H
 
-#include "compiler.h"
-#include "backend.h"
-#include "linmath.h"
+#include "RenderTarget.h"
 
 namespace GL {
   struct Context;
 
-  struct Layer : FG_Asset
+  struct Layer : RenderTarget
   {
     Layer(FG_Vec s, int f, Context* c);
     ~Layer();
     // Moves the texture to another window if necessary
-    bool Update(float* tf, float o, FG_BlendState* blend, Context* context);
-    void Destroy();
-    bool Create();
+    void Update(float* tf, float o, FG_BlendState* blend);
     int Composite();
 
-    static void mat4x4_proj(mat4x4 M, float l, float r, float b, float t, float n, float f);
-    static const float NEARZ;
-    static const float FARZ;
-
-    unsigned int framebuffer;
     mat4x4 transform;
-    mat4x4 proj;
     float opacity;
-    Context* context;
-    bool initialized;
     FG_BlendState blend;
   };
 }
