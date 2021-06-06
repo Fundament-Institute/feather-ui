@@ -3,6 +3,7 @@ local Util = require 'feather.util'
 local M = {}
 
 M.expression_spec_mt = {}
+M.raw_expression_spec_mt = {}
 --make a user-provided constant value into an interface-conforming expression
 function M.constant(v)
     return setmetatable({

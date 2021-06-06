@@ -9,6 +9,7 @@ local Virtual = require 'feather.virtual'
 local Closure = require 'feather.closure' 
 local C = terralib.includecstring [[#include <stdio.h>]]
 local Expression = require 'feather.expression'
+local Params = require 'feather.params'
 
 local M = {}
 
@@ -50,29 +51,18 @@ terra M.transform.methods.identity()
   return M.transform{F.vec3(0.0f, 0.0f, 0.0f)}
 end
 
-
 --metatables for templates and outlines
 local template_mt = {}
-M.outline_mt = {__index = {}, __call = function(self, ...) return self:generate(...) end}
+M.outline_mt = Params.outline_mt
+M.event = Params.event
+M.requiredevent = Params.requiredevent
 
 --unique values for use as key identifiers
 M.context = {}
-M.required = {}
-local typed_event_spec_mt = {}
-local event_spec_mt = {
-    __call = function(self, ...)
-      return setmetatable({args = {...}, required = self.required}, typed_event_spec_mt)
-    end
-}
-M.event = setmetatable({required = false}, event_spec_mt)
-M.requiredevent = setmetatable({required = true}, event_spec_mt)
+M.required = Params.required
 
 -- body is used both as a distinguished unique value and as an outline which looks up the provided body in the enclosing environment under it's own key
-M.body = setmetatable({
-    generate = function(type_environment)
-      return type_environment[M.body](type_environment)
-    end
-    }, M.outline_mt)
+M.body = Params.body
 
 -- build an outline object as the body of a template from a user provided table.
 function M.make_body(rawbody)
@@ -257,44 +247,11 @@ function template_mt:__call(desc)
   return setmetatable(outline, M.outline_mt)
 end
 
--- parse an argument declaration table into a usable specification object
-local function parse_params(desc)
-  local res = {required = {}, defaults = {}, names = {}, names_map = {}, events = {}, has_body = false}
-  for k, v in pairs(desc) do
-    if type(k) ~= "string" then
-      if k == 1 and v == M.body then
-        res.has_body = true
-      else
-        error("invalid argument specifier provided to declaration", 2)
-      end
-    else
-      table.insert(res.names, k)
-      res.names_map[k] = true
-      if v == M.required then
-        res.required[k] = true
-      else
-        local val_mt = getmetatable(v)
-        if val_mt == event_spec_mt or val_mt == typed_event_spec_mt then
-          if v.required then
-            res.required[k] = true
-          else
-            res.defaults[k] = Expression.constant(`F.EmptyCallable {})
-          end
-          res.events[k] = v
-        else
-          res.defaults[k] = Expression.constant(v)
-        end
-      end
-    end
-  end
-  return res
-end
-
 -- A raw template allows taking full control of the outline generation, including custom memory layout, caching behavior, and the full details of positioning and rendering.
 -- this should be used primarily for internal core templates and should rarely if ever appear in user code.
 -- if this gets used in user code, it probably means that either the code is doing something wrong or Feather is missing features.
 function M.raw_template(params)
-  local params = parse_params(params)
+  local params = Params.parse_params(params)
   return function(generate)
     local self = {
       params = params,
@@ -304,12 +261,23 @@ function M.raw_template(params)
   end
 end
 
+function M.raw_expression(params)
+  local params = Params.parse_params(params)
+  return function(generate)
+    local self = {
+      params = params,
+      generate = generate
+    }
+    return setmetatable(self, M.raw_expression_spec_mt)
+  end
+end
+
 -- A basic template automatically scaffolds sensible default generation behavior including handling positioning, layout, and caching, but leaves rendering up to custom code.
 -- This can be used to implement custom rendering behavior that needs to interact directly with the backend which can't be represented in existing standard templates.
 -- User code should use this sparingly, prefering to build templates from provided standard templates instead of custom rendering code.
 function M.basic_template(params)
-  local params_abbrev = parse_params(params)
-  local params_full = parse_params(params)
+  local params_abbrev = Params.parse_params(params)
+  local params_full = Params.parse_params(params)
 
   table.insert(params_full.names, "pos")
   table.insert(params_full.names, "ext")
@@ -426,7 +394,7 @@ end
 
 -- build a template from an outline defined in terms of existing templates; this should be the primary method of defining templates in user code.
 function M.template(params)
-  local params = parse_params(params)
+  local params = Params.parse_params(params)
   return function(defn)
     local defn_body = M.make_body(defn)
 

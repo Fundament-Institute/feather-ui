@@ -98,6 +98,7 @@ terra TestHarness:dynarray()
   a:add(1)
   self:Test(a.size, 1)
   self:Test(a(0), 1)
+  a:destruct()
 end
 
 local va_start = terralib.intrinsic("llvm.va_start", {&int8} -> {})
