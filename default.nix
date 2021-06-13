@@ -9,11 +9,11 @@ let
     version = "0.0.1";
     src = ./.;
 
-    buildInputs = [ terra ];
+    buildInputs = [ terra.dev ];
 
     TERRA_PATH = "./?.t;deps/?.t";
     LUA_PATH = "./?.lua;deps/?.lua";
-
+    hardeningDisable = [ "fortify" ];
     dontConfigure = true;
 
     buildPhase = ''
@@ -34,6 +34,7 @@ let
 
       TERRA_PATH = "./?.t;deps/?.t";
       LUA_PATH = "./?.lua;deps/?.lua";
+      hardeningDisable = [ "fortify" ];
 
       installPhase = ''
         install -m 444 -Dt $out/share/terra/feather/ feather/*.t
@@ -46,7 +47,10 @@ let
       checkPhase = ''
         mkdir bin-x64
         echo Testing phase 1
-        terra tests/main.t ${lib.concatStringsSep " " (map (x: "${x}/lib/lib${x.backendPath}.so") backends)} 
+        terra tests/main.t ${
+          lib.concatStringsSep " "
+          (map (x: "${x}/lib/lib${x.backendPath}.so") backends)
+        }
         echo
         echo Testing phase 2
         ./bin-x64/fgTests
@@ -62,6 +66,8 @@ let
   #   src = ./.;
   #   buildInputs = [ terra ];
   # };
-  feather = withBackends [ (callPackage ./fgOpenGL { inherit feather SOIL harfbuzz glfw freetype2; }) ];
+  feather = withBackends [
+    (callPackage ./fgOpenGL { inherit feather SOIL harfbuzz glfw freetype2; })
+  ];
   inherit terra;
 in feather

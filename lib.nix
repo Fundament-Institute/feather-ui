@@ -3,10 +3,12 @@
 with pkgs.lib;
 
 let
-  terra = pkgs.callPackage ./terra.nix {
-    llvmPackages = pkgs.llvmPackages_10;
-    enableCUDA = true;
-  };
+  terra = pkgs.callPackage (pkgs.fetchFromGitHub {
+    owner = "Fundament-Software";
+    repo = "terra";
+    rev = "fb410b202e26c58003dcad4138d42f1189d5954c";
+    sha256 = "1x0f2k5wm1vpazg7v57r7bp5hyfsp5075az4j00qn06y5wyq7g8a";
+  }) { };
   SOIL = pkgs.stdenv.mkDerivation {
     name = "SOIL";
     version = "1.16";
