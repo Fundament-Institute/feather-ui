@@ -27,6 +27,10 @@ local ui = f.ui {
       ext = bind[f.Vec3]{array(20f, 20f, 0f)},
       color = bind[f.Color]{0xffffffff},
     },
+    f.line {
+      points = bind { f.vec(app.pos.x + 150f, app.pos.y + 0f), f.vec(app.pos.x + 150f, app.pos.y + 150f) },
+      color = bind[f.Color]{0xffffffff},
+    },
     f.mousearea {
       pos = bind app.pos + [f.Vec3]{array(100f, 100f, 0f)},
       ext = bind[f.Vec3]{array(20f, 20f, 0f)},
