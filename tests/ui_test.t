@@ -1,6 +1,7 @@
 local f = require 'feather'
 local shared = require 'feather.shared'
 local C = require 'feather.libc'
+local Messages = require 'feather.messages'
 import 'feather/bind'
 terralib.fulltrace = true
 
@@ -34,6 +35,10 @@ local ui = f.ui {
     f.mousearea {
       pos = bind app.pos + [f.Vec3]{array(100f, 100f, 0f)},
       ext = bind[f.Vec3]{array(20f, 20f, 0f)},
+      mousedown = bindevent (me : Messages.MouseEvent)
+        C.printf("pos: %g %g", me.pos.x, me.pos.y)
+        return 0
+      end
     },
   },
   f.window {

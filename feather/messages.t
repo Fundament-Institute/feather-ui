@@ -1,5 +1,6 @@
 local Enumset = require 'feather.enumset'
 local Flags = require 'feather.flags'
+local F = require 'feather.shared'
 
 M = {}
 M.Keys = Enumset{
@@ -210,6 +211,108 @@ M.Touch = Flags{
   "MOVE",
   "HOVER",
   "PALM",
+}
+
+struct M.MouseEvent {
+  pos : F.Vec
+  button : M.MouseButton
+  union {
+    delta : F.Vec
+    all : struct {
+      buttons : uint8
+      modkeys : uint8
+    }
+  }
+}
+
+terra M.MouseEvent:Button() return self.button end
+terra M.MouseEvent:IsButtonDown(button : M.MouseButton) return [uint8](button) and self.all.buttons end
+terra M.MouseEvent:IsHeld() return self.all.modkeys and M.ModKey.HELD.val end
+terra M.MouseEvent:ShiftDown() return self.all.modkeys and M.ModKey.SHIFT.val end
+terra M.MouseEvent:CtrlDown() return self.all.modkeys and M.ModKey.CONTROL.val end
+terra M.MouseEvent:AltDown() return self.all.modkeys and M.ModKey.ALT.val end
+terra M.MouseEvent:SuperDown() return self.all.modkeys and M.ModKey.SUPER.val end
+terra M.MouseEvent:Capslock() return self.all.modkeys and M.ModKey.CAPSLOCK.val end
+terra M.MouseEvent:Numlock() return self.all.modkeys and M.ModKey.NUMLOCK.val end
+
+M.CreateMouseEvent = macro(function(x, y, all, modkeys, button)
+  return quote 
+    var e : M.MouseEvent
+    e.pos.x = x
+    e.pos.y = y
+    e.all.buttons = all
+    e.all.modkeys = modkeys
+    e.button.val = button
+    in
+    e
+    end
+end)
+
+M.CreateMouseDelta = macro(function(x, y, delta, hdelta)
+  return quote 
+    var e : M.MouseEvent
+    e.pos.x = x
+    e.pos.y = y
+    e.delta.x = hdelta
+    e.delta.y = delta
+    in
+    e
+    end
+end)
+
+struct M.TouchEvent {
+  pos : F.Vec3
+  angle : float
+  pressure : float
+  index : uint16
+  flags : uint8
+  modkeys : uint8
+}
+
+terra M.TouchEvent:Hovering() return self.flags and M.Touch.HOVER.val end
+terra M.TouchEvent:IsPalm() return self.flags and M.Touch.PALM.val end
+terra M.TouchEvent:Moving() return self.flags and M.Touch.MOVE.val end
+terra M.TouchEvent:IsHeld() return self.modkeys and M.ModKey.HELD.val end
+terra M.TouchEvent:ShiftDown() return self.modkeys and M.ModKey.SHIFT.val end
+terra M.TouchEvent:CtrlDown() return self.modkeys and M.ModKey.CONTROL.val end
+terra M.TouchEvent:AltDown() return self.modkeys and M.ModKey.ALT.val end
+terra M.TouchEvent:SuperDown() return self.modkeys and M.ModKey.SUPER.val end
+terra M.TouchEvent:Capslock() return self.modkeys and M.ModKey.CAPSLOCK.val end
+terra M.TouchEvent:Numlock() return self.modkeys and M.ModKey.NUMLOCK.val end
+
+M.CreateTouchEvent = macro(function(x, y, z, r, pressure, index, flags, modkeys)
+  return quote 
+    var e : M.TouchEvent
+    e.pos.x = x
+    e.pos.y = y
+    e.pos.z = z
+    e.angle = r
+    e.pressure = pressure
+    e.index = index
+    e.flags = flags
+    e.modkeys = modkeys
+    in
+    e
+    end
+end)
+
+struct M.JoyButton {
+  index : uint16
+  button : uint16
+  modkeys : uint8
+}
+
+struct M.JoyEvent {
+  value : float
+  index : uint16
+  axis : M.JoyAxis
+  modkeys : uint8
+}
+
+struct M.JoyOrientation {
+  index : uint16
+  velocity : F.Vec3
+  rotation : F.Vec3
 }
 
 return M
