@@ -50,6 +50,9 @@ end
 terra M.transform.methods.identity()
   return M.transform{F.vec3(0.0f, 0.0f, 0.0f)}
 end
+terra M.transform.methods.translate(r: F.Vec3)
+  return M.transform{r}
+end
 
 --metatables for templates and outlines
 local template_mt = {}
@@ -144,8 +147,8 @@ function template_mt:__call(desc)
     local binds = {}
     local concrete_args = map_pairs(self.args, function(k, v) return k, v:generate(type_context, type_environment) end)
     if self.body then
-      local body_fns, body_type = self.body(type_context, type_environment)
-      binds[M.body] = function()
+      binds[M.body] = function(type_context)
+        local body_fns, body_type = self.body(type_context, type_environment)
         return {
           enter = function(self, context, environment)
             return body_fns.enter(self, context, environment[M.body])
@@ -261,14 +264,113 @@ function M.raw_template(params)
   end
 end
 
+local raw_expression_spec_mt = {}
+function raw_expression_spec_mt:__call(desc)
+  local expr = {args = {}, template = self, has_unbound_body = false}
+  for k, v in pairs(desc) do
+    if not self.params.names_map[k] and type(k) == "string" then
+      print(debug.traceback("WARNING: passed parameter to expression that it doesn't declare: "..k, 2))
+    end
+  end
+  for i = 1, #self.params.names do
+    local name = self.params.names[i]
+    if desc[name] == nil and self.params.required[name] then
+      error("parameter " .. name .. " is required but not specified in expression definition")
+    end
+    expr.args[name] = desc[name] ~= nil and Expression.parse(desc[name]) or self.params.defaults[name]
+  end
+  if self.params.has_body then
+    local rawbody = {n = #desc}
+    for i = 1, #desc do
+      rawbody[i] = desc[i]
+    end
+    expr.body = M.make_body(rawbody)
+  elseif desc[1] then
+    error "attempted to pass a body to a template which doesn't accept one"
+  end
+  function expr:generate(type_context, type_environment)
+    local binds = {}
+    local concrete_args = map_pairs(self.args, function(k, v) return k, v:generate(type_context, type_environment) end)
+    for k, v in pairs(concrete_args) do
+      -- if self.template.params.events[k] then
+      --   binds[k] = Closure.closure(self.template.params.events[k].args -> {})
+      -- else
+        binds[k] = Expression.type(v, type_context, type_environment)
+      -- end
+    end
+    local fns = self.template:generate(type_context, binds)
+    
+    local store = terralib.types.newstruct("expr_store")
+    for k, v in pairs(concrete_args) do
+      table.insert(store.entries, {field = k, type = v.storage_type})
+    end
+
+    return {
+      enter = function(data, context, environment)
+        local binds = {}
+        for k, v in pairs(concrete_args) do
+          binds[k] = v.get(`data._1.[k], context, environment)
+        end
+        return quote
+          escape
+            for k, v in pairs(concrete_args) do
+              emit(v.enter(`data._1.[k], context, environment))
+            end
+          end
+          [fns.enter(`data._0, context, binds)]
+        end
+      end,
+      update = function(data, context, environment)
+        local binds = {}
+        for k, v in pairs(concrete_args) do
+          binds[k] = v.get(`data._1.[k], context, environment)
+        end
+        return quote
+          escape
+            for k, v in pairs(concrete_args) do
+              emit(v.update(`data._1.[k], context, environment))
+            end
+          end
+          [fns.update(`data._0, context, binds)]
+        end
+      end,
+      exit = function(data, context)
+        for k, v in pairs(concrete_args) do
+          v.exit(`data._1.[k], context, {} )--TODO: provide a proper environment
+        end
+        return quote
+          [fns.exit(`data._0, context)]
+          escape
+            for k, v in pairs(concrete_args) do
+              emit(v.exit(`data._1.[k], context))
+            end
+          end
+        end
+      end,
+      get = function(data, context, environment)
+        local binds = {}
+        for k, v in pairs(concrete_args) do
+          binds[k] = v.get(`data._1.[k], context, environment)
+        end
+        return `[fns.get(`data._0, context, binds)]
+      end,
+      storage_type = tuple(fns.storage_type, store)
+    }
+  end
+  return setmetatable(expr, Expression.expression_spec_mt)
+end
+
 function M.raw_expression(params)
   local params = Params.parse_params(params)
+  if params.has_body then
+    error "specified a body parameter for an expression which cannot accept one."
+  end
   return function(generate)
     local self = {
       params = params,
       generate = generate
     }
-    return setmetatable(self, M.raw_expression_spec_mt)
+    return setmetatable(self, raw_expression_spec_mt)
   end
 end
 

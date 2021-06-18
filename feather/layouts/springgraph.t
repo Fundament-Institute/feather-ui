@@ -6,6 +6,9 @@ local dynarray = require 'feather.dynarray'
 local expression = require 'feather.expression'
 local override = require 'feather.util'.override
 local Math = require 'std.math'
+local C = terralib.includecstring [[
+#include <stdio.h>
+]]
 
 local function makeSystem(dimension)
   local g = ga(float, dimension)
@@ -13,6 +16,7 @@ local function makeSystem(dimension)
     pos: g.vector_t
     vel: g.vector_t
     mass: g.scalar_t
+    charge: g.scalar_t
                         }
   
   local struct spring {
@@ -33,11 +37,17 @@ local function makeSystem(dimension)
   system.algebra = g
 
   terra system:update()
+    -- C.printf "starting frame\n"
     -- position based dynamics
     -- initial velocity, gravity, and drag application.
-    for i = 1, self.particles.size do
+    for i = 0, self.particles.size do
       var part = &self.particles(i)
-      part.pos, part.vel = part.pos + part.vel * (1 - self.drag), part.pos --reuse velocity to store old position; will be recomputed at end
+      -- C.printf("pos: %f %f\n", part.pos.v[0], part.pos.v[1])
+      var vel = part.vel
+      part.vel = part.pos
+      part.pos = part.pos + vel * (1 - self.drag) --reuse velocity to store old position; will be recomputed at end
+      -- part.pos, part.vel = part.pos + part.vel * (1 - self.drag), part.pos --reuse velocity to store old position; will be recomputed at end
+      -- part.vel, part.pos = part.pos, part.pos + part.vel * (1 - self.drag) --reuse velocity to store old position; will be recomputed at end
       part.pos = part.pos - self.gravity * part.pos:normalize()
     end
     -- apply spring constraints
@@ -45,17 +55,31 @@ local function makeSystem(dimension)
       var p0 = &self.particles(spring.conns._0)
       var p1 = &self.particles(spring.conns._1)
       var diff = p0.pos - p1.pos
-      var correction = diff:normalize() * (spring.length - diff:magnitude())
+      var correction = diff:normalize() * (spring.length - diff:magnitude()) * spring.strength
       var w0, w1 = 1/p0.mass, 1/p1.mass
-      p0.pos = p0.pos - w0/(w0 + w1) * correction
-      p1.pos = p1.pos + w1/(w0 + w1) * correction
+      p0.pos = p0.pos + w0/(w0 + w1) * correction
+      p1.pos = p1.pos - w1/(w0 + w1) * correction
+    end
+    -- electrostatic repulsion between particles
+    -- TODO: implement spatial approximation tree to get better performance
+    for i = 0, self.particles.size - 1 do
+      for j = i + 1, self.particles.size do
+        var p0, p1 = &self.particles(i), &self.particles(j)
+        var diff = p0.pos - p1.pos
+        var correction = diff:normalize() * (p0.charge * p1.charge) / diff:mag2()
+        var w0, w1 = 1/p0.mass, 1/p1.mass
+        p0.pos = p0.pos + w0/(w0 + w1) * correction
+        p1.pos = p1.pos - w1/(w0 + w1) * correction
+      end
     end
     -- compute final velocity
-    for i = 1, self.particles.size do
+    for i = 0, self.particles.size do
       var part = &self.particles(i)
       part.vel = part.pos - part.vel --velocity field stored old position during updates; recover velocity from position change
     end
   end
+
+  -- system.methods.update:disas()
 
   terra system:getPos(id: uint)
     return self.particles(id).pos
@@ -78,15 +102,19 @@ M.spring = core.raw_expression{
       enter = function(self, context, environment)
         return quote context.graph_system.springs:add([type_context.graph_system.spring]{
             [environment.pair],
-            [type_context.graph_system.algebra.scalar_t]{[environment.strength]},
-            [type_context.graph_system.algebra.scalar_t]{[environment.length]}
-          })
+            [type_context.graph_system.algebra.scalar_t]([environment.strength]),
+            [type_context.graph_system.algebra.scalar_t]([environment.length])
+                                                     })
+          self = environment.pair
         end
       end,
-      update = function(self, context, environment) end,
-      exit = function(self, context) end,
-      get = function(self, context) return `{context.graph_system.particles[ [environment.pair._0] ].pos,context.graph_system.particles[ [environment.pair._1] ].pos} end, 
-      storage_type = terralib.types.unit
+      update = function(self, context, environment) return quote self = environment.pair end end,
+      exit = function(self, context) return quote end end,
+      get = function(self, context)
+        local v =`{context.graph_system.particles(self._0).pos, context.graph_system.particles(self._1).pos}
+        return v
+      end, 
+      storage_type = tuple(uint, uint)
     }
   end
 )
@@ -94,21 +122,25 @@ M.spring = core.raw_expression{
 M.node = core.raw_expression{
   id = core.required,
   mass = core.required,
+  charge = core.required,
 }(
   function(self, type_context, type_environment)
     return {
       enter = function(self, context, environment)
+        local pos = `[type_context.graph_system.algebra.vector](Math.sin(environment.id*2.4f)*100f, Math.cos(environment.id*2.4f)*100f)
+        local vel = `[type_context.graph_system.algebra.vector](0.0f,0.0f)
+        local mass = `[type_context.graph_system.algebra.scalar]([environment.mass])
+        local charge = `[type_context.graph_system.algebra.scalar](environment.charge)
         return quote context.graph_system.particles:add([type_context.graph_system.particle]{
-            [type_context.graph_system.algebra.vector_t]{Math.sin(environment.id*2.4)*100, Math.cos(environment.id*2.4)*100},
-            [type_context.graph_system.algebra.vector_t]{0.0,0.0},
-            [type_context.graph_system.algebra.scalar_t]{[environment.mass]}
-          })
+              pos, vel, mass, charge
+                                                       })
+          self = environment.id
         end
       end,
-      update = function(self, context, environment) end,
-      exit = function(self, context) end,
-      get = function(self, context) return `context.graph_system.particles[ [environment.id] ].pos end,
-      storage_type = terralib.types.unit
+      update = function(self, context, environment) return quote self = environment.id end end,
+      exit = function(self, context) return {} end,
+      get = function(self, context) local v = `context.graph_system.particles(self).pos; return v end,
+      storage_type = uint
     }
   end
 )
@@ -116,48 +148,62 @@ M.node = core.raw_expression{
 M.graph = core.raw_template {
   gravity = `0.1f,
   drag = `0.02f,
+  pos = core.required,
+  core.body
 } (
   function(self, type_context, type_environment)
     local body_fns, body_type = type_environment[core.body](override(type_context, {graph_system = System2D}), type_environment)
-
-    local function override_context(self, context)
+    local function override_context(self, context, transform)
       return override(context, {
-        graph_system = `self,
+        graph_system = `self.system,
+        transform = transform
       })
     end
+
+    local struct store {
+      system: System2D
+      body: body_type
+      transform: core.transform
+      rtree_node: type_context.rtree_node
+                       }
 
     local fn_table = {
       enter = function(self, context, environment)
         return quote
-          self.gravity = [environment.gravity]
-          self.drag = [environment.drag]
-          self.particles:init()
-          self.springs:init()
-          [body_fns.enter(`self.body, override_context(self, context), environment)]
+          self.system.gravity = [environment.gravity]
+          self.system.drag = [environment.drag]
+          self.system.particles:init()
+          self.system.springs:init()
+          self.transform = core.transform.translate(environment.pos)
+          var trans = context.transform:compose(&self.transform)
+          [body_fns.enter(`self.body, override_context(self, context, trans), environment)]
         end
       end,
       update = function(self, context, environment)
         return quote
-          self:update()
-          [body_fns.update(`self.body, override_context(self, context), environment)]
+          self.system:update()
+          self.transform = core.transform.translate(environment.pos)
+          var trans = context.transform:compose(&self.transform)
+          [body_fns.update(`self.body, override_context(self, context, trans), environment)]
         end
       end,
       exit = function(self, context)
         return quote
-          [body_fns.exit(`self.body, override_context(self, context))]
-          self.particles:destruct()
-          self.springs:destruct()
+          var trans = context.transform:compose(&self.transform)
+          [body_fns.exit(`self.body, override_context(self, context, trans))]
+          self.system.particles:destruct()
+          self.system.springs:destruct()
         end
       end,
       render = function(self, context)
         return quote
-            var transform = core.transform.identity()
-            [body_fns.render(`self.body, override_context(self, context))]
+          var trans = context.transform:compose(&self.transform)
+            [body_fns.render(`self.body, override_context(self, context, trans))]
           end
       end
     }
 
-    return fn_table, System2D
+    return fn_table, store
   end
 )
 
