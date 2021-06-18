@@ -97,7 +97,7 @@ local bind_syntax = {
       while not lex:nextif ")" do
         param_names:insert(lex:expect(lex.name).value)
         lex:expect ":"
-        param_types:insert(lex:expr())
+        param_types:insert(lex:luaexpr())
         if not lex:matches ")" then
           lex:expect ","
         end
@@ -115,6 +115,7 @@ local bind_syntax = {
 
             local params_env = {}
             for i, name in ipairs(param_names) do
+              param_types[i] = param_types[i](local_env)
               params_env[name] = symbol(param_types[i], name)
             end
 

@@ -1,6 +1,7 @@
 local core = require 'feather.core'
 local F = require 'feather.shared'
 local Msg = require 'feather.message'
+local Messages = require 'feather.messages'
 local B = require 'feather.backend'
 local override = require 'feather.util'.override
 local Virtual = require 'feather.virtual'
@@ -86,17 +87,16 @@ return core.raw_template {
       mousearea.entries:insert {field = v, type = type_environment[v]}
     end
 
-
-    terra mousearea:MouseDown(ui : &opaque, x : float, y : float, all : uint8, modkeys : uint8, button : uint8) : F.Err return self.mousedown() end
-    terra mousearea:MouseDblClick(ui : &opaque, x : float, y : float, all : uint8, modkeys : uint8, button : uint8) : F.Err return self.mousedblclick() end
-    terra mousearea:MouseUp(ui : &opaque, x : float, y : float, all : uint8, modkeys : uint8, button : uint8) : F.Err return self.mouseup() end
-    terra mousearea:MouseOn(ui : &opaque, x : float, y : float, all : uint8, modkeys : uint8) : F.Err return self.mouseon() end
-    terra mousearea:MouseOff(ui : &opaque, x : float, y : float, all : uint8, modkeys : uint8) : F.Err return self.mouseoff() end
-    terra mousearea:MouseMove(ui : &opaque, x : float, y : float, all : uint8, modkeys : uint8) : F.Err --[[C.printf("TEST %g %g\n", x, y)]] return self.mousemove() end
-    terra mousearea:MouseScroll(ui : &opaque, x : float, y : float, delta : float, hdelta : float) : F.Err return self.mousescroll() end
-    terra mousearea:TouchBegin(ui : &opaque, x : float, y : float, z : float, r : float, pressure : float, index : uint16, flags : uint8, modkeys : uint8) : F.Err return self.touchbegin() end
-    terra mousearea:TouchMove(ui : &opaque, x : float, y : float, z : float, r : float, pressure : float, index : uint16, flags : uint8, modkeys : uint8) : F.Err return self.touchmove() end
-    terra mousearea:TouchEnd(ui : &opaque, x : float, y : float, z : float, r : float, pressure : float, index : uint16, flags : uint8, modkeys : uint8) : F.Err return self.touchend() end
+    terra mousearea:MouseDown(ui : &opaque, x : float, y : float, all : uint8, modkeys : uint8, button : uint8) : F.Err return self.mousedown(Messages.CreateMouseEvent(x, y, all, modkeys, button)) end
+    terra mousearea:MouseDblClick(ui : &opaque, x : float, y : float, all : uint8, modkeys : uint8, button : uint8) : F.Err return self.mousedblclick(Messages.CreateMouseEvent(x, y, all, modkeys, button)) end
+    terra mousearea:MouseUp(ui : &opaque, x : float, y : float, all : uint8, modkeys : uint8, button : uint8) : F.Err return self.mouseup(Messages.CreateMouseEvent(x, y, all, modkeys, button)) end
+    terra mousearea:MouseOn(ui : &opaque, x : float, y : float, all : uint8, modkeys : uint8) : F.Err return self.mouseon(Messages.CreateMouseEvent(x, y, all, modkeys, 0)) end
+    terra mousearea:MouseOff(ui : &opaque, x : float, y : float, all : uint8, modkeys : uint8) : F.Err return self.mouseoff(Messages.CreateMouseEvent(x, y, all, modkeys, 0)) end
+    terra mousearea:MouseMove(ui : &opaque, x : float, y : float, all : uint8, modkeys : uint8) : F.Err return self.mousemove(Messages.CreateMouseEvent(x, y, all, modkeys, 0)) end
+    terra mousearea:MouseScroll(ui : &opaque, x : float, y : float, delta : float, hdelta : float) : F.Err return self.mousescroll(Messages.CreateMouseDelta(x, y, delta, hdelta)) end
+    terra mousearea:TouchBegin(ui : &opaque, x : float, y : float, z : float, r : float, pressure : float, index : uint16, flags : uint8, modkeys : uint8) : F.Err return self.touchbegin(Messages.CreateTouchEvent(x, y, z, r, pressure, index, flags, modkeys)) end
+    terra mousearea:TouchMove(ui : &opaque, x : float, y : float, z : float, r : float, pressure : float, index : uint16, flags : uint8, modkeys : uint8) : F.Err return self.touchmove(Messages.CreateTouchEvent(x, y, z, r, pressure, index, flags, modkeys)) end
+    terra mousearea:TouchEnd(ui : &opaque, x : float, y : float, z : float, r : float, pressure : float, index : uint16, flags : uint8, modkeys : uint8) : F.Err return self.touchend(Messages.CreateTouchEvent(x, y, z, r, pressure, index, flags, modkeys)) end
 
     return fn_table, mousearea
   end

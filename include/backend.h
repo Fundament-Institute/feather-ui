@@ -1082,13 +1082,6 @@ struct FG_UVec__ {
   FG_Vec abs;
   FG_Vec rel;
 };
-static int32_t FG_Draw(FG_Backend * self, FG_Window * window, FG_Command * commands, uint32_t n_commands, FG_BlendState * blendstate) { return (*self->draw)(self, window, commands, n_commands, blendstate); }
-static FG_Asset * FG_CreateAsset(FG_Backend * self, FG_Window * window, const char* data, uint32_t count, enum FG_Format format, int32_t flags) { return (*self->createAsset)(self, window, data, count, format, flags); }
-static int32_t FG_ClearClipboard(FG_Backend * self, FG_Window * window, enum FG_Clipboard kind) { return (*self->clearClipboard)(self, window, kind); }
-static int32_t FG_GetDisplayIndex(FG_Backend * self, uint32_t index, FG_Display * out) { return (*self->getDisplayIndex)(self, index, out); }
-static int32_t FG_PushClip(FG_Backend * self, FG_Window * window, FG_Rect * area) { return (*self->pushClip)(self, window, area); }
-static int32_t FG_DirtyRect(FG_Backend * self, FG_Window * window, FG_Rect * area) { return (*self->dirtyRect)(self, window, area); }
-static FG_Asset * FG_CreateRenderTarget(FG_Backend * self, FG_Window * window, FG_Vec * size, uint8_t format, int32_t flags) { return (*self->createRenderTarget)(self, window, size, format, flags); }
 enum FG_ModKey {
   FG_ModKey_CONTROL = 2,
   FG_ModKey_SHIFT = 1,
@@ -1098,6 +1091,8 @@ enum FG_ModKey {
   FG_ModKey_CAPSLOCK = 16,
   FG_ModKey_SUPER = 8
 };
+static int32_t FG_GetDisplay(FG_Backend * self, void * handle, FG_Display * out) { return (*self->getDisplay)(self, handle, out); }
+static int32_t FG_Draw(FG_Backend * self, FG_Window * window, FG_Command * commands, uint32_t n_commands, FG_BlendState * blendstate) { return (*self->draw)(self, window, commands, n_commands, blendstate); }
 enum FG_MouseButton {
   FG_MouseButton_X2 = 16,
   FG_MouseButton_M = 4,
@@ -1107,6 +1102,38 @@ enum FG_MouseButton {
   FG_MouseButton_X5 = 128,
   FG_MouseButton_L = 1,
   FG_MouseButton_X1 = 8
+};
+static FG_Asset * FG_CreateAsset(FG_Backend * self, FG_Window * window, const char* data, uint32_t count, enum FG_Format format, int32_t flags) { return (*self->createAsset)(self, window, data, count, format, flags); }
+static int32_t FG_ClearClipboard(FG_Backend * self, FG_Window * window, enum FG_Clipboard kind) { return (*self->clearClipboard)(self, window, kind); }
+static int32_t FG_GetDisplayIndex(FG_Backend * self, uint32_t index, FG_Display * out) { return (*self->getDisplayIndex)(self, index, out); }
+static int32_t FG_PushClip(FG_Backend * self, FG_Window * window, FG_Rect * area) { return (*self->pushClip)(self, window, area); }
+static int32_t FG_DirtyRect(FG_Backend * self, FG_Window * window, FG_Rect * area) { return (*self->dirtyRect)(self, window, area); }
+typedef struct FG_JoyButton__ FG_JoyButton;
+struct FG_JoyButton__ {
+  uint16_t index;
+  uint16_t button;
+  uint8_t modkeys;
+};
+static FG_Asset * FG_CreateRenderTarget(FG_Backend * self, FG_Window * window, FG_Vec * size, uint8_t format, int32_t flags) { return (*self->createRenderTarget)(self, window, size, format, flags); }
+static int32_t FG_PutClipboard(FG_Backend * self, FG_Window * window, enum FG_Clipboard kind, const char* data, uint32_t count) { return (*self->putClipboard)(self, window, kind, data, count); }
+typedef struct FG_URect__ FG_URect;
+struct FG_URect__ {
+  FG_Rect abs;
+  FG_Rect rel;
+};
+typedef struct FG_MouseEvent__ FG_MouseEvent;
+typedef struct FG_anon_82__ FG_anon_82;
+struct FG_anon_82__ {
+  uint8_t buttons;
+  uint8_t modkeys;
+};
+struct FG_MouseEvent__ {
+  FG_Vec pos;
+  enum FG_MouseButton button;
+  union {
+  FG_Vec delta;
+  FG_anon_82 all;
+};
 };
 static FG_Window * FG_CreateRegion(FG_Backend * self, FG_MsgReceiver * element, FG_Window window, FG_Vec3 pos, FG_Vec3 dim) { return (*self->createRegion)(self, element, window, pos, dim); }
 enum FG_JoyAxis {
@@ -1171,10 +1198,11 @@ enum FG_Joy {
 typedef void (* FG_Log)(void *, enum FG_Level, const char*, ...);
 typedef void (* FG_Delegate)(void *);
 static int32_t FG_PopRenderTarget(FG_Backend * self, FG_Window * window) { return (*self->popRenderTarget)(self, window); }
-typedef struct FG_URect__ FG_URect;
-struct FG_URect__ {
-  FG_Rect abs;
-  FG_Rect rel;
+typedef struct FG_JoyOrientation__ FG_JoyOrientation;
+struct FG_JoyOrientation__ {
+  uint16_t index;
+  FG_Vec3 velocity;
+  FG_Vec3 rotation;
 };
 static int32_t FG_DestroyShaderInput(FG_Backend * self, void * input) { return (*self->destroyShaderInput)(self, input); }
 static FG_Font * FG_CreateFont(FG_Backend * self, const char* family, uint16_t weight, bool italic, uint32_t pt, FG_Vec dpi, enum FG_AntiAliasing aa) { return (*self->createFont)(self, family, weight, italic, pt, dpi, aa); }
@@ -1200,9 +1228,23 @@ static void * FG_FontLayout(FG_Backend * self, FG_Font * font, const char* text,
 static uint32_t FG_GetClipboard(FG_Backend * self, FG_Window * window, enum FG_Clipboard kind, void * target, uint32_t count) { return (*self->getClipboard)(self, window, kind, target, count); }
 static int32_t FG_DestroySystemControl(FG_Backend * self, FG_Window * window, void * control) { return (*self->destroySystemControl)(self, window, control); }
 static uint32_t FG_FontIndex(FG_Backend * self, FG_Font * font, void * layout, FG_Rect * area, FG_Vec pos, FG_Vec * cursor) { return (*self->fontIndex)(self, font, layout, area, pos, cursor); }
-static int32_t FG_GetDisplay(FG_Backend * self, void * handle, FG_Display * out) { return (*self->getDisplay)(self, handle, out); }
+typedef struct FG_TouchEvent__ FG_TouchEvent;
+struct FG_TouchEvent__ {
+  FG_Vec3 pos;
+  float angle;
+  float pressure;
+  uint16_t index;
+  uint8_t flags;
+  uint8_t modkeys;
+};
 static int32_t FG_DestroyFont(FG_Backend * self, FG_Font * font) { return (*self->destroyFont)(self, font); }
-static int32_t FG_PutClipboard(FG_Backend * self, FG_Window * window, enum FG_Clipboard kind, const char* data, uint32_t count) { return (*self->putClipboard)(self, window, kind, data, count); }
+typedef struct FG_JoyEvent__ FG_JoyEvent;
+struct FG_JoyEvent__ {
+  float value;
+  uint16_t index;
+  enum FG_JoyAxis axis;
+  uint8_t modkeys;
+};
 static FG_Asset * FG_CreateLayer(FG_Backend * self, FG_Window * window, FG_Vec * size, int32_t flags) { return (*self->createLayer)(self, window, size, flags); }
 static int32_t FG_GetDisplayWindow(FG_Backend * self, FG_Window * window, FG_Display * out) { return (*self->getDisplayWindow)(self, window, out); }
 static int32_t FG_SetSystemControl(FG_Backend * self, FG_Window * window, void * control, FG_Rect * area, ...) { return (*self->setSystemControl)(self, window, control, area); }
