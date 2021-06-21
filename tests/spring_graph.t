@@ -5,6 +5,7 @@ local f = require 'feather'
 local scaffolding = require 'feather.scaffolding'
 local spring = require 'feather.layouts.springgraph'
 local dynarray = require 'feather.dynarray'
+local messages = require 'feather.messages'
 
 import 'feather/bind'
 
@@ -49,7 +50,7 @@ local clickable_box = f.template {
   f.mousearea {
     pos = bind pos,
     ext = bind ext,
-    mousedown = bindevent()
+    mousedown = bindevent(evt : messages.MouseEvent)
       C.printf("in clickable_box mousedown\n")
       onclick()
       return 1

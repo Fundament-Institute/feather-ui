@@ -61,8 +61,8 @@
   <ItemGroup>
     <CustomBuild Include="clock.t">
       <FileType>Document</FileType>
-      <Command Condition="'$(Configuration)'=='Debug'">set TERRA_PATH=.\?.t;.\deps\?.t;.\?\init.t &amp;&amp; set LUA_PATH=.\?.lua;.\deps\?.lua &amp;&amp; set FEATHER_BACKEND=fgOpenGL_d &amp;&amp; cd "$(SolutionDir)" &amp;&amp; terra -g "%(FullPath)" -debug</Command>
-      <Command Condition="'$(Configuration)'=='Release'">set TERRA_PATH=.\?.t;.\deps\?.t;.\?\init.t &amp;&amp; set LUA_PATH=.\?.lua;.\deps\?.lua &amp;&amp; set FEATHER_BACKEND=fgOpenGL &amp;&amp; cd "$(SolutionDir)" &amp;&amp; terra "%(FullPath)"</Command>
+      <Command Condition="'$(Configuration)'=='Debug'">set TERRA_PATH=.\?.t;.\deps\?.t;.\?\init.t &amp;&amp; set LUA_PATH=.\?.lua;.\deps\?.lua &amp;&amp; set FEATHER_BACKEND=fgOpenGL_d.dll &amp;&amp; cd "$(SolutionDir)" &amp;&amp; terra -g "%(FullPath)" -debug</Command>
+      <Command Condition="'$(Configuration)'=='Release'">set TERRA_PATH=.\?.t;.\deps\?.t;.\?\init.t &amp;&amp; set LUA_PATH=.\?.lua;.\deps\?.lua &amp;&amp; set FEATHER_BACKEND=fgOpenGL.dll &amp;&amp; cd "$(SolutionDir)" &amp;&amp; terra "%(FullPath)"</Command>
       <Message>Compiling %(Identity) with Terra</Message>
       <Outputs>$(OutDir)$(TargetName)</Outputs>
       <AdditionalInputs>../include/backend.h</AdditionalInputs>

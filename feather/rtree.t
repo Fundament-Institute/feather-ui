@@ -8,6 +8,7 @@ local Util = require 'feather.util'
 local C = require 'feather.libc'
 local LL = require 'std.ll'
 local Msg = require 'feather.message'
+local Transform = require 'feather.transform'
 
 local struct Node {
   pos : F.Vec3
@@ -20,6 +21,7 @@ local struct Node {
   children : &Node -- first child
   last : &Node -- last child
   parent : &Node
+  transform : Transform
   planar : bool
 }
 

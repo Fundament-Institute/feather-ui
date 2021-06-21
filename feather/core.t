@@ -12,6 +12,7 @@ local Expression = require 'feather.expression'
 local Params = require 'feather.params'
 
 local M = {}
+M.transform = require 'feather.transform'
 
 -- shadow is a function for handling lexical scoping in Feather templates by building tables that shadow the namespaces of enclosing scopes
 local shadow_parent = {}
@@ -35,24 +36,6 @@ local struct layout_stack {
 local struct outline_context {
   layouts: layout_stack
 }
-
-  --store the data of a transformation, used for accumulating transformations while traversing the rtree.
-  --Simple translation for now
-struct M.transform {
-  r: F.Vec3
-                   }
-terra M.transform:compose(other: &M.transform)
-  return M.transform{self.r + other.r}
-end
-terra M.transform:invert()
-  return M.transform{-self.r}
-end
-terra M.transform.methods.identity()
-  return M.transform{F.vec3(0.0f, 0.0f, 0.0f)}
-end
-terra M.transform.methods.translate(r: F.Vec3)
-  return M.transform{r}
-end
 
 --metatables for templates and outlines
 local template_mt = {}
@@ -431,12 +414,12 @@ function M.basic_template(params)
             self._2 = [context.rtree]:create([context.rtree_node], &pos, &ext, &rot, &z_index)
             self._2.data = [&Msg.Receiver](&self._0)
             var local_transform = M.transform{self._2.pos}
-            var transform = [context.transform]:compose(&local_transform)
+            self._2.transform = [context.transform]:compose(&local_transform)
             escape
               if params_abbrev.body then
                 emit(body_fns.enter(
                        `self._1,
-                       override(context, {rtree_node = `self._2, transform = `transform}),
+                       override(context, {rtree_node = `self._2, transform = `core.transform.identity()}),
                        override(environment, unpack_store(`self._0))
                 ))
               end
@@ -454,12 +437,12 @@ function M.basic_template(params)
             self._2.extent = [environment.ext]
             self._2.rot = [environment.rot]
             var local_transform = M.transform{self._2.pos}
-            var transform = [context.transform]:compose(&local_transform)
+            self._2.transform = [context.transform]:compose(&local_transform)
             escape
               if params_abbrev.body then
                 emit(body_fns.update(
                        `self._1,
-                       override(context, {rtree_node = `self._2, transform = `transform}),
+                       override(context, {rtree_node = `self._2, transform = `core.transform.identity()}),
                        override(environment, unpack_store(`self._0))
                 ))
               end
@@ -478,9 +461,9 @@ function M.basic_template(params)
         end,
         render = function(self, context)
           return quote
-            var local_transform = M.transform{self._2.pos}
-            var transform = [context.transform]:compose(&local_transform)
-            [render(override(context, {transform = `transform, rtree_node = `self._2}), unpack_store(`self._0))]
+            var accumulated = [context.accumulated_parent_transform]:compose(&self._2.transform)
+            var transform = accumulated
+            [render(override(context, {rtree_node = `self._2, transform = `transform, accumulated_parent_transform = `accumulated}), unpack_store(`self._0))]
           end
         end
       }, tuple(typ, body_type or terralib.types.unit, type_context.rtree_node)
