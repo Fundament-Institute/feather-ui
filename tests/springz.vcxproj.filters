@@ -1,0 +1,101 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="spring_graph.t" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="feather">
+      <UniqueIdentifier>{6CB201FB-0389-4FA4-871F-4AD67A909E4E}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\feather\dynarray.t">
+      <Filter>feather</Filter>
+    </None>
+    <None Include="..\feather\backend.t">
+      <Filter>feather</Filter>
+    </None>
+    <None Include="..\feather\calc.t">
+      <Filter>feather</Filter>
+    </None>
+    <None Include="..\feather\core.t">
+      <Filter>feather</Filter>
+    </None>
+    <None Include="..\feather\c-headers.t">
+      <Filter>feather</Filter>
+    </None>
+    <None Include="..\feather\color.t">
+      <Filter>feather</Filter>
+    </None>
+    <None Include="..\feather\element.t">
+      <Filter>feather</Filter>
+    </None>
+    <None Include="..\feather\enum.t">
+      <Filter>feather</Filter>
+    </None>
+    <None Include="..\feather\enumset.t">
+      <Filter>feather</Filter>
+    </None>
+    <None Include="..\feather\flags.t">
+      <Filter>feather</Filter>
+    </None>
+    <None Include="..\feather\hash.t">
+      <Filter>feather</Filter>
+    </None>
+    <None Include="..\feather\init.t">
+      <Filter>feather</Filter>
+    </None>
+    <None Include="..\feather\libc.t">
+      <Filter>feather</Filter>
+    </None>
+    <None Include="..\feather\log.t">
+      <Filter>feather</Filter>
+    </None>
+    <None Include="..\feather\message.t">
+      <Filter>feather</Filter>
+    </None>
+    <None Include="..\feather\messages.t">
+      <Filter>feather</Filter>
+    </None>
+    <None Include="..\feather\os.t">
+      <Filter>feather</Filter>
+    </None>
+    <None Include="..\feather\partitioner.t">
+      <Filter>feather</Filter>
+    </None>
+    <None Include="..\feather\proto.t">
+      <Filter>feather</Filter>
+    </None>
+    <None Include="..\feather\rect.t">
+      <Filter>feather</Filter>
+    </None>
+    <None Include="..\feather\rtree.t">
+      <Filter>feather</Filter>
+    </None>
+    <None Include="..\feather\shared.t">
+      <Filter>feather</Filter>
+    </None>
+    <None Include="..\feather\string.t">
+      <Filter>feather</Filter>
+    </None>
+    <None Include="..\feather\util.t">
+      <Filter>feather</Filter>
+    </None>
+    <None Include="..\feather\virtual.t">
+      <Filter>feather</Filter>
+    </None>
+    <None Include="..\feather\templates\window.t">
+      <Filter>feather</Filter>
+    </None>
+    <None Include="..\feather\templates\triangle.t">
+      <Filter>feather</Filter>
+    </None>
+    <None Include="..\feather\templates\rect.t">
+      <Filter>feather</Filter>
+    </None>
+    <None Include="..\feather\templates\circle.t">
+      <Filter>feather</Filter>
+    </None>
+    <None Include="..\feather\scaffolding.t" />
+  </ItemGroup>
+</Project>

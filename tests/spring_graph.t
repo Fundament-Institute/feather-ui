@@ -6,6 +6,7 @@ local scaffolding = require 'feather.scaffolding'
 local spring = require 'feather.layouts.springgraph'
 local dynarray = require 'feather.dynarray'
 local messages = require 'feather.messages'
+local DefaultLayout = require 'feather.layouts.position'
 
 import 'feather/bind'
 
@@ -36,20 +37,18 @@ local stroke_color = bind f.Color { 0xffcccccc }
 
 local clickable_box = f.template {
   pos = `f.vec3(0f, 0f, 0f),
-  ext = f.required,
+  dim = f.required,
   fill = `f.Color {0xff000000},
   onclick = f.requiredevent()
 } {
   f.rect {
-    pos = bind pos,
-    ext = bind ext,
+    layout = bind DefaultLayout{ pos, f.vec3(0.5f, 0.5f, 0.0f), dim, f.vec3(0.0f, 0.0f, 0.0f) },
     outline = stroke_color,
     color = bind fill,
     border = bind 10
   },
   f.mousearea {
-    pos = bind pos,
-    ext = bind ext,
+    layout = bind DefaultLayout{ pos, f.vec3(0.5f, 0.5f, 0.0f), dim, f.vec3(0.0f, 0.0f, 0.0f) },
     mousedown = bindevent(evt : messages.MouseEvent)
       C.printf("in clickable_box mousedown\n")
       onclick()
@@ -65,7 +64,8 @@ local ui = f.ui {
     spring.graph {
       gravity = 0.1,
       drag = 0.0,
-      pos = bind f.vec3(200, 200, 0),
+      pos = bind f.vec3(400, 300, 0),
+      dim = bind f.vec3(800, 600, 0),
       f.each "node" (bind app.nodes) {
         clickable_box {
           pos = --[[bind f.vec3(node * 50, node * 50, 0)]]spring.node{
@@ -73,7 +73,7 @@ local ui = f.ui {
             mass = 1.0,
             charge = 50
             },
-          ext = bind f.vec3(50f, 50f, 0f),
+          dim = bind f.vec3(100f, 100f, 0f),
           onclick = bindevent()
             C.printf("in enablebutton onclick\n")
           end

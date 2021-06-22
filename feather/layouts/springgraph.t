@@ -150,6 +150,7 @@ M.graph = core.raw_template {
   gravity = `0.1f,
   drag = `0.02f,
   pos = core.required,
+  dim = core.required,
   core.body
 } (
   function(self, type_context, type_environment)
@@ -177,9 +178,11 @@ M.graph = core.raw_template {
           self.system.particles:init()
           self.system.springs:init()
           var zero = F.vec3(0.0f, 0.0f, 0.0f)
+          var dim = [environment.dim]
           var z_index = F.veci(0,0)
-          self.rtree_node = [context.rtree]:create([context.rtree_node], &zero, &zero, &zero, &z_index)
-          var local_transform = core.transform.translate(environment.pos)
+          self.rtree_node = [context.rtree]:create([context.rtree_node], &environment.pos, &dim, &zero, &z_index)
+          self.rtree_node.data = nil -- we don't process messages, so we set data to nil
+          var local_transform = core.transform.translate(self.rtree_node.pos)
           self.rtree_node.transform = context.transform:compose(&self.rtree_node.transform)
           [body_fns.enter(`self.body, override_context(self, context, `core.transform.identity()), environment)]
         end
@@ -187,7 +190,8 @@ M.graph = core.raw_template {
       update = function(self, context, environment)
         return quote
           self.system:update()
-          self.rtree_node.transform = core.transform.translate(environment.pos)
+          self.rtree_node.pos = [environment.pos]
+          self.rtree_node.transform = core.transform.translate(self.rtree_node.pos)
           [body_fns.update(`self.body, override_context(self, context, `core.transform.identity()), environment)]
         end
       end,

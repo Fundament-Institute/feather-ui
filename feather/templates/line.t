@@ -35,7 +35,7 @@ return core.raw_template {
             var ext = maxpos(environment.points) - pos
             var z_index = [F.Veci]{array(0, 0)}
             self.node = [context.rtree]:create([context.rtree_node], &pos, &ext, F.vec3(0.0f,0.0f,0.0f), &z_index)
-            self.node.data = [&Msg.Receiver](&self)
+            self.node.data = &self.super
             self.color = [environment.color]
             self.p0 = [environment.points]._0
             self.p1 = [environment.points]._1

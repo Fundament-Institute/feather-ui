@@ -10,6 +10,7 @@ local Closure = require 'feather.closure'
 local C = terralib.includecstring [[#include <stdio.h>]]
 local Expression = require 'feather.expression'
 local Params = require 'feather.params'
+local DefaultLayout = require 'feather.layouts.position'
 
 local M = {}
 M.transform = require 'feather.transform'
@@ -364,16 +365,10 @@ function M.basic_template(params)
   local params_abbrev = Params.parse_params(params)
   local params_full = Params.parse_params(params)
 
-  table.insert(params_full.names, "pos")
-  table.insert(params_full.names, "ext")
-  table.insert(params_full.names, "rot")
-  params_full.names_map.pos = true
-  params_full.names_map.ext = true
-  params_full.names_map.rot = true
-  local zerovec = Expression.constant(`[F.Vec3]{array(0.0f, 0.0f, 0.0f)})
-  params_full.defaults.pos = zerovec
-  params_full.defaults.ext = zerovec
-  params_full.defaults.rot = zerovec
+  table.insert(params_full.names, "layout")
+  params_full.names_map.layout = true
+  local zerovec = constant(`[F.vec3](0f, 0f, 0f))
+  params_full.defaults.layout = Expression.constant(`[DefaultLayout]{ zerovec, zerovec, zerovec, zerovec })
 
   return function(render)
     local function generate(self, type_context, type_environment)
@@ -407,11 +402,9 @@ function M.basic_template(params)
             end
 
             self._0.vftable = [self:gettype().entries[1][2]].virtual_initializer
-            var pos = [environment.pos]
-            var ext = [environment.ext]
-            var rot = [environment.rot]
+            self._3 = [environment.layout]
             var z_index = [F.Veci]{array(0, 0)}
-            self._2 = [context.rtree]:create([context.rtree_node], &pos, &ext, &rot, &z_index)
+            self._2 = [context.rtree]:create([context.rtree_node], &zerovec, &zerovec, &zerovec, &z_index)
             self._2.data = [&Msg.Receiver](&self._0)
             var local_transform = M.transform{self._2.pos}
             self._2.transform = [context.transform]:compose(&local_transform)
@@ -433,10 +426,8 @@ function M.basic_template(params)
                 emit quote self._0.[name] = [environment[name] ] end
               end
             end
-            self._2.pos = [environment.pos]
-            self._2.extent = [environment.ext]
-            self._2.rot = [environment.rot]
-            var local_transform = M.transform{self._2.pos}
+            self._3 = [environment.layout]
+            var local_transform = self._3:apply(self._2, context.rtree_node)
             self._2.transform = [context.transform]:compose(&local_transform)
             escape
               if params_abbrev.body then
@@ -449,6 +440,9 @@ function M.basic_template(params)
             end
           end
         end,
+        --layout = function(self, context)
+          -- TODO: move from update to layout function
+        --end,
         exit = function(self, context)
           return quote
             escape
@@ -466,7 +460,7 @@ function M.basic_template(params)
             [render(override(context, {rtree_node = `self._2, transform = `transform, accumulated_parent_transform = `accumulated}), unpack_store(`self._0))]
           end
         end
-      }, tuple(typ, body_type or terralib.types.unit, type_context.rtree_node)
+      }, tuple(typ, body_type or terralib.types.unit, type_context.rtree_node, DefaultLayout)
     end
 
     local self = {
@@ -490,7 +484,6 @@ function M.template(params)
       for i, name in ipairs(params.names) do
         element.entries[i] = {field = name, type = type_environment[name]}
       end
-      Virtual.extends(Msg.Receiver)(element)
 
       local function unpack_store(store)
         local res = {}
@@ -675,6 +668,7 @@ function M.ui(desc)
   }
 
   local terra mousequery(n : &rtree_type.Node, p : &F.Vec3, r : &F.Vec3, params : BehaviorParamPack) : bool 
+    -- C.printf("TEST: %p  %g %g %g\n", n.data, n.pos.x, n.pos.y, n.pos.z);
     if n.data ~= nil then
       return Msg.DefaultBehavior([&Msg.Receiver](n.data), params.w, params.ui, params.m).mouseMove >= 0
     end
