@@ -41,6 +41,7 @@ return core.raw_template {
         end,
         update = function(self, context, environment)
           return quote
+            self.node.data = &self.super
             self.layout = [environment.layout]
             var local_transform = self.layout:apply(self.node, context.rtree_node)
             self.node.transform = [context.transform]:compose(&local_transform)

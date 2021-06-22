@@ -405,7 +405,7 @@ function M.basic_template(params)
             self._3 = [environment.layout]
             var z_index = [F.Veci]{array(0, 0)}
             self._2 = [context.rtree]:create([context.rtree_node], &zerovec, &zerovec, &zerovec, &z_index)
-            self._2.data = [&Msg.Receiver](&self._0)
+            self._2.data = &self._0.super
             var local_transform = M.transform{self._2.pos}
             self._2.transform = [context.transform]:compose(&local_transform)
             escape
@@ -428,6 +428,7 @@ function M.basic_template(params)
             end
             self._3 = [environment.layout]
             var local_transform = self._3:apply(self._2, context.rtree_node)
+            self._2.data = &self._0.super
             self._2.transform = [context.transform]:compose(&local_transform)
             escape
               if params_abbrev.body then
