@@ -6,6 +6,7 @@ local dynarray = require 'feather.dynarray'
 local expression = require 'feather.expression'
 local override = require 'feather.util'.override
 local Math = require 'std.math'
+local F = require 'feather.shared'
 local C = terralib.includecstring [[
 #include <stdio.h>
 ]]
@@ -149,6 +150,7 @@ M.graph = core.raw_template {
   gravity = `0.1f,
   drag = `0.02f,
   pos = core.required,
+  dim = core.required,
   core.body
 } (
   function(self, type_context, type_environment)
@@ -156,14 +158,15 @@ M.graph = core.raw_template {
     local function override_context(self, context, transform)
       return override(context, {
         graph_system = `self.system,
-        transform = transform
+        transform = transform,
+        accumulated_parent_transform = transform,
+        rtree_node = `self.rtree_node,
       })
     end
 
     local struct store {
       system: System2D
       body: body_type
-      transform: core.transform
       rtree_node: type_context.rtree_node
                        }
 
@@ -174,31 +177,35 @@ M.graph = core.raw_template {
           self.system.drag = [environment.drag]
           self.system.particles:init()
           self.system.springs:init()
-          self.transform = core.transform.translate(environment.pos)
-          var trans = context.transform:compose(&self.transform)
-          [body_fns.enter(`self.body, override_context(self, context, trans), environment)]
+          var zero = F.vec3(0.0f, 0.0f, 0.0f)
+          var dim = [environment.dim]
+          var z_index = F.veci(0,0)
+          self.rtree_node = [context.rtree]:create([context.rtree_node], &environment.pos, &dim, &zero, &z_index)
+          self.rtree_node.data = nil -- we don't process messages, so we set data to nil
+          var local_transform = core.transform.translate(self.rtree_node.pos)
+          self.rtree_node.transform = context.transform:compose(&self.rtree_node.transform)
+          [body_fns.enter(`self.body, override_context(self, context, `core.transform.identity()), environment)]
         end
       end,
       update = function(self, context, environment)
         return quote
           self.system:update()
-          self.transform = core.transform.translate(environment.pos)
-          var trans = context.transform:compose(&self.transform)
-          [body_fns.update(`self.body, override_context(self, context, trans), environment)]
+          self.rtree_node.pos = [environment.pos]
+          self.rtree_node.transform = core.transform.translate(self.rtree_node.pos)
+          [body_fns.update(`self.body, override_context(self, context, `core.transform.identity()), environment)]
         end
       end,
       exit = function(self, context)
         return quote
-          var trans = context.transform:compose(&self.transform)
-          [body_fns.exit(`self.body, override_context(self, context, trans))]
+          [body_fns.exit(`self.body, override_context(self, context))]
           self.system.particles:destruct()
           self.system.springs:destruct()
         end
       end,
       render = function(self, context)
         return quote
-          var trans = context.transform:compose(&self.transform)
-            [body_fns.render(`self.body, override_context(self, context, trans))]
+            var accumulated = [context.accumulated_parent_transform]:compose(&self.rtree_node.transform)
+            [body_fns.render(`self.body, override_context(self, context, `accumulated))]
           end
       end
     }

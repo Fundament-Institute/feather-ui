@@ -20,7 +20,7 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
-    <ProjectGuid>{B4B91EE9-7085-4CEA-A9B6-4CA6E23F684B}</ProjectGuid>
+    <ProjectGuid>{0c413023-60fc-41d9-98e8-75ec876cd258}</ProjectGuid>
     <RootNamespace>tests</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
@@ -47,19 +47,19 @@
     <IntDir>$(ProjectDir)\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <TargetName>clock_d.exe</TargetName>
+    <TargetName>springz_d.exe</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <TargetName>clock.exe</TargetName>
+    <TargetName>springz.exe</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <TargetName>clock_d.exe</TargetName>
+    <TargetName>springz_d.exe</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <TargetName>clock.exe</TargetName>
+    <TargetName>springz.exe</TargetName>
   </PropertyGroup>
   <ItemGroup>
-    <CustomBuild Include="clock.t">
+    <CustomBuild Include="spring_graph.t">
       <FileType>Document</FileType>
       <Command Condition="'$(Configuration)'=='Debug'">set TERRA_PATH=.\?.t;.\deps\?.t;.\?\init.t &amp;&amp; set LUA_PATH=.\?.lua;.\deps\?.lua &amp;&amp; set FEATHER_BACKEND=fgOpenGL_d.dll &amp;&amp; cd "$(SolutionDir)" &amp;&amp; terra -g "%(FullPath)" -debug</Command>
       <Command Condition="'$(Configuration)'=='Release'">set TERRA_PATH=.\?.t;.\deps\?.t;.\?\init.t &amp;&amp; set LUA_PATH=.\?.lua;.\deps\?.lua &amp;&amp; set FEATHER_BACKEND=fgOpenGL.dll &amp;&amp; cd "$(SolutionDir)" &amp;&amp; terra "%(FullPath)"</Command>

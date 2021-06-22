@@ -949,7 +949,7 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   HeapSetInformation(NULL, HeapEnableTerminationOnCorruption, NULL, 0);
   #endif
 
-  int64_t sz = GetRegistryValueW(HKEY_CURRENT_USER, L"Control Panel\\Desktop", L"CursorBlinkRate", 0, 0);
+  long long sz = GetRegistryValueW(HKEY_CURRENT_USER, L"Control Panel\\Desktop", L"CursorBlinkRate", 0, 0);
   if(sz > 0)
   {
     std::wstring buf;

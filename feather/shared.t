@@ -86,6 +86,7 @@ AutoVecGen(float, 2, 4)
 AutoVecGen(int, 2, 2)
 
 S.rect = AutoVecFunc(S.Rect)
+S.scalar_t = GA(float, 3).scalar_t
 
 struct S.UVec {
   abs : S.Vec

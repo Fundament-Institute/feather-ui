@@ -1,6 +1,7 @@
 local f = require 'feather'
 local scaffolding = require 'feather.scaffolding'
 local Iterator = require 'std.iterator'
+local DefaultLayout = require 'feather.layouts.position'
 import 'feather/bind'
 
 local clockring = f.template {
@@ -20,8 +21,7 @@ local clockring = f.template {
           progress * [float]([math.pi * 2.0])
         )
                     },
-    ext = bind f.Vec3{arrayof(float, radius, radius, 0)},
-    pos = bind pos
+    layout = bind DefaultLayout{ pos, f.vec3(0f, 0f, 0f), f.vec3(radius * 2f, radius * 2f, 0), f.vec3(0f, 0f, 0f) }
   }
 }
 

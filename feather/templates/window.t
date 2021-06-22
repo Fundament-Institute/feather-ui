@@ -4,6 +4,9 @@ local override = require 'feather.util'.override
 local messages = require 'feather.messages'
 local Msg = require 'feather.message'
 local Virtual = require 'feather.virtual'
+local C = terralib.includecstring [[
+#include <stdio.h>
+]]
 
 local gen_window_node = terralib.memoize(function(body_type, rtree_node, window_base)
   local struct window_node(Virtual.extends(window_base)) {
@@ -17,6 +20,8 @@ local gen_window_node = terralib.memoize(function(body_type, rtree_node, window_
   
 return core.raw_template {
   color = `F.Color{0},
+  pos = `F.vec(0f, 0f),
+  size = `F.vec(800f, 600f),
   core.body
 } (
   function(self, type_context, type_environment)
@@ -26,7 +31,7 @@ return core.raw_template {
     local rtree_type = type_context.rtree
     local body_fns, body_type = type_environment[core.body](override(type_context, {window = &Msg.Window, transform = &core.transform}), type_environment)
     
-    local function make_context(self, ui)
+    local function make_context(self, ui, accumulated)
       return {
         rtree = `self.rtree,
         rtree_node = `self.rtree.root,
@@ -34,16 +39,18 @@ return core.raw_template {
         backend = `ui.backend,
         window = `self.window,
         transform = `core.transform.identity(),
+        accumulated_parent_transform = accumulated
       }
     end
 
-    local function override_context(self, context)
+    local function override_context(self, context, accumulated)
       return override(context, {
         rtree = `self.rtree,
         rtree_node = `self.rtree.root,
         allocator = `self.rtree.allocator,
         window = `self.window,
         transform = `core.transform.identity(),
+        accumulated_parent_transform = accumulated
       })
     end
 
@@ -51,14 +58,18 @@ return core.raw_template {
       enter = function(self, context, environment)
         return quote
           self.vftable = [self:gettype()].virtual_initializer
-          var pos = F.vec(0f, 0f)
-          var size = F.vec(800f, 600f)
-          var transform = core.transform.identity()
-          var zero = [F.Vec3] {array(0.0f, 0.0f, 0.0f)}
-          var zindex = [F.Veci] {array(0, 0)}
+          var pos = [environment.pos]
+          var size = [environment.size]
+          var zero = F.vec3(0f, 0f, 0f)
+          var zindex = F.veci(0, 0)
           self.rtree:init()
           self.node = self.rtree:create(nil, &zero, &zero, &zero, &zindex)
           self.node.data = &self.super.super
+          --[[self.node.pos.x = size.x / 2f -- Need to make the transform work first, or this position will be ignored
+          self.node.pos.y = size.y / 2f
+          self.node.extent.x = size.x / 2f
+          self.node.extent.y = size.y / 2f
+          self.node.transform = core.transform.translate(self.node.pos)]]
           self.window = [context.backend]:CreateWindow(self.node.data, nil, &pos, &size, "feather window", messages.WindowFlag.RESIZABLE)
           self.color = [environment.color]
           [body_fns.enter(`self.body, override_context(self, context), environment)]
@@ -66,7 +77,6 @@ return core.raw_template {
       end,
       update = function(self, context, environment)
         return quote
-          var transform = core.transform.identity()
           self.color = environment.color
           [body_fns.update(`self.body, override_context(self, context), environment)]
           [context.backend]:DirtyRect(self.window, nil) --TODO: make this smart enough to only call for a redraw if something changed.
@@ -75,7 +85,6 @@ return core.raw_template {
       exit = function(self, context)
         return quote
           if self.window ~= nil then
-            var transform = core.transform.identity()
             [body_fns.exit(`self.body, override_context(self, context))]
             [context.backend]:DestroyWindow(self.window)
             self.window = nil
@@ -85,8 +94,7 @@ return core.raw_template {
       end,
       render = function(self, context)
         return quote
-            var transform = core.transform.identity()
-            [body_fns.render(`self.body, override_context(self, context))]
+            [body_fns.render(`self.body, override_context(self, context, `core.transform.identity()))]
           end
       end
     }
@@ -95,7 +103,7 @@ return core.raw_template {
     
     terra window_node:Draw(ui : &opaque) : F.Err
       [&type_context.ui](ui).backend:Clear(self.window, self.color)
-      [body_fns.render(`self.body, make_context(self, `[&type_context.ui](ui)))]
+      [body_fns.render(`self.body, make_context(self, `[&type_context.ui](ui), `core.transform.identity()))]
       return 0
     end
     

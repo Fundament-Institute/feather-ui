@@ -24,6 +24,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ui_test", "tests\ui_test.vc
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "clock", "tests\clock.vcxproj", "{B4B91EE9-7085-4CEA-A9B6-4CA6E23F684B}"
+	ProjectSection(ProjectDependencies) = postProject
+		{2DACCFB1-7863-4451-91A7-B4BB844C7746} = {2DACCFB1-7863-4451-91A7-B4BB844C7746}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "springz", "tests\springz.vcxproj", "{0C413023-60FC-41D9-98E8-75EC876CD258}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -133,6 +138,22 @@ Global
 		{B4B91EE9-7085-4CEA-A9B6-4CA6E23F684B}.Release-Static|x64.Build.0 = Release|x64
 		{B4B91EE9-7085-4CEA-A9B6-4CA6E23F684B}.Release-Static|x86.ActiveCfg = Release|Win32
 		{B4B91EE9-7085-4CEA-A9B6-4CA6E23F684B}.Release-Static|x86.Build.0 = Release|Win32
+		{0C413023-60FC-41D9-98E8-75EC876CD258}.Debug|x64.ActiveCfg = Debug|x64
+		{0C413023-60FC-41D9-98E8-75EC876CD258}.Debug|x64.Build.0 = Debug|x64
+		{0C413023-60FC-41D9-98E8-75EC876CD258}.Debug|x86.ActiveCfg = Debug|Win32
+		{0C413023-60FC-41D9-98E8-75EC876CD258}.Debug|x86.Build.0 = Debug|Win32
+		{0C413023-60FC-41D9-98E8-75EC876CD258}.Debug-Static|x64.ActiveCfg = Debug|x64
+		{0C413023-60FC-41D9-98E8-75EC876CD258}.Debug-Static|x64.Build.0 = Debug|x64
+		{0C413023-60FC-41D9-98E8-75EC876CD258}.Debug-Static|x86.ActiveCfg = Debug|Win32
+		{0C413023-60FC-41D9-98E8-75EC876CD258}.Debug-Static|x86.Build.0 = Debug|Win32
+		{0C413023-60FC-41D9-98E8-75EC876CD258}.Release|x64.ActiveCfg = Release|x64
+		{0C413023-60FC-41D9-98E8-75EC876CD258}.Release|x64.Build.0 = Release|x64
+		{0C413023-60FC-41D9-98E8-75EC876CD258}.Release|x86.ActiveCfg = Release|Win32
+		{0C413023-60FC-41D9-98E8-75EC876CD258}.Release|x86.Build.0 = Release|Win32
+		{0C413023-60FC-41D9-98E8-75EC876CD258}.Release-Static|x64.ActiveCfg = Release|x64
+		{0C413023-60FC-41D9-98E8-75EC876CD258}.Release-Static|x64.Build.0 = Release|x64
+		{0C413023-60FC-41D9-98E8-75EC876CD258}.Release-Static|x86.ActiveCfg = Release|Win32
+		{0C413023-60FC-41D9-98E8-75EC876CD258}.Release-Static|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
