@@ -5,11 +5,11 @@ local Messages = require 'feather.messages'
 local B = require 'feather.backend'
 local override = require 'feather.util'.override
 local Virtual = require 'feather.virtual'
-local DefaultLayout = require 'feather.layouts.position'
+local DefaultLayout = require 'feather.layouts.basic'
 local C = terralib.includecstring [[#include <stdio.h>]]
 
 return core.raw_template {
-  layout = constant(`[DefaultLayout]{ F.vec3(0f, 0f, 0f), F.vec3(0f, 0f, 0f), F.vec3(0f, 0f, 0f), F.vec3(0f, 0f, 0f) }),
+  layout = constant(`DefaultLayout.zero),
   mousedown = `F.EmptyCallable{},
   mousedblclick = `F.EmptyCallable{},
   mouseup = `F.EmptyCallable{},
@@ -21,30 +21,34 @@ return core.raw_template {
   touchmove = `F.EmptyCallable{},
   touchend = `F.EmptyCallable{},
 } (
-  function(self, type_context, type_environment)
+  function(this, type_context, type_environment)
     local body_fns, body_type = type_environment[core.body](override(type_context, {window = &opaque, transform = &core.transform}), type_environment)
     
     local fn_table = {
         enter = function(self, context, environment)
           return quote
             self.vftable = [self:gettype()].virtual_initializer
-            self.layout = [environment.layout]
-            var zero = F.vec3(0f, 0f, 0f)
-            var z_index = F.veci(0, 0)
-            self.node = [context.rtree]:create([context.rtree_node], &zero, &zero, &zero, &z_index)
+            var local_transform = [context.transform]
+            self.node = [context.rtree]:create([context.rtree_node], &local_transform, F.zero, F.zero)
             self.node.data = &self.super
-            self.mousedown = environment.mousedown
-            var local_transform = core.transform{self.node.pos}
-            self.node.transform = [context.transform]:compose(&local_transform)
+            escape
+              for i,v in ipairs(this.params.names) do
+                emit(quote self.[v] = environment.[v] end)
+              end
+            end
             --;[body_fns.enter(`self.body, core.override(context, {rtree_node = `self._2, transform = `transform}), environment)]
           end
         end,
         update = function(self, context, environment)
           return quote
             self.node.data = &self.super
-            self.layout = [environment.layout]
-            var local_transform = self.layout:apply(self.node, context.rtree_node)
-            self.node.transform = [context.transform]:compose(&local_transform)
+            escape
+              for i,v in ipairs(this.params.names) do
+                emit(quote self.[v] = environment.[v] end)
+              end
+            end
+            var local_transform = [context.transform]
+            self.layout:apply(self.node, &local_transform, context.rtree_node)
           end
         end,
         --layout = function(self, context)
@@ -60,7 +64,7 @@ return core.raw_template {
           -- Temporarily draws a white rectangle so you know where the mousearea is
          --[[var local_transform = [core.transform]{self.node.pos}
          var transform = [context.transform]:compose(&local_transform)
-         var x, y = transform.r.x, transform.r.y
+         var x, y = transform.pos.x, transform.pos.y
          var w, h = self.node.extent.x, self.node.extent.y
          var rect = F.Rect{array(x-w, y-h, x+w, y+h)}
          var corners = F.Rect{array(0f, 0f, 0f, 0f)}
@@ -86,7 +90,7 @@ return core.raw_template {
       body: body_type
     }
     -- Store all callables. The default empty ones are zero-size types, which take up no space.
-    for i,v in ipairs(self.params.names) do
+    for i,v in ipairs(this.params.names) do
       if v ~= "layout" then
         mousearea.entries:insert {field = v, type = type_environment[v]}
       end
