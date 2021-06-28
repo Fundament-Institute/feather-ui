@@ -30,7 +30,7 @@ Layout.methods.create = macro(function(exp)
         end
 
         if not hasanchor then
-          l.anchor = l.rel
+          emit(quote l.anchor = l.rel end)
         end
       end
     in
@@ -46,7 +46,7 @@ Layout.methods.apply = CT(function(t, u) return CT.TemplateMethod(Layout, {CT.Po
     return terra(self : S, node : N, t : T, parent : P) : {}
       node.transform.pos = parent.extent:component_mul((self.rel:component_sub(0.5f)):component_mul(2.0f)) + self.abs
       node.extent = self.dim:component_div(2.0f) + parent.extent:component_mul(self.reldim)
-      --node.transform.pos = node.transform.pos:component_sub(node.extent:component_mul((self.anchor:component_sub(0.5f)):component_mul(2.0f)))
+      node.transform.pos = node.transform.pos:component_sub(node.extent:component_mul((self.anchor:component_sub(0.5f)):component_mul(2.0f)))
       node.transform.rot = self.rot
     end
   end) end, CT.TerraType, CT.TerraType)
