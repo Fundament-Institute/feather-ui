@@ -623,7 +623,7 @@ FG_Window* Backend::CreateRegionGL(FG_Backend* self, FG_MsgReceiver* element, FG
   *static_cast<FG_Window*>(context) = desc;
 
   // glfwMakeContextCurrent(_window); // TODO: Make the context current
-  if(!gladLoadGL(glGetProcAddress))
+  if(!gladLoadGLLoader((GLADloadproc)glGetProcAddress))
     (*backend->_log)(backend->_root, FG_Level_ERROR, "gladLoadGL failed");
   backend->LogError("gladLoadGL");
   context->CreateResources();

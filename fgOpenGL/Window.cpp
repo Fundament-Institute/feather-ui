@@ -187,13 +187,16 @@ Window::Window(Backend* backend, GLFWmonitor* display, FG_MsgReceiver* element, 
 #endif
 
     glfwMakeContextCurrent(_window);
-    if(!gladLoadGL(glfwGetProcAddress))
+    if(!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
       (*_backend->_log)(_backend->_root, FG_Level_ERROR, "gladLoadGL failed");
     _backend->LogError("gladLoadGL");
     CreateResources();
   }
   else
     (*_backend->_log)(_backend->_root, FG_Level_ERROR, "glfwCreateWindow failed");
+
+  (*_backend->_log)(_backend->_root, FG_Level_NOTICE, "OpenGL v.%s\nVendor: %s\nRenderer: %s\n", glGetString(GL_VERSION),
+                    glGetString(GL_VENDOR), glGetString(GL_RENDERER));
 }
 
 Window::~Window()

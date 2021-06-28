@@ -4,7 +4,7 @@
 
 #include "compiler.h"
 #include "backend.h"
-#include "glad/gl.h"
+#include "glad/glad.h"
 #include "span.h"
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
