@@ -21,7 +21,7 @@ local clockring = f.template {
           progress * [float]([math.pi * 2.0])
         )
                     },
-    layout = bind DefaultLayout.create({ abs = pos, dim = f.vec3(radius * 2f, radius * 2f, 0) })
+    layout = bind DefaultLayout.create({ abs = pos, dim = f.vec3(radius * 2f, radius * 2f, 0), anchor = f.vec3(0.5f, 0.5f, 0f) })
   }
 }
 
