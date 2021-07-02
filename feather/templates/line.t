@@ -56,6 +56,7 @@ return core.raw_template {
             self.p1 = [environment.points]._1 - pos
           end
         end,
+        layout = function(self, context, environment) return quote end end,
         exit = function(self, context)
           return quote
             [context.rtree]:destroy(self.node)

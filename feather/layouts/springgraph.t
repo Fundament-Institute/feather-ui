@@ -110,6 +110,7 @@ M.spring = core.raw_expression{
         end
       end,
       update = function(self, context, environment) return quote self = environment.pair end end,
+      layout = function(self, context, environment) return quote end end,
       exit = function(self, context) return quote end end,
       get = function(self, context)
         local v =`{context.graph_system.particles(self._0).pos, context.graph_system.particles(self._1).pos}
@@ -139,6 +140,7 @@ M.node = core.raw_expression{
         end
       end,
       update = function(self, context, environment) return quote self = environment.id end end,
+      layout = function(self, context, environment) return quote end end,
       exit = function(self, context) return {} end,
       get = function(self, context) local v = `context.graph_system.particles(self).pos; return v end,
       storage_type = uint
@@ -190,6 +192,11 @@ M.graph = core.raw_template {
           var local_transform = core.transform.translate([environment.pos])
           self.rtree_node.transform = [context.transform]:compose(&local_transform)
           [body_fns.update(`self.body, override_context(self, context, `core.transform.identity()), environment)]
+        end
+      end,
+      layout = function(self, context, environment)
+        return quote
+          [body_fns.layout(`self.body, override_context(self, context), environment)]
         end
       end,
       exit = function(self, context)

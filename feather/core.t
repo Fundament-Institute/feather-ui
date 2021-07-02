@@ -82,6 +82,15 @@ function M.make_body(rawbody)
           end
         end
       end,
+      layout = function(self, context, environment)
+        return quote
+          escape
+            for i, e in ipairs(elements) do
+              emit(e.layout(`self.["_"..(i-1)], context, environment))
+            end
+          end
+        end
+      end,
       exit = function(self, context)
         return quote
           escape
@@ -142,6 +151,9 @@ function template_mt:__call(desc)
           update = function(self, context, environment)
             return body_fns.update(self, context, environment[M.body])
           end,
+          layout = function(self, context, environment)
+            return body_fns.layout(self, context, environment)
+          end,
           exit = function(self, context)
             return body_fns.exit(self, context)
           end,
@@ -155,6 +167,7 @@ function template_mt:__call(desc)
         return {
           enter = function() return {} end,
           update = function() return {} end,
+          layout = function() return {} end,
           exit = function() return {} end,
           render = function() return {} end
         }, terralib.types.unit
@@ -205,6 +218,11 @@ function template_mt:__call(desc)
             end
           end
           [fns.update(`data._0, context, binds)]
+        end
+      end,
+      layout = function(data, context, environment)
+        return quote
+          [fns.layout(`data._0, context, environment)]
         end
       end,
       exit = function(data, context)
@@ -433,10 +451,7 @@ function M.basic_template(params)
               end
             end
             
-            var local_transform = [context.transform]
             self.layout = [environment.layout]
-            self.layout:apply(self.node, &local_transform, context.rtree_node)
-            self.node.data = &self.store.super
             escape
               if params_abbrev.body then
                 emit(body_fns.update(
@@ -448,9 +463,23 @@ function M.basic_template(params)
             end
           end
         end,
-        --layout = function(self, context)
-          -- TODO: move from update to layout function
-        --end,
+        layout = function(self, context, environment)
+          return quote
+            escape
+              if params_abbrev.body then
+                emit(body_fns.layout(
+                       `self.body,
+                       override(context, {rtree_node = `self.node, transform = `M.transform.identity()}),
+                       override(environment, unpack_store(`self.store))
+                ))
+              end
+            end
+
+            var local_transform = [context.transform]
+            self.layout:apply(self.node, &local_transform, context.rtree_node)
+            self.node.data = &self.store.super
+          end
+        end,
         exit = function(self, context)
           return quote
             escape
@@ -525,6 +554,9 @@ function M.template(params)
             [updates];
             [defn_body_fns.update(`self.body, context, override(environment, unpack_store(`self.store)))]
           end
+        end,
+        layout = function(self, context, environment)
+          return defn_body_fns.layout(`self.body, context, environment)
         end,
         exit = function(self, context)
           return defn_body_fns.exit(`self.body, context)
@@ -657,6 +689,11 @@ function M.ui(desc)
   end
   terra ui:update()
     [body_fns.update(
+       `self.data,
+       make_context(self),
+       make_environment(self)
+    )]
+    [body_fns.layout(
        `self.data,
        make_context(self),
        make_environment(self)

@@ -77,6 +77,11 @@ return core.raw_template {
           [context.backend]:DirtyRect(self.window, nil) --TODO: make this smart enough to only call for a redraw if something changed.
         end
       end,
+      layout = function(self, context, environment)
+        return quote
+          [body_fns.layout(`self.body, override_context(self, context), environment)]
+        end
+      end,
       exit = function(self, context)
         return quote
           if self.window ~= nil then
@@ -84,8 +89,8 @@ return core.raw_template {
             [context.backend]:DestroyWindow(self.window)
             self.window = nil
             self.rtree:destruct()
-            end
           end
+        end
       end,
       render = function(self, context)
         return quote

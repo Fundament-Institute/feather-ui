@@ -47,13 +47,14 @@ return core.raw_template {
                 emit(quote self.[v] = environment.[v] end)
               end
             end
+          end
+        end,
+        layout = function(self, context)
+          return quote
             var local_transform = [context.transform]
             self.layout:apply(self.node, &local_transform, context.rtree_node)
           end
         end,
-        --layout = function(self, context)
-          -- TODO: move from update to layout function
-        --end,
         exit = function(self, context)
           return quote
             [context.rtree]:destroy(self.node)
