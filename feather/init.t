@@ -5,7 +5,7 @@ local backend = require 'feather.backend'
 local message = require 'feather.message'
 
 local template_names = {"window", "rect", "triangle", "circle", "mousearea", "arc", "line"}
-local operator_names = {"let", "each", "letcontext", "getcontext"} -- cond, match, range, each_index, each_pair
+local operator_names = {"let", "each", "letcontext", "getcontext", "If"} -- cond, match, range, each_index, each_pair
 
 local templates = {}
 for i, name in ipairs(template_names) do
