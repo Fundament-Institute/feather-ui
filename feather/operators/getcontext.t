@@ -11,6 +11,7 @@ return setmetatable({},{__index=function(self, name)
         return {
           enter = function(self, context, environment) end,
           update = function(self, context, environment) end,
+          layout = function(self, context, environment) end,
           exit = function(self, context) end,
           get = function(self, context) return context[name] end,
           storage_type = terralib.types.unit

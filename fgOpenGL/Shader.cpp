@@ -2,7 +2,7 @@
 // For conditions of distribution and use, see copyright notice in "Backend.h"
 
 #include "BackendGL.h"
-#include "glad/gl.h"
+#include "glad/glad.h"
 #include <string.h>
 #include <memory>
 

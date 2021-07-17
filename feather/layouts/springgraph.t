@@ -110,6 +110,7 @@ M.spring = core.raw_expression{
         end
       end,
       update = function(self, context, environment) return quote self = environment.pair end end,
+      layout = function(self, context, environment) return quote end end,
       exit = function(self, context) return quote end end,
       get = function(self, context)
         local v =`{context.graph_system.particles(self._0).pos, context.graph_system.particles(self._1).pos}
@@ -139,6 +140,7 @@ M.node = core.raw_expression{
         end
       end,
       update = function(self, context, environment) return quote self = environment.id end end,
+      layout = function(self, context, environment) return quote end end,
       exit = function(self, context) return {} end,
       get = function(self, context) local v = `context.graph_system.particles(self).pos; return v end,
       storage_type = uint
@@ -155,7 +157,7 @@ M.graph = core.raw_template {
 } (
   function(self, type_context, type_environment)
     local body_fns, body_type = type_environment[core.body](override(type_context, {graph_system = System2D}), type_environment)
-    local function override_context(self, context, transform)
+    local function override_context(self, context, transform, accumulated)
       return override(context, {
         graph_system = `self.system,
         transform = transform,
@@ -177,22 +179,24 @@ M.graph = core.raw_template {
           self.system.drag = [environment.drag]
           self.system.particles:init()
           self.system.springs:init()
-          var zero = F.vec3(0.0f, 0.0f, 0.0f)
-          var dim = [environment.dim]
-          var z_index = F.veci(0,0)
-          self.rtree_node = [context.rtree]:create([context.rtree_node], &environment.pos, &dim, &zero, &z_index)
+          var local_transform = core.transform.translate([environment.pos])
+          local_transform = [context.transform]:compose(&local_transform)
+          self.rtree_node = [context.rtree]:create([context.rtree_node], &local_transform, [environment.dim], F.zero)
           self.rtree_node.data = nil -- we don't process messages, so we set data to nil
-          var local_transform = core.transform.translate(self.rtree_node.pos)
-          self.rtree_node.transform = context.transform:compose(&self.rtree_node.transform)
           [body_fns.enter(`self.body, override_context(self, context, `core.transform.identity()), environment)]
         end
       end,
       update = function(self, context, environment)
         return quote
           self.system:update()
-          self.rtree_node.pos = [environment.pos]
-          self.rtree_node.transform = core.transform.translate(self.rtree_node.pos)
+          var local_transform = core.transform.translate([environment.pos])
+          self.rtree_node.transform = [context.transform]:compose(&local_transform)
           [body_fns.update(`self.body, override_context(self, context, `core.transform.identity()), environment)]
+        end
+      end,
+      layout = function(self, context, environment)
+        return quote
+          [body_fns.layout(`self.body, override_context(self, context), environment)]
         end
       end,
       exit = function(self, context)
@@ -205,7 +209,7 @@ M.graph = core.raw_template {
       render = function(self, context)
         return quote
             var accumulated = [context.accumulated_parent_transform]:compose(&self.rtree_node.transform)
-            [body_fns.render(`self.body, override_context(self, context, `accumulated))]
+            [body_fns.render(`self.body, override_context(self, context, `accumulated, `accumulated))]
           end
       end
     }

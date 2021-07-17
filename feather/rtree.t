@@ -11,9 +11,8 @@ local Msg = require 'feather.message'
 local Transform = require 'feather.transform'
 
 local struct Node {
-  pos : F.Vec3
+  transform : Transform
   extent : F.Vec3
-  rot : F.Vec3
   zindex : F.Veci
   data : &Msg.Receiver
   next : &Node -- next sibling
@@ -21,7 +20,6 @@ local struct Node {
   children : &Node -- first child
   last : &Node -- last child
   parent : &Node
-  transform : Transform
   planar : bool
 }
 
@@ -33,12 +31,14 @@ end
 
 -- https://zeux.io/2010/10/17/aabb-from-obb-with-component-wise-abs/
 -- Generates an AABB from an OBB
-local terra GenAABB(pos : F.Vec3, extent : F.Vec3, rot : F.Vec3) : {F.Vec3, F.Vec3}
-  if rot.x == 0.0f and rot.y == 0.0f and rot.z == 0.0f then
+local terra GenAABB(pos : F.Vec3, extent : F.Vec3, rot : F.Bivector3) : {F.Vec3, F.Vec3}
+  if rot.xy == 0.0f and rot.xz == 0.0f and rot.yz == 0.0f then
     return {pos,extent}
   end
 
-  var rmat = Util.MatrixRotation(rot.x, rot.y, rot.z)
+  --var p = F.GA3.exp(-rot)*pos*F.GA3.exp(rot)
+
+  var rmat = Util.MatrixRotation(rot.yz, rot.xz, rot.xy)
   var p = F.Vec3{Util.VecMultiply3D(pos.v, rmat)}
   
   Util.MatrixAbs(&rmat)
@@ -48,16 +48,16 @@ local terra GenAABB(pos : F.Vec3, extent : F.Vec3, rot : F.Vec3) : {F.Vec3, F.Ve
 end
 
 local terra TransformRay(n : &Node, p : &F.Vec3, v : &F.Vec3) : {}
-  @p = @p - n.pos -- We first fix the point relative to this node, since all rotations are done around this node's origin
+  @p = @p - n.transform.pos -- We first fix the point relative to this node, since all rotations are done around this node's origin
 
-  if n.rot.x ~= 0 or n.rot.y ~= 0 then
+  if n.transform.rot.xz ~= 0 or n.transform.rot.yz ~= 0 then
     -- Transform p and v into this node's reference frame
-    var rmat = Util.MatrixRotation(n.rot.x, n.rot.y, n.rot.z)
+    var rmat = Util.MatrixRotation(n.transform.rot.yz, n.transform.rot.xz, n.transform.rot.xy)
     v.v = Util.VecMultiply3D(v.v, rmat)
     p.v = Util.VecMultiply3D(p.v, rmat)
-  elseif n.rot.z ~= 0 then
-    Util.Rotate2D(v.v[0], v.v[1], n.rot.z, &v.v[0], &v.v[1])
-    Util.Rotate2D(p.v[0], p.v[1], n.rot.z, &p.v[0], &p.v[1])
+  elseif n.transform.rot.xy ~= 0 then
+    Util.Rotate2D(v.v[0], v.v[1], n.transform.rot.xy, &v.v[0], &v.v[1])
+    Util.Rotate2D(p.v[0], p.v[1], n.transform.rot.xy, &p.v[0], &p.v[1])
   end
 end
 
@@ -116,7 +116,7 @@ local RTree = Util.type_template(function(A)
   rtree.Node = Node
   rtree.methods.RayBoxIntersect = RayBoxIntersect
 
-  terra rtree:create(parent : &Node, pos : &F.Vec3, extent : &F.Vec3, rot : &F.Vec3, zindex : &F.Veci) : &Node
+  terra rtree:create(parent : &Node, tf : &Transform, extent : F.Vec3, zindex : F.Veci) : &Node
     var n : &Node = self.allocator:alloc(Node, 1)
     n.prev = nil
     n.next = nil
@@ -129,7 +129,7 @@ local RTree = Util.type_template(function(A)
     else
       LL.Prepend(n, &self.root)
     end
-    self:set(n, pos, extent, rot, zindex)
+    self:set(n, tf, extent, zindex)
     return n
   end
 
@@ -155,16 +155,16 @@ local RTree = Util.type_template(function(A)
   terra rtree:contain(node : &Node) : {}
     var cur : &Node = node.children
     if cur ~= nil then
-      var pos : F.Vec3 = cur.pos
+      var pos : F.Vec3 = cur.transform.pos
       var dim : F.Vec3 = [F.Vec3]{array(0.0f,0.0f,0.0f)}
 
       while cur ~= nil do
         var curextent : F.Vec3
         var curpos : F.Vec3
-        curpos, curextent = GenAABB(cur.pos, cur.extent, cur.rot)
+        curpos, curextent = GenAABB(cur.transform.pos, cur.extent, cur.transform.rot)
         escape
-          for i = 0,2 do emit(quote pos.v[i] = Math.min(pos.v[i], cur.pos.v[i] - cur.extent.v[i]) end) end
-          for i = 0,2 do emit(quote dim.v[i] = Math.max(pos.v[i], cur.pos.v[i] + cur.extent.v[i]) end) end
+          for i = 0,2 do emit(quote pos.v[i] = Math.min(pos.v[i], cur.transform.pos.v[i] - cur.extent.v[i]) end) end
+          for i = 0,2 do emit(quote dim.v[i] = Math.max(pos.v[i], cur.transform.pos.v[i] + cur.extent.v[i]) end) end
         end
       end
 
@@ -174,21 +174,20 @@ local RTree = Util.type_template(function(A)
       var relative = pos + node.extent
       cur = node.children
       while cur ~= nil do
-        cur.pos = cur.pos + relative
+        cur.transform.pos = cur.transform.pos + relative
       end
 
       -- Then we move our own position in our parent to reflect our new rectangle center.
-      node.pos = node.pos - relative 
+      node.transform.pos = node.transform.pos - relative 
     else
       node.extent.v = array(0.0f,0.0f,0.0f)
     end
   end
 
-  terra rtree:set(node : &Node, pos : &F.Vec3, extent : &F.Vec3, rot : &F.Vec3, zindex : &F.Veci) : {}
-    node.pos = @pos
-    node.extent = @extent
-    node.rot = @rot
-    node.zindex = @zindex
+  terra rtree:set(node : &Node, tf : &Transform, extent : F.Vec3, zindex : F.Veci) : {}
+    node.transform = @tf
+    node.extent = extent
+    node.zindex = zindex
   end
 
   terra rtree:sort(node : &Node, child : &Node) : {}
@@ -236,7 +235,7 @@ local RTree = Util.type_template(function(A)
     local terra check2D(cur : &Node, p : F.Vec3, v : F.Vec3, d : D, f : FN) : bool 
       TransformRay(cur, &p, &v)
 
-      if cur.extent.z ~= 0 or cur.pos.z ~= 0 or cur.rot.x ~= 0 or cur.rot.y ~= 0 then
+      if cur.extent.z ~= 0 or cur.transform.pos.z ~= 0 or cur.transform.rot.yz ~= 0 or cur.transform.rot.xz ~= 0 then
         var t = RayBoxIntersect(&p, &v, &cur.extent)
         if t >= 0 then
           return recurse(cur, (p + v * t), v, d, f)

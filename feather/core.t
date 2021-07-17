@@ -10,7 +10,7 @@ local Closure = require 'feather.closure'
 local C = terralib.includecstring [[#include <stdio.h>]]
 local Expression = require 'feather.expression'
 local Params = require 'feather.params'
-local DefaultLayout = require 'feather.layouts.position'
+local DefaultLayout = require 'feather.layouts.basic'
 
 local M = {}
 M.transform = require 'feather.transform'
@@ -26,7 +26,9 @@ local function shadow(base)
   return setmetatable({[shadow_parent] = base}, shadow_mt)
 end
 
-  --NYI, maybe unneeded
+-- Currently, we assume a layout applies to all direct children. This layout stack
+-- allows us to skip levels of intermediate outlines by explicitly tracking the
+-- children we want the layout to apply to.
 local struct layout {}
 
 local struct layout_stack {
@@ -76,6 +78,15 @@ function M.make_body(rawbody)
           escape
             for i, e in ipairs(elements) do
               emit(e.update(`self.["_"..(i-1)], context, environment))
+            end
+          end
+        end
+      end,
+      layout = function(self, context, environment)
+        return quote
+          escape
+            for i, e in ipairs(elements) do
+              emit(e.layout(`self.["_"..(i-1)], context, environment))
             end
           end
         end
@@ -140,6 +151,9 @@ function template_mt:__call(desc)
           update = function(self, context, environment)
             return body_fns.update(self, context, environment[M.body])
           end,
+          layout = function(self, context, environment)
+            return body_fns.layout(self, context, environment)
+          end,
           exit = function(self, context)
             return body_fns.exit(self, context)
           end,
@@ -153,6 +167,7 @@ function template_mt:__call(desc)
         return {
           enter = function() return {} end,
           update = function() return {} end,
+          layout = function() return {} end,
           exit = function() return {} end,
           render = function() return {} end
         }, terralib.types.unit
@@ -203,6 +218,11 @@ function template_mt:__call(desc)
             end
           end
           [fns.update(`data._0, context, binds)]
+        end
+      end,
+      layout = function(data, context, environment)
+        return quote
+          [fns.layout(`data._0, context, environment)]
         end
       end,
       exit = function(data, context)
@@ -367,8 +387,7 @@ function M.basic_template(params)
 
   table.insert(params_full.names, "layout")
   params_full.names_map.layout = true
-  local zerovec = constant(`[F.vec3](0f, 0f, 0f))
-  params_full.defaults.layout = Expression.constant(`[DefaultLayout]{ zerovec, zerovec, zerovec, zerovec })
+  params_full.defaults.layout = Expression.constant(`DefaultLayout.zero)
 
   return function(render)
     local function generate(self, type_context, type_environment)
@@ -392,28 +411,33 @@ function M.basic_template(params)
         body_fns, body_type = type_environment[M.body](type_context, type_environment)
       end
 
+      local struct internal {
+        store : typ
+        body : body_type or terralib.types.unit
+        node : type_context.rtree_node
+        layout : type_environment["layout"] or DefaultLayout
+      }
+      
       return {
         enter = function(self, context, environment)
           return quote
             escape
               for i, name in ipairs(params_abbrev.names) do
-                emit quote self._0.[name] = [environment[name] ] end
+                emit quote self.store.[name] = [environment[name] ] end
               end
             end
 
-            self._0.vftable = [self:gettype().entries[1][2]].virtual_initializer
-            self._3 = [environment.layout]
-            var z_index = [F.Veci]{array(0, 0)}
-            self._2 = [context.rtree]:create([context.rtree_node], &zerovec, &zerovec, &zerovec, &z_index)
-            self._2.data = &self._0.super
-            var local_transform = M.transform{self._2.pos}
-            self._2.transform = [context.transform]:compose(&local_transform)
+            self.store.vftable = [self:gettype().entries[1].type].virtual_initializer
+            self.layout = [environment.layout]
+            var local_transform = [context.transform]
+            self.node = [context.rtree]:create([context.rtree_node], &local_transform, F.zero, F.zero)
+            self.node.data = &self.store.super
             escape
               if params_abbrev.body then
                 emit(body_fns.enter(
-                       `self._1,
-                       override(context, {rtree_node = `self._2, transform = `core.transform.identity()}),
-                       override(environment, unpack_store(`self._0))
+                       `self.body,
+                       override(context, {rtree_node = `self.node, transform = `M.transform.identity()}),
+                       override(environment, unpack_store(`self.store))
                 ))
               end
             end
@@ -423,45 +447,56 @@ function M.basic_template(params)
           return quote
             escape
               for i, name in ipairs(params_abbrev.names) do
-                emit quote self._0.[name] = [environment[name] ] end
+                emit quote self.store.[name] = [environment[name] ] end
               end
             end
-            self._3 = [environment.layout]
-            var local_transform = self._3:apply(self._2, context.rtree_node)
-            self._2.data = &self._0.super
-            self._2.transform = [context.transform]:compose(&local_transform)
+            
+            self.layout = [environment.layout]
             escape
               if params_abbrev.body then
                 emit(body_fns.update(
-                       `self._1,
-                       override(context, {rtree_node = `self._2, transform = `core.transform.identity()}),
-                       override(environment, unpack_store(`self._0))
+                       `self.body,
+                       override(context, {rtree_node = `self.node, transform = `M.transform.identity()}),
+                       override(environment, unpack_store(`self.store))
                 ))
               end
             end
           end
         end,
-        --layout = function(self, context)
-          -- TODO: move from update to layout function
-        --end,
+        layout = function(self, context, environment)
+          return quote
+            escape
+              if params_abbrev.body then
+                emit(body_fns.layout(
+                       `self.body,
+                       override(context, {rtree_node = `self.node, transform = `M.transform.identity()}),
+                       override(environment, unpack_store(`self.store))
+                ))
+              end
+            end
+
+            var local_transform = [context.transform]
+            self.layout:apply(self.node, &local_transform, context.rtree_node)
+            self.node.data = &self.store.super
+          end
+        end,
         exit = function(self, context)
           return quote
             escape
               if params_abbrev.body then
-                emit(body_fns.exit(`self._1, override(context, {rtree_node = `self._2})))
+                emit(body_fns.exit(`self.body, override(context, {rtree_node = `self.node})))
               end
             end
-            [context.rtree]:destroy(self._2)
+            [context.rtree]:destroy(self.node)
           end
         end,
         render = function(self, context)
           return quote
-            var accumulated = [context.accumulated_parent_transform]:compose(&self._2.transform)
-            var transform = accumulated
-            [render(override(context, {rtree_node = `self._2, transform = `transform, accumulated_parent_transform = `accumulated}), unpack_store(`self._0))]
+            var accumulated = [context.accumulated_parent_transform]:compose(&self.node.transform)
+            [render(override(context, {rtree_node = `self.node, transform = `accumulated, accumulated_parent_transform = `accumulated}), unpack_store(`self.store))]
           end
         end
-      }, tuple(typ, body_type or terralib.types.unit, type_context.rtree_node, DefaultLayout)
+      }, internal
     end
 
     local self = {
@@ -494,34 +529,42 @@ function M.template(params)
         return res
       end
 
+      local struct internal {
+        store : element
+        body : defn_body_type
+      }
+
       return {
         enter = function(self, context, environment)
           local initializers = {}
           for i, name in ipairs(params.names) do
-            initializers[i] = quote self._0.[name] = [environment[name] ] end
+            initializers[i] = quote self.store.[name] = [environment[name] ] end
           end
           return quote
             [initializers]
-            [defn_body_fns.enter(`self._1, context, override(environment, unpack_store(`self._0)))]
+            [defn_body_fns.enter(`self.body, context, override(environment, unpack_store(`self.store)))]
                  end
         end,
         update = function(self, context, environment)
           local updates = {}
           for i, name in ipairs(params.names) do
-            updates[i] = quote self._0.[name] = [environment[name] ] end
+            updates[i] = quote self.store.[name] = [environment[name] ] end
           end
           return quote
             [updates];
-            [defn_body_fns.update(`self._1, context, override(environment, unpack_store(`self._0)))]
+            [defn_body_fns.update(`self.body, context, override(environment, unpack_store(`self.store)))]
           end
         end,
+        layout = function(self, context, environment)
+          return defn_body_fns.layout(`self.body, context, environment)
+        end,
         exit = function(self, context)
-          return defn_body_fns.exit(`self._1, context)
+          return defn_body_fns.exit(`self.body, context)
         end,
         render = function(self, context, environment)
-          return defn_body_fns.render(`self._1, context, environment)
+          return defn_body_fns.render(`self.body, context, environment)
         end
-      }, tuple(element, defn_body_type)
+      }, internal
     end
 
     local self = {
@@ -646,6 +689,11 @@ function M.ui(desc)
   end
   terra ui:update()
     [body_fns.update(
+       `self.data,
+       make_context(self),
+       make_environment(self)
+    )]
+    [body_fns.layout(
        `self.data,
        make_context(self),
        make_environment(self)

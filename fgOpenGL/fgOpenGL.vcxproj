@@ -392,6 +392,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="*.h" />
+    <ClInclude Include="glad\glad.h" />
+    <ClInclude Include="glad\khrplatform.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="*.cpp" />

@@ -38,19 +38,18 @@ return core.raw_template {
         allocator = `self.rtree.allocator,
         backend = `ui.backend,
         window = `self.window,
-        transform = `core.transform.identity(),
+        transform = accumulated,
         accumulated_parent_transform = accumulated
       }
     end
 
-    local function override_context(self, context, accumulated)
+    local function override_context(self, context)
       return override(context, {
         rtree = `self.rtree,
         rtree_node = `self.rtree.root,
         allocator = `self.rtree.allocator,
         window = `self.window,
-        transform = `core.transform.identity(),
-        accumulated_parent_transform = accumulated
+        transform = `core.transform.identity()
       })
     end
 
@@ -60,16 +59,12 @@ return core.raw_template {
           self.vftable = [self:gettype()].virtual_initializer
           var pos = [environment.pos]
           var size = [environment.size]
-          var zero = F.vec3(0f, 0f, 0f)
-          var zindex = F.veci(0, 0)
+          var ext = F.vec3(size.x / 2f, size.y / 2f, 0f)
+          var local_transform = core.transform.translate(ext)
+          --var local_transform = core.transform.identity()
           self.rtree:init()
-          self.node = self.rtree:create(nil, &zero, &zero, &zero, &zindex)
+          self.node = self.rtree:create(nil, &local_transform, ext, F.zero)
           self.node.data = &self.super.super
-          --[[self.node.pos.x = size.x / 2f -- Need to make the transform work first, or this position will be ignored
-          self.node.pos.y = size.y / 2f
-          self.node.extent.x = size.x / 2f
-          self.node.extent.y = size.y / 2f
-          self.node.transform = core.transform.translate(self.node.pos)]]
           self.window = [context.backend]:CreateWindow(self.node.data, nil, &pos, &size, "feather window", messages.WindowFlag.RESIZABLE)
           self.color = [environment.color]
           [body_fns.enter(`self.body, override_context(self, context), environment)]
@@ -82,6 +77,11 @@ return core.raw_template {
           [context.backend]:DirtyRect(self.window, nil) --TODO: make this smart enough to only call for a redraw if something changed.
         end
       end,
+      layout = function(self, context, environment)
+        return quote
+          [body_fns.layout(`self.body, override_context(self, context), environment)]
+        end
+      end,
       exit = function(self, context)
         return quote
           if self.window ~= nil then
@@ -89,12 +89,19 @@ return core.raw_template {
             [context.backend]:DestroyWindow(self.window)
             self.window = nil
             self.rtree:destruct()
-            end
           end
+        end
       end,
       render = function(self, context)
         return quote
-            [body_fns.render(`self.body, override_context(self, context, `core.transform.identity()))]
+            [body_fns.render(`self.body, override(context, {
+              rtree = `self.rtree,
+              rtree_node = `self.rtree.root,
+              allocator = `self.rtree.allocator,
+              window = `self.window,
+              transform = `self.rtree.root.transform,
+              accumulated_parent_transform = `self.rtree.root.transform
+            }))]
           end
       end
     }
@@ -103,7 +110,7 @@ return core.raw_template {
     
     terra window_node:Draw(ui : &opaque) : F.Err
       [&type_context.ui](ui).backend:Clear(self.window, self.color)
-      [body_fns.render(`self.body, make_context(self, `[&type_context.ui](ui), `core.transform.identity()))]
+      [body_fns.render(`self.body, make_context(self, `[&type_context.ui](ui), `self.rtree.root.transform))]
       return 0
     end
     

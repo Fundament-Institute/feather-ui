@@ -61,6 +61,13 @@ return function(name)
               [update_bodies(self, context, environment)]
             end
           end,
+          layout = function(self, context, environment)
+            return quote
+              for v in self.bodies do
+                [body_fn.layout(`v, context, environment)]
+              end
+            end
+          end,
           exit = function(self, context)
             return quote
               [concrete_collection_expr.exit(`self.collection, context, environment)]

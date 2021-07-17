@@ -19,6 +19,7 @@ local Math = require 'std.math'
 local Virtual = require 'feather.virtual'
 local Log = require 'feather.log'
 local Partitioner = require 'feather.partitioner'
+local Transform = require 'feather.transform'
 
 --local String = require 'feather.string'
 
@@ -808,19 +809,18 @@ end
 terra TestHarness:rtree()
   var simple : RTreeDefault
   Object.new(simple)
-  var vec0 = F.vec3(0.0f,0.0f,0.0f)
-  var vec1000 = F.vec3(1000.0f,1000.0f,0.0f)
-  var vec100 = F.vec3(100.0f,100.0f,0.0f)
-  var vec0i = F.veci(0,0)
+  var vec1000 = Transform{F.vec3(1000.0f,1000.0f,0.0f), F.zero, F.zero}
+  var vec100 = Transform{F.vec3(100.0f,100.0f,0.0f), F.zero, F.zero}
+  var vec0 = Transform{F.zero, F.zero, F.zero}
   var vec1i = F.veci(1,1)
-  var root = simple:create(nil, &vec0, &vec1000, &vec0, &vec0i)
+  var root = simple:create(nil, &vec0, vec1000.pos, F.zero)
   self:Test(root ~= nil, true)
-  var child1 = simple:create(root, &vec0, &vec100, &vec0, &vec0i)
+  var child1 = simple:create(root, &vec0, vec100.pos, F.zero)
   self:Test(child1 ~= nil, true)
-  var child2 = simple:create(root, &vec100, &vec100, &vec0, &vec0i)
+  var child2 = simple:create(root, &vec100, vec100.pos, F.zero)
   self:Test(child2 ~= nil, true)
-  var child3 = simple:create(child2, &vec0, &vec100, &vec0, &vec1i)
-  var child4 = simple:create(child2, &vec0, &vec100, &vec0, &vec0i)
+  var child3 = simple:create(child2, &vec0, vec100.pos, vec1i)
+  var child4 = simple:create(child2, &vec0, vec100.pos, F.zero)
   simple:sort(child2, nil)
   root.data = [&Msg.Receiver](0)
   child1.data = [&Msg.Receiver](1)

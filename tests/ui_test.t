@@ -2,7 +2,7 @@ local f = require 'feather'
 local shared = require 'feather.shared'
 local C = require 'feather.libc'
 local Messages = require 'feather.messages'
-local DefaultLayout = require 'feather.layouts.position'
+local DefaultLayout = require 'feather.layouts.basic'
 import 'feather/bind'
 terralib.fulltrace = true
 
@@ -15,15 +15,15 @@ local ui = f.ui {
   application = &app,
   f.window {
     f.rect {
-      layout = bind DefaultLayout{ app.pos, f.vec3(0.0f, 0.0f, 0.0f), f.vec3(20f, 20f, 0f), f.vec3(0.0f, 0.0f, 0.0f) },
+      layout = bind DefaultLayout.create{ abs = app.pos, dim = f.vec3(20f, 20f, 0f)},
       color = bind [f.Color]{0xffffffff},
     },
     f.triangle {
-      layout = bind DefaultLayout{ app.pos + f.vec3(50f, 50f, 0f), f.vec3(0.0f, 0.0f, 0.0f), f.vec3(20f, 20f, 0f), f.vec3(0.0f, 0.0f, 0.0f) },
+      layout = bind DefaultLayout.create{ abs =app.pos + f.vec3(50f, 50f, 0f), dim = f.vec3(20f, 20f, 0f) },
       color = bind [f.Color]{0xffffffff},
     },
     f.circle {
-      layout = bind DefaultLayout{ app.pos + f.vec3(50f, 0f, 0f), f.vec3(0.0f, 0.0f, 0.0f), f.vec3(20f, 20f, 0f), f.vec3(0.0f, 0.0f, 0.0f) },
+      layout = bind DefaultLayout.create{ abs =app.pos + f.vec3(50f, 0f, 0f), dim = f.vec3(20f, 20f, 0f)},
       color = bind[f.Color]{0xffffffff},
     },
     f.line {
@@ -31,7 +31,7 @@ local ui = f.ui {
       color = bind[f.Color]{0xffffffff},
     },
     f.mousearea {
-      layout = bind DefaultLayout{ app.pos + f.vec3(100f, 100f, 0f), f.vec3(0.0f, 0.0f, 0.0f), f.vec3(20f, 20f, 0f), f.vec3(0.0f, 0.0f, 0.0f) },
+      layout = bind DefaultLayout.create{ abs = app.pos + f.vec3(100f, 100f, 0f), dim = f.vec3(20f, 20f, 0f) },
       mousedown = bindevent (me : Messages.MouseEvent)
         C.printf("pos: %g %g", me.pos.x, me.pos.y)
         return 0
@@ -40,15 +40,15 @@ local ui = f.ui {
   },
   f.window {
     f.rect {
-      layout = bind DefaultLayout{ app.pos, f.vec3(0.0f, 0.0f, 0.0f), f.vec3(20f, 20f, 0f), f.vec3(0.0f, 0.0f, 0.0f) },
+      layout = bind DefaultLayout.create{ abs =app.pos, dim = f.vec3(20f, 20f, 0f) },
       color = bind [f.Color]{0xffffffff},
     },
     f.triangle {
-      layout = bind DefaultLayout{ app.pos + f.vec3(50f, 50f, 0f), f.vec3(0.0f, 0.0f, 0.0f), f.vec3(20f, 20f, 0f), f.vec3(0.0f, 0.0f, 0.0f) },
+      layout = bind DefaultLayout.create{ abs =app.pos + f.vec3(50f, 50f, 0f), dim = f.vec3(20f, 20f, 0f) },
       color = bind [f.Color]{0xffffffff},
     },
     f.circle {
-      layout = bind DefaultLayout{ app.pos + f.vec3(50f, 0f, 0f), f.vec3(0.0f, 0.0f, 0.0f), f.vec3(20f, 20f, 0f), f.vec3(0.0f, 0.0f, 0.0f) },
+      layout = bind DefaultLayout.create{ abs =app.pos + f.vec3(50f, 0f, 0f), dim = f.vec3(20f, 20f, 0f) },
       color = bind[f.Color]{0xffffffff},
     },
   }

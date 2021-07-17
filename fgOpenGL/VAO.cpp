@@ -1,6 +1,6 @@
 
 #include "BackendGL.h"
-#include "glad/gl.h"
+#include "glad/glad.h"
 #include <string.h>
 #include <memory>
 #include "VAO.h"
@@ -46,8 +46,17 @@ VAO::VAO(Backend* backend, GLuint shader, std::span<FG_ShaderParameter> paramete
     glVertexAttribPointer(loc, sz, type, GL_FALSE, vstrides[param.index], offset);
     offset += Context::GetBytes(type) * sz;
     _backend->LogError("glVertexAttribPointer");
-    glVertexAttribDivisor(loc, param.step);
-    _backend->LogError("glVertexAttribDivisor");
+    if(glVertexAttribDivisor)
+    {
+      glVertexAttribDivisor(loc, param.step);
+      _backend->LogError("glVertexAttribDivisor");
+    }
+    else if(glVertexAttribDivisorARB)
+    {
+      glVertexAttribDivisorARB(loc, param.step);
+      _backend->LogError("glVertexAttribDivisorARB");
+    }
+
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     _backend->LogError("glBindBuffer");
   }
@@ -79,7 +88,7 @@ void VAO::Unbind()
 #else
 
 VAO::VAO(Backend* backend, GLuint shader, std::span<FG_ShaderParameter> parameters, GLuint* vbuffers, GLsizei* vstrides,
-         size_t n_vbuffers, GLuint indices, GLuint element) :
+    size_t n_vbuffers, GLuint indices, GLuint element) :
   _backend(backend), _element(element), _indexBuffer(indices)
 {
   _attribs.reserve(parameters.size());
@@ -126,8 +135,17 @@ void VAO::Bind()
 
       glVertexAttribPointer(attrib.location, attrib.numElements, attrib.type, GL_FALSE, buffer.stride, offset);
       _backend->LogError("glVertexAttribPointer");
-      glVertexAttribDivisor(attrib.location, attrib.divisor);
-      _backend->LogError("glVertexAttribDivisor");
+      if(glVertexAttribDivisor)
+      {
+        glVertexAttribDivisor(attrib.location, attrib.divisor);
+        _backend->LogError("glVertexAttribDivisor");
+      }
+      else if(glVertexAttribDivisorARB)
+      {
+        glVertexAttribDivisorARB(attrib.location, attrib.divisor);
+        _backend->LogError("glVertexAttribDivisorARB");
+      }
+
       offset += Context::GetBytes(attrib.type) * attrib.numElements;
     }
   }

@@ -53,6 +53,11 @@ return function(bindings)
             [body_fn.update(`self._1, body_ctx(context, `self._0), environment)]
           end
         end,
+        layout = function(self, context, environment)
+          return quote
+            [body_fn.layout(`self._1, body_ctx(context, `self._0), environment)]
+          end
+        end,
         exit = function(self, context)
           return quote
             [body_fn.exit(`self._1, body_ctx(context, `self._0))]

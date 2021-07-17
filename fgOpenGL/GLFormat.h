@@ -6,7 +6,7 @@
 
 #include "compiler.h"
 #include "backend.h"
-#include "glad/gl.h"
+#include "glad/glad.h"
 
 namespace GL {
   // Struct representing an OpenGL format triplet because the OpenGL spec is awful
