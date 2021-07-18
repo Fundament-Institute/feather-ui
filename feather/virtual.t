@@ -88,7 +88,8 @@ function M.extends(parent)
     for _, name in ipairs(parent.virtualinfo.names) do
       if not class.methods[name] then
         class.methods[name] = macro(function(self, ...)
-            return `self.super:[name]([...])
+          local args = {...}
+            return `self.super:[name]([args])
         end)
       end
     end

@@ -22,15 +22,15 @@ local genvectype
 
 local function make_vecswizzle(dimension, type, fields)
   local components = {}
-  for i = 1, #entryname do
-    local dim = entryname:sub(i, i)
+  for i = 1, #fields do
+    local dim = fields:sub(i, i)
     components[i] = dimnames[dim]
     if not components[i] or components[i] >= dimension then
       error("unknown component "..dim.." in vector "..type.." "..dimension)
     end
   end
-  terra vecswizzle(vec: genvectype(dimension, type))
-    return constructvec(
+  local terra vecswizzle(vec: genvectype(dimension, type))
+    return [constructvec(#components, type)](
       escape
         for i, component in ipairs(components) do
           emit `vec.v[component]
@@ -38,7 +38,7 @@ local function make_vecswizzle(dimension, type, fields)
       end
     )
   end
-  vecswizzle.name = "vec_swizzle_"..type.."_"..dimension.."_"..fields
+  vecswizzle.name = "vec_swizzle_"..tostring(type).."_"..dimension.."_"..fields
   specialops[vecswizzle] = function(emit)
     return function() emit"(" end, function() emit(")."..fields) end
   end
@@ -53,6 +53,29 @@ local function vec_entrymissing(entryname, obj)
 end
 vec_entrymissing = macro(vec_entrymissing)
 
+local ops = { "sub","add","mul","div" }
+local function genops(s, N, type)
+  for _, op in ipairs(ops) do
+    local i = symbol(int,"i")
+    local function generator(ae,be)
+        return quote
+            var c : s
+            for [i] = 0,N do
+                c.v[i] = operator(["__"..op],ae,be)
+            end
+            return c
+        end
+    end
+    
+    local terra vecvec(a : s, b : s) [generator(`a.v[i],`b.v[i])]  end
+    local terra scalarvec(a : type, b : s) [generator(`a,`b.v[i])]  end
+    local terra vecscalar(a : s, b : type) [generator(`a.v[i],`b)]  end
+    vecvec.name = op.."_vecvec"
+    scalarvec.name = op.."_scalarvec"
+    vecscalar.name = op.."_vecscalar"
+    s.metamethods["__"..op] = terralib.overloadedfunction(op,{vecvec,scalarvec,vecscalar})
+  end
+end
 
 function genvectype(dimension, type)
   local vec = terralib.types.newstruct("Vec"..dimension)
@@ -60,15 +83,68 @@ function genvectype(dimension, type)
   vec.T = type
   vec.N = dimension
   vec.metamethods.__entrymissing = vec_entrymissing
+  genops(vec, dimension, type)
   return vec
 end
 genvectype = terralib.memoize(genvectype)
 
+function genvecfunc(params, dimension, element)
+  return terra([params]) : genvectype(dimension, element)
+    var x : genvectype(dimension, element)
+    escape
+      print("ARGS:"..#params)
+      if #params == 1 and not params[1].type:isstruct() then
+        local v = params[1]
+        if v.type ~= element then
+          error("Can't build Vec"..dimension.." from a different type: "..tostring(element))
+        end
+        
+        for i=1,dimension do
+          emit(quote x.v[ [i] ] = [v] end)
+        end
+      else
+        local totaldim = 0
+        for i,v in ipairs(params) do
+          if v.type == element then
+            totaldim = totaldim + 1
+            if totaldim > dimension then
+              error("Tried to put "..totaldim.." elements into vec"..dimension)
+            end
+            emit(quote x.v[ [totaldim] ] = v end)
+          elseif v.type:isstruct() and v.type.N ~= nil and v.type.T ~= nil then
+            local t = v.type
+            if t.T ~= element then
+              error("Invalid parameter type in vec constructor, expected "..tostring(element).." but got "..tostring(t.T))
+            end
+            if totaldim + t.N > dimension then
+              error("Tried to put "..(totaldim + t.N).." elements into vec"..dimension.." while appending a vec"..t.N)
+            end
+            for i=1,t.N do
+              totaldim = totaldim + 1
+              emit(quote x.v[ [totaldim] ] = v.v[ [i] ] end)
+            end
+          else
+            error("Invalid type passed to vec constructor: "..tostring(v.type))
+          end
+        end
+        if totaldim ~= dimension then
+          error("Can't build Vec"..dimension.." from "..totaldim.." components")
+        end 
+      end
+    end
+
+    return x
+  end
+end
+genvecfunc = terralib.memoize(genvecfunc)
+
 -- handle all the different ways to construct a given vector
-function constructvec(dimension, type)
+function constructvec(dimension, element)
   return macro(function(...)
-      local args = {...}
-      local totaldim
+    local args = terralib.newlist({...})
+    local params = args:map(function(v) return symbol(v:gettype()) end)
+    local func = genvecfunc(params, dimension, element)
+    return `[func]([args])
   end)
 end
 constructvec = terralib.memoize(constructvec)
@@ -82,7 +158,7 @@ predefines.vec4 = constructvec(4, float)
 
 struct predefines.Sampler2D {}
 terra predefines.texture2D(texture: predefines.Sampler2D, uv: predefines.Vec2): predefines.Vec4
-  return predefines.vec4(0)
+  return predefines.vec4(0.0f)
 end
 
 
@@ -593,7 +669,13 @@ end
 local defaultnames = {
   int = int32,
 }
-  
+
+for k,v in pairs(predefines) do
+  if terralib.types.istype(v) then
+    defaultnames[k] = v
+  end
+end
+
 function M.compile(namespace, options)
   local assigned_names = {}
   local used_names = {}
@@ -635,7 +717,7 @@ function M.compile(namespace, options)
       return -- Generate forward declaration
     end
     circular_dep_check[obj] = true
-    segments:insert(glslstring(obj, {namer = namer, name = name}))
+    segments:insert(glslstring(obj, {namer = namer, name = name, permissive = options.permissive}))
     circular_dep_check[obj] = false
     generated[obj] = true
   end
@@ -646,6 +728,10 @@ function M.compile(namespace, options)
   end
   
   return segments:concat("\n")
+end
+
+for k,v in pairs(predefines) do
+  M[k] = v
 end
 
 return M
