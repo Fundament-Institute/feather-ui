@@ -57,7 +57,8 @@ file(GLOB_RECURSE fgOpenGL_SOURCES "./*.cpp")
 list(APPEND fgOpenGL_SOURCES "glad_gl.c")
 
 add_library(fgOpenGL ${fgOpenGL_SOURCES})
-set_target_properties(fgOpenGL PROPERTIES OUTPUT_NAME_DEBUG "fgOpenGL-d")
+
+set_target_properties(fgOpenGL PROPERTIES DEBUG_POSTFIX "-d")
 target_include_directories(fgOpenGL PUBLIC ${PROJECT_SOURCE_DIR}/../include)
 target_include_directories(fgOpenGL PRIVATE ${PROJECT_SOURCE_DIR})
 

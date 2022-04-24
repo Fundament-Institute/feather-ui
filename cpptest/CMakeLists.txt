@@ -44,7 +44,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(cpptest ${cpptest_SOURCES})
-set_target_properties(cpptest PROPERTIES OUTPUT_NAME_DEBUG "cpptest-d")
+set_target_properties(cpptest PROPERTIES DEBUG_POSTFIX "-d")
 target_include_directories(cpptest PUBLIC ${OPENGL_INCLUDE_DIRS})
 target_include_directories(cpptest PUBLIC ${PROJECT_SOURCE_DIR}/../include)
 
