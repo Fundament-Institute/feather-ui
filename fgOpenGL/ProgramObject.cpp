@@ -1,5 +1,5 @@
 // Copyright (c)2022 Fundament Software
-// For conditions of distribution and use, see copyright notice in "Backend.h"
+// For conditions of distribution and use, see copyright notice in "BackendGL.h"
 
 #include "ProgramObject.h"
 #include "ShaderObject.h"
@@ -24,7 +24,7 @@ GLExpected<void> ProgramObject::link() noexcept
   return {};
 }
 
-bool ProgramObject::is_valid() const
+bool ProgramObject::is_valid() const noexcept
 {
   if(glIsProgram(_ref) == GL_FALSE)
     return false;
@@ -34,7 +34,7 @@ bool ProgramObject::is_valid() const
   return status == GL_TRUE;
 }
 
-GLExpected<std::string> ProgramObject::log() const
+GLExpected<std::string> ProgramObject::log() const noexcept
 {
   if(glIsProgram(_ref) == GL_FALSE)
     return GLError(ERR_INVALID_PARAMETER, "ShaderObject::Log");

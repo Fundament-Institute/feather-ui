@@ -24,9 +24,9 @@ namespace GL {
   class GLError
   {
   public:
-    constexpr GLError() noexcept : 
+    constexpr GLError() noexcept :
 #ifdef _DEBUG
-      _error(GL_NO_ERROR | UNCHECKED_FLAG), 
+      _error(GL_NO_ERROR | UNCHECKED_FLAG),
 #else
       _error(GL_NO_ERROR),
 #endif
@@ -78,10 +78,17 @@ namespace GL {
     inline constexpr bool operator!=(const GLError& e) noexcept { return e._error != _error; };
     // If there was an error, logs it to backend.
     GLenum log(Backend* backend);
-    std::pair<GLenum, const char*> take()
+    std::pair<GLenum, const char*> take() &&
     {
+      // If this is an invalid error, we must leave it like that because _context could be invalid
+      if(_error == INVALID_ERROR)
+      {
+        return { INVALID_ERROR, nullptr };
+      }
+
       GLenum e = _error;
       _error   = GL_NO_ERROR;
+      _context = nullptr;
       return { e, _context };
     }
 
@@ -101,7 +108,7 @@ namespace GL {
     }
     inline constexpr GLError& operator=(const GLError&) noexcept = delete;
 
-  private:
+  protected:
     inline constexpr GLenum _clean() const noexcept
     {
 #ifdef _DEBUG
@@ -171,21 +178,22 @@ namespace GL {
     /* template<class U>
     using AllowDirectConversion = std::bool_constant<
       std::conjunction_v<std::negation<std::is_same<std::remove_cvref_t<U>, GLExpected>>,
-                         std::negation<std::is_same<std::remove_cvref_t<U>, std::in_place_t>>, std::is_constructible<T, U>>>;*/
+                         std::negation<std::is_same<std::remove_cvref_t<U>, std::in_place_t>>, std::is_constructible<T,
+    U>>>;*/
 
     template<class U = T>
     constexpr explicit(!std::is_convertible_v<U, T>) GLExpected(U&& right) :
       _error(GL_NO_ERROR | GLError::UNCHECKED_FLAG), _result(std::forward<U>(right))
     {}
 
-    constexpr GLExpected(GLError&& right) noexcept : _error(right._error)
+    constexpr GLExpected(GLError&& right) noexcept
     {
+      auto [err, ctx] = std::move(right).take();
+      _error          = err;
       if(_error == GLError::INVALID_ERROR)
         return;
 
-      _context       = right._context;
-      right._context = 0;
-      right._error   = GLError::INVALID_ERROR;
+      _context       = ctx;
     }
 
     template<class... Args>
@@ -213,6 +221,7 @@ namespace GL {
     constexpr GLExpected& operator=(GLExpected&& right) noexcept(std::is_nothrow_move_constructible_v<T>)
     {
       this->~GLExpected();
+
       _error = right._error;
       if(_error == GLError::INVALID_ERROR)
         return;
@@ -239,7 +248,7 @@ namespace GL {
     constexpr GLExpected& operator=(GLError&& e)
     {
       this->~GLExpected();
-      auto [e, s] = e.take();
+      auto [e, s] = std::move(e).take();
       _error      = e;
       _context    = s;
       return *this;
@@ -415,7 +424,7 @@ namespace GL {
 
       bool await_ready() { return expected.is_value(); }
       constexpr const T& await_resume() const& { return expected.value(); }
-      constexpr  T& await_resume() & { return expected.value(); }
+      constexpr T& await_resume() & { return expected.value(); }
       constexpr const T&& await_resume() const&& { return expected.value(); }
       constexpr T&& await_resume() const&& { return expected.value(); }
       void await_suspend(std::coroutine_handle<promise_type> handle)
@@ -448,7 +457,7 @@ namespace GL {
   // Void specialization
   template<class T>
   requires std::is_void_v<T>
-  class GLExpected<T> : private GLError
+  class GLExpected<T>
   {
   public:
     using value_type = T;
@@ -459,8 +468,8 @@ namespace GL {
     // constructors
     constexpr GLExpected() noexcept {}
     constexpr explicit GLExpected(const GLExpected&) = delete;
-    constexpr explicit GLExpected(GLExpected&& right) noexcept : GLError(std::move(right)) {}
-    constexpr GLExpected(GLError&& right) noexcept : GLError(std::move(right)) {}
+    constexpr explicit GLExpected(GLExpected&& right) noexcept : GLError(std::move(right._error)) {}
+    constexpr GLExpected(GLError&& right) noexcept : GLError(std::move(_error)) {}
 
     constexpr explicit GLExpected(std::in_place_t) noexcept {}
 
@@ -470,44 +479,42 @@ namespace GL {
     // assignment
     constexpr GLExpected& operator=(GLExpected&& right) noexcept
     {
-      GLError::operator=(std::move(right));
+      _error = std::move(right._error);
       return *this;
     }
     constexpr GLExpected& operator=(GLError&& right) noexcept
     {
-      GLError::operator=(std::move(right));
+      _error           = std::move(right);
       return *this;
     }
     constexpr GLExpected& operator=(const GLExpected&) noexcept = delete;
     constexpr void emplace() noexcept { this->~GLExpected(); }
 
     // swap
-    constexpr void swap(GLExpected& right) noexcept { GLError::swap(right); }
+    constexpr void swap(GLExpected& right) noexcept { _error.swap(right._error); }
     friend constexpr void swap(GLExpected&, GLExpected&) noexcept;
 
     // observers
     constexpr explicit operator bool() noexcept { return has_value(); }
-    constexpr bool has_value() noexcept
-    {
-      GLError::_checked();
-      return GLError::peek();
-    }
+    constexpr bool has_value() noexcept { return !has_error(); }
     constexpr void operator*() const noexcept {}
     constexpr void value() const& {}
     constexpr void value() && {}
-    inline constexpr bool has_error() noexcept { return !has_value() && _error != GLError::INVALID_ERROR; }
+    inline constexpr bool has_error() noexcept { return _error.has_error(); }
     constexpr const GLError& error() const& { return *this; }
     constexpr GLError& error() & { return *this; }
     constexpr const GLError&& error() const&& { return *this; }
     constexpr GLError&& error() && { return *this; }
     constexpr GLError take() noexcept { return std::move(*this); }
-    bool log(Backend* backend) noexcept { return GLError::log(backend); }
-    inline constexpr bool peek() const noexcept { return GLError::peek(); }
+    bool log(Backend* backend) noexcept { return _error.log(backend); }
+    inline constexpr bool peek() const noexcept { return _error.peek(); }
 
     // equality operators
     template<class T2>
     requires std::is_void_v<T2>
     friend constexpr bool operator==(const GLExpected& x, const GLExpected<T2>& y);
+
+    GLError _error;
   };
 }
 

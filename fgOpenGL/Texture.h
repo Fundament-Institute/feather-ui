@@ -10,7 +10,7 @@
 namespace GL {
   static constexpr bool IsTexture(GLuint i) noexcept { return glIsTexture(i) == GL_TRUE; };
   static constexpr void DeleteTexture(GLuint i) noexcept { glDeleteTextures(1, &i); };
-  template<GLenum TARGET> constexpr void UnbindTexture() noexcept { glBindTexture(TARGET, 0); };
+  constexpr void UnbindTexture(GLenum target) noexcept { glBindTexture(target, 0); };
   struct ShaderObject;
 
   union Filter
@@ -32,9 +32,10 @@ namespace GL {
 
   struct Texture : GLRef<&IsTexture, &DeleteTexture>
   {
-    template<GLenum TARGET = GL_TEXTURE_2D> struct GLTextureBindRef : GLBindRef<&UnbindTexture<TARGET>>
+    struct GLTextureBindRef : GLBindRef<&UnbindTexture>
     {
-      constexpr GLTextureBindRef() noexcept                         = default;
+      constexpr GLTextureBindRef() noexcept                         = delete;
+      constexpr GLTextureBindRef(GLenum target) noexcept : GLBindRef(target) {}
       constexpr GLTextureBindRef(GLTextureBindRef&& right) noexcept = default;
       GLTextureBindRef(const GLTextureBindRef&)                     = delete;
       constexpr GLTextureBindRef& operator=(GLTextureBindRef&& right) noexcept = default;
@@ -46,41 +47,39 @@ namespace GL {
       {
         static_assert(!(std::is_convertible_v<T, GLint> && std::is_convertible_v<T, GLfloat>),
                       "T can be converted to either float or int!");
+        static_assert(std::is_convertible_v<T, GLint> || std::is_convertible_v<T, GLfloat>,
+                      "T must be convertible to either float or int!");
 
         if constexpr(std::is_convertible_v<T, GLint>)
         {
-          glTexParameteri(TARGET, parameter, value);
+          glTexParameteri(_target, parameter, value);
         }
         else if constexpr(std::is_convertible_v<T, GLfloat>)
         {
-          glTexParameterf(TARGET, parameter, value);
-        }
-        else
-        {
-          static_assert(false, "T must be convertible to either float or int!");
+          glTexParameterf(_target, parameter, value);
         }
       }
 
-      template<class T> GLExpected<void> set<T*>(GLenum parameter, T* value)
+      template<class T>
+      GLExpected<void> setv(GLenum parameter, T* value) noexcept(std::is_nothrow_convertible_v<T, GLint> ||
+                                                                 std::is_nothrow_convertible_v<T, GLfloat>)
       {
         static_assert(!(std::is_convertible_v<T, GLint> && std::is_convertible_v<T, GLfloat>),
                       "T can be converted to either float or int!");
+        static_assert(std::is_convertible_v<T, GLint> || std::is_convertible_v<T, GLfloat>,
+                      "T must be convertible to either float or int!");
 
         if constexpr(std::is_convertible_v<T, GLint>)
         {
-          glTexParameteriv(TARGET, parameter, value);
+          glTexParameteriv(_target, parameter, value);
         }
         else if constexpr(std::is_convertible_v<T, GLfloat>)
         {
-          glTexParameterfv(TARGET, parameter, value);
-        }
-        else
-        {
-          static_assert(false, "T must be convertible to either float or int!");
+          glTexParameterfv(_target, parameter, value);
         }
       }
 
-      GLExpected<void> apply_sampler(const FG_Sampler& sampler) { return Texture::apply_sampler(TARGET, sampler); }
+      GLExpected<void> apply_sampler(const FG_Sampler& sampler) { return Texture::apply_sampler(_target, sampler); }
     };
 
     explicit constexpr Texture(GLuint shader) noexcept : GLRef(shader) {}
@@ -89,29 +88,34 @@ namespace GL {
     constexpr Texture(Texture&& right) noexcept = default;
     constexpr Texture(const Texture&)           = delete;
     constexpr ~Texture() noexcept               = default;
-    template<GLenum TARGET = GL_TEXTURE_2D> GLExpected<GLTextureBindRef<TARGET>> bind() const noexcept
+    GLExpected<GLTextureBindRef> bind(GLenum target) const noexcept
     {
-      glBindTexture(TARGET, _ref);
+      glBindTexture(target, _ref);
       GL_ERROR("glBindTexture");
-      return {};
+      return GLTextureBindRef(target);
     }
 
     Texture& operator=(const Texture&) = delete;
     Texture& operator=(Texture&& right) noexcept = default;
 
-    template<GLenum TARGET = GL_TEXTURE_2D>
-    static GLExpected<Texture> create2D(GLFormat format, FG_Vec2i size, const FG_Sampler& sampler, void* data = nullptr,
-                                        int level = 0)
+    static GLExpected<Texture> create2D(GLenum target, GLFormat format, FG_Vec2i size, const FG_Sampler& sampler,
+                                        void* data = nullptr,
+                                        int levelorsamples = 0)
     {
       GLuint texgl;
       glGenTextures(1, &texgl);
       GL_ERROR("glGenTextures");
       Texture tex(texgl);
-      if(auto bind = tex.bind<TARGET>())
+      if(auto bind = tex.bind(target))
       {
-        glTexImage2D(GL_TEXTURE_2D, level, format.internalformat, size.x, size.y, 0, format.components, format.type, data);
+        if(target == GL_TEXTURE_2D_MULTISAMPLE || target == GL_PROXY_TEXTURE_2D_MULTISAMPLE)
+          glTexImage2DMultisample(target, levelorsamples, format.internalformat, size.x, size.y, GL_FALSE);
+        else
+          glTexImage2D(target, levelorsamples, format.internalformat, size.x, size.y, 0, format.components,
+                       format.type, data);
+
         GL_ERROR("glTexImage2D");
-        if(auto e = bind.apply_sampler(sampler)) {}
+        if(auto e = bind.value().apply_sampler(sampler)) {}
         else
           return std::move(e.error());
       }

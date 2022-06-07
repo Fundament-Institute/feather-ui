@@ -56,4 +56,5 @@ GLExpected<void> Texture::apply_sampler(GLenum target, const FG_Sampler& sampler
     GL_ERROR("glTexParameteri");
   }
    
+  return {};
 }

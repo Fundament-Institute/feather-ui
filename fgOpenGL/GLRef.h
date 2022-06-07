@@ -7,25 +7,26 @@
 #include "GLError.h"
 
 namespace GL {
-  template<void (*BINDRESET)()> struct GLBindRef
+  template<void (*BINDRESET)(GLenum target)> struct GLBindRef
   {
-    constexpr GLBindRef() noexcept : active(true) {}
-    constexpr GLBindRef(GLBindRef&& right) noexcept : active(right.active) { right.active = false; }
+    constexpr GLBindRef() = delete;
+    constexpr GLBindRef(GLenum target) noexcept : _target(target) {}
+    constexpr GLBindRef(GLBindRef&& right) noexcept : _target(right._target) { right._target = 0; }
     GLBindRef(const GLBindRef&) = delete;
     constexpr GLBindRef& operator=(GLBindRef&& right) noexcept
     {
-      active       = right.active;
-      right.active = false;
+      _target       = right._target;
+      right._target = 0;
       return *this;
     }
     GLBindRef& operator=(const GLBindRef&) = delete;
 
-    bool active;
+    GLenum _target;
 
     ~GLBindRef()
     {
-      if(active)
-        BINDRESET();
+      if(_target != 0)
+        BINDRESET(_target);
     }
   };
 
@@ -52,6 +53,8 @@ namespace GL {
         _ref = 0;
         GL_ERROR("Deletion failure");
       }
+
+      return {};
     }
 
     GLRef& operator=(GLRef&& right) noexcept

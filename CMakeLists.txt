@@ -36,3 +36,4 @@ endfunction()
 
 add_subdirectory(fgOpenGL)
 #add_subdirectory(fgDirect2D)
+add_subdirectory(cpptest)

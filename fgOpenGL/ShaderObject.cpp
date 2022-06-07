@@ -1,5 +1,5 @@
 // Copyright (c)2022 Fundament Software
-// For conditions of distribution and use, see copyright notice in "Backend.h"
+// For conditions of distribution and use, see copyright notice in "BackendGL.h"
 
 #include "ShaderObject.h"
 #include "BackendGL.h"
@@ -7,7 +7,7 @@
 
 using namespace GL;
 
-bool ShaderObject::is_valid() const
+bool ShaderObject::is_valid() const noexcept
 {
   if(glIsShader(_ref) == GL_FALSE)
     return false;
@@ -17,7 +17,7 @@ bool ShaderObject::is_valid() const
   return isCompiled == GL_TRUE;
 }
 
-GLExpected<std::string> ShaderObject::log() const
+GLExpected<std::string> ShaderObject::log() const noexcept
 {
   if(glIsShader(_ref) == GL_FALSE)
     return GLError(ERR_INVALID_PARAMETER, "ShaderObject::Log");
@@ -33,7 +33,7 @@ GLExpected<std::string> ShaderObject::log() const
   return GLExpected<std::string>(log);
 }
 
-GLExpected<ShaderObject> ShaderObject::create(const char* src, int type)
+GLExpected<ShaderObject> ShaderObject::create(const char* src, int type) noexcept
 {
   auto shader = glCreateShader(type);
   GL_ERROR("glCreateShader");
@@ -44,7 +44,7 @@ GLExpected<ShaderObject> ShaderObject::create(const char* src, int type)
   return ShaderObject(shader);
 }
 
-GLExpected<void> ShaderObject::set_uniform(const char* name, GLenum type, float* data)
+GLExpected<void> ShaderObject::set_uniform(const char* name, GLenum type, float* data) noexcept
 {
   if(type >= GL_TEXTURE0 && type <= GL_TEXTURE31)
   {

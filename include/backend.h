@@ -1,8 +1,7 @@
-// TODO: AUTOGENERATE THIS FILE
 #ifndef BACKEND_H
 #define BACKEND_H
 
-#include <stdint.h> // for integers
+#include <stdint.h>  // for integers
 #include <stdbool.h> // for bool
 
 enum FG_PixelFormat
@@ -141,6 +140,25 @@ enum FG_PixelFormat
   FG_PixelFormat_YUY2,
 };
 
+enum FG_Type
+{
+  FG_Type_Unknown = 0,
+  FG_Type_VertexData,
+  FG_Type_VertexIndices,
+  FG_Type_PixelRead,
+  FG_Type_PixelWrite,
+  FG_Type_CopyRead,
+  FG_Type_CopyWrite,
+  FG_Type_TextureBuffer,
+  FG_Type_Transform,
+  FG_Type_Uniform,
+  FG_Type_Texture1D,
+  FG_Type_Texture2D,
+  FG_Type_Texture3D,
+  FG_Type_Texture2D_Multisample,
+  FG_Type_Texture2D_Multisample_Proxy,
+};
+
 enum FG_ShaderStage
 {
   FG_ShaderStage_Pixel = 0,
@@ -160,14 +178,16 @@ enum FG_Feature
   FG_Feature_API_VULKAN         = 4,
   FG_Feature_API_METAL          = 5,
   FG_Feature_IMMEDIATE_MODE     = (1 << 4),
-  FG_Feature_RENDER_TARGET     = (1 << 5),
+  FG_Feature_RENDER_TARGET      = (1 << 5),
   FG_Feature_BLEND_EX           = (1 << 6),
   FG_Feature_BACKGROUND_OPACITY = (1 << 7),
   FG_Feature_LINES_ALPHA        = (1 << 8),
   FG_Feature_BLEND_GAMMA        = (1 << 9),
   FG_Feature_INSTANCING         = (1 << 10),
-  FG_Feature_INDEPENDENT_BLEND  = (1 << 11),
-  FG_Feature_COMPUTE_SHADER     = (1 << 12),
+  FG_Feature_MULTITHREADING     = (1 << 11),
+  FG_Feature_COMMAND_BUNDLES    = (1 << 12),
+  FG_Feature_INDEPENDENT_BLEND  = (1 << 13),
+  FG_Feature_COMPUTE_SHADER     = (1 << 14),
 };
 
 typedef struct FG_Vec3i__
@@ -211,15 +231,15 @@ typedef union FG_Rect__
 
 typedef union FG_Color8__
 {
-    uint32_t v;
-    uint8_t colors[4];
-    struct
-    {
-      uint8_t b;
-      uint8_t g;
-      uint8_t r;
-      uint8_t a;
-    };
+  uint32_t v;
+  uint8_t colors[4];
+  struct
+  {
+    uint8_t b;
+    uint8_t g;
+    uint8_t r;
+    uint8_t a;
+  };
 } FG_Color8;
 
 typedef union FG_Color16__
@@ -239,8 +259,8 @@ typedef union FG_Color16__
 typedef struct FG_OpenGL_Caps__
 {
   int features;
-  int version;     // 2.1 is 21, 4.2 is 42, etc.
-  int glsl; // Version 1.10 is 110, version 4.40 is 440
+  int version; // 2.1 is 21, 4.2 is 42, etc.
+  int glsl;    // Version 1.10 is 110, version 4.40 is 440
   int max_textures;
   int max_rendertargets;
 } FG_OpenGL_Caps;
@@ -262,95 +282,7 @@ typedef union FG_Caps__
   FG_DirectX_Caps DirectX;
 } FG_Caps;
 
-enum FG_COMMAND_TYPE
-{
-  FG_COMMAND_UNKNOWN = 0,
-  FG_COMMAND_CLEAR_DEPTH_STENCIL,
-  FG_COMMAND_CLEAR_RENDER_TARGET,
-  FG_COMMAND_COPY_RESOURCE,
-  FG_COMMAND_COPY_SUBRESOURCE,
-  FG_COMMAND_COPY_RESOURCE_REGION,
-  FG_COMMAND_DRAW,
-  FG_COMMAND_DRAW_INDEXED,
-  FG_COMMAND_PIPELINE_STATE,
-  FG_COMMAND_DEPTH_STENCIL,
-  FG_COMMAND_VERTEX_BUFFER_ARRAY,
-  FG_COMMAND_VERTEX_STREAM,
-  FG_COMMAND_VIEWPORT_ARRAY,
-};
-// Used at the start of every command bytestream
-typedef struct FG_Command_Header__
-{
-  uint16_t type;
-  uint16_t size; // Size of a single element
-} FG_Command_Header;
-
-// Header that includes a count for array command types
-typedef struct FG_Command_Header_Array__
-{
-  FG_Command_Header header;
-  uint32_t count;
-} FG_Command_Header_Array;
-
 typedef void FG_Resource;
-
-typedef struct FG_Command_ClearDepthStencil__
-{
-  FG_Resource* depthstencil;
-  char clear; // If 0, clears both. If -1, clears stencil, if 1, clears depth.
-  uint8_t stencil;
-  float depth;
-  uint32_t num_rects;
-} FG_Command_ClearDepthStencil;
-
-
-typedef struct FG_Command_ClearRenderTarget__
-{
-  FG_Resource* rendertarget;
-  FG_Color RGBA;
-  uint32_t num_rects;
-} FG_Command_ClearRenderTarget;
-
-typedef struct FG_Command_CopyResource__
-{
-  FG_Resource* src;
-  FG_Resource* dest;
-} FG_Command_CopyResource;
-
-typedef struct FG_Command_CopySubresource__
-{
-  FG_Resource* src;
-  FG_Resource* dest;
-  unsigned long destoffset;
-  unsigned long srcoffset;
-  unsigned long bytes;
-} FG_Command_CopySubresource;
-
-typedef struct FG_Command_CopyResourceRegion__
-{
-  FG_Resource* src;
-  FG_Resource* dest;
-  FG_Vec3i destoffset;
-  FG_Vec3i srcoffset;
-  FG_Vec3i size;
-} FG_Command_CopyResourceRegion;
-
-typedef struct FG_Command_Draw__
-{
-  uint32_t vertexcount;
-  uint32_t instancecount; // Can be 0, in which case instancing is not used
-  uint32_t startvertex;
-  uint32_t startinstance;
-} FG_Command_Draw;
-
-typedef struct FG_Command_DrawIndexed__
-{
-  uint32_t indexcount;
-  uint32_t instancecount; // Can be 0, in which case instancing is not used
-  uint32_t startindex;
-  int startvertex;
-  uint32_t startinstance;
-} FG_Command_DrawIndexed;
 
 enum FG_Primitive
 {
@@ -459,15 +391,15 @@ enum FG_FILL_MODE
 
 enum FG_CULL_MODE
 {
-  FG_CULL_MODE_NONE = 0,
+  FG_CULL_MODE_NONE  = 0,
   FG_CULL_MODE_FRONT = 1,
-  FG_CULL_MODE_BACK = 2,
+  FG_CULL_MODE_BACK  = 2,
 };
 
 enum FG_PIPELINE_FLAGS
 {
   FG_PIPELINE_FLAG_ALPHA_TO_COVERAGE_ENABLE = (1 << 0),
-  FG_PIPELINE_FLAG_INDEPENDENT_BLEND_ENABLE = (1 << 1),
+  FG_PIPELINE_FLAG_BLEND_ENABLE             = (1 << 1),
   FG_PIPELINE_FLAG_DEPTH_ENABLE             = (1 << 2),
   FG_PIPELINE_FLAG_STENCIL_ENABLE           = (1 << 3),
   FG_PIPELINE_FLAG_DEPTH_WRITE_ENABLE       = (1 << 4),
@@ -477,6 +409,8 @@ enum FG_PIPELINE_FLAGS
   FG_PIPELINE_FLAG_MULTISAMPLE_ENABLE       = (1 << 8),
   FG_PIPELINE_FLAG_ANTIALIASED_LINE_ENABLE  = (1 << 9),
   FG_PIPELINE_FLAG_TOOL_DEBUG               = (1 << 10),
+  FG_PIPELINE_FLAG_INDEPENDENT_BLEND_ENABLE = (1 << 11),
+  FG_PIPELINE_FLAG_RENDERTARGET_SRGB_ENABLE = (1 << 12),
 };
 
 typedef struct FG_PipelineState__
@@ -484,9 +418,8 @@ typedef struct FG_PipelineState__
   uint64_t Members; // Each bit represents a particular member that has been set
   uint8_t Primitive;
   uint32_t StencilRef;
-  FG_Resource* IndexBuffer;
-  FG_Resource* DepthStencil;
   void* Shaders[FG_ShaderStage_COUNT];
+  FG_Resource* DepthStencil;
   FG_Color BlendFactor;
   uint16_t Flags;
   uint32_t SampleMask;
@@ -503,14 +436,7 @@ typedef struct FG_PipelineState__
   float SlopeScaledDepthBias;
   uint32_t ForcedSampleCount;
   uint32_t NodeMask;
-  uint32_t MultisampleCount;
-  uint32_t MultisampleQuality;
 } FG_PipelineState;
-
-typedef struct FG_Command_PipelineState__
-{
-  void* state;
-} FG_Command_PipelineState;
 
 enum FG_STENCIL_OP
 {
@@ -524,22 +450,7 @@ enum FG_STENCIL_OP
   FG_STENCIL_OP_DECR     = 8
 };
 
-typedef struct FG_Command_DepthStencil
-{
-  bool Front; // front if true, back if false
-  uint8_t StencilFailOp;
-  uint8_t StencilDepthFailOp;
-  uint8_t StencilPassOp;
-  uint8_t StencilFunc;
-} FG_Command_DepthStencil;
-
-// Array
-typedef struct FG_Command_VertexBuffer__
-{
-  FG_Resource* vertexbuffer; 
-} FG_Command_VertexBuffer;
-
-typedef struct FG_Command_VertexStream__
+/* typedef struct FG_VertexStream__
 {
   uint32_t Stream;
   const char* SemanticName;
@@ -549,7 +460,7 @@ typedef struct FG_Command_VertexStream__
   uint8_t OutputSlot;
   uint32_t Stride;
   uint32_t RasterizedStream;
-} FG_Command_VertexStream;
+} FG_VertexStream;*/
 
 enum FG_FILTER
 {
@@ -573,7 +484,7 @@ enum FG_FILTER
   FG_FILTER_COMPARISON_ANISOTROPIC                     = 0xd5,
 };
 
-typedef enum FG_TEXTURE_ADDRESS_MODE
+enum FG_TEXTURE_ADDRESS_MODE
 {
   FG_TEXTURE_ADDRESS_MODE_WRAP        = 1,
   FG_TEXTURE_ADDRESS_MODE_MIRROR      = 2,
@@ -584,7 +495,7 @@ typedef enum FG_TEXTURE_ADDRESS_MODE
 
 typedef struct FG_Sampler__
 {
-  uint8_t Filter; // FG_FILTER
+  uint8_t Filter;        // FG_FILTER
   uint8_t Addressing[3]; // enum FG_TEXTURE_ADDRESS_MODE
   uint8_t MaxAnisotropy;
   uint8_t Comparison; // FG_COMPARISON
@@ -615,7 +526,7 @@ enum FG_LOGIC_OP
 };
 
 // Array
-typedef struct FG_Command_Blend__
+typedef struct FG_Blend__
 {
   uint8_t SrcBlend;
   uint8_t DestBlend;
@@ -623,19 +534,16 @@ typedef struct FG_Command_Blend__
   uint8_t SrcBlendAlpha;
   uint8_t DestBlendAlpha;
   uint8_t BlendOpAlpha;
-  uint8_t LogicOp;
   uint8_t RenderTargetWriteMask;
-  bool BlendEnable;
-  bool LogicOpEnable;
-} FG_Command_Blend;
+} FG_Blend;
 
 // Array
-typedef struct FG_Command_Viewport__
+typedef struct FG_Viewport__
 {
   FG_Vec3 pos;
   FG_Vec3 dim;
   FG_Rect scissor;
-} FG_Command_Viewport;
+} FG_Viewport;
 
 enum FG_ShaderType
 {
@@ -653,14 +561,14 @@ enum FG_ShaderType
 typedef struct FG_ShaderParameter__
 {
   const char* name;
-  uint8_t semantic;
-  uint8_t slot;
-  uint8_t type; // enum FG_ShaderType
+  uint32_t length;
+  uint32_t multi;
+  uint8_t index;
+  uint8_t type;      // enum FG_ShaderType
   bool per_instance; // false if per_vertex
-  uint32_t offset;
   uint32_t step;
+  uint32_t offset;
 } FG_ShaderParameter;
-
 
 typedef struct FG_Display__
 {
@@ -701,6 +609,267 @@ enum FG_Cursor
   FG_Cursor_WAIT       = 4,
   FG_Cursor_HAND       = 5,
   FG_Cursor_CROSS      = 3
+};
+
+enum FG_Kind
+{
+  FG_Kind_MOUSEOFF       = 16,
+  FG_Kind_TOUCHEND       = 23,
+  FG_Kind_KEYCHAR        = 9,
+  FG_Kind_KEYDOWN        = 10,
+  FG_Kind_MOUSEDBLCLICK  = 13,
+  FG_Kind_ACTION         = 0,
+  FG_Kind_GOTFOCUS       = 4,
+  FG_Kind_JOYBUTTONDOWN  = 6,
+  FG_Kind_DROP           = 2,
+  FG_Kind_SETWINDOWFLAGS = 20,
+  FG_Kind_MOUSEON        = 17,
+  FG_Kind_DRAW           = 1,
+  FG_Kind_MOUSEMOVE      = 15,
+  FG_Kind_SETWINDOWRECT  = 21,
+  FG_Kind_JOYBUTTONUP    = 7,
+  FG_Kind_MOUSEDOWN      = 14,
+  FG_Kind_MOUSESCROLL    = 18,
+  FG_Kind_JOYAXIS        = 5,
+  FG_Kind_TOUCHBEGIN     = 22,
+  FG_Kind_JOYORIENTATION = 8,
+  FG_Kind_TOUCHMOVE      = 24,
+  FG_Kind_LOSTFOCUS      = 12,
+  FG_Kind_MOUSEUP        = 19,
+  FG_Kind_GETWINDOWFLAGS = 3,
+  FG_Kind_KEYUP          = 11
+};
+
+enum FG_Keys
+{
+  FG_Keys_4               = 52,
+  FG_Keys_S               = 83,
+  FG_Keys_PAGEDOWN        = 34,
+  FG_Keys_EXECUTE         = 43,
+  FG_Keys_F7              = 118,
+  FG_Keys_PAGEUP          = 33,
+  FG_Keys_8               = 56,
+  FG_Keys_W               = 87,
+  FG_Keys_NUMPAD_EQUAL    = 146,
+  FG_Keys_6               = 54,
+  FG_Keys_F16             = 127,
+  FG_Keys_NUMPAD5         = 101,
+  FG_Keys_Y               = 89,
+  FG_Keys_RETURN          = 13,
+  FG_Keys_F9              = 120,
+  FG_Keys_LSUPER          = 91,
+  FG_Keys_KANA            = 21,
+  FG_Keys_BACK            = 8,
+  FG_Keys_GRAVE           = 192,
+  FG_Keys_DELETE          = 46,
+  FG_Keys_LSHIFT          = 160,
+  FG_Keys_F14             = 125,
+  FG_Keys_JUNJA           = 23,
+  FG_Keys_RSUPER          = 92,
+  FG_Keys_FINAL           = 24,
+  FG_Keys_B               = 66,
+  FG_Keys_LCONTROL        = 162,
+  FG_Keys_INSERT          = 45,
+  FG_Keys_F15             = 126,
+  FG_Keys_APPS            = 93,
+  FG_Keys_XBUTTON1        = 5,
+  FG_Keys_SELECT          = 41,
+  FG_Keys_H               = 72,
+  FG_Keys_F               = 70,
+  FG_Keys_F21             = 132,
+  FG_Keys_J               = 74,
+  FG_Keys_L               = 76,
+  FG_Keys_NUMLOCK         = 144,
+  FG_Keys_RSHIFT          = 161,
+  FG_Keys_COMMA           = 188,
+  FG_Keys_F20             = 131,
+  FG_Keys_NUMPAD1         = 97,
+  FG_Keys_LEFT_BRACKET    = 219,
+  FG_Keys_SPACE           = 32,
+  FG_Keys_F18             = 129,
+  FG_Keys_F23             = 134,
+  FG_Keys_SEMICOLON       = 186,
+  FG_Keys_MODECHANGE      = 31,
+  FG_Keys_MENU            = 18,
+  FG_Keys_NUMPAD9         = 105,
+  FG_Keys_5               = 53,
+  FG_Keys_R               = 82,
+  FG_Keys_F19             = 130,
+  FG_Keys_F6              = 117,
+  FG_Keys_T               = 84,
+  FG_Keys_NUMPAD_MULTIPLY = 106,
+  FG_Keys_ACCEPT          = 30,
+  FG_Keys_F22             = 133,
+  FG_Keys_UP              = 38,
+  FG_Keys_NUMPAD2         = 98,
+  FG_Keys_CANCEL          = 3,
+  FG_Keys_9               = 57,
+  FG_Keys_X               = 88,
+  FG_Keys_F25             = 136,
+  FG_Keys_NUMPAD0         = 96,
+  FG_Keys_V               = 86,
+  FG_Keys_DOWN            = 40,
+  FG_Keys_SNAPSHOT        = 44,
+  FG_Keys_NUMPAD3         = 99,
+  FG_Keys_F24             = 135,
+  FG_Keys_NUMPAD8         = 104,
+  FG_Keys_APOSTROPHE      = 222,
+  FG_Keys_A               = 65,
+  FG_Keys_NUMPAD6         = 102,
+  FG_Keys_TAB             = 9,
+  FG_Keys_LBUTTON         = 1,
+  FG_Keys_PLUS            = 187,
+  FG_Keys_C               = 67,
+  FG_Keys_RIGHT_BRACKET   = 221,
+  FG_Keys_BACKSLASH       = 220,
+  FG_Keys_SLASH           = 191,
+  FG_Keys_PERIOD          = 190,
+  FG_Keys_HOME            = 36,
+  FG_Keys_NUMPAD4         = 100,
+  FG_Keys_F1              = 112,
+  FG_Keys_LMENU           = 164,
+  FG_Keys_E               = 69,
+  FG_Keys_RCONTROL        = 163,
+  FG_Keys_D               = 68,
+  FG_Keys_NONCONVERT      = 29,
+  FG_Keys_F11             = 122,
+  FG_Keys_F8              = 119,
+  FG_Keys_7               = 55,
+  FG_Keys_NUMPAD7         = 103,
+  FG_Keys_G               = 71,
+  FG_Keys_3               = 51,
+  FG_Keys_F4              = 115,
+  FG_Keys_RIGHT           = 39,
+  FG_Keys_RMENU           = 165,
+  FG_Keys_XBUTTON2        = 6,
+  FG_Keys_SCROLL          = 145,
+  FG_Keys_CAPITAL         = 20,
+  FG_Keys_F12             = 123,
+  FG_Keys_I               = 73,
+  FG_Keys_RBUTTON         = 2,
+  FG_Keys_1               = 49,
+  FG_Keys_OEM_8           = 223,
+  FG_Keys_P               = 80,
+  FG_Keys_U               = 85,
+  FG_Keys_Z               = 90,
+  FG_Keys_NULL            = 0,
+  FG_Keys_CONTROL         = 17,
+  FG_Keys_NUMPAD_DECIMAL  = 110,
+  FG_Keys_K               = 75,
+  FG_Keys_CLEAR           = 12,
+  FG_Keys_M               = 77,
+  FG_Keys_F2              = 113,
+  FG_Keys_KANJI           = 25,
+  FG_Keys_ESCAPE          = 27,
+  FG_Keys_SHIFT           = 16,
+  FG_Keys_F13             = 124,
+  FG_Keys_MBUTTON         = 4,
+  FG_Keys_LEFT            = 37,
+  FG_Keys_HELP            = 47,
+  FG_Keys_MINUS           = 189,
+  FG_Keys_N               = 78,
+  FG_Keys_0               = 48,
+  FG_Keys_CONVERT         = 28,
+  FG_Keys_O               = 79,
+  FG_Keys_PRINT           = 42,
+  FG_Keys_SLEEP           = 95,
+  FG_Keys_NUMPAD_ADD      = 107,
+  FG_Keys_NUMPAD_DIVIDE   = 111,
+  FG_Keys_END             = 35,
+  FG_Keys_F10             = 121,
+  FG_Keys_NUMPAD_SUBTRACT = 109,
+  FG_Keys_SEPARATOR       = 108,
+  FG_Keys_Q               = 81,
+  FG_Keys_F5              = 116,
+  FG_Keys_2               = 50,
+  FG_Keys_F3              = 114,
+  FG_Keys_PAUSE           = 19,
+  FG_Keys_F17             = 128
+};
+
+enum FG_ModKey
+{
+  FG_ModKey_CONTROL  = 2,
+  FG_ModKey_SHIFT    = 1,
+  FG_ModKey_NUMLOCK  = 32,
+  FG_ModKey_HELD     = 64,
+  FG_ModKey_ALT      = 4,
+  FG_ModKey_CAPSLOCK = 16,
+  FG_ModKey_SUPER    = 8
+};
+
+enum FG_MouseButton
+{
+  FG_MouseButton_X2 = 16,
+  FG_MouseButton_M  = 4,
+  FG_MouseButton_X4 = 64,
+  FG_MouseButton_X3 = 32,
+  FG_MouseButton_R  = 2,
+  FG_MouseButton_X5 = 128,
+  FG_MouseButton_L  = 1,
+  FG_MouseButton_X1 = 8
+};
+
+enum FG_JoyAxis
+{
+  FG_JoyAxis_X       = 0,
+  FG_JoyAxis_INVALID = 65535,
+  FG_JoyAxis_U       = 4,
+  FG_JoyAxis_Y       = 1,
+  FG_JoyAxis_V       = 5,
+  FG_JoyAxis_Z       = 2,
+  FG_JoyAxis_R       = 3
+};
+enum FG_Joy
+{
+  FG_Joy_Button4  = 3,
+  FG_Joy_Button21 = 20,
+  FG_Joy_Button11 = 10,
+  FG_Joy_Button12 = 11,
+  FG_Joy_Button25 = 24,
+  FG_Joy_Button3  = 2,
+  FG_Joy_Button15 = 14,
+  FG_Joy_ID2      = 256,
+  FG_Joy_Button31 = 30,
+  FG_Joy_Button32 = 31,
+  FG_Joy_Button2  = 1,
+  FG_Joy_Button28 = 27,
+  FG_Joy_Button18 = 17,
+  FG_Joy_ID7      = 1536,
+  FG_Joy_ID15     = 3584,
+  FG_Joy_ID14     = 3328,
+  FG_Joy_Button22 = 21,
+  FG_Joy_Button9  = 8,
+  FG_Joy_ID12     = 2816,
+  FG_Joy_ID3      = 512,
+  FG_Joy_ID11     = 2560,
+  FG_Joy_ID10     = 2304,
+  FG_Joy_ID9      = 2048,
+  FG_Joy_ID1      = 0,
+  FG_Joy_ID8      = 1792,
+  FG_Joy_Button20 = 19,
+  FG_Joy_ID16     = 3840,
+  FG_Joy_Button8  = 7,
+  FG_Joy_ID6      = 1280,
+  FG_Joy_Button26 = 25,
+  FG_Joy_ID5      = 1024,
+  FG_Joy_Button23 = 22,
+  FG_Joy_Button1  = 0,
+  FG_Joy_Button24 = 23,
+  FG_Joy_ID4      = 768,
+  FG_Joy_Button29 = 28,
+  FG_Joy_Button16 = 15,
+  FG_Joy_Button7  = 6,
+  FG_Joy_Button10 = 9,
+  FG_Joy_Button27 = 26,
+  FG_Joy_Button30 = 29,
+  FG_Joy_Button5  = 4,
+  FG_Joy_Button17 = 16,
+  FG_Joy_Button19 = 18,
+  FG_Joy_ID13     = 3072,
+  FG_Joy_Button14 = 13,
+  FG_Joy_Button13 = 12,
+  FG_Joy_Button6  = 5
 };
 
 typedef struct FG_Msg__
@@ -916,47 +1085,98 @@ typedef void FG_Element;
 typedef void (*FG_Log)(void*, enum FG_Level, const char*, ...);
 typedef FG_Result (*FG_Behavior)(FG_Element*, FG_Context*, void*, FG_Msg*);
 
+enum FG_WindowFlag
+{
+  FG_WindowFlag_NOBORDER    = 16,
+  FG_WindowFlag_NOCAPTION   = 8,
+  FG_WindowFlag_FULLSCREEN  = 256,
+  FG_WindowFlag_MINIMIZED   = 32,
+  FG_WindowFlag_CLOSED      = 128,
+  FG_WindowFlag_MAXIMIZABLE = 2,
+  FG_WindowFlag_MINIMIZABLE = 1,
+  FG_WindowFlag_RESIZABLE   = 4,
+  FG_WindowFlag_MAXIMIZED   = 64
+};
+
 typedef struct FG_Window__
 {
   void* handle;
   FG_Context* context;
 } FG_Window;
 
+typedef union FG_ShaderValue__
+{
+  float f32;
+  double f64;
+  int32_t i32;
+  uint32_t u32;
+  float* pf32;
+  double* pf64;
+  int32_t* pi32;
+  uint32_t* pu32;
+  FG_Resource* resource;
+} FG_ShaderValue;
+
 struct FG_Backend
 {
   FG_Caps (*getCaps)(FG_Backend* self);
-  void* (*compileShader)(FG_Backend* self, enum FG_ShaderStage stage, const char* source);
-  int (*destroyShader)(FG_Backend* self, void* shader);
-  int (*execute)(FG_Backend* self, FG_Context* context, FG_Command_Header* bytestream);
+  void* (*compileShader)(FG_Backend* self, FG_Context* context, enum FG_ShaderStage stage, const char* source);
+  int (*destroyShader)(FG_Backend* self, FG_Context* context, void* shader);
+  void* (*createCommandList)(FG_Backend* self, FG_Context* context, bool bundle);
+  int (*destroyCommandList)(FG_Backend* self, void* commands);
+  int (*clearDepthStencil)(FG_Backend* self, void* commands, FG_Resource* depthstencil, char clear, uint8_t stencil,
+                           float depth, uint32_t num_rects);
+  int (*clearRenderTarget)(FG_Backend* self, void* commands, FG_Resource* rendertarget, FG_Color RGBA, uint32_t num_rects);
+  int (*copyResource)(FG_Backend* self, void* commands, FG_Resource* src, FG_Resource* dest);
+  int (*copySubresource)(FG_Backend* self, void* commands, FG_Resource* src, FG_Resource* dest, unsigned long srcoffset,
+                         unsigned long destoffset, unsigned long bytes);
+  int (*copyResourceRegion)(FG_Backend* self, void* commands, FG_Resource* src, FG_Resource* dest, FG_Vec3i srcoffset,
+                            FG_Vec3i destoffset, FG_Vec3i size);
+  int (*draw)(FG_Backend* self, void* commands, uint32_t vertexcount, uint32_t instancecount, uint32_t startvertex,
+              uint32_t startinstance);
+  int (*drawIndexed)(FG_Backend* self, void* commands, uint32_t indexcount, uint32_t instancecount, uint32_t startindex,
+                     int startvertex, uint32_t startinstance);
+  int (*setPipelineState)(FG_Backend* self, void* commands, void* state);
+  int (*setDepthStencil)(FG_Backend* self, void* commands, bool Front, uint8_t StencilFailOp, uint8_t StencilDepthFailOp,
+                         uint8_t StencilPassOp, uint8_t StencilFunc);
+  int (*setViewports)(FG_Backend* self, void* commands, FG_Viewport* viewports, uint32_t count);
+  int (*setShaderConstants)(FG_Backend* self, void* commands, const FG_ShaderParameter* uniforms,
+                            const FG_ShaderValue* values, uint32_t count);
+  int (*execute)(FG_Backend* self, FG_Context* context, void* commands);
   void* (*createPipelineState)(FG_Backend* self, FG_Context* context, FG_PipelineState* pipelinestate,
-                               FG_ShaderParameter* params, uint32_t n_params, FG_Resource* streamoutput, uint32_t n_outputs,
-                               FG_Resource* rendertargets, uint32_t n_targets, FG_Command_Blend* blends);
+                               FG_Resource** rendertargets, uint32_t n_targets, FG_Blend* blends,
+                               FG_Resource** vertexbuffer, uint32_t n_buffers, FG_ShaderParameter* attributes,
+                               uint32_t n_attributes, FG_Resource* indexbuffer);
   int (*destroyPipelineState)(FG_Backend* self, FG_Context* context, void* state);
-  FG_Resource* (*createBuffer)(FG_Backend* self, FG_Context* context, void* data, uint32_t bytes,
-                               enum FG_PixelFormat format);
-  FG_Resource* (*createTexture)(FG_Backend* self, FG_Context* context, FG_Vec2i size, enum FG_PixelFormat format,
-                                FG_Sampler* sampler);
-  void (*destroyResource)(FG_Backend* self, FG_Resource* resource);
+  FG_Resource* (*createBuffer)(FG_Backend* self, FG_Context* context, void* data, uint32_t bytes, enum FG_Type type);
+  FG_Resource* (*createTexture)(FG_Backend* self, FG_Context* context, FG_Vec2i size, enum FG_Type type,
+                                enum FG_PixelFormat format, FG_Sampler* sampler, void* data, int MultiSampleCount);
+  FG_Resource* (*createRenderTarget)(FG_Backend* self, FG_Context* context, FG_Resource* texture);
+  int (*destroyResource)(FG_Backend* self, FG_Context* context, FG_Resource* resource);
   FG_Window* (*createWindow)(FG_Backend* self, FG_Element* element, FG_Display* display, FG_Vec2* pos, FG_Vec2* dim,
-                              const char* caption, uint64_t flags);
+                             const char* caption, uint64_t flags);
   int (*setWindow)(FG_Backend* self, FG_Window* window, FG_Element* element, FG_Display* display, FG_Vec2* pos,
                    FG_Vec2* dim, const char* caption, uint64_t flags);
   int (*destroyWindow)(FG_Backend* self, FG_Window* window);
   int (*beginDraw)(FG_Backend* self, FG_Context* context, FG_Rect* area);
   int (*endDraw)(FG_Backend* self, FG_Context* context);
-  int (*putClipboard)(FG_Backend* self, FG_Context* context, enum FG_Clipboard kind, const char* data, uint32_t count);
-  uint32_t (*getClipboard)(FG_Backend* self, FG_Context* context, enum FG_Clipboard kind, void* target, uint32_t count);
-  bool (*checkClipboard)(FG_Backend* self, FG_Context* context, enum FG_Clipboard kind);
-  int (*clearClipboard)(FG_Backend* self, FG_Context* context, enum FG_Clipboard kind);
-  int (*processMessages)(FG_Backend* self, FG_Context* context);
-  int (*getMessageSyncObject)(FG_Backend* self, FG_Context* context);
-  int (*setCursorGL)(FG_Backend* self, FG_Context* context, enum FG_Cursor cursor);
+  int (*putClipboard)(FG_Backend* self, FG_Window* window, enum FG_Clipboard kind, const char* data, uint32_t count);
+  uint32_t (*getClipboard)(FG_Backend* self, FG_Window* window, enum FG_Clipboard kind, void* target, uint32_t count);
+  bool (*checkClipboard)(FG_Backend* self, FG_Window* window, enum FG_Clipboard kind);
+  int (*clearClipboard)(FG_Backend* self, FG_Window* window, enum FG_Clipboard kind);
+  int (*processMessages)(FG_Backend* self, FG_Window* window);
+  int (*getMessageSyncObject)(FG_Backend* self, FG_Window* window);
+  int (*setCursor)(FG_Backend* self, FG_Window* window, enum FG_Cursor cursor);
   int (*getDisplayIndex)(FG_Backend* self, unsigned int index, FG_Display* out);
-  int (*getDisplay)(FG_Backend* self, FG_Context* handle, FG_Display* out);
-  int (*getDisplayWindow)(FG_Backend* self, FG_Context* context, FG_Display* out);
+  int (*getDisplay)(FG_Backend* self, void* handle, FG_Display* out);
+  int (*getDisplayWindow)(FG_Backend* self, FG_Window* window, FG_Display* out);
   int (*createSystemControl)(FG_Backend* self, FG_Context* context, const char* id, FG_Rect* area, ...);
   int (*setSystemControl)(FG_Backend* self, FG_Context* context, void* control, FG_Rect* area, ...);
   int (*destroySystemControl)(FG_Backend* self, FG_Context* context, void* control);
+  int (*destroy)(FG_Backend* self);
+
+  int cursorblink;
+  int tooltipdelay;
 };
 
 typedef FG_Backend* (*FG_InitBackend)(void*, FG_Log, FG_Behavior);
