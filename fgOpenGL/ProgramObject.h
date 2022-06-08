@@ -4,7 +4,7 @@
 #ifndef GL__PROGRAM_OBJECT_H
 #define GL__PROGRAM_OBJECT_H
 
-#include "GLRef.h"
+#include "Ref.h"
 #include <string>
 
 namespace GL {
@@ -12,10 +12,10 @@ namespace GL {
   static constexpr void DeleteProgramObj(GLuint i) noexcept { glDeleteProgram(i); };
   struct ShaderObject;
 
-  struct ProgramObject : GLRef<IsProgramObj, DeleteProgramObj>
+  struct ProgramObject : Ref<IsProgramObj, DeleteProgramObj>
   {
-    explicit constexpr ProgramObject(GLuint shader) noexcept : GLRef(shader) {}
-    explicit constexpr ProgramObject(void* shader) noexcept : GLRef(shader) {}
+    explicit constexpr ProgramObject(GLuint shader) noexcept : Ref(shader) {}
+    explicit constexpr ProgramObject(void* shader) noexcept : Ref(shader) {}
     constexpr ProgramObject() noexcept                      = default;
     constexpr ProgramObject(ProgramObject&& right) noexcept = default;
     constexpr ProgramObject(const ProgramObject&)         = delete;
@@ -24,6 +24,7 @@ namespace GL {
     GLExpected<void> link() noexcept;
     bool is_valid() const noexcept;
     GLExpected<std::string> log() const noexcept;
+    GLExpected<void> set_uniform(const char* name, GLenum type, const float* data) const noexcept;
 
     ProgramObject& operator=(const ProgramObject&) = delete;
     ProgramObject& operator=(ProgramObject&& right) noexcept = default;

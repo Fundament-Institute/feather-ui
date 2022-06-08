@@ -19,9 +19,7 @@
 
 namespace GL {
   class Backend;
-  struct Asset;
-  struct Font;
-  struct Glyph;
+  struct ProgramObject;
 
   enum class GLCaps
   {
@@ -37,33 +35,27 @@ namespace GL {
   };
 
   // A context may or may not have an associated OS window, for use inside other 3D engines.
-  struct Context
+  struct Context : FG_Window
   {
-    Context(Backend* backend, FG_Element* element, FG_Vec2* dim);
+    Context(Backend* backend, FG_Element* element, FG_Vec2 dim);
     virtual ~Context();
     GLExpected<void> BeginDraw(const FG_Rect* area);
     GLExpected<void> EndDraw();
     void Draw(const FG_Rect* area);
+    GLExpected<void> DrawArrays(uint32_t vertexcount, uint32_t instancecount, uint32_t startvertex, uint32_t startinstance);
+    GLExpected<void> DrawIndexed(uint32_t indexcount, uint32_t instancecount, uint32_t startindex, int startvertex,
+                                 uint32_t startinstance);
     GLFWwindow* GetWindow() const { return _window; }
-    void Scissor(const FG_Rect& rect, float x, float y) const;
-    inline void Viewport(float w, float h) const { Viewport(static_cast<int>(ceilf(w)), static_cast<int>(ceilf(h))); }
-    void Viewport(int w, int h) const;
-    void StandardViewport() const;
-    FG_Vec2i GetViewport() const;
-    inline FG_Vec2 GetViewportf() const
-    {
-      auto vp = GetViewport();
-      return {
-        static_cast<float>(vp.x),
-        static_cast<float>(vp.y),
-      };
-    }
+    GLExpected<void> SetShaderUniforms(const FG_ShaderParameter* uniforms, const FG_ShaderValue* values, uint32_t count);
     GLExpected<void> ApplyBlend(const FG_Blend& blend, const std::array<float, 4>& factor, bool force = false);
     GLExpected<void> ApplyFlags(uint16_t flags, uint8_t cull, uint8_t fill);
+    void ApplyPrimitiveShader(GLenum primitive, const ProgramObject& program, GLenum indextype)
+    {
+      _primitive = primitive;
+      _program   = &program;
+      _indextype = indextype;
+    }
     void FlipFlag(int diff, int flags, int flag, int option);
-    inline Backend* GetBackend() const { return _backend; }
-    GLExpected<void> SetDefaultState();
-
     static inline void ColorFloats(const FG_Color8& c, std::array<float, 4>& colors, bool linearize)
     {
       colors[0] = c.r / 255.0f;
@@ -99,15 +91,6 @@ namespace GL {
       return linearRGB <= 0.0031308f ? linearRGB * 12.92f : 1.055f * powf(linearRGB, 1.0f / 2.4f) - 0.055f;
     }
 
-    FG_Element* _element;
-    FG_Blend _lastblend;
-    std::array<float, 4> _lastfactor;
-    uint16_t _lastflag;
-    uint8_t _lastcull;
-    uint8_t _lastfill;
-
-    static const size_t BATCH_BYTES = (1 << 14);
-    static const size_t MAX_INDICES = BATCH_BYTES / sizeof(GLuint);
     static const FG_Blend NORMAL_BLEND;      // For straight-alpha blending
     static const FG_Blend PREMULTIPLY_BLEND;     // For premultiplied blending (the default)
     static const FG_Blend DEFAULT_BLEND;     // OpenGL default settings
@@ -156,10 +139,15 @@ namespace GL {
 
     GLFWwindow* _window;
     Backend* _backend;
-    GLintptr _bufferoffset;
-    GLsizei _buffercount;
-    bool _initialized;
-    bool _clipped;
+    GLenum _primitive;
+    GLenum _indextype;
+    const ProgramObject* _program;
+    FG_Blend _lastblend;
+    std::array<float, 4> _lastfactor;
+    uint16_t _lastflags;
+    uint8_t _lastcull;
+    uint8_t _lastfill;
+    FG_Vec2 _dim;
   };
 }
 

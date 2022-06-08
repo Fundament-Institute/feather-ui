@@ -3,6 +3,8 @@
 
 #include "platform.h"
 #include "BackendGL.h"
+#include "linmath.h"
+#include "utf.h"
 #include <float.h>
 #include "ft2build.h"
 #include "ShaderObject.h"
@@ -18,7 +20,7 @@
   #include <dlfcn.h>
 #endif
 
-using GL::Backend;
+using namespace GL;
 
 int Backend::_lasterr            = 0;
 int Backend::_refcount           = 0;
@@ -30,7 +32,7 @@ void* Backend::_library          = 0;
 
 FG_Result Backend::Behavior(Context* w, const FG_Msg& msg)
 {
-  return (*_behavior)(w->element, w, _root, const_cast<FG_Msg*>(&msg));
+  return (*_behavior)(w->_element, w, _root, const_cast<FG_Msg*>(&msg));
 }
 
 FG_Caps Backend::GetCaps(FG_Backend* self)
@@ -47,16 +49,11 @@ FG_Caps Backend::GetCaps(FG_Backend* self)
 
 void* Backend::CompileShader(FG_Backend* self, FG_Context* context, enum FG_ShaderStage stage, const char* source)
 {
-  if(stage >= ArraySize(ShaderStageMapping))
-    GLError(ERR_INVALID_PARAMETER, "Unsupported shader stage").log(static_cast<Backend*>(self));
+  if(auto r = ShaderObject::create(source, stage))
+    return pack_ptr(r.take());
   else
-  {
-    if(auto r = ShaderObject::create(source, ShaderStageMapping[stage]))
-      return pack_ptr(std::move(r.value()).release());
-    else
-      r.error().log(static_cast<Backend*>(self));
-  }
-  return nullptr;
+    r.error().log(static_cast<Backend*>(self));
+  return 0;
 }
 int Backend::DestroyShader(FG_Backend* self, FG_Context* context, void* shader)
 {
@@ -104,47 +101,19 @@ int Backend::DestroyCommandList(FG_Backend* self, void* commands)
 }
 
 int Backend::ClearDepthStencil(FG_Backend* self, void* commands, FG_Resource* depthstencil, char clear, uint8_t stencil,
-                               float depth, uint32_t num_rects, FG_Rect* rects)
+                               float depth, uint32_t num_rects)
 {
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(commands);
-  
-  // TODO: bind depthstencil only if necessary
-  glClearDepth(depth);
-  if(auto e = glGetError())
-    return e;
-  glClearStencil(stencil);
-  if(auto e = glGetError())
-    return e;
 
-  // TODO: iterate through rects and set scissor rects for each one and clear.
-  
-  // clear 0 clears both, clear 1 is just depth, clear -1 is just stencil
-  switch(clear)
-  {
-  case 0: glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-  case 1: glClear(GL_DEPTH_BUFFER_BIT);
-  case -1: glClear(GL_STENCIL_BUFFER_BIT);
-  }
-
-  return glGetError();
+  return ERR_NOT_IMPLEMENTED;
 }
 int Backend::ClearRenderTarget(FG_Backend* self, void* commands, FG_Resource* rendertarget, FG_Color RGBA,
-                               uint32_t num_rects, FG_Rect* rects)
+                               uint32_t num_rects)
 {
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(commands);
-
-  // TODO: bind rendertarget only if necessary
-  std::array<float, 4> colors;
-  Context::ColorFloats(RGBA, colors, false);
-  glClearColor(colors[0], colors[1], colors[2], colors[3]);
-  if(auto e = glGetError())
-    return e;
-
-  // TODO: iterate through num_rects and apply scissor rect
-  glClear(GL_COLOR_BUFFER_BIT);
-  return glGetError();
+  return ERR_NOT_IMPLEMENTED;
 }
 int Backend::CopyResource(FG_Backend* self, void* commands, FG_Resource* src, FG_Resource* dest)
 {
@@ -166,38 +135,22 @@ int Backend::CopyResourceRegion(FG_Backend* self, void* commands, FG_Resource* s
 int Backend::DrawGL(FG_Backend* self, void* commands, uint32_t vertexcount, uint32_t instancecount, uint32_t startvertex,
                     uint32_t startinstance)
 {
-  if(!commands)
-    return ERR_INVALID_PARAMETER;
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(commands);
-  if(auto e = context->DrawArrays(vertexcount, instancecount, startvertex, startinstance)) {}
-  else
-    return e.error().log(backend);
-  return 0;
+  return ERR_NOT_IMPLEMENTED;
 }
 int Backend::DrawIndexed(FG_Backend* self, void* commands, uint32_t indexcount, uint32_t instancecount, uint32_t startindex,
                          int startvertex, uint32_t startinstance)
 {
-  if(!commands)
-    return ERR_INVALID_PARAMETER;
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(commands);
-  if(auto e = context->DrawIndexed(indexcount, instancecount, startindex, startvertex, startinstance)) {}
-  else
-    return e.error().log(backend);
-  return 0;
+  return ERR_NOT_IMPLEMENTED;
 }
 int Backend::SetPipelineState(FG_Backend* self, void* commands, void* state)
 {
-  if(!commands || !state)
-    return ERR_INVALID_PARAMETER;
-
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(commands);
-  if(auto e = reinterpret_cast<PipelineState*>(state)->apply(context)) {}
-  else
-    return e.error().log(backend);
-  return 0;
+  return ERR_NOT_IMPLEMENTED;
 }
 int Backend::SetDepthStencil(FG_Backend* self, void* commands, bool Front, uint8_t StencilFailOp,
                              uint8_t StencilDepthFailOp, uint8_t StencilPassOp, uint8_t StencilFunc)
@@ -217,11 +170,6 @@ int Backend::SetShaderConstants(FG_Backend* self, void* commands, const FG_Shade
 {
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(commands);
-
-  if(auto e = context->SetShaderUniforms(uniforms, values, count)) {}
-  else
-    return e.error().log(backend);
-
   return ERR_NOT_IMPLEMENTED;
 }
 int Backend::Execute(FG_Backend* self, FG_Context* context, void* commands) { return ERR_SUCCESS; }
@@ -229,8 +177,7 @@ int Backend::Execute(FG_Backend* self, FG_Context* context, void* commands) { re
 void* Backend::CreatePipelineState(FG_Backend* self, FG_Context* context, FG_PipelineState* pipelinestate,
                                    FG_Resource** rendertargets, uint32_t n_targets, FG_Blend* blends,
                                    FG_Resource** vertexbuffer, GLsizei* strides, uint32_t n_buffers,
-                                   FG_ShaderParameter* attributes, uint32_t n_attributes, FG_Resource* indexbuffer,
-                                   uint8_t indexstride)
+                                   FG_ShaderParameter* attributes, uint32_t n_attributes, FG_Resource* indexbuffer)
 {
   if(!pipelinestate || !context || !blends)
     return nullptr;
@@ -239,7 +186,7 @@ void* Backend::CreatePipelineState(FG_Backend* self, FG_Context* context, FG_Pip
   auto ctx     = reinterpret_cast<Context*>(context);
   if(auto e = PipelineState::create(*pipelinestate, std::span(rendertargets, n_targets), *blends,
                                     std::span(vertexbuffer, n_buffers), strides, std::span(attributes, n_attributes),
-                                    indexbuffer, indexstride))
+                                    indexbuffer))
     return e.value();
   else
     e.log(backend);
@@ -260,7 +207,7 @@ FG_Resource* Backend::CreateBuffer(FG_Backend* self, FG_Context* context, void* 
   if(type >= ArraySize(TypeMapping))
     return nullptr;
   if(auto e = Buffer::create(TypeMapping[type], data, bytes))
-    return pack_ptr(std::move(e.value()).release());
+    return pack_ptr(std::move(e.value()).take());
   else
     e.log(backend);
   return nullptr;
@@ -272,8 +219,8 @@ FG_Resource* Backend::CreateTexture(FG_Backend* self, FG_Context* context, FG_Ve
   auto backend = static_cast<Backend*>(self);
   if(type >= ArraySize(TypeMapping) || !sampler)
     return nullptr;
-  if(auto e = Texture::create2D(TypeMapping[type], GLFormat::Create(format, false), size, *sampler, data, MultiSampleCount))
-    return pack_ptr(std::move(e.value()).release());
+  if(auto e = Texture::create2D(TypeMapping[type], Format::Create(format, false), size, *sampler, data, MultiSampleCount))
+    return pack_ptr(std::move(e.value()).take());
   else
     e.log(backend);
   return nullptr;
@@ -329,13 +276,13 @@ int Backend::SetWindow(FG_Backend* self, FG_Window* window, FG_Element* element,
   if(!window)
     return ERR_MISSING_PARAMETER;
   auto w            = static_cast<Window*>(window);
-  w->element = element;
+  w->_element = element;
 
   auto glwindow = w->GetWindow();
   if(!glwindow)
   {
-    //if(dim) // A pure context doesn't currently track dimensions
-    //  w->SetDim(*dim);
+    if(dim)
+      w->SetDim(*dim);
     return ERR_SUCCESS;
   }
   if(caption)
@@ -391,16 +338,13 @@ int Backend::BeginDraw(FG_Backend* self, FG_Context* context, FG_Rect* area)
   if(!context)
     return ERR_MISSING_PARAMETER;
   _lasterr = 0;
-  if(auto e = reinterpret_cast<Context*>(context)->BeginDraw(area)) {}
-  else
-    return e.error().log(static_cast<Backend*>(self));
+  static_cast<Context*>(context)->BeginDraw(area);
   return _lasterr;
 }
 int Backend::EndDraw(FG_Backend* self, FG_Context* context)
 {
   _lasterr = 0;
-  if(auto e = reinterpret_cast<Context*>(context)->EndDraw()) {}
-    else return e.error().log(static_cast<Backend*>(self));
+  static_cast<Context*>(context)->EndDraw();
   return _lasterr;
 }
 
@@ -774,7 +718,7 @@ long long GetRegistryValueW(HKEY__* hKeyRoot, const wchar_t* szKey, const wchar_
 #define TXT(x)        _STRINGIFY(#x)
 
 Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
-  _root(root), _log(log), _behavior(behavior), _windows(nullptr), _insidelist(false)
+  _root(root), _log(log), _behavior(behavior), _windows(nullptr)
 {
   getCaps              = &GetCaps;
   compileShader        = &CompileShader;
@@ -788,7 +732,6 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   copyResourceRegion   = &CopyResourceRegion;
   draw                 = &DrawGL;
   drawIndexed          = &DrawIndexed;
-  setDepthStencil      = &SetDepthStencil;
   setPipelineState     = &SetPipelineState;
   setViewports         = &SetViewports;
   setShaderConstants   = &SetShaderConstants;
@@ -800,7 +743,6 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   createRenderTarget   = &CreateRenderTarget;
   destroyResource      = &DestroyResource;
   createWindow         = &CreateWindowGL;
-  setWindow            = &SetWindow;
   destroyWindow        = &DestroyWindow;
   beginDraw            = &BeginDraw;
   endDraw              = &EndDraw;

@@ -17,6 +17,11 @@
     return e;           \
   }
 
+#define RETURN_ERROR(...)       \
+  if(auto e = (__VA_ARGS__)) {} \
+  else                          \
+    return std::move(e.error())
+
 namespace GL {
   class Backend;
 
@@ -78,7 +83,7 @@ namespace GL {
     inline constexpr bool operator!=(const GLError& e) noexcept { return e._error != _error; };
     // If there was an error, logs it to backend.
     GLenum log(Backend* backend);
-    std::pair<GLenum, const char*> take() &&
+    std::pair<GLenum, const char*> release()
     {
       // If this is an invalid error, we must leave it like that because _context could be invalid
       if(_error == INVALID_ERROR)
@@ -188,12 +193,12 @@ namespace GL {
 
     constexpr GLExpected(GLError&& right) noexcept
     {
-      auto [err, ctx] = std::move(right).take();
+      auto [err, ctx] = right.release();
       _error          = err;
       if(_error == GLError::INVALID_ERROR)
         return;
 
-      _context       = ctx;
+      _context = ctx;
     }
 
     template<class... Args>
@@ -248,7 +253,7 @@ namespace GL {
     constexpr GLExpected& operator=(GLError&& e)
     {
       this->~GLExpected();
-      auto [e, s] = std::move(e).take();
+      auto [e, s] = e.release();
       _error      = e;
       _context    = s;
       return *this;
@@ -315,13 +320,13 @@ namespace GL {
     constexpr T& operator*() & noexcept { return value(); }
     constexpr const T&& operator*() const&& noexcept { return value(); }
     constexpr T&& operator*() && noexcept { return value(); }
-    inline constexpr explicit operator bool() const noexcept { return has_value(); }
-    inline constexpr bool has_value() const noexcept
+    inline constexpr explicit operator bool() noexcept { return has_value(); }
+    inline constexpr bool has_value() noexcept
     {
       _checked();
       return peek();
     }
-    inline constexpr bool has_error() const noexcept { return !has_value() && _error != GLError::INVALID_ERROR; }
+    inline constexpr bool has_error() noexcept { return !has_value() && _error != GLError::INVALID_ERROR; }
 
     constexpr const T& value() const&
     {
@@ -347,10 +352,7 @@ namespace GL {
       return _result;
     }
 
-    constexpr const GLError& error() const& { return _grab(); }
-    constexpr GLError& error() & { return _grab(); }
-    constexpr const GLError&& error() const&& { return _grab(); }
-    constexpr GLError&& error() && { return _grab(); }
+    constexpr GLError error() { return std::move(_grab()); }
 
     template<class U> constexpr T value_or(U&& right) const&
     {
@@ -385,7 +387,7 @@ namespace GL {
       _checked();
       return _grab().log(backend);
     }
-    constexpr GLError take() noexcept
+    constexpr GLError release() noexcept
     {
       assert(_error != GLError::INVALID_ERROR);
       auto e = _grab();
@@ -468,8 +470,8 @@ namespace GL {
     // constructors
     constexpr GLExpected() noexcept {}
     constexpr explicit GLExpected(const GLExpected&) = delete;
-    constexpr explicit GLExpected(GLExpected&& right) noexcept : GLError(std::move(right._error)) {}
-    constexpr GLExpected(GLError&& right) noexcept : GLError(std::move(_error)) {}
+    constexpr explicit GLExpected(GLExpected&& right) noexcept : _error(std::move(right._error)) {}
+    constexpr GLExpected(GLError&& right) noexcept : _error(std::move(_error)) {}
 
     constexpr explicit GLExpected(std::in_place_t) noexcept {}
 
@@ -484,7 +486,7 @@ namespace GL {
     }
     constexpr GLExpected& operator=(GLError&& right) noexcept
     {
-      _error           = std::move(right);
+      _error = std::move(right);
       return *this;
     }
     constexpr GLExpected& operator=(const GLExpected&) noexcept = delete;
@@ -501,11 +503,11 @@ namespace GL {
     constexpr void value() const& {}
     constexpr void value() && {}
     inline constexpr bool has_error() noexcept { return _error.has_error(); }
-    constexpr const GLError& error() const& { return *this; }
-    constexpr GLError& error() & { return *this; }
-    constexpr const GLError&& error() const&& { return *this; }
-    constexpr GLError&& error() && { return *this; }
-    constexpr GLError take() noexcept { return std::move(*this); }
+    constexpr const GLError& error() const& { return _error; }
+    constexpr GLError& error() & { return _error; }
+    constexpr const GLError&& error() const&& { return _error; }
+    constexpr GLError&& error() && { return _error; }
+    constexpr GLError release() noexcept { return std::move(*this); }
     bool log(Backend* backend) noexcept { return _error.log(backend); }
     inline constexpr bool peek() const noexcept { return _error.peek(); }
 

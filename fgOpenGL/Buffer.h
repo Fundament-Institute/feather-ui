@@ -4,19 +4,19 @@
 #ifndef GL__BUFFER_H
 #define GL__BUFFER_H
 
-#include "GLRef.h"
+#include "Ref.h"
 
 namespace GL {
   static constexpr bool IsBuffer(GLuint i) noexcept { return glIsBuffer(i) == GL_TRUE; };
   static constexpr void DeleteBuffer(GLuint i) noexcept { glDeleteBuffers(1, &i); };
   static constexpr void UnbindBuffer(GLenum target) noexcept { glBindBuffer(target, 0); };
 
-  struct Buffer : GLRef<&IsBuffer, &DeleteBuffer>
+  struct Buffer : Ref<&IsBuffer, &DeleteBuffer>
   {
-    typedef GLBindRef<&UnbindBuffer> GLBufferBindRef;
+    typedef BindRef<&UnbindBuffer> GLBufferBindRef;
 
-    explicit constexpr Buffer(GLuint shader) noexcept : GLRef(shader) {}
-    explicit constexpr Buffer(void* shader) noexcept : GLRef(shader) {}
+    explicit constexpr Buffer(GLuint shader) noexcept : Ref(shader) {}
+    explicit constexpr Buffer(void* shader) noexcept : Ref(shader) {}
     constexpr Buffer() noexcept               = default;
     constexpr Buffer(Buffer&& right) noexcept = default;
     constexpr Buffer(const Buffer&)           = delete;

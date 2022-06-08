@@ -10,7 +10,7 @@ using namespace GL;
 
 #ifndef USE_EMULATED_VAOS
 
-GLExpected<VertexArrayObject> VertexArrayObject::create(GLuint shader, std::span<FG_ShaderParameter> parameters,
+GLExpected<VertexArrayObject> VertexArrayObject::create(GLuint program, std::span<FG_ShaderParameter> parameters,
                                             std::span<std::pair<GLuint, GLsizei>> vbuffers, GLuint indices) noexcept
 {
   GLuint id;
@@ -26,7 +26,6 @@ GLExpected<VertexArrayObject> VertexArrayObject::create(GLuint shader, std::span
       GL_ERROR("glBindBuffer");
     }
 
-    char* offset = 0;
     for(auto& param : parameters)
     {
       if(param.index >= vbuffers.size())
@@ -36,7 +35,7 @@ GLExpected<VertexArrayObject> VertexArrayObject::create(GLuint shader, std::span
 
       glBindBuffer(GL_ARRAY_BUFFER, vbuffers[param.index].first);
       GL_ERROR("glBindBuffer");
-      auto loc = glGetAttribLocation(shader, param.name);
+      auto loc = glGetAttribLocation(program, param.name);
       GL_ERROR("glGetAttribLocation");
       glEnableVertexAttribArray(loc);
       GL_ERROR("glEnableVertexAttribArray");
@@ -47,8 +46,7 @@ GLExpected<VertexArrayObject> VertexArrayObject::create(GLuint shader, std::span
 
       GLenum type = ShaderTypeMapping[param.type];
 
-      glVertexAttribPointer(loc, sz, type, GL_FALSE, vbuffers[param.index].second, offset);
-      offset += Context::GetBytes(type) * sz;
+      glVertexAttribPointer(loc, sz, type, GL_FALSE, vbuffers[param.index].second, pack_ptr(param.offset));
       GL_ERROR("glVertexAttribPointer");
       if(glVertexAttribDivisor)
       {
@@ -64,15 +62,14 @@ GLExpected<VertexArrayObject> VertexArrayObject::create(GLuint shader, std::span
       glBindBuffer(GL_ARRAY_BUFFER, 0);
       GL_ERROR("glBindBuffer");
     }
-
-    glBindVertexArray(0);
-    GL_ERROR("glBindVertexArray");
   }
   else
     return std::move(e.error());
 
   if(indices)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+  return vao;
 }
 
 VertexArrayObject::~VertexArrayObject()
@@ -85,12 +82,14 @@ GLExpected<void> VertexArrayObject::bind()
 {
   glBindVertexArray(_vaoID);
   GL_ERROR("glBindVertexArray");
+  return {};
 }
 
 GLExpected<void> VertexArrayObject::unbind()
 {
   glBindVertexArray(0);
   GL_ERROR("glBindVertexArray");
+  return {};
 }
 
 #else

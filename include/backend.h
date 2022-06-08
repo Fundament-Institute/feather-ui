@@ -413,42 +413,44 @@ enum FG_PIPELINE_FLAGS
   FG_PIPELINE_FLAG_RENDERTARGET_SRGB_ENABLE = (1 << 12),
 };
 
+enum FG_STENCIL_OP
+{
+  FG_STENCIL_OP_NONE      = 0,
+  FG_STENCIL_OP_KEEP      = 1,
+  FG_STENCIL_OP_ZERO      = 2,
+  FG_STENCIL_OP_REPLACE   = 3,
+  FG_STENCIL_OP_INCR_SAT  = 4,
+  FG_STENCIL_OP_DECR_SAT  = 5,
+  FG_STENCIL_OP_INVERT    = 6,
+  FG_STENCIL_OP_INCR_WRAP = 7,
+  FG_STENCIL_OP_DECR_WRAP = 8
+};
+
 typedef struct FG_PipelineState__
 {
   uint64_t Members; // Each bit represents a particular member that has been set
-  uint8_t Primitive;
-  uint32_t StencilRef;
   void* Shaders[FG_ShaderStage_COUNT];
   FG_Resource* DepthStencil;
   FG_Color BlendFactor;
   uint16_t Flags;
   uint32_t SampleMask;
+  uint32_t StencilRef;
   uint8_t StencilReadMask;
   uint8_t StencilWriteMask;
+  uint8_t StencilFailOp;
+  uint8_t StencilDepthFailOp;
+  uint8_t StencilPassOp;
+  uint8_t StencilFunc;
   uint8_t DepthFunc;
-  uint8_t StripCutValue;
   uint8_t RenderTargetsCount;
   uint8_t RTFormats[8];
   uint8_t FillMode;
   uint8_t CullMode;
+  uint8_t Primitive;
   int DepthBias;
-  float DepthBiasClamp;
   float SlopeScaledDepthBias;
-  uint32_t ForcedSampleCount;
   uint32_t NodeMask;
 } FG_PipelineState;
-
-enum FG_STENCIL_OP
-{
-  FG_STENCIL_OP_KEEP     = 1,
-  FG_STENCIL_OP_ZERO     = 2,
-  FG_STENCIL_OP_REPLACE  = 3,
-  FG_STENCIL_OP_INCR_SAT = 4,
-  FG_STENCIL_OP_DECR_SAT = 5,
-  FG_STENCIL_OP_INVERT   = 6,
-  FG_STENCIL_OP_INCR     = 7,
-  FG_STENCIL_OP_DECR     = 8
-};
 
 /* typedef struct FG_VertexStream__
 {
@@ -561,13 +563,13 @@ enum FG_ShaderType
 typedef struct FG_ShaderParameter__
 {
   const char* name;
+  uint32_t offset;
   uint32_t length;
   uint32_t multi;
   uint8_t index;
   uint8_t type;      // enum FG_ShaderType
   bool per_instance; // false if per_vertex
   uint32_t step;
-  uint32_t offset;
 } FG_ShaderParameter;
 
 typedef struct FG_Display__
@@ -1102,6 +1104,7 @@ typedef struct FG_Window__
 {
   void* handle;
   FG_Context* context;
+  FG_Element* element;
 } FG_Window;
 
 typedef union FG_ShaderValue__
@@ -1124,9 +1127,11 @@ struct FG_Backend
   int (*destroyShader)(FG_Backend* self, FG_Context* context, void* shader);
   void* (*createCommandList)(FG_Backend* self, FG_Context* context, bool bundle);
   int (*destroyCommandList)(FG_Backend* self, void* commands);
+  // clear 0 clears both, clear 1 is just depth, clear -1 is just stencil
   int (*clearDepthStencil)(FG_Backend* self, void* commands, FG_Resource* depthstencil, char clear, uint8_t stencil,
-                           float depth, uint32_t num_rects);
-  int (*clearRenderTarget)(FG_Backend* self, void* commands, FG_Resource* rendertarget, FG_Color RGBA, uint32_t num_rects);
+                           float depth, uint32_t num_rects, FG_Rect* rects);
+  int (*clearRenderTarget)(FG_Backend* self, void* commands, FG_Resource* rendertarget, FG_Color RGBA, uint32_t num_rects,
+                           FG_Rect* rects);
   int (*copyResource)(FG_Backend* self, void* commands, FG_Resource* src, FG_Resource* dest);
   int (*copySubresource)(FG_Backend* self, void* commands, FG_Resource* src, FG_Resource* dest, unsigned long srcoffset,
                          unsigned long destoffset, unsigned long bytes);
@@ -1145,8 +1150,9 @@ struct FG_Backend
   int (*execute)(FG_Backend* self, FG_Context* context, void* commands);
   void* (*createPipelineState)(FG_Backend* self, FG_Context* context, FG_PipelineState* pipelinestate,
                                FG_Resource** rendertargets, uint32_t n_targets, FG_Blend* blends,
-                               FG_Resource** vertexbuffer, uint32_t n_buffers, FG_ShaderParameter* attributes,
-                               uint32_t n_attributes, FG_Resource* indexbuffer);
+                               FG_Resource** vertexbuffer, int* strides, uint32_t n_buffers,
+                               FG_ShaderParameter* attributes, uint32_t n_attributes, FG_Resource* indexbuffer,
+                               uint8_t indexstride);
   int (*destroyPipelineState)(FG_Backend* self, FG_Context* context, void* state);
   FG_Resource* (*createBuffer)(FG_Backend* self, FG_Context* context, void* data, uint32_t bytes, enum FG_Type type);
   FG_Resource* (*createTexture)(FG_Backend* self, FG_Context* context, FG_Vec2i size, enum FG_Type type,

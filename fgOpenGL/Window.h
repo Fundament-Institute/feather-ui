@@ -10,7 +10,7 @@ namespace GL {
   class Backend;
   struct Asset;
 
-  struct Window : Context, FG_Window
+  struct Window : Context
   {
     Window(Backend* backend, GLFWmonitor* display, FG_Element* element, FG_Vec2* pos, FG_Vec2* dim, uint64_t flags,
            const char* caption);

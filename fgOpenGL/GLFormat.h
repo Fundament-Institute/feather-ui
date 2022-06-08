@@ -16,8 +16,8 @@ namespace GL {
     GLenum components;
     GLenum type;
 
-    static constexpr GLFormat Map(GLint internalformat) noexcept;
-    static constexpr GLFormat Create(uint8_t format, bool sRGB) noexcept;
+    static GLFormat Map(GLint internalformat) noexcept;
+    static GLFormat Create(unsigned char format, bool sRGB) noexcept;
   };
 }
 

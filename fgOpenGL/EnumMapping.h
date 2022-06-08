@@ -61,6 +61,19 @@ namespace GL {
     GL_PROXY_TEXTURE_2D_MULTISAMPLE,
   };
 
+  static constexpr uint16_t StencilOpMapping[] = {
+    0, GL_KEEP, GL_ZERO, GL_REPLACE, GL_INCR, GL_DECR, GL_INVERT, GL_INCR_WRAP, GL_DECR_WRAP,
+  };
+
+  static constexpr uint16_t ShaderStageMapping[] = {
+    GL_FRAGMENT_SHADER,
+    GL_VERTEX_SHADER,
+    GL_GEOMETRY_SHADER,
+    #if 0 // We don't support these shaders yet
+                                                    GL_TESS_CONTROL_SHADER, GL_TESS_EVALUATION_SHADER, GL_COMPUTE_SHADER,
+    #endif
+  };
+
   template<class T, int SIZE> constexpr int ArraySize(T (&)[SIZE]) { return SIZE; }
 }
 

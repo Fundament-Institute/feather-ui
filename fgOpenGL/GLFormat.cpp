@@ -9,7 +9,7 @@ using namespace GL;
 
 // https://github.com/richardmg/dachshund/blob/7f5404b89aab84ae77995725d2b408109f514479/src/3rdparty/angle/src/libANGLE/es3_format_type_combinations.json
 
-constexpr GLFormat GLFormat::Map(GLint internalformat) noexcept
+GLFormat GLFormat::Map(GLint internalformat) noexcept
 {
   // The standard allows multiple valid type combinations for certain formats. We pick the most specific
   // type possible. The alternatives are left commented out in case we need to implement them as fallbacks.
@@ -156,9 +156,10 @@ constexpr GLFormat GLFormat::Map(GLint internalformat) noexcept
     case GL_RGBA16_SNORM_EXT: return GLFormat{ GL_RGBA16_SNORM_EXT, GL_RGBA, GL_SHORT };
     */
   }
+  return GLFormat{ 0, 0, 0 };
 }
 
-constexpr GLFormat GLFormat::Create(uint8_t format, bool sRGB) noexcept
+GLFormat GLFormat::Create(unsigned char format, bool sRGB) noexcept
 {
   switch(format)
   {

@@ -142,7 +142,7 @@ void Window::FillKeyMap()
 
 Window::Window(Backend* backend, GLFWmonitor* display, FG_Element* element, FG_Vec2* pos, FG_Vec2* dim, uint64_t flags,
                const char* caption) :
-  Context(backend, element, dim), _next(nullptr), _prev(nullptr)
+  Context(backend, element, !dim ? FG_Vec2{0,0} : *dim), _next(nullptr), _prev(nullptr)
 {
   FillKeyMap();
   if(flags & FG_WindowFlag_NOCAPTION)
@@ -160,7 +160,6 @@ Window::Window(Backend* backend, GLFWmonitor* display, FG_Element* element, FG_V
   //  glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API);
   //#endif
 
-  this->context = this;
   _window = glfwCreateWindow(!dim ? 0 : static_cast<int>(dim->x), !dim ? 0 : static_cast<int>(dim->y), caption, NULL, NULL);
 
   if(_window)
@@ -370,10 +369,18 @@ void Window::CloseCallback(GLFWwindow* window)
 void Window::SizeCallback(GLFWwindow* window, int width, int height)
 {
   auto self = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
-  self->SetDim(FG_Vec2{ (float)width, (float)height });
+  self->_dim  = { static_cast<float>(width), static_cast<float>(height) };
 }
 
 void Window::RefreshCallback(GLFWwindow* window)
 {
+#ifdef FG_PLATFORM_WIN32
+  // Call beginpaint and Endpaint so that assertions don't blow everything up.
+  PAINTSTRUCT ps;
+  HWND hWnd = glfwGetWin32Window(window);
+  auto hdc       = BeginPaint(hWnd, &ps);
+  EndPaint(hWnd, &ps);
+#endif
+
   reinterpret_cast<Window*>(glfwGetWindowUserPointer(window))->Draw(nullptr);
 }

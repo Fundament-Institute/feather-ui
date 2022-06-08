@@ -4,7 +4,7 @@
 #ifndef GL__TEXTURE_H
 #define GL__TEXTURE_H
 
-#include "GLRef.h"
+#include "Ref.h"
 #include "GLFormat.h"
 
 namespace GL {
@@ -30,12 +30,12 @@ namespace GL {
 
   static_assert(sizeof(Filter) == sizeof(uint8_t), "Filter is unexpected size!");
 
-  struct Texture : GLRef<&IsTexture, &DeleteTexture>
+  struct Texture : Ref<&IsTexture, &DeleteTexture>
   {
-    struct GLTextureBindRef : GLBindRef<&UnbindTexture>
+    struct GLTextureBindRef : BindRef<&UnbindTexture>
     {
       constexpr GLTextureBindRef() noexcept                         = delete;
-      constexpr GLTextureBindRef(GLenum target) noexcept : GLBindRef(target) {}
+      constexpr GLTextureBindRef(GLenum target) noexcept : BindRef(target) {}
       constexpr GLTextureBindRef(GLTextureBindRef&& right) noexcept = default;
       GLTextureBindRef(const GLTextureBindRef&)                     = delete;
       constexpr GLTextureBindRef& operator=(GLTextureBindRef&& right) noexcept = default;
@@ -82,8 +82,8 @@ namespace GL {
       GLExpected<void> apply_sampler(const FG_Sampler& sampler) { return Texture::apply_sampler(_target, sampler); }
     };
 
-    explicit constexpr Texture(GLuint shader) noexcept : GLRef(shader) {}
-    explicit constexpr Texture(void* shader) noexcept : GLRef(shader) {}
+    explicit constexpr Texture(GLuint shader) noexcept : Ref(shader) {}
+    explicit constexpr Texture(void* shader) noexcept : Ref(shader) {}
     constexpr Texture() noexcept                = default;
     constexpr Texture(Texture&& right) noexcept = default;
     constexpr Texture(const Texture&)           = delete;

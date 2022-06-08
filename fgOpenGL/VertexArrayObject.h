@@ -27,7 +27,7 @@ namespace GL {
     VertexArrayObject& operator=(const VertexArrayObject&) noexcept = delete;
 
   private:
-    VertexArrayObject(GLuint id) : _vaoID(id) { assert(glIsVertexArray(_vaoID) == GL_TRUE); }
+    VertexArrayObject(GLuint id) : _vaoID(id) { }
     /// OpenGL object ID of VertexArrayObject
     GLuint _vaoID;
 #else
@@ -81,7 +81,7 @@ namespace GL {
     GLExpected<void> bind();
     GLExpected<void> unbind();
 
-    static GLExpected<VertexArrayObject> create(GLuint shader, std::span<FG_ShaderParameter> parameters,
+    static GLExpected<VertexArrayObject> create(GLuint program, std::span<FG_ShaderParameter> parameters,
                                                 std::span<std::pair<GLuint, GLsizei>> vbuffers, GLuint indices) noexcept;
   };
 }

@@ -2,8 +2,8 @@
 // For conditions of distribution and use, see copyright notice in "BackendGL.h"
 
 #include "BackendGL.h"
-#include "linmath.h"
 #include "VertexArrayObject.h"
+#include "ProgramObject.h"
 #include "EnumMapping.h"
 #include <algorithm>
 #include <assert.h>
@@ -17,117 +17,48 @@ using namespace GL;
 // Feather uses a premultiplied compositing pipeline:
 // https://apoorvaj.io/alpha-compositing-opengl-blending-and-premultiplied-alpha/
 const FG_Blend Context::PREMULTIPLY_BLEND = {
-  FG_BLEND_ONE,
-  FG_BLEND_INV_SRC_ALPHA,
-  FG_BLEND_OP_ADD,
-  FG_BLEND_ONE,
-  FG_BLEND_INV_SRC_ALPHA,
-  FG_BLEND_OP_ADD,
-  0b1111,
+  FG_BLEND_ONE, FG_BLEND_INV_SRC_ALPHA, FG_BLEND_OP_ADD, FG_BLEND_ONE, FG_BLEND_INV_SRC_ALPHA, FG_BLEND_OP_ADD, 0b1111,
 };
 
 const FG_Blend Context::NORMAL_BLEND = {
-  FG_BLEND_SRC_ALPHA,
-  FG_BLEND_INV_SRC_ALPHA,
-  FG_BLEND_OP_ADD,
-  FG_BLEND_ONE,
-  FG_BLEND_INV_SRC_ALPHA,
-  FG_BLEND_OP_ADD,
-  0b1111,
+  FG_BLEND_SRC_ALPHA,     FG_BLEND_INV_SRC_ALPHA, FG_BLEND_OP_ADD, FG_BLEND_ONE,
+  FG_BLEND_INV_SRC_ALPHA, FG_BLEND_OP_ADD,        0b1111,
 };
 
-const FG_Blend Context::DEFAULT_BLEND = { FG_BLEND_ONE,
-                                          FG_BLEND_ZERO,
-                                          FG_BLEND_OP_ADD,
-                                          FG_BLEND_ONE,
-                                          FG_BLEND_ZERO,
-                                          FG_BLEND_OP_ADD,
-                                          0b1111,
-                                           };
+const FG_Blend Context::DEFAULT_BLEND = {
+  FG_BLEND_ONE, FG_BLEND_ZERO, FG_BLEND_OP_ADD, FG_BLEND_ONE, FG_BLEND_ZERO, FG_BLEND_OP_ADD, 0b1111,
+};
 
-Context::Context(Backend* backend, FG_Element* element, FG_Vec2* dim) :
-  _backend(backend),
-  _element(element),
-  _window(nullptr),
-  _buffercount(0),
-  _bufferoffset(0),
-  _initialized(false),
-  _clipped(false),
-  _lastblend(DEFAULT_BLEND)
+Context::Context(Backend* backend, FG_Element* element, FG_Vec2 dim) :
+  _backend(backend), _window(nullptr), _lastblend(DEFAULT_BLEND), _program(nullptr), _dim(dim)
 {
-  if(dim)
-    SetDim(*dim);
+  this->element = element;
+  this->context = this;
 }
-Context::~Context()
-{
-}
+Context::~Context() {}
 
 GLExpected<void> Context::BeginDraw(const FG_Rect* area)
 {
   if(_window)
   {
     glfwMakeContextCurrent(_window);
-    StandardViewport();
   }
   else
   {
-    // If we don't control the context, store OpenGL state so we don't stomp on it
-    glGetBooleanv(GL_BLEND, &_statestore.blend);
-    glGetBooleanv(GL_TEXTURE_2D, &_statestore.tex2d);
-    glGetBooleanv(GL_FRAMEBUFFER_SRGB, &_statestore.framebuffer_srgb);
-    glGetBooleanv(GL_CULL_FACE, &_statestore.cullface);
-    glGetIntegerv(GL_FRONT_FACE, &_statestore.frontface);
-    glGetIntegerv(GL_POLYGON_MODE, _statestore.polymode);
-
-    GLboolean mask[4];
-    glGetBooleanv(GL_COLOR_WRITEMASK, mask);
-    _statestore.blendmask = 0;
-    for(int i = 0; i < 4; ++i)
-      _statestore.blendmask |= (mask[i] << i);
-
-    glGetFloatv(GL_BLEND_COLOR, _statestore.blendcolor);
-    glGetIntegerv(GL_BLEND_SRC, &_statestore.colorsrc);
-    glGetIntegerv(GL_BLEND_DST, &_statestore.colordest);
-    glGetIntegerv(GL_BLEND_EQUATION, &_statestore.colorop);
-    glGetIntegerv(GL_BLEND_SRC_ALPHA, &_statestore.alphasrc);
-    glGetIntegerv(GL_BLEND_DST_ALPHA, &_statestore.alphadest);
-    glGetIntegerv(GL_BLEND_EQUATION_ALPHA, &_statestore.alphaop);
+    glEnable(GL_SCISSOR_TEST);
+    GL_ERROR("glEnable");
+    glScissor(0, 0, _dim.x, _dim.y);
+    GL_ERROR("glScissor");
   }
 
-  return std::move(SetDefaultState());
+  return {};
 }
+
 GLExpected<void> Context::EndDraw()
 {
   if(_window)
     glfwSwapBuffers(_window);
-  else
-  {
-    // Restore saved OpenGL state
-    FlipFlag(1, _statestore.blend, 1, GL_BLEND);
-    GL_ERROR("glEnable");
-    FlipFlag(1, _statestore.tex2d, 1, GL_TEXTURE_2D);
-    GL_ERROR("glEnable");
-    FlipFlag(1, _statestore.framebuffer_srgb, 1, GL_FRAMEBUFFER_SRGB);
-    GL_ERROR("glEnable");
-    FlipFlag(1, _statestore.cullface, 1, GL_CULL_FACE);
-    GL_ERROR("glEnable");
-    glFrontFace(_statestore.frontface);
-    GL_ERROR("glFrontFace");
-    glPolygonMode(GL_FRONT, _statestore.polymode[0]);
-    GL_ERROR("glPolygonMode");
-    glPolygonMode(GL_BACK, _statestore.polymode[1]);
-    GL_ERROR("glPolygonMode");
-    glColorMask(_statestore.blendmask & 0b0001, _statestore.blendmask & 0b0010, _statestore.blendmask & 0b0100,
-                _statestore.blendmask & 0b1000);
-    GL_ERROR("glColorMask");
-    glBlendColor(_statestore.blendcolor[0], _statestore.blendcolor[1], _statestore.blendcolor[2],
-                 _statestore.blendcolor[3]);
-    GL_ERROR("glBlendColor");
-    glBlendFuncSeparate(_statestore.colorsrc, _statestore.colordest, _statestore.alphasrc, _statestore.alphadest);
-    GL_ERROR("glBlendFuncSeparate");
-    glBlendEquationSeparate(_statestore.colorop, _statestore.alphaop);
-    GL_ERROR("glBlendEquationSeparate");
-  }
+  return {};
 }
 
 void Context::Draw(const FG_Rect* area)
@@ -137,9 +68,15 @@ void Context::Draw(const FG_Rect* area)
     msg.draw.area = *area;
   else
   {
-    auto vp              = GetViewportf();
-    msg.draw.area.right  = vp.x;
-    msg.draw.area.bottom = vp.y;
+    if(_window)
+    {
+      int x, y;
+      glfwGetFramebufferSize(_window, &x, &y);
+      _dim.x = static_cast<float>(x);
+      _dim.y = static_cast<float>(y);
+    }
+    msg.draw.area.right  = _dim.x;
+    msg.draw.area.bottom = _dim.y;
   }
 
   _backend->BeginDraw(_backend, this, &msg.draw.area);
@@ -147,61 +84,52 @@ void Context::Draw(const FG_Rect* area)
   _backend->EndDraw(_backend, this);
 }
 
-FG_Err Context::DrawShader(FG_Shader* fgshader, uint8_t primitive, Signature* input, GLsizei count, FG_ShaderValue* values)
+GLExpected<void> Context::SetShaderUniforms(const FG_ShaderParameter* uniforms, const FG_ShaderValue* values,
+                                            uint32_t count)
 {
-  auto shader   = static_cast<Shader*>(fgshader);
-  auto instance = LoadShader(shader);
-  auto vao      = LoadSignature(input, instance);
-
-  glUseProgram(instance);
-  GL_ERROR("glUseProgram");
-  vao->Bind();
-
-  for(uint32_t i = 0; i < shader->n_parameters; ++i)
+  for(uint32_t i = 0; i < count; ++i)
   {
-    auto type = Shader::GetType(shader->parameters[i]);
+    auto type = ShaderObject::get_type(uniforms[i]);
     switch(type)
     {
     case GL_DOUBLE:
     case GL_HALF_FLOAT: // we assume you pass in a proper float to fill this
     case GL_FLOAT:
     case GL_INT:
-    case GL_UNSIGNED_INT: Shader::SetUniform(_backend, instance, shader->parameters[i].name, type, &values[i].f32); break;
+    case GL_UNSIGNED_INT: RETURN_ERROR(_program->set_uniform(uniforms[i].name, type, &values[i].f32)); break;
     default:
       if(type >= GL_TEXTURE0 && type <= GL_TEXTURE31)
       {
-        GLuint idx = LoadAsset(static_cast<Asset*>(values[i].asset));
-        Shader::SetUniform(_backend, instance, shader->parameters[i].name, type, (float*)&idx);
+        RETURN_ERROR(_program->set_uniform(uniforms[i].name, type, (float*)values[i].resource));
       }
       else
-        Shader::SetUniform(_backend, instance, shader->parameters[i].name, type, values[i].pf32);
+      {
+        RETURN_ERROR(_program->set_uniform(uniforms[i].name, type, values[i].pf32));
+      }
       break;
     }
   }
+  return {};
+}
 
-  GLenum kind = 0;
-  switch(primitive)
-  {
-  case FG_Primitive_TRIANGLE: kind = GL_TRIANGLES; break;
-  case FG_Primitive_TRIANGLE_STRIP: kind = GL_TRIANGLE_STRIP; break;
-  case FG_Primitive_LINE: kind = GL_LINES; break;
-  case FG_Primitive_LINE_STRIP: kind = GL_LINE_STRIP; break;
-  case FG_Primitive_POINT: kind = GL_POINT; break;
-  }
+GLExpected<void> Context::DrawArrays(uint32_t vertexcount, uint32_t instancecount, uint32_t startvertex,
+                                     uint32_t startinstance)
+{
+  if(instancecount > 0)
+    return GLError(ERR_NOT_IMPLEMENTED, "don't know how to instance things!");
+  glDrawArrays(_primitive, startvertex, vertexcount);
+  GL_ERROR("glDrawArrays");
+  return {};
+}
+GLExpected<void> Context::DrawIndexed(uint32_t indexcount, uint32_t instancecount, uint32_t startindex, int startvertex,
 
-  if(!vao->ElementType())
-  {
-    glDrawArrays(kind, 0, count);
-    GL_ERROR("glDrawArrays");
-  }
-  else
-  {
-    glDrawElements(kind, count, vao->ElementType(), nullptr);
-    GL_ERROR("glDrawElements");
-  }
-
-  glBindVertexArray(0);
-  return -1;
+                                      uint32_t startinstance)
+{
+  if(instancecount > 0)
+    return GLError(ERR_NOT_IMPLEMENTED, "don't know how to instance things!");
+  glDrawElements(_primitive, indexcount, _indextype, nullptr);
+  GL_ERROR("glDrawElements");
+  return {};
 }
 
 int Context::GetBytes(GLenum type)
@@ -220,253 +148,6 @@ int Context::GetBytes(GLenum type)
   }
   assert(false);
   return 0;
-}
-
-GLuint Context::_createBuffer(size_t stride, size_t count, const void* init)
-{
-  GLuint buffer;
-  glGenBuffers(1, &buffer);
-  GL_ERROR("glGenBuffers");
-  glBindBuffer(GL_ARRAY_BUFFER, buffer);
-  GL_ERROR("glBindBuffer");
-  glBufferData(GL_ARRAY_BUFFER, stride * count, init, !init ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
-  GL_ERROR("glBufferData");
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  GL_ERROR("glBindBuffer");
-  return buffer;
-}
-
-GLuint Context::_genIndices(size_t num)
-{
-  GLuint indices;
-  glGenBuffers(1, &indices);
-  GL_ERROR("glGenBuffers");
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices);
-  GL_ERROR("glBindBuffer");
-  std::unique_ptr<GLuint[]> buf(new GLuint[num]);
-
-  GLuint k = 0;
-  for(size_t i = 5; i < num; i += 6, k += 4)
-  {
-    buf[i - 5] = k + 0;
-    buf[i - 4] = k + 1;
-    buf[i - 3] = k + 2;
-    buf[i - 2] = k + 1;
-    buf[i - 1] = k + 3;
-    buf[i - 0] = k + 2;
-  }
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, num * sizeof(GLuint), buf.get(), GL_STATIC_DRAW);
-  GL_ERROR("glBufferData");
-  return indices;
-}
-
-GLExpected<void> Context::SetDefaultState()
-{
-  glEnable(GL_BLEND);
-  GL_ERROR("glEnable");
-  glEnable(GL_TEXTURE_2D);
-  GL_ERROR("glEnable");
-  glFrontFace(GL_CW);
-  GL_ERROR("glFrontFace");
-  // glEnable(GL_CULL_FACE);
-  // GL_ERROR("glEnable");
-  glEnable(GL_FRAMEBUFFER_SRGB);
-  GL_ERROR("glEnable");
-
-  ApplyBlend(0, true);
-  GL_ERROR("glBlendFunc");
-}
-
-void Context::CreateResources()
-{
-  SetDefaultState();
-
-  _imageshader  = _backend->_imageshader.Create(_backend);
-  _rectshader   = _backend->_rectshader.Create(_backend);
-  _circleshader = _backend->_circleshader.Create(_backend);
-  _arcshader    = _backend->_arcshader.Create(_backend);
-  _trishader    = _backend->_trishader.Create(_backend);
-  _lineshader   = _backend->_lineshader.Create(_backend);
-
-  QuadVertex rect[4] = {
-    { 0, 0 },
-    { 1, 0 },
-    { 0, 1 },
-    { 1, 1 },
-  };
-
-  FG_ShaderParameter rectparams[1] = { { FG_ShaderType_FLOAT, 2, 0, "vPos" } };
-  FG_ShaderParameter imgparams[2]  = { { FG_ShaderType_FLOAT, 4, 0, "vPosUV" }, { FG_ShaderType_FLOAT, 4, 0, "vColor" } };
-  GLsizei quadstride               = sizeof(QuadVertex);
-  GLsizei imagestride              = sizeof(ImageVertex);
-  GLsizei linestride               = sizeof(FG_Vec);
-
-  _quadbuffer = _createBuffer(sizeof(QuadVertex), 4, rect);
-  _quadobject = std::make_unique<VAO>(_backend, _rectshader, rectparams, &_quadbuffer, &quadstride, 1, 0, 0);
-
-  _imagebuffer  = _createBuffer(sizeof(ImageVertex), BATCH_BYTES / sizeof(ImageVertex), nullptr);
-  _imageindices = _genIndices(BATCH_BYTES / sizeof(GLuint));
-  _imageobject  = std::make_unique<VAO>(_backend, _imageshader, imgparams, &_imagebuffer, &imagestride, 1, _imageindices,
-                                       GL_UNSIGNED_INT);
-
-  _linebuffer = _createBuffer(sizeof(FG_Vec), BATCH_BYTES / sizeof(FG_Vec), nullptr);
-  _lineobject = std::make_unique<VAO>(_backend, _lineshader, rectparams, &_linebuffer, &linestride, 1, 0, 0);
-
-  for(auto& l : _layers)
-    l->Create();
-
-  _initialized = true;
-}
-GLuint Context::LoadAsset(Asset* asset)
-{
-  khiter_t iter = kh_get_tex(_texhash, asset);
-  if(iter < kh_end(_texhash) && kh_exist(_texhash, iter))
-    return kh_val(_texhash, iter);
-
-  GLuint idx;
-  if(asset->format >= FG_Format_VERTEX_BUFFER && asset->format <= FG_Format_UNKNOWN_BUFFER)
-  {
-    glGenBuffers(1, &idx);
-    GL_ERROR("glGenBuffers");
-
-    GLenum kind = 0;
-    switch(asset->format)
-    {
-    case FG_Format_VERTEX_BUFFER: kind = GL_ARRAY_BUFFER; break;
-    case FG_Format_UNIFORM_BUFFER: kind = GL_UNIFORM_BUFFER; break;
-    case FG_Format_ELEMENT_BUFFER: kind = GL_ELEMENT_ARRAY_BUFFER; break;
-    }
-
-    glBindBuffer(kind, idx);
-    GL_ERROR("glBindBuffer");
-    glBufferData(kind, asset->bytes, asset->data.data, GL_STATIC_DRAW);
-    GL_ERROR("glBufferData");
-    glBindBuffer(kind, 0);
-  }
-  else
-  {
-    unsigned int flags = SOIL_FLAG_MULTIPLY_ALPHA;
-    if(!(asset->flags & FG_AssetFlags_NO_MIPMAP))
-      flags |= SOIL_FLAG_MIPMAPS;
-
-    idx = _createTexture((const unsigned char*)asset->data.data, asset->size.x, asset->size.y, asset->channels,
-                         SOIL_CREATE_NEW_ID, flags, GL_TEXTURE_2D, GL_TEXTURE_2D, GL_MAX_TEXTURE_SIZE);
-
-    if(!idx)
-    {
-      GL_ERROR("SOIL_create_OGL_texture");
-      (*_backend->_log)(_backend->_root, FG_Level_ERROR, "%s failed (returned 0).", "SOIL_create_OGL_texture");
-      return 0;
-    }
-
-    glBindTexture(GL_TEXTURE_2D, idx);
-    GL_ERROR("glBindTexture");
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    GL_ERROR("glTexParameteri");
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    GL_ERROR("glTexParameteri");
-    glBindTexture(GL_TEXTURE_2D, 0);
-    GL_ERROR("glBindTexture");
-  }
-
-  int r;
-  iter = kh_put_tex(_texhash, asset, &r);
-
-  if(r >= 0)
-    kh_val(_texhash, iter) = idx;
-  return idx;
-}
-GLuint Context::LoadShader(Shader* shader)
-{
-  khiter_t iter = kh_get_shader(_shaderhash, shader);
-  if(iter < kh_end(_shaderhash) && kh_exist(_shaderhash, iter))
-    return kh_val(_shaderhash, iter);
-
-  GLuint instance = shader->Create(_backend);
-  if(!instance)
-    return 0;
-
-  int r;
-  iter = kh_put_shader(_shaderhash, shader, &r);
-
-  if(r >= 0)
-    kh_val(_shaderhash, iter) = instance;
-  return instance;
-}
-
-void Context::DestroyResources()
-{
-  for(khiter_t i = 0; i < kh_end(_texhash); ++i)
-  {
-    if(kh_exist(_texhash, i))
-    {
-      GLuint idx = kh_val(_texhash, i);
-      if(kh_key(_texhash, i)->format >= FG_Format_VERTEX_BUFFER && kh_key(_texhash, i)->format >= FG_Format_UNKNOWN_BUFFER)
-      {
-        glDeleteBuffers(1, &idx);
-        GL_ERROR("glDeleteBuffers");
-      }
-      else
-      {
-        glDeleteTextures(1, &idx);
-        GL_ERROR("glDeleteTextures");
-      }
-    }
-  }
-  kh_clear_tex(_texhash);
-
-  for(khiter_t i = 0; i < kh_end(_fonthash); ++i)
-  {
-    if(kh_exist(_fonthash, i))
-    {
-      GLuint idx = static_cast<GLuint>(kh_val(_fonthash, i) & 0xFFFFFFFF);
-      glDeleteTextures(1, &idx);
-      GL_ERROR("glDeleteTextures");
-    }
-  }
-  kh_clear_font(_fonthash);
-  kh_clear_glyph(_glyphhash);
-
-  for(khiter_t i = 0; i < kh_end(_shaderhash); ++i)
-  {
-    if(kh_exist(_shaderhash, i))
-      kh_key(_shaderhash, i)->Destroy(_backend, kh_val(_shaderhash, i));
-  }
-  kh_clear_shader(_shaderhash);
-
-  for(khiter_t i = 0; i < kh_end(_vaohash); ++i)
-  {
-    if(kh_exist(_vaohash, i))
-    {
-      delete kh_val(_vaohash, i);
-    }
-  }
-  kh_clear_vao(_vaohash);
-
-  _backend->_imageshader.Destroy(_backend, _imageshader);
-  _backend->_imageshader.Destroy(_backend, _rectshader);
-  _backend->_imageshader.Destroy(_backend, _circleshader);
-  _backend->_imageshader.Destroy(_backend, _arcshader);
-  _backend->_imageshader.Destroy(_backend, _trishader);
-  _backend->_imageshader.Destroy(_backend, _lineshader);
-
-  _quadobject.reset();
-  GL_ERROR("glDeleteVertexArrays");
-  glDeleteBuffers(1, &_quadbuffer);
-  GL_ERROR("glDeleteBuffers");
-  _imageobject.reset();
-  glDeleteBuffers(1, &_imagebuffer);
-  GL_ERROR("glDeleteBuffers");
-  glDeleteBuffers(1, &_imageindices);
-  GL_ERROR("glDeleteBuffers");
-  _lineobject.reset();
-  glDeleteBuffers(1, &_linebuffer);
-  GL_ERROR("glDeleteBuffers");
-
-  for(auto& l : _layers)
-    l->Destroy();
-
-  _initialized = false;
 }
 
 void Context::FlipFlag(int diff, int flags, int flag, int option)
@@ -525,6 +206,8 @@ GLExpected<void> Context::ApplyFlags(uint16_t flags, uint8_t cull, uint8_t fill)
   GL_ERROR("glEnable/glDisable");
   FlipFlag(diff, flags, FG_PIPELINE_FLAG_MULTISAMPLE_ENABLE, GL_MULTISAMPLE);
   GL_ERROR("glEnable/glDisable");
+  FlipFlag(diff, flags, FG_PIPELINE_FLAG_BLEND_ENABLE, GL_BLEND);
+  GL_ERROR("glEnable/glDisable");
 
   if(diff & FG_PIPELINE_FLAG_DEPTH_WRITE_ENABLE)
   {
@@ -569,8 +252,10 @@ GLExpected<void> Context::ApplyFlags(uint16_t flags, uint8_t cull, uint8_t fill)
   }
 
   _lastflags = flags;
+  return {};
 }
 
+/*
 void Context::_flushbatchdraw(Font* font)
 {
   glActiveTexture(GL_TEXTURE0);
@@ -585,7 +270,6 @@ void Context::_flushbatchdraw(Font* font)
   GL_ERROR("glBindVertexArray");
 }
 
-/*
 int mipmapImageGamma(const unsigned char* const orig, int width, int height, int channels, unsigned char* resampled,
                      int block_size_x, int block_size_y)
 {

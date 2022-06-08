@@ -21,6 +21,8 @@ limitations under the License.
 #include <stdarg.h>
 #include <math.h>
 #include <time.h>
+#include <memory>
+#include <assert.h>
 
 #define BACKEND fgOpenGL
 #define TEST(x)                      \
@@ -36,6 +38,17 @@ const char* LEVELS[] = { "FATAL: ", "ERROR: ", "WARNING: ", "NOTICE: ", "DEBUG: 
 // A logging function that just forwards everything to printf
 void FakeLog(void* root, FG_Level level, const char* f, ...)
 {
+  /* char buf[2048];
+  int len = 0;
+  if(level >= 0)
+    len += sprintf_s(buf, "%s", LEVELS[level]);
+
+  va_list args;
+  va_start(args, f);
+  vsprintf_s(buf, f, args);
+  va_end(args);
+  OutputDebugStringA(buf);*/
+
   if(level >= 0)
     printf("%s", LEVELS[level]);
 
@@ -87,32 +100,35 @@ struct MockElement
 
 static constexpr auto WindowDim = FG_Vec2{ 800.f, 600.f };
 
-  // The behavior function simply processes all window messages from the host OS.
-FG_Result behavior(FG_Element* element, FG_Context* w, void* ui, FG_Msg* m)
+// The behavior function simply processes all window messages from the host OS.
+FG_Result behavior(FG_Element* element, FG_Context* ctx, void* ui, FG_Msg* m)
 {
-  static int counter = 0;
-  MockElement& e     = *static_cast<MockElement*>(element);
+  static const FG_ShaderParameter params[] = { { "MVP", 0, 4, 4, 0, FG_ShaderType_FLOAT },
+                                               { 0, 0, 0, 0, 0, FG_ShaderType_TEXTURE } };
+  static int counter                       = 0;
+
+  MockElement& e = *static_cast<MockElement*>(element);
+
   if(m->kind == FG_Kind_DRAW)
   {
     FG_Backend* b = *(FG_Backend**)ui;
-    (b->beginDraw)(b, w, nullptr);
-    void* commands = (b->createCommandList)(b, false);
+    //(b->beginDraw)(b, ctx, nullptr);
+    void* commands = (b->createCommandList)(b, ctx, false);
+    assert(commands);
 
     // Try drawing a custom shader.
-    float proj[4 * 4];
+    mat4x4 proj;
     mat4x4_proj(proj, 0, WindowDim.x, WindowDim.y, 0, 0.2f, 1000.0f);
     FG_ShaderValue values[2];
-    values[0].pf32          = (float*)proj;
-    values[1].asset         = e.image;
-    FG_Command shader       = { FG_Category_SHADER };
-    shader.shader.shader    = e.shader;
-    shader.shader.input     = e.input;
-    shader.shader.primitive = FG_Primitive_TRIANGLE_STRIP;
-    shader.shader.count     = 4;
-    shader.shader.values    = values;
+    values[0].pf32     = (float*)proj;
+    values[1].resource = e.image;
 
-    (b->execute)(b, w, commands);
+    (b->setPipelineState)(b, commands, e.pipeline);
+    (b->setShaderConstants)(b, commands, params, values, 2);
+    (b->draw)(b, commands, 4, 0, 0, 0);
+    (b->execute)(b, ctx, commands);
     (b->destroyCommandList)(b, commands);
+    //(b->endDraw)();
 
     return FG_Result{ 0 };
   }
@@ -146,8 +162,8 @@ int main(int argc, char* argv[])
     return -1;
   }
 
-  ui            = b;
-  auto e        = MockElement{};
+  ui     = b;
+  auto e = MockElement{};
 
   const char* shader_vs = "#version 110\n"
                           "uniform mat4 MVP;\n"
@@ -189,13 +205,7 @@ int main(int argc, char* argv[])
   };
 
   FG_Blend PREMULTIPLY_BLEND = {
-    FG_BLEND_ONE,
-    FG_BLEND_INV_SRC_ALPHA,
-    FG_BLEND_OP_ADD,
-    FG_BLEND_ONE,
-    FG_BLEND_INV_SRC_ALPHA,
-    FG_BLEND_OP_ADD,
-    0b1111,
+    FG_BLEND_ONE, FG_BLEND_INV_SRC_ALPHA, FG_BLEND_OP_ADD, FG_BLEND_ONE, FG_BLEND_INV_SRC_ALPHA, FG_BLEND_OP_ADD, 0b1111,
   };
 
   const char* name;
@@ -207,14 +217,10 @@ int main(int argc, char* argv[])
   uint32_t step;
   uint32_t offset;
 
-  FG_ShaderParameter params[]     = { { "MVP", 4, 4, FG_ShaderType_FLOAT }, { 0, 0, 0, FG_ShaderType_TEXTURE } };
-  FG_ShaderParameter vertparams[] = { { "vPos", 2, 0, FG_ShaderType_FLOAT }, { "vUV", 2, 0, FG_ShaderType_FLOAT } };
+  FG_ShaderParameter vertparams[] = { { "vPos", 0, 2, 0, 0, FG_ShaderType_FLOAT },
+                                      { "vUV", sizeof(float) * 2, 2, 0, 0, FG_ShaderType_FLOAT } };
 
-  e.flags    = FG_WindowFlag_RESIZABLE;
-  //e.image    = (b->createTexture)(b, 0, (const char*)EXAMPLE_PNG_ARRAY, sizeof(EXAMPLE_PNG_ARRAY), FG_Format_PNG, 0);
-  auto fs_shader = (b->compileShader)(b, FG_ShaderStage_Pixel, shader_fs);
-  auto vs_shader = (b->compileShader)(b, FG_ShaderStage_Vertex, shader_vs);
-  
+  e.flags = FG_WindowFlag_RESIZABLE;
 
   auto pos = FG_Vec2{ 200.f, 100.f };
   auto dim = FG_Vec2{ 800.f, 600.f };
@@ -227,14 +233,25 @@ int main(int argc, char* argv[])
     return -1;
   }
 
-  e.vertices = (b->createBuffer)(b, w, verts, sizeof(verts), FG_PixelFormat_Vertex);
+  void* fakedata = malloc(100 * 100 * 4);
+  memset(fakedata, 128, 100 * 100 * 4);
 
-  auto pipeline = FG_PipelineState{};
-  void* (*createPipelineState)(FG_Backend * self, FG_Context * context, FG_PipelineState * pipelinestate,
-                               FG_Resource * rendertargets, uint32_t n_targets, FG_Blend * blends,
-                               FG_Resource * *vertexbuffer, uint32_t n_buffers, FG_ShaderParameter * attributes,
-                               uint32_t n_attributes, FG_Resource * indexbuffer);
-  e.pipeline = (b->createPipelineState)(b, w->context, &pipeline, 0, 0, &PREMULTIPLY_BLEND, &e.vertices, 1, vertparams, 2);
+  auto sampler = FG_Sampler{ FG_FILTER_MIN_MAG_MIP_LINEAR };
+  e.image = (b->createTexture)(b, w->context, FG_Vec2i{ 100, 100 }, FG_Type_Texture2D, FG_PixelFormat_R8G8B8A8_TYPELESS,
+                               &sampler, fakedata, 0);
+  auto vs_shader = e.vertices = (b->createBuffer)(b, w->context, verts, sizeof(verts), FG_Type_VertexData);
+  int vertstride              = sizeof(verts[0]);
+
+  auto pipeline                           = FG_PipelineState{};
+  pipeline.Shaders[FG_ShaderStage_Pixel]  = (b->compileShader)(b, w->context, FG_ShaderStage_Pixel, shader_fs);
+  pipeline.Shaders[FG_ShaderStage_Vertex] = (b->compileShader)(b, w->context, FG_ShaderStage_Vertex, shader_vs);
+  pipeline.Flags                          = FG_PIPELINE_FLAG_BLEND_ENABLE; // | FG_PIPELINE_FLAG_RENDERTARGET_SRGB_ENABLE
+  pipeline.FillMode                       = FG_FILL_MODE_FILL;
+  pipeline.CullMode                       = FG_CULL_MODE_NONE; // FG_CULL_MODE_BACK
+  pipeline.Primitive                      = FG_Primitive_TRIANGLE_STRIP;
+
+  e.pipeline = (b->createPipelineState)(b, w->context, &pipeline, 0, 0, &PREMULTIPLY_BLEND, &e.vertices, &vertstride, 1,
+                                        vertparams, 2, 0, 0);
   e.close    = false;
 
   TEST((b->setCursor)(b, w, FG_Cursor_CROSS) == 0);
@@ -266,12 +283,10 @@ int main(int argc, char* argv[])
 
   TEST((b->getClipboard)(b, w, FG_Clipboard_WAVE, hold, 10) == 0)
 
-  while((b->processMessages)(b, 0) != 0 && e.close == false)
-  {
-  }
+  while((b->processMessages)(b, 0) != 0 && e.close == false) {}
 
   TEST((b->destroyWindow)(b, w) == 0);
-  TEST((b->destroyResource)(b, e.image) == 0);
-  TEST(FG_DestroyShaderInput(b, e.input) == 0);
+  TEST((b->destroyResource)(b, w->context, e.image) == 0);
+  TEST((b->destroyPipelineState)(b, w->context, e.pipeline) == 0);
   (*b->destroy)(b);
 }

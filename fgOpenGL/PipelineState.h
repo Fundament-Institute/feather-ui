@@ -20,30 +20,33 @@ namespace GL {
   {
     // This mostly inherits the standard backend pipeline state, but translates things into OpenGL equivalents
     uint64_t Members;
-    GLint StencilRef;
     GLuint DepthStencil;
     ProgramObject program;
     std::array<float, 4> BlendFactor;
     uint32_t SampleMask;
-    uint16_t Flags;
-    uint8_t Primitive;
+    GLint StencilRef;
     uint8_t StencilReadMask;
     uint8_t StencilWriteMask;
+    uint8_t StencilFailOp;
+    uint8_t StencilDepthFailOp;
+    uint8_t StencilPassOp;
+    uint8_t StencilFunc;
     uint8_t DepthFunc;
-    uint8_t StripCutValue;
     uint8_t RenderTargetsCount;
     uint8_t FillMode;
     uint8_t CullMode;
+    uint8_t Primitive;
+    uint8_t IndexType;
+    uint16_t Flags;
     int DepthBias;
-    float DepthBiasClamp;
     float SlopeScaledDepthBias;
     uint32_t ForcedSampleCount;
-    uint32_t NodeMask;
     FG_Blend blend;
     VertexArrayObject vao;
 
     GLExpected<void> apply(Context* ctx) noexcept;
     GLExpected<std::string> log() const noexcept;
+    GLExpected<void> current(Context* ctx) noexcept;
 
     PipelineState(const PipelineState&)  = delete;
     PipelineState(PipelineState&& state) = default;
@@ -52,7 +55,8 @@ namespace GL {
 
     static GLExpected<PipelineState*> create(const FG_PipelineState& state, std::span<FG_Resource*> rendertargets,
                                              FG_Blend blend, std::span<FG_Resource*> vertexbuffers, GLsizei* strides,
-                                             std::span<FG_ShaderParameter> attributes, FG_Resource* indexbuffer) noexcept;
+                                             std::span<FG_ShaderParameter> attributes, FG_Resource* indexbuffer,
+                                             uint8_t indexstride) noexcept;
 
     static void* operator new(std::size_t base, std::size_t renderTargetCount)
     {
