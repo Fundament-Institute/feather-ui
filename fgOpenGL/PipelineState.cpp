@@ -6,6 +6,7 @@
 #include "BackendGL.hpp"
 #include "EnumMapping.hpp"
 #include <cassert>
+#include <malloc.h> // for _alloca on windows
 
 using namespace GL;
 
