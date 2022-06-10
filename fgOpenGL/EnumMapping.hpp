@@ -8,9 +8,9 @@
 #include "glad/glad.h"
 
 namespace GL {
-  static constexpr uint16_t ComparisonMapping[] = { 0,          GL_NEVER,    GL_LESS,   GL_EQUAL, GL_LEQUAL,
+  static constinit uint16_t ComparisonMapping[] = { 0,          GL_NEVER,    GL_LESS,   GL_EQUAL, GL_LEQUAL,
                                                     GL_GREATER, GL_NOTEQUAL, GL_GEQUAL, GL_ALWAYS };
-  static constexpr uint16_t PrimitiveMapping[]  = { GL_POINTS,
+  static constinit uint16_t PrimitiveMapping[]  = { GL_POINTS,
                                                    GL_LINES,
                                                    GL_TRIANGLES,
                                                    GL_LINE_STRIP,
@@ -19,8 +19,8 @@ namespace GL {
                                                    GL_TRIANGLES_ADJACENCY,
                                                    GL_LINE_STRIP_ADJACENCY,
                                                    GL_TRIANGLE_STRIP_ADJACENCY };
-  static constexpr uint16_t BlendOpMapping[] = { GL_FUNC_ADD, GL_FUNC_SUBTRACT, GL_FUNC_REVERSE_SUBTRACT, GL_MIN, GL_MAX };
-  static constexpr uint16_t BlendMapping[]   = {
+  static constinit uint16_t BlendOpMapping[] = { GL_FUNC_ADD, GL_FUNC_SUBTRACT, GL_FUNC_REVERSE_SUBTRACT, GL_MIN, GL_MAX };
+  static constinit uint16_t BlendMapping[]   = {
     GL_ZERO,
     GL_ONE,
     GL_SRC_COLOR,
@@ -40,10 +40,10 @@ namespace GL {
     GL_ONE_MINUS_SRC1_ALPHA,
   };
 
-  static constexpr uint16_t ShaderTypeMapping[] = { GL_HALF_FLOAT,   GL_FLOAT,        GL_DOUBLE, GL_INT,
+  static constinit uint16_t ShaderTypeMapping[] = { GL_HALF_FLOAT,   GL_FLOAT,        GL_DOUBLE, GL_INT,
                                                     GL_UNSIGNED_INT, GL_UNSIGNED_INT, 0,         0 };
 
-  static constexpr uint16_t TypeMapping[] = {
+  static constinit uint16_t TypeMapping[] = {
     0,
     GL_ARRAY_BUFFER,
     GL_ELEMENT_ARRAY_BUFFER,
@@ -61,11 +61,11 @@ namespace GL {
     GL_PROXY_TEXTURE_2D_MULTISAMPLE,
   };
 
-  static constexpr uint16_t StencilOpMapping[] = {
+  static constinit uint16_t StencilOpMapping[] = {
     0, GL_KEEP, GL_ZERO, GL_REPLACE, GL_INCR, GL_DECR, GL_INVERT, GL_INCR_WRAP, GL_DECR_WRAP,
   };
 
-  static constexpr uint16_t ShaderStageMapping[] = {
+  static constinit uint16_t ShaderStageMapping[] = {
     GL_FRAGMENT_SHADER,
     GL_VERTEX_SHADER,
     GL_GEOMETRY_SHADER,

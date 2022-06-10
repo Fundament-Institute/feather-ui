@@ -36,7 +36,7 @@ namespace GL {
     uint8_t FillMode;
     uint8_t CullMode;
     uint8_t Primitive;
-    uint8_t IndexType;
+    uint16_t IndexType;
     uint16_t Flags;
     int DepthBias;
     float SlopeScaledDepthBias;

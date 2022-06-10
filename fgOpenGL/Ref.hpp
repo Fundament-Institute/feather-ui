@@ -34,7 +34,7 @@ namespace GL {
   {
     constexpr Ref() noexcept : _ref(0) {}
     explicit constexpr Ref(GLuint ref) noexcept : _ref(ref) { }
-    explicit constexpr Ref(void* ref) noexcept : Ref(static_cast<GLuint>(reinterpret_cast<size_t>(ref))) {}
+    explicit constexpr Ref(void* ref) noexcept : Ref(static_cast<GLuint>(reinterpret_cast<std::size_t>(ref))) {}
     constexpr Ref(Ref&& right) noexcept : _ref(right.release()) {}
     constexpr Ref(const Ref&) = delete;
     constexpr ~Ref() noexcept { reset().has_value(); }

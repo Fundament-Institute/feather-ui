@@ -31,7 +31,7 @@ retarget_output(cpptest)
 target_include_directories(cpptest PUBLIC ${OPENGL_INCLUDE_DIRS})
 target_include_directories(cpptest PUBLIC ${PROJECT_SOURCE_DIR}/../include)
 
-if(MSVC)
+if(WIN32)
 target_link_libraries(cpptest PRIVATE fgOpenGL ${OPENGL_LIBRARIES})
 else()
 target_link_libraries(cpptest PRIVATE fgOpenGL ${OPENGL_LIBRARIES})

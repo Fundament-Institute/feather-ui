@@ -894,172 +894,198 @@ enum FG_Joy
   FG_Joy_Button6  = 5
 };
 
+struct FG_Msg_TouchMove
+{
+  float x;
+  float y;
+  float z;
+  float r;
+  float pressure;
+  uint16_t index;
+  uint8_t flags;
+  uint8_t modkeys;
+};
+struct FG_Msg_MouseScroll
+{
+  float x;
+  float y;
+  float delta;
+  float hdelta;
+};
+struct FG_Msg_MouseOn
+{
+  float x;
+  float y;
+  uint8_t all;
+  uint8_t modkeys;
+};
+struct FG_Msg_JoyButtonUp
+{
+  uint16_t index;
+  uint16_t button;
+  uint8_t modkeys;
+};
+struct FG_Msg_MouseOff
+{
+  float x;
+  float y;
+  uint8_t all;
+  uint8_t modkeys;
+};
+struct FG_Msg_JoyButtonDown
+{
+  uint16_t index;
+  uint16_t button;
+  uint8_t modkeys;
+};
+struct FG_Msg_GetWindowFlags
+{
+  char __padding;
+};
+struct FG_Msg_KeyDown
+{
+  uint8_t key;
+  uint8_t modkeys;
+  uint16_t scancode;
+};
+struct FG_Msg_Action
+{
+  int32_t subkind;
+};
+struct FG_Msg_KeyChar
+{
+  int32_t unicode;
+  uint8_t modkeys;
+};
+struct FG_Msg_KeyUp
+{
+  uint8_t key;
+  uint8_t modkeys;
+  uint16_t scancode;
+};
+struct FG_Msg_TouchEnd
+{
+  float x;
+  float y;
+  float z;
+  float r;
+  float pressure;
+  uint16_t index;
+  uint8_t flags;
+  uint8_t modkeys;
+};
+struct FG_Msg_TouchBegin
+{
+  float x;
+  float y;
+  float z;
+  float r;
+  float pressure;
+  uint16_t index;
+  uint8_t flags;
+  uint8_t modkeys;
+};
+struct FG_Msg_SetWindowFlags
+{
+  uint32_t flags;
+};
+struct FG_Msg_MouseUp
+{
+  float x;
+  float y;
+  uint8_t all;
+  uint8_t modkeys;
+  uint8_t button;
+};
+struct FG_Msg_MouseDblClick
+{
+  float x;
+  float y;
+  uint8_t all;
+  uint8_t modkeys;
+  uint8_t button;
+};
+struct FG_Msg_JoyAxis
+{
+  uint16_t index;
+  float value;
+  uint16_t axis;
+  uint8_t modkeys;
+};
+struct FG_Msg_LostFocus
+{
+  char __padding;
+};
+struct FG_Msg_MouseDown
+{
+  float x;
+  float y;
+  uint8_t all;
+  uint8_t modkeys;
+  uint8_t button;
+};
+struct FG_Msg_JoyOrientation
+{
+  uint16_t index;
+  FG_Vec3 velocity;
+  FG_Vec3 rotation;
+};
+struct FG_Msg_Draw
+{
+  FG_Rect area;
+};
+struct FG_Msg_Drop
+{
+  int32_t kind;
+  void* target;
+  uint32_t count;
+};
+struct FG_Msg_SetWindowRect
+{
+  FG_Rect rect;
+};
+struct FG_Msg_GotFocus
+{
+  char __padding;
+};
+struct FG_Msg_MouseMove
+{
+  float x;
+  float y;
+  uint8_t all;
+  uint8_t modkeys;
+};
+
 typedef struct FG_Msg__
 {
   uint16_t kind;
-  union value
+  union
   {
-    struct FG_TouchMove
-    {
-      float x;
-      float y;
-      float z;
-      float r;
-      float pressure;
-      uint16_t index;
-      uint8_t flags;
-      uint8_t modkeys;
-    } touchMove;
-    struct FG_MouseScroll
-    {
-      float x;
-      float y;
-      float delta;
-      float hdelta;
-    } mouseScroll;
-    struct FG_MouseOn
-    {
-      float x;
-      float y;
-      uint8_t all;
-      uint8_t modkeys;
-    } mouseOn;
-    struct FG_JoyButtonUp
-    {
-      uint16_t index;
-      uint16_t button;
-      uint8_t modkeys;
-    } joyButtonUp;
-    struct FG_MouseOff
-    {
-      float x;
-      float y;
-      uint8_t all;
-      uint8_t modkeys;
-    } mouseOff;
-    struct FG_JoyButtonDown
-    {
-      uint16_t index;
-      uint16_t button;
-      uint8_t modkeys;
-    } joyButtonDown;
-    struct FG_GetWindowFlags
-    {
-      char __padding;
-    } getWindowFlags;
-    struct FG_KeyDown
-    {
-      uint8_t key;
-      uint8_t modkeys;
-      uint16_t scancode;
-    } keyDown;
-    struct FG_Action
-    {
-      int32_t subkind;
-    } action;
-    struct FG_KeyChar
-    {
-      int32_t unicode;
-      uint8_t modkeys;
-    } keyChar;
-    struct FG_KeyUp
-    {
-      uint8_t key;
-      uint8_t modkeys;
-      uint16_t scancode;
-    } keyUp;
-    struct FG_TouchEnd
-    {
-      float x;
-      float y;
-      float z;
-      float r;
-      float pressure;
-      uint16_t index;
-      uint8_t flags;
-      uint8_t modkeys;
-    } touchEnd;
-    struct FG_TouchBegin
-    {
-      float x;
-      float y;
-      float z;
-      float r;
-      float pressure;
-      uint16_t index;
-      uint8_t flags;
-      uint8_t modkeys;
-    } touchBegin;
-    struct FG_SetWindowFlags
-    {
-      uint32_t flags;
-    } setWindowFlags;
-    struct FG_MouseUp
-    {
-      float x;
-      float y;
-      uint8_t all;
-      uint8_t modkeys;
-      uint8_t button;
-    } mouseUp;
-    struct FG_MouseDblClick
-    {
-      float x;
-      float y;
-      uint8_t all;
-      uint8_t modkeys;
-      uint8_t button;
-    } mouseDblClick;
-    struct FG_JoyAxis
-    {
-      uint16_t index;
-      float value;
-      uint16_t axis;
-      uint8_t modkeys;
-    } joyAxis;
-    struct FG_LostFocus
-    {
-      char __padding;
-    } lostFocus;
-    struct FG_MouseDown
-    {
-      float x;
-      float y;
-      uint8_t all;
-      uint8_t modkeys;
-      uint8_t button;
-    } mouseDown;
-    struct FG_JoyOrientation
-    {
-      uint16_t index;
-      FG_Vec3 velocity;
-      FG_Vec3 rotation;
-    } joyOrientation;
-    struct FG_Draw
-    {
-      FG_Rect area;
-    } draw;
-    struct FG_Drop
-    {
-      int32_t kind;
-      void* target;
-      uint32_t count;
-    } drop;
-    struct FG_SetWindowRect
-    {
-      FG_Rect rect;
-    } setWindowRect;
-    struct FG_GotFocus
-    {
-      char __padding;
-    } gotFocus;
-    struct FG_MouseMove
-    {
-      float x;
-      float y;
-      uint8_t all;
-      uint8_t modkeys;
-    } mouseMove;
+    struct FG_Msg_TouchMove touchMove;
+    struct FG_Msg_MouseScroll mouseScroll;
+    struct FG_Msg_MouseOn mouseOn;
+    struct FG_Msg_JoyButtonUp joyButtonUp;
+    struct FG_Msg_MouseOff mouseOff;
+    struct FG_Msg_JoyButtonDown joyButtonDown;
+    struct FG_Msg_GetWindowFlags getWindowFlags;
+    struct FG_Msg_KeyDown keyDown;
+    struct FG_Msg_Action action;
+    struct FG_Msg_KeyChar keyChar;
+    struct FG_Msg_KeyUp keyUp;
+    struct FG_Msg_TouchEnd touchEnd;
+    struct FG_Msg_TouchBegin touchBegin;
+    struct FG_Msg_SetWindowFlags setWindowFlags;
+    struct FG_Msg_MouseUp mouseUp;
+    struct FG_Msg_MouseDblClick mouseDblClick;
+    struct FG_Msg_JoyAxis joyAxis;
+    struct FG_Msg_LostFocus lostFocus;
+    struct FG_Msg_MouseDown mouseDown;
+    struct FG_Msg_JoyOrientation joyOrientation;
+    struct FG_Msg_Draw draw;
+    struct FG_Msg_Drop drop;
+    struct FG_Msg_SetWindowRect setWindowRect;
+    struct FG_Msg_GotFocus gotFocus;
+    struct FG_Msg_MouseMove mouseMove;
   };
 } FG_Msg;
 

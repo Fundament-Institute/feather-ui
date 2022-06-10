@@ -3,7 +3,7 @@
 
 #include "ShaderObject.hpp"
 #include "BackendGL.hpp"
-#include <assert.h>
+#include <cassert>
 
 using namespace GL;
 

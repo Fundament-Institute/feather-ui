@@ -4,8 +4,8 @@
 #include "BackendGL.hpp"
 #include "Texture.hpp"
 #include "EnumMapping.hpp"
-#include <assert.h>
-#include <math.h>
+#include <cassert>
+#include <cmath>
 
 using namespace GL;
 

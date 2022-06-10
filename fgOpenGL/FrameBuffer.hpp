@@ -7,9 +7,9 @@
 #include "Texture.hpp"
 
 namespace GL {
-  static constexpr bool IsFrameBuffer(GLuint i) noexcept { return glIsFramebuffer(i) == GL_TRUE; };
-  static constexpr void DeleteFrameBuffer(GLuint i) noexcept { glDeleteFramebuffers(1, &i); };
-  static constexpr void UnbindFrameBuffer(GLenum target) noexcept { glBindFramebuffer(target, 0); };
+  static bool IsFrameBuffer(GLuint i) noexcept { return glIsFramebuffer(i) == GL_TRUE; };
+  static void DeleteFrameBuffer(GLuint i) noexcept { glDeleteFramebuffers(1, &i); };
+  static void UnbindFrameBuffer(GLenum target) noexcept { glBindFramebuffer(target, 0); };
 
   struct FrameBuffer : Ref<&IsFrameBuffer, &DeleteFrameBuffer>
   {

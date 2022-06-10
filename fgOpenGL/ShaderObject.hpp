@@ -10,8 +10,8 @@
 struct FG_ShaderParameter__;
 
 namespace GL {
-  static constexpr bool IsShader(GLuint i) noexcept { return glIsShader(i) == GL_TRUE; };
-  static constexpr void DeleteShader(GLuint i) noexcept { glDeleteShader(i); };
+  static bool IsShader(GLuint i) noexcept { return glIsShader(i) == GL_TRUE; };
+  static void DeleteShader(GLuint i) noexcept { glDeleteShader(i); };
 
   struct ShaderObject : public Ref<IsShader,DeleteShader>
   {

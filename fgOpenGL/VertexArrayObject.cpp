@@ -1,7 +1,7 @@
 
 #include "BackendGL.hpp"
 #include "glad/glad.h"
-#include <string.h>
+#include <cstring>
 #include <memory>
 #include "VertexArrayObject.hpp"
 #include "EnumMapping.hpp"

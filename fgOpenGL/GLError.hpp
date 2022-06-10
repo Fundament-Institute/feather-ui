@@ -8,8 +8,8 @@
 #include "glad/glad.h"
 #include <type_traits>
 #include <utility>
-#include <assert.h>
-#include <coroutine>
+#include <cassert>
+//#include <coroutine>
 
 #define GL_ERROR(name)  \
   if(GLError e{ name }) \
@@ -43,7 +43,7 @@ namespace GL {
       right._context = nullptr;
     }
 
-    constexpr explicit GLError(const char* context) noexcept :
+    explicit GLError(const char* context) noexcept :
 #ifdef _DEBUG
       _error(glGetError() | UNCHECKED_FLAG),
 #else
@@ -188,7 +188,12 @@ namespace GL {
 
     template<class U = T>
     constexpr explicit(!std::is_convertible_v<U, T>) GLExpected(U&& right) :
-      _error(GL_NO_ERROR | GLError::UNCHECKED_FLAG), _result(std::forward<U>(right))
+#ifdef _DEBUG
+      _error(GL_NO_ERROR | GLError::UNCHECKED_FLAG),
+#else
+      _error(GL_NO_ERROR),
+#endif
+      _result(std::forward<U>(right))
     {}
 
     constexpr GLExpected(GLError&& right) noexcept
@@ -203,11 +208,21 @@ namespace GL {
 
     template<class... Args>
     constexpr explicit GLExpected(std::in_place_t, Args&&... args) :
-      _error(GL_NO_ERROR | GLError::UNCHECKED_FLAG), _result(std::forward<Args>(args)...)
+#ifdef _DEBUG
+      _error(GL_NO_ERROR | GLError::UNCHECKED_FLAG),
+#else
+      _error(GL_NO_ERROR),
+#endif
+      _result(std::forward<Args>(args)...)
     {}
     template<class U, class... Args>
     constexpr explicit GLExpected(std::in_place_t, std::initializer_list<U> list, Args&&... args) :
-      _error(GL_NO_ERROR | GLError::UNCHECKED_FLAG), _result(list, std::forward<Args>(args)...)
+#ifdef _DEBUG
+      _error(GL_NO_ERROR | GLError::UNCHECKED_FLAG),
+#else
+      _error(GL_NO_ERROR),
+#endif
+      _result(list, std::forward<Args>(args)...)
     {}
 
     // destructor
@@ -246,14 +261,18 @@ namespace GL {
     template<class U = T> constexpr GLExpected& operator=(U&& right)
     {
       this->~GLExpected();
+#ifdef _DEBUG
       _error = GL_NO_ERROR | GLError::UNCHECKED_FLAG;
+#else
+      _error = GL_NO_ERROR;
+#endif
       new(&_result) T(std::forward<U>(right));
       return *this;
     }
-    constexpr GLExpected& operator=(GLError&& e)
+    constexpr GLExpected& operator=(GLError&& right)
     {
       this->~GLExpected();
-      auto [e, s] = e.release();
+      auto [e, s] = right.release();
       _error      = e;
       _context    = s;
       return *this;
@@ -408,7 +427,7 @@ namespace GL {
 #endif
     }
 
-    struct promise_type
+    /*struct promise_type
     {
       GLExpected* expected;
       GLExpected get_return_object() { return { *this }; }
@@ -436,10 +455,10 @@ namespace GL {
       }
     };
 
-    Awaiter operator co_await() { return Awaiter{ *this }; }
+    Awaiter operator co_await() { return Awaiter{ *this }; }*/
 
   private:
-    GLExpected(promise_type& promise) noexcept { promise.expected = this; }
+    //GLExpected(promise_type& promise) noexcept { promise.expected = this; }
     inline constexpr GLError _grab() noexcept { return GLError(std::in_place, _error, peek() ? nullptr : _context); }
     inline constexpr void _checked() noexcept
     {
@@ -471,7 +490,7 @@ namespace GL {
     constexpr GLExpected() noexcept {}
     constexpr explicit GLExpected(const GLExpected&) = delete;
     constexpr explicit GLExpected(GLExpected&& right) noexcept : _error(std::move(right._error)) {}
-    constexpr GLExpected(GLError&& right) noexcept : _error(std::move(_error)) {}
+    constexpr GLExpected(GLError&& right) noexcept : _error(std::move(right)) {}
 
     constexpr explicit GLExpected(std::in_place_t) noexcept {}
 
@@ -500,13 +519,11 @@ namespace GL {
     constexpr explicit operator bool() noexcept { return has_value(); }
     constexpr bool has_value() noexcept { return !has_error(); }
     constexpr void operator*() const noexcept {}
-    constexpr void value() const& {}
-    constexpr void value() && {}
+    constexpr void value() const {}
+    constexpr void value() {}
     inline constexpr bool has_error() noexcept { return _error.has_error(); }
-    constexpr const GLError& error() const& { return _error; }
-    constexpr GLError& error() & { return _error; }
-    constexpr const GLError&& error() const&& { return _error; }
-    constexpr GLError&& error() && { return _error; }
+    constexpr const GLError& error() const { return _error; }
+    constexpr GLError& error() { return _error; }
     constexpr GLError release() noexcept { return std::move(*this); }
     bool log(Backend* backend) noexcept { return _error.log(backend); }
     inline constexpr bool peek() const noexcept { return _error.peek(); }

@@ -2,6 +2,7 @@
 // For conditions of distribution and use, see copyright notice in "BackendGL.hpp"
 
 #include "BackendGL.hpp"
+#include <cstring>
 
 #ifdef FG_PLATFORM_WIN32
   #define GLFW_EXPOSE_NATIVE_WIN32

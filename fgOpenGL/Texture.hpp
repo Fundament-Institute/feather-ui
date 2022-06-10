@@ -8,9 +8,9 @@
 #include "Format.hpp"
 
 namespace GL {
-  static constexpr bool IsTexture(GLuint i) noexcept { return glIsTexture(i) == GL_TRUE; };
-  static constexpr void DeleteTexture(GLuint i) noexcept { glDeleteTextures(1, &i); };
-  constexpr void UnbindTexture(GLenum target) noexcept { glBindTexture(target, 0); };
+  static bool IsTexture(GLuint i) noexcept { return glIsTexture(i) == GL_TRUE; };
+  static void DeleteTexture(GLuint i) noexcept { glDeleteTextures(1, &i); };
+  static void UnbindTexture(GLenum target) noexcept { glBindTexture(target, 0); };
   struct ShaderObject;
 
   union Filter
@@ -38,7 +38,7 @@ namespace GL {
       constexpr GLTextureBindRef(GLenum target) noexcept : BindRef(target) {}
       constexpr GLTextureBindRef(GLTextureBindRef&& right) noexcept = default;
       GLTextureBindRef(const GLTextureBindRef&)                     = delete;
-      constexpr GLTextureBindRef& operator=(GLTextureBindRef&& right) noexcept = default;
+      GLTextureBindRef& operator=(GLTextureBindRef&& right) noexcept = default;
       GLTextureBindRef& operator=(const GLTextureBindRef&) = delete;
 
       template<class T>

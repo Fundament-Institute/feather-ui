@@ -15,14 +15,18 @@ limitations under the License.
 */
 
 #include "backend.h"
-#include "resource.h"
-#include "linmath.h"
-#include <stdio.h>
-#include <stdarg.h>
-#include <math.h>
-#include <time.h>
+#include "resource.hpp"
+#include <cstdio>
+#include <cstdarg>
+#include <cmath>
+#include <ctime>
 #include <memory>
-#include <assert.h>
+#include <cassert>
+#include <cstring>
+
+extern "C" {
+  #include "linmath.h"
+}
 
 #define BACKEND fgOpenGL
 #define TEST(x)                      \

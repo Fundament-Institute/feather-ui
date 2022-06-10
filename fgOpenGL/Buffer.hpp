@@ -7,9 +7,9 @@
 #include "Ref.hpp"
 
 namespace GL {
-  static constexpr bool IsBuffer(GLuint i) noexcept { return glIsBuffer(i) == GL_TRUE; };
-  static constexpr void DeleteBuffer(GLuint i) noexcept { glDeleteBuffers(1, &i); };
-  static constexpr void UnbindBuffer(GLenum target) noexcept { glBindBuffer(target, 0); };
+  static bool IsBuffer(GLuint i) noexcept { return glIsBuffer(i) == GL_TRUE; };
+  static void DeleteBuffer(GLuint i) noexcept { glDeleteBuffers(1, &i); };
+  static void UnbindBuffer(GLenum target) noexcept { glBindBuffer(target, 0); };
 
   struct Buffer : Ref<&IsBuffer, &DeleteBuffer>
   {

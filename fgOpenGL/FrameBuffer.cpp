@@ -3,8 +3,8 @@
 
 #include "BackendGL.hpp"
 #include "FrameBuffer.hpp"
-#include <assert.h>
-#include <math.h>
+#include <cassert>
+#include <cmath>
 
 using namespace GL;
 

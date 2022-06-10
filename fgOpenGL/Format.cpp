@@ -2,8 +2,8 @@
 // For conditions of distribution and use, see copyright notice in "BackendGL.hpp"
 
 #include "Format.hpp"
-#include <assert.h>
-#include <math.h>
+#include <cassert>
+#include <cmath>
 
 using namespace GL;
 

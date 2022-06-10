@@ -8,8 +8,8 @@
 #include <string>
 
 namespace GL {
-  static constexpr bool IsProgramObj(GLuint i) noexcept { return glIsProgram(i) == GL_TRUE; };
-  static constexpr void DeleteProgramObj(GLuint i) noexcept { glDeleteProgram(i); };
+  static bool IsProgramObj(GLuint i) noexcept { return glIsProgram(i) == GL_TRUE; };
+  static void DeleteProgramObj(GLuint i) noexcept { glDeleteProgram(i); };
   struct ShaderObject;
 
   struct ProgramObject : Ref<IsProgramObj, DeleteProgramObj>

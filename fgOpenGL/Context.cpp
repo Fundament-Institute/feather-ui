@@ -6,8 +6,9 @@
 #include "ProgramObject.hpp"
 #include "EnumMapping.hpp"
 #include <algorithm>
-#include <assert.h>
-#include <float.h>
+#include <cassert>
+#include <cfloat>
+#include <cstring>
 
 #define kh_pair_hash_func(key) \
   kh_int64_hash_func((static_cast<uint64_t>(kh_ptr_hash_func(key.first)) << 32) | kh_int_hash_func(key.second))

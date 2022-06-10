@@ -10,7 +10,7 @@
 #include <GLFW/glfw3.h>
 #include "backend.h"
 #include "ShaderObject.hpp"
-#include <math.h>
+#include <cmath>
 #include <vector>
 #include <array>
 #include <utility>

@@ -3,11 +3,12 @@
 
 #include "platform.hpp"
 #include "BackendGL.hpp"
-#include <float.h>
+#include <cfloat>
 #include "ShaderObject.hpp"
 #include "ProgramObject.hpp"
 #include "PipelineState.hpp"
 #include "EnumMapping.hpp"
+#include <cstring>
 
 #ifdef FG_PLATFORM_WIN32
   #include <dwrite_1.h>
@@ -694,7 +695,6 @@ int Backend::DestroyGL(FG_Backend* self)
 #ifdef FG_PLATFORM_POSIX
     if(Backend::_library)
       dlclose(Backend::_library);
-    FcFini();
 #endif
   }
 
@@ -733,8 +733,6 @@ extern "C" FG_COMPILER_DLLEXPORT FG_Backend* fgOpenGL(void* root, FG_Log log, FG
       Backend::_library = dlopen("libGL.so.1", 0);
     if(!Backend::_library)
       Backend::_library = dlopen("libGL.so", 0);
-
-    FcInit();
 #endif
     glfwSetErrorCallback(&Backend::ErrorCallback);
 

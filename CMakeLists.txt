@@ -5,6 +5,9 @@ option(USE_DEFAULT_FOLDERS "Don't override the cmake output folders with a unifi
 if(MSVC)
   # This ensures that we default to static but let vcpkg configure things the way it wants
   set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<STREQUAL:${VCPKG_CRT_LINKAGE},dynamic>:DLL>" CACHE STRING "")
+else()
+set(CPP_WARNINGS "-Wno-gnu-anonymous-struct")
+
 endif()
 set(BIN_DIR "bin")
 

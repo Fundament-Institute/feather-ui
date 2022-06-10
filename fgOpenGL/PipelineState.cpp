@@ -5,8 +5,7 @@
 #include "ShaderObject.hpp"
 #include "BackendGL.hpp"
 #include "EnumMapping.hpp"
-#include <assert.h>
-#include <malloc.h>
+#include <cassert>
 
 using namespace GL;
 
@@ -35,7 +34,7 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
   RETURN_ERROR(pipeline->program.link());
 
   auto vlist =
-    reinterpret_cast<std::pair<GLuint, GLsizei>*>(_alloca(sizeof(std::pair<GLuint, GLsizei>) * vertexbuffers.size()));
+    reinterpret_cast<std::pair<GLuint, GLsizei>*>(ALLOCA(sizeof(std::pair<GLuint, GLsizei>) * vertexbuffers.size()));
 
   for(int i = 0; i < vertexbuffers.size(); ++i)
   {
