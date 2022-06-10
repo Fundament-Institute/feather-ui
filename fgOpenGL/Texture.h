@@ -5,7 +5,7 @@
 #define GL__TEXTURE_H
 
 #include "Ref.h"
-#include "GLFormat.h"
+#include "Format.h"
 
 namespace GL {
   static constexpr bool IsTexture(GLuint i) noexcept { return glIsTexture(i) == GL_TRUE; };
@@ -98,7 +98,7 @@ namespace GL {
     Texture& operator=(const Texture&) = delete;
     Texture& operator=(Texture&& right) noexcept = default;
 
-    static GLExpected<Texture> create2D(GLenum target, GLFormat format, FG_Vec2i size, const FG_Sampler& sampler,
+    static GLExpected<Texture> create2D(GLenum target, Format format, FG_Vec2i size, const FG_Sampler& sampler,
                                         void* data = nullptr,
                                         int levelorsamples = 0)
     {

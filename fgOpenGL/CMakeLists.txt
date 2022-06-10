@@ -1,7 +1,5 @@
 cmake_minimum_required(VERSION 3.13.4)
 project(fgOpenGL LANGUAGES C CXX VERSION 0.1.0)
-option(DYNAMIC_RUNTIME "if true, dynamically links (/MD) to the C++ runtime on MSVC. Otherwise, statically links (/MT)" OFF)
-option(BUILD_SHARED_LIBS "enable shared library" ON)
 
 find_package(glfw3 CONFIG REQUIRED)
 find_package(OpenGL REQUIRED)

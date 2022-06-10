@@ -49,6 +49,7 @@ namespace GL {
     GLExpected<void> SetShaderUniforms(const FG_ShaderParameter* uniforms, const FG_ShaderValue* values, uint32_t count);
     GLExpected<void> ApplyBlend(const FG_Blend& blend, const std::array<float, 4>& factor, bool force = false);
     GLExpected<void> ApplyFlags(uint16_t flags, uint8_t cull, uint8_t fill);
+    void ApplyDim(FG_Vec2 dim) { _dim = dim; }
     void ApplyPrimitiveShader(GLenum primitive, const ProgramObject& program, GLenum indextype)
     {
       _primitive = primitive;

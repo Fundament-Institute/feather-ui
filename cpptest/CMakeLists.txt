@@ -1,7 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(cpptest LANGUAGES C VERSION 0.1.0)
-option(DYNAMIC_RUNTIME "if true, dynamically links (/MD) to the C++ runtime on MSVC. Otherwise, statically links (/MT)" OFF)
-option(BUILD_SHARED_LIBS "enable shared library" ON)
+project(cpptest LANGUAGES CXX VERSION 0.1.0)
 
 find_package(OpenGL REQUIRED)
 
@@ -36,5 +34,5 @@ target_include_directories(cpptest PUBLIC ${PROJECT_SOURCE_DIR}/../include)
 if(MSVC)
 target_link_libraries(cpptest PRIVATE fgOpenGL ${OPENGL_LIBRARIES})
 else()
-target_link_libraries(cpptest PRIVATE fgOpenGL stdc++fs ${OPENGL_LIBRARIES})
+target_link_libraries(cpptest PRIVATE fgOpenGL ${OPENGL_LIBRARIES})
 endif()

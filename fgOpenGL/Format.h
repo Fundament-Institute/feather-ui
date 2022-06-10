@@ -10,14 +10,14 @@
 
 namespace GL {
   // Struct representing an OpenGL format triplet because the OpenGL spec is awful
-  struct GLFormat
+  struct Format
   {
     GLint internalformat;
     GLenum components;
     GLenum type;
 
-    static GLFormat Map(GLint internalformat) noexcept;
-    static GLFormat Create(unsigned char format, bool sRGB) noexcept;
+    static Format Map(GLint internalformat) noexcept;
+    static Format Create(unsigned char format, bool sRGB) noexcept;
   };
 }
 

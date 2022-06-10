@@ -272,7 +272,7 @@ FG_Resource* Backend::CreateTexture(FG_Backend* self, FG_Context* context, FG_Ve
   auto backend = static_cast<Backend*>(self);
   if(type >= ArraySize(TypeMapping) || !sampler)
     return nullptr;
-  if(auto e = Texture::create2D(TypeMapping[type], GLFormat::Create(format, false), size, *sampler, data, MultiSampleCount))
+  if(auto e = Texture::create2D(TypeMapping[type], Format::Create(format, false), size, *sampler, data, MultiSampleCount))
     return pack_ptr(std::move(e.value()).release());
   else
     e.log(backend);
@@ -334,8 +334,8 @@ int Backend::SetWindow(FG_Backend* self, FG_Window* window, FG_Element* element,
   auto glwindow = w->GetWindow();
   if(!glwindow)
   {
-    //if(dim) // A pure context doesn't currently track dimensions
-    //  w->SetDim(*dim);
+    if(dim)
+      w->ApplyDim(*dim);
     return ERR_SUCCESS;
   }
   if(caption)
