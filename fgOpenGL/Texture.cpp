@@ -1,9 +1,9 @@
 // Copyright (c)2022 Fundament Software
-// For conditions of distribution and use, see copyright notice in "BackendGL.h"
+// For conditions of distribution and use, see copyright notice in "BackendGL.hpp"
 
-#include "BackendGL.h"
-#include "Texture.h"
-#include "EnumMapping.h"
+#include "BackendGL.hpp"
+#include "Texture.hpp"
+#include "EnumMapping.hpp"
 #include <assert.h>
 #include <math.h>
 

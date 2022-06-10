@@ -1,10 +1,10 @@
 // Copyright (c)2022 Fundament Software
-// For conditions of distribution and use, see copyright notice in "fgOpenGL.h"
+// For conditions of distribution and use, see copyright notice in "fgOpenGL.hpp"
 
 #ifndef GL__PROGRAM_OBJECT_H
 #define GL__PROGRAM_OBJECT_H
 
-#include "Ref.h"
+#include "Ref.hpp"
 #include <string>
 
 namespace GL {

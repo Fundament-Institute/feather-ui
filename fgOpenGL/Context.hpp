@@ -1,16 +1,15 @@
-// Copyright (c)2021 Fundament Software
-// For conditions of distribution and use, see copyright notice in "fgOpenGL.h"
+// Copyright (c)2022 Fundament Software
+// For conditions of distribution and use, see copyright notice in "fgOpenGL.hpp"
 
 #ifndef GL__CONTEXT_H
 #define GL__CONTEXT_H
 
-#include "compiler.h"
+#include "compiler.hpp"
 #include "glad/glad.h"
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
-#include "khash.h"
 #include "backend.h"
-#include "ShaderObject.h"
+#include "ShaderObject.hpp"
 #include <math.h>
 #include <vector>
 #include <array>

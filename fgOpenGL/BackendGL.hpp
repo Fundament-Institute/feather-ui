@@ -17,7 +17,7 @@ limitations under the License.
 #ifndef FG__OPENGL_H
 #define FG__OPENGL_H
 
-#include "Window.h"
+#include "Window.hpp"
 #include <vector>
 
 struct FT_LibraryRec_;

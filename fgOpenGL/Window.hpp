@@ -1,10 +1,10 @@
-// Copyright (c)2021 Fundament Software
-// For conditions of distribution and use, see copyright notice in "fgOpenGL.h"
+// Copyright (c)2022 Fundament Software
+// For conditions of distribution and use, see copyright notice in "fgOpenGL.hpp"
 
 #ifndef GL__WINDOW_H
 #define GL__WINDOW_H
 
-#include "Context.h"
+#include "Context.hpp"
 
 namespace GL {
   class Backend;

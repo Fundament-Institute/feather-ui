@@ -1,8 +1,8 @@
 // Copyright (c)2022 Fundament Software
-// For conditions of distribution and use, see copyright notice in "BackendGL.h"
+// For conditions of distribution and use, see copyright notice in "BackendGL.hpp"
 
-#include "ShaderObject.h"
-#include "BackendGL.h"
+#include "ShaderObject.hpp"
+#include "BackendGL.hpp"
 #include <assert.h>
 
 using namespace GL;

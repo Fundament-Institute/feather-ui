@@ -1,7 +1,7 @@
 // Copyright (c)2022 Fundament Software
-// For conditions of distribution and use, see copyright notice in "BackendGL.h"
+// For conditions of distribution and use, see copyright notice in "BackendGL.hpp"
 
-#include "BackendGL.h"
+#include "BackendGL.hpp"
 
 #ifdef FG_PLATFORM_WIN32
   #define GLFW_EXPOSE_NATIVE_WIN32

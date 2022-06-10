@@ -1,10 +1,10 @@
 // Copyright (c)2022 Fundament Software
-// For conditions of distribution and use, see copyright notice in "BackendGL.h"
+// For conditions of distribution and use, see copyright notice in "BackendGL.hpp"
 
-#include "BackendGL.h"
-#include "VertexArrayObject.h"
-#include "ProgramObject.h"
-#include "EnumMapping.h"
+#include "BackendGL.hpp"
+#include "VertexArrayObject.hpp"
+#include "ProgramObject.hpp"
+#include "EnumMapping.hpp"
 #include <algorithm>
 #include <assert.h>
 #include <float.h>

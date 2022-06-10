@@ -1,10 +1,10 @@
 
-#include "BackendGL.h"
+#include "BackendGL.hpp"
 #include "glad/glad.h"
 #include <string.h>
 #include <memory>
-#include "VertexArrayObject.h"
-#include "EnumMapping.h"
+#include "VertexArrayObject.hpp"
+#include "EnumMapping.hpp"
 
 using namespace GL;
 

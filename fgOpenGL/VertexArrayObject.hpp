@@ -2,7 +2,7 @@
 #ifndef GL__VAO_H
 #define GL__VAO_H
 
-#include "compiler.h"
+#include "compiler.hpp"
 #include "backend.h"
 #include "glad/glad.h"
 #include <span>

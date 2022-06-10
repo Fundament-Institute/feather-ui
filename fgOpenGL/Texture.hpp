@@ -1,11 +1,11 @@
 // Copyright (c)2022 Fundament Software
-// For conditions of distribution and use, see copyright notice in "BackendGL.h"
+// For conditions of distribution and use, see copyright notice in "BackendGL.hpp"
 
 #ifndef GL__TEXTURE_H
 #define GL__TEXTURE_H
 
-#include "Ref.h"
-#include "Format.h"
+#include "Ref.hpp"
+#include "Format.hpp"
 
 namespace GL {
   static constexpr bool IsTexture(GLuint i) noexcept { return glIsTexture(i) == GL_TRUE; };

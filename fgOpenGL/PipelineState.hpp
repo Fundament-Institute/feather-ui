@@ -1,13 +1,13 @@
 // Copyright (c)2022 Fundament Software
-// For conditions of distribution and use, see copyright notice in "fgOpenGL.h"
+// For conditions of distribution and use, see copyright notice in "fgOpenGL.hpp"
 
 #ifndef GL__PIPELINE_STATE_H
 #define GL__PIPELINE_STATE_H
 
-#include "ProgramObject.h"
-#include "VertexArrayObject.h"
-#include "FrameBuffer.h"
-#include "Buffer.h"
+#include "ProgramObject.hpp"
+#include "VertexArrayObject.hpp"
+#include "FrameBuffer.hpp"
+#include "Buffer.hpp"
 #include "backend.h"
 #include <string>
 #include <span>

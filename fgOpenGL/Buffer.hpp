@@ -1,10 +1,10 @@
 // Copyright (c)2022 Fundament Software
-// For conditions of distribution and use, see copyright notice in "BackendGL.h"
+// For conditions of distribution and use, see copyright notice in "BackendGL.hpp"
 
 #ifndef GL__BUFFER_H
 #define GL__BUFFER_H
 
-#include "Ref.h"
+#include "Ref.hpp"
 
 namespace GL {
   static constexpr bool IsBuffer(GLuint i) noexcept { return glIsBuffer(i) == GL_TRUE; };

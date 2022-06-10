@@ -1,13 +1,13 @@
 // Copyright (c)2022 Fundament Software
-// For conditions of distribution and use, see copyright notice in "BackendGL.h"
+// For conditions of distribution and use, see copyright notice in "BackendGL.hpp"
 
-#include "platform.h"
-#include "BackendGL.h"
+#include "platform.hpp"
+#include "BackendGL.hpp"
 #include <float.h>
-#include "ShaderObject.h"
-#include "ProgramObject.h"
-#include "PipelineState.h"
-#include "EnumMapping.h"
+#include "ShaderObject.hpp"
+#include "ProgramObject.hpp"
+#include "PipelineState.hpp"
+#include "EnumMapping.hpp"
 
 #ifdef FG_PLATFORM_WIN32
   #include <dwrite_1.h>

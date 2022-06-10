@@ -1,10 +1,10 @@
 // Copyright (c)2022 Fundament Software
-// For conditions of distribution and use, see copyright notice in "Backend.h"
+// For conditions of distribution and use, see copyright notice in "Backend.hpp"
 
 #ifndef GL__ERROR_H
 #define GL__ERROR_H
 
-#include "compiler.h"
+#include "compiler.hpp"
 #include "glad/glad.h"
 #include <type_traits>
 #include <utility>

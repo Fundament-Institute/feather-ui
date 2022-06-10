@@ -1,10 +1,10 @@
-// Copyright (c)2021 Fundament Software
-// For conditions of distribution and use, see copyright notice in "fgOpenGL.h"
+// Copyright (c)2022 Fundament Software
+// For conditions of distribution and use, see copyright notice in "fgOpenGL.hpp"
 
 #ifndef GL__PLATFORM_H
 #define GL__PLATFORM_H
 
-#include "compiler.h"
+#include "compiler.hpp"
 
 #ifdef FG_PLATFORM_WIN32
   #pragma pack(push)
@@ -22,8 +22,6 @@
   #define NOHELP
   #include <windows.h>
   #pragma pack(pop)
-#else
-  #include <fontconfig/fontconfig.h>
 #endif
 
 #endif
