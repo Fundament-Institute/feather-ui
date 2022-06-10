@@ -4,13 +4,10 @@
 #include "platform.h"
 #include "BackendGL.h"
 #include <float.h>
-#include "ft2build.h"
 #include "ShaderObject.h"
 #include "ProgramObject.h"
 #include "PipelineState.h"
 #include "EnumMapping.h"
-#include FT_FREETYPE_H
-#include "freetype/freetype.h"
 
 #ifdef FG_PLATFORM_WIN32
   #include <dwrite_1.h>
