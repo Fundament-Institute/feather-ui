@@ -897,7 +897,7 @@ enum FG_Joy
 typedef struct FG_Msg__
 {
   uint16_t kind;
-  union
+  union value
   {
     struct FG_TouchMove
     {

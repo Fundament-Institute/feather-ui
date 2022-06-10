@@ -1,0 +1,115 @@
+{
+  "nodes": {
+    "flake-utils": {
+      "locked": {
+        "lastModified": 1653893745,
+        "narHash": "sha256-0jntwV3Z8//YwuOjzhV2sgJJPt+HY6KhU7VZUL0fKZQ=",
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "rev": "1ed9fb1935d260de5fe1c2f7ee0ebaae17ed2fa1",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "type": "github"
+      }
+    },
+    "genie-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1639236213,
+        "narHash": "sha256-+6xlyWlBJOt/RTx36UrqO0e8tyuX90UKyzFHSAJeCY4=",
+        "owner": "bkaradzic",
+        "repo": "genie",
+        "rev": "7860ea4ae5b2e398276dcdd138032c979301348e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "bkaradzic",
+        "repo": "genie",
+        "type": "github"
+      }
+    },
+    "nix-filter": {
+      "locked": {
+        "lastModified": 1653590866,
+        "narHash": "sha256-E4yKIrt/S//WfW5D9IhQ1dVuaAy8RE7EiCMfnbrOC78=",
+        "owner": "numtide",
+        "repo": "nix-filter",
+        "rev": "3e81a637cdf9f6e9b39aeb4d6e6394d1ad158e16",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "nix-filter",
+        "type": "github"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1650998007,
+        "narHash": "sha256-NcJnbGDBBN023x8s3ll3HZxBcQoPq1ry9E2sjg+4flc=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "a3917caedfead19f853aa5769de4c3ea4e4db584",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "ref": "nixos-21.11",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "flake-utils": "flake-utils",
+        "nix-filter": "nix-filter",
+        "nixpkgs": [
+          "scopes",
+          "nixpkgs"
+        ],
+        "scopes": "scopes"
+      }
+    },
+    "scopes": {
+      "inputs": {
+        "genie-src": "genie-src",
+        "nixpkgs": "nixpkgs",
+        "spirv-cross-src": "spirv-cross-src"
+      },
+      "locked": {
+        "lastModified": 1654419248,
+        "narHash": "sha256-L12xxQLUf7QsVASUGpRib064qPnbtO/m6eB57FfAyeE=",
+        "owner": "Fundament-software",
+        "repo": "scopes",
+        "rev": "8be9c6214b90b69bb7bf2fd4e2d43b997e8663ec",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Fundament-software",
+        "repo": "scopes",
+        "type": "github"
+      }
+    },
+    "spirv-cross-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1648146442,
+        "narHash": "sha256-OluTxOEfDIGMdrXhvIifjpMgZBvyh9ofLKxKt0dX5ZU=",
+        "owner": "KhronosGroup",
+        "repo": "SPIRV-Cross",
+        "rev": "0d4ce028bf8b8a94d325dc1e1c20446153ba19c4",
+        "type": "github"
+      },
+      "original": {
+        "owner": "KhronosGroup",
+        "repo": "SPIRV-Cross",
+        "type": "github"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}
