@@ -22,7 +22,7 @@ endif()
 set(CMAKE_VERBOSE_MAKEFILE TRUE)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF) # we use these for (&float)[4][4]
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 file(GLOB_RECURSE fgOpenGL_SOURCES "./*.cpp")
 list(APPEND fgOpenGL_SOURCES "glad.c")

@@ -1,4 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
+set(VCPKG_HOST_TRIPLET "x64-windows-static" CACHE STRING "")
+
 project(feathergui VERSION 0.1.0)
 option(USE_DEFAULT_FOLDERS "Don't override the cmake output folders with a unified /bin/ folder. Also disables debug postfix." OFF)
 
@@ -37,6 +39,17 @@ function(retarget_output target)
   endif()
 endfunction()
 
+set(INSTALL_BIN_DIR "${CMAKE_INSTALL_PREFIX}/bin" CACHE PATH "Installation directory for executables")
+set(INSTALL_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib" CACHE PATH "Installation directory for libraries")
+set(INSTALL_INC_DIR "${CMAKE_INSTALL_PREFIX}/include" CACHE PATH "Installation directory for headers")
+
 add_subdirectory(fgOpenGL)
 #add_subdirectory(fgDirect2D)
 add_subdirectory(cpptest)
+
+install(TARGETS fgOpenGL cpptest
+        RUNTIME DESTINATION ${INSTALL_BIN_DIR}
+        ARCHIVE DESTINATION ${INSTALL_LIB_DIR}
+        LIBRARY DESTINATION ${INSTALL_LIB_DIR}  )
+
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/include/feather" DESTINATION "${INSTALL_INC_DIR}")

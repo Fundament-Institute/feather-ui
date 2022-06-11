@@ -8,7 +8,7 @@
 #include "glad/glad.h"
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
-#include "backend.h"
+#include "feather/backend.h"
 #include "ShaderObject.hpp"
 #include <cmath>
 #include <vector>

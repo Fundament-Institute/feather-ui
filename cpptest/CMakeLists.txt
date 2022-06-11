@@ -30,6 +30,7 @@ add_executable(cpptest ${cpptest_SOURCES})
 retarget_output(cpptest)
 target_include_directories(cpptest PUBLIC ${OPENGL_INCLUDE_DIRS})
 target_include_directories(cpptest PUBLIC ${PROJECT_SOURCE_DIR}/../include)
+add_dependencies(cpptest fgOpenGL)
 
 if(WIN32)
 target_link_libraries(cpptest PRIVATE fgOpenGL ${OPENGL_LIBRARIES})
