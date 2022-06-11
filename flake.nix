@@ -25,13 +25,14 @@
 
           nativeBuildInputs = [ pkgs.cmake ];
           buildInputs = [ pkgs.libglvnd pkgs.glfw ];
-          outputs = [ "out" "fgOpenGL" "cpptest" ];
+          outputs = [ "out" ];
 
           cmakeFlags = [ "-DUSE_DEFAULT_FOLDERS=1" ];
 
           # installPhase = ''
-          #   cmake
-          # ''
+          #   mkdir -p $out/build-dump
+          #   cp -r . $out/build-dump
+          # '';
         };
       in {
         packages = { fgOpenGL = backends; };
