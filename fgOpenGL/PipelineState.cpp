@@ -7,7 +7,6 @@
 #include "EnumMapping.hpp"
 #include <cassert>
 #include <malloc.h> // for _alloca on windows
-#include <ranges>
 
 using namespace GL;
 
@@ -20,7 +19,7 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
   pipeline->RenderTargetsCount = rendertargets.size();
   auto rts                  = std::span<GLuint>(reinterpret_cast<GLuint*>(pipeline + 1), rendertargets.size());
 
-  for(size_t i : std::views::iota(0_uz, rendertargets.size()))
+  for(size_t i = 0; i < rts.size(); ++i)
     rts[i] = Buffer(rendertargets[i]).release();
 
   if(auto e = ProgramObject::create())
@@ -29,7 +28,7 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
     return std::move(e.error());
 
   //for(int i = 0; i < FG_ShaderStage_COUNT; ++i)
-  for(auto shader : std::views::all(state.Shaders))
+  for(auto shader : std::span(state.Shaders))
   {
     if(shader != nullptr)
       RETURN_ERROR(pipeline->program.attach(ShaderObject(shader)));
@@ -39,7 +38,7 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
   auto vlist =
     std::span(reinterpret_cast<std::pair<GLuint, GLsizei>*>(ALLOCA(sizeof(std::pair<GLuint, GLsizei>) * vertexbuffers.size())), vertexbuffers.size());
 
-  for(size_t i : std::views::iota(0_uz, vertexbuffers.size()))
+  for(size_t i = 0; i < vlist.size(); ++i)
   {
     // Have to be careful to use placement new here to avoid UB due to alloca
     new(&vlist[i]) std::pair{ Buffer(vertexbuffers[i]).release(), strides[i] };
