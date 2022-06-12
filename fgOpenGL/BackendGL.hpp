@@ -51,6 +51,9 @@ namespace GL {
     return static_cast<T>(reinterpret_cast<size_t>(p));
   }
 
+  // C++23 introduces uz but we don't have that yet.
+  static inline constexpr std::size_t operator"" _uz(unsigned long long int x) noexcept { return x; }
+
   class Backend : public FG_Backend
   {
   public:

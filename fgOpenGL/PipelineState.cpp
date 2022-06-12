@@ -7,6 +7,7 @@
 #include "EnumMapping.hpp"
 #include <cassert>
 #include <malloc.h> // for _alloca on windows
+#include <ranges>
 
 using namespace GL;
 
@@ -17,9 +18,9 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
 {
   PipelineState* pipeline      = new(rendertargets.size()) PipelineState{};
   pipeline->RenderTargetsCount = rendertargets.size();
-  GLuint* rts                  = reinterpret_cast<GLuint*>(pipeline + 1);
+  auto rts                  = std::span<GLuint>(reinterpret_cast<GLuint*>(pipeline + 1), rendertargets.size());
 
-  for(int i = 0; i < rendertargets.size(); ++i)
+  for(size_t i : std::views::iota(0_uz, rendertargets.size()))
     rts[i] = Buffer(rendertargets[i]).release();
 
   if(auto e = ProgramObject::create())
@@ -27,24 +28,24 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
   else
     return std::move(e.error());
 
-  for(int i = 0; i < FG_ShaderStage_COUNT; ++i)
+  //for(int i = 0; i < FG_ShaderStage_COUNT; ++i)
+  for(auto shader : std::views::all(state.Shaders))
   {
-    if(state.Shaders[i] != nullptr)
-      RETURN_ERROR(pipeline->program.attach(ShaderObject(state.Shaders[i])));
+    if(shader != nullptr)
+      RETURN_ERROR(pipeline->program.attach(ShaderObject(shader)));
   }
   RETURN_ERROR(pipeline->program.link());
 
   auto vlist =
-    reinterpret_cast<std::pair<GLuint, GLsizei>*>(ALLOCA(sizeof(std::pair<GLuint, GLsizei>) * vertexbuffers.size()));
+    std::span(reinterpret_cast<std::pair<GLuint, GLsizei>*>(ALLOCA(sizeof(std::pair<GLuint, GLsizei>) * vertexbuffers.size())), vertexbuffers.size());
 
-  for(int i = 0; i < vertexbuffers.size(); ++i)
+  for(size_t i : std::views::iota(0_uz, vertexbuffers.size()))
   {
     // Have to be careful to use placement new here to avoid UB due to alloca
     new(&vlist[i]) std::pair{ Buffer(vertexbuffers[i]).release(), strides[i] };
   }
 
-  if(auto e = VertexArrayObject::create(pipeline->program, attributes,
-                                        std::span(vlist, vertexbuffers.size()), Buffer(indexbuffer).release()))
+  if(auto e = VertexArrayObject::create(pipeline->program, attributes, vlist, Buffer(indexbuffer).release()))
   {
     pipeline->vao = std::move(e.value());
   }
@@ -90,9 +91,9 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
 
   switch(indexstride)
   {
-  case 1: pipeline->IndexType = GL_UNSIGNED_BYTE;
-  case 2: pipeline->IndexType = GL_UNSIGNED_SHORT;
-  case 4: pipeline->IndexType = GL_UNSIGNED_INT;
+  case 1: pipeline->IndexType = GL_UNSIGNED_BYTE; break;
+  case 2: pipeline->IndexType = GL_UNSIGNED_SHORT; break;
+  case 4: pipeline->IndexType = GL_UNSIGNED_INT; break;
   case 0:
     if(!indexbuffer)
       break; // an indexstride of 0 is allowed if there is no indexbuffer

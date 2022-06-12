@@ -280,7 +280,7 @@ int main(int argc, char* argv[])
   char hold[10];
 
   TEST((b->getClipboard)(b, w, FG_Clipboard_TEXT, hold, 10) == 9)
-  for(int i = 0; i < 8; ++i)
+  for(int i = 0; i < sizeof(TEST_TEXT); ++i)
   {
     TEST(TEST_TEXT[i] == hold[i]);
   }
