@@ -22,7 +22,11 @@ limitations under the License.
 
 struct FT_LibraryRec_;
 
-#define LOG(level, msg, ...) Log(level, __FILE__, __LINE__, msg, __VA_ARGS__)
+#ifdef FG_COMPILER_MSC
+  #define LOG(level, msg, ...) Log(level, __FILE__, __LINE__, msg, __VA_ARGS__)
+#else
+  #define LOG(level, msg, ...) Log(level, __FILE__, __LINE__, msg __VA_OPT__(,) __VA_ARGS__)
+#endif
 
 namespace GL {
   enum GL_Err

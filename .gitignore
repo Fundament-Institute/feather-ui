@@ -6,3 +6,4 @@
 /build/
 *.user
 .direnv/
+result

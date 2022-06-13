@@ -79,7 +79,7 @@ void FakeLog(void* p, enum FG_Level level, const char* file, int line, const cha
       if(i >= 0)
         FakeLogArg(str, values[i]);
       else
-        printf(str);
+        printf("%s", str);
 
       cur[0] = '%';
       str    = cur;
@@ -90,7 +90,7 @@ void FakeLog(void* p, enum FG_Level level, const char* file, int line, const cha
   }
   else
   {
-    printf(msg);
+    printf("%s", msg);
     for(auto& v : vlist)
     {
       switch(v.type)
