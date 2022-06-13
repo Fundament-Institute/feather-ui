@@ -37,7 +37,7 @@ GLExpected<FrameBuffer> FrameBuffer::create(GLenum target, const Texture& textur
     auto status = glCheckFramebufferStatus(target);
     if(status != GL_FRAMEBUFFER_COMPLETE)
     {
-      return GLError(status, "glCheckFramebufferStatus");
+      return CUSTOM_ERROR(status, "glCheckFramebufferStatus");
     }
   }
   else

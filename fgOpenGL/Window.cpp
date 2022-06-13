@@ -143,7 +143,7 @@ void Window::FillKeyMap()
 
 Window::Window(Backend* backend, GLFWmonitor* display, FG_Element* element, FG_Vec2* pos, FG_Vec2* dim, uint64_t flags,
                const char* caption) :
-  Context(backend, element, !dim ? FG_Vec2{0,0} : *dim), _next(nullptr), _prev(nullptr)
+  Context(backend, element, !dim ? FG_Vec2{ 0, 0 } : *dim), _next(nullptr), _prev(nullptr)
 {
   FillKeyMap();
   if(flags & FG_WindowFlag_NOCAPTION)
@@ -189,13 +189,13 @@ Window::Window(Backend* backend, GLFWmonitor* display, FG_Element* element, FG_V
 
     glfwMakeContextCurrent(_window);
     if(!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
-      (*_backend->_log)(_backend->_root, FG_Level_ERROR, "gladLoadGL failed");
+      backend->LOG(FG_Level_ERROR, "gladLoadGL failed");
   }
   else
-    (*_backend->_log)(_backend->_root, FG_Level_ERROR, "glfwCreateWindow failed");
+    backend->LOG(FG_Level_ERROR, "glfwCreateWindow failed");
 
-  (*_backend->_log)(_backend->_root, FG_Level_NOTICE, "OpenGL v.%s\nVendor: %s\nRenderer: %s\n", glGetString(GL_VERSION),
-                    glGetString(GL_VENDOR), glGetString(GL_RENDERER));
+  backend->LOG(FG_Level_NOTICE, "OpenGL v.%s\nVendor: %s\nRenderer: %s\n", (const char*)glGetString(GL_VERSION),
+               (const char*)glGetString(GL_VENDOR), (const char*)glGetString(GL_RENDERER));
 }
 
 Window::~Window()
@@ -369,8 +369,8 @@ void Window::CloseCallback(GLFWwindow* window)
 
 void Window::SizeCallback(GLFWwindow* window, int width, int height)
 {
-  auto self = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
-  self->_dim  = { static_cast<float>(width), static_cast<float>(height) };
+  auto self  = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
+  self->_dim = { static_cast<float>(width), static_cast<float>(height) };
 }
 
 void Window::RefreshCallback(GLFWwindow* window)
@@ -379,7 +379,7 @@ void Window::RefreshCallback(GLFWwindow* window)
   // Call beginpaint and Endpaint so that assertions don't blow everything up.
   PAINTSTRUCT ps;
   HWND hWnd = glfwGetWin32Window(window);
-  auto hdc       = BeginPaint(hWnd, &ps);
+  auto hdc  = BeginPaint(hWnd, &ps);
   EndPaint(hWnd, &ps);
 #endif
 

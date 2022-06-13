@@ -65,11 +65,9 @@ namespace GL {
     0, GL_KEEP, GL_ZERO, GL_REPLACE, GL_INCR, GL_DECR, GL_INVERT, GL_INCR_WRAP, GL_DECR_WRAP,
   };
 
-  static constinit uint16_t ShaderStageMapping[] = {
-    GL_FRAGMENT_SHADER,     GL_VERTEX_SHADER,          GL_GEOMETRY_SHADER,
-    GL_TESS_CONTROL_SHADER, GL_TESS_EVALUATION_SHADER, GL_COMPUTE_SHADER,
-    GL_MESH_SHADER_NV,
-  };
+  static constinit uint16_t ShaderStageMapping[] = { GL_FRAGMENT_SHADER,     GL_VERTEX_SHADER,          GL_GEOMETRY_SHADER,
+                                                     GL_TESS_CONTROL_SHADER, GL_TESS_EVALUATION_SHADER, GL_COMPUTE_SHADER,
+                                                     GL_MESH_SHADER_NV,      GL_TASK_SHADER_NV };
 
   template<class T, int SIZE> constexpr int ArraySize(T (&)[SIZE]) { return SIZE; }
 }

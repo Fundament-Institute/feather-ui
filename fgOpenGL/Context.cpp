@@ -117,7 +117,7 @@ GLExpected<void> Context::DrawArrays(uint32_t vertexcount, uint32_t instancecoun
                                      uint32_t startinstance)
 {
   if(instancecount > 0)
-    return GLError(ERR_NOT_IMPLEMENTED, "don't know how to instance things!");
+    return CUSTOM_ERROR(ERR_NOT_IMPLEMENTED, "don't know how to instance things!");
   glDrawArrays(_primitive, startvertex, vertexcount);
   GL_ERROR("glDrawArrays");
   return {};
@@ -127,7 +127,7 @@ GLExpected<void> Context::DrawIndexed(uint32_t indexcount, uint32_t instancecoun
                                       uint32_t startinstance)
 {
   if(instancecount > 0)
-    return GLError(ERR_NOT_IMPLEMENTED, "don't know how to instance things!");
+    return CUSTOM_ERROR(ERR_NOT_IMPLEMENTED, "don't know how to instance things!");
   glDrawElements(_primitive, indexcount, _indextype, nullptr);
   GL_ERROR("glDrawElements");
   return {};

@@ -30,7 +30,7 @@ GLExpected<VertexArrayObject> VertexArrayObject::create(GLuint program, std::spa
     {
       if(param.index >= vbuffers.size())
       {
-        return GLError(ERR_INVALID_PARAMETER, "Parameter index exceeds buffer count");
+        return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Parameter index exceeds buffer count");
       }
 
       glBindBuffer(GL_ARRAY_BUFFER, vbuffers[param.index].first);
@@ -42,7 +42,7 @@ GLExpected<VertexArrayObject> VertexArrayObject::create(GLuint program, std::spa
       int sz      = Context::GetMultiCount(param.length, param.multi);
 
       if(param.type > ArraySize(ShaderTypeMapping))
-        return GLError(ERR_INVALID_PARAMETER, "param.type is not valid shader type");
+        return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "param.type is not valid shader type");
 
       GLenum type = ShaderTypeMapping[param.type];
 

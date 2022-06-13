@@ -23,9 +23,10 @@ limitations under the License.
 #include <memory>
 #include <cassert>
 #include <cstring>
+#include <span>
 
 extern "C" {
-  #include "linmath.h"
+#include "linmath.h"
 }
 
 #define BACKEND fgOpenGL
@@ -39,28 +40,80 @@ extern "C" FG_Backend* BACKEND(void* root, FG_Log log, FG_Behavior behavior);
 
 const char* LEVELS[] = { "FATAL: ", "ERROR: ", "WARNING: ", "NOTICE: ", "DEBUG: " };
 
-// A logging function that just forwards everything to printf
-void FakeLog(void* root, FG_Level level, const char* f, ...)
+void FakeLogArg(const char* str, FG_LogValue& v)
 {
-  /* char buf[2048];
-  int len = 0;
-  if(level >= 0)
-    len += sprintf_s(buf, "%s", LEVELS[level]);
+  switch(v.type)
+  {
+  case FG_LogType_Boolean: printf(str, v.bit); break;
+  case FG_LogType_I32: printf(str, v.i32); break;
+  case FG_LogType_U32: printf(str, v.u32); break;
+  case FG_LogType_I64: printf(str, v.i64); break;
+  case FG_LogType_U64: printf(str, v.u64); break;
+  case FG_LogType_F32: printf(str, v.f32); break;
+  case FG_LogType_F64: printf(str, v.f64); break;
+  case FG_LogType_String: printf(str, v.string); break;
+  case FG_LogType_OwnedString: printf(str, v.owned); break;
+  }
+}
 
-  va_list args;
-  va_start(args, f);
-  vsprintf_s(buf, f, args);
-  va_end(args);
-  OutputDebugStringA(buf);*/
+// A logging function that just forwards everything to printf
+void FakeLog(void* p, enum FG_Level level, const char* file, int line, const char* msg, FG_LogValue* values, int n_values,
+             void (*free)(char*))
+{
+  if(level >= 0 && level < sizeof(LEVELS))
+    printf("%s [%s:%i] ", LEVELS[level], file, line);
 
-  if(level >= 0)
-    printf("%s", LEVELS[level]);
+  auto vlist = std::span(values, n_values);
 
-  va_list args;
-  va_start(args, f);
-  vprintf(f, args);
-  va_end(args);
-  printf("\n");
+  // Crazy hack to feed values into printf
+  if(strchr(msg, '%'))
+  {
+    int i     = -1;
+    char* str = (char*)alloca(strlen(msg) + 1);
+    strcpy(str, msg);
+    auto cur = strchr(str, '%');
+
+    while(cur)
+    {
+      cur[0] = 0;
+      if(i >= 0)
+        FakeLogArg(str, values[i]);
+      else
+        printf(str);
+
+      cur[0] = '%';
+      str    = cur;
+      cur    = strchr(str + 1, '%');
+      ++i;
+    }
+    FakeLogArg(str, values[i]);
+  }
+  else
+  {
+    printf(msg);
+    for(auto& v : vlist)
+    {
+      switch(v.type)
+      {
+      case FG_LogType_Boolean: printf(" %s", v.bit ? "true" : "false"); break;
+      case FG_LogType_I32: printf(" %i", v.i32); break;
+      case FG_LogType_U32: printf(" %u", v.u32); break;
+      case FG_LogType_I64: printf(" %lli", v.i64); break;
+      case FG_LogType_U64: printf(" %llu", v.u64); break;
+      case FG_LogType_F32: printf(" %g", v.f32); break;
+      case FG_LogType_F64: printf(" %g", v.f64); break;
+      case FG_LogType_String: printf(" %s", v.string); break;
+      case FG_LogType_OwnedString: printf(" %s", v.owned); break;
+      }
+    }
+    printf("\n");
+  }
+
+  for(auto& v : vlist)
+  {
+    if(v.type == FG_LogType_OwnedString)
+      free(v.owned);
+  }
 }
 
 // This assembles a custom projection matrix specifically designed for 2D drawing.

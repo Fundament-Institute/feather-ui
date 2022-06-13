@@ -37,7 +37,7 @@ bool ProgramObject::is_valid() const noexcept
 GLExpected<std::string> ProgramObject::log() const noexcept
 {
   if(glIsProgram(_ref) == GL_FALSE)
-    return GLError(ERR_INVALID_PARAMETER, "ShaderObject::Log");
+    return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "ShaderObject::Log");
 
   GLint len;
   glGetProgramiv(_ref, GL_INFO_LOG_LENGTH, &len); // this includes the null terminator
@@ -79,7 +79,7 @@ GLExpected<void> ProgramObject::set_uniform(const char* name, GLenum type, const
   else
   {
     if(!name)
-      return GLError(ERR_INVALID_PARAMETER, "name cannot be null");
+      return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "name cannot be null");
 
     auto loc = glGetUniformLocation(_ref, name);
     GL_ERROR("glGetUniformLocation");
@@ -106,7 +106,7 @@ GLExpected<void> ProgramObject::set_uniform(const char* name, GLenum type, const
     case GL_INT_VEC4:
     case GL_UNSIGNED_INT_VEC4:
     case GL_BOOL_VEC4: glUniform4fv(loc, 1, data); break;
-    case GL_DOUBLE: return GLError(ERR_INVALID_PARAMETER, "Cannot assign GL_DOUBLE!");
+    case GL_DOUBLE: return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Cannot assign GL_DOUBLE!");
     default: glUniform1f(loc, data[0]); break;
     }
     GL_ERROR("glUniform1f");

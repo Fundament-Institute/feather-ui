@@ -14,7 +14,7 @@ GLenum GLError::log(Backend* backend)
 
     if(_error != GL_NO_ERROR)
     {
-      (*backend->_log)(backend->_root, FG_Level_ERROR, "%s: 0x%04X", _context, _error);
+      backend->Log(FG_Level_ERROR, _file, _line, "OpenGL Error: ", _callsite, _error);
       return _error;
     }
   }

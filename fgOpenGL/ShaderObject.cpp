@@ -20,7 +20,7 @@ bool ShaderObject::is_valid() const noexcept
 GLExpected<std::string> ShaderObject::log() const noexcept
 {
   if(glIsShader(_ref) == GL_FALSE)
-    return GLError(ERR_INVALID_PARAMETER, "ShaderObject::Log");
+    return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "ShaderObject::Log");
 
   GLint len;
   glGetShaderiv(_ref, GL_INFO_LOG_LENGTH, &len); // this includes the null terminator

@@ -50,7 +50,7 @@ GLExpected<void> Texture::apply_sampler(GLenum target, const FG_Sampler& sampler
     glTexParameteri(target, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
     GL_ERROR("glTexParameteri");
     if(sampler.Comparison >= ArraySize(ComparisonMapping))
-      return GLError(ERR_INVALID_PARAMETER, "Comparison outside of bounds");
+      return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Comparison outside of bounds");
 
     glTexParameteri(target, GL_TEXTURE_COMPARE_FUNC, ComparisonMapping[sampler.Comparison]);
     GL_ERROR("glTexParameteri");

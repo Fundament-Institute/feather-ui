@@ -22,6 +22,8 @@ limitations under the License.
 
 struct FT_LibraryRec_;
 
+#define LOG(level, msg, ...) Log(level, __FILE__, __LINE__, msg, __VA_ARGS__)
+
 namespace GL {
   enum GL_Err
   {
@@ -56,11 +58,60 @@ namespace GL {
 
   class Backend : public FG_Backend
   {
+    template<class T> constexpr FG_LogValue log_value(const T& v)
+    {
+      using U = std::remove_cvref_t<T>;
+      // We do not use is_same for anything other than bool, because types like "unsigned long long" and "uint64_t" might
+      // not actually be the same type depending on the compiler
+      if constexpr(std::is_same_v<U, bool>)
+        return FG_LogValue{ .type = FG_LogType_Boolean, .bit = v };
+      else if constexpr(std::is_same_v<T, const char*>)
+        return FG_LogValue{ .type = FG_LogType_String, .string = v };
+      else if constexpr(std::is_same_v<U, std::string>)
+      {
+        char* str = malloc(v.size() + 1);
+        strcpy(str, v.data());
+        return FG_LogValue{ .type = FG_LogType_String, .owned = str };
+      }
+      else if constexpr(std::is_same_v<U, std::unique_ptr<char>>)
+        return FG_LogValue{ .type = FG_LogType_String, .owned = v.release() };
+      else if constexpr(std::is_floating_point_v<U> && sizeof(U) == sizeof(float))
+        return FG_LogValue{ .type = FG_LogType_F32, .f32 = v };
+      else if constexpr(std::is_floating_point_v<U> && sizeof(U) == sizeof(double))
+        return FG_LogValue{ .type = FG_LogType_F64, .f64 = v };
+      else if constexpr(std::is_integral_v<U> && std::is_signed_v<U> && sizeof(U) == sizeof(int32_t))
+        return FG_LogValue{ .type = FG_LogType_I32, .i32 = v };
+      else if constexpr(std::is_integral_v<U> && std::is_unsigned_v<U> && sizeof(U) == sizeof(int32_t))
+        return FG_LogValue{ .type = FG_LogType_U32, .u32 = v };
+      else if constexpr(std::is_integral_v<U> && std::is_signed_v<U> && sizeof(U) == sizeof(int64_t))
+        return FG_LogValue{ .type = FG_LogType_I64, .i64 = v };
+      else if constexpr(std::is_integral_v<U> && std::is_unsigned_v<U> && sizeof(U) == sizeof(int64_t))
+        return FG_LogValue{ .type = FG_LogType_I64, .i64 = v };
+      else
+        static_assert(std::is_same_v<U, bool>, "Invalid type for FG_LogValue");
+    }
+    template<typename T, std::size_t... I>
+    void log_impl(FG_Level level, const char* file, int line, const char* msg, const T& args, std::index_sequence<I...>)
+    {
+      FG_LogValue values[sizeof...(I)] = { log_value(std::get<I>(args))... };
+
+      _log(_root, level, file, line, msg, values, sizeof...(I), &FreeGL);
+    }
+
   public:
     Backend(void* root, FG_Log log, FG_Behavior behavior);
     ~Backend();
     FG_Result Behavior(Context* data, const FG_Msg& msg);
+    template<typename... Args> void Log(FG_Level level, const char* file, int line, const char* msg, Args&&... args)
+    {
+      if constexpr(sizeof...(Args) == 0)
+        _log(_root, level, file, line, msg, nullptr, 0, &FreeGL);
+      else
+        log_impl(level, file, line, msg, std::tuple<Args...>(std::forward<Args>(args)...),
+                 std::index_sequence_for<Args...>{});
+    }
 
+    static void FreeGL(char* p) { free(p); }
     static FG_Caps GetCaps(FG_Backend* self);
     static void* CompileShader(FG_Backend* self, FG_Context* context, enum FG_ShaderStage stage, const char* source);
     static int DestroyShader(FG_Backend* self, FG_Context* context, void* shader);
@@ -122,7 +173,6 @@ namespace GL {
     static void ErrorCallback(int error, const char* description);
     static void JoystickCallback(int id, int connected);
 
-    FG_Log _log;
     void* _root;
     Window* _windows;
 
@@ -135,6 +185,7 @@ namespace GL {
     static void* _library;
 
   protected:
+    FG_Log _log;
     FG_Behavior _behavior;
     bool _insidelist;
   };

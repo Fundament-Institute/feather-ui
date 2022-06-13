@@ -17,7 +17,7 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
 {
   PipelineState* pipeline      = new(rendertargets.size()) PipelineState{};
   pipeline->RenderTargetsCount = rendertargets.size();
-  auto rts                  = std::span<GLuint>(reinterpret_cast<GLuint*>(pipeline + 1), rendertargets.size());
+  auto rts                     = std::span<GLuint>(reinterpret_cast<GLuint*>(pipeline + 1), rendertargets.size());
 
   for(size_t i = 0; i < rts.size(); ++i)
     rts[i] = Buffer(rendertargets[i]).release();
@@ -27,7 +27,7 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
   else
     return std::move(e.error());
 
-  //for(int i = 0; i < FG_ShaderStage_COUNT; ++i)
+  // for(int i = 0; i < FG_ShaderStage_COUNT; ++i)
   for(auto shader : std::span(state.Shaders))
   {
     if(shader != nullptr)
@@ -35,8 +35,9 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
   }
   RETURN_ERROR(pipeline->program.link());
 
-  auto vlist =
-    std::span(reinterpret_cast<std::pair<GLuint, GLsizei>*>(ALLOCA(sizeof(std::pair<GLuint, GLsizei>) * vertexbuffers.size())), vertexbuffers.size());
+  auto vlist = std::span(reinterpret_cast<std::pair<GLuint, GLsizei>*>(
+                           ALLOCA(sizeof(std::pair<GLuint, GLsizei>) * vertexbuffers.size())),
+                         vertexbuffers.size());
 
   for(size_t i = 0; i < vlist.size(); ++i)
   {
@@ -51,36 +52,35 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
   else
     return std::move(e.error());
 
-  pipeline->Members = state.Members;
-  pipeline->StencilRef = state.StencilRef;
+  pipeline->Members      = state.Members;
+  pipeline->StencilRef   = state.StencilRef;
   pipeline->DepthStencil = Buffer(state.DepthStencil).release();
   Context::ColorFloats(state.BlendFactor, pipeline->BlendFactor, false);
 
   if(state.DepthFunc >= ArraySize(PrimitiveMapping))
-    return GLError(ERR_INVALID_PARAMETER, "DepthFunc not valid comparison function");
+    return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "DepthFunc not valid comparison function");
 
   pipeline->Primitive = PrimitiveMapping[state.Primitive];
 
-  pipeline->Flags   = state.Flags;
-  pipeline->SampleMask = state.SampleMask;
-  pipeline->StencilReadMask = state.StencilReadMask;
+  pipeline->Flags            = state.Flags;
+  pipeline->SampleMask       = state.SampleMask;
+  pipeline->StencilReadMask  = state.StencilReadMask;
   pipeline->StencilWriteMask = state.StencilWriteMask;
 
   if(state.DepthFunc >= ArraySize(ComparisonMapping))
-    return GLError(ERR_INVALID_PARAMETER, "DepthFunc not valid comparison function");
+    return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "DepthFunc not valid comparison function");
 
   if(state.StencilFunc >= ArraySize(ComparisonMapping))
-    return GLError(ERR_INVALID_PARAMETER, "StencilFunc not valid comparison function");
+    return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "StencilFunc not valid comparison function");
 
   if(state.StencilFailOp >= ArraySize(StencilOpMapping))
-    return GLError(ERR_INVALID_PARAMETER, "StencilFailOp not valid stencil operation");
+    return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "StencilFailOp not valid stencil operation");
 
   if(state.StencilDepthFailOp >= ArraySize(StencilOpMapping))
-    return GLError(ERR_INVALID_PARAMETER, "StencilDepthFailOp not valid stencil operation");
+    return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "StencilDepthFailOp not valid stencil operation");
 
   if(state.StencilPassOp >= ArraySize(StencilOpMapping))
-    return GLError(ERR_INVALID_PARAMETER, "StencilPassOp not valid stencil operation");
-
+    return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "StencilPassOp not valid stencil operation");
 
   pipeline->StencilFailOp      = StencilOpMapping[state.StencilFailOp];
   pipeline->StencilDepthFailOp = StencilOpMapping[state.StencilDepthFailOp];
@@ -96,14 +96,14 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
   case 0:
     if(!indexbuffer)
       break; // an indexstride of 0 is allowed if there is no indexbuffer
-  default: return GLError(ERR_INVALID_PARAMETER, "Index stride must be 1, 2, or 4 bytes.");
+  default: return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Index stride must be 1, 2, or 4 bytes.");
   }
-  pipeline->FillMode         = state.FillMode;
-  pipeline->CullMode         = state.CullMode;
-  pipeline->DepthBias        = state.DepthBias;
+  pipeline->FillMode             = state.FillMode;
+  pipeline->CullMode             = state.CullMode;
+  pipeline->DepthBias            = state.DepthBias;
   pipeline->SlopeScaledDepthBias = state.SlopeScaledDepthBias;
   // pipeline->NodeMask          = state.NodeMask; // OpenGL does not support multi-GPU rendering without extensions
-  pipeline->blend              = blend;
+  pipeline->blend = blend;
   // ??? = state.RTFormats // not sure this has an OpenGL equivilent
 
   return pipeline;
@@ -121,10 +121,13 @@ GLExpected<void> PipelineState::apply(Context* ctx) noexcept
   RETURN_ERROR(ctx->ApplyFlags(Flags, CullMode, FillMode));
   ctx->ApplyPrimitiveShader(Primitive, program, IndexType);
 
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, DepthStencil, 0);
-  GL_ERROR("glFramebufferTexture2D");
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, DepthStencil, 0);
-  GL_ERROR("glFramebufferTexture2D");
+  if(DepthStencil != 0)
+  {
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, DepthStencil, 0);
+    GL_ERROR("glFramebufferTexture2D");
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, DepthStencil, 0);
+    GL_ERROR("glFramebufferTexture2D");
+  }
 
   glDepthFunc(DepthFunc);
   GL_ERROR("glDepthFunc");

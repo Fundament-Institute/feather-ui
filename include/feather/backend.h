@@ -1128,9 +1128,39 @@ enum FG_Level
   FG_Level_NOTICE  = 3
 };
 
+enum FG_LogType
+{
+  FG_LogType_Boolean,
+  FG_LogType_I32,
+  FG_LogType_U32,
+  FG_LogType_I64,
+  FG_LogType_U64,
+  FG_LogType_F32,
+  FG_LogType_F64,
+  FG_LogType_String,
+  FG_LogType_OwnedString,
+};
+
+typedef struct FG_LogValue__
+{
+  enum FG_LogType type;
+  union
+  {
+    bool bit;
+    int i32;
+    unsigned int u32;
+    long long i64;
+    unsigned long long u64;
+    float f32;
+    double f64;
+    const char* string;
+    char* owned;
+  };
+} FG_LogValue;
+
 typedef void FG_Context;
 typedef void FG_Element;
-typedef void (*FG_Log)(void*, enum FG_Level, const char*, ...);
+typedef void (*FG_Log)(void*, enum FG_Level, const char*, int, const char*, FG_LogValue*, int, void (*)(char*));
 typedef FG_Result (*FG_Behavior)(FG_Element*, FG_Context*, void*, FG_Msg*);
 
 enum FG_WindowFlag
@@ -1196,9 +1226,8 @@ struct FG_Backend
   int (*execute)(FG_Backend* self, FG_Context* context, void* commands);
   void* (*createPipelineState)(FG_Backend* self, FG_Context* context, FG_PipelineState* pipelinestate,
                                FG_Resource** rendertargets, uint32_t n_targets, FG_Blend* blends,
-                               FG_Resource** vertexbuffer, int* strides, uint32_t n_buffers,
-                               FG_ShaderParameter* attributes, uint32_t n_attributes, FG_Resource* indexbuffer,
-                               uint8_t indexstride);
+                               FG_Resource** vertexbuffer, int* strides, uint32_t n_buffers, FG_ShaderParameter* attributes,
+                               uint32_t n_attributes, FG_Resource* indexbuffer, uint8_t indexstride);
   int (*destroyPipelineState)(FG_Backend* self, FG_Context* context, void* state);
   FG_Resource* (*createBuffer)(FG_Backend* self, FG_Context* context, void* data, uint32_t bytes, enum FG_Type type);
   FG_Resource* (*createTexture)(FG_Backend* self, FG_Context* context, FG_Vec2i size, enum FG_Type type,

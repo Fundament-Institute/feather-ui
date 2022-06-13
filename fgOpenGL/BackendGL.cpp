@@ -46,7 +46,7 @@ FG_Caps Backend::GetCaps(FG_Backend* self)
 void* Backend::CompileShader(FG_Backend* self, FG_Context* context, enum FG_ShaderStage stage, const char* source)
 {
   if(stage >= ArraySize(ShaderStageMapping))
-    GLError(ERR_INVALID_PARAMETER, "Unsupported shader stage").log(static_cast<Backend*>(self));
+    CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Unsupported shader stage").log(static_cast<Backend*>(self));
   else
   {
     if(auto r = ShaderObject::create(source, ShaderStageMapping[stage]))
@@ -64,7 +64,7 @@ int Backend::DestroyShader(FG_Backend* self, FG_Context* context, void* shader)
   ShaderObject s(shader);
   if(!s.is_valid())
   {
-    (*backend->_log)(backend->_root, FG_Level_ERROR, "%i isn't a shader!", (GLuint)s);
+    backend->LOG(FG_Level_ERROR, "Invalid shader!", s.release());
     return ERR_INVALID_PARAMETER;
   }
   return 0;
@@ -75,8 +75,8 @@ void* Backend::CreateCommandList(FG_Backend* self, FG_Context* context, bool bun
   auto backend = static_cast<Backend*>(self);
   if(backend->_insidelist)
   {
-    (*backend->_log)(backend->_root, FG_Level_ERROR,
-                     "This backend can't do multiple command lists at the same time! Did you forget to free the old list?");
+    backend->LOG(FG_Level_ERROR,
+                 "This backend can't do multiple command lists at the same time! Did you forget to free the old list?");
     return nullptr;
   }
   backend->_insidelist = true;
@@ -88,12 +88,12 @@ int Backend::DestroyCommandList(FG_Backend* self, void* commands)
   auto backend = static_cast<Backend*>(self);
   if(!commands)
   {
-    (*backend->_log)(backend->_root, FG_Level_ERROR, "Expected a non-null command list but got NULL instead!");
+    backend->LOG(FG_Level_ERROR, "Expected a non-null command list but got NULL instead!");
     return ERR_INVALID_PARAMETER;
   }
   if(!backend->_insidelist)
   {
-    (*backend->_log)(backend->_root, FG_Level_ERROR, "Mismatched CreateCommandList/DestroyCommandList pair!");
+    backend->LOG(FG_Level_ERROR, "Mismatched CreateCommandList / DestroyCommandList pair !");
     return ERR_INVALID_CALL;
   }
 
@@ -106,7 +106,7 @@ int Backend::ClearDepthStencil(FG_Backend* self, void* commands, FG_Resource* de
 {
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(commands);
-  
+
   // TODO: bind depthstencil only if necessary
   glClearDepth(depth);
   if(auto e = glGetError())
@@ -116,7 +116,7 @@ int Backend::ClearDepthStencil(FG_Backend* self, void* commands, FG_Resource* de
     return e;
 
   // TODO: iterate through rects and set scissor rects for each one and clear.
-  
+
   // clear 0 clears both, clear 1 is just depth, clear -1 is just stencil
   switch(clear)
   {
@@ -251,8 +251,7 @@ int Backend::DestroyPipelineState(FG_Backend* self, FG_Context* context, void* s
   return ERR_NOT_IMPLEMENTED;
 }
 
-FG_Resource* Backend::CreateBuffer(FG_Backend* self, FG_Context* context, void* data, uint32_t bytes,
-                                   enum FG_Type type)
+FG_Resource* Backend::CreateBuffer(FG_Backend* self, FG_Context* context, void* data, uint32_t bytes, enum FG_Type type)
 {
   auto backend = static_cast<Backend*>(self);
   if(type >= ArraySize(TypeMapping))
@@ -263,9 +262,8 @@ FG_Resource* Backend::CreateBuffer(FG_Backend* self, FG_Context* context, void* 
     e.log(backend);
   return nullptr;
 }
-FG_Resource* Backend::CreateTexture(FG_Backend* self, FG_Context* context, FG_Vec2i size,
-                                    enum FG_Type type, enum FG_PixelFormat format,
-                                    FG_Sampler* sampler, void* data, int MultiSampleCount)
+FG_Resource* Backend::CreateTexture(FG_Backend* self, FG_Context* context, FG_Vec2i size, enum FG_Type type,
+                                    enum FG_PixelFormat format, FG_Sampler* sampler, void* data, int MultiSampleCount)
 {
   auto backend = static_cast<Backend*>(self);
   if(type >= ArraySize(TypeMapping) || !sampler)
@@ -284,7 +282,7 @@ FG_Resource* Backend::CreateRenderTarget(FG_Backend* self, FG_Context* context, 
 int Backend::DestroyResource(FG_Backend* self, FG_Context* context, FG_Resource* resource)
 {
   auto backend = static_cast<Backend*>(self);
-  auto i     = unpack_ptr<GLuint>(resource);
+  auto i       = unpack_ptr<GLuint>(resource);
   if(glIsBuffer(i))
     Buffer b(i);
   else if(glIsTexture(i))
@@ -304,8 +302,7 @@ FG_Window* Backend::CreateWindowGL(FG_Backend* self, FG_Element* element, FG_Dis
   _lasterr     = 0;
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-  Window* window =
-    new Window(backend, reinterpret_cast<GLFWmonitor*>(display), element, pos, dim, flags, caption);
+  Window* window = new Window(backend, reinterpret_cast<GLFWmonitor*>(display), element, pos, dim, flags, caption);
 
   if(!_lasterr)
   {
@@ -326,7 +323,7 @@ int Backend::SetWindow(FG_Backend* self, FG_Window* window, FG_Element* element,
 {
   if(!window)
     return ERR_MISSING_PARAMETER;
-  auto w            = static_cast<Window*>(window);
+  auto w     = static_cast<Window*>(window);
   w->element = element;
 
   auto glwindow = w->GetWindow();
@@ -398,7 +395,8 @@ int Backend::EndDraw(FG_Backend* self, FG_Context* context)
 {
   _lasterr = 0;
   if(auto e = reinterpret_cast<Context*>(context)->EndDraw()) {}
-    else return e.error().log(static_cast<Backend*>(self));
+  else
+    return e.error().log(static_cast<Backend*>(self));
   return _lasterr;
 }
 
@@ -648,7 +646,6 @@ int Backend::SetSystemControl(FG_Backend* self, FG_Context* context, void* contr
 }
 int Backend::DestroySystemControl(FG_Backend* self, FG_Context* context, void* control) { return ERR_NOT_IMPLEMENTED; }
 
-
 GLFWglproc glGetProcAddress(const char* procname)
 {
 #ifdef FG_PLATFORM_WIN32
@@ -738,7 +735,9 @@ extern "C" FG_COMPILER_DLLEXPORT FG_Backend* fgOpenGL(void* root, FG_Log log, FG
 
     if(!glfwInit())
     {
-      (*log)(root, FG_Level_ERROR, "glfwInit() failed with %i! %s", Backend::_lasterr, Backend::_lasterrdesc);
+      FG_LogValue logvalues[2] = { { .type = FG_LogType_I32, .i32 = Backend::_lasterr },
+                                   { .type = FG_LogType_String, .string = Backend::_lasterrdesc } };
+      (*log)(root, FG_Level_ERROR, __FILE__, __LINE__, "glfwInit() failed!", logvalues, 2, &Backend::FreeGL);
       --Backend::_refcount;
       return nullptr;
     }
@@ -814,7 +813,7 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   destroySystemControl = &DestroySystemControl;
   destroy              = &DestroyGL;
 
-  (*_log)(_root, FG_Level_NONE, "Initializing fgOpenGL...");
+  this->LOG(FG_Level_NONE, "Initializing fgOpenGL...");
 
 #ifdef FG_PLATFORM_WIN32
   #ifdef FG_DEBUG
@@ -832,7 +831,7 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
       cursorblink = _wtoi(buf.data());
   }
   else
-    (*_log)(_root, FG_Level_WARNING, "Couldn't get user's cursor blink rate.");
+    this->LOG(FG_Level_WARNING, "Couldn't get user's cursor blink rate.");
 
   sz = GetRegistryValueW(HKEY_CURRENT_USER, L"Control Panel\\Mouse", L"MouseHoverTime", 0, 0);
   if(sz > 0)
@@ -845,7 +844,7 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
       tooltipdelay = _wtoi(buf.data());
   }
   else
-    (*_log)(_root, FG_Level_WARNING, "Couldn't get user's mouse hover time.");
+    this->LOG(FG_Level_WARNING, "Couldn't get user's mouse hover time.");
 
 #else
   cursorblink  = 530;
@@ -880,7 +879,7 @@ void Backend::ErrorCallback(int error, const char* description)
 #endif
 
   if(_singleton)
-    (*_singleton->_log)(_singleton->_root, FG_Level_ERROR, description);
+    _singleton->LOG(FG_Level_ERROR, description);
 }
 
 void Backend::JoystickCallback(int id, int connected)

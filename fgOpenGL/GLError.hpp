@@ -9,13 +9,16 @@
 #include <type_traits>
 #include <utility>
 #include <cassert>
+#include <tuple>
 //#include <coroutine>
 
-#define GL_ERROR(name)  \
-  if(GLError e{ name }) \
-  {                     \
-    return e;           \
+#define GL_ERROR(name)                      \
+  if(GLError e{ name, __FILE__, __LINE__ }) \
+  {                                         \
+    return e;                               \
   }
+
+#define CUSTOM_ERROR(error, name) GLError(error, name, __FILE__, __LINE__)
 
 #define RETURN_ERROR(...)       \
   if(auto e = (__VA_ARGS__)) {} \
@@ -35,38 +38,51 @@ namespace GL {
 #else
       _error(GL_NO_ERROR),
 #endif
-      _context(nullptr)
+      _callsite(nullptr),
+      _file(nullptr),
+      _line(0)
     {}
-    constexpr GLError(GLError&& right) noexcept : _error(right._error), _context(right._context)
+    constexpr GLError(GLError&& right) noexcept :
+      _error(right._error), _callsite(right._callsite), _file(right._file), _line(right._line)
     {
-      right._error   = GL_NO_ERROR;
-      right._context = nullptr;
+      right._error    = GL_NO_ERROR;
+      right._callsite = nullptr;
+      right._file     = nullptr;
+      right._line     = 0;
     }
 
-    explicit GLError(const char* context) noexcept :
+    explicit GLError(const char* callsite, const char* file, unsigned int line) noexcept :
 #ifdef _DEBUG
       _error(glGetError() | UNCHECKED_FLAG),
 #else
       _error(glGetError()),
 #endif
-      _context(context)
+      _callsite(callsite),
+      _file(file),
+      _line(line)
     {}
-    constexpr explicit GLError(GLenum err, const char* context) noexcept :
+    constexpr explicit GLError(GLenum err, const char* callsite, const char* file, unsigned int line) noexcept :
 #ifdef _DEBUG
       _error(err | UNCHECKED_FLAG),
 #else
       _error(err),
 #endif
-      _context(context)
+      _callsite(callsite),
+      _file(file),
+      _line(line)
     {}
-    constexpr explicit GLError(std::in_place_t, GLenum err, const char* context) noexcept : _error(err), _context(context)
+    constexpr explicit GLError(std::in_place_t, GLenum err, const char* callsite, const char* file,
+                               unsigned int line) noexcept :
+      _error(err), _callsite(callsite), _file(file), _line(line)
     {}
     constexpr ~GLError() { assert(!(_error & UNCHECKED_FLAG)); }
 
     constexpr void swap(GLError& right) noexcept
     {
       std::swap(_error, right._error);
-      std::swap(_context, right._context);
+      std::swap(_callsite, right._callsite);
+      std::swap(_file, right._file);
+      std::swap(_line, right._line);
     }
 
     // Returns true if there is an error and false if there isn't one (this is the opposite of GLExpected, necessary for
@@ -83,18 +99,20 @@ namespace GL {
     inline constexpr bool operator!=(const GLError& e) noexcept { return e._error != _error; };
     // If there was an error, logs it to backend.
     GLenum log(Backend* backend);
-    std::pair<GLenum, const char*> release()
+    std::tuple<GLenum, const char*, const char*, int> release()
     {
-      // If this is an invalid error, we must leave it like that because _context could be invalid
+      // If this is an invalid error, we must leave it like that because _callsite could be invalid
       if(_error == INVALID_ERROR)
       {
-        return { INVALID_ERROR, nullptr };
+        return { INVALID_ERROR, nullptr, nullptr, 0 };
       }
 
-      GLenum e = _error;
-      _error   = GL_NO_ERROR;
-      _context = nullptr;
-      return { e, _context };
+      GLenum e  = _error;
+      _error    = GL_NO_ERROR;
+      _callsite = nullptr;
+      _file     = nullptr;
+      _line     = 0;
+      return { e, _callsite, _file, _line };
     }
 
     static const GLenum INVALID_ERROR = ~(1 << ((sizeof(GLenum) * 8) - 1));
@@ -105,10 +123,14 @@ namespace GL {
     inline constexpr GLError& operator=(GLError&& right) noexcept
     {
       this->~GLError();
-      _error         = right._error;
-      _context       = right._context;
-      right._error   = GL_NO_ERROR;
-      right._context = nullptr;
+      _error          = right._error;
+      _callsite       = right._callsite;
+      _file           = right._file;
+      _line           = right._line;
+      right._error    = GL_NO_ERROR;
+      right._callsite = nullptr;
+      right._file     = nullptr;
+      right._line     = 0;
       return *this;
     }
     inline constexpr GLError& operator=(const GLError&) noexcept = delete;
@@ -130,7 +152,9 @@ namespace GL {
     }
 
     GLenum _error;
-    const char* _context;
+    unsigned int _line;
+    const char* _callsite;
+    const char* _file;
   };
 
   // This is a specialized version of what std::expected<T, GLError> would do, except it uses less space.
@@ -156,9 +180,13 @@ namespace GL {
       }
       else
       {
-        _context       = right._context;
-        right._context = 0;
-        right._error   = GLError::INVALID_ERROR;
+        _callsite       = right._callsite;
+        _file           = right._file;
+        _line           = right._line;
+        right._callsite = nullptr;
+        right._file     = nullptr;
+        right._line     = 0;
+        right._error    = GLError::INVALID_ERROR;
       }
     }
     template<class U>
@@ -174,9 +202,13 @@ namespace GL {
       }
       else
       {
-        _context       = right._context;
-        right._context = 0;
-        right._error   = GLError::INVALID_ERROR;
+        _callsite       = right._callsite;
+        _file           = right._file;
+        _line           = right._line;
+        right._callsite = nullptr;
+        right._file     = nullptr;
+        right._line     = 0;
+        right._error    = GLError::INVALID_ERROR;
       }
     }
 
@@ -198,12 +230,14 @@ namespace GL {
 
     constexpr GLExpected(GLError&& right) noexcept
     {
-      auto [err, ctx] = right.release();
-      _error          = err;
+      auto [err, ctx, f, l] = right.release();
+      _error                = err;
       if(_error == GLError::INVALID_ERROR)
         return;
 
-      _context = ctx;
+      _callsite = ctx;
+      _file     = f;
+      _line     = l;
     }
 
     template<class... Args>
@@ -252,9 +286,13 @@ namespace GL {
       }
       else
       {
-        _context       = right._context;
-        right._context = 0;
-        right._error   = GLError::INVALID_ERROR;
+        _callsite       = right._callsite;
+        _file           = right._file;
+        _line           = right._line;
+        right._callsite = nullptr;
+        right._file     = nullptr;
+        right._line     = 0;
+        right._error    = GLError::INVALID_ERROR;
       }
       return *this;
     }
@@ -272,9 +310,11 @@ namespace GL {
     constexpr GLExpected& operator=(GLError&& right)
     {
       this->~GLExpected();
-      auto [e, s] = right.release();
-      _error      = e;
-      _context    = s;
+      auto [e, s, f, l] = right.release();
+      _error            = e;
+      _callsite         = s;
+      _file             = f;
+      _line             = l;
       return *this;
     }
 
@@ -302,20 +342,33 @@ namespace GL {
         if(valid)
           std::swap(this->_result, right._result);
         else
-          std::swap(this->_context, right._context);
+        {
+          std::swap(this->_callsite, right._callsite);
+          std::swap(this->_file, right._file);
+          std::swap(this->_line, right._line);
+        }
       }
       else
       {
         GLExpected& source = valid ? *this : right;
         GLExpected& target = valid ? right : *this;
 
-        auto err = target._error;
-        auto ctx = target._context;
-        target._Construct(std::move(*source));
-        source._error = err;
-        if(source._error != GLError::INVALID_ERROR)
+        if(target._error == GLError::INVALID_ERROR)
         {
-          source._context = ctx;
+          target._Construct(std::move(*source));
+          source._error = GLError::INVALID_ERROR;
+        }
+        else
+        {
+          auto err  = target._error;
+          auto ctx  = target._callsite;
+          auto file = target._file;
+          auto line = target._line;
+          target._Construct(std::move(*source));
+          source._error    = err;
+          source._callsite = ctx;
+          source._file     = file;
+          source._line     = line;
         }
       }
     }
@@ -412,8 +465,10 @@ namespace GL {
       auto e = _grab();
       if(!peek())
       {
-        _error   = GLError::INVALID_ERROR;
-        _context = nullptr;
+        _error    = GLError::INVALID_ERROR;
+        _callsite = nullptr;
+        _file     = nullptr;
+        _line     = 0;
       }
 
       return e;
@@ -458,8 +513,12 @@ namespace GL {
     Awaiter operator co_await() { return Awaiter{ *this }; }*/
 
   private:
-    //GLExpected(promise_type& promise) noexcept { promise.expected = this; }
-    inline constexpr GLError _grab() noexcept { return GLError(std::in_place, _error, peek() ? nullptr : _context); }
+    // GLExpected(promise_type& promise) noexcept { promise.expected = this; }
+    inline constexpr GLError _grab() noexcept
+    {
+      return peek() ? GLError(std::in_place, _error, nullptr, nullptr, 0) :
+                      GLError(std::in_place, _error, _callsite, _file, _line);
+    }
     inline constexpr void _checked() noexcept
     {
 #ifdef _DEBUG
@@ -470,7 +529,12 @@ namespace GL {
     GLenum _error;
     union
     {
-      const char* _context;
+      struct
+      {
+        const char* _callsite;
+        const char* _file;
+        unsigned int _line;
+      };
       T _result;
     };
   };
