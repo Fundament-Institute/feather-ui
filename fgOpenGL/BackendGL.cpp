@@ -49,6 +49,7 @@ void* Backend::CompileShader(FG_Backend* self, FG_Context* context, enum FG_Shad
     CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Unsupported shader stage").log(static_cast<Backend*>(self));
   else
   {
+    // Note: Can't use LOG_ERROR here because 
     if(auto r = ShaderObject::create(source, ShaderStageMapping[stage]))
       return pack_ptr(std::move(r.value()).release());
     else
@@ -168,9 +169,7 @@ int Backend::DrawGL(FG_Backend* self, void* commands, uint32_t vertexcount, uint
     return ERR_INVALID_PARAMETER;
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(commands);
-  if(auto e = context->DrawArrays(vertexcount, instancecount, startvertex, startinstance)) {}
-  else
-    return e.error().log(backend);
+  LOG_ERROR(backend, context->DrawArrays(vertexcount, instancecount, startvertex, startinstance));
   return 0;
 }
 int Backend::DrawIndexed(FG_Backend* self, void* commands, uint32_t indexcount, uint32_t instancecount, uint32_t startindex,
@@ -180,9 +179,7 @@ int Backend::DrawIndexed(FG_Backend* self, void* commands, uint32_t indexcount, 
     return ERR_INVALID_PARAMETER;
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(commands);
-  if(auto e = context->DrawIndexed(indexcount, instancecount, startindex, startvertex, startinstance)) {}
-  else
-    return e.error().log(backend);
+  LOG_ERROR(backend, context->DrawIndexed(indexcount, instancecount, startindex, startvertex, startinstance));
   return 0;
 }
 int Backend::SetPipelineState(FG_Backend* self, void* commands, void* state)
@@ -192,9 +189,7 @@ int Backend::SetPipelineState(FG_Backend* self, void* commands, void* state)
 
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(commands);
-  if(auto e = reinterpret_cast<PipelineState*>(state)->apply(context)) {}
-  else
-    return e.error().log(backend);
+  LOG_ERROR(backend, reinterpret_cast<PipelineState*>(state)->apply(context));
   return 0;
 }
 int Backend::SetDepthStencil(FG_Backend* self, void* commands, bool Front, uint8_t StencilFailOp,
@@ -216,11 +211,8 @@ int Backend::SetShaderConstants(FG_Backend* self, void* commands, const FG_Shade
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(commands);
 
-  if(auto e = context->SetShaderUniforms(uniforms, values, count)) {}
-  else
-    return e.error().log(backend);
-
-  return ERR_NOT_IMPLEMENTED;
+  LOG_ERROR(backend, context->SetShaderUniforms(uniforms, values, count));
+  return 0;
 }
 int Backend::Execute(FG_Backend* self, FG_Context* context, void* commands) { return ERR_SUCCESS; }
 
@@ -235,6 +227,8 @@ void* Backend::CreatePipelineState(FG_Backend* self, FG_Context* context, FG_Pip
 
   auto backend = static_cast<Backend*>(self);
   auto ctx     = reinterpret_cast<Context*>(context);
+  
+  // Can't use LOG_ERROR here because we return a pointer.
   if(auto e = PipelineState::create(*pipelinestate, std::span(rendertargets, n_targets), *blends,
                                     std::span(vertexbuffer, n_buffers), strides, std::span(attributes, n_attributes),
                                     indexbuffer, indexstride))
@@ -256,6 +250,8 @@ FG_Resource* Backend::CreateBuffer(FG_Backend* self, FG_Context* context, void* 
   auto backend = static_cast<Backend*>(self);
   if(type >= ArraySize(TypeMapping))
     return nullptr;
+
+  // Can't use LOG_ERROR here because we return a pointer.
   if(auto e = Buffer::create(TypeMapping[type], data, bytes))
     return pack_ptr(std::move(e.value()).release());
   else
@@ -268,6 +264,8 @@ FG_Resource* Backend::CreateTexture(FG_Backend* self, FG_Context* context, FG_Ve
   auto backend = static_cast<Backend*>(self);
   if(type >= ArraySize(TypeMapping) || !sampler)
     return nullptr;
+
+  // Can't use LOG_ERROR here because we return a pointer.
   if(auto e = Texture::create2D(TypeMapping[type], Format::Create(format, false), size, *sampler, data, MultiSampleCount))
     return pack_ptr(std::move(e.value()).release());
   else
@@ -377,7 +375,7 @@ int Backend::DestroyWindow(FG_Backend* self, FG_Window* window)
   if(!self || !window)
     return ERR_MISSING_PARAMETER;
 
-  _lasterr = 0;
+  _lasterr = 0; // We set this to capture GLFW errors, which are seperate from OpenGL errors (for right now)
   delete static_cast<Window*>(window);
   return _lasterr;
 }
@@ -385,18 +383,14 @@ int Backend::BeginDraw(FG_Backend* self, FG_Context* context, FG_Rect* area)
 {
   if(!context)
     return ERR_MISSING_PARAMETER;
-  _lasterr = 0;
-  if(auto e = reinterpret_cast<Context*>(context)->BeginDraw(area)) {}
-  else
-    return e.error().log(static_cast<Backend*>(self));
+  _lasterr = 0; // We set this to capture GLFW errors, which are seperate from OpenGL errors (for right now)
+  LOG_ERROR(static_cast<Backend*>(self), reinterpret_cast<Context*>(context)->BeginDraw(area));
   return _lasterr;
 }
 int Backend::EndDraw(FG_Backend* self, FG_Context* context)
 {
-  _lasterr = 0;
-  if(auto e = reinterpret_cast<Context*>(context)->EndDraw()) {}
-  else
-    return e.error().log(static_cast<Backend*>(self));
+  _lasterr = 0; // We set this to capture GLFW errors, which are seperate from OpenGL errors (for right now)
+  LOG_ERROR(static_cast<Backend*>(self), reinterpret_cast<Context*>(context)->EndDraw());
   return _lasterr;
 }
 
@@ -528,6 +522,7 @@ uint32_t Backend::GetClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard
 
 bool Backend::CheckClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard kind)
 {
+  // TODO: handle GLFW errors
 #ifdef FG_PLATFORM_WIN32
   switch(kind)
   {
@@ -570,6 +565,7 @@ int Backend::ClearClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard ki
 
 int Backend::ProcessMessages(FG_Backend* self, FG_Window* window)
 {
+  // TODO: handle GLFW errors
   auto backend = static_cast<Backend*>(self);
   glfwPollEvents();
 
@@ -585,6 +581,7 @@ int Backend::GetMessageSyncObject(FG_Backend* self, FG_Window* window)
 
 int Backend::SetCursorGL(FG_Backend* self, FG_Window* window, FG_Cursor cursor)
 {
+  // TODO: handle GLFW errors
   static GLFWcursor* arrow   = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
   static GLFWcursor* ibeam   = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
   static GLFWcursor* cross   = glfwCreateStandardCursor(GLFW_CROSSHAIR_CURSOR);
@@ -620,6 +617,7 @@ int Backend::GetDisplay(FG_Backend* self, void* handle, FG_Display* out)
   if(!handle || !out)
     return ERR_MISSING_PARAMETER;
   out->handle  = handle;
+  // TODO: handle GLFW errors
   out->primary = glfwGetPrimaryMonitor() == handle;
   glfwGetMonitorWorkarea(reinterpret_cast<GLFWmonitor*>(handle), &out->offset.x, &out->offset.y, &out->size.x,
                          &out->size.y);

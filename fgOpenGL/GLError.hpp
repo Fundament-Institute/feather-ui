@@ -25,6 +25,11 @@
   else                          \
     return std::move(e.error())
 
+#define LOG_ERROR(backend, ...) \
+  if(auto e = (__VA_ARGS__)) {} \
+  else                          \
+    return e.error().log(backend)
+
 namespace GL {
   class Backend;
 
