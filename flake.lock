@@ -70,7 +70,24 @@
           "scopes",
           "nixpkgs"
         ],
+        "sail-src": "sail-src",
         "scopes": "scopes"
+      }
+    },
+    "sail-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1655433378,
+        "narHash": "sha256-BevftvNQhCtv8LFrxFlAc7OhigoV9ZnLzVyVu0pXgqg=",
+        "owner": "HappySeaFox",
+        "repo": "sail",
+        "rev": "1bf28c6ea146895db73c862d5113a3c9baaa41a5",
+        "type": "github"
+      },
+      "original": {
+        "owner": "HappySeaFox",
+        "repo": "sail",
+        "type": "github"
       }
     },
     "scopes": {

@@ -5,12 +5,15 @@
     nixpkgs.follows = "scopes/nixpkgs";
     flake-utils.url = "github:numtide/flake-utils";
     nix-filter.url = "github:numtide/nix-filter";
+    sail-src.url = "github:HappySeaFox/sail";
+    sail-src.flake = false;
   };
 
-  outputs = { self, scopes, nixpkgs, flake-utils, nix-filter }:
+  outputs = { self, scopes, nixpkgs, flake-utils, nix-filter, sail-src }:
     (flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
+        selfpkgs = self.packages.${system};
         backends = pkgs.llvmPackages_13.stdenv.mkDerivation {
           name = "backends";
           src = nix-filter.lib.filter {
@@ -35,9 +38,31 @@
           # '';
         };
       in {
-        packages = { fgOpenGL = backends; };
-        devShell =
-          pkgs.mkShell { buildInputs = [ scopes.packages.${system}.scopes ]; };
+        packages = {
+          fgOpenGL = backends;
+          sail = pkgs.stdenv.mkDerivation {
+            name = "sail";
+            src = sail-src;
+
+            cmakeFlags = [ "-DSAIL_COMBINE_CODECS=ON" ];
+            buildInputs =
+              [ pkgs.cmake pkgs.libpng pkgs.libjpeg_turbo pkgs.libwebp ];
+            postInstall = ''
+              echo in postinstall
+              mv $out/include/sail/sail $out/include/sail-bak
+              mv $out/include/sail/* $out/include/
+              rmdir $out/include/sail
+              mv $out/include/sail-bak $out/include/sail
+            '';
+          };
+        };
+        devShell = pkgs.mkShell {
+          buildInputs =
+            [ scopes.packages.${system}.scopes backends selfpkgs.sail ];
+          shellHook = ''
+            export LD_LIBRARY_PATH=${selfpkgs.sail}/lib:$LD_LIBRARY_PATH
+          '';
+        };
       })) // {
 
       };
