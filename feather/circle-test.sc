@@ -12,7 +12,9 @@ try
     let circle-render = 
         texture.from-shader 256 256 vec4 
             fn (x y)
-                (circle (x / 256) (y / 256) (1 / 256) (vec4 .1 .1 .1 .1) (vec4 0.5 0.5 0.5 0.5) (vec4 0 1 0 1) (vec4 1 0 0 1))
+                let x = (f32 x)
+                let y = (f32 y)
+                (circle (x - 128) (y - 128) (vec4 128 128 128 128) (vec4 128 128 128 128) (vec4 1 1 1 1) (vec4 1 0 0 1))
 
     imageio.save-into-file "output/circle.png" ('to-image circle-render)
 

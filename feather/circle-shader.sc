@@ -13,12 +13,12 @@ let pi = 3.14159265359
 fn linearstep (low high x)
     clamp(0.0,1.0,((x - low)/(high - low)))
 
-fn circle (x y psize DimBorderBlur corners fill outline)
+fn circle (x y DimBorderBlur corners fill outline)
     let xy = (vec2 x y)
     let l = ((DimBorderBlur.x + DimBorderBlur.y) * 0.5)
     let uv = ((xy * 2.0) - (vec2 1.0 1.0))
-    let dFdx = psize # TODO: Actual fwidth impl?
-    let w = ((1.0 + DimBorderBlur.w) * dFdx) # TODO: Original uses (fwidth xy.x).
+    let w = (1.0 + DimBorderBlur.w) # The original multiplies this by fwidth.
+    # However, because this is taking coordinates in the range [0,width] or [0,height], we don't have to care.
 
     let border = ((DimBorderBlur.z / l) * 2.0)
     let t = (0.5 - (corners.x / l))
