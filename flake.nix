@@ -14,6 +14,11 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         selfpkgs = self.packages.${system};
+        devshell-ldpath =
+          pkgs.lib.concatMapStringsSep ":" (lib: "${pkgs.lib.getLib lib}/lib") [
+            selfpkgs.sail
+            pkgs.cjson
+          ];
         backends = pkgs.llvmPackages_13.stdenv.mkDerivation {
           name = "backends";
           src = nix-filter.lib.filter {
@@ -59,8 +64,9 @@
         devShell = pkgs.mkShell {
           buildInputs =
             [ scopes.packages.${system}.scopes backends selfpkgs.sail ];
+
           shellHook = ''
-            export LD_LIBRARY_PATH=${selfpkgs.sail}/lib:$LD_LIBRARY_PATH
+            export LD_LIBRARY_PATH=${devshell-ldpath}/lib:$LD_LIBRARY_PATH
           '';
         };
       })) // {
