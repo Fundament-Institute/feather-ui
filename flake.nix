@@ -62,8 +62,12 @@
           };
         };
         devShell = pkgs.mkShell {
-          buildInputs =
-            [ scopes.packages.${system}.scopes backends selfpkgs.sail ];
+          buildInputs = [
+            scopes.packages.${system}.scopes
+            backends
+            pkgs.cjson
+            selfpkgs.sail
+          ];
 
           shellHook = ''
             export LD_LIBRARY_PATH=${devshell-ldpath}/lib:$LD_LIBRARY_PATH
