@@ -70,7 +70,7 @@
           ];
 
           shellHook = ''
-            export LD_LIBRARY_PATH=${devshell-ldpath}/lib:$LD_LIBRARY_PATH
+            export LD_LIBRARY_PATH=${devshell-ldpath}:$LD_LIBRARY_PATH
           '';
         };
       })) // {
