@@ -17,7 +17,7 @@ fn load-glb-from-path (path)
         error "file does not start with the right magic number"
     if ((header @ 1) != 2)
         error "file contains unsupported gltf version"
-    let buffsize = ((header @ 3) - 12)
+    let buffsize = ((header @ 2) - 12)
     local buff = (malloc-array u8 buffsize)
     C.stdio.fread buff 1 buffsize stream
     inline offset-ptr (ptr offset)
