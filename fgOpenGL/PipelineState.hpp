@@ -8,6 +8,7 @@
 #include "VertexArrayObject.hpp"
 #include "FrameBuffer.hpp"
 #include "Buffer.hpp"
+#include "RenderTarget.hpp"
 #include "feather/backend.h"
 #include <string>
 #include <span>
