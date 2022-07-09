@@ -7,3 +7,4 @@
 *.user
 .direnv/
 result
+/out/build/x64-Debug
