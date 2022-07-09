@@ -10,6 +10,7 @@
 #include "EnumMapping.hpp"
 #include <cstring>
 
+
 #ifdef FG_PLATFORM_WIN32
   #include <dwrite_1.h>
 #else
@@ -272,9 +273,14 @@ FG_Resource* Backend::CreateTexture(FG_Backend* self, FG_Context* context, FG_Ve
     e.log(backend);
   return nullptr;
 }
-FG_Resource* Backend::CreateRenderTarget(FG_Backend* self, FG_Context* context, FG_Resource* texture)
+FG_Resource* Backend::CreateRenderTarget(FG_Backend* self, FG_Context* context, FG_Resource* texture, FG_Vec2i size)
 {
   auto backend = static_cast<Backend*>(self);
+
+  if(auto e = RenderTarget::create(size))
+    return pack_ptr(std::move(e.value()).release());
+  else
+    e.log(backend);
   return nullptr;
 }
 int Backend::DestroyResource(FG_Backend* self, FG_Context* context, FG_Resource* resource)
