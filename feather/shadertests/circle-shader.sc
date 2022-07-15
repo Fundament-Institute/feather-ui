@@ -1,17 +1,7 @@
 # A shader that draws a circle.
 using import glm
 using import glsl
-
-# in pos : vec2
-# in DimBorderBlur : vec4
-# in corners : vec4
-# in fill : vec4
-# in outline : vec4
-# out out_Color : vec4
-# let pi = 3.14159265359
-
-fn linearstep (low high x)
-    (clamp ((x - low) / (high - low)) 0.0 1.0)
+using import .shader-utils
 
 fn circle (x y DimBorderBlur corners fill outline)
     let xy = (vec2 x y)
