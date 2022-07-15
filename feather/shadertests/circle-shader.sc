@@ -3,10 +3,11 @@ using import glm
 using import glsl
 using import .shader-utils
 
-fn circle (x y DimBorderBlur corners fill outline)
+fn circle (x y size DimBorderBlur corners fill outline)
     let xy = (vec2 x y)
     let l = ((DimBorderBlur.x + DimBorderBlur.y) * 0.5)
-    let uv = ((xy * 2.0) - 1.0)
+    let uv = ((xy * 2.0) - size)
+    print uv
     let w = (1.0 + DimBorderBlur.w) # The original multiplies this by fwidth.
     # However, because this is taking coordinates in the range [0,width] or [0,height], we don't have to care.
 
