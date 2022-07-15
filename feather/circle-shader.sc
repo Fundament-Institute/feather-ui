@@ -30,8 +30,8 @@ fn circle (x y DimBorderBlur corners fill outline)
     let s = (pow (linearstep (w * 2.0) 0.0 d0) 2.2)
     let alpha = (pow (linearstep (w * 2.0) 0.0 d1) 2.2)
 
-    let circle = ((vec4 fill.rgb 1) * fill.a * s)
-    let outl = ((vec4 outline.rgb 1) * outline.a * (clamp (alpha - s) 0.0 1.0))
+    let circle = ((vec4 fill.rgb 1) * fill.a * (clamp (s - alpha) 0.0 1.0))
+    let outl = ((vec4 outline.rgb 1) * outline.a * (clamp alpha 0.0 1.0))
     let output = (circle + outl)
     output
 
