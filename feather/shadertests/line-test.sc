@@ -12,7 +12,7 @@ try
                 let y = (f32 y)
                 (line x y (vec4 1 1 1 1) (vec2 128 128))
 
-    imageio.save-into-file "output/line.png" ('to-image line-render)
+    imageio.save-into-file "../output/line.png" ('to-image line-render)
 
 else
     print "Something failed while rendering line-test"

@@ -1,6 +1,6 @@
 # A render test that draws a circle.
-using import .software-rendering
-import .imageio
+using import ..software-rendering
+import ..imageio
 using import .circle-shader
 using import glm
 
@@ -16,7 +16,7 @@ try
                 let y = (f32 y)
                 (circle (x - 128) (y - 128) (vec4 128 128 8 1.5) (vec4 0 0 0 0) (vec4 1 1 1 1) (vec4 1 0 0 1))
 
-    imageio.save-into-file "output/circle.png" ('to-image circle-render)
+    imageio.save-into-file "../output/circle.png" ('to-image circle-render)
 
 else
     print "Something failed while rendering circle-test"
