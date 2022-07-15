@@ -10,7 +10,7 @@ try
             fn (x y)
                 let x = (f32 x)
                 let y = (f32 y)
-                (line (x / 255.) (y / 255.) (vec4 1 1 1 1) (vec2 .5 .5))
+                (line x y (vec4 1 1 1 1) (vec2 128 128))
 
     imageio.save-into-file "output/line.png" ('to-image line-render)
 
