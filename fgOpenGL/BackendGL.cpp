@@ -273,11 +273,21 @@ FG_Resource* Backend::CreateTexture(FG_Backend* self, FG_Context* context, FG_Ve
     e.log(backend);
   return nullptr;
 }
-FG_Resource* Backend::CreateRenderTarget(FG_Backend* self, FG_Context* context, FG_Resource* texture, FG_Vec2i size)
+FG_Resource* Backend::CreateRenderTarget(FG_Backend* self, FG_Context* context, int TextureCount, FG_Resource* textures...)
 {
   auto backend = static_cast<Backend*>(self);
-
-  if(auto e = RenderTarget::create(size))
+  
+  std::vector<const Texture*> InputTextures;
+  va_list tex;
+  va_start(tex, textures);
+  for(auto i = 0; i < TextureCount; i++)
+  {
+    auto temp = static_cast<const Texture*>(va_arg(tex, FG_Resource*));
+    InputTextures.push_back(temp);
+  };
+  va_end(tex);
+  
+  if(auto e = FrameBuffer::create(GL_FRAMEBUFFER, GL_TEXTURE_2D, 0, 0, InputTextures))
     return pack_ptr(std::move(e.value()).release());
   else
     e.log(backend);
