@@ -10,7 +10,7 @@ fn circle (x y size DimBorderBlur corners fill outline)
     let w = (1.0 + DimBorderBlur.w) # The original multiplies this by fwidth.
     # However, because this is taking coordinates in the range [0,width] or [0,height], we don't have to care.
 
-    let border = ((DimBorderBlur.z / l) * 2.0)
+    let border = (DimBorderBlur.z * 2.0)
     let t = ((0.5 * l) - (corners.x / l))
     let r = (l - t - w)
 
@@ -21,7 +21,7 @@ fn circle (x y size DimBorderBlur corners fill outline)
     let alpha = (pow (linearstep (w * 2.0) 0.0 d1) 2.2)
 
     let circle = ((vec4 fill.rgb 1) * fill.a * (clamp (s - alpha) 0.0 1.0))
-    let outl = ((vec4 outline.rgb 1) * outline.a * (clamp alpha 0.0 1.0))
+    let outl = ((vec4 outline.rgb 1) * outline.a * alpha)
     let output = (circle + outl)
     output
 
