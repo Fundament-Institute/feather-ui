@@ -1,3 +1,6 @@
+using import glm
+using import glsl
+
 fn linearstep (low high x)
     (clamp ((x - low) / (high - low)) 0.0 1.0)
 
@@ -15,9 +18,12 @@ fn linearRGB (sColor)
     let a = 0.055
     (vec4 (pow ((sColor.r + a ) / d) p) (pow ((sColor.g + a ) / d) p) (pow ((sColor.b + a ) / d) p) sColor.a)
 
+let pi = 3.14159265359
+
 do
     let linearstep
     let sRGB
     let linearRGB
     let rotateVec3
+    let pi
     locals;
