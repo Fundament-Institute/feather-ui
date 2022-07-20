@@ -307,7 +307,9 @@ int main(int argc, char* argv[])
   pipeline.CullMode                       = FG_CULL_MODE_NONE; // FG_CULL_MODE_BACK
   pipeline.Primitive                      = FG_Primitive_TRIANGLE_STRIP;
 
-  e.pipeline = (b->createPipelineState)(b, w->context, &pipeline, 0, 0, &PREMULTIPLY_BLEND, &e.vertices, &vertstride, 1,
+  auto RenderTarget0 = (b->createTexture)(b, w->context, FG_Vec2i{ 800, 600 }, FG_Type_Texture2D, FG_PixelFormat_R8G8B8A8_TYPELESS, &sampler, NULL, 0);
+  auto framebuffer    = (b->createRenderTarget)(b, w->context ,1 ,RenderTarget0);
+  e.pipeline = (b->createPipelineState)(b, w->context, &pipeline, &framebuffer, 1, &PREMULTIPLY_BLEND, &e.vertices, &vertstride, 1,
                                         vertparams, 2, 0, 0);
   e.close    = false;
 

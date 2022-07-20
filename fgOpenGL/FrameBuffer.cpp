@@ -16,7 +16,7 @@ GLExpected<FrameBuffer::GLFrameBufferBindRef> FrameBuffer::bind(GLenum target) c
   return GLFrameBufferBindRef(target);
 }
 
-GLExpected<FrameBuffer> FrameBuffer::create(GLenum target, GLenum type, int level, int zoffset, std::vector<const Texture*> textures) noexcept
+GLExpected<FrameBuffer> FrameBuffer::create(GLenum target, GLenum type, int level, int zoffset, std::vector<const Texture*>& textures) noexcept
 {
   // TODO: Default to GL_DRAW_FRAMEBUFFER?
   assert(glFramebufferTexture2D != nullptr);
@@ -37,7 +37,7 @@ GLExpected<FrameBuffer> FrameBuffer::create(GLenum target, GLenum type, int leve
   return fb;
 }
 
-GLExpected<FrameBuffer> FrameBuffer::attach(GLenum target, GLenum type, int level, int zoffset, std::vector<const Texture*> textures) noexcept
+GLExpected<FrameBuffer> FrameBuffer::attach(GLenum target, GLenum type, int level, int zoffset, std::vector<const Texture*>& textures) noexcept
 {
   if(auto e = this->bind(target))
   {
@@ -46,7 +46,9 @@ GLExpected<FrameBuffer> FrameBuffer::attach(GLenum target, GLenum type, int leve
       switch(type)
       {
       case GL_TEXTURE_1D: glFramebufferTexture1D(target, this->NumberOfColorAttachments, GL_TEXTURE_1D, *texture, level); break;
-      case GL_TEXTURE_3D: glFramebufferTexture3D(target, this->NumberOfColorAttachments, GL_TEXTURE_3D, *texture, level, zoffset); break;
+      case GL_TEXTURE_3D:
+        glFramebufferTexture3D(target, this->NumberOfColorAttachments, GL_TEXTURE_3D, *texture, level, zoffset);
+        break;
       default: glFramebufferTexture2D(target, this->NumberOfColorAttachments, type, *texture, level); break;
       }
       this->NumberOfColorAttachments++;
