@@ -21,7 +21,7 @@ fn arc (x y size DimBorderBlur corners fill outline)
     let d1 = ((abs ((length uv) - r)) - t)
 
     let omega1 = (rotateVec3 uv (corners.x - corners.y)) # Is UV supposed to be in the range 0 to 1?
-    let omega2 = (rotateVec3 uv (corners.x + corners.y))
+    let omega2 = (rotateVec3 uv (corners.x + corners.y)) # Omega1/Omega2 get *huge* with -256 < uv < 256.
 
     local d = 0.0
 
@@ -33,17 +33,21 @@ fn arc (x y size DimBorderBlur corners fill outline)
         d = (min (- omega1.y) omega2.y)
 
     d = (d + (((clamp 0.0 1.0 (corners.y / pi)) - 0.5) * 2.0 * (DimBorderBlur.w * width) + border))
+    # Looks like corners.x and corners.y are both in radians.
 
     let d2 = (d - border + w1)
     let d3 = ((min d (omega1.x + corners.y)) + w1)
 
-    let s = (linearstep (- w1) w1 ((min (- d0) d2) - w1))
-    let alpha = (linearstep (- w1) w1 ((min (- d1) d3) - w1))
+    let s = (linearstep w1 (- w1) ((min (- d0) d2) - w1))
+    let alpha = (linearstep w1 (- w1) ((min (- d1) d3) - w1))
+    # The first two args of these linearstep calls may or may not need to be swapped.
+    # Doing w1 (- w1) gives all white, doing (- w1) w1 gives nothing.
+    # Erring on the side of getting output until I figure out where the size assumptions are.
 
     let arcf = ((vec4 fill.rgb 1) * fill.a * s)
     let outl = ((vec4 outline.rgb 1) * outline.a * (clamp (alpha - s) 0.0 1.0))
     let output = (arcf + outl)
-    arcf
+    output
 
 do
     let arc
