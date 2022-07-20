@@ -16,7 +16,7 @@ fn rectangle (samplePos halfSize edges)
             edge = edges.w
     
     let componentWiseEdgeDistance = ((abs samplePos) - halfSize + (vec2 edge))
-    let outsideDist = (max (length componentWiseEdgeDistance) 0.0)
+    let outsideDist = (length (vec2 (max componentWiseEdgeDistance.x 0.0) (max componentWiseEdgeDistance.y 0.0)))
     let insideDist = (min (max componentWiseEdgeDistance.x componentWiseEdgeDistance.y) 0.0)
     (outsideDist + insideDist - edge)
 
