@@ -277,12 +277,12 @@ FG_Resource* Backend::CreateRenderTarget(FG_Backend* self, FG_Context* context, 
 {
   auto backend = static_cast<Backend*>(self);
   
-  std::vector<const Texture*> InputTextures;
+  std::vector<GLuint> InputTextures;
   va_list tex;
   va_start(tex, textures);
-  for(auto i = 0; i < TextureCount; i++)
+   for(auto i = 0; i < TextureCount; i++)
   {
-    auto temp = static_cast<const Texture*>(va_arg(tex, FG_Resource*));
+     auto temp = Texture(va_arg(tex, FG_Resource*)).release();
     InputTextures.push_back(temp);
   };
   va_end(tex);
