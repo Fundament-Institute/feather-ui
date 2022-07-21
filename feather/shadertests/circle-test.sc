@@ -5,10 +5,6 @@ using import .circle-shader
 using import glm
 
 try
-    # let circle = 
-    #     texture.from-shader 256 256 vec4 circle-shader
-    # imageio.save-into-file "output/circle.png" ('to-image circle)
-
     let circle-render = 
         texture.from-shader 256 256 vec4 
             fn (x y)
