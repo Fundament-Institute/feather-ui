@@ -283,11 +283,11 @@ FG_Resource* Backend::CreateRenderTarget(FG_Backend* self, FG_Context* context, 
    for(auto i = 0; i < TextureCount; i++)
   {
      auto temp = Texture(va_arg(tex, FG_Resource*)).release();
-    InputTextures.push_back(temp);
+     InputTextures.push_back(temp);
   };
   va_end(tex);
   
-  if(auto e = FrameBuffer::create(GL_FRAMEBUFFER, GL_TEXTURE_2D, 0, 0, InputTextures))
+  if(auto e = FrameBuffer::create(GL_FRAMEBUFFER, GL_TEXTURE_2D, 0, 0, GetCaps(self).OpenGL.max_rendertargets, InputTextures))
     return pack_ptr(std::move(e.value()).release());
   else
     e.log(backend);
