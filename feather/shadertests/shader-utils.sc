@@ -20,7 +20,7 @@ fn linearRGB (sColor)
 
 let pi = 3.14159265359
 
-type RGBA <: vec4
+type rgba <: vec4
 
 do
     let linearstep
@@ -28,5 +28,5 @@ do
     let linearRGB
     let rotateVec3
     let pi
-    let RGBA
+    let rgba
     locals;
