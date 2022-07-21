@@ -3,7 +3,7 @@ using import glm
 using import glsl
 using import .shader-utils
 
-fn circle (x y size DimBorderBlur corners fill outline)
+fn... circle (x : f32, y : f32, size : f32, DimBorderBlur : vec4, corners : vec4, fill : vec4, outline : vec4)
     let xy = (vec2 x y)
     let l = ((DimBorderBlur.x + DimBorderBlur.y) * 0.5)
     let uv = ((xy * 2.0) - size)

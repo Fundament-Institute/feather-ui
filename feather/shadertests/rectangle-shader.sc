@@ -20,7 +20,7 @@ fn rectangle (samplePos halfSize edges)
     let insideDist = (min (max componentWiseEdgeDistance.x componentWiseEdgeDistance.y) 0.0)
     (outsideDist + insideDist - edge)
 
-fn rect-shader (x y size DimBorderBlur corners fill outline)
+fn... rect-shader (x : f32, y : f32, size : f32, DimBorderBlur : vec4, corners : vec4, fill : vec4, outline : vec4)
     let pos = (vec2 x y)
     let w = (1.0 + DimBorderBlur.w) # Originally uses the derivative of...DimBorderBlur.x + pos.x? That should still come out to 1.0...
     let uv = ((pos * 2) - size)
