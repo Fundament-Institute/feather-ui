@@ -18,6 +18,22 @@ fn linearRGB (sColor)
     let a = 0.055
     (vec4 (pow ((sColor.r + a ) / d) p) (pow ((sColor.g + a ) / d) p) (pow ((sColor.b + a ) / d) p) sColor.a)
 
+fn... point-line-side
+    (e1 : vec2, e2 : vec2, p : vec2)
+    # From points e1 and e2, get a line.
+    # Then, give a f32 representing point p's distance from that line.
+    # The result will be positive or negative depending on which side of the line you're on.
+    # If you just want the line itself, take the absolute value of this.
+    let n = (e2 - e1)
+    let v1 = (normalize (vec2 n.y (- n.x)))
+    let v2 = (e1 - p)
+    (dot v1 v2)
+
+fn... line-from-points (e1 : vec2, e2 : vec2, p : vec2)
+    # like so!
+    (abs (point-line-side e1 e2 p))
+
+
 let pi = 3.14159265359
 
 type rgba <: vec4
@@ -27,6 +43,8 @@ do
     let sRGB
     let linearRGB
     let rotateVec3
+    let point-line-side
+    let line-from-points
     let pi
     let rgba
     locals;
