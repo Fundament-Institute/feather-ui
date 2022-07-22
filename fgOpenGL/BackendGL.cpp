@@ -287,7 +287,7 @@ FG_Resource* Backend::CreateRenderTarget(FG_Backend* self, FG_Context* context, 
   };
   va_end(tex);
   
-  if(auto e = FrameBuffer::create(GL_FRAMEBUFFER, GL_TEXTURE_2D, 0, 0, GetCaps(self).OpenGL.max_rendertargets, InputTextures))
+  if(auto e = FrameBuffer::create(GL_FRAMEBUFFER, GL_TEXTURE_2D, 0, 0, InputTextures))
     return pack_ptr(std::move(e.value()).release());
   else
     e.log(backend);
