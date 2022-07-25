@@ -28,6 +28,12 @@ GLExpected<FrameBuffer> FrameBuffer::create(GLenum target, GLenum type, int leve
 
   fb.attach(target, type, level, zoffset, textures);
 
+  /* GLuint rbo;
+  glGenRenderbuffers(1, &rbo);
+  glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, 800, 600);
+  glBindRenderbuffer(GL_RENDERBUFFER, 0); */
+
   auto status = glCheckFramebufferStatus(target);
   if(status != GL_FRAMEBUFFER_COMPLETE)
   {
@@ -42,10 +48,10 @@ GLExpected<FrameBuffer> FrameBuffer::attach(GLenum target, GLenum type, int leve
   {
     int MaxRendertargets;
     glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &MaxRendertargets);
+    GL_ERROR("glGetIntergerv");
     if((this->NumberOfColorAttachments + textures.size()) > MaxRendertargets)
     {
-      GL_ERROR("Already have max render targets bound");
-      return std::move(e.error());
+      return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Trying to bind more render targets than max possible");
     }
     for(const GLuint& texture : textures)
     {

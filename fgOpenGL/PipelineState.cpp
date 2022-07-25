@@ -22,6 +22,15 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
   for(size_t i = 0; i < rts.size(); ++i)
     rts[i] = Buffer(rendertargets[i]).release();
 
+  if (rts.size() > 0) 
+  {
+    glBindFramebuffer(GL_FRAMEBUFFER, rts[0]);
+    glViewport(0, 0, 800, 600);
+  }
+  else
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  
+
   if(auto e = ProgramObject::create())
     pipeline->program = std::move(e.value());
   else
@@ -106,6 +115,9 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
   pipeline->blend = blend;
   // ??? = state.RTFormats // not sure this has an OpenGL equivilent
 
+  //glBindFramebuffer(GL_FRAMEBUFFER, rts[0]);
+  //glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  //glViewport(0, 0, 800, 600);
   return pipeline;
 }
 
