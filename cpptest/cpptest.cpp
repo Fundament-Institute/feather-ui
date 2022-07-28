@@ -344,12 +344,20 @@ int main(int argc, char* argv[])
   }
 
   TEST((b->getClipboard)(b, w, FG_Clipboard_WAVE, hold, 10) == 0)
-  //e.image    = RenderTarget0;
-  //e.pipeline = (b->createPipelineState)(b, w->context, &pipeline, 0, 0, &PREMULTIPLY_BLEND, &e.vertices, &vertstride, 1,
-  //                                      vertparams, 2, 0, 0);
-  //TEST((b->setWindow)(b, w, &e, nullptr, nullptr, nullptr, "Feather Test Changed", FG_WindowFlag_RESIZABLE) == 0);
-
-  while((b->processMessages)(b, 0) != 0 && e.close == false) {}
+  // e.image    = RenderTarget0;
+  // e.pipeline = (b->createPipelineState)(b, w->context, &pipeline, 0, 0, &PREMULTIPLY_BLEND, &e.vertices, &vertstride, 1,
+  //                                       vertparams, 2, 0, 0);
+  // TEST((b->setWindow)(b, w, &e, nullptr, nullptr, nullptr, "Feather Test Changed", FG_WindowFlag_RESIZABLE) == 0);
+  int i = 0;
+  while((b->processMessages)(b, 0) != 0 && e.close == false) 
+  {
+      if (i == 1)
+      {
+        e.pipeline = (b->createPipelineState)(b, w->context, &pipeline, 0, 0, &PREMULTIPLY_BLEND, &e.vertices, &vertstride, 1,
+                                               vertparams, 2, 0, 0);
+      }
+    i++;
+  }
 
   TEST((b->destroyWindow)(b, w) == 0);
   TEST((b->destroyResource)(b, w->context, e.image) == 0);

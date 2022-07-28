@@ -22,14 +22,11 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
   for(size_t i = 0; i < rts.size(); ++i)
     rts[i] = Buffer(rendertargets[i]).release();
 
+  
   if (rts.size() > 0) 
   {
-    glBindFramebuffer(GL_FRAMEBUFFER, rts[0]);
-    glViewport(0, 0, 800, 600);
+    pipeline->rt = FrameBuffer(rts[0]).release();
   }
-  else
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  
 
   if(auto e = ProgramObject::create())
     pipeline->program = std::move(e.value());
@@ -128,6 +125,18 @@ GLExpected<void> PipelineState::apply(Context* ctx) noexcept
   glUseProgram(program);
   GL_ERROR("glUseProgram");
   RETURN_ERROR(vao.bind());
+
+  /*
+  if(auto e = FrameBuffer(rt).bind(GL_FRAMEBUFFER).release()) {}
+  else
+    return std::move(e.error());
+  */
+  glBindFramebuffer(GL_FRAMEBUFFER, rt);
+  if (glCheckFramebufferStatus(rt) != GL_FRAMEBUFFER_COMPLETE) {
+    return {};
+  }
+  //glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+  //glClear(GL_COLOR_BUFFER_BIT);
 
   RETURN_ERROR(ctx->ApplyBlend(blend, BlendFactor, false));
   RETURN_ERROR(ctx->ApplyFlags(Flags, CullMode, FillMode));
