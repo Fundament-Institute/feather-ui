@@ -1196,6 +1196,16 @@ typedef union FG_ShaderValue__
   FG_Resource* resource;
 } FG_ShaderValue;
 
+enum FG_AccessFlags
+{
+  FG_AccessFlag_READ = (1 << 0),
+  FG_AccessFlag_WRITE = (1 << 1),
+  FG_AccessFlag_PERSISTENT = (1 << 2),
+  FG_AccessFlag_INVALIDATE_RANGE = (1 << 3),
+  FG_AccessFlag_INVALIDATE_BUFFER = (1 << 4),
+  FG_AccessFlag_UNSYNCHRONIZED    = (1 << 5),
+};
+
 struct FG_Backend
 {
   FG_Caps (*getCaps)(FG_Backend* self);
@@ -1229,11 +1239,14 @@ struct FG_Backend
                                FG_Resource** vertexbuffer, int* strides, uint32_t n_buffers, FG_ShaderParameter* attributes,
                                uint32_t n_attributes, FG_Resource* indexbuffer, uint8_t indexstride);
   int (*destroyPipelineState)(FG_Backend* self, FG_Context* context, void* state);
-  FG_Resource* (*createBuffer)(FG_Backend* self, FG_Context* context, void* data, uint32_t bytes, enum FG_Type type);
-  FG_Resource* (*createTexture)(FG_Backend* self, FG_Context* context, FG_Vec2i size, enum FG_Type type,
+  FG_Resource* (*createBuffer)(FG_Backend* self, FG_Context* context, void* data, uint32_t bytes, enum FG_Type usage);
+  FG_Resource* (*createTexture)(FG_Backend* self, FG_Context* context, FG_Vec2i size, enum FG_Type usage,
                                 enum FG_PixelFormat format, FG_Sampler* sampler, void* data, int MultiSampleCount);
   FG_Resource* (*createRenderTarget)(FG_Backend* self, FG_Context* context, FG_Resource* texture);
   int (*destroyResource)(FG_Backend* self, FG_Context* context, FG_Resource* resource);
+  void* (*mapResource)(FG_Backend* self, FG_Context* context, FG_Resource* resource, uint32_t offset, uint32_t length,
+                       enum FG_Type usage, uint32_t access);
+  int (*unmapResource)(FG_Backend* self, FG_Context* context, FG_Resource* resource, enum FG_Type usage);
   FG_Window* (*createWindow)(FG_Backend* self, FG_Element* element, FG_Display* display, FG_Vec2* pos, FG_Vec2* dim,
                              const char* caption, uint64_t flags);
   int (*setWindow)(FG_Backend* self, FG_Window* window, FG_Element* element, FG_Display* display, FG_Vec2* pos,

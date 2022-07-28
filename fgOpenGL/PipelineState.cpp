@@ -7,6 +7,7 @@
 #include "EnumMapping.hpp"
 #include <cassert>
 #include <malloc.h> // for _alloca on windows
+#include <unordered_set>
 
 using namespace GL;
 

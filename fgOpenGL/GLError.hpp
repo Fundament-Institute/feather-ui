@@ -80,7 +80,12 @@ namespace GL {
                                unsigned int line) noexcept :
       _error(err), _callsite(callsite), _file(file), _line(line)
     {}
-    constexpr ~GLError() { assert(!(_error & UNCHECKED_FLAG)); }
+    constexpr ~GLError()
+    {
+#ifdef _DEBUG
+      assert(!(_error & UNCHECKED_FLAG));
+#endif
+    }
 
     constexpr void swap(GLError& right) noexcept
     {
@@ -271,7 +276,9 @@ namespace GL {
       {
         if(peek())
           _result.~T();
+#ifdef _DEBUG
         assert(!(_error & GLError::UNCHECKED_FLAG));
+#endif
       }
     }
 

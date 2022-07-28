@@ -293,6 +293,93 @@ int Backend::DestroyResource(FG_Backend* self, FG_Context* context, FG_Resource*
   return ERR_SUCCESS;
 }
 
+GLenum getOpenGLAccessFlags(uint32_t flags)
+{
+  GLenum v = 0;
+  if(flags & FG_AccessFlag_READ)
+    v |= GL_MAP_READ_BIT;
+  if(flags & FG_AccessFlag_WRITE)
+    v |= GL_MAP_WRITE_BIT;
+  // if(flags & FG_AccessFlag_PERSISTENT)
+  //   v |= GL_MAP_PERSISTENT_BIT;
+  if(flags & FG_AccessFlag_INVALIDATE_RANGE)
+    v |= GL_MAP_INVALIDATE_RANGE_BIT;
+  if(flags & FG_AccessFlag_INVALIDATE_BUFFER)
+    v |= GL_MAP_INVALIDATE_BUFFER_BIT;
+  if(flags & FG_AccessFlag_UNSYNCHRONIZED)
+    v |= GL_MAP_UNSYNCHRONIZED_BIT;
+  return v;
+}
+
+void* Backend::MapResource(FG_Backend* self, FG_Context* context, FG_Resource* resource, uint32_t offset, uint32_t length, enum FG_Type type, uint32_t access)
+{
+  auto backend = static_cast<Backend*>(self);
+  auto i       = unpack_ptr<GLuint>(resource);
+
+  if(type >= ArraySize(TypeMapping) || !context)
+    return nullptr;
+
+  if(glIsBuffer(i))
+    glBindBuffer(TypeMapping[type], i);
+  else if(glIsTexture(i))
+    glBindTexture(TypeMapping[type], i);
+  else if(glIsFramebuffer(i))
+    glBindFramebuffer(TypeMapping[type], i);
+  else
+    return nullptr;
+
+  void* v = nullptr;
+  if(!offset && !length)
+    v = glMapBuffer(TypeMapping[type], getOpenGLAccessFlags(access));
+  else
+    v = glMapBufferRange(TypeMapping[type], offset, length, getOpenGLAccessFlags(access));
+
+  if(glIsBuffer(i))
+    glBindBuffer(TypeMapping[type], 0);
+  else if(glIsTexture(i))
+    glBindTexture(TypeMapping[type], 0);
+  else if(glIsFramebuffer(i))
+    glBindFramebuffer(TypeMapping[type], 0);
+  else
+    return nullptr;
+
+  if(auto e = glGetError())
+    return nullptr;
+
+  return v;
+}
+int Backend::UnmapResource(FG_Backend* self, FG_Context* context, FG_Resource* resource, enum FG_Type type)
+{
+  auto backend = static_cast<Backend*>(self);
+  auto i       = unpack_ptr<GLuint>(resource);
+
+  if(type >= ArraySize(TypeMapping) || !context)
+    return ERR_INVALID_PARAMETER;
+
+  if(glIsBuffer(i))
+    glBindBuffer(TypeMapping[type], i);
+  else if(glIsTexture(i))
+    glBindTexture(TypeMapping[type], i);
+  else if(glIsFramebuffer(i))
+    glBindFramebuffer(TypeMapping[type], i);
+  else
+    return ERR_INVALID_PARAMETER;
+
+  glUnmapBuffer(TypeMapping[type]);
+  auto e = glGetError();
+
+  if(glIsBuffer(i))
+    glBindBuffer(TypeMapping[type], 0);
+  else if(glIsTexture(i))
+    glBindTexture(TypeMapping[type], 0);
+  else if(glIsFramebuffer(i))
+    glBindFramebuffer(TypeMapping[type], 0);
+  else
+    return ERR_INVALID_PARAMETER;
+
+  return e;
+}
+
 FG_Window* Backend::CreateWindowGL(FG_Backend* self, FG_Element* element, FG_Display* display, FG_Vec2* pos, FG_Vec2* dim,
                                    const char* caption, uint64_t flags)
 {

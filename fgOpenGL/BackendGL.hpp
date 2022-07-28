@@ -147,11 +147,14 @@ namespace GL {
                                      FG_ShaderParameter* attributes, uint32_t n_attributes, FG_Resource* indexbuffer,
                                      uint8_t indexstride);
     static int DestroyPipelineState(FG_Backend* self, FG_Context* context, void* state);
-    static FG_Resource* CreateBuffer(FG_Backend* self, FG_Context* context, void* data, uint32_t bytes, enum FG_Type type);
-    static FG_Resource* CreateTexture(FG_Backend* self, FG_Context* context, FG_Vec2i size, enum FG_Type type,
+    static FG_Resource* CreateBuffer(FG_Backend* self, FG_Context* context, void* data, uint32_t bytes, enum FG_Type usage);
+    static FG_Resource* CreateTexture(FG_Backend* self, FG_Context* context, FG_Vec2i size, enum FG_Type usage,
                                       enum FG_PixelFormat format, FG_Sampler* sampler, void* data, int MultiSampleCount);
     static FG_Resource* CreateRenderTarget(FG_Backend* self, FG_Context* context, FG_Resource* texture);
     static int DestroyResource(FG_Backend* self, FG_Context* context, FG_Resource* resource);
+    static void* MapResource(FG_Backend* self, FG_Context* context, FG_Resource* resource, uint32_t offset, uint32_t length,
+                         enum FG_Type usage, uint32_t access);
+    static int UnmapResource(FG_Backend* self, FG_Context* context, FG_Resource* resource, enum FG_Type usage);
     static FG_Window* CreateWindowGL(FG_Backend* self, FG_Element* element, FG_Display* display, FG_Vec2* pos, FG_Vec2* dim,
                                      const char* caption, uint64_t flags);
     static int SetWindow(FG_Backend* self, FG_Window* window, FG_Element* element, FG_Display* display, FG_Vec2* pos,
