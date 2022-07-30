@@ -29,9 +29,11 @@ namespace GL {
     FrameBuffer& operator=(FrameBuffer&& right) noexcept = default;
 
     // This does not take ownership of the texture
-    static GLExpected<FrameBuffer> create(GLenum target, GLenum type, int level, int zoffset, std::vector<GLuint>& textures) noexcept;
+    static GLExpected<FrameBuffer> create(GLenum target, GLenum type, int level, int zoffset, FG_Resource** textures,
+                                          uint32_t n_textures) noexcept;
 
-    GLExpected<void> attach(GLenum target, GLenum type, int level, int zoffset, std::vector<GLuint>& textures) noexcept;
+    GLExpected<void> attach(GLenum target, GLenum type, int level, int zoffset, FG_Resource** textures,
+                            uint32_t n_textures) noexcept;
     
     GLuint ColorAttachments() { return this->NumberOfColorAttachments; };
   private:

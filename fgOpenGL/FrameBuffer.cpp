@@ -17,7 +17,8 @@ GLExpected<void> FrameBuffer::bind(GLenum target) const noexcept
   return {};
 }
 
-GLExpected<FrameBuffer> FrameBuffer::create(GLenum target, GLenum type, int level, int zoffset, std::vector<GLuint>& textures) noexcept
+GLExpected<FrameBuffer> FrameBuffer::create(GLenum target, GLenum type, int level, int zoffset, FG_Resource** textures,
+                                            uint32_t n_textures) noexcept
 {
   // TODO: Default to GL_DRAW_FRAMEBUFFER?
   assert(glFramebufferTexture2D != nullptr);
@@ -27,7 +28,7 @@ GLExpected<FrameBuffer> FrameBuffer::create(GLenum target, GLenum type, int leve
   GL_ERROR("glGenFramebuffers");
   FrameBuffer fb(fbgl);
 
-  if(auto e = fb.attach(target, type, level, zoffset, textures)) {}
+  if(auto e = fb.attach(target, type, level, zoffset, textures, n_textures)) {}
   else
     return std::move(e.error());
 
@@ -35,19 +36,21 @@ GLExpected<FrameBuffer> FrameBuffer::create(GLenum target, GLenum type, int leve
   return fb;
 }
 
-GLExpected<void> FrameBuffer::attach(GLenum target, GLenum type, int level, int zoffset, std::vector<GLuint>& textures) noexcept
+GLExpected<void> FrameBuffer::attach(GLenum target, GLenum type, int level, int zoffset, FG_Resource** textures,
+                                     uint32_t n_textures) noexcept
 {
   if(auto e = this->bind(target))
   {
     int MaxRendertargets;
     glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &MaxRendertargets);
     GL_ERROR("glGetIntergerv");
-    if((this->NumberOfColorAttachments + textures.size()) > MaxRendertargets)
+    if((this->NumberOfColorAttachments + int(n_textures)) > MaxRendertargets)
     {
       return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Trying to bind more render targets than max possible");
     }
-    for(const GLuint& texture : textures)
+    for(auto i = 0; i < n_textures; i++)
     {
+      auto texture = Texture(textures[i]).release();
       switch(type)
       {
       case GL_TEXTURE_1D:
