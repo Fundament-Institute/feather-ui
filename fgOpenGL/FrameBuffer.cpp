@@ -31,12 +31,6 @@ GLExpected<FrameBuffer> FrameBuffer::create(GLenum target, GLenum type, int leve
   else
     return std::move(e.error());
 
-
-  /* GLuint rbo;
-  glGenRenderbuffers(1, &rbo);
-  glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, 800, 600);
-  glBindRenderbuffer(GL_RENDERBUFFER, 0); */
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   return fb;
 }
@@ -65,10 +59,10 @@ GLExpected<void> FrameBuffer::attach(GLenum target, GLenum type, int level, int 
                                texture, level, zoffset);
         break;
       default:
-        glFramebufferTexture(target, GL_COLOR_ATTACHMENT0 + this->NumberOfColorAttachments, texture, level);
-        break; 
-         //glFramebufferTexture2D(target, this->NumberOfColorAttachments, GL_TEXTURE_2D, texture, level); 
-        //break; GL_COLOR_ATTACHMENT0
+        //glFramebufferTexture(target, GL_COLOR_ATTACHMENT0 + this->NumberOfColorAttachments, texture, level);
+        //break; 
+         glFramebufferTexture2D(target, GL_COLOR_ATTACHMENT0 + this->NumberOfColorAttachments, GL_TEXTURE_2D, texture, level); 
+        break;
       }
       this->NumberOfColorAttachments++;
       GL_ERROR("glFramebufferTexture");
