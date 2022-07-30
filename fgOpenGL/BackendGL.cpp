@@ -10,7 +10,6 @@
 #include "EnumMapping.hpp"
 #include <cstring>
 
-
 #ifdef FG_PLATFORM_WIN32
   #include <dwrite_1.h>
 #else

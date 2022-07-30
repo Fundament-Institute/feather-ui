@@ -319,8 +319,6 @@ int main(int argc, char* argv[])
 
   TEST((b->setWindow)(b, w, nullptr, nullptr, nullptr, nullptr, nullptr, FG_WindowFlag_RESIZABLE) == 0);
   TEST((b->setWindow)(b, w, &e, nullptr, nullptr, nullptr, "Feather Test Changed", FG_WindowFlag_RESIZABLE) == 0);
-  
-
 
   TEST((b->processMessages)(b, 0) != 0);
 
