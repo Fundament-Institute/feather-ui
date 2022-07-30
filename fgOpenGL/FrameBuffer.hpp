@@ -13,8 +13,6 @@ namespace GL {
 
   struct FrameBuffer : Ref<&IsFrameBuffer, &DeleteFrameBuffer>
   {
-    //typedef BindRef<&UnbindFrameBuffer> GLFrameBufferBindRef;
-
     explicit constexpr FrameBuffer(GLuint shader) noexcept : Ref(shader) {}
     explicit constexpr FrameBuffer(void* shader) noexcept : Ref(shader) {}
     constexpr FrameBuffer() noexcept                    = default;
@@ -22,7 +20,6 @@ namespace GL {
     constexpr FrameBuffer(const FrameBuffer&)           = delete;
     constexpr ~FrameBuffer() noexcept                   = default;
 
-    //GLExpected<GLFrameBufferBindRef> bind(GLenum target) const noexcept;
     GLExpected<void> bind(GLenum target) const noexcept;
 
     FrameBuffer& operator=(const FrameBuffer&) = delete;

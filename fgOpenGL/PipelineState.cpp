@@ -136,8 +136,6 @@ GLExpected<void> PipelineState::apply(Context* ctx) noexcept
     fb.release();
     return std::move(e.error());
   }
-  //glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-  //glClear(GL_COLOR_BUFFER_BIT);
 
   RETURN_ERROR(ctx->ApplyBlend(blend, BlendFactor, false));
   RETURN_ERROR(ctx->ApplyFlags(Flags, CullMode, FillMode));

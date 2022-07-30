@@ -9,7 +9,6 @@
 
 using namespace GL;
 
-
 GLExpected<void> FrameBuffer::bind(GLenum target) const noexcept
 {
   glBindFramebuffer(target, _ref);
@@ -62,8 +61,6 @@ GLExpected<void> FrameBuffer::attach(GLenum target, GLenum type, int level, int 
                                texture, level, zoffset);
         break;
       default:
-        //glFramebufferTexture(target, GL_COLOR_ATTACHMENT0 + this->NumberOfColorAttachments, texture, level);
-        //break; 
          glFramebufferTexture2D(target, GL_COLOR_ATTACHMENT0 + this->NumberOfColorAttachments, GL_TEXTURE_2D, texture, level); 
         break;
       }
@@ -76,8 +73,6 @@ GLExpected<void> FrameBuffer::attach(GLenum target, GLenum type, int level, int 
     {
       return CUSTOM_ERROR(status, "glCheckFramebufferStatus");
     }
-    //glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-    //glClear(GL_COLOR_BUFFER_BIT);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     return {};
   }
