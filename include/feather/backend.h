@@ -1232,7 +1232,7 @@ struct FG_Backend
   FG_Resource* (*createBuffer)(FG_Backend* self, FG_Context* context, void* data, uint32_t bytes, enum FG_Type type);
   FG_Resource* (*createTexture)(FG_Backend* self, FG_Context* context, FG_Vec2i size, enum FG_Type type,
                                 enum FG_PixelFormat format, FG_Sampler* sampler, void* data, int MultiSampleCount);
-  FG_Resource* (*createRenderTarget)(FG_Backend* self, FG_Context* context, int TextureCount, FG_Resource* textures, ...);
+  FG_Resource* (*createRenderTarget)(FG_Backend* self, FG_Context* context, FG_Resource** textures, uint32_t n_textures);
   int (*destroyResource)(FG_Backend* self, FG_Context* context, FG_Resource* resource);
   FG_Window* (*createWindow)(FG_Backend* self, FG_Element* element, FG_Display* display, FG_Vec2* pos, FG_Vec2* dim,
                              const char* caption, uint64_t flags);

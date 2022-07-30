@@ -308,9 +308,10 @@ int main(int argc, char* argv[])
   pipeline.Primitive                      = FG_Primitive_TRIANGLE_STRIP;
 
   FG_Resource* RenderTarget0 = (b->createTexture)(b, w->context, FG_Vec2i{ 800, 600 }, FG_Type_Texture2D, FG_PixelFormat_R8G8B8A8_TYPELESS, &sampler, NULL, 0);
-  //FG_Resource* RenderTarget1 = (b->createTexture)(b, w->context, FG_Vec2i{ 800, 600 }, FG_Type_Texture2D, FG_PixelFormat_R8G8B8A8_TYPELESS, &sampler, NULL, 0);
-  auto framebuffer    = (b->createRenderTarget)(b, w->context , 1, RenderTarget0);
-  e.pipeline = (b->createPipelineState)(b, w->context, &pipeline, &framebuffer, 1, &PREMULTIPLY_BLEND, &e.vertices, &vertstride, 1,
+  FG_Resource* RenderTarget1 = (b->createTexture)(b, w->context, FG_Vec2i{ 800, 600 }, FG_Type_Texture2D, FG_PixelFormat_R8G8B8A8_TYPELESS, &sampler, NULL, 0);
+  FG_Resource* rts[]{RenderTarget0, RenderTarget1};
+  auto framebuffer           = (b->createRenderTarget)(b, w->context, rts, 2);
+  e.pipeline = (b->createPipelineState)(b, w->context, &pipeline, &framebuffer, 2, &PREMULTIPLY_BLEND, &e.vertices, &vertstride, 1,
                                         vertparams, 2, 0, 0);
   e.close    = false;
 
@@ -344,15 +345,12 @@ int main(int argc, char* argv[])
   }
 
   TEST((b->getClipboard)(b, w, FG_Clipboard_WAVE, hold, 10) == 0)
-  // e.image    = RenderTarget0;
-  // e.pipeline = (b->createPipelineState)(b, w->context, &pipeline, 0, 0, &PREMULTIPLY_BLEND, &e.vertices, &vertstride, 1,
-  //                                       vertparams, 2, 0, 0);
-  // TEST((b->setWindow)(b, w, &e, nullptr, nullptr, nullptr, "Feather Test Changed", FG_WindowFlag_RESIZABLE) == 0);
   int i = 0;
   while((b->processMessages)(b, 0) != 0 && e.close == false) 
   {
       if (i == 1)
       {
+        e.image    = RenderTarget0;
         e.pipeline = (b->createPipelineState)(b, w->context, &pipeline, 0, 0, &PREMULTIPLY_BLEND, &e.vertices, &vertstride, 1,
                                                vertparams, 2, 0, 0);
       }

@@ -9,11 +9,11 @@
 namespace GL {
   static bool IsFrameBuffer(GLuint i) noexcept { return glIsFramebuffer(i) == GL_TRUE; };
   static void DeleteFrameBuffer(GLuint i) noexcept { glDeleteFramebuffers(1, &i); };
-  static void UnbindFrameBuffer(GLenum target) noexcept{ /*glBindFramebuffer(target, 0);*/ };
+  static void UnbindFrameBuffer(GLenum target) noexcept{ glBindFramebuffer(target, 0); };
 
   struct FrameBuffer : Ref<&IsFrameBuffer, &DeleteFrameBuffer>
   {
-    typedef BindRef<&UnbindFrameBuffer> GLFrameBufferBindRef;
+    //typedef BindRef<&UnbindFrameBuffer> GLFrameBufferBindRef;
 
     explicit constexpr FrameBuffer(GLuint shader) noexcept : Ref(shader) {}
     explicit constexpr FrameBuffer(void* shader) noexcept : Ref(shader) {}
@@ -23,12 +23,7 @@ namespace GL {
     constexpr ~FrameBuffer() noexcept                   = default;
 
     //GLExpected<GLFrameBufferBindRef> bind(GLenum target) const noexcept;
-    GLExpected<GLFrameBufferBindRef> bind(GLenum target) const noexcept
-    {
-      glBindFramebuffer(target, _ref);
-      GL_ERROR("glBindFramebuffer");
-      return GLFrameBufferBindRef(target);
-    }
+    GLExpected<void> bind(GLenum target) const noexcept;
 
     FrameBuffer& operator=(const FrameBuffer&) = delete;
     FrameBuffer& operator=(FrameBuffer&& right) noexcept = default;
@@ -38,7 +33,7 @@ namespace GL {
 
     GLExpected<void> attach(GLenum target, GLenum type, int level, int zoffset, std::vector<GLuint>& textures) noexcept;
     
-    int ColorAttachments() { return this->NumberOfColorAttachments; };
+    GLuint ColorAttachments() { return this->NumberOfColorAttachments; };
   private:
     int NumberOfColorAttachments = 0;
   };

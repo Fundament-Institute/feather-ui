@@ -150,7 +150,8 @@ namespace GL {
     static FG_Resource* CreateBuffer(FG_Backend* self, FG_Context* context, void* data, uint32_t bytes, enum FG_Type type);
     static FG_Resource* CreateTexture(FG_Backend* self, FG_Context* context, FG_Vec2i size, enum FG_Type type,
                                       enum FG_PixelFormat format, FG_Sampler* sampler, void* data, int MultiSampleCount);
-    static FG_Resource* CreateRenderTarget(FG_Backend* self, FG_Context* context, int TextureCount, FG_Resource* textures...);
+    static FG_Resource* CreateRenderTarget(FG_Backend* self, FG_Context* context, FG_Resource** textures,
+                                           uint32_t n_textures);
     static int DestroyResource(FG_Backend* self, FG_Context* context, FG_Resource* resource);
     static FG_Window* CreateWindowGL(FG_Backend* self, FG_Element* element, FG_Display* display, FG_Vec2* pos, FG_Vec2* dim,
                                      const char* caption, uint64_t flags);

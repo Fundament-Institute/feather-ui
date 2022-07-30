@@ -126,14 +126,15 @@ GLExpected<void> PipelineState::apply(Context* ctx) noexcept
   GL_ERROR("glUseProgram");
   RETURN_ERROR(vao.bind());
 
-  /*
-  if(auto e = FrameBuffer(rt).bind(GL_FRAMEBUFFER).release()) {}
+  auto fb = FrameBuffer(rt);
+  if(auto e = fb.bind(GL_FRAMEBUFFER))
+  {
+    fb.release();
+  }
   else
+  {
+    fb.release();
     return std::move(e.error());
-  */
-  glBindFramebuffer(GL_FRAMEBUFFER, rt);
-  if (glCheckFramebufferStatus(rt) != GL_FRAMEBUFFER_COMPLETE) {
-    return {};
   }
   //glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
   //glClear(GL_COLOR_BUFFER_BIT);
