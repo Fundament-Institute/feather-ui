@@ -272,9 +272,14 @@ FG_Resource* Backend::CreateTexture(FG_Backend* self, FG_Context* context, FG_Ve
     e.log(backend);
   return nullptr;
 }
-FG_Resource* Backend::CreateRenderTarget(FG_Backend* self, FG_Context* context, FG_Resource* texture)
+FG_Resource* Backend::CreateRenderTarget(FG_Backend* self, FG_Context* context, FG_Resource** textures, uint32_t n_textures)
 {
   auto backend = static_cast<Backend*>(self);
+  
+  if(auto e = FrameBuffer::create(GL_FRAMEBUFFER, GL_TEXTURE_2D, 0, 0, textures, n_textures))
+    return pack_ptr(std::move(e.value()).release());
+  else
+    e.log(backend);
   return nullptr;
 }
 int Backend::DestroyResource(FG_Backend* self, FG_Context* context, FG_Resource* resource)

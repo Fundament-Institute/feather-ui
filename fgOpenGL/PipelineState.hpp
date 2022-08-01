@@ -43,6 +43,7 @@ namespace GL {
     uint32_t ForcedSampleCount;
     FG_Blend blend;
     VertexArrayObject vao;
+    GLuint rt = 0;
 
     GLExpected<void> apply(Context* ctx) noexcept;
     GLExpected<std::string> log() const noexcept;

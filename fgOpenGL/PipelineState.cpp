@@ -23,6 +23,12 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
   for(size_t i = 0; i < rts.size(); ++i)
     rts[i] = Buffer(rendertargets[i]).release();
 
+  
+  if (rts.size() > 0) 
+  {
+    pipeline->rt = FrameBuffer(rts[0]).release();
+  }
+
   if(auto e = ProgramObject::create())
     pipeline->program = std::move(e.value());
   else
@@ -107,6 +113,9 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
   pipeline->blend = blend;
   // ??? = state.RTFormats // not sure this has an OpenGL equivilent
 
+  //glBindFramebuffer(GL_FRAMEBUFFER, rts[0]);
+  //glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  //glViewport(0, 0, 800, 600);
   return pipeline;
 }
 
@@ -117,6 +126,17 @@ GLExpected<void> PipelineState::apply(Context* ctx) noexcept
   glUseProgram(program);
   GL_ERROR("glUseProgram");
   RETURN_ERROR(vao.bind());
+
+  auto fb = FrameBuffer(rt);
+  if(auto e = fb.bind(GL_FRAMEBUFFER))
+  {
+    fb.release();
+  }
+  else
+  {
+    fb.release();
+    return std::move(e.error());
+  }
 
   RETURN_ERROR(ctx->ApplyBlend(blend, BlendFactor, false));
   RETURN_ERROR(ctx->ApplyFlags(Flags, CullMode, FillMode));

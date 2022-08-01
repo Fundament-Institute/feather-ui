@@ -307,7 +307,11 @@ int main(int argc, char* argv[])
   pipeline.CullMode                       = FG_CULL_MODE_NONE; // FG_CULL_MODE_BACK
   pipeline.Primitive                      = FG_Primitive_TRIANGLE_STRIP;
 
-  e.pipeline = (b->createPipelineState)(b, w->context, &pipeline, 0, 0, &PREMULTIPLY_BLEND, &e.vertices, &vertstride, 1,
+  FG_Resource* RenderTarget0 = (b->createTexture)(b, w->context, FG_Vec2i{ 800, 600 }, FG_Type_Texture2D, FG_PixelFormat_R8G8B8A8_TYPELESS, &sampler, NULL, 0);
+  FG_Resource* RenderTarget1 = (b->createTexture)(b, w->context, FG_Vec2i{ 800, 600 }, FG_Type_Texture2D, FG_PixelFormat_R8G8B8A8_TYPELESS, &sampler, NULL, 0);
+  FG_Resource* rts[]{RenderTarget0, RenderTarget1};
+  auto framebuffer           = (b->createRenderTarget)(b, w->context, rts, 2);
+  e.pipeline = (b->createPipelineState)(b, w->context, &pipeline, &framebuffer, 2, &PREMULTIPLY_BLEND, &e.vertices, &vertstride, 1,
                                         vertparams, 2, 0, 0);
   e.close    = false;
 
@@ -339,8 +343,17 @@ int main(int argc, char* argv[])
   }
 
   TEST((b->getClipboard)(b, w, FG_Clipboard_WAVE, hold, 10) == 0)
-
-  while((b->processMessages)(b, 0) != 0 && e.close == false) {}
+  int i = 0;
+  while((b->processMessages)(b, 0) != 0 && e.close == false) 
+  {
+      if (i == 1)
+      {
+        e.image    = RenderTarget0;
+        e.pipeline = (b->createPipelineState)(b, w->context, &pipeline, 0, 0, &PREMULTIPLY_BLEND, &e.vertices, &vertstride, 1,
+                                               vertparams, 2, 0, 0);
+      }
+    i++;
+  }
 
   TEST((b->destroyWindow)(b, w) == 0);
   TEST((b->destroyResource)(b, w->context, e.image) == 0);
