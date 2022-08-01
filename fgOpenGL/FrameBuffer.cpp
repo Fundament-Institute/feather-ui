@@ -74,7 +74,6 @@ GLExpected<void> FrameBuffer::attach(GLenum target, GLenum type, int level, int 
       return CUSTOM_ERROR(status, "glCheckFramebufferStatus");
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    return {};
   }
   else
     return std::move(e.error());
