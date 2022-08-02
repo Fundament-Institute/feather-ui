@@ -25,16 +25,16 @@ struct FT_LibraryRec_;
 #ifdef FG_COMPILER_MSC
   #define LOG(level, msg, ...) Log(level, __FILE__, __LINE__, msg, __VA_ARGS__)
 #else
-  #define LOG(level, msg, ...) Log(level, __FILE__, __LINE__, msg __VA_OPT__(,) __VA_ARGS__)
+  #define LOG(level, msg, ...) Log(level, __FILE__, __LINE__, msg __VA_OPT__(, ) __VA_ARGS__)
 #endif
 
 namespace GL {
   enum GL_Err
   {
-    ERR_SUCCESS           = 0,
-    ERR_UNKNOWN           = -1,
-    ERR_NOT_IMPLEMENTED   = -2,
-    ERR_MISSING_PARAMETER = -0xFFFD,
+    ERR_SUCCESS = 0,
+    ERR_UNKNOWN = 0x10000,
+    ERR_NOT_IMPLEMENTED,
+    ERR_MISSING_PARAMETER,
     ERR_UNKNOWN_COMMAND_CATEGORY,
     ERR_INVALID_KIND,
     ERR_CLIPBOARD_FAILURE,
@@ -43,6 +43,7 @@ namespace GL {
     ERR_INVALID_PARAMETER,
     ERR_INVALID_CALL,
     ERR_NULL,
+    ERR_COMPILATION_FAILURE,
   };
 
   template<class T> constexpr void* pack_ptr(T i) noexcept
@@ -134,6 +135,8 @@ namespace GL {
                       uint32_t startinstance);
     static int DrawIndexed(FG_Backend* self, void* commands, uint32_t indexcount, uint32_t instancecount,
                            uint32_t startindex, int startvertex, uint32_t startinstance);
+    static int Dispatch(FG_Backend* self, void* commands);
+    static int SyncPoint(FG_Backend* self, void* commands, uint32_t barrier_flags);
     static int SetPipelineState(FG_Backend* self, void* commands, void* state);
     static int SetDepthStencil(FG_Backend* self, void* commands, bool Front, uint8_t StencilFailOp,
                                uint8_t StencilDepthFailOp, uint8_t StencilPassOp, uint8_t StencilFunc);
@@ -144,18 +147,21 @@ namespace GL {
     static void* CreatePipelineState(FG_Backend* self, FG_Context* context, FG_PipelineState* pipelinestate,
                                      FG_Resource** rendertargets, uint32_t n_targets, FG_Blend* blends,
                                      FG_Resource** vertexbuffer, GLsizei* strides, uint32_t n_buffers,
-                                     FG_ShaderParameter* attributes, uint32_t n_attributes, FG_Resource* indexbuffer,
+                                     FG_VertexParameter* attributes, uint32_t n_attributes, FG_Resource* indexbuffer,
                                      uint8_t indexstride);
+    static void* CreateComputePipeline(FG_Backend* self, FG_Context* context, void* computeshader, FG_Vec3i workgroup,
+                                       uint32_t flags);
     static int DestroyPipelineState(FG_Backend* self, FG_Context* context, void* state);
-    static FG_Resource* CreateBuffer(FG_Backend* self, FG_Context* context, void* data, uint32_t bytes, enum FG_Type usage);
-    static FG_Resource* CreateTexture(FG_Backend* self, FG_Context* context, FG_Vec2i size, enum FG_Type usage,
+    static FG_Resource* CreateBuffer(FG_Backend* self, FG_Context* context, void* data, uint32_t bytes,
+                                     enum FG_Usage usage);
+    static FG_Resource* CreateTexture(FG_Backend* self, FG_Context* context, FG_Vec2i size, enum FG_Usage usage,
                                       enum FG_PixelFormat format, FG_Sampler* sampler, void* data, int MultiSampleCount);
     static FG_Resource* CreateRenderTarget(FG_Backend* self, FG_Context* context, FG_Resource** textures,
                                            uint32_t n_textures);
     static int DestroyResource(FG_Backend* self, FG_Context* context, FG_Resource* resource);
     static void* MapResource(FG_Backend* self, FG_Context* context, FG_Resource* resource, uint32_t offset, uint32_t length,
-                         enum FG_Type usage, uint32_t access);
-    static int UnmapResource(FG_Backend* self, FG_Context* context, FG_Resource* resource, enum FG_Type usage);
+                             enum FG_Usage usage, uint32_t access);
+    static int UnmapResource(FG_Backend* self, FG_Context* context, FG_Resource* resource, enum FG_Usage usage);
     static FG_Window* CreateWindowGL(FG_Backend* self, FG_Element* element, FG_Display* display, FG_Vec2* pos, FG_Vec2* dim,
                                      const char* caption, uint64_t flags);
     static int SetWindow(FG_Backend* self, FG_Window* window, FG_Element* element, FG_Display* display, FG_Vec2* pos,

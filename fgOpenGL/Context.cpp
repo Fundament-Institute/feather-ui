@@ -85,27 +85,63 @@ void Context::Draw(const FG_Rect* area)
   _backend->EndDraw(_backend, this);
 }
 
+GLExpected<void> Context::Dispatch()
+{
+  glDispatchCompute(_workgroup.x, _workgroup.y, _workgroup.z);
+  GL_ERROR("glDispatchCompute");
+  return {};
+}
+
+GLExpected<void> Context::Barrier(GLbitfield barrier_flags)
+{
+  glMemoryBarrier(barrier_flags);
+  GL_ERROR("glMemoryBarrier");
+  return {};
+}
+
+GLExpected<void> Context::ApplyProgram(const ProgramObject& program)
+{
+  glUseProgram(program);
+  GL_ERROR("glUseProgram");
+  _program = &program;
+  return {};
+}
+
 GLExpected<void> Context::SetShaderUniforms(const FG_ShaderParameter* uniforms, const FG_ShaderValue* values,
                                             uint32_t count)
 {
   for(uint32_t i = 0; i < count; ++i)
   {
+    if (uniforms[i].type == FG_ShaderType_BUFFER) {
+      RETURN_ERROR(_program->set_buffer(unpack_ptr<GLuint>(values[i].resource), uniforms[i].count,
+                                        uniforms[i].width, uniforms[i].length));
+      continue;
+    }
+
     auto type = ShaderObject::get_type(uniforms[i]);
+    uint32_t count = !uniforms[i].count ? 1 : uniforms[i].count;
+
     switch(type)
     {
     case GL_DOUBLE:
     case GL_HALF_FLOAT: // we assume you pass in a proper float to fill this
     case GL_FLOAT:
     case GL_INT:
-    case GL_UNSIGNED_INT: RETURN_ERROR(_program->set_uniform(uniforms[i].name, type, &values[i].f32)); break;
+    case GL_UNSIGNED_INT: 
+      if(count == 1)
+      {
+        RETURN_ERROR(_program->set_uniform(uniforms[i].name, type, &values[i].f32, count));
+        break;
+      }
+      // Otherwise fallthrough because the value couldn't be stored directly
     default:
       if(type >= GL_TEXTURE0 && type <= GL_TEXTURE31)
       {
-        RETURN_ERROR(_program->set_uniform(uniforms[i].name, type, (float*)values[i].resource));
+        RETURN_ERROR(_program->set_uniform(uniforms[i].name, type, (float*)values[i].resource, count));
       }
       else
       {
-        RETURN_ERROR(_program->set_uniform(uniforms[i].name, type, values[i].pf32));
+        RETURN_ERROR(_program->set_uniform(uniforms[i].name, type, values[i].pf32, count));
       }
       break;
     }
@@ -144,6 +180,9 @@ int Context::GetBytes(GLenum type)
   case GL_HALF_FLOAT: return 2;
   case GL_INT:
   case GL_UNSIGNED_INT:
+  case GL_INT_2_10_10_10_REV:
+  case GL_UNSIGNED_INT_2_10_10_10_REV:
+  case GL_UNSIGNED_INT_10F_11F_11F_REV:
   case GL_FLOAT: return 4;
   case GL_DOUBLE: return 8;
   }

@@ -160,23 +160,24 @@ enum FG_PixelFormat
   FG_PixelFormat_YUY2,
 };
 
-enum FG_Type
+enum FG_Usage
 {
-  FG_Type_Unknown = 0,
-  FG_Type_VertexData,
-  FG_Type_VertexIndices,
-  FG_Type_PixelRead,
-  FG_Type_PixelWrite,
-  FG_Type_CopyRead,
-  FG_Type_CopyWrite,
-  FG_Type_TextureBuffer,
-  FG_Type_Transform,
-  FG_Type_Uniform,
-  FG_Type_Texture1D,
-  FG_Type_Texture2D,
-  FG_Type_Texture3D,
-  FG_Type_Texture2D_Multisample,
-  FG_Type_Texture2D_Multisample_Proxy,
+  FG_Usage_Unknown = 0,
+  FG_Usage_VertexData,
+  FG_Usage_VertexIndices,
+  FG_Usage_PixelRead,
+  FG_Usage_PixelWrite,
+  FG_Usage_CopyRead,
+  FG_Usage_CopyWrite,
+  FG_Usage_TextureBuffer,
+  FG_Usage_Transform,
+  FG_Usage_Uniform,
+  FG_Usage_Texture1D,
+  FG_Usage_Texture2D,
+  FG_Usage_Texture3D,
+  FG_Usage_Texture2D_Multisample,
+  FG_Usage_Texture2D_Multisample_Proxy,
+  FG_Usage_StorageBuffer,
 };
 
 enum FG_ShaderStage
@@ -283,6 +284,7 @@ typedef struct FG_OpenGL_Caps__
   int glsl;    // Version 1.10 is 110, version 4.40 is 440
   int max_textures;
   int max_rendertargets;
+  FG_Vec3i max_workgroups;
 } FG_OpenGL_Caps;
 
 typedef struct FG_DirectX_Caps__
@@ -567,6 +569,33 @@ typedef struct FG_Viewport__
   FG_Rect scissor;
 } FG_Viewport;
 
+enum FG_VertexType
+{
+  FG_VertexType_HALF    = 0,
+  FG_VertexType_FLOAT,
+  FG_VertexType_DOUBLE,
+  FG_VertexType_BYTE,
+  FG_VertexType_UBYTE,
+  FG_VertexType_SHORT,
+  FG_VertexType_USHORT,
+  FG_VertexType_INT,
+  FG_VertexType_UINT,
+  //FG_VertexType_INT_2_10_10_10,
+  //FG_VertexType_UINT_2_10_10_10,
+};
+
+// Array
+typedef struct FG_VertexParameter__
+{
+  const char* name;
+  uint32_t offset;
+  uint32_t step;
+  uint8_t length;
+  uint8_t type; // enum FG_ShaderType
+  uint8_t index;
+  bool per_instance; // false if per_vertex
+} FG_VertexParameter;
+
 enum FG_ShaderType
 {
   FG_ShaderType_HALF    = 0,
@@ -577,19 +606,16 @@ enum FG_ShaderType
   FG_ShaderType_COLOR32 = 5,
   FG_ShaderType_TEXTURE = 6,
   FG_ShaderType_TEXCUBE = 7,
+  FG_ShaderType_BUFFER = 8,
 };
-
 // Array
 typedef struct FG_ShaderParameter__
 {
   const char* name;
-  uint32_t offset;
   uint32_t length;
-  uint32_t multi;
-  uint8_t index;
+  uint32_t width; // or offset for buffers
+  uint32_t count; // or index for buffers
   uint8_t type;      // enum FG_ShaderType
-  bool per_instance; // false if per_vertex
-  uint32_t step;
 } FG_ShaderParameter;
 
 typedef struct FG_Display__
@@ -1206,6 +1232,23 @@ enum FG_AccessFlags
   FG_AccessFlag_UNSYNCHRONIZED    = (1 << 5),
 };
 
+enum FG_BarrierFlags
+{
+  FG_BarrierFlags_VERTEX = (1 << 0),
+  FG_BarrierFlags_ELEMENT = (1 << 1),
+  FG_BarrierFlags_UNIFORM = (1 << 2),
+  FG_BarrierFlags_TEXTURE_FETCH = (1 << 3),
+  FG_BarrierFlags_TEXTURE_UPDATE = (1 << 4),
+  FG_BarrierFlags_IMAGE_ACCESS = (1 << 5),
+  FG_BarrierFlags_COMMAND = (1 << 6),
+  FG_BarrierFlags_PIXEL = (1 << 7),
+  FG_BarrierFlags_BUFFER = (1 << 8),
+  FG_BarrierFlags_RENDERTARGET = (1 << 9),
+  FG_BarrierFlags_STORAGE_BUFFER     = (1 << 10),
+  FG_BarrierFlags_TRANSFORM_FEEDBACK = (1 << 11),
+  FG_BarrierFlags_ATOMIC_COUNTER     = (1 << 12),
+};
+
 struct FG_Backend
 {
   FG_Caps (*getCaps)(FG_Backend* self);
@@ -1227,6 +1270,8 @@ struct FG_Backend
               uint32_t startinstance);
   int (*drawIndexed)(FG_Backend* self, void* commands, uint32_t indexcount, uint32_t instancecount, uint32_t startindex,
                      int startvertex, uint32_t startinstance);
+  int (*dispatch)(FG_Backend* self, void* commands);
+  int (*syncPoint)(FG_Backend* self, void* commands, uint32_t barrier_flags);
   int (*setPipelineState)(FG_Backend* self, void* commands, void* state);
   int (*setDepthStencil)(FG_Backend* self, void* commands, bool Front, uint8_t StencilFailOp, uint8_t StencilDepthFailOp,
                          uint8_t StencilPassOp, uint8_t StencilFunc);
@@ -1236,17 +1281,18 @@ struct FG_Backend
   int (*execute)(FG_Backend* self, FG_Context* context, void* commands);
   void* (*createPipelineState)(FG_Backend* self, FG_Context* context, FG_PipelineState* pipelinestate,
                                FG_Resource** rendertargets, uint32_t n_targets, FG_Blend* blends,
-                               FG_Resource** vertexbuffer, int* strides, uint32_t n_buffers, FG_ShaderParameter* attributes,
+                               FG_Resource** vertexbuffer, int* strides, uint32_t n_buffers, FG_VertexParameter* attributes,
                                uint32_t n_attributes, FG_Resource* indexbuffer, uint8_t indexstride);
+  void* (*createComputePipeline)(FG_Backend* self, FG_Context* context, void* computeshader, FG_Vec3i workgroup, uint32_t flags);
   int (*destroyPipelineState)(FG_Backend* self, FG_Context* context, void* state);
-  FG_Resource* (*createBuffer)(FG_Backend* self, FG_Context* context, void* data, uint32_t bytes, enum FG_Type usage);
-  FG_Resource* (*createTexture)(FG_Backend* self, FG_Context* context, FG_Vec2i size, enum FG_Type usage,
+  FG_Resource* (*createBuffer)(FG_Backend* self, FG_Context* context, void* data, uint32_t bytes, enum FG_Usage usage);
+  FG_Resource* (*createTexture)(FG_Backend* self, FG_Context* context, FG_Vec2i size, enum FG_Usage usage,
                                 enum FG_PixelFormat format, FG_Sampler* sampler, void* data, int MultiSampleCount);
   FG_Resource* (*createRenderTarget)(FG_Backend* self, FG_Context* context, FG_Resource** textures, uint32_t n_textures);
   int (*destroyResource)(FG_Backend* self, FG_Context* context, FG_Resource* resource);
   void* (*mapResource)(FG_Backend* self, FG_Context* context, FG_Resource* resource, uint32_t offset, uint32_t length,
-                       enum FG_Type usage, uint32_t access);
-  int (*unmapResource)(FG_Backend* self, FG_Context* context, FG_Resource* resource, enum FG_Type usage);
+                       enum FG_Usage usage, uint32_t access);
+  int (*unmapResource)(FG_Backend* self, FG_Context* context, FG_Resource* resource, enum FG_Usage usage);
   FG_Window* (*createWindow)(FG_Backend* self, FG_Element* element, FG_Display* display, FG_Vec2* pos, FG_Vec2* dim,
                              const char* caption, uint64_t flags);
   int (*setWindow)(FG_Backend* self, FG_Window* window, FG_Element* element, FG_Display* display, FG_Vec2* pos,

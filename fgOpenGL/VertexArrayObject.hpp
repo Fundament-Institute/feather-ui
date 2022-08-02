@@ -81,7 +81,7 @@ namespace GL {
     GLExpected<void> bind();
     GLExpected<void> unbind();
 
-    static GLExpected<VertexArrayObject> create(GLuint program, std::span<FG_ShaderParameter> parameters,
+    static GLExpected<VertexArrayObject> create(GLuint program, std::span<FG_VertexParameter> parameters,
                                                 std::span<std::pair<GLuint, GLsizei>> vbuffers, GLuint indices) noexcept;
   };
 }

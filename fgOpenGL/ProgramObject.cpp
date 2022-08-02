@@ -56,8 +56,24 @@ GLExpected<ProgramObject> ProgramObject::create() noexcept
   GL_ERROR("glCreateProgram");
   return ProgramObject(program);
 }
+GLExpected<void> ProgramObject::set_buffer(GLuint resource, uint32_t index, uint32_t offset,
+                                           uint32_t length) const noexcept
+{
+  if(length > 0)
+  {
+    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, index, resource, offset, length);
+    GL_ERROR("glBindBufferRange");
+  }
+  else
+  {
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, index, resource);
+    GL_ERROR("glBindBufferBase");
+  }
 
-GLExpected<void> ProgramObject::set_uniform(const char* name, GLenum type, const float* data) const noexcept
+  return {};
+}
+
+GLExpected<void> ProgramObject::set_uniform(const char* name, GLenum type, const float* data, uint32_t count) const noexcept
 {
   if(type >= GL_TEXTURE0 && type <= GL_TEXTURE31)
   {
@@ -85,31 +101,35 @@ GLExpected<void> ProgramObject::set_uniform(const char* name, GLenum type, const
     GL_ERROR("glGetUniformLocation");
     switch(type)
     {
-    case GL_FLOAT_MAT2: glUniformMatrix2fv(loc, 1, GL_FALSE, data); break;
-    case GL_FLOAT_MAT2x3: glUniformMatrix2x3fv(loc, 1, GL_FALSE, data); break;
-    case GL_FLOAT_MAT2x4: glUniformMatrix2x4fv(loc, 1, GL_FALSE, data); break;
-    case GL_FLOAT_MAT3x2: glUniformMatrix3x2fv(loc, 1, GL_FALSE, data); break;
-    case GL_FLOAT_MAT3: glUniformMatrix3fv(loc, 1, GL_FALSE, data); break;
-    case GL_FLOAT_MAT3x4: glUniformMatrix3x4fv(loc, 1, GL_FALSE, data); break;
-    case GL_FLOAT_MAT4x2: glUniformMatrix4x2fv(loc, 1, GL_FALSE, data); break;
-    case GL_FLOAT_MAT4x3: glUniformMatrix4x3fv(loc, 1, GL_FALSE, data); break;
-    case GL_FLOAT_MAT4: glUniformMatrix4fv(loc, 1, GL_FALSE, data); break;
-    case GL_FLOAT_VEC2:
+    case GL_FLOAT_MAT2: glUniformMatrix2fv(loc, count, GL_FALSE, data); break;
+    case GL_FLOAT_MAT2x3: glUniformMatrix2x3fv(loc, count, GL_FALSE, data); break;
+    case GL_FLOAT_MAT2x4: glUniformMatrix2x4fv(loc, count, GL_FALSE, data); break;
+    case GL_FLOAT_MAT3x2: glUniformMatrix3x2fv(loc, count, GL_FALSE, data); break;
+    case GL_FLOAT_MAT3: glUniformMatrix3fv(loc, count, GL_FALSE, data); break;
+    case GL_FLOAT_MAT3x4: glUniformMatrix3x4fv(loc, count, GL_FALSE, data); break;
+    case GL_FLOAT_MAT4x2: glUniformMatrix4x2fv(loc, count, GL_FALSE, data); break;
+    case GL_FLOAT_MAT4x3: glUniformMatrix4x3fv(loc, count, GL_FALSE, data); break;
+    case GL_FLOAT_MAT4: glUniformMatrix4fv(loc, count, GL_FALSE, data); break;
+    case GL_FLOAT_VEC2: glUniform2fv(loc, count, data); break;
     case GL_INT_VEC2:
     case GL_UNSIGNED_INT_VEC2:
-    case GL_BOOL_VEC2: glUniform2fv(loc, 1, data); break;
-    case GL_FLOAT_VEC3:
+    case GL_BOOL_VEC2: glUniform2iv(loc, count, reinterpret_cast<const int*>(data)); break;
+    case GL_FLOAT_VEC3: glUniform3fv(loc, count, data); break;
     case GL_INT_VEC3:
     case GL_UNSIGNED_INT_VEC3:
-    case GL_BOOL_VEC3: glUniform3fv(loc, 1, data); break;
-    case GL_FLOAT_VEC4:
+    case GL_BOOL_VEC3: glUniform3iv(loc, count, reinterpret_cast<const int*>(data)); break;
+    case GL_FLOAT_VEC4: glUniform4fv(loc, count, data); break;
     case GL_INT_VEC4:
     case GL_UNSIGNED_INT_VEC4:
-    case GL_BOOL_VEC4: glUniform4fv(loc, 1, data); break;
+    case GL_BOOL_VEC4: glUniform4iv(loc, count, reinterpret_cast<const int*>(data)); break;
     case GL_DOUBLE: return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Cannot assign GL_DOUBLE!");
-    default: glUniform1f(loc, data[0]); break;
+    case GL_FLOAT: glUniform1fv(loc, count, data); break; 
+    case GL_INT:
+    case GL_UNSIGNED_INT:
+    case GL_BOOL: glUniform1iv(loc, count, reinterpret_cast<const int*>(data)); break;
+    default: return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Unknown OpenGL type!");
     }
-    GL_ERROR("glUniform1f");
+    GL_ERROR("glUniform");
   }
 
   return {};

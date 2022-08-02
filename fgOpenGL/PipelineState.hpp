@@ -15,7 +15,7 @@
 
 namespace GL {
   struct Context;
-
+  
   struct PipelineState
   {
     // This mostly inherits the standard backend pipeline state, but translates things into OpenGL equivalents
@@ -56,7 +56,7 @@ namespace GL {
 
     static GLExpected<PipelineState*> create(const FG_PipelineState& state, std::span<FG_Resource*> rendertargets,
                                              FG_Blend blend, std::span<FG_Resource*> vertexbuffers, GLsizei* strides,
-                                             std::span<FG_ShaderParameter> attributes, FG_Resource* indexbuffer,
+                                             std::span<FG_VertexParameter> attributes, FG_Resource* indexbuffer,
                                              uint8_t indexstride) noexcept;
 
     static void* operator new(std::size_t base, std::size_t renderTargetCount)
@@ -71,6 +71,19 @@ namespace GL {
 #pragma warning(disable : 26495)
     PipelineState() {}
 #pragma warning(pop)
+  };
+
+  static uint64_t COMPUTE_PIPELINE_FLAG = (1ULL << 63);
+  struct ComputePipelineState
+  {
+    uint64_t Members;
+    FG_Vec3i workgroup;
+    uint32_t flags;
+    ProgramObject program;
+
+    static GLExpected<ComputePipelineState*> create(void* computeshader, FG_Vec3i workgroup, uint32_t flags) noexcept;
+    GLExpected<void> apply(Context* ctx) noexcept;
+    GLExpected<std::string> log() const noexcept;
   };
 }
 

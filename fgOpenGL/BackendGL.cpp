@@ -45,15 +45,30 @@ FG_Caps Backend::GetCaps(FG_Backend* self)
 
 void* Backend::CompileShader(FG_Backend* self, FG_Context* context, enum FG_ShaderStage stage, const char* source)
 {
+  auto backend = static_cast<Backend*>(self);
+
   if(stage >= ArraySize(ShaderStageMapping))
-    CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Unsupported shader stage").log(static_cast<Backend*>(self));
+    CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Unsupported shader stage").log(backend);
   else
   {
-    // Note: Can't use LOG_ERROR here because 
+    // Note: Can't use LOG_ERROR here because
     if(auto r = ShaderObject::create(source, ShaderStageMapping[stage]))
-      return pack_ptr(std::move(r.value()).release());
+    {
+      GLint status;
+      glGetShaderiv(r.value(), GL_COMPILE_STATUS, &status);
+      // GL_ERROR("glGetShaderiv");
+      if(status == GL_FALSE)
+      {
+        if(auto v = r.value().log())
+          CUSTOM_ERROR(ERR_COMPILATION_FAILURE, v.value().c_str()).log(backend);
+        else
+          v.error().log(backend);
+      }
+      else
+        return pack_ptr(std::move(r.value()).release());
+    }
     else
-      r.error().log(static_cast<Backend*>(self));
+      r.error().log(backend);
   }
   return nullptr;
 }
@@ -182,6 +197,56 @@ int Backend::DrawIndexed(FG_Backend* self, void* commands, uint32_t indexcount, 
   LOG_ERROR(backend, context->DrawIndexed(indexcount, instancecount, startindex, startvertex, startinstance));
   return 0;
 }
+
+int Backend::Dispatch(FG_Backend* self, void* commands)
+{
+  if(!commands)
+    return ERR_INVALID_PARAMETER;
+  auto backend = static_cast<Backend*>(self);
+  auto context = reinterpret_cast<Context*>(commands);
+  LOG_ERROR(backend, context->Dispatch());
+  return 0;
+}
+
+int Backend::SyncPoint(FG_Backend* self, void* commands, uint32_t barrier_flags)
+{
+  if(!commands)
+    return ERR_INVALID_PARAMETER;
+  auto backend = static_cast<Backend*>(self);
+  auto context = reinterpret_cast<Context*>(commands);
+
+  GLbitfield flags = 0;
+  if(barrier_flags & FG_BarrierFlags_VERTEX)
+    flags |= GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT;
+  if(barrier_flags & FG_BarrierFlags_ELEMENT)
+    flags |= GL_ELEMENT_ARRAY_BARRIER_BIT;
+  if(barrier_flags & FG_BarrierFlags_UNIFORM)
+    flags |= GL_UNIFORM_BARRIER_BIT;
+  if(barrier_flags & FG_BarrierFlags_TEXTURE_FETCH)
+    flags |= GL_TEXTURE_FETCH_BARRIER_BIT;
+  if(barrier_flags & FG_BarrierFlags_TEXTURE_UPDATE)
+    flags |= GL_TEXTURE_UPDATE_BARRIER_BIT;
+  if(barrier_flags & FG_BarrierFlags_IMAGE_ACCESS)
+    flags |= GL_SHADER_IMAGE_ACCESS_BARRIER_BIT;
+  if(barrier_flags & FG_BarrierFlags_COMMAND)
+    flags |= GL_COMMAND_BARRIER_BIT;
+  if(barrier_flags & FG_BarrierFlags_PIXEL)
+    flags |= GL_PIXEL_BUFFER_BARRIER_BIT;
+  if(barrier_flags & FG_BarrierFlags_BUFFER)
+    flags |= GL_BUFFER_UPDATE_BARRIER_BIT;
+  if(barrier_flags & FG_BarrierFlags_RENDERTARGET)
+    flags |= GL_FRAMEBUFFER_BARRIER_BIT;
+  if(barrier_flags & FG_BarrierFlags_STORAGE_BUFFER)
+    flags |= GL_SHADER_STORAGE_BARRIER_BIT;
+  if(barrier_flags & FG_BarrierFlags_TRANSFORM_FEEDBACK)
+    flags |= GL_TRANSFORM_FEEDBACK_BARRIER_BIT;
+  if(barrier_flags & FG_BarrierFlags_ATOMIC_COUNTER)
+    flags |= GL_ATOMIC_COUNTER_BARRIER_BIT;
+
+  LOG_ERROR(backend, context->Barrier(flags));
+  return 0;
+}
+
 int Backend::SetPipelineState(FG_Backend* self, void* commands, void* state)
 {
   if(!commands || !state)
@@ -189,7 +254,12 @@ int Backend::SetPipelineState(FG_Backend* self, void* commands, void* state)
 
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(commands);
-  LOG_ERROR(backend, reinterpret_cast<PipelineState*>(state)->apply(context));
+
+  if(reinterpret_cast<PipelineState*>(state)->Members & COMPUTE_PIPELINE_FLAG)
+    LOG_ERROR(backend, reinterpret_cast<ComputePipelineState*>(state)->apply(context));
+  else
+    LOG_ERROR(backend, reinterpret_cast<PipelineState*>(state)->apply(context));
+
   return 0;
 }
 int Backend::SetDepthStencil(FG_Backend* self, void* commands, bool Front, uint8_t StencilFailOp,
@@ -219,7 +289,7 @@ int Backend::Execute(FG_Backend* self, FG_Context* context, void* commands) { re
 void* Backend::CreatePipelineState(FG_Backend* self, FG_Context* context, FG_PipelineState* pipelinestate,
                                    FG_Resource** rendertargets, uint32_t n_targets, FG_Blend* blends,
                                    FG_Resource** vertexbuffer, GLsizei* strides, uint32_t n_buffers,
-                                   FG_ShaderParameter* attributes, uint32_t n_attributes, FG_Resource* indexbuffer,
+                                   FG_VertexParameter* attributes, uint32_t n_attributes, FG_Resource* indexbuffer,
                                    uint8_t indexstride)
 {
   if(!pipelinestate || !context || !blends)
@@ -227,7 +297,7 @@ void* Backend::CreatePipelineState(FG_Backend* self, FG_Context* context, FG_Pip
 
   auto backend = static_cast<Backend*>(self);
   auto ctx     = reinterpret_cast<Context*>(context);
-  
+
   // Can't use LOG_ERROR here because we return a pointer.
   if(auto e = PipelineState::create(*pipelinestate, std::span(rendertargets, n_targets), *blends,
                                     std::span(vertexbuffer, n_buffers), strides, std::span(attributes, n_attributes),
@@ -237,15 +307,36 @@ void* Backend::CreatePipelineState(FG_Backend* self, FG_Context* context, FG_Pip
     e.log(backend);
   return nullptr;
 }
+void* Backend::CreateComputePipeline(FG_Backend* self, FG_Context* context, void* computeshader, FG_Vec3i workgroup,
+                                     uint32_t flags)
+{
+  if(!context)
+    return nullptr;
+
+  auto backend = static_cast<Backend*>(self);
+  auto ctx     = reinterpret_cast<Context*>(context);
+
+  // Can't use LOG_ERROR here because we return a pointer.
+  if(auto e = ComputePipelineState::create(computeshader, workgroup, flags))
+    return e.value();
+  else
+    e.log(backend);
+  return nullptr;
+}
 
 int Backend::DestroyPipelineState(FG_Backend* self, FG_Context* context, void* state)
 {
+  if(!state)
+    return ERR_INVALID_PARAMETER;
   auto backend = static_cast<Backend*>(self);
-  delete reinterpret_cast<FG_PipelineState*>(state);
-  return ERR_NOT_IMPLEMENTED;
+  if(reinterpret_cast<PipelineState*>(state)->Members & COMPUTE_PIPELINE_FLAG)
+    delete reinterpret_cast<ComputePipelineState*>(state);
+  else
+    delete reinterpret_cast<PipelineState*>(state);
+  return 0;
 }
 
-FG_Resource* Backend::CreateBuffer(FG_Backend* self, FG_Context* context, void* data, uint32_t bytes, enum FG_Type type)
+FG_Resource* Backend::CreateBuffer(FG_Backend* self, FG_Context* context, void* data, uint32_t bytes, enum FG_Usage type)
 {
   auto backend = static_cast<Backend*>(self);
   if(type >= ArraySize(TypeMapping))
@@ -258,7 +349,7 @@ FG_Resource* Backend::CreateBuffer(FG_Backend* self, FG_Context* context, void* 
     e.log(backend);
   return nullptr;
 }
-FG_Resource* Backend::CreateTexture(FG_Backend* self, FG_Context* context, FG_Vec2i size, enum FG_Type type,
+FG_Resource* Backend::CreateTexture(FG_Backend* self, FG_Context* context, FG_Vec2i size, enum FG_Usage type,
                                     enum FG_PixelFormat format, FG_Sampler* sampler, void* data, int MultiSampleCount)
 {
   auto backend = static_cast<Backend*>(self);
@@ -275,7 +366,7 @@ FG_Resource* Backend::CreateTexture(FG_Backend* self, FG_Context* context, FG_Ve
 FG_Resource* Backend::CreateRenderTarget(FG_Backend* self, FG_Context* context, FG_Resource** textures, uint32_t n_textures)
 {
   auto backend = static_cast<Backend*>(self);
-  
+
   if(auto e = FrameBuffer::create(GL_FRAMEBUFFER, GL_TEXTURE_2D, 0, 0, textures, n_textures))
     return pack_ptr(std::move(e.value()).release());
   else
@@ -316,7 +407,19 @@ GLenum getOpenGLAccessFlags(uint32_t flags)
   return v;
 }
 
-void* Backend::MapResource(FG_Backend* self, FG_Context* context, FG_Resource* resource, uint32_t offset, uint32_t length, enum FG_Type type, uint32_t access)
+GLenum getOpenGLAccessEnum(uint32_t flags)
+{
+  switch(flags)
+  {
+  case FG_AccessFlag_READ | FG_AccessFlag_WRITE: return GL_READ_WRITE;
+  case FG_AccessFlag_READ: return GL_READ_ONLY;
+  case FG_AccessFlag_WRITE: return GL_WRITE_ONLY;
+  }
+  return 0;
+}
+
+void* Backend::MapResource(FG_Backend* self, FG_Context* context, FG_Resource* resource, uint32_t offset, uint32_t length,
+                           enum FG_Usage type, uint32_t access)
 {
   auto backend = static_cast<Backend*>(self);
   auto i       = unpack_ptr<GLuint>(resource);
@@ -333,11 +436,23 @@ void* Backend::MapResource(FG_Backend* self, FG_Context* context, FG_Resource* r
   else
     return nullptr;
 
+  if(GLError e{ "glBind", __FILE__, __LINE__ })
+  {
+    e.log(backend);
+    return nullptr;
+  }
+
   void* v = nullptr;
   if(!offset && !length)
-    v = glMapBuffer(TypeMapping[type], getOpenGLAccessFlags(access));
+    v = glMapBuffer(TypeMapping[type], getOpenGLAccessEnum(access));
   else
     v = glMapBufferRange(TypeMapping[type], offset, length, getOpenGLAccessFlags(access));
+
+  if(GLError e{ "glMapBuffer", __FILE__, __LINE__ })
+  {
+    e.log(backend);
+    return nullptr;
+  }
 
   if(glIsBuffer(i))
     glBindBuffer(TypeMapping[type], 0);
@@ -348,12 +463,15 @@ void* Backend::MapResource(FG_Backend* self, FG_Context* context, FG_Resource* r
   else
     return nullptr;
 
-  if(auto e = glGetError())
+  if(GLError e{ "glBind", __FILE__, __LINE__ })
+  {
+    e.log(backend);
     return nullptr;
+  }
 
   return v;
 }
-int Backend::UnmapResource(FG_Backend* self, FG_Context* context, FG_Resource* resource, enum FG_Type type)
+int Backend::UnmapResource(FG_Backend* self, FG_Context* context, FG_Resource* resource, enum FG_Usage type)
 {
   auto backend = static_cast<Backend*>(self);
   auto i       = unpack_ptr<GLuint>(resource);
@@ -369,6 +487,9 @@ int Backend::UnmapResource(FG_Backend* self, FG_Context* context, FG_Resource* r
     glBindFramebuffer(TypeMapping[type], i);
   else
     return ERR_INVALID_PARAMETER;
+
+  if(auto e = glGetError())
+    return e;
 
   glUnmapBuffer(TypeMapping[type]);
   auto e = glGetError();
@@ -708,7 +829,7 @@ int Backend::GetDisplay(FG_Backend* self, void* handle, FG_Display* out)
 {
   if(!handle || !out)
     return ERR_MISSING_PARAMETER;
-  out->handle  = handle;
+  out->handle = handle;
   // TODO: handle GLFW errors
   out->primary = glfwGetPrimaryMonitor() == handle;
   glfwGetMonitorWorkarea(reinterpret_cast<GLFWmonitor*>(handle), &out->offset.x, &out->offset.y, &out->size.x,
@@ -860,48 +981,53 @@ long long GetRegistryValueW(HKEY__* hKeyRoot, const wchar_t* szKey, const wchar_
 Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   _root(root), _log(log), _behavior(behavior), _windows(nullptr), _insidelist(false)
 {
-  getCaps              = &GetCaps;
-  compileShader        = &CompileShader;
-  destroyShader        = &DestroyShader;
-  createCommandList    = &CreateCommandList;
-  destroyCommandList   = &DestroyCommandList;
-  clearDepthStencil    = &ClearDepthStencil;
-  clearRenderTarget    = &ClearRenderTarget;
-  copyResource         = &CopyResource;
-  copySubresource      = &CopySubresource;
-  copyResourceRegion   = &CopyResourceRegion;
-  draw                 = &DrawGL;
-  drawIndexed          = &DrawIndexed;
-  setDepthStencil      = &SetDepthStencil;
-  setPipelineState     = &SetPipelineState;
-  setViewports         = &SetViewports;
-  setShaderConstants   = &SetShaderConstants;
-  execute              = &Execute;
-  createPipelineState  = &CreatePipelineState;
-  destroyPipelineState = &DestroyPipelineState;
-  createBuffer         = &CreateBuffer;
-  createTexture        = &CreateTexture;
-  createRenderTarget   = &CreateRenderTarget;
-  destroyResource      = &DestroyResource;
-  createWindow         = &CreateWindowGL;
-  setWindow            = &SetWindow;
-  destroyWindow        = &DestroyWindow;
-  beginDraw            = &BeginDraw;
-  endDraw              = &EndDraw;
-  putClipboard         = &PutClipboard;
-  getClipboard         = &GetClipboard;
-  checkClipboard       = &CheckClipboard;
-  clearClipboard       = &ClearClipboard;
-  processMessages      = &ProcessMessages;
-  getMessageSyncObject = &GetMessageSyncObject;
-  setCursor            = &SetCursorGL;
-  getDisplayIndex      = &GetDisplayIndex;
-  getDisplay           = &GetDisplay;
-  getDisplayWindow     = &GetDisplayWindow;
-  createSystemControl  = &CreateSystemControl;
-  setSystemControl     = &SetSystemControl;
-  destroySystemControl = &DestroySystemControl;
-  destroy              = &DestroyGL;
+  getCaps               = &GetCaps;
+  compileShader         = &CompileShader;
+  destroyShader         = &DestroyShader;
+  createCommandList     = &CreateCommandList;
+  destroyCommandList    = &DestroyCommandList;
+  clearDepthStencil     = &ClearDepthStencil;
+  clearRenderTarget     = &ClearRenderTarget;
+  copyResource          = &CopyResource;
+  copySubresource       = &CopySubresource;
+  copyResourceRegion    = &CopyResourceRegion;
+  draw                  = &DrawGL;
+  drawIndexed           = &DrawIndexed;
+  dispatch              = &Dispatch;
+  syncPoint             = &SyncPoint;
+  setDepthStencil       = &SetDepthStencil;
+  setPipelineState      = &SetPipelineState;
+  setViewports          = &SetViewports;
+  setShaderConstants    = &SetShaderConstants;
+  execute               = &Execute;
+  createPipelineState   = &CreatePipelineState;
+  createComputePipeline = &CreateComputePipeline;
+  destroyPipelineState  = &DestroyPipelineState;
+  createBuffer          = &CreateBuffer;
+  createTexture         = &CreateTexture;
+  createRenderTarget    = &CreateRenderTarget;
+  destroyResource       = &DestroyResource;
+  mapResource           = &MapResource;
+  unmapResource         = &UnmapResource;
+  createWindow          = &CreateWindowGL;
+  setWindow             = &SetWindow;
+  destroyWindow         = &DestroyWindow;
+  beginDraw             = &BeginDraw;
+  endDraw               = &EndDraw;
+  putClipboard          = &PutClipboard;
+  getClipboard          = &GetClipboard;
+  checkClipboard        = &CheckClipboard;
+  clearClipboard        = &ClearClipboard;
+  processMessages       = &ProcessMessages;
+  getMessageSyncObject  = &GetMessageSyncObject;
+  setCursor             = &SetCursorGL;
+  getDisplayIndex       = &GetDisplayIndex;
+  getDisplay            = &GetDisplay;
+  getDisplayWindow      = &GetDisplayWindow;
+  createSystemControl   = &CreateSystemControl;
+  setSystemControl      = &SetSystemControl;
+  destroySystemControl  = &DestroySystemControl;
+  destroy               = &DestroyGL;
 
   this->LOG(FG_Level_NONE, "Initializing fgOpenGL...");
 

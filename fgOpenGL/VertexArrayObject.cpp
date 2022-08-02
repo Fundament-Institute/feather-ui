@@ -10,7 +10,7 @@ using namespace GL;
 
 #ifndef USE_EMULATED_VAOS
 
-GLExpected<VertexArrayObject> VertexArrayObject::create(GLuint program, std::span<FG_ShaderParameter> parameters,
+GLExpected<VertexArrayObject> VertexArrayObject::create(GLuint program, std::span<FG_VertexParameter> parameters,
                                             std::span<std::pair<GLuint, GLsizei>> vbuffers, GLuint indices) noexcept
 {
   GLuint id;
@@ -39,14 +39,13 @@ GLExpected<VertexArrayObject> VertexArrayObject::create(GLuint program, std::spa
       GL_ERROR("glGetAttribLocation");
       glEnableVertexAttribArray(loc);
       GL_ERROR("glEnableVertexAttribArray");
-      int sz      = Context::GetMultiCount(param.length, param.multi);
 
       if(param.type > ArraySize(ShaderTypeMapping))
         return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "param.type is not valid shader type");
 
       GLenum type = ShaderTypeMapping[param.type];
 
-      glVertexAttribPointer(loc, sz, type, GL_FALSE, vbuffers[param.index].second, pack_ptr(param.offset));
+      glVertexAttribPointer(loc, param.length, type, GL_FALSE, vbuffers[param.index].second, pack_ptr(param.offset));
       GL_ERROR("glVertexAttribPointer");
       if(glVertexAttribDivisor)
       {
@@ -96,7 +95,7 @@ GLExpected<void> VertexArrayObject::unbind()
 
 VertexArrayObject::VertexArrayObject() {}
 
-GLExpected<VertexArrayObject> VertexArrayObject::create(GLuint shader, std::span<FG_ShaderParameter> parameters,
+GLExpected<VertexArrayObject> VertexArrayObject::create(GLuint shader, std::span<FG_VertexParameter> parameters,
                                      GLuint* vbuffers, GLsizei* vstrides, size_t n_vbuffers, GLuint indices)
 {
   VertexArrayObject vao;
@@ -116,8 +115,7 @@ GLExpected<VertexArrayObject> VertexArrayObject::create(GLuint shader, std::span
         if(param.type > ArraySize(ShaderTypeMapping))
           return GLError(ERR_INVALID_PARAMETER, "param.type is not valid shader type");
 
-        vao._attribs.push_back(VertexAttrib{ glGetAttribLocation(shader, param.name),
-                                         Context::GetMultiCount(parameters[i].length, parameters[i].multi),
+        vao._attribs.push_back(VertexAttrib{ glGetAttribLocation(shader, param.name), parameters[i].length,
                                              ShaderTypeMapping[param.type], static_cast<uint16_t>(param.step) });
       }
     }

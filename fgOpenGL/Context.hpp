@@ -44,17 +44,20 @@ namespace GL {
     GLExpected<void> DrawArrays(uint32_t vertexcount, uint32_t instancecount, uint32_t startvertex, uint32_t startinstance);
     GLExpected<void> DrawIndexed(uint32_t indexcount, uint32_t instancecount, uint32_t startindex, int startvertex,
                                  uint32_t startinstance);
+    GLExpected<void> Dispatch();
+    GLExpected<void> Barrier(GLbitfield barrier_flags);
     GLFWwindow* GetWindow() const { return _window; }
     GLExpected<void> SetShaderUniforms(const FG_ShaderParameter* uniforms, const FG_ShaderValue* values, uint32_t count);
     GLExpected<void> ApplyBlend(const FG_Blend& blend, const std::array<float, 4>& factor, bool force = false);
     GLExpected<void> ApplyFlags(uint16_t flags, uint8_t cull, uint8_t fill);
+    void ApplyWorkGroup(FG_Vec3i workgroup) { _workgroup = workgroup; }
     void ApplyDim(FG_Vec2 dim) { _dim = dim; }
-    void ApplyPrimitiveShader(GLenum primitive, const ProgramObject& program, GLenum indextype)
+    void ApplyPrimitiveIndex(GLenum primitive, GLenum indextype)
     {
       _primitive = primitive;
-      _program   = &program;
       _indextype = indextype;
     }
+    GLExpected<void> ApplyProgram(const ProgramObject& program);
     void FlipFlag(int diff, int flags, int flag, int option);
     static inline void ColorFloats(const FG_Color8& c, std::array<float, 4>& colors, bool linearize)
     {
@@ -81,7 +84,7 @@ namespace GL {
     }
 
     static int GetBytes(GLenum type);
-    static inline int GetMultiCount(int length, int multi) { return length * (!multi ? 1 : multi); }
+    static inline int GetMatrixCount(int length, int width) { return length * (!width ? 1 : width); }
     static inline float ToLinearRGB(float sRGB)
     {
       return (sRGB <= 0.04045f) ? sRGB / 12.92f : powf((sRGB + 0.055f) / 1.055f, 2.4f);
@@ -148,6 +151,7 @@ namespace GL {
     uint8_t _lastcull;
     uint8_t _lastfill;
     FG_Vec2 _dim;
+    FG_Vec3i _workgroup;
   };
 }
 

@@ -59,6 +59,7 @@ namespace GL {
     GL_TEXTURE_3D,
     GL_TEXTURE_2D_MULTISAMPLE,
     GL_PROXY_TEXTURE_2D_MULTISAMPLE,
+    GL_SHADER_STORAGE_BUFFER, // Similar to GL_UNIFORM_BUFFER but can be way bigger
   };
 
   static constinit uint16_t StencilOpMapping[] = {

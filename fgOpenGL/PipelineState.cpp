@@ -13,7 +13,7 @@ using namespace GL;
 
 GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, std::span<FG_Resource*> rendertargets,
                                                  FG_Blend blend, std::span<FG_Resource*> vertexbuffers, GLsizei* strides,
-                                                 std::span<FG_ShaderParameter> attributes, FG_Resource* indexbuffer,
+                                                 std::span<FG_VertexParameter> attributes, FG_Resource* indexbuffer,
                                                  uint8_t indexstride) noexcept
 {
   PipelineState* pipeline      = new(rendertargets.size()) PipelineState{};
@@ -123,8 +123,7 @@ GLExpected<std::string> PipelineState::log() const noexcept { return program.log
 
 GLExpected<void> PipelineState::apply(Context* ctx) noexcept
 {
-  glUseProgram(program);
-  GL_ERROR("glUseProgram");
+  RETURN_ERROR(ctx->ApplyProgram(program));
   RETURN_ERROR(vao.bind());
 
   auto fb = FrameBuffer(rt);
@@ -140,8 +139,8 @@ GLExpected<void> PipelineState::apply(Context* ctx) noexcept
 
   RETURN_ERROR(ctx->ApplyBlend(blend, BlendFactor, false));
   RETURN_ERROR(ctx->ApplyFlags(Flags, CullMode, FillMode));
-  ctx->ApplyPrimitiveShader(Primitive, program, IndexType);
-
+  ctx->ApplyPrimitiveIndex(Primitive, IndexType);
+   
   if(DepthStencil != 0)
   {
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, DepthStencil, 0);
@@ -166,3 +165,32 @@ GLExpected<void> PipelineState::apply(Context* ctx) noexcept
 
 // Stores the current openGL pipeline state in this object
 GLExpected<void> current(Context* ctx) noexcept { return {}; }
+
+GLExpected<ComputePipelineState*> ComputePipelineState::create(void* computeshader, FG_Vec3i workgroup,
+                                                               uint32_t flags) noexcept
+{
+  if(!computeshader)
+    return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Cannot create compute pipeline without compute shader!");
+
+  auto pipeline = new ComputePipelineState{ COMPUTE_PIPELINE_FLAG, workgroup };
+
+  if(auto e = ProgramObject::create())
+    pipeline->program = std::move(e.value());
+  else
+    return std::move(e.error());
+
+  RETURN_ERROR(pipeline->program.attach(ShaderObject(computeshader)));
+  RETURN_ERROR(pipeline->program.link());
+
+  return pipeline;
+}
+
+GLExpected<std::string> ComputePipelineState::log() const noexcept { return program.log(); }
+
+GLExpected<void> ComputePipelineState::apply(Context* ctx) noexcept
+{
+  ctx->ApplyWorkGroup(workgroup);
+  RETURN_ERROR(ctx->ApplyProgram(program));
+
+  return {};
+}

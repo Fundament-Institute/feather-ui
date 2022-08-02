@@ -8,7 +8,7 @@ using namespace GL;
 
 GLenum GLError::log(Backend* backend)
 {
-  if(_error != GL_INVALID_INDEX)
+  if(_error != GLError::INVALID_ERROR)
   {
     _checked();
 

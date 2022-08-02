@@ -24,7 +24,8 @@ namespace GL {
     GLExpected<void> link() noexcept;
     bool is_valid() const noexcept;
     GLExpected<std::string> log() const noexcept;
-    GLExpected<void> set_uniform(const char* name, GLenum type, const float* data) const noexcept;
+    GLExpected<void> set_uniform(const char* name, GLenum type, const float* data, uint32_t count) const noexcept;
+    GLExpected<void> set_buffer(GLuint resource, uint32_t index, uint32_t offset, uint32_t length) const noexcept;
 
     ProgramObject& operator=(const ProgramObject&) = delete;
     ProgramObject& operator=(ProgramObject&& right) noexcept = default;

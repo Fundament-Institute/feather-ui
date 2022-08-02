@@ -160,8 +160,8 @@ static constexpr auto WindowDim = FG_Vec2{ 800.f, 600.f };
 // The behavior function simply processes all window messages from the host OS.
 FG_Result behavior(FG_Element* element, FG_Context* ctx, void* ui, FG_Msg* m)
 {
-  static const FG_ShaderParameter params[] = { { "MVP", 0, 4, 4, 0, FG_ShaderType_FLOAT },
-                                               { 0, 0, 0, 0, 0, FG_ShaderType_TEXTURE } };
+  static const FG_ShaderParameter params[] = { { "MVP", 4, 4, 0, FG_ShaderType_FLOAT },
+                                               { 0, 0, 0, 0, FG_ShaderType_TEXTURE } };
   static int counter                       = 0;
 
   MockElement& e = *static_cast<MockElement*>(element);
@@ -207,6 +207,65 @@ FG_Result behavior(FG_Element* element, FG_Context* ctx, void* ui, FG_Msg* m)
     e.close = true;
   }
   return FG_Result{ -1 };
+}
+
+void test_compute(FG_Backend* b, FG_Window* w) {
+  const char* shader_cs = "#version 430\n"
+                          "layout(local_size_x=1) in;\n"
+
+                          "layout(location = 0) uniform int dt;\n"
+                          "layout(std430, binding=0) buffer inblock { int num[]; };\n"
+                          "layout(std430, binding=1) buffer outblock { int process[]; };\n"
+
+                          "void main() {\n"
+                          "   int index = int(gl_LocalInvocationIndex + gl_WorkGroupID.x * gl_WorkGroupSize.x);\n"
+                          "   process[index] = num[index] * dt;\n"
+                          "}\n";
+
+  static const int GROUPSIZE = 1024;
+  int* initvals              = (int*)malloc(sizeof(int) * GROUPSIZE);
+  for(int i = 0; i < GROUPSIZE; ++i)
+  {
+    initvals[i] = i;
+  }
+  int* outvals = (int*)malloc(sizeof(int) * GROUPSIZE);
+  memset(outvals, 0, sizeof(int) * GROUPSIZE);
+  FG_Resource* inbuf    = (b->createBuffer)(b, w->context, initvals, sizeof(int) * GROUPSIZE, FG_Usage_StorageBuffer);
+  FG_Resource* outbuf   = (b->createBuffer)(b, w->context, outvals, sizeof(int) * GROUPSIZE, FG_Usage_StorageBuffer);
+  auto compute_pipeline = (b->createComputePipeline)(b, w->context,
+                                                     (b->compileShader)(b, w->context, FG_ShaderStage_Compute, shader_cs),
+                                                     FG_Vec3i{ GROUPSIZE, 1, 1 }, 0);
+
+  void* commands = (b->createCommandList)(b, w->context, false);
+  assert(commands);
+
+  FG_ShaderValue values[3];
+  values[0].i32      = 3;
+  values[1].resource = inbuf;
+  values[2].resource = outbuf;
+
+  static const FG_ShaderParameter params[] = { { "dt", 1, 0, 0, FG_ShaderType_INT },
+                                               { "inblock", 0, 0, 0, FG_ShaderType_BUFFER },
+                                               { "outblock", 0, 0, 1, FG_ShaderType_BUFFER } };
+  (b->setPipelineState)(b, commands, compute_pipeline);
+  (b->setShaderConstants)(b, commands, params, values, 3);
+  (b->dispatch)(b, commands);
+  (b->syncPoint)(b, commands, FG_BarrierFlags_STORAGE_BUFFER);
+  (b->execute)(b, w->context, commands);
+
+  int* readbuf = (int*)(b->mapResource)(b, w->context, outbuf, 0, 0, FG_Usage_StorageBuffer, FG_AccessFlag_READ);
+  TEST(readbuf != nullptr);
+
+  for(int i = 0; i < GROUPSIZE; ++i)
+  {
+    TEST(readbuf[i] == initvals[i] * values[0].i32);
+  }
+
+  (b->destroyCommandList)(b, commands);
+  TEST((b->unmapResource)(b, w->context, outbuf, FG_Usage_StorageBuffer) == 0);
+  TEST((b->destroyResource)(b, w->context, outbuf) == 0);
+  TEST((b->destroyResource)(b, w->context, inbuf) == 0);
+  TEST((b->destroyPipelineState)(b, w->context, compute_pipeline) == 0);
 }
 
 int main(int argc, char* argv[])
@@ -265,17 +324,8 @@ int main(int argc, char* argv[])
     FG_BLEND_ONE, FG_BLEND_INV_SRC_ALPHA, FG_BLEND_OP_ADD, FG_BLEND_ONE, FG_BLEND_INV_SRC_ALPHA, FG_BLEND_OP_ADD, 0b1111,
   };
 
-  const char* name;
-  uint32_t length;
-  uint32_t multi;
-  uint8_t type; // enum FG_ShaderType
-  uint8_t index;
-  bool per_instance; // false if per_vertex
-  uint32_t step;
-  uint32_t offset;
-
-  FG_ShaderParameter vertparams[] = { { "vPos", 0, 2, 0, 0, FG_ShaderType_FLOAT },
-                                      { "vUV", sizeof(float) * 2, 2, 0, 0, FG_ShaderType_FLOAT } };
+  FG_VertexParameter vertparams[] = { { "vPos", 0, 0, 2, FG_ShaderType_FLOAT },
+                                      { "vUV", sizeof(float) * 2, 0, 2, FG_ShaderType_FLOAT } };
 
   e.flags = FG_WindowFlag_RESIZABLE;
 
@@ -290,13 +340,15 @@ int main(int argc, char* argv[])
     return -1;
   }
 
+  test_compute(b, w);
+
   void* fakedata = malloc(100 * 100 * 4);
   memset(fakedata, 128, 100 * 100 * 4);
 
   auto sampler = FG_Sampler{ FG_FILTER_MIN_MAG_MIP_LINEAR };
-  e.image = (b->createTexture)(b, w->context, FG_Vec2i{ 100, 100 }, FG_Type_Texture2D, FG_PixelFormat_R8G8B8A8_TYPELESS,
+  e.image = (b->createTexture)(b, w->context, FG_Vec2i{ 100, 100 }, FG_Usage_Texture2D, FG_PixelFormat_R8G8B8A8_TYPELESS,
                                &sampler, fakedata, 0);
-  auto vs_shader = e.vertices = (b->createBuffer)(b, w->context, verts, sizeof(verts), FG_Type_VertexData);
+  auto vs_shader = e.vertices = (b->createBuffer)(b, w->context, verts, sizeof(verts), FG_Usage_VertexData);
   int vertstride              = sizeof(verts[0]);
 
   auto pipeline                           = FG_PipelineState{};
@@ -307,13 +359,15 @@ int main(int argc, char* argv[])
   pipeline.CullMode                       = FG_CULL_MODE_NONE; // FG_CULL_MODE_BACK
   pipeline.Primitive                      = FG_Primitive_TRIANGLE_STRIP;
 
-  FG_Resource* RenderTarget0 = (b->createTexture)(b, w->context, FG_Vec2i{ 800, 600 }, FG_Type_Texture2D, FG_PixelFormat_R8G8B8A8_TYPELESS, &sampler, NULL, 0);
-  FG_Resource* RenderTarget1 = (b->createTexture)(b, w->context, FG_Vec2i{ 800, 600 }, FG_Type_Texture2D, FG_PixelFormat_R8G8B8A8_TYPELESS, &sampler, NULL, 0);
-  FG_Resource* rts[]{RenderTarget0, RenderTarget1};
-  auto framebuffer           = (b->createRenderTarget)(b, w->context, rts, 2);
-  e.pipeline = (b->createPipelineState)(b, w->context, &pipeline, &framebuffer, 2, &PREMULTIPLY_BLEND, &e.vertices, &vertstride, 1,
-                                        vertparams, 2, 0, 0);
-  e.close    = false;
+  FG_Resource* RenderTarget0 = (b->createTexture)(b, w->context, FG_Vec2i{ 800, 600 }, FG_Usage_Texture2D,
+                                                  FG_PixelFormat_R8G8B8A8_TYPELESS, &sampler, NULL, 0);
+  FG_Resource* RenderTarget1 = (b->createTexture)(b, w->context, FG_Vec2i{ 800, 600 }, FG_Usage_Texture2D,
+                                                  FG_PixelFormat_R8G8B8A8_TYPELESS, &sampler, NULL, 0);
+  FG_Resource* rts[]{ RenderTarget0, RenderTarget1 };
+  auto framebuffer = (b->createRenderTarget)(b, w->context, rts, 2);
+  e.pipeline       = (b->createPipelineState)(b, w->context, &pipeline, &framebuffer, 0, &PREMULTIPLY_BLEND, &e.vertices,
+                                        &vertstride, 1, vertparams, 2, 0, 0);
+  e.close          = false;
 
   TEST((b->setCursor)(b, w, FG_Cursor_CROSS) == 0);
 
@@ -344,14 +398,14 @@ int main(int argc, char* argv[])
 
   TEST((b->getClipboard)(b, w, FG_Clipboard_WAVE, hold, 10) == 0)
   int i = 0;
-  while((b->processMessages)(b, 0) != 0 && e.close == false) 
+  while((b->processMessages)(b, 0) != 0 && e.close == false)
   {
-      if (i == 1)
-      {
-        e.image    = RenderTarget0;
-        e.pipeline = (b->createPipelineState)(b, w->context, &pipeline, 0, 0, &PREMULTIPLY_BLEND, &e.vertices, &vertstride, 1,
-                                               vertparams, 2, 0, 0);
-      }
+    if(i == 1)
+    {
+      e.image    = RenderTarget0;
+      e.pipeline = (b->createPipelineState)(b, w->context, &pipeline, 0, 0, &PREMULTIPLY_BLEND, &e.vertices, &vertstride, 1,
+                                            vertparams, 2, 0, 0);
+    }
     i++;
   }
 

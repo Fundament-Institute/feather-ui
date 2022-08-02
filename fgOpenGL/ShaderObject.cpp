@@ -37,23 +37,25 @@ GLExpected<ShaderObject> ShaderObject::create(const char* src, int type) noexcep
 {
   auto shader = glCreateShader(type);
   GL_ERROR("glCreateShader");
+  ShaderObject obj(shader);
   glShaderSource(shader, 1, &src, NULL);
   GL_ERROR("glShaderSource");
   glCompileShader(shader);
   GL_ERROR("glCompileShader");
-  return ShaderObject(shader);
+
+  return std::move(obj);
 }
 
 GLenum ShaderObject::get_type(const FG_ShaderParameter& param)
 {
-  if(param.multi > 1 && param.type != FG_ShaderType_FLOAT)
+  if(param.width > 1 && param.type != FG_ShaderType_FLOAT)
     return 0;
 
   switch(param.type)
   {
   case FG_ShaderType_TEXTURE: return GL_TEXTURE0 + param.length;
   case FG_ShaderType_FLOAT:
-    switch(param.multi)
+    switch(param.width)
     {
     case 0:
     case 1:
