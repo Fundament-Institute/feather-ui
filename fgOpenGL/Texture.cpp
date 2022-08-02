@@ -23,7 +23,7 @@ static GLenum GLFilter(bool mip, bool other)
 GLExpected<void> Texture::apply_sampler(GLenum target, const FG_Sampler& sampler)
 {
   Filter f;
-  f.value = sampler.Filter;
+  f.value = sampler.filter;
 
   // TODO: figure out when the texture has a mipmap
   glTexParameteri(target, GL_TEXTURE_MAG_FILTER, f.mag_filter ? GL_LINEAR : GL_NEAREST);
@@ -32,27 +32,27 @@ GLExpected<void> Texture::apply_sampler(GLenum target, const FG_Sampler& sampler
   GL_ERROR("glTexParameteri");
 
 
-  glTexParameterf(target, GL_TEXTURE_MAX_LOD, sampler.MaxLOD);
+  glTexParameterf(target, GL_TEXTURE_MAX_LOD, sampler.max_lod);
   GL_ERROR("glTexParameterf");
-  glTexParameterf(target, GL_TEXTURE_MIN_LOD, sampler.MinLOD);
+  glTexParameterf(target, GL_TEXTURE_MIN_LOD, sampler.min_lod);
   GL_ERROR("glTexParameterf");
-  glTexParameterf(target, GL_TEXTURE_LOD_BIAS, sampler.MipBias);
+  glTexParameterf(target, GL_TEXTURE_LOD_BIAS, sampler.mip_bias);
   GL_ERROR("glTexParameterf");
 
   if(f.anisotropic)
   {
-    glTexParameterf(target, GL_TEXTURE_MAX_ANISOTROPY, sampler.MaxAnisotropy);
+    glTexParameterf(target, GL_TEXTURE_MAX_ANISOTROPY, sampler.max_anisotropy);
     GL_ERROR("glTexParameterf");
   }
 
-  if(sampler.Comparison != FG_COMPARISON_DISABLED && f.comparison)
+  if(sampler.comparison != FG_Comparison_Disabled && f.comparison)
   {
     glTexParameteri(target, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
     GL_ERROR("glTexParameteri");
-    if(sampler.Comparison >= ArraySize(ComparisonMapping))
+    if(sampler.comparison >= ArraySize(ComparisonMapping))
       return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Comparison outside of bounds");
 
-    glTexParameteri(target, GL_TEXTURE_COMPARE_FUNC, ComparisonMapping[sampler.Comparison]);
+    glTexParameteri(target, GL_TEXTURE_COMPARE_FUNC, ComparisonMapping[sampler.comparison]);
     GL_ERROR("glTexParameteri");
   }
    

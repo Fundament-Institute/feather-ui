@@ -160,13 +160,13 @@ static constexpr auto WindowDim = FG_Vec2{ 800.f, 600.f };
 // The behavior function simply processes all window messages from the host OS.
 FG_Result behavior(FG_Element* element, FG_Context* ctx, void* ui, FG_Msg* m)
 {
-  static const FG_ShaderParameter params[] = { { "MVP", 4, 4, 0, FG_ShaderType_FLOAT },
-                                               { 0, 0, 0, 0, FG_ShaderType_TEXTURE } };
+  static const FG_ShaderParameter params[] = { { "MVP", 4, 4, 0, FG_ShaderType_Float },
+                                               { 0, 0, 0, 0, FG_ShaderType_Texture } };
   static int counter                       = 0;
 
   MockElement& e = *static_cast<MockElement*>(element);
 
-  if(m->kind == FG_Kind_DRAW)
+  if(m->kind == FG_Kind_Draw)
   {
     FG_Backend* b = *(FG_Backend**)ui;
     //(b->beginDraw)(b, ctx, nullptr);
@@ -191,18 +191,18 @@ FG_Result behavior(FG_Element* element, FG_Context* ctx, void* ui, FG_Msg* m)
   }
 
   // These are simply some input handling boilerplate code
-  if(m->kind == FG_Kind_GETWINDOWFLAGS)
+  if(m->kind == FG_Kind_GetWindowFlags)
   {
-    return e.close ? FG_Result{ FG_WindowFlag_CLOSED } : FG_Result{ 0 };
+    return e.close ? FG_Result{ FG_WindowFlag_Closed } : FG_Result{ 0 };
   }
-  if(m->kind == FG_Kind_SETWINDOWFLAGS)
+  if(m->kind == FG_Kind_SetWindowFlags)
   {
-    e.close = e.close || ((m->setWindowFlags.flags & FG_WindowFlag_CLOSED) != 0);
+    e.close = e.close || ((m->setWindowFlags.flags & FG_WindowFlag_Closed) != 0);
   }
   // We normally close when any keypress happens, but we don't want to close if the user is trying to take a screenshot.
-  if((m->kind == FG_Kind_KEYDOWN && m->keyDown.key != FG_Keys_LMENU && m->keyDown.scancode != 84 &&
+  if((m->kind == FG_Kind_KeyDown && m->keyDown.key != FG_Keys_LMENU && m->keyDown.scancode != 84 &&
       m->keyDown.scancode != 88) ||
-     m->kind == FG_Kind_MOUSEDOWN)
+     m->kind == FG_Kind_MouseDown)
   {
     e.close = true;
   }
@@ -230,8 +230,8 @@ void test_compute(FG_Backend* b, FG_Window* w) {
   }
   int* outvals = (int*)malloc(sizeof(int) * GROUPSIZE);
   memset(outvals, 0, sizeof(int) * GROUPSIZE);
-  FG_Resource* inbuf    = (b->createBuffer)(b, w->context, initvals, sizeof(int) * GROUPSIZE, FG_Usage_StorageBuffer);
-  FG_Resource* outbuf   = (b->createBuffer)(b, w->context, outvals, sizeof(int) * GROUPSIZE, FG_Usage_StorageBuffer);
+  FG_Resource* inbuf    = (b->createBuffer)(b, w->context, initvals, sizeof(int) * GROUPSIZE, FG_Usage_Storage_Buffer);
+  FG_Resource* outbuf   = (b->createBuffer)(b, w->context, outvals, sizeof(int) * GROUPSIZE, FG_Usage_Storage_Buffer);
   auto compute_pipeline = (b->createComputePipeline)(b, w->context,
                                                      (b->compileShader)(b, w->context, FG_ShaderStage_Compute, shader_cs),
                                                      FG_Vec3i{ GROUPSIZE, 1, 1 }, 0);
@@ -244,16 +244,16 @@ void test_compute(FG_Backend* b, FG_Window* w) {
   values[1].resource = inbuf;
   values[2].resource = outbuf;
 
-  static const FG_ShaderParameter params[] = { { "dt", 1, 0, 0, FG_ShaderType_INT },
-                                               { "inblock", 0, 0, 0, FG_ShaderType_BUFFER },
-                                               { "outblock", 0, 0, 1, FG_ShaderType_BUFFER } };
+  static const FG_ShaderParameter params[] = { { "dt", 1, 0, 0, FG_ShaderType_Int },
+                                               { "inblock", 0, 0, 0, FG_ShaderType_Buffer },
+                                               { "outblock", 0, 0, 1, FG_ShaderType_Buffer } };
   (b->setPipelineState)(b, commands, compute_pipeline);
   (b->setShaderConstants)(b, commands, params, values, 3);
   (b->dispatch)(b, commands);
-  (b->syncPoint)(b, commands, FG_BarrierFlags_STORAGE_BUFFER);
+  (b->syncPoint)(b, commands, FG_BarrierFlags_Storage_Buffer);
   (b->execute)(b, w->context, commands);
 
-  int* readbuf = (int*)(b->mapResource)(b, w->context, outbuf, 0, 0, FG_Usage_StorageBuffer, FG_AccessFlag_READ);
+  int* readbuf = (int*)(b->mapResource)(b, w->context, outbuf, 0, 0, FG_Usage_Storage_Buffer, FG_AccessFlag_Read);
   TEST(readbuf != nullptr);
 
   for(int i = 0; i < GROUPSIZE; ++i)
@@ -262,7 +262,7 @@ void test_compute(FG_Backend* b, FG_Window* w) {
   }
 
   (b->destroyCommandList)(b, commands);
-  TEST((b->unmapResource)(b, w->context, outbuf, FG_Usage_StorageBuffer) == 0);
+  TEST((b->unmapResource)(b, w->context, outbuf, FG_Usage_Storage_Buffer) == 0);
   TEST((b->destroyResource)(b, w->context, outbuf) == 0);
   TEST((b->destroyResource)(b, w->context, inbuf) == 0);
   TEST((b->destroyPipelineState)(b, w->context, compute_pipeline) == 0);
@@ -320,14 +320,20 @@ int main(int argc, char* argv[])
     },
   };
 
-  FG_Blend PREMULTIPLY_BLEND = {
-    FG_BLEND_ONE, FG_BLEND_INV_SRC_ALPHA, FG_BLEND_OP_ADD, FG_BLEND_ONE, FG_BLEND_INV_SRC_ALPHA, FG_BLEND_OP_ADD, 0b1111,
+  FG_Blend Premultiply_Blend = {
+    FG_Blend_Operand_One,
+    FG_Blend_Operand_Inv_Src_Alpha,
+    FG_Blend_OP_Add,
+    FG_Blend_Operand_One,
+    FG_Blend_Operand_Inv_Src_Alpha,
+    FG_Blend_OP_Add,
+    0b1111,
   };
 
-  FG_VertexParameter vertparams[] = { { "vPos", 0, 0, 2, FG_ShaderType_FLOAT },
-                                      { "vUV", sizeof(float) * 2, 0, 2, FG_ShaderType_FLOAT } };
+  FG_VertexParameter vertparams[] = { { "vPos", 0, 0, 2, FG_ShaderType_Float },
+                                      { "vUV", sizeof(float) * 2, 0, 2, FG_ShaderType_Float } };
 
-  e.flags = FG_WindowFlag_RESIZABLE;
+  e.flags = FG_WindowFlag_Resizable;
 
   auto pos = FG_Vec2{ 200.f, 100.f };
   auto dim = FG_Vec2{ 800.f, 600.f };
@@ -345,65 +351,65 @@ int main(int argc, char* argv[])
   void* fakedata = malloc(100 * 100 * 4);
   memset(fakedata, 128, 100 * 100 * 4);
 
-  auto sampler = FG_Sampler{ FG_FILTER_MIN_MAG_MIP_LINEAR };
-  e.image = (b->createTexture)(b, w->context, FG_Vec2i{ 100, 100 }, FG_Usage_Texture2D, FG_PixelFormat_R8G8B8A8_TYPELESS,
+  auto sampler = FG_Sampler{ FG_Filter_Min_Mag_Mip_Linear };
+  e.image = (b->createTexture)(b, w->context, FG_Vec2i{ 100, 100 }, FG_Usage_Texture2D, FG_PixelFormat_R8G8B8A8_Typeless,
                                &sampler, fakedata, 0);
-  auto vs_shader = e.vertices = (b->createBuffer)(b, w->context, verts, sizeof(verts), FG_Usage_VertexData);
+  auto vs_shader = e.vertices = (b->createBuffer)(b, w->context, verts, sizeof(verts), FG_Usage_Vertex_Data);
   int vertstride              = sizeof(verts[0]);
 
   auto pipeline                           = FG_PipelineState{};
   pipeline.Shaders[FG_ShaderStage_Pixel]  = (b->compileShader)(b, w->context, FG_ShaderStage_Pixel, shader_fs);
   pipeline.Shaders[FG_ShaderStage_Vertex] = (b->compileShader)(b, w->context, FG_ShaderStage_Vertex, shader_vs);
-  pipeline.Flags                          = FG_PIPELINE_FLAG_BLEND_ENABLE; // | FG_PIPELINE_FLAG_RENDERTARGET_SRGB_ENABLE
-  pipeline.FillMode                       = FG_FILL_MODE_FILL;
-  pipeline.CullMode                       = FG_CULL_MODE_NONE; // FG_CULL_MODE_BACK
-  pipeline.Primitive                      = FG_Primitive_TRIANGLE_STRIP;
+  pipeline.Flags                          = FG_Pipeline_Flag_Blend_Enable; // | FG_PIPELINE_FLAG_RENDERTARGET_SRGB_ENABLE
+  pipeline.FillMode                       = FG_Fill_Mode_Fill;
+  pipeline.CullMode                       = FG_Cull_Mode_None; // FG_CULL_MODE_BACK
+  pipeline.Primitive                      = FG_Primitive_Triangle_Strip;
 
   FG_Resource* RenderTarget0 = (b->createTexture)(b, w->context, FG_Vec2i{ 800, 600 }, FG_Usage_Texture2D,
-                                                  FG_PixelFormat_R8G8B8A8_TYPELESS, &sampler, NULL, 0);
+                                                  FG_PixelFormat_R8G8B8A8_Typeless, &sampler, NULL, 0);
   FG_Resource* RenderTarget1 = (b->createTexture)(b, w->context, FG_Vec2i{ 800, 600 }, FG_Usage_Texture2D,
-                                                  FG_PixelFormat_R8G8B8A8_TYPELESS, &sampler, NULL, 0);
+                                                  FG_PixelFormat_R8G8B8A8_Typeless, &sampler, NULL, 0);
   FG_Resource* rts[]{ RenderTarget0, RenderTarget1 };
   auto framebuffer = (b->createRenderTarget)(b, w->context, rts, 2);
-  e.pipeline       = (b->createPipelineState)(b, w->context, &pipeline, &framebuffer, 0, &PREMULTIPLY_BLEND, &e.vertices,
+  e.pipeline       = (b->createPipelineState)(b, w->context, &pipeline, &framebuffer, 0, &Premultiply_Blend, &e.vertices,
                                         &vertstride, 1, vertparams, 2, 0, 0);
   e.close          = false;
 
-  TEST((b->setCursor)(b, w, FG_Cursor_CROSS) == 0);
+  TEST((b->setCursor)(b, w, FG_Cursor_Cross) == 0);
 
-  TEST((b->setWindow)(b, w, nullptr, nullptr, nullptr, nullptr, nullptr, FG_WindowFlag_RESIZABLE) == 0);
-  TEST((b->setWindow)(b, w, &e, nullptr, nullptr, nullptr, "Feather Test Changed", FG_WindowFlag_RESIZABLE) == 0);
+  TEST((b->setWindow)(b, w, nullptr, nullptr, nullptr, nullptr, nullptr, FG_WindowFlag_Resizable) == 0);
+  TEST((b->setWindow)(b, w, &e, nullptr, nullptr, nullptr, "Feather Test Changed", FG_WindowFlag_Resizable) == 0);
 
   TEST((b->processMessages)(b, 0) != 0);
 
   const char TEST_TEXT[] = "testtext";
 
   TEST((b->processMessages)(b, 0) != 0);
-  TEST((b->clearClipboard)(b, w, FG_Clipboard_ALL) == 0);
-  TEST((b->checkClipboard)(b, w, FG_Clipboard_TEXT) == false);
-  TEST((b->checkClipboard)(b, w, FG_Clipboard_WAVE) == false);
-  TEST((b->checkClipboard)(b, w, FG_Clipboard_ALL) == false);
-  TEST((b->putClipboard)(b, w, FG_Clipboard_TEXT, TEST_TEXT, 9) == 0);
-  TEST((b->checkClipboard)(b, w, FG_Clipboard_TEXT) == true);
-  TEST((b->checkClipboard)(b, w, FG_Clipboard_WAVE) == false);
-  TEST((b->checkClipboard)(b, w, FG_Clipboard_ALL) == true);
+  TEST((b->clearClipboard)(b, w, FG_Clipboard_All) == 0);
+  TEST((b->checkClipboard)(b, w, FG_Clipboard_Text) == false);
+  TEST((b->checkClipboard)(b, w, FG_Clipboard_Wave) == false);
+  TEST((b->checkClipboard)(b, w, FG_Clipboard_All) == false);
+  TEST((b->putClipboard)(b, w, FG_Clipboard_Text, TEST_TEXT, 9) == 0);
+  TEST((b->checkClipboard)(b, w, FG_Clipboard_Text) == true);
+  TEST((b->checkClipboard)(b, w, FG_Clipboard_Wave) == false);
+  TEST((b->checkClipboard)(b, w, FG_Clipboard_All) == true);
 
   char hold[10];
 
-  TEST((b->getClipboard)(b, w, FG_Clipboard_TEXT, hold, 10) == 9)
+  TEST((b->getClipboard)(b, w, FG_Clipboard_Text, hold, 10) == 9)
   for(int i = 0; i < sizeof(TEST_TEXT); ++i)
   {
     TEST(TEST_TEXT[i] == hold[i]);
   }
 
-  TEST((b->getClipboard)(b, w, FG_Clipboard_WAVE, hold, 10) == 0)
+  TEST((b->getClipboard)(b, w, FG_Clipboard_Wave, hold, 10) == 0)
   int i = 0;
   while((b->processMessages)(b, 0) != 0 && e.close == false)
   {
     if(i == 1)
     {
       e.image    = RenderTarget0;
-      e.pipeline = (b->createPipelineState)(b, w->context, &pipeline, 0, 0, &PREMULTIPLY_BLEND, &e.vertices, &vertstride, 1,
+      e.pipeline = (b->createPipelineState)(b, w->context, &pipeline, 0, 0, &Premultiply_Blend, &e.vertices, &vertstride, 1,
                                             vertparams, 2, 0, 0);
     }
     i++;

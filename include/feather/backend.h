@@ -26,48 +26,48 @@ extern "C" {
 
 enum FG_PixelFormat
 {
-  FG_PixelFormat_UNKNOWN = 0,
-  FG_PixelFormat_R8G8B8A8_UINT,
-  FG_PixelFormat_A8_UNORM,
+  FG_PixelFormat_Unknown = 0,
+  FG_PixelFormat_R8G8B8A8_UInt,
+  FG_PixelFormat_A8_UNorm,
   FG_PixelFormat_A8P8,
   FG_PixelFormat_AI44,
   FG_PixelFormat_AYUV,
-  FG_PixelFormat_B4G4R4A4_UNORM,
-  FG_PixelFormat_B5G5R5A1_UNORM,
-  FG_PixelFormat_B5G6R5_UNORM,
-  FG_PixelFormat_B8G8R8A8_TYPELESS,
-  FG_PixelFormat_B8G8R8A8_UNORM,
-  FG_PixelFormat_B8G8R8A8_UNORM_SRGB,
-  FG_PixelFormat_B8G8R8X8_TYPELESS,
-  FG_PixelFormat_B8G8R8X8_UNORM,
-  FG_PixelFormat_B8G8R8X8_UNORM_SRGB,
-  FG_PixelFormat_BC1_TYPELESS,
-  FG_PixelFormat_BC1_UNORM,
-  FG_PixelFormat_BC1_UNORM_SRGB,
-  FG_PixelFormat_BC2_TYPELESS,
-  FG_PixelFormat_BC2_UNORM,
-  FG_PixelFormat_BC2_UNORM_SRGB,
-  FG_PixelFormat_BC3_TYPELESS,
-  FG_PixelFormat_BC3_UNORM,
-  FG_PixelFormat_BC3_UNORM_SRGB,
-  FG_PixelFormat_BC4_SNORM,
-  FG_PixelFormat_BC4_TYPELESS,
-  FG_PixelFormat_BC4_UNORM,
-  FG_PixelFormat_BC5_SNORM,
-  FG_PixelFormat_BC5_TYPELESS,
-  FG_PixelFormat_BC5_UNORM,
+  FG_PixelFormat_B4G4R4A4_UNorm,
+  FG_PixelFormat_B5G5R5A1_UNorm,
+  FG_PixelFormat_B5G6R5_UNorm,
+  FG_PixelFormat_B8G8R8A8_Typeless,
+  FG_PixelFormat_B8G8R8A8_UNorm,
+  FG_PixelFormat_B8G8R8A8_UNorm_SRGB,
+  FG_PixelFormat_B8G8R8X8_Typeless,
+  FG_PixelFormat_B8G8R8X8_UNorm,
+  FG_PixelFormat_B8G8R8X8_UNorm_SRGB,
+  FG_PixelFormat_BC1_Typeless,
+  FG_PixelFormat_BC1_UNorm,
+  FG_PixelFormat_BC1_UNorm_SRGB,
+  FG_PixelFormat_BC2_Typeless,
+  FG_PixelFormat_BC2_UNorm,
+  FG_PixelFormat_BC2_UNorm_SRGB,
+  FG_PixelFormat_BC3_Typeless,
+  FG_PixelFormat_BC3_UNorm,
+  FG_PixelFormat_BC3_UNorm_SRGB,
+  FG_PixelFormat_BC4_SNorm,
+  FG_PixelFormat_BC4_Typeless,
+  FG_PixelFormat_BC4_UNorm,
+  FG_PixelFormat_BC5_SNorm,
+  FG_PixelFormat_BC5_Typeless,
+  FG_PixelFormat_BC5_UNorm,
   FG_PixelFormat_BC6H_SF16,
-  FG_PixelFormat_BC6H_TYPELESS,
+  FG_PixelFormat_BC6H_Typeless,
   FG_PixelFormat_BC6H_UF16,
-  FG_PixelFormat_BC7_TYPELESS,
-  FG_PixelFormat_BC7_UNORM,
-  FG_PixelFormat_BC7_UNORM_SRGB,
-  FG_PixelFormat_D16_UNORM,
-  FG_PixelFormat_D24_UNORM_S8_UINT,
-  FG_PixelFormat_D24_UNORM_X8_TYPELESS,
-  FG_PixelFormat_D32_FLOAT,
-  FG_PixelFormat_D32_FLOAT_S8X24_UINT,
-  FG_PixelFormat_G8R8_G8B8_UNORM,
+  FG_PixelFormat_BC7_Typeless,
+  FG_PixelFormat_BC7_UNorm,
+  FG_PixelFormat_BC7_UNorm_SRGB,
+  FG_PixelFormat_D16_UNorm,
+  FG_PixelFormat_D24_UNorm_S8_UInt,
+  FG_PixelFormat_D24_UNorm_X8_Typeless,
+  FG_PixelFormat_D32_Float,
+  FG_PixelFormat_D32_Float_S8X24_UInt,
+  FG_PixelFormat_G8R8_G8B8_UNorm,
   FG_PixelFormat_IA44,
   FG_PixelFormat_NV11,
   FG_PixelFormat_NV12,
@@ -75,84 +75,84 @@ enum FG_PixelFormat
   FG_PixelFormat_P016,
   FG_PixelFormat_P208,
   FG_PixelFormat_P8,
-  FG_PixelFormat_R1_UNORM,
-  FG_PixelFormat_R10G10B10_XR_BIAS_A2_UNORM,
-  FG_PixelFormat_R10G10B10A2_TYPELESS,
-  FG_PixelFormat_R10G10B10A2_UINT,
-  FG_PixelFormat_R10G10B10A2_UNORM,
-  FG_PixelFormat_R11G11B10_FLOAT,
-  FG_PixelFormat_R16_FLOAT,
-  FG_PixelFormat_R16_INT,
-  FG_PixelFormat_R16_SNORM,
-  FG_PixelFormat_R16_TYPELESS,
-  FG_PixelFormat_R16_UINT,
-  FG_PixelFormat_R16_UNORM,
-  FG_PixelFormat_R16G16_FLOAT,
-  FG_PixelFormat_R16G16_INT,
-  FG_PixelFormat_R16G16_SNORM,
-  FG_PixelFormat_R16G16_TYPELESS,
-  FG_PixelFormat_R16G16_UINT,
-  FG_PixelFormat_R16G16_UNORM,
-  FG_PixelFormat_R16G16B16_FLOAT,
-  FG_PixelFormat_R16G16B16_INT,
-  FG_PixelFormat_R16G16B16_SNORM,
-  FG_PixelFormat_R16G16B16_TYPELESS,
-  FG_PixelFormat_R16G16B16_UINT,
-  FG_PixelFormat_R16G16B16_UNORM,
-  FG_PixelFormat_R16G16B16A16_FLOAT,
-  FG_PixelFormat_R16G16B16A16_INT,
-  FG_PixelFormat_R16G16B16A16_SNORM,
-  FG_PixelFormat_R16G16B16A16_TYPELESS,
-  FG_PixelFormat_R16G16B16A16_UINT,
-  FG_PixelFormat_R16G16B16A16_UNORM,
-  FG_PixelFormat_R24_UNORM_X8_TYPELESS,
-  FG_PixelFormat_R24G8_TYPELESS,
-  FG_PixelFormat_R32_FLOAT,
-  FG_PixelFormat_R32_FLOAT_X8X24_TYPELESS,
-  FG_PixelFormat_R32_INT,
-  FG_PixelFormat_R32_TYPELESS,
-  FG_PixelFormat_R32_UINT,
-  FG_PixelFormat_R32G32_FLOAT,
-  FG_PixelFormat_R32G32_INT,
-  FG_PixelFormat_R32G32_TYPELESS,
-  FG_PixelFormat_R32G32_UINT,
-  FG_PixelFormat_R32G32B32_FLOAT,
-  FG_PixelFormat_R32G32B32_INT,
-  FG_PixelFormat_R32G32B32_TYPELESS,
-  FG_PixelFormat_R32G32B32_UINT,
-  FG_PixelFormat_R32G32B32A32_FLOAT,
-  FG_PixelFormat_R32G32B32A32_INT,
-  FG_PixelFormat_R32G32B32A32_TYPELESS,
-  FG_PixelFormat_R32G32B32A32_UINT,
-  FG_PixelFormat_R32G8X24_TYPELESS,
-  FG_PixelFormat_R5G5B5A1_UNORM,
-  FG_PixelFormat_R5G6B5_UNORM,
-  FG_PixelFormat_R8_INT,
-  FG_PixelFormat_R8_SNORM,
-  FG_PixelFormat_R8_TYPELESS,
-  FG_PixelFormat_R8_UINT,
-  FG_PixelFormat_R8_UNORM,
-  FG_PixelFormat_R8G8_B8G8_UNORM,
-  FG_PixelFormat_R8G8_INT,
-  FG_PixelFormat_R8G8_SNORM,
-  FG_PixelFormat_R8G8_TYPELESS,
-  FG_PixelFormat_R8G8_UINT,
-  FG_PixelFormat_R8G8_UNORM,
-  FG_PixelFormat_R8G8B8A8_INT,
-  FG_PixelFormat_R8G8B8A8_SNORM,
-  FG_PixelFormat_R8G8B8A8_TYPELESS,
-  FG_PixelFormat_R8G8B8A8_UNORM,
-  FG_PixelFormat_R8G8B8A8_UNORM_SRGB,
-  FG_PixelFormat_R8G8B8X8_INT,
-  FG_PixelFormat_R8G8B8X8_SNORM,
-  FG_PixelFormat_R8G8B8X8_TYPELESS,
-  FG_PixelFormat_R8G8B8X8_UINT,
-  FG_PixelFormat_R8G8B8X8_UNORM,
+  FG_PixelFormat_R1_UNorm,
+  FG_PixelFormat_R10G10B10_XR_BIAS_A2_UNorm,
+  FG_PixelFormat_R10G10B10A2_Typeless,
+  FG_PixelFormat_R10G10B10A2_UInt,
+  FG_PixelFormat_R10G10B10A2_UNorm,
+  FG_PixelFormat_R11G11B10_Float,
+  FG_PixelFormat_R16_Float,
+  FG_PixelFormat_R16_Int,
+  FG_PixelFormat_R16_SNorm,
+  FG_PixelFormat_R16_Typeless,
+  FG_PixelFormat_R16_UInt,
+  FG_PixelFormat_R16_UNorm,
+  FG_PixelFormat_R16G16_Float,
+  FG_PixelFormat_R16G16_Int,
+  FG_PixelFormat_R16G16_SNorm,
+  FG_PixelFormat_R16G16_Typeless,
+  FG_PixelFormat_R16G16_UInt,
+  FG_PixelFormat_R16G16_UNorm,
+  FG_PixelFormat_R16G16B16_Float,
+  FG_PixelFormat_R16G16B16_Int,
+  FG_PixelFormat_R16G16B16_SNorm,
+  FG_PixelFormat_R16G16B16_Typeless,
+  FG_PixelFormat_R16G16B16_UInt,
+  FG_PixelFormat_R16G16B16_UNorm,
+  FG_PixelFormat_R16G16B16A16_Float,
+  FG_PixelFormat_R16G16B16A16_Int,
+  FG_PixelFormat_R16G16B16A16_SNorm,
+  FG_PixelFormat_R16G16B16A16_Typeless,
+  FG_PixelFormat_R16G16B16A16_UInt,
+  FG_PixelFormat_R16G16B16A16_UNorm,
+  FG_PixelFormat_R24_UNorm_X8_Typeless,
+  FG_PixelFormat_R24G8_Typeless,
+  FG_PixelFormat_R32_Float,
+  FG_PixelFormat_R32_Float_X8X24_Typeless,
+  FG_PixelFormat_R32_Int,
+  FG_PixelFormat_R32_Typeless,
+  FG_PixelFormat_R32_UInt,
+  FG_PixelFormat_R32G32_Float,
+  FG_PixelFormat_R32G32_Int,
+  FG_PixelFormat_R32G32_Typeless,
+  FG_PixelFormat_R32G32_UInt,
+  FG_PixelFormat_R32G32B32_Float,
+  FG_PixelFormat_R32G32B32_Int,
+  FG_PixelFormat_R32G32B32_Typeless,
+  FG_PixelFormat_R32G32B32_UInt,
+  FG_PixelFormat_R32G32B32A32_Float,
+  FG_PixelFormat_R32G32B32A32_Int,
+  FG_PixelFormat_R32G32B32A32_Typeless,
+  FG_PixelFormat_R32G32B32A32_UInt,
+  FG_PixelFormat_R32G8X24_Typeless,
+  FG_PixelFormat_R5G5B5A1_UNorm,
+  FG_PixelFormat_R5G6B5_UNorm,
+  FG_PixelFormat_R8_Int,
+  FG_PixelFormat_R8_SNorm,
+  FG_PixelFormat_R8_Typeless,
+  FG_PixelFormat_R8_UInt,
+  FG_PixelFormat_R8_UNorm,
+  FG_PixelFormat_R8G8_B8G8_UNorm,
+  FG_PixelFormat_R8G8_Int,
+  FG_PixelFormat_R8G8_SNorm,
+  FG_PixelFormat_R8G8_Typeless,
+  FG_PixelFormat_R8G8_UInt,
+  FG_PixelFormat_R8G8_UNorm,
+  FG_PixelFormat_R8G8B8A8_Int,
+  FG_PixelFormat_R8G8B8A8_SNorm,
+  FG_PixelFormat_R8G8B8A8_Typeless,
+  FG_PixelFormat_R8G8B8A8_UNorm,
+  FG_PixelFormat_R8G8B8A8_UNorm_SRGB,
+  FG_PixelFormat_R8G8B8X8_Int,
+  FG_PixelFormat_R8G8B8X8_SNorm,
+  FG_PixelFormat_R8G8B8X8_Typeless,
+  FG_PixelFormat_R8G8B8X8_UInt,
+  FG_PixelFormat_R8G8B8X8_UNorm,
   FG_PixelFormat_R9G9B9E5_SHAREDEXP,
   FG_PixelFormat_V208,
   FG_PixelFormat_V408,
-  FG_PixelFormat_X24_TYPELESS_G8_UINT,
-  FG_PixelFormat_X32_TYPELESS_G8X24_UINT,
+  FG_PixelFormat_X24_Typeless_G8_UInt,
+  FG_PixelFormat_X32_Typeless_G8X24_UInt,
   FG_PixelFormat_Y210,
   FG_PixelFormat_Y216,
   FG_PixelFormat_Y410,
@@ -163,13 +163,13 @@ enum FG_PixelFormat
 enum FG_Usage
 {
   FG_Usage_Unknown = 0,
-  FG_Usage_VertexData,
-  FG_Usage_VertexIndices,
-  FG_Usage_PixelRead,
-  FG_Usage_PixelWrite,
-  FG_Usage_CopyRead,
-  FG_Usage_CopyWrite,
-  FG_Usage_TextureBuffer,
+  FG_Usage_Vertex_Data,
+  FG_Usage_Vertex_Indices,
+  FG_Usage_Pixel_Read,
+  FG_Usage_Pixel_Write,
+  FG_Usage_Copy_Read,
+  FG_Usage_Copy_Write,
+  FG_Usage_Texture_Buffer,
   FG_Usage_Transform,
   FG_Usage_Uniform,
   FG_Usage_Texture1D,
@@ -177,7 +177,7 @@ enum FG_Usage
   FG_Usage_Texture3D,
   FG_Usage_Texture2D_Multisample,
   FG_Usage_Texture2D_Multisample_Proxy,
-  FG_Usage_StorageBuffer,
+  FG_Usage_Storage_Buffer,
 };
 
 enum FG_ShaderStage
@@ -188,27 +188,30 @@ enum FG_ShaderStage
   FG_ShaderStage_Hull,
   FG_ShaderStage_Domain,
   FG_ShaderStage_Compute,
-  FG_ShaderStage_COUNT
+  FG_ShaderStage_Mesh,
+  FG_ShaderStage_Task,
+  FG_ShaderStage_Count
 };
 
 enum FG_Feature
 {
-  FG_Feature_API_OPENGL_ES      = 1,
-  FG_Feature_API_OPENGL         = 2,
+  FG_Feature_API_OpenGL_ES      = 1,
+  FG_Feature_API_OpenGL         = 2,
   FG_Feature_API_DIRECTX        = 3,
   FG_Feature_API_VULKAN         = 4,
   FG_Feature_API_METAL          = 5,
-  FG_Feature_IMMEDIATE_MODE     = (1 << 4),
-  FG_Feature_RENDER_TARGET      = (1 << 5),
-  FG_Feature_BLEND_EX           = (1 << 6),
-  FG_Feature_BACKGROUND_OPACITY = (1 << 7),
-  FG_Feature_LINES_ALPHA        = (1 << 8),
-  FG_Feature_BLEND_GAMMA        = (1 << 9),
-  FG_Feature_INSTANCING         = (1 << 10),
-  FG_Feature_MULTITHREADING     = (1 << 11),
-  FG_Feature_COMMAND_BUNDLES    = (1 << 12),
-  FG_Feature_INDEPENDENT_BLEND  = (1 << 13),
-  FG_Feature_COMPUTE_SHADER     = (1 << 14),
+  FG_Feature_Immediate_Mode     = (1 << 4),
+  FG_Feature_RenderTarget       = (1 << 5),
+  FG_Feature_Blend_EX           = (1 << 6),
+  FG_Feature_Background_Opacity = (1 << 7),
+  FG_Feature_Lines_Alpha        = (1 << 8),
+  FG_Feature_Blend_Gamma        = (1 << 9),
+  FG_Feature_Instancing         = (1 << 10),
+  FG_Feature_Multithreading  = (1 << 11),
+  FG_Feature_Command_Bundles    = (1 << 12),
+  FG_Feature_Independent_Blend  = (1 << 13),
+  FG_Feature_Compute_Shader     = (1 << 14),
+  FG_Feature_Mesh_Shader     = (1 << 15),
 };
 
 typedef struct FG_Vec3i__
@@ -299,159 +302,159 @@ typedef struct FG_DirectX_Caps__
 typedef union FG_Caps__
 {
   int features;
-  FG_OpenGL_Caps OpenGL;
-  FG_OpenGL_Caps OpenGL_ES;
-  FG_DirectX_Caps DirectX;
+  FG_OpenGL_Caps openGL;
+  FG_OpenGL_Caps openGL_ES;
+  FG_DirectX_Caps directX;
 } FG_Caps;
 
 typedef void FG_Resource;
 
 enum FG_Primitive
 {
-  FG_Primitive_POINT                    = 0,
-  FG_Primitive_LINE                     = 1,
-  FG_Primitive_TRIANGLE                 = 2,
-  FG_Primitive_LINE_STRIP               = 3,
-  FG_Primitive_TRIANGLE_STRIP           = 4,
-  FG_Primitive_LINE_ADJACENCY           = 5,
-  FG_Primitive_TRIANGLE_ADJACENCY       = 6,
-  FG_Primitive_LINE_STRIP_ADJACENCY     = 7,
-  FG_Primitive_TRIANGLE_STRIP_ADJACENCY = 8,
+  FG_Primitive_Point                    = 0,
+  FG_Primitive_Line                     = 1,
+  FG_Primitive_Triangle                 = 2,
+  FG_Primitive_Line_Strip               = 3,
+  FG_Primitive_Triangle_Strip           = 4,
+  FG_Primitive_Line_Adjacency           = 5,
+  FG_Primitive_Triangle_Adjacency       = 6,
+  FG_Primitive_Line_Strip_Adjacency     = 7,
+  FG_Primitive_Triangle_Strip_Adjacency = 8,
 };
 
-enum FG_COMPARISON
+enum FG_Comparison
 {
-  FG_COMPARISON_DISABLED      = 0,
-  FG_COMPARISON_NEVER         = 1,
-  FG_COMPARISON_LESS          = 2,
-  FG_COMPARISON_EQUAL         = 3,
-  FG_COMPARISON_LESS_EQUAL    = 4,
-  FG_COMPARISON_GREATER       = 5,
-  FG_COMPARISON_NOT_EQUAL     = 6,
-  FG_COMPARISON_GREATER_EQUAL = 7,
-  FG_COMPARISON_ALWAYS        = 8
+  FG_Comparison_Disabled      = 0,
+  FG_Comparison_Never         = 1,
+  FG_Comparison_Less          = 2,
+  FG_Comparison_Equal         = 3,
+  FG_Comparison_Less_Equal    = 4,
+  FG_Comparison_Greater       = 5,
+  FG_Comparison_Not_Equal     = 6,
+  FG_Comparison_Greater_Equal = 7,
+  FG_Comparison_Always        = 8
 };
 
-enum FG_STRIP_CUT_VALUE
+enum FG_Strip_Cut_Value
 {
-  FG_STRIP_CUT_VALUE_DISABLED   = 0,
-  FG_STRIP_CUT_VALUE_0xFFFF     = 1,
-  FG_STRIP_CUT_VALUE_0xFFFFFFFF = 2
+  FG_Strip_Cut_Value_Disabled   = 0,
+  FG_Strip_Cut_Value_0xFFFF     = 1,
+  FG_Strip_Cut_Value_0xFFFFFFFF = 2
 };
 
-enum FG_BLEND
+enum FG_Blend_Operand
 {
-  FG_BLEND_ZERO             = 1,
-  FG_BLEND_ONE              = 2,
-  FG_BLEND_SRC_COLOR        = 3,
-  FG_BLEND_INV_SRC_COLOR    = 4,
-  FG_BLEND_SRC_ALPHA        = 5,
-  FG_BLEND_INV_SRC_ALPHA    = 6,
-  FG_BLEND_DEST_ALPHA       = 7,
-  FG_BLEND_INV_DEST_ALPHA   = 8,
-  FG_BLEND_DEST_COLOR       = 9,
-  FG_BLEND_INV_DEST_COLOR   = 10,
-  FG_BLEND_SRC_ALPHA_SAT    = 11,
-  FG_BLEND_BLEND_FACTOR     = 14,
-  FG_BLEND_INV_BLEND_FACTOR = 15,
-  FG_BLEND_SRC1_COLOR       = 16,
-  FG_BLEND_INV_SRC1_COLOR   = 17,
-  FG_BLEND_SRC1_ALPHA       = 18,
-  FG_BLEND_INV_SRC1_ALPHA   = 19
+  FG_Blend_Operand_Zero     = 1,
+  FG_Blend_Operand_One      = 2,
+  FG_Blend_Operand_Src_Color = 3,
+  FG_Blend_Operand_Inv_Src_Color = 4,
+  FG_Blend_Operand_Src_Alpha     = 5,
+  FG_Blend_Operand_Inv_Src_Alpha = 6,
+  FG_Blend_Operand_Dest_Alpha    = 7,
+  FG_Blend_Operand_Inv_Dest_Alpha = 8,
+  FG_Blend_Operand_Dest_Color     = 9,
+  FG_Blend_Operand_Inv_Dest_Color = 10,
+  FG_Blend_Operand_Src_Alpha_SAT  = 11,
+  FG_Blend_Operand_Blend_FACTOR   = 14,
+  FG_Blend_Operand_Inv_Blend_FACTOR = 15,
+  FG_Blend_Operand_Src1_Color       = 16,
+  FG_Blend_Operand_Inv_Src1_Color   = 17,
+  FG_Blend_Operand_Src1_Alpha       = 18,
+  FG_Blend_Operand_Inv_Src1_Alpha   = 19
 };
 
-enum FG_BLEND_OP
+enum FG_Blend_OP
 {
-  FG_BLEND_OP_ADD          = 1,
-  FG_BLEND_OP_SUBTRACT     = 2,
-  FG_BLEND_OP_REV_SUBTRACT = 3,
-  FG_BLEND_OP_MIN          = 4,
-  FG_BLEND_OP_MAX          = 5
+  FG_Blend_OP_Add          = 1,
+  FG_Blend_OP_Subtract     = 2,
+  FG_Blend_OP_Rev_Subtract = 3,
+  FG_Blend_OP_Min          = 4,
+  FG_Blend_OP_Max          = 5
 };
 
 // Each bit here represents an element of the pipelinestate struct that has been set
-enum FG_PIPELINE_MEMBER
+enum FG_Pipeline_Member
 {
-  FG_PIPELINE_MEMBER_PRIMITIVE          = (1 << 0),
-  FG_PIPELINE_MEMBER_STENCIL_REF        = (1 << 1),
-  FG_PIPELINE_MEMBER_INDEX_BUFFER       = (1 << 2),
-  FG_PIPELINE_MEMBER_BLEND_FACTOR       = (1 << 3),
-  FG_PIPELINE_MEMBER_VS                 = (1 << 4),
-  FG_PIPELINE_MEMBER_GS                 = (1 << 5),
-  FG_PIPELINE_MEMBER_HS                 = (1 << 6),
-  FG_PIPELINE_MEMBER_DS                 = (1 << 7),
-  FG_PIPELINE_MEMBER_PS                 = (1 << 8),
-  FG_PIPELINE_MEMBER_CS                 = (1 << 9),
-  FG_PIPELINE_MEMBER_BLENDFACTOR        = (1 << 10),
-  FG_PIPELINE_MEMBER_FLAGS              = (1 << 11),
-  FG_PIPELINE_MEMBER_SAMPLEMASK         = (1 << 12),
-  FG_PIPELINE_MEMBER_STENCIL_READ_MASK  = (1 << 13),
-  FG_PIPELINE_MEMBER_STENCIL_WRITE_MASK = (1 << 14),
-  FG_PIPELINE_MEMBER_DEPTH_FUNC         = (1 << 15),
-  FG_PIPELINE_MEMBER_STRIP_CUT_VALUE    = (1 << 16),
-  FG_PIPELINE_MEMBER_NUM_RENDER_TARGETS = (1 << 17),
-  FG_PIPELINE_MEMBER_RT_FORMATS         = (1 << 18),
-  FG_PIPELINE_MEMBER_FILL               = (1 << 19),
-  FG_PIPELINE_MEMBER_CULL               = (1 << 20),
-  FG_PIPELINE_MEMBER_DEPTH_BIAS         = (1 << 21),
-  FG_PIPELINE_MEMBER_DEPTH_BIAS_CLAMP   = (1 << 22),
-  FG_PIPELINE_MEMBER_SLOP_ESCALED_BIAS  = (1 << 23),
-  FG_PIPELINE_MEMBER_FORCEDSAMPLECOUNT  = (1 << 24),
-  FG_PIPELINE_MEMBER_STENCIL            = (1 << 25),
-  FG_PIPELINE_MEMBER_DEPTH              = (1 << 26),
-  FG_PIPELINE_NODE_MASK                 = (1 << 27),
-  FG_PIPELINE_MULTISAMPLE_COUNT         = (1 << 28),
-  FG_PIPELINE_MULTISAMPLE_QUALITY       = (1 << 29),
+  FG_Pipeline_Member_PRIMITIVE          = (1 << 0),
+  FG_Pipeline_Member_Stencil_REF        = (1 << 1),
+  FG_Pipeline_Member_INDEX_Buffer       = (1 << 2),
+  FG_Pipeline_Member_Blend_FACTOR       = (1 << 3),
+  FG_Pipeline_Member_VS                 = (1 << 4),
+  FG_Pipeline_Member_GS                 = (1 << 5),
+  FG_Pipeline_Member_HS                 = (1 << 6),
+  FG_Pipeline_Member_DS                 = (1 << 7),
+  FG_Pipeline_Member_PS                 = (1 << 8),
+  FG_Pipeline_Member_CS                 = (1 << 9),
+  FG_Pipeline_Member_Blend_Factor        = (1 << 10),
+  FG_Pipeline_Member_FLAGS              = (1 << 11),
+  FG_Pipeline_Member_SAMPLEMASK         = (1 << 12),
+  FG_Pipeline_Member_Stencil_READ_MASK  = (1 << 13),
+  FG_Pipeline_Member_Stencil_Write_MASK = (1 << 14),
+  FG_Pipeline_Member_Depth_FUNC         = (1 << 15),
+  FG_Pipeline_Member_Strip_Cut_Value    = (1 << 16),
+  FG_Pipeline_Member_NUM_RENDER_TARGETS = (1 << 17),
+  FG_Pipeline_Member_RT_FORMATS         = (1 << 18),
+  FG_Pipeline_Member_FILL               = (1 << 19),
+  FG_Pipeline_Member_CULL               = (1 << 20),
+  FG_Pipeline_Member_Depth_BIAS         = (1 << 21),
+  FG_Pipeline_Member_Depth_BIAS_CLAMP   = (1 << 22),
+  FG_Pipeline_Member_SLOP_ESCALED_BIAS  = (1 << 23),
+  FG_Pipeline_Member_FORCEDSAMPLECount  = (1 << 24),
+  FG_Pipeline_Member_Stencil            = (1 << 25),
+  FG_Pipeline_Member_Depth              = (1 << 26),
+  FG_Pipeline_Member_NODE_MASK          = (1 << 27),
+  FG_Pipeline_Member_Multisample_Count  = (1 << 28),
+  FG_Pipeline_Member_Multisample_QUALITY = (1 << 29),
 };
 
-enum FG_FILL_MODE
+enum FG_Fill_Mode
 {
-  FG_FILL_MODE_FILL  = 0,
-  FG_FILL_MODE_LINE  = 1,
-  FG_FILL_MODE_POINT = 2,
+  FG_Fill_Mode_Fill  = 0,
+  FG_Fill_Mode_Line  = 1,
+  FG_Fill_Mode_Point = 2,
 };
 
-enum FG_CULL_MODE
+enum FG_Cull_Mode
 {
-  FG_CULL_MODE_NONE  = 0,
-  FG_CULL_MODE_FRONT = 1,
-  FG_CULL_MODE_BACK  = 2,
+  FG_Cull_Mode_None  = 0,
+  FG_Cull_Mode_Front = 1,
+  FG_Cull_Mode_Back  = 2,
 };
 
-enum FG_PIPELINE_FLAGS
+enum FG_Pipeline_Flags
 {
-  FG_PIPELINE_FLAG_ALPHA_TO_COVERAGE_ENABLE = (1 << 0),
-  FG_PIPELINE_FLAG_BLEND_ENABLE             = (1 << 1),
-  FG_PIPELINE_FLAG_DEPTH_ENABLE             = (1 << 2),
-  FG_PIPELINE_FLAG_STENCIL_ENABLE           = (1 << 3),
-  FG_PIPELINE_FLAG_DEPTH_WRITE_ENABLE       = (1 << 4),
-  FG_PIPELINE_FLAG_CONSERVATIVE_RASTER      = (1 << 5),
-  FG_PIPELINE_FLAG_FRONT_COUNTER_CLOCKWISE  = (1 << 6),
-  FG_PIPELINE_FLAG_DEPTH_CLIP_ENABLE        = (1 << 7),
-  FG_PIPELINE_FLAG_MULTISAMPLE_ENABLE       = (1 << 8),
-  FG_PIPELINE_FLAG_ANTIALIASED_LINE_ENABLE  = (1 << 9),
-  FG_PIPELINE_FLAG_TOOL_DEBUG               = (1 << 10),
-  FG_PIPELINE_FLAG_INDEPENDENT_BLEND_ENABLE = (1 << 11),
-  FG_PIPELINE_FLAG_RENDERTARGET_SRGB_ENABLE = (1 << 12),
+  FG_Pipeline_Flag_Alpha_To_Coverage_Enable = (1 << 0),
+  FG_Pipeline_Flag_Blend_Enable            = (1 << 1),
+  FG_Pipeline_Flag_Depth_Enable            = (1 << 2),
+  FG_Pipeline_Flag_Stencil_Enable          = (1 << 3),
+  FG_Pipeline_Flag_Depth_Write_Enable      = (1 << 4),
+  FG_Pipeline_Flag_Conservative_Raster      = (1 << 5),
+  FG_Pipeline_Flag_Front_Counter_Clockwise  = (1 << 6),
+  FG_Pipeline_Flag_Depth_Clip_Enable       = (1 << 7),
+  FG_Pipeline_Flag_Multisample_Enable      = (1 << 8),
+  FG_Pipeline_Flag_Antialiased_Line_Enable = (1 << 9),
+  FG_Pipeline_Flag_Tool_Debug               = (1 << 10),
+  FG_Pipeline_Flag_Independent_Blend_Enable= (1 << 11),
+  FG_Pipeline_Flag_RenderTarget_SRGB_Enable= (1 << 12),
 };
 
-enum FG_STENCIL_OP
+enum FG_Stencil_OP
 {
-  FG_STENCIL_OP_NONE      = 0,
-  FG_STENCIL_OP_KEEP      = 1,
-  FG_STENCIL_OP_ZERO      = 2,
-  FG_STENCIL_OP_REPLACE   = 3,
-  FG_STENCIL_OP_INCR_SAT  = 4,
-  FG_STENCIL_OP_DECR_SAT  = 5,
-  FG_STENCIL_OP_INVERT    = 6,
-  FG_STENCIL_OP_INCR_WRAP = 7,
-  FG_STENCIL_OP_DECR_WRAP = 8
+  FG_Stencil_OP_None      = 0,
+  FG_Stencil_OP_Keep      = 1,
+  FG_Stencil_OP_Zero      = 2,
+  FG_Stencil_OP_Replace   = 3,
+  FG_Stencil_OP_Increment_Sat  = 4,
+  FG_Stencil_OP_Decrement_Sat  = 5,
+  FG_Stencil_OP_Invert    = 6,
+  FG_Stencil_OP_Increment_Wrap = 7,
+  FG_Stencil_OP_Decrement_Wrap = 8
 };
 
 typedef struct FG_PipelineState__
 {
   uint64_t Members; // Each bit represents a particular member that has been set
-  void* Shaders[FG_ShaderStage_COUNT];
+  void* Shaders[FG_ShaderStage_Count];
   FG_Resource* DepthStencil;
   FG_Color BlendFactor;
   uint16_t Flags;
@@ -486,79 +489,79 @@ typedef struct FG_PipelineState__
   uint32_t RasterizedStream;
 } FG_VertexStream;*/
 
-enum FG_FILTER
+enum FG_Filter
 {
-  FG_FILTER_MIN_MAG_MIP_POINT                          = 0,
-  FG_FILTER_MIN_MAG_POINT_MIP_LINEAR                   = 0x1,
-  FG_FILTER_MIN_POINT_MAG_LINEAR_MIP_POINT             = 0x4,
-  FG_FILTER_MIN_POINT_MAG_MIP_LINEAR                   = 0x5,
-  FG_FILTER_MIN_LINEAR_MAG_MIP_POINT                   = 0x10,
-  FG_FILTER_MIN_LINEAR_MAG_POINT_MIP_LINEAR            = 0x11,
-  FG_FILTER_MIN_MAG_LINEAR_MIP_POINT                   = 0x14,
-  FG_FILTER_MIN_MAG_MIP_LINEAR                         = 0x15,
-  FG_FILTER_ANISOTROPIC                                = 0x55,
-  FG_FILTER_COMPARISON_MIN_MAG_MIP_POINT               = 0x80,
-  FG_FILTER_COMPARISON_MIN_MAG_POINT_MIP_LINEAR        = 0x81,
-  FG_FILTER_COMPARISON_MIN_POINT_MAG_LINEAR_MIP_POINT  = 0x84,
-  FG_FILTER_COMPARISON_MIN_POINT_MAG_MIP_LINEAR        = 0x85,
-  FG_FILTER_COMPARISON_MIN_LINEAR_MAG_MIP_POINT        = 0x90,
-  FG_FILTER_COMPARISON_MIN_LINEAR_MAG_POINT_MIP_LINEAR = 0x91,
-  FG_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT        = 0x94,
-  FG_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR              = 0x95,
-  FG_FILTER_COMPARISON_ANISOTROPIC                     = 0xd5,
+  FG_Filter_Min_Mag_Mip_Point                          = 0,
+  FG_Filter_Min_Mag_Point_Mip_Linear                   = 0x1,
+  FG_Filter_Min_Point_Mag_Linear_Mip_Point             = 0x4,
+  FG_Filter_Min_Point_Mag_Mip_Linear                   = 0x5,
+  FG_Filter_Min_Linear_Mag_Mip_Point                   = 0x10,
+  FG_Filter_Min_Linear_Mag_Point_Mip_Linear            = 0x11,
+  FG_Filter_Min_Mag_Linear_Mip_Point                   = 0x14,
+  FG_Filter_Min_Mag_Mip_Linear                         = 0x15,
+  FG_Filter_Anisotropic                                = 0x55,
+  FG_Filter_Comparison_Min_Mag_Mip_Point               = 0x80,
+  FG_Filter_Comparison_Min_Mag_Point_Mip_Linear        = 0x81,
+  FG_Filter_Comparison_Min_Point_Mag_Linear_Mip_Point  = 0x84,
+  FG_Filter_Comparison_Min_Point_Mag_Mip_Linear        = 0x85,
+  FG_Filter_Comparison_Min_Linear_Mag_Mip_Point        = 0x90,
+  FG_Filter_Comparison_Min_Linear_Mag_Point_Mip_Linear = 0x91,
+  FG_Filter_Comparison_Min_Mag_Linear_Mip_Point        = 0x94,
+  FG_Filter_Comparison_Min_Mag_Mip_Linear              = 0x95,
+  FG_Filter_Comparison_Anisotropic                     = 0xd5,
 };
 
-enum FG_TEXTURE_ADDRESS_MODE
+enum FG_Texture_Address_Mode
 {
-  FG_TEXTURE_ADDRESS_MODE_WRAP        = 1,
-  FG_TEXTURE_ADDRESS_MODE_MIRROR      = 2,
-  FG_TEXTURE_ADDRESS_MODE_CLAMP       = 3,
-  FG_TEXTURE_ADDRESS_MODE_BORDER      = 4,
-  FG_TEXTURE_ADDRESS_MODE_MIRROR_ONCE = 5
+  FG_Texture_Address_Mode_Wrap        = 1,
+  FG_Texture_Address_Mode_Mirror      = 2,
+  FG_Texture_Address_Mode_Clamp       = 3,
+  FG_Texture_Address_Mode_Border      = 4,
+  FG_Texture_Address_Mode_Mirror_Once = 5
 };
 
 typedef struct FG_Sampler__
 {
-  uint8_t Filter;        // FG_FILTER
-  uint8_t Addressing[3]; // enum FG_TEXTURE_ADDRESS_MODE
-  uint8_t MaxAnisotropy;
-  uint8_t Comparison; // FG_COMPARISON
-  float MipBias;
-  float MinLOD;
-  float MaxLOD;
-  FG_Color BorderColor;
+  uint8_t filter;        // FG_Filter
+  uint8_t addressing[3]; // enum FG_Texture_Address_Mode
+  uint8_t max_anisotropy;
+  uint8_t comparison; // FG_Comparison
+  float mip_bias;
+  float min_lod;
+  float max_lod;
+  FG_Color border_color;
 } FG_Sampler;
 
-enum FG_LOGIC_OP
+enum FG_Logic_OP
 {
-  FG_LOGIC_OP_CLEAR = 0,
-  FG_LOGIC_OP_SET,
-  FG_LOGIC_OP_COPY,
-  FG_LOGIC_OP_COPY_INVERTED,
-  FG_LOGIC_OP_NOOP,
-  FG_LOGIC_OP_INVERT,
-  FG_LOGIC_OP_AND,
-  FG_LOGIC_OP_NAND,
-  FG_LOGIC_OP_OR,
-  FG_LOGIC_OP_NOR,
-  FG_LOGIC_OP_XOR,
-  FG_LOGIC_OP_EQUIV,
-  FG_LOGIC_OP_AND_REVERSE,
-  FG_LOGIC_OP_AND_INVERTED,
-  FG_LOGIC_OP_OR_REVERSE,
-  FG_LOGIC_OP_OR_INVERTED
+  FG_Logic_OP_Clear = 0,
+  FG_Logic_OP_Set,
+  FG_Logic_OP_Copy,
+  FG_Logic_OP_Copy_Inverted,
+  FG_Logic_OP_NOOP,
+  FG_Logic_OP_Invert,
+  FG_Logic_OP_And,
+  FG_Logic_OP_NAnd,
+  FG_Logic_OP_Or,
+  FG_Logic_OP_Nor,
+  FG_Logic_OP_Xor,
+  FG_Logic_OP_Equiv,
+  FG_Logic_OP_And_Reverse,
+  FG_Logic_OP_And_Inverted,
+  FG_Logic_OP_Or_Reverse,
+  FG_Logic_OP_Or_Inverted
 };
 
 // Array
 typedef struct FG_Blend__
 {
-  uint8_t SrcBlend;
-  uint8_t DestBlend;
-  uint8_t BlendOp;
-  uint8_t SrcBlendAlpha;
-  uint8_t DestBlendAlpha;
-  uint8_t BlendOpAlpha;
-  uint8_t RenderTargetWriteMask;
+  uint8_t src_blend;
+  uint8_t dest_blend;
+  uint8_t blend_op;
+  uint8_t src_blend_alpha;
+  uint8_t dest_blend_alpha;
+  uint8_t blend_op_alpha;
+  uint8_t rendertarget_write_mask;
 } FG_Blend;
 
 // Array
@@ -571,17 +574,17 @@ typedef struct FG_Viewport__
 
 enum FG_VertexType
 {
-  FG_VertexType_HALF    = 0,
-  FG_VertexType_FLOAT,
-  FG_VertexType_DOUBLE,
-  FG_VertexType_BYTE,
-  FG_VertexType_UBYTE,
-  FG_VertexType_SHORT,
-  FG_VertexType_USHORT,
-  FG_VertexType_INT,
-  FG_VertexType_UINT,
-  //FG_VertexType_INT_2_10_10_10,
-  //FG_VertexType_UINT_2_10_10_10,
+  FG_VertexType_Half    = 0,
+  FG_VertexType_Float,
+  FG_VertexType_Double,
+  FG_VertexType_Byte,
+  FG_VertexType_UByte,
+  FG_VertexType_Short,
+  FG_VertexType_UShort,
+  FG_VertexType_Int,
+  FG_VertexType_UInt,
+  //FG_VertexType_Int_2_10_10_10,
+  //FG_VertexType_UInt_2_10_10_10,
 };
 
 // Array
@@ -598,15 +601,15 @@ typedef struct FG_VertexParameter__
 
 enum FG_ShaderType
 {
-  FG_ShaderType_HALF    = 0,
-  FG_ShaderType_FLOAT   = 1,
-  FG_ShaderType_DOUBLE  = 2,
-  FG_ShaderType_INT     = 3,
-  FG_ShaderType_UINT    = 4,
-  FG_ShaderType_COLOR32 = 5,
-  FG_ShaderType_TEXTURE = 6,
-  FG_ShaderType_TEXCUBE = 7,
-  FG_ShaderType_BUFFER = 8,
+  FG_ShaderType_Half    = 0,
+  FG_ShaderType_Float   = 1,
+  FG_ShaderType_Double  = 2,
+  FG_ShaderType_Int     = 3,
+  FG_ShaderType_UInt    = 4,
+  FG_ShaderType_Color32 = 5,
+  FG_ShaderType_Texture = 6,
+  FG_ShaderType_Texture_Cube = 7,
+  FG_ShaderType_Buffer = 8,
 };
 // Array
 typedef struct FG_ShaderParameter__
@@ -630,62 +633,62 @@ typedef struct FG_Display__
 
 enum FG_Clipboard
 {
-  FG_Clipboard_NONE    = 0,
-  FG_Clipboard_ALL     = 7,
-  FG_Clipboard_CUSTOM  = 6,
-  FG_Clipboard_WAVE    = 2,
-  FG_Clipboard_BITMAP  = 3,
-  FG_Clipboard_ELEMENT = 5,
-  FG_Clipboard_FILE    = 4,
-  FG_Clipboard_TEXT    = 1
+  FG_Clipboard_None    = 0,
+  FG_Clipboard_Text    = 1,
+  FG_Clipboard_Wave    = 2,
+  FG_Clipboard_Bitmap  = 3,
+  FG_Clipboard_File    = 4,
+  FG_Clipboard_Element = 5,
+  FG_Clipboard_Custom  = 6,
+  FG_Clipboard_All     = 7,
 };
 
 enum FG_Cursor
 {
-  FG_Cursor_NONE       = 0,
-  FG_Cursor_RESIZEWE   = 7,
-  FG_Cursor_RESIZEALL  = 10,
-  FG_Cursor_RESIZENS   = 6,
-  FG_Cursor_CUSTOM     = 14,
-  FG_Cursor_IBEAM      = 2,
-  FG_Cursor_ARROW      = 1,
-  FG_Cursor_DRAG       = 13,
-  FG_Cursor_RESIZENESW = 9,
-  FG_Cursor_NO         = 11,
-  FG_Cursor_RESIZENWSE = 8,
-  FG_Cursor_HELP       = 12,
-  FG_Cursor_WAIT       = 4,
-  FG_Cursor_HAND       = 5,
-  FG_Cursor_CROSS      = 3
+  FG_Cursor_None       = 0,
+  FG_Cursor_Arrow      = 1,
+  FG_Cursor_IBeam      = 2,
+  FG_Cursor_Cross      = 3,
+  FG_Cursor_Wait       = 4,
+  FG_Cursor_Hand       = 5,
+  FG_Cursor_ResizeNS   = 6,
+  FG_Cursor_ResizeWE   = 7,
+  FG_Cursor_ResizeNWSE = 8,
+  FG_Cursor_ResizeNESW = 9,
+  FG_Cursor_ResizeALL  = 10,
+  FG_Cursor_No         = 11,
+  FG_Cursor_Help       = 12,
+  FG_Cursor_Drag       = 13,
+  FG_Cursor_Custom     = 14,
 };
 
 enum FG_Kind
 {
-  FG_Kind_MOUSEOFF       = 16,
-  FG_Kind_TOUCHEND       = 23,
-  FG_Kind_KEYCHAR        = 9,
-  FG_Kind_KEYDOWN        = 10,
-  FG_Kind_MOUSEDBLCLICK  = 13,
-  FG_Kind_ACTION         = 0,
-  FG_Kind_GOTFOCUS       = 4,
-  FG_Kind_JOYBUTTONDOWN  = 6,
-  FG_Kind_DROP           = 2,
-  FG_Kind_SETWINDOWFLAGS = 20,
-  FG_Kind_MOUSEON        = 17,
-  FG_Kind_DRAW           = 1,
-  FG_Kind_MOUSEMOVE      = 15,
-  FG_Kind_SETWINDOWRECT  = 21,
-  FG_Kind_JOYBUTTONUP    = 7,
-  FG_Kind_MOUSEDOWN      = 14,
-  FG_Kind_MOUSESCROLL    = 18,
-  FG_Kind_JOYAXIS        = 5,
-  FG_Kind_TOUCHBEGIN     = 22,
-  FG_Kind_JOYORIENTATION = 8,
-  FG_Kind_TOUCHMOVE      = 24,
-  FG_Kind_LOSTFOCUS      = 12,
-  FG_Kind_MOUSEUP        = 19,
-  FG_Kind_GETWINDOWFLAGS = 3,
-  FG_Kind_KEYUP          = 11
+  FG_Kind_Action         = 0,
+  FG_Kind_Draw           = 1,
+  FG_Kind_Drop           = 2,
+  FG_Kind_GetWindowFlags = 3,
+  FG_Kind_GotFocus       = 4,
+  FG_Kind_JoyAxis        = 5,
+  FG_Kind_JoyButtonDown  = 6,
+  FG_Kind_JoyButtonUp    = 7,
+  FG_Kind_JoyOrientation = 8,
+  FG_Kind_KeyChar        = 9,
+  FG_Kind_KeyDown        = 10,
+  FG_Kind_KeyUp          = 11,
+  FG_Kind_LostFocus      = 12,
+  FG_Kind_MouseDblClick  = 13,
+  FG_Kind_MouseDown      = 14,
+  FG_Kind_MouseMove      = 15,
+  FG_Kind_MouseOff       = 16,
+  FG_Kind_MouseOn        = 17,
+  FG_Kind_MouseScroll    = 18,
+  FG_Kind_MouseUp        = 19,
+  FG_Kind_SetWindowFlags = 20,
+  FG_Kind_SetWindowRect  = 21,
+  FG_Kind_TouchBegin     = 22,
+  FG_Kind_TouchEnd       = 23,
+  FG_Kind_TouchMove      = 24,
 };
 
 enum FG_Keys
@@ -837,37 +840,38 @@ enum FG_Keys
 
 enum FG_ModKey
 {
-  FG_ModKey_CONTROL  = 2,
-  FG_ModKey_SHIFT    = 1,
-  FG_ModKey_NUMLOCK  = 32,
-  FG_ModKey_HELD     = 64,
-  FG_ModKey_ALT      = 4,
-  FG_ModKey_CAPSLOCK = 16,
-  FG_ModKey_SUPER    = 8
+  FG_ModKey_Shift    = 1,
+  FG_ModKey_Control  = 2,
+  FG_ModKey_Alt      = 4,
+  FG_ModKey_Super    = 8,
+  FG_ModKey_Capslock = 16,
+  FG_ModKey_Numlock  = 32,
+  FG_ModKey_Held     = 64,
 };
 
 enum FG_MouseButton
 {
-  FG_MouseButton_X2 = 16,
-  FG_MouseButton_M  = 4,
-  FG_MouseButton_X4 = 64,
-  FG_MouseButton_X3 = 32,
-  FG_MouseButton_R  = 2,
-  FG_MouseButton_X5 = 128,
   FG_MouseButton_L  = 1,
-  FG_MouseButton_X1 = 8
+  FG_MouseButton_R  = 2,
+  FG_MouseButton_M  = 4,
+  FG_MouseButton_X1 = 8,
+  FG_MouseButton_X2 = 16,
+  FG_MouseButton_X3 = 32,
+  FG_MouseButton_X4 = 64,
+  FG_MouseButton_X5 = 128,
 };
 
 enum FG_JoyAxis
 {
   FG_JoyAxis_X       = 0,
-  FG_JoyAxis_INVALID = 65535,
-  FG_JoyAxis_U       = 4,
   FG_JoyAxis_Y       = 1,
-  FG_JoyAxis_V       = 5,
   FG_JoyAxis_Z       = 2,
-  FG_JoyAxis_R       = 3
+  FG_JoyAxis_R       = 3,
+  FG_JoyAxis_U       = 4,
+  FG_JoyAxis_V       = 5,
+  FG_JoyAxis_Invalid = 65535,
 };
+
 enum FG_Joy
 {
   FG_Joy_Button4  = 3,
@@ -1146,12 +1150,11 @@ typedef union FG_Result__
 
 enum FG_Level
 {
-  FG_Level_NONE    = -1,
-  FG_Level_FATAL   = 0,
-  FG_Level_DEBUG   = 4,
-  FG_Level_WARNING = 2,
-  FG_Level_ERROR   = 1,
-  FG_Level_NOTICE  = 3
+  FG_Level_Fatal   = 0,
+  FG_Level_Error   = 1,
+  FG_Level_Warning = 2,
+  FG_Level_Notice  = 3,
+  FG_Level_Ddebug   = 4,
 };
 
 enum FG_LogType
@@ -1191,15 +1194,15 @@ typedef FG_Result (*FG_Behavior)(FG_Element*, FG_Context*, void*, FG_Msg*);
 
 enum FG_WindowFlag
 {
-  FG_WindowFlag_NOBORDER    = 16,
-  FG_WindowFlag_NOCAPTION   = 8,
-  FG_WindowFlag_FULLSCREEN  = 256,
-  FG_WindowFlag_MINIMIZED   = 32,
-  FG_WindowFlag_CLOSED      = 128,
-  FG_WindowFlag_MAXIMIZABLE = 2,
-  FG_WindowFlag_MINIMIZABLE = 1,
-  FG_WindowFlag_RESIZABLE   = 4,
-  FG_WindowFlag_MAXIMIZED   = 64
+  FG_WindowFlag_Minimizable = 1,
+  FG_WindowFlag_Maximizable = 2,
+  FG_WindowFlag_Resizable   = 4,
+  FG_WindowFlag_No_Caption  = 8,
+  FG_WindowFlag_No_Border   = 16,
+  FG_WindowFlag_Minimized   = 32,
+  FG_WindowFlag_Maximized   = 64,
+  FG_WindowFlag_Closed      = 128,
+  FG_WindowFlag_Fullscreen  = 256,
 };
 
 typedef struct FG_Window__
@@ -1224,29 +1227,29 @@ typedef union FG_ShaderValue__
 
 enum FG_AccessFlags
 {
-  FG_AccessFlag_READ = (1 << 0),
-  FG_AccessFlag_WRITE = (1 << 1),
-  FG_AccessFlag_PERSISTENT = (1 << 2),
-  FG_AccessFlag_INVALIDATE_RANGE = (1 << 3),
-  FG_AccessFlag_INVALIDATE_BUFFER = (1 << 4),
-  FG_AccessFlag_UNSYNCHRONIZED    = (1 << 5),
+  FG_AccessFlag_Read = (1 << 0),
+  FG_AccessFlag_Write = (1 << 1),
+  FG_AccessFlag_Persistent = (1 << 2),
+  FG_AccessFlag_Invalidate_Range = (1 << 3),
+  FG_AccessFlag_Invalidate_Buffer = (1 << 4),
+  FG_AccessFlag_Unsynchronized    = (1 << 5),
 };
 
 enum FG_BarrierFlags
 {
-  FG_BarrierFlags_VERTEX = (1 << 0),
-  FG_BarrierFlags_ELEMENT = (1 << 1),
-  FG_BarrierFlags_UNIFORM = (1 << 2),
-  FG_BarrierFlags_TEXTURE_FETCH = (1 << 3),
-  FG_BarrierFlags_TEXTURE_UPDATE = (1 << 4),
-  FG_BarrierFlags_IMAGE_ACCESS = (1 << 5),
-  FG_BarrierFlags_COMMAND = (1 << 6),
-  FG_BarrierFlags_PIXEL = (1 << 7),
-  FG_BarrierFlags_BUFFER = (1 << 8),
-  FG_BarrierFlags_RENDERTARGET = (1 << 9),
-  FG_BarrierFlags_STORAGE_BUFFER     = (1 << 10),
-  FG_BarrierFlags_TRANSFORM_FEEDBACK = (1 << 11),
-  FG_BarrierFlags_ATOMIC_COUNTER     = (1 << 12),
+  FG_BarrierFlags_Vertex = (1 << 0),
+  FG_BarrierFlags_Element = (1 << 1),
+  FG_BarrierFlags_Uniform = (1 << 2),
+  FG_BarrierFlags_Texture_Fetch = (1 << 3),
+  FG_BarrierFlags_Texture_Update = (1 << 4),
+  FG_BarrierFlags_Image_Access = (1 << 5),
+  FG_BarrierFlags_Command = (1 << 6),
+  FG_BarrierFlags_Pixel = (1 << 7),
+  FG_BarrierFlags_Buffer = (1 << 8),
+  FG_BarrierFlags_RenderTarget = (1 << 9),
+  FG_BarrierFlags_Storage_Buffer     = (1 << 10),
+  FG_BarrierFlags_Transform_Feedback = (1 << 11),
+  FG_BarrierFlags_Atomic_Counter     = (1 << 12),
 };
 
 struct FG_Backend

@@ -34,12 +34,12 @@ FG_Result Backend::Behavior(Context* w, const FG_Msg& msg)
 FG_Caps Backend::GetCaps(FG_Backend* self)
 {
   FG_Caps caps;
-  caps.OpenGL.features = FG_Feature_API_OPENGL | FG_Feature_IMMEDIATE_MODE | FG_Feature_BACKGROUND_OPACITY |
-                         FG_Feature_LINES_ALPHA | FG_Feature_BLEND_GAMMA | FG_Feature_INSTANCING |
-                         FG_Feature_INDEPENDENT_BLEND;
-  caps.OpenGL.version           = 20;
-  caps.OpenGL.glsl              = 110;
-  caps.OpenGL.max_rendertargets = 8;
+  caps.openGL.features = FG_Feature_API_OpenGL | FG_Feature_Immediate_Mode | FG_Feature_Background_Opacity |
+                         FG_Feature_Lines_Alpha | FG_Feature_Blend_Gamma | FG_Feature_Instancing |
+                         FG_Feature_Independent_Blend;
+  caps.openGL.version           = 20;
+  caps.openGL.glsl              = 110;
+  caps.openGL.max_rendertargets = 8;
   return caps;
 }
 
@@ -80,7 +80,7 @@ int Backend::DestroyShader(FG_Backend* self, FG_Context* context, void* shader)
   ShaderObject s(shader);
   if(!s.is_valid())
   {
-    backend->LOG(FG_Level_ERROR, "Invalid shader!", s.release());
+    backend->LOG(FG_Level_Error, "Invalid shader!", s.release());
     return ERR_INVALID_PARAMETER;
   }
   return 0;
@@ -91,7 +91,7 @@ void* Backend::CreateCommandList(FG_Backend* self, FG_Context* context, bool bun
   auto backend = static_cast<Backend*>(self);
   if(backend->_insidelist)
   {
-    backend->LOG(FG_Level_ERROR,
+    backend->LOG(FG_Level_Error,
                  "This backend can't do multiple command lists at the same time! Did you forget to free the old list?");
     return nullptr;
   }
@@ -104,12 +104,12 @@ int Backend::DestroyCommandList(FG_Backend* self, void* commands)
   auto backend = static_cast<Backend*>(self);
   if(!commands)
   {
-    backend->LOG(FG_Level_ERROR, "Expected a non-null command list but got NULL instead!");
+    backend->LOG(FG_Level_Error, "Expected a non-null command list but got NULL instead!");
     return ERR_INVALID_PARAMETER;
   }
   if(!backend->_insidelist)
   {
-    backend->LOG(FG_Level_ERROR, "Mismatched CreateCommandList / DestroyCommandList pair !");
+    backend->LOG(FG_Level_Error, "Mismatched CreateCommandList / DestroyCommandList pair !");
     return ERR_INVALID_CALL;
   }
 
@@ -216,31 +216,31 @@ int Backend::SyncPoint(FG_Backend* self, void* commands, uint32_t barrier_flags)
   auto context = reinterpret_cast<Context*>(commands);
 
   GLbitfield flags = 0;
-  if(barrier_flags & FG_BarrierFlags_VERTEX)
+  if(barrier_flags & FG_BarrierFlags_Vertex)
     flags |= GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT;
-  if(barrier_flags & FG_BarrierFlags_ELEMENT)
+  if(barrier_flags & FG_BarrierFlags_Element)
     flags |= GL_ELEMENT_ARRAY_BARRIER_BIT;
-  if(barrier_flags & FG_BarrierFlags_UNIFORM)
+  if(barrier_flags & FG_BarrierFlags_Uniform)
     flags |= GL_UNIFORM_BARRIER_BIT;
-  if(barrier_flags & FG_BarrierFlags_TEXTURE_FETCH)
+  if(barrier_flags & FG_BarrierFlags_Texture_Fetch)
     flags |= GL_TEXTURE_FETCH_BARRIER_BIT;
-  if(barrier_flags & FG_BarrierFlags_TEXTURE_UPDATE)
+  if(barrier_flags & FG_BarrierFlags_Texture_Update)
     flags |= GL_TEXTURE_UPDATE_BARRIER_BIT;
-  if(barrier_flags & FG_BarrierFlags_IMAGE_ACCESS)
+  if(barrier_flags & FG_BarrierFlags_Image_Access)
     flags |= GL_SHADER_IMAGE_ACCESS_BARRIER_BIT;
-  if(barrier_flags & FG_BarrierFlags_COMMAND)
+  if(barrier_flags & FG_BarrierFlags_Command)
     flags |= GL_COMMAND_BARRIER_BIT;
-  if(barrier_flags & FG_BarrierFlags_PIXEL)
+  if(barrier_flags & FG_BarrierFlags_Pixel)
     flags |= GL_PIXEL_BUFFER_BARRIER_BIT;
-  if(barrier_flags & FG_BarrierFlags_BUFFER)
+  if(barrier_flags & FG_BarrierFlags_Buffer)
     flags |= GL_BUFFER_UPDATE_BARRIER_BIT;
-  if(barrier_flags & FG_BarrierFlags_RENDERTARGET)
+  if(barrier_flags & FG_BarrierFlags_RenderTarget)
     flags |= GL_FRAMEBUFFER_BARRIER_BIT;
-  if(barrier_flags & FG_BarrierFlags_STORAGE_BUFFER)
+  if(barrier_flags & FG_BarrierFlags_Storage_Buffer)
     flags |= GL_SHADER_STORAGE_BARRIER_BIT;
-  if(barrier_flags & FG_BarrierFlags_TRANSFORM_FEEDBACK)
+  if(barrier_flags & FG_BarrierFlags_Transform_Feedback)
     flags |= GL_TRANSFORM_FEEDBACK_BARRIER_BIT;
-  if(barrier_flags & FG_BarrierFlags_ATOMIC_COUNTER)
+  if(barrier_flags & FG_BarrierFlags_Atomic_Counter)
     flags |= GL_ATOMIC_COUNTER_BARRIER_BIT;
 
   LOG_ERROR(backend, context->Barrier(flags));
@@ -392,17 +392,17 @@ int Backend::DestroyResource(FG_Backend* self, FG_Context* context, FG_Resource*
 GLenum getOpenGLAccessFlags(uint32_t flags)
 {
   GLenum v = 0;
-  if(flags & FG_AccessFlag_READ)
+  if(flags & FG_AccessFlag_Read)
     v |= GL_MAP_READ_BIT;
-  if(flags & FG_AccessFlag_WRITE)
+  if(flags & FG_AccessFlag_Write)
     v |= GL_MAP_WRITE_BIT;
   // if(flags & FG_AccessFlag_PERSISTENT)
   //   v |= GL_MAP_PERSISTENT_BIT;
-  if(flags & FG_AccessFlag_INVALIDATE_RANGE)
+  if(flags & FG_AccessFlag_Invalidate_Range)
     v |= GL_MAP_INVALIDATE_RANGE_BIT;
-  if(flags & FG_AccessFlag_INVALIDATE_BUFFER)
+  if(flags & FG_AccessFlag_Invalidate_Buffer)
     v |= GL_MAP_INVALIDATE_BUFFER_BIT;
-  if(flags & FG_AccessFlag_UNSYNCHRONIZED)
+  if(flags & FG_AccessFlag_Unsynchronized)
     v |= GL_MAP_UNSYNCHRONIZED_BIT;
   return v;
 }
@@ -411,9 +411,9 @@ GLenum getOpenGLAccessEnum(uint32_t flags)
 {
   switch(flags)
   {
-  case FG_AccessFlag_READ | FG_AccessFlag_WRITE: return GL_READ_WRITE;
-  case FG_AccessFlag_READ: return GL_READ_ONLY;
-  case FG_AccessFlag_WRITE: return GL_WRITE_ONLY;
+  case FG_AccessFlag_Read | FG_AccessFlag_Write: return GL_READ_WRITE;
+  case FG_AccessFlag_Read: return GL_READ_ONLY;
+  case FG_AccessFlag_Write: return GL_WRITE_ONLY;
   }
   return 0;
 }
@@ -547,13 +547,13 @@ int Backend::SetWindow(FG_Backend* self, FG_Window* window, FG_Element* element,
   if(caption)
     glfwSetWindowTitle(glwindow, caption);
 
-  if((w->_flags ^ flags) & FG_WindowFlag_FULLSCREEN) // If we toggled fullscreen we need a different code path
+  if((w->_flags ^ flags) & FG_WindowFlag_Fullscreen) // If we toggled fullscreen we need a different code path
   {
     int posx, posy;
     int dimx, dimy;
     glfwGetWindowPos(glwindow, &posx, &posy);
     glfwGetWindowSize(glwindow, &dimx, &dimy);
-    if(flags & FG_WindowFlag_FULLSCREEN)
+    if(flags & FG_WindowFlag_Fullscreen)
       glfwSetWindowMonitor(glwindow, (GLFWmonitor*)display, 0, 0, !dim ? dimx : static_cast<int>(ceilf(dim->x)),
                            !dim ? dimy : static_cast<int>(ceilf(dim->y)), GLFW_DONT_CARE);
     else
@@ -569,12 +569,12 @@ int Backend::SetWindow(FG_Backend* self, FG_Window* window, FG_Element* element,
       glfwSetWindowSize(glwindow, static_cast<int>(ceilf(dim->x)), static_cast<int>(ceilf(dim->y)));
   }
 
-  if(flags & FG_WindowFlag_MAXIMIZED)
+  if(flags & FG_WindowFlag_Maximized)
     glfwMaximizeWindow(glwindow);
   else
     glfwRestoreWindow(glwindow);
 
-  if(flags & FG_WindowFlag_MINIMIZED)
+  if(flags & FG_WindowFlag_Minimized)
     glfwIconifyWindow(glwindow);
   else
     glfwRestoreWindow(glwindow);
@@ -614,7 +614,7 @@ int Backend::PutClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard kind
     return ERR_CLIPBOARD_FAILURE;
   if(data != 0 && count > 0 && EmptyClipboard())
   {
-    if(kind == FG_Clipboard_TEXT)
+    if(kind == FG_Clipboard_Text)
     {
       size_t unilen  = MultiByteToWideChar(CP_UTF8, 0, data, static_cast<int>(count), 0, 0);
       HGLOBAL unimem = GlobalAlloc(GMEM_MOVEABLE, unilen * sizeof(wchar_t));
@@ -648,8 +648,8 @@ int Backend::PutClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard kind
         UINT format = CF_PRIVATEFIRST;
         switch(kind)
         {
-        case FG_Clipboard_WAVE: format = CF_WAVE; break;
-        case FG_Clipboard_BITMAP: format = CF_BITMAP; break;
+        case FG_Clipboard_Wave: format = CF_WAVE; break;
+        case FG_Clipboard_Bitmap: format = CF_BITMAP; break;
         }
         SetClipboardData(format, gmem);
       }
@@ -675,7 +675,7 @@ uint32_t Backend::GetClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard
   UINT format = CF_PRIVATEFIRST;
   switch(kind)
   {
-  case FG_Clipboard_TEXT:
+  case FG_Clipboard_Text:
     if(IsClipboardFormatAvailable(CF_UNICODETEXT))
     {
       HANDLE gdata = GetClipboardData(CF_UNICODETEXT);
@@ -700,8 +700,8 @@ uint32_t Backend::GetClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard
     }
     format = CF_TEXT;
     break;
-  case FG_Clipboard_WAVE: format = CF_WAVE; break;
-  case FG_Clipboard_BITMAP: format = CF_BITMAP; break;
+  case FG_Clipboard_Wave: format = CF_WAVE; break;
+  case FG_Clipboard_Bitmap: format = CF_BITMAP; break;
   }
   HANDLE gdata = GetClipboardData(format);
   SIZE_T size  = 0;
@@ -739,11 +739,11 @@ bool Backend::CheckClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard k
 #ifdef FG_PLATFORM_WIN32
   switch(kind)
   {
-  case FG_Clipboard_TEXT: return IsClipboardFormatAvailable(CF_TEXT) | IsClipboardFormatAvailable(CF_UNICODETEXT);
-  case FG_Clipboard_WAVE: return IsClipboardFormatAvailable(CF_WAVE);
-  case FG_Clipboard_BITMAP: return IsClipboardFormatAvailable(CF_BITMAP);
-  case FG_Clipboard_CUSTOM: return IsClipboardFormatAvailable(CF_PRIVATEFIRST);
-  case FG_Clipboard_ALL:
+  case FG_Clipboard_Text: return IsClipboardFormatAvailable(CF_TEXT) | IsClipboardFormatAvailable(CF_UNICODETEXT);
+  case FG_Clipboard_Wave: return IsClipboardFormatAvailable(CF_WAVE);
+  case FG_Clipboard_Bitmap: return IsClipboardFormatAvailable(CF_BITMAP);
+  case FG_Clipboard_Custom: return IsClipboardFormatAvailable(CF_PRIVATEFIRST);
+  case FG_Clipboard_All:
     return IsClipboardFormatAvailable(CF_TEXT) | IsClipboardFormatAvailable(CF_UNICODETEXT) |
            IsClipboardFormatAvailable(CF_WAVE) | IsClipboardFormatAvailable(CF_BITMAP) |
            IsClipboardFormatAvailable(CF_PRIVATEFIRST);
@@ -805,12 +805,12 @@ int Backend::SetCursorGL(FG_Backend* self, FG_Window* window, FG_Cursor cursor)
   auto glwindow = static_cast<Window*>(window)->GetWindow();
   switch(cursor)
   {
-  case FG_Cursor_ARROW: glfwSetCursor(glwindow, arrow); return _lasterr;
-  case FG_Cursor_IBEAM: glfwSetCursor(glwindow, ibeam); return _lasterr;
-  case FG_Cursor_CROSS: glfwSetCursor(glwindow, cross); return _lasterr;
-  case FG_Cursor_HAND: glfwSetCursor(glwindow, hand); return _lasterr;
-  case FG_Cursor_RESIZEWE: glfwSetCursor(glwindow, hresize); return _lasterr;
-  case FG_Cursor_RESIZENS: glfwSetCursor(glwindow, vresize); return _lasterr;
+  case FG_Cursor_Arrow: glfwSetCursor(glwindow, arrow); return _lasterr;
+  case FG_Cursor_IBeam: glfwSetCursor(glwindow, ibeam); return _lasterr;
+  case FG_Cursor_Cross: glfwSetCursor(glwindow, cross); return _lasterr;
+  case FG_Cursor_Hand: glfwSetCursor(glwindow, hand); return _lasterr;
+  case FG_Cursor_ResizeWE: glfwSetCursor(glwindow, hresize); return _lasterr;
+  case FG_Cursor_ResizeNS: glfwSetCursor(glwindow, vresize); return _lasterr;
   }
 
   return ERR_INVALID_CURSOR;
@@ -877,7 +877,7 @@ FG_Window* Backend::CreateRegionGL(FG_Backend* self, FG_Element* element, FG_Win
 
   // glfwMakeContextCurrent(_window); // TODO: Make the context current
   if(!gladLoadGLLoader((GLADloadproc)glGetProcAddress))
-    (*backend->_log)(backend->_root, FG_Level_ERROR, "gladLoadGL failed");
+    (*backend->_log)(backend->_root, FG_Level_Error, "gladLoadGL failed");
   backend->LogError("gladLoadGL");
   context->CreateResources();
 
@@ -948,7 +948,7 @@ extern "C" FG_COMPILER_DLLEXPORT FG_Backend* fgOpenGL(void* root, FG_Log log, FG
     {
       FG_LogValue logvalues[2] = { { .type = FG_LogType_I32, .i32 = Backend::_lasterr },
                                    { .type = FG_LogType_String, .string = Backend::_lasterrdesc } };
-      (*log)(root, FG_Level_ERROR, __FILE__, __LINE__, "glfwInit() failed!", logvalues, 2, &Backend::FreeGL);
+      (*log)(root, FG_Level_Error, __FILE__, __LINE__, "glfwInit() failed!", logvalues, 2, &Backend::FreeGL);
       --Backend::_refcount;
       return nullptr;
     }
@@ -1029,7 +1029,7 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   destroySystemControl  = &DestroySystemControl;
   destroy               = &DestroyGL;
 
-  this->LOG(FG_Level_NONE, "Initializing fgOpenGL...");
+  this->LOG(FG_Level_Notice, "Initializing fgOpenGL...");
 
 #ifdef FG_PLATFORM_WIN32
   #ifdef FG_DEBUG
@@ -1047,7 +1047,7 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
       cursorblink = _wtoi(buf.data());
   }
   else
-    this->LOG(FG_Level_WARNING, "Couldn't get user's cursor blink rate.");
+    this->LOG(FG_Level_Warning, "Couldn't get user's cursor blink rate.");
 
   sz = GetRegistryValueW(HKEY_CURRENT_USER, L"Control Panel\\Mouse", L"MouseHoverTime", 0, 0);
   if(sz > 0)
@@ -1060,7 +1060,7 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
       tooltipdelay = _wtoi(buf.data());
   }
   else
-    this->LOG(FG_Level_WARNING, "Couldn't get user's mouse hover time.");
+    this->LOG(FG_Level_Warning, "Couldn't get user's mouse hover time.");
 
 #else
   cursorblink  = 530;
@@ -1095,7 +1095,7 @@ void Backend::ErrorCallback(int error, const char* description)
 #endif
 
   if(_singleton)
-    _singleton->LOG(FG_Level_ERROR, description);
+    _singleton->LOG(FG_Level_Error, description);
 }
 
 void Backend::JoystickCallback(int id, int connected)

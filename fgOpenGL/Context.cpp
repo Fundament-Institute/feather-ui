@@ -17,21 +17,33 @@ using namespace GL;
 
 // Feather uses a premultiplied compositing pipeline:
 // https://apoorvaj.io/alpha-compositing-opengl-blending-and-premultiplied-alpha/
-const FG_Blend Context::PREMULTIPLY_BLEND = {
-  FG_BLEND_ONE, FG_BLEND_INV_SRC_ALPHA, FG_BLEND_OP_ADD, FG_BLEND_ONE, FG_BLEND_INV_SRC_ALPHA, FG_BLEND_OP_ADD, 0b1111,
+const FG_Blend Context::Premultiply_Blend = {
+  FG_Blend_Operand_One,
+  FG_Blend_Operand_Inv_Src_Alpha,
+  FG_Blend_OP_Add,
+  FG_Blend_Operand_One,
+  FG_Blend_Operand_Inv_Src_Alpha,
+  FG_Blend_OP_Add,
+  0b1111,
 };
 
-const FG_Blend Context::NORMAL_BLEND = {
-  FG_BLEND_SRC_ALPHA,     FG_BLEND_INV_SRC_ALPHA, FG_BLEND_OP_ADD, FG_BLEND_ONE,
-  FG_BLEND_INV_SRC_ALPHA, FG_BLEND_OP_ADD,        0b1111,
+const FG_Blend Context::Normal_Blend = {
+  FG_Blend_Operand_Src_Alpha,
+  FG_Blend_Operand_Inv_Src_Alpha,
+  FG_Blend_OP_Add,
+  FG_Blend_Operand_One,
+  FG_Blend_Operand_Inv_Src_Alpha,
+  FG_Blend_OP_Add,
+  0b1111,
 };
 
-const FG_Blend Context::DEFAULT_BLEND = {
-  FG_BLEND_ONE, FG_BLEND_ZERO, FG_BLEND_OP_ADD, FG_BLEND_ONE, FG_BLEND_ZERO, FG_BLEND_OP_ADD, 0b1111,
+const FG_Blend Context::Default_Blend = {
+  FG_Blend_Operand_One,  FG_Blend_Operand_Zero, FG_Blend_OP_Add, FG_Blend_Operand_One,
+  FG_Blend_Operand_Zero, FG_Blend_OP_Add,       0b1111,
 };
 
 Context::Context(Backend* backend, FG_Element* element, FG_Vec2 dim) :
-  _backend(backend), _window(nullptr), _lastblend(DEFAULT_BLEND), _program(nullptr), _dim(dim)
+  _backend(backend), _window(nullptr), _lastblend(Default_Blend), _program(nullptr), _dim(dim)
 {
   this->element = element;
   this->context = this;
@@ -64,7 +76,7 @@ GLExpected<void> Context::EndDraw()
 
 void Context::Draw(const FG_Rect* area)
 {
-  FG_Msg msg = { FG_Kind_DRAW };
+  FG_Msg msg = { FG_Kind_Draw };
   if(area)
     msg.draw.area = *area;
   else
@@ -112,13 +124,14 @@ GLExpected<void> Context::SetShaderUniforms(const FG_ShaderParameter* uniforms, 
 {
   for(uint32_t i = 0; i < count; ++i)
   {
-    if (uniforms[i].type == FG_ShaderType_BUFFER) {
-      RETURN_ERROR(_program->set_buffer(unpack_ptr<GLuint>(values[i].resource), uniforms[i].count,
-                                        uniforms[i].width, uniforms[i].length));
+    if(uniforms[i].type == FG_ShaderType_Buffer)
+    {
+      RETURN_ERROR(_program->set_buffer(unpack_ptr<GLuint>(values[i].resource), uniforms[i].count, uniforms[i].width,
+                                        uniforms[i].length));
       continue;
     }
 
-    auto type = ShaderObject::get_type(uniforms[i]);
+    auto type      = ShaderObject::get_type(uniforms[i]);
     uint32_t count = !uniforms[i].count ? 1 : uniforms[i].count;
 
     switch(type)
@@ -127,7 +140,7 @@ GLExpected<void> Context::SetShaderUniforms(const FG_ShaderParameter* uniforms, 
     case GL_HALF_FLOAT: // we assume you pass in a proper float to fill this
     case GL_FLOAT:
     case GL_INT:
-    case GL_UNSIGNED_INT: 
+    case GL_UNSIGNED_INT:
       if(count == 1)
       {
         RETURN_ERROR(_program->set_uniform(uniforms[i].name, type, &values[i].f32, count));
@@ -212,16 +225,16 @@ GLExpected<void> Context::ApplyBlend(const FG_Blend& blend, const std::array<flo
 
   if(force || memcmp(&blend, &_lastblend, sizeof(FG_Blend)) != 0)
   {
-    glBlendFuncSeparate(BlendMapping[blend.SrcBlend], BlendMapping[blend.DestBlend], BlendMapping[blend.SrcBlendAlpha],
-                        BlendMapping[blend.DestBlendAlpha]);
+    glBlendFuncSeparate(BlendMapping[blend.src_blend], BlendMapping[blend.dest_blend], BlendMapping[blend.src_blend_alpha],
+                        BlendMapping[blend.dest_blend_alpha]);
     GL_ERROR("glBlendFuncSeperate");
-    glBlendEquationSeparate(BlendOpMapping[blend.BlendOp], BlendOpMapping[blend.BlendOpAlpha]);
+    glBlendEquationSeparate(BlendOpMapping[blend.blend_op], BlendOpMapping[blend.blend_op_alpha]);
     GL_ERROR("glBlendEquationSeparate");
 
-    if(_lastblend.RenderTargetWriteMask != blend.RenderTargetWriteMask)
+    if(_lastblend.rendertarget_write_mask != blend.rendertarget_write_mask)
     {
-      glColorMask(blend.RenderTargetWriteMask & 0b0001, blend.RenderTargetWriteMask & 0b0010,
-                  blend.RenderTargetWriteMask & 0b0100, blend.RenderTargetWriteMask & 0b1000);
+      glColorMask(blend.rendertarget_write_mask & 0b0001, blend.rendertarget_write_mask & 0b0010,
+                  blend.rendertarget_write_mask & 0b0100, blend.rendertarget_write_mask & 0b1000);
       GL_ERROR("glColorMask");
     }
 
@@ -234,35 +247,35 @@ GLExpected<void> Context::ApplyBlend(const FG_Blend& blend, const std::array<flo
 GLExpected<void> Context::ApplyFlags(uint16_t flags, uint8_t cull, uint8_t fill)
 {
   auto diff = _lastflags ^ flags;
-  FlipFlag(diff, flags, FG_PIPELINE_FLAG_RENDERTARGET_SRGB_ENABLE, GL_FRAMEBUFFER_SRGB);
+  FlipFlag(diff, flags, FG_Pipeline_Flag_RenderTarget_SRGB_Enable, GL_FRAMEBUFFER_SRGB);
   GL_ERROR("glEnable/glDisable");
-  FlipFlag(diff, flags, FG_PIPELINE_FLAG_DEPTH_ENABLE, GL_DEPTH_TEST);
+  FlipFlag(diff, flags, FG_Pipeline_Flag_Depth_Enable, GL_DEPTH_TEST);
   GL_ERROR("glEnable/glDisable");
-  FlipFlag(diff, flags, FG_PIPELINE_FLAG_STENCIL_ENABLE, GL_STENCIL_TEST);
+  FlipFlag(diff, flags, FG_Pipeline_Flag_Stencil_Enable, GL_STENCIL_TEST);
   GL_ERROR("glEnable/glDisable");
-  FlipFlag(diff, flags, FG_PIPELINE_FLAG_ALPHA_TO_COVERAGE_ENABLE, GL_SAMPLE_ALPHA_TO_COVERAGE);
+  FlipFlag(diff, flags, FG_Pipeline_Flag_Alpha_To_Coverage_Enable, GL_SAMPLE_ALPHA_TO_COVERAGE);
   GL_ERROR("glEnable/glDisable");
-  FlipFlag(diff, flags, FG_PIPELINE_FLAG_ANTIALIASED_LINE_ENABLE, GL_LINE_SMOOTH);
+  FlipFlag(diff, flags, FG_Pipeline_Flag_Antialiased_Line_Enable, GL_LINE_SMOOTH);
   GL_ERROR("glEnable/glDisable");
-  FlipFlag(diff, flags, FG_PIPELINE_FLAG_MULTISAMPLE_ENABLE, GL_MULTISAMPLE);
+  FlipFlag(diff, flags, FG_Pipeline_Flag_Multisample_Enable, GL_MULTISAMPLE);
   GL_ERROR("glEnable/glDisable");
-  FlipFlag(diff, flags, FG_PIPELINE_FLAG_BLEND_ENABLE, GL_BLEND);
+  FlipFlag(diff, flags, FG_Pipeline_Flag_Blend_Enable, GL_BLEND);
   GL_ERROR("glEnable/glDisable");
 
-  if(diff & FG_PIPELINE_FLAG_DEPTH_WRITE_ENABLE)
+  if(diff & FG_Pipeline_Flag_Depth_Write_Enable)
   {
-    glDepthMask((flags & FG_PIPELINE_FLAG_DEPTH_WRITE_ENABLE) ? GL_TRUE : GL_FALSE);
+    glDepthMask((flags & FG_Pipeline_Flag_Depth_Write_Enable) ? GL_TRUE : GL_FALSE);
     GL_ERROR("glDepthMask");
   }
-  if(diff & FG_PIPELINE_FLAG_FRONT_COUNTER_CLOCKWISE)
+  if(diff & FG_Pipeline_Flag_Front_Counter_Clockwise)
   {
-    glFrontFace((flags & FG_PIPELINE_FLAG_FRONT_COUNTER_CLOCKWISE) ? GL_CCW : GL_CW);
+    glFrontFace((flags & FG_Pipeline_Flag_Front_Counter_Clockwise) ? GL_CCW : GL_CW);
     GL_ERROR("glFrontFace");
   }
 
   if(_lastcull != cull)
   {
-    if(cull == FG_CULL_MODE_NONE)
+    if(cull == FG_Cull_Mode_None)
     {
       glDisable(GL_CULL_FACE);
       GL_ERROR("glDisable");
@@ -272,7 +285,7 @@ GLExpected<void> Context::ApplyFlags(uint16_t flags, uint8_t cull, uint8_t fill)
       glEnable(GL_CULL_FACE);
       GL_ERROR("glEnable");
 
-      glCullFace(cull == FG_CULL_MODE_BACK ? GL_BACK : GL_FRONT);
+      glCullFace(cull == FG_Cull_Mode_Back ? GL_BACK : GL_FRONT);
       GL_ERROR("glCullFace");
     }
 
@@ -283,9 +296,9 @@ GLExpected<void> Context::ApplyFlags(uint16_t flags, uint8_t cull, uint8_t fill)
   {
     switch(fill)
     {
-    case FG_FILL_MODE_FILL: glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); break;
-    case FG_FILL_MODE_LINE: glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); break;
-    case FG_FILL_MODE_POINT: glPolygonMode(GL_FRONT_AND_BACK, GL_POINT); break;
+    case FG_Fill_Mode_Fill: glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); break;
+    case FG_Fill_Mode_Line: glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); break;
+    case FG_Fill_Mode_Point: glPolygonMode(GL_FRONT_AND_BACK, GL_POINT); break;
     }
     GL_ERROR("glPolygonMode");
     _lastfill = fill;

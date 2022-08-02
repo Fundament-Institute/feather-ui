@@ -84,7 +84,7 @@
     HRESULT hr = (x);                                                     \
     if(FAILED(hr))                                                        \
     {                                                                     \
-      (*instance->_log)(instance->_root, FG_Level_ERROR, f, __VA_ARGS__); \
+      (*instance->_log)(instance->_root, FG_Level_Error, f, __VA_ARGS__); \
     }                                                                     \
   }
 #define LOGFAILURERET(x, r, f, ...)                                       \
@@ -92,7 +92,7 @@
     HRESULT hr = (x);                                                     \
     if(FAILED(hr))                                                        \
     {                                                                     \
-      (*instance->_log)(instance->_root, FG_Level_ERROR, f, __VA_ARGS__); \
+      (*instance->_log)(instance->_root, FG_Level_Error, f, __VA_ARGS__); \
       return r;                                                           \
     }                                                                     \
   }
