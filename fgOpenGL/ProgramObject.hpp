@@ -12,25 +12,25 @@ namespace GL {
   static void DeleteProgramObj(GLuint i) noexcept { glDeleteProgram(i); };
   struct ShaderObject;
 
-  struct ProgramObject : Ref<IsProgramObj, DeleteProgramObj>
+  struct ProgramObject : Ref<IsProgramObj>
   {
+    static constexpr DESTROY_FUNC DESTROY = &DeleteProgramObj;
+
     explicit constexpr ProgramObject(GLuint shader) noexcept : Ref(shader) {}
-    explicit constexpr ProgramObject(void* shader) noexcept : Ref(shader) {}
     constexpr ProgramObject() noexcept                      = default;
-    constexpr ProgramObject(ProgramObject&& right) noexcept = default;
-    constexpr ProgramObject(const ProgramObject&)         = delete;
+    constexpr ProgramObject(const ProgramObject&)           = default;
     constexpr ~ProgramObject() noexcept                   = default;
-    GLExpected<void> attach(ShaderObject&& shader) noexcept;
+    GLExpected<void> attach(ShaderObject shader) noexcept;
     GLExpected<void> link() noexcept;
     bool is_valid() const noexcept;
     GLExpected<std::string> log() const noexcept;
     GLExpected<void> set_uniform(const char* name, GLenum type, const float* data, uint32_t count) const noexcept;
     GLExpected<void> set_buffer(GLuint resource, uint32_t index, uint32_t offset, uint32_t length) const noexcept;
+    GLExpected<void> set_texture(const char* name, GLenum type, GLuint data) const noexcept;
 
-    ProgramObject& operator=(const ProgramObject&) = delete;
-    ProgramObject& operator=(ProgramObject&& right) noexcept = default;
+    ProgramObject& operator=(const ProgramObject&) = default;
 
-    static GLExpected<ProgramObject> create() noexcept;
+    static GLExpected<Owned<ProgramObject>> create() noexcept;
   };
 }
 

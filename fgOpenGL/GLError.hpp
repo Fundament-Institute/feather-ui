@@ -13,22 +13,22 @@
 //#include <coroutine>
 
 #define GL_ERROR(name)                      \
-  if(GLError e{ name, __FILE__, __LINE__ }) \
+  if(GLError __e{ name, __FILE__, __LINE__ }) \
   {                                         \
-    return e;                               \
+    return __e;                               \
   }
 
 #define CUSTOM_ERROR(error, name) GLError(error, name, __FILE__, __LINE__)
 
 #define RETURN_ERROR(...)       \
-  if(auto e = (__VA_ARGS__)) {} \
+  if(auto __e = (__VA_ARGS__)) {} \
   else                          \
-    return std::move(e.error())
+    return std::move(__e.error())
 
 #define LOG_ERROR(backend, ...) \
-  if(auto e = (__VA_ARGS__)) {} \
+  if(auto __e = (__VA_ARGS__)) {} \
   else                          \
-    return e.error().log(backend)
+    return __e.error().log(backend)
 
 namespace GL {
   class Backend;
@@ -118,16 +118,19 @@ namespace GL {
       }
 
       GLenum e  = _error;
+      auto c    = _callsite;
+      auto f    = _file;
+      auto l    = _line;
       _error    = GL_NO_ERROR;
       _callsite = nullptr;
       _file     = nullptr;
       _line     = 0;
-      return { e, _callsite, _file, _line };
+      return { e, c, f, l };
     }
 
     static const GLenum INVALID_ERROR = ~(1 << ((sizeof(GLenum) * 8) - 1));
 #ifdef _DEBUG
-    static const GLenum UNCHECKED_FLAG = ~INVALID_ERROR;
+    static const GLenum UNCHECKED_FLAG = (1 << ((sizeof(GLenum) * 8) - 1));
 #endif
 
     inline constexpr GLError& operator=(GLError&& right) noexcept

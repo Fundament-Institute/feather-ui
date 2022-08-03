@@ -44,8 +44,8 @@ GLExpected<VertexArrayObject> VertexArrayObject::create(GLuint program, std::spa
         return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "param.type is not valid shader type");
 
       GLenum type = ShaderTypeMapping[param.type];
-
-      glVertexAttribPointer(loc, param.length, type, GL_FALSE, vbuffers[param.index].second, pack_ptr(param.offset));
+      size_t offset = param.offset;
+      glVertexAttribPointer(loc, param.length, type, GL_FALSE, vbuffers[param.index].second, reinterpret_cast<void*>(offset));
       GL_ERROR("glVertexAttribPointer");
       if(glVertexAttribDivisor)
       {

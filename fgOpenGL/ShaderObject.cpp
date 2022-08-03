@@ -33,17 +33,31 @@ GLExpected<std::string> ShaderObject::log() const noexcept
   return GLExpected<std::string>(log);
 }
 
-GLExpected<ShaderObject> ShaderObject::create(const char* src, int type) noexcept
+GLExpected<Owned<ShaderObject>> ShaderObject::create(const char* src, int type, Backend* backend) noexcept
 {
   auto shader = glCreateShader(type);
   GL_ERROR("glCreateShader");
-  ShaderObject obj(shader);
+  Owned<ShaderObject> obj{ shader };
   glShaderSource(shader, 1, &src, NULL);
   GL_ERROR("glShaderSource");
   glCompileShader(shader);
   GL_ERROR("glCompileShader");
 
-  return std::move(obj);
+  GLint status;
+  glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
+  GL_ERROR("glGetShaderiv");
+  if(status == GL_FALSE)
+  {
+    if(auto e = obj.log())
+    {
+      CUSTOM_ERROR(ERR_COMPILATION_FAILURE, e.value().c_str()).log(backend);
+      return CUSTOM_ERROR(ERR_COMPILATION_FAILURE, "glCompileShader");
+    }
+    else
+      return e.error();
+  }
+
+  return obj;
 }
 
 GLenum ShaderObject::get_type(const FG_ShaderParameter& param)

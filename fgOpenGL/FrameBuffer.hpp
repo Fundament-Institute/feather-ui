@@ -8,33 +8,39 @@
 
 namespace GL {
   static bool IsFrameBuffer(GLuint i) noexcept { return glIsFramebuffer(i) == GL_TRUE; };
-  static void DeleteFrameBuffer(GLuint i) noexcept { glDeleteFramebuffers(1, &i); };
-  static void UnbindFrameBuffer(GLenum target) noexcept{ glBindFramebuffer(target, 0); };
 
-  struct FrameBuffer : Ref<&IsFrameBuffer, &DeleteFrameBuffer>
+  struct FrameBuffer : Ref<&IsFrameBuffer>
   {
-    explicit constexpr FrameBuffer(GLuint shader) noexcept : Ref(shader) {}
-    explicit constexpr FrameBuffer(void* shader) noexcept : Ref(shader) {}
-    constexpr FrameBuffer() noexcept                    = default;
-    constexpr FrameBuffer(FrameBuffer&& right) noexcept = default;
-    constexpr FrameBuffer(const FrameBuffer&)           = delete;
+    static constexpr DESTROY_FUNC DESTROY = [](GLuint i) { glDeleteFramebuffers(1, &i); };
+
+    explicit constexpr FrameBuffer(GLuint buffer) noexcept : Ref(buffer), _numberOfColorAttachments(0) {}
+    explicit constexpr FrameBuffer(FG_Resource buffer) noexcept :
+      Ref(static_cast<GLuint>(buffer)), _numberOfColorAttachments(0)
+    {
+#ifdef _DEBUG
+      if(_ref != 0)
+        assert(is_valid());
+#endif
+    }
+    constexpr FrameBuffer() noexcept : _numberOfColorAttachments(0) {}
+    constexpr FrameBuffer(const FrameBuffer&)           = default;
     constexpr ~FrameBuffer() noexcept                   = default;
 
-    GLExpected<void> bind(GLenum target) const noexcept;
+    GLExpected<BindRef> bind(GLenum target) const noexcept;
 
-    FrameBuffer& operator=(const FrameBuffer&) = delete;
-    FrameBuffer& operator=(FrameBuffer&& right) noexcept = default;
+    FrameBuffer& operator=(const FrameBuffer&) = default;
 
     // This does not take ownership of the texture
-    static GLExpected<FrameBuffer> create(GLenum target, GLenum type, int level, int zoffset, FG_Resource** textures,
+    static GLExpected<Owned<FrameBuffer>> create(GLenum target, GLenum type, int level, int zoffset, FG_Resource* textures,
                                           uint32_t n_textures) noexcept;
 
-    GLExpected<void> attach(GLenum target, GLenum type, int level, int zoffset, FG_Resource** textures,
+    GLExpected<void> attach(GLenum target, GLenum type, int level, int zoffset, FG_Resource* textures,
                             uint32_t n_textures) noexcept;
-    
-    GLuint ColorAttachments() { return this->NumberOfColorAttachments; };
+    GLExpected<void> attach2D(GLenum target, GLenum attachment, GLenum type, FG_Resource texture, int level);
+
+    GLuint ColorAttachments() { return this->_numberOfColorAttachments; };
   private:
-    int NumberOfColorAttachments = 0;
+    int _numberOfColorAttachments;
   };
 }
 

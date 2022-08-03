@@ -184,7 +184,7 @@ Window::Window(Backend* backend, GLFWmonitor* display, FG_Element* element, FG_V
     DWORD exStyle = GetWindowLongW(hWnd, GWL_EXSTYLE);
     SetWindowLongW(hWnd, GWL_EXSTYLE, exStyle & (~WS_EX_LAYERED));
 
-    this->handle = glfwGetWin32Window(_window);
+    this->handle = reinterpret_cast<uintptr_t>(glfwGetWin32Window(_window));
 #endif
 
     glfwMakeContextCurrent(_window);

@@ -126,7 +126,7 @@ GLExpected<void> Context::SetShaderUniforms(const FG_ShaderParameter* uniforms, 
   {
     if(uniforms[i].type == FG_ShaderType_Buffer)
     {
-      RETURN_ERROR(_program->set_buffer(unpack_ptr<GLuint>(values[i].resource), uniforms[i].count, uniforms[i].width,
+      RETURN_ERROR(_program->set_buffer(values[i].resource, uniforms[i].count, uniforms[i].width,
                                         uniforms[i].length));
       continue;
     }
@@ -150,7 +150,7 @@ GLExpected<void> Context::SetShaderUniforms(const FG_ShaderParameter* uniforms, 
     default:
       if(type >= GL_TEXTURE0 && type <= GL_TEXTURE31)
       {
-        RETURN_ERROR(_program->set_uniform(uniforms[i].name, type, (float*)values[i].resource, count));
+        RETURN_ERROR(_program->set_texture(uniforms[i].name, type, static_cast<GLuint>(values[i].resource)));
       }
       else
       {

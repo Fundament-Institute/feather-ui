@@ -46,18 +46,6 @@ namespace GL {
     ERR_COMPILATION_FAILURE,
   };
 
-  template<class T> constexpr void* pack_ptr(T i) noexcept
-  {
-    static_assert(sizeof(T) <= sizeof(void*), "Cannot fit T into pointer");
-    return reinterpret_cast<void*>(static_cast<size_t>(i));
-  }
-
-  template<class T> constexpr T unpack_ptr(void* p) noexcept
-  {
-    static_assert(sizeof(T) <= sizeof(void*), "Cannot fit T into pointer");
-    return static_cast<T>(reinterpret_cast<size_t>(p));
-  }
-
   // C++23 introduces uz but we don't have that yet.
   static inline constexpr std::size_t operator"" _uz(unsigned long long int x) noexcept { return x; }
 
@@ -118,18 +106,16 @@ namespace GL {
 
     static void FreeGL(char* p) { free(p); }
     static FG_Caps GetCaps(FG_Backend* self);
-    static void* CompileShader(FG_Backend* self, FG_Context* context, enum FG_ShaderStage stage, const char* source);
-    static int DestroyShader(FG_Backend* self, FG_Context* context, void* shader);
+    static FG_Shader CompileShader(FG_Backend* self, FG_Context* context, enum FG_ShaderStage stage, const char* source);
+    static int DestroyShader(FG_Backend* self, FG_Context* context, FG_Shader shader);
     static void* CreateCommandList(FG_Backend* self, FG_Context* context, bool bundle);
     static int DestroyCommandList(FG_Backend* self, void* commands);
-    static int ClearDepthStencil(FG_Backend* self, void* commands, FG_Resource* rendertarget, char clear, uint8_t stencil,
-                                 float depth, uint32_t num_rects, FG_Rect* rects);
-    static int ClearRenderTarget(FG_Backend* self, void* commands, FG_Resource* rendertarget, FG_Color RGBA,
-                                 uint32_t num_rects, FG_Rect* rects);
-    static int CopyResource(FG_Backend* self, void* commands, FG_Resource* src, FG_Resource* dest);
-    static int CopySubresource(FG_Backend* self, void* commands, FG_Resource* src, FG_Resource* dest,
-                               unsigned long srcoffset, unsigned long destoffset, unsigned long bytes);
-    static int CopyResourceRegion(FG_Backend* self, void* commands, FG_Resource* src, FG_Resource* dest, FG_Vec3i srcoffset,
+    static int Clear(FG_Backend* self, void* commands, uint8_t clearbits, FG_Color RGBA, uint8_t stencil, float depth,
+                     uint32_t num_rects, FG_Rect* rects);
+    static int CopyResource(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest);
+    static int CopySubresource(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, unsigned long srcoffset,
+                               unsigned long destoffset, unsigned long bytes);
+    static int CopyResourceRegion(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, FG_Vec3i srcoffset,
                                   FG_Vec3i destoffset, FG_Vec3i size);
     static int DrawGL(FG_Backend* self, void* commands, uint32_t vertexcount, uint32_t instancecount, uint32_t startvertex,
                       uint32_t startinstance);
@@ -137,31 +123,29 @@ namespace GL {
                            uint32_t startindex, int startvertex, uint32_t startinstance);
     static int Dispatch(FG_Backend* self, void* commands);
     static int SyncPoint(FG_Backend* self, void* commands, uint32_t barrier_flags);
-    static int SetPipelineState(FG_Backend* self, void* commands, void* state);
+    static int SetPipelineState(FG_Backend* self, void* commands, uintptr_t state);
     static int SetDepthStencil(FG_Backend* self, void* commands, bool Front, uint8_t StencilFailOp,
                                uint8_t StencilDepthFailOp, uint8_t StencilPassOp, uint8_t StencilFunc);
     static int SetViewports(FG_Backend* self, void* commands, FG_Viewport* viewports, uint32_t count);
     static int SetShaderConstants(FG_Backend* self, void* commands, const FG_ShaderParameter* uniforms,
                                   const FG_ShaderValue* values, uint32_t count);
     static int Execute(FG_Backend* self, FG_Context* context, void* commands);
-    static void* CreatePipelineState(FG_Backend* self, FG_Context* context, FG_PipelineState* pipelinestate,
-                                     FG_Resource** rendertargets, uint32_t n_targets, FG_Blend* blends,
-                                     FG_Resource** vertexbuffer, GLsizei* strides, uint32_t n_buffers,
-                                     FG_VertexParameter* attributes, uint32_t n_attributes, FG_Resource* indexbuffer,
-                                     uint8_t indexstride);
-    static void* CreateComputePipeline(FG_Backend* self, FG_Context* context, void* computeshader, FG_Vec3i workgroup,
-                                       uint32_t flags);
-    static int DestroyPipelineState(FG_Backend* self, FG_Context* context, void* state);
-    static FG_Resource* CreateBuffer(FG_Backend* self, FG_Context* context, void* data, uint32_t bytes,
-                                     enum FG_Usage usage);
-    static FG_Resource* CreateTexture(FG_Backend* self, FG_Context* context, FG_Vec2i size, enum FG_Usage usage,
-                                      enum FG_PixelFormat format, FG_Sampler* sampler, void* data, int MultiSampleCount);
-    static FG_Resource* CreateRenderTarget(FG_Backend* self, FG_Context* context, FG_Resource** textures,
-                                           uint32_t n_textures);
-    static int DestroyResource(FG_Backend* self, FG_Context* context, FG_Resource* resource);
-    static void* MapResource(FG_Backend* self, FG_Context* context, FG_Resource* resource, uint32_t offset, uint32_t length,
+    static uintptr_t CreatePipelineState(FG_Backend* self, FG_Context* context, FG_PipelineState* pipelinestate,
+                                         FG_Resource rendertarget, FG_Blend* blends, FG_Resource* vertexbuffer,
+                                         GLsizei* strides, uint32_t n_buffers, FG_VertexParameter* attributes,
+                                         uint32_t n_attributes, FG_Resource indexbuffer, uint8_t indexstride);
+    static uintptr_t CreateComputePipeline(FG_Backend* self, FG_Context* context, FG_Shader computeshader,
+                                           FG_Vec3i workgroup, uint32_t flags);
+    static int DestroyPipelineState(FG_Backend* self, FG_Context* context, uintptr_t state);
+    static FG_Resource CreateBuffer(FG_Backend* self, FG_Context* context, void* data, uint32_t bytes, enum FG_Usage usage);
+    static FG_Resource CreateTexture(FG_Backend* self, FG_Context* context, FG_Vec2i size, enum FG_Usage usage,
+                                     enum FG_PixelFormat format, FG_Sampler* sampler, void* data, int MultiSampleCount);
+    static FG_Resource CreateRenderTarget(FG_Backend* self, FG_Context* context, FG_Resource depthstencil,
+                                          FG_Resource* textures, uint32_t n_textures, int attachments);
+    static int DestroyResource(FG_Backend* self, FG_Context* context, FG_Resource resource);
+    static void* MapResource(FG_Backend* self, FG_Context* context, FG_Resource resource, uint32_t offset, uint32_t length,
                              enum FG_Usage usage, uint32_t access);
-    static int UnmapResource(FG_Backend* self, FG_Context* context, FG_Resource* resource, enum FG_Usage usage);
+    static int UnmapResource(FG_Backend* self, FG_Context* context, FG_Resource resource, enum FG_Usage usage);
     static FG_Window* CreateWindowGL(FG_Backend* self, FG_Element* element, FG_Display* display, FG_Vec2* pos, FG_Vec2* dim,
                                      const char* caption, uint64_t flags);
     static int SetWindow(FG_Backend* self, FG_Window* window, FG_Element* element, FG_Display* display, FG_Vec2* pos,
@@ -177,7 +161,7 @@ namespace GL {
     static int GetMessageSyncObject(FG_Backend* self, FG_Window* window);
     static int SetCursorGL(FG_Backend* self, FG_Window* window, enum FG_Cursor cursor);
     static int GetDisplayIndex(FG_Backend* self, unsigned int index, FG_Display* out);
-    static int GetDisplay(FG_Backend* self, void* handle, FG_Display* out);
+    static int GetDisplay(FG_Backend* self, uintptr_t handle, FG_Display* out);
     static int GetDisplayWindow(FG_Backend* self, FG_Window* window, FG_Display* out);
     static int CreateSystemControl(FG_Backend* self, FG_Context* context, const char* id, FG_Rect* area, ...);
     static int SetSystemControl(FG_Backend* self, FG_Context* context, void* control, FG_Rect* area, ...);
@@ -197,6 +181,11 @@ namespace GL {
     static const float BASE_DPI;
     static Backend* _singleton;
     static void* _library;
+
+    static constexpr FG_Resource NULL_RESOURCE = 0;
+    static constexpr FG_Shader NULL_SHADER     = 0;
+    static constexpr uintptr_t NULL_PIPELINE   = 0;
+    static constexpr void* NULL_COMMANDLIST    = nullptr;
 
   protected:
     FG_Log _log;

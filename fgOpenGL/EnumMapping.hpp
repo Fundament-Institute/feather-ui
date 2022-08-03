@@ -43,7 +43,7 @@ namespace GL {
   static constinit uint16_t ShaderTypeMapping[] = { GL_HALF_FLOAT,   GL_FLOAT,        GL_DOUBLE, GL_INT,
                                                     GL_UNSIGNED_INT, GL_UNSIGNED_INT, 0,         0 };
 
-  static constinit uint16_t TypeMapping[] = {
+  static constinit uint16_t UsageMapping[] = {
     0,
     GL_ARRAY_BUFFER,
     GL_ELEMENT_ARRAY_BUFFER,
@@ -59,6 +59,7 @@ namespace GL {
     GL_TEXTURE_3D,
     GL_TEXTURE_2D_MULTISAMPLE,
     GL_PROXY_TEXTURE_2D_MULTISAMPLE,
+    GL_RENDERBUFFER,
     GL_SHADER_STORAGE_BUFFER, // Similar to GL_UNIFORM_BUFFER but can be way bigger
   };
 

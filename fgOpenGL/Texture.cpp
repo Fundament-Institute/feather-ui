@@ -20,6 +20,13 @@ static GLenum GLFilter(bool mip, bool other)
   return GL_NEAREST_MIPMAP_NEAREST;
 }
 
+GLExpected<Texture::TextureBindRef> Texture::bind(GLenum target) const noexcept
+{
+  glBindTexture(target, _ref);
+  GL_ERROR("glBindTexture");
+  return Texture::TextureBindRef{ target, [](GLenum target) { glBindTexture(target, 0); } };
+}
+
 GLExpected<void> Texture::apply_sampler(GLenum target, const FG_Sampler& sampler)
 {
   Filter f;
@@ -30,7 +37,6 @@ GLExpected<void> Texture::apply_sampler(GLenum target, const FG_Sampler& sampler
   GL_ERROR("glTexParameteri");
   glTexParameteri(target, GL_TEXTURE_MIN_FILTER, f.min_filter ? GL_LINEAR : GL_NEAREST);
   GL_ERROR("glTexParameteri");
-
 
   glTexParameterf(target, GL_TEXTURE_MAX_LOD, sampler.max_lod);
   GL_ERROR("glTexParameterf");
@@ -55,6 +61,34 @@ GLExpected<void> Texture::apply_sampler(GLenum target, const FG_Sampler& sampler
     glTexParameteri(target, GL_TEXTURE_COMPARE_FUNC, ComparisonMapping[sampler.comparison]);
     GL_ERROR("glTexParameteri");
   }
-   
+
   return {};
+}
+
+GLExpected<Owned<Texture>> Texture::create2D(GLenum target, Format format, FG_Vec2i size, const FG_Sampler& sampler,
+                                             void* data, int levelorsamples)
+{
+  GLuint texgl;
+  glGenTextures(1, &texgl);
+  GL_ERROR("glGenTextures");
+  Owned<Texture> tex(texgl);
+  if(auto bind = tex.bind(target))
+  {
+    if(target == GL_TEXTURE_2D_MULTISAMPLE || target == GL_PROXY_TEXTURE_2D_MULTISAMPLE)
+    {
+      glTexImage2DMultisample(target, levelorsamples, format.internalformat, size.x, size.y, GL_FALSE);
+      GL_ERROR("glTexImage2DMultisample");
+    }
+    else
+    {
+      glTexImage2D(target, levelorsamples, format.internalformat, size.x, size.y, 0, format.components, format.type, data);
+      GL_ERROR("glTexImage2D");
+    }
+
+    RETURN_ERROR(bind.value().apply_sampler(sampler));
+  }
+  else
+    return std::move(bind.error());
+
+  return tex;
 }

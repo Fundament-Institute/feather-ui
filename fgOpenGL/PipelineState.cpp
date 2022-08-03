@@ -11,23 +11,12 @@
 
 using namespace GL;
 
-GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, std::span<FG_Resource*> rendertargets,
-                                                 FG_Blend blend, std::span<FG_Resource*> vertexbuffers, GLsizei* strides,
-                                                 std::span<FG_VertexParameter> attributes, FG_Resource* indexbuffer,
+GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, FG_Resource rendertarget, FG_Blend blend,
+                                                 std::span<FG_Resource> vertexbuffers, GLsizei* strides,
+                                                 std::span<FG_VertexParameter> attributes, FG_Resource indexbuffer,
                                                  uint8_t indexstride) noexcept
 {
-  PipelineState* pipeline      = new(rendertargets.size()) PipelineState{};
-  pipeline->RenderTargetsCount = rendertargets.size();
-  auto rts                     = std::span<GLuint>(reinterpret_cast<GLuint*>(pipeline + 1), rendertargets.size());
-
-  for(size_t i = 0; i < rts.size(); ++i)
-    rts[i] = Buffer(rendertargets[i]).release();
-
-  
-  if (rts.size() > 0) 
-  {
-    pipeline->rt = FrameBuffer(rts[0]).release();
-  }
+  PipelineState* pipeline      = new PipelineState{};
 
   if(auto e = ProgramObject::create())
     pipeline->program = std::move(e.value());
@@ -37,7 +26,7 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
   // for(int i = 0; i < FG_ShaderStage_COUNT; ++i)
   for(auto shader : std::span(state.Shaders))
   {
-    if(shader != nullptr)
+    if(shader != Backend::NULL_SHADER)
       RETURN_ERROR(pipeline->program.attach(ShaderObject(shader)));
   }
   RETURN_ERROR(pipeline->program.link());
@@ -49,10 +38,10 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
   for(size_t i = 0; i < vlist.size(); ++i)
   {
     // Have to be careful to use placement new here to avoid UB due to alloca
-    new(&vlist[i]) std::pair{ Buffer(vertexbuffers[i]).release(), strides[i] };
+    new(&vlist[i]) std::pair{ Buffer(vertexbuffers[i]), strides[i] };
   }
 
-  if(auto e = VertexArrayObject::create(pipeline->program, attributes, vlist, Buffer(indexbuffer).release()))
+  if(auto e = VertexArrayObject::create(pipeline->program, attributes, vlist, Buffer(indexbuffer)))
   {
     pipeline->vao = std::move(e.value());
   }
@@ -60,8 +49,8 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
     return std::move(e.error());
 
   pipeline->Members      = state.Members;
-  pipeline->StencilRef   = state.StencilRef;
-  pipeline->DepthStencil = Buffer(state.DepthStencil).release();
+  pipeline->rt         = FrameBuffer(rendertarget);
+  pipeline->StencilRef = state.StencilRef;
   Context::ColorFloats(state.BlendFactor, pipeline->BlendFactor, false);
 
   if(state.DepthFunc >= ArraySize(PrimitiveMapping))
@@ -111,11 +100,8 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
   pipeline->SlopeScaledDepthBias = state.SlopeScaledDepthBias;
   // pipeline->NodeMask          = state.NodeMask; // OpenGL does not support multi-GPU rendering without extensions
   pipeline->blend = blend;
-  // ??? = state.RTFormats // not sure this has an OpenGL equivilent
 
-  //glBindFramebuffer(GL_FRAMEBUFFER, rts[0]);
-  //glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  //glViewport(0, 0, 800, 600);
+  // glViewport(0, 0, 800, 600);
   return pipeline;
 }
 
@@ -126,28 +112,14 @@ GLExpected<void> PipelineState::apply(Context* ctx) noexcept
   RETURN_ERROR(ctx->ApplyProgram(program));
   RETURN_ERROR(vao.bind());
 
-  auto fb = FrameBuffer(rt);
-  if(auto e = fb.bind(GL_FRAMEBUFFER))
-  {
-    fb.release();
-  }
+  if(auto e = rt.bind(GL_FRAMEBUFFER))
+    e.value().release();
   else
-  {
-    fb.release();
     return std::move(e.error());
-  }
 
   RETURN_ERROR(ctx->ApplyBlend(blend, BlendFactor, false));
   RETURN_ERROR(ctx->ApplyFlags(Flags, CullMode, FillMode));
   ctx->ApplyPrimitiveIndex(Primitive, IndexType);
-   
-  if(DepthStencil != 0)
-  {
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, DepthStencil, 0);
-    GL_ERROR("glFramebufferTexture2D");
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, DepthStencil, 0);
-    GL_ERROR("glFramebufferTexture2D");
-  }
 
   glDepthFunc(DepthFunc);
   GL_ERROR("glDepthFunc");
@@ -166,7 +138,7 @@ GLExpected<void> PipelineState::apply(Context* ctx) noexcept
 // Stores the current openGL pipeline state in this object
 GLExpected<void> current(Context* ctx) noexcept { return {}; }
 
-GLExpected<ComputePipelineState*> ComputePipelineState::create(void* computeshader, FG_Vec3i workgroup,
+GLExpected<ComputePipelineState*> ComputePipelineState::create(FG_Shader computeshader, FG_Vec3i workgroup,
                                                                uint32_t flags) noexcept
 {
   if(!computeshader)

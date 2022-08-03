@@ -15,13 +15,12 @@
 
 namespace GL {
   struct Context;
-  
+
   struct PipelineState
   {
     // This mostly inherits the standard backend pipeline state, but translates things into OpenGL equivalents
     uint64_t Members;
-    GLuint DepthStencil;
-    ProgramObject program;
+    Owned<ProgramObject> program;
     std::array<float, 4> BlendFactor;
     uint32_t SampleMask;
     GLint StencilRef;
@@ -32,7 +31,6 @@ namespace GL {
     uint8_t StencilPassOp;
     uint8_t StencilFunc;
     uint8_t DepthFunc;
-    uint8_t RenderTargetsCount;
     uint8_t FillMode;
     uint8_t CullMode;
     uint8_t Primitive;
@@ -43,7 +41,7 @@ namespace GL {
     uint32_t ForcedSampleCount;
     FG_Blend blend;
     VertexArrayObject vao;
-    GLuint rt = 0;
+    FrameBuffer rt;
 
     GLExpected<void> apply(Context* ctx) noexcept;
     GLExpected<std::string> log() const noexcept;
@@ -54,17 +52,10 @@ namespace GL {
     PipelineState& operator=(const PipelineState&) = delete;
     PipelineState& operator=(PipelineState&& right) noexcept = default;
 
-    static GLExpected<PipelineState*> create(const FG_PipelineState& state, std::span<FG_Resource*> rendertargets,
-                                             FG_Blend blend, std::span<FG_Resource*> vertexbuffers, GLsizei* strides,
-                                             std::span<FG_VertexParameter> attributes, FG_Resource* indexbuffer,
+    static GLExpected<PipelineState*> create(const FG_PipelineState& state, FG_Resource rendertarget, FG_Blend blend,
+                                             std::span<FG_Resource> vertexbuffers, GLsizei* strides,
+                                             std::span<FG_VertexParameter> attributes, FG_Resource indexbuffer,
                                              uint8_t indexstride) noexcept;
-
-    static void* operator new(std::size_t base, std::size_t renderTargetCount)
-    {
-      return ::operator new(base + sizeof(GLuint) * renderTargetCount);
-    }
-
-    static void operator delete(void* base) { return ::operator delete(base); }
 
   private:
 #pragma warning(push)
@@ -81,7 +72,7 @@ namespace GL {
     uint32_t flags;
     ProgramObject program;
 
-    static GLExpected<ComputePipelineState*> create(void* computeshader, FG_Vec3i workgroup, uint32_t flags) noexcept;
+    static GLExpected<ComputePipelineState*> create(FG_Shader computeshader, FG_Vec3i workgroup, uint32_t flags) noexcept;
     GLExpected<void> apply(Context* ctx) noexcept;
     GLExpected<std::string> log() const noexcept;
   };

@@ -8,35 +8,37 @@
 
 namespace GL {
   static bool IsBuffer(GLuint i) noexcept { return glIsBuffer(i) == GL_TRUE; };
-  static void DeleteBuffer(GLuint i) noexcept { glDeleteBuffers(1, &i); };
-  static void UnbindBuffer(GLenum target) noexcept { glBindBuffer(target, 0); };
 
-  struct Buffer : Ref<&IsBuffer, &DeleteBuffer>
+  struct Buffer : Ref<&IsBuffer>
   {
-    typedef BindRef<&UnbindBuffer> GLBufferBindRef;
+    static constexpr DESTROY_FUNC DESTROY = [](GLuint i) { glDeleteBuffers(1, &i); };
 
-    explicit constexpr Buffer(GLuint shader) noexcept : Ref(shader) {}
-    explicit constexpr Buffer(void* shader) noexcept : Ref(shader) {}
-    constexpr Buffer() noexcept               = default;
-    constexpr Buffer(Buffer&& right) noexcept = default;
-    constexpr Buffer(const Buffer&)           = delete;
-    constexpr ~Buffer() noexcept              = default;
-    GLExpected<GLBufferBindRef> bind(GLenum target) const noexcept
+    explicit constexpr Buffer() noexcept : Ref() {}
+    explicit constexpr Buffer(GLuint buffer) noexcept : Ref(buffer) {}
+    explicit constexpr Buffer(FG_Resource buffer) noexcept : Ref(static_cast<GLuint>(buffer))
+    {
+#ifdef _DEBUG
+      if(_ref != 0)
+        assert(is_valid());
+#endif
+    }
+    constexpr Buffer(const Buffer&) = default;
+    constexpr ~Buffer() noexcept    = default;
+    GLExpected<BindRef> bind(GLenum target) const noexcept
     {
       glBindBuffer(target, _ref);
       GL_ERROR("glBindBuffer");
-      return GLBufferBindRef(target);
+      return BindRef{ target, [](GLenum target) { glBindBuffer(target, 0); } };
     }
 
-    Buffer& operator=(const Buffer&) = delete;
-    Buffer& operator=(Buffer&& right) noexcept = default;
+    Buffer& operator=(const Buffer&) = default;
 
-    static GLExpected<Buffer> create(GLenum target, void* data, GLsizeiptr bytes)
+    static GLExpected<Owned<Buffer>> create(GLenum target, void* data, GLsizeiptr bytes)
     {
       GLuint fbgl;
       glGenBuffers(1, &fbgl);
       GL_ERROR("glGenBuffers");
-      Buffer fb(fbgl);
+      Owned<Buffer> fb(fbgl);
       if(auto e = fb.bind(target))
       {
         glBufferData(target, bytes, data, !data ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
@@ -45,9 +47,10 @@ namespace GL {
       else
         return std::move(e.error());
 
-      return fb;
+      return std::move(fb);
     }
   };
+
 }
 
 #endif

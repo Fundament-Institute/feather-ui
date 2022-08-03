@@ -6,6 +6,7 @@
 #include <cfloat>
 #include "ShaderObject.hpp"
 #include "ProgramObject.hpp"
+#include "Renderbuffer.hpp"
 #include "PipelineState.hpp"
 #include "EnumMapping.hpp"
 #include <cstring>
@@ -43,7 +44,7 @@ FG_Caps Backend::GetCaps(FG_Backend* self)
   return caps;
 }
 
-void* Backend::CompileShader(FG_Backend* self, FG_Context* context, enum FG_ShaderStage stage, const char* source)
+FG_Shader Backend::CompileShader(FG_Backend* self, FG_Context* context, enum FG_ShaderStage stage, const char* source)
 {
   auto backend = static_cast<Backend*>(self);
 
@@ -51,33 +52,20 @@ void* Backend::CompileShader(FG_Backend* self, FG_Context* context, enum FG_Shad
     CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Unsupported shader stage").log(backend);
   else
   {
-    // Note: Can't use LOG_ERROR here because
-    if(auto r = ShaderObject::create(source, ShaderStageMapping[stage]))
-    {
-      GLint status;
-      glGetShaderiv(r.value(), GL_COMPILE_STATUS, &status);
-      // GL_ERROR("glGetShaderiv");
-      if(status == GL_FALSE)
-      {
-        if(auto v = r.value().log())
-          CUSTOM_ERROR(ERR_COMPILATION_FAILURE, v.value().c_str()).log(backend);
-        else
-          v.error().log(backend);
-      }
-      else
-        return pack_ptr(std::move(r.value()).release());
-    }
+    // Note: Can't use LOG_ERROR here because we return a value
+    if(auto r = ShaderObject::create(source, ShaderStageMapping[stage], backend))
+      return std::move(r.value()).release();
     else
       r.error().log(backend);
   }
-  return nullptr;
+  return NULL_SHADER;
 }
-int Backend::DestroyShader(FG_Backend* self, FG_Context* context, void* shader)
+int Backend::DestroyShader(FG_Backend* self, FG_Context* context, FG_Shader shader)
 {
   auto backend = static_cast<Backend*>(self);
 
-  // ShaderObject takes ownership of this and deletes it once it's destructed.
-  ShaderObject s(shader);
+  // Take ownership and delete
+  Owned<ShaderObject> s(shader);
   if(!s.is_valid())
   {
     backend->LOG(FG_Level_Error, "Invalid shader!", s.release());
@@ -93,7 +81,7 @@ void* Backend::CreateCommandList(FG_Backend* self, FG_Context* context, bool bun
   {
     backend->LOG(FG_Level_Error,
                  "This backend can't do multiple command lists at the same time! Did you forget to free the old list?");
-    return nullptr;
+    return NULL_COMMANDLIST;
   }
   backend->_insidelist = true;
   return context;
@@ -117,61 +105,55 @@ int Backend::DestroyCommandList(FG_Backend* self, void* commands)
   return ERR_SUCCESS;
 }
 
-int Backend::ClearDepthStencil(FG_Backend* self, void* commands, FG_Resource* depthstencil, char clear, uint8_t stencil,
-                               float depth, uint32_t num_rects, FG_Rect* rects)
+int Backend::Clear(FG_Backend* self, void* commands, uint8_t clearbits, FG_Color RGBA, uint8_t stencil, float depth,
+                   uint32_t num_rects, FG_Rect* rects)
 {
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(commands);
 
-  // TODO: bind depthstencil only if necessary
   glClearDepth(depth);
   if(auto e = glGetError())
     return e;
   glClearStencil(stencil);
   if(auto e = glGetError())
     return e;
-
-  // TODO: iterate through rects and set scissor rects for each one and clear.
-
-  // clear 0 clears both, clear 1 is just depth, clear -1 is just stencil
-  switch(clear)
-  {
-  case 0: glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-  case 1: glClear(GL_DEPTH_BUFFER_BIT);
-  case -1: glClear(GL_STENCIL_BUFFER_BIT);
-  }
-
-  return glGetError();
-}
-int Backend::ClearRenderTarget(FG_Backend* self, void* commands, FG_Resource* rendertarget, FG_Color RGBA,
-                               uint32_t num_rects, FG_Rect* rects)
-{
-  auto backend = static_cast<Backend*>(self);
-  auto context = reinterpret_cast<Context*>(commands);
-
-  // TODO: bind rendertarget only if necessary
   std::array<float, 4> colors;
   Context::ColorFloats(RGBA, colors, false);
   glClearColor(colors[0], colors[1], colors[2], colors[3]);
   if(auto e = glGetError())
     return e;
 
-  // TODO: iterate through num_rects and apply scissor rect
-  glClear(GL_COLOR_BUFFER_BIT);
-  return glGetError();
+  GLbitfield flags = 0;
+  if(clearbits & FG_ClearFlag_COLOR)
+    flags |= GL_COLOR_BUFFER_BIT;
+  if(clearbits & FG_ClearFlag_DEPTH)
+    flags |= GL_DEPTH_BUFFER_BIT;
+  if(clearbits & FG_ClearFlag_STENCIL)
+    flags |= GL_STENCIL_BUFFER_BIT;
+  if(clearbits & FG_ClearFlag_ACCUM)
+    flags |= GL_ACCUM_BUFFER_BIT;
+
+  if(!num_rects)
+  {
+    glClear(flags);
+    return glGetError();
+  }
+  // TODO: iterate through rects and set scissor rects for each one and clear.
+
+  return ERR_NOT_IMPLEMENTED;
 }
-int Backend::CopyResource(FG_Backend* self, void* commands, FG_Resource* src, FG_Resource* dest)
+int Backend::CopyResource(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest)
 {
   auto backend = static_cast<Backend*>(self);
   return ERR_NOT_IMPLEMENTED;
 }
-int Backend::CopySubresource(FG_Backend* self, void* commands, FG_Resource* src, FG_Resource* dest, unsigned long srcoffset,
+int Backend::CopySubresource(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, unsigned long srcoffset,
                              unsigned long destoffset, unsigned long bytes)
 {
   auto backend = static_cast<Backend*>(self);
   return ERR_NOT_IMPLEMENTED;
 }
-int Backend::CopyResourceRegion(FG_Backend* self, void* commands, FG_Resource* src, FG_Resource* dest, FG_Vec3i srcoffset,
+int Backend::CopyResourceRegion(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, FG_Vec3i srcoffset,
                                 FG_Vec3i destoffset, FG_Vec3i size)
 {
   auto backend = static_cast<Backend*>(self);
@@ -247,7 +229,7 @@ int Backend::SyncPoint(FG_Backend* self, void* commands, uint32_t barrier_flags)
   return 0;
 }
 
-int Backend::SetPipelineState(FG_Backend* self, void* commands, void* state)
+int Backend::SetPipelineState(FG_Backend* self, void* commands, uintptr_t state)
 {
   if(!commands || !state)
     return ERR_INVALID_PARAMETER;
@@ -256,9 +238,13 @@ int Backend::SetPipelineState(FG_Backend* self, void* commands, void* state)
   auto context = reinterpret_cast<Context*>(commands);
 
   if(reinterpret_cast<PipelineState*>(state)->Members & COMPUTE_PIPELINE_FLAG)
+  {
     LOG_ERROR(backend, reinterpret_cast<ComputePipelineState*>(state)->apply(context));
+  }
   else
+  {
     LOG_ERROR(backend, reinterpret_cast<PipelineState*>(state)->apply(context));
+  }
 
   return 0;
 }
@@ -286,45 +272,43 @@ int Backend::SetShaderConstants(FG_Backend* self, void* commands, const FG_Shade
 }
 int Backend::Execute(FG_Backend* self, FG_Context* context, void* commands) { return ERR_SUCCESS; }
 
-void* Backend::CreatePipelineState(FG_Backend* self, FG_Context* context, FG_PipelineState* pipelinestate,
-                                   FG_Resource** rendertargets, uint32_t n_targets, FG_Blend* blends,
-                                   FG_Resource** vertexbuffer, GLsizei* strides, uint32_t n_buffers,
-                                   FG_VertexParameter* attributes, uint32_t n_attributes, FG_Resource* indexbuffer,
-                                   uint8_t indexstride)
+uintptr_t Backend::CreatePipelineState(FG_Backend* self, FG_Context* context, FG_PipelineState* pipelinestate,
+                                       FG_Resource rendertarget, FG_Blend* blends, FG_Resource* vertexbuffer,
+                                       GLsizei* strides, uint32_t n_buffers, FG_VertexParameter* attributes,
+                                       uint32_t n_attributes, FG_Resource indexbuffer, uint8_t indexstride)
 {
   if(!pipelinestate || !context || !blends)
-    return nullptr;
+    return NULL_PIPELINE;
 
   auto backend = static_cast<Backend*>(self);
   auto ctx     = reinterpret_cast<Context*>(context);
 
   // Can't use LOG_ERROR here because we return a pointer.
-  if(auto e = PipelineState::create(*pipelinestate, std::span(rendertargets, n_targets), *blends,
-                                    std::span(vertexbuffer, n_buffers), strides, std::span(attributes, n_attributes),
-                                    indexbuffer, indexstride))
-    return e.value();
+  if(auto e = PipelineState::create(*pipelinestate, rendertarget, *blends, std::span(vertexbuffer, n_buffers), strides,
+                                    std::span(attributes, n_attributes), indexbuffer, indexstride))
+    return reinterpret_cast<uintptr_t>(e.value());
   else
     e.log(backend);
-  return nullptr;
+  return NULL_PIPELINE;
 }
-void* Backend::CreateComputePipeline(FG_Backend* self, FG_Context* context, void* computeshader, FG_Vec3i workgroup,
-                                     uint32_t flags)
+uintptr_t Backend::CreateComputePipeline(FG_Backend* self, FG_Context* context, FG_Shader computeshader, FG_Vec3i workgroup,
+                                         uint32_t flags)
 {
   if(!context)
-    return nullptr;
+    return NULL_PIPELINE;
 
   auto backend = static_cast<Backend*>(self);
   auto ctx     = reinterpret_cast<Context*>(context);
 
   // Can't use LOG_ERROR here because we return a pointer.
   if(auto e = ComputePipelineState::create(computeshader, workgroup, flags))
-    return e.value();
+    return reinterpret_cast<uintptr_t>(e.value());
   else
     e.log(backend);
-  return nullptr;
+  return NULL_PIPELINE;
 }
 
-int Backend::DestroyPipelineState(FG_Backend* self, FG_Context* context, void* state)
+int Backend::DestroyPipelineState(FG_Backend* self, FG_Context* context, uintptr_t state)
 {
   if(!state)
     return ERR_INVALID_PARAMETER;
@@ -336,53 +320,86 @@ int Backend::DestroyPipelineState(FG_Backend* self, FG_Context* context, void* s
   return 0;
 }
 
-FG_Resource* Backend::CreateBuffer(FG_Backend* self, FG_Context* context, void* data, uint32_t bytes, enum FG_Usage type)
+FG_Resource Backend::CreateBuffer(FG_Backend* self, FG_Context* context, void* data, uint32_t bytes, enum FG_Usage usage)
 {
   auto backend = static_cast<Backend*>(self);
-  if(type >= ArraySize(TypeMapping))
-    return nullptr;
+  if(usage >= ArraySize(UsageMapping))
+    return NULL_RESOURCE;
 
   // Can't use LOG_ERROR here because we return a pointer.
-  if(auto e = Buffer::create(TypeMapping[type], data, bytes))
-    return pack_ptr(std::move(e.value()).release());
+  if(auto e = Buffer::create(UsageMapping[usage], data, bytes))
+    return std::move(e.value()).release();
   else
     e.log(backend);
-  return nullptr;
+  return NULL_RESOURCE;
 }
-FG_Resource* Backend::CreateTexture(FG_Backend* self, FG_Context* context, FG_Vec2i size, enum FG_Usage type,
-                                    enum FG_PixelFormat format, FG_Sampler* sampler, void* data, int MultiSampleCount)
+FG_Resource Backend::CreateTexture(FG_Backend* self, FG_Context* context, FG_Vec2i size, enum FG_Usage usage,
+                                   enum FG_PixelFormat format, FG_Sampler* sampler, void* data, int MultiSampleCount)
 {
   auto backend = static_cast<Backend*>(self);
-  if(type >= ArraySize(TypeMapping) || !sampler)
-    return nullptr;
+  if(usage >= ArraySize(UsageMapping) || !sampler)
+    return NULL_RESOURCE;
 
   // Can't use LOG_ERROR here because we return a pointer.
-  if(auto e = Texture::create2D(TypeMapping[type], Format::Create(format, false), size, *sampler, data, MultiSampleCount))
-    return pack_ptr(std::move(e.value()).release());
+  if(usage == FG_Usage_Renderbuffer)
+  {
+    if(auto e = Renderbuffer::create(UsageMapping[usage], Format::Create(format, false), size, MultiSampleCount))
+      return std::move(e.value()).release();
+    else
+      e.log(backend);
+  }
   else
-    e.log(backend);
-  return nullptr;
+  {
+    if(auto e =
+         Texture::create2D(UsageMapping[usage], Format::Create(format, false), size, *sampler, data, MultiSampleCount))
+      return std::move(e.value()).release();
+    else
+      e.log(backend);
+  }
+
+  return NULL_RESOURCE;
 }
-FG_Resource* Backend::CreateRenderTarget(FG_Backend* self, FG_Context* context, FG_Resource** textures, uint32_t n_textures)
+FG_Resource Backend::CreateRenderTarget(FG_Backend* self, FG_Context* context, FG_Resource depthstencil,
+                                        FG_Resource* textures, uint32_t n_textures, int attachments)
 {
   auto backend = static_cast<Backend*>(self);
 
   if(auto e = FrameBuffer::create(GL_FRAMEBUFFER, GL_TEXTURE_2D, 0, 0, textures, n_textures))
-    return pack_ptr(std::move(e.value()).release());
+  {
+    if(auto flags = (attachments & (FG_ClearFlag_DEPTH | FG_ClearFlag_STENCIL)))
+    {
+      switch(flags)
+      {
+      case FG_ClearFlag_DEPTH | FG_ClearFlag_STENCIL: flags = GL_DEPTH_STENCIL_ATTACHMENT; break;
+      case FG_ClearFlag_DEPTH: flags = GL_DEPTH_ATTACHMENT; break;
+      case FG_ClearFlag_STENCIL: flags = GL_STENCIL_ATTACHMENT; break;
+      }
+
+      if(auto __e = e.value().attach2D(GL_FRAMEBUFFER, flags, GL_TEXTURE_2D, depthstencil, 0)) {}
+      else
+      {
+        e.log(backend);
+        return NULL_RESOURCE;
+      }
+    }
+    return std::move(e.value()).release();
+  }
   else
     e.log(backend);
-  return nullptr;
+  return NULL_RESOURCE;
 }
-int Backend::DestroyResource(FG_Backend* self, FG_Context* context, FG_Resource* resource)
+int Backend::DestroyResource(FG_Backend* self, FG_Context* context, FG_Resource resource)
 {
   auto backend = static_cast<Backend*>(self);
-  auto i       = unpack_ptr<GLuint>(resource);
+  GLuint i     = resource;
   if(glIsBuffer(i))
-    Buffer b(i);
+    Owned<Buffer> b(i);
   else if(glIsTexture(i))
-    Texture t(i);
+    Owned<Texture> t(i);
+  else if(glIsRenderbuffer(i))
+    Owned<Renderbuffer> t(i);
   else if(glIsFramebuffer(i))
-    FrameBuffer fb(i);
+    Owned<FrameBuffer> fb(i);
   else
     return ERR_INVALID_PARAMETER;
 
@@ -418,35 +435,45 @@ GLenum getOpenGLAccessEnum(uint32_t flags)
   return 0;
 }
 
-void* Backend::MapResource(FG_Backend* self, FG_Context* context, FG_Resource* resource, uint32_t offset, uint32_t length,
-                           enum FG_Usage type, uint32_t access)
+void* Backend::MapResource(FG_Backend* self, FG_Context* context, FG_Resource resource, uint32_t offset, uint32_t length,
+                           enum FG_Usage usage, uint32_t access)
 {
   auto backend = static_cast<Backend*>(self);
-  auto i       = unpack_ptr<GLuint>(resource);
+  GLuint i     = resource;
 
-  if(type >= ArraySize(TypeMapping) || !context)
+  if(usage >= ArraySize(UsageMapping) || !context)
     return nullptr;
 
-  if(glIsBuffer(i))
-    glBindBuffer(TypeMapping[type], i);
-  else if(glIsTexture(i))
-    glBindTexture(TypeMapping[type], i);
-  else if(glIsFramebuffer(i))
-    glBindFramebuffer(TypeMapping[type], i);
-  else
-    return nullptr;
-
-  if(GLError e{ "glBind", __FILE__, __LINE__ })
+  BindRef bind;
+  if(auto v = Buffer(i))
   {
-    e.log(backend);
-    return nullptr;
+    if(auto b = v.bind(UsageMapping[usage]))
+      bind = std::move(b.value());
+    else
+      b.error().log(backend);
   }
+  if(auto v = Texture(i))
+  {
+    if(auto b = v.bind(UsageMapping[usage]))
+      bind = std::move(b.value());
+    else
+      b.error().log(backend);
+  }
+  if(auto v = FrameBuffer(i))
+  {
+    if(auto b = v.bind(UsageMapping[usage]))
+      bind = std::move(b.value());
+    else
+      b.error().log(backend);
+  }
+  if(!bind)
+    return nullptr;
 
   void* v = nullptr;
   if(!offset && !length)
-    v = glMapBuffer(TypeMapping[type], getOpenGLAccessEnum(access));
+    v = glMapBuffer(UsageMapping[usage], getOpenGLAccessEnum(access));
   else
-    v = glMapBufferRange(TypeMapping[type], offset, length, getOpenGLAccessFlags(access));
+    v = glMapBufferRange(UsageMapping[usage], offset, length, getOpenGLAccessFlags(access));
 
   if(GLError e{ "glMapBuffer", __FILE__, __LINE__ })
   {
@@ -454,56 +481,47 @@ void* Backend::MapResource(FG_Backend* self, FG_Context* context, FG_Resource* r
     return nullptr;
   }
 
-  if(glIsBuffer(i))
-    glBindBuffer(TypeMapping[type], 0);
-  else if(glIsTexture(i))
-    glBindTexture(TypeMapping[type], 0);
-  else if(glIsFramebuffer(i))
-    glBindFramebuffer(TypeMapping[type], 0);
-  else
-    return nullptr;
-
-  if(GLError e{ "glBind", __FILE__, __LINE__ })
-  {
-    e.log(backend);
-    return nullptr;
-  }
-
   return v;
 }
-int Backend::UnmapResource(FG_Backend* self, FG_Context* context, FG_Resource* resource, enum FG_Usage type)
+int Backend::UnmapResource(FG_Backend* self, FG_Context* context, FG_Resource resource, enum FG_Usage usage)
 {
   auto backend = static_cast<Backend*>(self);
-  auto i       = unpack_ptr<GLuint>(resource);
+  GLuint i     = resource;
 
-  if(type >= ArraySize(TypeMapping) || !context)
+  if(usage >= ArraySize(UsageMapping) || !context)
     return ERR_INVALID_PARAMETER;
 
-  if(glIsBuffer(i))
-    glBindBuffer(TypeMapping[type], i);
-  else if(glIsTexture(i))
-    glBindTexture(TypeMapping[type], i);
-  else if(glIsFramebuffer(i))
-    glBindFramebuffer(TypeMapping[type], i);
-  else
+  BindRef bind;
+  if(auto v = Buffer(i))
+  {
+    if(auto b = v.bind(UsageMapping[usage]))
+      bind = std::move(b.value());
+    else
+      return b.error().log(backend);
+  }
+  if(auto v = Texture(i))
+  {
+    if(auto b = v.bind(UsageMapping[usage]))
+      bind = std::move(b.value());
+    else
+      return b.error().log(backend);
+  }
+  if(auto v = FrameBuffer(i))
+  {
+    if(auto b = v.bind(UsageMapping[usage]))
+      bind = std::move(b.value());
+    else
+      return b.error().log(backend);
+  }
+  if(!bind)
     return ERR_INVALID_PARAMETER;
 
-  if(auto e = glGetError())
-    return e;
+  glUnmapBuffer(UsageMapping[usage]);
 
-  glUnmapBuffer(TypeMapping[type]);
-  auto e = glGetError();
+  if(GLError e{ "glUnmapBuffer", __FILE__, __LINE__ })
+    return e.log(backend);
 
-  if(glIsBuffer(i))
-    glBindBuffer(TypeMapping[type], 0);
-  else if(glIsTexture(i))
-    glBindTexture(TypeMapping[type], 0);
-  else if(glIsFramebuffer(i))
-    glBindFramebuffer(TypeMapping[type], 0);
-  else
-    return ERR_INVALID_PARAMETER;
-
-  return e;
+  return 0;
 }
 
 FG_Window* Backend::CreateWindowGL(FG_Backend* self, FG_Element* element, FG_Display* display, FG_Vec2* pos, FG_Vec2* dim,
@@ -822,16 +840,16 @@ int Backend::GetDisplayIndex(FG_Backend* self, unsigned int index, FG_Display* o
   auto monitors = glfwGetMonitors(&count);
   if(index >= static_cast<unsigned int>(count))
     return ERR_INVALID_DISPLAY;
-  return GetDisplay(self, monitors[index], out);
+  return GetDisplay(self, reinterpret_cast<uintptr_t>(monitors[index]), out);
 }
 
-int Backend::GetDisplay(FG_Backend* self, void* handle, FG_Display* out)
+int Backend::GetDisplay(FG_Backend* self, uintptr_t handle, FG_Display* out)
 {
   if(!handle || !out)
     return ERR_MISSING_PARAMETER;
   out->handle = handle;
   // TODO: handle GLFW errors
-  out->primary = glfwGetPrimaryMonitor() == handle;
+  out->primary = glfwGetPrimaryMonitor() == reinterpret_cast<GLFWmonitor*>(handle);
   glfwGetMonitorWorkarea(reinterpret_cast<GLFWmonitor*>(handle), &out->offset.x, &out->offset.y, &out->size.x,
                          &out->size.y);
   glfwGetMonitorContentScale(reinterpret_cast<GLFWmonitor*>(handle), &out->dpi.x, &out->dpi.y);
@@ -843,7 +861,8 @@ int Backend::GetDisplay(FG_Backend* self, void* handle, FG_Display* out)
 
 int Backend::GetDisplayWindow(FG_Backend* self, FG_Window* window, FG_Display* out)
 {
-  return GetDisplay(self, glfwGetWindowMonitor(static_cast<Window*>(window)->GetWindow()), out);
+  return GetDisplay(self, reinterpret_cast<uintptr_t>(glfwGetWindowMonitor(static_cast<Window*>(window)->GetWindow())),
+                    out);
 }
 
 int Backend::CreateSystemControl(FG_Backend* self, FG_Context* context, const char* id, FG_Rect* area, ...)
@@ -986,8 +1005,7 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   destroyShader         = &DestroyShader;
   createCommandList     = &CreateCommandList;
   destroyCommandList    = &DestroyCommandList;
-  clearDepthStencil     = &ClearDepthStencil;
-  clearRenderTarget     = &ClearRenderTarget;
+  clear                 = &Clear;
   copyResource          = &CopyResource;
   copySubresource       = &CopySubresource;
   copyResourceRegion    = &CopyResourceRegion;
