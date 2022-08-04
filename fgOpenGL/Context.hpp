@@ -22,15 +22,15 @@ namespace GL {
 
   enum class GLCaps
   {
-    GLCAP_GAMMA_EXT = 1,
-    GLCAP_INSTANCES_EXT = 2,
+    GLCAP_GAMMA_EXT            = 1,
+    GLCAP_INSTANCES_EXT        = 2,
     GLCAP_INSTANCED_ARRAYS_EXT = 4,
-    GLCAP_ES2 = 8,
-    GLCAP_ES3 = 16,
-    GLCAP_GAMMA = 32, // Proper gamma support
-    GLCAP_INSTANCES = 64,
-    GLCAP_INSTANCED_ARRAYS = 128,
-    GLCAP_VAO = 256,
+    GLCAP_ES2                  = 8,
+    GLCAP_ES3                  = 16,
+    GLCAP_GAMMA                = 32, // Proper gamma support
+    GLCAP_INSTANCES            = 64,
+    GLCAP_INSTANCED_ARRAYS     = 128,
+    GLCAP_VAO                  = 256,
   };
 
   // A context may or may not have an associated OS window, for use inside other 3D engines.
@@ -48,15 +48,15 @@ namespace GL {
     GLExpected<void> Barrier(GLbitfield barrier_flags);
     GLFWwindow* GetWindow() const { return _window; }
     GLExpected<void> SetShaderUniforms(const FG_ShaderParameter* uniforms, const FG_ShaderValue* values, uint32_t count);
-    GLExpected<void> ApplyBlend(const FG_Blend& blend, const std::array<float, 4>& factor, bool force = false);
-    GLExpected<void> ApplyFlags(uint16_t flags, uint8_t cull, uint8_t fill);
+    GLExpected<void> ApplyBlendFactor(const std::array<float, 4>& factor);
+    GLExpected<void> ApplyBlend(const FG_Blend& blend, bool force = false);
+    GLExpected<void> ApplyFlags(uint16_t flags);
+    GLExpected<void> ApplyFill(uint8_t fill);
+    GLExpected<void> ApplyCull(uint8_t cull);
     void ApplyWorkGroup(FG_Vec3i workgroup) { _workgroup = workgroup; }
     void ApplyDim(FG_Vec2 dim) { _dim = dim; }
-    void ApplyPrimitiveIndex(GLenum primitive, GLenum indextype)
-    {
-      _primitive = primitive;
-      _indextype = indextype;
-    }
+    inline void ApplyIndextype(GLenum indextype) { _indextype = indextype; }
+    inline void ApplyPrimitive(GLenum primitive) { _primitive = primitive; }
     GLExpected<void> ApplyProgram(const ProgramObject& program);
     void FlipFlag(int diff, int flags, int flag, int option);
     static inline void ColorFloats(const FG_Color8& c, std::array<float, 4>& colors, bool linearize)
@@ -95,7 +95,7 @@ namespace GL {
     }
 
     static const FG_Blend Normal_Blend;      // For straight-alpha blending
-    static const FG_Blend Premultiply_Blend;     // For premultiplied blending (the default)
+    static const FG_Blend Premultiply_Blend; // For premultiplied blending (the default)
     static const FG_Blend Default_Blend;     // OpenGL default settings
 
     struct GLState

@@ -45,9 +45,9 @@ set(INSTALL_INC_DIR "${CMAKE_INSTALL_PREFIX}/include" CACHE PATH "Installation d
 
 add_subdirectory(fgOpenGL)
 #add_subdirectory(fgDirect2D)
-add_subdirectory(cpptest)
+add_subdirectory(backendtest)
 
-install(TARGETS fgOpenGL cpptest
+install(TARGETS fgOpenGL backendtest
         RUNTIME DESTINATION ${INSTALL_BIN_DIR}
         ARCHIVE DESTINATION ${INSTALL_LIB_DIR}
         LIBRARY DESTINATION ${INSTALL_LIB_DIR}  )

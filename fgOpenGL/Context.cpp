@@ -126,8 +126,7 @@ GLExpected<void> Context::SetShaderUniforms(const FG_ShaderParameter* uniforms, 
   {
     if(uniforms[i].type == FG_ShaderType_Buffer)
     {
-      RETURN_ERROR(_program->set_buffer(values[i].resource, uniforms[i].count, uniforms[i].width,
-                                        uniforms[i].length));
+      RETURN_ERROR(_program->set_buffer(values[i].resource, uniforms[i].count, uniforms[i].width, uniforms[i].length));
       continue;
     }
 
@@ -214,7 +213,7 @@ void Context::FlipFlag(int diff, int flags, int flag, int option)
   }
 }
 
-GLExpected<void> Context::ApplyBlend(const FG_Blend& blend, const std::array<float, 4>& factor, bool force)
+GLExpected<void> Context::ApplyBlendFactor(const std::array<float, 4>& factor)
 {
   if(_lastfactor != factor)
   {
@@ -222,7 +221,11 @@ GLExpected<void> Context::ApplyBlend(const FG_Blend& blend, const std::array<flo
     GL_ERROR("glBlendColor");
     _lastfactor = factor;
   }
+  return {};
+}
 
+GLExpected<void> Context::ApplyBlend(const FG_Blend& blend, bool force)
+{
   if(force || memcmp(&blend, &_lastblend, sizeof(FG_Blend)) != 0)
   {
     glBlendFuncSeparate(BlendMapping[blend.src_blend], BlendMapping[blend.dest_blend], BlendMapping[blend.src_blend_alpha],
@@ -244,7 +247,45 @@ GLExpected<void> Context::ApplyBlend(const FG_Blend& blend, const std::array<flo
   return {};
 }
 
-GLExpected<void> Context::ApplyFlags(uint16_t flags, uint8_t cull, uint8_t fill)
+GLExpected<void> Context::ApplyFill(uint8_t fill)
+{
+  if(_lastfill != fill)
+  {
+    switch(fill)
+    {
+    case FG_Fill_Mode_Fill: glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); break;
+    case FG_Fill_Mode_Line: glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); break;
+    case FG_Fill_Mode_Point: glPolygonMode(GL_FRONT_AND_BACK, GL_POINT); break;
+    }
+    GL_ERROR("glPolygonMode");
+    _lastfill = fill;
+  }
+  return {};
+}
+
+GLExpected<void> Context::ApplyCull(uint8_t cull)
+{
+  if(_lastcull != cull)
+  {
+    if(cull == FG_Cull_Mode_None)
+    {
+      glDisable(GL_CULL_FACE);
+      GL_ERROR("glDisable");
+    }
+    else
+    {
+      glEnable(GL_CULL_FACE);
+      GL_ERROR("glEnable");
+
+      glCullFace(cull == FG_Cull_Mode_Back ? GL_BACK : GL_FRONT);
+      GL_ERROR("glCullFace");
+    }
+
+    _lastcull = cull;
+  }
+  return {};
+}
+GLExpected<void> Context::ApplyFlags(uint16_t flags)
 {
   auto diff = _lastflags ^ flags;
   FlipFlag(diff, flags, FG_Pipeline_Flag_RenderTarget_SRGB_Enable, GL_FRAMEBUFFER_SRGB);
@@ -271,37 +312,6 @@ GLExpected<void> Context::ApplyFlags(uint16_t flags, uint8_t cull, uint8_t fill)
   {
     glFrontFace((flags & FG_Pipeline_Flag_Front_Counter_Clockwise) ? GL_CCW : GL_CW);
     GL_ERROR("glFrontFace");
-  }
-
-  if(_lastcull != cull)
-  {
-    if(cull == FG_Cull_Mode_None)
-    {
-      glDisable(GL_CULL_FACE);
-      GL_ERROR("glDisable");
-    }
-    else
-    {
-      glEnable(GL_CULL_FACE);
-      GL_ERROR("glEnable");
-
-      glCullFace(cull == FG_Cull_Mode_Back ? GL_BACK : GL_FRONT);
-      GL_ERROR("glCullFace");
-    }
-
-    _lastcull = cull;
-  }
-
-  if(_lastfill != fill)
-  {
-    switch(fill)
-    {
-    case FG_Fill_Mode_Fill: glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); break;
-    case FG_Fill_Mode_Line: glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); break;
-    case FG_Fill_Mode_Point: glPolygonMode(GL_FRONT_AND_BACK, GL_POINT); break;
-    }
-    GL_ERROR("glPolygonMode");
-    _lastfill = fill;
   }
 
   _lastflags = flags;

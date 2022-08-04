@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(cpptest LANGUAGES CXX VERSION 0.1.0)
+project(backendtest LANGUAGES CXX VERSION 0.1.0)
 
 find_package(OpenGL REQUIRED)
 
@@ -24,16 +24,16 @@ else()
   set(CMAKE_CXX_FLAGS_RELWITHDEBINFO ${CMAKE_CXX_FLAGS_DEBUG})
 endif()
 
-file(GLOB_RECURSE cpptest_SOURCES "./*.cpp")
+file(GLOB_RECURSE backendtest_SOURCES "./*.cpp")
 
-add_executable(cpptest ${cpptest_SOURCES})
-retarget_output(cpptest)
-target_include_directories(cpptest PUBLIC ${OPENGL_INCLUDE_DIRS})
-target_include_directories(cpptest PUBLIC ${PROJECT_SOURCE_DIR}/../include)
-add_dependencies(cpptest fgOpenGL)
+add_executable(backendtest ${backendtest_SOURCES})
+retarget_output(backendtest)
+target_include_directories(backendtest PUBLIC ${OPENGL_INCLUDE_DIRS})
+target_include_directories(backendtest PUBLIC ${PROJECT_SOURCE_DIR}/../include)
+add_dependencies(backendtest fgOpenGL)
 
 if(WIN32)
-target_link_libraries(cpptest PRIVATE fgOpenGL ${OPENGL_LIBRARIES})
+target_link_libraries(backendtest PRIVATE fgOpenGL ${OPENGL_LIBRARIES})
 else()
-target_link_libraries(cpptest PRIVATE fgOpenGL ${OPENGL_LIBRARIES})
+target_link_libraries(backendtest PRIVATE fgOpenGL ${OPENGL_LIBRARIES})
 endif()

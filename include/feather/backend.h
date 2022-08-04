@@ -198,9 +198,9 @@ enum FG_Feature
 {
   FG_Feature_API_OpenGL_ES      = 1,
   FG_Feature_API_OpenGL         = 2,
-  FG_Feature_API_DIRECTX        = 3,
-  FG_Feature_API_VULKAN         = 4,
-  FG_Feature_API_METAL          = 5,
+  FG_Feature_API_DirectX        = 3,
+  FG_Feature_API_Vulkan         = 4,
+  FG_Feature_API_Metal          = 5,
   FG_Feature_Immediate_Mode     = (1 << 4),
   FG_Feature_RenderTarget       = (1 << 5),
   FG_Feature_Blend_EX           = (1 << 6),
@@ -377,36 +377,28 @@ enum FG_Blend_OP
 // Each bit here represents an element of the pipelinestate struct that has been set
 enum FG_Pipeline_Member
 {
-  FG_Pipeline_Member_PRIMITIVE           = (1 << 0),
-  FG_Pipeline_Member_Stencil_REF         = (1 << 1),
-  FG_Pipeline_Member_INDEX_Buffer        = (1 << 2),
-  FG_Pipeline_Member_Blend_FACTOR        = (1 << 3),
-  FG_Pipeline_Member_VS                  = (1 << 4),
-  FG_Pipeline_Member_GS                  = (1 << 5),
-  FG_Pipeline_Member_HS                  = (1 << 6),
-  FG_Pipeline_Member_DS                  = (1 << 7),
-  FG_Pipeline_Member_PS                  = (1 << 8),
-  FG_Pipeline_Member_CS                  = (1 << 9),
-  FG_Pipeline_Member_Blend_Factor        = (1 << 10),
-  FG_Pipeline_Member_FLAGS               = (1 << 11),
-  FG_Pipeline_Member_SAMPLEMASK          = (1 << 12),
-  FG_Pipeline_Member_Stencil_READ_MASK   = (1 << 13),
-  FG_Pipeline_Member_Stencil_Write_MASK  = (1 << 14),
-  FG_Pipeline_Member_Depth_FUNC          = (1 << 15),
-  FG_Pipeline_Member_Strip_Cut_Value     = (1 << 16),
-  FG_Pipeline_Member_NUM_RENDER_TARGETS  = (1 << 17),
-  FG_Pipeline_Member_RT_FORMATS          = (1 << 18),
-  FG_Pipeline_Member_FILL                = (1 << 19),
-  FG_Pipeline_Member_CULL                = (1 << 20),
-  FG_Pipeline_Member_Depth_BIAS          = (1 << 21),
-  FG_Pipeline_Member_Depth_BIAS_CLAMP    = (1 << 22),
-  FG_Pipeline_Member_SLOP_ESCALED_BIAS   = (1 << 23),
-  FG_Pipeline_Member_FORCEDSAMPLECount   = (1 << 24),
-  FG_Pipeline_Member_Stencil             = (1 << 25),
-  FG_Pipeline_Member_Depth               = (1 << 26),
-  FG_Pipeline_Member_NODE_MASK           = (1 << 27),
-  FG_Pipeline_Member_Multisample_Count   = (1 << 28),
-  FG_Pipeline_Member_Multisample_QUALITY = (1 << 29),
+  FG_Pipeline_Member_VS                 = (1 << 0),
+  FG_Pipeline_Member_GS                 = (1 << 1),
+  FG_Pipeline_Member_HS                 = (1 << 2),
+  FG_Pipeline_Member_DS                 = (1 << 3),
+  FG_Pipeline_Member_PS                 = (1 << 4),
+  FG_Pipeline_Member_CS                 = (1 << 5),
+  FG_Pipeline_Member_MS                 = (1 << 6),
+  FG_Pipeline_Member_TS                 = (1 << 7),
+  FG_Pipeline_Member_Blend_Factor       = (1 << 8),
+  FG_Pipeline_Member_Flags              = (1 << 9),
+  FG_Pipeline_Member_Sample_Mask        = (1 << 10),
+  FG_Pipeline_Member_Stencil_Ref        = (1 << 11),
+  FG_Pipeline_Member_Stencil_Read_Mask  = (1 << 12),
+  FG_Pipeline_Member_Stencil_Write_Mask = (1 << 13),
+  FG_Pipeline_Member_Stencil_OP       = (1 << 14),
+  FG_Pipeline_Member_Stencil_Func       = (1 << 17),
+  FG_Pipeline_Member_Depth_Func         = (1 << 18),
+  FG_Pipeline_Member_Fill               = (1 << 19),
+  FG_Pipeline_Member_Cull               = (1 << 20),
+  FG_Pipeline_Member_Primitive          = (1 << 21),
+  FG_Pipeline_Member_Depth_Slope_Bias         = (1 << 22),
+  FG_Pipeline_Member_Node_Mask          = (1 << 24),
 };
 
 enum FG_Fill_Mode
@@ -455,25 +447,25 @@ enum FG_Stencil_OP
 
 typedef struct FG_PipelineState__
 {
-  uint64_t Members; // Each bit represents a particular member that has been set
-  FG_Shader Shaders[FG_ShaderStage_Count];
-  FG_Color BlendFactor;
-  uint16_t Flags;
-  uint32_t SampleMask;
-  uint32_t StencilRef;
-  uint8_t StencilReadMask;
-  uint8_t StencilWriteMask;
-  uint8_t StencilFailOp;
-  uint8_t StencilDepthFailOp;
-  uint8_t StencilPassOp;
-  uint8_t StencilFunc;
-  uint8_t DepthFunc;
-  uint8_t FillMode;
-  uint8_t CullMode;
-  uint8_t Primitive;
-  int DepthBias;
-  float SlopeScaledDepthBias;
-  uint32_t NodeMask;
+  uint64_t members; // Each bit represents a particular member that has been set
+  FG_Shader shaders[FG_ShaderStage_Count];
+  FG_Color blendFactor;
+  uint16_t flags;
+  uint32_t sampleMask;
+  uint32_t stencilRef;
+  uint8_t stencilReadMask;
+  uint8_t stencilWriteMask;
+  uint8_t stencilFailOp;
+  uint8_t stencilDepthFailOp;
+  uint8_t stencilPassOp;
+  uint8_t stencilFunc;
+  uint8_t depthFunc;
+  uint8_t fillMode;
+  uint8_t cullMode;
+  uint8_t primitive;
+  int depthBias;
+  float slopeScaledDepthBias;
+  uint32_t nodeMask;
 } FG_PipelineState;
 
 /* typedef struct FG_VertexStream__
@@ -1253,10 +1245,10 @@ enum FG_BarrierFlags
 
 enum FG_ClearFlags
 {
-  FG_ClearFlag_COLOR   = (1 << 0),
-  FG_ClearFlag_DEPTH   = (1 << 1),
-  FG_ClearFlag_STENCIL = (1 << 2),
-  FG_ClearFlag_ACCUM   = (1 << 3),
+  FG_ClearFlag_Color       = (1 << 0),
+  FG_ClearFlag_Depth       = (1 << 1),
+  FG_ClearFlag_Stencil     = (1 << 2),
+  FG_ClearFlag_Accumulator = (1 << 3),
 };
 
 struct FG_Backend
@@ -1287,17 +1279,17 @@ struct FG_Backend
                             const FG_ShaderValue* values, uint32_t count);
   int (*execute)(FG_Backend* self, FG_Context* context, void* commands);
   uintptr_t (*createPipelineState)(FG_Backend* self, FG_Context* context, FG_PipelineState* pipelinestate,
-                               FG_Resource rendertarget, FG_Blend* blends, FG_Resource* vertexbuffer, int* strides,
-                               uint32_t n_buffers, FG_VertexParameter* attributes, uint32_t n_attributes,
-                               FG_Resource indexbuffer, uint8_t indexstride);
+                                   FG_Resource rendertarget, FG_Blend* blends, FG_Resource* vertexbuffer, int* strides,
+                                   uint32_t n_buffers, FG_VertexParameter* attributes, uint32_t n_attributes,
+                                   FG_Resource indexbuffer, uint8_t indexstride);
   uintptr_t (*createComputePipeline)(FG_Backend* self, FG_Context* context, FG_Shader computeshader, FG_Vec3i workgroup,
-                                 uint32_t flags);
+                                     uint32_t flags);
   int (*destroyPipelineState)(FG_Backend* self, FG_Context* context, uintptr_t state);
   FG_Resource (*createBuffer)(FG_Backend* self, FG_Context* context, void* data, uint32_t bytes, enum FG_Usage usage);
   FG_Resource (*createTexture)(FG_Backend* self, FG_Context* context, FG_Vec2i size, enum FG_Usage usage,
-                                enum FG_PixelFormat format, FG_Sampler* sampler, void* data, int MultiSampleCount);
-  FG_Resource (*createRenderTarget)(FG_Backend* self, FG_Context* context, FG_Resource depthstencil,
-                                     FG_Resource* textures, uint32_t n_textures, int attachments);
+                               enum FG_PixelFormat format, FG_Sampler* sampler, void* data, int MultiSampleCount);
+  FG_Resource (*createRenderTarget)(FG_Backend* self, FG_Context* context, FG_Resource depthstencil, FG_Resource* textures,
+                                    uint32_t n_textures, int attachments);
   int (*destroyResource)(FG_Backend* self, FG_Context* context, FG_Resource resource);
   void* (*mapResource)(FG_Backend* self, FG_Context* context, FG_Resource resource, uint32_t offset, uint32_t length,
                        enum FG_Usage usage, uint32_t access);

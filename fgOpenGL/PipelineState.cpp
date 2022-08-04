@@ -16,7 +16,7 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
                                                  std::span<FG_VertexParameter> attributes, FG_Resource indexbuffer,
                                                  uint8_t indexstride) noexcept
 {
-  PipelineState* pipeline      = new PipelineState{};
+  PipelineState* pipeline = new PipelineState{};
 
   if(auto e = ProgramObject::create())
     pipeline->program = std::move(e.value());
@@ -24,7 +24,7 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
     return std::move(e.error());
 
   // for(int i = 0; i < FG_ShaderStage_COUNT; ++i)
-  for(auto shader : std::span(state.Shaders))
+  for(auto shader : std::span(state.shaders))
   {
     if(shader != Backend::NULL_SHADER)
       RETURN_ERROR(pipeline->program.attach(ShaderObject(shader)));
@@ -48,41 +48,57 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
   else
     return std::move(e.error());
 
-  pipeline->Members      = state.Members;
-  pipeline->rt         = FrameBuffer(rendertarget);
-  pipeline->StencilRef = state.StencilRef;
-  Context::ColorFloats(state.BlendFactor, pipeline->BlendFactor, false);
+  pipeline->Members = state.members;
+  pipeline->rt      = FrameBuffer(rendertarget);
 
-  if(state.DepthFunc >= ArraySize(PrimitiveMapping))
-    return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "DepthFunc not valid comparison function");
+  if(state.members & FG_Pipeline_Member_Primitive)
+  {
+    if(state.primitive >= ArraySize(PrimitiveMapping))
+      return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "DepthFunc not valid comparison function");
+    pipeline->Primitive = PrimitiveMapping[state.primitive];
+  }
 
-  pipeline->Primitive = PrimitiveMapping[state.Primitive];
+  if(state.members & FG_Pipeline_Member_Flags)
+    pipeline->Flags = state.flags;
+  if(state.members & FG_Pipeline_Member_Sample_Mask)
+    pipeline->SampleMask = state.sampleMask;
+  if(state.members & FG_Pipeline_Member_Stencil_Read_Mask)
+    pipeline->StencilReadMask = state.stencilReadMask;
+  if(state.members & FG_Pipeline_Member_Stencil_Write_Mask)
+    pipeline->StencilWriteMask = state.stencilWriteMask;
+  if(state.members & FG_Pipeline_Member_Stencil_Ref)
+    pipeline->StencilRef = state.stencilRef;
+  if(state.members & FG_Pipeline_Member_Blend_Factor)
+    Context::ColorFloats(state.blendFactor, pipeline->BlendFactor, false);
 
-  pipeline->Flags            = state.Flags;
-  pipeline->SampleMask       = state.SampleMask;
-  pipeline->StencilReadMask  = state.StencilReadMask;
-  pipeline->StencilWriteMask = state.StencilWriteMask;
+  if(state.members & FG_Pipeline_Member_Depth_Func)
+  {
+    if(state.depthFunc >= ArraySize(ComparisonMapping))
+      return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "DepthFunc not valid comparison function");
+    pipeline->DepthFunc = ComparisonMapping[state.depthFunc];
+  }
 
-  if(state.DepthFunc >= ArraySize(ComparisonMapping))
-    return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "DepthFunc not valid comparison function");
+  if(state.members & FG_Pipeline_Member_Stencil_Func)
+  {
+    if(state.stencilFunc >= ArraySize(ComparisonMapping))
+      return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "StencilFunc not valid comparison function");
+    pipeline->StencilFunc = ComparisonMapping[state.stencilFunc];
+  }
 
-  if(state.StencilFunc >= ArraySize(ComparisonMapping))
-    return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "StencilFunc not valid comparison function");
+  if(state.members & FG_Pipeline_Member_Stencil_OP)
+  {
+    if(state.stencilFailOp >= ArraySize(StencilOpMapping))
+      return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "StencilFailOp not valid stencil operation");
+    pipeline->StencilFailOp = StencilOpMapping[state.stencilFailOp];
 
-  if(state.StencilFailOp >= ArraySize(StencilOpMapping))
-    return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "StencilFailOp not valid stencil operation");
+    if(state.stencilDepthFailOp >= ArraySize(StencilOpMapping))
+      return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "StencilDepthFailOp not valid stencil operation");
+    pipeline->StencilDepthFailOp = StencilOpMapping[state.stencilDepthFailOp];
 
-  if(state.StencilDepthFailOp >= ArraySize(StencilOpMapping))
-    return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "StencilDepthFailOp not valid stencil operation");
-
-  if(state.StencilPassOp >= ArraySize(StencilOpMapping))
-    return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "StencilPassOp not valid stencil operation");
-
-  pipeline->StencilFailOp      = StencilOpMapping[state.StencilFailOp];
-  pipeline->StencilDepthFailOp = StencilOpMapping[state.StencilDepthFailOp];
-  pipeline->StencilPassOp      = StencilOpMapping[state.StencilPassOp];
-  pipeline->StencilFunc        = ComparisonMapping[state.StencilFunc];
-  pipeline->DepthFunc          = ComparisonMapping[state.DepthFunc];
+    if(state.stencilPassOp >= ArraySize(StencilOpMapping))
+      return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "StencilPassOp not valid stencil operation");
+    pipeline->StencilPassOp = StencilOpMapping[state.stencilPassOp];
+  }
 
   switch(indexstride)
   {
@@ -94,10 +110,16 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
       break; // an indexstride of 0 is allowed if there is no indexbuffer
   default: return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Index stride must be 1, 2, or 4 bytes.");
   }
-  pipeline->FillMode             = state.FillMode;
-  pipeline->CullMode             = state.CullMode;
-  pipeline->DepthBias            = state.DepthBias;
-  pipeline->SlopeScaledDepthBias = state.SlopeScaledDepthBias;
+
+  if(state.members & FG_Pipeline_Member_Fill)
+    pipeline->FillMode = state.fillMode;
+  if(state.members & FG_Pipeline_Member_Cull)
+    pipeline->CullMode = state.cullMode;
+  if(state.members & FG_Pipeline_Member_Depth_Slope_Bias)
+  {
+    pipeline->DepthBias            = state.depthBias;
+    pipeline->SlopeScaledDepthBias = state.slopeScaledDepthBias;
+  }
   // pipeline->NodeMask          = state.NodeMask; // OpenGL does not support multi-GPU rendering without extensions
   pipeline->blend = blend;
 
@@ -109,7 +131,10 @@ GLExpected<std::string> PipelineState::log() const noexcept { return program.log
 
 GLExpected<void> PipelineState::apply(Context* ctx) noexcept
 {
-  RETURN_ERROR(ctx->ApplyProgram(program));
+  if(program.is_valid())
+  {
+    RETURN_ERROR(ctx->ApplyProgram(program));
+  }
   RETURN_ERROR(vao.bind());
 
   if(auto e = rt.bind(GL_FRAMEBUFFER))
@@ -117,21 +142,60 @@ GLExpected<void> PipelineState::apply(Context* ctx) noexcept
   else
     return std::move(e.error());
 
-  RETURN_ERROR(ctx->ApplyBlend(blend, BlendFactor, false));
-  RETURN_ERROR(ctx->ApplyFlags(Flags, CullMode, FillMode));
-  ctx->ApplyPrimitiveIndex(Primitive, IndexType);
+  if(Members & FG_Pipeline_Member_Blend_Factor)
+    RETURN_ERROR(ctx->ApplyBlendFactor(BlendFactor));
 
-  glDepthFunc(DepthFunc);
-  GL_ERROR("glDepthFunc");
-  glStencilFunc(StencilFunc, StencilRef, StencilReadMask);
-  GL_ERROR("glStencilFunc");
-  glStencilOp(StencilFailOp, StencilDepthFailOp, StencilPassOp);
-  GL_ERROR("glStencilOp");
-  glStencilMask(StencilWriteMask);
-  GL_ERROR("glStencilMask");
-  glPolygonOffset(SlopeScaledDepthBias, DepthBias);
-  GL_ERROR("glPolygonOffset");
+  RETURN_ERROR(ctx->ApplyBlend(blend, false));
 
+  if(Members & FG_Pipeline_Member_Flags)
+    RETURN_ERROR(ctx->ApplyFlags(Flags));
+  if(Members & FG_Pipeline_Member_Cull)
+    RETURN_ERROR(ctx->ApplyCull(CullMode));
+  if(Members & FG_Pipeline_Member_Fill)
+    RETURN_ERROR(ctx->ApplyFill(FillMode));
+
+  ctx->ApplyIndextype(IndexType);
+
+  if(Members & FG_Pipeline_Member_Primitive)
+    ctx->ApplyPrimitive(Primitive);
+
+  if(Members & FG_Pipeline_Member_Depth_Func)
+  {
+    glDepthFunc(DepthFunc);
+    GL_ERROR("glDepthFunc");
+  }
+  if(Members & FG_Pipeline_Member_Stencil_OP)
+  {
+    glStencilOp(StencilFailOp, StencilDepthFailOp, StencilPassOp);
+    GL_ERROR("glStencilOp");
+  }
+  if(Members & FG_Pipeline_Member_Stencil_Write_Mask)
+  {
+    glStencilMask(StencilWriteMask);
+    GL_ERROR("glStencilMask");
+  }
+  if(Members & (FG_Pipeline_Member_Stencil_Read_Mask || FG_Pipeline_Member_Stencil_Func || FG_Pipeline_Member_Stencil_Ref))
+  {
+    GLint func = StencilFunc;
+    GLint ref  = StencilRef;
+    GLint mask = StencilReadMask;
+
+    if(!(Members & FG_Pipeline_Member_Stencil_Read_Mask))
+      glGetIntegerv(GL_STENCIL_VALUE_MASK, &mask);
+    if(!(Members & FG_Pipeline_Member_Stencil_Func))
+      glGetIntegerv(GL_STENCIL_FUNC, &func);
+    if(!(Members & FG_Pipeline_Member_Stencil_Ref))
+      glGetIntegerv(GL_STENCIL_REF, &ref);
+
+    glStencilFunc(func, ref, mask);
+    GL_ERROR("glStencilFunc");
+  }
+
+  if(Members & FG_Pipeline_Member_Depth_Slope_Bias)
+  {
+    glPolygonOffset(SlopeScaledDepthBias, DepthBias);
+    GL_ERROR("glPolygonOffset");
+  }
   return {};
 }
 

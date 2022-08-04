@@ -1,4 +1,4 @@
-/* cpptest - C++ test of feather GUI backends
+/* backendtest - Manual test of feather GUI backends
 Copyright (c)2022 Fundament Software
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -358,12 +358,14 @@ int main(int argc, char* argv[])
   int vertstride              = sizeof(verts[0]);
 
   auto pipeline                           = FG_PipelineState{};
-  pipeline.Shaders[FG_ShaderStage_Pixel]  = (*b->compileShader)(b, w->context, FG_ShaderStage_Pixel, shader_fs);
-  pipeline.Shaders[FG_ShaderStage_Vertex] = (*b->compileShader)(b, w->context, FG_ShaderStage_Vertex, shader_vs);
-  pipeline.Flags                          = FG_Pipeline_Flag_Blend_Enable; // | FG_PIPELINE_FLAG_RENDERTARGET_SRGB_ENABLE
-  pipeline.FillMode                       = FG_Fill_Mode_Fill;
-  pipeline.CullMode                       = FG_Cull_Mode_None; // FG_CULL_MODE_BACK
-  pipeline.Primitive                      = FG_Primitive_Triangle_Strip;
+  pipeline.members = FG_Pipeline_Member_PS | FG_Pipeline_Member_VS | FG_Pipeline_Member_Flags | FG_Pipeline_Member_Fill |
+                     FG_Pipeline_Member_Cull | FG_Pipeline_Member_Primitive;
+  pipeline.shaders[FG_ShaderStage_Pixel]  = (*b->compileShader)(b, w->context, FG_ShaderStage_Pixel, shader_fs);
+  pipeline.shaders[FG_ShaderStage_Vertex] = (*b->compileShader)(b, w->context, FG_ShaderStage_Vertex, shader_vs);
+  pipeline.flags                          = FG_Pipeline_Flag_Blend_Enable; // | FG_PIPELINE_FLAG_RENDERTARGET_SRGB_ENABLE
+  pipeline.fillMode                       = FG_Fill_Mode_Fill;
+  pipeline.cullMode                       = FG_Cull_Mode_None; // FG_CULL_MODE_BACK
+  pipeline.primitive                      = FG_Primitive_Triangle_Strip;
 
   FG_Resource RenderTarget0 = (*b->createTexture)(b, w->context, FG_Vec2i{ 800, 600 }, FG_Usage_Texture2D,
                                                   FG_PixelFormat_R8G8B8A8_Typeless, &sampler, NULL, 0);

@@ -124,13 +124,13 @@ int Backend::Clear(FG_Backend* self, void* commands, uint8_t clearbits, FG_Color
     return e;
 
   GLbitfield flags = 0;
-  if(clearbits & FG_ClearFlag_COLOR)
+  if(clearbits & FG_ClearFlag_Color)
     flags |= GL_COLOR_BUFFER_BIT;
-  if(clearbits & FG_ClearFlag_DEPTH)
+  if(clearbits & FG_ClearFlag_Depth)
     flags |= GL_DEPTH_BUFFER_BIT;
-  if(clearbits & FG_ClearFlag_STENCIL)
+  if(clearbits & FG_ClearFlag_Stencil)
     flags |= GL_STENCIL_BUFFER_BIT;
-  if(clearbits & FG_ClearFlag_ACCUM)
+  if(clearbits & FG_ClearFlag_Accumulator)
     flags |= GL_ACCUM_BUFFER_BIT;
 
   if(!num_rects)
@@ -366,13 +366,13 @@ FG_Resource Backend::CreateRenderTarget(FG_Backend* self, FG_Context* context, F
 
   if(auto e = FrameBuffer::create(GL_FRAMEBUFFER, GL_TEXTURE_2D, 0, 0, textures, n_textures))
   {
-    if(auto flags = (attachments & (FG_ClearFlag_DEPTH | FG_ClearFlag_STENCIL)))
+    if(auto flags = (attachments & (FG_ClearFlag_Depth | FG_ClearFlag_Stencil)))
     {
       switch(flags)
       {
-      case FG_ClearFlag_DEPTH | FG_ClearFlag_STENCIL: flags = GL_DEPTH_STENCIL_ATTACHMENT; break;
-      case FG_ClearFlag_DEPTH: flags = GL_DEPTH_ATTACHMENT; break;
-      case FG_ClearFlag_STENCIL: flags = GL_STENCIL_ATTACHMENT; break;
+      case FG_ClearFlag_Depth | FG_ClearFlag_Stencil: flags = GL_DEPTH_STENCIL_ATTACHMENT; break;
+      case FG_ClearFlag_Depth: flags = GL_DEPTH_ATTACHMENT; break;
+      case FG_ClearFlag_Stencil: flags = GL_STENCIL_ATTACHMENT; break;
       }
 
       if(auto __e = e.value().attach2D(GL_FRAMEBUFFER, flags, GL_TEXTURE_2D, depthstencil, 0)) {}
