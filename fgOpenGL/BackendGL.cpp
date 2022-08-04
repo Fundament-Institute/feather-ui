@@ -676,7 +676,7 @@ int Backend::PutClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard kind
   CloseClipboard();
   return ERR_SUCCESS;
 #else
-  if(kind != FG_Clipboard_TEXT)
+  if(kind != FG_Clipboard_Text)
     return ERR_INVALID_KIND;
 
   _lasterr = 0;
@@ -741,7 +741,7 @@ uint32_t Backend::GetClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard
   CloseClipboard();
   return (uint32_t)size;
 #else
-  if(kind != FG_Clipboard_TEXT)
+  if(kind != FG_Clipboard_Text)
     return ERR_SUCCESS;
 
   auto str = glfwGetClipboardString(static_cast<Context*>(window)->GetWindow());
@@ -768,7 +768,7 @@ bool Backend::CheckClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard k
   }
   return false;
 #else
-  if(kind != FG_Clipboard_TEXT && kind != FG_Clipboard_ALL)
+  if(kind != FG_Clipboard_Text && kind != FG_Clipboard_All)
     return false;
 
   auto p = glfwGetClipboardString(static_cast<Context*>(window)->GetWindow());

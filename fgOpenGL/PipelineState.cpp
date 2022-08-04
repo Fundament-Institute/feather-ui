@@ -143,16 +143,24 @@ GLExpected<void> PipelineState::apply(Context* ctx) noexcept
     return std::move(e.error());
 
   if(Members & FG_Pipeline_Member_Blend_Factor)
+  {
     RETURN_ERROR(ctx->ApplyBlendFactor(BlendFactor));
+  }
 
   RETURN_ERROR(ctx->ApplyBlend(blend, false));
 
   if(Members & FG_Pipeline_Member_Flags)
+  {
     RETURN_ERROR(ctx->ApplyFlags(Flags));
+  }
   if(Members & FG_Pipeline_Member_Cull)
+  {
     RETURN_ERROR(ctx->ApplyCull(CullMode));
+  }
   if(Members & FG_Pipeline_Member_Fill)
+  {
     RETURN_ERROR(ctx->ApplyFill(FillMode));
+  }
 
   ctx->ApplyIndextype(IndexType);
 
@@ -186,6 +194,7 @@ GLExpected<void> PipelineState::apply(Context* ctx) noexcept
       glGetIntegerv(GL_STENCIL_FUNC, &func);
     if(!(Members & FG_Pipeline_Member_Stencil_Ref))
       glGetIntegerv(GL_STENCIL_REF, &ref);
+    GL_ERROR("glGetIntegerv");
 
     glStencilFunc(func, ref, mask);
     GL_ERROR("glStencilFunc");

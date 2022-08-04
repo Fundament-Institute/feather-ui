@@ -25,7 +25,7 @@
             root = ./.;
             include = [
               "CMakeLists.txt"
-              (nix-filter.lib.inDirectory "cpptest")
+              (nix-filter.lib.inDirectory "backendtest")
               (nix-filter.lib.inDirectory "fgOpenGL")
               (nix-filter.lib.inDirectory "include")
             ];
