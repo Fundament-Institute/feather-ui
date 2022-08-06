@@ -563,17 +563,17 @@ typedef struct FG_Viewport__
   FG_Rect scissor;
 } FG_Viewport;
 
-enum FG_VertexType
+enum FG_Vertex_Type
 {
-  FG_VertexType_Half = 0,
-  FG_VertexType_Float,
-  FG_VertexType_Double,
-  FG_VertexType_Byte,
-  FG_VertexType_UByte,
-  FG_VertexType_Short,
-  FG_VertexType_UShort,
-  FG_VertexType_Int,
-  FG_VertexType_UInt,
+  FG_Vertex_Type_Half = 0,
+  FG_Vertex_Type_Float,
+  FG_Vertex_Type_Double,
+  FG_Vertex_Type_Byte,
+  FG_Vertex_Type_UByte,
+  FG_Vertex_Type_Short,
+  FG_Vertex_Type_UShort,
+  FG_Vertex_Type_Int,
+  FG_Vertex_Type_UInt,
   // FG_VertexType_Int_2_10_10_10,
   // FG_VertexType_UInt_2_10_10_10,
 };
@@ -590,17 +590,17 @@ typedef struct FG_VertexParameter__
   bool per_instance; // false if per_vertex
 } FG_VertexParameter;
 
-enum FG_ShaderType
+enum FG_Shader_Type
 {
-  FG_ShaderType_Half         = 0,
-  FG_ShaderType_Float        = 1,
-  FG_ShaderType_Double       = 2,
-  FG_ShaderType_Int          = 3,
-  FG_ShaderType_UInt         = 4,
-  FG_ShaderType_Color32      = 5,
-  FG_ShaderType_Texture      = 6,
-  FG_ShaderType_Texture_Cube = 7,
-  FG_ShaderType_Buffer       = 8,
+  FG_Shader_Type_Half         = 0,
+  FG_Shader_Type_Float        = 1,
+  FG_Shader_Type_Double       = 2,
+  FG_Shader_Type_Int          = 3,
+  FG_Shader_Type_UInt         = 4,
+  FG_Shader_Type_Color32      = 5,
+  FG_Shader_Type_Texture      = 6,
+  FG_Shader_Type_Texture_Cube = 7,
+  FG_Shader_Type_Buffer       = 8,
 };
 // Array
 typedef struct FG_ShaderParameter__
@@ -653,33 +653,33 @@ enum FG_Cursor
   FG_Cursor_Custom     = 14,
 };
 
-enum FG_Kind
+enum FG_Event_Kind
 {
-  FG_Kind_Action         = 0,
-  FG_Kind_Draw           = 1,
-  FG_Kind_Drop           = 2,
-  FG_Kind_GetWindowFlags = 3,
-  FG_Kind_GotFocus       = 4,
-  FG_Kind_JoyAxis        = 5,
-  FG_Kind_JoyButtonDown  = 6,
-  FG_Kind_JoyButtonUp    = 7,
-  FG_Kind_JoyOrientation = 8,
-  FG_Kind_KeyChar        = 9,
-  FG_Kind_KeyDown        = 10,
-  FG_Kind_KeyUp          = 11,
-  FG_Kind_LostFocus      = 12,
-  FG_Kind_MouseDblClick  = 13,
-  FG_Kind_MouseDown      = 14,
-  FG_Kind_MouseMove      = 15,
-  FG_Kind_MouseOff       = 16,
-  FG_Kind_MouseOn        = 17,
-  FG_Kind_MouseScroll    = 18,
-  FG_Kind_MouseUp        = 19,
-  FG_Kind_SetWindowFlags = 20,
-  FG_Kind_SetWindowRect  = 21,
-  FG_Kind_TouchBegin     = 22,
-  FG_Kind_TouchEnd       = 23,
-  FG_Kind_TouchMove      = 24,
+  FG_Event_Kind_Action         = 0,
+  FG_Event_Kind_Draw           = 1,
+  FG_Event_Kind_Drop           = 2,
+  FG_Event_Kind_GetWindowFlags = 3,
+  FG_Event_Kind_GotFocus       = 4,
+  FG_Event_Kind_JoyAxis        = 5,
+  FG_Event_Kind_JoyButtonDown  = 6,
+  FG_Event_Kind_JoyButtonUp    = 7,
+  FG_Event_Kind_JoyOrientation = 8,
+  FG_Event_Kind_KeyChar        = 9,
+  FG_Event_Kind_KeyDown        = 10,
+  FG_Event_Kind_KeyUp          = 11,
+  FG_Event_Kind_LostFocus      = 12,
+  FG_Event_Kind_MouseDblClick  = 13,
+  FG_Event_Kind_MouseDown      = 14,
+  FG_Event_Kind_MouseMove      = 15,
+  FG_Event_Kind_MouseOff       = 16,
+  FG_Event_Kind_MouseOn        = 17,
+  FG_Event_Kind_MouseScroll    = 18,
+  FG_Event_Kind_MouseUp        = 19,
+  FG_Event_Kind_SetWindowFlags = 20,
+  FG_Event_Kind_SetWindowRect  = 21,
+  FG_Event_Kind_TouchBegin     = 22,
+  FG_Event_Kind_TouchEnd       = 23,
+  FG_Event_Kind_TouchMove      = 24,
 };
 
 enum FG_Keys

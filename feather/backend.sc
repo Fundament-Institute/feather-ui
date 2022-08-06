@@ -112,7 +112,7 @@ run-stage;
 
 do
     wrap-enum PixelFormat
-    wrap-enum Type
+    wrap-enum Usage
     wrap-enum ShaderStage
     wrap-enum Feature
     let FeatureEnum = Feature
@@ -121,31 +121,33 @@ do
         inline __getattr(self field)
             static-match field
             case 'api-opengl-es
-                self & 7 == FeatureEnum.API_OPENGL_ES
+                self & 7 == FeatureEnum.API_OpenGL_ES
             case 'api-opengl
-                self & 7 == FeatureEnum.API_OPENGL
+                self & 7 == FeatureEnum.API_OpenGL
             case 'api-directx
-                self & 7 == FeatureEnum.API_DIRECTX
+                self & 7 == FeatureEnum.API_DirectX
             case 'api-vulkan
-                self & 7 == FeatureEnum.API_VULKAN
+                self & 7 == FeatureEnum.API_Vulkan
             case 'api-metal
-                self & 7 == FeatureEnum.API_METAL
+                self & 7 == FeatureEnum.API_Metal
             default
+                # BUG: this is incorrect after refactor
                 self & (getattr FeatureEnum (underscorify "" (uppercase field))) != 0
     wrap-enum Primitive
-    wrap-enum COMPARISON
-    wrap-enum STRIP_CUT_VALUE
-    wrap-enum BLEND
-    wrap-enum BLEND_OP
-    wrap-enum PIPELINE_MEMBER # TODO make bitfield
-    wrap-enum FILL_MODE
-    wrap-enum CULL_MODE
-    wrap-enum PIPELINE_FLAGS # TODO make bitfield
-    wrap-enum FG_STENCIL_OP
-    wrap-enum FILTER
-    wrap-enum TEXTURE_ADDRESS_MODE
-    wrap-enum LOGIC_OP
-    wrap-enum ShaderType
+    wrap-enum Comparison
+    wrap-enum Strip_Cut_Value
+    wrap-enum Blend_Operand
+    wrap-enum Blend_Op
+    wrap-enum Pipeline_Member # TODO make bitfield
+    wrap-enum Fill_Mode
+    wrap-enum Cull_Mode
+    wrap-enum Pipeline_Flags # TODO make bitfield
+    wrap-enum Stencil_Op
+    wrap-enum Filter
+    wrap-enum Texture_Address_Mode
+    wrap-enum Logic_Op
+    wrap-enum Vertex_Type
+    wrap-enum Shader_Type
     wrap-enum Clipboard
     wrap-enum Cursor
     wrap-enum Kind
@@ -155,7 +157,11 @@ do
     wrap-enum JoyAxis
     wrap-enum Joy
     wrap-enum Level
+    wrap-enum LogType
     wrap-enum WindowFlag # TODO make bitfield
+    wrap-enum AccessFlags
+    wrap-enum BarrierFlags
+    wrap-enum ClearFlags
 
     let fake-log = raw.extern.FakeLog
 

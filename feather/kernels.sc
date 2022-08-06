@@ -108,6 +108,16 @@ type buffer
 #TODO slice
 
 
+@@ type-factory
+inline foreign-buffer (elem executor)
+    let ST = (tuple (opaque@ void) usize (& executor))
+    type (.. "(foreign-buffer" (tostring elem) ")") : ST
+        inline __drop (self)
+            let id size exec = (unpack (storagecast self))
+            ('delete-buffer exec id)
+
+        inline elem-type (self)
+            elem
 
 type executor
     spice map (self kernel args...)
@@ -127,6 +137,38 @@ type executor
             ..
                 "new-buffer must be implemented by executors but is not implemented by "
                 tostring ('typeof self)
+
+type rendering-executor < executor
+    spice upload-texture (self buff)
+        error
+            ..
+                "upload-texture must be implemented by rendering-executors but is not implemented by "
+                tostring ('typeof self)
+    spice download-texture (self fbuff)
+        error
+            ..
+                "download-texture must be implemented by rendering-executors but is not implemented by "
+                tostring ('typeof self)
+    spice new-texture (self typ size initializer)
+        error
+            ..
+                "new-texture must be implemented by rendering-executors but is not implemented by "
+                tostring ('typeof self)
+
+    spice run-pass(self operation)
+        error
+            ..
+                "run-pass must be implemented by rendering-executors but is not implemented by "
+                tostring ('typeof self)
+
+    spice create-pipeline (self config...)
+        error
+            ..
+                "create-pipeline must be implemented by rendering-executors but is not implemented by "
+                tostring ('typeof self)
+
+
+
 
 type processor-executor < executor
     spice upload-buffer (self buff)
@@ -150,6 +192,30 @@ type processor-executor < executor
                         let arg-elems... = (va-map (inline (buff) buff @ i) arg-varyings...)
                         kernel arg-uniforms... arg-elems...
             output
+
+
+# Executors:
+    single threaded CPU executor
+    threadpool CPU executor
+    CUDA executor (low priority)
+    OpenGL executor
+    Vulkan executor
+    shader-of-compute executor
+    feather backend executor?
+
+# rendering executor
+    rendering executor has methods to upload/download textures and buffers
+    depth buffers and stencil buffers aggregated into a renderpass object
+    renderpass objects may have multiple render target textures
+    render method on an executor that takes the executor and a function that operates on a renderpass.
+        the renderpass can't outlive the rendering function.
+    vertex shaders are represented as a kernel taking any primitive varyings, and any combination of primitive and device-buffer uniforms
+    vertex shader outputs are arbitrary device primitives, but must contain a position vec4 suitable for interpolation for use in the depth-test.
+    pixel shaders are represented as a kernel taking any primitive varyings and any combination of primitive and device-buffer uniforms
+    pixel shader varyings must match the vertex shader outputs
+    pixel shader outputs must match the renderpass output elements
+    vertex shader and pixel shader kernels are grouped into a pipeline object which tests the type matching.
+    pipelines may be invoked on device data in a renderpass
 
 
 run-stage;
