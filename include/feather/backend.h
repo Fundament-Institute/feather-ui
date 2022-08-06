@@ -365,13 +365,13 @@ enum FG_Blend_Operand
   FG_Blend_Operand_Inv_Src1_Alpha   = 19
 };
 
-enum FG_Blend_OP
+enum FG_Blend_Op
 {
-  FG_Blend_OP_Add          = 1,
-  FG_Blend_OP_Subtract     = 2,
-  FG_Blend_OP_Rev_Subtract = 3,
-  FG_Blend_OP_Min          = 4,
-  FG_Blend_OP_Max          = 5
+  FG_Blend_Op_Add          = 1,
+  FG_Blend_Op_Subtract     = 2,
+  FG_Blend_Op_Rev_Subtract = 3,
+  FG_Blend_Op_Min          = 4,
+  FG_Blend_Op_Max          = 5
 };
 
 // Each bit here represents an element of the pipelinestate struct that has been set
@@ -432,17 +432,17 @@ enum FG_Pipeline_Flags
   FG_Pipeline_Flag_RenderTarget_SRGB_Enable = (1 << 12),
 };
 
-enum FG_Stencil_OP
+enum FG_Stencil_Op
 {
-  FG_Stencil_OP_None           = 0,
-  FG_Stencil_OP_Keep           = 1,
-  FG_Stencil_OP_Zero           = 2,
-  FG_Stencil_OP_Replace        = 3,
-  FG_Stencil_OP_Increment_Sat  = 4,
-  FG_Stencil_OP_Decrement_Sat  = 5,
-  FG_Stencil_OP_Invert         = 6,
-  FG_Stencil_OP_Increment_Wrap = 7,
-  FG_Stencil_OP_Decrement_Wrap = 8
+  FG_Stencil_Op_None           = 0,
+  FG_Stencil_Op_Keep           = 1,
+  FG_Stencil_Op_Zero           = 2,
+  FG_Stencil_Op_Replace        = 3,
+  FG_Stencil_Op_Increment_Sat  = 4,
+  FG_Stencil_Op_Decrement_Sat  = 5,
+  FG_Stencil_Op_Invert         = 6,
+  FG_Stencil_Op_Increment_Wrap = 7,
+  FG_Stencil_Op_Decrement_Wrap = 8
 };
 
 typedef struct FG_PipelineState__
@@ -523,24 +523,24 @@ typedef struct FG_Sampler__
   FG_Color border_color;
 } FG_Sampler;
 
-enum FG_Logic_OP
+enum FG_Logic_Op
 {
-  FG_Logic_OP_Clear = 0,
-  FG_Logic_OP_Set,
-  FG_Logic_OP_Copy,
-  FG_Logic_OP_Copy_Inverted,
-  FG_Logic_OP_NOOP,
-  FG_Logic_OP_Invert,
-  FG_Logic_OP_And,
-  FG_Logic_OP_NAnd,
-  FG_Logic_OP_Or,
-  FG_Logic_OP_Nor,
-  FG_Logic_OP_Xor,
-  FG_Logic_OP_Equiv,
-  FG_Logic_OP_And_Reverse,
-  FG_Logic_OP_And_Inverted,
-  FG_Logic_OP_Or_Reverse,
-  FG_Logic_OP_Or_Inverted
+  FG_Logic_Op_Clear = 0,
+  FG_Logic_Op_Set,
+  FG_Logic_Op_Copy,
+  FG_Logic_Op_Copy_Inverted,
+  FG_Logic_Op_NOOP,
+  FG_Logic_Op_Invert,
+  FG_Logic_Op_And,
+  FG_Logic_Op_NAnd,
+  FG_Logic_Op_Or,
+  FG_Logic_Op_Nor,
+  FG_Logic_Op_Xor,
+  FG_Logic_Op_Equiv,
+  FG_Logic_Op_And_Reverse,
+  FG_Logic_Op_And_Inverted,
+  FG_Logic_Op_Or_Reverse,
+  FG_Logic_Op_Or_Inverted
 };
 
 // Array
@@ -1216,7 +1216,7 @@ typedef union FG_ShaderValue__
   FG_Resource resource;
 } FG_ShaderValue;
 
-enum FG_AccessFlags
+enum FG_AccessFlag
 {
   FG_AccessFlag_Read              = (1 << 0),
   FG_AccessFlag_Write             = (1 << 1),
@@ -1228,22 +1228,22 @@ enum FG_AccessFlags
 
 enum FG_BarrierFlags
 {
-  FG_BarrierFlags_Vertex             = (1 << 0),
-  FG_BarrierFlags_Element            = (1 << 1),
-  FG_BarrierFlags_Uniform            = (1 << 2),
-  FG_BarrierFlags_Texture_Fetch      = (1 << 3),
-  FG_BarrierFlags_Texture_Update     = (1 << 4),
-  FG_BarrierFlags_Image_Access       = (1 << 5),
-  FG_BarrierFlags_Command            = (1 << 6),
-  FG_BarrierFlags_Pixel              = (1 << 7),
-  FG_BarrierFlags_Buffer             = (1 << 8),
-  FG_BarrierFlags_RenderTarget       = (1 << 9),
-  FG_BarrierFlags_Storage_Buffer     = (1 << 10),
-  FG_BarrierFlags_Transform_Feedback = (1 << 11),
-  FG_BarrierFlags_Atomic_Counter     = (1 << 12),
+  FG_BarrierFlag_Vertex             = (1 << 0),
+  FG_BarrierFlag_Element            = (1 << 1),
+  FG_BarrierFlag_Uniform            = (1 << 2),
+  FG_BarrierFlag_Texture_Fetch      = (1 << 3),
+  FG_BarrierFlag_Texture_Update     = (1 << 4),
+  FG_BarrierFlag_Image_Access       = (1 << 5),
+  FG_BarrierFlag_Command            = (1 << 6),
+  FG_BarrierFlag_Pixel              = (1 << 7),
+  FG_BarrierFlag_Buffer             = (1 << 8),
+  FG_BarrierFlag_RenderTarget       = (1 << 9),
+  FG_BarrierFlag_Storage_Buffer     = (1 << 10),
+  FG_BarrierFlag_Transform_Feedback = (1 << 11),
+  FG_BarrierFlag_Atomic_Counter     = (1 << 12),
 };
 
-enum FG_ClearFlags
+enum FG_ClearFlag
 {
   FG_ClearFlag_Color       = (1 << 0),
   FG_ClearFlag_Depth       = (1 << 1),

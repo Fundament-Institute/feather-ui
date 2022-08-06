@@ -62,13 +62,13 @@ GLExpected<Owned<ShaderObject>> ShaderObject::create(const char* src, int type, 
 
 GLenum ShaderObject::get_type(const FG_ShaderParameter& param)
 {
-  if(param.width > 1 && param.type != FG_ShaderType_Float)
+  if(param.width > 1 && param.type != FG_Shader_Type_Float)
     return 0;
 
   switch(param.type)
   {
-  case FG_ShaderType_Texture: return GL_TEXTURE0 + param.length;
-  case FG_ShaderType_Float:
+  case FG_Shader_Type_Texture: return GL_TEXTURE0 + param.length;
+  case FG_Shader_Type_Float:
     switch(param.width)
     {
     case 0:
@@ -110,15 +110,15 @@ GLenum ShaderObject::get_type(const FG_ShaderParameter& param)
       return 0;
     }
     return 0;
-  case FG_ShaderType_Double:
+  case FG_Shader_Type_Double:
     if(param.length == 1)
       return GL_DOUBLE;
     return 0;
-  case FG_ShaderType_Half:
+  case FG_Shader_Type_Half:
     if(param.length == 1)
       return GL_HALF_FLOAT;
     return 0;
-  case FG_ShaderType_Int:
+  case FG_Shader_Type_Int:
     switch(param.length)
     {
     case 1: return GL_INT;
@@ -126,7 +126,7 @@ GLenum ShaderObject::get_type(const FG_ShaderParameter& param)
     case 3: return GL_INT_VEC3;
     case 4: return GL_INT_VEC4;
     }
-  case FG_ShaderType_UInt:
+  case FG_Shader_Type_UInt:
     switch(param.length)
     {
     case 1: return GL_UNSIGNED_INT;

@@ -198,31 +198,31 @@ int Backend::SyncPoint(FG_Backend* self, void* commands, uint32_t barrier_flags)
   auto context = reinterpret_cast<Context*>(commands);
 
   GLbitfield flags = 0;
-  if(barrier_flags & FG_BarrierFlags_Vertex)
+  if(barrier_flags & FG_BarrierFlag_Vertex)
     flags |= GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT;
-  if(barrier_flags & FG_BarrierFlags_Element)
+  if(barrier_flags & FG_BarrierFlag_Element)
     flags |= GL_ELEMENT_ARRAY_BARRIER_BIT;
-  if(barrier_flags & FG_BarrierFlags_Uniform)
+  if(barrier_flags & FG_BarrierFlag_Uniform)
     flags |= GL_UNIFORM_BARRIER_BIT;
-  if(barrier_flags & FG_BarrierFlags_Texture_Fetch)
+  if(barrier_flags & FG_BarrierFlag_Texture_Fetch)
     flags |= GL_TEXTURE_FETCH_BARRIER_BIT;
-  if(barrier_flags & FG_BarrierFlags_Texture_Update)
+  if(barrier_flags & FG_BarrierFlag_Texture_Update)
     flags |= GL_TEXTURE_UPDATE_BARRIER_BIT;
-  if(barrier_flags & FG_BarrierFlags_Image_Access)
+  if(barrier_flags & FG_BarrierFlag_Image_Access)
     flags |= GL_SHADER_IMAGE_ACCESS_BARRIER_BIT;
-  if(barrier_flags & FG_BarrierFlags_Command)
+  if(barrier_flags & FG_BarrierFlag_Command)
     flags |= GL_COMMAND_BARRIER_BIT;
-  if(barrier_flags & FG_BarrierFlags_Pixel)
+  if(barrier_flags & FG_BarrierFlag_Pixel)
     flags |= GL_PIXEL_BUFFER_BARRIER_BIT;
-  if(barrier_flags & FG_BarrierFlags_Buffer)
+  if(barrier_flags & FG_BarrierFlag_Buffer)
     flags |= GL_BUFFER_UPDATE_BARRIER_BIT;
-  if(barrier_flags & FG_BarrierFlags_RenderTarget)
+  if(barrier_flags & FG_BarrierFlag_RenderTarget)
     flags |= GL_FRAMEBUFFER_BARRIER_BIT;
-  if(barrier_flags & FG_BarrierFlags_Storage_Buffer)
+  if(barrier_flags & FG_BarrierFlag_Storage_Buffer)
     flags |= GL_SHADER_STORAGE_BARRIER_BIT;
-  if(barrier_flags & FG_BarrierFlags_Transform_Feedback)
+  if(barrier_flags & FG_BarrierFlag_Transform_Feedback)
     flags |= GL_TRANSFORM_FEEDBACK_BARRIER_BIT;
-  if(barrier_flags & FG_BarrierFlags_Atomic_Counter)
+  if(barrier_flags & FG_BarrierFlag_Atomic_Counter)
     flags |= GL_ATOMIC_COUNTER_BARRIER_BIT;
 
   LOG_ERROR(backend, context->Barrier(flags));

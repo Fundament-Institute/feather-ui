@@ -160,13 +160,13 @@ static constexpr auto WindowDim = FG_Vec2{ 800.f, 600.f };
 // The behavior function simply processes all window messages from the host OS.
 FG_Result behavior(FG_Element* element, FG_Context* ctx, void* ui, FG_Msg* m)
 {
-  static const FG_ShaderParameter params[] = { { "MVP", 4, 4, 0, FG_ShaderType_Float },
-                                               { 0, 0, 0, 0, FG_ShaderType_Texture } };
+  static const FG_ShaderParameter params[] = { { "MVP", 4, 4, 0, FG_Shader_Type_Float },
+                                               { 0, 0, 0, 0, FG_Shader_Type_Texture } };
   static int counter                       = 0;
 
   MockElement& e = *static_cast<MockElement*>(element);
 
-  if(m->kind == FG_Kind_Draw)
+  if(m->kind == FG_Event_Kind_Draw)
   {
     FG_Backend* b = *(FG_Backend**)ui;
     //(*b->beginDraw)(b, ctx, nullptr);
@@ -191,18 +191,18 @@ FG_Result behavior(FG_Element* element, FG_Context* ctx, void* ui, FG_Msg* m)
   }
 
   // These are simply some input handling boilerplate code
-  if(m->kind == FG_Kind_GetWindowFlags)
+  if(m->kind == FG_Event_Kind_GetWindowFlags)
   {
     return e.close ? FG_Result{ FG_WindowFlag_Closed } : FG_Result{ 0 };
   }
-  if(m->kind == FG_Kind_SetWindowFlags)
+  if(m->kind == FG_Event_Kind_SetWindowFlags)
   {
     e.close = e.close || ((m->setWindowFlags.flags & FG_WindowFlag_Closed) != 0);
   }
   // We normally close when any keypress happens, but we don't want to close if the user is trying to take a screenshot.
-  if((m->kind == FG_Kind_KeyDown && m->keyDown.key != FG_Keys_LMENU && m->keyDown.scancode != 84 &&
+  if((m->kind == FG_Event_Kind_KeyDown && m->keyDown.key != FG_Keys_LMENU && m->keyDown.scancode != 84 &&
       m->keyDown.scancode != 88) ||
-     m->kind == FG_Kind_MouseDown)
+     m->kind == FG_Event_Kind_MouseDown)
   {
     e.close = true;
   }
@@ -244,13 +244,13 @@ void test_compute(FG_Backend* b, FG_Window* w) {
   values[1].resource = inbuf;
   values[2].resource = outbuf;
 
-  static const FG_ShaderParameter params[] = { { "dt", 1, 0, 0, FG_ShaderType_Int },
-                                               { "inblock", 0, 0, 0, FG_ShaderType_Buffer },
-                                               { "outblock", 0, 0, 1, FG_ShaderType_Buffer } };
+  static const FG_ShaderParameter params[] = { { "dt", 1, 0, 0, FG_Shader_Type_Int },
+                                               { "inblock", 0, 0, 0, FG_Shader_Type_Buffer },
+                                               { "outblock", 0, 0, 1, FG_Shader_Type_Buffer } };
   (*b->setPipelineState)(b, commands, compute_pipeline);
   (*b->setShaderConstants)(b, commands, params, values, 3);
   (*b->dispatch)(b, commands);
-  (*b->syncPoint)(b, commands, FG_BarrierFlags_Storage_Buffer);
+  (*b->syncPoint)(b, commands, FG_BarrierFlag_Storage_Buffer);
   (*b->execute)(b, w->context, commands);
 
   int* readbuf = (int*)(*b->mapResource)(b, w->context, outbuf, 0, 0, FG_Usage_Storage_Buffer, FG_AccessFlag_Read);
@@ -323,15 +323,15 @@ int main(int argc, char* argv[])
   FG_Blend Premultiply_Blend = {
     FG_Blend_Operand_One,
     FG_Blend_Operand_Inv_Src_Alpha,
-    FG_Blend_OP_Add,
+    FG_Blend_Op_Add,
     FG_Blend_Operand_One,
     FG_Blend_Operand_Inv_Src_Alpha,
-    FG_Blend_OP_Add,
+    FG_Blend_Op_Add,
     0b1111,
   };
 
-  FG_VertexParameter vertparams[] = { { "vPos", 0, 0, 2, FG_ShaderType_Float },
-                                      { "vUV", sizeof(float) * 2, 0, 2, FG_ShaderType_Float } };
+  FG_VertexParameter vertparams[] = { { "vPos", 0, 0, 2, FG_Shader_Type_Float },
+                                      { "vUV", sizeof(float) * 2, 0, 2, FG_Shader_Type_Float } };
 
   e.flags = FG_WindowFlag_Resizable;
 
@@ -378,7 +378,7 @@ int main(int argc, char* argv[])
   e.close          = false;
 
   (*b->beginDraw)(b, w->context, nullptr);
-  FG_Msg drawmsg = { FG_Kind_Draw };
+  FG_Msg drawmsg = { FG_Event_Kind_Draw };
   behavior(&e, w->context, &b, &drawmsg);
   (*b->endDraw)(b, w->context);
 

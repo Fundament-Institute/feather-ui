@@ -256,7 +256,7 @@ uint8_t Window::GetModKeys(int mods)
 void Window::KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
   auto self          = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
-  FG_Msg evt         = { static_cast<uint16_t>((action == GLFW_RELEASE) ? FG_Kind_KeyUp : FG_Kind_KeyDown) };
+  FG_Msg evt         = { static_cast<uint16_t>((action == GLFW_RELEASE) ? FG_Event_Kind_KeyUp : FG_Event_Kind_KeyDown) };
   evt.keyUp.key      = KeyMap[key];
   evt.keyUp.scancode = scancode;
   evt.keyUp.modkeys  = GetModKeys(mods);
@@ -270,7 +270,7 @@ void Window::KeyCallback(GLFWwindow* window, int key, int scancode, int action, 
 void Window::CharCallback(GLFWwindow* window, unsigned int key)
 {
   auto self           = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
-  FG_Msg evt          = { FG_Kind_KeyChar };
+  FG_Msg evt          = { FG_Event_Kind_KeyChar };
   evt.keyChar.unicode = key;
   evt.keyChar.modkeys = 0;
 
@@ -280,7 +280,7 @@ void Window::CharCallback(GLFWwindow* window, unsigned int key)
 void Window::MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 {
   auto self             = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
-  FG_Msg evt            = { static_cast<uint16_t>((action == GLFW_PRESS) ? FG_Kind_MouseDown : FG_Kind_MouseUp) };
+  FG_Msg evt            = { static_cast<uint16_t>((action == GLFW_PRESS) ? FG_Event_Kind_MouseDown : FG_Event_Kind_MouseUp) };
   evt.mouseDown.all     = (1 << button);
   evt.mouseDown.button  = (1 << button);
   evt.mouseDown.modkeys = GetModKeys(mods);
@@ -295,7 +295,7 @@ void Window::MouseButtonCallback(GLFWwindow* window, int button, int action, int
 void Window::MousePosCallback(GLFWwindow* window, double x, double y)
 {
   auto self       = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
-  FG_Msg evt      = { FG_Kind_MouseMove };
+  FG_Msg evt      = { FG_Event_Kind_MouseMove };
   evt.mouseMove.x = static_cast<float>(x);
   evt.mouseMove.y = static_cast<float>(y);
 
@@ -306,7 +306,7 @@ void Window::MousePosCallback(GLFWwindow* window, double x, double y)
 void Window::EnterCallback(GLFWwindow* window, int entered)
 {
   auto self  = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
-  FG_Msg evt = { static_cast<uint16_t>(entered ? FG_Kind_MouseOn : FG_Kind_MouseOff) };
+  FG_Msg evt = { static_cast<uint16_t>(entered ? FG_Event_Kind_MouseOn : FG_Event_Kind_MouseOff) };
   double x, y;
   glfwGetCursorPos(window, &x, &y);
   evt.mouseOn.x = static_cast<float>(x);
@@ -319,7 +319,7 @@ void Window::EnterCallback(GLFWwindow* window, int entered)
 void Window::ScrollCallback(GLFWwindow* window, double xdelta, double ydelta)
 {
   auto self              = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
-  FG_Msg evt             = { FG_Kind_MouseScroll };
+  FG_Msg evt             = { FG_Event_Kind_MouseScroll };
   evt.mouseScroll.delta  = static_cast<float>(ydelta);
   evt.mouseScroll.hdelta = static_cast<float>(xdelta);
   double x, y;
@@ -334,7 +334,7 @@ void Window::ScrollCallback(GLFWwindow* window, double xdelta, double ydelta)
 void Window::DropCallback(GLFWwindow* window, int count, const char* paths[])
 {
   auto self     = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
-  FG_Msg evt    = { FG_Kind_Drop };
+  FG_Msg evt    = { FG_Event_Kind_Drop };
   evt.drop.kind = FG_Clipboard_None;
 
   if(count > 0)
@@ -350,7 +350,7 @@ void Window::DropCallback(GLFWwindow* window, int count, const char* paths[])
 void Window::FocusCallback(GLFWwindow* window, int focused)
 {
   auto self  = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
-  FG_Msg evt = { static_cast<uint16_t>(focused ? FG_Kind_GotFocus : FG_Kind_LostFocus) };
+  FG_Msg evt = { static_cast<uint16_t>(focused ? FG_Event_Kind_GotFocus : FG_Event_Kind_LostFocus) };
 
   self->_backend->Behavior(reinterpret_cast<Window*>(glfwGetWindowUserPointer(window)), evt);
 }
@@ -358,11 +358,11 @@ void Window::FocusCallback(GLFWwindow* window, int focused)
 void Window::CloseCallback(GLFWwindow* window)
 {
   auto self                = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
-  FG_Msg msg               = { FG_Kind_SetWindowFlags };
-  msg.setWindowFlags.flags = self->_backend->Behavior(self, FG_Msg{ FG_Kind_GetWindowFlags }).getWindowFlags |
+  FG_Msg msg               = { FG_Event_Kind_SetWindowFlags };
+  msg.setWindowFlags.flags = self->_backend->Behavior(self, FG_Msg{ FG_Event_Kind_GetWindowFlags }).getWindowFlags |
                              FG_WindowFlag_Closed;
   self->_backend->Behavior(self, msg);
-  FG_Msg action         = FG_Msg{ FG_Kind_Action };
+  FG_Msg action         = FG_Msg{ FG_Event_Kind_Action };
   action.action.subkind = 1; // FG_WINDOW_ONCLOSE
   self->_backend->Behavior(self, action);
 }

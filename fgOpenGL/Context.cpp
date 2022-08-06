@@ -20,26 +20,26 @@ using namespace GL;
 const FG_Blend Context::Premultiply_Blend = {
   FG_Blend_Operand_One,
   FG_Blend_Operand_Inv_Src_Alpha,
-  FG_Blend_OP_Add,
+  FG_Blend_Op_Add,
   FG_Blend_Operand_One,
   FG_Blend_Operand_Inv_Src_Alpha,
-  FG_Blend_OP_Add,
+  FG_Blend_Op_Add,
   0b1111,
 };
 
 const FG_Blend Context::Normal_Blend = {
   FG_Blend_Operand_Src_Alpha,
   FG_Blend_Operand_Inv_Src_Alpha,
-  FG_Blend_OP_Add,
+  FG_Blend_Op_Add,
   FG_Blend_Operand_One,
   FG_Blend_Operand_Inv_Src_Alpha,
-  FG_Blend_OP_Add,
+  FG_Blend_Op_Add,
   0b1111,
 };
 
 const FG_Blend Context::Default_Blend = {
-  FG_Blend_Operand_One,  FG_Blend_Operand_Zero, FG_Blend_OP_Add, FG_Blend_Operand_One,
-  FG_Blend_Operand_Zero, FG_Blend_OP_Add,       0b1111,
+  FG_Blend_Operand_One,  FG_Blend_Operand_Zero, FG_Blend_Op_Add, FG_Blend_Operand_One,
+  FG_Blend_Operand_Zero, FG_Blend_Op_Add,       0b1111,
 };
 
 Context::Context(Backend* backend, FG_Element* element, FG_Vec2 dim) :
@@ -76,7 +76,7 @@ GLExpected<void> Context::EndDraw()
 
 void Context::Draw(const FG_Rect* area)
 {
-  FG_Msg msg = { FG_Kind_Draw };
+  FG_Msg msg = { FG_Event_Kind_Draw };
   if(area)
     msg.draw.area = *area;
   else
@@ -124,7 +124,7 @@ GLExpected<void> Context::SetShaderUniforms(const FG_ShaderParameter* uniforms, 
 {
   for(uint32_t i = 0; i < count; ++i)
   {
-    if(uniforms[i].type == FG_ShaderType_Buffer)
+    if(uniforms[i].type == FG_Shader_Type_Buffer)
     {
       RETURN_ERROR(_program->set_buffer(values[i].resource, uniforms[i].count, uniforms[i].width, uniforms[i].length));
       continue;
