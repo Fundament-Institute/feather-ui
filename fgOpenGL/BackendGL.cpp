@@ -157,8 +157,49 @@ int Backend::CopyResourceRegion(FG_Backend* self, void* commands, FG_Resource sr
                                 FG_Vec3i destoffset, FG_Vec3i size)
 {
   auto backend = static_cast<Backend*>(self);
-  return ERR_NOT_IMPLEMENTED;
+  
+  LOG_ERROR(backend, backend->CopyResourceRegionHelper(GL_TEXTURE_2D, src, dest, srcoffset, destoffset, size));
+
+  return 1;
 }
+GL::GLExpected<void> Backend::CopyResourceRegionHelper(GLenum type, FG_Resource src, FG_Resource dest, FG_Vec3i srcoffset,
+                                                       FG_Vec3i destoffset, FG_Vec3i size)
+{
+  GLuint source      = src;
+  GLuint destination = dest;
+  
+  if(IsTexture(source) && IsTexture(destination))
+  {
+    switch(type)
+    {
+    case GL_TEXTURE_1D:
+      glCopyImageSubData(source, GL_TEXTURE_1D, 0, srcoffset.x, srcoffset.y, srcoffset.z, destination, GL_TEXTURE_1D, 0,
+                         destoffset.x, destoffset.y, destoffset.z, size.x, size.y, size.z);
+      break;
+    case GL_TEXTURE_3D:
+      glCopyImageSubData(source, GL_TEXTURE_3D, 0, srcoffset.x, srcoffset.y, srcoffset.z, destination, GL_TEXTURE_3D, 0,
+                         destoffset.x, destoffset.y, destoffset.z, size.x, size.y, size.z);
+      break;
+    default:
+      glCopyImageSubData(source, GL_TEXTURE_2D, 0, srcoffset.x, srcoffset.y, srcoffset.z, destination, GL_TEXTURE_2D, 0,
+                         destoffset.x, destoffset.y, destoffset.z, size.x, size.y, size.z);
+      break;
+    }
+    
+    GL_ERROR("glCopyImageSubData");
+  }
+  else if(IsRenderbuffer(source) && IsRenderbuffer(destination))
+  {
+    glCopyImageSubData(source, GL_RENDERBUFFER, 0, srcoffset.x, srcoffset.y, srcoffset.z, destination, GL_RENDERBUFFER, 0,
+                       destoffset.x, destoffset.y, destoffset.z, size.x, size.y, size.z);
+    GL_ERROR("glCopyImageSubData");
+  }
+  else
+    CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Incompatible src and/or destination resources");
+
+  return {};
+}
+
 int Backend::DrawGL(FG_Backend* self, void* commands, uint32_t vertexcount, uint32_t instancecount, uint32_t startvertex,
                     uint32_t startinstance)
 {

@@ -115,8 +115,12 @@ namespace GL {
     static int CopyResource(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest);
     static int CopySubresource(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, unsigned long srcoffset,
                                unsigned long destoffset, unsigned long bytes);
-    static int CopyResourceRegion(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, FG_Vec3i srcoffset,
+    static int CopyResourceRegion(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest,
+                                  FG_Vec3i srcoffset,
                                   FG_Vec3i destoffset, FG_Vec3i size);
+    GLExpected<void> CopyResourceRegionHelper(GLenum type, FG_Resource src, FG_Resource dest, FG_Vec3i srcoffset,
+                                              FG_Vec3i destoffset,
+                                              FG_Vec3i size);
     static int DrawGL(FG_Backend* self, void* commands, uint32_t vertexcount, uint32_t instancecount, uint32_t startvertex,
                       uint32_t startinstance);
     static int DrawIndexed(FG_Backend* self, void* commands, uint32_t indexcount, uint32_t instancecount,

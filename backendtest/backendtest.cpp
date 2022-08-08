@@ -382,7 +382,14 @@ int main(int argc, char* argv[])
   behavior(&e, w->context, &b, &drawmsg);
   (*b->endDraw)(b, w->context);
 
-  e.image    = RenderTarget0;
+  FG_Resource CoppiedTexture = (*b->createTexture)(b, w->context, FG_Vec2i{ 800, 600 }, FG_Usage_Texture2D, FG_PixelFormat_R8G8B8A8_Typeless, &sampler, NULL, 0);
+  void* commands             = (*b->createCommandList)(b, w->context, false);
+  TEST((*b->copyResourceRegion)(b, commands, RenderTarget0, CoppiedTexture, FG_Vec3i{ 0, 0, 0 },
+                                                            FG_Vec3i{ 0, 0, 0 }, FG_Vec3i{ 800, 600, 1 }));
+  (*b->execute)(b, w->context, commands);
+  (*b->destroyCommandList)(b, commands);
+
+  e.image    = CoppiedTexture;
   e.pipeline = (*b->createPipelineState)(b, w->context, &pipeline, 0, &Premultiply_Blend, &e.vertices, &vertstride, 1,
                                          vertparams, 2, 0, 0);
 
@@ -414,8 +421,7 @@ int main(int argc, char* argv[])
   }
 
   TEST((*b->getClipboard)(b, w, FG_Clipboard_Wave, hold, 10) == 0)
-  while((*b->processMessages)(b, 0) != 0 && e.close == false)
-    ;
+  while((*b->processMessages)(b, 0) != 0 && e.close == false);
 
   TEST((*b->destroyWindow)(b, w) == 0);
   TEST((*b->destroyResource)(b, w->context, e.image) == 0);
