@@ -145,14 +145,59 @@ int Backend::Clear(FG_Backend* self, void* commands, uint8_t clearbits, FG_Color
 int Backend::CopyResource(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest)
 {
   auto backend = static_cast<Backend*>(self);
-  return ERR_NOT_IMPLEMENTED;
+
+  GLuint source = src;
+  GLuint destination = dest;
+
+  if (IsBuffer(source) && IsBuffer(dest)) 
+  {
+    return CopySubresource(self, commands, src, dest, 0, 0, 0);
+  }
+  else if((IsTexture(source) && IsTexture(destination)) || (IsRenderbuffer(source) && IsRenderbuffer(destination)))
+  {
+    return CopyResourceRegion(self, commands, src, dest, FG_Vec3i{ 0, 0, 0 }, FG_Vec3i{ 0, 0, 0 }, FG_Vec3i{ 800, 600, 1 });
+  }
+  else
+    return 0;
+
+  return 1;
 }
 int Backend::CopySubresource(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, unsigned long srcoffset,
                              unsigned long destoffset, unsigned long bytes)
 {
   auto backend = static_cast<Backend*>(self);
-  return ERR_NOT_IMPLEMENTED;
+
+  LOG_ERROR(backend, backend->CopySubresourceHelper(src, dest, srcoffset, destoffset, bytes));
+
+  return 1;
 }
+GL::GLExpected<void> Backend::CopySubresourceHelper(FG_Resource src, FG_Resource dest, unsigned long srcoffset,
+                                                    unsigned long destoffset, unsigned long bytes)
+{
+  GLuint source      = src;
+  GLuint destination = dest;
+
+  if (IsBuffer(source) && IsBuffer(destination)) 
+  {
+    if(auto e = Buffer(source).bind(GL_COPY_READ_BUFFER))
+    {
+      if(auto b = Buffer(destination).bind(GL_COPY_WRITE_BUFFER))
+      {
+        glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, srcoffset, destoffset, bytes);
+        GL_ERROR("glCopyBufferSubData");
+      }
+      else
+        return std::move(b.error());
+    }
+    else
+      return std::move(e.error());
+  }
+  else
+    return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Incompatible source and/or destination resources");
+
+  return {};
+}
+
 int Backend::CopyResourceRegion(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, FG_Vec3i srcoffset,
                                 FG_Vec3i destoffset, FG_Vec3i size)
 {
@@ -195,7 +240,7 @@ GL::GLExpected<void> Backend::CopyResourceRegionHelper(GLenum type, FG_Resource 
     GL_ERROR("glCopyImageSubData");
   }
   else
-    CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Incompatible src and/or destination resources");
+    return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Incompatible source and/or destination resources");
 
   return {};
 }

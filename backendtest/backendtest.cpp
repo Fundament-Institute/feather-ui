@@ -232,6 +232,7 @@ void test_compute(FG_Backend* b, FG_Window* w) {
   memset(outvals, 0, sizeof(int) * GROUPSIZE);
   FG_Resource inbuf    = (*b->createBuffer)(b, w->context, initvals, sizeof(int) * GROUPSIZE, FG_Usage_Storage_Buffer);
   FG_Resource outbuf   = (*b->createBuffer)(b, w->context, outvals, sizeof(int) * GROUPSIZE, FG_Usage_Storage_Buffer);
+
   auto compute_pipeline = (*b->createComputePipeline)(b, w->context,
                                                      (*b->compileShader)(b, w->context, FG_ShaderStage_Compute, shader_cs),
                                                      FG_Vec3i{ GROUPSIZE, 1, 1 }, 0);
@@ -239,10 +240,15 @@ void test_compute(FG_Backend* b, FG_Window* w) {
   void* commands = (*b->createCommandList)(b, w->context, false);
   assert(commands);
 
+  FG_Resource CoppiedInbuf = (*b->createBuffer)(b, w->context, 0, sizeof(int) * GROUPSIZE, FG_Usage_Storage_Buffer);
+  FG_Resource CoppiedOutbuf = (*b->createBuffer)(b, w->context, 0, sizeof(int) * GROUPSIZE, FG_Usage_Storage_Buffer);
+  TEST((*b->copySubresource)(b, commands, inbuf, CoppiedInbuf, 0, 0, sizeof(int) * GROUPSIZE));
+  TEST((*b->copySubresource)(b, commands, outbuf, CoppiedOutbuf, 0, 0, sizeof(int) * GROUPSIZE));
+
   FG_ShaderValue values[3];
   values[0].i32      = 3;
-  values[1].resource = inbuf;
-  values[2].resource = outbuf;
+  values[1].resource = CoppiedInbuf;
+  values[2].resource = CoppiedOutbuf;
 
   static const FG_ShaderParameter params[] = { { "dt", 1, 0, 0, FG_Shader_Type_Int },
                                                { "inblock", 0, 0, 0, FG_Shader_Type_Buffer },
@@ -253,7 +259,7 @@ void test_compute(FG_Backend* b, FG_Window* w) {
   (*b->syncPoint)(b, commands, FG_BarrierFlag_Storage_Buffer);
   (*b->execute)(b, w->context, commands);
 
-  int* readbuf = (int*)(*b->mapResource)(b, w->context, outbuf, 0, 0, FG_Usage_Storage_Buffer, FG_AccessFlag_Read);
+  int* readbuf = (int*)(*b->mapResource)(b, w->context, CoppiedOutbuf, 0, 0, FG_Usage_Storage_Buffer, FG_AccessFlag_Read);
   TEST(readbuf != nullptr);
 
   for(int i = 0; i < GROUPSIZE; ++i)
@@ -262,7 +268,7 @@ void test_compute(FG_Backend* b, FG_Window* w) {
   }
 
   (*b->destroyCommandList)(b, commands);
-  TEST((*b->unmapResource)(b, w->context, outbuf, FG_Usage_Storage_Buffer) == 0);
+  TEST((*b->unmapResource)(b, w->context, CoppiedOutbuf, FG_Usage_Storage_Buffer) == 0);
   TEST((*b->destroyResource)(b, w->context, outbuf) == 0);
   TEST((*b->destroyResource)(b, w->context, inbuf) == 0);
   TEST((*b->destroyPipelineState)(b, w->context, compute_pipeline) == 0);
