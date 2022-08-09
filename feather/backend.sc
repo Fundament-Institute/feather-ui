@@ -1,6 +1,7 @@
 
 using import struct
 using import Array
+using import Option
 using import Rc
 using import itertools
 using import glm
@@ -9,11 +10,13 @@ using import glm
 let raw =
     include
         """"#include "feather/backend.h"
+            #include "stdarg.h"
+            #include "stdio.h"
 
             const char* LEVELS[] = { "FATAL: ", "ERROR: ", "WARNING: ", "NOTICE: ", "DEBUG: " };
 
             // A logging function that just forwards everything to printf
-            void FakeLog(void* root, FG_Level level, const char* f, ...)
+            void FakeLog(void* root, enum FG_Level level, const char* f, ...)
             {
 
             if(level >= 0)
@@ -69,6 +72,15 @@ spice wrap-fn-call (f args...)
                 else
                     res
 
+spice bitfield_gen (cls vals...)
+    va-lfold
+        inline (a b)
+            `( a or b )
+        va-map
+            inline (v)
+                `(getattr cls (v as Symbol))
+            vals...
+
 
 run-stage;
 
@@ -79,6 +91,15 @@ sugar wrap-enum (name)
         [let] [name] =
             [type+] ([getattr] [raw.enum] (sugar-quote [(Symbol expandedName)]))
                 [enum-vals] [(expandedName .. "_")]
+
+sugar wrap-bitfield (name)
+    name as:= Symbol
+    let expandedName = ("FG_" .. (name as string))
+    qq
+        [let] [name] =
+            [type+] ([getattr] [raw.enum] (sugar-quote [(Symbol expandedName)]))
+                [enum-vals] [(expandedName .. "_")]
+                let gen = [bitfield_gen]
 
 inline underscorify (prefix sym)
     let name = (sym as Symbol as string)
@@ -107,8 +128,30 @@ inline uppercase (sym)
             string.collector (countof name)
     Symbol repl
 
+sugar option-to-pointer (name val)
+    let _name = (Symbol (.. "_" (name as string)))
+    qq
+        local [_name] : (getattr (typeof [val]) 'elem)
+        let [name] =
+            dispatch [val]
+            case Some (x)
+                [_name] = x
+                &[_name]
+            case None ()
+                null
+            default
+                unreachable;
 
 run-stage;
+
+inline unwrap-or (opt val)
+    dispatch opt
+    case Some (val)
+        val
+    case None ()
+        val
+    default
+        unreachable;
 
 do
     wrap-enum PixelFormat
@@ -138,10 +181,10 @@ do
     wrap-enum Strip_Cut_Value
     wrap-enum Blend_Operand
     wrap-enum Blend_Op
-    wrap-enum Pipeline_Member # TODO make bitfield
+    wrap-bitfield Pipeline_Member # TODO make bitfield
     wrap-enum Fill_Mode
     wrap-enum Cull_Mode
-    wrap-enum Pipeline_Flags # TODO make bitfield
+    wrap-bitfield Pipeline_Flags # TODO make bitfield
     wrap-enum Stencil_Op
     wrap-enum Filter
     wrap-enum Texture_Address_Mode
@@ -152,21 +195,51 @@ do
     wrap-enum Cursor
     wrap-enum Kind
     wrap-enum Keys
-    wrap-enum ModKey # TODO make bitfield
+    wrap-bitfield ModKey # TODO make bitfield
     wrap-enum MouseButton
     wrap-enum JoyAxis
     wrap-enum Joy
     wrap-enum Level
     wrap-enum LogType
-    wrap-enum WindowFlag # TODO make bitfield
-    wrap-enum AccessFlags
-    wrap-enum BarrierFlags
-    wrap-enum ClearFlags
+    wrap-bitfield WindowFlag # TODO make bitfield
+    wrap-bitfield AccessFlags
+    wrap-bitfield BarrierFlags
+    wrap-bitfield ClearFlags
+
 
     let fake-log = raw.extern.FakeLog
 
+    let Display = raw.typedef.FG_Display
+
     let ShaderParameter = raw.typedef.FG_ShaderParameter
 
-    type Backend : raw.struct.FG_Backend
+
+    type Backend : &raw.struct.FG_Backend
+        inline __drop (self)
+            let vtab = (storagecast self)
+            vtab.destroy vtab
+
+        let backend = this-type
+        struct Window
+            parent : (& backend)
+            window : (@ raw.typedef.FG_Window)
+
+            inline __drop(self)
+                let vtab = (storagecast self.parent)
+                vtab.destroyWindow vtab self.window
+
+        fn... create-window (self, element, display : (Option Display), pos : (Option vec2), size : (Option vec2), caption, flags)
+            viewing caption
+            returning Window
+
+            option-to-pointer disp display
+            option-to-pointer pos pos
+            option-to-pointer size size
+
+            caption as:= rawstring
+
+            let vtab = (storagecast self)
+            let win =
+                vtab.createWindow vtab element disp pos size caption flags
 
     locals;
