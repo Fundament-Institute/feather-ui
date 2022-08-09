@@ -1260,10 +1260,10 @@ struct FG_Backend
   int (*destroyCommandList)(FG_Backend* self, void* commands);
   int (*clear)(FG_Backend* self, void* commands, uint8_t clearbits, FG_Color RGBA, uint8_t stencil, float depth,
                uint32_t num_rects, FG_Rect* rects);
-  int (*copyResource)(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest);
+  int (*copyResource)(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, FG_Vec3i size, int mipmaplevel);
   int (*copySubresource)(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, unsigned long srcoffset,
                          unsigned long destoffset, unsigned long bytes);
-  int (*copyResourceRegion)(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, FG_Vec3i srcoffset,
+  int (*copyResourceRegion)(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, int level, FG_Vec3i srcoffset,
                             FG_Vec3i destoffset, FG_Vec3i size);
   int (*draw)(FG_Backend* self, void* commands, uint32_t vertexcount, uint32_t instancecount, uint32_t startvertex,
               uint32_t startinstance);

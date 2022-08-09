@@ -390,8 +390,8 @@ int main(int argc, char* argv[])
 
   FG_Resource CoppiedTexture = (*b->createTexture)(b, w->context, FG_Vec2i{ 800, 600 }, FG_Usage_Texture2D, FG_PixelFormat_R8G8B8A8_Typeless, &sampler, NULL, 0);
   void* commands             = (*b->createCommandList)(b, w->context, false);
-  TEST((*b->copyResourceRegion)(b, commands, RenderTarget0, CoppiedTexture, FG_Vec3i{ 0, 0, 0 },
-                                                            FG_Vec3i{ 0, 0, 0 }, FG_Vec3i{ 800, 600, 1 }));
+  TEST((*b->copyResourceRegion)(b, commands, RenderTarget0, CoppiedTexture, 0, FG_Vec3i{ 0, 0, 0 },
+                                                            FG_Vec3i{ 0, 0, 0 }, FG_Vec3i{ 800, 600, 0 }));
   (*b->execute)(b, w->context, commands);
   (*b->destroyCommandList)(b, commands);
 
