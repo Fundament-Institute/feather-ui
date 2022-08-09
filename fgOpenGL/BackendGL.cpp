@@ -158,13 +158,8 @@ int Backend::CopyResource(FG_Backend* self, void* commands, FG_Resource src, FG_
     return CopyResourceRegion(self, commands, src, dest, level, FG_Vec3i{ 0, 0, 0 }, FG_Vec3i{ 0, 0, 0 },
                               FG_Vec3i{ size.x, size.y, size.z });
   }
-  else
-  {
-    backend->LOG(FG_Level_Error, "Mismatched src / dest resources");
-    return 0;
-  }
-    
-  return 1;
+  backend->LOG(FG_Level_Error, "Mismatched src / dest resources");
+  return ERR_INVALID_PARAMETER;
 }
 int Backend::CopySubresource(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, unsigned long srcoffset,
                              unsigned long destoffset, unsigned long bytes)
@@ -218,7 +213,7 @@ GL::GLExpected<void> Backend::CopyResourceRegionHelper(FG_Resource src, FG_Resou
     if(size.y == 0 && size.z == 0) 
     {
     glCopyImageSubData(source, GL_TEXTURE_1D, 0, srcoffset.x, srcoffset.y, srcoffset.z, destination, GL_TEXTURE_1D, 0,
-                         destoffset.x, destoffset.y, destoffset.z, size.x, size.y, 1);
+                         destoffset.x, destoffset.y, destoffset.z, size.x, 1, 1);
     }
     else if(size.z == 0)
     {
