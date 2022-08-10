@@ -242,8 +242,8 @@ void test_compute(FG_Backend* b, FG_Window* w) {
 
   FG_Resource CopiedInbuf = (*b->createBuffer)(b, w->context, 0, sizeof(int) * GROUPSIZE, FG_Usage_Storage_Buffer);
   FG_Resource CopiedOutbuf = (*b->createBuffer)(b, w->context, 0, sizeof(int) * GROUPSIZE, FG_Usage_Storage_Buffer);
-  TEST((*b->copySubresource)(b, commands, inbuf, CopiedInbuf, 0, 0, sizeof(int) * GROUPSIZE));
-  TEST((*b->copySubresource)(b, commands, outbuf, CopiedOutbuf, 0, 0, sizeof(int) * GROUPSIZE));
+  TEST(!(*b->copySubresource)(b, commands, inbuf, CopiedInbuf, 0, 0, sizeof(int) * GROUPSIZE));
+  TEST(!(*b->copySubresource)(b, commands, outbuf, CopiedOutbuf, 0, 0, sizeof(int) * GROUPSIZE));
 
   FG_ShaderValue values[3];
   values[0].i32      = 3;
@@ -390,7 +390,7 @@ int main(int argc, char* argv[])
 
   FG_Resource CoppiedTexture = (*b->createTexture)(b, w->context, FG_Vec2i{ 800, 600 }, FG_Usage_Texture2D, FG_PixelFormat_R8G8B8A8_Typeless, &sampler, NULL, 0);
   void* commands             = (*b->createCommandList)(b, w->context, false);
-  TEST((*b->copyResourceRegion)(b, commands, RenderTarget0, CoppiedTexture, 0, FG_Vec3i{ 0, 0, 0 },
+  TEST(!(*b->copyResourceRegion)(b, commands, RenderTarget0, CoppiedTexture, 0, FG_Vec3i{ 0, 0, 0 },
                                                             FG_Vec3i{ 0, 0, 0 }, FG_Vec3i{ 800, 600, 0 }));
   (*b->execute)(b, w->context, commands);
   (*b->destroyCommandList)(b, commands);
