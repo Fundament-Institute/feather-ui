@@ -166,7 +166,7 @@ int Backend::CopySubresource(FG_Backend* self, void* commands, FG_Resource src, 
 {
   auto backend = static_cast<Backend*>(self);
   LOG_ERROR(backend, backend->CopySubresourceHelper(src, dest, srcoffset, destoffset, bytes));
-  return 1;
+  return ERR_SUCCESS;
 }
 GL::GLExpected<void> Backend::CopySubresourceHelper(FG_Resource src, FG_Resource dest, unsigned long srcoffset,
                                                     unsigned long destoffset, unsigned long bytes)
@@ -200,7 +200,7 @@ int Backend::CopyResourceRegion(FG_Backend* self, void* commands, FG_Resource sr
 {
   auto backend = static_cast<Backend*>(self);
   LOG_ERROR(backend, backend->CopyResourceRegionHelper(src, dest, level, srcoffset, destoffset, size));
-  return 1;
+  return ERR_SUCCESS;
 }
 GL::GLExpected<void> Backend::CopyResourceRegionHelper(FG_Resource src, FG_Resource dest, int level, FG_Vec3i srcoffset,
                                                        FG_Vec3i destoffset, FG_Vec3i size)
