@@ -238,7 +238,6 @@ GL::GLExpected<void> Backend::CopyResourceRegionHelper(FG_Resource src, FG_Resou
 
   return {};
 }
-
 int Backend::DrawGL(FG_Backend* self, void* commands, uint32_t vertexcount, uint32_t instancecount, uint32_t startvertex,
                     uint32_t startinstance)
 {
