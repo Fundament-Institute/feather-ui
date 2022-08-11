@@ -1253,74 +1253,74 @@ enum FG_ClearFlag
 
 struct FG_Backend
 {
-  FG_Caps (*getCaps)(FG_Backend* self);
-  FG_Shader (*compileShader)(FG_Backend* self, FG_Context* context, enum FG_ShaderStage stage, const char* source);
-  int (*destroyShader)(FG_Backend* self, FG_Context* context, FG_Shader shader);
-  void* (*createCommandList)(FG_Backend* self, FG_Context* context, bool bundle);
-  int (*destroyCommandList)(FG_Backend* self, void* commands);
-  int (*clear)(FG_Backend* self, void* commands, uint8_t clearbits, FG_Color RGBA, uint8_t stencil, float depth,
+  FG_Caps (*getCaps)(struct FG_Backend* self);
+  FG_Shader (*compileShader)(struct FG_Backend* self, FG_Context* context, enum FG_ShaderStage stage, const char* source);
+  int (*destroyShader)(struct FG_Backend* self, FG_Context* context, FG_Shader shader);
+  void* (*createCommandList)(struct FG_Backend* self, FG_Context* context, bool bundle);
+  int (*destroyCommandList)(struct FG_Backend* self, void* commands);
+  int (*clear)(struct FG_Backend* self, void* commands, uint8_t clearbits, FG_Color RGBA, uint8_t stencil, float depth,
                uint32_t num_rects, FG_Rect* rects);
-  int (*copyResource)(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, FG_Vec3i size, int mipmaplevel);
-  int (*copySubresource)(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, unsigned long srcoffset,
+  int (*copyResource)(struct FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, FG_Vec3i size, int mipmaplevel);
+  int (*copySubresource)(struct FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, unsigned long srcoffset,
                          unsigned long destoffset, unsigned long bytes);
-  int (*copyResourceRegion)(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, int level, FG_Vec3i srcoffset,
+  int (*copyResourceRegion)(struct FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, int level, FG_Vec3i srcoffset,
                             FG_Vec3i destoffset, FG_Vec3i size);
-  int (*draw)(FG_Backend* self, void* commands, uint32_t vertexcount, uint32_t instancecount, uint32_t startvertex,
+  int (*draw)(struct FG_Backend* self, void* commands, uint32_t vertexcount, uint32_t instancecount, uint32_t startvertex,
               uint32_t startinstance);
-  int (*drawIndexed)(FG_Backend* self, void* commands, uint32_t indexcount, uint32_t instancecount, uint32_t startindex,
+  int (*drawIndexed)(struct FG_Backend* self, void* commands, uint32_t indexcount, uint32_t instancecount, uint32_t startindex,
                      int startvertex, uint32_t startinstance);
-  int (*dispatch)(FG_Backend* self, void* commands);
-  int (*syncPoint)(FG_Backend* self, void* commands, uint32_t barrier_flags);
-  int (*setPipelineState)(FG_Backend* self, void* commands, uintptr_t state);
-  int (*setDepthStencil)(FG_Backend* self, void* commands, bool Front, uint8_t StencilFailOp, uint8_t StencilDepthFailOp,
+  int (*dispatch)(struct FG_Backend* self, void* commands);
+  int (*syncPoint)(struct FG_Backend* self, void* commands, uint32_t barrier_flags);
+  int (*setPipelineState)(struct FG_Backend* self, void* commands, uintptr_t state);
+  int (*setDepthStencil)(struct FG_Backend* self, void* commands, bool Front, uint8_t StencilFailOp, uint8_t StencilDepthFailOp,
                          uint8_t StencilPassOp, uint8_t StencilFunc);
-  int (*setViewports)(FG_Backend* self, void* commands, FG_Viewport* viewports, uint32_t count);
-  int (*setShaderConstants)(FG_Backend* self, void* commands, const FG_ShaderParameter* uniforms,
+  int (*setViewports)(struct FG_Backend* self, void* commands, FG_Viewport* viewports, uint32_t count);
+  int (*setShaderConstants)(struct FG_Backend* self, void* commands, const FG_ShaderParameter* uniforms,
                             const FG_ShaderValue* values, uint32_t count);
-  int (*execute)(FG_Backend* self, FG_Context* context, void* commands);
-  uintptr_t (*createPipelineState)(FG_Backend* self, FG_Context* context, FG_PipelineState* pipelinestate,
+  int (*execute)(struct FG_Backend* self, FG_Context* context, void* commands);
+  uintptr_t (*createPipelineState)(struct FG_Backend* self, FG_Context* context, FG_PipelineState* pipelinestate,
                                    FG_Resource rendertarget, FG_Blend* blends, FG_Resource* vertexbuffer, int* strides,
                                    uint32_t n_buffers, FG_VertexParameter* attributes, uint32_t n_attributes,
                                    FG_Resource indexbuffer, uint8_t indexstride);
-  uintptr_t (*createComputePipeline)(FG_Backend* self, FG_Context* context, FG_Shader computeshader, FG_Vec3i workgroup,
+  uintptr_t (*createComputePipeline)(struct FG_Backend* self, FG_Context* context, FG_Shader computeshader, FG_Vec3i workgroup,
                                      uint32_t flags);
-  int (*destroyPipelineState)(FG_Backend* self, FG_Context* context, uintptr_t state);
-  FG_Resource (*createBuffer)(FG_Backend* self, FG_Context* context, void* data, uint32_t bytes, enum FG_Usage usage);
-  FG_Resource (*createTexture)(FG_Backend* self, FG_Context* context, FG_Vec2i size, enum FG_Usage usage,
+  int (*destroyPipelineState)(struct FG_Backend* self, FG_Context* context, uintptr_t state);
+  FG_Resource (*createBuffer)(struct FG_Backend* self, FG_Context* context, void* data, uint32_t bytes, enum FG_Usage usage);
+  FG_Resource (*createTexture)(struct FG_Backend* self, FG_Context* context, FG_Vec2i size, enum FG_Usage usage,
                                enum FG_PixelFormat format, FG_Sampler* sampler, void* data, int MultiSampleCount);
-  FG_Resource (*createRenderTarget)(FG_Backend* self, FG_Context* context, FG_Resource depthstencil, FG_Resource* textures,
+  FG_Resource (*createRenderTarget)(struct FG_Backend* self, FG_Context* context, FG_Resource depthstencil, FG_Resource* textures,
                                     uint32_t n_textures, int attachments);
-  int (*destroyResource)(FG_Backend* self, FG_Context* context, FG_Resource resource);
-  void* (*mapResource)(FG_Backend* self, FG_Context* context, FG_Resource resource, uint32_t offset, uint32_t length,
+  int (*destroyResource)(struct FG_Backend* self, FG_Context* context, FG_Resource resource);
+  void* (*mapResource)(struct FG_Backend* self, FG_Context* context, FG_Resource resource, uint32_t offset, uint32_t length,
                        enum FG_Usage usage, uint32_t access);
-  int (*unmapResource)(FG_Backend* self, FG_Context* context, FG_Resource resource, enum FG_Usage usage);
-  FG_Window* (*createWindow)(FG_Backend* self, FG_Element* element, FG_Display* display, FG_Vec2* pos, FG_Vec2* dim,
+  int (*unmapResource)(struct FG_Backend* self, FG_Context* context, FG_Resource resource, enum FG_Usage usage);
+  FG_Window* (*createWindow)(struct FG_Backend* self, FG_Element* element, FG_Display* display, FG_Vec2* pos, FG_Vec2* dim,
                              const char* caption, uint64_t flags);
-  int (*setWindow)(FG_Backend* self, FG_Window* window, FG_Element* element, FG_Display* display, FG_Vec2* pos,
+  int (*setWindow)(struct FG_Backend* self, FG_Window* window, FG_Element* element, FG_Display* display, FG_Vec2* pos,
                    FG_Vec2* dim, const char* caption, uint64_t flags);
-  int (*destroyWindow)(FG_Backend* self, FG_Window* window);
-  int (*beginDraw)(FG_Backend* self, FG_Context* context, FG_Rect* area);
-  int (*endDraw)(FG_Backend* self, FG_Context* context);
-  int (*putClipboard)(FG_Backend* self, FG_Window* window, enum FG_Clipboard kind, const char* data, uint32_t count);
-  uint32_t (*getClipboard)(FG_Backend* self, FG_Window* window, enum FG_Clipboard kind, void* target, uint32_t count);
-  bool (*checkClipboard)(FG_Backend* self, FG_Window* window, enum FG_Clipboard kind);
-  int (*clearClipboard)(FG_Backend* self, FG_Window* window, enum FG_Clipboard kind);
-  int (*processMessages)(FG_Backend* self, FG_Window* window);
-  int (*getMessageSyncObject)(FG_Backend* self, FG_Window* window);
-  int (*setCursor)(FG_Backend* self, FG_Window* window, enum FG_Cursor cursor);
-  int (*getDisplayIndex)(FG_Backend* self, unsigned int index, FG_Display* out);
-  int (*getDisplay)(FG_Backend* self, uintptr_t handle, FG_Display* out);
-  int (*getDisplayWindow)(FG_Backend* self, FG_Window* window, FG_Display* out);
-  int (*createSystemControl)(FG_Backend* self, FG_Context* context, const char* id, FG_Rect* area, ...);
-  int (*setSystemControl)(FG_Backend* self, FG_Context* context, void* control, FG_Rect* area, ...);
-  int (*destroySystemControl)(FG_Backend* self, FG_Context* context, void* control);
-  int (*destroy)(FG_Backend* self);
+  int (*destroyWindow)(struct FG_Backend* self, FG_Window* window);
+  int (*beginDraw)(struct FG_Backend* self, FG_Context* context, FG_Rect* area);
+  int (*endDraw)(struct FG_Backend* self, FG_Context* context);
+  int (*putClipboard)(struct FG_Backend* self, FG_Window* window, enum FG_Clipboard kind, const char* data, uint32_t count);
+  uint32_t (*getClipboard)(struct FG_Backend* self, FG_Window* window, enum FG_Clipboard kind, void* target, uint32_t count);
+  bool (*checkClipboard)(struct FG_Backend* self, FG_Window* window, enum FG_Clipboard kind);
+  int (*clearClipboard)(struct FG_Backend* self, FG_Window* window, enum FG_Clipboard kind);
+  int (*processMessages)(struct FG_Backend* self, FG_Window* window);
+  int (*getMessageSyncObject)(struct FG_Backend* self, FG_Window* window);
+  int (*setCursor)(struct FG_Backend* self, FG_Window* window, enum FG_Cursor cursor);
+  int (*getDisplayIndex)(struct FG_Backend* self, unsigned int index, FG_Display* out);
+  int (*getDisplay)(struct FG_Backend* self, uintptr_t handle, FG_Display* out);
+  int (*getDisplayWindow)(struct FG_Backend* self, FG_Window* window, FG_Display* out);
+  int (*createSystemControl)(struct FG_Backend* self, FG_Context* context, const char* id, FG_Rect* area, ...);
+  int (*setSystemControl)(struct FG_Backend* self, FG_Context* context, void* control, FG_Rect* area, ...);
+  int (*destroySystemControl)(struct FG_Backend* self, FG_Context* context, void* control);
+  int (*destroy)(struct FG_Backend* self);
 
   int cursorblink;
   int tooltipdelay;
 };
 
-typedef FG_Backend* (*FG_InitBackend)(void*, FG_Log, FG_Behavior);
+typedef struct FG_Backend* (*FG_InitBackend)(void*, FG_Log, FG_Behavior);
 
 #ifdef __cplusplus
 }

@@ -86,8 +86,6 @@ GLExpected<void> ProgramObject::set_texture(const char* name, GLenum type, GLuin
 
     glActiveTexture(type);
     GL_ERROR("glActiveTexture");
-    glEnable(GL_TEXTURE_2D);
-    GL_ERROR("glEnable");
     glBindTexture(GL_TEXTURE_2D, data);
     GL_ERROR("glBindTexture");
   }

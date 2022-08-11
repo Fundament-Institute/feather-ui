@@ -4,17 +4,15 @@
 #ifndef GL__PROGRAM_OBJECT_H
 #define GL__PROGRAM_OBJECT_H
 
-#include "Ref.hpp"
+#include "ShaderObject.hpp"
 #include <string>
 
 namespace GL {
-  static bool IsProgramObj(GLuint i) noexcept { return glIsProgram(i) == GL_TRUE; };
-  static void DeleteProgramObj(GLuint i) noexcept { glDeleteProgram(i); };
-  struct ShaderObject;
+  //static bool IsProgramObj(GLuint i) noexcept { return glIsProgram(i) == GL_TRUE; };
 
-  struct ProgramObject : Ref<IsProgramObj>
+  struct ProgramObject : Ref
   {
-    static constexpr DESTROY_FUNC DESTROY = &DeleteProgramObj;
+    static constexpr DESTROY_FUNC DESTROY = [](GLuint i) { glDeleteProgram(i); };
 
     explicit constexpr ProgramObject(GLuint shader) noexcept : Ref(shader) {}
     constexpr ProgramObject() noexcept                      = default;

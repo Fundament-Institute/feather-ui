@@ -155,7 +155,7 @@ Window::Window(Backend* backend, GLFWmonitor* display, FG_Element* element, FG_V
   glfwWindowHint(GLFW_MAXIMIZED, flags & FG_WindowFlag_Maximized);
   glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GL_TRUE);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 
   //#if defined(__linux__) || defined(__linux)
   //  glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API);

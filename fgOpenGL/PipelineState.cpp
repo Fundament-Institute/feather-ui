@@ -16,6 +16,8 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
                                                  std::span<FG_VertexParameter> attributes, FG_Resource indexbuffer,
                                                  uint8_t indexstride) noexcept
 {
+  auto test               = Buffer(vertexbuffers[0]);
+
   PipelineState* pipeline = new PipelineState{};
 
   if(auto e = ProgramObject::create())
@@ -32,13 +34,13 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
   RETURN_ERROR(pipeline->program.link());
 
   auto vlist = std::span(reinterpret_cast<std::pair<GLuint, GLsizei>*>(
-                           ALLOCA(sizeof(std::pair<GLuint, GLsizei>) * vertexbuffers.size())),
+                           malloc(sizeof(std::pair<GLuint, GLsizei>) * vertexbuffers.size())),
                          vertexbuffers.size());
 
   for(size_t i = 0; i < vlist.size(); ++i)
   {
     // Have to be careful to use placement new here to avoid UB due to alloca
-    new(&vlist[i]) std::pair{ Buffer(vertexbuffers[i]), strides[i] };
+    new(&vlist[i]) std::pair<GLuint, GLsizei>{ Buffer(vertexbuffers[i]), strides[i] };
   }
 
   if(auto e = VertexArrayObject::create(pipeline->program, attributes, vlist, Buffer(indexbuffer)))
@@ -49,7 +51,7 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
     return std::move(e.error());
 
   pipeline->Members = state.members;
-  pipeline->rt      = FrameBuffer(rendertarget);
+  pipeline->rt      = Framebuffer(rendertarget);
 
   if(state.members & FG_Pipeline_Member_Primitive)
   {

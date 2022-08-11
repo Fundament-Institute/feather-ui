@@ -7,9 +7,7 @@
 #include "Ref.hpp"
 
 namespace GL {
-  static bool IsBuffer(GLuint i) noexcept { return glIsBuffer(i) == GL_TRUE; };
-
-  struct Buffer : Ref<&IsBuffer>
+  struct Buffer : Ref
   {
     static constexpr DESTROY_FUNC DESTROY = [](GLuint i) { glDeleteBuffers(1, &i); };
 
@@ -19,7 +17,7 @@ namespace GL {
     {
 #ifdef _DEBUG
       if(_ref != 0)
-        assert(is_valid());
+        assert(validate(buffer));
 #endif
     }
     constexpr Buffer(const Buffer&) = default;
@@ -32,7 +30,12 @@ namespace GL {
     }
 
     Buffer& operator=(const Buffer&) = default;
+    inline operator FG_Resource() const noexcept { return _ref | REF_BUFFER; }
 
+    static bool validate(FG_Resource res) noexcept
+    {
+      return ((res & REF_BUFFER) != 0) && (glIsBuffer(static_cast<GLuint>(res & REF_MASK)) == GL_TRUE);
+    }
     static GLExpected<Owned<Buffer>> create(GLenum target, void* data, GLsizeiptr bytes)
     {
       GLuint fbgl;

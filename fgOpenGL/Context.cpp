@@ -5,6 +5,9 @@
 #include "VertexArrayObject.hpp"
 #include "ProgramObject.hpp"
 #include "EnumMapping.hpp"
+#include "Buffer.hpp"
+#include "Texture.hpp"
+#include "Renderbuffer.hpp"
 #include <algorithm>
 #include <cassert>
 #include <cfloat>
@@ -43,7 +46,19 @@ const FG_Blend Context::Default_Blend = {
 };
 
 Context::Context(Backend* backend, FG_Element* element, FG_Vec2 dim) :
-  _backend(backend), _window(nullptr), _lastblend(Default_Blend), _program(nullptr), _dim(dim)
+  _backend(backend),
+  _window(nullptr),
+  _lastblend(Default_Blend),
+  _program(nullptr),
+  _dim(dim),
+  _indextype(0),
+  _lastcull(0),
+  _lastfill(0),
+  _lastfactor({ 0, 0, 0, 0 }),
+  _lastflags(0), 
+  _primitive(0),
+  _statestore({0}),
+  _workgroup({0,0,0})
 {
   this->element = element;
   this->context = this;
@@ -178,6 +193,67 @@ GLExpected<void> Context::DrawIndexed(uint32_t indexcount, uint32_t instancecoun
     return CUSTOM_ERROR(ERR_NOT_IMPLEMENTED, "don't know how to instance things!");
   glDrawElements(_primitive, indexcount, _indextype, nullptr);
   GL_ERROR("glDrawElements");
+  return {};
+}
+
+GL::GLExpected<void> Context::CopySubresource(FG_Resource src, FG_Resource dest, unsigned long srcoffset,
+                                              unsigned long destoffset, unsigned long bytes)
+{
+  if(Buffer::validate(src) && Buffer::validate(dest))
+  {
+    if(auto e = Buffer(src).bind(GL_COPY_READ_BUFFER))
+    {
+      if(auto b = Buffer(dest).bind(GL_COPY_WRITE_BUFFER))
+      {
+        glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, srcoffset, destoffset, bytes);
+        GL_ERROR("glCopyBufferSubData");
+      }
+      else
+        return std::move(b.error());
+    }
+    else
+      return std::move(e.error());
+  }
+  else
+    return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Mismatched src / dest resources");
+
+  return {};
+}
+
+GL::GLExpected<void> Context::CopyResourceRegion(FG_Resource src, FG_Resource dest, int level, FG_Vec3i srcoffset,
+                                                       FG_Vec3i destoffset, FG_Vec3i size)
+{
+  GLuint source      = src;
+  GLuint destination = dest;
+
+  if(Texture::validate(src) && Texture::validate(dest))
+  {
+    if(size.y == 0 && size.z == 0)
+    {
+      glCopyImageSubData(source, GL_TEXTURE_1D, 0, srcoffset.x, srcoffset.y, srcoffset.z, destination, GL_TEXTURE_1D, 0,
+                         destoffset.x, destoffset.y, destoffset.z, size.x, 1, 1);
+    }
+    else if(size.z == 0)
+    {
+      glCopyImageSubData(source, GL_TEXTURE_2D, 0, srcoffset.x, srcoffset.y, srcoffset.z, destination, GL_TEXTURE_2D, 0,
+                         destoffset.x, destoffset.y, destoffset.z, size.x, size.y, 1);
+    }
+    else
+    {
+      glCopyImageSubData(source, GL_TEXTURE_3D, 0, srcoffset.x, srcoffset.y, srcoffset.z, destination, GL_TEXTURE_3D, 0,
+                         destoffset.x, destoffset.y, destoffset.z, size.x, size.y, size.z);
+    }
+    GL_ERROR("glCopyImageSubData");
+  }
+  else if(Renderbuffer::validate(src) && Renderbuffer::validate(dest))
+  {
+    glCopyImageSubData(source, GL_RENDERBUFFER, 0, srcoffset.x, srcoffset.y, srcoffset.z, destination, GL_RENDERBUFFER, 0,
+                       destoffset.x, destoffset.y, destoffset.z, size.x, size.y, size.z);
+    GL_ERROR("glCopyImageSubData");
+  }
+  else
+    return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Mismatched src / dest resources");
+
   return {};
 }
 

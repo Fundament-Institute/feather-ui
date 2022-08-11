@@ -8,8 +8,6 @@
 #include "Format.hpp"
 
 namespace GL {
-  static bool IsTexture(GLuint i) noexcept { return glIsTexture(i) == GL_TRUE; };
-
   union Filter
   {
     struct
@@ -27,7 +25,7 @@ namespace GL {
 
   static_assert(sizeof(Filter) == sizeof(uint8_t), "Filter is unexpected size!");
 
-  struct Texture : Ref<&IsTexture>
+  struct Texture : Ref
   {
     static constexpr DESTROY_FUNC DESTROY = [](GLuint i) { glDeleteTextures(1, &i); };
 
@@ -82,11 +80,11 @@ namespace GL {
     };
 
     explicit constexpr Texture(GLuint tex) noexcept : Ref(tex) {}
-    explicit constexpr Texture(FG_Resource tex) noexcept : Ref(static_cast<GLuint>(tex))
+    explicit constexpr Texture(FG_Resource tex) noexcept : Ref(static_cast<GLuint>(tex & REF_MASK))
     {
 #ifdef _DEBUG
       if(_ref != 0)
-        assert(is_valid());
+        assert(validate(tex));
 #endif
     }
     constexpr Texture() noexcept                = default;
@@ -95,7 +93,12 @@ namespace GL {
     GLExpected<TextureBindRef> bind(GLenum target) const noexcept;
 
     Texture& operator=(const Texture&) noexcept = default;
+    inline operator FG_Resource() const noexcept { return _ref | REF_TEXTURE; }
 
+    static bool validate(FG_Resource res) noexcept
+    {
+      return ((res & REF_TEXTURE) != 0) && (glIsTexture(static_cast<GLuint>(res & REF_MASK)) == GL_TRUE);
+    }
     static GLExpected<Owned<Texture>> create2D(GLenum target, Format format, FG_Vec2i size, const FG_Sampler& sampler,
                                                void* data = nullptr, int levelorsamples = 0);
 

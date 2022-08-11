@@ -8,14 +8,14 @@
 
 using namespace GL;
 
-GLExpected<BindRef> FrameBuffer::bind(GLenum target) const noexcept
+GLExpected<BindRef> Framebuffer::bind(GLenum target) const noexcept
 {
   glBindFramebuffer(target, _ref);
   GL_ERROR("glBindFramebuffer");
   return BindRef{ target, [](GLenum target) { glBindFramebuffer(target, 0); } };
 }
 
-GLExpected<Owned<FrameBuffer>> FrameBuffer::create(GLenum target, GLenum type, int level, int zoffset,
+GLExpected<Owned<Framebuffer>> Framebuffer::create(GLenum target, GLenum type, int level, int zoffset,
                                                    FG_Resource* textures, uint32_t n_textures) noexcept
 {
   assert(glFramebufferTexture2D != nullptr);
@@ -23,13 +23,13 @@ GLExpected<Owned<FrameBuffer>> FrameBuffer::create(GLenum target, GLenum type, i
   GLuint fbgl;
   glGenFramebuffers(1, &fbgl);
   GL_ERROR("glGenFramebuffers");
-  Owned<FrameBuffer> fb(fbgl);
+  Owned<Framebuffer> fb(fbgl);
 
   RETURN_ERROR(fb->attach(target, type, level, zoffset, textures, n_textures));
   return fb;
 }
 
-GLExpected<void> FrameBuffer::attach(GLenum target, GLenum type, int level, int zoffset, FG_Resource* textures,
+GLExpected<void> Framebuffer::attach(GLenum target, GLenum type, int level, int zoffset, FG_Resource* textures,
                                      uint32_t n_textures) noexcept
 {
   if(auto e = bind(target))
@@ -74,7 +74,7 @@ GLExpected<void> FrameBuffer::attach(GLenum target, GLenum type, int level, int 
 
   return {};
 }
-GLExpected<void> FrameBuffer::attach2D(GLenum target, GLenum attachment, GLenum type, FG_Resource texture, int level)
+GLExpected<void> Framebuffer::attach2D(GLenum target, GLenum attachment, GLenum type, FG_Resource texture, int level)
 {
   if(auto e = bind(target))
   {

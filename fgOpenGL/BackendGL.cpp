@@ -10,6 +10,7 @@
 #include "PipelineState.hpp"
 #include "EnumMapping.hpp"
 #include <cstring>
+#include <GL\gl.h>
 
 #ifdef FG_PLATFORM_WIN32
   #include <dwrite_1.h>
@@ -146,14 +147,12 @@ int Backend::CopyResource(FG_Backend* self, void* commands, FG_Resource src, FG_
 {
   auto backend = static_cast<Backend*>(self);
 
-  GLuint source = src;
-  GLuint destination = dest;
-
-  if (IsBuffer(source) && IsBuffer(dest)) 
+  if(Buffer::validate(src) && Buffer::validate(dest)) 
   {
     return CopySubresource(self, commands, src, dest, 0, 0, size.x);
   }
-  else if((IsTexture(source) && IsTexture(destination)) || (IsRenderbuffer(source) && IsRenderbuffer(destination)))
+  else if((Texture::validate(src) && Texture::validate(dest)) ||
+          (Renderbuffer::validate(src) && Renderbuffer::validate(dest)))
   {
     return CopyResourceRegion(self, commands, src, dest, level, FG_Vec3i{ 0, 0, 0 }, FG_Vec3i{ 0, 0, 0 },
                               FG_Vec3i{ size.x, size.y, size.z });
@@ -165,78 +164,19 @@ int Backend::CopySubresource(FG_Backend* self, void* commands, FG_Resource src, 
                              unsigned long destoffset, unsigned long bytes)
 {
   auto backend = static_cast<Backend*>(self);
-  LOG_ERROR(backend, backend->CopySubresourceHelper(src, dest, srcoffset, destoffset, bytes));
+  auto context = reinterpret_cast<Context*>(commands);
+  LOG_ERROR(backend, context->CopySubresource(src, dest, srcoffset, destoffset, bytes));
   return ERR_SUCCESS;
 }
-GL::GLExpected<void> Backend::CopySubresourceHelper(FG_Resource src, FG_Resource dest, unsigned long srcoffset,
-                                                    unsigned long destoffset, unsigned long bytes)
-{
-  GLuint source      = src;
-  GLuint destination = dest;
 
-  if (IsBuffer(source) && IsBuffer(destination)) 
-  {
-    if(auto e = Buffer(source).bind(GL_COPY_READ_BUFFER))
-    {
-      if(auto b = Buffer(destination).bind(GL_COPY_WRITE_BUFFER))
-      {
-        glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, srcoffset, destoffset, bytes);
-        GL_ERROR("glCopyBufferSubData");
-      }
-      else
-        return std::move(b.error());
-    }
-    else
-      return std::move(e.error());
-  }
-  else
-    return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Mismatched src / dest resources");
-
-  return {};
-}
 int Backend::CopyResourceRegion(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest,
                                 int level, FG_Vec3i srcoffset,
                                 FG_Vec3i destoffset, FG_Vec3i size)
 {
   auto backend = static_cast<Backend*>(self);
-  LOG_ERROR(backend, backend->CopyResourceRegionHelper(src, dest, level, srcoffset, destoffset, size));
+  auto context = reinterpret_cast<Context*>(commands);
+  LOG_ERROR(backend, context->CopyResourceRegion(src, dest, level, srcoffset, destoffset, size));
   return ERR_SUCCESS;
-}
-GL::GLExpected<void> Backend::CopyResourceRegionHelper(FG_Resource src, FG_Resource dest, int level, FG_Vec3i srcoffset,
-                                                       FG_Vec3i destoffset, FG_Vec3i size)
-{
-  GLuint source      = src;
-  GLuint destination = dest;
-  
-  if(IsTexture(source) && IsTexture(destination))
-  {
-    if(size.y == 0 && size.z == 0) 
-    {
-    glCopyImageSubData(source, GL_TEXTURE_1D, 0, srcoffset.x, srcoffset.y, srcoffset.z, destination, GL_TEXTURE_1D, 0,
-                         destoffset.x, destoffset.y, destoffset.z, size.x, 1, 1);
-    }
-    else if(size.z == 0)
-    {
-      glCopyImageSubData(source, GL_TEXTURE_2D, 0, srcoffset.x, srcoffset.y, srcoffset.z, destination, GL_TEXTURE_2D, 0,
-                         destoffset.x, destoffset.y, destoffset.z, size.x, size.y, 1);
-    }
-    else
-    {
-      glCopyImageSubData(source, GL_TEXTURE_3D, 0, srcoffset.x, srcoffset.y, srcoffset.z, destination, GL_TEXTURE_3D, 0,
-                         destoffset.x, destoffset.y, destoffset.z, size.x, size.y, size.z);
-    }
-    GL_ERROR("glCopyImageSubData");
-  }
-  else if(IsRenderbuffer(source) && IsRenderbuffer(destination))
-  {
-    glCopyImageSubData(source, GL_RENDERBUFFER, 0, srcoffset.x, srcoffset.y, srcoffset.z, destination, GL_RENDERBUFFER, 0,
-                       destoffset.x, destoffset.y, destoffset.z, size.x, size.y, size.z);
-    GL_ERROR("glCopyImageSubData");
-  }
-  else
-    return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Mismatched src / dest resources");
-
-  return {};
 }
 int Backend::DrawGL(FG_Backend* self, void* commands, uint32_t vertexcount, uint32_t instancecount, uint32_t startvertex,
                     uint32_t startinstance)
@@ -310,11 +250,16 @@ int Backend::SyncPoint(FG_Backend* self, void* commands, uint32_t barrier_flags)
 
 int Backend::SetPipelineState(FG_Backend* self, void* commands, uintptr_t state)
 {
-  if(!commands || !state)
+  if(!commands)
     return ERR_INVALID_PARAMETER;
 
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(commands);
+
+  if (!state) {
+    context->_program = nullptr;
+    return ERR_INVALID_PARAMETER;
+  }
 
   if(reinterpret_cast<PipelineState*>(state)->Members & COMPUTE_PIPELINE_FLAG)
   {
@@ -443,7 +388,7 @@ FG_Resource Backend::CreateRenderTarget(FG_Backend* self, FG_Context* context, F
 {
   auto backend = static_cast<Backend*>(self);
 
-  if(auto e = FrameBuffer::create(GL_FRAMEBUFFER, GL_TEXTURE_2D, 0, 0, textures, n_textures))
+  if(auto e = Framebuffer::create(GL_FRAMEBUFFER, GL_TEXTURE_2D, 0, 0, textures, n_textures))
   {
     if(auto flags = (attachments & (FG_ClearFlag_Depth | FG_ClearFlag_Stencil)))
     {
@@ -470,19 +415,22 @@ FG_Resource Backend::CreateRenderTarget(FG_Backend* self, FG_Context* context, F
 int Backend::DestroyResource(FG_Backend* self, FG_Context* context, FG_Resource resource)
 {
   auto backend = static_cast<Backend*>(self);
-  GLuint i     = resource;
-  if(glIsBuffer(i))
-    Owned<Buffer> b(i);
-  else if(glIsTexture(i))
-    Owned<Texture> t(i);
-  else if(glIsRenderbuffer(i))
-    Owned<Renderbuffer> t(i);
-  else if(glIsFramebuffer(i))
-    Owned<FrameBuffer> fb(i);
+  if(Framebuffer::validate(resource))
+    Owned<Framebuffer> b(resource);
+  else if(Texture::validate(resource))
+    Owned<Texture> t(resource);
+  else if(Renderbuffer::validate(resource))
+    Owned<Renderbuffer> t(resource);
+  else if(Buffer::validate(resource))
+    Owned<Buffer> fb(resource);
   else
     return ERR_INVALID_PARAMETER;
 
-  return ERR_SUCCESS;
+  if(GLError e{ "glDelete", __FILE__, __LINE__ })
+    return e.log(backend);
+
+  return 0;
+
 }
 
 GLenum getOpenGLAccessFlags(uint32_t flags)
@@ -518,29 +466,28 @@ void* Backend::MapResource(FG_Backend* self, FG_Context* context, FG_Resource re
                            enum FG_Usage usage, uint32_t access)
 {
   auto backend = static_cast<Backend*>(self);
-  GLuint i     = resource;
 
   if(usage >= ArraySize(UsageMapping) || !context)
     return nullptr;
 
   BindRef bind;
-  if(auto v = Buffer(i))
+  if(Buffer::validate(resource))
   {
-    if(auto b = v.bind(UsageMapping[usage]))
+    if(auto b = Buffer(resource).bind(UsageMapping[usage]))
       bind = std::move(b.value());
     else
       b.error().log(backend);
   }
-  if(auto v = Texture(i))
+  if(Texture::validate(resource))
   {
-    if(auto b = v.bind(UsageMapping[usage]))
+    if(auto b = Texture(resource).bind(UsageMapping[usage]))
       bind = std::move(b.value());
     else
       b.error().log(backend);
   }
-  if(auto v = FrameBuffer(i))
+  if(Framebuffer::validate(resource))
   {
-    if(auto b = v.bind(UsageMapping[usage]))
+    if(auto b = Framebuffer(resource).bind(UsageMapping[usage]))
       bind = std::move(b.value());
     else
       b.error().log(backend);
@@ -565,29 +512,28 @@ void* Backend::MapResource(FG_Backend* self, FG_Context* context, FG_Resource re
 int Backend::UnmapResource(FG_Backend* self, FG_Context* context, FG_Resource resource, enum FG_Usage usage)
 {
   auto backend = static_cast<Backend*>(self);
-  GLuint i     = resource;
 
   if(usage >= ArraySize(UsageMapping) || !context)
     return ERR_INVALID_PARAMETER;
 
   BindRef bind;
-  if(auto v = Buffer(i))
+  if(Buffer::validate(resource))
   {
-    if(auto b = v.bind(UsageMapping[usage]))
+    if(auto b = Buffer(resource).bind(UsageMapping[usage]))
       bind = std::move(b.value());
     else
       return b.error().log(backend);
   }
-  if(auto v = Texture(i))
+  if(Texture::validate(resource))
   {
-    if(auto b = v.bind(UsageMapping[usage]))
+    if(auto b = Texture(resource).bind(UsageMapping[usage]))
       bind = std::move(b.value());
     else
       return b.error().log(backend);
   }
-  if(auto v = FrameBuffer(i))
+  if(Framebuffer::validate(resource))
   {
-    if(auto b = v.bind(UsageMapping[usage]))
+    if(auto b = Framebuffer(resource).bind(UsageMapping[usage]))
       bind = std::move(b.value());
     else
       return b.error().log(backend);

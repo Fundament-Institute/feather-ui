@@ -79,7 +79,7 @@ namespace GL {
       else if constexpr(std::is_integral_v<U> && std::is_signed_v<U> && sizeof(U) == sizeof(int64_t))
         return FG_LogValue{ .type = FG_LogType_I64, .i64 = v };
       else if constexpr(std::is_integral_v<U> && std::is_unsigned_v<U> && sizeof(U) == sizeof(int64_t))
-        return FG_LogValue{ .type = FG_LogType_I64, .i64 = v };
+        return FG_LogValue{ .type = FG_LogType_U64, .u64 = v };
       else
         static_assert(std::is_same_v<U, bool>, "Invalid type for FG_LogValue");
     }
@@ -116,14 +116,9 @@ namespace GL {
                             int mipmaplevel);
     static int CopySubresource(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, unsigned long srcoffset,
                                unsigned long destoffset, unsigned long bytes);
-    GLExpected<void> CopySubresourceHelper(FG_Resource src, FG_Resource dest, unsigned long srcoffset,
-                                           unsigned long destoffset, unsigned long bytes);
     static int CopyResourceRegion(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, int level,
                                   FG_Vec3i srcoffset,
                                   FG_Vec3i destoffset, FG_Vec3i size);
-    GLExpected<void> CopyResourceRegionHelper(FG_Resource src, FG_Resource dest, int level, FG_Vec3i srcoffset,
-                                              FG_Vec3i destoffset,
-                                              FG_Vec3i size);
     static int DrawGL(FG_Backend* self, void* commands, uint32_t vertexcount, uint32_t instancecount, uint32_t startvertex,
                       uint32_t startinstance);
     static int DrawIndexed(FG_Backend* self, void* commands, uint32_t indexcount, uint32_t instancecount,

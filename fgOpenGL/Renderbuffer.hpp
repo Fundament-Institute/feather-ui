@@ -7,23 +7,30 @@
 #include "Texture.hpp"
 
 namespace GL {
-  static bool IsRenderbuffer(GLuint i) noexcept { return glIsRenderbuffer(i) == GL_TRUE; };
-
-  struct Renderbuffer : Ref<&IsRenderbuffer>
+  struct Renderbuffer : Ref
   {
     static constexpr DESTROY_FUNC DESTROY = [](GLuint i) { glDeleteRenderbuffers(1, &i); };
 
     explicit constexpr Renderbuffer(GLuint buffer) noexcept : Ref(buffer) {}
-    explicit constexpr Renderbuffer(FG_Resource buffer) noexcept : Ref(static_cast<GLuint>(buffer)) {}
+    explicit constexpr Renderbuffer(FG_Resource buffer) noexcept : Ref(static_cast<GLuint>(buffer & REF_MASK))
+    {
+#ifdef _DEBUG
+      if(_ref != 0)
+        assert(validate(buffer));
+#endif
+    }
     constexpr Renderbuffer() noexcept                     = default;
-    constexpr Renderbuffer(Renderbuffer&& right) noexcept = default;
-    constexpr Renderbuffer(const Renderbuffer&)           = delete;
+    constexpr Renderbuffer(const Renderbuffer&) = default;
     constexpr ~Renderbuffer() noexcept               = default;
     GLExpected<BindRef> bind(GLenum target) const noexcept;
 
-    Renderbuffer& operator=(const Renderbuffer&) = delete;
-    Renderbuffer& operator=(Renderbuffer&& right) noexcept = default;
+    inline operator FG_Resource() const noexcept { return _ref | REF_RENDERBUFFER; }
+    Renderbuffer& operator=(const Renderbuffer&) = default;
 
+    static bool validate(FG_Resource res) noexcept
+    {
+      return ((res & REF_RENDERBUFFER) != 0) && (glIsRenderbuffer(static_cast<GLuint>(res & REF_MASK)) == GL_TRUE);
+    }
     static GLExpected<Owned<Renderbuffer>> create(GLenum target, Format format, FG_Vec2i size, int samples = 0);
   };
 }

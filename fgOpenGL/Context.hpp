@@ -48,6 +48,10 @@ namespace GL {
     GLExpected<void> Barrier(GLbitfield barrier_flags);
     GLFWwindow* GetWindow() const { return _window; }
     GLExpected<void> SetShaderUniforms(const FG_ShaderParameter* uniforms, const FG_ShaderValue* values, uint32_t count);
+    GLExpected<void> CopySubresource(FG_Resource src, FG_Resource dest, unsigned long srcoffset,
+                                           unsigned long destoffset, unsigned long bytes);
+    GLExpected<void> CopyResourceRegion(FG_Resource src, FG_Resource dest, int level, FG_Vec3i srcoffset,
+                                              FG_Vec3i destoffset, FG_Vec3i size);
     GLExpected<void> ApplyBlendFactor(const std::array<float, 4>& factor);
     GLExpected<void> ApplyBlend(const FG_Blend& blend, bool force = false);
     GLExpected<void> ApplyFlags(uint16_t flags);
@@ -115,6 +119,7 @@ namespace GL {
       GLint alphadest;
       GLint alphaop;
     } _statestore;
+    const ProgramObject* _program;
 
   protected:
     template<class T> inline static void _buildPosUV(T (&v)[4], const FG_Rect& area, const FG_Rect& uv, float x, float y)
@@ -144,7 +149,6 @@ namespace GL {
     Backend* _backend;
     GLenum _primitive;
     GLenum _indextype;
-    const ProgramObject* _program;
     FG_Blend _lastblend;
     std::array<float, 4> _lastfactor;
     uint16_t _lastflags;

@@ -12,9 +12,7 @@ struct FG_ShaderParameter__;
 
 namespace GL {
   class Backend;
-  static bool IsShader(GLuint i) noexcept { return glIsShader(i) == GL_TRUE; };
-
-  struct ShaderObject : public Ref<IsShader>
+  struct ShaderObject : public Ref
   {
     static constexpr DESTROY_FUNC DESTROY = [](GLuint i) { glDeleteShader(i); };
 
