@@ -142,22 +142,101 @@ int Backend::Clear(FG_Backend* self, void* commands, uint8_t clearbits, FG_Color
 
   return ERR_NOT_IMPLEMENTED;
 }
-int Backend::CopyResource(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest)
+int Backend::CopyResource(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, FG_Vec3i size, int level)
 {
   auto backend = static_cast<Backend*>(self);
-  return ERR_NOT_IMPLEMENTED;
+
+  GLuint source = src;
+  GLuint destination = dest;
+
+  if (IsBuffer(source) && IsBuffer(dest)) 
+  {
+    return CopySubresource(self, commands, src, dest, 0, 0, size.x);
+  }
+  else if((IsTexture(source) && IsTexture(destination)) || (IsRenderbuffer(source) && IsRenderbuffer(destination)))
+  {
+    return CopyResourceRegion(self, commands, src, dest, level, FG_Vec3i{ 0, 0, 0 }, FG_Vec3i{ 0, 0, 0 },
+                              FG_Vec3i{ size.x, size.y, size.z });
+  }
+  backend->LOG(FG_Level_Error, "Mismatched src / dest resources");
+  return ERR_INVALID_PARAMETER;
 }
 int Backend::CopySubresource(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, unsigned long srcoffset,
                              unsigned long destoffset, unsigned long bytes)
 {
   auto backend = static_cast<Backend*>(self);
-  return ERR_NOT_IMPLEMENTED;
+  LOG_ERROR(backend, backend->CopySubresourceHelper(src, dest, srcoffset, destoffset, bytes));
+  return ERR_SUCCESS;
 }
-int Backend::CopyResourceRegion(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, FG_Vec3i srcoffset,
+GL::GLExpected<void> Backend::CopySubresourceHelper(FG_Resource src, FG_Resource dest, unsigned long srcoffset,
+                                                    unsigned long destoffset, unsigned long bytes)
+{
+  GLuint source      = src;
+  GLuint destination = dest;
+
+  if (IsBuffer(source) && IsBuffer(destination)) 
+  {
+    if(auto e = Buffer(source).bind(GL_COPY_READ_BUFFER))
+    {
+      if(auto b = Buffer(destination).bind(GL_COPY_WRITE_BUFFER))
+      {
+        glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, srcoffset, destoffset, bytes);
+        GL_ERROR("glCopyBufferSubData");
+      }
+      else
+        return std::move(b.error());
+    }
+    else
+      return std::move(e.error());
+  }
+  else
+    return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Mismatched src / dest resources");
+
+  return {};
+}
+int Backend::CopyResourceRegion(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest,
+                                int level, FG_Vec3i srcoffset,
                                 FG_Vec3i destoffset, FG_Vec3i size)
 {
   auto backend = static_cast<Backend*>(self);
-  return ERR_NOT_IMPLEMENTED;
+  LOG_ERROR(backend, backend->CopyResourceRegionHelper(src, dest, level, srcoffset, destoffset, size));
+  return ERR_SUCCESS;
+}
+GL::GLExpected<void> Backend::CopyResourceRegionHelper(FG_Resource src, FG_Resource dest, int level, FG_Vec3i srcoffset,
+                                                       FG_Vec3i destoffset, FG_Vec3i size)
+{
+  GLuint source      = src;
+  GLuint destination = dest;
+  
+  if(IsTexture(source) && IsTexture(destination))
+  {
+    if(size.y == 0 && size.z == 0) 
+    {
+    glCopyImageSubData(source, GL_TEXTURE_1D, 0, srcoffset.x, srcoffset.y, srcoffset.z, destination, GL_TEXTURE_1D, 0,
+                         destoffset.x, destoffset.y, destoffset.z, size.x, 1, 1);
+    }
+    else if(size.z == 0)
+    {
+      glCopyImageSubData(source, GL_TEXTURE_2D, 0, srcoffset.x, srcoffset.y, srcoffset.z, destination, GL_TEXTURE_2D, 0,
+                         destoffset.x, destoffset.y, destoffset.z, size.x, size.y, 1);
+    }
+    else
+    {
+      glCopyImageSubData(source, GL_TEXTURE_3D, 0, srcoffset.x, srcoffset.y, srcoffset.z, destination, GL_TEXTURE_3D, 0,
+                         destoffset.x, destoffset.y, destoffset.z, size.x, size.y, size.z);
+    }
+    GL_ERROR("glCopyImageSubData");
+  }
+  else if(IsRenderbuffer(source) && IsRenderbuffer(destination))
+  {
+    glCopyImageSubData(source, GL_RENDERBUFFER, 0, srcoffset.x, srcoffset.y, srcoffset.z, destination, GL_RENDERBUFFER, 0,
+                       destoffset.x, destoffset.y, destoffset.z, size.x, size.y, size.z);
+    GL_ERROR("glCopyImageSubData");
+  }
+  else
+    return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Mismatched src / dest resources");
+
+  return {};
 }
 int Backend::DrawGL(FG_Backend* self, void* commands, uint32_t vertexcount, uint32_t instancecount, uint32_t startvertex,
                     uint32_t startinstance)

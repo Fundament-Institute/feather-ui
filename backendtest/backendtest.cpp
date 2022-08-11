@@ -232,6 +232,7 @@ void test_compute(FG_Backend* b, FG_Window* w) {
   memset(outvals, 0, sizeof(int) * GROUPSIZE);
   FG_Resource inbuf    = (*b->createBuffer)(b, w->context, initvals, sizeof(int) * GROUPSIZE, FG_Usage_Storage_Buffer);
   FG_Resource outbuf   = (*b->createBuffer)(b, w->context, outvals, sizeof(int) * GROUPSIZE, FG_Usage_Storage_Buffer);
+
   auto compute_pipeline = (*b->createComputePipeline)(b, w->context,
                                                      (*b->compileShader)(b, w->context, FG_ShaderStage_Compute, shader_cs),
                                                      FG_Vec3i{ GROUPSIZE, 1, 1 }, 0);
@@ -239,10 +240,15 @@ void test_compute(FG_Backend* b, FG_Window* w) {
   void* commands = (*b->createCommandList)(b, w->context, false);
   assert(commands);
 
+  FG_Resource CopiedInbuf = (*b->createBuffer)(b, w->context, 0, sizeof(int) * GROUPSIZE, FG_Usage_Storage_Buffer);
+  FG_Resource CopiedOutbuf = (*b->createBuffer)(b, w->context, 0, sizeof(int) * GROUPSIZE, FG_Usage_Storage_Buffer);
+  TEST((*b->copySubresource)(b, commands, inbuf, CopiedInbuf, 0, 0, sizeof(int) * GROUPSIZE) == 0);
+  TEST((*b->copySubresource)(b, commands, outbuf, CopiedOutbuf, 0, 0, sizeof(int) * GROUPSIZE) == 0);
+
   FG_ShaderValue values[3];
   values[0].i32      = 3;
-  values[1].resource = inbuf;
-  values[2].resource = outbuf;
+  values[1].resource = CopiedInbuf;
+  values[2].resource = CopiedOutbuf;
 
   static const FG_ShaderParameter params[] = { { "dt", 1, 0, 0, FG_Shader_Type_Int },
                                                { "inblock", 0, 0, 0, FG_Shader_Type_Buffer },
@@ -253,7 +259,7 @@ void test_compute(FG_Backend* b, FG_Window* w) {
   (*b->syncPoint)(b, commands, FG_BarrierFlag_Storage_Buffer);
   (*b->execute)(b, w->context, commands);
 
-  int* readbuf = (int*)(*b->mapResource)(b, w->context, outbuf, 0, 0, FG_Usage_Storage_Buffer, FG_AccessFlag_Read);
+  int* readbuf = (int*)(*b->mapResource)(b, w->context, CopiedOutbuf, 0, 0, FG_Usage_Storage_Buffer, FG_AccessFlag_Read);
   TEST(readbuf != nullptr);
 
   for(int i = 0; i < GROUPSIZE; ++i)
@@ -262,7 +268,7 @@ void test_compute(FG_Backend* b, FG_Window* w) {
   }
 
   (*b->destroyCommandList)(b, commands);
-  TEST((*b->unmapResource)(b, w->context, outbuf, FG_Usage_Storage_Buffer) == 0);
+  TEST((*b->unmapResource)(b, w->context, CopiedOutbuf, FG_Usage_Storage_Buffer) == 0);
   TEST((*b->destroyResource)(b, w->context, outbuf) == 0);
   TEST((*b->destroyResource)(b, w->context, inbuf) == 0);
   TEST((*b->destroyPipelineState)(b, w->context, compute_pipeline) == 0);
@@ -382,7 +388,14 @@ int main(int argc, char* argv[])
   behavior(&e, w->context, &b, &drawmsg);
   (*b->endDraw)(b, w->context);
 
-  e.image    = RenderTarget0;
+  FG_Resource CoppiedTexture = (*b->createTexture)(b, w->context, FG_Vec2i{ 800, 600 }, FG_Usage_Texture2D, FG_PixelFormat_R8G8B8A8_Typeless, &sampler, NULL, 0);
+  void* commands             = (*b->createCommandList)(b, w->context, false);
+  TEST((*b->copyResourceRegion)(b, commands, RenderTarget0, CoppiedTexture, 0, FG_Vec3i{ 0, 0, 0 },
+                                                            FG_Vec3i{ 0, 0, 0 }, FG_Vec3i{ 800, 600, 0 }) == 0);
+  (*b->execute)(b, w->context, commands);
+  (*b->destroyCommandList)(b, commands);
+
+  e.image    = CoppiedTexture;
   e.pipeline = (*b->createPipelineState)(b, w->context, &pipeline, 0, &Premultiply_Blend, &e.vertices, &vertstride, 1,
                                          vertparams, 2, 0, 0);
 
@@ -414,8 +427,7 @@ int main(int argc, char* argv[])
   }
 
   TEST((*b->getClipboard)(b, w, FG_Clipboard_Wave, hold, 10) == 0)
-  while((*b->processMessages)(b, 0) != 0 && e.close == false)
-    ;
+  while((*b->processMessages)(b, 0) != 0 && e.close == false);
 
   TEST((*b->destroyWindow)(b, w) == 0);
   TEST((*b->destroyResource)(b, w->context, e.image) == 0);
