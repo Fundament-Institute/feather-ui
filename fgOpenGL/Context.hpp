@@ -15,6 +15,11 @@
 #include <array>
 #include <utility>
 #include <memory>
+#include <span>
+
+#ifdef FG_PLATFORM_WIN32
+  #include <intrin.h>
+#endif
 
 namespace GL {
   class Backend;
@@ -32,6 +37,16 @@ namespace GL {
     GLCAP_INSTANCED_ARRAYS     = 128,
     GLCAP_VAO                  = 256,
   };
+  FG_FORCEINLINE int32_t FastTruncate(float f) noexcept
+  {
+#if defined(FG_PLATFORM_WIN32) && defined(BSS_CPU_x86_64)
+    return _mm_cvtt_ss2si(_mm_load_ss(&f));
+#elif defined(BSS_CPU_x86_64)
+    return __builtin_ia32_cvttss2si(__builtin_ia32_loadss(&f));
+#else
+    return (int32_t)f;
+#endif
+  }
 
   // A context may or may not have an associated OS window, for use inside other 3D engines.
   struct Context : FG_Window
@@ -48,15 +63,18 @@ namespace GL {
     GLExpected<void> Barrier(GLbitfield barrier_flags);
     GLFWwindow* GetWindow() const { return _window; }
     GLExpected<void> SetShaderUniforms(const FG_ShaderParameter* uniforms, const FG_ShaderValue* values, uint32_t count);
-    GLExpected<void> CopySubresource(FG_Resource src, FG_Resource dest, unsigned long srcoffset,
-                                           unsigned long destoffset, unsigned long bytes);
+    GLExpected<void> CopySubresource(FG_Resource src, FG_Resource dest, unsigned long srcoffset, unsigned long destoffset,
+                                     unsigned long bytes);
     GLExpected<void> CopyResourceRegion(FG_Resource src, FG_Resource dest, int level, FG_Vec3i srcoffset,
-                                              FG_Vec3i destoffset, FG_Vec3i size);
+                                        FG_Vec3i destoffset, FG_Vec3i size);
     GLExpected<void> ApplyBlendFactor(const std::array<float, 4>& factor);
     GLExpected<void> ApplyBlend(const FG_Blend& blend, bool force = false);
     GLExpected<void> ApplyFlags(uint16_t flags);
     GLExpected<void> ApplyFill(uint8_t fill);
     GLExpected<void> ApplyCull(uint8_t cull);
+    GLExpected<void> SetViewports(std::span<FG_Viewport> viewports);
+    GLExpected<void> SetScissors(std::span<FG_Rect> rects);
+    GLExpected<void> Clear(uint8_t clearbits, FG_Color RGBA, uint8_t stencil, float depth, std::span<FG_Rect> rects);
     void ApplyWorkGroup(FG_Vec3i workgroup) { _workgroup = workgroup; }
     void ApplyDim(FG_Vec2 dim) { _dim = dim; }
     inline void ApplyIndextype(GLenum indextype) { _indextype = indextype; }
@@ -96,6 +114,14 @@ namespace GL {
     static inline float ToSRGB(float linearRGB)
     {
       return linearRGB <= 0.0031308f ? linearRGB * 12.92f : 1.055f * powf(linearRGB, 1.0f / 2.4f) - 0.055f;
+    }
+
+    static inline GLExpected<void> CallWithRect(const FG_Rect& r, void (*func)(int, int, int, int), const char* callsite)
+    {
+      (*func)(FastTruncate(std::floorf(r.left)), FastTruncate(std::floorf(r.top)),
+              FastTruncate(std::ceilf(r.right - r.left)), FastTruncate(std::ceilf(r.bottom - r.top)));
+      GL_ERROR(callsite);
+      return {};
     }
 
     static const FG_Blend Normal_Blend;      // For straight-alpha blending
@@ -156,6 +182,7 @@ namespace GL {
     uint8_t _lastfill;
     FG_Vec2 _dim;
     FG_Vec3i _workgroup;
+    FG_Rect _lastscissor;
   };
 }
 

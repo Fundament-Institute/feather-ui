@@ -4,6 +4,38 @@
 #ifndef GL__COMPILER_H
 #define GL__COMPILER_H
 
+// CPU Architecture (possible pre-defined macros found on http://predef.sourceforge.net/prearch.html)
+#if defined(_M_X64) || defined(__amd64__) || defined(__amd64) || defined(_AMD64_) || defined(__x86_64__) || \
+  defined(__x86_64) || defined(_LP64)
+  #define BSS_CPU_x86_64 // x86-64 architecture
+  #define BSS_64BIT
+#elif defined(__ia64__) || defined(_IA64) || defined(__IA64__) || defined(__ia64) || defined(_M_IA64)
+  #define BSS_CPU_IA_64 // Itanium (IA-64) architecture
+  #define BSS_64BIT
+#elif defined(_M_IX86) || defined(__i386) || defined(__i386__) || defined(__X86__) || defined(_X86_) || \
+  defined(__I86__) || defined(__THW_INTEL__) || defined(__INTEL__)
+  #define BSS_CPU_x86 // x86 architecture
+  #define BSS_32BIT
+#elif defined(__arm__) || defined(__thumb__) || defined(__TARGET_ARCH_ARM) || defined(__TARGET_ARCH_THUMB) || defined(_ARM)
+  #define BSS_CPU_ARM // ARM architecture
+  //#ifndef(???) //ARMv8 will support 64-bit so we'll have to detect that somehow, and it's the first to make NEON
+  //standardized.
+  #define BSS_32BIT
+//#else
+//#define BSS_64BIT
+//#endif
+#elif defined(__mips__) || defined(mips) || defined(_MIPS_ISA) || defined(__mips) || defined(__MIPS__)
+  #define BSS_CPU_MIPS
+  #define BSS_64BIT
+#elif defined(__powerpc) || defined(__powerpc__) || defined(__POWERPC__) || defined(__ppc__) || defined(_M_PPC) || \
+  defined(_ARCH_PPC)
+  #define BSS_CPU_POWERPC
+  #define BSS_32BIT
+#else
+  #define BSS_CPU_UNKNOWN // Unknown CPU architecture (should force architecture independent C implementations for all
+                          // utilities)
+#endif
+
 // Compiler detection and macro generation
 #if defined(__clang__) // Clang (must be before GCC, because clang also pretends it's GCC)
   #define FG_COMPILER_CLANG
@@ -34,7 +66,6 @@
   #define FG_RESTRICT           __restrict
   #define FG_ALIGN(n)           __declspec(align(n))
   #define FG_ALIGNED(sn, n)     FG_ALIGN(n) sn
-  #define FG_SSE_ENABLED
   #define FG_ASSUME(x)    __assume(x)
   #define _HAS_EXCEPTIONS 0
 #endif

@@ -126,9 +126,8 @@ namespace GL {
     static int Dispatch(FG_Backend* self, void* commands);
     static int SyncPoint(FG_Backend* self, void* commands, uint32_t barrier_flags);
     static int SetPipelineState(FG_Backend* self, void* commands, uintptr_t state);
-    static int SetDepthStencil(FG_Backend* self, void* commands, bool Front, uint8_t StencilFailOp,
-                               uint8_t StencilDepthFailOp, uint8_t StencilPassOp, uint8_t StencilFunc);
     static int SetViewports(FG_Backend* self, void* commands, FG_Viewport* viewports, uint32_t count);
+    static int SetScissors(FG_Backend* self, void* commands, FG_Rect* rects, uint32_t count);
     static int SetShaderConstants(FG_Backend* self, void* commands, const FG_ShaderParameter* uniforms,
                                   const FG_ShaderValue* values, uint32_t count);
     static int Execute(FG_Backend* self, FG_Context* context, void* commands);

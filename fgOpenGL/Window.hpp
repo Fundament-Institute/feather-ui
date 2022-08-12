@@ -17,6 +17,9 @@ namespace GL {
     virtual ~Window();
     static uint8_t GetModKeys(int mods);
     void DirtyRect(const FG_Rect* r);
+    uint8_t ScanJoysticks();
+    void PollJoysticks();
+    double TranslateJoyAxis(uint8_t axis, uint8_t index) const;
     static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
     static void CloseCallback(GLFWwindow* window);
     static void CharCallback(GLFWwindow* window, unsigned int key);
@@ -28,12 +31,29 @@ namespace GL {
     static void FocusCallback(GLFWwindow* window, int focused);
     static void SizeCallback(GLFWwindow* window, int width, int height);
     static void RefreshCallback(GLFWwindow* window);
-    
+    static void JoystickCallback(int jid, int e);
+
+    static uint8_t KeyMap[512];
+    static constexpr uint8_t MAXJOY = 16;
+    static constexpr uint8_t MAXAXIS = 6;
+
+    struct JoyCaps
+    {
+      uint32_t axes;
+      uint32_t buttons;
+      uint32_t offset[MAXAXIS];
+      uint32_t range[MAXAXIS];
+    };
+
     uint64_t _flags;
     Window* _next; // GLFW doesn't let us detect when it destroys a window so we have to do it ourselves.
     Window* _prev;
-
-    static uint8_t KeyMap[512];
+    uint32_t _joysticks;
+#ifdef FG_PLATFORM_WIN32
+    JoyCaps _joycaps[MAXJOY];
+    uint32_t _allbuttons[MAXJOY];
+    uint32_t _alljoyaxis[MAXJOY][MAXAXIS];
+#endif
     static void FillKeyMap();
   };
 }

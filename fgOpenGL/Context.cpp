@@ -55,10 +55,10 @@ Context::Context(Backend* backend, FG_Element* element, FG_Vec2 dim) :
   _lastcull(0),
   _lastfill(0),
   _lastfactor({ 0, 0, 0, 0 }),
-  _lastflags(0), 
+  _lastflags(0),
   _primitive(0),
-  _statestore({0}),
-  _workgroup({0,0,0})
+  _statestore({ 0 }),
+  _workgroup({ 0, 0, 0 })
 {
   this->element = element;
   this->context = this;
@@ -67,16 +67,26 @@ Context::~Context() {}
 
 GLExpected<void> Context::BeginDraw(const FG_Rect* area)
 {
+  glEnable(GL_SCISSOR_TEST);
+  GL_ERROR("glEnable");
+
   if(_window)
   {
     glfwMakeContextCurrent(_window);
+    GLint box[4] = {0};
+    glGetIntegerv(GL_SCISSOR_BOX, box);
+    _lastscissor = {
+      static_cast<float>(box[0]),
+      static_cast<float>(box[1]),
+      static_cast<float>(box[2] + box[0]),
+      static_cast<float>(box[3] + box[1]), 
+    };
+    RETURN_ERROR(SetScissors({ &_lastscissor, 1 }));
   }
   else
   {
-    glEnable(GL_SCISSOR_TEST);
-    GL_ERROR("glEnable");
-    glScissor(0, 0, _dim.x, _dim.y);
-    GL_ERROR("glScissor");
+    _lastscissor = { 0, 0, _dim.x, _dim.y };
+    RETURN_ERROR(SetScissors({ &_lastscissor, 1 }));
   }
 
   return {};
@@ -134,6 +144,63 @@ GLExpected<void> Context::ApplyProgram(const ProgramObject& program)
   return {};
 }
 
+GLExpected<void> Context::Clear(uint8_t clearbits, FG_Color RGBA, uint8_t stencil, float depth, std::span<FG_Rect> rects)
+{
+  glClearDepth(depth);
+  GL_ERROR("glClearDepth");
+  glClearStencil(stencil);
+  GL_ERROR("glClearStencil");
+
+  std::array<float, 4> colors;
+  Context::ColorFloats(RGBA, colors, false);
+  glClearColor(colors[0], colors[1], colors[2], colors[3]);
+  GL_ERROR("glClearColor");
+
+  GLbitfield flags = 0;
+  if(clearbits & FG_ClearFlag_Color)
+    flags |= GL_COLOR_BUFFER_BIT;
+  if(clearbits & FG_ClearFlag_Depth)
+    flags |= GL_DEPTH_BUFFER_BIT;
+  if(clearbits & FG_ClearFlag_Stencil)
+    flags |= GL_STENCIL_BUFFER_BIT;
+  if(clearbits & FG_ClearFlag_Accumulator)
+    flags |= GL_ACCUM_BUFFER_BIT;
+
+  if(rects.empty())
+  {
+    glClear(flags);
+    GL_ERROR("glClear");
+  }
+
+  for(auto& r : rects)
+  {
+    RETURN_ERROR(CallWithRect(r, glScissor, "glScissor"));
+    glClear(flags);
+    GL_ERROR("glClear");
+  }
+
+  RETURN_ERROR(CallWithRect(_lastscissor, glScissor, "glScissor"));
+  return {};
+}
+
+GLExpected<void> Context::SetViewports(std::span<FG_Viewport> viewports)
+{
+  if(viewports.size() > 0)
+  {
+    FG_Rect r = { viewports[0].pos.x, viewports[0].pos.y, viewports[0].pos.x+ viewports[0].dim.x, viewports[0].pos.y + viewports[0].dim.y };
+    RETURN_ERROR(CallWithRect(r, glViewport, "glViewport"));
+  }
+  return {};
+}
+GLExpected<void> Context::SetScissors(std::span<FG_Rect> rects)
+{
+  if(rects.size() > 0)
+  {
+    _lastscissor = rects[0];
+    RETURN_ERROR(CallWithRect(rects[0], glScissor, "glScissor"));
+  }
+  return {};
+}
 GLExpected<void> Context::SetShaderUniforms(const FG_ShaderParameter* uniforms, const FG_ShaderValue* values,
                                             uint32_t count)
 {
@@ -221,7 +288,7 @@ GL::GLExpected<void> Context::CopySubresource(FG_Resource src, FG_Resource dest,
 }
 
 GL::GLExpected<void> Context::CopyResourceRegion(FG_Resource src, FG_Resource dest, int level, FG_Vec3i srcoffset,
-                                                       FG_Vec3i destoffset, FG_Vec3i size)
+                                                 FG_Vec3i destoffset, FG_Vec3i size)
 {
   GLuint source      = src;
   GLuint destination = dest;

@@ -560,7 +560,6 @@ typedef struct FG_Viewport__
 {
   FG_Vec3 pos;
   FG_Vec3 dim;
-  FG_Rect scissor;
 } FG_Viewport;
 
 enum FG_Vertex_Type
@@ -1272,9 +1271,8 @@ struct FG_Backend
   int (*dispatch)(struct FG_Backend* self, void* commands);
   int (*syncPoint)(struct FG_Backend* self, void* commands, uint32_t barrier_flags);
   int (*setPipelineState)(struct FG_Backend* self, void* commands, uintptr_t state);
-  int (*setDepthStencil)(struct FG_Backend* self, void* commands, bool Front, uint8_t StencilFailOp, uint8_t StencilDepthFailOp,
-                         uint8_t StencilPassOp, uint8_t StencilFunc);
   int (*setViewports)(struct FG_Backend* self, void* commands, FG_Viewport* viewports, uint32_t count);
+  int (*setScissor)(struct FG_Backend* self, void* commands, FG_Rect* rects, uint32_t count);
   int (*setShaderConstants)(struct FG_Backend* self, void* commands, const FG_ShaderParameter* uniforms,
                             const FG_ShaderValue* values, uint32_t count);
   int (*execute)(struct FG_Backend* self, FG_Context* context, void* commands);

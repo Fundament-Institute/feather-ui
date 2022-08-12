@@ -111,37 +111,8 @@ int Backend::Clear(FG_Backend* self, void* commands, uint8_t clearbits, FG_Color
 {
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(commands);
-
-  glClearDepth(depth);
-  if(auto e = glGetError())
-    return e;
-  glClearStencil(stencil);
-  if(auto e = glGetError())
-    return e;
-  std::array<float, 4> colors;
-  Context::ColorFloats(RGBA, colors, false);
-  glClearColor(colors[0], colors[1], colors[2], colors[3]);
-  if(auto e = glGetError())
-    return e;
-
-  GLbitfield flags = 0;
-  if(clearbits & FG_ClearFlag_Color)
-    flags |= GL_COLOR_BUFFER_BIT;
-  if(clearbits & FG_ClearFlag_Depth)
-    flags |= GL_DEPTH_BUFFER_BIT;
-  if(clearbits & FG_ClearFlag_Stencil)
-    flags |= GL_STENCIL_BUFFER_BIT;
-  if(clearbits & FG_ClearFlag_Accumulator)
-    flags |= GL_ACCUM_BUFFER_BIT;
-
-  if(!num_rects)
-  {
-    glClear(flags);
-    return glGetError();
-  }
-  // TODO: iterate through rects and set scissor rects for each one and clear.
-
-  return ERR_NOT_IMPLEMENTED;
+  LOG_ERROR(backend, context->Clear(clearbits, RGBA, stencil, depth, std::span(rects, num_rects)));
+  return ERR_SUCCESS;
 }
 int Backend::CopyResource(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, FG_Vec3i size, int level)
 {
@@ -272,19 +243,27 @@ int Backend::SetPipelineState(FG_Backend* self, void* commands, uintptr_t state)
 
   return 0;
 }
-int Backend::SetDepthStencil(FG_Backend* self, void* commands, bool Front, uint8_t StencilFailOp,
-                             uint8_t StencilDepthFailOp, uint8_t StencilPassOp, uint8_t StencilFunc)
-{
-  auto backend = static_cast<Backend*>(self);
-  auto context = reinterpret_cast<Context*>(commands);
-  return ERR_NOT_IMPLEMENTED;
-}
+
 int Backend::SetViewports(FG_Backend* self, void* commands, FG_Viewport* viewports, uint32_t count)
 {
   auto backend = static_cast<Backend*>(self);
   auto context = reinterpret_cast<Context*>(commands);
-  return ERR_NOT_IMPLEMENTED;
+  if(count > 1)
+    return ERR_NOT_IMPLEMENTED;
+  LOG_ERROR(backend, context->SetViewports({ viewports, count }));
+  return ERR_SUCCESS;
 }
+
+int Backend::SetScissors(FG_Backend* self, void* commands, FG_Rect* rects, uint32_t count)
+{
+  auto backend = static_cast<Backend*>(self);
+  auto context = reinterpret_cast<Context*>(commands);
+  if(count > 1)
+    return ERR_NOT_IMPLEMENTED;
+  LOG_ERROR(backend, context->SetScissors({rects, count}));
+  return ERR_SUCCESS;
+}
+
 int Backend::SetShaderConstants(FG_Backend* self, void* commands, const FG_ShaderParameter* uniforms,
                                 const FG_ShaderValue* values, uint32_t count)
 {
@@ -292,8 +271,9 @@ int Backend::SetShaderConstants(FG_Backend* self, void* commands, const FG_Shade
   auto context = reinterpret_cast<Context*>(commands);
 
   LOG_ERROR(backend, context->SetShaderUniforms(uniforms, values, count));
-  return 0;
+  return ERR_SUCCESS;
 }
+
 int Backend::Execute(FG_Backend* self, FG_Context* context, void* commands) { return ERR_SUCCESS; }
 
 uintptr_t Backend::CreatePipelineState(FG_Backend* self, FG_Context* context, FG_PipelineState* pipelinestate,
@@ -778,7 +758,6 @@ uint32_t Backend::GetClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard
 
 bool Backend::CheckClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard kind)
 {
-  // TODO: handle GLFW errors
 #ifdef FG_PLATFORM_WIN32
   switch(kind)
   {
@@ -796,8 +775,9 @@ bool Backend::CheckClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard k
   if(kind != FG_Clipboard_Text && kind != FG_Clipboard_All)
     return false;
 
+  _lasterr = 0; 
   auto p = glfwGetClipboardString(static_cast<Context*>(window)->GetWindow());
-  if(!p)
+  if(!p || _lasterr != 0)
     return false;
   return p[0] != 0;
 #endif
@@ -824,8 +804,10 @@ int Backend::ProcessMessages(FG_Backend* self, FG_Window* window)
   // TODO: handle GLFW errors
   auto backend = static_cast<Backend*>(self);
   glfwPollEvents();
-
-  // TODO: Process all joystick events
+  if(!window)
+    window = backend->_windows;
+  if(window)
+    static_cast<Window*>(window)->PollJoysticks();
 
   return backend->_windows != nullptr;
 }
@@ -837,7 +819,6 @@ int Backend::GetMessageSyncObject(FG_Backend* self, FG_Window* window)
 
 int Backend::SetCursorGL(FG_Backend* self, FG_Window* window, FG_Cursor cursor)
 {
-  // TODO: handle GLFW errors
   static GLFWcursor* arrow   = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
   static GLFWcursor* ibeam   = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
   static GLFWcursor* cross   = glfwCreateStandardCursor(GLFW_CROSSHAIR_CURSOR);
@@ -873,11 +854,19 @@ int Backend::GetDisplay(FG_Backend* self, uintptr_t handle, FG_Display* out)
   if(!handle || !out)
     return ERR_MISSING_PARAMETER;
   out->handle = handle;
-  // TODO: handle GLFW errors
   out->primary = glfwGetPrimaryMonitor() == reinterpret_cast<GLFWmonitor*>(handle);
+
+  _lasterr = 0;
   glfwGetMonitorWorkarea(reinterpret_cast<GLFWmonitor*>(handle), &out->offset.x, &out->offset.y, &out->size.x,
                          &out->size.y);
+  if(_lasterr != 0)
+    return _lasterr;
+
+  _lasterr = 0;
   glfwGetMonitorContentScale(reinterpret_cast<GLFWmonitor*>(handle), &out->dpi.x, &out->dpi.y);
+  if(_lasterr != 0)
+    return _lasterr;
+
   out->dpi.x *= BASE_DPI;
   out->dpi.y *= BASE_DPI;
   out->scale = 1.0f; // GLFW doesn't know what text scaling is
@@ -1038,7 +1027,6 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   drawIndexed           = &DrawIndexed;
   dispatch              = &Dispatch;
   syncPoint             = &SyncPoint;
-  setDepthStencil       = &SetDepthStencil;
   setPipelineState      = &SetPipelineState;
   setViewports          = &SetViewports;
   setShaderConstants    = &SetShaderConstants;

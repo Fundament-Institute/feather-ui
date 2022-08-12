@@ -1,13 +1,17 @@
 // Copyright (c)2022 Fundament Software
 // For conditions of distribution and use, see copyright notice in "BackendGL.hpp"
 
-#include "BackendGL.hpp"
-#include <cstring>
+#include "compiler.hpp"
+#define GLFW_INCLUDE_NONE
+#include <GLFW/glfw3.h>
 
 #ifdef FG_PLATFORM_WIN32
   #define GLFW_EXPOSE_NATIVE_WIN32
   #include "GLFW/glfw3native.h"
 #endif
+
+#include "BackendGL.hpp"
+#include <cstring>
 
 using namespace GL;
 
@@ -143,7 +147,7 @@ void Window::FillKeyMap()
 
 Window::Window(Backend* backend, GLFWmonitor* display, FG_Element* element, FG_Vec2* pos, FG_Vec2* dim, uint64_t flags,
                const char* caption) :
-  Context(backend, element, !dim ? FG_Vec2{ 0, 0 } : *dim), _next(nullptr), _prev(nullptr)
+  Context(backend, element, !dim ? FG_Vec2{ 0, 0 } : *dim), _next(nullptr), _prev(nullptr), _joysticks(0)
 {
   FillKeyMap();
   if(flags & FG_WindowFlag_No_Caption)
@@ -177,6 +181,7 @@ Window::Window(Backend* backend, GLFWmonitor* display, FG_Element* element, FG_V
     glfwSetWindowFocusCallback(_window, FocusCallback);
     glfwSetWindowSizeCallback(_window, SizeCallback);
     glfwSetWindowRefreshCallback(_window, RefreshCallback);
+    glfwSetJoystickCallback(JoystickCallback);
 
 #ifdef FG_PLATFORM_WIN32
     // Remove the transparency hack by removing the layered flag that ISN'T NECESSARY >:C
@@ -384,4 +389,117 @@ void Window::RefreshCallback(GLFWwindow* window)
 #endif
 
   reinterpret_cast<Window*>(glfwGetWindowUserPointer(window))->Draw(nullptr);
+}
+
+uint8_t Window::ScanJoysticks()
+{
+  uint8_t count = 0;
+#ifdef FG_PLATFORM_WIN32
+  HWND hWnd  = glfwGetWin32Window(_window);
+  _joysticks    = 0;
+
+  for(uint8_t i = 0; i < MAXJOY; ++i)
+  {
+    if(joySetCapture(hWnd, i, 0, TRUE) == JOYERR_NOERROR)
+    {
+      ++count;
+      _joysticks |= (1 << i);
+      JOYCAPSA caps;
+      if(joyGetDevCapsA(i, &caps, sizeof(JOYCAPSA)) == JOYERR_NOERROR)
+      {
+        _joycaps[i].axes    = caps.wNumAxes;
+        _joycaps[i].buttons = caps.wNumButtons;
+        _joycaps[i].offset[0]  = caps.wXmin;
+        _joycaps[i].offset[1]  = caps.wYmin;
+        _joycaps[i].offset[2]  = caps.wZmin;
+        _joycaps[i].offset[3]  = caps.wRmin;
+        _joycaps[i].offset[4]  = caps.wUmin;
+        _joycaps[i].offset[5]  = caps.wVmin;
+        _joycaps[i].range[0]   = caps.wXmax - caps.wXmin;
+        _joycaps[i].range[1]   = caps.wYmax - caps.wYmin;
+        _joycaps[i].range[2]   = caps.wZmax - caps.wZmin;
+        _joycaps[i].range[3]   = caps.wRmax - caps.wRmin;
+        _joycaps[i].range[4]   = caps.wUmax - caps.wUmin;
+        _joycaps[i].range[5]   = caps.wVmax - caps.wVmin;
+      }
+    }
+  }
+#endif
+
+  return count;
+}
+
+void Window::PollJoysticks() {
+#ifdef FG_PLATFORM_WIN32
+  JOYINFOEX info;
+  info.dwSize  = sizeof(JOYINFOEX);
+  info.dwFlags = JOY_RETURNBUTTONS | JOY_RETURNCENTERED | JOY_RETURNX | JOY_RETURNY | JOY_RETURNZ | JOY_RETURNR |
+                 JOY_RETURNU | JOY_RETURNV;
+
+  for(uint16_t i = 0; i < MAXJOY; ++i)
+  {
+    if(!(_joysticks & (1 << i)))
+      continue;
+
+    if(joyGetPosEx(i << 8, &info) == JOYERR_NOERROR)
+    {
+      if(_allbuttons[i] != info.dwButtons)
+      {
+        FG_Msg evt     = { 0 };
+        uint32_t old   = _allbuttons[i];
+        _allbuttons[i] = info.dwButtons;
+        uint32_t diff  = (old ^ info.dwButtons);
+        uint32_t k;
+        for(int j = 0; j < 32; ++j) // go through the bits and generate BUTTONUP or BUTTONDOWN events
+        {
+          k = (1 << j);
+          if((diff & k) != 0)
+          {
+            evt.kind = ((info.dwButtons & k) != 0) ? FG_Event_Kind_JoyButtonDown : FG_Event_Kind_JoyButtonUp;
+            evt.joyButtonDown.button   = j;
+            evt.joyButtonDown.index   = i;
+            _backend->Behavior(this, evt);
+          }
+        }
+      }
+
+      uint8_t numaxes = _joycaps[i].axes;
+      if(memcmp(&_alljoyaxis[i][FG_JoyAxis_X], &info.dwXpos, sizeof(unsigned long) * numaxes) != 0)
+      {
+        unsigned long old[MAXAXIS];
+        memcpy(old, &_alljoyaxis[i][FG_JoyAxis_X], sizeof(unsigned long) * numaxes);
+        memcpy(&_alljoyaxis[i][FG_JoyAxis_X], &info.dwXpos, sizeof(unsigned long) * numaxes);
+
+        for(int j = 0; j < numaxes; ++j)
+        {
+          if(old[j] != _alljoyaxis[i][j])
+          {
+            FG_Msg evt        = { FG_Event_Kind_JoyAxis };
+            evt.joyAxis.axis = j;
+            evt.joyAxis.index = i;
+            evt.joyAxis.value = TranslateJoyAxis(evt.joyAxis.axis, evt.joyAxis.index);
+            _backend->Behavior(this, evt);
+          }
+        }
+      }
+    }
+    else
+      _joysticks &= (~(1 << i)); // If it failed, remove joystick from active list
+  }
+#endif
+}
+
+double Window::TranslateJoyAxis(uint8_t axis, uint8_t index) const
+{
+  uint16_t half = _joycaps[index].range[axis] / 2;
+  return (((uint32_t)(_alljoyaxis[index][axis] - _joycaps[index].offset[axis]) - half) / (double)half);
+}
+
+void Window::JoystickCallback(int jid, int e)
+{
+  // Temporary way of dealing with joysticks because GLFW doesn't give us a window pointer for the window the message was sent to.
+  for(Window* w = Backend::_singleton->_windows; w != nullptr; w = w->_next)
+  {
+    w->ScanJoysticks();
+  }
 }
