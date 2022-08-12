@@ -16,10 +16,7 @@
 #include <utility>
 #include <memory>
 #include <span>
-
-#ifdef FG_PLATFORM_WIN32
-  #include <intrin.h>
-#endif
+#include <immintrin.h>
 
 namespace GL {
   class Backend;
