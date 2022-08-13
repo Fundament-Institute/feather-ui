@@ -247,19 +247,37 @@ GLExpected<void> Context::DrawArrays(uint32_t vertexcount, uint32_t instancecoun
                                      uint32_t startinstance)
 {
   if(instancecount > 0)
-    return CUSTOM_ERROR(ERR_NOT_IMPLEMENTED, "don't know how to instance things!");
-  glDrawArrays(_primitive, startvertex, vertexcount);
-  GL_ERROR("glDrawArrays");
+  {
+    glDrawArraysInstanced(_primitive, startinstance, vertexcount, instancecount);
+    GL_ERROR("glDrawArraysInstanced");
+  }
+  else
+  {
+    glDrawArrays(_primitive, startvertex, vertexcount);
+    GL_ERROR("glDrawArrays");
+  }
+  
   return {};
 }
 GLExpected<void> Context::DrawIndexed(uint32_t indexcount, uint32_t instancecount, uint32_t startindex, int startvertex,
 
                                       uint32_t startinstance)
 {
-  if(instancecount > 0)
-    return CUSTOM_ERROR(ERR_NOT_IMPLEMENTED, "don't know how to instance things!");
-  glDrawElements(_primitive, indexcount, _indextype, nullptr);
-  GL_ERROR("glDrawElements");
+  if (instancecount > 0) {
+    glDrawElementsInstanced(_primitive, indexcount, _indextype, nullptr, instancecount);
+    GL_ERROR("glDrawElementsInstanced");
+  }
+  else
+  {
+    glDrawElements(_primitive, indexcount, _indextype, nullptr);
+    GL_ERROR("glDrawElements");
+  }
+  
+  return {};
+}
+GLExpected<void> Context::DrawMesh(uint32_t start, uint32_t count) {
+  glDrawMeshTasksNV(start, count);
+  GL_ERROR("glDrawMeshTasksNV");
   return {};
 }
 
@@ -335,7 +353,7 @@ int Context::GetBytes(GLenum type)
   case GL_HALF_FLOAT: return 2;
   case GL_INT:
   case GL_UNSIGNED_INT:
-  case GL_INT_2_10_10_10_REV:
+  //case GL_INT_2_10_10_10_REV:
   case GL_UNSIGNED_INT_2_10_10_10_REV:
   case GL_UNSIGNED_INT_10F_11F_11F_REV:
   case GL_FLOAT: return 4;

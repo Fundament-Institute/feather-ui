@@ -35,13 +35,147 @@ FG_Result Backend::Behavior(Context* w, const FG_Msg& msg)
 
 FG_Caps Backend::GetCaps(FG_Backend* self)
 {
-  FG_Caps caps;
+  FG_Caps caps         = {0};
   caps.openGL.features = FG_Feature_API_OpenGL | FG_Feature_Immediate_Mode | FG_Feature_Background_Opacity |
-                         FG_Feature_Lines_Alpha | FG_Feature_Blend_Gamma | FG_Feature_Instancing |
-                         FG_Feature_Independent_Blend;
+                         FG_Feature_Lines_Alpha
+                         ;
   caps.openGL.version           = 20;
   caps.openGL.glsl              = 110;
-  caps.openGL.max_rendertargets = 8;
+  if(!glGetIntegerv)
+    return caps;
+
+  if(GLAD_GL_EXT_texture_sRGB && GLAD_GL_ARB_framebuffer_sRGB)
+    caps.openGL.features |= FG_Feature_Blend_Gamma;
+
+  if(GLAD_GL_ARB_blend_func_extended)
+    caps.openGL.features |= FG_Feature_Blend_EX;
+
+  if(GLAD_GL_ARB_texture_filter_anisotropic)
+    caps.openGL.features |= FG_Feature_Anisotropic_Filter;
+
+  if(GLAD_GL_ARB_half_float_pixel)
+    caps.openGL.features |= FG_Feature_Half_Float;
+
+  if(GLAD_GL_ARB_shader_atomic_counters)
+    caps.openGL.features |= FG_Feature_Atomic_Counters;
+
+  if(GLAD_GL_ARB_shader_storage_buffer_object)
+    caps.openGL.features |= FG_Feature_StorageBuffer;
+
+  if(GLAD_GL_ARB_sync)
+    caps.openGL.features |= FG_Feature_Sync;
+
+  if(GLAD_GL_ARB_draw_instanced)
+    caps.openGL.features |= FG_Feature_Instancing;
+
+  if(GLAD_GL_ARB_compute_shader)
+    caps.openGL.features |= FG_Feature_Compute_Shader;
+
+  if(GLAD_GL_ARB_tessellation_shader)
+    caps.openGL.features |= FG_Feature_Tesselation_Shader;
+
+  if(GLAD_GL_NV_mesh_shader)
+    caps.openGL.features |= FG_Feature_Mesh_Shader;
+  
+  constexpr auto GetVec3i = [](GLenum e, FG_Vec3i& out) {
+    glGetIntegeri_v(e, 0, &out.x);
+    glGetIntegeri_v(e, 1, &out.x);
+    glGetIntegeri_v(e, 2, &out.x);
+  };
+
+  glGetIntegerv(GL_MAX_TEXTURE_SIZE, &caps.openGL.max_texture_size);
+  glGetIntegerv(GL_MAX_VIEWPORT_DIMS, &caps.openGL.max_viewport_size.x);
+  glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &caps.openGL.max_3d_texture_size);
+  glGetIntegerv(GL_MAX_ELEMENTS_VERTICES, &caps.openGL.max_vertex_buffer_size);
+  glGetIntegerv(GL_MAX_ELEMENTS_INDICES, &caps.openGL.max_index_buffer_size);
+  glGetIntegerv(GL_MAX_CUBE_MAP_TEXTURE_SIZE, &caps.openGL.max_cube_texture_size);
+  glGetFloatv(GL_MAX_TEXTURE_LOD_BIAS, &caps.openGL.max_texture_bias);
+  glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &caps.openGL.max_vertex_attributes);
+  glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &caps.openGL.max_texture_samplers);
+  glGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_COMPONENTS, &caps.openGL.max_fragment_uniforms);
+  glGetIntegerv(GL_MAX_VERTEX_UNIFORM_COMPONENTS, &caps.openGL.max_vertex_uniforms);
+  glGetIntegerv(GL_MAX_VARYING_FLOATS, &caps.openGL.max_varying_outputs);
+  glGetIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS, &caps.openGL.max_vertex_texture_samplers);
+  glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &caps.openGL.max_samplers);
+  glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &caps.openGL.max_texture_levels);
+  glGetIntegerv(GL_MAX_PROGRAM_TEXEL_OFFSET, &caps.openGL.max_texel_offset);
+  glGetIntegerv(GL_MAX_RENDERBUFFER_SIZE, &caps.openGL.max_renderbuffer_size);
+  glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &caps.openGL.max_rendertargets);
+  glGetIntegerv(GL_MAX_SAMPLES, &caps.openGL.max_multisampling);
+  glGetIntegerv(GL_MAX_TEXTURE_BUFFER_SIZE, &caps.openGL.max_texturebuffer_size);
+  glGetIntegerv(GL_MAX_VERTEX_UNIFORM_BLOCKS, &caps.openGL.max_vertex_uniform_blocks);
+  glGetIntegerv(GL_MAX_GEOMETRY_UNIFORM_BLOCKS, &caps.openGL.max_geometry_uniform_blocks);
+  glGetIntegerv(GL_MAX_GEOMETRY_TEXTURE_IMAGE_UNITS, &caps.openGL.max_geometry_texture_samplers);
+  glGetIntegerv(GL_MAX_TEXTURE_COORDS, &caps.openGL.max_texture_coordinates);
+  glGetIntegerv(GL_MAX_GEOMETRY_UNIFORM_COMPONENTS, &caps.openGL.max_geometry_uniforms);
+  glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES, &caps.openGL.max_geometry_output_vertices);
+  glGetIntegerv(GL_MAX_GEOMETRY_TOTAL_OUTPUT_COMPONENTS, &caps.openGL.max_geometry_total_output);
+  glGetIntegerv(GL_MAX_VERTEX_OUTPUT_COMPONENTS, &caps.openGL.max_vertex_output_components);
+  glGetIntegerv(GL_MAX_GEOMETRY_INPUT_COMPONENTS, &caps.openGL.max_geometry_input_components);
+  glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_COMPONENTS, &caps.openGL.max_geometry_output_components);
+  glGetIntegerv(GL_MAX_FRAGMENT_INPUT_COMPONENTS, &caps.openGL.max_fragment_input_components);
+  glGetIntegerv(GL_MAX_SAMPLE_MASK_WORDS, &caps.openGL.max_multisample_mask_words);
+  glGetIntegerv(GL_MAX_COLOR_TEXTURE_SAMPLES, &caps.openGL.max_multisample_color_samples);
+  glGetIntegerv(GL_MAX_DEPTH_TEXTURE_SAMPLES, &caps.openGL.max_multisample_depth_samples);
+  glGetIntegerv(GL_MAX_DUAL_SOURCE_DRAW_BUFFERS, &caps.openGL.max_dual_source_rendertargets);
+  glGetIntegerv(GL_MAX_COMPUTE_UNIFORM_BLOCKS, &caps.openGL.max_compute_uniform_blocks);
+  glGetIntegerv(GL_MAX_COMPUTE_TEXTURE_IMAGE_UNITS, &caps.openGL.max_compute_samplers);
+  glGetIntegerv(GL_MAX_COMPUTE_IMAGE_UNIFORMS, &caps.openGL.max_compute_image_uniforms);
+  glGetIntegerv(GL_MAX_COMPUTE_SHARED_MEMORY_SIZE, &caps.openGL.max_compute_shared_memory);
+  glGetIntegerv(GL_MAX_COMPUTE_UNIFORM_COMPONENTS, &caps.openGL.max_compute_uniforms);
+  glGetIntegerv(GL_MAX_COMPUTE_ATOMIC_COUNTER_BUFFERS, &caps.openGL.max_compute_atomic_counter_buffers);
+  glGetIntegerv(GL_MAX_COMPUTE_ATOMIC_COUNTERS, &caps.openGL.max_compute_atomic_counters);
+  glGetIntegerv(GL_MAX_COMBINED_COMPUTE_UNIFORM_COMPONENTS, &caps.openGL.max_compute_components);
+  glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &caps.openGL.max_work_group_invocations);
+  GetVec3i(GL_MAX_COMPUTE_WORK_GROUP_COUNT, caps.openGL.max_work_group_count);
+  GetVec3i(GL_MAX_COMPUTE_WORK_GROUP_SIZE, caps.openGL.max_work_group_size);
+  glGetIntegerv(GL_MAX_COMBINED_ATOMIC_COUNTER_BUFFERS, &caps.openGL.max_atomic_counter_buffers);
+  glGetIntegerv(GL_MAX_COMBINED_ATOMIC_COUNTERS, &caps.openGL.max_atomic_counters);
+  glGetIntegerv(GL_MAX_COMBINED_IMAGE_UNIFORMS, &caps.openGL.max_image_uniforms);
+  glGetIntegerv(GL_MAX_COMBINED_SHADER_STORAGE_BLOCKS, &caps.openGL.max_storage_blocks);
+  glGetIntegerv(GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS, &caps.openGL.max_storage_buffers);
+  glGetIntegerv(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, &caps.openGL.max_storage_block_size);
+  glGetIntegerv(GL_MAX_COMBINED_SHADER_OUTPUT_RESOURCES, &caps.openGL.max_shader_output_resources);
+  glGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &caps.openGL.max_texture_anisotropy);
+  glGetIntegerv(GL_MAX_PATCH_VERTICES, &caps.openGL.max_patch_vertices);
+  glGetIntegerv(GL_MAX_TESS_GEN_LEVEL, &caps.openGL.max_tessellation_level);
+  glGetIntegerv(GL_MAX_TESS_CONTROL_UNIFORM_COMPONENTS, &caps.openGL.max_tess_control_uniforms);
+  glGetIntegerv(GL_MAX_TESS_EVALUATION_UNIFORM_COMPONENTS, &caps.openGL.max_tess_evaluation_uniforms);
+  glGetIntegerv(GL_MAX_COMBINED_TESS_CONTROL_UNIFORM_COMPONENTS, &caps.openGL.max_tess_control_components);
+  glGetIntegerv(GL_MAX_COMBINED_TESS_EVALUATION_UNIFORM_COMPONENTS, &caps.openGL.max_tess_evaluation_components);
+  glGetIntegerv(GL_MAX_TESS_CONTROL_TEXTURE_IMAGE_UNITS, &caps.openGL.max_tess_control_samplers);
+  glGetIntegerv(GL_MAX_TESS_EVALUATION_TEXTURE_IMAGE_UNITS, &caps.openGL.max_tess_evaluation_samplers);
+  glGetIntegerv(GL_MAX_TESS_CONTROL_OUTPUT_COMPONENTS, &caps.openGL.max_tess_control_output_components);
+  glGetIntegerv(GL_MAX_TESS_EVALUATION_OUTPUT_COMPONENTS, &caps.openGL.max_tess_evaluation_output_components);
+  glGetIntegerv(GL_MAX_TESS_CONTROL_TOTAL_OUTPUT_COMPONENTS, &caps.openGL.max_control_outputs);
+  glGetIntegerv(GL_MAX_TESS_PATCH_COMPONENTS, &caps.openGL.max_patch_components);
+  glGetIntegerv(GL_MAX_TESS_CONTROL_INPUT_COMPONENTS, &caps.openGL.max_tess_control_inputs);
+  glGetIntegerv(GL_MAX_TESS_EVALUATION_INPUT_COMPONENTS, &caps.openGL.max_tess_evaluation_inputs);
+  glGetIntegerv(GL_MAX_IMAGE_UNITS, &caps.openGL.max_images);
+  glGetIntegerv(GL_MAX_MESH_TEXTURE_IMAGE_UNITS_NV, &caps.openGL.max_mesh_samplers);
+  glGetIntegerv(GL_MAX_MESH_UNIFORM_COMPONENTS_NV, &caps.openGL.max_mesh_uniforms);
+  glGetIntegerv(GL_MAX_MESH_IMAGE_UNIFORMS_NV, &caps.openGL.max_mesh_image_uniforms);
+  glGetIntegerv(GL_MAX_MESH_ATOMIC_COUNTER_BUFFERS_NV, &caps.openGL.max_mesh_atomic_counter_buffers);
+  glGetIntegerv(GL_MAX_MESH_ATOMIC_COUNTERS_NV, &caps.openGL.max_mesh_atomic_counters);
+  glGetIntegerv(GL_MAX_COMBINED_MESH_UNIFORM_COMPONENTS_NV, &caps.openGL.max_mesh_components);
+  glGetIntegerv(GL_MAX_TASK_TEXTURE_IMAGE_UNITS_NV, &caps.openGL.max_task_samplers);
+  glGetIntegerv(GL_MAX_TASK_IMAGE_UNIFORMS_NV, &caps.openGL.max_task_image_uniforms);
+  glGetIntegerv(GL_MAX_TASK_UNIFORM_COMPONENTS_NV, &caps.openGL.max_task_uniform_components);
+  glGetIntegerv(GL_MAX_TASK_ATOMIC_COUNTER_BUFFERS_NV, &caps.openGL.max_task_atomic_counter_buffers);
+  glGetIntegerv(GL_MAX_TASK_ATOMIC_COUNTERS_NV, &caps.openGL.max_task_atomic_counters);
+  glGetIntegerv(GL_MAX_COMBINED_TASK_UNIFORM_COMPONENTS_NV, &caps.openGL.max_task_components);
+  glGetIntegerv(GL_MAX_MESH_WORK_GROUP_INVOCATIONS_NV, &caps.openGL.max_mesh_work_group_invocations);
+  glGetIntegerv(GL_MAX_TASK_WORK_GROUP_INVOCATIONS_NV, &caps.openGL.max_task_work_group_invocations);
+  glGetIntegerv(GL_MAX_MESH_TOTAL_MEMORY_SIZE_NV, &caps.openGL.max_mesh_memory);
+  glGetIntegerv(GL_MAX_TASK_TOTAL_MEMORY_SIZE_NV, &caps.openGL.max_task_memory);
+  glGetIntegerv(GL_MAX_MESH_OUTPUT_VERTICES_NV, &caps.openGL.max_mesh_output_vertices);
+  glGetIntegerv(GL_MAX_MESH_OUTPUT_PRIMITIVES_NV, &caps.openGL.max_mesh_output_primitives);
+  glGetIntegerv(GL_MAX_TASK_OUTPUT_COUNT_NV, &caps.openGL.max_task_output);
+  glGetIntegerv(GL_MAX_DRAW_MESH_TASKS_COUNT_NV, &caps.openGL.max_mesh_draw_tasks);
+  glGetIntegerv(GL_MAX_MESH_VIEWS_NV, &caps.openGL.max_mesh_views);
+  GetVec3i(GL_MAX_MESH_WORK_GROUP_SIZE_NV, caps.openGL.max_mesh_work_group_size);
+  GetVec3i(GL_MAX_TASK_WORK_GROUP_SIZE_NV, caps.openGL.max_task_work_group_size);
+
   return caps;
 }
 
@@ -169,7 +303,15 @@ int Backend::DrawIndexed(FG_Backend* self, void* commands, uint32_t indexcount, 
   LOG_ERROR(backend, context->DrawIndexed(indexcount, instancecount, startindex, startvertex, startinstance));
   return 0;
 }
-
+int Backend::DrawMesh(FG_Backend* self, void* commands, uint32_t first, uint32_t count)
+{
+  if(!commands)
+    return ERR_INVALID_PARAMETER;
+  auto backend = static_cast<Backend*>(self);
+  auto context = reinterpret_cast<Context*>(commands);
+  LOG_ERROR(backend, context->DrawMesh(first, count));
+  return 0;
+}
 int Backend::Dispatch(FG_Backend* self, void* commands)
 {
   if(!commands)
@@ -1025,10 +1167,12 @@ Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
   copyResourceRegion    = &CopyResourceRegion;
   draw                  = &DrawGL;
   drawIndexed           = &DrawIndexed;
+  drawMesh              = &DrawMesh;
   dispatch              = &Dispatch;
   syncPoint             = &SyncPoint;
   setPipelineState      = &SetPipelineState;
   setViewports          = &SetViewports;
+  setScissors           = &SetScissors;
   setShaderConstants    = &SetShaderConstants;
   execute               = &Execute;
   createPipelineState   = &CreatePipelineState;

@@ -123,6 +123,7 @@ namespace GL {
                       uint32_t startinstance);
     static int DrawIndexed(FG_Backend* self, void* commands, uint32_t indexcount, uint32_t instancecount,
                            uint32_t startindex, int startvertex, uint32_t startinstance);
+    static int DrawMesh(FG_Backend* self, void* commands, uint32_t first, uint32_t count);
     static int Dispatch(FG_Backend* self, void* commands);
     static int SyncPoint(FG_Backend* self, void* commands, uint32_t barrier_flags);
     static int SetPipelineState(FG_Backend* self, void* commands, uintptr_t state);

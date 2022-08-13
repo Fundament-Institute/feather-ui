@@ -11,7 +11,8 @@ using namespace GL;
 #ifndef USE_EMULATED_VAOS
 
 GLExpected<VertexArrayObject> VertexArrayObject::create(GLuint program, std::span<FG_VertexParameter> parameters,
-                                            std::span<std::pair<GLuint, GLsizei>> vbuffers, GLuint indices) noexcept
+                                                        std::span<std::pair<GLuint, GLsizei>> vbuffers,
+                                                        GLuint indices) noexcept
 {
   GLuint id;
   glGenVertexArrays(1, &id);
@@ -43,16 +44,12 @@ GLExpected<VertexArrayObject> VertexArrayObject::create(GLuint program, std::spa
       if(param.type > ArraySize(ShaderTypeMapping))
         return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "param.type is not valid shader type");
 
-      GLenum type = ShaderTypeMapping[param.type];
+      GLenum type   = ShaderTypeMapping[param.type];
       size_t offset = param.offset;
-      glVertexAttribPointer(loc, param.length, type, GL_FALSE, vbuffers[param.index].second, reinterpret_cast<void*>(offset));
+      glVertexAttribPointer(loc, param.length, type, GL_FALSE, vbuffers[param.index].second,
+                            reinterpret_cast<void*>(offset));
       GL_ERROR("glVertexAttribPointer");
-      if(glVertexAttribDivisor)
-      {
-        glVertexAttribDivisor(loc, param.step);
-        GL_ERROR("glVertexAttribDivisor");
-      }
-      else if(glVertexAttribDivisorARB)
+      if(glVertexAttribDivisorARB)
       {
         glVertexAttribDivisorARB(loc, param.step);
         GL_ERROR("glVertexAttribDivisorARB");
@@ -96,7 +93,8 @@ GLExpected<void> VertexArrayObject::unbind()
 VertexArrayObject::VertexArrayObject() {}
 
 GLExpected<VertexArrayObject> VertexArrayObject::create(GLuint shader, std::span<FG_VertexParameter> parameters,
-                                     GLuint* vbuffers, GLsizei* vstrides, size_t n_vbuffers, GLuint indices)
+                                                        GLuint* vbuffers, GLsizei* vstrides, size_t n_vbuffers,
+                                                        GLuint indices)
 {
   VertexArrayObject vao;
   vao._indexBuffer = indices;

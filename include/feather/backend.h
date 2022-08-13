@@ -207,12 +207,18 @@ enum FG_Feature
   FG_Feature_Background_Opacity = (1 << 7),
   FG_Feature_Lines_Alpha        = (1 << 8),
   FG_Feature_Blend_Gamma        = (1 << 9),
-  FG_Feature_Instancing         = (1 << 10),
-  FG_Feature_Multithreading     = (1 << 11),
-  FG_Feature_Command_Bundles    = (1 << 12),
-  FG_Feature_Independent_Blend  = (1 << 13),
-  FG_Feature_Compute_Shader     = (1 << 14),
-  FG_Feature_Mesh_Shader        = (1 << 15),
+  FG_Feature_Anisotropic_Filter = (1 << 10),
+  FG_Feature_Half_Float         = (1 << 11),
+  FG_Feature_Atomic_Counters    = (1 << 12),
+  FG_Feature_StorageBuffer      = (1 << 13),
+  FG_Feature_Sync               = (1 << 14),
+  FG_Feature_Instancing         = (1 << 15),
+  FG_Feature_Multithreading     = (1 << 16),
+  FG_Feature_Command_Bundles    = (1 << 17),
+  FG_Feature_Independent_Blend  = (1 << 18),
+  FG_Feature_Compute_Shader     = (1 << 19),
+  FG_Feature_Tesselation_Shader = (1 << 20),
+  FG_Feature_Mesh_Shader        = (1 << 21),
 };
 
 typedef struct FG_Vec3i__
@@ -286,9 +292,98 @@ typedef struct FG_OpenGL_Caps__
   int features;
   int version; // 2.1 is 21, 4.2 is 42, etc.
   int glsl;    // Version 1.10 is 110, version 4.40 is 440
-  int max_textures;
+  int max_texture_size;
+  FG_Vec2i max_viewport_size;
+  int max_3d_texture_size;
+  int max_vertex_buffer_size;
+  int max_index_buffer_size;
+  int max_cube_texture_size;
+  float max_texture_bias;
+  int max_vertex_attributes;
+  int max_texture_samplers;
+  int max_fragment_uniforms;
+  int max_vertex_uniforms;
+  int max_varying_outputs;
+  int max_vertex_texture_samplers;
+  int max_samplers;
+  int max_texture_levels;
+  int max_texel_offset;
+  int max_renderbuffer_size;
   int max_rendertargets;
-  FG_Vec3i max_workgroups;
+  int max_multisampling;
+  int max_texturebuffer_size;
+  int max_vertex_uniform_blocks;
+  int max_geometry_uniform_blocks;
+  int max_geometry_texture_samplers;
+  int max_texture_coordinates;
+  int max_geometry_uniforms;
+  int max_geometry_output_vertices;
+  int max_geometry_total_output;
+  int max_vertex_output_components;
+  int max_geometry_input_components;
+  int max_geometry_output_components;
+  int max_fragment_input_components;
+  int max_multisample_mask_words;
+  int max_multisample_color_samples;
+  int max_multisample_depth_samples;
+  int max_dual_source_rendertargets;
+  int max_compute_uniform_blocks;
+  int max_compute_samplers;
+  int max_compute_image_uniforms;
+  int max_compute_shared_memory;
+  int max_compute_uniforms;
+  int max_compute_atomic_counter_buffers;
+  int max_compute_atomic_counters;
+  int max_compute_components;
+  int max_work_group_invocations;
+  FG_Vec3i max_work_group_count;
+  FG_Vec3i max_work_group_size;
+  int max_atomic_counter_buffers;
+  int max_atomic_counters;
+  int max_image_uniforms;
+  int max_storage_blocks;
+  int max_storage_buffers;
+  int max_storage_block_size;
+  int max_shader_output_resources;
+  int max_texture_anisotropy;
+  int max_patch_vertices;
+  int max_tessellation_level;
+  int max_tess_control_uniforms;
+  int max_tess_evaluation_uniforms;
+  int max_tess_control_components;
+  int max_tess_evaluation_components;
+  int max_tess_control_samplers;
+  int max_tess_evaluation_samplers;
+  int max_tess_control_output_components;
+  int max_tess_evaluation_output_components;
+  int max_control_outputs;
+  int max_patch_components;
+  int max_tess_control_inputs;
+  int max_tess_evaluation_inputs;
+  int max_images;
+  int max_mesh_samplers;
+  int max_mesh_uniforms;
+  int max_mesh_image_uniforms;
+  int max_mesh_atomic_counter_buffers;
+  int max_mesh_atomic_counters;
+  int max_mesh_components;
+  int max_task_samplers;
+  int max_task_image_uniforms;
+  int max_task_uniform_components;
+  int max_task_atomic_counter_buffers;
+  int max_task_atomic_counters;
+  int max_task_components;
+  int max_mesh_work_group_invocations;
+  int max_task_work_group_invocations;
+  int max_mesh_memory;
+  int max_task_memory;
+  int max_mesh_output_vertices;
+  int max_mesh_output_primitives;
+  int max_task_output;
+  int max_mesh_draw_tasks;
+  int max_mesh_views;
+  FG_Vec3i max_mesh_work_group_size;
+  FG_Vec3i max_task_work_group_size;
 } FG_OpenGL_Caps;
 
 typedef struct FG_DirectX_Caps__
@@ -391,13 +486,13 @@ enum FG_Pipeline_Member
   FG_Pipeline_Member_Stencil_Ref        = (1 << 11),
   FG_Pipeline_Member_Stencil_Read_Mask  = (1 << 12),
   FG_Pipeline_Member_Stencil_Write_Mask = (1 << 13),
-  FG_Pipeline_Member_Stencil_OP       = (1 << 14),
+  FG_Pipeline_Member_Stencil_OP         = (1 << 14),
   FG_Pipeline_Member_Stencil_Func       = (1 << 17),
   FG_Pipeline_Member_Depth_Func         = (1 << 18),
   FG_Pipeline_Member_Fill               = (1 << 19),
   FG_Pipeline_Member_Cull               = (1 << 20),
   FG_Pipeline_Member_Primitive          = (1 << 21),
-  FG_Pipeline_Member_Depth_Slope_Bias         = (1 << 22),
+  FG_Pipeline_Member_Depth_Slope_Bias   = (1 << 22),
   FG_Pipeline_Member_Node_Mask          = (1 << 24),
 };
 
@@ -1259,20 +1354,22 @@ struct FG_Backend
   int (*destroyCommandList)(struct FG_Backend* self, void* commands);
   int (*clear)(struct FG_Backend* self, void* commands, uint8_t clearbits, FG_Color RGBA, uint8_t stencil, float depth,
                uint32_t num_rects, FG_Rect* rects);
-  int (*copyResource)(struct FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, FG_Vec3i size, int mipmaplevel);
-  int (*copySubresource)(struct FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, unsigned long srcoffset,
-                         unsigned long destoffset, unsigned long bytes);
-  int (*copyResourceRegion)(struct FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, int level, FG_Vec3i srcoffset,
-                            FG_Vec3i destoffset, FG_Vec3i size);
+  int (*copyResource)(struct FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, FG_Vec3i size,
+                      int mipmaplevel);
+  int (*copySubresource)(struct FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest,
+                         unsigned long srcoffset, unsigned long destoffset, unsigned long bytes);
+  int (*copyResourceRegion)(struct FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, int level,
+                            FG_Vec3i srcoffset, FG_Vec3i destoffset, FG_Vec3i size);
   int (*draw)(struct FG_Backend* self, void* commands, uint32_t vertexcount, uint32_t instancecount, uint32_t startvertex,
               uint32_t startinstance);
-  int (*drawIndexed)(struct FG_Backend* self, void* commands, uint32_t indexcount, uint32_t instancecount, uint32_t startindex,
-                     int startvertex, uint32_t startinstance);
+  int (*drawIndexed)(struct FG_Backend* self, void* commands, uint32_t indexcount, uint32_t instancecount,
+                     uint32_t startindex, int startvertex, uint32_t startinstance);
+  int (*drawMesh)(struct FG_Backend* self, void* commands, uint32_t first, uint32_t count);
   int (*dispatch)(struct FG_Backend* self, void* commands);
   int (*syncPoint)(struct FG_Backend* self, void* commands, uint32_t barrier_flags);
   int (*setPipelineState)(struct FG_Backend* self, void* commands, uintptr_t state);
   int (*setViewports)(struct FG_Backend* self, void* commands, FG_Viewport* viewports, uint32_t count);
-  int (*setScissor)(struct FG_Backend* self, void* commands, FG_Rect* rects, uint32_t count);
+  int (*setScissors)(struct FG_Backend* self, void* commands, FG_Rect* rects, uint32_t count);
   int (*setShaderConstants)(struct FG_Backend* self, void* commands, const FG_ShaderParameter* uniforms,
                             const FG_ShaderValue* values, uint32_t count);
   int (*execute)(struct FG_Backend* self, FG_Context* context, void* commands);
@@ -1280,14 +1377,15 @@ struct FG_Backend
                                    FG_Resource rendertarget, FG_Blend* blends, FG_Resource* vertexbuffer, int* strides,
                                    uint32_t n_buffers, FG_VertexParameter* attributes, uint32_t n_attributes,
                                    FG_Resource indexbuffer, uint8_t indexstride);
-  uintptr_t (*createComputePipeline)(struct FG_Backend* self, FG_Context* context, FG_Shader computeshader, FG_Vec3i workgroup,
-                                     uint32_t flags);
+  uintptr_t (*createComputePipeline)(struct FG_Backend* self, FG_Context* context, FG_Shader computeshader,
+                                     FG_Vec3i workgroup, uint32_t flags);
   int (*destroyPipelineState)(struct FG_Backend* self, FG_Context* context, uintptr_t state);
-  FG_Resource (*createBuffer)(struct FG_Backend* self, FG_Context* context, void* data, uint32_t bytes, enum FG_Usage usage);
+  FG_Resource (*createBuffer)(struct FG_Backend* self, FG_Context* context, void* data, uint32_t bytes,
+                              enum FG_Usage usage);
   FG_Resource (*createTexture)(struct FG_Backend* self, FG_Context* context, FG_Vec2i size, enum FG_Usage usage,
                                enum FG_PixelFormat format, FG_Sampler* sampler, void* data, int MultiSampleCount);
-  FG_Resource (*createRenderTarget)(struct FG_Backend* self, FG_Context* context, FG_Resource depthstencil, FG_Resource* textures,
-                                    uint32_t n_textures, int attachments);
+  FG_Resource (*createRenderTarget)(struct FG_Backend* self, FG_Context* context, FG_Resource depthstencil,
+                                    FG_Resource* textures, uint32_t n_textures, int attachments);
   int (*destroyResource)(struct FG_Backend* self, FG_Context* context, FG_Resource resource);
   void* (*mapResource)(struct FG_Backend* self, FG_Context* context, FG_Resource resource, uint32_t offset, uint32_t length,
                        enum FG_Usage usage, uint32_t access);
@@ -1300,7 +1398,8 @@ struct FG_Backend
   int (*beginDraw)(struct FG_Backend* self, FG_Context* context, FG_Rect* area);
   int (*endDraw)(struct FG_Backend* self, FG_Context* context);
   int (*putClipboard)(struct FG_Backend* self, FG_Window* window, enum FG_Clipboard kind, const char* data, uint32_t count);
-  uint32_t (*getClipboard)(struct FG_Backend* self, FG_Window* window, enum FG_Clipboard kind, void* target, uint32_t count);
+  uint32_t (*getClipboard)(struct FG_Backend* self, FG_Window* window, enum FG_Clipboard kind, void* target,
+                           uint32_t count);
   bool (*checkClipboard)(struct FG_Backend* self, FG_Window* window, enum FG_Clipboard kind);
   int (*clearClipboard)(struct FG_Backend* self, FG_Window* window, enum FG_Clipboard kind);
   int (*processMessages)(struct FG_Backend* self, FG_Window* window);

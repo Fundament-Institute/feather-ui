@@ -16,8 +16,6 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
                                                  std::span<FG_VertexParameter> attributes, FG_Resource indexbuffer,
                                                  uint8_t indexstride) noexcept
 {
-  auto test               = Buffer(vertexbuffers[0]);
-
   PipelineState* pipeline = new PipelineState{};
 
   if(auto e = ProgramObject::create())

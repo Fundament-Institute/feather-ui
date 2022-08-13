@@ -151,11 +151,92 @@ struct MockElement
   FG_Shader shader;
   FG_Resource vertices;
   uintptr_t pipeline;
+  uintptr_t mesh_pipeline;
   uint64_t flags;
   bool close;
+  FG_Caps caps;
 };
 
 static constexpr auto WindowDim = FG_Vec2{ 800.f, 600.f };
+
+uintptr_t load_mesh(FG_Backend* b, FG_Window* w)
+{
+  const char* shader_ms = "#version 450\n"
+                          "#extension GL_NV_mesh_shader : require\n"
+                          "layout(local_size_x=1) in;\n"
+                          "layout(max_vertices=3, max_primitives=1) out;\n"
+                          "layout(triangles) out;\n"
+
+                          "out PerVertexData\n"
+                          "{\n"
+                          "  vec4 color;\n"
+                          "} v_out[];   \n"
+                          "const vec3 vertices[3] = {vec3(-1,-1,0), vec3(0,1,0), vec3(1,-1,0)};\n"
+                          "const vec3 colors[3] = {vec3(1.0,0.0,0.0), vec3(0.0,1.0,0.0), vec3(0.0,0.0,1.0)};\n"
+                          "uniform float scale;\n"
+
+                          "void main()\n"
+                          "{\n"
+                          "  gl_MeshVerticesNV[0].gl_Position = vec4(vertices[0] * scale, 1.0); \n"
+                          "  gl_MeshVerticesNV[1].gl_Position = vec4(vertices[1] * scale, 1.0); \n"
+                          "  gl_MeshVerticesNV[2].gl_Position = vec4(vertices[2] * scale, 1.0); \n"
+
+                          "  v_out[0].color = vec4(colors[0], 1.0);\n"
+                          "  v_out[1].color = vec4(colors[1], 1.0);\n"
+                          "  v_out[2].color = vec4(colors[2], 1.0);\n"
+
+                          "  gl_PrimitiveIndicesNV[0] = 0;\n"
+                          "  gl_PrimitiveIndicesNV[1] = 1;\n"
+                          "  gl_PrimitiveIndicesNV[2] = 2;\n"
+
+                          "  gl_PrimitiveCountNV = 1;\n"
+                          "}";
+  const char* shader_fs = "#version 450\n"
+
+                          "layout(location = 0) out vec4 FragColor;\n"
+
+                          "in PerVertexData\n"
+                          "{\n"
+                          "  vec4 color;\n"
+                          "} fragIn;  \n"
+
+                          "void main()\n"
+                          "{\n"
+                          "  FragColor = fragIn.color;\n"
+                          "}";
+
+  auto pipeline    = FG_PipelineState{};
+  pipeline.members = FG_Pipeline_Member_PS | FG_Pipeline_Member_MS | FG_Pipeline_Member_Flags | FG_Pipeline_Member_Fill |
+                     FG_Pipeline_Member_Cull | FG_Pipeline_Member_Primitive;
+  pipeline.shaders[FG_ShaderStage_Pixel] = (*b->compileShader)(b, w->context, FG_ShaderStage_Pixel, shader_fs);
+  pipeline.shaders[FG_ShaderStage_Mesh]  = (*b->compileShader)(b, w->context, FG_ShaderStage_Mesh, shader_ms);
+  pipeline.flags                         = FG_Pipeline_Flag_Blend_Enable; // | FG_PIPELINE_FLAG_RENDERTARGET_SRGB_ENABLE
+  pipeline.fillMode                      = FG_Fill_Mode_Fill;
+  pipeline.cullMode                      = FG_Cull_Mode_None; // FG_CULL_MODE_BACK
+
+  FG_Blend Premultiply_Blend = {
+    FG_Blend_Operand_One,
+    FG_Blend_Operand_Inv_Src_Alpha,
+    FG_Blend_Op_Add,
+    FG_Blend_Operand_One,
+    FG_Blend_Operand_Inv_Src_Alpha,
+    FG_Blend_Op_Add,
+    0b1111,
+  };
+
+  return (*b->createPipelineState)(b, w->context, &pipeline, 0, &Premultiply_Blend, 0, 0, 0, 0, 0, 0, 0);
+}
+void test_mesh(FG_Backend* b, FG_Context* ctx, void* commands, const MockElement& e)
+{
+  static const FG_ShaderParameter params[] = { { "scale", 1, 0, 0, FG_Shader_Type_Float } };
+  FG_ShaderValue values[1];
+  values[0].f32 = 1;
+
+  (*b->setPipelineState)(b, commands, e.mesh_pipeline);
+  (*b->setShaderConstants)(b, commands, params, values, 1);
+  (*b->drawMesh)(b, commands, 0, 1);
+  (*b->execute)(b, ctx, commands);
+}
 
 // The behavior function simply processes all window messages from the host OS.
 FG_Result behavior(FG_Element* element, FG_Context* ctx, void* ui, FG_Msg* m)
@@ -172,6 +253,9 @@ FG_Result behavior(FG_Element* element, FG_Context* ctx, void* ui, FG_Msg* m)
     //(*b->beginDraw)(b, ctx, nullptr);
     void* commands = (*b->createCommandList)(b, ctx, false);
     assert(commands);
+     
+  if(e.caps.features & FG_Feature_Mesh_Shader)
+      test_mesh(b, ctx, commands, e); 
 
     // Try drawing a custom shader.
     mat4x4 proj;
@@ -255,10 +339,10 @@ void test_compute(FG_Backend* b, FG_Window* w)
                                                { "inblock", 0, 0, 0, FG_Shader_Type_Buffer },
                                                { "outblock", 0, 0, 1, FG_Shader_Type_Buffer } };
   TEST((*b->setPipelineState)(b, commands, compute_pipeline) == 0);
-  TEST((*b->setShaderConstants)(b, commands, params, values, 3)==0);
-  TEST((*b->dispatch)(b, commands)==0);
-  TEST((*b->syncPoint)(b, commands, FG_BarrierFlag_Storage_Buffer)==0);
-  TEST((*b->execute)(b, w->context, commands)==0);
+  TEST((*b->setShaderConstants)(b, commands, params, values, 3) == 0);
+  TEST((*b->dispatch)(b, commands) == 0);
+  TEST((*b->syncPoint)(b, commands, FG_BarrierFlag_Storage_Buffer) == 0);
+  TEST((*b->execute)(b, w->context, commands) == 0);
 
   int* readbuf = (int*)(*b->mapResource)(b, w->context, CopiedOutbuf, 0, 0, FG_Usage_Storage_Buffer, FG_AccessFlag_Read);
   TEST(readbuf != nullptr);
@@ -353,7 +437,10 @@ int main(int argc, char* argv[])
     return -1;
   }
 
-  test_compute(b, w);
+  e.caps = (*b->getCaps)(b);
+  
+  if(e.caps.features & FG_Feature_Compute_Shader)
+    test_compute(b, w);
 
   FG_Vec2i fakedim = { 200, 200 };
   void* fakedata   = malloc(fakedim.x * fakedim.y * 4);
@@ -362,8 +449,8 @@ int main(int argc, char* argv[])
   auto sampler = FG_Sampler{ FG_Filter_Min_Mag_Mip_Linear };
   e.image      = (*b->createTexture)(b, w->context, fakedim, FG_Usage_Texture2D, FG_PixelFormat_R8G8B8A8_Typeless, &sampler,
                                 fakedata, 0);
-  auto vs_shader = e.vertices = (*b->createBuffer)(b, w->context, verts, sizeof(verts), FG_Usage_Vertex_Data);
-  int vertstride              = sizeof(verts[0]);
+  e.vertices   = (*b->createBuffer)(b, w->context, verts, sizeof(verts), FG_Usage_Vertex_Data);
+  int vertstride = sizeof(verts[0]);
 
   auto pipeline    = FG_PipelineState{};
   pipeline.members = FG_Pipeline_Member_PS | FG_Pipeline_Member_VS | FG_Pipeline_Member_Flags | FG_Pipeline_Member_Fill |
@@ -384,6 +471,8 @@ int main(int argc, char* argv[])
   e.pipeline       = (*b->createPipelineState)(b, w->context, &pipeline, framebuffer, &Premultiply_Blend, &e.vertices,
                                          &vertstride, 1, vertparams, 2, 0, 0);
   e.close          = false;
+  if(e.caps.features & FG_Feature_Mesh_Shader)
+    e.mesh_pipeline = load_mesh(b, w);
 
   (*b->beginDraw)(b, w->context, nullptr);
   FG_Msg drawmsg = { FG_Event_Kind_Draw };
@@ -391,8 +480,8 @@ int main(int argc, char* argv[])
   (*b->endDraw)(b, w->context);
 
   FG_Resource CopiedTexture = (*b->createTexture)(b, w->context, FG_Vec2i{ 800, 600 }, FG_Usage_Texture2D,
-                                                   FG_PixelFormat_R8G8B8A8_Typeless, &sampler, NULL, 0);
-  void* commands             = (*b->createCommandList)(b, w->context, false);
+                                                  FG_PixelFormat_R8G8B8A8_Typeless, &sampler, NULL, 0);
+  void* commands            = (*b->createCommandList)(b, w->context, false);
   TEST((*b->copyResourceRegion)(b, commands, RenderTarget0, CopiedTexture, 0, FG_Vec3i{ 0, 0, 0 }, FG_Vec3i{ 0, 0, 0 },
                                 FG_Vec3i{ 800, 600, 0 }) == 0);
   (*b->execute)(b, w->context, commands);

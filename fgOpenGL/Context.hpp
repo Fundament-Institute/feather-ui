@@ -56,6 +56,7 @@ namespace GL {
     GLExpected<void> DrawArrays(uint32_t vertexcount, uint32_t instancecount, uint32_t startvertex, uint32_t startinstance);
     GLExpected<void> DrawIndexed(uint32_t indexcount, uint32_t instancecount, uint32_t startindex, int startvertex,
                                  uint32_t startinstance);
+    GLExpected<void> DrawMesh(uint32_t start, uint32_t count);
     GLExpected<void> Dispatch();
     GLExpected<void> Barrier(GLbitfield barrier_flags);
     GLFWwindow* GetWindow() const { return _window; }
