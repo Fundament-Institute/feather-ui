@@ -19,7 +19,9 @@ namespace GL {
     void DirtyRect(const FG_Rect* r);
     uint8_t ScanJoysticks();
     void PollJoysticks();
+#ifdef FG_PLATFORM_WIN32
     double TranslateJoyAxis(uint8_t axis, uint8_t index) const;
+#endif
     static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
     static void CloseCallback(GLFWwindow* window);
     static void CharCallback(GLFWwindow* window, unsigned int key);

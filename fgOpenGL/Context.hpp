@@ -10,7 +10,7 @@
 #include <GLFW/glfw3.h>
 #include "feather/backend.h"
 #include "ShaderObject.hpp"
-#include <cmath>
+#include <math.h>
 #include <vector>
 #include <array>
 #include <utility>
@@ -38,8 +38,9 @@ namespace GL {
   {
 #if defined(FG_PLATFORM_WIN32) && defined(BSS_CPU_x86_64)
     return _mm_cvtt_ss2si(_mm_load_ss(&f));
-#elif defined(BSS_CPU_x86_64)
-    return __builtin_ia32_cvttss2si(__builtin_ia32_loadss(&f));
+//#elif defined(BSS_CPU_x86_64)
+    // GCC's libstdc++ is broken and doesn't have __builtin_ia32_loadss
+    //return __builtin_ia32_cvttss2si(__builtin_ia32_loadss(&f));
 #else
     return (int32_t)f;
 #endif
@@ -116,8 +117,8 @@ namespace GL {
 
     static inline GLExpected<void> CallWithRect(const FG_Rect& r, void (*func)(int, int, int, int), const char* callsite)
     {
-      (*func)(FastTruncate(std::floorf(r.left)), FastTruncate(std::floorf(r.top)),
-              FastTruncate(std::ceilf(r.right - r.left)), FastTruncate(std::ceilf(r.bottom - r.top)));
+      (*func)(FastTruncate(::floorf(r.left)), FastTruncate(::floorf(r.top)),
+              FastTruncate(::ceilf(r.right - r.left)), FastTruncate(::ceilf(r.bottom - r.top)));
       GL_ERROR(callsite);
       return {};
     }

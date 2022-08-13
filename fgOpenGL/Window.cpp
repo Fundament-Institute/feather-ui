@@ -489,11 +489,13 @@ void Window::PollJoysticks() {
 #endif
 }
 
+#ifdef FG_PLATFORM_WIN32
 double Window::TranslateJoyAxis(uint8_t axis, uint8_t index) const
 {
   uint16_t half = _joycaps[index].range[axis] / 2;
   return (((uint32_t)(_alljoyaxis[index][axis] - _joycaps[index].offset[axis]) - half) / (double)half);
 }
+#endif
 
 void Window::JoystickCallback(int jid, int e)
 {

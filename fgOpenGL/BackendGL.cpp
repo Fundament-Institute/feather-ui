@@ -10,7 +10,6 @@
 #include "PipelineState.hpp"
 #include "EnumMapping.hpp"
 #include <cstring>
-#include <GL\gl.h>
 
 #ifdef FG_PLATFORM_WIN32
   #include <dwrite_1.h>
