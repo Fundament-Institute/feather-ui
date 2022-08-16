@@ -17,6 +17,7 @@
         devshell-ldpath =
           pkgs.lib.concatMapStringsSep ":" (lib: "${pkgs.lib.getLib lib}/lib") [
             selfpkgs.sail
+            selfpkgs.fgOpenGL
             pkgs.cjson
           ];
         backends = pkgs.llvmPackages_13.stdenv.mkDerivation {

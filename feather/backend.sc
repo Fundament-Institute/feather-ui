@@ -129,16 +129,16 @@ inline uppercase (sym)
     Symbol repl
 
 sugar option-to-pointer (name val)
-    let _name = (Symbol (.. "_" (name as string)))
+    let _name = (Symbol (.. "_" (name as Symbol as string)))
     qq
         local [_name] : (getattr (typeof [val]) 'elem)
         let [name] =
             dispatch [val]
             case Some (x)
                 [_name] = x
-                &[_name]
+                (&[_name])
             case None ()
-                null
+                nullof (typeof (& [_name]))
             default
                 unreachable;
 
@@ -193,7 +193,7 @@ do
     wrap-enum Shader_Type
     wrap-enum Clipboard
     wrap-enum Cursor
-    wrap-enum Kind
+    wrap-enum Event_Kind
     wrap-enum Keys
     wrap-bitfield ModKey # TODO make bitfield
     wrap-enum MouseButton
@@ -202,9 +202,9 @@ do
     wrap-enum Level
     wrap-enum LogType
     wrap-bitfield WindowFlag # TODO make bitfield
-    wrap-bitfield AccessFlags
+    wrap-bitfield AccessFlag
     wrap-bitfield BarrierFlags
-    wrap-bitfield ClearFlags
+    wrap-bitfield ClearFlag
 
 
     let fake-log = raw.extern.FakeLog
@@ -213,8 +213,16 @@ do
 
     let ShaderParameter = raw.typedef.FG_ShaderParameter
 
+    type+ raw.typedef.FG_Vec2
+        inline __rimply (othercls cls)
+            inline (other)
+                cls
+                    x = other.x
+                    y = other.y
+    let Vec2 = raw.typedef.FG_Vec2
 
-    type Backend : &raw.struct.FG_Backend
+
+    type Backend : (mutable@ raw.struct.FG_Backend)
         inline __drop (self)
             let vtab = (storagecast self)
             vtab.destroy vtab
@@ -222,24 +230,50 @@ do
         let backend = this-type
         struct Window
             parent : (& backend)
-            window : (@ raw.typedef.FG_Window)
+            window : (mutable@ raw.typedef.FG_Window)
 
             inline __drop(self)
                 let vtab = (storagecast self.parent)
                 vtab.destroyWindow vtab self.window
+                _;
+
+
+        unlet backend
 
         fn... create-window (self, element, display : (Option Display), pos : (Option vec2), size : (Option vec2), caption, flags)
             viewing caption
-            returning Window
+            # returning (uniqueof Window 1003)
 
-            option-to-pointer disp display
-            option-to-pointer pos pos
-            option-to-pointer size size
+            # option-to-pointer disp display
+            let disp = null
+            # option-to-pointer pos pos
+            let pos = null
+            # option-to-pointer size size
+            local _size : Vec2
+            let psize =
+                dispatch size
+                case Some (x)
+                    _size = x
+                    &_size
+                case None ()
+                    nullof (typeof (& _size))
+                default
+                    unreachable;
 
             caption as:= rawstring
 
             let vtab = (storagecast self)
             let win =
-                vtab.createWindow vtab element disp pos size caption flags
+                vtab.createWindow vtab (&element as (@ void)) disp pos psize caption flags
+
+            Window
+                self
+                win
+
+    let Behavior = raw.typedef.FG_Behavior
+    let Log = raw.typedef.FG_Log
+    let Msg = raw.typedef.FG_Msg
+    let Msg_Result = raw.typedef.FG_Result
+    let InitBackend = (Backend <-: ((@ void) Log Behavior))
 
     locals;

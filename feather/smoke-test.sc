@@ -2,6 +2,8 @@
 
 using import .backend
 using import glm
+using import struct
+using import Option
 
 let levels =
     arrayof rawstring
@@ -51,19 +53,47 @@ fn mat4-proj (l r b t n f)
 
 
 struct MockElement
-    image : Resource
-    shader : (@ void)
-    vertices : Resource
-    pipeline : (@ void)
-    flags : u64
+    #image : Resource
+    #shader : (@ void)
+    #vertices : Resource
+    #pipeline : (@ void)
+    #flags : u64
     close : bool
 
+let backend_new =
+    extern 'fgOpenGL InitBackend
+
+load-library "libfgOpenGL.so"
+
+run-stage;
+
 fn behavior (element ctx back msg)
-    global params =
-        arrayof ShaderParamter
-            ShaderParameter "MVP" 0 4 4 0 ShaderType.FLOAT
-            ShaderParameter null  0 0 0 0 ShaderType.TEXTURE
+    #global params =
+        arrayof ShaderParameter
+            ShaderParameter "MVP" 0 4 4 0 Shader_Type.FLOAT
+            ShaderParameter null  0 0 0 0 Shader_Type.TEXTURE
 
     global counter : i32 = 0
 
     let element = (element as (@ MockElement))
+
+    local res = (Msg_Result)
+    res.draw = 0
+    res
+
+let behavior =
+    static-typify
+        behavior
+        (@ void)
+        (@ void)
+        (@ void)
+        (mutable@ Msg)
+
+
+fn main ()
+    using import .default-log
+    let b = (backend_new null default-log behavior )
+    local element : MockElement
+    let w = ('create-window b element none none (vec2 800 600) "smoke test" 0)
+
+main;
