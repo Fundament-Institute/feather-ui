@@ -60,7 +60,7 @@ fn old-arc (x y size DimBorderBlur corners fill outline)
     let outl = ((vec4 outline.rgb 1) * outline.a * (clamp (alpha - s) 0.0 1.0))
     let output = (arcf + outl)
     output
-    # This is an expanded form of the original version, for clarity's sake, but is equivalent to the original. Technically changed.
+    # This is an expanded form of the original version, for clarity's sake, but is equivalent to the original. Technically unchanged.
 
 do
     let arc
