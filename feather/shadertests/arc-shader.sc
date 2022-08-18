@@ -12,10 +12,8 @@ fn arc (x y size DimBorderBlur corners fill outline)
     let width = 1.0 # Width of a pixel is always 1.0 on software renderer, so width is 1.0 instead of fwidth(uv.x). Changed.
     let w1 = ((1.0 + DimBorderBlur.w) * width) # Unchanged.
     
-    let border = ((DimBorderBlur.z / 1) * 2.0)
-    # Dividing the blur value by 1?
-    let t = (0.5 - (corners.z / 1) + w1 * 1.5)
-    # And corners.z, too?
+    let border = ((DimBorderBlur.z / l) * 2.0)
+    let t = (0.5 - (corners.z / l) + w1 * 1.5)
     # Both of these lines are unchanged.
 
     let r = (l - t + w1)
