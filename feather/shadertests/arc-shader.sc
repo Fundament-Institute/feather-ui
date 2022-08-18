@@ -3,7 +3,7 @@ using import glsl
 using import .shader-utils
 
 # Lines that have not been changed are commented as unchanged. Lines that *have* been changed are marked as changed.
-fn old-arc (x y size DimBorderBlur corners fill outline)
+fn arc (x y size DimBorderBlur corners fill outline)
     # x, y are the current coords (`pos` in the original).
     # size is the length of the canvas (we're working with a square canvas). Not present in original.
     # DimBorderBlur, corners, fill, and outline are vec4s; in the original, they were marked `in` like GLSL globals, but here they're arguments.
