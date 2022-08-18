@@ -49,9 +49,9 @@ fn arc (x y size DimBorderBlur corners fill outline)
 
     let s = (linearstep w1 (- w1) ((min (- d0) d2) - w1))
     let alpha = (linearstep w1 (- w1) ((min (- d1) d3) - w1))
-    # These lines are unchanged.
+    # These lines are changed.
     # The first two args of these linearstep calls may or may not need to be swapped.
-    # Doing w1 (- w1) gives all white, doing (- w1) w1 gives nothing.
+    # Doing w1 (- w1) gives all white; the original did (- w1) w1, which gives nothing.
     # Erring on the side of getting output until I figure out where the size assumptions are.
 
     let arcf = ((vec4 fill.rgb 1) * fill.a * s)
