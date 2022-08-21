@@ -229,13 +229,16 @@ do
 
         let backend = this-type
         struct Window
-            parent : (& backend)
+            # parent : (& backend)
             window : (mutable@ raw.typedef.FG_Window)
 
-            inline __drop(self)
+            # inline __drop(self)
                 let vtab = (storagecast self.parent)
                 vtab.destroyWindow vtab self.window
                 _;
+            spice __drop (self)
+                returning Value
+                error "window cannot be dropped, must be destroyed by backend"
 
 
         unlet backend
@@ -264,11 +267,22 @@ do
 
             let vtab = (storagecast self)
             let win =
-                vtab.createWindow vtab (&element as (@ void)) disp pos psize caption flags
+                vtab.createWindow vtab (element as (@ void)) disp pos psize caption flags
 
             Window
-                self
-                win
+                # parent = (view self)
+                window = win
+            # _;
+
+        fn process-messages (self window)
+            let vtab = (storagecast self)
+            vtab.processMessages vtab window.window
+
+        fn... destroy
+        case (self, w : Window)
+            let vtab = (storagecast self)
+            vtab.destroyWindow vtab w.window
+            lose w
 
     let Behavior = raw.typedef.FG_Behavior
     let Log = raw.typedef.FG_Log

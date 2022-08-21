@@ -94,6 +94,10 @@ fn main ()
     using import .default-log
     let b = (backend_new null default-log behavior )
     local element : MockElement
-    let w = ('create-window b element none none (vec2 800 600) "smoke test" 0)
+    let w = ('create-window b &element none none (vec2 800 600) "smoke test" 0)
+    while true
+        'process-messages b w
+    'destroy b w
+    _;
 
 main;
