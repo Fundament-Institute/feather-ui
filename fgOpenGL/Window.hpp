@@ -12,7 +12,7 @@ namespace GL {
 
   struct Window : Context
   {
-    Window(Backend* backend, GLFWmonitor* display, FG_Element* element, FG_Vec2* pos, FG_Vec2* dim, uint64_t flags,
+    Window(Backend* backend, GLFWmonitor* display, uintptr_t window_id, FG_Vec2* pos, FG_Vec2* dim, uint64_t flags,
            const char* caption);
     virtual ~Window();
     static uint8_t GetModKeys(int mods);

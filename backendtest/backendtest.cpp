@@ -239,23 +239,23 @@ void test_mesh(FG_Backend* b, FG_Context* ctx, void* commands, const MockElement
 }
 
 // The behavior function simply processes all window messages from the host OS.
-FG_Result behavior(FG_Element* element, FG_Context* ctx, void* ui, FG_Msg* m)
+FG_Result behavior(FG_Context* ctx, FG_Msg* msg, void* ui_context, uintptr_t window_id)
 {
   static const FG_ShaderParameter params[] = { { "MVP", 4, 4, 0, FG_Shader_Type_Float },
                                                { 0, 0, 0, 0, FG_Shader_Type_Texture } };
   static int counter                       = 0;
 
-  MockElement& e = *static_cast<MockElement*>(element);
+  MockElement& e = *reinterpret_cast<MockElement*>(window_id);
 
-  if(m->kind == FG_Event_Kind_Draw && e.pipeline != 0)
+  if(msg->kind == FG_Event_Kind_Draw && e.pipeline != 0)
   {
-    FG_Backend* b = *(FG_Backend**)ui;
+    FG_Backend* b = *(FG_Backend**)ui_context;
     //(*b->beginDraw)(b, ctx, nullptr);
     void* commands = (*b->createCommandList)(b, ctx, false);
     assert(commands);
-     
-  if(e.caps.features & FG_Feature_Mesh_Shader)
-      test_mesh(b, ctx, commands, e); 
+
+    if(e.caps.features & FG_Feature_Mesh_Shader)
+      test_mesh(b, ctx, commands, e);
 
     // Try drawing a custom shader.
     mat4x4 proj;
@@ -275,18 +275,18 @@ FG_Result behavior(FG_Element* element, FG_Context* ctx, void* ui, FG_Msg* m)
   }
 
   // These are simply some input handling boilerplate code
-  if(m->kind == FG_Event_Kind_GetWindowFlags)
+  if(msg->kind == FG_Event_Kind_GetWindowFlags)
   {
     return e.close ? FG_Result{ FG_WindowFlag_Closed } : FG_Result{ 0 };
   }
-  if(m->kind == FG_Event_Kind_SetWindowFlags)
+  if(msg->kind == FG_Event_Kind_SetWindowFlags)
   {
-    e.close = e.close || ((m->setWindowFlags.flags & FG_WindowFlag_Closed) != 0);
+    e.close = e.close || ((msg->setWindowFlags.flags & FG_WindowFlag_Closed) != 0);
   }
   // We normally close when any keypress happens, but we don't want to close if the user is trying to take a screenshot.
-  if((m->kind == FG_Event_Kind_KeyDown && m->keyDown.key != FG_Keys_LMENU && m->keyDown.scancode != 84 &&
-      m->keyDown.scancode != 88) ||
-     m->kind == FG_Event_Kind_MouseDown)
+  if((msg->kind == FG_Event_Kind_KeyDown && msg->keyDown.key != FG_Keys_LMENU && msg->keyDown.scancode != 84 &&
+      msg->keyDown.scancode != 88) ||
+     msg->kind == FG_Event_Kind_MouseDown)
   {
     e.close = true;
   }
@@ -428,7 +428,7 @@ int main(int argc, char* argv[])
 
   auto pos = FG_Vec2{ 200.f, 100.f };
   auto dim = FG_Vec2{ 800.f, 600.f };
-  auto w   = (*b->createWindow)(b, &e, nullptr, &pos, &dim, "Feather Test", e.flags);
+  auto w   = (*b->createWindow)(b, reinterpret_cast<uintptr_t>(&e), nullptr, &pos, &dim, "Feather Test", e.flags);
   TEST(w != nullptr);
 
   if(!w)
@@ -438,7 +438,7 @@ int main(int argc, char* argv[])
   }
 
   e.caps = (*b->getCaps)(b);
-  
+
   if(e.caps.features & FG_Feature_Compute_Shader)
     test_compute(b, w);
 
@@ -476,7 +476,7 @@ int main(int argc, char* argv[])
 
   (*b->beginDraw)(b, w->context, nullptr);
   FG_Msg drawmsg = { FG_Event_Kind_Draw };
-  behavior(&e, w->context, &b, &drawmsg);
+  behavior(w->context, &drawmsg, &ui, reinterpret_cast<uintptr_t>(&e));
   (*b->endDraw)(b, w->context);
 
   FG_Resource CopiedTexture = (*b->createTexture)(b, w->context, FG_Vec2i{ 800, 600 }, FG_Usage_Texture2D,
@@ -493,14 +493,14 @@ int main(int argc, char* argv[])
 
   TEST((*b->setCursor)(b, w, FG_Cursor_Cross) == 0);
 
-  TEST((*b->setWindow)(b, w, nullptr, nullptr, nullptr, nullptr, nullptr, FG_WindowFlag_Resizable) == 0);
-  TEST((*b->setWindow)(b, w, &e, nullptr, nullptr, nullptr, "Feather Test Changed", FG_WindowFlag_Resizable) == 0);
+  TEST((*b->setWindow)(b, w, nullptr, nullptr, nullptr, nullptr, FG_WindowFlag_Resizable) == 0);
+  TEST((*b->setWindow)(b, w, nullptr, nullptr, nullptr, "Feather Test Changed", FG_WindowFlag_Resizable) == 0);
 
-  TEST((*b->processMessages)(b, 0) != 0);
+  TEST((*b->processMessages)(b, nullptr, &ui) != 0);
 
   const char TEST_TEXT[] = "testtext";
 
-  TEST((*b->processMessages)(b, 0) != 0);
+  TEST((*b->processMessages)(b, nullptr, &ui) != 0);
   TEST((*b->clearClipboard)(b, w, FG_Clipboard_All) == 0);
   TEST((*b->checkClipboard)(b, w, FG_Clipboard_Text) == false);
   TEST((*b->checkClipboard)(b, w, FG_Clipboard_Wave) == false);
@@ -519,7 +519,7 @@ int main(int argc, char* argv[])
   }
 
   TEST((*b->getClipboard)(b, w, FG_Clipboard_Wave, hold, 10) == 0)
-  while((*b->processMessages)(b, 0) != 0 && e.close == false)
+  while((*b->processMessages)(b, nullptr, &ui) != 0 && e.close == false)
     ;
 
   TEST((*b->destroyResource)(b, w->context, e.image) == 0);

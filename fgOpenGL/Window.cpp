@@ -145,9 +145,9 @@ void Window::FillKeyMap()
   Window::KeyMap[GLFW_KEY_MENU]          = FG_Keys_MENU;
 }
 
-Window::Window(Backend* backend, GLFWmonitor* display, FG_Element* element, FG_Vec2* pos, FG_Vec2* dim, uint64_t flags,
+Window::Window(Backend* backend, GLFWmonitor* display, uintptr_t window_id, FG_Vec2* pos, FG_Vec2* dim, uint64_t flags,
                const char* caption) :
-  Context(backend, element, !dim ? FG_Vec2{ 0, 0 } : *dim), _next(nullptr), _prev(nullptr), _joysticks(0)
+  Context(backend, window_id, !dim ? FG_Vec2{ 0, 0 } : *dim), _next(nullptr), _prev(nullptr), _joysticks(0)
 {
   FillKeyMap();
   if(flags & FG_WindowFlag_No_Caption)
@@ -284,9 +284,9 @@ void Window::CharCallback(GLFWwindow* window, unsigned int key)
 
 void Window::MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 {
-  auto self             = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
-  FG_Msg evt            = { static_cast<uint16_t>((action == GLFW_PRESS) ? FG_Event_Kind_MouseDown : FG_Event_Kind_MouseUp) };
-  evt.mouseDown.all     = (1 << button);
+  auto self         = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
+  FG_Msg evt        = { static_cast<uint16_t>((action == GLFW_PRESS) ? FG_Event_Kind_MouseDown : FG_Event_Kind_MouseUp) };
+  evt.mouseDown.all = (1 << button);
   evt.mouseDown.button  = (1 << button);
   evt.mouseDown.modkeys = GetModKeys(mods);
   double x, y;
@@ -396,7 +396,7 @@ uint8_t Window::ScanJoysticks()
   uint8_t count = 0;
 #ifdef FG_PLATFORM_WIN32
   HWND hWnd  = glfwGetWin32Window(_window);
-  _joysticks    = 0;
+  _joysticks = 0;
 
   for(uint8_t i = 0; i < MAXJOY; ++i)
   {
@@ -407,20 +407,20 @@ uint8_t Window::ScanJoysticks()
       JOYCAPSA caps;
       if(joyGetDevCapsA(i, &caps, sizeof(JOYCAPSA)) == JOYERR_NOERROR)
       {
-        _joycaps[i].axes    = caps.wNumAxes;
-        _joycaps[i].buttons = caps.wNumButtons;
-        _joycaps[i].offset[0]  = caps.wXmin;
-        _joycaps[i].offset[1]  = caps.wYmin;
-        _joycaps[i].offset[2]  = caps.wZmin;
-        _joycaps[i].offset[3]  = caps.wRmin;
-        _joycaps[i].offset[4]  = caps.wUmin;
-        _joycaps[i].offset[5]  = caps.wVmin;
-        _joycaps[i].range[0]   = caps.wXmax - caps.wXmin;
-        _joycaps[i].range[1]   = caps.wYmax - caps.wYmin;
-        _joycaps[i].range[2]   = caps.wZmax - caps.wZmin;
-        _joycaps[i].range[3]   = caps.wRmax - caps.wRmin;
-        _joycaps[i].range[4]   = caps.wUmax - caps.wUmin;
-        _joycaps[i].range[5]   = caps.wVmax - caps.wVmin;
+        _joycaps[i].axes      = caps.wNumAxes;
+        _joycaps[i].buttons   = caps.wNumButtons;
+        _joycaps[i].offset[0] = caps.wXmin;
+        _joycaps[i].offset[1] = caps.wYmin;
+        _joycaps[i].offset[2] = caps.wZmin;
+        _joycaps[i].offset[3] = caps.wRmin;
+        _joycaps[i].offset[4] = caps.wUmin;
+        _joycaps[i].offset[5] = caps.wVmin;
+        _joycaps[i].range[0]  = caps.wXmax - caps.wXmin;
+        _joycaps[i].range[1]  = caps.wYmax - caps.wYmin;
+        _joycaps[i].range[2]  = caps.wZmax - caps.wZmin;
+        _joycaps[i].range[3]  = caps.wRmax - caps.wRmin;
+        _joycaps[i].range[4]  = caps.wUmax - caps.wUmin;
+        _joycaps[i].range[5]  = caps.wVmax - caps.wVmin;
       }
     }
   }
@@ -429,7 +429,8 @@ uint8_t Window::ScanJoysticks()
   return count;
 }
 
-void Window::PollJoysticks() {
+void Window::PollJoysticks()
+{
 #ifdef FG_PLATFORM_WIN32
   JOYINFOEX info;
   info.dwSize  = sizeof(JOYINFOEX);
@@ -456,8 +457,8 @@ void Window::PollJoysticks() {
           if((diff & k) != 0)
           {
             evt.kind = ((info.dwButtons & k) != 0) ? FG_Event_Kind_JoyButtonDown : FG_Event_Kind_JoyButtonUp;
-            evt.joyButtonDown.button   = j;
-            evt.joyButtonDown.index   = i;
+            evt.joyButtonDown.button = j;
+            evt.joyButtonDown.index  = i;
             _backend->Behavior(this, evt);
           }
         }
@@ -475,7 +476,7 @@ void Window::PollJoysticks() {
           if(old[j] != _alljoyaxis[i][j])
           {
             FG_Msg evt        = { FG_Event_Kind_JoyAxis };
-            evt.joyAxis.axis = j;
+            evt.joyAxis.axis  = j;
             evt.joyAxis.index = i;
             evt.joyAxis.value = TranslateJoyAxis(evt.joyAxis.axis, evt.joyAxis.index);
             _backend->Behavior(this, evt);
@@ -499,7 +500,8 @@ double Window::TranslateJoyAxis(uint8_t axis, uint8_t index) const
 
 void Window::JoystickCallback(int jid, int e)
 {
-  // Temporary way of dealing with joysticks because GLFW doesn't give us a window pointer for the window the message was sent to.
+  // Temporary way of dealing with joysticks because GLFW doesn't give us a window pointer for the window the message was
+  // sent to.
   for(Window* w = Backend::_singleton->_windows; w != nullptr; w = w->_next)
   {
     w->ScanJoysticks();

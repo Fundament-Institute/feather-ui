@@ -29,7 +29,7 @@ void* Backend::_library          = 0;
 
 FG_Result Backend::Behavior(Context* w, const FG_Msg& msg)
 {
-  return (*_behavior)(w->element, w, _root, const_cast<FG_Msg*>(&msg));
+  return (*_behavior)(w, const_cast<FG_Msg*>(&msg), _uictx, w->window_id);
 }
 
 FG_Caps Backend::GetCaps(FG_Backend* self)
@@ -670,14 +670,14 @@ int Backend::UnmapResource(FG_Backend* self, FG_Context* context, FG_Resource re
   return 0;
 }
 
-FG_Window* Backend::CreateWindowGL(FG_Backend* self, FG_Element* element, FG_Display* display, FG_Vec2* pos, FG_Vec2* dim,
+FG_Window* Backend::CreateWindowGL(FG_Backend* self, uintptr_t window_id, FG_Display* display, FG_Vec2* pos, FG_Vec2* dim,
                                    const char* caption, uint64_t flags)
 {
   auto backend = static_cast<Backend*>(self);
   _lasterr     = 0;
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-  Window* window = new Window(backend, reinterpret_cast<GLFWmonitor*>(display), element, pos, dim, flags, caption);
+  Window* window = new Window(backend, reinterpret_cast<GLFWmonitor*>(display), window_id, pos, dim, flags, caption);
 
   if(!_lasterr)
   {
@@ -693,13 +693,12 @@ FG_Window* Backend::CreateWindowGL(FG_Backend* self, FG_Element* element, FG_Dis
   return nullptr;
 }
 
-int Backend::SetWindow(FG_Backend* self, FG_Window* window, FG_Element* element, FG_Display* display, FG_Vec2* pos,
+int Backend::SetWindow(FG_Backend* self, FG_Window* window, FG_Display* display, FG_Vec2* pos,
                        FG_Vec2* dim, const char* caption, uint64_t flags)
 {
   if(!window)
     return ERR_MISSING_PARAMETER;
   auto w     = static_cast<Window*>(window);
-  w->element = element;
 
   auto glwindow = w->GetWindow();
   if(!glwindow)
@@ -940,16 +939,18 @@ int Backend::ClearClipboard(FG_Backend* self, FG_Window* window, FG_Clipboard ki
 #endif
 }
 
-int Backend::ProcessMessages(FG_Backend* self, FG_Window* window)
+int Backend::ProcessMessages(FG_Backend* self, FG_Window* window, void* ui_state)
 {
   // TODO: handle GLFW errors
   auto backend = static_cast<Backend*>(self);
+  backend->_uictx = ui_state;
   glfwPollEvents();
   if(!window)
     window = backend->_windows;
   if(window)
     static_cast<Window*>(window)->PollJoysticks();
 
+  backend->_uictx = nullptr;
   return backend->_windows != nullptr;
 }
 int Backend::GetMessageSyncObject(FG_Backend* self, FG_Window* window)
@@ -1083,7 +1084,7 @@ int Backend::DestroyGL(FG_Backend* self)
   return ERR_SUCCESS;
 }
 
-extern "C" FG_COMPILER_DLLEXPORT FG_Backend* fgOpenGL(void* root, FG_Log log, FG_Behavior behavior)
+extern "C" FG_COMPILER_DLLEXPORT FG_Backend* fgOpenGL(void* log_context, FG_Log log, FG_Behavior behavior)
 {
   static_assert(std::is_same<FG_InitBackend, decltype(&fgOpenGL)>::value,
                 "fgOpenGL must match InitBackend function pointer");
@@ -1122,7 +1123,7 @@ extern "C" FG_COMPILER_DLLEXPORT FG_Backend* fgOpenGL(void* root, FG_Log log, FG
     {
       FG_LogValue logvalues[2] = { { .type = FG_LogType_I32, .i32 = Backend::_lasterr },
                                    { .type = FG_LogType_String, .string = Backend::_lasterrdesc } };
-      (*log)(root, FG_Level_Error, __FILE__, __LINE__, "glfwInit() failed!", logvalues, 2, &Backend::FreeGL);
+      (*log)(log_context, FG_Level_Error, __FILE__, __LINE__, "glfwInit() failed!", logvalues, 2, &Backend::FreeGL);
       --Backend::_refcount;
       return nullptr;
     }
@@ -1130,7 +1131,7 @@ extern "C" FG_COMPILER_DLLEXPORT FG_Backend* fgOpenGL(void* root, FG_Log log, FG
     glfwSetJoystickCallback(&Backend::JoystickCallback);
   }
 
-  return new Backend(root, log, behavior);
+  return new Backend(log_context, log, behavior);
 }
 
 #ifdef FG_PLATFORM_WIN32
@@ -1152,8 +1153,8 @@ long long GetRegistryValueW(HKEY__* hKeyRoot, const wchar_t* szKey, const wchar_
 #define _STRINGIFY(x) x
 #define TXT(x)        _STRINGIFY(#x)
 
-Backend::Backend(void* root, FG_Log log, FG_Behavior behavior) :
-  _root(root), _log(log), _behavior(behavior), _windows(nullptr), _insidelist(false)
+Backend::Backend(void* log_context, FG_Log log, FG_Behavior behavior) :
+  _logctx(log_context), _log(log), _behavior(behavior), _windows(nullptr), _insidelist(false)
 {
   getCaps               = &GetCaps;
   compileShader         = &CompileShader;

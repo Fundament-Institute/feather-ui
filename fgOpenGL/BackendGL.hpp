@@ -88,7 +88,7 @@ namespace GL {
     {
       FG_LogValue values[sizeof...(I)] = { log_value(std::get<I>(args))... };
 
-      _log(_root, level, file, line, msg, values, sizeof...(I), &FreeGL);
+      _log(_logctx, level, file, line, msg, values, sizeof...(I), &FreeGL);
     }
 
   public:
@@ -98,7 +98,7 @@ namespace GL {
     template<typename... Args> void Log(FG_Level level, const char* file, int line, const char* msg, Args&&... args)
     {
       if constexpr(sizeof...(Args) == 0)
-        _log(_root, level, file, line, msg, nullptr, 0, &FreeGL);
+        _log(_logctx, level, file, line, msg, nullptr, 0, &FreeGL);
       else
         log_impl(level, file, line, msg, std::tuple<Args...>(std::forward<Args>(args)...),
                  std::index_sequence_for<Args...>{});
@@ -108,30 +108,29 @@ namespace GL {
     static FG_Caps GetCaps(FG_Backend* self);
     static FG_Shader CompileShader(FG_Backend* self, FG_Context* context, enum FG_ShaderStage stage, const char* source);
     static int DestroyShader(FG_Backend* self, FG_Context* context, FG_Shader shader);
-    static void* CreateCommandList(FG_Backend* self, FG_Context* context, bool bundle);
-    static int DestroyCommandList(FG_Backend* self, void* commands);
-    static int Clear(FG_Backend* self, void* commands, uint8_t clearbits, FG_Color RGBA, uint8_t stencil, float depth,
-                     uint32_t num_rects, FG_Rect* rects);
-    static int CopyResource(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, FG_Vec3i size,
+    static FG_CommandList* CreateCommandList(FG_Backend* self, FG_Context* context, bool bundle);
+    static int DestroyCommandList(FG_Backend* self, FG_CommandList* commands);
+    static int Clear(FG_Backend* self, FG_CommandList* commands, uint8_t clearbits, FG_Color RGBA, uint8_t stencil,
+                     float depth, uint32_t num_rects, FG_Rect* rects);
+    static int CopyResource(FG_Backend* self, FG_CommandList* commands, FG_Resource src, FG_Resource dest, FG_Vec3i size,
                             int mipmaplevel);
-    static int CopySubresource(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, unsigned long srcoffset,
-                               unsigned long destoffset, unsigned long bytes);
-    static int CopyResourceRegion(FG_Backend* self, void* commands, FG_Resource src, FG_Resource dest, int level,
-                                  FG_Vec3i srcoffset,
-                                  FG_Vec3i destoffset, FG_Vec3i size);
-    static int DrawGL(FG_Backend* self, void* commands, uint32_t vertexcount, uint32_t instancecount, uint32_t startvertex,
-                      uint32_t startinstance);
-    static int DrawIndexed(FG_Backend* self, void* commands, uint32_t indexcount, uint32_t instancecount,
+    static int CopySubresource(FG_Backend* self, FG_CommandList* commands, FG_Resource src, FG_Resource dest,
+                               unsigned long srcoffset, unsigned long destoffset, unsigned long bytes);
+    static int CopyResourceRegion(FG_Backend* self, FG_CommandList* commands, FG_Resource src, FG_Resource dest, int level,
+                                  FG_Vec3i srcoffset, FG_Vec3i destoffset, FG_Vec3i size);
+    static int DrawGL(FG_Backend* self, FG_CommandList* commands, uint32_t vertexcount, uint32_t instancecount,
+                      uint32_t startvertex, uint32_t startinstance);
+    static int DrawIndexed(FG_Backend* self, FG_CommandList* commands, uint32_t indexcount, uint32_t instancecount,
                            uint32_t startindex, int startvertex, uint32_t startinstance);
-    static int DrawMesh(FG_Backend* self, void* commands, uint32_t first, uint32_t count);
-    static int Dispatch(FG_Backend* self, void* commands);
-    static int SyncPoint(FG_Backend* self, void* commands, uint32_t barrier_flags);
-    static int SetPipelineState(FG_Backend* self, void* commands, uintptr_t state);
-    static int SetViewports(FG_Backend* self, void* commands, FG_Viewport* viewports, uint32_t count);
-    static int SetScissors(FG_Backend* self, void* commands, FG_Rect* rects, uint32_t count);
-    static int SetShaderConstants(FG_Backend* self, void* commands, const FG_ShaderParameter* uniforms,
+    static int DrawMesh(FG_Backend* self, FG_CommandList* commands, uint32_t first, uint32_t count);
+    static int Dispatch(FG_Backend* self, FG_CommandList* commands);
+    static int SyncPoint(FG_Backend* self, FG_CommandList* commands, uint32_t barrier_flags);
+    static int SetPipelineState(FG_Backend* self, FG_CommandList* commands, uintptr_t state);
+    static int SetViewports(FG_Backend* self, FG_CommandList* commands, FG_Viewport* viewports, uint32_t count);
+    static int SetScissors(FG_Backend* self, FG_CommandList* commands, FG_Rect* rects, uint32_t count);
+    static int SetShaderConstants(FG_Backend* self, FG_CommandList* commands, const FG_ShaderParameter* uniforms,
                                   const FG_ShaderValue* values, uint32_t count);
-    static int Execute(FG_Backend* self, FG_Context* context, void* commands);
+    static int Execute(FG_Backend* self, FG_Context* context, FG_CommandList* commands);
     static uintptr_t CreatePipelineState(FG_Backend* self, FG_Context* context, FG_PipelineState* pipelinestate,
                                          FG_Resource rendertarget, FG_Blend* blends, FG_Resource* vertexbuffer,
                                          GLsizei* strides, uint32_t n_buffers, FG_VertexParameter* attributes,
@@ -148,10 +147,10 @@ namespace GL {
     static void* MapResource(FG_Backend* self, FG_Context* context, FG_Resource resource, uint32_t offset, uint32_t length,
                              enum FG_Usage usage, uint32_t access);
     static int UnmapResource(FG_Backend* self, FG_Context* context, FG_Resource resource, enum FG_Usage usage);
-    static FG_Window* CreateWindowGL(FG_Backend* self, FG_Element* element, FG_Display* display, FG_Vec2* pos, FG_Vec2* dim,
+    static FG_Window* CreateWindowGL(FG_Backend* self, uintptr_t window_id, FG_Display* display, FG_Vec2* pos, FG_Vec2* dim,
                                      const char* caption, uint64_t flags);
-    static int SetWindow(FG_Backend* self, FG_Window* window, FG_Element* element, FG_Display* display, FG_Vec2* pos,
-                         FG_Vec2* dim, const char* caption, uint64_t flags);
+    static int SetWindow(FG_Backend* self, FG_Window* window, FG_Display* display, FG_Vec2* pos, FG_Vec2* dim,
+                         const char* caption, uint64_t flags);
     static int DestroyWindow(FG_Backend* self, FG_Window* window);
     static int BeginDraw(FG_Backend* self, FG_Context* context, FG_Rect* area);
     static int EndDraw(FG_Backend* self, FG_Context* context);
@@ -159,7 +158,7 @@ namespace GL {
     static uint32_t GetClipboard(FG_Backend* self, FG_Window* window, enum FG_Clipboard kind, void* target, uint32_t count);
     static bool CheckClipboard(FG_Backend* self, FG_Window* window, enum FG_Clipboard kind);
     static int ClearClipboard(FG_Backend* self, FG_Window* window, enum FG_Clipboard kind);
-    static int ProcessMessages(FG_Backend* self, FG_Window* window);
+    static int ProcessMessages(FG_Backend* self, FG_Window* window, void* ui_state);
     static int GetMessageSyncObject(FG_Backend* self, FG_Window* window);
     static int SetCursorGL(FG_Backend* self, FG_Window* window, enum FG_Cursor cursor);
     static int GetDisplayIndex(FG_Backend* self, unsigned int index, FG_Display* out);
@@ -173,7 +172,8 @@ namespace GL {
     static void ErrorCallback(int error, const char* description);
     static void JoystickCallback(int id, int connected);
 
-    void* _root;
+    void* _uictx;
+    void* _logctx;
     Window* _windows;
 
     static int _lasterr;

@@ -49,7 +49,7 @@ namespace GL {
   // A context may or may not have an associated OS window, for use inside other 3D engines.
   struct Context : FG_Window
   {
-    Context(Backend* backend, FG_Element* element, FG_Vec2 dim);
+    Context(Backend* backend, uintptr_t window_id, FG_Vec2 dim);
     virtual ~Context();
     GLExpected<void> BeginDraw(const FG_Rect* area);
     GLExpected<void> EndDraw();

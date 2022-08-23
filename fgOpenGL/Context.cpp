@@ -45,7 +45,7 @@ const FG_Blend Context::Default_Blend = {
   FG_Blend_Operand_Zero, FG_Blend_Op_Add,       0b1111,
 };
 
-Context::Context(Backend* backend, FG_Element* element, FG_Vec2 dim) :
+Context::Context(Backend* backend, uintptr_t window_id, FG_Vec2 dim) :
   _backend(backend),
   _window(nullptr),
   _lastblend(Default_Blend),
@@ -60,7 +60,7 @@ Context::Context(Backend* backend, FG_Element* element, FG_Vec2 dim) :
   _statestore({ 0 }),
   _workgroup({ 0, 0, 0 })
 {
-  this->element = element;
+  this->window_id = window_id;
   this->context = this;
 }
 Context::~Context() {}
