@@ -52,7 +52,7 @@ fn mat4-proj (l r b t n f)
     proj * translate
 
 
-struct MockElement
+struct MockElement plain
     #image : Resource
     #shader : (@ void)
     #vertices : Resource
@@ -61,13 +61,13 @@ struct MockElement
     close : bool
 
 let backend_new =
-    extern 'fgOpenGL InitBackend
+    load-backend 'fgOpenGL MockElement
 
 load-library "libfgOpenGL.so"
 
 run-stage;
 
-fn behavior (element ctx back msg)
+fn behavior (ctx msg app id)
     #global params =
         arrayof ShaderParameter
             ShaderParameter "MVP" 0 4 4 0 Shader_Type.FLOAT
@@ -75,28 +75,26 @@ fn behavior (element ctx back msg)
 
     global counter : i32 = 0
 
-    let element = (element as (@ MockElement))
+    # let element = (element as (@ MockElement))
+    dump app
+    local app = app
+
+    if (msg.kind == Event_Kind.KeyDown)
+        print "got keydown" msg.keyDown.scancode
+        app.close = true
 
     local res = (Msg_Result)
     res.draw = 0
-    res
-
-let behavior =
-    static-typify
-        behavior
-        (@ void)
-        (@ void)
-        (@ void)
-        (mutable@ Msg)
-
+    _ app res
 
 fn main ()
     using import .default-log
-    let b = (backend_new null default-log behavior )
+    local logger : default-logger
+    let b = (backend_new (& logger) behavior )
     local element : MockElement
-    let w = ('create-window b &element none none (vec2 800 600) "smoke test" 0)
-    while true
-        'process-messages b w
+    let w = ('create-window b 0 none none (vec2 800 600) "smoke test" 0)
+    while (not element.close)
+        element = ('process-messages b element w)
     'destroy b w
     _;
 

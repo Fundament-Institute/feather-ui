@@ -222,72 +222,121 @@ do
     let Vec2 = raw.typedef.FG_Vec2
 
 
-    type Backend : (mutable@ raw.struct.FG_Backend)
-        inline __drop (self)
-            let vtab = (storagecast self)
-            vtab.destroy vtab
+    @@ memo
+    inline Backend (app-type)
 
-        let backend = this-type
-        struct Window
-            # parent : (& backend)
-            window : (mutable@ raw.typedef.FG_Window)
+        type (.. "Backend" (tostring app-type)) : (mutable@ raw.struct.FG_Backend)
+            inline __drop (self)
+                let vtab = (storagecast self)
+                vtab.destroy vtab
 
-            # inline __drop(self)
-                let vtab = (storagecast self.parent)
-                vtab.destroyWindow vtab self.window
-                _;
-            spice __drop (self)
-                returning Value
-                error "window cannot be dropped, must be destroyed by backend"
+            let backend = this-type
+            struct Window
+                # parent : (& backend)
+                window : (mutable@ raw.typedef.FG_Window)
+
+                # inline __drop(self)
+                    let vtab = (storagecast self.parent)
+                    vtab.destroyWindow vtab self.window
+                    _;
+                spice __drop (self)
+                    returning Value
+                    error "window cannot be dropped, must be destroyed by backend"
 
 
-        unlet backend
+            unlet backend
 
-        fn... create-window (self, element, display : (Option Display), pos : (Option vec2), size : (Option vec2), caption, flags)
-            viewing caption
-            # returning (uniqueof Window 1003)
+            fn... create-window (self, id : u64, display : (Option Display), pos : (Option vec2), size : (Option vec2), caption, flags)
+                viewing caption
+                # returning (uniqueof Window 1003)
 
-            # option-to-pointer disp display
-            let disp = null
-            # option-to-pointer pos pos
-            let pos = null
-            # option-to-pointer size size
-            local _size : Vec2
-            let psize =
-                dispatch size
-                case Some (x)
-                    _size = x
-                    &_size
-                case None ()
-                    nullof (typeof (& _size))
-                default
-                    unreachable;
+                # option-to-pointer disp display
+                let disp = null
+                # option-to-pointer pos pos
+                let pos = null
+                # option-to-pointer size size
+                local _size : Vec2
+                let psize =
+                    dispatch size
+                    case Some (x)
+                        _size = x
+                        &_size
+                    case None ()
+                        nullof (typeof (& _size))
+                    default
+                        unreachable;
 
-            caption as:= rawstring
+                caption as:= rawstring
 
-            let vtab = (storagecast self)
-            let win =
-                vtab.createWindow vtab (element as (@ void)) disp pos psize caption flags
+                let vtab = (storagecast self)
+                let win =
+                    vtab.createWindow vtab id disp pos psize caption flags
 
-            Window
-                # parent = (view self)
-                window = win
-            # _;
+                Window
+                    # parent = (view self)
+                    window = win
+                # _;
 
-        fn process-messages (self window)
-            let vtab = (storagecast self)
-            vtab.processMessages vtab window.window
+            fn process-messages (self app window)
+                let vtab = (storagecast self)
+                vtab.processMessages vtab window.window (& app)
+                app
 
-        fn... destroy
-        case (self, w : Window)
-            let vtab = (storagecast self)
-            vtab.destroyWindow vtab w.window
-            lose w
+            fn... destroy
+            case (self, w : Window)
+                let vtab = (storagecast self)
+                vtab.destroyWindow vtab w.window
+                lose w
 
     let Behavior = raw.typedef.FG_Behavior
     let Log = raw.typedef.FG_Log
+    let LogValue = raw.typedef.FG_LogValue
     let Msg = raw.typedef.FG_Msg
     let Msg_Result = raw.typedef.FG_Result
-    let InitBackend = (Backend <-: ((@ void) Log Behavior))
+    let InitBackend = ((mutable@ raw.struct.FG_Backend) <-: ((@ void) Log Behavior))
+
+    inline load-backend (name app-type)
+        let raw-init =
+            extern name InitBackend
+        spice "backend-init" (logger handler)
+            let logger-type = ('strip-pointer-storage-class ('typeof logger))
+            spice-quote
+                fn inner-handler (ctx msg app id)
+                    returning Msg_Result
+                    app as:= (mutable@ app-type)
+                    let app-in = (app as (@ app-type))
+                    let state res = (handler ctx msg (@ app-in) id)
+                    dump state
+                    (@ app) = state
+                    res
+                let inner-handler =
+                    static-typify
+                        inner-handler
+                        (@ void)
+                        (mutable@ Msg)
+                        (@ void)
+                        intptr
+                fn inner-logger (self level file line text values n-values free-fn)
+                    self as:= logger-type
+                    values as:= (@ LogValue)
+                    'log (@ self) level file line text values n-values free-fn
+                    _;
+                let inner-logger =
+                    static-typify
+                        inner-logger
+                        (@ void)
+                        Level
+                        rawstring
+                        i32
+                        rawstring
+                        (mutable@ LogValue)
+                        i32
+                        (@ (void <-: ((mutable rawstring))))
+                bitcast
+                    raw-init (logger as (@ void)) inner-logger inner-handler
+                    Backend app-type
+
+
+
 
     locals;

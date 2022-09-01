@@ -215,9 +215,7 @@ Window::~Window()
 
   if(_window)
   {
-    if(!glfwWindowShouldClose(_window))
-      CloseCallback(_window);
-
+    glfwSetWindowCloseCallback(_window, nullptr);
     glfwDestroyWindow(_window);
   }
 }
