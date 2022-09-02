@@ -1,19 +1,7 @@
-
-
 using import .backend
 using import glm
 using import struct
 using import Option
-
-let levels =
-    arrayof rawstring
-        "Fatal: "
-        "Error: "
-        "Warning: "
-        "Notice: "
-        "Debug: "
-
-        #FIXME no way to write a log function here.
 
 fn mat4-proj (l r b t n f)
     """"assembles a custom projection matrix designed for 2d drawing
@@ -63,7 +51,10 @@ struct MockElement plain
 let backend_new =
     load-backend 'fgOpenGL MockElement
 
-load-library "libfgOpenGL.so"
+static-if (operating-system == 'windows) 
+    load-library "bin/fgOpenGL.dll"
+else 
+    load-library "libfgOpenGL.so"
 
 run-stage;
 
