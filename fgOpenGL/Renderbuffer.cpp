@@ -1,7 +1,7 @@
 // Copyright (c)2022 Fundament Software
-// For conditions of distribution and use, see copyright notice in "BackendGL.hpp"
+// For conditions of distribution and use, see copyright notice in "ProviderGL.hpp"
 
-#include "BackendGL.hpp"
+#include "ProviderGL.hpp"
 #include "Renderbuffer.hpp"
 
 using namespace GL;

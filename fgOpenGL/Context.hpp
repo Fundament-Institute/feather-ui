@@ -4,11 +4,9 @@
 #ifndef GL__CONTEXT_H
 #define GL__CONTEXT_H
 
-#include "compiler.hpp"
+#include "feather/compiler.h"
 #include "glad/glad.h"
-#define GLFW_INCLUDE_NONE
-#include <GLFW/glfw3.h>
-#include "feather/backend.h"
+#include "feather/graphics_interface.h"
 #include "ShaderObject.hpp"
 #include <math.h>
 #include <vector>
@@ -19,7 +17,7 @@
 #include <immintrin.h>
 
 namespace GL {
-  class Backend;
+  class Provider;
   struct ProgramObject;
 
   enum class GLCaps
@@ -47,20 +45,19 @@ namespace GL {
   }
 
   // A context may or may not have an associated OS window, for use inside other 3D engines.
-  struct Context : FG_Window
+  struct Context
   {
-    Context(Backend* backend, uintptr_t window_id, FG_Vec2 dim);
+    FG_COMPILER_DLLEXPORT explicit Context(FG_Vec2 dim);
     virtual ~Context();
-    GLExpected<void> BeginDraw(const FG_Rect* area);
-    GLExpected<void> EndDraw();
-    void Draw(const FG_Rect* area);
+    FG_COMPILER_DLLEXPORT GLExpected<void> BeginDraw(const FG_Rect* area);
+    FG_COMPILER_DLLEXPORT GLExpected<void> EndDraw();
+    FG_COMPILER_DLLEXPORT GLExpected<void> Resize(FG_Vec2 dim);
     GLExpected<void> DrawArrays(uint32_t vertexcount, uint32_t instancecount, uint32_t startvertex, uint32_t startinstance);
     GLExpected<void> DrawIndexed(uint32_t indexcount, uint32_t instancecount, uint32_t startindex, int startvertex,
                                  uint32_t startinstance);
     GLExpected<void> DrawMesh(uint32_t start, uint32_t count);
     GLExpected<void> Dispatch();
     GLExpected<void> Barrier(GLbitfield barrier_flags);
-    GLFWwindow* GetWindow() const { return _window; }
     GLExpected<void> SetShaderUniforms(const FG_ShaderParameter* uniforms, const FG_ShaderValue* values, uint32_t count);
     GLExpected<void> CopySubresource(FG_Resource src, FG_Resource dest, unsigned long srcoffset, unsigned long destoffset,
                                      unsigned long bytes);
@@ -170,8 +167,6 @@ namespace GL {
       v[3].posUV[3] = uv.bottom / y;
     }
 
-    GLFWwindow* _window;
-    Backend* _backend;
     GLenum _primitive;
     GLenum _indextype;
     FG_Blend _lastblend;

@@ -1,9 +1,9 @@
 // Copyright (c)2022 Fundament Software
-// For conditions of distribution and use, see copyright notice in "BackendGL.hpp"
+// For conditions of distribution and use, see copyright notice in "ProviderGL.hpp"
 
 #include "ProgramObject.hpp"
 #include "ShaderObject.hpp"
-#include "BackendGL.hpp"
+#include "ProviderGL.hpp"
 #include <cassert>
 
 using namespace GL;

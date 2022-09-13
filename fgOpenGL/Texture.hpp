@@ -1,5 +1,5 @@
 // Copyright (c)2022 Fundament Software
-// For conditions of distribution and use, see copyright notice in "BackendGL.hpp"
+// For conditions of distribution and use, see copyright notice in "ProviderGL.hpp"
 
 #ifndef GL__TEXTURE_H
 #define GL__TEXTURE_H

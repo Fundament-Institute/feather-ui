@@ -1,12 +1,12 @@
 // Copyright (c)2022 Fundament Software
-// For conditions of distribution and use, see copyright notice in "BackendGL.hpp"
+// For conditions of distribution and use, see copyright notice in "ProviderGL.hpp"
 
 #include "GLError.hpp"
-#include "BackendGL.hpp"
+#include "ProviderGL.hpp"
 
 using namespace GL;
 
-GLenum GLError::log(Backend* backend)
+GLenum GLError::log(Provider* backend)
 {
   if(_error != GLError::INVALID_ERROR)
   {

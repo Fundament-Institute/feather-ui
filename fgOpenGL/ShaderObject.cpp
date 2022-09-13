@@ -1,8 +1,8 @@
 // Copyright (c)2022 Fundament Software
-// For conditions of distribution and use, see copyright notice in "BackendGL.hpp"
+// For conditions of distribution and use, see copyright notice in "ProviderGL.hpp"
 
 #include "ShaderObject.hpp"
-#include "BackendGL.hpp"
+#include "ProviderGL.hpp"
 #include <cassert>
 
 using namespace GL;
@@ -33,7 +33,7 @@ GLExpected<std::string> ShaderObject::log() const noexcept
   return GLExpected<std::string>(log);
 }
 
-GLExpected<Owned<ShaderObject>> ShaderObject::create(const char* src, int type, Backend* backend) noexcept
+GLExpected<Owned<ShaderObject>> ShaderObject::create(const char* src, int type, Provider* backend) noexcept
 {
   auto shader = glCreateShader(type);
   GL_ERROR("glCreateShader");

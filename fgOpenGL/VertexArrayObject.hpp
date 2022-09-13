@@ -2,8 +2,8 @@
 #ifndef GL__VAO_H
 #define GL__VAO_H
 
-#include "compiler.hpp"
-#include "feather/backend.h"
+#include "feather/compiler.h"
+#include "feather/graphics_interface.h"
 #include "glad/glad.h"
 #include <span>
 #include <vector>

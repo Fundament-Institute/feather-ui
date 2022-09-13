@@ -1,10 +1,10 @@
 // Copyright (c)2022 Fundament Software
-// For conditions of distribution and use, see copyright notice in "BackendGL.hpp"
+// For conditions of distribution and use, see copyright notice in "ProviderGL.hpp"
 
 #ifndef GL__ENUM_MAPPING_H
 #define GL__ENUM_MAPPING_H
 
-#include "feather/backend.h"
+#include "feather/graphics_interface.h"
 #include "glad/glad.h"
 
 namespace GL {

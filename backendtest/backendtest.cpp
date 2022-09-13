@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-#include "feather/backend.h"
+#include "feather/graphics_desktop_bridge.h"
 #include "resource.hpp"
 #include <cstdio>
 #include <cstdarg>
@@ -30,17 +30,20 @@ extern "C" {
 }
 
 #define BACKEND fgOpenGL
+#define BRIDGE  fgOpenGLDesktopBridge
 #define TEST(x)                      \
   if(!(x))                           \
   {                                  \
     printf("Failed test: %s\n", #x); \
   }
 
-extern "C" FG_Backend* BACKEND(void* root, FG_Log log, FG_Behavior behavior);
+extern "C" FG_GraphicsInterface* BACKEND(void* root, FG_Log log);
+extern "C" FG_DesktopInterface* fgGLFW(void* root, FG_Log log, FG_Behavior behavior);
+extern "C" FG_GraphicsDesktopBridge* BRIDGE(FG_GraphicsInterface*, void*, FG_Log);
 
 const char* LEVELS[] = { "FATAL: ", "ERROR: ", "WARNING: ", "NOTICE: ", "DEBUG: " };
 
-void FakeLogArg(const char* str, FG_LogValue& v)
+void FakeLogArg(const char* str, const FG_LogValue& v)
 {
   switch(v.type)
   {
@@ -57,7 +60,7 @@ void FakeLogArg(const char* str, FG_LogValue& v)
 }
 
 // A logging function that just forwards everything to printf
-void FakeLog(void* p, enum FG_Level level, const char* file, int line, const char* msg, FG_LogValue* values, int n_values,
+void FakeLog(void* _, enum FG_Level level, const char* file, int line, const char* msg, const FG_LogValue* values, int n_values,
              void (*free)(char*))
 {
   if(level >= 0 && level < sizeof(LEVELS))
@@ -159,7 +162,7 @@ struct MockElement
 
 static constexpr auto WindowDim = FG_Vec2{ 800.f, 600.f };
 
-uintptr_t load_mesh(FG_Backend* b, FG_Window* w)
+uintptr_t load_mesh(FG_GraphicsInterface* b, FG_Window* w)
 {
   const char* shader_ms = "#version 450\n"
                           "#extension GL_NV_mesh_shader : require\n"
@@ -210,9 +213,10 @@ uintptr_t load_mesh(FG_Backend* b, FG_Window* w)
                      FG_Pipeline_Member_Cull | FG_Pipeline_Member_Primitive;
   pipeline.shaders[FG_ShaderStage_Pixel] = (*b->compileShader)(b, w->context, FG_ShaderStage_Pixel, shader_fs);
   pipeline.shaders[FG_ShaderStage_Mesh]  = (*b->compileShader)(b, w->context, FG_ShaderStage_Mesh, shader_ms);
-  pipeline.flags                         = FG_Pipeline_Flag_Blend_Enable; // | FG_PIPELINE_FLAG_RENDERTARGET_SRGB_ENABLE
-  pipeline.fillMode                      = FG_Fill_Mode_Fill;
-  pipeline.cullMode                      = FG_Cull_Mode_None; // FG_CULL_MODE_BACK
+  pipeline.flags                         = FG_Pipeline_Flag_Blend_Enable |
+                   FG_Pipeline_Flag_Scissor_Enable; // | FG_PIPELINE_FLAG_RENDERTARGET_SRGB_ENABLE
+  pipeline.fillMode = FG_Fill_Mode_Fill;
+  pipeline.cullMode = FG_Cull_Mode_None; // FG_CULL_MODE_BACK
 
   FG_Blend Premultiply_Blend = {
     FG_Blend_Operand_One,
@@ -226,7 +230,7 @@ uintptr_t load_mesh(FG_Backend* b, FG_Window* w)
 
   return (*b->createPipelineState)(b, w->context, &pipeline, 0, &Premultiply_Blend, 0, 0, 0, 0, 0, 0, 0);
 }
-void test_mesh(FG_Backend* b, FG_Context* ctx, void* commands, const MockElement& e)
+void test_mesh(FG_GraphicsInterface* b, FG_Context* ctx, void* commands, const MockElement& e)
 {
   static const FG_ShaderParameter params[] = { { "scale", 1, 0, 0, FG_Shader_Type_Float } };
   FG_ShaderValue values[1];
@@ -249,8 +253,7 @@ FG_Result behavior(FG_Context* ctx, FG_Msg* msg, void* ui_context, uintptr_t win
 
   if(msg->kind == FG_Event_Kind_Draw && e.pipeline != 0)
   {
-    FG_Backend* b = *(FG_Backend**)ui_context;
-    //(*b->beginDraw)(b, ctx, nullptr);
+    FG_GraphicsInterface* b = *(FG_GraphicsInterface**)ui_context;
     void* commands = (*b->createCommandList)(b, ctx, false);
     assert(commands);
 
@@ -269,7 +272,6 @@ FG_Result behavior(FG_Context* ctx, FG_Msg* msg, void* ui_context, uintptr_t win
     (*b->draw)(b, commands, 4, 0, 0, 0);
     (*b->execute)(b, ctx, commands);
     (*b->destroyCommandList)(b, commands);
-    //(*b->endDraw)();
 
     return FG_Result{ 0 };
   }
@@ -293,7 +295,7 @@ FG_Result behavior(FG_Context* ctx, FG_Msg* msg, void* ui_context, uintptr_t win
   return FG_Result{ -1 };
 }
 
-void test_compute(FG_Backend* b, FG_Window* w)
+void test_compute(FG_GraphicsInterface* b, FG_Window* w)
 {
   const char* shader_cs = "#version 430\n"
                           "layout(local_size_x=1) in;\n"
@@ -361,15 +363,16 @@ void test_compute(FG_Backend* b, FG_Window* w)
 
 int main(int argc, char* argv[])
 {
-  FG_Backend* ui;
-  auto b = BACKEND(&ui, FakeLog, behavior);
+  auto b = BACKEND(nullptr, FakeLog);
+  auto desktop = fgGLFW(nullptr, FakeLog, behavior);
+  auto bridge  = BRIDGE(b, nullptr, FakeLog);
+
   if(!b)
   {
     printf("Failed to load backend!\n");
     return -1;
   }
 
-  ui     = b;
   auto e = MockElement{};
 
   const char* shader_vs = "#version 110\n"
@@ -428,7 +431,8 @@ int main(int argc, char* argv[])
 
   auto pos = FG_Vec2{ 200.f, 100.f };
   auto dim = FG_Vec2{ 800.f, 600.f };
-  auto w   = (*b->createWindow)(b, reinterpret_cast<uintptr_t>(&e), nullptr, &pos, &dim, "Feather Test", e.flags);
+  auto w = (*desktop->createWindow)(desktop, reinterpret_cast<uintptr_t>(&e), nullptr, &pos, &dim, "Feather Test", e.flags);
+  (*bridge->emplaceContext)(bridge, w, FG_PixelFormat_R8G8B8A8_Typeless);
   TEST(w != nullptr);
 
   if(!w)
@@ -457,10 +461,11 @@ int main(int argc, char* argv[])
                      FG_Pipeline_Member_Cull | FG_Pipeline_Member_Primitive;
   pipeline.shaders[FG_ShaderStage_Pixel]  = (*b->compileShader)(b, w->context, FG_ShaderStage_Pixel, shader_fs);
   pipeline.shaders[FG_ShaderStage_Vertex] = (*b->compileShader)(b, w->context, FG_ShaderStage_Vertex, shader_vs);
-  pipeline.flags                          = FG_Pipeline_Flag_Blend_Enable; // | FG_PIPELINE_FLAG_RENDERTARGET_SRGB_ENABLE
   pipeline.fillMode                       = FG_Fill_Mode_Fill;
   pipeline.cullMode                       = FG_Cull_Mode_None; // FG_CULL_MODE_BACK
   pipeline.primitive                      = FG_Primitive_Triangle_Strip;
+  pipeline.flags                          = FG_Pipeline_Flag_Blend_Enable |
+                   FG_Pipeline_Flag_Scissor_Enable; // | FG_PIPELINE_FLAG_RENDERTARGET_SRGB_ENABLE
 
   FG_Resource RenderTarget0 = (*b->createTexture)(b, w->context, FG_Vec2i{ 800, 600 }, FG_Usage_Texture2D,
                                                   FG_PixelFormat_R8G8B8A8_Typeless, &sampler, NULL, 0);
@@ -474,10 +479,10 @@ int main(int argc, char* argv[])
   if(e.caps.features & FG_Feature_Mesh_Shader)
     e.mesh_pipeline = load_mesh(b, w);
 
-  (*b->beginDraw)(b, w->context, nullptr);
+  (*bridge->beginDraw)(bridge, w, nullptr);
   FG_Msg drawmsg = { FG_Event_Kind_Draw };
-  behavior(w->context, &drawmsg, &ui, reinterpret_cast<uintptr_t>(&e));
-  (*b->endDraw)(b, w->context);
+  behavior(w->context, &drawmsg, &b, reinterpret_cast<uintptr_t>(&e));
+  (*bridge->endDraw)(bridge, w);
 
   FG_Resource CopiedTexture = (*b->createTexture)(b, w->context, FG_Vec2i{ 800, 600 }, FG_Usage_Texture2D,
                                                   FG_PixelFormat_R8G8B8A8_Typeless, &sampler, NULL, 0);
@@ -491,39 +496,41 @@ int main(int argc, char* argv[])
   e.pipeline = (*b->createPipelineState)(b, w->context, &pipeline, 0, &Premultiply_Blend, &e.vertices, &vertstride, 1,
                                          vertparams, 2, 0, 0);
 
-  TEST((*b->setCursor)(b, w, FG_Cursor_Cross) == 0);
+  TEST((*desktop->setCursor)(desktop, w, FG_Cursor_Cross) == 0);
 
-  TEST((*b->setWindow)(b, w, nullptr, nullptr, nullptr, nullptr, FG_WindowFlag_Resizable) == 0);
-  TEST((*b->setWindow)(b, w, nullptr, nullptr, nullptr, "Feather Test Changed", FG_WindowFlag_Resizable) == 0);
+  TEST((*desktop->setWindow)(desktop, w, nullptr, nullptr, nullptr, nullptr, FG_WindowFlag_Resizable) == 0);
+  TEST((*desktop->setWindow)(desktop, w, nullptr, nullptr, nullptr, "Feather Test Changed", FG_WindowFlag_Resizable) == 0);
 
-  TEST((*b->processMessages)(b, nullptr, &ui) != 0);
+  TEST((*desktop->processMessages)(desktop, nullptr, &b) != 0);
 
   const char TEST_TEXT[] = "testtext";
 
-  TEST((*b->processMessages)(b, nullptr, &ui) != 0);
-  TEST((*b->clearClipboard)(b, w, FG_Clipboard_All) == 0);
-  TEST((*b->checkClipboard)(b, w, FG_Clipboard_Text) == false);
-  TEST((*b->checkClipboard)(b, w, FG_Clipboard_Wave) == false);
-  TEST((*b->checkClipboard)(b, w, FG_Clipboard_All) == false);
-  TEST((*b->putClipboard)(b, w, FG_Clipboard_Text, TEST_TEXT, 9) == 0);
-  TEST((*b->checkClipboard)(b, w, FG_Clipboard_Text) == true);
-  TEST((*b->checkClipboard)(b, w, FG_Clipboard_Wave) == false);
-  TEST((*b->checkClipboard)(b, w, FG_Clipboard_All) == true);
+  TEST((*desktop->processMessages)(desktop, nullptr, &b) != 0);
+  TEST((*desktop->clearClipboard)(desktop, w, FG_Clipboard_All) == 0);
+  TEST((*desktop->checkClipboard)(desktop, w, FG_Clipboard_Text) == false);
+  TEST((*desktop->checkClipboard)(desktop, w, FG_Clipboard_Wave) == false);
+  TEST((*desktop->checkClipboard)(desktop, w, FG_Clipboard_All) == false);
+  TEST((*desktop->putClipboard)(desktop, w, FG_Clipboard_Text, TEST_TEXT, 9) == 0);
+  TEST((*desktop->checkClipboard)(desktop, w, FG_Clipboard_Text) == true);
+  TEST((*desktop->checkClipboard)(desktop, w, FG_Clipboard_Wave) == false);
+  TEST((*desktop->checkClipboard)(desktop, w, FG_Clipboard_All) == true);
 
   char hold[10];
 
-  TEST((*b->getClipboard)(b, w, FG_Clipboard_Text, hold, 10) == 9)
+  TEST((*desktop->getClipboard)(desktop, w, FG_Clipboard_Text, hold, 10) == 9)
   for(int i = 0; i < sizeof(TEST_TEXT); ++i)
   {
     TEST(TEST_TEXT[i] == hold[i]);
   }
 
-  TEST((*b->getClipboard)(b, w, FG_Clipboard_Wave, hold, 10) == 0)
-  while((*b->processMessages)(b, nullptr, &ui) != 0 && e.close == false)
+  TEST((*desktop->getClipboard)(desktop, w, FG_Clipboard_Wave, hold, 10) == 0)
+  while((*desktop->processMessages)(desktop, nullptr, &b) != 0 && e.close == false)
     ;
 
   TEST((*b->destroyResource)(b, w->context, e.image) == 0);
   TEST((*b->destroyPipelineState)(b, w->context, e.pipeline) == 0);
-  TEST((*b->destroyWindow)(b, w) == 0);
+  TEST((*desktop->destroyWindow)(desktop, w) == 0);
+  (*bridge->destroy)(bridge);
+  (*desktop->destroy)(desktop);
   (*b->destroy)(b);
 }

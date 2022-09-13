@@ -1,7 +1,7 @@
 // Copyright (c)2022 Fundament Software
-// For conditions of distribution and use, see copyright notice in "BackendGL.hpp"
+// For conditions of distribution and use, see copyright notice in "Provider.hpp"
 
-#include "compiler.hpp"
+#include "feather/compiler.h"
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
@@ -10,10 +10,10 @@
   #include "GLFW/glfw3native.h"
 #endif
 
-#include "BackendGL.hpp"
+#include "ProviderGLFW.hpp"
 #include <cstring>
 
-using namespace GL;
+using namespace GLFW;
 
 // We have to translate all of GLFW's key values into Feather's universal key codes.
 uint8_t Window::KeyMap[512] = { 1, 0 };
@@ -24,11 +24,11 @@ void Window::FillKeyMap()
     return;
   Window::KeyMap[0]                      = 0;
   Window::KeyMap[GLFW_KEY_SPACE]         = FG_Keys_SPACE;
-  Window::KeyMap[GLFW_KEY_APOSTROPHE]    = FG_Keys_APOSTROPHE; /* ' */
-  Window::KeyMap[GLFW_KEY_COMMA]         = FG_Keys_COMMA;      /* , */
+  Window::KeyMap[GLFW_KEY_APOSTROPHE]    = FG_Keys_APOSTROPHE; // '
+  Window::KeyMap[GLFW_KEY_COMMA]         = FG_Keys_COMMA;      // ,
   Window::KeyMap[GLFW_KEY_MINUS]         = FG_Keys_MINUS;
   Window::KeyMap[GLFW_KEY_PERIOD]        = FG_Keys_PERIOD;
-  Window::KeyMap[GLFW_KEY_SLASH]         = FG_Keys_SLASH; /* / */
+  Window::KeyMap[GLFW_KEY_SLASH]         = FG_Keys_SLASH; // /
   Window::KeyMap[GLFW_KEY_0]             = FG_Keys_0;
   Window::KeyMap[GLFW_KEY_1]             = FG_Keys_1;
   Window::KeyMap[GLFW_KEY_2]             = FG_Keys_2;
@@ -39,8 +39,8 @@ void Window::FillKeyMap()
   Window::KeyMap[GLFW_KEY_7]             = FG_Keys_7;
   Window::KeyMap[GLFW_KEY_8]             = FG_Keys_8;
   Window::KeyMap[GLFW_KEY_9]             = FG_Keys_9;
-  Window::KeyMap[GLFW_KEY_SEMICOLON]     = FG_Keys_SEMICOLON; /* ; */
-  Window::KeyMap[GLFW_KEY_EQUAL]         = FG_Keys_PLUS;      /* =+ */
+  Window::KeyMap[GLFW_KEY_SEMICOLON]     = FG_Keys_SEMICOLON; // ;
+  Window::KeyMap[GLFW_KEY_EQUAL]         = FG_Keys_PLUS;      // =+
   Window::KeyMap[GLFW_KEY_A]             = FG_Keys_A;
   Window::KeyMap[GLFW_KEY_B]             = FG_Keys_B;
   Window::KeyMap[GLFW_KEY_C]             = FG_Keys_C;
@@ -67,12 +67,12 @@ void Window::FillKeyMap()
   Window::KeyMap[GLFW_KEY_X]             = FG_Keys_X;
   Window::KeyMap[GLFW_KEY_Y]             = FG_Keys_Y;
   Window::KeyMap[GLFW_KEY_Z]             = FG_Keys_Z;
-  Window::KeyMap[GLFW_KEY_LEFT_BRACKET]  = FG_Keys_LEFT_BRACKET;  /* [ */
+  Window::KeyMap[GLFW_KEY_LEFT_BRACKET]  = FG_Keys_LEFT_BRACKET;  // [
   Window::KeyMap[GLFW_KEY_BACKSLASH]     = FG_Keys_BACKSLASH;     /* \ */
-  Window::KeyMap[GLFW_KEY_RIGHT_BRACKET] = FG_Keys_RIGHT_BRACKET; /* ] */
-  Window::KeyMap[GLFW_KEY_GRAVE_ACCENT]  = FG_Keys_GRAVE;         /* ` */
-  Window::KeyMap[GLFW_KEY_WORLD_1]       = FG_Keys_OEM_8;         /* non-US #1 */
-  Window::KeyMap[GLFW_KEY_WORLD_2]       = FG_Keys_KANJI;         /* non-US #2 */
+  Window::KeyMap[GLFW_KEY_RIGHT_BRACKET] = FG_Keys_RIGHT_BRACKET; // ]
+  Window::KeyMap[GLFW_KEY_GRAVE_ACCENT]  = FG_Keys_GRAVE;         // `
+  Window::KeyMap[GLFW_KEY_WORLD_1]       = FG_Keys_OEM_8;         // non-US #1
+  Window::KeyMap[GLFW_KEY_WORLD_2]       = FG_Keys_KANJI;         // non-US #2
   Window::KeyMap[GLFW_KEY_ESCAPE]        = FG_Keys_ESCAPE;
   Window::KeyMap[GLFW_KEY_ENTER]         = FG_Keys_RETURN;
   Window::KeyMap[GLFW_KEY_TAB]           = FG_Keys_TAB;
@@ -145,19 +145,21 @@ void Window::FillKeyMap()
   Window::KeyMap[GLFW_KEY_MENU]          = FG_Keys_MENU;
 }
 
-Window::Window(Backend* backend, GLFWmonitor* display, uintptr_t window_id, FG_Vec2* pos, FG_Vec2* dim, uint64_t flags,
+Window::Window(Provider* backend, GLFWmonitor* display, uintptr_t window_id, FG_Vec2* pos, FG_Vec2* dim, uint64_t flags,
                const char* caption) :
-  Context(backend, window_id, !dim ? FG_Vec2{ 0, 0 } : *dim), _next(nullptr), _prev(nullptr), _joysticks(0)
+  _next(nullptr), _prev(nullptr), _joysticks(0), _backend(backend)
 {
   FillKeyMap();
   if(flags & FG_WindowFlag_No_Caption)
     caption = "";
 
+  this->window_id = window_id;
+
   glfwWindowHint(GLFW_DECORATED, !(flags & FG_WindowFlag_No_Border));
   glfwWindowHint(GLFW_AUTO_ICONIFY, flags & FG_WindowFlag_Minimized);
   glfwWindowHint(GLFW_RESIZABLE, flags & FG_WindowFlag_Resizable);
   glfwWindowHint(GLFW_MAXIMIZED, flags & FG_WindowFlag_Maximized);
-  glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GL_TRUE);
+  glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, 1);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 
@@ -191,16 +193,9 @@ Window::Window(Backend* backend, GLFWmonitor* display, uintptr_t window_id, FG_V
 
     this->handle = reinterpret_cast<uintptr_t>(glfwGetWin32Window(_window));
 #endif
-
-    glfwMakeContextCurrent(_window);
-    if(!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
-      backend->LOG(FG_Level_Error, "gladLoadGL failed");
   }
   else
     backend->LOG(FG_Level_Error, "glfwCreateWindow failed");
-
-  backend->LOG(FG_Level_Notice, "OpenGL v.%s\nVendor: %s\nRenderer: %s\n", (const char*)glGetString(GL_VERSION),
-               (const char*)glGetString(GL_VENDOR), (const char*)glGetString(GL_RENDERER));
 }
 
 Window::~Window()
@@ -234,7 +229,7 @@ void Window::DirtyRect(const FG_Rect* area)
     InvalidateRect(hWnd, &rect, FALSE);
   }
 #else
-  Draw(area);
+  // TODO inject draw message into queue
 #endif
 }
 
@@ -372,21 +367,40 @@ void Window::CloseCallback(GLFWwindow* window)
 
 void Window::SizeCallback(GLFWwindow* window, int width, int height)
 {
-  auto self  = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
-  self->_dim = { static_cast<float>(width), static_cast<float>(height) };
+  FG_Msg msg             = { FG_Event_Kind_SetWindowRect };
+  msg.setWindowRect.rect = { 0, 0, static_cast<float>(width), static_cast<float>(height) };
+
+  auto self = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
+  self->_backend->Behavior(self, msg);
 }
 
 void Window::RefreshCallback(GLFWwindow* window)
 {
+  auto self = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
+
 #ifdef FG_PLATFORM_WIN32
   // Call beginpaint and Endpaint so that assertions don't blow everything up.
   PAINTSTRUCT ps;
   HWND hWnd = glfwGetWin32Window(window);
   auto hdc  = BeginPaint(hWnd, &ps);
   EndPaint(hWnd, &ps);
+
+  // Assertions can also call our paint method outside of our queue processing, so ignore those
+  if(!self->_backend->_uictx)
+    return;
 #endif
 
-  reinterpret_cast<Window*>(glfwGetWindowUserPointer(window))->Draw(nullptr);
+  FG_Msg msg    = { FG_Event_Kind_Draw };
+  auto dim   = self->GetSize();
+  msg.draw.area = { 0, 0, static_cast<float>(dim.x), static_cast<float>(dim.y) };
+
+  self->_backend->Behavior(self, msg);
+}
+FG_Vec2i Window::GetSize() const
+{
+  FG_Vec2i dim;
+  glfwGetFramebufferSize(_window, &dim.x, &dim.y);
+  return dim;
 }
 
 uint8_t Window::ScanJoysticks()
@@ -500,8 +514,12 @@ void Window::JoystickCallback(int jid, int e)
 {
   // Temporary way of dealing with joysticks because GLFW doesn't give us a window pointer for the window the message was
   // sent to.
-  for(Window* w = Backend::_singleton->_windows; w != nullptr; w = w->_next)
+  for(Window* w = Provider::_singleton->_windows; w != nullptr; w = w->_next)
   {
     w->ScanJoysticks();
   }
 }
+
+void Window::MakeCurrent() { glfwMakeContextCurrent(_window); }
+
+void Window::SwapBuffers() { glfwSwapBuffers(_window); }

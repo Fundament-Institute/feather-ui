@@ -4,8 +4,8 @@
 #ifndef GL__FORMAT_H
 #define GL__FORMAT_H
 
-#include "compiler.hpp"
-#include "feather/backend.h"
+#include "feather/compiler.h"
+#include "feather/graphics_interface.h"
 #include "glad/glad.h"
 
 namespace GL {

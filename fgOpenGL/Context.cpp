@@ -1,7 +1,7 @@
 // Copyright (c)2022 Fundament Software
-// For conditions of distribution and use, see copyright notice in "BackendGL.hpp"
+// For conditions of distribution and use, see copyright notice in "ProviderGL.hpp"
 
-#include "BackendGL.hpp"
+#include "ProviderGL.hpp"
 #include "VertexArrayObject.hpp"
 #include "ProgramObject.hpp"
 #include "EnumMapping.hpp"
@@ -45,9 +45,7 @@ const FG_Blend Context::Default_Blend = {
   FG_Blend_Operand_Zero, FG_Blend_Op_Add,       0b1111,
 };
 
-Context::Context(Backend* backend, uintptr_t window_id, FG_Vec2 dim) :
-  _backend(backend),
-  _window(nullptr),
+Context::Context(FG_Vec2 dim) :
   _lastblend(Default_Blend),
   _program(nullptr),
   _dim(dim),
@@ -60,66 +58,34 @@ Context::Context(Backend* backend, uintptr_t window_id, FG_Vec2 dim) :
   _statestore({ 0 }),
   _workgroup({ 0, 0, 0 })
 {
-  this->window_id = window_id;
-  this->context = this;
 }
 Context::~Context() {}
 
 GLExpected<void> Context::BeginDraw(const FG_Rect* area)
 {
-  glEnable(GL_SCISSOR_TEST);
-  GL_ERROR("glEnable");
-
-  if(_window)
-  {
-    glfwMakeContextCurrent(_window);
-    GLint box[4] = {0};
-    glGetIntegerv(GL_SCISSOR_BOX, box);
-    _lastscissor = {
-      static_cast<float>(box[0]),
-      static_cast<float>(box[1]),
-      static_cast<float>(box[2] + box[0]),
-      static_cast<float>(box[3] + box[1]), 
-    };
-    RETURN_ERROR(SetScissors({ &_lastscissor, 1 }));
-  }
-  else
-  {
-    _lastscissor = { 0, 0, _dim.x, _dim.y };
-    RETURN_ERROR(SetScissors({ &_lastscissor, 1 }));
-  }
-
+  GLint box[4] = {0};
+  glGetIntegerv(GL_SCISSOR_BOX, box);
+  GL_ERROR("glGetIntegerv");
+  _lastscissor = {
+    static_cast<float>(box[0]),
+    static_cast<float>(box[1]),
+    static_cast<float>(box[2] + box[0]),
+    static_cast<float>(box[3] + box[1]), 
+  };
+  RETURN_ERROR(SetScissors({ &_lastscissor, 1 }));
   return {};
 }
 
 GLExpected<void> Context::EndDraw()
 {
-  if(_window)
-    glfwSwapBuffers(_window);
   return {};
 }
-
-void Context::Draw(const FG_Rect* area)
+GLExpected<void> Context::Resize(FG_Vec2 dim)
 {
-  FG_Msg msg = { FG_Event_Kind_Draw };
-  if(area)
-    msg.draw.area = *area;
-  else
-  {
-    if(_window)
-    {
-      int x, y;
-      glfwGetFramebufferSize(_window, &x, &y);
-      _dim.x = static_cast<float>(x);
-      _dim.y = static_cast<float>(y);
-    }
-    msg.draw.area.right  = _dim.x;
-    msg.draw.area.bottom = _dim.y;
-  }
-
-  _backend->BeginDraw(_backend, this, &msg.draw.area);
-  _backend->Behavior(this, msg);
-  _backend->EndDraw(_backend, this);
+  _dim         = dim;
+  _lastscissor = { 0, 0, _dim.x, _dim.y };
+  RETURN_ERROR(SetScissors({ &_lastscissor, 1 }));
+  return {};
 }
 
 GLExpected<void> Context::Dispatch()
@@ -463,7 +429,8 @@ GLExpected<void> Context::ApplyFlags(uint16_t flags)
   GL_ERROR("glEnable/glDisable");
   FlipFlag(diff, flags, FG_Pipeline_Flag_Blend_Enable, GL_BLEND);
   GL_ERROR("glEnable/glDisable");
-
+  FlipFlag(diff, flags, FG_Pipeline_Flag_Scissor_Enable, GL_SCISSOR_TEST);
+  
   if(diff & FG_Pipeline_Flag_Depth_Write_Enable)
   {
     glDepthMask((flags & FG_Pipeline_Flag_Depth_Write_Enable) ? GL_TRUE : GL_FALSE);

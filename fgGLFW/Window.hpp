@@ -4,21 +4,26 @@
 #ifndef GL__WINDOW_H
 #define GL__WINDOW_H
 
-#include "Context.hpp"
+#include "feather/desktop_interface.h"
+#define GLFW_INCLUDE_NONE
+#include <GLFW/glfw3.h>
 
-namespace GL {
-  class Backend;
-  struct Asset;
+namespace GLFW {
+  class Provider;
 
-  struct Window : Context
+  struct Window : FG_Window
   {
-    Window(Backend* backend, GLFWmonitor* display, uintptr_t window_id, FG_Vec2* pos, FG_Vec2* dim, uint64_t flags,
+    Window(Provider* backend, GLFWmonitor* display, uintptr_t window_id, FG_Vec2* pos, FG_Vec2* dim, uint64_t flags,
            const char* caption);
     virtual ~Window();
     static uint8_t GetModKeys(int mods);
     void DirtyRect(const FG_Rect* r);
     uint8_t ScanJoysticks();
     void PollJoysticks();
+    inline GLFWwindow* GetWindow() { return _window; }
+    FG_COMPILER_DLLEXPORT FG_Vec2i GetSize() const;
+    FG_COMPILER_DLLEXPORT void MakeCurrent();
+    FG_COMPILER_DLLEXPORT void SwapBuffers();
 #ifdef FG_PLATFORM_WIN32
     double TranslateJoyAxis(uint8_t axis, uint8_t index) const;
 #endif
@@ -36,7 +41,7 @@ namespace GL {
     static void JoystickCallback(int jid, int e);
 
     static uint8_t KeyMap[512];
-    static constexpr uint8_t MAXJOY = 16;
+    static constexpr uint8_t MAXJOY  = 16;
     static constexpr uint8_t MAXAXIS = 6;
 
     struct JoyCaps
@@ -47,6 +52,8 @@ namespace GL {
       uint32_t range[MAXAXIS];
     };
 
+    GLFWwindow* _window;
+    Provider* _backend;
     uint64_t _flags;
     Window* _next; // GLFW doesn't let us detect when it destroys a window so we have to do it ourselves.
     Window* _prev;
