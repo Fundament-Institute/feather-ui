@@ -697,8 +697,8 @@ enum FG_ClearFlag
 struct FG_GraphicsInterface
 {
   FG_Caps (*getCaps)(struct FG_GraphicsInterface* self);
-  FG_Context* (*createContext)(FG_GraphicsInterface* self, FG_Vec2i size, enum FG_PixelFormat backbuffer);
-  int (*resizeContext)(FG_GraphicsInterface* self, FG_Context* context, FG_Vec2i size);
+  FG_Context* (*createContext)(struct FG_GraphicsInterface* self, FG_Vec2i size, enum FG_PixelFormat backbuffer);
+  int (*resizeContext)(struct FG_GraphicsInterface* self, FG_Context* context, FG_Vec2i size);
   FG_Shader (*compileShader)(struct FG_GraphicsInterface* self, FG_Context* context, enum FG_ShaderStage stage,
                              const char* source);
   int (*destroyShader)(struct FG_GraphicsInterface* self, FG_Context* context, FG_Shader shader);

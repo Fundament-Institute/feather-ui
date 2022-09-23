@@ -698,6 +698,7 @@ Provider::Provider(void* log_context, FG_Log log) : _logctx(log_context), _log(l
 {
   getCaps               = &GetCaps;
   createContext         = &CreateContext;
+  resizeContext         = &ResizeContext;
   compileShader         = &CompileShader;
   destroyShader         = &DestroyShader;
   createCommandList     = &CreateCommandList;
