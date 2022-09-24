@@ -49,7 +49,7 @@ namespace GLFW {
   public:
     Provider(void* root, FG_Log log, FG_Behavior behavior);
     ~Provider();
-    FG_Result Behavior(Window* data, const FG_Msg& msg);
+    FG_Result Behavior(WindowGL* data, const FG_Msg& msg);
     template<typename... Args> void Log(FG_Level level, const char* file, int line, const char* msg, Args&&... args)
     {
       if constexpr(sizeof...(Args) == 0)
@@ -87,7 +87,7 @@ namespace GLFW {
 
     void* _uictx;
     void* _logctx;
-    Window* _windows;
+    WindowGL* _windows;
 
     static int _lasterr;
     static int _refcount;

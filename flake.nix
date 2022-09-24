@@ -28,12 +28,14 @@
               "CMakeLists.txt"
               (nix-filter.lib.inDirectory "backendtest")
               (nix-filter.lib.inDirectory "fgOpenGL")
+              (nix-filter.lib.inDirectory "fgGLFW")
+              (nix-filter.lib.inDirectory "fgOpenGLDesktopBridge")
               (nix-filter.lib.inDirectory "include")
             ];
           };
 
           nativeBuildInputs = [ pkgs.cmake ];
-          buildInputs = [ pkgs.libglvnd pkgs.glfw ];
+          buildInputs = [ pkgs.libglvnd pkgs.glfw pkgs.x11 pkgs.xorg.libXrandr ];
           outputs = [ "out" ];
 
           cmakeFlags = [ "-DUSE_DEFAULT_FOLDERS=1" ];

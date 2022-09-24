@@ -15,16 +15,23 @@ int Bridge::_refcount      = 0;
 Bridge* Bridge::_singleton = nullptr;
 void* Bridge::_library     = nullptr;
 
+#ifdef FG_PLATFORM_WIN32
 decltype(Bridge::_wglGetProcAddress) Bridge::_wglGetProcAddress = nullptr;
+#else
+#include <dlfcn.h>
+
+decltype(Bridge::_glxGetProcAddress) Bridge::_glxGetProcAddress = nullptr;
+decltype(Bridge::_glxGetProcAddressARB) Bridge::_glxGetProcAddressARB = nullptr;
+#endif
 
 FG_Window* Bridge::EmplaceContext(struct FG_GraphicsDesktopBridge* self, FG_Window* window, enum FG_PixelFormat backbuffer)
 {
   // This basically does nothing right now because GLFW actually initializes the openGL context. When we change to proper
   // window initialization, we will actually be creating and attaching the openGL context in here.
   auto b = static_cast<Bridge*>(self);
-  auto w = static_cast<GLFW::Window*>(window);
+  auto w = static_cast<GLFW::WindowGL*>(window);
   w->MakeCurrent();
-  b->_provider->LoadGL(wglLoadProc);
+  b->_provider->LoadGL(ctxLoadProc);
   auto dim        = w->GetSize();
   window->context = new GL::Context(FG_Vec2{ static_cast<float>(dim.x), static_cast<float>(dim.y) });
   return w;
@@ -36,7 +43,7 @@ FG_Window* Bridge::AttachContext(struct FG_GraphicsDesktopBridge* self, FG_Conte
 int Bridge::BeginDraw(struct FG_GraphicsDesktopBridge* self, FG_Window* window, FG_Rect* area)
 {
   auto b = static_cast<Bridge*>(self);
-  auto w = static_cast<GLFW::Window*>(window);
+  auto w = static_cast<GLFW::WindowGL*>(window);
   w->MakeCurrent();
   if(auto e = static_cast<GL::Context*>(window->context)->BeginDraw(area); !e)
   {
@@ -47,7 +54,7 @@ int Bridge::BeginDraw(struct FG_GraphicsDesktopBridge* self, FG_Window* window, 
 int Bridge::EndDraw(struct FG_GraphicsDesktopBridge* self, FG_Window* window)
 {
   auto b = static_cast<Bridge*>(self);
-  auto w = static_cast<GLFW::Window*>(window);
+  auto w = static_cast<GLFW::WindowGL*>(window);
   w->SwapBuffers();
   if(auto e = static_cast<GL::Context*>(window->context)->EndDraw(); !e)
   {
@@ -66,22 +73,29 @@ int Bridge::DestroyImpl(struct FG_GraphicsDesktopBridge* self)
 #ifdef FG_PLATFORM_WIN32
     if(Bridge::_library)
       FreeLibrary((HMODULE)Bridge::_library);
+    Bridge::_wglGetProcAddress = nullptr;
 #endif
 #ifdef FG_PLATFORM_POSIX
     if(Bridge::_library)
       dlclose(Bridge::_library);
 #endif
-    Bridge::_wglGetProcAddress = nullptr;
   }
 
   return GL::ERR_SUCCESS;
 }
 
-void* Bridge::wglLoadProc(const char* name)
+void* Bridge::ctxLoadProc(const char* name)
 {
+#ifdef FG_PLATFORM_WIN32
   auto proc = Bridge::_wglGetProcAddress(name);
   if(proc)
-    return proc;
+    return (void*)proc;
+#else
+    if (Bridge::_glxGetProcAddress)
+        return (void*)Bridge::_glxGetProcAddress((const GLubyte*) name);
+    else if (Bridge::_glxGetProcAddressARB)
+        return (void*)Bridge::_glxGetProcAddressARB((const GLubyte*) name);
+#endif
 
   return LoadProc(Bridge::_library, name);
 }
@@ -106,19 +120,28 @@ extern "C" FG_COMPILER_DLLEXPORT FG_GraphicsDesktopBridge* fgOpenGLDesktopBridge
   {
 #ifdef FG_PLATFORM_WIN32
     Bridge::_library = LoadLibraryA("opengl32.dll");
+
+    Bridge::_wglGetProcAddress =
+      reinterpret_cast<decltype(Bridge::_wglGetProcAddress)>(Bridge::LoadProc(Bridge::_library, "wglGetProcAddress"));
 #endif
 #ifdef FG_PLATFORM_POSIX
   #ifdef __CYGWIN__
     Bridge::_library = dlopen("libGL-1.so", 0);
+  #elif defined(__OpenBSD__) || defined(__NetBSD__)
+    Bridge::_library = dlopen("libGL.so", 0);
   #endif
     if(!Bridge::_library)
+      Bridge::_library = dlopen("libGLX.so.0", 0);
+    if(!Bridge::_library)
       Bridge::_library = dlopen("libGL.so.1", 0);
-    if(!Provider::_library)
+    if(!Bridge::_library)
       Bridge::_library = dlopen("libGL.so", 0);
-#endif
 
-    Bridge::_wglGetProcAddress =
-      reinterpret_cast<decltype(Bridge::_wglGetProcAddress)>(Bridge::LoadProc(Bridge::_library, "wglGetProcAddress"));
+    Bridge::_glxGetProcAddress =
+      reinterpret_cast<decltype(Bridge::_glxGetProcAddress)>(Bridge::LoadProc(Bridge::_library, "glXGetProcAddress"));
+    Bridge::_glxGetProcAddressARB =
+      reinterpret_cast<decltype(Bridge::_glxGetProcAddressARB)>(Bridge::LoadProc(Bridge::_library, "glXGetProcAddressARB"));
+#endif
   }
 
   return new Bridge(static_cast<GL::Provider*>(graphics), log_context, log);

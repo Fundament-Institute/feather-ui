@@ -9,7 +9,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE OFF)
 
-file(GLOB_RECURSE backendtest_SOURCES "./*.cpp")
+file(GLOB_RECURSE backendtest_SOURCES "./*.c")
 
 add_executable(backendtest ${backendtest_SOURCES})
 

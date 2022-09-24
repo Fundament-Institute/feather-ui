@@ -11,11 +11,11 @@
 namespace GLFW {
   class Provider;
 
-  struct Window : FG_Window
+  struct WindowGL : FG_Window
   {
-    Window(Provider* backend, GLFWmonitor* display, uintptr_t window_id, FG_Vec2* pos, FG_Vec2* dim, uint64_t flags,
+    WindowGL(Provider* backend, GLFWmonitor* display, uintptr_t window_id, FG_Vec2* pos, FG_Vec2* dim, uint64_t flags,
            const char* caption);
-    ~Window();
+    ~WindowGL();
     static uint8_t GetModKeys(int mods);
     void DirtyRect(const FG_Rect* r);
     uint8_t ScanJoysticks();
@@ -56,8 +56,8 @@ namespace GLFW {
     GLFWwindow* _window;
     Provider* _backend;
     uint64_t _flags;
-    Window* _next; // GLFW doesn't let us detect when it destroys a window so we have to do it ourselves.
-    Window* _prev;
+    WindowGL* _next; // GLFW doesn't let us detect when it destroys a window so we have to do it ourselves.
+    WindowGL* _prev;
     uint32_t _joysticks;
 #ifdef FG_PLATFORM_WIN32
     JoyCaps _joycaps[MAXJOY];

@@ -57,7 +57,7 @@ namespace FG {
     static int BeginDraw(struct FG_GraphicsDesktopBridge* self, FG_Window* window, FG_Rect* area);
     static int EndDraw(struct FG_GraphicsDesktopBridge* self, FG_Window* window);
     static int DestroyImpl(struct FG_GraphicsDesktopBridge* self);
-    static void* wglLoadProc(const char* name);
+    static void* ctxLoadProc(const char* name);
     static void* LoadProc(void* library, const char* name); 
 
     void* _logctx;
@@ -65,7 +65,14 @@ namespace FG {
     static Bridge* _singleton;
     static void* _library;
     static int _refcount;
+
+#ifdef FG_PLATFORM_WIN32
     static PROC(WINAPI* _wglGetProcAddress)(LPCSTR);
+#else
+    typedef void (*__GLXextproc)(void);
+    static __GLXextproc(* _glxGetProcAddress)(const GLubyte *procName);
+    static __GLXextproc(* _glxGetProcAddressARB)(const GLubyte *procName);
+#endif
 
   protected:
     FG_Log _log;

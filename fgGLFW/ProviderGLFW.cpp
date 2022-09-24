@@ -4,6 +4,7 @@
 #include "platform.hpp"
 #include "ProviderGLFW.hpp"
 #include <cfloat>
+#include <cmath>
 #include <cstring>
 
 using GLFW::Provider;
@@ -15,7 +16,7 @@ int Provider::_maxjoy             = 0;
 Provider* Provider::_singleton    = nullptr;
 const float Provider::BASE_DPI    = 96.0f;
 
-FG_Result Provider::Behavior(Window* w, const FG_Msg& msg)
+FG_Result Provider::Behavior(WindowGL* w, const FG_Msg& msg)
 {
   return (*_behavior)(w, const_cast<FG_Msg*>(&msg), _uictx, w->window_id);
 }
@@ -27,7 +28,7 @@ FG_Window* Provider::CreateWindowImpl(FG_DesktopInterface* self, uintptr_t windo
   _lasterr     = 0;
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-  Window* window = new Window(backend, reinterpret_cast<GLFWmonitor*>(display), window_id, pos, dim, flags, caption);
+  WindowGL* window = new WindowGL(backend, reinterpret_cast<GLFWmonitor*>(display), window_id, pos, dim, flags, caption);
 
   if(!_lasterr)
   {
@@ -48,7 +49,7 @@ int Provider::SetWindow(FG_DesktopInterface* self, FG_Window* window, FG_Display
 {
   if(!window)
     return ERR_MISSING_PARAMETER;
-  auto w = static_cast<Window*>(window);
+  auto w = static_cast<WindowGL*>(window);
 
   auto glwindow = w->GetWindow();
   if(!glwindow)
@@ -98,7 +99,7 @@ int Provider::DestroyWindow(FG_DesktopInterface* self, FG_Window* window)
     return ERR_MISSING_PARAMETER;
 
   _lasterr = 0; // We set this to capture GLFW errors, which are seperate from OpenGL errors (for right now)
-  delete static_cast<Window*>(window);
+  delete static_cast<WindowGL*>(window);
   return _lasterr;
 }
 
@@ -106,7 +107,7 @@ int Provider::InvalidateWindow(FG_DesktopInterface* self, FG_Window* window, FG_
 {
   if(!window)
     return ERR_MISSING_PARAMETER;
-  auto w = static_cast<Window*>(window);
+  auto w = static_cast<WindowGL*>(window);
 
   _lasterr = 0; // We set this to capture GLFW errors, which are seperate from OpenGL errors (for right now)
   w->Invalidate(optarea);
@@ -169,7 +170,7 @@ int Provider::PutClipboard(FG_DesktopInterface* self, FG_Window* window, FG_Clip
     return ERR_INVALID_KIND;
 
   _lasterr = 0;
-  glfwSetClipboardString(static_cast<Context*>(window)->GetWindow(), data);
+  glfwSetClipboardString(static_cast<WindowGL*>(window)->GetWindow(), data);
   return _lasterr;
 #endif
 }
@@ -234,7 +235,7 @@ uint32_t Provider::GetClipboard(FG_DesktopInterface* self, FG_Window* window, FG
   if(kind != FG_Clipboard_Text)
     return ERR_SUCCESS;
 
-  auto str = glfwGetClipboardString(static_cast<Context*>(window)->GetWindow());
+  auto str = glfwGetClipboardString(static_cast<WindowGL*>(window)->GetWindow());
   if(target)
     strncpy(reinterpret_cast<char*>(target), str, count);
   return strlen(str) + 1;
@@ -261,7 +262,7 @@ bool Provider::CheckClipboard(FG_DesktopInterface* self, FG_Window* window, FG_C
     return false;
 
   _lasterr = 0;
-  auto p   = glfwGetClipboardString(static_cast<Context*>(window)->GetWindow());
+  auto p   = glfwGetClipboardString(static_cast<WindowGL*>(window)->GetWindow());
   if(!p || _lasterr != 0)
     return false;
   return p[0] != 0;
@@ -279,7 +280,7 @@ int Provider::ClearClipboard(FG_DesktopInterface* self, FG_Window* window, FG_Cl
   return ERR_SUCCESS;
 #else
   _lasterr = 0;
-  glfwSetClipboardString(static_cast<Context*>(window)->GetWindow(), "");
+  glfwSetClipboardString(static_cast<WindowGL*>(window)->GetWindow(), "");
   return _lasterr;
 #endif
 }
@@ -293,7 +294,7 @@ int Provider::ProcessMessages(FG_DesktopInterface* self, FG_Window* window, void
   if(!window)
     window = backend->_windows;
   if(window)
-    static_cast<Window*>(window)->PollJoysticks();
+    static_cast<WindowGL*>(window)->PollJoysticks();
 
   backend->_uictx = nullptr;
   return backend->_windows != nullptr;
@@ -313,7 +314,7 @@ int Provider::SetCursorImpl(FG_DesktopInterface* self, FG_Window* window, FG_Cur
   static GLFWcursor* hresize = glfwCreateStandardCursor(GLFW_HRESIZE_CURSOR);
   static GLFWcursor* vresize = glfwCreateStandardCursor(GLFW_VRESIZE_CURSOR);
 
-  auto glwindow = static_cast<Window*>(window)->GetWindow();
+  auto glwindow = static_cast<WindowGL*>(window)->GetWindow();
   switch(cursor)
   {
   case FG_Cursor_Arrow: glfwSetCursor(glwindow, arrow); return _lasterr;
@@ -362,7 +363,7 @@ int Provider::GetDisplay(FG_DesktopInterface* self, uintptr_t handle, FG_Display
 
 int Provider::GetDisplayWindow(FG_DesktopInterface* self, FG_Window* window, FG_Display* out)
 {
-  return GetDisplay(self, reinterpret_cast<uintptr_t>(glfwGetWindowMonitor(static_cast<Window*>(window)->GetWindow())),
+  return GetDisplay(self, reinterpret_cast<uintptr_t>(glfwGetWindowMonitor(static_cast<WindowGL*>(window)->GetWindow())),
                     out);
 }
 
