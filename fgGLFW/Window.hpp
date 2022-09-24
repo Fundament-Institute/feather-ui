@@ -15,11 +15,12 @@ namespace GLFW {
   {
     Window(Provider* backend, GLFWmonitor* display, uintptr_t window_id, FG_Vec2* pos, FG_Vec2* dim, uint64_t flags,
            const char* caption);
-    virtual ~Window();
+    ~Window();
     static uint8_t GetModKeys(int mods);
     void DirtyRect(const FG_Rect* r);
     uint8_t ScanJoysticks();
     void PollJoysticks();
+    void Invalidate(FG_Rect* area);
     inline GLFWwindow* GetWindow() { return _window; }
     FG_COMPILER_DLLEXPORT FG_Vec2i GetSize() const;
     FG_COMPILER_DLLEXPORT void MakeCurrent();

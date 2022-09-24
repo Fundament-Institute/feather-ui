@@ -12,7 +12,7 @@ int Provider::_lasterr            = 0;
 int Provider::_refcount           = 0;
 char Provider::_lasterrdesc[1024] = {};
 int Provider::_maxjoy             = 0;
-Provider* Provider::_singleton     = nullptr;
+Provider* Provider::_singleton    = nullptr;
 const float Provider::BASE_DPI    = 96.0f;
 
 FG_Result Provider::Behavior(Window* w, const FG_Msg& msg)
@@ -20,8 +20,8 @@ FG_Result Provider::Behavior(Window* w, const FG_Msg& msg)
   return (*_behavior)(w, const_cast<FG_Msg*>(&msg), _uictx, w->window_id);
 }
 
-FG_Window* Provider::CreateWindowImpl(FG_DesktopInterface* self, uintptr_t window_id, FG_Display* display, FG_Vec2* pos, FG_Vec2* dim,
-                                   const char* caption, uint64_t flags)
+FG_Window* Provider::CreateWindowImpl(FG_DesktopInterface* self, uintptr_t window_id, FG_Display* display, FG_Vec2* pos,
+                                      FG_Vec2* dim, const char* caption, uint64_t flags)
 {
   auto backend = static_cast<Provider*>(self);
   _lasterr     = 0;
@@ -43,12 +43,12 @@ FG_Window* Provider::CreateWindowImpl(FG_DesktopInterface* self, uintptr_t windo
   return nullptr;
 }
 
-int Provider::SetWindow(FG_DesktopInterface* self, FG_Window* window, FG_Display* display, FG_Vec2* pos,
-                       FG_Vec2* dim, const char* caption, uint64_t flags)
+int Provider::SetWindow(FG_DesktopInterface* self, FG_Window* window, FG_Display* display, FG_Vec2* pos, FG_Vec2* dim,
+                        const char* caption, uint64_t flags)
 {
   if(!window)
     return ERR_MISSING_PARAMETER;
-  auto w     = static_cast<Window*>(window);
+  auto w = static_cast<Window*>(window);
 
   auto glwindow = w->GetWindow();
   if(!glwindow)
@@ -101,7 +101,20 @@ int Provider::DestroyWindow(FG_DesktopInterface* self, FG_Window* window)
   delete static_cast<Window*>(window);
   return _lasterr;
 }
-int Provider::PutClipboard(FG_DesktopInterface* self, FG_Window* window, FG_Clipboard kind, const char* data, uint32_t count)
+
+int Provider::InvalidateWindow(FG_DesktopInterface* self, FG_Window* window, FG_Rect* optarea)
+{
+  if(!window)
+    return ERR_MISSING_PARAMETER;
+  auto w = static_cast<Window*>(window);
+
+  _lasterr = 0; // We set this to capture GLFW errors, which are seperate from OpenGL errors (for right now)
+  w->Invalidate(optarea);
+  return _lasterr;
+}
+
+int Provider::PutClipboard(FG_DesktopInterface* self, FG_Window* window, FG_Clipboard kind, const char* data,
+                           uint32_t count)
 {
 #ifdef FG_PLATFORM_WIN32
   if(!OpenClipboard(GetActiveWindow()))
@@ -161,7 +174,8 @@ int Provider::PutClipboard(FG_DesktopInterface* self, FG_Window* window, FG_Clip
 #endif
 }
 
-uint32_t Provider::GetClipboard(FG_DesktopInterface* self, FG_Window* window, FG_Clipboard kind, void* target, uint32_t count)
+uint32_t Provider::GetClipboard(FG_DesktopInterface* self, FG_Window* window, FG_Clipboard kind, void* target,
+                                uint32_t count)
 {
 #ifdef FG_PLATFORM_WIN32
   if(!OpenClipboard(GetActiveWindow()))
@@ -246,8 +260,8 @@ bool Provider::CheckClipboard(FG_DesktopInterface* self, FG_Window* window, FG_C
   if(kind != FG_Clipboard_Text && kind != FG_Clipboard_All)
     return false;
 
-  _lasterr = 0; 
-  auto p = glfwGetClipboardString(static_cast<Context*>(window)->GetWindow());
+  _lasterr = 0;
+  auto p   = glfwGetClipboardString(static_cast<Context*>(window)->GetWindow());
   if(!p || _lasterr != 0)
     return false;
   return p[0] != 0;
@@ -273,7 +287,7 @@ int Provider::ClearClipboard(FG_DesktopInterface* self, FG_Window* window, FG_Cl
 int Provider::ProcessMessages(FG_DesktopInterface* self, FG_Window* window, void* ui_state)
 {
   // TODO: handle GLFW errors
-  auto backend = static_cast<Provider*>(self);
+  auto backend    = static_cast<Provider*>(self);
   backend->_uictx = ui_state;
   glfwPollEvents();
   if(!window)
@@ -326,7 +340,7 @@ int Provider::GetDisplay(FG_DesktopInterface* self, uintptr_t handle, FG_Display
 {
   if(!handle || !out)
     return ERR_MISSING_PARAMETER;
-  out->handle = handle;
+  out->handle  = handle;
   out->primary = glfwGetPrimaryMonitor() == reinterpret_cast<GLFWmonitor*>(handle);
 
   _lasterr = 0;
@@ -384,8 +398,7 @@ int Provider::DestroyImpl(FG_DesktopInterface* self)
 
 extern "C" FG_COMPILER_DLLEXPORT FG_DesktopInterface* fgGLFW(void* log_context, FG_Log log, FG_Behavior behavior)
 {
-  static_assert(std::is_same<FG_InitDesktop, decltype(&fgGLFW)>::value,
-                "fgOpenGL must match InitBackend function pointer");
+  static_assert(std::is_same<FG_InitDesktop, decltype(&fgGLFW)>::value, "fgOpenGL must match InitBackend function pointer");
 
 #ifdef FG_PLATFORM_WIN32
   typedef BOOL(WINAPI * tGetPolicy)(LPDWORD lpFlags);
@@ -436,29 +449,27 @@ long long GetRegistryValueW(HKEY__* hKeyRoot, const wchar_t* szKey, const wchar_
 }
 #endif
 
-#define _STRINGIFY(x) x
-#define TXT(x)        _STRINGIFY(#x)
-
 Provider::Provider(void* log_context, FG_Log log, FG_Behavior behavior) :
   _logctx(log_context), _log(log), _behavior(behavior), _windows(nullptr), _uictx(nullptr)
 {
-  createWindow          = &CreateWindowImpl;
-  setWindow             = &SetWindow;
-  destroyWindow         = &DestroyWindow;
-  putClipboard          = &PutClipboard;
-  getClipboard          = &GetClipboard;
-  checkClipboard        = &CheckClipboard;
-  clearClipboard        = &ClearClipboard;
-  processMessages       = &ProcessMessages;
-  getMessageSyncObject  = &GetMessageSyncObject;
-  setCursor             = &SetCursorImpl;
-  getDisplayIndex       = &GetDisplayIndex;
-  getDisplay            = &GetDisplay;
-  getDisplayWindow      = &GetDisplayWindow;
-  createSystemControl   = &CreateSystemControl;
-  setSystemControl      = &SetSystemControl;
-  destroySystemControl  = &DestroySystemControl;
-  destroy               = &DestroyImpl;
+  createWindow         = &CreateWindowImpl;
+  setWindow            = &SetWindow;
+  destroyWindow        = &DestroyWindow;
+  invalidateWindow     = &InvalidateWindow;
+  putClipboard         = &PutClipboard;
+  getClipboard         = &GetClipboard;
+  checkClipboard       = &CheckClipboard;
+  clearClipboard       = &ClearClipboard;
+  processMessages      = &ProcessMessages;
+  getMessageSyncObject = &GetMessageSyncObject;
+  setCursor            = &SetCursorImpl;
+  getDisplayIndex      = &GetDisplayIndex;
+  getDisplay           = &GetDisplay;
+  getDisplayWindow     = &GetDisplayWindow;
+  createSystemControl  = &CreateSystemControl;
+  setSystemControl     = &SetSystemControl;
+  destroySystemControl = &DestroySystemControl;
+  destroy              = &DestroyImpl;
 
   this->LOG(FG_Level_Notice, "Initializing fgGLFW...");
 

@@ -65,7 +65,9 @@ namespace GLFW {
     static int SetWindow(FG_DesktopInterface* self, FG_Window* window, FG_Display* display, FG_Vec2* pos, FG_Vec2* dim,
                          const char* caption, uint64_t flags);
     static int DestroyWindow(FG_DesktopInterface* self, FG_Window* window);
-    static int PutClipboard(FG_DesktopInterface* self, FG_Window* window, enum FG_Clipboard kind, const char* data, uint32_t count);
+    static int InvalidateWindow(FG_DesktopInterface* self, FG_Window* window, FG_Rect* optarea);
+    static int PutClipboard(FG_DesktopInterface* self, FG_Window* window, enum FG_Clipboard kind, const char* data,
+                            uint32_t count);
     static uint32_t GetClipboard(FG_DesktopInterface* self, FG_Window* window, enum FG_Clipboard kind, void* target, uint32_t count);
     static bool CheckClipboard(FG_DesktopInterface* self, FG_Window* window, enum FG_Clipboard kind);
     static int ClearClipboard(FG_DesktopInterface* self, FG_Window* window, enum FG_Clipboard kind);

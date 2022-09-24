@@ -8,6 +8,9 @@
 #ifdef FG_PLATFORM_WIN32
   #define GLFW_EXPOSE_NATIVE_WIN32
   #include "GLFW/glfw3native.h"
+#else
+  #define GLFW_EXPOSE_NATIVE_X11
+  #include "GLFW/glfw3native.h"
 #endif
 
 #include "ProviderGLFW.hpp"
@@ -391,7 +394,7 @@ void Window::RefreshCallback(GLFWwindow* window)
 #endif
 
   FG_Msg msg    = { FG_Event_Kind_Draw };
-  auto dim   = self->GetSize();
+  auto dim      = self->GetSize();
   msg.draw.area = { 0, 0, static_cast<float>(dim.x), static_cast<float>(dim.y) };
 
   self->_backend->Behavior(self, msg);
@@ -523,3 +526,29 @@ void Window::JoystickCallback(int jid, int e)
 void Window::MakeCurrent() { glfwMakeContextCurrent(_window); }
 
 void Window::SwapBuffers() { glfwSwapBuffers(_window); }
+
+void Window::Invalidate(FG_Rect* area)
+{
+#ifdef FG_PLATFORM_WIN32
+  auto hWnd = glfwGetWin32Window(_window);
+
+  if(!area)
+    InvalidateRect(hWnd, NULL, FALSE);
+  else
+  {
+    RECT rect = { static_cast<LONG>(floorf(area->left)), static_cast<LONG>(floorf(area->top)),
+                  static_cast<LONG>(ceilf(area->right)), static_cast<LONG>(ceilf(area->bottom)) };
+    InvalidateRect(hWnd, &rect, FALSE);
+  }
+#else
+  if(!area)
+    XClearArea(glfwGetX11Display(), glfwGetX11Monitor(_window), 0, 0, 0, 0, True)
+  else
+  {
+    RECT rect = { static_cast<LONG>(floorf(area->left)), static_cast<LONG>(floorf(area->top)),
+                  static_cast<LONG>(ceilf(area->right)), static_cast<LONG>(ceilf(area->bottom)) };
+    XClearArea(glfwGetX11Display(), glfwGetX11Monitor(_window), rect.left, rect.top, rect.right - rect.left,
+               rect.bottom - rect.top, True);
+  }
+#endif
+}

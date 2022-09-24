@@ -48,7 +48,7 @@ namespace GL {
   struct Context
   {
     FG_COMPILER_DLLEXPORT explicit Context(FG_Vec2 dim);
-    virtual ~Context();
+    ~Context();
     FG_COMPILER_DLLEXPORT GLExpected<void> BeginDraw(const FG_Rect* area);
     FG_COMPILER_DLLEXPORT GLExpected<void> EndDraw();
     FG_COMPILER_DLLEXPORT GLExpected<void> Resize(FG_Vec2 dim);

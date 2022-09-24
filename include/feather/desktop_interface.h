@@ -570,7 +570,7 @@ typedef struct FG_Window__
   uintptr_t window_id;
 } FG_Window;
 
-typedef FG_Result (*FG_Behavior)(FG_Context*, FG_Msg*, void*, uintptr_t);
+typedef FG_Result (*FG_Behavior)(FG_Window*, FG_Msg*, void*, uintptr_t);
 
 struct FG_DesktopInterface
 {
@@ -579,6 +579,7 @@ struct FG_DesktopInterface
   int (*setWindow)(struct FG_DesktopInterface* self, FG_Window* window, FG_Display* display, FG_Vec2* pos, FG_Vec2* dim,
                    const char* caption, uint64_t flags);
   int (*destroyWindow)(struct FG_DesktopInterface* self, FG_Window* window);
+  int (*invalidateWindow)(struct FG_DesktopInterface* self, FG_Window* window, FG_Rect* optarea);
   int (*putClipboard)(struct FG_DesktopInterface* self, FG_Window* window, enum FG_Clipboard kind, const char* data,
                       uint32_t count);
   uint32_t (*getClipboard)(struct FG_DesktopInterface* self, FG_Window* window, enum FG_Clipboard kind, void* target,

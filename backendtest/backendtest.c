@@ -239,8 +239,14 @@ void test_mesh(struct FG_GraphicsInterface* b, FG_Context* ctx, void* commands, 
   (*b->execute)(b, ctx, commands);
 }
 
+struct UIState
+{
+  struct FG_GraphicsInterface* graphics;
+  struct FG_GraphicsDesktopBridge* bridge;
+};
+
 // The behavior function simply processes all window messages from the host OS.
-FG_Result behavior(FG_Context* ctx, FG_Msg* msg, void* ui_context, uintptr_t window_id)
+FG_Result behavior(FG_Window* w, FG_Msg* msg, void* ui_context, uintptr_t window_id)
 {
   static const FG_ShaderParameter params[] = { { "MVP", 4, 4, 0, FG_Shader_Type_Float },
                                                { 0, 0, 0, 0, FG_Shader_Type_Texture } };
@@ -250,12 +256,14 @@ FG_Result behavior(FG_Context* ctx, FG_Msg* msg, void* ui_context, uintptr_t win
 
   if(msg->kind == FG_Event_Kind_Draw && e->pipeline != 0)
   {
-    struct FG_GraphicsInterface* b = *(struct FG_GraphicsInterface**)ui_context;
-    void* commands                 = (*b->createCommandList)(b, ctx, false);
+    struct UIState* state          = (struct UIState*)ui_context;
+    struct FG_GraphicsInterface* b = state->graphics;
+    void* commands                 = (*b->createCommandList)(b, w->context, false);
     assert(commands);
 
-    if(e->caps.features & FG_Feature_Mesh_Shader)
-      test_mesh(b, ctx, commands, e);
+    (*state->bridge->beginDraw)(state->bridge, w, NULL);
+    if(e->mesh_pipeline && (e->caps.features & FG_Feature_Mesh_Shader) != 0)
+      test_mesh(b, w->context, commands, e);
 
     // Try drawing a custom shader.
     mat4x4 proj;
@@ -267,8 +275,9 @@ FG_Result behavior(FG_Context* ctx, FG_Msg* msg, void* ui_context, uintptr_t win
     (*b->setPipelineState)(b, commands, e->pipeline);
     (*b->setShaderConstants)(b, commands, params, values, 2);
     (*b->draw)(b, commands, 4, 0, 0, 0);
-    (*b->execute)(b, ctx, commands);
+    (*b->execute)(b, w->context, commands);
     (*b->destroyCommandList)(b, commands);
+    (*state->bridge->endDraw)(state->bridge, w);
 
     FG_Result r = { 0 };
     return r;
@@ -322,9 +331,9 @@ void test_compute(struct FG_GraphicsInterface* b, FG_Window* w)
   FG_Resource outbuf = (*b->createBuffer)(b, w->context, outvals, sizeof(int) * GROUPSIZE, FG_Usage_Storage_Buffer);
   FG_Vec3i groupsize = { GROUPSIZE, 1, 1 };
 
-  uintptr_t compute_pipeline = (*b->createComputePipeline)(b, w->context,
-                                                      (*b->compileShader)(b, w->context, FG_ShaderStage_Compute, shader_cs),
-                                                      groupsize, 0);
+  uintptr_t compute_pipeline =
+    (*b->createComputePipeline)(b, w->context, (*b->compileShader)(b, w->context, FG_ShaderStage_Compute, shader_cs),
+                                groupsize, 0);
 
   void* commands = (*b->createCommandList)(b, w->context, false);
   assert(commands);
@@ -365,9 +374,11 @@ void test_compute(struct FG_GraphicsInterface* b, FG_Window* w)
 
 int main(int argc, char* argv[])
 {
-  struct FG_GraphicsInterface* b       = BACKEND(NULL, FakeLog);
-  struct FG_DesktopInterface* desktop = fgGLFW(NULL, FakeLog, behavior);
-  struct FG_GraphicsDesktopBridge* bridge  = BRIDGE(b, NULL, FakeLog);
+  struct FG_GraphicsInterface* b          = BACKEND(NULL, FakeLog);
+  struct FG_DesktopInterface* desktop     = fgGLFW(NULL, FakeLog, behavior);
+  struct FG_GraphicsDesktopBridge* bridge = BRIDGE(b, NULL, FakeLog);
+  
+  struct UIState state = { b, bridge };
 
   if(!b)
   {
@@ -431,9 +442,9 @@ int main(int argc, char* argv[])
 
   e.flags = FG_WindowFlag_Resizable;
 
-  FG_Vec2 pos = { 200.f, 100.f };
-  FG_Vec2 dim = { 800.f, 600.f };
-  FG_Window* w      = (*desktop->createWindow)(desktop, (uintptr_t)(&e), NULL, &pos, &dim, "Feather Test", e.flags);
+  FG_Vec2 pos  = { 200.f, 100.f };
+  FG_Vec2 dim  = { 800.f, 600.f };
+  FG_Window* w = (*desktop->createWindow)(desktop, (uintptr_t)(&e), NULL, &pos, &dim, "Feather Test", e.flags);
   (*bridge->emplaceContext)(bridge, w, FG_PixelFormat_R8G8B8A8_Typeless);
   TEST(w != NULL);
 
@@ -450,7 +461,7 @@ int main(int argc, char* argv[])
 
   FG_Vec2i fakedim = { 200, 200 };
   void* fakedata   = malloc(fakedim.x * (size_t)fakedim.y * 4);
-  memset(fakedata, 250, fakedim.x * (size_t)fakedim.y * 4);
+  memset(fakedata, 128, fakedim.x * (size_t)fakedim.y * 4);
 
   FG_Sampler sampler = { FG_Filter_Min_Mag_Mip_Linear };
   e.image    = (*b->createTexture)(b, w->context, fakedim, FG_Usage_Texture2D, FG_PixelFormat_R8G8B8A8_Typeless, &sampler,
@@ -471,20 +482,14 @@ int main(int argc, char* argv[])
 
   FG_Resource RenderTarget0 =
     (*b->createTexture)(b, w->context, WindowDim, FG_Usage_Texture2D, FG_PixelFormat_R8G8B8A8_Typeless, &sampler, NULL, 0);
-  FG_Resource RenderTarget1 =
-    (*b->createTexture)(b, w->context, WindowDim, FG_Usage_Texture2D, FG_PixelFormat_R8G8B8A8_Typeless, &sampler, NULL, 0);
-  FG_Resource rts[2] = { RenderTarget0, RenderTarget1 };
+  FG_Resource rts[1]      = { RenderTarget0 };
   FG_Resource framebuffer = (*b->createRenderTarget)(b, w->context, 0, rts, 1, 0);
-  e.pipeline         = (*b->createPipelineState)(b, w->context, &pipeline, framebuffer, &Premultiply_Blend, &e.vertices,
+  e.pipeline = (*b->createPipelineState)(b, w->context, &pipeline, framebuffer, &Premultiply_Blend, &e.vertices,
                                          &vertstride, 1, vertparams, 2, 0, 0);
-  e.close            = false;
-  if(e.caps.features & FG_Feature_Mesh_Shader)
-    e.mesh_pipeline = load_mesh(b, w);
+  e.close    = false;
 
-  (*bridge->beginDraw)(bridge, w, NULL);
   FG_Msg drawmsg = { FG_Event_Kind_Draw };
-  behavior(w->context, &drawmsg, &b, (uintptr_t)(&e));
-  (*bridge->endDraw)(bridge, w);
+  behavior(w, &drawmsg, &state, (uintptr_t)(&e));
 
   FG_Resource CopiedTexture =
     (*b->createTexture)(b, w->context, WindowDim, FG_Usage_Texture2D, FG_PixelFormat_R8G8B8A8_Typeless, &sampler, NULL, 0);
@@ -496,7 +501,10 @@ int main(int argc, char* argv[])
   (*b->execute)(b, w->context, commands);
   (*b->destroyCommandList)(b, commands);
 
-  // e.image    = CopiedTexture;
+  if(e.caps.features & FG_Feature_Mesh_Shader)
+    e.mesh_pipeline = load_mesh(b, w);
+
+  e.image    = CopiedTexture;
   e.pipeline = (*b->createPipelineState)(b, w->context, &pipeline, 0, &Premultiply_Blend, &e.vertices, &vertstride, 1,
                                          vertparams, 2, 0, 0);
 
@@ -504,12 +512,13 @@ int main(int argc, char* argv[])
 
   TEST((*desktop->setWindow)(desktop, w, NULL, NULL, NULL, NULL, FG_WindowFlag_Resizable) == 0);
   TEST((*desktop->setWindow)(desktop, w, NULL, NULL, NULL, "Feather Test Changed", FG_WindowFlag_Resizable) == 0);
+  TEST((*desktop->invalidateWindow)(desktop, w, NULL) == 0);
 
-  TEST((*desktop->processMessages)(desktop, NULL, &b) != 0);
+  TEST((*desktop->processMessages)(desktop, NULL, &state) != 0);
 
   const char TEST_TEXT[] = "testtext";
 
-  TEST((*desktop->processMessages)(desktop, NULL, &b) != 0);
+  TEST((*desktop->processMessages)(desktop, NULL, &state) != 0);
   TEST((*desktop->clearClipboard)(desktop, w, FG_Clipboard_All) == 0);
   TEST((*desktop->checkClipboard)(desktop, w, FG_Clipboard_Text) == false);
   TEST((*desktop->checkClipboard)(desktop, w, FG_Clipboard_Wave) == false);
@@ -528,7 +537,7 @@ int main(int argc, char* argv[])
   }
 
   TEST((*desktop->getClipboard)(desktop, w, FG_Clipboard_Wave, hold, 10) == 0)
-  while((*desktop->processMessages)(desktop, NULL, &b) != 0 && e.close == false)
+  while((*desktop->processMessages)(desktop, NULL, &state) != 0 && e.close == false)
     ;
 
   TEST((*b->destroyResource)(b, w->context, e.image) == 0);
