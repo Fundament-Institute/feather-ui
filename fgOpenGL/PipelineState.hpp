@@ -8,7 +8,7 @@
 #include "VertexArrayObject.hpp"
 #include "FrameBuffer.hpp"
 #include "Buffer.hpp"
-#include "feather/backend.h"
+#include "feather/graphics_interface.h"
 #include <string>
 #include <span>
 #include <array>

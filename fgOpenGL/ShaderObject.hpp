@@ -5,13 +5,13 @@
 #define GL__SHADER_OBJECT_H
 
 #include "Ref.hpp"
-#include "feather/backend.h"
+#include "feather/graphics_interface.h"
 #include <string>
 
 struct FG_ShaderParameter__;
 
 namespace GL {
-  class Backend;
+  class Provider;
   struct ShaderObject : public Ref
   {
     static constexpr DESTROY_FUNC DESTROY = [](GLuint i) { glDeleteShader(i); };
@@ -32,7 +32,7 @@ namespace GL {
 
     ShaderObject& operator=(const ShaderObject&) noexcept = default;
 
-    static GLExpected<Owned<ShaderObject>> create(const char* src, int type, Backend* backend) noexcept;
+    static GLExpected<Owned<ShaderObject>> create(const char* src, int type, Provider* backend) noexcept;
     static GLenum get_type(const FG_ShaderParameter__& param);
   };
 }

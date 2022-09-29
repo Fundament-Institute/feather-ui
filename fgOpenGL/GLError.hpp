@@ -1,10 +1,10 @@
 // Copyright (c)2022 Fundament Software
-// For conditions of distribution and use, see copyright notice in "Backend.hpp"
+// For conditions of distribution and use, see copyright notice in "ProviderGL.hpp"
 
 #ifndef GL__ERROR_H
 #define GL__ERROR_H
 
-#include "compiler.hpp"
+#include "feather/compiler.h"
 #include "glad/glad.h"
 #include <type_traits>
 #include <utility>
@@ -12,26 +12,28 @@
 #include <tuple>
 //#include <coroutine>
 
-#define GL_ERROR(name)                      \
-  if(GLError __e{ name, __FILE__, __LINE__ }) \
-  {                                         \
+#define GL_ERROR(name)                        \
+  if(GLError __e{ name, __FILE__, __LINE__ }; __e.has_error()) \
+  {                                           \
     return __e;                               \
   }
 
 #define CUSTOM_ERROR(error, name) GLError(error, name, __FILE__, __LINE__)
 
-#define RETURN_ERROR(...)       \
-  if(auto __e = (__VA_ARGS__)) {} \
-  else                          \
-    return std::move(__e.error())
+#define RETURN_ERROR(...)          \
+  if(auto __e = (__VA_ARGS__); __e.has_error()) \
+  {                                \
+    return std::move(__e.error());  \
+  }
 
-#define LOG_ERROR(backend, ...) \
-  if(auto __e = (__VA_ARGS__)) {} \
-  else                          \
-    return __e.error().log(backend)
+#define LOG_ERROR(backend, ...)     \
+  if(auto __e = (__VA_ARGS__); __e.has_error())  \
+  {                                 \
+    return __e.error().log(backend); \
+  }
 
 namespace GL {
-  class Backend;
+  class Provider;
 
   // Wrapper around an openGL error code and source, with a debug checker that ensures the error was handled.
   class GLError
@@ -95,9 +97,6 @@ namespace GL {
       std::swap(_line, right._line);
     }
 
-    // Returns true if there is an error and false if there isn't one (this is the opposite of GLExpected, necessary for
-    // nice error handling)
-    inline constexpr operator bool() noexcept { return has_error(); }
     inline constexpr bool has_error() noexcept
     {
       _checked();
@@ -108,7 +107,7 @@ namespace GL {
     inline constexpr bool operator==(const GLError& e) noexcept { return e._error == _error; };
     inline constexpr bool operator!=(const GLError& e) noexcept { return e._error != _error; };
     // If there was an error, logs it to backend.
-    GLenum log(Backend* backend);
+    FG_COMPILER_DLLEXPORT GLenum log(Provider* backend);
     std::tuple<GLenum, const char*, const char*, int> release()
     {
       // If this is an invalid error, we must leave it like that because _callsite could be invalid
@@ -469,7 +468,7 @@ namespace GL {
       return static_cast<std::remove_cv_t<T>>(std::forward<U>(right));
     }
 
-    GLenum log(Backend* backend) noexcept
+    GLenum log(Provider* backend) noexcept
     {
       _checked();
       return _grab().log(backend);
@@ -595,16 +594,16 @@ namespace GL {
     friend constexpr void swap(GLExpected&, GLExpected&) noexcept;
 
     // observers
-    constexpr explicit operator bool() noexcept { return has_value(); }
-    constexpr bool has_value() noexcept { return !has_error(); }
-    constexpr void operator*() const noexcept {}
-    constexpr void value() const {}
-    constexpr void value() {}
+    inline constexpr explicit operator bool() noexcept { return has_value(); }
+    inline constexpr bool has_value() noexcept { return !has_error(); }
+    inline constexpr void operator*() const noexcept {}
+    inline constexpr void value() const {}
+    inline constexpr void value() {}
     inline constexpr bool has_error() noexcept { return _error.has_error(); }
-    constexpr const GLError& error() const { return _error; }
-    constexpr GLError& error() { return _error; }
-    constexpr GLError release() noexcept { return std::move(*this); }
-    bool log(Backend* backend) noexcept { return _error.log(backend); }
+    inline constexpr const GLError& error() const { return _error; }
+    inline constexpr GLError& error() { return _error; }
+    inline constexpr GLError release() noexcept { return std::move(*this); }
+    inline GLenum log(Provider* backend) noexcept { return _error.log(backend); }
     inline constexpr bool peek() const noexcept { return _error.peek(); }
 
     // equality operators

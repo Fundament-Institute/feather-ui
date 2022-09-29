@@ -5,7 +5,7 @@
 #define GL__REF_H
 
 #include "GLError.hpp"
-#include "feather/backend.h"
+#include "feather/graphics_interface.h"
 
 namespace GL {
   enum RefType : FG_Resource

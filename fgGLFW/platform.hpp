@@ -4,7 +4,7 @@
 #ifndef GL__PLATFORM_H
 #define GL__PLATFORM_H
 
-#include "compiler.hpp"
+#include "feather/compiler.h"
 
 #ifdef FG_PLATFORM_WIN32
   #pragma pack(push)

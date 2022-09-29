@@ -1,9 +1,9 @@
 // Copyright (c)2022 Fundament Software
-// For conditions of distribution and use, see copyright notice in "BackendGL.hpp"
+// For conditions of distribution and use, see copyright notice in "ProviderGL.hpp"
 
 #include "PipelineState.hpp"
 #include "ShaderObject.hpp"
-#include "BackendGL.hpp"
+#include "ProviderGL.hpp"
 #include "EnumMapping.hpp"
 #include <cassert>
 #include <malloc.h> // for _alloca on windows
@@ -26,7 +26,7 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
   // for(int i = 0; i < FG_ShaderStage_COUNT; ++i)
   for(auto shader : std::span(state.shaders))
   {
-    if(shader != Backend::NULL_SHADER)
+    if(shader != Provider::NULL_SHADER)
       RETURN_ERROR(pipeline->program.attach(ShaderObject(shader)));
   }
   RETURN_ERROR(pipeline->program.link());

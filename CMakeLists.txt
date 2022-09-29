@@ -8,7 +8,7 @@ if(MSVC)
   # This ensures that we default to static but let vcpkg configure things the way it wants
   set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<STREQUAL:${VCPKG_CRT_LINKAGE},dynamic>:DLL>" CACHE STRING "")
 else()
-set(CPP_WARNINGS "-Wno-gnu-anonymous-struct -Wno-nested-anon-types")
+set(CPP_WARNINGS "-Wno-gnu-anonymous-struct -Wno-nested-anon-types -Wno-unknown-attributes")
 
 endif()
 set(BIN_DIR "bin")
@@ -44,7 +44,9 @@ set(INSTALL_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib" CACHE PATH "Installation direc
 set(INSTALL_INC_DIR "${CMAKE_INSTALL_PREFIX}/include" CACHE PATH "Installation directory for headers")
 
 add_subdirectory(fgOpenGL)
-#add_subdirectory(fgDirect2D)
+add_subdirectory(fgGLFW)
+add_subdirectory(fgOpenGLDesktopBridge)
+#add_subdirectory(fgDirectX11)
 add_subdirectory(backendtest)
 
 install(TARGETS fgOpenGL backendtest
