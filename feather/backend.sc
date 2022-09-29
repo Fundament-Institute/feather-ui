@@ -179,6 +179,7 @@ do
     wrap-enum Primitive
     wrap-enum Comparison
     wrap-enum Strip_Cut_Value
+    wrap-enum BufferAccess
     wrap-enum Blend_Operand
     wrap-enum Blend_Op
     wrap-bitfield Pipeline_Member # TODO make bitfield
@@ -221,11 +222,12 @@ do
                     y = other.y
     let Vec2 = raw.typedef.FG_Vec2
 
+    type GenericBackend :: (mutable@ raw.struct.FG_Backend)
 
     @@ memo
     inline Backend (app-type)
 
-        type (.. "Backend" (tostring app-type)) : (mutable@ raw.struct.FG_Backend)
+        type (.. "Backend" (tostring app-type)) :: (mutable@ raw.struct.FG_Backend)
             inline __drop (self)
                 let vtab = (storagecast self)
                 vtab.destroy vtab
@@ -239,6 +241,8 @@ do
                     let vtab = (storagecast self.parent)
                     vtab.destroyWindow vtab self.window
                     _;
+                fn get-context (self)
+                    self.window.context
                 spice __drop (self)
                     returning Value
                     error "window cannot be dropped, must be destroyed by backend"
@@ -248,6 +252,7 @@ do
 
             fn... create-window (self, id : u64, display : (Option Display), pos : (Option vec2), size : (Option vec2), caption, flags)
                 viewing caption
+                viewing self
                 # returning (uniqueof Window 1003)
 
                 # option-to-pointer disp display
@@ -278,6 +283,7 @@ do
                 # _;
 
             fn process-messages (self app window)
+                viewing self
                 let vtab = (storagecast self)
                 vtab.processMessages vtab window.window (& app)
                 app
@@ -294,6 +300,7 @@ do
     let Msg = raw.typedef.FG_Msg
     let Msg_Result = raw.typedef.FG_Result
     let InitBackend = ((mutable@ raw.struct.FG_Backend) <-: ((@ void) Log Behavior))
+    let Context = raw.typedef.FG_Context
 
     inline load-backend (name app-type)
         let raw-init =

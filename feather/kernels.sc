@@ -1,5 +1,5 @@
 using import struct
-import itertools
+using import itertools
 
 fn parse-typed-arg-list (args)
     let collected ignore =
@@ -45,7 +45,7 @@ fn make-kernel-type (varyings uniforms func)
         body...
     where v1 and v2 are varying parameters and u1 is a uniform parameter.
     The body may have any ordinary scopes code as a function in it.
-sugar kernel (name args...)
+#sugar kernel (name args...)
     let varyings uniforms body =
         sugar-match args...
         case (('curly-list uniform...) (varying...) body...)
@@ -71,7 +71,7 @@ sugar kernel (name args...)
     let func =
         qq
             fn ((unquote-splice unames) (unquote-splice vnames))
-               (unquote-splice body)
+                (unquote-splice body)
 
 
 type buffer
@@ -110,7 +110,7 @@ type buffer
 
 @@ type-factory
 inline foreign-buffer (elem executor)
-    let ST = (tuple (opaque@ void) usize (& executor))
+    let ST = (tuple (@ void) usize (& executor))
     type (.. "(foreign-buffer" (tostring elem) ")") : ST
         inline __drop (self)
             let id size exec = (unpack (storagecast self))
@@ -121,18 +121,22 @@ inline foreign-buffer (elem executor)
 
 type executor
     spice map (self kernel args...)
+        returning Value
         error "map is unimplemented on this executor"
     spice upload-buffer (self buff)
+        returning Value
         error
             ..
                 "upload-buffer must be implemented by executors but is not implemented by "
                 tostring ('typeof self)
     spice download-buffer (self fbuff)
+        returning Value
         error
             ..
                 "download-buffer must be implemented by executors but is not implemented by "
                 tostring ('typeof self)
     spice new-buffer (self typ size initializer)
+        returning Value
         error
             ..
                 "new-buffer must be implemented by executors but is not implemented by "
@@ -140,28 +144,33 @@ type executor
 
 type rendering-executor < executor
     spice upload-texture (self buff)
+        returning Value
         error
             ..
                 "upload-texture must be implemented by rendering-executors but is not implemented by "
                 tostring ('typeof self)
     spice download-texture (self fbuff)
+        returning Value
         error
             ..
                 "download-texture must be implemented by rendering-executors but is not implemented by "
                 tostring ('typeof self)
     spice new-texture (self typ size initializer)
+        returning Value
         error
             ..
                 "new-texture must be implemented by rendering-executors but is not implemented by "
                 tostring ('typeof self)
 
     spice run-pass(self operation)
+        returning Value
         error
             ..
                 "run-pass must be implemented by rendering-executors but is not implemented by "
                 tostring ('typeof self)
 
     spice create-pipeline (self config...)
+        returning Value
         error
             ..
                 "create-pipeline must be implemented by rendering-executors but is not implemented by "
@@ -170,7 +179,7 @@ type rendering-executor < executor
 
 
 
-type processor-executor < executor
+#type processor-executor < executor
     spice upload-buffer (self buff)
         buff
     spice download-buffer (self buff)
@@ -218,9 +227,9 @@ type processor-executor < executor
     pipelines may be invoked on device data in a renderpass
 
 
-run-stage;
+#run-stage;
 #TESTS
-fn test()
+#fn test()
     let ex = (processor-executor)
     let xs =
         'new-buffer ex f32 128
@@ -235,3 +244,5 @@ fn test()
     let res =
         'map ex saxpy 0.5 xs ys
     'download-buffer ex res
+
+locals;

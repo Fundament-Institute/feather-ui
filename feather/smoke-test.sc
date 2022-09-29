@@ -2,6 +2,7 @@ using import .backend
 using import glm
 using import struct
 using import Option
+# using import .executors.opengl
 
 fn mat4-proj (l r b t n f)
     """"assembles a custom projection matrix designed for 2d drawing
@@ -84,6 +85,8 @@ fn main ()
     let b = (backend_new (& logger) behavior )
     local element : MockElement
     let w = ('create-window b 0 none none (vec2 800 600) "smoke test" 0)
+    let context = ('get-context w)
+    # let executor = (opengl-executor b context)
     while (not element.close)
         element = ('process-messages b element w)
     'destroy b w

@@ -1,5 +1,5 @@
 
-
+using import struct
 using import ..kernels
 using import ..backend
 
@@ -27,7 +27,7 @@ type opengl-executor < rendering-executor : opengl-data
     inline download-buffer (self fbuff)
         let data = (storagecast self)
         let id size exec = (unpack (storagecast fbuff))
-        let mapresult = ('map-resource data.backend data.context id 0 size Usage.Storage_Buffer BufferAccess.Read)
+        let mapresult = ('map-resource data.backend data.context id 0 size Usage.Storage_Buffer AccessFlag.Read)
         let elem = ('elem-type fbuff)
         if (mapresult == null)
             error "something went wrong while mapping buffer"
@@ -36,7 +36,10 @@ type opengl-executor < rendering-executor : opengl-data
                 size
                 inline (i)
                     (mapresult as (@ elem)) @ i
-        let unmapresult = ('unmap-resource data.backent data.context id BufferTypes.Uniform)
+        let unmapresult = ('unmap-resource data.backent data.context id Usage.Storage_Buffer)
         if (unmapresult != 0)
             error (.. "something went wrong while unmapping buffer. error code: " (tostring unmapresult))
         buff
+
+
+locals;
