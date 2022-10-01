@@ -77,17 +77,32 @@ type Promise
     @@ type-factory
     inline make-type (T Err)
         type (.. "(Promise " (tostring T) " " (tostring Err) ")") :: (Rc (PromiseState T Err)) < this-type
+            let success-type = T
+            let fail-type = Err
+            let result-type = (PromiseResult T Err)
             inline then (self handler)
+                let handler-prime = ('instance handler T)
+                let handler-type = (typeof handler-prime)
+                let ft = handler-type.FunctionType
+                let res err = ('return-type ft)
+                let collapsed-res =
+                    static-if (type< res promise-base)
 
+
+                let next-state-type = (PromiseState res err)
+                let next-result-type = (PromiseResult res err)
                 let state = (storagecast self)
-                local next-state = (Rc.new (PromiseState))
+                local next-state = (Rc.new (getattr next-state-type 'unbound))
                 'bind-handler state
-                    capture "promise-handler" {handler}(result)
+                    capture "promise-handler" {handler next-state}(result)
                         dispatch result
                         case ok (val)
+                            let result =
+                                try
+                                    let ret = (handler val)
                             let ret = (accept val)
                             let ret-type = (typeof ret)
-                            static-if (type< ret-type promise-base)
+                            static-if (type< res promise-base)
                                 ret
                             else
 

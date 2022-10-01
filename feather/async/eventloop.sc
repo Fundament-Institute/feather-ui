@@ -70,6 +70,16 @@ struct EventLoop
 global thread-local-event-loop : (@ EventLoop) # need to actually make this thread-local at some point
 
 
+type WaitScope :: Nothing
+    fn __typecall(eventloop)
+        if (thread-local-event-loop != null)
+            error "WaitScope constructed while an event loop is already bound"
+        else
+            thread-local-event-loop = eventloop
+            (bitcast none this-type)
+    fn __drop(self)
+        thread-local-event-loop = null
+
 struct Event
     _fire-impl : (Capture (Capture.function (@ this-type)))
     _loop : (mutable@ EventLoop)
