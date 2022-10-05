@@ -80,17 +80,28 @@ type Promise
             let success-type = T
             let fail-type = Err
             let result-type = (PromiseResult T Err)
+            let state-type = (PromiseState T Err)
             inline then (self handler)
                 let handler-prime = ('instance handler T)
                 let handler-type = (typeof handler-prime)
                 let ft = handler-type.FunctionType
                 let res err = ('return-type ft)
-                let collapsed-res =
+                let collapsed-res promise-type collapse? =
                     static-if (type< res promise-base)
+                        _ res.success-type res true
+                    else
+                        _
+                            res
+                            static-if (!= err Nothing)
+                                promise-base res err
+                            else
+                                promise-base res Err
+                            false
 
 
-                let next-state-type = (PromiseState res err)
-                let next-result-type = (PromiseResult res err)
+                let next-state-type = (PromiseState collapsed-res err)
+                let intermediate-result-type = (PromiseResult res err)
+                let next-result-type = (PromiseResult collapsed-res err)
                 let state = (storagecast self)
                 local next-state = (Rc.new (getattr next-state-type 'unbound))
                 'bind-handler state
@@ -100,21 +111,51 @@ type Promise
                             let result =
                                 try
                                     let ret = (handler val)
-                            let ret = (accept val)
-                            let ret-type = (typeof ret)
-                            static-if (type< res promise-base)
-                                ret
-                            else
+                                    let collapsed-ret =
+                                        static-if collapse?
+                                            'bind-handler (storagecast ret)
+                                                capture {next-state}(val)
+                                                    'recieve-result next-state val
+                                        else
+                                            'recieve-result next-state (next-result-type.ok ret)
+                                except (ex)
+                                    'recieve-result next-state (next-result-type.err ex)
 
-                        case err (val)
-                            reject val
-
+                            case err (val)
+                                'recieve-result next-state (next-result-type.err val)
                 drop self
+
+                bitcast next-state promise-type
 
             inline catch (self handler)
 
             inline cancel (self)
                 let state = (storagecast self)
+
+            fn wait (self)
+                let el = thread-local-event-loop
+                # TODO: add support for waiting on an event provider
+                vvv bind res
+                loop ()
+                    if (not ('runnable? el))
+                        break (error "tried to wait for a promise but ran out of events before it was resolved")
+                    'run el 1000
+                    let state = (storagecast self)
+                    dispatch state
+                    case unbound()
+                        continue
+                    case recieved (res)
+                        state = this-type.state-type.finished
+                        break res
+                    default
+                        break (error "promise in invalid state. did something else wait on a linear promise?")
+
+                dispatch res
+                case ok(val)
+                    val
+                case err(val)
+                    raise val
+
 
 
 
