@@ -49,7 +49,7 @@ add_subdirectory(fgOpenGLDesktopBridge)
 #add_subdirectory(fgDirectX11)
 add_subdirectory(backendtest)
 
-install(TARGETS fgOpenGL backendtest
+install(TARGETS fgOpenGL backendtest fgOpenGLDesktopBridge
         RUNTIME DESTINATION ${INSTALL_BIN_DIR}
         ARCHIVE DESTINATION ${INSTALL_LIB_DIR}
         LIBRARY DESTINATION ${INSTALL_LIB_DIR}  )
