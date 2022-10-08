@@ -292,7 +292,7 @@ namespace GL {
 
       _error = right._error;
       if(_error == GLError::INVALID_ERROR)
-        return;
+        return *this;
 
       if(peek())
       {
