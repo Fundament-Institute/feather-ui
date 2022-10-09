@@ -127,9 +127,9 @@ namespace GL {
       return { e, c, f, l };
     }
 
-    static const GLenum INVALID_ERROR = ~(1 << ((sizeof(GLenum) * 8) - 1));
+    static constexpr GLenum INVALID_ERROR = ~(1 << ((sizeof(GLenum) * 8) - 1));
 #ifdef _DEBUG
-    static const GLenum UNCHECKED_FLAG = (1 << ((sizeof(GLenum) * 8) - 1));
+    static constexpr GLenum UNCHECKED_FLAG = (1 << ((sizeof(GLenum) * 8) - 1));
 #endif
 
     inline constexpr GLError& operator=(GLError&& right) noexcept
