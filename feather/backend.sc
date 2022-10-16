@@ -192,14 +192,14 @@ do
         inline __rimply (othercls cls)
             inline (other)
                 cls
-                    v = (imply other i32)
+                    v = (imply other u32)
     let Color8 = raw.typedef.FG_Color8
 
     type+ raw.typedef.FG_Color16
         inline __rimply (othercls cls)
             inline (other)
                 cls
-                    v = (imply other i64)
+                    v = (imply other u64)
     let Color16 = raw.typedef.FG_Color16
 
     wrap-enum Level

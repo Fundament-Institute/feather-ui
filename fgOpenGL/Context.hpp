@@ -70,7 +70,7 @@ namespace GL {
     GLExpected<void> ApplyCull(uint8_t cull);
     GLExpected<void> SetViewports(std::span<FG_Viewport> viewports);
     GLExpected<void> SetScissors(std::span<FG_Rect> rects);
-    GLExpected<void> Clear(uint8_t clearbits, FG_Color RGBA, uint8_t stencil, float depth, std::span<FG_Rect> rects);
+    GLExpected<void> Clear(uint8_t clearbits, FG_Color16 RGBA, uint8_t stencil, float depth, std::span<FG_Rect> rects);
     void ApplyWorkGroup(FG_Vec3i workgroup) { _workgroup = workgroup; }
     void ApplyDim(FG_Vec2 dim) { _dim = dim; }
     inline void ApplyIndextype(GLenum indextype) { _indextype = indextype; }
@@ -89,7 +89,7 @@ namespace GL {
           colors[i] = ToLinearRGB(colors[i]);
     }
 
-    static inline void ColorFloats(const FG_Color& c, std::array<float, 4>& colors, bool linearize)
+    static inline void ColorFloats(const FG_Color16& c, std::array<float, 4>& colors, bool linearize)
     {
       colors[0] = c.r / 65535.0f;
       colors[1] = c.g / 65535.0f;

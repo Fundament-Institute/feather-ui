@@ -480,7 +480,7 @@ typedef struct FG_PipelineState__
 {
   uint64_t members; // Each bit represents a particular member that has been set
   FG_Shader shaders[FG_ShaderStage_Count];
-  FG_Color blendFactor;
+  FG_Color16 blendFactor;
   uint16_t flags;
   uint32_t sampleMask;
   uint32_t stencilRef;
@@ -551,7 +551,7 @@ typedef struct FG_Sampler__
   float mip_bias;
   float min_lod;
   float max_lod;
-  FG_Color border_color;
+  FG_Color16 border_color;
 } FG_Sampler;
 
 enum FG_Logic_Op
@@ -703,7 +703,7 @@ struct FG_GraphicsInterface
   int (*destroyShader)(struct FG_GraphicsInterface* self, FG_Context* context, FG_Shader shader);
   FG_CommandList* (*createCommandList)(struct FG_GraphicsInterface* self, FG_Context* context, bool bundle);
   int (*destroyCommandList)(struct FG_GraphicsInterface* self, FG_CommandList* commands);
-  int (*clear)(struct FG_GraphicsInterface* self, FG_CommandList* commands, uint8_t clearbits, FG_Color RGBA,
+  int (*clear)(struct FG_GraphicsInterface* self, FG_CommandList* commands, uint8_t clearbits, FG_Color16 RGBA,
                uint8_t stencil, float depth, uint32_t num_rects, FG_Rect* rects);
   int (*copyResource)(struct FG_GraphicsInterface* self, FG_CommandList* commands, FG_Resource src, FG_Resource dest,
                       FG_Vec3i size, int mipmaplevel);

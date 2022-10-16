@@ -232,7 +232,7 @@ int Provider::DestroyCommandList(FG_GraphicsInterface* self, void* commands)
   return ERR_SUCCESS;
 }
 
-int Provider::Clear(FG_GraphicsInterface* self, void* commands, uint8_t clearbits, FG_Color RGBA, uint8_t stencil,
+int Provider::Clear(FG_GraphicsInterface* self, void* commands, uint8_t clearbits, FG_Color16 RGBA, uint8_t stencil,
                     float depth, uint32_t num_rects, FG_Rect* rects)
 {
   auto backend = static_cast<Provider*>(self);

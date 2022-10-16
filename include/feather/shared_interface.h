@@ -87,7 +87,7 @@ typedef union FG_Color16__
     uint16_t r;
     uint16_t a;
   };
-} FG_Color;
+} FG_Color16;
 
 enum FG_Level
 {

@@ -110,7 +110,7 @@ GLExpected<void> Context::ApplyProgram(const ProgramObject& program)
   return {};
 }
 
-GLExpected<void> Context::Clear(uint8_t clearbits, FG_Color RGBA, uint8_t stencil, float depth, std::span<FG_Rect> rects)
+GLExpected<void> Context::Clear(uint8_t clearbits, FG_Color16 RGBA, uint8_t stencil, float depth, std::span<FG_Rect> rects)
 {
   glClearDepth(depth);
   GL_ERROR("glClearDepth");

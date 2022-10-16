@@ -64,7 +64,7 @@ namespace GL {
     static int DestroyShader(FG_GraphicsInterface* self, FG_Context* context, FG_Shader shader);
     static FG_CommandList* CreateCommandList(FG_GraphicsInterface* self, FG_Context* context, bool bundle);
     static int DestroyCommandList(FG_GraphicsInterface* self, FG_CommandList* commands);
-    static int Clear(FG_GraphicsInterface* self, FG_CommandList* commands, uint8_t clearbits, FG_Color RGBA,
+    static int Clear(FG_GraphicsInterface* self, FG_CommandList* commands, uint8_t clearbits, FG_Color16 RGBA,
                      uint8_t stencil, float depth, uint32_t num_rects, FG_Rect* rects);
     static int CopyResource(FG_GraphicsInterface* self, FG_CommandList* commands, FG_Resource src, FG_Resource dest,
                             FG_Vec3i size, int mipmaplevel);
