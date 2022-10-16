@@ -643,7 +643,6 @@ typedef struct FG_ShaderParameter__
   uint8_t type;   // enum FG_ShaderType
 } FG_ShaderParameter;
 
-typedef void FG_Context;
 typedef void FG_CommandList;
 
 typedef union FG_ShaderValue__
