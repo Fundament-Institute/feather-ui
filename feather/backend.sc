@@ -9,25 +9,14 @@ using import glm
 
 let raw =
     include
-        """"#include "feather/backend.h"
+        """"#include "feather/shared_interface.h"
+            #include "feather/desktop_interface.h"
+            #include "feather/graphics_interface.h"
+            #include "feather/graphics_desktop_bridge.h"
             #include "stdarg.h"
             #include "stdio.h"
 
-            const char* LEVELS[] = { "FATAL: ", "ERROR: ", "WARNING: ", "NOTICE: ", "DEBUG: " };
 
-            // A logging function that just forwards everything to printf
-            void FakeLog(void* root, enum FG_Level level, const char* f, ...)
-            {
-
-            if(level >= 0)
-                printf("%s", LEVELS[level]);
-
-            va_list args;
-            va_start(args, f);
-            vprintf(f, args);
-            va_end(args);
-            printf("\n");
-            }
 
 let enum-vals =
     sugar-scope-macro
@@ -207,8 +196,6 @@ do
     wrap-bitfield BarrierFlags
     wrap-bitfield ClearFlag
 
-
-    let fake-log = raw.extern.FakeLog
 
     let Display = raw.typedef.FG_Display
 
