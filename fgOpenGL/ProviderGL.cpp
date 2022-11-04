@@ -214,7 +214,7 @@ void* Provider::CreateCommandList(FG_GraphicsInterface* self, FG_Context* contex
   return context;
 }
 
-int Provider::DestroyCommandList(FG_GraphicsInterface* self, void* commands)
+int Provider::DestroyCommandList(FG_GraphicsInterface* self, FG_Context* context, void* commands)
 {
   auto backend = static_cast<Provider*>(self);
   if(!commands)

@@ -276,7 +276,7 @@ FG_Result behavior(FG_Window* w, FG_Msg* msg, void* ui_context, uintptr_t window
     (*b->setShaderConstants)(b, commands, params, values, 2);
     (*b->draw)(b, commands, 4, 0, 0, 0);
     (*b->execute)(b, w->context, commands);
-    (*b->destroyCommandList)(b, commands);
+    (*b->destroyCommandList)(b, w->context, commands);
     (*state->bridge->endDraw)(state->bridge, w);
 
     FG_Result r = { 0 };
@@ -365,7 +365,7 @@ void test_compute(struct FG_GraphicsInterface* b, FG_Window* w)
     TEST(readbuf[i] == initvals[i] * values[0].i32);
   }
 
-  (*b->destroyCommandList)(b, commands);
+  (*b->destroyCommandList)(b, w->context, commands);
   TEST((*b->unmapResource)(b, w->context, CopiedOutbuf, FG_Usage_Storage_Buffer) == 0);
   TEST((*b->destroyResource)(b, w->context, outbuf) == 0);
   TEST((*b->destroyResource)(b, w->context, inbuf) == 0);
@@ -499,7 +499,7 @@ int main(int argc, char* argv[])
   FG_Vec3i vec3window = { WindowDim.x, WindowDim.y, 0 };
   TEST((*b->copyResourceRegion)(b, commands, RenderTarget0, CopiedTexture, 0, vec3zero, vec3zero, vec3window) == 0);
   (*b->execute)(b, w->context, commands);
-  (*b->destroyCommandList)(b, commands);
+  (*b->destroyCommandList)(b, w->context, commands);
 
   if(e.caps.features & FG_Feature_Mesh_Shader)
     e.mesh_pipeline = load_mesh(b, w);
