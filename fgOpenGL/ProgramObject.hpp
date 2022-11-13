@@ -20,7 +20,7 @@ namespace GL {
     constexpr ~ProgramObject() noexcept                   = default;
     GLExpected<void> attach(ShaderObject shader) noexcept;
     GLExpected<void> link() noexcept;
-    bool is_valid() const noexcept;
+    GLExpected<bool> is_valid() const noexcept;
     GLExpected<std::string> log() const noexcept;
     GLExpected<void> set_uniform(const char* name, GLenum type, const float* data, uint32_t count) const noexcept;
     GLExpected<void> set_buffer(GLuint resource, uint32_t index, uint32_t offset, uint32_t length) const noexcept;

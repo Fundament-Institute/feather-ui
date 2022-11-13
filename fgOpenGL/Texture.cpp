@@ -22,8 +22,7 @@ static GLenum GLFilter(bool mip, bool other)
 
 GLExpected<Texture::TextureBindRef> Texture::bind(GLenum target) const noexcept
 {
-  glBindTexture(target, _ref);
-  GL_ERROR("glBindTexture");
+  RETURN_ERROR(CALLGL(glBindTexture, target, _ref));
   return Texture::TextureBindRef{ target, [](GLenum target) { glBindTexture(target, 0); } };
 }
 
@@ -33,33 +32,25 @@ GLExpected<void> Texture::apply_sampler(GLenum target, const FG_Sampler& sampler
   f.value = sampler.filter;
 
   // TODO: figure out when the texture has a mipmap
-  glTexParameteri(target, GL_TEXTURE_MAG_FILTER, f.mag_filter ? GL_LINEAR : GL_NEAREST);
-  GL_ERROR("glTexParameteri");
-  glTexParameteri(target, GL_TEXTURE_MIN_FILTER, f.min_filter ? GL_LINEAR : GL_NEAREST);
-  GL_ERROR("glTexParameteri");
+  RETURN_ERROR(CALLGL(glTexParameteri, target, GL_TEXTURE_MAG_FILTER, f.mag_filter ? GL_LINEAR : GL_NEAREST));
+  RETURN_ERROR(CALLGL(glTexParameteri, target, GL_TEXTURE_MIN_FILTER, f.min_filter ? GL_LINEAR : GL_NEAREST));
 
-  glTexParameterf(target, GL_TEXTURE_MAX_LOD, sampler.max_lod);
-  GL_ERROR("glTexParameterf");
-  glTexParameterf(target, GL_TEXTURE_MIN_LOD, sampler.min_lod);
-  GL_ERROR("glTexParameterf");
-  glTexParameterf(target, GL_TEXTURE_LOD_BIAS, sampler.mip_bias);
-  GL_ERROR("glTexParameterf");
+  RETURN_ERROR(CALLGL(glTexParameterf, target, GL_TEXTURE_MAX_LOD, sampler.max_lod));
+  RETURN_ERROR(CALLGL(glTexParameterf, target, GL_TEXTURE_MIN_LOD, sampler.min_lod));
+  RETURN_ERROR(CALLGL(glTexParameterf, target, GL_TEXTURE_LOD_BIAS, sampler.mip_bias));
 
   if(f.anisotropic)
   {
-    glTexParameterf(target, GL_TEXTURE_MAX_ANISOTROPY, sampler.max_anisotropy);
-    GL_ERROR("glTexParameterf");
+    RETURN_ERROR(CALLGL(glTexParameterf, target, GL_TEXTURE_MAX_ANISOTROPY, sampler.max_anisotropy));
   }
 
   if(sampler.comparison != FG_Comparison_Disabled && f.comparison)
   {
-    glTexParameteri(target, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
-    GL_ERROR("glTexParameteri");
+    RETURN_ERROR(CALLGL(glTexParameteri, target, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE));
     if(sampler.comparison >= ArraySize(ComparisonMapping))
-      return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Comparison outside of bounds");
+      return CUSTOM_ERROR(ERR_INVALID_ENUM, "Comparison enum outside of bounds");
 
-    glTexParameteri(target, GL_TEXTURE_COMPARE_FUNC, ComparisonMapping[sampler.comparison]);
-    GL_ERROR("glTexParameteri");
+    RETURN_ERROR(CALLGL(glTexParameteri, target, GL_TEXTURE_COMPARE_FUNC, ComparisonMapping[sampler.comparison]));
   }
 
   return {};
@@ -69,20 +60,17 @@ GLExpected<Owned<Texture>> Texture::create2D(GLenum target, Format format, FG_Ve
                                              void* data, int levelorsamples)
 {
   GLuint texgl;
-  glGenTextures(1, &texgl);
-  GL_ERROR("glGenTextures");
+  RETURN_ERROR(CALLGL(glGenTextures, 1, &texgl));
   Owned<Texture> tex(texgl);
   if(auto bind = tex.bind(target))
   {
     if(target == GL_TEXTURE_2D_MULTISAMPLE || target == GL_PROXY_TEXTURE_2D_MULTISAMPLE)
     {
-      glTexImage2DMultisample(target, levelorsamples, format.internalformat, size.x, size.y, GL_FALSE);
-      GL_ERROR("glTexImage2DMultisample");
+      RETURN_ERROR(CALLGL(glTexImage2DMultisample, target, levelorsamples, format.internalformat, size.x, size.y, GL_FALSE));
     }
     else
     {
-      glTexImage2D(target, levelorsamples, format.internalformat, size.x, size.y, 0, format.components, format.type, data);
-      GL_ERROR("glTexImage2D");
+      RETURN_ERROR(CALLGL(glTexImage2D, target, levelorsamples, format.internalformat, size.x, size.y, 0, format.components, format.type, data));
     }
 
     RETURN_ERROR(bind.value().apply_sampler(sampler));

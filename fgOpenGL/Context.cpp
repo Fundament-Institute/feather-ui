@@ -57,70 +57,49 @@ Context::Context(FG_Vec2 dim) :
   _primitive(0),
   _statestore({ 0 }),
   _workgroup({ 0, 0, 0 })
-{
-}
+{}
 Context::~Context() {}
 
 GLExpected<void> Context::BeginDraw(const FG_Rect* area)
 {
-  GLint box[4] = {0};
-  glGetIntegerv(GL_SCISSOR_BOX, box);
-  GL_ERROR("glGetIntegerv");
+  GLint box[4] = { 0 };
+  RETURN_ERROR(CALLGL(glGetIntegerv, GL_SCISSOR_BOX, box));
   _lastscissor = {
     static_cast<float>(box[0]),
     static_cast<float>(box[1]),
     static_cast<float>(box[2] + box[0]),
-    static_cast<float>(box[3] + box[1]), 
+    static_cast<float>(box[3] + box[1]),
   };
-  RETURN_ERROR(SetScissors({ &_lastscissor, 1 }));
-  return {};
+  return SetScissors({ &_lastscissor, 1 });
 }
 
-GLExpected<void> Context::EndDraw()
-{
-  return {};
-}
+GLExpected<void> Context::EndDraw() { return {}; }
 GLExpected<void> Context::Resize(FG_Vec2 dim)
 {
   _dim         = dim;
   _lastscissor = { 0, 0, _dim.x, _dim.y };
-  RETURN_ERROR(SetScissors({ &_lastscissor, 1 }));
-  return {};
+  return SetScissors({ &_lastscissor, 1 });
 }
 
-GLExpected<void> Context::Dispatch()
-{
-  glDispatchCompute(_workgroup.x, _workgroup.y, _workgroup.z);
-  GL_ERROR("glDispatchCompute");
-  return {};
-}
+GLExpected<void> Context::Dispatch() { return CALLGL(glDispatchCompute, _workgroup.x, _workgroup.y, _workgroup.z); }
 
-GLExpected<void> Context::Barrier(GLbitfield barrier_flags)
-{
-  glMemoryBarrier(barrier_flags);
-  GL_ERROR("glMemoryBarrier");
-  return {};
-}
+GLExpected<void> Context::Barrier(GLbitfield barrier_flags) { return CALLGL(glMemoryBarrier, barrier_flags); }
 
 GLExpected<void> Context::ApplyProgram(const ProgramObject& program)
 {
-  glUseProgram(program);
-  GL_ERROR("glUseProgram");
+  RETURN_ERROR(CALLGL(glUseProgram, program));
   _program = &program;
   return {};
 }
 
 GLExpected<void> Context::Clear(uint8_t clearbits, FG_Color16 RGBA, uint8_t stencil, float depth, std::span<FG_Rect> rects)
 {
-  glClearDepth(depth);
-  GL_ERROR("glClearDepth");
-  glClearStencil(stencil);
-  GL_ERROR("glClearStencil");
+  RETURN_ERROR(CALLGL(glClearDepth, depth));
+  RETURN_ERROR(CALLGL(glClearStencil, stencil));
 
   std::array<float, 4> colors;
   Context::ColorFloats(RGBA, colors, false);
-  glClearColor(colors[0], colors[1], colors[2], colors[3]);
-  GL_ERROR("glClearColor");
+  RETURN_ERROR(CALLGL(glClearColor, colors[0], colors[1], colors[2], colors[3]));
 
   GLbitfield flags = 0;
   if(clearbits & FG_ClearFlag_Color)
@@ -134,15 +113,13 @@ GLExpected<void> Context::Clear(uint8_t clearbits, FG_Color16 RGBA, uint8_t sten
 
   if(rects.empty())
   {
-    glClear(flags);
-    GL_ERROR("glClear");
+    RETURN_ERROR(CALLGL(glClear, flags));
   }
 
   for(auto& r : rects)
   {
     RETURN_ERROR(CallWithRect(r, glScissor, "glScissor"));
-    glClear(flags);
-    GL_ERROR("glClear");
+    RETURN_ERROR(CALLGL(glClear, flags));
   }
 
   RETURN_ERROR(CallWithRect(_lastscissor, glScissor, "glScissor"));
@@ -153,7 +130,8 @@ GLExpected<void> Context::SetViewports(std::span<FG_Viewport> viewports)
 {
   if(viewports.size() > 0)
   {
-    FG_Rect r = { viewports[0].pos.x, viewports[0].pos.y, viewports[0].pos.x+ viewports[0].dim.x, viewports[0].pos.y + viewports[0].dim.y };
+    FG_Rect r = { viewports[0].pos.x, viewports[0].pos.y, viewports[0].pos.x + viewports[0].dim.x,
+                  viewports[0].pos.y + viewports[0].dim.y };
     RETURN_ERROR(CallWithRect(r, glViewport, "glViewport"));
   }
   return {};
@@ -214,38 +192,32 @@ GLExpected<void> Context::DrawArrays(uint32_t vertexcount, uint32_t instancecoun
 {
   if(instancecount > 0)
   {
-    glDrawArraysInstanced(_primitive, startinstance, vertexcount, instancecount);
-    GL_ERROR("glDrawArraysInstanced");
+    RETURN_ERROR(CALLGL(glDrawArraysInstanced, _primitive, startinstance, vertexcount, instancecount));
   }
   else
   {
-    glDrawArrays(_primitive, startvertex, vertexcount);
-    GL_ERROR("glDrawArrays");
+    RETURN_ERROR(CALLGL(glDrawArrays, _primitive, startvertex, vertexcount));
   }
-  
+
   return {};
 }
-GLExpected<void> Context::DrawIndexed(uint32_t indexcount, uint32_t instancecount, uint32_t startindex, int startvertex,
-
+GLExpected<void> Context::DrawIndexed(GLsizei indexcount, GLsizei instancecount, uint32_t startindex, int startvertex,
                                       uint32_t startinstance)
 {
-  if (instancecount > 0) {
-    glDrawElementsInstanced(_primitive, indexcount, _indextype, nullptr, instancecount);
-    GL_ERROR("glDrawElementsInstanced");
+  if(instancecount > 0)
+  {
+    // GLenum mode, GLsizei count, GLenum type, const void *indices,GLsizei instancecount
+
+    RETURN_ERROR(CALLGL(glDrawElementsInstanced, _primitive, indexcount, _indextype, nullptr, instancecount));
   }
   else
   {
-    glDrawElements(_primitive, indexcount, _indextype, nullptr);
-    GL_ERROR("glDrawElements");
+    RETURN_ERROR(CALLGL(glDrawElements, _primitive, indexcount, _indextype, nullptr));
   }
-  
+
   return {};
 }
-GLExpected<void> Context::DrawMesh(uint32_t start, uint32_t count) {
-  glDrawMeshTasksNV(start, count);
-  GL_ERROR("glDrawMeshTasksNV");
-  return {};
-}
+GLExpected<void> Context::DrawMesh(uint32_t start, uint32_t count) { return CALLGL(glDrawMeshTasksNV, start, count); }
 
 GL::GLExpected<void> Context::CopySubresource(FG_Resource src, FG_Resource dest, unsigned long srcoffset,
                                               unsigned long destoffset, unsigned long bytes)
@@ -256,8 +228,7 @@ GL::GLExpected<void> Context::CopySubresource(FG_Resource src, FG_Resource dest,
     {
       if(auto b = Buffer(dest).bind(GL_COPY_WRITE_BUFFER))
       {
-        glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, srcoffset, destoffset, bytes);
-        GL_ERROR("glCopyBufferSubData");
+        RETURN_ERROR(CALLGL(glCopyBufferSubData, GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, srcoffset, destoffset, bytes));
       }
       else
         return std::move(b.error());
@@ -298,9 +269,8 @@ GL::GLExpected<void> Context::CopyResourceRegion(FG_Resource src, FG_Resource de
   }
   else if(Renderbuffer::validate(src) && Renderbuffer::validate(dest))
   {
-    glCopyImageSubData(source, GL_RENDERBUFFER, 0, srcoffset.x, srcoffset.y, srcoffset.z, destination, GL_RENDERBUFFER, 0,
-                       destoffset.x, destoffset.y, destoffset.z, size.x, size.y, size.z);
-    GL_ERROR("glCopyImageSubData");
+    RETURN_ERROR(CALLGL(glCopyImageSubData, source, GL_RENDERBUFFER, 0, srcoffset.x, srcoffset.y, srcoffset.z, destination, GL_RENDERBUFFER, 0,
+                       destoffset.x, destoffset.y, destoffset.z, size.x, size.y, size.z));
   }
   else
     return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Mismatched src / dest resources");
@@ -319,7 +289,7 @@ int Context::GetBytes(GLenum type)
   case GL_HALF_FLOAT: return 2;
   case GL_INT:
   case GL_UNSIGNED_INT:
-  //case GL_INT_2_10_10_10_REV:
+  // case GL_INT_2_10_10_10_REV:
   case GL_UNSIGNED_INT_2_10_10_10_REV:
   case GL_UNSIGNED_INT_10F_11F_11F_REV:
   case GL_FLOAT: return 4;
@@ -329,23 +299,28 @@ int Context::GetBytes(GLenum type)
   return 0;
 }
 
-void Context::FlipFlag(int diff, int flags, int flag, int option)
+GLExpected<void> Context::FlipFlag(int diff, int flags, int flag, int option)
 {
   if(diff & flag)
   {
     if(flags & flag)
-      glEnable(option);
+    {
+      RETURN_ERROR(CALLGL(glEnable, option));
+    }
     else
-      glDisable(option);
+    {
+      RETURN_ERROR(CALLGL(glDisable, option));
+    }
   }
+
+  return {};
 }
 
 GLExpected<void> Context::ApplyBlendFactor(const std::array<float, 4>& factor)
 {
   if(_lastfactor != factor)
   {
-    glBlendColor(factor[0], factor[1], factor[2], factor[3]);
-    GL_ERROR("glBlendColor");
+    RETURN_ERROR(CALLGL(glBlendColor, factor[0], factor[1], factor[2], factor[3]));
     _lastfactor = factor;
   }
   return {};
@@ -355,17 +330,14 @@ GLExpected<void> Context::ApplyBlend(const FG_Blend& blend, bool force)
 {
   if(force || memcmp(&blend, &_lastblend, sizeof(FG_Blend)) != 0)
   {
-    glBlendFuncSeparate(BlendMapping[blend.src_blend], BlendMapping[blend.dest_blend], BlendMapping[blend.src_blend_alpha],
-                        BlendMapping[blend.dest_blend_alpha]);
-    GL_ERROR("glBlendFuncSeperate");
-    glBlendEquationSeparate(BlendOpMapping[blend.blend_op], BlendOpMapping[blend.blend_op_alpha]);
-    GL_ERROR("glBlendEquationSeparate");
+    RETURN_ERROR(CALLGL(glBlendFuncSeparate, BlendMapping[blend.src_blend], BlendMapping[blend.dest_blend], BlendMapping[blend.src_blend_alpha],
+                        BlendMapping[blend.dest_blend_alpha]));
+    RETURN_ERROR(CALLGL(glBlendEquationSeparate, BlendOpMapping[blend.blend_op], BlendOpMapping[blend.blend_op_alpha]));
 
     if(_lastblend.rendertarget_write_mask != blend.rendertarget_write_mask)
-    {
-      glColorMask(blend.rendertarget_write_mask & 0b0001, blend.rendertarget_write_mask & 0b0010,
-                  blend.rendertarget_write_mask & 0b0100, blend.rendertarget_write_mask & 0b1000);
-      GL_ERROR("glColorMask");
+    { 
+      RETURN_ERROR(CALLGL(glColorMask, blend.rendertarget_write_mask & 0b0001, blend.rendertarget_write_mask & 0b0010,
+                  blend.rendertarget_write_mask & 0b0100, blend.rendertarget_write_mask & 0b1000));
     }
 
     _lastblend = blend;
@@ -380,11 +352,10 @@ GLExpected<void> Context::ApplyFill(uint8_t fill)
   {
     switch(fill)
     {
-    case FG_Fill_Mode_Fill: glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); break;
-    case FG_Fill_Mode_Line: glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); break;
-    case FG_Fill_Mode_Point: glPolygonMode(GL_FRONT_AND_BACK, GL_POINT); break;
+    case FG_Fill_Mode_Fill: RETURN_ERROR(CALLGL(glPolygonMode, GL_FRONT_AND_BACK, GL_FILL)); break;
+    case FG_Fill_Mode_Line: RETURN_ERROR(CALLGL(glPolygonMode, GL_FRONT_AND_BACK, GL_LINE)); break;
+    case FG_Fill_Mode_Point: RETURN_ERROR(CALLGL(glPolygonMode, GL_FRONT_AND_BACK, GL_POINT)); break;
     }
-    GL_ERROR("glPolygonMode");
     _lastfill = fill;
   }
   return {};
@@ -396,16 +367,13 @@ GLExpected<void> Context::ApplyCull(uint8_t cull)
   {
     if(cull == FG_Cull_Mode_None)
     {
-      glDisable(GL_CULL_FACE);
-      GL_ERROR("glDisable");
+      RETURN_ERROR(CALLGL(glDisable, GL_CULL_FACE));
     }
     else
     {
-      glEnable(GL_CULL_FACE);
-      GL_ERROR("glEnable");
+      RETURN_ERROR(CALLGL(glEnable, GL_CULL_FACE));
 
-      glCullFace(cull == FG_Cull_Mode_Back ? GL_BACK : GL_FRONT);
-      GL_ERROR("glCullFace");
+      RETURN_ERROR(CALLGL(glCullFace, cull == FG_Cull_Mode_Back ? GL_BACK : GL_FRONT));
     }
 
     _lastcull = cull;
@@ -415,31 +383,22 @@ GLExpected<void> Context::ApplyCull(uint8_t cull)
 GLExpected<void> Context::ApplyFlags(uint16_t flags)
 {
   auto diff = _lastflags ^ flags;
-  FlipFlag(diff, flags, FG_Pipeline_Flag_RenderTarget_SRGB_Enable, GL_FRAMEBUFFER_SRGB);
-  GL_ERROR("glEnable/glDisable");
-  FlipFlag(diff, flags, FG_Pipeline_Flag_Depth_Enable, GL_DEPTH_TEST);
-  GL_ERROR("glEnable/glDisable");
-  FlipFlag(diff, flags, FG_Pipeline_Flag_Stencil_Enable, GL_STENCIL_TEST);
-  GL_ERROR("glEnable/glDisable");
-  FlipFlag(diff, flags, FG_Pipeline_Flag_Alpha_To_Coverage_Enable, GL_SAMPLE_ALPHA_TO_COVERAGE);
-  GL_ERROR("glEnable/glDisable");
-  FlipFlag(diff, flags, FG_Pipeline_Flag_Antialiased_Line_Enable, GL_LINE_SMOOTH);
-  GL_ERROR("glEnable/glDisable");
-  FlipFlag(diff, flags, FG_Pipeline_Flag_Multisample_Enable, GL_MULTISAMPLE);
-  GL_ERROR("glEnable/glDisable");
-  FlipFlag(diff, flags, FG_Pipeline_Flag_Blend_Enable, GL_BLEND);
-  GL_ERROR("glEnable/glDisable");
-  FlipFlag(diff, flags, FG_Pipeline_Flag_Scissor_Enable, GL_SCISSOR_TEST);
-  
+  RETURN_ERROR(FlipFlag(diff, flags, FG_Pipeline_Flag_RenderTarget_SRGB_Enable, GL_FRAMEBUFFER_SRGB));
+  RETURN_ERROR(FlipFlag(diff, flags, FG_Pipeline_Flag_Depth_Enable, GL_DEPTH_TEST));
+  RETURN_ERROR(FlipFlag(diff, flags, FG_Pipeline_Flag_Stencil_Enable, GL_STENCIL_TEST));
+  RETURN_ERROR(FlipFlag(diff, flags, FG_Pipeline_Flag_Alpha_To_Coverage_Enable, GL_SAMPLE_ALPHA_TO_COVERAGE));
+  RETURN_ERROR(FlipFlag(diff, flags, FG_Pipeline_Flag_Antialiased_Line_Enable, GL_LINE_SMOOTH));
+  RETURN_ERROR(FlipFlag(diff, flags, FG_Pipeline_Flag_Multisample_Enable, GL_MULTISAMPLE));
+  RETURN_ERROR(FlipFlag(diff, flags, FG_Pipeline_Flag_Blend_Enable, GL_BLEND));
+  RETURN_ERROR(FlipFlag(diff, flags, FG_Pipeline_Flag_Scissor_Enable, GL_SCISSOR_TEST));
+
   if(diff & FG_Pipeline_Flag_Depth_Write_Enable)
   {
-    glDepthMask((flags & FG_Pipeline_Flag_Depth_Write_Enable) ? GL_TRUE : GL_FALSE);
-    GL_ERROR("glDepthMask");
+    RETURN_ERROR(CALLGL(glDepthMask, (flags & FG_Pipeline_Flag_Depth_Write_Enable) ? GL_TRUE : GL_FALSE));
   }
   if(diff & FG_Pipeline_Flag_Front_Counter_Clockwise)
   {
-    glFrontFace((flags & FG_Pipeline_Flag_Front_Counter_Clockwise) ? GL_CCW : GL_CW);
-    GL_ERROR("glFrontFace");
+    RETURN_ERROR(CALLGL(glFrontFace, (flags & FG_Pipeline_Flag_Front_Counter_Clockwise) ? GL_CCW : GL_CW));
   }
 
   _lastflags = flags;
@@ -449,7 +408,7 @@ GLExpected<void> Context::ApplyFlags(uint16_t flags)
 /*
 void Context::_flushbatchdraw(Font* font)
 {
-  glActiveTexture(GL_TEXTURE0);
+  RETURN_ERROR(CALLGL(glActiveTexture, GL_TEXTURE0));
   GL_ERROR("glActiveTexture");
   glBindTexture(GL_TEXTURE_2D, GetFontTexture(font));
   GL_ERROR("glBindTexture");
@@ -457,14 +416,14 @@ void Context::_flushbatchdraw(Font* font)
   // We've already set up our batch indices so we can just use them
   glDrawElements(GL_TRIANGLES, FlushBatch() * 6, GL_UNSIGNED_INT, nullptr);
   GL_ERROR("glDrawElements");
-  glBindVertexArray(0);
+  RETURN_ERROR(CALLGL(glBindVertexArray, 0));
   GL_ERROR("glBindVertexArray");
 }
 
 int mipmapImageGamma(const unsigned char* const orig, int width, int height, int channels, unsigned char* resampled,
                      int block_size_x, int block_size_y)
 {
-  if((width < 1) || (height < 1) || (channels < 1) || (orig == NULL) || (resampled == NULL) || (block_size_x < 1) ||
+  if((width < 1) || (height < 1) || (channels < 1) || (orig == nullptr) || (resampled == nullptr) || (block_size_x < 1) ||
      (block_size_y < 1))
   {
     return 0;
@@ -569,7 +528,7 @@ unsigned int Context::_createTexture(const unsigned char* const data, int width,
   }
   //	how large of a texture can this OpenGL implementation handle?
   //	texture_check_size_enum will be GL_MAX_TEXTURE_SIZE or SOIL_MAX_CUBE_MAP_TEXTURE_SIZE
-  glGetIntegerv(texture_check_size_enum, &max_supported_size);
+  RETURN_ERROR(CALLGL(glGetIntegerv, texture_check_size_enum, &max_supported_size));
   //	do I need to make it a power of 2?
   if((flags & SOIL_FLAG_MIPMAPS) ||  //	mipmaps
      (width > max_supported_size) || //	it's too big, (make sure it's
@@ -633,7 +592,7 @@ unsigned int Context::_createTexture(const unsigned char* const data, int width,
   tex_id = reuse_texture_ID;
   if(tex_id == 0)
   {
-    glGenTextures(1, &tex_id);
+    RETURN_ERROR(CALLGL(glGenTextures, 1, &tex_id));
   }
   GL_ERROR("glGenTextures");
 
@@ -659,7 +618,7 @@ unsigned int Context::_createTexture(const unsigned char* const data, int width,
     }
 
     //  bind an OpenGL texture ID
-    glBindTexture(opengl_texture_type, tex_id);
+    RETURN_ERROR(CALLGL(glBindTexture, opengl_texture_type, tex_id));
     GL_ERROR("glBindTexture");
 
     //	user want OpenGL to do all the work!
@@ -695,44 +654,44 @@ unsigned int Context::_createTexture(const unsigned char* const data, int width,
       }
       SOIL_free_image_data(resampled);
       //	instruct OpenGL to use the MIPmaps
-      glTexParameteri(opengl_texture_type, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      RETURN_ERROR(CALLGL(glTexParameteri, opengl_texture_type, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
       GL_ERROR("glTexParameteri");
-      glTexParameteri(opengl_texture_type, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+      RETURN_ERROR(CALLGL(glTexParameteri, opengl_texture_type, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR));
       GL_ERROR("glTexParameteri");
     }
     else
     {
       //	instruct OpenGL _NOT_ to use the MIPmaps
-      glTexParameteri(opengl_texture_type, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      RETURN_ERROR(CALLGL(glTexParameteri, opengl_texture_type, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
       GL_ERROR("glTexParameteri");
-      glTexParameteri(opengl_texture_type, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      RETURN_ERROR(CALLGL(glTexParameteri, opengl_texture_type, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
       GL_ERROR("glTexParameteri");
     }
     //	does the user want clamping, or wrapping?
     if(flags & SOIL_FLAG_TEXTURE_REPEATS)
     {
-      glTexParameteri(opengl_texture_type, GL_TEXTURE_WRAP_S, GL_REPEAT);
+      RETURN_ERROR(CALLGL(glTexParameteri, opengl_texture_type, GL_TEXTURE_WRAP_S, GL_REPEAT));
       GL_ERROR("glTexParameteri");
-      glTexParameteri(opengl_texture_type, GL_TEXTURE_WRAP_T, GL_REPEAT);
+      RETURN_ERROR(CALLGL(glTexParameteri, opengl_texture_type, GL_TEXTURE_WRAP_T, GL_REPEAT));
       GL_ERROR("glTexParameteri");
       if(opengl_texture_type == GL_TEXTURE_CUBE_MAP)
       {
         //	SOIL_TEXTURE_WRAP_R is invalid if cubemaps aren't supported
-        glTexParameteri(opengl_texture_type, GL_TEXTURE_WRAP_R, GL_REPEAT);
+        RETURN_ERROR(CALLGL(glTexParameteri, opengl_texture_type, GL_TEXTURE_WRAP_R, GL_REPEAT));
         GL_ERROR("glTexParameteri");
       }
     }
     else
     {
       unsigned int clamp_mode = GL_CLAMP_TO_EDGE;
-      glTexParameteri(opengl_texture_type, GL_TEXTURE_WRAP_S, clamp_mode);
+      RETURN_ERROR(CALLGL(glTexParameteri, opengl_texture_type, GL_TEXTURE_WRAP_S, clamp_mode));
       GL_ERROR("glTexParameteri");
-      glTexParameteri(opengl_texture_type, GL_TEXTURE_WRAP_T, clamp_mode);
+      RETURN_ERROR(CALLGL(glTexParameteri, opengl_texture_type, GL_TEXTURE_WRAP_T, clamp_mode));
       GL_ERROR("glTexParameteri");
       if(opengl_texture_type == GL_TEXTURE_CUBE_MAP)
       {
         //	SOIL_TEXTURE_WRAP_R is invalid if cubemaps aren't supported
-        glTexParameteri(opengl_texture_type, GL_TEXTURE_WRAP_R, clamp_mode);
+        RETURN_ERROR(CALLGL(glTexParameteri, opengl_texture_type, GL_TEXTURE_WRAP_R, clamp_mode));
         GL_ERROR("glTexParameteri");
       }
     }

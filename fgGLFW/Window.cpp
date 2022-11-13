@@ -150,7 +150,7 @@ void WindowGL::FillKeyMap()
 }
 
 WindowGL::WindowGL(Provider* backend, GLFWmonitor* display, uintptr_t window_id, FG_Vec2* pos, FG_Vec2* dim, uint64_t flags,
-               const char* caption) :
+                   const char* caption) :
   _next(nullptr), _prev(nullptr), _joysticks(0), _backend(backend)
 {
   FillKeyMap();
@@ -171,7 +171,8 @@ WindowGL::WindowGL(Provider* backend, GLFWmonitor* display, uintptr_t window_id,
   //  glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API);
   //#endif
 
-  _window = glfwCreateWindow(!dim ? 0 : static_cast<int>(dim->x), !dim ? 0 : static_cast<int>(dim->y), caption, NULL, NULL);
+  _window =
+    glfwCreateWindow(!dim ? 0 : static_cast<int>(dim->x), !dim ? 0 : static_cast<int>(dim->y), caption, nullptr, nullptr);
 
   if(_window)
   {
@@ -225,7 +226,7 @@ void WindowGL::DirtyRect(const FG_Rect* area)
   auto hWnd = glfwGetWin32Window(_window);
 
   if(!area)
-    InvalidateRect(hWnd, NULL, FALSE);
+    InvalidateRect(hWnd, nullptr, FALSE);
   else
   {
     RECT rect = { static_cast<LONG>(floorf(area->left)), static_cast<LONG>(floorf(area->top)),
@@ -524,22 +525,35 @@ void WindowGL::JoystickCallback(int jid, int e)
   }
 }
 
-void WindowGL::MakeCurrent() { glfwMakeContextCurrent(_window); }
+int WindowGL::MakeCurrent()
+{
+  Provider::_lasterr = 0;
+  glfwMakeContextCurrent(_window);
+  return Provider::_lasterr;
+}
 
-void WindowGL::SwapBuffers() { glfwSwapBuffers(_window); }
+int WindowGL::SwapBuffers()
+{
+  Provider::_lasterr = 0;
+  glfwSwapBuffers(_window);
+  return Provider::_lasterr;
+}
 
-void WindowGL::Invalidate(FG_Rect* area)
+int WindowGL::Invalidate(FG_Rect* area)
 {
 #ifdef FG_PLATFORM_WIN32
+  Provider::_lasterr = 0;
   auto hWnd = glfwGetWin32Window(_window);
+  if(Provider::_lasterr)
+    return Provider::_lasterr;
 
   if(!area)
-    InvalidateRect(hWnd, NULL, FALSE);
+    return InvalidateRect(hWnd, nullptr, FALSE) ? 0 : -1;
   else
   {
     RECT rect = { static_cast<LONG>(floorf(area->left)), static_cast<LONG>(floorf(area->top)),
                   static_cast<LONG>(ceilf(area->right)), static_cast<LONG>(ceilf(area->bottom)) };
-    InvalidateRect(hWnd, &rect, FALSE);
+    return InvalidateRect(hWnd, &rect, FALSE) ? 0 : -1;
   }
 #else
   if(!area)
@@ -547,9 +561,10 @@ void WindowGL::Invalidate(FG_Rect* area)
   else
   {
     int rect[4] = { static_cast<int>(floorf(area->left)), static_cast<int>(floorf(area->top)),
-                  static_cast<int>(ceilf(area->right)), static_cast<int>(ceilf(area->bottom)) };
-    XClearArea(glfwGetX11Display(), glfwGetX11Window(_window), rect[0], rect[1], rect[2] - rect[0],
-               rect[3] - rect[1], True);
+                    static_cast<int>(ceilf(area->right)), static_cast<int>(ceilf(area->bottom)) };
+    XClearArea(glfwGetX11Display(), glfwGetX11Window(_window), rect[0], rect[1], rect[2] - rect[0], rect[3] - rect[1],
+               True);
   }
+  return 0;
 #endif
 }

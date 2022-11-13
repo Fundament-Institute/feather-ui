@@ -13,15 +13,26 @@
 
 using GL::Provider;
 
+#define LOG_MISSING_GL_FUNCTION(name)                                                                    \
+  LOG(FG_Level_Fatal,                                                                                    \
+      "%i OpenGL function " name                                                                         \
+      " is NULL or uninitialized! Did you initialize the context with emplaceContext or attachContext?", \
+      (GLenum)ERR_MISSING_OPENGL_FUNCTION)
+
 FG_Caps Provider::GetCaps(FG_GraphicsInterface* self)
 {
+  auto backend         = static_cast<Provider*>(self);
   FG_Caps caps         = { 0 };
   caps.openGL.features = FG_Feature_API_OpenGL | FG_Feature_Immediate_Mode | FG_Feature_Background_Opacity |
                          FG_Feature_Lines_Alpha;
   caps.openGL.version = 20;
   caps.openGL.glsl    = 110;
   if(!glGetIntegerv)
-    return caps;
+    return backend->LOG_MISSING_GL_FUNCTION("glGetIntegerv"), caps;
+  if(!glGetIntegeri_v)
+    return backend->LOG_MISSING_GL_FUNCTION("glGetIntegeri_v"), caps;
+  if(!glGetFloatv)
+    return backend->LOG_MISSING_GL_FUNCTION("glGetFloatv"), caps;
 
   if(GLAD_GL_EXT_texture_sRGB && GLAD_GL_ARB_framebuffer_sRGB)
     caps.openGL.features |= FG_Feature_Blend_Gamma;
@@ -160,6 +171,8 @@ FG_Caps Provider::GetCaps(FG_GraphicsInterface* self)
 
 FG_Context* Provider::CreateContext(FG_GraphicsInterface* self, FG_Vec2i size, enum FG_PixelFormat backbuffer)
 {
+  auto backend = static_cast<Provider*>(self);
+  backend->LOG(FG_Level_Error, "CreateContext is not implemented for fgOpenGL");
   return nullptr;
 }
 int Provider::ResizeContext(FG_GraphicsInterface* self, FG_Context* context, FG_Vec2i size)
@@ -581,6 +594,10 @@ void* Provider::MapResource(FG_GraphicsInterface* self, FG_Context* context, FG_
 {
   auto backend = static_cast<Provider*>(self);
 
+  if(!glMapBuffer)
+    return backend->LOG_MISSING_GL_FUNCTION("glMapBuffer"), nullptr;
+  if(!glMapBufferRange)
+    return backend->LOG_MISSING_GL_FUNCTION("glMapBufferRange"), nullptr;
   if(usage >= ArraySize(UsageMapping) || !context)
     return nullptr;
 
@@ -629,6 +646,8 @@ int Provider::UnmapResource(FG_GraphicsInterface* self, FG_Context* context, FG_
 
   if(usage >= ArraySize(UsageMapping) || !context)
     return ERR_INVALID_PARAMETER;
+  if(!glUnmapBuffer)
+    return backend->LOG_MISSING_GL_FUNCTION("glUnmapBuffer"), ERR_MISSING_OPENGL_FUNCTION;
 
   BindRef bind;
   if(Buffer::validate(resource))

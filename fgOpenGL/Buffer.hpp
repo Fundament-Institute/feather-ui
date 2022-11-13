@@ -24,8 +24,8 @@ namespace GL {
     constexpr ~Buffer() noexcept    = default;
     GLExpected<BindRef> bind(GLenum target) const noexcept
     {
-      glBindBuffer(target, _ref);
-      GL_ERROR("glBindBuffer");
+      if(auto e = CALLGL(glBindBuffer, target, _ref); !e)
+        return std::move(e.error());
       return BindRef{ target, [](GLenum target) { glBindBuffer(target, 0); } };
     }
 
@@ -36,19 +36,18 @@ namespace GL {
     {
       return ((res & REF_BUFFER) != 0) && (glIsBuffer(static_cast<GLuint>(res & REF_MASK)) == GL_TRUE);
     }
-    static GLExpected<Owned<Buffer>> create(GLenum target, void* data, GLsizeiptr bytes)
+    static GLExpected<Owned<Buffer>> create(GLenum target, const void* data, GLsizeiptr bytes)
     {
       GLuint fbgl;
-      glGenBuffers(1, &fbgl);
-      GL_ERROR("glGenBuffers");
+      RETURN_ERROR(CALLGL(glGenBuffers, 1, &fbgl));
       Owned<Buffer> fb(fbgl);
-      if(auto e = fb.bind(target))
+      if(auto r = fb.bind(target))
       {
-        glBufferData(target, bytes, data, !data ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
-        GL_ERROR("glBufferData");
+        RETURN_ERROR(
+          CALLGL(glBufferData, target, bytes, data, !data ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW));
       }
       else
-        return std::move(e.error());
+        return std::move(r.error());
 
       return std::move(fb);
     }

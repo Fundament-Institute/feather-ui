@@ -20,27 +20,9 @@ limitations under the License.
 #include "Context.hpp"
 #include <vector>
 
-#ifdef FG_COMPILER_MSC
-  #define LOG(level, msg, ...) Log(level, __FILE__, __LINE__, msg, __VA_ARGS__)
-#else
-  #define LOG(level, msg, ...) Log(level, __FILE__, __LINE__, msg __VA_OPT__(, ) __VA_ARGS__)
-#endif
+#define LOG(level, msg, ...) Log(level, __FILE__, __LINE__, msg __VA_OPT__(, ) __VA_ARGS__)
 
 namespace GL {
-  enum GL_Err
-  {
-    ERR_SUCCESS = 0,
-    ERR_UNKNOWN = 0x10000,
-    ERR_NOT_IMPLEMENTED,
-    ERR_MISSING_PARAMETER,
-    ERR_UNKNOWN_COMMAND_CATEGORY,
-    ERR_INVALID_KIND,
-    ERR_INVALID_PARAMETER,
-    ERR_INVALID_CALL,
-    ERR_NULL,
-    ERR_COMPILATION_FAILURE,
-  };
-
   class Provider : public FG_GraphicsInterface
   {
   public:

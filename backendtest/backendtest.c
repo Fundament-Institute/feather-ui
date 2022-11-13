@@ -445,8 +445,8 @@ int main(int argc, char* argv[])
   FG_Vec2 pos  = { 200.f, 100.f };
   FG_Vec2 dim  = { 800.f, 600.f };
   FG_Window* w = (*desktop->createWindow)(desktop, (uintptr_t)(&e), NULL, &pos, &dim, "Feather Test", e.flags);
-  (*bridge->emplaceContext)(bridge, w, FG_PixelFormat_R8G8B8A8_Typeless);
   TEST(w != NULL);
+  TEST(!(*bridge->emplaceContext)(bridge, w, FG_PixelFormat_R8G8B8A8_Typeless));
 
   if(!w)
   {

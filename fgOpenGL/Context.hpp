@@ -53,7 +53,7 @@ namespace GL {
     FG_COMPILER_DLLEXPORT GLExpected<void> EndDraw();
     FG_COMPILER_DLLEXPORT GLExpected<void> Resize(FG_Vec2 dim);
     GLExpected<void> DrawArrays(uint32_t vertexcount, uint32_t instancecount, uint32_t startvertex, uint32_t startinstance);
-    GLExpected<void> DrawIndexed(uint32_t indexcount, uint32_t instancecount, uint32_t startindex, int startvertex,
+    GLExpected<void> DrawIndexed(GLsizei indexcount, GLsizei instancecount, uint32_t startindex, int startvertex,
                                  uint32_t startinstance);
     GLExpected<void> DrawMesh(uint32_t start, uint32_t count);
     GLExpected<void> Dispatch();
@@ -76,7 +76,7 @@ namespace GL {
     inline void ApplyIndextype(GLenum indextype) { _indextype = indextype; }
     inline void ApplyPrimitive(GLenum primitive) { _primitive = primitive; }
     GLExpected<void> ApplyProgram(const ProgramObject& program);
-    void FlipFlag(int diff, int flags, int flag, int option);
+    GLExpected<void> FlipFlag(int diff, int flags, int flag, int option);
     static inline void ColorFloats(const FG_Color8& c, std::array<float, 4>& colors, bool linearize)
     {
       colors[0] = c.r / 255.0f;

@@ -27,11 +27,7 @@ namespace FG {
 #include "ProviderGLFW.hpp"
 #include <vector>
 
-#ifdef FG_COMPILER_MSC
-  #define LOG(level, msg, ...) Log(level, __FILE__, __LINE__, msg, __VA_ARGS__)
-#else
-  #define LOG(level, msg, ...) Log(level, __FILE__, __LINE__, msg __VA_OPT__(, ) __VA_ARGS__)
-#endif
+#define LOG(level, msg, ...) Log(level, __FILE__, __LINE__, msg __VA_OPT__(, ) __VA_ARGS__)
 
 namespace FG {
   class Bridge : public FG_GraphicsDesktopBridge
@@ -51,28 +47,28 @@ namespace FG {
 
     static void FreeImpl(char* p) { free(p); }
 
-    static FG_Window* EmplaceContext(struct FG_GraphicsDesktopBridge* self, FG_Window* window,
+    static int EmplaceContext(struct FG_GraphicsDesktopBridge* self, FG_Window* window,
                                      enum FG_PixelFormat backbuffer);
-    static FG_Window* AttachContext(struct FG_GraphicsDesktopBridge* self, FG_Context* context, FG_Window* window);
+    static int AttachContext(struct FG_GraphicsDesktopBridge* self, FG_Context* context, FG_Window* window);
     static int BeginDraw(struct FG_GraphicsDesktopBridge* self, FG_Window* window, FG_Rect* area);
     static int EndDraw(struct FG_GraphicsDesktopBridge* self, FG_Window* window);
     static int DestroyImpl(struct FG_GraphicsDesktopBridge* self);
     static void* ctxLoadProc(const char* name);
-    static void* LoadProc(void* library, const char* name); 
+    static void* LoadProc(void* library, const char* name);
+
+#ifdef FG_PLATFORM_WIN32
+    static PROC(WINAPI* _wglGetProcAddress)(LPCSTR);
+#else
+    typedef void (*__GLXextproc)(void);
+    static __GLXextproc (*_glxGetProcAddress)(const GLubyte* procName);
+    static __GLXextproc (*_glxGetProcAddressARB)(const GLubyte* procName);
+#endif
 
     void* _logctx;
 
     static Bridge* _singleton;
     static void* _library;
     static int _refcount;
-
-#ifdef FG_PLATFORM_WIN32
-    static PROC(WINAPI* _wglGetProcAddress)(LPCSTR);
-#else
-    typedef void (*__GLXextproc)(void);
-    static __GLXextproc(* _glxGetProcAddress)(const GLubyte *procName);
-    static __GLXextproc(* _glxGetProcAddressARB)(const GLubyte *procName);
-#endif
 
   protected:
     FG_Log _log;

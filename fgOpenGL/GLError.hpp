@@ -12,27 +12,55 @@
 #include <tuple>
 //#include <coroutine>
 
-#define GL_ERROR(name)                        \
-  if(GLError __e{ name, __FILE__, __LINE__ }; __e.has_error()) \
-  {                                           \
-    return __e;                               \
+#define GL_ERROR(name)                                                      \
+  if(GLError __e{ name, __FILE__, __LINE__ }; __e.has_error()) [[unlikely]] \
+  {                                                                         \
+    return __e;                                                             \
   }
 
 #define CUSTOM_ERROR(error, name) GLError(error, name, __FILE__, __LINE__)
+#define CALLGL(fn, ...)                                                                                            \
+  CallGL(fn, "" #fn,                                                                                               \
+         "" #fn " is NULL or uninitialized! Did you initialize the context with emplaceContext or attachContext?", \
+         __FILE__, __LINE__, __VA_ARGS__)
 
-#define RETURN_ERROR(...)          \
+#define RETURN_ERROR(...)                       \
   if(auto __e = (__VA_ARGS__); __e.has_error()) \
-  {                                \
-    return std::move(__e.error());  \
+  {                                             \
+    return std::move(__e.error());              \
   }
 
-#define LOG_ERROR(backend, ...)     \
-  if(auto __e = (__VA_ARGS__); __e.has_error())  \
-  {                                 \
-    return __e.error().log(backend); \
+#define LOG_ERROR(backend, ...)                 \
+  if(auto __e = (__VA_ARGS__); __e.has_error()) \
+  {                                             \
+    return __e.error().log(backend);            \
   }
 
 namespace GL {
+  enum GL_Err
+  {
+    ERR_SUCCESS = 0,
+    ERR_UNKNOWN = 0x10000,
+    ERR_NOT_IMPLEMENTED,
+    ERR_MISSING_PARAMETER,
+    ERR_UNKNOWN_COMMAND_CATEGORY,
+    ERR_INVALID_KIND,
+    ERR_INVALID_PARAMETER,
+    ERR_INVALID_CALL,
+    ERR_NULL,
+    ERR_COMPILATION_FAILURE,
+    ERR_MISSING_OPENGL_FUNCTION,
+    ERR_TOO_MANY_RENDERTARGETS,
+    ERR_INVALID_DEPTH_FUNC,
+    ERR_INVALID_STENCIL_FUNC,
+    ERR_INVALID_STENCIL_OP,
+    ERR_INVALID_INDEX_STRIDE,
+    ERR_INVALID_COMPUTE_SHADER,
+    ERR_INVALID_ENUM,
+    ERR_INVALID_REF,
+    ERR_INVALID_SHADER_INDEX,
+  };
+
   class Provider;
 
   // Wrapper around an openGL error code and source, with a debug checker that ensures the error was handled.
@@ -613,6 +641,27 @@ namespace GL {
 
     GLError _error;
   };
+
+  template<typename R, typename... Args, typename... Tx>
+  inline GLExpected<R> CallGL(R(APIENTRYP fn)(Args...), const char* name, const char* msg, const char* file, int line,
+                              Tx&&... args)
+  {
+    if(!fn) [[unlikely]]
+      return GLError(ERR_MISSING_OPENGL_FUNCTION, msg, file, line);
+
+    if constexpr(std::is_void_v<R>)
+    {
+      fn(std::forward<Tx>(args)...);
+      GL_ERROR(name);
+      return {};
+    }
+    else
+    {
+      R v = fn(std::forward<Tx>(args)...);
+      GL_ERROR(name);
+      return v;
+    }
+  }
 }
 
 #endif

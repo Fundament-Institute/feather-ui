@@ -54,35 +54,54 @@ int Provider::SetWindow(FG_DesktopInterface* self, FG_Window* window, FG_Display
   auto glwindow = w->GetWindow();
   if(!glwindow)
     return ERR_INVALID_CALL;
+
+  _lasterr = 0;
   if(caption)
     glfwSetWindowTitle(glwindow, caption);
+
+  if(_lasterr)
+    return _lasterr;
 
   if((w->_flags ^ flags) & FG_WindowFlag_Fullscreen) // If we toggled fullscreen we need a different code path
   {
     int posx, posy;
     int dimx, dimy;
     glfwGetWindowPos(glwindow, &posx, &posy);
+    if(_lasterr)
+      return _lasterr;
+
     glfwGetWindowSize(glwindow, &dimx, &dimy);
+    if(_lasterr)
+      return _lasterr;
+
     if(flags & FG_WindowFlag_Fullscreen)
       glfwSetWindowMonitor(glwindow, (GLFWmonitor*)display, 0, 0, !dim ? dimx : static_cast<int>(ceilf(dim->x)),
                            !dim ? dimy : static_cast<int>(ceilf(dim->y)), GLFW_DONT_CARE);
     else
-      glfwSetWindowMonitor(glwindow, NULL, !pos ? posx : static_cast<int>(ceilf(pos->x)),
+      glfwSetWindowMonitor(glwindow, nullptr, !pos ? posx : static_cast<int>(ceilf(pos->x)),
                            !pos ? posy : static_cast<int>(ceilf(pos->y)), !dim ? dimx : static_cast<int>(ceilf(dim->x)),
                            !dim ? dimy : static_cast<int>(ceilf(dim->y)), GLFW_DONT_CARE);
+    if(_lasterr)
+      return _lasterr;
   }
   else
   {
     if(pos)
       glfwSetWindowPos(glwindow, static_cast<int>(ceilf(pos->x)), static_cast<int>(ceilf(pos->y)));
+    if(_lasterr)
+      return _lasterr;
     if(dim)
       glfwSetWindowSize(glwindow, static_cast<int>(ceilf(dim->x)), static_cast<int>(ceilf(dim->y)));
+    if(_lasterr)
+      return _lasterr;
   }
 
   if(flags & FG_WindowFlag_Maximized)
     glfwMaximizeWindow(glwindow);
   else
     glfwRestoreWindow(glwindow);
+  if(_lasterr)
+    return _lasterr;
 
   if(flags & FG_WindowFlag_Minimized)
     glfwIconifyWindow(glwindow);
@@ -90,7 +109,7 @@ int Provider::SetWindow(FG_DesktopInterface* self, FG_Window* window, FG_Display
     glfwRestoreWindow(glwindow);
 
   w->_flags = flags;
-  return ERR_SUCCESS;
+  return _lasterr;
 }
 
 int Provider::DestroyWindow(FG_DesktopInterface* self, FG_Window* window)
@@ -110,8 +129,7 @@ int Provider::InvalidateWindow(FG_DesktopInterface* self, FG_Window* window, FG_
   auto w = static_cast<WindowGL*>(window);
 
   _lasterr = 0; // We set this to capture GLFW errors, which are seperate from OpenGL errors (for right now)
-  w->Invalidate(optarea);
-  return _lasterr;
+  return w->Invalidate(optarea);
 }
 
 int Provider::PutClipboard(FG_DesktopInterface* self, FG_Window* window, FG_Clipboard kind, const char* data,
@@ -195,11 +213,11 @@ uint32_t Provider::GetClipboard(FG_DesktopInterface* self, FG_Window* window, FG
         const wchar_t* str = (const wchar_t*)GlobalLock(gdata);
         if(str)
         {
-          len = WideCharToMultiByte(CP_UTF8, 0, str, static_cast<int>(size), 0, 0, NULL, NULL);
+          len = WideCharToMultiByte(CP_UTF8, 0, str, static_cast<int>(size), 0, 0, nullptr, nullptr);
 
           if(target && count >= len)
-            len = WideCharToMultiByte(CP_UTF8, 0, str, static_cast<int>(size), (char*)target, static_cast<int>(count), NULL,
-                                      NULL);
+            len = WideCharToMultiByte(CP_UTF8, 0, str, static_cast<int>(size), (char*)target, static_cast<int>(count),
+                                      nullptr, nullptr);
 
           GlobalUnlock(gdata);
         }
@@ -287,10 +305,13 @@ int Provider::ClearClipboard(FG_DesktopInterface* self, FG_Window* window, FG_Cl
 
 int Provider::ProcessMessages(FG_DesktopInterface* self, FG_Window* window, void* ui_state)
 {
-  // TODO: handle GLFW errors
   auto backend    = static_cast<Provider*>(self);
   backend->_uictx = ui_state;
+  _lasterr        = 0;
   glfwPollEvents();
+  if(_lasterr != 0)
+    return _lasterr;
+
   if(!window)
     window = backend->_windows;
   if(window)
@@ -476,7 +497,7 @@ Provider::Provider(void* log_context, FG_Log log, FG_Behavior behavior) :
 
 #ifdef FG_PLATFORM_WIN32
   #ifdef FG_DEBUG
-  HeapSetInformation(NULL, HeapEnableTerminationOnCorruption, NULL, 0);
+  HeapSetInformation(nullptr, HeapEnableTerminationOnCorruption, nullptr, 0);
   #endif
 
   long long sz = GetRegistryValueW(HKEY_CURRENT_USER, L"Control Panel\\Desktop", L"CursorBlinkRate", 0, 0);

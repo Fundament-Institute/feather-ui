@@ -7,29 +7,31 @@
 
 using namespace GL;
 
-bool ShaderObject::is_valid() const noexcept
+GLExpected<bool> ShaderObject::is_valid() const noexcept
 {
-  if(glIsShader(_ref) == GL_FALSE)
+  if(auto e = CALLGL(glIsShader, _ref); e.has_error())
+    return std::move(e.error());
+  else if(glIsShader(_ref) == GL_FALSE)
     return false;
 
   GLint isCompiled = GL_FALSE;
-  glGetShaderiv(_ref, GL_COMPILE_STATUS, &isCompiled);
+  RETURN_ERROR(CALLGL(glGetShaderiv, _ref, GL_COMPILE_STATUS, &isCompiled));
   return isCompiled == GL_TRUE;
 }
 
 GLExpected<std::string> ShaderObject::log() const noexcept
 {
-  if(glIsShader(_ref) == GL_FALSE)
-    return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "ShaderObject::Log");
+  if(auto e = CALLGL(glIsShader, _ref); e.has_error())
+    return std::move(e.error());
+  else if(glIsShader(_ref) == GL_FALSE)
+    return CUSTOM_ERROR(ERR_INVALID_REF, "ShaderObject has invalid _ref");
 
   GLint len;
-  glGetShaderiv(_ref, GL_INFO_LOG_LENGTH, &len); // this includes the null terminator
-  GL_ERROR("glGetShaderiv");
+  RETURN_ERROR(CALLGL(glGetShaderiv, _ref, GL_INFO_LOG_LENGTH, &len)); // this includes the null terminator
   std::string log;
   log.resize(len);
-  glGetShaderInfoLog(_ref, len, &len, log.data());
-  GL_ERROR("glGetShaderInfoLog");
-  log.resize(len); // this value doesn't, which is what we want
+  RETURN_ERROR(CALLGL(glGetShaderInfoLog, _ref, len, &len, log.data()));
+  log.resize(len); // this value doesn't include a null terminator, which is what we want
   return GLExpected<std::string>(log);
 }
 
@@ -38,14 +40,11 @@ GLExpected<Owned<ShaderObject>> ShaderObject::create(const char* src, int type, 
   auto shader = glCreateShader(type);
   GL_ERROR("glCreateShader");
   Owned<ShaderObject> obj{ shader };
-  glShaderSource(shader, 1, &src, NULL);
-  GL_ERROR("glShaderSource");
-  glCompileShader(shader);
-  GL_ERROR("glCompileShader");
+  RETURN_ERROR(CALLGL(glShaderSource, shader, 1, &src, nullptr));
+  RETURN_ERROR(CALLGL(glCompileShader, shader));
 
   GLint status;
-  glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
-  GL_ERROR("glGetShaderiv");
+  RETURN_ERROR(CALLGL(glGetShaderiv, shader, GL_COMPILE_STATUS, &status));
   if(status == GL_FALSE)
   {
     if(auto e = obj.log())

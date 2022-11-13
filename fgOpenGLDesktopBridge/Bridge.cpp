@@ -24,27 +24,29 @@ decltype(Bridge::_glxGetProcAddress) Bridge::_glxGetProcAddress = nullptr;
 decltype(Bridge::_glxGetProcAddressARB) Bridge::_glxGetProcAddressARB = nullptr;
 #endif
 
-FG_Window* Bridge::EmplaceContext(struct FG_GraphicsDesktopBridge* self, FG_Window* window, enum FG_PixelFormat backbuffer)
+int Bridge::EmplaceContext(struct FG_GraphicsDesktopBridge* self, FG_Window* window, enum FG_PixelFormat backbuffer)
 {
   // This basically does nothing right now because GLFW actually initializes the openGL context. When we change to proper
   // window initialization, we will actually be creating and attaching the openGL context in here.
   auto b = static_cast<Bridge*>(self);
   auto w = static_cast<GLFW::WindowGL*>(window);
-  w->MakeCurrent();
-  b->_provider->LoadGL(ctxLoadProc);
+  if(auto e = w->MakeCurrent())
+    return b->LOG(FG_Level_Error, "Failed to make window context current!"), e;
+  if(auto e = b->_provider->LoadGL(ctxLoadProc))
+    return b->LOG(FG_Level_Fatal, "Failed to load OpenGL calls! THIS OPENGL CONTEXT IS UNUSABLE!"), e;
   auto dim        = w->GetSize();
   window->context = new GL::Context(FG_Vec2{ static_cast<float>(dim.x), static_cast<float>(dim.y) });
-  return w;
+  return 0;
 }
-FG_Window* Bridge::AttachContext(struct FG_GraphicsDesktopBridge* self, FG_Context* context, FG_Window* window)
-{
-  return nullptr;
+int Bridge::AttachContext(struct FG_GraphicsDesktopBridge* self, FG_Context* context, FG_Window* window) {
+  return -1;
 }
 int Bridge::BeginDraw(struct FG_GraphicsDesktopBridge* self, FG_Window* window, FG_Rect* area)
 {
   auto b = static_cast<Bridge*>(self);
   auto w = static_cast<GLFW::WindowGL*>(window);
-  w->MakeCurrent();
+  if(auto e = w->MakeCurrent())
+    return e;
   if(auto e = static_cast<GL::Context*>(window->context)->BeginDraw(area); !e)
   {
     e.log(b->_provider);

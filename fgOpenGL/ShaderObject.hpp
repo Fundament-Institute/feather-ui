@@ -27,7 +27,7 @@ namespace GL {
     constexpr ShaderObject() noexcept                    = default;
     constexpr ShaderObject(const ShaderObject&) noexcept = default;
     constexpr ~ShaderObject() noexcept                   = default;
-    bool is_valid() const noexcept;
+    GLExpected<bool> is_valid() const noexcept;
     GLExpected<std::string> log() const noexcept;
 
     ShaderObject& operator=(const ShaderObject&) noexcept = default;

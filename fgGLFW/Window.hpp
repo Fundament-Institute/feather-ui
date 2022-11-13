@@ -20,11 +20,11 @@ namespace GLFW {
     void DirtyRect(const FG_Rect* r);
     uint8_t ScanJoysticks();
     void PollJoysticks();
-    void Invalidate(FG_Rect* area);
+    int Invalidate(FG_Rect* area);
     inline GLFWwindow* GetWindow() { return _window; }
     FG_COMPILER_DLLEXPORT FG_Vec2i GetSize() const;
-    FG_COMPILER_DLLEXPORT void MakeCurrent();
-    FG_COMPILER_DLLEXPORT void SwapBuffers();
+    FG_COMPILER_DLLEXPORT int MakeCurrent();
+    FG_COMPILER_DLLEXPORT int SwapBuffers();
 #ifdef FG_PLATFORM_WIN32
     double TranslateJoyAxis(uint8_t axis, uint8_t index) const;
 #endif

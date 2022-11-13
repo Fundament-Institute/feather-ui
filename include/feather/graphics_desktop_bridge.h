@@ -22,8 +22,8 @@ limitations under the License.
 
 struct FG_GraphicsDesktopBridge
 {
-  FG_Window* (*emplaceContext)(struct FG_GraphicsDesktopBridge* self, FG_Window* window, enum FG_PixelFormat backbuffer);
-  FG_Window* (*attachContext)(struct FG_GraphicsDesktopBridge* self, FG_Context* context, FG_Window* window);
+  int (*emplaceContext)(struct FG_GraphicsDesktopBridge* self, FG_Window* window, enum FG_PixelFormat backbuffer);
+  int (*attachContext)(struct FG_GraphicsDesktopBridge* self, FG_Context* context, FG_Window* window);
   int (*beginDraw)(struct FG_GraphicsDesktopBridge* self, FG_Window* window, FG_Rect* area);
   int (*endDraw)(struct FG_GraphicsDesktopBridge* self, FG_Window* window);
   int (*destroy)(struct FG_GraphicsDesktopBridge* self);

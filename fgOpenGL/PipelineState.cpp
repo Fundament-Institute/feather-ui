@@ -54,7 +54,7 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
   if(state.members & FG_Pipeline_Member_Primitive)
   {
     if(state.primitive >= ArraySize(PrimitiveMapping))
-      return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "DepthFunc not valid comparison function");
+      return CUSTOM_ERROR(ERR_INVALID_DEPTH_FUNC, "DepthFunc not valid comparison function");
     pipeline->Primitive = PrimitiveMapping[state.primitive];
   }
 
@@ -74,29 +74,29 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
   if(state.members & FG_Pipeline_Member_Depth_Func)
   {
     if(state.depthFunc >= ArraySize(ComparisonMapping))
-      return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "DepthFunc not valid comparison function");
+      return CUSTOM_ERROR(ERR_INVALID_DEPTH_FUNC, "DepthFunc not valid comparison function");
     pipeline->DepthFunc = ComparisonMapping[state.depthFunc];
   }
 
   if(state.members & FG_Pipeline_Member_Stencil_Func)
   {
     if(state.stencilFunc >= ArraySize(ComparisonMapping))
-      return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "StencilFunc not valid comparison function");
+      return CUSTOM_ERROR(ERR_INVALID_STENCIL_FUNC, "StencilFunc not valid comparison function");
     pipeline->StencilFunc = ComparisonMapping[state.stencilFunc];
   }
 
   if(state.members & FG_Pipeline_Member_Stencil_OP)
   {
     if(state.stencilFailOp >= ArraySize(StencilOpMapping))
-      return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "StencilFailOp not valid stencil operation");
+      return CUSTOM_ERROR(ERR_INVALID_STENCIL_OP, "StencilFailOp not valid stencil operation");
     pipeline->StencilFailOp = StencilOpMapping[state.stencilFailOp];
 
     if(state.stencilDepthFailOp >= ArraySize(StencilOpMapping))
-      return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "StencilDepthFailOp not valid stencil operation");
+      return CUSTOM_ERROR(ERR_INVALID_STENCIL_OP, "StencilDepthFailOp not valid stencil operation");
     pipeline->StencilDepthFailOp = StencilOpMapping[state.stencilDepthFailOp];
 
     if(state.stencilPassOp >= ArraySize(StencilOpMapping))
-      return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "StencilPassOp not valid stencil operation");
+      return CUSTOM_ERROR(ERR_INVALID_STENCIL_OP, "StencilPassOp not valid stencil operation");
     pipeline->StencilPassOp = StencilOpMapping[state.stencilPassOp];
   }
 
@@ -108,7 +108,7 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
   case 0:
     if(!indexbuffer)
       break; // an indexstride of 0 is allowed if there is no indexbuffer
-  default: return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Index stride must be 1, 2, or 4 bytes.");
+  default: return CUSTOM_ERROR(ERR_INVALID_INDEX_STRIDE, "Index stride must be 1, 2, or 4 bytes.");
   }
 
   if(state.members & FG_Pipeline_Member_Fill)
@@ -123,7 +123,6 @@ GLExpected<PipelineState*> PipelineState::create(const FG_PipelineState& state, 
   // pipeline->NodeMask          = state.NodeMask; // OpenGL does not support multi-GPU rendering without extensions
   pipeline->blend = blend;
 
-  // glViewport(0, 0, 800, 600);
   return pipeline;
 }
 
@@ -169,18 +168,15 @@ GLExpected<void> PipelineState::apply(Context* ctx) noexcept
 
   if(Members & FG_Pipeline_Member_Depth_Func)
   {
-    glDepthFunc(DepthFunc);
-    GL_ERROR("glDepthFunc");
+    RETURN_ERROR(CALLGL(glDepthFunc, DepthFunc));
   }
   if(Members & FG_Pipeline_Member_Stencil_OP)
   {
-    glStencilOp(StencilFailOp, StencilDepthFailOp, StencilPassOp);
-    GL_ERROR("glStencilOp");
+    RETURN_ERROR(CALLGL(glStencilOp, StencilFailOp, StencilDepthFailOp, StencilPassOp));
   }
   if(Members & FG_Pipeline_Member_Stencil_Write_Mask)
   {
-    glStencilMask(StencilWriteMask);
-    GL_ERROR("glStencilMask");
+    RETURN_ERROR(CALLGL(glStencilMask, StencilWriteMask));
   }
   if(Members & (FG_Pipeline_Member_Stencil_Read_Mask || FG_Pipeline_Member_Stencil_Func || FG_Pipeline_Member_Stencil_Ref))
   {
@@ -189,21 +185,24 @@ GLExpected<void> PipelineState::apply(Context* ctx) noexcept
     GLint mask = StencilReadMask;
 
     if(!(Members & FG_Pipeline_Member_Stencil_Read_Mask))
-      glGetIntegerv(GL_STENCIL_VALUE_MASK, &mask);
+    {
+      RETURN_ERROR(CALLGL(glGetIntegerv, GL_STENCIL_VALUE_MASK, &mask));
+    }
     if(!(Members & FG_Pipeline_Member_Stencil_Func))
-      glGetIntegerv(GL_STENCIL_FUNC, &func);
+    {
+      RETURN_ERROR(CALLGL(glGetIntegerv, GL_STENCIL_FUNC, &func));
+    }
     if(!(Members & FG_Pipeline_Member_Stencil_Ref))
-      glGetIntegerv(GL_STENCIL_REF, &ref);
-    GL_ERROR("glGetIntegerv");
+    {
+      RETURN_ERROR(CALLGL(glGetIntegerv, GL_STENCIL_REF, &ref));
+    }
 
-    glStencilFunc(func, ref, mask);
-    GL_ERROR("glStencilFunc");
+    RETURN_ERROR(CALLGL(glStencilFunc, func, ref, mask));
   }
 
   if(Members & FG_Pipeline_Member_Depth_Slope_Bias)
   {
-    glPolygonOffset(SlopeScaledDepthBias, DepthBias);
-    GL_ERROR("glPolygonOffset");
+    RETURN_ERROR(CALLGL(glPolygonOffset, SlopeScaledDepthBias, DepthBias));
   }
   return {};
 }
@@ -215,7 +214,7 @@ GLExpected<ComputePipelineState*> ComputePipelineState::create(FG_Shader compute
                                                                uint32_t flags) noexcept
 {
   if(!computeshader)
-    return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Cannot create compute pipeline without compute shader!");
+    return CUSTOM_ERROR(ERR_INVALID_COMPUTE_SHADER, "Cannot create compute pipeline without compute shader!");
 
   auto pipeline = new ComputePipelineState{ COMPUTE_PIPELINE_FLAG, workgroup };
 

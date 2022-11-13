@@ -10,19 +10,15 @@ using namespace GL;
 
 GLExpected<BindRef> Framebuffer::bind(GLenum target) const noexcept
 {
-  glBindFramebuffer(target, _ref);
-  GL_ERROR("glBindFramebuffer");
+  RETURN_ERROR(CALLGL(glBindFramebuffer, target, _ref));
   return BindRef{ target, [](GLenum target) { glBindFramebuffer(target, 0); } };
 }
 
 GLExpected<Owned<Framebuffer>> Framebuffer::create(GLenum target, GLenum type, int level, int zoffset,
                                                    FG_Resource* textures, uint32_t n_textures) noexcept
 {
-  assert(glFramebufferTexture2D != nullptr);
-
   GLuint fbgl;
-  glGenFramebuffers(1, &fbgl);
-  GL_ERROR("glGenFramebuffers");
+  RETURN_ERROR(CALLGL(glGenFramebuffers, 1, &fbgl));
   Owned<Framebuffer> fb(fbgl);
 
   RETURN_ERROR(fb->attach(target, type, level, zoffset, textures, n_textures));
@@ -35,11 +31,10 @@ GLExpected<void> Framebuffer::attach(GLenum target, GLenum type, int level, int 
   if(auto e = bind(target))
   {
     int MaxRendertargets;
-    glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &MaxRendertargets);
-    GL_ERROR("glGetIntergerv");
+    RETURN_ERROR(CALLGL(glGetIntegerv, GL_MAX_COLOR_ATTACHMENTS, &MaxRendertargets));
     if((this->_numberOfColorAttachments + int(n_textures)) > MaxRendertargets)
     {
-      return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Trying to bind more render targets than max possible");
+      return CUSTOM_ERROR(ERR_TOO_MANY_RENDERTARGETS, "Trying to bind more render targets than max possible");
     }
     for(auto i = 0; i < n_textures; i++)
     {
@@ -47,26 +42,27 @@ GLExpected<void> Framebuffer::attach(GLenum target, GLenum type, int level, int 
       switch(type)
       {
       case GL_TEXTURE_1D:
-        glFramebufferTexture1D(target, GL_COLOR_ATTACHMENT0 + this->_numberOfColorAttachments, GL_TEXTURE_1D, texture,
-                               level);
+        RETURN_ERROR(CALLGL(glFramebufferTexture1D, target, GL_COLOR_ATTACHMENT0 + this->_numberOfColorAttachments,
+                            GL_TEXTURE_1D, texture, level));
         break;
       case GL_TEXTURE_3D:
-        glFramebufferTexture3D(target, GL_COLOR_ATTACHMENT0 + this->_numberOfColorAttachments, GL_TEXTURE_3D, texture,
-                               level, zoffset);
+        RETURN_ERROR(CALLGL(glFramebufferTexture3D, target, GL_COLOR_ATTACHMENT0 + this->_numberOfColorAttachments,
+                            GL_TEXTURE_3D, texture, level, zoffset));
         break;
       default:
-        glFramebufferTexture2D(target, GL_COLOR_ATTACHMENT0 + this->_numberOfColorAttachments, GL_TEXTURE_2D, texture,
-                               level);
+        RETURN_ERROR(CALLGL(glFramebufferTexture2D, target, GL_COLOR_ATTACHMENT0 + this->_numberOfColorAttachments,
+                            GL_TEXTURE_2D, texture, level));
         break;
       }
       this->_numberOfColorAttachments++;
-      GL_ERROR("glFramebufferTexture");
     }
 
-    auto status = glCheckFramebufferStatus(target);
-    if(status != GL_FRAMEBUFFER_COMPLETE)
+    auto status = CALLGL(glCheckFramebufferStatus, target);
+    if(status.has_error())
+      return std::move(e.error());
+    if(status.value() != GL_FRAMEBUFFER_COMPLETE)
     {
-      return CUSTOM_ERROR(status, "glCheckFramebufferStatus");
+      return CUSTOM_ERROR(status.value(), "glCheckFramebufferStatus");
     }
   }
   else
@@ -78,8 +74,7 @@ GLExpected<void> Framebuffer::attach2D(GLenum target, GLenum attachment, GLenum 
 {
   if(auto e = bind(target))
   {
-    glFramebufferTexture2D(target, attachment, type, Texture(texture), level);
-    GL_ERROR("glFramebufferTexture2D");
+    RETURN_ERROR(CALLGL(glFramebufferTexture2D, target, attachment, type, Texture(texture), level));
   }
   else
     return std::move(e.error());
