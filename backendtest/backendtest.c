@@ -18,6 +18,7 @@ limitations under the License.
 #include "resource.h"
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include <math.h>
 #include <time.h>
 #include <memory.h>
@@ -221,7 +222,7 @@ uintptr_t load_mesh(struct FG_GraphicsInterface* b, FG_Window* w)
     FG_Blend_Operand_One,
     FG_Blend_Operand_Inv_Src_Alpha,
     FG_Blend_Op_Add,
-    0b1111,
+    0xF,
   };
 
   return (*b->createPipelineState)(b, w->context, &pipeline, 0, &Premultiply_Blend, 0, 0, 0, 0, 0, 0, 0);
@@ -434,7 +435,7 @@ int main(int argc, char* argv[])
     FG_Blend_Operand_One,
     FG_Blend_Operand_Inv_Src_Alpha,
     FG_Blend_Op_Add,
-    0b1111,
+    0xF,
   };
 
   FG_VertexParameter vertparams[] = { { "vPos", 0, 0, 2, FG_Shader_Type_Float },
