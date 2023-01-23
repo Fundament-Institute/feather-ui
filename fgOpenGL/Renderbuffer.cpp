@@ -18,7 +18,7 @@ GLExpected<Owned<Renderbuffer>> Renderbuffer::create(GLenum target, Format forma
   RETURN_ERROR(CALLGL(glGenRenderbuffers, 1, &rbgl));
   Owned<Renderbuffer> rb(rbgl);
   if(auto bind = rb.bind(target))
-  { 
+  {
     RETURN_ERROR(CALLGL(glRenderbufferStorageMultisample, target, samples, format.internalformat, size.x, size.y));
   }
   else

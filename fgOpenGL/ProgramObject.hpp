@@ -8,16 +8,16 @@
 #include <string>
 
 namespace GL {
-  //static bool IsProgramObj(GLuint i) noexcept { return glIsProgram(i) == GL_TRUE; };
+  // static bool IsProgramObj(GLuint i) noexcept { return glIsProgram(i) == GL_TRUE; };
 
   struct ProgramObject : Ref
   {
     static constexpr DESTROY_FUNC DESTROY = [](GLuint i) { glDeleteProgram(i); };
 
     explicit constexpr ProgramObject(GLuint shader) noexcept : Ref(shader) {}
-    constexpr ProgramObject() noexcept                      = default;
-    constexpr ProgramObject(const ProgramObject&)           = default;
-    constexpr ~ProgramObject() noexcept                   = default;
+    constexpr ProgramObject() noexcept            = default;
+    constexpr ProgramObject(const ProgramObject&) = default;
+    constexpr ~ProgramObject() noexcept           = default;
     GLExpected<void> attach(ShaderObject shader) noexcept;
     GLExpected<void> link() noexcept;
     GLExpected<bool> is_valid() const noexcept;

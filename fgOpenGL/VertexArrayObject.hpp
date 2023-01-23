@@ -29,14 +29,14 @@ namespace GL {
     VertexArrayObject& operator=(const VertexArrayObject&) noexcept = delete;
 
   private:
-    VertexArrayObject(GLuint id) : _vaoID(id) { }
+    VertexArrayObject(GLuint id) : _vaoID(id) {}
     /// OpenGL object ID of VertexArrayObject
     GLuint _vaoID;
 #else
     VertexArrayObject();
-    VertexArrayObject(const VertexArrayObject&) = delete;
-    VertexArrayObject(VertexArrayObject&&)      = default;
-    VertexArrayObject& operator=(VertexArrayObject&&) noexcept = default;
+    VertexArrayObject(const VertexArrayObject&)                     = delete;
+    VertexArrayObject(VertexArrayObject&&)                          = default;
+    VertexArrayObject& operator=(VertexArrayObject&&) noexcept      = default;
     VertexArrayObject& operator=(const VertexArrayObject&) noexcept = delete;
 
   private:

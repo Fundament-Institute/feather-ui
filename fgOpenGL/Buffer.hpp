@@ -43,8 +43,7 @@ namespace GL {
       Owned<Buffer> fb(fbgl);
       if(auto r = fb.bind(target))
       {
-        RETURN_ERROR(
-          CALLGL(glBufferData, target, bytes, data, !data ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW));
+        RETURN_ERROR(CALLGL(glBufferData, target, bytes, data, !data ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW));
       }
       else
         return std::move(r.error());

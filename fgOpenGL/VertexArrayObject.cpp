@@ -46,7 +46,7 @@ GLExpected<VertexArrayObject> VertexArrayObject::create(GLuint program, std::spa
       GLenum type   = ShaderTypeMapping[param.type];
       size_t offset = param.offset;
       RETURN_ERROR(CALLGL(glVertexAttribPointer, loc.value(), param.length, type, GL_FALSE, vbuffers[param.index].second,
-                            reinterpret_cast<void*>(offset)));
+                          reinterpret_cast<void*>(offset)));
       if(glVertexAttribDivisorARB)
       {
         RETURN_ERROR(CALLGL(glVertexAttribDivisorARB, loc.value(), param.step));
@@ -70,15 +70,9 @@ VertexArrayObject::~VertexArrayObject()
     glDeleteVertexArrays(1, &_vaoID);
 }
 
-GLExpected<void> VertexArrayObject::bind()
-{
-  return CALLGL(glBindVertexArray, _vaoID);
-}
+GLExpected<void> VertexArrayObject::bind() { return CALLGL(glBindVertexArray, _vaoID); }
 
-GLExpected<void> VertexArrayObject::unbind()
-{
-  return CALLGL(glBindVertexArray, 0);
-}
+GLExpected<void> VertexArrayObject::unbind() { return CALLGL(glBindVertexArray, 0); }
 
 #else
 
@@ -108,13 +102,13 @@ GLExpected<VertexArrayObject> VertexArrayObject::create(GLuint program, std::spa
         auto loc = CALLGL(glGetAttribLocation, program, param.name);
         if(loc.has_error())
           return std::move(loc.error());
-        vao._attribs.push_back(VertexAttrib{ loc.value(), parameters[i].length,
-                                             ShaderTypeMapping[param.type], static_cast<uint16_t>(param.step) });
+        vao._attribs.push_back(VertexAttrib{ loc.value(), parameters[i].length, ShaderTypeMapping[param.type],
+                                             static_cast<uint16_t>(param.step) });
       }
     }
 
-    vao._vertexBuffer.push_back(
-      VertexBuffer{ vbuffers[i].first, vbuffers[i].second, std::span(vao._attribs).subspan(start, vao._attribs.size() - start) });
+    vao._vertexBuffer.push_back(VertexBuffer{ vbuffers[i].first, vbuffers[i].second,
+                                              std::span(vao._attribs).subspan(start, vao._attribs.size() - start) });
   }
 
   return {};
@@ -137,7 +131,8 @@ GLExpected<void> VertexArrayObject::bind()
     {
       RETURN_ERROR(CALLGL(glEnableVertexAttribArray, attrib.location));
 
-      RETURN_ERROR(CALLGL(glVertexAttribPointer, attrib.location, attrib.numElements, attrib.type, GL_FALSE, buffer.stride, offset));
+      RETURN_ERROR(
+        CALLGL(glVertexAttribPointer, attrib.location, attrib.numElements, attrib.type, GL_FALSE, buffer.stride, offset));
       if(glVertexAttribDivisorARB)
       {
         RETURN_ERROR(CALLGL(glVertexAttribDivisorARB, attrib.location, attrib.divisor));

@@ -47,9 +47,9 @@ namespace GL {
     GLExpected<std::string> log() const noexcept;
     GLExpected<void> current(Context* ctx) noexcept;
 
-    PipelineState(const PipelineState&)  = delete;
-    PipelineState(PipelineState&& state) = default;
-    PipelineState& operator=(const PipelineState&) = delete;
+    PipelineState(const PipelineState&)                      = delete;
+    PipelineState(PipelineState&& state)                     = default;
+    PipelineState& operator=(const PipelineState&)           = delete;
     PipelineState& operator=(PipelineState&& right) noexcept = default;
 
     static GLExpected<PipelineState*> create(const FG_PipelineState& state, FG_Resource rendertarget, FG_Blend blend,

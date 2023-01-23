@@ -66,11 +66,13 @@ GLExpected<Owned<Texture>> Texture::create2D(GLenum target, Format format, FG_Ve
   {
     if(target == GL_TEXTURE_2D_MULTISAMPLE || target == GL_PROXY_TEXTURE_2D_MULTISAMPLE)
     {
-      RETURN_ERROR(CALLGL(glTexImage2DMultisample, target, levelorsamples, format.internalformat, size.x, size.y, GL_FALSE));
+      RETURN_ERROR(
+        CALLGL(glTexImage2DMultisample, target, levelorsamples, format.internalformat, size.x, size.y, GL_FALSE));
     }
     else
     {
-      RETURN_ERROR(CALLGL(glTexImage2D, target, levelorsamples, format.internalformat, size.x, size.y, 0, format.components, format.type, data));
+      RETURN_ERROR(CALLGL(glTexImage2D, target, levelorsamples, format.internalformat, size.x, size.y, 0, format.components,
+                          format.type, data));
     }
 
     RETURN_ERROR(bind.value().apply_sampler(sampler));
