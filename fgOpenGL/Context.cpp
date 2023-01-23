@@ -269,8 +269,8 @@ GL::GLExpected<void> Context::CopyResourceRegion(FG_Resource src, FG_Resource de
   }
   else if(Renderbuffer::validate(src) && Renderbuffer::validate(dest))
   {
-    RETURN_ERROR(CALLGL(glCopyImageSubData, source, GL_RENDERBUFFER, 0, srcoffset.x, srcoffset.y, srcoffset.z, destination, GL_RENDERBUFFER, 0,
-                       destoffset.x, destoffset.y, destoffset.z, size.x, size.y, size.z));
+    RETURN_ERROR(CALLGL(glCopyImageSubData, source, GL_RENDERBUFFER, 0, srcoffset.x, srcoffset.y, srcoffset.z, destination,
+                        GL_RENDERBUFFER, 0, destoffset.x, destoffset.y, destoffset.z, size.x, size.y, size.z));
   }
   else
     return CUSTOM_ERROR(ERR_INVALID_PARAMETER, "Mismatched src / dest resources");
@@ -330,14 +330,14 @@ GLExpected<void> Context::ApplyBlend(const FG_Blend& blend, bool force)
 {
   if(force || memcmp(&blend, &_lastblend, sizeof(FG_Blend)) != 0)
   {
-    RETURN_ERROR(CALLGL(glBlendFuncSeparate, BlendMapping[blend.src_blend], BlendMapping[blend.dest_blend], BlendMapping[blend.src_blend_alpha],
-                        BlendMapping[blend.dest_blend_alpha]));
+    RETURN_ERROR(CALLGL(glBlendFuncSeparate, BlendMapping[blend.src_blend], BlendMapping[blend.dest_blend],
+                        BlendMapping[blend.src_blend_alpha], BlendMapping[blend.dest_blend_alpha]));
     RETURN_ERROR(CALLGL(glBlendEquationSeparate, BlendOpMapping[blend.blend_op], BlendOpMapping[blend.blend_op_alpha]));
 
     if(_lastblend.rendertarget_write_mask != blend.rendertarget_write_mask)
-    { 
+    {
       RETURN_ERROR(CALLGL(glColorMask, blend.rendertarget_write_mask & 0b0001, blend.rendertarget_write_mask & 0b0010,
-                  blend.rendertarget_write_mask & 0b0100, blend.rendertarget_write_mask & 0b1000));
+                          blend.rendertarget_write_mask & 0b0100, blend.rendertarget_write_mask & 0b1000));
     }
 
     _lastblend = blend;

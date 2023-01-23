@@ -19,9 +19,9 @@ namespace GL {
         assert(validate(buffer));
 #endif
     }
-    constexpr Renderbuffer() noexcept                     = default;
+    constexpr Renderbuffer() noexcept           = default;
     constexpr Renderbuffer(const Renderbuffer&) = default;
-    constexpr ~Renderbuffer() noexcept               = default;
+    constexpr ~Renderbuffer() noexcept          = default;
     GLExpected<BindRef> bind(GLenum target) const noexcept;
 
     inline operator FG_Resource() const noexcept { return _ref | REF_RENDERBUFFER; }

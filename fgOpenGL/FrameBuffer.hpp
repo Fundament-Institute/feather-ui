@@ -21,8 +21,8 @@ namespace GL {
 #endif
     }
     constexpr Framebuffer() noexcept : _numberOfColorAttachments(0) {}
-    constexpr Framebuffer(const Framebuffer&)           = default;
-    constexpr ~Framebuffer() noexcept                   = default;
+    constexpr Framebuffer(const Framebuffer&) = default;
+    constexpr ~Framebuffer() noexcept         = default;
 
     GLExpected<BindRef> bind(GLenum target) const noexcept;
 
@@ -35,13 +35,14 @@ namespace GL {
     }
     // This does not take ownership of the texture
     static GLExpected<Owned<Framebuffer>> create(GLenum target, GLenum type, int level, int zoffset, FG_Resource* textures,
-                                          uint32_t n_textures) noexcept;
+                                                 uint32_t n_textures) noexcept;
 
     GLExpected<void> attach(GLenum target, GLenum type, int level, int zoffset, FG_Resource* textures,
                             uint32_t n_textures) noexcept;
     GLExpected<void> attach2D(GLenum target, GLenum attachment, GLenum type, FG_Resource texture, int level);
 
     GLuint ColorAttachments() { return this->_numberOfColorAttachments; };
+
   private:
     int _numberOfColorAttachments;
   };

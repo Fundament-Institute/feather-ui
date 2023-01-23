@@ -52,7 +52,7 @@ namespace GLFW {
         _log(_logctx, level, file, line, msg, nullptr, 0, &FreeImpl);
       else
         fgLogImpl<&FreeImpl>(_log, _logctx, level, file, line, msg, std::tuple<Args...>(std::forward<Args>(args)...),
-                           std::index_sequence_for<Args...>{});
+                             std::index_sequence_for<Args...>{});
     }
 
     static void FreeImpl(char* p) { free(p); }
@@ -64,7 +64,8 @@ namespace GLFW {
     static int InvalidateWindow(FG_DesktopInterface* self, FG_Window* window, FG_Rect* optarea);
     static int PutClipboard(FG_DesktopInterface* self, FG_Window* window, enum FG_Clipboard kind, const char* data,
                             uint32_t count);
-    static uint32_t GetClipboard(FG_DesktopInterface* self, FG_Window* window, enum FG_Clipboard kind, void* target, uint32_t count);
+    static uint32_t GetClipboard(FG_DesktopInterface* self, FG_Window* window, enum FG_Clipboard kind, void* target,
+                                 uint32_t count);
     static bool CheckClipboard(FG_DesktopInterface* self, FG_Window* window, enum FG_Clipboard kind);
     static int ClearClipboard(FG_DesktopInterface* self, FG_Window* window, enum FG_Clipboard kind);
     static int ProcessMessages(FG_DesktopInterface* self, FG_Window* window, void* ui_state);

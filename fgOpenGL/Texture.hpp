@@ -33,10 +33,10 @@ namespace GL {
     {
       constexpr TextureBindRef() noexcept = delete;
       constexpr TextureBindRef(GLenum target, BINDRESET reset) noexcept : BindRef(target, reset) {}
-      constexpr TextureBindRef(TextureBindRef&& right) noexcept = default;
-      TextureBindRef(const TextureBindRef&)                       = delete;
+      constexpr TextureBindRef(TextureBindRef&& right) noexcept  = default;
+      TextureBindRef(const TextureBindRef&)                      = delete;
       TextureBindRef& operator=(TextureBindRef&& right) noexcept = default;
-      TextureBindRef& operator=(const TextureBindRef&) = delete;
+      TextureBindRef& operator=(const TextureBindRef&)           = delete;
 
       template<class T>
       GLExpected<void> set(GLenum parameter, T value) noexcept(std::is_nothrow_convertible_v<T, GLint> ||
@@ -87,9 +87,9 @@ namespace GL {
         assert(validate(tex));
 #endif
     }
-    constexpr Texture() noexcept                = default;
+    constexpr Texture() noexcept               = default;
     constexpr Texture(const Texture&) noexcept = default;
-    constexpr ~Texture() noexcept               = default;
+    constexpr ~Texture() noexcept              = default;
     GLExpected<TextureBindRef> bind(GLenum target) const noexcept;
 
     Texture& operator=(const Texture&) noexcept = default;

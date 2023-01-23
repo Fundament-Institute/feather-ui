@@ -18,9 +18,9 @@ void* Bridge::_library     = nullptr;
 #ifdef FG_PLATFORM_WIN32
 decltype(Bridge::_wglGetProcAddress) Bridge::_wglGetProcAddress = nullptr;
 #else
-#include <dlfcn.h>
+  #include <dlfcn.h>
 
-decltype(Bridge::_glxGetProcAddress) Bridge::_glxGetProcAddress = nullptr;
+decltype(Bridge::_glxGetProcAddress) Bridge::_glxGetProcAddress       = nullptr;
 decltype(Bridge::_glxGetProcAddressARB) Bridge::_glxGetProcAddressARB = nullptr;
 #endif
 
@@ -38,9 +38,7 @@ int Bridge::EmplaceContext(struct FG_GraphicsDesktopBridge* self, FG_Window* win
   window->context = new GL::Context(FG_Vec2{ static_cast<float>(dim.x), static_cast<float>(dim.y) });
   return 0;
 }
-int Bridge::AttachContext(struct FG_GraphicsDesktopBridge* self, FG_Context* context, FG_Window* window) {
-  return -1;
-}
+int Bridge::AttachContext(struct FG_GraphicsDesktopBridge* self, FG_Context* context, FG_Window* window) { return -1; }
 int Bridge::BeginDraw(struct FG_GraphicsDesktopBridge* self, FG_Window* window, FG_Rect* area)
 {
   auto b = static_cast<Bridge*>(self);
@@ -93,10 +91,10 @@ void* Bridge::ctxLoadProc(const char* name)
   if(proc)
     return (void*)proc;
 #else
-    if (Bridge::_glxGetProcAddress)
-        return (void*)Bridge::_glxGetProcAddress((const GLubyte*) name);
-    else if (Bridge::_glxGetProcAddressARB)
-        return (void*)Bridge::_glxGetProcAddressARB((const GLubyte*) name);
+  if(Bridge::_glxGetProcAddress)
+    return (void*)Bridge::_glxGetProcAddress((const GLubyte*)name);
+  else if(Bridge::_glxGetProcAddressARB)
+    return (void*)Bridge::_glxGetProcAddressARB((const GLubyte*)name);
 #endif
 
   return LoadProc(Bridge::_library, name);

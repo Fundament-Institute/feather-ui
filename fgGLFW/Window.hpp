@@ -14,7 +14,7 @@ namespace GLFW {
   struct WindowGL : FG_Window
   {
     WindowGL(Provider* backend, GLFWmonitor* display, uintptr_t window_id, FG_Vec2* pos, FG_Vec2* dim, uint64_t flags,
-           const char* caption);
+             const char* caption);
     ~WindowGL();
     static uint8_t GetModKeys(int mods);
     void DirtyRect(const FG_Rect* r);

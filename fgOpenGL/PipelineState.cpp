@@ -208,7 +208,10 @@ GLExpected<void> PipelineState::apply(Context* ctx) noexcept
 }
 
 // Stores the current openGL pipeline state in this object
-GLExpected<void> PipelineState::current(Context* ctx) noexcept { return GLError{ (GLenum)ERR_NOT_IMPLEMENTED, "current() not implemented!", __FILE__, __LINE__ }; }
+GLExpected<void> PipelineState::current(Context* ctx) noexcept
+{
+  return GLError{ (GLenum)ERR_NOT_IMPLEMENTED, "current() not implemented!", __FILE__, __LINE__ };
+}
 
 GLExpected<ComputePipelineState*> ComputePipelineState::create(FG_Shader computeshader, FG_Vec3i workgroup,
                                                                uint32_t flags) noexcept

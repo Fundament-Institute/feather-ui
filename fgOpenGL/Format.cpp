@@ -35,7 +35,7 @@ Format Format::Map(GLint internalformat) noexcept
   case GL_RGBA16I: return Format{ GL_RGBA16I, GL_RGBA_INTEGER, GL_SHORT };
   case GL_RGBA32UI: return Format{ GL_RGBA32UI, GL_RGBA_INTEGER, GL_UNSIGNED_INT };
   case GL_RGBA32I: return Format{ GL_RGBA32I, GL_RGBA_INTEGER, GL_INT };
-  //case GL_RGB10_A2UI: return Format{ GL_RGB10_A2UI, GL_RGBA_INTEGER, GL_UNSIGNED_INT_2_10_10_10_REV };
+  // case GL_RGB10_A2UI: return Format{ GL_RGB10_A2UI, GL_RGBA_INTEGER, GL_UNSIGNED_INT_2_10_10_10_REV };
   case GL_RGB8: return Format{ GL_RGB8, GL_RGB, GL_UNSIGNED_BYTE };
   // case GL_RGB565: return Format{ GL_RGB565, GL_RGB, GL_UNSIGNED_BYTE };
   case GL_SRGB8: return Format{ GL_SRGB8, GL_RGB, GL_UNSIGNED_BYTE };
@@ -195,7 +195,7 @@ Format Format::Create(unsigned char format, bool sRGB) noexcept
   case FG_PixelFormat_X32_Typeless_G8X24_UInt: return Format{ 0, 0, 0 };
   case FG_PixelFormat_R10G10B10A2_Typeless: return Format{ GL_RGBA, GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV };
   case FG_PixelFormat_R10G10B10A2_UNorm: return Format{ GL_RGB10_A2, GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV };
-  //case FG_PixelFormat_R10G10B10A2_UInt: return Format{ GL_RGB10_A2UI, GL_RGBA_INTEGER, GL_UNSIGNED_INT_2_10_10_10_REV };
+  // case FG_PixelFormat_R10G10B10A2_UInt: return Format{ GL_RGB10_A2UI, GL_RGBA_INTEGER, GL_UNSIGNED_INT_2_10_10_10_REV };
   case FG_PixelFormat_R11G11B10_Float: return Format{ GL_R11F_G11F_B10F, GL_RGB, GL_UNSIGNED_INT_10F_11F_11F_REV };
   case FG_PixelFormat_R8G8B8A8_Typeless: return Format{ sRGB ? GL_SRGB_ALPHA : GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE };
   case FG_PixelFormat_R8G8B8A8_UNorm: return Format{ sRGB ? GL_SRGB8_ALPHA8 : GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE };

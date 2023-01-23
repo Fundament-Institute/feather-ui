@@ -47,8 +47,7 @@ namespace FG {
 
     static void FreeImpl(char* p) { free(p); }
 
-    static int EmplaceContext(struct FG_GraphicsDesktopBridge* self, FG_Window* window,
-                                     enum FG_PixelFormat backbuffer);
+    static int EmplaceContext(struct FG_GraphicsDesktopBridge* self, FG_Window* window, enum FG_PixelFormat backbuffer);
     static int AttachContext(struct FG_GraphicsDesktopBridge* self, FG_Context* context, FG_Window* window);
     static int BeginDraw(struct FG_GraphicsDesktopBridge* self, FG_Window* window, FG_Rect* area);
     static int EndDraw(struct FG_GraphicsDesktopBridge* self, FG_Window* window);

@@ -34,7 +34,7 @@ namespace GL {
         _log(_logctx, level, file, line, msg, nullptr, 0, &FreeImpl);
       else
         fgLogImpl<&FreeImpl>(_log, _logctx, level, file, line, msg, std::tuple<Args...>(std::forward<Args>(args)...),
-                           std::index_sequence_for<Args...>{});
+                             std::index_sequence_for<Args...>{});
     }
     FG_COMPILER_DLLEXPORT int LoadGL(GLADloadproc loader);
     static void FreeImpl(char* p) { free(p); }

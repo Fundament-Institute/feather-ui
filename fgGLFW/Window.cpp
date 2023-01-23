@@ -543,7 +543,7 @@ int WindowGL::Invalidate(FG_Rect* area)
 {
 #ifdef FG_PLATFORM_WIN32
   Provider::_lasterr = 0;
-  auto hWnd = glfwGetWin32Window(_window);
+  auto hWnd          = glfwGetWin32Window(_window);
   if(Provider::_lasterr)
     return Provider::_lasterr;
 
