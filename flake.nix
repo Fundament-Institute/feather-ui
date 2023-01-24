@@ -35,7 +35,7 @@
           };
 
           nativeBuildInputs = [ pkgs.cmake ];
-          buildInputs = [ pkgs.libglvnd pkgs.glfw pkgs.x11 pkgs.xorg.libXrandr ];
+          buildInputs = [ pkgs.libglvnd pkgs.glfw pkgs.xorg.libX11 pkgs.xorg.libXrandr ];
           outputs = [ "out" ];
 
           cmakeFlags = [ "-DUSE_DEFAULT_FOLDERS=1" ];
