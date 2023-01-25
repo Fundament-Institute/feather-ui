@@ -35,7 +35,7 @@
           };
 
           nativeBuildInputs = [ pkgs.cmake ];
-          buildInputs = [ pkgs.libglvnd pkgs.glfw pkgs.x11 pkgs.xorg.libXrandr ];
+          buildInputs = [ pkgs.libglvnd pkgs.glfw pkgs.xorg.libX11 pkgs.xorg.libXrandr ];
           outputs = [ "out" ];
 
           cmakeFlags = [ "-DUSE_DEFAULT_FOLDERS=1" ];
@@ -55,13 +55,6 @@
             cmakeFlags = [ "-DSAIL_COMBINE_CODECS=ON" ];
             buildInputs =
               [ pkgs.cmake pkgs.libpng pkgs.libjpeg_turbo pkgs.libwebp ];
-            postInstall = ''
-              echo in postinstall
-              mv $out/include/sail/sail $out/include/sail-bak
-              mv $out/include/sail/* $out/include/
-              rmdir $out/include/sail
-              mv $out/include/sail-bak $out/include/sail
-            '';
           };
         };
         devShell = pkgs.mkShell {

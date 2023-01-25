@@ -2,11 +2,11 @@
   "nodes": {
     "flake-utils": {
       "locked": {
-        "lastModified": 1659877975,
-        "narHash": "sha256-zllb8aq3YO3h8B/U0/J1WBgAL8EX5yWf5pMj3G0NAmc=",
+        "lastModified": 1667395993,
+        "narHash": "sha256-nuEHfE/LcWyuSWnS8t12N1wc105Qtau+/OdUAjtQ0rA=",
         "owner": "numtide",
         "repo": "flake-utils",
-        "rev": "c0e246b9b83f637f4681389ecabcb2681b4f3af0",
+        "rev": "5aed5285a952e0b949eb3ba02c12fa4fcfef535f",
         "type": "github"
       },
       "original": {
@@ -48,11 +48,11 @@
     },
     "nix-filter": {
       "locked": {
-        "lastModified": 1661201956,
-        "narHash": "sha256-RizGJH/buaw9A2+fiBf9WnXYw4LZABB5kMAZIEE5/T8=",
+        "lastModified": 1666547822,
+        "narHash": "sha256-razwnAybPHyoAyhkKCwXdxihIqJi1G6e1XP4FQOJTEs=",
         "owner": "numtide",
         "repo": "nix-filter",
-        "rev": "3b821578685d661a10b563cba30b1861eec05748",
+        "rev": "1a3b735e13e90a8d2fd5629f2f8363bd7ffbbec7",
         "type": "github"
       },
       "original": {
@@ -78,16 +78,16 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1650998007,
-        "narHash": "sha256-NcJnbGDBBN023x8s3ll3HZxBcQoPq1ry9E2sjg+4flc=",
+        "lastModified": 1674242456,
+        "narHash": "sha256-yBy7rCH7EiBe9+CHZm9YB5ii5GRa+MOxeW0oDEBO8SE=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "a3917caedfead19f853aa5769de4c3ea4e4db584",
+        "rev": "cdead16a444a3e5de7bc9b0af8e198b11bb01804",
         "type": "github"
       },
       "original": {
         "owner": "nixos",
-        "ref": "nixos-21.11",
+        "ref": "nixos-22.11",
         "repo": "nixpkgs",
         "type": "github"
       }
@@ -107,11 +107,11 @@
     "sail-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1664563584,
-        "narHash": "sha256-6bssJUEiDVWyLGG6b+naIlme5zr42XjPYdxRzRzyZtA=",
+        "lastModified": 1674584311,
+        "narHash": "sha256-bkhCjBs0R+jBsK4+WIGg44NCfgHdJsaArQVKoTmCXOw=",
         "owner": "HappySeaFox",
         "repo": "sail",
-        "rev": "c0c1e57d8fe8c63216dc9f130e67415a46c7488f",
+        "rev": "e01d0b8e86a86a6ea07cf3109f98572606817a04",
         "type": "github"
       },
       "original": {
@@ -129,11 +129,11 @@
         "spirv-cross-src": "spirv-cross-src"
       },
       "locked": {
-        "lastModified": 1664682446,
-        "narHash": "sha256-FLO1sSfw69igYAnGaJC9ErgLjZNIvRqxDUJfkULcANg=",
+        "lastModified": 1674523810,
+        "narHash": "sha256-xjSPHfk3Lv1JseRIh3BdY52LyYYXDIuAMtfBdOp2Fnk=",
         "owner": "Fundament-software",
         "repo": "scopes",
-        "rev": "7cf1b1ca86d2e80d18d23ae756ef872789246a92",
+        "rev": "e4bae70c7b6b0fbbf68bb47893fec05ed45f0c8c",
         "type": "github"
       },
       "original": {
