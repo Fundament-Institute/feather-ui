@@ -25,12 +25,11 @@
           pkgs.cjson
           selfpkgs.sail
         ];
-        devshell-ldpath =
-          pkgs.lib.concatMapStringsSep ":" (lib: "${pkgs.lib.getLib lib}/lib") [
-            selfpkgs.sail
-            selfpkgs.fgOpenGL
-            pkgs.cjson
-          ];
+        devshell-ldpath = pkgs.lib.makeLibraryPath [
+          selfpkgs.sail
+          selfpkgs.fgOpenGL
+          pkgs.cjson
+        ];
         # TODO: investigate something in scopes flake to automate or abstract this
         featherDevSetupHook = ''
           export NIX_CFLAGS_COMPILE="''${NIX_CFLAGS_COMPILE:-} $(pkg-config --cflags libcjson libsail)"
