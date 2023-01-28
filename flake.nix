@@ -10,16 +10,31 @@
   };
 
   outputs = { self, scopes, nixpkgs, flake-utils, nix-filter, sail-src }:
-    (flake-utils.lib.eachDefaultSystem (system:
+    # Using same set of systems as scopes.packages as we can't support systems
+    # that scopes doesn't support
+    (flake-utils.lib.eachSystem (builtins.attrNames scopes.packages) (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
         selfpkgs = self.packages.${system};
-        devshell-ldpath =
-          pkgs.lib.concatMapStringsSep ":" (lib: "${pkgs.lib.getLib lib}/lib") [
-            selfpkgs.sail
-            selfpkgs.fgOpenGL
-            pkgs.cjson
-          ];
+        featherNativeDevDeps = [
+          pkgs.pkg-config
+          scopes.packages.${system}.scopes
+        ];
+        featherDevDeps = [
+          backends
+          pkgs.cjson
+          selfpkgs.sail
+        ];
+        devshell-ldpath = pkgs.lib.makeLibraryPath [
+          selfpkgs.sail
+          selfpkgs.fgOpenGL
+          pkgs.cjson
+        ];
+        # TODO: investigate something in scopes flake to automate or abstract this
+        featherDevSetupHook = ''
+          export NIX_CFLAGS_COMPILE="''${NIX_CFLAGS_COMPILE:-} $(pkg-config --cflags libcjson libsail)"
+          export LD_LIBRARY_PATH=${devshell-ldpath}:''${LD_LIBRARY_PATH:-}
+        '';
         backends = pkgs.llvmPackages_13.stdenv.mkDerivation {
           name = "backends";
           src = nix-filter.lib.filter {
@@ -45,6 +60,22 @@
           #   cp -r . $out/build-dump
           # '';
         };
+        runCommandWithFeather = name: script:
+          pkgs.runCommand name
+            {
+              nativeBuildInputs = featherNativeDevDeps;
+              buildInputs = featherDevDeps;
+            } ''
+            set -euo pipefail
+            ln -s "${./feather}" feather
+            mkdir output
+            ${featherDevSetupHook}
+            # scopes needs writable $HOME for ~/.cache/scopes
+            export HOME=$TMP
+            ${script}
+            ls output
+            mv output $out
+          '';
       in {
         packages = {
           fgOpenGL = backends;
@@ -58,15 +89,17 @@
           };
         };
         devShell = pkgs.mkShell {
-          buildInputs = [
-            scopes.packages.${system}.scopes
-            backends
-            pkgs.cjson
-            selfpkgs.sail
-          ];
+          nativeBuildInputs = featherNativeDevDeps;
+          buildInputs = featherDevDeps;
 
-          shellHook = ''
-            export LD_LIBRARY_PATH=${devshell-ldpath}:$LD_LIBRARY_PATH
+          shellHook = featherDevSetupHook;
+        };
+        checks = {
+          feather-tests = runCommandWithFeather "feather-tests" ''
+            for test in feather/{json,rendering}-test.sc; do
+              echo Running $test
+              scopes $test
+            done
           '';
         };
       })) // {
