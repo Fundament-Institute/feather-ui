@@ -142,29 +142,32 @@ FG_Caps Provider::GetCaps(FG_GraphicsInterface* self)
   glGetIntegerv(GL_MAX_TESS_CONTROL_INPUT_COMPONENTS, &caps.openGL.max_tess_control_inputs);
   glGetIntegerv(GL_MAX_TESS_EVALUATION_INPUT_COMPONENTS, &caps.openGL.max_tess_evaluation_inputs);
   glGetIntegerv(GL_MAX_IMAGE_UNITS, &caps.openGL.max_images);
-  glGetIntegerv(GL_MAX_MESH_TEXTURE_IMAGE_UNITS_NV, &caps.openGL.max_mesh_samplers);
-  glGetIntegerv(GL_MAX_MESH_UNIFORM_COMPONENTS_NV, &caps.openGL.max_mesh_uniforms);
-  glGetIntegerv(GL_MAX_MESH_IMAGE_UNIFORMS_NV, &caps.openGL.max_mesh_image_uniforms);
-  glGetIntegerv(GL_MAX_MESH_ATOMIC_COUNTER_BUFFERS_NV, &caps.openGL.max_mesh_atomic_counter_buffers);
-  glGetIntegerv(GL_MAX_MESH_ATOMIC_COUNTERS_NV, &caps.openGL.max_mesh_atomic_counters);
-  glGetIntegerv(GL_MAX_COMBINED_MESH_UNIFORM_COMPONENTS_NV, &caps.openGL.max_mesh_components);
-  glGetIntegerv(GL_MAX_TASK_TEXTURE_IMAGE_UNITS_NV, &caps.openGL.max_task_samplers);
-  glGetIntegerv(GL_MAX_TASK_IMAGE_UNIFORMS_NV, &caps.openGL.max_task_image_uniforms);
-  glGetIntegerv(GL_MAX_TASK_UNIFORM_COMPONENTS_NV, &caps.openGL.max_task_uniform_components);
-  glGetIntegerv(GL_MAX_TASK_ATOMIC_COUNTER_BUFFERS_NV, &caps.openGL.max_task_atomic_counter_buffers);
-  glGetIntegerv(GL_MAX_TASK_ATOMIC_COUNTERS_NV, &caps.openGL.max_task_atomic_counters);
-  glGetIntegerv(GL_MAX_COMBINED_TASK_UNIFORM_COMPONENTS_NV, &caps.openGL.max_task_components);
-  glGetIntegerv(GL_MAX_MESH_WORK_GROUP_INVOCATIONS_NV, &caps.openGL.max_mesh_work_group_invocations);
-  glGetIntegerv(GL_MAX_TASK_WORK_GROUP_INVOCATIONS_NV, &caps.openGL.max_task_work_group_invocations);
-  glGetIntegerv(GL_MAX_MESH_TOTAL_MEMORY_SIZE_NV, &caps.openGL.max_mesh_memory);
-  glGetIntegerv(GL_MAX_TASK_TOTAL_MEMORY_SIZE_NV, &caps.openGL.max_task_memory);
-  glGetIntegerv(GL_MAX_MESH_OUTPUT_VERTICES_NV, &caps.openGL.max_mesh_output_vertices);
-  glGetIntegerv(GL_MAX_MESH_OUTPUT_PRIMITIVES_NV, &caps.openGL.max_mesh_output_primitives);
-  glGetIntegerv(GL_MAX_TASK_OUTPUT_COUNT_NV, &caps.openGL.max_task_output);
-  glGetIntegerv(GL_MAX_DRAW_MESH_TASKS_COUNT_NV, &caps.openGL.max_mesh_draw_tasks);
-  glGetIntegerv(GL_MAX_MESH_VIEWS_NV, &caps.openGL.max_mesh_views);
-  GetVec3i(GL_MAX_MESH_WORK_GROUP_SIZE_NV, caps.openGL.max_mesh_work_group_size);
-  GetVec3i(GL_MAX_TASK_WORK_GROUP_SIZE_NV, caps.openGL.max_task_work_group_size);
+  if(GLAD_GL_NV_mesh_shader)
+  {
+    glGetIntegerv(GL_MAX_MESH_TEXTURE_IMAGE_UNITS_NV, &caps.openGL.max_mesh_samplers);
+    glGetIntegerv(GL_MAX_MESH_UNIFORM_COMPONENTS_NV, &caps.openGL.max_mesh_uniforms);
+    glGetIntegerv(GL_MAX_MESH_IMAGE_UNIFORMS_NV, &caps.openGL.max_mesh_image_uniforms);
+    glGetIntegerv(GL_MAX_MESH_ATOMIC_COUNTER_BUFFERS_NV, &caps.openGL.max_mesh_atomic_counter_buffers);
+    glGetIntegerv(GL_MAX_MESH_ATOMIC_COUNTERS_NV, &caps.openGL.max_mesh_atomic_counters);
+    glGetIntegerv(GL_MAX_COMBINED_MESH_UNIFORM_COMPONENTS_NV, &caps.openGL.max_mesh_components);
+    glGetIntegerv(GL_MAX_TASK_TEXTURE_IMAGE_UNITS_NV, &caps.openGL.max_task_samplers);
+    glGetIntegerv(GL_MAX_TASK_IMAGE_UNIFORMS_NV, &caps.openGL.max_task_image_uniforms);
+    glGetIntegerv(GL_MAX_TASK_UNIFORM_COMPONENTS_NV, &caps.openGL.max_task_uniform_components);
+    glGetIntegerv(GL_MAX_TASK_ATOMIC_COUNTER_BUFFERS_NV, &caps.openGL.max_task_atomic_counter_buffers);
+    glGetIntegerv(GL_MAX_TASK_ATOMIC_COUNTERS_NV, &caps.openGL.max_task_atomic_counters);
+    glGetIntegerv(GL_MAX_COMBINED_TASK_UNIFORM_COMPONENTS_NV, &caps.openGL.max_task_components);
+    glGetIntegerv(GL_MAX_MESH_WORK_GROUP_INVOCATIONS_NV, &caps.openGL.max_mesh_work_group_invocations);
+    glGetIntegerv(GL_MAX_TASK_WORK_GROUP_INVOCATIONS_NV, &caps.openGL.max_task_work_group_invocations);
+    glGetIntegerv(GL_MAX_MESH_TOTAL_MEMORY_SIZE_NV, &caps.openGL.max_mesh_memory);
+    glGetIntegerv(GL_MAX_TASK_TOTAL_MEMORY_SIZE_NV, &caps.openGL.max_task_memory);
+    glGetIntegerv(GL_MAX_MESH_OUTPUT_VERTICES_NV, &caps.openGL.max_mesh_output_vertices);
+    glGetIntegerv(GL_MAX_MESH_OUTPUT_PRIMITIVES_NV, &caps.openGL.max_mesh_output_primitives);
+    glGetIntegerv(GL_MAX_TASK_OUTPUT_COUNT_NV, &caps.openGL.max_task_output);
+    glGetIntegerv(GL_MAX_DRAW_MESH_TASKS_COUNT_NV, &caps.openGL.max_mesh_draw_tasks);
+    glGetIntegerv(GL_MAX_MESH_VIEWS_NV, &caps.openGL.max_mesh_views);
+    GetVec3i(GL_MAX_MESH_WORK_GROUP_SIZE_NV, caps.openGL.max_mesh_work_group_size);
+    GetVec3i(GL_MAX_TASK_WORK_GROUP_SIZE_NV, caps.openGL.max_task_work_group_size);
+  }
 
   return caps;
 }
