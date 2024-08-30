@@ -1,0 +1,21 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg/master/scripts/vcpkg.schema.json",
+  "name": "feathergui",
+  "version": "0.1",
+  "port-version": 1,
+  "description": "Feather GUI library",
+  "homepage": "https://github.com/Fundament-Software/feathergui",
+  "license": "Apache-2.0",
+  "dependencies": [
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    },
+    {
+      "name": "scopes",
+      "host": true
+    },
+    "glfw3"
+  ],
+  "default-features": []
+}
