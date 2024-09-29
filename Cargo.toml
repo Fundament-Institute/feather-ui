@@ -1,0 +1,30 @@
+[workspace]
+members = ["feather-ui", "examples/basic"]
+resolver = "2"
+default-members = ["feather-ui"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77.0"
+license = "Apache-2.0"
+homepage = "https://github.com/Fundament-Software/feathergui"
+repository = "https://github.com/Fundament-Software/feathergui/"
+readme = "README.md"
+
+[workspace.dependencies]
+im = "12.3"
+wgpu = "22"
+winit = "0.29"
+color-eyre = "0.6"
+eyre = "0.6"
+ultraviolet = "0.9"
+rand = { version = "0.8.5", features = ["std_rng"] }
+tracing-subscriber = { version = "0.3.18", features = ["time"] }
+tracing = "0.1.40"
+tokio = { version = "1.40", features = ["rt", "macros", "tracing", "signal"] }
+feather-ui = { path = "feather-ui" }
+alicorn = { git = "https://github.com/Fundament-Software/Alicorn0" }
+
+[patch."https://github.com/Fundament-Software/Alicorn0"]
+alicorn = { path = "../alicorn0" }

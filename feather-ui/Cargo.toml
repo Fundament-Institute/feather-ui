@@ -1,0 +1,31 @@
+[package]
+name = "feather-ui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors = ["Erik McClure  "]
+description = """
+Feather UI library
+"""
+homepage.workspace = true
+repository = "https://github.com/Fundament-Software/feathergui/tree/main/feather-ui"
+readme.workspace = true
+keywords = ["ui", "interface", "graphics", "gpu"]
+license.workspace = true
+
+[lib]
+path = "src/lib.rs"
+doctest = false
+
+[dependencies]
+im.workspace = true
+wgpu.workspace = true
+winit.workspace = true
+eyre.workspace = true
+color-eyre.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tokio.workspace = true
+ultraviolet.workspace = true
+dyn-clone = "1.0"
+derive-where = "1.2.7"
