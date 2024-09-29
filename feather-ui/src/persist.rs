@@ -107,9 +107,7 @@ where
 pub struct ConcatStore<T: Clone>(im::Vector<T>, im::Vector<T>, im::Vector<T>);
 pub struct Concat {}
 
-impl<T: Clone + std::cmp::PartialEq> FnPersist<(im::Vector<T>, im::Vector<T>), im::Vector<T>>
-    for Concat
-{
+impl<T: Clone> FnPersist<(im::Vector<T>, im::Vector<T>), im::Vector<T>> for Concat {
     type Store = ConcatStore<T>;
 
     fn call(
@@ -117,12 +115,13 @@ impl<T: Clone + std::cmp::PartialEq> FnPersist<(im::Vector<T>, im::Vector<T>), i
         mut store: Self::Store,
         args: &(im::Vector<T>, im::Vector<T>),
     ) -> (Self::Store, im::Vector<T>) {
-        if store.0 != args.0 || store.1 != args.1 {
-            store.0 = args.0.clone();
-            store.1 = args.1.clone();
-            store.2 = args.0.clone();
-            store.2.append(store.1.clone());
-        }
+        // TODO: we need pointer only vector equality checks
+        //if store.0 != args.0 || store.1 != args.1 {
+        store.0 = args.0.clone();
+        store.1 = args.1.clone();
+        store.2 = args.0.clone();
+        store.2.append(store.1.clone());
+        //}
         let r = store.2.clone();
         (store, r)
     }
@@ -289,7 +288,7 @@ impl<K: Ord + std::cmp::PartialEq + Clone, V: std::cmp::PartialEq, U: Ord + Clon
 }
 
 #[derive_where(Clone, Default)]
-pub struct VectorMapStore<V: std::cmp::PartialEq + Clone, U: Clone, F: FnPersist<V, U>> {
+pub struct VectorMapStore<V: Clone, U: Clone, F: FnPersist<V, U>> {
     arg: im::Vector<V>,
     result: im::Vector<U>,
     store: im::Vector<F::Store>,
@@ -311,27 +310,27 @@ impl<V, U, F: FnPersist<V, U>> From<F> for VectorMap<V, U, F> {
     }
 }
 
-impl<V: std::cmp::PartialEq + Clone, U: Clone, F: FnPersist<V, U>>
-    FnPersist<im::Vector<V>, im::Vector<U>> for VectorMap<V, U, F>
+impl<V: Clone, U: Clone, F: FnPersist<V, U>> FnPersist<im::Vector<V>, im::Vector<U>>
+    for VectorMap<V, U, F>
 {
     type Store = VectorMapStore<V, U, F>;
 
     fn call(&self, mut store: Self::Store, args: &im::Vector<V>) -> (Self::Store, im::Vector<U>) {
-        // TODO: We can't implement this properly because tracking the storage requires access to im::Vector internals, so we just check if the arg is the exact same as last time
-        if store.arg != *args {
-            store.result.clear();
-            for v in args.iter() {
-                let (_, item) = self.f.call(Default::default(), v);
-                store.result.push_back(item);
-            }
+        // TODO: We can't implement this properly because tracking the storage requires access to im::Vector internals, and we can't even compare the two vectors either
+        //if store.arg != *args {
+        store.result.clear();
+        for v in args.iter() {
+            let (_, item) = self.f.call(Default::default(), v);
+            store.result.push_back(item);
         }
+        //}
         let result = store.result.clone();
         (store, result)
     }
 }
 
 #[allow(refining_impl_trait)]
-impl<V: std::cmp::PartialEq + Clone, U: Clone> MapPersist<V, U> for im::Vector<V> {
+impl<V: Clone, U: Clone> MapPersist<V, U> for im::Vector<V> {
     type C<A> = im::Vector<A>;
 
     fn map<F: FnPersist<V, U>>(f: F) -> VectorMap<V, U, F> {
@@ -340,7 +339,7 @@ impl<V: std::cmp::PartialEq + Clone, U: Clone> MapPersist<V, U> for im::Vector<V
 }
 
 #[derive_where(Clone, Default)]
-pub struct VectorFoldStore<T: Clone, U: Clone + Default, F: FnPersist<(U, T), U>> {
+pub struct VectorFoldStore<T: Clone, U: Clone + Default, F: for<'a> FnPersist<(U, &'a T), U>> {
     arg: im::Vector<T>,
     result: U,
     store: im::Vector<F::Store>,
@@ -352,7 +351,7 @@ pub struct VectorFold<T, U, F> {
     phantom_u: PhantomData<U>,
 }
 
-impl<T: Clone, U: Clone + Default, F: FnPersist<(U, T), U>> VectorFold<T, U, F> {
+impl<T: Clone, U: Clone + Default, F: for<'a> FnPersist<(U, &'a T), U>> VectorFold<T, U, F> {
     pub fn new(f: F) -> Self {
         Self {
             f,
@@ -362,22 +361,24 @@ impl<T: Clone, U: Clone + Default, F: FnPersist<(U, T), U>> VectorFold<T, U, F> 
     }
 }
 
-impl<T: Clone, U: Clone + Default, F: FnPersist<(U, T), U>> From<F> for VectorFold<T, U, F> {
+impl<T: Clone, U: Clone + Default, F: for<'a> FnPersist<(U, &'a T), U>> From<F>
+    for VectorFold<T, U, F>
+{
     fn from(f: F) -> Self {
         Self::new(f)
     }
 }
 
-impl<T: Clone, U: Clone + Default, F: FnPersist<(U, T), U>> FnPersist<(U, im::Vector<T>), U>
-    for VectorFold<T, U, F>
+impl<T: Clone, U: Clone + Default, F: for<'a> FnPersist<(U, &'a T), U>>
+    FnPersist<(U, im::Vector<T>), U> for VectorFold<T, U, F>
 {
-    type Store = VectorFoldStore<T, U, F>;
+    type Store = VectorFoldStore<'a, T, U, F>;
 
     fn call(&self, mut store: Self::Store, args: &(U, im::Vector<T>)) -> (Self::Store, U) {
         let mut seed = args.0.clone();
 
         for item in args.1.iter() {
-            let (_, result) = self.f.call(Default::default(), &(seed, item.clone()));
+            let (_, result) = self.f.call(Default::default(), &(seed, &item));
             seed = result;
         }
 
