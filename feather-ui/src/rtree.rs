@@ -8,7 +8,7 @@ use crate::Event;
 use crate::EventHandler;
 use ultraviolet::Vec2;
 
-pub struct Node<AppData: 'static> {
+pub struct Node<AppData> {
     pub area: AbsRect, // This is the calculated area of the node from the layout relative to the topleft corner of the parent.
     pub extent: AbsRect, // This is the minimal bounding rectangle of the children's extent relative to OUR topleft corner.
     pub top: i32, // 2D R-tree nodes are actually 3 dimensional, but the z-axis can never overlap (because layout rects have no depth).
@@ -18,7 +18,7 @@ pub struct Node<AppData: 'static> {
     pub children: im::Vector<Rc<Node<AppData>>>,
 }
 
-impl<AppData: 'static> Node<AppData> {
+impl<AppData> Node<AppData> {
     pub fn new(
         area: AbsRect,
         z: Option<i32>,

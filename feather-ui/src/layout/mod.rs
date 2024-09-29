@@ -19,43 +19,34 @@ pub trait Layout<Imposed, AppData>: DynClone {
 
 dyn_clone::clone_trait_object!(<Imposed, AppData> Layout<Imposed, AppData>);
 
-pub trait Desc<AppData: 'static> {
+pub trait Desc<AppData> {
     type Props: Clone;
     type Impose: Clone;
-    type Children<A: DynClone + ?Sized>: Clone + 'static;
+    type Children<A: DynClone + ?Sized>: Clone;
 
     /// Resolves a pending layout into a resolved node, which contains a pointer to the R-tree
     fn stage(
         props: &Self::Props,
         area: AbsRect,
-        children: &Self::Children<dyn Layout<Self::Impose, AppData>>,
+        children: &Self::Children<dyn Layout<Self::Impose, AppData> + '_>,
     ) -> Box<dyn Staged<AppData>>;
-
-    fn fake_stage(
-        props: &Self::Props,
-        area: AbsRect,
-        children: &Self::Children<dyn Layout<Self::Impose, AppData>>,
-    ) -> () {
-    }
 }
 
 #[derive_where(Clone)]
-pub struct Node<AppData: 'static, D: Desc<AppData>, Imposed: Clone> {
+pub struct Node<AppData, D: Desc<AppData>, Imposed: Clone> {
     props: D::Props,
     imposed: Imposed,
     children: D::Children<dyn Layout<D::Impose, AppData>>,
 }
 
-impl<AppData: 'static, D: Desc<AppData>, Imposed: Clone> Layout<Imposed, AppData>
+impl<AppData, D: Desc<AppData>, Imposed: Clone> Layout<Imposed, AppData>
     for Node<AppData, D, Imposed>
 {
     fn get_imposed(&self) -> &Imposed {
         &self.imposed
     }
     fn stage(&self, area: AbsRect) -> Box<dyn Staged<AppData>> {
-        //D::stage(&self.props, area, &self.children)
-        D::fake_stage(&self.props, area, &self.children);
-        todo!();
+        D::stage(&self.props, area, &self.children)
     }
 }
 
@@ -67,7 +58,7 @@ pub trait Staged<AppData>: DynClone {
 dyn_clone::clone_trait_object!(<AppData> Staged<AppData>);
 
 #[derive_where(Clone)]
-struct Concrete<AppData: 'static> {
+struct Concrete<AppData> {
     render: im::Vector<RenderInstruction>,
     area: AbsRect,
     rtree: Rc<rtree::Node<AppData>>,
@@ -76,9 +67,14 @@ struct Concrete<AppData: 'static> {
 
 impl<AppData> Staged<AppData> for Concrete<AppData> {
     fn render(&self) -> im::Vector<RenderInstruction> {
-        let f: VectorFold<RenderInstruction, im::Vector<RenderInstruction>, Concat>;
-        //(Concat {}).into();
+        let f: VectorFold<im::Vector<RenderInstruction>, im::Vector<RenderInstruction>, Concat> =
+            VectorFold::new(Concat {});
 
+        let fold = VectorFold::new(|((rect, top, bottom), n): &((AbsRect, i32, i32), Rc<Node<AppData>>)| -> (AbsRect, i32, i32) {
+          (rect.extend(n.area), (*top).max(n.top), (*bottom).min(n.bottom))
+      });
+
+      f.call()
         //f.call()
         todo!()
     }
