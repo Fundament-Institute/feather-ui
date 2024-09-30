@@ -1,9 +1,9 @@
 pub mod component;
 pub mod input;
 pub mod layout;
+//mod lua;
 pub mod persist;
 mod rtree;
-pub mod window;
 
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 
@@ -144,6 +144,15 @@ impl Mul<AbsDim> for UPoint {
     }
 }
 
+impl Mul<AbsRect> for UPoint {
+    type Output = Vec2;
+
+    fn mul(self, rhs: AbsRect) -> Self::Output {
+        let dim = AbsDim(rhs.bottomright - rhs.topleft);
+        rhs.topleft + (self.rel * dim) + self.abs
+    }
+}
+
 pub fn build_aabb(a: Vec2, b: Vec2) -> AbsRect {
     AbsRect {
         topleft: a.min_by_component(b),
@@ -174,7 +183,7 @@ pub trait RenderLambda: Fn(&wgpu::RenderPass, &wgpu::Device) + dyn_clone::DynClo
 impl<T: Fn(&wgpu::RenderPass, &wgpu::Device) + ?Sized + dyn_clone::DynClone> RenderLambda for T {}
 dyn_clone::clone_trait_object!(RenderLambda);
 
-type EventHandler<AppData> = Box<dyn Fn(Event, AppData) -> AppData>;
+type EventHandler<'a, AppData> = Box<dyn FnMut(Event, AbsRect, AppData) -> AppData + 'a>;
 type RenderInstruction = Box<dyn RenderLambda>;
 
 pub fn draw_pass(
@@ -187,7 +196,7 @@ pub fn draw_pass(
     }
 }
 
-pub struct App<AppData: 'static> {
+pub struct App<AppData> {
     app_state: AppData,
     component_tree: Rc<dyn Component<AppData, ()>>,
     layout_tree: Rc<layout::Node<AppData, layout::root::Root, ()>>,

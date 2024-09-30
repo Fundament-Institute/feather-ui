@@ -1,9 +1,9 @@
-#version 440  
+#version 450  
 in vec2 pos;  
-layout(binding=0) uniform vec4 DimBorderBlur;  
-layout(binding=1) uniform vec4 Corners;  
-layout(binding=2) uniform vec4 Fill;  
-layout(binding=3) uniform vec4 Outline;  
+layout(binding=2) uniform vec4 DimBorderBlur;  
+layout(binding=3) uniform vec4 Corners;  
+layout(binding=4) uniform vec4 Fill;  
+layout(binding=5) uniform vec4 Outline;  
 out vec4 fragColor;
 
 float linearstep(float low, float high, float x) { return clamp((x - low) / (high - low), 0.0, 1.0); }  

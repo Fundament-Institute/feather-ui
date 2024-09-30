@@ -2,7 +2,7 @@ struct FragmentOutput {
     @location(0) fragColor: vec4<f32>,
 }
 
-@group(0) @binding(0) 
+@group(0) @binding(2) 
 var<uniform> Color: vec4<f32>;
 var<private> vLineCenter_1: vec2<f32>;
 var<private> fragColor: vec4<f32>;

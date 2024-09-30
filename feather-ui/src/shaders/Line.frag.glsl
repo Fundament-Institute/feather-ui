@@ -1,5 +1,5 @@
-#version 440  
-layout(binding=0) uniform vec4 Color;  
+#version 450
+layout(binding=2) uniform vec4 Color;  
 in vec2 vLineCenter;  
 out vec4 fragColor;
 

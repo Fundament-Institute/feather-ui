@@ -16,6 +16,20 @@ impl<Args, Output, T: Fn(&Args) -> Output> FnPersist<Args, Output> for T {
     }
 }
 
+pub trait FnPersist2<Arg1, Arg2, Output> {
+    type Store: Clone + Default;
+
+    fn call(&self, store: Self::Store, arg1: &Arg1, arg2: &Arg2) -> (Self::Store, Output);
+}
+
+impl<Arg1, Arg2, Output, T: Fn(&Arg1, &Arg2) -> Output> FnPersist2<Arg1, Arg2, Output> for T {
+    type Store = ();
+
+    fn call(&self, _: Self::Store, arg1: &Arg1, arg2: &Arg2) -> (Self::Store, Output) {
+        ((), (self)(arg1, arg2))
+    }
+}
+
 pub trait MapPersist<T, U> {
     type C<A>;
 
@@ -25,7 +39,7 @@ pub trait MapPersist<T, U> {
 pub trait FoldPersist<T, U> {
     type C<A>;
 
-    fn fold<F: FnPersist<(U, T), U>>(f: F) -> impl FnPersist<(U, Self::C<T>), U>;
+    fn fold<F: FnPersist2<U, T, U>>(f: F) -> impl FnPersist2<U, Self::C<T>, U>;
 }
 
 /*pub fn vector_map<T, U: Clone, F: FnPersist<T, U>>(
@@ -140,13 +154,19 @@ pub struct OrdSetMap<T, U, F: FnPersist<T, U>> {
     phantom_u: PhantomData<U>,
 }
 
-impl<T, U, F: FnPersist<T, U>> From<F> for OrdSetMap<T, U, F> {
-    fn from(f: F) -> Self {
-        OrdSetMap {
+impl<T: Ord + Clone, U: Ord + Clone, F: FnPersist<T, U>> OrdSetMap<T, U, F> {
+    pub fn new(f: F) -> Self {
+        Self {
             f,
             phantom_t: PhantomData,
             phantom_u: PhantomData,
         }
+    }
+}
+
+impl<T: Ord + Clone, U: Ord + Clone, F: FnPersist<T, U>> From<F> for OrdSetMap<T, U, F> {
+    fn from(f: F) -> Self {
+        Self::new(f)
     }
 }
 
@@ -217,13 +237,19 @@ pub struct OrdMapMap<V, U, F: FnPersist<V, U>> {
     phantom_u: PhantomData<U>,
 }
 
-impl<V, U, F: FnPersist<V, U>> From<F> for OrdMapMap<V, U, F> {
-    fn from(f: F) -> Self {
-        OrdMapMap {
+impl<V, U, F: FnPersist<V, U>> OrdMapMap<V, U, F> {
+    pub fn new(f: F) -> Self {
+        Self {
             f,
             phantom_v: PhantomData,
             phantom_u: PhantomData,
         }
+    }
+}
+
+impl<V, U, F: FnPersist<V, U>> From<F> for OrdMapMap<V, U, F> {
+    fn from(f: F) -> Self {
+        Self::new(f)
     }
 }
 
@@ -287,6 +313,7 @@ impl<K: Ord + std::cmp::PartialEq + Clone, V: std::cmp::PartialEq, U: Ord + Clon
     }
 }
 
+#[allow(dead_code)]
 #[derive_where(Clone, Default)]
 pub struct VectorMapStore<V: Clone, U: Clone, F: FnPersist<V, U>> {
     arg: im::Vector<V>,
@@ -300,13 +327,19 @@ pub struct VectorMap<V, U, F: FnPersist<V, U>> {
     phantom_u: PhantomData<U>,
 }
 
-impl<V, U, F: FnPersist<V, U>> From<F> for VectorMap<V, U, F> {
-    fn from(f: F) -> Self {
-        VectorMap {
+impl<V: Clone, U: Clone, F: FnPersist<V, U>> VectorMap<V, U, F> {
+    pub fn new(f: F) -> Self {
+        Self {
             f,
             phantom_v: PhantomData,
             phantom_u: PhantomData,
         }
+    }
+}
+
+impl<V: Clone, U: Clone, F: FnPersist<V, U>> From<F> for VectorMap<V, U, F> {
+    fn from(f: F) -> Self {
+        Self::new(f)
     }
 }
 
@@ -338,11 +371,12 @@ impl<V: Clone, U: Clone> MapPersist<V, U> for im::Vector<V> {
     }
 }
 
+#[allow(dead_code)]
 #[derive_where(Clone, Default)]
-pub struct VectorFoldStore<T: Clone, U: Clone + Default, F: for<'a> FnPersist<(U, &'a T), U>> {
+pub struct VectorFoldStore<T: Clone, U: Clone + Default, Store: Clone + Default> {
     arg: im::Vector<T>,
     result: U,
-    store: im::Vector<F::Store>,
+    store: im::Vector<Store>,
 }
 
 pub struct VectorFold<T, U, F> {
@@ -351,7 +385,7 @@ pub struct VectorFold<T, U, F> {
     phantom_u: PhantomData<U>,
 }
 
-impl<T: Clone, U: Clone + Default, F: for<'a> FnPersist<(U, &'a T), U>> VectorFold<T, U, F> {
+impl<T: Clone, U: Clone + Default, F: FnPersist2<U, T, U>> VectorFold<T, U, F> {
     pub fn new(f: F) -> Self {
         Self {
             f,
@@ -361,24 +395,22 @@ impl<T: Clone, U: Clone + Default, F: for<'a> FnPersist<(U, &'a T), U>> VectorFo
     }
 }
 
-impl<T: Clone, U: Clone + Default, F: for<'a> FnPersist<(U, &'a T), U>> From<F>
-    for VectorFold<T, U, F>
-{
+impl<T: Clone, U: Clone + Default, F: FnPersist2<U, T, U>> From<F> for VectorFold<T, U, F> {
     fn from(f: F) -> Self {
         Self::new(f)
     }
 }
 
-impl<T: Clone, U: Clone + Default, F: for<'a> FnPersist<(U, &'a T), U>>
-    FnPersist<(U, im::Vector<T>), U> for VectorFold<T, U, F>
+impl<T: Clone, U: Clone + Default, F: FnPersist2<U, T, U>> FnPersist2<U, im::Vector<T>, U>
+    for VectorFold<T, U, F>
 {
-    type Store = VectorFoldStore<'a, T, U, F>;
+    type Store = VectorFoldStore<T, U, F::Store>;
 
-    fn call(&self, mut store: Self::Store, args: &(U, im::Vector<T>)) -> (Self::Store, U) {
-        let mut seed = args.0.clone();
+    fn call(&self, mut store: Self::Store, arg1: &U, arg2: &im::Vector<T>) -> (Self::Store, U) {
+        let mut seed = arg1.clone();
 
-        for item in args.1.iter() {
-            let (_, result) = self.f.call(Default::default(), &(seed, &item));
+        for item in arg2.iter() {
+            let (_, result) = self.f.call(Default::default(), &seed, &item);
             seed = result;
         }
 
@@ -390,7 +422,7 @@ impl<T: Clone, U: Clone + Default, F: for<'a> FnPersist<(U, &'a T), U>>
 impl<T: Clone, U: Clone + Default> FoldPersist<T, U> for im::Vector<T> {
     type C<A> = im::Vector<A>;
 
-    fn fold<F: FnPersist<(U, T), U>>(f: F) -> VectorFold<T, U, F> {
+    fn fold<F: FnPersist2<U, T, U>>(f: F) -> VectorFold<T, U, F> {
         f.into()
     }
 }
