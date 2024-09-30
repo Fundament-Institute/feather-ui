@@ -1,23 +1,30 @@
 pub mod basic;
+pub mod center;
+pub mod empty;
 pub mod root;
 
 use dyn_clone::DynClone;
 
-use crate::persist::Concat;
-use crate::persist::FnPersist;
+use crate::component::Renderable;
+use crate::persist::FnPersist2;
 use crate::persist::VectorFold;
 use crate::rtree;
 use crate::AbsRect;
+use crate::EventHandler;
 use crate::RenderInstruction;
 use derive_where::derive_where;
+use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
-pub trait Layout<Imposed, AppData>: DynClone {
+pub trait Layout<Imposed: Clone, AppData>: DynClone {
     fn get_imposed(&self) -> &Imposed;
-    fn stage(&self, area: AbsRect) -> Box<dyn Staged<AppData>>;
+    fn stage<'a>(&self, area: AbsRect) -> Box<dyn Staged<AppData> + 'a>
+    where
+        AppData: 'a;
 }
 
-dyn_clone::clone_trait_object!(<Imposed, AppData> Layout<Imposed, AppData>);
+pub type EventList<'a, AppData> = Vec<(u8, RefCell<EventHandler<'a, AppData>>)>;
+dyn_clone::clone_trait_object!(<Imposed, AppData> Layout<Imposed, AppData> where Imposed: Clone);
 
 pub trait Desc<AppData> {
     type Props: Clone;
@@ -25,18 +32,22 @@ pub trait Desc<AppData> {
     type Children<A: DynClone + ?Sized>: Clone;
 
     /// Resolves a pending layout into a resolved node, which contains a pointer to the R-tree
-    fn stage(
+    fn stage<'a>(
         props: &Self::Props,
         area: AbsRect,
         children: &Self::Children<dyn Layout<Self::Impose, AppData> + '_>,
-    ) -> Box<dyn Staged<AppData>>;
+        events: Option<Rc<EventList<'a, AppData>>>,
+        renderable: Option<Rc<dyn Renderable<AppData>>>,
+    ) -> Box<dyn Staged<'a, AppData>>;
 }
 
 #[derive_where(Clone)]
 pub struct Node<AppData, D: Desc<AppData>, Imposed: Clone> {
-    props: D::Props,
-    imposed: Imposed,
-    children: D::Children<dyn Layout<D::Impose, AppData>>,
+    pub props: D::Props,
+    pub imposed: Imposed,
+    pub children: D::Children<dyn Layout<D::Impose, AppData>>,
+    pub events: Weak<EventList<'a, AppData>>,
+    pub renderable: Option<Rc<dyn Renderable<AppData>>>,
 }
 
 impl<AppData, D: Desc<AppData>, Imposed: Clone> Layout<Imposed, AppData>
@@ -45,52 +56,57 @@ impl<AppData, D: Desc<AppData>, Imposed: Clone> Layout<Imposed, AppData>
     fn get_imposed(&self) -> &Imposed {
         &self.imposed
     }
-    fn stage(&self, area: AbsRect) -> Box<dyn Staged<AppData>> {
-        D::stage(&self.props, area, &self.children)
+    fn stage<'a>(&self, area: AbsRect) -> Box<dyn Staged<AppData> + 'a>
+    where
+        AppData: 'a,
+    {
+        D::stage(
+            &self.props,
+            area,
+            &self.children,
+            self.events.upgrade(),
+            self.renderable.as_ref().map(|x| x.clone()),
+        )
     }
 }
 
-pub trait Staged<AppData>: DynClone {
+pub trait Staged<'a, AppData>: DynClone {
     fn render(&self) -> im::Vector<RenderInstruction>;
-    fn get_rtree(&self) -> Weak<rtree::Node<AppData>>;
+    fn get_rtree(&self) -> Weak<rtree::Node<'a, AppData>>;
+    fn get_area(&self) -> AbsRect;
 }
 
-dyn_clone::clone_trait_object!(<AppData> Staged<AppData>);
+dyn_clone::clone_trait_object!(<AppData> Staged<'_, AppData>);
 
 #[derive_where(Clone)]
-struct Concrete<AppData> {
+struct Concrete<'a, AppData> {
     render: im::Vector<RenderInstruction>,
     area: AbsRect,
-    rtree: Rc<rtree::Node<AppData>>,
-    children: im::Vector<Box<dyn Staged<AppData>>>,
+    rtree: Rc<rtree::Node<'a, AppData>>,
+    children: im::Vector<Box<dyn Staged<'a, AppData> + 'a>>,
 }
 
-impl<AppData> Staged<AppData> for Concrete<AppData> {
+impl<'a, AppData> Staged<'a, AppData> for Concrete<'a, AppData> {
     fn render(&self) -> im::Vector<RenderInstruction> {
-        let f: VectorFold<im::Vector<RenderInstruction>, im::Vector<RenderInstruction>, Concat> =
-            VectorFold::new(Concat {});
+        let fold = VectorFold::new(
+            |list: &im::Vector<RenderInstruction>,
+             n: &Box<dyn Staged<AppData>>|
+             -> im::Vector<RenderInstruction> {
+                let mut a = n.render();
+                a.append(list.clone());
+                a
+            },
+        );
 
-        let fold = VectorFold::new(|((rect, top, bottom), n): &((AbsRect, i32, i32), Rc<Node<AppData>>)| -> (AbsRect, i32, i32) {
-          (rect.extend(n.area), (*top).max(n.top), (*bottom).min(n.bottom))
-      });
-
-      f.call()
-        //f.call()
-        todo!()
+        let (_, result) = fold.call(Default::default(), &im::Vector::new(), &self.children);
+        result
     }
 
-    fn get_rtree(&self) -> Weak<rtree::Node<AppData>> {
-        Rc::downgrade(&self.rtree.clone())
+    fn get_rtree(&self) -> Weak<rtree::Node<'a, AppData>> {
+        Rc::downgrade(&self.rtree)
+    }
+
+    fn get_area(&self) -> AbsRect {
+        self.area
     }
 }
-
-/*pub fn fixed_point(mut node: Weak<dyn Layout<AppData>>) {
-    while let Some(n) = node.upgrade() {
-        if !n.evaluate() {
-            return;
-        }
-        // It is critically important we do this walk outside of the evaluate call, because the parent
-        // could modify it's children, so we MUST drop that reference after calling evaluate.
-        node = n.get_parent();
-    }
-}*/

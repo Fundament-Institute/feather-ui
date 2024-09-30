@@ -1,33 +1,61 @@
+use super::Component;
+use super::ComponentFrom;
+use crate::layout::root::Root;
+use crate::layout::EventList;
+use crate::{layout, AbsRect};
+use derive_where::derive_where;
 use std::sync::Arc;
+use ultraviolet::Vec2;
 use wgpu::{Adapter, Device};
 use winit::dpi::PhysicalSize;
 use winit::window::WindowId;
-use winit::{
-    event::{Event, WindowEvent},
-    event_loop::EventLoopWindowTarget,
-    platform::windows::WindowExtWindows,
-};
+use winit::{event::WindowEvent, event_loop::EventLoopWindowTarget};
 
-pub struct Window {
+#[derive_where(Clone)]
+pub struct Window<AppData> {
     pub id: WindowId,
     window: Arc<winit::window::Window>,
-    pub surface: wgpu::Surface<'static>,
+    pub surface: Arc<wgpu::Surface<'static>>,
     config: Option<wgpu::SurfaceConfiguration>,
+    child: Box<ComponentFrom<AppData, Root>>,
 }
-impl Window {
+
+impl<AppData> Component<AppData, ()> for Window<AppData> {
+    fn layout(&self, data: &AppData) -> Box<dyn crate::layout::Layout<(), AppData>> {
+        let size = self.window.inner_size();
+        Box::new(layout::Node::<AppData, Root, ()> {
+            props: Root {
+                area: AbsRect {
+                    topleft: Default::default(),
+                    bottomright: Vec2 {
+                        x: size.width as f32,
+                        y: size.height as f32,
+                    },
+                },
+            },
+            imposed: (),
+            children: self.child.layout(data),
+            events: std::rc::Weak::<EventList<AppData>>::new(),
+            renderable: None,
+        })
+    }
+}
+impl<AppData> Window<AppData> {
     pub fn new<T: 'static>(
         instance: &wgpu::Instance,
         builder: winit::window::WindowBuilder,
         event_loop: &EventLoopWindowTarget<T>,
+        child: Box<ComponentFrom<AppData, Root>>,
     ) -> Self {
         let window = Arc::new(builder.build(&event_loop).unwrap());
-        let surface = instance.create_surface(window.clone()).unwrap();
+        let surface = Arc::new(instance.create_surface(window.clone()).unwrap());
 
         Self {
             id: window.id(),
             window,
             surface,
             config: None,
+            child,
         }
     }
 

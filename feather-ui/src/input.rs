@@ -77,8 +77,8 @@ pub enum Event {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
 pub enum EventKind {
-    Mouse,
-    MouseMove,
-    MouseScroll,
-    Touch,
+    Mouse = 1,
+    MouseMove = 2,
+    MouseScroll = 4,
+    Touch = 8,
 }

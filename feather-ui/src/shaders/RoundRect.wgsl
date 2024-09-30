@@ -3,13 +3,13 @@ struct FragmentOutput {
 }
 
 var<private> pos_1: vec2<f32>;
-@group(0) @binding(0) 
-var<uniform> DimBorderBlur: vec4<f32>;
-@group(0) @binding(1) 
-var<uniform> Corners: vec4<f32>;
 @group(0) @binding(2) 
-var<uniform> Fill: vec4<f32>;
+var<uniform> DimBorderBlur: vec4<f32>;
 @group(0) @binding(3) 
+var<uniform> Corners: vec4<f32>;
+@group(0) @binding(4) 
+var<uniform> Fill: vec4<f32>;
+@group(0) @binding(5) 
 var<uniform> Outline: vec4<f32>;
 var<private> fragColor: vec4<f32>;
 

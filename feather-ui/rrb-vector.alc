@@ -1,0 +1,73 @@
+enum Option(T)
+	Some(v: T)
+	None
+
+enum Result(T, E)
+	Ok(v: T)
+	Err(e: E)
+
+enum NodeValue(N, V)
+	Child(node: N)
+	Value(value: V)
+	Empty
+  
+struct Node(K, V, N)
+	keys: Array(K, N-1)
+	children: Array(NodeValue(Node(K, V, N), V), N-1)
+
+struct BTree(K, V, N)
+	root: Node(K, V, N)
+	size: usize
+
+def new(K, V, N)
+	let self = BTree(K, V, N){ root = Node(K, V, N), size = 0 }  
+	return self
+
+def is_empty('K, 'V, 'N, self : BTree(K, V, N)) -> bool
+	return self.size == 0
+  
+def len('K, 'V, 'N, self : BTree(K, V, N)) -> usize
+	return self.size
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+#[cfg(has_specialisation)]
+impl<K: Ord + Clone, V: Clone> BTreeValue for (K, V) {
+    default fn search_key<BK>(slice: &[Self], key: &BK) -> Result<usize, usize>
+    where
+        BK: Ord + ?Sized,
+        Self::Key: Borrow<BK>,
+    {
+        slice.binary_search_by(|value| Self::Key::borrow(&value.0).cmp(key))
+    }
+
+    default fn search_value(slice: &[Self], key: &Self) -> Result<usize, usize> {
+        slice.binary_search_by(|value| value.0.cmp(&key.0))
+    }
+
+    fn cmp_keys<BK>(&self, other: &BK) -> Ordering
+    where
+        BK: Ord + ?Sized,
+        Self::Key: Borrow<BK>,
+    {
+        Self::Key::borrow(&self.0).cmp(other)
+    }
+
+    fn cmp_values(&self, other: &Self) -> Ordering {
+        self.0.cmp(&other.0)
+    }
+}

@@ -1,4 +1,4 @@
-#version 440  
+#version 450
 in vec2 vPos;  
 layout(binding=0) uniform mat4 MVP;  
 layout(binding=1) uniform vec2 ViewPort; //Width and Height of the viewport  

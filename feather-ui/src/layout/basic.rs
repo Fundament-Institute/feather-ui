@@ -1,6 +1,8 @@
 use super::Concrete;
 use super::Desc;
+use super::EventList;
 use super::Layout;
+use super::Renderable;
 use super::Staged;
 use crate::rtree;
 use crate::AbsRect;
@@ -12,24 +14,29 @@ use std::rc::Rc;
 pub struct Inherited {
     margin: URect,
     area: URect,
-    zindex: i32,
 }
 
 #[derive(Clone)]
 pub struct Basic {
     padding: URect,
+    zindex: i32,
 }
 
-impl<AppData: 'static> Desc<AppData> for Basic {
+impl<AppData> Desc<AppData> for Basic {
     type Props = Basic;
     type Impose = Inherited;
     type Children<A: DynClone + ?Sized> = im::Vector<Box<dyn Layout<Self::Impose, AppData>>>;
 
-    fn stage(
+    fn stage<'a>(
         props: &Self::Props,
         area: AbsRect,
-        children: &Self::Children<dyn Layout<Self::Impose, AppData>>,
-    ) -> Box<dyn Staged<AppData>> {
+        children: &Self::Children<dyn Layout<Self::Impose, AppData> + '_>,
+        events: Option<Rc<EventList<'a, AppData>>>,
+        renderable: Option<Rc<dyn Renderable<AppData>>>,
+    ) -> Box<dyn Staged<AppData> + 'a>
+    where
+        AppData: 'a,
+    {
         let padding = props.padding * area;
         let area = AbsRect {
             topleft: area.topleft + padding.topleft,
@@ -59,8 +66,8 @@ impl<AppData: 'static> Desc<AppData> for Basic {
 
         Box::new(Concrete {
             area,
-            render: im::Vector::new(),
-            rtree: Rc::new(rtree::Node::new(area, None, nodes, None)),
+            render: renderable.map(|x| x.render(area)).unwrap_or_default(),
+            rtree: Rc::new(rtree::Node::new(area, Some(props.zindex), nodes, events)),
             children: staging,
         })
     }

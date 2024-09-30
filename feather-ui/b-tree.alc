@@ -1,0 +1,153 @@
+enum Option(T)
+	Some(v : T)
+	None
+
+enum Result(T, E)
+	Ok(v : T)
+	Err(e : E)
+
+enum Either(L, R)
+  Left(l : L)
+  Right(r : R)
+  
+enum NodeValue(K : Ord, V)
+	Child(node : BNode(K, V))
+	Value(value : V)
+  
+struct BNode(K : Ord, V)
+  size : uint
+	keys : Array(K, size-1)
+	children : Array(NodeValue(K, V), size)
+
+struct BTree(K, V, N : Int)
+	root : BNode(K, V)
+	size : uint
+
+def binary_search_inner('K : Ord, 'N : Int, src : Array(K, N), target : K, start : uint, end : uint) -> K
+	if (start < end)
+		then
+			let center = (start + end) / 2
+			return match compare(target, src[center])
+				LT
+					binary_search_inner(src, target, start, center-1)
+				EQ
+					src[center]
+				GE
+					binary_search_inner(src, target, center+1, end)
+		else
+			return src[start]
+		
+def binary_search('K : Ord, 'N : Int, src : Array(K, N), target : K) -> K
+  return binary_search_inner(src, target, 0, N-1)
+
+def empty('K, 'V)
+  return BNode(K, V){ 
+    size = 0
+    keys = array-of()
+    children = array-of()
+  }
+ 
+ 
+module Internal ('K : Ord, 'V)
+  let Node = BNode(K, V)
+ 
+  def search(self : Node, key : K) -> Either(uint, uint)
+		
+	
+	def lookup(self : Node, key : K) -> Option(V)
+		if (self.keys.is_empty())
+			then
+				return None
+			else
+				match search_value(key)
+					Left(found)
+						self.children(
+					Right(missed)
+						
+					
+				
+	def insert(self : Node, key : K, value : V) -> Option(V)
+		
+
+	unlet Node
+
+module Methods ('K : Ord, 'V, 'N : Int)
+  let Self = BTree(K, V, N)
+  
+  def new()
+    return Self{ root = empty(), size = 0 }
+
+  def is_empty(self : Self) -> bool
+    return self.size == 0
+    
+  def len(self : Self) -> uint
+    return self.size
+
+  def clear(self : Self) 
+    self.size = 0
+    self.root = empty()
+    
+  def get_max(self : Self) -> Option(tuple(K, V))
+		return Internal.max(self.root)
+
+  def get_min(self : Self) -> Option(tuple(K, V))
+		return Internal.min(self.root)
+		
+	def get(key : K) -> Option(V)
+		return Internal.lookup(self.root, key)
+   
+	def contains(key : K) -> bool
+		return match get(key)
+			Some(_)
+				true
+			None
+				false
+	
+	def insert(key : K, value : V) -> Option(V)
+		
+		
+  unlet Self
+
+
+open-module Methods 
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+#[cfg(has_specialisation)]
+impl<K: Ord + Clone, V: Clone> BTreeValue for (K, V) {
+    default fn search_key<BK>(slice: &[Self], key: &BK) -> Result<usize, usize>
+    where
+        BK: Ord + ?Sized,
+        Self::Key: Borrow<BK>,
+    {
+        slice.binary_search_by(|value| Self::Key::borrow(&value.0).cmp(key))
+    }
+
+    default fn search_value(slice: &[Self], key: &Self) -> Result<usize, usize> {
+        slice.binary_search_by(|value| value.0.cmp(&key.0))
+    }
+
+    fn cmp_keys<BK>(&self, other: &BK) -> Ordering
+    where
+        BK: Ord + ?Sized,
+        Self::Key: Borrow<BK>,
+    {
+        Self::Key::borrow(&self.0).cmp(other)
+    }
+
+    fn cmp_values(&self, other: &Self) -> Ordering {
+        self.0.cmp(&other.0)
+    }
+}

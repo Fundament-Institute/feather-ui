@@ -1,4 +1,4 @@
-#version 440  
+#version 450  
 layout(binding=0) uniform mat4 MVP;  
 layout(binding=1) uniform vec2 Inflate;  
 in vec2 vPos;  
