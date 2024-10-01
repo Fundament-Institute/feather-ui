@@ -7,15 +7,12 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 #[derive_where(Clone)]
-pub struct MouseArea<'a, AppData, Parent: Clone>
-where
-    AppData: 'a,
-{
+pub struct MouseArea<AppData, Parent: Clone> {
     props: Parent,
-    events: Rc<EventList<'a, AppData>>,
+    events: Rc<EventList<AppData>>,
 }
 
-impl<'a, AppData, Parent: Clone> MouseArea<'a, AppData, Parent> {
+impl<AppData: 'static, Parent: Clone + 'static> MouseArea<AppData, Parent> {
     pub fn new(props: Parent, mut onclick: EventHandler<AppData>) -> Self {
         let mut lastdown = false;
         let mut lasttouch = false;
@@ -64,10 +61,15 @@ impl<'a, AppData, Parent: Clone> MouseArea<'a, AppData, Parent> {
         }
     }
 }
-impl<'a, AppData, Parent: Clone> super::Component<AppData, Parent>
-    for MouseArea<'a, AppData, Parent>
+impl<AppData: 'static, Parent: Clone + 'static> super::Component<AppData, Parent>
+    for MouseArea<AppData, Parent>
 {
-    fn layout(&self, _: &AppData) -> Box<dyn crate::layout::Layout<Parent, AppData>> {
+    fn layout(
+        &self,
+        _: &AppData,
+        _: &crate::DriverState,
+        _: &wgpu::SurfaceConfiguration,
+    ) -> Box<dyn crate::layout::Layout<Parent, AppData>> {
         Box::new(layout::Node::<AppData, Empty, Parent> {
             props: (),
             imposed: self.props.clone(),

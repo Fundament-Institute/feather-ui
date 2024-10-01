@@ -8,14 +8,14 @@ use crate::URect;
 use dyn_clone::DynClone;
 use std::rc::Rc;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Inherited {
     area: URect,
 }
 
 // The root node represents some area on the screen that contains a feather layout. Later this will turn
 // into an absolute bounding volume. There can be multiple root nodes, each mapping to a different window.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Root {
     pub area: AbsRect,
 }

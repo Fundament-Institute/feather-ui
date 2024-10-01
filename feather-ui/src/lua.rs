@@ -1,9 +1,11 @@
+use crate::component::window::Window;
 use crate::component::ComponentFrom;
 use crate::layout::basic::Basic;
 use crate::layout::root::Root;
 use crate::Component;
 use crate::EventHandler;
 use mlua::prelude::*;
+use winit::window::WindowBuilder;
 
 pub type AppState<'lua> = LuaValue<'lua>;
 
@@ -11,6 +13,14 @@ fn create_window<'lua>(
     _: &'lua Lua,
     args: (String, Box<ComponentFrom<AppState<'lua>, Root>>),
 ) -> mlua::Result<Box<dyn Component<LuaValue<'lua>, ()>>> {
+    Ok(Box::new(Window::new(
+        &instance,
+        WindowBuilder::new()
+            .with_title(args.0)
+            .with_inner_size(winit::dpi::PhysicalSize::new(600, 400)),
+        &event_loop,
+        args.1,
+    )))
 }
 
 fn create_area<'lua>(

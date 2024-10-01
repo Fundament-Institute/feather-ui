@@ -10,13 +10,13 @@ use crate::Component;
 use derive_where::derive_where;
 
 #[derive_where(Clone)]
-pub struct Region<AppData, Parent: Clone> {
+pub struct Region<AppData: 'static, Parent: Clone> {
     props: Parent,
     basic: Basic,
     children: im::Vector<Box<dyn Component<AppData, <Basic as Desc<AppData>>::Impose>>>,
 }
 
-impl<AppData, Parent: Clone> Region<AppData, Parent> {
+impl<AppData: 'static, Parent: Clone> Region<AppData, Parent> {
     pub fn new(
         props: Parent,
         basic: Basic,
@@ -29,11 +29,18 @@ impl<AppData, Parent: Clone> Region<AppData, Parent> {
         }
     }
 }
-impl<AppData, Parent: Clone> super::Component<AppData, Parent> for Region<AppData, Parent> {
-    fn layout(&self, data: &AppData) -> Box<dyn Layout<Parent, AppData>> {
+impl<AppData: 'static, Parent: Clone + 'static> super::Component<AppData, Parent>
+    for Region<AppData, Parent>
+{
+    fn layout(
+        &self,
+        data: &AppData,
+        driver: &crate::DriverState,
+        config: &wgpu::SurfaceConfiguration,
+    ) -> Box<dyn Layout<Parent, AppData>> {
         let map = VectorMap::new(
             |child: &Box<ComponentFrom<AppData, Basic>>|
-             -> Box<dyn Layout<<Basic as Desc<AppData>>::Impose, AppData>> { child.layout(data) },
+             -> Box<dyn Layout<<Basic as Desc<AppData>>::Impose, AppData>> { child.layout(data, driver, config) },
         );
 
         let (_, children) = map.call(Default::default(), &self.children);

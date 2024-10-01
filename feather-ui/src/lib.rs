@@ -6,13 +6,15 @@ pub mod persist;
 mod rtree;
 
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
+use std::sync::Weak;
 
+use crate::component::window::Window;
 use crate::input::Event;
 use component::Component;
-use std::rc::{Rc, Weak};
+use eyre::OptionExt;
+use std::collections::HashMap;
+use std::sync::Arc;
 use ultraviolet::vec::Vec2;
-use wgpu::Device;
-use wgpu::RenderPass;
 
 impl Into<Vec2> for AbsDim {
     fn into(self) -> Vec2 {
@@ -179,27 +181,184 @@ impl Mul<AbsRect> for URect {
     }
 }
 
-pub trait RenderLambda: Fn(&wgpu::RenderPass, &wgpu::Device) + dyn_clone::DynClone {}
-impl<T: Fn(&wgpu::RenderPass, &wgpu::Device) + ?Sized + dyn_clone::DynClone> RenderLambda for T {}
+pub trait RenderLambda: Fn(&mut wgpu::RenderPass) + dyn_clone::DynClone {}
+impl<T: Fn(&mut wgpu::RenderPass) + ?Sized + dyn_clone::DynClone> RenderLambda for T {}
 dyn_clone::clone_trait_object!(RenderLambda);
 
-type EventHandler<'a, AppData> = Box<dyn FnMut(Event, AbsRect, AppData) -> AppData + 'a>;
-type RenderInstruction = Box<dyn RenderLambda>;
+type EventHandler<AppData> = Box<dyn FnMut(Event, AbsRect, AppData) -> AppData>;
+// TODO: This only an Option so it can be zeroed. After fixing im::Vector, remove Option.
+type RenderInstruction = Option<Box<dyn RenderLambda>>;
 
-pub fn draw_pass(
-    surface: &RenderPass,
-    device: &Device,
-    commands: im::OrdMap<i64, RenderInstruction>,
-) {
-    for (_, f) in commands.iter() {
-        f(surface, device);
+// We want to share our device/adapter state across windows, but can't create it until we have at least one window,
+// so we store a weak reference to it in App and if all windows are dropped it'll also drop these, which is usually
+// sensible behavior.
+pub struct DriverState {
+    adapter: wgpu::Adapter,
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+}
+
+pub struct App<AppData: 'static> {
+    pub app_state: AppData,
+    pub instance: wgpu::Instance,
+    windows: HashMap<winit::window::WindowId, Window<AppData>>,
+    driver: Weak<DriverState>,
+}
+
+#[cfg(target_os = "windows")]
+use winit::platform::windows::EventLoopBuilderExtWindows;
+
+impl<AppData> App<AppData> {
+    pub fn new<T: 'static>(
+        app_state: AppData,
+    ) -> eyre::Result<(Self, winit::event_loop::EventLoop<T>)> {
+        #[cfg(test)]
+        let any_thread = true;
+        #[cfg(not(test))]
+        let any_thread = false;
+
+        #[cfg(target_os = "windows")]
+        let event_loop = winit::event_loop::EventLoopBuilder::with_user_event()
+            .with_any_thread(any_thread)
+            .with_dpi_aware(true)
+            .build()?;
+        #[cfg(not(target_os = "windows"))]
+        let event_loop = winit::event_loop::EventLoopBuilder::with_user_event()
+            .with_user_event()
+            .build()?;
+
+        Ok((
+            Self {
+                app_state,
+                instance: wgpu::Instance::default(),
+                windows: HashMap::new(),
+                driver: Weak::<DriverState>::new(),
+            },
+            event_loop,
+        ))
+    }
+
+    pub async fn create_driver(
+        &mut self,
+        surface: &wgpu::Surface<'static>,
+    ) -> eyre::Result<Arc<DriverState>> {
+        if let Some(driver) = self.driver.upgrade() {
+            return Ok(driver);
+        }
+
+        let adapter = self
+            .instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
+                compatible_surface: Some(&surface),
+                ..Default::default()
+            })
+            .await
+            .ok_or_eyre("Failed to get adapter")?;
+
+        // Create the logical device and command queue
+        let (device, queue) = adapter
+            .request_device(
+                &wgpu::DeviceDescriptor {
+                    label: None,
+                    required_features: wgpu::Features::empty(),
+                    required_limits: wgpu::Limits::default(),
+                    memory_hints: wgpu::MemoryHints::MemoryUsage,
+                },
+                None,
+            )
+            .await?;
+
+        let driver = Arc::new(crate::DriverState {
+            adapter,
+            device,
+            queue,
+        });
+
+        self.driver = Arc::downgrade(&driver);
+        Ok(driver)
+    }
+
+    pub fn event<T: 'static>(
+        &mut self,
+        event: winit::event::Event<T>,
+        target: &winit::event_loop::EventLoopWindowTarget<T>,
+    ) {
+        if let winit::event::Event::WindowEvent { window_id, event } = event {
+            let mut delete = None;
+            if let Some(window) = self.windows.get_mut(&window_id) {
+                match event {
+                    winit::event::WindowEvent::CloseRequested => {
+                        if window.on_event(event) {
+                            delete = Some(window_id)
+                        }
+                    }
+                    winit::event::WindowEvent::RedrawRequested => {
+                        window.layout_all(&self.app_state);
+                        window.stage_all();
+                        window.render_all();
+                    }
+                    _ => {
+                        window.on_event(event);
+                    }
+                }
+            }
+
+            if let Some(id) = delete {
+                self.windows.remove(&id);
+            }
+
+            if self.windows.is_empty() {
+                target.exit();
+            }
+        }
     }
 }
 
-pub struct App<AppData> {
-    app_state: AppData,
-    component_tree: Rc<dyn Component<AppData, ()>>,
-    layout_tree: Rc<layout::Node<AppData, layout::root::Root, ()>>,
-    //resolved_tree: Rc<dyn layout::Resolved<AppData>>,
-    rtree: Weak<rtree::Node<AppData>>,
+#[test]
+fn test_basic() {
+    use component::region::Region;
+    use component::round_rect::RoundRect;
+    use layout::root::Root;
+    use layout::Desc;
+    use ultraviolet::Vec4;
+    use wgpu::Device;
+    use wgpu::RenderPass;
+    use winit::window::WindowBuilder;
+
+    let (mut app, event_loop) = App::<()>::new(()).unwrap();
+
+    let window = Arc::new(
+        WindowBuilder::new()
+            .with_title("test_blank")
+            .with_resizable(true)
+            .build(&event_loop)
+            .unwrap(),
+    );
+
+    let surface = app.instance.create_surface(window.clone()).unwrap();
+
+    let driver = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(app.create_driver(&surface))
+        .unwrap();
+
+    let mut region = RoundRect::<<Root as Desc<()>>::Impose> {
+        fill: Vec4::new(1.0, 0.0, 0.0, 1.0),
+        ..Default::default()
+    };
+    let window_id = window.id();
+    let mut window = Window::new::<()>(window, surface, Box::new(region), driver).unwrap();
+
+    app.windows.insert(window_id, window);
+
+    event_loop
+        .run(
+            move |event: winit::event::Event<()>,
+                  target: &winit::event_loop::EventLoopWindowTarget<()>| {
+                app.event(event, target)
+            },
+        )
+        .unwrap();
 }
