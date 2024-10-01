@@ -10,19 +10,19 @@ use crate::URect;
 use dyn_clone::DynClone;
 use std::rc::Rc;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Inherited {
     margin: URect,
     area: URect,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Basic {
     padding: URect,
     zindex: i32,
 }
 
-impl<AppData> Desc<AppData> for Basic {
+impl<AppData: 'static> Desc<AppData> for Basic {
     type Props = Basic;
     type Impose = Inherited;
     type Children<A: DynClone + ?Sized> = im::Vector<Box<dyn Layout<Self::Impose, AppData>>>;
@@ -31,7 +31,7 @@ impl<AppData> Desc<AppData> for Basic {
         props: &Self::Props,
         area: AbsRect,
         children: &Self::Children<dyn Layout<Self::Impose, AppData> + '_>,
-        events: Option<Rc<EventList<'a, AppData>>>,
+        events: Option<Rc<EventList<AppData>>>,
         renderable: Option<Rc<dyn Renderable<AppData>>>,
     ) -> Box<dyn Staged<AppData> + 'a>
     where

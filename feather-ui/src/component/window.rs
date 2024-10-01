@@ -2,8 +2,13 @@ use super::Component;
 use super::ComponentFrom;
 use crate::layout::root::Root;
 use crate::layout::EventList;
+use crate::rtree;
+use crate::DriverState;
+use crate::RenderInstruction;
 use crate::{layout, AbsRect};
 use derive_where::derive_where;
+use eyre::OptionExt;
+use std::rc::{Rc, Weak};
 use std::sync::Arc;
 use ultraviolet::Vec2;
 use wgpu::{Adapter, Device};
@@ -12,16 +17,26 @@ use winit::window::WindowId;
 use winit::{event::WindowEvent, event_loop::EventLoopWindowTarget};
 
 #[derive_where(Clone)]
-pub struct Window<AppData> {
+pub struct Window<AppData: 'static> {
     pub id: WindowId,
     window: Arc<winit::window::Window>,
-    pub surface: Arc<wgpu::Surface<'static>>,
-    config: Option<wgpu::SurfaceConfiguration>,
+    surface: Arc<wgpu::Surface<'static>>,
+    config: wgpu::SurfaceConfiguration,
     child: Box<ComponentFrom<AppData, Root>>,
+    driver: Arc<crate::DriverState>,
+    layout_tree: Option<Box<dyn crate::layout::Layout<(), AppData>>>,
+    staging: Option<Box<dyn layout::Staged<AppData>>>,
+    rtree: Weak<rtree::Node<AppData>>,
+    draw: im::Vector<RenderInstruction>,
 }
 
 impl<AppData> Component<AppData, ()> for Window<AppData> {
-    fn layout(&self, data: &AppData) -> Box<dyn crate::layout::Layout<(), AppData>> {
+    fn layout(
+        &self,
+        data: &AppData,
+        driver: &DriverState,
+        config: &wgpu::SurfaceConfiguration,
+    ) -> Box<dyn crate::layout::Layout<(), AppData>> {
         let size = self.window.inner_size();
         Box::new(layout::Node::<AppData, Root, ()> {
             props: Root {
@@ -34,28 +49,58 @@ impl<AppData> Component<AppData, ()> for Window<AppData> {
                 },
             },
             imposed: (),
-            children: self.child.layout(data),
+            children: self.child.layout(data, driver, config),
             events: std::rc::Weak::<EventList<AppData>>::new(),
             renderable: None,
         })
     }
 }
-impl<AppData> Window<AppData> {
-    pub fn new<T: 'static>(
-        instance: &wgpu::Instance,
-        builder: winit::window::WindowBuilder,
-        event_loop: &EventLoopWindowTarget<T>,
-        child: Box<ComponentFrom<AppData, Root>>,
-    ) -> Self {
-        let window = Arc::new(builder.build(&event_loop).unwrap());
-        let surface = Arc::new(instance.create_surface(window.clone()).unwrap());
 
-        Self {
+impl<'a, AppData> Window<AppData> {
+    pub fn new<T: 'static>(
+        window: Arc<winit::window::Window>,
+        surface: wgpu::Surface<'static>,
+        child: Box<ComponentFrom<AppData, Root>>,
+        driver: Arc<crate::DriverState>,
+    ) -> eyre::Result<Self> {
+        let size = window.inner_size();
+        let mut config = surface
+            .get_default_config(&driver.adapter, size.width, size.height)
+            .ok_or_eyre("Failed to find a default configuration")?;
+        let view_format = config.format.remove_srgb_suffix();
+        config.format = view_format;
+        //let view_format = config.format.add_srgb_suffix();
+        config.view_formats.push(view_format);
+
+        surface.configure(&driver.device, &config);
+
+        Ok(Self {
             id: window.id(),
+            surface: Arc::new(surface),
             window,
-            surface,
-            config: None,
             child,
+            driver,
+            config,
+            layout_tree: None,
+            staging: None,
+            rtree: std::rc::Weak::<rtree::Node<AppData>>::new(),
+            draw: im::Vector::new(),
+        })
+    }
+
+    pub fn layout_all(&mut self, data: &AppData) {
+        self.layout_tree = Some(self.layout(data, &self.driver, &self.config));
+    }
+
+    pub fn stage_all(&mut self) {
+        if let Some(layout) = self.layout_tree.as_ref() {
+            self.staging = Some(layout.stage(Default::default()));
+        }
+    }
+
+    pub fn render_all(&mut self) {
+        if let Some(staging) = self.staging.as_ref() {
+            self.draw = staging.render();
         }
     }
 
@@ -63,45 +108,60 @@ impl<AppData> Window<AppData> {
         self.window.set_outer_position(position)
     }
 
-    pub fn configure(&mut self, adapter: &Adapter, device: &Device) -> bool {
-        let size = self.window.inner_size();
-        self.config = self
-            .surface
-            .get_default_config(adapter, size.width, size.height);
-        if let Some(config) = self.config.as_ref() {
-            self.surface.configure(device, config);
-            true
-        } else {
-            false
-        }
+    pub fn resize(&mut self, size: PhysicalSize<u32>) {
+        self.config.width = size.width;
+        self.config.height = size.height;
+        self.surface.configure(&self.driver.device, &self.config);
     }
 
-    pub fn resize(&mut self, size: PhysicalSize<u32>, device: &Device) -> bool {
-        if let Some(config) = self.config.as_mut() {
-            config.width = size.width;
-            config.height = size.height;
-            self.surface.configure(device, config);
-            true
-        } else {
-            false
-        }
-    }
-    pub async fn get_adapter(&self, instance: &wgpu::Instance) -> Option<Adapter> {
-        instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                compatible_surface: Some(&self.surface),
-                ..Default::default()
-            })
-            .await
-    }
-
-    pub fn process_event<'a>(&mut self, event: winit::event::WindowEvent, device: &Device) {
+    pub fn on_event(&mut self, event: winit::event::WindowEvent) -> bool {
         match event {
             WindowEvent::Resized(new_size) => {
-                // Recreate the swap chain with the new size
-                self.resize(new_size, device);
+                // Resize events can sometimes give empty sizes if the window is minimized
+                if new_size.height > 0 && new_size.width > 0 {
+                    self.resize(new_size);
+                }
                 // On macos the window needs to be redrawn manually after resizing
                 self.window.request_redraw();
+            }
+            WindowEvent::CloseRequested => {
+                // If this returns false, the close request will be ignored
+                return true;
+            }
+            WindowEvent::RedrawRequested => {
+                let frame = self.surface.get_current_texture().unwrap();
+                let view = frame
+                    .texture
+                    .create_view(&wgpu::TextureViewDescriptor::default());
+                let mut encoder = self
+                    .driver
+                    .device
+                    .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+
+                {
+                    let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                        label: None,
+                        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                            view: &view,
+                            resolve_target: None,
+                            ops: wgpu::Operations {
+                                load: wgpu::LoadOp::Clear(wgpu::Color {
+                                    r: 0.1,
+                                    g: 0.2,
+                                    b: 0.3,
+                                    a: 1.0,
+                                }),
+                                store: wgpu::StoreOp::Store,
+                            },
+                        })],
+                        depth_stencil_attachment: None,
+                        timestamp_writes: None,
+                        occlusion_query_set: None,
+                    });
+                }
+
+                self.driver.queue.submit(Some(encoder.finish()));
+                frame.present();
             }
             /*WindowEvent::AxisMotion {
                 device_id,
@@ -126,5 +186,6 @@ impl<AppData> Window<AppData> {
             } => {}*/
             _ => {}
         }
+        true
     }
 }

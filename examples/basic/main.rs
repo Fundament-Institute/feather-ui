@@ -1,4 +1,4 @@
-use feather_ui::window::Window;
+use feather_ui::component::window::Window;
 use winit::event::Event;
 use winit::event::WindowEvent;
 use winit::event_loop::EventLoop;
@@ -48,7 +48,7 @@ fn main() {
                     &wgpu::DeviceDescriptor {
                         label: None,
                         required_features: wgpu::Features::empty(),
-                        required_limits: wgpu::Limits::downlevel_defaults(),
+                        required_limits: wgpu::Limits::default(),
                         memory_hints: wgpu::MemoryHints::MemoryUsage,
                     },
                     None,

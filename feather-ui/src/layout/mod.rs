@@ -10,6 +10,7 @@ use crate::persist::FnPersist2;
 use crate::persist::VectorFold;
 use crate::rtree;
 use crate::AbsRect;
+use crate::DriverState;
 use crate::EventHandler;
 use crate::RenderInstruction;
 use derive_where::derive_where;
@@ -23,7 +24,7 @@ pub trait Layout<Imposed: Clone, AppData>: DynClone {
         AppData: 'a;
 }
 
-pub type EventList<'a, AppData> = Vec<(u8, RefCell<EventHandler<'a, AppData>>)>;
+pub type EventList<AppData> = Vec<(u8, RefCell<EventHandler<AppData>>)>;
 dyn_clone::clone_trait_object!(<Imposed, AppData> Layout<Imposed, AppData> where Imposed: Clone);
 
 pub trait Desc<AppData> {
@@ -36,9 +37,11 @@ pub trait Desc<AppData> {
         props: &Self::Props,
         area: AbsRect,
         children: &Self::Children<dyn Layout<Self::Impose, AppData> + '_>,
-        events: Option<Rc<EventList<'a, AppData>>>,
+        events: Option<Rc<EventList<AppData>>>,
         renderable: Option<Rc<dyn Renderable<AppData>>>,
-    ) -> Box<dyn Staged<'a, AppData>>;
+    ) -> Box<dyn Staged<AppData> + 'a>
+    where
+        AppData: 'a;
 }
 
 #[derive_where(Clone)]
@@ -46,7 +49,7 @@ pub struct Node<AppData, D: Desc<AppData>, Imposed: Clone> {
     pub props: D::Props,
     pub imposed: Imposed,
     pub children: D::Children<dyn Layout<D::Impose, AppData>>,
-    pub events: Weak<EventList<'a, AppData>>,
+    pub events: Weak<EventList<AppData>>,
     pub renderable: Option<Rc<dyn Renderable<AppData>>>,
 }
 
@@ -70,23 +73,23 @@ impl<AppData, D: Desc<AppData>, Imposed: Clone> Layout<Imposed, AppData>
     }
 }
 
-pub trait Staged<'a, AppData>: DynClone {
+pub trait Staged<AppData>: DynClone {
     fn render(&self) -> im::Vector<RenderInstruction>;
-    fn get_rtree(&self) -> Weak<rtree::Node<'a, AppData>>;
+    fn get_rtree(&self) -> Weak<rtree::Node<AppData>>;
     fn get_area(&self) -> AbsRect;
 }
 
-dyn_clone::clone_trait_object!(<AppData> Staged<'_, AppData>);
+dyn_clone::clone_trait_object!(<AppData> Staged<AppData>);
 
 #[derive_where(Clone)]
-struct Concrete<'a, AppData> {
+struct Concrete<AppData> {
     render: im::Vector<RenderInstruction>,
     area: AbsRect,
-    rtree: Rc<rtree::Node<'a, AppData>>,
-    children: im::Vector<Box<dyn Staged<'a, AppData> + 'a>>,
+    rtree: Rc<rtree::Node<AppData>>,
+    children: im::Vector<Box<dyn Staged<AppData>>>,
 }
 
-impl<'a, AppData> Staged<'a, AppData> for Concrete<'a, AppData> {
+impl<AppData> Staged<AppData> for Concrete<AppData> {
     fn render(&self) -> im::Vector<RenderInstruction> {
         let fold = VectorFold::new(
             |list: &im::Vector<RenderInstruction>,
@@ -102,7 +105,7 @@ impl<'a, AppData> Staged<'a, AppData> for Concrete<'a, AppData> {
         result
     }
 
-    fn get_rtree(&self) -> Weak<rtree::Node<'a, AppData>> {
+    fn get_rtree(&self) -> Weak<rtree::Node<AppData>> {
         Rc::downgrade(&self.rtree)
     }
 

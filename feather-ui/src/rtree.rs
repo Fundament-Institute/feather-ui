@@ -8,22 +8,22 @@ use crate::AbsRect;
 use crate::Event;
 use ultraviolet::Vec2;
 
-pub struct Node<'a, AppData> {
+pub struct Node<AppData> {
     pub area: AbsRect, // This is the calculated area of the node from the layout relative to the topleft corner of the parent.
     pub extent: AbsRect, // This is the minimal bounding rectangle of the children's extent relative to OUR topleft corner.
     pub top: i32, // 2D R-tree nodes are actually 3 dimensional, but the z-axis can never overlap (because layout rects have no depth).
     pub bottom: i32,
-    pub events: Option<Rc<EventList<'a, AppData>>>,
+    pub events: Option<Rc<EventList<AppData>>>,
     //transform: Rotor2, // TODO: build a 3D node where this is a 3D rotor and project it back on to a 2D plane.
-    pub children: im::Vector<Rc<Node<'a, AppData>>>,
+    pub children: im::Vector<Rc<Node<AppData>>>,
 }
 
-impl<'a, AppData> Node<'a, AppData> {
+impl<AppData> Node<AppData> {
     pub fn new(
         area: AbsRect,
         z: Option<i32>,
-        children: im::Vector<Rc<Node<'a, AppData>>>,
-        events: Option<Rc<EventList<'a, AppData>>>,
+        children: im::Vector<Rc<Node<AppData>>>,
+        events: Option<Rc<EventList<AppData>>>,
     ) -> Self {
         let fold = VectorFold::new(
             |(rect, top, bottom): &(AbsRect, i32, i32),

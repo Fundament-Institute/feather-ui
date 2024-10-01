@@ -11,7 +11,7 @@ use std::marker::PhantomData;
 use std::rc::Rc;
 
 // An Empty layout is used in components that only contain the properties of their parents
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Empty {}
 
 impl<AppData> Desc<AppData> for Empty {
@@ -23,7 +23,7 @@ impl<AppData> Desc<AppData> for Empty {
         _: &Self::Props,
         area: AbsRect,
         _: &Self::Children<dyn Layout<Self::Impose, AppData> + '_>,
-        events: Option<Rc<EventList<'a, AppData>>>,
+        events: Option<Rc<EventList<AppData>>>,
         renderable: Option<Rc<dyn Renderable<AppData>>>,
     ) -> Box<dyn Staged<AppData> + 'a>
     where
