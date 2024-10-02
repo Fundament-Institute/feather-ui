@@ -60,11 +60,11 @@ impl<AppData> Renderable<AppData> for TextPipeline {
         let mut result = im::Vector::new();
         let text_system = driver.text.clone();
         result.push_back(Some(Box::new(move |pass: &mut wgpu::RenderPass| {
-            /*let text = text_system.borrow();
+            let text = text_system.borrow();
 
             text.text_renderer
                 .render(&text.atlas, &text.viewport, pass)
-                .unwrap();*/
+                .unwrap();
         }) as Box<dyn RenderLambda>));
         result
     }
