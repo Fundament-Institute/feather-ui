@@ -143,11 +143,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "basic"
+name = "basic-rs"
 version = "0.1.0"
 dependencies = [
  "feather-ui",
  "tokio",
+ "ultraviolet",
  "wgpu",
  "winit",
 ]

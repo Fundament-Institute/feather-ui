@@ -9,12 +9,8 @@ use std::borrow::Cow;
 use std::mem::size_of;
 use std::rc::Rc;
 use std::rc::Weak;
-use ultraviolet::Mat2;
-use ultraviolet::Mat4x4;
+use ultraviolet::Mat4;
 use ultraviolet::Vec2;
-use ultraviolet::Vec2x4;
-use ultraviolet::Vec3;
-use ultraviolet::Vec3x4;
 use ultraviolet::Vec4;
 use wgpu::util::DeviceExt;
 use wgpu::Device;
@@ -46,7 +42,7 @@ impl<AppData> Renderable<AppData> for RoundRectPipeline {
                 pass.set_pipeline(&this.pipeline);
                 pass.draw(
                     //0..(this.vertices.size() as u32 / size_of::<Vertex>() as u32),
-                    0..3,
+                    0..4,
                     0..1,
                 );
             }
@@ -65,18 +61,37 @@ pub struct RoundRect<Parent: Clone> {
     pub outline: Vec4,
 }
 
-// This assembles a custom projection matrix specifically designed for 2D drawing.
-fn mat4x4_proj(l: f32, r: f32, b: f32, t: f32, n: f32, f: f32) -> Mat4x4 {
-    let mut m = Mat4x4 {
+// TODO: this does not work for some reason
+fn mat4x4_proj(l: f32, r: f32, b: f32, t: f32, n: f32, f: f32) -> Mat4 {
+    let mut m = Mat4 {
         cols: [
             Vec4::new(2.0 / (r - l), 0.0, 0.0, 0.0).into(),
             Vec4::new(0.0, 2.0 / (t - b), 0.0, 0.0).into(),
-            Vec4::new(0.0, 0.0, -((f + n) / (f - n)), -1.0).into(),
+            Vec4::new(0.0, 0.0, -((f + n) / (f - n)), 1.0).into(),
             Vec4::new(
-                -(r + l) / (r - l),
-                -(t + b) / (t - b),
-                -((2.0 * f * n) / (f - n)) - 1.0,
-                0.0,
+                (r + l) / (r - l),
+                (t + b) / (t - b),
+                ((2.0 * f * n) / (f - n)) + 1.0,
+                1.0,
+            )
+            .into(),
+        ],
+    };
+    m.transposed()
+}
+
+// Orthographic projection matrix
+fn mat4_ortho(x: f32, y: f32, w: f32, h: f32, n: f32, f: f32) -> Mat4 {
+    let mut m = Mat4 {
+        cols: [
+            Vec4::new(2.0 / w, 0.0, 0.0, 0.0).into(),
+            Vec4::new(0.0, 2.0 / h, 0.0, 0.0).into(),
+            Vec4::new(0.0, 0.0, -2.0 / (f - n), 0.0).into(),
+            Vec4::new(
+                -(2.0 * x + w) / w,
+                -(2.0 * y + h) / h,
+                (f + n) / (f - n),
+                1.0,
             )
             .into(),
         ],
@@ -115,13 +130,13 @@ impl<AppData: 'static, Parent: Clone + 'static> super::Component<AppData, Parent
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("MVP"),
-                contents: mat4x4_proj(
+                contents: mat4_ortho(
                     0.0,
-                    config.width as f32,
                     config.height as f32,
+                    config.width as f32,
+                    -(config.height as f32),
                     0.0,
-                    0.2,
-                    200.0,
+                    1.0,
                 )
                 .as_byte_slice(),
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
@@ -132,17 +147,11 @@ impl<AppData: 'static, Parent: Clone + 'static> super::Component<AppData, Parent
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("VertBuffer"),
                 contents: to_bytes(&[
+                    Vertex { pos: [0.0, 0.0] },
+                    Vertex { pos: [400.0, 0.0] },
+                    Vertex { pos: [0.0, 200.0] },
                     Vertex {
-                        pos: [-200.0, -200.0],
-                    },
-                    Vertex {
-                        pos: [-200.0, 200.0],
-                    },
-                    Vertex {
-                        pos: [200.0, -200.0],
-                    },
-                    Vertex {
-                        pos: [200.0, 200.0],
+                        pos: [400.0, 200.0],
                     },
                 ]),
                 usage: wgpu::BufferUsages::VERTEX,
@@ -243,7 +252,7 @@ fn gen_pipeline(device: &Device, config: &wgpu::SurfaceConfiguration) -> RenderP
             targets: &[Some(config.view_formats[0].into())],
         }),
         primitive: wgpu::PrimitiveState {
-            front_face: wgpu::FrontFace::Ccw,
+            front_face: wgpu::FrontFace::Cw,
             topology: wgpu::PrimitiveTopology::TriangleStrip,
             ..Default::default()
         },

@@ -201,7 +201,7 @@ pub struct DriverState {
 pub struct App<AppData: 'static> {
     pub app_state: AppData,
     pub instance: wgpu::Instance,
-    windows: HashMap<winit::window::WindowId, Window<AppData>>,
+    pub windows: HashMap<winit::window::WindowId, Window<AppData>>,
     driver: Weak<DriverState>,
 }
 
@@ -296,6 +296,7 @@ impl<AppData> App<AppData> {
                         window.layout_all(&self.app_state);
                         window.stage_all();
                         window.render_all();
+                        window.on_event(event);
                     }
                     _ => {
                         window.on_event(event);

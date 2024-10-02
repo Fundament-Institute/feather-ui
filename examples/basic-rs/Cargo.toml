@@ -1,5 +1,5 @@
 [package]
-name = "basic"
+name = "basic-rs"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -12,7 +12,7 @@ readme.workspace = true
 license.workspace = true
 
 [[bin]]
-name = "basic"
+name = "basic-rs"
 path = "main.rs"
 
 [dependencies]
@@ -20,3 +20,4 @@ wgpu.workspace = true
 winit.workspace = true
 tokio.workspace = true
 feather-ui.workspace = true
+ultraviolet.workspace = true
