@@ -8,22 +8,21 @@ use crate::RenderInstruction;
 use crate::{layout, AbsRect};
 use derive_where::derive_where;
 use eyre::OptionExt;
-use std::rc::{Rc, Weak};
+use std::rc::Weak;
 use std::sync::Arc;
 use ultraviolet::Vec2;
-use wgpu::{Adapter, Device};
 use winit::dpi::PhysicalSize;
+use winit::event::WindowEvent;
 use winit::window::WindowId;
-use winit::{event::WindowEvent, event_loop::EventLoopWindowTarget};
 
 #[derive_where(Clone)]
 pub struct Window<AppData: 'static> {
     pub id: WindowId,
-    pub window: Arc<winit::window::Window>,
     surface: Arc<wgpu::Surface<'static>>,
+    pub window: Arc<winit::window::Window>,
     config: wgpu::SurfaceConfiguration,
     child: Box<ComponentFrom<AppData, Root>>,
-    driver: Arc<crate::DriverState>,
+    driver: Arc<DriverState>,
     layout_tree: Option<Box<dyn crate::layout::Layout<(), AppData>>>,
     staging: Option<Box<dyn layout::Staged<AppData>>>,
     rtree: Weak<rtree::Node<AppData>>,
@@ -61,7 +60,7 @@ impl<'a, AppData> Window<AppData> {
         window: Arc<winit::window::Window>,
         surface: wgpu::Surface<'static>,
         child: Box<ComponentFrom<AppData, Root>>,
-        driver: Arc<crate::DriverState>,
+        driver: Arc<DriverState>,
     ) -> eyre::Result<Self> {
         let size = window.inner_size();
         let mut config = surface
@@ -94,7 +93,7 @@ impl<'a, AppData> Window<AppData> {
 
     pub fn stage_all(&mut self) {
         if let Some(layout) = self.layout_tree.as_ref() {
-            self.staging = Some(layout.stage(Default::default(), &self.driver.queue));
+            self.staging = Some(layout.stage(Default::default(), &self.driver));
         }
     }
 
@@ -129,6 +128,14 @@ impl<'a, AppData> Window<AppData> {
                 return true;
             }
             WindowEvent::RedrawRequested => {
+                self.driver.text.borrow_mut().viewport.update(
+                    &self.driver.queue,
+                    glyphon::Resolution {
+                        width: self.config.width,
+                        height: self.config.height,
+                    },
+                );
+
                 let frame = self.surface.get_current_texture().unwrap();
                 let view = frame
                     .texture

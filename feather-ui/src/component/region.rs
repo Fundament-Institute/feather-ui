@@ -13,14 +13,14 @@ use derive_where::derive_where;
 pub struct Region<AppData: 'static, Parent: Clone> {
     props: Parent,
     basic: Basic,
-    children: im::Vector<Box<dyn Component<AppData, <Basic as Desc<AppData>>::Impose>>>,
+    children: im::Vector<Option<Box<dyn Component<AppData, <Basic as Desc<AppData>>::Impose>>>>,
 }
 
 impl<AppData: 'static, Parent: Clone> Region<AppData, Parent> {
     pub fn new(
         props: Parent,
         basic: Basic,
-        children: im::Vector<Box<ComponentFrom<AppData, Basic>>>,
+        children: im::Vector<Option<Box<ComponentFrom<AppData, Basic>>>>,
     ) -> Self {
         Self {
             props,
@@ -39,8 +39,8 @@ impl<AppData: 'static, Parent: Clone + 'static> super::Component<AppData, Parent
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<Parent, AppData>> {
         let map = VectorMap::new(
-            |child: &Box<ComponentFrom<AppData, Basic>>|
-             -> Box<dyn Layout<<Basic as Desc<AppData>>::Impose, AppData>> { child.layout(data, driver, config) },
+            |child: &Option<Box<ComponentFrom<AppData, Basic>>>|
+             -> Option<Box<dyn Layout<<Basic as Desc<AppData>>::Impose, AppData>>> { Some(child.as_ref().unwrap().layout(data, driver, config)) },
         );
 
         let (_, children) = map.call(Default::default(), &self.children);

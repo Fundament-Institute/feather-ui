@@ -1,6 +1,9 @@
 use feather_ui::component::region::Region;
 use feather_ui::component::round_rect::RoundRect;
 use feather_ui::component::window::Window;
+use feather_ui::component::ComponentFrom;
+use feather_ui::layout::basic;
+use feather_ui::layout::basic::Basic;
 use feather_ui::layout::root;
 use feather_ui::layout::root::Root;
 use feather_ui::layout::Desc;
@@ -27,66 +30,8 @@ fn counter_decrement(st: CounterState) -> CounterState {
         count: st.count - 1,
     }
 }
-use ultraviolet::Vec3;
-
-fn viewport_transform(p: Vec3, x: f32, y: f32, w: f32, h: f32, f: f32, n: f32) -> Vec3 {
-    Vec3 {
-        x: (w / 2.0) * p.x + x + (w / 2.0),
-        y: (h / 2.0) * p.y + y + (h / 2.0),
-        z: ((f - n) / 2.0) * p.z + ((f + n) / 2.0),
-    }
-}
-
-fn NDC_perspective(p: Vec4) -> Vec3 {
-    Vec3 {
-        x: p.x / p.w,
-        y: p.y / p.w,
-        z: p.z / p.w,
-    }
-}
-
-// Inverts a viewport transform into an orthographic projection matrix
-fn viewport_ortho(x: f32, y: f32, w: f32, h: f32, n: f32, f: f32) -> Mat4 {
-    let mut m = Mat4 {
-        cols: [
-            Vec4::new(2.0 / w, 0.0, 0.0, 0.0).into(),
-            Vec4::new(0.0, 2.0 / h, 0.0, 0.0).into(),
-            Vec4::new(0.0, 0.0, -2.0 / (f - n), 0.0).into(),
-            Vec4::new(
-                -(2.0 * x + w) / w,
-                -(2.0 * y + h) / h,
-                (f + n) / (f - n),
-                1.0,
-            )
-            .into(),
-        ],
-    };
-    m
-}
-
-// This maps x and y to the viewpoint size, maps input_z from [n,f] to [0,1], and sets
-// output_w = input_z for perspective. Requires input_w = 1
-fn viewport_proj(x: f32, y: f32, w: f32, h: f32, n: f32, f: f32) -> Mat4 {
-    let mut m = Mat4 {
-        cols: [
-            Vec4::new(2.0 / w, 0.0, 0.0, 0.0).into(),
-            Vec4::new(0.0, 2.0 / h, 0.0, 0.0).into(),
-            Vec4::new(0.0, 0.0, 1.0 / (f - n), 1.0).into(),
-            Vec4::new(-(2.0 * x + w) / w, -(2.0 * y + h) / h, -n / (f - n), 0.0).into(),
-        ],
-    };
-    m
-}
 
 fn main() {
-    let m = viewport_proj(0.0, 0.0, 800.0, 600.0, 0.2, 10000.0);
-    let v = Vec4::new(200.0, 200.0, 1.0, 1.0);
-    let v = m * v;
-    println!("clip space: x: {}, y: {}, z: {}, w: {}", v.x, v.y, v.z, v.w);
-    let p = NDC_perspective(v);
-    let p = viewport_transform(p, 0.0, 600.0, 800.0, -600.0, 0.0, 1.0);
-    println!("screen space: x: {}, y: {}, z: {}", p.x, p.y, p.z);
-
     let (mut app, event_loop) = App::<()>::new(()).unwrap();
 
     let window = Arc::new(
@@ -106,20 +51,28 @@ fn main() {
         .block_on(app.create_driver(&surface))
         .unwrap();
 
-    let region = RoundRect::<<Root as Desc<()>>::Impose> {
+    let rect = RoundRect::<<Basic as Desc<()>>::Impose> {
         fill: Vec4::new(1.0, 1.0, 0.0, 1.0),
         corners: Vec4::broadcast(100.0),
-        props: root::Inherited {
-            area: feather_ui::URect {
-                topleft: Default::default(),
-                bottomright: UPoint {
-                    abs: Default::default(),
-                    rel: Vec2::one().into(),
-                },
-            },
+        props: basic::Inherited {
+            area: feather_ui::FILL_URECT,
+            margin: Default::default(),
         },
         ..Default::default()
     };
+    let mut children: im::Vector<Option<Box<ComponentFrom<(), Basic>>>> = im::Vector::new();
+    children.push_back(Some(Box::new(rect)));
+
+    let region = Region::new(
+        root::Inherited {
+            area: feather_ui::FILL_URECT,
+        },
+        Basic {
+            padding: Default::default(),
+            zindex: 0,
+        },
+        children,
+    );
     let window_id = window.id();
     let window = Window::new::<()>(window, surface, Box::new(region), driver).unwrap();
 

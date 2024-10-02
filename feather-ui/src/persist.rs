@@ -406,7 +406,7 @@ impl<T: Clone, U: Clone + Default, F: FnPersist2<U, T, U>> FnPersist2<U, im::Vec
 {
     type Store = VectorFoldStore<T, U, F::Store>;
 
-    fn call(&self, mut store: Self::Store, arg1: &U, arg2: &im::Vector<T>) -> (Self::Store, U) {
+    fn call(&self, store: Self::Store, arg1: &U, arg2: &im::Vector<T>) -> (Self::Store, U) {
         let mut seed = arg1.clone();
 
         for item in arg2.iter() {

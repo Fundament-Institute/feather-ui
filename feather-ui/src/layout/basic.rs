@@ -12,20 +12,21 @@ use std::rc::Rc;
 
 #[derive(Clone, Default)]
 pub struct Inherited {
-    margin: URect,
-    area: URect,
+    pub margin: URect,
+    pub area: URect,
 }
 
 #[derive(Clone, Default)]
 pub struct Basic {
-    padding: URect,
-    zindex: i32,
+    pub padding: URect,
+    pub zindex: i32,
 }
 
 impl<AppData: 'static> Desc<AppData> for Basic {
     type Props = Basic;
     type Impose = Inherited;
-    type Children<A: DynClone + ?Sized> = im::Vector<Box<dyn Layout<Self::Impose, AppData>>>;
+    type Children<A: DynClone + ?Sized> =
+        im::Vector<Option<Box<dyn Layout<Self::Impose, AppData>>>>;
 
     fn stage<'a>(
         props: &Self::Props,
@@ -33,7 +34,7 @@ impl<AppData: 'static> Desc<AppData> for Basic {
         children: &Self::Children<dyn Layout<Self::Impose, AppData> + '_>,
         events: Option<Rc<EventList<AppData>>>,
         renderable: Option<Rc<dyn Renderable<AppData>>>,
-        queue: &wgpu::Queue,
+        driver: &crate::DriverState,
     ) -> Box<dyn Staged<AppData> + 'a>
     where
         AppData: 'a,
@@ -44,11 +45,11 @@ impl<AppData: 'static> Desc<AppData> for Basic {
             bottomright: (area.bottomright - padding.bottomright).into(),
         };
 
-        let mut staging: im::Vector<Box<dyn Staged<AppData>>> = im::Vector::new();
-        let mut nodes: im::Vector<Rc<rtree::Node<AppData>>> = im::Vector::new();
+        let mut staging: im::Vector<Option<Box<dyn Staged<AppData>>>> = im::Vector::new();
+        let mut nodes: im::Vector<Option<Rc<rtree::Node<AppData>>>> = im::Vector::new();
 
         for child in children.iter() {
-            let props = child.get_imposed();
+            let props = child.as_ref().unwrap().get_imposed();
             let margin = props.margin * area;
             let inner = props.area * area;
             let result = AbsRect {
@@ -56,11 +57,11 @@ impl<AppData: 'static> Desc<AppData> for Basic {
                 bottomright: (inner.bottomright - margin.bottomright).into(),
             };
 
-            let stage = child.stage(result, queue);
+            let stage = child.as_ref().unwrap().stage(result, driver);
             if let Some(node) = stage.get_rtree().upgrade() {
-                nodes.push_back(node);
+                nodes.push_back(Some(node));
             }
-            staging.push_back(stage);
+            staging.push_back(Some(stage));
         }
 
         // Our area does not change based on child sizes, so we have no bottom-up resolution step to do here
@@ -68,7 +69,7 @@ impl<AppData: 'static> Desc<AppData> for Basic {
         Box::new(Concrete {
             area,
             render: renderable
-                .map(|x| x.render(area, queue))
+                .map(|x| x.render(area, driver))
                 .unwrap_or_default(),
             rtree: Rc::new(rtree::Node::new(area, Some(props.zindex), nodes, events)),
             children: staging,

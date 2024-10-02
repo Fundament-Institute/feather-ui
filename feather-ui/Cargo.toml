@@ -30,3 +30,4 @@ ultraviolet.workspace = true
 dyn-clone = "1.0"
 derive-where = "1.2.7"
 mlua.workspace = true
+glyphon = "0.6.0"

@@ -3,6 +3,7 @@ use dyn_clone::DynClone;
 use crate::layout::Layout;
 
 //pub mod button;
+pub mod arc;
 pub mod mouse_area;
 pub mod region;
 pub mod round_rect;
@@ -28,5 +29,5 @@ dyn_clone::clone_trait_object!(<AppData, Parent> Component<AppData, Parent> wher
 pub type ComponentFrom<AppData, D> = dyn Component<AppData, <D as Desc<AppData>>::Impose>;
 
 pub trait Renderable<AppData> {
-    fn render(&self, area: AbsRect, queue: &wgpu::Queue) -> im::Vector<RenderInstruction>;
+    fn render(&self, area: AbsRect, driver: &DriverState) -> im::Vector<RenderInstruction>;
 }

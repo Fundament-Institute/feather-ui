@@ -15,20 +15,21 @@ pub struct Node<AppData> {
     pub bottom: i32,
     pub events: Option<Rc<EventList<AppData>>>,
     //transform: Rotor2, // TODO: build a 3D node where this is a 3D rotor and project it back on to a 2D plane.
-    pub children: im::Vector<Rc<Node<AppData>>>,
+    pub children: im::Vector<Option<Rc<Node<AppData>>>>,
 }
 
 impl<AppData> Node<AppData> {
     pub fn new(
         area: AbsRect,
         z: Option<i32>,
-        children: im::Vector<Rc<Node<AppData>>>,
+        children: im::Vector<Option<Rc<Node<AppData>>>>,
         events: Option<Rc<EventList<AppData>>>,
     ) -> Self {
         let fold = VectorFold::new(
             |(rect, top, bottom): &(AbsRect, i32, i32),
-             n: &Rc<Node<AppData>>|
+             n: &Option<Rc<Node<AppData>>>|
              -> (AbsRect, i32, i32) {
+                let n = n.as_ref().unwrap();
                 (
                     rect.extend(n.area),
                     (*top).max(n.top),
@@ -38,7 +39,12 @@ impl<AppData> Node<AppData> {
         );
 
         // If no z index is provided for this node, try to use a zindex from the first child. If there is no first child, default to 0
-        let z = z.unwrap_or_else(|| children.front().map(|x| x.top).unwrap_or(0));
+        let z = z.unwrap_or_else(|| {
+            children
+                .front()
+                .map(|x| x.as_ref().unwrap().top)
+                .unwrap_or(0)
+        });
         let (_, (extent, top, bottom)) =
             fold.call(Default::default(), &(Default::default(), z, z), &children);
 
@@ -64,7 +70,7 @@ impl<AppData> Node<AppData> {
             pos -= self.area.topleft;
             // Children should be sorted from top to bottom
             for child in self.children.iter() {
-                data = child.process(event, kind, pos, data);
+                data = child.as_ref().unwrap().process(event, kind, pos, data);
             }
         }
         data
