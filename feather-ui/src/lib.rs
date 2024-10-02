@@ -256,7 +256,7 @@ pub struct DriverState {
     adapter: wgpu::Adapter,
     device: wgpu::Device,
     queue: wgpu::Queue,
-    text: Arc<RefCell<TextSystem>>,
+    text: std::rc::Rc<RefCell<TextSystem>>,
 }
 
 pub struct App<AppData: 'static> {
@@ -342,7 +342,7 @@ impl<AppData> App<AppData> {
             adapter,
             device,
             queue,
-            text: Arc::new(RefCell::new(TextSystem {
+            text: std::rc::Rc::new(RefCell::new(TextSystem {
                 font_system: glyphon::FontSystem::new(),
                 swash_cache: glyphon::SwashCache::new(),
                 viewport: viewport,
