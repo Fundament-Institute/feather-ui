@@ -40,7 +40,7 @@
     rec {
       devShells.default =
         (pkgs.mkShell.override { stdenv = pkgs.llvmPackages.stdenv; }) {
-          buildInputs = with pkgs; [ openssl pkg-config ];
+          buildInputs = with pkgs; [ openssl pkg-config xorg.libX11 xorg.libXcursor xorg.libXi libxkbcommon vulkan-loader libglvnd ];
 
           nativeBuildInputs = with pkgs; [
             # get current rust toolchain defaults (this includes clippy and rustfmt)
@@ -49,6 +49,7 @@
             cargo-edit
           ];
 
+          LD_LIBRARY_PATH = pkgs.lib.strings.concatMapStringsSep ":" toString (with pkgs; [ xorg.libX11 xorg.libXcursor xorg.libXi (libxkbcommon + "/lib") (vulkan-loader + "/lib") libglvnd ]);
           # fetch with cli instead of native
           CARGO_NET_GIT_FETCH_WITH_CLI = "true";
           RUST_BACKTRACE = 1;
