@@ -19,7 +19,7 @@ use std::rc::{Rc, Weak};
 
 pub trait Layout<Imposed: Clone, AppData>: DynClone {
     fn get_imposed(&self) -> &Imposed;
-    fn stage<'a>(&self, area: AbsRect, queue: &wgpu::Queue) -> Box<dyn Staged<AppData> + 'a>
+    fn stage<'a>(&self, area: AbsRect, driver: &DriverState) -> Box<dyn Staged<AppData> + 'a>
     where
         AppData: 'a;
 }
@@ -39,7 +39,7 @@ pub trait Desc<AppData> {
         children: &Self::Children<dyn Layout<Self::Impose, AppData> + '_>,
         events: Option<Rc<EventList<AppData>>>,
         renderable: Option<Rc<dyn Renderable<AppData>>>,
-        queue: &wgpu::Queue,
+        driver: &DriverState,
     ) -> Box<dyn Staged<AppData> + 'a>
     where
         AppData: 'a;
@@ -60,7 +60,7 @@ impl<AppData, D: Desc<AppData>, Imposed: Clone> Layout<Imposed, AppData>
     fn get_imposed(&self) -> &Imposed {
         &self.imposed
     }
-    fn stage<'a>(&self, area: AbsRect, queue: &wgpu::Queue) -> Box<dyn Staged<AppData> + 'a>
+    fn stage<'a>(&self, area: AbsRect, driver: &DriverState) -> Box<dyn Staged<AppData> + 'a>
     where
         AppData: 'a,
     {
@@ -70,7 +70,7 @@ impl<AppData, D: Desc<AppData>, Imposed: Clone> Layout<Imposed, AppData>
             &self.children,
             self.events.upgrade(),
             self.renderable.as_ref().map(|x| x.clone()),
-            queue,
+            driver,
         )
     }
 }
@@ -88,16 +88,16 @@ struct Concrete<AppData> {
     render: im::Vector<RenderInstruction>,
     area: AbsRect,
     rtree: Rc<rtree::Node<AppData>>,
-    children: im::Vector<Box<dyn Staged<AppData>>>,
+    children: im::Vector<Option<Box<dyn Staged<AppData>>>>,
 }
 
 impl<AppData> Staged<AppData> for Concrete<AppData> {
     fn render(&self) -> im::Vector<RenderInstruction> {
         let fold = VectorFold::new(
             |list: &im::Vector<RenderInstruction>,
-             n: &Box<dyn Staged<AppData>>|
+             n: &Option<Box<dyn Staged<AppData>>>|
              -> im::Vector<RenderInstruction> {
-                let mut a = n.render();
+                let mut a = n.as_ref().unwrap().render();
                 a.append(list.clone());
                 a
             },

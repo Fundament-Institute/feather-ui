@@ -1,7 +1,7 @@
 [workspace]
 members = ["feather-ui", "examples/basic-rs"]
 resolver = "2"
-default-members = ["feather-ui"]
+default-members = ["feather-ui", "examples/basic-rs"]
 
 [workspace.package]
 version = "0.1.0"

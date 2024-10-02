@@ -31,12 +31,12 @@ impl<AppData> Desc<AppData> for Root {
         child: &Self::Children<dyn Layout<Self::Impose, AppData> + '_>,
         _: Option<Rc<EventList<AppData>>>,
         _: Option<Rc<dyn Renderable<AppData>>>,
-        queue: &wgpu::Queue,
+        driver: &crate::DriverState,
     ) -> Box<dyn Staged<AppData> + 'a>
     where
         AppData: 'a,
     {
         // We bypass creating our own node here as our staging node would be redundant.
-        child.stage(child.get_imposed().area * props.area, queue)
+        child.stage(child.get_imposed().area * props.area, driver)
     }
 }

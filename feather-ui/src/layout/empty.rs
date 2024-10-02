@@ -25,7 +25,7 @@ impl<AppData> Desc<AppData> for Empty {
         _: &Self::Children<dyn Layout<Self::Impose, AppData> + '_>,
         events: Option<Rc<EventList<AppData>>>,
         renderable: Option<Rc<dyn Renderable<AppData>>>,
-        queue: &wgpu::Queue,
+        driver: &crate::DriverState,
     ) -> Box<dyn Staged<AppData> + 'a>
     where
         AppData: 'a,
@@ -34,7 +34,7 @@ impl<AppData> Desc<AppData> for Empty {
         Box::new(Concrete {
             area,
             render: renderable
-                .map(|x| x.render(area, queue))
+                .map(|x| x.render(area, driver))
                 .unwrap_or_default(),
             rtree: Rc::new(rtree::Node::new(area, None, Default::default(), events)),
             children: Default::default(),

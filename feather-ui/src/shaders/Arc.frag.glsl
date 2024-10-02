@@ -1,5 +1,6 @@
 #version 450
 in vec2 pos;
+layout(binding=1) uniform vec4 PosDim;  
 layout(binding=2) uniform vec4 DimBorderBlur;  
 layout(binding=3) uniform vec4 Corners;  
 layout(binding=4) uniform vec4 Fill;  
@@ -14,7 +15,7 @@ vec4 sRGB(vec4 linearRGB){return vec4(1.055*pow(linearRGB.rgb,vec3(1./2.4)-.055)
 vec4 linearRGB(vec4 sRGB){return vec4(pow((sRGB.rgb+.055)/1.055,vec3(2.4)),sRGB.a);}
 void main()
 {
-  float l=(DimBorderBlur.x+DimBorderBlur.y)*.5;
+  float l=(PosDim.z+PosDim.w)*.5;
   vec2 uv=(pos*2.)-1.;
   float width=fwidth(pos.x);
   float w1=(1.+DimBorderBlur.w)*width;

@@ -1,5 +1,6 @@
 #version 450  
 in vec2 pos;  
+layout(binding=1) uniform vec4 PosDim;  
 layout(binding=2) uniform vec4 DimBorderBlur;  
 layout(binding=3) uniform vec4 Corners;  
 layout(binding=4) uniform vec4 Fill;  
@@ -15,7 +16,7 @@ float linetopoint(vec2 p1, vec2 p2, vec2 p)
 }  
 void main()  
 {  
-  vec2 d = DimBorderBlur.xy;  
+  vec2 d = PosDim.zw;  
   vec2 p = pos * d + vec2(-0.5,0.5);  
   vec4 c = Corners;  
   vec2 dist;  

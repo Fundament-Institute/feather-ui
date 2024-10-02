@@ -1,5 +1,6 @@
 #version 450
 in vec2 pos;  
+layout(binding=1) uniform vec4 PosDim;  
 layout(binding=2) uniform vec4 DimBorderBlur;  
 layout(binding=3) uniform vec4 Corners;  
 layout(binding=4) uniform vec4 Fill;  
@@ -10,7 +11,7 @@ const float PI = 3.14159265359;
 float linearstep(float low, float high, float x) { return clamp((x - low) / (high - low), 0.0, 1.0); }  
 void main()  
 {  
-    float l = (DimBorderBlur.x + DimBorderBlur.y) * 0.5;  
+    float l = (PosDim.z+PosDim.w) * 0.5;  
     vec2 uv = (pos*2.0) - 1.0;  
     float w1 = (1.0 + DimBorderBlur.w)*fwidth(pos.x);   
     

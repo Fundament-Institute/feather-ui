@@ -4,6 +4,7 @@ pub mod layout;
 //mod lua;
 pub mod persist;
 mod rtree;
+mod shaders;
 
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 use std::sync::Weak;
@@ -12,6 +13,7 @@ use crate::component::window::Window;
 use crate::input::Event;
 use component::Component;
 use eyre::OptionExt;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::Arc;
 use ultraviolet::vec::Vec2;
@@ -45,6 +47,16 @@ impl AbsRect {
             topleft: self.topleft.min_by_component(rhs.topleft),
             bottomright: self.bottomright.min_by_component(rhs.bottomright),
         }
+    }
+
+    pub fn width(&self) -> f32 {
+        self.bottomright.x - self.topleft.x
+    }
+    pub fn height(&self) -> f32 {
+        self.bottomright.y - self.topleft.y
+    }
+    pub fn dim(&self) -> AbsDim {
+        AbsDim(self.bottomright - self.topleft)
     }
 }
 
@@ -178,6 +190,17 @@ pub struct URect {
     pub bottomright: UPoint,
 }
 
+pub const FILL_URECT: URect = URect {
+    topleft: UPoint {
+        abs: Vec2 { x: 0.0, y: 0.0 },
+        rel: RelPoint { x: 0.0, y: 0.0 },
+    },
+    bottomright: UPoint {
+        abs: Vec2 { x: 0.0, y: 0.0 },
+        rel: RelPoint { x: 1.0, y: 1.0 },
+    },
+};
+
 impl Mul<AbsRect> for URect {
     type Output = AbsRect;
 
@@ -198,6 +221,34 @@ type EventHandler<AppData> = Box<dyn FnMut(Event, AbsRect, AppData) -> AppData>;
 // TODO: This only an Option so it can be zeroed. After fixing im::Vector, remove Option.
 type RenderInstruction = Option<Box<dyn RenderLambda>>;
 
+pub struct TextSystem {
+    viewport: glyphon::Viewport,
+    atlas: glyphon::TextAtlas,
+    text_renderer: glyphon::TextRenderer,
+    font_system: glyphon::FontSystem,
+    swash_cache: glyphon::SwashCache,
+}
+
+impl TextSystem {
+    pub fn split_borrow(
+        &mut self,
+    ) -> (
+        &mut glyphon::Viewport,
+        &mut glyphon::TextAtlas,
+        &mut glyphon::TextRenderer,
+        &mut glyphon::FontSystem,
+        &mut glyphon::SwashCache,
+    ) {
+        (
+            &mut self.viewport,
+            &mut self.atlas,
+            &mut self.text_renderer,
+            &mut self.font_system,
+            &mut self.swash_cache,
+        )
+    }
+}
+
 // We want to share our device/adapter state across windows, but can't create it until we have at least one window,
 // so we store a weak reference to it in App and if all windows are dropped it'll also drop these, which is usually
 // sensible behavior.
@@ -205,6 +256,7 @@ pub struct DriverState {
     adapter: wgpu::Adapter,
     device: wgpu::Device,
     queue: wgpu::Queue,
+    text: Arc<RefCell<TextSystem>>,
 }
 
 pub struct App<AppData: 'static> {
@@ -275,10 +327,28 @@ impl<AppData> App<AppData> {
             )
             .await?;
 
+        let cache = glyphon::Cache::new(&device);
+        let mut atlas =
+            glyphon::TextAtlas::new(&device, &queue, &cache, wgpu::TextureFormat::Bgra8Unorm);
+        let viewport = glyphon::Viewport::new(&device, &cache);
+        let text_renderer = glyphon::TextRenderer::new(
+            &mut atlas,
+            &device,
+            wgpu::MultisampleState::default(),
+            None,
+        );
+
         let driver = Arc::new(crate::DriverState {
             adapter,
             device,
             queue,
+            text: Arc::new(RefCell::new(TextSystem {
+                font_system: glyphon::FontSystem::new(),
+                swash_cache: glyphon::SwashCache::new(),
+                viewport: viewport,
+                atlas,
+                text_renderer: text_renderer,
+            })),
         });
 
         self.driver = Arc::downgrade(&driver);
