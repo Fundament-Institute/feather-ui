@@ -25,6 +25,7 @@ impl<AppData> Desc<AppData> for Empty {
         _: &Self::Children<dyn Layout<Self::Impose, AppData> + '_>,
         events: Option<Rc<EventList<AppData>>>,
         renderable: Option<Rc<dyn Renderable<AppData>>>,
+        queue: &wgpu::Queue,
     ) -> Box<dyn Staged<AppData> + 'a>
     where
         AppData: 'a,
@@ -32,7 +33,9 @@ impl<AppData> Desc<AppData> for Empty {
         // While we have no children or layouts, components using None often render things or handle events
         Box::new(Concrete {
             area,
-            render: renderable.map(|x| x.render(area)).unwrap_or_default(),
+            render: renderable
+                .map(|x| x.render(area, queue))
+                .unwrap_or_default(),
             rtree: Rc::new(rtree::Node::new(area, None, Default::default(), events)),
             children: Default::default(),
         })

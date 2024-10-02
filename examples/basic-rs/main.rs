@@ -1,11 +1,14 @@
 use feather_ui::component::region::Region;
 use feather_ui::component::round_rect::RoundRect;
 use feather_ui::component::window::Window;
+use feather_ui::layout::root;
 use feather_ui::layout::root::Root;
 use feather_ui::layout::Desc;
 use feather_ui::App;
+use feather_ui::UPoint;
 use std::sync::Arc;
 use ultraviolet::Mat4;
+use ultraviolet::Vec2;
 use ultraviolet::Vec4;
 use winit::window::WindowBuilder;
 
@@ -61,32 +64,27 @@ fn viewport_ortho(x: f32, y: f32, w: f32, h: f32, n: f32, f: f32) -> Mat4 {
     m
 }
 
+// This maps x and y to the viewpoint size, maps input_z from [n,f] to [0,1], and sets
+// output_w = input_z for perspective. Requires input_w = 1
 fn viewport_proj(x: f32, y: f32, w: f32, h: f32, n: f32, f: f32) -> Mat4 {
     let mut m = Mat4 {
         cols: [
             Vec4::new(2.0 / w, 0.0, 0.0, 0.0).into(),
             Vec4::new(0.0, 2.0 / h, 0.0, 0.0).into(),
-            Vec4::new(0.0, 0.0, -2.0 / (f - n), 0.0).into(),
-            Vec4::new(
-                -(2.0 * x + w) / w,
-                -(2.0 * y + h) / h,
-                (f + n) / (f - n),
-                1.0,
-            )
-            .into(),
+            Vec4::new(0.0, 0.0, 1.0 / (f - n), 1.0).into(),
+            Vec4::new(-(2.0 * x + w) / w, -(2.0 * y + h) / h, -n / (f - n), 0.0).into(),
         ],
     };
     m
 }
 
 fn main() {
-    let m = viewport_ortho(0.0, 600.0, 800.0, -600.0, 0.0, 1.0);
+    let m = viewport_proj(0.0, 0.0, 800.0, 600.0, 0.2, 10000.0);
     let v = Vec4::new(200.0, 200.0, 1.0, 1.0);
     let v = m * v;
     println!("clip space: x: {}, y: {}, z: {}, w: {}", v.x, v.y, v.z, v.w);
     let p = NDC_perspective(v);
     let p = viewport_transform(p, 0.0, 600.0, 800.0, -600.0, 0.0, 1.0);
-
     println!("screen space: x: {}, y: {}, z: {}", p.x, p.y, p.z);
 
     let (mut app, event_loop) = App::<()>::new(()).unwrap();
@@ -110,6 +108,16 @@ fn main() {
 
     let region = RoundRect::<<Root as Desc<()>>::Impose> {
         fill: Vec4::new(1.0, 1.0, 0.0, 1.0),
+        corners: Vec4::broadcast(100.0),
+        props: root::Inherited {
+            area: feather_ui::URect {
+                topleft: Default::default(),
+                bottomright: UPoint {
+                    abs: Default::default(),
+                    rel: Vec2::one().into(),
+                },
+            },
+        },
         ..Default::default()
     };
     let window_id = window.id();

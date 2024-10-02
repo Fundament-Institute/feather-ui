@@ -28,5 +28,5 @@ dyn_clone::clone_trait_object!(<AppData, Parent> Component<AppData, Parent> wher
 pub type ComponentFrom<AppData, D> = dyn Component<AppData, <D as Desc<AppData>>::Impose>;
 
 pub trait Renderable<AppData> {
-    fn render(&self, area: AbsRect) -> im::Vector<RenderInstruction>;
+    fn render(&self, area: AbsRect, queue: &wgpu::Queue) -> im::Vector<RenderInstruction>;
 }

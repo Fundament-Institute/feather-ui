@@ -33,6 +33,7 @@ impl<AppData: 'static> Desc<AppData> for Center {
         children: &Self::Children<dyn Layout<Self::Impose, AppData>>,
         events: Option<Rc<EventList<AppData>>>,
         renderable: Option<Rc<dyn Renderable<AppData>>>,
+        queue: &wgpu::Queue,
     ) -> Box<dyn Staged<AppData> + 'a>
     where
         AppData: 'a,
@@ -50,7 +51,7 @@ impl<AppData: 'static> Desc<AppData> for Center {
 
         // First we let the children calculate their own size using our entire padded area
         for child in children.iter() {
-            inspect.push_back((child, child.stage(area)));
+            inspect.push_back((child, child.stage(area, queue)));
         }
 
         let mut nodes: im::Vector<Rc<rtree::Node<AppData>>> = im::Vector::new();
@@ -70,7 +71,7 @@ impl<AppData: 'static> Desc<AppData> for Center {
                 staging.push_back(child.1);
             } else {
                 let targetarea = childarea + diff;
-                let stage = child.0.stage(targetarea);
+                let stage = child.0.stage(targetarea, queue);
                 if let Some(node) = stage.get_rtree().upgrade() {
                     nodes.push_back(node);
                 }
@@ -80,7 +81,9 @@ impl<AppData: 'static> Desc<AppData> for Center {
 
         Box::new(Concrete {
             area,
-            render: renderable.map(|x| x.render(area)).unwrap_or_default(),
+            render: renderable
+                .map(|x| x.render(area, queue))
+                .unwrap_or_default(),
             rtree: Rc::new(rtree::Node::new(area, Some(props.zindex), nodes, events)),
             children: staging,
         })

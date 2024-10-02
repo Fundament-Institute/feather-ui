@@ -29,10 +29,27 @@ pub struct RoundRectPipeline {
     pipeline: RenderPipeline,
     group: wgpu::BindGroup,
     vertices: wgpu::Buffer,
+    buffers: [wgpu::Buffer; 6],
 }
 
 impl<AppData> Renderable<AppData> for RoundRectPipeline {
-    fn render(&self, area: crate::AbsRect) -> im::Vector<crate::RenderInstruction> {
+    fn render(
+        &self,
+        area: crate::AbsRect,
+        queue: &wgpu::Queue,
+    ) -> im::Vector<crate::RenderInstruction> {
+        queue.write_buffer(
+            &self.buffers[1],
+            0,
+            Vec4::new(
+                area.topleft.x,
+                area.topleft.y,
+                area.bottomright.x - area.topleft.x,
+                area.bottomright.y - area.topleft.y,
+            )
+            .as_byte_slice(),
+        );
+
         let weak = self.this.clone();
         let mut result = im::Vector::new();
         result.push_back(Some(Box::new(move |pass: &mut wgpu::RenderPass| {
@@ -61,23 +78,18 @@ pub struct RoundRect<Parent: Clone> {
     pub outline: Vec4,
 }
 
-// TODO: this does not work for some reason
-fn mat4x4_proj(l: f32, r: f32, b: f32, t: f32, n: f32, f: f32) -> Mat4 {
+// This maps x and y to the viewpoint size, maps input_z from [n,f] to [0,1], and sets
+// output_w = input_z for perspective. Requires input_w = 1
+fn mat4_proj(x: f32, y: f32, w: f32, h: f32, n: f32, f: f32) -> Mat4 {
     let mut m = Mat4 {
         cols: [
-            Vec4::new(2.0 / (r - l), 0.0, 0.0, 0.0).into(),
-            Vec4::new(0.0, 2.0 / (t - b), 0.0, 0.0).into(),
-            Vec4::new(0.0, 0.0, -((f + n) / (f - n)), 1.0).into(),
-            Vec4::new(
-                (r + l) / (r - l),
-                (t + b) / (t - b),
-                ((2.0 * f * n) / (f - n)) + 1.0,
-                1.0,
-            )
-            .into(),
+            Vec4::new(2.0 / w, 0.0, 0.0, 0.0).into(),
+            Vec4::new(0.0, 2.0 / h, 0.0, 0.0).into(),
+            Vec4::new(0.0, 0.0, 1.0 / (f - n), 1.0).into(),
+            Vec4::new(-(2.0 * x + w) / w, -(2.0 * y + h) / h, -n / (f - n), 0.0).into(),
         ],
     };
-    m.transposed()
+    m
 }
 
 // Orthographic projection matrix
@@ -126,19 +138,25 @@ impl<AppData: 'static, Parent: Clone + 'static> super::Component<AppData, Parent
     ) -> Box<dyn Layout<Parent, AppData>> {
         let pipeline = gen_pipeline(&driver.device, config);
 
-        let mvp = driver
+        let mvp = gen_uniform(
+            driver,
+            "MVP",
+            mat4_proj(
+                0.0,
+                config.height as f32,
+                config.width as f32,
+                -(config.height as f32),
+                0.2,
+                10000.0,
+            )
+            .as_byte_slice(),
+        );
+
+        let posdim = driver
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("MVP"),
-                contents: mat4_ortho(
-                    0.0,
-                    config.height as f32,
-                    config.width as f32,
-                    -(config.height as f32),
-                    0.0,
-                    1.0,
-                )
-                .as_byte_slice(),
+                label: Some("PosDim"),
+                contents: Vec4::new(0.0, 0.0, 400.0, 200.0).as_byte_slice(),
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             });
 
@@ -148,26 +166,23 @@ impl<AppData: 'static, Parent: Clone + 'static> super::Component<AppData, Parent
                 label: Some("VertBuffer"),
                 contents: to_bytes(&[
                     Vertex { pos: [0.0, 0.0] },
-                    Vertex { pos: [400.0, 0.0] },
-                    Vertex { pos: [0.0, 200.0] },
-                    Vertex {
-                        pos: [400.0, 200.0],
-                    },
+                    Vertex { pos: [1.0, 0.0] },
+                    Vertex { pos: [0.0, 1.0] },
+                    Vertex { pos: [1.0, 1.0] },
                 ]),
                 usage: wgpu::BufferUsages::VERTEX,
             });
 
-        let inflate = gen_uniform(driver, "Inflate", Vec2::new(1.0, 1.0).as_byte_slice());
         let dimborderblur = gen_uniform(
             driver,
             "DimBorderBlur",
-            Vec4::new(200.0, 200.0, self.border, self.blur).as_byte_slice(),
+            Vec4::new(0.0, 0.0, self.border, self.blur).as_byte_slice(),
         );
         let corners = gen_uniform(driver, "Corners", self.corners.as_byte_slice());
         let fill = gen_uniform(driver, "Fill", self.fill.as_byte_slice());
         let outline = gen_uniform(driver, "Outline", self.outline.as_byte_slice());
-        let buffers = [mvp, inflate, dimborderblur, corners, fill, outline];
-        let buffers: Vec<wgpu::BindGroupEntry> = buffers
+        let buffers = [mvp, posdim, dimborderblur, corners, fill, outline];
+        let bindings: Vec<wgpu::BindGroupEntry> = buffers
             .iter()
             .enumerate()
             .map(|(i, x)| wgpu::BindGroupEntry {
@@ -178,7 +193,7 @@ impl<AppData: 'static, Parent: Clone + 'static> super::Component<AppData, Parent
 
         let bind_group = driver.device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &pipeline.get_bind_group_layout(0),
-            entries: &buffers,
+            entries: &bindings,
             label: None,
         });
 
@@ -192,6 +207,7 @@ impl<AppData: 'static, Parent: Clone + 'static> super::Component<AppData, Parent
                 pipeline,
                 group: bind_group,
                 vertices: vertex_buf,
+                buffers,
             })),
         })
     }
@@ -203,7 +219,7 @@ fn gen_pipeline(device: &Device, config: &wgpu::SurfaceConfiguration) -> RenderP
         entries: &[0, 1, 2, 3, 4, 5].map(|i| wgpu::BindGroupLayoutEntry {
             binding: i,
             visibility: if i < 2 {
-                wgpu::ShaderStages::VERTEX
+                wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT
             } else {
                 wgpu::ShaderStages::FRAGMENT
             },
@@ -249,7 +265,11 @@ fn gen_pipeline(device: &Device, config: &wgpu::SurfaceConfiguration) -> RenderP
             module: &round_rect,
             entry_point: "main",
             compilation_options: Default::default(),
-            targets: &[Some(config.view_formats[0].into())],
+            targets: &[Some(wgpu::ColorTargetState {
+                format: config.view_formats[0],
+                blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
         }),
         primitive: wgpu::PrimitiveState {
             front_face: wgpu::FrontFace::Cw,

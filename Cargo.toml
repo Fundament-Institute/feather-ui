@@ -26,6 +26,3 @@ tokio = { version = "1.40", features = ["rt", "macros", "tracing", "signal"] }
 feather-ui = { path = "feather-ui" }
 alicorn = { git = "https://github.com/Fundament-Software/Alicorn0" }
 mlua = { version = "0.9.9", features = ["luajit52", "vendored"] }
-
-[patch."https://github.com/Fundament-Software/Alicorn0"]
-alicorn = { path = "../alicorn0" }
