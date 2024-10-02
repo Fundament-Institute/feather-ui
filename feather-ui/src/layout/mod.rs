@@ -101,7 +101,7 @@ impl<AppData> Staged<AppData> for Concrete<AppData> {
             },
         );
 
-        let (_, result) = fold.call(Default::default(), &im::Vector::new(), &self.children);
+        let (_, result) = fold.call(Default::default(), &self.render, &self.children);
         result
     }
 

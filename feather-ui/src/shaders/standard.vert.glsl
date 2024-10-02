@@ -10,5 +10,5 @@ void main()
   pos -= vec2(0.5,0.5);  
   pos *= Inflate;  
   pos += vec2(0.5,0.5);  
-  gl_Position = MVP * vec4(pos, 0, 1);  
+  gl_Position = MVP * vec4(pos, 1, 1);  
 }  

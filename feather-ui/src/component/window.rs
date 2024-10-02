@@ -19,7 +19,7 @@ use winit::{event::WindowEvent, event_loop::EventLoopWindowTarget};
 #[derive_where(Clone)]
 pub struct Window<AppData: 'static> {
     pub id: WindowId,
-    window: Arc<winit::window::Window>,
+    pub window: Arc<winit::window::Window>,
     surface: Arc<wgpu::Surface<'static>>,
     config: wgpu::SurfaceConfiguration,
     child: Box<ComponentFrom<AppData, Root>>,
@@ -67,9 +67,9 @@ impl<'a, AppData> Window<AppData> {
         let mut config = surface
             .get_default_config(&driver.adapter, size.width, size.height)
             .ok_or_eyre("Failed to find a default configuration")?;
+        //let view_format = config.format.add_srgb_suffix();
         let view_format = config.format.remove_srgb_suffix();
         config.format = view_format;
-        //let view_format = config.format.add_srgb_suffix();
         config.view_formats.push(view_format);
 
         surface.configure(&driver.device, &config);
@@ -133,14 +133,16 @@ impl<'a, AppData> Window<AppData> {
                 let view = frame
                     .texture
                     .create_view(&wgpu::TextureViewDescriptor::default());
-                let mut encoder = self
-                    .driver
-                    .device
-                    .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+                let mut encoder =
+                    self.driver
+                        .device
+                        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                            label: Some("Window Component"),
+                        });
 
                 {
                     let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                        label: None,
+                        label: Some("Window Pass"),
                         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                             view: &view,
                             resolve_target: None,
@@ -158,6 +160,12 @@ impl<'a, AppData> Window<AppData> {
                         timestamp_writes: None,
                         occlusion_query_set: None,
                     });
+
+                    for f in self.draw.iter() {
+                        if let Some(g) = f {
+                            g(&mut pass);
+                        }
+                    }
                 }
 
                 self.driver.queue.submit(Some(encoder.finish()));

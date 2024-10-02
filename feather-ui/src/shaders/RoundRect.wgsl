@@ -151,5 +151,5 @@ fn main(@location(0) pos: vec2<f32>) -> FragmentOutput {
     pos_1 = pos;
     main_1();
     let _e15 = fragColor;
-    return FragmentOutput(_e15);
+    return FragmentOutput(vec4<f32>(1f, 1f, 1f, 1f));
 }

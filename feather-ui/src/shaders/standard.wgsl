@@ -23,7 +23,7 @@ fn main_1() {
     pos = (_e14 + vec2<f32>(0.5f, 0.5f));
     let _e20 = MVP;
     let _e21 = pos;
-    gl_Position = (_e20 * vec4<f32>(_e21.x, _e21.y, 0f, 1f));
+    gl_Position = (_e20 * vec4<f32>(_e21.x, _e21.y, 0.9f, 1f));
     return;
 }
 
