@@ -223,9 +223,7 @@ impl<AppData> App<AppData> {
             .with_dpi_aware(true)
             .build()?;
         #[cfg(not(target_os = "windows"))]
-        let event_loop = winit::event_loop::EventLoopBuilder::with_user_event()
-            .with_user_event()
-            .build()?;
+        let event_loop = winit::event_loop::EventLoopBuilder::with_user_event().build()?;
 
         Ok((
             Self {
