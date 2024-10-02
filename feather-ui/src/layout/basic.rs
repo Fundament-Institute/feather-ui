@@ -33,6 +33,7 @@ impl<AppData: 'static> Desc<AppData> for Basic {
         children: &Self::Children<dyn Layout<Self::Impose, AppData> + '_>,
         events: Option<Rc<EventList<AppData>>>,
         renderable: Option<Rc<dyn Renderable<AppData>>>,
+        queue: &wgpu::Queue,
     ) -> Box<dyn Staged<AppData> + 'a>
     where
         AppData: 'a,
@@ -55,7 +56,7 @@ impl<AppData: 'static> Desc<AppData> for Basic {
                 bottomright: (inner.bottomright - margin.bottomright).into(),
             };
 
-            let stage = child.stage(result);
+            let stage = child.stage(result, queue);
             if let Some(node) = stage.get_rtree().upgrade() {
                 nodes.push_back(node);
             }
@@ -66,7 +67,9 @@ impl<AppData: 'static> Desc<AppData> for Basic {
 
         Box::new(Concrete {
             area,
-            render: renderable.map(|x| x.render(area)).unwrap_or_default(),
+            render: renderable
+                .map(|x| x.render(area, queue))
+                .unwrap_or_default(),
             rtree: Rc::new(rtree::Node::new(area, Some(props.zindex), nodes, events)),
             children: staging,
         })

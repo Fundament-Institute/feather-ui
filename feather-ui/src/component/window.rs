@@ -94,7 +94,7 @@ impl<'a, AppData> Window<AppData> {
 
     pub fn stage_all(&mut self) {
         if let Some(layout) = self.layout_tree.as_ref() {
-            self.staging = Some(layout.stage(Default::default()));
+            self.staging = Some(layout.stage(Default::default(), &self.driver.queue));
         }
     }
 
@@ -160,6 +160,15 @@ impl<'a, AppData> Window<AppData> {
                         timestamp_writes: None,
                         occlusion_query_set: None,
                     });
+
+                    pass.set_viewport(
+                        0.0,
+                        0.0,
+                        self.config.width as f32,
+                        self.config.height as f32,
+                        0.0,
+                        1.0,
+                    );
 
                     for f in self.draw.iter() {
                         if let Some(g) = f {

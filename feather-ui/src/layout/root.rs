@@ -10,7 +10,7 @@ use std::rc::Rc;
 
 #[derive(Clone, Default)]
 pub struct Inherited {
-    area: URect,
+    pub area: URect,
 }
 
 // The root node represents some area on the screen that contains a feather layout. Later this will turn
@@ -31,11 +31,12 @@ impl<AppData> Desc<AppData> for Root {
         child: &Self::Children<dyn Layout<Self::Impose, AppData> + '_>,
         _: Option<Rc<EventList<AppData>>>,
         _: Option<Rc<dyn Renderable<AppData>>>,
+        queue: &wgpu::Queue,
     ) -> Box<dyn Staged<AppData> + 'a>
     where
         AppData: 'a,
     {
         // We bypass creating our own node here as our staging node would be redundant.
-        child.stage(child.get_imposed().area * props.area)
+        child.stage(child.get_imposed().area * props.area, queue)
     }
 }

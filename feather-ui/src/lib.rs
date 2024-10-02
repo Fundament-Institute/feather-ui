@@ -113,6 +113,15 @@ impl Mul<AbsDim> for RelPoint {
     }
 }
 
+impl From<Vec2> for RelPoint {
+    fn from(value: Vec2) -> Self {
+        Self {
+            x: value.x,
+            y: value.y,
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, Default)]
 /// Relative rectangle
 pub struct RelRect {
@@ -164,7 +173,7 @@ pub fn build_aabb(a: Vec2, b: Vec2) -> AbsRect {
 
 #[derive(Copy, Clone, Debug, Default)]
 /// Unified coordinate rectangle
-struct URect {
+pub struct URect {
     pub topleft: UPoint,
     pub bottomright: UPoint,
 }

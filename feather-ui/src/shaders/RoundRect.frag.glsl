@@ -1,5 +1,6 @@
 #version 450  
 in vec2 pos;  
+layout(binding=1) uniform vec4 PosDim;  
 layout(binding=2) uniform vec4 DimBorderBlur;  
 layout(binding=3) uniform vec4 Corners;  
 layout(binding=4) uniform vec4 Fill;  
@@ -23,10 +24,10 @@ float rectangle(vec2 samplePosition, vec2 halfSize, vec4 edges) {
 void main()  
 {  
     // Ideally we would get DPI for both height and width, but for now we just assume DPI isn't weird
-    float w = fwidth(DimBorderBlur.x*pos.x) * 0.5 * (1.0 + DimBorderBlur.w);  
-    vec2 uv = (pos * DimBorderBlur.xy) - (DimBorderBlur.xy * 0.5);  
+    float w = fwidth(PosDim.z*pos.x) * 0.5 * (1.0 + DimBorderBlur.w);  
+    vec2 uv = (pos * PosDim.zw) - (PosDim.zw * 0.5);  
     
-    float dist = rectangle(uv, DimBorderBlur.xy * 0.5, Corners);  
+    float dist = rectangle(uv, PosDim.zw * 0.5, Corners);  
   	float alpha = linearstep(w, -w, dist);  
     float s = linearstep(w, -w, dist + DimBorderBlur.z);   
     
