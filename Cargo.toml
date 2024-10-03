@@ -13,9 +13,9 @@ repository = "https://github.com/Fundament-Software/feathergui/"
 readme = "README.md"
 
 [workspace.dependencies]
-im = "12.3"
+im = "15.1"
 wgpu = "22"
-winit = "0.29"
+winit = "0.30"
 color-eyre = "0.6"
 eyre = "0.6"
 ultraviolet = "0.9"

@@ -2,8 +2,8 @@ use dyn_clone::DynClone;
 
 use crate::layout::Layout;
 
-//pub mod button;
 pub mod arc;
+pub mod button;
 pub mod mouse_area;
 pub mod region;
 pub mod round_rect;

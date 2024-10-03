@@ -11,6 +11,7 @@ use super::Renderable;
 
 pub struct TextPipeline {
     pub this: std::rc::Weak<TextPipeline>,
+    pub renderer: RefCell<glyphon::TextRenderer>,
     pub text_buffer: RefCell<glyphon::Buffer>,
 }
 
@@ -21,18 +22,19 @@ impl<AppData> Renderable<AppData> for TextPipeline {
         driver: &crate::DriverState,
     ) -> im::Vector<crate::RenderInstruction> {
         let mut borrow = driver.text.borrow_mut();
-        let (viewport, atlas, text_renderer, font_system, swash_cache) = borrow.split_borrow();
         self.text_buffer.borrow_mut().set_size(
-            font_system,
+            &mut borrow.font_system,
             Some(area.width()),
             Some(area.height()),
         );
 
         self.text_buffer
             .borrow_mut()
-            .shape_until_scroll(font_system, false);
+            .shape_until_scroll(&mut borrow.font_system, false);
 
-        text_renderer
+        let (viewport, atlas, font_system, swash_cache) = borrow.split_borrow();
+        self.renderer
+            .borrow_mut()
             .prepare(
                 &driver.device,
                 &driver.queue,
@@ -59,12 +61,18 @@ impl<AppData> Renderable<AppData> for TextPipeline {
 
         let mut result = im::Vector::new();
         let text_system = driver.text.clone();
+        let weak = self.this.clone();
         result.push_back(Some(Box::new(move |pass: &mut wgpu::RenderPass| {
-            let text = text_system.borrow();
+            if let Some(this) = weak.upgrade() {
+                let text = text_system.borrow();
+                let renderer = this.renderer.borrow();
+                // SAFETY: This borrow of text and renderer is actually safe, but Glyphon incorrectly requires
+                // overly strict lifetimes, so we cast our lifetime away to bypass them.
+                let text = unsafe { &*std::ptr::from_ref(&*text) };
+                let renderer = unsafe { &*std::ptr::from_ref(&*renderer) };
 
-            text.text_renderer
-                .render(&text.atlas, &text.viewport, pass)
-                .unwrap();
+                renderer.render(&text.atlas, &text.viewport, pass).unwrap();
+            }
         }) as Box<dyn RenderLambda>));
         result
     }
@@ -119,6 +127,14 @@ impl<AppData: 'static, Parent: Clone + 'static> super::Component<AppData, Parent
                 .style(self.style),
             glyphon::Shaping::Advanced,
         );
+
+        let renderer = glyphon::TextRenderer::new(
+            &mut driver.text.borrow_mut().atlas,
+            &driver.device,
+            wgpu::MultisampleState::default(),
+            None,
+        );
+
         Box::new(layout::Node::<AppData, Empty, Parent> {
             props: (),
             imposed: self.props.clone(),
@@ -127,6 +143,7 @@ impl<AppData: 'static, Parent: Clone + 'static> super::Component<AppData, Parent
             renderable: Some(Rc::new_cyclic(|this| TextPipeline {
                 this: this.clone(),
                 text_buffer: text_buffer.into(),
+                renderer: renderer.into(),
             })),
         })
     }
