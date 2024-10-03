@@ -57,12 +57,21 @@ impl<AppData> Node<AppData> {
             children,
         }
     }
-    fn process(&self, event: Event, kind: EventKind, mut pos: Vec2, mut data: AppData) -> AppData {
+    fn process(
+        &self,
+        event: Event,
+        kind: EventKind,
+        mut pos: Vec2,
+        mut data: AppData,
+    ) -> Result<AppData, AppData> {
         if self.area.contains(pos) {
             if let Some(events) = self.events.as_ref() {
                 for (k, e) in events.iter() {
                     if (kind as u8 & *k) != 0 {
-                        data = (e.borrow_mut())(event, self.area, data);
+                        data = match (e.borrow_mut())(event, self.area, data) {
+                            Ok(d) => return Ok(d),
+                            Err(d) => d,
+                        }
                     }
                 }
             }
@@ -70,12 +79,15 @@ impl<AppData> Node<AppData> {
             pos -= self.area.topleft;
             // Children should be sorted from top to bottom
             for child in self.children.iter() {
-                data = child.as_ref().unwrap().process(event, kind, pos, data);
+                data = match child.as_ref().unwrap().process(event, kind, pos, data) {
+                    Ok(d) => return Ok(d),
+                    Err(d) => d,
+                }
             }
         }
-        data
+        Err(data)
     }
-    pub fn on_event(&self, event: Event, data: AppData) -> AppData {
+    pub fn on_event(&self, event: Event, data: AppData) -> Result<AppData, AppData> {
         match event {
             Event::Mouse(_, pos, _, _, _) => self.process(event, EventKind::Mouse, pos, data),
             Event::MouseMove(_, pos, _, _) => self.process(event, EventKind::MouseMove, pos, data),
@@ -83,7 +95,7 @@ impl<AppData> Node<AppData> {
             Event::Touch(_, pos, _, _, _, _) => {
                 self.process(event, EventKind::Touch, pos.xy(), data)
             }
-            _ => data,
+            _ => Err(data),
         }
     }
 

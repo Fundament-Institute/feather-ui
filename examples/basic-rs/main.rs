@@ -1,17 +1,17 @@
+use feather_ui::component::button::Button;
 use feather_ui::component::region::Region;
 use feather_ui::component::round_rect::RoundRect;
+use feather_ui::component::text::Text;
 use feather_ui::component::window::Window;
 use feather_ui::component::ComponentFrom;
 use feather_ui::layout::basic;
 use feather_ui::layout::basic::Basic;
 use feather_ui::layout::root;
-use feather_ui::layout::root::Root;
 use feather_ui::layout::Desc;
+use feather_ui::AbsRect;
 use feather_ui::App;
-use feather_ui::UPoint;
+use std::default;
 use std::sync::Arc;
-use ultraviolet::Mat4;
-use ultraviolet::Vec2;
 use ultraviolet::Vec4;
 use winit::window::WindowBuilder;
 
@@ -32,68 +32,85 @@ fn counter_decrement(st: CounterState) -> CounterState {
 }
 
 fn main() {
-    let (mut app, event_loop) = App::<()>::new(()).unwrap();
+    let (mut app, event_loop) = App::<CounterState>::new(CounterState { count: 0 }, |data| {
+        let window = Arc::new(
+            WindowBuilder::new()
+                .with_title("basic-rs")
+                .with_resizable(true)
+                .build(&event_loop)
+                .unwrap(),
+        );
 
-    let window = Arc::new(
-        WindowBuilder::new()
-            .with_title("basic-rs")
-            .with_resizable(true)
-            .build(&event_loop)
-            .unwrap(),
-    );
+        let surface = app.instance.create_surface(window.clone()).unwrap();
 
-    let surface = app.instance.create_surface(window.clone()).unwrap();
+        let driver = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(app.create_driver(&surface))
+            .unwrap();
 
-    let driver = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .unwrap()
-        .block_on(app.create_driver(&surface))
-        .unwrap();
+        let button = {
+            let rect = RoundRect::<basic::Inherited> {
+                fill: Vec4::new(0.2, 0.7, 0.4, 1.0),
+                corners: Vec4::broadcast(10.0),
+                props: basic::Inherited {
+                    area: feather_ui::FILL_URECT,
+                    margin: Default::default(),
+                },
+                ..Default::default()
+            };
 
-    let rect = RoundRect::<<Basic as Desc<()>>::Impose> {
-        fill: Vec4::new(1.0, 1.0, 0.0, 1.0),
-        corners: Vec4::broadcast(100.0),
-        props: basic::Inherited {
-            area: feather_ui::FILL_URECT,
-            margin: Default::default(),
-        },
-        ..Default::default()
-    };
-    let mut children: im::Vector<Option<Box<ComponentFrom<(), Basic>>>> = im::Vector::new();
-    children.push_back(Some(Box::new(rect)));
+            let text = Text::<basic::Inherited> {
+                props: basic::Inherited {
+                    area: feather_ui::FILL_URECT,
+                    margin: Default::default(),
+                },
+                text: "Button".to_string(),
+                font_size: 30.0,
+                line_height: 42.0,
+                ..Default::default()
+            };
 
-    let region = Region::new(
-        root::Inherited {
-            area: feather_ui::FILL_URECT,
-        },
-        Basic {
-            padding: Default::default(),
-            zindex: 0,
-        },
-        children,
-    );
-    let window_id = window.id();
-    let window = Window::new::<()>(window, surface, Box::new(region), driver).unwrap();
+            let mut children: im::Vector<Option<Box<ComponentFrom<CounterState, Basic>>>> =
+                im::Vector::new();
+            //children.push_back(Some(Box::new(rect)));
+            children.push_back(Some(Box::new(text)));
 
-    app.windows.insert(window_id, window);
+            let onclick = Box::new(|_, _, mut appdata: CounterState| {
+                appdata.count += 1;
+                Ok(appdata)
+            });
+            Button::<CounterState, basic::Inherited>::new(
+                basic::Inherited {
+                    area: feather_ui::FILL_URECT,
+                    margin: Default::default(),
+                },
+                Default::default(),
+                onclick,
+                children,
+            )
+        };
 
-    event_loop
-        .run(
-            move |e: winit::event::Event<()>,
-                  target: &winit::event_loop::EventLoopWindowTarget<()>| {
-                if let winit::event::Event::WindowEvent { window_id, event } = e.clone() {
-                    if let winit::event::WindowEvent::MouseInput {
-                        device_id,
-                        state,
-                        button,
-                    } = event
-                    {
-                        app.windows.values().for_each(|w| w.window.request_redraw())
-                    }
-                }
-                app.event(e, target)
+        let mut children: im::Vector<Option<Box<ComponentFrom<CounterState, Basic>>>> =
+            im::Vector::new();
+        children.push_back(Some(Box::new(button)));
+
+        let region = Region::new(
+            root::Inherited {
+                area: feather_ui::FILL_URECT,
             },
-        )
-        .unwrap();
+            Basic {
+                padding: Default::default(),
+                zindex: 0,
+            },
+            children,
+        );
+        let window_id = window.id();
+        let window =
+            Window::new::<CounterState>(window, surface, Box::new(region), driver).unwrap();
+    })
+    .unwrap();
+
+    event_loop.run_app(&mut app).unwrap();
 }

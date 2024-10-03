@@ -58,7 +58,7 @@ impl<AppData> Component<AppData, ()> for Window<AppData> {
 impl<'a, AppData> Window<AppData> {
     pub fn new<T: 'static>(
         window: Arc<winit::window::Window>,
-        surface: wgpu::Surface<'static>,
+        surface: Arc<wgpu::Surface<'static>>,
         child: Box<ComponentFrom<AppData, Root>>,
         driver: Arc<DriverState>,
     ) -> eyre::Result<Self> {
@@ -75,7 +75,7 @@ impl<'a, AppData> Window<AppData> {
 
         Ok(Self {
             id: window.id(),
-            surface: Arc::new(surface),
+            surface: surface,
             window,
             child,
             driver,
@@ -111,9 +111,21 @@ impl<'a, AppData> Window<AppData> {
         self.config.width = size.width;
         self.config.height = size.height;
         self.surface.configure(&self.driver.device, &self.config);
+
+        self.driver.text.borrow_mut().viewport.update(
+            &self.driver.queue,
+            glyphon::Resolution {
+                width: self.config.width,
+                height: self.config.height,
+            },
+        );
     }
 
-    pub fn on_event(&mut self, event: winit::event::WindowEvent) -> bool {
+    pub fn on_event(
+        &mut self,
+        event: winit::event::WindowEvent,
+        data: AppData,
+    ) -> Result<AppData, AppData> {
         match event {
             WindowEvent::Resized(new_size) => {
                 // Resize events can sometimes give empty sizes if the window is minimized
@@ -122,20 +134,13 @@ impl<'a, AppData> Window<AppData> {
                 }
                 // On macos the window needs to be redrawn manually after resizing
                 self.window.request_redraw();
+                return Ok(data);
             }
             WindowEvent::CloseRequested => {
-                // If this returns false, the close request will be ignored
-                return true;
+                // If this returns Some(data), the close request will be ignored
+                return Err(data);
             }
             WindowEvent::RedrawRequested => {
-                self.driver.text.borrow_mut().viewport.update(
-                    &self.driver.queue,
-                    glyphon::Resolution {
-                        width: self.config.width,
-                        height: self.config.height,
-                    },
-                );
-
                 let frame = self.surface.get_current_texture().unwrap();
                 let view = frame
                     .texture
@@ -186,6 +191,7 @@ impl<'a, AppData> Window<AppData> {
 
                 self.driver.queue.submit(Some(encoder.finish()));
                 frame.present();
+                return Ok(data);
             }
             /*WindowEvent::AxisMotion {
                 device_id,
@@ -210,6 +216,6 @@ impl<'a, AppData> Window<AppData> {
             } => {}*/
             _ => {}
         }
-        true
+        Err(data)
     }
 }

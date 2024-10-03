@@ -8,13 +8,14 @@ mod shaders;
 
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 use std::sync::Weak;
+use winit::window::WindowId;
 
 use crate::component::window::Window;
 use crate::input::Event;
 use component::Component;
 use eyre::OptionExt;
+use persist::FnPersist;
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::sync::Arc;
 use ultraviolet::vec::Vec2;
 
@@ -35,6 +36,15 @@ pub struct AbsRect {
 }
 
 impl AbsRect {
+    pub fn new(left: f32, top: f32, right: f32, bottom: f32) -> Self {
+        Self {
+            topleft: Vec2 { x: left, y: top },
+            bottomright: Vec2 {
+                x: right,
+                y: bottom,
+            },
+        }
+    }
     pub fn contains(&self, p: Vec2) -> bool {
         p.x >= self.topleft.x
             && p.x <= self.bottomright.x
@@ -176,6 +186,15 @@ impl Mul<AbsRect> for UPoint {
     }
 }
 
+impl From<Vec2> for UPoint {
+    fn from(value: Vec2) -> Self {
+        Self {
+            abs: value,
+            rel: Default::default(),
+        }
+    }
+}
+
 pub fn build_aabb(a: Vec2, b: Vec2) -> AbsRect {
     AbsRect {
         topleft: a.min_by_component(b),
@@ -213,18 +232,26 @@ impl Mul<AbsRect> for URect {
     }
 }
 
+impl From<AbsRect> for URect {
+    fn from(value: AbsRect) -> Self {
+        Self {
+            topleft: value.topleft.into(),
+            bottomright: value.bottomright.into(),
+        }
+    }
+}
+
 pub trait RenderLambda: Fn(&mut wgpu::RenderPass) + dyn_clone::DynClone {}
 impl<T: Fn(&mut wgpu::RenderPass) + ?Sized + dyn_clone::DynClone> RenderLambda for T {}
 dyn_clone::clone_trait_object!(RenderLambda);
 
-type EventHandler<AppData> = Box<dyn FnMut(Event, AbsRect, AppData) -> AppData>;
+type EventHandler<AppData> = Box<dyn FnMut(Event, AbsRect, AppData) -> Result<AppData, AppData>>;
 // TODO: This only an Option so it can be zeroed. After fixing im::Vector, remove Option.
 type RenderInstruction = Option<Box<dyn RenderLambda>>;
 
 pub struct TextSystem {
     viewport: glyphon::Viewport,
     atlas: glyphon::TextAtlas,
-    text_renderer: glyphon::TextRenderer,
     font_system: glyphon::FontSystem,
     swash_cache: glyphon::SwashCache,
 }
@@ -235,14 +262,12 @@ impl TextSystem {
     ) -> (
         &mut glyphon::Viewport,
         &mut glyphon::TextAtlas,
-        &mut glyphon::TextRenderer,
         &mut glyphon::FontSystem,
         &mut glyphon::SwashCache,
     ) {
         (
             &mut self.viewport,
             &mut self.atlas,
-            &mut self.text_renderer,
             &mut self.font_system,
             &mut self.swash_cache,
         )
@@ -259,19 +284,25 @@ pub struct DriverState {
     text: std::rc::Rc<RefCell<TextSystem>>,
 }
 
-pub struct App<AppData: 'static> {
-    pub app_state: AppData,
+pub type WindowCollection<AppData> = im::HashMap<WindowId, Window<AppData>>;
+
+pub struct App<AppData: 'static, O: FnPersist<AppData, WindowCollection<AppData>>> {
+    pub app_state: Option<AppData>, // Only optional so we can take the value out during processing and put it back in later.
     pub instance: wgpu::Instance,
-    pub windows: HashMap<winit::window::WindowId, Window<AppData>>,
+    windows: WindowCollection<AppData>,
     driver: Weak<DriverState>,
+    store: Option<O::Store>,
+    outline: Option<O>,
+    init: Option<Box<dyn FnOnce(&Self, &winit::event_loop::ActiveEventLoop) -> O>>,
 }
 
 #[cfg(target_os = "windows")]
 use winit::platform::windows::EventLoopBuilderExtWindows;
 
-impl<AppData> App<AppData> {
+impl<AppData, O: FnPersist<AppData, WindowCollection<AppData>>> App<AppData, O> {
     pub fn new<T: 'static>(
         app_state: AppData,
+        init: impl FnOnce(&Self, &winit::event_loop::ActiveEventLoop) -> O + 'static,
     ) -> eyre::Result<(Self, winit::event_loop::EventLoop<T>)> {
         #[cfg(test)]
         let any_thread = true;
@@ -279,19 +310,22 @@ impl<AppData> App<AppData> {
         let any_thread = false;
 
         #[cfg(target_os = "windows")]
-        let event_loop = winit::event_loop::EventLoopBuilder::with_user_event()
+        let event_loop = winit::event_loop::EventLoop::with_user_event()
             .with_any_thread(any_thread)
             .with_dpi_aware(true)
             .build()?;
         #[cfg(not(target_os = "windows"))]
-        let event_loop = winit::event_loop::EventLoopBuilder::with_user_event().build()?;
+        let event_loop = winit::event_loop::EventLoop::with_user_event().build()?;
 
         Ok((
             Self {
-                app_state,
+                app_state: Some(app_state),
                 instance: wgpu::Instance::default(),
-                windows: HashMap::new(),
+                windows: im::HashMap::new(),
                 driver: Weak::<DriverState>::new(),
+                store: Default::default(),
+                outline: None,
+                init: Some(Box::new(init)),
             },
             event_loop,
         ))
@@ -328,15 +362,9 @@ impl<AppData> App<AppData> {
             .await?;
 
         let cache = glyphon::Cache::new(&device);
-        let mut atlas =
+        let atlas =
             glyphon::TextAtlas::new(&device, &queue, &cache, wgpu::TextureFormat::Bgra8Unorm);
         let viewport = glyphon::Viewport::new(&device, &cache);
-        let text_renderer = glyphon::TextRenderer::new(
-            &mut atlas,
-            &device,
-            wgpu::MultisampleState::default(),
-            None,
-        );
 
         let driver = Arc::new(crate::DriverState {
             adapter,
@@ -347,96 +375,155 @@ impl<AppData> App<AppData> {
                 swash_cache: glyphon::SwashCache::new(),
                 viewport: viewport,
                 atlas,
-                text_renderer: text_renderer,
             })),
         });
 
         self.driver = Arc::downgrade(&driver);
         Ok(driver)
     }
+}
 
-    pub fn event<T: 'static>(
-        &mut self,
-        event: winit::event::Event<T>,
-        target: &winit::event_loop::EventLoopWindowTarget<T>,
-    ) {
-        if let winit::event::Event::WindowEvent { window_id, event } = event {
-            let mut delete = None;
-            if let Some(window) = self.windows.get_mut(&window_id) {
-                match event {
-                    winit::event::WindowEvent::CloseRequested => {
-                        if window.on_event(event) {
-                            delete = Some(window_id)
-                        }
-                    }
-                    winit::event::WindowEvent::RedrawRequested => {
-                        window.layout_all(&self.app_state);
-                        window.stage_all();
-                        window.render_all();
-                        window.on_event(event);
-                    }
-                    _ => {
-                        window.on_event(event);
-                    }
-                }
-            }
+impl<AppData, T: 'static, O: FnPersist<AppData, WindowCollection<AppData>>>
+    winit::application::ApplicationHandler<T> for App<AppData, O>
+{
+    fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        // If this is our first resume, call the start function that can create the necessary graphics context
 
-            if let Some(id) = delete {
-                self.windows.remove(&id);
-            }
-
-            if self.windows.is_empty() {
-                target.exit();
-            }
+        if self.outline.is_none() {
+            self.outline
+                .replace((self.init.take().unwrap())(self, event_loop));
+            let (store, windows) = self
+                .outline
+                .as_ref()
+                .unwrap()
+                .call(self.store.take().unwrap(), self.app_state.as_ref().unwrap());
+            self.store.replace(store);
+            self.windows = windows;
         }
+    }
+
+    fn window_event(
+        &mut self,
+        event_loop: &winit::event_loop::ActiveEventLoop,
+        window_id: WindowId,
+        event: winit::event::WindowEvent,
+    ) {
+        let mut delete = None;
+        if let Some(window) = self.windows.get_mut(&window_id) {
+            let result = match event {
+                winit::event::WindowEvent::CloseRequested => window
+                    .on_event(event, self.app_state.take().unwrap())
+                    .inspect_err(|_| {
+                        delete = Some(window_id);
+                    }),
+                winit::event::WindowEvent::RedrawRequested => {
+                    window.layout_all(self.app_state.as_ref().unwrap());
+                    window.stage_all();
+                    window.render_all();
+                    window.on_event(event, self.app_state.take().unwrap())
+                }
+                _ => window.on_event(event, self.app_state.take().unwrap()),
+            };
+
+            self.app_state.replace(match result {
+                Ok(data) => data,
+                Err(data) => data,
+            });
+        }
+
+        if let Some(id) = delete {
+            self.windows.remove(&id);
+        }
+
+        if self.windows.is_empty() {
+            event_loop.exit();
+        } else if let Some(outline) = self.outline.as_ref() {
+            let (store, windows) =
+                outline.call(self.store.take().unwrap(), self.app_state.as_ref().unwrap());
+            self.store.replace(store);
+            self.windows = windows;
+        }
+    }
+
+    fn device_event(
+        &mut self,
+        event_loop: &winit::event_loop::ActiveEventLoop,
+        device_id: winit::event::DeviceId,
+        event: winit::event::DeviceEvent,
+    ) {
+        let _ = (event_loop, device_id, event);
+    }
+
+    fn suspended(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        let _ = event_loop;
+    }
+}
+
+#[cfg(test)]
+struct TestApp {
+    window: Arc<winit::window::Window>,
+    surface: Arc<wgpu::Surface<'static>>,
+    driver: Arc<DriverState>,
+}
+
+#[cfg(test)]
+impl FnPersist<u8, WindowCollection<u8>> for TestApp {
+    type Store = (u8, WindowCollection<u8>);
+
+    fn call(&self, mut store: Self::Store, args: &u8) -> (Self::Store, WindowCollection<u8>) {
+        use component::round_rect::RoundRect;
+        use layout::root::Root;
+        use layout::Desc;
+        use ultraviolet::Vec4;
+
+        if store.0 != *args {
+            let region = RoundRect::<<Root as Desc<()>>::Impose> {
+                fill: Vec4::new(1.0, 0.0, 0.0, 1.0),
+                ..Default::default()
+            };
+            let window_id = self.window.id();
+            let window = Window::new::<()>(
+                self.window.clone(),
+                self.surface.clone(),
+                Box::new(region),
+                self.driver.clone(),
+            )
+            .unwrap();
+
+            store.1 = WindowCollection::new();
+            store.1.insert(window_id, window);
+        }
+        let windows = store.1.clone();
+        (store, windows)
     }
 }
 
 #[test]
 fn test_basic() {
-    use component::region::Region;
-    use component::round_rect::RoundRect;
-    use layout::root::Root;
-    use layout::Desc;
-    use ultraviolet::Vec4;
-    use wgpu::Device;
-    use wgpu::RenderPass;
-    use winit::window::WindowBuilder;
+    let (mut app, event_loop) = App::new(
+        0u8,
+        move |app: &App<u8, TestApp>, event_loop: &winit::event_loop::EventLoop<()>| {
+            let window = Arc::new(
+                event_loop
+                    .create_window(
+                        winit::window::Window::default_attributes()
+                            .with_title("test_blank")
+                            .with_resizable(true),
+                    )
+                    .unwrap(),
+            );
 
-    let (mut app, event_loop) = App::<()>::new(()).unwrap();
+            let surface = Arc::new(app.instance.create_surface(window.clone()).unwrap());
 
-    let window = Arc::new(
-        WindowBuilder::new()
-            .with_title("test_blank")
-            .with_resizable(true)
-            .build(&event_loop)
-            .unwrap(),
-    );
+            let driver = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap()
+                .block_on(app.create_driver(&surface))
+                .unwrap();
+        },
+    )
+    .unwrap();
 
-    let surface = app.instance.create_surface(window.clone()).unwrap();
-
-    let driver = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .unwrap()
-        .block_on(app.create_driver(&surface))
-        .unwrap();
-
-    let mut region = RoundRect::<<Root as Desc<()>>::Impose> {
-        fill: Vec4::new(1.0, 0.0, 0.0, 1.0),
-        ..Default::default()
-    };
-    let window_id = window.id();
-    let mut window = Window::new::<()>(window, surface, Box::new(region), driver).unwrap();
-
-    app.windows.insert(window_id, window);
-
-    event_loop
-        .run(
-            move |event: winit::event::Event<()>,
-                  target: &winit::event_loop::EventLoopWindowTarget<()>| {
-                app.event(event, target)
-            },
-        )
-        .unwrap();
+    event_loop.run_app(&mut app).unwrap();
 }

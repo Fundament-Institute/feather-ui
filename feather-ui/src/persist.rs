@@ -274,19 +274,19 @@ where
         // Get the difference between the items passed in and the cache of what we passed in last
         for item in cache.arg.diff(&input) {
             match item {
-                im::ordmap::DiffItem::Add((x, v)) => {
+                im::ordmap::DiffItem::Add(x, v) => {
                     let (store, result) = self.f.call(Default::default(), v);
                     internal.insert(x.clone(), store);
                     output.insert(x.clone(), result);
                 }
-                im::ordset::DiffItem::Update { old, new } => {
+                im::ordmap::DiffItem::Remove(x, _) => {
+                    output.remove(x);
+                }
+                im::ordmap::DiffItem::Update { old, new } => {
                     let (store, result) =
                         self.f.call(internal.get(&old.0).unwrap().clone(), &new.1);
                     internal.insert(new.0.clone(), store);
                     output.insert(new.0.clone(), result);
-                }
-                im::ordmap::DiffItem::Remove((x, _)) => {
-                    output.remove(x);
                 }
             }
         }

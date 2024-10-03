@@ -1,36 +1,68 @@
-use color_eyre::owo_colors::colors::Default;
-
-use crate::input::Event;
-use crate::layout::LayoutParent;
-use crate::persist::Concat;
+use super::mouse_area::MouseArea;
+use crate::component::ComponentFrom;
+use crate::layout;
+use crate::layout::basic::{self, Basic};
+use crate::layout::EventList;
+use crate::layout::Layout;
 use crate::persist::FnPersist;
-use crate::Component;
+use crate::persist::VectorMap;
 use crate::EventHandler;
+use derive_where::derive_where;
 
-// A button component that contains a mousearea and N arbitrary inner components
-pub struct Button<AppData, Parent: Clone> {
+// A button component that contains a mousearea alongside it's children
+#[derive_where(Clone)]
+pub struct Button<AppData: 'static, Parent: Clone> {
     props: Parent,
     basic: Basic,
-    marea: MouseArea<AppData>,
-    inner: im::Vector<Option<Box<dyn Component<AppData>>>>,
-    //render_store: im::Vector<Concat<crate::RenderInstruction>>,
+    marea: MouseArea<AppData, basic::Inherited>,
+    children: im::Vector<Option<Box<ComponentFrom<AppData, Basic>>>>,
 }
 
-impl<AppData, const N: usize> Component<AppData> for Button<AppData, N> {
-    fn render(&self) -> im::Vector<crate::RenderInstruction> {
-        // Fold over our inner components with a persistent concat
-        self.inner
-            .iter()
-            .fold(im::Vector::<crate::RenderInstruction>::new(), |seed, v| {
-                Concat::call(Default::default(), (seed, v.render()))
-            })
+impl<AppData: 'static, Parent: Clone> Button<AppData, Parent> {
+    pub fn new(
+        props: Parent,
+        basic: Basic,
+        onclick: EventHandler<AppData>,
+        children: im::Vector<Option<Box<ComponentFrom<AppData, Basic>>>>,
+    ) -> Self {
+        Self {
+            props,
+            basic,
+            marea: MouseArea::new(
+                basic::Inherited {
+                    margin: Default::default(),
+                    area: crate::FILL_URECT,
+                },
+                onclick,
+            ),
+            children,
+        }
     }
+}
 
+impl<AppData: 'static, Parent: Clone + 'static> super::Component<AppData, Parent>
+    for Button<AppData, Parent>
+{
     fn layout(
         &self,
-        layout: &mut Vec<std::rc::Weak<dyn crate::layout::LayoutNode>>,
-        data: AppData,
-    ) {
-        todo!()
+        data: &AppData,
+        driver: &crate::DriverState,
+        config: &wgpu::SurfaceConfiguration,
+    ) -> Box<dyn Layout<Parent, AppData>> {
+        let map = VectorMap::new(
+            |child: &Option<Box<ComponentFrom<AppData, Basic>>>|
+             -> Option<Box<dyn Layout<basic::Inherited, AppData>>> { Some(child.as_ref().unwrap().layout(data, driver, config)) },
+        );
+
+        let (_, mut children) = map.call(Default::default(), &self.children);
+        children.push_back(Some(self.marea.layout(data, driver, config)));
+
+        Box::new(layout::Node::<AppData, Basic, Parent> {
+            props: self.basic.clone(),
+            imposed: self.props.clone(),
+            children,
+            events: std::rc::Weak::<EventList<AppData>>::new(),
+            renderable: None,
+        })
     }
 }

@@ -55,7 +55,7 @@ impl<AppData: 'static, Parent: Clone + 'static> MouseArea<AppData, Parent> {
                         }
                         _ => (),
                     }
-                    data
+                    Err(data)
                 })),
             )]),
         }
