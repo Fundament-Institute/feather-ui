@@ -36,11 +36,31 @@
           "rust-analyzer-preview"
         ];
       });
+      impureDrivers = [ 
+        "/run/opengl-driver" # impure deps on specific GPU, mesa, vulkan loader, radv, nvidia proprietary etc
+      ];
+      gfxDeps = [
+        pkgs.xorg.libxcb
+        pkgs.xorg.libX11
+        pkgs.xorg.libXcursor
+        pkgs.xorg.libXrandr
+        pkgs.xorg.libXi
+        pkgs.libxkbcommon
+        pkgs.wayland
+        pkgs.fontconfig # you probably need this? unless you're ignoring system font config entirely
+        # pkgs.libGL/U # should be in /run/opengl-driver?
+        pkgs.pkg-config # let things detect packages at build time
+        # some toolkits use these for dialogs - probably not relevant for feather?
+        # pkgs.kdialog
+        # pkgs.yad
+        pkgs.vulkan-loader
+        #pkgs.libglvnd
+      ];
     in
     rec {
       devShells.default =
         (pkgs.mkShell.override { stdenv = pkgs.llvmPackages.stdenv; }) {
-          buildInputs = with pkgs; [ openssl pkg-config xorg.libX11 xorg.libXcursor xorg.libXi libxkbcommon vulkan-loader libglvnd ];
+          buildInputs = with pkgs; [ openssl pkg-config ] ++ gfxDeps;
 
           nativeBuildInputs = with pkgs; [
             # get current rust toolchain defaults (this includes clippy and rustfmt)
@@ -49,7 +69,8 @@
             cargo-edit
           ];
 
-          LD_LIBRARY_PATH = pkgs.lib.strings.concatMapStringsSep ":" toString (with pkgs; [ xorg.libX11 xorg.libXcursor xorg.libXi (libxkbcommon + "/lib") (vulkan-loader + "/lib") libglvnd ]);
+          #LD_LIBRARY_PATH = pkgs.lib.strings.concatMapStringsSep ":" toString (with pkgs; [ xorg.libX11 xorg.libXcursor xorg.libXi (libxkbcommon + "/lib") (vulkan-loader + "/lib") libglvnd ]);
+          LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath (impureDrivers ++ gfxDeps);
           # fetch with cli instead of native
           CARGO_NET_GIT_FETCH_WITH_CLI = "true";
           RUST_BACKTRACE = 1;
