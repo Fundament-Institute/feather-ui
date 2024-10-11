@@ -3,28 +3,36 @@ use std::{default::Default, marker::PhantomData};
 use derive_where::derive_where;
 
 pub trait FnPersist<Args, Output> {
-    type Store: Clone + Default;
+    type Store: Clone;
 
+    fn init(&self) -> Self::Store;
     fn call(&self, store: Self::Store, args: &Args) -> (Self::Store, Output);
 }
 
 impl<Args, Output, T: Fn(&Args) -> Output> FnPersist<Args, Output> for T {
     type Store = ();
 
+    fn init(&self) -> Self::Store {
+        ()
+    }
     fn call(&self, _: Self::Store, args: &Args) -> (Self::Store, Output) {
         ((), (self)(args))
     }
 }
 
 pub trait FnPersist2<Arg1, Arg2, Output> {
-    type Store: Clone + Default;
+    type Store: Clone;
 
+    fn init(&self) -> Self::Store;
     fn call(&self, store: Self::Store, arg1: &Arg1, arg2: &Arg2) -> (Self::Store, Output);
 }
 
 impl<Arg1, Arg2, Output, T: Fn(&Arg1, &Arg2) -> Output> FnPersist2<Arg1, Arg2, Output> for T {
     type Store = ();
 
+    fn init(&self) -> Self::Store {
+        ()
+    }
     fn call(&self, _: Self::Store, arg1: &Arg1, arg2: &Arg2) -> (Self::Store, Output) {
         ((), (self)(arg1, arg2))
     }
@@ -124,6 +132,9 @@ pub struct Concat {}
 impl<T: Clone> FnPersist<(im::Vector<T>, im::Vector<T>), im::Vector<T>> for Concat {
     type Store = ConcatStore<T>;
 
+    fn init(&self) -> Self::Store {
+        Default::default()
+    }
     fn call(
         &self,
         mut store: Self::Store,
@@ -175,6 +186,9 @@ impl<T: Ord + Clone, U: Ord + Clone, F: FnPersist<T, U>> FnPersist<im::OrdSet<T>
 {
     type Store = OrdSetMapStore<T, U, F>;
 
+    fn init(&self) -> Self::Store {
+        Default::default()
+    }
     fn call(&self, cache: Self::Store, input: &im::OrdSet<T>) -> (Self::Store, im::OrdSet<U>) {
         let mut internal = cache.store.clone();
         let mut output = cache.result.clone();
@@ -182,7 +196,7 @@ impl<T: Ord + Clone, U: Ord + Clone, F: FnPersist<T, U>> FnPersist<im::OrdSet<T>
         for item in cache.arg.diff(&input) {
             match item {
                 im::ordset::DiffItem::Add(x) => {
-                    let (store, result) = self.f.call(Default::default(), x);
+                    let (store, result) = self.f.call(self.f.init(), x);
                     internal.insert(x.clone(), store);
                     output.insert(result);
                 }
@@ -260,10 +274,13 @@ impl<
         F: FnPersist<V, U>,
     > FnPersist<im::OrdMap<K, V>, im::OrdMap<K, U>> for OrdMapMap<V, U, F>
 where
-    F::Store: Clone + Default,
+    F::Store: Clone,
 {
     type Store = OrdMapMapStore<K, V, U, F>;
 
+    fn init(&self) -> Self::Store {
+        Default::default()
+    }
     fn call(
         &self,
         cache: Self::Store,
@@ -275,7 +292,7 @@ where
         for item in cache.arg.diff(&input) {
             match item {
                 im::ordmap::DiffItem::Add(x, v) => {
-                    let (store, result) = self.f.call(Default::default(), v);
+                    let (store, result) = self.f.call(self.f.init(), v);
                     internal.insert(x.clone(), store);
                     output.insert(x.clone(), result);
                 }
@@ -348,12 +365,15 @@ impl<V: Clone, U: Clone, F: FnPersist<V, U>> FnPersist<im::Vector<V>, im::Vector
 {
     type Store = VectorMapStore<V, U, F>;
 
+    fn init(&self) -> Self::Store {
+        Default::default()
+    }
     fn call(&self, mut store: Self::Store, args: &im::Vector<V>) -> (Self::Store, im::Vector<U>) {
         // TODO: We can't implement this properly because tracking the storage requires access to im::Vector internals, and we can't even compare the two vectors either
         //if store.arg != *args {
         store.result.clear();
         for v in args.iter() {
-            let (_, item) = self.f.call(Default::default(), v);
+            let (_, item) = self.f.call(self.f.init(), v);
             store.result.push_back(item);
         }
         //}
@@ -372,10 +392,10 @@ impl<V: Clone, U: Clone> MapPersist<V, U> for im::Vector<V> {
 }
 
 #[allow(dead_code)]
-#[derive_where(Clone, Default)]
-pub struct VectorFoldStore<T: Clone, U: Clone + Default, Store: Clone + Default> {
+#[derive_where(Clone)]
+pub struct VectorFoldStore<T: Clone, U: Clone, Store: Clone> {
     arg: im::Vector<T>,
-    result: U,
+    result: Option<U>,
     store: im::Vector<Store>,
 }
 
@@ -385,7 +405,7 @@ pub struct VectorFold<T, U, F> {
     phantom_u: PhantomData<U>,
 }
 
-impl<T: Clone, U: Clone + Default, F: FnPersist2<U, T, U>> VectorFold<T, U, F> {
+impl<T: Clone, U: Clone, F: FnPersist2<U, T, U>> VectorFold<T, U, F> {
     pub fn new(f: F) -> Self {
         Self {
             f,
@@ -395,22 +415,24 @@ impl<T: Clone, U: Clone + Default, F: FnPersist2<U, T, U>> VectorFold<T, U, F> {
     }
 }
 
-impl<T: Clone, U: Clone + Default, F: FnPersist2<U, T, U>> From<F> for VectorFold<T, U, F> {
-    fn from(f: F) -> Self {
-        Self::new(f)
-    }
-}
-
-impl<T: Clone, U: Clone + Default, F: FnPersist2<U, T, U>> FnPersist2<U, im::Vector<T>, U>
+impl<T: Clone, U: Clone, F: FnPersist2<U, T, U>> FnPersist2<U, im::Vector<T>, U>
     for VectorFold<T, U, F>
 {
     type Store = VectorFoldStore<T, U, F::Store>;
+
+    fn init(&self) -> Self::Store {
+        Self::Store {
+            arg: Default::default(),
+            result: None,
+            store: Default::default(),
+        }
+    }
 
     fn call(&self, store: Self::Store, arg1: &U, arg2: &im::Vector<T>) -> (Self::Store, U) {
         let mut seed = arg1.clone();
 
         for item in arg2.iter() {
-            let (_, result) = self.f.call(Default::default(), &seed, &item);
+            let (_, result) = self.f.call(self.f.init(), &seed, &item);
             seed = result;
         }
 
@@ -418,8 +440,14 @@ impl<T: Clone, U: Clone + Default, F: FnPersist2<U, T, U>> FnPersist2<U, im::Vec
     }
 }
 
+impl<T: Clone, U: Clone, F: FnPersist2<U, T, U>> From<F> for VectorFold<T, U, F> {
+    fn from(f: F) -> Self {
+        Self::new(f)
+    }
+}
+
 #[allow(refining_impl_trait)]
-impl<T: Clone, U: Clone + Default> FoldPersist<T, U> for im::Vector<T> {
+impl<T: Clone, U: Clone> FoldPersist<T, U> for im::Vector<T> {
     type C<A> = im::Vector<A>;
 
     fn fold<F: FnPersist2<U, T, U>>(f: F) -> VectorFold<T, U, F> {

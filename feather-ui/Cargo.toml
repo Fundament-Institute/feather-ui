@@ -31,3 +31,5 @@ dyn-clone = "1.0"
 derive-where = "1.2.7"
 mlua.workspace = true
 glyphon = "0.6.0"
+enum_variant_type = "0.3.1"
+smallvec = { version = "1.13", features = ["union", "const_generics"] }

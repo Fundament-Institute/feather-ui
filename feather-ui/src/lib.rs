@@ -1,23 +1,46 @@
-pub mod component;
 pub mod input;
 pub mod layout;
+pub mod outline;
 //mod lua;
 pub mod persist;
 mod rtree;
 mod shaders;
 
-use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
-use std::sync::Weak;
-use winit::window::WindowId;
-
-use crate::component::window::Window;
-use crate::input::Event;
-use component::Component;
+use crate::outline::window::Window;
+use color_eyre::owo_colors::OwoColorize;
+use dyn_clone::DynClone;
 use eyre::OptionExt;
+use outline::Outline;
+use outline::StateMachineWrapper;
 use persist::FnPersist;
+use smallvec::SmallVec;
+use std::any::Any;
 use std::cell::RefCell;
+use std::collections::BTreeMap;
+use std::collections::HashMap;
+use std::hash::Hasher;
+use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
+use std::rc::Rc;
 use std::sync::Arc;
 use ultraviolet::vec::Vec2;
+use winit::window::WindowId;
+
+macro_rules! gen_id {
+    ($($varargs:pat),* $(,)?) => {
+        concat!(file!(), line!(), gen_id!(@stringify_varargs $($varargs),*));
+    };
+
+    (@stringify_varargs $($expected:pat),*) => {
+        gen_id!(@stringify_varargs_helper $($expected),*)
+    };
+    (@stringify_varargs_helper $first:pat, $($rest:pat),*) => {
+        concat!(stringify!($first), $(", ", stringify!($rest)),*)
+    };
+    (@stringify_varargs_helper $last:pat) => {
+        // Do not print last comma
+        stringify!($last)
+    };
+}
 
 impl Into<Vec2> for AbsDim {
     fn into(self) -> Vec2 {
@@ -26,7 +49,7 @@ impl Into<Vec2> for AbsDim {
 }
 
 #[derive(Copy, Clone, Debug, Default)]
-struct AbsDim(Vec2);
+pub struct AbsDim(Vec2);
 
 #[derive(Copy, Clone, Debug, Default)]
 /// Absolutely positioned rectangle
@@ -245,7 +268,6 @@ pub trait RenderLambda: Fn(&mut wgpu::RenderPass) + dyn_clone::DynClone {}
 impl<T: Fn(&mut wgpu::RenderPass) + ?Sized + dyn_clone::DynClone> RenderLambda for T {}
 dyn_clone::clone_trait_object!(RenderLambda);
 
-type EventHandler<AppData> = Box<dyn FnMut(Event, AbsRect, AppData) -> Result<AppData, AppData>>;
 // TODO: This only an Option so it can be zeroed. After fixing im::Vector, remove Option.
 type RenderInstruction = Option<Box<dyn RenderLambda>>;
 
@@ -284,25 +306,268 @@ pub struct DriverState {
     text: std::rc::Rc<RefCell<TextSystem>>,
 }
 
-pub type WindowCollection<AppData> = im::HashMap<WindowId, Window<AppData>>;
+/// Object-safe version of Hash + PartialEq
+trait DynHashEq: DynClone {
+    fn dyn_hash(&self, state: &mut dyn Hasher);
+    fn dyn_eq(&self, other: &dyn Any) -> bool;
+}
 
-pub struct App<AppData: 'static, O: FnPersist<AppData, WindowCollection<AppData>>> {
+dyn_clone::clone_trait_object!(DynHashEq);
+
+impl<H: std::hash::Hash + std::cmp::PartialEq + std::cmp::Eq + 'static + Clone> DynHashEq for H {
+    fn dyn_hash(&self, mut state: &mut dyn Hasher) {
+        self.hash(&mut state);
+    }
+    fn dyn_eq(&self, other: &dyn Any) -> bool {
+        if let Some(o) = other.downcast_ref::<H>() {
+            self == o
+        } else {
+            false
+        }
+    }
+}
+
+#[derive(Clone)]
+pub enum DataID {
+    Named(String),
+    Int(i64),
+    Other(Box<dyn DynHashEq>),
+}
+
+impl std::hash::Hash for DataID {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            DataID::Named(s) => s.hash(state),
+            DataID::Int(i) => i.hash(state),
+            DataID::Other(hash_comparable) => hash_comparable.dyn_hash(state),
+        }
+    }
+}
+
+impl std::cmp::Eq for DataID {}
+impl std::cmp::PartialEq for DataID {
+    fn eq(&self, other: &Self) -> bool {
+        match self {
+            DataID::Named(s) => {
+                if let DataID::Named(name) = other {
+                    name == s
+                } else {
+                    false
+                }
+            }
+            DataID::Int(i) => {
+                if let DataID::Int(integer) = other {
+                    integer == i
+                } else {
+                    false
+                }
+            }
+            DataID::Other(hash_comparable) => {
+                if let DataID::Other(h) = other {
+                    hash_comparable.dyn_eq(h)
+                } else {
+                    false
+                }
+            }
+        }
+    }
+}
+
+#[derive(Clone)]
+struct SourceID {
+    parent: std::rc::Weak<SourceID>,
+    id: DataID,
+}
+impl std::cmp::Eq for SourceID {}
+impl std::cmp::PartialEq for SourceID {
+    fn eq(&self, other: &Self) -> bool {
+        std::rc::Weak::ptr_eq(&self.parent, &other.parent) && self.id == other.id
+    }
+}
+impl std::hash::Hash for SourceID {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        if let Some(parent) = self.parent.upgrade() {
+            parent.id.hash(state);
+        }
+        self.id.hash(state);
+    }
+}
+#[derive(Clone)]
+struct Slot(Rc<SourceID>, u64);
+
+type AnyHandler = dyn FnMut(
+    &dyn Any,
+    AbsRect,
+    &mut dyn Any,
+) -> Result<Vec<(u64, Box<dyn Any>)>, Vec<(u64, Box<dyn Any>)>>;
+
+pub type EventHandler<Input: Dispatchable, Output: Dispatchable, State> =
+    Box<dyn FnMut(Input, AbsRect, State) -> Result<(State, Vec<Output>), (State, Vec<Output>)>>;
+
+pub type EventWrapper<Output: Dispatchable, State> = Box<
+    dyn FnMut(DispatchPair, AbsRect, State) -> Result<(State, Vec<Output>), (State, Vec<Output>)>,
+>;
+
+#[inline]
+fn wrap_event<Input: Dispatchable + 'static, Output: Dispatchable, State>(
+    mut typed: impl FnMut(Input, AbsRect, State) -> Result<(State, Vec<Output>), (State, Vec<Output>)>,
+) -> impl FnMut(DispatchPair, AbsRect, State) -> Result<(State, Vec<Output>), (State, Vec<Output>)>
+{
+    move |pair, rect, state| typed(Input::restore(pair).unwrap(), rect, state)
+}
+
+type DispatchPair = (u64, Box<dyn Any>);
+
+trait Dispatchable
+where
+    Self: Sized,
+{
+    const SIZE: usize;
+    fn extract(self) -> DispatchPair;
+    fn restore(pair: DispatchPair) -> eyre::Result<Self>;
+}
+
+impl Dispatchable for () {
+    const SIZE: usize = 0;
+
+    fn extract(self) -> DispatchPair {
+        (0, Box::new(self))
+    }
+
+    fn restore(_: DispatchPair) -> eyre::Result<Self> {
+        Ok(())
+    }
+}
+
+/*#[proc_macro_derive(Dispatch)]
+pub fn dispatchable(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+
+    let enum_name = &ast.ident;
+    let vis = &ast.vis;
+
+    let mut struct_declarations = proc_macro2::TokenStream::new();
+
+    let ns: Path = parse_quote!(evt);
+    let skip: Path = parse_quote!(skip);
+    let counter: u64 = 1;
+    let struct_declarations_iter = variants.iter()
+        .filter(|variant| !proc_macro_roids::contains_tag(&variant.attrs,  &ns, &skip))
+        .map(|variant| {
+
+        let variant_name = &variant.ident;
+}*/
+
+#[derive(Default)]
+pub struct StateManager {
+    states: HashMap<Rc<SourceID>, Box<dyn StateMachineWrapper>>,
+}
+
+impl StateManager {
+    fn init_default<'a, State: 'static + outline::StateMachineWrapper + Default>(
+        &'a mut self,
+        id: Rc<SourceID>,
+    ) -> eyre::Result<&'a mut State> {
+        if !self.states.contains_key(&id) {
+            self.states.insert(id.clone(), Box::new(State::default()));
+        }
+        let v = self
+            .states
+            .get_mut(&id)
+            .ok_or_eyre("Failed to insert state!")?;
+        v.as_any()
+            .downcast_mut()
+            .ok_or_eyre("Runtime type mismatch!")
+    }
+    pub fn init<'a, State: 'static + outline::StateMachineWrapper>(
+        &'a mut self,
+        id: Rc<SourceID>,
+        f: impl FnOnce() -> eyre::Result<State>,
+    ) -> eyre::Result<&'a mut State> {
+        if !self.states.contains_key(&id) {
+            self.states.insert(id.clone(), Box::new(f()?));
+        }
+        let v = self
+            .states
+            .get_mut(&id)
+            .ok_or_eyre("Failed to insert state!")?;
+        v.as_any()
+            .downcast_mut()
+            .ok_or_eyre("Runtime type mismatch!")
+    }
+    pub fn get<'a, State: 'static + outline::StateMachineWrapper>(
+        &'a mut self,
+        id: &SourceID,
+    ) -> eyre::Result<&'a mut State> {
+        let v = self.states.get_mut(id).ok_or_eyre("State does not exist")?;
+        Ok(v.as_any()
+            .downcast_mut()
+            .ok_or_eyre("Runtime type mismatch!")?)
+    }
+    pub fn get_trait<'a>(
+        &'a mut self,
+        id: &SourceID,
+    ) -> eyre::Result<&'a mut Box<dyn StateMachineWrapper>> {
+        Ok(self.states.get_mut(id).ok_or_eyre("State does not exist")?)
+    }
+
+    pub fn process(&mut self, event: DispatchPair, slot: &Slot) -> eyre::Result<()> {
+        // We use smallvec here so we can satisfy the borrow checker without making yet another heap allocation in most cases
+        let iter: SmallVec<[(Box<dyn Any>, u64, Option<Slot>); 2]> = {
+            let state = self.states.get_mut(&slot.0).ok_or_eyre("Invalid slot")?;
+            let v = state.process(event, slot.1)?;
+            v.into_iter().map(|(i, e)| {
+                (
+                    e,
+                    i,
+                    state.output_slot(i.try_into().unwrap()).unwrap().clone(),
+                )
+            })
+        }
+        .collect();
+
+        for (e, index, slot) in iter {
+            if let Some(s) = slot.as_ref() {
+                self.process((index, e), s)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+pub struct App<
+    AppData: 'static + std::cmp::PartialEq,
+    O: FnPersist<AppData, im::HashMap<winit::window::WindowId, Option<Window<AppData>>>>,
+> {
     pub app_state: Option<AppData>, // Only optional so we can take the value out during processing and put it back in later.
     pub instance: wgpu::Instance,
-    windows: WindowCollection<AppData>,
-    driver: Weak<DriverState>,
+    pub driver: std::sync::Weak<DriverState>,
+    state: StateManager,
     store: Option<O::Store>,
-    outline: Option<O>,
-    init: Option<Box<dyn FnOnce(&Self, &winit::event_loop::ActiveEventLoop) -> O>>,
+    outline: O,
+    parents: BTreeMap<DataID, DataID>,
+    root: outline::Root<AppData>, // Root outline node containing all windows
 }
 
 #[cfg(target_os = "windows")]
 use winit::platform::windows::EventLoopBuilderExtWindows;
 
-impl<AppData, O: FnPersist<AppData, WindowCollection<AppData>>> App<AppData, O> {
+impl<
+        AppData: std::cmp::PartialEq,
+        O: FnPersist<AppData, im::HashMap<winit::window::WindowId, Option<Window<AppData>>>>,
+    > App<AppData, O>
+{
+    pub fn init<'a, State: 'static + outline::StateMachineWrapper>(
+        &'a mut self,
+        id: Rc<SourceID>,
+        f: impl FnOnce() -> eyre::Result<State>,
+    ) -> eyre::Result<&'a mut State> {
+        self.state.init(id, f)
+    }
+
     pub fn new<T: 'static>(
         app_state: AppData,
-        init: impl FnOnce(&Self, &winit::event_loop::ActiveEventLoop) -> O + 'static,
+        outline: O,
     ) -> eyre::Result<(Self, winit::event_loop::EventLoop<T>)> {
         #[cfg(test)]
         let any_thread = true;
@@ -321,26 +586,27 @@ impl<AppData, O: FnPersist<AppData, WindowCollection<AppData>>> App<AppData, O> 
             Self {
                 app_state: Some(app_state),
                 instance: wgpu::Instance::default(),
-                windows: im::HashMap::new(),
-                driver: Weak::<DriverState>::new(),
-                store: Default::default(),
-                outline: None,
-                init: Some(Box::new(init)),
+                driver: std::sync::Weak::<DriverState>::new(),
+                store: None,
+                outline,
+                state: Default::default(),
+                parents: Default::default(),
+                root: outline::Root::new(),
             },
             event_loop,
         ))
     }
 
     pub async fn create_driver(
-        &mut self,
+        weak: &mut std::sync::Weak<DriverState>,
+        instance: &wgpu::Instance,
         surface: &wgpu::Surface<'static>,
     ) -> eyre::Result<Arc<DriverState>> {
-        if let Some(driver) = self.driver.upgrade() {
+        if let Some(driver) = weak.upgrade() {
             return Ok(driver);
         }
 
-        let adapter = self
-            .instance
+        let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 compatible_surface: Some(&surface),
                 ..Default::default()
@@ -378,30 +644,40 @@ impl<AppData, O: FnPersist<AppData, WindowCollection<AppData>>> App<AppData, O> 
             })),
         });
 
-        self.driver = Arc::downgrade(&driver);
+        *weak = Arc::downgrade(&driver);
         Ok(driver)
+    }
+
+    fn update_outline(&mut self, event_loop: &winit::event_loop::ActiveEventLoop, store: O::Store) {
+        let (store, windows) = self.outline.call(store, self.app_state.as_ref().unwrap());
+        self.store.replace(store);
+        self.root.children = windows;
+
+        let (root, manager, driver, instance) = (
+            &mut self.root,
+            &mut self.state,
+            &mut self.driver,
+            &mut self.instance,
+        );
+
+        root.layout_all::<O>(manager, driver, instance, event_loop);
+
+        root.stage_all(manager);
     }
 }
 
-impl<AppData, T: 'static, O: FnPersist<AppData, WindowCollection<AppData>>>
-    winit::application::ApplicationHandler<T> for App<AppData, O>
+impl<
+        AppData: std::fmt::Debug + std::cmp::PartialEq,
+        T: 'static,
+        O: FnPersist<AppData, im::HashMap<winit::window::WindowId, Option<Window<AppData>>>>,
+    > winit::application::ApplicationHandler<T> for App<AppData, O>
 {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
         // If this is our first resume, call the start function that can create the necessary graphics context
-
-        if self.outline.is_none() {
-            self.outline
-                .replace((self.init.take().unwrap())(self, event_loop));
-            let (store, windows) = self
-                .outline
-                .as_ref()
-                .unwrap()
-                .call(self.store.take().unwrap(), self.app_state.as_ref().unwrap());
-            self.store.replace(store);
-            self.windows = windows;
+        if let Some(store) = self.store.take() {
+            self.update_outline(event_loop, store);
         }
     }
-
     fn window_event(
         &mut self,
         event_loop: &winit::event_loop::ActiveEventLoop,
@@ -409,39 +685,50 @@ impl<AppData, T: 'static, O: FnPersist<AppData, WindowCollection<AppData>>>
         event: winit::event::WindowEvent,
     ) {
         let mut delete = None;
-        if let Some(window) = self.windows.get_mut(&window_id) {
-            let result = match event {
-                winit::event::WindowEvent::CloseRequested => window
-                    .on_event(event, self.app_state.take().unwrap())
-                    .inspect_err(|_| {
-                        delete = Some(window_id);
-                    }),
+        if let Some(window) = self.root.children.get(&window_id) {
+            let window = window.as_ref().unwrap();
+            match event {
+                winit::event::WindowEvent::CloseRequested => Window::<AppData>::on_window_event(
+                    window.id(),
+                    std::rc::Weak::new(),
+                    event,
+                    &mut self.state,
+                )
+                .inspect_err(|_| {
+                    delete = Some(window_id);
+                }),
                 winit::event::WindowEvent::RedrawRequested => {
-                    window.layout_all(self.app_state.as_ref().unwrap());
-                    window.stage_all();
-                    window.render_all();
-                    window.on_event(event, self.app_state.take().unwrap())
+                    if let Some(root) = self.root.state.get_mut(&window.id()) {
+                        Window::render(&window.id(), root, &mut self.state);
+                    }
+                    Window::<AppData>::on_window_event(
+                        window.id(),
+                        std::rc::Weak::new(),
+                        event,
+                        &mut self.state,
+                    )
                 }
-                _ => window.on_event(event, self.app_state.take().unwrap()),
+                _ => Window::<AppData>::on_window_event(
+                    window.id(),
+                    std::rc::Weak::new(),
+                    event,
+                    &mut self.state,
+                ),
             };
 
-            self.app_state.replace(match result {
-                Ok(data) => data,
-                Err(data) => data,
-            });
+            //if self.app_state.is_none() || data != *self.app_state.as_ref().unwrap() {
+            //   self.app_state.replace(data);
+            let store = self.store.take().unwrap();
+            self.update_outline(event_loop, store);
+            //}
         }
 
         if let Some(id) = delete {
-            self.windows.remove(&id);
+            self.root.children.remove(&id);
         }
 
-        if self.windows.is_empty() {
+        if self.root.children.is_empty() {
             event_loop.exit();
-        } else if let Some(outline) = self.outline.as_ref() {
-            let (store, windows) =
-                outline.call(self.store.take().unwrap(), self.app_state.as_ref().unwrap());
-            self.store.replace(store);
-            self.windows = windows;
         }
     }
 
@@ -460,39 +747,38 @@ impl<AppData, T: 'static, O: FnPersist<AppData, WindowCollection<AppData>>>
 }
 
 #[cfg(test)]
-struct TestApp {
-    window: Arc<winit::window::Window>,
-    surface: Arc<wgpu::Surface<'static>>,
-    driver: Arc<DriverState>,
-}
+struct TestApp {}
 
 #[cfg(test)]
-impl FnPersist<u8, WindowCollection<u8>> for TestApp {
-    type Store = (u8, WindowCollection<u8>);
+impl FnPersist<AppData, Box<dyn Outline<AppData, (), State = ()>>> for TestApp {
+    type Store = (u8, Box<dyn Outline<AppData, (), State = ()>>);
 
+    fn init(&self) -> Self::Store {
+        let region = RoundRect::<<Root as Desc<()>>::Impose> {
+            fill: Vec4::new(1.0, 0.0, 0.0, 1.0),
+            ..Default::default()
+        };
+        let window = Window::new::<()>(
+            gen_id!(),
+            winit::window::Window::default_attributes()
+                .with_title("test_blank")
+                .with_resizable(true),
+            Box::new(region),
+        );
+
+        store.1 = WindowCollection::new();
+        store.1.insert(window_id, window);
+        store.0 = *args;
+
+        (0, Box::new(window))
+    }
     fn call(&self, mut store: Self::Store, args: &u8) -> (Self::Store, WindowCollection<u8>) {
-        use component::round_rect::RoundRect;
         use layout::root::Root;
         use layout::Desc;
+        use outline::round_rect::RoundRect;
         use ultraviolet::Vec4;
 
-        if store.0 != *args {
-            let region = RoundRect::<<Root as Desc<()>>::Impose> {
-                fill: Vec4::new(1.0, 0.0, 0.0, 1.0),
-                ..Default::default()
-            };
-            let window_id = self.window.id();
-            let window = Window::new::<()>(
-                self.window.clone(),
-                self.surface.clone(),
-                Box::new(region),
-                self.driver.clone(),
-            )
-            .unwrap();
-
-            store.1 = WindowCollection::new();
-            store.1.insert(window_id, window);
-        }
+        if store.0 != *args {}
         let windows = store.1.clone();
         (store, windows)
     }
@@ -500,27 +786,10 @@ impl FnPersist<u8, WindowCollection<u8>> for TestApp {
 
 #[test]
 fn test_basic() {
-    let (mut app, event_loop) = App::new(
-        0u8,
-        move |app: &App<u8, TestApp>, event_loop: &winit::event_loop::EventLoop<()>| {
-            let window = Arc::new(
-                event_loop
-                    .create_window(
-                        winit::window::Window::default_attributes()
-                            .with_title("test_blank")
-                            .with_resizable(true),
-                    )
-                    .unwrap(),
-            );
-
-            let surface = Arc::new(app.instance.create_surface(window.clone()).unwrap());
-
-            let driver = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .unwrap()
-                .block_on(app.create_driver(&surface))
-                .unwrap();
+    let (mut app, event_loop): (App<u8, TestApp>, winit::event_loop::EventLoop<()>) = App::new(
+        1u8,
+        move |app: &mut App<u8, TestApp>, event_loop: &winit::event_loop::ActiveEventLoop| {
+            TestApp {}
         },
     )
     .unwrap();

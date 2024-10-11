@@ -1,9 +1,9 @@
 use super::Desc;
-use super::EventList;
 use super::Layout;
 use super::Renderable;
 use super::Staged;
 use crate::AbsRect;
+use crate::Slot;
 use crate::URect;
 use dyn_clone::DynClone;
 use std::rc::Rc;
@@ -29,7 +29,7 @@ impl<AppData> Desc<AppData> for Root {
         props: &Self::Props,
         _: AbsRect,
         child: &Self::Children<dyn Layout<Self::Impose, AppData> + '_>,
-        _: Option<Rc<EventList<AppData>>>,
+        _: std::rc::Weak<crate::SourceID>,
         _: Option<Rc<dyn Renderable<AppData>>>,
         driver: &crate::DriverState,
     ) -> Box<dyn Staged<AppData> + 'a>
