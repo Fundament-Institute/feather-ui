@@ -5,16 +5,15 @@ pub mod root;
 
 use dyn_clone::DynClone;
 
-use crate::component::Renderable;
+use crate::outline::Renderable;
 use crate::persist::FnPersist2;
 use crate::persist::VectorFold;
 use crate::rtree;
 use crate::AbsRect;
 use crate::DriverState;
-use crate::EventHandler;
 use crate::RenderInstruction;
+use crate::SourceID;
 use derive_where::derive_where;
-use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
 pub trait Layout<Imposed: Clone, AppData>: DynClone {
@@ -24,8 +23,7 @@ pub trait Layout<Imposed: Clone, AppData>: DynClone {
         AppData: 'a;
 }
 
-pub type EventList<AppData> = Vec<(u8, RefCell<EventHandler<AppData>>)>;
-dyn_clone::clone_trait_object!(<Imposed, AppData> Layout<Imposed, AppData> where Imposed: Clone);
+dyn_clone::clone_trait_object!(<Imposed, AppData> Layout<Imposed, AppData> where Imposed:Clone);
 
 pub trait Desc<AppData> {
     type Props: Clone;
@@ -37,7 +35,7 @@ pub trait Desc<AppData> {
         props: &Self::Props,
         area: AbsRect,
         children: &Self::Children<dyn Layout<Self::Impose, AppData> + '_>,
-        events: Option<Rc<EventList<AppData>>>,
+        id: std::rc::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable<AppData>>>,
         driver: &DriverState,
     ) -> Box<dyn Staged<AppData> + 'a>
@@ -49,8 +47,8 @@ pub trait Desc<AppData> {
 pub struct Node<AppData, D: Desc<AppData>, Imposed: Clone> {
     pub props: D::Props,
     pub imposed: Imposed,
+    pub id: std::rc::Weak<SourceID>,
     pub children: D::Children<dyn Layout<D::Impose, AppData>>,
-    pub events: Weak<EventList<AppData>>,
     pub renderable: Option<Rc<dyn Renderable<AppData>>>,
 }
 
@@ -68,7 +66,7 @@ impl<AppData, D: Desc<AppData>, Imposed: Clone> Layout<Imposed, AppData>
             &self.props,
             area,
             &self.children,
-            self.events.upgrade(),
+            self.id.clone(),
             self.renderable.as_ref().map(|x| x.clone()),
             driver,
         )
@@ -103,7 +101,7 @@ impl<AppData> Staged<AppData> for Concrete<AppData> {
             },
         );
 
-        let (_, result) = fold.call(Default::default(), &self.render, &self.children);
+        let (_, result) = fold.call(fold.init(), &self.render, &self.children);
         result
     }
 

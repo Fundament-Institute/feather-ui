@@ -1,11 +1,14 @@
 use std::rc::Rc;
 
-use crate::input::EventKind;
-use crate::layout::EventList;
+use crate::input::RawEvent;
+use crate::input::RawEventKind;
 use crate::persist::FnPersist2;
 use crate::persist::VectorFold;
 use crate::AbsRect;
-use crate::Event;
+use crate::Dispatchable;
+use crate::SourceID;
+use crate::StateManager;
+use eyre::Result;
 use ultraviolet::Vec2;
 
 pub struct Node<AppData> {
@@ -13,7 +16,7 @@ pub struct Node<AppData> {
     pub extent: AbsRect, // This is the minimal bounding rectangle of the children's extent relative to OUR topleft corner.
     pub top: i32, // 2D R-tree nodes are actually 3 dimensional, but the z-axis can never overlap (because layout rects have no depth).
     pub bottom: i32,
-    pub events: Option<Rc<EventList<AppData>>>,
+    pub id: std::rc::Weak<SourceID>,
     //transform: Rotor2, // TODO: build a 3D node where this is a 3D rotor and project it back on to a 2D plane.
     pub children: im::Vector<Option<Rc<Node<AppData>>>>,
 }
@@ -23,7 +26,7 @@ impl<AppData> Node<AppData> {
         area: AbsRect,
         z: Option<i32>,
         children: im::Vector<Option<Rc<Node<AppData>>>>,
-        events: Option<Rc<EventList<AppData>>>,
+        id: std::rc::Weak<SourceID>,
     ) -> Self {
         let fold = VectorFold::new(
             |(rect, top, bottom): &(AbsRect, i32, i32),
@@ -46,31 +49,35 @@ impl<AppData> Node<AppData> {
                 .unwrap_or(0)
         });
         let (_, (extent, top, bottom)) =
-            fold.call(Default::default(), &(Default::default(), z, z), &children);
+            fold.call(fold.init(), &(Default::default(), z, z), &children);
 
         Self {
             area,
             extent,
             top,
             bottom,
-            events,
+            id,
             children,
         }
     }
     fn process(
         &self,
-        event: Event,
-        kind: EventKind,
+        event: &RawEvent,
+        kind: RawEventKind,
         mut pos: Vec2,
-        mut data: AppData,
-    ) -> Result<AppData, AppData> {
+        manager: &mut StateManager,
+    ) -> Result<(), ()> {
         if self.area.contains(pos) {
-            if let Some(events) = self.events.as_ref() {
-                for (k, e) in events.iter() {
-                    if (kind as u8 & *k) != 0 {
-                        data = match (e.borrow_mut())(event, self.area, data) {
-                            Ok(d) => return Ok(d),
-                            Err(d) => d,
+            if let Some(id) = self.id.upgrade() {
+                let state = manager.get_trait(&id).map_err(|_| ())?;
+                let masks = state.input_masks();
+                for (i, k) in masks.iter().enumerate() {
+                    if (kind as u64 & *k) != 0 {
+                        if manager
+                            .process(event.clone().extract(), &crate::Slot(id.clone(), i as u64))
+                            .is_ok()
+                        {
+                            return Ok(());
                         }
                     }
                 }
@@ -79,23 +86,31 @@ impl<AppData> Node<AppData> {
             pos -= self.area.topleft;
             // Children should be sorted from top to bottom
             for child in self.children.iter() {
-                data = match child.as_ref().unwrap().process(event, kind, pos, data) {
-                    Ok(d) => return Ok(d),
-                    Err(d) => d,
+                if child
+                    .as_ref()
+                    .unwrap()
+                    .process(event, kind, pos, manager)
+                    .is_ok()
+                {
+                    return Ok(());
                 }
             }
         }
-        Err(data)
+        Err(())
     }
-    pub fn on_event(&self, event: Event, data: AppData) -> Result<AppData, AppData> {
+    pub fn on_event(&self, event: &RawEvent, manager: &mut StateManager) -> Result<(), ()> {
         match event {
-            Event::Mouse(_, pos, _, _, _) => self.process(event, EventKind::Mouse, pos, data),
-            Event::MouseMove(_, pos, _, _) => self.process(event, EventKind::MouseMove, pos, data),
-            Event::MouseScroll(pos, _, _) => self.process(event, EventKind::MouseScroll, pos, data),
-            Event::Touch(_, pos, _, _, _, _) => {
-                self.process(event, EventKind::Touch, pos.xy(), data)
+            RawEvent::Mouse { pos, .. } => self.process(event, RawEventKind::Mouse, *pos, manager),
+            RawEvent::MouseMove { pos, .. } => {
+                self.process(event, RawEventKind::MouseMove, *pos, manager)
             }
-            _ => Err(data),
+            RawEvent::MouseScroll { pos, .. } => {
+                self.process(event, RawEventKind::MouseScroll, *pos, manager)
+            }
+            RawEvent::Touch { pos, .. } => {
+                self.process(event, RawEventKind::Touch, pos.xy(), manager)
+            }
+            _ => Err(()),
         }
     }
 

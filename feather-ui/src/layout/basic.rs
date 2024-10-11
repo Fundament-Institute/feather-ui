@@ -1,6 +1,5 @@
 use super::Concrete;
 use super::Desc;
-use super::EventList;
 use super::Layout;
 use super::Renderable;
 use super::Staged;
@@ -32,7 +31,7 @@ impl<AppData: 'static> Desc<AppData> for Basic {
         props: &Self::Props,
         area: AbsRect,
         children: &Self::Children<dyn Layout<Self::Impose, AppData> + '_>,
-        events: Option<Rc<EventList<AppData>>>,
+        id: std::rc::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn Renderable<AppData>>>,
         driver: &crate::DriverState,
     ) -> Box<dyn Staged<AppData> + 'a>
@@ -71,7 +70,7 @@ impl<AppData: 'static> Desc<AppData> for Basic {
             render: renderable
                 .map(|x| x.render(area, driver))
                 .unwrap_or_default(),
-            rtree: Rc::new(rtree::Node::new(area, Some(props.zindex), nodes, events)),
+            rtree: Rc::new(rtree::Node::new(area, Some(props.zindex), nodes, id)),
             children: staging,
         })
     }

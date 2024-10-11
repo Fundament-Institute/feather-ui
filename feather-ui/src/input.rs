@@ -1,4 +1,8 @@
 use crate::AbsRect;
+use crate::Dispatchable;
+use enum_variant_type::EnumVariantType;
+use eyre::OptionExt;
+use std::any::Any;
 use ultraviolet::Vec2;
 use ultraviolet::Vec3;
 
@@ -51,34 +55,246 @@ pub enum ModifierKeys {
     Held = 64,
 }
 
-pub type ButtonState = u8;
-pub type Angle = f32;
-pub type Modifiers = u8;
-pub type ScanCode = u16;
-pub type DeviceIndex = u16;
-
-#[derive(Debug, Copy, Clone)]
-pub enum Event {
+#[derive(Debug, EnumVariantType, Clone)]
+#[evt(derive(Clone), module = "raw_event")]
+pub enum RawEvent {
     Draw(AbsRect),
     Drop,
-    GotFocus,
-    JoyAxis(DeviceIndex, f32, u16, ModifierKeys),
-    JoyButton(bool, DeviceIndex, u16, ModifierKeys),
-    JoyOrientation(DeviceIndex, Vec3, Vec3),
-    KeyChar(i32, ModifierKeys),
-    Key(bool, u8, ModifierKeys, ScanCode),
-    LostFocus,
-    Mouse(MouseState, Vec2, ButtonState, ModifierKeys, MouseButton),
-    MouseMove(MouseMoveState, Vec2, ButtonState, ModifierKeys),
-    MouseScroll(Vec2, f32, f32),
-    Touch(TouchState, Vec3, Angle, f32, DeviceIndex, ModifierKeys),
+    Focus {
+        acquired: bool,
+    },
+    JoyAxis {
+        device_id: winit::event::DeviceId,
+        value: f64,
+        axis: u32,
+    },
+    JoyButton {
+        device_id: winit::event::DeviceId,
+        down: bool,
+        button: u32,
+    },
+    JoyOrientation {
+        device_id: winit::event::DeviceId,
+        velocity: Vec3,
+        rotation: Vec3,
+    },
+    Key {
+        device_id: winit::event::DeviceId,
+        physical_key: winit::keyboard::PhysicalKey,
+        location: winit::keyboard::KeyLocation,
+        down: bool,
+        logical_key: winit::keyboard::Key,
+        modifiers: u8,
+    },
+    Mouse {
+        device_id: winit::event::DeviceId,
+        state: MouseState,
+        pos: Vec2,
+        button: MouseButton,
+        all_buttons: u8,
+        modifiers: u8,
+    },
+    MouseMove {
+        device_id: winit::event::DeviceId,
+        state: MouseMoveState,
+        pos: Vec2,
+        all_buttons: u8,
+        modifiers: u8,
+    },
+    MouseScroll {
+        device_id: winit::event::DeviceId,
+        state: TouchState,
+        pos: Vec2,
+        delta: Vec2,
+        pixels: bool, // If true, delta is expressed in pixels
+    },
+    Touch {
+        device_id: winit::event::DeviceId,
+        index: u64,
+        state: TouchState,
+        pos: Vec3,
+        angle: Vec2,
+        pressure: f64,
+    },
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[repr(u8)]
-pub enum EventKind {
-    Mouse = 1,
-    MouseMove = 2,
-    MouseScroll = 4,
-    Touch = 8,
+#[repr(u64)]
+pub enum RawEventKind {
+    Draw = 1,
+    Drop = 2,
+    Focus = 4,
+    JoyAxis = 8,
+    JoyButton = 16,
+    JoyOrientation = 32,
+    Key = 64,
+    Mouse = 128,
+    MouseMove = 256,
+    MouseScroll = 512,
+    Touch = 1024,
+}
+
+use crate::DispatchPair;
+
+impl Dispatchable for RawEvent {
+    fn restore(pair: DispatchPair) -> eyre::Result<Self> {
+        const KIND_DRAW: u64 = RawEventKind::Draw as u64;
+        const KIND_DROP: u64 = RawEventKind::Drop as u64;
+        const KIND_FOCUS: u64 = RawEventKind::Focus as u64;
+        const KIND_JOYAXIS: u64 = RawEventKind::JoyAxis as u64;
+        const KIND_JOYBUTTON: u64 = RawEventKind::JoyButton as u64;
+        const KIND_JOYORIENTATION: u64 = RawEventKind::JoyOrientation as u64;
+        const KIND_KEY: u64 = RawEventKind::Key as u64;
+        const KIND_MOUSE: u64 = RawEventKind::Mouse as u64;
+        const KIND_MOUSEMOVE: u64 = RawEventKind::MouseMove as u64;
+        const KIND_MOUSESCROLL: u64 = RawEventKind::MouseScroll as u64;
+        const KIND_TOUCH: u64 = RawEventKind::Touch as u64;
+        match pair.0 {
+            KIND_DRAW => Ok(RawEvent::from(
+                *pair
+                    .1
+                    .downcast::<raw_event::Draw>()
+                    .map_err(|_| eyre::eyre!("enum object didn't match tag!"))?,
+            )),
+            KIND_DROP => Ok(RawEvent::from(
+                *pair
+                    .1
+                    .downcast::<raw_event::Drop>()
+                    .map_err(|_| eyre::eyre!("enum object didn't match tag!"))?,
+            )),
+            KIND_FOCUS => Ok(RawEvent::from(
+                *pair
+                    .1
+                    .downcast::<raw_event::Focus>()
+                    .map_err(|_| eyre::eyre!("enum object didn't match tag!"))?,
+            )),
+            KIND_JOYAXIS => Ok(RawEvent::from(
+                *pair
+                    .1
+                    .downcast::<raw_event::JoyAxis>()
+                    .map_err(|_| eyre::eyre!("enum object didn't match tag!"))?,
+            )),
+            KIND_JOYBUTTON => Ok(RawEvent::from(
+                *pair
+                    .1
+                    .downcast::<raw_event::JoyButton>()
+                    .map_err(|_| eyre::eyre!("enum object didn't match tag!"))?,
+            )),
+            KIND_JOYORIENTATION => Ok(RawEvent::from(
+                *pair
+                    .1
+                    .downcast::<raw_event::JoyOrientation>()
+                    .map_err(|_| eyre::eyre!("enum object didn't match tag!"))?,
+            )),
+            KIND_KEY => Ok(RawEvent::from(
+                *pair
+                    .1
+                    .downcast::<raw_event::Key>()
+                    .map_err(|_| eyre::eyre!("enum object didn't match tag!"))?,
+            )),
+            KIND_MOUSE => Ok(RawEvent::from(
+                *pair
+                    .1
+                    .downcast::<raw_event::Mouse>()
+                    .map_err(|_| eyre::eyre!("enum object didn't match tag!"))?,
+            )),
+            KIND_MOUSEMOVE => Ok(RawEvent::from(
+                *pair
+                    .1
+                    .downcast::<raw_event::MouseMove>()
+                    .map_err(|_| eyre::eyre!("enum object didn't match tag!"))?,
+            )),
+            KIND_MOUSESCROLL => Ok(RawEvent::from(
+                *pair
+                    .1
+                    .downcast::<raw_event::MouseScroll>()
+                    .map_err(|_| eyre::eyre!("enum object didn't match tag!"))?,
+            )),
+            KIND_TOUCH => Ok(RawEvent::from(
+                *pair
+                    .1
+                    .downcast::<raw_event::Touch>()
+                    .map_err(|_| eyre::eyre!("enum object didn't match tag!"))?,
+            )),
+            _ => Err(eyre::eyre!("Invalid enum tag")),
+        }
+    }
+
+    const SIZE: usize = 11;
+
+    fn extract(self) -> DispatchPair {
+        match self {
+            RawEvent::Draw(_) => (
+                RawEventKind::Draw as u64,
+                Box::new(raw_event::Draw::try_from(self)),
+            ),
+            RawEvent::Drop => (
+                RawEventKind::Drop as u64,
+                Box::new(raw_event::Drop::try_from(self)),
+            ),
+            RawEvent::Focus { .. } => (
+                RawEventKind::Focus as u64,
+                Box::new(raw_event::Focus::try_from(self)),
+            ),
+            RawEvent::JoyAxis { .. } => (
+                RawEventKind::JoyAxis as u64,
+                Box::new(raw_event::JoyAxis::try_from(self)),
+            ),
+            RawEvent::JoyButton { .. } => (
+                RawEventKind::JoyButton as u64,
+                Box::new(raw_event::JoyButton::try_from(self)),
+            ),
+            RawEvent::JoyOrientation { .. } => (
+                RawEventKind::JoyOrientation as u64,
+                Box::new(raw_event::JoyOrientation::try_from(self)),
+            ),
+            RawEvent::Key { .. } => (
+                RawEventKind::Key as u64,
+                Box::new(raw_event::Key::try_from(self)),
+            ),
+            RawEvent::Mouse { .. } => (
+                RawEventKind::Mouse as u64,
+                Box::new(raw_event::Mouse::try_from(self)),
+            ),
+            RawEvent::MouseMove { .. } => (
+                RawEventKind::MouseMove as u64,
+                Box::new(raw_event::MouseMove::try_from(self)),
+            ),
+            RawEvent::MouseScroll { .. } => (
+                RawEventKind::MouseScroll as u64,
+                Box::new(raw_event::MouseScroll::try_from(self)),
+            ),
+            RawEvent::Touch { .. } => (
+                RawEventKind::Touch as u64,
+                Box::new(raw_event::Touch::try_from(self)),
+            ),
+        }
+    }
+}
+
+impl From<winit::event::TouchPhase> for TouchState {
+    fn from(value: winit::event::TouchPhase) -> Self {
+        match value {
+            winit::event::TouchPhase::Started => TouchState::Start,
+            winit::event::TouchPhase::Moved => TouchState::Move,
+            winit::event::TouchPhase::Ended => TouchState::End,
+            winit::event::TouchPhase::Cancelled => TouchState::End,
+        }
+    }
+}
+
+impl From<winit::event::MouseButton> for MouseButton {
+    fn from(value: winit::event::MouseButton) -> Self {
+        match value {
+            winit::event::MouseButton::Left => MouseButton::L,
+            winit::event::MouseButton::Right => MouseButton::R,
+            winit::event::MouseButton::Middle => MouseButton::M,
+            winit::event::MouseButton::Back => MouseButton::X1,
+            winit::event::MouseButton::Forward => MouseButton::X2,
+            winit::event::MouseButton::Other(5) => MouseButton::X3,
+            winit::event::MouseButton::Other(6) => MouseButton::X4,
+            winit::event::MouseButton::Other(7) => MouseButton::X5,
+            winit::event::MouseButton::Other(_) => panic!("Mouse button out of range"),
+        }
+    }
 }

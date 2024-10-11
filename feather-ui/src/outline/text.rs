@@ -1,13 +1,12 @@
+use super::Renderable;
 use crate::layout;
 use crate::layout::empty::Empty;
-use crate::layout::EventList;
 use crate::layout::Layout;
 use crate::DriverState;
 use crate::RenderLambda;
+use crate::SourceID;
 use std::cell::RefCell;
 use std::rc::Rc;
-
-use super::Renderable;
 
 pub struct TextPipeline {
     pub this: std::rc::Weak<TextPipeline>,
@@ -80,6 +79,7 @@ impl<AppData> Renderable<AppData> for TextPipeline {
 
 #[derive(Clone)]
 pub struct Text<Parent: Clone> {
+    pub id: Rc<SourceID>,
     pub props: Parent,
     pub font_size: f32,
     pub line_height: f32,
@@ -90,25 +90,14 @@ pub struct Text<Parent: Clone> {
     pub style: glyphon::Style,
 }
 
-impl<Parent: Clone + Default> Default for Text<Parent> {
-    fn default() -> Self {
-        Self {
-            props: Default::default(),
-            font_size: Default::default(),
-            line_height: Default::default(),
-            text: Default::default(),
-            font: glyphon::FamilyOwned::SansSerif,
-            color: glyphon::Color::rgba(255, 255, 255, 255),
-            weight: Default::default(),
-            style: Default::default(),
-        }
+impl<AppData: 'static, Parent: Clone + 'static> super::Outline<AppData, Parent> for Text<Parent> {
+    fn id(&self) -> std::rc::Rc<SourceID> {
+        self.id.clone()
     }
-}
 
-impl<AppData: 'static, Parent: Clone + 'static> super::Component<AppData, Parent> for Text<Parent> {
     fn layout(
         &self,
-        _: &AppData,
+        state: &mut crate::StateManager,
         driver: &DriverState,
         _: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<Parent, AppData>> {
@@ -139,7 +128,7 @@ impl<AppData: 'static, Parent: Clone + 'static> super::Component<AppData, Parent
             props: (),
             imposed: self.props.clone(),
             children: Default::default(),
-            events: std::rc::Weak::<EventList<AppData>>::new(),
+            id: Rc::downgrade(&self.id),
             renderable: Some(Rc::new_cyclic(|this| TextPipeline {
                 this: this.clone(),
                 text_buffer: text_buffer.into(),

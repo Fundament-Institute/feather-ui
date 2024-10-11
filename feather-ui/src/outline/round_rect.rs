@@ -1,37 +1,44 @@
 use crate::layout;
 use crate::layout::empty::Empty;
-use crate::layout::EventList;
 use crate::layout::Layout;
 use crate::shaders::gen_uniform;
 use crate::DriverState;
+use crate::SourceID;
 use std::borrow::Cow;
 use std::rc::Rc;
 use ultraviolet::Vec4;
 use wgpu::util::DeviceExt;
 
-#[derive(Clone, Default)]
-pub struct Arc<Parent: Clone> {
+#[derive(Clone)]
+pub struct RoundRect<Parent: Clone> {
+    pub id: std::rc::Rc<SourceID>,
     pub props: Parent,
     pub border: f32,
     pub blur: f32,
-    pub arcs: Vec4,
+    pub corners: Vec4,
     pub fill: Vec4,
     pub outline: Vec4,
 }
 
-impl<AppData: 'static, Parent: Clone + 'static> super::Component<AppData, Parent> for Arc<Parent> {
+impl<AppData: 'static, Parent: Clone + 'static> super::Outline<AppData, Parent>
+    for RoundRect<Parent>
+{
+    fn id(&self) -> std::rc::Rc<SourceID> {
+        self.id.clone()
+    }
+
     fn layout(
         &self,
-        _: &AppData,
+        state: &mut crate::StateManager,
         driver: &DriverState,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<Parent, AppData>> {
         let round_rect = driver
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {
-                label: Some("Arc FS"),
+                label: Some("RoundRect FS"),
                 source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!(
-                    "../shaders/Arc.wgsl"
+                    "../shaders/RoundRect.wgsl"
                 ))),
             });
 
@@ -55,7 +62,7 @@ impl<AppData: 'static, Parent: Clone + 'static> super::Component<AppData, Parent
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("PosDim"),
-                contents: Vec4::one().as_byte_slice(),
+                contents: Vec4::new(0.0, 0.0, 400.0, 200.0).as_byte_slice(),
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             });
 
@@ -64,10 +71,10 @@ impl<AppData: 'static, Parent: Clone + 'static> super::Component<AppData, Parent
             "DimBorderBlur",
             Vec4::new(0.0, 0.0, self.border, self.blur).as_byte_slice(),
         );
-        let arcs = gen_uniform(driver, "Arcs", self.arcs.as_byte_slice());
+        let corners = gen_uniform(driver, "Corners", self.corners.as_byte_slice());
         let fill = gen_uniform(driver, "Fill", self.fill.as_byte_slice());
         let outline = gen_uniform(driver, "Outline", self.outline.as_byte_slice());
-        let buffers = [mvp, posdim, dimborderblur, arcs, fill, outline];
+        let buffers = [mvp, posdim, dimborderblur, corners, fill, outline];
         let bindings: Vec<wgpu::BindGroupEntry> = buffers
             .iter()
             .enumerate()
@@ -87,7 +94,7 @@ impl<AppData: 'static, Parent: Clone + 'static> super::Component<AppData, Parent
             props: (),
             imposed: self.props.clone(),
             children: Default::default(),
-            events: std::rc::Weak::<EventList<AppData>>::new(),
+            id: Rc::downgrade(&self.id),
             renderable: Some(Rc::new_cyclic(|this| crate::shaders::StandardPipeline {
                 this: this.clone(),
                 pipeline,

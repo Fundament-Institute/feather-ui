@@ -1,4 +1,4 @@
-use crate::component::Renderable;
+use crate::outline::Renderable;
 use crate::DriverState;
 use crate::RenderLambda;
 use std::borrow::Cow;
