@@ -9,7 +9,7 @@ use std::rc::Rc;
 use ultraviolet::Vec4;
 use wgpu::util::DeviceExt;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct RoundRect<Parent: Clone> {
     pub id: std::rc::Rc<SourceID>,
     pub props: Parent,
@@ -20,19 +20,21 @@ pub struct RoundRect<Parent: Clone> {
     pub outline: Vec4,
 }
 
-impl<AppData: 'static, Parent: Clone + 'static> super::Outline<AppData, Parent>
-    for RoundRect<Parent>
-{
+impl<Parent: Clone + 'static> super::Outline<Parent> for RoundRect<Parent> {
     fn id(&self) -> std::rc::Rc<SourceID> {
         self.id.clone()
     }
 
+    fn init_all(&self, _: &mut crate::StateManager) -> eyre::Result<()> {
+        Ok(())
+    }
+
     fn layout(
         &self,
-        state: &mut crate::StateManager,
+        _: &crate::StateManager,
         driver: &DriverState,
         config: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn Layout<Parent, AppData>> {
+    ) -> Box<dyn Layout<Parent>> {
         let round_rect = driver
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -90,7 +92,7 @@ impl<AppData: 'static, Parent: Clone + 'static> super::Outline<AppData, Parent>
             label: None,
         });
 
-        Box::new(layout::Node::<AppData, Empty, Parent> {
+        Box::new(layout::Node::<Empty, Parent> {
             props: (),
             imposed: self.props.clone(),
             children: Default::default(),

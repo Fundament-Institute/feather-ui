@@ -21,31 +21,27 @@ pub struct Basic {
     pub zindex: i32,
 }
 
-impl<AppData: 'static> Desc<AppData> for Basic {
+impl Desc for Basic {
     type Props = Basic;
     type Impose = Inherited;
-    type Children<A: DynClone + ?Sized> =
-        im::Vector<Option<Box<dyn Layout<Self::Impose, AppData>>>>;
+    type Children<A: DynClone + ?Sized> = im::Vector<Option<Box<dyn Layout<Self::Impose>>>>;
 
     fn stage<'a>(
         props: &Self::Props,
         area: AbsRect,
-        children: &Self::Children<dyn Layout<Self::Impose, AppData> + '_>,
+        children: &Self::Children<dyn Layout<Self::Impose> + '_>,
         id: std::rc::Weak<crate::SourceID>,
-        renderable: Option<Rc<dyn Renderable<AppData>>>,
+        renderable: Option<Rc<dyn Renderable>>,
         driver: &crate::DriverState,
-    ) -> Box<dyn Staged<AppData> + 'a>
-    where
-        AppData: 'a,
-    {
+    ) -> Box<dyn Staged + 'a> {
         let padding = props.padding * area;
         let area = AbsRect {
             topleft: area.topleft + padding.topleft,
             bottomright: (area.bottomright - padding.bottomright).into(),
         };
 
-        let mut staging: im::Vector<Option<Box<dyn Staged<AppData>>>> = im::Vector::new();
-        let mut nodes: im::Vector<Option<Rc<rtree::Node<AppData>>>> = im::Vector::new();
+        let mut staging: im::Vector<Option<Box<dyn Staged>>> = im::Vector::new();
+        let mut nodes: im::Vector<Option<Rc<rtree::Node>>> = im::Vector::new();
 
         for child in children.iter() {
             let props = child.as_ref().unwrap().get_imposed();

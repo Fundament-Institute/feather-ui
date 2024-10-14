@@ -1,7 +1,10 @@
+use feather_ui::gen_id;
 use feather_ui::layout::basic;
 use feather_ui::layout::basic::Basic;
 use feather_ui::layout::root;
+use feather_ui::outline::button;
 use feather_ui::outline::button::Button;
+use feather_ui::outline::mouse_area;
 use feather_ui::outline::region::Region;
 use feather_ui::outline::round_rect::RoundRect;
 use feather_ui::outline::text::Text;
@@ -10,9 +13,9 @@ use feather_ui::outline::OutlineFrom;
 use feather_ui::persist::FnPersist;
 use feather_ui::AbsRect;
 use feather_ui::App;
-use feather_ui::DriverState;
-use feather_ui::WindowCollection;
-use std::sync::Arc;
+use feather_ui::Slot;
+use feather_ui::SourceID;
+use std::rc::Rc;
 use ultraviolet::Vec4;
 
 #[derive(PartialEq, Clone, Debug)]
@@ -32,25 +35,23 @@ fn counter_decrement(st: CounterState) -> CounterState {
     }
 }
 
-struct BasicApp {
-    window: Arc<winit::window::Window>,
-    surface: Arc<wgpu::Surface<'static>>,
-}
+struct BasicApp {}
 
-impl FnPersist<CounterState, WindowCollection<CounterState>> for BasicApp {
-    type Store = (CounterState, WindowCollection<CounterState>);
+impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp {
+    type Store = (CounterState, im::HashMap<Rc<SourceID>, Option<Window>>);
 
     fn init(&self) -> Self::Store {
-        (CounterState { count: -1 }, WindowCollection::new())
+        (CounterState { count: -1 }, im::HashMap::new())
     }
     fn call(
         &self,
         mut store: Self::Store,
         args: &CounterState,
-    ) -> (Self::Store, WindowCollection<CounterState>) {
+    ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
         if store.0 != *args {
             let button = {
                 let rect = RoundRect::<basic::Inherited> {
+                    id: gen_id!().into(),
                     fill: Vec4::new(0.2, 0.7, 0.4, 1.0),
                     corners: Vec4::broadcast(10.0),
                     props: basic::Inherited {
@@ -61,6 +62,7 @@ impl FnPersist<CounterState, WindowCollection<CounterState>> for BasicApp {
                 };
 
                 let text = Text::<basic::Inherited> {
+                    id: gen_id!().into(),
                     props: basic::Inherited {
                         area: feather_ui::FILL_URECT,
                         margin: Default::default(),
@@ -71,51 +73,46 @@ impl FnPersist<CounterState, WindowCollection<CounterState>> for BasicApp {
                     ..Default::default()
                 };
 
-                let mut children: im::Vector<Option<Box<OutlineFrom<CounterState, Basic>>>> =
-                    im::Vector::new();
-                //children.push_back(Some(Box::new(rect)));
+                let mut children: im::Vector<Option<Box<OutlineFrom<Basic>>>> = im::Vector::new();
                 children.push_back(Some(Box::new(text)));
+                children.push_back(Some(Box::new(rect)));
 
-                let onclick = Box::new(|_, _, mut appdata: CounterState| {
-                    appdata.count += 1;
-                    Ok(appdata)
-                });
-                Button::<CounterState, basic::Inherited>::new(
+                Button::<basic::Inherited>::new(
+                    gen_id!(),
                     basic::Inherited {
                         area: feather_ui::FILL_URECT,
                         margin: Default::default(),
                     },
                     Default::default(),
-                    onclick,
+                    Slot(feather_ui::APP_SOURCE_ID.into(), 0),
                     children,
                 )
             };
 
-            let mut children: im::Vector<Option<Box<OutlineFrom<CounterState, Basic>>>> =
-                im::Vector::new();
+            let mut children: im::Vector<Option<Box<OutlineFrom<Basic>>>> = im::Vector::new();
             children.push_back(Some(Box::new(button)));
 
-            let region = Region::new(
-                root::Inherited {
-                    area: feather_ui::FILL_URECT,
+            let region = Region {
+                id: gen_id!().into(),
+                props: root::Inherited {
+                    area: AbsRect::new(0.0, 0.0, 800.0, 600.0).into(),
                 },
-                Basic {
+                basic: Basic {
                     padding: Default::default(),
                     zindex: 0,
                 },
                 children,
-            );
-            let window_id = self.window.id();
-            let window = Window::new::<CounterState>(
-                self.window.clone(),
-                self.surface.clone(),
+            };
+            let window = Window::new(
+                gen_id!(),
+                winit::window::Window::default_attributes()
+                    .with_title("basic-rs")
+                    .with_resizable(true),
                 Box::new(region),
-                self.driver.clone(),
-            )
-            .unwrap();
+            );
 
-            store.1 = WindowCollection::new();
-            store.1.insert(window_id, window);
+            store.1 = im::HashMap::new();
+            store.1.insert(window.id.clone(), Some(window));
             store.0 = args.clone();
         }
         let windows = store.1.clone();
@@ -123,41 +120,25 @@ impl FnPersist<CounterState, WindowCollection<CounterState>> for BasicApp {
     }
 }
 
+use feather_ui::WrapEventEx;
+
 fn main() {
+    let onclick = Box::new(
+        |_: mouse_area::MouseAreaEvent,
+         mut appdata: CounterState|
+         -> Result<CounterState, CounterState> {
+            {
+                appdata.count += 1;
+                Ok(appdata)
+            }
+        }
+        .wrap(),
+    );
+
     let (mut app, event_loop): (
         App<CounterState, BasicApp>,
         winit::event_loop::EventLoop<()>,
-    ) = App::new(
-        CounterState { count: 0 },
-        move |app: &mut App<CounterState, BasicApp>,
-              event_loop: &winit::event_loop::ActiveEventLoop| {
-            let window = Arc::new(
-                event_loop
-                    .create_window(
-                        winit::window::Window::default_attributes()
-                            .with_title("basic-rs")
-                            .with_resizable(true),
-                    )
-                    .unwrap(),
-            );
-
-            let surface = Arc::new(app.instance.create_surface(window.clone()).unwrap());
-
-            let driver = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .unwrap()
-                .block_on(app.create_driver(&surface))
-                .unwrap();
-
-            BasicApp {
-                window,
-                surface,
-                driver,
-            }
-        },
-    )
-    .unwrap();
+    ) = App::new(CounterState { count: 0 }, vec![onclick], BasicApp {}).unwrap();
 
     event_loop.run_app(&mut app).unwrap();
 }

@@ -14,22 +14,19 @@ use std::rc::Rc;
 #[derive(Clone, Default)]
 pub struct Empty {}
 
-impl<AppData> Desc<AppData> for Empty {
+impl Desc for Empty {
     type Props = ();
     type Impose = ();
-    type Children<A: DynClone + ?Sized> = PhantomData<dyn Layout<Self::Impose, AppData>>;
+    type Children<A: DynClone + ?Sized> = PhantomData<dyn Layout<Self::Impose>>;
 
     fn stage<'a>(
         _: &Self::Props,
         area: AbsRect,
-        _: &Self::Children<dyn Layout<Self::Impose, AppData> + '_>,
+        _: &Self::Children<dyn Layout<Self::Impose> + '_>,
         id: std::rc::Weak<SourceID>,
-        renderable: Option<Rc<dyn Renderable<AppData>>>,
+        renderable: Option<Rc<dyn Renderable>>,
         driver: &crate::DriverState,
-    ) -> Box<dyn Staged<AppData> + 'a>
-    where
-        AppData: 'a,
-    {
+    ) -> Box<dyn Staged + 'a> {
         // While we have no children or layouts, outlines using None often render things or handle events
         Box::new(Concrete {
             area,
