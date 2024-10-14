@@ -65,6 +65,7 @@ impl Node {
         event: &RawEvent,
         kind: RawEventKind,
         mut pos: Vec2,
+        mut offset: Vec2,
         manager: &mut StateManager,
     ) -> Result<(), ()> {
         if self.area.contains(pos) {
@@ -77,7 +78,7 @@ impl Node {
                                 .process(
                                     event.clone().extract(),
                                     &crate::Slot(id.clone(), i as u64),
-                                    self.area,
+                                    self.area + offset,
                                 )
                                 .is_ok()
                             {
@@ -88,13 +89,14 @@ impl Node {
                 }
             }
 
+            offset += self.area.topleft;
             pos -= self.area.topleft;
             // Children should be sorted from top to bottom
             for child in self.children.iter() {
                 if child
                     .as_ref()
                     .unwrap()
-                    .process(event, kind, pos, manager)
+                    .process(event, kind, pos, offset, manager)
                     .is_ok()
                 {
                     return Ok(());
@@ -105,15 +107,21 @@ impl Node {
     }
     pub fn on_event(&self, event: &RawEvent, manager: &mut StateManager) -> Result<(), ()> {
         match event {
-            RawEvent::Mouse { pos, .. } => self.process(event, RawEventKind::Mouse, *pos, manager),
+            RawEvent::Mouse { pos, .. } => {
+                self.process(event, RawEventKind::Mouse, *pos, Vec2::zero(), manager)
+            }
             RawEvent::MouseMove { pos, .. } => {
-                self.process(event, RawEventKind::MouseMove, *pos, manager)
+                self.process(event, RawEventKind::MouseMove, *pos, Vec2::zero(), manager)
             }
-            RawEvent::MouseScroll { pos, .. } => {
-                self.process(event, RawEventKind::MouseScroll, *pos, manager)
-            }
+            RawEvent::MouseScroll { pos, .. } => self.process(
+                event,
+                RawEventKind::MouseScroll,
+                *pos,
+                Vec2::zero(),
+                manager,
+            ),
             RawEvent::Touch { pos, .. } => {
-                self.process(event, RawEventKind::Touch, pos.xy(), manager)
+                self.process(event, RawEventKind::Touch, pos.xy(), Vec2::zero(), manager)
             }
             _ => Err(()),
         }

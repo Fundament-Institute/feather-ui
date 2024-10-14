@@ -6,6 +6,7 @@ use super::Staged;
 use crate::rtree;
 use crate::AbsRect;
 use crate::URect;
+use crate::Vec2;
 use dyn_clone::DynClone;
 use std::rc::Rc;
 
@@ -28,16 +29,20 @@ impl Desc for Basic {
 
     fn stage<'a>(
         props: &Self::Props,
-        area: AbsRect,
+        true_area: AbsRect,
+        parent_pos: Vec2,
         children: &Self::Children<dyn Layout<Self::Impose> + '_>,
         id: std::rc::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
         driver: &crate::DriverState,
     ) -> Box<dyn Staged + 'a> {
-        let padding = props.padding * area;
-        let area = AbsRect {
-            topleft: area.topleft + padding.topleft,
-            bottomright: (area.bottomright - padding.bottomright).into(),
+        // Calculate area for children
+        let inner_area = {
+            let dim = crate::AbsDim(true_area.bottomright - true_area.topleft);
+            AbsRect {
+                topleft: true_area.topleft + (props.padding.topleft * dim),
+                bottomright: (true_area.bottomright - (props.padding.bottomright * dim)).into(),
+            }
         };
 
         let mut staging: im::Vector<Option<Box<dyn Staged>>> = im::Vector::new();
@@ -45,14 +50,17 @@ impl Desc for Basic {
 
         for child in children.iter() {
             let props = child.as_ref().unwrap().get_imposed();
-            let margin = props.margin * area;
-            let inner = props.area * area;
+            let dim = crate::AbsDim(inner_area.bottomright - inner_area.topleft);
+            let area = props.area * inner_area;
             let result = AbsRect {
-                topleft: inner.topleft + margin.topleft,
-                bottomright: (inner.bottomright - margin.bottomright).into(),
+                topleft: area.topleft + (props.margin.topleft * dim),
+                bottomright: (area.bottomright - (props.margin.bottomright * dim)).into(),
             };
 
-            let stage = child.as_ref().unwrap().stage(result, driver);
+            let stage = child
+                .as_ref()
+                .unwrap()
+                .stage(result, true_area.topleft, driver);
             if let Some(node) = stage.get_rtree().upgrade() {
                 nodes.push_back(Some(node));
             }
@@ -62,11 +70,16 @@ impl Desc for Basic {
         // Our area does not change based on child sizes, so we have no bottom-up resolution step to do here
 
         Box::new(Concrete {
-            area,
+            area: true_area - parent_pos,
             render: renderable
-                .map(|x| x.render(area, driver))
+                .map(|x| x.render(true_area, driver))
                 .unwrap_or_default(),
-            rtree: Rc::new(rtree::Node::new(area, Some(props.zindex), nodes, id)),
+            rtree: Rc::new(rtree::Node::new(
+                true_area - parent_pos,
+                Some(props.zindex),
+                nodes,
+                id,
+            )),
             children: staging,
         })
     }

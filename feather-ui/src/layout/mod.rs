@@ -4,6 +4,7 @@ pub mod empty;
 pub mod root;
 
 use dyn_clone::DynClone;
+use ultraviolet::Vec2;
 
 use crate::outline::Renderable;
 use crate::persist::FnPersist2;
@@ -18,7 +19,12 @@ use std::rc::{Rc, Weak};
 
 pub trait Layout<Imposed: Clone>: DynClone {
     fn get_imposed(&self) -> &Imposed;
-    fn stage<'a>(&self, area: AbsRect, driver: &DriverState) -> Box<dyn Staged + 'a>;
+    fn stage<'a>(
+        &self,
+        area: AbsRect,
+        parent_pos: Vec2,
+        driver: &DriverState,
+    ) -> Box<dyn Staged + 'a>;
 }
 
 dyn_clone::clone_trait_object!(<Imposed> Layout<Imposed> where Imposed:Clone);
@@ -31,7 +37,8 @@ pub trait Desc {
     /// Resolves a pending layout into a resolved node, which contains a pointer to the R-tree
     fn stage<'a>(
         props: &Self::Props,
-        area: AbsRect,
+        true_area: AbsRect,
+        parent_pos: Vec2,
         children: &Self::Children<dyn Layout<Self::Impose> + '_>,
         id: std::rc::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
@@ -52,10 +59,16 @@ impl<D: Desc, Imposed: Clone> Layout<Imposed> for Node<D, Imposed> {
     fn get_imposed(&self) -> &Imposed {
         &self.imposed
     }
-    fn stage<'a>(&self, area: AbsRect, driver: &DriverState) -> Box<dyn Staged + 'a> {
+    fn stage<'a>(
+        &self,
+        area: AbsRect,
+        parent_pos: Vec2,
+        driver: &DriverState,
+    ) -> Box<dyn Staged + 'a> {
         D::stage(
             &self.props,
             area,
+            parent_pos,
             &self.children,
             self.id.clone(),
             self.renderable.as_ref().map(|x| x.clone()),

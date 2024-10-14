@@ -2,10 +2,13 @@ use super::Desc;
 use super::Layout;
 use super::Renderable;
 use super::Staged;
+use crate::layout::Concrete;
+use crate::rtree;
 use crate::AbsRect;
 use crate::URect;
 use dyn_clone::DynClone;
 use std::rc::Rc;
+use ultraviolet::Vec2;
 
 #[derive(Clone, Default)]
 pub struct Inherited {
@@ -16,7 +19,7 @@ pub struct Inherited {
 // into an absolute bounding volume. There can be multiple root nodes, each mapping to a different window.
 #[derive(Clone, Default)]
 pub struct Root {
-    pub area: AbsRect,
+    pub dim: crate::AbsDim,
 }
 
 impl Desc for Root {
@@ -27,12 +30,13 @@ impl Desc for Root {
     fn stage<'a>(
         props: &Self::Props,
         _: AbsRect,
+        _: Vec2,
         child: &Self::Children<dyn Layout<Self::Impose> + '_>,
         _: std::rc::Weak<crate::SourceID>,
         _: Option<Rc<dyn Renderable>>,
         driver: &crate::DriverState,
     ) -> Box<dyn Staged + 'a> {
-        // We bypass creating our own node here as our staging node would be redundant.
-        child.stage(child.get_imposed().area * props.area, driver)
+        // We bypass creating our own node here because we can never have a nonzero topleft corner, so our node would be redundant.
+        child.stage(child.get_imposed().area * props.dim, Vec2::zero(), driver)
     }
 }
