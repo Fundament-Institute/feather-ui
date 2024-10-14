@@ -1,8 +1,9 @@
 use crate::AbsRect;
 use crate::Dispatchable;
+use crate::Error;
 use enum_variant_type::EnumVariantType;
-use eyre::OptionExt;
 use std::any::Any;
+use std::any::TypeId;
 use ultraviolet::Vec2;
 use ultraviolet::Vec3;
 
@@ -137,7 +138,7 @@ pub enum RawEventKind {
 use crate::DispatchPair;
 
 impl Dispatchable for RawEvent {
-    fn restore(pair: DispatchPair) -> eyre::Result<Self> {
+    fn restore(pair: DispatchPair) -> Result<Self, Error> {
         const KIND_DRAW: u64 = RawEventKind::Draw as u64;
         const KIND_DROP: u64 = RawEventKind::Drop as u64;
         const KIND_FOCUS: u64 = RawEventKind::Focus as u64;
@@ -149,74 +150,76 @@ impl Dispatchable for RawEvent {
         const KIND_MOUSEMOVE: u64 = RawEventKind::MouseMove as u64;
         const KIND_MOUSESCROLL: u64 = RawEventKind::MouseScroll as u64;
         const KIND_TOUCH: u64 = RawEventKind::Touch as u64;
+        let type_id = pair.1.type_id();
+
         match pair.0 {
             KIND_DRAW => Ok(RawEvent::from(
-                *pair
-                    .1
-                    .downcast::<raw_event::Draw>()
-                    .map_err(|_| eyre::eyre!("enum object didn't match tag!"))?,
+                *pair.1.downcast::<raw_event::Draw>().map_err(|_| {
+                    Error::MismatchedEnumTag(pair.0, TypeId::of::<raw_event::Draw>(), type_id)
+                })?,
             )),
             KIND_DROP => Ok(RawEvent::from(
-                *pair
-                    .1
-                    .downcast::<raw_event::Drop>()
-                    .map_err(|_| eyre::eyre!("enum object didn't match tag!"))?,
+                *pair.1.downcast::<raw_event::Drop>().map_err(|_| {
+                    Error::MismatchedEnumTag(pair.0, TypeId::of::<raw_event::Drop>(), type_id)
+                })?,
             )),
             KIND_FOCUS => Ok(RawEvent::from(
-                *pair
-                    .1
-                    .downcast::<raw_event::Focus>()
-                    .map_err(|_| eyre::eyre!("enum object didn't match tag!"))?,
+                *pair.1.downcast::<raw_event::Focus>().map_err(|_| {
+                    Error::MismatchedEnumTag(pair.0, TypeId::of::<raw_event::Focus>(), type_id)
+                })?,
             )),
             KIND_JOYAXIS => Ok(RawEvent::from(
-                *pair
-                    .1
-                    .downcast::<raw_event::JoyAxis>()
-                    .map_err(|_| eyre::eyre!("enum object didn't match tag!"))?,
+                *pair.1.downcast::<raw_event::JoyAxis>().map_err(|_| {
+                    Error::MismatchedEnumTag(pair.0, TypeId::of::<raw_event::JoyAxis>(), type_id)
+                })?,
             )),
             KIND_JOYBUTTON => Ok(RawEvent::from(
-                *pair
-                    .1
-                    .downcast::<raw_event::JoyButton>()
-                    .map_err(|_| eyre::eyre!("enum object didn't match tag!"))?,
+                *pair.1.downcast::<raw_event::JoyButton>().map_err(|_| {
+                    Error::MismatchedEnumTag(pair.0, TypeId::of::<raw_event::JoyButton>(), type_id)
+                })?,
             )),
             KIND_JOYORIENTATION => Ok(RawEvent::from(
                 *pair
                     .1
                     .downcast::<raw_event::JoyOrientation>()
-                    .map_err(|_| eyre::eyre!("enum object didn't match tag!"))?,
+                    .map_err(|_| {
+                        Error::MismatchedEnumTag(
+                            pair.0,
+                            TypeId::of::<raw_event::JoyOrientation>(),
+                            type_id,
+                        )
+                    })?,
             )),
             KIND_KEY => Ok(RawEvent::from(
-                *pair
-                    .1
-                    .downcast::<raw_event::Key>()
-                    .map_err(|_| eyre::eyre!("enum object didn't match tag!"))?,
+                *pair.1.downcast::<raw_event::Key>().map_err(|_| {
+                    Error::MismatchedEnumTag(pair.0, TypeId::of::<raw_event::Key>(), type_id)
+                })?,
             )),
             KIND_MOUSE => Ok(RawEvent::from(
-                *pair
-                    .1
-                    .downcast::<raw_event::Mouse>()
-                    .map_err(|_| eyre::eyre!("enum object didn't match tag!"))?,
+                *pair.1.downcast::<raw_event::Mouse>().map_err(|_| {
+                    Error::MismatchedEnumTag(pair.0, TypeId::of::<raw_event::Mouse>(), type_id)
+                })?,
             )),
             KIND_MOUSEMOVE => Ok(RawEvent::from(
-                *pair
-                    .1
-                    .downcast::<raw_event::MouseMove>()
-                    .map_err(|_| eyre::eyre!("enum object didn't match tag!"))?,
+                *pair.1.downcast::<raw_event::MouseMove>().map_err(|_| {
+                    Error::MismatchedEnumTag(pair.0, TypeId::of::<raw_event::MouseMove>(), type_id)
+                })?,
             )),
             KIND_MOUSESCROLL => Ok(RawEvent::from(
-                *pair
-                    .1
-                    .downcast::<raw_event::MouseScroll>()
-                    .map_err(|_| eyre::eyre!("enum object didn't match tag!"))?,
+                *pair.1.downcast::<raw_event::MouseScroll>().map_err(|_| {
+                    Error::MismatchedEnumTag(
+                        pair.0,
+                        TypeId::of::<raw_event::MouseScroll>(),
+                        type_id,
+                    )
+                })?,
             )),
             KIND_TOUCH => Ok(RawEvent::from(
-                *pair
-                    .1
-                    .downcast::<raw_event::Touch>()
-                    .map_err(|_| eyre::eyre!("enum object didn't match tag!"))?,
+                *pair.1.downcast::<raw_event::Touch>().map_err(|_| {
+                    Error::MismatchedEnumTag(pair.0, TypeId::of::<raw_event::Touch>(), type_id)
+                })?,
             )),
-            _ => Err(eyre::eyre!("Invalid enum tag")),
+            _ => Err(Error::InvalidEnumTag(pair.0)),
         }
     }
 
@@ -226,47 +229,47 @@ impl Dispatchable for RawEvent {
         match self {
             RawEvent::Draw(_) => (
                 RawEventKind::Draw as u64,
-                Box::new(raw_event::Draw::try_from(self)),
+                Box::new(raw_event::Draw::try_from(self).unwrap()),
             ),
             RawEvent::Drop => (
                 RawEventKind::Drop as u64,
-                Box::new(raw_event::Drop::try_from(self)),
+                Box::new(raw_event::Drop::try_from(self).unwrap()),
             ),
             RawEvent::Focus { .. } => (
                 RawEventKind::Focus as u64,
-                Box::new(raw_event::Focus::try_from(self)),
+                Box::new(raw_event::Focus::try_from(self).unwrap()),
             ),
             RawEvent::JoyAxis { .. } => (
                 RawEventKind::JoyAxis as u64,
-                Box::new(raw_event::JoyAxis::try_from(self)),
+                Box::new(raw_event::JoyAxis::try_from(self).unwrap()),
             ),
             RawEvent::JoyButton { .. } => (
                 RawEventKind::JoyButton as u64,
-                Box::new(raw_event::JoyButton::try_from(self)),
+                Box::new(raw_event::JoyButton::try_from(self).unwrap()),
             ),
             RawEvent::JoyOrientation { .. } => (
                 RawEventKind::JoyOrientation as u64,
-                Box::new(raw_event::JoyOrientation::try_from(self)),
+                Box::new(raw_event::JoyOrientation::try_from(self).unwrap()),
             ),
             RawEvent::Key { .. } => (
                 RawEventKind::Key as u64,
-                Box::new(raw_event::Key::try_from(self)),
+                Box::new(raw_event::Key::try_from(self).unwrap()),
             ),
             RawEvent::Mouse { .. } => (
                 RawEventKind::Mouse as u64,
-                Box::new(raw_event::Mouse::try_from(self)),
+                Box::new(raw_event::Mouse::try_from(self).unwrap()),
             ),
             RawEvent::MouseMove { .. } => (
                 RawEventKind::MouseMove as u64,
-                Box::new(raw_event::MouseMove::try_from(self)),
+                Box::new(raw_event::MouseMove::try_from(self).unwrap()),
             ),
             RawEvent::MouseScroll { .. } => (
                 RawEventKind::MouseScroll as u64,
-                Box::new(raw_event::MouseScroll::try_from(self)),
+                Box::new(raw_event::MouseScroll::try_from(self).unwrap()),
             ),
             RawEvent::Touch { .. } => (
                 RawEventKind::Touch as u64,
-                Box::new(raw_event::Touch::try_from(self)),
+                Box::new(raw_event::Touch::try_from(self).unwrap()),
             ),
         }
     }

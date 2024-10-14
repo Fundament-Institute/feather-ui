@@ -11,26 +11,26 @@ use crate::StateManager;
 use eyre::Result;
 use ultraviolet::Vec2;
 
-pub struct Node<AppData> {
+pub struct Node {
     pub area: AbsRect, // This is the calculated area of the node from the layout relative to the topleft corner of the parent.
     pub extent: AbsRect, // This is the minimal bounding rectangle of the children's extent relative to OUR topleft corner.
     pub top: i32, // 2D R-tree nodes are actually 3 dimensional, but the z-axis can never overlap (because layout rects have no depth).
     pub bottom: i32,
     pub id: std::rc::Weak<SourceID>,
     //transform: Rotor2, // TODO: build a 3D node where this is a 3D rotor and project it back on to a 2D plane.
-    pub children: im::Vector<Option<Rc<Node<AppData>>>>,
+    pub children: im::Vector<Option<Rc<Node>>>,
 }
 
-impl<AppData> Node<AppData> {
+impl Node {
     pub fn new(
         area: AbsRect,
         z: Option<i32>,
-        children: im::Vector<Option<Rc<Node<AppData>>>>,
+        children: im::Vector<Option<Rc<Node>>>,
         id: std::rc::Weak<SourceID>,
     ) -> Self {
         let fold = VectorFold::new(
             |(rect, top, bottom): &(AbsRect, i32, i32),
-             n: &Option<Rc<Node<AppData>>>|
+             n: &Option<Rc<Node>>|
              -> (AbsRect, i32, i32) {
                 let n = n.as_ref().unwrap();
                 (
@@ -69,15 +69,20 @@ impl<AppData> Node<AppData> {
     ) -> Result<(), ()> {
         if self.area.contains(pos) {
             if let Some(id) = self.id.upgrade() {
-                let state = manager.get_trait(&id).map_err(|_| ())?;
-                let masks = state.input_masks();
-                for (i, k) in masks.iter().enumerate() {
-                    if (kind as u64 & *k) != 0 {
-                        if manager
-                            .process(event.clone().extract(), &crate::Slot(id.clone(), i as u64))
-                            .is_ok()
-                        {
-                            return Ok(());
+                if let Ok(state) = manager.get_trait(&id) {
+                    let masks = state.input_masks();
+                    for (i, k) in masks.iter().enumerate() {
+                        if (kind as u64 & *k) != 0 {
+                            if manager
+                                .process(
+                                    event.clone().extract(),
+                                    &crate::Slot(id.clone(), i as u64),
+                                    self.area,
+                                )
+                                .is_ok()
+                            {
+                                return Ok(());
+                            }
                         }
                     }
                 }

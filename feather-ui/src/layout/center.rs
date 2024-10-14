@@ -21,33 +21,27 @@ pub struct Center {
     pub zindex: i32,
 }
 
-impl<AppData: 'static> Desc<AppData> for Center {
+impl Desc for Center {
     type Props = Center;
     type Impose = Inherited;
-    type Children<A: DynClone + ?Sized> =
-        im::Vector<Option<Box<dyn Layout<Self::Impose, AppData>>>>;
+    type Children<A: DynClone + ?Sized> = im::Vector<Option<Box<dyn Layout<Self::Impose>>>>;
 
     fn stage<'a>(
         props: &Self::Props,
         area: AbsRect,
-        children: &Self::Children<dyn Layout<Self::Impose, AppData> + '_>,
+        children: &Self::Children<dyn Layout<Self::Impose> + '_>,
         id: std::rc::Weak<crate::SourceID>,
-        renderable: Option<Rc<dyn Renderable<AppData>>>,
+        renderable: Option<Rc<dyn Renderable>>,
         driver: &crate::DriverState,
-    ) -> Box<dyn Staged<AppData> + 'a>
-    where
-        AppData: 'a,
-    {
+    ) -> Box<dyn Staged + 'a> {
         let padding = props.padding * area;
         let area = AbsRect {
             topleft: area.topleft + padding.topleft,
             bottomright: (area.bottomright - padding.bottomright).into(),
         };
 
-        let mut inspect: im::Vector<(
-            &Box<dyn Layout<Self::Impose, AppData>>,
-            Box<dyn Staged<AppData>>,
-        )> = im::Vector::new();
+        let mut inspect: im::Vector<(&Box<dyn Layout<Self::Impose>>, Box<dyn Staged>)> =
+            im::Vector::new();
 
         // First we let the children calculate their own size using our entire padded area
         for child in children.iter() {
@@ -57,8 +51,8 @@ impl<AppData: 'static> Desc<AppData> for Center {
             ));
         }
 
-        let mut nodes: im::Vector<Option<Rc<rtree::Node<AppData>>>> = im::Vector::new();
-        let mut staging: im::Vector<Option<Box<dyn Staged<AppData>>>> = im::Vector::new();
+        let mut nodes: im::Vector<Option<Rc<rtree::Node>>> = im::Vector::new();
+        let mut staging: im::Vector<Option<Box<dyn Staged>>> = im::Vector::new();
 
         // Now we check to see if the child ended up centered or if we need to update again
         for child in inspect.into_iter() {

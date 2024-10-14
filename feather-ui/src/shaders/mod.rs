@@ -150,7 +150,7 @@ pub struct StandardPipeline {
     pub buffers: [wgpu::Buffer; 6],
 }
 
-impl<AppData> Renderable<AppData> for StandardPipeline {
+impl Renderable for StandardPipeline {
     fn render(
         &self,
         area: crate::AbsRect,

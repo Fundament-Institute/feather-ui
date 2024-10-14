@@ -33,3 +33,4 @@ mlua.workspace = true
 glyphon = "0.6.0"
 enum_variant_type = "0.3.1"
 smallvec = { version = "1.13", features = ["union", "const_generics"] }
+thiserror = "1.0"

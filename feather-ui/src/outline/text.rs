@@ -14,7 +14,7 @@ pub struct TextPipeline {
     pub text_buffer: RefCell<glyphon::Buffer>,
 }
 
-impl<AppData> Renderable<AppData> for TextPipeline {
+impl Renderable for TextPipeline {
     fn render(
         &self,
         area: crate::AbsRect,
@@ -90,17 +90,37 @@ pub struct Text<Parent: Clone> {
     pub style: glyphon::Style,
 }
 
-impl<AppData: 'static, Parent: Clone + 'static> super::Outline<AppData, Parent> for Text<Parent> {
+impl<Parent: Clone + Default> Default for Text<Parent> {
+    fn default() -> Self {
+        Self {
+            id: Default::default(),
+            props: Default::default(),
+            font_size: Default::default(),
+            line_height: Default::default(),
+            text: Default::default(),
+            font: glyphon::FamilyOwned::SansSerif,
+            color: glyphon::Color::rgba(255, 255, 255, 255),
+            weight: Default::default(),
+            style: Default::default(),
+        }
+    }
+}
+
+impl<Parent: Clone + 'static> super::Outline<Parent> for Text<Parent> {
     fn id(&self) -> std::rc::Rc<SourceID> {
         self.id.clone()
     }
 
+    fn init_all(&self, _: &mut crate::StateManager) -> eyre::Result<()> {
+        Ok(())
+    }
+
     fn layout(
         &self,
-        state: &mut crate::StateManager,
+        _: &crate::StateManager,
         driver: &DriverState,
         _: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn Layout<Parent, AppData>> {
+    ) -> Box<dyn Layout<Parent>> {
         let mut text_buffer = glyphon::Buffer::new(
             &mut driver.text.borrow_mut().font_system,
             glyphon::Metrics::new(self.font_size, self.line_height),
@@ -124,7 +144,7 @@ impl<AppData: 'static, Parent: Clone + 'static> super::Outline<AppData, Parent> 
             None,
         );
 
-        Box::new(layout::Node::<AppData, Empty, Parent> {
+        Box::new(layout::Node::<Empty, Parent> {
             props: (),
             imposed: self.props.clone(),
             children: Default::default(),

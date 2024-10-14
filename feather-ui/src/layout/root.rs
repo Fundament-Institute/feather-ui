@@ -3,7 +3,6 @@ use super::Layout;
 use super::Renderable;
 use super::Staged;
 use crate::AbsRect;
-use crate::Slot;
 use crate::URect;
 use dyn_clone::DynClone;
 use std::rc::Rc;
@@ -20,22 +19,19 @@ pub struct Root {
     pub area: AbsRect,
 }
 
-impl<AppData> Desc<AppData> for Root {
+impl Desc for Root {
     type Props = Root;
     type Impose = Inherited;
-    type Children<A: DynClone + ?Sized> = Box<dyn Layout<Self::Impose, AppData>>;
+    type Children<A: DynClone + ?Sized> = Box<dyn Layout<Self::Impose>>;
 
     fn stage<'a>(
         props: &Self::Props,
         _: AbsRect,
-        child: &Self::Children<dyn Layout<Self::Impose, AppData> + '_>,
+        child: &Self::Children<dyn Layout<Self::Impose> + '_>,
         _: std::rc::Weak<crate::SourceID>,
-        _: Option<Rc<dyn Renderable<AppData>>>,
+        _: Option<Rc<dyn Renderable>>,
         driver: &crate::DriverState,
-    ) -> Box<dyn Staged<AppData> + 'a>
-    where
-        AppData: 'a,
-    {
+    ) -> Box<dyn Staged + 'a> {
         // We bypass creating our own node here as our staging node would be redundant.
         child.stage(child.get_imposed().area * props.area, driver)
     }

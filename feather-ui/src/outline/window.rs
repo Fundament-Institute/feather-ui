@@ -6,6 +6,7 @@ use crate::input::MouseMoveState;
 use crate::input::MouseState;
 use crate::input::RawEvent;
 use crate::layout::root::Root;
+use crate::outline::StateMachineWrapper;
 use crate::rtree;
 use crate::DriverState;
 use crate::FnPersist;
@@ -14,7 +15,6 @@ use crate::SourceID;
 use crate::StateManager;
 use crate::{layout, AbsRect};
 use core::f32;
-use derive_where::derive_where;
 use eyre::OptionExt;
 use eyre::Result;
 use std::rc::Rc;
@@ -40,40 +40,75 @@ pub(crate) struct WindowState {
 
 pub(crate) type WindowStateMachine = StateMachine<(), WindowState, 0, 0>;
 
-#[derive_where(Clone)]
-pub struct Window<AppData: 'static + PartialEq> {
+#[derive(Clone)]
+pub struct Window {
     pub id: Rc<SourceID>,
     attributes: WindowAttributes,
-    child: Box<OutlineFrom<AppData, Root>>,
+    child: Box<OutlineFrom<Root>>,
 }
 
-impl<AppData: 'static + PartialEq> Outline<AppData, ()> for Window<AppData> {
+impl Outline<()> for Window {
     fn layout(
         &self,
-        _: &mut crate::StateManager,
+        manager: &crate::StateManager,
         _: &DriverState,
         _: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn crate::layout::Layout<(), AppData>> {
-        panic!("Cannot use normal layout function for top-level windows");
+    ) -> Box<dyn crate::layout::Layout<()>> {
+        let inner = manager
+            .get::<StateMachine<(), WindowState, 0, 0>>(&self.id)
+            .unwrap()
+            .state
+            .as_ref()
+            .unwrap();
+        let size = inner.window.inner_size();
+        let driver = inner.driver.clone();
+        let config = inner.config.clone();
+        Box::new(layout::Node::<Root, ()> {
+            props: Root {
+                area: AbsRect {
+                    topleft: Default::default(),
+                    bottomright: Vec2 {
+                        x: size.width as f32,
+                        y: size.height as f32,
+                    },
+                },
+            },
+            imposed: (),
+            children: self.child.layout(manager, &driver, &config),
+            id: Rc::downgrade(&self.id),
+            renderable: None,
+        })
     }
 
-    fn id(&self) -> std::rc::Rc<SourceID> {
+    fn init(&self) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error> {
+        Err(crate::Error::UnhandledEvent)
+    }
+
+    fn init_all(&self, _: &mut crate::StateManager) -> eyre::Result<()> {
+        Err(eyre::eyre!(
+            "Cannot use normal init_all function for top-level windows"
+        ))
+    }
+
+    fn id(&self) -> Rc<SourceID> {
         self.id.clone()
     }
 }
 
-impl<'a, AppData: 'static + PartialEq> Window<AppData> {
-    pub fn custom_layout<
-        O: FnPersist<AppData, im::HashMap<winit::window::WindowId, Option<Window<AppData>>>>,
+impl<'a> Window {
+    pub(crate) fn init_custom<
+        AppData: 'static + PartialEq,
+        O: FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>,
     >(
         &self,
         manager: &mut StateManager,
         driver: &mut std::sync::Weak<DriverState>,
         instance: &wgpu::Instance,
         event_loop: &ActiveEventLoop,
-    ) -> Result<Box<dyn crate::layout::Layout<(), AppData>>> {
-        let attributes = self.attributes.clone();
-        let state = manager.init(self.id(), move || -> Result<WindowStateMachine> {
+    ) -> Result<()> {
+        if let Err(_) = manager.get::<WindowStateMachine>(&self.id) {
+            let attributes = self.attributes.clone();
+
             let window = Arc::new(event_loop.create_window(attributes)?);
 
             let surface: wgpu::Surface<'static> = instance.create_surface(window.clone())?;
@@ -94,51 +129,35 @@ impl<'a, AppData: 'static + PartialEq> Window<AppData> {
             config.format = view_format;
             config.view_formats.push(view_format);
             surface.configure(&driver.device, &config);
+            let mut windowstate = WindowState {
+                modifiers: 0,
+                all_buttons: 0,
+                last_mouse: Vec2::new(f32::NAN, f32::NAN),
+                config,
+                surface,
+                window,
+                driver,
+                draw: im::Vector::new(),
+            };
 
-            Ok(StateMachine {
-                state: Some(WindowState {
-                    modifiers: 0,
-                    all_buttons: 0,
-                    last_mouse: Vec2::new(f32::NAN, f32::NAN),
-                    config,
-                    surface,
-                    window,
-                    driver,
-                    draw: im::Vector::new(),
+            Window::resize(size, &mut windowstate);
+            manager.init(
+                self.id.clone(),
+                Box::new(StateMachine::<(), WindowState, 0, 0> {
+                    state: Some(windowstate),
+                    input: [],
+                    output: [],
                 }),
-                input: [],
-                output: [],
-            })
-        })?;
+            );
+        }
 
-        let inner = state.state.as_ref().unwrap();
-        let size = inner.window.inner_size();
-        let driver = inner.driver.clone();
-        let config = inner.config.clone();
-        Ok(Box::new(layout::Node::<AppData, Root, ()> {
-            props: Root {
-                area: AbsRect {
-                    topleft: Default::default(),
-                    bottomright: Vec2 {
-                        x: size.width as f32,
-                        y: size.height as f32,
-                    },
-                },
-            },
-            imposed: (),
-            children: self.child.layout(manager, &driver, &config),
-            id: Rc::downgrade(&self.id),
-            renderable: None,
-        }))
+        manager.init_outline(self.child.as_ref())?;
+        Ok(())
     }
 
-    pub fn new<T: 'static>(
-        id: Rc<SourceID>,
-        attributes: WindowAttributes,
-        child: Box<OutlineFrom<AppData, Root>>,
-    ) -> Self {
+    pub fn new(id: SourceID, attributes: WindowAttributes, child: Box<OutlineFrom<Root>>) -> Self {
         Self {
-            id,
+            id: id.into(),
             attributes,
             child,
         }
@@ -160,13 +179,12 @@ impl<'a, AppData: 'static + PartialEq> Window<AppData> {
 
     pub fn on_window_event(
         id: Rc<SourceID>,
-        rtree: Weak<rtree::Node<AppData>>,
+        rtree: Weak<rtree::Node>,
         event: WindowEvent,
         manager: &mut StateManager,
     ) -> Result<(), ()> {
-        let state: &mut WindowStateMachine = manager.get(&id).map_err(|_| ())?;
+        let state: &mut WindowStateMachine = manager.get_mut(&id).map_err(|_| ())?;
         let window = state.state.as_mut().unwrap();
-        println!("mouse: {:?}", window.last_mouse);
         match event {
             WindowEvent::ModifiersChanged(m) => {
                 window.modifiers = if m.state().control_key() {
@@ -259,7 +277,7 @@ impl<'a, AppData: 'static + PartialEq> Window<AppData> {
                     WindowEvent::KeyboardInput {
                         device_id,
                         event,
-                        is_synthetic,
+                        is_synthetic: _,
                     } => RawEvent::Key {
                         device_id,
                         physical_key: event.physical_key,
@@ -394,18 +412,5 @@ impl<'a, AppData: 'static + PartialEq> Window<AppData> {
         }
 
         Err(())
-    }
-
-    pub fn render(
-        id: &SourceID,
-        root: &mut super::RootState<AppData>,
-        states: &mut StateManager,
-    ) -> eyre::Result<()> {
-        let state: &mut WindowStateMachine = states.get(id)?;
-        if let Some(staging) = root.staging.as_ref() {
-            state.state.as_mut().unwrap().draw = staging.render();
-        }
-
-        Ok(())
     }
 }
