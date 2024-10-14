@@ -6,6 +6,7 @@ use super::Staged;
 use crate::rtree;
 use crate::AbsRect;
 use crate::SourceID;
+use crate::Vec2;
 use dyn_clone::DynClone;
 use std::marker::PhantomData;
 use std::rc::Rc;
@@ -21,7 +22,8 @@ impl Desc for Empty {
 
     fn stage<'a>(
         _: &Self::Props,
-        area: AbsRect,
+        true_area: AbsRect,
+        parent_pos: Vec2,
         _: &Self::Children<dyn Layout<Self::Impose> + '_>,
         id: std::rc::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
@@ -29,11 +31,16 @@ impl Desc for Empty {
     ) -> Box<dyn Staged + 'a> {
         // While we have no children or layouts, outlines using None often render things or handle events
         Box::new(Concrete {
-            area,
+            area: true_area - parent_pos,
             render: renderable
-                .map(|x| x.render(area, driver))
+                .map(|x| x.render(true_area, driver))
                 .unwrap_or_default(),
-            rtree: Rc::new(rtree::Node::new(area, None, Default::default(), id)),
+            rtree: Rc::new(rtree::Node::new(
+                true_area - parent_pos,
+                None,
+                Default::default(),
+                id,
+            )),
             children: Default::default(),
         })
     }

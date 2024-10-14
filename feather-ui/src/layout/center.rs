@@ -7,6 +7,7 @@ use crate::rtree;
 use crate::AbsRect;
 use crate::UPoint;
 use crate::URect;
+use crate::Vec2;
 use dyn_clone::DynClone;
 use std::rc::Rc;
 
@@ -28,16 +29,19 @@ impl Desc for Center {
 
     fn stage<'a>(
         props: &Self::Props,
-        area: AbsRect,
+        true_area: AbsRect,
+        parent_pos: Vec2,
         children: &Self::Children<dyn Layout<Self::Impose> + '_>,
         id: std::rc::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
         driver: &crate::DriverState,
     ) -> Box<dyn Staged + 'a> {
-        let padding = props.padding * area;
-        let area = AbsRect {
-            topleft: area.topleft + padding.topleft,
-            bottomright: (area.bottomright - padding.bottomright).into(),
+        let inner_area = {
+            let dim = crate::AbsDim(true_area.bottomright - true_area.topleft);
+            AbsRect {
+                topleft: true_area.topleft + (props.padding.topleft * dim),
+                bottomright: (true_area.bottomright - (props.padding.bottomright * dim)).into(),
+            }
         };
 
         let mut inspect: im::Vector<(&Box<dyn Layout<Self::Impose>>, Box<dyn Staged>)> =
@@ -47,7 +51,10 @@ impl Desc for Center {
         for child in children.iter() {
             inspect.push_back((
                 child.as_ref().unwrap(),
-                child.as_ref().unwrap().stage(area, driver),
+                child
+                    .as_ref()
+                    .unwrap()
+                    .stage(inner_area, true_area.topleft, driver),
             ));
         }
 
@@ -57,9 +64,9 @@ impl Desc for Center {
         // Now we check to see if the child ended up centered or if we need to update again
         for child in inspect.into_iter() {
             let props = child.0.get_imposed();
-            let target = props.center * area;
-            let childarea = child.1.get_area();
-            let center = childarea.topleft + ((childarea.bottomright - childarea.topleft) / 2.0f32);
+            let target = props.center * inner_area;
+            let area = child.1.get_area();
+            let center = area.topleft + ((area.bottomright - area.topleft) / 2.0f32);
             let diff = center - target;
             if diff.x < std::f32::EPSILON && diff.y < std::f32::EPSILON {
                 if let Some(node) = child.1.get_rtree().upgrade() {
@@ -67,8 +74,8 @@ impl Desc for Center {
                 }
                 staging.push_back(Some(child.1));
             } else {
-                let targetarea = childarea + diff;
-                let stage = child.0.stage(targetarea, driver);
+                let targetarea = area + diff;
+                let stage = child.0.stage(targetarea, true_area.topleft, driver);
                 if let Some(node) = stage.get_rtree().upgrade() {
                     nodes.push_back(Some(node));
                 }
@@ -77,11 +84,16 @@ impl Desc for Center {
         }
 
         Box::new(Concrete {
-            area,
+            area: true_area - parent_pos,
             render: renderable
-                .map(|x| x.render(area, driver))
+                .map(|x| x.render(true_area, driver))
                 .unwrap_or_default(),
-            rtree: Rc::new(rtree::Node::new(area, Some(props.zindex), nodes, id)),
+            rtree: Rc::new(rtree::Node::new(
+                true_area - parent_pos,
+                Some(props.zindex),
+                nodes,
+                id,
+            )),
             children: staging,
         })
     }

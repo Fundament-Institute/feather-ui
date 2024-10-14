@@ -95,7 +95,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
             let region = Region {
                 id: gen_id!().into(),
                 props: root::Inherited {
-                    area: AbsRect::new(0.0, 0.0, 800.0, 600.0).into(),
+                    area: AbsRect::new(90.0, 90.0, 400.0, 200.0).into(),
                 },
                 basic: Basic {
                     padding: Default::default(),

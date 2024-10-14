@@ -258,6 +258,17 @@ impl Mul<AbsRect> for URect {
     }
 }
 
+impl Mul<AbsDim> for URect {
+    type Output = AbsRect;
+
+    fn mul(self, rhs: AbsDim) -> Self::Output {
+        AbsRect {
+            topleft: self.topleft * rhs,
+            bottomright: self.bottomright * rhs,
+        }
+    }
+}
+
 impl From<AbsRect> for URect {
     fn from(value: AbsRect) -> Self {
         Self {
@@ -779,6 +790,7 @@ impl<
 
             if let Some(window) = self.root.children.get(&root.id) {
                 let window = window.as_ref().unwrap();
+                let mut resized = false;
                 let _ = match event {
                     winit::event::WindowEvent::CloseRequested => {
                         Window::on_window_event(window.id(), rtree, event, &mut self.state)
@@ -794,12 +806,16 @@ impl<
                         }
                         Window::on_window_event(window.id(), rtree, event, &mut self.state)
                     }
+                    winit::event::WindowEvent::Resized(_) => {
+                        resized = true;
+                        Window::on_window_event(window.id(), rtree, event, &mut self.state)
+                    }
                     _ => Window::on_window_event(window.id(), rtree, event, &mut self.state),
                 };
 
                 let app_state: &mut AppDataMachine<AppData> =
                     self.state.get_mut(&APP_SOURCE_ID).unwrap();
-                if app_state.changed {
+                if app_state.changed || resized {
                     app_state.changed = false;
                     let store = self.store.take().unwrap();
                     self.update_outline(event_loop, store);

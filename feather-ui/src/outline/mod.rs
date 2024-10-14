@@ -203,8 +203,11 @@ impl Root {
                 .get_mut(&id)
                 .ok_or_eyre("Couldn't find window state")?;
             if let Some(layout) = root.layout_tree.as_ref() {
-                let staging =
-                    layout.stage(Default::default(), &state.state.as_ref().unwrap().driver);
+                let staging = layout.stage(
+                    Default::default(),
+                    Default::default(),
+                    &state.state.as_ref().unwrap().driver,
+                );
                 root.rtree = staging.get_rtree();
                 root.staging = Some(staging);
                 state.state.as_ref().unwrap().window.request_redraw();

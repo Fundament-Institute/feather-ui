@@ -65,13 +65,10 @@ impl Outline<()> for Window {
         let config = inner.config.clone();
         Box::new(layout::Node::<Root, ()> {
             props: Root {
-                area: AbsRect {
-                    topleft: Default::default(),
-                    bottomright: Vec2 {
-                        x: size.width as f32,
-                        y: size.height as f32,
-                    },
-                },
+                dim: crate::AbsDim(Vec2 {
+                    x: size.width as f32,
+                    y: size.height as f32,
+                }),
             },
             imposed: (),
             children: self.child.layout(manager, &driver, &config),
