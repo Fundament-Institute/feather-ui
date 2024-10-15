@@ -687,7 +687,7 @@ let func-to-host-func-inner =
 						conv_args:append(terms.value.host_value(args[i]))
 					end
 					local res = evaluator.apply_value(afn, terms.value.tuple_value(conv_args))
-					if not res:is_host_value() then
+					if not res:is_tuple_value() then
 						error "alicorn function converted to native function has failed to create a real value"
 					end
 					local elems = {}
@@ -1772,7 +1772,7 @@ let create-round-rect =
 		let (res) = create-round-rect-bind(id, area, color, radius, border, bordercolor)
 		res
 
-let windowsig = host-func-type (store : host-unit, appstate : host-unit) -> ((window : Component))
+let windowsig = host-func-type (store : host-unit, appstate : host-unit) -> (store : host-unit, window : Component)
 let initsig = host-func-type () -> ((res : host-unit))
 let onclicksig = host-func-type (dispatch : host-unit, state : host-unit) -> ((result : host-unit))
 
@@ -1784,10 +1784,10 @@ let uidesc = tuple-desc(
 let windowmaker = lambda (store : host-unit, appstate : host-unit)
 	let urect = create-urect(0.0, 0.0, 1280.0, 720.0, 0.0, 0.0, 1280.0, 720.0)
 	let components = host-array-new(Component)
-	let components = host-array-set(components, 1, create-label(create-id("hello-label"), urect, "Hello World!"))
+	let components = host-array-set(components, 1, create-label(create-id("hello-label"), urect, "Hello World, from alicorn in feather!"))
 	let region = create-region(create-id("main-region"), urect, components)
-	let window = create-window(create-id("main-window"), "Hello World!", region)
-	tuple-of-implicit window
+	let window = create-window(create-id("main-window"), "Hello World, from alicorn in feather!", region)
+	tuple-of-implicit store window
 
 let init = lambda ()
 	tuple-of-implicit host-nil
