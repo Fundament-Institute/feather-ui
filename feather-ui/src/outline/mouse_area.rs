@@ -102,12 +102,12 @@ pub struct MouseArea<Parent: Clone> {
 }
 
 impl<Parent: Clone + 'static> MouseArea<Parent> {
-    pub fn new(id: SourceID, props: Parent, slots: [Option<Slot>; MouseAreaEvent::SIZE]) -> Self {
-        Self {
-            id: id.into(),
-            props,
-            slots,
-        }
+    pub fn new(
+        id: Rc<SourceID>,
+        props: Parent,
+        slots: [Option<Slot>; MouseAreaEvent::SIZE],
+    ) -> Self {
+        Self { id, props, slots }
     }
 }
 impl<Parent: Clone + 'static> super::Outline<Parent> for MouseArea<Parent> {

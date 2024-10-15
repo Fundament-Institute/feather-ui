@@ -5,15 +5,14 @@ use crate::input::ModifierKeys;
 use crate::input::MouseMoveState;
 use crate::input::MouseState;
 use crate::input::RawEvent;
+use crate::layout;
 use crate::layout::root::Root;
-use crate::outline::StateMachineWrapper;
 use crate::rtree;
 use crate::DriverState;
 use crate::FnPersist;
 use crate::RenderInstruction;
 use crate::SourceID;
 use crate::StateManager;
-use crate::{layout, AbsRect};
 use core::f32;
 use eyre::OptionExt;
 use eyre::Result;
@@ -152,9 +151,13 @@ impl<'a> Window {
         Ok(())
     }
 
-    pub fn new(id: SourceID, attributes: WindowAttributes, child: Box<OutlineFrom<Root>>) -> Self {
+    pub fn new(
+        id: Rc<SourceID>,
+        attributes: WindowAttributes,
+        child: Box<OutlineFrom<Root>>,
+    ) -> Self {
         Self {
-            id: id.into(),
+            id,
             attributes,
             child,
         }

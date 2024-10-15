@@ -1,0 +1,26 @@
+[package]
+name = "basic-alc"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors = ["Erik McClure  "]
+description = """
+Basic feather window using Alicorn
+"""
+homepage.workspace = true
+readme.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "basic-alc"
+path = "main.rs"
+
+[dependencies]
+wgpu.workspace = true
+winit.workspace = true
+tokio.workspace = true
+feather-ui.workspace = true
+ultraviolet.workspace = true
+im.workspace = true
+alicorn.workspace = true
+mlua.workspace = true

@@ -21,13 +21,12 @@ pub struct Button<Parent: Clone> {
 
 impl<Parent: Clone> Button<Parent> {
     pub fn new(
-        id: SourceID,
+        id: Rc<SourceID>,
         props: Parent,
         basic: Basic,
         onclick: Slot,
         children: im::Vector<Option<Box<OutlineFrom<Basic>>>>,
     ) -> Self {
-        let id = Rc::new(id);
         Self {
             id: id.clone(),
             props,
@@ -36,7 +35,8 @@ impl<Parent: Clone> Button<Parent> {
                 SourceID {
                     parent: Rc::downgrade(&id),
                     id: crate::DataID::Named("__marea_internal__"),
-                },
+                }
+                .into(),
                 basic::Inherited {
                     margin: Default::default(),
                     area: crate::FILL_URECT,

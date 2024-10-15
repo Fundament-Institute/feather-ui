@@ -1,7 +1,7 @@
 pub mod input;
 pub mod layout;
+pub mod lua;
 pub mod outline;
-//mod lua;
 pub mod persist;
 mod rtree;
 mod shaders;
@@ -9,7 +9,6 @@ mod shaders;
 use crate::outline::window::Window;
 use dyn_clone::DynClone;
 use eyre::OptionExt;
-use glyphon::fontdb::Source;
 use outline::window::WindowStateMachine;
 use outline::Outline;
 use outline::StateMachineWrapper;
@@ -344,6 +343,7 @@ impl<H: std::hash::Hash + std::cmp::PartialEq + std::cmp::Eq + 'static + Clone> 
 #[derive(Clone)]
 pub enum DataID {
     Named(&'static str),
+    Owned(String),
     Int(i64),
     Other(Box<dyn DynHashEq>),
     None, // Marks an invalid default ID, crashes if you ever try to actually use it.
@@ -359,6 +359,7 @@ impl std::hash::Hash for DataID {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match self {
             DataID::Named(s) => s.hash(state),
+            DataID::Owned(s) => s.hash(state),
             DataID::Int(i) => i.hash(state),
             DataID::Other(hash_comparable) => hash_comparable.dyn_hash(state),
             DataID::None => {
@@ -374,6 +375,13 @@ impl std::cmp::PartialEq for DataID {
         match self {
             DataID::Named(s) => {
                 if let DataID::Named(name) = other {
+                    name == s
+                } else {
+                    false
+                }
+            }
+            DataID::Owned(s) => {
+                if let DataID::Owned(name) = other {
                     name == s
                 } else {
                     false
@@ -463,7 +471,7 @@ where
     }
 }
 
-type DispatchPair = (u64, Box<dyn Any>);
+pub type DispatchPair = (u64, Box<dyn Any>);
 
 pub trait Dispatchable
 where
