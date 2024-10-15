@@ -674,9 +674,10 @@ let host-func-type-to-func-type =
 
 host-func-type-to-func-type foo host-nil
 
-let func-to-host-func =
+let func-to-host-func-inner =
 	intrinsic
 		""""
+			local tunpack = unpack or table.unpack
 			return function(_type, _valid, afn)
 				return function(...)
 					local args = {...}
@@ -689,14 +690,20 @@ let func-to-host-func =
 					if not res:is_host_value() then
 						error "alicorn function converted to native function has failed to create a real value"
 					end
-					return res:unwrap_host_value()
+					local elems = {}
+					for i, v in res:unwrap_tuple_value():ipairs() do
+						elems[i] = v:unwrap_host_value()
+					end
+					return tunpack(elems)
 				end
 			end
 		:
 		host-func-type (T : wrapped(host-type), valid : only-accept-host-funcs(T), fn : wrapped(host-func-type-to-func-type(unwrap(T), valid))) -> ((res-fn : unwrap(T)))
 
-
-
+let func-to-host-func =
+	lambda (T : host-type, valid : only-accept-host-funcs(wrap(T)), fn : host-func-type-to-func-type(T, valid))
+		let (res) = func-to-host-func-inner(wrap(T), valid, wrap(fn))
+		res #TODO figure out why `unwrap(res) here doesn't make a nice type error but fails
 
 
 let host-if-type = forall (subject : host-bool, consequent : host-type, alternate : host-type) -> (T : host-type)
@@ -798,7 +805,7 @@ let tuple-desc-elem-implicit = lambda_curry ((U : universe))
 let tuple-of = lambda (U : universe, desc : tuple-desc-type(U))
 	lambda_single (t : tuple-type(desc))
 		t
-let host-tuple-of = lambda (U : universe, desc : tuple-desc-type(U))
+let host-tuple-of = lambda (desc : tuple-desc-type(host-type))
 	intrinsic "return function(...) return ... end" :
 		host-func-type (t : host-tuple-type(desc)) -> (t : host-tuple-type(desc))
 let tuple-desc-singleton = lambda (U : universe, T : U)
@@ -1065,7 +1072,7 @@ let host-matcher-reducible = lambda (
 	let red-param-desc = tuple-desc-concat(host-type, accept-handler-desc, storage)
 	let red-result-desc = tuple-desc-singleton(host-type, host-matcher(userdata, result))
 
-	let accept-handler-tuple = host-tuple-of(host-type, accept-handler-desc)(accept-handler)
+	let accept-handler-tuple = host-tuple-of(accept-handler-desc)(accept-handler)
 	let red-param = host-tuple-concat(host-type, accept-handler-desc, storage, accept-handler-tuple, s)
 
 	# look ma, no intrinsics!
@@ -1369,7 +1376,7 @@ let do-impl = lambda (syn : host-syntax, env : host-environment, ud : host-unit,
 	let (shadowed, inner_env) = enter-block(env)
 
 	let (args) = expression-args-new(goal-infer, inner_env)
-	let s = host-tuple-of(host-type, block-reducer-storage-desc)(args)
+	let s = host-tuple-of(block-reducer-storage-desc)(args)
 
 	let matcher-t = host-matcher(host-unit, block-match-result-desc(goal-infer))
 	let matcher =
@@ -1475,7 +1482,7 @@ let tupleof-ascribed-names-match-failure-handler = intrinsic "return metalanguag
 let tuple-desc-impl-type = operative-handler-type(host-unit)
 
 let tuple-desc-impl = lambda (syn : host-syntax, env : host-environment, ud : host-unit, goal : host-goal)
-	let s = host-tuple-of(host-type, tupleof-ascribed-names-reducer-storage-desc)(env)
+	let s = host-tuple-of(tupleof-ascribed-names-reducer-storage-desc)(env)
 
 	let matcher-t = host-matcher(host-unit, tupleof-ascribed-names-match-result-desc)
 	let matcher =
@@ -1513,9 +1520,9 @@ let tuple-desc-impl = lambda (syn : host-syntax, env : host-environment, ud : ho
 	tuple-of(host-type, operative-result-desc(goal))(args, env)
 
 #let (tuple-desc-op-type, tuple-desc-op) = new-operative(host-unit, host-nil, tuple-desc-impl)
-let tuple-desc-op = into-operative(host-unit, host-nil, tuple-desc-impl)
+let tuple-desc = into-operative(host-unit, host-nil, tuple-desc-impl)
 
-let my-tuple-desc = tuple-desc-op(x : host-number, y : host-number)
+let my-tuple-desc = tuple-desc(x : host-number, y : host-number)
 let my-tuple-type = tuple-type-explicit(type_(0, 0), my-tuple-desc)
 my-tuple-type
 
@@ -1624,47 +1631,36 @@ let listtail-reducer =
 					reducer-type((tuple-desc-empty host-type), result)
 
 
+let string = host-string
+
+#	---@alias URect userdata
+let URect = new-host-type(new-host-unique-id("URect"))
+
+#	---@alias Component userdata
+let Component = new-host-type(new-host-unique-id("Component"))
+
+#	---@alias EventHandler userdata
+let EventHandler = new-host-type(new-host-unique-id("EventHandler"))
+
+let FeatherID = new-host-type(new-host-unique-id("FeatherID"))
+
 ####
-	#	---@alias URect userdata
-	let URect = new-host-type(new-host-unique-id("URect"))
-
-	#	---@alias Component userdata
-	let Component = new-host-type(new-host-unique-id("Component"))
-
-	#	---@alias EventHandler userdata
-	let EventHandler = new-host-type(new-host-unique-id("EventHandler"))
-
-	####
-		---@param left number
-		---@param top number
-		---@param right number
-		---@param bottom number
-		---@param rel_left number
-		---@param rel_top number
-		---@param rel_right number
-		---@param rel_bottom number
-		---@return URect
-		function create_urect(left, top, right, bottom, rel_left, rel_top, rel_right, rel_bottom)
-		end
-	let create-urect-bind =
-		intrinsic
-			"return create_urect"
-			:
-			host-func-type
-				(
-					left : host-number,
-					top : host-number,
-					right : host-number,
-					bottom : host-number,
-					rel_left : host-number,
-					rel_top : host-number,
-					rel_right : host-number,
-					rel_bottom : host-number
-				)
-				->
-				((res : URect))
-	let create-urect =
-		lambda
+	---@param left number
+	---@param top number
+	---@param right number
+	---@param bottom number
+	---@param rel_left number
+	---@param rel_top number
+	---@param rel_right number
+	---@param rel_bottom number
+	---@return URect
+	function create_urect(left, top, right, bottom, rel_left, rel_top, rel_right, rel_bottom)
+	end
+let create-urect-bind =
+	intrinsic
+		"return create_urect"
+		:
+		host-func-type
 			(
 				left : host-number,
 				top : host-number,
@@ -1675,82 +1671,143 @@ let listtail-reducer =
 				rel_right : host-number,
 				rel_bottom : host-number
 			)
-			let (res) = create-urect-bind(left, top, right, bottom, rel_left, rel_top, rel_right, rel_bottom)
-			res
-	####
-		---@param name string
-		---@param child Component
-		---@return Component
-		function create_window(name, child) end
-	let create-window-bind =
-		intrinsic
-			"return create_window"
-			:
-			host-func-type (name : string, child : Component) -> (res : Component)
-	let create-window =
-		lambda (name : string, child : Component)
-			let (res) = create-window-bind(name, child)
-			res
-	####
-		---@param area URect
-		---@param ... Component
-		---@return Component
-		function create_region(area, ...) end
-	let create-region-bind =
-		intrinsic
-			"return function(area, components) return create_region(area, table.unpack(components)) end"
-			:
-			host-func-type (area : URect, components : host-array-type(Component)) -> (res : Component)
+			->
+			((res : URect))
+let create-urect =
+	lambda
+		(
+			left : host-number,
+			top : host-number,
+			right : host-number,
+			bottom : host-number,
+			rel_left : host-number,
+			rel_top : host-number,
+			rel_right : host-number,
+			rel_bottom : host-number
+		)
+		let (res) = create-urect-bind(left, top, right, bottom, rel_left, rel_top, rel_right, rel_bottom)
+		res
 
-	let create-region =
-		lambda (area : URect, components : host-array-type(Component))
-			let (res) = create-region-bind(area, components)
-			res
+let create-id-bind =
+	intrinsic "return create_id" : (host-func-type ((id  : string)) -> ((res  : FeatherID)))
+let create-id = lambda (id  : string)
+	let  (res)  = create-id-bind(id)
+	res
 
-	####
-		---@param area URect
-		---@param text string
-		---@param onclick EventHandler
-		---@param background Component
-		---@return Component
-		function create_button(area, text, onclick, background) end
-	let create-button-bind =
-		intrinsic
-			"return create_button"
-			:
-			host-func-type (area : URect, text : string, onclick : EventHandler, background : Component) -> (res : Component)
-	let create-button =
-		lambda (area : URect, text : string, onclick : EventHandler, background : Component)
-			let (res) = create-button-bind(area, text, onclick, background)
-			res
-	####
-		---@param area URect
-		---@param text string
-		---@return Component
-		function create_label(area, text) end
-	let create-label-bind =
-		intrinsic "return create_label" : host-func-type (area : URect, text : string) -> (res : Component)
+####
+	---@param name string
+	---@param child Component
+	---@return Component
+	function create_window(name, child) end
+let create-window-bind =
+	intrinsic
+		"return create_window"
+		:
+		host-func-type (id : FeatherID, name : string, child : Component) -> ((res : Component))
+let create-window =
+	lambda (id : FeatherID, name : string, child : Component)
+		let (res) = create-window-bind(id, name, child)
+		res
+####
+	---@param area URect
+	---@param ... Component
+	---@return Component
+	function create_region(area, ...) end
+let create-region-bind =
+	intrinsic
+		"return function(id, area, components) return create_region(id, area, components) end"
+		:
+		host-func-type (id : FeatherID, area : URect, components : host-array-type(Component)) -> ((res : Component))
 
-	let create-label =
-		lambda (area : URect, text : string)
-			let (res) = create-label-bind(area, text)
-			res
+let create-region =
+	lambda (id : FeatherID, area : URect, components : host-array-type(Component))
+		let (res) = create-region-bind(id, area, components)
+		res
 
-	####
-		---Colors here are 32-bit RGBA integers (for now): 0xFF00FFFF
-		---@param area URect
-		---@param color integer
-		---@param radius number
-		---@param border number
-		---@param bordercolor integer
-		---@return Component
-		function create_round_rect(area, color, radius, border, bordercolor) end
-	let create-round-rect-bind =
-		intrinsic
-			"return create_round_rect"
-			:
-			host-func-type (area : URect, color : host-number, radius : host-number, border : host-number, bordercolor : host-number) -> (res : Component)
-	let create-round-rect =
-		lambda (area : URect, color : host-number, radius : host-number, border : host-number, bordercolor : host-number)
-			let (res) = create-round-rect-bind(area, color, radius, border, bordercolor)
-			res
+####
+	---@param area URect
+	---@param text string
+	---@param onclick EventHandler
+	---@param background Component
+	---@return Component
+	function create_button(area, text, onclick, background) end
+let create-button-bind =
+	intrinsic
+		"return create_button"
+		:
+		host-func-type (id : FeatherID, area : URect, text : string, onclick : EventHandler, background : Component) -> ((res : Component))
+let create-button =
+	lambda (id : FeatherID, area : URect, text : string, onclick : EventHandler, background : Component)
+		let (res) = create-button-bind(id, area, text, onclick, background)
+		res
+####
+	---@param area URect
+	---@param text string
+	---@return Component
+	function create_label(area, text) end
+let create-label-bind =
+	intrinsic "return create_label" : (host-func-type (id : FeatherID, area : URect, text : string) -> ((res : Component)))
+
+let create-label =
+	lambda (id : FeatherID, area : URect, text : string)
+		let (res) = create-label-bind(id, area, text)
+		res
+
+####
+	---Colors here are 32-bit RGBA integers (for now): 0xFF00FFFF
+	---@param area URect
+	---@param color integer
+	---@param radius number
+	---@param border number
+	---@param bordercolor integer
+	---@return Component
+	function create_round_rect(area, color, radius, border, bordercolor) end
+let create-round-rect-bind =
+	intrinsic
+		"return create_round_rect"
+		:
+		host-func-type (id : FeatherID, area : URect, color : host-number, radius : host-number, border : host-number, bordercolor : host-number) -> ((res : Component))
+let create-round-rect =
+	lambda (id : FeatherID, area : URect, color : host-number, radius : host-number, border : host-number, bordercolor : host-number)
+		let (res) = create-round-rect-bind(id, area, color, radius, border, bordercolor)
+		res
+
+let windowsig = host-func-type (store : host-unit, appstate : host-unit) -> ((window : Component))
+let initsig = host-func-type () -> ((res : host-unit))
+let onclicksig = host-func-type (dispatch : host-unit, state : host-unit) -> ((result : host-unit))
+
+let uidesc = tuple-desc(
+	window : windowsig,
+	init : initsig,
+	onclick :  onclicksig)
+
+let windowmaker = lambda (store : host-unit, appstate : host-unit)
+	let urect = create-urect(0.0, 0.0, 1280.0, 720.0, 0.0, 0.0, 1280.0, 720.0)
+	let components = host-array-new(Component)
+	let components = host-array-set(components, 1, create-label(create-id("hello-label"), urect, "Hello World!"))
+	let region = create-region(create-id("main-region"), urect, components)
+	let window = create-window(create-id("main-window"), "Hello World!", region)
+	tuple-of-implicit window
+
+let init = lambda ()
+	tuple-of-implicit host-nil
+
+let onclick = lambda (dispatch  : host-unit, state  : host-unit)
+	tuple-of-implicit host-nil
+
+let res =
+	host-tuple-of(uidesc)
+		func-to-host-func
+			windowsig
+			host-nil
+			windowmaker
+		func-to-host-func
+			initsig
+			host-nil
+			init
+		func-to-host-func
+			onclicksig
+			host-nil
+			onclick
+
+res
