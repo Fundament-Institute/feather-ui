@@ -78,7 +78,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 children.push_back(Some(Box::new(rect)));
 
                 Button::<basic::Inherited>::new(
-                    gen_id!(),
+                    gen_id!().into(),
                     basic::Inherited {
                         area: feather_ui::FILL_URECT,
                         margin: Default::default(),
@@ -104,7 +104,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 children,
             };
             let window = Window::new(
-                gen_id!(),
+                gen_id!().into(),
                 winit::window::Window::default_attributes()
                     .with_title("basic-rs")
                     .with_resizable(true),

@@ -47,6 +47,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "alicorn"
+version = "0.1.0"
+source = "git+https://github.com/Fundament-Software/Alicorn0#d9c89d7fec337830ac9c12373edf40de27a91a78"
+dependencies = [
+ "cc",
+ "mlua",
+]
+
+[[package]]
 name = "allocator-api2"
 version = "0.2.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -143,6 +152,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "basic-alc"
+version = "0.1.0"
+dependencies = [
+ "alicorn",
+ "feather-ui",
+ "im",
+ "mlua",
+ "tokio",
+ "ultraviolet",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
 name = "basic-rs"
 version = "0.1.0"
 dependencies = [
@@ -223,9 +246,9 @@ checksum = "79296716171880943b8470b5f8d03aa55eb2e645a4874bdbb28adb49162e012c"
 
 [[package]]
 name = "bytemuck"
-version = "1.18.0"
+version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94bbb0ad554ad961ddc5da507a12a29b14e4ae5bda06b19f575a3e6079d2e2ae"
+checksum = "8334215b81e418a0a7bdb8ef0849474f40bb10c8b71f1c4ed315cff49f32494d"
 dependencies = [
  "bytemuck_derive",
 ]
@@ -275,9 +298,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.1.29"
+version = "1.1.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58e804ac3194a48bb129643eb1d62fcc20d18c6b8c181704489353d13120bcd1"
+checksum = "b16803a61b81d9eabb7eae2588776c4c1e584b738ede45fdbb4c972cec1e9945"
 dependencies = [
  "jobserver",
  "libc",
@@ -1647,9 +1670,9 @@ dependencies = [
 
 [[package]]
 name = "profiling"
-version = "1.0.15"
+version = "1.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43d84d1d7a6ac92673717f9f6d1518374ef257669c24ebc5ac25d5033828be58"
+checksum = "afbdc74edc00b6f6a218ca6a5364d6226a259d4b8ea1af4a0ea063f27e179f4d"
 
 [[package]]
 name = "quick-xml"

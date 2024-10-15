@@ -2,8 +2,6 @@ use super::Desc;
 use super::Layout;
 use super::Renderable;
 use super::Staged;
-use crate::layout::Concrete;
-use crate::rtree;
 use crate::AbsRect;
 use crate::URect;
 use dyn_clone::DynClone;

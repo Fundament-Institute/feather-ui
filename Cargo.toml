@@ -1,5 +1,5 @@
 [workspace]
-members = ["feather-ui", "examples/basic-rs"]
+members = ["feather-ui", "examples/basic-rs", "examples/basic-alc"]
 resolver = "2"
 default-members = ["feather-ui", "examples/basic-rs"]
 
