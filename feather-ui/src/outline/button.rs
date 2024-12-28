@@ -40,6 +40,8 @@ impl<Parent: Clone> Button<Parent> {
                 basic::Inherited {
                     margin: Default::default(),
                     area: crate::FILL_URECT,
+                    limits: crate::DEFAULT_LIMITS,
+                    anchor: Default::default(),
                 },
                 [Some(onclick), None, None],
             ),

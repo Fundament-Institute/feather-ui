@@ -176,6 +176,8 @@ fn create_button<'lua>(
         props: basic::Inherited {
             area: crate::FILL_URECT,
             margin: Default::default(),
+            limits: crate::DEFAULT_LIMITS,
+            anchor: Default::default(),
         },
         text: args.2,
         font_size: 30.0,
@@ -192,6 +194,8 @@ fn create_button<'lua>(
         basic::Inherited {
             area: args.1,
             margin: Default::default(),
+            limits: crate::DEFAULT_LIMITS,
+            anchor: Default::default(),
         },
         Default::default(),
         args.3,
@@ -208,6 +212,8 @@ fn create_label<'lua>(
         props: basic::Inherited {
             area: args.1,
             margin: Default::default(),
+            limits: crate::DEFAULT_LIMITS,
+            anchor: Default::default(),
         },
         text: args.2,
         font_size: 30.0,
@@ -232,6 +238,8 @@ fn create_round_rect<'lua>(
         props: basic::Inherited {
             area: args.1,
             margin: Default::default(),
+            limits: crate::DEFAULT_LIMITS,
+            anchor: Default::default(),
         },
         blur: 0.0,
     })))
