@@ -57,6 +57,8 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     props: basic::Inherited {
                         area: feather_ui::FILL_URECT,
                         margin: Default::default(),
+                        limits: feather_ui::DEFAULT_LIMITS,
+                        anchor: Default::default(),
                     },
                     ..Default::default()
                 };
@@ -66,6 +68,8 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     props: basic::Inherited {
                         area: feather_ui::FILL_URECT,
                         margin: Default::default(),
+                        limits: feather_ui::DEFAULT_LIMITS,
+                        anchor: Default::default(),
                     },
                     text: format!("Clicks: {}", args.count),
                     font_size: 30.0,
@@ -82,6 +86,8 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     basic::Inherited {
                         area: feather_ui::FILL_URECT,
                         margin: Default::default(),
+                        limits: feather_ui::DEFAULT_LIMITS,
+                        anchor: Default::default(),
                     },
                     Default::default(),
                     Slot(feather_ui::APP_SOURCE_ID.into(), 0),

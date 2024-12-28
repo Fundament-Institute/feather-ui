@@ -5,7 +5,6 @@ pub mod outline;
 pub mod persist;
 mod rtree;
 mod shaders;
-
 use crate::outline::window::Window;
 use dyn_clone::DynClone;
 use eyre::OptionExt;
@@ -18,6 +17,7 @@ use std::any::Any;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
+use std::f64::INFINITY;
 use std::hash::Hasher;
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 use std::rc::Rc;
@@ -44,14 +44,14 @@ pub enum Error {
     UnhandledEvent,
 }
 
+#[derive(Copy, Clone, Debug, Default)]
+pub struct AbsDim(Vec2);
+
 impl Into<Vec2> for AbsDim {
     fn into(self) -> Vec2 {
         self.0
     }
 }
-
-#[derive(Copy, Clone, Debug, Default)]
-pub struct AbsDim(Vec2);
 
 #[derive(Copy, Clone, Debug, Default)]
 /// Absolutely positioned rectangle
@@ -220,6 +220,15 @@ impl From<Vec2> for UPoint {
     }
 }
 
+#[derive(Copy, Clone, Debug, Default)]
+pub struct UDim(UPoint);
+
+impl Into<UPoint> for UDim {
+    fn into(self) -> UPoint {
+        self.0
+    }
+}
+
 pub fn build_aabb(a: Vec2, b: Vec2) -> AbsRect {
     AbsRect {
         topleft: a.min_by_component(b),
@@ -242,6 +251,29 @@ pub const FILL_URECT: URect = URect {
     bottomright: UPoint {
         abs: Vec2 { x: 0.0, y: 0.0 },
         rel: RelPoint { x: 1.0, y: 1.0 },
+    },
+};
+
+pub const DEFAULT_LIMITS: URect = URect {
+    topleft: UPoint {
+        abs: Vec2 {
+            x: f32::NEG_INFINITY,
+            y: f32::NEG_INFINITY,
+        },
+        rel: RelPoint {
+            x: f32::NEG_INFINITY,
+            y: f32::NEG_INFINITY,
+        },
+    },
+    bottomright: UPoint {
+        abs: Vec2 {
+            x: f32::INFINITY,
+            y: f32::INFINITY,
+        },
+        rel: RelPoint {
+            x: f32::INFINITY,
+            y: f32::INFINITY,
+        },
     },
 };
 
@@ -493,25 +525,6 @@ impl Dispatchable for () {
         Ok(())
     }
 }
-
-/*#[proc_macro_derive(Dispatch)]
-pub fn dispatchable(input: TokenStream) -> TokenStream {
-    let ast = parse_macro_input!(input as DeriveInput);
-
-    let enum_name = &ast.ident;
-    let vis = &ast.vis;
-
-    let mut struct_declarations = proc_macro2::TokenStream::new();
-
-    let ns: Path = parse_quote!(evt);
-    let skip: Path = parse_quote!(skip);
-    let counter: u64 = 1;
-    let struct_declarations_iter = variants.iter()
-        .filter(|variant| !proc_macro_roids::contains_tag(&variant.attrs,  &ns, &skip))
-        .map(|variant| {
-
-        let variant_name = &variant.ident;
-}*/
 
 #[derive(Default)]
 pub struct StateManager {

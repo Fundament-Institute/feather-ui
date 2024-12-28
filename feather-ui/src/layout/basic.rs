@@ -5,6 +5,7 @@ use super::Renderable;
 use super::Staged;
 use crate::rtree;
 use crate::AbsRect;
+use crate::UPoint;
 use crate::URect;
 use crate::Vec2;
 use dyn_clone::DynClone;
@@ -14,6 +15,8 @@ use std::rc::Rc;
 pub struct Inherited {
     pub margin: URect,
     pub area: URect,
+    pub anchor: UPoint,
+    pub limits: URect,
 }
 
 #[derive(Clone, Default)]
@@ -38,7 +41,7 @@ impl Desc for Basic {
     ) -> Box<dyn Staged + 'a> {
         // Calculate area for children
         let inner_area = {
-            let dim = crate::AbsDim(true_area.bottomright - true_area.topleft);
+            let dim = true_area.dim();
             AbsRect {
                 topleft: true_area.topleft + (props.padding.topleft * dim),
                 bottomright: (true_area.bottomright - (props.padding.bottomright * dim)).into(),
@@ -50,7 +53,7 @@ impl Desc for Basic {
 
         for child in children.iter() {
             let props = child.as_ref().unwrap().get_imposed();
-            let dim = crate::AbsDim(inner_area.bottomright - inner_area.topleft);
+            let dim = inner_area.dim();
             let area = props.area * inner_area;
             let result = AbsRect {
                 topleft: area.topleft + (props.margin.topleft * dim),
