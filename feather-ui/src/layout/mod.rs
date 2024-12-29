@@ -87,11 +87,11 @@ pub trait Staged: DynClone {
 dyn_clone::clone_trait_object!(Staged);
 
 #[derive(Clone)]
-struct Concrete {
-    render: im::Vector<RenderInstruction>,
-    area: AbsRect,
-    rtree: Rc<rtree::Node>,
-    children: im::Vector<Option<Box<dyn Staged>>>,
+pub(crate) struct Concrete {
+    pub render: im::Vector<RenderInstruction>,
+    pub area: AbsRect,
+    pub rtree: Rc<rtree::Node>,
+    pub children: im::Vector<Option<Box<dyn Staged>>>,
 }
 
 impl Staged for Concrete {

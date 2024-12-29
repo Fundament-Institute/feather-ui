@@ -2,6 +2,7 @@ use crate::layout::basic;
 use crate::layout::basic::Basic;
 use crate::layout::root;
 use crate::layout::root::Root;
+use crate::layout::simple;
 use crate::layout::Desc;
 use crate::outline::button::Button;
 use crate::outline::region::Region;
@@ -164,40 +165,42 @@ fn create_region<'lua>(
 
 fn create_button<'lua>(
     _: &'lua Lua,
-    args: (LuaSourceID, URect, String, Slot, BoxedOutline<Basic>),
-) -> mlua::Result<BoxedOutline<Basic>> {
+    args: (
+        LuaSourceID,
+        URect,
+        String,
+        Slot,
+        BoxedOutline<simple::Simple>,
+    ),
+) -> mlua::Result<BoxedOutline<simple::Simple>> {
     let id = Rc::new(args.0);
-    let text = Text::<basic::Inherited> {
+    let text = Text::<()> {
         id: SourceID {
             parent: Rc::downgrade(&id),
             id: DataID::Named("__internal_text__"),
         }
         .into(),
-        props: basic::Inherited {
-            area: crate::FILL_URECT,
-            margin: Default::default(),
-            limits: crate::DEFAULT_LIMITS,
-            anchor: Default::default(),
-        },
+        props: (),
         text: args.2,
         font_size: 30.0,
         line_height: 42.0,
         ..Default::default()
     };
 
-    let mut children: im::Vector<Option<Box<OutlineFrom<Basic>>>> = im::Vector::new();
+    let mut children: im::Vector<Option<Box<OutlineFrom<simple::Simple>>>> = im::Vector::new();
     children.push_back(Some(Box::new(text)));
     children.push_back(Some(args.4 .0));
 
-    Ok(BoxedOutline(Box::new(Button::<basic::Inherited>::new(
+    Ok(BoxedOutline(Box::new(Button::<()>::new(
         id,
-        basic::Inherited {
+        (),
+        simple::Simple {
             area: args.1,
             margin: Default::default(),
             limits: crate::DEFAULT_LIMITS,
             anchor: Default::default(),
+            zindex: 0,
         },
-        Default::default(),
         args.3,
         children,
     ))))
@@ -206,15 +209,16 @@ fn create_button<'lua>(
 fn create_label<'lua>(
     _: &'lua Lua,
     args: (LuaSourceID, URect, String),
-) -> mlua::Result<BoxedOutline<Basic>> {
-    Ok(BoxedOutline(Box::new(Text::<basic::Inherited> {
+) -> mlua::Result<BoxedOutline<simple::Simple>> {
+    Ok(BoxedOutline(Box::new(Text::<()> {
         id: args.0.into(),
-        props: basic::Inherited {
-            area: args.1,
-            margin: Default::default(),
-            limits: crate::DEFAULT_LIMITS,
-            anchor: Default::default(),
-        },
+        // props: basic::Inherited {
+        //     area: args.1,
+        //     margin: Default::default(),
+        //     limits: crate::DEFAULT_LIMITS,
+        //     anchor: Default::default(),
+        // },
+        props: (),
         text: args.2,
         font_size: 30.0,
         line_height: 42.0,
@@ -226,21 +230,17 @@ use crate::outline::round_rect::RoundRect;
 fn create_round_rect<'lua>(
     _: &'lua Lua,
     args: (LuaSourceID, URect, u32, f32, f32, u32),
-) -> mlua::Result<BoxedOutline<Basic>> {
+) -> mlua::Result<BoxedOutline<simple::Simple>> {
     let fill = args.2.to_be_bytes().map(|x| x as f32);
     let outline = args.5.to_be_bytes().map(|x| x as f32);
-    Ok(BoxedOutline(Box::new(RoundRect::<basic::Inherited> {
+    Ok(BoxedOutline(Box::new(RoundRect::<()> {
         id: args.0.into(),
+        rect: args.1,
         fill: Vec4::new(fill[0], fill[1], fill[2], fill[3]),
         outline: Vec4::new(outline[0], outline[1], outline[2], outline[3]),
         corners: Vec4::broadcast(args.3),
         border: args.4,
-        props: basic::Inherited {
-            area: args.1,
-            margin: Default::default(),
-            limits: crate::DEFAULT_LIMITS,
-            anchor: Default::default(),
-        },
+        props: (),
         blur: 0.0,
     })))
 }

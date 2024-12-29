@@ -53,7 +53,7 @@ impl Into<Vec2> for AbsDim {
     }
 }
 
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 /// Absolutely positioned rectangle
 pub struct AbsRect {
     pub topleft: Vec2,

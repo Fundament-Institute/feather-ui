@@ -50,7 +50,7 @@ impl Default for FlexJustify {
 }
 
 #[derive(Clone, Default)]
-pub struct FlexBox {
+pub struct Flex {
     pub direction: FlexDirection,
     pub wrap: bool,
     pub justify: FlexJustify, // Main-axis justification of items inside a single line
@@ -154,7 +154,7 @@ fn justify_inner_outer(align: FlexJustify, total: f32, used: f32, count: i32) ->
 
 fn wrap_line(
     childareas: &im::Vector<Option<(Inherited, f32)>>,
-    props: &FlexBox,
+    props: &Flex,
     xaxis: bool,
     total_main: f32,
     total_aux: f32,
@@ -238,8 +238,8 @@ fn wrap_line(
     (breaks, linecount, used_aux)
 }
 
-impl Desc for FlexBox {
-    type Props = FlexBox;
+impl Desc for Flex {
+    type Props = Flex;
     type Impose = Inherited;
     type Children<A: DynClone + ?Sized> = im::Vector<Option<Box<dyn Layout<Self::Impose>>>>;
 
@@ -263,31 +263,35 @@ impl Desc for FlexBox {
         };
 
         // We re-use a lot of concepts from flexbox in this calculation. First we acquire the natural size of all child elements.
-        // This requires evaluating all child sizes with an infinite size on the main axis
         for child in children.iter() {
             let mut imposed = child.as_ref().unwrap().get_imposed().clone();
-            if imposed.basis.is_infinite() {
-                let mut area = AbsRect {
-                    topleft: true_area.topleft + (imposed.margin.topleft * dim),
-                    bottomright: (true_area.bottomright - (imposed.margin.bottomright * dim))
-                        .into(),
-                };
 
-                if xaxis {
-                    area.bottomright.x = f32::INFINITY;
-                } else {
-                    area.bottomright.y = f32::INFINITY;
-                }
+            let mut area = AbsRect {
+                topleft: true_area.topleft + (imposed.margin.topleft * dim),
+                bottomright: (true_area.bottomright - (imposed.margin.bottomright * dim)).into(),
+            };
 
-                let stage = child
-                    .as_ref()
-                    .unwrap()
-                    .stage(area, true_area.topleft, driver);
-
-                let (main, aux) = swap_axis(xaxis, stage.get_area().dim().0);
-                imposed.basis = main;
-                childareas.push_back(Some((imposed, aux)));
+            // If we don't have a basis, we need to set it to infinity
+            if xaxis {
+                area.bottomright.x = imposed.basis;
+                area.bottomright.y = f32::INFINITY;
+            } else {
+                area.bottomright.x = f32::INFINITY;
+                area.bottomright.y = imposed.basis;
             }
+
+            let stage = child
+                .as_ref()
+                .unwrap()
+                .stage(area, true_area.topleft, driver);
+
+            let (main, aux) = swap_axis(xaxis, stage.get_area().dim().0);
+
+            if imposed.basis.is_infinite() {
+                imposed.basis = main;
+            }
+
+            childareas.push_back(Some((imposed, aux)));
         }
 
         let mut staging: im::Vector<Option<Box<dyn Staged>>> = im::Vector::new();
@@ -328,7 +332,6 @@ impl Desc for FlexBox {
         }
 
         let (total_main, total_aux) = swap_axis(xaxis, dim.0);
-        let mut linecount = 0;
         // If we need to do wrapping, we do this first, before calculating anything else.
         let (breaks, linecount, used_aux) = if props.wrap {
             // Anything other than `start` for main-axis justification causes problems if there are any obstacles we need to
@@ -351,6 +354,7 @@ impl Desc for FlexBox {
                 // If there were obstacles and multiple rows, our initial guess was probably wrong, so rewrap until we converge
                 let mut used_aux = used_aux;
                 let mut prev = (SmallVec::new(), 1, used_aux);
+                let mut linecount = 0;
 
                 // Given the linecount and how we are arranging the rows, figure out the correct initial height
                 while linecount != prev.1 || (used_aux - prev.2) > 0.001 {
@@ -372,7 +376,7 @@ impl Desc for FlexBox {
 
                 prev
             } else {
-                (r.0, linecount, used_aux)
+                (r.0, r.1, used_aux)
             }
         } else {
             let mut breaks = SmallVec::<[(usize, f32); 10]>::new();
@@ -459,10 +463,11 @@ impl Desc for FlexBox {
                     std::mem::swap(&mut area.bottomright.x, &mut area.bottomright.y);
                 }
 
-                let stage = children[i]
-                    .as_ref()
-                    .unwrap()
-                    .stage(area, true_area.topleft, driver);
+                let stage = children[i].as_ref().unwrap().stage(
+                    area + true_area.topleft,
+                    true_area.topleft,
+                    driver,
+                );
                 if let Some(node) = stage.get_rtree().upgrade() {
                     nodes.push_back(Some(node));
                 }

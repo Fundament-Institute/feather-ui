@@ -12,7 +12,6 @@ use crate::UPoint;
 use crate::URect;
 use crate::Vec2;
 use dyn_clone::DynClone;
-use std::marker::PhantomData;
 use std::rc::Rc;
 
 #[derive(Clone, Default)]
@@ -27,13 +26,13 @@ pub struct Simple {
 impl Desc for Simple {
     type Props = Simple;
     type Impose = ();
-    type Children<A: DynClone + ?Sized> = PhantomData<dyn Layout<Self::Impose>>;
+    type Children<A: DynClone + ?Sized> = im::Vector<Option<Box<dyn Layout<Self::Impose>>>>;
 
     fn stage<'a>(
         props: &Self::Props,
         mut true_area: AbsRect,
         parent_pos: Vec2,
-        _: &Self::Children<dyn Layout<Self::Impose> + '_>,
+        children: &Self::Children<dyn Layout<Self::Impose> + '_>,
         id: std::rc::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
         driver: &crate::DriverState,
@@ -54,6 +53,21 @@ impl Desc for Simple {
                 .into(),
         };
 
+        let mut staging: im::Vector<Option<Box<dyn Staged>>> = im::Vector::new();
+        let mut nodes: im::Vector<Option<Rc<rtree::Node>>> = im::Vector::new();
+
+        for child in children.iter() {
+            let stage = child
+                .as_ref()
+                .unwrap()
+                .stage(inner_area, true_area.topleft, driver);
+            if let Some(node) = stage.get_rtree().upgrade() {
+                nodes.push_back(Some(node));
+            }
+            staging.push_back(Some(stage));
+        }
+
+        // Our area does not change based on child sizes, so we have no bottom-up resolution step to do here
         Box::new(Concrete {
             area: area - parent_pos,
             render: renderable
@@ -62,10 +76,10 @@ impl Desc for Simple {
             rtree: Rc::new(rtree::Node::new(
                 area - parent_pos,
                 Some(props.zindex),
-                Default::default(),
+                nodes,
                 id,
             )),
-            children: Default::default(),
+            children: staging,
         })
     }
 }
