@@ -1,9 +1,9 @@
 use super::StateMachine;
 use crate::input::{MouseState, RawEvent, RawEventKind};
 use crate::layout::empty::Empty;
-use crate::DispatchPair;
 use crate::Slot;
 use crate::{layout, Error};
+use crate::{DispatchPair, FILL_URECT};
 use crate::{Dispatchable, SourceID};
 use derive_where::derive_where;
 use enum_variant_type::EnumVariantType;
@@ -194,7 +194,7 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for MouseArea<Parent> {
         _: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn crate::layout::Layout<Parent>> {
         Box::new(layout::Node::<Empty, Parent> {
-            props: (),
+            props: FILL_URECT,
             imposed: self.props.clone(),
             children: Default::default(),
             id: Rc::downgrade(&self.id),

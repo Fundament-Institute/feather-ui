@@ -7,6 +7,7 @@ use crate::layout::Layout;
 
 pub mod arc;
 pub mod button;
+pub mod flexbox;
 pub mod mouse_area;
 pub mod region;
 pub mod round_rect;

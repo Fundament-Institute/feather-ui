@@ -1,5 +1,5 @@
 use super::mouse_area::MouseArea;
-use crate::layout::basic::{self, Basic};
+use crate::layout::simple::Simple;
 use crate::layout::Layout;
 use crate::outline::OutlineFrom;
 use crate::persist::FnPersist;
@@ -14,35 +14,37 @@ use std::rc::Rc;
 pub struct Button<Parent: Clone> {
     pub id: Rc<SourceID>,
     props: Parent,
-    basic: Basic,
-    marea: MouseArea<basic::Inherited>,
-    children: im::Vector<Option<Box<OutlineFrom<Basic>>>>,
+    simple: Simple,
+    marea: MouseArea<()>,
+    children: im::Vector<Option<Box<OutlineFrom<Simple>>>>,
 }
 
 impl<Parent: Clone> Button<Parent> {
     pub fn new(
         id: Rc<SourceID>,
         props: Parent,
-        basic: Basic,
+        simple: Simple,
         onclick: Slot,
-        children: im::Vector<Option<Box<OutlineFrom<Basic>>>>,
+        children: im::Vector<Option<Box<OutlineFrom<Simple>>>>,
     ) -> Self {
         Self {
             id: id.clone(),
             props,
-            basic,
+            simple,
             marea: MouseArea::new(
                 SourceID {
                     parent: Rc::downgrade(&id),
                     id: crate::DataID::Named("__marea_internal__"),
                 }
                 .into(),
-                basic::Inherited {
-                    margin: Default::default(),
-                    area: crate::FILL_URECT,
-                    limits: crate::DEFAULT_LIMITS,
-                    anchor: Default::default(),
-                },
+                // simple::Simple {
+                //     margin: Default::default(),
+                //     area: crate::FILL_URECT,
+                //     limits: crate::DEFAULT_LIMITS,
+                //     anchor: Default::default(),
+                //     zindex: 0,
+                // },
+                (),
                 [Some(onclick), None, None],
             ),
             children,
@@ -70,7 +72,7 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for Button<Parent> {
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<Parent>> {
         let map = VectorMap::new(
-            |child: &Option<Box<OutlineFrom<Basic>>>| -> Option<Box<dyn Layout<basic::Inherited>>> {
+            |child: &Option<Box<OutlineFrom<Simple>>>| -> Option<Box<dyn Layout<()>>> {
                 Some(child.as_ref().unwrap().layout(state, driver, config))
             },
         );
@@ -78,8 +80,8 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for Button<Parent> {
         let (_, mut children) = map.call(Default::default(), &self.children);
         children.push_back(Some(self.marea.layout(state, driver, config)));
 
-        Box::new(layout::Node::<Basic, Parent> {
-            props: self.basic.clone(),
+        Box::new(layout::Node::<Simple, Parent> {
+            props: self.simple.clone(),
             imposed: self.props.clone(),
             children,
             id: Rc::downgrade(&self.id),

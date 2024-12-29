@@ -1,10 +1,11 @@
 use super::Renderable;
-use crate::layout;
-use crate::layout::empty::Empty;
 use crate::layout::Layout;
+use crate::rtree;
+use crate::AbsRect;
 use crate::DriverState;
 use crate::RenderLambda;
 use crate::SourceID;
+use crate::Vec2;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -21,15 +22,6 @@ impl Renderable for TextPipeline {
         driver: &crate::DriverState,
     ) -> im::Vector<crate::RenderInstruction> {
         let mut borrow = driver.text.borrow_mut();
-        self.text_buffer.borrow_mut().set_size(
-            &mut borrow.font_system,
-            Some(area.width()),
-            Some(area.height()),
-        );
-
-        self.text_buffer
-            .borrow_mut()
-            .shape_until_scroll(&mut borrow.font_system, false);
 
         let (viewport, atlas, font_system, swash_cache) = borrow.split_borrow();
         self.renderer
@@ -78,6 +70,13 @@ impl Renderable for TextPipeline {
 }
 
 #[derive(Clone)]
+pub struct TextLayout<Parent: Clone> {
+    pub id: std::rc::Weak<SourceID>,
+    pub imposed: Parent,
+    pub text_render: Rc<TextPipeline>,
+}
+
+#[derive(Clone)]
 pub struct Text<Parent: Clone> {
     pub id: Rc<SourceID>,
     pub props: Parent,
@@ -88,6 +87,25 @@ pub struct Text<Parent: Clone> {
     pub color: glyphon::Color,
     pub weight: glyphon::Weight,
     pub style: glyphon::Style,
+}
+
+impl<Parent: Clone + 'static> crate::outline::Desc for TextLayout<Parent> {
+    type Props = TextLayout<Parent>;
+    type Impose = ();
+    type Children<A: dyn_clone::DynClone + ?Sized> =
+        std::marker::PhantomData<dyn Layout<Self::Impose>>;
+
+    fn stage<'a>(
+        props: &Self::Props,
+        mut true_area: AbsRect,
+        parent_pos: Vec2,
+        _: &Self::Children<dyn Layout<Self::Impose> + '_>,
+        id: std::rc::Weak<SourceID>,
+        renderable: Option<Rc<dyn Renderable>>,
+        driver: &crate::DriverState,
+    ) -> Box<dyn crate::outline::Staged + 'a> {
+        unreachable!();
+    }
 }
 
 impl<Parent: Clone + Default> Default for Text<Parent> {
@@ -144,16 +162,73 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for Text<Parent> {
             None,
         );
 
-        Box::new(layout::Node::<Empty, Parent> {
-            props: (),
+        Box::new(TextLayout::<Parent> {
             imposed: self.props.clone(),
-            children: Default::default(),
             id: Rc::downgrade(&self.id),
-            renderable: Some(Rc::new_cyclic(|this| TextPipeline {
+            text_render: Rc::new_cyclic(|this| TextPipeline {
                 this: this.clone(),
                 text_buffer: text_buffer.into(),
                 renderer: renderer.into(),
-            })),
+            }),
+        })
+    }
+}
+
+impl<Imposed: Clone> Layout<Imposed> for TextLayout<Imposed> {
+    fn get_imposed(&self) -> &Imposed {
+        &self.imposed
+    }
+    fn stage<'a>(
+        &self,
+        mut area: AbsRect,
+        parent_pos: Vec2,
+        driver: &DriverState,
+    ) -> Box<dyn crate::outline::Staged + 'a> {
+        self.text_render.text_buffer.borrow_mut().set_size(
+            &mut driver.text.borrow_mut().font_system,
+            if area.bottomright.x.is_infinite() {
+                None
+            } else {
+                Some(area.width())
+            },
+            if area.bottomright.y.is_infinite() {
+                None
+            } else {
+                Some(area.height())
+            },
+        );
+
+        self.text_render
+            .text_buffer
+            .borrow_mut()
+            .shape_until_scroll(&mut driver.text.borrow_mut().font_system, false);
+
+        // If we have indeterminate area, calculate the size
+        if area.bottomright.x.is_infinite() || area.bottomright.y.is_infinite() {
+            let mut h = 0.0;
+            let mut w = 0.0;
+            for run in self.text_render.text_buffer.borrow().layout_runs() {
+                w += run.line_w;
+                h += run.line_height;
+            }
+            if area.bottomright.x.is_infinite() {
+                area.bottomright.x = area.topleft.x + w;
+            }
+            if area.bottomright.y.is_infinite() {
+                area.bottomright.y = area.topleft.y + h;
+            }
+        }
+
+        Box::new(crate::layout::Concrete {
+            area: area - parent_pos,
+            render: self.text_render.render(area, driver),
+            rtree: Rc::new(rtree::Node::new(
+                area - parent_pos,
+                None,
+                Default::default(),
+                self.id.clone(),
+            )),
+            children: Default::default(),
         })
     }
 }

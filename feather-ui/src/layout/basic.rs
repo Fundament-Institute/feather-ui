@@ -12,14 +12,6 @@ use dyn_clone::DynClone;
 use std::rc::Rc;
 
 #[derive(Clone, Default)]
-pub struct Inherited {
-    pub margin: URect,
-    pub area: URect,
-    pub anchor: UPoint,
-    pub limits: URect,
-}
-
-#[derive(Clone, Default)]
 pub struct Basic {
     pub padding: URect,
     pub zindex: i32,
@@ -27,7 +19,7 @@ pub struct Basic {
 
 impl Desc for Basic {
     type Props = Basic;
-    type Impose = Inherited;
+    type Impose = ();
     type Children<A: DynClone + ?Sized> = im::Vector<Option<Box<dyn Layout<Self::Impose>>>>;
 
     fn stage<'a>(
@@ -52,18 +44,10 @@ impl Desc for Basic {
         let mut nodes: im::Vector<Option<Rc<rtree::Node>>> = im::Vector::new();
 
         for child in children.iter() {
-            let props = child.as_ref().unwrap().get_imposed();
-            let dim = inner_area.dim();
-            let area = props.area * inner_area;
-            let result = AbsRect {
-                topleft: area.topleft + (props.margin.topleft * dim),
-                bottomright: (area.bottomright - (props.margin.bottomright * dim)).into(),
-            };
-
             let stage = child
                 .as_ref()
                 .unwrap()
-                .stage(result, true_area.topleft, driver);
+                .stage(inner_area, true_area.topleft, driver);
             if let Some(node) = stage.get_rtree().upgrade() {
                 nodes.push_back(Some(node));
             }
@@ -71,7 +55,6 @@ impl Desc for Basic {
         }
 
         // Our area does not change based on child sizes, so we have no bottom-up resolution step to do here
-
         Box::new(Concrete {
             area: true_area - parent_pos,
             render: renderable

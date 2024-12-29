@@ -2,6 +2,7 @@ use feather_ui::gen_id;
 use feather_ui::layout::basic;
 use feather_ui::layout::basic::Basic;
 use feather_ui::layout::root;
+use feather_ui::layout::simple;
 use feather_ui::outline::button;
 use feather_ui::outline::button::Button;
 use feather_ui::outline::mouse_area;
@@ -50,27 +51,18 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
         if store.0 != *args {
             let button = {
-                let rect = RoundRect::<basic::Inherited> {
+                let rect = RoundRect::<()> {
                     id: gen_id!().into(),
                     fill: Vec4::new(0.2, 0.7, 0.4, 1.0),
                     corners: Vec4::broadcast(10.0),
-                    props: basic::Inherited {
-                        area: feather_ui::FILL_URECT,
-                        margin: Default::default(),
-                        limits: feather_ui::DEFAULT_LIMITS,
-                        anchor: Default::default(),
-                    },
+                    props: (),
+                    rect: feather_ui::FILL_URECT,
                     ..Default::default()
                 };
 
-                let text = Text::<basic::Inherited> {
+                let text = Text::<()> {
                     id: gen_id!().into(),
-                    props: basic::Inherited {
-                        area: feather_ui::FILL_URECT,
-                        margin: Default::default(),
-                        limits: feather_ui::DEFAULT_LIMITS,
-                        anchor: Default::default(),
-                    },
+                    props: (),
                     text: format!("Clicks: {}", args.count),
                     font_size: 30.0,
                     line_height: 42.0,
@@ -81,15 +73,16 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 children.push_back(Some(Box::new(text)));
                 children.push_back(Some(Box::new(rect)));
 
-                Button::<basic::Inherited>::new(
+                Button::<()>::new(
                     gen_id!().into(),
-                    basic::Inherited {
+                    (),
+                    simple::Simple {
                         area: feather_ui::FILL_URECT,
                         margin: Default::default(),
                         limits: feather_ui::DEFAULT_LIMITS,
                         anchor: Default::default(),
+                        zindex: 0,
                     },
-                    Default::default(),
                     Slot(feather_ui::APP_SOURCE_ID.into(), 0),
                     children,
                 )

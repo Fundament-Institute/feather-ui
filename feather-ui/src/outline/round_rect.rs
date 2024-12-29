@@ -4,6 +4,7 @@ use crate::layout::Layout;
 use crate::shaders::gen_uniform;
 use crate::DriverState;
 use crate::SourceID;
+use crate::URect;
 use std::borrow::Cow;
 use std::rc::Rc;
 use ultraviolet::Vec4;
@@ -13,6 +14,7 @@ use wgpu::util::DeviceExt;
 pub struct RoundRect<Parent: Clone> {
     pub id: std::rc::Rc<SourceID>,
     pub props: Parent,
+    pub rect: URect,
     pub border: f32,
     pub blur: f32,
     pub corners: Vec4,
@@ -93,7 +95,7 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for RoundRect<Parent> {
         });
 
         Box::new(layout::Node::<Empty, Parent> {
-            props: (),
+            props: self.rect,
             imposed: self.props.clone(),
             children: Default::default(),
             id: Rc::downgrade(&self.id),

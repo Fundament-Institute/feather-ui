@@ -6,37 +6,46 @@ use super::Staged;
 use crate::rtree;
 use crate::AbsRect;
 use crate::SourceID;
+use crate::URect;
 use crate::Vec2;
 use dyn_clone::DynClone;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-// An Empty layout is used in outlines that only contain the properties of their parents
+// An Empty layout is used for leaf outlines whose size is defined by their content, or simply set to the size of their parent.
 #[derive(Clone, Default)]
 pub struct Empty {}
 
 impl Desc for Empty {
-    type Props = ();
+    type Props = URect;
     type Impose = ();
     type Children<A: DynClone + ?Sized> = PhantomData<dyn Layout<Self::Impose>>;
 
     fn stage<'a>(
-        _: &Self::Props,
-        true_area: AbsRect,
+        props: &Self::Props,
+        mut true_area: AbsRect,
         parent_pos: Vec2,
         _: &Self::Children<dyn Layout<Self::Impose> + '_>,
         id: std::rc::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
         driver: &crate::DriverState,
     ) -> Box<dyn Staged + 'a> {
-        // While we have no children or layouts, outlines using None often render things or handle events
+        if true_area.bottomright.x.is_infinite() {
+            true_area.bottomright.x = true_area.topleft.x;
+        }
+        if true_area.bottomright.y.is_infinite() {
+            true_area.bottomright.y = true_area.topleft.y;
+        }
+
+        let area = *props * true_area;
+
         Box::new(Concrete {
-            area: true_area - parent_pos,
+            area: area - parent_pos,
             render: renderable
-                .map(|x| x.render(true_area, driver))
+                .map(|x| x.render(area, driver))
                 .unwrap_or_default(),
             rtree: Rc::new(rtree::Node::new(
-                true_area - parent_pos,
+                area - parent_pos,
                 None,
                 Default::default(),
                 id,
