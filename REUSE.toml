@@ -1,0 +1,23 @@
+version = 1
+SPDX-PackageName = "Feather-UI"
+SPDX-PackageSupplier = "Fundament Software <https://fundament.software>"
+SPDX-PackageDownloadLocation = "https://github.com/Fundament-Software/feathergui"
+
+[[annotations]]
+path = "feather-ui/src/shaders/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2024 Fundament Software SPC <https://fundament.software>"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "*.lock"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2024 Fundament Software SPC <https://fundament.software>"
+SPDX-License-Identifier = "Apache-2.0"
+
+
+[[annotations]]
+path = ".envrc"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2024 Fundament Software SPC <https://fundament.software>"
+SPDX-License-Identifier = "Apache-2.0"
