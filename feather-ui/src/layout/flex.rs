@@ -16,6 +16,7 @@ use crate::Vec2;
 use core::f32;
 use dyn_clone::DynClone;
 use smallvec::SmallVec;
+use std::ops::DivAssign;
 use std::rc::Rc;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -149,8 +150,8 @@ fn wrap_line(
     xaxis: bool,
     total_main: f32,
     total_aux: f32,
-    used_aux: f32,
-    linecount: i32,
+    mut used_aux: f32,
+    mut linecount: i32,
     justify: FlexJustify,
     backwards: bool,
 ) -> (SmallVec<[(usize, f32); 10]>, i32, f32) {
@@ -158,9 +159,9 @@ fn wrap_line(
 
     let (mut aux, inner) = justify_inner_outer(justify, total_aux, used_aux, linecount);
 
-    // Reset linecount and used_aux to 0
-    let mut linecount = 0;
-    let mut used_aux = 0.0;
+    // Reset linecount and used_aux
+    linecount = 1;
+    used_aux = 0.0;
     let mut max_aux = 0.0;
     let mut main = 0.0;
     let mut i = 0;
@@ -177,23 +178,18 @@ fn wrap_line(
     );
 
     for v in childareas.iter() {
-        i += 1;
         let Some(b) = v else {
+            i += 1;
             continue;
         };
-        // We only increment the linecount after we actually assign something to a new line
-        if main == 0.0 {
-            linecount += 1;
-        }
-        main += b.0.basis;
-        if max_aux < b.1 {
-            max_aux = b.1;
-        }
 
         // If we hit an obstacle, mark it as an obstacle breakpoint, then jump forward.
-        if main > obstacle.0 {
+        if main + b.0.basis > obstacle.0 {
             breaks.push((i, -obstacle.1));
             main = obstacle.1; // Set the axis to the end of the obstacle
+            if max_aux < b.1 {
+                max_aux = b.1;
+            }
 
             obstacle = next_obstacle(
                 &props.obstacles,
@@ -204,15 +200,19 @@ fn wrap_line(
                 reversed,
                 &mut min_obstacle,
             );
+
+            // We continue here - if the obstacle is past the end of the line, the next element will be wrapped correctly.
+            continue;
         }
 
-        // Once we hit the end of the line (which could happen after navigating an obstacle) we mark the true breakpoint.
-        if main > total_main {
+        // Once we hit the end of the line  we mark the true breakpoint.
+        if main + b.0.basis > total_main {
             breaks.push((i, max_aux));
             main = 0.0;
             used_aux += max_aux;
             aux += max_aux + inner;
             max_aux = 0.0;
+            linecount += 1;
 
             obstacle = next_obstacle(
                 &props.obstacles,
@@ -224,6 +224,12 @@ fn wrap_line(
                 &mut min_obstacle,
             );
         }
+
+        main += b.0.basis;
+        if max_aux < b.1 {
+            max_aux = b.1;
+        }
+        i += 1;
     }
 
     breaks.push((childareas.len(), f32::INFINITY));
@@ -415,7 +421,19 @@ impl Desc for Flex {
             };
 
             let diff = total_span - used;
-            let ratio = diff / (if diff > 0.0 { totalgrow } else { totalshrink });
+            let ratio = if diff > 0.0 {
+                if totalgrow != 0.0 {
+                    diff / totalgrow
+                } else {
+                    0.0
+                }
+            } else {
+                if totalshrink != 0.0 {
+                    diff / totalshrink
+                } else {
+                    0.0
+                }
+            };
 
             // TODO: respect min and max limits on dimensions
             for i in curindex..b.0 {
