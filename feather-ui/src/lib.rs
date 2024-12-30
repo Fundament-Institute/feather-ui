@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2024 Fundament Software SPC <https://fundament.software>
+
 pub mod input;
 pub mod layout;
 pub mod lua;
