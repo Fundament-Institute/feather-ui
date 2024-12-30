@@ -1,9 +1,11 @@
+use super::zero_infinity;
 use super::Concrete;
 use super::Desc;
 use super::Layout;
 use super::Renderable;
 use super::Staged;
 use crate::rtree;
+use crate::AbsDim;
 use crate::AbsRect;
 use crate::UPoint;
 use crate::URect;
@@ -32,13 +34,45 @@ impl Desc for Basic {
         driver: &crate::DriverState,
     ) -> Box<dyn Staged + 'a> {
         // Calculate area for children
-        let inner_area = {
-            let dim = true_area.dim();
-            AbsRect {
-                topleft: true_area.topleft + (props.padding.topleft * dim),
-                bottomright: (true_area.bottomright - (props.padding.bottomright * dim)).into(),
-            }
-        };
+        let inner_area =
+            if true_area.bottomright.x.is_infinite() || true_area.bottomright.y.is_infinite() {
+                let dim = AbsDim(zero_infinity(true_area.dim().into()));
+
+                let mut area = AbsRect {
+                    topleft: true_area.topleft + (props.padding.topleft * dim),
+                    bottomright: (true_area.bottomright - (props.padding.bottomright * dim)).into(),
+                };
+                if true_area.bottomright.x.is_infinite() {
+                    area.bottomright.x = f32::INFINITY;
+                }
+                if true_area.bottomright.y.is_infinite() {
+                    area.bottomright.y = f32::INFINITY;
+                }
+
+                let mut bottomright = area.topleft - true_area.topleft;
+
+                for child in children.iter() {
+                    let stage = child
+                        .as_ref()
+                        .unwrap()
+                        .stage(area, true_area.topleft, driver);
+
+                    bottomright = bottomright.max_by_component(stage.get_area().bottomright);
+                }
+                if true_area.bottomright.x.is_infinite() {
+                    area.bottomright.x = true_area.topleft.x + bottomright.x;
+                }
+                if true_area.bottomright.y.is_infinite() {
+                    area.bottomright.y = true_area.topleft.y + bottomright.y;
+                }
+                area
+            } else {
+                let dim = true_area.dim();
+                AbsRect {
+                    topleft: true_area.topleft + (props.padding.topleft * dim),
+                    bottomright: (true_area.bottomright - (props.padding.bottomright * dim)).into(),
+                }
+            };
 
         let mut staging: im::Vector<Option<Box<dyn Staged>>> = im::Vector::new();
         let mut nodes: im::Vector<Option<Rc<rtree::Node>>> = im::Vector::new();
@@ -54,7 +88,6 @@ impl Desc for Basic {
             staging.push_back(Some(stage));
         }
 
-        // Our area does not change based on child sizes, so we have no bottom-up resolution step to do here
         Box::new(Concrete {
             area: true_area - parent_pos,
             render: renderable

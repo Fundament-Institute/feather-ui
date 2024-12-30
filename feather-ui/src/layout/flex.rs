@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2024 Fundament Software SPC <https://fundament.software>
 
+use super::zero_infinity;
 use super::Concrete;
 use super::Desc;
 use super::Layout;
@@ -67,16 +68,6 @@ pub struct Inherited {
     pub basis: f32,
     pub margin: URect,
     pub limits: URect,
-}
-
-fn nuetralize(mut v: Vec2) -> Vec2 {
-    if v.x.is_infinite() {
-        v.x = 0.0
-    }
-    if v.y.is_infinite() {
-        v.y = 0.0
-    }
-    v
 }
 
 fn swap_axis(xaxis: bool, v: Vec2) -> (f32, f32) {
@@ -235,6 +226,8 @@ fn wrap_line(
         }
     }
 
+    breaks.push((childareas.len(), f32::INFINITY));
+
     (breaks, linecount, used_aux)
 }
 
@@ -255,7 +248,7 @@ impl Desc for Flex {
         let mut childareas: im::Vector<Option<(Inherited, f32)>> = im::Vector::new();
 
         // If we are currently also being evaluated with infinite area, we have to set a few things to zero.
-        let dim = crate::AbsDim(nuetralize(true_area.bottomright - true_area.topleft));
+        let dim = crate::AbsDim(zero_infinity(true_area.dim().into()));
 
         let xaxis = match props.direction {
             FlexDirection::LeftToRight | FlexDirection::RightToLeft => true,
@@ -447,13 +440,13 @@ impl Desc for Flex {
                     || props.direction == FlexDirection::BottomToTop
                 {
                     AbsRect {
-                        topleft: Vec2::new(total_main - main, total_main - (main + a.0.basis)),
-                        bottomright: Vec2::new(aux, aux + max_aux),
+                        topleft: Vec2::new(total_main - main, aux),
+                        bottomright: Vec2::new(total_main - (main + a.0.basis), aux + max_aux),
                     }
                 } else {
                     AbsRect {
-                        topleft: Vec2::new(main, main + a.0.basis),
-                        bottomright: Vec2::new(aux, aux + max_aux),
+                        topleft: Vec2::new(main, aux),
+                        bottomright: Vec2::new(main + a.0.basis, aux + max_aux),
                     }
                 };
 

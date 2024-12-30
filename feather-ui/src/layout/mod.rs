@@ -118,3 +118,13 @@ impl Staged for Concrete {
         self.area
     }
 }
+
+pub(crate) fn zero_infinity(mut v: Vec2) -> Vec2 {
+    if v.x.is_infinite() {
+        v.x = 0.0
+    }
+    if v.y.is_infinite() {
+        v.y = 0.0
+    }
+    v
+}

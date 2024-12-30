@@ -1,3 +1,4 @@
+use core::f32;
 use feather_ui::gen_id;
 use feather_ui::layout::basic;
 use feather_ui::layout::basic::Basic;
@@ -77,7 +78,19 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     gen_id!().into(),
                     (),
                     simple::Simple {
-                        area: feather_ui::FILL_URECT,
+                        area: feather_ui::URect {
+                            topleft: feather_ui::UPoint {
+                                abs: ultraviolet::Vec2 { x: 0.0, y: 0.0 },
+                                rel: feather_ui::RelPoint { x: 0.0, y: 0.0 },
+                            },
+                            bottomright: feather_ui::UPoint {
+                                abs: ultraviolet::Vec2 {
+                                    x: f32::INFINITY,
+                                    y: 0.0,
+                                },
+                                rel: feather_ui::RelPoint { x: 0.0, y: 1.0 },
+                            },
+                        },
                         margin: Default::default(),
                         limits: feather_ui::DEFAULT_LIMITS,
                         anchor: Default::default(),
@@ -94,7 +107,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
             let region = Region {
                 id: gen_id!().into(),
                 props: root::Inherited {
-                    area: AbsRect::new(90.0, 90.0, 400.0, 200.0).into(),
+                    area: AbsRect::new(90.0, 90.0, f32::INFINITY, 200.0).into(),
                 },
                 basic: Basic {
                     padding: Default::default(),
