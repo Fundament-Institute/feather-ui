@@ -15,9 +15,7 @@ pub trait FnPersist<Args, Output> {
 impl<Args, Output, T: Fn(&Args) -> Output> FnPersist<Args, Output> for T {
     type Store = ();
 
-    fn init(&self) -> Self::Store {
-        ()
-    }
+    fn init(&self) -> Self::Store {}
     fn call(&self, _: Self::Store, args: &Args) -> (Self::Store, Output) {
         ((), (self)(args))
     }
@@ -33,9 +31,7 @@ pub trait FnPersist2<Arg1, Arg2, Output> {
 impl<Arg1, Arg2, Output, T: Fn(&Arg1, &Arg2) -> Output> FnPersist2<Arg1, Arg2, Output> for T {
     type Store = ();
 
-    fn init(&self) -> Self::Store {
-        ()
-    }
+    fn init(&self) -> Self::Store {}
     fn call(&self, _: Self::Store, arg1: &Arg1, arg2: &Arg2) -> (Self::Store, Output) {
         ((), (self)(arg1, arg2))
     }
@@ -196,7 +192,7 @@ impl<T: Ord + Clone, U: Ord + Clone, F: FnPersist<T, U>> FnPersist<im::OrdSet<T>
         let mut internal = cache.store.clone();
         let mut output = cache.result.clone();
         // Get the difference between the items passed in and the cache of what we passed in last
-        for item in cache.arg.diff(&input) {
+        for item in cache.arg.diff(input) {
             match item {
                 im::ordset::DiffItem::Add(x) => {
                     let (store, result) = self.f.call(self.f.init(), x);
@@ -292,7 +288,7 @@ where
         let mut internal = cache.store.clone();
         let mut output = cache.result.clone();
         // Get the difference between the items passed in and the cache of what we passed in last
-        for item in cache.arg.diff(&input) {
+        for item in cache.arg.diff(input) {
             match item {
                 im::ordmap::DiffItem::Add(x, v) => {
                     let (store, result) = self.f.call(self.f.init(), v);
@@ -303,8 +299,7 @@ where
                     output.remove(x);
                 }
                 im::ordmap::DiffItem::Update { old, new } => {
-                    let (store, result) =
-                        self.f.call(internal.get(&old.0).unwrap().clone(), &new.1);
+                    let (store, result) = self.f.call(internal.get(old.0).unwrap().clone(), new.1);
                     internal.insert(new.0.clone(), store);
                     output.insert(new.0.clone(), result);
                 }
@@ -435,7 +430,7 @@ impl<T: Clone, U: Clone, F: FnPersist2<U, T, U>> FnPersist2<U, im::Vector<T>, U>
         let mut seed = arg1.clone();
 
         for item in arg2.iter() {
-            let (_, result) = self.f.call(self.f.init(), &seed, &item);
+            let (_, result) = self.f.call(self.f.init(), &seed, item);
             seed = result;
         }
 

@@ -20,7 +20,6 @@ use std::any::Any;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
-use std::f64::INFINITY;
 use std::hash::Hasher;
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 use std::rc::Rc;
@@ -50,9 +49,9 @@ pub enum Error {
 #[derive(Copy, Clone, Debug, Default)]
 pub struct AbsDim(Vec2);
 
-impl Into<Vec2> for AbsDim {
-    fn into(self) -> Vec2 {
-        self.0
+impl From<AbsDim> for Vec2 {
+    fn from(val: AbsDim) -> Self {
+        val.0
     }
 }
 
@@ -121,8 +120,8 @@ impl Sub<Vec2> for AbsRect {
 
     fn sub(self, rhs: Vec2) -> Self::Output {
         Self {
-            topleft: (self.topleft - rhs).into(),
-            bottomright: (self.bottomright - rhs).into(),
+            topleft: self.topleft - rhs,
+            bottomright: self.bottomright - rhs,
         }
     }
 }
@@ -226,9 +225,9 @@ impl From<Vec2> for UPoint {
 #[derive(Copy, Clone, Debug, Default)]
 pub struct UDim(UPoint);
 
-impl Into<UPoint> for UDim {
-    fn into(self) -> UPoint {
-        self.0
+impl From<UDim> for UPoint {
+    fn from(val: UDim) -> Self {
+        val.0
     }
 }
 
@@ -375,19 +374,14 @@ impl<H: std::hash::Hash + std::cmp::PartialEq + std::cmp::Eq + 'static + Clone> 
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub enum DataID {
     Named(&'static str),
     Owned(String),
     Int(i64),
     Other(Box<dyn DynHashEq>),
+    #[default]
     None, // Marks an invalid default ID, crashes if you ever try to actually use it.
-}
-
-impl Default for DataID {
-    fn default() -> Self {
-        DataID::None
-    }
 }
 
 impl std::hash::Hash for DataID {
@@ -535,10 +529,10 @@ pub struct StateManager {
 }
 
 impl StateManager {
-    fn init_default<'a, State: 'static + outline::StateMachineWrapper + Default>(
-        &'a mut self,
+    fn init_default<State: 'static + outline::StateMachineWrapper + Default>(
+        &mut self,
         id: Rc<SourceID>,
-    ) -> eyre::Result<&'a mut State> {
+    ) -> eyre::Result<&mut State> {
         if !self.states.contains_key(&id) {
             self.states.insert(id.clone(), Box::new(State::default()));
         }
@@ -560,24 +554,24 @@ impl StateManager {
         id: &SourceID,
     ) -> eyre::Result<&'a State> {
         let v = self.states.get(id).ok_or_eyre("State does not exist")?;
-        Ok(v.as_any()
+        v.as_any()
             .downcast_ref()
-            .ok_or_eyre("Runtime type mismatch!")?)
+            .ok_or_eyre("Runtime type mismatch!")
     }
     pub fn get_mut<'a, State: 'static + outline::StateMachineWrapper>(
         &'a mut self,
         id: &SourceID,
     ) -> eyre::Result<&'a mut State> {
         let v = self.states.get_mut(id).ok_or_eyre("State does not exist")?;
-        Ok(v.as_any_mut()
+        v.as_any_mut()
             .downcast_mut()
-            .ok_or_eyre("Runtime type mismatch!")?)
+            .ok_or_eyre("Runtime type mismatch!")
     }
     pub fn get_trait<'a>(
         &'a self,
         id: &SourceID,
     ) -> eyre::Result<&'a Box<dyn StateMachineWrapper>> {
-        Ok(self.states.get(id).ok_or_eyre("State does not exist")?)
+        self.states.get(id).ok_or_eyre("State does not exist")
     }
 
     pub fn process(&mut self, event: DispatchPair, slot: &Slot, area: AbsRect) -> eyre::Result<()> {
@@ -729,7 +723,7 @@ impl<
 
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
-                compatible_surface: Some(&surface),
+                compatible_surface: Some(surface),
                 ..Default::default()
             })
             .await
@@ -760,7 +754,7 @@ impl<
             text: std::rc::Rc::new(RefCell::new(TextSystem {
                 font_system: glyphon::FontSystem::new(),
                 swash_cache: glyphon::SwashCache::new(),
-                viewport: viewport,
+                viewport,
                 atlas,
             })),
         });
@@ -771,7 +765,7 @@ impl<
 
     fn update_outline(&mut self, event_loop: &winit::event_loop::ActiveEventLoop, store: O::Store) {
         let app_state: &AppDataMachine<AppData> = self.state.get(&APP_SOURCE_ID).unwrap();
-        let (store, windows) = self.outline.call(store, &app_state.state.as_ref().unwrap());
+        let (store, windows) = self.outline.call(store, app_state.state.as_ref().unwrap());
         self.store.replace(store);
         self.root.children = windows;
 

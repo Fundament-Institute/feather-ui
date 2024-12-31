@@ -55,7 +55,7 @@ impl Desc for Simple {
             let dim = AbsDim(zero_infinity(area.dim().into()));
             let inner_area = AbsRect {
                 topleft: area.topleft + (props.margin.topleft * dim),
-                bottomright: (area.bottomright - (props.margin.bottomright * dim)).into(),
+                bottomright: (area.bottomright - (props.margin.bottomright * dim)),
             };
 
             let mut bottomright = inner_area.topleft - true_area.topleft;
@@ -80,7 +80,7 @@ impl Desc for Simple {
         let anchor = props.anchor * dim;
         let inner_area = AbsRect {
             topleft: area.topleft - anchor + (props.margin.topleft * dim),
-            bottomright: (area.bottomright - anchor - (props.margin.bottomright * dim)).into(),
+            bottomright: (area.bottomright - anchor - (props.margin.bottomright * dim)),
         };
 
         let mut staging: im::Vector<Option<Box<dyn Staged>>> = im::Vector::new();

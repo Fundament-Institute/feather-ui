@@ -94,7 +94,7 @@ impl Outline<()> for Window {
     }
 }
 
-impl<'a> Window {
+impl Window {
     pub(crate) fn init_custom<
         AppData: 'static + PartialEq,
         O: FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>,
@@ -105,7 +105,7 @@ impl<'a> Window {
         instance: &wgpu::Instance,
         event_loop: &ActiveEventLoop,
     ) -> Result<()> {
-        if let Err(_) = manager.get::<WindowStateMachine>(&self.id) {
+        if manager.get::<WindowStateMachine>(&self.id).is_err() {
             let attributes = self.attributes.clone();
 
             let window = Arc::new(event_loop.create_window(attributes)?);
@@ -264,10 +264,8 @@ impl<'a> Window {
                         1.0,
                     );
 
-                    for f in window.draw.iter() {
-                        if let Some(g) = f {
-                            g(&mut pass);
-                        }
+                    for f in window.draw.iter().flatten() {
+                        f(&mut pass);
                     }
                 }
 
@@ -364,7 +362,7 @@ impl<'a> Window {
                         }
 
                         RawEvent::Mouse {
-                            device_id: device_id,
+                            device_id,
                             state: if state == winit::event::ElementState::Pressed {
                                 MouseState::Down
                             } else {

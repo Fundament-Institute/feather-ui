@@ -5,7 +5,6 @@ use crate::AbsRect;
 use crate::Dispatchable;
 use crate::Error;
 use enum_variant_type::EnumVariantType;
-use std::any::Any;
 use std::any::TypeId;
 use ultraviolet::Vec2;
 use ultraviolet::Vec3;
@@ -153,7 +152,7 @@ impl Dispatchable for RawEvent {
         const KIND_MOUSEMOVE: u64 = RawEventKind::MouseMove as u64;
         const KIND_MOUSESCROLL: u64 = RawEventKind::MouseScroll as u64;
         const KIND_TOUCH: u64 = RawEventKind::Touch as u64;
-        let type_id = pair.1.type_id();
+        let type_id = (*pair.1).type_id();
 
         match pair.0 {
             KIND_DRAW => Ok(RawEvent::from(

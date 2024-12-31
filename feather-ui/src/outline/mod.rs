@@ -115,7 +115,7 @@ pub trait Outline<Parent: Clone>: DynClone {
     ) -> Box<dyn Layout<Parent>>;
 
     fn init(&self) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error> {
-        Err(crate::Error::Stateless.into())
+        Err(crate::Error::Stateless)
     }
     fn init_all(&self, _: &mut StateManager) -> eyre::Result<()>;
     fn id(&self) -> Rc<SourceID>;
@@ -181,8 +181,7 @@ impl Root {
             let state: &WindowStateMachine = manager.get(&window.id())?;
             let id = state.state.as_ref().unwrap().window.id();
             if !self.states.contains_key(&id) {
-                self.states
-                    .insert(id.clone(), RootState::new(window.id().clone()));
+                self.states.insert(id, RootState::new(window.id().clone()));
             }
             let root = self
                 .states

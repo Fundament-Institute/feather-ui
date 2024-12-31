@@ -13,10 +13,10 @@ use wgpu::util::DeviceExt;
 pub fn mat4_proj(x: f32, y: f32, w: f32, h: f32, n: f32, f: f32) -> Mat4 {
     Mat4 {
         cols: [
-            Vec4::new(2.0 / w, 0.0, 0.0, 0.0).into(),
-            Vec4::new(0.0, 2.0 / h, 0.0, 0.0).into(),
-            Vec4::new(0.0, 0.0, 1.0 / (f - n), 1.0).into(),
-            Vec4::new(-(2.0 * x + w) / w, -(2.0 * y + h) / h, -n / (f - n), 0.0).into(),
+            Vec4::new(2.0 / w, 0.0, 0.0, 0.0),
+            Vec4::new(0.0, 2.0 / h, 0.0, 0.0),
+            Vec4::new(0.0, 0.0, 1.0 / (f - n), 1.0),
+            Vec4::new(-(2.0 * x + w) / w, -(2.0 * y + h) / h, -n / (f - n), 0.0),
         ],
     }
 }
@@ -25,16 +25,15 @@ pub fn mat4_proj(x: f32, y: f32, w: f32, h: f32, n: f32, f: f32) -> Mat4 {
 pub fn mat4_ortho(x: f32, y: f32, w: f32, h: f32, n: f32, f: f32) -> Mat4 {
     Mat4 {
         cols: [
-            Vec4::new(2.0 / w, 0.0, 0.0, 0.0).into(),
-            Vec4::new(0.0, 2.0 / h, 0.0, 0.0).into(),
-            Vec4::new(0.0, 0.0, -2.0 / (f - n), 0.0).into(),
+            Vec4::new(2.0 / w, 0.0, 0.0, 0.0),
+            Vec4::new(0.0, 2.0 / h, 0.0, 0.0),
+            Vec4::new(0.0, 0.0, -2.0 / (f - n), 0.0),
             Vec4::new(
                 -(2.0 * x + w) / w,
                 -(2.0 * y + h) / h,
                 (f + n) / (f - n),
                 1.0,
-            )
-            .into(),
+            ),
         ],
     }
 }
@@ -65,9 +64,7 @@ pub fn default_vertex_buffer(driver: &DriverState) -> wgpu::Buffer {
 }
 
 pub fn to_bytes<T>(v: &[T]) -> &[u8] {
-    unsafe {
-        std::slice::from_raw_parts(v.as_ptr() as *const u8, v.len() * std::mem::size_of::<T>())
-    }
+    unsafe { std::slice::from_raw_parts(v.as_ptr() as *const u8, std::mem::size_of_val(v)) }
 }
 
 #[derive(Clone, Copy, Default)]

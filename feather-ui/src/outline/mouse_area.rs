@@ -54,7 +54,7 @@ impl Dispatchable for MouseAreaEvent {
         const KIND_ONCLICK: u64 = MouseAreaEventKind::OnClick as u64;
         const KIND_HOVER: u64 = MouseAreaEventKind::Hover as u64;
         const KIND_ACTIVE: u64 = MouseAreaEventKind::Active as u64;
-        let typeid = pair.1.type_id();
+        let typeid = (*pair.1).type_id();
         match pair.0 {
             KIND_ONCLICK => Ok(MouseAreaEvent::from(
                 *pair
