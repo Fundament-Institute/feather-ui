@@ -12,6 +12,7 @@ pub mod arc;
 pub mod button;
 pub mod flexbox;
 pub mod mouse_area;
+pub mod paragraph;
 pub mod region;
 pub mod round_rect;
 pub mod text;

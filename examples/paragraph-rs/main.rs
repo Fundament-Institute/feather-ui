@@ -7,10 +7,9 @@ use feather_ui::layout::flex;
 use feather_ui::layout::flex::Flex;
 
 use feather_ui::layout::root;
-use feather_ui::outline::flexbox::FlexBox;
+use feather_ui::outline::paragraph::Paragraph;
 use feather_ui::outline::region::Region;
 use feather_ui::outline::round_rect::RoundRect;
-use feather_ui::outline::text::Text;
 use feather_ui::outline::window::Window;
 use feather_ui::outline::OutlineFrom;
 use feather_ui::persist::FnPersist;
@@ -63,36 +62,10 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
                     ..Default::default()
                 };
 
-                let mut children: im::Vector<Option<Box<OutlineFrom<Flex>>>> = im::Vector::new();
-                children.push_back(Some(Box::new(rect.clone())));
-
-                let paragraph = "Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem. Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur? Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur?".split(' ');
-                for word in paragraph {
-                    let text = Text::<flex::Inherited> {
-                        id: gen_id!().into(),
-                        props: flex::Inherited {
-                            margin: Default::default(),
-                            limits: feather_ui::DEFAULT_LIMITS,
-                            order: 0,
-                            grow: 1.0,
-                            shrink: 0.0,
-                            basis: f32::INFINITY,
-                        },
-                        text: word.to_owned() + " ",
-                        font_size: 30.0,
-                        line_height: 42.0,
-                        ..Default::default()
-                    };
-                    children.push_back(Some(Box::new(text)));
-                }
-
-                children.push_back(Some(Box::new(rect.clone())));
-                children.push_back(Some(Box::new(rect.clone())));
-
-                FlexBox {
-                    id: gen_id!().into(),
-                    props: (),
-                    flex: Flex {
+                let mut p = Paragraph::new(
+                    gen_id!().into(),
+                    (),
+                    Flex {
                         zindex: 0,
                         direction: flex::FlexDirection::LeftToRight,
                         wrap: true,
@@ -103,8 +76,14 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
                             bottomright: Vec2::new(300.0, 150.0),
                         }],
                     },
-                    children,
-                }
+                );
+
+                p.set_text("Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem. Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur? Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur?");
+                p.children.push_front(Some(Box::new(rect.clone())));
+                p.children.push_back(Some(Box::new(rect.clone())));
+                p.children.push_back(Some(Box::new(rect.clone())));
+
+                p
             };
 
             let mut children: im::Vector<Option<Box<OutlineFrom<Basic>>>> = im::Vector::new();
