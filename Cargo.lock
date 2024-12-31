@@ -147,7 +147,7 @@ dependencies = [
 
 [[package]]
 name = "basic-alc"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "alicorn",
  "feather-ui",
@@ -161,7 +161,7 @@ dependencies = [
 
 [[package]]
 name = "basic-rs"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "feather-ui",
  "im",
@@ -644,7 +644,7 @@ dependencies = [
 
 [[package]]
 name = "feather-ui"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "color-eyre",
  "derive-where",
@@ -1534,9 +1534,10 @@ checksum = "c1b04fb49957986fdce4d6ee7a65027d55d4b6d2265e5848bbb507b58ccfdb6f"
 
 [[package]]
 name = "paragraph-rs"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "feather-ui",
+ "glyphon",
  "im",
  "tokio",
  "ultraviolet",
