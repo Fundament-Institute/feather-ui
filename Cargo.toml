@@ -12,7 +12,7 @@ resolver = "2"
 default-members = ["feather-ui", "examples/basic-rs", "examples/paragraph-rs"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 rust-version = "1.77.0"
 license = "Apache-2.0"
@@ -34,3 +34,4 @@ tokio = { version = "1.40", features = ["rt", "macros", "tracing", "signal"] }
 feather-ui = { path = "feather-ui" }
 alicorn = { git = "https://github.com/Fundament-Software/Alicorn0" }
 mlua = { version = "0.9.9", features = ["luajit52", "vendored"] }
+glyphon = "0.6.0"

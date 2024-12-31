@@ -10,7 +10,7 @@ Feather is a standard rust project, simply run `cargo build` on your platform of
 
 ## Running
 
-Two working examples are available: `basic-rs` and `basic-alc`. To run either, navigate into the folder and run `cargo run`. Please note that `basic-alc` currently relies on an alicorn interpreter and is thus extremely slow, it will take about 30 seconds for it to run on a powerful system.
+Two working examples are available: `basic-rs` and `paragraph-rs`. To run either, navigate into the folder and run `cargo run`.
 
 The examples have currently only been tested on NixOS and Windows 11, but should work on most systems.
 

@@ -33,7 +33,17 @@ impl<Parent: Clone + 'static> Paragraph<Parent> {
         }
     }
 
-    pub fn set_text(&mut self, text: &str) {
+    pub fn set_text(
+        &mut self,
+        text: &str,
+        font_size: f32,
+        line_height: f32,
+        font: glyphon::FamilyOwned,
+        color: glyphon::Color,
+        weight: glyphon::Weight,
+        style: glyphon::Style,
+        fullwidth: bool,
+    ) {
         self.children.clear();
         for word in text.split_ascii_whitespace() {
             let text = Text::<flex::Inherited> {
@@ -42,14 +52,17 @@ impl<Parent: Clone + 'static> Paragraph<Parent> {
                     margin: Default::default(),
                     limits: crate::DEFAULT_LIMITS,
                     order: 0,
-                    grow: 1.0,
+                    grow: if fullwidth { 1.0 } else { 0.0 },
                     shrink: 0.0,
                     basis: f32::INFINITY,
                 },
                 text: word.to_owned() + " ",
-                font_size: 30.0,
-                line_height: 42.0,
-                ..Default::default()
+                font_size,
+                line_height,
+                font: font.clone(),
+                color,
+                weight,
+                style,
             };
             self.children.push_back(Some(Box::new(text)));
         }
