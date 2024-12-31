@@ -17,7 +17,6 @@ use feather_ui::persist::FnPersist;
 use feather_ui::AbsRect;
 use feather_ui::App;
 use feather_ui::SourceID;
-use std::default;
 use std::f32;
 use std::rc::Rc;
 use ultraviolet::Vec2;
@@ -99,7 +98,10 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
                         wrap: true,
                         justify: flex::FlexJustify::Start,
                         align: flex::FlexJustify::Start,
-                        obstacles: Default::default(),
+                        obstacles: vec![AbsRect {
+                            topleft: Vec2::new(200.0, 30.0),
+                            bottomright: Vec2::new(300.0, 150.0),
+                        }],
                     },
                     children,
                 }
@@ -144,8 +146,6 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
         (store, windows)
     }
 }
-
-use feather_ui::WrapEventEx;
 
 fn main() {
     let (mut app, event_loop): (App<Blocker, BasicApp>, winit::event_loop::EventLoop<()>) =

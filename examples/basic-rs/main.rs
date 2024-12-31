@@ -3,11 +3,9 @@
 
 use core::f32;
 use feather_ui::gen_id;
-use feather_ui::layout::basic;
 use feather_ui::layout::basic::Basic;
 use feather_ui::layout::root;
 use feather_ui::layout::simple;
-use feather_ui::outline::button;
 use feather_ui::outline::button::Button;
 use feather_ui::outline::mouse_area;
 use feather_ui::outline::region::Region;
@@ -26,18 +24,6 @@ use ultraviolet::Vec4;
 #[derive(PartialEq, Clone, Debug)]
 struct CounterState {
     count: i32,
-}
-
-fn counter_increment(st: CounterState) -> CounterState {
-    CounterState {
-        count: st.count + 1,
-    }
-}
-
-fn counter_decrement(st: CounterState) -> CounterState {
-    CounterState {
-        count: st.count - 1,
-    }
 }
 
 struct BasicApp {}

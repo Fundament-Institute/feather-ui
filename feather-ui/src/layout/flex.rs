@@ -16,39 +16,28 @@ use crate::Vec2;
 use core::f32;
 use dyn_clone::DynClone;
 use smallvec::SmallVec;
-use std::ops::DivAssign;
 use std::rc::Rc;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 #[repr(u8)]
 pub enum FlexDirection {
+    #[default]
     LeftToRight,
     RightToLeft,
     TopToBottom,
     BottomToTop,
 }
 
-impl Default for FlexDirection {
-    fn default() -> Self {
-        FlexDirection::LeftToRight
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 #[repr(u8)]
 pub enum FlexJustify {
+    #[default]
     Start,
     Center,
     End,
     SpaceBetween,
     SpaceAround,
     SpaceFull,
-}
-
-impl Default for FlexJustify {
-    fn default() -> Self {
-        FlexJustify::Start
-    }
 }
 
 #[derive(Clone, Default)]
@@ -80,7 +69,7 @@ fn swap_axis(xaxis: bool, v: Vec2) -> (f32, f32) {
 }
 
 fn next_obstacle(
-    obstacles: &Vec<AbsRect>,
+    obstacles: &[AbsRect],
     max_aux: f32,
     main: f32,
     aux: f32,
@@ -98,7 +87,7 @@ fn next_obstacle(
         }
 
         // If we've reached an obstacle whose top/left is past the (current known) bottom of this line, we won't match anything.
-        if aux_start >= aux + max_aux {
+        if aux_start > aux + max_aux {
             break;
         }
 
@@ -124,7 +113,7 @@ fn next_obstacle(
         return (start, end);
     }
 
-    return (f32::INFINITY, 0.0);
+    (f32::INFINITY, 0.0)
 }
 
 fn justify_inner_outer(align: FlexJustify, total: f32, used: f32, count: i32) -> (f32, f32) {
@@ -154,8 +143,8 @@ fn wrap_line(
     mut linecount: i32,
     justify: FlexJustify,
     backwards: bool,
-) -> (SmallVec<[(usize, f32); 10]>, i32, f32) {
-    let mut breaks: SmallVec<[(usize, f32); 10]> = SmallVec::new();
+) -> (SmallVec<[(usize, f32, f32); 10]>, i32, f32) {
+    let mut breaks: SmallVec<[(usize, f32, f32); 10]> = SmallVec::new();
 
     let (mut aux, inner) = justify_inner_outer(justify, total_aux, used_aux, linecount);
 
@@ -164,7 +153,6 @@ fn wrap_line(
     used_aux = 0.0;
     let mut max_aux = 0.0;
     let mut main = 0.0;
-    let mut i = 0;
     let mut min_obstacle = 0;
     let reversed = if backwards { total_main } else { -1.0 };
     let mut obstacle = next_obstacle(
@@ -177,19 +165,17 @@ fn wrap_line(
         &mut min_obstacle,
     );
 
-    for v in childareas.iter() {
-        let Some(b) = v else {
+    let mut i = 0;
+    while i < childareas.len() {
+        let Some(ref b) = childareas[i] else {
             i += 1;
             continue;
         };
 
         // If we hit an obstacle, mark it as an obstacle breakpoint, then jump forward.
         if main + b.0.basis > obstacle.0 {
-            breaks.push((i, -obstacle.1));
+            breaks.push((i, obstacle.1, obstacle.0));
             main = obstacle.1; // Set the axis to the end of the obstacle
-            if max_aux < b.1 {
-                max_aux = b.1;
-            }
 
             obstacle = next_obstacle(
                 &props.obstacles,
@@ -201,19 +187,35 @@ fn wrap_line(
                 &mut min_obstacle,
             );
 
-            // We continue here - if the obstacle is past the end of the line, the next element will be wrapped correctly.
+            // We DO NOT update any other values here, nor do we increment i, because we might hit another obstacle
+            // or the end of the line, so we immediately loop around to try again.
             continue;
         }
 
-        // Once we hit the end of the line  we mark the true breakpoint.
+        // Once we hit the end of the line we mark the true breakpoint.
         if main + b.0.basis > total_main {
-            breaks.push((i, max_aux));
+            // If our line was empty, then nothing could fit on it. Because we don't have line-height information, we simply
+            // have to use the height of the element we are pushing to the next line.
+            let emptyline = if max_aux == 0.0 {
+                max_aux = b.1;
+
+                // Normally, if an obstacle is present on a line, we want to skip it entirely. However, if we can't fit an item on
+                // a line that has no obstacle, we have to give up and put it there anyway to prevent an infinite loop.
+                if let Some(b) = breaks.last() {
+                    b.1 >= 0.0
+                } else {
+                    true
+                }
+            } else {
+                false
+            };
+
             main = 0.0;
+            breaks.push((i, max_aux, f32::INFINITY));
             used_aux += max_aux;
             aux += max_aux + inner;
             max_aux = 0.0;
             linecount += 1;
-
             obstacle = next_obstacle(
                 &props.obstacles,
                 max_aux,
@@ -223,6 +225,10 @@ fn wrap_line(
                 reversed,
                 &mut min_obstacle,
             );
+
+            if !emptyline {
+                continue;
+            }
         }
 
         main += b.0.basis;
@@ -232,7 +238,7 @@ fn wrap_line(
         i += 1;
     }
 
-    breaks.push((childareas.len(), f32::INFINITY));
+    breaks.push((childareas.len(), f32::INFINITY, f32::INFINITY));
 
     (breaks, linecount, used_aux)
 }
@@ -267,7 +273,7 @@ impl Desc for Flex {
 
             let mut area = AbsRect {
                 topleft: true_area.topleft + (imposed.margin.topleft * dim),
-                bottomright: (true_area.bottomright - (imposed.margin.bottomright * dim)).into(),
+                bottomright: (true_area.bottomright - (imposed.margin.bottomright * dim)),
             };
 
             // If we don't have a basis, we need to set it to infinity
@@ -349,7 +355,7 @@ impl Desc for Flex {
                     || props.direction == FlexDirection::RightToLeft,
             );
 
-            if props.obstacles.len() > 0 && props.align != FlexJustify::Start {
+            if !props.obstacles.is_empty() && props.align != FlexJustify::Start {
                 // If there were obstacles and multiple rows, our initial guess was probably wrong, so rewrap until we converge
                 let mut used_aux = used_aux;
                 let mut prev = (SmallVec::new(), 1, used_aux);
@@ -378,8 +384,8 @@ impl Desc for Flex {
                 (r.0, r.1, used_aux)
             }
         } else {
-            let mut breaks = SmallVec::<[(usize, f32); 10]>::new();
-            breaks.push((childareas.len(), f32::INFINITY));
+            let mut breaks = SmallVec::<[(usize, f32, f32); 10]>::new();
+            breaks.push((childareas.len(), f32::INFINITY, f32::INFINITY));
             (breaks, 1, used_aux)
         };
 
@@ -406,16 +412,16 @@ impl Desc for Flex {
             }
 
             // Get the total length of this span, and if necessary, find the line height by scanning ahead.
-            let (total_span, max_aux) = if b.1 < 0.0 {
+            let (total_span, max_aux) = if b.2.is_finite() {
                 let mut max_aux = breaks.last().unwrap().1;
                 for j in indice..breaks.len() {
-                    if breaks[j].1 >= 0.0 {
+                    if breaks[j].2.is_infinite() {
                         max_aux = breaks[j].1;
                         break;
                     }
                 }
 
-                (-b.1 - main, max_aux)
+                (b.2 - main, max_aux)
             } else {
                 (total_main - main, b.1)
             };
@@ -427,12 +433,10 @@ impl Desc for Flex {
                 } else {
                     0.0
                 }
+            } else if totalshrink != 0.0 {
+                diff / totalshrink
             } else {
-                if totalshrink != 0.0 {
-                    diff / totalshrink
-                } else {
-                    0.0
-                }
+                0.0
             };
 
             // TODO: respect min and max limits on dimensions
@@ -487,8 +491,8 @@ impl Desc for Flex {
                 main += a.0.basis + inner;
             }
 
-            if b.1 < 0.0 {
-                main = -b.1;
+            if b.2.is_finite() {
+                main = b.1;
             } else {
                 main = 0.0;
                 aux += b.1 + inner_aux;

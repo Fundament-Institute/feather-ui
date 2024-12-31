@@ -10,7 +10,6 @@ use super::Staged;
 use crate::rtree;
 use crate::AbsDim;
 use crate::AbsRect;
-use crate::UPoint;
 use crate::URect;
 use crate::Vec2;
 use dyn_clone::DynClone;
@@ -43,7 +42,7 @@ impl Desc for Basic {
 
                 let mut area = AbsRect {
                     topleft: true_area.topleft + (props.padding.topleft * dim),
-                    bottomright: (true_area.bottomright - (props.padding.bottomright * dim)).into(),
+                    bottomright: (true_area.bottomright - (props.padding.bottomright * dim)),
                 };
                 if true_area.bottomright.x.is_infinite() {
                     area.bottomright.x = f32::INFINITY;
@@ -73,7 +72,7 @@ impl Desc for Basic {
                 let dim = true_area.dim();
                 AbsRect {
                     topleft: true_area.topleft + (props.padding.topleft * dim),
-                    bottomright: (true_area.bottomright - (props.padding.bottomright * dim)).into(),
+                    bottomright: (true_area.bottomright - (props.padding.bottomright * dim)),
                 }
             };
 

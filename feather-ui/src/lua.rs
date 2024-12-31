@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2024 Fundament Software SPC <https://fundament.software>
 
-use crate::layout::basic;
 use crate::layout::basic::Basic;
 use crate::layout::root;
 use crate::layout::root::Root;
@@ -89,7 +88,7 @@ impl<T: Desc + 'static> mlua::FromLua<'_> for BoxedOutline<T> {
 
 fn create_id<'lua>(
     _: &'lua Lua,
-    (id, parent): (LuaValue<'lua>, Option<LuaSourceID>),
+    (id, _): (LuaValue<'lua>, Option<LuaSourceID>),
 ) -> mlua::Result<LuaSourceID> {
     Ok(crate::SourceID {
         // parent: parent.map(|x| Rc::downgrade(&x)).unwrap_or_default(),
@@ -101,22 +100,18 @@ fn create_id<'lua>(
         } else {
             panic!("Invalid ID")
         },
-    }
-    .into())
+    })
 }
 
 fn get_appdata_id(_: &Lua, (): ()) -> mlua::Result<LuaSourceID> {
-    Ok(crate::APP_SOURCE_ID.into())
+    Ok(crate::APP_SOURCE_ID)
 }
 
-fn create_slot<'lua>(_: &'lua Lua, args: (LuaSourceID, u64)) -> mlua::Result<Slot> {
+fn create_slot(_: &Lua, args: (LuaSourceID, u64)) -> mlua::Result<Slot> {
     Ok(Slot(args.0.into(), args.1))
 }
 
-fn create_urect<'lua>(
-    _: &'lua Lua,
-    args: (f32, f32, f32, f32, f32, f32, f32, f32),
-) -> mlua::Result<URect> {
+fn create_urect(_: &Lua, args: (f32, f32, f32, f32, f32, f32, f32, f32)) -> mlua::Result<URect> {
     Ok(URect {
         topleft: crate::UPoint {
             abs: Vec2::new(args.0, args.1),
@@ -135,10 +130,7 @@ fn create_urect<'lua>(
     })
 }
 
-fn create_window<'lua>(
-    _: &'lua Lua,
-    args: (LuaSourceID, String, BoxedOutline<Root>),
-) -> mlua::Result<Window> {
+fn create_window(_: &Lua, args: (LuaSourceID, String, BoxedOutline<Root>)) -> mlua::Result<Window> {
     Ok(Window::new(
         args.0.into(),
         winit::window::Window::default_attributes()
@@ -149,8 +141,8 @@ fn create_window<'lua>(
     ))
 }
 
-fn create_region<'lua>(
-    _: &'lua Lua,
+fn create_region(
+    _: &Lua,
     args: (LuaSourceID, URect, Vec<BoxedOutline<Basic>>),
 ) -> mlua::Result<BoxedOutline<Root>> {
     let mut children = im::Vector::new();
@@ -166,8 +158,8 @@ fn create_region<'lua>(
     })))
 }
 
-fn create_button<'lua>(
-    _: &'lua Lua,
+fn create_button(
+    _: &Lua,
     args: (
         LuaSourceID,
         URect,
@@ -209,8 +201,8 @@ fn create_button<'lua>(
     ))))
 }
 
-fn create_label<'lua>(
-    _: &'lua Lua,
+fn create_label(
+    _: &Lua,
     args: (LuaSourceID, URect, String),
 ) -> mlua::Result<BoxedOutline<simple::Simple>> {
     Ok(BoxedOutline(Box::new(Text::<()> {
@@ -230,8 +222,8 @@ fn create_label<'lua>(
 }
 use crate::outline::round_rect::RoundRect;
 
-fn create_round_rect<'lua>(
-    _: &'lua Lua,
+fn create_round_rect(
+    _: &Lua,
     args: (LuaSourceID, URect, u32, f32, f32, u32),
 ) -> mlua::Result<BoxedOutline<simple::Simple>> {
     let fill = args.2.to_be_bytes().map(|x| x as f32);

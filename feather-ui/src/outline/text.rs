@@ -92,25 +92,6 @@ pub struct Text<Parent: Clone> {
     pub style: glyphon::Style,
 }
 
-impl<Parent: Clone + 'static> crate::outline::Desc for TextLayout<Parent> {
-    type Props = TextLayout<Parent>;
-    type Impose = ();
-    type Children<A: dyn_clone::DynClone + ?Sized> =
-        std::marker::PhantomData<dyn Layout<Self::Impose>>;
-
-    fn stage<'a>(
-        props: &Self::Props,
-        mut true_area: AbsRect,
-        parent_pos: Vec2,
-        _: &Self::Children<dyn Layout<Self::Impose> + '_>,
-        id: std::rc::Weak<SourceID>,
-        renderable: Option<Rc<dyn Renderable>>,
-        driver: &crate::DriverState,
-    ) -> Box<dyn crate::outline::Staged + 'a> {
-        unreachable!();
-    }
-}
-
 impl<Parent: Clone + Default> Default for Text<Parent> {
     fn default() -> Self {
         Self {
