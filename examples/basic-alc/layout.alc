@@ -358,6 +358,41 @@ let tuple-desc-elem-explicit = lambda (U : universe)
 let tuple-desc-elem-implicit = lambda_implicit (U : universe)
 	tuple-desc-elem-explicit U
 
+let host-number-fold-indep = lambda_implicit (T : type-omega)
+	unwrap
+		intrinsic
+			""""
+				return U.notail(evaluator.gen_base_operator("#int-fold", function(num, func, acc)
+					return U.notail(terms.typed_term.host_int_fold(num, func, acc))
+				end))
+			:
+			wrapped((forall (n : host-number, f : (forall (i  : host-number, acc  : T) -> (resacc  : T)), acc  : T) -> (res : T)))
+
+let duplicate-tuple-desc = lambda_implicit (U : universe)
+	lambda (n : host-number, T : U)
+		host-number-fold-indep
+			n
+			lambda (i : host-number, acc : tuple-desc-type(U))
+				tuple-desc-concat-indep
+					acc
+					tuple-desc-singleton U T
+			tuple-desc-empty U
+
+let make-host-array = lambda_implicit (T : host-type)
+	lambda (size : host-number)
+		let input-type = host-tuple-type(duplicate-tuple-desc(size, T))
+		let inner =
+			intrinsic
+				""""
+					return function(tuple)
+						local elements = tuple:unwrap_host_tuple_value(tuple)
+						return {elements:unpack()}
+					end
+				:
+				host-func-type ((tuple : wrapped(input-type))) -> ((res : host-array-type(T)))
+		lambda_single (elems : input-type)
+			let (array) = inner(wrap(elems))
+			array
 
 ## syntax matcher and operative stuff
 
@@ -737,8 +772,12 @@ let func-to-host-func =
 			let (res) = inner(wrap(f))
 			the hft res
 
+
+
+
 ##### GLSL PRELUDE START HERE #####
 
+let glsl-bool = host-bool
 let glsl-float = host-number
 let glsl-vec2 = new-host-type(new-host-unique-id("glsl-vec2"))
 let glsl-vec3 = new-host-type(new-host-unique-id("glsl-vec3"))
@@ -796,6 +835,207 @@ let _*_ = lambda (left : glsl-float, right : glsl-float)
 	let (product) = host-mul-float(left, right)
 	product
 
+let host-mul-vec2 = intrinsic
+	""""
+		local host_mul_float2 = function(l, r) return setmetatable({
+				x = l.x * r.x,
+				y = l.y * r.y,
+			}, glsl_registry["vec2"]) end
+		glsl_registry[host_mul_float2] = function(pp, varnames, l, r)
+			pp:unit("(")
+			pp:any(l, varnames)
+			pp:unit(" * ")
+			pp:any(r, varnames)
+			pp:unit(")")
+		end
+		return host_mul_float2
+	:
+	host-func-type (left : glsl-vec2, right : glsl-vec2) -> ((product : glsl-vec2))
+let _*:2_ = lambda (left : glsl-vec2, right : glsl-vec2)
+	let (product) = host-mul-vec2(left, right)
+	product
+
+let host-div-float = intrinsic
+	""""
+		local host_div_float = function(l, r) return l / r end
+		glsl_registry[host_div_float] = function(pp, varnames, l, r)
+			pp:unit("(")
+			pp:any(l, varnames)
+			pp:unit(" / ")
+			pp:any(r, varnames)
+			pp:unit(")")
+		end
+		return host_div_float
+	:
+	host-func-type (left : glsl-float, right : glsl-float) -> ((quotient : glsl-float))
+let _/_ = lambda (left : glsl-float, right : glsl-float)
+	let (quotient) = host-div-float(left, right)
+	quotient
+
+let host-lt-float = intrinsic
+	""""
+		local host_lt_float = function(l, r) return l < r end
+		glsl_registry[host_lt_float] = function(pp, varnames, l, r)
+			pp:unit("(")
+			pp:any(l, varnames)
+			pp:unit(" < ")
+			pp:any(r, varnames)
+			pp:unit(")")
+		end
+		return host_lt_float
+	:
+	host-func-type (left : glsl-float, right : glsl-float) -> ((result : glsl-bool))
+let _<_ = lambda (left : glsl-float, right : glsl-float)
+	let (result) = host-lt-float(left, right)
+	result
+
+let host-gt-float = intrinsic
+	""""
+		local host_gt_float = function(l, r) return l > r end
+		glsl_registry[host_gt_float] = function(pp, varnames, l, r)
+			pp:unit("(")
+			pp:any(l, varnames)
+			pp:unit(" > ")
+			pp:any(r, varnames)
+			pp:unit(")")
+		end
+		return host_gt_float
+	:
+	host-func-type (left : glsl-float, right : glsl-float) -> ((result : glsl-bool))
+let _>_ = lambda (left : glsl-float, right : glsl-float)
+	let (result) = host-gt-float(left, right)
+	result
+
+let host-clamp = intrinsic
+	""""
+		local host_clamp = function(x, minVal, maxVal)
+			if x < minVal then
+				return minVal
+			elseif x > maxVal then
+				return maxVal
+			else
+				return x
+			end
+		end
+		glsl_registry[host_clamp] = function(pp, varnames, x, minVal, maxVal)
+			pp:unit("clamp(")
+			pp:any(x, varnames)
+			pp:unit(", ")
+			pp:any(minVal, varnames)
+			pp:unit(", ")
+			pp:any(maxVal, varnames)
+			pp:unit(")")
+		end
+		return host_clamp
+	:
+	host-func-type (x : glsl-float, minVal : glsl-float, maxVal : glsl-float) -> ((clamped : glsl-float))
+let clamp = lambda (x : glsl-float, minVal : glsl-float, maxVal : glsl-float)
+	let (clamped) = host-clamp(x, minVal, maxVal)
+	clamped
+
+let host-max = intrinsic
+	""""
+		local host_max = function(x, minVal)
+			if x < minVal then
+				return minVal
+			else
+				return x
+			end
+		end
+		glsl_registry[host_max] = function(pp, varnames, x, minVal)
+			pp:unit("max(")
+			pp:any(x, varnames)
+			pp:unit(", ")
+			pp:any(minVal, varnames)
+			pp:unit(")")
+		end
+		return host_max
+	:
+	host-func-type (x : glsl-float, maxVal : glsl-float) -> ((maxed : glsl-float))
+let max = lambda (x : glsl-float, maxVal : glsl-float)
+	let (maxed) = host-max(x, maxVal)
+	maxed
+
+let host-min = intrinsic
+	""""
+		local host_min = function(x, minVal)
+			if x > minVal then
+				return minVal
+			else
+				return x
+			end
+		end
+		glsl_registry[host_min] = function(pp, varnames, x, minVal)
+			pp:unit("min(")
+			pp:any(x, varnames)
+			pp:unit(", ")
+			pp:any(minVal, varnames)
+			pp:unit(")")
+		end
+		return host_min
+	:
+	host-func-type (x : glsl-float, minVal : glsl-float) -> ((mined : glsl-float))
+let min = lambda (x : glsl-float, minVal : glsl-float)
+	let (mined) = host-min(x, minVal)
+	mined
+	
+let host-ternary = intrinsic
+	""""
+		local host_ternary = function(condition, consequent, alternate)
+			if condition then
+				return consequent
+			else
+				return alternate
+			end
+		end
+		glsl_registry[host_ternary] = function(pp, varnames, condition, consequent, alternate)
+			pp:unit("(")
+			pp:any(condition, varnames)
+			pp:unit("?")
+			pp:any(consequent, varnames)
+			pp:unit(":")
+			pp:any(alternate, varnames)
+			pp:unit(")")
+		end
+		return host_ternary
+	:
+	host-func-type (condition : glsl-bool, consequent : glsl-float, alternate : glsl-float) -> ((result : glsl-float))
+let ternary = lambda (condition : glsl-bool, consequent : glsl-float, alternate : glsl-float)
+	let (result) = host-ternary(condition, consequent, alternate)
+	result
+
+let host-fwidth = intrinsic
+	""""
+		-- This returns the derivative of the values relative to the current surface dimensions, which is not possible to do here
+		local host_fwidth = function(v) return 1.0	end
+		glsl_registry[host_fwidth] = function(pp, varnames, v)
+			pp:unit("fwidth(")
+			pp:any(v, varnames)
+			pp:unit(")")
+		end
+		return host_fwidth
+	:
+	host-func-type ((v : glsl-float)) -> ((result : glsl-float))
+let fwidth = lambda (v : glsl-float)
+	let (result) = host-fwidth(v)
+	result
+
+let host-length = intrinsic
+	""""
+		-- This returns the derivative of the values relative to the current surface dimensions, which is not possible to do here
+		local host_length = function(v) return math.sqrt(v.x * v.x + v.y * v.y) end
+		glsl_registry[host_length] = function(pp, varnames, v)
+			pp:unit("length(")
+			pp:any(v, varnames)
+			pp:unit(")")
+		end
+		return host_length
+	:
+	host-func-type ((v : glsl-vec2)) -> ((result : glsl-float))
+let length = lambda (v : glsl-vec2)
+	let (result) = host-length(v)
+	result
+
 let host-mk-vec2 = intrinsic
 	""""
 		local vec2_mt = {}
@@ -810,92 +1050,13 @@ let host-mk-vec2 = intrinsic
 		glsl_registry[vec2_mt] = function(pp, vec, varnames)
 			return glsl_registry[host_mk_vec2](pp, varnames, vec.x, vec.y)
 		end
+		glsl_registry["vec2"] = vec2_mt
 		return host_mk_vec2
 	:
 	host-func-type (x : glsl-float, y : glsl-float) -> ((vec : glsl-vec2))
 let mk-vec2 = lambda (x : glsl-float, y : glsl-float)
 	let (vec) = host-mk-vec2(x, y)
 	vec
-
-let host-mk-vec3 = intrinsic
-	""""
-		local vec3_mt = {}
-		local host_mk_vec3 = function(x, y) return setmetatable({ x = x, y = y, z = z }, vec3_mt) end
-		glsl_registry[host_mk_vec3] = function(pp, varnames, x, y, z)
-			pp:unit("vec3(")
-			pp:any(x, varnames)
-			pp:unit(", ")
-			pp:any(y, varnames)
-			pp:unit(", ")
-			pp:any(z, varnames)
-			pp:unit(")")
-		end
-		glsl_registry[vec3_mt] = function(pp, vec, varnames)
-			return glsl_registry[host_mk_vec3](pp, varnames, vec.x, vec.y, vec.z)
-		end
-		return host_mk_vec3
-	:
-	host-func-type (x : glsl-float, y : glsl-float, z : glsl-float) -> ((vec : glsl-vec3))
-let mk-vec3 = lambda (x : glsl-float, y : glsl-float, z : glsl-float)
-	let (vec) = host-mk-vec3(x, y, z)
-	vec
-
-let host-mk-vec4 = intrinsic
-	""""
-		local vec4_mt = {}
-		local host_mk_vec4 = function(x, y, z, w) return setmetatable({ x = x, y = y, z = z, w = w }, vec4_mt) end
-		glsl_registry[host_mk_vec4] = function(pp, varnames, x, y, z, w)
-			pp:unit("vec4(")
-			pp:any(x, varnames)
-			pp:unit(", ")
-			pp:any(y, varnames)
-			pp:unit(", ")
-			pp:any(z, varnames)
-			pp:unit(", ")
-			pp:any(w, varnames)
-			pp:unit(")")
-		end
-		glsl_registry[vec4_mt] = function(pp, vec, varnames)
-			return glsl_registry[host_mk_vec4](pp, varnames, vec.x, vec.y, vec.z, vec.w)
-		end
-		return host_mk_vec4
-	:
-	host-func-type (x : glsl-float, y : glsl-float, z : glsl-float, w : glsl-float) -> ((vec : glsl-vec4))
-let mk-vec4 = lambda (x : glsl-float, y : glsl-float, z : glsl-float, w : glsl-float)
-	let (vec) = host-mk-vec4(x, y, z, w)
-	vec
-
-let host-mk-mat4 = intrinsic
-	""""
-		local mat4_mt = {}
-		local host_mk_mat4 = function(a, b, c, d)
-			return setmetatable({
-				ax = a.x, bx = b.x, cx = c.x, dx = d.x,
-				ay = a.y, by = b.y, cy = c.y, dy = d.y,
-				az = a.z, bz = b.z, cz = c.z, dz = d.z,
-				aw = a.w, bw = b.w, cw = c.w, dw = d.w,
-			}, mat4_mt)
-		end
-		glsl_registry[host_mk_mat4] = function(pp, varnames, a, b, c, d)
-			pp:unit("mat4(")
-			pp:any(a, varnames)
-			pp:unit(", ")
-			pp:any(b, varnames)
-			pp:unit(", ")
-			pp:any(c, varnames)
-			pp:unit(", ")
-			pp:any(d, varnames)
-			pp:unit(")")
-		end
-		glsl_registry[mat4_mt] = function(pp, mat, varnames)
-			pp:unit("/* NYI: repr a mat4! */")
-		end
-		return host_mk_mat4
-	:
-	host-func-type (a : glsl-vec4, b : glsl-vec4, c : glsl-vec4, d : glsl-vec4) -> ((mat : glsl-mat4))
-let mk-mat4 = lambda (a : glsl-vec4, b : glsl-vec4, c : glsl-vec4, d : glsl-vec4)
-	let (mat) = host-mk-mat4(a, b, c, d)
-	mat
 
 let host-get-vec2-x = intrinsic
 	""""
@@ -922,6 +1083,117 @@ let split-vec2 = lambda (vec : glsl-vec2)
 	let (y) = host-get-vec2-y(vec)
 	tuple-of-implicit(x, y)
 
+let host-add-vec2 = intrinsic
+	""""
+		local host_add_vec2 = function(l, r)
+			return setmetatable({
+				x = l.x + r.x,
+				y = l.y + r.y,
+			}, glsl_registry["vec2"])
+		end
+		glsl_registry[host_add_vec2] = function(pp, varnames, l, r)
+			pp:unit("(")
+			pp:any(l, varnames)
+			pp:unit(" + ")
+			pp:any(r, varnames)
+			pp:unit(")")
+		end
+		return host_add_vec2
+	:
+	host-func-type (left : glsl-vec2, right : glsl-vec2) -> ((sum : glsl-vec2))
+let add-vec2 = lambda (left : glsl-vec2, right : glsl-vec2)
+	let (sum) = host-add-vec2(left, right)
+	sum
+
+let host-add-vec4 = intrinsic
+	""""
+		local host_add_vec4 = function(l, r)
+			return setmetatable({
+				x = l.x + r.x,
+				y = l.y + r.y,
+				z = l.z + r.z,
+				w = l.w + r.w,
+			}, glsl_registry["vec4"])
+		end
+		glsl_registry[host_add_vec4] = function(pp, varnames, l, r)
+			pp:unit("(")
+			pp:any(l, varnames)
+			pp:unit(" + ")
+			pp:any(r, varnames)
+			pp:unit(")")
+		end
+		return host_add_vec4
+	:
+	host-func-type (left : glsl-vec4, right : glsl-vec4) -> ((sum : glsl-vec4))
+let add-vec4 = lambda (left : glsl-vec4, right : glsl-vec4)
+	let (sum) = host-add-vec4(left, right)
+	sum
+
+let host-sub-vec2 = intrinsic
+	""""
+		local host_sub_vec2 = function(l, r)
+			return setmetatable({
+				x = l.x - r.x,
+				y = l.y - r.y,
+			}, glsl_registry["vec2"])
+		end
+		glsl_registry[host_sub_vec2] = function(pp, varnames, l, r)
+			pp:unit("(")
+			pp:any(l, varnames)
+			pp:unit(" - ")
+			pp:any(r, varnames)
+			pp:unit(")")
+		end
+		return host_sub_vec2
+	:
+	host-func-type (left : glsl-vec2, right : glsl-vec2) -> ((difference : glsl-vec2))
+let sub-vec2 = lambda (left : glsl-vec2, right : glsl-vec2)
+	let (difference) = host-sub-vec2(left, right)
+	difference
+
+let host-abs-vec2 = intrinsic
+	""""
+		local host_abs_vec2 = function(vec)
+			return setmetatable({
+				x = math.abs(vec.x),
+				y = math.abs(vec.y),
+			}, glsl_registry["vec2"])
+		end
+		glsl_registry[host_abs_vec2] = function(pp, varnames, vec)
+			pp:unit("abs(")
+			pp:any(vec, varnames)
+			pp:unit(")")
+		end
+		return host_abs_vec2
+	:
+	host-func-type ((vec : glsl-vec2)) -> ((result : glsl-vec2))
+let abs-vec2 = lambda (vec : glsl-vec2)
+	let (result) = host-abs-vec2(vec)
+	result
+
+let host-mk-vec3 = intrinsic
+	""""
+		local vec3_mt = {}
+		local host_mk_vec3 = function(x, y) return setmetatable({ x = x, y = y, z = z }, vec3_mt) end
+		glsl_registry[host_mk_vec3] = function(pp, varnames, x, y, z)
+			pp:unit("vec3(")
+			pp:any(x, varnames)
+			pp:unit(", ")
+			pp:any(y, varnames)
+			pp:unit(", ")
+			pp:any(z, varnames)
+			pp:unit(")")
+		end
+		glsl_registry[vec3_mt] = function(pp, vec, varnames)
+			return glsl_registry[host_mk_vec3](pp, varnames, vec.x, vec.y, vec.z)
+		end
+		glsl_registry["vec3"] = vec3_mt
+		return host_mk_vec3
+	:
+	host-func-type (x : glsl-float, y : glsl-float, z : glsl-float) -> ((vec : glsl-vec3))
+let mk-vec3 = lambda (x : glsl-float, y : glsl-float, z : glsl-float)
+	let (vec) = host-mk-vec3(x, y, z)
+	vec
 
 let host-get-vec3-x = intrinsic
 	""""
@@ -958,6 +1230,32 @@ let split-vec3 = lambda (vec : glsl-vec3)
 	let (y) = host-get-vec3-y(vec)
 	let (z) = host-get-vec3-z(vec)
 	tuple-of-implicit(x, y, z)
+
+let host-mk-vec4 = intrinsic
+	""""
+		local vec4_mt = {}
+		local host_mk_vec4 = function(x, y, z, w) return setmetatable({ x = x, y = y, z = z, w = w }, vec4_mt) end
+		glsl_registry[host_mk_vec4] = function(pp, varnames, x, y, z, w)
+			pp:unit("vec4(")
+			pp:any(x, varnames)
+			pp:unit(", ")
+			pp:any(y, varnames)
+			pp:unit(", ")
+			pp:any(z, varnames)
+			pp:unit(", ")
+			pp:any(w, varnames)
+			pp:unit(")")
+		end
+		glsl_registry[vec4_mt] = function(pp, vec, varnames)
+			return glsl_registry[host_mk_vec4](pp, varnames, vec.x, vec.y, vec.z, vec.w)
+		end
+		glsl_registry["vec4"] = vec4_mt
+		return host_mk_vec4
+	:
+	host-func-type (x : glsl-float, y : glsl-float, z : glsl-float, w : glsl-float) -> ((vec : glsl-vec4))
+let mk-vec4 = lambda (x : glsl-float, y : glsl-float, z : glsl-float, w : glsl-float)
+	let (vec) = host-mk-vec4(x, y, z, w)
+	vec
 
 let host-get-vec4-x = intrinsic
 	""""
@@ -1005,6 +1303,39 @@ let split-vec4 = lambda (vec : glsl-vec4)
 	let (z) = host-get-vec4-z(vec)
 	let (w) = host-get-vec4-w(vec)
 	tuple-of-implicit(x, y, z, w)
+
+let host-mk-mat4 = intrinsic
+	""""
+		local mat4_mt = {}
+		local host_mk_mat4 = function(a, b, c, d)
+			return setmetatable({
+				ax = a.x, bx = b.x, cx = c.x, dx = d.x,
+				ay = a.y, by = b.y, cy = c.y, dy = d.y,
+				az = a.z, bz = b.z, cz = c.z, dz = d.z,
+				aw = a.w, bw = b.w, cw = c.w, dw = d.w,
+			}, mat4_mt)
+		end
+		glsl_registry[host_mk_mat4] = function(pp, varnames, a, b, c, d)
+			pp:unit("mat4(")
+			pp:any(a, varnames)
+			pp:unit(", ")
+			pp:any(b, varnames)
+			pp:unit(", ")
+			pp:any(c, varnames)
+			pp:unit(", ")
+			pp:any(d, varnames)
+			pp:unit(")")
+		end
+		glsl_registry[mat4_mt] = function(pp, mat, varnames)
+			pp:unit("/* NYI: repr a mat4! */")
+		end
+		glsl_registry["mat4"] = mat4_mt
+		return host_mk_mat4
+	:
+	host-func-type (a : glsl-vec4, b : glsl-vec4, c : glsl-vec4, d : glsl-vec4) -> ((mat : glsl-mat4))
+let mk-mat4 = lambda (a : glsl-vec4, b : glsl-vec4, c : glsl-vec4, d : glsl-vec4)
+	let (mat) = host-mk-mat4(a, b, c, d)
+	mat
 
 let host-mul-mat4-vec4 = intrinsic
 	""""
@@ -1068,6 +1399,71 @@ let host-mul-mat4-mat4 = intrinsic
 let mul-mat4-mat4 = lambda (left : glsl-mat4, right : glsl-mat4)
 	let (product) = host-mul-mat4-mat4(left, right)
 	product
+
+############# SHADER DEFINITIONS
+
+let frag-shader-type = forall (pos : glsl-vec2, PosDim : glsl-vec4, DimBorderBlur : glsl-vec4, Corners : glsl-vec4, Fill : glsl-vec4, Outline : glsl-vec4) -> ((glfragcolor : glsl-vec4))
+
+let glsl-print-frag-shader = intrinsic
+	""""
+		local U = require "alicorn-utils"
+		local format = require "format"
+		return function(frag_shader)
+			local param_name, code, capture, _capture_dbg, _param_debug = frag_shader:unwrap_closure()
+			local context = terms.strict_runtime_context()
+			context = context:append(terms.strict_value.host_number_type, "#frag-context", terms.var_debug("#frag-context-dbg", format.anchor_here()))
+			context = context:append(terms.strict_value.host_number_type, param_name, terms.var_debug("#frag-closure-dbg", format.anchor_here()))
+			local elements = code:unwrap_tuple_cons()
+			local glfragcolor = elements[1]:glsl_print({{}, {"MVP", "PosDim", "vPos"}})
+			local boilerplate = "#version 450\nin vec2 pos;\nlayout(binding=1) uniform vec4 PosDim;\nlayout(binding=2) uniform vec4 DimBorderBlur;\nlayout(binding=3) uniform vec4 Corners;\nlayout(binding=4) uniform vec4 Fill;\nlayout(binding=5) uniform vec4 Outline;\nout vec4 fragColor;\n"
+			local frag_shader = boilerplate .. "void main() {\n  fragColor = " .. glfragcolor .. ";\n}\n"
+			return U.litprint(frag_shader)
+		end
+	:
+	host-func-type ((frag-shader : wrapped(frag-shader-type))) -> ((str : host-string))
+
+let linearstep = lambda (low : glsl-float, high : glsl-float, x : glsl-float)
+	clamp((x - low) / (high - low), 0, 1)
+
+let rectangle = lambda (samplePosition : glsl-vec2, halfSize : glsl-vec2, edges : glsl-vec4)
+	let (samplePosition-x, samplePosition-y) = split-vec2(samplePosition)
+	let (edges-x, edges-y, edges-z, edges-w) = split-vec4(edges)
+	let edge = ternary (samplePosition-x > 0)
+		ternary(samplePosition-y < 0, edges-y, edges-z)
+		ternary(samplePosition-y < 0, edges-x, edges-w)
+	let componentWiseEdgeDistance = add-vec2
+		sub-vec2(abs-vec2(samplePosition), halfSize)
+		mk-vec2(edge, edge)
+	
+	let (componentWiseEdgeDistance-x, componentWiseEdgeDistance-y) = split-vec2(componentWiseEdgeDistance)
+	let outsideDistance = length(mk-vec2(max(componentWiseEdgeDistance-x, 0.0), max(componentWiseEdgeDistance-y, 0.0)))
+	let insideDistance = min(max(componentWiseEdgeDistance-x, componentWiseEdgeDistance-y), 0.0)
+	outsideDistance + insideDistance - edge
+
+let frag-shader = lambda (pos : glsl-vec2, PosDim : glsl-vec4, DimBorderBlur : glsl-vec4, Corners : glsl-vec4, Fill : glsl-vec4, Outline : glsl-vec4)
+	let (PosDim-x, PosDim-y, PosDim-z, PosDim-w) = split-vec4(PosDim)
+	let (DimBorderBlur-x, DimBorderBlur-y, DimBorderBlur-z, DimBorderBlur-w) = split-vec4(DimBorderBlur)
+	let (pos-x, pos-y) = split-vec2(pos)
+
+	let w = fwidth((PosDim-z * pos-x)) * 0.5 * (1.0 + DimBorderBlur-w);
+	let uv = mk-vec2((pos-x * PosDim-z) - (PosDim-z * 0.5), (pos-y * PosDim-w) - (PosDim-w * 0.5))
+
+	let dist = rectangle(uv, mk-vec2(PosDim-z * 0.5, PosDim-w * 0.5), Corners);
+	let alpha = linearstep(w, w * -1.0, dist)
+	let s = linearstep(w, w * -1.0, dist + DimBorderBlur-z)
+
+	let (Fill-r, Fill-g, Fill-b, Fill-a) = split-vec4(Fill)
+	let (Outline-r, Outline-g, Outline-b, Outline-a) = split-vec4(Outline)
+	let c = clamp(alpha - s, 0.0, 1.0)
+
+	let premultiply-fill = mk-vec4(Fill-r * Fill-a * s, Fill-g * Fill-a * s, Fill-b * Fill-a * s, 1)
+	let premultiply-outline = mk-vec4(Outline-r * Outline-a * c, Outline-g * Outline-a * c, Outline-b * Outline-a * c, 1)
+	let output = add-vec4(premultiply-fill, premultiply-outline)
+	tuple-of-implicit(output)
+
+let (frag-shader-string) = glsl-print-frag-shader(wrap(frag-shader))
+
+############# FEATHER LAYOUT STARTS HERE
 
 let string = host-string
 
@@ -1211,6 +1607,16 @@ let create-round-rect =
 		let (res) = create-round-rect-bind(id, area, color, radius, border, bordercolor)
 		res
 
+let create-shader-standard-bind =
+	intrinsic
+		"return create_shader_standard"
+		:
+		host-func-type (id : FeatherID, area : URect, source : host-string, dimborderblur : host-array-type(host-number), corners : host-array-type(host-number), fill : host-array-type(host-number), outline : host-array-type(host-number)) -> ((res : Component))
+let create-shader-standard =
+	lambda (id : FeatherID, area : URect, source : host-string, dimborderblur : host-array-type(host-number), corners : host-array-type(host-number), fill : host-array-type(host-number), outline : host-array-type(host-number))
+		let (res) = create-shader-standard-bind(id, area, source, dimborderblur, corners, fill, outline)
+		res
+
 let windowsig = host-func-type (store : host-unit, appstate : host-unit) -> (store : host-unit, window : Component)
 let initsig = host-func-type () -> ((res : host-unit))
 let onclicksig = host-func-type (dispatch : host-unit, state : host-unit) -> ((result : host-unit))
@@ -1221,10 +1627,13 @@ let uidesc = tuple-desc(
 	onclick :  onclicksig)
 
 let windowmaker = lambda (store : host-unit, appstate : host-unit)
-	let urect = create-urect(0.0, 0.0, 1280.0, 720.0, 0.0, 0.0, 1280.0, 720.0)
+	let urect-label = create-urect(0.0, 0.0, 1280.0, 720.0, 0.0, 0.0, 0.0, 0.0)
+	let urect-btn = create-urect(100.0, 100.0, 300.0, 200.0, 0.0, 0.0, 0.0, 0.0)
 	let components = host-array-new(Component)
-	let components = host-array-set(components, 1, create-label(create-id("hello-label"), urect, "Hello World, from alicorn in feather!"))
-	let region = create-region(create-id("main-region"), urect, components)
+	let components = host-array-set(components, 1, create-label(create-id("hello-label"), urect-label, "Hello World, from alicorn in feather!"))
+	let components = host-array-set(components, 2, create-round-rect(create-id("hello-rect"), urect-btn, 4294967295, 10.0, 0.0, 0))
+	#let components = host-array-set(components, 2, create-shader-standard(create-id("hello-rect"), urect-btn, frag-shader-string, (make-host-array(4) 0.0 0.0 0.0 0.0), (make-host-array(4) 10.0 10.0 10.0 10.0), (make-host-array(4) 0.2 0.7 0.4 1.0), (make-host-array(4) 0.0 0.0 0.0 0.0)))
+	let region = create-region(create-id("main-region"), urect-label, components)
 	let window = create-window(create-id("main-window"), "Hello World, from alicorn in feather!", region)
 	tuple-of-implicit store window
 

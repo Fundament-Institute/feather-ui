@@ -27,6 +27,8 @@ fn main() {
         let ast = alicorn.parse(include_str!("layout.alc")).unwrap();
         let terms = alicorn.process(ast).unwrap();
         let program = alicorn.evaluate(terms).unwrap();
+
+        // This executes an alicorn program, which then calls back into the lua environment we have created in feather-ui/src/lua.rs
         let (window, init, onclick): (Function, Function, Function) =
             alicorn.execute(program).unwrap();
 

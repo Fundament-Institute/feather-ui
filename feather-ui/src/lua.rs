@@ -231,7 +231,7 @@ fn create_shader_standard(
         [f32; 4],
         [f32; 4],
     ),
-) -> mlua::Result<BoxedOutline<simple::Simple>> {
+) -> mlua::Result<BoxedOutline<Basic>> {
     Ok(BoxedOutline(Box::new(ShaderStandard::<()> {
         id: args.0.into(),
         rect: args.1,
@@ -244,7 +244,7 @@ fn create_shader_standard(
 fn create_round_rect(
     _: &Lua,
     args: (LuaSourceID, URect, u32, f32, f32, u32),
-) -> mlua::Result<BoxedOutline<simple::Simple>> {
+) -> mlua::Result<BoxedOutline<Basic>> {
     let fill = args.2.to_be_bytes().map(|x| x as f32);
     let outline = args.5.to_be_bytes().map(|x| x as f32);
     Ok(BoxedOutline(Box::new(RoundRect::<()> {
@@ -259,6 +259,9 @@ fn create_round_rect(
     })))
 }
 
+/// This defines the "lua" app that knows how to handle a lua value that contains the
+/// expected rust objects, and hand them off for processing. This is analogous to the
+/// pure-rust [App] struct defined in lib.rs
 pub struct LuaApp<'lua> {
     pub window: LuaFunction<'lua>, // takes a Store and an appstate and returns a Window
     pub init: LuaFunction<'lua>,
@@ -292,6 +295,7 @@ impl<'lua> FnPersist<AppState<'lua>, im::HashMap<Rc<SourceID>, Option<Window>>> 
     }
 }
 
+// These all map lua functions to rust code that creates the necessary rust objects and returns them inside lua userdata.
 pub fn init_environment(lua: &Lua) -> mlua::Result<()> {
     lua.globals()
         .set("create_id", lua.create_function(create_id)?)?;
