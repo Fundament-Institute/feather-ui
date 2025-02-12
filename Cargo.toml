@@ -32,6 +32,6 @@ tracing-subscriber = { version = "0.3.18", features = ["time"] }
 tracing = "0.1.40"
 tokio = { version = "1.40", features = ["rt", "macros", "tracing", "signal"] }
 feather-ui = { path = "feather-ui" }
-alicorn = { git = "https://github.com/Fundament-Software/Alicorn0" }
+alicorn = { git = "https://github.com/Fundament-Software/Alicorn0", branch = "feature/glsl" }
 mlua = { version = "0.9.9", features = ["luajit52", "vendored"] }
 glyphon = "0.6.0"

@@ -15,6 +15,7 @@ pub mod mouse_area;
 pub mod paragraph;
 pub mod region;
 pub mod round_rect;
+pub mod shader_standard;
 pub mod text;
 pub mod window;
 
