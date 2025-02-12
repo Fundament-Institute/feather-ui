@@ -8,6 +8,7 @@ use crate::layout::simple;
 use crate::layout::Desc;
 use crate::outline::button::Button;
 use crate::outline::region::Region;
+use crate::outline::shader_standard::ShaderStandard;
 use crate::outline::text::Text;
 use crate::outline::window::Window;
 use crate::outline::OutlineFrom;
@@ -143,10 +144,10 @@ fn create_window(_: &Lua, args: (LuaSourceID, String, BoxedOutline<Root>)) -> ml
 
 fn create_region(
     _: &Lua,
-    args: (LuaSourceID, URect, Vec<BoxedOutline<Basic>>),
+    args: (LuaSourceID, URect, Option<Vec<BoxedOutline<Basic>>>),
 ) -> mlua::Result<BoxedOutline<Root>> {
     let mut children = im::Vector::new();
-    children.extend(args.2.into_iter().map(|x| Some(x.0)));
+    children.extend(args.2.unwrap().into_iter().map(|x| Some(x.0)));
     Ok(BoxedOutline(Box::new(Region {
         id: args.0.into(),
         props: root::Inherited { area: args.1 },
@@ -201,10 +202,7 @@ fn create_button(
     ))))
 }
 
-fn create_label(
-    _: &Lua,
-    args: (LuaSourceID, URect, String),
-) -> mlua::Result<BoxedOutline<simple::Simple>> {
+fn create_label(_: &Lua, args: (LuaSourceID, URect, String)) -> mlua::Result<BoxedOutline<Basic>> {
     Ok(BoxedOutline(Box::new(Text::<()> {
         id: args.0.into(),
         // props: basic::Inherited {
@@ -221,6 +219,27 @@ fn create_label(
     })))
 }
 use crate::outline::round_rect::RoundRect;
+
+fn create_shader_standard(
+    _: &Lua,
+    args: (
+        LuaSourceID,
+        URect,
+        String,
+        [f32; 4],
+        [f32; 4],
+        [f32; 4],
+        [f32; 4],
+    ),
+) -> mlua::Result<BoxedOutline<simple::Simple>> {
+    Ok(BoxedOutline(Box::new(ShaderStandard::<()> {
+        id: args.0.into(),
+        rect: args.1,
+        fragment: args.2,
+        props: (),
+        uniforms: [args.3.into(), args.4.into(), args.5.into(), args.6.into()],
+    })))
+}
 
 fn create_round_rect(
     _: &Lua,
@@ -249,7 +268,12 @@ impl<'lua> FnPersist<AppState<'lua>, im::HashMap<Rc<SourceID>, Option<Window>>> 
     type Store = LuaValue<'lua>;
 
     fn init(&self) -> Self::Store {
-        self.init.call::<_, LuaValue<'lua>>(()).unwrap()
+        let r = self.init.call::<_, LuaValue<'lua>>(());
+        match r {
+            Err(LuaError::RuntimeError(s)) => panic!("{}", s),
+            Err(e) => panic!("{:?}", e),
+            Ok(v) => v,
+        }
     }
     fn call(
         &self,
@@ -287,6 +311,10 @@ pub fn init_environment(lua: &Lua) -> mlua::Result<()> {
         .set("create_label", lua.create_function(create_label)?)?;
     lua.globals()
         .set("create_round_rect", lua.create_function(create_round_rect)?)?;
+    lua.globals().set(
+        "create_shader_standard",
+        lua.create_function(create_shader_standard)?,
+    )?;
 
     Ok(())
 }
