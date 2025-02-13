@@ -43,11 +43,7 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for ShaderStandard<Parent> 
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some("ShaderStandard FS"),
-                source: wgpu::ShaderSource::Glsl {
-                    shader: self.fragment.clone().into(),
-                    stage: wgpu::naga::ShaderStage::Fragment,
-                    defines: Default::default(),
-                },
+                source: wgpu::ShaderSource::Wgsl(self.fragment.clone().into()),
             });
 
         let pipeline = crate::shaders::standard_pipeline(&driver.device, round_rect, config);
