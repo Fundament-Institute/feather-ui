@@ -49,7 +49,7 @@ dependencies = [
 [[package]]
 name = "alicorn"
 version = "0.1.0"
-source = "git+https://github.com/Fundament-Software/Alicorn0?branch=feature/glsl#8d58362ca492ea7d78d5e2722348ff66b79b5194"
+source = "git+https://github.com/Fundament-Software/Alicorn0?branch=feature/glsl#5c6bb2968ca1a001182ae9b23fe6e5db21d44693"
 dependencies = [
  "cc",
  "mlua",
@@ -1180,6 +1180,7 @@ dependencies = [
  "hexf-parse",
  "indexmap",
  "log",
+ "pp-rs",
  "rustc-hash 1.1.0",
  "spirv",
  "termcolor",
@@ -1629,6 +1630,15 @@ name = "powerfmt"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "439ee305def115ba05938db6eb1644ff94165c5ab5e9420d1c1bcedbba909391"
+
+[[package]]
+name = "pp-rs"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb458bb7f6e250e6eb79d5026badc10a3ebb8f9a15d1fff0f13d17c71f4d6dee"
+dependencies = [
+ "unicode-xid",
+]
 
 [[package]]
 name = "presser"

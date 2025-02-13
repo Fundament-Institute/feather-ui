@@ -264,6 +264,18 @@ let void =
 let host-unit = new-host-type(new-host-unique-id("host-unit"))
 let host-nil = intrinsic "return nil" : host-unit
 
+let tuple-to-host-tuple =
+	lambda_implicit (desc : tuple-desc-type(host-type))
+		lambda (xs : tuple-type(desc))
+			let inner =
+				intrinsic
+					""""
+						return function(val) return base_env.tuple_to_host_tuple_inner(nil, nil, val) end
+					:
+					host-func-type ((val : wrapped(tuple-type(desc)))) -> ((res : wrapped(host-tuple-type(desc))))
+			let (res) = inner(wrap(xs))
+			unwrap(res)
+
 let tuple-of = lambda (U : universe, desc : tuple-desc-type(U))
 	lambda_single (t : tuple-type(desc))
 		t
@@ -378,9 +390,8 @@ let duplicate-tuple-desc = lambda_implicit (U : universe)
 					tuple-desc-singleton U T
 			tuple-desc-empty U
 
-let make-host-array = lambda_implicit (T : host-type)
-	lambda (size : host-number)
-		let input-type = host-tuple-type(duplicate-tuple-desc(size, T))
+let host-array-from-tuple = lambda_implicit (T : host-type)
+	lambda (size : host-number, tuple : host-tuple-type(duplicate-tuple-desc(size, T)))
 		let inner =
 			intrinsic
 				""""
@@ -389,9 +400,27 @@ let make-host-array = lambda_implicit (T : host-type)
 						return {elements:unpack()}
 					end
 				:
-				host-func-type ((tuple : wrapped(input-type))) -> ((res : host-array-type(T)))
+				host-func-type ((tuple : wrapped(host-tuple-type(duplicate-tuple-desc(size, T))))) -> ((res : host-array-type(T)))
+		let (array) = inner(wrap(tuple))
+		array
+
+let make-host-array = lambda_implicit (T : host-type)
+	lambda (size : host-number)
+		let input-desc = duplicate-tuple-desc(size, T)
+		let host-input-type = host-tuple-type(input-desc)
+		let input-type = tuple-type(input-desc)
+		let inner =
+			intrinsic
+				""""
+					return function(tuple)
+						local elements = tuple:unwrap_host_tuple_value(tuple)
+						return {elements:unpack()}
+					end
+				:
+				host-func-type ((tuple : wrapped(host-input-type))) -> ((res : host-array-type(T)))
 		lambda_single (elems : input-type)
-			let (array) = inner(wrap(elems))
+			let host-elems = tuple-to-host-tuple(elems)
+			let (array) = inner(wrap(host-elems))
 			array
 
 ## syntax matcher and operative stuff
@@ -589,6 +618,39 @@ let operative-result-desc = lambda (goal : host-goal)
 		tuple-desc-singleton(host-type, host-term-of(goal))
 		tuple-desc-singleton(host-type, host-environment)
 
+# alicorn doesn't have conds or branches yet so...
+let error-filter = lambda (Tt : host-type, Tf : host-type, ok : host-bool, val-or-err : host-if(ok, Tt, Tf))
+	let inner = intrinsic
+		""""
+			local function error_filter(ok, val_or_err)
+				if not ok then
+					error(val_or_err)
+				end
+				return val_or_err
+			end
+			return error_filter
+		:
+		host-func-type (ok : host-bool, val-or-err : host-if(ok, Tt, Tf)) -> ((val : Tt))
+	let (val) = inner(ok, val-or-err)
+	val
+
+let core-operative-type =
+	unwrap
+		intrinsic
+			""""
+				return base_env.core_operative_type
+			:
+			wrapped(forall (userdata : host-type, handler : operative-handler-type(userdata)) -> (res : host-type))
+
+
+let core-operative = lambda_implicit (userdata : host-type)
+	unwrap
+		intrinsic
+			""""
+				return base_env.core_operative
+			:
+			wrapped(forall (ud : userdata, handler : operative-handler-type(userdata)) -> (res : core-operative-type(userdata, handler)))
+
 ## tuple-desc operative
 
 let ascribed-segment-tuple-desc-reducer-thread-type = new-host-type(new-host-unique-id("ascribed-segment-tuple-desc-reducer-thread"))
@@ -647,21 +709,6 @@ let ascribed-segment-tuple-desc-match-failure-handler = intrinsic "return metala
 
 let tuple-desc-impl-type = operative-handler-type(host-unit)
 
-let error-filter = lambda (Tt : host-type, Tf : host-type, ok : host-bool, val-or-err : host-if(ok, Tt, Tf))
-	let inner = intrinsic
-		""""
-			local function error_filter(ok, val_or_err)
-				if not ok then
-					error(val_or_err)
-				end
-				return val_or_err
-			end
-			return error_filter
-		:
-		host-func-type (ok : host-bool, val-or-err : host-if(ok, Tt, Tf)) -> ((val : Tt))
-	let (val) = inner(ok, val-or-err)
-	val
-
 let tuple-desc-impl = lambda (syn : host-syntax, env : host-environment, ud : host-unit, goal : host-goal)
 	let s = host-tuple-of(ascribed-segment-tuple-desc-reducer-storage-desc)(env)
 
@@ -698,23 +745,6 @@ let tuple-desc-impl = lambda (syn : host-syntax, env : host-environment, ud : ho
 	let (args) = goalify-inferrable(goal, args)
 
 	tuple-of(host-type, operative-result-desc(goal))(args, env)
-
-let core-operative-type =
-	unwrap
-		intrinsic
-			""""
-				return base_env.core_operative_type
-			:
-			wrapped(forall (userdata : host-type, handler : operative-handler-type(userdata)) -> (res : host-type))
-
-
-let core-operative = lambda_implicit (userdata : host-type)
-	unwrap
-		intrinsic
-			""""
-				return base_env.core_operative
-			:
-			wrapped(forall (ud : userdata, handler : operative-handler-type(userdata)) -> (res : core-operative-type(userdata, handler)))
 
 #let (tuple-desc-op-type, tuple-desc) = new-operative(host-unit, host-nil, tuple-desc-impl)
 let tuple-desc = core-operative(host-nil, tuple-desc-impl)
@@ -771,7 +801,6 @@ let func-to-host-func =
 				host-func-type ((arg : wrapped(ft))) -> ((res : hft))
 			let (res) = inner(wrap(f))
 			the hft res
-
 
 
 
@@ -991,9 +1020,9 @@ let host-ternary = intrinsic
 		glsl_registry[host_ternary] = function(pp, varnames, condition, consequent, alternate)
 			pp:unit("(")
 			pp:any(condition, varnames)
-			pp:unit("?")
+			pp:unit(" ? ")
 			pp:any(consequent, varnames)
-			pp:unit(":")
+			pp:unit(" : ")
 			pp:any(alternate, varnames)
 			pp:unit(")")
 		end
@@ -1022,7 +1051,6 @@ let fwidth = lambda (v : glsl-float)
 
 let host-length = intrinsic
 	""""
-		-- This returns the derivative of the values relative to the current surface dimensions, which is not possible to do here
 		local host_length = function(v) return math.sqrt(v.x * v.x + v.y * v.y) end
 		glsl_registry[host_length] = function(pp, varnames, v)
 			pp:unit("length(")
@@ -1414,10 +1442,10 @@ let glsl-print-frag-shader = intrinsic
 			context = context:append(terms.strict_value.host_number_type, "#frag-context", terms.var_debug("#frag-context-dbg", format.anchor_here()))
 			context = context:append(terms.strict_value.host_number_type, param_name, terms.var_debug("#frag-closure-dbg", format.anchor_here()))
 			local elements = code:unwrap_tuple_cons()
-			local glfragcolor = elements[1]:glsl_print({{}, {"MVP", "PosDim", "vPos"}})
+			local glfragcolor = elements[1]:glsl_print({{}, {"pos", "PosDim", "DimBorderBlur", "Corners", "Fill", "Outline"}})
 			local boilerplate = "#version 450\nin vec2 pos;\nlayout(binding=1) uniform vec4 PosDim;\nlayout(binding=2) uniform vec4 DimBorderBlur;\nlayout(binding=3) uniform vec4 Corners;\nlayout(binding=4) uniform vec4 Fill;\nlayout(binding=5) uniform vec4 Outline;\nout vec4 fragColor;\n"
 			local frag_shader = boilerplate .. "void main() {\n  fragColor = " .. glfragcolor .. ";\n}\n"
-			return U.litprint(frag_shader)
+			return frag_shader
 		end
 	:
 	host-func-type ((frag-shader : wrapped(frag-shader-type))) -> ((str : host-string))
@@ -1465,6 +1493,12 @@ let (frag-shader-string) = glsl-print-frag-shader(wrap(frag-shader))
 
 ############# FEATHER LAYOUT STARTS HERE
 
+# We start by binding our feather types to Rust interface that's been exposed via our lua bindings in feather.
+# First we declare some new opaque types that feather will be manipulating entirely via the lua bindings, without
+# knowing what's inside the types. This includes our URect, a rectangle with a absolute and relative coordinates, 
+# the Component, which is the underlying trait that all feather outlines satisfy (like buttons or labels), and
+# an event handler, which is used to capture mouse input.
+
 let string = host-string
 
 #	---@alias URect userdata
@@ -1476,7 +1510,14 @@ let Component = new-host-type(new-host-unique-id("Component"))
 #	---@alias EventHandler userdata
 let EventHandler = new-host-type(new-host-unique-id("EventHandler"))
 
+# We also define an ID type, which is intended to uniquely identify every component. This will be used for
+# referencing components from inside each other.
+
 let FeatherID = new-host-type(new-host-unique-id("FeatherID"))
+
+# Each pair of functions here binds an alicorn function to a lua function. The first function assigns a type
+# to the lua function intrinsic, and the second function creates an alicorn-friendly function that then calls
+# the lua intrinsic. We repeat this for every function we have exposed through the lua interface.
 
 ####
 	---@param left number
@@ -1617,8 +1658,18 @@ let create-shader-standard =
 		let (res) = create-shader-standard-bind(id, area, source, dimborderblur, corners, fill, outline)
 		res
 
+# These function signatures are a bit confusing, but basically, they represent the full signatures of an alicorn function that 
+# we will be calling from Rust. In order to accomplish this, we need to express the alicorn function signature using lua types,
+# so that we can create a wrapper that calls it from lua. We can then return this lua wrapper function to Rust, which will call it
+# from inside our Rust backend. While this sounds complicated, it's the exact same operation one would do when doing C FFI to
+# communicate between two languages, we're just using Lua instead of C as the intermediary. 
+# Alicorn(windowmaker) -> Lua(Alicorn(windowmaker)) -> mlua -> Rust(Lua(Alicorn(windowmaker))) -> [helper rust function that calls Rust(Lua(Alicorn(windowmaker)))]
+
+# This is the signature for the "windowmaker" function
 let windowsig = host-func-type (store : host-unit, appstate : host-unit) -> (store : host-unit, window : Component)
+# this is the signature for the "init" function
 let initsig = host-func-type () -> ((res : host-unit))
+# This is the function for the "onclick" function
 let onclicksig = host-func-type (dispatch : host-unit, state : host-unit) -> ((result : host-unit))
 
 let uidesc = tuple-desc(
@@ -1626,23 +1677,31 @@ let uidesc = tuple-desc(
 	init : initsig,
 	onclick :  onclicksig)
 
-let windowmaker = lambda (store : host-unit, appstate : host-unit)
+# This is our main function that must satisfy the App::Call() trait in Rust. This means it must return two things: a persistent
+# store (currently unused), and our final assembled Window component. For convenience, we assemble the rest of our layout inside
+# this function and add it directly to our window.
+let windowmaker = lambda (store : host-unit, appstate : host-unit) # : (store : host-unit, window : Component)
 	let urect-label = create-urect(0.0, 0.0, 1280.0, 720.0, 0.0, 0.0, 0.0, 0.0)
 	let urect-btn = create-urect(100.0, 100.0, 300.0, 200.0, 0.0, 0.0, 0.0, 0.0)
 	let components = host-array-new(Component)
 	let components = host-array-set(components, 1, create-label(create-id("hello-label"), urect-label, "Hello World, from alicorn in feather!"))
-	let components = host-array-set(components, 2, create-round-rect(create-id("hello-rect"), urect-btn, 4294967295, 10.0, 0.0, 0))
-	#let components = host-array-set(components, 2, create-shader-standard(create-id("hello-rect"), urect-btn, frag-shader-string, (make-host-array(4) 0.0 0.0 0.0 0.0), (make-host-array(4) 10.0 10.0 10.0 10.0), (make-host-array(4) 0.2 0.7 0.4 1.0), (make-host-array(4) 0.0 0.0 0.0 0.0)))
+	#let components = host-array-set(components, 2, create-round-rect(create-id("hello-rect"), urect-btn, 4294967295, 10.0, 0.0, 0))
+	let zero_array = (make-host-array(4) 0.0 0.0 0.0 0.0)
+	let corners = (make-host-array(4) 10.0 10.0 10.0 10.0)
+	let color = (make-host-array(4) 0.2 0.7 0.4 1.0)
+	let components = host-array-set(components, 2, create-shader-standard(create-id("hello-rect"), urect-btn, frag-shader-string, zero_array, corners, color, zero_array))
 	let region = create-region(create-id("main-region"), urect-label, components)
 	let window = create-window(create-id("main-window"), "Hello World, from alicorn in feather!", region)
 	tuple-of-implicit store window
 
-let init = lambda ()
+let init = lambda () # : ((res : host-unit))
 	tuple-of-implicit host-nil
 
 let onclick = lambda (dispatch  : host-unit, state  : host-unit)
 	tuple-of-implicit host-nil
 
+# This is our final UI description, which includes our window creation function, our init() function (currently empty) and
+# our onclick event (currently unused)
 let res =
 	host-tuple-of(uidesc)
 		func-to-host-func
