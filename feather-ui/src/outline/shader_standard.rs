@@ -37,8 +37,6 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for ShaderStandard<Parent> 
         driver: &DriverState,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<Parent>> {
-        println!("{}", self.fragment);
-
         let round_rect = driver
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {
