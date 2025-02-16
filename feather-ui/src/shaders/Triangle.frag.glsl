@@ -19,7 +19,6 @@ void main()
   vec2 d = PosDim.zw;  
   vec2 p = pos * d + vec2(-0.5,0.5);  
   vec4 c = Corners;  
-  vec2 dist;  
   vec2 p2 = vec2(c.w*d.x, 0.0);  
   float r1 = linetopoint(p2, vec2(0.0, d.y), p);  
   float r2 = -linetopoint(p2, d, p);  
