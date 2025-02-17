@@ -881,7 +881,7 @@ impl FnPersist<u8, im::HashMap<Rc<SourceID>, Option<Window>>> for TestApp {
             ..Default::default()
         };
         let window = Window::new(
-            gen_id!(),
+            gen_id!().into(),
             winit::window::Window::default_attributes()
                 .with_title("test_blank")
                 .with_resizable(true),
