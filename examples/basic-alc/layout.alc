@@ -169,10 +169,13 @@ let host-family-sig-variances = lambda (signature : type_(1, 0))
 let host-string-concat = intrinsic "return function(a, b) return U.notail(a .. b) end" :
 	host-func-type (a : host-string, b : host-string) -> ((c : host-string))
 
+let host-number-to-string = intrinsic "return function(a) return tostring(a) end" :
+	host-func-type ((a : host-number)) -> ((c : host-string))
+
 let host-unique-id-wrap = intrinsic
 	""""
 		local id = { name = "unique_id" }
-		evaluator.register_host_srel(id, evaluator.IndepTupleRelation())
+		evaluator.register_host_srel(id, evaluator.IndepTupleRelation({}))
 		return U.notail(terms.strict_value.host_user_defined_type(id, terms_gen.declare_array(terms.strict_value)()))
 	:
 	wrapped(host-type)
@@ -638,16 +641,20 @@ let core-operative-type =
 	unwrap
 		intrinsic
 			""""
-				return base_env.core_operative_type
+				return U.notail(evaluator.gen_base_operator("#core-operative-type", function(userdata, handler)
+					return U.notail(terms.typed_term.operative_type_cons(userdata, handler))
+				end))
 			:
 			wrapped(forall (userdata : host-type, handler : operative-handler-type(userdata)) -> (res : host-type))
-
 
 let core-operative = lambda_implicit (userdata : host-type)
 	unwrap
 		intrinsic
 			""""
-				return base_env.core_operative
+				return U.notail(evaluator.gen_base_operator("#core-operative", function(userdata, handler)
+					-- `handler` is intentionally discarded.
+					return U.notail(terms.typed_term.operative_cons(userdata))
+				end))
 			:
 			wrapped(forall (ud : userdata, handler : operative-handler-type(userdata)) -> (res : core-operative-type(userdata, handler)))
 
@@ -1746,7 +1753,7 @@ let create-window =
 let create-region-bind =
 	intrinsic
 		""""
-			return function(id, area, components) print('inside create-region', components) return create_region(id, area, components) end
+			return function(id, area, components) return create_region(id, area, components) end
 		:
 		host-func-type (id : FeatherID, area : URect, components : host-array-type(Component)) -> ((res : Component))
 
@@ -1766,10 +1773,10 @@ let create-button-bind =
 	intrinsic
 		"return create_button"
 		:
-		host-func-type (id : FeatherID, area : URect, text : string, onclick : EventHandler, background : Component) -> ((res : Component))
+		host-func-type (id : FeatherID, area : URect, text : string, onclick : EventHandler) -> ((res : Component))
 let create-button =
-	lambda (id : FeatherID, area : URect, text : string, onclick : EventHandler, background : Component)
-		let (res) = create-button-bind(id, area, text, onclick, background)
+	lambda (id : FeatherID, area : URect, text : string, onclick : EventHandler)
+		let (res) = create-button-bind(id, area, text, onclick)
 		res
 ####
 	---@param area URect
@@ -1813,6 +1820,26 @@ let create-shader-standard =
 		let (res) = create-shader-standard-bind(id, area, source, dimborderblur, corners, fill, outline)
 		res
 
+let create-slot-bind = 
+	intrinsic
+		"return create_slot"
+		:
+		host-func-type (id : FeatherID, slot : host-number) -> ((res : EventHandler))
+let create-slot =
+	lambda (id : FeatherID, slot : host-number)
+		let (res) = create-slot-bind(id, slot)
+		res
+
+let get-appdata-id-bind = 
+	intrinsic
+		"return get_appdata_id"
+		:
+		host-func-type () -> ((res : FeatherID))
+let get-appdata-id =
+	lambda ()
+		let (res) = get-appdata-id-bind()
+		res
+
 # These function signatures are a bit confusing, but basically, they represent the full signatures of an alicorn function that 
 # we will be calling from Rust. In order to accomplish this, we need to express the alicorn function signature using lua types,
 # so that we can create a wrapper that calls it from lua. We can then return this lua wrapper function to Rust, which will call it
@@ -1821,11 +1848,11 @@ let create-shader-standard =
 # Alicorn(windowmaker) -> Lua(Alicorn(windowmaker)) -> mlua -> Rust(Lua(Alicorn(windowmaker))) -> [helper rust function that calls Rust(Lua(Alicorn(windowmaker)))]
 
 # This is the signature for the "windowmaker" function
-let windowsig = host-func-type (store : host-unit, appstate : host-unit) -> (store : host-unit, window : Component)
+let windowsig = host-func-type (store : host-unit, appstate : host-number) -> (store : host-unit, window : Component)
 # this is the signature for the "init" function
 let initsig = host-func-type () -> ((res : host-unit))
 # This is the function for the "onclick" function
-let onclicksig = host-func-type (dispatch : host-unit, state : host-unit) -> ((result : host-unit))
+let onclicksig = host-func-type (dispatch : host-unit, state : host-number) -> ((result : host-number))
 
 let uidesc = tuple-desc(
 	window : windowsig,
@@ -1835,9 +1862,10 @@ let uidesc = tuple-desc(
 # This is our main function that must satisfy the App::Call() trait in Rust. This means it must return two things: a persistent
 # store (currently unused), and our final assembled Window component. For convenience, we assemble the rest of our layout inside
 # this function and add it directly to our window.
-let windowmaker = lambda (store : host-unit, appstate : host-unit) # : (store : host-unit, window : Component)
+let windowmaker = lambda (store : host-unit, appstate : host-number) # : (store : host-unit, window : Component)
 	let urect-label = create-urect(0.0, 0.0, 1280.0, 720.0, 0.0, 0.0, 0.0, 0.0)
-	let urect-btn = create-urect(100.0, 100.0, 300.0, 200.0, 0.0, 0.0, 0.0, 0.0)
+	let urect-rrect = create-urect(100.0, 100.0, 300.0, 200.0, 0.0, 0.0, 0.0, 0.0)
+	let urect-btn = create-urect(400.0, 100.0, 500.0, 200.0, 0.0, 0.0, 0.0, 0.0)
 	let urect-tri = create-urect(100.0, 250.0, 300.0, 350.0, 0.0, 0.0, 0.0, 0.0)
 	let urect-circ = create-urect(400.0, 250.0, 500.0, 350.0, 0.0, 0.0, 0.0, 0.0)
 	let components = host-array-new(Component)
@@ -1846,9 +1874,15 @@ let windowmaker = lambda (store : host-unit, appstate : host-unit) # : (store : 
 	let zero_array = (make-host-array(4) 0.0 0.0 0.0 0.0)
 	let corners = (make-host-array(4) 10.0 10.0 10.0 10.0)
 	let color = (make-host-array(4) 0.2 0.7 0.4 1.0)
-	let components = host-array-set(components, 2, create-shader-standard(create-id("hello-rect"), urect-btn, rect-frag-shader-string, zero_array, corners, color, zero_array))
+	let components = host-array-set(components, 2, create-shader-standard(create-id("hello-rect"), urect-rrect, rect-frag-shader-string, zero_array, corners, color, zero_array))
 	let components = host-array-set(components, 3, create-shader-standard(create-id("hello-tri"), urect-tri, tri-frag-shader-string, zero_array, zero_array, color, zero_array))
 	let components = host-array-set(components, 4, create-shader-standard(create-id("hello-circ"), urect-circ, circle-frag-shader-string, zero_array, zero_array, color, zero_array))
+
+	let slot = create-slot(get-appdata-id(), 0)
+	let (appstate-text) = host-number-to-string(appstate)
+	let (btn-text) = host-string-concat("Clicks: ", appstate-text)
+	let btn = create-button(create-id("hello-button"), urect-btn, btn-text, slot)
+	let components = host-array-set(components, 5, btn)
 	let region = create-region(create-id("main-region"), urect-label, components)
 	let window = create-window(create-id("main-window"), "Hello World, from alicorn in feather!", region)
 	tuple-of-implicit store window
@@ -1856,8 +1890,9 @@ let windowmaker = lambda (store : host-unit, appstate : host-unit) # : (store : 
 let init = lambda () # : ((res : host-unit))
 	tuple-of-implicit host-nil
 
-let onclick = lambda (dispatch  : host-unit, state  : host-unit)
-	tuple-of-implicit host-nil
+let onclick = lambda (dispatch  : host-unit, appstate : host-number)
+	let newstate = appstate + 1
+	tuple-of-implicit newstate
 
 # This is our final UI description, which includes our window creation function, our init() function (currently empty) and
 # our onclick event (currently unused)
