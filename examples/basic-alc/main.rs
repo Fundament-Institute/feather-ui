@@ -39,7 +39,7 @@ fn main() {
         let onclick = Box::new(wrap_luafunc(onclick));
         let outline = LuaApp { window, init };
         let (mut app, event_loop): (App<AppState, LuaApp>, winit::event_loop::EventLoop<()>) =
-            App::new(LuaNil, vec![onclick], outline).unwrap();
+            App::new(LuaValue::Integer(0), vec![onclick], outline).unwrap();
 
         event_loop.run_app(&mut app).unwrap();
     }

@@ -19,6 +19,7 @@ use crate::RelPoint;
 use crate::Slot;
 use crate::SourceID;
 use crate::URect;
+use color_eyre::owo_colors::colors::xterm::ThistlePink;
 use mlua::prelude::*;
 use mlua::UserData;
 use std::rc::Rc;
@@ -108,8 +109,12 @@ fn get_appdata_id(_: &Lua, (): ()) -> mlua::Result<LuaSourceID> {
     Ok(crate::APP_SOURCE_ID)
 }
 
-fn create_slot(_: &Lua, args: (LuaSourceID, u64)) -> mlua::Result<Slot> {
-    Ok(Slot(args.0.into(), args.1))
+fn create_slot(_: &Lua, args: (Option<LuaSourceID>, u64)) -> mlua::Result<Slot> {
+    if let Some(id) = args.0 {
+        Ok(Slot(id.into(), args.1))
+    } else {
+        Ok(Slot(crate::APP_SOURCE_ID.into(), args.1))
+    }
 }
 
 fn create_urect(_: &Lua, args: (f32, f32, f32, f32, f32, f32, f32, f32)) -> mlua::Result<URect> {
@@ -166,9 +171,9 @@ fn create_button(
         URect,
         String,
         Slot,
-        BoxedOutline<simple::Simple>,
+        Option<BoxedOutline<simple::Simple>>,
     ),
-) -> mlua::Result<BoxedOutline<simple::Simple>> {
+) -> mlua::Result<BoxedOutline<Basic>> {
     let id = Rc::new(args.0);
     let text = Text::<()> {
         id: SourceID {
@@ -185,7 +190,9 @@ fn create_button(
 
     let mut children: im::Vector<Option<Box<OutlineFrom<simple::Simple>>>> = im::Vector::new();
     children.push_back(Some(Box::new(text)));
-    children.push_back(Some(args.4 .0));
+    if let Some(x) = args.4 {
+        children.push_back(Some(x.0));
+    }
 
     Ok(BoxedOutline(Box::new(Button::<()>::new(
         id,
