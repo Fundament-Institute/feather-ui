@@ -24,7 +24,8 @@ impl Renderable for TextPipeline {
         area: crate::AbsRect,
         driver: &crate::DriverState,
     ) -> im::Vector<crate::RenderInstruction> {
-        let mut borrow = driver.text.borrow_mut();
+        let text_system = driver.text().expect("driver.text not initialized");
+        let mut borrow = text_system.borrow_mut();
 
         let (viewport, atlas, font_system, swash_cache) = borrow.split_borrow();
         self.renderer
@@ -54,7 +55,7 @@ impl Renderable for TextPipeline {
             .unwrap();
 
         let mut result = im::Vector::new();
-        let text_system = driver.text.clone();
+        let text_system = text_system.clone();
         let weak = self.this.clone();
         result.push_back(Some(Box::new(move |pass: &mut wgpu::RenderPass| {
             if let Some(this) = weak.upgrade() {
@@ -123,13 +124,14 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for Text<Parent> {
         driver: &DriverState,
         _: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<Parent>> {
+        let text_system = driver.text().expect("driver.text not initialized");
         let mut text_buffer = glyphon::Buffer::new(
-            &mut driver.text.borrow_mut().font_system,
+            &mut text_system.borrow_mut().font_system,
             glyphon::Metrics::new(self.font_size, self.line_height),
         );
 
         text_buffer.set_text(
-            &mut driver.text.borrow_mut().font_system,
+            &mut text_system.borrow_mut().font_system,
             &self.text,
             glyphon::Attrs::new()
                 .family(self.font.as_family())
@@ -140,7 +142,7 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for Text<Parent> {
         );
 
         let renderer = glyphon::TextRenderer::new(
-            &mut driver.text.borrow_mut().atlas,
+            &mut text_system.borrow_mut().atlas,
             &driver.device,
             wgpu::MultisampleState::default(),
             None,
@@ -168,8 +170,9 @@ impl<Imposed: Clone> Layout<Imposed> for TextLayout<Imposed> {
         parent_pos: Vec2,
         driver: &DriverState,
     ) -> Box<dyn crate::outline::Staged + 'a> {
+        let text_system = driver.text().expect("driver.text not initialized");
         self.text_render.text_buffer.borrow_mut().set_size(
-            &mut driver.text.borrow_mut().font_system,
+            &mut text_system.borrow_mut().font_system,
             if area.bottomright.x.is_infinite() {
                 None
             } else {
@@ -185,7 +188,7 @@ impl<Imposed: Clone> Layout<Imposed> for TextLayout<Imposed> {
         self.text_render
             .text_buffer
             .borrow_mut()
-            .shape_until_scroll(&mut driver.text.borrow_mut().font_system, false);
+            .shape_until_scroll(&mut text_system.borrow_mut().font_system, false);
 
         // If we have indeterminate area, calculate the size
         if area.bottomright.x.is_infinite() || area.bottomright.y.is_infinite() {

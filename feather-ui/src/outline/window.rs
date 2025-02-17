@@ -16,12 +16,12 @@ use crate::FnPersist;
 use crate::RenderInstruction;
 use crate::SourceID;
 use crate::StateManager;
+use alloc::sync::Arc;
 use core::f32;
 use eyre::OptionExt;
 use eyre::Result;
 use std::rc::Rc;
 use std::rc::Weak;
-use std::sync::Arc;
 use ultraviolet::Vec2;
 use winit::dpi::PhysicalSize;
 use winit::event::WindowEvent;
@@ -123,11 +123,20 @@ impl Window {
             let mut config = surface
                 .get_default_config(&driver.adapter, size.width, size.height)
                 .ok_or_eyre("Failed to find a default configuration")?;
-            //let view_format = config.format.add_srgb_suffix();
+            // let view_format = config.format.add_srgb_suffix();
             let view_format = config.format.remove_srgb_suffix();
             config.format = view_format;
             config.view_formats.push(view_format);
             surface.configure(&driver.device, &config);
+            driver.format.replace(Some(view_format)).map_or_else(
+                || Ok(()),
+                |format| {
+                    Err(eyre::eyre!(
+                        "driver.format is already configured: {:?}",
+                        format
+                    ))
+                },
+            )?;
             let mut windowstate = WindowState {
                 modifiers: 0,
                 all_buttons: 0,
@@ -171,7 +180,8 @@ impl Window {
         state.config.height = size.height;
         state.surface.configure(&state.driver.device, &state.config);
 
-        state.driver.text.borrow_mut().viewport.update(
+        let text_system = state.driver.text().expect("driver.text not initialized");
+        text_system.borrow_mut().viewport.update(
             &state.driver.queue,
             glyphon::Resolution {
                 width: state.config.width,
