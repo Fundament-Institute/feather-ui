@@ -20,8 +20,10 @@ use outline::window::WindowStateMachine;
 use outline::Outline;
 use outline::StateMachineWrapper;
 use persist::FnPersist;
+use shaders::ShaderCache;
 use smallvec::SmallVec;
 use std::any::Any;
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -356,6 +358,7 @@ pub struct DriverState {
     queue: wgpu::Queue,
     format: Cell<Option<wgpu::TextureFormat>>,
     text: OnceCell<std::rc::Rc<RefCell<TextSystem>>>,
+    cache: RefCell<ShaderCache>,
 }
 
 impl DriverState {
@@ -768,12 +771,15 @@ impl<
             )
             .await?;
 
+        let shader_cache = ShaderCache::new(&device);
+
         let driver = Arc::new(crate::DriverState {
             adapter,
             device,
             queue,
             format: Cell::new(None),
             text: OnceCell::new(),
+            cache: RefCell::new(shader_cache),
         });
 
         *weak = Arc::downgrade(&driver);
