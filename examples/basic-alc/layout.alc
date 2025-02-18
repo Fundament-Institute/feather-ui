@@ -59,7 +59,7 @@ let host-goal            = unwrap(host-goal-wrap)
 let host-inferrable-term = unwrap(host-inferrable-term-wrap)
 let host-checkable-term  = unwrap(host-checkable-term-wrap)
 let host-lua-error       = unwrap(host-lua-error-wrap)
-	
+
 let srel = lambda_implicit (U : type-omega+1)
 	unwrap
 		intrinsic
@@ -1539,8 +1539,8 @@ let wgpu-print-frag-shader = intrinsic
 		return function(frag_shader)
 			local param_name, code, capture, _capture_dbg, _param_debug = frag_shader:unwrap_closure()
 			local context = terms.strict_runtime_context()
-			context = context:append(terms.strict_value.host_number_type, "#frag-context", terms.var_debug("#frag-context-dbg", format.anchor_here()))
-			context = context:append(terms.strict_value.host_number_type, param_name, terms.var_debug("#frag-closure-dbg", format.anchor_here()))
+			context = context:append(terms.strict_value.host_number_type, "#frag-context", terms.spanned_name("#frag-context-dbg", format.span_here()))
+			context = context:append(terms.strict_value.host_number_type, param_name, terms.spanned_name("#frag-closure-dbg", format.span_here()))
 			local elements = code:unwrap_tuple_cons()
 			local glfragcolor = elements[1]:glsl_print({{}, {"pos", "PosDim", "DimBorderBlur", "Corners", "Fill", "Outline"}})
 			local boilerplate = "@group(0) @binding(1)\nvar<uniform> PosDim: vec4f;\n@group(0) @binding(2) \nvar<uniform> DimBorderBlur: vec4f;\n@group(0) @binding(3) \nvar<uniform> Corners: vec4f;\n@group(0) @binding(4) \nvar<uniform> Fill: vec4f;\n@group(0) @binding(5) \nvar<uniform> Outline: vec4f;"
