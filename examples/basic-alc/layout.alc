@@ -66,7 +66,7 @@ let srel = lambda_implicit (U : type-omega+1)
 			""""
 				return U.notail(evaluator.gen_base_operator("#srel", function(target)
 					return U.notail(terms.typed_term.srel_type(target))
-				end))
+				end, "target"))
 			:
 			wrapped (forall ((target : U)) -> (rel : U))
 
@@ -76,7 +76,7 @@ let variance = lambda_implicit (U : type-omega+1)
 			""""
 				return U.notail(evaluator.gen_base_operator("#variance", function(target)
 					return U.notail(terms.typed_term.variance_type(target))
-				end))
+				end, "target"))
 			:
 			wrapped (forall ((target : U)) -> (res : U))
 
@@ -88,7 +88,7 @@ let tuple-desc-type = lambda_implicit (U : universe)
 			""""
 				return U.notail(evaluator.gen_base_operator("#tuple-desc-type", function(a_universe)
 					return U.notail(terms.typed_term.tuple_desc_type(a_universe))
-				end))
+				end, "a_universe"))
 			:
 			wrapped (forall ((a-universe : U)) -> (desc : U))
 
@@ -100,7 +100,7 @@ let _|_ = lambda_implicit (U : type-omega+1)
 			""""
 				return U.notail(evaluator.gen_base_operator("#union", function(left, right)
 					return U.notail(terms.typed_term.union_type(left, right))
-				end))
+				end, "left", "right"))
 			:
 			wrapped (forall (left : U, right : U) -> (union : U))
 
@@ -110,7 +110,7 @@ let _&_ = lambda_implicit (U : type-omega+1)
 			""""
 				return U.notail(evaluator.gen_base_operator("#intersection", function(left, right)
 					return U.notail(terms.typed_term.intersection_type(left, right))
-				end))
+				end, "left", "right"))
 			:
 			wrapped (forall (left : U, right : U) -> (intersection : U))
 
@@ -121,7 +121,7 @@ let covariant = lambda_curry (U : universe, a : U)
 				return U.notail(evaluator.gen_base_operator("#covariant", function(rel)
 					local positive = terms.typed_term.literal(terms.strict_value.host_value(true))
 					return U.notail(terms.typed_term.variance_cons(positive, rel))
-				end))
+				end, "rel"))
 			:
 			wrapped (forall ((rel : srel(a))) -> (covariant-rel : variance(a)))
 
@@ -296,7 +296,7 @@ let tuple-desc-elem-explicit = lambda (U : universe)
 			""""
 				return U.notail(evaluator.gen_base_operator("#tuple-desc-elem-explicit", function(desc, elem)
 					return U.notail(terms.typed_cons(desc, elem))
-				end))
+				end, "desc", "elem"))
 			:
 			wrapped(forall (desc : U-tuple-desc-type, elem : (forall (rest : tuple-type(desc)) -> (next : U))) -> (res : U-tuple-desc-type))
 
@@ -312,7 +312,7 @@ let tuple-desc-concat-indep = lambda_implicit (U : universe)
 			""""
 				return U.notail(evaluator.gen_base_operator("#tuple-desc-concat", function(prefix, suffix)
 					return U.notail(terms.typed_term.tuple_desc_concat_indep(prefix, suffix))
-				end))
+				end, "prefix", "suffix"))
 			:
 			wrapped (forall (pfx : tuple-desc-type(U), sfx : tuple-desc-type(U)) -> (res : tuple-desc-type(U)))
 
@@ -352,7 +352,7 @@ let host-if = lambda_implicit (T : type-omega)
 			""""
 				return U.notail(evaluator.gen_base_operator("#host-if", function(subject, consequent, alternate)
 					return U.notail(terms.typed_term.host_if(subject, consequent, alternate))
-				end))
+				end, "subject", "consequent", "alternate"))
 			:
 			wrapped(forall (subject : host-bool, consequent : T, alternate : T) -> (res : T))
 
@@ -366,7 +366,7 @@ let tuple-desc-elem-explicit = lambda (U : universe)
 			""""
 				return U.notail(evaluator.gen_base_operator("#tuple-desc-elem-explicit", function(desc, elem)
 					return U.notail(terms.typed_cons(desc, elem))
-				end))
+				end, "desc", "elem"))
 			:
 			wrapped(forall (desc : U-tuple-desc-type, elem : (forall (rest : tuple-type(desc)) -> (next : U))) -> (res : U-tuple-desc-type))
 
@@ -379,7 +379,7 @@ let host-number-fold-indep = lambda_implicit (T : type-omega)
 			""""
 				return U.notail(evaluator.gen_base_operator("#int-fold", function(num, func, acc)
 					return U.notail(terms.typed_term.host_int_fold(num, func, acc))
-				end))
+				end, "num", "func", "acc"))
 			:
 			wrapped((forall (n : host-number, f : (forall (i  : host-number, acc  : T) -> (resacc  : T)), acc  : T) -> (res : T)))
 
@@ -643,7 +643,7 @@ let core-operative-type =
 			""""
 				return U.notail(evaluator.gen_base_operator("#core-operative-type", function(userdata, handler)
 					return U.notail(terms.typed_term.operative_type_cons(userdata, handler))
-				end))
+				end, "userdata", "handler"))
 			:
 			wrapped(forall (userdata : host-type, handler : operative-handler-type(userdata)) -> (res : host-type))
 
@@ -654,7 +654,7 @@ let core-operative = lambda_implicit (userdata : host-type)
 				return U.notail(evaluator.gen_base_operator("#core-operative", function(userdata, handler)
 					-- `handler` is intentionally discarded.
 					return U.notail(terms.typed_term.operative_cons(userdata))
-				end))
+				end, "userdata", "handler"))
 			:
 			wrapped(forall (ud : userdata, handler : operative-handler-type(userdata)) -> (res : core-operative-type(userdata, handler)))
 

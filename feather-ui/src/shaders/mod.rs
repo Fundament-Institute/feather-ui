@@ -4,7 +4,7 @@
 use crate::outline::Renderable;
 use crate::DriverState;
 use crate::RenderLambda;
-use std::borrow::Cow;
+use std::collections::HashMap;
 use ultraviolet::{Mat4, Vec4};
 use wgpu::util::DeviceExt;
 
@@ -73,73 +73,127 @@ pub struct Vertex {
     pub pos: [f32; 2],
 }
 
-pub fn standard_pipeline(
-    device: &wgpu::Device,
-    fragment: wgpu::ShaderModule,
-    config: &wgpu::SurfaceConfiguration,
-) -> wgpu::RenderPipeline {
-    let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: None,
-        entries: &[0, 1, 2, 3, 4, 5].map(|i| wgpu::BindGroupLayoutEntry {
-            binding: i,
-            visibility: if i < 2 {
-                wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT
-            } else {
-                wgpu::ShaderStages::FRAGMENT
+pub struct ShaderCache {
+    shaders: Vec<wgpu::ShaderModule>,
+    layouts: Vec<wgpu::PipelineLayout>,
+    pipelines: HashMap<(usize, wgpu::SurfaceConfiguration), std::rc::Weak<wgpu::RenderPipeline>>,
+    shader_hash: HashMap<String, usize>,
+    pub basic_vs: usize,
+    pub basic_pipeline: usize,
+}
+
+impl ShaderCache {
+    pub fn new(device: &wgpu::Device) -> Self {
+        let mut this = ShaderCache {
+            shaders: Default::default(),
+            layouts: Default::default(),
+            pipelines: Default::default(),
+            shader_hash: Default::default(),
+            basic_pipeline: 0,
+            basic_vs: 0,
+        };
+
+        this.basic_vs = this.register_shader(
+            device,
+            "Standard VS",
+            include_str!("../shaders/standard.wgsl"),
+        );
+
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: None,
+            entries: &[0, 1, 2, 3, 4, 5].map(|i| wgpu::BindGroupLayoutEntry {
+                binding: i,
+                visibility: if i < 2 {
+                    wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT
+                } else {
+                    wgpu::ShaderStages::FRAGMENT
+                },
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }),
+        });
+
+        this.basic_pipeline = this.register_pipeline_layout(
+            device,
+            &wgpu::PipelineLayoutDescriptor {
+                label: Some("StandardPipeline"),
+                bind_group_layouts: &[&bind_group_layout],
+                push_constant_ranges: &[],
             },
-            ty: wgpu::BindingType::Buffer {
-                ty: wgpu::BufferBindingType::Uniform,
-                has_dynamic_offset: false,
-                min_binding_size: None,
+        );
+
+        this
+    }
+
+    pub fn register_shader(&mut self, device: &wgpu::Device, label: &str, shader: &str) -> usize {
+        if let Some(idx) = self.shader_hash.get(shader) {
+            *idx
+        } else {
+            let idx = self.shaders.len();
+            self.shaders
+                .push(device.create_shader_module(wgpu::ShaderModuleDescriptor {
+                    label: Some(label),
+                    source: wgpu::ShaderSource::Wgsl(shader.into()),
+                }));
+            self.shader_hash.insert(shader.into(), idx);
+            idx
+        }
+    }
+
+    pub fn register_pipeline_layout(
+        &mut self,
+        device: &wgpu::Device,
+        desc: &wgpu::PipelineLayoutDescriptor<'_>,
+    ) -> usize {
+        let idx = self.layouts.len();
+        self.layouts.push(device.create_pipeline_layout(desc));
+        return idx;
+    }
+
+    pub fn standard_pipeline(
+        &self,
+        device: &wgpu::Device,
+        fragment: usize,
+        config: &wgpu::SurfaceConfiguration,
+    ) -> wgpu::RenderPipeline {
+        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: None,
+            layout: Some(&self.layouts[self.basic_pipeline]),
+            vertex: wgpu::VertexState {
+                module: &self.shaders[self.basic_vs],
+                entry_point: "main",
+                buffers: &[wgpu::VertexBufferLayout {
+                    array_stride: size_of::<Vertex>() as wgpu::BufferAddress,
+                    step_mode: wgpu::VertexStepMode::Vertex,
+                    attributes: &wgpu::vertex_attr_array![0 => Float32x2],
+                }],
+                compilation_options: Default::default(),
             },
-            count: None,
-        }),
-    });
-
-    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: Some("RoundRectPipeline"),
-        bind_group_layouts: &[&bind_group_layout],
-        push_constant_ranges: &[],
-    });
-
-    let standard_vs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("Standard VS"),
-        source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("../shaders/standard.wgsl"))),
-    });
-
-    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        label: None,
-        layout: Some(&pipeline_layout),
-        vertex: wgpu::VertexState {
-            module: &standard_vs,
-            entry_point: "main",
-            buffers: &[wgpu::VertexBufferLayout {
-                array_stride: size_of::<Vertex>() as wgpu::BufferAddress,
-                step_mode: wgpu::VertexStepMode::Vertex,
-                attributes: &wgpu::vertex_attr_array![0 => Float32x2],
-            }],
-            compilation_options: Default::default(),
-        },
-        fragment: Some(wgpu::FragmentState {
-            module: &fragment,
-            entry_point: "main",
-            compilation_options: Default::default(),
-            targets: &[Some(wgpu::ColorTargetState {
-                format: config.view_formats[0],
-                blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                write_mask: wgpu::ColorWrites::ALL,
-            })],
-        }),
-        primitive: wgpu::PrimitiveState {
-            front_face: wgpu::FrontFace::Cw,
-            topology: wgpu::PrimitiveTopology::TriangleStrip,
-            ..Default::default()
-        },
-        depth_stencil: None,
-        multisample: wgpu::MultisampleState::default(),
-        multiview: None,
-        cache: None,
-    })
+            fragment: Some(wgpu::FragmentState {
+                module: &self.shaders[fragment],
+                entry_point: "main",
+                compilation_options: Default::default(),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: config.view_formats[0],
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            primitive: wgpu::PrimitiveState {
+                front_face: wgpu::FrontFace::Cw,
+                topology: wgpu::PrimitiveTopology::TriangleStrip,
+                ..Default::default()
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+            cache: None,
+        })
+    }
 }
 
 pub struct StandardPipeline {
