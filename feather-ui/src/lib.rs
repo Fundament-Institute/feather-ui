@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
+extern crate alloc;
+
 pub mod input;
 pub mod layout;
 pub mod lua;
@@ -9,8 +11,11 @@ pub mod persist;
 mod rtree;
 mod shaders;
 use crate::outline::window::Window;
+use alloc::sync::Arc;
+use core::cell::Cell;
 use dyn_clone::DynClone;
 use eyre::OptionExt;
+use once_cell::unsync::OnceCell;
 use outline::window::WindowStateMachine;
 use outline::Outline;
 use outline::StateMachineWrapper;
@@ -23,7 +28,6 @@ use std::collections::HashMap;
 use std::hash::Hasher;
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 use std::rc::Rc;
-use std::sync::Arc;
 use ultraviolet::vec::Vec2;
 use winit::window::WindowId;
 
@@ -350,7 +354,29 @@ pub struct DriverState {
     adapter: wgpu::Adapter,
     device: wgpu::Device,
     queue: wgpu::Queue,
-    text: std::rc::Rc<RefCell<TextSystem>>,
+    format: Cell<Option<wgpu::TextureFormat>>,
+    text: OnceCell<std::rc::Rc<RefCell<TextSystem>>>,
+}
+
+impl DriverState {
+    fn text(&self) -> eyre::Result<&std::rc::Rc<RefCell<TextSystem>>> {
+        self.text.get_or_try_init(|| {
+            let format = self
+                .format
+                .get()
+                .ok_or_eyre("driver.text initialized called before driver.format is provided")?;
+            let cache = glyphon::Cache::new(&self.device);
+            let atlas = glyphon::TextAtlas::new(&self.device, &self.queue, &cache, format);
+            let viewport = glyphon::Viewport::new(&self.device, &cache);
+            let text = std::rc::Rc::new(RefCell::new(TextSystem {
+                font_system: glyphon::FontSystem::new(),
+                swash_cache: glyphon::SwashCache::new(),
+                viewport,
+                atlas,
+            }));
+            Ok(text)
+        })
+    }
 }
 
 /// Object-safe version of Hash + PartialEq
@@ -742,21 +768,12 @@ impl<
             )
             .await?;
 
-        let cache = glyphon::Cache::new(&device);
-        let atlas =
-            glyphon::TextAtlas::new(&device, &queue, &cache, wgpu::TextureFormat::Bgra8Unorm);
-        let viewport = glyphon::Viewport::new(&device, &cache);
-
         let driver = Arc::new(crate::DriverState {
             adapter,
             device,
             queue,
-            text: std::rc::Rc::new(RefCell::new(TextSystem {
-                font_system: glyphon::FontSystem::new(),
-                swash_cache: glyphon::SwashCache::new(),
-                viewport,
-                atlas,
-            })),
+            format: Cell::new(None),
+            text: OnceCell::new(),
         });
 
         *weak = Arc::downgrade(&driver);
@@ -881,7 +898,7 @@ impl FnPersist<u8, im::HashMap<Rc<SourceID>, Option<Window>>> for TestApp {
             ..Default::default()
         };
         let window = Window::new(
-            gen_id!(),
+            gen_id!().into(),
             winit::window::Window::default_attributes()
                 .with_title("test_blank")
                 .with_resizable(true),

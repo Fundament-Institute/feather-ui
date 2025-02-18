@@ -660,6 +660,7 @@ dependencies = [
  "glyphon",
  "im",
  "mlua",
+ "once_cell",
  "smallvec",
  "thiserror",
  "tokio",
