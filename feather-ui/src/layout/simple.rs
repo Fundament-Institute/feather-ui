@@ -90,7 +90,7 @@ impl Desc for Simple {
             let stage = child
                 .as_ref()
                 .unwrap()
-                .stage(inner_area, true_area.topleft, driver);
+                .stage(inner_area, inner_area.topleft, driver);
             if let Some(node) = stage.get_rtree().upgrade() {
                 nodes.push_back(Some(node));
             }
