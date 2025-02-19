@@ -9,7 +9,12 @@ members = [
   "examples/paragraph-rs",
 ]
 resolver = "2"
-default-members = ["feather-ui", "examples/basic-rs", "examples/paragraph-rs"]
+default-members = [
+  "feather-ui",
+  "examples/basic-alc",
+  "examples/basic-rs",
+  "examples/paragraph-rs",
+]
 
 [workspace.package]
 version = "0.1.1"

@@ -1532,23 +1532,36 @@ let mul-mat4-mat4 = lambda (left : wgpu-mat4, right : wgpu-mat4)
 
 let frag-shader-type = forall (pos : wgpu-vec2, PosDim : wgpu-vec4, DimBorderBlur : wgpu-vec4, Corners : wgpu-vec4, Fill : wgpu-vec4, Outline : wgpu-vec4) -> ((glfragcolor : wgpu-vec4))
 
+let check-frag-shader = intrinsic
+	""""
+		local glsl = require "glsl-print"
+		return function(frag_shader)
+			local param_name, code, capture, _capture_debug, _param_debug = frag_shader:unwrap_closure()
+			local elements = code:unwrap_tuple_cons()
+			local glfragcolor_term = elements[1]
+			local glfragcolor_check = glsl.glsl_trait:get(terms.typed_term).glsl_check(glfragcolor_term)
+			return glfragcolor_check
+		end
+	:
+	host-func-type ((frag-shader : wrapped(frag-shader-type))) -> ((valid : host-bool))
+let frag-shader-valid = lambda (shader : wrapped(frag-shader-type)) #TODO make friendlier non-intrinsic wrappers of the rest of the api and remove wrapping
+	let (checkres) = check-frag-shader(shader)
+	host-if(checkres, host-unit, wrapped(void))
+
 let wgpu-print-frag-shader = intrinsic
 	""""
 		local U = require "alicorn-utils"
 		local format = require "format"
-		return function(frag_shader)
+		return function(frag_shader, _valid)
 			local param_name, code, capture, _capture_dbg, _param_debug = frag_shader:unwrap_closure()
-			local context = terms.strict_runtime_context()
-			context = context:append(terms.strict_value.host_number_type, "#frag-context", terms.spanned_name("#frag-context-dbg", format.span_here()))
-			context = context:append(terms.strict_value.host_number_type, param_name, terms.spanned_name("#frag-closure-dbg", format.span_here()))
 			local elements = code:unwrap_tuple_cons()
 			local glfragcolor = elements[1]:glsl_print({{}, {"pos", "PosDim", "DimBorderBlur", "Corners", "Fill", "Outline"}})
 			local boilerplate = "@group(0) @binding(1)\nvar<uniform> PosDim: vec4f;\n@group(0) @binding(2) \nvar<uniform> DimBorderBlur: vec4f;\n@group(0) @binding(3) \nvar<uniform> Corners: vec4f;\n@group(0) @binding(4) \nvar<uniform> Fill: vec4f;\n@group(0) @binding(5) \nvar<uniform> Outline: vec4f;"
 			local frag_shader = boilerplate .. "@fragment \nfn main(@location(0) pos: vec2f) -> @location(0) vec4f {\n return " .. glfragcolor .. ";\n}\n"
 			return frag_shader
 		end
-	:
-	host-func-type ((frag-shader : wrapped(frag-shader-type))) -> ((str : host-string))
+	:	
+	host-func-type (frag-shader : wrapped(frag-shader-type), valid : frag-shader-valid(frag-shader)) -> ((str : host-string))
 
 let linearstep = lambda (low : wgpu-float, high : wgpu-float, x : wgpu-float)
 	clamp((x - low) / (high - low), 0, 1)
@@ -1589,7 +1602,7 @@ let rect-frag-shader = lambda (pos : wgpu-vec2, PosDim : wgpu-vec4, DimBorderBlu
 	let output = add-vec4(premultiply-fill, premultiply-outline)
 	tuple-of-implicit(output)
 
-let (rect-frag-shader-string) = wgpu-print-frag-shader(wrap(rect-frag-shader))
+let (rect-frag-shader-string) = wgpu-print-frag-shader(wrap(rect-frag-shader), host-nil)
 
 let line-to-point = lambda (p1 : wgpu-vec2, p2 : wgpu-vec2, p : wgpu-vec2)
 	let n = sub-vec2(p2, p1)
@@ -1619,7 +1632,7 @@ let triangle-frag-shader = lambda (pos : wgpu-vec2, PosDim : wgpu-vec4, DimBorde
 	let output = add-vec4(fill-alpha, outline-alpha)
 	tuple-of-implicit(output)
 
-let (tri-frag-shader-string) = wgpu-print-frag-shader(wrap(triangle-frag-shader))
+let (tri-frag-shader-string) = wgpu-print-frag-shader(wrap(triangle-frag-shader), host-nil)
 
 let circle-frag-shader = lambda (pos : wgpu-vec2, PosDim : wgpu-vec4, DimBorderBlur : wgpu-vec4, Corners : wgpu-vec4, Fill : wgpu-vec4, Outline : wgpu-vec4)
 	let (PosDim-x, PosDim-y, PosDim-z, PosDim-w) = split-vec4(PosDim)
@@ -1651,7 +1664,7 @@ let circle-frag-shader = lambda (pos : wgpu-vec2, PosDim : wgpu-vec4, DimBorderB
 	let output = add-vec4(fill-alpha, outline-alpha)
 	tuple-of-implicit(output)
 
-let (circle-frag-shader-string) = wgpu-print-frag-shader(wrap(circle-frag-shader))
+let (circle-frag-shader-string) = wgpu-print-frag-shader(wrap(circle-frag-shader), host-nil)
 
 ############# FEATHER LAYOUT STARTS HERE
 
