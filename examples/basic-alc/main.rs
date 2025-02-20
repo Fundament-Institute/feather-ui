@@ -17,24 +17,20 @@ fn wrap_luafunc<'lua>(
 }
 
 fn main() {
-    let lua = unsafe { Lua::unsafe_new() };
+    let lua = Lua::new();
     feather_ui::lua::init_environment(&lua).unwrap();
     let alicorn = Box::new(alicorn::Alicorn::new(Some(lua)).unwrap());
+
+    // Load the built-in GLSL prelude from alicorn
+    alicorn.load_glsl_prelude().unwrap();
 
     // Because of constraints on lifetimes, this needs to technically last forever.
     let alicorn = Box::leak(alicorn);
     {
-        // This steps through our 3 stages of compilation for the alicorn layout script. In an earlier prototype,
-        // the entire alicorn standard library had to be required in the layout due to compiler limitations.
-        // These limitations have been removed, but the actual alicorn rust crate hasn't been updated to take
-        // advantage of this yet.
-        let ast = alicorn.parse(include_str!("layout.alc")).unwrap();
-        let terms = alicorn.process(ast).unwrap();
-        let program = alicorn.evaluate(terms).unwrap();
-
-        // This executes an alicorn program, which then calls back into the lua environment we have created in feather-ui/src/lua.rs
-        let (window, init, onclick): (Function, Function, Function) =
-            alicorn.execute(program).unwrap();
+        // This compiles and executes an alicorn program, which then calls back into the lua environment we have created in feather-ui/src/lua.rs
+        let (window, init, onclick): (Function, Function, Function) = alicorn
+            .execute(include_str!("layout.alc"), "layout.alc")
+            .unwrap();
 
         let onclick = Box::new(wrap_luafunc(onclick));
         let outline = LuaApp { window, init };
