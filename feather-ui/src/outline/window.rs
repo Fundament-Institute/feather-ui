@@ -366,9 +366,9 @@ impl Window {
                         let b = button.into();
 
                         if state == winit::event::ElementState::Pressed {
-                            window.all_buttons &= !(b as u8);
-                        } else {
                             window.all_buttons |= b as u8;
+                        } else {
+                            window.all_buttons &= !(b as u8);
                         }
 
                         RawEvent::Mouse {
