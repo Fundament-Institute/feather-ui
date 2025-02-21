@@ -134,13 +134,13 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for Draggable<Parent> {
                     } => match state {
                         MouseMoveState::Move => {
                             if (all_buttons & MouseButton::L as u8) != 0 {
-                                if data.lastdown.contains_key(&device_id) {
-                                    let last_pos = data.lastdown.remove(&device_id).unwrap();
-                                    data.lastdrag.insert(device_id, pos);
-                                    return Ok((
-                                        data,
-                                        vec![DraggableEvent::OnDrag(pos - last_pos)],
-                                    ));
+                                if let Some(last_pos) = data.lastdown.get(&device_id) {
+                                    let diff = pos - *last_pos;
+                                    if diff.dot(diff) > 4.0 {
+                                        data.lastdown.remove(&device_id).unwrap();
+                                        data.lastdrag.insert(device_id, pos);
+                                        return Ok((data, vec![DraggableEvent::OnDrag(diff)]));
+                                    }
                                 }
                                 if let Some(last_pos) = data.lastdrag.get(&device_id).map(|x| *x) {
                                     data.lastdrag.insert(device_id, pos);

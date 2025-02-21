@@ -183,9 +183,13 @@ fn main() {
                 draggable::DraggableEvent::OnClick(pos) => {
                     if let Some(selected) = appdata.selected {
                         for i in 0..appdata.nodes.len() {
-                            let diff = appdata.nodes[i] - pos;
+                            let diff = appdata.nodes[i] - pos + appdata.offset;
                             if diff.dot(diff) < NODE_RADIUS * NODE_RADIUS {
-                                appdata.edges.insert((selected, i));
+                                if appdata.edges.contains(&(selected, i)) {
+                                    appdata.edges.remove(&(selected, i));
+                                } else {
+                                    appdata.edges.insert((selected, i));
+                                }
                                 break;
                             }
                         }
@@ -194,7 +198,7 @@ fn main() {
                     } else {
                         // Check to see if we're anywhere near a node (yes this is inefficient but we don't care right now)
                         for i in 0..appdata.nodes.len() {
-                            let diff = appdata.nodes[i] - pos;
+                            let diff = appdata.nodes[i] - pos + appdata.offset;
                             if diff.dot(diff) < NODE_RADIUS * NODE_RADIUS {
                                 appdata.selected = Some(i);
                                 return Ok(appdata);
@@ -202,14 +206,14 @@ fn main() {
                         }
 
                         // TODO: maybe make this require shift click
-                        appdata.nodes.push(pos);
+                        appdata.nodes.push(pos - appdata.offset);
                     }
 
                     Ok(appdata)
                 }
                 draggable::DraggableEvent::OnDblClick(pos) => {
                     // TODO: winit currently doesn't capture double clicks
-                    appdata.nodes.push(pos);
+                    appdata.nodes.push(pos - appdata.offset);
                     Ok(appdata)
                 }
                 draggable::DraggableEvent::OnDrag(diff) => {
@@ -224,9 +228,9 @@ fn main() {
     let (mut app, event_loop): (App<GraphState, BasicApp>, winit::event_loop::EventLoop<()>) =
         App::new(
             GraphState {
-                nodes: vec![Vec2::zero()],
+                nodes: vec![],
                 edges: HashSet::new(),
-                offset: Vec2::zero(),
+                offset: Vec2::new(-5000.0, -5000.0),
                 selected: None,
             },
             vec![handle_input],
