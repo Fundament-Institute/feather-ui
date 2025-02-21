@@ -36,7 +36,7 @@ impl<Parent: Clone> Button<Parent> {
             simple,
             marea: MouseArea::new(
                 SourceID {
-                    parent: Rc::downgrade(&id),
+                    parent: Some(id.clone()),
                     id: crate::DataID::Named("__marea_internal__"),
                 }
                 .into(),

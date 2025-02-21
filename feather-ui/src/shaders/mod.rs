@@ -79,7 +79,9 @@ pub struct ShaderCache {
     pipelines: HashMap<(usize, wgpu::SurfaceConfiguration), std::rc::Weak<wgpu::RenderPipeline>>,
     shader_hash: HashMap<String, usize>,
     pub basic_vs: usize,
+    pub line_vs: usize,
     pub basic_pipeline: usize,
+    pub line_pipeline: usize,
 }
 
 impl ShaderCache {
@@ -90,7 +92,9 @@ impl ShaderCache {
             pipelines: Default::default(),
             shader_hash: Default::default(),
             basic_pipeline: 0,
+            line_pipeline: 0,
             basic_vs: 0,
+            line_vs: 0,
         };
 
         this.basic_vs = this.register_shader(
@@ -98,6 +102,9 @@ impl ShaderCache {
             "Standard VS",
             include_str!("../shaders/standard.wgsl"),
         );
+
+        this.line_vs =
+            this.register_shader(device, "Line VS", include_str!("../shaders/line.vert.wgsl"));
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: None,
@@ -122,6 +129,33 @@ impl ShaderCache {
             &wgpu::PipelineLayoutDescriptor {
                 label: Some("StandardPipeline"),
                 bind_group_layouts: &[&bind_group_layout],
+                push_constant_ranges: &[],
+            },
+        );
+
+        let line_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: None,
+            entries: &[0, 1, 2].map(|i| wgpu::BindGroupLayoutEntry {
+                binding: i,
+                visibility: if i < 2 {
+                    wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT
+                } else {
+                    wgpu::ShaderStages::FRAGMENT
+                },
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }),
+        });
+
+        this.line_pipeline = this.register_pipeline_layout(
+            device,
+            &wgpu::PipelineLayoutDescriptor {
+                label: Some("LinePipeline"),
+                bind_group_layouts: &[&line_group_layout],
                 push_constant_ranges: &[],
             },
         );
@@ -186,6 +220,48 @@ impl ShaderCache {
             primitive: wgpu::PrimitiveState {
                 front_face: wgpu::FrontFace::Cw,
                 topology: wgpu::PrimitiveTopology::TriangleStrip,
+                ..Default::default()
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+            cache: None,
+        })
+    }
+
+    pub fn line_pipeline(
+        &self,
+        device: &wgpu::Device,
+        fragment: usize,
+        config: &wgpu::SurfaceConfiguration,
+    ) -> wgpu::RenderPipeline {
+        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: None,
+            layout: Some(&self.layouts[self.line_pipeline]),
+            vertex: wgpu::VertexState {
+                module: &self.shaders[self.basic_vs],
+                entry_point: "main",
+                buffers: &[wgpu::VertexBufferLayout {
+                    array_stride: size_of::<Vertex>() as wgpu::BufferAddress,
+                    step_mode: wgpu::VertexStepMode::Vertex,
+                    attributes: &wgpu::vertex_attr_array![0 => Float32x2],
+                }],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &self.shaders[fragment],
+                entry_point: "main",
+                compilation_options: Default::default(),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: config.view_formats[0],
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            primitive: wgpu::PrimitiveState {
+                front_face: wgpu::FrontFace::Cw,
+                topology: wgpu::PrimitiveTopology::LineStrip,
+                //conservative: true,
                 ..Default::default()
             },
             depth_stencil: None,

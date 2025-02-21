@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+
+[package]
+name = "graph-rs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors = ["Erik McClure  "]
+description = """
+Simple graph editor
+"""
+homepage.workspace = true
+readme.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "graph-rs"
+path = "main.rs"
+
+[dependencies]
+wgpu.workspace = true
+winit.workspace = true
+tokio.workspace = true
+feather-ui.workspace = true
+ultraviolet.workspace = true
+im.workspace = true
+glyphon.workspace = true

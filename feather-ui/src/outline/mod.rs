@@ -10,12 +10,17 @@ use crate::layout::Layout;
 
 pub mod arc;
 pub mod button;
+pub mod circle;
+pub mod domain_line;
+pub mod domain_point;
+pub mod draggable;
 pub mod flexbox;
 pub mod mouse_area;
 pub mod paragraph;
 pub mod region;
 pub mod round_rect;
 pub mod shader_standard;
+pub mod sized_region;
 pub mod text;
 pub mod window;
 
@@ -232,4 +237,34 @@ impl Root {
             Ok(())
         })
     }*/
+}
+
+// If an outline provides a CrossReferenceDomain, it's children can register themselves with it.
+// Registered children will write their fully resolved area to the mapping, which can then be
+// retrieved during the render step via a source ID.
+pub struct CrossReferenceDomain {
+    mappings: crate::RefCell<im::HashMap<Rc<SourceID>, AbsRect>>,
+}
+
+impl Default for CrossReferenceDomain {
+    fn default() -> Self {
+        Self {
+            mappings: Default::default(),
+        }
+    }
+}
+
+impl CrossReferenceDomain {
+    pub fn write_area(&self, target: Rc<SourceID>, area: AbsRect) {
+        self.mappings.borrow_mut().insert(target, area);
+    }
+
+    pub fn get_area(&self, target: &Rc<SourceID>) -> Option<AbsRect> {
+        self.mappings.borrow().get(target).map(|x| *x)
+    }
+
+    pub fn remove_self(&self, target: &Rc<SourceID>) {
+        // TODO: Is this necessary? Does it even make sense? Do you simply need to wipe the mapping for every new layout instead?
+        self.mappings.borrow_mut().remove(target);
+    }
 }
