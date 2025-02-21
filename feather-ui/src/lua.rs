@@ -94,7 +94,7 @@ fn create_id<'lua>(
 ) -> mlua::Result<LuaSourceID> {
     Ok(crate::SourceID {
         // parent: parent.map(|x| Rc::downgrade(&x)).unwrap_or_default(),
-        parent: std::rc::Weak::new(),
+        parent: None,
         id: if let Some(i) = id.as_integer() {
             DataID::Int(i)
         } else if let Some(s) = id.as_string_lossy() {
@@ -177,7 +177,7 @@ fn create_button(
     let id = Rc::new(args.0);
     let text = Text::<()> {
         id: SourceID {
-            parent: Rc::downgrade(&id),
+            parent: Some(id.clone()),
             id: DataID::Named("__internal_text__"),
         }
         .into(),

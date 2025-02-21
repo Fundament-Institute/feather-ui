@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 pub mod basic;
+pub mod domain_write;
 pub mod empty;
 pub mod flex;
 pub mod root;

@@ -1,8 +1,9 @@
 #version 450
-in vec2 vPos;  
 layout(binding=0) uniform mat4 MVP;  
 layout(binding=1) uniform vec2 ViewPort; //Width and Height of the viewport  
-out vec2 vLineCenter;  
+in vec2 vPos;  
+out vec2 vLineCenter;
+
 void main(void)  
 {  
   vec4 pp = MVP * vec4(vPos.xy, 0, 1);  

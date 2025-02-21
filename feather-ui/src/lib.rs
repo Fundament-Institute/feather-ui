@@ -38,7 +38,11 @@ macro_rules! gen_id {
     () => {
         $crate::SourceID::new($crate::DataID::Named(concat!(file!(), ":", line!())))
     };
+    ($idx:expr) => {
+        $idx.child($crate::DataID::Named(concat!(file!(), ":", line!())))
+    };
 }
+
 use std::any::TypeId;
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -67,6 +71,11 @@ pub struct AbsRect {
     pub topleft: Vec2,
     pub bottomright: Vec2,
 }
+
+const ABSRECT_ZERO: AbsRect = AbsRect {
+    topleft: Vec2::new(0.0, 0.0),
+    bottomright: Vec2::new(0.0, 0.0),
+};
 
 impl AbsRect {
     pub fn new(left: f32, top: f32, right: f32, bottom: f32) -> Self {
@@ -466,14 +475,17 @@ impl std::cmp::PartialEq for DataID {
 
 #[derive(Clone, Default)]
 pub struct SourceID {
-    parent: std::rc::Weak<SourceID>,
+    parent: Option<std::rc::Rc<SourceID>>,
     id: DataID,
 }
 
 impl SourceID {
     pub fn new(id: DataID) -> Self {
+        Self { parent: None, id }
+    }
+    pub fn child(self: &Rc<Self>, id: DataID) -> Self {
         Self {
-            parent: std::rc::Weak::new(),
+            parent: Some(self.clone()),
             id,
         }
     }
@@ -481,12 +493,20 @@ impl SourceID {
 impl std::cmp::Eq for SourceID {}
 impl std::cmp::PartialEq for SourceID {
     fn eq(&self, other: &Self) -> bool {
-        std::rc::Weak::ptr_eq(&self.parent, &other.parent) && self.id == other.id
+        if let Some(parent) = &self.parent {
+            if let Some(pother) = &other.parent {
+                std::rc::Rc::ptr_eq(&parent, &pother) && self.id == other.id
+            } else {
+                false
+            }
+        } else {
+            other.parent.is_none() && self.id == other.id
+        }
     }
 }
 impl std::hash::Hash for SourceID {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        if let Some(parent) = self.parent.upgrade() {
+        if let Some(parent) = &self.parent {
             parent.id.hash(state);
         }
         self.id.hash(state);
@@ -634,7 +654,7 @@ impl StateManager {
 }
 
 pub const APP_SOURCE_ID: SourceID = SourceID {
-    parent: std::rc::Weak::new(),
+    parent: None,
     id: DataID::Named("__fg_AppData_ID__"),
 };
 
