@@ -186,9 +186,11 @@ fn main() {
                             let diff = appdata.nodes[i] - pos + appdata.offset;
                             if diff.dot(diff) < NODE_RADIUS * NODE_RADIUS {
                                 if appdata.edges.contains(&(selected, i)) {
+                                    appdata.edges.remove(&(i, selected));
                                     appdata.edges.remove(&(selected, i));
                                 } else {
                                     appdata.edges.insert((selected, i));
+                                    appdata.edges.insert((i, selected));
                                 }
                                 break;
                             }
