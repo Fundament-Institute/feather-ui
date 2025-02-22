@@ -367,7 +367,7 @@ pub struct DriverState {
     queue: wgpu::Queue,
     format: Cell<Option<wgpu::TextureFormat>>,
     text: OnceCell<std::rc::Rc<RefCell<TextSystem>>>,
-    cache: RefCell<ShaderCache>,
+    shader_cache: RefCell<ShaderCache>,
 }
 
 impl DriverState {
@@ -799,7 +799,7 @@ impl<
             queue,
             format: Cell::new(None),
             text: OnceCell::new(),
-            cache: RefCell::new(shader_cache),
+            shader_cache: RefCell::new(shader_cache),
         });
 
         *weak = Arc::downgrade(&driver);

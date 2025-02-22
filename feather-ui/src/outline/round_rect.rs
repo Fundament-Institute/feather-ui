@@ -40,14 +40,14 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for RoundRect<Parent> {
         driver: &DriverState,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<Parent>> {
-        let shader_idx = driver.cache.borrow_mut().register_shader(
+        let shader_idx = driver.shader_cache.borrow_mut().register_shader(
             &driver.device,
             "RoundRect FS",
             include_str!("../shaders/RoundRect.wgsl"),
         );
         let pipeline =
             driver
-                .cache
+                .shader_cache
                 .borrow_mut()
                 .standard_pipeline(&driver.device, shader_idx, config);
 

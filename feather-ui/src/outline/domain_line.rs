@@ -44,15 +44,16 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for DomainLine<Parent> {
         driver: &DriverState,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<Parent>> {
-        let shader_idx = driver.cache.borrow_mut().register_shader(
+        let shader_idx = driver.shader_cache.borrow_mut().register_shader(
             &driver.device,
             "Line FS",
             include_str!("../shaders/Line.frag.wgsl"),
         );
-        let pipeline = driver
-            .cache
-            .borrow_mut()
-            .line_pipeline(&driver.device, shader_idx, config);
+        let pipeline =
+            driver
+                .shader_cache
+                .borrow_mut()
+                .line_pipeline(&driver.device, shader_idx, config);
 
         let mvp = gen_uniform(
             driver,
