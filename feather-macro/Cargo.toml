@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+
+[package]
+name = "feather-macro"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors = ["Erik McClure  "]
+description = """
+Helper macros for Feather UI library
+"""
+homepage.workspace = true
+repository = "https://github.com/Fundament-Software/feathergui/tree/main/feather-ui"
+readme.workspace = true
+keywords = ["macros"]
+license.workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "2", features = ["parsing"] }
+quote = { version = "1" }
+proc-macro2 = { version = "1", features = ["span-locations"] }
+itertools = { version = "0.14" }
+proc_macro_roids = "0.8.0"
+
+[lints]
+workspace = true

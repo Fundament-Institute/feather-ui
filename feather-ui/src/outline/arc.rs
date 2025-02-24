@@ -8,7 +8,6 @@ use crate::shaders::gen_uniform;
 use crate::DriverState;
 use crate::SourceID;
 use crate::URect;
-use std::borrow::Cow;
 use std::rc::Rc;
 use ultraviolet::Vec4;
 use wgpu::util::DeviceExt;

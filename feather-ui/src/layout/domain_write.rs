@@ -10,7 +10,6 @@ use crate::outline::CrossReferenceDomain;
 use crate::rtree;
 use crate::AbsRect;
 use crate::SourceID;
-use crate::URect;
 use crate::Vec2;
 use dyn_clone::DynClone;
 use std::marker::PhantomData;

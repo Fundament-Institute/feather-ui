@@ -23,7 +23,6 @@ use persist::FnPersist;
 use shaders::ShaderCache;
 use smallvec::SmallVec;
 use std::any::Any;
-use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::collections::HashMap;

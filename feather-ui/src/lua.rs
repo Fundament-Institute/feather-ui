@@ -19,7 +19,6 @@ use crate::RelPoint;
 use crate::Slot;
 use crate::SourceID;
 use crate::URect;
-use color_eyre::owo_colors::colors::xterm::ThistlePink;
 use mlua::prelude::*;
 use mlua::UserData;
 use std::rc::Rc;
