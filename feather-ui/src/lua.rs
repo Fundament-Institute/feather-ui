@@ -26,7 +26,7 @@ use std::rc::Rc;
 use ultraviolet::Vec2;
 use ultraviolet::Vec4;
 
-pub type AppState<'lua> = LuaValue<'lua>;
+pub type AppState = LuaValue;
 type LuaSourceID = SourceID;
 
 struct BoxedOutline<T: Desc>(Box<OutlineFrom<T>>);
@@ -39,14 +39,14 @@ impl<T: Desc> Clone for BoxedOutline<T> {
 
 macro_rules! gen_from_lua {
     ($type_name:ident) => {
-        impl mlua::FromLua<'_> for $type_name {
+        impl mlua::FromLua for $type_name {
             #[inline]
             fn from_lua(value: ::mlua::Value, _: &::mlua::Lua) -> ::mlua::Result<Self> {
                 match value {
                     ::mlua::Value::UserData(ud) => Ok(ud.borrow::<Self>()?.clone()),
                     _ => Err(::mlua::Error::FromLuaConversionError {
                         from: value.type_name(),
-                        to: stringify!($type_name),
+                        to: stringify!($type_name).to_string(),
                         message: None,
                     }),
                 }
@@ -71,17 +71,14 @@ gen_from_lua!(URect);
 //gen_from_lua!(URect);
 
 impl<T: Desc + 'static> UserData for BoxedOutline<T> {}
-impl<T: Desc + 'static> mlua::FromLua<'_> for BoxedOutline<T> {
+impl<T: Desc + 'static> mlua::FromLua for BoxedOutline<T> {
     #[inline]
     fn from_lua(value: ::mlua::Value, _: &::mlua::Lua) -> ::mlua::Result<Self> {
         match value {
-            ::mlua::Value::UserData(ud) => {
-                let test = std::cell::Ref::<'_, Self>::clone(&ud.borrow()?).clone();
-                Ok(test)
-            }
+            ::mlua::Value::UserData(ud) => Ok(ud.borrow::<BoxedOutline<T>>()?.clone()),
             _ => Err(::mlua::Error::FromLuaConversionError {
                 from: value.type_name(),
-                to: stringify!($type_name),
+                to: stringify!($type_name).to_string(),
                 message: None,
             }),
         }
@@ -90,7 +87,7 @@ impl<T: Desc + 'static> mlua::FromLua<'_> for BoxedOutline<T> {
 
 fn create_id<'lua>(
     _: &'lua Lua,
-    (id, _): (LuaValue<'lua>, Option<LuaSourceID>),
+    (id, _): (LuaValue, Option<LuaSourceID>),
 ) -> mlua::Result<LuaSourceID> {
     Ok(crate::SourceID {
         // parent: parent.map(|x| Rc::downgrade(&x)).unwrap_or_default(),
@@ -98,7 +95,7 @@ fn create_id<'lua>(
         id: if let Some(i) = id.as_integer() {
             DataID::Int(i)
         } else if let Some(s) = id.as_string_lossy() {
-            DataID::Owned(s.into_owned())
+            DataID::Owned(s)
         } else {
             panic!("Invalid ID")
         },
@@ -269,16 +266,16 @@ fn create_round_rect(
 /// This defines the "lua" app that knows how to handle a lua value that contains the
 /// expected rust objects, and hand them off for processing. This is analogous to the
 /// pure-rust [App] struct defined in lib.rs
-pub struct LuaApp<'lua> {
-    pub window: LuaFunction<'lua>, // takes a Store and an appstate and returns a Window
-    pub init: LuaFunction<'lua>,
+pub struct LuaApp {
+    pub window: LuaFunction, // takes a Store and an appstate and returns a Window
+    pub init: LuaFunction,
 }
 
-impl<'lua> FnPersist<AppState<'lua>, im::HashMap<Rc<SourceID>, Option<Window>>> for LuaApp<'lua> {
-    type Store = LuaValue<'lua>;
+impl FnPersist<AppState, im::HashMap<Rc<SourceID>, Option<Window>>> for LuaApp {
+    type Store = LuaValue;
 
     fn init(&self) -> Self::Store {
-        let r = self.init.call::<_, LuaValue<'lua>>(());
+        let r = self.init.call::<LuaValue>(());
         match r {
             Err(LuaError::RuntimeError(s)) => panic!("{}", s),
             Err(e) => panic!("{:?}", e),
@@ -288,14 +285,12 @@ impl<'lua> FnPersist<AppState<'lua>, im::HashMap<Rc<SourceID>, Option<Window>>> 
     fn call(
         &self,
         store: Self::Store,
-        args: &AppState<'lua>,
+        args: &AppState,
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
         let mut h = im::HashMap::new();
         let (store, w) = self
             .window
-            .call::<(mlua::Value<'lua>, AppState<'lua>), (LuaValue, crate::outline::window::Window)>((
-                store, args.clone(),
-            ))
+            .call::<(LuaValue, crate::outline::window::Window)>((store, args.clone()))
             .unwrap();
         h.insert(w.id().clone(), Some(w));
         (store, h)
