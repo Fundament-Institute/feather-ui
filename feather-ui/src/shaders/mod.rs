@@ -199,7 +199,7 @@ impl ShaderCache {
             layout: Some(&self.layouts[self.basic_pipeline]),
             vertex: wgpu::VertexState {
                 module: &self.shaders[self.basic_vs],
-                entry_point: "main",
+                entry_point: None,
                 buffers: &[wgpu::VertexBufferLayout {
                     array_stride: size_of::<Vertex>() as wgpu::BufferAddress,
                     step_mode: wgpu::VertexStepMode::Vertex,
@@ -209,7 +209,7 @@ impl ShaderCache {
             },
             fragment: Some(wgpu::FragmentState {
                 module: &self.shaders[fragment],
-                entry_point: "main",
+                entry_point: None,
                 compilation_options: Default::default(),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: config.view_formats[0],
@@ -240,7 +240,7 @@ impl ShaderCache {
             layout: Some(&self.layouts[self.line_pipeline]),
             vertex: wgpu::VertexState {
                 module: &self.shaders[self.basic_vs],
-                entry_point: "main",
+                entry_point: None,
                 buffers: &[wgpu::VertexBufferLayout {
                     array_stride: size_of::<Vertex>() as wgpu::BufferAddress,
                     step_mode: wgpu::VertexStepMode::Vertex,
@@ -250,7 +250,7 @@ impl ShaderCache {
             },
             fragment: Some(wgpu::FragmentState {
                 module: &self.shaders[fragment],
-                entry_point: "main",
+                entry_point: None,
                 compilation_options: Default::default(),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: config.view_formats[0],
