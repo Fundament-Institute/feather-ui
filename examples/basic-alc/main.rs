@@ -7,12 +7,9 @@ use feather_ui::App;
 use mlua::prelude::*;
 use mlua::Function;
 
-fn wrap_luafunc<'lua>(
-    f: Function<'lua>,
-) -> impl FnMut(feather_ui::DispatchPair, AppState) -> Result<AppState, AppState> + 'lua {
-    // Due to how mlua works, there is no safe way to ensure this lifetime is validated, so we just have
-    // to cast the lifetime away and ensure the lua runtime is never closed while we're still using this.
-    let f = unsafe { std::mem::transmute::<Function<'lua>, Function<'static>>(f) };
+fn wrap_luafunc(
+    f: Function,
+) -> impl FnMut(feather_ui::DispatchPair, AppState) -> Result<AppState, AppState> {
     move |pair, state| Ok(f.call((pair.0, state)).unwrap())
 }
 

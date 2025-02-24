@@ -28,7 +28,7 @@ readme = "README.md"
 
 [workspace.dependencies]
 im = "15.1"
-wgpu = "22"
+wgpu = "24"
 winit = "0.30"
 color-eyre = "0.6"
 eyre = "0.6"
@@ -39,5 +39,7 @@ tracing = "0.1.40"
 tokio = { version = "1.40", features = ["rt", "macros", "tracing", "signal"] }
 feather-ui = { path = "feather-ui" }
 alicorn = { git = "https://github.com/Fundament-Software/Alicorn0" }
-mlua = { version = "0.9.9", features = ["luajit52", "vendored"] }
-glyphon = "0.6.0"
+mlua = { version = "0.10", features = ["luajit52", "vendored"] }
+glyphon = "0.8.0"
+
+[workspace.lints]
