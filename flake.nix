@@ -129,13 +129,7 @@
             cargoAuditExtraArgs = "--ignore RUSTSEC-2020-0071";
           });
 
-          # Run tests with cargo-nextest
-          capnp-nextest = craneLib.cargoNextest (commonArgs // {
-            inherit cargoArtifacts;
-            pname = "${pname}-nextest";
-            partitions = 1;
-            partitionType = "count";
-          });
+          # We can't run tests during nix flake check because it might not have a graphical device.
         };
     });
 }

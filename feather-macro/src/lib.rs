@@ -114,14 +114,16 @@ pub fn dispatchable(input: TokenStream) -> TokenStream {
     let data_enum = data_enum(&ast);
     let variants = &data_enum.variants;
 
-    let mut counter: u64 = 0;
+    let mut counter = 0;
     let mut extract_declarations = proc_macro2::TokenStream::new();
     let mut restore_declarations = proc_macro2::TokenStream::new();
 
     for variant in variants.iter() {
         let variant_name = &variant.ident;
 
-        let idx = (1 << counter) as u64;
+        let idx = (1 as u64)
+            .checked_shl(counter)
+            .expect("Too many variants! Can't handle more than 64!");
         counter += 1;
 
         if variant.fields.is_empty() {
