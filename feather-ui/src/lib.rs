@@ -22,6 +22,7 @@ use outline::StateMachineWrapper;
 use persist::FnPersist;
 use shaders::ShaderCache;
 use smallvec::SmallVec;
+use std::any;
 use std::any::Any;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -729,6 +730,15 @@ impl<
         #[cfg(not(test))]
         let any_thread = false;
 
+        Self::new_any_thread(app_state, inputs, outline, any_thread)
+    }
+
+    pub fn new_any_thread<T: 'static>(
+        app_state: AppData,
+        inputs: Vec<AppEvent<AppData>>,
+        outline: O,
+        any_thread: bool,
+    ) -> eyre::Result<(Self, winit::event_loop::EventLoop<T>)> {
         #[cfg(target_os = "windows")]
         let event_loop = winit::event_loop::EventLoop::with_user_event()
             .with_any_thread(any_thread)
@@ -901,6 +911,10 @@ impl<
         let _ = (event_loop, device_id, event);
     }
 
+    fn user_event(&mut self, event_loop: &winit::event_loop::ActiveEventLoop, _: T) {
+        event_loop.exit();
+    }
+
     fn suspended(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
         let _ = event_loop;
     }
@@ -956,5 +970,7 @@ fn test_basic() {
     let (mut app, event_loop): (App<u8, TestApp>, winit::event_loop::EventLoop<()>) =
         App::new(0u8, vec![], TestApp {}).unwrap();
 
+    let proxy = event_loop.create_proxy();
+    proxy.send_event(()).unwrap();
     event_loop.run_app(&mut app).unwrap();
 }

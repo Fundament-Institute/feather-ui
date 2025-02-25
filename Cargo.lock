@@ -49,6 +49,7 @@ dependencies = [
 [[package]]
 name = "alicorn"
 version = "0.1.0"
+source = "git+https://github.com/Fundament-Software/Alicorn0#7e118b906fd240aacef5695c0f2dc401976bf182"
 dependencies = [
  "cc",
  "mlua",
