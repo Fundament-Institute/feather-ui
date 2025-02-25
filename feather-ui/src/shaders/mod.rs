@@ -98,14 +98,9 @@ impl ShaderCache {
             line_vs: 0,
         };
 
-        this.basic_vs = this.register_shader(
-            device,
-            "Standard VS",
-            include_str!("../shaders/standard.wgsl"),
-        );
+        this.basic_vs = this.register_shader(device, "Standard VS", include_str!("standard.wgsl"));
 
-        this.line_vs =
-            this.register_shader(device, "Line VS", include_str!("../shaders/line.vert.wgsl"));
+        this.line_vs = this.register_shader(device, "Line VS", include_str!("Line.vert.wgsl"));
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: None,

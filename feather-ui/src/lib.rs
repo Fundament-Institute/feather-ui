@@ -744,7 +744,9 @@ impl<
             .with_dpi_aware(true)
             .build()?;
         #[cfg(not(target_os = "windows"))]
-        let event_loop = winit::event_loop::EventLoop::with_user_event().build()?;
+        let event_loop = winit::event_loop::EventLoop::with_user_event()
+            .with_any_thread(any_thread)
+            .build()?;
         let mut manager: StateManager = Default::default();
         manager.init(
             Rc::new(APP_SOURCE_ID),
