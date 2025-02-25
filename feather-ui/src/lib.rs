@@ -11,7 +11,6 @@ pub mod persist;
 mod rtree;
 mod shaders;
 use crate::outline::window::Window;
-use alloc::sync::Arc;
 use core::cell::Cell;
 use dyn_clone::DynClone;
 use eyre::OptionExt;
@@ -22,7 +21,6 @@ use outline::StateMachineWrapper;
 use persist::FnPersist;
 use shaders::ShaderCache;
 use smallvec::SmallVec;
-use std::any;
 use std::any::Any;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -71,11 +69,6 @@ pub struct AbsRect {
     pub topleft: Vec2,
     pub bottomright: Vec2,
 }
-
-const ABSRECT_ZERO: AbsRect = AbsRect {
-    topleft: Vec2::new(0.0, 0.0),
-    bottomright: Vec2::new(0.0, 0.0),
-};
 
 impl AbsRect {
     pub fn new(left: f32, top: f32, right: f32, bottom: f32) -> Self {
@@ -495,7 +488,7 @@ impl std::cmp::PartialEq for SourceID {
     fn eq(&self, other: &Self) -> bool {
         if let Some(parent) = &self.parent {
             if let Some(pother) = &other.parent {
-                std::rc::Rc::ptr_eq(&parent, &pother) && self.id == other.id
+                std::rc::Rc::ptr_eq(parent, pother) && self.id == other.id
             } else {
                 false
             }
@@ -515,6 +508,7 @@ impl std::hash::Hash for SourceID {
 #[derive(Clone)]
 pub struct Slot(pub Rc<SourceID>, pub u64);
 
+#[allow(dead_code)]
 type AnyHandler =
     dyn FnMut(&dyn Any, AbsRect, &mut dyn Any) -> Result<Vec<DispatchPair>, Vec<DispatchPair>>;
 
@@ -528,6 +522,7 @@ pub type EventWrapper<Output, State> = Box<
 pub type AppEvent<State> = Box<dyn FnMut(DispatchPair, State) -> Result<State, State>>;
 
 #[inline]
+#[allow(clippy::type_complexity)]
 fn wrap_event<Input: Dispatchable + 'static, Output: Dispatchable, State>(
     mut typed: impl FnMut(Input, AbsRect, State) -> Result<(State, Vec<Output>), (State, Vec<Output>)>,
 ) -> impl FnMut(DispatchPair, AbsRect, State) -> Result<(State, Vec<Output>), (State, Vec<Output>)>
@@ -578,6 +573,7 @@ pub struct StateManager {
 }
 
 impl StateManager {
+    #[allow(dead_code)]
     fn init_default<State: 'static + outline::StateMachineWrapper + Default>(
         &mut self,
         id: Rc<SourceID>,
@@ -616,6 +612,7 @@ impl StateManager {
             .downcast_mut()
             .ok_or_eyre("Runtime type mismatch!")
     }
+    #[allow(clippy::borrowed_box)]
     pub fn get_trait<'a>(
         &'a self,
         id: &SourceID,
@@ -624,8 +621,10 @@ impl StateManager {
     }
 
     pub fn process(&mut self, event: DispatchPair, slot: &Slot, area: AbsRect) -> eyre::Result<()> {
+        type IterTuple = (Box<dyn Any>, u64, Option<Slot>);
+
         // We use smallvec here so we can satisfy the borrow checker without making yet another heap allocation in most cases
-        let iter: SmallVec<[(Box<dyn Any>, u64, Option<Slot>); 2]> = {
+        let iter: SmallVec<[IterTuple; 2]> = {
             let state = self.states.get_mut(&slot.0).ok_or_eyre("Invalid slot")?;
             let v = state.process(event, slot.1, area)?;
             v.into_iter()
@@ -663,11 +662,11 @@ pub struct App<
     O: FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>,
 > {
     pub instance: wgpu::Instance,
-    pub driver: std::sync::Weak<DriverState>,
+    pub driver: std::rc::Weak<DriverState>,
     state: StateManager,
     store: Option<O::Store>,
     outline: O,
-    parents: BTreeMap<DataID, DataID>,
+    _parents: BTreeMap<DataID, DataID>,
     root: outline::Root, // Root outline node containing all windows
 }
 
@@ -759,11 +758,11 @@ impl<
         Ok((
             Self {
                 instance: wgpu::Instance::default(),
-                driver: std::sync::Weak::<DriverState>::new(),
+                driver: std::rc::Weak::<DriverState>::new(),
                 store: None,
                 outline,
                 state: manager,
-                parents: Default::default(),
+                _parents: Default::default(),
                 root: outline::Root::new(),
             },
             event_loop,
@@ -771,10 +770,10 @@ impl<
     }
 
     pub async fn create_driver(
-        weak: &mut std::sync::Weak<DriverState>,
+        weak: &mut std::rc::Weak<DriverState>,
         instance: &wgpu::Instance,
         surface: &wgpu::Surface<'static>,
-    ) -> eyre::Result<Arc<DriverState>> {
+    ) -> eyre::Result<Rc<DriverState>> {
         if let Some(driver) = weak.upgrade() {
             return Ok(driver);
         }
@@ -802,7 +801,7 @@ impl<
 
         let shader_cache = ShaderCache::new(&device);
 
-        let driver = Arc::new(crate::DriverState {
+        let driver = Rc::new(crate::DriverState {
             adapter,
             device,
             queue,
@@ -811,7 +810,7 @@ impl<
             shader_cache: RefCell::new(shader_cache),
         });
 
-        *weak = Arc::downgrade(&driver);
+        *weak = Rc::downgrade(&driver);
         Ok(driver)
     }
 
@@ -953,13 +952,8 @@ impl FnPersist<u8, im::HashMap<Rc<SourceID>, Option<Window>>> for TestApp {
     fn call(
         &self,
         store: Self::Store,
-        args: &u8,
+        _: &u8,
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
-        use layout::root::Root;
-        use layout::Desc;
-        use outline::round_rect::RoundRect;
-        use ultraviolet::Vec4;
-
         let windows = store.1.clone();
         (store, windows)
     }

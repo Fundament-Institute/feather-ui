@@ -56,32 +56,26 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for Draggable<Parent> {
                 match e {
                     RawEvent::MouseMove {
                         device_id,
-                        state,
+                        state: MouseMoveState::Move,
                         pos,
                         all_buttons,
                         ..
-                    } => match state {
-                        MouseMoveState::Move => {
-                            if (all_buttons & MouseButton::L as u8) != 0 {
-                                if let Some(last_pos) = data.lastdown.get(&device_id) {
-                                    let diff = pos - *last_pos;
-                                    if diff.dot(diff) > 4.0 {
-                                        data.lastdown.remove(&device_id).unwrap();
-                                        data.lastdrag.insert(device_id, pos);
-                                        return Ok((data, vec![DraggableEvent::OnDrag(diff)]));
-                                    }
-                                }
-                                if let Some(last_pos) = data.lastdrag.get(&device_id).map(|x| *x) {
+                    } => {
+                        if (all_buttons & MouseButton::L as u8) != 0 {
+                            if let Some(last_pos) = data.lastdown.get(&device_id) {
+                                let diff = pos - *last_pos;
+                                if diff.dot(diff) > 4.0 {
+                                    data.lastdown.remove(&device_id).unwrap();
                                     data.lastdrag.insert(device_id, pos);
-                                    return Ok((
-                                        data,
-                                        vec![DraggableEvent::OnDrag(pos - last_pos)],
-                                    ));
+                                    return Ok((data, vec![DraggableEvent::OnDrag(diff)]));
                                 }
                             }
+                            if let Some(last_pos) = data.lastdrag.get(&device_id).copied() {
+                                data.lastdrag.insert(device_id, pos);
+                                return Ok((data, vec![DraggableEvent::OnDrag(pos - last_pos)]));
+                            }
                         }
-                        _ => {}
-                    },
+                    }
                     RawEvent::Mouse {
                         device_id,
                         state,
@@ -102,7 +96,7 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for Draggable<Parent> {
                                         return Ok((data, vec![DraggableEvent::OnClick(pos)]));
                                     }
                                 }
-                                if let Some(last_pos) = data.lastdrag.get(&device_id).map(|x| *x) {
+                                if let Some(last_pos) = data.lastdrag.get(&device_id).copied() {
                                     data.lastdrag.remove(&device_id);
                                     return Ok((
                                         data,
@@ -143,7 +137,7 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for Draggable<Parent> {
                                 ));
                             }
                             if let Some(last_pos) =
-                                data.lasttouchmove.get(&(device_id, index)).map(|x| *x)
+                                data.lasttouchmove.get(&(device_id, index)).copied()
                             {
                                 data.lasttouchmove.insert((device_id, index), pos);
                                 return Ok((
@@ -160,7 +154,7 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for Draggable<Parent> {
                                 data.lasttouch.remove(&(device_id, index));
                             }
                             if let Some(last_pos) =
-                                data.lasttouchmove.get(&(device_id, index)).map(|x| *x)
+                                data.lasttouchmove.get(&(device_id, index)).copied()
                             {
                                 data.lasttouchmove.remove(&(device_id, index));
                                 return Ok((

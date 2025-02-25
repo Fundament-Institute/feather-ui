@@ -33,6 +33,7 @@ impl<Parent: Clone + 'static> Paragraph<Parent> {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn set_text(
         &mut self,
         text: &str,

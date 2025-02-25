@@ -133,6 +133,9 @@ fn justify_inner_outer(align: FlexJustify, total: f32, used: f32, count: i32) ->
     }
 }
 
+type LineTuple = (usize, f32, f32);
+
+#[allow(clippy::too_many_arguments)]
 fn wrap_line(
     childareas: &im::Vector<Option<(Inherited, f32)>>,
     props: &Flex,
@@ -143,8 +146,8 @@ fn wrap_line(
     mut linecount: i32,
     justify: FlexJustify,
     backwards: bool,
-) -> (SmallVec<[(usize, f32, f32); 10]>, i32, f32) {
-    let mut breaks: SmallVec<[(usize, f32, f32); 10]> = SmallVec::new();
+) -> (SmallVec<[LineTuple; 10]>, i32, f32) {
+    let mut breaks: SmallVec<[LineTuple; 10]> = SmallVec::new();
 
     let (mut aux, inner) = justify_inner_outer(justify, total_aux, used_aux, linecount);
 
@@ -384,7 +387,7 @@ impl Desc for Flex {
                 (r.0, r.1, used_aux)
             }
         } else {
-            let mut breaks = SmallVec::<[(usize, f32, f32); 10]>::new();
+            let mut breaks = SmallVec::<[LineTuple; 10]>::new();
             breaks.push((childareas.len(), f32::INFINITY, f32::INFINITY));
             (breaks, 1, used_aux)
         };
