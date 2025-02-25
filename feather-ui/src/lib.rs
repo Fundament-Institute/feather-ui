@@ -714,6 +714,10 @@ impl<AppData: 'static + std::cmp::PartialEq> StateMachineWrapper for AppDataMach
 #[cfg(target_os = "windows")]
 use winit::platform::windows::EventLoopBuilderExtWindows;
 
+//  This logic is the same for both X11 and Wayland because the any_thread variable is the same on both
+#[cfg(target_os = "linux")]
+use winit::platform::x11::EventLoopBuilderExtX11;
+
 impl<
         AppData: std::cmp::PartialEq,
         O: FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>,

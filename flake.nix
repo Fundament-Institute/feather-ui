@@ -93,13 +93,14 @@
             stdenv = pkgs.stdenvAdapters.useMoldLinker pkgs.llvmPackages_15.stdenv;
             CARGO_BUILD_RUSTFLAGS = "-C linker=clang -C link-arg=-fuse-ld=${pkgs.mold}/bin/mold";
           };
-          pname = "capnp-checks";
+          pname = "feather-checks";
 
           cargoArtifacts = craneLib.buildDepsOnly (commonArgs // {
             inherit pname;
           });
           build-tests = craneLib.buildPackage (commonArgs // {
             inherit cargoArtifacts pname;
+            cargoTestExtraArgs = "--no-run";
           });
         in
         {
@@ -111,19 +112,19 @@
           # Note that this is done as a separate derivation so that
           # we can block the CI if there are issues here, but not
           # prevent downstream consumers from building our crate by itself.
-          capnp-clippy = craneLib.cargoClippy (commonArgs // {
+          feather-clippy = craneLib.cargoClippy (commonArgs // {
             inherit cargoArtifacts;
             pname = "${pname}-clippy";
             cargoClippyExtraArgs = "-- --deny warnings";
           });
 
           # Check formatting
-          capnp-fmt = craneLib.cargoFmt (commonArgs // {
+          feather-fmt = craneLib.cargoFmt (commonArgs // {
             pname = "${pname}-fmt";
           });
 
           # Audit dependencies
-          capnp-audit = craneLib.cargoAudit (commonArgs // {
+          feather-audit = craneLib.cargoAudit (commonArgs // {
             pname = "${pname}-audit";
             advisory-db = inputs.advisory-db;
             cargoAuditExtraArgs = "--ignore RUSTSEC-2020-0071";
