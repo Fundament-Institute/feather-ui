@@ -36,7 +36,7 @@ pub(crate) struct WindowState {
     all_buttons: u8,
     modifiers: u8,
     last_mouse: Vec2,
-    pub driver: Arc<DriverState>,
+    pub driver: Rc<DriverState>,
     pub draw: im::Vector<RenderInstruction>,
 }
 
@@ -101,7 +101,7 @@ impl Window {
     >(
         &self,
         manager: &mut StateManager,
-        driver: &mut std::sync::Weak<DriverState>,
+        driver: &mut std::rc::Weak<DriverState>,
         instance: &wgpu::Instance,
         event_loop: &ActiveEventLoop,
     ) -> Result<()> {
@@ -190,6 +190,7 @@ impl Window {
         );
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn on_window_event(
         id: Rc<SourceID>,
         rtree: Weak<rtree::Node>,

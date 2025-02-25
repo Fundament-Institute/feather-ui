@@ -84,10 +84,7 @@ impl<T: Desc + 'static> mlua::FromLua for BoxedOutline<T> {
     }
 }
 
-fn create_id<'lua>(
-    _: &'lua Lua,
-    (id, _): (LuaValue, Option<LuaSourceID>),
-) -> mlua::Result<LuaSourceID> {
+fn create_id(_: &Lua, (id, _): (LuaValue, Option<LuaSourceID>)) -> mlua::Result<LuaSourceID> {
     Ok(crate::SourceID {
         // parent: parent.map(|x| Rc::downgrade(&x)).unwrap_or_default(),
         parent: None,
@@ -223,6 +220,7 @@ fn create_label(_: &Lua, args: (LuaSourceID, URect, String)) -> mlua::Result<Box
 }
 use crate::outline::round_rect::RoundRect;
 
+#[allow(clippy::type_complexity)]
 fn create_shader_standard(
     _: &Lua,
     args: (

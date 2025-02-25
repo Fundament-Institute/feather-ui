@@ -44,7 +44,7 @@ fn data_enum(ast: &DeriveInput) -> &DataEnum {
     }
 }
 
-fn find_enum_module(attrs: &Vec<syn::Attribute>) -> syn::Result<String> {
+fn find_enum_module(attrs: &[syn::Attribute]) -> syn::Result<String> {
     // Extract EnumVariantType's module, since this has to be used in conjuction with our derive
     for attr in attrs.iter() {
         if attr.path().is_ident("evt") {
@@ -55,21 +55,18 @@ fn find_enum_module(attrs: &Vec<syn::Attribute>) -> syn::Result<String> {
                 .unwrap();
 
             for meta in nested {
-                match meta {
-                    Meta::NameValue(name_value) => {
-                        if let (true, syn::Expr::Lit(lit_str)) =
-                            (name_value.path.is_ident("module"), name_value.value)
-                        {
-                            if let syn::Lit::Str(s) = lit_str.lit {
-                                return Ok(s.value());
-                            } else {
-                                return Err(syn::Error::new(Span::call_site(), ""));
-                            }
+                if let Meta::NameValue(name_value) = meta {
+                    if let (true, syn::Expr::Lit(lit_str)) =
+                        (name_value.path.is_ident("module"), name_value.value)
+                    {
+                        if let syn::Lit::Str(s) = lit_str.lit {
+                            return Ok(s.value());
                         } else {
                             return Err(syn::Error::new(Span::call_site(), ""));
                         }
+                    } else {
+                        return Err(syn::Error::new(Span::call_site(), ""));
                     }
-                    _ => (),
                 }
             }
 
@@ -87,7 +84,7 @@ fn find_enum_module(attrs: &Vec<syn::Attribute>) -> syn::Result<String> {
     }
 
     // Error here doesn't matter, we transform it into another error message upon return
-    return Err(syn::Error::new(Span::call_site(), ""));
+    Err(syn::Error::new(Span::call_site(), ""))
 }
 
 #[proc_macro_derive(Dispatch)]
@@ -114,17 +111,15 @@ pub fn dispatchable(input: TokenStream) -> TokenStream {
     let data_enum = data_enum(&ast);
     let variants = &data_enum.variants;
 
-    let mut counter = 0;
     let mut extract_declarations = proc_macro2::TokenStream::new();
     let mut restore_declarations = proc_macro2::TokenStream::new();
 
-    for variant in variants.iter() {
+    for (counter, variant) in variants.iter().enumerate() {
         let variant_name = &variant.ident;
 
-        let idx = (1 as u64)
-            .checked_shl(counter)
+        let idx = (1_u64)
+            .checked_shl(counter as u32)
             .expect("Too many variants! Can't handle more than 64!");
-        counter += 1;
 
         if variant.fields.is_empty() {
             extract_declarations.extend(quote! {

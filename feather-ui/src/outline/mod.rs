@@ -162,6 +162,12 @@ pub struct Root {
     pub(crate) children: im::HashMap<Rc<SourceID>, Option<Window>>,
 }
 
+impl Default for Root {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Root {
     pub fn new() -> Self {
         Self {
@@ -176,7 +182,7 @@ impl Root {
     >(
         &mut self,
         manager: &mut StateManager,
-        driver: &mut std::sync::Weak<DriverState>,
+        driver: &mut std::rc::Weak<DriverState>,
         instance: &wgpu::Instance,
         event_loop: &winit::event_loop::ActiveEventLoop,
     ) -> eyre::Result<()> {
@@ -187,9 +193,10 @@ impl Root {
             window.init_custom::<AppData, O>(manager, driver, instance, event_loop)?;
             let state: &WindowStateMachine = manager.get(&window.id())?;
             let id = state.state.as_ref().unwrap().window.id();
-            if !self.states.contains_key(&id) {
-                self.states.insert(id, RootState::new(window.id().clone()));
-            }
+            self.states
+                .entry(id)
+                .or_insert_with(|| RootState::new(window.id().clone()));
+
             let root = self
                 .states
                 .get_mut(&id)
@@ -242,16 +249,9 @@ impl Root {
 // If an outline provides a CrossReferenceDomain, it's children can register themselves with it.
 // Registered children will write their fully resolved area to the mapping, which can then be
 // retrieved during the render step via a source ID.
+#[derive(Default)]
 pub struct CrossReferenceDomain {
     mappings: crate::RefCell<im::HashMap<Rc<SourceID>, AbsRect>>,
-}
-
-impl Default for CrossReferenceDomain {
-    fn default() -> Self {
-        Self {
-            mappings: Default::default(),
-        }
-    }
 }
 
 impl CrossReferenceDomain {
@@ -260,7 +260,7 @@ impl CrossReferenceDomain {
     }
 
     pub fn get_area(&self, target: &Rc<SourceID>) -> Option<AbsRect> {
-        self.mappings.borrow().get(target).map(|x| *x)
+        self.mappings.borrow().get(target).copied()
     }
 
     pub fn remove_self(&self, target: &Rc<SourceID>) {
