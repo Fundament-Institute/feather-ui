@@ -76,17 +76,16 @@ impl Node {
                 if let Ok(state) = manager.get_trait(&id) {
                     let masks = state.input_masks();
                     for (i, k) in masks.iter().enumerate() {
-                        if (kind as u64 & *k) != 0 {
-                            if manager
+                        if (kind as u64 & *k) != 0
+                            && manager
                                 .process(
                                     event.clone().extract(),
                                     &crate::Slot(id.clone(), i as u64),
                                     self.area + offset,
                                 )
                                 .is_ok()
-                            {
-                                return Ok(());
-                            }
+                        {
+                            return Ok(());
                         }
                     }
                 }

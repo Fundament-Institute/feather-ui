@@ -49,6 +49,7 @@ dependencies = [
 [[package]]
 name = "alicorn"
 version = "0.1.0"
+source = "git+https://github.com/Fundament-Software/Alicorn0#7e118b906fd240aacef5695c0f2dc401976bf182"
 dependencies = [
  "cc",
  "mlua",
@@ -546,7 +547,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7b4d0447be46f06039b1e13c5c77df8d9f9f37fa5fab578a1827b8f136aab64"
 dependencies = [
  "proc-macro2",
- "proc_macro_roids",
+ "proc_macro_roids 0.7.0",
  "quote",
  "syn 1.0.109",
 ]
@@ -608,6 +609,7 @@ version = "0.1.3"
 dependencies = [
  "itertools",
  "proc-macro2",
+ "proc_macro_roids 0.8.0",
  "quote",
  "syn 2.0.98",
 ]
@@ -621,6 +623,7 @@ dependencies = [
  "dyn-clone",
  "enum_variant_type",
  "eyre",
+ "feather-macro",
  "glyphon",
  "im",
  "mlua",
@@ -1651,6 +1654,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "proc_macro_roids"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d0c2a098cd8aaa29f66da27a684ad19f4b7bc886f576abf12f7df4a7391071c7"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.98",
 ]
 
 [[package]]
