@@ -22,6 +22,7 @@ pub fn mat4_proj(x: f32, y: f32, w: f32, h: f32, n: f32, f: f32) -> Mat4 {
 }
 
 // Orthographic projection matrix
+#[allow(dead_code)]
 pub fn mat4_ortho(x: f32, y: f32, w: f32, h: f32, n: f32, f: f32) -> Mat4 {
     Mat4 {
         cols: [
@@ -76,7 +77,7 @@ pub struct Vertex {
 pub struct ShaderCache {
     shaders: Vec<wgpu::ShaderModule>,
     layouts: Vec<wgpu::PipelineLayout>,
-    pipelines: HashMap<(usize, wgpu::SurfaceConfiguration), std::rc::Weak<wgpu::RenderPipeline>>,
+    _pipelines: HashMap<(usize, wgpu::SurfaceConfiguration), std::rc::Weak<wgpu::RenderPipeline>>,
     shader_hash: HashMap<String, usize>,
     pub basic_vs: usize,
     pub line_vs: usize,
@@ -89,7 +90,7 @@ impl ShaderCache {
         let mut this = ShaderCache {
             shaders: Default::default(),
             layouts: Default::default(),
-            pipelines: Default::default(),
+            _pipelines: Default::default(),
             shader_hash: Default::default(),
             basic_pipeline: 0,
             line_pipeline: 0,
@@ -97,14 +98,9 @@ impl ShaderCache {
             line_vs: 0,
         };
 
-        this.basic_vs = this.register_shader(
-            device,
-            "Standard VS",
-            include_str!("../shaders/standard.wgsl"),
-        );
+        this.basic_vs = this.register_shader(device, "Standard VS", include_str!("standard.wgsl"));
 
-        this.line_vs =
-            this.register_shader(device, "Line VS", include_str!("../shaders/line.vert.wgsl"));
+        this.line_vs = this.register_shader(device, "Line VS", include_str!("Line.vert.wgsl"));
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: None,
@@ -185,7 +181,7 @@ impl ShaderCache {
     ) -> usize {
         let idx = self.layouts.len();
         self.layouts.push(device.create_pipeline_layout(desc));
-        return idx;
+        idx
     }
 
     pub fn standard_pipeline(

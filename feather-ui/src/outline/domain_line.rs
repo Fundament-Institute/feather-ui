@@ -12,9 +12,7 @@ use crate::shaders::Vertex;
 use crate::DriverState;
 use crate::RenderLambda;
 use crate::SourceID;
-use crate::URect;
 use std::rc::Rc;
-use ultraviolet::Vec2;
 use ultraviolet::Vec4;
 use wgpu::util::DeviceExt;
 
@@ -125,7 +123,7 @@ pub struct LinePipeline {
 impl Renderable for LinePipeline {
     fn render(
         &self,
-        area: crate::AbsRect,
+        _: crate::AbsRect,
         driver: &DriverState,
     ) -> im::Vector<crate::RenderInstruction> {
         let start = self.domain.get_area(&self.start).unwrap_or_default();

@@ -5,88 +5,19 @@ use super::StateMachine;
 use crate::input::{MouseState, RawEvent, RawEventKind};
 use crate::layout::empty::Empty;
 use crate::Slot;
-use crate::{layout, DispatchPair, Dispatchable, Error, SourceID, FILL_URECT};
+use crate::{layout, Dispatchable, SourceID, FILL_URECT};
 use derive_where::derive_where;
 use enum_variant_type::EnumVariantType;
-use std::any::TypeId;
+use feather_macro::Dispatch;
 use std::collections::HashSet;
 use std::rc::Rc;
 
-#[derive(Debug, EnumVariantType, Clone)]
+#[derive(Debug, Dispatch, EnumVariantType, Clone)]
 #[evt(derive(Clone), module = "mouse_area_event")]
 pub enum MouseAreaEvent {
     OnClick,
     Hover,
     Active,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[repr(u64)]
-pub enum MouseAreaEventKind {
-    OnClick = 1,
-    Hover = 2,
-    Active = 4,
-}
-
-impl Dispatchable for MouseAreaEvent {
-    const SIZE: usize = 3;
-
-    fn extract(self) -> DispatchPair {
-        match self {
-            MouseAreaEvent::OnClick => (
-                MouseAreaEventKind::OnClick as u64,
-                Box::new(mouse_area_event::OnClick::try_from(self).unwrap()),
-            ),
-            MouseAreaEvent::Hover => (
-                MouseAreaEventKind::Hover as u64,
-                Box::new(mouse_area_event::Hover::try_from(self).unwrap()),
-            ),
-            MouseAreaEvent::Active => (
-                MouseAreaEventKind::Active as u64,
-                Box::new(mouse_area_event::Active::try_from(self).unwrap()),
-            ),
-        }
-    }
-
-    fn restore(pair: DispatchPair) -> Result<Self, Error> {
-        const KIND_ONCLICK: u64 = MouseAreaEventKind::OnClick as u64;
-        const KIND_HOVER: u64 = MouseAreaEventKind::Hover as u64;
-        const KIND_ACTIVE: u64 = MouseAreaEventKind::Active as u64;
-        let typeid = (*pair.1).type_id();
-        match pair.0 {
-            KIND_ONCLICK => Ok(MouseAreaEvent::from(
-                *pair
-                    .1
-                    .downcast::<mouse_area_event::OnClick>()
-                    .map_err(|_| {
-                        Error::MismatchedEnumTag(
-                            pair.0,
-                            TypeId::of::<mouse_area_event::OnClick>(),
-                            typeid,
-                        )
-                    })?,
-            )),
-            KIND_HOVER => Ok(MouseAreaEvent::from(
-                *pair.1.downcast::<mouse_area_event::Hover>().map_err(|_| {
-                    Error::MismatchedEnumTag(
-                        pair.0,
-                        TypeId::of::<mouse_area_event::Hover>(),
-                        typeid,
-                    )
-                })?,
-            )),
-            KIND_ACTIVE => Ok(MouseAreaEvent::from(
-                *pair.1.downcast::<mouse_area_event::Active>().map_err(|_| {
-                    Error::MismatchedEnumTag(
-                        pair.0,
-                        TypeId::of::<mouse_area_event::Active>(),
-                        typeid,
-                    )
-                })?,
-            )),
-            _ => Err(Error::InvalidEnumTag(pair.0)),
-        }
-    }
 }
 
 #[derive(Default, Clone)]

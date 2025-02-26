@@ -10,93 +10,22 @@ use crate::outline::OutlineFrom;
 use crate::outline::StateMachine;
 use crate::persist::FnPersist;
 use crate::persist::VectorMap;
-use crate::DispatchPair;
 use crate::Dispatchable;
-use crate::Error;
 use crate::Outline;
 use crate::SourceID;
 use derive_where::derive_where;
 use enum_variant_type::EnumVariantType;
-use std::any::TypeId;
+use feather_macro::Dispatch;
 use std::collections::HashMap;
 use std::rc::Rc;
 use ultraviolet::Vec2;
 
-#[derive(Debug, EnumVariantType, Clone)]
+#[derive(Debug, Dispatch, EnumVariantType, Clone)]
 #[evt(derive(Clone), module = "draggable_event")]
 pub enum DraggableEvent {
     OnClick(Vec2),
     OnDblClick(Vec2),
     OnDrag(Vec2),
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[repr(u64)]
-pub enum DraggableEventKind {
-    OnClick = 1,
-    OnDblClick = 2,
-    OnDrag = 4,
-}
-
-impl Dispatchable for DraggableEvent {
-    const SIZE: usize = 3;
-
-    fn extract(self) -> DispatchPair {
-        match self {
-            DraggableEvent::OnClick(_) => (
-                DraggableEventKind::OnClick as u64,
-                Box::new(draggable_event::OnClick::try_from(self).unwrap()),
-            ),
-            DraggableEvent::OnDblClick(_) => (
-                DraggableEventKind::OnDblClick as u64,
-                Box::new(draggable_event::OnDblClick::try_from(self).unwrap()),
-            ),
-            DraggableEvent::OnDrag(_) => (
-                DraggableEventKind::OnDrag as u64,
-                Box::new(draggable_event::OnDrag::try_from(self).unwrap()),
-            ),
-        }
-    }
-
-    fn restore(pair: DispatchPair) -> Result<Self, Error> {
-        const KIND_ONCLICK: u64 = DraggableEventKind::OnClick as u64;
-        const KIND_ONDBLCLICK: u64 = DraggableEventKind::OnDblClick as u64;
-        const KIND_DRAG: u64 = DraggableEventKind::OnDrag as u64;
-        let typeid = (*pair.1).type_id();
-        match pair.0 {
-            KIND_ONCLICK => Ok(DraggableEvent::from(
-                *pair.1.downcast::<draggable_event::OnClick>().map_err(|_| {
-                    Error::MismatchedEnumTag(
-                        pair.0,
-                        TypeId::of::<draggable_event::OnClick>(),
-                        typeid,
-                    )
-                })?,
-            )),
-            KIND_ONDBLCLICK => Ok(DraggableEvent::from(
-                *pair
-                    .1
-                    .downcast::<draggable_event::OnDblClick>()
-                    .map_err(|_| {
-                        Error::MismatchedEnumTag(
-                            pair.0,
-                            TypeId::of::<draggable_event::OnDblClick>(),
-                            typeid,
-                        )
-                    })?,
-            )),
-            KIND_DRAG => Ok(DraggableEvent::from(
-                *pair.1.downcast::<draggable_event::OnDrag>().map_err(|_| {
-                    Error::MismatchedEnumTag(
-                        pair.0,
-                        TypeId::of::<draggable_event::OnDrag>(),
-                        typeid,
-                    )
-                })?,
-            )),
-            _ => Err(Error::InvalidEnumTag(pair.0)),
-        }
-    }
 }
 
 #[derive(Default, Clone)]
@@ -127,32 +56,26 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for Draggable<Parent> {
                 match e {
                     RawEvent::MouseMove {
                         device_id,
-                        state,
+                        state: MouseMoveState::Move,
                         pos,
                         all_buttons,
                         ..
-                    } => match state {
-                        MouseMoveState::Move => {
-                            if (all_buttons & MouseButton::L as u8) != 0 {
-                                if let Some(last_pos) = data.lastdown.get(&device_id) {
-                                    let diff = pos - *last_pos;
-                                    if diff.dot(diff) > 4.0 {
-                                        data.lastdown.remove(&device_id).unwrap();
-                                        data.lastdrag.insert(device_id, pos);
-                                        return Ok((data, vec![DraggableEvent::OnDrag(diff)]));
-                                    }
-                                }
-                                if let Some(last_pos) = data.lastdrag.get(&device_id).map(|x| *x) {
+                    } => {
+                        if (all_buttons & MouseButton::L as u8) != 0 {
+                            if let Some(last_pos) = data.lastdown.get(&device_id) {
+                                let diff = pos - *last_pos;
+                                if diff.dot(diff) > 4.0 {
+                                    data.lastdown.remove(&device_id).unwrap();
                                     data.lastdrag.insert(device_id, pos);
-                                    return Ok((
-                                        data,
-                                        vec![DraggableEvent::OnDrag(pos - last_pos)],
-                                    ));
+                                    return Ok((data, vec![DraggableEvent::OnDrag(diff)]));
                                 }
                             }
+                            if let Some(last_pos) = data.lastdrag.get(&device_id).copied() {
+                                data.lastdrag.insert(device_id, pos);
+                                return Ok((data, vec![DraggableEvent::OnDrag(pos - last_pos)]));
+                            }
                         }
-                        _ => {}
-                    },
+                    }
                     RawEvent::Mouse {
                         device_id,
                         state,
@@ -173,7 +96,7 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for Draggable<Parent> {
                                         return Ok((data, vec![DraggableEvent::OnClick(pos)]));
                                     }
                                 }
-                                if let Some(last_pos) = data.lastdrag.get(&device_id).map(|x| *x) {
+                                if let Some(last_pos) = data.lastdrag.get(&device_id).copied() {
                                     data.lastdrag.remove(&device_id);
                                     return Ok((
                                         data,
@@ -214,7 +137,7 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for Draggable<Parent> {
                                 ));
                             }
                             if let Some(last_pos) =
-                                data.lasttouchmove.get(&(device_id, index)).map(|x| *x)
+                                data.lasttouchmove.get(&(device_id, index)).copied()
                             {
                                 data.lasttouchmove.insert((device_id, index), pos);
                                 return Ok((
@@ -231,7 +154,7 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for Draggable<Parent> {
                                 data.lasttouch.remove(&(device_id, index));
                             }
                             if let Some(last_pos) =
-                                data.lasttouchmove.get(&(device_id, index)).map(|x| *x)
+                                data.lasttouchmove.get(&(device_id, index)).copied()
                             {
                                 data.lasttouchmove.remove(&(device_id, index));
                                 return Ok((
