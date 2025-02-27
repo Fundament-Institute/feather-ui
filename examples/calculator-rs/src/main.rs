@@ -35,6 +35,11 @@ enum CalcOp {
     Div,
     Mod,
     Pow,
+    Square,
+    Sqrt,
+    Inv,
+    Negate,
+    Clear,
 }
 
 #[derive(PartialEq, Clone, Debug, Default)]
@@ -64,6 +69,9 @@ impl CalcState {
     }
 
     pub fn add_digit(&mut self, digit: u8) {
+        if digit == 0 && !self.digits.is_empty() && !self.decimal_mode {
+            return;
+        }
         if self.decimal_mode {
             self.decimals.push(digit);
         } else {
@@ -90,8 +98,25 @@ impl CalcState {
                 CalcOp::Div => self.last / cur,
                 CalcOp::Mod => self.last % cur,
                 CalcOp::Pow => self.last.powf(cur),
+                _ => cur, // If this is an instant op, move cur to last
             };
         }
+        self.last = match self.op {
+            CalcOp::Square => self.last * self.last,
+            CalcOp::Sqrt => self.last.sqrt(),
+            CalcOp::Inv => self.last.recip(),
+            CalcOp::Negate => -self.last,
+            CalcOp::Clear => {
+                self.last = 0.0;
+                self.cur = Some(0.0);
+                self.op = CalcOp::None;
+                self.decimal_mode = false;
+                self.decimals.clear();
+                self.digits.clear();
+                return;
+            }
+            _ => self.last,
+        };
         self.cur = None;
         self.op = CalcOp::None;
         self.decimal_mode = false;
@@ -99,15 +124,58 @@ impl CalcState {
         self.digits.clear();
     }
     pub fn set_op(&mut self, op: CalcOp) {
-        self.apply_op();
-        self.op = op;
+        match op {
+            CalcOp::Square | CalcOp::Sqrt | CalcOp::Inv | CalcOp::Negate | CalcOp::Clear => {
+                self.op = op;
+                self.apply_op();
+            }
+            _ => {
+                self.apply_op();
+                self.op = op;
+            }
+        };
     }
-    pub fn instant_op(&mut self, op: impl Fn(f64) -> f64) {
-        self.cur = Some(if let Some(cur) = self.cur {
-            op(cur)
-        } else {
-            op(self.last)
-        })
+}
+
+#[derive(Debug, Default)]
+struct Calculator {
+    state: std::sync::RwLock<CalcState>,
+}
+
+impl PartialEq for Calculator {
+    fn eq(&self, other: &Self) -> bool {
+        self.state.read().unwrap().eq(&other.state.read().unwrap())
+    }
+}
+
+impl Clone for Calculator {
+    fn clone(&self) -> Self {
+        Self {
+            state: self.state.read().unwrap().clone().into(),
+        }
+    }
+}
+
+impl Calculator {
+    pub fn add_digit(&self, digit: u8) {
+        self.state.write().unwrap().add_digit(digit)
+    }
+    pub fn backspace(&self) {
+        self.state.write().unwrap().backspace()
+    }
+    pub fn apply_op(&self) {
+        self.state.write().unwrap().apply_op()
+    }
+    pub fn set_op(&self, op: CalcOp) {
+        self.state.write().unwrap().set_op(op)
+    }
+    pub fn get(&self) -> f64 {
+        let state = self.state.read().unwrap();
+        state.cur.unwrap_or(state.last)
+    }
+    pub fn toggle_decimal(&self) {
+        let prev = self.state.read().unwrap().decimal_mode;
+        self.state.write().unwrap().decimal_mode = !prev;
     }
 }
 
@@ -119,34 +187,19 @@ const NUM_COLOR: Vec4 = Vec4::new(0.3, 0.3, 0.3, 1.0);
 const EQ_COLOR: Vec4 = Vec4::new(0.3, 0.8, 0.3, 1.0);
 
 use std::sync::LazyLock;
-type BoxedAction = Box<dyn Sync + Send + Fn(&mut CalcState)>;
+type BoxedAction = Box<dyn Sync + Send + Fn(&mut Calculator)>;
 static BUTTONS: LazyLock<[(&str, BoxedAction, Vec4); 24]> = LazyLock::new(|| {
     [
         (
             "C",
-            Box::new(|calc| {
-                calc.last = 0.0;
-                calc.cur = Some(0.0);
-                calc.op = CalcOp::None;
-                calc.decimal_mode = false;
-                calc.decimals.clear();
-                calc.digits.clear();
-            }),
+            Box::new(|calc| calc.set_op(CalcOp::Clear)),
             CLEAR_COLOR,
         ),
-        ("x²", Box::new(|calc| calc.instant_op(|x| x * x)), OP_COLOR),
-        (
-            "√x",
-            Box::new(|calc| calc.instant_op(|x| x.sqrt())),
-            OP_COLOR,
-        ),
+        ("x²", Box::new(|calc| calc.set_op(CalcOp::Square)), OP_COLOR),
+        ("√x", Box::new(|calc| calc.set_op(CalcOp::Sqrt)), OP_COLOR),
         ("←", Box::new(|calc| calc.backspace()), OP_COLOR),
         ("yˣ", Box::new(|calc| calc.set_op(CalcOp::Pow)), OP_COLOR),
-        (
-            "¹∕ₓ",
-            Box::new(|calc| calc.instant_op(|x| x.recip())),
-            OP_COLOR,
-        ),
+        ("¹∕ₓ", Box::new(|calc| calc.set_op(CalcOp::Inv)), OP_COLOR),
         ("%", Box::new(|calc| calc.set_op(CalcOp::Mod)), OP_COLOR),
         ("÷", Box::new(|calc| calc.set_op(CalcOp::Div)), OP_COLOR),
         ("7", Box::new(|calc| calc.add_digit(7)), NUM_COLOR),
@@ -161,27 +214,19 @@ static BUTTONS: LazyLock<[(&str, BoxedAction, Vec4); 24]> = LazyLock::new(|| {
         ("2", Box::new(|calc| calc.add_digit(2)), NUM_COLOR),
         ("3", Box::new(|calc| calc.add_digit(3)), NUM_COLOR),
         ("+", Box::new(|calc| calc.set_op(CalcOp::Add)), OP_COLOR),
-        ("⁺∕₋", Box::new(|calc| calc.instant_op(|x| -x)), OP_COLOR),
         (
-            "0",
-            Box::new(|calc| {
-                if !calc.digits.is_empty() || calc.decimal_mode {
-                    calc.add_digit(0)
-                }
-            }),
-            NUM_COLOR,
-        ),
-        (
-            ".",
-            Box::new(|calc| calc.decimal_mode = !calc.decimal_mode),
+            "⁺∕₋",
+            Box::new(|calc| calc.set_op(CalcOp::Negate)),
             OP_COLOR,
         ),
+        ("0", Box::new(|calc| calc.add_digit(0)), NUM_COLOR),
+        (".", Box::new(|calc| calc.toggle_decimal()), OP_COLOR),
         ("=", Box::new(|calc| calc.apply_op()), EQ_COLOR),
     ]
 });
 
-impl FnPersist<CalcState, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
-    type Store = (CalcState, im::HashMap<Rc<SourceID>, Option<Window>>);
+impl FnPersist<Calculator, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
+    type Store = (Calculator, im::HashMap<Rc<SourceID>, Option<Window>>);
 
     fn init(&self) -> Self::Store {
         (Default::default(), im::HashMap::new())
@@ -189,7 +234,7 @@ impl FnPersist<CalcState, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp
     fn call(
         &self,
         mut store: Self::Store,
-        args: &CalcState,
+        args: &Calculator,
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
         if store.0 != *args {
             let mut children: im::Vector<Option<Box<OutlineFrom<Basic>>>> = im::Vector::new();
@@ -259,12 +304,7 @@ impl FnPersist<CalcState, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp
             let display = Text::<()> {
                 id: gen_id!(button_id).into(),
                 props: (),
-                text: (if let Some(cur) = args.cur {
-                    cur
-                } else {
-                    args.last
-                })
-                .to_string(),
+                text: args.get().to_string(),
                 font_size: 60.0,
                 line_height: 42.0,
                 ..Default::default()
@@ -320,19 +360,19 @@ impl FnPersist<CalcState, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp
     }
 }
 
-//uniffi::include_scaffolding!("calculator");
+uniffi::include_scaffolding!("calculator");
 
 fn main() {
     #[allow(clippy::type_complexity)]
     let mut inputs: Vec<
-        Box<dyn FnMut((u64, Box<dyn Any>), CalcState) -> Result<CalcState, CalcState>>,
+        Box<dyn FnMut((u64, Box<dyn Any>), Calculator) -> Result<Calculator, Calculator>>,
     > = Vec::new();
 
     for (_, f, _) in BUTTONS.iter() {
         inputs.push(Box::new(
             |_: mouse_area::MouseAreaEvent,
-             mut appdata: CalcState|
-             -> Result<CalcState, CalcState> {
+             mut appdata: Calculator|
+             -> Result<Calculator, Calculator> {
                 {
                     f(&mut appdata);
                     Ok(appdata)
@@ -342,15 +382,18 @@ fn main() {
         ));
     }
 
-    let (mut app, event_loop): (App<CalcState, CalcApp>, winit::event_loop::EventLoop<()>) =
+    let (mut app, event_loop): (App<Calculator, CalcApp>, winit::event_loop::EventLoop<()>) =
         App::new(
-            CalcState {
-                last: 0.0,
-                cur: Some(0.0),
-                digits: Vec::new(),
-                decimals: Vec::new(),
-                decimal_mode: false,
-                op: CalcOp::None,
+            Calculator {
+                state: CalcState {
+                    last: 0.0,
+                    cur: Some(0.0),
+                    digits: Vec::new(),
+                    decimals: Vec::new(),
+                    decimal_mode: false,
+                    op: CalcOp::None,
+                }
+                .into(),
             },
             inputs,
             CalcApp {},

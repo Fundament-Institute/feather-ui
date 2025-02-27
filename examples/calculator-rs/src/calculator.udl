@@ -10,6 +10,7 @@ enum CalcOp {
   "Sqrt",
   "Inv", 
   "Negate",
+  "Clear",
 };
 
 interface Calculator {
@@ -17,6 +18,8 @@ interface Calculator {
   void backspace();
   void apply_op();
   void set_op(CalcOp op);
+  void toggle_decimal();
+  f64 get();
 };
 
 namespace calc {};
