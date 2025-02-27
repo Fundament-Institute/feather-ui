@@ -1,0 +1,22 @@
+enum CalcOp {
+  "None",
+  "Add",
+  "Sub",
+  "Mul",
+  "Div",
+  "Mod",
+  "Pow",
+  "Square",
+  "Sqrt",
+  "Inv", 
+  "Negate",
+};
+
+interface Calculator {
+  void add_digit(u8 digit);
+  void backspace();
+  void apply_op();
+  void set_op(CalcOp op);
+};
+
+namespace calc {};
