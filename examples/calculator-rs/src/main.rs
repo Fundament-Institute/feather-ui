@@ -6,33 +6,22 @@ use feather_ui::layout::basic::Basic;
 
 use feather_ui::layout::root;
 use feather_ui::layout::simple;
-use feather_ui::layout::simple::Simple;
 use feather_ui::outline::button::Button;
-use feather_ui::outline::circle::Circle;
-use feather_ui::outline::domain_line::DomainLine;
-use feather_ui::outline::domain_point::DomainPoint;
-use feather_ui::outline::draggable;
-use feather_ui::outline::draggable::Draggable;
 use feather_ui::outline::mouse_area;
 use feather_ui::outline::region::Region;
 use feather_ui::outline::round_rect::RoundRect;
-use feather_ui::outline::sized_region::SizedRegion;
 use feather_ui::outline::text::Text;
 use feather_ui::outline::window::Window;
-use feather_ui::outline::CrossReferenceDomain;
 use feather_ui::outline::OutlineFrom;
 use feather_ui::persist::FnPersist;
-use feather_ui::AbsRect;
 use feather_ui::App;
-use feather_ui::DataID;
 use feather_ui::Slot;
 use feather_ui::SourceID;
 use feather_ui::WrapEventEx;
 use feather_ui::FILL_URECT;
-use std::collections::HashSet;
+use std::any::Any;
 use std::f32;
 use std::rc::Rc;
-use ultraviolet::Vec2;
 use ultraviolet::Vec4;
 
 // Doesn't include instant actions that take no argument, like clear, backspace, pi, square, root, etc.
@@ -62,7 +51,7 @@ impl CalcState {
     fn update_cur(&mut self) {
         let mut cur = 0.0;
         let mut mul = 1.0;
-        for v in self.digits.iter() {
+        for v in self.digits.iter().rev() {
             cur += *v as f64 * mul;
             mul *= 10.0;
         }
@@ -124,10 +113,14 @@ impl CalcState {
 
 struct CalcApp {}
 
-const NODE_RADIUS: f32 = 25.0;
+const CLEAR_COLOR: Vec4 = Vec4::new(0.8, 0.3, 0.3, 1.0);
+const OP_COLOR: Vec4 = Vec4::new(0.3, 0.3, 0.3, 0.7);
+const NUM_COLOR: Vec4 = Vec4::new(0.3, 0.3, 0.3, 1.0);
+const EQ_COLOR: Vec4 = Vec4::new(0.3, 0.8, 0.3, 1.0);
 
 use std::sync::LazyLock;
-static BUTTONS: LazyLock<[(&str, Box<dyn Fn(&mut CalcState) -> ()>); 24]> = LazyLock::new(|| {
+type BoxedAction = Box<dyn Sync + Send + Fn(&mut CalcState)>;
+static BUTTONS: LazyLock<[(&str, BoxedAction, Vec4); 24]> = LazyLock::new(|| {
     [
         (
             "C",
@@ -139,27 +132,36 @@ static BUTTONS: LazyLock<[(&str, Box<dyn Fn(&mut CalcState) -> ()>); 24]> = Lazy
                 calc.decimals.clear();
                 calc.digits.clear();
             }),
+            CLEAR_COLOR,
         ),
-        ("x²", Box::new(|calc| calc.instant_op(|x| x * x))),
-        ("√x", Box::new(|calc| calc.instant_op(|x| x.sqrt()))),
-        ("←", Box::new(|calc| calc.backspace())),
-        ("yˣ", Box::new(|calc| calc.set_op(CalcOp::Pow))),
-        ("¹∕ₓ", Box::new(|calc| calc.instant_op(|x| x.recip()))),
-        ("%", Box::new(|calc| calc.set_op(CalcOp::Mod))),
-        ("÷", Box::new(|calc| calc.set_op(CalcOp::Div))),
-        ("7", Box::new(|calc| calc.add_digit(7))),
-        ("8", Box::new(|calc| calc.add_digit(8))),
-        ("9", Box::new(|calc| calc.add_digit(9))),
-        ("×", Box::new(|calc| calc.set_op(CalcOp::Mul))),
-        ("4", Box::new(|calc| calc.add_digit(4))),
-        ("5", Box::new(|calc| calc.add_digit(5))),
-        ("6", Box::new(|calc| calc.add_digit(6))),
-        ("−", Box::new(|calc| calc.set_op(CalcOp::Sub))),
-        ("1", Box::new(|calc| calc.add_digit(1))),
-        ("2", Box::new(|calc| calc.add_digit(2))),
-        ("3", Box::new(|calc| calc.add_digit(3))),
-        ("+", Box::new(|calc| calc.set_op(CalcOp::Add))),
-        ("⁺∕₋", Box::new(|calc| calc.instant_op(|x| -x))),
+        ("x²", Box::new(|calc| calc.instant_op(|x| x * x)), OP_COLOR),
+        (
+            "√x",
+            Box::new(|calc| calc.instant_op(|x| x.sqrt())),
+            OP_COLOR,
+        ),
+        ("←", Box::new(|calc| calc.backspace()), OP_COLOR),
+        ("yˣ", Box::new(|calc| calc.set_op(CalcOp::Pow)), OP_COLOR),
+        (
+            "¹∕ₓ",
+            Box::new(|calc| calc.instant_op(|x| x.recip())),
+            OP_COLOR,
+        ),
+        ("%", Box::new(|calc| calc.set_op(CalcOp::Mod)), OP_COLOR),
+        ("÷", Box::new(|calc| calc.set_op(CalcOp::Div)), OP_COLOR),
+        ("7", Box::new(|calc| calc.add_digit(7)), NUM_COLOR),
+        ("8", Box::new(|calc| calc.add_digit(8)), NUM_COLOR),
+        ("9", Box::new(|calc| calc.add_digit(9)), NUM_COLOR),
+        ("×", Box::new(|calc| calc.set_op(CalcOp::Mul)), OP_COLOR),
+        ("4", Box::new(|calc| calc.add_digit(4)), NUM_COLOR),
+        ("5", Box::new(|calc| calc.add_digit(5)), NUM_COLOR),
+        ("6", Box::new(|calc| calc.add_digit(6)), NUM_COLOR),
+        ("−", Box::new(|calc| calc.set_op(CalcOp::Sub)), OP_COLOR),
+        ("1", Box::new(|calc| calc.add_digit(1)), NUM_COLOR),
+        ("2", Box::new(|calc| calc.add_digit(2)), NUM_COLOR),
+        ("3", Box::new(|calc| calc.add_digit(3)), NUM_COLOR),
+        ("+", Box::new(|calc| calc.set_op(CalcOp::Add)), OP_COLOR),
+        ("⁺∕₋", Box::new(|calc| calc.instant_op(|x| -x)), OP_COLOR),
         (
             "0",
             Box::new(|calc| {
@@ -167,9 +169,14 @@ static BUTTONS: LazyLock<[(&str, Box<dyn Fn(&mut CalcState) -> ()>); 24]> = Lazy
                     calc.add_digit(0)
                 }
             }),
+            NUM_COLOR,
         ),
-        (".", Box::new(|calc| calc.decimal_mode = !calc.decimal_mode)),
-        ("=", Box::new(|calc| calc.apply_op())),
+        (
+            ".",
+            Box::new(|calc| calc.decimal_mode = !calc.decimal_mode),
+            OP_COLOR,
+        ),
+        ("=", Box::new(|calc| calc.apply_op()), EQ_COLOR),
     ]
 });
 
@@ -189,10 +196,10 @@ impl FnPersist<CalcState, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp
 
             let button_id = Rc::new(gen_id!());
 
-            for (txt, op) in BUTTONS.iter() {
+            for (i, (txt, _, color)) in BUTTONS.iter().enumerate() {
                 let rect = RoundRect::<()> {
-                    id: gen_id!().into(),
-                    fill: Vec4::new(0.2, 0.7, 0.4, 1.0),
+                    id: gen_id!(button_id).into(),
+                    fill: *color,
                     corners: Vec4::broadcast(10.0),
                     props: (),
                     rect: feather_ui::FILL_URECT,
@@ -200,7 +207,7 @@ impl FnPersist<CalcState, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp
                 };
 
                 let text = Text::<()> {
-                    id: gen_id!().into(),
+                    id: gen_id!(button_id).into(),
                     props: (),
                     text: txt.to_string(),
                     font_size: 30.0,
@@ -213,21 +220,28 @@ impl FnPersist<CalcState, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp
                 btn_children.push_back(Some(Box::new(text)));
                 btn_children.push_back(Some(Box::new(rect)));
 
+                const ROW_COUNT: usize = 4;
+                let (x, y) = (i % ROW_COUNT, (i / ROW_COUNT) + 1);
+                let (w, h) = (1.0 / ROW_COUNT as f32, 1.0 / 7.0);
+
                 let btn = Button::<()>::new(
-                    gen_id!().into(),
+                    gen_id!(button_id).into(),
                     (),
                     simple::Simple {
                         area: feather_ui::URect {
                             topleft: feather_ui::UPoint {
-                                abs: ultraviolet::Vec2 { x: 0.0, y: 0.0 },
-                                rel: feather_ui::RelPoint { x: 0.0, y: 0.0 },
+                                abs: ultraviolet::Vec2 { x: 4.0, y: 4.0 },
+                                rel: feather_ui::RelPoint {
+                                    x: w * x as f32,
+                                    y: h * y as f32,
+                                },
                             },
                             bottomright: feather_ui::UPoint {
-                                abs: ultraviolet::Vec2 {
-                                    x: f32::INFINITY,
-                                    y: 0.0,
+                                abs: ultraviolet::Vec2 { x: -4.0, y: -4.0 },
+                                rel: feather_ui::RelPoint {
+                                    x: w * (x + 1) as f32,
+                                    y: h * (y + 1) as f32,
                                 },
-                                rel: feather_ui::RelPoint { x: 0.0, y: 1.0 },
                             },
                         },
                         margin: Default::default(),
@@ -235,18 +249,54 @@ impl FnPersist<CalcState, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp
                         anchor: Default::default(),
                         zindex: 0,
                     },
-                    Slot(feather_ui::APP_SOURCE_ID.into(), 0),
+                    Slot(feather_ui::APP_SOURCE_ID.into(), i as u64),
                     btn_children,
                 );
 
                 children.push_back(Some(Box::new(btn)));
             }
 
+            let display = Text::<()> {
+                id: gen_id!(button_id).into(),
+                props: (),
+                text: (if let Some(cur) = args.cur {
+                    cur
+                } else {
+                    args.last
+                })
+                .to_string(),
+                font_size: 60.0,
+                line_height: 42.0,
+                ..Default::default()
+            };
+
+            let text_bg = RoundRect::<()> {
+                id: gen_id!(button_id).into(),
+                fill: Vec4::new(0.2, 0.2, 0.2, 1.0),
+                corners: Vec4::broadcast(25.0),
+                props: (),
+                rect: feather_ui::URect {
+                    topleft: feather_ui::UPoint {
+                        abs: ultraviolet::Vec2 { x: 0.0, y: 0.0 },
+                        rel: feather_ui::RelPoint { x: 0.0, y: 0.0 },
+                    },
+                    bottomright: feather_ui::UPoint {
+                        abs: ultraviolet::Vec2 { x: 0.0, y: 0.0 },
+                        rel: feather_ui::RelPoint {
+                            x: 1.0,
+                            y: 1.0 / 7.0,
+                        },
+                    },
+                },
+                ..Default::default()
+            };
+
+            children.push_back(Some(Box::new(display)));
+            children.push_back(Some(Box::new(text_bg)));
+
             let region = Region {
                 id: gen_id!().into(),
-                props: root::Inherited {
-                    area: AbsRect::new(90.0, 90.0, f32::INFINITY, 200.0).into(),
-                },
+                props: root::Inherited { area: FILL_URECT },
                 basic: Basic {
                     padding: Default::default(),
                     zindex: 0,
@@ -256,7 +306,7 @@ impl FnPersist<CalcState, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp
             let window = Window::new(
                 gen_id!().into(),
                 winit::window::Window::default_attributes()
-                    .with_title("basic-rs")
+                    .with_title("calculator-rs")
                     .with_resizable(true),
                 Box::new(region),
             );
@@ -270,16 +320,27 @@ impl FnPersist<CalcState, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp
     }
 }
 
+//uniffi::include_scaffolding!("calculator");
+
 fn main() {
-    let onclick = Box::new(
-        |_: mouse_area::MouseAreaEvent, mut appdata: CalcState| -> Result<CalcState, CalcState> {
-            {
-                // TODO: respond with the correct button action in BUTTONS
-                Ok(appdata)
+    #[allow(clippy::type_complexity)]
+    let mut inputs: Vec<
+        Box<dyn FnMut((u64, Box<dyn Any>), CalcState) -> Result<CalcState, CalcState>>,
+    > = Vec::new();
+
+    for (_, f, _) in BUTTONS.iter() {
+        inputs.push(Box::new(
+            |_: mouse_area::MouseAreaEvent,
+             mut appdata: CalcState|
+             -> Result<CalcState, CalcState> {
+                {
+                    f(&mut appdata);
+                    Ok(appdata)
+                }
             }
-        }
-        .wrap(),
-    );
+            .wrap(),
+        ));
+    }
 
     let (mut app, event_loop): (App<CalcState, CalcApp>, winit::event_loop::EventLoop<()>) =
         App::new(
@@ -291,7 +352,7 @@ fn main() {
                 decimal_mode: false,
                 op: CalcOp::None,
             },
-            vec![onclick],
+            inputs,
             CalcApp {},
         )
         .unwrap();
