@@ -8,6 +8,7 @@ members = [
   "examples/basic-alc",
   "examples/paragraph-rs",
   "examples/graph-rs",
+  "examples/calculator-rs",
   "feather-macro",
 ]
 resolver = "2"
