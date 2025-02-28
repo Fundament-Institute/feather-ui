@@ -63,7 +63,7 @@
     rec {
       devShells.default =
         (pkgs.mkShell.override { stdenv = pkgs.llvmPackages.stdenv; }) {
-          buildInputs = with pkgs; [ openssl pkg-config ] ++ gfxDeps;
+          buildInputs = with pkgs; [ openssl pkg-config dotnet-sdk ] ++ gfxDeps;
 
           nativeBuildInputs = with pkgs; [
             # get current rust toolchain defaults (this includes clippy and rustfmt)

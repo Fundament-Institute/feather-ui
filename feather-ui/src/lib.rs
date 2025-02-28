@@ -841,7 +841,7 @@ impl<
 }
 
 impl<
-        AppData: std::fmt::Debug + std::cmp::PartialEq,
+        AppData: std::cmp::PartialEq,
         T: 'static,
         O: FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>,
     > winit::application::ApplicationHandler<T> for App<AppData, O>
