@@ -26,5 +26,5 @@ interface Calculator {
 };
 
 namespace calc {
-  Calculator new_calc();
+  void register(Calculator calc);
 };

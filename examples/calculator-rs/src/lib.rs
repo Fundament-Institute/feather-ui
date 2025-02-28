@@ -1,9 +1,5 @@
-// SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
-
 use feather_ui::gen_id;
 use feather_ui::layout::basic::Basic;
-
 use feather_ui::layout::root;
 use feather_ui::layout::simple;
 use feather_ui::outline::button::Button;
@@ -20,13 +16,57 @@ use feather_ui::SourceID;
 use feather_ui::WrapEventEx;
 use feather_ui::FILL_URECT;
 use std::any::Any;
+use std::any::TypeId;
 use std::f32;
 use std::rc::Rc;
 use std::sync::Arc;
-use std::sync::RwLock;
 use ultraviolet::Vec4;
 
 uniffi::include_scaffolding!("calculator");
+
+pub trait Calculator: Send + Sync {
+    fn add_digit(&self, digit: u8);
+    fn backspace(&self);
+    fn apply_op(&self);
+    fn set_op(&self, op: CalcOp);
+    fn get(&self) -> f64;
+    fn toggle_decimal(&self);
+    fn copy(&self) -> Arc<dyn Calculator>;
+    fn eq(&self, rhs: Arc<dyn Calculator>) -> bool;
+}
+
+impl dyn Calculator {
+    #[inline]
+    pub fn is<T: Any>(&self) -> bool {
+        // Get `TypeId` of the type this function is instantiated with.
+        let t = TypeId::of::<T>();
+
+        // Get `TypeId` of the type in the trait object (`self`).
+        let concrete = self.type_id();
+
+        // Compare both `TypeId`s on equality.
+        t == concrete
+    }
+
+    #[inline]
+    pub unsafe fn downcast_ref_unchecked<T: Any>(&self) -> &T {
+        debug_assert!(self.is::<T>());
+        // SAFETY: caller guarantees that T is the correct type
+        unsafe { &*(self as *const dyn Calculator as *const T) }
+    }
+
+    #[inline]
+    pub fn downcast_ref<T: Any>(&self) -> Option<&T> {
+        if self.is::<T>() {
+            // SAFETY: just checked whether we are pointing to the correct type, and we can rely on
+            // that check for memory safety because we have implemented Any for all types; no other
+            // impls can exist as they would conflict with our impl.
+            unsafe { Some(self.downcast_ref_unchecked()) }
+        } else {
+            None
+        }
+    }
+}
 
 // Doesn't include instant actions that take no argument, like clear, backspace, pi, square, root, etc.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
@@ -46,169 +86,6 @@ pub enum CalcOp {
     Clear,
 }
 
-#[derive(PartialEq, Clone, Debug, Default)]
-struct CalcState {
-    last: f64,
-    cur: Option<f64>,
-    digits: Vec<u8>,
-    decimals: Vec<u8>,
-    decimal_mode: bool,
-    op: CalcOp,
-}
-
-impl CalcState {
-    fn update_cur(&mut self) {
-        let mut cur = 0.0;
-        let mut mul = 1.0;
-        for v in self.digits.iter().rev() {
-            cur += *v as f64 * mul;
-            mul *= 10.0;
-        }
-        let mut mul = 0.1;
-        for v in self.decimals.iter() {
-            cur += *v as f64 * mul;
-            mul /= 10.0;
-        }
-        self.cur = Some(cur);
-    }
-
-    pub fn add_digit(&mut self, digit: u8) {
-        if digit == 0 && !self.digits.is_empty() && !self.decimal_mode {
-            return;
-        }
-        if self.decimal_mode {
-            self.decimals.push(digit);
-        } else {
-            self.digits.push(digit);
-        }
-        self.update_cur();
-    }
-    pub fn backspace(&mut self) {
-        if self.decimal_mode {
-            self.decimals.pop();
-        } else {
-            self.digits.pop();
-        }
-        self.update_cur();
-    }
-
-    pub fn apply_op(&mut self) {
-        if let Some(cur) = self.cur {
-            self.last = match self.op {
-                CalcOp::None => cur,
-                CalcOp::Add => self.last + cur,
-                CalcOp::Sub => self.last - cur,
-                CalcOp::Mul => self.last * cur,
-                CalcOp::Div => self.last / cur,
-                CalcOp::Mod => self.last % cur,
-                CalcOp::Pow => self.last.powf(cur),
-                _ => cur, // If this is an instant op, move cur to last
-            };
-        }
-        self.last = match self.op {
-            CalcOp::Square => self.last * self.last,
-            CalcOp::Sqrt => self.last.sqrt(),
-            CalcOp::Inv => self.last.recip(),
-            CalcOp::Negate => -self.last,
-            CalcOp::Clear => {
-                self.last = 0.0;
-                self.cur = Some(0.0);
-                self.op = CalcOp::None;
-                self.decimal_mode = false;
-                self.decimals.clear();
-                self.digits.clear();
-                return;
-            }
-            _ => self.last,
-        };
-        self.cur = None;
-        self.op = CalcOp::None;
-        self.decimal_mode = false;
-        self.decimals.clear();
-        self.digits.clear();
-    }
-    pub fn set_op(&mut self, op: CalcOp) {
-        match op {
-            CalcOp::Square | CalcOp::Sqrt | CalcOp::Inv | CalcOp::Negate | CalcOp::Clear => {
-                self.op = op;
-                self.apply_op();
-            }
-            _ => {
-                self.apply_op();
-                self.op = op;
-            }
-        };
-    }
-}
-
-trait InternalEq {
-    fn internal_eq(&self, state: &CalcState) -> bool;
-}
-
-impl InternalEq for UniFFICallbackHandlerCalculator {
-    fn internal_eq(&self, _: &CalcState) -> bool {
-        panic!("Tried to compare rust implementation with foreign implementation!!!")
-    }
-}
-
-trait Calculator: Send + Sync + InternalEq {
-    fn add_digit(&self, digit: u8);
-    fn backspace(&self);
-    fn apply_op(&self);
-    fn set_op(&self, op: CalcOp);
-    fn get(&self) -> f64;
-    fn toggle_decimal(&self);
-    fn copy(&self) -> Arc<dyn Calculator>;
-    fn eq(&self, rhs: Arc<dyn Calculator>) -> bool;
-}
-
-fn new_calc() -> Arc<dyn Calculator> {
-    Arc::new(RwLock::new(CalcState {
-        last: 0.0,
-        cur: None,
-        digits: Vec::new(),
-        decimals: Vec::new(),
-        decimal_mode: false,
-        op: CalcOp::None,
-    }))
-}
-
-impl Calculator for RwLock<CalcState> {
-    fn add_digit(&self, digit: u8) {
-        self.write().unwrap().add_digit(digit)
-    }
-    fn backspace(&self) {
-        self.write().unwrap().backspace()
-    }
-    fn apply_op(&self) {
-        self.write().unwrap().apply_op()
-    }
-    fn set_op(&self, op: CalcOp) {
-        self.write().unwrap().set_op(op)
-    }
-    fn get(&self) -> f64 {
-        let state = self.read().unwrap();
-        state.cur.unwrap_or(state.last)
-    }
-    fn toggle_decimal(&self) {
-        let prev = self.read().unwrap().decimal_mode;
-        self.write().unwrap().decimal_mode = !prev;
-    }
-
-    fn copy(&self) -> Arc<dyn Calculator> {
-        Arc::new(RwLock::new(self.read().unwrap().clone()))
-    }
-
-    fn eq(&self, rhs: Arc<dyn Calculator>) -> bool {
-        rhs.internal_eq(&self.read().unwrap())
-    }
-}
-
-impl InternalEq for RwLock<CalcState> {
-    fn internal_eq(&self, state: &CalcState) -> bool {
-        self.read().unwrap().eq(state)
-    }
-}
 struct CalcFFI(Arc<dyn Calculator>);
 
 impl PartialEq for CalcFFI {
@@ -223,7 +100,9 @@ impl Clone for CalcFFI {
     }
 }
 
-struct CalcApp {}
+struct CalcApp {
+    init_calc: Arc<dyn Calculator>,
+}
 
 const CLEAR_COLOR: Vec4 = Vec4::new(0.8, 0.3, 0.3, 1.0);
 const OP_COLOR: Vec4 = Vec4::new(0.3, 0.3, 0.3, 0.7);
@@ -273,14 +152,14 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
     type Store = (CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>);
 
     fn init(&self) -> Self::Store {
-        (CalcFFI(new_calc()), im::HashMap::new())
+        (CalcFFI(self.init_calc.clone()), im::HashMap::new())
     }
     fn call(
         &self,
         mut store: Self::Store,
         args: &CalcFFI,
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
-        if store.0.eq(args) {
+        if store.0.eq(args) || true {
             let mut children: im::Vector<Option<Box<OutlineFrom<Basic>>>> = im::Vector::new();
 
             let button_id = Rc::new(gen_id!());
@@ -404,7 +283,7 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
     }
 }
 
-fn main() {
+pub fn register(calc: ::std::sync::Arc<dyn Calculator>) {
     #[allow(clippy::type_complexity)]
     let mut inputs: Vec<
         Box<dyn FnMut((u64, Box<dyn Any>), CalcFFI) -> Result<CalcFFI, CalcFFI>>,
@@ -422,20 +301,9 @@ fn main() {
         ));
     }
 
+    let init_calc = calc.copy();
     let (mut app, event_loop): (App<CalcFFI, CalcApp>, winit::event_loop::EventLoop<()>) =
-        App::new(
-            CalcFFI(Arc::new(RwLock::new(CalcState {
-                last: 0.0,
-                cur: Some(0.0),
-                digits: Vec::new(),
-                decimals: Vec::new(),
-                decimal_mode: false,
-                op: CalcOp::None,
-            }))),
-            inputs,
-            CalcApp {},
-        )
-        .unwrap();
+        App::new(CalcFFI(calc), inputs, CalcApp { init_calc }).unwrap();
 
     event_loop.run_app(&mut app).unwrap();
 }
