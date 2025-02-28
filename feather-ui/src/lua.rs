@@ -295,26 +295,17 @@ impl FnPersist<AppState, im::HashMap<Rc<SourceID>, Option<Window>>> for LuaApp {
 }
 
 // These all map lua functions to rust code that creates the necessary rust objects and returns them inside lua userdata.
-pub fn init_environment(lua: &Lua) -> mlua::Result<()> {
-    lua.globals()
-        .set("create_id", lua.create_function(create_id)?)?;
-    lua.globals()
-        .set("get_appdata_id", lua.create_function(get_appdata_id)?)?;
-    lua.globals()
-        .set("create_slot", lua.create_function(create_slot)?)?;
-    lua.globals()
-        .set("create_urect", lua.create_function(create_urect)?)?;
-    lua.globals()
-        .set("create_window", lua.create_function(create_window)?)?;
-    lua.globals()
-        .set("create_region", lua.create_function(create_region)?)?;
-    lua.globals()
-        .set("create_button", lua.create_function(create_button)?)?;
-    lua.globals()
-        .set("create_label", lua.create_function(create_label)?)?;
-    lua.globals()
-        .set("create_round_rect", lua.create_function(create_round_rect)?)?;
-    lua.globals().set(
+pub fn init_environment(lua: &Lua, tab: &mut mlua::Table) -> mlua::Result<()> {
+    tab.set("create_id", lua.create_function(create_id)?)?;
+    tab.set("get_appdata_id", lua.create_function(get_appdata_id)?)?;
+    tab.set("create_slot", lua.create_function(create_slot)?)?;
+    tab.set("create_urect", lua.create_function(create_urect)?)?;
+    tab.set("create_window", lua.create_function(create_window)?)?;
+    tab.set("create_region", lua.create_function(create_region)?)?;
+    tab.set("create_button", lua.create_function(create_button)?)?;
+    tab.set("create_label", lua.create_function(create_label)?)?;
+    tab.set("create_round_rect", lua.create_function(create_round_rect)?)?;
+    tab.set(
         "create_shader_standard",
         lua.create_function(create_shader_standard)?,
     )?;
