@@ -1,2 +1,2 @@
 [bindings.csharp]
-cdylib_name = "calculator"
+cdylib_name = "calculator.dll"

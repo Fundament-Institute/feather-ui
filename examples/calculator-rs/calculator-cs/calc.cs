@@ -30,7 +30,7 @@ internal struct RustBuffer
         return _UniffiHelpers.RustCall(
             (ref UniffiRustCallStatus status) =>
             {
-                var buffer = _UniFFILib.ffi_calculator_rs_rustbuffer_alloc(
+                var buffer = _UniFFILib.ffi_calculator_rustbuffer_alloc(
                     Convert.ToUInt64(size),
                     ref status
                 );
@@ -50,7 +50,7 @@ internal struct RustBuffer
         _UniffiHelpers.RustCall(
             (ref UniffiRustCallStatus status) =>
             {
-                _UniFFILib.ffi_calculator_rs_rustbuffer_free(buffer, ref status);
+                _UniFFILib.ffi_calculator_rustbuffer_free(buffer, ref status);
             }
         );
     }
@@ -863,384 +863,385 @@ static class _UniFFILib
         UniffiCallbackInterfaceCalculator.Register();
     }
 
-    [DllImport("calculator")]
-    public static extern IntPtr uniffi_calculator_rs_fn_clone_calculator(
+    [DllImport("calculator.dll")]
+    public static extern IntPtr uniffi_calculator_fn_clone_calculator(
         IntPtr @ptr,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    [DllImport("calculator")]
-    public static extern void uniffi_calculator_rs_fn_free_calculator(
+    [DllImport("calculator.dll")]
+    public static extern void uniffi_calculator_fn_free_calculator(
         IntPtr @ptr,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    [DllImport("calculator")]
-    public static extern void uniffi_calculator_rs_fn_init_callback_vtable_calculator(
+    [DllImport("calculator.dll")]
+    public static extern void uniffi_calculator_fn_init_callback_vtable_calculator(
         ref UniffiVTableCallbackInterfaceCalculator @vtable
     );
 
-    [DllImport("calculator")]
-    public static extern void uniffi_calculator_rs_fn_method_calculator_add_digit(
+    [DllImport("calculator.dll")]
+    public static extern void uniffi_calculator_fn_method_calculator_add_digit(
         IntPtr @ptr,
         byte @digit,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    [DllImport("calculator")]
-    public static extern void uniffi_calculator_rs_fn_method_calculator_apply_op(
+    [DllImport("calculator.dll")]
+    public static extern void uniffi_calculator_fn_method_calculator_apply_op(
         IntPtr @ptr,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    [DllImport("calculator")]
-    public static extern void uniffi_calculator_rs_fn_method_calculator_backspace(
+    [DllImport("calculator.dll")]
+    public static extern void uniffi_calculator_fn_method_calculator_backspace(
         IntPtr @ptr,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    [DllImport("calculator")]
-    public static extern IntPtr uniffi_calculator_rs_fn_method_calculator_copy(
+    [DllImport("calculator.dll")]
+    public static extern IntPtr uniffi_calculator_fn_method_calculator_copy(
         IntPtr @ptr,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    [DllImport("calculator")]
-    public static extern sbyte uniffi_calculator_rs_fn_method_calculator_eq(
+    [DllImport("calculator.dll")]
+    public static extern sbyte uniffi_calculator_fn_method_calculator_eq(
         IntPtr @ptr,
         IntPtr @rhs,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    [DllImport("calculator")]
-    public static extern double uniffi_calculator_rs_fn_method_calculator_get(
+    [DllImport("calculator.dll")]
+    public static extern double uniffi_calculator_fn_method_calculator_get(
         IntPtr @ptr,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    [DllImport("calculator")]
-    public static extern void uniffi_calculator_rs_fn_method_calculator_set_op(
+    [DllImport("calculator.dll")]
+    public static extern void uniffi_calculator_fn_method_calculator_set_op(
         IntPtr @ptr,
         RustBuffer @op,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    [DllImport("calculator")]
-    public static extern void uniffi_calculator_rs_fn_method_calculator_toggle_decimal(
+    [DllImport("calculator.dll")]
+    public static extern void uniffi_calculator_fn_method_calculator_toggle_decimal(
         IntPtr @ptr,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    [DllImport("calculator")]
-    public static extern IntPtr uniffi_calculator_rs_fn_func_new_calc(
+    [DllImport("calculator.dll")]
+    public static extern void uniffi_calculator_fn_func_register(
+        IntPtr @calc,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    [DllImport("calculator")]
-    public static extern RustBuffer ffi_calculator_rs_rustbuffer_alloc(
+    [DllImport("calculator.dll")]
+    public static extern RustBuffer ffi_calculator_rustbuffer_alloc(
         ulong @size,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    [DllImport("calculator")]
-    public static extern RustBuffer ffi_calculator_rs_rustbuffer_from_bytes(
+    [DllImport("calculator.dll")]
+    public static extern RustBuffer ffi_calculator_rustbuffer_from_bytes(
         ForeignBytes @bytes,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rustbuffer_free(
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rustbuffer_free(
         RustBuffer @buf,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    [DllImport("calculator")]
-    public static extern RustBuffer ffi_calculator_rs_rustbuffer_reserve(
+    [DllImport("calculator.dll")]
+    public static extern RustBuffer ffi_calculator_rustbuffer_reserve(
         RustBuffer @buf,
         ulong @additional,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_poll_u8(
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_poll_u8(
         long @handle,
         IntPtr @callback,
         long @callbackData
     );
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_cancel_u8(long @handle);
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_cancel_u8(long @handle);
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_free_u8(long @handle);
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_free_u8(long @handle);
 
-    [DllImport("calculator")]
-    public static extern byte ffi_calculator_rs_rust_future_complete_u8(
+    [DllImport("calculator.dll")]
+    public static extern byte ffi_calculator_rust_future_complete_u8(
         long @handle,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_poll_i8(
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_poll_i8(
         long @handle,
         IntPtr @callback,
         long @callbackData
     );
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_cancel_i8(long @handle);
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_cancel_i8(long @handle);
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_free_i8(long @handle);
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_free_i8(long @handle);
 
-    [DllImport("calculator")]
-    public static extern sbyte ffi_calculator_rs_rust_future_complete_i8(
+    [DllImport("calculator.dll")]
+    public static extern sbyte ffi_calculator_rust_future_complete_i8(
         long @handle,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_poll_u16(
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_poll_u16(
         long @handle,
         IntPtr @callback,
         long @callbackData
     );
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_cancel_u16(long @handle);
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_cancel_u16(long @handle);
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_free_u16(long @handle);
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_free_u16(long @handle);
 
-    [DllImport("calculator")]
-    public static extern ushort ffi_calculator_rs_rust_future_complete_u16(
+    [DllImport("calculator.dll")]
+    public static extern ushort ffi_calculator_rust_future_complete_u16(
         long @handle,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_poll_i16(
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_poll_i16(
         long @handle,
         IntPtr @callback,
         long @callbackData
     );
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_cancel_i16(long @handle);
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_cancel_i16(long @handle);
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_free_i16(long @handle);
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_free_i16(long @handle);
 
-    [DllImport("calculator")]
-    public static extern short ffi_calculator_rs_rust_future_complete_i16(
+    [DllImport("calculator.dll")]
+    public static extern short ffi_calculator_rust_future_complete_i16(
         long @handle,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_poll_u32(
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_poll_u32(
         long @handle,
         IntPtr @callback,
         long @callbackData
     );
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_cancel_u32(long @handle);
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_cancel_u32(long @handle);
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_free_u32(long @handle);
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_free_u32(long @handle);
 
-    [DllImport("calculator")]
-    public static extern uint ffi_calculator_rs_rust_future_complete_u32(
+    [DllImport("calculator.dll")]
+    public static extern uint ffi_calculator_rust_future_complete_u32(
         long @handle,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_poll_i32(
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_poll_i32(
         long @handle,
         IntPtr @callback,
         long @callbackData
     );
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_cancel_i32(long @handle);
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_cancel_i32(long @handle);
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_free_i32(long @handle);
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_free_i32(long @handle);
 
-    [DllImport("calculator")]
-    public static extern int ffi_calculator_rs_rust_future_complete_i32(
+    [DllImport("calculator.dll")]
+    public static extern int ffi_calculator_rust_future_complete_i32(
         long @handle,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_poll_u64(
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_poll_u64(
         long @handle,
         IntPtr @callback,
         long @callbackData
     );
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_cancel_u64(long @handle);
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_cancel_u64(long @handle);
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_free_u64(long @handle);
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_free_u64(long @handle);
 
-    [DllImport("calculator")]
-    public static extern ulong ffi_calculator_rs_rust_future_complete_u64(
+    [DllImport("calculator.dll")]
+    public static extern ulong ffi_calculator_rust_future_complete_u64(
         long @handle,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_poll_i64(
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_poll_i64(
         long @handle,
         IntPtr @callback,
         long @callbackData
     );
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_cancel_i64(long @handle);
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_cancel_i64(long @handle);
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_free_i64(long @handle);
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_free_i64(long @handle);
 
-    [DllImport("calculator")]
-    public static extern long ffi_calculator_rs_rust_future_complete_i64(
+    [DllImport("calculator.dll")]
+    public static extern long ffi_calculator_rust_future_complete_i64(
         long @handle,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_poll_f32(
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_poll_f32(
         long @handle,
         IntPtr @callback,
         long @callbackData
     );
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_cancel_f32(long @handle);
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_cancel_f32(long @handle);
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_free_f32(long @handle);
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_free_f32(long @handle);
 
-    [DllImport("calculator")]
-    public static extern float ffi_calculator_rs_rust_future_complete_f32(
+    [DllImport("calculator.dll")]
+    public static extern float ffi_calculator_rust_future_complete_f32(
         long @handle,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_poll_f64(
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_poll_f64(
         long @handle,
         IntPtr @callback,
         long @callbackData
     );
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_cancel_f64(long @handle);
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_cancel_f64(long @handle);
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_free_f64(long @handle);
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_free_f64(long @handle);
 
-    [DllImport("calculator")]
-    public static extern double ffi_calculator_rs_rust_future_complete_f64(
+    [DllImport("calculator.dll")]
+    public static extern double ffi_calculator_rust_future_complete_f64(
         long @handle,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_poll_pointer(
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_poll_pointer(
         long @handle,
         IntPtr @callback,
         long @callbackData
     );
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_cancel_pointer(long @handle);
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_cancel_pointer(long @handle);
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_free_pointer(long @handle);
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_free_pointer(long @handle);
 
-    [DllImport("calculator")]
-    public static extern IntPtr ffi_calculator_rs_rust_future_complete_pointer(
+    [DllImport("calculator.dll")]
+    public static extern IntPtr ffi_calculator_rust_future_complete_pointer(
         long @handle,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_poll_rust_buffer(
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_poll_rust_buffer(
         long @handle,
         IntPtr @callback,
         long @callbackData
     );
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_cancel_rust_buffer(long @handle);
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_cancel_rust_buffer(long @handle);
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_free_rust_buffer(long @handle);
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_free_rust_buffer(long @handle);
 
-    [DllImport("calculator")]
-    public static extern RustBuffer ffi_calculator_rs_rust_future_complete_rust_buffer(
+    [DllImport("calculator.dll")]
+    public static extern RustBuffer ffi_calculator_rust_future_complete_rust_buffer(
         long @handle,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_poll_void(
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_poll_void(
         long @handle,
         IntPtr @callback,
         long @callbackData
     );
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_cancel_void(long @handle);
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_cancel_void(long @handle);
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_free_void(long @handle);
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_free_void(long @handle);
 
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_complete_void(
+    [DllImport("calculator.dll")]
+    public static extern void ffi_calculator_rust_future_complete_void(
         long @handle,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    [DllImport("calculator")]
-    public static extern ushort uniffi_calculator_rs_checksum_func_new_calc();
+    [DllImport("calculator.dll")]
+    public static extern ushort uniffi_calculator_checksum_func_register();
 
-    [DllImport("calculator")]
-    public static extern ushort uniffi_calculator_rs_checksum_method_calculator_add_digit();
+    [DllImport("calculator.dll")]
+    public static extern ushort uniffi_calculator_checksum_method_calculator_add_digit();
 
-    [DllImport("calculator")]
-    public static extern ushort uniffi_calculator_rs_checksum_method_calculator_apply_op();
+    [DllImport("calculator.dll")]
+    public static extern ushort uniffi_calculator_checksum_method_calculator_apply_op();
 
-    [DllImport("calculator")]
-    public static extern ushort uniffi_calculator_rs_checksum_method_calculator_backspace();
+    [DllImport("calculator.dll")]
+    public static extern ushort uniffi_calculator_checksum_method_calculator_backspace();
 
-    [DllImport("calculator")]
-    public static extern ushort uniffi_calculator_rs_checksum_method_calculator_copy();
+    [DllImport("calculator.dll")]
+    public static extern ushort uniffi_calculator_checksum_method_calculator_copy();
 
-    [DllImport("calculator")]
-    public static extern ushort uniffi_calculator_rs_checksum_method_calculator_eq();
+    [DllImport("calculator.dll")]
+    public static extern ushort uniffi_calculator_checksum_method_calculator_eq();
 
-    [DllImport("calculator")]
-    public static extern ushort uniffi_calculator_rs_checksum_method_calculator_get();
+    [DllImport("calculator.dll")]
+    public static extern ushort uniffi_calculator_checksum_method_calculator_get();
 
-    [DllImport("calculator")]
-    public static extern ushort uniffi_calculator_rs_checksum_method_calculator_set_op();
+    [DllImport("calculator.dll")]
+    public static extern ushort uniffi_calculator_checksum_method_calculator_set_op();
 
-    [DllImport("calculator")]
-    public static extern ushort uniffi_calculator_rs_checksum_method_calculator_toggle_decimal();
+    [DllImport("calculator.dll")]
+    public static extern ushort uniffi_calculator_checksum_method_calculator_toggle_decimal();
 
-    [DllImport("calculator")]
-    public static extern uint ffi_calculator_rs_uniffi_contract_version();
+    [DllImport("calculator.dll")]
+    public static extern uint ffi_calculator_uniffi_contract_version();
 
     static void uniffiCheckContractApiVersion()
     {
-        var scaffolding_contract_version = _UniFFILib.ffi_calculator_rs_uniffi_contract_version();
+        var scaffolding_contract_version = _UniFFILib.ffi_calculator_uniffi_contract_version();
         if (26 != scaffolding_contract_version)
         {
             throw new UniffiContractVersionException(
@@ -1252,84 +1253,83 @@ static class _UniFFILib
     static void uniffiCheckApiChecksums()
     {
         {
-            var checksum = _UniFFILib.uniffi_calculator_rs_checksum_func_new_calc();
-            if (checksum != 65163)
+            var checksum = _UniFFILib.uniffi_calculator_checksum_func_register();
+            if (checksum != 1157)
             {
                 throw new UniffiContractChecksumException(
-                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_rs_checksum_func_new_calc` checksum `65163`, library returned `{checksum}`"
+                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_checksum_func_register` checksum `1157`, library returned `{checksum}`"
                 );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_calculator_rs_checksum_method_calculator_add_digit();
-            if (checksum != 45389)
+            var checksum = _UniFFILib.uniffi_calculator_checksum_method_calculator_add_digit();
+            if (checksum != 18462)
             {
                 throw new UniffiContractChecksumException(
-                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_rs_checksum_method_calculator_add_digit` checksum `45389`, library returned `{checksum}`"
+                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_checksum_method_calculator_add_digit` checksum `18462`, library returned `{checksum}`"
                 );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_calculator_rs_checksum_method_calculator_apply_op();
-            if (checksum != 6132)
+            var checksum = _UniFFILib.uniffi_calculator_checksum_method_calculator_apply_op();
+            if (checksum != 7552)
             {
                 throw new UniffiContractChecksumException(
-                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_rs_checksum_method_calculator_apply_op` checksum `6132`, library returned `{checksum}`"
+                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_checksum_method_calculator_apply_op` checksum `7552`, library returned `{checksum}`"
                 );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_calculator_rs_checksum_method_calculator_backspace();
-            if (checksum != 6274)
+            var checksum = _UniFFILib.uniffi_calculator_checksum_method_calculator_backspace();
+            if (checksum != 11608)
             {
                 throw new UniffiContractChecksumException(
-                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_rs_checksum_method_calculator_backspace` checksum `6274`, library returned `{checksum}`"
+                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_checksum_method_calculator_backspace` checksum `11608`, library returned `{checksum}`"
                 );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_calculator_rs_checksum_method_calculator_copy();
-            if (checksum != 54553)
+            var checksum = _UniFFILib.uniffi_calculator_checksum_method_calculator_copy();
+            if (checksum != 45030)
             {
                 throw new UniffiContractChecksumException(
-                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_rs_checksum_method_calculator_copy` checksum `54553`, library returned `{checksum}`"
+                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_checksum_method_calculator_copy` checksum `45030`, library returned `{checksum}`"
                 );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_calculator_rs_checksum_method_calculator_eq();
-            if (checksum != 48962)
+            var checksum = _UniFFILib.uniffi_calculator_checksum_method_calculator_eq();
+            if (checksum != 58800)
             {
                 throw new UniffiContractChecksumException(
-                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_rs_checksum_method_calculator_eq` checksum `48962`, library returned `{checksum}`"
+                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_checksum_method_calculator_eq` checksum `58800`, library returned `{checksum}`"
                 );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_calculator_rs_checksum_method_calculator_get();
-            if (checksum != 14305)
+            var checksum = _UniFFILib.uniffi_calculator_checksum_method_calculator_get();
+            if (checksum != 31933)
             {
                 throw new UniffiContractChecksumException(
-                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_rs_checksum_method_calculator_get` checksum `14305`, library returned `{checksum}`"
+                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_checksum_method_calculator_get` checksum `31933`, library returned `{checksum}`"
                 );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_calculator_rs_checksum_method_calculator_set_op();
-            if (checksum != 22430)
+            var checksum = _UniFFILib.uniffi_calculator_checksum_method_calculator_set_op();
+            if (checksum != 45999)
             {
                 throw new UniffiContractChecksumException(
-                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_rs_checksum_method_calculator_set_op` checksum `22430`, library returned `{checksum}`"
+                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_checksum_method_calculator_set_op` checksum `45999`, library returned `{checksum}`"
                 );
             }
         }
         {
-            var checksum =
-                _UniFFILib.uniffi_calculator_rs_checksum_method_calculator_toggle_decimal();
-            if (checksum != 53455)
+            var checksum = _UniFFILib.uniffi_calculator_checksum_method_calculator_toggle_decimal();
+            if (checksum != 39818)
             {
                 throw new UniffiContractChecksumException(
-                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_rs_checksum_method_calculator_toggle_decimal` checksum `53455`, library returned `{checksum}`"
+                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_checksum_method_calculator_toggle_decimal` checksum `39818`, library returned `{checksum}`"
                 );
             }
         }
@@ -1603,7 +1603,7 @@ internal class CalculatorImpl : FFIObject, Calculator
         _UniffiHelpers.RustCall(
             (ref UniffiRustCallStatus status) =>
             {
-                _UniFFILib.uniffi_calculator_rs_fn_free_calculator(this.pointer, ref status);
+                _UniFFILib.uniffi_calculator_fn_free_calculator(this.pointer, ref status);
             }
         );
     }
@@ -1613,10 +1613,7 @@ internal class CalculatorImpl : FFIObject, Calculator
         return _UniffiHelpers.RustCall(
             (ref UniffiRustCallStatus status) =>
             {
-                return _UniFFILib.uniffi_calculator_rs_fn_clone_calculator(
-                    this.pointer,
-                    ref status
-                );
+                return _UniFFILib.uniffi_calculator_fn_clone_calculator(this.pointer, ref status);
             }
         );
     }
@@ -1626,7 +1623,7 @@ internal class CalculatorImpl : FFIObject, Calculator
         CallWithPointer(thisPtr =>
             _UniffiHelpers.RustCall(
                 (ref UniffiRustCallStatus _status) =>
-                    _UniFFILib.uniffi_calculator_rs_fn_method_calculator_add_digit(
+                    _UniFFILib.uniffi_calculator_fn_method_calculator_add_digit(
                         thisPtr,
                         FfiConverterUInt8.INSTANCE.Lower(@digit),
                         ref _status
@@ -1640,10 +1637,7 @@ internal class CalculatorImpl : FFIObject, Calculator
         CallWithPointer(thisPtr =>
             _UniffiHelpers.RustCall(
                 (ref UniffiRustCallStatus _status) =>
-                    _UniFFILib.uniffi_calculator_rs_fn_method_calculator_apply_op(
-                        thisPtr,
-                        ref _status
-                    )
+                    _UniFFILib.uniffi_calculator_fn_method_calculator_apply_op(thisPtr, ref _status)
             )
         );
     }
@@ -1653,7 +1647,7 @@ internal class CalculatorImpl : FFIObject, Calculator
         CallWithPointer(thisPtr =>
             _UniffiHelpers.RustCall(
                 (ref UniffiRustCallStatus _status) =>
-                    _UniFFILib.uniffi_calculator_rs_fn_method_calculator_backspace(
+                    _UniFFILib.uniffi_calculator_fn_method_calculator_backspace(
                         thisPtr,
                         ref _status
                     )
@@ -1667,10 +1661,7 @@ internal class CalculatorImpl : FFIObject, Calculator
             FfiConverterTypeCalculator.INSTANCE.Lift(
                 _UniffiHelpers.RustCall(
                     (ref UniffiRustCallStatus _status) =>
-                        _UniFFILib.uniffi_calculator_rs_fn_method_calculator_copy(
-                            thisPtr,
-                            ref _status
-                        )
+                        _UniFFILib.uniffi_calculator_fn_method_calculator_copy(thisPtr, ref _status)
                 )
             )
         );
@@ -1682,7 +1673,7 @@ internal class CalculatorImpl : FFIObject, Calculator
             FfiConverterBoolean.INSTANCE.Lift(
                 _UniffiHelpers.RustCall(
                     (ref UniffiRustCallStatus _status) =>
-                        _UniFFILib.uniffi_calculator_rs_fn_method_calculator_eq(
+                        _UniFFILib.uniffi_calculator_fn_method_calculator_eq(
                             thisPtr,
                             FfiConverterTypeCalculator.INSTANCE.Lower(@rhs),
                             ref _status
@@ -1698,10 +1689,7 @@ internal class CalculatorImpl : FFIObject, Calculator
             FfiConverterDouble.INSTANCE.Lift(
                 _UniffiHelpers.RustCall(
                     (ref UniffiRustCallStatus _status) =>
-                        _UniFFILib.uniffi_calculator_rs_fn_method_calculator_get(
-                            thisPtr,
-                            ref _status
-                        )
+                        _UniFFILib.uniffi_calculator_fn_method_calculator_get(thisPtr, ref _status)
                 )
             )
         );
@@ -1712,7 +1700,7 @@ internal class CalculatorImpl : FFIObject, Calculator
         CallWithPointer(thisPtr =>
             _UniffiHelpers.RustCall(
                 (ref UniffiRustCallStatus _status) =>
-                    _UniFFILib.uniffi_calculator_rs_fn_method_calculator_set_op(
+                    _UniFFILib.uniffi_calculator_fn_method_calculator_set_op(
                         thisPtr,
                         FfiConverterTypeCalcOp.INSTANCE.Lower(@op),
                         ref _status
@@ -1726,7 +1714,7 @@ internal class CalculatorImpl : FFIObject, Calculator
         CallWithPointer(thisPtr =>
             _UniffiHelpers.RustCall(
                 (ref UniffiRustCallStatus _status) =>
-                    _UniFFILib.uniffi_calculator_rs_fn_method_calculator_toggle_decimal(
+                    _UniFFILib.uniffi_calculator_fn_method_calculator_toggle_decimal(
                         thisPtr,
                         ref _status
                     )
@@ -1919,7 +1907,7 @@ class UniffiCallbackInterfaceCalculator
 
     public static void Register()
     {
-        _UniFFILib.uniffi_calculator_rs_fn_init_callback_vtable_calculator(
+        _UniFFILib.uniffi_calculator_fn_init_callback_vtable_calculator(
             ref UniffiCallbackInterfaceCalculator._vtable
         );
     }
@@ -2066,13 +2054,14 @@ class FfiConverterTypeCalcOp : FfiConverterRustBuffer<CalcOp>
 #pragma warning restore 8625
 internal static class CalcMethods
 {
-    public static Calculator NewCalc()
+    public static void Register(Calculator @calc)
     {
-        return FfiConverterTypeCalculator.INSTANCE.Lift(
-            _UniffiHelpers.RustCall(
-                (ref UniffiRustCallStatus _status) =>
-                    _UniFFILib.uniffi_calculator_rs_fn_func_new_calc(ref _status)
-            )
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus _status) =>
+                _UniFFILib.uniffi_calculator_fn_func_register(
+                    FfiConverterTypeCalculator.INSTANCE.Lower(@calc),
+                    ref _status
+                )
         );
     }
 }

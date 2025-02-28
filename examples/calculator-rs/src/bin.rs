@@ -6,7 +6,6 @@ use calculator::Calculator;
 use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::RwLock;
-use ultraviolet::Vec4;
 
 #[derive(PartialEq, Clone, Debug, Default)]
 struct CalcState {
