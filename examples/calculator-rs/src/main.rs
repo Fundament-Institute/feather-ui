@@ -22,11 +22,15 @@ use feather_ui::FILL_URECT;
 use std::any::Any;
 use std::f32;
 use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::RwLock;
 use ultraviolet::Vec4;
+
+uniffi::include_scaffolding!("calculator");
 
 // Doesn't include instant actions that take no argument, like clear, backspace, pi, square, root, etc.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
-enum CalcOp {
+pub enum CalcOp {
     #[default]
     None,
     Add,
@@ -137,45 +141,85 @@ impl CalcState {
     }
 }
 
-#[derive(Debug, Default)]
-struct Calculator {
-    state: std::sync::RwLock<CalcState>,
+trait InternalEq {
+    fn internal_eq(&self, state: &CalcState) -> bool;
 }
 
-impl PartialEq for Calculator {
-    fn eq(&self, other: &Self) -> bool {
-        self.state.read().unwrap().eq(&other.state.read().unwrap())
-    }
-}
-
-impl Clone for Calculator {
-    fn clone(&self) -> Self {
-        Self {
-            state: self.state.read().unwrap().clone().into(),
-        }
+impl InternalEq for UniFFICallbackHandlerCalculator {
+    fn internal_eq(&self, _: &CalcState) -> bool {
+        panic!("Tried to compare rust implementation with foreign implementation!!!")
     }
 }
 
-impl Calculator {
-    pub fn add_digit(&self, digit: u8) {
-        self.state.write().unwrap().add_digit(digit)
+trait Calculator: Send + Sync + InternalEq {
+    fn add_digit(&self, digit: u8);
+    fn backspace(&self);
+    fn apply_op(&self);
+    fn set_op(&self, op: CalcOp);
+    fn get(&self) -> f64;
+    fn toggle_decimal(&self);
+    fn copy(&self) -> Arc<dyn Calculator>;
+    fn eq(&self, rhs: Arc<dyn Calculator>) -> bool;
+}
+
+fn new_calc() -> Arc<dyn Calculator> {
+    Arc::new(RwLock::new(CalcState {
+        last: 0.0,
+        cur: None,
+        digits: Vec::new(),
+        decimals: Vec::new(),
+        decimal_mode: false,
+        op: CalcOp::None,
+    }))
+}
+
+impl Calculator for RwLock<CalcState> {
+    fn add_digit(&self, digit: u8) {
+        self.write().unwrap().add_digit(digit)
     }
-    pub fn backspace(&self) {
-        self.state.write().unwrap().backspace()
+    fn backspace(&self) {
+        self.write().unwrap().backspace()
     }
-    pub fn apply_op(&self) {
-        self.state.write().unwrap().apply_op()
+    fn apply_op(&self) {
+        self.write().unwrap().apply_op()
     }
-    pub fn set_op(&self, op: CalcOp) {
-        self.state.write().unwrap().set_op(op)
+    fn set_op(&self, op: CalcOp) {
+        self.write().unwrap().set_op(op)
     }
-    pub fn get(&self) -> f64 {
-        let state = self.state.read().unwrap();
+    fn get(&self) -> f64 {
+        let state = self.read().unwrap();
         state.cur.unwrap_or(state.last)
     }
-    pub fn toggle_decimal(&self) {
-        let prev = self.state.read().unwrap().decimal_mode;
-        self.state.write().unwrap().decimal_mode = !prev;
+    fn toggle_decimal(&self) {
+        let prev = self.read().unwrap().decimal_mode;
+        self.write().unwrap().decimal_mode = !prev;
+    }
+
+    fn copy(&self) -> Arc<dyn Calculator> {
+        Arc::new(RwLock::new(self.read().unwrap().clone()))
+    }
+
+    fn eq(&self, rhs: Arc<dyn Calculator>) -> bool {
+        rhs.internal_eq(&self.read().unwrap())
+    }
+}
+
+impl InternalEq for RwLock<CalcState> {
+    fn internal_eq(&self, state: &CalcState) -> bool {
+        self.read().unwrap().eq(state)
+    }
+}
+struct CalcFFI(Arc<dyn Calculator>);
+
+impl PartialEq for CalcFFI {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.eq(other.0.clone())
+    }
+}
+
+impl Clone for CalcFFI {
+    fn clone(&self) -> Self {
+        CalcFFI(self.0.copy())
     }
 }
 
@@ -187,7 +231,7 @@ const NUM_COLOR: Vec4 = Vec4::new(0.3, 0.3, 0.3, 1.0);
 const EQ_COLOR: Vec4 = Vec4::new(0.3, 0.8, 0.3, 1.0);
 
 use std::sync::LazyLock;
-type BoxedAction = Box<dyn Sync + Send + Fn(&mut Calculator)>;
+type BoxedAction = Box<dyn Sync + Send + Fn(&Arc<dyn Calculator>)>;
 static BUTTONS: LazyLock<[(&str, BoxedAction, Vec4); 24]> = LazyLock::new(|| {
     [
         (
@@ -225,18 +269,18 @@ static BUTTONS: LazyLock<[(&str, BoxedAction, Vec4); 24]> = LazyLock::new(|| {
     ]
 });
 
-impl FnPersist<Calculator, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
-    type Store = (Calculator, im::HashMap<Rc<SourceID>, Option<Window>>);
+impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
+    type Store = (CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>);
 
     fn init(&self) -> Self::Store {
-        (Default::default(), im::HashMap::new())
+        (CalcFFI(new_calc()), im::HashMap::new())
     }
     fn call(
         &self,
         mut store: Self::Store,
-        args: &Calculator,
+        args: &CalcFFI,
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
-        if store.0 != *args {
+        if store.0.eq(args) {
             let mut children: im::Vector<Option<Box<OutlineFrom<Basic>>>> = im::Vector::new();
 
             let button_id = Rc::new(gen_id!());
@@ -304,7 +348,7 @@ impl FnPersist<Calculator, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcAp
             let display = Text::<()> {
                 id: gen_id!(button_id).into(),
                 props: (),
-                text: args.get().to_string(),
+                text: args.0.get().to_string(),
                 font_size: 60.0,
                 line_height: 42.0,
                 ..Default::default()
@@ -360,21 +404,17 @@ impl FnPersist<Calculator, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcAp
     }
 }
 
-uniffi::include_scaffolding!("calculator");
-
 fn main() {
     #[allow(clippy::type_complexity)]
     let mut inputs: Vec<
-        Box<dyn FnMut((u64, Box<dyn Any>), Calculator) -> Result<Calculator, Calculator>>,
+        Box<dyn FnMut((u64, Box<dyn Any>), CalcFFI) -> Result<CalcFFI, CalcFFI>>,
     > = Vec::new();
 
     for (_, f, _) in BUTTONS.iter() {
         inputs.push(Box::new(
-            |_: mouse_area::MouseAreaEvent,
-             mut appdata: Calculator|
-             -> Result<Calculator, Calculator> {
+            |_: mouse_area::MouseAreaEvent, mut appdata: CalcFFI| -> Result<CalcFFI, CalcFFI> {
                 {
-                    f(&mut appdata);
+                    f(&appdata.0);
                     Ok(appdata)
                 }
             }
@@ -382,19 +422,16 @@ fn main() {
         ));
     }
 
-    let (mut app, event_loop): (App<Calculator, CalcApp>, winit::event_loop::EventLoop<()>) =
+    let (mut app, event_loop): (App<CalcFFI, CalcApp>, winit::event_loop::EventLoop<()>) =
         App::new(
-            Calculator {
-                state: CalcState {
-                    last: 0.0,
-                    cur: Some(0.0),
-                    digits: Vec::new(),
-                    decimals: Vec::new(),
-                    decimal_mode: false,
-                    op: CalcOp::None,
-                }
-                .into(),
-            },
+            CalcFFI(Arc::new(RwLock::new(CalcState {
+                last: 0.0,
+                cur: Some(0.0),
+                digits: Vec::new(),
+                decimals: Vec::new(),
+                decimal_mode: false,
+                op: CalcOp::None,
+            }))),
             inputs,
             CalcApp {},
         )

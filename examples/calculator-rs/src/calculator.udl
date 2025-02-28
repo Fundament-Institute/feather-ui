@@ -13,13 +13,18 @@ enum CalcOp {
   "Clear",
 };
 
+[Trait, WithForeign]
 interface Calculator {
+  Calculator copy();
+  boolean eq(Calculator rhs);
   void add_digit(u8 digit);
   void backspace();
   void apply_op();
   void set_op(CalcOp op);
   void toggle_decimal();
-  f64 get();
+  double get();
 };
 
-namespace calc {};
+namespace calc {
+  Calculator new_calc();
+};
