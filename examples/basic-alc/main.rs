@@ -15,8 +15,9 @@ fn wrap_luafunc(
 
 fn main() {
     let lua = Lua::new();
-    feather_ui::lua::init_environment(&lua).unwrap();
-    let alicorn = Box::new(alicorn::Alicorn::new(Some(lua)).unwrap());
+    let mut feather_interface = lua.create_table().unwrap();
+    feather_ui::lua::init_environment(&lua, &mut feather_interface).unwrap();
+    let alicorn = Box::new(alicorn::Alicorn::new(Some(lua), feather_interface).unwrap());
 
     // Load the built-in GLSL prelude from alicorn
     alicorn.load_glsl_prelude().unwrap();
