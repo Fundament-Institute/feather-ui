@@ -21,6 +21,7 @@ use std::f32;
 use std::rc::Rc;
 use std::sync::Arc;
 use ultraviolet::Vec4;
+use winit::platform::windows::WindowAttributesExtWindows;
 
 uniffi::include_scaffolding!("calculator");
 
@@ -270,6 +271,7 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
                 gen_id!().into(),
                 winit::window::Window::default_attributes()
                     .with_title("calculator-rs")
+                    .with_drag_and_drop(false)
                     .with_resizable(true),
                 Box::new(region),
             );
@@ -291,7 +293,7 @@ pub fn register(calc: ::std::sync::Arc<dyn Calculator>) {
 
     for (_, f, _) in BUTTONS.iter() {
         inputs.push(Box::new(
-            |_: mouse_area::MouseAreaEvent, mut appdata: CalcFFI| -> Result<CalcFFI, CalcFFI> {
+            |_: mouse_area::MouseAreaEvent, appdata: CalcFFI| -> Result<CalcFFI, CalcFFI> {
                 {
                     f(&appdata.0);
                     Ok(appdata)
