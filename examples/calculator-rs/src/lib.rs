@@ -24,6 +24,8 @@ use std::f32;
 use std::rc::Rc;
 use std::sync::Arc;
 use ultraviolet::Vec4;
+
+#[cfg(target_os = "windows")]
 use winit::platform::windows::WindowAttributesExtWindows;
 
 uniffi::include_scaffolding!("calculator");
@@ -270,11 +272,20 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
                 },
                 children,
             };
+            #[cfg(target_os = "windows")]
             let window = Window::new(
                 gen_id!().into(),
                 winit::window::Window::default_attributes()
                     .with_title("calculator-rs")
                     .with_drag_and_drop(false)
+                    .with_resizable(true),
+                Box::new(region),
+            );
+            #[cfg(not(target_os = "windows"))]
+            let window = Window::new(
+                gen_id!().into(),
+                winit::window::Window::default_attributes()
+                    .with_title("calculator-rs")
                     .with_resizable(true),
                 Box::new(region),
             );
