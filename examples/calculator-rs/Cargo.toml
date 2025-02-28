@@ -14,9 +14,14 @@ homepage.workspace = true
 readme.workspace = true
 license.workspace = true
 
+[lib]
+name = "calculator"
+path = "src/lib.rs"
+crate-type = ["lib", "cdylib"]
+
 [[bin]]
 name = "calculator-rs"
-path = "src/main.rs"
+path = "src/bin.rs"
 
 [dependencies]
 wgpu.workspace = true
