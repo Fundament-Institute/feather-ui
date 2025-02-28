@@ -1,0 +1,27 @@
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+
+VisualStudioVersion = 17.13.35806.99
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "calculator-cs", "calculator-cs\calculator-cs.csproj", "{9D965116-7C3D-4409-A11E-15506F285334}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9D965116-7C3D-4409-A11E-15506F285334}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9D965116-7C3D-4409-A11E-15506F285334}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9D965116-7C3D-4409-A11E-15506F285334}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9D965116-7C3D-4409-A11E-15506F285334}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {76FCE354-22B6-4164-BB01-7F6A0E8FA418}
+	EndGlobalSection
+EndGlobal
