@@ -30,21 +30,30 @@ fn main() {
             e.to_string()
         )
     } else if let Ok(s) = get_cargo_target_dir() {
+        let curdir = std::env::current_dir().unwrap();
+
         std::fs::copy(
-            "calculator-cs/bin/Debug/net8.0/calculator-cs.runtimeconfig.json",
+            curdir.join("calculator-cs/bin/Debug/net8.0/calculator-cs.runtimeconfig.json"),
             s.join("calculator-cs.runtimeconfig.json"),
         )
         .unwrap();
         std::fs::copy(
-            "calculator-cs/bin/Debug/net8.0/calculator-cs.dll",
+            curdir.join("calculator-cs/bin/Debug/net8.0/calculator-cs.dll"),
             s.join("calculator-cs.dll"),
         )
         .unwrap();
-        std::fs::copy(
-            "calculator-cs/bin/Debug/net8.0/calculator-cs.exe",
+        if std::fs::copy(
+            curdir.join("calculator-cs/bin/Debug/net8.0/calculator-cs.exe"),
             s.join("calculator-cs.exe"),
         )
-        .unwrap();
+        .is_err()
+        {
+            std::fs::copy(
+                curdir.join("calculator-cs/bin/Debug/net8.0/calculator-cs"),
+                s.join("calculator-cs.exe"),
+            )
+            .unwrap();
+        }
     } else {
         print!("Couldn't get TARGET_DIR for current crate, C# example not copied to output dir.");
     }
