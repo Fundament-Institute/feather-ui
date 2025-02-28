@@ -26,8 +26,6 @@ let frag-shader-valid = lambda (shader : wrapped(frag-shader-type)) #TODO make f
 
 let wgpu-print-frag-shader = intrinsic
 	""""
-		local U = require "alicorn-utils"
-		local format = require "format"
 		return function(frag_shader, _valid)
 			local param_name, code, capture, _capture_dbg, _param_debug = frag_shader:unwrap_closure()
 			local elements = code:unwrap_tuple_cons()
