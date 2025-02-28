@@ -3,6 +3,12 @@ using Microsoft.Win32;
 using System.Text.RegularExpressions;
 using uniffi.calc;
 
+// To build the necessary `calc.cs` file that this depends on, run this command from the parent directory:
+// 
+// uniffi-bindgen-cs .\src\calculator.udl --config .\src\calculator.toml
+// 
+// Then, copy calc.cs from src/calc.cs to this directory.
+
 public class Impl : uniffi.calc.Calculator
 {
     private double last;
