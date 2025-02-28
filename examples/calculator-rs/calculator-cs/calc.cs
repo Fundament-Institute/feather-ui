@@ -21,16 +21,19 @@ namespace uniffi.calc;
 [StructLayout(LayoutKind.Sequential)]
 internal struct RustBuffer
 {
-    public int capacity;
-    public int len;
+    public ulong capacity;
+    public ulong len;
     public IntPtr data;
 
     public static RustBuffer Alloc(int size)
     {
         return _UniffiHelpers.RustCall(
-            (ref RustCallStatus status) =>
+            (ref UniffiRustCallStatus status) =>
             {
-                var buffer = _UniFFILib.ffi_calculator_rs_rustbuffer_alloc(size, ref status);
+                var buffer = _UniFFILib.ffi_calculator_rs_rustbuffer_alloc(
+                    Convert.ToUInt64(size),
+                    ref status
+                );
                 if (buffer.data == IntPtr.Zero)
                 {
                     throw new AllocationException(
@@ -45,14 +48,14 @@ internal struct RustBuffer
     public static void Free(RustBuffer buffer)
     {
         _UniffiHelpers.RustCall(
-            (ref RustCallStatus status) =>
+            (ref UniffiRustCallStatus status) =>
             {
                 _UniFFILib.ffi_calculator_rs_rustbuffer_free(buffer, ref status);
             }
         );
     }
 
-    public static BigEndianStream MemoryStream(IntPtr data, int length)
+    public static BigEndianStream MemoryStream(IntPtr data, long length)
     {
         unsafe
         {
@@ -64,7 +67,9 @@ internal struct RustBuffer
     {
         unsafe
         {
-            return new BigEndianStream(new UnmanagedMemoryStream((byte*)data.ToPointer(), len));
+            return new BigEndianStream(
+                new UnmanagedMemoryStream((byte*)data.ToPointer(), Convert.ToInt64(len))
+            );
         }
     }
 
@@ -75,8 +80,8 @@ internal struct RustBuffer
             return new BigEndianStream(
                 new UnmanagedMemoryStream(
                     (byte*)data.ToPointer(),
-                    capacity,
-                    capacity,
+                    Convert.ToInt64(capacity),
+                    Convert.ToInt64(capacity),
                     FileAccess.Write
                 )
             );
@@ -138,7 +143,7 @@ internal abstract class FfiConverter<CsType, FfiType>
         {
             var stream = rbuf.AsWriteableStream();
             Write(value, stream);
-            rbuf.len = Convert.ToInt32(stream.Position);
+            rbuf.len = Convert.ToUInt64(stream.Position);
             return rbuf;
         }
         catch
@@ -191,7 +196,7 @@ internal abstract class FfiConverterRustBuffer<CsType> : FfiConverter<CsType, Ru
 // This would be a good candidate for isolating in its own ffi-support lib.
 // Error runtime.
 [StructLayout(LayoutKind.Sequential)]
-struct RustCallStatus
+struct UniffiRustCallStatus
 {
     public sbyte code;
     public RustBuffer error_buf;
@@ -290,8 +295,8 @@ class NullCallStatusErrorHandler : CallStatusErrorHandler<UniffiException>
 // synchronize itself
 class _UniffiHelpers
 {
-    public delegate void RustCallAction(ref RustCallStatus status);
-    public delegate U RustCallFunc<out U>(ref RustCallStatus status);
+    public delegate void RustCallAction(ref UniffiRustCallStatus status);
+    public delegate U RustCallFunc<out U>(ref UniffiRustCallStatus status);
 
     // Call a rust function that returns a Result<>.  Pass in the Error class companion that corresponds to the Err
     public static U RustCallWithError<U, E>(
@@ -300,7 +305,7 @@ class _UniffiHelpers
     )
         where E : UniffiException
     {
-        var status = new RustCallStatus();
+        var status = new UniffiRustCallStatus();
         var return_value = callback(ref status);
         if (status.IsSuccess())
         {
@@ -339,7 +344,7 @@ class _UniffiHelpers
     {
         _UniffiHelpers.RustCallWithError(
             errorHandler,
-            (ref RustCallStatus status) =>
+            (ref UniffiRustCallStatus status) =>
             {
                 callback(ref status);
                 return 0;
@@ -357,7 +362,7 @@ class _UniffiHelpers
     public static void RustCall(RustCallAction callback)
     {
         _UniffiHelpers.RustCall(
-            (ref RustCallStatus status) =>
+            (ref UniffiRustCallStatus status) =>
             {
                 callback(ref status);
                 return 0;
@@ -590,322 +595,621 @@ class BigEndianStream
 // and the FFI Function declarations in a com.sun.jna.Library.
 
 
-// This is an implementation detail which will be called internally by the public API.
+// This is an implementation detail that will be called internally by the public API.
 static class _UniFFILib
 {
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void UniffiRustFutureContinuationCallback(ulong @data, sbyte @pollResult);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void UniffiForeignFutureFree(ulong @handle);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void UniffiCallbackInterfaceFree(ulong @handle);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct UniffiForeignFuture
+    {
+        public ulong @handle;
+        public IntPtr @free;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct UniffiForeignFutureStructU8
+    {
+        public byte @returnValue;
+        public UniffiRustCallStatus @callStatus;
+    }
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void UniffiForeignFutureCompleteU8(
+        ulong @callbackData,
+        UniffiForeignFutureStructU8 @result
+    );
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct UniffiForeignFutureStructI8
+    {
+        public sbyte @returnValue;
+        public UniffiRustCallStatus @callStatus;
+    }
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void UniffiForeignFutureCompleteI8(
+        ulong @callbackData,
+        UniffiForeignFutureStructI8 @result
+    );
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct UniffiForeignFutureStructU16
+    {
+        public ushort @returnValue;
+        public UniffiRustCallStatus @callStatus;
+    }
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void UniffiForeignFutureCompleteU16(
+        ulong @callbackData,
+        UniffiForeignFutureStructU16 @result
+    );
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct UniffiForeignFutureStructI16
+    {
+        public short @returnValue;
+        public UniffiRustCallStatus @callStatus;
+    }
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void UniffiForeignFutureCompleteI16(
+        ulong @callbackData,
+        UniffiForeignFutureStructI16 @result
+    );
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct UniffiForeignFutureStructU32
+    {
+        public uint @returnValue;
+        public UniffiRustCallStatus @callStatus;
+    }
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void UniffiForeignFutureCompleteU32(
+        ulong @callbackData,
+        UniffiForeignFutureStructU32 @result
+    );
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct UniffiForeignFutureStructI32
+    {
+        public int @returnValue;
+        public UniffiRustCallStatus @callStatus;
+    }
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void UniffiForeignFutureCompleteI32(
+        ulong @callbackData,
+        UniffiForeignFutureStructI32 @result
+    );
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct UniffiForeignFutureStructU64
+    {
+        public ulong @returnValue;
+        public UniffiRustCallStatus @callStatus;
+    }
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void UniffiForeignFutureCompleteU64(
+        ulong @callbackData,
+        UniffiForeignFutureStructU64 @result
+    );
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct UniffiForeignFutureStructI64
+    {
+        public long @returnValue;
+        public UniffiRustCallStatus @callStatus;
+    }
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void UniffiForeignFutureCompleteI64(
+        ulong @callbackData,
+        UniffiForeignFutureStructI64 @result
+    );
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct UniffiForeignFutureStructF32
+    {
+        public float @returnValue;
+        public UniffiRustCallStatus @callStatus;
+    }
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void UniffiForeignFutureCompleteF32(
+        ulong @callbackData,
+        UniffiForeignFutureStructF32 @result
+    );
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct UniffiForeignFutureStructF64
+    {
+        public double @returnValue;
+        public UniffiRustCallStatus @callStatus;
+    }
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void UniffiForeignFutureCompleteF64(
+        ulong @callbackData,
+        UniffiForeignFutureStructF64 @result
+    );
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct UniffiForeignFutureStructPointer
+    {
+        public IntPtr @returnValue;
+        public UniffiRustCallStatus @callStatus;
+    }
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void UniffiForeignFutureCompletePointer(
+        ulong @callbackData,
+        UniffiForeignFutureStructPointer @result
+    );
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct UniffiForeignFutureStructRustBuffer
+    {
+        public RustBuffer @returnValue;
+        public UniffiRustCallStatus @callStatus;
+    }
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void UniffiForeignFutureCompleteRustBuffer(
+        ulong @callbackData,
+        UniffiForeignFutureStructRustBuffer @result
+    );
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct UniffiForeignFutureStructVoid
+    {
+        public UniffiRustCallStatus @callStatus;
+    }
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void UniffiForeignFutureCompleteVoid(
+        ulong @callbackData,
+        UniffiForeignFutureStructVoid @result
+    );
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void UniffiCallbackInterfaceCalculatorMethod0(
+        ulong @uniffiHandle,
+        byte @digit,
+        IntPtr @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void UniffiCallbackInterfaceCalculatorMethod1(
+        ulong @uniffiHandle,
+        IntPtr @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void UniffiCallbackInterfaceCalculatorMethod2(
+        ulong @uniffiHandle,
+        IntPtr @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void UniffiCallbackInterfaceCalculatorMethod3(
+        ulong @uniffiHandle,
+        ref IntPtr @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void UniffiCallbackInterfaceCalculatorMethod4(
+        ulong @uniffiHandle,
+        IntPtr @rhs,
+        ref sbyte @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void UniffiCallbackInterfaceCalculatorMethod5(
+        ulong @uniffiHandle,
+        ref double @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void UniffiCallbackInterfaceCalculatorMethod6(
+        ulong @uniffiHandle,
+        RustBuffer @op,
+        IntPtr @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void UniffiCallbackInterfaceCalculatorMethod7(
+        ulong @uniffiHandle,
+        IntPtr @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct UniffiVTableCallbackInterfaceCalculator
+    {
+        public IntPtr @addDigit;
+        public IntPtr @applyOp;
+        public IntPtr @backspace;
+        public IntPtr @copy;
+        public IntPtr @eq;
+        public IntPtr @get;
+        public IntPtr @setOp;
+        public IntPtr @toggleDecimal;
+        public IntPtr @uniffiFree;
+    }
+
     static _UniFFILib()
     {
         _UniFFILib.uniffiCheckContractApiVersion();
         _UniFFILib.uniffiCheckApiChecksums();
+
+        UniffiCallbackInterfaceCalculator.Register();
     }
 
     [DllImport("calculator")]
+    public static extern IntPtr uniffi_calculator_rs_fn_clone_calculator(
+        IntPtr @ptr,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+    [DllImport("calculator")]
     public static extern void uniffi_calculator_rs_fn_free_calculator(
-        IntPtr ptr,
-        ref RustCallStatus _uniffi_out_err
+        IntPtr @ptr,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+    [DllImport("calculator")]
+    public static extern void uniffi_calculator_rs_fn_init_callback_vtable_calculator(
+        ref UniffiVTableCallbackInterfaceCalculator @vtable
     );
 
     [DllImport("calculator")]
     public static extern void uniffi_calculator_rs_fn_method_calculator_add_digit(
         IntPtr @ptr,
         byte @digit,
-        ref RustCallStatus _uniffi_out_err
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
     [DllImport("calculator")]
     public static extern void uniffi_calculator_rs_fn_method_calculator_apply_op(
         IntPtr @ptr,
-        ref RustCallStatus _uniffi_out_err
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
     [DllImport("calculator")]
     public static extern void uniffi_calculator_rs_fn_method_calculator_backspace(
         IntPtr @ptr,
-        ref RustCallStatus _uniffi_out_err
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+    [DllImport("calculator")]
+    public static extern IntPtr uniffi_calculator_rs_fn_method_calculator_copy(
+        IntPtr @ptr,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+    [DllImport("calculator")]
+    public static extern sbyte uniffi_calculator_rs_fn_method_calculator_eq(
+        IntPtr @ptr,
+        IntPtr @rhs,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
     [DllImport("calculator")]
     public static extern double uniffi_calculator_rs_fn_method_calculator_get(
         IntPtr @ptr,
-        ref RustCallStatus _uniffi_out_err
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
     [DllImport("calculator")]
     public static extern void uniffi_calculator_rs_fn_method_calculator_set_op(
         IntPtr @ptr,
         RustBuffer @op,
-        ref RustCallStatus _uniffi_out_err
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
     [DllImport("calculator")]
     public static extern void uniffi_calculator_rs_fn_method_calculator_toggle_decimal(
         IntPtr @ptr,
-        ref RustCallStatus _uniffi_out_err
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+    [DllImport("calculator")]
+    public static extern IntPtr uniffi_calculator_rs_fn_func_new_calc(
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
     [DllImport("calculator")]
     public static extern RustBuffer ffi_calculator_rs_rustbuffer_alloc(
-        int @size,
-        ref RustCallStatus _uniffi_out_err
+        ulong @size,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
     [DllImport("calculator")]
     public static extern RustBuffer ffi_calculator_rs_rustbuffer_from_bytes(
         ForeignBytes @bytes,
-        ref RustCallStatus _uniffi_out_err
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
     [DllImport("calculator")]
     public static extern void ffi_calculator_rs_rustbuffer_free(
         RustBuffer @buf,
-        ref RustCallStatus _uniffi_out_err
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
     [DllImport("calculator")]
     public static extern RustBuffer ffi_calculator_rs_rustbuffer_reserve(
         RustBuffer @buf,
-        int @additional,
-        ref RustCallStatus _uniffi_out_err
-    );
-
-    [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_continuation_callback_set(
-        IntPtr @callback
+        ulong @additional,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
     [DllImport("calculator")]
     public static extern void ffi_calculator_rs_rust_future_poll_u8(
-        IntPtr @handle,
-        IntPtr @uniffiCallback
+        long @handle,
+        IntPtr @callback,
+        long @callbackData
     );
 
     [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_cancel_u8(IntPtr @handle);
+    public static extern void ffi_calculator_rs_rust_future_cancel_u8(long @handle);
 
     [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_free_u8(IntPtr @handle);
+    public static extern void ffi_calculator_rs_rust_future_free_u8(long @handle);
 
     [DllImport("calculator")]
     public static extern byte ffi_calculator_rs_rust_future_complete_u8(
-        IntPtr @handle,
-        ref RustCallStatus _uniffi_out_err
+        long @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
     [DllImport("calculator")]
     public static extern void ffi_calculator_rs_rust_future_poll_i8(
-        IntPtr @handle,
-        IntPtr @uniffiCallback
+        long @handle,
+        IntPtr @callback,
+        long @callbackData
     );
 
     [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_cancel_i8(IntPtr @handle);
+    public static extern void ffi_calculator_rs_rust_future_cancel_i8(long @handle);
 
     [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_free_i8(IntPtr @handle);
+    public static extern void ffi_calculator_rs_rust_future_free_i8(long @handle);
 
     [DllImport("calculator")]
     public static extern sbyte ffi_calculator_rs_rust_future_complete_i8(
-        IntPtr @handle,
-        ref RustCallStatus _uniffi_out_err
+        long @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
     [DllImport("calculator")]
     public static extern void ffi_calculator_rs_rust_future_poll_u16(
-        IntPtr @handle,
-        IntPtr @uniffiCallback
+        long @handle,
+        IntPtr @callback,
+        long @callbackData
     );
 
     [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_cancel_u16(IntPtr @handle);
+    public static extern void ffi_calculator_rs_rust_future_cancel_u16(long @handle);
 
     [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_free_u16(IntPtr @handle);
+    public static extern void ffi_calculator_rs_rust_future_free_u16(long @handle);
 
     [DllImport("calculator")]
     public static extern ushort ffi_calculator_rs_rust_future_complete_u16(
-        IntPtr @handle,
-        ref RustCallStatus _uniffi_out_err
+        long @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
     [DllImport("calculator")]
     public static extern void ffi_calculator_rs_rust_future_poll_i16(
-        IntPtr @handle,
-        IntPtr @uniffiCallback
+        long @handle,
+        IntPtr @callback,
+        long @callbackData
     );
 
     [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_cancel_i16(IntPtr @handle);
+    public static extern void ffi_calculator_rs_rust_future_cancel_i16(long @handle);
 
     [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_free_i16(IntPtr @handle);
+    public static extern void ffi_calculator_rs_rust_future_free_i16(long @handle);
 
     [DllImport("calculator")]
     public static extern short ffi_calculator_rs_rust_future_complete_i16(
-        IntPtr @handle,
-        ref RustCallStatus _uniffi_out_err
+        long @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
     [DllImport("calculator")]
     public static extern void ffi_calculator_rs_rust_future_poll_u32(
-        IntPtr @handle,
-        IntPtr @uniffiCallback
+        long @handle,
+        IntPtr @callback,
+        long @callbackData
     );
 
     [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_cancel_u32(IntPtr @handle);
+    public static extern void ffi_calculator_rs_rust_future_cancel_u32(long @handle);
 
     [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_free_u32(IntPtr @handle);
+    public static extern void ffi_calculator_rs_rust_future_free_u32(long @handle);
 
     [DllImport("calculator")]
     public static extern uint ffi_calculator_rs_rust_future_complete_u32(
-        IntPtr @handle,
-        ref RustCallStatus _uniffi_out_err
+        long @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
     [DllImport("calculator")]
     public static extern void ffi_calculator_rs_rust_future_poll_i32(
-        IntPtr @handle,
-        IntPtr @uniffiCallback
+        long @handle,
+        IntPtr @callback,
+        long @callbackData
     );
 
     [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_cancel_i32(IntPtr @handle);
+    public static extern void ffi_calculator_rs_rust_future_cancel_i32(long @handle);
 
     [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_free_i32(IntPtr @handle);
+    public static extern void ffi_calculator_rs_rust_future_free_i32(long @handle);
 
     [DllImport("calculator")]
     public static extern int ffi_calculator_rs_rust_future_complete_i32(
-        IntPtr @handle,
-        ref RustCallStatus _uniffi_out_err
+        long @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
     [DllImport("calculator")]
     public static extern void ffi_calculator_rs_rust_future_poll_u64(
-        IntPtr @handle,
-        IntPtr @uniffiCallback
+        long @handle,
+        IntPtr @callback,
+        long @callbackData
     );
 
     [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_cancel_u64(IntPtr @handle);
+    public static extern void ffi_calculator_rs_rust_future_cancel_u64(long @handle);
 
     [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_free_u64(IntPtr @handle);
+    public static extern void ffi_calculator_rs_rust_future_free_u64(long @handle);
 
     [DllImport("calculator")]
     public static extern ulong ffi_calculator_rs_rust_future_complete_u64(
-        IntPtr @handle,
-        ref RustCallStatus _uniffi_out_err
+        long @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
     [DllImport("calculator")]
     public static extern void ffi_calculator_rs_rust_future_poll_i64(
-        IntPtr @handle,
-        IntPtr @uniffiCallback
+        long @handle,
+        IntPtr @callback,
+        long @callbackData
     );
 
     [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_cancel_i64(IntPtr @handle);
+    public static extern void ffi_calculator_rs_rust_future_cancel_i64(long @handle);
 
     [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_free_i64(IntPtr @handle);
+    public static extern void ffi_calculator_rs_rust_future_free_i64(long @handle);
 
     [DllImport("calculator")]
     public static extern long ffi_calculator_rs_rust_future_complete_i64(
-        IntPtr @handle,
-        ref RustCallStatus _uniffi_out_err
+        long @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
     [DllImport("calculator")]
     public static extern void ffi_calculator_rs_rust_future_poll_f32(
-        IntPtr @handle,
-        IntPtr @uniffiCallback
+        long @handle,
+        IntPtr @callback,
+        long @callbackData
     );
 
     [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_cancel_f32(IntPtr @handle);
+    public static extern void ffi_calculator_rs_rust_future_cancel_f32(long @handle);
 
     [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_free_f32(IntPtr @handle);
+    public static extern void ffi_calculator_rs_rust_future_free_f32(long @handle);
 
     [DllImport("calculator")]
     public static extern float ffi_calculator_rs_rust_future_complete_f32(
-        IntPtr @handle,
-        ref RustCallStatus _uniffi_out_err
+        long @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
     [DllImport("calculator")]
     public static extern void ffi_calculator_rs_rust_future_poll_f64(
-        IntPtr @handle,
-        IntPtr @uniffiCallback
+        long @handle,
+        IntPtr @callback,
+        long @callbackData
     );
 
     [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_cancel_f64(IntPtr @handle);
+    public static extern void ffi_calculator_rs_rust_future_cancel_f64(long @handle);
 
     [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_free_f64(IntPtr @handle);
+    public static extern void ffi_calculator_rs_rust_future_free_f64(long @handle);
 
     [DllImport("calculator")]
     public static extern double ffi_calculator_rs_rust_future_complete_f64(
-        IntPtr @handle,
-        ref RustCallStatus _uniffi_out_err
+        long @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
     [DllImport("calculator")]
     public static extern void ffi_calculator_rs_rust_future_poll_pointer(
-        IntPtr @handle,
-        IntPtr @uniffiCallback
+        long @handle,
+        IntPtr @callback,
+        long @callbackData
     );
 
     [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_cancel_pointer(IntPtr @handle);
+    public static extern void ffi_calculator_rs_rust_future_cancel_pointer(long @handle);
 
     [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_free_pointer(IntPtr @handle);
+    public static extern void ffi_calculator_rs_rust_future_free_pointer(long @handle);
 
     [DllImport("calculator")]
     public static extern IntPtr ffi_calculator_rs_rust_future_complete_pointer(
-        IntPtr @handle,
-        ref RustCallStatus _uniffi_out_err
+        long @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
     [DllImport("calculator")]
     public static extern void ffi_calculator_rs_rust_future_poll_rust_buffer(
-        IntPtr @handle,
-        IntPtr @uniffiCallback
+        long @handle,
+        IntPtr @callback,
+        long @callbackData
     );
 
     [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_cancel_rust_buffer(IntPtr @handle);
+    public static extern void ffi_calculator_rs_rust_future_cancel_rust_buffer(long @handle);
 
     [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_free_rust_buffer(IntPtr @handle);
+    public static extern void ffi_calculator_rs_rust_future_free_rust_buffer(long @handle);
 
     [DllImport("calculator")]
     public static extern RustBuffer ffi_calculator_rs_rust_future_complete_rust_buffer(
-        IntPtr @handle,
-        ref RustCallStatus _uniffi_out_err
+        long @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
     [DllImport("calculator")]
     public static extern void ffi_calculator_rs_rust_future_poll_void(
-        IntPtr @handle,
-        IntPtr @uniffiCallback
+        long @handle,
+        IntPtr @callback,
+        long @callbackData
     );
 
     [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_cancel_void(IntPtr @handle);
+    public static extern void ffi_calculator_rs_rust_future_cancel_void(long @handle);
 
     [DllImport("calculator")]
-    public static extern void ffi_calculator_rs_rust_future_free_void(IntPtr @handle);
+    public static extern void ffi_calculator_rs_rust_future_free_void(long @handle);
 
     [DllImport("calculator")]
     public static extern void ffi_calculator_rs_rust_future_complete_void(
-        IntPtr @handle,
-        ref RustCallStatus _uniffi_out_err
+        long @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
+
+    [DllImport("calculator")]
+    public static extern ushort uniffi_calculator_rs_checksum_func_new_calc();
 
     [DllImport("calculator")]
     public static extern ushort uniffi_calculator_rs_checksum_method_calculator_add_digit();
@@ -915,6 +1219,12 @@ static class _UniFFILib
 
     [DllImport("calculator")]
     public static extern ushort uniffi_calculator_rs_checksum_method_calculator_backspace();
+
+    [DllImport("calculator")]
+    public static extern ushort uniffi_calculator_rs_checksum_method_calculator_copy();
+
+    [DllImport("calculator")]
+    public static extern ushort uniffi_calculator_rs_checksum_method_calculator_eq();
 
     [DllImport("calculator")]
     public static extern ushort uniffi_calculator_rs_checksum_method_calculator_get();
@@ -931,10 +1241,10 @@ static class _UniFFILib
     static void uniffiCheckContractApiVersion()
     {
         var scaffolding_contract_version = _UniFFILib.ffi_calculator_rs_uniffi_contract_version();
-        if (24 != scaffolding_contract_version)
+        if (26 != scaffolding_contract_version)
         {
             throw new UniffiContractVersionException(
-                $"uniffi.calc: uniffi bindings expected version `24`, library returned `{scaffolding_contract_version}`"
+                $"uniffi.calc: uniffi bindings expected version `26`, library returned `{scaffolding_contract_version}`"
             );
         }
     }
@@ -942,57 +1252,84 @@ static class _UniFFILib
     static void uniffiCheckApiChecksums()
     {
         {
-            var checksum = _UniFFILib.uniffi_calculator_rs_checksum_method_calculator_add_digit();
-            if (checksum != 3942)
+            var checksum = _UniFFILib.uniffi_calculator_rs_checksum_func_new_calc();
+            if (checksum != 65163)
             {
                 throw new UniffiContractChecksumException(
-                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_rs_checksum_method_calculator_add_digit` checksum `3942`, library returned `{checksum}`"
+                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_rs_checksum_func_new_calc` checksum `65163`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum = _UniFFILib.uniffi_calculator_rs_checksum_method_calculator_add_digit();
+            if (checksum != 45389)
+            {
+                throw new UniffiContractChecksumException(
+                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_rs_checksum_method_calculator_add_digit` checksum `45389`, library returned `{checksum}`"
                 );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_calculator_rs_checksum_method_calculator_apply_op();
-            if (checksum != 20893)
+            if (checksum != 6132)
             {
                 throw new UniffiContractChecksumException(
-                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_rs_checksum_method_calculator_apply_op` checksum `20893`, library returned `{checksum}`"
+                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_rs_checksum_method_calculator_apply_op` checksum `6132`, library returned `{checksum}`"
                 );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_calculator_rs_checksum_method_calculator_backspace();
-            if (checksum != 31520)
+            if (checksum != 6274)
             {
                 throw new UniffiContractChecksumException(
-                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_rs_checksum_method_calculator_backspace` checksum `31520`, library returned `{checksum}`"
+                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_rs_checksum_method_calculator_backspace` checksum `6274`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum = _UniFFILib.uniffi_calculator_rs_checksum_method_calculator_copy();
+            if (checksum != 54553)
+            {
+                throw new UniffiContractChecksumException(
+                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_rs_checksum_method_calculator_copy` checksum `54553`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum = _UniFFILib.uniffi_calculator_rs_checksum_method_calculator_eq();
+            if (checksum != 48962)
+            {
+                throw new UniffiContractChecksumException(
+                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_rs_checksum_method_calculator_eq` checksum `48962`, library returned `{checksum}`"
                 );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_calculator_rs_checksum_method_calculator_get();
-            if (checksum != 16350)
+            if (checksum != 14305)
             {
                 throw new UniffiContractChecksumException(
-                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_rs_checksum_method_calculator_get` checksum `16350`, library returned `{checksum}`"
+                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_rs_checksum_method_calculator_get` checksum `14305`, library returned `{checksum}`"
                 );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_calculator_rs_checksum_method_calculator_set_op();
-            if (checksum != 61801)
+            if (checksum != 22430)
             {
                 throw new UniffiContractChecksumException(
-                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_rs_checksum_method_calculator_set_op` checksum `61801`, library returned `{checksum}`"
+                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_rs_checksum_method_calculator_set_op` checksum `22430`, library returned `{checksum}`"
                 );
             }
         }
         {
             var checksum =
                 _UniFFILib.uniffi_calculator_rs_checksum_method_calculator_toggle_decimal();
-            if (checksum != 23133)
+            if (checksum != 53455)
             {
                 throw new UniffiContractChecksumException(
-                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_rs_checksum_method_calculator_toggle_decimal` checksum `23133`, library returned `{checksum}`"
+                    $"uniffi.calc: uniffi bindings expected function `uniffi_calculator_rs_checksum_method_calculator_toggle_decimal` checksum `53455`, library returned `{checksum}`"
                 );
             }
         }
@@ -1066,6 +1403,36 @@ class FfiConverterDouble : FfiConverter<double, double>
     }
 }
 
+class FfiConverterBoolean : FfiConverter<bool, sbyte>
+{
+    public static FfiConverterBoolean INSTANCE = new FfiConverterBoolean();
+
+    public override bool Lift(sbyte value)
+    {
+        return value != 0;
+    }
+
+    public override bool Read(BigEndianStream stream)
+    {
+        return Lift(stream.ReadSByte());
+    }
+
+    public override sbyte Lower(bool value)
+    {
+        return value ? (sbyte)1 : (sbyte)0;
+    }
+
+    public override int AllocationSize(bool value)
+    {
+        return (sbyte)1;
+    }
+
+    public override void Write(bool value, BigEndianStream stream)
+    {
+        stream.WriteSByte(Lower(value));
+    }
+}
+
 class FfiConverterString : FfiConverter<string, RustBuffer>
 {
     public static FfiConverterString INSTANCE = new FfiConverterString();
@@ -1077,7 +1444,7 @@ class FfiConverterString : FfiConverter<string, RustBuffer>
     {
         try
         {
-            var bytes = value.AsStream().ReadBytes(value.len);
+            var bytes = value.AsStream().ReadBytes(Convert.ToInt32(value.len));
             return System.Text.Encoding.UTF8.GetString(bytes);
         }
         finally
@@ -1108,7 +1475,7 @@ class FfiConverterString : FfiConverter<string, RustBuffer>
     public override int AllocationSize(string value)
     {
         const int sizeForLength = 4;
-        var sizeForString = value.Length * 3;
+        var sizeForString = System.Text.Encoding.UTF8.GetByteCount(value);
         return sizeForLength + sizeForString;
     }
 
@@ -1133,6 +1500,7 @@ internal abstract class FFIObject : IDisposable
     }
 
     protected abstract void FreeRustArcPtr();
+    protected abstract IntPtr CloneRustArcPtr();
 
     public void Destroy()
     {
@@ -1191,7 +1559,7 @@ internal abstract class FFIObject : IDisposable
         IncrementCallCounter();
         try
         {
-            action(this.pointer);
+            action(CloneRustArcPtr());
         }
         finally
         {
@@ -1204,7 +1572,7 @@ internal abstract class FFIObject : IDisposable
         IncrementCallCounter();
         try
         {
-            return func(this.pointer);
+            return func(CloneRustArcPtr());
         }
         finally
         {
@@ -1213,27 +1581,42 @@ internal abstract class FFIObject : IDisposable
     }
 }
 
-internal interface ICalculator
+internal interface Calculator
 {
     void AddDigit(byte @digit);
     void ApplyOp();
     void Backspace();
+    Calculator Copy();
+    bool Eq(Calculator @rhs);
     double Get();
     void SetOp(CalcOp @op);
     void ToggleDecimal();
 }
 
-internal class Calculator : FFIObject, ICalculator
+internal class CalculatorImpl : FFIObject, Calculator
 {
-    public Calculator(IntPtr pointer)
+    public CalculatorImpl(IntPtr pointer)
         : base(pointer) { }
 
     protected override void FreeRustArcPtr()
     {
         _UniffiHelpers.RustCall(
-            (ref RustCallStatus status) =>
+            (ref UniffiRustCallStatus status) =>
             {
                 _UniFFILib.uniffi_calculator_rs_fn_free_calculator(this.pointer, ref status);
+            }
+        );
+    }
+
+    protected override IntPtr CloneRustArcPtr()
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.uniffi_calculator_rs_fn_clone_calculator(
+                    this.pointer,
+                    ref status
+                );
             }
         );
     }
@@ -1242,7 +1625,7 @@ internal class Calculator : FFIObject, ICalculator
     {
         CallWithPointer(thisPtr =>
             _UniffiHelpers.RustCall(
-                (ref RustCallStatus _status) =>
+                (ref UniffiRustCallStatus _status) =>
                     _UniFFILib.uniffi_calculator_rs_fn_method_calculator_add_digit(
                         thisPtr,
                         FfiConverterUInt8.INSTANCE.Lower(@digit),
@@ -1256,7 +1639,7 @@ internal class Calculator : FFIObject, ICalculator
     {
         CallWithPointer(thisPtr =>
             _UniffiHelpers.RustCall(
-                (ref RustCallStatus _status) =>
+                (ref UniffiRustCallStatus _status) =>
                     _UniFFILib.uniffi_calculator_rs_fn_method_calculator_apply_op(
                         thisPtr,
                         ref _status
@@ -1269,11 +1652,42 @@ internal class Calculator : FFIObject, ICalculator
     {
         CallWithPointer(thisPtr =>
             _UniffiHelpers.RustCall(
-                (ref RustCallStatus _status) =>
+                (ref UniffiRustCallStatus _status) =>
                     _UniFFILib.uniffi_calculator_rs_fn_method_calculator_backspace(
                         thisPtr,
                         ref _status
                     )
+            )
+        );
+    }
+
+    public Calculator Copy()
+    {
+        return CallWithPointer(thisPtr =>
+            FfiConverterTypeCalculator.INSTANCE.Lift(
+                _UniffiHelpers.RustCall(
+                    (ref UniffiRustCallStatus _status) =>
+                        _UniFFILib.uniffi_calculator_rs_fn_method_calculator_copy(
+                            thisPtr,
+                            ref _status
+                        )
+                )
+            )
+        );
+    }
+
+    public bool Eq(Calculator @rhs)
+    {
+        return CallWithPointer(thisPtr =>
+            FfiConverterBoolean.INSTANCE.Lift(
+                _UniffiHelpers.RustCall(
+                    (ref UniffiRustCallStatus _status) =>
+                        _UniFFILib.uniffi_calculator_rs_fn_method_calculator_eq(
+                            thisPtr,
+                            FfiConverterTypeCalculator.INSTANCE.Lower(@rhs),
+                            ref _status
+                        )
+                )
             )
         );
     }
@@ -1283,7 +1697,7 @@ internal class Calculator : FFIObject, ICalculator
         return CallWithPointer(thisPtr =>
             FfiConverterDouble.INSTANCE.Lift(
                 _UniffiHelpers.RustCall(
-                    (ref RustCallStatus _status) =>
+                    (ref UniffiRustCallStatus _status) =>
                         _UniFFILib.uniffi_calculator_rs_fn_method_calculator_get(
                             thisPtr,
                             ref _status
@@ -1297,7 +1711,7 @@ internal class Calculator : FFIObject, ICalculator
     {
         CallWithPointer(thisPtr =>
             _UniffiHelpers.RustCall(
-                (ref RustCallStatus _status) =>
+                (ref UniffiRustCallStatus _status) =>
                     _UniFFILib.uniffi_calculator_rs_fn_method_calculator_set_op(
                         thisPtr,
                         FfiConverterTypeCalcOp.INSTANCE.Lower(@op),
@@ -1311,7 +1725,7 @@ internal class Calculator : FFIObject, ICalculator
     {
         CallWithPointer(thisPtr =>
             _UniffiHelpers.RustCall(
-                (ref RustCallStatus _status) =>
+                (ref UniffiRustCallStatus _status) =>
                     _UniFFILib.uniffi_calculator_rs_fn_method_calculator_toggle_decimal(
                         thisPtr,
                         ref _status
@@ -1321,18 +1735,270 @@ internal class Calculator : FFIObject, ICalculator
     }
 }
 
+class UniffiCallbackInterfaceCalculator
+{
+    static void AddDigit(
+        ulong @uniffiHandle,
+        byte @digit,
+        IntPtr @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    )
+    {
+        var handle = @uniffiHandle;
+        if (FfiConverterTypeCalculator.INSTANCE.handleMap.TryGet(handle, out var uniffiObject))
+        {
+            uniffiObject.AddDigit(FfiConverterUInt8.INSTANCE.Lift(@digit));
+        }
+        else
+        {
+            throw new InternalException($"No callback in handlemap '{handle}'");
+        }
+    }
+
+    static void ApplyOp(
+        ulong @uniffiHandle,
+        IntPtr @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    )
+    {
+        var handle = @uniffiHandle;
+        if (FfiConverterTypeCalculator.INSTANCE.handleMap.TryGet(handle, out var uniffiObject))
+        {
+            uniffiObject.ApplyOp();
+        }
+        else
+        {
+            throw new InternalException($"No callback in handlemap '{handle}'");
+        }
+    }
+
+    static void Backspace(
+        ulong @uniffiHandle,
+        IntPtr @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    )
+    {
+        var handle = @uniffiHandle;
+        if (FfiConverterTypeCalculator.INSTANCE.handleMap.TryGet(handle, out var uniffiObject))
+        {
+            uniffiObject.Backspace();
+        }
+        else
+        {
+            throw new InternalException($"No callback in handlemap '{handle}'");
+        }
+    }
+
+    static void Copy(
+        ulong @uniffiHandle,
+        ref IntPtr @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    )
+    {
+        var handle = @uniffiHandle;
+        if (FfiConverterTypeCalculator.INSTANCE.handleMap.TryGet(handle, out var uniffiObject))
+        {
+            var result = uniffiObject.Copy();
+            @uniffiOutReturn = FfiConverterTypeCalculator.INSTANCE.Lower(result);
+        }
+        else
+        {
+            throw new InternalException($"No callback in handlemap '{handle}'");
+        }
+    }
+
+    static void Eq(
+        ulong @uniffiHandle,
+        IntPtr @rhs,
+        ref sbyte @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    )
+    {
+        var handle = @uniffiHandle;
+        if (FfiConverterTypeCalculator.INSTANCE.handleMap.TryGet(handle, out var uniffiObject))
+        {
+            var result = uniffiObject.Eq(FfiConverterTypeCalculator.INSTANCE.Lift(@rhs));
+            @uniffiOutReturn = FfiConverterBoolean.INSTANCE.Lower(result);
+        }
+        else
+        {
+            throw new InternalException($"No callback in handlemap '{handle}'");
+        }
+    }
+
+    static void Get(
+        ulong @uniffiHandle,
+        ref double @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    )
+    {
+        var handle = @uniffiHandle;
+        if (FfiConverterTypeCalculator.INSTANCE.handleMap.TryGet(handle, out var uniffiObject))
+        {
+            var result = uniffiObject.Get();
+            @uniffiOutReturn = FfiConverterDouble.INSTANCE.Lower(result);
+        }
+        else
+        {
+            throw new InternalException($"No callback in handlemap '{handle}'");
+        }
+    }
+
+    static void SetOp(
+        ulong @uniffiHandle,
+        RustBuffer @op,
+        IntPtr @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    )
+    {
+        var handle = @uniffiHandle;
+        if (FfiConverterTypeCalculator.INSTANCE.handleMap.TryGet(handle, out var uniffiObject))
+        {
+            uniffiObject.SetOp(FfiConverterTypeCalcOp.INSTANCE.Lift(@op));
+        }
+        else
+        {
+            throw new InternalException($"No callback in handlemap '{handle}'");
+        }
+    }
+
+    static void ToggleDecimal(
+        ulong @uniffiHandle,
+        IntPtr @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    )
+    {
+        var handle = @uniffiHandle;
+        if (FfiConverterTypeCalculator.INSTANCE.handleMap.TryGet(handle, out var uniffiObject))
+        {
+            uniffiObject.ToggleDecimal();
+        }
+        else
+        {
+            throw new InternalException($"No callback in handlemap '{handle}'");
+        }
+    }
+
+    static void UniffiFree(ulong @handle)
+    {
+        FfiConverterTypeCalculator.INSTANCE.handleMap.Remove(@handle);
+    }
+
+    static _UniFFILib.UniffiCallbackInterfaceCalculatorMethod0 _m0 =
+        new _UniFFILib.UniffiCallbackInterfaceCalculatorMethod0(AddDigit);
+    static _UniFFILib.UniffiCallbackInterfaceCalculatorMethod1 _m1 =
+        new _UniFFILib.UniffiCallbackInterfaceCalculatorMethod1(ApplyOp);
+    static _UniFFILib.UniffiCallbackInterfaceCalculatorMethod2 _m2 =
+        new _UniFFILib.UniffiCallbackInterfaceCalculatorMethod2(Backspace);
+    static _UniFFILib.UniffiCallbackInterfaceCalculatorMethod3 _m3 =
+        new _UniFFILib.UniffiCallbackInterfaceCalculatorMethod3(Copy);
+    static _UniFFILib.UniffiCallbackInterfaceCalculatorMethod4 _m4 =
+        new _UniFFILib.UniffiCallbackInterfaceCalculatorMethod4(Eq);
+    static _UniFFILib.UniffiCallbackInterfaceCalculatorMethod5 _m5 =
+        new _UniFFILib.UniffiCallbackInterfaceCalculatorMethod5(Get);
+    static _UniFFILib.UniffiCallbackInterfaceCalculatorMethod6 _m6 =
+        new _UniFFILib.UniffiCallbackInterfaceCalculatorMethod6(SetOp);
+    static _UniFFILib.UniffiCallbackInterfaceCalculatorMethod7 _m7 =
+        new _UniFFILib.UniffiCallbackInterfaceCalculatorMethod7(ToggleDecimal);
+    static _UniFFILib.UniffiCallbackInterfaceFree _callback_interface_free =
+        new _UniFFILib.UniffiCallbackInterfaceFree(UniffiFree);
+
+    public static _UniFFILib.UniffiVTableCallbackInterfaceCalculator _vtable =
+        new _UniFFILib.UniffiVTableCallbackInterfaceCalculator
+        {
+            @addDigit = Marshal.GetFunctionPointerForDelegate(_m0),
+            @applyOp = Marshal.GetFunctionPointerForDelegate(_m1),
+            @backspace = Marshal.GetFunctionPointerForDelegate(_m2),
+            @copy = Marshal.GetFunctionPointerForDelegate(_m3),
+            @eq = Marshal.GetFunctionPointerForDelegate(_m4),
+            @get = Marshal.GetFunctionPointerForDelegate(_m5),
+            @setOp = Marshal.GetFunctionPointerForDelegate(_m6),
+            @toggleDecimal = Marshal.GetFunctionPointerForDelegate(_m7),
+            @uniffiFree = Marshal.GetFunctionPointerForDelegate(_callback_interface_free),
+        };
+
+    public static void Register()
+    {
+        _UniFFILib.uniffi_calculator_rs_fn_init_callback_vtable_calculator(
+            ref UniffiCallbackInterfaceCalculator._vtable
+        );
+    }
+}
+
+class ConcurrentHandleMap<T>
+    where T : notnull
+{
+    Dictionary<ulong, T> map = new Dictionary<ulong, T>();
+
+    Object lock_ = new Object();
+    ulong currentHandle = 0;
+
+    public ulong Insert(T obj)
+    {
+        lock (lock_)
+        {
+            currentHandle += 1;
+            map[currentHandle] = obj;
+            return currentHandle;
+        }
+    }
+
+    public bool TryGet(ulong handle, out T result)
+    {
+        lock (lock_)
+        {
+#pragma warning disable 8601 // Possible null reference assignment
+            return map.TryGetValue(handle, out result);
+#pragma warning restore 8601
+        }
+    }
+
+    public bool Remove(ulong handle)
+    {
+        return Remove(handle, out T result);
+    }
+
+    public bool Remove(ulong handle, out T result)
+    {
+        lock (lock_)
+        {
+            // Possible null reference assignment
+#pragma warning disable 8601
+            if (map.TryGetValue(handle, out result))
+            {
+#pragma warning restore 8601
+                map.Remove(handle);
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+    }
+}
+
+static class UniffiCallbackResponseStatus
+{
+    public static sbyte SUCCESS = 0;
+    public static sbyte ERROR = 1;
+    public static sbyte UNEXPECTED_ERROR = 2;
+}
+
 class FfiConverterTypeCalculator : FfiConverter<Calculator, IntPtr>
 {
+    public ConcurrentHandleMap<Calculator> handleMap = new ConcurrentHandleMap<Calculator>();
+
     public static FfiConverterTypeCalculator INSTANCE = new FfiConverterTypeCalculator();
 
     public override IntPtr Lower(Calculator value)
     {
-        return value.CallWithPointer(thisPtr => thisPtr);
+        return (IntPtr)handleMap.Insert(value);
     }
 
     public override Calculator Lift(IntPtr value)
     {
-        return new Calculator(value);
+        return new CalculatorImpl(value);
     }
 
     public override Calculator Read(BigEndianStream stream)
@@ -1398,4 +2064,15 @@ class FfiConverterTypeCalcOp : FfiConverterRustBuffer<CalcOp>
 }
 
 #pragma warning restore 8625
-internal static class CalcMethods { }
+internal static class CalcMethods
+{
+    public static Calculator NewCalc()
+    {
+        return FfiConverterTypeCalculator.INSTANCE.Lift(
+            _UniffiHelpers.RustCall(
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_calculator_rs_fn_func_new_calc(ref _status)
+            )
+        );
+    }
+}
