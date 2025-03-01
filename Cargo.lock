@@ -2783,7 +2783,7 @@ dependencies = [
 
 [[package]]
 name = "uniffi-alicorn"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "cargo_metadata",
@@ -2796,7 +2796,7 @@ dependencies = [
 
 [[package]]
 name = "uniffi-bindgen-alicorn"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "camino",
@@ -2819,7 +2819,7 @@ dependencies = [
 
 [[package]]
 name = "uniffi-build-alicorn"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "camino",
@@ -2828,7 +2828,7 @@ dependencies = [
 
 [[package]]
 name = "uniffi-macros-alicorn"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "camino",
  "fs-err",
