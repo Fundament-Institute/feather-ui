@@ -506,7 +506,7 @@ let buttons = do
 let windowmaker = lambda (store : host-unit, appstate : calculator-state) # : (store : host-unit, window : Component)
 	let components = host-array-imap
 		buttons
-		lambda (i : host-number, btn : wrapped(tuple-type(str : host-string, cb : calc-callback, color : host-array-type(host-number))))
+		lambda (i : host-number, btn : wrapped(tuple(str : host-string, cb : calc-callback, color : host-array-type(host-number))))
 			let (str, cb, color) = unwrap(btn)
 			let x = i % ROW_COUNT
 			let y = (i / ROW_COUNT) + 1
