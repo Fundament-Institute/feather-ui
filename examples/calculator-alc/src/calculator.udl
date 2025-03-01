@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+
+enum CalcOp {
+  "None",
+  "Add",
+  "Sub",
+  "Mul",
+  "Div",
+  "Mod",
+  "Pow",
+  "Square",
+  "Sqrt",
+  "Inv", 
+  "Negate",
+  "Clear",
+};
+
+[Trait, WithForeign]
+interface Calculator {
+  Calculator copy();
+  boolean eq(Calculator rhs);
+  Calculator add_digit(u8 digit);
+  Calculator backspace();
+  Calculator apply_op();
+  Calculator set_op(CalcOp op);
+  Calculator toggle_decimal();
+  double get();
+};
+
+namespace calc {
+  Calculator register();
+};

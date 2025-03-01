@@ -164,10 +164,24 @@ fn create_button(
         URect,
         String,
         Slot,
+        [f32; 4],
         Option<BoxedOutline<simple::Simple>>,
     ),
 ) -> mlua::Result<BoxedOutline<Basic>> {
     let id = Rc::new(args.0);
+    let rect = RoundRect::<()> {
+        id: SourceID {
+            parent: Some(id.clone()),
+            id: DataID::Named("__internal_rect__"),
+        }
+        .into(),
+        fill: args.4.into(),
+        corners: Vec4::broadcast(10.0),
+        props: (),
+        rect: crate::FILL_URECT,
+        ..Default::default()
+    };
+
     let text = Text::<()> {
         id: SourceID {
             parent: Some(id.clone()),
@@ -183,7 +197,8 @@ fn create_button(
 
     let mut children: im::Vector<Option<Box<OutlineFrom<simple::Simple>>>> = im::Vector::new();
     children.push_back(Some(Box::new(text)));
-    if let Some(x) = args.4 {
+    children.push_back(Some(Box::new(rect)));
+    if let Some(x) = args.5 {
         children.push_back(Some(x.0));
     }
 
@@ -297,7 +312,12 @@ impl FnPersist<AppState, im::HashMap<Rc<SourceID>, Option<Window>>> for LuaApp {
 // These all map lua functions to rust code that creates the necessary rust objects and returns them inside lua userdata.
 pub fn init_environment(lua: &Lua, tab: &mut mlua::Table) -> mlua::Result<()> {
     tab.set("create_id", lua.create_function(create_id)?)?;
-    tab.set("get_appdata_id", lua.create_function(get_appdata_id)?)?;
+    tab.set(
+        "get_appdata_id",
+        lua.create_function(|_: &Lua, (): ()| -> mlua::Result<LuaSourceID> {
+            Ok(crate::APP_SOURCE_ID)
+        })?,
+    )?;
     tab.set("create_slot", lua.create_function(create_slot)?)?;
     tab.set("create_urect", lua.create_function(create_urect)?)?;
     tab.set("create_window", lua.create_function(create_window)?)?;
