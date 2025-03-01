@@ -1,32 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-let host-number-to-string = intrinsic "return function(a) return tostring(a) end" :
+let host-number-to-string = intrinsic "return function(a) print('NUM: ' .. tostring(a)) return tostring(a) end" :
 	host-func-type ((a : host-number)) -> ((c : host-string))
-
-let host-array-imap = lambda_curry (Tin : host-type, Tout : host-type)
-	let inner = intrinsic
-		""""
-			return function(arr, f)
-				local res = {}
-				for i = 1, #arr do
-					res[i] = f(i, arr[i])
-				end
-				return res
-			end
-		:
-		host-func-type (arr : host-array-type(Tin), f : (host-func-type (i : host-number, x : Tin) -> ((y : Tout)))) -> ((res : host-array-type(Tout)))
-	lambda (arr : host-array-type(Tin), f : (forall (i : host-number, x : Tin) -> (y : Tout)))
-		let f-inner = lambda (i : host-number, x : Tin)
-			tuple-of-implicit(f(i, x))
-		let (res) = inner(arr, func-to-host-func(f-inner))
-		res
-
-let host-array-map = lambda_curry (Tin  : host-type, Tout : host-type)
-	lambda (arr : host-array-type(Tin), f  : (forall ((x  : Tin)) ->  (y  : Tout)))
-		let f-inner = lambda (i : host-number, x : Tin)
-			f(x)
-		host-array-imap(arr, f-inner)
 
 ############# SHADER DEFINITIONS
 
@@ -98,7 +74,7 @@ let rect-frag-shader = lambda (pos : wgpu-vec2, PosDim : wgpu-vec4, DimBorderBlu
 	let premultiply-fill = mk-vec4(Fill-r * Fill-a * s, Fill-g * Fill-a * s, Fill-b * Fill-a * s, Fill-a * s)
 	let premultiply-outline = mk-vec4(Outline-r * Outline-a * c, Outline-g * Outline-a * c, Outline-b * Outline-a * c, Outline-a * c)
 	let output = add-vec4(premultiply-fill, premultiply-outline)
-	tuple-of-implicit(output)
+	tuple-of(output)
 
 let (rect-frag-shader-string) = wgpu-print-frag-shader(wrap(rect-frag-shader), host-nil)
 
@@ -128,7 +104,7 @@ let triangle-frag-shader = lambda (pos : wgpu-vec2, PosDim : wgpu-vec4, DimBorde
 	let fill-alpha = mul-vec4(mk-vec4(Fill-r, Fill-g, Fill-b, 1.0), mk-vec4-float(Fill-a * s))
 	let outline-alpha = mul-vec4(mk-vec4(Outline-r, Outline-g, Outline-b, 1.0), mk-vec4-float(Outline-a * clamp(alpha - s,0.0,1.0)))
 	let output = add-vec4(fill-alpha, outline-alpha)
-	tuple-of-implicit(output)
+	tuple-of(output)
 
 let (tri-frag-shader-string) = wgpu-print-frag-shader(wrap(triangle-frag-shader), host-nil)
 
@@ -160,7 +136,7 @@ let circle-frag-shader = lambda (pos : wgpu-vec2, PosDim : wgpu-vec4, DimBorderB
 	let fill-alpha = mul-vec4(mk-vec4(Fill-r, Fill-g, Fill-b, 1.0), mk-vec4-float(Fill-a * s))
 	let outline-alpha = mul-vec4(mk-vec4(Outline-r, Outline-g, Outline-b, 1.0), mk-vec4-float(Outline-a * clamp(alpha - s, 0.0, 1.0)))
 	let output = add-vec4(fill-alpha, outline-alpha)
-	tuple-of-implicit(output)
+	tuple-of(output)
 
 let (circle-frag-shader-string) = wgpu-print-frag-shader(wrap(circle-frag-shader), host-nil)
 
@@ -278,17 +254,19 @@ let create-region =
 	---@param text string
 	---@param onclick EventHandler
 	---@param background Component
+	---@param color [f32; 4]
 	---@return Component
-	function create_button(area, text, onclick, background) end
+	function create_button(area, text, onclick, background, color) end
 let create-button-bind =
 	intrinsic
 		"return create_button"
 		:
-		host-func-type (id : FeatherID, area : URect, text : string, onclick : EventHandler) -> ((res : Component))
+		host-func-type (id : FeatherID, area : URect, text : string, onclick : EventHandler, color : host-array-type(host-number)) -> ((res : Component))
 let create-button =
-	lambda (id : FeatherID, area : URect, text : string, onclick : EventHandler)
-		let (res) = create-button-bind(id, area, text, onclick)
+	lambda (id : FeatherID, area : URect, text : string, onclick : EventHandler, color : host-array-type(host-number))
+		let (res) = create-button-bind(id, area, text, onclick, color)
 		res
+
 ####
 	---@param area URect
 	---@param text string
@@ -359,172 +337,99 @@ let get-appdata-id =
 # Alicorn(windowmaker) -> Lua(Alicorn(windowmaker)) -> mlua -> Rust(Lua(Alicorn(windowmaker))) -> [helper rust function that calls Rust(Lua(Alicorn(windowmaker)))]
 
 # This is the signature for the "windowmaker" function
-let windowsig = host-func-type (store : host-unit, appstate : calculator-state) -> (store : host-unit, window : Component)
+let windowsig = host-func-type (store : host-unit, appstate : calculator-type) -> (store : host-unit, window : Component)
 # this is the signature for the "init" function
 let initsig = host-func-type () -> ((res : host-unit))
 # This is the function for the "onclick" function
-let onclicksig = host-func-type (dispatch : host-unit, state : calculator-state) -> ((result : calculator-state))
+let onclicksig = host-func-type (dispatch : host-unit, state : calculator-type) -> ((result : calculator-type))
 
 let uidesc = tuple-desc(
 	window : windowsig,
 	init : initsig,
-	onclick :  onclicksig)
+	state : calculator-type,
+	onclick1 :  onclicksig,
+	onclick2 :  onclicksig,
+	onclick3 :  onclicksig,
+	onclickplus :  onclicksig,
+	onclickeq :  onclicksig)
 
 let CLEAR_COLOR = make-host-array(4) 0.8 0.3 0.3 1.0
 let OP_COLOR = make-host-array(4) 0.3 0.3 0.3 0.7
 let NUM_COLOR = make-host-array(4) 0.3 0.3 0.3 1.0
 let EQ_COLOR = make-host-array(4) 0.3 0.8 0.3 1.0
+let ROW_COUNT = 4
 
-let buttons = do
-	let btn = lambda (name : host-string, cb : calc-callback, color : host-array-type(host-number))
-		wrap(tuple-of-implicit(name, cb, color))
-	make-host-array(24)
-		btn
-			"C"
-			lambda (calc : calculator-state)
-				calc.set_op(CalcOp.Clear)
-			CLEAR_COLOR
-		btn
-			"x²"
-			lambda (calc: calculator-state)
-				calc.set_op(CalcOp.Square)
-			OP_COLOR
-		btn
-			"√x"
-			lambda (calc : calculator-state)
-				calc.set_op(CalcOp.Sqrt)
-			OP_COLOR
-		btn
-			"←"
-			lambda (calc : calculator-state)
-				calc.backspace()
-				OP_COLOR
-		btn
-			"yˣ"
-			lambda (calc : calculator-state)
-				calc.set_op(CalcOp.Pow)
-			OP_COLOR
-		btn
-			"¹∕ₓ"
-			lambda (calc : calculator-state)
-				calc.set_op(CalcOp.Inv)
-			OP_COLOR
-		btn
-			"%"
-			lambda (calc : calculator-state)
-				calc.set_op(CalcOp.Mod)
-			OP_COLOR
-		btn
-			"÷"
-			lambda (calc : calculator-state)
-				calc.set_op(CalcOp.Div)
-			OP_COLOR
-		btn
-			"7"
-			lambda (calc  : calculator-state)
-				calc.add_digit(7)
-			NUM_COLOR
-		btn
-			"8"
-			lambda (calc : calculator-state)
-				calc.add_digit(8)
-			NUM_COLOR
-		btn
-			"9"
-			lambda (calc : calculator-state)
-				calc.add_digit(9)
-			NUM_COLOR
-		btn
-			"×"
-			lambda (calc : calculator-state)
-				calc.set_op(CalcOp.Mul)
-			OP_COLOR
-		btn
-			"4"
-			lambda (calc : calculator-state)
-				calc.add_digit(4)
-			NUM_COLOR
-		btn
-			"5"
-			lambda (calc : calculator-state)
-				calc.add_digit(5)
-			NUM_COLOR
-		btn
-			"6"
-			lambda (calc : calculator-state)
-				calc.add_digit(6)
-			NUM_COLOR
-		btn
-			"−"
-			lambda (calc : calculator-state)
-				calc.set_op(CalcOp.Sub)
-			OP_COLOR
-		btn
-			"1"
-			lambda (calc : calculator-state)
-				calc.add_digit(1)
-			NUM_COLOR
-		btn
-			"2"
-			lambda (calc : calculator-state)
-				calc.add_digit(2)
-			NUM_COLOR
-		btn
-			"3"
-			lambda (calc : calculator-state)
-				calc.add_digit(3)
-			NUM_COLOR
-		btn
-			"+"
-			lambda (calc : calculator-state)
-				calc.set_op(CalcOp.Add)
-			OP_COLOR
-		btn
-			"⁺∕₋"
-			lambda (calc : calculator-state)
-				calc.set_op(CalcOp.Negate)
-			OP_COLOR
-		btn
-			"0"
-			lambda (calc : calculator-state)
-				calc.add_digit(0)
-			NUM_COLOR
-		btn
-			"."
-			lambda (calc : calculator-state)
-				calc.toggle_decimal()
-			OP_COLOR
-		btn
-			"="
-			lambda (calc : calculator-state)
-				calc.apply_op()
-			EQ_COLOR
+# let make-button = lambda (i : host-number, x : host-number, y : host-number, txt : host-string, color : host-array-type(host-number))
+# 	let btn-rect = create-urect(4, 4, -4, -4, x, y, x + 0.25, y + 0.142857)
+# 	create-button(create-id("button"), btn-rect, txt, create-slot(get-appdata-id(), i), color)
 
 # This is our main function that must satisfy the App::Call() trait in Rust. This means it must return two things: a persistent
 # store (currently unused), and our final assembled Window component. For convenience, we assemble the rest of our layout inside
 # this function and add it directly to our window.
-let windowmaker = lambda (store : host-unit, appstate : calculator-state) # : (store : host-unit, window : Component)
-	let components = host-array-imap
-		buttons
-		lambda (i : host-number, btn : wrapped(tuple(str : host-string, cb : calc-callback, color : host-array-type(host-number))))
-			let (str, cb, color) = unwrap(btn)
-			let x = i % ROW_COUNT
-			let y = (i / ROW_COUNT) + 1
-			let w = 1.0 / ROW_COUNT
-			let h = 1.0 / 7.0
-			let rect = urect(4, 4, -4, -4, w * x, h * y, w * (x + 1), h * (y + 1))
-			create-button(create-id(host-string-concat("button.", str)), rect, str, create-slot(get-appdata-id(), i))
-
+let windowmaker = lambda (store : host-unit, appstate : calculator-type) # : (store : host-unit, window : Component)
+	let (curnum) = uniffi-alicorn-calc-host-method-get(appstate)
+	let (disp) = host-number-to-string(curnum)
+	let urect-label = create-urect(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0)
+	let components = host-array-new(Component)
+	let components = host-array-set(components, 6, create-label(create-id("hello-label"), create-urect(4, 4, -4, -4, 0, 0, 1.0, 0.142857), disp))
+	let components = host-array-set(components, 1, create-button(create-id("button-1"), create-urect(4, 4, -4, -4, 0, 0.142857, 0.25, 0.285714), "1", create-slot(get-appdata-id(), 0), NUM_COLOR))
+	let components = host-array-set(components, 2, create-button(create-id("button-2"), create-urect(4, 4, -4, -4, 0.25, 0.142857, 0.5, 0.285714), "2", create-slot(get-appdata-id(), 1), NUM_COLOR))
+	let components = host-array-set(components, 3, create-button(create-id("button-3"), create-urect(4, 4, -4, -4, 0.5, 0.142857, 0.75, 0.285714), "3", create-slot(get-appdata-id(), 2), NUM_COLOR))
+	let components = host-array-set(components, 4, create-button(create-id("button-4"), create-urect(4, 4, -4, -4, 0.75, 0.142857, 1.0, 0.285714), "+", create-slot(get-appdata-id(), 3), OP_COLOR))
+	let components = host-array-set(components, 5, create-button(create-id("button-5"), create-urect(4, 4, -4, -4, 0, 0.285714, 0.25, 0.428571), "=", create-slot(get-appdata-id(), 4), EQ_COLOR))
+	#let components = host-array-set(components, 6, create-button(create-id("button-6"), create-urect(4, 4, -4, -4, 0, 0.285714, 0.25, 0.428571), "¹∕ₓ", create-slot(get-appdata-id(), 5), OP_COLOR))
+	#let components = host-array-set(components, 7, create-button(create-id("button-7"), create-urect(4, 4, -4, -4, 0, 0.285714, 0.25, 0.428571), "%", create-slot(get-appdata-id(), 6), OP_COLOR))
+	#let components = host-array-set(components, 8, create-button(create-id("button-8"), create-urect(4, 4, -4, -4, 0, 0.285714, 0.25, 0.428571), "÷", create-slot(get-appdata-id(), 7), OP_COLOR))
+	#let components = host-array-set(components, 9, create-button(create-id("button-9"), create-urect(4, 4, -4, -4, 0, 0.285714, 0.25, 0.428571), "7", create-slot(get-appdata-id(), 8), NUM_COLOR))
+	#let components = host-array-set(components, 10, create-button(create-id("button-10"), create-urect(4, 4, -4, -4, 0, 0.285714, 0.25, 0.428571), "8", create-slot(get-appdata-id(), 9), NUM_COLOR))
+	#let components = host-array-set(components, 11, create-button(create-id("button-11"), create-urect(4, 4, -4, -4, 0, 0.285714, 0.25, 0.428571), "9", create-slot(get-appdata-id(), 10), NUM_COLOR))
+	#let components = host-array-set(components, 12, create-button(create-id("button-12"), create-urect(4, 4, -4, -4, 0, 0.285714, 0.25, 0.428571), "×", create-slot(get-appdata-id(), 11), OP_COLOR))
+	#let components = host-array-set(components, 13, create-button(create-id("button-13"), create-urect(4, 4, -4, -4, 0, 0.285714, 0.25, 0.428571), "4", create-slot(get-appdata-id(), 12), NUM_COLOR))
+	#let components = host-array-set(components, 14, create-button(create-id("button-14"), create-urect(4, 4, -4, -4, 0, 0.285714, 0.25, 0.428571), "5", create-slot(get-appdata-id(), 13), NUM_COLOR))
+	#let components = host-array-set(components, 15, create-button(create-id("button-15"), create-urect(4, 4, -4, -4, 0, 0.285714, 0.25, 0.428571), "6", create-slot(get-appdata-id(), 14), NUM_COLOR))
+	#let components = host-array-set(components, 16, create-button(create-id("button-16"), create-urect(4, 4, -4, -4, 0, 0.285714, 0.25, 0.428571), "−", create-slot(get-appdata-id(), 15), OP_COLOR))
+	#let components = host-array-set(components, 17, create-button(create-id("button-17"), create-urect(4, 4, -4, -4, 0, 0.285714, 0.25, 0.428571), "1", create-slot(get-appdata-id(), 16), NUM_COLOR))
+	#let components = host-array-set(components, 18, create-button(create-id("button-18"), create-urect(4, 4, -4, -4, 0, 0.285714, 0.25, 0.428571), "2", create-slot(get-appdata-id(), 17), NUM_COLOR))
+	#let components = host-array-set(components, 19, create-button(create-id("button-19"), create-urect(4, 4, -4, -4, 0, 0.285714, 0.25, 0.428571), "3", create-slot(get-appdata-id(), 18), NUM_COLOR))
+	#let components = host-array-set(components, 20, create-button(create-id("button-20"), create-urect(4, 4, -4, -4, 0, 0.285714, 0.25, 0.428571), "+", create-slot(get-appdata-id(), 19), OP_COLOR))
+	#let components = host-array-set(components, 21, create-button(create-id("button-21"), create-urect(4, 4, -4, -4, 0, 0.285714, 0.25, 0.428571), "⁺∕₋", create-slot(get-appdata-id(), 20), OP_COLOR))
+	#let components = host-array-set(components, 22, create-button(create-id("button-22"), create-urect(4, 4, -4, -4, 0, 0.285714, 0.25, 0.428571), "0", create-slot(get-appdata-id(), 21), NUM_COLOR))
+	#let components = host-array-set(components, 23, create-button(create-id("button-23"), create-urect(4, 4, -4, -4, 0, 0.285714, 0.25, 0.428571), ".", create-slot(get-appdata-id(), 22), OP_COLOR))
+	#let components = host-array-set(components, 24, create-button(create-id("button-24"), create-urect(4, 4, -4, -4, 0, 0.285714, 0.25, 0.428571), "=", create-slot(get-appdata-id(), 23), EQ_COLOR))
+	
 	let region = create-region(create-id("main-region"), urect-label, components)
 	let window = create-window(create-id("main-window"), "Calculator, from alicorn in feather!", region)
-	tuple-of-implicit store window
+	tuple-of store window
 
 let init = lambda () # : ((res : host-unit))
-	tuple-of-implicit host-nil
+	tuple-of host-nil
 
-let onclick = lambda (dispatch  : host-unit, appstate : calculator-state)
+let onclick-1 = lambda (dispatch : host-unit, appstate : calculator-type)
 	let newstate = appstate
-	tuple-of-implicit newstate
+	uniffi-alicorn-calc-host-method-add-digit(newstate, 1)
+	tuple-of newstate
+	
+let onclick-2 = lambda (dispatch : host-unit, appstate : calculator-type)
+	let newstate = appstate
+	uniffi-alicorn-calc-host-method-add-digit(newstate, 2)
+	tuple-of newstate
+	
+let onclick-3 = lambda (dispatch : host-unit, appstate : calculator-type)
+	let newstate = appstate
+	uniffi-alicorn-calc-host-method-add-digit(newstate, 3)
+	tuple-of newstate
+	
+let onclick-plus = lambda (dispatch : host-unit, appstate : calculator-type)
+	let newstate = appstate
+	uniffi-alicorn-calc-host-method-add-digit(newstate, 4)
+	tuple-of newstate
+	
+let onclick-eq = lambda (dispatch : host-unit, appstate : calculator-type)
+	let newstate = appstate
+	uniffi-alicorn-calc-host-method-apply-op(newstate)
+	tuple-of newstate
+
+let (uniffi_host) = uniffi-alicorn-calc-host-func-register()
 
 # This is our final UI description, which includes our window creation function, our init() function (currently empty) and
 # our onclick event (currently unused)
@@ -534,7 +439,16 @@ let res =
 			windowmaker
 		func-to-host-func
 			init
+		uniffi_host
 		func-to-host-func
-			onclick
+			onclick-1
+		func-to-host-func
+			onclick-2
+		func-to-host-func
+			onclick-3
+		func-to-host-func
+			onclick-plus
+		func-to-host-func
+			onclick-eq
 
 res

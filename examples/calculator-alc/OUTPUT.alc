@@ -1,0 +1,46 @@
+let calculator-type = new-host-type(new-host-unique-id("uniffi-alicorn-calc-host-object-calculator"))
+let uniffi-alicorn-calc-host-method-add-digit =
+	intrinsic
+		"return uniffi_alicorn_host_calc.methods['Calculator']['add_digit']"
+		:
+		host-func-type ((self : calculator-type) (digit : host-number)) -> ()
+let uniffi-alicorn-calc-host-method-apply-op =
+	intrinsic
+		"return uniffi_alicorn_host_calc.methods['Calculator']['apply_op']"
+		:
+		host-func-type ((self : calculator-type)) -> ()
+let uniffi-alicorn-calc-host-method-backspace =
+	intrinsic
+		"return uniffi_alicorn_host_calc.methods['Calculator']['backspace']"
+		:
+		host-func-type ((self : calculator-type)) -> ()
+let uniffi-alicorn-calc-host-method-copy =
+	intrinsic
+		"return uniffi_alicorn_host_calc.methods['Calculator']['copy']"
+		:
+		host-func-type ((self : calculator-type)) -> ((_ : calculator-type))
+let uniffi-alicorn-calc-host-method-eq =
+	intrinsic
+		"return uniffi_alicorn_host_calc.methods['Calculator']['eq']"
+		:
+		host-func-type ((self : calculator-type) (rhs : calculator-type)) -> ((_ : host-bool))
+let uniffi-alicorn-calc-host-method-get =
+	intrinsic
+		"return uniffi_alicorn_host_calc.methods['Calculator']['get']"
+		:
+		host-func-type ((self : calculator-type)) -> ((_ : host-number))
+let uniffi-alicorn-calc-host-method-set-op =
+	intrinsic
+		"return uniffi_alicorn_host_calc.methods['Calculator']['set_op']"
+		:
+		host-func-type ((self : calculator-type) (op : host-number)) -> ()
+let uniffi-alicorn-calc-host-method-toggle-decimal =
+	intrinsic
+		"return uniffi_alicorn_host_calc.methods['Calculator']['toggle_decimal']"
+		:
+		host-func-type ((self : calculator-type)) -> ()
+let uniffi-alicorn-calc-host-func-register =
+	intrinsic
+		"return uniffi_alicorn_host_calc.funcs['register']"
+		:
+		host-func-type () -> ((_ : calculator-type))

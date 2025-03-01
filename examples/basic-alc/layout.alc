@@ -74,7 +74,7 @@ let rect-frag-shader = lambda (pos : wgpu-vec2, PosDim : wgpu-vec4, DimBorderBlu
 	let premultiply-fill = mk-vec4(Fill-r * Fill-a * s, Fill-g * Fill-a * s, Fill-b * Fill-a * s, Fill-a * s)
 	let premultiply-outline = mk-vec4(Outline-r * Outline-a * c, Outline-g * Outline-a * c, Outline-b * Outline-a * c, Outline-a * c)
 	let output = add-vec4(premultiply-fill, premultiply-outline)
-	tuple-of-implicit(output)
+	tuple-of(output)
 
 let (rect-frag-shader-string) = wgpu-print-frag-shader(wrap(rect-frag-shader), host-nil)
 
@@ -104,7 +104,7 @@ let triangle-frag-shader = lambda (pos : wgpu-vec2, PosDim : wgpu-vec4, DimBorde
 	let fill-alpha = mul-vec4(mk-vec4(Fill-r, Fill-g, Fill-b, 1.0), mk-vec4-float(Fill-a * s))
 	let outline-alpha = mul-vec4(mk-vec4(Outline-r, Outline-g, Outline-b, 1.0), mk-vec4-float(Outline-a * clamp(alpha - s,0.0,1.0)))
 	let output = add-vec4(fill-alpha, outline-alpha)
-	tuple-of-implicit(output)
+	tuple-of(output)
 
 let (tri-frag-shader-string) = wgpu-print-frag-shader(wrap(triangle-frag-shader), host-nil)
 
@@ -136,7 +136,7 @@ let circle-frag-shader = lambda (pos : wgpu-vec2, PosDim : wgpu-vec4, DimBorderB
 	let fill-alpha = mul-vec4(mk-vec4(Fill-r, Fill-g, Fill-b, 1.0), mk-vec4-float(Fill-a * s))
 	let outline-alpha = mul-vec4(mk-vec4(Outline-r, Outline-g, Outline-b, 1.0), mk-vec4-float(Outline-a * clamp(alpha - s, 0.0, 1.0)))
 	let output = add-vec4(fill-alpha, outline-alpha)
-	tuple-of-implicit(output)
+	tuple-of(output)
 
 let (circle-frag-shader-string) = wgpu-print-frag-shader(wrap(circle-frag-shader), host-nil)
 
@@ -254,16 +254,17 @@ let create-region =
 	---@param text string
 	---@param onclick EventHandler
 	---@param background Component
+	---@param color [f32; 4]
 	---@return Component
-	function create_button(area, text, onclick, background) end
+	function create_button(area, text, onclick, background, color) end
 let create-button-bind =
 	intrinsic
 		"return create_button"
 		:
-		host-func-type (id : FeatherID, area : URect, text : string, onclick : EventHandler) -> ((res : Component))
+		host-func-type (id : FeatherID, area : URect, text : string, onclick : EventHandler, color : host-array-type(host-number)) -> ((res : Component))
 let create-button =
-	lambda (id : FeatherID, area : URect, text : string, onclick : EventHandler)
-		let (res) = create-button-bind(id, area, text, onclick)
+	lambda (id : FeatherID, area : URect, text : string, onclick : EventHandler, color : host-array-type(host-number))
+		let (res) = create-button-bind(id, area, text, onclick, color)
 		res
 ####
 	---@param area URect
@@ -368,18 +369,18 @@ let windowmaker = lambda (store : host-unit, appstate : host-number) # : (store 
 	let slot = create-slot(get-appdata-id(), 0)
 	let (appstate-text) = host-number-to-string(appstate)
 	let (btn-text) = host-string-concat("Clicks: ", appstate-text)
-	let btn = create-button(create-id("hello-button"), urect-btn, btn-text, slot)
+	let btn = create-button(create-id("hello-button"), urect-btn, btn-text, slot, color)
 	let components = host-array-set(components, 5, btn)
 	let region = create-region(create-id("main-region"), urect-label, components)
 	let window = create-window(create-id("main-window"), "Hello World, from alicorn in feather!", region)
-	tuple-of-implicit store window
+	tuple-of store window
 
 let init = lambda () # : ((res : host-unit))
-	tuple-of-implicit host-nil
+	tuple-of host-nil
 
 let onclick = lambda (dispatch  : host-unit, appstate : host-number)
 	let newstate = appstate + 1
-	tuple-of-implicit newstate
+	tuple-of newstate
 
 # This is our final UI description, which includes our window creation function, our init() function (currently empty) and
 # our onclick event (currently unused)
