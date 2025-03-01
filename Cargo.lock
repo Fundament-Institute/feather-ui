@@ -48,8 +48,9 @@ dependencies = [
 
 [[package]]
 name = "alicorn"
-version = "0.1.1"
-source = "git+https://github.com/Fundament-Software/Alicorn0?branch=uniffi-merge#ee02fadd6a956547fdc9725cfefe7cb84a0a876b"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92d13b1cef7d88fe4885329b32025a4ee8dedc3aaffc2bc0a0b3ca9d03ab49d4"
 dependencies = [
  "cc",
  "mlua",
@@ -2784,6 +2785,8 @@ dependencies = [
 [[package]]
 name = "uniffi-alicorn"
 version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "95f9157e8293dac54cf9cbc3ffbf1aabe1bfebb3713a1f3eaa7d5b0efde2c74b"
 dependencies = [
  "anyhow",
  "cargo_metadata",
@@ -2797,6 +2800,8 @@ dependencies = [
 [[package]]
 name = "uniffi-bindgen-alicorn"
 version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0681f73f5de667bda8f5aff4462858c21e5c606d3dca986b1f4b4a68afbbf906"
 dependencies = [
  "anyhow",
  "camino",
@@ -2820,6 +2825,8 @@ dependencies = [
 [[package]]
 name = "uniffi-build-alicorn"
 version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2556662565367077eade0f5c7a7481405e54647601bc62dd4ff7371ad8f60666"
 dependencies = [
  "anyhow",
  "camino",
@@ -2829,6 +2836,8 @@ dependencies = [
 [[package]]
 name = "uniffi-macros-alicorn"
 version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4121444738bfbccfcc841cdde766ed70bc8be6248a8f22a9da02b51b56e5a84"
 dependencies = [
  "camino",
  "fs-err",

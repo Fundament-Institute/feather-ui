@@ -28,7 +28,7 @@ im.workspace = true
 alicorn.workspace = true
 mlua.workspace = true
 uniffi = { version = "0.29.0", features = ["scaffolding-ffi-buffer-fns"] }
-uniffi-alicorn = { path = "../../../alicorn0/rust/uniffi/crates/uniffi-alicorn", features = [
+uniffi-alicorn = { version = "0.1.2", features = [
   "scaffolding-ffi-buffer-fns",
 ] }
 thiserror = "1.0"
@@ -39,12 +39,10 @@ uniffi = { version = "0.29.0", features = [
   "build",
   "scaffolding-ffi-buffer-fns",
 ] }
-uniffi-alicorn = { path = "../../../alicorn0/rust/uniffi/crates/uniffi-alicorn", features = [
+uniffi-alicorn = { version = "0.1.2", features = [
   "build",
   "scaffolding-ffi-buffer-fns",
 ] }
 
 [dev-dependencies]
-uniffi-alicorn = { path = "../../../alicorn0/rust/uniffi/crates/uniffi-alicorn", features = [
-  "bindgen-tests",
-] }
+uniffi-alicorn = { version = "0.1.2", features = ["bindgen-tests"] }
