@@ -1,0 +1,50 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+
+[package]
+name = "calculator-alc"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors = ["Erik McClure  "]
+description = """
+Basic calculator using Alicorn
+"""
+homepage.workspace = true
+readme.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "calculator-alc"
+path = "src/main.rs"
+
+[dependencies]
+wgpu.workspace = true
+winit.workspace = true
+tokio.workspace = true
+feather-ui.workspace = true
+ultraviolet.workspace = true
+im.workspace = true
+alicorn.workspace = true
+mlua.workspace = true
+uniffi = { version = "0.29.0", features = ["scaffolding-ffi-buffer-fns"] }
+uniffi-alicorn = { path = "../../../alicorn0/rust/uniffi/crates/uniffi-alicorn", features = [
+  "scaffolding-ffi-buffer-fns",
+] }
+thiserror = "1.0"
+
+[build-dependencies]
+# Add the "scaffolding-ffi-buffer-fns" feature to make sure things can build correctly
+uniffi = { version = "0.29.0", features = [
+  "build",
+  "scaffolding-ffi-buffer-fns",
+] }
+uniffi-alicorn = { path = "../../../alicorn0/rust/uniffi/crates/uniffi-alicorn", features = [
+  "build",
+  "scaffolding-ffi-buffer-fns",
+] }
+
+[dev-dependencies]
+uniffi-alicorn = { path = "../../../alicorn0/rust/uniffi/crates/uniffi-alicorn", features = [
+  "bindgen-tests",
+] }
