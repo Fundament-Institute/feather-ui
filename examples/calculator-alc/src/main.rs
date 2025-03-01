@@ -18,12 +18,12 @@ uniffi::include_scaffolding!("calculator");
 uniffi_alicorn::include_alicorn_scaffolding!("calculator");
 
 pub trait Calculator: Send + Sync {
-    fn add_digit(&self, digit: u8);
-    fn backspace(&self);
-    fn apply_op(&self);
-    fn set_op(&self, op: CalcOp);
+    fn add_digit(&self, digit: u8) -> Arc<dyn Calculator>;
+    fn backspace(&self) -> Arc<dyn Calculator>;
+    fn apply_op(&self) -> Arc<dyn Calculator>;
+    fn set_op(&self, op: CalcOp) -> Arc<dyn Calculator>;
     fn get(&self) -> f64;
-    fn toggle_decimal(&self);
+    fn toggle_decimal(&self) -> Arc<dyn Calculator>;
     fn copy(&self) -> Arc<dyn Calculator>;
     fn eq(&self, rhs: Arc<dyn Calculator>) -> bool;
 }
@@ -195,25 +195,30 @@ impl CalcState {
 struct Calc(RwLock<CalcState>);
 
 impl Calculator for Calc {
-    fn add_digit(&self, digit: u8) {
-        self.0.write().unwrap().add_digit(digit)
+    fn add_digit(&self, digit: u8) -> Arc<dyn Calculator> {
+        self.0.write().unwrap().add_digit(digit);
+        self.copy()
     }
-    fn backspace(&self) {
-        self.0.write().unwrap().backspace()
+    fn backspace(&self) -> Arc<dyn Calculator> {
+        self.0.write().unwrap().backspace();
+        self.copy()
     }
-    fn apply_op(&self) {
-        self.0.write().unwrap().apply_op()
+    fn apply_op(&self) -> Arc<dyn Calculator> {
+        self.0.write().unwrap().apply_op();
+        self.copy()
     }
-    fn set_op(&self, op: CalcOp) {
-        self.0.write().unwrap().set_op(op)
+    fn set_op(&self, op: CalcOp) -> Arc<dyn Calculator> {
+        self.0.write().unwrap().set_op(op);
+        self.copy()
     }
     fn get(&self) -> f64 {
         let state = self.0.read().unwrap();
         state.cur.unwrap_or(state.last)
     }
-    fn toggle_decimal(&self) {
+    fn toggle_decimal(&self) -> Arc<dyn Calculator> {
         let prev = self.0.read().unwrap().decimal_mode;
         self.0.write().unwrap().decimal_mode = !prev;
+        self.copy()
     }
 
     fn copy(&self) -> Arc<dyn Calculator> {
@@ -233,6 +238,12 @@ impl Calculator for Calc {
 }
 
 fn wrap_luafunc(
+    f: Function,
+) -> impl FnMut(feather_ui::DispatchPair, AppState) -> Result<AppState, AppState> {
+    move |pair, state| Ok(f.call((pair.0, state)).unwrap())
+}
+
+fn wrap_luafunc2(
     f: Function,
 ) -> impl FnMut(feather_ui::DispatchPair, AppState) -> Result<AppState, AppState> {
     move |pair, state| Ok(f.call((pair.0, state)).unwrap())
@@ -274,7 +285,7 @@ fn main() {
             .unwrap();
 
         let onclick1 = Box::new(wrap_luafunc(onclick1));
-        let onclick2 = Box::new(wrap_luafunc(onclick2));
+        let onclick2 = Box::new(wrap_luafunc2(onclick2));
         let onclick3 = Box::new(wrap_luafunc(onclick3));
         let onclickplus = Box::new(wrap_luafunc(onclickplus));
         let onclickeq = Box::new(wrap_luafunc(onclickeq));
