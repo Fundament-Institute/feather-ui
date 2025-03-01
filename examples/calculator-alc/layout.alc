@@ -337,16 +337,16 @@ let get-appdata-id =
 # Alicorn(windowmaker) -> Lua(Alicorn(windowmaker)) -> mlua -> Rust(Lua(Alicorn(windowmaker))) -> [helper rust function that calls Rust(Lua(Alicorn(windowmaker)))]
 
 # This is the signature for the "windowmaker" function
-let windowsig = host-func-type (store : host-unit, appstate : calculator-type) -> (store : host-unit, window : Component)
+let windowsig = host-func-type (store : host-unit, appstate : calc-type) -> (store : host-unit, window : Component)
 # this is the signature for the "init" function
 let initsig = host-func-type () -> ((res : host-unit))
 # This is the function for the "onclick" function
-let onclicksig = host-func-type (dispatch : host-unit, state : calculator-type) -> ((result : calculator-type))
+let onclicksig = host-func-type (dispatch : host-unit, state : calc-type) -> ((result : calc-type))
 
 let uidesc = tuple-desc(
 	window : windowsig,
 	init : initsig,
-	state : calculator-type,
+	state : calc-type,
 	onclick1 :  onclicksig,
 	onclick2 :  onclicksig,
 	onclick3 :  onclicksig,
@@ -366,7 +366,7 @@ let ROW_COUNT = 4
 # This is our main function that must satisfy the App::Call() trait in Rust. This means it must return two things: a persistent
 # store (currently unused), and our final assembled Window component. For convenience, we assemble the rest of our layout inside
 # this function and add it directly to our window.
-let windowmaker = lambda (store : host-unit, appstate : calculator-type) # : (store : host-unit, window : Component)
+let windowmaker = lambda (store : host-unit, appstate : calc-type) # : (store : host-unit, window : Component)
 	let (curnum) = uniffi-alicorn-calc-host-method-get(appstate)
 	let (disp) = host-number-to-string(curnum)
 	let urect-label = create-urect(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0)
@@ -404,23 +404,23 @@ let windowmaker = lambda (store : host-unit, appstate : calculator-type) # : (st
 let init = lambda () # : ((res : host-unit))
 	tuple-of host-nil
 
-let onclick-1 = lambda (dispatch : host-unit, appstate : calculator-type)
+let onclick-1 = lambda (dispatch : host-unit, appstate : calc-type)
 	let (newstate) = uniffi-alicorn-calc-host-method-add-digit(appstate, 1)
 	tuple-of newstate
 	
-let onclick-2 = lambda (dispatch : host-unit, appstate : calculator-type)
+let onclick-2 = lambda (dispatch : host-unit, appstate : calc-type)
 	let (newstate) = uniffi-alicorn-calc-host-method-add-digit(appstate, 2)
 	tuple-of newstate
 	
-let onclick-3 = lambda (dispatch : host-unit, appstate : calculator-type)
+let onclick-3 = lambda (dispatch : host-unit, appstate : calc-type)
 	let (newstate) = uniffi-alicorn-calc-host-method-add-digit(appstate, 3)
 	tuple-of newstate
 	
-let onclick-plus = lambda (dispatch : host-unit, appstate : calculator-type)
-	let (newstate) = uniffi-alicorn-calc-host-method-set-op(appstate, 1)
+let onclick-plus = lambda (dispatch : host-unit, appstate : calc-type)
+	let (newstate) = uniffi-alicorn-calc-host-method-set-op(appstate, uniffi-alicorn-calc-host-enum-calc-op-variant-add)
 	tuple-of newstate
 	
-let onclick-eq = lambda (dispatch : host-unit, appstate : calculator-type)
+let onclick-eq = lambda (dispatch : host-unit, appstate : calc-type)
 	let (newstate) = uniffi-alicorn-calc-host-method-apply-op(appstate)
 	tuple-of newstate
 

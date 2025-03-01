@@ -194,7 +194,7 @@ dependencies = [
 
 [[package]]
 name = "basic-alc"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "alicorn",
  "feather-ui",
@@ -208,7 +208,7 @@ dependencies = [
 
 [[package]]
 name = "basic-rs"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "feather-ui",
  "im",
@@ -334,7 +334,7 @@ checksum = "f61dac84819c6588b558454b194026eb1f09c293b9036ae9b159e74e73ab6cf9"
 
 [[package]]
 name = "calculator-alc"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "alicorn",
  "feather-ui",
@@ -351,7 +351,7 @@ dependencies = [
 
 [[package]]
 name = "calculator-rs"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "feather-ui",
  "glyphon",
@@ -733,7 +733,7 @@ dependencies = [
 
 [[package]]
 name = "feather-macro"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "itertools",
  "proc-macro2",
@@ -744,7 +744,7 @@ dependencies = [
 
 [[package]]
 name = "feather-ui"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "color-eyre",
  "derive-where",
@@ -982,7 +982,7 @@ dependencies = [
 
 [[package]]
 name = "graph-rs"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "feather-ui",
  "glyphon",
@@ -1714,7 +1714,7 @@ checksum = "c1b04fb49957986fdce4d6ee7a65027d55d4b6d2265e5848bbb507b58ccfdb6f"
 
 [[package]]
 name = "paragraph-rs"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "feather-ui",
  "glyphon",
