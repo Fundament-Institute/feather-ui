@@ -20,11 +20,11 @@ enum CalcOp {
 interface Calculator {
   Calculator copy();
   boolean eq(Calculator rhs);
-  void add_digit(u8 digit);
-  void backspace();
-  void apply_op();
-  void set_op(CalcOp op);
-  void toggle_decimal();
+  Calculator add_digit(u8 digit);
+  Calculator backspace();
+  Calculator apply_op();
+  Calculator set_op(CalcOp op);
+  Calculator toggle_decimal();
   double get();
 };
 
