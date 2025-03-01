@@ -1,0 +1,540 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+
+let host-number-to-string = intrinsic "return function(a) return tostring(a) end" :
+	host-func-type ((a : host-number)) -> ((c : host-string))
+
+let host-array-imap = lambda_curry (Tin : host-type, Tout : host-type)
+	let inner = intrinsic
+		""""
+			return function(arr, f)
+				local res = {}
+				for i = 1, #arr do
+					res[i] = f(i, arr[i])
+				end
+				return res
+			end
+		:
+		host-func-type (arr : host-array-type(Tin), f : (host-func-type (i : host-number, x : Tin) -> ((y : Tout)))) -> ((res : host-array-type(Tout)))
+	lambda (arr : host-array-type(Tin), f : (forall (i : host-number, x : Tin) -> (y : Tout)))
+		let f-inner = lambda (i : host-number, x : Tin)
+			tuple-of-implicit(f(i, x))
+		let (res) = inner(arr, func-to-host-func(f-inner))
+		res
+
+let host-array-map = lambda_curry (Tin  : host-type, Tout : host-type)
+	lambda (arr : host-array-type(Tin), f  : (forall ((x  : Tin)) ->  (y  : Tout)))
+		let f-inner = lambda (i : host-number, x : Tin)
+			f(x)
+		host-array-imap(arr, f-inner)
+
+############# SHADER DEFINITIONS
+
+let frag-shader-type = forall (pos : wgpu-vec2, PosDim : wgpu-vec4, DimBorderBlur : wgpu-vec4, Corners : wgpu-vec4, Fill : wgpu-vec4, Outline : wgpu-vec4) -> ((glfragcolor : wgpu-vec4))
+
+let check-frag-shader = intrinsic
+	""""
+		local glsl = require "glsl-print"
+		return function(frag_shader)
+			local param_name, code, capture, _capture_debug, _param_debug = frag_shader:unwrap_closure()
+			local elements = code:unwrap_tuple_cons()
+			local glfragcolor_term = elements[1]
+			local glfragcolor_check = glsl.glsl_trait:get(terms.typed_term).glsl_check(glfragcolor_term)
+			return glfragcolor_check
+		end
+	:
+	host-func-type ((frag-shader : wrapped(frag-shader-type))) -> ((valid : host-bool))
+let frag-shader-valid = lambda (shader : wrapped(frag-shader-type)) #TODO make friendlier non-intrinsic wrappers of the rest of the api and remove wrapping
+	let (checkres) = check-frag-shader(shader)
+	host-if(checkres, host-unit, wrapped(void))
+
+let wgpu-print-frag-shader = intrinsic
+	""""
+		return function(frag_shader, _valid)
+			local param_name, code, capture, _capture_dbg, _param_debug = frag_shader:unwrap_closure()
+			local elements = code:unwrap_tuple_cons()
+			local glfragcolor = elements[1]:glsl_print({{}, {"pos", "PosDim", "DimBorderBlur", "Corners", "Fill", "Outline"}})
+			local boilerplate = "@group(0) @binding(1)\nvar<uniform> PosDim: vec4f;\n@group(0) @binding(2) \nvar<uniform> DimBorderBlur: vec4f;\n@group(0) @binding(3) \nvar<uniform> Corners: vec4f;\n@group(0) @binding(4) \nvar<uniform> Fill: vec4f;\n@group(0) @binding(5) \nvar<uniform> Outline: vec4f;"
+			local frag_shader = boilerplate .. "@fragment \nfn main(@location(0) pos: vec2f) -> @location(0) vec4f {\n return " .. glfragcolor .. ";\n}\n"
+			return frag_shader
+		end
+	:	
+	host-func-type (frag-shader : wrapped(frag-shader-type), valid : frag-shader-valid(frag-shader)) -> ((str : host-string))
+
+let linearstep = lambda (low : wgpu-float, high : wgpu-float, x : wgpu-float)
+	clamp((x - low) / (high - low), 0, 1)
+
+let rectangle = lambda (samplePosition : wgpu-vec2, halfSize : wgpu-vec2, edges : wgpu-vec4)
+	let (samplePosition-x, samplePosition-y) = split-vec2(samplePosition)
+	let (edges-x, edges-y, edges-z, edges-w) = split-vec4(edges)
+	let edge = ternary (samplePosition-x > 0)
+		ternary(samplePosition-y < 0, edges-y, edges-z)
+		ternary(samplePosition-y < 0, edges-x, edges-w)
+	let componentWiseEdgeDistance = add-vec2
+		sub-vec2(abs-vec2(samplePosition), halfSize)
+		mk-vec2(edge, edge)
+	
+	let (componentWiseEdgeDistance-x, componentWiseEdgeDistance-y) = split-vec2(componentWiseEdgeDistance)
+	let outsideDistance = length(mk-vec2(max(componentWiseEdgeDistance-x, 0.0), max(componentWiseEdgeDistance-y, 0.0)))
+	let insideDistance = min(max(componentWiseEdgeDistance-x, componentWiseEdgeDistance-y), 0.0)
+	outsideDistance + insideDistance - edge
+
+let rect-frag-shader = lambda (pos : wgpu-vec2, PosDim : wgpu-vec4, DimBorderBlur : wgpu-vec4, Corners : wgpu-vec4, Fill : wgpu-vec4, Outline : wgpu-vec4)
+	let (PosDim-x, PosDim-y, PosDim-z, PosDim-w) = split-vec4(PosDim)
+	let (DimBorderBlur-x, DimBorderBlur-y, DimBorderBlur-z, DimBorderBlur-w) = split-vec4(DimBorderBlur)
+	let (pos-x, pos-y) = split-vec2(pos)
+
+	let w = fwidth((PosDim-z * pos-x)) * 0.5 * (1.0 + DimBorderBlur-w);
+	let uv = mk-vec2((pos-x * PosDim-z) - (PosDim-z * 0.5), (pos-y * PosDim-w) - (PosDim-w * 0.5))
+
+	let dist = rectangle(uv, mk-vec2(PosDim-z * 0.5, PosDim-w * 0.5), Corners);
+	let alpha = linearstep(w, w * -1.0, dist)
+	let s = linearstep(w, w * -1.0, dist + DimBorderBlur-z)
+
+	let (Fill-r, Fill-g, Fill-b, Fill-a) = split-vec4(Fill)
+	let (Outline-r, Outline-g, Outline-b, Outline-a) = split-vec4(Outline)
+	let c = clamp(alpha - s, 0.0, 1.0)
+
+	let premultiply-fill = mk-vec4(Fill-r * Fill-a * s, Fill-g * Fill-a * s, Fill-b * Fill-a * s, Fill-a * s)
+	let premultiply-outline = mk-vec4(Outline-r * Outline-a * c, Outline-g * Outline-a * c, Outline-b * Outline-a * c, Outline-a * c)
+	let output = add-vec4(premultiply-fill, premultiply-outline)
+	tuple-of-implicit(output)
+
+let (rect-frag-shader-string) = wgpu-print-frag-shader(wrap(rect-frag-shader), host-nil)
+
+let line-to-point = lambda (p1 : wgpu-vec2, p2 : wgpu-vec2, p : wgpu-vec2)
+	let n = sub-vec2(p2, p1)
+	let (n-x, n-y) = split-vec2(n)
+	dot(normalize(mk-vec2(n-y, -1.0 * n-x)), sub-vec2(p1, p))
+
+let triangle-frag-shader = lambda (pos : wgpu-vec2, PosDim : wgpu-vec4, DimBorderBlur : wgpu-vec4, Corners : wgpu-vec4, Fill : wgpu-vec4, Outline : wgpu-vec4)
+	let (PosDim-x, PosDim-y, PosDim-z, PosDim-w) = split-vec4(PosDim)
+	let (Corners-x, Corners-y, Corners-z, Corners-w) = split-vec4(Corners)
+	let (DimBorderBlur-x, DimBorderBlur-y, DimBorderBlur-z, DimBorderBlur-w) = split-vec4(DimBorderBlur)
+	let d = mk-vec2(PosDim-z, PosDim-w)
+	let (d-x, d-y) = split-vec2(d)
+	let p = add-vec2(pos :*: d, mk-vec2(-0.5 , 0.5))
+	let p2 = mk-vec2(Corners-w * d-x, 0.0)
+	let r1 = line-to-point(p2, mk-vec2(0.0, d-y), p)
+	let r2 = -1.0 * line-to-point(p2, d, p)
+	let (p-x, p-y) = split-vec2(p)
+	let r = max(max(r1, r2), p-y - d-y)
+
+	let w = fwidth(p-x) * (1.0 + DimBorderBlur-w)
+	let s = 1.0 - linearstep(1.0 - DimBorderBlur-z - w * 2.0, 1.0 - DimBorderBlur-z - w, r)
+	let alpha = linearstep(1.0 - w, 1.0 - w * 2.0, r)  
+	let (Fill-r, Fill-g, Fill-b, Fill-a) = split-vec4(Fill)
+	let (Outline-r, Outline-g, Outline-b, Outline-a) = split-vec4(Outline)
+	let fill-alpha = mul-vec4(mk-vec4(Fill-r, Fill-g, Fill-b, 1.0), mk-vec4-float(Fill-a * s))
+	let outline-alpha = mul-vec4(mk-vec4(Outline-r, Outline-g, Outline-b, 1.0), mk-vec4-float(Outline-a * clamp(alpha - s,0.0,1.0)))
+	let output = add-vec4(fill-alpha, outline-alpha)
+	tuple-of-implicit(output)
+
+let (tri-frag-shader-string) = wgpu-print-frag-shader(wrap(triangle-frag-shader), host-nil)
+
+let circle-frag-shader = lambda (pos : wgpu-vec2, PosDim : wgpu-vec4, DimBorderBlur : wgpu-vec4, Corners : wgpu-vec4, Fill : wgpu-vec4, Outline : wgpu-vec4)
+	let (PosDim-x, PosDim-y, PosDim-z, PosDim-w) = split-vec4(PosDim)
+	let (Corners-x, Corners-y, Corners-z, Corners-w) = split-vec4(Corners)
+	let (DimBorderBlur-x, DimBorderBlur-y, DimBorderBlur-z, DimBorderBlur-w) = split-vec4(DimBorderBlur)
+	let l = (PosDim-z + PosDim-w) * 0.5
+	let (pos-x, pos-y) = split-vec2(pos)
+	let uv = sub-vec2(mk-vec2(pos-x * 2.0, pos-y * 2.0), mk-vec2-float(1.0))
+	let w1 = (1.0 + DimBorderBlur-w) * fwidth(pos-x) 
+
+	let border = (DimBorderBlur-z / l) * 2.0
+	let t = 0.50 - (Corners-x / l)
+	let r = 1.0 - t - w1
+
+	let inner = (Corners-y / l) * 2.0
+	let pre = length(uv) - r + (border * 0.5) - (inner * 0.5)
+	let abspre = abs(pre)
+	let d0 = abspre - t + (border * 0.5) + (inner * 0.5)
+	let d1pre = length(uv) - r
+	let d1 = abs(d1pre) - t
+	let s = pow(linearstep(w1 * 2.0, 0.0, d0), 2.2)
+	let alpha = pow(linearstep(w1 * 2.0, 0.0, d1), 2.2)
+
+	let (Fill-r, Fill-g, Fill-b, Fill-a) = split-vec4(Fill)
+	let (Outline-r, Outline-g, Outline-b, Outline-a) = split-vec4(Outline)
+	
+	let fill-alpha = mul-vec4(mk-vec4(Fill-r, Fill-g, Fill-b, 1.0), mk-vec4-float(Fill-a * s))
+	let outline-alpha = mul-vec4(mk-vec4(Outline-r, Outline-g, Outline-b, 1.0), mk-vec4-float(Outline-a * clamp(alpha - s, 0.0, 1.0)))
+	let output = add-vec4(fill-alpha, outline-alpha)
+	tuple-of-implicit(output)
+
+let (circle-frag-shader-string) = wgpu-print-frag-shader(wrap(circle-frag-shader), host-nil)
+
+############# FEATHER LAYOUT STARTS HERE
+
+# We start by binding our feather types to Rust interface that's been exposed via our lua bindings in feather.
+# First we declare some new opaque types that feather will be manipulating entirely via the lua bindings, without
+# knowing what's inside the types. This includes our URect, a rectangle with a absolute and relative coordinates, 
+# the Component, which is the underlying trait that all feather outlines satisfy (like buttons or labels), and
+# an event handler, which is used to capture mouse input.
+
+let string = host-string
+
+#	---@alias URect userdata
+let URect = new-host-type(new-host-unique-id("URect"))
+
+#	---@alias Component userdata
+let Component = new-host-type(new-host-unique-id("Component"))
+
+#	---@alias EventHandler userdata
+let EventHandler = new-host-type(new-host-unique-id("EventHandler"))
+
+# We also define an ID type, which is intended to uniquely identify every component. This will be used for
+# referencing components from inside each other.
+
+let FeatherID = new-host-type(new-host-unique-id("FeatherID"))
+
+# Each pair of functions here binds an alicorn function to a lua function. The first function assigns a type
+# to the lua function intrinsic, and the second function creates an alicorn-friendly function that then calls
+# the lua intrinsic. We repeat this for every function we have exposed through the lua interface.
+
+####
+	---@param left number
+	---@param top number
+	---@param right number
+	---@param bottom number
+	---@param rel_left number
+	---@param rel_top number
+	---@param rel_right number
+	---@param rel_bottom number
+	---@return URect
+	function create_urect(left, top, right, bottom, rel_left, rel_top, rel_right, rel_bottom)
+	end
+let create-urect-bind =
+	intrinsic
+		"return create_urect"
+		:
+		host-func-type
+			(
+				left : host-number,
+				top : host-number,
+				right : host-number,
+				bottom : host-number,
+				rel_left : host-number,
+				rel_top : host-number,
+				rel_right : host-number,
+				rel_bottom : host-number
+			)
+			->
+			((res : URect))
+let create-urect =
+	lambda
+		(
+			left : host-number,
+			top : host-number,
+			right : host-number,
+			bottom : host-number,
+			rel_left : host-number,
+			rel_top : host-number,
+			rel_right : host-number,
+			rel_bottom : host-number
+		)
+		let (res) = create-urect-bind(left, top, right, bottom, rel_left, rel_top, rel_right, rel_bottom)
+		res
+
+let create-id-bind =
+	intrinsic "return create_id" : (host-func-type ((id  : string)) -> ((res  : FeatherID)))
+let create-id = lambda (id  : string)
+	let  (res)  = create-id-bind(id)
+	res
+
+####
+	---@param name string
+	---@param child Component
+	---@return Component
+	function create_window(name, child) end
+let create-window-bind =
+	intrinsic
+		"return create_window"
+		:
+		host-func-type (id : FeatherID, name : string, child : Component) -> ((res : Component))
+let create-window =
+	lambda (id : FeatherID, name : string, child : Component)
+		let (res) = create-window-bind(id, name, child)
+		res
+####
+	---@param area URect
+	---@param ... Component
+	---@return Component
+	function create_region(area, ...) end
+let create-region-bind =
+	intrinsic
+		""""
+			return function(id, area, components) return create_region(id, area, components) end
+		:
+		host-func-type (id : FeatherID, area : URect, components : host-array-type(Component)) -> ((res : Component))
+
+let create-region =
+	lambda (id : FeatherID, area : URect, components : host-array-type(Component))
+		let (res) = create-region-bind(id, area, components)
+		res
+
+####
+	---@param area URect
+	---@param text string
+	---@param onclick EventHandler
+	---@param background Component
+	---@return Component
+	function create_button(area, text, onclick, background) end
+let create-button-bind =
+	intrinsic
+		"return create_button"
+		:
+		host-func-type (id : FeatherID, area : URect, text : string, onclick : EventHandler) -> ((res : Component))
+let create-button =
+	lambda (id : FeatherID, area : URect, text : string, onclick : EventHandler)
+		let (res) = create-button-bind(id, area, text, onclick)
+		res
+####
+	---@param area URect
+	---@param text string
+	---@return Component
+	function create_label(area, text) end
+let create-label-bind =
+	intrinsic "return create_label" : (host-func-type (id : FeatherID, area : URect, text : string) -> ((res : Component)))
+
+let create-label =
+	lambda (id : FeatherID, area : URect, text : string)
+		let (res) = create-label-bind(id, area, text)
+		res
+
+####
+	---Colors here are 32-bit RGBA integers (for now): 0xFF00FFFF
+	---@param area URect
+	---@param color integer
+	---@param radius number
+	---@param border number
+	---@param bordercolor integer
+	---@return Component
+	function create_round_rect(area, color, radius, border, bordercolor) end
+let create-round-rect-bind =
+	intrinsic
+		"return create_round_rect"
+		:
+		host-func-type (id : FeatherID, area : URect, color : host-number, radius : host-number, border : host-number, bordercolor : host-number) -> ((res : Component))
+let create-round-rect =
+	lambda (id : FeatherID, area : URect, color : host-number, radius : host-number, border : host-number, bordercolor : host-number)
+		let (res) = create-round-rect-bind(id, area, color, radius, border, bordercolor)
+		res
+
+let create-shader-standard-bind =
+	intrinsic
+		"return create_shader_standard"
+		:
+		host-func-type (id : FeatherID, area : URect, source : host-string, dimborderblur : host-array-type(host-number), corners : host-array-type(host-number), fill : host-array-type(host-number), outline : host-array-type(host-number)) -> ((res : Component))
+let create-shader-standard =
+	lambda (id : FeatherID, area : URect, source : host-string, dimborderblur : host-array-type(host-number), corners : host-array-type(host-number), fill : host-array-type(host-number), outline : host-array-type(host-number))
+		let (res) = create-shader-standard-bind(id, area, source, dimborderblur, corners, fill, outline)
+		res
+
+let create-slot-bind = 
+	intrinsic
+		"return create_slot"
+		:
+		host-func-type (id : FeatherID, slot : host-number) -> ((res : EventHandler))
+let create-slot =
+	lambda (id : FeatherID, slot : host-number)
+		let (res) = create-slot-bind(id, slot)
+		res
+
+let get-appdata-id-bind = 
+	intrinsic
+		"return get_appdata_id"
+		:
+		host-func-type () -> ((res : FeatherID))
+let get-appdata-id =
+	lambda ()
+		let (res) = get-appdata-id-bind()
+		res
+
+# These function signatures are a bit confusing, but basically, they represent the full signatures of an alicorn function that 
+# we will be calling from Rust. In order to accomplish this, we need to express the alicorn function signature using lua types,
+# so that we can create a wrapper that calls it from lua. We can then return this lua wrapper function to Rust, which will call it
+# from inside our Rust backend. While this sounds complicated, it's the exact same operation one would do when doing C FFI to
+# communicate between two languages, we're just using Lua instead of C as the intermediary. 
+# Alicorn(windowmaker) -> Lua(Alicorn(windowmaker)) -> mlua -> Rust(Lua(Alicorn(windowmaker))) -> [helper rust function that calls Rust(Lua(Alicorn(windowmaker)))]
+
+# This is the signature for the "windowmaker" function
+let windowsig = host-func-type (store : host-unit, appstate : calculator-state) -> (store : host-unit, window : Component)
+# this is the signature for the "init" function
+let initsig = host-func-type () -> ((res : host-unit))
+# This is the function for the "onclick" function
+let onclicksig = host-func-type (dispatch : host-unit, state : calculator-state) -> ((result : calculator-state))
+
+let uidesc = tuple-desc(
+	window : windowsig,
+	init : initsig,
+	onclick :  onclicksig)
+
+let CLEAR_COLOR = make-host-array(4) 0.8 0.3 0.3 1.0
+let OP_COLOR = make-host-array(4) 0.3 0.3 0.3 0.7
+let NUM_COLOR = make-host-array(4) 0.3 0.3 0.3 1.0
+let EQ_COLOR = make-host-array(4) 0.3 0.8 0.3 1.0
+
+let buttons = do
+	let btn = lambda (name : host-string, cb : calc-callback, color : host-array-type(host-number))
+		wrap(tuple-of-implicit(name, cb, color))
+	make-host-array(24)
+		btn
+			"C"
+			lambda (calc : calculator-state)
+				calc.set_op(CalcOp.Clear)
+			CLEAR_COLOR
+		btn
+			"x²"
+			lambda (calc: calculator-state)
+				calc.set_op(CalcOp.Square)
+			OP_COLOR
+		btn
+			"√x"
+			lambda (calc : calculator-state)
+				calc.set_op(CalcOp.Sqrt)
+			OP_COLOR
+		btn
+			"←"
+			lambda (calc : calculator-state)
+				calc.backspace()
+				OP_COLOR
+		btn
+			"yˣ"
+			lambda (calc : calculator-state)
+				calc.set_op(CalcOp.Pow)
+			OP_COLOR
+		btn
+			"¹∕ₓ"
+			lambda (calc : calculator-state)
+				calc.set_op(CalcOp.Inv)
+			OP_COLOR
+		btn
+			"%"
+			lambda (calc : calculator-state)
+				calc.set_op(CalcOp.Mod)
+			OP_COLOR
+		btn
+			"÷"
+			lambda (calc : calculator-state)
+				calc.set_op(CalcOp.Div)
+			OP_COLOR
+		btn
+			"7"
+			lambda (calc  : calculator-state)
+				calc.add_digit(7)
+			NUM_COLOR
+		btn
+			"8"
+			lambda (calc : calculator-state)
+				calc.add_digit(8)
+			NUM_COLOR
+		btn
+			"9"
+			lambda (calc : calculator-state)
+				calc.add_digit(9)
+			NUM_COLOR
+		btn
+			"×"
+			lambda (calc : calculator-state)
+				calc.set_op(CalcOp.Mul)
+			OP_COLOR
+		btn
+			"4"
+			lambda (calc : calculator-state)
+				calc.add_digit(4)
+			NUM_COLOR
+		btn
+			"5"
+			lambda (calc : calculator-state)
+				calc.add_digit(5)
+			NUM_COLOR
+		btn
+			"6"
+			lambda (calc : calculator-state)
+				calc.add_digit(6)
+			NUM_COLOR
+		btn
+			"−"
+			lambda (calc : calculator-state)
+				calc.set_op(CalcOp.Sub)
+			OP_COLOR
+		btn
+			"1"
+			lambda (calc : calculator-state)
+				calc.add_digit(1)
+			NUM_COLOR
+		btn
+			"2"
+			lambda (calc : calculator-state)
+				calc.add_digit(2)
+			NUM_COLOR
+		btn
+			"3"
+			lambda (calc : calculator-state)
+				calc.add_digit(3)
+			NUM_COLOR
+		btn
+			"+"
+			lambda (calc : calculator-state)
+				calc.set_op(CalcOp.Add)
+			OP_COLOR
+		btn
+			"⁺∕₋"
+			lambda (calc : calculator-state)
+				calc.set_op(CalcOp.Negate)
+			OP_COLOR
+		btn
+			"0"
+			lambda (calc : calculator-state)
+				calc.add_digit(0)
+			NUM_COLOR
+		btn
+			"."
+			lambda (calc : calculator-state)
+				calc.toggle_decimal()
+			OP_COLOR
+		btn
+			"="
+			lambda (calc : calculator-state)
+				calc.apply_op()
+			EQ_COLOR
+
+# This is our main function that must satisfy the App::Call() trait in Rust. This means it must return two things: a persistent
+# store (currently unused), and our final assembled Window component. For convenience, we assemble the rest of our layout inside
+# this function and add it directly to our window.
+let windowmaker = lambda (store : host-unit, appstate : calculator-state) # : (store : host-unit, window : Component)
+	let components = host-array-imap
+		buttons
+		lambda (i : host-number, btn : wrapped(tuple-type(str : host-string, cb : calc-callback, color : host-array-type(host-number))))
+			let (str, cb, color) = unwrap(btn)
+			let x = i % ROW_COUNT
+			let y = (i / ROW_COUNT) + 1
+			let w = 1.0 / ROW_COUNT
+			let h = 1.0 / 7.0
+			let rect = urect(4, 4, -4, -4, w * x, h * y, w * (x + 1), h * (y + 1))
+			create-button(create-id(host-string-concat("button.", str)), rect, str, create-slot(get-appdata-id(), i))
+
+	let region = create-region(create-id("main-region"), urect-label, components)
+	let window = create-window(create-id("main-window"), "Calculator, from alicorn in feather!", region)
+	tuple-of-implicit store window
+
+let init = lambda () # : ((res : host-unit))
+	tuple-of-implicit host-nil
+
+let onclick = lambda (dispatch  : host-unit, appstate : calculator-state)
+	let newstate = appstate
+	tuple-of-implicit newstate
+
+# This is our final UI description, which includes our window creation function, our init() function (currently empty) and
+# our onclick event (currently unused)
+let res =
+	host-tuple-of(uidesc)
+		func-to-host-func
+			windowmaker
+		func-to-host-func
+			init
+		func-to-host-func
+			onclick
+
+res
