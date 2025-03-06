@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
+use super::prop;
 use super::Concrete;
 use super::Desc;
 use super::Layout;
@@ -15,12 +16,12 @@ use dyn_clone::DynClone;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-// An Empty layout is used for leaf outlines whose size is defined by their content, or simply set to the size of their parent.
-#[derive(Clone, Default)]
-pub struct Empty {}
+pub trait Prop: prop::Area {}
 
-impl Desc for Empty {
-    type Props = URect;
+impl Prop for URect {}
+
+impl Desc for Rc<dyn Prop> {
+    type Props = Rc<dyn Prop>;
     type Impose = ();
     type Children<A: DynClone + ?Sized> = PhantomData<dyn Layout<Self::Impose>>;
 
@@ -40,7 +41,7 @@ impl Desc for Empty {
             true_area.bottomright.y = true_area.topleft.y;
         }
 
-        let area = *props * true_area;
+        let area = *props.area() * true_area;
 
         Box::new(Concrete {
             area: area - parent_pos,

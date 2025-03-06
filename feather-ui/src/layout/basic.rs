@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
+use super::prop;
 use super::zero_infinity;
 use super::Concrete;
 use super::Desc;
@@ -10,19 +11,14 @@ use super::Staged;
 use crate::rtree;
 use crate::AbsDim;
 use crate::AbsRect;
-use crate::URect;
 use crate::Vec2;
 use dyn_clone::DynClone;
 use std::rc::Rc;
 
-#[derive(Clone, Default)]
-pub struct Basic {
-    pub padding: URect,
-    pub zindex: i32,
-}
+pub trait Prop: prop::Padding + prop::ZIndex {}
 
-impl Desc for Basic {
-    type Props = Basic;
+impl Desc for Rc<dyn Prop> {
+    type Props = Rc<dyn Prop>;
     type Impose = ();
     type Children<A: DynClone + ?Sized> = im::Vector<Option<Box<dyn Layout<Self::Impose>>>>;
 
@@ -41,8 +37,8 @@ impl Desc for Basic {
                 let dim = AbsDim(zero_infinity(true_area.dim().into()));
 
                 let mut area = AbsRect {
-                    topleft: true_area.topleft + (props.padding.topleft * dim),
-                    bottomright: (true_area.bottomright - (props.padding.bottomright * dim)),
+                    topleft: true_area.topleft + (props.padding().topleft * dim),
+                    bottomright: (true_area.bottomright - (props.padding().bottomright * dim)),
                 };
                 if true_area.bottomright.x.is_infinite() {
                     area.bottomright.x = f32::INFINITY;
@@ -71,8 +67,8 @@ impl Desc for Basic {
             } else {
                 let dim = true_area.dim();
                 AbsRect {
-                    topleft: true_area.topleft + (props.padding.topleft * dim),
-                    bottomright: (true_area.bottomright - (props.padding.bottomright * dim)),
+                    topleft: true_area.topleft + (props.padding().topleft * dim),
+                    bottomright: (true_area.bottomright - (props.padding().bottomright * dim)),
                 }
             };
 
@@ -97,7 +93,7 @@ impl Desc for Basic {
                 .unwrap_or_default(),
             rtree: Rc::new(rtree::Node::new(
                 true_area - parent_pos,
-                Some(props.zindex),
+                Some(props.zindex()),
                 nodes,
                 id,
             )),

@@ -16,13 +16,12 @@ use std::marker::PhantomData;
 use std::rc::Rc;
 
 // A DomainWrite layout simply writes it's final AbsRect to the target cross-reference domain
-#[derive(Clone, Default)]
-pub struct DomainWrite {
-    pub domain: Rc<CrossReferenceDomain>,
+pub trait Prop {
+    fn domain(&self) -> Rc<CrossReferenceDomain>;
 }
 
-impl Desc for DomainWrite {
-    type Props = DomainWrite;
+impl Desc for Rc<dyn Prop> {
+    type Props = Rc<dyn Prop>;
     type Impose = ();
     type Children<A: DynClone + ?Sized> = PhantomData<dyn Layout<Self::Impose>>;
 
@@ -43,7 +42,7 @@ impl Desc for DomainWrite {
         }
 
         if let Some(idref) = id.upgrade() {
-            props.domain.write_area(idref, true_area);
+            props.domain().write_area(idref, true_area);
         }
 
         Box::new(Concrete {
