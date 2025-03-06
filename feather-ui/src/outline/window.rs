@@ -9,7 +9,7 @@ use crate::input::MouseMoveState;
 use crate::input::MouseState;
 use crate::input::RawEvent;
 use crate::layout;
-use crate::layout::root::Root;
+use crate::layout::root;
 use crate::rtree;
 use crate::DriverState;
 use crate::FnPersist;

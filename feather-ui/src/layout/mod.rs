@@ -5,6 +5,7 @@ pub mod basic;
 pub mod domain_write;
 pub mod empty;
 pub mod flex;
+pub mod prop;
 pub mod root;
 pub mod simple;
 
@@ -51,18 +52,35 @@ pub trait Desc {
     ) -> Box<dyn Staged + 'a>;
 }
 
+impl Desc for () {
+    type Props = Rc<()>;
+    type Impose = Rc<()>;
+    type Children<A: DynClone + ?Sized> = std::marker::PhantomData<dyn Layout<Self::Impose>>;
+
+    fn stage<'a>(
+        _: &Self::Props,
+        _: AbsRect,
+        _: Vec2,
+        _: &Self::Children<dyn Layout<Self::Impose> + '_>,
+        _: std::rc::Weak<SourceID>,
+        _: Option<Rc<dyn Renderable>>,
+        _: &DriverState,
+    ) -> Box<dyn Staged + 'a> {
+        panic!("Cannot stage empty tuple");
+    }
+}
+
 #[derive_where(Clone)]
-pub struct Node<D: Desc, Imposed: Clone> {
+pub struct Node<D: Desc> {
     pub props: D::Props,
-    pub imposed: Imposed,
     pub id: std::rc::Weak<SourceID>,
     pub children: D::Children<dyn Layout<D::Impose>>,
     pub renderable: Option<Rc<dyn Renderable>>,
 }
 
-impl<D: Desc, Imposed: Clone> Layout<Imposed> for Node<D, Imposed> {
-    fn get_imposed(&self) -> &Imposed {
-        &self.imposed
+impl<D: Desc> Layout<D::Props> for Node<D> {
+    fn get_imposed(&self) -> &D::Props {
+        &self.props
     }
     fn stage<'a>(
         &self,

@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use crate::layout;
-use crate::layout::empty::Empty;
+use crate::layout::empty;
 use crate::layout::Layout;
 use crate::shaders::gen_uniform;
 use crate::DriverState;
@@ -14,10 +14,9 @@ use ultraviolet::Vec4;
 use wgpu::util::DeviceExt;
 
 #[derive(Clone, Default)]
-pub struct Circle<Parent: Clone> {
+pub struct Circle<Props: empty::Prop + Clone + 'static> {
     pub id: Rc<SourceID>,
-    pub props: Parent,
-    pub rect: URect,
+    pub props: Props,
     pub border: f32,
     pub blur: f32,
     pub radii: Vec2,
@@ -25,7 +24,7 @@ pub struct Circle<Parent: Clone> {
     pub outline: Vec4,
 }
 
-impl<Parent: Clone + 'static> super::Outline<Parent> for Circle<Parent> {
+impl<Props: empty::Prop + Clone + 'static> super::Outline<Props> for Circle<Props> {
     fn id(&self) -> std::rc::Rc<SourceID> {
         self.id.clone()
     }
@@ -39,7 +38,7 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for Circle<Parent> {
         _: &crate::StateManager,
         driver: &DriverState,
         config: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn Layout<Parent>> {
+    ) -> Box<dyn Layout<Props>> {
         let shader_idx = driver.shader_cache.borrow_mut().register_shader(
             &driver.device,
             "Circle FS",

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
+use super::prop;
 use super::Concrete;
 use super::Desc;
 use super::Layout;
@@ -10,31 +11,22 @@ use crate::layout::zero_infinity;
 use crate::rtree;
 use crate::AbsDim;
 use crate::AbsRect;
-use crate::UPoint;
-use crate::URect;
 use crate::Vec2;
 use dyn_clone::DynClone;
 use std::rc::Rc;
 
-#[derive(Clone, Default)]
-pub struct Simple {
-    pub margin: URect,
-    pub area: URect,
-    pub anchor: UPoint,
-    pub limits: URect,
-    pub zindex: i32,
-}
+pub trait Prop: prop::Margin + prop::Area + prop::Anchor + prop::Limits + prop::ZIndex {}
 
-impl Desc for Simple {
-    type Props = Simple;
+impl Desc for Rc<dyn Prop> {
+    type Props = Rc<dyn Prop>;
     type Impose = ();
-    type Children<A: DynClone + ?Sized> = im::Vector<Option<Box<dyn Layout<Self::Impose>>>>;
+    type Children<A: DynClone + ?Sized> = im::Vector<Option<Box<dyn Layout<()>>>>;
 
     fn stage<'a>(
         props: &Self::Props,
         true_area: AbsRect,
         parent_pos: Vec2,
-        children: &Self::Children<dyn Layout<Self::Impose> + '_>,
+        children: &Self::Children<dyn Layout<()> + '_>,
         id: std::rc::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
         driver: &crate::DriverState,
@@ -48,14 +40,14 @@ impl Desc for Simple {
             area.bottomright.y = area.topleft.y;
         }
 
-        area = props.area * area;
+        area = *props.area() * area;
 
         // If our own area also has an infinite axis, then we need to evaluate the children
         if area.bottomright.x.is_infinite() || area.bottomright.y.is_infinite() {
             let dim = AbsDim(zero_infinity(area.dim().into()));
             let inner_area = AbsRect {
-                topleft: area.topleft + (props.margin.topleft * dim),
-                bottomright: (area.bottomright - (props.margin.bottomright * dim)),
+                topleft: area.topleft + (props.margin().topleft * dim),
+                bottomright: (area.bottomright - (props.margin().bottomright * dim)),
             };
 
             let mut bottomright = inner_area.topleft - true_area.topleft;
@@ -65,7 +57,6 @@ impl Desc for Simple {
                     .as_ref()
                     .unwrap()
                     .stage(inner_area, true_area.topleft, driver);
-
                 bottomright = bottomright.max_by_component(stage.get_area().bottomright);
             }
             if area.bottomright.x.is_infinite() {
@@ -77,10 +68,10 @@ impl Desc for Simple {
         };
 
         let dim = area.dim();
-        let anchor = props.anchor * dim;
+        let anchor = *props.anchor() * dim;
         let inner_area = AbsRect {
-            topleft: area.topleft - anchor + (props.margin.topleft * dim),
-            bottomright: (area.bottomright - anchor - (props.margin.bottomright * dim)),
+            topleft: area.topleft - anchor + (props.margin().topleft * dim),
+            bottomright: (area.bottomright - anchor - (props.margin().bottomright * dim)),
         };
 
         let mut staging: im::Vector<Option<Box<dyn Staged>>> = im::Vector::new();
@@ -105,7 +96,7 @@ impl Desc for Simple {
                 .unwrap_or_default(),
             rtree: Rc::new(rtree::Node::new(
                 area - parent_pos,
-                Some(props.zindex),
+                Some(props.zindex()),
                 nodes,
                 id,
             )),

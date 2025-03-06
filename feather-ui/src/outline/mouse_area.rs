@@ -3,9 +3,10 @@
 
 use super::StateMachine;
 use crate::input::{MouseState, RawEvent, RawEventKind};
-use crate::layout::empty::Empty;
+use crate::layout::empty;
+use crate::outline::Layout;
 use crate::Slot;
-use crate::{layout, Dispatchable, SourceID, FILL_URECT};
+use crate::{layout, Dispatchable, SourceID};
 use derive_where::derive_where;
 use enum_variant_type::EnumVariantType;
 use feather_macro::Dispatch;
@@ -27,22 +28,23 @@ struct MouseAreaState {
 }
 
 #[derive_where(Clone)]
-pub struct MouseArea<Parent: Clone> {
+pub struct MouseArea<T: empty::Prop + 'static> {
     pub id: Rc<SourceID>,
-    props: Parent,
+    props: Rc<T>,
     slots: [Option<Slot>; MouseAreaEvent::SIZE],
 }
 
-impl<Parent: Clone + 'static> MouseArea<Parent> {
-    pub fn new(
-        id: Rc<SourceID>,
-        props: Parent,
-        slots: [Option<Slot>; MouseAreaEvent::SIZE],
-    ) -> Self {
-        Self { id, props, slots }
+impl<T: empty::Prop + 'static> MouseArea<T> {
+    pub fn new(id: Rc<SourceID>, props: T, slots: [Option<Slot>; MouseAreaEvent::SIZE]) -> Self {
+        Self {
+            id,
+            props: props.into(),
+            slots,
+        }
     }
 }
-impl<Parent: Clone + 'static> super::Outline<Parent> for MouseArea<Parent> {
+
+impl<T: empty::Prop + 'static> super::Outline<Rc<dyn empty::Prop>> for MouseArea<T> {
     fn id(&self) -> Rc<SourceID> {
         self.id.clone()
     }
@@ -124,10 +126,9 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for MouseArea<Parent> {
         _: &crate::StateManager,
         _: &crate::DriverState,
         _: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn crate::layout::Layout<Parent>> {
-        Box::new(layout::Node::<Empty, Parent> {
-            props: FILL_URECT,
-            imposed: self.props.clone(),
+    ) -> Box<dyn Layout<Rc<dyn empty::Prop>>> {
+        Box::new(layout::Node::<Rc<dyn empty::Prop>> {
+            props: self.props.clone(),
             children: Default::default(),
             id: Rc::downgrade(&self.id),
             renderable: None,

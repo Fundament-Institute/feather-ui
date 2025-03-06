@@ -2,7 +2,8 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use crate::layout;
-use crate::layout::empty::Empty;
+use crate::layout::empty;
+use crate::layout::prop;
 use crate::layout::Layout;
 use crate::shaders::gen_uniform;
 use crate::DriverState;
@@ -13,9 +14,9 @@ use ultraviolet::Vec4;
 use wgpu::util::DeviceExt;
 
 #[derive(Clone, Default)]
-pub struct RoundRect<Parent: Clone> {
+pub struct RoundRect<T: empty::Prop + prop::Area + 'static> {
     pub id: std::rc::Rc<SourceID>,
-    pub props: Parent,
+    pub props: Rc<T>,
     pub rect: URect,
     pub border: f32,
     pub blur: f32,
@@ -96,9 +97,8 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for RoundRect<Parent> {
             label: None,
         });
 
-        Box::new(layout::Node::<Empty, Parent> {
-            props: self.rect,
-            imposed: self.props.clone(),
+        Box::new(layout::Node::<Rc<dyn empty::Prop>> {
+            props: self.props.clone(),
             children: Default::default(),
             id: Rc::downgrade(&self.id),
             renderable: Some(Rc::new_cyclic(|this| crate::shaders::StandardPipeline {

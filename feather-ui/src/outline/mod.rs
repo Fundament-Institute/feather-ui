@@ -8,18 +8,18 @@ use window::WindowStateMachine;
 
 use crate::layout::Layout;
 
-pub mod arc;
+//pub mod arc;
 pub mod button;
-pub mod circle;
-pub mod domain_line;
-pub mod domain_point;
-pub mod draggable;
-pub mod flexbox;
+//pub mod circle;
+//pub mod domain_line;
+//pub mod domain_point;
+//pub mod draggable;
+//pub mod flexbox;
 pub mod mouse_area;
-pub mod paragraph;
+//pub mod paragraph;
 pub mod region;
 pub mod round_rect;
-pub mod shader_standard;
+//pub mod shader_standard;
 pub mod sized_region;
 pub mod text;
 pub mod window;
@@ -113,13 +113,13 @@ impl<
     }
 }
 
-pub trait Outline<Parent: Clone>: DynClone {
+pub trait Outline<D: Desc>: DynClone {
     fn layout(
         &self,
         state: &StateManager,
         driver: &DriverState,
         config: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn Layout<Parent>>;
+    ) -> Box<dyn Layout<D::Props>>;
 
     fn init(&self) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error> {
         Err(crate::Error::Stateless)
