@@ -30,7 +30,7 @@ fn main() {
             e.to_string()
         )
     } else if let Ok(s) = get_cargo_target_dir() {
-        let curdir = std::env::current_dir().unwrap();
+        let curdir = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
 
         std::fs::copy(
             curdir.join("calculator-cs/bin/Debug/net8.0/calculator-cs.runtimeconfig.json"),
