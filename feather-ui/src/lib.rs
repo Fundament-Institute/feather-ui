@@ -641,7 +641,10 @@ impl StateManager {
         Ok(())
     }
 
-    fn init_outline<Parent: Clone>(&mut self, target: &dyn Outline<Parent>) -> eyre::Result<()> {
+    fn init_outline<Parent: ?Sized>(
+        &mut self,
+        target: &dyn crate::outline::OutlineWrap<Parent>,
+    ) -> eyre::Result<()> {
         if !self.states.contains_key(&target.id()) {
             match target.init() {
                 Ok(v) => self.init(target.id().clone(), v),
@@ -937,7 +940,7 @@ impl FnPersist<u8, im::HashMap<Rc<SourceID>, Option<Window>>> for TestApp {
         use layout::Desc;
         use outline::round_rect::RoundRect;
         use ultraviolet::Vec4;
-        let region = RoundRect::<<Root as Desc>::Impose> {
+        let region = RoundRect::<<Root as Desc>::Child> {
             id: gen_id!().into(),
             fill: Vec4::new(1.0, 0.0, 0.0, 1.0),
             ..Default::default()

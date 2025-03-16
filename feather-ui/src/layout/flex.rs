@@ -47,12 +47,16 @@ pub trait Prop: prop::ZIndex + prop::Obstacles {
     fn align(&self) -> FlexJustify;
 }
 
+crate::gen_from_to_dyn!(Prop);
+
 pub trait Inherited: prop::Margin + prop::Limits {
     fn order(&self) -> i64;
     fn grow(&self) -> f32;
     fn shrink(&self) -> f32;
     fn basis(&self) -> f32;
 }
+
+crate::gen_from_to_dyn!(Inherited);
 
 fn swap_axis(xaxis: bool, v: Vec2) -> (f32, f32) {
     if xaxis {
@@ -241,16 +245,16 @@ fn wrap_line(
     (breaks, linecount, used_aux)
 }
 
-impl Desc for Rc<dyn Prop> {
-    type Props = Rc<dyn Prop>;
-    type Impose = Rc<dyn Inherited>;
-    type Children<A: DynClone + ?Sized> = im::Vector<Option<Box<dyn Layout<Self::Impose>>>>;
+impl Desc for dyn Prop {
+    type Props = dyn Prop;
+    type Child = dyn Inherited;
+    type Children<A: DynClone + ?Sized> = im::Vector<Option<Box<dyn LayoutWrap<Self::Child>>>>;
 
     fn stage<'a>(
         props: &Self::Props,
         true_area: AbsRect,
         parent_pos: Vec2,
-        children: &Self::Children<dyn Layout<Self::Impose> + '_>,
+        children: &Self::Children<dyn Layout<Self::Child> + '_>,
         id: std::rc::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
         driver: &crate::DriverState,

@@ -2,9 +2,11 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::mouse_area::MouseArea;
-use crate::layout::prop;
 use crate::layout::simple;
 use crate::layout::Layout;
+use crate::layout::LayoutWrap;
+use crate::outline::Desc;
+use crate::outline::OutlineWrap;
 use crate::persist::FnPersist;
 use crate::persist::VectorMap;
 use crate::Outline;
@@ -20,7 +22,7 @@ pub struct Button<T: simple::Prop + 'static> {
     pub id: Rc<SourceID>,
     props: Rc<T>,
     marea: MouseArea<URect>,
-    children: im::Vector<Option<Box<dyn Outline<()>>>>,
+    children: im::Vector<Option<Box<dyn OutlineWrap<<dyn simple::Prop as Desc>::Child>>>>,
 }
 
 impl<T: simple::Prop + 'static> Button<T> {
@@ -28,7 +30,7 @@ impl<T: simple::Prop + 'static> Button<T> {
         id: Rc<SourceID>,
         props: T,
         onclick: Slot,
-        children: im::Vector<Option<Box<dyn Outline<()>>>>,
+        children: im::Vector<Option<Box<dyn OutlineWrap<<dyn simple::Prop as Desc>::Child>>>>,
     ) -> Self {
         Self {
             id: id.clone(),
@@ -47,7 +49,10 @@ impl<T: simple::Prop + 'static> Button<T> {
     }
 }
 
-impl<T: simple::Prop + 'static> Outline<Rc<dyn simple::Prop>> for Button<T> {
+impl<T: simple::Prop + 'static> Outline<T> for Button<T>
+where
+    for<'a> &'a T: Into<&'a (dyn simple::Prop + 'static)>,
+{
     fn id(&self) -> Rc<SourceID> {
         self.id.clone()
     }
@@ -56,7 +61,8 @@ impl<T: simple::Prop + 'static> Outline<Rc<dyn simple::Prop>> for Button<T> {
         for child in self.children.iter() {
             manager.init_outline(child.as_ref().unwrap().as_ref())?;
         }
-        manager.init_outline(&self.marea)?;
+        let blah: &dyn Outline<URect> = &self.marea;
+        manager.init_outline::<URect>(&blah)?;
         Ok(())
     }
 
@@ -65,17 +71,18 @@ impl<T: simple::Prop + 'static> Outline<Rc<dyn simple::Prop>> for Button<T> {
         state: &crate::StateManager,
         driver: &crate::DriverState,
         config: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn Layout<Rc<dyn simple::Prop>>> {
+    ) -> Box<dyn Layout<T>> {
         let map = VectorMap::new(
-            |child: &Option<Box<dyn Outline<()>>>| -> Option<Box<dyn Layout<Rc<dyn prop::Empty>>>> {
+            |child: &Option<Box<dyn OutlineWrap<<dyn simple::Prop as Desc>::Child>>>| -> Option<Box<dyn LayoutWrap<<dyn simple::Prop as Desc>::Child>>> {
                 Some(child.as_ref().unwrap().layout(state, driver, config))
             },
         );
 
         let (_, mut children) = map.call(Default::default(), &self.children);
-        children.push_back(Some(self.marea.layout(state, driver, config)));
+        let test = self.marea.layout(state, driver, config);
+        children.push_back(Some(Box::new(test)));
 
-        Box::new(layout::Node::<Rc<dyn simple::Prop>> {
+        Box::new(layout::Node::<T, dyn simple::Prop> {
             props: self.props.clone(),
             children,
             id: Rc::downgrade(&self.id),
@@ -83,3 +90,5 @@ impl<T: simple::Prop + 'static> Outline<Rc<dyn simple::Prop>> for Button<T> {
         })
     }
 }
+
+crate::gen_outline_wrap!(Button, simple::Prop);

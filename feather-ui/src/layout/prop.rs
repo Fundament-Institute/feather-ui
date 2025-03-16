@@ -1,10 +1,29 @@
 use crate::{AbsRect, UPoint, URect};
+use std::rc::Rc;
+
+#[macro_export]
+macro_rules! gen_from_to_dyn {
+    ($idx:ident) => {
+        impl<'a, T: $idx + 'static> From<&'a T> for &'a (dyn $idx + 'static) {
+            fn from(value: &'a T) -> Self {
+                return value;
+            }
+        }
+    };
+}
 
 pub trait Empty {}
 
 impl Empty for () {}
 
-const SENTINEL: std::rc::Rc<()> = std::rc::Rc::new(());
+impl<T: Empty> Empty for Rc<T> {}
+
+impl Empty for URect {}
+
+gen_from_to_dyn!(Empty);
+
+//static SENTINEL: std::sync::LazyLock<std::rc::Rc<()>> =
+//  std::sync::LazyLock::new(|| std::rc::Rc::new(()));
 
 pub trait Obstacles {
     fn obstacles(&self) -> &[AbsRect];
@@ -31,6 +50,8 @@ impl Area for URect {
         self
     }
 }
+
+gen_from_to_dyn!(Area);
 
 pub trait Anchor {
     fn anchor(&self) -> &UPoint;

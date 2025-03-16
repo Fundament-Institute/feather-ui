@@ -20,7 +20,7 @@ pub struct Paragraph<Parent: Clone> {
     pub id: Rc<SourceID>,
     pub props: Parent,
     pub flex: flex::Flex,
-    pub children: im::Vector<Option<Box<dyn Outline<<flex::Flex as Desc>::Impose>>>>,
+    pub children: im::Vector<Option<Box<dyn Outline<<flex::Flex as Desc>::Child>>>>,
 }
 
 impl<Parent: Clone + 'static> Paragraph<Parent> {
@@ -90,7 +90,7 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for Paragraph<Parent> {
     ) -> Box<dyn Layout<Parent>> {
         let map = VectorMap::new(
             |child: &Option<Box<OutlineFrom<flex::Flex>>>|
-             -> Option<Box<dyn Layout<<flex::Flex as Desc>::Impose>>> { Some(child.as_ref().unwrap().layout(state, driver, config)) },
+             -> Option<Box<dyn Layout<<flex::Flex as Desc>::Child>>> { Some(child.as_ref().unwrap().layout(state, driver, config)) },
         );
 
         let (_, children) = map.call(Default::default(), &self.children);

@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use crate::layout;
-use crate::layout::empty;
+use crate::layout::leaf;
 use crate::layout::prop;
 use crate::layout::Layout;
 use crate::shaders::gen_uniform;
@@ -14,7 +14,7 @@ use ultraviolet::Vec4;
 use wgpu::util::DeviceExt;
 
 #[derive(Clone, Default)]
-pub struct RoundRect<T: empty::Prop + prop::Area + 'static> {
+pub struct RoundRect<T: leaf::Prop + prop::Area + 'static> {
     pub id: std::rc::Rc<SourceID>,
     pub props: Rc<T>,
     pub rect: URect,
@@ -97,7 +97,7 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for RoundRect<Parent> {
             label: None,
         });
 
-        Box::new(layout::Node::<Rc<dyn empty::Prop>> {
+        Box::new(layout::Node::<Rc<dyn leaf::Prop>> {
             props: self.props.clone(),
             children: Default::default(),
             id: Rc::downgrade(&self.id),

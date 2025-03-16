@@ -41,7 +41,7 @@ pub struct Draggable<Parent: Clone> {
     pub id: Rc<SourceID>,
     pub props: Parent,
     pub basic: Basic,
-    pub children: im::Vector<Option<Box<dyn Outline<<Basic as Desc>::Impose>>>>,
+    pub children: im::Vector<Option<Box<dyn Outline<<Basic as Desc>::Child>>>>,
     pub slots: [Option<crate::Slot>; DraggableEvent::SIZE],
 }
 
@@ -198,7 +198,7 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for Draggable<Parent> {
     ) -> Box<dyn Layout<Parent>> {
         let map = VectorMap::new(
             |child: &Option<Box<OutlineFrom<Basic>>>|
-             -> Option<Box<dyn Layout<<Basic as Desc>::Impose>>> { Some(child.as_ref().unwrap().layout(state, driver, config)) },
+             -> Option<Box<dyn Layout<<Basic as Desc>::Child>>> { Some(child.as_ref().unwrap().layout(state, driver, config)) },
         );
 
         let (_, children) = map.call(Default::default(), &self.children);

@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
+use super::prop::Empty;
 use super::Concrete;
 use super::Desc;
-use super::Layout;
+use super::LayoutWrap;
 use super::Renderable;
 use super::Staged;
 use crate::outline::CrossReferenceDomain;
@@ -11,7 +12,6 @@ use crate::rtree;
 use crate::AbsRect;
 use crate::SourceID;
 use crate::Vec2;
-use dyn_clone::DynClone;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
@@ -20,16 +20,18 @@ pub trait Prop {
     fn domain(&self) -> Rc<CrossReferenceDomain>;
 }
 
-impl Desc for Rc<dyn Prop> {
-    type Props = Rc<dyn Prop>;
-    type Impose = ();
-    type Children<A: DynClone + ?Sized> = PhantomData<dyn Layout<Self::Impose>>;
+crate::gen_from_to_dyn!(Prop);
+
+impl Desc for dyn Prop {
+    type Props = dyn Prop;
+    type Child = dyn Empty;
+    type Children = PhantomData<dyn LayoutWrap<Self::Child>>;
 
     fn stage<'a>(
         props: &Self::Props,
         mut true_area: AbsRect,
         parent_pos: Vec2,
-        _: &Self::Children<dyn Layout<Self::Impose> + '_>,
+        _: &Self::Children,
         id: std::rc::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
         driver: &crate::DriverState,

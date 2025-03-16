@@ -3,7 +3,7 @@
 
 use crate::layout;
 use crate::layout::basic;
-use crate::layout::Desc;
+use crate::layout::prop;
 use crate::layout::Layout;
 use crate::outline::OutlineFrom;
 use crate::persist::FnPersist;
@@ -17,7 +17,7 @@ use std::rc::Rc;
 pub struct Region<T: basic::Prop + 'static> {
     pub id: Rc<SourceID>,
     pub props: Rc<T>,
-    pub children: im::Vector<Option<Box<dyn Outline<()>>>>,
+    pub children: im::Vector<Option<Box<dyn Outline<Rc<dyn prop::Empty>>>>>,
 }
 
 impl<Parent: Clone + 'static> super::Outline<Parent> for Region<Parent> {
