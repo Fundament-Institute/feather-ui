@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use crate::layout;
+use crate::layout::prop;
 use crate::layout::simple;
-use crate::layout::Desc;
 use crate::layout::Layout;
 use crate::outline::OutlineFrom;
 use crate::persist::FnPersist;
@@ -17,7 +17,7 @@ use std::rc::Rc;
 pub struct SizedRegion<T: simple::Prop + 'static> {
     pub id: Rc<SourceID>,
     pub props: Rc<T>,
-    pub children: im::Vector<Option<Box<dyn Outline<()>>>>,
+    pub children: im::Vector<Option<Box<dyn Outline<Rc<dyn prop::Empty>>>>>,
 }
 
 impl<Parent: Clone + 'static> super::Outline<Parent> for SizedRegion<Parent> {

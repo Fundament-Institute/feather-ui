@@ -2,31 +2,33 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::prop;
+use super::prop::Empty;
 use super::zero_infinity;
 use super::Concrete;
 use super::Desc;
-use super::Layout;
+use super::LayoutWrap;
 use super::Renderable;
 use super::Staged;
 use crate::rtree;
 use crate::AbsDim;
 use crate::AbsRect;
 use crate::Vec2;
-use dyn_clone::DynClone;
 use std::rc::Rc;
 
 pub trait Prop: prop::Padding + prop::ZIndex {}
 
-impl Desc for Rc<dyn Prop> {
-    type Props = Rc<dyn Prop>;
-    type Impose = ();
-    type Children<A: DynClone + ?Sized> = im::Vector<Option<Box<dyn Layout<Self::Impose>>>>;
+crate::gen_from_to_dyn!(Prop);
+
+impl Desc for dyn Prop {
+    type Props = dyn Prop;
+    type Child = dyn Empty;
+    type Children = im::Vector<Option<Box<dyn LayoutWrap<Self::Child>>>>;
 
     fn stage<'a>(
         props: &Self::Props,
         true_area: AbsRect,
         parent_pos: Vec2,
-        children: &Self::Children<dyn Layout<Self::Impose> + '_>,
+        children: &Self::Children,
         id: std::rc::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
         driver: &crate::DriverState,

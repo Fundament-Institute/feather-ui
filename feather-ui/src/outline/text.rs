@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::Renderable;
+use crate::layout::leaf;
 use crate::layout::Layout;
 use crate::rtree;
 use crate::AbsRect;
@@ -9,6 +10,7 @@ use crate::DriverState;
 use crate::RenderLambda;
 use crate::SourceID;
 use crate::Vec2;
+use derive_where::derive_where;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -73,17 +75,17 @@ impl Renderable for TextPipeline {
     }
 }
 
-#[derive(Clone)]
-pub struct TextLayout<Parent: Clone> {
+#[derive_where(Clone)]
+pub struct TextLayout<T> {
     pub id: std::rc::Weak<SourceID>,
-    pub imposed: Parent,
+    pub imposed: Rc<T>,
     pub text_render: Rc<TextPipeline>,
 }
 
-#[derive(Clone)]
-pub struct Text<Parent: Clone> {
+#[derive_where(Clone)]
+pub struct Text<T> {
     pub id: Rc<SourceID>,
-    pub props: Parent,
+    pub props: Rc<T>,
     pub font_size: f32,
     pub line_height: f32,
     pub text: String,
@@ -93,7 +95,7 @@ pub struct Text<Parent: Clone> {
     pub style: glyphon::Style,
 }
 
-impl<Parent: Clone + Default> Default for Text<Parent> {
+impl<T: Default> Default for Text<T> {
     fn default() -> Self {
         Self {
             id: Default::default(),
@@ -109,7 +111,10 @@ impl<Parent: Clone + Default> Default for Text<Parent> {
     }
 }
 
-impl<Parent: Clone + 'static> super::Outline<Parent> for Text<Parent> {
+impl<Parent: leaf::Prop + 'static> super::Outline<Parent> for Text<Parent>
+where
+    for<'a> &'a Parent: Into<&'a (dyn leaf::Prop + 'static)>,
+{
     fn id(&self) -> std::rc::Rc<SourceID> {
         self.id.clone()
     }
@@ -160,11 +165,13 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for Text<Parent> {
     }
 }
 
-impl<Imposed: Clone> Layout<Imposed> for TextLayout<Imposed> {
-    fn get_imposed(&self) -> &Imposed {
+crate::gen_outline_wrap!(Text, leaf::Prop);
+
+impl<Imposed> Layout<Imposed> for TextLayout<Imposed> {
+    fn get_props(&self) -> &Imposed {
         &self.imposed
     }
-    fn stage<'a>(
+    fn inner_stage<'a>(
         &self,
         mut area: AbsRect,
         parent_pos: Vec2,

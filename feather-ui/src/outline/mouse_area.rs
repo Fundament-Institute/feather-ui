@@ -3,7 +3,7 @@
 
 use super::StateMachine;
 use crate::input::{MouseState, RawEvent, RawEventKind};
-use crate::layout::empty;
+use crate::layout::leaf;
 use crate::outline::Layout;
 use crate::Slot;
 use crate::{layout, Dispatchable, SourceID};
@@ -28,13 +28,13 @@ struct MouseAreaState {
 }
 
 #[derive_where(Clone)]
-pub struct MouseArea<T: empty::Prop + 'static> {
+pub struct MouseArea<T: leaf::Prop + 'static> {
     pub id: Rc<SourceID>,
     props: Rc<T>,
     slots: [Option<Slot>; MouseAreaEvent::SIZE],
 }
 
-impl<T: empty::Prop + 'static> MouseArea<T> {
+impl<T: leaf::Prop + 'static> MouseArea<T> {
     pub fn new(id: Rc<SourceID>, props: T, slots: [Option<Slot>; MouseAreaEvent::SIZE]) -> Self {
         Self {
             id,
@@ -44,7 +44,10 @@ impl<T: empty::Prop + 'static> MouseArea<T> {
     }
 }
 
-impl<T: empty::Prop + 'static> super::Outline<Rc<dyn empty::Prop>> for MouseArea<T> {
+impl<T: leaf::Prop + 'static> super::Outline<T> for MouseArea<T>
+where
+    for<'a> &'a T: Into<&'a (dyn leaf::Prop + 'static)>,
+{
     fn id(&self) -> Rc<SourceID> {
         self.id.clone()
     }
@@ -126,8 +129,8 @@ impl<T: empty::Prop + 'static> super::Outline<Rc<dyn empty::Prop>> for MouseArea
         _: &crate::StateManager,
         _: &crate::DriverState,
         _: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn Layout<Rc<dyn empty::Prop>>> {
-        Box::new(layout::Node::<Rc<dyn empty::Prop>> {
+    ) -> Box<dyn Layout<T> + 'static> {
+        Box::new(layout::Node::<T, dyn leaf::Prop> {
             props: self.props.clone(),
             children: Default::default(),
             id: Rc::downgrade(&self.id),

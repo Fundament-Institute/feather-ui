@@ -3,8 +3,8 @@
 
 pub mod basic;
 pub mod domain_write;
-pub mod empty;
-pub mod flex;
+//pub mod flex;
+pub mod leaf;
 pub mod prop;
 pub mod root;
 pub mod simple;
@@ -23,7 +23,19 @@ use crate::SourceID;
 use derive_where::derive_where;
 use std::rc::{Rc, Weak};
 
-pub trait Layout<Imposed: Clone>: DynClone {
+pub trait Layout<Props>: DynClone {
+    fn get_props(&self) -> &Props;
+    fn inner_stage<'a>(
+        &self,
+        area: AbsRect,
+        parent_pos: Vec2,
+        driver: &DriverState,
+    ) -> Box<dyn Staged + 'a>;
+}
+
+dyn_clone::clone_trait_object!(<Imposed> Layout<Imposed> where Imposed:Sized);
+
+pub trait LayoutWrap<Imposed: ?Sized>: DynClone {
     fn get_imposed(&self) -> &Imposed;
     fn stage<'a>(
         &self,
@@ -33,63 +45,90 @@ pub trait Layout<Imposed: Clone>: DynClone {
     ) -> Box<dyn Staged + 'a>;
 }
 
-dyn_clone::clone_trait_object!(<Imposed> Layout<Imposed> where Imposed:Clone);
+dyn_clone::clone_trait_object!(<Imposed> LayoutWrap<Imposed> where Imposed:?Sized);
 
-pub trait Desc {
-    type Props: Clone;
-    type Impose: Clone;
-    type Children<A: DynClone + ?Sized>: Clone;
-
-    /// Resolves a pending layout into a resolved node, which contains a pointer to the R-tree
-    fn stage<'a>(
-        props: &Self::Props,
-        true_area: AbsRect,
-        parent_pos: Vec2,
-        children: &Self::Children<dyn Layout<Self::Impose> + '_>,
-        id: std::rc::Weak<SourceID>,
-        renderable: Option<Rc<dyn Renderable>>,
-        driver: &DriverState,
-    ) -> Box<dyn Staged + 'a>;
-}
-
-impl Desc for () {
-    type Props = Rc<()>;
-    type Impose = Rc<()>;
-    type Children<A: DynClone + ?Sized> = std::marker::PhantomData<dyn Layout<Self::Impose>>;
-
-    fn stage<'a>(
-        _: &Self::Props,
-        _: AbsRect,
-        _: Vec2,
-        _: &Self::Children<dyn Layout<Self::Impose> + '_>,
-        _: std::rc::Weak<SourceID>,
-        _: Option<Rc<dyn Renderable>>,
-        _: &DriverState,
-    ) -> Box<dyn Staged + 'a> {
-        panic!("Cannot stage empty tuple");
+impl<U: ?Sized, T> LayoutWrap<U> for Box<dyn Layout<T>>
+where
+    for<'a> &'a T: Into<&'a U>,
+{
+    fn get_imposed(&self) -> &U {
+        self.get_props().into()
     }
-}
 
-#[derive_where(Clone)]
-pub struct Node<D: Desc> {
-    pub props: D::Props,
-    pub id: std::rc::Weak<SourceID>,
-    pub children: D::Children<dyn Layout<D::Impose>>,
-    pub renderable: Option<Rc<dyn Renderable>>,
-}
-
-impl<D: Desc> Layout<D::Props> for Node<D> {
-    fn get_imposed(&self) -> &D::Props {
-        &self.props
-    }
     fn stage<'a>(
         &self,
         area: AbsRect,
         parent_pos: Vec2,
         driver: &DriverState,
     ) -> Box<dyn Staged + 'a> {
+        self.inner_stage(area, parent_pos, driver)
+    }
+}
+
+impl<U: ?Sized, T> LayoutWrap<U> for &dyn Layout<T>
+where
+    for<'a> &'a T: Into<&'a U>,
+{
+    fn get_imposed(&self) -> &U {
+        self.get_props().into()
+    }
+
+    fn stage<'a>(
+        &self,
+        area: AbsRect,
+        parent_pos: Vec2,
+        driver: &DriverState,
+    ) -> Box<dyn Staged + 'a> {
+        self.inner_stage(area, parent_pos, driver)
+    }
+}
+
+impl<T: 'static> From<Box<dyn Layout<T>>> for Box<dyn LayoutWrap<T>> {
+    fn from(value: Box<dyn Layout<T>>) -> Self {
+        Box::new(value)
+    }
+}
+
+pub trait Desc {
+    type Props: ?Sized;
+    type Child: ?Sized;
+    type Children: Clone;
+
+    /// Resolves a pending layout into a resolved node, which contains a pointer to the R-tree
+    fn stage<'a>(
+        props: &Self::Props,
+        true_area: AbsRect,
+        parent_pos: Vec2,
+        children: &Self::Children,
+        id: std::rc::Weak<SourceID>,
+        renderable: Option<Rc<dyn Renderable>>,
+        driver: &DriverState,
+    ) -> Box<dyn Staged + 'a>;
+}
+
+#[derive_where(Clone)]
+pub struct Node<T, D: Desc + ?Sized> {
+    pub props: Rc<T>,
+    pub id: std::rc::Weak<SourceID>,
+    pub children: D::Children,
+    pub renderable: Option<Rc<dyn Renderable>>,
+}
+
+impl<T, D: Desc + ?Sized> Layout<T> for Node<T, D>
+where
+    for<'a> &'a T: Into<&'a D::Props>,
+{
+    fn get_props(&self) -> &T {
+        self.props.as_ref()
+    }
+    fn inner_stage<'a>(
+        &self,
+        area: AbsRect,
+        parent_pos: Vec2,
+        driver: &DriverState,
+    ) -> Box<dyn Staged + 'a> {
         D::stage(
-            &self.props,
+            self.props.as_ref().into(),
             area,
             parent_pos,
             &self.children,

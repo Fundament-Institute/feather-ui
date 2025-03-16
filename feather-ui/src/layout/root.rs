@@ -3,15 +3,17 @@
 
 use super::prop;
 use super::Desc;
-use super::Layout;
+use super::LayoutWrap;
 use super::Renderable;
 use super::Staged;
+use crate::AbsDim;
 use crate::AbsRect;
-use dyn_clone::DynClone;
 use std::rc::Rc;
 use ultraviolet::Vec2;
 
 pub trait Inherited: prop::Area {}
+
+crate::gen_from_to_dyn!(Inherited);
 
 // The root node represents some area on the screen that contains a feather layout. Later this will turn
 // into an absolute bounding volume. There can be multiple root nodes, each mapping to a different window.
@@ -19,16 +21,24 @@ pub trait Prop {
     fn dim(&self) -> &crate::AbsDim;
 }
 
-impl Desc for Rc<dyn Prop> {
-    type Props = Rc<dyn Prop>;
-    type Impose = Rc<dyn Inherited>;
-    type Children<A: DynClone + ?Sized> = Box<dyn Layout<Self::Impose>>;
+crate::gen_from_to_dyn!(Prop);
+
+impl Prop for AbsDim {
+    fn dim(&self) -> &crate::AbsDim {
+        self
+    }
+}
+
+impl Desc for dyn Prop {
+    type Props = dyn Prop;
+    type Child = dyn Inherited;
+    type Children = Box<dyn LayoutWrap<Self::Child>>;
 
     fn stage<'a>(
         props: &Self::Props,
         _: AbsRect,
         _: Vec2,
-        child: &Self::Children<dyn Layout<Self::Impose> + '_>,
+        child: &Self::Children,
         _: std::rc::Weak<crate::SourceID>,
         _: Option<Rc<dyn Renderable>>,
         driver: &crate::DriverState,
