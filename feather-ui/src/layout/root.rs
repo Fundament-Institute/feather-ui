@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use super::prop;
+use super::base;
 use super::Desc;
 use super::LayoutWrap;
 use super::Renderable;
@@ -11,7 +11,7 @@ use crate::AbsRect;
 use std::rc::Rc;
 use ultraviolet::Vec2;
 
-pub trait Inherited: prop::Area {}
+pub trait Inherited: base::Area {}
 
 crate::gen_from_to_dyn!(Inherited);
 

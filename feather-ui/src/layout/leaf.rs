@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use super::prop;
-use super::prop::Empty;
+use super::base;
+use super::base::Empty;
 use super::Concrete;
 use super::Desc;
 use super::LayoutWrap;
@@ -16,7 +16,7 @@ use crate::Vec2;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-pub trait Prop: prop::Area {}
+pub trait Prop: base::Area {}
 
 crate::gen_from_to_dyn!(Prop);
 
