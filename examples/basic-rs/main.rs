@@ -3,11 +3,13 @@
 
 use core::f32;
 use feather_ui::gen_id;
-use feather_ui::layout::prop;
+use feather_ui::layout::base;
 use feather_ui::layout::root;
 use feather_ui::layout::simple;
 use feather_ui::outline::button::Button;
 use feather_ui::outline::mouse_area;
+use feather_ui::outline::region::Region;
+use feather_ui::outline::shape::Shape;
 use feather_ui::outline::text::Text;
 use feather_ui::outline::window::Window;
 use feather_ui::outline::OutlineFrom;
@@ -26,6 +28,7 @@ struct CounterState {
     count: i32,
 }
 
+#[derive(Default)]
 struct SimpleData {
     area: feather_ui::URect,
     margin: feather_ui::URect,
@@ -34,30 +37,30 @@ struct SimpleData {
     zindex: i32,
 }
 
-impl prop::Empty for SimpleData {}
+impl base::Empty for SimpleData {}
 
-impl prop::Area for SimpleData {
+impl base::Area for SimpleData {
     fn area(&self) -> &feather_ui::URect {
         &self.area
     }
 }
-impl prop::Margin for SimpleData {
+impl base::Margin for SimpleData {
     fn margin(&self) -> &feather_ui::URect {
         &self.margin
     }
 }
-impl prop::Anchor for SimpleData {
+impl base::Anchor for SimpleData {
     fn anchor(&self) -> &feather_ui::UPoint {
         &self.anchor
     }
 }
-impl prop::Limits for SimpleData {
+impl base::Limits for SimpleData {
     fn limits(&self) -> &feather_ui::URect {
         &self.limits
     }
 }
 
-impl prop::ZIndex for SimpleData {
+impl base::ZIndex for SimpleData {
     fn zindex(&self) -> i32 {
         self.zindex
     }
@@ -93,15 +96,16 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     im::Vector::new();
                 children.push_back(Some(Box::new(text)));
 
-                /*let rect = RoundRect::<()> {
-                    id: gen_id!().into(),
-                    fill: Vec4::new(0.2, 0.7, 0.4, 1.0),
-                    corners: Vec4::broadcast(10.0),
-                    props: (),
-                    rect: feather_ui::FILL_URECT,
-                    ..Default::default()
-                };
-                children.push_back(Some(Box::new(rect)));*/
+                let rect = Shape::<URect>::round_rect(
+                    gen_id!().into(),
+                    feather_ui::FILL_URECT.into(),
+                    0.0,
+                    0.0,
+                    Vec4::broadcast(10.0),
+                    Vec4::new(0.2, 0.7, 0.4, 1.0),
+                    Vec4::zero(),
+                );
+                children.push_back(Some(Box::new(rect)));
 
                 Button::<SimpleData>::new(
                     gen_id!().into(),
@@ -129,26 +133,26 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 )
             };
 
-            //let mut children: im::Vector<Option<Box<OutlineFrom<Basic>>>> = im::Vector::new();
-            //children.push_back(Some(Box::new(button)));
+            let mut children: im::Vector<Option<Box<OutlineFrom<dyn simple::Prop>>>> =
+                im::Vector::new();
+            children.push_back(Some(Box::new(button)));
 
-            /*let region = Region {
+            let region = Region {
                 id: gen_id!().into(),
-                props: root::Inherited {
+                props: SimpleData {
                     area: AbsRect::new(90.0, 90.0, f32::INFINITY, 200.0).into(),
-                },
-                basic: Basic {
-                    padding: Default::default(),
                     zindex: 0,
-                },
+                    ..Default::default()
+                }
+                .into(),
                 children,
-            };*/
+            };
             let window = Window::new(
                 gen_id!().into(),
                 winit::window::Window::default_attributes()
                     .with_title("basic-rs")
                     .with_resizable(true),
-                Box::new(button),
+                Box::new(region),
             );
 
             store.1 = im::HashMap::new();

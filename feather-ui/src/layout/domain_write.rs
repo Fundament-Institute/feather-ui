@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use super::prop::Empty;
+use super::base::Empty;
 use super::Concrete;
 use super::Desc;
 use super::LayoutWrap;

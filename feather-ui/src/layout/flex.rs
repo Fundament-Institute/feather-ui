@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use super::prop;
+use super::base;
 use super::zero_infinity;
 use super::Concrete;
 use super::Desc;
-use super::Layout;
+use super::LayoutWrap;
 use super::Renderable;
 use super::Staged;
 use crate::persist::FnPersist2;
@@ -14,7 +14,6 @@ use crate::rtree;
 use crate::AbsRect;
 use crate::Vec2;
 use core::f32;
-use dyn_clone::DynClone;
 use smallvec::SmallVec;
 use std::rc::Rc;
 
@@ -40,7 +39,7 @@ pub enum FlexJustify {
     SpaceFull,
 }
 
-pub trait Prop: prop::ZIndex + prop::Obstacles {
+pub trait Prop: base::ZIndex + base::Obstacles {
     fn direction(&self) -> FlexDirection;
     fn wrap(&self) -> bool;
     fn justify(&self) -> FlexJustify;
@@ -49,7 +48,7 @@ pub trait Prop: prop::ZIndex + prop::Obstacles {
 
 crate::gen_from_to_dyn!(Prop);
 
-pub trait Inherited: prop::Margin + prop::Limits {
+pub trait Inherited: base::Margin + base::Limits {
     fn order(&self) -> i64;
     fn grow(&self) -> f32;
     fn shrink(&self) -> f32;
@@ -248,13 +247,13 @@ fn wrap_line(
 impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn Inherited;
-    type Children<A: DynClone + ?Sized> = im::Vector<Option<Box<dyn LayoutWrap<Self::Child>>>>;
+    type Children = im::Vector<Option<Box<dyn LayoutWrap<Self::Child>>>>;
 
     fn stage<'a>(
         props: &Self::Props,
         true_area: AbsRect,
         parent_pos: Vec2,
-        children: &Self::Children<dyn Layout<Self::Child> + '_>,
+        children: &Self::Children,
         id: std::rc::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
         driver: &crate::DriverState,
@@ -271,7 +270,7 @@ impl Desc for dyn Prop {
 
         // We re-use a lot of concepts from flexbox in this calculation. First we acquire the natural size of all child elements.
         for child in children.iter() {
-            let mut imposed = child.as_ref().unwrap().get_imposed().clone();
+            let imposed = child.as_ref().unwrap().get_imposed();
 
             let mut area = AbsRect {
                 topleft: true_area.topleft + (imposed.margin().topleft * dim),
@@ -348,7 +347,7 @@ impl Desc for dyn Prop {
 
             let r = wrap_line(
                 &childareas,
-                props.as_ref(),
+                props,
                 xaxis,
                 total_main,
                 total_aux,
@@ -371,7 +370,7 @@ impl Desc for dyn Prop {
                     used_aux = prev.2;
                     prev = wrap_line(
                         &childareas,
-                        props.as_ref(),
+                        props,
                         xaxis,
                         total_main,
                         total_aux,

@@ -2,26 +2,90 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use crate::layout;
-use crate::layout::empty::Empty;
+use crate::layout::leaf;
 use crate::layout::Layout;
 use crate::shaders::gen_uniform;
 use crate::DriverState;
 use crate::SourceID;
-use crate::URect;
+use derive_where::derive_where;
 use std::rc::Rc;
 use ultraviolet::Vec4;
 use wgpu::util::DeviceExt;
 
-#[derive(Clone, Default)]
-pub struct ShaderStandard<Parent: Clone> {
+#[derive_where(Clone)]
+pub struct Shape<'a, T: leaf::Prop + 'static> {
     pub id: std::rc::Rc<SourceID>,
-    pub props: Parent,
-    pub rect: URect,
+    pub props: Rc<T>,
     pub uniforms: [Vec4; 4],
-    pub fragment: String,
+    pub fragment: &'a str,
+    pub label: &'static str,
 }
 
-impl<Parent: Clone + 'static> super::Outline<Parent> for ShaderStandard<Parent> {
+impl<T: leaf::Prop + 'static> Shape<'_, T> {
+    pub fn round_rect(
+        id: std::rc::Rc<SourceID>,
+        props: Rc<T>,
+        border: f32,
+        blur: f32,
+        corners: Vec4,
+        fill: Vec4,
+        outline: Vec4,
+    ) -> Self {
+        Self {
+            id,
+            props,
+            uniforms: [Vec4::new(0.0, 0.0, border, blur), corners, fill, outline],
+            fragment: include_str!("../shaders/RoundRect.wgsl"),
+            label: "RoundRect FS",
+        }
+    }
+
+    pub fn arc(
+        id: std::rc::Rc<SourceID>,
+        props: Rc<T>,
+        border: f32,
+        blur: f32,
+        arcs: Vec4,
+        fill: Vec4,
+        outline: Vec4,
+    ) -> Self {
+        Self {
+            id,
+            props,
+            uniforms: [Vec4::new(0.0, 0.0, border, blur), arcs, fill, outline],
+            fragment: include_str!("../shaders/Arc.wgsl"),
+            label: "Arc FS",
+        }
+    }
+
+    pub fn circle(
+        id: std::rc::Rc<SourceID>,
+        props: Rc<T>,
+        border: f32,
+        blur: f32,
+        radii: crate::Vec2,
+        fill: Vec4,
+        outline: Vec4,
+    ) -> Self {
+        Self {
+            id,
+            props,
+            uniforms: [
+                Vec4::new(0.0, 0.0, border, blur),
+                Vec4::new(radii.x, radii.y, 0.0, 0.0),
+                fill,
+                outline,
+            ],
+            fragment: include_str!("../shaders/Circle.wgsl"),
+            label: "Circle FS",
+        }
+    }
+}
+
+impl<T: leaf::Prop + 'static> super::Outline<T> for Shape<'_, T>
+where
+    for<'a> &'a T: Into<&'a (dyn leaf::Prop + 'static)>,
+{
     fn id(&self) -> std::rc::Rc<SourceID> {
         self.id.clone()
     }
@@ -35,11 +99,11 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for ShaderStandard<Parent> 
         _: &crate::StateManager,
         driver: &DriverState,
         config: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn Layout<Parent>> {
+    ) -> Box<dyn Layout<T>> {
         let shader_idx = driver.shader_cache.borrow_mut().register_shader(
             &driver.device,
-            "ShaderStandard FS",
-            &self.fragment,
+            self.label,
+            self.fragment,
         );
         let pipeline =
             driver
@@ -89,9 +153,8 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for ShaderStandard<Parent> 
             label: None,
         });
 
-        Box::new(layout::Node::<Empty, Parent> {
-            props: self.rect,
-            imposed: self.props.clone(),
+        Box::new(layout::Node::<T, dyn leaf::Prop> {
+            props: self.props.clone(),
             children: Default::default(),
             id: Rc::downgrade(&self.id),
             renderable: Some(Rc::new_cyclic(|this| crate::shaders::StandardPipeline {
@@ -104,3 +167,5 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for ShaderStandard<Parent> 
         })
     }
 }
+
+crate::gen_outline_wrap!('a, Shape, leaf::Prop);

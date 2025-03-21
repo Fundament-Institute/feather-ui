@@ -2,15 +2,12 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::Outline;
-use super::OutlineFrom;
-use super::Root;
 use super::StateMachine;
 use crate::input::ModifierKeys;
 use crate::input::MouseMoveState;
 use crate::input::MouseState;
 use crate::input::RawEvent;
 use crate::layout;
-use crate::layout::prop;
 use crate::layout::root;
 use crate::outline::OutlineWrap;
 use crate::rtree;
