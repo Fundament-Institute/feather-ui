@@ -11,9 +11,9 @@ use crate::AbsRect;
 use std::rc::Rc;
 use ultraviolet::Vec2;
 
-pub trait Inherited: base::Area {}
+pub trait Child: base::Area {}
 
-crate::gen_from_to_dyn!(Inherited);
+crate::gen_from_to_dyn!(Child);
 
 // The root node represents some area on the screen that contains a feather layout. Later this will turn
 // into an absolute bounding volume. There can be multiple root nodes, each mapping to a different window.
@@ -31,7 +31,7 @@ impl Prop for AbsDim {
 
 impl Desc for dyn Prop {
     type Props = dyn Prop;
-    type Child = dyn Inherited;
+    type Child = dyn Child;
     type Children = Box<dyn LayoutWrap<Self::Child>>;
 
     fn stage<'a>(

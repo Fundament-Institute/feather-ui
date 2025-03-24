@@ -46,11 +46,11 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
         if store.0 != *args {
             let flex = {
-                let rect = RoundRect::<flex::Inherited> {
+                let rect = RoundRect::<flex::Child> {
                     id: gen_id!().into(),
                     fill: Vec4::new(0.2, 0.7, 0.4, 1.0),
                     corners: Vec4::broadcast(10.0),
-                    props: flex::Inherited {
+                    props: flex::Child {
                         margin: Default::default(),
                         limits: feather_ui::DEFAULT_LIMITS,
                         order: 0,
@@ -101,7 +101,7 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
 
             let region = Region {
                 id: gen_id!().into(),
-                props: root::Inherited {
+                props: root::Child {
                     area: feather_ui::URect {
                         topleft: feather_ui::UPoint {
                             abs: Vec2::new(90.0, 90.0),

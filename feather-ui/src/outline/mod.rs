@@ -9,8 +9,8 @@ use window::WindowStateMachine;
 use crate::layout::Layout;
 
 pub mod button;
-//pub mod domain_line;
-//pub mod domain_point;
+pub mod domain_line;
+pub mod domain_point;
 //pub mod draggable;
 //pub mod flexbox;
 pub mod mouse_area;

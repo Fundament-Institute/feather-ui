@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use core::f32;
+use feather_macro::*;
 use feather_ui::gen_id;
-use feather_ui::layout::base;
 use feather_ui::layout::root;
 use feather_ui::layout::simple;
 use feather_ui::outline::button::Button;
@@ -28,7 +28,7 @@ struct CounterState {
     count: i32,
 }
 
-#[derive(Default)]
+#[derive(Default, Empty, Area, Margin, Anchor, Limits, ZIndex)]
 struct SimpleData {
     area: feather_ui::URect,
     margin: feather_ui::URect,
@@ -37,36 +37,8 @@ struct SimpleData {
     zindex: i32,
 }
 
-impl base::Empty for SimpleData {}
-
-impl base::Area for SimpleData {
-    fn area(&self) -> &feather_ui::URect {
-        &self.area
-    }
-}
-impl base::Margin for SimpleData {
-    fn margin(&self) -> &feather_ui::URect {
-        &self.margin
-    }
-}
-impl base::Anchor for SimpleData {
-    fn anchor(&self) -> &feather_ui::UPoint {
-        &self.anchor
-    }
-}
-impl base::Limits for SimpleData {
-    fn limits(&self) -> &feather_ui::URect {
-        &self.limits
-    }
-}
-
-impl base::ZIndex for SimpleData {
-    fn zindex(&self) -> i32 {
-        self.zindex
-    }
-}
 impl simple::Prop for SimpleData {}
-impl root::Inherited for SimpleData {}
+impl root::Child for SimpleData {}
 
 struct BasicApp {}
 

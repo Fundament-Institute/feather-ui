@@ -6,35 +6,88 @@ use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{parse_macro_input, Data, DataEnum, DeriveInput, Meta};
 
-/*#[proc_macro_derive(Properties)]
-pub fn properties(input: TokenStream) -> TokenStream {
+fn derive_base_prop(input: TokenStream, prop: &str, source: &str, result: &str) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let struct_name = &ast.ident;
 
-    let fields = if let syn::Data::Struct(syn::DataStruct {
-        fields: syn::Fields::Named(ref fields),
-        ..
-    }) = ast.data
-    {
-        fields
-    } else {
-        panic!("This can only be applied to a Struct")
-    };
-
-    let mut keys = Vec::new();
-    let mut idents = Vec::new();
-    let mut types = Vec::new();
-
-    for field in fields.named.iter() {
-        let field_name: &syn::Ident = field.ident.as_ref().unwrap();
-        let name: String = field_name.to_string();
-        let literal_key_str = syn::LitStr::new(&name, field.span());
-        let type_name = &field.ty;
-        keys.push(quote! { #literal_key_str });
-        idents.push(&field.ident);
-        types.push(type_name.to_token_stream());
+    let result: syn::Path = syn::parse_str(result).unwrap();
+    let source: syn::Path = syn::parse_str(source).unwrap();
+    let prop = format_ident!("{}", prop);
+    let name = ast.ident;
+    quote! {
+        impl #source for #name {
+            fn #prop(&self) -> &#result {
+                &self.#prop
+            }
+        }
     }
-}*/
+    .into()
+}
+
+#[proc_macro_derive(Empty)]
+pub fn derive_empty(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+
+    let sname = ast.ident;
+    quote! {
+        impl feather_ui::layout::base::Empty for #sname {}
+    }
+    .into()
+}
+
+#[proc_macro_derive(Area)]
+pub fn derive_area(input: TokenStream) -> TokenStream {
+    derive_base_prop(
+        input,
+        "area",
+        "feather_ui::layout::base::Area",
+        "feather_ui::URect",
+    )
+}
+
+#[proc_macro_derive(Margin)]
+pub fn derive_margin(input: TokenStream) -> TokenStream {
+    derive_base_prop(
+        input,
+        "margin",
+        "feather_ui::layout::base::Margin",
+        "feather_ui::URect",
+    )
+}
+
+#[proc_macro_derive(Limits)]
+pub fn derive_limits(input: TokenStream) -> TokenStream {
+    derive_base_prop(
+        input,
+        "limits",
+        "feather_ui::layout::base::Limits",
+        "feather_ui::URect",
+    )
+}
+
+#[proc_macro_derive(Anchor)]
+pub fn derive_anchor(input: TokenStream) -> TokenStream {
+    derive_base_prop(
+        input,
+        "anchor",
+        "feather_ui::layout::base::Anchor",
+        "feather_ui::UPoint",
+    )
+}
+
+#[proc_macro_derive(ZIndex)]
+pub fn derive_zindex(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+
+    let sname = ast.ident;
+    quote! {
+        impl feather_ui::layout::base::ZIndex for #sname {
+            fn zindex(&self) -> i32 {
+                self.zindex
+            }
+        }
+    }
+    .into()
+}
 
 fn data_enum(ast: &DeriveInput) -> &DataEnum {
     if let Data::Enum(data_enum) = &ast.data {

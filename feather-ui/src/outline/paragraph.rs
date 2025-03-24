@@ -47,9 +47,9 @@ impl<Parent: Clone + 'static> Paragraph<Parent> {
     ) {
         self.children.clear();
         for word in text.split_ascii_whitespace() {
-            let text = Text::<flex::Inherited> {
+            let text = Text::<flex::Child> {
                 id: gen_id!().into(),
-                props: flex::Inherited {
+                props: flex::Child {
                     margin: Default::default(),
                     limits: crate::DEFAULT_LIMITS,
                     order: 0,
