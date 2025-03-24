@@ -44,5 +44,6 @@ feather-ui = { path = "feather-ui" }
 alicorn = "0.1.2"
 mlua = { version = "0.10", features = ["luajit52", "vendored"] }
 glyphon = "0.8.0"
+feather-macro = { version = "0.1", path = "feather-macro" }
 
 [workspace.lints]

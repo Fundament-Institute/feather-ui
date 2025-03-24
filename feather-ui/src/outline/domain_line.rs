@@ -3,7 +3,7 @@
 
 use super::CrossReferenceDomain;
 use crate::layout;
-use crate::layout::empty::Empty;
+use crate::layout::base;
 use crate::layout::Layout;
 use crate::outline::Renderable;
 use crate::shaders::gen_uniform;
@@ -12,22 +12,26 @@ use crate::shaders::Vertex;
 use crate::DriverState;
 use crate::RenderLambda;
 use crate::SourceID;
+use derive_where::derive_where;
 use std::rc::Rc;
 use ultraviolet::Vec4;
 use wgpu::util::DeviceExt;
 
 // This draws a line between two points that were previously stored in a Cross-reference Domain
-#[derive(Clone, Default)]
-pub struct DomainLine<Parent: Clone> {
+#[derive_where(Clone)]
+pub struct DomainLine<T: base::Empty + 'static> {
     pub id: Rc<SourceID>,
     pub domain: Rc<CrossReferenceDomain>,
     pub start: Rc<SourceID>,
     pub end: Rc<SourceID>,
-    pub props: Parent, // TODO: restrict this to an empty parent layout of some kind?
+    pub props: Rc<T>,
     pub fill: Vec4,
 }
 
-impl<Parent: Clone + 'static> super::Outline<Parent> for DomainLine<Parent> {
+impl<T: base::Empty + 'static> super::Outline<T> for DomainLine<T>
+where
+    for<'a> &'a T: Into<&'a (dyn base::Empty + 'static)>,
+{
     fn id(&self) -> std::rc::Rc<SourceID> {
         self.id.clone()
     }
@@ -41,7 +45,7 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for DomainLine<Parent> {
         _: &crate::StateManager,
         driver: &DriverState,
         config: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn Layout<Parent>> {
+    ) -> Box<dyn Layout<T>> {
         let shader_idx = driver.shader_cache.borrow_mut().register_shader(
             &driver.device,
             "Line FS",
@@ -92,9 +96,8 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for DomainLine<Parent> {
             label: None,
         });
 
-        Box::new(layout::Node::<Empty, Parent> {
-            props: Default::default(),
-            imposed: self.props.clone(),
+        Box::new(layout::Node::<T, dyn base::Empty> {
+            props: self.props.clone(),
             children: Default::default(),
             id: Rc::downgrade(&self.id),
             renderable: Some(Rc::new_cyclic(|this| LinePipeline {

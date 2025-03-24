@@ -48,14 +48,14 @@ pub trait Prop: base::ZIndex + base::Obstacles {
 
 crate::gen_from_to_dyn!(Prop);
 
-pub trait Inherited: base::Margin + base::Limits {
+pub trait Child: base::Margin + base::Limits {
     fn order(&self) -> i64;
     fn grow(&self) -> f32;
     fn shrink(&self) -> f32;
     fn basis(&self) -> f32;
 }
 
-crate::gen_from_to_dyn!(Inherited);
+crate::gen_from_to_dyn!(Child);
 
 fn swap_axis(xaxis: bool, v: Vec2) -> (f32, f32) {
     if xaxis {
@@ -246,7 +246,7 @@ fn wrap_line(
 
 impl Desc for dyn Prop {
     type Props = dyn Prop;
-    type Child = dyn Inherited;
+    type Child = dyn Child;
     type Children = im::Vector<Option<Box<dyn LayoutWrap<Self::Child>>>>;
 
     fn stage<'a>(

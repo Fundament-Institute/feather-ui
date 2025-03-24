@@ -211,6 +211,7 @@ dependencies = [
 name = "basic-rs"
 version = "0.1.5"
 dependencies = [
+ "feather-macro",
  "feather-ui",
  "im",
  "tokio",

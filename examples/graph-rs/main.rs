@@ -2,15 +2,14 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use feather_ui::gen_id;
-use feather_ui::layout::basic::Basic;
 
 use feather_ui::layout::root;
-use feather_ui::layout::simple::Simple;
-use feather_ui::outline::circle::Circle;
+use feather_ui::layout::simple;
 use feather_ui::outline::domain_line::DomainLine;
 use feather_ui::outline::domain_point::DomainPoint;
 use feather_ui::outline::draggable;
 use feather_ui::outline::draggable::Draggable;
+use feather_ui::outline::shape;
 use feather_ui::outline::sized_region::SizedRegion;
 use feather_ui::outline::window::Window;
 use feather_ui::outline::CrossReferenceDomain;
@@ -136,7 +135,7 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
 
             let region = Draggable {
                 id: gen_id!().into(),
-                props: root::Inherited {
+                props: root::Child {
                     area: feather_ui::URect {
                         topleft: feather_ui::UPoint {
                             abs: args.offset + Vec2::new(0.0, 0.0),

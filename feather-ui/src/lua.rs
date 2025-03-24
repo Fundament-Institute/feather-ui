@@ -148,7 +148,7 @@ fn create_region(
     children.extend(args.2.unwrap().into_iter().map(|x| Some(x.0)));
     Ok(BoxedOutline(Box::new(Region {
         id: args.0.into(),
-        props: root::Inherited { area: args.1 },
+        props: root::Child { area: args.1 },
         basic: Basic {
             padding: Default::default(),
             zindex: 0,
@@ -220,7 +220,7 @@ fn create_button(
 fn create_label(_: &Lua, args: (LuaSourceID, URect, String)) -> mlua::Result<BoxedOutline<Basic>> {
     Ok(BoxedOutline(Box::new(Text::<()> {
         id: args.0.into(),
-        // props: basic::Inherited {
+        // props: basic::Child {
         //     area: args.1,
         //     margin: Default::default(),
         //     limits: crate::DEFAULT_LIMITS,

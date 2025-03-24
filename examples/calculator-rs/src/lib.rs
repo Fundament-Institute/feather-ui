@@ -265,7 +265,7 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
 
             let region = Region {
                 id: gen_id!().into(),
-                props: root::Inherited { area: FILL_URECT },
+                props: root::Child { area: FILL_URECT },
                 basic: Basic {
                     padding: Default::default(),
                     zindex: 0,

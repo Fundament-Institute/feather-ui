@@ -164,7 +164,7 @@ impl Window {
     pub fn new(
         id: Rc<SourceID>,
         attributes: WindowAttributes,
-        child: Box<dyn OutlineWrap<dyn root::Inherited>>,
+        child: Box<dyn OutlineWrap<dyn root::Child>>,
     ) -> Self {
         Self {
             id,
