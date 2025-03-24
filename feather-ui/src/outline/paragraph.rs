@@ -3,32 +3,78 @@
 
 use crate::gen_id;
 use crate::layout;
+use crate::layout::base;
 use crate::layout::flex;
+use crate::layout::leaf;
 use crate::layout::Desc;
 use crate::layout::Layout;
+use crate::layout::LayoutWrap;
 use crate::outline::text::Text;
-use crate::outline::OutlineFrom;
 use crate::persist::FnPersist;
 use crate::persist::VectorMap;
-use crate::Outline;
 use crate::SourceID;
+use core::f32;
 use derive_where::derive_where;
 use std::rc::Rc;
 
+use super::OutlineWrap;
+
 #[derive_where(Clone)]
-pub struct Paragraph<Parent: Clone> {
+pub struct Paragraph<T: flex::Prop + 'static> {
     pub id: Rc<SourceID>,
-    pub props: Parent,
-    pub flex: flex::Flex,
-    pub children: im::Vector<Option<Box<dyn Outline<<flex::Flex as Desc>::Child>>>>,
+    pub props: Rc<T>,
+    pub children: im::Vector<Option<Box<dyn OutlineWrap<<dyn flex::Prop as Desc>::Child>>>>,
 }
 
-impl<Parent: Clone + 'static> Paragraph<Parent> {
-    pub fn new(id: Rc<SourceID>, props: Parent, flex: flex::Flex) -> Self {
+struct MinimalFlexChild {
+    grow: f32,
+}
+
+impl flex::Child for MinimalFlexChild {
+    fn grow(&self) -> f32 {
+        self.grow
+    }
+
+    fn shrink(&self) -> f32 {
+        0.0
+    }
+
+    fn basis(&self) -> f32 {
+        f32::INFINITY
+    }
+}
+
+impl base::Order for MinimalFlexChild {
+    fn order(&self) -> i64 {
+        0
+    }
+}
+
+impl base::Margin for MinimalFlexChild {
+    fn margin(&self) -> &crate::URect {
+        &crate::ZERO_URECT
+    }
+}
+
+impl base::Limits for MinimalFlexChild {
+    fn limits(&self) -> &crate::URect {
+        &crate::DEFAULT_LIMITS
+    }
+}
+
+impl leaf::Prop for MinimalFlexChild {}
+
+impl base::Area for MinimalFlexChild {
+    fn area(&self) -> &crate::URect {
+        &crate::AUTO_URECT
+    }
+}
+
+impl<T: flex::Prop + 'static> Paragraph<T> {
+    pub fn new(id: Rc<SourceID>, props: T) -> Self {
         Self {
             id,
-            props,
-            flex,
+            props: props.into(),
             children: im::Vector::new(),
         }
     }
@@ -47,16 +93,12 @@ impl<Parent: Clone + 'static> Paragraph<Parent> {
     ) {
         self.children.clear();
         for word in text.split_ascii_whitespace() {
-            let text = Text::<flex::Child> {
+            let text = Text::<MinimalFlexChild> {
                 id: gen_id!().into(),
-                props: flex::Child {
-                    margin: Default::default(),
-                    limits: crate::DEFAULT_LIMITS,
-                    order: 0,
+                props: MinimalFlexChild {
                     grow: if fullwidth { 1.0 } else { 0.0 },
-                    shrink: 0.0,
-                    basis: f32::INFINITY,
-                },
+                }
+                .into(),
                 text: word.to_owned() + " ",
                 font_size,
                 line_height,
@@ -70,7 +112,7 @@ impl<Parent: Clone + 'static> Paragraph<Parent> {
     }
 }
 
-impl<Parent: Clone + 'static> super::Outline<Parent> for Paragraph<Parent> {
+impl<T: flex::Prop + 'static> super::Outline<T> for Paragraph<T> {
     fn id(&self) -> Rc<SourceID> {
         self.id.clone()
     }
@@ -87,19 +129,21 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for Paragraph<Parent> {
         state: &crate::StateManager,
         driver: &crate::DriverState,
         config: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn Layout<Parent>> {
+    ) -> Box<dyn Layout<T>> {
         let map = VectorMap::new(
-            |child: &Option<Box<OutlineFrom<flex::Flex>>>|
-             -> Option<Box<dyn Layout<<flex::Flex as Desc>::Child>>> { Some(child.as_ref().unwrap().layout(state, driver, config)) },
+            |child: &Option<Box<dyn OutlineWrap<<dyn flex::Prop as Desc>::Child>>>| -> Option<Box<dyn LayoutWrap<<dyn flex::Prop as Desc>::Child>>> {
+                Some(child.as_ref().unwrap().layout(state, driver, config))
+            },
         );
 
         let (_, children) = map.call(Default::default(), &self.children);
-        Box::new(layout::Node::<flex::Flex, Parent> {
-            props: self.flex.clone(),
-            imposed: self.props.clone(),
+        Box::new(layout::Node::<T, dyn flex::Prop> {
+            props: self.props.clone(),
             children,
             id: Rc::downgrade(&self.id),
             renderable: None,
         })
     }
 }
+
+crate::gen_outline_wrap!(Paragraph, flex::Prop);

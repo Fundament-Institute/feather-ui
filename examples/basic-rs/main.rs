@@ -38,7 +38,6 @@ struct SimpleData {
 }
 
 impl simple::Prop for SimpleData {}
-impl root::Child for SimpleData {}
 
 struct BasicApp {}
 

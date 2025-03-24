@@ -22,6 +22,14 @@ pub trait Prop {
 
 crate::gen_from_to_dyn!(Prop);
 
+impl Prop for Rc<CrossReferenceDomain> {
+    fn domain(&self) -> Rc<CrossReferenceDomain> {
+        self.clone()
+    }
+}
+
+impl Empty for Rc<CrossReferenceDomain> {}
+
 impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn Empty;

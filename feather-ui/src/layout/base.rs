@@ -97,3 +97,7 @@ pub trait Anchor {
 pub trait Limits {
     fn limits(&self) -> &URect;
 }
+
+pub trait Order {
+    fn order(&self) -> i64;
+}

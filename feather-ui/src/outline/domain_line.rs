@@ -113,6 +113,8 @@ where
     }
 }
 
+crate::gen_outline_wrap!(DomainLine, base::Empty);
+
 pub struct LinePipeline {
     pub this: std::rc::Weak<LinePipeline>,
     pub pipeline: wgpu::RenderPipeline,

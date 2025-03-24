@@ -74,6 +74,38 @@ pub fn derive_anchor(input: TokenStream) -> TokenStream {
     )
 }
 
+#[proc_macro_derive(FlexProp)]
+pub fn derive_flex_prop(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+
+    let name = ast.ident;
+    quote! {
+        impl feather_ui::layout::flex::Prop for #name {
+        fn direction(&self) -> FlexDirection { &self.direction }
+        fn wrap(&self) -> bool { &self.wrap }
+        fn justify(&self) -> FlexJustify { &self.justify }
+        fn align(&self) -> FlexJustify { &self.align }
+        }
+    }
+    .into()
+}
+
+#[proc_macro_derive(FlexChild)]
+pub fn derive_flex_child(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+
+    let name = ast.ident;
+    quote! {
+        impl feather_ui::layout::flex::Child for #name {
+            fn order(&self) -> i64 { &self.order }
+            fn grow(&self) -> f32 { &self.grow }
+            fn shrink(&self) -> f32 { &self.shrink }
+            fn basis(&self) -> f32 { &self.basis }
+        }
+    }
+    .into()
+}
+
 #[proc_macro_derive(ZIndex)]
 pub fn derive_zindex(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -87,6 +119,16 @@ pub fn derive_zindex(input: TokenStream) -> TokenStream {
         }
     }
     .into()
+}
+
+#[proc_macro_derive(RootProp)]
+pub fn derive_root_prop(input: TokenStream) -> TokenStream {
+    derive_base_prop(
+        input,
+        "dim",
+        "feather_ui::layout::root::Prop",
+        "feather_ui::AbsDim",
+    )
 }
 
 fn data_enum(ast: &DeriveInput) -> &DataEnum {
