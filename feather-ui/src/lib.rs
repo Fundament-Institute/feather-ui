@@ -14,6 +14,7 @@ mod shaders;
 
 use crate::outline::window::Window;
 use core::cell::Cell;
+use core::f32;
 use dyn_clone::DynClone;
 use eyre::OptionExt;
 use once_cell::unsync::OnceCell;
@@ -232,6 +233,11 @@ impl From<Vec2> for UPoint {
     }
 }
 
+pub const ZERO_UPOINT: UPoint = UPoint {
+    abs: Vec2 { x: 0.0, y: 0.0 },
+    rel: RelPoint { x: 0.0, y: 0.0 },
+};
+
 #[derive(Copy, Clone, Debug, Default)]
 pub struct UDim(UPoint);
 
@@ -255,6 +261,11 @@ pub struct URect {
     pub bottomright: UPoint,
 }
 
+pub const ZERO_URECT: URect = URect {
+    topleft: ZERO_UPOINT,
+    bottomright: ZERO_UPOINT,
+};
+
 pub const FILL_URECT: URect = URect {
     topleft: UPoint {
         abs: Vec2 { x: 0.0, y: 0.0 },
@@ -263,6 +274,20 @@ pub const FILL_URECT: URect = URect {
     bottomright: UPoint {
         abs: Vec2 { x: 0.0, y: 0.0 },
         rel: RelPoint { x: 1.0, y: 1.0 },
+    },
+};
+
+pub const AUTO_URECT: URect = URect {
+    topleft: UPoint {
+        abs: Vec2 { x: 0.0, y: 0.0 },
+        rel: RelPoint { x: 0.0, y: 0.0 },
+    },
+    bottomright: UPoint {
+        abs: Vec2 {
+            x: f32::INFINITY,
+            y: f32::INFINITY,
+        },
+        rel: RelPoint { x: 0.0, y: 0.0 },
     },
 };
 

@@ -48,8 +48,7 @@ pub trait Prop: base::ZIndex + base::Obstacles {
 
 crate::gen_from_to_dyn!(Prop);
 
-pub trait Child: base::Margin + base::Limits {
-    fn order(&self) -> i64;
+pub trait Child: base::Margin + base::Limits + base::Order {
     fn grow(&self) -> f32;
     fn shrink(&self) -> f32;
     fn basis(&self) -> f32;
