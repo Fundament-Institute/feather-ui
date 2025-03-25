@@ -2,20 +2,21 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use feather_ui::gen_id;
-use feather_ui::layout::basic::Basic;
 use feather_ui::layout::flex;
-use feather_ui::layout::flex::Flex;
+use feather_ui::layout::leaf;
+use feather_ui::layout::simple;
 
-use feather_ui::layout::root;
+use feather_ui::layout::base;
 use feather_ui::outline::paragraph::Paragraph;
 use feather_ui::outline::region::Region;
-use feather_ui::outline::round_rect::RoundRect;
+use feather_ui::outline::shape::Shape;
 use feather_ui::outline::window::Window;
 use feather_ui::outline::OutlineFrom;
 use feather_ui::persist::FnPersist;
 use feather_ui::AbsRect;
 use feather_ui::App;
 use feather_ui::SourceID;
+use feather_ui::URect;
 use std::f32;
 use std::rc::Rc;
 use ultraviolet::Vec2;
@@ -27,6 +28,123 @@ struct Blocker {
 }
 
 struct BasicApp {}
+struct MinimalFlexChild {
+    area: URect,
+}
+
+impl flex::Child for MinimalFlexChild {
+    fn grow(&self) -> f32 {
+        0.0
+    }
+
+    fn shrink(&self) -> f32 {
+        1.0
+    }
+
+    fn basis(&self) -> f32 {
+        100.0
+    }
+}
+
+impl base::Order for MinimalFlexChild {
+    fn order(&self) -> i64 {
+        0
+    }
+}
+
+impl base::Margin for MinimalFlexChild {
+    fn margin(&self) -> &URect {
+        &feather_ui::ZERO_URECT
+    }
+}
+
+impl base::Limits for MinimalFlexChild {
+    fn limits(&self) -> &URect {
+        &feather_ui::DEFAULT_LIMITS
+    }
+}
+
+impl base::Area for MinimalFlexChild {
+    fn area(&self) -> &URect {
+        &self.area
+    }
+}
+
+impl leaf::Prop for MinimalFlexChild {}
+
+#[derive(Default, Clone)]
+struct MinimalArea {
+    area: URect,
+}
+
+impl base::Empty for MinimalArea {}
+
+impl base::ZIndex for MinimalArea {
+    fn zindex(&self) -> i32 {
+        0
+    }
+}
+
+impl base::Margin for MinimalArea {
+    fn margin(&self) -> &URect {
+        &feather_ui::ZERO_URECT
+    }
+}
+
+impl base::Anchor for MinimalArea {
+    fn anchor(&self) -> &feather_ui::UPoint {
+        &feather_ui::ZERO_UPOINT
+    }
+}
+
+impl base::Limits for MinimalArea {
+    fn limits(&self) -> &URect {
+        &feather_ui::DEFAULT_LIMITS
+    }
+}
+
+impl base::Area for MinimalArea {
+    fn area(&self) -> &URect {
+        &self.area
+    }
+}
+
+impl simple::Prop for MinimalArea {}
+
+struct MinimalFlex {
+    obstacles: Vec<AbsRect>,
+}
+impl base::Empty for MinimalFlex {}
+
+impl base::ZIndex for MinimalFlex {
+    fn zindex(&self) -> i32 {
+        0
+    }
+}
+
+impl base::Obstacles for MinimalFlex {
+    fn obstacles(&self) -> &[AbsRect] {
+        &self.obstacles
+    }
+}
+
+impl flex::Prop for MinimalFlex {
+    fn direction(&self) -> flex::FlexDirection {
+        flex::FlexDirection::LeftToRight
+    }
+
+    fn wrap(&self) -> bool {
+        true
+    }
+
+    fn justify(&self) -> flex::FlexJustify {
+        flex::FlexJustify::Start
+    }
+
+    fn align(&self) -> flex::FlexJustify {
+        flex::FlexJustify::Start
+    }
+}
 
 impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp {
     type Store = (Blocker, im::HashMap<Rc<SourceID>, Option<Window>>);
@@ -46,31 +164,22 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
         if store.0 != *args {
             let flex = {
-                let rect = RoundRect::<flex::Child> {
-                    id: gen_id!().into(),
-                    fill: Vec4::new(0.2, 0.7, 0.4, 1.0),
-                    corners: Vec4::broadcast(10.0),
-                    props: flex::Child {
-                        margin: Default::default(),
-                        limits: feather_ui::DEFAULT_LIMITS,
-                        order: 0,
-                        grow: 0.0,
-                        shrink: 1.0,
-                        basis: 100.0,
-                    },
-                    rect: AbsRect::new(0.0, 0.0, 40.0, 40.0).into(),
-                    ..Default::default()
-                };
+                let rect = Shape::round_rect(
+                    gen_id!().into(),
+                    MinimalFlexChild {
+                        area: AbsRect::new(0.0, 0.0, 40.0, 40.0).into(),
+                    }
+                    .into(),
+                    0.0,
+                    0.0,
+                    Vec4::broadcast(10.0),
+                    Vec4::new(0.2, 0.7, 0.4, 1.0),
+                    Vec4::zero(),
+                );
 
                 let mut p = Paragraph::new(
                     gen_id!().into(),
-                    (),
-                    Flex {
-                        zindex: 0,
-                        direction: flex::FlexDirection::LeftToRight,
-                        wrap: true,
-                        justify: flex::FlexJustify::Start,
-                        align: flex::FlexJustify::Start,
+                    MinimalFlex {
                         obstacles: vec![AbsRect {
                             topleft: Vec2::new(200.0, 30.0),
                             bottomright: Vec2::new(300.0, 150.0),
@@ -96,12 +205,13 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
                 p
             };
 
-            let mut children: im::Vector<Option<Box<OutlineFrom<Basic>>>> = im::Vector::new();
+            let mut children: im::Vector<Option<Box<OutlineFrom<dyn simple::Prop>>>> =
+                im::Vector::new();
             children.push_back(Some(Box::new(flex)));
 
             let region = Region {
                 id: gen_id!().into(),
-                props: root::Child {
+                props: MinimalArea {
                     area: feather_ui::URect {
                         topleft: feather_ui::UPoint {
                             abs: Vec2::new(90.0, 90.0),
@@ -112,11 +222,8 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
                             rel: Vec2::new(1.0, 1.0).into(),
                         },
                     },
-                },
-                basic: Basic {
-                    padding: Default::default(),
-                    zindex: 0,
-                },
+                }
+                .into(),
                 children,
             };
             let window = Window::new(
