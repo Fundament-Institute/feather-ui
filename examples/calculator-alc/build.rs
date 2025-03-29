@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 fn main() {
     println!("cargo::rerun-if-changed=src/calculator.udl");

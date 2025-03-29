@@ -10,7 +10,6 @@ use std::any::Any;
 use std::any::TypeId;
 use std::ops::Deref;
 use std::sync::Arc;
-use std::sync::OnceLock;
 use std::sync::RwLock;
 
 uniffi::include_scaffolding!("calculator");

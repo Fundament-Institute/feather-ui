@@ -5,7 +5,7 @@ extern crate alloc;
 
 pub mod input;
 pub mod layout;
-//pub mod lua;
+pub mod lua;
 pub mod outline;
 pub mod persist;
 mod propbag;

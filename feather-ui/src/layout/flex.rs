@@ -14,10 +14,11 @@ use crate::rtree;
 use crate::AbsRect;
 use crate::Vec2;
 use core::f32;
+use derive_more::TryFrom;
 use smallvec::SmallVec;
 use std::rc::Rc;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, TryFrom)]
 #[repr(u8)]
 pub enum FlexDirection {
     #[default]
@@ -27,7 +28,7 @@ pub enum FlexDirection {
     BottomToTop,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, TryFrom)]
 #[repr(u8)]
 pub enum FlexJustify {
     #[default]
@@ -178,7 +179,7 @@ fn wrap_line(
             main = obstacle.1; // Set the axis to the end of the obstacle
 
             obstacle = next_obstacle(
-                &props.obstacles(),
+                props.obstacles(),
                 max_aux,
                 main,
                 aux,
@@ -217,7 +218,7 @@ fn wrap_line(
             max_aux = 0.0;
             linecount += 1;
             obstacle = next_obstacle(
-                &props.obstacles(),
+                props.obstacles(),
                 max_aux,
                 main,
                 aux,
