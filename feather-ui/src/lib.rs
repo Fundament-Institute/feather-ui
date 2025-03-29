@@ -962,21 +962,23 @@ impl FnPersist<u8, im::HashMap<Rc<SourceID>, Option<Window>>> for TestApp {
     type Store = (u8, im::HashMap<Rc<SourceID>, Option<Window>>);
 
     fn init(&self) -> Self::Store {
-        use layout::root::Root;
-        use layout::Desc;
-        use outline::round_rect::RoundRect;
+        use crate::outline::shape::Shape;
         use ultraviolet::Vec4;
-        let region = RoundRect::<<Root as Desc>::Child> {
-            id: gen_id!().into(),
-            fill: Vec4::new(1.0, 0.0, 0.0, 1.0),
-            ..Default::default()
-        };
+        let rect = Shape::<URect>::round_rect(
+            gen_id!().into(),
+            crate::FILL_URECT.into(),
+            0.0,
+            0.0,
+            Vec4::zero(),
+            Vec4::new(1.0, 0.0, 0.0, 1.0),
+            Vec4::zero(),
+        );
         let window = Window::new(
             gen_id!().into(),
             winit::window::Window::default_attributes()
                 .with_title("test_blank")
                 .with_resizable(true),
-            Box::new(region),
+            Box::new(rect),
         );
 
         let mut hash = im::HashMap::new();

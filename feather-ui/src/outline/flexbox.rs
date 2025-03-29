@@ -12,13 +12,13 @@ use crate::SourceID;
 use derive_where::derive_where;
 use std::rc::Rc;
 
-use super::OutlineWrap;
+use super::OutlineFrom;
 
 #[derive_where(Clone)]
 pub struct FlexBox<T: flex::Prop + 'static> {
     pub id: Rc<SourceID>,
     pub props: Rc<T>,
-    pub children: im::Vector<Option<Box<dyn OutlineWrap<<dyn flex::Prop as Desc>::Child>>>>,
+    pub children: im::Vector<Option<Box<OutlineFrom<dyn flex::Prop>>>>,
 }
 
 impl<T: flex::Prop + 'static> super::Outline<T> for FlexBox<T> {
@@ -40,7 +40,7 @@ impl<T: flex::Prop + 'static> super::Outline<T> for FlexBox<T> {
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let map = VectorMap::new(
-            |child: &Option<Box<dyn OutlineWrap<<dyn flex::Prop as Desc>::Child>>>| -> Option<Box<dyn LayoutWrap<<dyn flex::Prop as Desc>::Child>>> {
+            |child: &Option<Box<OutlineFrom<dyn flex::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn flex::Prop as Desc>::Child>>> {
                 Some(child.as_ref().unwrap().layout(state, driver, config))
             },
         );

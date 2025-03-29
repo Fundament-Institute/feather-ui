@@ -201,16 +201,3 @@ impl crate::layout::flex::Child for PropBag {
         self.get_value(PropBagElement::basis)
     }
 }
-
-pub trait AllProps:
-    crate::layout::base::Empty
-    + crate::layout::leaf::Prop
-    + crate::layout::simple::Prop
-    + crate::layout::root::Prop
-    + crate::layout::flex::Prop
-    + crate::layout::flex::Child
-    + crate::layout::domain_write::Prop
-{
-}
-
-impl AllProps for PropBag {}
