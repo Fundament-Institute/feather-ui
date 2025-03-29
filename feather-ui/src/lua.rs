@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
+use crate::layout::base;
 use crate::layout::simple;
-use crate::layout::Desc;
 use crate::outline::button::Button;
 use crate::outline::region::Region;
 use crate::outline::shape::Shape;
@@ -10,7 +10,6 @@ use crate::outline::text::Text;
 use crate::outline::window::Window;
 use crate::outline::OutlineFrom;
 use crate::outline::OutlineWrap;
-use crate::propbag::AllProps;
 use crate::propbag::PropBag;
 use crate::DataID;
 use crate::FnPersist;
@@ -140,15 +139,8 @@ impl crate::layout::base::Obstacles for mlua::Table {
     }
 }
 */
-struct BoxedOutline<T: Desc + ?Sized>(Box<OutlineFrom<T>>);
 
-struct AnyOutline(Box<dyn crate::outline::OutlineWrap<dyn AllProps>>);
-
-impl<T: Desc + ?Sized> Clone for BoxedOutline<T> {
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
-    }
-}
+type OutlineBag = Box<dyn crate::outline::Outline<PropBag>>;
 
 macro_rules! gen_from_lua {
     ($type_name:ident) => {
@@ -183,12 +175,12 @@ gen_from_lua!(URect);
 //impl UserData for AppState<'_> {}
 //gen_from_lua!(URect);
 
-impl<T: Desc + ?Sized + 'static> UserData for BoxedOutline<T> {}
-impl<T: Desc + ?Sized + 'static> mlua::FromLua for BoxedOutline<T> {
+impl UserData for OutlineBag {}
+impl mlua::FromLua for OutlineBag {
     #[inline]
     fn from_lua(value: ::mlua::Value, _: &::mlua::Lua) -> ::mlua::Result<Self> {
         match value {
-            ::mlua::Value::UserData(ud) => Ok(ud.borrow::<BoxedOutline<T>>()?.clone()),
+            ::mlua::Value::UserData(ud) => Ok(ud.borrow::<OutlineBag>()?.clone()),
             _ => Err(::mlua::Error::FromLuaConversionError {
                 from: value.type_name(),
                 to: stringify!($type_name).to_string(),
@@ -197,7 +189,6 @@ impl<T: Desc + ?Sized + 'static> mlua::FromLua for BoxedOutline<T> {
         }
     }
 }
-
 fn create_id(_: &Lua, (id, _): (LuaValue, Option<LuaSourceID>)) -> mlua::Result<LuaSourceID> {
     Ok(crate::SourceID {
         // parent: parent.map(|x| Rc::downgrade(&x)).unwrap_or_default(),
@@ -212,6 +203,7 @@ fn create_id(_: &Lua, (id, _): (LuaValue, Option<LuaSourceID>)) -> mlua::Result<
     })
 }
 
+#[allow(dead_code)]
 fn get_appdata_id(_: &Lua, (): ()) -> mlua::Result<LuaSourceID> {
     Ok(crate::APP_SOURCE_ID)
 }
@@ -243,38 +235,36 @@ fn create_urect(_: &Lua, args: (f32, f32, f32, f32, f32, f32, f32, f32)) -> mlua
     })
 }
 
-fn create_window(
-    _: &Lua,
-    args: (LuaSourceID, String, BoxedOutline<dyn simple::Prop>),
-) -> mlua::Result<Window> {
+fn create_window(_: &Lua, args: (LuaSourceID, String, OutlineBag)) -> mlua::Result<Window> {
     Ok(Window::new(
         args.0.into(),
         winit::window::Window::default_attributes()
             .with_title(args.1)
             .with_resizable(true)
             .with_inner_size(winit::dpi::PhysicalSize::new(600, 400)),
-        args.2 .0,
+        Box::new(args.2),
     ))
 }
 
 fn create_region(
     _: &Lua,
-    args: (
-        LuaSourceID,
-        URect,
-        Option<Vec<BoxedOutline<dyn simple::Prop>>>,
-    ),
-) -> mlua::Result<BoxedOutline<dyn simple::Prop>> {
+    args: (LuaSourceID, URect, Option<Vec<OutlineBag>>),
+) -> mlua::Result<OutlineBag> {
     let mut children = im::Vector::new();
-    children.extend(args.2.unwrap().into_iter().map(|x| Some(x.0)));
+    children.extend(
+        args.2
+            .unwrap()
+            .into_iter()
+            .map(|x| -> Option<Box<dyn OutlineWrap<dyn base::Empty>>> { Some(Box::new(x)) }),
+    );
 
     let mut bag = PropBag::new();
     bag.set_area(args.1);
-    Ok(BoxedOutline(Box::new(Region::<PropBag> {
+    Ok(Box::new(Region::<PropBag> {
         id: args.0.into(),
         props: bag.into(),
         children,
-    })))
+    }))
 }
 
 fn create_button(
@@ -285,9 +275,9 @@ fn create_button(
         String,
         Slot,
         [f32; 4],
-        Option<BoxedOutline<dyn simple::Prop>>,
+        Option<OutlineBag>,
     ),
-) -> mlua::Result<BoxedOutline<dyn simple::Prop>> {
+) -> mlua::Result<OutlineBag> {
     let id = Rc::new(args.0);
 
     let rect = Shape::round_rect(
@@ -321,30 +311,25 @@ fn create_button(
     children.push_back(Some(Box::new(text)));
     children.push_back(Some(Box::new(rect)));
     if let Some(x) = args.5 {
-        children.push_back(Some(x.0));
+        children.push_back(Some(Box::new(x)));
     }
 
     let mut bag = PropBag::new();
     bag.set_area(args.1);
-    Ok(BoxedOutline(Box::new(Button::<PropBag>::new(
-        id, bag, args.3, children,
-    ))))
+    Ok(Box::new(Button::<PropBag>::new(id, bag, args.3, children)))
 }
 
-fn create_label(
-    _: &Lua,
-    args: (LuaSourceID, URect, String),
-) -> mlua::Result<BoxedOutline<dyn simple::Prop>> {
+fn create_label(_: &Lua, args: (LuaSourceID, URect, String)) -> mlua::Result<OutlineBag> {
     let mut bag = PropBag::new();
     bag.set_area(args.1);
-    Ok(BoxedOutline(Box::new(Text::<PropBag> {
+    Ok(Box::new(Text::<PropBag> {
         id: args.0.into(),
         props: bag.into(),
         text: args.2,
         font_size: 30.0,
         line_height: 42.0,
         ..Default::default()
-    })))
+    }))
 }
 
 #[allow(clippy::type_complexity)]
@@ -359,28 +344,28 @@ fn create_shader_standard(
         [f32; 4],
         [f32; 4],
     ),
-) -> mlua::Result<BoxedOutline<dyn simple::Prop>> {
+) -> mlua::Result<OutlineBag> {
     let mut bag = PropBag::new();
     bag.set_area(args.1);
 
-    Ok(BoxedOutline(Box::new(Shape::<PropBag> {
+    Ok(Box::new(Shape::<PropBag> {
         id: args.0.into(),
         fragment: std::borrow::Cow::Owned(args.2),
         props: bag.into(),
         label: "Custom Shader FS",
         uniforms: [args.3.into(), args.4.into(), args.5.into(), args.6.into()],
-    })))
+    }))
 }
 
 fn create_round_rect(
     _: &Lua,
     args: (LuaSourceID, URect, u32, f32, f32, u32),
-) -> mlua::Result<BoxedOutline<dyn simple::Prop>> {
+) -> mlua::Result<OutlineBag> {
     let fill = args.2.to_be_bytes().map(|x| x as f32);
     let outline = args.5.to_be_bytes().map(|x| x as f32);
     let mut bag = PropBag::new();
     bag.set_area(args.1);
-    Ok(BoxedOutline(Box::new(Shape::round_rect(
+    Ok(Box::new(Shape::round_rect(
         args.0.into(),
         bag.into(),
         args.4,
@@ -388,7 +373,7 @@ fn create_round_rect(
         Vec4::broadcast(args.3),
         fill.into(),
         outline.into(),
-    ))))
+    )))
 }
 
 /// This defines the "lua" app that knows how to handle a lua value that contains the

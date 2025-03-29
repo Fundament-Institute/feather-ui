@@ -6,6 +6,7 @@ use crate::layout::simple;
 use crate::layout::Desc;
 use crate::layout::Layout;
 use crate::layout::{self, LayoutWrap};
+use crate::outline::OutlineFrom;
 use crate::outline::StateMachine;
 use crate::persist::FnPersist;
 use crate::persist::VectorMap;
@@ -17,8 +18,6 @@ use feather_macro::Dispatch;
 use std::collections::HashMap;
 use std::rc::Rc;
 use ultraviolet::Vec2;
-
-use super::OutlineWrap;
 
 #[derive(Debug, Dispatch, EnumVariantType, Clone)]
 #[evt(derive(Clone), module = "draggable_event")]
@@ -40,7 +39,7 @@ struct DraggableState {
 pub struct Draggable<T: simple::Prop + 'static> {
     pub id: Rc<SourceID>,
     pub props: Rc<T>,
-    pub children: im::Vector<Option<Box<dyn OutlineWrap<<dyn simple::Prop as Desc>::Child>>>>,
+    pub children: im::Vector<Option<Box<OutlineFrom<dyn simple::Prop>>>>,
     pub slots: [Option<crate::Slot>; DraggableEvent::SIZE],
 }
 
@@ -196,7 +195,7 @@ impl<T: simple::Prop + 'static> super::Outline<T> for Draggable<T> {
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let map = VectorMap::new(
-            |child: &Option<Box<dyn OutlineWrap<<dyn simple::Prop as Desc>::Child>>>| -> Option<Box<dyn LayoutWrap<<dyn simple::Prop as Desc>::Child>>> {
+            |child: &Option<Box<OutlineFrom<dyn simple::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn simple::Prop as Desc>::Child>>> {
                 Some(child.as_ref().unwrap().layout(state, driver, config))
             },
         );

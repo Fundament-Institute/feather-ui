@@ -6,7 +6,7 @@ use crate::layout::simple;
 use crate::layout::Layout;
 use crate::layout::LayoutWrap;
 use crate::outline::Desc;
-use crate::outline::OutlineWrap;
+use crate::outline::OutlineFrom;
 use crate::persist::FnPersist;
 use crate::persist::VectorMap;
 use crate::Outline;
@@ -22,7 +22,7 @@ pub struct Button<T: simple::Prop + 'static> {
     pub id: Rc<SourceID>,
     props: Rc<T>,
     marea: MouseArea<URect>,
-    children: im::Vector<Option<Box<dyn OutlineWrap<<dyn simple::Prop as Desc>::Child>>>>,
+    children: im::Vector<Option<Box<OutlineFrom<dyn simple::Prop>>>>,
 }
 
 impl<T: simple::Prop + 'static> Button<T> {
@@ -30,7 +30,7 @@ impl<T: simple::Prop + 'static> Button<T> {
         id: Rc<SourceID>,
         props: T,
         onclick: Slot,
-        children: im::Vector<Option<Box<dyn OutlineWrap<<dyn simple::Prop as Desc>::Child>>>>,
+        children: im::Vector<Option<Box<OutlineFrom<dyn simple::Prop>>>>,
     ) -> Self {
         Self {
             id: id.clone(),
@@ -73,7 +73,7 @@ where
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let map = VectorMap::new(
-            |child: &Option<Box<dyn OutlineWrap<<dyn simple::Prop as Desc>::Child>>>| -> Option<Box<dyn LayoutWrap<<dyn simple::Prop as Desc>::Child>>> {
+            |child: &Option<Box<OutlineFrom<dyn simple::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn simple::Prop as Desc>::Child>>> {
                 Some(child.as_ref().unwrap().layout(state, driver, config))
             },
         );

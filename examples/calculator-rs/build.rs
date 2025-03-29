@@ -27,7 +27,7 @@ fn main() {
     {
         print!(
             "Error running dotnet build, calculator-cs will not be available: {}",
-            e.to_string()
+            e
         )
     } else if let Ok(s) = get_cargo_target_dir() {
         let curdir = std::env::current_dir().unwrap();
