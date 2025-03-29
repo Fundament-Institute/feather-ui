@@ -78,7 +78,7 @@ impl Renderable for TextPipeline {
 #[derive_where(Clone)]
 pub struct TextLayout<T> {
     pub id: std::rc::Weak<SourceID>,
-    pub imposed: Rc<T>,
+    pub props: Rc<T>,
     pub text_render: Rc<TextPipeline>,
 }
 
@@ -111,9 +111,9 @@ impl<T: Default> Default for Text<T> {
     }
 }
 
-impl<Parent: leaf::Prop + 'static> super::Outline<Parent> for Text<Parent>
+impl<T: leaf::Prop + 'static> super::Outline<T> for Text<T>
 where
-    for<'a> &'a Parent: Into<&'a (dyn leaf::Prop + 'static)>,
+    for<'a> &'a T: Into<&'a (dyn leaf::Prop + 'static)>,
 {
     fn id(&self) -> std::rc::Rc<SourceID> {
         self.id.clone()
@@ -128,7 +128,7 @@ where
         _: &crate::StateManager,
         driver: &DriverState,
         _: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn Layout<Parent>> {
+    ) -> Box<dyn Layout<T>> {
         let text_system = driver.text().expect("driver.text not initialized");
         let mut text_buffer = glyphon::Buffer::new(
             &mut text_system.borrow_mut().font_system,
@@ -153,8 +153,8 @@ where
             None,
         );
 
-        Box::new(TextLayout::<Parent> {
-            imposed: self.props.clone(),
+        Box::new(TextLayout::<T> {
+            props: self.props.clone(),
             id: Rc::downgrade(&self.id),
             text_render: Rc::new_cyclic(|this| TextPipeline {
                 this: this.clone(),
@@ -167,9 +167,9 @@ where
 
 crate::gen_outline_wrap!(Text, leaf::Prop);
 
-impl<Imposed> Layout<Imposed> for TextLayout<Imposed> {
-    fn get_props(&self) -> &Imposed {
-        &self.imposed
+impl<T> Layout<T> for TextLayout<T> {
+    fn get_props(&self) -> &T {
+        &self.props
     }
     fn inner_stage<'a>(
         &self,

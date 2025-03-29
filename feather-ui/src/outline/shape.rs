@@ -8,6 +8,7 @@ use crate::shaders::gen_uniform;
 use crate::DriverState;
 use crate::SourceID;
 use derive_where::derive_where;
+use std::borrow::Cow;
 use std::rc::Rc;
 use ultraviolet::Vec4;
 use wgpu::util::DeviceExt;
@@ -17,7 +18,7 @@ pub struct Shape<'a, T: leaf::Prop + 'static> {
     pub id: std::rc::Rc<SourceID>,
     pub props: Rc<T>,
     pub uniforms: [Vec4; 4],
-    pub fragment: &'a str,
+    pub fragment: Cow<'a, str>,
     pub label: &'static str,
 }
 
@@ -35,7 +36,7 @@ impl<T: leaf::Prop + 'static> Shape<'_, T> {
             id,
             props,
             uniforms: [Vec4::new(0.0, 0.0, border, blur), corners, fill, outline],
-            fragment: include_str!("../shaders/RoundRect.wgsl"),
+            fragment: Cow::Borrowed(include_str!("../shaders/RoundRect.wgsl")),
             label: "RoundRect FS",
         }
     }
@@ -53,7 +54,7 @@ impl<T: leaf::Prop + 'static> Shape<'_, T> {
             id,
             props,
             uniforms: [Vec4::new(0.0, 0.0, border, blur), arcs, fill, outline],
-            fragment: include_str!("../shaders/Arc.wgsl"),
+            fragment: Cow::Borrowed(include_str!("../shaders/Arc.wgsl")),
             label: "Arc FS",
         }
     }
@@ -76,7 +77,7 @@ impl<T: leaf::Prop + 'static> Shape<'_, T> {
                 fill,
                 outline,
             ],
-            fragment: include_str!("../shaders/Circle.wgsl"),
+            fragment: Cow::Borrowed(include_str!("../shaders/Circle.wgsl")),
             label: "Circle FS",
         }
     }
@@ -103,7 +104,7 @@ where
         let shader_idx = driver.shader_cache.borrow_mut().register_shader(
             &driver.device,
             self.label,
-            self.fragment,
+            &self.fragment,
         );
         let pipeline =
             driver

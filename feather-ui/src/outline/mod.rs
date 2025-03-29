@@ -339,25 +339,25 @@ macro_rules! gen_outline_wrap_inner {
     () => {
         fn layout(
             &self,
-            state: &crate::StateManager,
-            driver: &crate::DriverState,
+            state: &$crate::StateManager,
+            driver: &$crate::DriverState,
             config: &wgpu::SurfaceConfiguration,
-        ) -> Box<dyn crate::outline::LayoutWrap<U> + 'static> {
-            Box::new(crate::outline::Outline::<T>::layout(
+        ) -> Box<dyn $crate::outline::LayoutWrap<U> + 'static> {
+            Box::new($crate::outline::Outline::<T>::layout(
                 self, state, driver, config,
             ))
         }
 
-        fn init(&self) -> Result<Box<dyn crate::StateMachineWrapper>, crate::Error> {
-            crate::outline::Outline::<T>::init(self)
+        fn init(&self) -> Result<Box<dyn $crate::StateMachineWrapper>, $crate::Error> {
+            $crate::outline::Outline::<T>::init(self)
         }
 
-        fn init_all(&self, manager: &mut crate::StateManager) -> eyre::Result<()> {
-            crate::outline::Outline::<T>::init_all(self, manager)
+        fn init_all(&self, manager: &mut $crate::StateManager) -> eyre::Result<()> {
+            $crate::outline::Outline::<T>::init_all(self, manager)
         }
 
         fn id(&self) -> Rc<SourceID> {
-            crate::outline::Outline::<T>::id(self)
+            $crate::outline::Outline::<T>::id(self)
         }
     };
 }
@@ -365,30 +365,30 @@ macro_rules! gen_outline_wrap_inner {
 #[macro_export]
 macro_rules! gen_outline_wrap {
     ($name:ident, $prop:path) => {
-        impl<U: ?Sized, T: $prop + 'static> crate::outline::OutlineWrap<U> for $name<T>
+        impl<U: ?Sized, T: $prop + 'static> $crate::outline::OutlineWrap<U> for $name<T>
         where
-            $name<T>: crate::outline::Outline<T>,
+            $name<T>: $crate::outline::Outline<T>,
             for<'a> &'a T: Into<&'a U>,
         {
-            crate::gen_outline_wrap_inner!();
+            $crate::gen_outline_wrap_inner!();
         }
     };
     ($name:ident, $prop:path, $aux:path) => {
-        impl<U: ?Sized, T: $prop + $aux + 'static> crate::outline::OutlineWrap<U> for $name<T>
+        impl<U: ?Sized, T: $prop + $aux + 'static> $crate::outline::OutlineWrap<U> for $name<T>
         where
-            $name<T>: crate::outline::Outline<T>,
+            $name<T>: $crate::outline::Outline<T>,
             for<'a> &'a T: Into<&'a U>,
         {
-            crate::gen_outline_wrap_inner!();
+            $crate::gen_outline_wrap_inner!();
         }
     };
     ($a:lifetime, $name:ident, $prop:path) => {
-        impl<$a, U: ?Sized, T: $prop + 'static> crate::outline::OutlineWrap<U> for $name<$a, T>
+        impl<$a, U: ?Sized, T: $prop + 'static> $crate::outline::OutlineWrap<U> for $name<$a, T>
         where
-            $name<$a, T>: crate::outline::Outline<T>,
+            $name<$a, T>: $crate::outline::Outline<T>,
             for<'abc> &'abc T: Into<&'abc U>,
         {
-            crate::gen_outline_wrap_inner!();
+            $crate::gen_outline_wrap_inner!();
         }
     };
 }
