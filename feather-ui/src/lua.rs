@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::layout::basic::Basic;
-use crate::layout::root;
-use crate::layout::root::Root;
+use crate::layout::base;
 use crate::layout::simple;
-use crate::layout::Desc;
 use crate::outline::button::Button;
 use crate::outline::region::Region;
-use crate::outline::shader_standard::ShaderStandard;
+use crate::outline::shape::Shape;
 use crate::outline::text::Text;
 use crate::outline::window::Window;
 use crate::outline::OutlineFrom;
+use crate::outline::OutlineWrap;
+use crate::propbag::PropBag;
 use crate::DataID;
 use crate::FnPersist;
 use crate::Outline;
@@ -28,13 +27,120 @@ use ultraviolet::Vec4;
 pub type AppState = LuaValue;
 type LuaSourceID = SourceID;
 
-struct BoxedOutline<T: Desc>(Box<OutlineFrom<T>>);
+/*
+#[allow(dead_code)]
+impl LuaBag {
+    pub fn contains(&self, key: &str) -> bool {
+        self.props.contains_key(key).unwrap_or(false)
+    }
+    fn get_value<T: mlua::FromLua>(&self, key: &str) -> T {
+        self.props.get(key).unwrap()
+    }
+    fn set_value<T: mlua::IntoLua>(&mut self, key: &str, v: T) -> bool {
+        self.props.set(key, v).is_ok()
+    }
+}*/
+/*
+macro_rules! gen_lua_bag {
+    ($prop:path, $name:ident, $t:ty) => {
+        impl $prop for mlua::Table {
+            fn $name(&self) -> &$t {
+                &self
+                    .get::<$t>(stringify!($name))
+                    .expect(concat!("LuaBag didn't have ", stringify!($name)))
+            }
+        }
+    };
+}
 
-impl<T: Desc> Clone for BoxedOutline<T> {
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
+macro_rules! gen_lua_bag_clone {
+    ($prop:path, $name:ident, $t:ty) => {
+        impl $prop for mlua::Table {
+            fn $name(&self) -> $t {
+                self.get::<$t>(stringify!($name))
+                    .expect(concat!("PropBag didn't have ", stringify!($name)))
+                    .clone()
+            }
+        }
+    };
+}
+
+gen_lua_bag_clone!(crate::layout::base::Order, order, i64);
+gen_lua_bag_clone!(crate::layout::base::ZIndex, zindex, i32);
+gen_lua_bag_clone!(
+    crate::layout::domain_write::Prop,
+    domain,
+    std::rc::Rc<crate::outline::CrossReferenceDomain>
+);
+
+gen_lua_bag!(crate::layout::base::Area, area, crate::URect);
+gen_lua_bag!(crate::layout::base::Padding, padding, crate::URect);
+gen_lua_bag!(crate::layout::base::Margin, margin, crate::URect);
+gen_lua_bag!(crate::layout::base::Limits, limits, crate::URect);
+gen_lua_bag!(crate::layout::base::Anchor, anchor, crate::UPoint);
+
+impl crate::layout::root::Prop for mlua::Table {
+    fn dim(&self) -> &crate::AbsDim {
+        let v = self
+            .raw_get::<mlua::Value>("dim")
+            .expect("LuaBag didn\'t have dim");
+
+        if let ::mlua::Value::UserData(ud) = v {
+            let r = ud.borrow::<Rc<crate::AbsDim>>().unwrap().clone();
+            r.as_ref()
+        } else {
+            panic!("custom data isn't userdata???")
+        }
     }
 }
+
+impl crate::layout::base::Empty for mlua::Table {}
+impl crate::layout::leaf::Prop for mlua::Table {}
+impl crate::layout::simple::Prop for mlua::Table {}
+
+impl crate::layout::flex::Prop for mlua::Table {
+    fn direction(&self) -> crate::layout::flex::FlexDirection {
+        self.get("direction").unwrap()
+    }
+
+    fn wrap(&self) -> bool {
+        self.get::<bool>("wrap").unwrap()
+    }
+
+    fn justify(&self) -> crate::layout::flex::FlexJustify {
+        self.get::<u8>("justify").unwrap().try_into().unwrap()
+    }
+
+    fn align(&self) -> crate::layout::flex::FlexJustify {
+        self.get::<u8>("align").unwrap()
+    }
+}
+
+impl crate::layout::flex::Child for mlua::Table {
+    fn grow(&self) -> f32 {
+        self.get("grow").unwrap()
+    }
+
+    fn shrink(&self) -> f32 {
+        self.get("shrink").unwrap()
+    }
+
+    fn basis(&self) -> f32 {
+        self.get("basis").unwrap()
+    }
+}
+
+impl crate::layout::base::Obstacles for mlua::Table {
+    fn obstacles(&self) -> &[AbsRect] {
+        &self.obstacles.get_or_init(|| {
+            self.get::<Vec<AbsRect>>("obstacles")
+                .expect("PropBag didn't have obstacles")
+        })
+    }
+}
+*/
+
+type OutlineBag = Box<dyn crate::outline::Outline<PropBag>>;
 
 macro_rules! gen_from_lua {
     ($type_name:ident) => {
@@ -69,12 +175,12 @@ gen_from_lua!(URect);
 //impl UserData for AppState<'_> {}
 //gen_from_lua!(URect);
 
-impl<T: Desc + 'static> UserData for BoxedOutline<T> {}
-impl<T: Desc + 'static> mlua::FromLua for BoxedOutline<T> {
+impl UserData for OutlineBag {}
+impl mlua::FromLua for OutlineBag {
     #[inline]
     fn from_lua(value: ::mlua::Value, _: &::mlua::Lua) -> ::mlua::Result<Self> {
         match value {
-            ::mlua::Value::UserData(ud) => Ok(ud.borrow::<BoxedOutline<T>>()?.clone()),
+            ::mlua::Value::UserData(ud) => Ok(ud.borrow::<OutlineBag>()?.clone()),
             _ => Err(::mlua::Error::FromLuaConversionError {
                 from: value.type_name(),
                 to: stringify!($type_name).to_string(),
@@ -83,7 +189,6 @@ impl<T: Desc + 'static> mlua::FromLua for BoxedOutline<T> {
         }
     }
 }
-
 fn create_id(_: &Lua, (id, _): (LuaValue, Option<LuaSourceID>)) -> mlua::Result<LuaSourceID> {
     Ok(crate::SourceID {
         // parent: parent.map(|x| Rc::downgrade(&x)).unwrap_or_default(),
@@ -98,6 +203,7 @@ fn create_id(_: &Lua, (id, _): (LuaValue, Option<LuaSourceID>)) -> mlua::Result<
     })
 }
 
+#[allow(dead_code)]
 fn get_appdata_id(_: &Lua, (): ()) -> mlua::Result<LuaSourceID> {
     Ok(crate::APP_SOURCE_ID)
 }
@@ -129,32 +235,36 @@ fn create_urect(_: &Lua, args: (f32, f32, f32, f32, f32, f32, f32, f32)) -> mlua
     })
 }
 
-fn create_window(_: &Lua, args: (LuaSourceID, String, BoxedOutline<Root>)) -> mlua::Result<Window> {
+fn create_window(_: &Lua, args: (LuaSourceID, String, OutlineBag)) -> mlua::Result<Window> {
     Ok(Window::new(
         args.0.into(),
         winit::window::Window::default_attributes()
             .with_title(args.1)
             .with_resizable(true)
             .with_inner_size(winit::dpi::PhysicalSize::new(600, 400)),
-        args.2 .0,
+        Box::new(args.2),
     ))
 }
 
 fn create_region(
     _: &Lua,
-    args: (LuaSourceID, URect, Option<Vec<BoxedOutline<Basic>>>),
-) -> mlua::Result<BoxedOutline<Root>> {
+    args: (LuaSourceID, URect, Option<Vec<OutlineBag>>),
+) -> mlua::Result<OutlineBag> {
     let mut children = im::Vector::new();
-    children.extend(args.2.unwrap().into_iter().map(|x| Some(x.0)));
-    Ok(BoxedOutline(Box::new(Region {
+    children.extend(
+        args.2
+            .unwrap()
+            .into_iter()
+            .map(|x| -> Option<Box<dyn OutlineWrap<dyn base::Empty>>> { Some(Box::new(x)) }),
+    );
+
+    let mut bag = PropBag::new();
+    bag.set_area(args.1);
+    Ok(Box::new(Region::<PropBag> {
         id: args.0.into(),
-        props: root::Inherited { area: args.1 },
-        basic: Basic {
-            padding: Default::default(),
-            zindex: 0,
-        },
+        props: bag.into(),
         children,
-    })))
+    }))
 }
 
 fn create_button(
@@ -165,75 +275,62 @@ fn create_button(
         String,
         Slot,
         [f32; 4],
-        Option<BoxedOutline<simple::Simple>>,
+        Option<OutlineBag>,
     ),
-) -> mlua::Result<BoxedOutline<Basic>> {
+) -> mlua::Result<OutlineBag> {
     let id = Rc::new(args.0);
-    let rect = RoundRect::<()> {
-        id: SourceID {
+
+    let rect = Shape::round_rect(
+        SourceID {
             parent: Some(id.clone()),
             id: DataID::Named("__internal_rect__"),
         }
         .into(),
-        fill: args.4.into(),
-        corners: Vec4::broadcast(10.0),
-        props: (),
-        rect: crate::FILL_URECT,
-        ..Default::default()
-    };
+        crate::FILL_URECT.into(),
+        0.0,
+        0.0,
+        Vec4::broadcast(10.0),
+        args.4.into(),
+        Default::default(),
+    );
 
-    let text = Text::<()> {
+    let text = Text::<URect> {
         id: SourceID {
             parent: Some(id.clone()),
             id: DataID::Named("__internal_text__"),
         }
         .into(),
-        props: (),
+        props: crate::FILL_URECT.into(),
         text: args.2,
         font_size: 30.0,
         line_height: 42.0,
         ..Default::default()
     };
 
-    let mut children: im::Vector<Option<Box<OutlineFrom<simple::Simple>>>> = im::Vector::new();
+    let mut children: im::Vector<Option<Box<OutlineFrom<dyn simple::Prop>>>> = im::Vector::new();
     children.push_back(Some(Box::new(text)));
     children.push_back(Some(Box::new(rect)));
     if let Some(x) = args.5 {
-        children.push_back(Some(x.0));
+        children.push_back(Some(Box::new(x)));
     }
 
-    Ok(BoxedOutline(Box::new(Button::<()>::new(
-        id,
-        (),
-        simple::Simple {
-            area: args.1,
-            margin: Default::default(),
-            limits: crate::DEFAULT_LIMITS,
-            anchor: Default::default(),
-            zindex: 0,
-        },
-        args.3,
-        children,
-    ))))
+    let mut bag = PropBag::new();
+    bag.set_area(args.1);
+    Ok(Box::new(Button::<PropBag>::new(id, bag, args.3, children)))
 }
 
-fn create_label(_: &Lua, args: (LuaSourceID, URect, String)) -> mlua::Result<BoxedOutline<Basic>> {
-    Ok(BoxedOutline(Box::new(Text::<()> {
+fn create_label(_: &Lua, args: (LuaSourceID, URect, String)) -> mlua::Result<OutlineBag> {
+    let mut bag = PropBag::new();
+    bag.set_area(args.1);
+    Ok(Box::new(Text::<PropBag> {
         id: args.0.into(),
-        // props: basic::Inherited {
-        //     area: args.1,
-        //     margin: Default::default(),
-        //     limits: crate::DEFAULT_LIMITS,
-        //     anchor: Default::default(),
-        // },
-        props: (),
+        props: bag.into(),
         text: args.2,
         font_size: 30.0,
         line_height: 42.0,
         ..Default::default()
-    })))
+    }))
 }
-use crate::outline::round_rect::RoundRect;
 
 #[allow(clippy::type_complexity)]
 fn create_shader_standard(
@@ -247,32 +344,36 @@ fn create_shader_standard(
         [f32; 4],
         [f32; 4],
     ),
-) -> mlua::Result<BoxedOutline<Basic>> {
-    Ok(BoxedOutline(Box::new(ShaderStandard::<()> {
+) -> mlua::Result<OutlineBag> {
+    let mut bag = PropBag::new();
+    bag.set_area(args.1);
+
+    Ok(Box::new(Shape::<PropBag> {
         id: args.0.into(),
-        rect: args.1,
-        fragment: args.2,
-        props: (),
+        fragment: std::borrow::Cow::Owned(args.2),
+        props: bag.into(),
+        label: "Custom Shader FS",
         uniforms: [args.3.into(), args.4.into(), args.5.into(), args.6.into()],
-    })))
+    }))
 }
 
 fn create_round_rect(
     _: &Lua,
     args: (LuaSourceID, URect, u32, f32, f32, u32),
-) -> mlua::Result<BoxedOutline<Basic>> {
+) -> mlua::Result<OutlineBag> {
     let fill = args.2.to_be_bytes().map(|x| x as f32);
     let outline = args.5.to_be_bytes().map(|x| x as f32);
-    Ok(BoxedOutline(Box::new(RoundRect::<()> {
-        id: args.0.into(),
-        rect: args.1,
-        fill: Vec4::new(fill[0], fill[1], fill[2], fill[3]),
-        outline: Vec4::new(outline[0], outline[1], outline[2], outline[3]),
-        corners: Vec4::broadcast(args.3),
-        border: args.4,
-        props: (),
-        blur: 0.0,
-    })))
+    let mut bag = PropBag::new();
+    bag.set_area(args.1);
+    Ok(Box::new(Shape::round_rect(
+        args.0.into(),
+        bag.into(),
+        args.4,
+        0.0,
+        Vec4::broadcast(args.3),
+        fill.into(),
+        outline.into(),
+    )))
 }
 
 /// This defines the "lua" app that knows how to handle a lua value that contains the

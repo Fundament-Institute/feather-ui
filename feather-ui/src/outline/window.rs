@@ -2,15 +2,16 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::Outline;
-use super::OutlineFrom;
 use super::StateMachine;
 use crate::input::ModifierKeys;
 use crate::input::MouseMoveState;
 use crate::input::MouseState;
 use crate::input::RawEvent;
 use crate::layout;
-use crate::layout::root::Root;
+use crate::layout::root;
+use crate::outline::OutlineWrap;
 use crate::rtree;
+use crate::AbsDim;
 use crate::DriverState;
 use crate::FnPersist;
 use crate::RenderInstruction;
@@ -46,16 +47,16 @@ pub(crate) type WindowStateMachine = StateMachine<(), WindowState, 0, 0>;
 pub struct Window {
     pub id: Rc<SourceID>,
     attributes: WindowAttributes,
-    child: Box<OutlineFrom<Root>>,
+    child: Box<dyn OutlineWrap<<dyn root::Prop as crate::outline::Desc>::Child>>,
 }
 
-impl Outline<()> for Window {
+impl Outline<AbsDim> for Window {
     fn layout(
         &self,
         manager: &crate::StateManager,
         _: &DriverState,
         _: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn crate::layout::Layout<()>> {
+    ) -> Box<dyn crate::layout::Layout<AbsDim>> {
         let inner = manager
             .get::<StateMachine<(), WindowState, 0, 0>>(&self.id)
             .unwrap()
@@ -65,14 +66,11 @@ impl Outline<()> for Window {
         let size = inner.window.inner_size();
         let driver = inner.driver.clone();
         let config = inner.config.clone();
-        Box::new(layout::Node::<Root, ()> {
-            props: Root {
-                dim: crate::AbsDim(Vec2 {
-                    x: size.width as f32,
-                    y: size.height as f32,
-                }),
-            },
-            imposed: (),
+        Box::new(layout::Node::<AbsDim, dyn root::Prop> {
+            props: Rc::new(crate::AbsDim(Vec2 {
+                x: size.width as f32,
+                y: size.height as f32,
+            })),
             children: self.child.layout(manager, &driver, &config),
             id: Rc::downgrade(&self.id),
             renderable: None,
@@ -166,7 +164,7 @@ impl Window {
     pub fn new(
         id: Rc<SourceID>,
         attributes: WindowAttributes,
-        child: Box<OutlineFrom<Root>>,
+        child: Box<dyn OutlineWrap<dyn crate::layout::base::Empty>>,
     ) -> Self {
         Self {
             id,

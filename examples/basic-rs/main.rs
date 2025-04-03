@@ -2,14 +2,13 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use core::f32;
+use feather_macro::*;
 use feather_ui::gen_id;
-use feather_ui::layout::basic::Basic;
-use feather_ui::layout::root;
 use feather_ui::layout::simple;
 use feather_ui::outline::button::Button;
 use feather_ui::outline::mouse_area;
 use feather_ui::outline::region::Region;
-use feather_ui::outline::round_rect::RoundRect;
+use feather_ui::outline::shape::Shape;
 use feather_ui::outline::text::Text;
 use feather_ui::outline::window::Window;
 use feather_ui::outline::OutlineFrom;
@@ -18,6 +17,8 @@ use feather_ui::AbsRect;
 use feather_ui::App;
 use feather_ui::Slot;
 use feather_ui::SourceID;
+use feather_ui::URect;
+use feather_ui::FILL_URECT;
 use std::rc::Rc;
 use ultraviolet::Vec4;
 
@@ -25,6 +26,17 @@ use ultraviolet::Vec4;
 struct CounterState {
     count: i32,
 }
+
+#[derive(Default, Empty, Area, Margin, Anchor, Limits, ZIndex)]
+struct SimpleData {
+    area: feather_ui::URect,
+    margin: feather_ui::URect,
+    anchor: feather_ui::UPoint,
+    limits: feather_ui::URect,
+    zindex: i32,
+}
+
+impl simple::Prop for SimpleData {}
 
 struct BasicApp {}
 
@@ -41,32 +53,33 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
         if store.0 != *args {
             let button = {
-                let rect = RoundRect::<()> {
+                let text = Text::<URect> {
                     id: gen_id!().into(),
-                    fill: Vec4::new(0.2, 0.7, 0.4, 1.0),
-                    corners: Vec4::broadcast(10.0),
-                    props: (),
-                    rect: feather_ui::FILL_URECT,
-                    ..Default::default()
-                };
-
-                let text = Text::<()> {
-                    id: gen_id!().into(),
-                    props: (),
+                    props: Rc::new(FILL_URECT),
                     text: format!("Clicks: {}", args.count),
                     font_size: 30.0,
                     line_height: 42.0,
                     ..Default::default()
                 };
 
-                let mut children: im::Vector<Option<Box<OutlineFrom<Basic>>>> = im::Vector::new();
+                let mut children: im::Vector<Option<Box<OutlineFrom<dyn simple::Prop>>>> =
+                    im::Vector::new();
                 children.push_back(Some(Box::new(text)));
+
+                let rect = Shape::<URect>::round_rect(
+                    gen_id!().into(),
+                    feather_ui::FILL_URECT.into(),
+                    0.0,
+                    0.0,
+                    Vec4::broadcast(10.0),
+                    Vec4::new(0.2, 0.7, 0.4, 1.0),
+                    Vec4::zero(),
+                );
                 children.push_back(Some(Box::new(rect)));
 
-                Button::<()>::new(
+                Button::<SimpleData>::new(
                     gen_id!().into(),
-                    (),
-                    simple::Simple {
+                    SimpleData {
                         area: feather_ui::URect {
                             topleft: feather_ui::UPoint {
                                 abs: ultraviolet::Vec2 { x: 0.0, y: 0.0 },
@@ -90,18 +103,18 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 )
             };
 
-            let mut children: im::Vector<Option<Box<OutlineFrom<Basic>>>> = im::Vector::new();
+            let mut children: im::Vector<Option<Box<OutlineFrom<dyn simple::Prop>>>> =
+                im::Vector::new();
             children.push_back(Some(Box::new(button)));
 
             let region = Region {
                 id: gen_id!().into(),
-                props: root::Inherited {
+                props: SimpleData {
                     area: AbsRect::new(90.0, 90.0, f32::INFINITY, 200.0).into(),
-                },
-                basic: Basic {
-                    padding: Default::default(),
                     zindex: 0,
-                },
+                    ..Default::default()
+                }
+                .into(),
                 children,
             };
             let window = Window::new(
