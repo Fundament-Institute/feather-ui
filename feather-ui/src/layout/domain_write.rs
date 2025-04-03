@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
+use super::base::Empty;
 use super::Concrete;
 use super::Desc;
-use super::Layout;
+use super::LayoutWrap;
 use super::Renderable;
 use super::Staged;
 use crate::outline::CrossReferenceDomain;
@@ -11,26 +12,34 @@ use crate::rtree;
 use crate::AbsRect;
 use crate::SourceID;
 use crate::Vec2;
-use dyn_clone::DynClone;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
 // A DomainWrite layout simply writes it's final AbsRect to the target cross-reference domain
-#[derive(Clone, Default)]
-pub struct DomainWrite {
-    pub domain: Rc<CrossReferenceDomain>,
+pub trait Prop {
+    fn domain(&self) -> Rc<CrossReferenceDomain>;
 }
 
-impl Desc for DomainWrite {
-    type Props = DomainWrite;
-    type Impose = ();
-    type Children<A: DynClone + ?Sized> = PhantomData<dyn Layout<Self::Impose>>;
+crate::gen_from_to_dyn!(Prop);
+
+impl Prop for Rc<CrossReferenceDomain> {
+    fn domain(&self) -> Rc<CrossReferenceDomain> {
+        self.clone()
+    }
+}
+
+impl Empty for Rc<CrossReferenceDomain> {}
+
+impl Desc for dyn Prop {
+    type Props = dyn Prop;
+    type Child = dyn Empty;
+    type Children = PhantomData<dyn LayoutWrap<Self::Child>>;
 
     fn stage<'a>(
         props: &Self::Props,
         mut true_area: AbsRect,
         parent_pos: Vec2,
-        _: &Self::Children<dyn Layout<Self::Impose> + '_>,
+        _: &Self::Children,
         id: std::rc::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
         driver: &crate::DriverState,
@@ -43,7 +52,7 @@ impl Desc for DomainWrite {
         }
 
         if let Some(idref) = id.upgrade() {
-            props.domain.write_area(idref, true_area);
+            props.domain().write_area(idref, true_area);
         }
 
         Box::new(Concrete {

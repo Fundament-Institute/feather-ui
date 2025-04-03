@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
+use super::base;
+use super::base::Empty;
 use super::Concrete;
 use super::Desc;
-use super::Layout;
+use super::LayoutWrap;
 use super::Renderable;
 use super::Staged;
 use crate::rtree;
@@ -11,24 +13,25 @@ use crate::AbsRect;
 use crate::SourceID;
 use crate::URect;
 use crate::Vec2;
-use dyn_clone::DynClone;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-// An Empty layout is used for leaf outlines whose size is defined by their content, or simply set to the size of their parent.
-#[derive(Clone, Default)]
-pub struct Empty {}
+pub trait Prop: base::Area {}
 
-impl Desc for Empty {
-    type Props = URect;
-    type Impose = ();
-    type Children<A: DynClone + ?Sized> = PhantomData<dyn Layout<Self::Impose>>;
+crate::gen_from_to_dyn!(Prop);
+
+impl Prop for URect {}
+
+impl Desc for dyn Prop {
+    type Props = dyn Prop;
+    type Child = dyn Empty;
+    type Children = PhantomData<dyn LayoutWrap<Self::Child>>;
 
     fn stage<'a>(
         props: &Self::Props,
         mut true_area: AbsRect,
         parent_pos: Vec2,
-        _: &Self::Children<dyn Layout<Self::Impose> + '_>,
+        _: &Self::Children,
         id: std::rc::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
         driver: &crate::DriverState,
@@ -40,7 +43,7 @@ impl Desc for Empty {
             true_area.bottomright.y = true_area.topleft.y;
         }
 
-        let area = *props * true_area;
+        let area = *props.area() * true_area;
 
         Box::new(Concrete {
             area: area - parent_pos,

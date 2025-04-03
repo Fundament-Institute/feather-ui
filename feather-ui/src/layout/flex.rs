@@ -1,24 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
+use super::base;
 use super::zero_infinity;
 use super::Concrete;
 use super::Desc;
-use super::Layout;
+use super::LayoutWrap;
 use super::Renderable;
 use super::Staged;
 use crate::persist::FnPersist2;
 use crate::persist::VectorFold;
 use crate::rtree;
 use crate::AbsRect;
-use crate::URect;
 use crate::Vec2;
 use core::f32;
-use dyn_clone::DynClone;
+use derive_more::TryFrom;
 use smallvec::SmallVec;
 use std::rc::Rc;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, TryFrom)]
 #[repr(u8)]
 pub enum FlexDirection {
     #[default]
@@ -28,7 +28,7 @@ pub enum FlexDirection {
     BottomToTop,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, TryFrom)]
 #[repr(u8)]
 pub enum FlexJustify {
     #[default]
@@ -40,25 +40,22 @@ pub enum FlexJustify {
     SpaceFull,
 }
 
-#[derive(Clone, Default)]
-pub struct Flex {
-    pub direction: FlexDirection,
-    pub wrap: bool,
-    pub justify: FlexJustify, // Main-axis justification of items inside a single line
-    pub align: FlexJustify,   // Off-axis justification of lines inside the flexbox.
-    pub zindex: i32,
-    pub obstacles: Vec<AbsRect>,
+pub trait Prop: base::ZIndex + base::Obstacles {
+    fn direction(&self) -> FlexDirection;
+    fn wrap(&self) -> bool;
+    fn justify(&self) -> FlexJustify;
+    fn align(&self) -> FlexJustify;
 }
 
-#[derive(Clone, Default)]
-pub struct Inherited {
-    pub order: i64,
-    pub grow: f32,
-    pub shrink: f32,
-    pub basis: f32,
-    pub margin: URect,
-    pub limits: URect,
+crate::gen_from_to_dyn!(Prop);
+
+pub trait Child: base::Margin + base::Limits + base::Order {
+    fn grow(&self) -> f32;
+    fn shrink(&self) -> f32;
+    fn basis(&self) -> f32;
 }
+
+crate::gen_from_to_dyn!(Child);
 
 fn swap_axis(xaxis: bool, v: Vec2) -> (f32, f32) {
     if xaxis {
@@ -134,11 +131,12 @@ fn justify_inner_outer(align: FlexJustify, total: f32, used: f32, count: i32) ->
 }
 
 type LineTuple = (usize, f32, f32);
+type BasisGrowShrinkAux = (f32, f32, f32, f32);
 
 #[allow(clippy::too_many_arguments)]
 fn wrap_line(
-    childareas: &im::Vector<Option<(Inherited, f32)>>,
-    props: &Flex,
+    childareas: &im::Vector<Option<BasisGrowShrinkAux>>,
+    props: &dyn Prop,
     xaxis: bool,
     total_main: f32,
     total_aux: f32,
@@ -159,7 +157,7 @@ fn wrap_line(
     let mut min_obstacle = 0;
     let reversed = if backwards { total_main } else { -1.0 };
     let mut obstacle = next_obstacle(
-        &props.obstacles,
+        props.obstacles(),
         max_aux,
         main,
         aux,
@@ -176,12 +174,12 @@ fn wrap_line(
         };
 
         // If we hit an obstacle, mark it as an obstacle breakpoint, then jump forward.
-        if main + b.0.basis > obstacle.0 {
+        if main + b.0 > obstacle.0 {
             breaks.push((i, obstacle.1, obstacle.0));
             main = obstacle.1; // Set the axis to the end of the obstacle
 
             obstacle = next_obstacle(
-                &props.obstacles,
+                props.obstacles(),
                 max_aux,
                 main,
                 aux,
@@ -196,7 +194,7 @@ fn wrap_line(
         }
 
         // Once we hit the end of the line we mark the true breakpoint.
-        if main + b.0.basis > total_main {
+        if main + b.0 > total_main {
             // If our line was empty, then nothing could fit on it. Because we don't have line-height information, we simply
             // have to use the height of the element we are pushing to the next line.
             let emptyline = if max_aux == 0.0 {
@@ -220,7 +218,7 @@ fn wrap_line(
             max_aux = 0.0;
             linecount += 1;
             obstacle = next_obstacle(
-                &props.obstacles,
+                props.obstacles(),
                 max_aux,
                 main,
                 aux,
@@ -234,9 +232,9 @@ fn wrap_line(
             }
         }
 
-        main += b.0.basis;
-        if max_aux < b.1 {
-            max_aux = b.1;
+        main += b.0;
+        if max_aux < b.3 {
+            max_aux = b.3;
         }
         i += 1;
     }
@@ -246,46 +244,46 @@ fn wrap_line(
     (breaks, linecount, used_aux)
 }
 
-impl Desc for Flex {
-    type Props = Flex;
-    type Impose = Inherited;
-    type Children<A: DynClone + ?Sized> = im::Vector<Option<Box<dyn Layout<Self::Impose>>>>;
+impl Desc for dyn Prop {
+    type Props = dyn Prop;
+    type Child = dyn Child;
+    type Children = im::Vector<Option<Box<dyn LayoutWrap<Self::Child>>>>;
 
     fn stage<'a>(
         props: &Self::Props,
         true_area: AbsRect,
         parent_pos: Vec2,
-        children: &Self::Children<dyn Layout<Self::Impose> + '_>,
+        children: &Self::Children,
         id: std::rc::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
         driver: &crate::DriverState,
     ) -> Box<dyn Staged + 'a> {
-        let mut childareas: im::Vector<Option<(Inherited, f32)>> = im::Vector::new();
+        let mut childareas: im::Vector<Option<BasisGrowShrinkAux>> = im::Vector::new();
 
         // If we are currently also being evaluated with infinite area, we have to set a few things to zero.
         let dim = crate::AbsDim(zero_infinity(true_area.dim().into()));
 
-        let xaxis = match props.direction {
+        let xaxis = match props.direction() {
             FlexDirection::LeftToRight | FlexDirection::RightToLeft => true,
             FlexDirection::TopToBottom | FlexDirection::BottomToTop => false,
         };
 
         // We re-use a lot of concepts from flexbox in this calculation. First we acquire the natural size of all child elements.
         for child in children.iter() {
-            let mut imposed = child.as_ref().unwrap().get_imposed().clone();
+            let imposed = child.as_ref().unwrap().get_imposed();
 
             let mut area = AbsRect {
-                topleft: true_area.topleft + (imposed.margin.topleft * dim),
-                bottomright: (true_area.bottomright - (imposed.margin.bottomright * dim)),
+                topleft: true_area.topleft + (imposed.margin().topleft * dim),
+                bottomright: (true_area.bottomright - (imposed.margin().bottomright * dim)),
             };
 
             // If we don't have a basis, we need to set it to infinity
             if xaxis {
-                area.bottomright.x = imposed.basis;
+                area.bottomright.x = imposed.basis();
                 area.bottomright.y = f32::INFINITY;
             } else {
                 area.bottomright.x = f32::INFINITY;
-                area.bottomright.y = imposed.basis;
+                area.bottomright.y = imposed.basis();
             }
 
             let stage = child
@@ -295,21 +293,23 @@ impl Desc for Flex {
 
             let (main, aux) = swap_axis(xaxis, stage.get_area().dim().0);
 
-            if imposed.basis.is_infinite() {
-                imposed.basis = main;
+            let mut cache: BasisGrowShrinkAux =
+                (imposed.basis(), imposed.grow(), imposed.shrink(), aux);
+            if cache.0.is_infinite() {
+                cache.0 = main;
             }
 
-            childareas.push_back(Some((imposed, aux)));
+            childareas.push_back(Some(cache));
         }
 
         let mut staging: im::Vector<Option<Box<dyn Staged>>> = im::Vector::new();
         let mut nodes: im::Vector<Option<Rc<rtree::Node>>> = im::Vector::new();
 
         let fold = VectorFold::new(
-            |basis: &(f32, f32), n: &Option<(Inherited, f32)>| -> (f32, f32) {
+            |basis: &(f32, f32), n: &Option<BasisGrowShrinkAux>| -> (f32, f32) {
                 (
-                    n.as_ref().unwrap().0.basis + basis.0,
-                    n.as_ref().unwrap().1.max(basis.1),
+                    n.as_ref().unwrap().0 + basis.0,
+                    n.as_ref().unwrap().3.max(basis.1),
                 )
             },
         );
@@ -331,7 +331,7 @@ impl Desc for Flex {
                 render: im::Vector::new(),
                 rtree: Rc::new(rtree::Node::new(
                     area - parent_pos,
-                    Some(props.zindex),
+                    Some(props.zindex()),
                     nodes,
                     id,
                 )),
@@ -341,7 +341,7 @@ impl Desc for Flex {
 
         let (total_main, total_aux) = swap_axis(xaxis, dim.0);
         // If we need to do wrapping, we do this first, before calculating anything else.
-        let (breaks, linecount, used_aux) = if props.wrap {
+        let (breaks, linecount, used_aux) = if props.wrap() {
             // Anything other than `start` for main-axis justification causes problems if there are any obstacles we need to
             // flow around. To make our first wrapping guess, we simply assume there is only one line when choosing our starting location.
 
@@ -353,12 +353,12 @@ impl Desc for Flex {
                 total_aux,
                 used_aux,
                 1,
-                props.align,
-                props.direction == FlexDirection::BottomToTop
-                    || props.direction == FlexDirection::RightToLeft,
+                props.align(),
+                props.direction() == FlexDirection::BottomToTop
+                    || props.direction() == FlexDirection::RightToLeft,
             );
 
-            if !props.obstacles.is_empty() && props.align != FlexJustify::Start {
+            if !props.obstacles().is_empty() && props.align() != FlexJustify::Start {
                 // If there were obstacles and multiple rows, our initial guess was probably wrong, so rewrap until we converge
                 let mut used_aux = used_aux;
                 let mut prev = (SmallVec::new(), 1, used_aux);
@@ -376,9 +376,9 @@ impl Desc for Flex {
                         total_aux,
                         prev.2,
                         prev.1,
-                        props.align,
-                        props.direction == FlexDirection::BottomToTop
-                            || props.direction == FlexDirection::RightToLeft,
+                        props.align(),
+                        props.direction() == FlexDirection::BottomToTop
+                            || props.direction() == FlexDirection::RightToLeft,
                     );
                 }
 
@@ -393,7 +393,8 @@ impl Desc for Flex {
         };
 
         // Now we calculate the outer spacing (at the start and end) vs the inner spacing.
-        let (mut aux, inner_aux) = justify_inner_outer(props.align, total_aux, used_aux, linecount);
+        let (mut aux, inner_aux) =
+            justify_inner_outer(props.align(), total_aux, used_aux, linecount);
 
         let mut main = 0.0;
         let mut curindex = 0;
@@ -409,9 +410,9 @@ impl Desc for Flex {
                 let Some(a) = &childareas[i] else {
                     continue;
                 };
-                totalgrow += a.0.grow;
-                totalshrink += a.0.shrink;
-                used += a.0.basis;
+                totalgrow += a.1;
+                totalshrink += a.2;
+                used += a.0;
             }
 
             // Get the total length of this span, and if necessary, find the line height by scanning ahead.
@@ -447,11 +448,11 @@ impl Desc for Flex {
                 let Some(a) = &mut childareas[i] else {
                     continue;
                 };
-                a.0.basis += ratio * (if diff > 0.0 { a.0.grow } else { a.0.shrink });
+                a.0 += ratio * (if diff > 0.0 { a.1 } else { a.2 });
             }
 
             let (outer, inner) =
-                justify_inner_outer(props.justify, total_span, used, (b.0 - curindex) as i32);
+                justify_inner_outer(props.justify(), total_span, used, (b.0 - curindex) as i32);
             main += outer;
 
             // Construct the final area rectangle for each child
@@ -461,17 +462,17 @@ impl Desc for Flex {
                 };
 
                 // If we're growing backwards, we flip along the main axis (but not the aux axis)
-                let mut area = if props.direction == FlexDirection::RightToLeft
-                    || props.direction == FlexDirection::BottomToTop
+                let mut area = if props.direction() == FlexDirection::RightToLeft
+                    || props.direction() == FlexDirection::BottomToTop
                 {
                     AbsRect {
                         topleft: Vec2::new(total_main - main, aux),
-                        bottomright: Vec2::new(total_main - (main + a.0.basis), aux + max_aux),
+                        bottomright: Vec2::new(total_main - (main + a.0), aux + max_aux),
                     }
                 } else {
                     AbsRect {
                         topleft: Vec2::new(main, aux),
-                        bottomright: Vec2::new(main + a.0.basis, aux + max_aux),
+                        bottomright: Vec2::new(main + a.0, aux + max_aux),
                     }
                 };
 
@@ -491,7 +492,7 @@ impl Desc for Flex {
                 }
                 staging.push_back(Some(stage));
 
-                main += a.0.basis + inner;
+                main += a.0 + inner;
             }
 
             if b.2.is_finite() {
@@ -510,7 +511,7 @@ impl Desc for Flex {
                 .unwrap_or_default(),
             rtree: Rc::new(rtree::Node::new(
                 true_area - parent_pos,
-                Some(props.zindex),
+                Some(props.zindex()),
                 nodes,
                 id,
             )),

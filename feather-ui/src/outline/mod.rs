@@ -8,9 +8,7 @@ use window::WindowStateMachine;
 
 use crate::layout::Layout;
 
-pub mod arc;
 pub mod button;
-pub mod circle;
 pub mod domain_line;
 pub mod domain_point;
 pub mod draggable;
@@ -18,13 +16,13 @@ pub mod flexbox;
 pub mod mouse_area;
 pub mod paragraph;
 pub mod region;
-pub mod round_rect;
-pub mod shader_standard;
-pub mod sized_region;
+pub mod shape;
 pub mod text;
 pub mod window;
 
+use crate::layout::root;
 use crate::layout::Desc;
+use crate::layout::LayoutWrap;
 use crate::layout::Staged;
 use crate::outline::window::Window;
 use crate::rtree;
@@ -113,13 +111,13 @@ impl<
     }
 }
 
-pub trait Outline<Parent: Clone>: DynClone {
+pub trait Outline<T>: DynClone {
     fn layout(
         &self,
         state: &StateManager,
         driver: &DriverState,
         config: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn Layout<Parent>>;
+    ) -> Box<dyn Layout<T> + 'static>;
 
     fn init(&self) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error> {
         Err(crate::Error::Stateless)
@@ -128,9 +126,75 @@ pub trait Outline<Parent: Clone>: DynClone {
     fn id(&self) -> Rc<SourceID>;
 }
 
-dyn_clone::clone_trait_object!(<Parent> Outline<Parent> where Parent: Clone);
+dyn_clone::clone_trait_object!(<Parent> Outline<Parent>);
 
-pub type OutlineFrom<D> = dyn Outline<<D as Desc>::Impose>;
+pub type OutlineFrom<D> = dyn OutlineWrap<<D as Desc>::Child>;
+
+pub trait OutlineWrap<T: ?Sized>: DynClone {
+    fn layout(
+        &self,
+        state: &StateManager,
+        driver: &DriverState,
+        config: &wgpu::SurfaceConfiguration,
+    ) -> Box<dyn LayoutWrap<T> + 'static>;
+    fn init(&self) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error>;
+    fn init_all(&self, _: &mut StateManager) -> eyre::Result<()>;
+    fn id(&self) -> Rc<SourceID>;
+}
+
+dyn_clone::clone_trait_object!(<T> OutlineWrap<T> where T:?Sized);
+
+impl<U: ?Sized, T: 'static> OutlineWrap<U> for Box<dyn Outline<T>>
+where
+    for<'a> &'a T: Into<&'a U>,
+{
+    fn layout(
+        &self,
+        state: &StateManager,
+        driver: &DriverState,
+        config: &wgpu::SurfaceConfiguration,
+    ) -> Box<dyn LayoutWrap<U> + 'static> {
+        Box::new(Outline::<T>::layout(self.as_ref(), state, driver, config))
+    }
+
+    fn init(&self) -> Result<Box<dyn crate::StateMachineWrapper>, crate::Error> {
+        Outline::<T>::init(self.as_ref())
+    }
+
+    fn init_all(&self, manager: &mut StateManager) -> eyre::Result<()> {
+        Outline::<T>::init_all(self.as_ref(), manager)
+    }
+
+    fn id(&self) -> Rc<SourceID> {
+        Outline::<T>::id(self.as_ref())
+    }
+}
+
+impl<U: ?Sized, T: 'static> OutlineWrap<U> for &dyn Outline<T>
+where
+    for<'a> &'a T: Into<&'a U>,
+{
+    fn layout(
+        &self,
+        state: &StateManager,
+        driver: &DriverState,
+        config: &wgpu::SurfaceConfiguration,
+    ) -> Box<dyn LayoutWrap<U> + 'static> {
+        Box::new(Outline::<T>::layout(*self, state, driver, config))
+    }
+
+    fn init(&self) -> Result<Box<dyn crate::StateMachineWrapper>, crate::Error> {
+        Outline::<T>::init(*self)
+    }
+
+    fn init_all(&self, manager: &mut StateManager) -> eyre::Result<()> {
+        Outline::<T>::init_all(*self, manager)
+    }
+
+    fn id(&self) -> Rc<SourceID> {
+        Outline::<T>::id(*self)
+    }
+}
 
 pub trait Renderable {
     fn render(&self, area: AbsRect, driver: &DriverState) -> im::Vector<RenderInstruction>;
@@ -140,7 +204,7 @@ pub trait Renderable {
 
 pub struct RootState {
     pub(crate) id: Rc<SourceID>,
-    layout_tree: Option<Box<dyn crate::layout::Layout<()>>>,
+    layout_tree: Option<Box<dyn crate::layout::Layout<crate::AbsDim>>>,
     pub(crate) staging: Option<Box<dyn Staged>>,
     rtree: Weak<rtree::Node>,
 }
@@ -220,6 +284,7 @@ impl Root {
                 .get_mut(&id)
                 .ok_or_eyre("Couldn't find window state")?;
             if let Some(layout) = root.layout_tree.as_ref() {
+                let layout: &dyn LayoutWrap<dyn root::Prop> = &layout.as_ref();
                 let staging = layout.stage(
                     Default::default(),
                     Default::default(),
@@ -267,4 +332,63 @@ impl CrossReferenceDomain {
         // TODO: Is this necessary? Does it even make sense? Do you simply need to wipe the mapping for every new layout instead?
         self.mappings.borrow_mut().remove(target);
     }
+}
+
+#[macro_export]
+macro_rules! gen_outline_wrap_inner {
+    () => {
+        fn layout(
+            &self,
+            state: &$crate::StateManager,
+            driver: &$crate::DriverState,
+            config: &wgpu::SurfaceConfiguration,
+        ) -> Box<dyn $crate::outline::LayoutWrap<U> + 'static> {
+            Box::new($crate::outline::Outline::<T>::layout(
+                self, state, driver, config,
+            ))
+        }
+
+        fn init(&self) -> Result<Box<dyn $crate::StateMachineWrapper>, $crate::Error> {
+            $crate::outline::Outline::<T>::init(self)
+        }
+
+        fn init_all(&self, manager: &mut $crate::StateManager) -> eyre::Result<()> {
+            $crate::outline::Outline::<T>::init_all(self, manager)
+        }
+
+        fn id(&self) -> Rc<SourceID> {
+            $crate::outline::Outline::<T>::id(self)
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! gen_outline_wrap {
+    ($name:ident, $prop:path) => {
+        impl<U: ?Sized, T: $prop + 'static> $crate::outline::OutlineWrap<U> for $name<T>
+        where
+            $name<T>: $crate::outline::Outline<T>,
+            for<'a> &'a T: Into<&'a U>,
+        {
+            $crate::gen_outline_wrap_inner!();
+        }
+    };
+    ($name:ident, $prop:path, $aux:path) => {
+        impl<U: ?Sized, T: $prop + $aux + 'static> $crate::outline::OutlineWrap<U> for $name<T>
+        where
+            $name<T>: $crate::outline::Outline<T>,
+            for<'a> &'a T: Into<&'a U>,
+        {
+            $crate::gen_outline_wrap_inner!();
+        }
+    };
+    ($a:lifetime, $name:ident, $prop:path) => {
+        impl<$a, U: ?Sized, T: $prop + 'static> $crate::outline::OutlineWrap<U> for $name<$a, T>
+        where
+            $name<$a, T>: $crate::outline::Outline<T>,
+            for<'abc> &'abc T: Into<&'abc U>,
+        {
+            $crate::gen_outline_wrap_inner!();
+        }
+    };
 }

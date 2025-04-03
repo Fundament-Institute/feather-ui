@@ -2,26 +2,28 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use crate::layout;
-use crate::layout::basic::Basic;
+use crate::layout::simple;
 use crate::layout::Desc;
 use crate::layout::Layout;
+use crate::layout::LayoutWrap;
 use crate::outline::OutlineFrom;
 use crate::persist::FnPersist;
 use crate::persist::VectorMap;
-use crate::Outline;
 use crate::SourceID;
 use derive_where::derive_where;
 use std::rc::Rc;
 
-#[derive_where(Clone)]
-pub struct Region<Parent: Clone> {
+#[derive_where(Clone, Default)]
+pub struct Region<T: simple::Prop + Default + 'static> {
     pub id: Rc<SourceID>,
-    pub props: Parent,
-    pub basic: Basic,
-    pub children: im::Vector<Option<Box<dyn Outline<<Basic as Desc>::Impose>>>>,
+    pub props: Rc<T>,
+    pub children: im::Vector<Option<Box<OutlineFrom<dyn simple::Prop>>>>,
 }
 
-impl<Parent: Clone + 'static> super::Outline<Parent> for Region<Parent> {
+impl<T: simple::Prop + Default + 'static> super::Outline<T> for Region<T>
+where
+    for<'a> &'a T: Into<&'a (dyn simple::Prop + 'static)>,
+{
     fn id(&self) -> Rc<SourceID> {
         self.id.clone()
     }
@@ -38,19 +40,21 @@ impl<Parent: Clone + 'static> super::Outline<Parent> for Region<Parent> {
         state: &crate::StateManager,
         driver: &crate::DriverState,
         config: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn Layout<Parent>> {
+    ) -> Box<dyn Layout<T>> {
         let map = VectorMap::new(
-            |child: &Option<Box<OutlineFrom<Basic>>>|
-             -> Option<Box<dyn Layout<<Basic as Desc>::Impose>>> { Some(child.as_ref().unwrap().layout(state, driver, config)) },
+            |child: &Option<Box<OutlineFrom<dyn simple::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn simple::Prop as Desc>::Child>>> {
+                Some(child.as_ref().unwrap().layout(state, driver, config))
+            },
         );
 
         let (_, children) = map.call(Default::default(), &self.children);
-        Box::new(layout::Node::<Basic, Parent> {
-            props: self.basic.clone(),
-            imposed: self.props.clone(),
+        Box::new(layout::Node::<T, dyn simple::Prop> {
+            props: self.props.clone(),
             children,
             id: Rc::downgrade(&self.id),
             renderable: None,
         })
     }
 }
+
+crate::gen_outline_wrap!(Region, simple::Prop, Default);

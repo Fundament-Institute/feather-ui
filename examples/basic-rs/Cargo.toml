@@ -25,3 +25,4 @@ tokio.workspace = true
 feather-ui.workspace = true
 ultraviolet.workspace = true
 im.workspace = true
+feather-macro.workspace = true

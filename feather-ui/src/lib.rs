@@ -8,10 +8,13 @@ pub mod layout;
 pub mod lua;
 pub mod outline;
 pub mod persist;
+mod propbag;
 mod rtree;
 mod shaders;
+
 use crate::outline::window::Window;
 use core::cell::Cell;
+use core::f32;
 use dyn_clone::DynClone;
 use eyre::OptionExt;
 use once_cell::unsync::OnceCell;
@@ -230,6 +233,11 @@ impl From<Vec2> for UPoint {
     }
 }
 
+pub const ZERO_UPOINT: UPoint = UPoint {
+    abs: Vec2 { x: 0.0, y: 0.0 },
+    rel: RelPoint { x: 0.0, y: 0.0 },
+};
+
 #[derive(Copy, Clone, Debug, Default)]
 pub struct UDim(UPoint);
 
@@ -253,6 +261,11 @@ pub struct URect {
     pub bottomright: UPoint,
 }
 
+pub const ZERO_URECT: URect = URect {
+    topleft: ZERO_UPOINT,
+    bottomright: ZERO_UPOINT,
+};
+
 pub const FILL_URECT: URect = URect {
     topleft: UPoint {
         abs: Vec2 { x: 0.0, y: 0.0 },
@@ -261,6 +274,20 @@ pub const FILL_URECT: URect = URect {
     bottomright: UPoint {
         abs: Vec2 { x: 0.0, y: 0.0 },
         rel: RelPoint { x: 1.0, y: 1.0 },
+    },
+};
+
+pub const AUTO_URECT: URect = URect {
+    topleft: UPoint {
+        abs: Vec2 { x: 0.0, y: 0.0 },
+        rel: RelPoint { x: 0.0, y: 0.0 },
+    },
+    bottomright: UPoint {
+        abs: Vec2 {
+            x: f32::INFINITY,
+            y: f32::INFINITY,
+        },
+        rel: RelPoint { x: 0.0, y: 0.0 },
     },
 };
 
@@ -640,7 +667,10 @@ impl StateManager {
         Ok(())
     }
 
-    fn init_outline<Parent: Clone>(&mut self, target: &dyn Outline<Parent>) -> eyre::Result<()> {
+    fn init_outline<Parent: ?Sized>(
+        &mut self,
+        target: &dyn crate::outline::OutlineWrap<Parent>,
+    ) -> eyre::Result<()> {
         if !self.states.contains_key(&target.id()) {
             match target.init() {
                 Ok(v) => self.init(target.id().clone(), v),
@@ -932,21 +962,23 @@ impl FnPersist<u8, im::HashMap<Rc<SourceID>, Option<Window>>> for TestApp {
     type Store = (u8, im::HashMap<Rc<SourceID>, Option<Window>>);
 
     fn init(&self) -> Self::Store {
-        use layout::root::Root;
-        use layout::Desc;
-        use outline::round_rect::RoundRect;
+        use crate::outline::shape::Shape;
         use ultraviolet::Vec4;
-        let region = RoundRect::<<Root as Desc>::Impose> {
-            id: gen_id!().into(),
-            fill: Vec4::new(1.0, 0.0, 0.0, 1.0),
-            ..Default::default()
-        };
+        let rect = Shape::<URect>::round_rect(
+            gen_id!().into(),
+            crate::FILL_URECT.into(),
+            0.0,
+            0.0,
+            Vec4::zero(),
+            Vec4::new(1.0, 0.0, 0.0, 1.0),
+            Vec4::zero(),
+        );
         let window = Window::new(
             gen_id!().into(),
             winit::window::Window::default_attributes()
                 .with_title("test_blank")
                 .with_resizable(true),
-            Box::new(region),
+            Box::new(rect),
         );
 
         let mut hash = im::HashMap::new();

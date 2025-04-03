@@ -2,24 +2,25 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use feather_ui::gen_id;
-use feather_ui::layout::basic::Basic;
 
-use feather_ui::layout::root;
-use feather_ui::layout::simple::Simple;
-use feather_ui::outline::circle::Circle;
+use feather_ui::layout::base;
+use feather_ui::layout::simple;
 use feather_ui::outline::domain_line::DomainLine;
 use feather_ui::outline::domain_point::DomainPoint;
 use feather_ui::outline::draggable;
 use feather_ui::outline::draggable::Draggable;
-use feather_ui::outline::sized_region::SizedRegion;
+use feather_ui::outline::region::Region;
+use feather_ui::outline::shape::Shape;
 use feather_ui::outline::window::Window;
 use feather_ui::outline::CrossReferenceDomain;
 use feather_ui::outline::OutlineFrom;
 use feather_ui::persist::FnPersist;
+use feather_ui::AbsRect;
 use feather_ui::App;
 use feather_ui::DataID;
 use feather_ui::Slot;
 use feather_ui::SourceID;
+use feather_ui::URect;
 use feather_ui::WrapEventEx;
 use feather_ui::FILL_URECT;
 use std::collections::HashSet;
@@ -37,6 +38,45 @@ struct GraphState {
 }
 
 struct BasicApp {}
+
+#[derive(Default, Clone)]
+struct MinimalArea {
+    area: URect,
+}
+
+impl base::Empty for MinimalArea {}
+
+impl base::ZIndex for MinimalArea {
+    fn zindex(&self) -> i32 {
+        0
+    }
+}
+
+impl base::Margin for MinimalArea {
+    fn margin(&self) -> &URect {
+        &feather_ui::ZERO_URECT
+    }
+}
+
+impl base::Anchor for MinimalArea {
+    fn anchor(&self) -> &feather_ui::UPoint {
+        &feather_ui::ZERO_UPOINT
+    }
+}
+
+impl base::Limits for MinimalArea {
+    fn limits(&self) -> &URect {
+        &feather_ui::DEFAULT_LIMITS
+    }
+}
+
+impl base::Area for MinimalArea {
+    fn area(&self) -> &URect {
+        &self.area
+    }
+}
+
+impl simple::Prop for MinimalArea {}
 
 const NODE_RADIUS: f32 = 25.0;
 
@@ -60,7 +100,8 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
         args: &GraphState,
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
         if store.0 != *args {
-            let mut children: im::Vector<Option<Box<OutlineFrom<Basic>>>> = im::Vector::new();
+            let mut children: im::Vector<Option<Box<OutlineFrom<dyn simple::Prop>>>> =
+                im::Vector::new();
             let domain: Rc<CrossReferenceDomain> = Default::default();
 
             let mut node_ids: Vec<Rc<SourceID>> = Vec::new();
@@ -74,43 +115,40 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
                 let iter_id = Rc::new(node_id.child(DataID::Int(i as i64)));
                 node_ids.push(iter_id.clone());
 
-                let mut contents: im::Vector<Option<Box<OutlineFrom<Simple>>>> = im::Vector::new();
+                let mut contents: im::Vector<Option<Box<OutlineFrom<dyn simple::Prop>>>> =
+                    im::Vector::new();
 
-                let point = DomainPoint::<()>::new(iter_id.clone(), (), domain.clone());
+                let point = DomainPoint::new(iter_id.clone(), domain.clone());
 
-                let circle = Circle::<()> {
-                    id: gen_id!(iter_id).into(),
-                    fill: if args.selected == Some(i) {
+                let circle = Shape::circle(
+                    gen_id!(iter_id).into(),
+                    FILL_URECT.into(),
+                    0.0,
+                    0.0,
+                    Vec2::new(0.0, 20.0),
+                    if args.selected == Some(i) {
                         Vec4::new(0.7, 1.0, 0.8, 1.0)
                     } else {
                         base
                     },
-                    outline: base,
-                    radii: Vec2::new(0.0, 20.0),
-                    props: (),
-                    rect: FILL_URECT,
-                    ..Default::default()
-                };
+                    base,
+                );
 
                 contents.push_back(Some(Box::new(point)));
                 contents.push_back(Some(Box::new(circle)));
 
-                let bag = SizedRegion::<()> {
+                let bag = Region::<MinimalArea> {
                     id: gen_id!(iter_id).into(),
-                    props: (),
-                    simple: Simple {
-                        margin: Default::default(),
-                        anchor: Default::default(),
-                        limits: Default::default(),
-                        zindex: 0,
-                        area: feather_ui::AbsRect::new(
+                    props: MinimalArea {
+                        area: AbsRect::new(
                             node.x - NODE_RADIUS,
                             node.y - NODE_RADIUS,
                             node.x + NODE_RADIUS,
                             node.y + NODE_RADIUS,
                         )
                         .into(),
-                    },
+                    }
+                    .into(),
                     children: contents,
                 };
 
@@ -128,7 +166,7 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
                     domain: domain.clone(),
                     start: node_ids[*a].clone(),
                     end: node_ids[*b].clone(),
-                    props: (),
+                    props: ().into(),
                 };
 
                 children.push_back(Some(Box::new(line)));
@@ -136,22 +174,16 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
 
             let region = Draggable {
                 id: gen_id!().into(),
-                props: root::Inherited {
-                    area: feather_ui::URect {
-                        topleft: feather_ui::UPoint {
-                            abs: args.offset + Vec2::new(0.0, 0.0),
-                            rel: Vec2::new(0.0, 0.0).into(),
-                        },
-                        bottomright: feather_ui::UPoint {
-                            abs: args.offset + Vec2::new(10000.0, 10000.0),
-                            rel: Vec2::new(0.0, 0.0).into(),
-                        },
-                    },
-                },
-                basic: Basic {
-                    padding: Default::default(),
-                    zindex: 0,
-                },
+                props: MinimalArea {
+                    area: AbsRect::new(
+                        args.offset.x,
+                        args.offset.y,
+                        args.offset.x + 10000.0,
+                        args.offset.y + 10000.0,
+                    )
+                    .into(),
+                }
+                .into(),
                 children,
                 slots: [
                     Some(Slot(feather_ui::APP_SOURCE_ID.into(), 0)),
