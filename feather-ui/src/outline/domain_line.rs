@@ -128,7 +128,7 @@ pub struct LinePipeline {
 impl Renderable for LinePipeline {
     fn render(
         &self,
-        _: crate::AbsRect,
+        area: crate::AbsRect,
         driver: &DriverState,
     ) -> im::Vector<crate::RenderInstruction> {
         let start = self.domain.get_area(&self.start).unwrap_or_default();
@@ -142,10 +142,10 @@ impl Renderable for LinePipeline {
                     label: Some("LineVertices"),
                     contents: to_bytes(&[
                         Vertex {
-                            pos: ((start.topleft + start.bottomright) * 0.5).into(),
+                            pos: ((start.topleft + start.bottomright) * 0.5 + area.topleft).into(),
                         },
                         Vertex {
-                            pos: ((end.topleft + end.bottomright) * 0.5).into(),
+                            pos: ((end.topleft + end.bottomright) * 0.5 + area.topleft).into(),
                         },
                     ]),
                     usage: wgpu::BufferUsages::VERTEX,
