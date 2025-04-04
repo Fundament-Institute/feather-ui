@@ -271,24 +271,16 @@ impl Desc for dyn Prop {
         for child in children.iter() {
             let imposed = child.as_ref().unwrap().get_imposed();
 
-            let mut area = AbsRect {
-                topleft: true_area.topleft + (imposed.margin().topleft * dim),
-                bottomright: (true_area.bottomright - (imposed.margin().bottomright * dim)),
+            let area = AbsRect {
+                topleft: Vec2::zero(),
+                bottomright: if xaxis {
+                    Vec2::new(imposed.basis(), f32::INFINITY)
+                } else {
+                    Vec2::new(f32::INFINITY, imposed.basis())
+                },
             };
 
-            // If we don't have a basis, we need to set it to infinity
-            if xaxis {
-                area.bottomright.x = imposed.basis();
-                area.bottomright.y = f32::INFINITY;
-            } else {
-                area.bottomright.x = f32::INFINITY;
-                area.bottomright.y = imposed.basis();
-            }
-
-            let stage = child
-                .as_ref()
-                .unwrap()
-                .stage(area, /*true_area.topleft,*/ driver);
+            let stage = child.as_ref().unwrap().stage(area, driver);
 
             let (main, aux) = swap_axis(xaxis, stage.get_area().dim().0);
 
@@ -320,16 +312,16 @@ impl Desc for dyn Prop {
         {
             let mut area = true_area;
             if xaxis {
-                area.bottomright.x = used_main;
+                area.bottomright.x = true_area.topleft.x + used_main;
             } else {
-                area.bottomright.y = used_main;
+                area.bottomright.y = true_area.topleft.y + used_main;
             }
             // If we are evaluating our staged area along the main axis, no further calculations can be done
             return Box::new(Concrete {
-                area: area - true_area.topleft,
+                area: area - area.topleft,
                 render: None,
                 rtree: Rc::new(rtree::Node::new(
-                    area - true_area.topleft,
+                    area - area.topleft,
                     Some(props.zindex()),
                     nodes,
                     id,
@@ -481,10 +473,7 @@ impl Desc for dyn Prop {
                     std::mem::swap(&mut area.bottomright.x, &mut area.bottomright.y);
                 }
 
-                let stage = children[i]
-                    .as_ref()
-                    .unwrap()
-                    .stage(area + true_area.topleft, driver);
+                let stage = children[i].as_ref().unwrap().stage(area, driver);
                 if let Some(node) = stage.get_rtree().upgrade() {
                     nodes.push_back(Some(node));
                 }
@@ -503,9 +492,14 @@ impl Desc for dyn Prop {
         }
 
         Box::new(Concrete {
-            area: true_area,
+            area: true_area - true_area.topleft,
             render: renderable,
-            rtree: Rc::new(rtree::Node::new(true_area, Some(props.zindex()), nodes, id)),
+            rtree: Rc::new(rtree::Node::new(
+                true_area - true_area.topleft,
+                Some(props.zindex()),
+                nodes,
+                id,
+            )),
             children: staging,
         })
     }
