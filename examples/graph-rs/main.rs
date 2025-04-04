@@ -65,7 +65,7 @@ impl base::Anchor for MinimalArea {
 }
 
 impl base::Limits for MinimalArea {
-    fn limits(&self) -> &URect {
+    fn limits(&self) -> &feather_ui::ULimits {
         &feather_ui::DEFAULT_LIMITS
     }
 }

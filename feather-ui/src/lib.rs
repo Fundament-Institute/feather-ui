@@ -74,6 +74,7 @@ pub struct AbsRect {
 }
 
 impl AbsRect {
+    #[inline]
     pub fn new(left: f32, top: f32, right: f32, bottom: f32) -> Self {
         Self {
             topleft: Vec2 { x: left, y: top },
@@ -83,6 +84,7 @@ impl AbsRect {
             },
         }
     }
+    #[inline]
     pub fn contains(&self, p: Vec2) -> bool {
         p.x >= self.topleft.x
             && p.x <= self.bottomright.x
@@ -90,6 +92,7 @@ impl AbsRect {
             && p.y <= self.bottomright.y
     }
 
+    #[inline]
     pub fn extend(&self, rhs: AbsRect) -> AbsRect {
         AbsRect {
             topleft: self.topleft.min_by_component(rhs.topleft),
@@ -97,12 +100,15 @@ impl AbsRect {
         }
     }
 
+    #[inline]
     pub fn width(&self) -> f32 {
         self.bottomright.x - self.topleft.x
     }
+    #[inline]
     pub fn height(&self) -> f32 {
         self.bottomright.y - self.topleft.y
     }
+    #[inline]
     pub fn dim(&self) -> AbsDim {
         AbsDim(self.bottomright - self.topleft)
     }
@@ -111,6 +117,7 @@ impl AbsRect {
 impl Add<Vec2> for AbsRect {
     type Output = Self;
 
+    #[inline]
     fn add(self, rhs: Vec2) -> Self::Output {
         Self {
             topleft: self.topleft + rhs,
@@ -120,6 +127,7 @@ impl Add<Vec2> for AbsRect {
 }
 
 impl AddAssign<Vec2> for AbsRect {
+    #[inline]
     fn add_assign(&mut self, rhs: Vec2) {
         self.topleft += rhs;
         self.bottomright += rhs;
@@ -129,6 +137,7 @@ impl AddAssign<Vec2> for AbsRect {
 impl Sub<Vec2> for AbsRect {
     type Output = Self;
 
+    #[inline]
     fn sub(self, rhs: Vec2) -> Self::Output {
         Self {
             topleft: self.topleft - rhs,
@@ -138,13 +147,14 @@ impl Sub<Vec2> for AbsRect {
 }
 
 impl SubAssign<Vec2> for AbsRect {
+    #[inline]
     fn sub_assign(&mut self, rhs: Vec2) {
         self.topleft -= rhs;
         self.bottomright -= rhs;
     }
 }
 
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 /// Relative point
 pub struct RelPoint {
     pub x: f32,
@@ -154,6 +164,7 @@ pub struct RelPoint {
 impl Add for RelPoint {
     type Output = Self;
 
+    #[inline]
     fn add(self, rhs: Self) -> Self::Output {
         Self {
             x: self.x + rhs.x,
@@ -165,6 +176,7 @@ impl Add for RelPoint {
 impl Mul<AbsDim> for RelPoint {
     type Output = Vec2;
 
+    #[inline]
     fn mul(self, rhs: AbsDim) -> Self::Output {
         Vec2 {
             x: self.x * rhs.0.x,
@@ -174,6 +186,7 @@ impl Mul<AbsDim> for RelPoint {
 }
 
 impl From<Vec2> for RelPoint {
+    #[inline]
     fn from(value: Vec2) -> Self {
         Self {
             x: value.x,
@@ -182,14 +195,14 @@ impl From<Vec2> for RelPoint {
     }
 }
 
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 /// Relative rectangle
 pub struct RelRect {
     pub topleft: RelPoint,
     pub bottomright: Vec2,
 }
 
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 /// Unified coordinate
 pub struct UPoint {
     pub abs: Vec2,
@@ -199,6 +212,7 @@ pub struct UPoint {
 impl Add for UPoint {
     type Output = Self;
 
+    #[inline]
     fn add(self, other: Self) -> Self {
         Self {
             abs: self.abs + other.abs,
@@ -210,6 +224,7 @@ impl Add for UPoint {
 impl Mul<AbsDim> for UPoint {
     type Output = Vec2;
 
+    #[inline]
     fn mul(self, rhs: AbsDim) -> Self::Output {
         self.abs + (self.rel * rhs)
     }
@@ -218,6 +233,7 @@ impl Mul<AbsDim> for UPoint {
 impl Mul<AbsRect> for UPoint {
     type Output = Vec2;
 
+    #[inline]
     fn mul(self, rhs: AbsRect) -> Self::Output {
         let dim = AbsDim(rhs.bottomright - rhs.topleft);
         rhs.topleft + (self.rel * dim) + self.abs
@@ -225,6 +241,7 @@ impl Mul<AbsRect> for UPoint {
 }
 
 impl From<Vec2> for UPoint {
+    #[inline]
     fn from(value: Vec2) -> Self {
         Self {
             abs: value,
@@ -242,11 +259,13 @@ pub const ZERO_UPOINT: UPoint = UPoint {
 pub struct UDim(UPoint);
 
 impl From<UDim> for UPoint {
+    #[inline]
     fn from(val: UDim) -> Self {
         val.0
     }
 }
 
+#[inline]
 pub fn build_aabb(a: Vec2, b: Vec2) -> AbsRect {
     AbsRect {
         topleft: a.min_by_component(b),
@@ -254,7 +273,7 @@ pub fn build_aabb(a: Vec2, b: Vec2) -> AbsRect {
     }
 }
 
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 /// Unified coordinate rectangle
 pub struct URect {
     pub topleft: UPoint,
@@ -291,32 +310,36 @@ pub const AUTO_URECT: URect = URect {
     },
 };
 
-pub const DEFAULT_LIMITS: URect = URect {
+// Instead of using actual, proper infinities here, we use the largest possible positive and
+// negative number instead, because this avoids edge cases in floating point algorithms that
+// can massively slow down processing on some platforms.
+pub const DEFAULT_LIMITS: ULimits = ULimits(URect {
     topleft: UPoint {
         abs: Vec2 {
-            x: f32::NEG_INFINITY,
-            y: f32::NEG_INFINITY,
+            x: f32::MIN,
+            y: f32::MIN,
         },
         rel: RelPoint {
-            x: f32::NEG_INFINITY,
-            y: f32::NEG_INFINITY,
+            x: f32::MIN,
+            y: f32::MIN,
         },
     },
     bottomright: UPoint {
         abs: Vec2 {
-            x: f32::INFINITY,
-            y: f32::INFINITY,
+            x: f32::MAX,
+            y: f32::MAX,
         },
         rel: RelPoint {
-            x: f32::INFINITY,
-            y: f32::INFINITY,
+            x: f32::MAX,
+            y: f32::MAX,
         },
     },
-};
+});
 
 impl Mul<AbsRect> for URect {
     type Output = AbsRect;
 
+    #[inline]
     fn mul(self, rhs: AbsRect) -> Self::Output {
         let dim = AbsDim(rhs.bottomright - rhs.topleft);
         AbsRect {
@@ -329,6 +352,7 @@ impl Mul<AbsRect> for URect {
 impl Mul<AbsDim> for URect {
     type Output = AbsRect;
 
+    #[inline]
     fn mul(self, rhs: AbsDim) -> Self::Output {
         AbsRect {
             topleft: self.topleft * rhs,
@@ -338,11 +362,60 @@ impl Mul<AbsDim> for URect {
 }
 
 impl From<AbsRect> for URect {
+    #[inline]
     fn from(value: AbsRect) -> Self {
         Self {
             topleft: value.topleft.into(),
             bottomright: value.bottomright.into(),
         }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct ULimits(URect);
+
+impl From<URect> for ULimits {
+    fn from(value: URect) -> Self {
+        Self(value)
+    }
+}
+
+impl Default for ULimits {
+    fn default() -> Self {
+        DEFAULT_LIMITS
+    }
+}
+
+#[inline]
+pub fn apply_limits(limits: URect, dim: AbsDim) -> AbsDim {
+    let limits = limits * dim;
+    let dim = dim.0.max_by_component(limits.topleft);
+    let dim = dim.min_by_component(limits.bottomright);
+    AbsDim(dim)
+}
+
+impl ULimits {
+    #[inline]
+    pub fn new(min: UPoint, max: UPoint) -> Self {
+        Self {
+            0: URect {
+                topleft: min,
+                bottomright: max,
+            },
+        }
+    }
+    #[inline]
+    pub fn abs(min: Vec2, max: Vec2) -> Self {
+        Self {
+            0: URect {
+                topleft: min.into(),
+                bottomright: max.into(),
+            },
+        }
+    }
+    #[inline]
+    pub fn apply(self, dim: AbsDim) -> AbsDim {
+        apply_limits(self.0, dim)
     }
 }
 
@@ -905,8 +978,11 @@ impl<
                     }
                     winit::event::WindowEvent::RedrawRequested => {
                         if let Ok(state) = self.state.get_mut::<WindowStateMachine>(&window.id()) {
-                            if let Some(staging) = root.staging.as_ref() {
-                                state.state.as_mut().unwrap().draw = staging.render();
+                            if let Some(driver) = self.driver.upgrade() {
+                                if let Some(staging) = root.staging.as_ref() {
+                                    state.state.as_mut().unwrap().draw =
+                                        staging.render(Vec2::zero(), &driver);
+                                }
                             }
                         }
                         Window::on_window_event(window.id(), rtree, event, &mut self.state)

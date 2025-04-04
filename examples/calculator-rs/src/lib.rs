@@ -46,7 +46,7 @@ struct SimpleData {
     area: URect,
     margin: URect,
     anchor: feather_ui::UPoint,
-    limits: URect,
+    limits: feather_ui::ULimits,
     zindex: i32,
 }
 

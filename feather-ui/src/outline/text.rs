@@ -174,7 +174,6 @@ impl<T> Layout<T> for TextLayout<T> {
     fn inner_stage<'a>(
         &self,
         mut area: AbsRect,
-        parent_pos: Vec2,
         driver: &DriverState,
     ) -> Box<dyn crate::outline::Staged + 'a> {
         let text_system = driver.text().expect("driver.text not initialized");
@@ -214,10 +213,10 @@ impl<T> Layout<T> for TextLayout<T> {
         }
 
         Box::new(crate::layout::Concrete {
-            area: area - parent_pos,
-            render: self.text_render.render(area, driver),
+            area: area - area.topleft,
+            render: Some(self.text_render.clone()),
             rtree: Rc::new(rtree::Node::new(
-                area - parent_pos,
+                area - area.topleft,
                 None,
                 Default::default(),
                 self.id.clone(),
