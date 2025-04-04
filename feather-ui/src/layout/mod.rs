@@ -24,24 +24,14 @@ use std::rc::{Rc, Weak};
 
 pub trait Layout<Props>: DynClone {
     fn get_props(&self) -> &Props;
-    fn inner_stage<'a>(
-        &self,
-        area: AbsRect,
-        parent_pos: Vec2,
-        driver: &DriverState,
-    ) -> Box<dyn Staged + 'a>;
+    fn inner_stage<'a>(&self, area: AbsRect, driver: &DriverState) -> Box<dyn Staged + 'a>;
 }
 
 dyn_clone::clone_trait_object!(<Imposed> Layout<Imposed> where Imposed:Sized);
 
 pub trait LayoutWrap<Imposed: ?Sized>: DynClone {
     fn get_imposed(&self) -> &Imposed;
-    fn stage<'a>(
-        &self,
-        area: AbsRect,
-        parent_pos: Vec2,
-        driver: &DriverState,
-    ) -> Box<dyn Staged + 'a>;
+    fn stage<'a>(&self, area: AbsRect, driver: &DriverState) -> Box<dyn Staged + 'a>;
 }
 
 dyn_clone::clone_trait_object!(<Imposed> LayoutWrap<Imposed> where Imposed:?Sized);
@@ -54,13 +44,8 @@ where
         self.get_props().into()
     }
 
-    fn stage<'a>(
-        &self,
-        area: AbsRect,
-        parent_pos: Vec2,
-        driver: &DriverState,
-    ) -> Box<dyn Staged + 'a> {
-        self.inner_stage(area, parent_pos, driver)
+    fn stage<'a>(&self, area: AbsRect, driver: &DriverState) -> Box<dyn Staged + 'a> {
+        self.inner_stage(area, driver)
     }
 }
 
@@ -72,13 +57,8 @@ where
         self.get_props().into()
     }
 
-    fn stage<'a>(
-        &self,
-        area: AbsRect,
-        parent_pos: Vec2,
-        driver: &DriverState,
-    ) -> Box<dyn Staged + 'a> {
-        self.inner_stage(area, parent_pos, driver)
+    fn stage<'a>(&self, area: AbsRect, driver: &DriverState) -> Box<dyn Staged + 'a> {
+        self.inner_stage(area, driver)
     }
 }
 
@@ -97,7 +77,6 @@ pub trait Desc {
     fn stage<'a>(
         props: &Self::Props,
         true_area: AbsRect,
-        parent_pos: Vec2,
         children: &Self::Children,
         id: std::rc::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
@@ -120,16 +99,10 @@ where
     fn get_props(&self) -> &T {
         self.props.as_ref()
     }
-    fn inner_stage<'a>(
-        &self,
-        area: AbsRect,
-        parent_pos: Vec2,
-        driver: &DriverState,
-    ) -> Box<dyn Staged + 'a> {
+    fn inner_stage<'a>(&self, area: AbsRect, driver: &DriverState) -> Box<dyn Staged + 'a> {
         D::stage(
             self.props.as_ref().into(),
             area,
-            parent_pos,
             &self.children,
             self.id.clone(),
             self.renderable.as_ref().map(|x| x.clone()),
@@ -139,7 +112,7 @@ where
 }
 
 pub trait Staged: DynClone {
-    fn render(&self) -> im::Vector<RenderInstruction>;
+    fn render(&self, parent_pos: Vec2, driver: &DriverState) -> im::Vector<RenderInstruction>;
     fn get_rtree(&self) -> Weak<rtree::Node>;
     fn get_area(&self) -> AbsRect;
 }
@@ -148,25 +121,34 @@ dyn_clone::clone_trait_object!(Staged);
 
 #[derive(Clone)]
 pub(crate) struct Concrete {
-    pub render: im::Vector<RenderInstruction>,
+    pub render: Option<Rc<dyn Renderable>>,
     pub area: AbsRect,
     pub rtree: Rc<rtree::Node>,
     pub children: im::Vector<Option<Box<dyn Staged>>>,
 }
 
 impl Staged for Concrete {
-    fn render(&self) -> im::Vector<RenderInstruction> {
+    fn render(&self, parent_pos: Vec2, driver: &DriverState) -> im::Vector<RenderInstruction> {
+        let instructions = self
+            .render
+            .as_ref()
+            .map(|x| x.render(self.area + parent_pos, driver))
+            .unwrap_or_default();
+
         let fold = VectorFold::new(
             |list: &im::Vector<RenderInstruction>,
              n: &Option<Box<dyn Staged>>|
              -> im::Vector<RenderInstruction> {
-                let mut a = n.as_ref().unwrap().render();
+                let mut a = n
+                    .as_ref()
+                    .unwrap()
+                    .render(parent_pos + self.area.topleft, driver);
                 a.append(list.clone());
                 a
             },
         );
 
-        let (_, result) = fold.call(fold.init(), &self.render, &self.children);
+        let (_, result) = fold.call(fold.init(), &instructions, &self.children);
         result
     }
 

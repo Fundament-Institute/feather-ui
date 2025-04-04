@@ -33,7 +33,6 @@ impl Desc for dyn Prop {
     fn stage<'a>(
         props: &Self::Props,
         _: AbsRect,
-        _: Vec2,
         child: &Self::Children,
         _: std::rc::Weak<crate::SourceID>,
         _: Option<Rc<dyn Renderable>>,
@@ -45,7 +44,6 @@ impl Desc for dyn Prop {
                 topleft: Vec2::zero(),
                 bottomright: (*props.dim()).into(),
             },
-            Vec2::zero(),
             driver,
         )
     }

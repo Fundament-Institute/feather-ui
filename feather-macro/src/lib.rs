@@ -60,7 +60,7 @@ pub fn derive_limits(input: TokenStream) -> TokenStream {
         input,
         "limits",
         "feather_ui::layout::base::Limits",
-        "feather_ui::URect",
+        "feather_ui::ULimits",
     )
 }
 

@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 use std::collections::HashMap;
 
-use crate::{ZERO_UPOINT, ZERO_URECT};
+use crate::{DEFAULT_LIMITS, ZERO_UPOINT, ZERO_URECT};
 
 #[derive(Default)]
 pub struct PropBag {
@@ -161,7 +161,7 @@ gen_prop_bag!(
   crate::layout::base::Area, area, set_area, crate::URect, panic!("No area set and no default available!"),
   crate::layout::base::Padding, padding, set_padding, crate::URect, &ZERO_URECT,
   crate::layout::base::Margin, margin, set_margin, crate::URect, &ZERO_URECT,
-  crate::layout::base::Limits, limits, set_limits, crate::URect, &ZERO_URECT,
+  crate::layout::base::Limits, limits, set_limits, crate::ULimits, &DEFAULT_LIMITS,
   crate::layout::base::Anchor, anchor, set_anchor, crate::UPoint, &ZERO_UPOINT,
   crate::layout::root::Prop, dim, set_dim, crate::AbsDim, panic!("No dim set and no default available!")
 );

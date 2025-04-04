@@ -252,7 +252,6 @@ impl Desc for dyn Prop {
     fn stage<'a>(
         props: &Self::Props,
         true_area: AbsRect,
-        parent_pos: Vec2,
         children: &Self::Children,
         id: std::rc::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
@@ -289,7 +288,7 @@ impl Desc for dyn Prop {
             let stage = child
                 .as_ref()
                 .unwrap()
-                .stage(area, true_area.topleft, driver);
+                .stage(area, /*true_area.topleft,*/ driver);
 
             let (main, aux) = swap_axis(xaxis, stage.get_area().dim().0);
 
@@ -327,10 +326,10 @@ impl Desc for dyn Prop {
             }
             // If we are evaluating our staged area along the main axis, no further calculations can be done
             return Box::new(Concrete {
-                area: area - parent_pos,
-                render: im::Vector::new(),
+                area: area - true_area.topleft,
+                render: None,
                 rtree: Rc::new(rtree::Node::new(
-                    area - parent_pos,
+                    area - true_area.topleft,
                     Some(props.zindex()),
                     nodes,
                     id,
@@ -482,11 +481,10 @@ impl Desc for dyn Prop {
                     std::mem::swap(&mut area.bottomright.x, &mut area.bottomright.y);
                 }
 
-                let stage = children[i].as_ref().unwrap().stage(
-                    area + true_area.topleft,
-                    true_area.topleft,
-                    driver,
-                );
+                let stage = children[i]
+                    .as_ref()
+                    .unwrap()
+                    .stage(area + true_area.topleft, driver);
                 if let Some(node) = stage.get_rtree().upgrade() {
                     nodes.push_back(Some(node));
                 }
@@ -505,16 +503,9 @@ impl Desc for dyn Prop {
         }
 
         Box::new(Concrete {
-            area: true_area - parent_pos,
-            render: renderable
-                .map(|x| x.render(true_area, driver))
-                .unwrap_or_default(),
-            rtree: Rc::new(rtree::Node::new(
-                true_area - parent_pos,
-                Some(props.zindex()),
-                nodes,
-                id,
-            )),
+            area: true_area,
+            render: renderable,
+            rtree: Rc::new(rtree::Node::new(true_area, Some(props.zindex()), nodes, id)),
             children: staging,
         })
     }

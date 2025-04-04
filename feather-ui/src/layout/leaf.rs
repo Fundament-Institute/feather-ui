@@ -30,7 +30,6 @@ impl Desc for dyn Prop {
     fn stage<'a>(
         props: &Self::Props,
         mut true_area: AbsRect,
-        parent_pos: Vec2,
         _: &Self::Children,
         id: std::rc::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
@@ -46,12 +45,10 @@ impl Desc for dyn Prop {
         let area = *props.area() * true_area;
 
         Box::new(Concrete {
-            area: area - parent_pos,
-            render: renderable
-                .map(|x| x.render(area, driver))
-                .unwrap_or_default(),
+            area: area - true_area.topleft,
+            render: renderable,
             rtree: Rc::new(rtree::Node::new(
-                area - parent_pos,
+                area - true_area.topleft,
                 None,
                 Default::default(),
                 id,
