@@ -213,10 +213,10 @@ impl<T> Layout<T> for TextLayout<T> {
         }
 
         Box::new(crate::layout::Concrete {
-            area: area - area.topleft,
+            area: area,
             render: Some(self.text_render.clone()),
             rtree: Rc::new(rtree::Node::new(
-                area - area.topleft,
+                area,
                 None,
                 Default::default(),
                 self.id.clone(),

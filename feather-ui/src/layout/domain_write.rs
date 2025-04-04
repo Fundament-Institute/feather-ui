@@ -55,14 +55,9 @@ impl Desc for dyn Prop {
         }
 
         Box::new(Concrete {
-            area: true_area - true_area.topleft,
+            area: true_area,
             render: renderable,
-            rtree: Rc::new(rtree::Node::new(
-                true_area - true_area.topleft,
-                None,
-                Default::default(),
-                id,
-            )),
+            rtree: Rc::new(rtree::Node::new(true_area, None, Default::default(), id)),
             children: Default::default(),
         })
     }

@@ -45,14 +45,9 @@ impl Desc for dyn Prop {
         let area = *props.area() * true_area;
 
         Box::new(Concrete {
-            area: area - true_area.topleft,
+            area: area,
             render: renderable,
-            rtree: Rc::new(rtree::Node::new(
-                area - true_area.topleft,
-                None,
-                Default::default(),
-                id,
-            )),
+            rtree: Rc::new(rtree::Node::new(area, None, Default::default(), id)),
             children: Default::default(),
         })
     }
