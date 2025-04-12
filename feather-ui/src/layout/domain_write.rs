@@ -37,27 +37,31 @@ impl Desc for dyn Prop {
 
     fn stage<'a>(
         props: &Self::Props,
-        mut true_area: AbsRect,
+        mut outer_area: AbsRect,
         _: &Self::Children,
         id: std::rc::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
         driver: &crate::DriverState,
     ) -> Box<dyn Staged + 'a> {
-        if true_area.bottomright.x.is_infinite() {
-            true_area.bottomright.x = true_area.topleft.x;
+        if outer_area.bottomright.x.is_infinite() {
+            outer_area.bottomright.x = outer_area.topleft.x;
         }
-        if true_area.bottomright.y.is_infinite() {
-            true_area.bottomright.y = true_area.topleft.y;
+        if outer_area.bottomright.y.is_infinite() {
+            outer_area.bottomright.y = outer_area.topleft.y;
         }
 
+        // TODO: This can't actually work because it relies on the absolute area, which we were never supposed
+        // to have access to. Instead it needs to store a reference to the relative parent of this object so it can
+        // convert from this relative space to another relative space correctly. This may require walking up the
+        // entire layout tree.
         if let Some(idref) = id.upgrade() {
-            props.domain().write_area(idref, true_area);
+            props.domain().write_area(idref, outer_area);
         }
 
         Box::new(Concrete {
-            area: true_area,
+            area: outer_area,
             render: renderable,
-            rtree: Rc::new(rtree::Node::new(true_area, None, Default::default(), id)),
+            rtree: Rc::new(rtree::Node::new(outer_area, None, Default::default(), id)),
             children: Default::default(),
         })
     }
