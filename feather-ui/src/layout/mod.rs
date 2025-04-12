@@ -76,7 +76,7 @@ pub trait Desc {
     /// Resolves a pending layout into a resolved node, which contains a pointer to the R-tree
     fn stage<'a>(
         props: &Self::Props,
-        true_area: AbsRect,
+        outer_area: AbsRect,
         children: &Self::Children,
         id: std::rc::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,

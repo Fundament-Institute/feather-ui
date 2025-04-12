@@ -32,24 +32,24 @@ impl crate::layout::Desc for dyn Empty {
 
     fn stage<'a>(
         _: &Self::Props,
-        mut true_area: AbsRect,
+        mut outer_area: AbsRect,
         _: &Self::Children,
         id: std::rc::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn crate::outline::Renderable>>,
         _: &crate::DriverState,
     ) -> Box<dyn super::Staged + 'a> {
-        if true_area.bottomright.x.is_infinite() {
-            true_area.bottomright.x = true_area.topleft.x;
+        if outer_area.bottomright.x.is_infinite() {
+            outer_area.bottomright.x = outer_area.topleft.x;
         }
-        if true_area.bottomright.y.is_infinite() {
-            true_area.bottomright.y = true_area.topleft.y;
+        if outer_area.bottomright.y.is_infinite() {
+            outer_area.bottomright.y = outer_area.topleft.y;
         }
 
         Box::new(crate::layout::Concrete {
-            area: true_area - true_area.topleft,
+            area: outer_area,
             render: renderable,
             rtree: Rc::new(crate::rtree::Node::new(
-                true_area - true_area.topleft,
+                outer_area,
                 None,
                 Default::default(),
                 id,

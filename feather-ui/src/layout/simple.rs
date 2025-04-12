@@ -24,19 +24,19 @@ impl Desc for dyn Prop {
 
     fn stage<'a>(
         props: &Self::Props,
-        true_area: AbsRect,
+        outer_area: AbsRect,
         children: &Self::Children,
         id: std::rc::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
         driver: &crate::DriverState,
     ) -> Box<dyn Staged + 'a> {
-        // If true_area has an infinite axis, we set it's dimensions to zero before doing anything else.
-        let mut curarea = true_area;
-        if true_area.bottomright.x.is_infinite() {
-            curarea.bottomright.x = curarea.topleft.x;
+        // If outer_area has an infinite axis, we set it's dimensions to zero before doing anything else.
+        let mut myarea = outer_area;
+        if outer_area.bottomright.x.is_infinite() {
+            myarea.bottomright.x = myarea.topleft.x;
         }
-        if true_area.bottomright.y.is_infinite() {
-            curarea.bottomright.y = curarea.topleft.y;
+        if outer_area.bottomright.y.is_infinite() {
+            myarea.bottomright.y = myarea.topleft.y;
         }
 
         // We apply margin first - in many cases, this order doesn't matter, but it does in the general case.
@@ -52,94 +52,91 @@ impl Desc for dyn Prop {
         // relative margin is always evaluated against the entire available child area, unlike everything else.
 
         // TODO: optimize using SSE instructions
-        let margin = *props.margin() * curarea.dim(); // area has already had infinities removed
-        curarea.topleft =
-            Vec2::min_by_component(curarea.topleft + margin.topleft, curarea.bottomright);
-        curarea.bottomright =
-            Vec2::max_by_component(curarea.bottomright - margin.bottomright, curarea.topleft);
+        let margin = *props.margin() * myarea.dim(); // area has already had infinities removed
+        myarea.topleft =
+            Vec2::min_by_component(myarea.topleft + margin.topleft, myarea.bottomright);
+        myarea.bottomright =
+            Vec2::max_by_component(myarea.bottomright - margin.bottomright, myarea.topleft);
 
         let area = props.area();
+        let mydim = myarea.dim();
 
         // If our absolute area contains infinities, we must calculate that axis from the children
-        curarea = if area.bottomright.abs.x.is_infinite() || area.bottomright.abs.y.is_infinite() {
-            // We only calculate the area for the non-infinite axis here to try to avoid slow float calculations
-            // This might be unnecessary when using optimized SSE operations.
+        let inner_area =
+            if area.bottomright.abs.x.is_infinite() || area.bottomright.abs.y.is_infinite() {
+                // We only calculate the area for the non-infinite axis here to try to avoid slow float calculations
+                // This might be unnecessary when using optimized SSE operations.
 
-            // The anchor does not change the dimensions, so we elide calculating it in this step.
+                // The area we pass to children must be independent of our own area. Because a simple layout doesn't
+                // arrange it's children, the inner_area will always be a 0,0 rectangle with our current dimensions.
+                let mut inner_area = AbsRect {
+                    topleft: Vec2::zero(),
+                    bottomright: area.bottomright.abs,
+                };
 
-            let mut inner_area = AbsRect {
-                topleft: area.topleft.abs,
-                bottomright: area.bottomright.abs,
+                // TODO: Relative limits are already weird, should they be relative to the original untouched area?
+                let limits = props.limits().0 * mydim;
+
+                // Apply the relative dimensions and limits to the non-infinite axis
+                if !area.bottomright.abs.x.is_infinite() {
+                    inner_area.bottomright.x = area.bottomright.abs.x - area.topleft.abs.x;
+                    inner_area.bottomright.x +=
+                        (area.bottomright.rel.x - area.topleft.rel.x) * mydim.0.x;
+                    inner_area.bottomright.x = inner_area
+                        .bottomright
+                        .x
+                        .max(inner_area.topleft.x + limits.topleft.x);
+                    inner_area.bottomright.x = inner_area
+                        .bottomright
+                        .x
+                        .min(inner_area.topleft.x + limits.bottomright.x);
+                }
+                if !area.bottomright.abs.y.is_infinite() {
+                    inner_area.bottomright.y = area.bottomright.abs.y - area.topleft.abs.y;
+                    inner_area.bottomright.y +=
+                        (area.bottomright.rel.y - area.topleft.rel.y) * mydim.0.y;
+                    inner_area.bottomright.y = inner_area
+                        .bottomright
+                        .y
+                        .max(inner_area.topleft.y + limits.topleft.y);
+                    inner_area.bottomright.y = inner_area
+                        .bottomright
+                        .y
+                        .min(inner_area.topleft.y + limits.bottomright.y);
+                }
+
+                let mut bottomright = inner_area.topleft;
+
+                for child in children.iter() {
+                    let stage = child.as_ref().unwrap().stage(inner_area, driver);
+                    bottomright = bottomright.max_by_component(stage.get_area().bottomright);
+                }
+
+                if area.bottomright.abs.x.is_infinite() {
+                    inner_area.bottomright.x = inner_area.topleft.x + bottomright.x;
+                }
+                if area.bottomright.abs.y.is_infinite() {
+                    inner_area.bottomright.y = inner_area.topleft.y + bottomright.y;
+                }
+
+                // Re-apply size limits
+                inner_area.bottomright = inner_area
+                    .bottomright
+                    .max_by_component(inner_area.topleft + limits.topleft);
+                inner_area.bottomright = inner_area
+                    .bottomright
+                    .min_by_component(inner_area.topleft + limits.bottomright);
+
+                inner_area
+            } else {
+                (*area * props.limits().apply(mydim)) - area.topleft.abs
             };
-
-            // TODO: Relative limits are already weird, should they be relative to the original untouched area?
-            let limits = props.limits().0 * curarea.dim();
-            let dim = curarea.dim().0;
-
-            // Apply the relative dimensions and limits to the non-infinite axis
-            if !area.bottomright.abs.x.is_infinite() {
-                inner_area.topleft.x += area.topleft.rel.x * dim.x;
-                inner_area.bottomright.x += area.bottomright.rel.x * dim.x;
-                inner_area.bottomright.x = inner_area
-                    .bottomright
-                    .x
-                    .max(inner_area.topleft.x + limits.topleft.x);
-                inner_area.bottomright.x = inner_area
-                    .bottomright
-                    .x
-                    .min(inner_area.topleft.x + limits.bottomright.x);
-            }
-            if !area.bottomright.abs.y.is_infinite() {
-                inner_area.topleft.y += area.topleft.rel.y * dim.y;
-                inner_area.bottomright.y += area.bottomright.rel.y * dim.y;
-                inner_area.bottomright.y = inner_area
-                    .bottomright
-                    .y
-                    .max(inner_area.topleft.y + limits.topleft.y);
-                inner_area.bottomright.y = inner_area
-                    .bottomright
-                    .y
-                    .min(inner_area.topleft.y + limits.bottomright.y);
-            }
-
-            // Currently we do not have seperate padding, if we did, we would calculate it here
-            let mut bottomright = true_area.topleft;
-
-            for child in children.iter() {
-                let stage = child.as_ref().unwrap().stage(inner_area, driver);
-                bottomright = bottomright.max_by_component(stage.get_area().bottomright);
-            }
-
-            if area.bottomright.abs.x.is_infinite() {
-                inner_area.bottomright.x = inner_area.topleft.x + bottomright.x;
-            }
-            if area.bottomright.abs.y.is_infinite() {
-                inner_area.bottomright.y = inner_area.topleft.y + bottomright.y;
-            }
-
-            // Re-apply size limits
-            inner_area.bottomright = inner_area
-                .bottomright
-                .max_by_component(inner_area.topleft + limits.topleft);
-            inner_area.bottomright = inner_area
-                .bottomright
-                .min_by_component(inner_area.topleft + limits.bottomright);
-
-            inner_area
-        } else {
-            *area * props.limits().apply(curarea.dim())
-        };
-
-        // Calculate the anchor using the final dimensions, after all infinite axis and limits are calculated
-        let anchor = *props.anchor() * curarea.dim();
-        curarea.topleft -= anchor;
-        curarea.bottomright -= anchor;
 
         let mut staging: im::Vector<Option<Box<dyn Staged>>> = im::Vector::new();
         let mut nodes: im::Vector<Option<Rc<rtree::Node>>> = im::Vector::new();
 
         for child in children.iter() {
-            let stage = child.as_ref().unwrap().stage(curarea, driver);
+            let stage = child.as_ref().unwrap().stage(inner_area, driver);
             if let Some(node) = stage.get_rtree().upgrade() {
                 nodes.push_back(Some(node));
             }
@@ -151,10 +148,19 @@ impl Desc for dyn Prop {
         // axis with the new child results here, and repeat until it stops changing (we find the fixed point).
         // Because the performance implications are unclear, this might need to be relagated to a special layout.
 
+        // We derive the final area by calculating the correct topleft corner of our self-area, then shifting the
+        // inner_area rectangle to this final position.
+        myarea = inner_area + ((area.topleft * mydim) + myarea.topleft);
+
+        // Calculate the anchor using the final dimensions, after all infinite axis and limits are calculated
+        let anchor = *props.anchor() * mydim;
+        myarea.topleft -= anchor;
+        myarea.bottomright -= anchor;
+
         Box::new(Concrete {
-            area: curarea,
+            area: myarea,
             render: renderable,
-            rtree: Rc::new(rtree::Node::new(curarea, Some(props.zindex()), nodes, id)),
+            rtree: Rc::new(rtree::Node::new(myarea, Some(props.zindex()), nodes, id)),
             children: staging,
         })
     }
