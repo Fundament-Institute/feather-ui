@@ -105,6 +105,7 @@ impl<T: flex::Prop + 'static> Paragraph<T> {
                 color,
                 weight,
                 style,
+                wrap: glyphon::Wrap::None,
             };
             self.children.push_back(Some(Box::new(text)));
         }
