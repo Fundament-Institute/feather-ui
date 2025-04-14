@@ -31,7 +31,7 @@ readme = "README.md"
 
 [workspace.dependencies]
 im = "15.1"
-wgpu = "24"
+wgpu = "25"
 winit = "0.30"
 color-eyre = "0.6"
 eyre = "0.6"
@@ -43,7 +43,7 @@ tokio = { version = "1.40", features = ["rt", "macros", "tracing", "signal"] }
 feather-ui = { path = "feather-ui" }
 alicorn = "0.1.2"
 mlua = { version = "0.10", features = ["luajit52", "vendored"] }
-glyphon = "0.8.0"
+glyphon = "0.9.0"
 feather-macro = { version = "0.1", path = "feather-macro" }
 
 [workspace.lints]
