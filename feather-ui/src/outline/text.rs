@@ -74,7 +74,7 @@ where
         text_buffer.set_text(
             &mut text_system.borrow_mut().font_system,
             &self.text,
-            glyphon::Attrs::new()
+            &glyphon::Attrs::new()
                 .family(self.font.as_family())
                 .color(self.color)
                 .weight(self.weight)
