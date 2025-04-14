@@ -11,7 +11,6 @@ use crate::outline::CrossReferenceDomain;
 use crate::rtree;
 use crate::AbsRect;
 use crate::SourceID;
-use crate::Vec2;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
@@ -41,7 +40,7 @@ impl Desc for dyn Prop {
         _: &Self::Children,
         id: std::rc::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
-        driver: &crate::DriverState,
+        _: &crate::DriverState,
     ) -> Box<dyn Staged + 'a> {
         if outer_area.bottomright.x.is_infinite() {
             outer_area.bottomright.x = outer_area.topleft.x;

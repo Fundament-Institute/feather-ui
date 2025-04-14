@@ -397,21 +397,17 @@ pub fn apply_limits(limits: URect, dim: AbsDim) -> AbsDim {
 impl ULimits {
     #[inline]
     pub fn new(min: UPoint, max: UPoint) -> Self {
-        Self {
-            0: URect {
-                topleft: min,
-                bottomright: max,
-            },
-        }
+        Self(URect {
+            topleft: min,
+            bottomright: max,
+        })
     }
     #[inline]
     pub fn abs(min: Vec2, max: Vec2) -> Self {
-        Self {
-            0: URect {
-                topleft: min.into(),
-                bottomright: max.into(),
-            },
-        }
+        Self(URect {
+            topleft: min.into(),
+            bottomright: max.into(),
+        })
     }
     #[inline]
     pub fn apply(self, dim: AbsDim) -> AbsDim {
