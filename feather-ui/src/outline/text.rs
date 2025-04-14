@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::Renderable;
-use crate::layout::base;
 use crate::layout::leaf;
 use crate::layout::Layout;
 use crate::rtree;
@@ -10,7 +9,6 @@ use crate::AbsRect;
 use crate::DriverState;
 use crate::RenderLambda;
 use crate::SourceID;
-use crate::Vec2;
 use derive_where::derive_where;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -156,7 +154,7 @@ impl<T> Layout<T> for TextLayout<T> {
         }
 
         Box::new(crate::layout::Concrete {
-            area: area,
+            area,
             render: Some(self.text_render.clone()),
             rtree: Rc::new(rtree::Node::new(
                 area,
