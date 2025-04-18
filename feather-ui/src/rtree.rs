@@ -20,7 +20,6 @@ pub struct Node {
     pub top: i32, // 2D R-tree nodes are actually 3 dimensional, but the z-axis can never overlap (because layout rects have no depth).
     pub bottom: i32,
     pub id: std::rc::Weak<SourceID>,
-    //transform: Rotor2, // TODO: build a 3D node where this is a 3D rotor and project it back on to a 2D plane.
     pub children: im::Vector<Option<Rc<Node>>>,
 }
 
@@ -128,30 +127,25 @@ impl Node {
             _ => Err(()),
         }
     }
-
-    // After a node has been modified we might need to fix the parent's extent.
-    /*pub fn fix_extent(&mut self) {
-        if let Some(parent_ref) = self.parent.as_ref() {
-            let mut parent = parent_ref.borrow_mut();
-
-            let mut a = self.area.topleft;
-            let mut b = self.area.bottomright;
-            self.transform.rotate_vec(&mut a);
-            self.transform.rotate_vec(&mut b);
-            let aabb = build_aabb(a, b);
-
-            if aabb.topleft.x < parent.extent.topleft.x || aabb.topleft.y < parent.extent.topleft.y
-            {
-                parent.extent.topleft.x = parent.extent.topleft.x.min(aabb.topleft.x);
-                parent.extent.topleft.y = parent.extent.topleft.y.min(aabb.topleft.y);
-            }
-
-            if aabb.bottomright.x > parent.extent.bottomright.x
-                || aabb.bottomright.y > parent.extent.bottomright.y
-            {
-                parent.extent.bottomright.x = parent.extent.bottomright.x.max(aabb.bottomright.x);
-                parent.extent.bottomright.y = parent.extent.bottomright.y.max(aabb.bottomright.y);
-            }
-        }
-    }*/
 }
+
+/*
+// 2.5D node which contains a 2D r-tree, embedded inside the parent 3D space.
+struct Node25 {
+    pub area: AbsRect,
+    pub extent: AbsRect,
+    pub z: f32, // there is only one z coordinate because the contained area must be flat.
+    pub transform: Rotor3,
+    pub id: std::rc::Weak<SourceID>,
+    pub children: im::Vector<Option<Rc<Node>>>,
+}
+
+// 3D node capable of arbitrary translation (though it's AABB must still be fully contained within it's parent node)[]
+struct Node3D {
+    pub area: AbsVolume,
+    pub extent: AbsVolume,
+    pub transform: Rotor3,
+    pub id: std::rc::Weak<SourceID>,
+    pub children: im::Vector<Either<Rc<Node3D>, Rc<Node25>>>,
+}
+*/

@@ -14,7 +14,7 @@ use crate::SourceID;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-// A DomainWrite layout simply writes it's final AbsRect to the target cross-reference domain
+// A DomainWrite layout spawns a renderable that writes it's area to the target cross-reference domain
 pub trait Prop {
     fn domain(&self) -> Rc<CrossReferenceDomain>;
 }
@@ -49,19 +49,38 @@ impl Desc for dyn Prop {
             outer_area.bottomright.y = outer_area.topleft.y;
         }
 
-        // TODO: This can't actually work because it relies on the absolute area, which we were never supposed
-        // to have access to. Instead it needs to store a reference to the relative parent of this object so it can
-        // convert from this relative space to another relative space correctly. This may require walking up the
-        // entire layout tree.
-        if let Some(idref) = id.upgrade() {
-            props.domain().write_area(idref, outer_area);
-        }
-
         Box::new(Concrete {
             area: outer_area,
-            render: renderable,
+            render: Some(Rc::new(DomainWrite {
+                id: id.clone(),
+                domain: props.domain().clone(),
+                base: renderable,
+            })),
             rtree: Rc::new(rtree::Node::new(outer_area, None, Default::default(), id)),
             children: Default::default(),
         })
+    }
+}
+
+struct DomainWrite {
+    pub(crate) id: std::rc::Weak<SourceID>,
+    pub(crate) domain: Rc<CrossReferenceDomain>,
+    pub(crate) base: Option<Rc<dyn Renderable>>,
+}
+
+impl Renderable for DomainWrite {
+    fn render(
+        &self,
+        area: AbsRect,
+        driver: &crate::DriverState,
+    ) -> im::Vector<crate::RenderInstruction> {
+        if let Some(idref) = self.id.upgrade() {
+            self.domain.write_area(idref, area);
+        }
+
+        self.base
+            .as_ref()
+            .map(|x| x.render(area, driver))
+            .unwrap_or_default()
     }
 }
