@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::{AbsRect, ULimits, UPoint, URect};
+use derive_more::TryFrom;
+
+use crate::{AbsRect, UPoint, URect, ZERO_RECT, ZERO_URECT};
 use std::rc::Rc;
 
 #[macro_export]
@@ -38,12 +40,7 @@ impl crate::layout::Desc for dyn Empty {
         renderable: Option<Rc<dyn crate::outline::Renderable>>,
         _: &crate::DriverState,
     ) -> Box<dyn super::Staged + 'a> {
-        if outer_area.bottomright.x.is_infinite() {
-            outer_area.bottomright.x = outer_area.topleft.x;
-        }
-        if outer_area.bottomright.y.is_infinite() {
-            outer_area.bottomright.y = outer_area.topleft.y;
-        }
+        outer_area = super::nuetralize_infinity(outer_area);
 
         Box::new(crate::layout::Concrete {
             area: outer_area,
@@ -70,14 +67,17 @@ pub trait ZIndex {
     fn zindex(&self) -> i32;
 }
 
-pub trait Padding {
-    fn padding(&self) -> &URect;
-}
+// Currently unused (you can create padding by adjusting the child's area rectangle instead)
+//pub trait Padding {
+//    fn padding(&self) -> &URect;
+//}
 
+// Relative to parent's area
 pub trait Margin {
     fn margin(&self) -> &URect;
 }
 
+// Relative to child's assigned area (outer area)
 pub trait Area {
     fn area(&self) -> &URect;
 }
@@ -90,14 +90,52 @@ impl Area for URect {
 
 gen_from_to_dyn!(Area);
 
+// Relative to child's evaluated area (inner area)
 pub trait Anchor {
     fn anchor(&self) -> &UPoint;
 }
 
 pub trait Limits {
-    fn limits(&self) -> &ULimits;
+    fn limits(&self) -> &AbsRect;
+}
+
+// Relative to parent's area
+pub trait RLimits {
+    fn rlimits(&self) -> &crate::RelRect;
 }
 
 pub trait Order {
     fn order(&self) -> i64;
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, TryFrom)]
+#[repr(u8)]
+pub enum RowDirection {
+    #[default]
+    LeftToRight,
+    RightToLeft,
+    TopToBottom,
+    BottomToTop,
+}
+
+pub trait Direction {
+    fn direction(&self) -> RowDirection;
+}
+
+impl Limits for URect {
+    fn limits(&self) -> &AbsRect {
+        &crate::DEFAULT_LIMITS
+    }
+}
+
+impl RLimits for URect {
+    fn rlimits(&self) -> &crate::RelRect {
+        &crate::DEFAULT_RLIMITS
+    }
+}
+
+impl Margin for URect {
+    fn margin(&self) -> &URect {
+        &ZERO_URECT
+    }
 }

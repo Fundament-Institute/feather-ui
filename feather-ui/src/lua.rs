@@ -220,17 +220,17 @@ fn create_urect(_: &Lua, args: (f32, f32, f32, f32, f32, f32, f32, f32)) -> mlua
     Ok(URect {
         topleft: crate::UPoint {
             abs: Vec2::new(args.0, args.1),
-            rel: RelPoint {
+            rel: RelPoint(Vec2 {
                 x: args.4,
                 y: args.5,
-            },
+            }),
         },
         bottomright: crate::UPoint {
             abs: Vec2::new(args.2, args.3),
-            rel: RelPoint {
+            rel: RelPoint(Vec2 {
                 x: args.6,
                 y: args.7,
-            },
+            }),
         },
     })
 }
@@ -255,7 +255,7 @@ fn create_region(
         args.2
             .unwrap()
             .into_iter()
-            .map(|x| -> Option<Box<dyn OutlineWrap<dyn base::Empty>>> { Some(Box::new(x)) }),
+            .map(|x| -> Option<Box<dyn OutlineWrap<dyn simple::Child>>> { Some(Box::new(x)) }),
     );
 
     let mut bag = PropBag::new();

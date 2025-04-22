@@ -5,6 +5,7 @@ pub mod base;
 pub mod domain_write;
 pub mod flex;
 pub mod leaf;
+pub mod list;
 pub mod root;
 pub mod simple;
 
@@ -15,8 +16,10 @@ use crate::outline::Renderable;
 use crate::persist::FnPersist2;
 use crate::persist::VectorFold;
 use crate::rtree;
+use crate::AbsDim;
 use crate::AbsRect;
 use crate::DriverState;
+use crate::RelRect;
 use crate::RenderInstruction;
 use crate::SourceID;
 use derive_where::derive_where;
@@ -161,12 +164,105 @@ impl Staged for Concrete {
     }
 }
 
-pub(crate) fn zero_infinity(mut v: Vec2) -> Vec2 {
-    if v.x.is_infinite() {
-        v.x = 0.0
+#[inline]
+pub(crate) fn zero_infinity(mut v: AbsDim) -> AbsDim {
+    if v.0.x.is_infinite() {
+        v.0.x = 0.0
     }
-    if v.y.is_infinite() {
-        v.y = 0.0
+    if v.0.y.is_infinite() {
+        v.0.y = 0.0
     }
     v
+}
+
+#[inline]
+pub(crate) fn nuetralize_infinity(mut v: AbsRect) -> AbsRect {
+    if v.bottomright.x.is_infinite() {
+        v.bottomright.x = v.topleft.x
+    }
+    if v.bottomright.y.is_infinite() {
+        v.bottomright.y = v.topleft.y
+    }
+    v
+}
+
+#[inline]
+pub(crate) fn limit_area(mut v: AbsRect, limits: AbsRect) -> AbsRect {
+    v.bottomright = v.topleft.max_by_component(v.topleft + limits.topleft);
+    v.bottomright = v.topleft.min_by_component(v.topleft + limits.bottomright);
+    v
+}
+
+#[inline]
+pub(crate) fn merge_limits(l: AbsRect, r: AbsRect) -> AbsRect {
+    AbsRect {
+        topleft: l.topleft.max_by_component(r.topleft),
+        bottomright: l.bottomright.min_by_component(r.bottomright),
+    }
+}
+
+#[inline]
+pub(crate) fn limit_dim(v: AbsDim, limits: AbsRect) -> AbsDim {
+    AbsDim(Vec2 {
+        x: if v.0.x.is_finite() {
+            v.0.x.max(limits.topleft.x).min(limits.bottomright.x)
+        } else {
+            v.0.x
+        },
+        y: if v.0.y.is_finite() {
+            v.0.y.max(limits.topleft.y).min(limits.bottomright.y)
+        } else {
+            v.0.y
+        },
+    })
+}
+
+#[inline]
+pub(crate) fn eval_dim(area: crate::URect, dim: AbsDim) -> AbsDim {
+    AbsDim(Vec2 {
+        x: if area.bottomright.abs.x.is_finite() {
+            let top = area.topleft.abs.x + (area.topleft.rel.0.x * dim.0.x);
+            let bottom = area.bottomright.abs.x + (area.bottomright.rel.0.x * dim.0.x);
+            top - bottom
+        } else {
+            area.bottomright.abs.x
+        },
+        y: if area.bottomright.abs.y.is_finite() {
+            let top = area.topleft.abs.y + (area.topleft.rel.0.y * dim.0.y);
+            let bottom = area.bottomright.abs.y + (area.bottomright.rel.0.y * dim.0.y);
+            top - bottom
+        } else {
+            area.bottomright.abs.y
+        },
+    })
+}
+
+#[inline]
+pub(crate) fn eval_limits(limits: RelRect, dim: AbsDim) -> AbsRect {
+    AbsRect {
+        topleft: Vec2 {
+            x: if dim.0.x.is_finite() {
+                limits.topleft.0.x * dim.0.x
+            } else {
+                limits.topleft.0.x
+            },
+            y: if dim.0.y.is_finite() {
+                limits.topleft.0.y * dim.0.y
+            } else {
+                limits.topleft.0.y
+            },
+        },
+        bottomright: Vec2 {
+            x: if dim.0.x.is_finite() {
+                limits.bottomright.0.x * dim.0.x
+            } else {
+                limits.bottomright.0.x
+            },
+            y: if dim.0.y.is_finite() {
+                limits.bottomright.0.y * dim.0.y
+            } else {
+                limits.bottomright.0.y
+            },
+        },
+    }
 }

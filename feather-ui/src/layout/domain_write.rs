@@ -42,12 +42,7 @@ impl Desc for dyn Prop {
         renderable: Option<Rc<dyn Renderable>>,
         _: &crate::DriverState,
     ) -> Box<dyn Staged + 'a> {
-        if outer_area.bottomright.x.is_infinite() {
-            outer_area.bottomright.x = outer_area.topleft.x;
-        }
-        if outer_area.bottomright.y.is_infinite() {
-            outer_area.bottomright.y = outer_area.topleft.y;
-        }
+        outer_area = super::nuetralize_infinity(outer_area);
 
         Box::new(Concrete {
             area: outer_area,

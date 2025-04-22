@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 use std::collections::HashMap;
 
-use crate::{DEFAULT_LIMITS, ZERO_UPOINT, ZERO_URECT};
+use crate::{DEFAULT_LIMITS, DEFAULT_RLIMITS, ZERO_UPOINT, ZERO_URECT};
 
 #[derive(Default)]
 pub struct PropBag {
@@ -126,6 +126,13 @@ macro_rules! gen_prop_bag {
 gen_prop_bag_value_clone!(crate::layout::base::Order, order, set_order, i64, 0);
 gen_prop_bag_value_clone!(crate::layout::base::ZIndex, zindex, set_zindex, i32, 0);
 gen_prop_bag_value_clone!(
+    crate::layout::base::Direction,
+    direction,
+    set_direction,
+    crate::layout::base::RowDirection,
+    crate::layout::base::RowDirection::LeftToRight
+);
+gen_prop_bag_value_clone!(
     crate::layout::domain_write::Prop,
     domain,
     set_domain,
@@ -159,9 +166,9 @@ impl PropBag {
 #[rustfmt::skip]
 gen_prop_bag!(
   crate::layout::base::Area, area, set_area, crate::URect, panic!("No area set and no default available!"),
-  crate::layout::base::Padding, padding, set_padding, crate::URect, &ZERO_URECT,
   crate::layout::base::Margin, margin, set_margin, crate::URect, &ZERO_URECT,
-  crate::layout::base::Limits, limits, set_limits, crate::ULimits, &DEFAULT_LIMITS,
+  crate::layout::base::Limits, limits, set_limits, crate::AbsRect, &DEFAULT_LIMITS,
+  crate::layout::base::RLimits, rlimits, set_rlimits, crate::RelRect, &DEFAULT_RLIMITS,
   crate::layout::base::Anchor, anchor, set_anchor, crate::UPoint, &ZERO_UPOINT,
   crate::layout::root::Prop, dim, set_dim, crate::AbsDim, panic!("No dim set and no default available!")
 );
@@ -169,12 +176,11 @@ gen_prop_bag!(
 impl crate::layout::base::Empty for PropBag {}
 impl crate::layout::leaf::Prop for PropBag {}
 impl crate::layout::simple::Prop for PropBag {}
+impl crate::layout::simple::Child for PropBag {}
+impl crate::layout::list::Child for PropBag {}
+impl crate::layout::list::Prop for PropBag {}
 
 impl crate::layout::flex::Prop for PropBag {
-    fn direction(&self) -> crate::layout::flex::FlexDirection {
-        self.get_value(PropBagElement::direction)
-    }
-
     fn wrap(&self) -> bool {
         self.get_value(PropBagElement::wrap)
     }

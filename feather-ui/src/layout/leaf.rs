@@ -12,10 +12,11 @@ use crate::rtree;
 use crate::AbsRect;
 use crate::SourceID;
 use crate::URect;
+use crate::DEFAULT_LIMITS;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-pub trait Prop: base::Area {}
+pub trait Prop: base::Area + base::Limits {}
 
 crate::gen_from_to_dyn!(Prop);
 
@@ -34,19 +35,18 @@ impl Desc for dyn Prop {
         renderable: Option<Rc<dyn Renderable>>,
         _: &crate::DriverState,
     ) -> Box<dyn Staged + 'a> {
-        if outer_area.bottomright.x.is_infinite() {
-            outer_area.bottomright.x = outer_area.topleft.x;
-        }
-        if outer_area.bottomright.y.is_infinite() {
-            outer_area.bottomright.y = outer_area.topleft.y;
-        }
-
-        let myarea = *props.area() * outer_area;
+        outer_area = super::nuetralize_infinity(outer_area);
+        let evaluated_area = *props.area() * outer_area;
 
         Box::new(Concrete {
-            area: myarea,
+            area: evaluated_area,
             render: renderable,
-            rtree: Rc::new(rtree::Node::new(myarea, None, Default::default(), id)),
+            rtree: Rc::new(rtree::Node::new(
+                evaluated_area,
+                None,
+                Default::default(),
+                id,
+            )),
             children: Default::default(),
         })
     }

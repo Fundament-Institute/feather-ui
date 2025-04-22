@@ -13,20 +13,11 @@ use crate::persist::VectorFold;
 use crate::rtree;
 use crate::AbsRect;
 use crate::Vec2;
+use base::RowDirection;
 use core::f32;
 use derive_more::TryFrom;
 use smallvec::SmallVec;
 use std::rc::Rc;
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, TryFrom)]
-#[repr(u8)]
-pub enum FlexDirection {
-    #[default]
-    LeftToRight,
-    RightToLeft,
-    TopToBottom,
-    BottomToTop,
-}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default, TryFrom)]
 #[repr(u8)]
@@ -40,8 +31,7 @@ pub enum FlexJustify {
     SpaceFull,
 }
 
-pub trait Prop: base::ZIndex + base::Obstacles {
-    fn direction(&self) -> FlexDirection;
+pub trait Prop: base::ZIndex + base::Obstacles + base::Limits + base::Direction {
     fn wrap(&self) -> bool;
     fn justify(&self) -> FlexJustify;
     fn align(&self) -> FlexJustify;
@@ -49,7 +39,7 @@ pub trait Prop: base::ZIndex + base::Obstacles {
 
 crate::gen_from_to_dyn!(Prop);
 
-pub trait Child: base::Margin + base::Limits + base::Order {
+pub trait Child: base::Margin + base::RLimits + base::Order {
     fn grow(&self) -> f32;
     fn shrink(&self) -> f32;
     fn basis(&self) -> f32;
@@ -131,11 +121,11 @@ fn justify_inner_outer(align: FlexJustify, total: f32, used: f32, count: i32) ->
 }
 
 type LineTuple = (usize, f32, f32);
-type BasisGrowShrinkAux = (f32, f32, f32, f32);
+type BasisGrowShrinkAuxMargin = (f32, f32, f32, f32, AbsRect);
 
 #[allow(clippy::too_many_arguments)]
 fn wrap_line(
-    childareas: &im::Vector<Option<BasisGrowShrinkAux>>,
+    childareas: &im::Vector<Option<BasisGrowShrinkAuxMargin>>,
     props: &dyn Prop,
     xaxis: bool,
     total_main: f32,
@@ -257,21 +247,21 @@ impl Desc for dyn Prop {
         renderable: Option<Rc<dyn Renderable>>,
         driver: &crate::DriverState,
     ) -> Box<dyn Staged + 'a> {
-        let mut childareas: im::Vector<Option<BasisGrowShrinkAux>> = im::Vector::new();
+        let mut childareas: im::Vector<Option<BasisGrowShrinkAuxMargin>> = im::Vector::new();
 
         // If we are currently also being evaluated with infinite area, we have to set a few things to zero.
-        let outer_dim = crate::AbsDim(zero_infinity(outer_area.dim().into()));
+        let outer_dim = zero_infinity(outer_area.dim());
 
         let xaxis = match props.direction() {
-            FlexDirection::LeftToRight | FlexDirection::RightToLeft => true,
-            FlexDirection::TopToBottom | FlexDirection::BottomToTop => false,
+            RowDirection::LeftToRight | RowDirection::RightToLeft => true,
+            RowDirection::TopToBottom | RowDirection::BottomToTop => false,
         };
 
         // We re-use a lot of concepts from flexbox in this calculation. First we acquire the natural size of all child elements.
         for child in children.iter() {
             let imposed = child.as_ref().unwrap().get_imposed();
 
-            let area = AbsRect {
+            let inner_area = AbsRect {
                 topleft: Vec2::zero(),
                 bottomright: if xaxis {
                     Vec2::new(imposed.basis(), f32::INFINITY)
@@ -280,14 +270,25 @@ impl Desc for dyn Prop {
                 },
             };
 
-            let stage = child.as_ref().unwrap().stage(area, driver);
+            let stage = child.as_ref().unwrap().stage(inner_area, driver);
 
             let (main, aux) = swap_axis(xaxis, stage.get_area().dim().0);
 
-            let mut cache: BasisGrowShrinkAux =
-                (imposed.basis(), imposed.grow(), imposed.shrink(), aux);
+            let mut cache: BasisGrowShrinkAuxMargin = (
+                imposed.basis(),
+                imposed.grow(),
+                imposed.shrink(),
+                aux,
+                *imposed.margin() * outer_dim,
+            );
             if cache.0.is_infinite() {
                 cache.0 = main;
+            }
+
+            // Swap the margin axis if necessary
+            if !xaxis {
+                std::mem::swap(&mut cache.4.topleft.x, &mut cache.4.topleft.y);
+                std::mem::swap(&mut cache.4.bottomright.x, &mut cache.4.bottomright.y);
             }
 
             childareas.push_back(Some(cache));
@@ -296,16 +297,22 @@ impl Desc for dyn Prop {
         let mut staging: im::Vector<Option<Box<dyn Staged>>> = im::Vector::new();
         let mut nodes: im::Vector<Option<Rc<rtree::Node>>> = im::Vector::new();
 
+        // This fold calculates the maximum size of the main axis, followed by the off-axis, followed
+        // by carrying the previous margin amount from the main axis so it can be collapsed properly
         let fold = VectorFold::new(
-            |basis: &(f32, f32), n: &Option<BasisGrowShrinkAux>| -> (f32, f32) {
+            |prev: &(f32, f32, f32), n: &Option<BasisGrowShrinkAuxMargin>| -> (f32, f32, f32) {
+                let (basis, grow, shrink, aux, margin) = n.as_ref().unwrap();
                 (
-                    n.as_ref().unwrap().0 + basis.0,
-                    n.as_ref().unwrap().3.max(basis.1),
+                    basis + prev.0 + prev.2.max(margin.topleft.x),
+                    aux.max(prev.1) + margin.topleft.y + margin.bottomright.y, // off-axis always adds both margins, no collapsing is done yet
+                    margin.bottomright.x,
                 )
             },
         );
 
-        let (_, (used_main, used_aux)) = fold.call(fold.init(), &(0.0, 0.0), &childareas);
+        let (_, (used_main, used_aux, trailing)) =
+            fold.call(fold.init(), &(0.0, 0.0, 0.0), &childareas);
+        let used_main = used_main + trailing; // Add trailing margin to used space
 
         if (outer_area.bottomright.x.is_infinite() && xaxis)
             || (outer_area.bottomright.y.is_infinite() && !xaxis)
@@ -318,14 +325,9 @@ impl Desc for dyn Prop {
             }
             // If we are evaluating our staged area along the main axis, no further calculations can be done
             return Box::new(Concrete {
-                area: area - area.topleft,
+                area: area,
                 render: None,
-                rtree: Rc::new(rtree::Node::new(
-                    area - area.topleft,
-                    Some(props.zindex()),
-                    nodes,
-                    id,
-                )),
+                rtree: Rc::new(rtree::Node::new(area, Some(props.zindex()), nodes, id)),
                 children: staging,
             });
         }
@@ -345,8 +347,8 @@ impl Desc for dyn Prop {
                 used_aux,
                 1,
                 props.align(),
-                props.direction() == FlexDirection::BottomToTop
-                    || props.direction() == FlexDirection::RightToLeft,
+                props.direction() == RowDirection::BottomToTop
+                    || props.direction() == RowDirection::RightToLeft,
             );
 
             if !props.obstacles().is_empty() && props.align() != FlexJustify::Start {
@@ -368,8 +370,8 @@ impl Desc for dyn Prop {
                         prev.2,
                         prev.1,
                         props.align(),
-                        props.direction() == FlexDirection::BottomToTop
-                            || props.direction() == FlexDirection::RightToLeft,
+                        props.direction() == RowDirection::BottomToTop
+                            || props.direction() == RowDirection::RightToLeft,
                     );
                 }
 
@@ -448,24 +450,29 @@ impl Desc for dyn Prop {
 
             // Construct the final area rectangle for each child
             for i in curindex..b.0 {
-                let Some(a) = &mut childareas[i] else {
+                let Some((basis, _, _, _, margin)) = &childareas[i] else {
                     continue;
                 };
 
                 // If we're growing backwards, we flip along the main axis (but not the aux axis)
-                let mut area = if props.direction() == FlexDirection::RightToLeft
-                    || props.direction() == FlexDirection::BottomToTop
+                let mut area = if props.direction() == RowDirection::RightToLeft
+                    || props.direction() == RowDirection::BottomToTop
                 {
                     AbsRect {
                         topleft: Vec2::new(total_main - main, aux),
-                        bottomright: Vec2::new(total_main - (main + a.0), aux + max_aux),
+                        bottomright: Vec2::new(total_main - (main + basis), aux + max_aux),
                     }
                 } else {
                     AbsRect {
                         topleft: Vec2::new(main, aux),
-                        bottomright: Vec2::new(main + a.0, aux + max_aux),
+                        bottomright: Vec2::new(main + basis, aux + max_aux),
                     }
                 };
+
+                // Because both our margin and are area rect has swapped axis, we can just apply the margin directly, then swap the axis
+                area.topleft += margin.topleft;
+                area.bottomright -= margin.bottomright;
+                area.topleft = Vec2::min_by_component(area.topleft, area.bottomright);
 
                 // If our axis is swapped, swap the rectangle axis
                 if !xaxis {
@@ -479,7 +486,7 @@ impl Desc for dyn Prop {
                 }
                 staging.push_back(Some(stage));
 
-                main += a.0 + inner;
+                main += basis + inner;
             }
 
             if b.2.is_finite() {
