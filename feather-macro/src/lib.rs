@@ -60,7 +60,17 @@ pub fn derive_limits(input: TokenStream) -> TokenStream {
         input,
         "limits",
         "feather_ui::layout::base::Limits",
-        "feather_ui::ULimits",
+        "feather_ui::AbsRect",
+    )
+}
+
+#[proc_macro_derive(RLimits)]
+pub fn derive_rlimits(input: TokenStream) -> TokenStream {
+    derive_base_prop(
+        input,
+        "rlimits",
+        "feather_ui::layout::base::RLimits",
+        "feather_ui::RelRect",
     )
 }
 
@@ -74,6 +84,16 @@ pub fn derive_anchor(input: TokenStream) -> TokenStream {
     )
 }
 
+#[proc_macro_derive(Direction)]
+pub fn derive_direction(input: TokenStream) -> TokenStream {
+    derive_base_prop(
+        input,
+        "direction",
+        "feather_ui::layout::base::Direction",
+        "feather_ui::layout::base::RowDirection",
+    )
+}
+
 #[proc_macro_derive(FlexProp)]
 pub fn derive_flex_prop(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -81,7 +101,6 @@ pub fn derive_flex_prop(input: TokenStream) -> TokenStream {
     let name = ast.ident;
     quote! {
         impl feather_ui::layout::flex::Prop for #name {
-        fn direction(&self) -> FlexDirection { &self.direction }
         fn wrap(&self) -> bool { &self.wrap }
         fn justify(&self) -> FlexJustify { &self.justify }
         fn align(&self) -> FlexJustify { &self.align }

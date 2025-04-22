@@ -34,6 +34,29 @@ use std::rc::Rc;
 use ultraviolet::vec::Vec2;
 use winit::window::WindowId;
 
+/// Allocates `&[T]` on stack space. (currently unused but might be needed depending on persistent data structures)
+/*
+pub(crate) fn alloca_array<T, R>(n: usize, f: impl FnOnce(&mut [T]) -> R) -> R {
+    use std::mem::{align_of, size_of};
+
+    alloca::with_alloca_zeroed(
+        (n * size_of::<T>()) + (align_of::<T>() - 1),
+        |memory| unsafe {
+            let mut raw_memory = memory.as_mut_ptr();
+            if raw_memory as usize % align_of::<T>() != 0 {
+                raw_memory =
+                    raw_memory.add(align_of::<T>() - raw_memory as usize % align_of::<T>());
+            }
+
+            f(std::slice::from_raw_parts_mut::<T>(
+                raw_memory.cast::<T>(),
+                n,
+            ))
+        },
+    )
+}
+*/
+
 #[macro_export]
 macro_rules! gen_id {
     () => {
@@ -72,6 +95,13 @@ pub struct AbsRect {
     pub topleft: Vec2,
     pub bottomright: Vec2,
 }
+
+pub const ZERO_POINT: Vec2 = Vec2 { x: 0.0, y: 0.0 };
+
+pub const ZERO_RECT: AbsRect = AbsRect {
+    topleft: ZERO_POINT,
+    bottomright: ZERO_POINT,
+};
 
 impl AbsRect {
     #[inline]
@@ -154,44 +184,23 @@ impl SubAssign<Vec2> for AbsRect {
     }
 }
 
+impl From<AbsDim> for AbsRect {
+    fn from(value: AbsDim) -> Self {
+        AbsRect {
+            topleft: ZERO_POINT,
+            bottomright: value.0,
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 /// Relative point
-pub struct RelPoint {
-    pub x: f32,
-    pub y: f32,
-}
-
-impl Add for RelPoint {
-    type Output = Self;
-
-    #[inline]
-    fn add(self, rhs: Self) -> Self::Output {
-        Self {
-            x: self.x + rhs.x,
-            y: self.y + rhs.y,
-        }
-    }
-}
-
-impl Mul<AbsDim> for RelPoint {
-    type Output = Vec2;
-
-    #[inline]
-    fn mul(self, rhs: AbsDim) -> Self::Output {
-        Vec2 {
-            x: self.x * rhs.0.x,
-            y: self.y * rhs.0.y,
-        }
-    }
-}
+pub struct RelPoint(Vec2);
 
 impl From<Vec2> for RelPoint {
     #[inline]
     fn from(value: Vec2) -> Self {
-        Self {
-            x: value.x,
-            y: value.y,
-        }
+        Self(value)
     }
 }
 
@@ -199,7 +208,7 @@ impl From<Vec2> for RelPoint {
 /// Relative rectangle
 pub struct RelRect {
     pub topleft: RelPoint,
-    pub bottomright: Vec2,
+    pub bottomright: RelPoint,
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
@@ -216,7 +225,7 @@ impl Add for UPoint {
     fn add(self, other: Self) -> Self {
         Self {
             abs: self.abs + other.abs,
-            rel: self.rel + other.rel,
+            rel: RelPoint(self.rel.0 + other.rel.0),
         }
     }
 }
@@ -226,7 +235,7 @@ impl Mul<AbsDim> for UPoint {
 
     #[inline]
     fn mul(self, rhs: AbsDim) -> Self::Output {
-        self.abs + (self.rel * rhs)
+        self.abs + (self.rel.0 * rhs.0)
     }
 }
 
@@ -236,7 +245,7 @@ impl Mul<AbsRect> for UPoint {
     #[inline]
     fn mul(self, rhs: AbsRect) -> Self::Output {
         let dim = AbsDim(rhs.bottomright - rhs.topleft);
-        rhs.topleft + (self.rel * dim) + self.abs
+        rhs.topleft + (self.rel.0 * dim.0) + self.abs
     }
 }
 
@@ -252,7 +261,7 @@ impl From<Vec2> for UPoint {
 
 pub const ZERO_UPOINT: UPoint = UPoint {
     abs: Vec2 { x: 0.0, y: 0.0 },
-    rel: RelPoint { x: 0.0, y: 0.0 },
+    rel: RelPoint(Vec2 { x: 0.0, y: 0.0 }),
 };
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -288,53 +297,46 @@ pub const ZERO_URECT: URect = URect {
 pub const FILL_URECT: URect = URect {
     topleft: UPoint {
         abs: Vec2 { x: 0.0, y: 0.0 },
-        rel: RelPoint { x: 0.0, y: 0.0 },
+        rel: RelPoint(Vec2 { x: 0.0, y: 0.0 }),
     },
     bottomright: UPoint {
         abs: Vec2 { x: 0.0, y: 0.0 },
-        rel: RelPoint { x: 1.0, y: 1.0 },
+        rel: RelPoint(Vec2 { x: 1.0, y: 1.0 }),
     },
 };
 
 pub const AUTO_URECT: URect = URect {
     topleft: UPoint {
         abs: Vec2 { x: 0.0, y: 0.0 },
-        rel: RelPoint { x: 0.0, y: 0.0 },
+        rel: RelPoint(Vec2 { x: 0.0, y: 0.0 }),
     },
     bottomright: UPoint {
         abs: Vec2 {
             x: f32::INFINITY,
             y: f32::INFINITY,
         },
-        rel: RelPoint { x: 0.0, y: 0.0 },
+        rel: RelPoint(Vec2 { x: 0.0, y: 0.0 }),
     },
 };
 
 // Instead of using actual, proper infinities here, we use the largest possible positive and
 // negative number instead, because this avoids edge cases in floating point algorithms that
 // can massively slow down processing on some platforms.
-pub const DEFAULT_LIMITS: ULimits = ULimits(URect {
-    topleft: UPoint {
-        abs: Vec2 {
-            x: f32::MIN,
-            y: f32::MIN,
-        },
-        rel: RelPoint {
-            x: f32::MIN,
-            y: f32::MIN,
-        },
+pub const DEFAULT_LIMITS: AbsRect = AbsRect {
+    topleft: Vec2 {
+        x: f32::MIN,
+        y: f32::MIN,
     },
-    bottomright: UPoint {
-        abs: Vec2 {
-            x: f32::MAX,
-            y: f32::MAX,
-        },
-        rel: RelPoint {
-            x: f32::MAX,
-            y: f32::MAX,
-        },
+    bottomright: Vec2 {
+        x: f32::MAX,
+        y: f32::MAX,
     },
-});
+};
+
+pub const DEFAULT_RLIMITS: RelRect = RelRect {
+    topleft: RelPoint(DEFAULT_LIMITS.topleft),
+    bottomright: RelPoint(DEFAULT_LIMITS.bottomright),
+};
 
 impl Mul<AbsRect> for URect {
     type Output = AbsRect;
@@ -368,50 +370,6 @@ impl From<AbsRect> for URect {
             topleft: value.topleft.into(),
             bottomright: value.bottomright.into(),
         }
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct ULimits(URect);
-
-impl From<URect> for ULimits {
-    fn from(value: URect) -> Self {
-        Self(value)
-    }
-}
-
-impl Default for ULimits {
-    fn default() -> Self {
-        DEFAULT_LIMITS
-    }
-}
-
-#[inline]
-pub fn apply_limits(limits: URect, dim: AbsDim) -> AbsDim {
-    let limits = limits * dim;
-    let dim = dim.0.max_by_component(limits.topleft);
-    let dim = dim.min_by_component(limits.bottomright);
-    AbsDim(dim)
-}
-
-impl ULimits {
-    #[inline]
-    pub fn new(min: UPoint, max: UPoint) -> Self {
-        Self(URect {
-            topleft: min,
-            bottomright: max,
-        })
-    }
-    #[inline]
-    pub fn abs(min: Vec2, max: Vec2) -> Self {
-        Self(URect {
-            topleft: min.into(),
-            bottomright: max.into(),
-        })
-    }
-    #[inline]
-    pub fn apply(self, dim: AbsDim) -> AbsDim {
-        apply_limits(self.0, dim)
     }
 }
 

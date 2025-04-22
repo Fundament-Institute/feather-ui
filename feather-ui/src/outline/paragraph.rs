@@ -55,8 +55,14 @@ impl base::Margin for MinimalFlexChild {
     }
 }
 
+impl base::RLimits for MinimalFlexChild {
+    fn rlimits(&self) -> &crate::RelRect {
+        &crate::DEFAULT_RLIMITS
+    }
+}
+
 impl base::Limits for MinimalFlexChild {
-    fn limits(&self) -> &crate::ULimits {
+    fn limits(&self) -> &crate::AbsRect {
         &crate::DEFAULT_LIMITS
     }
 }
