@@ -3,11 +3,11 @@
 
 pub mod base;
 pub mod domain_write;
+pub mod fixed;
 pub mod flex;
 pub mod leaf;
 pub mod list;
 pub mod root;
-pub mod simple;
 
 use dyn_clone::DynClone;
 use ultraviolet::Vec2;
@@ -223,14 +223,14 @@ pub(crate) fn eval_dim(area: crate::URect, dim: AbsDim) -> AbsDim {
         x: if area.bottomright.abs.x.is_finite() {
             let top = area.topleft.abs.x + (area.topleft.rel.0.x * dim.0.x);
             let bottom = area.bottomright.abs.x + (area.bottomright.rel.0.x * dim.0.x);
-            top - bottom
+            bottom - top
         } else {
             area.bottomright.abs.x
         },
         y: if area.bottomright.abs.y.is_finite() {
             let top = area.topleft.abs.y + (area.topleft.rel.0.y * dim.0.y);
             let bottom = area.bottomright.abs.y + (area.bottomright.rel.0.y * dim.0.y);
-            top - bottom
+            bottom - top
         } else {
             area.bottomright.abs.y
         },

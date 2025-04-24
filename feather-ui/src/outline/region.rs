@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use crate::layout;
-use crate::layout::simple;
+use crate::layout::fixed;
 use crate::layout::Desc;
 use crate::layout::Layout;
 use crate::layout::LayoutWrap;
@@ -14,15 +14,15 @@ use derive_where::derive_where;
 use std::rc::Rc;
 
 #[derive_where(Clone, Default)]
-pub struct Region<T: simple::Prop + Default + 'static> {
+pub struct Region<T: fixed::Prop + Default + 'static> {
     pub id: Rc<SourceID>,
     pub props: Rc<T>,
-    pub children: im::Vector<Option<Box<OutlineFrom<dyn simple::Prop>>>>,
+    pub children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>>,
 }
 
-impl<T: simple::Prop + Default + 'static> super::Outline<T> for Region<T>
+impl<T: fixed::Prop + Default + 'static> super::Outline<T> for Region<T>
 where
-    for<'a> &'a T: Into<&'a (dyn simple::Prop + 'static)>,
+    for<'a> &'a T: Into<&'a (dyn fixed::Prop + 'static)>,
 {
     fn id(&self) -> Rc<SourceID> {
         self.id.clone()
@@ -42,13 +42,13 @@ where
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let map = VectorMap::new(
-            |child: &Option<Box<OutlineFrom<dyn simple::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn simple::Prop as Desc>::Child>>> {
+            |child: &Option<Box<OutlineFrom<dyn fixed::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn fixed::Prop as Desc>::Child>>> {
                 Some(child.as_ref().unwrap().layout(state, driver, config))
             },
         );
 
         let (_, children) = map.call(Default::default(), &self.children);
-        Box::new(layout::Node::<T, dyn simple::Prop> {
+        Box::new(layout::Node::<T, dyn fixed::Prop> {
             props: self.props.clone(),
             children,
             id: Rc::downgrade(&self.id),
@@ -57,4 +57,4 @@ where
     }
 }
 
-crate::gen_outline_wrap!(Region, simple::Prop, Default);
+crate::gen_outline_wrap!(Region, fixed::Prop, Default);

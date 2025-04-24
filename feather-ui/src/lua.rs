@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::layout::base;
-use crate::layout::simple;
+use crate::layout::fixed;
 use crate::outline::button::Button;
 use crate::outline::region::Region;
 use crate::outline::shape::Shape;
@@ -255,7 +254,7 @@ fn create_region(
         args.2
             .unwrap()
             .into_iter()
-            .map(|x| -> Option<Box<dyn OutlineWrap<dyn simple::Child>>> { Some(Box::new(x)) }),
+            .map(|x| -> Option<Box<dyn OutlineWrap<dyn fixed::Child>>> { Some(Box::new(x)) }),
     );
 
     let mut bag = PropBag::new();
@@ -307,7 +306,7 @@ fn create_button(
         ..Default::default()
     };
 
-    let mut children: im::Vector<Option<Box<OutlineFrom<dyn simple::Prop>>>> = im::Vector::new();
+    let mut children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> = im::Vector::new();
     children.push_back(Some(Box::new(text)));
     children.push_back(Some(Box::new(rect)));
     if let Some(x) = args.5 {

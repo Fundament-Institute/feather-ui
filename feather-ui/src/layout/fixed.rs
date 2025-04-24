@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::base;
-use super::zero_infinity;
 use super::Concrete;
 use super::Desc;
 use super::LayoutWrap;
@@ -10,7 +9,6 @@ use super::Renderable;
 use super::Staged;
 use crate::rtree;
 use crate::AbsRect;
-use crate::Vec2;
 use crate::ZERO_POINT;
 use std::rc::Rc;
 
@@ -18,7 +16,7 @@ pub trait Prop: base::Area + base::Anchor + base::Limits + base::ZIndex {}
 
 crate::gen_from_to_dyn!(Prop);
 
-pub trait Child: base::RLimits + base::Margin {}
+pub trait Child: base::RLimits {}
 
 crate::gen_from_to_dyn!(Child);
 
@@ -47,6 +45,7 @@ impl Desc for dyn Prop {
         let evaluated_dim =
             if myarea.bottomright.abs.x.is_infinite() || myarea.bottomright.abs.y.is_infinite() {
                 let mut inner_dim = super::limit_dim(super::eval_dim(*myarea, outer_dim), limits);
+                let inner_area = AbsRect::from(inner_dim);
                 // The area we pass to children must be independent of our own area, so it starts at 0,0
                 let mut bottomright = ZERO_POINT;
 
@@ -54,20 +53,10 @@ impl Desc for dyn Prop {
                     let child_props = child.as_ref().unwrap().get_imposed();
                     let child_limit = super::eval_limits(*child_props.rlimits(), inner_dim);
 
-                    // Out topleft always starts at 0,0, which simplifies the margin calculations
-                    let margin = *child_props.margin() * zero_infinity(inner_dim);
-                    let child_area = AbsRect {
-                        topleft: Vec2::min_by_component(margin.topleft, inner_dim.0),
-                        bottomright: Vec2::max_by_component(
-                            inner_dim.0 - margin.bottomright,
-                            margin.topleft,
-                        ),
-                    };
-
                     let stage = child
                         .as_ref()
                         .unwrap()
-                        .stage(child_area, /* child_limit, */ driver);
+                        .stage(inner_area, /* child_limit, */ driver);
                     bottomright = bottomright.max_by_component(stage.get_area().bottomright);
                 }
 
@@ -89,7 +78,7 @@ impl Desc for dyn Prop {
                 .max_by_component(limits.topleft)
                 .min_by_component(limits.bottomright),
         );
-
+        let inner_area = AbsRect::from(evaluated_dim);
         let mut staging: im::Vector<Option<Box<dyn Staged>>> = im::Vector::new();
         let mut nodes: im::Vector<Option<Rc<rtree::Node>>> = im::Vector::new();
 
@@ -97,20 +86,10 @@ impl Desc for dyn Prop {
             let child_props = child.as_ref().unwrap().get_imposed();
             let child_limit = super::eval_limits(*child_props.rlimits(), evaluated_dim);
 
-            // Out topleft always starts at 0,0, which simplifies the margin calculations
-            let margin = *child_props.margin() * evaluated_dim;
-            let child_area = AbsRect {
-                topleft: Vec2::min_by_component(margin.topleft, evaluated_dim.0),
-                bottomright: Vec2::max_by_component(
-                    evaluated_dim.0 - margin.bottomright,
-                    margin.topleft,
-                ),
-            };
-
             let stage = child
                 .as_ref()
                 .unwrap()
-                .stage(child_area, /* child_limit, */ driver);
+                .stage(inner_area, /* child_limit, */ driver);
             if let Some(node) = stage.get_rtree().upgrade() {
                 nodes.push_back(Some(node));
             }

@@ -43,37 +43,17 @@ impl flex::Child for MinimalFlexChild {
     }
 }
 
-impl base::Order for MinimalFlexChild {
-    fn order(&self) -> i64 {
-        0
-    }
-}
-
-impl base::Margin for MinimalFlexChild {
-    fn margin(&self) -> &crate::URect {
-        &crate::ZERO_URECT
-    }
-}
-
-impl base::RLimits for MinimalFlexChild {
-    fn rlimits(&self) -> &crate::RelRect {
-        &crate::DEFAULT_RLIMITS
-    }
-}
-
-impl base::Limits for MinimalFlexChild {
-    fn limits(&self) -> &crate::AbsRect {
-        &crate::DEFAULT_LIMITS
-    }
-}
-
-impl leaf::Prop for MinimalFlexChild {}
-
 impl base::Area for MinimalFlexChild {
     fn area(&self) -> &crate::URect {
         &crate::AUTO_URECT
     }
 }
+
+impl base::Order for MinimalFlexChild {}
+impl base::Margin for MinimalFlexChild {}
+impl base::RLimits for MinimalFlexChild {}
+impl base::Limits for MinimalFlexChild {}
+impl leaf::Prop for MinimalFlexChild {}
 
 impl<T: flex::Prop + 'static> Paragraph<T> {
     pub fn new(id: Rc<SourceID>, props: T) -> Self {

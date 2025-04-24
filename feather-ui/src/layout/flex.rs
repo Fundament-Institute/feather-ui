@@ -301,7 +301,7 @@ impl Desc for dyn Prop {
         // by carrying the previous margin amount from the main axis so it can be collapsed properly
         let fold = VectorFold::new(
             |prev: &(f32, f32, f32), n: &Option<BasisGrowShrinkAuxMargin>| -> (f32, f32, f32) {
-                let (basis, grow, shrink, aux, margin) = n.as_ref().unwrap();
+                let (basis, _, _, aux, margin) = n.as_ref().unwrap();
                 (
                     basis + prev.0 + prev.2.max(margin.topleft.x),
                     aux.max(prev.1) + margin.topleft.y + margin.bottomright.y, // off-axis always adds both margins, no collapsing is done yet

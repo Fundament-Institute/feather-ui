@@ -4,7 +4,7 @@
 use feather_ui::gen_id;
 
 use feather_ui::layout::base;
-use feather_ui::layout::simple;
+use feather_ui::layout::fixed;
 use feather_ui::outline::domain_line::DomainLine;
 use feather_ui::outline::domain_point::DomainPoint;
 use feather_ui::outline::draggable;
@@ -39,44 +39,19 @@ struct GraphState {
 
 struct BasicApp {}
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, feather_macro::Area)]
 struct MinimalArea {
     area: URect,
 }
 
 impl base::Empty for MinimalArea {}
-
-impl base::ZIndex for MinimalArea {
-    fn zindex(&self) -> i32 {
-        0
-    }
-}
-
-impl base::Margin for MinimalArea {
-    fn margin(&self) -> &URect {
-        &feather_ui::ZERO_URECT
-    }
-}
-
-impl base::Anchor for MinimalArea {
-    fn anchor(&self) -> &feather_ui::UPoint {
-        &feather_ui::ZERO_UPOINT
-    }
-}
-
-impl base::Limits for MinimalArea {
-    fn limits(&self) -> &feather_ui::ULimits {
-        &feather_ui::DEFAULT_LIMITS
-    }
-}
-
-impl base::Area for MinimalArea {
-    fn area(&self) -> &URect {
-        &self.area
-    }
-}
-
-impl simple::Prop for MinimalArea {}
+impl base::ZIndex for MinimalArea {}
+impl base::Margin for MinimalArea {}
+impl base::Anchor for MinimalArea {}
+impl base::Limits for MinimalArea {}
+impl base::RLimits for MinimalArea {}
+impl fixed::Prop for MinimalArea {}
+impl fixed::Child for MinimalArea {}
 
 const NODE_RADIUS: f32 = 25.0;
 
@@ -100,7 +75,7 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
         args: &GraphState,
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
         if store.0 != *args {
-            let mut children: im::Vector<Option<Box<OutlineFrom<dyn simple::Prop>>>> =
+            let mut children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> =
                 im::Vector::new();
             let domain: Rc<CrossReferenceDomain> = Default::default();
 
@@ -115,7 +90,7 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
                 let iter_id = Rc::new(node_id.child(DataID::Int(i as i64)));
                 node_ids.push(iter_id.clone());
 
-                let mut contents: im::Vector<Option<Box<OutlineFrom<dyn simple::Prop>>>> =
+                let mut contents: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> =
                     im::Vector::new();
 
                 let point = DomainPoint::new(iter_id.clone(), domain.clone());
