@@ -121,11 +121,20 @@ fn justify_inner_outer(align: FlexJustify, total: f32, used: f32, count: i32) ->
 }
 
 type LineTuple = (usize, f32, f32);
-type BasisGrowShrinkAuxMargin = (f32, f32, f32, f32, AbsRect);
+
+#[derive(Clone)]
+struct ChildCache {
+    basis: f32,
+    grow: f32,
+    shrink: f32,
+    aux: f32,
+    margin: AbsRect,
+    limits: AbsRect,
+}
 
 #[allow(clippy::too_many_arguments)]
 fn wrap_line(
-    childareas: &im::Vector<Option<BasisGrowShrinkAuxMargin>>,
+    childareas: &im::Vector<Option<ChildCache>>,
     props: &dyn Prop,
     xaxis: bool,
     total_main: f32,
@@ -164,7 +173,7 @@ fn wrap_line(
         };
 
         // If we hit an obstacle, mark it as an obstacle breakpoint, then jump forward.
-        if main + b.0 > obstacle.0 {
+        if main + b.basis > obstacle.0 {
             breaks.push((i, obstacle.1, obstacle.0));
             main = obstacle.1; // Set the axis to the end of the obstacle
 
@@ -184,11 +193,11 @@ fn wrap_line(
         }
 
         // Once we hit the end of the line we mark the true breakpoint.
-        if main + b.0 > total_main {
+        if main + b.basis > total_main {
             // If our line was empty, then nothing could fit on it. Because we don't have line-height information, we simply
             // have to use the height of the element we are pushing to the next line.
             let emptyline = if max_aux == 0.0 {
-                max_aux = b.1;
+                max_aux = b.aux;
 
                 // Normally, if an obstacle is present on a line, we want to skip it entirely. However, if we can't fit an item on
                 // a line that has no obstacle, we have to give up and put it there anyway to prevent an infinite loop.
@@ -222,9 +231,9 @@ fn wrap_line(
             }
         }
 
-        main += b.0;
-        if max_aux < b.3 {
-            max_aux = b.3;
+        main += b.basis;
+        if max_aux < b.aux {
+            max_aux = b.aux;
         }
         i += 1;
     }
@@ -242,12 +251,13 @@ impl Desc for dyn Prop {
     fn stage<'a>(
         props: &Self::Props,
         outer_area: AbsRect,
+        outer_limits: AbsRect,
         children: &Self::Children,
         id: std::rc::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
         driver: &crate::DriverState,
     ) -> Box<dyn Staged + 'a> {
-        let mut childareas: im::Vector<Option<BasisGrowShrinkAuxMargin>> = im::Vector::new();
+        let mut childareas: im::Vector<Option<ChildCache>> = im::Vector::new();
 
         // If we are currently also being evaluated with infinite area, we have to set a few things to zero.
         let outer_dim = zero_infinity(outer_area.dim());
@@ -270,25 +280,33 @@ impl Desc for dyn Prop {
                 },
             };
 
-            let stage = child.as_ref().unwrap().stage(inner_area, driver);
+            let child_limit = super::eval_limits(*imposed.rlimits(), outer_dim);
+            let stage = child
+                .as_ref()
+                .unwrap()
+                .stage(inner_area, child_limit, driver);
 
             let (main, aux) = swap_axis(xaxis, stage.get_area().dim().0);
 
-            let mut cache: BasisGrowShrinkAuxMargin = (
-                imposed.basis(),
-                imposed.grow(),
-                imposed.shrink(),
+            let mut cache = ChildCache {
+                basis: imposed.basis(),
+                grow: imposed.grow(),
+                shrink: imposed.shrink(),
                 aux,
-                *imposed.margin() * outer_dim,
-            );
-            if cache.0.is_infinite() {
-                cache.0 = main;
+                margin: *imposed.margin() * outer_dim,
+                limits: child_limit,
+            };
+            if cache.basis.is_infinite() {
+                cache.basis = main;
             }
 
             // Swap the margin axis if necessary
             if !xaxis {
-                std::mem::swap(&mut cache.4.topleft.x, &mut cache.4.topleft.y);
-                std::mem::swap(&mut cache.4.bottomright.x, &mut cache.4.bottomright.y);
+                std::mem::swap(&mut cache.margin.topleft.x, &mut cache.margin.topleft.y);
+                std::mem::swap(
+                    &mut cache.margin.bottomright.x,
+                    &mut cache.margin.bottomright.y,
+                );
             }
 
             childareas.push_back(Some(cache));
@@ -300,12 +318,12 @@ impl Desc for dyn Prop {
         // This fold calculates the maximum size of the main axis, followed by the off-axis, followed
         // by carrying the previous margin amount from the main axis so it can be collapsed properly
         let fold = VectorFold::new(
-            |prev: &(f32, f32, f32), n: &Option<BasisGrowShrinkAuxMargin>| -> (f32, f32, f32) {
-                let (basis, _, _, aux, margin) = n.as_ref().unwrap();
+            |prev: &(f32, f32, f32), n: &Option<ChildCache>| -> (f32, f32, f32) {
+                let cache = n.as_ref().unwrap();
                 (
-                    basis + prev.0 + prev.2.max(margin.topleft.x),
-                    aux.max(prev.1) + margin.topleft.y + margin.bottomright.y, // off-axis always adds both margins, no collapsing is done yet
-                    margin.bottomright.x,
+                    cache.basis + prev.0 + prev.2.max(cache.margin.topleft.x),
+                    cache.aux.max(prev.1) + cache.margin.topleft.y + cache.margin.bottomright.y, // off-axis always adds both margins, no collapsing is done yet
+                    cache.margin.bottomright.x,
                 )
             },
         );
@@ -403,9 +421,9 @@ impl Desc for dyn Prop {
                 let Some(a) = &childareas[i] else {
                     continue;
                 };
-                totalgrow += a.1;
-                totalshrink += a.2;
-                used += a.0;
+                totalgrow += a.grow;
+                totalshrink += a.shrink;
+                used += a.basis;
             }
 
             // Get the total length of this span, and if necessary, find the line height by scanning ahead.
@@ -441,7 +459,7 @@ impl Desc for dyn Prop {
                 let Some(a) = &mut childareas[i] else {
                     continue;
                 };
-                a.0 += ratio * (if diff > 0.0 { a.1 } else { a.2 });
+                a.basis += ratio * (if diff > 0.0 { a.grow } else { a.shrink });
             }
 
             let (outer, inner) =
@@ -450,7 +468,7 @@ impl Desc for dyn Prop {
 
             // Construct the final area rectangle for each child
             for i in curindex..b.0 {
-                let Some((basis, _, _, _, margin)) = &childareas[i] else {
+                let Some(c) = &childareas[i] else {
                     continue;
                 };
 
@@ -460,18 +478,18 @@ impl Desc for dyn Prop {
                 {
                     AbsRect {
                         topleft: Vec2::new(total_main - main, aux),
-                        bottomright: Vec2::new(total_main - (main + basis), aux + max_aux),
+                        bottomright: Vec2::new(total_main - (main + c.basis), aux + max_aux),
                     }
                 } else {
                     AbsRect {
                         topleft: Vec2::new(main, aux),
-                        bottomright: Vec2::new(main + basis, aux + max_aux),
+                        bottomright: Vec2::new(main + c.basis, aux + max_aux),
                     }
                 };
 
                 // Because both our margin and are area rect has swapped axis, we can just apply the margin directly, then swap the axis
-                area.topleft += margin.topleft;
-                area.bottomright -= margin.bottomright;
+                area.topleft += c.margin.topleft;
+                area.bottomright -= c.margin.bottomright;
                 area.topleft = Vec2::min_by_component(area.topleft, area.bottomright);
 
                 // If our axis is swapped, swap the rectangle axis
@@ -480,13 +498,13 @@ impl Desc for dyn Prop {
                     std::mem::swap(&mut area.bottomright.x, &mut area.bottomright.y);
                 }
 
-                let stage = children[i].as_ref().unwrap().stage(area, driver);
+                let stage = children[i].as_ref().unwrap().stage(area, c.limits, driver);
                 if let Some(node) = stage.get_rtree().upgrade() {
                     nodes.push_back(Some(node));
                 }
                 staging.push_back(Some(stage));
 
-                main += basis + inner;
+                main += c.basis + inner;
             }
 
             if b.2.is_finite() {

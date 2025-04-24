@@ -27,14 +27,24 @@ use std::rc::{Rc, Weak};
 
 pub trait Layout<Props>: DynClone {
     fn get_props(&self) -> &Props;
-    fn inner_stage<'a>(&self, area: AbsRect, driver: &DriverState) -> Box<dyn Staged + 'a>;
+    fn inner_stage<'a>(
+        &self,
+        area: AbsRect,
+        limits: AbsRect,
+        driver: &DriverState,
+    ) -> Box<dyn Staged + 'a>;
 }
 
 dyn_clone::clone_trait_object!(<Imposed> Layout<Imposed> where Imposed:Sized);
 
 pub trait LayoutWrap<Imposed: ?Sized>: DynClone {
     fn get_imposed(&self) -> &Imposed;
-    fn stage<'a>(&self, area: AbsRect, driver: &DriverState) -> Box<dyn Staged + 'a>;
+    fn stage<'a>(
+        &self,
+        area: AbsRect,
+        limits: AbsRect,
+        driver: &DriverState,
+    ) -> Box<dyn Staged + 'a>;
 }
 
 dyn_clone::clone_trait_object!(<Imposed> LayoutWrap<Imposed> where Imposed:?Sized);
@@ -47,8 +57,13 @@ where
         self.get_props().into()
     }
 
-    fn stage<'a>(&self, area: AbsRect, driver: &DriverState) -> Box<dyn Staged + 'a> {
-        self.inner_stage(area, driver)
+    fn stage<'a>(
+        &self,
+        area: AbsRect,
+        limits: AbsRect,
+        driver: &DriverState,
+    ) -> Box<dyn Staged + 'a> {
+        self.inner_stage(area, limits, driver)
     }
 }
 
@@ -60,8 +75,13 @@ where
         self.get_props().into()
     }
 
-    fn stage<'a>(&self, area: AbsRect, driver: &DriverState) -> Box<dyn Staged + 'a> {
-        self.inner_stage(area, driver)
+    fn stage<'a>(
+        &self,
+        area: AbsRect,
+        limits: AbsRect,
+        driver: &DriverState,
+    ) -> Box<dyn Staged + 'a> {
+        self.inner_stage(area, limits, driver)
     }
 }
 
@@ -80,6 +100,7 @@ pub trait Desc {
     fn stage<'a>(
         props: &Self::Props,
         outer_area: AbsRect,
+        limits: AbsRect,
         children: &Self::Children,
         id: std::rc::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
@@ -102,10 +123,16 @@ where
     fn get_props(&self) -> &T {
         self.props.as_ref()
     }
-    fn inner_stage<'a>(&self, area: AbsRect, driver: &DriverState) -> Box<dyn Staged + 'a> {
+    fn inner_stage<'a>(
+        &self,
+        area: AbsRect,
+        limits: AbsRect,
+        driver: &DriverState,
+    ) -> Box<dyn Staged + 'a> {
         D::stage(
             self.props.as_ref().into(),
             area,
+            limits,
             &self.children,
             self.id.clone(),
             self.renderable.as_ref().map(|x| x.clone()),
@@ -188,8 +215,10 @@ pub(crate) fn nuetralize_infinity(mut v: AbsRect) -> AbsRect {
 
 #[inline]
 pub(crate) fn limit_area(mut v: AbsRect, limits: AbsRect) -> AbsRect {
-    v.bottomright = v.topleft.max_by_component(v.topleft + limits.topleft);
-    v.bottomright = v.topleft.min_by_component(v.topleft + limits.bottomright);
+    v.bottomright = (v.bottomright - v.topleft)
+        .max_by_component(limits.topleft)
+        .min_by_component(limits.bottomright)
+        + v.topleft;
     v
 }
 

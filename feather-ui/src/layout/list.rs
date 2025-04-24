@@ -28,11 +28,12 @@ impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn Child;
     // TODO: Make a sorted im::Vector that uses base::Order to order inserted children.
-    type Children = im::Vector<Option<Box<dyn LayoutWrap<dyn Empty>>>>;
+    type Children = im::Vector<Option<Box<dyn LayoutWrap<Self::Child>>>>;
 
     fn stage<'a>(
         props: &Self::Props,
         outer_area: AbsRect,
+        outer_limits: AbsRect,
         children: &Self::Children,
         id: std::rc::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
@@ -42,8 +43,7 @@ impl Desc for dyn Prop {
 
         let mut myarea = outer_area;
         myarea = super::nuetralize_infinity(myarea);
-        //let limits = merge_limits(outer_limits, *props.limits());
-        let limits = *props.limits();
+        let limits = merge_limits(outer_limits, *props.limits());
         myarea = *props.area() * myarea;
 
         let mut areas: im::Vector<Option<AbsRect>> = im::Vector::new();
@@ -55,7 +55,10 @@ impl Desc for dyn Prop {
             let mut bottomright = ZERO_POINT;
 
             for child in children.iter() {
-                let stage = child.as_ref().unwrap().stage(inner_area, driver);
+                let child = child.as_ref().unwrap();
+                let child_limit = super::eval_limits(*child.get_imposed().rlimits(), inner_dim);
+
+                let stage = child.stage(inner_area, child_limit, driver);
                 bottomright = bottomright.max_by_component(stage.get_area().bottomright);
                 areas.push_back(stage.get_area().into());
             }
@@ -95,6 +98,7 @@ impl Desc for dyn Prop {
         };
 
         for (i, child) in children.iter().enumerate() {
+            let child = child.as_ref().unwrap();
             let inner_dim = areas[i].unwrap().dim().into();
             let inner_area = match dir {
                 RowDirection::LeftToRight | RowDirection::TopToBottom => AbsRect {
@@ -106,8 +110,10 @@ impl Desc for dyn Prop {
                     bottomright: cur,
                 },
             };
+            let child_limit =
+                super::eval_limits(*child.get_imposed().rlimits(), crate::AbsDim(inner_dim));
 
-            let stage = child.as_ref().unwrap().stage(inner_area, driver);
+            let stage = child.stage(inner_area, child_limit, driver);
             if let Some(node) = stage.get_rtree().upgrade() {
                 nodes.push_back(Some(node));
             }

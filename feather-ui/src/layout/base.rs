@@ -39,12 +39,14 @@ impl crate::layout::Desc for dyn Empty {
     fn stage<'a>(
         _: &Self::Props,
         mut outer_area: AbsRect,
+        outer_limits: AbsRect,
         _: &Self::Children,
         id: std::rc::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn crate::outline::Renderable>>,
         _: &crate::DriverState,
     ) -> Box<dyn super::Staged + 'a> {
         outer_area = super::nuetralize_infinity(outer_area);
+        outer_area = super::limit_area(outer_area, outer_limits);
 
         Box::new(crate::layout::Concrete {
             area: outer_area,
