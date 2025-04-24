@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use crate::input::{MouseButton, MouseMoveState, MouseState, RawEvent, RawEventKind};
-use crate::layout::simple;
+use crate::layout::fixed;
 use crate::layout::Desc;
 use crate::layout::Layout;
 use crate::layout::{self, LayoutWrap};
@@ -36,14 +36,14 @@ struct DraggableState {
 }
 
 #[derive_where(Clone)]
-pub struct Draggable<T: simple::Prop + 'static> {
+pub struct Draggable<T: fixed::Prop + 'static> {
     pub id: Rc<SourceID>,
     pub props: Rc<T>,
-    pub children: im::Vector<Option<Box<OutlineFrom<dyn simple::Prop>>>>,
+    pub children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>>,
     pub slots: [Option<crate::Slot>; DraggableEvent::SIZE],
 }
 
-impl<T: simple::Prop + 'static> super::Outline<T> for Draggable<T> {
+impl<T: fixed::Prop + 'static> super::Outline<T> for Draggable<T> {
     fn id(&self) -> Rc<SourceID> {
         self.id.clone()
     }
@@ -195,13 +195,13 @@ impl<T: simple::Prop + 'static> super::Outline<T> for Draggable<T> {
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let map = VectorMap::new(
-            |child: &Option<Box<OutlineFrom<dyn simple::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn simple::Prop as Desc>::Child>>> {
+            |child: &Option<Box<OutlineFrom<dyn fixed::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn fixed::Prop as Desc>::Child>>> {
                 Some(child.as_ref().unwrap().layout(state, driver, config))
             },
         );
 
         let (_, children) = map.call(Default::default(), &self.children);
-        Box::new(layout::Node::<T, dyn simple::Prop> {
+        Box::new(layout::Node::<T, dyn fixed::Prop> {
             props: self.props.clone(),
             children,
             id: Rc::downgrade(&self.id),
@@ -210,4 +210,4 @@ impl<T: simple::Prop + 'static> super::Outline<T> for Draggable<T> {
     }
 }
 
-crate::gen_outline_wrap!(Draggable, simple::Prop);
+crate::gen_outline_wrap!(Draggable, fixed::Prop);

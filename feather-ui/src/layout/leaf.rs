@@ -12,7 +12,6 @@ use crate::rtree;
 use crate::AbsRect;
 use crate::SourceID;
 use crate::URect;
-use crate::DEFAULT_LIMITS;
 use std::marker::PhantomData;
 use std::rc::Rc;
 

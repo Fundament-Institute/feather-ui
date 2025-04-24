@@ -175,8 +175,8 @@ gen_prop_bag!(
 
 impl crate::layout::base::Empty for PropBag {}
 impl crate::layout::leaf::Prop for PropBag {}
-impl crate::layout::simple::Prop for PropBag {}
-impl crate::layout::simple::Child for PropBag {}
+impl crate::layout::fixed::Prop for PropBag {}
+impl crate::layout::fixed::Child for PropBag {}
 impl crate::layout::list::Child for PropBag {}
 impl crate::layout::list::Prop for PropBag {}
 

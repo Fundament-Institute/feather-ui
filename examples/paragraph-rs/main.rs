@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use feather_ui::gen_id;
+use feather_ui::layout::fixed;
 use feather_ui::layout::flex;
 use feather_ui::layout::leaf;
-use feather_ui::layout::simple;
 
 use feather_ui::layout::base;
 use feather_ui::outline::paragraph::Paragraph;
@@ -28,6 +28,8 @@ struct Blocker {
 }
 
 struct BasicApp {}
+
+#[derive(Default, Clone, feather_macro::Area)]
 struct MinimalFlexChild {
     area: URect,
 }
@@ -46,81 +48,32 @@ impl flex::Child for MinimalFlexChild {
     }
 }
 
-impl base::Order for MinimalFlexChild {
-    fn order(&self) -> i64 {
-        0
-    }
-}
-
-impl base::Margin for MinimalFlexChild {
-    fn margin(&self) -> &URect {
-        &feather_ui::ZERO_URECT
-    }
-}
-
-impl base::Limits for MinimalFlexChild {
-    fn limits(&self) -> &feather_ui::ULimits {
-        &feather_ui::DEFAULT_LIMITS
-    }
-}
-
-impl base::Area for MinimalFlexChild {
-    fn area(&self) -> &URect {
-        &self.area
-    }
-}
-
+impl base::Order for MinimalFlexChild {}
+impl base::Margin for MinimalFlexChild {}
+impl base::Limits for MinimalFlexChild {}
+impl base::RLimits for MinimalFlexChild {}
 impl leaf::Prop for MinimalFlexChild {}
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, feather_macro::Area)]
 struct MinimalArea {
     area: URect,
 }
 
 impl base::Empty for MinimalArea {}
-
-impl base::ZIndex for MinimalArea {
-    fn zindex(&self) -> i32 {
-        0
-    }
-}
-
-impl base::Margin for MinimalArea {
-    fn margin(&self) -> &URect {
-        &feather_ui::ZERO_URECT
-    }
-}
-
-impl base::Anchor for MinimalArea {
-    fn anchor(&self) -> &feather_ui::UPoint {
-        &feather_ui::ZERO_UPOINT
-    }
-}
-
-impl base::Limits for MinimalArea {
-    fn limits(&self) -> &feather_ui::ULimits {
-        &feather_ui::DEFAULT_LIMITS
-    }
-}
-
-impl base::Area for MinimalArea {
-    fn area(&self) -> &URect {
-        &self.area
-    }
-}
-
-impl simple::Prop for MinimalArea {}
+impl base::ZIndex for MinimalArea {}
+impl base::Anchor for MinimalArea {}
+impl base::Limits for MinimalArea {}
+impl fixed::Prop for MinimalArea {}
 
 struct MinimalFlex {
     obstacles: Vec<AbsRect>,
 }
 impl base::Empty for MinimalFlex {}
-
-impl base::ZIndex for MinimalFlex {
-    fn zindex(&self) -> i32 {
-        0
-    }
-}
+impl base::Direction for MinimalFlex {}
+impl base::ZIndex for MinimalFlex {}
+impl base::Limits for MinimalFlex {}
+impl base::RLimits for MinimalFlex {}
+impl fixed::Child for MinimalFlex {}
 
 impl base::Obstacles for MinimalFlex {
     fn obstacles(&self) -> &[AbsRect] {
@@ -129,10 +82,6 @@ impl base::Obstacles for MinimalFlex {
 }
 
 impl flex::Prop for MinimalFlex {
-    fn direction(&self) -> flex::FlexDirection {
-        flex::FlexDirection::LeftToRight
-    }
-
     fn wrap(&self) -> bool {
         true
     }
@@ -205,7 +154,7 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
                 p
             };
 
-            let mut children: im::Vector<Option<Box<OutlineFrom<dyn simple::Prop>>>> =
+            let mut children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> =
                 im::Vector::new();
             children.push_back(Some(Box::new(flex)));
 

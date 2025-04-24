@@ -3,7 +3,7 @@
 
 use feather_macro::*;
 use feather_ui::gen_id;
-use feather_ui::layout::simple;
+use feather_ui::layout::fixed;
 use feather_ui::outline::button::Button;
 use feather_ui::outline::mouse_area;
 use feather_ui::outline::region::Region;
@@ -23,6 +23,7 @@ use std::any::TypeId;
 use std::f32;
 use std::rc::Rc;
 use std::sync::Arc;
+use ultraviolet::Vec2;
 use ultraviolet::Vec4;
 
 #[cfg(target_os = "windows")]
@@ -41,16 +42,17 @@ pub trait Calculator: Send + Sync {
     fn eq(&self, rhs: Arc<dyn Calculator>) -> bool;
 }
 
-#[derive(Default, Empty, Area, Margin, Anchor, Limits, ZIndex)]
-struct SimpleData {
+#[derive(Default, Empty, Area, Anchor, ZIndex)]
+struct FixedData {
     area: URect,
-    margin: URect,
     anchor: feather_ui::UPoint,
-    limits: feather_ui::ULimits,
     zindex: i32,
 }
 
-impl simple::Prop for SimpleData {}
+impl feather_ui::layout::base::Limits for FixedData {}
+impl feather_ui::layout::base::RLimits for FixedData {}
+impl fixed::Prop for FixedData {}
+impl fixed::Child for FixedData {}
 
 impl dyn Calculator {
     #[inline]
@@ -179,8 +181,7 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
         args: &CalcFFI,
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
         //if store.0.eq(args) {
-        let mut children: im::Vector<Option<Box<OutlineFrom<dyn simple::Prop>>>> =
-            im::Vector::new();
+        let mut children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> = im::Vector::new();
 
         let button_id = Rc::new(gen_id!());
 
@@ -204,7 +205,7 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
                 ..Default::default()
             };
 
-            let mut btn_children: im::Vector<Option<Box<OutlineFrom<dyn simple::Prop>>>> =
+            let mut btn_children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> =
                 im::Vector::new();
             btn_children.push_back(Some(Box::new(text)));
             btn_children.push_back(Some(Box::new(rect)));
@@ -213,27 +214,25 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
             let (x, y) = (i % ROW_COUNT, (i / ROW_COUNT) + 1);
             let (w, h) = (1.0 / ROW_COUNT as f32, 1.0 / 7.0);
 
-            let btn = Button::<SimpleData>::new(
+            let btn = Button::<FixedData>::new(
                 gen_id!(button_id).into(),
-                SimpleData {
+                FixedData {
                     area: URect {
                         topleft: feather_ui::UPoint {
-                            abs: ultraviolet::Vec2 { x: 4.0, y: 4.0 },
-                            rel: feather_ui::RelPoint {
+                            abs: Vec2 { x: 4.0, y: 4.0 },
+                            rel: feather_ui::RelPoint(Vec2 {
                                 x: w * x as f32,
                                 y: h * y as f32,
-                            },
+                            }),
                         },
                         bottomright: feather_ui::UPoint {
-                            abs: ultraviolet::Vec2 { x: -4.0, y: -4.0 },
-                            rel: feather_ui::RelPoint {
+                            abs: Vec2 { x: -4.0, y: -4.0 },
+                            rel: feather_ui::RelPoint(Vec2 {
                                 x: w * (x + 1) as f32,
                                 y: h * (y + 1) as f32,
-                            },
+                            }),
                         },
                     },
-                    margin: Default::default(),
-                    limits: feather_ui::DEFAULT_LIMITS,
                     anchor: Default::default(),
                     zindex: 0,
                 },
@@ -257,15 +256,15 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
             gen_id!(button_id).into(),
             Rc::new(URect {
                 topleft: feather_ui::UPoint {
-                    abs: ultraviolet::Vec2 { x: 0.0, y: 0.0 },
-                    rel: feather_ui::RelPoint { x: 0.0, y: 0.0 },
+                    abs: Vec2 { x: 0.0, y: 0.0 },
+                    rel: feather_ui::RelPoint(Vec2 { x: 0.0, y: 0.0 }),
                 },
                 bottomright: feather_ui::UPoint {
-                    abs: ultraviolet::Vec2 { x: 0.0, y: 0.0 },
-                    rel: feather_ui::RelPoint {
+                    abs: Vec2 { x: 0.0, y: 0.0 },
+                    rel: feather_ui::RelPoint(Vec2 {
                         x: 1.0,
                         y: 1.0 / 7.0,
-                    },
+                    }),
                 },
             }),
             0.0,
@@ -278,9 +277,9 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
         children.push_back(Some(Box::new(display)));
         children.push_back(Some(Box::new(text_bg)));
 
-        let region = Region::<SimpleData> {
+        let region = Region::<FixedData> {
             id: gen_id!().into(),
-            props: SimpleData {
+            props: FixedData {
                 area: FILL_URECT,
                 ..Default::default()
             }

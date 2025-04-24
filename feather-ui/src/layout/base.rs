@@ -3,7 +3,7 @@
 
 use derive_more::TryFrom;
 
-use crate::{AbsRect, UPoint, URect, ZERO_RECT, ZERO_URECT};
+use crate::{AbsRect, UPoint, URect, ZERO_UPOINT, ZERO_URECT};
 use std::rc::Rc;
 
 #[macro_export]
@@ -20,6 +20,10 @@ macro_rules! gen_from_to_dyn {
 pub trait Empty {}
 
 impl Empty for () {}
+impl RLimits for () {}
+impl Margin for () {}
+impl crate::layout::fixed::Child for () {}
+impl crate::layout::list::Child for () {}
 
 impl<T: Empty> Empty for Rc<T> {}
 
@@ -64,7 +68,9 @@ pub trait Obstacles {
 }
 
 pub trait ZIndex {
-    fn zindex(&self) -> i32;
+    fn zindex(&self) -> i32 {
+        0
+    }
 }
 
 // Currently unused (you can create padding by adjusting the child's area rectangle instead)
@@ -72,9 +78,11 @@ pub trait ZIndex {
 //    fn padding(&self) -> &URect;
 //}
 
-// Relative to parent's area
+// Relative to parent's area, but only ever used to determine spacing between child elements.
 pub trait Margin {
-    fn margin(&self) -> &URect;
+    fn margin(&self) -> &URect {
+        &ZERO_URECT
+    }
 }
 
 // Relative to child's assigned area (outer area)
@@ -92,20 +100,28 @@ gen_from_to_dyn!(Area);
 
 // Relative to child's evaluated area (inner area)
 pub trait Anchor {
-    fn anchor(&self) -> &UPoint;
+    fn anchor(&self) -> &UPoint {
+        &ZERO_UPOINT
+    }
 }
 
 pub trait Limits {
-    fn limits(&self) -> &AbsRect;
+    fn limits(&self) -> &AbsRect {
+        &crate::DEFAULT_LIMITS
+    }
 }
 
 // Relative to parent's area
 pub trait RLimits {
-    fn rlimits(&self) -> &crate::RelRect;
+    fn rlimits(&self) -> &crate::RelRect {
+        &crate::DEFAULT_RLIMITS
+    }
 }
 
 pub trait Order {
-    fn order(&self) -> i64;
+    fn order(&self) -> i64 {
+        0
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default, TryFrom)]
@@ -119,23 +135,10 @@ pub enum RowDirection {
 }
 
 pub trait Direction {
-    fn direction(&self) -> RowDirection;
-}
-
-impl Limits for URect {
-    fn limits(&self) -> &AbsRect {
-        &crate::DEFAULT_LIMITS
+    fn direction(&self) -> RowDirection {
+        RowDirection::LeftToRight
     }
 }
 
-impl RLimits for URect {
-    fn rlimits(&self) -> &crate::RelRect {
-        &crate::DEFAULT_RLIMITS
-    }
-}
-
-impl Margin for URect {
-    fn margin(&self) -> &URect {
-        &ZERO_URECT
-    }
-}
+impl Limits for URect {}
+impl RLimits for URect {}

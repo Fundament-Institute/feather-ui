@@ -4,7 +4,7 @@
 use core::f32;
 use feather_macro::*;
 use feather_ui::gen_id;
-use feather_ui::layout::simple;
+use feather_ui::layout::fixed;
 use feather_ui::outline::button::Button;
 use feather_ui::outline::mouse_area;
 use feather_ui::outline::region::Region;
@@ -20,6 +20,7 @@ use feather_ui::SourceID;
 use feather_ui::URect;
 use feather_ui::FILL_URECT;
 use std::rc::Rc;
+use ultraviolet::Vec2;
 use ultraviolet::Vec4;
 
 #[derive(PartialEq, Clone, Debug)]
@@ -27,16 +28,17 @@ struct CounterState {
     count: i32,
 }
 
-#[derive(Default, Empty, Area, Margin, Anchor, Limits, ZIndex)]
-struct SimpleData {
+#[derive(Default, Empty, Area, Anchor, ZIndex)]
+struct FixedData {
     area: feather_ui::URect,
-    margin: feather_ui::URect,
     anchor: feather_ui::UPoint,
-    limits: feather_ui::ULimits,
     zindex: i32,
 }
 
-impl simple::Prop for SimpleData {}
+impl feather_ui::layout::base::Limits for FixedData {}
+impl feather_ui::layout::base::RLimits for FixedData {}
+impl fixed::Prop for FixedData {}
+impl fixed::Child for FixedData {}
 
 struct BasicApp {}
 
@@ -62,7 +64,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     ..Default::default()
                 };
 
-                let mut children: im::Vector<Option<Box<OutlineFrom<dyn simple::Prop>>>> =
+                let mut children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> =
                     im::Vector::new();
                 children.push_back(Some(Box::new(text)));
 
@@ -77,24 +79,22 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 );
                 children.push_back(Some(Box::new(rect)));
 
-                Button::<SimpleData>::new(
+                Button::<FixedData>::new(
                     gen_id!().into(),
-                    SimpleData {
+                    FixedData {
                         area: feather_ui::URect {
                             topleft: feather_ui::UPoint {
-                                abs: ultraviolet::Vec2 { x: 45.0, y: 45.0 },
-                                rel: feather_ui::RelPoint { x: 0.0, y: 0.0 },
+                                abs: Vec2 { x: 45.0, y: 45.0 },
+                                rel: feather_ui::RelPoint(Vec2 { x: 0.0, y: 0.0 }),
                             },
                             bottomright: feather_ui::UPoint {
-                                abs: ultraviolet::Vec2 {
+                                abs: Vec2 {
                                     x: f32::INFINITY,
                                     y: 0.0,
                                 },
-                                rel: feather_ui::RelPoint { x: 0.0, y: 1.0 },
+                                rel: feather_ui::RelPoint(Vec2 { x: 0.0, y: 1.0 }),
                             },
                         },
-                        margin: Default::default(),
-                        limits: feather_ui::DEFAULT_LIMITS,
                         anchor: Default::default(),
                         zindex: 0,
                     },
@@ -103,13 +103,13 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 )
             };
 
-            let mut children: im::Vector<Option<Box<OutlineFrom<dyn simple::Prop>>>> =
+            let mut children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> =
                 im::Vector::new();
             children.push_back(Some(Box::new(button)));
 
             let region = Region {
                 id: gen_id!().into(),
-                props: SimpleData {
+                props: FixedData {
                     area: AbsRect::new(90.0, 90.0, f32::INFINITY, 200.0).into(),
                     zindex: 0,
                     ..Default::default()

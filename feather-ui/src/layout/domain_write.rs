@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::base::Empty;
+use super::base::RLimits;
 use super::Concrete;
 use super::Desc;
 use super::LayoutWrap;
@@ -28,6 +29,8 @@ impl Prop for Rc<CrossReferenceDomain> {
 }
 
 impl Empty for Rc<CrossReferenceDomain> {}
+impl RLimits for Rc<CrossReferenceDomain> {}
+impl super::fixed::Child for Rc<CrossReferenceDomain> {}
 
 impl Desc for dyn Prop {
     type Props = dyn Prop;

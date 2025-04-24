@@ -195,7 +195,7 @@ impl From<AbsDim> for AbsRect {
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 /// Relative point
-pub struct RelPoint(Vec2);
+pub struct RelPoint(pub Vec2);
 
 impl From<Vec2> for RelPoint {
     #[inline]
