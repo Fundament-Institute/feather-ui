@@ -29,13 +29,14 @@ impl Desc for dyn Prop {
     fn stage<'a>(
         props: &Self::Props,
         mut outer_area: AbsRect,
+        outer_limits: AbsRect,
         _: &Self::Children,
         id: std::rc::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
         _: &crate::DriverState,
     ) -> Box<dyn Staged + 'a> {
         outer_area = super::nuetralize_infinity(outer_area);
-        let evaluated_area = *props.area() * outer_area;
+        let evaluated_area = super::limit_area(*props.area() * outer_area, outer_limits);
 
         Box::new(Concrete {
             area: evaluated_area,

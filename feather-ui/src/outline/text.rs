@@ -3,6 +3,9 @@
 
 use super::Renderable;
 use crate::layout::leaf;
+use crate::layout::limit_area;
+use crate::layout::limit_dim;
+use crate::layout::merge_limits;
 use crate::layout::Layout;
 use crate::rtree;
 use crate::AbsRect;
@@ -102,33 +105,39 @@ where
 crate::gen_outline_wrap!(Text, leaf::Prop);
 
 #[derive_where(Clone)]
-pub struct TextLayout<T> {
+pub struct TextLayout<T: leaf::Prop> {
     pub id: std::rc::Weak<SourceID>,
     pub props: Rc<T>,
     pub text_render: Rc<TextPipeline>,
 }
 
-impl<T> Layout<T> for TextLayout<T> {
+impl<T: leaf::Prop> Layout<T> for TextLayout<T> {
     fn get_props(&self) -> &T {
         &self.props
     }
     fn inner_stage<'a>(
         &self,
         mut area: AbsRect,
+        outer_limits: AbsRect,
         driver: &DriverState,
     ) -> Box<dyn crate::outline::Staged + 'a> {
-        let text_system = driver.text().expect("driver.text not initialized");
+        let text_system: &Rc<RefCell<crate::TextSystem>> =
+            driver.text().expect("driver.text not initialized");
+        let limits = merge_limits(*self.props.limits(), outer_limits);
+
+        let dim = limit_dim(area.dim(), limits).0;
+
         self.text_render.text_buffer.borrow_mut().set_size(
             &mut text_system.borrow_mut().font_system,
             if area.bottomright.x.is_infinite() {
                 None
             } else {
-                Some(area.width())
+                Some(dim.x)
             },
             if area.bottomright.y.is_infinite() {
                 None
             } else {
-                Some(area.height())
+                Some(dim.y)
             },
         );
 
@@ -153,6 +162,7 @@ impl<T> Layout<T> for TextLayout<T> {
             }
         }
 
+        area = limit_area(area, limits);
         Box::new(crate::layout::Concrete {
             area,
             render: Some(self.text_render.clone()),

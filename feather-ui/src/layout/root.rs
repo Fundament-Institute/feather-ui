@@ -8,6 +8,7 @@ use super::Renderable;
 use super::Staged;
 use crate::AbsDim;
 use crate::AbsRect;
+use crate::DEFAULT_LIMITS;
 use std::rc::Rc;
 use ultraviolet::Vec2;
 
@@ -33,6 +34,7 @@ impl Desc for dyn Prop {
     fn stage<'a>(
         props: &Self::Props,
         _: AbsRect,
+        _: AbsRect,
         child: &Self::Children,
         _: std::rc::Weak<crate::SourceID>,
         _: Option<Rc<dyn Renderable>>,
@@ -44,6 +46,7 @@ impl Desc for dyn Prop {
                 topleft: Vec2::zero(),
                 bottomright: (*props.dim()).into(),
             },
+            DEFAULT_LIMITS,
             driver,
         )
     }

@@ -25,11 +25,12 @@ impl Child for crate::URect {}
 impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn Child;
-    type Children = im::Vector<Option<Box<dyn LayoutWrap<dyn Child>>>>;
+    type Children = im::Vector<Option<Box<dyn LayoutWrap<Self::Child>>>>;
 
     fn stage<'a>(
         props: &Self::Props,
         mut outer_area: AbsRect,
+        outer_limits: AbsRect,
         children: &Self::Children,
         id: std::rc::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
@@ -38,8 +39,7 @@ impl Desc for dyn Prop {
         outer_area = super::nuetralize_infinity(outer_area);
         let myarea = props.area();
         let outer_dim = outer_area.dim();
-        //let limits = merge_limits(outer_limits, *props.limits());
-        let limits = *props.limits();
+        let limits = super::merge_limits(outer_limits, *props.limits());
 
         // If our absolute area contains infinities, we must calculate that axis from the children
         let evaluated_dim =
@@ -56,7 +56,7 @@ impl Desc for dyn Prop {
                     let stage = child
                         .as_ref()
                         .unwrap()
-                        .stage(inner_area, /* child_limit, */ driver);
+                        .stage(inner_area, child_limit, driver);
                     bottomright = bottomright.max_by_component(stage.get_area().bottomright);
                 }
 
@@ -89,7 +89,7 @@ impl Desc for dyn Prop {
             let stage = child
                 .as_ref()
                 .unwrap()
-                .stage(inner_area, /* child_limit, */ driver);
+                .stage(inner_area, child_limit, driver);
             if let Some(node) = stage.get_rtree().upgrade() {
                 nodes.push_back(Some(node));
             }
