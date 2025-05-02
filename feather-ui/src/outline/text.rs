@@ -9,6 +9,7 @@ use crate::layout::check_unsized_dim;
 use crate::layout::leaf;
 use crate::layout::limit_area;
 use crate::layout::merge_limits;
+use crate::layout::zero_unsized;
 use crate::layout::Layout;
 use crate::rtree;
 use crate::AbsRect;
@@ -136,7 +137,7 @@ impl<T: leaf::Prop> Layout<T> for TextLayout<T> {
         if unsized_y {
             limits.bottomright.y = limits.bottomright.y - myarea.bottomright.abs.y;
         }
-        let mut evaluated_area = limit_area(cap_unsized(*myarea * outer_dim), limits);
+        let mut evaluated_area = limit_area(cap_unsized(*myarea * zero_unsized(outer_dim)), limits);
 
         let dim = evaluated_area.dim();
 

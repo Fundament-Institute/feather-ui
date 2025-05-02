@@ -104,7 +104,7 @@ impl Desc for dyn Prop {
                 area.bottomright.abs.y += area.topleft.abs.y + bottomright.y;
             }
 
-            super::limit_area(area * outer_dim, limits)
+            super::limit_area(area * zero_unsized(outer_dim), limits)
         } else {
             // No need to zero infinities because in this path, either outer_dim is finite or myarea has no relative component.
             super::limit_area(*myarea * outer_dim, limits)
