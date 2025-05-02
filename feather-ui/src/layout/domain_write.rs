@@ -46,7 +46,7 @@ impl Desc for dyn Prop {
         renderable: Option<Rc<dyn Renderable>>,
         _: &crate::DriverState,
     ) -> Box<dyn Staged + 'a> {
-        outer_area = super::nuetralize_infinity(outer_area);
+        outer_area = super::nuetralize_unsized(outer_area);
         outer_area = super::limit_area(outer_area, outer_limits);
 
         Box::new(Concrete {

@@ -3,6 +3,7 @@
 
 use super::base;
 use super::base::Empty;
+use super::zero_unsized_area;
 use super::Concrete;
 use super::Desc;
 use super::LayoutWrap;
@@ -15,7 +16,7 @@ use crate::URect;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-pub trait Prop: base::Area + base::Limits {}
+pub trait Prop: base::Area + base::Limits + base::Anchor {}
 
 crate::gen_from_to_dyn!(Prop);
 
@@ -35,8 +36,12 @@ impl Desc for dyn Prop {
         renderable: Option<Rc<dyn Renderable>>,
         _: &crate::DriverState,
     ) -> Box<dyn Staged + 'a> {
-        outer_area = super::nuetralize_infinity(outer_area);
-        let evaluated_area = super::limit_area(*props.area() * outer_area, outer_limits);
+        outer_area = super::nuetralize_unsized(outer_area);
+        let evaluated_area =
+            super::limit_area(zero_unsized_area(*props.area()) * outer_area, outer_limits);
+
+        let anchor = *props.anchor() * evaluated_area.dim();
+        let evaluated_area = evaluated_area - anchor;
 
         Box::new(Concrete {
             area: evaluated_area,

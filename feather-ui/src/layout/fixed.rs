@@ -2,12 +2,16 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::base;
+use super::check_unsized;
+use super::check_unsized_dim;
+use super::zero_unsized;
 use super::Concrete;
 use super::Desc;
 use super::LayoutWrap;
 use super::Renderable;
 use super::Staged;
 use crate::rtree;
+use crate::AbsDim;
 use crate::AbsRect;
 use crate::ZERO_POINT;
 use std::rc::Rc;
@@ -29,55 +33,87 @@ impl Desc for dyn Prop {
 
     fn stage<'a>(
         props: &Self::Props,
-        mut outer_area: AbsRect,
+        outer_area: AbsRect,
         outer_limits: AbsRect,
         children: &Self::Children,
         id: std::rc::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
         driver: &crate::DriverState,
     ) -> Box<dyn Staged + 'a> {
-        outer_area = super::nuetralize_infinity(outer_area);
         let myarea = props.area();
+
+        // If we have an unsized outer_area, any sized object with relative dimensions must evaluate to 0 (or to the minimum limited size). An
+        // unsized object can never have relative dimensions, as that creates a logic loop - instead it can only have a single relative anchor.
+        // If both axes are sized, then all limits are applied as if outer_area was infinite, and children calculations are skipped.
+        //
+        // If we have an unsized outer_area and an unsized myarea.rel, then limits are applied as if outer_area was infinite, and furthermore,
+        // they are reduced by myarea.abs.bottomright, because that will be added on to the total area later, which will still be subject to size
+        // limits, so we must anticipate this when calculating how much size the children will have available to them. This forces limits to be
+        // true infinite numbers, so we can subtract finite amounts and still have infinity. We can't use infinity anywhere else, because infinity
+        // times zero is NaN, so we cap certain calculations at f32::MAX
+        //
+        // If outer_area is sized and myarea.rel is zero or nonzero, all limits are applied normally and child calculations are skipped.
+        // If outer_area is sized and myarea.rel is unsized, limits are applied normally, but are once again reduced by myarea.abs.bottomright to
+        // account for how the area calculations will interact with the limits later on.
+
         let outer_dim = outer_area.dim();
         let limits = super::merge_limits(outer_limits, *props.limits());
+        let (unsized_x, unsized_y) = check_unsized(*myarea);
 
-        // If our absolute area contains infinities, we must calculate that axis from the children
-        let evaluated_dim =
-            if myarea.bottomright.abs.x.is_infinite() || myarea.bottomright.abs.y.is_infinite() {
-                let mut inner_dim = super::limit_dim(super::eval_dim(*myarea, outer_dim), limits);
-                let inner_area = AbsRect::from(inner_dim);
-                // The area we pass to children must be independent of our own area, so it starts at 0,0
-                let mut bottomright = ZERO_POINT;
+        // Check if any axis is unsized in a way that requires us to calculate baseline child sizes
+        let evaluated_area = if unsized_x || unsized_y {
+            // When an axis is unsized, we don't apply any limits to it, so we don't have to worry about
+            // cases where the full evaluated area would invalidate the limit.
+            let inner_dim = super::limit_dim(super::eval_dim(*myarea, outer_dim), limits);
+            let inner_area = AbsRect::from(inner_dim);
+            // The area we pass to children must be independent of our own area, so it starts at 0,0
+            let mut bottomright = ZERO_POINT;
 
-                for child in children.iter() {
-                    let child_props = child.as_ref().unwrap().get_imposed();
-                    let child_limit = super::eval_limits(*child_props.rlimits(), inner_dim);
+            for child in children.iter() {
+                let child_props = child.as_ref().unwrap().get_imposed();
+                let child_limit =
+                    super::eval_limits(*child_props.rlimits(), zero_unsized(inner_dim));
 
-                    let stage = child
-                        .as_ref()
-                        .unwrap()
-                        .stage(inner_area, child_limit, driver);
-                    bottomright = bottomright.max_by_component(stage.get_area().bottomright);
+                // If we merged our parent area limits with child_limit, then we would need to subtract myarea.bottomright.abs
+                // from the parent area limits when doing the merge. However, we don't currently do this.
+                /* let mut adjusted_limits = limits;
+                if unsized_x {
+                    adjusted_limits.bottomright.x -= myarea.bottomright.abs.x
                 }
-
-                if inner_dim.0.x.is_infinite() {
-                    inner_dim.0.x = bottomright.x;
+                if unsized_y {
+                    adjusted_limits.bottomright.y -= myarea.bottomright.abs.y
                 }
-                if inner_dim.0.y.is_infinite() {
-                    inner_dim.0.y = bottomright.y;
-                }
+                adjusted_limits = super::merge_limits(adjusted_limits, child_limit); */
+                let stage = child
+                    .as_ref()
+                    .unwrap()
+                    .stage(inner_area, child_limit, driver);
+                bottomright = bottomright.max_by_component(stage.get_area().bottomright);
+            }
 
-                inner_dim
-            } else {
-                (*myarea * outer_dim).dim()
-            };
+            let mut area = *myarea;
 
-        let evaluated_dim = crate::AbsDim(
-            evaluated_dim
-                .0
-                .max_by_component(limits.topleft)
-                .min_by_component(limits.bottomright),
-        );
+            // Unsized objects must always have a single anchor point to make sense, so we copy over from topleft.
+            if unsized_x {
+                area.bottomright.rel.0.x = area.topleft.rel.0.x;
+                // We also add the topleft abs corner to the unsized dimensions to make padding work
+                area.bottomright.abs.x += area.topleft.abs.x + bottomright.x;
+            }
+            if unsized_y {
+                area.bottomright.rel.0.y = area.topleft.rel.0.y;
+                area.bottomright.abs.y += area.topleft.abs.y + bottomright.y;
+            }
+
+            super::limit_area(area * outer_dim, limits)
+        } else {
+            // No need to zero infinities because in this path, either outer_dim is finite or myarea has no relative component.
+            super::limit_area(*myarea * outer_dim, limits)
+        };
+
+        // We had to evaluate the full area first because our final area calculation can change the dimensions in
+        // unsized cases. Thus, we calculate the final inner_area for the children from this evaluated area.
+        let evaluated_dim = evaluated_area.dim();
+
         let inner_area = AbsRect::from(evaluated_dim);
         let mut staging: im::Vector<Option<Box<dyn Staged>>> = im::Vector::new();
         let mut nodes: im::Vector<Option<Rc<rtree::Node>>> = im::Vector::new();
@@ -103,14 +139,7 @@ impl Desc for dyn Prop {
 
         // Calculate the anchor using the final evaluated dimensions, after all infinite axis and limits are calculated
         let anchor = *props.anchor() * evaluated_dim;
-
-        // We derive the final area by calculating the correct topleft corner of our self-area, then applying our
-        // final evaluated_dim dimensions
-        let mut evaluated_area = AbsRect {
-            topleft: (myarea.topleft * outer_dim) + outer_area.topleft - anchor,
-            bottomright: evaluated_dim.0,
-        };
-        evaluated_area.bottomright += evaluated_area.topleft;
+        let evaluated_area = evaluated_area - anchor;
 
         Box::new(Concrete {
             area: evaluated_area,

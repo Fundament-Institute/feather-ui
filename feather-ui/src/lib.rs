@@ -230,6 +230,18 @@ impl Add for UPoint {
     }
 }
 
+impl Sub for UPoint {
+    type Output = Self;
+
+    #[inline]
+    fn sub(self, rhs: Self) -> Self {
+        Self {
+            abs: self.abs - rhs.abs,
+            rel: RelPoint(self.rel.0 - rhs.rel.0),
+        }
+    }
+}
+
 impl Mul<AbsDim> for UPoint {
     type Output = Vec2;
 
@@ -255,6 +267,16 @@ impl From<Vec2> for UPoint {
         Self {
             abs: value,
             rel: Default::default(),
+        }
+    }
+}
+
+impl From<RelPoint> for UPoint {
+    #[inline]
+    fn from(value: RelPoint) -> Self {
+        Self {
+            abs: Default::default(),
+            rel: value,
         }
     }
 }
@@ -294,6 +316,8 @@ pub const ZERO_URECT: URect = URect {
     bottomright: ZERO_UPOINT,
 };
 
+pub const UNSIZED_AXIS: f32 = f32::MAX;
+
 pub const FILL_URECT: URect = URect {
     topleft: UPoint {
         abs: Vec2 { x: 0.0, y: 0.0 },
@@ -312,24 +336,22 @@ pub const AUTO_URECT: URect = URect {
     },
     bottomright: UPoint {
         abs: Vec2 {
-            x: f32::INFINITY,
-            y: f32::INFINITY,
+            x: UNSIZED_AXIS,
+            y: UNSIZED_AXIS,
         },
         rel: RelPoint(Vec2 { x: 0.0, y: 0.0 }),
     },
 };
 
-// Instead of using actual, proper infinities here, we use the largest possible positive and
-// negative number instead, because this avoids edge cases in floating point algorithms that
-// can massively slow down processing on some platforms.
+// It would be cheaper to avoid using actual infinities here but we have to right now to make the math work
 pub const DEFAULT_LIMITS: AbsRect = AbsRect {
     topleft: Vec2 {
-        x: f32::MIN,
-        y: f32::MIN,
+        x: f32::NEG_INFINITY,
+        y: f32::NEG_INFINITY,
     },
     bottomright: Vec2 {
-        x: f32::MAX,
-        y: f32::MAX,
+        x: f32::INFINITY,
+        y: f32::INFINITY,
     },
 };
 
@@ -371,6 +393,16 @@ impl From<AbsRect> for URect {
             bottomright: value.bottomright.into(),
         }
     }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, derive_more::TryFrom)]
+#[repr(u8)]
+pub enum RowDirection {
+    #[default]
+    LeftToRight,
+    RightToLeft,
+    TopToBottom,
+    BottomToTop,
 }
 
 pub trait RenderLambda: Fn(&mut wgpu::RenderPass) + dyn_clone::DynClone {}

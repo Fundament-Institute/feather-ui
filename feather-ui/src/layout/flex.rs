@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::base;
-use super::zero_infinity;
+use super::zero_unsized;
 use super::Concrete;
 use super::Desc;
 use super::LayoutWrap;
@@ -12,8 +12,8 @@ use crate::persist::FnPersist2;
 use crate::persist::VectorFold;
 use crate::rtree;
 use crate::AbsRect;
+use crate::RowDirection;
 use crate::Vec2;
-use base::RowDirection;
 use core::f32;
 use derive_more::TryFrom;
 use smallvec::SmallVec;
@@ -260,7 +260,7 @@ impl Desc for dyn Prop {
         let mut childareas: im::Vector<Option<ChildCache>> = im::Vector::new();
 
         // If we are currently also being evaluated with infinite area, we have to set a few things to zero.
-        let outer_dim = zero_infinity(outer_area.dim());
+        let outer_dim = zero_unsized(outer_area.dim());
 
         let xaxis = match props.direction() {
             RowDirection::LeftToRight | RowDirection::RightToLeft => true,

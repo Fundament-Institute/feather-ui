@@ -2,9 +2,12 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::Renderable;
+use crate::layout::cap_unsized;
+use crate::layout::cap_unsized_dim;
+use crate::layout::check_unsized;
+use crate::layout::check_unsized_dim;
 use crate::layout::leaf;
 use crate::layout::limit_area;
-use crate::layout::limit_dim;
 use crate::layout::merge_limits;
 use crate::layout::Layout;
 use crate::rtree;
@@ -117,28 +120,30 @@ impl<T: leaf::Prop> Layout<T> for TextLayout<T> {
     }
     fn inner_stage<'a>(
         &self,
-        mut area: AbsRect,
+        outer_area: AbsRect,
         outer_limits: AbsRect,
         driver: &DriverState,
     ) -> Box<dyn crate::outline::Staged + 'a> {
         let text_system: &Rc<RefCell<crate::TextSystem>> =
             driver.text().expect("driver.text not initialized");
-        let limits = merge_limits(*self.props.limits(), outer_limits);
+        let mut limits = merge_limits(*self.props.limits(), outer_limits);
+        let outer_dim = outer_area.dim();
+        let myarea = self.props.area();
+        let (unsized_x, unsized_y) = check_unsized(*myarea);
+        if unsized_x {
+            limits.bottomright.x = limits.bottomright.x - myarea.bottomright.abs.x;
+        }
+        if unsized_y {
+            limits.bottomright.y = limits.bottomright.y - myarea.bottomright.abs.y;
+        }
+        let mut evaluated_area = limit_area(cap_unsized(*myarea * outer_dim), limits);
 
-        let dim = limit_dim(area.dim(), limits).0;
+        let dim = evaluated_area.dim();
 
         self.text_render.text_buffer.borrow_mut().set_size(
             &mut text_system.borrow_mut().font_system,
-            if area.bottomright.x.is_infinite() {
-                None
-            } else {
-                Some(dim.x)
-            },
-            if area.bottomright.y.is_infinite() {
-                None
-            } else {
-                Some(dim.y)
-            },
+            if unsized_x { None } else { Some(dim.0.x) },
+            if unsized_y { None } else { Some(dim.0.y) },
         );
 
         self.text_render
@@ -147,27 +152,31 @@ impl<T: leaf::Prop> Layout<T> for TextLayout<T> {
             .shape_until_scroll(&mut text_system.borrow_mut().font_system, false);
 
         // If we have indeterminate area, calculate the size
-        if area.bottomright.x.is_infinite() || area.bottomright.y.is_infinite() {
+        if unsized_x || unsized_y {
             let mut h = 0.0;
             let mut w: f32 = 0.0;
             for run in self.text_render.text_buffer.borrow().layout_runs() {
                 w = w.max(run.line_w);
                 h += run.line_height;
             }
-            if area.bottomright.x.is_infinite() {
-                area.bottomright.x = area.topleft.x + w;
+            if unsized_x {
+                evaluated_area.bottomright.x =
+                    evaluated_area.topleft.x + w + myarea.bottomright.abs.x;
             }
-            if area.bottomright.y.is_infinite() {
-                area.bottomright.y = area.topleft.y + h;
+            if unsized_y {
+                evaluated_area.bottomright.y =
+                    evaluated_area.topleft.y + h + myarea.bottomright.abs.y;
             }
         }
 
-        area = limit_area(area, limits);
+        let anchor = *self.props.anchor() * evaluated_area.dim();
+        let evaluated_area = evaluated_area - anchor;
+
         Box::new(crate::layout::Concrete {
-            area,
+            area: evaluated_area,
             render: Some(self.text_render.clone()),
             rtree: Rc::new(rtree::Node::new(
-                area,
+                evaluated_area,
                 None,
                 Default::default(),
                 self.id.clone(),
