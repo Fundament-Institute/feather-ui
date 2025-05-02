@@ -84,16 +84,6 @@ pub fn derive_anchor(input: TokenStream) -> TokenStream {
     )
 }
 
-#[proc_macro_derive(Direction)]
-pub fn derive_direction(input: TokenStream) -> TokenStream {
-    derive_base_prop(
-        input,
-        "direction",
-        "feather_ui::layout::base::Direction",
-        "feather_ui::layout::base::RowDirection",
-    )
-}
-
 #[proc_macro_derive(FlexProp)]
 pub fn derive_flex_prop(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -134,6 +124,21 @@ pub fn derive_zindex(input: TokenStream) -> TokenStream {
         impl feather_ui::layout::base::ZIndex for #sname {
             fn zindex(&self) -> i32 {
                 self.zindex
+            }
+        }
+    }
+    .into()
+}
+
+#[proc_macro_derive(Direction)]
+pub fn derive_direction(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+
+    let sname = ast.ident;
+    quote! {
+        impl feather_ui::layout::base::Direction for #sname {
+            fn direction(&self) -> feather_ui::RowDirection {
+                self.direction
             }
         }
     }

@@ -22,6 +22,8 @@ use crate::DriverState;
 use crate::RelRect;
 use crate::RenderInstruction;
 use crate::SourceID;
+use crate::URect;
+use crate::UNSIZED_AXIS;
 use derive_where::derive_where;
 use std::rc::{Rc, Weak};
 
@@ -192,22 +194,39 @@ impl Staged for Concrete {
 }
 
 #[inline]
-pub(crate) fn zero_infinity(mut v: AbsDim) -> AbsDim {
-    if v.0.x.is_infinite() {
+pub(crate) fn zero_unsized(mut v: AbsDim) -> AbsDim {
+    let (unsized_x, unsized_y) = check_unsized_dim(v);
+    if unsized_x {
         v.0.x = 0.0
     }
-    if v.0.y.is_infinite() {
+    if unsized_y {
         v.0.y = 0.0
     }
     v
 }
 
 #[inline]
-pub(crate) fn nuetralize_infinity(mut v: AbsRect) -> AbsRect {
-    if v.bottomright.x.is_infinite() {
+pub(crate) fn zero_unsized_area(mut area: URect) -> URect {
+    let (unsized_x, unsized_y) = check_unsized(area);
+    if unsized_x {
+        area.bottomright.rel.0.x = area.topleft.rel.0.x;
+        // Fix the bottomright abs area in unsized scenarios, because it is now relative to the topleft instead of being independent.
+        area.bottomright.abs.x += area.topleft.abs.x;
+    }
+    if unsized_y {
+        area.bottomright.rel.0.y = area.topleft.rel.0.y;
+        area.bottomright.abs.y += area.topleft.abs.y;
+    }
+    area
+}
+
+#[inline]
+pub(crate) fn nuetralize_unsized(mut v: AbsRect) -> AbsRect {
+    let (unsized_x, unsized_y) = check_unsized_abs(v);
+    if unsized_x {
         v.bottomright.x = v.topleft.x
     }
-    if v.bottomright.y.is_infinite() {
+    if unsized_y {
         v.bottomright.y = v.topleft.y
     }
     v
@@ -232,13 +251,14 @@ pub(crate) fn merge_limits(l: AbsRect, r: AbsRect) -> AbsRect {
 
 #[inline]
 pub(crate) fn limit_dim(v: AbsDim, limits: AbsRect) -> AbsDim {
+    let (unsized_x, unsized_y) = check_unsized_dim(v);
     AbsDim(Vec2 {
-        x: if v.0.x.is_finite() {
+        x: if unsized_x {
             v.0.x.max(limits.topleft.x).min(limits.bottomright.x)
         } else {
             v.0.x
         },
-        y: if v.0.y.is_finite() {
+        y: if unsized_y {
             v.0.y.max(limits.topleft.y).min(limits.bottomright.y)
         } else {
             v.0.y
@@ -247,51 +267,105 @@ pub(crate) fn limit_dim(v: AbsDim, limits: AbsRect) -> AbsDim {
 }
 
 #[inline]
-pub(crate) fn eval_dim(area: crate::URect, dim: AbsDim) -> AbsDim {
+pub(crate) fn eval_dim(area: URect, dim: AbsDim) -> AbsDim {
+    let (unsized_x, unsized_y) = check_unsized(area);
     AbsDim(Vec2 {
-        x: if area.bottomright.abs.x.is_finite() {
+        x: if unsized_x {
+            area.bottomright.rel.0.x
+        } else {
             let top = area.topleft.abs.x + (area.topleft.rel.0.x * dim.0.x);
             let bottom = area.bottomright.abs.x + (area.bottomright.rel.0.x * dim.0.x);
             bottom - top
-        } else {
-            area.bottomright.abs.x
         },
-        y: if area.bottomright.abs.y.is_finite() {
+        y: if unsized_y {
+            area.bottomright.rel.0.y
+        } else {
             let top = area.topleft.abs.y + (area.topleft.rel.0.y * dim.0.y);
             let bottom = area.bottomright.abs.y + (area.bottomright.rel.0.y * dim.0.y);
             bottom - top
-        } else {
-            area.bottomright.abs.y
         },
     })
 }
 
 #[inline]
 pub(crate) fn eval_limits(limits: RelRect, dim: AbsDim) -> AbsRect {
+    let (unsized_x, unsized_y) = check_unsized_dim(dim);
     AbsRect {
         topleft: Vec2 {
-            x: if dim.0.x.is_finite() {
-                limits.topleft.0.x * dim.0.x
-            } else {
+            x: if unsized_x {
                 limits.topleft.0.x
-            },
-            y: if dim.0.y.is_finite() {
-                limits.topleft.0.y * dim.0.y
             } else {
+                limits.topleft.0.x * dim.0.x
+            },
+            y: if unsized_y {
                 limits.topleft.0.y
+            } else {
+                limits.topleft.0.y * dim.0.y
             },
         },
         bottomright: Vec2 {
-            x: if dim.0.x.is_finite() {
-                limits.bottomright.0.x * dim.0.x
-            } else {
+            x: if unsized_x {
                 limits.bottomright.0.x
-            },
-            y: if dim.0.y.is_finite() {
-                limits.bottomright.0.y * dim.0.y
             } else {
+                limits.bottomright.0.x * dim.0.x
+            },
+            y: if unsized_y {
                 limits.bottomright.0.y
+            } else {
+                limits.bottomright.0.y * dim.0.y
             },
         },
     }
+}
+
+// Returns true if an axis is unsized (usually represented by infinity), which means it is defined as the size of it's children's maximum extent.
+#[inline]
+pub(crate) fn check_unsized(area: URect) -> (bool, bool) {
+    (
+        area.bottomright.rel.0.x == UNSIZED_AXIS,
+        area.bottomright.rel.0.y == UNSIZED_AXIS,
+    )
+}
+
+// Returns true if an axis is unsized (usually represented by infinity), which means it is defined as the size of it's children's maximum extent.
+#[inline]
+pub(crate) fn check_unsized_abs(area: crate::AbsRect) -> (bool, bool) {
+    (
+        area.bottomright.x == UNSIZED_AXIS,
+        area.bottomright.y == UNSIZED_AXIS,
+    )
+}
+
+// Returns true if an axis is unsized (usually represented by infinity), which means it is defined as the size of it's children's maximum extent.
+#[inline]
+pub(crate) fn check_unsized_dim(dim: crate::AbsDim) -> (bool, bool) {
+    (dim.0.x == UNSIZED_AXIS, dim.0.y == UNSIZED_AXIS)
+}
+
+#[inline]
+pub(crate) fn cap_unsized(mut area: crate::AbsRect) -> crate::AbsRect {
+    if !area.topleft.x.is_finite() {
+        area.topleft.x = crate::UNSIZED_AXIS;
+    }
+    if !area.topleft.y.is_finite() {
+        area.topleft.y = crate::UNSIZED_AXIS;
+    }
+    if !area.bottomright.x.is_finite() {
+        area.bottomright.x = crate::UNSIZED_AXIS;
+    }
+    if !area.bottomright.y.is_finite() {
+        area.bottomright.y = crate::UNSIZED_AXIS;
+    }
+    area
+}
+
+#[inline]
+pub(crate) fn cap_unsized_dim(mut dim: Vec2) -> Vec2 {
+    if !dim.x.is_finite() {
+        dim.x = crate::UNSIZED_AXIS;
+    }
+    if !dim.y.is_finite() {
+        dim.y = crate::UNSIZED_AXIS;
+    }
+    dim
 }

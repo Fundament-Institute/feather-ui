@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use derive_more::TryFrom;
-
 use crate::{AbsRect, UPoint, URect, ZERO_UPOINT, ZERO_URECT};
 use std::rc::Rc;
 
@@ -45,7 +43,7 @@ impl crate::layout::Desc for dyn Empty {
         renderable: Option<Rc<dyn crate::outline::Renderable>>,
         _: &crate::DriverState,
     ) -> Box<dyn super::Staged + 'a> {
-        outer_area = super::nuetralize_infinity(outer_area);
+        outer_area = super::nuetralize_unsized(outer_area);
         outer_area = super::limit_area(outer_area, outer_limits);
 
         Box::new(crate::layout::Concrete {
@@ -75,9 +73,11 @@ pub trait ZIndex {
     }
 }
 
-// Currently unused (you can create padding by adjusting the child's area rectangle instead)
+// This is used for situations where you need an unsized, centered, padded element. It has no
+// relative components because that would be a sized situation, not an unsized one.
+// Currently not needed, as careful use of unsized rects avoid needing it
 //pub trait Padding {
-//    fn padding(&self) -> &URect;
+//    fn padding(&self) -> &AbsRect;
 //}
 
 // Relative to parent's area, but only ever used to determine spacing between child elements.
@@ -107,6 +107,8 @@ pub trait Anchor {
     }
 }
 
+impl Anchor for URect {}
+
 pub trait Limits {
     fn limits(&self) -> &AbsRect {
         &crate::DEFAULT_LIMITS
@@ -126,19 +128,9 @@ pub trait Order {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, TryFrom)]
-#[repr(u8)]
-pub enum RowDirection {
-    #[default]
-    LeftToRight,
-    RightToLeft,
-    TopToBottom,
-    BottomToTop,
-}
-
 pub trait Direction {
-    fn direction(&self) -> RowDirection {
-        RowDirection::LeftToRight
+    fn direction(&self) -> crate::RowDirection {
+        crate::RowDirection::LeftToRight
     }
 }
 

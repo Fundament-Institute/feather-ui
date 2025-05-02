@@ -6,7 +6,9 @@ use feather_macro::*;
 use feather_ui::gen_id;
 use feather_ui::layout::fixed;
 use feather_ui::layout::leaf;
+use feather_ui::layout::list;
 use feather_ui::outline::button::Button;
+use feather_ui::outline::listbox::ListBox;
 use feather_ui::outline::mouse_area;
 use feather_ui::outline::region::Region;
 use feather_ui::outline::shape::Shape;
@@ -20,7 +22,6 @@ use feather_ui::Slot;
 use feather_ui::SourceID;
 use feather_ui::URect;
 use feather_ui::FILL_URECT;
-use feather_ui::UNSIZED_AXIS;
 use std::rc::Rc;
 use ultraviolet::Vec2;
 use ultraviolet::Vec4;
@@ -41,7 +42,26 @@ impl feather_ui::layout::base::Limits for FixedData {}
 impl feather_ui::layout::base::RLimits for FixedData {}
 impl fixed::Prop for FixedData {}
 impl fixed::Child for FixedData {}
-impl leaf::Prop for FixedData {}
+
+#[derive(Default, Empty, Area, Direction)]
+struct ListData {
+    area: feather_ui::URect,
+    direction: feather_ui::RowDirection,
+}
+
+impl feather_ui::layout::base::Limits for ListData {}
+impl list::Prop for ListData {}
+
+#[derive(Default, Empty, Area, Margin)]
+struct ListChild {
+    margin: feather_ui::URect,
+    area: feather_ui::URect,
+}
+
+impl feather_ui::layout::base::Limits for ListChild {}
+impl feather_ui::layout::base::RLimits for ListChild {}
+impl list::Child for ListChild {}
+impl leaf::Prop for ListChild {}
 
 struct BasicApp {}
 
@@ -58,34 +78,24 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
         if store.0 != *args {
             let button = {
-                let text = Text::<FixedData> {
+                let text = Text::<URect> {
                     id: gen_id!().into(),
-                    props: Rc::new(FixedData {
-                        area: feather_ui::URect {
-                            topleft: feather_ui::UPoint {
-                                abs: Vec2 { x: 8.0, y: 0.0 },
-                                rel: feather_ui::RelPoint(Vec2 { x: 0.0, y: 0.5 }),
-                            },
-                            bottomright: feather_ui::UPoint {
-                                abs: Vec2 { x: 8.0, y: 0.0 },
-                                rel: feather_ui::RelPoint(Vec2 {
-                                    x: UNSIZED_AXIS,
-                                    y: UNSIZED_AXIS,
-                                }),
-                            },
+                    props: feather_ui::URect {
+                        topleft: feather_ui::UPoint {
+                            abs: Vec2 { x: 10.0, y: 0.0 },
+                            rel: feather_ui::RelPoint(Vec2 { x: 0.0, y: 0.0 }),
                         },
-                        anchor: feather_ui::RelPoint(Vec2 { x: 0.0, y: 0.5 }).into(),
-                        zindex: 0,
-                    }),
-                    text: format!("Clicks: {}", args.count),
+                        bottomright: feather_ui::UPoint {
+                            abs: Vec2 { x: 0.0, y: 0.0 },
+                            rel: feather_ui::RelPoint(Vec2 { x: 1.0, y: 1.0 }),
+                        },
+                    }
+                    .into(),
+                    text: format!("Boxes: {}", args.count),
                     font_size: 30.0,
                     line_height: 42.0,
                     ..Default::default()
                 };
-
-                let mut children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> =
-                    im::Vector::new();
-                children.push_back(Some(Box::new(text)));
 
                 let rect = Shape::<URect>::round_rect(
                     gen_id!().into(),
@@ -96,6 +106,10 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     Vec4::new(0.2, 0.7, 0.4, 1.0),
                     Vec4::zero(),
                 );
+
+                let mut children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> =
+                    im::Vector::new();
+                children.push_back(Some(Box::new(text)));
                 children.push_back(Some(Box::new(rect)));
 
                 Button::<FixedData>::new(
@@ -103,23 +117,71 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     FixedData {
                         area: feather_ui::URect {
                             topleft: feather_ui::UPoint {
-                                abs: Vec2 { x: 45.0, y: 45.0 },
-                                rel: feather_ui::RelPoint(Vec2 { x: 0.0, y: 0.0 }),
+                                abs: Vec2 { x: 0.0, y: 10.0 },
+                                rel: feather_ui::RelPoint(Vec2 { x: 0.5, y: 0.0 }),
                             },
                             bottomright: feather_ui::UPoint {
-                                abs: Vec2 { x: 0.0, y: 0.0 },
-                                rel: feather_ui::RelPoint(Vec2 {
+                                abs: Vec2 {
                                     x: feather_ui::UNSIZED_AXIS,
-                                    y: 1.0,
-                                }),
+                                    y: 70.0,
+                                },
+                                rel: feather_ui::RelPoint(Vec2 { x: 0.5, y: 0.0 }),
                             },
                         },
-                        anchor: Default::default(),
+                        anchor: feather_ui::RelPoint(Vec2 { x: 0.5, y: 0.0 }).into(),
                         zindex: 0,
                     },
                     Slot(feather_ui::APP_SOURCE_ID.into(), 0),
                     children,
                 )
+            };
+
+            let rectlist = {
+                let mut children: im::Vector<Option<Box<OutlineFrom<dyn list::Prop>>>> =
+                    im::Vector::new();
+
+                for i in 0..args.count {
+                    children.push_back(Some(Box::new(Shape::<ListChild>::round_rect(
+                        gen_id!().into(),
+                        ListChild {
+                            margin: AbsRect::new(4.0, 4.0, 4.0, 4.0).into(),
+                            area: AbsRect::new(0.0, 0.0, 100.0, 100.0).into(),
+                        }
+                        .into(),
+                        0.0,
+                        0.0,
+                        Vec4::broadcast(20.0),
+                        Vec4::new(
+                            (0.1 * i as f32) % 1.0,
+                            (0.65 * i as f32) % 1.0,
+                            (0.2 * i as f32) % 1.0,
+                            1.0,
+                        ),
+                        Vec4::zero(),
+                    ))));
+                }
+
+                ListBox::<ListData> {
+                    id: gen_id!().into(),
+                    props: ListData {
+                        area: feather_ui::URect {
+                            topleft: feather_ui::UPoint {
+                                abs: Vec2 { x: 45.0, y: 45.0 },
+                                rel: feather_ui::RelPoint(Vec2 { x: 0.5, y: 0.0 }),
+                            },
+                            bottomright: feather_ui::UPoint {
+                                abs: Vec2 {
+                                    x: feather_ui::UNSIZED_AXIS,
+                                    y: 0.0,
+                                },
+                                rel: feather_ui::RelPoint(Vec2 { x: 0.5, y: 1.0 }),
+                            },
+                        },
+                        direction: feather_ui::RowDirection::LeftToRight,
+                    }
+                    .into(),
+                    children,
+                }
             };
 
             let mut children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> =
@@ -129,19 +191,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
             let region = Region {
                 id: gen_id!().into(),
                 props: FixedData {
-                    area: feather_ui::URect {
-                        topleft: feather_ui::UPoint {
-                            abs: Vec2 { x: 90.0, y: 90.0 },
-                            rel: feather_ui::RelPoint(Vec2 { x: 0.0, y: 0.0 }),
-                        },
-                        bottomright: feather_ui::UPoint {
-                            abs: Vec2 { x: 0.0, y: 200.0 },
-                            rel: feather_ui::RelPoint(Vec2 {
-                                x: feather_ui::UNSIZED_AXIS,
-                                y: 0.0,
-                            }),
-                        },
-                    },
+                    area: FILL_URECT,
                     zindex: 0,
                     ..Default::default()
                 }

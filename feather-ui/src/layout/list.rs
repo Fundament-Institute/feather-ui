@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::base;
-use super::base::Empty;
 use super::merge_limits;
 use super::Concrete;
 use super::Desc;
@@ -11,9 +10,9 @@ use super::Renderable;
 use super::Staged;
 use crate::rtree;
 use crate::AbsRect;
+use crate::RowDirection;
 use crate::SourceID;
 use crate::ZERO_POINT;
-use base::RowDirection;
 use std::rc::Rc;
 
 pub trait Prop: base::Area + base::Limits + base::Direction {}
@@ -42,7 +41,7 @@ impl Desc for dyn Prop {
         // TODO: make insertion efficient by creating a RRB tree of list layout subnodes, in a similar manner to the r-tree nodes.
 
         let mut myarea = outer_area;
-        myarea = super::nuetralize_infinity(myarea);
+        myarea = super::nuetralize_unsized(myarea);
         let limits = merge_limits(outer_limits, *props.limits());
         myarea = *props.area() * myarea;
 

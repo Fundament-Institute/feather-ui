@@ -129,8 +129,8 @@ gen_prop_bag_value_clone!(
     crate::layout::base::Direction,
     direction,
     set_direction,
-    crate::layout::base::RowDirection,
-    crate::layout::base::RowDirection::LeftToRight
+    crate::RowDirection,
+    crate::RowDirection::LeftToRight
 );
 gen_prop_bag_value_clone!(
     crate::layout::domain_write::Prop,
