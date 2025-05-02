@@ -22,6 +22,7 @@ use feather_ui::Slot;
 use feather_ui::SourceID;
 use feather_ui::URect;
 use feather_ui::FILL_URECT;
+use feather_ui::UNSIZED_AXIS;
 use std::rc::Rc;
 use ultraviolet::Vec2;
 use ultraviolet::Vec4;
@@ -42,6 +43,7 @@ impl feather_ui::layout::base::Limits for FixedData {}
 impl feather_ui::layout::base::RLimits for FixedData {}
 impl fixed::Prop for FixedData {}
 impl fixed::Child for FixedData {}
+impl leaf::Prop for FixedData {}
 
 #[derive(Default, Empty, Area, Direction)]
 struct ListData {
@@ -58,6 +60,7 @@ struct ListChild {
     area: feather_ui::URect,
 }
 
+impl feather_ui::layout::base::Anchor for ListChild {}
 impl feather_ui::layout::base::Limits for ListChild {}
 impl feather_ui::layout::base::RLimits for ListChild {}
 impl list::Child for ListChild {}
@@ -78,17 +81,24 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
         if store.0 != *args {
             let button = {
-                let text = Text::<URect> {
+                let text = Text::<FixedData> {
                     id: gen_id!().into(),
-                    props: feather_ui::URect {
-                        topleft: feather_ui::UPoint {
-                            abs: Vec2 { x: 10.0, y: 0.0 },
-                            rel: feather_ui::RelPoint(Vec2 { x: 0.0, y: 0.0 }),
+                    props: FixedData {
+                        area: feather_ui::URect {
+                            topleft: feather_ui::UPoint {
+                                abs: Vec2 { x: 10.0, y: 15.0 },
+                                rel: feather_ui::RelPoint(Vec2 { x: 0.0, y: 0.0 }),
+                            },
+                            bottomright: feather_ui::UPoint {
+                                abs: Vec2 { x: 10.0, y: 15.0 },
+                                rel: feather_ui::RelPoint(Vec2 {
+                                    x: UNSIZED_AXIS,
+                                    y: UNSIZED_AXIS,
+                                }),
+                            },
                         },
-                        bottomright: feather_ui::UPoint {
-                            abs: Vec2 { x: 0.0, y: 0.0 },
-                            rel: feather_ui::RelPoint(Vec2 { x: 1.0, y: 1.0 }),
-                        },
+                        anchor: feather_ui::RelPoint(Vec2 { x: 0.0, y: 0.0 }).into(),
+                        ..Default::default()
                     }
                     .into(),
                     text: format!("Boxes: {}", args.count),
@@ -117,15 +127,15 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     FixedData {
                         area: feather_ui::URect {
                             topleft: feather_ui::UPoint {
-                                abs: Vec2 { x: 0.0, y: 10.0 },
+                                abs: Vec2 { x: 0.0, y: 20.0 },
                                 rel: feather_ui::RelPoint(Vec2 { x: 0.5, y: 0.0 }),
                             },
                             bottomright: feather_ui::UPoint {
-                                abs: Vec2 {
-                                    x: feather_ui::UNSIZED_AXIS,
-                                    y: 70.0,
-                                },
-                                rel: feather_ui::RelPoint(Vec2 { x: 0.5, y: 0.0 }),
+                                abs: Vec2 { x: 0.0, y: 0.0 },
+                                rel: feather_ui::RelPoint(Vec2 {
+                                    x: UNSIZED_AXIS,
+                                    y: UNSIZED_AXIS,
+                                }),
                             },
                         },
                         anchor: feather_ui::RelPoint(Vec2 { x: 0.5, y: 0.0 }).into(),
@@ -135,7 +145,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     children,
                 )
             };
-
+            /*
             let rectlist = {
                 let mut children: im::Vector<Option<Box<OutlineFrom<dyn list::Prop>>>> =
                     im::Vector::new();
@@ -182,7 +192,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     .into(),
                     children,
                 }
-            };
+            };*/
 
             let mut children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> =
                 im::Vector::new();

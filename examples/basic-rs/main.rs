@@ -109,7 +109,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                             bottomright: feather_ui::UPoint {
                                 abs: Vec2 { x: 0.0, y: 0.0 },
                                 rel: feather_ui::RelPoint(Vec2 {
-                                    x: feather_ui::UNSIZED_AXIS,
+                                    x: UNSIZED_AXIS,
                                     y: 1.0,
                                 }),
                             },
