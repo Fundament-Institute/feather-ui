@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::base;
-use super::merge_limits;
 use super::Concrete;
 use super::Desc;
 use super::LayoutWrap;
@@ -32,7 +31,7 @@ impl Desc for dyn Prop {
     fn stage<'a>(
         props: &Self::Props,
         outer_area: AbsRect,
-        outer_limits: AbsRect,
+        outer_limits: crate::AbsLimits,
         children: &Self::Children,
         id: std::rc::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
@@ -42,7 +41,7 @@ impl Desc for dyn Prop {
 
         let mut myarea = outer_area;
         myarea = super::nuetralize_unsized(myarea);
-        let limits = merge_limits(outer_limits, *props.limits());
+        let limits = outer_limits + *props.limits();
         myarea = *props.area() * myarea;
 
         let mut areas: im::Vector<Option<AbsRect>> = im::Vector::new();
@@ -55,7 +54,7 @@ impl Desc for dyn Prop {
 
             for child in children.iter() {
                 let child = child.as_ref().unwrap();
-                let child_limit = super::eval_limits(*child.get_imposed().rlimits(), inner_dim);
+                let child_limit = *child.get_imposed().rlimits() * inner_dim;
 
                 let stage = child.stage(inner_area, child_limit, driver);
                 bottomright = bottomright.max_by_component(stage.get_area().bottomright);
@@ -109,8 +108,7 @@ impl Desc for dyn Prop {
                     bottomright: cur,
                 },
             };
-            let child_limit =
-                super::eval_limits(*child.get_imposed().rlimits(), crate::AbsDim(inner_dim));
+            let child_limit = *child.get_imposed().rlimits() * crate::AbsDim(inner_dim);
 
             let stage = child.stage(inner_area, child_limit, driver);
             if let Some(node) = stage.get_rtree().upgrade() {

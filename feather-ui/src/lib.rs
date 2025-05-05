@@ -34,8 +34,8 @@ use std::rc::Rc;
 use ultraviolet::vec::Vec2;
 use winit::window::WindowId;
 
-/// Allocates `&[T]` on stack space. (currently unused but might be needed depending on persistent data structures)
 /*
+/// Allocates `&[T]` on stack space. (currently unused but might be needed depending on persistent data structures)
 pub(crate) fn alloca_array<T, R>(n: usize, f: impl FnOnce(&mut [T]) -> R) -> R {
     use std::mem::{align_of, size_of};
 
@@ -80,6 +80,9 @@ pub enum Error {
     UnhandledEvent,
 }
 
+pub const UNSIZED_AXIS: f32 = f32::MAX;
+pub const ZERO_POINT: Vec2 = Vec2 { x: 0.0, y: 0.0 };
+
 #[derive(Copy, Clone, Debug, Default)]
 pub struct AbsDim(Vec2);
 
@@ -95,8 +98,6 @@ pub struct AbsRect {
     pub topleft: Vec2,
     pub bottomright: Vec2,
 }
-
-pub const ZERO_POINT: Vec2 = Vec2 { x: 0.0, y: 0.0 };
 
 pub const ZERO_RECT: AbsRect = AbsRect {
     topleft: ZERO_POINT,
@@ -316,8 +317,6 @@ pub const ZERO_URECT: URect = URect {
     bottomright: ZERO_UPOINT,
 };
 
-pub const UNSIZED_AXIS: f32 = f32::MAX;
-
 pub const FILL_URECT: URect = URect {
     topleft: UPoint {
         abs: Vec2 { x: 0.0, y: 0.0 },
@@ -341,23 +340,6 @@ pub const AUTO_URECT: URect = URect {
         },
         rel: RelPoint(Vec2 { x: 0.0, y: 0.0 }),
     },
-};
-
-// It would be cheaper to avoid using actual infinities here but we have to right now to make the math work
-pub const DEFAULT_LIMITS: AbsRect = AbsRect {
-    topleft: Vec2 {
-        x: f32::NEG_INFINITY,
-        y: f32::NEG_INFINITY,
-    },
-    bottomright: Vec2 {
-        x: f32::INFINITY,
-        y: f32::INFINITY,
-    },
-};
-
-pub const DEFAULT_RLIMITS: RelRect = RelRect {
-    topleft: RelPoint(DEFAULT_LIMITS.topleft),
-    bottomright: RelPoint(DEFAULT_LIMITS.bottomright),
 };
 
 impl Mul<AbsRect> for URect {
@@ -392,6 +374,111 @@ impl From<AbsRect> for URect {
             topleft: value.topleft.into(),
             bottomright: value.bottomright.into(),
         }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct AbsLimits(AbsRect);
+
+// It would be cheaper to avoid using actual infinities here but we currently need them to make the math work
+pub const DEFAULT_LIMITS: AbsLimits = AbsLimits(AbsRect {
+    topleft: Vec2 {
+        x: f32::NEG_INFINITY,
+        y: f32::NEG_INFINITY,
+    },
+    bottomright: Vec2 {
+        x: f32::INFINITY,
+        y: f32::INFINITY,
+    },
+});
+
+impl AbsLimits {
+    #[inline]
+    fn min(&self) -> Vec2 {
+        self.0.topleft
+    }
+    #[inline]
+    fn max(&self) -> Vec2 {
+        self.0.bottomright
+    }
+}
+
+impl Default for AbsLimits {
+    #[inline]
+    fn default() -> Self {
+        DEFAULT_LIMITS
+    }
+}
+
+impl Add<AbsLimits> for AbsLimits {
+    type Output = Self;
+
+    #[inline]
+    fn add(self, rhs: AbsLimits) -> Self::Output {
+        Self(AbsRect {
+            topleft: self.min().max_by_component(rhs.min()),
+            bottomright: self.max().min_by_component(rhs.max()),
+        })
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct RelLimits(RelRect);
+
+pub const DEFAULT_RLIMITS: RelLimits = RelLimits(RelRect {
+    topleft: RelPoint(DEFAULT_LIMITS.0.topleft),
+    bottomright: RelPoint(DEFAULT_LIMITS.0.bottomright),
+});
+
+impl Default for RelLimits {
+    fn default() -> Self {
+        DEFAULT_RLIMITS
+    }
+}
+
+impl RelLimits {
+    #[inline]
+    fn min(&self) -> &RelPoint {
+        &self.0.topleft
+    }
+    #[inline]
+    fn max(&self) -> &RelPoint {
+        &self.0.bottomright
+    }
+}
+
+impl Mul<AbsDim> for RelLimits {
+    type Output = AbsLimits;
+
+    #[inline]
+    fn mul(self, rhs: AbsDim) -> Self::Output {
+        let (unsized_x, unsized_y) = crate::layout::check_unsized_dim(rhs);
+        AbsLimits(AbsRect {
+            topleft: Vec2 {
+                x: if unsized_x {
+                    self.min().0.x
+                } else {
+                    self.min().0.x * rhs.0.x
+                },
+                y: if unsized_y {
+                    self.min().0.y
+                } else {
+                    self.min().0.y * rhs.0.y
+                },
+            },
+            bottomright: Vec2 {
+                x: if unsized_x {
+                    self.max().0.x
+                } else {
+                    self.max().0.x * rhs.0.x
+                },
+                y: if unsized_y {
+                    self.max().0.y
+                } else {
+                    self.max().0.y * rhs.0.y
+                },
+            },
+        })
     }
 }
 

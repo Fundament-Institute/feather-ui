@@ -30,7 +30,7 @@ impl Desc for dyn Prop {
     fn stage<'a>(
         props: &Self::Props,
         mut outer_area: AbsRect,
-        outer_limits: AbsRect,
+        outer_limits: crate::AbsLimits,
         _: &Self::Children,
         id: std::rc::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,

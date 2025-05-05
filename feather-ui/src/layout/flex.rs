@@ -11,6 +11,7 @@ use super::Staged;
 use crate::persist::FnPersist2;
 use crate::persist::VectorFold;
 use crate::rtree;
+use crate::AbsLimits;
 use crate::AbsRect;
 use crate::RowDirection;
 use crate::Vec2;
@@ -129,7 +130,7 @@ struct ChildCache {
     shrink: f32,
     aux: f32,
     margin: AbsRect,
-    limits: AbsRect,
+    limits: AbsLimits,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -251,7 +252,7 @@ impl Desc for dyn Prop {
     fn stage<'a>(
         props: &Self::Props,
         outer_area: AbsRect,
-        outer_limits: AbsRect,
+        outer_limits: AbsLimits,
         children: &Self::Children,
         id: std::rc::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
@@ -280,7 +281,7 @@ impl Desc for dyn Prop {
                 },
             };
 
-            let child_limit = super::eval_limits(*imposed.rlimits(), outer_dim);
+            let child_limit = *imposed.rlimits() * outer_dim;
             let stage = child
                 .as_ref()
                 .unwrap()
