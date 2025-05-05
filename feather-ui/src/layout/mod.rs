@@ -17,8 +17,10 @@ use crate::persist::FnPersist2;
 use crate::persist::VectorFold;
 use crate::rtree;
 use crate::AbsDim;
+use crate::AbsLimits;
 use crate::AbsRect;
 use crate::DriverState;
+use crate::RelLimits;
 use crate::RelRect;
 use crate::RenderInstruction;
 use crate::SourceID;
@@ -32,7 +34,7 @@ pub trait Layout<Props>: DynClone {
     fn inner_stage<'a>(
         &self,
         area: AbsRect,
-        limits: AbsRect,
+        limits: AbsLimits,
         driver: &DriverState,
     ) -> Box<dyn Staged + 'a>;
 }
@@ -44,7 +46,7 @@ pub trait LayoutWrap<Imposed: ?Sized>: DynClone {
     fn stage<'a>(
         &self,
         area: AbsRect,
-        limits: AbsRect,
+        limits: AbsLimits,
         driver: &DriverState,
     ) -> Box<dyn Staged + 'a>;
 }
@@ -62,7 +64,7 @@ where
     fn stage<'a>(
         &self,
         area: AbsRect,
-        limits: AbsRect,
+        limits: AbsLimits,
         driver: &DriverState,
     ) -> Box<dyn Staged + 'a> {
         self.inner_stage(area, limits, driver)
@@ -80,7 +82,7 @@ where
     fn stage<'a>(
         &self,
         area: AbsRect,
-        limits: AbsRect,
+        limits: AbsLimits,
         driver: &DriverState,
     ) -> Box<dyn Staged + 'a> {
         self.inner_stage(area, limits, driver)
@@ -102,7 +104,7 @@ pub trait Desc {
     fn stage<'a>(
         props: &Self::Props,
         outer_area: AbsRect,
-        limits: AbsRect,
+        limits: AbsLimits,
         children: &Self::Children,
         id: std::rc::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
@@ -128,7 +130,7 @@ where
     fn inner_stage<'a>(
         &self,
         area: AbsRect,
-        limits: AbsRect,
+        limits: AbsLimits,
         driver: &DriverState,
     ) -> Box<dyn Staged + 'a> {
         D::stage(
@@ -233,33 +235,27 @@ pub(crate) fn nuetralize_unsized(mut v: AbsRect) -> AbsRect {
 }
 
 #[inline]
-pub(crate) fn limit_area(mut v: AbsRect, limits: AbsRect) -> AbsRect {
-    v.bottomright = (v.bottomright - v.topleft)
-        .max_by_component(limits.topleft)
-        .min_by_component(limits.bottomright)
-        + v.topleft;
+pub(crate) fn limit_area(mut v: AbsRect, limits: AbsLimits) -> AbsRect {
+    // We do this by checking clamp(topleft + limit) instead of clamp(bottomright - topleft)
+    // because this avoids floating point precision issues.
+    v.bottomright = v
+        .bottomright
+        .max_by_component(v.topleft + limits.min())
+        .min_by_component(v.topleft + limits.max());
     v
 }
 
 #[inline]
-pub(crate) fn merge_limits(l: AbsRect, r: AbsRect) -> AbsRect {
-    AbsRect {
-        topleft: l.topleft.max_by_component(r.topleft),
-        bottomright: l.bottomright.min_by_component(r.bottomright),
-    }
-}
-
-#[inline]
-pub(crate) fn limit_dim(v: AbsDim, limits: AbsRect) -> AbsDim {
+pub(crate) fn limit_dim(v: AbsDim, limits: AbsLimits) -> AbsDim {
     let (unsized_x, unsized_y) = check_unsized_dim(v);
     AbsDim(Vec2 {
         x: if unsized_x {
-            v.0.x.max(limits.topleft.x).min(limits.bottomright.x)
+            v.0.x.max(limits.min().x).min(limits.max().x)
         } else {
             v.0.x
         },
         y: if unsized_y {
-            v.0.y.max(limits.topleft.y).min(limits.bottomright.y)
+            v.0.y.max(limits.min().y).min(limits.max().y)
         } else {
             v.0.y
         },
@@ -287,38 +283,7 @@ pub(crate) fn eval_dim(area: URect, dim: AbsDim) -> AbsDim {
     })
 }
 
-#[inline]
-pub(crate) fn eval_limits(limits: RelRect, dim: AbsDim) -> AbsRect {
-    let (unsized_x, unsized_y) = check_unsized_dim(dim);
-    AbsRect {
-        topleft: Vec2 {
-            x: if unsized_x {
-                limits.topleft.0.x
-            } else {
-                limits.topleft.0.x * dim.0.x
-            },
-            y: if unsized_y {
-                limits.topleft.0.y
-            } else {
-                limits.topleft.0.y * dim.0.y
-            },
-        },
-        bottomright: Vec2 {
-            x: if unsized_x {
-                limits.bottomright.0.x
-            } else {
-                limits.bottomright.0.x * dim.0.x
-            },
-            y: if unsized_y {
-                limits.bottomright.0.y
-            } else {
-                limits.bottomright.0.y * dim.0.y
-            },
-        },
-    }
-}
-
-// Returns true if an axis is unsized (usually represented by infinity), which means it is defined as the size of it's children's maximum extent.
+// Returns true if an axis is unsized, which means it is defined as the size of it's children's maximum extent.
 #[inline]
 pub(crate) fn check_unsized(area: URect) -> (bool, bool) {
     (
@@ -327,7 +292,7 @@ pub(crate) fn check_unsized(area: URect) -> (bool, bool) {
     )
 }
 
-// Returns true if an axis is unsized (usually represented by infinity), which means it is defined as the size of it's children's maximum extent.
+// Returns true if an axis is unsized, which means it is defined as the size of it's children's maximum extent.
 #[inline]
 pub(crate) fn check_unsized_abs(area: crate::AbsRect) -> (bool, bool) {
     (
@@ -336,7 +301,7 @@ pub(crate) fn check_unsized_abs(area: crate::AbsRect) -> (bool, bool) {
     )
 }
 
-// Returns true if an axis is unsized (usually represented by infinity), which means it is defined as the size of it's children's maximum extent.
+// Returns true if an axis is unsized, which means it is defined as the size of it's children's maximum extent.
 #[inline]
 pub(crate) fn check_unsized_dim(dim: crate::AbsDim) -> (bool, bool) {
     (dim.0.x == UNSIZED_AXIS, dim.0.y == UNSIZED_AXIS)

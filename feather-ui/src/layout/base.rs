@@ -37,7 +37,7 @@ impl crate::layout::Desc for dyn Empty {
     fn stage<'a>(
         _: &Self::Props,
         mut outer_area: AbsRect,
-        outer_limits: AbsRect,
+        outer_limits: crate::AbsLimits,
         _: &Self::Children,
         id: std::rc::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn crate::outline::Renderable>>,
@@ -110,14 +110,14 @@ pub trait Anchor {
 impl Anchor for URect {}
 
 pub trait Limits {
-    fn limits(&self) -> &AbsRect {
+    fn limits(&self) -> &crate::AbsLimits {
         &crate::DEFAULT_LIMITS
     }
 }
 
 // Relative to parent's area
 pub trait RLimits {
-    fn rlimits(&self) -> &crate::RelRect {
+    fn rlimits(&self) -> &crate::RelLimits {
         &crate::DEFAULT_RLIMITS
     }
 }

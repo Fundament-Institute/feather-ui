@@ -3,12 +3,9 @@
 
 use super::Renderable;
 use crate::layout::cap_unsized;
-use crate::layout::cap_unsized_dim;
 use crate::layout::check_unsized;
-use crate::layout::check_unsized_dim;
 use crate::layout::leaf;
 use crate::layout::limit_area;
-use crate::layout::merge_limits;
 use crate::layout::zero_unsized;
 use crate::layout::Layout;
 use crate::rtree;
@@ -122,20 +119,20 @@ impl<T: leaf::Prop> Layout<T> for TextLayout<T> {
     fn inner_stage<'a>(
         &self,
         outer_area: AbsRect,
-        outer_limits: AbsRect,
+        outer_limits: crate::AbsLimits,
         driver: &DriverState,
     ) -> Box<dyn crate::outline::Staged + 'a> {
         let text_system: &Rc<RefCell<crate::TextSystem>> =
             driver.text().expect("driver.text not initialized");
-        let mut limits = merge_limits(*self.props.limits(), outer_limits);
+        let mut limits = *self.props.limits() + outer_limits;
         let outer_dim = outer_area.dim();
         let myarea = self.props.area();
         let (unsized_x, unsized_y) = check_unsized(*myarea);
         if unsized_x {
-            limits.bottomright.x = limits.bottomright.x - myarea.bottomright.abs.x;
+            limits.0.bottomright.x = limits.0.bottomright.x - myarea.bottomright.abs.x;
         }
         if unsized_y {
-            limits.bottomright.y = limits.bottomright.y - myarea.bottomright.abs.y;
+            limits.0.bottomright.y = limits.0.bottomright.y - myarea.bottomright.abs.y;
         }
         let mut evaluated_area = limit_area(cap_unsized(*myarea * zero_unsized(outer_dim)), limits);
 

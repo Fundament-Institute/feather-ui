@@ -34,7 +34,7 @@ impl Desc for dyn Prop {
     fn stage<'a>(
         props: &Self::Props,
         outer_area: AbsRect,
-        outer_limits: AbsRect,
+        outer_limits: crate::AbsLimits,
         children: &Self::Children,
         id: std::rc::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
@@ -57,7 +57,7 @@ impl Desc for dyn Prop {
         // account for how the area calculations will interact with the limits later on.
 
         let outer_dim = outer_area.dim();
-        let limits = super::merge_limits(outer_limits, *props.limits());
+        let limits = outer_limits + *props.limits();
         let (unsized_x, unsized_y) = check_unsized(*myarea);
 
         // Check if any axis is unsized in a way that requires us to calculate baseline child sizes
@@ -71,8 +71,7 @@ impl Desc for dyn Prop {
 
             for child in children.iter() {
                 let child_props = child.as_ref().unwrap().get_imposed();
-                let child_limit =
-                    super::eval_limits(*child_props.rlimits(), zero_unsized(inner_dim));
+                let child_limit = *child_props.rlimits() * zero_unsized(inner_dim);
 
                 // If we merged our parent area limits with child_limit, then we would need to subtract myarea.bottomright.abs
                 // from the parent area limits when doing the merge. However, we don't currently do this.
@@ -120,7 +119,7 @@ impl Desc for dyn Prop {
 
         for child in children.iter() {
             let child_props = child.as_ref().unwrap().get_imposed();
-            let child_limit = super::eval_limits(*child_props.rlimits(), evaluated_dim);
+            let child_limit = *child_props.rlimits() * evaluated_dim;
 
             let stage = child
                 .as_ref()

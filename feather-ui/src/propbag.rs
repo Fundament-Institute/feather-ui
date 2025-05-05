@@ -167,8 +167,8 @@ impl PropBag {
 gen_prop_bag!(
   crate::layout::base::Area, area, set_area, crate::URect, panic!("No area set and no default available!"),
   crate::layout::base::Margin, margin, set_margin, crate::URect, &ZERO_URECT,
-  crate::layout::base::Limits, limits, set_limits, crate::AbsRect, &DEFAULT_LIMITS,
-  crate::layout::base::RLimits, rlimits, set_rlimits, crate::RelRect, &DEFAULT_RLIMITS,
+  crate::layout::base::Limits, limits, set_limits, crate::AbsLimits, &DEFAULT_LIMITS,
+  crate::layout::base::RLimits, rlimits, set_rlimits, crate::RelLimits, &DEFAULT_RLIMITS,
   crate::layout::base::Anchor, anchor, set_anchor, crate::UPoint, &ZERO_UPOINT,
   crate::layout::root::Prop, dim, set_dim, crate::AbsDim, panic!("No dim set and no default available!")
 );
