@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use core::f32;
 use feather_macro::*;
 use feather_ui::gen_id;
+use feather_ui::layout::base;
 use feather_ui::layout::fixed;
 use feather_ui::layout::leaf;
 use feather_ui::layout::list;
 use feather_ui::outline::button::Button;
-use feather_ui::outline::listbox::ListBox;
 use feather_ui::outline::mouse_area;
 use feather_ui::outline::region::Region;
 use feather_ui::outline::shape::Shape;
@@ -16,7 +15,6 @@ use feather_ui::outline::text::Text;
 use feather_ui::outline::window::Window;
 use feather_ui::outline::OutlineFrom;
 use feather_ui::persist::FnPersist;
-use feather_ui::AbsRect;
 use feather_ui::App;
 use feather_ui::Slot;
 use feather_ui::SourceID;
@@ -39,11 +37,13 @@ struct FixedData {
     zindex: i32,
 }
 
-impl feather_ui::layout::base::Limits for FixedData {}
-impl feather_ui::layout::base::RLimits for FixedData {}
+impl base::Padding for FixedData {}
+impl base::Limits for FixedData {}
+impl base::RLimits for FixedData {}
 impl fixed::Prop for FixedData {}
 impl fixed::Child for FixedData {}
 impl leaf::Prop for FixedData {}
+impl leaf::Padded for FixedData {}
 
 #[derive(Default, Empty, Area, Direction)]
 struct ListData {
@@ -51,7 +51,7 @@ struct ListData {
     direction: feather_ui::RowDirection,
 }
 
-impl feather_ui::layout::base::Limits for ListData {}
+impl base::Limits for ListData {}
 impl list::Prop for ListData {}
 
 #[derive(Default, Empty, Area, Margin)]
@@ -60,9 +60,10 @@ struct ListChild {
     area: feather_ui::URect,
 }
 
-impl feather_ui::layout::base::Anchor for ListChild {}
-impl feather_ui::layout::base::Limits for ListChild {}
-impl feather_ui::layout::base::RLimits for ListChild {}
+impl base::Padding for ListChild {}
+impl base::Anchor for ListChild {}
+impl base::Limits for ListChild {}
+impl base::RLimits for ListChild {}
 impl list::Child for ListChild {}
 impl leaf::Prop for ListChild {}
 

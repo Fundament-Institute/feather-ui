@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::{AbsRect, UPoint, URect, ZERO_UPOINT, ZERO_URECT};
+use crate::{AbsRect, UPoint, URect, ZERO_RECT, ZERO_UPOINT, ZERO_URECT};
 use std::rc::Rc;
 
 #[macro_export]
@@ -73,12 +73,14 @@ pub trait ZIndex {
     }
 }
 
-// This is used for situations where you need an unsized, centered, padded element. It has no
-// relative components because that would be a sized situation, not an unsized one.
-// Currently not needed, as careful use of unsized rects avoid needing it
-//pub trait Padding {
-//    fn padding(&self) -> &AbsRect;
-//}
+// Padding is used so an element's actual area can be larger than the area it draws children inside (like text).
+pub trait Padding {
+    fn padding(&self) -> &AbsRect {
+        &ZERO_RECT
+    }
+}
+
+impl Padding for URect {}
 
 // Relative to parent's area, but only ever used to determine spacing between child elements.
 pub trait Margin {

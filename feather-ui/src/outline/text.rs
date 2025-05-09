@@ -18,7 +18,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 #[derive_where(Clone)]
-pub struct Text<T: leaf::Prop + 'static> {
+pub struct Text<T: leaf::Padded + 'static> {
     pub id: Rc<SourceID>,
     pub props: Rc<T>,
     pub font_size: f32,
@@ -31,7 +31,7 @@ pub struct Text<T: leaf::Prop + 'static> {
     pub wrap: glyphon::Wrap,
 }
 
-impl<T: Default + leaf::Prop + 'static> Default for Text<T> {
+impl<T: Default + leaf::Padded + 'static> Default for Text<T> {
     fn default() -> Self {
         Self {
             id: Default::default(),
@@ -48,9 +48,9 @@ impl<T: Default + leaf::Prop + 'static> Default for Text<T> {
     }
 }
 
-impl<T: leaf::Prop + 'static> super::Outline<T> for Text<T>
+impl<T: leaf::Padded + 'static> super::Outline<T> for Text<T>
 where
-    for<'a> &'a T: Into<&'a (dyn leaf::Prop + 'static)>,
+    for<'a> &'a T: Into<&'a (dyn leaf::Padded + 'static)>,
 {
     fn id(&self) -> std::rc::Rc<SourceID> {
         self.id.clone()
@@ -98,21 +98,22 @@ where
                 this: this.clone(),
                 text_buffer: text_buffer.into(),
                 renderer: renderer.into(),
+                padding: (*self.props.padding()).into(),
             }),
         })
     }
 }
 
-crate::gen_outline_wrap!(Text, leaf::Prop);
+crate::gen_outline_wrap!(Text, leaf::Padded);
 
 #[derive_where(Clone)]
-pub struct TextLayout<T: leaf::Prop> {
+pub struct TextLayout<T: leaf::Padded> {
     pub id: std::rc::Weak<SourceID>,
     pub props: Rc<T>,
     pub text_render: Rc<TextPipeline>,
 }
 
-impl<T: leaf::Prop> Layout<T> for TextLayout<T> {
+impl<T: leaf::Padded> Layout<T> for TextLayout<T> {
     fn get_props(&self) -> &T {
         &self.props
     }
@@ -125,23 +126,36 @@ impl<T: leaf::Prop> Layout<T> for TextLayout<T> {
         let text_system: &Rc<RefCell<crate::TextSystem>> =
             driver.text().expect("driver.text not initialized");
         let mut limits = *self.props.limits() + outer_limits;
-        let outer_dim = outer_area.dim();
         let myarea = self.props.area();
         let (unsized_x, unsized_y) = check_unsized(*myarea);
+        let padding = self.props.padding();
+        let allpadding = myarea.bottomright.abs + padding.topleft + padding.bottomright;
         if unsized_x {
-            limits.0.bottomright.x = limits.0.bottomright.x - myarea.bottomright.abs.x;
+            limits.0.bottomright.x -= allpadding.x;
+            limits.0.topleft.x -= allpadding.x;
         }
         if unsized_y {
-            limits.0.bottomright.y = limits.0.bottomright.y - myarea.bottomright.abs.y;
+            limits.0.bottomright.y -= allpadding.y;
+            limits.0.topleft.y -= allpadding.y;
         }
-        let mut evaluated_area = limit_area(cap_unsized(*myarea * zero_unsized(outer_dim)), limits);
+        let mut evaluated_area = limit_area(
+            cap_unsized(*myarea * zero_unsized(outer_area.dim())),
+            limits,
+        );
+
+        let (limitx, limity) = {
+            let max = limits.max();
+            (
+                max.x.is_finite().then_some(max.x),
+                max.y.is_finite().then_some(max.y),
+            )
+        };
 
         let dim = evaluated_area.dim();
-
         self.text_render.text_buffer.borrow_mut().set_size(
             &mut text_system.borrow_mut().font_system,
-            if unsized_x { None } else { Some(dim.0.x) },
-            if unsized_y { None } else { Some(dim.0.y) },
+            if unsized_x { limitx } else { Some(dim.0.x) },
+            if unsized_y { limity } else { Some(dim.0.y) },
         );
 
         self.text_render
@@ -157,18 +171,28 @@ impl<T: leaf::Prop> Layout<T> for TextLayout<T> {
                 w = w.max(run.line_w);
                 h += run.line_height;
             }
+
+            // Apply adjusted limits to inner size calculation
+            w = w.max(limits.min().x).min(limits.max().x);
+            h = h.max(limits.min().y).min(limits.max().y);
             if unsized_x {
-                evaluated_area.bottomright.x =
-                    evaluated_area.topleft.x + w + myarea.bottomright.abs.x;
+                evaluated_area.bottomright.x = evaluated_area.topleft.x + w + allpadding.x;
             }
             if unsized_y {
-                evaluated_area.bottomright.y =
-                    evaluated_area.topleft.y + h + myarea.bottomright.abs.y;
+                evaluated_area.bottomright.y = evaluated_area.topleft.y + h + allpadding.y;
             }
-        }
+        };
 
-        let anchor = *self.props.anchor() * evaluated_area.dim();
-        let evaluated_area = evaluated_area - anchor;
+        // We always return the full area so we can correctly capture input, but we need
+        // to pass our padding to our renderer so it can pad the text while setting the
+        // clip rect to the full area
+        self.text_render.padding.set(*self.props.padding());
+
+        evaluated_area = crate::layout::apply_anchor(
+            evaluated_area,
+            outer_area,
+            *self.props.anchor() * evaluated_area.dim(),
+        );
 
         Box::new(crate::layout::Concrete {
             area: evaluated_area,
@@ -188,6 +212,7 @@ pub struct TextPipeline {
     pub this: std::rc::Weak<TextPipeline>,
     pub renderer: RefCell<glyphon::TextRenderer>,
     pub text_buffer: RefCell<glyphon::Buffer>,
+    pub padding: std::cell::Cell<AbsRect>,
 }
 
 impl Renderable for TextPipeline {
@@ -198,6 +223,7 @@ impl Renderable for TextPipeline {
     ) -> im::Vector<crate::RenderInstruction> {
         let text_system = driver.text().expect("driver.text not initialized");
         let mut borrow = text_system.borrow_mut();
+        let padding = self.padding.get();
 
         let (viewport, atlas, font_system, swash_cache) = borrow.split_borrow();
         self.renderer
@@ -210,8 +236,8 @@ impl Renderable for TextPipeline {
                 viewport,
                 [glyphon::TextArea {
                     buffer: &self.text_buffer.borrow(),
-                    left: area.topleft.x,
-                    top: area.topleft.y,
+                    left: area.topleft.x + padding.topleft.x,
+                    top: area.topleft.y + padding.topleft.y,
                     scale: 1.0,
                     bounds: glyphon::TextBounds {
                         left: area.topleft.x as i32,

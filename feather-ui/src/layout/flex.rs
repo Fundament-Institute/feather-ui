@@ -260,7 +260,7 @@ impl Desc for dyn Prop {
     ) -> Box<dyn Staged + 'a> {
         let mut childareas: im::Vector<Option<ChildCache>> = im::Vector::new();
 
-        // If we are currently also being evaluated with infinite area, we have to set a few things to zero.
+        // If we are currently also being evaluated with unsized area, we have to set a few things to zero.
         let outer_dim = zero_unsized(outer_area.dim());
 
         let xaxis = match props.direction() {
@@ -344,7 +344,7 @@ impl Desc for dyn Prop {
             }
             // If we are evaluating our staged area along the main axis, no further calculations can be done
             return Box::new(Concrete {
-                area: area,
+                area,
                 render: None,
                 rtree: Rc::new(rtree::Node::new(area, Some(props.zindex()), nodes, id)),
                 children: staging,

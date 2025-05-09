@@ -13,6 +13,7 @@ use feather_ui::outline::text::Text;
 use feather_ui::outline::window::Window;
 use feather_ui::outline::OutlineFrom;
 use feather_ui::persist::FnPersist;
+use feather_ui::AbsRect;
 use feather_ui::App;
 use feather_ui::Slot;
 use feather_ui::SourceID;
@@ -28,18 +29,20 @@ struct CounterState {
     count: i32,
 }
 
-#[derive(Default, Empty, Area, Anchor, ZIndex, Limits)]
+#[derive(Default, Empty, Area, Anchor, ZIndex, Limits, RLimits, Padding)]
 struct FixedData {
     area: URect,
     anchor: UPoint,
     limits: feather_ui::AbsLimits,
+    rlimits: feather_ui::RelLimits,
+    padding: AbsRect,
     zindex: i32,
 }
 
-impl feather_ui::layout::base::RLimits for FixedData {}
 impl fixed::Prop for FixedData {}
 impl fixed::Child for FixedData {}
 impl leaf::Prop for FixedData {}
+impl leaf::Padded for FixedData {}
 
 struct BasicApp {}
 
@@ -72,9 +75,8 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                                 }),
                             },
                         },
-                        limits: feather_ui::DEFAULT_LIMITS,
                         anchor: feather_ui::RelPoint(Vec2 { x: 0.0, y: 0.5 }).into(),
-                        zindex: 0,
+                        ..Default::default()
                     }),
                     text: format!("Clicks: {}", args.count),
                     font_size: 30.0,
@@ -113,9 +115,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                                 }),
                             },
                         },
-                        limits: feather_ui::DEFAULT_LIMITS,
-                        anchor: Default::default(),
-                        zindex: 0,
+                        ..Default::default()
                     },
                     Slot(feather_ui::APP_SOURCE_ID.into(), 0),
                     children,
@@ -128,24 +128,33 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     props: Rc::new(FixedData {
                         area: URect {
                             topleft: UPoint {
-                                abs: Vec2 { x: 8.0, y: 0.0 },
-                                rel: feather_ui::RelPoint(Vec2 { x: 0.0, y: 0.0 }),
+                                abs: Vec2 { x: 0.0, y: 0.0 },
+                                rel: feather_ui::RelPoint(Vec2 { x: 0.5, y: 0.0 }),
                             },
                             bottomright: UPoint {
-                                abs: Vec2 { x: 8.0, y: 0.0 },
+                                abs: Vec2 { x: 0.0, y: 0.0 },
                                 rel: feather_ui::RelPoint(Vec2 {
                                     x: UNSIZED_AXIS,
                                     y: UNSIZED_AXIS,
                                 }),
                             },
                         },
-                        limits: feather_ui::DEFAULT_LIMITS,
-                        anchor: feather_ui::RelPoint(Vec2 { x: 0.0, y: 0.0 }).into(),
-                        zindex: 0,
+                        limits: feather_ui::AbsLimits::new(
+                            Vec2::new(f32::NEG_INFINITY, 10.0),
+                            Vec2::new(f32::INFINITY, 200.0),
+                        ),
+                        rlimits: feather_ui::RelLimits::new(
+                            Vec2::new(f32::NEG_INFINITY, f32::NEG_INFINITY),
+                            Vec2::new(1.0, f32::INFINITY),
+                        ),
+                        anchor: feather_ui::RelPoint(Vec2 { x: 0.5, y: 0.0 }).into(),
+                        padding: AbsRect::new(8.0, 8.0, 8.0, 8.0),
+                        ..Default::default()
                     }),
-                    text: (0..args.count).map(|_| "|").collect::<String>(),
+                    text: (0..args.count).map(|_| "█").collect::<String>(),
                     font_size: 30.0,
-                    line_height: 42.0,
+                    line_height: 32.0,
+                    wrap: feather_ui::Wrap::WordOrGlyph,
                     ..Default::default()
                 };
 
@@ -180,9 +189,11 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                                 }),
                             },
                         },
-                        limits: feather_ui::DEFAULT_LIMITS,
-                        anchor: Default::default(),
-                        zindex: 0,
+                        limits: feather_ui::AbsLimits::new(
+                            Vec2::new(100.0, f32::NEG_INFINITY),
+                            Vec2::new(300.0, f32::INFINITY),
+                        ),
+                        ..Default::default()
                     },
                     Slot(feather_ui::APP_SOURCE_ID.into(), 0),
                     children,
@@ -192,7 +203,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
             let mut children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> =
                 im::Vector::new();
             children.push_back(Some(Box::new(button)));
-            //children.push_back(Some(Box::new(unusedbutton)));
+            children.push_back(Some(Box::new(unusedbutton)));
 
             let region = Region {
                 id: gen_id!().into(),

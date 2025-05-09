@@ -166,6 +166,7 @@ impl PropBag {
 #[rustfmt::skip]
 gen_prop_bag!(
   crate::layout::base::Area, area, set_area, crate::URect, panic!("No area set and no default available!"),
+  crate::layout::base::Padding, padding, set_padding, crate::AbsRect, &crate::ZERO_RECT,
   crate::layout::base::Margin, margin, set_margin, crate::URect, &ZERO_URECT,
   crate::layout::base::Limits, limits, set_limits, crate::AbsLimits, &DEFAULT_LIMITS,
   crate::layout::base::RLimits, rlimits, set_rlimits, crate::RelLimits, &DEFAULT_RLIMITS,
@@ -179,6 +180,7 @@ impl crate::layout::fixed::Prop for PropBag {}
 impl crate::layout::fixed::Child for PropBag {}
 impl crate::layout::list::Child for PropBag {}
 impl crate::layout::list::Prop for PropBag {}
+impl crate::layout::leaf::Padded for PropBag {}
 
 impl crate::layout::flex::Prop for PropBag {
     fn wrap(&self) -> bool {

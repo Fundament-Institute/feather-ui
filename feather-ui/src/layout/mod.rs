@@ -21,7 +21,6 @@ use crate::AbsLimits;
 use crate::AbsRect;
 use crate::DriverState;
 use crate::RelLimits;
-use crate::RelRect;
 use crate::RenderInstruction;
 use crate::SourceID;
 use crate::URect;
@@ -224,7 +223,7 @@ pub(crate) fn zero_unsized_area(mut area: URect) -> URect {
 
 #[inline]
 pub(crate) fn nuetralize_unsized(mut v: AbsRect) -> AbsRect {
-    let (unsized_x, unsized_y) = check_unsized_abs(v);
+    let (unsized_x, unsized_y) = check_unsized_abs(v.bottomright);
     if unsized_x {
         v.bottomright.x = v.topleft.x
     }
@@ -250,14 +249,14 @@ pub(crate) fn limit_dim(v: AbsDim, limits: AbsLimits) -> AbsDim {
     let (unsized_x, unsized_y) = check_unsized_dim(v);
     AbsDim(Vec2 {
         x: if unsized_x {
-            v.0.x.max(limits.min().x).min(limits.max().x)
-        } else {
             v.0.x
+        } else {
+            v.0.x.max(limits.min().x).min(limits.max().x)
         },
         y: if unsized_y {
-            v.0.y.max(limits.min().y).min(limits.max().y)
-        } else {
             v.0.y
+        } else {
+            v.0.y.max(limits.min().y).min(limits.max().y)
         },
     })
 }
@@ -283,6 +282,37 @@ pub(crate) fn eval_dim(area: URect, dim: AbsDim) -> AbsDim {
     })
 }
 
+#[inline]
+pub(crate) fn apply_limit(dim: AbsDim, limits: AbsLimits, rlimits: RelLimits) -> AbsLimits {
+    let (unsized_x, unsized_y) = check_unsized_dim(dim);
+    AbsLimits(AbsRect {
+        topleft: Vec2 {
+            x: if unsized_x {
+                limits.min().x
+            } else {
+                rlimits.min().0.x * dim.0.x
+            },
+            y: if unsized_y {
+                limits.min().y
+            } else {
+                rlimits.min().0.y * dim.0.y
+            },
+        },
+        bottomright: Vec2 {
+            x: if unsized_x {
+                limits.max().x
+            } else {
+                rlimits.max().0.x * dim.0.x
+            },
+            y: if unsized_y {
+                limits.max().y
+            } else {
+                rlimits.max().0.y * dim.0.y
+            },
+        },
+    })
+}
+
 // Returns true if an axis is unsized, which means it is defined as the size of it's children's maximum extent.
 #[inline]
 pub(crate) fn check_unsized(area: URect) -> (bool, bool) {
@@ -294,11 +324,8 @@ pub(crate) fn check_unsized(area: URect) -> (bool, bool) {
 
 // Returns true if an axis is unsized, which means it is defined as the size of it's children's maximum extent.
 #[inline]
-pub(crate) fn check_unsized_abs(area: crate::AbsRect) -> (bool, bool) {
-    (
-        area.bottomright.x == UNSIZED_AXIS,
-        area.bottomright.y == UNSIZED_AXIS,
-    )
+pub(crate) fn check_unsized_abs(bottomright: Vec2) -> (bool, bool) {
+    (bottomright.x == UNSIZED_AXIS, bottomright.y == UNSIZED_AXIS)
 }
 
 // Returns true if an axis is unsized, which means it is defined as the size of it's children's maximum extent.
@@ -325,12 +352,13 @@ pub(crate) fn cap_unsized(mut area: crate::AbsRect) -> crate::AbsRect {
 }
 
 #[inline]
-pub(crate) fn cap_unsized_dim(mut dim: Vec2) -> Vec2 {
-    if !dim.x.is_finite() {
-        dim.x = crate::UNSIZED_AXIS;
+pub(crate) fn apply_anchor(area: AbsRect, outer_area: AbsRect, mut anchor: Vec2) -> AbsRect {
+    let (unsized_outer_x, unsized_outer_y) = check_unsized_abs(outer_area.bottomright);
+    if unsized_outer_x {
+        anchor.x = 0.0;
     }
-    if !dim.y.is_finite() {
-        dim.y = crate::UNSIZED_AXIS;
+    if unsized_outer_y {
+        anchor.y = 0.0;
     }
-    dim
+    area - anchor
 }

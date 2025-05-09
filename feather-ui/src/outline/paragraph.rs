@@ -54,7 +54,9 @@ impl base::Order for MinimalFlexChild {}
 impl base::Margin for MinimalFlexChild {}
 impl base::RLimits for MinimalFlexChild {}
 impl base::Limits for MinimalFlexChild {}
+impl base::Padding for MinimalFlexChild {}
 impl leaf::Prop for MinimalFlexChild {}
+impl leaf::Padded for MinimalFlexChild {}
 
 impl<T: flex::Prop + 'static> Paragraph<T> {
     pub fn new(id: Rc<SourceID>, props: T) -> Self {

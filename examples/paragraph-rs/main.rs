@@ -50,10 +50,12 @@ impl flex::Child for MinimalFlexChild {
 
 impl base::Order for MinimalFlexChild {}
 impl base::Anchor for MinimalFlexChild {}
+impl base::Padding for MinimalFlexChild {}
 impl base::Margin for MinimalFlexChild {}
 impl base::Limits for MinimalFlexChild {}
 impl base::RLimits for MinimalFlexChild {}
 impl leaf::Prop for MinimalFlexChild {}
+impl leaf::Padded for MinimalFlexChild {}
 
 #[derive(Default, Clone, feather_macro::Area)]
 struct MinimalArea {

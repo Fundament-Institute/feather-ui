@@ -14,7 +14,7 @@ use ultraviolet::Vec4;
 use wgpu::util::DeviceExt;
 
 #[derive_where(Clone)]
-pub struct Shape<'a, T: leaf::Prop + 'static> {
+pub struct Shape<'a, T: leaf::Padded + 'static> {
     pub id: std::rc::Rc<SourceID>,
     pub props: Rc<T>,
     pub uniforms: [Vec4; 4],
@@ -22,7 +22,7 @@ pub struct Shape<'a, T: leaf::Prop + 'static> {
     pub label: &'static str,
 }
 
-impl<T: leaf::Prop + 'static> Shape<'_, T> {
+impl<T: leaf::Padded + 'static> Shape<'_, T> {
     pub fn round_rect(
         id: std::rc::Rc<SourceID>,
         props: Rc<T>,
@@ -83,9 +83,9 @@ impl<T: leaf::Prop + 'static> Shape<'_, T> {
     }
 }
 
-impl<T: leaf::Prop + 'static> super::Outline<T> for Shape<'_, T>
+impl<T: leaf::Padded + 'static> super::Outline<T> for Shape<'_, T>
 where
-    for<'a> &'a T: Into<&'a (dyn leaf::Prop + 'static)>,
+    for<'a> &'a T: Into<&'a (dyn leaf::Padded + 'static)>,
 {
     fn id(&self) -> std::rc::Rc<SourceID> {
         self.id.clone()
@@ -163,10 +163,11 @@ where
                 pipeline,
                 group: bind_group,
                 vertices: crate::shaders::default_vertex_buffer(driver),
+                padding: *self.props.padding(),
                 buffers,
             })),
         })
     }
 }
 
-crate::gen_outline_wrap!('a, Shape, leaf::Prop);
+crate::gen_outline_wrap!('a, Shape, leaf::Padded);
