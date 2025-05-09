@@ -22,6 +22,15 @@ crate::gen_from_to_dyn!(Prop);
 
 impl Prop for URect {}
 
+// Actual leafs do not require padding, but a lot of raw elements do (text, shape, images, etc.)
+// This inherits Prop to allow elements to "extract" the padding for the rendering system for
+// when it doesn't affect layouts.
+pub trait Padded: Prop + base::Padding {}
+
+crate::gen_from_to_dyn!(Padded);
+
+impl Padded for URect {}
+
 impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn Empty;
@@ -37,8 +46,9 @@ impl Desc for dyn Prop {
         _: &crate::DriverState,
     ) -> Box<dyn Staged + 'a> {
         outer_area = super::nuetralize_unsized(outer_area);
+        let limits = outer_limits + *props.limits();
         let evaluated_area =
-            super::limit_area(zero_unsized_area(*props.area()) * outer_area, outer_limits);
+            super::limit_area(zero_unsized_area(*props.area()) * outer_area, limits);
 
         let anchor = *props.anchor() * evaluated_area.dim();
         let evaluated_area = evaluated_area - anchor;

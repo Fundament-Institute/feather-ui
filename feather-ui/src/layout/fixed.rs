@@ -3,7 +3,6 @@
 
 use super::base;
 use super::check_unsized;
-use super::check_unsized_dim;
 use super::zero_unsized;
 use super::Concrete;
 use super::Desc;
@@ -11,7 +10,6 @@ use super::LayoutWrap;
 use super::Renderable;
 use super::Staged;
 use crate::rtree;
-use crate::AbsDim;
 use crate::AbsRect;
 use crate::ZERO_POINT;
 use std::rc::Rc;
@@ -44,9 +42,9 @@ impl Desc for dyn Prop {
 
         // If we have an unsized outer_area, any sized object with relative dimensions must evaluate to 0 (or to the minimum limited size). An
         // unsized object can never have relative dimensions, as that creates a logic loop - instead it can only have a single relative anchor.
-        // If both axes are sized, then all limits are applied as if outer_area was infinite, and children calculations are skipped.
+        // If both axes are sized, then all limits are applied as if outer_area was unsized, and children calculations are skipped.
         //
-        // If we have an unsized outer_area and an unsized myarea.rel, then limits are applied as if outer_area was infinite, and furthermore,
+        // If we have an unsized outer_area and an unsized myarea.rel, then limits are applied as if outer_area was unsized, and furthermore,
         // they are reduced by myarea.abs.bottomright, because that will be added on to the total area later, which will still be subject to size
         // limits, so we must anticipate this when calculating how much size the children will have available to them. This forces limits to be
         // true infinite numbers, so we can subtract finite amounts and still have infinity. We can't use infinity anywhere else, because infinity
@@ -71,18 +69,8 @@ impl Desc for dyn Prop {
 
             for child in children.iter() {
                 let child_props = child.as_ref().unwrap().get_imposed();
-                let child_limit = *child_props.rlimits() * zero_unsized(inner_dim);
+                let child_limit = super::apply_limit(inner_dim, limits, *child_props.rlimits());
 
-                // If we merged our parent area limits with child_limit, then we would need to subtract myarea.bottomright.abs
-                // from the parent area limits when doing the merge. However, we don't currently do this.
-                /* let mut adjusted_limits = limits;
-                if unsized_x {
-                    adjusted_limits.bottomright.x -= myarea.bottomright.abs.x
-                }
-                if unsized_y {
-                    adjusted_limits.bottomright.y -= myarea.bottomright.abs.y
-                }
-                adjusted_limits = super::merge_limits(adjusted_limits, child_limit); */
                 let stage = child
                     .as_ref()
                     .unwrap()
@@ -105,7 +93,7 @@ impl Desc for dyn Prop {
 
             super::limit_area(area * zero_unsized(outer_dim), limits)
         } else {
-            // No need to zero infinities because in this path, either outer_dim is finite or myarea has no relative component.
+            // No need to zero infinities because in this path, either outer_dim is sized or myarea has no relative component.
             super::limit_area(*myarea * outer_dim, limits)
         };
 
@@ -132,12 +120,21 @@ impl Desc for dyn Prop {
         }
 
         // TODO: It isn't clear if the simple layout should attempt to handle children changing their estimated
-        // sizes after the initial estimate. If we were to handle this, we would need to recalculate the infinite
+        // sizes after the initial estimate. If we were to handle this, we would need to recalculate the unsized
         // axis with the new child results here, and repeat until it stops changing (we find the fixed point).
         // Because the performance implications are unclear, this might need to be relagated to a special layout.
 
-        // Calculate the anchor using the final evaluated dimensions, after all infinite axis and limits are calculated
-        let anchor = *props.anchor() * evaluated_dim;
+        // Calculate the anchor using the final evaluated dimensions, after all unsized axis and limits are
+        // calculated. However, we can only apply the anchor if the parent isn't unsized on that axis.
+        let mut anchor = *props.anchor() * evaluated_dim;
+        let (unsized_outer_x, unsized_outer_y) =
+            crate::layout::check_unsized_abs(outer_area.bottomright);
+        if unsized_outer_x {
+            anchor.x = 0.0;
+        }
+        if unsized_outer_y {
+            anchor.y = 0.0;
+        }
         let evaluated_area = evaluated_area - anchor;
 
         Box::new(Concrete {

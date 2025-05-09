@@ -44,6 +44,16 @@ pub fn derive_area(input: TokenStream) -> TokenStream {
     )
 }
 
+#[proc_macro_derive(Padding)]
+pub fn derive_padding(input: TokenStream) -> TokenStream {
+    derive_base_prop(
+        input,
+        "padding",
+        "feather_ui::layout::base::Padding",
+        "feather_ui::AbsRect",
+    )
+}
+
 #[proc_macro_derive(Margin)]
 pub fn derive_margin(input: TokenStream) -> TokenStream {
     derive_base_prop(

@@ -17,6 +17,7 @@ use core::cell::Cell;
 use core::f32;
 use dyn_clone::DynClone;
 use eyre::OptionExt;
+pub use glyphon::Wrap;
 use once_cell::unsync::OnceCell;
 use outline::window::WindowStateMachine;
 use outline::Outline;
@@ -393,12 +394,18 @@ pub const DEFAULT_LIMITS: AbsLimits = AbsLimits(AbsRect {
 });
 
 impl AbsLimits {
+    pub fn new(min: Vec2, max: Vec2) -> Self {
+        Self(AbsRect {
+            topleft: min,
+            bottomright: max,
+        })
+    }
     #[inline]
-    fn min(&self) -> Vec2 {
+    pub fn min(&self) -> Vec2 {
         self.0.topleft
     }
     #[inline]
-    fn max(&self) -> Vec2 {
+    pub fn max(&self) -> Vec2 {
         self.0.bottomright
     }
 }
@@ -437,6 +444,13 @@ impl Default for RelLimits {
 }
 
 impl RelLimits {
+    #[inline]
+    pub fn new(min: Vec2, max: Vec2) -> Self {
+        Self(RelRect {
+            topleft: RelPoint(min),
+            bottomright: RelPoint(max),
+        })
+    }
     #[inline]
     fn min(&self) -> &RelPoint {
         &self.0.topleft
