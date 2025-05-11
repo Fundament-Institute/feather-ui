@@ -3,7 +3,6 @@
 
 use super::base;
 use super::cap_unsized;
-use super::check_unsized;
 use super::check_unsized_abs;
 use super::limit_area;
 use super::limit_dim;
@@ -21,7 +20,6 @@ use crate::AbsRect;
 use crate::RowDirection;
 use crate::Vec2;
 use crate::UNSIZED_AXIS;
-use core::f32;
 use derive_more::TryFrom;
 use smallvec::SmallVec;
 use std::rc::Rc;
@@ -160,6 +158,8 @@ fn wrap_line(
     used_aux = 0.0;
     let mut max_aux = 0.0;
     let mut main = 0.0;
+    let mut prev_margin = f32::NAN;
+    let mut prev_aux_margin = f32::NAN;
     let mut min_obstacle = 0;
     let reversed = if backwards { total_main } else { -1.0 };
     let mut obstacle = next_obstacle(
@@ -179,10 +179,12 @@ fn wrap_line(
             continue;
         };
 
-        // If we hit an obstacle, mark it as an obstacle breakpoint, then jump forward.
+        // If we hit an obstacle, mark it as an obstacle breakpoint, then jump forward. We ignore margins here, because
+        // obstacles are not items, they are edges.
         if main + b.basis > obstacle.0 {
             breaks.push((i, obstacle.1, obstacle.0));
             main = obstacle.1; // Set the axis to the end of the obstacle
+            prev_margin = f32::NAN; // Reset the margin, because this counts as an edge instead of an item
 
             obstacle = next_obstacle(
                 props.obstacles(),
@@ -222,6 +224,7 @@ fn wrap_line(
             used_aux += max_aux;
             aux += max_aux + inner;
             max_aux = 0.0;
+            //prev_aux_margin = 0.0;
             linecount += 1;
             obstacle = next_obstacle(
                 props.obstacles(),
@@ -239,6 +242,11 @@ fn wrap_line(
         }
 
         main += b.basis;
+        if !prev_margin.is_nan() {
+            main += prev_margin.max(b.margin.topleft.x);
+        }
+        prev_margin = b.margin.bottomright.x;
+
         if max_aux < b.aux {
             max_aux = b.aux;
         }
@@ -324,21 +332,30 @@ impl Desc for dyn Prop {
         let mut nodes: im::Vector<Option<Rc<rtree::Node>>> = im::Vector::new();
 
         // This fold calculates the maximum size of the main axis, followed by the off-axis, followed
-        // by carrying the previous margin amount from the main axis so it can be collapsed properly
+        // by carrying the previous margin amount from the main axis so it can be collapsed properly.
+        // Note that margins only ever apply between elements, not edges, so we completely ignore the
+        // off-axis margin, as this calculation assumes there is only 1 line of items, and the off-axis
+        // margin doesn't apply until there are linebreaks.
         let fold = VectorFold::new(
             |prev: &(f32, f32, f32), n: &Option<ChildCache>| -> (f32, f32, f32) {
                 let cache = n.as_ref().unwrap();
                 (
-                    cache.basis + prev.0 + prev.2.max(cache.margin.topleft.x),
-                    cache.aux.max(prev.1) + cache.margin.topleft.y + cache.margin.bottomright.y, // off-axis always adds both margins, no collapsing is done yet
+                    cache.basis
+                        + prev.0
+                        + if prev.2.is_nan() {
+                            0.0 // We use NAN to mark the beginning, where we ignore the margin.
+                        } else {
+                            prev.2.max(cache.margin.topleft.x)
+                        },
+                    cache.aux.max(prev.1),
                     cache.margin.bottomright.x,
                 )
             },
         );
 
-        let (_, (used_main, used_aux, trailing)) =
-            fold.call(fold.init(), &(0.0, 0.0, 0.0), &childareas);
-        let used_main = used_main + trailing; // Add trailing margin to used space
+        let (_, (used_main, used_aux, _)) =
+            fold.call(fold.init(), &(0.0, 0.0, f32::NAN), &childareas);
+        let used_main = used_main; // We ignore trailing margin because it only applies between items
         let (unsized_x, unsized_y) = check_unsized_abs(outer_area.bottomright);
 
         if (unsized_x && xaxis) || (unsized_y && !xaxis) {
@@ -417,6 +434,8 @@ impl Desc for dyn Prop {
 
         let mut main = 0.0;
         let mut curindex = 0;
+        let mut prev_margin = f32::NAN;
+
         // Now we go through each line and apply flex sizing along the main axis.
         for indice in 0..breaks.len() {
             let b = &breaks[indice];
@@ -478,6 +497,12 @@ impl Desc for dyn Prop {
                     continue;
                 };
 
+                // Apply our margin first
+                if !prev_margin.is_nan() {
+                    main += prev_margin.max(c.margin.topleft.x);
+                }
+                prev_margin = c.margin.bottomright.x;
+
                 // If we're growing backwards, we flip along the main axis (but not the aux axis)
                 let mut area = if props.direction() == RowDirection::RightToLeft
                     || props.direction() == RowDirection::BottomToTop
@@ -493,9 +518,6 @@ impl Desc for dyn Prop {
                     }
                 };
 
-                // Because both our margin and area rect has swapped axis, we can just apply the margin directly, then swap the axis
-                area.topleft += c.margin.topleft;
-                area.bottomright -= c.margin.bottomright;
                 area = cap_unsized(area);
                 area.topleft = Vec2::min_by_component(area.topleft, area.bottomright);
 
@@ -523,6 +545,7 @@ impl Desc for dyn Prop {
                 main = 0.0;
                 aux += b.1 + inner_aux;
             }
+            prev_margin = f32::NAN;
             curindex = b.0;
         }
 

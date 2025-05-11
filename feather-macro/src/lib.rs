@@ -101,9 +101,9 @@ pub fn derive_flex_prop(input: TokenStream) -> TokenStream {
     let name = ast.ident;
     quote! {
         impl feather_ui::layout::flex::Prop for #name {
-        fn wrap(&self) -> bool { &self.wrap }
-        fn justify(&self) -> FlexJustify { &self.justify }
-        fn align(&self) -> FlexJustify { &self.align }
+        fn wrap(&self) -> bool { self.wrap }
+        fn justify(&self) -> FlexJustify { self.justify }
+        fn align(&self) -> FlexJustify { self.align }
         }
     }
     .into()
@@ -116,10 +116,9 @@ pub fn derive_flex_child(input: TokenStream) -> TokenStream {
     let name = ast.ident;
     quote! {
         impl feather_ui::layout::flex::Child for #name {
-            fn order(&self) -> i64 { &self.order }
-            fn grow(&self) -> f32 { &self.grow }
-            fn shrink(&self) -> f32 { &self.shrink }
-            fn basis(&self) -> f32 { &self.basis }
+            fn grow(&self) -> f32 { self.grow }
+            fn shrink(&self) -> f32 { self.shrink }
+            fn basis(&self) -> f32 { self.basis }
         }
     }
     .into()
