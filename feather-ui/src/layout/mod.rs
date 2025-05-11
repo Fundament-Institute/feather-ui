@@ -154,12 +154,32 @@ dyn_clone::clone_trait_object!(Staged);
 
 #[derive(Clone)]
 pub(crate) struct Concrete {
-    pub render: Option<Rc<dyn Renderable>>,
-    pub area: AbsRect,
-    pub rtree: Rc<rtree::Node>,
-    pub children: im::Vector<Option<Box<dyn Staged>>>,
+    render: Option<Rc<dyn Renderable>>,
+    area: AbsRect,
+    rtree: Rc<rtree::Node>,
+    children: im::Vector<Option<Box<dyn Staged>>>,
 }
 
+impl Concrete {
+    pub fn new(
+        render: Option<Rc<dyn Renderable>>,
+        area: AbsRect,
+        rtree: Rc<rtree::Node>,
+        children: im::Vector<Option<Box<dyn Staged>>>,
+    ) -> Self {
+        let (unsized_x, unsized_y) = check_unsized_abs(area.bottomright);
+        assert!(
+            !unsized_x && !unsized_y,
+            "concrete area must always be sized!"
+        );
+        Self {
+            render,
+            area,
+            rtree,
+            children,
+        }
+    }
+}
 impl Staged for Concrete {
     fn render(&self, parent_pos: Vec2, driver: &DriverState) -> im::Vector<RenderInstruction> {
         let instructions = self
@@ -331,7 +351,7 @@ pub(crate) fn check_unsized_abs(bottomright: Vec2) -> (bool, bool) {
 // Returns true if an axis is unsized, which means it is defined as the size of it's children's maximum extent.
 #[inline]
 pub(crate) fn check_unsized_dim(dim: crate::AbsDim) -> (bool, bool) {
-    (dim.0.x == UNSIZED_AXIS, dim.0.y == UNSIZED_AXIS)
+    check_unsized_abs(dim.0)
 }
 
 #[inline]

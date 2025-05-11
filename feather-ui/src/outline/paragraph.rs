@@ -14,6 +14,7 @@ use crate::outline::OutlineFrom;
 use crate::persist::FnPersist;
 use crate::persist::VectorMap;
 use crate::SourceID;
+use crate::UNSIZED_AXIS;
 use core::f32;
 use derive_where::derive_where;
 use std::rc::Rc;
@@ -39,7 +40,7 @@ impl flex::Child for MinimalFlexChild {
     }
 
     fn basis(&self) -> f32 {
-        f32::INFINITY
+        UNSIZED_AXIS
     }
 }
 

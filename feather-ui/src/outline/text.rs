@@ -139,7 +139,7 @@ impl<T: leaf::Padded> Layout<T> for TextLayout<T> {
             limits.0.topleft.y -= allpadding.y;
         }
         let mut evaluated_area = limit_area(
-            cap_unsized(*myarea * zero_unsized(outer_area.dim())),
+            cap_unsized(*myarea * crate::layout::nuetralize_unsized(outer_area)),
             limits,
         );
 
@@ -194,17 +194,17 @@ impl<T: leaf::Padded> Layout<T> for TextLayout<T> {
             *self.props.anchor() * evaluated_area.dim(),
         );
 
-        Box::new(crate::layout::Concrete {
-            area: evaluated_area,
-            render: Some(self.text_render.clone()),
-            rtree: Rc::new(rtree::Node::new(
+        Box::new(crate::layout::Concrete::new(
+            Some(self.text_render.clone()),
+            evaluated_area,
+            Rc::new(rtree::Node::new(
                 evaluated_area,
                 None,
                 Default::default(),
                 self.id.clone(),
             )),
-            children: Default::default(),
-        })
+            Default::default(),
+        ))
     }
 }
 

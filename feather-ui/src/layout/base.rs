@@ -46,17 +46,17 @@ impl crate::layout::Desc for dyn Empty {
         outer_area = super::nuetralize_unsized(outer_area);
         outer_area = super::limit_area(outer_area, outer_limits);
 
-        Box::new(crate::layout::Concrete {
-            area: outer_area,
-            render: renderable,
-            rtree: Rc::new(crate::rtree::Node::new(
+        Box::new(crate::layout::Concrete::new(
+            renderable,
+            outer_area,
+            Rc::new(crate::rtree::Node::new(
                 outer_area,
                 None,
                 Default::default(),
                 id,
             )),
-            children: Default::default(),
-        })
+            Default::default(),
+        ))
     }
 }
 
