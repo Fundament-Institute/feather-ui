@@ -125,7 +125,24 @@ fn justify_inner_outer(align: FlexJustify, total: f32, used: f32, count: i32) ->
     }
 }
 
-type LineTuple = (usize, f32, f32);
+// Stores information about a calculated linebreak
+struct Linebreak {
+    index: usize,
+    lineheight: f32,
+    skip: f32, // If this is just skipping over an obstacle, tells us where to skip to.
+    aux_margin: f32, // Maximum margin value between lines
+}
+
+impl Linebreak {
+    pub fn new(index: usize, lineheight: f32, skip: f32, aux_margin: f32) -> Self {
+        Self {
+            index,
+            lineheight,
+            skip,
+            aux_margin,
+        }
+    }
+}
 
 #[derive(Clone)]
 struct ChildCache {
@@ -148,8 +165,8 @@ fn wrap_line(
     mut linecount: i32,
     justify: FlexJustify,
     backwards: bool,
-) -> (SmallVec<[LineTuple; 10]>, i32, f32) {
-    let mut breaks: SmallVec<[LineTuple; 10]> = SmallVec::new();
+) -> (SmallVec<[Linebreak; 10]>, i32, f32) {
+    let mut breaks: SmallVec<[Linebreak; 10]> = SmallVec::new();
 
     let (mut aux, inner) = justify_inner_outer(justify, total_aux, used_aux, linecount);
 
@@ -157,9 +174,10 @@ fn wrap_line(
     linecount = 1;
     used_aux = 0.0;
     let mut max_aux = 0.0;
+    let mut max_aux_margin: f32 = 0.0;
+    let mut max_aux_upper_margin: f32 = 0.0;
     let mut main = 0.0;
     let mut prev_margin = f32::NAN;
-    let mut prev_aux_margin = f32::NAN;
     let mut min_obstacle = 0;
     let reversed = if backwards { total_main } else { -1.0 };
     let mut obstacle = next_obstacle(
@@ -179,10 +197,15 @@ fn wrap_line(
             continue;
         };
 
+        // This is a bit unintuitive, but this is adding the margin for the previous element, not this one.
+        if !prev_margin.is_nan() {
+            main += prev_margin.max(b.margin.topleft.x);
+        }
+
         // If we hit an obstacle, mark it as an obstacle breakpoint, then jump forward. We ignore margins here, because
         // obstacles are not items, they are edges.
         if main + b.basis > obstacle.0 {
-            breaks.push((i, obstacle.1, obstacle.0));
+            breaks.push(Linebreak::new(i, obstacle.1, obstacle.0, f32::NAN));
             main = obstacle.1; // Set the axis to the end of the obstacle
             prev_margin = f32::NAN; // Reset the margin, because this counts as an edge instead of an item
 
@@ -211,7 +234,7 @@ fn wrap_line(
                 // Normally, if an obstacle is present on a line, we want to skip it entirely. However, if we can't fit an item on
                 // a line that has no obstacle, we have to give up and put it there anyway to prevent an infinite loop.
                 if let Some(b) = breaks.last() {
-                    b.1 >= 0.0
+                    b.lineheight >= 0.0
                 } else {
                     true
                 }
@@ -220,11 +243,15 @@ fn wrap_line(
             };
 
             main = 0.0;
-            breaks.push((i, max_aux, f32::INFINITY));
+            if let Some(b) = breaks.last_mut() {
+                b.aux_margin = b.aux_margin.max(max_aux_upper_margin);
+            }
+            breaks.push(Linebreak::new(i, max_aux, f32::INFINITY, max_aux_margin));
             used_aux += max_aux;
             aux += max_aux + inner;
             max_aux = 0.0;
-            //prev_aux_margin = 0.0;
+            max_aux_margin = 0.0;
+            max_aux_upper_margin = 0.0;
             linecount += 1;
             obstacle = next_obstacle(
                 props.obstacles(),
@@ -242,18 +269,23 @@ fn wrap_line(
         }
 
         main += b.basis;
-        if !prev_margin.is_nan() {
-            main += prev_margin.max(b.margin.topleft.x);
-        }
         prev_margin = b.margin.bottomright.x;
-
-        if max_aux < b.aux {
-            max_aux = b.aux;
-        }
+        max_aux_margin = max_aux_margin.max(b.margin.bottomright.y);
+        max_aux_upper_margin = max_aux_upper_margin.max(b.margin.topleft.y);
+        max_aux = max_aux.max(b.aux);
         i += 1;
     }
 
-    breaks.push((childareas.len(), f32::INFINITY, f32::INFINITY));
+    if let Some(b) = breaks.last_mut() {
+        b.aux_margin = b.aux_margin.max(max_aux_upper_margin);
+    }
+
+    breaks.push(Linebreak::new(
+        childareas.len(),
+        f32::INFINITY,
+        f32::INFINITY,
+        f32::NAN,
+    ));
 
     (breaks, linecount, used_aux)
 }
@@ -423,8 +455,13 @@ impl Desc for dyn Prop {
                 (r.0, r.1, used_aux)
             }
         } else {
-            let mut breaks = SmallVec::<[LineTuple; 10]>::new();
-            breaks.push((childareas.len(), f32::INFINITY, f32::INFINITY));
+            let mut breaks = SmallVec::<[Linebreak; 10]>::new();
+            breaks.push(Linebreak::new(
+                childareas.len(),
+                f32::INFINITY,
+                f32::INFINITY,
+                f32::NAN,
+            ));
             (breaks, 1, used_aux)
         };
 
@@ -444,7 +481,7 @@ impl Desc for dyn Prop {
             let mut used = 0.0;
 
             // Gather the total basis, grow and shrink values
-            for i in curindex..b.0 {
+            for i in curindex..b.index {
                 let Some(a) = &childareas[i] else {
                     continue;
                 };
@@ -454,18 +491,18 @@ impl Desc for dyn Prop {
             }
 
             // Get the total length of this span, and if necessary, find the line height by scanning ahead.
-            let (total_span, max_aux) = if b.2.is_finite() {
-                let mut max_aux = breaks.last().unwrap().1;
+            let (total_span, max_aux) = if b.skip.is_finite() {
+                let mut max_aux = breaks.last().unwrap().lineheight;
                 for j in indice..breaks.len() {
-                    if breaks[j].2.is_infinite() {
-                        max_aux = breaks[j].1;
+                    if breaks[j].skip.is_infinite() {
+                        max_aux = breaks[j].lineheight;
                         break;
                     }
                 }
 
-                (b.2 - main, max_aux)
+                (b.skip - main, max_aux)
             } else {
-                (total_main - main, b.1)
+                (total_main - main, b.lineheight)
             };
 
             let diff = total_span - used;
@@ -481,18 +518,22 @@ impl Desc for dyn Prop {
                 0.0
             };
 
-            for i in curindex..b.0 {
+            for i in curindex..b.index {
                 if let Some(child) = &mut childareas[i] {
                     child.basis += ratio * (if diff > 0.0 { child.grow } else { child.shrink });
                 }
             }
 
-            let (outer, inner) =
-                justify_inner_outer(props.justify(), total_span, used, (b.0 - curindex) as i32);
+            let (outer, inner) = justify_inner_outer(
+                props.justify(),
+                total_span,
+                used,
+                (b.index - curindex) as i32,
+            );
             main += outer;
 
             // Construct the final area rectangle for each child
-            for i in curindex..b.0 {
+            for i in curindex..b.index {
                 let Some(c) = &childareas[i] else {
                     continue;
                 };
@@ -539,14 +580,18 @@ impl Desc for dyn Prop {
                 main += c.basis + inner;
             }
 
-            if b.2.is_finite() {
-                main = b.1;
+            if b.skip.is_finite() {
+                main = b.lineheight;
             } else {
                 main = 0.0;
-                aux += b.1 + inner_aux;
+                aux += b.lineheight + inner_aux;
+
+                if !b.aux_margin.is_nan() {
+                    aux += b.aux_margin;
+                }
             }
             prev_margin = f32::NAN;
-            curindex = b.0;
+            curindex = b.index;
         }
 
         Box::new(Concrete {

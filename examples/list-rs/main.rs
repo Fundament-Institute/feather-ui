@@ -261,7 +261,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                                     rel: feather_ui::RelPoint(Vec2 { x: 1.0, y: 0.0 }),
                                 },
                             },
-                            margin: AbsRect::new(4.0, 0.0, 0.0, 0.0).into(),
+                            margin: AbsRect::new(8.0, 8.0, 4.0, 4.0).into(),
                             basis: 40.0,
                             grow: 0.0,
                             shrink: 0.0,
