@@ -169,7 +169,7 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
             let window = Window::new(
                 gen_id!().into(),
                 winit::window::Window::default_attributes()
-                    .with_title("graph-rs")
+                    .with_title(env!("CARGO_CRATE_NAME"))
                     .with_resizable(true),
                 Box::new(region),
             );

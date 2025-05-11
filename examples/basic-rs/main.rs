@@ -230,7 +230,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
             let window = Window::new(
                 gen_id!().into(),
                 winit::window::Window::default_attributes()
-                    .with_title("basic-rs")
+                    .with_title(env!("CARGO_CRATE_NAME"))
                     .with_resizable(true),
                 Box::new(region),
             );

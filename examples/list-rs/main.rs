@@ -5,9 +5,11 @@ use feather_macro::*;
 use feather_ui::gen_id;
 use feather_ui::layout::base;
 use feather_ui::layout::fixed;
+use feather_ui::layout::flex;
 use feather_ui::layout::leaf;
 use feather_ui::layout::list;
 use feather_ui::outline::button::Button;
+use feather_ui::outline::flexbox::FlexBox;
 use feather_ui::outline::mouse_area;
 use feather_ui::outline::region::Region;
 use feather_ui::outline::shape::Shape;
@@ -15,6 +17,7 @@ use feather_ui::outline::text::Text;
 use feather_ui::outline::window::Window;
 use feather_ui::outline::OutlineFrom;
 use feather_ui::persist::FnPersist;
+use feather_ui::AbsRect;
 use feather_ui::App;
 use feather_ui::Slot;
 use feather_ui::SourceID;
@@ -56,8 +59,8 @@ impl list::Prop for ListData {}
 
 #[derive(Default, Empty, Area, Margin)]
 struct ListChild {
-    margin: feather_ui::URect,
     area: feather_ui::URect,
+    margin: feather_ui::URect,
 }
 
 impl base::Padding for ListChild {}
@@ -66,6 +69,51 @@ impl base::Limits for ListChild {}
 impl base::RLimits for ListChild {}
 impl list::Child for ListChild {}
 impl leaf::Prop for ListChild {}
+impl leaf::Padded for ListChild {}
+
+#[derive(Default, Empty, Area, FlexChild, Margin)]
+struct FlexChild {
+    area: feather_ui::URect,
+    margin: feather_ui::URect,
+    basis: f32,
+    grow: f32,
+    shrink: f32,
+}
+
+impl base::RLimits for FlexChild {}
+impl base::Order for FlexChild {}
+impl base::Anchor for FlexChild {}
+impl base::Limits for FlexChild {}
+impl base::Padding for FlexChild {}
+impl leaf::Prop for FlexChild {}
+impl leaf::Padded for FlexChild {}
+
+struct MinimalFlex {}
+impl base::Obstacles for MinimalFlex {
+    fn obstacles(&self) -> &[AbsRect] {
+        &[]
+    }
+}
+impl base::Empty for MinimalFlex {}
+impl base::Direction for MinimalFlex {}
+impl base::ZIndex for MinimalFlex {}
+impl base::Limits for MinimalFlex {}
+impl base::RLimits for MinimalFlex {}
+impl fixed::Child for MinimalFlex {}
+
+impl flex::Prop for MinimalFlex {
+    fn wrap(&self) -> bool {
+        true
+    }
+
+    fn justify(&self) -> flex::FlexJustify {
+        flex::FlexJustify::Start
+    }
+
+    fn align(&self) -> flex::FlexJustify {
+        flex::FlexJustify::Start
+    }
+}
 
 struct BasicApp {}
 
@@ -195,9 +243,54 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 }
             };*/
 
+            let flexlist = {
+                let mut children: im::Vector<Option<Box<OutlineFrom<dyn flex::Prop>>>> =
+                    im::Vector::new();
+
+                for i in 0..args.count {
+                    children.push_back(Some(Box::new(Shape::<FlexChild>::round_rect(
+                        gen_id!().into(),
+                        FlexChild {
+                            area: feather_ui::URect {
+                                topleft: feather_ui::UPoint {
+                                    abs: Vec2 { x: 0.0, y: 0.0 },
+                                    rel: feather_ui::RelPoint(Vec2 { x: 0.0, y: 0.0 }),
+                                },
+                                bottomright: feather_ui::UPoint {
+                                    abs: Vec2 { x: 0.0, y: 40.0 },
+                                    rel: feather_ui::RelPoint(Vec2 { x: 1.0, y: 0.0 }),
+                                },
+                            },
+                            margin: AbsRect::new(4.0, 0.0, 0.0, 0.0).into(),
+                            basis: 40.0,
+                            grow: 0.0,
+                            shrink: 0.0,
+                        }
+                        .into(),
+                        0.0,
+                        0.0,
+                        Vec4::broadcast(8.0),
+                        Vec4::new(
+                            (0.1 * i as f32) % 1.0,
+                            (0.65 * i as f32) % 1.0,
+                            (0.2 * i as f32) % 1.0,
+                            1.0,
+                        ),
+                        Vec4::zero(),
+                    ))));
+                }
+
+                FlexBox::<MinimalFlex> {
+                    id: gen_id!().into(),
+                    props: MinimalFlex {}.into(),
+                    children,
+                }
+            };
+
             let mut children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> =
                 im::Vector::new();
             children.push_back(Some(Box::new(button)));
+            children.push_back(Some(Box::new(flexlist)));
 
             let region = Region {
                 id: gen_id!().into(),
@@ -212,7 +305,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
             let window = Window::new(
                 gen_id!().into(),
                 winit::window::Window::default_attributes()
-                    .with_title("basic-rs")
+                    .with_title(env!("CARGO_CRATE_NAME"))
                     .with_resizable(true),
                 Box::new(region),
             );
