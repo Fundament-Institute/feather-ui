@@ -2,6 +2,11 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::base;
+use super::cap_unsized;
+use super::check_unsized;
+use super::check_unsized_abs;
+use super::limit_area;
+use super::limit_dim;
 use super::zero_unsized;
 use super::Concrete;
 use super::Desc;
@@ -15,6 +20,7 @@ use crate::AbsLimits;
 use crate::AbsRect;
 use crate::RowDirection;
 use crate::Vec2;
+use crate::UNSIZED_AXIS;
 use core::f32;
 use derive_more::TryFrom;
 use smallvec::SmallVec;
@@ -262,6 +268,7 @@ impl Desc for dyn Prop {
 
         // If we are currently also being evaluated with unsized area, we have to set a few things to zero.
         let outer_dim = zero_unsized(outer_area.dim());
+        let limits = outer_limits + *props.limits();
 
         let xaxis = match props.direction() {
             RowDirection::LeftToRight | RowDirection::RightToLeft => true,
@@ -275,9 +282,9 @@ impl Desc for dyn Prop {
             let inner_area = AbsRect {
                 topleft: Vec2::zero(),
                 bottomright: if xaxis {
-                    Vec2::new(imposed.basis(), f32::INFINITY)
+                    Vec2::new(imposed.basis(), UNSIZED_AXIS)
                 } else {
-                    Vec2::new(f32::INFINITY, imposed.basis())
+                    Vec2::new(UNSIZED_AXIS, imposed.basis())
                 },
             };
 
@@ -285,7 +292,7 @@ impl Desc for dyn Prop {
             let stage = child
                 .as_ref()
                 .unwrap()
-                .stage(inner_area, child_limit, driver);
+                .stage(inner_area, child_limit + limits, driver);
 
             let (main, aux) = swap_axis(xaxis, stage.get_area().dim().0);
 
@@ -297,7 +304,7 @@ impl Desc for dyn Prop {
                 margin: *imposed.margin() * outer_dim,
                 limits: child_limit,
             };
-            if cache.basis.is_infinite() {
+            if cache.basis == UNSIZED_AXIS {
                 cache.basis = main;
             }
 
@@ -332,16 +339,16 @@ impl Desc for dyn Prop {
         let (_, (used_main, used_aux, trailing)) =
             fold.call(fold.init(), &(0.0, 0.0, 0.0), &childareas);
         let used_main = used_main + trailing; // Add trailing margin to used space
+        let (unsized_x, unsized_y) = check_unsized_abs(outer_area.bottomright);
 
-        if (outer_area.bottomright.x.is_infinite() && xaxis)
-            || (outer_area.bottomright.y.is_infinite() && !xaxis)
-        {
+        if (unsized_x && xaxis) || (unsized_y && !xaxis) {
             let mut area = outer_area;
             if xaxis {
                 area.bottomright.x = outer_area.topleft.x + used_main;
             } else {
                 area.bottomright.y = outer_area.topleft.y + used_main;
             }
+            area = limit_area(area, limits);
             // If we are evaluating our staged area along the main axis, no further calculations can be done
             return Box::new(Concrete {
                 area,
@@ -351,7 +358,7 @@ impl Desc for dyn Prop {
             });
         }
 
-        let (total_main, total_aux) = swap_axis(xaxis, outer_dim.0);
+        let (total_main, total_aux) = swap_axis(xaxis, limit_dim(outer_dim, limits).0);
         // If we need to do wrapping, we do this first, before calculating anything else.
         let (breaks, linecount, used_aux) = if props.wrap() {
             // Anything other than `start` for main-axis justification causes problems if there are any obstacles we need to
@@ -455,12 +462,10 @@ impl Desc for dyn Prop {
                 0.0
             };
 
-            // TODO: respect min and max limits on dimensions
             for i in curindex..b.0 {
-                let Some(a) = &mut childareas[i] else {
-                    continue;
-                };
-                a.basis += ratio * (if diff > 0.0 { a.grow } else { a.shrink });
+                if let Some(child) = &mut childareas[i] {
+                    child.basis += ratio * (if diff > 0.0 { child.grow } else { child.shrink });
+                }
             }
 
             let (outer, inner) =
@@ -488,9 +493,10 @@ impl Desc for dyn Prop {
                     }
                 };
 
-                // Because both our margin and are area rect has swapped axis, we can just apply the margin directly, then swap the axis
+                // Because both our margin and area rect has swapped axis, we can just apply the margin directly, then swap the axis
                 area.topleft += c.margin.topleft;
                 area.bottomright -= c.margin.bottomright;
+                area = cap_unsized(area);
                 area.topleft = Vec2::min_by_component(area.topleft, area.bottomright);
 
                 // If our axis is swapped, swap the rectangle axis
@@ -499,7 +505,10 @@ impl Desc for dyn Prop {
                     std::mem::swap(&mut area.bottomright.x, &mut area.bottomright.y);
                 }
 
-                let stage = children[i].as_ref().unwrap().stage(area, c.limits, driver);
+                let stage = children[i]
+                    .as_ref()
+                    .unwrap()
+                    .stage(area, c.limits + limits, driver);
                 if let Some(node) = stage.get_rtree().upgrade() {
                     nodes.push_back(Some(node));
                 }

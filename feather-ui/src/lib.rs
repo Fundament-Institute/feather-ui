@@ -335,11 +335,11 @@ pub const AUTO_URECT: URect = URect {
         rel: RelPoint(Vec2 { x: 0.0, y: 0.0 }),
     },
     bottomright: UPoint {
-        abs: Vec2 {
+        abs: Vec2 { x: 0.0, y: 0.0 },
+        rel: RelPoint(Vec2 {
             x: UNSIZED_AXIS,
             y: UNSIZED_AXIS,
-        },
-        rel: RelPoint(Vec2 { x: 0.0, y: 0.0 }),
+        }),
     },
 };
 

@@ -91,10 +91,11 @@ impl Desc for dyn Prop {
                 area.bottomright.abs.y += area.topleft.abs.y + bottomright.y;
             }
 
-            super::limit_area(area * zero_unsized(outer_dim), limits)
+            // No need to cap this because unsized axis have now been resolved
+            super::limit_area(area * crate::layout::nuetralize_unsized(outer_area), limits)
         } else {
-            // No need to zero infinities because in this path, either outer_dim is sized or myarea has no relative component.
-            super::limit_area(*myarea * outer_dim, limits)
+            // No need to zero infinities because in this path, either outer_area is sized or myarea has no relative component.
+            super::limit_area(*myarea * outer_area, limits)
         };
 
         // We had to evaluate the full area first because our final area calculation can change the dimensions in
@@ -137,16 +138,16 @@ impl Desc for dyn Prop {
         }
         let evaluated_area = evaluated_area - anchor;
 
-        Box::new(Concrete {
-            area: evaluated_area,
-            render: renderable,
-            rtree: Rc::new(rtree::Node::new(
+        Box::new(Concrete::new(
+            renderable,
+            evaluated_area,
+            Rc::new(rtree::Node::new(
                 evaluated_area,
                 Some(props.zindex()),
                 nodes,
                 id,
             )),
-            children: staging,
-        })
+            staging,
+        ))
     }
 }

@@ -38,17 +38,18 @@ impl Desc for dyn Prop {
 
     fn stage<'a>(
         props: &Self::Props,
-        mut outer_area: AbsRect,
+        outer_area: AbsRect,
         outer_limits: crate::AbsLimits,
         _: &Self::Children,
         id: std::rc::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
         _: &crate::DriverState,
     ) -> Box<dyn Staged + 'a> {
-        outer_area = super::nuetralize_unsized(outer_area);
         let limits = outer_limits + *props.limits();
-        let evaluated_area =
-            super::limit_area(zero_unsized_area(*props.area()) * outer_area, limits);
+        let evaluated_area = super::limit_area(
+            zero_unsized_area(*props.area()) * super::nuetralize_unsized(outer_area),
+            limits,
+        );
 
         let anchor = *props.anchor() * evaluated_area.dim();
         let evaluated_area = evaluated_area - anchor;

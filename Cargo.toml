@@ -16,9 +16,9 @@ members = [
 resolver = "2"
 default-members = [
   "feather-ui",
-  "examples/basic-alc",
   "examples/basic-rs",
   "examples/paragraph-rs",
+  "examples/graph-rs",
   "examples/list-rs",
 ]
 
@@ -36,7 +36,7 @@ im = "15.1"
 wgpu = "25"
 winit = "0.30"
 eyre = "0.6"
-ultraviolet = "0.9"
+ultraviolet = "0.10"
 rand = { version = "0.8.5", features = ["std_rng"] }
 tracing-subscriber = { version = "0.3.18", features = ["time"] }
 tracing = "0.1.40"
