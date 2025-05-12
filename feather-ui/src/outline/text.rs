@@ -6,7 +6,6 @@ use crate::layout::cap_unsized;
 use crate::layout::check_unsized;
 use crate::layout::leaf;
 use crate::layout::limit_area;
-use crate::layout::zero_unsized;
 use crate::layout::Layout;
 use crate::rtree;
 use crate::AbsRect;

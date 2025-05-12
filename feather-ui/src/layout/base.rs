@@ -20,6 +20,7 @@ pub trait Empty {}
 impl Empty for () {}
 impl RLimits for () {}
 impl Margin for () {}
+impl Order for () {}
 impl crate::layout::fixed::Child for () {}
 impl crate::layout::list::Child for () {}
 
