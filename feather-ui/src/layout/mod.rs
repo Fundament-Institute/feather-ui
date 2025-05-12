@@ -382,3 +382,12 @@ pub(crate) fn apply_anchor(area: AbsRect, outer_area: AbsRect, mut anchor: Vec2)
     }
     area - anchor
 }
+
+#[inline]
+fn swap_axis(xaxis: bool, v: Vec2) -> (f32, f32) {
+    if xaxis {
+        (v.x, v.y)
+    } else {
+        (v.y, v.x)
+    }
+}

@@ -52,14 +52,6 @@ pub trait Child: base::Margin + base::RLimits + base::Order {
 
 crate::gen_from_to_dyn!(Child);
 
-fn swap_axis(xaxis: bool, v: Vec2) -> (f32, f32) {
-    if xaxis {
-        (v.x, v.y)
-    } else {
-        (v.y, v.x)
-    }
-}
-
 fn next_obstacle(
     obstacles: &[AbsRect],
     max_aux: f32,
@@ -72,7 +64,7 @@ fn next_obstacle(
     // Given our current X/Y position, what is the next obstacle we would run into?
     let mut i = *min;
     while i < obstacles.len() {
-        let (mut start, aux_start) = swap_axis(xaxis, obstacles[i].topleft);
+        let (mut start, aux_start) = super::swap_axis(xaxis, obstacles[i].topleft);
 
         if total_main > 0.0 {
             start = total_main - start;
@@ -83,7 +75,7 @@ fn next_obstacle(
             break;
         }
 
-        let (mut end, aux_end) = swap_axis(xaxis, obstacles[i].bottomright);
+        let (mut end, aux_end) = super::swap_axis(xaxis, obstacles[i].bottomright);
 
         if total_main > 0.0 {
             end = total_main - end;
@@ -306,6 +298,8 @@ impl Desc for dyn Prop {
     ) -> Box<dyn Staged + 'a> {
         let mut childareas: im::Vector<Option<ChildCache>> = im::Vector::new();
 
+        // TODO: support area properly props.area()
+
         // If we are currently also being evaluated with unsized area, we have to set a few things to zero.
         let outer_dim = zero_unsized(outer_area.dim());
         let limits = outer_limits + *props.limits();
@@ -334,7 +328,7 @@ impl Desc for dyn Prop {
                 .unwrap()
                 .stage(inner_area, child_limit + limits, driver);
 
-            let (main, aux) = swap_axis(xaxis, stage.get_area().dim().0);
+            let (main, aux) = super::swap_axis(xaxis, stage.get_area().dim().0);
 
             let mut cache = ChildCache {
                 basis: imposed.basis(),
@@ -360,9 +354,6 @@ impl Desc for dyn Prop {
             childareas.push_back(Some(cache));
         }
 
-        let mut staging: im::Vector<Option<Box<dyn Staged>>> = im::Vector::new();
-        let mut nodes: im::Vector<Option<Rc<rtree::Node>>> = im::Vector::new();
-
         // This fold calculates the maximum size of the main axis, followed by the off-axis, followed
         // by carrying the previous margin amount from the main axis so it can be collapsed properly.
         // Note that margins only ever apply between elements, not edges, so we completely ignore the
@@ -387,8 +378,10 @@ impl Desc for dyn Prop {
 
         let (_, (used_main, used_aux, _)) =
             fold.call(fold.init(), &(0.0, 0.0, f32::NAN), &childareas);
-        let used_main = used_main; // We ignore trailing margin because it only applies between items
         let (unsized_x, unsized_y) = check_unsized_abs(outer_area.bottomright);
+
+        let mut staging: im::Vector<Option<Box<dyn Staged>>> = im::Vector::new();
+        let mut nodes: im::Vector<Option<Rc<rtree::Node>>> = im::Vector::new();
 
         if (unsized_x && xaxis) || (unsized_y && !xaxis) {
             let mut area = outer_area;
@@ -407,7 +400,7 @@ impl Desc for dyn Prop {
             });
         }
 
-        let (total_main, total_aux) = swap_axis(xaxis, limit_dim(outer_dim, limits).0);
+        let (total_main, total_aux) = super::swap_axis(xaxis, limit_dim(outer_dim, limits).0);
         // If we need to do wrapping, we do this first, before calculating anything else.
         let (breaks, linecount, used_aux) = if props.wrap() {
             // Anything other than `start` for main-axis justification causes problems if there are any obstacles we need to

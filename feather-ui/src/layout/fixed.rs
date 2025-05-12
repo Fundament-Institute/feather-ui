@@ -3,7 +3,7 @@
 
 use super::base;
 use super::check_unsized;
-use super::zero_unsized;
+use super::check_unsized_abs;
 use super::Concrete;
 use super::Desc;
 use super::LayoutWrap;
@@ -38,8 +38,6 @@ impl Desc for dyn Prop {
         renderable: Option<Rc<dyn Renderable>>,
         driver: &crate::DriverState,
     ) -> Box<dyn Staged + 'a> {
-        let myarea = props.area();
-
         // If we have an unsized outer_area, any sized object with relative dimensions must evaluate to 0 (or to the minimum limited size). An
         // unsized object can never have relative dimensions, as that creates a logic loop - instead it can only have a single relative anchor.
         // If both axes are sized, then all limits are applied as if outer_area was unsized, and children calculations are skipped.
@@ -54,15 +52,15 @@ impl Desc for dyn Prop {
         // If outer_area is sized and myarea.rel is unsized, limits are applied normally, but are once again reduced by myarea.abs.bottomright to
         // account for how the area calculations will interact with the limits later on.
 
-        let outer_dim = outer_area.dim();
         let limits = outer_limits + *props.limits();
+        let myarea = props.area();
         let (unsized_x, unsized_y) = check_unsized(*myarea);
 
         // Check if any axis is unsized in a way that requires us to calculate baseline child sizes
         let evaluated_area = if unsized_x || unsized_y {
             // When an axis is unsized, we don't apply any limits to it, so we don't have to worry about
             // cases where the full evaluated area would invalidate the limit.
-            let inner_dim = super::limit_dim(super::eval_dim(*myarea, outer_dim), limits);
+            let inner_dim = super::limit_dim(super::eval_dim(*myarea, outer_area.dim()), limits);
             let inner_area = AbsRect::from(inner_dim);
             // The area we pass to children must be independent of our own area, so it starts at 0,0
             let mut bottomright = ZERO_POINT;
@@ -94,17 +92,37 @@ impl Desc for dyn Prop {
             // No need to cap this because unsized axis have now been resolved
             super::limit_area(area * crate::layout::nuetralize_unsized(outer_area), limits)
         } else {
-            // No need to zero infinities because in this path, either outer_area is sized or myarea has no relative component.
-            super::limit_area(*myarea * outer_area, limits)
+            // If outer_area is unsized here, we nuetralize it when evaluating the relative coordinates.
+            super::limit_area(
+                *myarea * crate::layout::nuetralize_unsized(outer_area),
+                limits,
+            )
         };
+
+        let mut staging: im::Vector<Option<Box<dyn Staged>>> = im::Vector::new();
+        let mut nodes: im::Vector<Option<Rc<rtree::Node>>> = im::Vector::new();
+
+        // If our parent just wants a size estimate, no need to layout children or render anything
+        let (unsized_x, unsized_y) = check_unsized_abs(outer_area.bottomright);
+        if unsized_x || unsized_y {
+            return Box::new(Concrete::new(
+                None,
+                evaluated_area,
+                Rc::new(rtree::Node::new(
+                    evaluated_area,
+                    Some(props.zindex()),
+                    nodes,
+                    id,
+                )),
+                staging,
+            ));
+        }
 
         // We had to evaluate the full area first because our final area calculation can change the dimensions in
         // unsized cases. Thus, we calculate the final inner_area for the children from this evaluated area.
         let evaluated_dim = evaluated_area.dim();
 
         let inner_area = AbsRect::from(evaluated_dim);
-        let mut staging: im::Vector<Option<Box<dyn Staged>>> = im::Vector::new();
-        let mut nodes: im::Vector<Option<Rc<rtree::Node>>> = im::Vector::new();
 
         for child in children.iter() {
             let child_props = child.as_ref().unwrap().get_imposed();
