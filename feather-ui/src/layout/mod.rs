@@ -391,3 +391,13 @@ fn swap_axis(xaxis: bool, v: Vec2) -> (f32, f32) {
         (v.y, v.x)
     }
 }
+
+/// If prev is NAN, always returns zero, which is the correct action for margin edges.
+#[inline]
+fn merge_margin(prev: f32, margin: f32) -> f32 {
+    if prev.is_nan() {
+        0.0
+    } else {
+        margin.max(prev)
+    }
+}
