@@ -21,6 +21,7 @@ use feather_ui::outline::OutlineFrom;
 use feather_ui::persist::FnPersist;
 use feather_ui::AbsRect;
 use feather_ui::App;
+use feather_ui::RelRect;
 use feather_ui::Slot;
 use feather_ui::SourceID;
 use feather_ui::URect;
@@ -94,13 +95,16 @@ impl base::Padding for FlexChild {}
 impl leaf::Prop for FlexChild {}
 impl leaf::Padded for FlexChild {}
 
-struct MinimalFlex {}
+#[derive(Default, Empty, Area)]
+struct MinimalFlex {
+    area: feather_ui::URect,
+}
+
 impl base::Obstacles for MinimalFlex {
     fn obstacles(&self) -> &[AbsRect] {
         &[]
     }
 }
-impl base::Empty for MinimalFlex {}
 impl base::Direction for MinimalFlex {}
 impl base::ZIndex for MinimalFlex {}
 impl base::Limits for MinimalFlex {}
@@ -300,7 +304,11 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
 
                 FlexBox::<MinimalFlex> {
                     id: gen_id!().into(),
-                    props: MinimalFlex {}.into(),
+                    props: MinimalFlex {
+                        area: AbsRect::new(40.0, 40.0, 0.0, 200.0)
+                            + RelRect::new(0.0, 0.0, 1.0, 0.0),
+                    }
+                    .into(),
                     children,
                 }
             };

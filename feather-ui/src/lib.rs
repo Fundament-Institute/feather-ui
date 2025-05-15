@@ -158,6 +158,24 @@ impl Add<Vec2> for AbsRect {
     }
 }
 
+impl Add<RelRect> for AbsRect {
+    type Output = URect;
+
+    #[inline]
+    fn add(self, rhs: RelRect) -> Self::Output {
+        URect {
+            topleft: UPoint {
+                abs: self.topleft,
+                rel: rhs.topleft,
+            },
+            bottomright: UPoint {
+                abs: self.bottomright,
+                rel: rhs.bottomright,
+            },
+        }
+    }
+}
+
 impl AddAssign<Vec2> for AbsRect {
     #[inline]
     fn add_assign(&mut self, rhs: Vec2) {
@@ -211,6 +229,37 @@ impl From<Vec2> for RelPoint {
 pub struct RelRect {
     pub topleft: RelPoint,
     pub bottomright: RelPoint,
+}
+
+impl RelRect {
+    #[inline]
+    pub fn new(left: f32, top: f32, right: f32, bottom: f32) -> Self {
+        Self {
+            topleft: RelPoint(Vec2 { x: left, y: top }),
+            bottomright: RelPoint(Vec2 {
+                x: right,
+                y: bottom,
+            }),
+        }
+    }
+}
+
+impl Add<AbsRect> for RelRect {
+    type Output = URect;
+
+    #[inline]
+    fn add(self, rhs: AbsRect) -> Self::Output {
+        URect {
+            topleft: UPoint {
+                abs: rhs.topleft,
+                rel: self.topleft,
+            },
+            bottomright: UPoint {
+                abs: rhs.bottomright,
+                rel: self.bottomright,
+            },
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]

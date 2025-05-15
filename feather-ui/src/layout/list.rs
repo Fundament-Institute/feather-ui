@@ -130,8 +130,7 @@ impl Desc for dyn Prop {
         }
 
         // No need to cap this because unsized axis have now been resolved
-        let evaluated_area =
-            super::limit_area(area * crate::layout::nuetralize_unsized(outer_area), limits);
+        let evaluated_area = super::limit_area(area * outer_safe, limits);
 
         let mut staging: im::Vector<Option<Box<dyn Staged>>> = im::Vector::new();
         let mut nodes: im::Vector<Option<Rc<rtree::Node>>> = im::Vector::new();

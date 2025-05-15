@@ -4,10 +4,8 @@
 use super::base;
 use super::cap_unsized;
 use super::check_unsized_abs;
-use super::limit_area;
-use super::limit_dim;
 use super::merge_margin;
-use super::zero_unsized;
+use super::nuetralize_unsized;
 use super::Concrete;
 use super::Desc;
 use super::LayoutWrap;
@@ -37,7 +35,9 @@ pub enum FlexJustify {
     SpaceFull,
 }
 
-pub trait Prop: base::ZIndex + base::Obstacles + base::Limits + base::Direction {
+pub trait Prop:
+    base::ZIndex + base::Obstacles + base::Limits + base::Direction + base::Area
+{
     fn wrap(&self) -> bool;
     fn justify(&self) -> FlexJustify;
     fn align(&self) -> FlexJustify;
@@ -297,23 +297,25 @@ impl Desc for dyn Prop {
         renderable: Option<Rc<dyn Renderable>>,
         driver: &crate::DriverState,
     ) -> Box<dyn Staged + 'a> {
-        let mut childareas: im::Vector<Option<ChildCache>> = im::Vector::new();
+        let myarea = props.area();
+        let (unsized_x, unsized_y) = super::check_unsized(*myarea);
 
-        // TODO: support area properly props.area()
-
-        // If we are currently also being evaluated with unsized area, we have to set a few things to zero.
-        let outer_dim = zero_unsized(outer_area.dim());
         let limits = outer_limits + *props.limits();
+        let inner_dim = super::limit_dim(super::eval_dim(*myarea, outer_area.dim()), limits);
+        let outer_safe = nuetralize_unsized(outer_area);
 
         let xaxis = match props.direction() {
             RowDirection::LeftToRight | RowDirection::RightToLeft => true,
             RowDirection::TopToBottom | RowDirection::BottomToTop => false,
         };
 
+        let mut childareas: im::Vector<Option<ChildCache>> = im::Vector::new();
+
         // We re-use a lot of concepts from flexbox in this calculation. First we acquire the natural size of all child elements.
         for child in children.iter() {
             let imposed = child.as_ref().unwrap().get_imposed();
 
+            let child_limit = super::apply_limit(inner_dim, limits, *imposed.rlimits());
             let inner_area = AbsRect {
                 topleft: Vec2::zero(),
                 bottomright: if xaxis {
@@ -323,11 +325,10 @@ impl Desc for dyn Prop {
                 },
             };
 
-            let child_limit = *imposed.rlimits() * outer_dim;
             let stage = child
                 .as_ref()
                 .unwrap()
-                .stage(inner_area, child_limit + limits, driver);
+                .stage(inner_area, child_limit, driver);
 
             let (main, aux) = super::swap_axis(xaxis, stage.get_area().dim().0);
 
@@ -336,7 +337,7 @@ impl Desc for dyn Prop {
                 grow: imposed.grow(),
                 shrink: imposed.shrink(),
                 aux,
-                margin: *imposed.margin() * outer_dim,
+                margin: *imposed.margin() * outer_safe,
                 limits: child_limit,
             };
             if cache.basis == UNSIZED_AXIS {
@@ -373,29 +374,52 @@ impl Desc for dyn Prop {
 
         let (_, (used_main, used_aux, _)) =
             fold.call(fold.init(), &(0.0, 0.0, f32::NAN), &childareas);
+
+        let evaluated_area = {
+            let mut area = *myarea;
+            let (used_x, used_y) = super::swap_axis(
+                xaxis,
+                Vec2 {
+                    x: used_main,
+                    y: used_aux,
+                },
+            );
+            // Unsized objects must always have a single anchor point to make sense, so we copy over from topleft.
+            if unsized_x {
+                area.bottomright.rel.0.x = area.topleft.rel.0.x;
+                // We also add the topleft abs corner to the unsized dimensions to make padding work
+                area.bottomright.abs.x += area.topleft.abs.x + used_x;
+            }
+            if unsized_y {
+                area.bottomright.rel.0.y = area.topleft.rel.0.y;
+                area.bottomright.abs.y += area.topleft.abs.y + used_y;
+            }
+
+            // No need to cap this because unsized axis have now been resolved
+            super::limit_area(area * outer_safe, limits)
+        };
+
         let (unsized_x, unsized_y) = check_unsized_abs(outer_area.bottomright);
 
         let mut staging: im::Vector<Option<Box<dyn Staged>>> = im::Vector::new();
         let mut nodes: im::Vector<Option<Rc<rtree::Node>>> = im::Vector::new();
 
         if (unsized_x && xaxis) || (unsized_y && !xaxis) {
-            let mut area = outer_area;
-            if xaxis {
-                area.bottomright.x = outer_area.topleft.x + used_main;
-            } else {
-                area.bottomright.y = outer_area.topleft.y + used_main;
-            }
-            area = limit_area(area, limits);
             // If we are evaluating our staged area along the main axis, no further calculations can be done
             return Box::new(Concrete {
-                area,
+                area: evaluated_area,
                 render: None,
-                rtree: Rc::new(rtree::Node::new(area, Some(props.zindex()), nodes, id)),
+                rtree: Rc::new(rtree::Node::new(
+                    evaluated_area,
+                    Some(props.zindex()),
+                    nodes,
+                    id,
+                )),
                 children: staging,
             });
         }
 
-        let (total_main, total_aux) = super::swap_axis(xaxis, limit_dim(outer_dim, limits).0);
+        let (total_main, total_aux) = super::swap_axis(xaxis, inner_dim.0);
         // If we need to do wrapping, we do this first, before calculating anything else.
         let (breaks, linecount, used_aux) = if props.wrap() {
             // Anything other than `start` for main-axis justification causes problems if there are any obstacles we need to
@@ -583,10 +607,10 @@ impl Desc for dyn Prop {
         }
 
         Box::new(Concrete {
-            area: outer_area,
+            area: evaluated_area,
             render: renderable,
             rtree: Rc::new(rtree::Node::new(
-                outer_area,
+                evaluated_area,
                 Some(props.zindex()),
                 nodes,
                 id,

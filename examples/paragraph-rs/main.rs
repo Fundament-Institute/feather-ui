@@ -17,6 +17,7 @@ use feather_ui::AbsRect;
 use feather_ui::App;
 use feather_ui::SourceID;
 use feather_ui::URect;
+use feather_ui::FILL_URECT;
 use std::f32;
 use std::rc::Rc;
 use ultraviolet::Vec2;
@@ -57,21 +58,21 @@ impl base::RLimits for MinimalFlexChild {}
 impl leaf::Prop for MinimalFlexChild {}
 impl leaf::Padded for MinimalFlexChild {}
 
-#[derive(Default, Clone, feather_macro::Area)]
+#[derive(Default, Clone, feather_macro::Empty, feather_macro::Area)]
 struct MinimalArea {
     area: URect,
 }
 
-impl base::Empty for MinimalArea {}
 impl base::ZIndex for MinimalArea {}
 impl base::Anchor for MinimalArea {}
 impl base::Limits for MinimalArea {}
 impl fixed::Prop for MinimalArea {}
 
+#[derive(Default, Clone, feather_macro::Empty, feather_macro::Area)]
 struct MinimalFlex {
     obstacles: Vec<AbsRect>,
+    area: URect,
 }
-impl base::Empty for MinimalFlex {}
 impl base::Direction for MinimalFlex {}
 impl base::ZIndex for MinimalFlex {}
 impl base::Limits for MinimalFlex {}
@@ -132,6 +133,7 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
                 let mut p = Paragraph::new(
                     gen_id!().into(),
                     MinimalFlex {
+                        area: FILL_URECT,
                         obstacles: vec![AbsRect {
                             topleft: Vec2::new(200.0, 30.0),
                             bottomright: Vec2::new(300.0, 150.0),
