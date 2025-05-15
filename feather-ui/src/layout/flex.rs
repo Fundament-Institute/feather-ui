@@ -4,6 +4,7 @@
 use super::base;
 use super::cap_unsized;
 use super::check_unsized_abs;
+use super::map_unsized_area;
 use super::merge_margin;
 use super::nuetralize_unsized;
 use super::Concrete;
@@ -65,7 +66,7 @@ fn next_obstacle(
     // Given our current X/Y position, what is the next obstacle we would run into?
     let mut i = *min;
     while i < obstacles.len() {
-        let (mut start, aux_start) = super::swap_axis(xaxis, obstacles[i].topleft);
+        let (mut start, aux_start) = super::swap_axis(xaxis, obstacles[i].topleft());
 
         if total_main > 0.0 {
             start = total_main - start;
@@ -76,7 +77,7 @@ fn next_obstacle(
             break;
         }
 
-        let (mut end, aux_end) = super::swap_axis(xaxis, obstacles[i].bottomright);
+        let (mut end, aux_end) = super::swap_axis(xaxis, obstacles[i].bottomright());
 
         if total_main > 0.0 {
             end = total_main - end;
@@ -192,7 +193,7 @@ fn wrap_line(
 
         // This is a bit unintuitive, but this is adding the margin for the previous element, not this one.
         if !prev_margin.is_nan() {
-            main += prev_margin.max(b.margin.topleft.x);
+            main += prev_margin.max(b.margin.topleft().x);
         }
 
         // If we hit an obstacle, mark it as an obstacle breakpoint, then jump forward. We ignore margins here, because
@@ -262,9 +263,9 @@ fn wrap_line(
         }
 
         main += b.basis;
-        prev_margin = b.margin.bottomright.x;
-        max_aux_margin = max_aux_margin.max(b.margin.bottomright.y);
-        max_aux_upper_margin = max_aux_upper_margin.max(b.margin.topleft.y);
+        prev_margin = b.margin.bottomright().x;
+        max_aux_margin = max_aux_margin.max(b.margin.bottomright().y);
+        max_aux_upper_margin = max_aux_upper_margin.max(b.margin.topleft().y);
         max_aux = max_aux.max(b.aux);
         i += 1;
     }
@@ -298,7 +299,7 @@ impl Desc for dyn Prop {
         driver: &crate::DriverState,
     ) -> Box<dyn Staged + 'a> {
         let myarea = props.area();
-        let (unsized_x, unsized_y) = super::check_unsized(*myarea);
+        //let (unsized_x, unsized_y) = super::check_unsized(*myarea);
 
         let limits = outer_limits + *props.limits();
         let inner_dim = super::limit_dim(super::eval_dim(*myarea, outer_area.dim()), limits);
@@ -316,14 +317,14 @@ impl Desc for dyn Prop {
             let imposed = child.as_ref().unwrap().get_imposed();
 
             let child_limit = super::apply_limit(inner_dim, limits, *imposed.rlimits());
-            let inner_area = AbsRect {
-                topleft: Vec2::zero(),
-                bottomright: if xaxis {
+            let inner_area = AbsRect::new_corners(
+                Vec2::zero(),
+                if xaxis {
                     Vec2::new(imposed.basis(), UNSIZED_AXIS)
                 } else {
                     Vec2::new(UNSIZED_AXIS, imposed.basis())
                 },
-            };
+            );
 
             let stage = child
                 .as_ref()
@@ -346,10 +347,10 @@ impl Desc for dyn Prop {
 
             // Swap the margin axis if necessary
             if !xaxis {
-                std::mem::swap(&mut cache.margin.topleft.x, &mut cache.margin.topleft.y);
+                std::mem::swap(&mut cache.margin.topleft().x, &mut cache.margin.topleft().y);
                 std::mem::swap(
-                    &mut cache.margin.bottomright.x,
-                    &mut cache.margin.bottomright.y,
+                    &mut cache.margin.bottomright().x,
+                    &mut cache.margin.bottomright().y,
                 );
             }
 
@@ -365,9 +366,9 @@ impl Desc for dyn Prop {
             |prev: &(f32, f32, f32), n: &Option<ChildCache>| -> (f32, f32, f32) {
                 let cache = n.as_ref().unwrap();
                 (
-                    cache.basis + prev.0 + merge_margin(prev.2, cache.margin.topleft.x),
+                    cache.basis + prev.0 + merge_margin(prev.2, cache.margin.topleft().x),
                     cache.aux.max(prev.1),
-                    cache.margin.bottomright.x,
+                    cache.margin.bottomright().x,
                 )
             },
         );
@@ -376,7 +377,6 @@ impl Desc for dyn Prop {
             fold.call(fold.init(), &(0.0, 0.0, f32::NAN), &childareas);
 
         let evaluated_area = {
-            let mut area = *myarea;
             let (used_x, used_y) = super::swap_axis(
                 xaxis,
                 Vec2 {
@@ -384,22 +384,13 @@ impl Desc for dyn Prop {
                     y: used_aux,
                 },
             );
-            // Unsized objects must always have a single anchor point to make sense, so we copy over from topleft.
-            if unsized_x {
-                area.bottomright.rel.0.x = area.topleft.rel.0.x;
-                // We also add the topleft abs corner to the unsized dimensions to make padding work
-                area.bottomright.abs.x += area.topleft.abs.x + used_x;
-            }
-            if unsized_y {
-                area.bottomright.rel.0.y = area.topleft.rel.0.y;
-                area.bottomright.abs.y += area.topleft.abs.y + used_y;
-            }
+            let area = map_unsized_area(*myarea, Vec2::new(used_x, used_y));
 
             // No need to cap this because unsized axis have now been resolved
             super::limit_area(area * outer_safe, limits)
         };
 
-        let (unsized_x, unsized_y) = check_unsized_abs(outer_area.bottomright);
+        let (unsized_x, unsized_y) = check_unsized_abs(outer_area.bottomright());
 
         let mut staging: im::Vector<Option<Box<dyn Staged>>> = im::Vector::new();
         let mut nodes: im::Vector<Option<Rc<rtree::Node>>> = im::Vector::new();
@@ -552,32 +543,31 @@ impl Desc for dyn Prop {
 
                 // Apply our margin first
                 if !prev_margin.is_nan() {
-                    main += prev_margin.max(c.margin.topleft.x);
+                    main += prev_margin.max(c.margin.topleft().x);
                 }
-                prev_margin = c.margin.bottomright.x;
+                prev_margin = c.margin.bottomright().x;
 
                 // If we're growing backwards, we flip along the main axis (but not the aux axis)
                 let mut area = if props.direction() == RowDirection::RightToLeft
                     || props.direction() == RowDirection::BottomToTop
                 {
-                    AbsRect {
-                        topleft: Vec2::new(total_main - main, aux),
-                        bottomright: Vec2::new(total_main - (main + c.basis), aux + max_aux),
-                    }
+                    AbsRect::new(
+                        total_main - main,
+                        aux,
+                        total_main - (main + c.basis),
+                        aux + max_aux,
+                    )
                 } else {
-                    AbsRect {
-                        topleft: Vec2::new(main, aux),
-                        bottomright: Vec2::new(main + c.basis, aux + max_aux),
-                    }
+                    AbsRect::new(main, aux, main + c.basis, aux + max_aux)
                 };
 
                 area = cap_unsized(area);
-                area.topleft = Vec2::min_by_component(area.topleft, area.bottomright);
+                area.set_topleft(Vec2::min_by_component(area.topleft(), area.bottomright()));
 
                 // If our axis is swapped, swap the rectangle axis
                 if !xaxis {
-                    std::mem::swap(&mut area.topleft.x, &mut area.topleft.y);
-                    std::mem::swap(&mut area.bottomright.x, &mut area.bottomright.y);
+                    std::mem::swap(&mut area.topleft().x, &mut area.topleft().y);
+                    std::mem::swap(&mut area.bottomright().x, &mut area.bottomright().y);
                 }
 
                 let stage = children[i]

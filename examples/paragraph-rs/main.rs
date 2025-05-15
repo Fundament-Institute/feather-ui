@@ -15,12 +15,12 @@ use feather_ui::outline::OutlineFrom;
 use feather_ui::persist::FnPersist;
 use feather_ui::AbsRect;
 use feather_ui::App;
+use feather_ui::RelRect;
 use feather_ui::SourceID;
 use feather_ui::URect;
 use feather_ui::FILL_URECT;
 use std::f32;
 use std::rc::Rc;
-use ultraviolet::Vec2;
 use ultraviolet::Vec4;
 
 #[derive(PartialEq, Clone, Debug)]
@@ -134,10 +134,7 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
                     gen_id!().into(),
                     MinimalFlex {
                         area: FILL_URECT,
-                        obstacles: vec![AbsRect {
-                            topleft: Vec2::new(200.0, 30.0),
-                            bottomright: Vec2::new(300.0, 150.0),
-                        }],
+                        obstacles: vec![AbsRect::new(200.0, 30.0, 300.0, 150.0)],
                     },
                 );
 
@@ -167,14 +164,8 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
                 id: gen_id!().into(),
                 props: MinimalArea {
                     area: feather_ui::URect {
-                        topleft: feather_ui::UPoint {
-                            abs: Vec2::new(90.0, 90.0),
-                            rel: Vec2::new(0.0, 0.0).into(),
-                        },
-                        bottomright: feather_ui::UPoint {
-                            abs: Vec2::new(-90.0, -90.0),
-                            rel: Vec2::new(1.0, 1.0).into(),
-                        },
+                        abs: AbsRect::new(90.0, 90.0, -90.0, -90.0),
+                        rel: RelRect::new(0.0, 0.0, 1.0, 1.0),
                     },
                 }
                 .into(),

@@ -10,7 +10,6 @@ use crate::AbsDim;
 use crate::AbsRect;
 use crate::DEFAULT_LIMITS;
 use std::rc::Rc;
-use ultraviolet::Vec2;
 
 // The root node represents some area on the screen that contains a feather layout. Later this will turn
 // into an absolute bounding volume. There can be multiple root nodes, each mapping to a different window.
@@ -41,13 +40,6 @@ impl Desc for dyn Prop {
         driver: &crate::DriverState,
     ) -> Box<dyn Staged + 'a> {
         // We bypass creating our own node here because we can never have a nonzero topleft corner, so our node would be redundant.
-        child.stage(
-            AbsRect {
-                topleft: Vec2::zero(),
-                bottomright: (*props.dim()).into(),
-            },
-            DEFAULT_LIMITS,
-            driver,
-        )
+        child.stage((*props.dim()).into(), DEFAULT_LIMITS, driver)
     }
 }

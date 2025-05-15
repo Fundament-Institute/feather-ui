@@ -5,6 +5,7 @@ use ultraviolet::Vec2;
 
 use super::base;
 use super::check_unsized_abs;
+use super::map_unsized_area;
 use super::nuetralize_unsized;
 use super::swap_axis;
 use super::Concrete;
@@ -46,7 +47,7 @@ impl Desc for dyn Prop {
 
         let limits = outer_limits + *props.limits();
         let myarea = props.area();
-        let (unsized_x, unsized_y) = super::check_unsized(*myarea);
+        //let (unsized_x, unsized_y) = super::check_unsized(*myarea);
         let dir = props.direction();
         // For the purpose of calculating size, we only care about which axis we're distributing along
         let xaxis = match dir {
@@ -83,7 +84,7 @@ impl Desc for dyn Prop {
                 .stage(inner_area, child_limit, driver);
             let area = stage.get_area();
 
-            let (margin_main, child_margin_aux) = super::swap_axis(xaxis, child_margin.topleft);
+            let (margin_main, child_margin_aux) = super::swap_axis(xaxis, child_margin.topleft());
             let (main, aux) = super::swap_axis(xaxis, area.dim().0);
             let mut margin = super::merge_margin(prev_margin, margin_main);
             // Have to add the margin here before we zero it
@@ -106,7 +107,7 @@ impl Desc for dyn Prop {
             aux_margin = aux_margin.max(child_margin_aux);
             max_aux = max_aux.max(aux);
 
-            let (margin, child_margin_aux) = super::swap_axis(xaxis, child_margin.bottomright);
+            let (margin, child_margin_aux) = super::swap_axis(xaxis, child_margin.bottomright());
             prev_margin = margin;
             aux_margin_bottom = aux_margin_bottom.max(child_margin_aux);
         }
@@ -116,18 +117,7 @@ impl Desc for dyn Prop {
         let aux_merge = super::merge_margin(prev_aux_margin, aux_margin);
         aux_margins.push_back(aux_merge);
         cur.y += max_aux + aux_margin;
-        let mut area = *myarea;
-
-        // Unsized objects must always have a single anchor point to make sense, so we copy over from topleft.
-        if unsized_x {
-            area.bottomright.rel.0.x = area.topleft.rel.0.x;
-            // We also add the topleft abs corner to the unsized dimensions to make padding work
-            area.bottomright.abs.x += area.topleft.abs.x + max_main;
-        }
-        if unsized_y {
-            area.bottomright.rel.0.y = area.topleft.rel.0.y;
-            area.bottomright.abs.y += area.topleft.abs.y + cur.y;
-        }
+        let area = map_unsized_area(*myarea, Vec2::new(max_main, cur.y));
 
         // No need to cap this because unsized axis have now been resolved
         let evaluated_area = super::limit_area(area * outer_safe, limits);
@@ -137,7 +127,7 @@ impl Desc for dyn Prop {
 
         // If our parent is asking for a size estimation along the expansion axis, no need to layout the children
         // TODO: Double check this assumption is true
-        let (unsized_x, unsized_y) = check_unsized_abs(outer_area.bottomright);
+        let (unsized_x, unsized_y) = check_unsized_abs(outer_area.bottomright());
         if (unsized_x && xaxis) || (unsized_y && !xaxis) {
             return Box::new(Concrete {
                 area: evaluated_area,

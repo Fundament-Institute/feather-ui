@@ -90,8 +90,8 @@ impl Node {
                 }
             }
 
-            offset += self.area.topleft;
-            pos -= self.area.topleft;
+            offset += self.area.topleft();
+            pos -= self.area.topleft();
             // Children should be sorted from top to bottom
             for child in self.children.iter() {
                 if child

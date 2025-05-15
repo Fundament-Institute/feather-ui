@@ -128,15 +128,17 @@ impl<T: leaf::Padded> Layout<T> for TextLayout<T> {
         let myarea = self.props.area();
         let (unsized_x, unsized_y) = check_unsized(*myarea);
         let padding = self.props.padding();
-        let allpadding = myarea.bottomright.abs + padding.topleft + padding.bottomright;
+        let allpadding = myarea.bottomright().abs() + padding.topleft() + padding.bottomright();
+        let minmax = limits.0.as_array_mut();
         if unsized_x {
-            limits.0.bottomright.x -= allpadding.x;
-            limits.0.topleft.x -= allpadding.x;
+            minmax[2] -= allpadding.x;
+            minmax[0] -= allpadding.x;
         }
         if unsized_y {
-            limits.0.bottomright.y -= allpadding.y;
-            limits.0.topleft.y -= allpadding.y;
+            minmax[3] -= allpadding.y;
+            minmax[1] -= allpadding.y;
         }
+
         let mut evaluated_area = limit_area(
             cap_unsized(*myarea * crate::layout::nuetralize_unsized(outer_area)),
             limits,
@@ -174,11 +176,12 @@ impl<T: leaf::Padded> Layout<T> for TextLayout<T> {
             // Apply adjusted limits to inner size calculation
             w = w.max(limits.min().x).min(limits.max().x);
             h = h.max(limits.min().y).min(limits.max().y);
+            let ltrb = evaluated_area.0.as_array_mut();
             if unsized_x {
-                evaluated_area.bottomright.x = evaluated_area.topleft.x + w + allpadding.x;
+                ltrb[2] = ltrb[0] + w + allpadding.x;
             }
             if unsized_y {
-                evaluated_area.bottomright.y = evaluated_area.topleft.y + h + allpadding.y;
+                ltrb[3] = ltrb[1] + h + allpadding.y;
             }
         };
 
@@ -235,14 +238,14 @@ impl Renderable for TextPipeline {
                 viewport,
                 [glyphon::TextArea {
                     buffer: &self.text_buffer.borrow(),
-                    left: area.topleft.x + padding.topleft.x,
-                    top: area.topleft.y + padding.topleft.y,
+                    left: area.topleft().x + padding.topleft().x,
+                    top: area.topleft().y + padding.topleft().y,
                     scale: 1.0,
                     bounds: glyphon::TextBounds {
-                        left: area.topleft.x as i32,
-                        top: area.topleft.y as i32,
-                        right: area.bottomright.x as i32,
-                        bottom: area.bottomright.y as i32,
+                        left: area.topleft().x as i32,
+                        top: area.topleft().y as i32,
+                        right: area.bottomright().x as i32,
+                        bottom: area.bottomright().y as i32,
                     },
                     default_color: glyphon::Color::rgb(255, 255, 255),
                     custom_glyphs: &[],

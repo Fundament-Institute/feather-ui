@@ -15,6 +15,7 @@ use feather_ui::outline::OutlineFrom;
 use feather_ui::persist::FnPersist;
 use feather_ui::AbsRect;
 use feather_ui::App;
+use feather_ui::RelRect;
 use feather_ui::Slot;
 use feather_ui::SourceID;
 use feather_ui::UPoint;
@@ -63,17 +64,8 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     id: gen_id!().into(),
                     props: Rc::new(FixedData {
                         area: URect {
-                            topleft: UPoint {
-                                abs: Vec2 { x: 8.0, y: 0.0 },
-                                rel: feather_ui::RelPoint(Vec2 { x: 0.0, y: 0.5 }),
-                            },
-                            bottomright: UPoint {
-                                abs: Vec2 { x: 8.0, y: 0.0 },
-                                rel: feather_ui::RelPoint(Vec2 {
-                                    x: UNSIZED_AXIS,
-                                    y: UNSIZED_AXIS,
-                                }),
-                            },
+                            abs: AbsRect::new(8.0, 0.0, 8.0, 0.0),
+                            rel: RelRect::new(0.0, 0.5, UNSIZED_AXIS, UNSIZED_AXIS),
                         },
                         anchor: feather_ui::RelPoint(Vec2 { x: 0.0, y: 0.5 }).into(),
                         ..Default::default()
@@ -103,17 +95,8 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     gen_id!().into(),
                     FixedData {
                         area: URect {
-                            topleft: UPoint {
-                                abs: Vec2 { x: 45.0, y: 45.0 },
-                                rel: feather_ui::RelPoint(Vec2 { x: 0.0, y: 0.0 }),
-                            },
-                            bottomright: UPoint {
-                                abs: Vec2 { x: 0.0, y: 0.0 },
-                                rel: feather_ui::RelPoint(Vec2 {
-                                    x: UNSIZED_AXIS,
-                                    y: 1.0,
-                                }),
-                            },
+                            abs: AbsRect::new(45.0, 45.0, 0.0, 0.0),
+                            rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, 1.0),
                         },
                         ..Default::default()
                     },
@@ -126,19 +109,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 let text = Text::<FixedData> {
                     id: gen_id!().into(),
                     props: Rc::new(FixedData {
-                        area: URect {
-                            topleft: UPoint {
-                                abs: Vec2 { x: 0.0, y: 0.0 },
-                                rel: feather_ui::RelPoint(Vec2 { x: 0.5, y: 0.0 }),
-                            },
-                            bottomright: UPoint {
-                                abs: Vec2 { x: 0.0, y: 0.0 },
-                                rel: feather_ui::RelPoint(Vec2 {
-                                    x: UNSIZED_AXIS,
-                                    y: UNSIZED_AXIS,
-                                }),
-                            },
-                        },
+                        area: RelRect::new(0.5, 0.0, UNSIZED_AXIS, UNSIZED_AXIS).into(),
                         limits: feather_ui::AbsLimits::new(
                             Vec2::new(f32::NEG_INFINITY, 10.0),
                             Vec2::new(f32::INFINITY, 200.0),
@@ -177,17 +148,8 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     gen_id!().into(),
                     FixedData {
                         area: URect {
-                            topleft: UPoint {
-                                abs: Vec2 { x: 45.0, y: 245.0 },
-                                rel: feather_ui::RelPoint(Vec2 { x: 0.0, y: 0.0 }),
-                            },
-                            bottomright: UPoint {
-                                abs: Vec2 { x: 0.0, y: 0.0 },
-                                rel: feather_ui::RelPoint(Vec2 {
-                                    x: UNSIZED_AXIS,
-                                    y: UNSIZED_AXIS,
-                                }),
-                            },
+                            abs: AbsRect::new(45.0, 245.0, 0.0, 0.0),
+                            rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
                         },
                         limits: feather_ui::AbsLimits::new(
                             Vec2::new(100.0, f32::NEG_INFINITY),
@@ -209,17 +171,8 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 id: gen_id!().into(),
                 props: FixedData {
                     area: URect {
-                        topleft: UPoint {
-                            abs: Vec2 { x: 90.0, y: 90.0 },
-                            rel: feather_ui::RelPoint(Vec2 { x: 0.0, y: 0.0 }),
-                        },
-                        bottomright: UPoint {
-                            abs: Vec2 { x: 0.0, y: 200.0 },
-                            rel: feather_ui::RelPoint(Vec2 {
-                                x: feather_ui::UNSIZED_AXIS,
-                                y: 0.0,
-                            }),
-                        },
+                        abs: AbsRect::new(90.0, 90.0, 0.0, 200.0),
+                        rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, 0.0),
                     },
                     zindex: 0,
                     ..Default::default()
