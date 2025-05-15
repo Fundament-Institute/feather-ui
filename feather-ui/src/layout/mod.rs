@@ -310,24 +310,24 @@ pub(crate) fn apply_limit(dim: AbsDim, limits: AbsLimits, rlimits: RelLimits) ->
             x: if unsized_x {
                 limits.min().x
             } else {
-                rlimits.min().0.x * dim.0.x
+                limits.min().x.max(rlimits.min().0.x * dim.0.x)
             },
             y: if unsized_y {
                 limits.min().y
             } else {
-                rlimits.min().0.y * dim.0.y
+                limits.min().y.max(rlimits.min().0.y * dim.0.y)
             },
         },
         bottomright: Vec2 {
             x: if unsized_x {
                 limits.max().x
             } else {
-                rlimits.max().0.x * dim.0.x
+                limits.max().x.min(rlimits.max().0.x * dim.0.x)
             },
             y: if unsized_y {
                 limits.max().y
             } else {
-                rlimits.max().0.y * dim.0.y
+                limits.max().y.min(rlimits.max().0.y * dim.0.y)
             },
         },
     })
