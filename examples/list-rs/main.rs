@@ -254,7 +254,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                             ZERO_POINT,
                             Vec2::new(1.0, f32::INFINITY),
                         ),
-                        direction: feather_ui::RowDirection::RightToLeft,
+                        direction: feather_ui::RowDirection::BottomToTop,
                     }
                     .into(),
                     children,

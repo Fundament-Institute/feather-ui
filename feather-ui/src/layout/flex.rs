@@ -6,6 +6,7 @@ use super::cap_unsized;
 use super::check_unsized_abs;
 use super::limit_area;
 use super::limit_dim;
+use super::merge_margin;
 use super::zero_unsized;
 use super::Concrete;
 use super::Desc;
@@ -363,13 +364,7 @@ impl Desc for dyn Prop {
             |prev: &(f32, f32, f32), n: &Option<ChildCache>| -> (f32, f32, f32) {
                 let cache = n.as_ref().unwrap();
                 (
-                    cache.basis
-                        + prev.0
-                        + if prev.2.is_nan() {
-                            0.0 // We use NAN to mark the beginning, where we ignore the margin.
-                        } else {
-                            prev.2.max(cache.margin.topleft.x)
-                        },
+                    cache.basis + prev.0 + merge_margin(prev.2, cache.margin.topleft.x),
                     cache.aux.max(prev.1),
                     cache.margin.bottomright.x,
                 )
