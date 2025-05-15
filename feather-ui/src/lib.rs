@@ -32,7 +32,9 @@ use std::collections::HashMap;
 use std::hash::Hasher;
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 use std::rc::Rc;
+use ultraviolet::f32x4;
 use ultraviolet::vec::Vec2;
+use wide::CmpLe;
 use winit::window::WindowId;
 
 /*
@@ -83,6 +85,7 @@ pub enum Error {
 
 pub const UNSIZED_AXIS: f32 = f32::MAX;
 pub const ZERO_POINT: Vec2 = Vec2 { x: 0.0, y: 0.0 };
+const MINUS_BOTTOMRIGHT: f32x4 = f32x4::new([0.0, 0.0, -1.0, -1.0]);
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct AbsDim(Vec2);
@@ -95,55 +98,100 @@ impl From<AbsDim> for Vec2 {
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 /// Absolutely positioned rectangle
-pub struct AbsRect {
-    pub topleft: Vec2,
-    pub bottomright: Vec2,
-}
+pub struct AbsRect(f32x4);
 
-pub const ZERO_RECT: AbsRect = AbsRect {
-    topleft: ZERO_POINT,
-    bottomright: ZERO_POINT,
-};
+pub const ZERO_RECT: AbsRect = AbsRect(f32x4::ZERO);
 
 impl AbsRect {
     #[inline]
-    pub fn new(left: f32, top: f32, right: f32, bottom: f32) -> Self {
-        Self {
-            topleft: Vec2 { x: left, y: top },
-            bottomright: Vec2 {
-                x: right,
-                y: bottom,
-            },
-        }
+    pub const fn new(left: f32, top: f32, right: f32, bottom: f32) -> Self {
+        Self(f32x4::new([left, top, right, bottom]))
     }
     #[inline]
+    pub const fn new_corners(topleft: Vec2, bottomright: Vec2) -> Self {
+        Self(f32x4::new([
+            topleft.x,
+            topleft.y,
+            bottomright.x,
+            bottomright.y,
+        ]))
+    }
+
+    #[inline]
     pub fn contains(&self, p: Vec2) -> bool {
-        p.x >= self.topleft.x
-            && p.x <= self.bottomright.x
-            && p.y >= self.topleft.y
-            && p.y <= self.bottomright.y
+        (self.0 * MINUS_BOTTOMRIGHT)
+            .cmp_le(f32x4::new([p.x, p.y, -p.x, -p.y]))
+            .all()
+
+        /*p.x >= self.0[0]
+        && p.y >= self.0[1]
+        && p.x <= self.0[2]
+        && p.y <= self.0[3]*/
     }
 
     #[inline]
     pub fn extend(&self, rhs: AbsRect) -> AbsRect {
-        AbsRect {
-            topleft: self.topleft.min_by_component(rhs.topleft),
-            bottomright: self.bottomright.min_by_component(rhs.bottomright),
+        /*AbsRect {
+            topleft: self.topleft().min_by_component(rhs.topleft()),
+            bottomright: self.bottomright().max_by_component(rhs.bottomright()),
+        }*/
+        AbsRect(
+            (self.0 * MINUS_BOTTOMRIGHT).fast_min(rhs.0 * MINUS_BOTTOMRIGHT) * MINUS_BOTTOMRIGHT,
+        )
+    }
+
+    #[inline]
+    pub fn topleft(&self) -> Vec2 {
+        let ltrb = self.0.as_array_ref();
+        Vec2 {
+            x: ltrb[0],
+            y: ltrb[1],
         }
     }
 
     #[inline]
-    pub fn width(&self) -> f32 {
-        self.bottomright.x - self.topleft.x
+    pub fn set_topleft(&mut self, v: Vec2) {
+        let ltrb = self.0.as_array_mut();
+        ltrb[0] = v.x;
+        ltrb[1] = v.y;
     }
+
     #[inline]
-    pub fn height(&self) -> f32 {
-        self.bottomright.y - self.topleft.y
+    pub fn bottomright(&self) -> Vec2 {
+        let ltrb = self.0.as_array_ref();
+        Vec2 {
+            x: ltrb[2],
+            y: ltrb[3],
+        }
     }
+
+    #[inline]
+    pub fn set_bottomright(&mut self, v: Vec2) {
+        let ltrb = self.0.as_array_mut();
+        ltrb[2] = v.x;
+        ltrb[3] = v.y;
+    }
+
     #[inline]
     pub fn dim(&self) -> AbsDim {
-        AbsDim(self.bottomright - self.topleft)
+        let ltrb = self.0.as_array_ref();
+        AbsDim(Vec2 {
+            x: ltrb[2] - ltrb[0],
+            y: ltrb[3] - ltrb[1],
+        })
     }
+}
+
+impl From<[f32; 4]> for AbsRect {
+    #[inline]
+    fn from(value: [f32; 4]) -> Self {
+        Self(f32x4::new(value))
+    }
+}
+
+#[inline]
+fn splat_vec2(v: Vec2) -> f32x4 {
+    f32x4::new([v.x, v.y, v.x, v.y])
 }
 
 impl Add<Vec2> for AbsRect {
@@ -151,10 +199,7 @@ impl Add<Vec2> for AbsRect {
 
     #[inline]
     fn add(self, rhs: Vec2) -> Self::Output {
-        Self {
-            topleft: self.topleft + rhs,
-            bottomright: self.bottomright + rhs,
-        }
+        Self(self.0 + splat_vec2(rhs))
     }
 }
 
@@ -164,14 +209,8 @@ impl Add<RelRect> for AbsRect {
     #[inline]
     fn add(self, rhs: RelRect) -> Self::Output {
         URect {
-            topleft: UPoint {
-                abs: self.topleft,
-                rel: rhs.topleft,
-            },
-            bottomright: UPoint {
-                abs: self.bottomright,
-                rel: rhs.bottomright,
-            },
+            abs: self,
+            rel: rhs,
         }
     }
 }
@@ -179,8 +218,7 @@ impl Add<RelRect> for AbsRect {
 impl AddAssign<Vec2> for AbsRect {
     #[inline]
     fn add_assign(&mut self, rhs: Vec2) {
-        self.topleft += rhs;
-        self.bottomright += rhs;
+        self.0 += splat_vec2(rhs)
     }
 }
 
@@ -189,27 +227,20 @@ impl Sub<Vec2> for AbsRect {
 
     #[inline]
     fn sub(self, rhs: Vec2) -> Self::Output {
-        Self {
-            topleft: self.topleft - rhs,
-            bottomright: self.bottomright - rhs,
-        }
+        Self(self.0 - splat_vec2(rhs))
     }
 }
 
 impl SubAssign<Vec2> for AbsRect {
     #[inline]
     fn sub_assign(&mut self, rhs: Vec2) {
-        self.topleft -= rhs;
-        self.bottomright -= rhs;
+        self.0 -= splat_vec2(rhs)
     }
 }
 
 impl From<AbsDim> for AbsRect {
     fn from(value: AbsDim) -> Self {
-        AbsRect {
-            topleft: ZERO_POINT,
-            bottomright: value.0,
-        }
+        Self(f32x4::new([0.0, 0.0, value.0.x, value.0.y]))
     }
 }
 
@@ -226,20 +257,30 @@ impl From<Vec2> for RelPoint {
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 /// Relative rectangle
-pub struct RelRect {
-    pub topleft: RelPoint,
-    pub bottomright: RelPoint,
-}
+pub struct RelRect(f32x4);
+
+pub const ZERO_RELRECT: RelRect = RelRect(f32x4::ZERO);
 
 impl RelRect {
     #[inline]
-    pub fn new(left: f32, top: f32, right: f32, bottom: f32) -> Self {
-        Self {
-            topleft: RelPoint(Vec2 { x: left, y: top }),
-            bottomright: RelPoint(Vec2 {
-                x: right,
-                y: bottom,
-            }),
+    pub const fn new(left: f32, top: f32, right: f32, bottom: f32) -> Self {
+        Self(f32x4::new([left, top, right, bottom]))
+    }
+
+    #[inline]
+    pub fn topleft(&self) -> Vec2 {
+        let ltrb = self.0.as_array_ref();
+        Vec2 {
+            x: ltrb[0],
+            y: ltrb[1],
+        }
+    }
+    #[inline]
+    pub fn bottomright(&self) -> Vec2 {
+        let ltrb = self.0.as_array_ref();
+        Vec2 {
+            x: ltrb[2],
+            y: ltrb[3],
         }
     }
 }
@@ -249,147 +290,48 @@ impl Add<AbsRect> for RelRect {
 
     #[inline]
     fn add(self, rhs: AbsRect) -> Self::Output {
-        URect {
-            topleft: UPoint {
-                abs: rhs.topleft,
-                rel: self.topleft,
-            },
-            bottomright: UPoint {
-                abs: rhs.bottomright,
-                rel: self.bottomright,
-            },
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
-/// Unified coordinate
-pub struct UPoint {
-    pub abs: Vec2,
-    pub rel: RelPoint,
-}
-
-impl Add for UPoint {
-    type Output = Self;
-
-    #[inline]
-    fn add(self, other: Self) -> Self {
-        Self {
-            abs: self.abs + other.abs,
-            rel: RelPoint(self.rel.0 + other.rel.0),
-        }
-    }
-}
-
-impl Sub for UPoint {
-    type Output = Self;
-
-    #[inline]
-    fn sub(self, rhs: Self) -> Self {
-        Self {
-            abs: self.abs - rhs.abs,
-            rel: RelPoint(self.rel.0 - rhs.rel.0),
-        }
-    }
-}
-
-impl Mul<AbsDim> for UPoint {
-    type Output = Vec2;
-
-    #[inline]
-    fn mul(self, rhs: AbsDim) -> Self::Output {
-        self.abs + (self.rel.0 * rhs.0)
-    }
-}
-
-impl Mul<AbsRect> for UPoint {
-    type Output = Vec2;
-
-    #[inline]
-    fn mul(self, rhs: AbsRect) -> Self::Output {
-        let dim = AbsDim(rhs.bottomright - rhs.topleft);
-        rhs.topleft + (self.rel.0 * dim.0) + self.abs
-    }
-}
-
-impl From<Vec2> for UPoint {
-    #[inline]
-    fn from(value: Vec2) -> Self {
-        Self {
-            abs: value,
-            rel: Default::default(),
-        }
-    }
-}
-
-impl From<RelPoint> for UPoint {
-    #[inline]
-    fn from(value: RelPoint) -> Self {
-        Self {
-            abs: Default::default(),
-            rel: value,
-        }
-    }
-}
-
-pub const ZERO_UPOINT: UPoint = UPoint {
-    abs: Vec2 { x: 0.0, y: 0.0 },
-    rel: RelPoint(Vec2 { x: 0.0, y: 0.0 }),
-};
-
-#[derive(Copy, Clone, Debug, Default)]
-pub struct UDim(UPoint);
-
-impl From<UDim> for UPoint {
-    #[inline]
-    fn from(val: UDim) -> Self {
-        val.0
+        rhs + self
     }
 }
 
 #[inline]
 pub fn build_aabb(a: Vec2, b: Vec2) -> AbsRect {
-    AbsRect {
-        topleft: a.min_by_component(b),
-        bottomright: a.max_by_component(b),
-    }
+    AbsRect::new_corners(a.min_by_component(b), a.max_by_component(b))
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 /// Unified coordinate rectangle
 pub struct URect {
-    pub topleft: UPoint,
-    pub bottomright: UPoint,
+    pub abs: AbsRect,
+    pub rel: RelRect,
+}
+
+impl URect {
+    pub fn topleft(&self) -> UPoint {
+        let abs = self.abs.0.as_array_ref();
+        let rel = self.rel.0.as_array_ref();
+        UPoint(f32x4::new([abs[0], abs[1], rel[0], rel[1]]))
+    }
+    pub fn bottomright(&self) -> UPoint {
+        let abs = self.abs.0.as_array_ref();
+        let rel = self.rel.0.as_array_ref();
+        UPoint(f32x4::new([abs[2], abs[3], rel[2], rel[3]]))
+    }
 }
 
 pub const ZERO_URECT: URect = URect {
-    topleft: ZERO_UPOINT,
-    bottomright: ZERO_UPOINT,
+    abs: ZERO_RECT,
+    rel: ZERO_RELRECT,
 };
 
 pub const FILL_URECT: URect = URect {
-    topleft: UPoint {
-        abs: Vec2 { x: 0.0, y: 0.0 },
-        rel: RelPoint(Vec2 { x: 0.0, y: 0.0 }),
-    },
-    bottomright: UPoint {
-        abs: Vec2 { x: 0.0, y: 0.0 },
-        rel: RelPoint(Vec2 { x: 1.0, y: 1.0 }),
-    },
+    abs: ZERO_RECT,
+    rel: RelRect::new(0.0, 0.0, 1.0, 1.0),
 };
 
 pub const AUTO_URECT: URect = URect {
-    topleft: UPoint {
-        abs: Vec2 { x: 0.0, y: 0.0 },
-        rel: RelPoint(Vec2 { x: 0.0, y: 0.0 }),
-    },
-    bottomright: UPoint {
-        abs: Vec2 { x: 0.0, y: 0.0 },
-        rel: RelPoint(Vec2 {
-            x: UNSIZED_AXIS,
-            y: UNSIZED_AXIS,
-        }),
-    },
+    abs: ZERO_RECT,
+    rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
 };
 
 impl Mul<AbsRect> for URect {
@@ -397,11 +339,11 @@ impl Mul<AbsRect> for URect {
 
     #[inline]
     fn mul(self, rhs: AbsRect) -> Self::Output {
-        let dim = AbsDim(rhs.bottomright - rhs.topleft);
-        AbsRect {
-            topleft: rhs.topleft + (self.topleft * dim),
-            bottomright: rhs.topleft + (self.bottomright * dim),
-        }
+        let ltrb = rhs.0.as_array_ref();
+        let topleft = f32x4::new([ltrb[0], ltrb[1], ltrb[0], ltrb[1]]);
+        let bottomright = f32x4::new([ltrb[2], ltrb[3], ltrb[2], ltrb[3]]);
+
+        AbsRect(topleft + self.abs.0 + self.rel.0 * (bottomright - topleft))
     }
 }
 
@@ -410,10 +352,7 @@ impl Mul<AbsDim> for URect {
 
     #[inline]
     fn mul(self, rhs: AbsDim) -> Self::Output {
-        AbsRect {
-            topleft: self.topleft * rhs,
-            bottomright: self.bottomright * rhs,
-        }
+        AbsRect(self.abs.0 + self.rel.0 * splat_vec2(rhs.0))
     }
 }
 
@@ -421,41 +360,129 @@ impl From<AbsRect> for URect {
     #[inline]
     fn from(value: AbsRect) -> Self {
         Self {
-            topleft: value.topleft.into(),
-            bottomright: value.bottomright.into(),
+            abs: value,
+            rel: ZERO_RELRECT,
         }
     }
 }
 
+impl From<RelRect> for URect {
+    #[inline]
+    fn from(value: RelRect) -> Self {
+        Self {
+            abs: ZERO_RECT,
+            rel: value,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+/// Unified coordinate
+pub struct UPoint(f32x4);
+
+pub const ZERO_UPOINT: UPoint = UPoint(f32x4::ZERO);
+
+impl UPoint {
+    #[inline]
+    pub const fn new(abs: Vec2, rel: RelPoint) -> Self {
+        Self(f32x4::new([abs.x, abs.y, rel.0.x, rel.0.y]))
+    }
+    #[inline]
+    pub fn abs(&self) -> Vec2 {
+        let ltrb = self.0.as_array_ref();
+        Vec2 {
+            x: ltrb[0],
+            y: ltrb[1],
+        }
+    }
+    #[inline]
+    pub fn rel(&self) -> RelPoint {
+        let ltrb = self.0.as_array_ref();
+        RelPoint(Vec2 {
+            x: ltrb[2],
+            y: ltrb[3],
+        })
+    }
+}
+
+impl Add for UPoint {
+    type Output = Self;
+
+    #[inline]
+    fn add(self, rhs: Self) -> Self {
+        Self(self.0 + rhs.0)
+    }
+}
+
+impl Sub for UPoint {
+    type Output = Self;
+
+    #[inline]
+    fn sub(self, rhs: Self) -> Self {
+        Self(self.0 - rhs.0)
+    }
+}
+
+impl Mul<AbsDim> for UPoint {
+    type Output = Vec2;
+
+    #[inline]
+    fn mul(self, rhs: AbsDim) -> Self::Output {
+        self.abs() + (self.rel().0 * rhs.0)
+    }
+}
+
+impl Mul<AbsRect> for UPoint {
+    type Output = Vec2;
+
+    #[inline]
+    fn mul(self, rhs: AbsRect) -> Self::Output {
+        self * rhs.dim()
+    }
+}
+
+impl From<RelPoint> for UPoint {
+    fn from(value: RelPoint) -> Self {
+        Self(f32x4::new([0.0, 0.0, value.0.x, value.0.y]))
+    }
+}
+
+impl From<Vec2> for UPoint {
+    fn from(value: Vec2) -> Self {
+        Self(f32x4::new([value.x, value.y, 0.0, 0.0]))
+    }
+}
+
 #[derive(Copy, Clone, Debug)]
-pub struct AbsLimits(AbsRect);
+pub struct AbsLimits(f32x4);
 
 // It would be cheaper to avoid using actual infinities here but we currently need them to make the math work
-pub const DEFAULT_LIMITS: AbsLimits = AbsLimits(AbsRect {
-    topleft: Vec2 {
-        x: f32::NEG_INFINITY,
-        y: f32::NEG_INFINITY,
-    },
-    bottomright: Vec2 {
-        x: f32::INFINITY,
-        y: f32::INFINITY,
-    },
-});
+pub const DEFAULT_LIMITS: AbsLimits = AbsLimits(f32x4::new([
+    f32::NEG_INFINITY,
+    f32::NEG_INFINITY,
+    f32::INFINITY,
+    f32::INFINITY,
+]));
 
 impl AbsLimits {
-    pub fn new(min: Vec2, max: Vec2) -> Self {
-        Self(AbsRect {
-            topleft: min,
-            bottomright: max,
-        })
+    pub const fn new(min: Vec2, max: Vec2) -> Self {
+        Self(f32x4::new([min.x, min.y, max.x, max.y]))
     }
     #[inline]
     pub fn min(&self) -> Vec2 {
-        self.0.topleft
+        let minmax = self.0.as_array_ref();
+        Vec2 {
+            x: minmax[0],
+            y: minmax[1],
+        }
     }
     #[inline]
     pub fn max(&self) -> Vec2 {
-        self.0.bottomright
+        let minmax = self.0.as_array_ref();
+        Vec2 {
+            x: minmax[2],
+            y: minmax[3],
+        }
     }
 }
 
@@ -471,20 +498,27 @@ impl Add<AbsLimits> for AbsLimits {
 
     #[inline]
     fn add(self, rhs: AbsLimits) -> Self::Output {
-        Self(AbsRect {
-            topleft: self.min().max_by_component(rhs.min()),
-            bottomright: self.max().min_by_component(rhs.max()),
-        })
+        let minmax = self.0.as_array_ref();
+        let r = rhs.0.as_array_ref();
+
+        Self(f32x4::new([
+            minmax[0].max(r[0]),
+            minmax[1].max(r[1]),
+            minmax[2].min(r[2]),
+            minmax[3].min(r[3]),
+        ]))
     }
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct RelLimits(RelRect);
+pub struct RelLimits(f32x4);
 
-pub const DEFAULT_RLIMITS: RelLimits = RelLimits(RelRect {
-    topleft: RelPoint(DEFAULT_LIMITS.0.topleft),
-    bottomright: RelPoint(DEFAULT_LIMITS.0.bottomright),
-});
+pub const DEFAULT_RLIMITS: RelLimits = RelLimits(f32x4::new([
+    f32::NEG_INFINITY,
+    f32::NEG_INFINITY,
+    f32::INFINITY,
+    f32::INFINITY,
+]));
 
 impl Default for RelLimits {
     fn default() -> Self {
@@ -495,18 +529,23 @@ impl Default for RelLimits {
 impl RelLimits {
     #[inline]
     pub fn new(min: Vec2, max: Vec2) -> Self {
-        Self(RelRect {
-            topleft: RelPoint(min),
-            bottomright: RelPoint(max),
+        Self(f32x4::new([min.x, min.y, max.x, max.y]))
+    }
+    #[inline]
+    pub fn min(&self) -> RelPoint {
+        let minmax = self.0.as_array_ref();
+        RelPoint(Vec2 {
+            x: minmax[0],
+            y: minmax[1],
         })
     }
     #[inline]
-    fn min(&self) -> &RelPoint {
-        &self.0.topleft
-    }
-    #[inline]
-    fn max(&self) -> &RelPoint {
-        &self.0.bottomright
+    pub fn max(&self) -> RelPoint {
+        let minmax = self.0.as_array_ref();
+        RelPoint(Vec2 {
+            x: minmax[2],
+            y: minmax[3],
+        })
     }
 }
 
@@ -516,32 +555,29 @@ impl Mul<AbsDim> for RelLimits {
     #[inline]
     fn mul(self, rhs: AbsDim) -> Self::Output {
         let (unsized_x, unsized_y) = crate::layout::check_unsized_dim(rhs);
-        AbsLimits(AbsRect {
-            topleft: Vec2 {
-                x: if unsized_x {
-                    self.min().0.x
-                } else {
-                    self.min().0.x * rhs.0.x
-                },
-                y: if unsized_y {
-                    self.min().0.y
-                } else {
-                    self.min().0.y * rhs.0.y
-                },
+        let minmax = self.0.as_array_ref();
+        AbsLimits(f32x4::new([
+            if unsized_x {
+                minmax[0]
+            } else {
+                minmax[0] * rhs.0.x
             },
-            bottomright: Vec2 {
-                x: if unsized_x {
-                    self.max().0.x
-                } else {
-                    self.max().0.x * rhs.0.x
-                },
-                y: if unsized_y {
-                    self.max().0.y
-                } else {
-                    self.max().0.y * rhs.0.y
-                },
+            if unsized_y {
+                minmax[1]
+            } else {
+                minmax[1] * rhs.0.y
             },
-        })
+            if unsized_x {
+                minmax[2]
+            } else {
+                minmax[2] * rhs.0.x
+            },
+            if unsized_y {
+                minmax[3]
+            } else {
+                minmax[3] * rhs.0.y
+            },
+        ]))
     }
 }
 

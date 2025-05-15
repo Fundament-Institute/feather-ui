@@ -3,7 +3,7 @@
 
 use super::base;
 use super::base::Empty;
-use super::zero_unsized_area;
+use super::map_unsized_area;
 use super::Concrete;
 use super::Desc;
 use super::LayoutWrap;
@@ -13,6 +13,7 @@ use crate::rtree;
 use crate::AbsRect;
 use crate::SourceID;
 use crate::URect;
+use crate::ZERO_POINT;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
@@ -47,7 +48,7 @@ impl Desc for dyn Prop {
     ) -> Box<dyn Staged + 'a> {
         let limits = outer_limits + *props.limits();
         let evaluated_area = super::limit_area(
-            zero_unsized_area(*props.area()) * super::nuetralize_unsized(outer_area),
+            map_unsized_area(*props.area(), ZERO_POINT) * super::nuetralize_unsized(outer_area),
             limits,
         );
 

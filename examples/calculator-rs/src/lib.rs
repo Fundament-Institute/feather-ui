@@ -12,7 +12,9 @@ use feather_ui::outline::text::Text;
 use feather_ui::outline::window::Window;
 use feather_ui::outline::OutlineFrom;
 use feather_ui::persist::FnPersist;
+use feather_ui::AbsRect;
 use feather_ui::App;
+use feather_ui::RelRect;
 use feather_ui::Slot;
 use feather_ui::SourceID;
 use feather_ui::URect;
@@ -23,7 +25,6 @@ use std::any::TypeId;
 use std::f32;
 use std::rc::Rc;
 use std::sync::Arc;
-use ultraviolet::Vec2;
 use ultraviolet::Vec4;
 
 #[cfg(target_os = "windows")]
@@ -218,20 +219,13 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
                 gen_id!(button_id).into(),
                 FixedData {
                     area: URect {
-                        topleft: feather_ui::UPoint {
-                            abs: Vec2 { x: 4.0, y: 4.0 },
-                            rel: feather_ui::RelPoint(Vec2 {
-                                x: w * x as f32,
-                                y: h * y as f32,
-                            }),
-                        },
-                        bottomright: feather_ui::UPoint {
-                            abs: Vec2 { x: -4.0, y: -4.0 },
-                            rel: feather_ui::RelPoint(Vec2 {
-                                x: w * (x + 1) as f32,
-                                y: h * (y + 1) as f32,
-                            }),
-                        },
+                        abs: AbsRect::new(4.0, 4.0, -4.0, -4.0),
+                        rel: RelRect::new(
+                            w * x as f32,
+                            h * y as f32,
+                            w * (x + 1) as f32,
+                            h * (y + 1) as f32,
+                        ),
                     },
                     anchor: Default::default(),
                     zindex: 0,
@@ -254,19 +248,7 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
 
         let text_bg = Shape::round_rect(
             gen_id!(button_id).into(),
-            Rc::new(URect {
-                topleft: feather_ui::UPoint {
-                    abs: Vec2 { x: 0.0, y: 0.0 },
-                    rel: feather_ui::RelPoint(Vec2 { x: 0.0, y: 0.0 }),
-                },
-                bottomright: feather_ui::UPoint {
-                    abs: Vec2 { x: 0.0, y: 0.0 },
-                    rel: feather_ui::RelPoint(Vec2 {
-                        x: 1.0,
-                        y: 1.0 / 7.0,
-                    }),
-                },
-            }),
+            Rc::new(URect::from(RelRect::new(0.0, 0.0, 1.0, 1.0 / 7.0))),
             0.0,
             0.0,
             Vec4::broadcast(25.0),

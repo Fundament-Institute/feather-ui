@@ -11,6 +11,7 @@ pub mod root;
 
 use dyn_clone::DynClone;
 use ultraviolet::Vec2;
+use wide::f32x4;
 
 use crate::outline::Renderable;
 use crate::persist::FnPersist2;
@@ -167,7 +168,7 @@ impl Concrete {
         rtree: Rc<rtree::Node>,
         children: im::Vector<Option<Box<dyn Staged>>>,
     ) -> Self {
-        let (unsized_x, unsized_y) = check_unsized_abs(area.bottomright);
+        let (unsized_x, unsized_y) = check_unsized_abs(area.bottomright());
         assert!(
             !unsized_x && !unsized_y,
             "concrete area must always be sized!"
@@ -180,6 +181,7 @@ impl Concrete {
         }
     }
 }
+
 impl Staged for Concrete {
     fn render(&self, parent_pos: Vec2, driver: &DriverState) -> im::Vector<RenderInstruction> {
         let instructions = self
@@ -195,7 +197,7 @@ impl Staged for Concrete {
                 let mut a = n
                     .as_ref()
                     .unwrap()
-                    .render(parent_pos + self.area.topleft, driver);
+                    .render(parent_pos + self.area.topleft(), driver);
                 a.append(list.clone());
                 a
             },
@@ -214,6 +216,7 @@ impl Staged for Concrete {
     }
 }
 
+#[must_use]
 #[inline]
 pub(crate) fn zero_unsized(mut v: AbsDim) -> AbsDim {
     let (unsized_x, unsized_y) = check_unsized_dim(v);
@@ -226,44 +229,52 @@ pub(crate) fn zero_unsized(mut v: AbsDim) -> AbsDim {
     v
 }
 
+#[must_use]
 #[inline]
-pub(crate) fn zero_unsized_area(mut area: URect) -> URect {
+pub(crate) fn map_unsized_area(mut area: URect, adjust: Vec2) -> URect {
     let (unsized_x, unsized_y) = check_unsized(area);
+    let abs = area.abs.0.as_array_mut();
+    let rel = area.rel.0.as_array_mut();
+    // Unsized objects must always have a single anchor point to make sense, so we copy over from topleft.
     if unsized_x {
-        area.bottomright.rel.0.x = area.topleft.rel.0.x;
+        rel[2] = rel[0];
         // Fix the bottomright abs area in unsized scenarios, because it is now relative to the topleft instead of being independent.
-        area.bottomright.abs.x += area.topleft.abs.x;
+        abs[2] += abs[0] + adjust.x;
     }
     if unsized_y {
-        area.bottomright.rel.0.y = area.topleft.rel.0.y;
-        area.bottomright.abs.y += area.topleft.abs.y;
+        rel[3] = rel[1];
+        abs[3] += abs[1] + adjust.y;
     }
     area
 }
 
+#[must_use]
 #[inline]
-pub(crate) fn nuetralize_unsized(mut v: AbsRect) -> AbsRect {
-    let (unsized_x, unsized_y) = check_unsized_abs(v.bottomright);
-    if unsized_x {
-        v.bottomright.x = v.topleft.x
-    }
-    if unsized_y {
-        v.bottomright.y = v.topleft.y
-    }
-    v
+pub(crate) fn nuetralize_unsized(v: AbsRect) -> AbsRect {
+    let (unsized_x, unsized_y) = check_unsized_abs(v.bottomright());
+    let ltrb = v.0.to_array();
+    AbsRect(f32x4::new([
+        ltrb[0],
+        ltrb[1],
+        if unsized_x { ltrb[0] } else { ltrb[2] },
+        if unsized_y { ltrb[1] } else { ltrb[3] },
+    ]))
 }
 
+#[must_use]
 #[inline]
 pub(crate) fn limit_area(mut v: AbsRect, limits: AbsLimits) -> AbsRect {
     // We do this by checking clamp(topleft + limit) instead of clamp(bottomright - topleft)
     // because this avoids floating point precision issues.
-    v.bottomright = v
-        .bottomright
-        .max_by_component(v.topleft + limits.min())
-        .min_by_component(v.topleft + limits.max());
+    v.set_bottomright(
+        v.bottomright()
+            .max_by_component(v.topleft() + limits.min())
+            .min_by_component(v.topleft() + limits.max()),
+    );
     v
 }
 
+#[must_use]
 #[inline]
 pub(crate) fn limit_dim(v: AbsDim, limits: AbsLimits) -> AbsDim {
     let (unsized_x, unsized_y) = check_unsized_dim(v);
@@ -281,99 +292,97 @@ pub(crate) fn limit_dim(v: AbsDim, limits: AbsLimits) -> AbsDim {
     })
 }
 
+#[must_use]
 #[inline]
 pub(crate) fn eval_dim(area: URect, dim: AbsDim) -> AbsDim {
     let (unsized_x, unsized_y) = check_unsized(area);
     AbsDim(Vec2 {
         x: if unsized_x {
-            area.bottomright.rel.0.x
+            area.bottomright().rel().0.x
         } else {
-            let top = area.topleft.abs.x + (area.topleft.rel.0.x * dim.0.x);
-            let bottom = area.bottomright.abs.x + (area.bottomright.rel.0.x * dim.0.x);
+            let top = area.topleft().abs().x + (area.topleft().rel().0.x * dim.0.x);
+            let bottom = area.bottomright().abs().x + (area.bottomright().rel().0.x * dim.0.x);
             bottom - top
         },
         y: if unsized_y {
-            area.bottomright.rel.0.y
+            area.bottomright().rel().0.y
         } else {
-            let top = area.topleft.abs.y + (area.topleft.rel.0.y * dim.0.y);
-            let bottom = area.bottomright.abs.y + (area.bottomright.rel.0.y * dim.0.y);
+            let top = area.topleft().abs().y + (area.topleft().rel().0.y * dim.0.y);
+            let bottom = area.bottomright().abs().y + (area.bottomright().rel().0.y * dim.0.y);
             bottom - top
         },
     })
 }
 
+#[must_use]
 #[inline]
 pub(crate) fn apply_limit(dim: AbsDim, limits: AbsLimits, rlimits: RelLimits) -> AbsLimits {
     let (unsized_x, unsized_y) = check_unsized_dim(dim);
-    AbsLimits(AbsRect {
-        topleft: Vec2 {
-            x: if unsized_x {
-                limits.min().x
-            } else {
-                limits.min().x.max(rlimits.min().0.x * dim.0.x)
-            },
-            y: if unsized_y {
-                limits.min().y
-            } else {
-                limits.min().y.max(rlimits.min().0.y * dim.0.y)
-            },
+    AbsLimits(f32x4::new([
+        if unsized_x {
+            limits.min().x
+        } else {
+            limits.min().x.max(rlimits.min().0.x * dim.0.x)
         },
-        bottomright: Vec2 {
-            x: if unsized_x {
-                limits.max().x
-            } else {
-                limits.max().x.min(rlimits.max().0.x * dim.0.x)
-            },
-            y: if unsized_y {
-                limits.max().y
-            } else {
-                limits.max().y.min(rlimits.max().0.y * dim.0.y)
-            },
+        if unsized_y {
+            limits.min().y
+        } else {
+            limits.min().y.max(rlimits.min().0.y * dim.0.y)
         },
-    })
+        if unsized_x {
+            limits.max().x
+        } else {
+            limits.max().x.min(rlimits.max().0.x * dim.0.x)
+        },
+        if unsized_y {
+            limits.max().y
+        } else {
+            limits.max().y.min(rlimits.max().0.y * dim.0.y)
+        },
+    ]))
 }
 
 // Returns true if an axis is unsized, which means it is defined as the size of it's children's maximum extent.
+#[must_use]
 #[inline]
 pub(crate) fn check_unsized(area: URect) -> (bool, bool) {
     (
-        area.bottomright.rel.0.x == UNSIZED_AXIS,
-        area.bottomright.rel.0.y == UNSIZED_AXIS,
+        area.bottomright().rel().0.x == UNSIZED_AXIS,
+        area.bottomright().rel().0.y == UNSIZED_AXIS,
     )
 }
 
 // Returns true if an axis is unsized, which means it is defined as the size of it's children's maximum extent.
+#[must_use]
 #[inline]
 pub(crate) fn check_unsized_abs(bottomright: Vec2) -> (bool, bool) {
     (bottomright.x == UNSIZED_AXIS, bottomright.y == UNSIZED_AXIS)
 }
 
 // Returns true if an axis is unsized, which means it is defined as the size of it's children's maximum extent.
+#[must_use]
 #[inline]
 pub(crate) fn check_unsized_dim(dim: crate::AbsDim) -> (bool, bool) {
     check_unsized_abs(dim.0)
 }
 
+#[must_use]
 #[inline]
-pub(crate) fn cap_unsized(mut area: crate::AbsRect) -> crate::AbsRect {
-    if !area.topleft.x.is_finite() {
-        area.topleft.x = crate::UNSIZED_AXIS;
-    }
-    if !area.topleft.y.is_finite() {
-        area.topleft.y = crate::UNSIZED_AXIS;
-    }
-    if !area.bottomright.x.is_finite() {
-        area.bottomright.x = crate::UNSIZED_AXIS;
-    }
-    if !area.bottomright.y.is_finite() {
-        area.bottomright.y = crate::UNSIZED_AXIS;
-    }
-    area
+pub(crate) fn cap_unsized(area: crate::AbsRect) -> crate::AbsRect {
+    let ltrb = area.0.to_array();
+    crate::AbsRect(f32x4::new(ltrb.map(|x| {
+        if x.is_finite() {
+            x
+        } else {
+            crate::UNSIZED_AXIS
+        }
+    })))
 }
 
+#[must_use]
 #[inline]
 pub(crate) fn apply_anchor(area: AbsRect, outer_area: AbsRect, mut anchor: Vec2) -> AbsRect {
-    let (unsized_outer_x, unsized_outer_y) = check_unsized_abs(outer_area.bottomright);
+    let (unsized_outer_x, unsized_outer_y) = check_unsized_abs(outer_area.bottomright());
     if unsized_outer_x {
         anchor.x = 0.0;
     }
@@ -383,6 +392,7 @@ pub(crate) fn apply_anchor(area: AbsRect, outer_area: AbsRect, mut anchor: Vec2)
     area - anchor
 }
 
+#[must_use]
 #[inline]
 fn swap_axis(xaxis: bool, v: Vec2) -> (f32, f32) {
     if xaxis {
@@ -393,6 +403,7 @@ fn swap_axis(xaxis: bool, v: Vec2) -> (f32, f32) {
 }
 
 /// If prev is NAN, always returns zero, which is the correct action for margin edges.
+#[must_use]
 #[inline]
 fn merge_margin(prev: f32, margin: f32) -> f32 {
     if prev.is_nan() {

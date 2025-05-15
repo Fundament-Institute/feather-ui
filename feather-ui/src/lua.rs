@@ -13,15 +13,14 @@ use crate::propbag::PropBag;
 use crate::DataID;
 use crate::FnPersist;
 use crate::Outline;
-use crate::RelPoint;
 use crate::Slot;
 use crate::SourceID;
 use crate::URect;
 use mlua::prelude::*;
 use mlua::UserData;
 use std::rc::Rc;
-use ultraviolet::Vec2;
 use ultraviolet::Vec4;
+use wide::f32x4;
 
 pub type AppState = LuaValue;
 type LuaSourceID = SourceID;
@@ -217,20 +216,8 @@ fn create_slot(_: &Lua, args: (Option<LuaSourceID>, u64)) -> mlua::Result<Slot> 
 
 fn create_urect(_: &Lua, args: (f32, f32, f32, f32, f32, f32, f32, f32)) -> mlua::Result<URect> {
     Ok(URect {
-        topleft: crate::UPoint {
-            abs: Vec2::new(args.0, args.1),
-            rel: RelPoint(Vec2 {
-                x: args.4,
-                y: args.5,
-            }),
-        },
-        bottomright: crate::UPoint {
-            abs: Vec2::new(args.2, args.3),
-            rel: RelPoint(Vec2 {
-                x: args.6,
-                y: args.7,
-            }),
-        },
+        abs: crate::AbsRect(f32x4::new([args.0, args.1, args.2, args.3])),
+        rel: crate::RelRect(f32x4::new([args.4, args.5, args.6, args.7])),
     })
 }
 

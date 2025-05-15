@@ -143,10 +143,10 @@ impl Renderable for LinePipeline {
                     label: Some("LineVertices"),
                     contents: to_bytes(&[
                         Vertex {
-                            pos: ((start.topleft + start.bottomright) * 0.5).into(),
+                            pos: ((start.topleft() + start.bottomright()) * 0.5).into(),
                         },
                         Vertex {
-                            pos: ((end.topleft + end.bottomright) * 0.5).into(),
+                            pos: ((end.topleft() + end.bottomright()) * 0.5).into(),
                         },
                     ]),
                     usage: wgpu::BufferUsages::VERTEX,

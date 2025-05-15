@@ -4,6 +4,7 @@
 use super::base;
 use super::check_unsized;
 use super::check_unsized_abs;
+use super::map_unsized_area;
 use super::Concrete;
 use super::Desc;
 use super::LayoutWrap;
@@ -43,13 +44,13 @@ impl Desc for dyn Prop {
         // If both axes are sized, then all limits are applied as if outer_area was unsized, and children calculations are skipped.
         //
         // If we have an unsized outer_area and an unsized myarea.rel, then limits are applied as if outer_area was unsized, and furthermore,
-        // they are reduced by myarea.abs.bottomright, because that will be added on to the total area later, which will still be subject to size
+        // they are reduced by myarea.abs.bottomright(), because that will be added on to the total area later, which will still be subject to size
         // limits, so we must anticipate this when calculating how much size the children will have available to them. This forces limits to be
         // true infinite numbers, so we can subtract finite amounts and still have infinity. We can't use infinity anywhere else, because infinity
         // times zero is NaN, so we cap certain calculations at f32::MAX
         //
         // If outer_area is sized and myarea.rel is zero or nonzero, all limits are applied normally and child calculations are skipped.
-        // If outer_area is sized and myarea.rel is unsized, limits are applied normally, but are once again reduced by myarea.abs.bottomright to
+        // If outer_area is sized and myarea.rel is unsized, limits are applied normally, but are once again reduced by myarea.abs.bottomright() to
         // account for how the area calculations will interact with the limits later on.
 
         let limits = outer_limits + *props.limits();
@@ -73,21 +74,10 @@ impl Desc for dyn Prop {
                     .as_ref()
                     .unwrap()
                     .stage(inner_area, child_limit, driver);
-                bottomright = bottomright.max_by_component(stage.get_area().bottomright);
+                bottomright = bottomright.max_by_component(stage.get_area().bottomright());
             }
 
-            let mut area = *myarea;
-
-            // Unsized objects must always have a single anchor point to make sense, so we copy over from topleft.
-            if unsized_x {
-                area.bottomright.rel.0.x = area.topleft.rel.0.x;
-                // We also add the topleft abs corner to the unsized dimensions to make padding work
-                area.bottomright.abs.x += area.topleft.abs.x + bottomright.x;
-            }
-            if unsized_y {
-                area.bottomright.rel.0.y = area.topleft.rel.0.y;
-                area.bottomright.abs.y += area.topleft.abs.y + bottomright.y;
-            }
+            let area = map_unsized_area(*myarea, bottomright);
 
             // No need to cap this because unsized axis have now been resolved
             super::limit_area(area * crate::layout::nuetralize_unsized(outer_area), limits)
@@ -103,7 +93,7 @@ impl Desc for dyn Prop {
         let mut nodes: im::Vector<Option<Rc<rtree::Node>>> = im::Vector::new();
 
         // If our parent just wants a size estimate, no need to layout children or render anything
-        let (unsized_x, unsized_y) = check_unsized_abs(outer_area.bottomright);
+        let (unsized_x, unsized_y) = check_unsized_abs(outer_area.bottomright());
         if unsized_x || unsized_y {
             return Box::new(Concrete::new(
                 None,
@@ -147,7 +137,7 @@ impl Desc for dyn Prop {
         // calculated. However, we can only apply the anchor if the parent isn't unsized on that axis.
         let mut anchor = *props.anchor() * evaluated_dim;
         let (unsized_outer_x, unsized_outer_y) =
-            crate::layout::check_unsized_abs(outer_area.bottomright);
+            crate::layout::check_unsized_abs(outer_area.bottomright());
         if unsized_outer_x {
             anchor.x = 0.0;
         }
