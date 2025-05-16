@@ -41,3 +41,6 @@ feather-macro.workspace = true
 derive_more = { version = "2.0.1", features = ["try_from"] }
 wide = "0.7.32"
 alloca = "0.4.0"
+
+[lints.clippy]
+too_many_arguments = { level = "allow" }

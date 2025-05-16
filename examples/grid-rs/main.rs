@@ -14,7 +14,7 @@ use feather_ui::outline::{mouse_area, OutlineFrom};
 use feather_ui::persist::FnPersist;
 use feather_ui::{
     gen_id, AbsRect, App, DAbsRect, DPoint, DRect, DValue, RelRect, Slot, SourceID, FILL_DRECT,
-    FILL_URECT, UNSIZED_AXIS, ZERO_POINT,
+    UNSIZED_AXIS, ZERO_POINT,
 };
 use std::rc::Rc;
 use ultraviolet::{Vec2, Vec4};
@@ -170,7 +170,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     children.push_back(Some(Box::new(Shape::<GridChild>::round_rect(
                         gen_id!().into(),
                         GridChild {
-                            area: feather_ui::URect::from(FILL_URECT).into(),
+                            area: FILL_DRECT,
                             x: i % NUM_COLUMNS,
                             y: i / NUM_COLUMNS,
                         }
@@ -190,7 +190,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     /*children.push_back(Some(Box::new(Text::<GridChild> {
                         id: gen_id!().into(),
                         props: GridChild {
-                            area: feather_ui::URect::from(FILL_URECT).into(),
+                            area: FILL_DRECT,
                             x: i % NUM_COLUMNS,
                             y: i / NUM_COLUMNS,
                         }
@@ -216,11 +216,9 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                         ),
                         direction: feather_ui::RowDirection::BottomToTop,
                         rows: [40.0, 20.0, 40.0, 20.0, 40.0, 20.0, 10.0]
-                            .map(|x| DValue::from(x))
+                            .map(DValue::from)
                             .to_vec(),
-                        columns: [80.0, 40.0, 80.0, 40.0, 80.0]
-                            .map(|x| DValue::from(x))
-                            .to_vec(),
+                        columns: [80.0, 40.0, 80.0, 40.0, 80.0].map(DValue::from).to_vec(),
                         spacing: DPoint::from(Vec2::new(4.0, 4.0)),
                         padding: AbsRect::new(8.0, 8.0, 8.0, 8.0).into(),
                     }

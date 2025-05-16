@@ -219,19 +219,6 @@ impl Staged for Concrete {
 
 #[must_use]
 #[inline]
-pub(crate) fn zero_unsized(mut v: AbsDim) -> AbsDim {
-    let (unsized_x, unsized_y) = check_unsized_dim(v);
-    if unsized_x {
-        v.0.x = 0.0
-    }
-    if unsized_y {
-        v.0.y = 0.0
-    }
-    v
-}
-
-#[must_use]
-#[inline]
 pub(crate) fn map_unsized_area(mut area: URect, adjust: Vec2) -> URect {
     let (unsized_x, unsized_y) = check_unsized(area);
     let abs = area.abs.0.as_array_mut();

@@ -11,7 +11,7 @@ use feather_ui::outline::window::Window;
 use feather_ui::outline::{mouse_area, OutlineFrom};
 use feather_ui::persist::FnPersist;
 use feather_ui::{
-    gen_id, DAbsRect, AbsRect, App, DPoint, DRect, RelRect, Slot, SourceID, URect, UNSIZED_AXIS,
+    gen_id, AbsRect, App, DAbsRect, DPoint, DRect, RelRect, Slot, SourceID, URect, UNSIZED_AXIS,
 };
 use std::rc::Rc;
 use ultraviolet::{Vec2, Vec4};
