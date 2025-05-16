@@ -74,6 +74,7 @@
           # fetch with cli instead of native
           CARGO_NET_GIT_FETCH_WITH_CLI = "true";
           RUST_BACKTRACE = 1;
+          RUSTFLAGS = "-C linker=clang -C link-arg=-fuse-ld=${pkgs.mold}/bin/mold -C link-arg=-flto=thin";
         };
 
       checks =
@@ -86,7 +87,7 @@
             strictDeps = true;
             version = "0.1.0";
             stdenv = pkgs: pkgs.stdenvAdapters.useMoldLinker pkgs.llvmPackages_15.stdenv;
-            CARGO_BUILD_RUSTFLAGS = "-C linker=clang -C link-arg=-fuse-ld=${pkgs.mold}/bin/mold";
+            CARGO_BUILD_RUSTFLAGS = "-C linker=clang -C link-arg=-fuse-ld=${pkgs.mold}/bin/mold -C link-arg=-flto=thin";
           };
           pname = "feather-checks";
 
