@@ -11,7 +11,7 @@ use feather_ui::outline::window::Window;
 use feather_ui::outline::{mouse_area, OutlineFrom};
 use feather_ui::persist::FnPersist;
 use feather_ui::{
-    gen_id, AbsDRect, AbsRect, App, DRect, RelRect, Slot, SourceID, UPoint, URect, UNSIZED_AXIS,
+    gen_id, DAbsRect, AbsRect, App, DPoint, DRect, RelRect, Slot, SourceID, URect, UNSIZED_AXIS,
 };
 use std::rc::Rc;
 use ultraviolet::{Vec2, Vec4};
@@ -24,10 +24,10 @@ struct CounterState {
 #[derive(Default, Empty, Area, Anchor, ZIndex, Limits, RLimits, Padding)]
 struct FixedData {
     area: DRect,
-    anchor: UPoint,
+    anchor: DPoint,
     limits: feather_ui::DLimits,
     rlimits: feather_ui::RelLimits,
-    padding: AbsDRect,
+    padding: DAbsRect,
     zindex: i32,
 }
 

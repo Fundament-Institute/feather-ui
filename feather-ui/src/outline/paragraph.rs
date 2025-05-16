@@ -30,7 +30,7 @@ impl flex::Child for MinimalFlexChild {
         0.0
     }
 
-    fn basis(&self) -> crate::DVec {
+    fn basis(&self) -> crate::DValue {
         UNSIZED_AXIS.into()
     }
 }

@@ -3,10 +3,9 @@
 
 use core::f32;
 use feather_macro::*;
-use feather_ui::layout::{base, fixed, flex, leaf, list};
+use feather_ui::layout::{base, fixed, grid, leaf};
 use feather_ui::outline::button::Button;
-use feather_ui::outline::flexbox::FlexBox;
-use feather_ui::outline::listbox::ListBox;
+use feather_ui::outline::gridbox::GridBox;
 use feather_ui::outline::region::Region;
 use feather_ui::outline::shape::Shape;
 use feather_ui::outline::text::Text;
@@ -14,15 +13,15 @@ use feather_ui::outline::window::Window;
 use feather_ui::outline::{mouse_area, OutlineFrom};
 use feather_ui::persist::FnPersist;
 use feather_ui::{
-    gen_id, AbsRect, App, DRect, DValue, RelRect, Slot, SourceID, FILL_DRECT, UNSIZED_AXIS,
-    ZERO_POINT,
+    gen_id, AbsRect, App, DAbsRect, DPoint, DRect, DValue, RelRect, Slot, SourceID, FILL_DRECT,
+    FILL_URECT, UNSIZED_AXIS, ZERO_POINT,
 };
 use std::rc::Rc;
 use ultraviolet::{Vec2, Vec4};
 
 #[derive(PartialEq, Clone, Debug)]
 struct CounterState {
-    count: i32,
+    count: usize,
 }
 
 #[derive(Default, Empty, Area, Anchor, ZIndex)]
@@ -40,76 +39,62 @@ impl fixed::Child for FixedData {}
 impl leaf::Prop for FixedData {}
 impl leaf::Padded for FixedData {}
 
-#[derive(Default, Empty, Area, Direction, RLimits)]
-struct ListData {
+#[derive(Default, Empty, Area, Direction, RLimits, Padding)]
+struct GridData {
     area: DRect,
     direction: feather_ui::RowDirection,
     rlimits: feather_ui::RelLimits,
+    rows: Vec<DValue>,
+    columns: Vec<DValue>,
+    spacing: feather_ui::DPoint,
+    padding: DAbsRect,
 }
 
-impl base::Limits for ListData {}
-impl list::Prop for ListData {}
-impl fixed::Child for ListData {}
+impl base::Anchor for GridData {}
+impl base::Limits for GridData {}
+impl fixed::Child for GridData {}
 
-#[derive(Default, Empty, Area, Margin)]
-struct ListChild {
-    area: DRect,
-    margin: DRect,
+impl grid::Prop for GridData {
+    fn rows(&self) -> &[DValue] {
+        &self.rows
+    }
+
+    fn columns(&self) -> &[DValue] {
+        &self.columns
+    }
+
+    fn spacing(&self) -> feather_ui::DPoint {
+        self.spacing
+    }
+
+    fn direction(&self) -> feather_ui::RowDirection {
+        feather_ui::RowDirection::TopToBottom
+    }
 }
-
-impl base::Padding for ListChild {}
-impl base::Anchor for ListChild {}
-impl base::Limits for ListChild {}
-impl base::RLimits for ListChild {}
-impl base::Order for ListChild {}
-impl list::Child for ListChild {}
-impl leaf::Prop for ListChild {}
-impl leaf::Padded for ListChild {}
-
-#[derive(Default, Empty, Area, FlexChild, Margin)]
-struct FlexChild {
-    area: DRect,
-    margin: DRect,
-    basis: DValue,
-    grow: f32,
-    shrink: f32,
-}
-
-impl base::RLimits for FlexChild {}
-impl base::Order for FlexChild {}
-impl base::Anchor for FlexChild {}
-impl base::Limits for FlexChild {}
-impl base::Padding for FlexChild {}
-impl leaf::Prop for FlexChild {}
-impl leaf::Padded for FlexChild {}
 
 #[derive(Default, Empty, Area)]
-struct MinimalFlex {
+struct GridChild {
     area: DRect,
+    x: usize,
+    y: usize,
 }
 
-impl base::Obstacles for MinimalFlex {
-    fn obstacles(&self) -> &[feather_ui::DAbsRect] {
-        &[]
-    }
-}
-impl base::Direction for MinimalFlex {}
-impl base::ZIndex for MinimalFlex {}
-impl base::Limits for MinimalFlex {}
-impl base::RLimits for MinimalFlex {}
-impl fixed::Child for MinimalFlex {}
+impl base::Padding for GridChild {}
+impl base::Anchor for GridChild {}
+impl base::Limits for GridChild {}
+impl base::Margin for GridChild {}
+impl base::RLimits for GridChild {}
+impl base::Order for GridChild {}
+impl leaf::Prop for GridChild {}
+impl leaf::Padded for GridChild {}
 
-impl flex::Prop for MinimalFlex {
-    fn wrap(&self) -> bool {
-        true
+impl grid::Child for GridChild {
+    fn index(&self) -> (usize, usize) {
+        (self.y, self.x)
     }
 
-    fn justify(&self) -> flex::FlexJustify {
-        flex::FlexJustify::Start
-    }
-
-    fn align(&self) -> flex::FlexJustify {
-        flex::FlexJustify::Start
+    fn span(&self) -> (usize, usize) {
+        (1, 1)
     }
 }
 
@@ -119,7 +104,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
     type Store = (CounterState, im::HashMap<Rc<SourceID>, Option<Window>>);
 
     fn init(&self) -> Self::Store {
-        (CounterState { count: -1 }, im::HashMap::new())
+        (CounterState { count: 99999999 }, im::HashMap::new())
     }
     fn call(
         &self,
@@ -177,22 +162,22 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 )
             };
 
-            let rectlist = {
-                let mut children: im::Vector<Option<Box<OutlineFrom<dyn list::Prop>>>> =
+            const NUM_COLUMNS: usize = 5;
+            let rectgrid = {
+                let mut children: im::Vector<Option<Box<OutlineFrom<dyn grid::Prop>>>> =
                     im::Vector::new();
                 for i in 0..args.count {
-                    children.push_back(Some(Box::new(Shape::<ListChild>::round_rect(
+                    children.push_back(Some(Box::new(Shape::<GridChild>::round_rect(
                         gen_id!().into(),
-                        ListChild {
-                            area: feather_ui::URect::from(AbsRect::new(0.0, 0.0, 40.0, 40.0))
-                                .into(),
-                            margin: feather_ui::URect::from(AbsRect::new(8.0, 8.0, 4.0, 4.0))
-                                .into(),
+                        GridChild {
+                            area: feather_ui::URect::from(FILL_URECT).into(),
+                            x: i % NUM_COLUMNS,
+                            y: i / NUM_COLUMNS,
                         }
                         .into(),
                         0.0,
                         0.0,
-                        Vec4::broadcast(8.0),
+                        Vec4::broadcast(4.0),
                         Vec4::new(
                             (0.1 * i as f32) % 1.0,
                             (0.65 * i as f32) % 1.0,
@@ -201,11 +186,25 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                         ),
                         Vec4::zero(),
                     ))));
+
+                    /*children.push_back(Some(Box::new(Text::<GridChild> {
+                        id: gen_id!().into(),
+                        props: GridChild {
+                            area: feather_ui::URect::from(FILL_URECT).into(),
+                            x: i % NUM_COLUMNS,
+                            y: i / NUM_COLUMNS,
+                        }
+                        .into(),
+                        text: format!("Cell: {}", i),
+                        font_size: 20.0,
+                        line_height: 22.0,
+                        ..Default::default()
+                    })));*/
                 }
 
-                ListBox::<ListData> {
+                GridBox::<GridData> {
                     id: gen_id!().into(),
-                    props: ListData {
+                    props: GridData {
                         area: feather_ui::URect {
                             abs: AbsRect::new(0.0, 200.0, 0.0, 0.0),
                             rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, 1.0),
@@ -216,51 +215,14 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                             Vec2::new(1.0, f32::INFINITY),
                         ),
                         direction: feather_ui::RowDirection::BottomToTop,
-                    }
-                    .into(),
-                    children,
-                }
-            };
-
-            let flexlist = {
-                let mut children: im::Vector<Option<Box<OutlineFrom<dyn flex::Prop>>>> =
-                    im::Vector::new();
-
-                for i in 0..args.count {
-                    children.push_back(Some(Box::new(Shape::<FlexChild>::round_rect(
-                        gen_id!().into(),
-                        FlexChild {
-                            area: feather_ui::URect {
-                                abs: AbsRect::new(0.0, 0.0, 0.0, 40.0),
-                                rel: RelRect::new(0.0, 0.0, 1.0, 0.0),
-                            }
-                            .into(),
-                            margin: feather_ui::URect::from(AbsRect::new(8.0, 8.0, 4.0, 4.0))
-                                .into(),
-                            basis: 40.0.into(),
-                            grow: 0.0,
-                            shrink: 0.0,
-                        }
-                        .into(),
-                        0.0,
-                        0.0,
-                        Vec4::broadcast(8.0),
-                        Vec4::new(
-                            (0.1 * i as f32) % 1.0,
-                            (0.65 * i as f32) % 1.0,
-                            (0.2 * i as f32) % 1.0,
-                            1.0,
-                        ),
-                        Vec4::zero(),
-                    ))));
-                }
-
-                FlexBox::<MinimalFlex> {
-                    id: gen_id!().into(),
-                    props: MinimalFlex {
-                        area: (AbsRect::new(40.0, 40.0, 0.0, 200.0)
-                            + RelRect::new(0.0, 0.0, 1.0, 0.0))
-                        .into(),
+                        rows: [40.0, 20.0, 40.0, 20.0, 40.0, 20.0, 10.0]
+                            .map(|x| DValue::from(x))
+                            .to_vec(),
+                        columns: [80.0, 40.0, 80.0, 40.0, 80.0]
+                            .map(|x| DValue::from(x))
+                            .to_vec(),
+                        spacing: DPoint::from(Vec2::new(4.0, 4.0)),
+                        padding: AbsRect::new(8.0, 8.0, 8.0, 8.0).into(),
                     }
                     .into(),
                     children,
@@ -270,8 +232,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
             let mut children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> =
                 im::Vector::new();
             children.push_back(Some(Box::new(button)));
-            children.push_back(Some(Box::new(flexlist)));
-            children.push_back(Some(Box::new(rectlist)));
+            children.push_back(Some(Box::new(rectgrid)));
 
             let region = Region {
                 id: gen_id!().into(),

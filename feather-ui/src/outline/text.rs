@@ -190,7 +190,7 @@ impl<T: leaf::Padded> Layout<T> for TextLayout<T> {
         evaluated_area = crate::layout::apply_anchor(
             evaluated_area,
             outer_area,
-            *self.props.anchor() * evaluated_area.dim(),
+            self.props.anchor().resolve(dpi) * evaluated_area.dim(),
         );
 
         Box::new(crate::layout::Concrete::new(

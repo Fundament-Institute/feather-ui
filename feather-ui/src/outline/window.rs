@@ -192,10 +192,7 @@ impl Window {
         let state: &mut WindowStateMachine = manager.get_mut(&id).map_err(|_| ())?;
         let window = state.state.as_mut().unwrap();
         match event {
-            WindowEvent::ScaleFactorChanged {
-                scale_factor,
-                inner_size_writer,
-            } => {
+            WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                 window.dpi = Vec2::broadcast(scale_factor as f32);
                 window.window.request_redraw();
             }

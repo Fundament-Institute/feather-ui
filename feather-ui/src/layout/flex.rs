@@ -6,7 +6,7 @@ use super::{
     Concrete, Desc, LayoutWrap, Renderable, Staged,
 };
 use crate::persist::{FnPersist2, VectorFold};
-use crate::{rtree, AbsDRect, AbsLimits, AbsRect, DVec, RowDirection, Vec2, UNSIZED_AXIS};
+use crate::{rtree, AbsLimits, AbsRect, DAbsRect, DValue, RowDirection, Vec2, UNSIZED_AXIS};
 use derive_more::TryFrom;
 use smallvec::SmallVec;
 use std::rc::Rc;
@@ -36,13 +36,13 @@ crate::gen_from_to_dyn!(Prop);
 pub trait Child: base::Margin + base::RLimits + base::Order {
     fn grow(&self) -> f32;
     fn shrink(&self) -> f32;
-    fn basis(&self) -> DVec;
+    fn basis(&self) -> DValue;
 }
 
 crate::gen_from_to_dyn!(Child);
 
 fn next_obstacle(
-    obstacles: &[AbsDRect],
+    obstacles: &[DAbsRect],
     max_aux: f32,
     main: f32,
     aux: f32,
@@ -306,18 +306,20 @@ impl Desc for dyn Prop {
 
         let mut childareas: im::Vector<Option<ChildCache>> = im::Vector::new();
         let (dpi_main, _) = super::swap_axis(xaxis, dpi);
+        let (outer_main, _) = super::swap_axis(xaxis, outer_safe.dim().0);
 
         // We re-use a lot of concepts from flexbox in this calculation. First we acquire the natural size of all child elements.
         for child in children.iter() {
             let imposed = child.as_ref().unwrap().get_imposed();
 
             let child_limit = super::apply_limit(inner_dim, limits, *imposed.rlimits());
+            let basis = imposed.basis().resolve(dpi_main).resolve(outer_main);
             let inner_area = AbsRect::new_corners(
                 Vec2::zero(),
                 if xaxis {
-                    Vec2::new(imposed.basis().resolve(dpi.x), UNSIZED_AXIS)
+                    Vec2::new(basis, UNSIZED_AXIS)
                 } else {
-                    Vec2::new(UNSIZED_AXIS, imposed.basis().resolve(dpi.y))
+                    Vec2::new(UNSIZED_AXIS, basis)
                 },
             );
 
@@ -329,7 +331,7 @@ impl Desc for dyn Prop {
             let (main, aux) = super::swap_axis(xaxis, stage.get_area().dim().0);
 
             let mut cache = ChildCache {
-                basis: imposed.basis().resolve(dpi_main),
+                basis: basis,
                 grow: imposed.grow(),
                 shrink: imposed.shrink(),
                 aux,

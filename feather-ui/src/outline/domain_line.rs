@@ -38,7 +38,7 @@ where
         &self,
         _: &crate::StateManager,
         driver: &DriverState,
-        dpi: crate::Vec2,
+        _dpi: crate::Vec2,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let shader_idx = driver.shader_cache.borrow_mut().register_shader(

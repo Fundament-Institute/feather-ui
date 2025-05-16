@@ -10,6 +10,7 @@ members = [
   "examples/graph-rs",
   "examples/calculator-rs",
   "examples/calculator-alc",
+  "examples/grid-rs",
   "examples/list-rs",
   "feather-macro",
 ]
@@ -20,6 +21,7 @@ default-members = [
   "examples/paragraph-rs",
   "examples/graph-rs",
   "examples/list-rs",
+  "examples/grid-rs",
 ]
 
 [workspace.package]
