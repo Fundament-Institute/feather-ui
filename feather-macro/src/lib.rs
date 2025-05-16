@@ -40,7 +40,7 @@ pub fn derive_area(input: TokenStream) -> TokenStream {
         input,
         "area",
         "feather_ui::layout::base::Area",
-        "feather_ui::URect",
+        "feather_ui::DRect",
     )
 }
 
@@ -50,7 +50,7 @@ pub fn derive_padding(input: TokenStream) -> TokenStream {
         input,
         "padding",
         "feather_ui::layout::base::Padding",
-        "feather_ui::AbsRect",
+        "feather_ui::AbsDRect",
     )
 }
 
@@ -60,7 +60,7 @@ pub fn derive_margin(input: TokenStream) -> TokenStream {
         input,
         "margin",
         "feather_ui::layout::base::Margin",
-        "feather_ui::URect",
+        "feather_ui::DRect",
     )
 }
 
@@ -70,7 +70,7 @@ pub fn derive_limits(input: TokenStream) -> TokenStream {
         input,
         "limits",
         "feather_ui::layout::base::Limits",
-        "feather_ui::AbsLimits",
+        "feather_ui::DLimits",
     )
 }
 
@@ -118,7 +118,7 @@ pub fn derive_flex_child(input: TokenStream) -> TokenStream {
         impl feather_ui::layout::flex::Child for #name {
             fn grow(&self) -> f32 { self.grow }
             fn shrink(&self) -> f32 { self.shrink }
-            fn basis(&self) -> f32 { self.basis }
+            fn basis(&self) -> DVec { self.basis }
         }
     }
     .into()

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::{AbsRect, UPoint, URect, ZERO_RECT, ZERO_UPOINT, ZERO_URECT};
+use crate::{AbsDRect, AbsRect, DRect, UPoint, ZERO_DRECT, ZERO_UPOINT};
 use std::rc::Rc;
 
 #[macro_export]
@@ -26,7 +26,7 @@ impl crate::layout::list::Child for () {}
 
 impl<T: Empty> Empty for Rc<T> {}
 
-impl Empty for URect {}
+impl Empty for DRect {}
 
 gen_from_to_dyn!(Empty);
 
@@ -42,6 +42,7 @@ impl crate::layout::Desc for dyn Empty {
         _: &Self::Children,
         id: std::rc::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn crate::outline::Renderable>>,
+        _: crate::Vec2,
         _: &crate::DriverState,
     ) -> Box<dyn super::Staged + 'a> {
         outer_area = super::nuetralize_unsized(outer_area);
@@ -65,7 +66,7 @@ impl crate::layout::Desc for dyn Empty {
 //  std::sync::LazyLock::new(|| std::rc::Rc::new(()));
 
 pub trait Obstacles {
-    fn obstacles(&self) -> &[AbsRect];
+    fn obstacles(&self) -> &[AbsDRect];
 }
 
 pub trait ZIndex {
@@ -76,27 +77,27 @@ pub trait ZIndex {
 
 // Padding is used so an element's actual area can be larger than the area it draws children inside (like text).
 pub trait Padding {
-    fn padding(&self) -> &AbsRect {
-        &ZERO_RECT
+    fn padding(&self) -> &AbsDRect {
+        &crate::ZERO_ABSDRECT
     }
 }
 
-impl Padding for URect {}
+impl Padding for DRect {}
 
 // Relative to parent's area, but only ever used to determine spacing between child elements.
 pub trait Margin {
-    fn margin(&self) -> &URect {
-        &ZERO_URECT
+    fn margin(&self) -> &DRect {
+        &ZERO_DRECT
     }
 }
 
 // Relative to child's assigned area (outer area)
 pub trait Area {
-    fn area(&self) -> &URect;
+    fn area(&self) -> &DRect;
 }
 
-impl Area for URect {
-    fn area(&self) -> &URect {
+impl Area for DRect {
+    fn area(&self) -> &DRect {
         self
     }
 }
@@ -110,11 +111,11 @@ pub trait Anchor {
     }
 }
 
-impl Anchor for URect {}
+impl Anchor for DRect {}
 
 pub trait Limits {
-    fn limits(&self) -> &crate::AbsLimits {
-        &crate::DEFAULT_LIMITS
+    fn limits(&self) -> &crate::DLimits {
+        &crate::DEFAULT_DLIMITS
     }
 }
 
@@ -137,5 +138,5 @@ pub trait Direction {
     }
 }
 
-impl Limits for URect {}
-impl RLimits for URect {}
+impl Limits for DRect {}
+impl RLimits for DRect {}

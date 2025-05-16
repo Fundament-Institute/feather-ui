@@ -3,31 +3,20 @@
 
 use feather_ui::gen_id;
 
-use feather_ui::layout::base;
-use feather_ui::layout::fixed;
+use feather_ui::layout::{base, fixed};
 use feather_ui::outline::domain_line::DomainLine;
 use feather_ui::outline::domain_point::DomainPoint;
-use feather_ui::outline::draggable;
 use feather_ui::outline::draggable::Draggable;
 use feather_ui::outline::region::Region;
 use feather_ui::outline::shape::Shape;
 use feather_ui::outline::window::Window;
-use feather_ui::outline::CrossReferenceDomain;
-use feather_ui::outline::OutlineFrom;
+use feather_ui::outline::{draggable, CrossReferenceDomain, OutlineFrom};
 use feather_ui::persist::FnPersist;
-use feather_ui::AbsRect;
-use feather_ui::App;
-use feather_ui::DataID;
-use feather_ui::Slot;
-use feather_ui::SourceID;
-use feather_ui::URect;
-use feather_ui::WrapEventEx;
-use feather_ui::FILL_URECT;
+use feather_ui::{AbsRect, App, DRect, DataID, Slot, SourceID, WrapEventEx, FILL_DRECT};
 use std::collections::HashSet;
 use std::f32;
 use std::rc::Rc;
-use ultraviolet::Vec2;
-use ultraviolet::Vec4;
+use ultraviolet::{Vec2, Vec4};
 
 #[derive(PartialEq, Clone, Debug)]
 struct GraphState {
@@ -41,7 +30,7 @@ struct BasicApp {}
 
 #[derive(Default, Clone, feather_macro::Area)]
 struct MinimalArea {
-    area: URect,
+    area: DRect,
 }
 
 impl base::Empty for MinimalArea {}
@@ -97,7 +86,7 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
 
                 let circle = Shape::circle(
                     gen_id!(iter_id).into(),
-                    FILL_URECT.into(),
+                    FILL_DRECT.into(),
                     0.0,
                     0.0,
                     Vec2::new(0.0, 20.0),
@@ -115,12 +104,12 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
                 let bag = Region::<MinimalArea> {
                     id: gen_id!(iter_id).into(),
                     props: MinimalArea {
-                        area: AbsRect::new(
+                        area: feather_ui::URect::from(AbsRect::new(
                             node.x - NODE_RADIUS,
                             node.y - NODE_RADIUS,
                             node.x + NODE_RADIUS,
                             node.y + NODE_RADIUS,
-                        )
+                        ))
                         .into(),
                     }
                     .into(),
@@ -150,12 +139,12 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
             let region = Draggable {
                 id: gen_id!().into(),
                 props: MinimalArea {
-                    area: AbsRect::new(
+                    area: feather_ui::URect::from(AbsRect::new(
                         args.offset.x,
                         args.offset.y,
                         args.offset.x + 10000.0,
                         args.offset.y + 10000.0,
-                    )
+                    ))
                     .into(),
                 }
                 .into(),

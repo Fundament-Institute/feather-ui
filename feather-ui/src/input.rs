@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::AbsRect;
-use crate::Dispatchable;
-use crate::Error;
+use crate::{AbsRect, Dispatchable, Error};
 use enum_variant_type::EnumVariantType;
 use std::any::TypeId;
-use ultraviolet::Vec2;
-use ultraviolet::Vec3;
+use ultraviolet::{Vec2, Vec3};
+use winit::dpi::PhysicalPosition;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
@@ -92,7 +90,7 @@ pub enum RawEvent {
     Mouse {
         device_id: winit::event::DeviceId,
         state: MouseState,
-        pos: Vec2,
+        pos: PhysicalPosition<f32>,
         button: MouseButton,
         all_buttons: u8,
         modifiers: u8,
@@ -100,7 +98,7 @@ pub enum RawEvent {
     MouseMove {
         device_id: winit::event::DeviceId,
         state: MouseMoveState,
-        pos: Vec2,
+        pos: PhysicalPosition<f32>,
         all_buttons: u8,
         modifiers: u8,
     },

@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::layout;
-use crate::layout::leaf;
-use crate::layout::Layout;
+use crate::layout::{leaf, Layout};
 use crate::shaders::gen_uniform;
-use crate::DriverState;
-use crate::SourceID;
+use crate::{layout, DriverState, SourceID};
 use derive_where::derive_where;
 use std::borrow::Cow;
 use std::rc::Rc;
@@ -99,6 +96,7 @@ where
         &self,
         _: &crate::StateManager,
         driver: &DriverState,
+        dpi: crate::Vec2,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let shader_idx = driver.shader_cache.borrow_mut().register_shader(
@@ -110,7 +108,7 @@ where
             driver
                 .shader_cache
                 .borrow_mut()
-                .standard_pipeline(&driver.device, shader_idx, config);
+                .standard_pipeline(&driver.device, shader_idx, &config);
 
         let mvp = gen_uniform(
             driver,
@@ -134,8 +132,16 @@ where
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             });
 
-        let dimborderblur = gen_uniform(driver, "DimBorderBlur", self.uniforms[0].as_byte_slice());
-        let corners = gen_uniform(driver, "Corners", self.uniforms[1].as_byte_slice());
+        let dimborderblur = gen_uniform(
+            driver,
+            "DimBorderBlur",
+            (self.uniforms[0] * Vec4::broadcast(dpi.x)).as_byte_slice(),
+        );
+        let corners = gen_uniform(
+            driver,
+            "Corners",
+            (self.uniforms[1] * Vec4::broadcast(dpi.x)).as_byte_slice(),
+        );
         let fill = gen_uniform(driver, "Fill", self.uniforms[2].as_byte_slice());
         let outline = gen_uniform(driver, "Outline", self.uniforms[3].as_byte_slice());
         let buffers = [mvp, posdim, dimborderblur, corners, fill, outline];
@@ -163,7 +169,7 @@ where
                 pipeline,
                 group: bind_group,
                 vertices: crate::shaders::default_vertex_buffer(driver),
-                padding: *self.props.padding(),
+                padding: self.props.padding().resolve(dpi),
                 buffers,
             })),
         })

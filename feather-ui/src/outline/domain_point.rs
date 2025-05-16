@@ -38,6 +38,7 @@ where
         &self,
         _: &crate::StateManager,
         _: &crate::DriverState,
+        _: crate::Vec2,
         _: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn crate::layout::Layout<T>> {
         Box::new(crate::layout::Node::<T, dyn domain_write::Prop> {

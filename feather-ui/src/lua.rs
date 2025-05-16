@@ -7,15 +7,9 @@ use crate::outline::region::Region;
 use crate::outline::shape::Shape;
 use crate::outline::text::Text;
 use crate::outline::window::Window;
-use crate::outline::OutlineFrom;
-use crate::outline::OutlineWrap;
+use crate::outline::{OutlineFrom, OutlineWrap};
 use crate::propbag::PropBag;
-use crate::DataID;
-use crate::FnPersist;
-use crate::Outline;
-use crate::Slot;
-use crate::SourceID;
-use crate::URect;
+use crate::{DataID, FnPersist, Outline, Slot, SourceID, URect};
 use mlua::prelude::*;
 use mlua::UserData;
 use std::rc::Rc;
@@ -245,7 +239,7 @@ fn create_region(
     );
 
     let mut bag = PropBag::new();
-    bag.set_area(args.1);
+    bag.set_area(args.1.into());
     Ok(Box::new(Region::<PropBag> {
         id: args.0.into(),
         props: bag.into(),
@@ -272,7 +266,7 @@ fn create_button(
             id: DataID::Named("__internal_rect__"),
         }
         .into(),
-        crate::FILL_URECT.into(),
+        crate::FILL_DRECT.into(),
         0.0,
         0.0,
         Vec4::broadcast(10.0),
@@ -280,16 +274,16 @@ fn create_button(
         Default::default(),
     );
 
-    let text = Text::<URect> {
+    let text = Text::<crate::DRect> {
         id: SourceID {
             parent: Some(id.clone()),
             id: DataID::Named("__internal_text__"),
         }
         .into(),
-        props: crate::FILL_URECT.into(),
+        props: crate::FILL_DRECT.into(),
         text: args.2,
-        font_size: 30.0,
-        line_height: 42.0,
+        font_size: 40.0,
+        line_height: 56.0,
         ..Default::default()
     };
 
@@ -301,19 +295,19 @@ fn create_button(
     }
 
     let mut bag = PropBag::new();
-    bag.set_area(args.1);
+    bag.set_area(args.1.into());
     Ok(Box::new(Button::<PropBag>::new(id, bag, args.3, children)))
 }
 
 fn create_label(_: &Lua, args: (LuaSourceID, URect, String)) -> mlua::Result<OutlineBag> {
     let mut bag = PropBag::new();
-    bag.set_area(args.1);
+    bag.set_area(args.1.into());
     Ok(Box::new(Text::<PropBag> {
         id: args.0.into(),
         props: bag.into(),
         text: args.2,
-        font_size: 30.0,
-        line_height: 42.0,
+        font_size: 40.0,
+        line_height: 56.0,
         ..Default::default()
     }))
 }
@@ -332,7 +326,7 @@ fn create_shader_standard(
     ),
 ) -> mlua::Result<OutlineBag> {
     let mut bag = PropBag::new();
-    bag.set_area(args.1);
+    bag.set_area(args.1.into());
 
     Ok(Box::new(Shape::<PropBag> {
         id: args.0.into(),
@@ -350,7 +344,7 @@ fn create_round_rect(
     let fill = args.2.to_be_bytes().map(|x| x as f32);
     let outline = args.5.to_be_bytes().map(|x| x as f32);
     let mut bag = PropBag::new();
-    bag.set_area(args.1);
+    bag.set_area(args.1.into());
     Ok(Box::new(Shape::round_rect(
         args.0.into(),
         bag.into(),

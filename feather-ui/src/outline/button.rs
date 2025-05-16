@@ -2,17 +2,11 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::mouse_area::MouseArea;
-use crate::layout::fixed;
-use crate::layout::Layout;
-use crate::layout::LayoutWrap;
-use crate::outline::Desc;
-use crate::outline::OutlineFrom;
-use crate::persist::FnPersist;
-use crate::persist::VectorMap;
-use crate::Outline;
-use crate::SourceID;
-use crate::URect;
-use crate::{layout, Slot};
+
+use crate::layout::{fixed, Layout, LayoutWrap};
+use crate::outline::{Desc, OutlineFrom};
+use crate::persist::{FnPersist, VectorMap};
+use crate::{layout, DRect, Outline, Slot, SourceID};
 use derive_where::derive_where;
 use std::rc::Rc;
 
@@ -21,7 +15,7 @@ use std::rc::Rc;
 pub struct Button<T: fixed::Prop + 'static> {
     pub id: Rc<SourceID>,
     props: Rc<T>,
-    marea: MouseArea<URect>,
+    marea: MouseArea<DRect>,
     children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>>,
 }
 
@@ -41,7 +35,7 @@ impl<T: fixed::Prop + 'static> Button<T> {
                     id: crate::DataID::Named("__marea_internal__"),
                 }
                 .into(),
-                crate::FILL_URECT,
+                crate::FILL_DRECT,
                 [Some(onclick), None, None],
             ),
             children,
@@ -61,8 +55,8 @@ where
         for child in self.children.iter() {
             manager.init_outline(child.as_ref().unwrap().as_ref())?;
         }
-        let blah: &dyn Outline<URect> = &self.marea;
-        manager.init_outline::<URect>(&blah)?;
+        let blah: &dyn Outline<DRect> = &self.marea;
+        manager.init_outline::<DRect>(&blah)?;
         Ok(())
     }
 
@@ -70,16 +64,17 @@ where
         &self,
         state: &crate::StateManager,
         driver: &crate::DriverState,
+        dpi: crate::Vec2,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let map = VectorMap::new(
             |child: &Option<Box<OutlineFrom<dyn fixed::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn fixed::Prop as Desc>::Child>>> {
-                Some(child.as_ref().unwrap().layout(state, driver, config))
+                Some(child.as_ref().unwrap().layout(state, driver, dpi,config))
             },
         );
 
         let (_, mut children) = map.call(Default::default(), &self.children);
-        let test = self.marea.layout(state, driver, config);
+        let test = self.marea.layout(state, driver, dpi, config);
         children.push_back(Some(Box::new(test)));
 
         Box::new(layout::Node::<T, dyn fixed::Prop> {

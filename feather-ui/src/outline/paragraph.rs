@@ -1,20 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::gen_id;
-use crate::layout;
-use crate::layout::base;
-use crate::layout::flex;
-use crate::layout::leaf;
-use crate::layout::Desc;
-use crate::layout::Layout;
-use crate::layout::LayoutWrap;
+use crate::layout::{base, flex, leaf, Desc, Layout, LayoutWrap};
 use crate::outline::text::Text;
 use crate::outline::OutlineFrom;
-use crate::persist::FnPersist;
-use crate::persist::VectorMap;
-use crate::SourceID;
-use crate::UNSIZED_AXIS;
+use crate::persist::{FnPersist, VectorMap};
+use crate::{gen_id, layout, SourceID, UNSIZED_AXIS};
 use core::f32;
 use derive_where::derive_where;
 use std::rc::Rc;
@@ -39,14 +30,14 @@ impl flex::Child for MinimalFlexChild {
         0.0
     }
 
-    fn basis(&self) -> f32 {
-        UNSIZED_AXIS
+    fn basis(&self) -> crate::DVec {
+        UNSIZED_AXIS.into()
     }
 }
 
 impl base::Area for MinimalFlexChild {
-    fn area(&self) -> &crate::URect {
-        &crate::AUTO_URECT
+    fn area(&self) -> &crate::DRect {
+        &crate::AUTO_DRECT
     }
 }
 
@@ -118,11 +109,12 @@ impl<T: flex::Prop + 'static> super::Outline<T> for Paragraph<T> {
         &self,
         state: &crate::StateManager,
         driver: &crate::DriverState,
+        dpi: crate::Vec2,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let map = VectorMap::new(
             |child: &Option<Box<OutlineFrom<dyn flex::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn flex::Prop as Desc>::Child>>> {
-                Some(child.as_ref().unwrap().layout(state, driver, config))
+                Some(child.as_ref().unwrap().layout(state, driver, dpi, config))
             },
         );
 

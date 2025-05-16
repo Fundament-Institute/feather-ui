@@ -1,13 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use dyn_clone::DynClone;
-use eyre::OptionExt;
-use smallvec::SmallVec;
-use window::WindowStateMachine;
-
-use crate::layout::Layout;
-
 pub mod button;
 pub mod domain_line;
 pub mod domain_point;
@@ -21,33 +14,26 @@ pub mod shape;
 pub mod text;
 pub mod window;
 
-use crate::layout::root;
-use crate::layout::Desc;
-use crate::layout::LayoutWrap;
-use crate::layout::Staged;
+use crate::layout::{root, Desc, Layout, LayoutWrap, Staged};
 use crate::outline::window::Window;
-use crate::rtree;
-use crate::AbsRect;
-use crate::DispatchPair;
-use crate::Dispatchable;
-use crate::DriverState;
-use crate::EventWrapper;
-use crate::RenderInstruction;
-use crate::Slot;
-use crate::SourceID;
-use crate::StateManager;
-use crate::DEFAULT_LIMITS;
-use eyre::Result;
+use crate::{
+    rtree, AbsRect, DispatchPair, Dispatchable, DriverState, EventWrapper, RenderInstruction, Slot,
+    SourceID, StateManager, DEFAULT_LIMITS,
+};
+use dyn_clone::DynClone;
+use eyre::{OptionExt, Result};
+use smallvec::SmallVec;
 use std::any::Any;
 use std::collections::HashMap;
-use std::rc::Rc;
-use std::rc::Weak;
+use std::rc::{Rc, Weak};
+use window::WindowStateMachine;
 
 pub trait StateMachineWrapper {
     fn process(
         &mut self,
         input: DispatchPair,
         index: u64,
+        dpi: crate::Vec2,
         area: AbsRect,
     ) -> Result<Vec<DispatchPair>>;
     fn as_any_mut(&mut self) -> &mut dyn Any;
@@ -78,6 +64,7 @@ impl<
         &mut self,
         input: DispatchPair,
         index: u64,
+        dpi: crate::Vec2,
         area: AbsRect,
     ) -> Result<Vec<DispatchPair>> {
         let (mask, f) = self
@@ -87,7 +74,7 @@ impl<
         if input.0 & *mask == 0 {
             return Err(eyre::eyre!("Event handler doesn't handle this method"));
         }
-        let result = match f(input, area, self.state.take().unwrap()) {
+        let result = match f(input, area, dpi, self.state.take().unwrap()) {
             Ok((s, r)) => {
                 self.state = Some(s);
                 r
@@ -118,6 +105,7 @@ pub trait Outline<T>: DynClone {
         &self,
         state: &StateManager,
         driver: &DriverState,
+        dpi: crate::Vec2,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T> + 'static>;
 
@@ -137,6 +125,7 @@ pub trait OutlineWrap<T: ?Sized>: DynClone {
         &self,
         state: &StateManager,
         driver: &DriverState,
+        dpi: crate::Vec2,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn LayoutWrap<T> + 'static>;
     fn init(&self) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error>;
@@ -154,9 +143,16 @@ where
         &self,
         state: &StateManager,
         driver: &DriverState,
+        dpi: crate::Vec2,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn LayoutWrap<U> + 'static> {
-        Box::new(Outline::<T>::layout(self.as_ref(), state, driver, config))
+        Box::new(Outline::<T>::layout(
+            self.as_ref(),
+            state,
+            driver,
+            dpi,
+            config,
+        ))
     }
 
     fn init(&self) -> Result<Box<dyn crate::StateMachineWrapper>, crate::Error> {
@@ -180,9 +176,10 @@ where
         &self,
         state: &StateManager,
         driver: &DriverState,
+        dpi: crate::Vec2,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn LayoutWrap<U> + 'static> {
-        Box::new(Outline::<T>::layout(*self, state, driver, config))
+        Box::new(Outline::<T>::layout(*self, state, driver, dpi, config))
     }
 
     fn init(&self) -> Result<Box<dyn crate::StateMachineWrapper>, crate::Error> {
@@ -270,6 +267,7 @@ impl Root {
             root.layout_tree = Some(window.layout(
                 manager,
                 &state.state.as_ref().unwrap().driver,
+                state.state.as_ref().unwrap().dpi,
                 &state.state.as_ref().unwrap().config,
             ));
         }
@@ -290,6 +288,7 @@ impl Root {
                 let staging = layout.stage(
                     Default::default(),
                     DEFAULT_LIMITS,
+                    state.state.as_ref().unwrap().dpi,
                     &state.state.as_ref().unwrap().driver,
                 );
                 root.rtree = staging.get_rtree();
@@ -343,10 +342,11 @@ macro_rules! gen_outline_wrap_inner {
             &self,
             state: &$crate::StateManager,
             driver: &$crate::DriverState,
+            dpi: crate::Vec2,
             config: &wgpu::SurfaceConfiguration,
         ) -> Box<dyn $crate::outline::LayoutWrap<U> + 'static> {
             Box::new($crate::outline::Outline::<T>::layout(
-                self, state, driver, config,
+                self, state, driver, dpi, config,
             ))
         }
 

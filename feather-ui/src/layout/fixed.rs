@@ -1,18 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use super::base;
-use super::check_unsized;
-use super::check_unsized_abs;
-use super::map_unsized_area;
-use super::Concrete;
-use super::Desc;
-use super::LayoutWrap;
-use super::Renderable;
-use super::Staged;
-use crate::rtree;
-use crate::AbsRect;
-use crate::ZERO_POINT;
+use super::{
+    base, check_unsized, check_unsized_abs, map_unsized_area, Concrete, Desc, LayoutWrap,
+    Renderable, Staged,
+};
+use crate::{rtree, AbsRect, ZERO_POINT};
 use std::rc::Rc;
 
 pub trait Prop: base::Area + base::Anchor + base::Limits + base::ZIndex {}
@@ -23,7 +16,7 @@ pub trait Child: base::RLimits {}
 
 crate::gen_from_to_dyn!(Child);
 
-impl Child for crate::URect {}
+impl Child for crate::DRect {}
 
 impl Desc for dyn Prop {
     type Props = dyn Prop;
@@ -37,6 +30,7 @@ impl Desc for dyn Prop {
         children: &Self::Children,
         id: std::rc::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
+        dpi: crate::Vec2,
         driver: &crate::DriverState,
     ) -> Box<dyn Staged + 'a> {
         // If we have an unsized outer_area, any sized object with relative dimensions must evaluate to 0 (or to the minimum limited size). An
@@ -53,15 +47,15 @@ impl Desc for dyn Prop {
         // If outer_area is sized and myarea.rel is unsized, limits are applied normally, but are once again reduced by myarea.abs.bottomright() to
         // account for how the area calculations will interact with the limits later on.
 
-        let limits = outer_limits + *props.limits();
-        let myarea = props.area();
-        let (unsized_x, unsized_y) = check_unsized(*myarea);
+        let limits = outer_limits + props.limits().resolve(dpi);
+        let myarea = props.area().resolve(dpi);
+        let (unsized_x, unsized_y) = check_unsized(myarea);
 
         // Check if any axis is unsized in a way that requires us to calculate baseline child sizes
         let evaluated_area = if unsized_x || unsized_y {
             // When an axis is unsized, we don't apply any limits to it, so we don't have to worry about
             // cases where the full evaluated area would invalidate the limit.
-            let inner_dim = super::limit_dim(super::eval_dim(*myarea, outer_area.dim()), limits);
+            let inner_dim = super::limit_dim(super::eval_dim(myarea, outer_area.dim()), limits);
             let inner_area = AbsRect::from(inner_dim);
             // The area we pass to children must be independent of our own area, so it starts at 0,0
             let mut bottomright = ZERO_POINT;
@@ -73,18 +67,18 @@ impl Desc for dyn Prop {
                 let stage = child
                     .as_ref()
                     .unwrap()
-                    .stage(inner_area, child_limit, driver);
+                    .stage(inner_area, child_limit, dpi, driver);
                 bottomright = bottomright.max_by_component(stage.get_area().bottomright());
             }
 
-            let area = map_unsized_area(*myarea, bottomright);
+            let area = map_unsized_area(myarea, bottomright);
 
             // No need to cap this because unsized axis have now been resolved
             super::limit_area(area * crate::layout::nuetralize_unsized(outer_area), limits)
         } else {
             // If outer_area is unsized here, we nuetralize it when evaluating the relative coordinates.
             super::limit_area(
-                *myarea * crate::layout::nuetralize_unsized(outer_area),
+                myarea * crate::layout::nuetralize_unsized(outer_area),
                 limits,
             )
         };
@@ -121,7 +115,7 @@ impl Desc for dyn Prop {
             let stage = child
                 .as_ref()
                 .unwrap()
-                .stage(inner_area, child_limit, driver);
+                .stage(inner_area, child_limit, dpi, driver);
             if let Some(node) = stage.get_rtree().upgrade() {
                 nodes.push_back(Some(node));
             }

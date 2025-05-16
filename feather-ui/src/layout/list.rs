@@ -3,21 +3,11 @@
 
 use ultraviolet::Vec2;
 
-use super::base;
-use super::check_unsized_abs;
-use super::map_unsized_area;
-use super::nuetralize_unsized;
-use super::swap_axis;
-use super::Concrete;
-use super::Desc;
-use super::LayoutWrap;
-use super::Renderable;
-use super::Staged;
-use crate::rtree;
-use crate::AbsRect;
-use crate::RowDirection;
-use crate::SourceID;
-use crate::ZERO_POINT;
+use super::{
+    base, check_unsized_abs, map_unsized_area, nuetralize_unsized, swap_axis, Concrete, Desc,
+    LayoutWrap, Renderable, Staged,
+};
+use crate::{rtree, AbsRect, RowDirection, SourceID, ZERO_POINT};
 use std::rc::Rc;
 
 pub trait Prop: base::Area + base::Limits + base::Direction {}
@@ -41,12 +31,13 @@ impl Desc for dyn Prop {
         children: &Self::Children,
         id: std::rc::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
+        dpi: Vec2,
         driver: &crate::DriverState,
     ) -> Box<dyn Staged + 'a> {
         // TODO: make insertion efficient by creating a RRB tree of list layout subnodes, in a similar manner to the r-tree nodes.
 
-        let limits = outer_limits + *props.limits();
-        let myarea = props.area();
+        let limits = outer_limits + props.limits().resolve(dpi);
+        let myarea = props.area().resolve(dpi);
         //let (unsized_x, unsized_y) = super::check_unsized(*myarea);
         let dir = props.direction();
         // For the purpose of calculating size, we only care about which axis we're distributing along
@@ -56,7 +47,7 @@ impl Desc for dyn Prop {
         };
 
         // Even if both axis are sized, we have to precalculate the areas and margins anyway.
-        let inner_dim = super::limit_dim(super::eval_dim(*myarea, outer_area.dim()), limits);
+        let inner_dim = super::limit_dim(super::eval_dim(myarea, outer_area.dim()), limits);
         let inner_area = AbsRect::from(inner_dim);
         let outer_safe = nuetralize_unsized(outer_area);
         // The inner_dim must preserve whether an axis is unsized, but the actual limits must be respected regardless.
@@ -76,12 +67,12 @@ impl Desc for dyn Prop {
         for child in children.iter() {
             let child_props = child.as_ref().unwrap().get_imposed();
             let child_limit = super::apply_limit(inner_dim, limits, *child_props.rlimits());
-            let child_margin = *child_props.margin() * outer_safe;
+            let child_margin = child_props.margin().resolve(dpi) * outer_safe;
 
             let stage = child
                 .as_ref()
                 .unwrap()
-                .stage(inner_area, child_limit, driver);
+                .stage(inner_area, child_limit, dpi, driver);
             let area = stage.get_area();
 
             let (margin_main, child_margin_aux) = super::swap_axis(xaxis, child_margin.topleft());
@@ -117,7 +108,7 @@ impl Desc for dyn Prop {
         let aux_merge = super::merge_margin(prev_aux_margin, aux_margin);
         aux_margins.push_back(aux_merge);
         cur.y += max_aux + aux_margin;
-        let area = map_unsized_area(*myarea, Vec2::new(max_main, cur.y));
+        let area = map_unsized_area(myarea, Vec2::new(max_main, cur.y));
 
         // No need to cap this because unsized axis have now been resolved
         let evaluated_area = super::limit_area(area * outer_safe, limits);
@@ -207,7 +198,7 @@ impl Desc for dyn Prop {
 
             let child_limit = *child.get_imposed().rlimits() * evaluated_dim;
 
-            let stage = child.stage(child_area, child_limit, driver);
+            let stage = child.stage(child_area, child_limit, dpi, driver);
             if let Some(node) = stage.get_rtree().upgrade() {
                 nodes.push_back(Some(node));
             }
