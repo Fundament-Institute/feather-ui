@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use feather_ui::layout::{fixed, flex, leaf};
-use feather_ui::{gen_id, AbsDRect, DVec};
+use feather_ui::{gen_id, DAbsRect, DValue};
 
 use feather_ui::layout::base;
 use feather_ui::outline::paragraph::Paragraph;
@@ -37,7 +37,7 @@ impl flex::Child for MinimalFlexChild {
         1.0
     }
 
-    fn basis(&self) -> DVec {
+    fn basis(&self) -> DValue {
         100.0.into()
     }
 }
@@ -63,7 +63,7 @@ impl fixed::Prop for MinimalArea {}
 
 #[derive(Default, Clone, feather_macro::Empty, feather_macro::Area)]
 struct MinimalFlex {
-    obstacles: Vec<AbsDRect>,
+    obstacles: Vec<DAbsRect>,
     area: DRect,
 }
 impl base::Direction for MinimalFlex {}
@@ -73,7 +73,7 @@ impl base::RLimits for MinimalFlex {}
 impl fixed::Child for MinimalFlex {}
 
 impl base::Obstacles for MinimalFlex {
-    fn obstacles(&self) -> &[AbsDRect] {
+    fn obstacles(&self) -> &[DAbsRect] {
         &self.obstacles
     }
 }

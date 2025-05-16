@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::{AbsDRect, AbsRect, DRect, UPoint, ZERO_DRECT, ZERO_UPOINT};
+use crate::{AbsRect, DAbsRect, DPoint, DRect, ZERO_DRECT};
 use std::rc::Rc;
 
 #[macro_export]
@@ -66,7 +66,7 @@ impl crate::layout::Desc for dyn Empty {
 //  std::sync::LazyLock::new(|| std::rc::Rc::new(()));
 
 pub trait Obstacles {
-    fn obstacles(&self) -> &[AbsDRect];
+    fn obstacles(&self) -> &[DAbsRect];
 }
 
 pub trait ZIndex {
@@ -77,8 +77,8 @@ pub trait ZIndex {
 
 // Padding is used so an element's actual area can be larger than the area it draws children inside (like text).
 pub trait Padding {
-    fn padding(&self) -> &AbsDRect {
-        &crate::ZERO_ABSDRECT
+    fn padding(&self) -> &DAbsRect {
+        &crate::ZERO_DABSRECT
     }
 }
 
@@ -106,8 +106,8 @@ gen_from_to_dyn!(Area);
 
 // Relative to child's evaluated area (inner area)
 pub trait Anchor {
-    fn anchor(&self) -> &UPoint {
-        &ZERO_UPOINT
+    fn anchor(&self) -> &DPoint {
+        &crate::ZERO_DPOINT
     }
 }
 

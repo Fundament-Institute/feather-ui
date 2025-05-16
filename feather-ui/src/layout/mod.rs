@@ -5,6 +5,7 @@ pub mod base;
 pub mod domain_write;
 pub mod fixed;
 pub mod flex;
+pub mod grid;
 pub mod leaf;
 pub mod list;
 pub mod root;

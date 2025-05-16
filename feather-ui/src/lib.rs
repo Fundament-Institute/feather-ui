@@ -35,8 +35,7 @@ use ultraviolet::vec::Vec2;
 use wide::CmpLe;
 use winit::window::WindowId;
 
-/*
-/// Allocates `&[T]` on stack space. (currently unused but might be needed depending on persistent data structures)
+/// Allocates `&[T]` on stack space.
 pub(crate) fn alloca_array<T, R>(n: usize, f: impl FnOnce(&mut [T]) -> R) -> R {
     use std::mem::{align_of, size_of};
 
@@ -56,7 +55,6 @@ pub(crate) fn alloca_array<T, R>(n: usize, f: impl FnOnce(&mut [T]) -> R) -> R {
         },
     )
 }
-*/
 
 #[macro_export]
 macro_rules! gen_id {
@@ -83,7 +81,7 @@ pub enum Error {
 
 pub const UNSIZED_AXIS: f32 = f32::MAX;
 pub const ZERO_POINT: Vec2 = Vec2 { x: 0.0, y: 0.0 };
-const MINUS_BOTTOMRIGHT: f32x4 = f32x4::new([0.0, 0.0, -1.0, -1.0]);
+const MINUS_BOTTOMRIGHT: f32x4 = f32x4::new([1.0, 1.0, -1.0, -1.0]);
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct AbsDim(Vec2);
@@ -244,28 +242,47 @@ impl From<AbsDim> for AbsRect {
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 /// A rectangle with both pixel and display independent units, but no relative component.
-pub struct AbsDRect {
+pub struct DAbsRect {
     dp: AbsRect,
     px: AbsRect,
 }
 
-pub const ZERO_ABSDRECT: AbsDRect = AbsDRect {
+pub const ZERO_DABSRECT: DAbsRect = DAbsRect {
     dp: ZERO_RECT,
     px: ZERO_RECT,
 };
 
-impl AbsDRect {
+impl DAbsRect {
     fn resolve(&self, dpi: Vec2) -> AbsRect {
         AbsRect(self.px.0 + (self.dp.0 * splat_vec2(dpi)))
     }
 }
 
-impl From<AbsRect> for AbsDRect {
+impl From<AbsRect> for DAbsRect {
     fn from(value: AbsRect) -> Self {
-        AbsDRect {
+        DAbsRect {
             dp: value,
             px: ZERO_RECT,
         }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+/// A point with both pixel and display independent units, but no relative component.
+pub struct DAbsPoint(f32x4);
+
+pub const ZERO_DABSPOINT: DAbsPoint = DAbsPoint(f32x4::ZERO);
+
+impl DAbsPoint {
+    fn resolve(&self, dpi: Vec2) -> Vec2 {
+        let dppx = self.0.as_array_ref();
+        Vec2::new(dppx[2] + (dppx[0] * dpi.x), dppx[3] + (dppx[1] * dpi.y))
+    }
+}
+
+impl From<Vec2> for DAbsPoint {
+    fn from(value: Vec2) -> Self {
+        Self(f32x4::new([value.x, value.y, 0.0, 0.0]))
     }
 }
 
@@ -402,6 +419,50 @@ impl From<Vec2> for UPoint {
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
+pub struct DPoint {
+    dp: Vec2,
+    px: Vec2,
+    rel: RelPoint,
+}
+
+pub const ZERO_DPOINT: DPoint = DPoint {
+    px: ZERO_POINT,
+    dp: ZERO_POINT,
+    rel: RelPoint(ZERO_POINT),
+};
+
+impl DPoint {
+    fn resolve(&self, dpi: Vec2) -> UPoint {
+        UPoint(f32x4::new([
+            self.px.x + (self.dp.x * dpi.x),
+            self.px.y + (self.dp.y * dpi.y),
+            self.rel.0.x,
+            self.rel.0.y,
+        ]))
+    }
+}
+
+impl From<RelPoint> for DPoint {
+    fn from(value: RelPoint) -> Self {
+        Self {
+            dp: ZERO_POINT,
+            px: ZERO_POINT,
+            rel: value,
+        }
+    }
+}
+
+impl From<Vec2> for DPoint {
+    fn from(value: Vec2) -> Self {
+        Self {
+            dp: value,
+            px: ZERO_POINT,
+            rel: RelPoint(ZERO_POINT),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 /// Unified coordinate rectangle
 pub struct URect {
     pub abs: AbsRect,
@@ -491,6 +552,20 @@ impl DRect {
         URect {
             abs: AbsRect(self.px.0 + (self.dp.0 * splat_vec2(dpi))),
             rel: self.rel,
+        }
+    }
+    pub fn topleft(&self) -> DPoint {
+        DPoint {
+            dp: self.dp.topleft(),
+            px: self.px.topleft(),
+            rel: RelPoint(self.rel.topleft()),
+        }
+    }
+    pub fn bottomright(&self) -> DPoint {
+        DPoint {
+            dp: self.dp.bottomright(),
+            px: self.px.bottomright(),
+            rel: RelPoint(self.rel.bottomright()),
         }
     }
 }
@@ -679,27 +754,59 @@ impl Mul<AbsDim> for RelLimits {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
-pub struct DVec {
-    pub dp: f32,
-    pub px: f32,
+pub struct UValue {
+    pub abs: f32,
+    pub rel: f32,
 }
 
-impl DVec {
-    pub const fn new(dp: f32, px: f32) -> Self {
-        Self { dp, px }
-    }
-    pub fn resolve(&self, dpi: f32) -> f32 {
-        if self.dp == UNSIZED_AXIS {
+impl UValue {
+    pub fn resolve(&self, outer_dim: f32) -> f32 {
+        if self.rel == UNSIZED_AXIS {
             UNSIZED_AXIS
         } else {
-            self.px + (self.dp * dpi)
+            self.abs + (self.rel * outer_dim)
+        }
+    }
+    pub fn is_unsized(&self) -> bool {
+        self.rel == UNSIZED_AXIS
+    }
+}
+
+impl From<f32> for UValue {
+    fn from(value: f32) -> Self {
+        Self {
+            abs: value,
+            rel: 0.0,
         }
     }
 }
 
-impl From<f32> for DVec {
+#[derive(Debug, Copy, Clone, PartialEq, Default)]
+pub struct DValue {
+    pub dp: f32,
+    pub px: f32,
+    pub rel: f32,
+}
+
+impl DValue {
+    pub fn resolve(&self, dpi: f32) -> UValue {
+        UValue {
+            abs: self.px + (self.dp * dpi),
+            rel: self.rel,
+        }
+    }
+    pub fn is_unsized(&self) -> bool {
+        self.rel == UNSIZED_AXIS
+    }
+}
+
+impl From<f32> for DValue {
     fn from(value: f32) -> Self {
-        Self { dp: value, px: 0.0 }
+        Self {
+            dp: value,
+            px: 0.0,
+            rel: 0.0,
+        }
     }
 }
 

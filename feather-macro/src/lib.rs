@@ -50,7 +50,7 @@ pub fn derive_padding(input: TokenStream) -> TokenStream {
         input,
         "padding",
         "feather_ui::layout::base::Padding",
-        "feather_ui::AbsDRect",
+        "feather_ui::DAbsRect",
     )
 }
 
@@ -90,7 +90,7 @@ pub fn derive_anchor(input: TokenStream) -> TokenStream {
         input,
         "anchor",
         "feather_ui::layout::base::Anchor",
-        "feather_ui::UPoint",
+        "feather_ui::DPoint",
     )
 }
 
@@ -102,8 +102,8 @@ pub fn derive_flex_prop(input: TokenStream) -> TokenStream {
     quote! {
         impl feather_ui::layout::flex::Prop for #name {
         fn wrap(&self) -> bool { self.wrap }
-        fn justify(&self) -> FlexJustify { self.justify }
-        fn align(&self) -> FlexJustify { self.align }
+        fn justify(&self) -> feather_ui::layout::flex::FlexJustify { self.justify }
+        fn align(&self) -> feather_ui::layout::flex::FlexJustify { self.align }
         }
     }
     .into()
@@ -118,7 +118,7 @@ pub fn derive_flex_child(input: TokenStream) -> TokenStream {
         impl feather_ui::layout::flex::Child for #name {
             fn grow(&self) -> f32 { self.grow }
             fn shrink(&self) -> f32 { self.shrink }
-            fn basis(&self) -> DVec { self.basis }
+            fn basis(&self) -> feather_ui::DValue { self.basis }
         }
     }
     .into()

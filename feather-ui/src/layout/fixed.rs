@@ -129,7 +129,7 @@ impl Desc for dyn Prop {
 
         // Calculate the anchor using the final evaluated dimensions, after all unsized axis and limits are
         // calculated. However, we can only apply the anchor if the parent isn't unsized on that axis.
-        let mut anchor = *props.anchor() * evaluated_dim;
+        let mut anchor = props.anchor().resolve(dpi) * evaluated_dim;
         let (unsized_outer_x, unsized_outer_y) =
             crate::layout::check_unsized_abs(outer_area.bottomright());
         if unsized_outer_x {

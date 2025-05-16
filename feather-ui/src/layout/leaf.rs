@@ -44,7 +44,7 @@ impl Desc for dyn Prop {
             limits,
         );
 
-        let anchor = *props.anchor() * evaluated_area.dim();
+        let anchor = props.anchor().resolve(dpi) * evaluated_area.dim();
         let evaluated_area = evaluated_area - anchor;
 
         Box::new(Concrete {

@@ -58,7 +58,7 @@ where
     fn init(&self) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error> {
         let onclick = Box::new(
             crate::wrap_event::<RawEvent, MouseAreaEvent, MouseAreaState>(
-                |e, area, dpi, mut data| {
+                |e, area, _dpi, mut data| {
                     match e {
                         RawEvent::Mouse {
                             device_id,

@@ -69,7 +69,7 @@ gen_lua_bag!(crate::layout::base::Area, area, crate::URect);
 gen_lua_bag!(crate::layout::base::Padding, padding, crate::URect);
 gen_lua_bag!(crate::layout::base::Margin, margin, crate::URect);
 gen_lua_bag!(crate::layout::base::Limits, limits, crate::URect);
-gen_lua_bag!(crate::layout::base::Anchor, anchor, crate::UPoint);
+gen_lua_bag!(crate::layout::base::Anchor, anchor, crate::DPoint);
 
 impl crate::layout::root::Prop for mlua::Table {
     fn dim(&self) -> &crate::AbsDim {

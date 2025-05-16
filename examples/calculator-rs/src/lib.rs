@@ -38,7 +38,7 @@ pub trait Calculator: Send + Sync {
 #[derive(Default, Empty, Area, Anchor, ZIndex)]
 struct FixedData {
     area: DRect,
-    anchor: feather_ui::UPoint,
+    anchor: feather_ui::DPoint,
     zindex: i32,
 }
 

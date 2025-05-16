@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 use std::collections::HashMap;
 
-use crate::{DEFAULT_LIMITS, DEFAULT_RLIMITS, ZERO_DRECT, ZERO_UPOINT};
+use crate::DEFAULT_RLIMITS;
 
 #[derive(Default)]
 pub struct PropBag {
@@ -141,19 +141,19 @@ gen_prop_bag_value_clone!(
 );
 
 impl crate::layout::base::Obstacles for PropBag {
-    fn obstacles(&self) -> &[crate::AbsDRect] {
+    fn obstacles(&self) -> &[crate::DAbsRect] {
         // We have to be careful here because the actual stored type is a Vec<>, not a slice.
         self.props
             .get(&PropBagElement::obstacles)
             .expect("PropBag didn't have obstacles")
-            .downcast_ref::<Vec<crate::AbsDRect>>()
+            .downcast_ref::<Vec<crate::DAbsRect>>()
             .expect("obstacles in PropBag was the wrong type!")
     }
 }
 
 impl PropBag {
     #[allow(dead_code)]
-    pub fn set_obstacles(&mut self, v: &[crate::AbsDRect]) -> Option<Vec<crate::AbsDRect>> {
+    pub fn set_obstacles(&mut self, v: &[crate::DAbsRect]) -> Option<Vec<crate::DAbsRect>> {
         self.props
             .insert(PropBagElement::zindex, Box::new(v.to_vec()))
             .map(move |x| {
@@ -166,11 +166,11 @@ impl PropBag {
 #[rustfmt::skip]
 gen_prop_bag!(
   crate::layout::base::Area, area, set_area, crate::DRect, panic!("No area set and no default available!"),
-  crate::layout::base::Padding, padding, set_padding, crate::AbsDRect, &crate::ZERO_ABSDRECT,
-  crate::layout::base::Margin, margin, set_margin, crate::DRect, &ZERO_DRECT,
+  crate::layout::base::Padding, padding, set_padding, crate::DAbsRect, &crate::ZERO_DABSRECT,
+  crate::layout::base::Margin, margin, set_margin, crate::DRect, &crate::ZERO_DRECT,
   crate::layout::base::Limits, limits, set_limits, crate::DLimits, &crate::DEFAULT_DLIMITS,
   crate::layout::base::RLimits, rlimits, set_rlimits, crate::RelLimits, &DEFAULT_RLIMITS,
-  crate::layout::base::Anchor, anchor, set_anchor, crate::UPoint, &ZERO_UPOINT,
+  crate::layout::base::Anchor, anchor, set_anchor, crate::DPoint, &crate::ZERO_DPOINT,
   crate::layout::root::Prop, dim, set_dim, crate::AbsDim, panic!("No dim set and no default available!")
 );
 
@@ -205,7 +205,7 @@ impl crate::layout::flex::Child for PropBag {
         self.get_value(PropBagElement::shrink)
     }
 
-    fn basis(&self) -> crate::DVec {
+    fn basis(&self) -> crate::DValue {
         self.get_value(PropBagElement::basis)
     }
 }
