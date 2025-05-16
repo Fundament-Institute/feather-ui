@@ -108,7 +108,7 @@ where
             driver
                 .shader_cache
                 .borrow_mut()
-                .standard_pipeline(&driver.device, shader_idx, &config);
+                .standard_pipeline(&driver.device, shader_idx, config);
 
         let mvp = gen_uniform(
             driver,

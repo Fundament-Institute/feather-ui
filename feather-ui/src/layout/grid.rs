@@ -184,9 +184,7 @@ impl Desc for dyn Prop {
             );
 
             let anchor = props.anchor().resolve(dpi) * evaluated_area.dim();
-            let evaluated_area = evaluated_area - anchor;
-
-            evaluated_area
+            evaluated_area - anchor
         });
 
         Box::new(Concrete {

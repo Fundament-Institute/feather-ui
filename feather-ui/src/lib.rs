@@ -268,25 +268,6 @@ impl From<AbsRect> for DAbsRect {
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
-/// A point with both pixel and display independent units, but no relative component.
-pub struct DAbsPoint(f32x4);
-
-pub const ZERO_DABSPOINT: DAbsPoint = DAbsPoint(f32x4::ZERO);
-
-impl DAbsPoint {
-    fn resolve(&self, dpi: Vec2) -> Vec2 {
-        let dppx = self.0.as_array_ref();
-        Vec2::new(dppx[2] + (dppx[0] * dpi.x), dppx[3] + (dppx[1] * dpi.y))
-    }
-}
-
-impl From<Vec2> for DAbsPoint {
-    fn from(value: Vec2) -> Self {
-        Self(f32x4::new([value.x, value.y, 0.0, 0.0]))
-    }
-}
-
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
 /// Relative point
 pub struct RelPoint(pub Vec2);
 
@@ -1468,9 +1449,9 @@ impl FnPersist<u8, im::HashMap<Rc<SourceID>, Option<Window>>> for TestApp {
     fn init(&self) -> Self::Store {
         use crate::outline::shape::Shape;
         use ultraviolet::Vec4;
-        let rect = Shape::<URect>::round_rect(
+        let rect = Shape::<DRect>::round_rect(
             gen_id!().into(),
-            crate::FILL_URECT.into(),
+            crate::FILL_DRECT.into(),
             0.0,
             0.0,
             Vec4::zero(),

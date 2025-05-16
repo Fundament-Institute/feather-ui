@@ -343,7 +343,7 @@ macro_rules! gen_outline_wrap_inner {
             &self,
             state: &$crate::StateManager,
             driver: &$crate::DriverState,
-            dpi: crate::Vec2,
+            dpi: $crate::Vec2,
             config: &wgpu::SurfaceConfiguration,
         ) -> Box<dyn $crate::outline::LayoutWrap<U> + 'static> {
             Box::new($crate::outline::Outline::<T>::layout(

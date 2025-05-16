@@ -41,6 +41,7 @@ pub trait Child: base::Margin + base::RLimits + base::Order {
 
 crate::gen_from_to_dyn!(Child);
 
+#[allow(clippy::too_many_arguments)]
 fn next_obstacle(
     obstacles: &[DAbsRect],
     max_aux: f32,
@@ -331,7 +332,7 @@ impl Desc for dyn Prop {
             let (main, aux) = super::swap_axis(xaxis, stage.get_area().dim().0);
 
             let mut cache = ChildCache {
-                basis: basis,
+                basis,
                 grow: imposed.grow(),
                 shrink: imposed.shrink(),
                 aux,
