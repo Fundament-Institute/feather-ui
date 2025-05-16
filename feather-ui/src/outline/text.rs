@@ -2,16 +2,8 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::Renderable;
-use crate::layout::cap_unsized;
-use crate::layout::check_unsized;
-use crate::layout::leaf;
-use crate::layout::limit_area;
-use crate::layout::Layout;
-use crate::rtree;
-use crate::AbsRect;
-use crate::DriverState;
-use crate::RenderLambda;
-use crate::SourceID;
+use crate::layout::{cap_unsized, check_unsized, leaf, limit_area, Layout};
+use crate::{point_to_pixel, rtree, AbsRect, DriverState, RenderLambda, SourceID};
 use derive_where::derive_where;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -63,12 +55,16 @@ where
         &self,
         _: &crate::StateManager,
         driver: &DriverState,
+        dpi: crate::Vec2,
         _: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let text_system = driver.text().expect("driver.text not initialized");
         let mut text_buffer = glyphon::Buffer::new(
             &mut text_system.borrow_mut().font_system,
-            glyphon::Metrics::new(self.font_size, self.line_height),
+            glyphon::Metrics::new(
+                point_to_pixel(self.font_size, dpi.x),
+                point_to_pixel(self.line_height, dpi.x),
+            ),
         );
 
         text_buffer.set_wrap(&mut text_system.borrow_mut().font_system, self.wrap);
@@ -97,7 +93,7 @@ where
                 this: this.clone(),
                 text_buffer: text_buffer.into(),
                 renderer: renderer.into(),
-                padding: (*self.props.padding()).into(),
+                padding: self.props.padding().resolve(dpi).into(),
             }),
         })
     }
@@ -120,14 +116,15 @@ impl<T: leaf::Padded> Layout<T> for TextLayout<T> {
         &self,
         outer_area: AbsRect,
         outer_limits: crate::AbsLimits,
+        dpi: crate::Vec2,
         driver: &DriverState,
     ) -> Box<dyn crate::outline::Staged + 'a> {
         let text_system: &Rc<RefCell<crate::TextSystem>> =
             driver.text().expect("driver.text not initialized");
-        let mut limits = *self.props.limits() + outer_limits;
-        let myarea = self.props.area();
-        let (unsized_x, unsized_y) = check_unsized(*myarea);
-        let padding = self.props.padding();
+        let mut limits = self.props.limits().resolve(dpi) + outer_limits;
+        let myarea = self.props.area().resolve(dpi);
+        let (unsized_x, unsized_y) = check_unsized(myarea);
+        let padding = self.props.padding().resolve(dpi);
         let allpadding = myarea.bottomright().abs() + padding.topleft() + padding.bottomright();
         let minmax = limits.0.as_array_mut();
         if unsized_x {
@@ -140,7 +137,7 @@ impl<T: leaf::Padded> Layout<T> for TextLayout<T> {
         }
 
         let mut evaluated_area = limit_area(
-            cap_unsized(*myarea * crate::layout::nuetralize_unsized(outer_area)),
+            cap_unsized(myarea * crate::layout::nuetralize_unsized(outer_area)),
             limits,
         );
 
@@ -188,7 +185,7 @@ impl<T: leaf::Padded> Layout<T> for TextLayout<T> {
         // We always return the full area so we can correctly capture input, but we need
         // to pass our padding to our renderer so it can pad the text while setting the
         // clip rect to the full area
-        self.text_render.padding.set(*self.props.padding());
+        self.text_render.padding.set(padding);
 
         evaluated_area = crate::layout::apply_anchor(
             evaluated_area,

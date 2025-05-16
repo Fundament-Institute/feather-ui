@@ -14,18 +14,11 @@ use ultraviolet::Vec2;
 use wide::f32x4;
 
 use crate::outline::Renderable;
-use crate::persist::FnPersist2;
-use crate::persist::VectorFold;
-use crate::rtree;
-use crate::AbsDim;
-use crate::AbsLimits;
-use crate::AbsRect;
-use crate::DriverState;
-use crate::RelLimits;
-use crate::RenderInstruction;
-use crate::SourceID;
-use crate::URect;
-use crate::UNSIZED_AXIS;
+use crate::persist::{FnPersist2, VectorFold};
+use crate::{
+    rtree, AbsDim, AbsLimits, AbsRect, DriverState, RelLimits, RenderInstruction, SourceID, URect,
+    UNSIZED_AXIS,
+};
 use derive_where::derive_where;
 use std::rc::{Rc, Weak};
 
@@ -35,6 +28,7 @@ pub trait Layout<Props>: DynClone {
         &self,
         area: AbsRect,
         limits: AbsLimits,
+        dpi: Vec2,
         driver: &DriverState,
     ) -> Box<dyn Staged + 'a>;
 }
@@ -47,6 +41,7 @@ pub trait LayoutWrap<Imposed: ?Sized>: DynClone {
         &self,
         area: AbsRect,
         limits: AbsLimits,
+        dpi: Vec2,
         driver: &DriverState,
     ) -> Box<dyn Staged + 'a>;
 }
@@ -65,9 +60,10 @@ where
         &self,
         area: AbsRect,
         limits: AbsLimits,
+        dpi: Vec2,
         driver: &DriverState,
     ) -> Box<dyn Staged + 'a> {
-        self.inner_stage(area, limits, driver)
+        self.inner_stage(area, limits, dpi, driver)
     }
 }
 
@@ -83,9 +79,10 @@ where
         &self,
         area: AbsRect,
         limits: AbsLimits,
+        dpi: Vec2,
         driver: &DriverState,
     ) -> Box<dyn Staged + 'a> {
-        self.inner_stage(area, limits, driver)
+        self.inner_stage(area, limits, dpi, driver)
     }
 }
 
@@ -108,6 +105,7 @@ pub trait Desc {
         children: &Self::Children,
         id: std::rc::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
+        dpi: Vec2,
         driver: &DriverState,
     ) -> Box<dyn Staged + 'a>;
 }
@@ -131,6 +129,7 @@ where
         &self,
         area: AbsRect,
         limits: AbsLimits,
+        dpi: Vec2,
         driver: &DriverState,
     ) -> Box<dyn Staged + 'a> {
         D::stage(
@@ -140,6 +139,7 @@ where
             &self.children,
             self.id.clone(),
             self.renderable.as_ref().map(|x| x.clone()),
+            dpi,
             driver,
         )
     }

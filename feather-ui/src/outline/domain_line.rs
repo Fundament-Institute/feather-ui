@@ -2,16 +2,10 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::CrossReferenceDomain;
-use crate::layout;
-use crate::layout::base;
-use crate::layout::Layout;
+use crate::layout::{base, Layout};
 use crate::outline::Renderable;
-use crate::shaders::gen_uniform;
-use crate::shaders::to_bytes;
-use crate::shaders::Vertex;
-use crate::DriverState;
-use crate::RenderLambda;
-use crate::SourceID;
+use crate::shaders::{gen_uniform, to_bytes, Vertex};
+use crate::{layout, DriverState, RenderLambda, SourceID};
 use derive_where::derive_where;
 use std::rc::Rc;
 use ultraviolet::Vec4;
@@ -44,6 +38,7 @@ where
         &self,
         _: &crate::StateManager,
         driver: &DriverState,
+        dpi: crate::Vec2,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let shader_idx = driver.shader_cache.borrow_mut().register_shader(
@@ -55,7 +50,7 @@ where
             driver
                 .shader_cache
                 .borrow_mut()
-                .line_pipeline(&driver.device, shader_idx, config);
+                .line_pipeline(&driver.device, shader_idx, &config);
 
         let mvp = gen_uniform(
             driver,

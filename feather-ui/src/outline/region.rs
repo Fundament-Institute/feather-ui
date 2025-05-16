@@ -1,15 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::layout;
-use crate::layout::fixed;
-use crate::layout::Desc;
-use crate::layout::Layout;
-use crate::layout::LayoutWrap;
+use crate::layout::{fixed, Desc, Layout, LayoutWrap};
 use crate::outline::OutlineFrom;
-use crate::persist::FnPersist;
-use crate::persist::VectorMap;
-use crate::SourceID;
+use crate::persist::{FnPersist, VectorMap};
+use crate::{layout, SourceID};
 use derive_where::derive_where;
 use std::rc::Rc;
 
@@ -39,11 +34,12 @@ where
         &self,
         state: &crate::StateManager,
         driver: &crate::DriverState,
+        dpi: crate::Vec2,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let map = VectorMap::new(
             |child: &Option<Box<OutlineFrom<dyn fixed::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn fixed::Prop as Desc>::Child>>> {
-                Some(child.as_ref().unwrap().layout(state, driver, config))
+                Some(child.as_ref().unwrap().layout(state, driver, dpi, config))
             },
         );
 

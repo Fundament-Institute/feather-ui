@@ -1,25 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use super::base;
-use super::cap_unsized;
-use super::check_unsized_abs;
-use super::map_unsized_area;
-use super::merge_margin;
-use super::nuetralize_unsized;
-use super::Concrete;
-use super::Desc;
-use super::LayoutWrap;
-use super::Renderable;
-use super::Staged;
-use crate::persist::FnPersist2;
-use crate::persist::VectorFold;
-use crate::rtree;
-use crate::AbsLimits;
-use crate::AbsRect;
-use crate::RowDirection;
-use crate::Vec2;
-use crate::UNSIZED_AXIS;
+use super::{
+    base, cap_unsized, check_unsized_abs, map_unsized_area, merge_margin, nuetralize_unsized,
+    Concrete, Desc, LayoutWrap, Renderable, Staged,
+};
+use crate::persist::{FnPersist2, VectorFold};
+use crate::{rtree, AbsDRect, AbsLimits, AbsRect, DVec, RowDirection, Vec2, UNSIZED_AXIS};
 use derive_more::TryFrom;
 use smallvec::SmallVec;
 use std::rc::Rc;
@@ -49,24 +36,26 @@ crate::gen_from_to_dyn!(Prop);
 pub trait Child: base::Margin + base::RLimits + base::Order {
     fn grow(&self) -> f32;
     fn shrink(&self) -> f32;
-    fn basis(&self) -> f32;
+    fn basis(&self) -> DVec;
 }
 
 crate::gen_from_to_dyn!(Child);
 
 fn next_obstacle(
-    obstacles: &[AbsRect],
+    obstacles: &[AbsDRect],
     max_aux: f32,
     main: f32,
     aux: f32,
     xaxis: bool,
     total_main: f32,
     min: &mut usize,
+    dpi: Vec2,
 ) -> (f32, f32) {
     // Given our current X/Y position, what is the next obstacle we would run into?
     let mut i = *min;
     while i < obstacles.len() {
-        let (mut start, aux_start) = super::swap_axis(xaxis, obstacles[i].topleft());
+        let obstacle = obstacles[i].resolve(dpi);
+        let (mut start, aux_start) = super::swap_axis(xaxis, obstacle.topleft());
 
         if total_main > 0.0 {
             start = total_main - start;
@@ -77,7 +66,7 @@ fn next_obstacle(
             break;
         }
 
-        let (mut end, aux_end) = super::swap_axis(xaxis, obstacles[i].bottomright());
+        let (mut end, aux_end) = super::swap_axis(xaxis, obstacle.bottomright());
 
         if total_main > 0.0 {
             end = total_main - end;
@@ -159,6 +148,7 @@ fn wrap_line(
     mut linecount: i32,
     justify: FlexJustify,
     backwards: bool,
+    dpi: Vec2,
 ) -> (SmallVec<[Linebreak; 10]>, i32, f32) {
     let mut breaks: SmallVec<[Linebreak; 10]> = SmallVec::new();
 
@@ -182,6 +172,7 @@ fn wrap_line(
         xaxis,
         reversed,
         &mut min_obstacle,
+        dpi,
     );
 
     let mut i = 0;
@@ -211,6 +202,7 @@ fn wrap_line(
                 xaxis,
                 reversed,
                 &mut min_obstacle,
+                dpi,
             );
 
             // We DO NOT update any other values here, nor do we increment i, because we might hit another obstacle
@@ -255,6 +247,7 @@ fn wrap_line(
                 xaxis,
                 reversed,
                 &mut min_obstacle,
+                dpi,
             );
 
             if !emptyline {
@@ -296,13 +289,14 @@ impl Desc for dyn Prop {
         children: &Self::Children,
         id: std::rc::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
+        dpi: crate::Vec2,
         driver: &crate::DriverState,
     ) -> Box<dyn Staged + 'a> {
-        let myarea = props.area();
+        let myarea = props.area().resolve(dpi);
         //let (unsized_x, unsized_y) = super::check_unsized(*myarea);
 
-        let limits = outer_limits + *props.limits();
-        let inner_dim = super::limit_dim(super::eval_dim(*myarea, outer_area.dim()), limits);
+        let limits = outer_limits + props.limits().resolve(dpi);
+        let inner_dim = super::limit_dim(super::eval_dim(myarea, outer_area.dim()), limits);
         let outer_safe = nuetralize_unsized(outer_area);
 
         let xaxis = match props.direction() {
@@ -311,6 +305,7 @@ impl Desc for dyn Prop {
         };
 
         let mut childareas: im::Vector<Option<ChildCache>> = im::Vector::new();
+        let (dpi_main, _) = super::swap_axis(xaxis, dpi);
 
         // We re-use a lot of concepts from flexbox in this calculation. First we acquire the natural size of all child elements.
         for child in children.iter() {
@@ -320,25 +315,25 @@ impl Desc for dyn Prop {
             let inner_area = AbsRect::new_corners(
                 Vec2::zero(),
                 if xaxis {
-                    Vec2::new(imposed.basis(), UNSIZED_AXIS)
+                    Vec2::new(imposed.basis().resolve(dpi.x), UNSIZED_AXIS)
                 } else {
-                    Vec2::new(UNSIZED_AXIS, imposed.basis())
+                    Vec2::new(UNSIZED_AXIS, imposed.basis().resolve(dpi.y))
                 },
             );
 
             let stage = child
                 .as_ref()
                 .unwrap()
-                .stage(inner_area, child_limit, driver);
+                .stage(inner_area, child_limit, dpi, driver);
 
             let (main, aux) = super::swap_axis(xaxis, stage.get_area().dim().0);
 
             let mut cache = ChildCache {
-                basis: imposed.basis(),
+                basis: imposed.basis().resolve(dpi_main),
                 grow: imposed.grow(),
                 shrink: imposed.shrink(),
                 aux,
-                margin: *imposed.margin() * outer_safe,
+                margin: imposed.margin().resolve(dpi) * outer_safe,
                 limits: child_limit,
             };
             if cache.basis == UNSIZED_AXIS {
@@ -384,7 +379,7 @@ impl Desc for dyn Prop {
                     y: used_aux,
                 },
             );
-            let area = map_unsized_area(*myarea, Vec2::new(used_x, used_y));
+            let area = map_unsized_area(myarea, Vec2::new(used_x, used_y));
 
             // No need to cap this because unsized axis have now been resolved
             super::limit_area(area * outer_safe, limits)
@@ -427,6 +422,7 @@ impl Desc for dyn Prop {
                 props.align(),
                 props.direction() == RowDirection::BottomToTop
                     || props.direction() == RowDirection::RightToLeft,
+                dpi,
             );
 
             if !props.obstacles().is_empty() && props.align() != FlexJustify::Start {
@@ -450,6 +446,7 @@ impl Desc for dyn Prop {
                         props.align(),
                         props.direction() == RowDirection::BottomToTop
                             || props.direction() == RowDirection::RightToLeft,
+                        dpi,
                     );
                 }
 
@@ -570,10 +567,11 @@ impl Desc for dyn Prop {
                     std::mem::swap(&mut area.bottomright().x, &mut area.bottomright().y);
                 }
 
-                let stage = children[i]
-                    .as_ref()
-                    .unwrap()
-                    .stage(area, c.limits + limits, driver);
+                let stage =
+                    children[i]
+                        .as_ref()
+                        .unwrap()
+                        .stage(area, c.limits + limits, dpi, driver);
                 if let Some(node) = stage.get_rtree().upgrade() {
                     nodes.push_back(Some(node));
                 }

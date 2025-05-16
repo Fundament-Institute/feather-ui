@@ -1,14 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use super::base;
-use super::Desc;
-use super::LayoutWrap;
-use super::Renderable;
-use super::Staged;
-use crate::AbsDim;
-use crate::AbsRect;
-use crate::DEFAULT_LIMITS;
+use super::{base, Desc, LayoutWrap, Renderable, Staged};
+use crate::{AbsDim, AbsRect, DEFAULT_LIMITS};
 use std::rc::Rc;
 
 // The root node represents some area on the screen that contains a feather layout. Later this will turn
@@ -37,9 +31,10 @@ impl Desc for dyn Prop {
         child: &Self::Children,
         _: std::rc::Weak<crate::SourceID>,
         _: Option<Rc<dyn Renderable>>,
+        dpi: crate::Vec2,
         driver: &crate::DriverState,
     ) -> Box<dyn Staged + 'a> {
         // We bypass creating our own node here because we can never have a nonzero topleft corner, so our node would be redundant.
-        child.stage((*props.dim()).into(), DEFAULT_LIMITS, driver)
+        child.stage((*props.dim()).into(), DEFAULT_LIMITS, dpi, driver)
     }
 }

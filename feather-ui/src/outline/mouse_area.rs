@@ -5,8 +5,7 @@ use super::StateMachine;
 use crate::input::{MouseState, RawEvent, RawEventKind};
 use crate::layout::leaf;
 use crate::outline::Layout;
-use crate::Slot;
-use crate::{layout, Dispatchable, SourceID};
+use crate::{layout, pixel_to_vec, Dispatchable, Slot, SourceID};
 use derive_where::derive_where;
 use enum_variant_type::EnumVariantType;
 use feather_macro::Dispatch;
@@ -58,59 +57,61 @@ where
 
     fn init(&self) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error> {
         let onclick = Box::new(
-            crate::wrap_event::<RawEvent, MouseAreaEvent, MouseAreaState>(|e, area, mut data| {
-                match e {
-                    RawEvent::Mouse {
-                        device_id,
-                        state,
-                        pos,
-                        ..
-                    } => {
-                        match state {
-                            MouseState::Down => {
-                                if area.contains(pos) {
-                                    data.lastdown.insert(device_id);
-                                    return Ok((data, vec![]));
-                                }
-                            } // TODO: if this is inside the area, capture the mouse input.
-                            MouseState::Up => {
-                                if data.lastdown.contains(&device_id) {
-                                    data.lastdown.remove(&device_id);
-                                    if area.contains(pos) {
-                                        return Ok((data, vec![MouseAreaEvent::OnClick]));
+            crate::wrap_event::<RawEvent, MouseAreaEvent, MouseAreaState>(
+                |e, area, dpi, mut data| {
+                    match e {
+                        RawEvent::Mouse {
+                            device_id,
+                            state,
+                            pos,
+                            ..
+                        } => {
+                            match state {
+                                MouseState::Down => {
+                                    if area.contains(pixel_to_vec(pos)) {
+                                        data.lastdown.insert(device_id);
+                                        return Ok((data, vec![]));
+                                    }
+                                } // TODO: if this is inside the area, capture the mouse input.
+                                MouseState::Up => {
+                                    if data.lastdown.contains(&device_id) {
+                                        data.lastdown.remove(&device_id);
+                                        if area.contains(pixel_to_vec(pos)) {
+                                            return Ok((data, vec![MouseAreaEvent::OnClick]));
+                                        }
                                     }
                                 }
-                            }
-                            MouseState::DblClick => (), // TODO: some OSes may send this *instead of* a mouse up, in which case this should be treated as one.
-                        }
-                    }
-                    RawEvent::Touch {
-                        device_id,
-                        index,
-                        state,
-                        pos,
-                        ..
-                    } => match state {
-                        crate::input::TouchState::Start => {
-                            if area.contains(pos.xy()) {
-                                data.lasttouch.insert((device_id, index));
-                                return Ok((data, vec![]));
+                                MouseState::DblClick => (), // TODO: some OSes may send this *instead of* a mouse up, in which case this should be treated as one.
                             }
                         }
-                        crate::input::TouchState::Move => (),
-                        crate::input::TouchState::End => {
-                            if data.lasttouch.contains(&(device_id, index)) {
+                        RawEvent::Touch {
+                            device_id,
+                            index,
+                            state,
+                            pos,
+                            ..
+                        } => match state {
+                            crate::input::TouchState::Start => {
                                 if area.contains(pos.xy()) {
-                                    return Ok((data, vec![MouseAreaEvent::OnClick]));
+                                    data.lasttouch.insert((device_id, index));
+                                    return Ok((data, vec![]));
                                 }
-                                data.lasttouch.remove(&(device_id, index));
                             }
-                        }
-                    },
-                    _ => (),
-                }
-                Err((data, vec![]))
-            }),
+                            crate::input::TouchState::Move => (),
+                            crate::input::TouchState::End => {
+                                if data.lasttouch.contains(&(device_id, index)) {
+                                    if area.contains(pos.xy()) {
+                                        return Ok((data, vec![MouseAreaEvent::OnClick]));
+                                    }
+                                    data.lasttouch.remove(&(device_id, index));
+                                }
+                            }
+                        },
+                        _ => (),
+                    }
+                    Err((data, vec![]))
+                },
+            ),
         );
 
         //<MouseAreaEvent, MouseAreaState, 1, 3>
@@ -128,6 +129,7 @@ where
         &self,
         _: &crate::StateManager,
         _: &crate::DriverState,
+        _: crate::Vec2,
         _: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T> + 'static> {
         Box::new(layout::Node::<T, dyn leaf::Prop> {

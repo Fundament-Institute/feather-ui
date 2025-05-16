@@ -3,14 +3,9 @@
 
 use std::rc::Rc;
 
-use crate::input::RawEvent;
-use crate::input::RawEventKind;
-use crate::persist::FnPersist2;
-use crate::persist::VectorFold;
-use crate::AbsRect;
-use crate::Dispatchable;
-use crate::SourceID;
-use crate::StateManager;
+use crate::input::{RawEvent, RawEventKind};
+use crate::persist::{FnPersist2, VectorFold};
+use crate::{AbsRect, Dispatchable, SourceID, StateManager};
 use eyre::Result;
 use ultraviolet::Vec2;
 
@@ -68,6 +63,7 @@ impl Node {
         kind: RawEventKind,
         mut pos: Vec2,
         mut offset: Vec2,
+        dpi: Vec2,
         manager: &mut StateManager,
     ) -> Result<(), ()> {
         if self.area.contains(pos) {
@@ -80,6 +76,7 @@ impl Node {
                                 .process(
                                     event.clone().extract(),
                                     &crate::Slot(id.clone(), i as u64),
+                                    dpi,
                                     self.area + offset,
                                 )
                                 .is_ok()
@@ -97,7 +94,7 @@ impl Node {
                 if child
                     .as_ref()
                     .unwrap()
-                    .process(event, kind, pos, offset, manager)
+                    .process(event, kind, pos, offset, dpi, manager)
                     .is_ok()
                 {
                     return Ok(());
@@ -106,24 +103,45 @@ impl Node {
         }
         Err(())
     }
-    pub fn on_event(&self, event: &RawEvent, manager: &mut StateManager) -> Result<(), ()> {
+    pub fn on_event(
+        &self,
+        event: &RawEvent,
+        dpi: Vec2,
+        manager: &mut StateManager,
+    ) -> Result<(), ()> {
         match event {
-            RawEvent::Mouse { pos, .. } => {
-                self.process(event, RawEventKind::Mouse, *pos, Vec2::zero(), manager)
-            }
-            RawEvent::MouseMove { pos, .. } => {
-                self.process(event, RawEventKind::MouseMove, *pos, Vec2::zero(), manager)
-            }
+            RawEvent::Mouse { pos, .. } => self.process(
+                event,
+                RawEventKind::Mouse,
+                Vec2::new(pos.x, pos.y),
+                Vec2::zero(),
+                dpi,
+                manager,
+            ),
+            RawEvent::MouseMove { pos, .. } => self.process(
+                event,
+                RawEventKind::MouseMove,
+                Vec2::new(pos.x, pos.y),
+                Vec2::zero(),
+                dpi,
+                manager,
+            ),
             RawEvent::MouseScroll { pos, .. } => self.process(
                 event,
                 RawEventKind::MouseScroll,
-                *pos,
+                Vec2::new(pos.x, pos.y),
                 Vec2::zero(),
+                dpi,
                 manager,
             ),
-            RawEvent::Touch { pos, .. } => {
-                self.process(event, RawEventKind::Touch, pos.xy(), Vec2::zero(), manager)
-            }
+            RawEvent::Touch { pos, .. } => self.process(
+                event,
+                RawEventKind::Touch,
+                pos.xy(),
+                Vec2::zero(),
+                dpi,
+                manager,
+            ),
             _ => Err(()),
         }
     }

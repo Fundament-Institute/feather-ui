@@ -20,15 +20,13 @@ use eyre::OptionExt;
 pub use glyphon::Wrap;
 use once_cell::unsync::OnceCell;
 use outline::window::WindowStateMachine;
-use outline::Outline;
-use outline::StateMachineWrapper;
+use outline::{Outline, StateMachineWrapper};
 use persist::FnPersist;
 use shaders::ShaderCache;
 use smallvec::SmallVec;
 use std::any::Any;
 use std::cell::RefCell;
-use std::collections::BTreeMap;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::hash::Hasher;
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 use std::rc::Rc;
@@ -245,6 +243,33 @@ impl From<AbsDim> for AbsRect {
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
+/// A rectangle with both pixel and display independent units, but no relative component.
+pub struct AbsDRect {
+    dp: AbsRect,
+    px: AbsRect,
+}
+
+pub const ZERO_ABSDRECT: AbsDRect = AbsDRect {
+    dp: ZERO_RECT,
+    px: ZERO_RECT,
+};
+
+impl AbsDRect {
+    fn resolve(&self, dpi: Vec2) -> AbsRect {
+        AbsRect(self.px.0 + (self.dp.0 * splat_vec2(dpi)))
+    }
+}
+
+impl From<AbsRect> for AbsDRect {
+    fn from(value: AbsRect) -> Self {
+        AbsDRect {
+            dp: value,
+            px: ZERO_RECT,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 /// Relative point
 pub struct RelPoint(pub Vec2);
 
@@ -297,83 +322,6 @@ impl Add<AbsRect> for RelRect {
 #[inline]
 pub fn build_aabb(a: Vec2, b: Vec2) -> AbsRect {
     AbsRect::new_corners(a.min_by_component(b), a.max_by_component(b))
-}
-
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
-/// Unified coordinate rectangle
-pub struct URect {
-    pub abs: AbsRect,
-    pub rel: RelRect,
-}
-
-impl URect {
-    pub fn topleft(&self) -> UPoint {
-        let abs = self.abs.0.as_array_ref();
-        let rel = self.rel.0.as_array_ref();
-        UPoint(f32x4::new([abs[0], abs[1], rel[0], rel[1]]))
-    }
-    pub fn bottomright(&self) -> UPoint {
-        let abs = self.abs.0.as_array_ref();
-        let rel = self.rel.0.as_array_ref();
-        UPoint(f32x4::new([abs[2], abs[3], rel[2], rel[3]]))
-    }
-}
-
-pub const ZERO_URECT: URect = URect {
-    abs: ZERO_RECT,
-    rel: ZERO_RELRECT,
-};
-
-pub const FILL_URECT: URect = URect {
-    abs: ZERO_RECT,
-    rel: RelRect::new(0.0, 0.0, 1.0, 1.0),
-};
-
-pub const AUTO_URECT: URect = URect {
-    abs: ZERO_RECT,
-    rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
-};
-
-impl Mul<AbsRect> for URect {
-    type Output = AbsRect;
-
-    #[inline]
-    fn mul(self, rhs: AbsRect) -> Self::Output {
-        let ltrb = rhs.0.as_array_ref();
-        let topleft = f32x4::new([ltrb[0], ltrb[1], ltrb[0], ltrb[1]]);
-        let bottomright = f32x4::new([ltrb[2], ltrb[3], ltrb[2], ltrb[3]]);
-
-        AbsRect(topleft + self.abs.0 + self.rel.0 * (bottomright - topleft))
-    }
-}
-
-impl Mul<AbsDim> for URect {
-    type Output = AbsRect;
-
-    #[inline]
-    fn mul(self, rhs: AbsDim) -> Self::Output {
-        AbsRect(self.abs.0 + self.rel.0 * splat_vec2(rhs.0))
-    }
-}
-
-impl From<AbsRect> for URect {
-    #[inline]
-    fn from(value: AbsRect) -> Self {
-        Self {
-            abs: value,
-            rel: ZERO_RELRECT,
-        }
-    }
-}
-
-impl From<RelRect> for URect {
-    #[inline]
-    fn from(value: RelRect) -> Self {
-        Self {
-            abs: ZERO_RECT,
-            rel: value,
-        }
-    }
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
@@ -453,6 +401,129 @@ impl From<Vec2> for UPoint {
     }
 }
 
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+/// Unified coordinate rectangle
+pub struct URect {
+    pub abs: AbsRect,
+    pub rel: RelRect,
+}
+
+impl URect {
+    pub fn topleft(&self) -> UPoint {
+        let abs = self.abs.0.as_array_ref();
+        let rel = self.rel.0.as_array_ref();
+        UPoint(f32x4::new([abs[0], abs[1], rel[0], rel[1]]))
+    }
+    pub fn bottomright(&self) -> UPoint {
+        let abs = self.abs.0.as_array_ref();
+        let rel = self.rel.0.as_array_ref();
+        UPoint(f32x4::new([abs[2], abs[3], rel[2], rel[3]]))
+    }
+}
+
+pub const ZERO_URECT: URect = URect {
+    abs: ZERO_RECT,
+    rel: ZERO_RELRECT,
+};
+
+pub const FILL_URECT: URect = URect {
+    abs: ZERO_RECT,
+    rel: RelRect::new(0.0, 0.0, 1.0, 1.0),
+};
+
+pub const AUTO_URECT: URect = URect {
+    abs: ZERO_RECT,
+    rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
+};
+
+impl Mul<AbsRect> for URect {
+    type Output = AbsRect;
+
+    #[inline]
+    fn mul(self, rhs: AbsRect) -> Self::Output {
+        let ltrb = rhs.0.as_array_ref();
+        let topleft = f32x4::new([ltrb[0], ltrb[1], ltrb[0], ltrb[1]]);
+        let bottomright = f32x4::new([ltrb[2], ltrb[3], ltrb[2], ltrb[3]]);
+
+        AbsRect(topleft + self.abs.0 + self.rel.0 * (bottomright - topleft))
+    }
+}
+
+impl Mul<AbsDim> for URect {
+    type Output = AbsRect;
+
+    #[inline]
+    fn mul(self, rhs: AbsDim) -> Self::Output {
+        AbsRect(self.abs.0 + self.rel.0 * splat_vec2(rhs.0))
+    }
+}
+
+impl From<AbsRect> for URect {
+    #[inline]
+    fn from(value: AbsRect) -> Self {
+        Self {
+            abs: value,
+            rel: ZERO_RELRECT,
+        }
+    }
+}
+
+impl From<RelRect> for URect {
+    #[inline]
+    fn from(value: RelRect) -> Self {
+        Self {
+            abs: ZERO_RECT,
+            rel: value,
+        }
+    }
+}
+
+/// Display Rectangle with both per-pixel and display-independent pixels
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+pub struct DRect {
+    pub px: AbsRect,
+    pub dp: AbsRect,
+    pub rel: RelRect,
+}
+
+impl DRect {
+    fn resolve(&self, dpi: Vec2) -> URect {
+        URect {
+            abs: AbsRect(self.px.0 + (self.dp.0 * splat_vec2(dpi))),
+            rel: self.rel,
+        }
+    }
+}
+
+pub const ZERO_DRECT: DRect = DRect {
+    px: ZERO_RECT,
+    dp: ZERO_RECT,
+    rel: ZERO_RELRECT,
+};
+
+pub const FILL_DRECT: DRect = DRect {
+    px: ZERO_RECT,
+    dp: ZERO_RECT,
+    rel: RelRect::new(0.0, 0.0, 1.0, 1.0),
+};
+
+pub const AUTO_DRECT: DRect = DRect {
+    px: ZERO_RECT,
+    dp: ZERO_RECT,
+    rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
+};
+
+impl From<URect> for DRect {
+    /// By default we assume everything is in device independent pixels - if you wanted pixels, you should be using DRect explicitly
+    fn from(value: URect) -> Self {
+        Self {
+            px: ZERO_RECT,
+            dp: value.abs,
+            rel: value.rel,
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug)]
 pub struct AbsLimits(f32x4);
 
@@ -507,6 +578,32 @@ impl Add<AbsLimits> for AbsLimits {
             minmax[2].min(r[2]),
             minmax[3].min(r[3]),
         ]))
+    }
+}
+
+#[derive(Copy, Clone, Debug, Default)]
+pub struct DLimits {
+    dp: AbsLimits,
+    px: AbsLimits,
+}
+
+pub const DEFAULT_DLIMITS: DLimits = DLimits {
+    dp: DEFAULT_LIMITS,
+    px: AbsLimits(f32x4::ZERO),
+};
+
+impl DLimits {
+    pub fn resolve(&self, dpi: Vec2) -> AbsLimits {
+        AbsLimits(self.px.0 + self.dp.0 * splat_vec2(dpi))
+    }
+}
+
+impl From<AbsLimits> for DLimits {
+    fn from(value: AbsLimits) -> Self {
+        DLimits {
+            dp: value,
+            px: AbsLimits(f32x4::ZERO),
+        }
     }
 }
 
@@ -581,6 +678,31 @@ impl Mul<AbsDim> for RelLimits {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Default)]
+pub struct DVec {
+    pub dp: f32,
+    pub px: f32,
+}
+
+impl DVec {
+    pub const fn new(dp: f32, px: f32) -> Self {
+        Self { dp, px }
+    }
+    pub fn resolve(&self, dpi: f32) -> f32 {
+        if self.dp == UNSIZED_AXIS {
+            UNSIZED_AXIS
+        } else {
+            self.px + (self.dp * dpi)
+        }
+    }
+}
+
+impl From<f32> for DVec {
+    fn from(value: f32) -> Self {
+        Self { dp: value, px: 0.0 }
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default, derive_more::TryFrom)]
 #[repr(u8)]
 pub enum RowDirection {
@@ -621,6 +743,18 @@ impl TextSystem {
             &mut self.swash_cache,
         )
     }
+}
+
+// Points are specified as 72 per inch, and a scale factor of 1.0 corresponds to 96 DPI, so we multiply by the
+// ratio times the scaling factor.
+#[inline]
+fn point_to_pixel(pt: f32, scale_factor: f32) -> f32 {
+    pt * (72.0 / 96.0) * scale_factor
+}
+
+#[inline]
+fn pixel_to_vec(p: winit::dpi::PhysicalPosition<f32>) -> Vec2 {
+    Vec2::new(p.x, p.y)
 }
 
 // We want to share our device/adapter state across windows, but can't create it until we have at least one window,
@@ -784,11 +918,17 @@ pub struct Slot(pub Rc<SourceID>, pub u64);
 type AnyHandler =
     dyn FnMut(&dyn Any, AbsRect, &mut dyn Any) -> Result<Vec<DispatchPair>, Vec<DispatchPair>>;
 
-pub type EventHandler<Input, Output, State> =
-    Box<dyn FnMut(Input, AbsRect, State) -> Result<(State, Vec<Output>), (State, Vec<Output>)>>;
+pub type EventHandler<Input, Output, State> = Box<
+    dyn FnMut(Input, AbsRect, Vec2, State) -> Result<(State, Vec<Output>), (State, Vec<Output>)>,
+>;
 
 pub type EventWrapper<Output, State> = Box<
-    dyn FnMut(DispatchPair, AbsRect, State) -> Result<(State, Vec<Output>), (State, Vec<Output>)>,
+    dyn FnMut(
+        DispatchPair,
+        AbsRect,
+        Vec2,
+        State,
+    ) -> Result<(State, Vec<Output>), (State, Vec<Output>)>,
 >;
 
 pub type AppEvent<State> = Box<dyn FnMut(DispatchPair, State) -> Result<State, State>>;
@@ -796,10 +936,15 @@ pub type AppEvent<State> = Box<dyn FnMut(DispatchPair, State) -> Result<State, S
 #[inline]
 #[allow(clippy::type_complexity)]
 fn wrap_event<Input: Dispatchable + 'static, Output: Dispatchable, State>(
-    mut typed: impl FnMut(Input, AbsRect, State) -> Result<(State, Vec<Output>), (State, Vec<Output>)>,
-) -> impl FnMut(DispatchPair, AbsRect, State) -> Result<(State, Vec<Output>), (State, Vec<Output>)>
+    mut typed: impl FnMut(
+        Input,
+        AbsRect,
+        Vec2,
+        State,
+    ) -> Result<(State, Vec<Output>), (State, Vec<Output>)>,
+) -> impl FnMut(DispatchPair, AbsRect, Vec2, State) -> Result<(State, Vec<Output>), (State, Vec<Output>)>
 {
-    move |pair, rect, state| typed(Input::restore(pair).unwrap(), rect, state)
+    move |pair, rect, dpi, state| typed(Input::restore(pair).unwrap(), rect, dpi, state)
 }
 
 pub trait WrapEventEx<State: 'static + std::cmp::PartialEq, Input: Dispatchable + 'static> {
@@ -892,13 +1037,19 @@ impl StateManager {
         self.states.get(id).ok_or_eyre("State does not exist")
     }
 
-    pub fn process(&mut self, event: DispatchPair, slot: &Slot, area: AbsRect) -> eyre::Result<()> {
+    pub fn process(
+        &mut self,
+        event: DispatchPair,
+        slot: &Slot,
+        dpi: Vec2,
+        area: AbsRect,
+    ) -> eyre::Result<()> {
         type IterTuple = (Box<dyn Any>, u64, Option<Slot>);
 
         // We use smallvec here so we can satisfy the borrow checker without making yet another heap allocation in most cases
         let iter: SmallVec<[IterTuple; 2]> = {
             let state = self.states.get_mut(&slot.0).ok_or_eyre("Invalid slot")?;
-            let v = state.process(event, slot.1, area)?;
+            let v = state.process(event, slot.1, dpi, area)?;
             v.into_iter()
                 .map(|(i, e)| (e, i, state.output_slot(i.ilog2() as usize).unwrap().clone()))
         }
@@ -906,7 +1057,7 @@ impl StateManager {
 
         for (e, index, slot) in iter {
             if let Some(s) = slot.as_ref() {
-                self.process((index, e), s, area)?;
+                self.process((index, e), s, dpi, area)?;
             }
         }
         Ok(())
@@ -956,6 +1107,7 @@ impl<AppData: 'static + std::cmp::PartialEq> StateMachineWrapper for AppDataMach
         &mut self,
         input: DispatchPair,
         index: u64,
+        _: crate::Vec2,
         _: AbsRect,
     ) -> eyre::Result<Vec<DispatchPair>> {
         let f = self

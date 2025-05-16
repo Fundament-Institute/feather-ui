@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use feather_ui::gen_id;
-use feather_ui::layout::fixed;
-use feather_ui::layout::flex;
-use feather_ui::layout::leaf;
+use feather_ui::layout::{fixed, flex, leaf};
+use feather_ui::{gen_id, AbsDRect, DVec};
 
 use feather_ui::layout::base;
 use feather_ui::outline::paragraph::Paragraph;
@@ -13,12 +11,7 @@ use feather_ui::outline::shape::Shape;
 use feather_ui::outline::window::Window;
 use feather_ui::outline::OutlineFrom;
 use feather_ui::persist::FnPersist;
-use feather_ui::AbsRect;
-use feather_ui::App;
-use feather_ui::RelRect;
-use feather_ui::SourceID;
-use feather_ui::URect;
-use feather_ui::FILL_URECT;
+use feather_ui::{AbsRect, App, DRect, RelRect, SourceID, FILL_DRECT};
 use std::f32;
 use std::rc::Rc;
 use ultraviolet::Vec4;
@@ -32,7 +25,7 @@ struct BasicApp {}
 
 #[derive(Default, Clone, feather_macro::Area)]
 struct MinimalFlexChild {
-    area: URect,
+    area: DRect,
 }
 
 impl flex::Child for MinimalFlexChild {
@@ -44,8 +37,8 @@ impl flex::Child for MinimalFlexChild {
         1.0
     }
 
-    fn basis(&self) -> f32 {
-        100.0
+    fn basis(&self) -> DVec {
+        100.0.into()
     }
 }
 
@@ -60,7 +53,7 @@ impl leaf::Padded for MinimalFlexChild {}
 
 #[derive(Default, Clone, feather_macro::Empty, feather_macro::Area)]
 struct MinimalArea {
-    area: URect,
+    area: DRect,
 }
 
 impl base::ZIndex for MinimalArea {}
@@ -70,8 +63,8 @@ impl fixed::Prop for MinimalArea {}
 
 #[derive(Default, Clone, feather_macro::Empty, feather_macro::Area)]
 struct MinimalFlex {
-    obstacles: Vec<AbsRect>,
-    area: URect,
+    obstacles: Vec<AbsDRect>,
+    area: DRect,
 }
 impl base::Direction for MinimalFlex {}
 impl base::ZIndex for MinimalFlex {}
@@ -80,7 +73,7 @@ impl base::RLimits for MinimalFlex {}
 impl fixed::Child for MinimalFlex {}
 
 impl base::Obstacles for MinimalFlex {
-    fn obstacles(&self) -> &[AbsRect] {
+    fn obstacles(&self) -> &[AbsDRect] {
         &self.obstacles
     }
 }
@@ -120,7 +113,7 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
                 let rect = Shape::round_rect(
                     gen_id!().into(),
                     MinimalFlexChild {
-                        area: AbsRect::new(0.0, 0.0, 40.0, 40.0).into(),
+                        area: feather_ui::URect::from(AbsRect::new(0.0, 0.0, 40.0, 40.0)).into(),
                     }
                     .into(),
                     0.0,
@@ -133,16 +126,16 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
                 let mut p = Paragraph::new(
                     gen_id!().into(),
                     MinimalFlex {
-                        area: FILL_URECT,
-                        obstacles: vec![AbsRect::new(200.0, 30.0, 300.0, 150.0)],
+                        area: FILL_DRECT,
+                        obstacles: vec![AbsRect::new(200.0, 30.0, 300.0, 150.0).into()],
                     },
                 );
 
                 let text = "Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem. Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur? Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur?";
                 p.set_text(
                     text,
-                    30.0,
-                    42.0,
+                    40.0,
+                    56.0,
                     glyphon::FamilyOwned::SansSerif,
                     glyphon::Color::rgba(255, 255, 255, 255),
                     Default::default(),
@@ -166,7 +159,8 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
                     area: feather_ui::URect {
                         abs: AbsRect::new(90.0, 90.0, -90.0, -90.0),
                         rel: RelRect::new(0.0, 0.0, 1.0, 1.0),
-                    },
+                    }
+                    .into(),
                 }
                 .into(),
                 children,

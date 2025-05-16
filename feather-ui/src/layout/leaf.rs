@@ -1,19 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use super::base;
 use super::base::Empty;
-use super::map_unsized_area;
-use super::Concrete;
-use super::Desc;
-use super::LayoutWrap;
-use super::Renderable;
-use super::Staged;
-use crate::rtree;
-use crate::AbsRect;
-use crate::SourceID;
-use crate::URect;
-use crate::ZERO_POINT;
+use super::{base, map_unsized_area, Concrete, Desc, LayoutWrap, Renderable, Staged};
+use crate::{rtree, AbsRect, DRect, SourceID, ZERO_POINT};
 use std::marker::PhantomData;
 use std::rc::Rc;
 
@@ -21,7 +11,7 @@ pub trait Prop: base::Area + base::Limits + base::Anchor {}
 
 crate::gen_from_to_dyn!(Prop);
 
-impl Prop for URect {}
+impl Prop for DRect {}
 
 // Actual leafs do not require padding, but a lot of raw elements do (text, shape, images, etc.)
 // This inherits Prop to allow elements to "extract" the padding for the rendering system for
@@ -30,7 +20,7 @@ pub trait Padded: Prop + base::Padding {}
 
 crate::gen_from_to_dyn!(Padded);
 
-impl Padded for URect {}
+impl Padded for DRect {}
 
 impl Desc for dyn Prop {
     type Props = dyn Prop;
@@ -44,11 +34,13 @@ impl Desc for dyn Prop {
         _: &Self::Children,
         id: std::rc::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
+        dpi: crate::Vec2,
         _: &crate::DriverState,
     ) -> Box<dyn Staged + 'a> {
-        let limits = outer_limits + *props.limits();
+        let limits = outer_limits + props.limits().resolve(dpi);
         let evaluated_area = super::limit_area(
-            map_unsized_area(*props.area(), ZERO_POINT) * super::nuetralize_unsized(outer_area),
+            map_unsized_area(props.area().resolve(dpi), ZERO_POINT)
+                * super::nuetralize_unsized(outer_area),
             limits,
         );
 

@@ -1,16 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use feather_ui::lua::AppState;
-use feather_ui::lua::LuaApp;
+use feather_ui::lua::{AppState, LuaApp};
 use feather_ui::App;
 use mlua::prelude::*;
 use mlua::Function;
-use std::any::Any;
-use std::any::TypeId;
+use std::any::{Any, TypeId};
 use std::ops::Deref;
-use std::sync::Arc;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 uniffi::include_scaffolding!("calculator");
 
