@@ -1,19 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::gen_id;
-use crate::layout;
-use crate::layout::base;
-use crate::layout::flex;
-use crate::layout::leaf;
-use crate::layout::Desc;
-use crate::layout::Layout;
-use crate::layout::LayoutWrap;
+use crate::layout::{base, flex, leaf, Desc, Layout, LayoutWrap};
 use crate::outline::text::Text;
 use crate::outline::OutlineFrom;
-use crate::persist::FnPersist;
-use crate::persist::VectorMap;
-use crate::SourceID;
+use crate::persist::{FnPersist, VectorMap};
+use crate::{gen_id, layout, SourceID, UNSIZED_AXIS};
 use core::f32;
 use derive_where::derive_where;
 use std::rc::Rc;
@@ -38,36 +30,25 @@ impl flex::Child for MinimalFlexChild {
         0.0
     }
 
-    fn basis(&self) -> f32 {
-        f32::INFINITY
+    fn basis(&self) -> crate::DValue {
+        UNSIZED_AXIS.into()
     }
 }
-
-impl base::Order for MinimalFlexChild {
-    fn order(&self) -> i64 {
-        0
-    }
-}
-
-impl base::Margin for MinimalFlexChild {
-    fn margin(&self) -> &crate::URect {
-        &crate::ZERO_URECT
-    }
-}
-
-impl base::Limits for MinimalFlexChild {
-    fn limits(&self) -> &crate::URect {
-        &crate::DEFAULT_LIMITS
-    }
-}
-
-impl leaf::Prop for MinimalFlexChild {}
 
 impl base::Area for MinimalFlexChild {
-    fn area(&self) -> &crate::URect {
-        &crate::AUTO_URECT
+    fn area(&self) -> &crate::DRect {
+        &crate::AUTO_DRECT
     }
 }
+
+impl base::Anchor for MinimalFlexChild {}
+impl base::Order for MinimalFlexChild {}
+impl base::Margin for MinimalFlexChild {}
+impl base::RLimits for MinimalFlexChild {}
+impl base::Limits for MinimalFlexChild {}
+impl base::Padding for MinimalFlexChild {}
+impl leaf::Prop for MinimalFlexChild {}
+impl leaf::Padded for MinimalFlexChild {}
 
 impl<T: flex::Prop + 'static> Paragraph<T> {
     pub fn new(id: Rc<SourceID>, props: T) -> Self {
@@ -105,6 +86,7 @@ impl<T: flex::Prop + 'static> Paragraph<T> {
                 color,
                 weight,
                 style,
+                wrap: glyphon::Wrap::None,
             };
             self.children.push_back(Some(Box::new(text)));
         }
@@ -127,11 +109,12 @@ impl<T: flex::Prop + 'static> super::Outline<T> for Paragraph<T> {
         &self,
         state: &crate::StateManager,
         driver: &crate::DriverState,
+        dpi: crate::Vec2,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let map = VectorMap::new(
             |child: &Option<Box<OutlineFrom<dyn flex::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn flex::Prop as Desc>::Child>>> {
-                Some(child.as_ref().unwrap().layout(state, driver, config))
+                Some(child.as_ref().unwrap().layout(state, driver, dpi, config))
             },
         );
 

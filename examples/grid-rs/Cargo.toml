@@ -2,20 +2,20 @@
 # SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 [package]
-name = "graph-rs"
+name = "grid-rs"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 authors = ["Erik McClure  "]
 description = """
-Simple graph editor
+Testbed for grids
 """
 homepage.workspace = true
 readme.workspace = true
 license.workspace = true
 
 [[bin]]
-name = "graph-rs"
+name = "grid-rs"
 path = "main.rs"
 
 [dependencies]

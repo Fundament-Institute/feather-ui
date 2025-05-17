@@ -2,24 +2,18 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use feather_macro::*;
-use feather_ui::gen_id;
-use feather_ui::layout::simple;
+use feather_ui::layout::fixed;
 use feather_ui::outline::button::Button;
-use feather_ui::outline::mouse_area;
 use feather_ui::outline::region::Region;
 use feather_ui::outline::shape::Shape;
 use feather_ui::outline::text::Text;
 use feather_ui::outline::window::Window;
-use feather_ui::outline::OutlineFrom;
+use feather_ui::outline::{mouse_area, OutlineFrom};
 use feather_ui::persist::FnPersist;
-use feather_ui::App;
-use feather_ui::Slot;
-use feather_ui::SourceID;
-use feather_ui::URect;
-use feather_ui::WrapEventEx;
-use feather_ui::FILL_URECT;
-use std::any::Any;
-use std::any::TypeId;
+use feather_ui::{
+    gen_id, AbsRect, App, DRect, RelRect, Slot, SourceID, WrapEventEx, FILL_DRECT, ZERO_RECT,
+};
+use std::any::{Any, TypeId};
 use std::f32;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -41,16 +35,17 @@ pub trait Calculator: Send + Sync {
     fn eq(&self, rhs: Arc<dyn Calculator>) -> bool;
 }
 
-#[derive(Default, Empty, Area, Margin, Anchor, Limits, ZIndex)]
-struct SimpleData {
-    area: URect,
-    margin: URect,
-    anchor: feather_ui::UPoint,
-    limits: URect,
+#[derive(Default, Empty, Area, Anchor, ZIndex)]
+struct FixedData {
+    area: DRect,
+    anchor: feather_ui::DPoint,
     zindex: i32,
 }
 
-impl simple::Prop for SimpleData {}
+impl feather_ui::layout::base::Limits for FixedData {}
+impl feather_ui::layout::base::RLimits for FixedData {}
+impl fixed::Prop for FixedData {}
+impl fixed::Child for FixedData {}
 
 impl dyn Calculator {
     #[inline]
@@ -179,15 +174,14 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
         args: &CalcFFI,
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
         //if store.0.eq(args) {
-        let mut children: im::Vector<Option<Box<OutlineFrom<dyn simple::Prop>>>> =
-            im::Vector::new();
+        let mut children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> = im::Vector::new();
 
         let button_id = Rc::new(gen_id!());
 
         for (i, (txt, _, color)) in BUTTONS.iter().enumerate() {
             let rect = Shape::round_rect(
                 gen_id!(button_id).into(),
-                feather_ui::FILL_URECT.into(),
+                FILL_DRECT.into(),
                 0.0,
                 0.0,
                 Vec4::broadcast(10.0),
@@ -195,16 +189,16 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
                 Vec4::zero(),
             );
 
-            let text = Text::<URect> {
+            let text = Text::<DRect> {
                 id: gen_id!(button_id).into(),
-                props: feather_ui::FILL_URECT.into(),
+                props: FILL_DRECT.into(),
                 text: txt.to_string(),
-                font_size: 30.0,
-                line_height: 42.0,
+                font_size: 40.0,
+                line_height: 56.0,
                 ..Default::default()
             };
 
-            let mut btn_children: im::Vector<Option<Box<OutlineFrom<dyn simple::Prop>>>> =
+            let mut btn_children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> =
                 im::Vector::new();
             btn_children.push_back(Some(Box::new(text)));
             btn_children.push_back(Some(Box::new(rect)));
@@ -213,27 +207,19 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
             let (x, y) = (i % ROW_COUNT, (i / ROW_COUNT) + 1);
             let (w, h) = (1.0 / ROW_COUNT as f32, 1.0 / 7.0);
 
-            let btn = Button::<SimpleData>::new(
+            let btn = Button::<FixedData>::new(
                 gen_id!(button_id).into(),
-                SimpleData {
-                    area: URect {
-                        topleft: feather_ui::UPoint {
-                            abs: ultraviolet::Vec2 { x: 4.0, y: 4.0 },
-                            rel: feather_ui::RelPoint {
-                                x: w * x as f32,
-                                y: h * y as f32,
-                            },
-                        },
-                        bottomright: feather_ui::UPoint {
-                            abs: ultraviolet::Vec2 { x: -4.0, y: -4.0 },
-                            rel: feather_ui::RelPoint {
-                                x: w * (x + 1) as f32,
-                                y: h * (y + 1) as f32,
-                            },
-                        },
-                    },
-                    margin: Default::default(),
-                    limits: feather_ui::DEFAULT_LIMITS,
+                FixedData {
+                    area: feather_ui::URect {
+                        abs: AbsRect::new(4.0, 4.0, -4.0, -4.0),
+                        rel: RelRect::new(
+                            w * x as f32,
+                            h * y as f32,
+                            w * (x + 1) as f32,
+                            h * (y + 1) as f32,
+                        ),
+                    }
+                    .into(),
                     anchor: Default::default(),
                     zindex: 0,
                 },
@@ -244,9 +230,9 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
             children.push_back(Some(Box::new(btn)));
         }
 
-        let display = Text::<URect> {
+        let display = Text::<DRect> {
             id: gen_id!(button_id).into(),
-            props: feather_ui::FILL_URECT.into(),
+            props: FILL_DRECT.into(),
             text: args.0.get().to_string(),
             font_size: 60.0,
             line_height: 42.0,
@@ -255,18 +241,10 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
 
         let text_bg = Shape::round_rect(
             gen_id!(button_id).into(),
-            Rc::new(URect {
-                topleft: feather_ui::UPoint {
-                    abs: ultraviolet::Vec2 { x: 0.0, y: 0.0 },
-                    rel: feather_ui::RelPoint { x: 0.0, y: 0.0 },
-                },
-                bottomright: feather_ui::UPoint {
-                    abs: ultraviolet::Vec2 { x: 0.0, y: 0.0 },
-                    rel: feather_ui::RelPoint {
-                        x: 1.0,
-                        y: 1.0 / 7.0,
-                    },
-                },
+            Rc::new(DRect {
+                px: ZERO_RECT,
+                dp: ZERO_RECT,
+                rel: RelRect::new(0.0, 0.0, 1.0, 1.0 / 7.0),
             }),
             0.0,
             0.0,
@@ -278,10 +256,10 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
         children.push_back(Some(Box::new(display)));
         children.push_back(Some(Box::new(text_bg)));
 
-        let region = Region::<SimpleData> {
+        let region = Region::<FixedData> {
             id: gen_id!().into(),
-            props: SimpleData {
-                area: FILL_URECT,
+            props: FixedData {
+                area: FILL_DRECT,
                 ..Default::default()
             }
             .into(),
@@ -292,7 +270,7 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
         let window = Window::new(
             gen_id!().into(),
             winit::window::Window::default_attributes()
-                .with_title("calculator-rs")
+                .with_title(env!("CARGO_CRATE_NAME"))
                 .with_drag_and_drop(false)
                 .with_resizable(true),
             Box::new(region),
@@ -301,7 +279,7 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
         let window = Window::new(
             gen_id!().into(),
             winit::window::Window::default_attributes()
-                .with_title("calculator-rs")
+                .with_title(env!("CARGO_CRATE_NAME"))
                 .with_resizable(true),
             Box::new(region),
         );

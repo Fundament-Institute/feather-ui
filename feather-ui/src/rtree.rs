@@ -3,14 +3,9 @@
 
 use std::rc::Rc;
 
-use crate::input::RawEvent;
-use crate::input::RawEventKind;
-use crate::persist::FnPersist2;
-use crate::persist::VectorFold;
-use crate::AbsRect;
-use crate::Dispatchable;
-use crate::SourceID;
-use crate::StateManager;
+use crate::input::{RawEvent, RawEventKind};
+use crate::persist::{FnPersist2, VectorFold};
+use crate::{AbsRect, Dispatchable, SourceID, StateManager};
 use eyre::Result;
 use ultraviolet::Vec2;
 
@@ -20,7 +15,6 @@ pub struct Node {
     pub top: i32, // 2D R-tree nodes are actually 3 dimensional, but the z-axis can never overlap (because layout rects have no depth).
     pub bottom: i32,
     pub id: std::rc::Weak<SourceID>,
-    //transform: Rotor2, // TODO: build a 3D node where this is a 3D rotor and project it back on to a 2D plane.
     pub children: im::Vector<Option<Rc<Node>>>,
 }
 
@@ -69,6 +63,7 @@ impl Node {
         kind: RawEventKind,
         mut pos: Vec2,
         mut offset: Vec2,
+        dpi: Vec2,
         manager: &mut StateManager,
     ) -> Result<(), ()> {
         if self.area.contains(pos) {
@@ -81,6 +76,7 @@ impl Node {
                                 .process(
                                     event.clone().extract(),
                                     &crate::Slot(id.clone(), i as u64),
+                                    dpi,
                                     self.area + offset,
                                 )
                                 .is_ok()
@@ -91,14 +87,14 @@ impl Node {
                 }
             }
 
-            offset += self.area.topleft;
-            pos -= self.area.topleft;
+            offset += self.area.topleft();
+            pos -= self.area.topleft();
             // Children should be sorted from top to bottom
             for child in self.children.iter() {
                 if child
                     .as_ref()
                     .unwrap()
-                    .process(event, kind, pos, offset, manager)
+                    .process(event, kind, pos, offset, dpi, manager)
                     .is_ok()
                 {
                     return Ok(());
@@ -107,51 +103,67 @@ impl Node {
         }
         Err(())
     }
-    pub fn on_event(&self, event: &RawEvent, manager: &mut StateManager) -> Result<(), ()> {
+    pub fn on_event(
+        &self,
+        event: &RawEvent,
+        dpi: Vec2,
+        manager: &mut StateManager,
+    ) -> Result<(), ()> {
         match event {
-            RawEvent::Mouse { pos, .. } => {
-                self.process(event, RawEventKind::Mouse, *pos, Vec2::zero(), manager)
-            }
-            RawEvent::MouseMove { pos, .. } => {
-                self.process(event, RawEventKind::MouseMove, *pos, Vec2::zero(), manager)
-            }
+            RawEvent::Mouse { pos, .. } => self.process(
+                event,
+                RawEventKind::Mouse,
+                Vec2::new(pos.x, pos.y),
+                Vec2::zero(),
+                dpi,
+                manager,
+            ),
+            RawEvent::MouseMove { pos, .. } => self.process(
+                event,
+                RawEventKind::MouseMove,
+                Vec2::new(pos.x, pos.y),
+                Vec2::zero(),
+                dpi,
+                manager,
+            ),
             RawEvent::MouseScroll { pos, .. } => self.process(
                 event,
                 RawEventKind::MouseScroll,
-                *pos,
+                Vec2::new(pos.x, pos.y),
                 Vec2::zero(),
+                dpi,
                 manager,
             ),
-            RawEvent::Touch { pos, .. } => {
-                self.process(event, RawEventKind::Touch, pos.xy(), Vec2::zero(), manager)
-            }
+            RawEvent::Touch { pos, .. } => self.process(
+                event,
+                RawEventKind::Touch,
+                pos.xy(),
+                Vec2::zero(),
+                dpi,
+                manager,
+            ),
             _ => Err(()),
         }
     }
-
-    // After a node has been modified we might need to fix the parent's extent.
-    /*pub fn fix_extent(&mut self) {
-        if let Some(parent_ref) = self.parent.as_ref() {
-            let mut parent = parent_ref.borrow_mut();
-
-            let mut a = self.area.topleft;
-            let mut b = self.area.bottomright;
-            self.transform.rotate_vec(&mut a);
-            self.transform.rotate_vec(&mut b);
-            let aabb = build_aabb(a, b);
-
-            if aabb.topleft.x < parent.extent.topleft.x || aabb.topleft.y < parent.extent.topleft.y
-            {
-                parent.extent.topleft.x = parent.extent.topleft.x.min(aabb.topleft.x);
-                parent.extent.topleft.y = parent.extent.topleft.y.min(aabb.topleft.y);
-            }
-
-            if aabb.bottomright.x > parent.extent.bottomright.x
-                || aabb.bottomright.y > parent.extent.bottomright.y
-            {
-                parent.extent.bottomright.x = parent.extent.bottomright.x.max(aabb.bottomright.x);
-                parent.extent.bottomright.y = parent.extent.bottomright.y.max(aabb.bottomright.y);
-            }
-        }
-    }*/
 }
+
+/*
+// 2.5D node which contains a 2D r-tree, embedded inside the parent 3D space.
+struct Node25 {
+    pub area: AbsRect,
+    pub extent: AbsRect,
+    pub z: f32, // there is only one z coordinate because the contained area must be flat.
+    pub transform: Rotor3,
+    pub id: std::rc::Weak<SourceID>,
+    pub children: im::Vector<Option<Rc<Node>>>,
+}
+
+// 3D node capable of arbitrary translation (though it's AABB must still be fully contained within it's parent node)[]
+struct Node3D {
+    pub area: AbsVolume,
+    pub extent: AbsVolume,
+    pub transform: Rotor3,
+    pub id: std::rc::Weak<SourceID>,
+    pub children: im::Vector<Either<Rc<Node3D>, Rc<Node25>>>,
+}
+*/

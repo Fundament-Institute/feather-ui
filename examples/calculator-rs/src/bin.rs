@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use calculator::CalcOp;
-use calculator::Calculator;
+use calculator::{CalcOp, Calculator};
 use std::ops::Deref;
-use std::sync::Arc;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 #[derive(PartialEq, Clone, Debug, Default)]
 struct CalcState {

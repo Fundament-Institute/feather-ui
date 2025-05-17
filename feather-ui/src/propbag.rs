@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 use std::collections::HashMap;
 
-use crate::{ZERO_UPOINT, ZERO_URECT};
+use crate::DEFAULT_RLIMITS;
 
 #[derive(Default)]
 pub struct PropBag {
@@ -126,6 +126,13 @@ macro_rules! gen_prop_bag {
 gen_prop_bag_value_clone!(crate::layout::base::Order, order, set_order, i64, 0);
 gen_prop_bag_value_clone!(crate::layout::base::ZIndex, zindex, set_zindex, i32, 0);
 gen_prop_bag_value_clone!(
+    crate::layout::base::Direction,
+    direction,
+    set_direction,
+    crate::RowDirection,
+    crate::RowDirection::LeftToRight
+);
+gen_prop_bag_value_clone!(
     crate::layout::domain_write::Prop,
     domain,
     set_domain,
@@ -134,19 +141,19 @@ gen_prop_bag_value_clone!(
 );
 
 impl crate::layout::base::Obstacles for PropBag {
-    fn obstacles(&self) -> &[crate::AbsRect] {
+    fn obstacles(&self) -> &[crate::DAbsRect] {
         // We have to be careful here because the actual stored type is a Vec<>, not a slice.
         self.props
             .get(&PropBagElement::obstacles)
             .expect("PropBag didn't have obstacles")
-            .downcast_ref::<Vec<crate::AbsRect>>()
+            .downcast_ref::<Vec<crate::DAbsRect>>()
             .expect("obstacles in PropBag was the wrong type!")
     }
 }
 
 impl PropBag {
     #[allow(dead_code)]
-    pub fn set_obstacles(&mut self, v: &[crate::AbsRect]) -> Option<Vec<crate::AbsRect>> {
+    pub fn set_obstacles(&mut self, v: &[crate::DAbsRect]) -> Option<Vec<crate::DAbsRect>> {
         self.props
             .insert(PropBagElement::zindex, Box::new(v.to_vec()))
             .map(move |x| {
@@ -158,23 +165,24 @@ impl PropBag {
 
 #[rustfmt::skip]
 gen_prop_bag!(
-  crate::layout::base::Area, area, set_area, crate::URect, panic!("No area set and no default available!"),
-  crate::layout::base::Padding, padding, set_padding, crate::URect, &ZERO_URECT,
-  crate::layout::base::Margin, margin, set_margin, crate::URect, &ZERO_URECT,
-  crate::layout::base::Limits, limits, set_limits, crate::URect, &ZERO_URECT,
-  crate::layout::base::Anchor, anchor, set_anchor, crate::UPoint, &ZERO_UPOINT,
+  crate::layout::base::Area, area, set_area, crate::DRect, panic!("No area set and no default available!"),
+  crate::layout::base::Padding, padding, set_padding, crate::DAbsRect, &crate::ZERO_DABSRECT,
+  crate::layout::base::Margin, margin, set_margin, crate::DRect, &crate::ZERO_DRECT,
+  crate::layout::base::Limits, limits, set_limits, crate::DLimits, &crate::DEFAULT_DLIMITS,
+  crate::layout::base::RLimits, rlimits, set_rlimits, crate::RelLimits, &DEFAULT_RLIMITS,
+  crate::layout::base::Anchor, anchor, set_anchor, crate::DPoint, &crate::ZERO_DPOINT,
   crate::layout::root::Prop, dim, set_dim, crate::AbsDim, panic!("No dim set and no default available!")
 );
 
 impl crate::layout::base::Empty for PropBag {}
 impl crate::layout::leaf::Prop for PropBag {}
-impl crate::layout::simple::Prop for PropBag {}
+impl crate::layout::fixed::Prop for PropBag {}
+impl crate::layout::fixed::Child for PropBag {}
+impl crate::layout::list::Child for PropBag {}
+impl crate::layout::list::Prop for PropBag {}
+impl crate::layout::leaf::Padded for PropBag {}
 
 impl crate::layout::flex::Prop for PropBag {
-    fn direction(&self) -> crate::layout::flex::FlexDirection {
-        self.get_value(PropBagElement::direction)
-    }
-
     fn wrap(&self) -> bool {
         self.get_value(PropBagElement::wrap)
     }
@@ -197,7 +205,7 @@ impl crate::layout::flex::Child for PropBag {
         self.get_value(PropBagElement::shrink)
     }
 
-    fn basis(&self) -> f32 {
+    fn basis(&self) -> crate::DValue {
         self.get_value(PropBagElement::basis)
     }
 }

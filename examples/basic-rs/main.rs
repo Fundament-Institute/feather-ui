@@ -1,42 +1,40 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use core::f32;
 use feather_macro::*;
-use feather_ui::gen_id;
-use feather_ui::layout::simple;
+use feather_ui::layout::{fixed, leaf};
 use feather_ui::outline::button::Button;
-use feather_ui::outline::mouse_area;
 use feather_ui::outline::region::Region;
 use feather_ui::outline::shape::Shape;
 use feather_ui::outline::text::Text;
 use feather_ui::outline::window::Window;
-use feather_ui::outline::OutlineFrom;
+use feather_ui::outline::{mouse_area, OutlineFrom};
 use feather_ui::persist::FnPersist;
-use feather_ui::AbsRect;
-use feather_ui::App;
-use feather_ui::Slot;
-use feather_ui::SourceID;
-use feather_ui::URect;
-use feather_ui::FILL_URECT;
+use feather_ui::{
+    gen_id, AbsRect, App, DAbsRect, DPoint, DRect, RelRect, Slot, SourceID, URect, UNSIZED_AXIS,
+};
 use std::rc::Rc;
-use ultraviolet::Vec4;
+use ultraviolet::{Vec2, Vec4};
 
 #[derive(PartialEq, Clone, Debug)]
 struct CounterState {
     count: i32,
 }
 
-#[derive(Default, Empty, Area, Margin, Anchor, Limits, ZIndex)]
-struct SimpleData {
-    area: feather_ui::URect,
-    margin: feather_ui::URect,
-    anchor: feather_ui::UPoint,
-    limits: feather_ui::URect,
+#[derive(Default, Empty, Area, Anchor, ZIndex, Limits, RLimits, Padding)]
+struct FixedData {
+    area: DRect,
+    anchor: DPoint,
+    limits: feather_ui::DLimits,
+    rlimits: feather_ui::RelLimits,
+    padding: DAbsRect,
     zindex: i32,
 }
 
-impl simple::Prop for SimpleData {}
+impl fixed::Prop for FixedData {}
+impl fixed::Child for FixedData {}
+impl leaf::Prop for FixedData {}
+impl leaf::Padded for FixedData {}
 
 struct BasicApp {}
 
@@ -53,22 +51,30 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
         if store.0 != *args {
             let button = {
-                let text = Text::<URect> {
+                let text = Text::<FixedData> {
                     id: gen_id!().into(),
-                    props: Rc::new(FILL_URECT),
+                    props: Rc::new(FixedData {
+                        area: URect {
+                            abs: AbsRect::new(8.0, 0.0, 8.0, 0.0),
+                            rel: RelRect::new(0.0, 0.5, UNSIZED_AXIS, UNSIZED_AXIS),
+                        }
+                        .into(),
+                        anchor: feather_ui::RelPoint(Vec2 { x: 0.0, y: 0.5 }).into(),
+                        ..Default::default()
+                    }),
                     text: format!("Clicks: {}", args.count),
-                    font_size: 30.0,
-                    line_height: 42.0,
+                    font_size: 40.0,
+                    line_height: 56.0,
                     ..Default::default()
                 };
 
-                let mut children: im::Vector<Option<Box<OutlineFrom<dyn simple::Prop>>>> =
+                let mut children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> =
                     im::Vector::new();
                 children.push_back(Some(Box::new(text)));
 
-                let rect = Shape::<URect>::round_rect(
+                let rect = Shape::<DRect>::round_rect(
                     gen_id!().into(),
-                    feather_ui::FILL_URECT.into(),
+                    feather_ui::FILL_DRECT.into(),
                     0.0,
                     0.0,
                     Vec4::broadcast(10.0),
@@ -77,40 +83,95 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 );
                 children.push_back(Some(Box::new(rect)));
 
-                Button::<SimpleData>::new(
+                Button::<FixedData>::new(
                     gen_id!().into(),
-                    SimpleData {
-                        area: feather_ui::URect {
-                            topleft: feather_ui::UPoint {
-                                abs: ultraviolet::Vec2 { x: 0.0, y: 0.0 },
-                                rel: feather_ui::RelPoint { x: 0.0, y: 0.0 },
-                            },
-                            bottomright: feather_ui::UPoint {
-                                abs: ultraviolet::Vec2 {
-                                    x: f32::INFINITY,
-                                    y: 0.0,
-                                },
-                                rel: feather_ui::RelPoint { x: 0.0, y: 1.0 },
-                            },
-                        },
-                        margin: Default::default(),
-                        limits: feather_ui::DEFAULT_LIMITS,
-                        anchor: Default::default(),
-                        zindex: 0,
+                    FixedData {
+                        area: URect {
+                            abs: AbsRect::new(45.0, 45.0, 0.0, 0.0),
+                            rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, 1.0),
+                        }
+                        .into(),
+                        ..Default::default()
                     },
                     Slot(feather_ui::APP_SOURCE_ID.into(), 0),
                     children,
                 )
             };
 
-            let mut children: im::Vector<Option<Box<OutlineFrom<dyn simple::Prop>>>> =
+            let unusedbutton = {
+                let text = Text::<FixedData> {
+                    id: gen_id!().into(),
+                    props: Rc::new(FixedData {
+                        area: URect::from(RelRect::new(0.5, 0.0, UNSIZED_AXIS, UNSIZED_AXIS))
+                            .into(),
+                        limits: feather_ui::AbsLimits::new(
+                            Vec2::new(f32::NEG_INFINITY, 10.0),
+                            Vec2::new(f32::INFINITY, 200.0),
+                        )
+                        .into(),
+                        rlimits: feather_ui::RelLimits::new(
+                            Vec2::new(f32::NEG_INFINITY, f32::NEG_INFINITY),
+                            Vec2::new(1.0, f32::INFINITY),
+                        ),
+                        anchor: feather_ui::RelPoint(Vec2 { x: 0.5, y: 0.0 }).into(),
+                        padding: AbsRect::new(8.0, 8.0, 8.0, 8.0).into(),
+                        ..Default::default()
+                    }),
+                    text: (0..args.count).map(|_| "█").collect::<String>(),
+                    font_size: 40.0,
+                    line_height: 56.0,
+                    wrap: feather_ui::Wrap::WordOrGlyph,
+                    ..Default::default()
+                };
+
+                let mut children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> =
+                    im::Vector::new();
+                children.push_back(Some(Box::new(text)));
+
+                let rect = Shape::<DRect>::round_rect(
+                    gen_id!().into(),
+                    feather_ui::FILL_DRECT.into(),
+                    0.0,
+                    0.0,
+                    Vec4::broadcast(10.0),
+                    Vec4::new(0.7, 0.2, 0.4, 1.0),
+                    Vec4::zero(),
+                );
+                children.push_back(Some(Box::new(rect)));
+
+                Button::<FixedData>::new(
+                    gen_id!().into(),
+                    FixedData {
+                        area: URect {
+                            abs: AbsRect::new(45.0, 245.0, 0.0, 0.0),
+                            rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
+                        }
+                        .into(),
+                        limits: feather_ui::AbsLimits::new(
+                            Vec2::new(100.0, f32::NEG_INFINITY),
+                            Vec2::new(300.0, f32::INFINITY),
+                        )
+                        .into(),
+                        ..Default::default()
+                    },
+                    Slot(feather_ui::APP_SOURCE_ID.into(), 0),
+                    children,
+                )
+            };
+
+            let mut children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> =
                 im::Vector::new();
             children.push_back(Some(Box::new(button)));
+            children.push_back(Some(Box::new(unusedbutton)));
 
             let region = Region {
                 id: gen_id!().into(),
-                props: SimpleData {
-                    area: AbsRect::new(90.0, 90.0, f32::INFINITY, 200.0).into(),
+                props: FixedData {
+                    area: URect {
+                        abs: AbsRect::new(90.0, 90.0, 0.0, 200.0),
+                        rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, 0.0),
+                    }
+                    .into(),
                     zindex: 0,
                     ..Default::default()
                 }
@@ -120,7 +181,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
             let window = Window::new(
                 gen_id!().into(),
                 winit::window::Window::default_attributes()
-                    .with_title("basic-rs")
+                    .with_title(env!("CARGO_CRATE_NAME"))
                     .with_resizable(true),
                 Box::new(region),
             );

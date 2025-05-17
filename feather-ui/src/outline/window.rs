@@ -1,30 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use super::Outline;
-use super::StateMachine;
-use crate::input::ModifierKeys;
-use crate::input::MouseMoveState;
-use crate::input::MouseState;
-use crate::input::RawEvent;
-use crate::layout;
+use super::{Outline, StateMachine};
+use crate::input::{ModifierKeys, MouseMoveState, MouseState, RawEvent};
 use crate::layout::root;
 use crate::outline::OutlineWrap;
-use crate::rtree;
-use crate::AbsDim;
-use crate::DriverState;
-use crate::FnPersist;
-use crate::RenderInstruction;
-use crate::SourceID;
-use crate::StateManager;
+use crate::{
+    layout, pixel_to_vec, rtree, AbsDim, DriverState, FnPersist, RenderInstruction, SourceID,
+    StateManager,
+};
 use alloc::sync::Arc;
 use core::f32;
-use eyre::OptionExt;
-use eyre::Result;
-use std::rc::Rc;
-use std::rc::Weak;
+use eyre::{OptionExt, Result};
+use std::rc::{Rc, Weak};
 use ultraviolet::Vec2;
-use winit::dpi::PhysicalSize;
+use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::WindowAttributes;
@@ -36,7 +26,8 @@ pub(crate) struct WindowState {
     pub config: wgpu::SurfaceConfiguration,
     all_buttons: u8,
     modifiers: u8,
-    last_mouse: Vec2,
+    last_mouse: PhysicalPosition<f32>,
+    pub dpi: Vec2,
     pub driver: Rc<DriverState>,
     pub draw: im::Vector<RenderInstruction>,
 }
@@ -55,6 +46,7 @@ impl Outline<AbsDim> for Window {
         &self,
         manager: &crate::StateManager,
         _: &DriverState,
+        _: crate::Vec2,
         _: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn crate::layout::Layout<AbsDim>> {
         let inner = manager
@@ -65,13 +57,14 @@ impl Outline<AbsDim> for Window {
             .unwrap();
         let size = inner.window.inner_size();
         let driver = inner.driver.clone();
-        let config = inner.config.clone();
         Box::new(layout::Node::<AbsDim, dyn root::Prop> {
             props: Rc::new(crate::AbsDim(Vec2 {
                 x: size.width as f32,
                 y: size.height as f32,
             })),
-            children: self.child.layout(manager, &driver, &config),
+            children: self
+                .child
+                .layout(manager, &driver, inner.dpi, &inner.config),
             id: Rc::downgrade(&self.id),
             renderable: None,
         })
@@ -138,8 +131,9 @@ impl Window {
             let mut windowstate = WindowState {
                 modifiers: 0,
                 all_buttons: 0,
-                last_mouse: Vec2::new(f32::NAN, f32::NAN),
+                last_mouse: PhysicalPosition::new(f32::NAN, f32::NAN),
                 config,
+                dpi: Vec2::broadcast(window.scale_factor() as f32),
                 surface,
                 window,
                 driver,
@@ -198,6 +192,10 @@ impl Window {
         let state: &mut WindowStateMachine = manager.get_mut(&id).map_err(|_| ())?;
         let window = state.state.as_mut().unwrap();
         match event {
+            WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
+                window.dpi = Vec2::broadcast(scale_factor as f32);
+                window.window.request_redraw();
+            }
             WindowEvent::ModifiersChanged(m) => {
                 window.modifiers = if m.state().control_key() {
                     ModifierKeys::Control as u8
@@ -305,7 +303,8 @@ impl Window {
                         device_id,
                         position,
                     } => {
-                        window.last_mouse = Vec2::new(position.x as f32, position.y as f32);
+                        window.last_mouse =
+                            PhysicalPosition::new(position.x as f32, position.y as f32);
                         RawEvent::MouseMove {
                             device_id,
                             state: MouseMoveState::Move,
@@ -329,7 +328,7 @@ impl Window {
                             all_buttons: window.all_buttons,
                             modifiers: window.modifiers,
                         };
-                        window.last_mouse = Vec2::new(f32::NAN, f32::NAN);
+                        window.last_mouse = PhysicalPosition::new(f32::NAN, f32::NAN);
                         e
                     }
                     WindowEvent::MouseWheel {
@@ -340,7 +339,7 @@ impl Window {
                         winit::event::MouseScrollDelta::LineDelta(x, y) => RawEvent::MouseScroll {
                             device_id,
                             state: phase.into(),
-                            pos: window.last_mouse,
+                            pos: pixel_to_vec(window.last_mouse),
                             delta: Vec2::new(x, y),
                             pixels: false,
                         },
@@ -348,7 +347,7 @@ impl Window {
                             RawEvent::MouseScroll {
                                 device_id,
                                 state: phase.into(),
-                                pos: window.last_mouse,
+                                pos: pixel_to_vec(window.last_mouse),
                                 delta: Vec2::new(
                                     physical_position.x as f32,
                                     physical_position.y as f32,
@@ -416,7 +415,7 @@ impl Window {
                 };
 
                 if let Some(rt) = rtree.upgrade() {
-                    return rt.on_event(&e, manager);
+                    return rt.on_event(&e, window.dpi, manager);
                 }
             }
         }

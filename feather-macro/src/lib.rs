@@ -40,7 +40,17 @@ pub fn derive_area(input: TokenStream) -> TokenStream {
         input,
         "area",
         "feather_ui::layout::base::Area",
-        "feather_ui::URect",
+        "feather_ui::DRect",
+    )
+}
+
+#[proc_macro_derive(Padding)]
+pub fn derive_padding(input: TokenStream) -> TokenStream {
+    derive_base_prop(
+        input,
+        "padding",
+        "feather_ui::layout::base::Padding",
+        "feather_ui::DAbsRect",
     )
 }
 
@@ -50,7 +60,7 @@ pub fn derive_margin(input: TokenStream) -> TokenStream {
         input,
         "margin",
         "feather_ui::layout::base::Margin",
-        "feather_ui::URect",
+        "feather_ui::DRect",
     )
 }
 
@@ -60,7 +70,17 @@ pub fn derive_limits(input: TokenStream) -> TokenStream {
         input,
         "limits",
         "feather_ui::layout::base::Limits",
-        "feather_ui::URect",
+        "feather_ui::DLimits",
+    )
+}
+
+#[proc_macro_derive(RLimits)]
+pub fn derive_rlimits(input: TokenStream) -> TokenStream {
+    derive_base_prop(
+        input,
+        "rlimits",
+        "feather_ui::layout::base::RLimits",
+        "feather_ui::RelLimits",
     )
 }
 
@@ -70,7 +90,7 @@ pub fn derive_anchor(input: TokenStream) -> TokenStream {
         input,
         "anchor",
         "feather_ui::layout::base::Anchor",
-        "feather_ui::UPoint",
+        "feather_ui::DPoint",
     )
 }
 
@@ -81,10 +101,9 @@ pub fn derive_flex_prop(input: TokenStream) -> TokenStream {
     let name = ast.ident;
     quote! {
         impl feather_ui::layout::flex::Prop for #name {
-        fn direction(&self) -> FlexDirection { &self.direction }
-        fn wrap(&self) -> bool { &self.wrap }
-        fn justify(&self) -> FlexJustify { &self.justify }
-        fn align(&self) -> FlexJustify { &self.align }
+        fn wrap(&self) -> bool { self.wrap }
+        fn justify(&self) -> feather_ui::layout::flex::FlexJustify { self.justify }
+        fn align(&self) -> feather_ui::layout::flex::FlexJustify { self.align }
         }
     }
     .into()
@@ -97,10 +116,9 @@ pub fn derive_flex_child(input: TokenStream) -> TokenStream {
     let name = ast.ident;
     quote! {
         impl feather_ui::layout::flex::Child for #name {
-            fn order(&self) -> i64 { &self.order }
-            fn grow(&self) -> f32 { &self.grow }
-            fn shrink(&self) -> f32 { &self.shrink }
-            fn basis(&self) -> f32 { &self.basis }
+            fn grow(&self) -> f32 { self.grow }
+            fn shrink(&self) -> f32 { self.shrink }
+            fn basis(&self) -> feather_ui::DValue { self.basis }
         }
     }
     .into()
@@ -115,6 +133,21 @@ pub fn derive_zindex(input: TokenStream) -> TokenStream {
         impl feather_ui::layout::base::ZIndex for #sname {
             fn zindex(&self) -> i32 {
                 self.zindex
+            }
+        }
+    }
+    .into()
+}
+
+#[proc_macro_derive(Direction)]
+pub fn derive_direction(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+
+    let sname = ast.ident;
+    quote! {
+        impl feather_ui::layout::base::Direction for #sname {
+            fn direction(&self) -> feather_ui::RowDirection {
+                self.direction
             }
         }
     }

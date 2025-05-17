@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::{AbsRect, UPoint, URect};
+use crate::{AbsRect, DAbsRect, DPoint, DRect, ZERO_DRECT};
 use std::rc::Rc;
 
 #[macro_export]
@@ -18,10 +18,15 @@ macro_rules! gen_from_to_dyn {
 pub trait Empty {}
 
 impl Empty for () {}
+impl RLimits for () {}
+impl Margin for () {}
+impl Order for () {}
+impl crate::layout::fixed::Child for () {}
+impl crate::layout::list::Child for () {}
 
 impl<T: Empty> Empty for Rc<T> {}
 
-impl Empty for URect {}
+impl Empty for DRect {}
 
 gen_from_to_dyn!(Empty);
 
@@ -32,33 +37,28 @@ impl crate::layout::Desc for dyn Empty {
 
     fn stage<'a>(
         _: &Self::Props,
-        mut true_area: AbsRect,
-        parent_pos: ultraviolet::Vec2,
+        mut outer_area: AbsRect,
+        outer_limits: crate::AbsLimits,
         _: &Self::Children,
         id: std::rc::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn crate::outline::Renderable>>,
-        driver: &crate::DriverState,
+        _: crate::Vec2,
+        _: &crate::DriverState,
     ) -> Box<dyn super::Staged + 'a> {
-        if true_area.bottomright.x.is_infinite() {
-            true_area.bottomright.x = true_area.topleft.x;
-        }
-        if true_area.bottomright.y.is_infinite() {
-            true_area.bottomright.y = true_area.topleft.y;
-        }
+        outer_area = super::nuetralize_unsized(outer_area);
+        outer_area = super::limit_area(outer_area, outer_limits);
 
-        Box::new(crate::layout::Concrete {
-            area: true_area - parent_pos,
-            render: renderable
-                .map(|x| x.render(true_area, driver))
-                .unwrap_or_default(),
-            rtree: Rc::new(crate::rtree::Node::new(
-                true_area - parent_pos,
+        Box::new(crate::layout::Concrete::new(
+            renderable,
+            outer_area,
+            Rc::new(crate::rtree::Node::new(
+                outer_area,
                 None,
                 Default::default(),
                 id,
             )),
-            children: Default::default(),
-        })
+            Default::default(),
+        ))
     }
 }
 
@@ -66,41 +66,77 @@ impl crate::layout::Desc for dyn Empty {
 //  std::sync::LazyLock::new(|| std::rc::Rc::new(()));
 
 pub trait Obstacles {
-    fn obstacles(&self) -> &[AbsRect];
+    fn obstacles(&self) -> &[DAbsRect];
 }
 
 pub trait ZIndex {
-    fn zindex(&self) -> i32;
+    fn zindex(&self) -> i32 {
+        0
+    }
 }
 
+// Padding is used so an element's actual area can be larger than the area it draws children inside (like text).
 pub trait Padding {
-    fn padding(&self) -> &URect;
+    fn padding(&self) -> &DAbsRect {
+        &crate::ZERO_DABSRECT
+    }
 }
 
+impl Padding for DRect {}
+
+// Relative to parent's area, but only ever used to determine spacing between child elements.
 pub trait Margin {
-    fn margin(&self) -> &URect;
+    fn margin(&self) -> &DRect {
+        &ZERO_DRECT
+    }
 }
 
+// Relative to child's assigned area (outer area)
 pub trait Area {
-    fn area(&self) -> &URect;
+    fn area(&self) -> &DRect;
 }
 
-impl Area for URect {
-    fn area(&self) -> &URect {
+impl Area for DRect {
+    fn area(&self) -> &DRect {
         self
     }
 }
 
 gen_from_to_dyn!(Area);
 
+// Relative to child's evaluated area (inner area)
 pub trait Anchor {
-    fn anchor(&self) -> &UPoint;
+    fn anchor(&self) -> &DPoint {
+        &crate::ZERO_DPOINT
+    }
 }
 
+impl Anchor for DRect {}
+
 pub trait Limits {
-    fn limits(&self) -> &URect;
+    fn limits(&self) -> &crate::DLimits {
+        &crate::DEFAULT_DLIMITS
+    }
+}
+
+// Relative to parent's area
+pub trait RLimits {
+    fn rlimits(&self) -> &crate::RelLimits {
+        &crate::DEFAULT_RLIMITS
+    }
 }
 
 pub trait Order {
-    fn order(&self) -> i64;
+    fn order(&self) -> i64 {
+        0
+    }
 }
+
+pub trait Direction {
+    fn direction(&self) -> crate::RowDirection {
+        crate::RowDirection::LeftToRight
+    }
+}
+
+impl Limits for DRect {}
+impl RLimits for DRect {}
