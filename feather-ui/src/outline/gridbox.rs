@@ -1,24 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::layout::{fixed, Desc, Layout, LayoutWrap};
-use crate::outline::OutlineFrom;
+use crate::layout::{grid, Desc, Layout, LayoutWrap};
 use crate::persist::{FnPersist, VectorMap};
 use crate::{layout, SourceID};
 use derive_where::derive_where;
 use std::rc::Rc;
 
-#[derive_where(Clone, Default)]
-pub struct Region<T: fixed::Prop + Default + 'static> {
+use super::OutlineFrom;
+
+#[derive_where(Clone)]
+pub struct GridBox<T: grid::Prop + 'static> {
     pub id: Rc<SourceID>,
     pub props: Rc<T>,
-    pub children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>>,
+    pub children: im::Vector<Option<Box<OutlineFrom<dyn grid::Prop>>>>,
 }
 
-impl<T: fixed::Prop + Default + 'static> super::Outline<T> for Region<T>
-where
-    for<'a> &'a T: Into<&'a (dyn fixed::Prop + 'static)>,
-{
+impl<T: grid::Prop + 'static> super::Outline<T> for GridBox<T> {
     fn id(&self) -> Rc<SourceID> {
         self.id.clone()
     }
@@ -38,13 +36,13 @@ where
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let map = VectorMap::new(
-            |child: &Option<Box<OutlineFrom<dyn fixed::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn fixed::Prop as Desc>::Child>>> {
-                Some(child.as_ref().unwrap().layout(state, driver, dpi, config))
+            |child: &Option<Box<OutlineFrom<dyn grid::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn grid::Prop as Desc>::Child>>> {
+                Some(child.as_ref().unwrap().layout(state, driver,dpi, config))
             },
         );
 
         let (_, children) = map.call(Default::default(), &self.children);
-        Box::new(layout::Node::<T, dyn fixed::Prop> {
+        Box::new(layout::Node::<T, dyn grid::Prop> {
             props: self.props.clone(),
             children,
             id: Rc::downgrade(&self.id),
@@ -53,4 +51,4 @@ where
     }
 }
 
-crate::gen_outline_wrap!(Region, fixed::Prop, Default);
+crate::gen_outline_wrap!(GridBox, grid::Prop);

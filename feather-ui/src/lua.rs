@@ -1,28 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::layout::base;
-use crate::layout::simple;
+use crate::layout::fixed;
 use crate::outline::button::Button;
 use crate::outline::region::Region;
 use crate::outline::shape::Shape;
 use crate::outline::text::Text;
 use crate::outline::window::Window;
-use crate::outline::OutlineFrom;
-use crate::outline::OutlineWrap;
+use crate::outline::{OutlineFrom, OutlineWrap};
 use crate::propbag::PropBag;
-use crate::DataID;
-use crate::FnPersist;
-use crate::Outline;
-use crate::RelPoint;
-use crate::Slot;
-use crate::SourceID;
-use crate::URect;
+use crate::{DataID, FnPersist, Outline, Slot, SourceID, URect};
 use mlua::prelude::*;
 use mlua::UserData;
 use std::rc::Rc;
-use ultraviolet::Vec2;
 use ultraviolet::Vec4;
+use wide::f32x4;
 
 pub type AppState = LuaValue;
 type LuaSourceID = SourceID;
@@ -77,7 +69,7 @@ gen_lua_bag!(crate::layout::base::Area, area, crate::URect);
 gen_lua_bag!(crate::layout::base::Padding, padding, crate::URect);
 gen_lua_bag!(crate::layout::base::Margin, margin, crate::URect);
 gen_lua_bag!(crate::layout::base::Limits, limits, crate::URect);
-gen_lua_bag!(crate::layout::base::Anchor, anchor, crate::UPoint);
+gen_lua_bag!(crate::layout::base::Anchor, anchor, crate::DPoint);
 
 impl crate::layout::root::Prop for mlua::Table {
     fn dim(&self) -> &crate::AbsDim {
@@ -218,20 +210,8 @@ fn create_slot(_: &Lua, args: (Option<LuaSourceID>, u64)) -> mlua::Result<Slot> 
 
 fn create_urect(_: &Lua, args: (f32, f32, f32, f32, f32, f32, f32, f32)) -> mlua::Result<URect> {
     Ok(URect {
-        topleft: crate::UPoint {
-            abs: Vec2::new(args.0, args.1),
-            rel: RelPoint {
-                x: args.4,
-                y: args.5,
-            },
-        },
-        bottomright: crate::UPoint {
-            abs: Vec2::new(args.2, args.3),
-            rel: RelPoint {
-                x: args.6,
-                y: args.7,
-            },
-        },
+        abs: crate::AbsRect(f32x4::new([args.0, args.1, args.2, args.3])),
+        rel: crate::RelRect(f32x4::new([args.4, args.5, args.6, args.7])),
     })
 }
 
@@ -255,11 +235,11 @@ fn create_region(
         args.2
             .unwrap()
             .into_iter()
-            .map(|x| -> Option<Box<dyn OutlineWrap<dyn base::Empty>>> { Some(Box::new(x)) }),
+            .map(|x| -> Option<Box<dyn OutlineWrap<dyn fixed::Child>>> { Some(Box::new(x)) }),
     );
 
     let mut bag = PropBag::new();
-    bag.set_area(args.1);
+    bag.set_area(args.1.into());
     Ok(Box::new(Region::<PropBag> {
         id: args.0.into(),
         props: bag.into(),
@@ -286,7 +266,7 @@ fn create_button(
             id: DataID::Named("__internal_rect__"),
         }
         .into(),
-        crate::FILL_URECT.into(),
+        crate::FILL_DRECT.into(),
         0.0,
         0.0,
         Vec4::broadcast(10.0),
@@ -294,20 +274,20 @@ fn create_button(
         Default::default(),
     );
 
-    let text = Text::<URect> {
+    let text = Text::<crate::DRect> {
         id: SourceID {
             parent: Some(id.clone()),
             id: DataID::Named("__internal_text__"),
         }
         .into(),
-        props: crate::FILL_URECT.into(),
+        props: crate::FILL_DRECT.into(),
         text: args.2,
-        font_size: 30.0,
-        line_height: 42.0,
+        font_size: 40.0,
+        line_height: 56.0,
         ..Default::default()
     };
 
-    let mut children: im::Vector<Option<Box<OutlineFrom<dyn simple::Prop>>>> = im::Vector::new();
+    let mut children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> = im::Vector::new();
     children.push_back(Some(Box::new(text)));
     children.push_back(Some(Box::new(rect)));
     if let Some(x) = args.5 {
@@ -315,19 +295,19 @@ fn create_button(
     }
 
     let mut bag = PropBag::new();
-    bag.set_area(args.1);
+    bag.set_area(args.1.into());
     Ok(Box::new(Button::<PropBag>::new(id, bag, args.3, children)))
 }
 
 fn create_label(_: &Lua, args: (LuaSourceID, URect, String)) -> mlua::Result<OutlineBag> {
     let mut bag = PropBag::new();
-    bag.set_area(args.1);
+    bag.set_area(args.1.into());
     Ok(Box::new(Text::<PropBag> {
         id: args.0.into(),
         props: bag.into(),
         text: args.2,
-        font_size: 30.0,
-        line_height: 42.0,
+        font_size: 40.0,
+        line_height: 56.0,
         ..Default::default()
     }))
 }
@@ -346,7 +326,7 @@ fn create_shader_standard(
     ),
 ) -> mlua::Result<OutlineBag> {
     let mut bag = PropBag::new();
-    bag.set_area(args.1);
+    bag.set_area(args.1.into());
 
     Ok(Box::new(Shape::<PropBag> {
         id: args.0.into(),
@@ -364,7 +344,7 @@ fn create_round_rect(
     let fill = args.2.to_be_bytes().map(|x| x as f32);
     let outline = args.5.to_be_bytes().map(|x| x as f32);
     let mut bag = PropBag::new();
-    bag.set_area(args.1);
+    bag.set_area(args.1.into());
     Ok(Box::new(Shape::round_rect(
         args.0.into(),
         bag.into(),

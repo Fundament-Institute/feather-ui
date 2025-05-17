@@ -1,21 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use super::base::Empty;
-use super::Concrete;
-use super::Desc;
-use super::LayoutWrap;
-use super::Renderable;
-use super::Staged;
+use super::base::{Empty, RLimits};
+use super::{Concrete, Desc, LayoutWrap, Renderable, Staged};
 use crate::outline::CrossReferenceDomain;
-use crate::rtree;
-use crate::AbsRect;
-use crate::SourceID;
-use crate::Vec2;
+use crate::{rtree, AbsRect, SourceID};
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-// A DomainWrite layout simply writes it's final AbsRect to the target cross-reference domain
+// A DomainWrite layout spawns a renderable that writes it's area to the target cross-reference domain
 pub trait Prop {
     fn domain(&self) -> Rc<CrossReferenceDomain>;
 }
@@ -29,6 +22,8 @@ impl Prop for Rc<CrossReferenceDomain> {
 }
 
 impl Empty for Rc<CrossReferenceDomain> {}
+impl RLimits for Rc<CrossReferenceDomain> {}
+impl super::fixed::Child for Rc<CrossReferenceDomain> {}
 
 impl Desc for dyn Prop {
     type Props = dyn Prop;
@@ -37,36 +32,49 @@ impl Desc for dyn Prop {
 
     fn stage<'a>(
         props: &Self::Props,
-        mut true_area: AbsRect,
-        parent_pos: Vec2,
+        mut outer_area: AbsRect,
+        outer_limits: crate::AbsLimits,
         _: &Self::Children,
         id: std::rc::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
-        driver: &crate::DriverState,
+        _: crate::Vec2,
+        _: &crate::DriverState,
     ) -> Box<dyn Staged + 'a> {
-        if true_area.bottomright.x.is_infinite() {
-            true_area.bottomright.x = true_area.topleft.x;
-        }
-        if true_area.bottomright.y.is_infinite() {
-            true_area.bottomright.y = true_area.topleft.y;
-        }
-
-        if let Some(idref) = id.upgrade() {
-            props.domain().write_area(idref, true_area);
-        }
+        outer_area = super::nuetralize_unsized(outer_area);
+        outer_area = super::limit_area(outer_area, outer_limits);
 
         Box::new(Concrete {
-            area: true_area - parent_pos,
-            render: renderable
-                .map(|x| x.render(true_area, driver))
-                .unwrap_or_default(),
-            rtree: Rc::new(rtree::Node::new(
-                true_area - parent_pos,
-                None,
-                Default::default(),
-                id,
-            )),
+            area: outer_area,
+            render: Some(Rc::new(DomainWrite {
+                id: id.clone(),
+                domain: props.domain().clone(),
+                base: renderable,
+            })),
+            rtree: Rc::new(rtree::Node::new(outer_area, None, Default::default(), id)),
             children: Default::default(),
         })
+    }
+}
+
+struct DomainWrite {
+    pub(crate) id: std::rc::Weak<SourceID>,
+    pub(crate) domain: Rc<CrossReferenceDomain>,
+    pub(crate) base: Option<Rc<dyn Renderable>>,
+}
+
+impl Renderable for DomainWrite {
+    fn render(
+        &self,
+        area: AbsRect,
+        driver: &crate::DriverState,
+    ) -> im::Vector<crate::RenderInstruction> {
+        if let Some(idref) = self.id.upgrade() {
+            self.domain.write_area(idref, area);
+        }
+
+        self.base
+            .as_ref()
+            .map(|x| x.render(area, driver))
+            .unwrap_or_default()
     }
 }

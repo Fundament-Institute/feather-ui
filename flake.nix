@@ -3,14 +3,11 @@
 
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
     rust-overlay.url = "github:oxalica/rust-overlay";
     flake-utils.url = "github:numtide/flake-utils";
 
-    crane = {
-      url = "github:ipetkov/crane";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    crane.url = "github:ipetkov/crane";
     advisory-db = {
       url = "github:rustsec/advisory-db";
       flake = false;
@@ -77,9 +74,8 @@
           # fetch with cli instead of native
           CARGO_NET_GIT_FETCH_WITH_CLI = "true";
           RUST_BACKTRACE = 1;
+          RUSTFLAGS = "-C linker=clang -C link-arg=-fuse-ld=${pkgs.mold}/bin/mold -C link-arg=-flto=thin";
         };
-
-      default = { };
 
       checks =
         let
@@ -90,8 +86,8 @@
             buildInputs = with pkgs; [ pkg-config openssl zlib ];
             strictDeps = true;
             version = "0.1.0";
-            stdenv = pkgs.stdenvAdapters.useMoldLinker pkgs.llvmPackages_15.stdenv;
-            CARGO_BUILD_RUSTFLAGS = "-C linker=clang -C link-arg=-fuse-ld=${pkgs.mold}/bin/mold";
+            stdenv = pkgs: pkgs.stdenvAdapters.useMoldLinker pkgs.llvmPackages_15.stdenv;
+            CARGO_BUILD_RUSTFLAGS = "-C linker=clang -C link-arg=-fuse-ld=${pkgs.mold}/bin/mold -C link-arg=-flto=thin";
           };
           pname = "feather-checks";
 

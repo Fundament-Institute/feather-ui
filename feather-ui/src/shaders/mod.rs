@@ -2,8 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use crate::outline::Renderable;
-use crate::DriverState;
-use crate::RenderLambda;
+use crate::{DriverState, RenderLambda};
 use std::collections::HashMap;
 use ultraviolet::{Mat4, Vec4};
 use wgpu::util::DeviceExt;
@@ -274,6 +273,7 @@ pub struct StandardPipeline {
     pub group: wgpu::BindGroup,
     pub vertices: wgpu::Buffer,
     pub buffers: [wgpu::Buffer; 6],
+    pub padding: crate::AbsRect,
 }
 
 impl Renderable for StandardPipeline {
@@ -286,10 +286,10 @@ impl Renderable for StandardPipeline {
             &self.buffers[1],
             0,
             Vec4::new(
-                area.topleft.x,
-                area.topleft.y,
-                area.bottomright.x - area.topleft.x,
-                area.bottomright.y - area.topleft.y,
+                area.topleft().x + self.padding.topleft().x,
+                area.topleft().y + self.padding.topleft().y,
+                area.bottomright().x - area.topleft().x - self.padding.bottomright().x,
+                area.bottomright().y - area.topleft().y - self.padding.bottomright().y,
             )
             .as_byte_slice(),
         );

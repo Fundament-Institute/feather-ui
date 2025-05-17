@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use feather_ui::gen_id;
-use feather_ui::layout::flex;
-use feather_ui::layout::leaf;
-use feather_ui::layout::simple;
+use feather_ui::layout::{fixed, flex, leaf};
+use feather_ui::{gen_id, DAbsRect, DValue};
 
 use feather_ui::layout::base;
 use feather_ui::outline::paragraph::Paragraph;
@@ -13,13 +11,9 @@ use feather_ui::outline::shape::Shape;
 use feather_ui::outline::window::Window;
 use feather_ui::outline::OutlineFrom;
 use feather_ui::persist::FnPersist;
-use feather_ui::AbsRect;
-use feather_ui::App;
-use feather_ui::SourceID;
-use feather_ui::URect;
+use feather_ui::{AbsRect, App, DRect, RelRect, SourceID, FILL_DRECT};
 use std::f32;
 use std::rc::Rc;
-use ultraviolet::Vec2;
 use ultraviolet::Vec4;
 
 #[derive(PartialEq, Clone, Debug)]
@@ -28,8 +22,10 @@ struct Blocker {
 }
 
 struct BasicApp {}
+
+#[derive(Default, Clone, feather_macro::Area)]
 struct MinimalFlexChild {
-    area: URect,
+    area: DRect,
 }
 
 impl flex::Child for MinimalFlexChild {
@@ -41,98 +37,48 @@ impl flex::Child for MinimalFlexChild {
         1.0
     }
 
-    fn basis(&self) -> f32 {
-        100.0
+    fn basis(&self) -> DValue {
+        100.0.into()
     }
 }
 
-impl base::Order for MinimalFlexChild {
-    fn order(&self) -> i64 {
-        0
-    }
-}
-
-impl base::Margin for MinimalFlexChild {
-    fn margin(&self) -> &URect {
-        &feather_ui::ZERO_URECT
-    }
-}
-
-impl base::Limits for MinimalFlexChild {
-    fn limits(&self) -> &URect {
-        &feather_ui::DEFAULT_LIMITS
-    }
-}
-
-impl base::Area for MinimalFlexChild {
-    fn area(&self) -> &URect {
-        &self.area
-    }
-}
-
+impl base::Order for MinimalFlexChild {}
+impl base::Anchor for MinimalFlexChild {}
+impl base::Padding for MinimalFlexChild {}
+impl base::Margin for MinimalFlexChild {}
+impl base::Limits for MinimalFlexChild {}
+impl base::RLimits for MinimalFlexChild {}
 impl leaf::Prop for MinimalFlexChild {}
+impl leaf::Padded for MinimalFlexChild {}
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, feather_macro::Empty, feather_macro::Area)]
 struct MinimalArea {
-    area: URect,
+    area: DRect,
 }
 
-impl base::Empty for MinimalArea {}
+impl base::ZIndex for MinimalArea {}
+impl base::Anchor for MinimalArea {}
+impl base::Limits for MinimalArea {}
+impl fixed::Prop for MinimalArea {}
 
-impl base::ZIndex for MinimalArea {
-    fn zindex(&self) -> i32 {
-        0
-    }
-}
-
-impl base::Margin for MinimalArea {
-    fn margin(&self) -> &URect {
-        &feather_ui::ZERO_URECT
-    }
-}
-
-impl base::Anchor for MinimalArea {
-    fn anchor(&self) -> &feather_ui::UPoint {
-        &feather_ui::ZERO_UPOINT
-    }
-}
-
-impl base::Limits for MinimalArea {
-    fn limits(&self) -> &URect {
-        &feather_ui::DEFAULT_LIMITS
-    }
-}
-
-impl base::Area for MinimalArea {
-    fn area(&self) -> &URect {
-        &self.area
-    }
-}
-
-impl simple::Prop for MinimalArea {}
-
+#[derive(Default, Clone, feather_macro::Empty, feather_macro::Area)]
 struct MinimalFlex {
-    obstacles: Vec<AbsRect>,
+    obstacles: Vec<DAbsRect>,
+    area: DRect,
 }
-impl base::Empty for MinimalFlex {}
-
-impl base::ZIndex for MinimalFlex {
-    fn zindex(&self) -> i32 {
-        0
-    }
-}
+impl base::Direction for MinimalFlex {}
+impl base::ZIndex for MinimalFlex {}
+impl base::Limits for MinimalFlex {}
+impl base::RLimits for MinimalFlex {}
+impl fixed::Child for MinimalFlex {}
 
 impl base::Obstacles for MinimalFlex {
-    fn obstacles(&self) -> &[AbsRect] {
+    fn obstacles(&self) -> &[DAbsRect] {
         &self.obstacles
     }
 }
 
 impl flex::Prop for MinimalFlex {
-    fn direction(&self) -> flex::FlexDirection {
-        flex::FlexDirection::LeftToRight
-    }
-
     fn wrap(&self) -> bool {
         true
     }
@@ -167,7 +113,7 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
                 let rect = Shape::round_rect(
                     gen_id!().into(),
                     MinimalFlexChild {
-                        area: AbsRect::new(0.0, 0.0, 40.0, 40.0).into(),
+                        area: feather_ui::URect::from(AbsRect::new(0.0, 0.0, 40.0, 40.0)).into(),
                     }
                     .into(),
                     0.0,
@@ -180,18 +126,16 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
                 let mut p = Paragraph::new(
                     gen_id!().into(),
                     MinimalFlex {
-                        obstacles: vec![AbsRect {
-                            topleft: Vec2::new(200.0, 30.0),
-                            bottomright: Vec2::new(300.0, 150.0),
-                        }],
+                        area: FILL_DRECT,
+                        obstacles: vec![AbsRect::new(200.0, 30.0, 300.0, 150.0).into()],
                     },
                 );
 
                 let text = "Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem. Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur? Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur?";
                 p.set_text(
                     text,
-                    30.0,
-                    42.0,
+                    40.0,
+                    56.0,
                     glyphon::FamilyOwned::SansSerif,
                     glyphon::Color::rgba(255, 255, 255, 255),
                     Default::default(),
@@ -205,7 +149,7 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
                 p
             };
 
-            let mut children: im::Vector<Option<Box<OutlineFrom<dyn simple::Prop>>>> =
+            let mut children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> =
                 im::Vector::new();
             children.push_back(Some(Box::new(flex)));
 
@@ -213,15 +157,10 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
                 id: gen_id!().into(),
                 props: MinimalArea {
                     area: feather_ui::URect {
-                        topleft: feather_ui::UPoint {
-                            abs: Vec2::new(90.0, 90.0),
-                            rel: Vec2::new(0.0, 0.0).into(),
-                        },
-                        bottomright: feather_ui::UPoint {
-                            abs: Vec2::new(-90.0, -90.0),
-                            rel: Vec2::new(1.0, 1.0).into(),
-                        },
-                    },
+                        abs: AbsRect::new(90.0, 90.0, -90.0, -90.0),
+                        rel: RelRect::new(0.0, 0.0, 1.0, 1.0),
+                    }
+                    .into(),
                 }
                 .into(),
                 children,
@@ -229,7 +168,7 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
             let window = Window::new(
                 gen_id!().into(),
                 winit::window::Window::default_attributes()
-                    .with_title("paragraph-rs")
+                    .with_title(env!("CARGO_CRATE_NAME"))
                     .with_resizable(true),
                 Box::new(region),
             );
