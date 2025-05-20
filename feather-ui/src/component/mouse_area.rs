@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::StateMachine;
+use crate::component::Layout;
 use crate::input::{MouseState, RawEvent, RawEventKind};
 use crate::layout::leaf;
-use crate::outline::Layout;
 use crate::{layout, pixel_to_vec, Dispatchable, Slot, SourceID};
 use derive_where::derive_where;
 use enum_variant_type::EnumVariantType;
@@ -43,7 +43,7 @@ impl<T: leaf::Prop + 'static> MouseArea<T> {
     }
 }
 
-impl<T: leaf::Prop + 'static> super::Outline<T> for MouseArea<T>
+impl<T: leaf::Prop + 'static> super::Component<T> for MouseArea<T>
 where
     for<'a> &'a T: Into<&'a (dyn leaf::Prop + 'static)>,
 {

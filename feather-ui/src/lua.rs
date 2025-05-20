@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
+use crate::component::button::Button;
+use crate::component::region::Region;
+use crate::component::shape::Shape;
+use crate::component::text::Text;
+use crate::component::window::Window;
+use crate::component::{ComponentFrom, ComponentWrap};
 use crate::layout::fixed;
-use crate::outline::button::Button;
-use crate::outline::region::Region;
-use crate::outline::shape::Shape;
-use crate::outline::text::Text;
-use crate::outline::window::Window;
-use crate::outline::{OutlineFrom, OutlineWrap};
 use crate::propbag::PropBag;
-use crate::{DataID, FnPersist, Outline, Slot, SourceID, URect};
+use crate::{Component, DataID, FnPersist, Slot, SourceID, URect};
 use mlua::prelude::*;
 use mlua::UserData;
 use std::rc::Rc;
@@ -62,7 +62,7 @@ gen_lua_bag_clone!(crate::layout::base::ZIndex, zindex, i32);
 gen_lua_bag_clone!(
     crate::layout::domain_write::Prop,
     domain,
-    std::rc::Rc<crate::outline::CrossReferenceDomain>
+    std::rc::Rc<crate::component::CrossReferenceDomain>
 );
 
 gen_lua_bag!(crate::layout::base::Area, area, crate::URect);
@@ -132,7 +132,7 @@ impl crate::layout::base::Obstacles for mlua::Table {
 }
 */
 
-type OutlineBag = Box<dyn crate::outline::Outline<PropBag>>;
+type ComponentBag = Box<dyn crate::component::Component<PropBag>>;
 
 macro_rules! gen_from_lua {
     ($type_name:ident) => {
@@ -167,12 +167,12 @@ gen_from_lua!(URect);
 //impl UserData for AppState<'_> {}
 //gen_from_lua!(URect);
 
-impl UserData for OutlineBag {}
-impl mlua::FromLua for OutlineBag {
+impl UserData for ComponentBag {}
+impl mlua::FromLua for ComponentBag {
     #[inline]
     fn from_lua(value: ::mlua::Value, _: &::mlua::Lua) -> ::mlua::Result<Self> {
         match value {
-            ::mlua::Value::UserData(ud) => Ok(ud.borrow::<OutlineBag>()?.clone()),
+            ::mlua::Value::UserData(ud) => Ok(ud.borrow::<ComponentBag>()?.clone()),
             _ => Err(::mlua::Error::FromLuaConversionError {
                 from: value.type_name(),
                 to: stringify!($type_name).to_string(),
@@ -215,7 +215,7 @@ fn create_urect(_: &Lua, args: (f32, f32, f32, f32, f32, f32, f32, f32)) -> mlua
     })
 }
 
-fn create_window(_: &Lua, args: (LuaSourceID, String, OutlineBag)) -> mlua::Result<Window> {
+fn create_window(_: &Lua, args: (LuaSourceID, String, ComponentBag)) -> mlua::Result<Window> {
     Ok(Window::new(
         args.0.into(),
         winit::window::Window::default_attributes()
@@ -228,14 +228,14 @@ fn create_window(_: &Lua, args: (LuaSourceID, String, OutlineBag)) -> mlua::Resu
 
 fn create_region(
     _: &Lua,
-    args: (LuaSourceID, URect, Option<Vec<OutlineBag>>),
-) -> mlua::Result<OutlineBag> {
+    args: (LuaSourceID, URect, Option<Vec<ComponentBag>>),
+) -> mlua::Result<ComponentBag> {
     let mut children = im::Vector::new();
     children.extend(
         args.2
             .unwrap()
             .into_iter()
-            .map(|x| -> Option<Box<dyn OutlineWrap<dyn fixed::Child>>> { Some(Box::new(x)) }),
+            .map(|x| -> Option<Box<dyn ComponentWrap<dyn fixed::Child>>> { Some(Box::new(x)) }),
     );
 
     let mut bag = PropBag::new();
@@ -255,9 +255,9 @@ fn create_button(
         String,
         Slot,
         [f32; 4],
-        Option<OutlineBag>,
+        Option<ComponentBag>,
     ),
-) -> mlua::Result<OutlineBag> {
+) -> mlua::Result<ComponentBag> {
     let id = Rc::new(args.0);
 
     let rect = Shape::round_rect(
@@ -287,7 +287,7 @@ fn create_button(
         ..Default::default()
     };
 
-    let mut children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> = im::Vector::new();
+    let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> = im::Vector::new();
     children.push_back(Some(Box::new(text)));
     children.push_back(Some(Box::new(rect)));
     if let Some(x) = args.5 {
@@ -299,7 +299,7 @@ fn create_button(
     Ok(Box::new(Button::<PropBag>::new(id, bag, args.3, children)))
 }
 
-fn create_label(_: &Lua, args: (LuaSourceID, URect, String)) -> mlua::Result<OutlineBag> {
+fn create_label(_: &Lua, args: (LuaSourceID, URect, String)) -> mlua::Result<ComponentBag> {
     let mut bag = PropBag::new();
     bag.set_area(args.1.into());
     Ok(Box::new(Text::<PropBag> {
@@ -324,7 +324,7 @@ fn create_shader_standard(
         [f32; 4],
         [f32; 4],
     ),
-) -> mlua::Result<OutlineBag> {
+) -> mlua::Result<ComponentBag> {
     let mut bag = PropBag::new();
     bag.set_area(args.1.into());
 
@@ -340,7 +340,7 @@ fn create_shader_standard(
 fn create_round_rect(
     _: &Lua,
     args: (LuaSourceID, URect, u32, f32, f32, u32),
-) -> mlua::Result<OutlineBag> {
+) -> mlua::Result<ComponentBag> {
     let fill = args.2.to_be_bytes().map(|x| x as f32);
     let outline = args.5.to_be_bytes().map(|x| x as f32);
     let mut bag = PropBag::new();
@@ -383,7 +383,7 @@ impl FnPersist<AppState, im::HashMap<Rc<SourceID>, Option<Window>>> for LuaApp {
         let mut h = im::HashMap::new();
         let (store, w) = self
             .window
-            .call::<(LuaValue, crate::outline::window::Window)>((store, args.clone()))
+            .call::<(LuaValue, crate::component::window::Window)>((store, args.clone()))
             .unwrap();
         h.insert(w.id().clone(), Some(w));
         (store, h)

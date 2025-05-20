@@ -3,10 +3,10 @@
 
 use super::mouse_area::MouseArea;
 
+use crate::component::{ComponentFrom, Desc};
 use crate::layout::{fixed, Layout, LayoutWrap};
-use crate::outline::{Desc, OutlineFrom};
 use crate::persist::{FnPersist, VectorMap};
-use crate::{layout, DRect, Outline, Slot, SourceID};
+use crate::{layout, Component, DRect, Slot, SourceID};
 use derive_where::derive_where;
 use std::rc::Rc;
 
@@ -16,7 +16,7 @@ pub struct Button<T: fixed::Prop + 'static> {
     pub id: Rc<SourceID>,
     props: Rc<T>,
     marea: MouseArea<DRect>,
-    children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>>,
+    children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>>,
 }
 
 impl<T: fixed::Prop + 'static> Button<T> {
@@ -24,7 +24,7 @@ impl<T: fixed::Prop + 'static> Button<T> {
         id: Rc<SourceID>,
         props: T,
         onclick: Slot,
-        children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>>,
+        children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>>,
     ) -> Self {
         Self {
             id: id.clone(),
@@ -43,7 +43,7 @@ impl<T: fixed::Prop + 'static> Button<T> {
     }
 }
 
-impl<T: fixed::Prop + 'static> Outline<T> for Button<T>
+impl<T: fixed::Prop + 'static> Component<T> for Button<T>
 where
     for<'a> &'a T: Into<&'a (dyn fixed::Prop + 'static)>,
 {
@@ -53,10 +53,10 @@ where
 
     fn init_all(&self, manager: &mut crate::StateManager) -> eyre::Result<()> {
         for child in self.children.iter() {
-            manager.init_outline(child.as_ref().unwrap().as_ref())?;
+            manager.init_component(child.as_ref().unwrap().as_ref())?;
         }
-        let blah: &dyn Outline<DRect> = &self.marea;
-        manager.init_outline::<DRect>(&blah)?;
+        let blah: &dyn Component<DRect> = &self.marea;
+        manager.init_component::<DRect>(&blah)?;
         Ok(())
     }
 
@@ -68,7 +68,7 @@ where
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let map = VectorMap::new(
-            |child: &Option<Box<OutlineFrom<dyn fixed::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn fixed::Prop as Desc>::Child>>> {
+            |child: &Option<Box<ComponentFrom<dyn fixed::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn fixed::Prop as Desc>::Child>>> {
                 Some(child.as_ref().unwrap().layout(state, driver, dpi,config))
             },
         );
@@ -86,4 +86,4 @@ where
     }
 }
 
-crate::gen_outline_wrap!(Button, fixed::Prop);
+crate::gen_component_wrap!(Button, fixed::Prop);

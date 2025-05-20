@@ -3,14 +3,14 @@
 
 use core::f32;
 use feather_macro::*;
+use feather_ui::component::button::Button;
+use feather_ui::component::gridbox::GridBox;
+use feather_ui::component::region::Region;
+use feather_ui::component::shape::Shape;
+use feather_ui::component::text::Text;
+use feather_ui::component::window::Window;
+use feather_ui::component::{mouse_area, ComponentFrom};
 use feather_ui::layout::{base, fixed, grid, leaf};
-use feather_ui::outline::button::Button;
-use feather_ui::outline::gridbox::GridBox;
-use feather_ui::outline::region::Region;
-use feather_ui::outline::shape::Shape;
-use feather_ui::outline::text::Text;
-use feather_ui::outline::window::Window;
-use feather_ui::outline::{mouse_area, OutlineFrom};
 use feather_ui::persist::FnPersist;
 use feather_ui::{
     gen_id, AbsRect, App, DAbsRect, DPoint, DRect, DValue, RelRect, Slot, SourceID, FILL_DRECT,
@@ -141,7 +141,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     Vec4::zero(),
                 );
 
-                let mut children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> =
+                let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
                     im::Vector::new();
                 children.push_back(Some(Box::new(text)));
                 children.push_back(Some(Box::new(rect)));
@@ -164,7 +164,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
 
             const NUM_COLUMNS: usize = 5;
             let rectgrid = {
-                let mut children: im::Vector<Option<Box<OutlineFrom<dyn grid::Prop>>>> =
+                let mut children: im::Vector<Option<Box<ComponentFrom<dyn grid::Prop>>>> =
                     im::Vector::new();
                 for i in 0..args.count {
                     children.push_back(Some(Box::new(Shape::<GridChild>::round_rect(
@@ -227,7 +227,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 }
             };
 
-            let mut children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> =
+            let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
                 im::Vector::new();
             children.push_back(Some(Box::new(button)));
             children.push_back(Some(Box::new(rectgrid)));

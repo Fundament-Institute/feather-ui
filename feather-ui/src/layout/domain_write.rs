@@ -3,7 +3,7 @@
 
 use super::base::{Empty, RLimits};
 use super::{Concrete, Desc, LayoutWrap, Renderable, Staged};
-use crate::outline::CrossReferenceDomain;
+use crate::component::CrossReferenceDomain;
 use crate::{rtree, AbsRect, SourceID};
 use std::marker::PhantomData;
 use std::rc::Rc;

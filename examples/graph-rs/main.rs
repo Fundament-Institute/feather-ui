@@ -3,14 +3,14 @@
 
 use feather_ui::gen_id;
 
+use feather_ui::component::domain_line::DomainLine;
+use feather_ui::component::domain_point::DomainPoint;
+use feather_ui::component::draggable::Draggable;
+use feather_ui::component::region::Region;
+use feather_ui::component::shape::Shape;
+use feather_ui::component::window::Window;
+use feather_ui::component::{draggable, CrossReferenceDomain, ComponentFrom};
 use feather_ui::layout::{base, fixed};
-use feather_ui::outline::domain_line::DomainLine;
-use feather_ui::outline::domain_point::DomainPoint;
-use feather_ui::outline::draggable::Draggable;
-use feather_ui::outline::region::Region;
-use feather_ui::outline::shape::Shape;
-use feather_ui::outline::window::Window;
-use feather_ui::outline::{draggable, CrossReferenceDomain, OutlineFrom};
 use feather_ui::persist::FnPersist;
 use feather_ui::{AbsRect, App, DRect, DataID, Slot, SourceID, WrapEventEx, FILL_DRECT};
 use std::collections::HashSet;
@@ -64,7 +64,7 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
         args: &GraphState,
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
         if store.0 != *args {
-            let mut children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> =
+            let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
                 im::Vector::new();
             let domain: Rc<CrossReferenceDomain> = Default::default();
 
@@ -79,7 +79,7 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
                 let iter_id = Rc::new(node_id.child(DataID::Int(i as i64)));
                 node_ids.push(iter_id.clone());
 
-                let mut contents: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> =
+                let mut contents: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
                     im::Vector::new();
 
                 let point = DomainPoint::new(iter_id.clone(), domain.clone());

@@ -3,24 +3,24 @@
 
 extern crate alloc;
 
+pub mod component;
 pub mod input;
 pub mod layout;
 pub mod lua;
-pub mod outline;
 pub mod persist;
 mod propbag;
 mod rtree;
 mod shaders;
 
-use crate::outline::window::Window;
+use crate::component::window::Window;
+use component::window::WindowStateMachine;
+use component::{Component, StateMachineWrapper};
 use core::cell::Cell;
 use core::f32;
 use dyn_clone::DynClone;
 use eyre::OptionExt;
 pub use glyphon::Wrap;
 use once_cell::unsync::OnceCell;
-use outline::window::WindowStateMachine;
-use outline::{Outline, StateMachineWrapper};
 use persist::FnPersist;
 use shaders::ShaderCache;
 use smallvec::SmallVec;
@@ -69,7 +69,7 @@ macro_rules! gen_id {
 use std::any::TypeId;
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("Not an error, this outline simply has no layout state.")]
+    #[error("Not an error, this component simply has no layout state.")]
     Stateless,
     #[error("Enun object didn't match tag {0}! Expected {1:?} but got {2:?}")]
     MismatchedEnumTag(u64, TypeId, TypeId),
@@ -917,7 +917,7 @@ impl std::hash::Hash for DataID {
             DataID::Int(i) => i.hash(state),
             DataID::Other(hash_comparable) => hash_comparable.dyn_hash(state),
             DataID::None => {
-                panic!("Invalid ID! Did you forget to initialize an outline node's ID field?")
+                panic!("Invalid ID! Did you forget to initialize a component node's ID field?")
             }
         }
     }
@@ -1079,7 +1079,7 @@ pub struct StateManager {
 
 impl StateManager {
     #[allow(dead_code)]
-    fn init_default<State: 'static + outline::StateMachineWrapper + Default>(
+    fn init_default<State: 'static + component::StateMachineWrapper + Default>(
         &mut self,
         id: Rc<SourceID>,
     ) -> eyre::Result<&mut State> {
@@ -1099,7 +1099,7 @@ impl StateManager {
             self.states.insert(id.clone(), state);
         }
     }
-    pub fn get<'a, State: 'static + outline::StateMachineWrapper>(
+    pub fn get<'a, State: 'static + component::StateMachineWrapper>(
         &'a self,
         id: &SourceID,
     ) -> eyre::Result<&'a State> {
@@ -1108,7 +1108,7 @@ impl StateManager {
             .downcast_ref()
             .ok_or_eyre("Runtime type mismatch!")
     }
-    pub fn get_mut<'a, State: 'static + outline::StateMachineWrapper>(
+    pub fn get_mut<'a, State: 'static + component::StateMachineWrapper>(
         &'a mut self,
         id: &SourceID,
     ) -> eyre::Result<&'a mut State> {
@@ -1151,9 +1151,9 @@ impl StateManager {
         Ok(())
     }
 
-    fn init_outline<Parent: ?Sized>(
+    fn init_component<Parent: ?Sized>(
         &mut self,
-        target: &dyn crate::outline::OutlineWrap<Parent>,
+        target: &dyn crate::component::ComponentWrap<Parent>,
     ) -> eyre::Result<()> {
         if !self.states.contains_key(&target.id()) {
             match target.init() {
@@ -1181,7 +1181,7 @@ pub struct App<
     store: Option<O::Store>,
     outline: O,
     _parents: BTreeMap<DataID, DataID>,
-    root: outline::Root, // Root outline node containing all windows
+    root: component::Root, // Root component node containing all windows
 }
 
 struct AppDataMachine<AppData: 'static + std::cmp::PartialEq> {
@@ -1284,7 +1284,7 @@ impl<
                 outline,
                 state: manager,
                 _parents: Default::default(),
-                root: outline::Root::new(),
+                root: component::Root::new(),
             },
             event_loop,
         ))
@@ -1447,7 +1447,7 @@ impl FnPersist<u8, im::HashMap<Rc<SourceID>, Option<Window>>> for TestApp {
     type Store = (u8, im::HashMap<Rc<SourceID>, Option<Window>>);
 
     fn init(&self) -> Self::Store {
-        use crate::outline::shape::Shape;
+        use crate::component::shape::Shape;
         use ultraviolet::Vec4;
         let rect = Shape::<DRect>::round_rect(
             gen_id!().into(),

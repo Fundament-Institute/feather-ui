@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use super::{Outline, StateMachine};
+use super::{Component, StateMachine};
+use crate::component::ComponentWrap;
 use crate::input::{ModifierKeys, MouseMoveState, MouseState, RawEvent};
 use crate::layout::root;
-use crate::outline::OutlineWrap;
 use crate::{
     layout, pixel_to_vec, rtree, AbsDim, DriverState, FnPersist, RenderInstruction, SourceID,
     StateManager,
@@ -38,10 +38,10 @@ pub(crate) type WindowStateMachine = StateMachine<(), WindowState, 0, 0>;
 pub struct Window {
     pub id: Rc<SourceID>,
     attributes: WindowAttributes,
-    child: Box<dyn OutlineWrap<<dyn root::Prop as crate::outline::Desc>::Child>>,
+    child: Box<dyn ComponentWrap<<dyn root::Prop as crate::component::Desc>::Child>>,
 }
 
-impl Outline<AbsDim> for Window {
+impl Component<AbsDim> for Window {
     fn layout(
         &self,
         manager: &crate::StateManager,
@@ -151,14 +151,14 @@ impl Window {
             );
         }
 
-        manager.init_outline(self.child.as_ref())?;
+        manager.init_component(self.child.as_ref())?;
         Ok(())
     }
 
     pub fn new(
         id: Rc<SourceID>,
         attributes: WindowAttributes,
-        child: Box<dyn OutlineWrap<dyn crate::layout::base::Empty>>,
+        child: Box<dyn ComponentWrap<dyn crate::layout::base::Empty>>,
     ) -> Self {
         Self {
             id,
@@ -238,7 +238,7 @@ impl Window {
                         .driver
                         .device
                         .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                            label: Some("Window Outline"),
+                            label: Some("Window Component"),
                         });
 
                 {
