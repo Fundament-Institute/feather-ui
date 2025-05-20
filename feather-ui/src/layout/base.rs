@@ -41,7 +41,7 @@ impl crate::layout::Desc for dyn Empty {
         outer_limits: crate::AbsLimits,
         _: &Self::Children,
         id: std::rc::Weak<crate::SourceID>,
-        renderable: Option<Rc<dyn crate::outline::Renderable>>,
+        renderable: Option<Rc<dyn crate::component::Renderable>>,
         _: crate::Vec2,
         _: &crate::DriverState,
     ) -> Box<dyn super::Staged + 'a> {

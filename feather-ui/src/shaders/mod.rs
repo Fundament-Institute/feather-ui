@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::outline::Renderable;
+use crate::component::Renderable;
 use crate::{DriverState, RenderLambda};
 use std::collections::HashMap;
 use ultraviolet::{Mat4, Vec4};

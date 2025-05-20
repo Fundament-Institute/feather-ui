@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::CrossReferenceDomain;
+use crate::component::Renderable;
 use crate::layout::{base, Layout};
-use crate::outline::Renderable;
 use crate::shaders::{gen_uniform, to_bytes, Vertex};
 use crate::{layout, DriverState, RenderLambda, SourceID};
 use derive_where::derive_where;
@@ -22,7 +22,7 @@ pub struct DomainLine<T: base::Empty + 'static> {
     pub fill: Vec4,
 }
 
-impl<T: base::Empty + 'static> super::Outline<T> for DomainLine<T>
+impl<T: base::Empty + 'static> super::Component<T> for DomainLine<T>
 where
     for<'a> &'a T: Into<&'a (dyn base::Empty + 'static)>,
 {
@@ -108,7 +108,7 @@ where
     }
 }
 
-crate::gen_outline_wrap!(DomainLine, base::Empty);
+crate::gen_component_wrap!(DomainLine, base::Empty);
 
 pub struct LinePipeline {
     pub this: std::rc::Weak<LinePipeline>,

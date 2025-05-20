@@ -39,7 +39,7 @@ impl<T: Default + leaf::Padded + 'static> Default for Text<T> {
     }
 }
 
-impl<T: leaf::Padded + 'static> super::Outline<T> for Text<T>
+impl<T: leaf::Padded + 'static> super::Component<T> for Text<T>
 where
     for<'a> &'a T: Into<&'a (dyn leaf::Padded + 'static)>,
 {
@@ -99,7 +99,7 @@ where
     }
 }
 
-crate::gen_outline_wrap!(Text, leaf::Padded);
+crate::gen_component_wrap!(Text, leaf::Padded);
 
 #[derive_where(Clone)]
 pub struct TextLayout<T: leaf::Padded> {
@@ -118,7 +118,7 @@ impl<T: leaf::Padded> Layout<T> for TextLayout<T> {
         outer_limits: crate::AbsLimits,
         dpi: crate::Vec2,
         driver: &DriverState,
-    ) -> Box<dyn crate::outline::Staged + 'a> {
+    ) -> Box<dyn crate::component::Staged + 'a> {
         let text_system: &Rc<RefCell<crate::TextSystem>> =
             driver.text().expect("driver.text not initialized");
         let mut limits = self.props.limits().resolve(dpi) + outer_limits;

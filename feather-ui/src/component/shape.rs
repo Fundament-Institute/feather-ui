@@ -80,7 +80,7 @@ impl<T: leaf::Padded + 'static> Shape<'_, T> {
     }
 }
 
-impl<T: leaf::Padded + 'static> super::Outline<T> for Shape<'_, T>
+impl<T: leaf::Padded + 'static> super::Component<T> for Shape<'_, T>
 where
     for<'a> &'a T: Into<&'a (dyn leaf::Padded + 'static)>,
 {
@@ -143,7 +143,7 @@ where
             (self.uniforms[1] * Vec4::broadcast(dpi.x)).as_byte_slice(),
         );
         let fill = gen_uniform(driver, "Fill", self.uniforms[2].as_byte_slice());
-        let outline = gen_uniform(driver, "Outline", self.uniforms[3].as_byte_slice());
+        let outline = gen_uniform(driver, "Component", self.uniforms[3].as_byte_slice());
         let buffers = [mvp, posdim, dimborderblur, corners, fill, outline];
         let bindings: Vec<wgpu::BindGroupEntry> = buffers
             .iter()
@@ -176,4 +176,4 @@ where
     }
 }
 
-crate::gen_outline_wrap!('a, Shape, leaf::Padded);
+crate::gen_component_wrap!('a, Shape, leaf::Padded);

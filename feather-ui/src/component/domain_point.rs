@@ -22,7 +22,7 @@ impl<T: domain_write::Prop + 'static> DomainPoint<T> {
     }
 }
 
-impl<T: domain_write::Prop + 'static> super::Outline<T> for DomainPoint<T>
+impl<T: domain_write::Prop + 'static> super::Component<T> for DomainPoint<T>
 where
     for<'a> &'a T: Into<&'a (dyn domain_write::Prop + 'static)>,
 {
@@ -50,4 +50,4 @@ where
     }
 }
 
-crate::gen_outline_wrap!(DomainPoint, domain_write::Prop);
+crate::gen_component_wrap!(DomainPoint, domain_write::Prop);
