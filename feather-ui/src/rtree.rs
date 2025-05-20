@@ -3,7 +3,6 @@
 
 use std::rc::Rc;
 
-use crate::input::raw_event::Touch;
 use crate::input::{MouseState, RawEvent, RawEventKind, TouchState};
 use crate::persist::{FnPersist2, VectorFold};
 use crate::{AbsRect, Dispatchable, SourceID, StateManager, WindowStateMachine};
@@ -89,7 +88,7 @@ impl Node {
         Err(())
     }
 
-    fn process(
+    pub fn process(
         self: &Rc<Self>,
         event: &RawEvent,
         kind: RawEventKind,
@@ -127,7 +126,8 @@ impl Node {
                             }
 
                             let evt = RawEvent::Focus { acquired: true };
-                            self.inject_event(&evt, RawEventKind::Focus, dpi, offset, manager);
+                            let _ =
+                                self.inject_event(&evt, RawEventKind::Focus, dpi, offset, manager);
                         }
                     }
                     _ => (),
@@ -151,54 +151,6 @@ impl Node {
             }
         }
         Err(())
-    }
-
-    pub fn on_event(
-        self: &Rc<Self>,
-        event: &RawEvent,
-        dpi: Vec2,
-        manager: &mut StateManager,
-        window_id: Rc<SourceID>,
-    ) -> Result<(), ()> {
-        match event {
-            RawEvent::Mouse { pos, .. } => self.process(
-                event,
-                RawEventKind::Mouse,
-                Vec2::new(pos.x, pos.y),
-                Vec2::zero(),
-                dpi,
-                manager,
-                window_id,
-            ),
-            RawEvent::MouseMove { pos, .. } => self.process(
-                event,
-                RawEventKind::MouseMove,
-                Vec2::new(pos.x, pos.y),
-                Vec2::zero(),
-                dpi,
-                manager,
-                window_id,
-            ),
-            RawEvent::MouseScroll { pos, .. } => self.process(
-                event,
-                RawEventKind::MouseScroll,
-                Vec2::new(pos.x, pos.y),
-                Vec2::zero(),
-                dpi,
-                manager,
-                window_id,
-            ),
-            RawEvent::Touch { pos, .. } => self.process(
-                event,
-                RawEventKind::Touch,
-                pos.xy(),
-                Vec2::zero(),
-                dpi,
-                manager,
-                window_id,
-            ),
-            _ => Err(()),
-        }
     }
 }
 

@@ -7,8 +7,7 @@ use crate::input::{ModifierKeys, MouseMoveState, MouseState, RawEvent, RawEventK
 use crate::layout::root;
 use crate::rtree::Node;
 use crate::{
-    alloca_array, layout, pixel_to_vec, rtree, AbsDim, DriverState, FnPersist, RenderInstruction,
-    SourceID, StateManager,
+    layout, rtree, AbsDim, DriverState, FnPersist, RenderInstruction, SourceID, StateManager,
 };
 use alloc::sync::Arc;
 use core::f32;
@@ -19,7 +18,6 @@ use ultraviolet::Vec2;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::{DeviceId, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
-use winit::keyboard::SmolStr;
 use winit::window::WindowAttributes;
 
 /// Holds our internal mutable state for this window
@@ -201,6 +199,7 @@ impl Window {
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                 window.dpi = Vec2::broadcast(scale_factor as f32);
                 window.window.request_redraw();
+                Ok(())
             }
             WindowEvent::ModifiersChanged(m) => {
                 window.modifiers = if m.state().control_key() {
@@ -220,6 +219,7 @@ impl Window {
                 } else {
                     0
                 };
+                Ok(())
             }
             WindowEvent::Resized(new_size) => {
                 // Resize events can sometimes give empty sizes if the window is minimized
@@ -228,11 +228,11 @@ impl Window {
                 }
                 // On macos the window needs to be redrawn manually after resizing
                 window.window.request_redraw();
-                return Ok(());
+                Ok(())
             }
             WindowEvent::CloseRequested => {
                 // If this returns Some(data), the close request will be ignored
-                return Err(());
+                Err(())
             }
             WindowEvent::RedrawRequested => {
                 let frame = window.surface.get_current_texture().unwrap();
@@ -284,6 +284,37 @@ impl Window {
 
                 window.driver.queue.submit(Some(encoder.finish()));
                 frame.present();
+                return Ok(());
+            }
+            WindowEvent::Focused(acquired) => {
+                // When the window loses or gains focus, we send a focus event to our children that had
+                // focus, but we don't forget or change which children have focus.
+                let evt = RawEvent::Focus { acquired };
+
+                /*alloca_array::<Rc<Node>, ()>(window.focus.len(), move |nodes| {
+                    for (i, (_, node)) in window.focus.iter().enumerate() {
+                        nodes[i] = node.clone()
+                    }
+
+                    for node in nodes {
+                        let _ = node.inject_event(
+                            &evt,
+                            RawEventKind::Focus,
+                            dpi,
+                            Vec2::zero(),
+                            manager,
+                        );
+                    }
+                });*/
+
+                // We have to collect this map so we aren't borrowing manager twice
+                let nodes: Vec<Rc<Node>> =
+                    window.focus.iter().map(|(_, node)| node.clone()).collect();
+
+                for node in nodes {
+                    let _ =
+                        node.inject_event(&evt, RawEventKind::Focus, dpi, Vec2::zero(), manager);
+                }
                 return Ok(());
             }
             _ => {
@@ -355,7 +386,7 @@ impl Window {
                         winit::event::MouseScrollDelta::LineDelta(x, y) => RawEvent::MouseScroll {
                             device_id,
                             state: phase.into(),
-                            pos: pixel_to_vec(window.last_mouse),
+                            pos: window.last_mouse,
                             delta: Vec2::new(x, y),
                             pixels: false,
                         },
@@ -363,7 +394,7 @@ impl Window {
                             RawEvent::MouseScroll {
                                 device_id,
                                 state: phase.into(),
-                                pos: pixel_to_vec(window.last_mouse),
+                                pos: window.last_mouse,
                                 delta: Vec2::new(
                                     physical_position.x as f32,
                                     physical_position.y as f32,
@@ -427,51 +458,64 @@ impl Window {
                             None => 0.0,
                         },
                     },
-                    WindowEvent::Focused(acquired) => {
-                        // When the window loses or gains focus, we send a focus event to our children that had
-                        // focus, but we don't forget or change which children have focus.
-                        let evt = RawEvent::Focus { acquired };
-
-                        /*alloca_array::<Rc<Node>, ()>(window.focus.len(), move |nodes| {
-                            for (i, (_, node)) in window.focus.iter().enumerate() {
-                                nodes[i] = node.clone()
-                            }
-
-                            for node in nodes {
-                                let _ = node.inject_event(
-                                    &evt,
-                                    RawEventKind::Focus,
-                                    dpi,
-                                    Vec2::zero(),
-                                    manager,
-                                );
-                            }
-                        });*/
-
-                        // We have to collect this map so we aren't borrowing manager twice
-                        let nodes: Vec<Rc<Node>> =
-                            window.focus.iter().map(|(_, node)| node.clone()).collect();
-
-                        for node in nodes {
-                            let _ = node.inject_event(
-                                &evt,
-                                RawEventKind::Focus,
-                                dpi,
-                                Vec2::zero(),
-                                manager,
-                            );
-                        }
-                        return Ok(());
-                    }
                     _ => return Err(()),
                 };
 
-                if let Some(rt) = rtree.upgrade() {
-                    return rt.on_event(&e, dpi, manager, id);
+                match e {
+                    RawEvent::Focus { .. } => Err(()),
+                    RawEvent::JoyAxis { device_id: _, .. }
+                    | RawEvent::JoyButton { device_id: _, .. }
+                    | RawEvent::JoyOrientation { device_id: _, .. }
+                    | RawEvent::Key { device_id: _, .. } => {
+                        // We have to collect this map so we aren't borrowing manager twice
+                        let nodes: Vec<Rc<Node>> =
+                            window.focus.iter().map(|(_, node)| node.clone()).collect();
+                        // Currently, we always duplicate key/joystick events to all focused elements. Later, we may map specific
+                        // keyboards to specific mouse input device IDs.
+                        if nodes.iter().any(|node| {
+                            node.inject_event(&e, RawEventKind::Focus, dpi, Vec2::zero(), manager)
+                                .is_ok()
+                        }) {
+                            Ok(())
+                        } else {
+                            Err(())
+                        }
+                    }
+                    RawEvent::Mouse { pos, .. }
+                    | RawEvent::MouseMove { pos, .. }
+                    | RawEvent::Drop { pos, .. }
+                    | RawEvent::MouseScroll { pos, .. } => {
+                        if let Some(rt) = rtree.upgrade() {
+                            rt.process(
+                                &e,
+                                RawEventKind::Mouse,
+                                Vec2::new(pos.x, pos.y),
+                                Vec2::zero(),
+                                dpi,
+                                manager,
+                                id,
+                            )
+                        } else {
+                            Err(())
+                        }
+                    }
+                    RawEvent::Touch { pos, .. } => {
+                        if let Some(rt) = rtree.upgrade() {
+                            rt.process(
+                                &e,
+                                RawEventKind::Touch,
+                                pos.xy(),
+                                Vec2::zero(),
+                                dpi,
+                                manager,
+                                id,
+                            )
+                        } else {
+                            Err(())
+                        }
+                    }
                 }
             }
         }
-
-        Err(())
     }
 }
