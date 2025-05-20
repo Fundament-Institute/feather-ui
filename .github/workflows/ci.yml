@@ -30,10 +30,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Install Rust
       run: rustup update ${{ matrix.rust }} --no-self-update && rustup default ${{ matrix.rust }}
-          
+
     - name: Install Clang
       run: |
           export DEBIAN_FRONTEND=noninteractive
@@ -47,7 +47,7 @@ jobs:
 
     - name: Build in release mode
       run: cargo build --all --release
-      
+
     # We can't run any tests, because they would need a window manager and graphics to exist, which aren't available on standard CI
 
   fmt:
@@ -75,3 +75,14 @@ jobs:
         log-level: warn
         command: check
         arguments: --all-features
+
+  # Check for typos in the repository based on a static dictionary
+  typos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # This is pinned to a specific version because the typos dictionary can
+      # be updated between patch version, and a new dictionary can find new
+      # typos in the repo thus suddenly breaking CI unless we pin the version.
+      - uses: crate-ci/typos@v1.32.0
