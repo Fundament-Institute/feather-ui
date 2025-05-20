@@ -13,7 +13,7 @@ crate::gen_from_to_dyn!(Prop);
 
 impl Prop for DRect {}
 
-// Actual leafs do not require padding, but a lot of raw elements do (text, shape, images, etc.)
+// Actual leaves do not require padding, but a lot of raw elements do (text, shape, images, etc.)
 // This inherits Prop to allow elements to "extract" the padding for the rendering system for
 // when it doesn't affect layouts.
 pub trait Padded: Prop + base::Padding {}

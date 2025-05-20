@@ -180,12 +180,12 @@ fn data_enum(ast: &DeriveInput) -> &DataEnum {
     if let Data::Enum(data_enum) = &ast.data {
         data_enum
     } else {
-        panic!("`Dispath` derive can only be used on an enum.");
+        panic!("`Dispatch` derive can only be used on an enum.");
     }
 }
 
 fn find_enum_module(attrs: &[syn::Attribute]) -> syn::Result<String> {
-    // Extract EnumVariantType's module, since this has to be used in conjuction with our derive
+    // Extract EnumVariantType's module, since this has to be used in conjunction with our derive
     for attr in attrs.iter() {
         if attr.path().is_ident("evt") {
             let nested = attr
