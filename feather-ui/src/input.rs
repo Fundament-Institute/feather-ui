@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::{AbsRect, Dispatchable, Error};
+use crate::{Dispatchable, Error};
 use enum_variant_type::EnumVariantType;
 use std::any::TypeId;
 use ultraviolet::{Vec2, Vec3};
@@ -59,8 +59,9 @@ pub enum ModifierKeys {
 #[derive(Debug, EnumVariantType, Clone)]
 #[evt(derive(Clone), module = "raw_event")]
 pub enum RawEvent {
-    Draw(AbsRect),
-    Drop,
+    Drop {
+        pos: PhysicalPosition<f32>,
+    },
     Focus {
         acquired: bool,
     },
@@ -105,7 +106,7 @@ pub enum RawEvent {
     MouseScroll {
         device_id: winit::event::DeviceId,
         state: TouchState,
-        pos: Vec2,
+        pos: PhysicalPosition<f32>,
         delta: Vec2,
         pixels: bool, // If true, delta is expressed in pixels
     },
@@ -122,7 +123,7 @@ pub enum RawEvent {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u64)]
 pub enum RawEventKind {
-    Draw = 1,
+    // Drag = 1, // TBD
     Drop = 2,
     Focus = 4,
     JoyAxis = 8,
@@ -139,7 +140,6 @@ use crate::DispatchPair;
 
 impl Dispatchable for RawEvent {
     fn restore(pair: DispatchPair) -> Result<Self, Error> {
-        const KIND_DRAW: u64 = RawEventKind::Draw as u64;
         const KIND_DROP: u64 = RawEventKind::Drop as u64;
         const KIND_FOCUS: u64 = RawEventKind::Focus as u64;
         const KIND_JOYAXIS: u64 = RawEventKind::JoyAxis as u64;
@@ -153,11 +153,6 @@ impl Dispatchable for RawEvent {
         let type_id = (*pair.1).type_id();
 
         match pair.0 {
-            KIND_DRAW => Ok(RawEvent::from(
-                *pair.1.downcast::<raw_event::Draw>().map_err(|_| {
-                    Error::MismatchedEnumTag(pair.0, TypeId::of::<raw_event::Draw>(), type_id)
-                })?,
-            )),
             KIND_DROP => Ok(RawEvent::from(
                 *pair.1.downcast::<raw_event::Drop>().map_err(|_| {
                     Error::MismatchedEnumTag(pair.0, TypeId::of::<raw_event::Drop>(), type_id)
@@ -227,11 +222,7 @@ impl Dispatchable for RawEvent {
 
     fn extract(self) -> DispatchPair {
         match self {
-            RawEvent::Draw(_) => (
-                RawEventKind::Draw as u64,
-                Box::new(raw_event::Draw::try_from(self).unwrap()),
-            ),
-            RawEvent::Drop => (
+            RawEvent::Drop { .. } => (
                 RawEventKind::Drop as u64,
                 Box::new(raw_event::Drop::try_from(self).unwrap()),
             ),
