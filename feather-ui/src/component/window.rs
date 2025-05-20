@@ -3,20 +3,23 @@
 
 use super::{Component, StateMachine};
 use crate::component::ComponentWrap;
-use crate::input::{ModifierKeys, MouseMoveState, MouseState, RawEvent};
+use crate::input::{ModifierKeys, MouseMoveState, MouseState, RawEvent, RawEventKind};
 use crate::layout::root;
+use crate::rtree::Node;
 use crate::{
-    layout, pixel_to_vec, rtree, AbsDim, DriverState, FnPersist, RenderInstruction, SourceID,
-    StateManager,
+    alloca_array, layout, pixel_to_vec, rtree, AbsDim, DriverState, FnPersist, RenderInstruction,
+    SourceID, StateManager,
 };
 use alloc::sync::Arc;
 use core::f32;
 use eyre::{OptionExt, Result};
+use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 use ultraviolet::Vec2;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
-use winit::event::WindowEvent;
+use winit::event::{DeviceId, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
+use winit::keyboard::SmolStr;
 use winit::window::WindowAttributes;
 
 /// Holds our internal mutable state for this window
@@ -27,6 +30,7 @@ pub(crate) struct WindowState {
     all_buttons: u8,
     modifiers: u8,
     last_mouse: PhysicalPosition<f32>,
+    pub focus: HashMap<DeviceId, Rc<Node>>,
     pub dpi: Vec2,
     pub driver: Rc<DriverState>,
     pub draw: im::Vector<RenderInstruction>,
@@ -134,6 +138,7 @@ impl Window {
                 last_mouse: PhysicalPosition::new(f32::NAN, f32::NAN),
                 config,
                 dpi: Vec2::broadcast(window.scale_factor() as f32),
+                focus: HashMap::new(),
                 surface,
                 window,
                 driver,
@@ -191,6 +196,7 @@ impl Window {
     ) -> Result<(), ()> {
         let state: &mut WindowStateMachine = manager.get_mut(&id).map_err(|_| ())?;
         let window = state.state.as_mut().unwrap();
+        let dpi = window.dpi;
         match event {
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                 window.dpi = Vec2::broadcast(scale_factor as f32);
@@ -282,6 +288,16 @@ impl Window {
             }
             _ => {
                 let e = match event {
+                    WindowEvent::Ime(winit::event::Ime::Commit(s)) => RawEvent::Key {
+                        device_id: DeviceId::dummy(), // TODO: No way to derive originating keyboard from IME event????
+                        physical_key: winit::keyboard::PhysicalKey::Unidentified(
+                            winit::keyboard::NativeKeyCode::Unidentified,
+                        ),
+                        location: winit::keyboard::KeyLocation::Standard,
+                        down: false,
+                        logical_key: winit::keyboard::Key::Character(s.into()),
+                        modifiers: 0,
+                    },
                     WindowEvent::KeyboardInput {
                         device_id,
                         event,
@@ -411,11 +427,47 @@ impl Window {
                             None => 0.0,
                         },
                     },
+                    WindowEvent::Focused(acquired) => {
+                        // When the window loses or gains focus, we send a focus event to our children that had
+                        // focus, but we don't forget or change which children have focus.
+                        let evt = RawEvent::Focus { acquired };
+
+                        /*alloca_array::<Rc<Node>, ()>(window.focus.len(), move |nodes| {
+                            for (i, (_, node)) in window.focus.iter().enumerate() {
+                                nodes[i] = node.clone()
+                            }
+
+                            for node in nodes {
+                                let _ = node.inject_event(
+                                    &evt,
+                                    RawEventKind::Focus,
+                                    dpi,
+                                    Vec2::zero(),
+                                    manager,
+                                );
+                            }
+                        });*/
+
+                        // We have to collect this map so we aren't borrowing manager twice
+                        let nodes: Vec<Rc<Node>> =
+                            window.focus.iter().map(|(_, node)| node.clone()).collect();
+
+                        for node in nodes {
+                            let _ = node.inject_event(
+                                &evt,
+                                RawEventKind::Focus,
+                                dpi,
+                                Vec2::zero(),
+                                manager,
+                            );
+                        }
+                        return Ok(());
+                    }
                     _ => return Err(()),
                 };
 
                 if let Some(rt) = rtree.upgrade() {
-                    return rt.on_event(&e, window.dpi, manager);
+                    return rt.on_event(&e, dpi, manager, id);
                 }
             }
         }
