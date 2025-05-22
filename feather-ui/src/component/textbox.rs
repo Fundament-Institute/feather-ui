@@ -1,22 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::layout::base::TextEditSnapshot;
-use crate::layout::{base, leaf, Desc, Layout, LayoutWrap};
-use crate::persist::{FnPersist, VectorMap};
-use crate::{layout, point_to_pixel, render, DRect, SourceID};
+use crate::input::{RawEvent, RawEventKind};
+use crate::layout::{Layout, base, leaf};
+use crate::{SourceID, layout, point_to_pixel, render};
 use derive_where::derive_where;
 use enum_variant_type::EnumVariantType;
 use feather_macro::Dispatch;
 use std::ops::Range;
 use std::rc::Rc;
-use ultraviolet::{Vec2, Vec4};
 
-use super::line::Line;
-use super::text::Text;
-use super::{Component, ComponentFrom};
+use super::StateMachine;
 
-#[derive(Debug, Dispatch, EnumVariantType, Clone)]
+#[derive(Debug, Dispatch, EnumVariantType, Clone, PartialEq, Eq)]
 #[evt(derive(Clone), module = "mouse_area_event")]
 pub enum TextBoxEvent {
     Edit(Range<usize>, String), // Returns the range of the new string and what the old string used to be.
@@ -24,10 +20,17 @@ pub enum TextBoxEvent {
     Select(usize, usize),
 }
 
+#[derive(Default, Clone, PartialEq)]
+struct TextBoxState {
+    last_x_offset: f32, // Last cursor x offset when something other than up or down navigation happened
+    history: Vec<TextBoxEvent>,
+    count: u32,
+}
+
 pub trait Prop: leaf::Padded + base::TextEdit {}
 
 #[derive_where(Clone)]
-pub struct Textbox<T: Prop + 'static> {
+pub struct TextBox<T: Prop + 'static> {
     id: Rc<SourceID>,
     props: Rc<T>,
     pub font_size: f32,
@@ -37,9 +40,10 @@ pub struct Textbox<T: Prop + 'static> {
     pub weight: glyphon::Weight,
     pub style: glyphon::Style,
     pub wrap: glyphon::Wrap,
+    pub slots: [Option<crate::Slot>; 3], // TODO: TextBoxEvent::SIZE
 }
 
-impl<T: Prop + 'static> Textbox<T> {
+impl<T: Prop + 'static> TextBox<T> {
     pub fn new(
         id: Rc<SourceID>,
         props: T,
@@ -61,17 +65,54 @@ impl<T: Prop + 'static> Textbox<T> {
             weight,
             style,
             wrap,
+            slots: [None, None, None],
         }
     }
 }
 
-impl<T: Prop + 'static> super::Component<T> for Textbox<T> {
+impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
     fn id(&self) -> Rc<SourceID> {
         self.id.clone()
     }
 
-    fn init_all(&self, manager: &mut crate::StateManager) -> eyre::Result<()> {
+    fn init_all(&self, _: &mut crate::StateManager) -> eyre::Result<()> {
         Ok(())
+    }
+
+    fn init(&self) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error> {
+        let props = self.props.clone();
+        let oninput = Box::new(crate::wrap_event::<RawEvent, TextBoxEvent, TextBoxState>(
+            move |e, area, _dpi, mut data| {
+                match e {
+                    RawEvent::Key {
+                        down, logical_key, ..
+                    } => match logical_key {
+                        winit::keyboard::Key::Named(named_key) => (),
+                        winit::keyboard::Key::Character(c) => {
+                            if down {
+                                props.textedit().obj.edit(&[(0..0, c.to_string())]);
+                                // TODO: This hack may need to be replaced with an explicit method of saying "assume a change happened"
+                                data.count += 1;
+                                return Ok((data, vec![TextBoxEvent::Edit(0..1, String::new())]));
+                            }
+                        }
+                        _ => (),
+                    },
+                    RawEvent::Mouse { .. } => return Ok((data, vec![])),
+                    _ => (),
+                }
+                Err((data, vec![]))
+            },
+        ));
+
+        Ok(Box::new(StateMachine {
+            state: Some(Default::default()),
+            input: [(
+                RawEventKind::Mouse as u64 | RawEventKind::Touch as u64 | RawEventKind::Key as u64,
+                oninput,
+            )],
+            output: self.slots.clone(),
+        }))
     }
 
     fn layout(
@@ -90,11 +131,10 @@ impl<T: Prop + 'static> super::Component<T> for Textbox<T> {
             ),
         );
 
-        let snapshot: TextEditSnapshot<T> = self.props.clone().into();
         text_buffer.set_wrap(&mut text_system.borrow_mut().font_system, self.wrap);
         text_buffer.set_text(
             &mut text_system.borrow_mut().font_system,
-            &snapshot.obj.textedit().text.borrow(),
+            &self.props.textedit().obj.text.borrow(),
             &glyphon::Attrs::new()
                 .family(self.font.as_family())
                 .color(self.color)
@@ -126,4 +166,4 @@ impl<T: Prop + 'static> super::Component<T> for Textbox<T> {
     }
 }
 
-crate::gen_component_wrap!(Textbox, Prop);
+crate::gen_component_wrap!(TextBox, Prop);

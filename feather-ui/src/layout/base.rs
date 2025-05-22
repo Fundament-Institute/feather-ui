@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use crate::{AbsRect, DAbsRect, DPoint, DRect, ZERO_DRECT};
-use std::{rc::Rc, usize};
+use std::rc::Rc;
 
 #[macro_export]
 macro_rules! gen_from_to_dyn {
@@ -142,22 +142,5 @@ impl Limits for DRect {}
 impl RLimits for DRect {}
 
 pub trait TextEdit {
-    fn textedit(&self) -> &crate::TextEditer;
-}
-
-pub struct TextEditSnapshot<T: TextEdit> {
-    pub(crate) obj: Rc<T>,
-    count: usize,
-}
-
-impl<T: TextEdit> From<Rc<T>> for TextEditSnapshot<T> {
-    fn from(value: Rc<T>) -> Self {
-        Self {
-            obj: value.clone(),
-            count: value
-                .textedit()
-                .count
-                .load(std::sync::atomic::Ordering::Acquire),
-        }
-    }
+    fn textedit(&self) -> &crate::TextSnapshot;
 }

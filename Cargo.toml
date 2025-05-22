@@ -12,6 +12,7 @@ members = [
   "examples/graph-rs",
   "examples/grid-rs",
   "examples/list-rs",
+  "examples/textbox-rs",
   "feather-macro",
 ]
 resolver = "2"
@@ -27,8 +28,8 @@ default-members = [
 
 [workspace.package]
 version = "0.1.5"
-edition = "2021"
-rust-version = "1.83.0"
+edition = "2024"
+rust-version = "1.86.0"
 license = "Apache-2.0"
 homepage = "https://github.com/Fundament-Software/feathergui"
 repository = "https://github.com/Fundament-Software/feathergui/"

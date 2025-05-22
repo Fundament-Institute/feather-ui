@@ -3,7 +3,7 @@
 
 use crate::component::{ComponentFrom, StateMachine};
 use crate::input::{MouseButton, MouseMoveState, MouseState, RawEvent, RawEventKind};
-use crate::layout::{self, fixed, Desc, Layout, LayoutWrap};
+use crate::layout::{self, Desc, Layout, LayoutWrap, fixed};
 use crate::persist::{FnPersist, VectorMap};
 use crate::{Dispatchable, SourceID};
 use derive_where::derive_where;
@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use ultraviolet::Vec2;
 
-#[derive(Debug, Dispatch, EnumVariantType, Clone)]
+#[derive(Debug, Dispatch, EnumVariantType, Clone, PartialEq)]
 #[evt(derive(Clone), module = "draggable_event")]
 pub enum DraggableEvent {
     OnClick(Vec2),
@@ -21,7 +21,7 @@ pub enum DraggableEvent {
     OnDrag(Vec2),
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, PartialEq)]
 struct DraggableState {
     lastdrag: HashMap<winit::event::DeviceId, ultraviolet::Vec2>,
     lastdown: HashMap<winit::event::DeviceId, ultraviolet::Vec2>,
