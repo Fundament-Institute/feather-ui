@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+
+[package]
+name = "textbox-rs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors = ["Erik McClure  "]
+description = """
+Basic textbox example
+"""
+homepage.workspace = true
+readme.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "textbox-rs"
+path = "main.rs"
+
+[dependencies]
+wgpu.workspace = true
+winit.workspace = true
+tokio.workspace = true
+feather-ui.workspace = true
+ultraviolet.workspace = true
+im.workspace = true
+glyphon.workspace = true
+feather-macro.workspace = true

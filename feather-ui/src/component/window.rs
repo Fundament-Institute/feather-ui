@@ -7,11 +7,12 @@ use crate::input::{ModifierKeys, MouseMoveState, MouseState, RawEvent, RawEventK
 use crate::layout::root;
 use crate::rtree::Node;
 use crate::{
-    layout, rtree, AbsDim, DriverState, FnPersist, RenderInstruction, SourceID, StateManager,
+    AbsDim, DriverState, FnPersist, RenderInstruction, SourceID, StateManager, layout, rtree,
 };
 use alloc::sync::Arc;
 use core::f32;
 use eyre::{OptionExt, Result};
+use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 use ultraviolet::Vec2;
@@ -28,10 +29,32 @@ pub(crate) struct WindowState {
     all_buttons: u8,
     modifiers: u8,
     last_mouse: PhysicalPosition<f32>,
-    pub focus: HashMap<DeviceId, Rc<Node>>,
+    pub focus: HashMap<DeviceId, RcNode>,
     pub dpi: Vec2,
     pub driver: Rc<DriverState>,
     pub draw: im::Vector<RenderInstruction>,
+}
+
+pub(crate) struct RcNode(pub(crate) Rc<Node>);
+
+impl PartialEq for RcNode {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+impl PartialEq for WindowState {
+    fn eq(&self, other: &Self) -> bool {
+        self.surface == other.surface
+            && Arc::ptr_eq(&self.window, &other.window)
+            && self.config == other.config
+            && self.all_buttons == other.all_buttons
+            && self.modifiers == other.modifiers
+            && self.last_mouse == other.last_mouse
+            && self.focus == other.focus
+            && self.dpi == other.dpi
+            && Rc::ptr_eq(&self.driver, &other.driver)
+    }
 }
 
 pub(crate) type WindowStateMachine = StateMachine<(), WindowState, 0, 0>;
@@ -284,38 +307,24 @@ impl Window {
 
                 window.driver.queue.submit(Some(encoder.finish()));
                 frame.present();
-                return Ok(());
+                Ok(())
             }
             WindowEvent::Focused(acquired) => {
                 // When the window loses or gains focus, we send a focus event to our children that had
                 // focus, but we don't forget or change which children have focus.
                 let evt = RawEvent::Focus { acquired };
 
-                /*alloca_array::<Rc<Node>, ()>(window.focus.len(), move |nodes| {
-                    for (i, (_, node)) in window.focus.iter().enumerate() {
-                        nodes[i] = node.clone()
-                    }
-
-                    for node in nodes {
-                        let _ = node.inject_event(
-                            &evt,
-                            RawEventKind::Focus,
-                            dpi,
-                            Vec2::zero(),
-                            manager,
-                        );
-                    }
-                });*/
-
                 // We have to collect this map so we aren't borrowing manager twice
-                let nodes: Vec<Rc<Node>> =
-                    window.focus.iter().map(|(_, node)| node.clone()).collect();
+                let nodes: SmallVec<[RcNode; 4]> = window
+                    .focus.values().map(|node| RcNode(node.0.clone()))
+                    .collect();
 
                 for node in nodes {
                     let _ =
-                        node.inject_event(&evt, RawEventKind::Focus, dpi, Vec2::zero(), manager);
+                        node.0
+                            .inject_event(&evt, RawEventKind::Focus, dpi, Vec2::zero(), manager);
                 }
-                return Ok(());
+                Ok(())
             }
             _ => {
                 let e = match event {
@@ -462,18 +471,22 @@ impl Window {
                 };
 
                 match e {
+                    RawEvent::Drag => Err(()),
                     RawEvent::Focus { .. } => Err(()),
                     RawEvent::JoyAxis { device_id: _, .. }
                     | RawEvent::JoyButton { device_id: _, .. }
                     | RawEvent::JoyOrientation { device_id: _, .. }
                     | RawEvent::Key { device_id: _, .. } => {
                         // We have to collect this map so we aren't borrowing manager twice
-                        let nodes: Vec<Rc<Node>> =
-                            window.focus.iter().map(|(_, node)| node.clone()).collect();
+                        let nodes: SmallVec<[RcNode; 4]> = window
+                            .focus.values().map(|node| RcNode(node.0.clone()))
+                            .collect();
+
                         // Currently, we always duplicate key/joystick events to all focused elements. Later, we may map specific
                         // keyboards to specific mouse input device IDs.
                         if nodes.iter().any(|node| {
-                            node.inject_event(&e, RawEventKind::Focus, dpi, Vec2::zero(), manager)
+                            node.0
+                                .inject_event(&e, e.kind(), dpi, Vec2::zero(), manager)
                                 .is_ok()
                         }) {
                             Ok(())
@@ -488,7 +501,7 @@ impl Window {
                         if let Some(rt) = rtree.upgrade() {
                             rt.process(
                                 &e,
-                                RawEventKind::Mouse,
+                                e.kind(),
                                 Vec2::new(pos.x, pos.y),
                                 Vec2::zero(),
                                 dpi,
@@ -501,15 +514,7 @@ impl Window {
                     }
                     RawEvent::Touch { pos, .. } => {
                         if let Some(rt) = rtree.upgrade() {
-                            rt.process(
-                                &e,
-                                RawEventKind::Touch,
-                                pos.xy(),
-                                Vec2::zero(),
-                                dpi,
-                                manager,
-                                id,
-                            )
+                            rt.process(&e, e.kind(), pos.xy(), Vec2::zero(), dpi, manager, id)
                         } else {
                             Err(())
                         }

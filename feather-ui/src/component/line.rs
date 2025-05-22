@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::layout::{base, Layout};
-use crate::render::Renderable;
-use crate::shaders::{gen_uniform, to_bytes, Vertex};
-use crate::CrossReferenceDomain;
-use crate::{layout, DriverState, RenderLambda, SourceID};
+use crate::layout::{Layout, base};
+use crate::shaders::gen_uniform;
+use crate::{DriverState, SourceID, layout};
 use derive_where::derive_where;
 use std::rc::Rc;
 use ultraviolet::Vec2;

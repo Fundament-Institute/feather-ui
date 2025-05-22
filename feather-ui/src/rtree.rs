@@ -113,12 +113,15 @@ impl Node {
                             let window = state.state.as_mut().unwrap();
 
                             // Tell the old node that it lost focus (if it cares).
-                            if let Some(old) = window.focus.insert(*device_id, self.clone()) {
+                            if let Some(old) = window
+                                .focus
+                                .insert(*device_id, crate::component::window::RcNode(self.clone()))
+                            {
                                 let evt = RawEvent::Focus { acquired: false };
                                 // We don't care about the result of this event
-                                let _ = old.inject_event(
+                                let _ = old.0.inject_event(
                                     &evt,
-                                    RawEventKind::Focus,
+                                    evt.kind(),
                                     dpi,
                                     Vec2::zero(), // Focus events shouldn't care about area offset
                                     manager,
@@ -126,8 +129,7 @@ impl Node {
                             }
 
                             let evt = RawEvent::Focus { acquired: true };
-                            let _ =
-                                self.inject_event(&evt, RawEventKind::Focus, dpi, offset, manager);
+                            let _ = self.inject_event(&evt, evt.kind(), dpi, offset, manager);
                         }
                     }
                     _ => (),

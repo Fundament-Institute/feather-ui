@@ -18,10 +18,10 @@ pub mod textbox;
 pub mod window;
 
 use crate::component::window::Window;
-use crate::layout::{root, Desc, Layout, LayoutWrap, Staged};
+use crate::layout::{Desc, Layout, LayoutWrap, Staged, root};
 use crate::{
-    rtree, AbsRect, DispatchPair, Dispatchable, DriverState, EventWrapper, RenderInstruction, Slot,
-    SourceID, StateManager, DEFAULT_LIMITS,
+    AbsRect, DEFAULT_LIMITS, DispatchPair, Dispatchable, DriverState, EventWrapper, Slot, SourceID,
+    StateManager, rtree,
 };
 use dyn_clone::DynClone;
 use eyre::{OptionExt, Result};
@@ -38,7 +38,7 @@ pub trait StateMachineWrapper {
         index: u64,
         dpi: crate::Vec2,
         area: AbsRect,
-    ) -> Result<Vec<DispatchPair>>;
+    ) -> Result<(Vec<DispatchPair>, bool)>;
     fn as_any_mut(&mut self) -> &mut dyn Any;
     fn as_any(&self) -> &dyn Any;
     fn output_slot(&self, i: usize) -> Result<&Option<Slot>>;
@@ -57,11 +57,11 @@ pub struct StateMachine<
 }
 
 impl<
-        Output: Dispatchable + 'static,
-        State: 'static,
-        const INPUT_SIZE: usize,
-        const OUTPUT_SIZE: usize,
-    > StateMachineWrapper for StateMachine<Output, State, INPUT_SIZE, OUTPUT_SIZE>
+    Output: Dispatchable + 'static,
+    State: PartialEq + 'static,
+    const INPUT_SIZE: usize,
+    const OUTPUT_SIZE: usize,
+> StateMachineWrapper for StateMachine<Output, State, INPUT_SIZE, OUTPUT_SIZE>
 {
     fn process(
         &mut self,
@@ -69,7 +69,7 @@ impl<
         index: u64,
         dpi: crate::Vec2,
         area: AbsRect,
-    ) -> Result<Vec<DispatchPair>> {
+    ) -> Result<(Vec<DispatchPair>, bool)> {
         let (mask, f) = self
             .input
             .get_mut(index as usize)
@@ -77,17 +77,16 @@ impl<
         if input.0 & *mask == 0 {
             return Err(eyre::eyre!("Event handler doesn't handle this method"));
         }
+        let changed;
         let result = match f(input, area, dpi, self.state.take().unwrap()) {
-            Ok((s, r)) => {
-                self.state = Some(s);
-                r
-            }
-            Err((s, r)) => {
-                self.state = Some(s);
+            Ok((s, r)) | Err((s, r)) => {
+                let s = Some(s);
+                changed = self.state != s;
+                self.state = s;
                 r
             }
         };
-        Ok(result.into_iter().map(|x| x.extract()).collect())
+        Ok((result.into_iter().map(|x| x.extract()).collect(), changed))
     }
     fn output_slot(&self, i: usize) -> Result<&Option<Slot>> {
         self.output.get(i).ok_or_eyre("index out of bounds")

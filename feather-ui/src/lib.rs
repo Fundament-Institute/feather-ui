@@ -105,8 +105,13 @@ impl AbsRect {
     pub const fn new(left: f32, top: f32, right: f32, bottom: f32) -> Self {
         Self(f32x4::new([left, top, right, bottom]))
     }
+
+    pub const fn broadcast(x: f32) -> Self {
+        Self(f32x4::new([x, x, x, x]))
+    }
+
     #[inline]
-    pub const fn new_corners(topleft: Vec2, bottomright: Vec2) -> Self {
+    pub const fn corners(topleft: Vec2, bottomright: Vec2) -> Self {
         Self(f32x4::new([
             topleft.x,
             topleft.y,
@@ -292,6 +297,10 @@ impl RelRect {
         Self(f32x4::new([left, top, right, bottom]))
     }
 
+    pub const fn broadcast(x: f32) -> Self {
+        Self(f32x4::new([x, x, x, x]))
+    }
+
     #[inline]
     pub fn topleft(&self) -> Vec2 {
         let ltrb = self.0.as_array_ref();
@@ -321,7 +330,7 @@ impl Add<AbsRect> for RelRect {
 
 #[inline]
 pub fn build_aabb(a: Vec2, b: Vec2) -> AbsRect {
-    AbsRect::new_corners(a.min_by_component(b), a.max_by_component(b))
+    AbsRect::corners(a.min_by_component(b), a.max_by_component(b))
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
@@ -803,43 +812,115 @@ pub enum RowDirection {
     BottomToTop,
 }
 
-pub struct TextEditer {
+#[derive(Default, Debug)]
+pub struct TextEditObj {
     pub(crate) text: RefCell<String>,
     count: AtomicUsize,
     cursor: AtomicUsize,
     select: AtomicUsize, // If there's a selection, this is different from cursor and points at the end. Can be less than cursor.
 }
 
-impl TextEditer {
-    fn get_content(&self) -> std::cell::Ref<'_, String> {
+impl Clone for TextEditObj {
+    fn clone(&self) -> Self {
+        Self {
+            text: self.text.clone(),
+            count: self.count.load(Ordering::Relaxed).into(),
+            cursor: self.cursor.load(Ordering::Relaxed).into(),
+            select: self.select.load(Ordering::Relaxed).into(),
+        }
+    }
+}
+
+impl TextEditObj {
+    pub fn new(text: String, cursor: (usize, usize)) -> Self {
+        Self {
+            text: text.into(),
+            count: 0.into(),
+            cursor: cursor.0.into(),
+            select: cursor.1.into(),
+        }
+    }
+    pub fn get_content(&self) -> std::cell::Ref<'_, String> {
         self.text.borrow()
     }
-    fn set_content(&self, content: &str) {
+    pub fn set_content(&self, content: &str) {
         *self.text.borrow_mut() = content.into();
         self.count.fetch_add(1, Ordering::Release);
     }
-    fn edit(&self, multisplice: &[(std::ops::Range<usize>, String)]) {
+    pub fn edit(&self, multisplice: &[(std::ops::Range<usize>, String)]) {
         // TODO there's probably a more efficient way to do this
         for (range, replace) in multisplice {
             self.text.borrow_mut().replace_range(range.clone(), replace);
         }
         self.count.fetch_add(1, Ordering::Release);
     }
-    fn get_cursor(&self) -> (usize, usize) {
+    pub fn get_cursor(&self) -> (usize, usize) {
         (
             self.cursor.load(Ordering::Relaxed),
             self.select.load(Ordering::Relaxed),
         )
     }
-    fn set_cursor(&self, cursor: usize) {
+    pub fn set_cursor(&self, cursor: usize) {
         self.cursor.store(cursor, Ordering::Release);
         self.select.store(cursor, Ordering::Release);
         self.count.fetch_add(1, Ordering::Release);
     }
-    fn set_selection(&self, cursor: (usize, usize)) {
+    pub fn set_selection(&self, cursor: (usize, usize)) {
         self.cursor.store(cursor.0, Ordering::Release);
         self.select.store(cursor.1, Ordering::Release);
         self.count.fetch_add(1, Ordering::Release);
+    }
+}
+
+#[derive(Default, Debug)]
+pub struct TextSnapshot {
+    pub(crate) obj: Rc<TextEditObj>,
+    count: usize,
+}
+
+// Ensures each clone gets a fresh snapshot to capture changes
+impl Clone for TextSnapshot {
+    fn clone(&self) -> Self {
+        Self {
+            obj: self.obj.clone(),
+            count: self.obj.count.load(Ordering::Acquire),
+        }
+    }
+}
+
+impl Eq for TextSnapshot {}
+impl PartialEq for TextSnapshot {
+    fn eq(&self, other: &Self) -> bool {
+        self.count == other.count && Rc::ptr_eq(&self.obj, &other.obj)
+    }
+}
+
+impl PartialOrd for TextSnapshot {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        if Rc::ptr_eq(&self.obj, &other.obj) {
+            self.count.partial_cmp(&other.count)
+        } else {
+            None
+        }
+    }
+}
+
+impl From<Rc<TextEditObj>> for TextSnapshot {
+    fn from(value: Rc<TextEditObj>) -> Self {
+        Self {
+            obj: value.clone(),
+            count: value.count.load(std::sync::atomic::Ordering::Acquire),
+        }
+    }
+}
+
+impl From<TextEditObj> for TextSnapshot {
+    fn from(value: TextEditObj) -> Self {
+        let value = Rc::new(value);
+        Self {
+            obj: value.clone(),
+            count: value.count.load(std::sync::atomic::Ordering::Acquire),
+        }
     }
 }
 
@@ -1140,6 +1221,7 @@ impl Dispatchable for () {
 #[derive(Default)]
 pub struct StateManager {
     states: HashMap<Rc<SourceID>, Box<dyn StateMachineWrapper>>,
+    changed: bool,
 }
 
 impl StateManager {
@@ -1202,7 +1284,8 @@ impl StateManager {
         // We use smallvec here so we can satisfy the borrow checker without making yet another heap allocation in most cases
         let iter: SmallVec<[IterTuple; 2]> = {
             let state = self.states.get_mut(&slot.0).ok_or_eyre("Invalid slot")?;
-            let v = state.process(event, slot.1, dpi, area)?;
+            let (v, changed) = state.process(event, slot.1, dpi, area)?;
+            self.changed = self.changed || changed;
             v.into_iter()
                 .map(|(i, e)| (e, i, state.output_slot(i.ilog2() as usize).unwrap().clone()))
         }
@@ -1252,7 +1335,6 @@ pub struct App<
 struct AppDataMachine<AppData: 'static + std::cmp::PartialEq> {
     pub state: Option<AppData>,
     input: Vec<AppEvent<AppData>>,
-    pub changed: bool,
 }
 
 impl<AppData: 'static + std::cmp::PartialEq> StateMachineWrapper for AppDataMachine<AppData> {
@@ -1262,19 +1344,18 @@ impl<AppData: 'static + std::cmp::PartialEq> StateMachineWrapper for AppDataMach
         index: u64,
         _: crate::Vec2,
         _: AbsRect,
-    ) -> eyre::Result<Vec<DispatchPair>> {
+    ) -> eyre::Result<(Vec<DispatchPair>, bool)> {
         let f = self
             .input
             .get_mut(index as usize)
             .ok_or_eyre("index out of bounds")?;
         let processed = match f(input, self.state.take().unwrap()) {
-            Ok(s) => Some(s),
-            Err(s) => Some(s),
+            Ok(s) | Err(s) => Some(s),
         };
         // If it actually changed, set the change marker
-        self.changed = self.changed || (processed != self.state);
+        let changed = processed != self.state;
         self.state = processed;
-        Ok(Vec::new())
+        Ok((Vec::new(), changed))
     }
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
@@ -1298,10 +1379,8 @@ use winit::platform::windows::EventLoopBuilderExtWindows;
 #[cfg(target_os = "linux")]
 use winit::platform::x11::EventLoopBuilderExtX11;
 
-impl<
-        AppData: std::cmp::PartialEq,
-        O: FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>,
-    > App<AppData, O>
+impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>>
+    App<AppData, O>
 {
     pub fn new<T: 'static>(
         app_state: AppData,
@@ -1337,7 +1416,6 @@ impl<
             Box::new(AppDataMachine {
                 input: inputs,
                 state: Some(app_state),
-                changed: false,
             }),
         );
 
@@ -1418,10 +1496,10 @@ impl<
 }
 
 impl<
-        AppData: std::cmp::PartialEq,
-        T: 'static,
-        O: FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>,
-    > winit::application::ApplicationHandler<T> for App<AppData, O>
+    AppData: std::cmp::PartialEq,
+    T: 'static,
+    O: FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>,
+> winit::application::ApplicationHandler<T> for App<AppData, O>
 {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
         // If this is our first resume, call the start function that can create the necessary graphics context
@@ -1468,10 +1546,8 @@ impl<
                     _ => Window::on_window_event(window.id(), rtree, event, &mut self.state),
                 };
 
-                let app_state: &mut AppDataMachine<AppData> =
-                    self.state.get_mut(&APP_SOURCE_ID).unwrap();
-                if app_state.changed || resized {
-                    app_state.changed = false;
+                if self.state.changed || resized {
+                    self.state.changed = false;
                     let store = self.store.take().unwrap();
                     self.update_outline(event_loop, store);
                 }

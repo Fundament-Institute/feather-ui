@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::layout::{leaf, Layout};
+use crate::layout::{Layout, leaf};
 use crate::shaders::gen_uniform;
-use crate::{layout, DriverState, SourceID};
+use crate::{DriverState, SourceID, layout};
 use derive_where::derive_where;
 use std::borrow::Cow;
 use std::rc::Rc;

@@ -2,11 +2,11 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::{
-    base, cap_unsized, check_unsized_abs, map_unsized_area, merge_margin, nuetralize_unsized,
-    Concrete, Desc, LayoutWrap, Renderable, Staged,
+    Concrete, Desc, LayoutWrap, Renderable, Staged, base, cap_unsized, check_unsized_abs,
+    map_unsized_area, merge_margin, nuetralize_unsized,
 };
 use crate::persist::{FnPersist2, VectorFold};
-use crate::{rtree, AbsLimits, AbsRect, DAbsRect, DValue, RowDirection, Vec2, UNSIZED_AXIS};
+use crate::{AbsLimits, AbsRect, DAbsRect, DValue, RowDirection, UNSIZED_AXIS, Vec2, rtree};
 use derive_more::TryFrom;
 use smallvec::SmallVec;
 use std::rc::Rc;
@@ -315,7 +315,7 @@ impl Desc for dyn Prop {
 
             let child_limit = super::apply_limit(inner_dim, limits, *imposed.rlimits());
             let basis = imposed.basis().resolve(dpi_main).resolve(outer_main);
-            let inner_area = AbsRect::new_corners(
+            let inner_area = AbsRect::corners(
                 Vec2::zero(),
                 if xaxis {
                     Vec2::new(basis, UNSIZED_AXIS)
