@@ -7,12 +7,14 @@ pub mod domain_point;
 pub mod draggable;
 pub mod flexbox;
 pub mod gridbox;
+pub mod line;
 pub mod listbox;
 pub mod mouse_area;
 pub mod paragraph;
 pub mod region;
 pub mod shape;
 pub mod text;
+pub mod textbox;
 pub mod window;
 
 use crate::component::window::Window;
@@ -196,10 +198,6 @@ where
     }
 }
 
-pub trait Renderable {
-    fn render(&self, area: AbsRect, driver: &DriverState) -> im::Vector<RenderInstruction>;
-}
-
 // Stores the root node for the various trees.
 
 pub struct RootState {
@@ -311,29 +309,6 @@ impl Root {
             Ok(())
         })
     }*/
-}
-
-// If a component provides a CrossReferenceDomain, it's children can register themselves with it.
-// Registered children will write their fully resolved area to the mapping, which can then be
-// retrieved during the render step via a source ID.
-#[derive(Default)]
-pub struct CrossReferenceDomain {
-    mappings: crate::RefCell<im::HashMap<Rc<SourceID>, AbsRect>>,
-}
-
-impl CrossReferenceDomain {
-    pub fn write_area(&self, target: Rc<SourceID>, area: AbsRect) {
-        self.mappings.borrow_mut().insert(target, area);
-    }
-
-    pub fn get_area(&self, target: &Rc<SourceID>) -> Option<AbsRect> {
-        self.mappings.borrow().get(target).copied()
-    }
-
-    pub fn remove_self(&self, target: &Rc<SourceID>) {
-        // TODO: Is this necessary? Does it even make sense? Do you simply need to wipe the mapping for every new layout instead?
-        self.mappings.borrow_mut().remove(target);
-    }
 }
 
 #[macro_export]

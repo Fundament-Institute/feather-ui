@@ -136,7 +136,7 @@ gen_prop_bag_value_clone!(
     crate::layout::domain_write::Prop,
     domain,
     set_domain,
-    std::rc::Rc<crate::component::CrossReferenceDomain>,
+    std::rc::Rc<crate::CrossReferenceDomain>,
     panic!("PropBag didn't have domain!")
 );
 

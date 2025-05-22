@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use crate::{AbsRect, DAbsRect, DPoint, DRect, ZERO_DRECT};
-use std::rc::Rc;
+use std::{rc::Rc, usize};
 
 #[macro_export]
 macro_rules! gen_from_to_dyn {
@@ -41,7 +41,7 @@ impl crate::layout::Desc for dyn Empty {
         outer_limits: crate::AbsLimits,
         _: &Self::Children,
         id: std::rc::Weak<crate::SourceID>,
-        renderable: Option<Rc<dyn crate::component::Renderable>>,
+        renderable: Option<Rc<dyn crate::render::Renderable>>,
         _: crate::Vec2,
         _: &crate::DriverState,
     ) -> Box<dyn super::Staged + 'a> {
@@ -140,3 +140,24 @@ pub trait Direction {
 
 impl Limits for DRect {}
 impl RLimits for DRect {}
+
+pub trait TextEdit {
+    fn textedit(&self) -> &crate::TextEditer;
+}
+
+pub struct TextEditSnapshot<T: TextEdit> {
+    pub(crate) obj: Rc<T>,
+    count: usize,
+}
+
+impl<T: TextEdit> From<Rc<T>> for TextEditSnapshot<T> {
+    fn from(value: Rc<T>) -> Self {
+        Self {
+            obj: value.clone(),
+            count: value
+                .textedit()
+                .count
+                .load(std::sync::atomic::Ordering::Acquire),
+        }
+    }
+}
