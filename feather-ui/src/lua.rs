@@ -62,7 +62,7 @@ gen_lua_bag_clone!(crate::layout::base::ZIndex, zindex, i32);
 gen_lua_bag_clone!(
     crate::layout::domain_write::Prop,
     domain,
-    std::rc::Rc<crate::component::CrossReferenceDomain>
+    std::rc::Rc<crate::CrossReferenceDomain>
 );
 
 gen_lua_bag!(crate::layout::base::Area, area, crate::URect);

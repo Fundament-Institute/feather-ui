@@ -11,6 +11,7 @@ use enum_variant_type::EnumVariantType;
 use feather_macro::Dispatch;
 use std::collections::HashSet;
 use std::rc::Rc;
+use winit::keyboard::KeyCode;
 
 #[derive(Debug, Dispatch, EnumVariantType, Clone)]
 #[evt(derive(Clone), module = "mouse_area_event")]
@@ -60,6 +61,15 @@ where
             crate::wrap_event::<RawEvent, MouseAreaEvent, MouseAreaState>(
                 |e, area, _dpi, mut data| {
                     match e {
+                        RawEvent::Key {
+                            down, physical_key, ..
+                        } => {
+                            if let winit::keyboard::PhysicalKey::Code(code) = physical_key {
+                                if code == KeyCode::Enter || down {
+                                    return Ok((data, vec![MouseAreaEvent::OnClick]));
+                                }
+                            }
+                        }
                         RawEvent::Mouse {
                             device_id,
                             state,
@@ -118,7 +128,7 @@ where
         Ok(Box::new(StateMachine {
             state: Some(Default::default()),
             input: [(
-                RawEventKind::Mouse as u64 | RawEventKind::Touch as u64,
+                RawEventKind::Mouse as u64 | RawEventKind::Touch as u64 | RawEventKind::Key as u64,
                 onclick,
             )],
             output: self.slots.clone(),

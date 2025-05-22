@@ -2,26 +2,27 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use crate::layout::{base, Layout};
-use crate::shaders::gen_uniform;
-use crate::{layout, DriverState, SourceID};
-use crate::{render, CrossReferenceDomain};
+use crate::render::Renderable;
+use crate::shaders::{gen_uniform, to_bytes, Vertex};
+use crate::CrossReferenceDomain;
+use crate::{layout, DriverState, RenderLambda, SourceID};
 use derive_where::derive_where;
 use std::rc::Rc;
+use ultraviolet::Vec2;
 use ultraviolet::Vec4;
 use wgpu::util::DeviceExt;
 
-// This draws a line between two points that were previously stored in a Cross-reference Domain
+// This draws a line between two points relative to the parent
 #[derive_where(Clone)]
-pub struct DomainLine<T: base::Empty + 'static> {
+pub struct Line<T: base::Empty + 'static> {
     pub id: Rc<SourceID>,
-    pub domain: Rc<CrossReferenceDomain>,
-    pub start: Rc<SourceID>,
-    pub end: Rc<SourceID>,
+    pub start: Vec2,
+    pub end: Vec2,
     pub props: Rc<T>,
     pub fill: Vec4,
 }
 
-impl<T: base::Empty + 'static> super::Component<T> for DomainLine<T>
+impl<T: base::Empty + 'static> super::Component<T> for Line<T>
 where
     for<'a> &'a T: Into<&'a (dyn base::Empty + 'static)>,
 {
@@ -94,17 +95,16 @@ where
             props: self.props.clone(),
             children: Default::default(),
             id: Rc::downgrade(&self.id),
-            renderable: Some(Rc::new_cyclic(|this| render::domain::line::Pipeline {
+            renderable: Some(Rc::new_cyclic(|this| crate::render::line::Pipeline {
                 this: this.clone(),
                 pipeline,
                 group: bind_group,
                 _buffers: buffers,
-                domain: self.domain.clone(),
-                start: self.start.clone(),
-                end: self.end.clone(),
+                start: self.start,
+                end: self.end,
             })),
         })
     }
 }
 
-crate::gen_component_wrap!(DomainLine, base::Empty);
+crate::gen_component_wrap!(Line, base::Empty);

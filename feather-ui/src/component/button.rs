@@ -55,8 +55,8 @@ where
         for child in self.children.iter() {
             manager.init_component(child.as_ref().unwrap().as_ref())?;
         }
-        let blah: &dyn Component<DRect> = &self.marea;
-        manager.init_component::<DRect>(&blah)?;
+        let marea: &dyn Component<DRect> = &self.marea;
+        manager.init_component::<DRect>(&marea)?;
         Ok(())
     }
 
@@ -74,8 +74,9 @@ where
         );
 
         let (_, mut children) = map.call(Default::default(), &self.children);
-        let test = self.marea.layout(state, driver, dpi, config);
-        children.push_back(Some(Box::new(test)));
+        children.push_back(Some(Box::new(
+            self.marea.layout(state, driver, dpi, config),
+        )));
 
         Box::new(layout::Node::<T, dyn fixed::Prop> {
             props: self.props.clone(),

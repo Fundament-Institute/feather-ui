@@ -9,13 +9,14 @@ pub mod grid;
 pub mod leaf;
 pub mod list;
 pub mod root;
+pub mod text;
 
 use dyn_clone::DynClone;
 use ultraviolet::Vec2;
 use wide::f32x4;
 
-use crate::component::Renderable;
 use crate::persist::{FnPersist2, VectorFold};
+use crate::render::Renderable;
 use crate::{
     rtree, AbsDim, AbsLimits, AbsRect, DriverState, RelLimits, RenderInstruction, SourceID, URect,
     UNSIZED_AXIS,

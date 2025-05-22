@@ -3,7 +3,7 @@
 
 use super::base::{Empty, RLimits};
 use super::{Concrete, Desc, LayoutWrap, Renderable, Staged};
-use crate::component::CrossReferenceDomain;
+use crate::{render, CrossReferenceDomain};
 use crate::{rtree, AbsRect, SourceID};
 use std::marker::PhantomData;
 use std::rc::Rc;
@@ -45,7 +45,7 @@ impl Desc for dyn Prop {
 
         Box::new(Concrete {
             area: outer_area,
-            render: Some(Rc::new(DomainWrite {
+            render: Some(Rc::new(render::domain::Write {
                 id: id.clone(),
                 domain: props.domain().clone(),
                 base: renderable,
@@ -53,28 +53,5 @@ impl Desc for dyn Prop {
             rtree: Rc::new(rtree::Node::new(outer_area, None, Default::default(), id)),
             children: Default::default(),
         })
-    }
-}
-
-struct DomainWrite {
-    pub(crate) id: std::rc::Weak<SourceID>,
-    pub(crate) domain: Rc<CrossReferenceDomain>,
-    pub(crate) base: Option<Rc<dyn Renderable>>,
-}
-
-impl Renderable for DomainWrite {
-    fn render(
-        &self,
-        area: AbsRect,
-        driver: &crate::DriverState,
-    ) -> im::Vector<crate::RenderInstruction> {
-        if let Some(idref) = self.id.upgrade() {
-            self.domain.write_area(idref, area);
-        }
-
-        self.base
-            .as_ref()
-            .map(|x| x.render(area, driver))
-            .unwrap_or_default()
     }
 }

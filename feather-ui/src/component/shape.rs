@@ -164,7 +164,7 @@ where
             props: self.props.clone(),
             children: Default::default(),
             id: Rc::downgrade(&self.id),
-            renderable: Some(Rc::new_cyclic(|this| crate::shaders::StandardPipeline {
+            renderable: Some(Rc::new_cyclic(|this| crate::render::standard::Pipeline {
                 this: this.clone(),
                 pipeline,
                 group: bind_group,

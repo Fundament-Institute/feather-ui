@@ -9,6 +9,7 @@ pub mod layout;
 pub mod lua;
 pub mod persist;
 mod propbag;
+mod render;
 mod rtree;
 mod shaders;
 
@@ -30,6 +31,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::hash::Hasher;
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 use std::rc::Rc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use ultraviolet::f32x4;
 use ultraviolet::vec::Vec2;
 use wide::CmpLe;
@@ -799,6 +801,69 @@ pub enum RowDirection {
     RightToLeft,
     TopToBottom,
     BottomToTop,
+}
+
+pub struct TextEditer {
+    pub(crate) text: RefCell<String>,
+    count: AtomicUsize,
+    cursor: AtomicUsize,
+    select: AtomicUsize, // If there's a selection, this is different from cursor and points at the end. Can be less than cursor.
+}
+
+impl TextEditer {
+    fn get_content(&self) -> std::cell::Ref<'_, String> {
+        self.text.borrow()
+    }
+    fn set_content(&self, content: &str) {
+        *self.text.borrow_mut() = content.into();
+        self.count.fetch_add(1, Ordering::Release);
+    }
+    fn edit(&self, multisplice: &[(std::ops::Range<usize>, String)]) {
+        // TODO there's probably a more efficient way to do this
+        for (range, replace) in multisplice {
+            self.text.borrow_mut().replace_range(range.clone(), replace);
+        }
+        self.count.fetch_add(1, Ordering::Release);
+    }
+    fn get_cursor(&self) -> (usize, usize) {
+        (
+            self.cursor.load(Ordering::Relaxed),
+            self.select.load(Ordering::Relaxed),
+        )
+    }
+    fn set_cursor(&self, cursor: usize) {
+        self.cursor.store(cursor, Ordering::Release);
+        self.select.store(cursor, Ordering::Release);
+        self.count.fetch_add(1, Ordering::Release);
+    }
+    fn set_selection(&self, cursor: (usize, usize)) {
+        self.cursor.store(cursor.0, Ordering::Release);
+        self.select.store(cursor.1, Ordering::Release);
+        self.count.fetch_add(1, Ordering::Release);
+    }
+}
+
+// If a component provides a CrossReferenceDomain, it's children can register themselves with it.
+// Registered children will write their fully resolved area to the mapping, which can then be
+// retrieved during the render step via a source ID.
+#[derive(Default)]
+pub struct CrossReferenceDomain {
+    mappings: crate::RefCell<im::HashMap<Rc<SourceID>, AbsRect>>,
+}
+
+impl CrossReferenceDomain {
+    pub fn write_area(&self, target: Rc<SourceID>, area: AbsRect) {
+        self.mappings.borrow_mut().insert(target, area);
+    }
+
+    pub fn get_area(&self, target: &Rc<SourceID>) -> Option<AbsRect> {
+        self.mappings.borrow().get(target).copied()
+    }
+
+    pub fn remove_self(&self, target: &Rc<SourceID>) {
+        // TODO: Is this necessary? Does it even make sense? Do you simply need to wipe the mapping for every new layout instead?
+        self.mappings.borrow_mut().remove(target);
+    }
 }
 
 pub trait RenderLambda: Fn(&mut wgpu::RenderPass) + dyn_clone::DynClone {}
