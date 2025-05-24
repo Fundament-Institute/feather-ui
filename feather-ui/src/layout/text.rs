@@ -55,23 +55,23 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
             )
         };
 
+        let mut text_binding = self.text_render.text_buffer.borrow_mut();
+        let text_buffer = text_binding.as_mut().unwrap();
+
         let dim = evaluated_area.dim();
-        self.text_render.text_buffer.borrow_mut().set_size(
+        text_buffer.set_size(
             &mut text_system.borrow_mut().font_system,
             if unsized_x { limitx } else { Some(dim.0.x) },
             if unsized_y { limity } else { Some(dim.0.y) },
         );
 
-        self.text_render
-            .text_buffer
-            .borrow_mut()
-            .shape_until_scroll(&mut text_system.borrow_mut().font_system, false);
+        text_buffer.shape_until_scroll(&mut text_system.borrow_mut().font_system, false);
 
         // If we have indeterminate area, calculate the size
         if unsized_x || unsized_y {
             let mut h = 0.0;
             let mut w: f32 = 0.0;
-            for run in self.text_render.text_buffer.borrow().layout_runs() {
+            for run in text_buffer.layout_runs() {
                 w = w.max(run.line_w);
                 h += run.line_height;
             }
