@@ -111,13 +111,17 @@ impl Node {
                             let state: &mut WindowStateMachine =
                                 manager.get_mut(&window_id).map_err(|_| ())?;
                             let window = state.state.as_mut().unwrap();
+                            let inner = window.window.clone();
 
                             // Tell the old node that it lost focus (if it cares).
                             if let Some(old) = window
                                 .focus
                                 .insert(*device_id, crate::component::window::RcNode(self.clone()))
                             {
-                                let evt = RawEvent::Focus { acquired: false };
+                                let evt = RawEvent::Focus {
+                                    acquired: false,
+                                    window: inner.clone(),
+                                };
                                 // We don't care about the result of this event
                                 let _ = old.0.inject_event(
                                     &evt,
@@ -128,7 +132,10 @@ impl Node {
                                 );
                             }
 
-                            let evt = RawEvent::Focus { acquired: true };
+                            let evt = RawEvent::Focus {
+                                acquired: true,
+                                window: inner,
+                            };
                             let _ = self.inject_event(&evt, evt.kind(), dpi, offset, manager);
                         }
                     }

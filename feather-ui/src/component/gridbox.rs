@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::layout::{grid, Desc, Layout, LayoutWrap};
+use crate::layout::{Desc, Layout, LayoutWrap, grid};
 use crate::persist::{FnPersist, VectorMap};
-use crate::{layout, SourceID};
+use crate::{SourceID, layout};
 use derive_where::derive_where;
 use std::rc::Rc;
 
@@ -32,12 +32,12 @@ impl<T: grid::Prop + 'static> super::Component<T> for GridBox<T> {
         &self,
         state: &crate::StateManager,
         driver: &crate::DriverState,
-        dpi: crate::Vec2,
+        window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let map = VectorMap::new(
             |child: &Option<Box<ComponentFrom<dyn grid::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn grid::Prop as Desc>::Child>>> {
-                Some(child.as_ref().unwrap().layout(state, driver,dpi, config))
+                Some(child.as_ref().unwrap().layout(state, driver,window, config))
             },
         );
 

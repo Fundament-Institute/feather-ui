@@ -2,9 +2,9 @@ use std::{cell::RefCell, rc::Rc};
 
 use derive_where::derive_where;
 
-use crate::{render, rtree, AbsRect, DriverState, SourceID};
+use crate::{AbsRect, DriverState, SourceID, render, rtree};
 
-use super::{check_unsized, leaf, limit_area, Layout};
+use super::{Layout, check_unsized, leaf, limit_area};
 
 #[derive_where(Clone)]
 pub struct Node<T: leaf::Padded> {
@@ -25,7 +25,7 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
         dpi: crate::Vec2,
         driver: &DriverState,
     ) -> Box<dyn super::Staged + 'a> {
-        let text_system: &Rc<RefCell<crate::TextSystem>> =
+        let text_system: &Rc<RefCell<crate::text::System>> =
             driver.text().expect("driver.text not initialized");
         let mut limits = self.props.limits().resolve(dpi) + outer_limits;
         let myarea = self.props.area().resolve(dpi);

@@ -15,11 +15,12 @@ use eyre::{OptionExt, Result};
 use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
+use tracing::Instrument;
 use ultraviolet::Vec2;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::{DeviceId, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
-use winit::window::WindowAttributes;
+use winit::window::{CursorIcon, WindowAttributes};
 
 /// Holds our internal mutable state for this window
 pub(crate) struct WindowState {
@@ -31,7 +32,7 @@ pub(crate) struct WindowState {
     last_mouse: PhysicalPosition<f32>,
     pub focus: HashMap<DeviceId, RcNode>,
     pub dpi: Vec2,
-    pub driver: Rc<DriverState>,
+    pub driver: Arc<DriverState>,
     pub draw: im::Vector<RenderInstruction>,
 }
 
@@ -53,7 +54,7 @@ impl PartialEq for WindowState {
             && self.last_mouse == other.last_mouse
             && self.focus == other.focus
             && self.dpi == other.dpi
-            && Rc::ptr_eq(&self.driver, &other.driver)
+            && Arc::ptr_eq(&self.driver, &other.driver)
     }
 }
 
@@ -71,11 +72,11 @@ impl Component<AbsDim> for Window {
         &self,
         manager: &crate::StateManager,
         _: &DriverState,
-        _: crate::Vec2,
+        _: &Rc<SourceID>,
         _: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn crate::layout::Layout<AbsDim>> {
         let inner = manager
-            .get::<StateMachine<(), WindowState, 0, 0>>(&self.id)
+            .get::<WindowStateMachine>(&self.id)
             .unwrap()
             .state
             .as_ref()
@@ -87,9 +88,7 @@ impl Component<AbsDim> for Window {
                 x: size.width as f32,
                 y: size.height as f32,
             })),
-            children: self
-                .child
-                .layout(manager, &driver, inner.dpi, &inner.config),
+            children: self.child.layout(manager, &driver, &self.id, &inner.config),
             id: Rc::downgrade(&self.id),
             renderable: None,
         })
@@ -117,7 +116,7 @@ impl Window {
     >(
         &self,
         manager: &mut StateManager,
-        driver: &mut std::rc::Weak<DriverState>,
+        driver: &mut alloc::sync::Weak<DriverState>,
         instance: &wgpu::Instance,
         event_loop: &ActiveEventLoop,
     ) -> Result<()> {
@@ -214,10 +213,12 @@ impl Window {
         rtree: Weak<rtree::Node>,
         event: WindowEvent,
         manager: &mut StateManager,
+        driver: std::sync::Weak<DriverState>,
     ) -> Result<(), ()> {
         let state: &mut WindowStateMachine = manager.get_mut(&id).map_err(|_| ())?;
         let window = state.state.as_mut().unwrap();
         let dpi = window.dpi;
+        let inner = window.window.clone();
         match event {
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                 window.dpi = Vec2::broadcast(scale_factor as f32);
@@ -312,11 +313,16 @@ impl Window {
             WindowEvent::Focused(acquired) => {
                 // When the window loses or gains focus, we send a focus event to our children that had
                 // focus, but we don't forget or change which children have focus.
-                let evt = RawEvent::Focus { acquired };
+                let evt = RawEvent::Focus {
+                    acquired,
+                    window: window.window.clone(),
+                };
 
                 // We have to collect this map so we aren't borrowing manager twice
                 let nodes: SmallVec<[RcNode; 4]> = window
-                    .focus.values().map(|node| RcNode(node.0.clone()))
+                    .focus
+                    .values()
+                    .map(|node| RcNode(node.0.clone()))
                     .collect();
 
                 for node in nodes {
@@ -367,6 +373,7 @@ impl Window {
                             pos: window.last_mouse,
                             all_buttons: window.all_buttons,
                             modifiers: window.modifiers,
+                            driver: driver.clone(),
                         }
                     }
                     WindowEvent::CursorEntered { device_id } => RawEvent::MouseMove {
@@ -375,6 +382,7 @@ impl Window {
                         pos: window.last_mouse,
                         all_buttons: window.all_buttons,
                         modifiers: window.modifiers,
+                        driver: driver.clone(),
                     },
                     WindowEvent::CursorLeft { device_id } => {
                         let e = RawEvent::MouseMove {
@@ -383,6 +391,7 @@ impl Window {
                             pos: window.last_mouse,
                             all_buttons: window.all_buttons,
                             modifiers: window.modifiers,
+                            driver: driver.clone(),
                         };
                         window.last_mouse = PhysicalPosition::new(f32::NAN, f32::NAN);
                         e
@@ -470,7 +479,12 @@ impl Window {
                     _ => return Err(()),
                 };
 
-                match e {
+                if let RawEvent::MouseMove { .. } = e {
+                    if let Some(d) = driver.upgrade() {
+                        *d.cursor.write() = CursorIcon::Default;
+                    }
+                }
+                let r = match e {
                     RawEvent::Drag => Err(()),
                     RawEvent::Focus { .. } => Err(()),
                     RawEvent::JoyAxis { device_id: _, .. }
@@ -479,7 +493,9 @@ impl Window {
                     | RawEvent::Key { device_id: _, .. } => {
                         // We have to collect this map so we aren't borrowing manager twice
                         let nodes: SmallVec<[RcNode; 4]> = window
-                            .focus.values().map(|node| RcNode(node.0.clone()))
+                            .focus
+                            .values()
+                            .map(|node| RcNode(node.0.clone()))
                             .collect();
 
                         // Currently, we always duplicate key/joystick events to all focused elements. Later, we may map specific
@@ -519,7 +535,13 @@ impl Window {
                             Err(())
                         }
                     }
+                };
+                if let RawEvent::MouseMove { .. } = e {
+                    if let Some(d) = driver.upgrade() {
+                        inner.set_cursor(*d.cursor.read());
+                    }
                 }
+                r
             }
         }
     }

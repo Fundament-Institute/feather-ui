@@ -9,9 +9,10 @@ pub mod layout;
 pub mod lua;
 pub mod persist;
 mod propbag;
-mod render;
+pub mod render;
 mod rtree;
 mod shaders;
+pub mod text;
 
 use crate::component::window::Window;
 use component::window::WindowStateMachine;
@@ -22,6 +23,7 @@ use dyn_clone::DynClone;
 use eyre::OptionExt;
 pub use glyphon::Wrap;
 use once_cell::unsync::OnceCell;
+use parking_lot::lock_api::RwLock;
 use persist::FnPersist;
 use shaders::ShaderCache;
 use smallvec::SmallVec;
@@ -31,11 +33,11 @@ use std::collections::{BTreeMap, HashMap};
 use std::hash::Hasher;
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 use std::rc::Rc;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use ultraviolet::f32x4;
 use ultraviolet::vec::Vec2;
 use wide::CmpLe;
-use winit::window::WindowId;
+use winit::window::{CursorIcon, WindowId};
 
 /// Allocates `&[T]` on stack space.
 pub(crate) fn alloca_array<T, R>(n: usize, f: impl FnOnce(&mut [T]) -> R) -> R {
@@ -84,6 +86,7 @@ pub enum Error {
 pub const UNSIZED_AXIS: f32 = f32::MAX;
 pub const ZERO_POINT: Vec2 = Vec2 { x: 0.0, y: 0.0 };
 const MINUS_BOTTOMRIGHT: f32x4 = f32x4::new([1.0, 1.0, -1.0, -1.0]);
+pub const BASE_DPI: Vec2 = Vec2::new(96.0, 96.0);
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct AbsDim(Vec2);
@@ -812,118 +815,6 @@ pub enum RowDirection {
     BottomToTop,
 }
 
-#[derive(Default, Debug)]
-pub struct TextEditObj {
-    pub(crate) text: RefCell<String>,
-    count: AtomicUsize,
-    cursor: AtomicUsize,
-    select: AtomicUsize, // If there's a selection, this is different from cursor and points at the end. Can be less than cursor.
-}
-
-impl Clone for TextEditObj {
-    fn clone(&self) -> Self {
-        Self {
-            text: self.text.clone(),
-            count: self.count.load(Ordering::Relaxed).into(),
-            cursor: self.cursor.load(Ordering::Relaxed).into(),
-            select: self.select.load(Ordering::Relaxed).into(),
-        }
-    }
-}
-
-impl TextEditObj {
-    pub fn new(text: String, cursor: (usize, usize)) -> Self {
-        Self {
-            text: text.into(),
-            count: 0.into(),
-            cursor: cursor.0.into(),
-            select: cursor.1.into(),
-        }
-    }
-    pub fn get_content(&self) -> std::cell::Ref<'_, String> {
-        self.text.borrow()
-    }
-    pub fn set_content(&self, content: &str) {
-        *self.text.borrow_mut() = content.into();
-        self.count.fetch_add(1, Ordering::Release);
-    }
-    pub fn edit(&self, multisplice: &[(std::ops::Range<usize>, String)]) {
-        // TODO there's probably a more efficient way to do this
-        for (range, replace) in multisplice {
-            self.text.borrow_mut().replace_range(range.clone(), replace);
-        }
-        self.count.fetch_add(1, Ordering::Release);
-    }
-    pub fn get_cursor(&self) -> (usize, usize) {
-        (
-            self.cursor.load(Ordering::Relaxed),
-            self.select.load(Ordering::Relaxed),
-        )
-    }
-    pub fn set_cursor(&self, cursor: usize) {
-        self.cursor.store(cursor, Ordering::Release);
-        self.select.store(cursor, Ordering::Release);
-        self.count.fetch_add(1, Ordering::Release);
-    }
-    pub fn set_selection(&self, cursor: (usize, usize)) {
-        self.cursor.store(cursor.0, Ordering::Release);
-        self.select.store(cursor.1, Ordering::Release);
-        self.count.fetch_add(1, Ordering::Release);
-    }
-}
-
-#[derive(Default, Debug)]
-pub struct TextSnapshot {
-    pub(crate) obj: Rc<TextEditObj>,
-    count: usize,
-}
-
-// Ensures each clone gets a fresh snapshot to capture changes
-impl Clone for TextSnapshot {
-    fn clone(&self) -> Self {
-        Self {
-            obj: self.obj.clone(),
-            count: self.obj.count.load(Ordering::Acquire),
-        }
-    }
-}
-
-impl Eq for TextSnapshot {}
-impl PartialEq for TextSnapshot {
-    fn eq(&self, other: &Self) -> bool {
-        self.count == other.count && Rc::ptr_eq(&self.obj, &other.obj)
-    }
-}
-
-impl PartialOrd for TextSnapshot {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        if Rc::ptr_eq(&self.obj, &other.obj) {
-            self.count.partial_cmp(&other.count)
-        } else {
-            None
-        }
-    }
-}
-
-impl From<Rc<TextEditObj>> for TextSnapshot {
-    fn from(value: Rc<TextEditObj>) -> Self {
-        Self {
-            obj: value.clone(),
-            count: value.count.load(std::sync::atomic::Ordering::Acquire),
-        }
-    }
-}
-
-impl From<TextEditObj> for TextSnapshot {
-    fn from(value: TextEditObj) -> Self {
-        let value = Rc::new(value);
-        Self {
-            obj: value.clone(),
-            count: value.count.load(std::sync::atomic::Ordering::Acquire),
-        }
-    }
-}
-
 // If a component provides a CrossReferenceDomain, it's children can register themselves with it.
 // Registered children will write their fully resolved area to the mapping, which can then be
 // retrieved during the render step via a source ID.
@@ -954,36 +845,11 @@ dyn_clone::clone_trait_object!(RenderLambda);
 // TODO: This only an Option so it can be zeroed. After fixing im::Vector, remove Option.
 type RenderInstruction = Option<Box<dyn RenderLambda>>;
 
-pub struct TextSystem {
-    viewport: glyphon::Viewport,
-    atlas: glyphon::TextAtlas,
-    font_system: glyphon::FontSystem,
-    swash_cache: glyphon::SwashCache,
-}
-
-impl TextSystem {
-    pub fn split_borrow(
-        &mut self,
-    ) -> (
-        &mut glyphon::Viewport,
-        &mut glyphon::TextAtlas,
-        &mut glyphon::FontSystem,
-        &mut glyphon::SwashCache,
-    ) {
-        (
-            &mut self.viewport,
-            &mut self.atlas,
-            &mut self.font_system,
-            &mut self.swash_cache,
-        )
-    }
-}
-
 // Points are specified as 72 per inch, and a scale factor of 1.0 corresponds to 96 DPI, so we multiply by the
 // ratio times the scaling factor.
 #[inline]
 fn point_to_pixel(pt: f32, scale_factor: f32) -> f32 {
-    pt * (72.0 / 96.0) * scale_factor
+    pt * (72.0 / 96.0) * scale_factor // * text_scale_factor
 }
 
 #[inline]
@@ -994,32 +860,29 @@ fn pixel_to_vec(p: winit::dpi::PhysicalPosition<f32>) -> Vec2 {
 // We want to share our device/adapter state across windows, but can't create it until we have at least one window,
 // so we store a weak reference to it in App and if all windows are dropped it'll also drop these, which is usually
 // sensible behavior.
+#[derive(Debug)]
 pub struct DriverState {
     adapter: wgpu::Adapter,
     device: wgpu::Device,
     queue: wgpu::Queue,
     format: Cell<Option<wgpu::TextureFormat>>,
-    text: OnceCell<std::rc::Rc<RefCell<TextSystem>>>,
+    text: OnceCell<std::rc::Rc<RefCell<text::System>>>,
     shader_cache: RefCell<ShaderCache>,
+    cursor: parking_lot::RwLock<CursorIcon>, // This is a convenient place to track our global expected cursor
 }
 
 impl DriverState {
-    fn text(&self) -> eyre::Result<&std::rc::Rc<RefCell<TextSystem>>> {
+    fn text(&self) -> eyre::Result<&std::rc::Rc<RefCell<text::System>>> {
         self.text.get_or_try_init(|| {
             let format = self
                 .format
                 .get()
                 .ok_or_eyre("driver.text initialized called before driver.format is provided")?;
-            let cache = glyphon::Cache::new(&self.device);
-            let atlas = glyphon::TextAtlas::new(&self.device, &self.queue, &cache, format);
-            let viewport = glyphon::Viewport::new(&self.device, &cache);
-            let text = std::rc::Rc::new(RefCell::new(TextSystem {
-                font_system: glyphon::FontSystem::new(),
-                swash_cache: glyphon::SwashCache::new(),
-                viewport,
-                atlas,
-            }));
-            Ok(text)
+            Ok(std::rc::Rc::new(RefCell::new(text::System::new(
+                &self.device,
+                &self.queue,
+                format,
+            ))))
         })
     }
 }
@@ -1324,7 +1187,7 @@ pub struct App<
     O: FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>,
 > {
     pub instance: wgpu::Instance,
-    pub driver: std::rc::Weak<DriverState>,
+    pub driver: std::sync::Weak<DriverState>,
     state: StateManager,
     store: Option<O::Store>,
     outline: O,
@@ -1422,7 +1285,7 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
         Ok((
             Self {
                 instance: wgpu::Instance::default(),
-                driver: std::rc::Weak::<DriverState>::new(),
+                driver: std::sync::Weak::<DriverState>::new(),
                 store: None,
                 outline,
                 state: manager,
@@ -1434,10 +1297,10 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
     }
 
     pub async fn create_driver(
-        weak: &mut std::rc::Weak<DriverState>,
+        weak: &mut alloc::sync::Weak<DriverState>,
         instance: &wgpu::Instance,
         surface: &wgpu::Surface<'static>,
-    ) -> eyre::Result<Rc<DriverState>> {
+    ) -> eyre::Result<Arc<DriverState>> {
         if let Some(driver) = weak.upgrade() {
             return Ok(driver);
         }
@@ -1462,16 +1325,17 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
 
         let shader_cache = ShaderCache::new(&device);
 
-        let driver = Rc::new(crate::DriverState {
+        let driver = Arc::new(crate::DriverState {
             adapter,
             device,
             queue,
             format: Cell::new(None),
             text: OnceCell::new(),
             shader_cache: RefCell::new(shader_cache),
+            cursor: RwLock::new(CursorIcon::Default),
         });
 
-        *weak = Rc::downgrade(&driver);
+        *weak = Arc::downgrade(&driver);
         Ok(driver)
     }
 
@@ -1522,12 +1386,16 @@ impl<
                 let window = window.as_ref().unwrap();
                 let mut resized = false;
                 let _ = match event {
-                    winit::event::WindowEvent::CloseRequested => {
-                        Window::on_window_event(window.id(), rtree, event, &mut self.state)
-                            .inspect_err(|_| {
-                                delete = Some(window.id());
-                            })
-                    }
+                    winit::event::WindowEvent::CloseRequested => Window::on_window_event(
+                        window.id(),
+                        rtree,
+                        event,
+                        &mut self.state,
+                        self.driver.clone(),
+                    )
+                    .inspect_err(|_| {
+                        delete = Some(window.id());
+                    }),
                     winit::event::WindowEvent::RedrawRequested => {
                         if let Ok(state) = self.state.get_mut::<WindowStateMachine>(&window.id()) {
                             if let Some(driver) = self.driver.upgrade() {
@@ -1537,13 +1405,31 @@ impl<
                                 }
                             }
                         }
-                        Window::on_window_event(window.id(), rtree, event, &mut self.state)
+                        Window::on_window_event(
+                            window.id(),
+                            rtree,
+                            event,
+                            &mut self.state,
+                            self.driver.clone(),
+                        )
                     }
                     winit::event::WindowEvent::Resized(_) => {
                         resized = true;
-                        Window::on_window_event(window.id(), rtree, event, &mut self.state)
+                        Window::on_window_event(
+                            window.id(),
+                            rtree,
+                            event,
+                            &mut self.state,
+                            self.driver.clone(),
+                        )
                     }
-                    _ => Window::on_window_event(window.id(), rtree, event, &mut self.state),
+                    _ => Window::on_window_event(
+                        window.id(),
+                        rtree,
+                        event,
+                        &mut self.state,
+                        self.driver.clone(),
+                    ),
                 };
 
                 if self.state.changed || resized {

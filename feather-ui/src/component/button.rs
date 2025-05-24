@@ -4,9 +4,9 @@
 use super::mouse_area::MouseArea;
 
 use crate::component::{ComponentFrom, Desc};
-use crate::layout::{fixed, Layout, LayoutWrap};
+use crate::layout::{Layout, LayoutWrap, fixed};
 use crate::persist::{FnPersist, VectorMap};
-use crate::{layout, Component, DRect, Slot, SourceID};
+use crate::{Component, DRect, Slot, SourceID, layout};
 use derive_where::derive_where;
 use std::rc::Rc;
 
@@ -64,18 +64,18 @@ where
         &self,
         state: &crate::StateManager,
         driver: &crate::DriverState,
-        dpi: crate::Vec2,
+        window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let map = VectorMap::new(
             |child: &Option<Box<ComponentFrom<dyn fixed::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn fixed::Prop as Desc>::Child>>> {
-                Some(child.as_ref().unwrap().layout(state, driver, dpi,config))
+                Some(child.as_ref().unwrap().layout(state, driver, window,config))
             },
         );
 
         let (_, mut children) = map.call(Default::default(), &self.children);
         children.push_back(Some(Box::new(
-            self.marea.layout(state, driver, dpi, config),
+            self.marea.layout(state, driver, window, config),
         )));
 
         Box::new(layout::Node::<T, dyn fixed::Prop> {
