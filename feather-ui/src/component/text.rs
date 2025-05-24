@@ -4,6 +4,7 @@
 use crate::layout::{self, Layout, leaf};
 use crate::{BASE_DPI, DriverState, SourceID, WindowStateMachine, point_to_pixel};
 use derive_where::derive_where;
+use std::cell::RefCell;
 use std::rc::Rc;
 
 #[derive_where(Clone)]
@@ -88,7 +89,7 @@ where
 
         let render = Rc::new_cyclic(|this| crate::render::text::Pipeline {
             this: this.clone(),
-            text_buffer: text_buffer.into(),
+            text_buffer: Rc::new(RefCell::new(Some(text_buffer))),
             renderer: renderer.into(),
             padding: self.props.padding().resolve(dpi).into(),
         });

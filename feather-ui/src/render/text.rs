@@ -5,7 +5,7 @@ use crate::{AbsRect, RenderLambda};
 pub struct Pipeline {
     pub this: std::rc::Weak<Pipeline>,
     pub renderer: RefCell<glyphon::TextRenderer>,
-    pub text_buffer: RefCell<glyphon::Buffer>,
+    pub text_buffer: crate::Rc<RefCell<Option<glyphon::Buffer>>>,
     pub padding: std::cell::Cell<AbsRect>,
 }
 
@@ -29,7 +29,7 @@ impl super::Renderable for Pipeline {
                 atlas,
                 viewport,
                 [glyphon::TextArea {
-                    buffer: &self.text_buffer.borrow(),
+                    buffer: &self.text_buffer.borrow().as_ref().unwrap(),
                     left: area.topleft().x + padding.topleft().x,
                     top: area.topleft().y + padding.topleft().y,
                     scale: 1.0,

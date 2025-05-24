@@ -39,70 +39,83 @@ where
         _window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
-        let shader_idx = driver.shader_cache.borrow_mut().register_shader(
-            &driver.device,
-            "Line FS",
-            include_str!("../shaders/Line.frag.wgsl"),
-        );
-        let pipeline =
-            driver
-                .shader_cache
-                .borrow_mut()
-                .line_pipeline(&driver.device, shader_idx, config);
-
-        let mvp = gen_uniform(
-            driver,
-            "MVP",
-            crate::shaders::mat4_proj(
-                0.0,
-                config.height as f32,
-                config.width as f32,
-                -(config.height as f32),
-                0.2,
-                10000.0,
-            )
-            .as_byte_slice(),
-        );
-
-        let posdim = driver
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("PosDim"),
-                contents: Vec4::new(0.0, 0.0, 1.0, 1.0).as_byte_slice(),
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            });
-
-        let fill = gen_uniform(driver, "Fill", self.fill.as_byte_slice());
-        let buffers = [mvp, posdim, fill];
-        let bindings: Vec<wgpu::BindGroupEntry> = buffers
-            .iter()
-            .enumerate()
-            .map(|(i, x)| wgpu::BindGroupEntry {
-                binding: i as u32,
-                resource: x.as_entire_binding(),
-            })
-            .collect();
-
-        let bind_group = driver.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &pipeline.get_bind_group_layout(0),
-            entries: &bindings,
-            label: None,
-        });
-
         Box::new(layout::Node::<T, dyn base::Empty> {
             props: self.props.clone(),
             children: Default::default(),
             id: Rc::downgrade(&self.id),
-            renderable: Some(Rc::new_cyclic(|this| crate::render::line::Pipeline {
-                this: this.clone(),
-                pipeline,
-                group: bind_group,
-                _buffers: buffers,
-                start: self.start,
-                end: self.end,
-            })),
+            renderable: Some(build_pipeline(
+                driver,
+                config,
+                (self.start, self.end),
+                self.fill,
+            )),
         })
     }
 }
 
 crate::gen_component_wrap!(Line, base::Empty);
+
+pub fn build_pipeline(
+    driver: &crate::DriverState,
+    config: &wgpu::SurfaceConfiguration,
+    pos: (Vec2, Vec2),
+    fill: Vec4,
+) -> Rc<crate::render::line::Pipeline> {
+    let shader_idx = driver.shader_cache.borrow_mut().register_shader(
+        &driver.device,
+        "Line FS",
+        include_str!("../shaders/Line.frag.wgsl"),
+    );
+    let pipeline =
+        driver
+            .shader_cache
+            .borrow_mut()
+            .line_pipeline(&driver.device, shader_idx, config);
+
+    let mvp = gen_uniform(
+        driver,
+        "MVP",
+        crate::shaders::mat4_proj(
+            0.0,
+            config.height as f32,
+            config.width as f32,
+            -(config.height as f32),
+            0.2,
+            10000.0,
+        )
+        .as_byte_slice(),
+    );
+
+    let posdim = driver
+        .device
+        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("PosDim"),
+            contents: Vec4::new(0.0, 0.0, 1.0, 1.0).as_byte_slice(),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+    let fill = gen_uniform(driver, "Fill", fill.as_byte_slice());
+    let buffers = [mvp, posdim, fill];
+    let bindings: Vec<wgpu::BindGroupEntry> = buffers
+        .iter()
+        .enumerate()
+        .map(|(i, x)| wgpu::BindGroupEntry {
+            binding: i as u32,
+            resource: x.as_entire_binding(),
+        })
+        .collect();
+
+    let bind_group = driver.device.create_bind_group(&wgpu::BindGroupDescriptor {
+        layout: &pipeline.get_bind_group_layout(0),
+        entries: &bindings,
+        label: None,
+    });
+
+    Rc::new_cyclic(|this| crate::render::line::Pipeline {
+        this: this.clone(),
+        pipeline,
+        group: bind_group,
+        _buffers: buffers,
+        pos: pos.into(),
+    })
+}

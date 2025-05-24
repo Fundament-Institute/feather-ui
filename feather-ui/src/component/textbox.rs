@@ -2,16 +2,19 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::StateMachine;
-use crate::input::{ModifierKeys, RawEvent, RawEventKind};
+use crate::input::{ModifierKeys, MouseButton, MouseState, RawEvent, RawEventKind};
 use crate::layout::{Layout, base, leaf};
 use crate::text::EditObj;
 use crate::{BASE_DPI, SourceID, WindowStateMachine, layout, point_to_pixel, render};
 use derive_where::derive_where;
 use enum_variant_type::EnumVariantType;
 use feather_macro::Dispatch;
+use glyphon::Cursor;
 use smallvec::SmallVec;
+use std::cell::RefCell;
 use std::ops::Range;
 use std::rc::Rc;
+use ultraviolet::Vec2;
 use winit::keyboard::{Key, KeyCode, NamedKey, PhysicalKey};
 
 #[derive(Debug, Dispatch, EnumVariantType, Clone, PartialEq, Eq)]
@@ -21,51 +24,63 @@ pub enum TextBoxEvent {
     Cursor(usize, usize),
 }
 
-#[derive(Default, Clone, PartialEq)]
+#[derive(Clone, Default)]
 struct TextBoxState {
     last_x_offset: f32, // Last cursor x offset when something other than up or down navigation happened
     history: Vec<TextBoxEvent>,
-    position: usize,
+    undo_index: usize,
     insert_mode: bool,
     count: usize,
+    buffer: Rc<crate::RefCell<Option<glyphon::Buffer>>>,
+}
+
+impl PartialEq for TextBoxState {
+    fn eq(&self, other: &Self) -> bool {
+        self.last_x_offset == other.last_x_offset
+            && self.history == other.history
+            && self.undo_index == other.undo_index
+            && self.insert_mode == other.insert_mode
+            && self.count == other.count
+            && Rc::ptr_eq(&self.buffer, &other.buffer)
+    }
 }
 
 impl TextBoxState {
     fn redo(&mut self, textedit: &Rc<EditObj>) -> usize {
-        let mut position = self.position;
+        let mut cur = self.undo_index;
 
         // Redo the current Edit event (or execute cursor events until we find one) then run all Cursor events after it until the next Edit event
-        for (pos, evt) in self.history[position..].iter_mut().enumerate() {
+        for (i, evt) in self.history[cur..].iter_mut().enumerate() {
             match evt {
                 TextBoxEvent::Edit(multisplice) => {
                     // Swap the edit event here with the inverse
                     *multisplice = textedit.edit(multisplice);
-                    position += pos;
+                    cur += i;
                     break;
                 }
                 TextBoxEvent::Cursor(s, e) => textedit.set_selection((*s, *e)),
             }
         }
 
-        for (pos, evt) in self.history[position..].iter().enumerate() {
+        for (i, evt) in self.history[cur..].iter().enumerate() {
             match evt {
                 TextBoxEvent::Edit(_) => {
-                    position += pos;
+                    cur += i;
                     break;
                 }
                 TextBoxEvent::Cursor(s, e) => textedit.set_selection((*s, *e)),
             }
         }
 
-        position
+        cur
     }
 
     fn undo(&mut self, textedit: &Rc<EditObj>) -> usize {
-        let mut position = self.position;
+        let mut cur = self.undo_index;
 
         // Undo the current Edit event (or walk backwards until we find one), then run the cursor event immediately preceding it, if any.
-        for (pos, evt) in self.history[..self.position].iter_mut().enumerate().rev() {
-            position = pos;
+        for (i, evt) in self.history[..cur].iter_mut().enumerate().rev() {
+            cur = i;
             match evt {
                 TextBoxEvent::Edit(multisplice) => {
                     // Swap the edit event here with the inverse
@@ -76,13 +91,13 @@ impl TextBoxState {
             }
         }
 
-        if position > 0 {
-            if let TextBoxEvent::Cursor(s, e) = &self.history[position - 1] {
+        if cur > 0 {
+            if let TextBoxEvent::Cursor(s, e) = &self.history[cur - 1] {
                 textedit.set_selection((*s, *e))
             }
         }
 
-        position
+        cur
     }
 
     fn insert_into(mut self, textedit: &Rc<EditObj>, c: String) -> (Self, Vec<TextBoxEvent>) {
@@ -157,10 +172,14 @@ impl TextBoxState {
     }
 
     fn append_history(&mut self, evt: TextBoxEvent) {
-        self.history.truncate(self.position);
+        self.history.truncate(self.undo_index);
         self.history.push(evt);
-        self.position += 1;
-        assert_eq!(self.position, self.history.len(), "position out of sync???");
+        self.undo_index += 1;
+        assert_eq!(
+            self.undo_index,
+            self.history.len(),
+            "position out of sync???"
+        );
     }
 }
 pub trait Prop: leaf::Padded + base::TextEdit {}
@@ -220,6 +239,8 @@ impl<T: Prop + 'static> TextBox<T> {
                     (KeyCode::KeyC, true, true) => Key::Named(NamedKey::Copy),
                     (KeyCode::KeyX, true, true) => Key::Named(NamedKey::Cut),
                     (KeyCode::KeyV, true, true) => Key::Named(NamedKey::Paste),
+                    (KeyCode::KeyZ, true, true) => Key::Named(NamedKey::Undo),
+                    (KeyCode::KeyY, true, true) => Key::Named(NamedKey::Redo),
                     _ => logical_key,
                 };
                 RawEvent::Key {
@@ -248,7 +269,7 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
     fn init(&self) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error> {
         let props = self.props.clone();
         let oninput = Box::new(crate::wrap_event::<RawEvent, TextBoxEvent, TextBoxState>(
-            move |e, area, _dpi, mut data| {
+            move |e, area, dpi, mut data| {
                 let obj = &props.textedit().obj;
                 match Self::translate(e) {
                     RawEvent::Focus { acquired, window } => {
@@ -407,13 +428,13 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
                                     }
                                 }
                                 NamedKey::Redo => {
-                                    if down && data.position > 0 {
-                                        data.position = data.redo(obj)
+                                    if down && data.undo_index > 0 {
+                                        data.undo_index = data.redo(obj)
                                     }
                                 }
                                 NamedKey::Undo => {
-                                    if down && data.position > 0 {
-                                        data.position = data.undo(obj)
+                                    if down && data.undo_index > 0 {
+                                        data.undo_index = data.undo(obj)
                                     }
                                 }
                                 // Do not capture key events we don't recognize
@@ -435,14 +456,36 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
                         }
                         return Ok((data, vec![]));
                     }
-                    RawEvent::Mouse { .. } => return Ok((data, vec![])),
+                    RawEvent::Mouse {
+                        pos,
+                        state,
+                        button,
+                        modifiers,
+                        ..
+                    } => {
+                        // TODO: Put in selection instead of just clicks
+                        if state == MouseState::Down && button == MouseButton::L {
+                            let index = if let Some(buffer) = data.buffer.borrow().as_ref() {
+                                let p = area.topleft() + props.padding().resolve(dpi).topleft();
+                                let cursor =
+                                    buffer.hit(pos.x - p.x, pos.y - p.y).unwrap_or_default();
+                                buffer.lines[..cursor.line]
+                                    .iter()
+                                    .fold(cursor.index, |count, line| count + line.text().len())
+                            } else {
+                                return Ok((data, vec![]));
+                            };
+                            return Ok(data.modify_cursor(obj, index, modifiers));
+                        }
+                        return Ok((data, vec![]));
+                    }
                     _ => (),
                 }
                 Err((data, vec![]))
             },
         ));
 
-        Ok(Box::new(StateMachine {
+        let statemachine = StateMachine {
             state: Some(Default::default()),
             input: [(
                 RawEventKind::Focus as u64
@@ -453,7 +496,8 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
                 oninput,
             )],
             output: self.slots.clone(),
-        }))
+        };
+        Ok(Box::new(statemachine))
     }
 
     fn layout(
@@ -466,14 +510,30 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
         let winstate: &WindowStateMachine = state.get(window).unwrap();
         let dpi = winstate.state.as_ref().map(|x| x.dpi).unwrap_or(BASE_DPI);
         let text_system = driver.text().expect("driver.text not initialized");
-        let mut text_buffer = glyphon::Buffer::new(
+
+        let textstate: &StateMachine<TextBoxEvent, TextBoxState, 1, 3> =
+            state.get(&self.id).unwrap();
+        let textstate = textstate.state.as_ref().unwrap();
+
+        if textstate.buffer.borrow().is_none() {
+            *textstate.buffer.borrow_mut() = Some(glyphon::Buffer::new(
+                &mut text_system.borrow_mut().font_system,
+                glyphon::Metrics::new(
+                    point_to_pixel(self.font_size, dpi.x),
+                    point_to_pixel(self.line_height, dpi.x),
+                ),
+            ));
+        }
+        let mut text_binding = textstate.buffer.borrow_mut();
+        let text_buffer = text_binding.as_mut().unwrap();
+
+        text_buffer.set_metrics(
             &mut text_system.borrow_mut().font_system,
             glyphon::Metrics::new(
                 point_to_pixel(self.font_size, dpi.x),
                 point_to_pixel(self.line_height, dpi.x),
             ),
         );
-
         text_buffer.set_wrap(&mut text_system.borrow_mut().font_system, self.wrap);
         text_buffer.set_text(
             &mut text_system.borrow_mut().font_system,
@@ -495,18 +555,74 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
 
         let textrender = Rc::new_cyclic(|this| render::text::Pipeline {
             this: this.clone(),
-            text_buffer: text_buffer.into(),
+            text_buffer: textstate.buffer.clone(),
             renderer: renderer.into(),
             padding: self.props.padding().resolve(dpi).into(),
         });
 
+        let line = super::line::build_pipeline(
+            driver,
+            config,
+            (Vec2::zero(), Vec2::zero()),
+            self.color.as_rgba().map(|x| x as f32).into(),
+        );
+
+        let pipeline = Pipeline {
+            text: textrender.clone(),
+            line: line.into(),
+            cursor: self.props.textedit().obj.get_cursor().1,
+        };
         Box::new(layout::text::Node::<T> {
             props: self.props.clone(),
             id: Rc::downgrade(&self.id),
             text_render: textrender.clone(),
-            renderable: textrender.clone(),
+            renderable: Rc::new(pipeline),
         })
     }
 }
 
 crate::gen_component_wrap!(TextBox, Prop);
+
+pub struct Pipeline {
+    pub text: Rc<render::text::Pipeline>,
+    pub line: Rc<render::line::Pipeline>,
+    pub cursor: usize,
+}
+
+impl crate::render::Renderable for Pipeline {
+    fn render(
+        &self,
+        area: crate::AbsRect,
+        driver: &crate::DriverState,
+    ) -> im::Vector<crate::RenderInstruction> {
+        let mut offset = self.cursor;
+        let buffer = self.text.text_buffer.borrow();
+        let mut pos = self.text.padding.get().topleft();
+        let mut cursor_height = 0.0;
+        for line in buffer.as_ref().unwrap().layout_runs() {
+            if line.text.len() < offset {
+                offset -= line.text.len();
+                pos.y += line.line_height;
+            } else {
+                pos.x += line
+                    .highlight(
+                        Cursor::new(line.line_i, offset),
+                        Cursor::new(line.line_i, offset),
+                    )
+                    .map(|(x, w)| x)
+                    .unwrap_or(0.0);
+                //line.line_top
+                cursor_height = line.line_height;
+                break;
+            }
+        }
+
+        // TODO: current line pipeline ignores area
+        *self.line.pos.borrow_mut() = (
+            Vec2::new(pos.x, pos.y) + area.topleft(),
+            Vec2::new(pos.x, pos.y + cursor_height) + area.topleft(),
+        );
+        let chain: [Rc<dyn crate::render::Renderable>; 2] = [self.text.clone(), self.line.clone()];
+        chain.iter().flat_map(|x| x.render(area, driver)).collect()
+    }
+}
