@@ -3,7 +3,7 @@
 
 use crate::layout::{Layout, leaf};
 use crate::shaders::gen_uniform;
-use crate::{DriverState, SourceID, layout};
+use crate::{BASE_DPI, DriverState, SourceID, WindowStateMachine, layout};
 use derive_where::derive_where;
 use std::borrow::Cow;
 use std::rc::Rc;
@@ -94,11 +94,14 @@ where
 
     fn layout(
         &self,
-        _: &crate::StateManager,
+        state: &crate::StateManager,
         driver: &DriverState,
-        dpi: crate::Vec2,
+        window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
+        let winstate: &WindowStateMachine = state.get(window).unwrap();
+        let dpi = winstate.state.as_ref().map(|x| x.dpi).unwrap_or(BASE_DPI);
+
         let shader_idx = driver.shader_cache.borrow_mut().register_shader(
             &driver.device,
             self.label,

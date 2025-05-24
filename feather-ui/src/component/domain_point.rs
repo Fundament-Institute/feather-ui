@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::layout::domain_write;
 use crate::SourceID;
+use crate::layout::domain_write;
 use derive_where::derive_where;
 use std::rc::Rc;
 
@@ -38,7 +38,7 @@ where
         &self,
         _: &crate::StateManager,
         _: &crate::DriverState,
-        _: crate::Vec2,
+        _: &Rc<SourceID>,
         _: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn crate::layout::Layout<T>> {
         Box::new(crate::layout::Node::<T, dyn domain_write::Prop> {

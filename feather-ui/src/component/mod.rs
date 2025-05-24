@@ -107,7 +107,7 @@ pub trait Component<T>: DynClone {
         &self,
         state: &StateManager,
         driver: &DriverState,
-        dpi: crate::Vec2,
+        window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T> + 'static>;
 
@@ -127,7 +127,7 @@ pub trait ComponentWrap<T: ?Sized>: DynClone {
         &self,
         state: &StateManager,
         driver: &DriverState,
-        dpi: crate::Vec2,
+        window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn LayoutWrap<T> + 'static>;
     fn init(&self) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error>;
@@ -145,14 +145,14 @@ where
         &self,
         state: &StateManager,
         driver: &DriverState,
-        dpi: crate::Vec2,
+        window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn LayoutWrap<U> + 'static> {
         Box::new(Component::<T>::layout(
             self.as_ref(),
             state,
             driver,
-            dpi,
+            window,
             config,
         ))
     }
@@ -178,10 +178,10 @@ where
         &self,
         state: &StateManager,
         driver: &DriverState,
-        dpi: crate::Vec2,
+        window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn LayoutWrap<U> + 'static> {
-        Box::new(Component::<T>::layout(*self, state, driver, dpi, config))
+        Box::new(Component::<T>::layout(*self, state, driver, window, config))
     }
 
     fn init(&self) -> Result<Box<dyn crate::StateMachineWrapper>, crate::Error> {
@@ -243,7 +243,7 @@ impl Root {
     >(
         &mut self,
         manager: &mut StateManager,
-        driver: &mut std::rc::Weak<DriverState>,
+        driver: &mut std::sync::Weak<DriverState>,
         instance: &wgpu::Instance,
         event_loop: &winit::event_loop::ActiveEventLoop,
     ) -> eyre::Result<()> {
@@ -265,7 +265,7 @@ impl Root {
             root.layout_tree = Some(window.layout(
                 manager,
                 &state.state.as_ref().unwrap().driver,
-                state.state.as_ref().unwrap().dpi,
+                &window.id(),
                 &state.state.as_ref().unwrap().config,
             ));
         }
@@ -317,11 +317,11 @@ macro_rules! gen_component_wrap_inner {
             &self,
             state: &$crate::StateManager,
             driver: &$crate::DriverState,
-            dpi: $crate::Vec2,
+            window: &Rc<SourceID>,
             config: &wgpu::SurfaceConfiguration,
         ) -> Box<dyn $crate::component::LayoutWrap<U> + 'static> {
             Box::new($crate::component::Component::<T>::layout(
-                self, state, driver, dpi, config,
+                self, state, driver, window, config,
             ))
         }
 

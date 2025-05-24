@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use feather_ui::layout::{fixed, leaf};
-use feather_ui::{DAbsRect, TextEditObj, TextSnapshot, gen_id};
+use feather_ui::{DAbsRect, gen_id, text::EditObj, text::Snapshot};
 
 use feather_ui::component::region::Region;
 use feather_ui::component::textbox::TextBox;
@@ -15,7 +15,7 @@ use std::rc::Rc;
 
 #[derive(PartialEq, Clone, Debug, Default)]
 struct TextState {
-    text: TextSnapshot,
+    text: Snapshot,
 }
 
 struct BasicApp {}
@@ -40,7 +40,7 @@ impl fixed::Prop for MinimalArea {}
 struct MinimalText {
     area: DRect,
     padding: DAbsRect,
-    textedit: feather_ui::TextSnapshot,
+    textedit: Snapshot,
 }
 impl base::Direction for MinimalText {}
 impl base::ZIndex for MinimalText {}
@@ -122,7 +122,7 @@ fn main() {
     let (mut app, event_loop): (App<TextState, BasicApp>, winit::event_loop::EventLoop<()>) =
         App::new(
             TextState {
-                text: TextEditObj::new("new text".to_string(), (0, 0)).into(),
+                text: EditObj::new("new text".to_string(), (0, 0)).into(),
             },
             vec![],
             BasicApp {},

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::layout::{self, leaf, Layout};
-use crate::{point_to_pixel, DriverState, SourceID};
+use crate::layout::{self, Layout, leaf};
+use crate::{BASE_DPI, DriverState, SourceID, WindowStateMachine, point_to_pixel};
 use derive_where::derive_where;
 use std::rc::Rc;
 
@@ -51,11 +51,13 @@ where
 
     fn layout(
         &self,
-        _: &crate::StateManager,
+        state: &crate::StateManager,
         driver: &DriverState,
-        dpi: crate::Vec2,
+        window: &Rc<SourceID>,
         _: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
+        let winstate: &WindowStateMachine = state.get(window).unwrap();
+        let dpi = winstate.state.as_ref().map(|x| x.dpi).unwrap_or(BASE_DPI);
         let text_system = driver.text().expect("driver.text not initialized");
         let mut text_buffer = glyphon::Buffer::new(
             &mut text_system.borrow_mut().font_system,

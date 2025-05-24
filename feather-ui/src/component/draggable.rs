@@ -206,12 +206,12 @@ impl<T: fixed::Prop + 'static> super::Component<T> for Draggable<T> {
         &self,
         state: &crate::StateManager,
         driver: &crate::DriverState,
-        dpi: crate::Vec2,
+        window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let map = VectorMap::new(
             |child: &Option<Box<ComponentFrom<dyn fixed::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn fixed::Prop as Desc>::Child>>> {
-                Some(child.as_ref().unwrap().layout(state, driver, dpi,config))
+                Some(child.as_ref().unwrap().layout(state, driver, window,config))
             },
         );
 

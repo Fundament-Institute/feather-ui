@@ -72,6 +72,7 @@ pub struct Vertex {
     pub pos: [f32; 2],
 }
 
+#[derive(Debug)]
 pub struct ShaderCache {
     shaders: Vec<wgpu::ShaderModule>,
     layouts: Vec<wgpu::PipelineLayout>,

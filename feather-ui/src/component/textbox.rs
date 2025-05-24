@@ -1,32 +1,168 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::input::{RawEvent, RawEventKind};
+use super::StateMachine;
+use crate::input::{ModifierKeys, RawEvent, RawEventKind};
 use crate::layout::{Layout, base, leaf};
-use crate::{SourceID, layout, point_to_pixel, render};
+use crate::text::EditObj;
+use crate::{BASE_DPI, SourceID, WindowStateMachine, layout, point_to_pixel, render};
 use derive_where::derive_where;
 use enum_variant_type::EnumVariantType;
 use feather_macro::Dispatch;
+use smallvec::SmallVec;
 use std::ops::Range;
 use std::rc::Rc;
-
-use super::StateMachine;
+use winit::keyboard::{Key, KeyCode, NamedKey, PhysicalKey};
 
 #[derive(Debug, Dispatch, EnumVariantType, Clone, PartialEq, Eq)]
 #[evt(derive(Clone), module = "mouse_area_event")]
 pub enum TextBoxEvent {
-    Edit(Range<usize>, String), // Returns the range of the new string and what the old string used to be.
-    Cursor(usize),
-    Select(usize, usize),
+    Edit(SmallVec<[(Range<usize>, String); 1]>), // Returns the range of the new string and what the old string used to be.
+    Cursor(usize, usize),
 }
 
 #[derive(Default, Clone, PartialEq)]
 struct TextBoxState {
     last_x_offset: f32, // Last cursor x offset when something other than up or down navigation happened
     history: Vec<TextBoxEvent>,
-    count: u32,
+    position: usize,
+    insert_mode: bool,
+    count: usize,
 }
 
+impl TextBoxState {
+    fn redo(&mut self, textedit: &Rc<EditObj>) -> usize {
+        let mut position = self.position;
+
+        // Redo the current Edit event (or execute cursor events until we find one) then run all Cursor events after it until the next Edit event
+        for (pos, evt) in self.history[position..].iter_mut().enumerate() {
+            match evt {
+                TextBoxEvent::Edit(multisplice) => {
+                    // Swap the edit event here with the inverse
+                    *multisplice = textedit.edit(multisplice);
+                    position += pos;
+                    break;
+                }
+                TextBoxEvent::Cursor(s, e) => textedit.set_selection((*s, *e)),
+            }
+        }
+
+        for (pos, evt) in self.history[position..].iter().enumerate() {
+            match evt {
+                TextBoxEvent::Edit(_) => {
+                    position += pos;
+                    break;
+                }
+                TextBoxEvent::Cursor(s, e) => textedit.set_selection((*s, *e)),
+            }
+        }
+
+        position
+    }
+
+    fn undo(&mut self, textedit: &Rc<EditObj>) -> usize {
+        let mut position = self.position;
+
+        // Undo the current Edit event (or walk backwards until we find one), then run the cursor event immediately preceding it, if any.
+        for (pos, evt) in self.history[..self.position].iter_mut().enumerate().rev() {
+            position = pos;
+            match evt {
+                TextBoxEvent::Edit(multisplice) => {
+                    // Swap the edit event here with the inverse
+                    *multisplice = textedit.edit(multisplice);
+                    break;
+                }
+                TextBoxEvent::Cursor(s, e) => textedit.set_selection((*s, *e)),
+            }
+        }
+
+        if position > 0 {
+            if let TextBoxEvent::Cursor(s, e) = &self.history[position - 1] {
+                textedit.set_selection((*s, *e))
+            }
+        }
+
+        position
+    }
+
+    fn insert_into(mut self, textedit: &Rc<EditObj>, c: String) -> (Self, Vec<TextBoxEvent>) {
+        let (mut start, mut end) = textedit.get_cursor();
+        if end < start {
+            std::mem::swap(&mut start, &mut end);
+        }
+        let old = textedit.text.borrow()[start..end].to_string();
+        let len = c.len();
+        textedit.edit(&[(start..end, c)]);
+        if start == end {
+            end = start + len;
+        }
+        textedit.set_cursor(end);
+        // TODO: This hack may need to be replaced with an explicit method of saying "assume a change happened"
+        self.count += 1;
+        let evt = self
+            .queue_history(&[
+                TextBoxEvent::Edit([(start..end, old)].into()),
+                TextBoxEvent::Cursor(end, end),
+            ])
+            .to_vec();
+        (self, evt)
+    }
+
+    fn delete_selection(
+        mut self,
+        textedit: &Rc<EditObj>,
+        mut start: usize,
+        mut end: usize,
+    ) -> (Self, Vec<TextBoxEvent>) {
+        if end < start {
+            std::mem::swap(&mut start, &mut end);
+        }
+        let old = textedit.text.borrow()[start..end].to_string();
+        textedit.edit(&[(start..end, String::new())]);
+        textedit.set_cursor(start);
+        self.count += 1;
+        let evt = self
+            .queue_history(&[
+                TextBoxEvent::Edit([(start..start, old)].into()),
+                TextBoxEvent::Cursor(start, start),
+            ])
+            .to_vec();
+
+        (self, evt)
+    }
+
+    fn modify_cursor(
+        mut self,
+        textedit: &Rc<EditObj>,
+        cursor: usize,
+        modifiers: u8,
+    ) -> (Self, Vec<TextBoxEvent>) {
+        let evt = if (modifiers & ModifierKeys::Shift as u8) != 0 {
+            let (start, _) = textedit.get_cursor();
+            textedit.set_selection((start, cursor));
+            TextBoxEvent::Cursor(start, cursor)
+        } else {
+            textedit.set_cursor(cursor);
+            TextBoxEvent::Cursor(cursor, cursor)
+        };
+        self.append_history(evt.clone());
+        (self, vec![evt])
+    }
+
+    fn queue_history<'a>(&mut self, evt: &'a [TextBoxEvent]) -> &'a [TextBoxEvent] {
+        for e in evt {
+            self.append_history(e.clone());
+        }
+        evt
+    }
+
+    fn append_history(&mut self, evt: TextBoxEvent) {
+        self.history.truncate(self.position);
+        self.history.push(evt);
+        self.position += 1;
+        assert_eq!(self.position, self.history.len(), "position out of sync???");
+    }
+}
 pub trait Prop: leaf::Padded + base::TextEdit {}
 
 #[derive_where(Clone)]
@@ -68,6 +204,36 @@ impl<T: Prop + 'static> TextBox<T> {
             slots: [None, None, None],
         }
     }
+
+    fn translate(e: RawEvent) -> RawEvent {
+        match e {
+            RawEvent::Key {
+                device_id,
+                physical_key: PhysicalKey::Code(key),
+                location,
+                down,
+                logical_key,
+                modifiers,
+            } => {
+                let k = match (key, down, modifiers & ModifierKeys::Control as u8 != 0) {
+                    (KeyCode::KeyA, true, true) => Key::Named(NamedKey::Select),
+                    (KeyCode::KeyC, true, true) => Key::Named(NamedKey::Copy),
+                    (KeyCode::KeyX, true, true) => Key::Named(NamedKey::Cut),
+                    (KeyCode::KeyV, true, true) => Key::Named(NamedKey::Paste),
+                    _ => logical_key,
+                };
+                RawEvent::Key {
+                    device_id,
+                    physical_key: PhysicalKey::Code(key),
+                    location,
+                    down,
+                    logical_key: k,
+                    modifiers,
+                }
+            }
+            _ => e,
+        }
+    }
 }
 
 impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
@@ -83,21 +249,192 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
         let props = self.props.clone();
         let oninput = Box::new(crate::wrap_event::<RawEvent, TextBoxEvent, TextBoxState>(
             move |e, area, _dpi, mut data| {
-                match e {
+                let obj = &props.textedit().obj;
+                match Self::translate(e) {
+                    RawEvent::Focus { acquired, window } => {
+                        window.set_ime_allowed(acquired);
+                        if acquired {
+                            window.set_ime_purpose(winit::window::ImePurpose::Normal);
+                            //window.set_ime_cursor_area(position, size);
+                        }
+                    }
                     RawEvent::Key {
-                        down, logical_key, ..
+                        down,
+                        logical_key,
+                        modifiers,
+                        ..
                     } => match logical_key {
-                        winit::keyboard::Key::Named(named_key) => (),
-                        winit::keyboard::Key::Character(c) => {
+                        Key::Named(named_key) => {
+                            match named_key {
+                                NamedKey::Enter | NamedKey::Tab | NamedKey::Space => {
+                                    if down {
+                                        let key = match named_key {
+                                            NamedKey::Enter => "\n",
+                                            NamedKey::Tab => "\t",
+                                            NamedKey::Space => " ",
+                                            _ => "",
+                                        };
+                                        return Ok(data.insert_into(obj, key.to_string()));
+                                    }
+                                }
+                                NamedKey::ArrowDown => todo!(),
+                                NamedKey::ArrowUp => todo!(),
+                                NamedKey::ArrowLeft | NamedKey::ArrowRight => {
+                                    if down {
+                                        let (start, end) = obj.get_cursor();
+                                        let cursor = if named_key == NamedKey::ArrowLeft {
+                                            obj.prev_grapheme(end)
+                                        } else {
+                                            obj.next_grapheme(end)
+                                        };
+                                        data.count += 1;
+                                        if (modifiers & ModifierKeys::Shift as u8) != 0 {
+                                            return Ok(data.modify_cursor(obj, cursor, modifiers));
+                                        } else {
+                                            // If there's a selection, this goes to the start or end of the selection
+                                            return Ok(match (named_key, start == end) {
+                                                (NamedKey::ArrowLeft, true)
+                                                | (NamedKey::ArrowRight, true) => {
+                                                    data.modify_cursor(obj, cursor, 0)
+                                                }
+                                                (NamedKey::ArrowLeft, false) => {
+                                                    data.modify_cursor(obj, start.min(end), 0)
+                                                }
+                                                (NamedKey::ArrowRight, false) => {
+                                                    data.modify_cursor(obj, start.max(end), 0)
+                                                }
+                                                _ => (data, vec![]),
+                                            });
+                                        }
+                                    }
+                                }
+                                NamedKey::End | NamedKey::Home => {
+                                    if down {
+                                        // Home and end operations are always relative to the end of the selection, wherever that is.
+                                        let (_, end) = obj.get_cursor();
+                                        let txt: &str = &obj.text.borrow();
+                                        data.count += 1;
+
+                                        return Ok(data.modify_cursor(
+                                            obj,
+                                            match (
+                                                named_key == NamedKey::End,
+                                                (modifiers & ModifierKeys::Control as u8) != 0,
+                                            ) {
+                                                (true, false) => {
+                                                    txt[end..].find('\n').unwrap_or(txt.len())
+                                                }
+                                                (true, true) => txt.len(),
+                                                (false, false) => {
+                                                    txt[..end].rfind('\n').unwrap_or(0)
+                                                }
+                                                (false, true) => 0,
+                                            },
+                                            modifiers,
+                                        ));
+                                    }
+                                }
+                                NamedKey::Select => {
+                                    // Represents a Select All operation
+                                    if down {
+                                        obj.set_selection((0, obj.text.borrow().len()));
+                                        data.count += 1;
+                                    }
+                                }
+                                NamedKey::PageDown => todo!(),
+                                NamedKey::PageUp => todo!(),
+                                NamedKey::Backspace | NamedKey::Delete | NamedKey::Clear => {
+                                    if down {
+                                        let (start, mut end) = obj.get_cursor();
+                                        match (named_key, start == end) {
+                                            (NamedKey::Backspace, true) => {
+                                                end = obj.prev_grapheme(end)
+                                            }
+                                            (NamedKey::Delete, true) => {
+                                                end = obj.next_grapheme(end)
+                                            }
+                                            _ => (), // Clear does nothing if there is no selection
+                                        }
+                                        if start != end {
+                                            return Ok(data.delete_selection(obj, start, end));
+                                        }
+                                    }
+                                }
+                                NamedKey::EraseEof => {
+                                    if down {
+                                        let (start, end) = obj.get_cursor();
+                                        return Ok(data.delete_selection(
+                                            obj,
+                                            start.min(end),
+                                            obj.text.borrow().len(),
+                                        ));
+                                    }
+                                }
+                                NamedKey::Insert => {
+                                    if down {
+                                        data.insert_mode = !data.insert_mode;
+                                    }
+                                }
+                                NamedKey::Cut | NamedKey::Copy => {
+                                    if down && (modifiers & ModifierKeys::Held as u8 == 0) {
+                                        let (mut start, mut end) = obj.get_cursor();
+                                        if start != end {
+                                            if end < start {
+                                                std::mem::swap(&mut start, &mut end);
+                                            }
+                                            if let Ok(mut clipboard) = arboard::Clipboard::new() {
+                                                if clipboard
+                                                    .set_text(&obj.text.borrow()[start..end])
+                                                    .is_ok()
+                                                    && named_key == NamedKey::Cut
+                                                {
+                                                    // Only delete the text for a cut command if the operation succeeds
+                                                    return Ok(
+                                                        data.delete_selection(obj, start, end)
+                                                    );
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                NamedKey::Paste => {
+                                    if down {
+                                        if let Ok(mut clipboard) = arboard::Clipboard::new() {
+                                            if let Ok(s) = clipboard.get_text() {
+                                                return Ok(data.insert_into(obj, s));
+                                            }
+                                        }
+                                    }
+                                }
+                                NamedKey::Redo => {
+                                    if down && data.position > 0 {
+                                        data.position = data.redo(obj)
+                                    }
+                                }
+                                NamedKey::Undo => {
+                                    if down && data.position > 0 {
+                                        data.position = data.undo(obj)
+                                    }
+                                }
+                                // Do not capture key events we don't recognize
+                                _ => return Err((data, vec![])),
+                            }
+                            // Always capture the key event if we recognize it even if we don't do anything with it
+                            return Ok((data, vec![]));
+                        }
+                        Key::Character(c) => {
                             if down {
-                                props.textedit().obj.edit(&[(0..0, c.to_string())]);
-                                // TODO: This hack may need to be replaced with an explicit method of saying "assume a change happened"
-                                data.count += 1;
-                                return Ok((data, vec![TextBoxEvent::Edit(0..1, String::new())]));
+                                return Ok(data.insert_into(obj, c.to_string()));
                             }
                         }
                         _ => (),
                     },
+                    RawEvent::MouseMove { driver, .. } => {
+                        if let Some(d) = driver.upgrade() {
+                            *d.cursor.write() = winit::window::CursorIcon::Text;
+                        }
+                        return Ok((data, vec![]));
+                    }
                     RawEvent::Mouse { .. } => return Ok((data, vec![])),
                     _ => (),
                 }
@@ -108,7 +445,11 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
         Ok(Box::new(StateMachine {
             state: Some(Default::default()),
             input: [(
-                RawEventKind::Mouse as u64 | RawEventKind::Touch as u64 | RawEventKind::Key as u64,
+                RawEventKind::Focus as u64
+                    | RawEventKind::Mouse as u64
+                    | RawEventKind::MouseMove as u64
+                    | RawEventKind::Touch as u64
+                    | RawEventKind::Key as u64,
                 oninput,
             )],
             output: self.slots.clone(),
@@ -119,9 +460,11 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
         &self,
         state: &crate::StateManager,
         driver: &crate::DriverState,
-        dpi: crate::Vec2,
+        window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
+        let winstate: &WindowStateMachine = state.get(window).unwrap();
+        let dpi = winstate.state.as_ref().map(|x| x.dpi).unwrap_or(BASE_DPI);
         let text_system = driver.text().expect("driver.text not initialized");
         let mut text_buffer = glyphon::Buffer::new(
             &mut text_system.borrow_mut().font_system,

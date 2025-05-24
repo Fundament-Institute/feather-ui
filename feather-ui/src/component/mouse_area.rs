@@ -139,7 +139,7 @@ where
         &self,
         _: &crate::StateManager,
         _: &crate::DriverState,
-        _: crate::Vec2,
+        _: &Rc<SourceID>,
         _: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T> + 'static> {
         Box::new(layout::Node::<T, dyn leaf::Prop> {
