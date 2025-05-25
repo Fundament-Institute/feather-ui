@@ -7,6 +7,5 @@ fn main(@location(0) vLineCenter: vec2f, @builtin(position) gl_FragCoord: vec4f)
     let d = length(vLineCenter - gl_FragCoord.xy);  
     let LineWidth = 1.1f;  
     col.a *= smoothstep(0.0f, 1.0f, LineWidth - d);  
-    return vec4f(1.0f);
-    //return vec4f(col.rgb*col.a, col.a);  
+    return vec4f(col.rgb*col.a, col.a);  
 }

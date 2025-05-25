@@ -11,7 +11,6 @@ use enum_variant_type::EnumVariantType;
 use feather_macro::Dispatch;
 use glyphon::Cursor;
 use smallvec::SmallVec;
-use std::cell::RefCell;
 use std::ops::Range;
 use std::rc::Rc;
 use ultraviolet::Vec2;
@@ -31,6 +30,7 @@ struct TextBoxState {
     undo_index: usize,
     insert_mode: bool,
     count: usize,
+    focused: bool,
     buffer: Rc<crate::RefCell<Option<glyphon::Buffer>>>,
 }
 
@@ -273,6 +273,7 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
                 let obj = &props.textedit().obj;
                 match Self::translate(e) {
                     RawEvent::Focus { acquired, window } => {
+                        data.focused = acquired;
                         window.set_ime_allowed(acquired);
                         if acquired {
                             window.set_ime_purpose(winit::window::ImePurpose::Normal);
@@ -564,7 +565,11 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
             driver,
             config,
             (Vec2::zero(), Vec2::zero()),
-            self.color.as_rgba().map(|x| x as f32).into(),
+            if textstate.focused {
+                self.color.as_rgba().map(|x| x as f32).into()
+            } else {
+                ultraviolet::Vec4::zero()
+            },
         );
 
         let pipeline = Pipeline {
