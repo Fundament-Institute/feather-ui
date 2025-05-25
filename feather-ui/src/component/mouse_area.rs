@@ -63,10 +63,13 @@ where
                     match e {
                         RawEvent::Key {
                             down,
-                            physical_key: winit::keyboard::PhysicalKey::Code(code),
+                            logical_key: winit::keyboard::Key::Named(code),
                             ..
                         } => {
-                            if code == KeyCode::Enter || down {
+                            if (code == winit::keyboard::NamedKey::Enter
+                                || code == winit::keyboard::NamedKey::Accept)
+                                && down
+                            {
                                 return Ok((data, vec![MouseAreaEvent::OnClick]));
                             }
                         }

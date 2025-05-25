@@ -522,7 +522,7 @@ impl Window {
                                 Vec2::zero(),
                                 dpi,
                                 manager,
-                                id,
+                                id.clone(),
                             )
                         } else {
                             Err(())
@@ -530,12 +530,63 @@ impl Window {
                     }
                     RawEvent::Touch { pos, .. } => {
                         if let Some(rt) = rtree.upgrade() {
-                            rt.process(&e, e.kind(), pos.xy(), Vec2::zero(), dpi, manager, id)
+                            rt.process(
+                                &e,
+                                e.kind(),
+                                pos.xy(),
+                                Vec2::zero(),
+                                dpi,
+                                manager,
+                                id.clone(),
+                            )
                         } else {
                             Err(())
                         }
                     }
                 };
+                if r.is_err() {
+                    match e {
+                        RawEvent::Mouse {
+                            state: MouseState::Down,
+                            button: crate::input::MouseButton::L,
+                            ..
+                        }
+                        | RawEvent::Mouse {
+                            state: MouseState::Down,
+                            button: crate::input::MouseButton::M,
+                            ..
+                        }
+                        | RawEvent::Mouse {
+                            state: MouseState::Down,
+                            button: crate::input::MouseButton::R,
+                            ..
+                        } => {
+                            // We reborrow everything here or rust gets upset
+                            let state: &mut WindowStateMachine =
+                                manager.get_mut(&id).map_err(|_| ())?;
+                            let window = state.state.as_mut().unwrap();
+                            let evt = RawEvent::Focus {
+                                acquired: false,
+                                window: window.window.clone(),
+                            };
+
+                            // Drain() holds a reference, so we still have to collect these to avoid borrowing manager twice
+                            let nodes: SmallVec<[RcNode; 4]> =
+                                window.focus.drain().map(|(_, v)| v).collect();
+
+                            for node in nodes {
+                                let _ = node.0.inject_event(
+                                    &evt,
+                                    RawEventKind::Focus,
+                                    dpi,
+                                    Vec2::zero(),
+                                    manager,
+                                );
+                            }
+                        }
+                        _ => (),
+                    }
+                }
                 if let RawEvent::MouseMove { .. } = e {
                     if let Some(d) = driver.upgrade() {
                         inner.set_cursor(*d.cursor.read());
