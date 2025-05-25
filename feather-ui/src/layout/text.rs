@@ -1,4 +1,7 @@
-use std::{cell::RefCell, rc::Rc};
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+
+use std::rc::Rc;
 
 use derive_where::derive_where;
 
@@ -25,8 +28,6 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
         dpi: crate::Vec2,
         driver: &DriverState,
     ) -> Box<dyn super::Staged + 'a> {
-        let text_system: &Rc<RefCell<crate::text::System>> =
-            driver.text().expect("driver.text not initialized");
         let mut limits = self.props.limits().resolve(dpi) + outer_limits;
         let myarea = self.props.area().resolve(dpi);
         let (unsized_x, unsized_y) = check_unsized(myarea);
@@ -57,15 +58,16 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
 
         let mut text_binding = self.text_render.text_buffer.borrow_mut();
         let text_buffer = text_binding.as_mut().unwrap();
+        let mut font_system = driver.font_system.write();
 
         let dim = evaluated_area.dim();
         text_buffer.set_size(
-            &mut text_system.borrow_mut().font_system,
+            &mut font_system,
             if unsized_x { limitx } else { Some(dim.0.x) },
             if unsized_y { limity } else { Some(dim.0.y) },
         );
 
-        text_buffer.shape_until_scroll(&mut text_system.borrow_mut().font_system, false);
+        text_buffer.shape_until_scroll(&mut font_system, false);
 
         // If we have indeterminate area, calculate the size
         if unsized_x || unsized_y {

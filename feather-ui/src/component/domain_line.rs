@@ -3,8 +3,7 @@
 
 use crate::layout::{Layout, base};
 use crate::shaders::gen_uniform;
-use crate::{CrossReferenceDomain, render};
-use crate::{DriverState, SourceID, layout};
+use crate::{CrossReferenceDomain, DriverState, SourceID, layout, render};
 use derive_where::derive_where;
 use std::rc::Rc;
 use ultraviolet::Vec4;
@@ -40,7 +39,7 @@ where
         _window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
-        let shader_idx = driver.shader_cache.borrow_mut().register_shader(
+        let shader_idx = driver.shader_cache.write().register_shader(
             &driver.device,
             "Line FS",
             include_str!("../shaders/Line.frag.wgsl"),
@@ -48,7 +47,7 @@ where
         let pipeline =
             driver
                 .shader_cache
-                .borrow_mut()
+                .write()
                 .line_pipeline(&driver.device, shader_idx, config);
 
         let mvp = gen_uniform(

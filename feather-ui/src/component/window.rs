@@ -13,9 +13,9 @@ use alloc::sync::Arc;
 use core::f32;
 use eyre::{OptionExt, Result};
 use smallvec::SmallVec;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
-use tracing::Instrument;
 use ultraviolet::Vec2;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::{DeviceId, WindowEvent};
@@ -34,6 +34,8 @@ pub(crate) struct WindowState {
     pub dpi: Vec2,
     pub driver: Arc<DriverState>,
     pub draw: im::Vector<RenderInstruction>,
+    pub viewport: Rc<glyphon::Viewport>,
+    pub atlas: Rc<RefCell<glyphon::TextAtlas>>,
 }
 
 pub(crate) struct RcNode(pub(crate) Rc<Node>);
@@ -143,15 +145,11 @@ impl Window {
             config.format = view_format;
             config.view_formats.push(view_format);
             surface.configure(&driver.device, &config);
-            driver.format.replace(Some(view_format)).map_or_else(
-                || Ok(()),
-                |format| {
-                    Err(eyre::eyre!(
-                        "driver.format is already configured: {:?}",
-                        format
-                    ))
-                },
-            )?;
+
+            let cache = glyphon::Cache::new(&driver.device);
+            let atlas = glyphon::TextAtlas::new(&driver.device, &driver.queue, &cache, view_format);
+            let viewport = glyphon::Viewport::new(&driver.device, &cache);
+
             let mut windowstate = WindowState {
                 modifiers: 0,
                 all_buttons: 0,
@@ -161,8 +159,10 @@ impl Window {
                 focus: HashMap::new(),
                 surface,
                 window,
-                driver,
+                driver: driver.clone(),
                 draw: im::Vector::new(),
+                atlas: Rc::new(RefCell::new(atlas)),
+                viewport: Rc::new(viewport),
             };
 
             Window::resize(size, &mut windowstate);
@@ -197,14 +197,15 @@ impl Window {
         state.config.height = size.height;
         state.surface.configure(&state.driver.device, &state.config);
 
-        let text_system = state.driver.text().expect("driver.text not initialized");
-        text_system.borrow_mut().viewport.update(
-            &state.driver.queue,
-            glyphon::Resolution {
-                width: state.config.width,
-                height: state.config.height,
-            },
-        );
+        if let Some(viewport) = Rc::get_mut(&mut state.viewport) {
+            viewport.update(
+                &state.driver.queue,
+                glyphon::Resolution {
+                    width: state.config.width,
+                    height: state.config.height,
+                },
+            );
+        }
     }
 
     #[allow(clippy::result_unit_err)]

@@ -5,7 +5,7 @@ use super::StateMachine;
 use crate::input::{ModifierKeys, MouseButton, MouseState, RawEvent, RawEventKind};
 use crate::layout::{Layout, base, leaf};
 use crate::text::EditObj;
-use crate::{BASE_DPI, SourceID, WindowStateMachine, layout, point_to_pixel, render};
+use crate::{SourceID, WindowStateMachine, layout, point_to_pixel, render};
 use derive_where::derive_where;
 use enum_variant_type::EnumVariantType;
 use feather_macro::Dispatch;
@@ -509,8 +509,9 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let winstate: &WindowStateMachine = state.get(window).unwrap();
-        let dpi = winstate.state.as_ref().map(|x| x.dpi).unwrap_or(BASE_DPI);
-        let text_system = driver.text().expect("driver.text not initialized");
+        let winstate = winstate.state.as_ref().expect("No window state available");
+        let dpi = winstate.dpi;
+        let mut font_system = driver.font_system.write();
 
         let textstate: &StateMachine<TextBoxEvent, TextBoxState, 1, 3> =
             state.get(&self.id).unwrap();
@@ -518,7 +519,7 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
 
         if textstate.buffer.borrow().is_none() {
             *textstate.buffer.borrow_mut() = Some(glyphon::Buffer::new(
-                &mut text_system.borrow_mut().font_system,
+                &mut font_system,
                 glyphon::Metrics::new(
                     point_to_pixel(self.font_size, dpi.x),
                     point_to_pixel(self.line_height, dpi.x),
@@ -529,15 +530,15 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
         let text_buffer = text_binding.as_mut().unwrap();
 
         text_buffer.set_metrics(
-            &mut text_system.borrow_mut().font_system,
+            &mut font_system,
             glyphon::Metrics::new(
                 point_to_pixel(self.font_size, dpi.x),
                 point_to_pixel(self.line_height, dpi.x),
             ),
         );
-        text_buffer.set_wrap(&mut text_system.borrow_mut().font_system, self.wrap);
+        text_buffer.set_wrap(&mut font_system, self.wrap);
         text_buffer.set_text(
-            &mut text_system.borrow_mut().font_system,
+            &mut font_system,
             &self.props.textedit().obj.text.borrow(),
             &glyphon::Attrs::new()
                 .family(self.font.as_family())
@@ -548,7 +549,7 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
         );
 
         let renderer = glyphon::TextRenderer::new(
-            &mut text_system.borrow_mut().atlas,
+            &mut winstate.atlas.borrow_mut(),
             &driver.device,
             wgpu::MultisampleState::default(),
             None,
@@ -559,6 +560,8 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
             text_buffer: textstate.buffer.clone(),
             renderer: renderer.into(),
             padding: self.props.padding().resolve(dpi).into(),
+            atlas: winstate.atlas.clone(),
+            viewport: winstate.viewport.clone(),
         });
 
         let line = super::line::build_pipeline(
@@ -574,7 +577,7 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
 
         let pipeline = Pipeline {
             text: textrender.clone(),
-            line: line.into(),
+            line,
             cursor: self.props.textedit().obj.get_cursor().1,
         };
         Box::new(layout::text::Node::<T> {
@@ -605,8 +608,13 @@ impl crate::render::Renderable for Pipeline {
         let mut pos = self.text.padding.get().topleft();
         let mut cursor_height = 0.0;
         for line in buffer.as_ref().unwrap().layout_runs() {
-            if line.text.len() < offset {
-                offset -= line.text.len();
+            let len = line.text.len()
+                + buffer.as_ref().unwrap().lines[line.line_i]
+                    .ending()
+                    .as_str()
+                    .len();
+            if len < offset {
+                offset -= len;
                 pos.y += line.line_height;
             } else {
                 pos.x += line
@@ -614,7 +622,7 @@ impl crate::render::Renderable for Pipeline {
                         Cursor::new(line.line_i, offset),
                         Cursor::new(line.line_i, offset),
                     )
-                    .map(|(x, w)| x)
+                    .map(|(x, _)| x)
                     .unwrap_or(0.0);
                 //line.line_top
                 cursor_height = line.line_height;

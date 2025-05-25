@@ -47,6 +47,7 @@ parking_lot = { version = "0.12.3", features = [
   "hardware-lock-elision",
   "arc_lock",
 ] }
+static_assertions = "1.1.0"
 
 [lints.clippy]
 too_many_arguments = { level = "allow" }

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+
 use std::rc::Rc;
 
 pub struct Pipeline<const N: usize>(pub [Rc<dyn super::Renderable>; N]);

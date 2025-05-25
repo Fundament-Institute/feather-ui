@@ -9,11 +9,11 @@ use feather_ui::component::draggable::Draggable;
 use feather_ui::component::region::Region;
 use feather_ui::component::shape::Shape;
 use feather_ui::component::window::Window;
-use feather_ui::component::{draggable, ComponentFrom};
+use feather_ui::component::{ComponentFrom, draggable};
 use feather_ui::layout::{base, fixed};
 use feather_ui::persist::FnPersist;
 use feather_ui::{
-    AbsRect, App, CrossReferenceDomain, DRect, DataID, Slot, SourceID, WrapEventEx, FILL_DRECT,
+    AbsRect, App, CrossReferenceDomain, DRect, DataID, FILL_DRECT, Slot, SourceID, WrapEventEx,
 };
 use std::collections::HashSet;
 use std::f32;

@@ -1,16 +1,12 @@
-use std::{
-    cell::RefCell,
-    rc::Rc,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use glyphon::{
-    FontSystem, SwashCache, TextAtlas, Viewport,
-    cosmic_text::ttf_parser::gsub::MultipleSubstitution,
-};
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
 use smallvec::SmallVec;
-use unicode_segmentation::{GraphemeCursor, UnicodeSegmentation};
-use wgpu::{TextureFormat, hal::dx12::AccelerationStructure};
+use unicode_segmentation::GraphemeCursor;
 
 #[derive(Default, Debug)]
 pub struct EditObj {
@@ -169,45 +165,6 @@ impl From<EditObj> for Snapshot {
         Self {
             obj: value.clone(),
             count: value.count.load(std::sync::atomic::Ordering::Acquire),
-        }
-    }
-}
-
-#[derive_where::derive_where(Debug)]
-pub struct System {
-    pub viewport: Viewport,
-    #[derive_where(skip)]
-    pub atlas: TextAtlas,
-    pub font_system: FontSystem,
-    pub swash_cache: SwashCache,
-}
-
-impl System {
-    pub fn split_borrow(
-        &mut self,
-    ) -> (
-        &mut Viewport,
-        &mut TextAtlas,
-        &mut FontSystem,
-        &mut SwashCache,
-    ) {
-        (
-            &mut self.viewport,
-            &mut self.atlas,
-            &mut self.font_system,
-            &mut self.swash_cache,
-        )
-    }
-
-    pub(super) fn new(device: &wgpu::Device, queue: &wgpu::Queue, format: TextureFormat) -> Self {
-        let cache = glyphon::Cache::new(device);
-        let atlas = TextAtlas::new(device, queue, &cache, format);
-        let viewport = Viewport::new(device, &cache);
-        Self {
-            font_system: FontSystem::new(),
-            swash_cache: SwashCache::new(),
-            viewport,
-            atlas,
         }
     }
 }

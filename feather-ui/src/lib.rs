@@ -17,13 +17,11 @@ pub mod text;
 use crate::component::window::Window;
 use component::window::WindowStateMachine;
 use component::{Component, StateMachineWrapper};
-use core::cell::Cell;
 use core::f32;
 use dyn_clone::DynClone;
 use eyre::OptionExt;
 pub use glyphon::Wrap;
-use once_cell::unsync::OnceCell;
-use parking_lot::lock_api::RwLock;
+use parking_lot::RwLock;
 use persist::FnPersist;
 use shaders::ShaderCache;
 use smallvec::SmallVec;
@@ -865,27 +863,12 @@ pub struct DriverState {
     adapter: wgpu::Adapter,
     device: wgpu::Device,
     queue: wgpu::Queue,
-    format: Cell<Option<wgpu::TextureFormat>>,
-    text: OnceCell<std::rc::Rc<RefCell<text::System>>>,
-    shader_cache: RefCell<ShaderCache>,
-    cursor: parking_lot::RwLock<CursorIcon>, // This is a convenient place to track our global expected cursor
+    shader_cache: RwLock<ShaderCache>,
+    swash_cache: RwLock<glyphon::SwashCache>,
+    font_system: RwLock<glyphon::FontSystem>,
+    cursor: RwLock<CursorIcon>, // This is a convenient place to track our global expected cursor
 }
-
-impl DriverState {
-    fn text(&self) -> eyre::Result<&std::rc::Rc<RefCell<text::System>>> {
-        self.text.get_or_try_init(|| {
-            let format = self
-                .format
-                .get()
-                .ok_or_eyre("driver.text initialized called before driver.format is provided")?;
-            Ok(std::rc::Rc::new(RefCell::new(text::System::new(
-                &self.device,
-                &self.queue,
-                format,
-            ))))
-        })
-    }
-}
+static_assertions::assert_impl_all!(DriverState: Send, Sync);
 
 /// Object-safe version of Hash + PartialEq
 pub trait DynHashEq: DynClone {
@@ -1329,9 +1312,9 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
             adapter,
             device,
             queue,
-            format: Cell::new(None),
-            text: OnceCell::new(),
-            shader_cache: RefCell::new(shader_cache),
+            swash_cache: RwLock::new(glyphon::SwashCache::new()),
+            font_system: RwLock::new(glyphon::FontSystem::new()),
+            shader_cache: RwLock::new(shader_cache),
             cursor: RwLock::new(CursorIcon::Default),
         });
 

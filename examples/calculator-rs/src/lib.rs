@@ -174,7 +174,8 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
         args: &CalcFFI,
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
         //if store.0.eq(args) {
-        let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> = im::Vector::new();
+        let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
+            im::Vector::new();
 
         let button_id = Rc::new(gen_id!());
 

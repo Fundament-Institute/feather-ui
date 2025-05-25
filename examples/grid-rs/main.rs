@@ -9,12 +9,12 @@ use feather_ui::component::region::Region;
 use feather_ui::component::shape::Shape;
 use feather_ui::component::text::Text;
 use feather_ui::component::window::Window;
-use feather_ui::component::{mouse_area, ComponentFrom};
+use feather_ui::component::{ComponentFrom, mouse_area};
 use feather_ui::layout::{base, fixed, grid, leaf};
 use feather_ui::persist::FnPersist;
 use feather_ui::{
-    gen_id, AbsRect, App, DAbsRect, DPoint, DRect, DValue, RelRect, Slot, SourceID, FILL_DRECT,
-    UNSIZED_AXIS, ZERO_POINT,
+    AbsRect, App, DAbsRect, DPoint, DRect, DValue, FILL_DRECT, RelRect, Slot, SourceID,
+    UNSIZED_AXIS, ZERO_POINT, gen_id,
 };
 use std::rc::Rc;
 use ultraviolet::{Vec2, Vec4};

@@ -1,7 +1,8 @@
-use crate::{
-    shaders::{to_bytes, Vertex},
-    CrossReferenceDomain, DriverState, RenderLambda, SourceID,
-};
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+
+use crate::shaders::{Vertex, to_bytes};
+use crate::{CrossReferenceDomain, DriverState, RenderLambda, SourceID};
 use std::rc::Rc;
 use wgpu::util::DeviceExt;
 

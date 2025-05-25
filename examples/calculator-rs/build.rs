@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
+use notify::Watcher;
+use std::path::PathBuf;
+
 fn get_cargo_target_dir() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
     let out_dir = std::path::PathBuf::from(std::env::var("OUT_DIR")?);
     let profile = std::env::var("PROFILE")?;
@@ -17,6 +20,23 @@ fn get_cargo_target_dir() -> Result<std::path::PathBuf, Box<dyn std::error::Erro
     Ok(target_dir.to_path_buf())
 }
 
+fn wait_until_path_exists(path: &std::path::Path) -> notify::Result<()> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    let mut watcher = notify::recommended_watcher(tx)?;
+
+    let file_dir = path.parent().unwrap();
+    watcher.watch(file_dir, notify::RecursiveMode::Recursive)?;
+    if !path.exists() {
+        loop {
+            if rx.recv_timeout(std::time::Duration::from_secs(3)).is_ok() && path.exists() {
+                break;
+            }
+        }
+    }
+    watcher.unwatch(file_dir)?;
+    Ok(())
+}
+
 fn main() {
     uniffi::generate_scaffolding("src/calculator.udl").unwrap();
 
@@ -30,29 +50,31 @@ fn main() {
             e
         )
     } else if let Ok(s) = get_cargo_target_dir() {
-        let curdir = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+        let curdir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+        let bin = curdir.join("calculator-cs/bin");
+        // There's a race condition in the filesystem where the result of the compile command might not show up yet
+        wait_until_path_exists(&bin).unwrap();
+
+        let debug = bin.read_dir().unwrap().last().unwrap().unwrap();
+        let net8 = debug.path().read_dir().unwrap().last().unwrap().unwrap();
 
         std::fs::copy(
-            curdir.join("calculator-cs/bin/Debug/net8.0/calculator-cs.runtimeconfig.json"),
+            net8.path().join("calculator-cs.runtimeconfig.json"),
             s.join("calculator-cs.runtimeconfig.json"),
         )
         .unwrap();
         std::fs::copy(
-            curdir.join("calculator-cs/bin/Debug/net8.0/calculator-cs.dll"),
+            net8.path().join("calculator-cs.dll"),
             s.join("calculator-cs.dll"),
         )
         .unwrap();
         if std::fs::copy(
-            curdir.join("calculator-cs/bin/Debug/net8.0/calculator-cs.exe"),
+            net8.path().join("calculator-cs.exe"),
             s.join("calculator-cs.exe"),
         )
         .is_err()
         {
-            std::fs::copy(
-                curdir.join("calculator-cs/bin/Debug/net8.0/calculator-cs"),
-                s.join("calculator-cs.exe"),
-            )
-            .unwrap();
+            std::fs::copy(net8.path().join("calculator-cs"), s.join("calculator-cs")).unwrap();
         }
     } else {
         print!("Couldn't get TARGET_DIR for current crate, C# example not copied to output dir.");

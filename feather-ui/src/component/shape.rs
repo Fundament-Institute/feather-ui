@@ -102,15 +102,15 @@ where
         let winstate: &WindowStateMachine = state.get(window).unwrap();
         let dpi = winstate.state.as_ref().map(|x| x.dpi).unwrap_or(BASE_DPI);
 
-        let shader_idx = driver.shader_cache.borrow_mut().register_shader(
-            &driver.device,
-            self.label,
-            &self.fragment,
-        );
+        let shader_idx =
+            driver
+                .shader_cache
+                .write()
+                .register_shader(&driver.device, self.label, &self.fragment);
         let pipeline =
             driver
                 .shader_cache
-                .borrow_mut()
+                .write()
                 .standard_pipeline(&driver.device, shader_idx, config);
 
         let mvp = gen_uniform(

@@ -6,8 +6,7 @@ use crate::shaders::gen_uniform;
 use crate::{DriverState, SourceID, layout};
 use derive_where::derive_where;
 use std::rc::Rc;
-use ultraviolet::Vec2;
-use ultraviolet::Vec4;
+use ultraviolet::{Vec2, Vec4};
 use wgpu::util::DeviceExt;
 
 // This draws a line between two points relative to the parent
@@ -61,16 +60,15 @@ pub fn build_pipeline(
     pos: (Vec2, Vec2),
     fill: Vec4,
 ) -> Rc<crate::render::line::Pipeline> {
-    let shader_idx = driver.shader_cache.borrow_mut().register_shader(
+    let shader_idx = driver.shader_cache.write().register_shader(
         &driver.device,
         "Line FS",
         include_str!("../shaders/Line.frag.wgsl"),
     );
-    let pipeline =
-        driver
-            .shader_cache
-            .borrow_mut()
-            .line_pipeline(&driver.device, shader_idx, config);
+    let pipeline = driver
+        .shader_cache
+        .write()
+        .line_pipeline(&driver.device, shader_idx, config);
 
     let mvp = gen_uniform(
         driver,
