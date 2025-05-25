@@ -7,11 +7,11 @@ use feather_ui::component::region::Region;
 use feather_ui::component::shape::Shape;
 use feather_ui::component::text::Text;
 use feather_ui::component::window::Window;
-use feather_ui::component::{mouse_area, ComponentFrom};
+use feather_ui::component::{ComponentFrom, mouse_area};
 use feather_ui::layout::{fixed, leaf};
 use feather_ui::persist::FnPersist;
 use feather_ui::{
-    gen_id, AbsRect, App, DAbsRect, DPoint, DRect, RelRect, Slot, SourceID, URect, UNSIZED_AXIS,
+    AbsRect, App, DAbsRect, DPoint, DRect, RelRect, Slot, SourceID, UNSIZED_AXIS, URect, gen_id,
 };
 use std::rc::Rc;
 use ultraviolet::{Vec2, Vec4};

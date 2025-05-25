@@ -2,7 +2,8 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use feather_ui::layout::{fixed, leaf};
-use feather_ui::{DAbsRect, gen_id, text::EditObj, text::Snapshot};
+use feather_ui::text::{EditObj, Snapshot};
+use feather_ui::{DAbsRect, gen_id};
 
 use feather_ui::component::region::Region;
 use feather_ui::component::textbox::TextBox;

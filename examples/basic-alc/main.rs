@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use feather_ui::lua::{AppState, LuaApp};
 use feather_ui::App;
-use mlua::prelude::*;
+use feather_ui::lua::{AppState, LuaApp};
 use mlua::Function;
+use mlua::prelude::*;
 
 fn wrap_luafunc(
     f: Function,

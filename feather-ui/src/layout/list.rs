@@ -4,10 +4,10 @@
 use ultraviolet::Vec2;
 
 use super::{
-    base, check_unsized_abs, map_unsized_area, nuetralize_unsized, swap_axis, Concrete, Desc,
-    LayoutWrap, Renderable, Staged,
+    Concrete, Desc, LayoutWrap, Renderable, Staged, base, check_unsized_abs, map_unsized_area,
+    nuetralize_unsized, swap_axis,
 };
-use crate::{rtree, AbsRect, RowDirection, SourceID, ZERO_POINT};
+use crate::{AbsRect, RowDirection, SourceID, ZERO_POINT, rtree};
 use std::rc::Rc;
 
 pub trait Prop: base::Area + base::Limits + base::Direction {}

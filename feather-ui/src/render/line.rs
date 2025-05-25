@@ -1,8 +1,10 @@
-use crate::{
-    DriverState, RenderLambda,
-    shaders::{Vertex, to_bytes},
-};
-use std::{cell::RefCell, rc::Rc};
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+
+use crate::shaders::{Vertex, to_bytes};
+use crate::{DriverState, RenderLambda};
+use std::cell::RefCell;
+use std::rc::Rc;
 use ultraviolet::Vec2;
 use wgpu::util::DeviceExt;
 

@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use crate::layout::{self, Layout, leaf};
-use crate::{BASE_DPI, DriverState, SourceID, WindowStateMachine, point_to_pixel};
+use crate::{DriverState, SourceID, WindowStateMachine, point_to_pixel};
 use derive_where::derive_where;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -58,19 +58,20 @@ where
         _: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let winstate: &WindowStateMachine = state.get(window).unwrap();
-        let dpi = winstate.state.as_ref().map(|x| x.dpi).unwrap_or(BASE_DPI);
-        let text_system = driver.text().expect("driver.text not initialized");
+        let winstate = winstate.state.as_ref().expect("No window state available");
+        let dpi = winstate.dpi;
+        let mut font_system = driver.font_system.write();
         let mut text_buffer = glyphon::Buffer::new(
-            &mut text_system.borrow_mut().font_system,
+            &mut font_system,
             glyphon::Metrics::new(
                 point_to_pixel(self.font_size, dpi.x),
                 point_to_pixel(self.line_height, dpi.x),
             ),
         );
 
-        text_buffer.set_wrap(&mut text_system.borrow_mut().font_system, self.wrap);
+        text_buffer.set_wrap(&mut font_system, self.wrap);
         text_buffer.set_text(
-            &mut text_system.borrow_mut().font_system,
+            &mut font_system,
             &self.text,
             &glyphon::Attrs::new()
                 .family(self.font.as_family())
@@ -81,7 +82,7 @@ where
         );
 
         let renderer = glyphon::TextRenderer::new(
-            &mut text_system.borrow_mut().atlas,
+            &mut winstate.atlas.borrow_mut(),
             &driver.device,
             wgpu::MultisampleState::default(),
             None,
@@ -92,6 +93,8 @@ where
             text_buffer: Rc::new(RefCell::new(Some(text_buffer))),
             renderer: renderer.into(),
             padding: self.props.padding().resolve(dpi).into(),
+            atlas: winstate.atlas.clone(),
+            viewport: winstate.viewport.clone(),
         });
         Box::new(layout::text::Node::<T> {
             props: self.props.clone(),

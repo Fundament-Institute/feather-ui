@@ -11,7 +11,6 @@ use enum_variant_type::EnumVariantType;
 use feather_macro::Dispatch;
 use std::collections::HashSet;
 use std::rc::Rc;
-use winit::keyboard::KeyCode;
 
 #[derive(Debug, Dispatch, EnumVariantType, Clone, PartialEq, Eq)]
 #[evt(derive(Clone), module = "mouse_area_event")]

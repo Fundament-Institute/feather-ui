@@ -76,20 +76,21 @@ pub struct Vertex {
 pub struct ShaderCache {
     shaders: Vec<wgpu::ShaderModule>,
     layouts: Vec<wgpu::PipelineLayout>,
-    _pipelines: HashMap<(usize, wgpu::SurfaceConfiguration), std::rc::Weak<wgpu::RenderPipeline>>,
+    //_pipelines: HashMap<(usize, wgpu::SurfaceConfiguration), std::rc::Weak<wgpu::RenderPipeline>>,
     shader_hash: HashMap<String, usize>,
     pub basic_vs: usize,
     pub line_vs: usize,
     pub basic_pipeline: usize,
     pub line_pipeline: usize,
 }
+static_assertions::assert_impl_all!(ShaderCache: Send, Sync);
 
 impl ShaderCache {
     pub fn new(device: &wgpu::Device) -> Self {
         let mut this = ShaderCache {
             shaders: Default::default(),
             layouts: Default::default(),
-            _pipelines: Default::default(),
+            //_pipelines: Default::default(),
             shader_hash: Default::default(),
             basic_pipeline: 0,
             line_pipeline: 0,

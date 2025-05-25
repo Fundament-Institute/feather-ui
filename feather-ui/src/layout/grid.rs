@@ -4,11 +4,11 @@
 use ultraviolet::Vec2;
 
 use super::{
-    base, check_unsized, map_unsized_area, nuetralize_unsized, swap_axis, Concrete, Desc,
-    LayoutWrap, Renderable, Staged,
+    Concrete, Desc, LayoutWrap, Renderable, Staged, base, check_unsized, map_unsized_area,
+    nuetralize_unsized, swap_axis,
 };
 use crate::{
-    rtree, AbsRect, DPoint, DValue, RowDirection, SourceID, MINUS_BOTTOMRIGHT, UNSIZED_AXIS,
+    AbsRect, DPoint, DValue, MINUS_BOTTOMRIGHT, RowDirection, SourceID, UNSIZED_AXIS, rtree,
 };
 use std::rc::Rc;
 

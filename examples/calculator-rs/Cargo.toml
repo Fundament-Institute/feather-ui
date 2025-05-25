@@ -4,7 +4,7 @@
 [package]
 name = "calculator-rs"
 version.workspace = true
-edition.workspace = true
+edition = "2021" # This is stuck on uniffi 0.27 which doesn't emit valid code under 2024
 rust-version.workspace = true
 authors = ["Erik McClure  "]
 description = """
@@ -36,3 +36,4 @@ uniffi = "0.27.0"
 
 [build-dependencies]
 uniffi = { version = "0.27.0", features = ["build"] }
+notify = "8.0"

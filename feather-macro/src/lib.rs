@@ -268,7 +268,7 @@ pub fn dispatchable(input: TokenStream) -> TokenStream {
                     Box::new(#enum_module::#variant_name::try_from(self).unwrap()),
                 ),
             });
-        } else if variant.fields.iter().last().unwrap().ident.is_none() {
+        } else if variant.fields.iter().next().unwrap().ident.is_none() {
             let underscores = variant.fields.iter().map(|_| format_ident!("_"));
             extract_declarations.extend(quote! {
                 #enum_name::#variant_name(#(#underscores),*) => (
