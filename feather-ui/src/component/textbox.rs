@@ -257,7 +257,7 @@ impl<T: Prop + 'static> TextBox<T> {
     }
 }
 
-impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
+impl<T: Prop + 'static> super::Component<dyn leaf::Padded> for TextBox<T> {
     fn id(&self) -> Rc<SourceID> {
         self.id.clone()
     }
@@ -507,7 +507,7 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
         driver: &crate::DriverState,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn Layout<T>> {
+    ) -> Box<dyn Layout<dyn leaf::Padded>> {
         let winstate: &WindowStateMachine = state.get(window).unwrap();
         let winstate = winstate.state.as_ref().expect("No window state available");
         let dpi = winstate.dpi;
@@ -588,8 +588,6 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
         })
     }
 }
-
-crate::gen_component_wrap!(TextBox, Prop);
 
 pub struct Pipeline {
     pub text: Rc<render::text::Pipeline>,

@@ -43,7 +43,7 @@ impl<T: leaf::Prop + 'static> MouseArea<T> {
     }
 }
 
-impl<T: leaf::Prop + 'static> super::Component<T> for MouseArea<T>
+impl<T: leaf::Prop + 'static> super::Component<dyn leaf::Prop> for MouseArea<T>
 where
     for<'a> &'a T: Into<&'a (dyn leaf::Prop + 'static)>,
 {
@@ -143,7 +143,7 @@ where
         _: &crate::DriverState,
         _: &Rc<SourceID>,
         _: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn Layout<T> + 'static> {
+    ) -> Box<dyn Layout<dyn leaf::Prop> + 'static> {
         Box::new(layout::Node::<T, dyn leaf::Prop> {
             props: self.props.clone(),
             children: Default::default(),

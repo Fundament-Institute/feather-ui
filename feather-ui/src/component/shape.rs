@@ -80,7 +80,7 @@ impl<T: leaf::Padded + 'static> Shape<'_, T> {
     }
 }
 
-impl<T: leaf::Padded + 'static> super::Component<T> for Shape<'_, T>
+impl<T: leaf::Padded + 'static> super::Component<dyn leaf::Prop> for Shape<'_, T>
 where
     for<'a> &'a T: Into<&'a (dyn leaf::Padded + 'static)>,
 {
@@ -98,7 +98,7 @@ where
         driver: &DriverState,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn Layout<T>> {
+    ) -> Box<dyn Layout<dyn leaf::Prop>> {
         let winstate: &WindowStateMachine = state.get(window).unwrap();
         let dpi = winstate.state.as_ref().map(|x| x.dpi).unwrap_or(BASE_DPI);
 
@@ -179,4 +179,3 @@ where
     }
 }
 
-crate::gen_component_wrap!('a, Shape, leaf::Padded);

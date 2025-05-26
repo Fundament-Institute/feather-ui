@@ -17,11 +17,11 @@ pub struct Node<T: leaf::Padded> {
     pub renderable: Rc<dyn render::Renderable>,
 }
 
-impl<T: leaf::Padded> Layout<T> for Node<T> {
-    fn get_props(&self) -> &T {
-        &self.props
+impl<T: leaf::Padded + 'static> Layout<dyn leaf::Padded> for Node<T> {
+    fn get_props(&self) -> &(dyn leaf::Padded + 'static) {
+        self.props.as_ref()
     }
-    fn inner_stage<'a>(
+    fn stage<'a>(
         &self,
         outer_area: AbsRect,
         outer_limits: crate::AbsLimits,

@@ -105,5 +105,3 @@ where
         })
     }
 }
-
-crate::gen_component_wrap!(DomainLine, base::Empty);

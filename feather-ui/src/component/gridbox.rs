@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::layout::{Desc, Layout, LayoutWrap, grid};
+use crate::layout::{Desc, Layout, grid};
 use crate::persist::{FnPersist, VectorMap};
 use crate::{SourceID, layout};
 use derive_where::derive_where;
@@ -16,7 +16,7 @@ pub struct GridBox<T: grid::Prop + 'static> {
     pub children: im::Vector<Option<Box<ComponentFrom<dyn grid::Prop>>>>,
 }
 
-impl<T: grid::Prop + 'static> super::Component<T> for GridBox<T> {
+impl<T: grid::Prop + 'static> super::Component<dyn grid::Prop> for GridBox<T> {
     fn id(&self) -> Rc<SourceID> {
         self.id.clone()
     }
@@ -34,9 +34,9 @@ impl<T: grid::Prop + 'static> super::Component<T> for GridBox<T> {
         driver: &crate::DriverState,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn Layout<T>> {
+    ) -> Box<dyn Layout<dyn grid::Prop>> {
         let map = VectorMap::new(
-            |child: &Option<Box<ComponentFrom<dyn grid::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn grid::Prop as Desc>::Child>>> {
+            |child: &Option<Box<ComponentFrom<dyn grid::Prop>>>| -> Option<Box<dyn Layout<<dyn grid::Prop as Desc>::Child>>> {
                 Some(child.as_ref().unwrap().layout(state, driver,window, config))
             },
         );
@@ -51,4 +51,3 @@ impl<T: grid::Prop + 'static> super::Component<T> for GridBox<T> {
     }
 }
 
-crate::gen_component_wrap!(GridBox, grid::Prop);

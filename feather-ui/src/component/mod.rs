@@ -18,7 +18,7 @@ pub mod textbox;
 pub mod window;
 
 use crate::component::window::Window;
-use crate::layout::{Desc, Layout, LayoutWrap, Staged, root};
+use crate::layout::{Desc, Layout, Staged, root};
 use crate::{
     AbsRect, DEFAULT_LIMITS, DispatchPair, Dispatchable, DriverState, EventWrapper, Slot, SourceID,
     StateManager, rtree,
@@ -102,7 +102,17 @@ impl<
     }
 }
 
-pub trait Component<T>: DynClone {
+pub trait ComponentLayout<T: ?Sized>: DynClone {
+    fn layout(
+        &self,
+        state: &StateManager,
+        driver: &DriverState,
+        window: &Rc<SourceID>,
+        config: &wgpu::SurfaceConfiguration,
+    ) -> Box<dyn Layout<T> + 'static>;
+}
+
+pub trait Component<T: ?Sized>: DynClone {
     fn layout(
         &self,
         state: &StateManager,
@@ -118,28 +128,8 @@ pub trait Component<T>: DynClone {
     fn id(&self) -> Rc<SourceID>;
 }
 
-dyn_clone::clone_trait_object!(<Parent> Component<Parent>);
-
-pub type ComponentFrom<D> = dyn ComponentWrap<<D as Desc>::Child>;
-
-pub trait ComponentWrap<T: ?Sized>: DynClone {
-    fn layout(
-        &self,
-        state: &StateManager,
-        driver: &DriverState,
-        window: &Rc<SourceID>,
-        config: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn LayoutWrap<T> + 'static>;
-    fn init(&self) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error>;
-    fn init_all(&self, _: &mut StateManager) -> eyre::Result<()>;
-    fn id(&self) -> Rc<SourceID>;
-}
-
-dyn_clone::clone_trait_object!(<T> ComponentWrap<T> where T:?Sized);
-
-impl<U: ?Sized, T: 'static> ComponentWrap<U> for Box<dyn Component<T>>
-where
-    for<'a> &'a T: Into<&'a U>,
+impl<T: crate::layout::base::Empty> ComponentLayout<dyn crate::layout::base::Empty>
+    for Component<T>
 {
     fn layout(
         &self,
@@ -147,61 +137,20 @@ where
         driver: &DriverState,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn LayoutWrap<U> + 'static> {
-        Box::new(Component::<T>::layout(
-            self.as_ref(),
-            state,
-            driver,
-            window,
-            config,
-        ))
-    }
-
-    fn init(&self) -> Result<Box<dyn crate::StateMachineWrapper>, crate::Error> {
-        Component::<T>::init(self.as_ref())
-    }
-
-    fn init_all(&self, manager: &mut StateManager) -> eyre::Result<()> {
-        Component::<T>::init_all(self.as_ref(), manager)
-    }
-
-    fn id(&self) -> Rc<SourceID> {
-        Component::<T>::id(self.as_ref())
+    ) -> Box<dyn Layout<dyn crate::layout::base::Empty> + 'static> {
+        todo!()
     }
 }
 
-impl<U: ?Sized, T: 'static> ComponentWrap<U> for &dyn Component<T>
-where
-    for<'a> &'a T: Into<&'a U>,
-{
-    fn layout(
-        &self,
-        state: &StateManager,
-        driver: &DriverState,
-        window: &Rc<SourceID>,
-        config: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn LayoutWrap<U> + 'static> {
-        Box::new(Component::<T>::layout(*self, state, driver, window, config))
-    }
+dyn_clone::clone_trait_object!(<Parent> Component<Parent> where Parent:?Sized);
 
-    fn init(&self) -> Result<Box<dyn crate::StateMachineWrapper>, crate::Error> {
-        Component::<T>::init(*self)
-    }
-
-    fn init_all(&self, manager: &mut StateManager) -> eyre::Result<()> {
-        Component::<T>::init_all(*self, manager)
-    }
-
-    fn id(&self) -> Rc<SourceID> {
-        Component::<T>::id(*self)
-    }
-}
+pub type ComponentFrom<D> = dyn Component<<D as Desc>::Child>;
 
 // Stores the root node for the various trees.
 
 pub struct RootState {
     pub(crate) id: Rc<SourceID>,
-    layout_tree: Option<Box<dyn crate::layout::Layout<crate::AbsDim>>>,
+    layout_tree: Option<Box<dyn crate::layout::Layout<dyn root::Prop>>>,
     pub(crate) staging: Option<Box<dyn Staged>>,
     rtree: Weak<rtree::Node>,
 }
@@ -282,7 +231,6 @@ impl Root {
                 .get_mut(&id)
                 .ok_or_eyre("Couldn't find window state")?;
             if let Some(layout) = root.layout_tree.as_ref() {
-                let layout: &dyn LayoutWrap<dyn root::Prop> = &layout.as_ref();
                 let staging = layout.stage(
                     Default::default(),
                     DEFAULT_LIMITS,
@@ -319,7 +267,7 @@ macro_rules! gen_component_wrap_inner {
             driver: &$crate::DriverState,
             window: &Rc<SourceID>,
             config: &wgpu::SurfaceConfiguration,
-        ) -> Box<dyn $crate::component::LayoutWrap<U> + 'static> {
+        ) -> Box<dyn $crate::component::Layout<U> + 'static> {
             Box::new($crate::component::Component::<T>::layout(
                 self, state, driver, window, config,
             ))
@@ -335,37 +283,6 @@ macro_rules! gen_component_wrap_inner {
 
         fn id(&self) -> Rc<SourceID> {
             $crate::component::Component::<T>::id(self)
-        }
-    };
-}
-
-#[macro_export]
-macro_rules! gen_component_wrap {
-    ($name:ident, $prop:path) => {
-        impl<U: ?Sized, T: $prop + 'static> $crate::component::ComponentWrap<U> for $name<T>
-        where
-            $name<T>: $crate::component::Component<T>,
-            for<'a> &'a T: Into<&'a U>,
-        {
-            $crate::gen_component_wrap_inner!();
-        }
-    };
-    ($name:ident, $prop:path, $aux:path) => {
-        impl<U: ?Sized, T: $prop + $aux + 'static> $crate::component::ComponentWrap<U> for $name<T>
-        where
-            $name<T>: $crate::component::Component<T>,
-            for<'a> &'a T: Into<&'a U>,
-        {
-            $crate::gen_component_wrap_inner!();
-        }
-    };
-    ($a:lifetime, $name:ident, $prop:path) => {
-        impl<$a, U: ?Sized, T: $prop + 'static> $crate::component::ComponentWrap<U> for $name<$a, T>
-        where
-            $name<$a, T>: $crate::component::Component<T>,
-            for<'abc> &'abc T: Into<&'abc U>,
-        {
-            $crate::gen_component_wrap_inner!();
         }
     };
 }

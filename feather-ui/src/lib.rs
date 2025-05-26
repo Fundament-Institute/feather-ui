@@ -1147,7 +1147,7 @@ impl StateManager {
 
     fn init_component<Parent: ?Sized>(
         &mut self,
-        target: &dyn crate::component::ComponentWrap<Parent>,
+        target: &dyn crate::component::Component<Parent>,
     ) -> eyre::Result<()> {
         if !self.states.contains_key(&target.id()) {
             match target.init() {

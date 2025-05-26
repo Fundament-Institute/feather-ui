@@ -62,6 +62,8 @@ impl crate::layout::Desc for dyn Empty {
     }
 }
 
+crate::gen_layout_impl!(Empty);
+
 //static SENTINEL: std::sync::LazyLock<std::rc::Rc<()>> =
 //  std::sync::LazyLock::new(|| std::rc::Rc::new(()));
 

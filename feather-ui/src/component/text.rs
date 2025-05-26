@@ -38,7 +38,7 @@ impl<T: Default + leaf::Padded + 'static> Default for Text<T> {
     }
 }
 
-impl<T: leaf::Padded + 'static> super::Component<T> for Text<T>
+impl<T: leaf::Padded + 'static> super::Component<dyn leaf::Padded> for Text<T>
 where
     for<'a> &'a T: Into<&'a (dyn leaf::Padded + 'static)>,
 {
@@ -56,7 +56,7 @@ where
         driver: &DriverState,
         window: &Rc<SourceID>,
         _: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn Layout<T>> {
+    ) -> Box<dyn Layout<dyn leaf::Padded>> {
         let winstate: &WindowStateMachine = state.get(window).unwrap();
         let winstate = winstate.state.as_ref().expect("No window state available");
         let dpi = winstate.dpi;
@@ -104,5 +104,3 @@ where
         })
     }
 }
-
-crate::gen_component_wrap!(Text, leaf::Padded);

@@ -49,5 +49,3 @@ where
         })
     }
 }
-
-crate::gen_component_wrap!(DomainPoint, domain_write::Prop);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::layout::{Desc, Layout, LayoutWrap, list};
+use crate::layout::{Desc, Layout, list};
 use crate::persist::{FnPersist, VectorMap};
 use crate::{SourceID, layout};
 use derive_where::derive_where;
@@ -16,7 +16,31 @@ pub struct ListBox<T: list::Prop + 'static> {
     pub children: im::Vector<Option<Box<ComponentFrom<dyn list::Prop>>>>,
 }
 
-impl<T: list::Prop + 'static> super::Component<T> for ListBox<T> {
+/*
+use std::ops::Deref;
+
+impl<T> Layout<dyn list::Prop> for Box<dyn Layout<T>>
+where
+    T: list::Prop + 'static,
+{
+    fn get_props(&self) -> &(dyn list::Prop + 'static) {
+        let a = Box::<(dyn layout::Layout<T> + 'static)>::deref(&self);
+        a.get_props()
+    }
+
+    fn stage<'a>(
+        &self,
+        area: crate::AbsRect,
+        limits: crate::AbsLimits,
+        dpi: ultraviolet::Vec2,
+        driver: &crate::DriverState,
+    ) -> Box<dyn layout::Staged + 'a> {
+        let a = Box::<(dyn layout::Layout<T> + 'static)>::deref(&self);
+        a.stage(area, limits, dpi, driver)
+    }
+}*/
+
+impl<T: list::Prop + 'static> super::Component<dyn list::Prop> for ListBox<T> {
     fn id(&self) -> Rc<SourceID> {
         self.id.clone()
     }
@@ -34,9 +58,9 @@ impl<T: list::Prop + 'static> super::Component<T> for ListBox<T> {
         driver: &crate::DriverState,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn Layout<T>> {
+    ) -> Box<dyn Layout<dyn list::Prop>> {
         let map = VectorMap::new(
-            |child: &Option<Box<ComponentFrom<dyn list::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn list::Prop as Desc>::Child>>> {
+            |child: &Option<Box<ComponentFrom<dyn list::Prop>>>| -> Option<Box<dyn Layout<<dyn list::Prop as Desc>::Child>>> {
                 Some(child.as_ref().unwrap().layout(state, driver,window, config))
             },
         );
@@ -50,5 +74,3 @@ impl<T: list::Prop + 'static> super::Component<T> for ListBox<T> {
         })
     }
 }
-
-crate::gen_component_wrap!(ListBox, list::Prop);

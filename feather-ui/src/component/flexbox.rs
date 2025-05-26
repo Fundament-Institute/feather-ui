@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::layout::{Desc, Layout, LayoutWrap, flex};
+use crate::layout::{Desc, Layout, flex};
 use crate::persist::{FnPersist, VectorMap};
 use crate::{SourceID, layout};
 use derive_where::derive_where;
@@ -16,7 +16,7 @@ pub struct FlexBox<T: flex::Prop + 'static> {
     pub children: im::Vector<Option<Box<ComponentFrom<dyn flex::Prop>>>>,
 }
 
-impl<T: flex::Prop + 'static> super::Component<T> for FlexBox<T> {
+impl<T: flex::Prop + 'static> super::Component<dyn flex::Prop> for FlexBox<T> {
     fn id(&self) -> Rc<SourceID> {
         self.id.clone()
     }
@@ -34,9 +34,9 @@ impl<T: flex::Prop + 'static> super::Component<T> for FlexBox<T> {
         driver: &crate::DriverState,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn Layout<T>> {
+    ) -> Box<dyn Layout<dyn flex::Prop>> {
         let map = VectorMap::new(
-            |child: &Option<Box<ComponentFrom<dyn flex::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn flex::Prop as Desc>::Child>>> {
+            |child: &Option<Box<ComponentFrom<dyn flex::Prop>>>| -> Option<Box<dyn Layout<<dyn flex::Prop as Desc>::Child>>> {
                 Some(child.as_ref().unwrap().layout(state, driver,window, config))
             },
         );
@@ -51,4 +51,3 @@ impl<T: flex::Prop + 'static> super::Component<T> for FlexBox<T> {
     }
 }
 
-crate::gen_component_wrap!(FlexBox, flex::Prop);

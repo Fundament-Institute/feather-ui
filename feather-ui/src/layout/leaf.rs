@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::base::Empty;
-use super::{Concrete, Desc, LayoutWrap, Renderable, Staged, base, map_unsized_area};
+use super::{Concrete, Desc, Renderable, Staged, base, map_unsized_area};
 use crate::{AbsRect, DRect, SourceID, ZERO_POINT, rtree};
 use std::marker::PhantomData;
 use std::rc::Rc;
@@ -25,7 +25,7 @@ impl Padded for DRect {}
 impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn Empty;
-    type Children = PhantomData<dyn LayoutWrap<Self::Child>>;
+    type Children = PhantomData<dyn super::Layout<Self::Child>>;
 
     fn stage<'a>(
         props: &Self::Props,
@@ -60,3 +60,6 @@ impl Desc for dyn Prop {
         })
     }
 }
+
+crate::gen_layout_impl!(Prop);
+crate::gen_layout_impl!(Padded);

@@ -240,7 +240,7 @@ fn create_region(
 
     let mut bag = PropBag::new();
     bag.set_area(args.1.into());
-    Ok(Box::new(Region::<PropBag> {
+    Ok(Box::new(Region::<dyn fixed::Prop> {
         id: args.0.into(),
         props: bag.into(),
         children,

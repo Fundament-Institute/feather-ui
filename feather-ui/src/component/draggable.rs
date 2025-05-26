@@ -3,7 +3,7 @@
 
 use crate::component::{ComponentFrom, StateMachine};
 use crate::input::{MouseButton, MouseMoveState, MouseState, RawEvent, RawEventKind};
-use crate::layout::{self, Desc, Layout, LayoutWrap, fixed};
+use crate::layout::{self, Desc, Layout, fixed};
 use crate::persist::{FnPersist, VectorMap};
 use crate::{Dispatchable, SourceID};
 use derive_where::derive_where;
@@ -37,7 +37,7 @@ pub struct Draggable<T: fixed::Prop + 'static> {
     pub slots: [Option<crate::Slot>; DraggableEvent::SIZE],
 }
 
-impl<T: fixed::Prop + 'static> super::Component<T> for Draggable<T> {
+impl<T: fixed::Prop + 'static> super::Component<dyn fixed::Prop> for Draggable<T> {
     fn id(&self) -> Rc<SourceID> {
         self.id.clone()
     }
@@ -208,9 +208,9 @@ impl<T: fixed::Prop + 'static> super::Component<T> for Draggable<T> {
         driver: &crate::DriverState,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn Layout<T>> {
+    ) -> Box<dyn Layout<dyn fixed::Prop>> {
         let map = VectorMap::new(
-            |child: &Option<Box<ComponentFrom<dyn fixed::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn fixed::Prop as Desc>::Child>>> {
+            |child: &Option<Box<ComponentFrom<dyn fixed::Prop>>>| -> Option<Box<dyn Layout<<dyn fixed::Prop as Desc>::Child>>> {
                 Some(child.as_ref().unwrap().layout(state, driver, window,config))
             },
         );
@@ -225,4 +225,3 @@ impl<T: fixed::Prop + 'static> super::Component<T> for Draggable<T> {
     }
 }
 
-crate::gen_component_wrap!(Draggable, fixed::Prop);

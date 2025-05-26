@@ -52,8 +52,6 @@ where
     }
 }
 
-crate::gen_component_wrap!(Line, base::Empty);
-
 pub fn build_pipeline(
     driver: &crate::DriverState,
     config: &wgpu::SurfaceConfiguration,

@@ -3,7 +3,7 @@
 
 use crate::component::ComponentFrom;
 use crate::component::text::Text;
-use crate::layout::{Desc, Layout, LayoutWrap, base, flex, leaf};
+use crate::layout::{Desc, Layout, base, flex, leaf};
 use crate::persist::{FnPersist, VectorMap};
 use crate::{SourceID, UNSIZED_AXIS, gen_id, layout};
 use core::f32;
@@ -93,7 +93,7 @@ impl<T: flex::Prop + 'static> Paragraph<T> {
     }
 }
 
-impl<T: flex::Prop + 'static> super::Component<T> for Paragraph<T> {
+impl<T: flex::Prop + 'static> super::Component<dyn flex::Prop> for Paragraph<T> {
     fn id(&self) -> Rc<SourceID> {
         self.id.clone()
     }
@@ -111,9 +111,9 @@ impl<T: flex::Prop + 'static> super::Component<T> for Paragraph<T> {
         driver: &crate::DriverState,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn Layout<T>> {
+    ) -> Box<dyn Layout<dyn flex::Prop>> {
         let map = VectorMap::new(
-            |child: &Option<Box<ComponentFrom<dyn flex::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn flex::Prop as Desc>::Child>>> {
+            |child: &Option<Box<ComponentFrom<dyn flex::Prop>>>| -> Option<Box<dyn Layout<<dyn flex::Prop as Desc>::Child>>> {
                 Some(child.as_ref().unwrap().layout(state, driver, window, config))
             },
         );
@@ -127,5 +127,3 @@ impl<T: flex::Prop + 'static> super::Component<T> for Paragraph<T> {
         })
     }
 }
-
-crate::gen_component_wrap!(Paragraph, flex::Prop);
