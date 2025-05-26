@@ -248,7 +248,7 @@ impl Root {
         event_loop: &winit::event_loop::ActiveEventLoop,
     ) -> eyre::Result<()> {
         // Initialize any states that need to be initialized before calling the layout function
-        // TODO: make this actually efficient by perfoming the initialization when a new component is initialized
+        // TODO: make this actually efficient by performing the initialization when a new component is initialized
         for (_, window) in self.children.iter() {
             let window = window.as_ref().unwrap();
             window.init_custom::<AppData, O>(manager, driver, instance, event_loop)?;
