@@ -83,6 +83,6 @@ jobs:
       - uses: actions/checkout@v4
 
       # This is pinned to a specific version because the typos dictionary can
-      # be updated between patch version, and a new dictionary can find new
+      # be updated between patch versions, and a new dictionary can find new
       # typos in the repo thus suddenly breaking CI unless we pin the version.
       - uses: crate-ci/typos@v1.32.0
