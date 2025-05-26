@@ -2,16 +2,16 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use feather_ui::layout::{fixed, flex, leaf};
-use feather_ui::{gen_id, DAbsRect, DValue};
+use feather_ui::{DAbsRect, DValue, gen_id};
 
+use feather_ui::component::ComponentFrom;
+use feather_ui::component::paragraph::Paragraph;
+use feather_ui::component::region::Region;
+use feather_ui::component::shape::Shape;
+use feather_ui::component::window::Window;
 use feather_ui::layout::base;
-use feather_ui::outline::paragraph::Paragraph;
-use feather_ui::outline::region::Region;
-use feather_ui::outline::shape::Shape;
-use feather_ui::outline::window::Window;
-use feather_ui::outline::OutlineFrom;
 use feather_ui::persist::FnPersist;
-use feather_ui::{AbsRect, App, DRect, RelRect, SourceID, FILL_DRECT};
+use feather_ui::{AbsRect, App, DRect, FILL_DRECT, RelRect, SourceID};
 use std::f32;
 use std::rc::Rc;
 use ultraviolet::Vec4;
@@ -149,7 +149,7 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
                 p
             };
 
-            let mut children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> =
+            let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
                 im::Vector::new();
             children.push_back(Some(Box::new(flex)));
 

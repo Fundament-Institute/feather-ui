@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use super::{base, Desc, LayoutWrap, Renderable, Staged};
+use super::{Desc, LayoutWrap, Renderable, Staged, base};
 use crate::{AbsDim, AbsRect, DEFAULT_LIMITS};
 use std::rc::Rc;
 

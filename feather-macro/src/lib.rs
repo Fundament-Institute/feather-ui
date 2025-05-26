@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
+use core::panic;
+
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DataEnum, DeriveInput, Meta};
+use syn::{Data, DataEnum, DeriveInput, Meta, parse_macro_input};
 
 fn derive_base_prop(input: TokenStream, prop: &str, source: &str, result: &str) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -91,6 +93,16 @@ pub fn derive_anchor(input: TokenStream) -> TokenStream {
         "anchor",
         "feather_ui::layout::base::Anchor",
         "feather_ui::DPoint",
+    )
+}
+
+#[proc_macro_derive(TextEdit)]
+pub fn derive_textedit(input: TokenStream) -> TokenStream {
+    derive_base_prop(
+        input,
+        "textedit",
+        "feather_ui::layout::base::TextEdit",
+        "feather_ui::text::Snapshot",
     )
 }
 
@@ -256,10 +268,17 @@ pub fn dispatchable(input: TokenStream) -> TokenStream {
                     Box::new(#enum_module::#variant_name::try_from(self).unwrap()),
                 ),
             });
-        } else {
+        } else if variant.fields.iter().next().unwrap().ident.is_none() {
             let underscores = variant.fields.iter().map(|_| format_ident!("_"));
             extract_declarations.extend(quote! {
                 #enum_name::#variant_name(#(#underscores),*) => (
+                    #idx,
+                    Box::new(#enum_module::#variant_name::try_from(self).unwrap()),
+                ),
+            });
+        } else {
+            extract_declarations.extend(quote! {
+                #enum_name::#variant_name { .. } => (
                     #idx,
                     Box::new(#enum_module::#variant_name::try_from(self).unwrap()),
                 ),

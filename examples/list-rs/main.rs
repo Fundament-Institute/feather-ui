@@ -3,19 +3,19 @@
 
 use core::f32;
 use feather_macro::*;
+use feather_ui::component::button::Button;
+use feather_ui::component::flexbox::FlexBox;
+use feather_ui::component::listbox::ListBox;
+use feather_ui::component::region::Region;
+use feather_ui::component::shape::Shape;
+use feather_ui::component::text::Text;
+use feather_ui::component::window::Window;
+use feather_ui::component::{ComponentFrom, mouse_area};
 use feather_ui::layout::{base, fixed, flex, leaf, list};
-use feather_ui::outline::button::Button;
-use feather_ui::outline::flexbox::FlexBox;
-use feather_ui::outline::listbox::ListBox;
-use feather_ui::outline::region::Region;
-use feather_ui::outline::shape::Shape;
-use feather_ui::outline::text::Text;
-use feather_ui::outline::window::Window;
-use feather_ui::outline::{mouse_area, OutlineFrom};
 use feather_ui::persist::FnPersist;
 use feather_ui::{
-    gen_id, AbsRect, App, DRect, DValue, RelRect, Slot, SourceID, FILL_DRECT, UNSIZED_AXIS,
-    ZERO_POINT,
+    AbsRect, App, DRect, DValue, FILL_DRECT, RelRect, Slot, SourceID, UNSIZED_AXIS, ZERO_POINT,
+    gen_id,
 };
 use std::rc::Rc;
 use ultraviolet::{Vec2, Vec4};
@@ -156,7 +156,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     Vec4::zero(),
                 );
 
-                let mut children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> =
+                let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
                     im::Vector::new();
                 children.push_back(Some(Box::new(text)));
                 children.push_back(Some(Box::new(rect)));
@@ -178,7 +178,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
             };
 
             let rectlist = {
-                let mut children: im::Vector<Option<Box<OutlineFrom<dyn list::Prop>>>> =
+                let mut children: im::Vector<Option<Box<ComponentFrom<dyn list::Prop>>>> =
                     im::Vector::new();
                 for i in 0..args.count {
                     children.push_back(Some(Box::new(Shape::<ListChild>::round_rect(
@@ -223,7 +223,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
             };
 
             let flexlist = {
-                let mut children: im::Vector<Option<Box<OutlineFrom<dyn flex::Prop>>>> =
+                let mut children: im::Vector<Option<Box<ComponentFrom<dyn flex::Prop>>>> =
                     im::Vector::new();
 
                 for i in 0..args.count {
@@ -267,7 +267,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 }
             };
 
-            let mut children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>> =
+            let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
                 im::Vector::new();
             children.push_back(Some(Box::new(button)));
             children.push_back(Some(Box::new(flexlist)));

@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::base::Empty;
-use super::{base, map_unsized_area, Concrete, Desc, LayoutWrap, Renderable, Staged};
-use crate::{rtree, AbsRect, DRect, SourceID, ZERO_POINT};
+use super::{Concrete, Desc, LayoutWrap, Renderable, Staged, base, map_unsized_area};
+use crate::{AbsRect, DRect, SourceID, ZERO_POINT, rtree};
 use std::marker::PhantomData;
 use std::rc::Rc;
 

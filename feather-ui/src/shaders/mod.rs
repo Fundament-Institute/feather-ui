@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::outline::Renderable;
-use crate::{DriverState, RenderLambda};
+use crate::DriverState;
 use std::collections::HashMap;
 use ultraviolet::{Mat4, Vec4};
 use wgpu::util::DeviceExt;
@@ -73,23 +72,25 @@ pub struct Vertex {
     pub pos: [f32; 2],
 }
 
+#[derive(Debug)]
 pub struct ShaderCache {
     shaders: Vec<wgpu::ShaderModule>,
     layouts: Vec<wgpu::PipelineLayout>,
-    _pipelines: HashMap<(usize, wgpu::SurfaceConfiguration), std::rc::Weak<wgpu::RenderPipeline>>,
+    //_pipelines: HashMap<(usize, wgpu::SurfaceConfiguration), std::rc::Weak<wgpu::RenderPipeline>>,
     shader_hash: HashMap<String, usize>,
     pub basic_vs: usize,
     pub line_vs: usize,
     pub basic_pipeline: usize,
     pub line_pipeline: usize,
 }
+static_assertions::assert_impl_all!(ShaderCache: Send, Sync);
 
 impl ShaderCache {
     pub fn new(device: &wgpu::Device) -> Self {
         let mut this = ShaderCache {
             shaders: Default::default(),
             layouts: Default::default(),
-            _pipelines: Default::default(),
+            //_pipelines: Default::default(),
             shader_hash: Default::default(),
             basic_pipeline: 0,
             line_pipeline: 0,
@@ -264,50 +265,5 @@ impl ShaderCache {
             multiview: None,
             cache: None,
         })
-    }
-}
-
-pub struct StandardPipeline {
-    pub this: std::rc::Weak<StandardPipeline>,
-    pub pipeline: wgpu::RenderPipeline,
-    pub group: wgpu::BindGroup,
-    pub vertices: wgpu::Buffer,
-    pub buffers: [wgpu::Buffer; 6],
-    pub padding: crate::AbsRect,
-}
-
-impl Renderable for StandardPipeline {
-    fn render(
-        &self,
-        area: crate::AbsRect,
-        driver: &DriverState,
-    ) -> im::Vector<crate::RenderInstruction> {
-        driver.queue.write_buffer(
-            &self.buffers[1],
-            0,
-            Vec4::new(
-                area.topleft().x + self.padding.topleft().x,
-                area.topleft().y + self.padding.topleft().y,
-                area.bottomright().x - area.topleft().x - self.padding.bottomright().x,
-                area.bottomright().y - area.topleft().y - self.padding.bottomright().y,
-            )
-            .as_byte_slice(),
-        );
-
-        let weak = self.this.clone();
-        let mut result = im::Vector::new();
-        result.push_back(Some(Box::new(move |pass: &mut wgpu::RenderPass| {
-            if let Some(this) = weak.upgrade() {
-                pass.set_vertex_buffer(0, this.vertices.slice(..));
-                pass.set_bind_group(0, &this.group, &[]);
-                pass.set_pipeline(&this.pipeline);
-                pass.draw(
-                    //0..(this.vertices.size() as u32 / size_of::<Vertex>() as u32),
-                    0..4,
-                    0..1,
-                );
-            }
-        }) as Box<dyn RenderLambda>));
-        result
     }
 }

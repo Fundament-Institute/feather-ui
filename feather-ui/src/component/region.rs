@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::layout::{fixed, Desc, Layout, LayoutWrap};
-use crate::outline::OutlineFrom;
+use crate::component::ComponentFrom;
+use crate::layout::{Desc, Layout, LayoutWrap, fixed};
 use crate::persist::{FnPersist, VectorMap};
-use crate::{layout, SourceID};
+use crate::{SourceID, layout};
 use derive_where::derive_where;
 use std::rc::Rc;
 
@@ -12,10 +12,10 @@ use std::rc::Rc;
 pub struct Region<T: fixed::Prop + Default + 'static> {
     pub id: Rc<SourceID>,
     pub props: Rc<T>,
-    pub children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>>,
+    pub children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>>,
 }
 
-impl<T: fixed::Prop + Default + 'static> super::Outline<T> for Region<T>
+impl<T: fixed::Prop + Default + 'static> super::Component<T> for Region<T>
 where
     for<'a> &'a T: Into<&'a (dyn fixed::Prop + 'static)>,
 {
@@ -25,7 +25,7 @@ where
 
     fn init_all(&self, manager: &mut crate::StateManager) -> eyre::Result<()> {
         for child in self.children.iter() {
-            manager.init_outline(child.as_ref().unwrap().as_ref())?;
+            manager.init_component(child.as_ref().unwrap().as_ref())?;
         }
         Ok(())
     }
@@ -34,12 +34,12 @@ where
         &self,
         state: &crate::StateManager,
         driver: &crate::DriverState,
-        dpi: crate::Vec2,
+        window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let map = VectorMap::new(
-            |child: &Option<Box<OutlineFrom<dyn fixed::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn fixed::Prop as Desc>::Child>>> {
-                Some(child.as_ref().unwrap().layout(state, driver, dpi, config))
+            |child: &Option<Box<ComponentFrom<dyn fixed::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn fixed::Prop as Desc>::Child>>> {
+                Some(child.as_ref().unwrap().layout(state, driver, window, config))
             },
         );
 
@@ -53,4 +53,4 @@ where
     }
 }
 
-crate::gen_outline_wrap!(Region, fixed::Prop, Default);
+crate::gen_component_wrap!(Region, fixed::Prop, Default);

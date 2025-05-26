@@ -268,11 +268,11 @@ impl<V, U, F: FnPersist<V, U>> From<F> for OrdMapMap<V, U, F> {
 }
 
 impl<
-        K: Ord + std::cmp::PartialEq + Clone,
-        V: std::cmp::PartialEq,
-        U: Ord + Clone,
-        F: FnPersist<V, U>,
-    > FnPersist<im::OrdMap<K, V>, im::OrdMap<K, U>> for OrdMapMap<V, U, F>
+    K: Ord + std::cmp::PartialEq + Clone,
+    V: std::cmp::PartialEq,
+    U: Ord + Clone,
+    F: FnPersist<V, U>,
+> FnPersist<im::OrdMap<K, V>, im::OrdMap<K, U>> for OrdMapMap<V, U, F>
 where
     F::Store: Clone,
 {

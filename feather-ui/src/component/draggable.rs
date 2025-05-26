@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
+use crate::component::{ComponentFrom, StateMachine};
 use crate::input::{MouseButton, MouseMoveState, MouseState, RawEvent, RawEventKind};
-use crate::layout::{self, fixed, Desc, Layout, LayoutWrap};
-use crate::outline::{OutlineFrom, StateMachine};
+use crate::layout::{self, Desc, Layout, LayoutWrap, fixed};
 use crate::persist::{FnPersist, VectorMap};
 use crate::{Dispatchable, SourceID};
 use derive_where::derive_where;
@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use ultraviolet::Vec2;
 
-#[derive(Debug, Dispatch, EnumVariantType, Clone)]
+#[derive(Debug, Dispatch, EnumVariantType, Clone, PartialEq)]
 #[evt(derive(Clone), module = "draggable_event")]
 pub enum DraggableEvent {
     OnClick(Vec2),
@@ -21,7 +21,7 @@ pub enum DraggableEvent {
     OnDrag(Vec2),
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, PartialEq)]
 struct DraggableState {
     lastdrag: HashMap<winit::event::DeviceId, ultraviolet::Vec2>,
     lastdown: HashMap<winit::event::DeviceId, ultraviolet::Vec2>,
@@ -33,11 +33,11 @@ struct DraggableState {
 pub struct Draggable<T: fixed::Prop + 'static> {
     pub id: Rc<SourceID>,
     pub props: Rc<T>,
-    pub children: im::Vector<Option<Box<OutlineFrom<dyn fixed::Prop>>>>,
+    pub children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>>,
     pub slots: [Option<crate::Slot>; DraggableEvent::SIZE],
 }
 
-impl<T: fixed::Prop + 'static> super::Outline<T> for Draggable<T> {
+impl<T: fixed::Prop + 'static> super::Component<T> for Draggable<T> {
     fn id(&self) -> Rc<SourceID> {
         self.id.clone()
     }
@@ -197,7 +197,7 @@ impl<T: fixed::Prop + 'static> super::Outline<T> for Draggable<T> {
 
     fn init_all(&self, manager: &mut crate::StateManager) -> eyre::Result<()> {
         for child in self.children.iter() {
-            manager.init_outline(child.as_ref().unwrap().as_ref())?;
+            manager.init_component(child.as_ref().unwrap().as_ref())?;
         }
         Ok(())
     }
@@ -206,12 +206,12 @@ impl<T: fixed::Prop + 'static> super::Outline<T> for Draggable<T> {
         &self,
         state: &crate::StateManager,
         driver: &crate::DriverState,
-        dpi: crate::Vec2,
+        window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let map = VectorMap::new(
-            |child: &Option<Box<OutlineFrom<dyn fixed::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn fixed::Prop as Desc>::Child>>> {
-                Some(child.as_ref().unwrap().layout(state, driver, dpi,config))
+            |child: &Option<Box<ComponentFrom<dyn fixed::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn fixed::Prop as Desc>::Child>>> {
+                Some(child.as_ref().unwrap().layout(state, driver, window,config))
             },
         );
 
@@ -225,4 +225,4 @@ impl<T: fixed::Prop + 'static> super::Outline<T> for Draggable<T> {
     }
 }
 
-crate::gen_outline_wrap!(Draggable, fixed::Prop);
+crate::gen_component_wrap!(Draggable, fixed::Prop);

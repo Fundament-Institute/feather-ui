@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::layout::{base, flex, leaf, Desc, Layout, LayoutWrap};
-use crate::outline::text::Text;
-use crate::outline::OutlineFrom;
+use crate::component::ComponentFrom;
+use crate::component::text::Text;
+use crate::layout::{Desc, Layout, LayoutWrap, base, flex, leaf};
 use crate::persist::{FnPersist, VectorMap};
-use crate::{gen_id, layout, SourceID, UNSIZED_AXIS};
+use crate::{SourceID, UNSIZED_AXIS, gen_id, layout};
 use core::f32;
 use derive_where::derive_where;
 use std::rc::Rc;
@@ -14,7 +14,7 @@ use std::rc::Rc;
 pub struct Paragraph<T: flex::Prop + 'static> {
     pub id: Rc<SourceID>,
     pub props: Rc<T>,
-    pub children: im::Vector<Option<Box<OutlineFrom<dyn flex::Prop>>>>,
+    pub children: im::Vector<Option<Box<ComponentFrom<dyn flex::Prop>>>>,
 }
 
 struct MinimalFlexChild {
@@ -93,14 +93,14 @@ impl<T: flex::Prop + 'static> Paragraph<T> {
     }
 }
 
-impl<T: flex::Prop + 'static> super::Outline<T> for Paragraph<T> {
+impl<T: flex::Prop + 'static> super::Component<T> for Paragraph<T> {
     fn id(&self) -> Rc<SourceID> {
         self.id.clone()
     }
 
     fn init_all(&self, manager: &mut crate::StateManager) -> eyre::Result<()> {
         for child in self.children.iter() {
-            manager.init_outline(child.as_ref().unwrap().as_ref())?;
+            manager.init_component(child.as_ref().unwrap().as_ref())?;
         }
         Ok(())
     }
@@ -109,12 +109,12 @@ impl<T: flex::Prop + 'static> super::Outline<T> for Paragraph<T> {
         &self,
         state: &crate::StateManager,
         driver: &crate::DriverState,
-        dpi: crate::Vec2,
+        window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let map = VectorMap::new(
-            |child: &Option<Box<OutlineFrom<dyn flex::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn flex::Prop as Desc>::Child>>> {
-                Some(child.as_ref().unwrap().layout(state, driver, dpi, config))
+            |child: &Option<Box<ComponentFrom<dyn flex::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn flex::Prop as Desc>::Child>>> {
+                Some(child.as_ref().unwrap().layout(state, driver, window, config))
             },
         );
 
@@ -128,4 +128,4 @@ impl<T: flex::Prop + 'static> super::Outline<T> for Paragraph<T> {
     }
 }
 
-crate::gen_outline_wrap!(Paragraph, flex::Prop);
+crate::gen_component_wrap!(Paragraph, flex::Prop);

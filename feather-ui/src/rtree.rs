@@ -3,9 +3,9 @@
 
 use std::rc::Rc;
 
-use crate::input::{RawEvent, RawEventKind};
+use crate::input::{MouseState, RawEvent, RawEventKind, TouchState};
 use crate::persist::{FnPersist2, VectorFold};
-use crate::{AbsRect, Dispatchable, SourceID, StateManager};
+use crate::{AbsRect, Dispatchable, SourceID, StateManager, WindowStateMachine};
 use eyre::Result;
 use ultraviolet::Vec2;
 
@@ -57,34 +57,91 @@ impl Node {
             children,
         }
     }
-    fn process(
-        &self,
+
+    pub(crate) fn inject_event(
+        self: &Rc<Self>,
+        event: &RawEvent,
+        kind: RawEventKind,
+        dpi: Vec2,
+        offset: Vec2,
+        manager: &mut StateManager,
+    ) -> Result<(), ()> {
+        if let Some(id) = self.id.upgrade() {
+            if let Ok(state) = manager.get_trait(&id) {
+                let masks = state.input_masks();
+                for (i, k) in masks.iter().enumerate() {
+                    if (kind as u64 & *k) != 0
+                        && manager
+                            .process(
+                                event.clone().extract(),
+                                &crate::Slot(id.clone(), i as u64),
+                                dpi,
+                                self.area + offset,
+                            )
+                            .is_ok()
+                    {
+                        return Ok(());
+                    }
+                }
+            }
+        }
+        Err(())
+    }
+
+    pub fn process(
+        self: &Rc<Self>,
         event: &RawEvent,
         kind: RawEventKind,
         mut pos: Vec2,
         mut offset: Vec2,
         dpi: Vec2,
         manager: &mut StateManager,
+        window_id: Rc<SourceID>,
     ) -> Result<(), ()> {
         if self.area.contains(pos) {
-            if let Some(id) = self.id.upgrade() {
-                if let Ok(state) = manager.get_trait(&id) {
-                    let masks = state.input_masks();
-                    for (i, k) in masks.iter().enumerate() {
-                        if (kind as u64 & *k) != 0
-                            && manager
-                                .process(
-                                    event.clone().extract(),
-                                    &crate::Slot(id.clone(), i as u64),
+            if let Ok(()) = self.inject_event(event, kind, dpi, offset, manager) {
+                // If we successfully process a mouse event, this node gains focus in it's parent window
+                match event {
+                    RawEvent::Mouse { device_id, .. } | RawEvent::Touch { device_id, .. } => {
+                        if match event {
+                            RawEvent::Mouse { state, .. } => *state != MouseState::Up,
+                            RawEvent::Touch { state, .. } => *state != TouchState::Start,
+                            _ => false,
+                        } {
+                            let state: &mut WindowStateMachine =
+                                manager.get_mut(&window_id).map_err(|_| ())?;
+                            let window = state.state.as_mut().unwrap();
+                            let inner = window.window.clone();
+
+                            // Tell the old node that it lost focus (if it cares).
+                            if let Some(old) = window
+                                .focus
+                                .insert(*device_id, crate::component::window::RcNode(self.clone()))
+                            {
+                                let evt = RawEvent::Focus {
+                                    acquired: false,
+                                    window: inner.clone(),
+                                };
+                                // We don't care about the result of this event
+                                let _ = old.0.inject_event(
+                                    &evt,
+                                    evt.kind(),
                                     dpi,
-                                    self.area + offset,
-                                )
-                                .is_ok()
-                        {
-                            return Ok(());
+                                    Vec2::zero(), // Focus events shouldn't care about area offset
+                                    manager,
+                                );
+                            }
+
+                            let evt = RawEvent::Focus {
+                                acquired: true,
+                                window: inner,
+                            };
+                            let _ = self.inject_event(&evt, evt.kind(), dpi, offset, manager);
                         }
                     }
+                    _ => (),
                 }
+                return Ok(());
             }
 
             offset += self.area.topleft();
@@ -94,56 +151,15 @@ impl Node {
                 if child
                     .as_ref()
                     .unwrap()
-                    .process(event, kind, pos, offset, dpi, manager)
+                    .process(event, kind, pos, offset, dpi, manager, window_id.clone())
                     .is_ok()
                 {
+                    // At this point, we should've already set focus, and are simply walking back up the stack
                     return Ok(());
                 }
             }
         }
         Err(())
-    }
-    pub fn on_event(
-        &self,
-        event: &RawEvent,
-        dpi: Vec2,
-        manager: &mut StateManager,
-    ) -> Result<(), ()> {
-        match event {
-            RawEvent::Mouse { pos, .. } => self.process(
-                event,
-                RawEventKind::Mouse,
-                Vec2::new(pos.x, pos.y),
-                Vec2::zero(),
-                dpi,
-                manager,
-            ),
-            RawEvent::MouseMove { pos, .. } => self.process(
-                event,
-                RawEventKind::MouseMove,
-                Vec2::new(pos.x, pos.y),
-                Vec2::zero(),
-                dpi,
-                manager,
-            ),
-            RawEvent::MouseScroll { pos, .. } => self.process(
-                event,
-                RawEventKind::MouseScroll,
-                Vec2::new(pos.x, pos.y),
-                Vec2::zero(),
-                dpi,
-                manager,
-            ),
-            RawEvent::Touch { pos, .. } => self.process(
-                event,
-                RawEventKind::Touch,
-                pos.xy(),
-                Vec2::zero(),
-                dpi,
-                manager,
-            ),
-            _ => Err(()),
-        }
     }
 }
 

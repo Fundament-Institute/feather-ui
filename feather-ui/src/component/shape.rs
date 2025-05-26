@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::layout::{leaf, Layout};
+use crate::layout::{Layout, leaf};
 use crate::shaders::gen_uniform;
-use crate::{layout, DriverState, SourceID};
+use crate::{BASE_DPI, DriverState, SourceID, WindowStateMachine, layout};
 use derive_where::derive_where;
 use std::borrow::Cow;
 use std::rc::Rc;
@@ -80,7 +80,7 @@ impl<T: leaf::Padded + 'static> Shape<'_, T> {
     }
 }
 
-impl<T: leaf::Padded + 'static> super::Outline<T> for Shape<'_, T>
+impl<T: leaf::Padded + 'static> super::Component<T> for Shape<'_, T>
 where
     for<'a> &'a T: Into<&'a (dyn leaf::Padded + 'static)>,
 {
@@ -94,20 +94,23 @@ where
 
     fn layout(
         &self,
-        _: &crate::StateManager,
+        state: &crate::StateManager,
         driver: &DriverState,
-        dpi: crate::Vec2,
+        window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
-        let shader_idx = driver.shader_cache.borrow_mut().register_shader(
-            &driver.device,
-            self.label,
-            &self.fragment,
-        );
+        let winstate: &WindowStateMachine = state.get(window).unwrap();
+        let dpi = winstate.state.as_ref().map(|x| x.dpi).unwrap_or(BASE_DPI);
+
+        let shader_idx =
+            driver
+                .shader_cache
+                .write()
+                .register_shader(&driver.device, self.label, &self.fragment);
         let pipeline =
             driver
                 .shader_cache
-                .borrow_mut()
+                .write()
                 .standard_pipeline(&driver.device, shader_idx, config);
 
         let mvp = gen_uniform(
@@ -143,7 +146,7 @@ where
             (self.uniforms[1] * Vec4::broadcast(dpi.x)).as_byte_slice(),
         );
         let fill = gen_uniform(driver, "Fill", self.uniforms[2].as_byte_slice());
-        let outline = gen_uniform(driver, "Outline", self.uniforms[3].as_byte_slice());
+        let outline = gen_uniform(driver, "Component", self.uniforms[3].as_byte_slice());
         let buffers = [mvp, posdim, dimborderblur, corners, fill, outline];
         let bindings: Vec<wgpu::BindGroupEntry> = buffers
             .iter()
@@ -164,7 +167,7 @@ where
             props: self.props.clone(),
             children: Default::default(),
             id: Rc::downgrade(&self.id),
-            renderable: Some(Rc::new_cyclic(|this| crate::shaders::StandardPipeline {
+            renderable: Some(Rc::new_cyclic(|this| crate::render::standard::Pipeline {
                 this: this.clone(),
                 pipeline,
                 group: bind_group,
@@ -176,4 +179,4 @@ where
     }
 }
 
-crate::gen_outline_wrap!('a, Shape, leaf::Padded);
+crate::gen_component_wrap!('a, Shape, leaf::Padded);

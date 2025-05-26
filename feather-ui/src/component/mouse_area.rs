@@ -2,17 +2,17 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::StateMachine;
+use crate::component::Layout;
 use crate::input::{MouseState, RawEvent, RawEventKind};
 use crate::layout::leaf;
-use crate::outline::Layout;
-use crate::{layout, pixel_to_vec, Dispatchable, Slot, SourceID};
+use crate::{Dispatchable, Slot, SourceID, layout, pixel_to_vec};
 use derive_where::derive_where;
 use enum_variant_type::EnumVariantType;
 use feather_macro::Dispatch;
 use std::collections::HashSet;
 use std::rc::Rc;
 
-#[derive(Debug, Dispatch, EnumVariantType, Clone)]
+#[derive(Debug, Dispatch, EnumVariantType, Clone, PartialEq, Eq)]
 #[evt(derive(Clone), module = "mouse_area_event")]
 pub enum MouseAreaEvent {
     OnClick,
@@ -20,7 +20,7 @@ pub enum MouseAreaEvent {
     Active,
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, PartialEq)]
 struct MouseAreaState {
     lastdown: HashSet<winit::event::DeviceId>,
     lasttouch: HashSet<(winit::event::DeviceId, u64)>,
@@ -43,7 +43,7 @@ impl<T: leaf::Prop + 'static> MouseArea<T> {
     }
 }
 
-impl<T: leaf::Prop + 'static> super::Outline<T> for MouseArea<T>
+impl<T: leaf::Prop + 'static> super::Component<T> for MouseArea<T>
 where
     for<'a> &'a T: Into<&'a (dyn leaf::Prop + 'static)>,
 {
@@ -56,10 +56,22 @@ where
     }
 
     fn init(&self) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error> {
-        let onclick = Box::new(
+        let oninput = Box::new(
             crate::wrap_event::<RawEvent, MouseAreaEvent, MouseAreaState>(
                 |e, area, _dpi, mut data| {
                     match e {
+                        RawEvent::Key {
+                            down,
+                            logical_key: winit::keyboard::Key::Named(code),
+                            ..
+                        } => {
+                            if (code == winit::keyboard::NamedKey::Enter
+                                || code == winit::keyboard::NamedKey::Accept)
+                                && down
+                            {
+                                return Ok((data, vec![MouseAreaEvent::OnClick]));
+                            }
+                        }
                         RawEvent::Mouse {
                             device_id,
                             state,
@@ -118,8 +130,8 @@ where
         Ok(Box::new(StateMachine {
             state: Some(Default::default()),
             input: [(
-                RawEventKind::Mouse as u64 | RawEventKind::Touch as u64,
-                onclick,
+                RawEventKind::Mouse as u64 | RawEventKind::Touch as u64 | RawEventKind::Key as u64,
+                oninput,
             )],
             output: self.slots.clone(),
         }))
@@ -129,7 +141,7 @@ where
         &self,
         _: &crate::StateManager,
         _: &crate::DriverState,
-        _: crate::Vec2,
+        _: &Rc<SourceID>,
         _: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T> + 'static> {
         Box::new(layout::Node::<T, dyn leaf::Prop> {
