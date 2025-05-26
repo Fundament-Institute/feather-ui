@@ -41,6 +41,13 @@ feather-macro.workspace = true
 derive_more = { version = "2.0.1", features = ["try_from"] }
 wide = "0.7.32"
 alloca = "0.4.0"
+unicode-segmentation = "1.12.0"
+arboard = { version = "3.5.0", features = ["wayland-data-control"] }
+parking_lot = { version = "0.12.3", features = [
+  "hardware-lock-elision",
+  "arc_lock",
+] }
+static_assertions = "1.1.0"
 
 [lints.clippy]
 too_many_arguments = { level = "allow" }

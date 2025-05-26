@@ -1,23 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use super::{Outline, StateMachine};
-use crate::input::{ModifierKeys, MouseMoveState, MouseState, RawEvent};
+use super::{Component, StateMachine};
+use crate::component::ComponentWrap;
+use crate::input::{ModifierKeys, MouseMoveState, MouseState, RawEvent, RawEventKind};
 use crate::layout::root;
-use crate::outline::OutlineWrap;
+use crate::rtree::Node;
 use crate::{
-    layout, pixel_to_vec, rtree, AbsDim, DriverState, FnPersist, RenderInstruction, SourceID,
-    StateManager,
+    AbsDim, DriverState, FnPersist, RenderInstruction, SourceID, StateManager, layout, rtree,
 };
 use alloc::sync::Arc;
 use core::f32;
 use eyre::{OptionExt, Result};
+use smallvec::SmallVec;
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 use ultraviolet::Vec2;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
-use winit::event::WindowEvent;
+use winit::event::{DeviceId, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
-use winit::window::WindowAttributes;
+use winit::window::{CursorIcon, WindowAttributes};
 
 /// Holds our internal mutable state for this window
 pub(crate) struct WindowState {
@@ -27,9 +30,34 @@ pub(crate) struct WindowState {
     all_buttons: u8,
     modifiers: u8,
     last_mouse: PhysicalPosition<f32>,
+    pub focus: HashMap<DeviceId, RcNode>,
     pub dpi: Vec2,
-    pub driver: Rc<DriverState>,
+    pub driver: Arc<DriverState>,
     pub draw: im::Vector<RenderInstruction>,
+    pub viewport: Rc<glyphon::Viewport>,
+    pub atlas: Rc<RefCell<glyphon::TextAtlas>>,
+}
+
+pub(crate) struct RcNode(pub(crate) Rc<Node>);
+
+impl PartialEq for RcNode {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+impl PartialEq for WindowState {
+    fn eq(&self, other: &Self) -> bool {
+        self.surface == other.surface
+            && Arc::ptr_eq(&self.window, &other.window)
+            && self.config == other.config
+            && self.all_buttons == other.all_buttons
+            && self.modifiers == other.modifiers
+            && self.last_mouse == other.last_mouse
+            && self.focus == other.focus
+            && self.dpi == other.dpi
+            && Arc::ptr_eq(&self.driver, &other.driver)
+    }
 }
 
 pub(crate) type WindowStateMachine = StateMachine<(), WindowState, 0, 0>;
@@ -38,19 +66,19 @@ pub(crate) type WindowStateMachine = StateMachine<(), WindowState, 0, 0>;
 pub struct Window {
     pub id: Rc<SourceID>,
     attributes: WindowAttributes,
-    child: Box<dyn OutlineWrap<<dyn root::Prop as crate::outline::Desc>::Child>>,
+    child: Box<dyn ComponentWrap<<dyn root::Prop as crate::component::Desc>::Child>>,
 }
 
-impl Outline<AbsDim> for Window {
+impl Component<AbsDim> for Window {
     fn layout(
         &self,
         manager: &crate::StateManager,
         _: &DriverState,
-        _: crate::Vec2,
+        _: &Rc<SourceID>,
         _: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn crate::layout::Layout<AbsDim>> {
         let inner = manager
-            .get::<StateMachine<(), WindowState, 0, 0>>(&self.id)
+            .get::<WindowStateMachine>(&self.id)
             .unwrap()
             .state
             .as_ref()
@@ -62,9 +90,7 @@ impl Outline<AbsDim> for Window {
                 x: size.width as f32,
                 y: size.height as f32,
             })),
-            children: self
-                .child
-                .layout(manager, &driver, inner.dpi, &inner.config),
+            children: self.child.layout(manager, &driver, &self.id, &inner.config),
             id: Rc::downgrade(&self.id),
             renderable: None,
         })
@@ -92,7 +118,7 @@ impl Window {
     >(
         &self,
         manager: &mut StateManager,
-        driver: &mut std::rc::Weak<DriverState>,
+        driver: &mut alloc::sync::Weak<DriverState>,
         instance: &wgpu::Instance,
         event_loop: &ActiveEventLoop,
     ) -> Result<()> {
@@ -119,25 +145,24 @@ impl Window {
             config.format = view_format;
             config.view_formats.push(view_format);
             surface.configure(&driver.device, &config);
-            driver.format.replace(Some(view_format)).map_or_else(
-                || Ok(()),
-                |format| {
-                    Err(eyre::eyre!(
-                        "driver.format is already configured: {:?}",
-                        format
-                    ))
-                },
-            )?;
+
+            let cache = glyphon::Cache::new(&driver.device);
+            let atlas = glyphon::TextAtlas::new(&driver.device, &driver.queue, &cache, view_format);
+            let viewport = glyphon::Viewport::new(&driver.device, &cache);
+
             let mut windowstate = WindowState {
                 modifiers: 0,
                 all_buttons: 0,
                 last_mouse: PhysicalPosition::new(f32::NAN, f32::NAN),
                 config,
                 dpi: Vec2::broadcast(window.scale_factor() as f32),
+                focus: HashMap::new(),
                 surface,
                 window,
-                driver,
+                driver: driver.clone(),
                 draw: im::Vector::new(),
+                atlas: Rc::new(RefCell::new(atlas)),
+                viewport: Rc::new(viewport),
             };
 
             Window::resize(size, &mut windowstate);
@@ -151,14 +176,14 @@ impl Window {
             );
         }
 
-        manager.init_outline(self.child.as_ref())?;
+        manager.init_component(self.child.as_ref())?;
         Ok(())
     }
 
     pub fn new(
         id: Rc<SourceID>,
         attributes: WindowAttributes,
-        child: Box<dyn OutlineWrap<dyn crate::layout::base::Empty>>,
+        child: Box<dyn ComponentWrap<dyn crate::layout::base::Empty>>,
     ) -> Self {
         Self {
             id,
@@ -172,14 +197,15 @@ impl Window {
         state.config.height = size.height;
         state.surface.configure(&state.driver.device, &state.config);
 
-        let text_system = state.driver.text().expect("driver.text not initialized");
-        text_system.borrow_mut().viewport.update(
-            &state.driver.queue,
-            glyphon::Resolution {
-                width: state.config.width,
-                height: state.config.height,
-            },
-        );
+        if let Some(viewport) = Rc::get_mut(&mut state.viewport) {
+            viewport.update(
+                &state.driver.queue,
+                glyphon::Resolution {
+                    width: state.config.width,
+                    height: state.config.height,
+                },
+            );
+        }
     }
 
     #[allow(clippy::result_unit_err)]
@@ -188,13 +214,17 @@ impl Window {
         rtree: Weak<rtree::Node>,
         event: WindowEvent,
         manager: &mut StateManager,
+        driver: std::sync::Weak<DriverState>,
     ) -> Result<(), ()> {
         let state: &mut WindowStateMachine = manager.get_mut(&id).map_err(|_| ())?;
         let window = state.state.as_mut().unwrap();
+        let dpi = window.dpi;
+        let inner = window.window.clone();
         match event {
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                 window.dpi = Vec2::broadcast(scale_factor as f32);
                 window.window.request_redraw();
+                Ok(())
             }
             WindowEvent::ModifiersChanged(m) => {
                 window.modifiers = if m.state().control_key() {
@@ -214,6 +244,7 @@ impl Window {
                 } else {
                     0
                 };
+                Ok(())
             }
             WindowEvent::Resized(new_size) => {
                 // Resize events can sometimes give empty sizes if the window is minimized
@@ -222,11 +253,11 @@ impl Window {
                 }
                 // On macos the window needs to be redrawn manually after resizing
                 window.window.request_redraw();
-                return Ok(());
+                Ok(())
             }
             WindowEvent::CloseRequested => {
                 // If this returns Some(data), the close request will be ignored
-                return Err(());
+                Err(())
             }
             WindowEvent::RedrawRequested => {
                 let frame = window.surface.get_current_texture().unwrap();
@@ -238,7 +269,7 @@ impl Window {
                         .driver
                         .device
                         .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                            label: Some("Window Outline"),
+                            label: Some("Window Component"),
                         });
 
                 {
@@ -278,10 +309,42 @@ impl Window {
 
                 window.driver.queue.submit(Some(encoder.finish()));
                 frame.present();
-                return Ok(());
+                Ok(())
+            }
+            WindowEvent::Focused(acquired) => {
+                // When the window loses or gains focus, we send a focus event to our children that had
+                // focus, but we don't forget or change which children have focus.
+                let evt = RawEvent::Focus {
+                    acquired,
+                    window: window.window.clone(),
+                };
+
+                // We have to collect this map so we aren't borrowing manager twice
+                let nodes: SmallVec<[RcNode; 4]> = window
+                    .focus
+                    .values()
+                    .map(|node| RcNode(node.0.clone()))
+                    .collect();
+
+                for node in nodes {
+                    let _ =
+                        node.0
+                            .inject_event(&evt, RawEventKind::Focus, dpi, Vec2::zero(), manager);
+                }
+                Ok(())
             }
             _ => {
                 let e = match event {
+                    WindowEvent::Ime(winit::event::Ime::Commit(s)) => RawEvent::Key {
+                        device_id: DeviceId::dummy(), // TODO: No way to derive originating keyboard from IME event????
+                        physical_key: winit::keyboard::PhysicalKey::Unidentified(
+                            winit::keyboard::NativeKeyCode::Unidentified,
+                        ),
+                        location: winit::keyboard::KeyLocation::Standard,
+                        down: false,
+                        logical_key: winit::keyboard::Key::Character(s.into()),
+                        modifiers: 0,
+                    },
                     WindowEvent::KeyboardInput {
                         device_id,
                         event,
@@ -311,6 +374,7 @@ impl Window {
                             pos: window.last_mouse,
                             all_buttons: window.all_buttons,
                             modifiers: window.modifiers,
+                            driver: driver.clone(),
                         }
                     }
                     WindowEvent::CursorEntered { device_id } => RawEvent::MouseMove {
@@ -319,6 +383,7 @@ impl Window {
                         pos: window.last_mouse,
                         all_buttons: window.all_buttons,
                         modifiers: window.modifiers,
+                        driver: driver.clone(),
                     },
                     WindowEvent::CursorLeft { device_id } => {
                         let e = RawEvent::MouseMove {
@@ -327,6 +392,7 @@ impl Window {
                             pos: window.last_mouse,
                             all_buttons: window.all_buttons,
                             modifiers: window.modifiers,
+                            driver: driver.clone(),
                         };
                         window.last_mouse = PhysicalPosition::new(f32::NAN, f32::NAN);
                         e
@@ -339,7 +405,7 @@ impl Window {
                         winit::event::MouseScrollDelta::LineDelta(x, y) => RawEvent::MouseScroll {
                             device_id,
                             state: phase.into(),
-                            pos: pixel_to_vec(window.last_mouse),
+                            pos: window.last_mouse,
                             delta: Vec2::new(x, y),
                             pixels: false,
                         },
@@ -347,7 +413,7 @@ impl Window {
                             RawEvent::MouseScroll {
                                 device_id,
                                 state: phase.into(),
-                                pos: pixel_to_vec(window.last_mouse),
+                                pos: window.last_mouse,
                                 delta: Vec2::new(
                                     physical_position.x as f32,
                                     physical_position.y as f32,
@@ -414,12 +480,121 @@ impl Window {
                     _ => return Err(()),
                 };
 
-                if let Some(rt) = rtree.upgrade() {
-                    return rt.on_event(&e, window.dpi, manager);
+                if let RawEvent::MouseMove { .. } = e {
+                    if let Some(d) = driver.upgrade() {
+                        *d.cursor.write() = CursorIcon::Default;
+                    }
                 }
+                let r = match e {
+                    RawEvent::Drag => Err(()),
+                    RawEvent::Focus { .. } => Err(()),
+                    RawEvent::JoyAxis { device_id: _, .. }
+                    | RawEvent::JoyButton { device_id: _, .. }
+                    | RawEvent::JoyOrientation { device_id: _, .. }
+                    | RawEvent::Key { device_id: _, .. } => {
+                        // We have to collect this map so we aren't borrowing manager twice
+                        let nodes: SmallVec<[RcNode; 4]> = window
+                            .focus
+                            .values()
+                            .map(|node| RcNode(node.0.clone()))
+                            .collect();
+
+                        // Currently, we always duplicate key/joystick events to all focused elements. Later, we may map specific
+                        // keyboards to specific mouse input device IDs.
+                        if nodes.iter().any(|node| {
+                            node.0
+                                .inject_event(&e, e.kind(), dpi, Vec2::zero(), manager)
+                                .is_ok()
+                        }) {
+                            Ok(())
+                        } else {
+                            Err(())
+                        }
+                    }
+                    RawEvent::Mouse { pos, .. }
+                    | RawEvent::MouseMove { pos, .. }
+                    | RawEvent::Drop { pos, .. }
+                    | RawEvent::MouseScroll { pos, .. } => {
+                        if let Some(rt) = rtree.upgrade() {
+                            rt.process(
+                                &e,
+                                e.kind(),
+                                Vec2::new(pos.x, pos.y),
+                                Vec2::zero(),
+                                dpi,
+                                manager,
+                                id.clone(),
+                            )
+                        } else {
+                            Err(())
+                        }
+                    }
+                    RawEvent::Touch { pos, .. } => {
+                        if let Some(rt) = rtree.upgrade() {
+                            rt.process(
+                                &e,
+                                e.kind(),
+                                pos.xy(),
+                                Vec2::zero(),
+                                dpi,
+                                manager,
+                                id.clone(),
+                            )
+                        } else {
+                            Err(())
+                        }
+                    }
+                };
+                if r.is_err() {
+                    match e {
+                        RawEvent::Mouse {
+                            state: MouseState::Down,
+                            button: crate::input::MouseButton::L,
+                            ..
+                        }
+                        | RawEvent::Mouse {
+                            state: MouseState::Down,
+                            button: crate::input::MouseButton::M,
+                            ..
+                        }
+                        | RawEvent::Mouse {
+                            state: MouseState::Down,
+                            button: crate::input::MouseButton::R,
+                            ..
+                        } => {
+                            // We reborrow everything here or rust gets upset
+                            let state: &mut WindowStateMachine =
+                                manager.get_mut(&id).map_err(|_| ())?;
+                            let window = state.state.as_mut().unwrap();
+                            let evt = RawEvent::Focus {
+                                acquired: false,
+                                window: window.window.clone(),
+                            };
+
+                            // Drain() holds a reference, so we still have to collect these to avoid borrowing manager twice
+                            let nodes: SmallVec<[RcNode; 4]> =
+                                window.focus.drain().map(|(_, v)| v).collect();
+
+                            for node in nodes {
+                                let _ = node.0.inject_event(
+                                    &evt,
+                                    RawEventKind::Focus,
+                                    dpi,
+                                    Vec2::zero(),
+                                    manager,
+                                );
+                            }
+                        }
+                        _ => (),
+                    }
+                }
+                if let RawEvent::MouseMove { .. } = e {
+                    if let Some(d) = driver.upgrade() {
+                        inner.set_cursor(*d.cursor.read());
+                    }
+                }
+                r
             }
         }
-
-        Err(())
     }
 }

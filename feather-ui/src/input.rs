@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::{AbsRect, Dispatchable, Error};
 use enum_variant_type::EnumVariantType;
-use std::any::TypeId;
+use feather_macro::Dispatch;
 use ultraviolet::{Vec2, Vec3};
 use winit::dpi::PhysicalPosition;
+
+use crate::DriverState;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
@@ -56,13 +57,16 @@ pub enum ModifierKeys {
     Held = 64,
 }
 
-#[derive(Debug, EnumVariantType, Clone)]
+#[derive(Debug, Dispatch, EnumVariantType, Clone)]
 #[evt(derive(Clone), module = "raw_event")]
 pub enum RawEvent {
-    Draw(AbsRect),
-    Drop,
+    Drag, // TBD, must be included here so RawEvent matches RawEventKind
+    Drop {
+        pos: PhysicalPosition<f32>,
+    },
     Focus {
         acquired: bool,
+        window: std::sync::Arc<winit::window::Window>, // Allows setting IME mode for textboxes
     },
     JoyAxis {
         device_id: winit::event::DeviceId,
@@ -101,11 +105,12 @@ pub enum RawEvent {
         pos: PhysicalPosition<f32>,
         all_buttons: u8,
         modifiers: u8,
+        driver: std::sync::Weak<DriverState>, // Allows setting our global cursor tracker
     },
     MouseScroll {
         device_id: winit::event::DeviceId,
         state: TouchState,
-        pos: Vec2,
+        pos: PhysicalPosition<f32>,
         delta: Vec2,
         pixels: bool, // If true, delta is expressed in pixels
     },
@@ -119,10 +124,16 @@ pub enum RawEvent {
     },
 }
 
+impl RawEvent {
+    pub fn kind(&self) -> RawEventKind {
+        self.into()
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u64)]
 pub enum RawEventKind {
-    Draw = 1,
+    Drag = 1, // This must start from 1 and perfectly match RawEvent to ensure the dispatch works correctly
     Drop = 2,
     Focus = 4,
     JoyAxis = 8,
@@ -135,142 +146,20 @@ pub enum RawEventKind {
     Touch = 1024,
 }
 
-use crate::DispatchPair;
-
-impl Dispatchable for RawEvent {
-    fn restore(pair: DispatchPair) -> Result<Self, Error> {
-        const KIND_DRAW: u64 = RawEventKind::Draw as u64;
-        const KIND_DROP: u64 = RawEventKind::Drop as u64;
-        const KIND_FOCUS: u64 = RawEventKind::Focus as u64;
-        const KIND_JOYAXIS: u64 = RawEventKind::JoyAxis as u64;
-        const KIND_JOYBUTTON: u64 = RawEventKind::JoyButton as u64;
-        const KIND_JOYORIENTATION: u64 = RawEventKind::JoyOrientation as u64;
-        const KIND_KEY: u64 = RawEventKind::Key as u64;
-        const KIND_MOUSE: u64 = RawEventKind::Mouse as u64;
-        const KIND_MOUSEMOVE: u64 = RawEventKind::MouseMove as u64;
-        const KIND_MOUSESCROLL: u64 = RawEventKind::MouseScroll as u64;
-        const KIND_TOUCH: u64 = RawEventKind::Touch as u64;
-        let type_id = (*pair.1).type_id();
-
-        match pair.0 {
-            KIND_DRAW => Ok(RawEvent::from(
-                *pair.1.downcast::<raw_event::Draw>().map_err(|_| {
-                    Error::MismatchedEnumTag(pair.0, TypeId::of::<raw_event::Draw>(), type_id)
-                })?,
-            )),
-            KIND_DROP => Ok(RawEvent::from(
-                *pair.1.downcast::<raw_event::Drop>().map_err(|_| {
-                    Error::MismatchedEnumTag(pair.0, TypeId::of::<raw_event::Drop>(), type_id)
-                })?,
-            )),
-            KIND_FOCUS => Ok(RawEvent::from(
-                *pair.1.downcast::<raw_event::Focus>().map_err(|_| {
-                    Error::MismatchedEnumTag(pair.0, TypeId::of::<raw_event::Focus>(), type_id)
-                })?,
-            )),
-            KIND_JOYAXIS => Ok(RawEvent::from(
-                *pair.1.downcast::<raw_event::JoyAxis>().map_err(|_| {
-                    Error::MismatchedEnumTag(pair.0, TypeId::of::<raw_event::JoyAxis>(), type_id)
-                })?,
-            )),
-            KIND_JOYBUTTON => Ok(RawEvent::from(
-                *pair.1.downcast::<raw_event::JoyButton>().map_err(|_| {
-                    Error::MismatchedEnumTag(pair.0, TypeId::of::<raw_event::JoyButton>(), type_id)
-                })?,
-            )),
-            KIND_JOYORIENTATION => Ok(RawEvent::from(
-                *pair
-                    .1
-                    .downcast::<raw_event::JoyOrientation>()
-                    .map_err(|_| {
-                        Error::MismatchedEnumTag(
-                            pair.0,
-                            TypeId::of::<raw_event::JoyOrientation>(),
-                            type_id,
-                        )
-                    })?,
-            )),
-            KIND_KEY => Ok(RawEvent::from(
-                *pair.1.downcast::<raw_event::Key>().map_err(|_| {
-                    Error::MismatchedEnumTag(pair.0, TypeId::of::<raw_event::Key>(), type_id)
-                })?,
-            )),
-            KIND_MOUSE => Ok(RawEvent::from(
-                *pair.1.downcast::<raw_event::Mouse>().map_err(|_| {
-                    Error::MismatchedEnumTag(pair.0, TypeId::of::<raw_event::Mouse>(), type_id)
-                })?,
-            )),
-            KIND_MOUSEMOVE => Ok(RawEvent::from(
-                *pair.1.downcast::<raw_event::MouseMove>().map_err(|_| {
-                    Error::MismatchedEnumTag(pair.0, TypeId::of::<raw_event::MouseMove>(), type_id)
-                })?,
-            )),
-            KIND_MOUSESCROLL => Ok(RawEvent::from(
-                *pair.1.downcast::<raw_event::MouseScroll>().map_err(|_| {
-                    Error::MismatchedEnumTag(
-                        pair.0,
-                        TypeId::of::<raw_event::MouseScroll>(),
-                        type_id,
-                    )
-                })?,
-            )),
-            KIND_TOUCH => Ok(RawEvent::from(
-                *pair.1.downcast::<raw_event::Touch>().map_err(|_| {
-                    Error::MismatchedEnumTag(pair.0, TypeId::of::<raw_event::Touch>(), type_id)
-                })?,
-            )),
-            _ => Err(Error::InvalidEnumTag(pair.0)),
-        }
-    }
-
-    const SIZE: usize = 11;
-
-    fn extract(self) -> DispatchPair {
-        match self {
-            RawEvent::Draw(_) => (
-                RawEventKind::Draw as u64,
-                Box::new(raw_event::Draw::try_from(self).unwrap()),
-            ),
-            RawEvent::Drop => (
-                RawEventKind::Drop as u64,
-                Box::new(raw_event::Drop::try_from(self).unwrap()),
-            ),
-            RawEvent::Focus { .. } => (
-                RawEventKind::Focus as u64,
-                Box::new(raw_event::Focus::try_from(self).unwrap()),
-            ),
-            RawEvent::JoyAxis { .. } => (
-                RawEventKind::JoyAxis as u64,
-                Box::new(raw_event::JoyAxis::try_from(self).unwrap()),
-            ),
-            RawEvent::JoyButton { .. } => (
-                RawEventKind::JoyButton as u64,
-                Box::new(raw_event::JoyButton::try_from(self).unwrap()),
-            ),
-            RawEvent::JoyOrientation { .. } => (
-                RawEventKind::JoyOrientation as u64,
-                Box::new(raw_event::JoyOrientation::try_from(self).unwrap()),
-            ),
-            RawEvent::Key { .. } => (
-                RawEventKind::Key as u64,
-                Box::new(raw_event::Key::try_from(self).unwrap()),
-            ),
-            RawEvent::Mouse { .. } => (
-                RawEventKind::Mouse as u64,
-                Box::new(raw_event::Mouse::try_from(self).unwrap()),
-            ),
-            RawEvent::MouseMove { .. } => (
-                RawEventKind::MouseMove as u64,
-                Box::new(raw_event::MouseMove::try_from(self).unwrap()),
-            ),
-            RawEvent::MouseScroll { .. } => (
-                RawEventKind::MouseScroll as u64,
-                Box::new(raw_event::MouseScroll::try_from(self).unwrap()),
-            ),
-            RawEvent::Touch { .. } => (
-                RawEventKind::Touch as u64,
-                Box::new(raw_event::Touch::try_from(self).unwrap()),
-            ),
+impl From<&RawEvent> for RawEventKind {
+    fn from(value: &RawEvent) -> Self {
+        match value {
+            RawEvent::Drag => RawEventKind::Drag,
+            RawEvent::Drop { .. } => RawEventKind::Drop,
+            RawEvent::Focus { .. } => RawEventKind::Focus,
+            RawEvent::JoyAxis { .. } => RawEventKind::JoyAxis,
+            RawEvent::JoyButton { .. } => RawEventKind::JoyButton,
+            RawEvent::JoyOrientation { .. } => RawEventKind::JoyOrientation,
+            RawEvent::Key { .. } => RawEventKind::Key,
+            RawEvent::Mouse { .. } => RawEventKind::Mouse,
+            RawEvent::MouseMove { .. } => RawEventKind::MouseMove,
+            RawEvent::MouseScroll { .. } => RawEventKind::MouseScroll,
+            RawEvent::Touch { .. } => RawEventKind::Touch,
         }
     }
 }

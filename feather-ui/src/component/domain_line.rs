@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use super::CrossReferenceDomain;
-use crate::layout::{base, Layout};
-use crate::outline::Renderable;
-use crate::shaders::{gen_uniform, to_bytes, Vertex};
-use crate::{layout, DriverState, RenderLambda, SourceID};
+use crate::layout::{Layout, base};
+use crate::shaders::gen_uniform;
+use crate::{CrossReferenceDomain, DriverState, SourceID, layout, render};
 use derive_where::derive_where;
 use std::rc::Rc;
 use ultraviolet::Vec4;
@@ -22,7 +20,7 @@ pub struct DomainLine<T: base::Empty + 'static> {
     pub fill: Vec4,
 }
 
-impl<T: base::Empty + 'static> super::Outline<T> for DomainLine<T>
+impl<T: base::Empty + 'static> super::Component<T> for DomainLine<T>
 where
     for<'a> &'a T: Into<&'a (dyn base::Empty + 'static)>,
 {
@@ -38,10 +36,10 @@ where
         &self,
         _: &crate::StateManager,
         driver: &DriverState,
-        _dpi: crate::Vec2,
+        _window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
-        let shader_idx = driver.shader_cache.borrow_mut().register_shader(
+        let shader_idx = driver.shader_cache.write().register_shader(
             &driver.device,
             "Line FS",
             include_str!("../shaders/Line.frag.wgsl"),
@@ -49,7 +47,7 @@ where
         let pipeline =
             driver
                 .shader_cache
-                .borrow_mut()
+                .write()
                 .line_pipeline(&driver.device, shader_idx, config);
 
         let mvp = gen_uniform(
@@ -95,11 +93,11 @@ where
             props: self.props.clone(),
             children: Default::default(),
             id: Rc::downgrade(&self.id),
-            renderable: Some(Rc::new_cyclic(|this| LinePipeline {
+            renderable: Some(Rc::new_cyclic(|this| render::domain::line::Pipeline {
                 this: this.clone(),
                 pipeline,
                 group: bind_group,
-                buffers,
+                _buffers: buffers,
                 domain: self.domain.clone(),
                 start: self.start.clone(),
                 end: self.end.clone(),
@@ -108,60 +106,4 @@ where
     }
 }
 
-crate::gen_outline_wrap!(DomainLine, base::Empty);
-
-pub struct LinePipeline {
-    pub this: std::rc::Weak<LinePipeline>,
-    pub pipeline: wgpu::RenderPipeline,
-    pub group: wgpu::BindGroup,
-    pub domain: Rc<CrossReferenceDomain>,
-    pub start: Rc<SourceID>,
-    pub end: Rc<SourceID>,
-    pub buffers: [wgpu::Buffer; 3],
-}
-
-impl Renderable for LinePipeline {
-    fn render(
-        &self,
-        _: crate::AbsRect,
-        driver: &DriverState,
-    ) -> im::Vector<crate::RenderInstruction> {
-        // TODO: This needs to be deferred until the end of the pipeline and then re-inserted back into place to remove dependency cycles
-        let start = self.domain.get_area(&self.start).unwrap_or_default();
-        let end = self.domain.get_area(&self.end).unwrap_or_default();
-
-        // We have to put this in an RC because it needs to be cloneable across multiple render passes
-        let verts = Rc::new(
-            driver
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("LineVertices"),
-                    contents: to_bytes(&[
-                        Vertex {
-                            pos: ((start.topleft() + start.bottomright()) * 0.5).into(),
-                        },
-                        Vertex {
-                            pos: ((end.topleft() + end.bottomright()) * 0.5).into(),
-                        },
-                    ]),
-                    usage: wgpu::BufferUsages::VERTEX,
-                }),
-        );
-
-        let weak = self.this.clone();
-        let mut result = im::Vector::new();
-        result.push_back(Some(Box::new(move |pass: &mut wgpu::RenderPass| {
-            if let Some(this) = weak.upgrade() {
-                pass.set_vertex_buffer(0, verts.slice(..));
-                pass.set_bind_group(0, &this.group, &[]);
-                pass.set_pipeline(&this.pipeline);
-                pass.draw(
-                    //0..(this.vertices.size() as u32 / size_of::<Vertex>() as u32),
-                    0..2,
-                    0..1,
-                );
-            }
-        }) as Box<dyn RenderLambda>));
-        result
-    }
-}
+crate::gen_component_wrap!(DomainLine, base::Empty);

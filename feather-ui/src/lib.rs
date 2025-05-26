@@ -3,24 +3,25 @@
 
 extern crate alloc;
 
+pub mod component;
 pub mod input;
 pub mod layout;
 pub mod lua;
-pub mod outline;
 pub mod persist;
 mod propbag;
+pub mod render;
 mod rtree;
 mod shaders;
+pub mod text;
 
-use crate::outline::window::Window;
-use core::cell::Cell;
+use crate::component::window::Window;
+use component::window::WindowStateMachine;
+use component::{Component, StateMachineWrapper};
 use core::f32;
 use dyn_clone::DynClone;
 use eyre::OptionExt;
 pub use glyphon::Wrap;
-use once_cell::unsync::OnceCell;
-use outline::window::WindowStateMachine;
-use outline::{Outline, StateMachineWrapper};
+use parking_lot::RwLock;
 use persist::FnPersist;
 use shaders::ShaderCache;
 use smallvec::SmallVec;
@@ -30,10 +31,11 @@ use std::collections::{BTreeMap, HashMap};
 use std::hash::Hasher;
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 use std::rc::Rc;
+use std::sync::Arc;
 use ultraviolet::f32x4;
 use ultraviolet::vec::Vec2;
 use wide::CmpLe;
-use winit::window::WindowId;
+use winit::window::{CursorIcon, WindowId};
 
 /// Allocates `&[T]` on stack space.
 pub(crate) fn alloca_array<T, R>(n: usize, f: impl FnOnce(&mut [T]) -> R) -> R {
@@ -69,7 +71,7 @@ macro_rules! gen_id {
 use std::any::TypeId;
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("Not an error, this outline simply has no layout state.")]
+    #[error("Not an error, this component simply has no layout state.")]
     Stateless,
     #[error("Enun object didn't match tag {0}! Expected {1:?} but got {2:?}")]
     MismatchedEnumTag(u64, TypeId, TypeId),
@@ -82,6 +84,7 @@ pub enum Error {
 pub const UNSIZED_AXIS: f32 = f32::MAX;
 pub const ZERO_POINT: Vec2 = Vec2 { x: 0.0, y: 0.0 };
 const MINUS_BOTTOMRIGHT: f32x4 = f32x4::new([1.0, 1.0, -1.0, -1.0]);
+pub const BASE_DPI: Vec2 = Vec2::new(96.0, 96.0);
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct AbsDim(Vec2);
@@ -103,8 +106,13 @@ impl AbsRect {
     pub const fn new(left: f32, top: f32, right: f32, bottom: f32) -> Self {
         Self(f32x4::new([left, top, right, bottom]))
     }
+
+    pub const fn broadcast(x: f32) -> Self {
+        Self(f32x4::new([x, x, x, x]))
+    }
+
     #[inline]
-    pub const fn new_corners(topleft: Vec2, bottomright: Vec2) -> Self {
+    pub const fn corners(topleft: Vec2, bottomright: Vec2) -> Self {
         Self(f32x4::new([
             topleft.x,
             topleft.y,
@@ -290,6 +298,10 @@ impl RelRect {
         Self(f32x4::new([left, top, right, bottom]))
     }
 
+    pub const fn broadcast(x: f32) -> Self {
+        Self(f32x4::new([x, x, x, x]))
+    }
+
     #[inline]
     pub fn topleft(&self) -> Vec2 {
         let ltrb = self.0.as_array_ref();
@@ -319,7 +331,7 @@ impl Add<AbsRect> for RelRect {
 
 #[inline]
 pub fn build_aabb(a: Vec2, b: Vec2) -> AbsRect {
-    AbsRect::new_corners(a.min_by_component(b), a.max_by_component(b))
+    AbsRect::corners(a.min_by_component(b), a.max_by_component(b))
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
@@ -801,6 +813,29 @@ pub enum RowDirection {
     BottomToTop,
 }
 
+// If a component provides a CrossReferenceDomain, it's children can register themselves with it.
+// Registered children will write their fully resolved area to the mapping, which can then be
+// retrieved during the render step via a source ID.
+#[derive(Default)]
+pub struct CrossReferenceDomain {
+    mappings: crate::RefCell<im::HashMap<Rc<SourceID>, AbsRect>>,
+}
+
+impl CrossReferenceDomain {
+    pub fn write_area(&self, target: Rc<SourceID>, area: AbsRect) {
+        self.mappings.borrow_mut().insert(target, area);
+    }
+
+    pub fn get_area(&self, target: &Rc<SourceID>) -> Option<AbsRect> {
+        self.mappings.borrow().get(target).copied()
+    }
+
+    pub fn remove_self(&self, target: &Rc<SourceID>) {
+        // TODO: Is this necessary? Does it even make sense? Do you simply need to wipe the mapping for every new layout instead?
+        self.mappings.borrow_mut().remove(target);
+    }
+}
+
 pub trait RenderLambda: Fn(&mut wgpu::RenderPass) + dyn_clone::DynClone {}
 impl<T: Fn(&mut wgpu::RenderPass) + ?Sized + dyn_clone::DynClone> RenderLambda for T {}
 dyn_clone::clone_trait_object!(RenderLambda);
@@ -808,36 +843,11 @@ dyn_clone::clone_trait_object!(RenderLambda);
 // TODO: This only an Option so it can be zeroed. After fixing im::Vector, remove Option.
 type RenderInstruction = Option<Box<dyn RenderLambda>>;
 
-pub struct TextSystem {
-    viewport: glyphon::Viewport,
-    atlas: glyphon::TextAtlas,
-    font_system: glyphon::FontSystem,
-    swash_cache: glyphon::SwashCache,
-}
-
-impl TextSystem {
-    pub fn split_borrow(
-        &mut self,
-    ) -> (
-        &mut glyphon::Viewport,
-        &mut glyphon::TextAtlas,
-        &mut glyphon::FontSystem,
-        &mut glyphon::SwashCache,
-    ) {
-        (
-            &mut self.viewport,
-            &mut self.atlas,
-            &mut self.font_system,
-            &mut self.swash_cache,
-        )
-    }
-}
-
 // Points are specified as 72 per inch, and a scale factor of 1.0 corresponds to 96 DPI, so we multiply by the
 // ratio times the scaling factor.
 #[inline]
 fn point_to_pixel(pt: f32, scale_factor: f32) -> f32 {
-    pt * (72.0 / 96.0) * scale_factor
+    pt * (72.0 / 96.0) * scale_factor // * text_scale_factor
 }
 
 #[inline]
@@ -848,35 +858,17 @@ fn pixel_to_vec(p: winit::dpi::PhysicalPosition<f32>) -> Vec2 {
 // We want to share our device/adapter state across windows, but can't create it until we have at least one window,
 // so we store a weak reference to it in App and if all windows are dropped it'll also drop these, which is usually
 // sensible behavior.
+#[derive(Debug)]
 pub struct DriverState {
     adapter: wgpu::Adapter,
     device: wgpu::Device,
     queue: wgpu::Queue,
-    format: Cell<Option<wgpu::TextureFormat>>,
-    text: OnceCell<std::rc::Rc<RefCell<TextSystem>>>,
-    shader_cache: RefCell<ShaderCache>,
+    shader_cache: RwLock<ShaderCache>,
+    swash_cache: RwLock<glyphon::SwashCache>,
+    font_system: RwLock<glyphon::FontSystem>,
+    cursor: RwLock<CursorIcon>, // This is a convenient place to track our global expected cursor
 }
-
-impl DriverState {
-    fn text(&self) -> eyre::Result<&std::rc::Rc<RefCell<TextSystem>>> {
-        self.text.get_or_try_init(|| {
-            let format = self
-                .format
-                .get()
-                .ok_or_eyre("driver.text initialized called before driver.format is provided")?;
-            let cache = glyphon::Cache::new(&self.device);
-            let atlas = glyphon::TextAtlas::new(&self.device, &self.queue, &cache, format);
-            let viewport = glyphon::Viewport::new(&self.device, &cache);
-            let text = std::rc::Rc::new(RefCell::new(TextSystem {
-                font_system: glyphon::FontSystem::new(),
-                swash_cache: glyphon::SwashCache::new(),
-                viewport,
-                atlas,
-            }));
-            Ok(text)
-        })
-    }
-}
+static_assertions::assert_impl_all!(DriverState: Send, Sync);
 
 /// Object-safe version of Hash + PartialEq
 pub trait DynHashEq: DynClone {
@@ -917,7 +909,7 @@ impl std::hash::Hash for DataID {
             DataID::Int(i) => i.hash(state),
             DataID::Other(hash_comparable) => hash_comparable.dyn_hash(state),
             DataID::None => {
-                panic!("Invalid ID! Did you forget to initialize an outline node's ID field?")
+                panic!("Invalid ID! Did you forget to initialize a component node's ID field?")
             }
         }
     }
@@ -1075,11 +1067,12 @@ impl Dispatchable for () {
 #[derive(Default)]
 pub struct StateManager {
     states: HashMap<Rc<SourceID>, Box<dyn StateMachineWrapper>>,
+    changed: bool,
 }
 
 impl StateManager {
     #[allow(dead_code)]
-    fn init_default<State: 'static + outline::StateMachineWrapper + Default>(
+    fn init_default<State: 'static + component::StateMachineWrapper + Default>(
         &mut self,
         id: Rc<SourceID>,
     ) -> eyre::Result<&mut State> {
@@ -1099,7 +1092,7 @@ impl StateManager {
             self.states.insert(id.clone(), state);
         }
     }
-    pub fn get<'a, State: 'static + outline::StateMachineWrapper>(
+    pub fn get<'a, State: 'static + component::StateMachineWrapper>(
         &'a self,
         id: &SourceID,
     ) -> eyre::Result<&'a State> {
@@ -1108,7 +1101,7 @@ impl StateManager {
             .downcast_ref()
             .ok_or_eyre("Runtime type mismatch!")
     }
-    pub fn get_mut<'a, State: 'static + outline::StateMachineWrapper>(
+    pub fn get_mut<'a, State: 'static + component::StateMachineWrapper>(
         &'a mut self,
         id: &SourceID,
     ) -> eyre::Result<&'a mut State> {
@@ -1137,7 +1130,8 @@ impl StateManager {
         // We use smallvec here so we can satisfy the borrow checker without making yet another heap allocation in most cases
         let iter: SmallVec<[IterTuple; 2]> = {
             let state = self.states.get_mut(&slot.0).ok_or_eyre("Invalid slot")?;
-            let v = state.process(event, slot.1, dpi, area)?;
+            let (v, changed) = state.process(event, slot.1, dpi, area)?;
+            self.changed = self.changed || changed;
             v.into_iter()
                 .map(|(i, e)| (e, i, state.output_slot(i.ilog2() as usize).unwrap().clone()))
         }
@@ -1151,9 +1145,9 @@ impl StateManager {
         Ok(())
     }
 
-    fn init_outline<Parent: ?Sized>(
+    fn init_component<Parent: ?Sized>(
         &mut self,
-        target: &dyn crate::outline::OutlineWrap<Parent>,
+        target: &dyn crate::component::ComponentWrap<Parent>,
     ) -> eyre::Result<()> {
         if !self.states.contains_key(&target.id()) {
             match target.init() {
@@ -1176,18 +1170,17 @@ pub struct App<
     O: FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>,
 > {
     pub instance: wgpu::Instance,
-    pub driver: std::rc::Weak<DriverState>,
+    pub driver: std::sync::Weak<DriverState>,
     state: StateManager,
     store: Option<O::Store>,
     outline: O,
     _parents: BTreeMap<DataID, DataID>,
-    root: outline::Root, // Root outline node containing all windows
+    root: component::Root, // Root component node containing all windows
 }
 
 struct AppDataMachine<AppData: 'static + std::cmp::PartialEq> {
     pub state: Option<AppData>,
     input: Vec<AppEvent<AppData>>,
-    pub changed: bool,
 }
 
 impl<AppData: 'static + std::cmp::PartialEq> StateMachineWrapper for AppDataMachine<AppData> {
@@ -1197,19 +1190,18 @@ impl<AppData: 'static + std::cmp::PartialEq> StateMachineWrapper for AppDataMach
         index: u64,
         _: crate::Vec2,
         _: AbsRect,
-    ) -> eyre::Result<Vec<DispatchPair>> {
+    ) -> eyre::Result<(Vec<DispatchPair>, bool)> {
         let f = self
             .input
             .get_mut(index as usize)
             .ok_or_eyre("index out of bounds")?;
         let processed = match f(input, self.state.take().unwrap()) {
-            Ok(s) => Some(s),
-            Err(s) => Some(s),
+            Ok(s) | Err(s) => Some(s),
         };
         // If it actually changed, set the change marker
-        self.changed = self.changed || (processed != self.state);
+        let changed = processed != self.state;
         self.state = processed;
-        Ok(Vec::new())
+        Ok((Vec::new(), changed))
     }
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
@@ -1233,10 +1225,8 @@ use winit::platform::windows::EventLoopBuilderExtWindows;
 #[cfg(target_os = "linux")]
 use winit::platform::x11::EventLoopBuilderExtX11;
 
-impl<
-        AppData: std::cmp::PartialEq,
-        O: FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>,
-    > App<AppData, O>
+impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>>
+    App<AppData, O>
 {
     pub fn new<T: 'static>(
         app_state: AppData,
@@ -1272,29 +1262,28 @@ impl<
             Box::new(AppDataMachine {
                 input: inputs,
                 state: Some(app_state),
-                changed: false,
             }),
         );
 
         Ok((
             Self {
                 instance: wgpu::Instance::default(),
-                driver: std::rc::Weak::<DriverState>::new(),
+                driver: std::sync::Weak::<DriverState>::new(),
                 store: None,
                 outline,
                 state: manager,
                 _parents: Default::default(),
-                root: outline::Root::new(),
+                root: component::Root::new(),
             },
             event_loop,
         ))
     }
 
     pub async fn create_driver(
-        weak: &mut std::rc::Weak<DriverState>,
+        weak: &mut alloc::sync::Weak<DriverState>,
         instance: &wgpu::Instance,
         surface: &wgpu::Surface<'static>,
-    ) -> eyre::Result<Rc<DriverState>> {
+    ) -> eyre::Result<Arc<DriverState>> {
         if let Some(driver) = weak.upgrade() {
             return Ok(driver);
         }
@@ -1319,16 +1308,17 @@ impl<
 
         let shader_cache = ShaderCache::new(&device);
 
-        let driver = Rc::new(crate::DriverState {
+        let driver = Arc::new(crate::DriverState {
             adapter,
             device,
             queue,
-            format: Cell::new(None),
-            text: OnceCell::new(),
-            shader_cache: RefCell::new(shader_cache),
+            swash_cache: RwLock::new(glyphon::SwashCache::new()),
+            font_system: RwLock::new(glyphon::FontSystem::new()),
+            shader_cache: RwLock::new(shader_cache),
+            cursor: RwLock::new(CursorIcon::Default),
         });
 
-        *weak = Rc::downgrade(&driver);
+        *weak = Arc::downgrade(&driver);
         Ok(driver)
     }
 
@@ -1353,10 +1343,10 @@ impl<
 }
 
 impl<
-        AppData: std::cmp::PartialEq,
-        T: 'static,
-        O: FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>,
-    > winit::application::ApplicationHandler<T> for App<AppData, O>
+    AppData: std::cmp::PartialEq,
+    T: 'static,
+    O: FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>,
+> winit::application::ApplicationHandler<T> for App<AppData, O>
 {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
         // If this is our first resume, call the start function that can create the necessary graphics context
@@ -1379,12 +1369,16 @@ impl<
                 let window = window.as_ref().unwrap();
                 let mut resized = false;
                 let _ = match event {
-                    winit::event::WindowEvent::CloseRequested => {
-                        Window::on_window_event(window.id(), rtree, event, &mut self.state)
-                            .inspect_err(|_| {
-                                delete = Some(window.id());
-                            })
-                    }
+                    winit::event::WindowEvent::CloseRequested => Window::on_window_event(
+                        window.id(),
+                        rtree,
+                        event,
+                        &mut self.state,
+                        self.driver.clone(),
+                    )
+                    .inspect_err(|_| {
+                        delete = Some(window.id());
+                    }),
                     winit::event::WindowEvent::RedrawRequested => {
                         if let Ok(state) = self.state.get_mut::<WindowStateMachine>(&window.id()) {
                             if let Some(driver) = self.driver.upgrade() {
@@ -1394,19 +1388,35 @@ impl<
                                 }
                             }
                         }
-                        Window::on_window_event(window.id(), rtree, event, &mut self.state)
+                        Window::on_window_event(
+                            window.id(),
+                            rtree,
+                            event,
+                            &mut self.state,
+                            self.driver.clone(),
+                        )
                     }
                     winit::event::WindowEvent::Resized(_) => {
                         resized = true;
-                        Window::on_window_event(window.id(), rtree, event, &mut self.state)
+                        Window::on_window_event(
+                            window.id(),
+                            rtree,
+                            event,
+                            &mut self.state,
+                            self.driver.clone(),
+                        )
                     }
-                    _ => Window::on_window_event(window.id(), rtree, event, &mut self.state),
+                    _ => Window::on_window_event(
+                        window.id(),
+                        rtree,
+                        event,
+                        &mut self.state,
+                        self.driver.clone(),
+                    ),
                 };
 
-                let app_state: &mut AppDataMachine<AppData> =
-                    self.state.get_mut(&APP_SOURCE_ID).unwrap();
-                if app_state.changed || resized {
-                    app_state.changed = false;
+                if self.state.changed || resized {
+                    self.state.changed = false;
                     let store = self.store.take().unwrap();
                     self.update_outline(event_loop, store);
                 }
@@ -1447,7 +1457,7 @@ impl FnPersist<u8, im::HashMap<Rc<SourceID>, Option<Window>>> for TestApp {
     type Store = (u8, im::HashMap<Rc<SourceID>, Option<Window>>);
 
     fn init(&self) -> Self::Store {
-        use crate::outline::shape::Shape;
+        use crate::component::shape::Shape;
         use ultraviolet::Vec4;
         let rect = Shape::<DRect>::round_rect(
             gen_id!().into(),

@@ -7,19 +7,21 @@ pub mod domain_point;
 pub mod draggable;
 pub mod flexbox;
 pub mod gridbox;
+pub mod line;
 pub mod listbox;
 pub mod mouse_area;
 pub mod paragraph;
 pub mod region;
 pub mod shape;
 pub mod text;
+pub mod textbox;
 pub mod window;
 
-use crate::layout::{root, Desc, Layout, LayoutWrap, Staged};
-use crate::outline::window::Window;
+use crate::component::window::Window;
+use crate::layout::{Desc, Layout, LayoutWrap, Staged, root};
 use crate::{
-    rtree, AbsRect, DispatchPair, Dispatchable, DriverState, EventWrapper, RenderInstruction, Slot,
-    SourceID, StateManager, DEFAULT_LIMITS,
+    AbsRect, DEFAULT_LIMITS, DispatchPair, Dispatchable, DriverState, EventWrapper, Slot, SourceID,
+    StateManager, rtree,
 };
 use dyn_clone::DynClone;
 use eyre::{OptionExt, Result};
@@ -36,7 +38,7 @@ pub trait StateMachineWrapper {
         index: u64,
         dpi: crate::Vec2,
         area: AbsRect,
-    ) -> Result<Vec<DispatchPair>>;
+    ) -> Result<(Vec<DispatchPair>, bool)>;
     fn as_any_mut(&mut self) -> &mut dyn Any;
     fn as_any(&self) -> &dyn Any;
     fn output_slot(&self, i: usize) -> Result<&Option<Slot>>;
@@ -55,11 +57,11 @@ pub struct StateMachine<
 }
 
 impl<
-        Output: Dispatchable + 'static,
-        State: 'static,
-        const INPUT_SIZE: usize,
-        const OUTPUT_SIZE: usize,
-    > StateMachineWrapper for StateMachine<Output, State, INPUT_SIZE, OUTPUT_SIZE>
+    Output: Dispatchable + 'static,
+    State: PartialEq + 'static,
+    const INPUT_SIZE: usize,
+    const OUTPUT_SIZE: usize,
+> StateMachineWrapper for StateMachine<Output, State, INPUT_SIZE, OUTPUT_SIZE>
 {
     fn process(
         &mut self,
@@ -67,7 +69,7 @@ impl<
         index: u64,
         dpi: crate::Vec2,
         area: AbsRect,
-    ) -> Result<Vec<DispatchPair>> {
+    ) -> Result<(Vec<DispatchPair>, bool)> {
         let (mask, f) = self
             .input
             .get_mut(index as usize)
@@ -75,17 +77,16 @@ impl<
         if input.0 & *mask == 0 {
             return Err(eyre::eyre!("Event handler doesn't handle this method"));
         }
+        let changed;
         let result = match f(input, area, dpi, self.state.take().unwrap()) {
-            Ok((s, r)) => {
-                self.state = Some(s);
-                r
-            }
-            Err((s, r)) => {
-                self.state = Some(s);
+            Ok((s, r)) | Err((s, r)) => {
+                let s = Some(s);
+                changed = self.state != s;
+                self.state = s;
                 r
             }
         };
-        Ok(result.into_iter().map(|x| x.extract()).collect())
+        Ok((result.into_iter().map(|x| x.extract()).collect(), changed))
     }
     fn output_slot(&self, i: usize) -> Result<&Option<Slot>> {
         self.output.get(i).ok_or_eyre("index out of bounds")
@@ -101,12 +102,12 @@ impl<
     }
 }
 
-pub trait Outline<T>: DynClone {
+pub trait Component<T>: DynClone {
     fn layout(
         &self,
         state: &StateManager,
         driver: &DriverState,
-        dpi: crate::Vec2,
+        window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T> + 'static>;
 
@@ -117,16 +118,16 @@ pub trait Outline<T>: DynClone {
     fn id(&self) -> Rc<SourceID>;
 }
 
-dyn_clone::clone_trait_object!(<Parent> Outline<Parent>);
+dyn_clone::clone_trait_object!(<Parent> Component<Parent>);
 
-pub type OutlineFrom<D> = dyn OutlineWrap<<D as Desc>::Child>;
+pub type ComponentFrom<D> = dyn ComponentWrap<<D as Desc>::Child>;
 
-pub trait OutlineWrap<T: ?Sized>: DynClone {
+pub trait ComponentWrap<T: ?Sized>: DynClone {
     fn layout(
         &self,
         state: &StateManager,
         driver: &DriverState,
-        dpi: crate::Vec2,
+        window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn LayoutWrap<T> + 'static>;
     fn init(&self) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error>;
@@ -134,9 +135,9 @@ pub trait OutlineWrap<T: ?Sized>: DynClone {
     fn id(&self) -> Rc<SourceID>;
 }
 
-dyn_clone::clone_trait_object!(<T> OutlineWrap<T> where T:?Sized);
+dyn_clone::clone_trait_object!(<T> ComponentWrap<T> where T:?Sized);
 
-impl<U: ?Sized, T: 'static> OutlineWrap<U> for Box<dyn Outline<T>>
+impl<U: ?Sized, T: 'static> ComponentWrap<U> for Box<dyn Component<T>>
 where
     for<'a> &'a T: Into<&'a U>,
 {
@@ -144,32 +145,32 @@ where
         &self,
         state: &StateManager,
         driver: &DriverState,
-        dpi: crate::Vec2,
+        window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn LayoutWrap<U> + 'static> {
-        Box::new(Outline::<T>::layout(
+        Box::new(Component::<T>::layout(
             self.as_ref(),
             state,
             driver,
-            dpi,
+            window,
             config,
         ))
     }
 
     fn init(&self) -> Result<Box<dyn crate::StateMachineWrapper>, crate::Error> {
-        Outline::<T>::init(self.as_ref())
+        Component::<T>::init(self.as_ref())
     }
 
     fn init_all(&self, manager: &mut StateManager) -> eyre::Result<()> {
-        Outline::<T>::init_all(self.as_ref(), manager)
+        Component::<T>::init_all(self.as_ref(), manager)
     }
 
     fn id(&self) -> Rc<SourceID> {
-        Outline::<T>::id(self.as_ref())
+        Component::<T>::id(self.as_ref())
     }
 }
 
-impl<U: ?Sized, T: 'static> OutlineWrap<U> for &dyn Outline<T>
+impl<U: ?Sized, T: 'static> ComponentWrap<U> for &dyn Component<T>
 where
     for<'a> &'a T: Into<&'a U>,
 {
@@ -177,27 +178,23 @@ where
         &self,
         state: &StateManager,
         driver: &DriverState,
-        dpi: crate::Vec2,
+        window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn LayoutWrap<U> + 'static> {
-        Box::new(Outline::<T>::layout(*self, state, driver, dpi, config))
+        Box::new(Component::<T>::layout(*self, state, driver, window, config))
     }
 
     fn init(&self) -> Result<Box<dyn crate::StateMachineWrapper>, crate::Error> {
-        Outline::<T>::init(*self)
+        Component::<T>::init(*self)
     }
 
     fn init_all(&self, manager: &mut StateManager) -> eyre::Result<()> {
-        Outline::<T>::init_all(*self, manager)
+        Component::<T>::init_all(*self, manager)
     }
 
     fn id(&self) -> Rc<SourceID> {
-        Outline::<T>::id(*self)
+        Component::<T>::id(*self)
     }
-}
-
-pub trait Renderable {
-    fn render(&self, area: AbsRect, driver: &DriverState) -> im::Vector<RenderInstruction>;
 }
 
 // Stores the root node for the various trees.
@@ -246,12 +243,12 @@ impl Root {
     >(
         &mut self,
         manager: &mut StateManager,
-        driver: &mut std::rc::Weak<DriverState>,
+        driver: &mut std::sync::Weak<DriverState>,
         instance: &wgpu::Instance,
         event_loop: &winit::event_loop::ActiveEventLoop,
     ) -> eyre::Result<()> {
         // Initialize any states that need to be initialized before calling the layout function
-        // TODO: make this actually efficient by perfoming the initialization when a new outline is initialized
+        // TODO: make this actually efficient by perfoming the initialization when a new component is initialized
         for (_, window) in self.children.iter() {
             let window = window.as_ref().unwrap();
             window.init_custom::<AppData, O>(manager, driver, instance, event_loop)?;
@@ -268,7 +265,7 @@ impl Root {
             root.layout_tree = Some(window.layout(
                 manager,
                 &state.state.as_ref().unwrap().driver,
-                state.state.as_ref().unwrap().dpi,
+                &window.id(),
                 &state.state.as_ref().unwrap().config,
             ));
         }
@@ -313,85 +310,62 @@ impl Root {
     }*/
 }
 
-// If an outline provides a CrossReferenceDomain, it's children can register themselves with it.
-// Registered children will write their fully resolved area to the mapping, which can then be
-// retrieved during the render step via a source ID.
-#[derive(Default)]
-pub struct CrossReferenceDomain {
-    mappings: crate::RefCell<im::HashMap<Rc<SourceID>, AbsRect>>,
-}
-
-impl CrossReferenceDomain {
-    pub fn write_area(&self, target: Rc<SourceID>, area: AbsRect) {
-        self.mappings.borrow_mut().insert(target, area);
-    }
-
-    pub fn get_area(&self, target: &Rc<SourceID>) -> Option<AbsRect> {
-        self.mappings.borrow().get(target).copied()
-    }
-
-    pub fn remove_self(&self, target: &Rc<SourceID>) {
-        // TODO: Is this necessary? Does it even make sense? Do you simply need to wipe the mapping for every new layout instead?
-        self.mappings.borrow_mut().remove(target);
-    }
-}
-
 #[macro_export]
-macro_rules! gen_outline_wrap_inner {
+macro_rules! gen_component_wrap_inner {
     () => {
         fn layout(
             &self,
             state: &$crate::StateManager,
             driver: &$crate::DriverState,
-            dpi: $crate::Vec2,
+            window: &Rc<SourceID>,
             config: &wgpu::SurfaceConfiguration,
-        ) -> Box<dyn $crate::outline::LayoutWrap<U> + 'static> {
-            Box::new($crate::outline::Outline::<T>::layout(
-                self, state, driver, dpi, config,
+        ) -> Box<dyn $crate::component::LayoutWrap<U> + 'static> {
+            Box::new($crate::component::Component::<T>::layout(
+                self, state, driver, window, config,
             ))
         }
 
         fn init(&self) -> Result<Box<dyn $crate::StateMachineWrapper>, $crate::Error> {
-            $crate::outline::Outline::<T>::init(self)
+            $crate::component::Component::<T>::init(self)
         }
 
         fn init_all(&self, manager: &mut $crate::StateManager) -> eyre::Result<()> {
-            $crate::outline::Outline::<T>::init_all(self, manager)
+            $crate::component::Component::<T>::init_all(self, manager)
         }
 
         fn id(&self) -> Rc<SourceID> {
-            $crate::outline::Outline::<T>::id(self)
+            $crate::component::Component::<T>::id(self)
         }
     };
 }
 
 #[macro_export]
-macro_rules! gen_outline_wrap {
+macro_rules! gen_component_wrap {
     ($name:ident, $prop:path) => {
-        impl<U: ?Sized, T: $prop + 'static> $crate::outline::OutlineWrap<U> for $name<T>
+        impl<U: ?Sized, T: $prop + 'static> $crate::component::ComponentWrap<U> for $name<T>
         where
-            $name<T>: $crate::outline::Outline<T>,
+            $name<T>: $crate::component::Component<T>,
             for<'a> &'a T: Into<&'a U>,
         {
-            $crate::gen_outline_wrap_inner!();
+            $crate::gen_component_wrap_inner!();
         }
     };
     ($name:ident, $prop:path, $aux:path) => {
-        impl<U: ?Sized, T: $prop + $aux + 'static> $crate::outline::OutlineWrap<U> for $name<T>
+        impl<U: ?Sized, T: $prop + $aux + 'static> $crate::component::ComponentWrap<U> for $name<T>
         where
-            $name<T>: $crate::outline::Outline<T>,
+            $name<T>: $crate::component::Component<T>,
             for<'a> &'a T: Into<&'a U>,
         {
-            $crate::gen_outline_wrap_inner!();
+            $crate::gen_component_wrap_inner!();
         }
     };
     ($a:lifetime, $name:ident, $prop:path) => {
-        impl<$a, U: ?Sized, T: $prop + 'static> $crate::outline::OutlineWrap<U> for $name<$a, T>
+        impl<$a, U: ?Sized, T: $prop + 'static> $crate::component::ComponentWrap<U> for $name<$a, T>
         where
-            $name<$a, T>: $crate::outline::Outline<T>,
+            $name<$a, T>: $crate::component::Component<T>,
             for<'abc> &'abc T: Into<&'abc U>,
         {
-            $crate::gen_outline_wrap_inner!();
+            $crate::gen_component_wrap_inner!();
         }
     };
 }

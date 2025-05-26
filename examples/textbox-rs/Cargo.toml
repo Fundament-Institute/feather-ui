@@ -2,37 +2,28 @@
 # SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 [package]
-name = "calculator-rs"
+name = "textbox-rs"
 version.workspace = true
-edition = "2021" # This is stuck on uniffi 0.27 which doesn't emit valid code under 2024
+edition.workspace = true
 rust-version.workspace = true
 authors = ["Erik McClure  "]
 description = """
-Simple calculator
+Basic textbox example
 """
 homepage.workspace = true
 readme.workspace = true
 license.workspace = true
 
-[lib]
-name = "calculator"
-path = "src/lib.rs"
-crate-type = ["lib", "cdylib"]
-
 [[bin]]
-name = "calculator-rs"
-path = "src/bin.rs"
+name = "textbox-rs"
+path = "main.rs"
 
 [dependencies]
 wgpu.workspace = true
 winit.workspace = true
 tokio.workspace = true
 feather-ui.workspace = true
-feather-macro.workspace = true
 ultraviolet.workspace = true
 im.workspace = true
 glyphon.workspace = true
-uniffi = "0.27.0"
-
-[build-dependencies]
-uniffi = { version = "0.27.0", features = ["build"] }
+feather-macro.workspace = true

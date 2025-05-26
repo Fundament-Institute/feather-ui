@@ -9,16 +9,17 @@ pub mod grid;
 pub mod leaf;
 pub mod list;
 pub mod root;
+pub mod text;
 
 use dyn_clone::DynClone;
 use ultraviolet::Vec2;
 use wide::f32x4;
 
-use crate::outline::Renderable;
 use crate::persist::{FnPersist2, VectorFold};
+use crate::render::Renderable;
 use crate::{
-    rtree, AbsDim, AbsLimits, AbsRect, DriverState, RelLimits, RenderInstruction, SourceID, URect,
-    UNSIZED_AXIS,
+    AbsDim, AbsLimits, AbsRect, DriverState, RelLimits, RenderInstruction, SourceID, UNSIZED_AXIS,
+    URect, rtree,
 };
 use derive_where::derive_where;
 use std::rc::{Rc, Weak};
@@ -383,20 +384,12 @@ pub(crate) fn apply_anchor(area: AbsRect, outer_area: AbsRect, mut anchor: Vec2)
 #[must_use]
 #[inline]
 fn swap_axis(xaxis: bool, v: Vec2) -> (f32, f32) {
-    if xaxis {
-        (v.x, v.y)
-    } else {
-        (v.y, v.x)
-    }
+    if xaxis { (v.x, v.y) } else { (v.y, v.x) }
 }
 
 /// If prev is NAN, always returns zero, which is the correct action for margin edges.
 #[must_use]
 #[inline]
 fn merge_margin(prev: f32, margin: f32) -> f32 {
-    if prev.is_nan() {
-        0.0
-    } else {
-        margin.max(prev)
-    }
+    if prev.is_nan() { 0.0 } else { margin.max(prev) }
 }

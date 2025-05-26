@@ -2,10 +2,10 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::{
-    base, check_unsized, check_unsized_abs, map_unsized_area, Concrete, Desc, LayoutWrap,
-    Renderable, Staged,
+    Concrete, Desc, LayoutWrap, Renderable, Staged, base, check_unsized, check_unsized_abs,
+    map_unsized_area,
 };
-use crate::{rtree, AbsRect, ZERO_POINT};
+use crate::{AbsRect, ZERO_POINT, rtree};
 use std::rc::Rc;
 
 pub trait Prop: base::Area + base::Anchor + base::Limits + base::ZIndex {}
