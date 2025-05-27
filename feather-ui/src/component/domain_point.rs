@@ -23,8 +23,6 @@ impl<T: domain_write::Prop + 'static> DomainPoint<T> {
 }
 
 impl<T: domain_write::Prop + 'static> super::Component<T> for DomainPoint<T>
-where
-    for<'a> &'a T: Into<&'a (dyn domain_write::Prop + 'static)>,
 {
     fn id(&self) -> Rc<SourceID> {
         self.id.clone()

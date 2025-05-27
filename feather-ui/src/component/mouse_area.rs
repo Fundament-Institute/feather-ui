@@ -44,8 +44,6 @@ impl<T: leaf::Prop + 'static> MouseArea<T> {
 }
 
 impl<T: leaf::Prop + 'static> super::Component<T> for MouseArea<T>
-where
-    for<'a> &'a T: Into<&'a (dyn leaf::Prop + 'static)>,
 {
     fn id(&self) -> Rc<SourceID> {
         self.id.clone()

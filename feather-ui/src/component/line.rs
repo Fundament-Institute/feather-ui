@@ -20,8 +20,6 @@ pub struct Line<T: base::Empty + 'static> {
 }
 
 impl<T: base::Empty + 'static> super::Component<T> for Line<T>
-where
-    for<'a> &'a T: Into<&'a (dyn base::Empty + 'static)>,
 {
     fn id(&self) -> std::rc::Rc<SourceID> {
         self.id.clone()

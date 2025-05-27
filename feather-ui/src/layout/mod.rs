@@ -24,21 +24,8 @@ use crate::{
 use derive_where::derive_where;
 use std::rc::{Rc, Weak};
 
-pub trait Layout<Props>: DynClone {
+pub trait Layout<Props: ?Sized>: DynClone {
     fn get_props(&self) -> &Props;
-    fn inner_stage<'a>(
-        &self,
-        area: AbsRect,
-        limits: AbsLimits,
-        dpi: Vec2,
-        driver: &DriverState,
-    ) -> Box<dyn Staged + 'a>;
-}
-
-dyn_clone::clone_trait_object!(<Imposed> Layout<Imposed> where Imposed:Sized);
-
-pub trait LayoutWrap<Imposed: ?Sized>: DynClone {
-    fn get_imposed(&self) -> &Imposed;
     fn stage<'a>(
         &self,
         area: AbsRect,
@@ -48,51 +35,7 @@ pub trait LayoutWrap<Imposed: ?Sized>: DynClone {
     ) -> Box<dyn Staged + 'a>;
 }
 
-dyn_clone::clone_trait_object!(<Imposed> LayoutWrap<Imposed> where Imposed:?Sized);
-
-impl<U: ?Sized, T> LayoutWrap<U> for Box<dyn Layout<T>>
-where
-    for<'a> &'a T: Into<&'a U>,
-{
-    fn get_imposed(&self) -> &U {
-        self.get_props().into()
-    }
-
-    fn stage<'a>(
-        &self,
-        area: AbsRect,
-        limits: AbsLimits,
-        dpi: Vec2,
-        driver: &DriverState,
-    ) -> Box<dyn Staged + 'a> {
-        self.inner_stage(area, limits, dpi, driver)
-    }
-}
-
-impl<U: ?Sized, T> LayoutWrap<U> for &dyn Layout<T>
-where
-    for<'a> &'a T: Into<&'a U>,
-{
-    fn get_imposed(&self) -> &U {
-        self.get_props().into()
-    }
-
-    fn stage<'a>(
-        &self,
-        area: AbsRect,
-        limits: AbsLimits,
-        dpi: Vec2,
-        driver: &DriverState,
-    ) -> Box<dyn Staged + 'a> {
-        self.inner_stage(area, limits, dpi, driver)
-    }
-}
-
-impl<T: 'static> From<Box<dyn Layout<T>>> for Box<dyn LayoutWrap<T>> {
-    fn from(value: Box<dyn Layout<T>>) -> Self {
-        Box::new(value)
-    }
-}
+dyn_clone::clone_trait_object!(<Props> Layout<Props> where Props:?Sized);
 
 pub trait Desc {
     type Props: ?Sized;
@@ -120,14 +63,11 @@ pub struct Node<T, D: Desc + ?Sized> {
     pub renderable: Option<Rc<dyn Renderable>>,
 }
 
-impl<T, D: Desc + ?Sized> Layout<T> for Node<T, D>
-where
-    for<'a> &'a T: Into<&'a D::Props>,
-{
+impl<T, D: Desc + ?Sized> Layout<T> for Node<T, D> {
     fn get_props(&self) -> &T {
         self.props.as_ref()
     }
-    fn inner_stage<'a>(
+    fn stage<'a>(
         &self,
         area: AbsRect,
         limits: AbsLimits,
@@ -135,7 +75,7 @@ where
         driver: &DriverState,
     ) -> Box<dyn Staged + 'a> {
         D::stage(
-            self.props.as_ref().into(),
+            self.props.as_ref(),
             area,
             limits,
             &self.children,
@@ -392,4 +332,32 @@ fn swap_axis(xaxis: bool, v: Vec2) -> (f32, f32) {
 #[inline]
 fn merge_margin(prev: f32, margin: f32) -> f32 {
     if prev.is_nan() { 0.0 } else { margin.max(prev) }
+}
+
+#[macro_export]
+macro_rules! gen_layout_impl {
+    ($ty:path) => {
+        impl<T> $crate::layout::Layout<dyn $ty> for Box<dyn $crate::layout::Layout<T>>
+        where
+            T: $ty + 'static,
+        {
+            fn get_props(&self) -> &(dyn $ty + 'static) {
+                use std::ops::Deref;
+                let a = Box::<(dyn $crate::layout::Layout<T> + 'static)>::deref(&self);
+                a.get_props()
+            }
+
+            fn stage<'a>(
+                &self,
+                area: $crate::AbsRect,
+                limits: $crate::AbsLimits,
+                dpi: ultraviolet::Vec2,
+                driver: &$crate::DriverState,
+            ) -> Box<dyn $crate::layout::Staged + 'a> {
+                use std::ops::Deref;
+                let a = Box::<(dyn $crate::layout::Layout<T> + 'static)>::deref(&self);
+                a.stage(area, limits, dpi, driver)
+            }
+        }
+    };
 }

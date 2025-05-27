@@ -80,10 +80,7 @@ impl<T: leaf::Padded + 'static> Shape<'_, T> {
     }
 }
 
-impl<T: leaf::Padded + 'static> super::Component<T> for Shape<'_, T>
-where
-    for<'a> &'a T: Into<&'a (dyn leaf::Padded + 'static)>,
-{
+impl<T: leaf::Padded + 'static> super::Component<T> for Shape<'_, T> {
     fn id(&self) -> std::rc::Rc<SourceID> {
         self.id.clone()
     }

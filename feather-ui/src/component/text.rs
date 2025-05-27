@@ -38,10 +38,7 @@ impl<T: Default + leaf::Padded + 'static> Default for Text<T> {
     }
 }
 
-impl<T: leaf::Padded + 'static> super::Component<T> for Text<T>
-where
-    for<'a> &'a T: Into<&'a (dyn leaf::Padded + 'static)>,
-{
+impl<T: leaf::Padded + 'static> super::Component<T> for Text<T> {
     fn id(&self) -> std::rc::Rc<SourceID> {
         self.id.clone()
     }

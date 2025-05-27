@@ -4,7 +4,7 @@
 use super::mouse_area::MouseArea;
 
 use crate::component::{ComponentFrom, Desc};
-use crate::layout::{Layout, LayoutWrap, fixed};
+use crate::layout::{Layout, fixed};
 use crate::persist::{FnPersist, VectorMap};
 use crate::{Component, DRect, Slot, SourceID, layout};
 use derive_where::derive_where;
@@ -44,8 +44,6 @@ impl<T: fixed::Prop + 'static> Button<T> {
 }
 
 impl<T: fixed::Prop + 'static> Component<T> for Button<T>
-where
-    for<'a> &'a T: Into<&'a (dyn fixed::Prop + 'static)>,
 {
     fn id(&self) -> Rc<SourceID> {
         self.id.clone()
@@ -55,8 +53,8 @@ where
         for child in self.children.iter() {
             manager.init_component(child.as_ref().unwrap().as_ref())?;
         }
-        let marea: &dyn Component<DRect> = &self.marea;
-        manager.init_component::<DRect>(&marea)?;
+        //let marea: &dyn Component<DRect> = &self.marea;
+        //manager.init_component::<DRect>(marea)?;
         Ok(())
     }
 
@@ -68,7 +66,7 @@ where
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let map = VectorMap::new(
-            |child: &Option<Box<ComponentFrom<dyn fixed::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn fixed::Prop as Desc>::Child>>> {
+            |child: &Option<Box<ComponentFrom<dyn fixed::Prop>>>| -> Option<Box<dyn Layout<<dyn fixed::Prop as Desc>::Child>>> {
                 Some(child.as_ref().unwrap().layout(state, driver, window,config))
             },
         );

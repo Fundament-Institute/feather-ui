@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::{Component, StateMachine};
-use crate::component::ComponentWrap;
 use crate::input::{ModifierKeys, MouseMoveState, MouseState, RawEvent, RawEventKind};
 use crate::layout::root;
 use crate::rtree::Node;
@@ -66,7 +65,7 @@ pub(crate) type WindowStateMachine = StateMachine<(), WindowState, 0, 0>;
 pub struct Window {
     pub id: Rc<SourceID>,
     attributes: WindowAttributes,
-    child: Box<dyn ComponentWrap<<dyn root::Prop as crate::component::Desc>::Child>>,
+    child: Box<dyn Component<<dyn root::Prop as crate::component::Desc>::Child>>,
 }
 
 impl Component<AbsDim> for Window {
@@ -183,7 +182,7 @@ impl Window {
     pub fn new(
         id: Rc<SourceID>,
         attributes: WindowAttributes,
-        child: Box<dyn ComponentWrap<dyn crate::layout::base::Empty>>,
+        child: Box<dyn Component<dyn crate::layout::base::Empty>>,
     ) -> Self {
         Self {
             id,
