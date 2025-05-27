@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use super::{Desc, LayoutWrap, Renderable, Staged, base};
+use super::{Desc, Layout, Renderable, Staged, base};
 use crate::{AbsDim, AbsRect, DEFAULT_LIMITS};
 use std::rc::Rc;
 
@@ -22,7 +22,7 @@ impl Prop for AbsDim {
 impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn base::Empty;
-    type Children = Box<dyn LayoutWrap<Self::Child>>;
+    type Children = Box<dyn Layout<Self::Child>>;
 
     fn stage<'a>(
         props: &Self::Props,

@@ -21,7 +21,7 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
     fn get_props(&self) -> &T {
         &self.props
     }
-    fn inner_stage<'a>(
+    fn stage<'a>(
         &self,
         outer_area: AbsRect,
         outer_limits: crate::AbsLimits,

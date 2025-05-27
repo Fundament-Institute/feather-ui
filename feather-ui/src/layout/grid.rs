@@ -4,7 +4,7 @@
 use ultraviolet::Vec2;
 
 use super::{
-    Concrete, Desc, LayoutWrap, Renderable, Staged, base, check_unsized, map_unsized_area,
+    Concrete, Desc, Layout, Renderable, Staged, base, check_unsized, map_unsized_area,
     nuetralize_unsized, swap_axis,
 };
 use crate::{
@@ -35,7 +35,7 @@ crate::gen_from_to_dyn!(Child);
 impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn Child;
-    type Children = im::Vector<Option<Box<dyn LayoutWrap<Self::Child>>>>;
+    type Children = im::Vector<Option<Box<dyn Layout<Self::Child>>>>;
 
     fn stage<'a>(
         props: &Self::Props,
@@ -105,7 +105,7 @@ impl Desc for dyn Prop {
 
                 // Then we go through all child elements so we can precalculate the maximum area of all rows and columns
                 for child in children.iter() {
-                    let child_props = child.as_ref().unwrap().get_imposed();
+                    let child_props = child.as_ref().unwrap().get_props();
                     let child_limit = super::apply_limit(inner_dim, limits, *child_props.rlimits());
                     let (row, column) = child_props.index();
 
@@ -160,7 +160,7 @@ impl Desc for dyn Prop {
             }
 
             for child in children.iter() {
-                let child_props = child.as_ref().unwrap().get_imposed();
+                let child_props = child.as_ref().unwrap().get_props();
                 let child_limit = super::apply_limit(inner_dim, limits, *child_props.rlimits());
                 let (row, column) = child_props.index();
 

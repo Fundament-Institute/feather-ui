@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::base::{Empty, RLimits};
-use super::{Concrete, Desc, LayoutWrap, Renderable, Staged};
+use super::{Concrete, Desc, Layout, Renderable, Staged};
 use crate::{AbsRect, CrossReferenceDomain, SourceID, render, rtree};
 use std::marker::PhantomData;
 use std::rc::Rc;
@@ -27,7 +27,7 @@ impl super::fixed::Child for Rc<CrossReferenceDomain> {}
 impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn Empty;
-    type Children = PhantomData<dyn LayoutWrap<Self::Child>>;
+    type Children = PhantomData<dyn Layout<Self::Child>>;
 
     fn stage<'a>(
         props: &Self::Props,

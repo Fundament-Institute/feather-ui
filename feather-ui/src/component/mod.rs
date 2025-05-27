@@ -18,7 +18,7 @@ pub mod textbox;
 pub mod window;
 
 use crate::component::window::Window;
-use crate::layout::{Desc, Layout, LayoutWrap, Staged, root};
+use crate::layout::{Desc, Layout, Staged, root};
 use crate::{
     AbsRect, DEFAULT_LIMITS, DispatchPair, Dispatchable, DriverState, EventWrapper, Slot, SourceID,
     StateManager, rtree,
@@ -102,7 +102,7 @@ impl<
     }
 }
 
-pub trait Component<T>: DynClone {
+pub trait Component<T: ?Sized>: DynClone {
     fn layout(
         &self,
         state: &StateManager,
@@ -118,7 +118,7 @@ pub trait Component<T>: DynClone {
     fn id(&self) -> Rc<SourceID>;
 }
 
-dyn_clone::clone_trait_object!(<Parent> Component<Parent>);
+dyn_clone::clone_trait_object!(<Parent> Component<Parent> where Parent:?Sized);
 
 pub type ComponentFrom<D> = dyn ComponentWrap<<D as Desc>::Child>;
 
@@ -129,7 +129,7 @@ pub trait ComponentWrap<T: ?Sized>: DynClone {
         driver: &DriverState,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn LayoutWrap<T> + 'static>;
+    ) -> Box<dyn Layout<T> + 'static>;
     fn init(&self) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error>;
     fn init_all(&self, _: &mut StateManager) -> eyre::Result<()>;
     fn id(&self) -> Rc<SourceID>;
@@ -147,7 +147,7 @@ where
         driver: &DriverState,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn LayoutWrap<U> + 'static> {
+    ) -> Box<dyn Layout<U> + 'static> {
         Box::new(Component::<T>::layout(
             self.as_ref(),
             state,
@@ -180,7 +180,7 @@ where
         driver: &DriverState,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
-    ) -> Box<dyn LayoutWrap<U> + 'static> {
+    ) -> Box<dyn Layout<U> + 'static> {
         Box::new(Component::<T>::layout(*self, state, driver, window, config))
     }
 
@@ -282,7 +282,7 @@ impl Root {
                 .get_mut(&id)
                 .ok_or_eyre("Couldn't find window state")?;
             if let Some(layout) = root.layout_tree.as_ref() {
-                let layout: &dyn LayoutWrap<dyn root::Prop> = &layout.as_ref();
+                let layout: &dyn Layout<dyn root::Prop> = &layout.as_ref();
                 let staging = layout.stage(
                     Default::default(),
                     DEFAULT_LIMITS,
@@ -319,7 +319,7 @@ macro_rules! gen_component_wrap_inner {
             driver: &$crate::DriverState,
             window: &Rc<SourceID>,
             config: &wgpu::SurfaceConfiguration,
-        ) -> Box<dyn $crate::component::LayoutWrap<U> + 'static> {
+        ) -> Box<dyn $crate::component::Layout<U> + 'static> {
             Box::new($crate::component::Component::<T>::layout(
                 self, state, driver, window, config,
             ))

@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use crate::component::ComponentFrom;
-use crate::layout::{Desc, Layout, LayoutWrap, fixed};
+use crate::layout::{Desc, Layout, fixed};
 use crate::persist::{FnPersist, VectorMap};
 use crate::{SourceID, layout};
 use derive_where::derive_where;
@@ -38,7 +38,7 @@ where
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let map = VectorMap::new(
-            |child: &Option<Box<ComponentFrom<dyn fixed::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn fixed::Prop as Desc>::Child>>> {
+            |child: &Option<Box<ComponentFrom<dyn fixed::Prop>>>| -> Option<Box<dyn Layout<<dyn fixed::Prop as Desc>::Child>>> {
                 Some(child.as_ref().unwrap().layout(state, driver, window, config))
             },
         );
