@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::{
-    Concrete, Desc, LayoutWrap, Renderable, Staged, base, cap_unsized, check_unsized_abs,
+    Concrete, Desc, Layout, Renderable, Staged, base, cap_unsized, check_unsized_abs,
     map_unsized_area, merge_margin, nuetralize_unsized,
 };
 use crate::persist::{FnPersist2, VectorFold};
@@ -281,7 +281,7 @@ fn wrap_line(
 impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn Child;
-    type Children = im::Vector<Option<Box<dyn LayoutWrap<Self::Child>>>>;
+    type Children = im::Vector<Option<Box<dyn Layout<Self::Child>>>>;
 
     fn stage<'a>(
         props: &Self::Props,
@@ -311,7 +311,7 @@ impl Desc for dyn Prop {
 
         // We re-use a lot of concepts from flexbox in this calculation. First we acquire the natural size of all child elements.
         for child in children.iter() {
-            let imposed = child.as_ref().unwrap().get_imposed();
+            let imposed = child.as_ref().unwrap().get_props();
 
             let child_limit = super::apply_limit(inner_dim, limits, *imposed.rlimits());
             let basis = imposed.basis().resolve(dpi_main).resolve(outer_main);

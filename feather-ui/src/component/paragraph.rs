@@ -3,7 +3,7 @@
 
 use crate::component::ComponentFrom;
 use crate::component::text::Text;
-use crate::layout::{Desc, Layout, LayoutWrap, base, flex, leaf};
+use crate::layout::{Desc, Layout, base, flex, leaf};
 use crate::persist::{FnPersist, VectorMap};
 use crate::{SourceID, UNSIZED_AXIS, gen_id, layout};
 use core::f32;
@@ -113,7 +113,7 @@ impl<T: flex::Prop + 'static> super::Component<T> for Paragraph<T> {
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let map = VectorMap::new(
-            |child: &Option<Box<ComponentFrom<dyn flex::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn flex::Prop as Desc>::Child>>> {
+            |child: &Option<Box<ComponentFrom<dyn flex::Prop>>>| -> Option<Box<dyn Layout<<dyn flex::Prop as Desc>::Child>>> {
                 Some(child.as_ref().unwrap().layout(state, driver, window, config))
             },
         );

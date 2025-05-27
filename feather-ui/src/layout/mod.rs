@@ -24,21 +24,8 @@ use crate::{
 use derive_where::derive_where;
 use std::rc::{Rc, Weak};
 
-pub trait Layout<Props>: DynClone {
+pub trait Layout<Props: ?Sized>: DynClone {
     fn get_props(&self) -> &Props;
-    fn inner_stage<'a>(
-        &self,
-        area: AbsRect,
-        limits: AbsLimits,
-        dpi: Vec2,
-        driver: &DriverState,
-    ) -> Box<dyn Staged + 'a>;
-}
-
-dyn_clone::clone_trait_object!(<Imposed> Layout<Imposed> where Imposed:Sized);
-
-pub trait LayoutWrap<Imposed: ?Sized>: DynClone {
-    fn get_imposed(&self) -> &Imposed;
     fn stage<'a>(
         &self,
         area: AbsRect,
@@ -48,14 +35,15 @@ pub trait LayoutWrap<Imposed: ?Sized>: DynClone {
     ) -> Box<dyn Staged + 'a>;
 }
 
-dyn_clone::clone_trait_object!(<Imposed> LayoutWrap<Imposed> where Imposed:?Sized);
+dyn_clone::clone_trait_object!(<Imposed> Layout<Imposed> where Imposed:?Sized);
 
-impl<U: ?Sized, T> LayoutWrap<U> for Box<dyn Layout<T>>
+impl<U: ?Sized, T> Layout<U> for Box<dyn Layout<T>>
 where
     for<'a> &'a T: Into<&'a U>,
 {
-    fn get_imposed(&self) -> &U {
-        self.get_props().into()
+    fn get_props(&self) -> &U {
+        use std::ops::Deref;
+        Box::deref(self).get_props().into()
     }
 
     fn stage<'a>(
@@ -65,16 +53,17 @@ where
         dpi: Vec2,
         driver: &DriverState,
     ) -> Box<dyn Staged + 'a> {
-        self.inner_stage(area, limits, dpi, driver)
+        use std::ops::Deref;
+        Box::deref(self).stage(area, limits, dpi, driver)
     }
 }
 
-impl<U: ?Sized, T> LayoutWrap<U> for &dyn Layout<T>
+impl<U: ?Sized, T> Layout<U> for &dyn Layout<T>
 where
     for<'a> &'a T: Into<&'a U>,
 {
-    fn get_imposed(&self) -> &U {
-        self.get_props().into()
+    fn get_props(&self) -> &U {
+        (*self).get_props().into()
     }
 
     fn stage<'a>(
@@ -84,13 +73,7 @@ where
         dpi: Vec2,
         driver: &DriverState,
     ) -> Box<dyn Staged + 'a> {
-        self.inner_stage(area, limits, dpi, driver)
-    }
-}
-
-impl<T: 'static> From<Box<dyn Layout<T>>> for Box<dyn LayoutWrap<T>> {
-    fn from(value: Box<dyn Layout<T>>) -> Self {
-        Box::new(value)
+        (*self).stage(area, limits, dpi, driver)
     }
 }
 
@@ -127,7 +110,7 @@ where
     fn get_props(&self) -> &T {
         self.props.as_ref()
     }
-    fn inner_stage<'a>(
+    fn stage<'a>(
         &self,
         area: AbsRect,
         limits: AbsLimits,

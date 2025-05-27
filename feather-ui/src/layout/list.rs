@@ -4,7 +4,7 @@
 use ultraviolet::Vec2;
 
 use super::{
-    Concrete, Desc, LayoutWrap, Renderable, Staged, base, check_unsized_abs, map_unsized_area,
+    Concrete, Desc, Layout, Renderable, Staged, base, check_unsized_abs, map_unsized_area,
     nuetralize_unsized, swap_axis,
 };
 use crate::{AbsRect, RowDirection, SourceID, ZERO_POINT, rtree};
@@ -22,7 +22,7 @@ impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn Child;
     // TODO: Make a sorted im::Vector that uses base::Order to order inserted children.
-    type Children = im::Vector<Option<Box<dyn LayoutWrap<Self::Child>>>>;
+    type Children = im::Vector<Option<Box<dyn Layout<Self::Child>>>>;
 
     fn stage<'a>(
         props: &Self::Props,
@@ -65,7 +65,7 @@ impl Desc for dyn Prop {
         let mut prev_aux_margin = f32::NAN;
 
         for child in children.iter() {
-            let child_props = child.as_ref().unwrap().get_imposed();
+            let child_props = child.as_ref().unwrap().get_props();
             let child_limit = super::apply_limit(inner_dim, limits, *child_props.rlimits());
             let child_margin = child_props.margin().resolve(dpi) * outer_safe;
 
@@ -196,7 +196,7 @@ impl Desc for dyn Prop {
             };
             maxaux = maxaux.max(aux);
 
-            let child_limit = *child.get_imposed().rlimits() * evaluated_dim;
+            let child_limit = *child.get_props().rlimits() * evaluated_dim;
 
             let stage = child.stage(child_area, child_limit, dpi, driver);
             if let Some(node) = stage.get_rtree().upgrade() {

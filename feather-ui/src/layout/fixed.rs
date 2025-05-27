@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::{
-    Concrete, Desc, LayoutWrap, Renderable, Staged, base, check_unsized, check_unsized_abs,
+    Concrete, Desc, Layout, Renderable, Staged, base, check_unsized, check_unsized_abs,
     map_unsized_area,
 };
 use crate::{AbsRect, ZERO_POINT, rtree};
@@ -21,7 +21,7 @@ impl Child for crate::DRect {}
 impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn Child;
-    type Children = im::Vector<Option<Box<dyn LayoutWrap<Self::Child>>>>;
+    type Children = im::Vector<Option<Box<dyn Layout<Self::Child>>>>;
 
     fn stage<'a>(
         props: &Self::Props,
@@ -61,7 +61,7 @@ impl Desc for dyn Prop {
             let mut bottomright = ZERO_POINT;
 
             for child in children.iter() {
-                let child_props = child.as_ref().unwrap().get_imposed();
+                let child_props = child.as_ref().unwrap().get_props();
                 let child_limit = super::apply_limit(inner_dim, limits, *child_props.rlimits());
 
                 let stage = child
@@ -109,7 +109,7 @@ impl Desc for dyn Prop {
         let inner_area = AbsRect::from(evaluated_dim);
 
         for child in children.iter() {
-            let child_props = child.as_ref().unwrap().get_imposed();
+            let child_props = child.as_ref().unwrap().get_props();
             let child_limit = *child_props.rlimits() * evaluated_dim;
 
             let stage = child

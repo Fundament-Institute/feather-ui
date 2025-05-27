@@ -3,7 +3,7 @@
 
 use crate::component::{ComponentFrom, StateMachine};
 use crate::input::{MouseButton, MouseMoveState, MouseState, RawEvent, RawEventKind};
-use crate::layout::{self, Desc, Layout, LayoutWrap, fixed};
+use crate::layout::{self, Desc, Layout, fixed};
 use crate::persist::{FnPersist, VectorMap};
 use crate::{Dispatchable, SourceID};
 use derive_where::derive_where;
@@ -210,7 +210,7 @@ impl<T: fixed::Prop + 'static> super::Component<T> for Draggable<T> {
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let map = VectorMap::new(
-            |child: &Option<Box<ComponentFrom<dyn fixed::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn fixed::Prop as Desc>::Child>>> {
+            |child: &Option<Box<ComponentFrom<dyn fixed::Prop>>>| -> Option<Box<dyn Layout<<dyn fixed::Prop as Desc>::Child>>> {
                 Some(child.as_ref().unwrap().layout(state, driver, window,config))
             },
         );
