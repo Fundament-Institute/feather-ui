@@ -7,6 +7,7 @@ use derive_where::derive_where;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+#[derive(feather_macro::StateMachineChild)]
 #[derive_where(Clone)]
 pub struct Text<T: leaf::Padded + 'static> {
     pub id: Rc<SourceID>,
@@ -35,12 +36,6 @@ impl<T: Default + leaf::Padded + 'static> Default for Text<T> {
             style: Default::default(),
             wrap: glyphon::Wrap::None,
         }
-    }
-}
-
-impl<T: leaf::Padded + 'static> crate::StateMachineChild for Text<T> {
-    fn id(&self) -> std::rc::Rc<SourceID> {
-        self.id.clone()
     }
 }
 
