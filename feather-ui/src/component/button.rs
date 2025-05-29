@@ -36,10 +36,27 @@ impl<T: fixed::Prop + 'static> Button<T> {
                 }
                 .into(),
                 crate::FILL_DRECT,
-                [Some(onclick), None, None],
+                None,
+                [Some(onclick), None, None, None, None, None],
             ),
             children,
         }
+    }
+}
+
+impl<T: fixed::Prop + 'static> crate::StateMachineChild for Button<T> {
+    fn id(&self) -> Rc<SourceID> {
+        self.id.clone()
+    }
+
+    fn apply_children(
+        &self,
+        f: &mut dyn FnMut(&dyn crate::StateMachineChild) -> eyre::Result<()>,
+    ) -> eyre::Result<()> {
+        for child in self.children.iter() {
+            f(child.as_ref().unwrap().as_ref())?;
+        }
+        f(&self.marea)
     }
 }
 
@@ -47,19 +64,6 @@ impl<T: fixed::Prop + 'static> Component<T> for Button<T>
 where
     for<'a> &'a T: Into<&'a (dyn fixed::Prop + 'static)>,
 {
-    fn id(&self) -> Rc<SourceID> {
-        self.id.clone()
-    }
-
-    fn init_all(&self, manager: &mut crate::StateManager) -> eyre::Result<()> {
-        for child in self.children.iter() {
-            manager.init_component(child.as_ref().unwrap().as_ref())?;
-        }
-        let marea: &dyn Component<DRect> = &self.marea;
-        manager.init_component::<DRect>(&marea)?;
-        Ok(())
-    }
-
     fn layout(
         &self,
         state: &crate::StateManager,

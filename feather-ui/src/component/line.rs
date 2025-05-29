@@ -19,18 +19,16 @@ pub struct Line<T: base::Empty + 'static> {
     pub fill: Vec4,
 }
 
+impl<T: base::Empty + 'static> crate::StateMachineChild for Line<T> {
+    fn id(&self) -> Rc<SourceID> {
+        self.id.clone()
+    }
+}
+
 impl<T: base::Empty + 'static> super::Component<T> for Line<T>
 where
     for<'a> &'a T: Into<&'a (dyn base::Empty + 'static)>,
 {
-    fn id(&self) -> std::rc::Rc<SourceID> {
-        self.id.clone()
-    }
-
-    fn init_all(&self, _: &mut crate::StateManager) -> eyre::Result<()> {
-        Ok(())
-    }
-
     fn layout(
         &self,
         _: &crate::StateManager,

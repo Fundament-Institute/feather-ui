@@ -25,24 +25,24 @@ pub enum MouseState {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[repr(u8)]
-pub enum MouseMoveState {
-    Move = 0,
-    On = 1,
-    Off = 2,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[repr(u8)]
+#[repr(u16)]
 pub enum MouseButton {
-    L = 1,
-    R = 2,
-    M = 4,
-    X1 = 8,
-    X2 = 16,
-    X3 = 32,
-    X4 = 64,
-    X5 = 128,
+    Left = (1 << 0),
+    Right = (1 << 1),
+    Middle = (1 << 2),
+    Back = (1 << 3),
+    Forward = (1 << 4),
+    X1 = (1 << 5),
+    X2 = (1 << 6),
+    X3 = (1 << 7),
+    X4 = (1 << 8),
+    X5 = (1 << 9),
+    X6 = (1 << 10),
+    X7 = (1 << 11),
+    X8 = (1 << 12),
+    X9 = (1 << 13),
+    X10 = (1 << 14),
+    X11 = (1 << 15),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -62,6 +62,7 @@ pub enum ModifierKeys {
 pub enum RawEvent {
     Drag, // TBD, must be included here so RawEvent matches RawEventKind
     Drop {
+        device_id: winit::event::DeviceId,
         pos: PhysicalPosition<f32>,
     },
     Focus {
@@ -79,11 +80,13 @@ pub enum RawEvent {
         button: u32,
     },
     JoyOrientation {
+        // 32 bytes
         device_id: winit::event::DeviceId,
         velocity: Vec3,
         rotation: Vec3,
     },
     Key {
+        // 48 bytes
         device_id: winit::event::DeviceId,
         physical_key: winit::keyboard::PhysicalKey,
         location: winit::keyboard::KeyLocation,
@@ -96,15 +99,27 @@ pub enum RawEvent {
         state: MouseState,
         pos: PhysicalPosition<f32>,
         button: MouseButton,
-        all_buttons: u8,
+        all_buttons: u16,
         modifiers: u8,
+    },
+    MouseOn {
+        device_id: winit::event::DeviceId,
+        pos: PhysicalPosition<f32>,
+        modifiers: u8,
+        all_buttons: u16,
+        driver: std::sync::Weak<DriverState>, // Allows setting our global cursor tracker
     },
     MouseMove {
         device_id: winit::event::DeviceId,
-        state: MouseMoveState,
         pos: PhysicalPosition<f32>,
-        all_buttons: u8,
         modifiers: u8,
+        all_buttons: u16,
+        driver: std::sync::Weak<DriverState>, // Allows setting our global cursor tracker
+    },
+    MouseOff {
+        device_id: winit::event::DeviceId,
+        modifiers: u8,
+        all_buttons: u16,
         driver: std::sync::Weak<DriverState>, // Allows setting our global cursor tracker
     },
     MouseScroll {
@@ -115,6 +130,7 @@ pub enum RawEvent {
         pixels: bool, // If true, delta is expressed in pixels
     },
     Touch {
+        // 48 bytes
         device_id: winit::event::DeviceId,
         index: u64,
         state: TouchState,
@@ -123,6 +139,8 @@ pub enum RawEvent {
         pressure: f64,
     },
 }
+
+static_assertions::const_assert!(size_of::<RawEvent>() == 48);
 
 impl RawEvent {
     pub fn kind(&self) -> RawEventKind {
@@ -133,17 +151,19 @@ impl RawEvent {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u64)]
 pub enum RawEventKind {
-    Drag = 1, // This must start from 1 and perfectly match RawEvent to ensure the dispatch works correctly
-    Drop = 2,
-    Focus = 4,
-    JoyAxis = 8,
-    JoyButton = 16,
-    JoyOrientation = 32,
-    Key = 64,
-    Mouse = 128,
-    MouseMove = 256,
-    MouseScroll = 512,
-    Touch = 1024,
+    Drag = (1 << 0), // This must start from 1 and perfectly match RawEvent to ensure the dispatch works correctly
+    Drop = (1 << 1),
+    Focus = (1 << 2),
+    JoyAxis = (1 << 3),
+    JoyButton = (1 << 4),
+    JoyOrientation = (1 << 5),
+    Key = (1 << 6),
+    Mouse = (1 << 7),
+    MouseOn = (1 << 8),
+    MouseMove = (1 << 9),
+    MouseOff = (1 << 10),
+    MouseScroll = (1 << 11),
+    Touch = (1 << 12),
 }
 
 impl From<&RawEvent> for RawEventKind {
@@ -157,7 +177,9 @@ impl From<&RawEvent> for RawEventKind {
             RawEvent::JoyOrientation { .. } => RawEventKind::JoyOrientation,
             RawEvent::Key { .. } => RawEventKind::Key,
             RawEvent::Mouse { .. } => RawEventKind::Mouse,
+            RawEvent::MouseOn { .. } => RawEventKind::MouseOn,
             RawEvent::MouseMove { .. } => RawEventKind::MouseMove,
+            RawEvent::MouseOff { .. } => RawEventKind::MouseOff,
             RawEvent::MouseScroll { .. } => RawEventKind::MouseScroll,
             RawEvent::Touch { .. } => RawEventKind::Touch,
         }
@@ -178,14 +200,22 @@ impl From<winit::event::TouchPhase> for TouchState {
 impl From<winit::event::MouseButton> for MouseButton {
     fn from(value: winit::event::MouseButton) -> Self {
         match value {
-            winit::event::MouseButton::Left => MouseButton::L,
-            winit::event::MouseButton::Right => MouseButton::R,
-            winit::event::MouseButton::Middle => MouseButton::M,
-            winit::event::MouseButton::Back => MouseButton::X1,
-            winit::event::MouseButton::Forward => MouseButton::X2,
-            winit::event::MouseButton::Other(5) => MouseButton::X3,
-            winit::event::MouseButton::Other(6) => MouseButton::X4,
-            winit::event::MouseButton::Other(7) => MouseButton::X5,
+            winit::event::MouseButton::Left => MouseButton::Left,
+            winit::event::MouseButton::Right => MouseButton::Right,
+            winit::event::MouseButton::Middle => MouseButton::Middle,
+            winit::event::MouseButton::Back => MouseButton::Back,
+            winit::event::MouseButton::Forward => MouseButton::Forward,
+            winit::event::MouseButton::Other(5) => MouseButton::X1,
+            winit::event::MouseButton::Other(6) => MouseButton::X2,
+            winit::event::MouseButton::Other(7) => MouseButton::X3,
+            winit::event::MouseButton::Other(8) => MouseButton::X4,
+            winit::event::MouseButton::Other(9) => MouseButton::X5,
+            winit::event::MouseButton::Other(10) => MouseButton::X6,
+            winit::event::MouseButton::Other(11) => MouseButton::X7,
+            winit::event::MouseButton::Other(12) => MouseButton::X8,
+            winit::event::MouseButton::Other(13) => MouseButton::X9,
+            winit::event::MouseButton::Other(14) => MouseButton::X10,
+            winit::event::MouseButton::Other(15) => MouseButton::X11,
             winit::event::MouseButton::Other(_) => panic!("Mouse button out of range"),
         }
     }

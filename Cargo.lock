@@ -821,6 +821,7 @@ dependencies = [
  "unicode-segmentation",
  "wgpu",
  "wide",
+ "windows-sys 0.59.0",
  "winit",
 ]
 

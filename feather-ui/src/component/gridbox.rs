@@ -16,18 +16,22 @@ pub struct GridBox<T: grid::Prop + 'static> {
     pub children: im::Vector<Option<Box<ComponentFrom<dyn grid::Prop>>>>,
 }
 
-impl<T: grid::Prop + 'static> super::Component<T> for GridBox<T> {
+impl<T: grid::Prop + 'static> crate::StateMachineChild for GridBox<T> {
     fn id(&self) -> Rc<SourceID> {
         self.id.clone()
     }
 
-    fn init_all(&self, manager: &mut crate::StateManager) -> eyre::Result<()> {
-        for child in self.children.iter() {
-            manager.init_component(child.as_ref().unwrap().as_ref())?;
-        }
-        Ok(())
+    fn apply_children(
+        &self,
+        f: &mut dyn FnMut(&dyn crate::StateMachineChild) -> eyre::Result<()>,
+    ) -> eyre::Result<()> {
+        self.children
+            .iter()
+            .try_for_each(|x| f(x.as_ref().unwrap().as_ref()))
     }
+}
 
+impl<T: grid::Prop + 'static> super::Component<T> for GridBox<T> {
     fn layout(
         &self,
         state: &crate::StateManager,

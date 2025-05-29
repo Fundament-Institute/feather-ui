@@ -991,6 +991,7 @@ impl std::hash::Hash for SourceID {
         self.id.hash(state);
     }
 }
+
 #[derive(Clone)]
 pub struct Slot(pub Rc<SourceID>, pub u64);
 
@@ -1064,6 +1065,20 @@ impl Dispatchable for () {
     }
 }
 
+pub trait StateMachineChild {
+    fn init(&self) -> Result<Box<dyn StateMachineWrapper>, crate::Error> {
+        Err(crate::Error::Stateless)
+    }
+    fn apply_children(
+        &self,
+        _: &mut dyn FnMut(&dyn StateMachineChild) -> eyre::Result<()>,
+    ) -> eyre::Result<()> {
+        // Default implementation assumes no children
+        return Ok(());
+    }
+    fn id(&self) -> Rc<SourceID>;
+}
+
 #[derive(Default)]
 pub struct StateManager {
     states: HashMap<Rc<SourceID>, Box<dyn StateMachineWrapper>>,
@@ -1079,13 +1094,12 @@ impl StateManager {
         if !self.states.contains_key(&id) {
             self.states.insert(id.clone(), Box::new(State::default()));
         }
-        let v = self
+        let v = &mut *self
             .states
             .get_mut(&id)
-            .ok_or_eyre("Failed to insert state!")?;
-        v.as_any_mut()
-            .downcast_mut()
-            .ok_or_eyre("Runtime type mismatch!")
+            .ok_or_eyre("Failed to insert state!")?
+            .as_mut() as &mut dyn Any;
+        v.downcast_mut().ok_or_eyre("Runtime type mismatch!")
     }
     pub fn init(&mut self, id: Rc<SourceID>, state: Box<dyn StateMachineWrapper>) {
         if !self.states.contains_key(&id) {
@@ -1096,19 +1110,23 @@ impl StateManager {
         &'a self,
         id: &SourceID,
     ) -> eyre::Result<&'a State> {
-        let v = self.states.get(id).ok_or_eyre("State does not exist")?;
-        v.as_any()
-            .downcast_ref()
-            .ok_or_eyre("Runtime type mismatch!")
+        let v = &*self
+            .states
+            .get(id)
+            .ok_or_eyre("State does not exist")?
+            .as_ref() as &dyn Any;
+        v.downcast_ref().ok_or_eyre("Runtime type mismatch!")
     }
     pub fn get_mut<'a, State: 'static + component::StateMachineWrapper>(
         &'a mut self,
         id: &SourceID,
     ) -> eyre::Result<&'a mut State> {
-        let v = self.states.get_mut(id).ok_or_eyre("State does not exist")?;
-        v.as_any_mut()
-            .downcast_mut()
-            .ok_or_eyre("Runtime type mismatch!")
+        let v = &mut *self
+            .states
+            .get_mut(id)
+            .ok_or_eyre("State does not exist")?
+            .as_mut() as &mut dyn Any;
+        v.downcast_mut().ok_or_eyre("Runtime type mismatch!")
     }
     #[allow(clippy::borrowed_box)]
     pub fn get_trait<'a>(
@@ -1145,10 +1163,7 @@ impl StateManager {
         Ok(())
     }
 
-    fn init_component<Parent: ?Sized>(
-        &mut self,
-        target: &dyn crate::component::ComponentWrap<Parent>,
-    ) -> eyre::Result<()> {
+    fn init_child(&mut self, target: &dyn StateMachineChild) -> eyre::Result<()> {
         if !self.states.contains_key(&target.id()) {
             match target.init() {
                 Ok(v) => self.init(target.id().clone(), v),
@@ -1156,7 +1171,8 @@ impl StateManager {
                 Err(e) => return Err(e.into()),
             };
         }
-        target.init_all(self)
+
+        target.apply_children(&mut |child| self.init_child(child))
     }
 }
 
@@ -1202,12 +1218,6 @@ impl<AppData: 'static + std::cmp::PartialEq> StateMachineWrapper for AppDataMach
         let changed = processed != self.state;
         self.state = processed;
         Ok((Vec::new(), changed))
-    }
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-    fn as_any(&self) -> &dyn Any {
-        self
     }
 
     fn output_slot(&self, _: usize) -> eyre::Result<&Option<Slot>> {

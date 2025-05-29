@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
+use crate::StateMachineChild;
 use crate::component::button::Button;
 use crate::component::region::Region;
 use crate::component::shape::Shape;

@@ -48,6 +48,9 @@ parking_lot = { version = "0.12.3", features = [
   "arc_lock",
 ] }
 static_assertions = "1.1.0"
+windows-sys = { version = "0.59.0", features = [
+  "Win32_UI_WindowsAndMessaging",
+] }
 
 [lints.clippy]
 too_many_arguments = { level = "allow" }
