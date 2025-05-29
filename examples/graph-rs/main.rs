@@ -3,13 +3,13 @@
 
 use feather_ui::gen_id;
 
+use feather_ui::component::ComponentFrom;
 use feather_ui::component::domain_line::DomainLine;
 use feather_ui::component::domain_point::DomainPoint;
-use feather_ui::component::draggable::Draggable;
+use feather_ui::component::mouse_area::MouseArea;
 use feather_ui::component::region::Region;
 use feather_ui::component::shape::Shape;
 use feather_ui::component::window::Window;
-use feather_ui::component::{ComponentFrom, draggable};
 use feather_ui::layout::{base, fixed};
 use feather_ui::persist::FnPersist;
 use feather_ui::{
@@ -138,8 +138,13 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
                 children.push_back(Some(Box::new(line)));
             }
 
-            let region = Draggable {
-                id: gen_id!().into(),
+            let region = MouseArea::new(gen_id!().into(), props, Some(4.0), [
+                    Some(Slot(feather_ui::APP_SOURCE_ID.into(), 0)),
+                    Some(Slot(feather_ui::APP_SOURCE_ID.into(), 0)),
+                    Some(Slot(feather_ui::APP_SOURCE_ID.into(), 0)),
+                ])
+                id: ,
+                deadzone: 4.0,
                 props: MinimalArea {
                     area: feather_ui::URect::from(AbsRect::new(
                         args.offset.x,
@@ -151,11 +156,7 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
                 }
                 .into(),
                 children,
-                slots: [
-                    Some(Slot(feather_ui::APP_SOURCE_ID.into(), 0)),
-                    Some(Slot(feather_ui::APP_SOURCE_ID.into(), 0)),
-                    Some(Slot(feather_ui::APP_SOURCE_ID.into(), 0)),
-                ],
+                slots: ,
             };
             let window = Window::new(
                 gen_id!().into(),

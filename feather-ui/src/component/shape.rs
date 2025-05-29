@@ -80,18 +80,16 @@ impl<T: leaf::Padded + 'static> Shape<'_, T> {
     }
 }
 
+impl<T: leaf::Padded + 'static> crate::StateMachineChild for Shape<'_, T> {
+    fn id(&self) -> std::rc::Rc<SourceID> {
+        self.id.clone()
+    }
+}
+
 impl<T: leaf::Padded + 'static> super::Component<T> for Shape<'_, T>
 where
     for<'a> &'a T: Into<&'a (dyn leaf::Padded + 'static)>,
 {
-    fn id(&self) -> std::rc::Rc<SourceID> {
-        self.id.clone()
-    }
-
-    fn init_all(&self, _: &mut crate::StateManager) -> eyre::Result<()> {
-        Ok(())
-    }
-
     fn layout(
         &self,
         state: &crate::StateManager,

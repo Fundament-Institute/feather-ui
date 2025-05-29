@@ -4,7 +4,7 @@
 use crate::component::ComponentFrom;
 use crate::layout::{Desc, Layout, fixed};
 use crate::persist::{FnPersist, VectorMap};
-use crate::{SourceID, layout};
+use crate::{SourceID, StateMachineChild, layout};
 use derive_where::derive_where;
 use std::rc::Rc;
 
@@ -15,21 +15,25 @@ pub struct Region<T: fixed::Prop + Default + 'static> {
     pub children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>>,
 }
 
-impl<T: fixed::Prop + Default + 'static> super::Component<T> for Region<T>
-where
-    for<'a> &'a T: Into<&'a (dyn fixed::Prop + 'static)>,
-{
+impl<T: fixed::Prop + Default + 'static> StateMachineChild for Region<T> {
     fn id(&self) -> Rc<SourceID> {
         self.id.clone()
     }
 
-    fn init_all(&self, manager: &mut crate::StateManager) -> eyre::Result<()> {
-        for child in self.children.iter() {
-            manager.init_component(child.as_ref().unwrap().as_ref())?;
-        }
-        Ok(())
+    fn apply_children(
+        &self,
+        f: &mut dyn FnMut(&dyn StateMachineChild) -> eyre::Result<()>,
+    ) -> eyre::Result<()> {
+        self.children
+            .iter()
+            .try_for_each(|x| f(x.as_ref().unwrap().as_ref()))
     }
+}
 
+impl<T: fixed::Prop + Default + 'static> super::Component<T> for Region<T>
+where
+    for<'a> &'a T: Into<&'a (dyn fixed::Prop + 'static)>,
+{
     fn layout(
         &self,
         state: &crate::StateManager,

@@ -55,7 +55,7 @@ impl<T: fixed::Prop + 'static> super::Component<T> for Draggable<T> {
                             ..
                         } => {
                             let pos = crate::pixel_to_vec(pos);
-                            if (all_buttons & MouseButton::L as u8) != 0 {
+                            if (all_buttons & MouseButton::Left as u16) != 0 {
                                 if let Some(last_pos) = data.lastdown.get(&device_id) {
                                     let diff = pos - *last_pos;
                                     if diff.dot(diff) > 4.0 {

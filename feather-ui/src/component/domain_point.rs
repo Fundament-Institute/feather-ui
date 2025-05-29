@@ -22,18 +22,16 @@ impl<T: domain_write::Prop + 'static> DomainPoint<T> {
     }
 }
 
+impl<T: domain_write::Prop + 'static> crate::StateMachineChild for DomainPoint<T> {
+    fn id(&self) -> Rc<SourceID> {
+        self.id.clone()
+    }
+}
+
 impl<T: domain_write::Prop + 'static> super::Component<T> for DomainPoint<T>
 where
     for<'a> &'a T: Into<&'a (dyn domain_write::Prop + 'static)>,
 {
-    fn id(&self) -> Rc<SourceID> {
-        self.id.clone()
-    }
-
-    fn init_all(&self, _: &mut crate::StateManager) -> eyre::Result<()> {
-        Ok(())
-    }
-
     fn layout(
         &self,
         _: &crate::StateManager,

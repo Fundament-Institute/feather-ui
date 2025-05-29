@@ -3,6 +3,7 @@
 
 use std::rc::Rc;
 
+use crate::component::window::RcNode;
 use crate::input::{MouseState, RawEvent, RawEventKind, TouchState};
 use crate::persist::{FnPersist2, VectorFold};
 use crate::{AbsRect, Dispatchable, SourceID, StateManager, WindowStateMachine};
@@ -17,6 +18,8 @@ pub struct Node {
     pub id: std::rc::Weak<SourceID>,
     pub children: im::Vector<Option<Rc<Node>>>,
 }
+
+pub struct ParentTuple<'a>(&'a Rc<Node>, Option<&'a ParentTuple<'a>>);
 
 impl Node {
     pub fn new(
@@ -88,46 +91,138 @@ impl Node {
         Err(())
     }
 
+    pub(crate) fn offset(nodes: &[RcNode]) -> Vec2 {
+        let mut offset = Vec2::zero();
+        for node in nodes {
+            offset += node.0.area.topleft();
+        }
+        offset
+    }
+
+    pub(crate) fn assemble_node_chain(mut parent: &ParentTuple, nodes: &mut Vec<RcNode>) {
+        nodes.push(RcNode(parent.0.clone()));
+
+        while let Some(n) = parent.1 {
+            parent = n;
+            nodes.push(RcNode(parent.0.clone()));
+        }
+    }
+
     pub fn process(
         self: &Rc<Self>,
         event: &RawEvent,
         kind: RawEventKind,
-        mut pos: Vec2,
+        position: Vec2,
         mut offset: Vec2,
         dpi: Vec2,
         manager: &mut StateManager,
         window_id: Rc<SourceID>,
+        parent: Option<&ParentTuple>,
     ) -> Result<(), ()> {
-        if self.area.contains(pos) {
+        let parent = ParentTuple(self, parent);
+        if self.area.contains(position - offset) {
             if let Ok(()) = self.inject_event(event, kind, dpi, offset, manager) {
-                // If we successfully process a mouse event, this node gains focus in it's parent window
                 match event {
-                    RawEvent::Mouse { device_id, .. } | RawEvent::Touch { device_id, .. } => {
-                        if match event {
-                            RawEvent::Mouse { state, .. } => *state != MouseState::Up,
-                            RawEvent::Touch { state, .. } => *state != TouchState::Start,
-                            _ => false,
-                        } {
-                            let state: &mut WindowStateMachine =
-                                manager.get_mut(&window_id).map_err(|_| ())?;
-                            let window = state.state.as_mut().unwrap();
-                            let inner = window.window.clone();
+                    // If we successfully process a mousemove event, this node gains hover
+                    RawEvent::MouseMove {
+                        device_id,
+                        pos,
+                        modifiers,
+                        all_buttons,
+                        driver,
+                    } => {
+                        let state: &mut WindowStateMachine =
+                            manager.get_mut(&window_id).map_err(|_| ())?;
+                        let window = state.state.as_mut().unwrap();
 
+                        // Tell the old node that it lost hover (if it cares).
+                        if let Some(old) = window.hover.insert(*device_id, RcNode(self.clone())) {
+                            let evt = RawEvent::MouseOff {
+                                device_id: *device_id,
+                                modifiers: *modifiers,
+                                all_buttons: *all_buttons,
+                                driver: driver.clone(),
+                            };
+
+                            // We don't care about the result of this event
+                            let _ =
+                                old.0
+                                    .inject_event(&evt, evt.kind(), dpi, Vec2::zero(), manager);
+                        }
+                        let evt = RawEvent::MouseOn {
+                            device_id: *device_id,
+                            modifiers: *modifiers,
+                            pos: *pos,
+                            all_buttons: *all_buttons,
+                            driver: driver.clone(),
+                        };
+                        let _ = self.inject_event(&evt, evt.kind(), dpi, offset, manager);
+                    }
+                    // If we successfully process a mouse event, this node gains focus in it's parent window
+                    RawEvent::Mouse { device_id, .. } | RawEvent::Touch { device_id, .. } => {
+                        let isdown = match event {
+                            RawEvent::Mouse { state, .. } => Some(*state != MouseState::Up),
+                            RawEvent::Touch {
+                                state: TouchState::Start,
+                                ..
+                            } => Some(false),
+                            RawEvent::Touch {
+                                state: TouchState::Move,
+                                ..
+                            } => None,
+                            RawEvent::Touch {
+                                state: TouchState::End,
+                                ..
+                            } => Some(true),
+                            _ => None,
+                        };
+
+                        let state: &mut WindowStateMachine =
+                            manager.get_mut(&window_id).map_err(|_| ())?;
+                        let window = state.state.as_mut().unwrap();
+                        let inner = window.window.clone();
+
+                        // On any mousedown event, capture the cursor if it wasn't captured already
+                        if let Some(true) = isdown {
+                            window
+                                .capture
+                                .entry(*device_id)
+                                .and_modify(|v| Self::assemble_node_chain(&parent, v))
+                                .or_insert_with(|| {
+                                    let mut v = Vec::new();
+                                    Self::assemble_node_chain(&parent, &mut v);
+                                    let (_, list) = v.split_first().unwrap();
+                                    assert_eq!(Self::offset(list), offset);
+                                    v
+                                });
+                        }
+                        if let Some(false) = isdown {
+                            // On any mouseup event, uncapture the cursor if no buttons are down
+                            match event {
+                                RawEvent::Mouse { all_buttons: 0, .. } | RawEvent::Touch { .. } => {
+                                    if let Some(v) = window.capture.get_mut(device_id) {
+                                        v.clear();
+                                    }
+                                }
+                                _ => (),
+                            }
+                        }
+
+                        if let Some(true) = isdown {
                             // Tell the old node that it lost focus (if it cares).
-                            if let Some(old) = window
-                                .focus
-                                .insert(*device_id, crate::component::window::RcNode(self.clone()))
+                            if let Some(old) = window.focus.insert(*device_id, RcNode(self.clone()))
                             {
                                 let evt = RawEvent::Focus {
                                     acquired: false,
                                     window: inner.clone(),
                                 };
+
                                 // We don't care about the result of this event
                                 let _ = old.0.inject_event(
                                     &evt,
                                     evt.kind(),
                                     dpi,
-                                    Vec2::zero(), // Focus events shouldn't care about area offset
+                                    Vec2::zero(),
                                     manager,
                                 );
                             }
@@ -145,13 +240,21 @@ impl Node {
             }
 
             offset += self.area.topleft();
-            pos -= self.area.topleft();
             // Children should be sorted from top to bottom
             for child in self.children.iter() {
                 if child
                     .as_ref()
                     .unwrap()
-                    .process(event, kind, pos, offset, dpi, manager, window_id.clone())
+                    .process(
+                        event,
+                        kind,
+                        position,
+                        offset,
+                        dpi,
+                        manager,
+                        window_id.clone(),
+                        Some(&parent),
+                    )
                     .is_ok()
                 {
                     // At this point, we should've already set focus, and are simply walking back up the stack

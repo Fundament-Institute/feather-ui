@@ -38,18 +38,16 @@ impl<T: Default + leaf::Padded + 'static> Default for Text<T> {
     }
 }
 
+impl<T: leaf::Padded + 'static> crate::StateMachineChild for Text<T> {
+    fn id(&self) -> std::rc::Rc<SourceID> {
+        self.id.clone()
+    }
+}
+
 impl<T: leaf::Padded + 'static> super::Component<T> for Text<T>
 where
     for<'a> &'a T: Into<&'a (dyn leaf::Padded + 'static)>,
 {
-    fn id(&self) -> std::rc::Rc<SourceID> {
-        self.id.clone()
-    }
-
-    fn init_all(&self, _: &mut crate::StateManager) -> eyre::Result<()> {
-        Ok(())
-    }
-
     fn layout(
         &self,
         state: &crate::StateManager,
