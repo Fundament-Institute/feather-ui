@@ -7,6 +7,7 @@ use derive_where::derive_where;
 use std::rc::Rc;
 
 // This simply writes it's area to the given cross-reference domain during the layout phase
+#[derive(feather_macro::StateMachineChild)]
 #[derive_where(Clone)]
 pub struct DomainPoint<T: domain_write::Prop + 'static> {
     pub id: Rc<SourceID>,
@@ -19,12 +20,6 @@ impl<T: domain_write::Prop + 'static> DomainPoint<T> {
             id,
             props: props.into(),
         }
-    }
-}
-
-impl<T: domain_write::Prop + 'static> crate::StateMachineChild for DomainPoint<T> {
-    fn id(&self) -> Rc<SourceID> {
-        self.id.clone()
     }
 }
 

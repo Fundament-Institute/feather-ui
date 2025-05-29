@@ -9,26 +9,12 @@ use std::rc::Rc;
 
 use super::ComponentFrom;
 
+#[derive(feather_macro::StateMachineChild)]
 #[derive_where(Clone)]
 pub struct GridBox<T: grid::Prop + 'static> {
     pub id: Rc<SourceID>,
     pub props: Rc<T>,
     pub children: im::Vector<Option<Box<ComponentFrom<dyn grid::Prop>>>>,
-}
-
-impl<T: grid::Prop + 'static> crate::StateMachineChild for GridBox<T> {
-    fn id(&self) -> Rc<SourceID> {
-        self.id.clone()
-    }
-
-    fn apply_children(
-        &self,
-        f: &mut dyn FnMut(&dyn crate::StateMachineChild) -> eyre::Result<()>,
-    ) -> eyre::Result<()> {
-        self.children
-            .iter()
-            .try_for_each(|x| f(x.as_ref().unwrap().as_ref()))
-    }
 }
 
 impl<T: grid::Prop + 'static> super::Component<T> for GridBox<T> {

@@ -10,6 +10,7 @@ use ultraviolet::{Vec2, Vec4};
 use wgpu::util::DeviceExt;
 
 // This draws a line between two points relative to the parent
+#[derive(feather_macro::StateMachineChild)]
 #[derive_where(Clone)]
 pub struct Line<T: base::Empty + 'static> {
     pub id: Rc<SourceID>,
@@ -17,12 +18,6 @@ pub struct Line<T: base::Empty + 'static> {
     pub end: Vec2,
     pub props: Rc<T>,
     pub fill: Vec4,
-}
-
-impl<T: base::Empty + 'static> crate::StateMachineChild for Line<T> {
-    fn id(&self) -> Rc<SourceID> {
-        self.id.clone()
-    }
 }
 
 impl<T: base::Empty + 'static> super::Component<T> for Line<T>

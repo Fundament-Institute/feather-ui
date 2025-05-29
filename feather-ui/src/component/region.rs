@@ -8,26 +8,12 @@ use crate::{SourceID, StateMachineChild, layout};
 use derive_where::derive_where;
 use std::rc::Rc;
 
+#[derive(feather_macro::StateMachineChild)]
 #[derive_where(Clone, Default)]
 pub struct Region<T: fixed::Prop + Default + 'static> {
     pub id: Rc<SourceID>,
     pub props: Rc<T>,
     pub children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>>,
-}
-
-impl<T: fixed::Prop + Default + 'static> StateMachineChild for Region<T> {
-    fn id(&self) -> Rc<SourceID> {
-        self.id.clone()
-    }
-
-    fn apply_children(
-        &self,
-        f: &mut dyn FnMut(&dyn StateMachineChild) -> eyre::Result<()>,
-    ) -> eyre::Result<()> {
-        self.children
-            .iter()
-            .try_for_each(|x| f(x.as_ref().unwrap().as_ref()))
-    }
 }
 
 impl<T: fixed::Prop + Default + 'static> super::Component<T> for Region<T>

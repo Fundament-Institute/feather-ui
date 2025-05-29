@@ -10,6 +10,7 @@ use core::f32;
 use derive_where::derive_where;
 use std::rc::Rc;
 
+#[derive(feather_macro::StateMachineChild)]
 #[derive_where(Clone)]
 pub struct Paragraph<T: flex::Prop + 'static> {
     pub id: Rc<SourceID>,
@@ -90,21 +91,6 @@ impl<T: flex::Prop + 'static> Paragraph<T> {
             };
             self.children.push_back(Some(Box::new(text)));
         }
-    }
-}
-
-impl<T: flex::Prop + 'static> crate::StateMachineChild for Paragraph<T> {
-    fn id(&self) -> Rc<SourceID> {
-        self.id.clone()
-    }
-
-    fn apply_children(
-        &self,
-        f: &mut dyn FnMut(&dyn crate::StateMachineChild) -> eyre::Result<()>,
-    ) -> eyre::Result<()> {
-        self.children
-            .iter()
-            .try_for_each(|x| f(x.as_ref().unwrap().as_ref()))
     }
 }
 

@@ -10,6 +10,7 @@ use ultraviolet::Vec4;
 use wgpu::util::DeviceExt;
 
 // This draws a line between two points that were previously stored in a Cross-reference Domain
+#[derive(feather_macro::StateMachineChild)]
 #[derive_where(Clone)]
 pub struct DomainLine<T: base::Empty + 'static> {
     pub id: Rc<SourceID>,
@@ -18,12 +19,6 @@ pub struct DomainLine<T: base::Empty + 'static> {
     pub end: Rc<SourceID>,
     pub props: Rc<T>,
     pub fill: Vec4,
-}
-
-impl<T: base::Empty + 'static> crate::StateMachineChild for DomainLine<T> {
-    fn id(&self) -> Rc<SourceID> {
-        self.id.clone()
-    }
 }
 
 impl<T: base::Empty + 'static> super::Component<T> for DomainLine<T>
