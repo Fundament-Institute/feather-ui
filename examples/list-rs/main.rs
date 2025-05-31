@@ -184,10 +184,8 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     children.push_back(Some(Box::new(Shape::<ListChild>::round_rect(
                         gen_id!().into(),
                         ListChild {
-                            area: feather_ui::URect::from(AbsRect::new(0.0, 0.0, 40.0, 40.0))
-                                .into(),
-                            margin: feather_ui::URect::from(AbsRect::new(8.0, 8.0, 4.0, 4.0))
-                                .into(),
+                            area: AbsRect::new(0.0, 0.0, 40.0, 40.0).into(),
+                            margin: AbsRect::new(8.0, 8.0, 4.0, 4.0).into(),
                         }
                         .into(),
                         0.0,
@@ -235,8 +233,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                                 rel: RelRect::new(0.0, 0.0, 1.0, 0.0),
                             }
                             .into(),
-                            margin: feather_ui::URect::from(AbsRect::new(8.0, 8.0, 4.0, 4.0))
-                                .into(),
+                            margin: AbsRect::new(8.0, 8.0, 4.0, 4.0).into(),
                             basis: 40.0.into(),
                             grow: 0.0,
                             shrink: 0.0,

@@ -102,8 +102,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 let text = Text::<FixedData> {
                     id: gen_id!().into(),
                     props: Rc::new(FixedData {
-                        area: URect::from(RelRect::new(0.5, 0.0, UNSIZED_AXIS, UNSIZED_AXIS))
-                            .into(),
+                        area: RelRect::new(0.5, 0.0, UNSIZED_AXIS, UNSIZED_AXIS).into(),
                         limits: feather_ui::AbsLimits::new(
                             Vec2::new(f32::NEG_INFINITY, 10.0),
                             Vec2::new(f32::INFINITY, 200.0),

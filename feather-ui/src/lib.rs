@@ -592,6 +592,27 @@ impl From<URect> for DRect {
     }
 }
 
+impl From<RelRect> for DRect {
+    fn from(value: RelRect) -> Self {
+        Self {
+            px: ZERO_RECT,
+            dp: ZERO_RECT,
+            rel: value,
+        }
+    }
+}
+
+impl From<AbsRect> for DRect {
+    /// By default we assume everything is in device independent pixels - if you wanted pixels, you should be using DRect explicitly
+    fn from(value: AbsRect) -> Self {
+        Self {
+            px: ZERO_RECT,
+            dp: value,
+            rel: ZERO_RELRECT,
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug)]
 pub struct AbsLimits(f32x4);
 

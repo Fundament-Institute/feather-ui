@@ -113,7 +113,7 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
                 let rect = Shape::round_rect(
                     gen_id!().into(),
                     MinimalFlexChild {
-                        area: feather_ui::URect::from(AbsRect::new(0.0, 0.0, 40.0, 40.0)).into(),
+                        area: AbsRect::new(0.0, 0.0, 40.0, 40.0).into(),
                     }
                     .into(),
                     0.0,
