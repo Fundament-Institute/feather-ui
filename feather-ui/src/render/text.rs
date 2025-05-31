@@ -14,7 +14,7 @@ pub struct Pipeline {
     pub text_buffer: Rc<RefCell<Option<glyphon::Buffer>>>,
     pub padding: std::cell::Cell<AbsRect>,
     pub atlas: Rc<RefCell<glyphon::TextAtlas>>,
-    pub viewport: Rc<Viewport>,
+    pub viewport: Rc<RefCell<Viewport>>,
 }
 
 impl super::Renderable for Pipeline {
@@ -33,7 +33,7 @@ impl super::Renderable for Pipeline {
                 &driver.queue,
                 &mut font_system,
                 &mut self.atlas.borrow_mut(),
-                &self.viewport,
+                &self.viewport.borrow(),
                 [glyphon::TextArea {
                     buffer: self.text_buffer.borrow().as_ref().unwrap(),
                     left: area.topleft().x + padding.topleft().x,
@@ -58,7 +58,7 @@ impl super::Renderable for Pipeline {
             if let Some(this) = weak.upgrade() {
                 this.renderer
                     .borrow()
-                    .render(&this.atlas.borrow(), &this.viewport, pass)
+                    .render(&this.atlas.borrow(), &this.viewport.borrow(), pass)
                     .unwrap();
             }
         }) as Box<dyn RenderLambda>));

@@ -108,12 +108,12 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
                 let bag = Region::<MinimalArea> {
                     id: gen_id!(iter_id).into(),
                     props: MinimalArea {
-                        area: feather_ui::URect::from(AbsRect::new(
+                        area: AbsRect::new(
                             node.x - NODE_RADIUS,
                             node.y - NODE_RADIUS,
                             node.x + NODE_RADIUS,
                             node.y + NODE_RADIUS,
-                        ))
+                        )
                         .into(),
                     }
                     .into(),
@@ -143,12 +143,12 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
             let subregion = Region {
                 id: gen_id!().into(),
                 props: MinimalArea {
-                    area: feather_ui::URect::from(AbsRect::new(
+                    area: AbsRect::new(
                         args.offset.x,
                         args.offset.y,
                         args.offset.x + 10000.0,
                         args.offset.y + 10000.0,
-                    ))
+                    )
                     .into(),
                 }
                 .into(),

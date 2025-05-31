@@ -42,7 +42,7 @@ pub struct WindowState {
     pub dpi: Vec2,
     pub driver: Arc<DriverState>,
     pub draw: im::Vector<RenderInstruction>,
-    pub viewport: Rc<glyphon::Viewport>,
+    pub viewport: Rc<RefCell<glyphon::Viewport>>,
     pub atlas: Rc<RefCell<glyphon::TextAtlas>>,
     trackers: [HashMap<DeviceId, RcNode>; 3],
     lookup: HashMap<(Rc<SourceID>, u8), DeviceId>,
@@ -244,7 +244,7 @@ impl Window {
                 driver: driver.clone(),
                 draw: im::Vector::new(),
                 atlas: Rc::new(RefCell::new(atlas)),
-                viewport: Rc::new(viewport),
+                viewport: Rc::new(RefCell::new(viewport)),
                 trackers: Default::default(),
                 lookup: Default::default(),
             };
@@ -281,15 +281,13 @@ impl Window {
         state.config.height = size.height;
         state.surface.configure(&state.driver.device, &state.config);
 
-        if let Some(viewport) = Rc::get_mut(&mut state.viewport) {
-            viewport.update(
-                &state.driver.queue,
-                glyphon::Resolution {
-                    width: state.config.width,
-                    height: state.config.height,
-                },
-            );
-        }
+        state.viewport.borrow_mut().update(
+            &state.driver.queue,
+            glyphon::Resolution {
+                width: state.config.width,
+                height: state.config.height,
+            },
+        );
     }
 
     #[allow(clippy::result_unit_err)]
