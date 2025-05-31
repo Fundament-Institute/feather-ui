@@ -257,13 +257,9 @@ impl<T: Prop + 'static> TextBox<T> {
     }
 }
 
-impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
+impl<T: Prop + 'static> crate::StateMachineChild for TextBox<T> {
     fn id(&self) -> Rc<SourceID> {
         self.id.clone()
-    }
-
-    fn init_all(&self, _: &mut crate::StateManager) -> eyre::Result<()> {
-        Ok(())
     }
 
     fn init(&self) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error> {
@@ -465,7 +461,7 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
                         ..
                     } => {
                         // TODO: Put in selection instead of just clicks
-                        if state == MouseState::Down && button == MouseButton::L {
+                        if state == MouseState::Down && button == MouseButton::Left {
                             let index = if let Some(buffer) = data.buffer.borrow().as_ref() {
                                 let p = area.topleft() + props.padding().resolve(dpi).topleft();
                                 let cursor =
@@ -500,7 +496,9 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
         };
         Ok(Box::new(statemachine))
     }
+}
 
+impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
     fn layout(
         &self,
         state: &crate::StateManager,

@@ -5,12 +5,13 @@ use feather_ui::gen_id;
 
 use feather_ui::component::domain_line::DomainLine;
 use feather_ui::component::domain_point::DomainPoint;
-use feather_ui::component::draggable::Draggable;
+use feather_ui::component::mouse_area::MouseArea;
 use feather_ui::component::region::Region;
 use feather_ui::component::shape::Shape;
 use feather_ui::component::window::Window;
-use feather_ui::component::{ComponentFrom, draggable};
-use feather_ui::layout::{base, fixed};
+use feather_ui::component::{ComponentFrom, mouse_area};
+use feather_ui::input::MouseButton;
+use feather_ui::layout::{base, fixed, leaf};
 use feather_ui::persist::FnPersist;
 use feather_ui::{
     AbsRect, App, CrossReferenceDomain, DRect, DataID, FILL_DRECT, Slot, SourceID, WrapEventEx,
@@ -43,6 +44,7 @@ impl base::Limits for MinimalArea {}
 impl base::RLimits for MinimalArea {}
 impl fixed::Prop for MinimalArea {}
 impl fixed::Child for MinimalArea {}
+impl leaf::Prop for MinimalArea {}
 
 const NODE_RADIUS: f32 = 25.0;
 
@@ -138,7 +140,7 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
                 children.push_back(Some(Box::new(line)));
             }
 
-            let region = Draggable {
+            let subregion = Region {
                 id: gen_id!().into(),
                 props: MinimalArea {
                     area: feather_ui::URect::from(AbsRect::new(
@@ -151,12 +153,33 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
                 }
                 .into(),
                 children,
-                slots: [
-                    Some(Slot(feather_ui::APP_SOURCE_ID.into(), 0)),
-                    Some(Slot(feather_ui::APP_SOURCE_ID.into(), 0)),
-                    Some(Slot(feather_ui::APP_SOURCE_ID.into(), 0)),
-                ],
             };
+
+            let mousearea: MouseArea<MinimalArea> = MouseArea::new(
+                gen_id!().into(),
+                MinimalArea { area: FILL_DRECT },
+                Some(4.0),
+                [
+                    Some(Slot(feather_ui::APP_SOURCE_ID.into(), 0)),
+                    Some(Slot(feather_ui::APP_SOURCE_ID.into(), 0)),
+                    Some(Slot(feather_ui::APP_SOURCE_ID.into(), 0)),
+                    None,
+                    None,
+                    None,
+                ],
+            );
+
+            let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
+                im::Vector::new();
+
+            children.push_back(Some(Box::new(subregion)));
+            children.push_back(Some(Box::new(mousearea)));
+            let region = Region {
+                id: gen_id!().into(),
+                props: MinimalArea { area: FILL_DRECT }.into(),
+                children,
+            };
+
             let window = Window::new(
                 gen_id!().into(),
                 winit::window::Window::default_attributes()
@@ -176,9 +199,11 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
 
 fn main() {
     let handle_input = Box::new(
-        |e: draggable::DraggableEvent, mut appdata: GraphState| -> Result<GraphState, GraphState> {
+        |e: mouse_area::MouseAreaEvent,
+         mut appdata: GraphState|
+         -> Result<GraphState, GraphState> {
             match e {
-                draggable::DraggableEvent::OnClick(pos) => {
+                mouse_area::MouseAreaEvent::OnClick(MouseButton::Left, pos) => {
                     if let Some(selected) = appdata.selected {
                         for i in 0..appdata.nodes.len() {
                             let diff = appdata.nodes[i] - pos + appdata.offset;
@@ -211,15 +236,16 @@ fn main() {
 
                     Ok(appdata)
                 }
-                draggable::DraggableEvent::OnDblClick(pos) => {
+                mouse_area::MouseAreaEvent::OnDblClick(MouseButton::Left, pos) => {
                     // TODO: winit currently doesn't capture double clicks
                     appdata.nodes.push(pos - appdata.offset);
                     Ok(appdata)
                 }
-                draggable::DraggableEvent::OnDrag(diff) => {
+                mouse_area::MouseAreaEvent::OnDrag(MouseButton::Left, diff) => {
                     appdata.offset += diff;
                     Ok(appdata)
                 }
+                _ => Ok(appdata),
             }
         }
         .wrap(),
