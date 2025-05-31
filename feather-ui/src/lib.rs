@@ -1110,7 +1110,7 @@ impl StateManager {
         &'a self,
         id: &SourceID,
     ) -> eyre::Result<&'a State> {
-        let v = &*self
+        let v = self
             .states
             .get(id)
             .ok_or_eyre("State does not exist")?
