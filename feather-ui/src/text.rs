@@ -123,6 +123,12 @@ pub struct Snapshot {
     count: usize,
 }
 
+impl Snapshot {
+    pub fn get(&self) -> &EditObj {
+        &self.obj
+    }
+}
+
 // Ensures each clone gets a fresh snapshot to capture changes
 impl Clone for Snapshot {
     fn clone(&self) -> Self {
