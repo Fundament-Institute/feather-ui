@@ -279,6 +279,13 @@ impl From<AbsRect> for DAbsRect {
 /// Relative point
 pub struct RelPoint(pub Vec2);
 
+impl RelPoint {
+    #[inline]
+    pub fn new(x: f32, y: f32) -> Self {
+        Self(Vec2::new(x, y))
+    }
+}
+
 impl From<Vec2> for RelPoint {
     #[inline]
     fn from(value: Vec2) -> Self {
@@ -432,6 +439,16 @@ impl DPoint {
             self.rel.0.x,
             self.rel.0.y,
         ]))
+    }
+}
+
+impl From<UPoint> for DPoint {
+    fn from(value: UPoint) -> Self {
+        Self {
+            dp: value.abs(),
+            px: ZERO_POINT,
+            rel: value.rel(),
+        }
     }
 }
 
