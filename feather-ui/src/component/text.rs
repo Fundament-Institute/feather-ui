@@ -7,6 +7,7 @@ use derive_where::derive_where;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+#[derive(feather_macro::StateMachineChild)]
 #[derive_where(Clone)]
 pub struct Text<T: leaf::Padded + 'static> {
     pub id: Rc<SourceID>,
@@ -42,14 +43,6 @@ impl<T: leaf::Padded + 'static> super::Component<T> for Text<T>
 where
     for<'a> &'a T: Into<&'a (dyn leaf::Padded + 'static)>,
 {
-    fn id(&self) -> std::rc::Rc<SourceID> {
-        self.id.clone()
-    }
-
-    fn init_all(&self, _: &mut crate::StateManager) -> eyre::Result<()> {
-        Ok(())
-    }
-
     fn layout(
         &self,
         state: &crate::StateManager,

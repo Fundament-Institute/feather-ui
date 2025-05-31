@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::{
-    Concrete, Desc, LayoutWrap, Renderable, Staged, base, check_unsized, check_unsized_abs,
+    Concrete, Desc, Layout, Renderable, Staged, base, check_unsized, check_unsized_abs,
     map_unsized_area,
 };
 use crate::{AbsRect, ZERO_POINT, rtree};
@@ -21,7 +21,7 @@ impl Child for crate::DRect {}
 impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn Child;
-    type Children = im::Vector<Option<Box<dyn LayoutWrap<Self::Child>>>>;
+    type Children = im::Vector<Option<Box<dyn Layout<Self::Child>>>>;
 
     fn stage<'a>(
         props: &Self::Props,
@@ -30,8 +30,7 @@ impl Desc for dyn Prop {
         children: &Self::Children,
         id: std::rc::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
-        dpi: crate::Vec2,
-        driver: &crate::DriverState,
+        window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
         // If we have an unsized outer_area, any sized object with relative dimensions must evaluate to 0 (or to the minimum limited size). An
         // unsized object can never have relative dimensions, as that creates a logic loop - instead it can only have a single relative anchor.
@@ -47,8 +46,8 @@ impl Desc for dyn Prop {
         // If outer_area is sized and myarea.rel is unsized, limits are applied normally, but are once again reduced by myarea.abs.bottomright() to
         // account for how the area calculations will interact with the limits later on.
 
-        let limits = outer_limits + props.limits().resolve(dpi);
-        let myarea = props.area().resolve(dpi);
+        let limits = outer_limits + props.limits().resolve(window.dpi);
+        let myarea = props.area().resolve(window.dpi);
         let (unsized_x, unsized_y) = check_unsized(myarea);
 
         // Check if any axis is unsized in a way that requires us to calculate baseline child sizes
@@ -61,13 +60,13 @@ impl Desc for dyn Prop {
             let mut bottomright = ZERO_POINT;
 
             for child in children.iter() {
-                let child_props = child.as_ref().unwrap().get_imposed();
+                let child_props = child.as_ref().unwrap().get_props();
                 let child_limit = super::apply_limit(inner_dim, limits, *child_props.rlimits());
 
                 let stage = child
                     .as_ref()
                     .unwrap()
-                    .stage(inner_area, child_limit, dpi, driver);
+                    .stage(inner_area, child_limit, window);
                 bottomright = bottomright.max_by_component(stage.get_area().bottomright());
             }
 
@@ -92,12 +91,7 @@ impl Desc for dyn Prop {
             return Box::new(Concrete::new(
                 None,
                 evaluated_area,
-                Rc::new(rtree::Node::new(
-                    evaluated_area,
-                    Some(props.zindex()),
-                    nodes,
-                    id,
-                )),
+                rtree::Node::new(evaluated_area, Some(props.zindex()), nodes, id, window),
                 staging,
             ));
         }
@@ -109,13 +103,13 @@ impl Desc for dyn Prop {
         let inner_area = AbsRect::from(evaluated_dim);
 
         for child in children.iter() {
-            let child_props = child.as_ref().unwrap().get_imposed();
+            let child_props = child.as_ref().unwrap().get_props();
             let child_limit = *child_props.rlimits() * evaluated_dim;
 
             let stage = child
                 .as_ref()
                 .unwrap()
-                .stage(inner_area, child_limit, dpi, driver);
+                .stage(inner_area, child_limit, window);
             if let Some(node) = stage.get_rtree().upgrade() {
                 nodes.push_back(Some(node));
             }
@@ -129,7 +123,7 @@ impl Desc for dyn Prop {
 
         // Calculate the anchor using the final evaluated dimensions, after all unsized axis and limits are
         // calculated. However, we can only apply the anchor if the parent isn't unsized on that axis.
-        let mut anchor = props.anchor().resolve(dpi) * evaluated_dim;
+        let mut anchor = props.anchor().resolve(window.dpi) * evaluated_dim;
         let (unsized_outer_x, unsized_outer_y) =
             crate::layout::check_unsized_abs(outer_area.bottomright());
         if unsized_outer_x {
@@ -143,12 +137,7 @@ impl Desc for dyn Prop {
         Box::new(Concrete::new(
             renderable,
             evaluated_area,
-            Rc::new(rtree::Node::new(
-                evaluated_area,
-                Some(props.zindex()),
-                nodes,
-                id,
-            )),
+            rtree::Node::new(evaluated_area, Some(props.zindex()), nodes, id, window),
             staging,
         ))
     }

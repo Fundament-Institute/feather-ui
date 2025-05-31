@@ -7,6 +7,7 @@ use derive_where::derive_where;
 use std::rc::Rc;
 
 // This simply writes it's area to the given cross-reference domain during the layout phase
+#[derive(feather_macro::StateMachineChild)]
 #[derive_where(Clone)]
 pub struct DomainPoint<T: domain_write::Prop + 'static> {
     pub id: Rc<SourceID>,
@@ -26,14 +27,6 @@ impl<T: domain_write::Prop + 'static> super::Component<T> for DomainPoint<T>
 where
     for<'a> &'a T: Into<&'a (dyn domain_write::Prop + 'static)>,
 {
-    fn id(&self) -> Rc<SourceID> {
-        self.id.clone()
-    }
-
-    fn init_all(&self, _: &mut crate::StateManager) -> eyre::Result<()> {
-        Ok(())
-    }
-
     fn layout(
         &self,
         _: &crate::StateManager,

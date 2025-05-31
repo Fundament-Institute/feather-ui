@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::base::{Empty, RLimits};
-use super::{Concrete, Desc, LayoutWrap, Renderable, Staged};
+use super::{Concrete, Desc, Layout, Renderable, Staged};
 use crate::{AbsRect, CrossReferenceDomain, SourceID, render, rtree};
 use std::marker::PhantomData;
 use std::rc::Rc;
@@ -27,7 +27,7 @@ impl super::fixed::Child for Rc<CrossReferenceDomain> {}
 impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn Empty;
-    type Children = PhantomData<dyn LayoutWrap<Self::Child>>;
+    type Children = PhantomData<dyn Layout<Self::Child>>;
 
     fn stage<'a>(
         props: &Self::Props,
@@ -36,8 +36,7 @@ impl Desc for dyn Prop {
         _: &Self::Children,
         id: std::rc::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
-        _: crate::Vec2,
-        _: &crate::DriverState,
+        window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
         outer_area = super::nuetralize_unsized(outer_area);
         outer_area = super::limit_area(outer_area, outer_limits);
@@ -49,7 +48,7 @@ impl Desc for dyn Prop {
                 domain: props.domain().clone(),
                 base: renderable,
             })),
-            rtree: Rc::new(rtree::Node::new(outer_area, None, Default::default(), id)),
+            rtree: rtree::Node::new(outer_area, None, Default::default(), id, window),
             children: Default::default(),
         })
     }

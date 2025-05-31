@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use super::{Desc, LayoutWrap, Renderable, Staged, base};
+use super::{Desc, Layout, Renderable, Staged, base};
 use crate::{AbsDim, AbsRect, DEFAULT_LIMITS};
 use std::rc::Rc;
 
@@ -22,7 +22,7 @@ impl Prop for AbsDim {
 impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn base::Empty;
-    type Children = Box<dyn LayoutWrap<Self::Child>>;
+    type Children = Box<dyn Layout<Self::Child>>;
 
     fn stage<'a>(
         props: &Self::Props,
@@ -31,10 +31,9 @@ impl Desc for dyn Prop {
         child: &Self::Children,
         _: std::rc::Weak<crate::SourceID>,
         _: Option<Rc<dyn Renderable>>,
-        dpi: crate::Vec2,
-        driver: &crate::DriverState,
+        window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
         // We bypass creating our own node here because we can never have a nonzero topleft corner, so our node would be redundant.
-        child.stage((*props.dim()).into(), DEFAULT_LIMITS, dpi, driver)
+        child.stage((*props.dim()).into(), DEFAULT_LIMITS, window)
     }
 }

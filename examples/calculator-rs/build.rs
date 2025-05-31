@@ -27,7 +27,7 @@ fn main() {
         .args(["build", "calculator-cs/calculator-cs.csproj"])
         .spawn()
         .and_then(|mut c| c.wait())
-        .and_then(|e| Ok(e.success()))
+        .map(|e| e.success())
     {
         Ok(true) => {
             if let Ok(s) = get_cargo_target_dir() {

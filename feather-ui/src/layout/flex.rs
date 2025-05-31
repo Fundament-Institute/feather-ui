@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::{
-    Concrete, Desc, LayoutWrap, Renderable, Staged, base, cap_unsized, check_unsized_abs,
+    Concrete, Desc, Layout, Renderable, Staged, base, cap_unsized, check_unsized_abs,
     map_unsized_area, merge_margin, nuetralize_unsized,
 };
 use crate::persist::{FnPersist2, VectorFold};
@@ -281,7 +281,7 @@ fn wrap_line(
 impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn Child;
-    type Children = im::Vector<Option<Box<dyn LayoutWrap<Self::Child>>>>;
+    type Children = im::Vector<Option<Box<dyn Layout<Self::Child>>>>;
 
     fn stage<'a>(
         props: &Self::Props,
@@ -290,13 +290,12 @@ impl Desc for dyn Prop {
         children: &Self::Children,
         id: std::rc::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
-        dpi: crate::Vec2,
-        driver: &crate::DriverState,
+        window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
-        let myarea = props.area().resolve(dpi);
+        let myarea = props.area().resolve(window.dpi);
         //let (unsized_x, unsized_y) = super::check_unsized(*myarea);
 
-        let limits = outer_limits + props.limits().resolve(dpi);
+        let limits = outer_limits + props.limits().resolve(window.dpi);
         let inner_dim = super::limit_dim(super::eval_dim(myarea, outer_area.dim()), limits);
         let outer_safe = nuetralize_unsized(outer_area);
 
@@ -306,12 +305,12 @@ impl Desc for dyn Prop {
         };
 
         let mut childareas: im::Vector<Option<ChildCache>> = im::Vector::new();
-        let (dpi_main, _) = super::swap_axis(xaxis, dpi);
+        let (dpi_main, _) = super::swap_axis(xaxis, window.dpi);
         let (outer_main, _) = super::swap_axis(xaxis, outer_safe.dim().0);
 
         // We re-use a lot of concepts from flexbox in this calculation. First we acquire the natural size of all child elements.
         for child in children.iter() {
-            let imposed = child.as_ref().unwrap().get_imposed();
+            let imposed = child.as_ref().unwrap().get_props();
 
             let child_limit = super::apply_limit(inner_dim, limits, *imposed.rlimits());
             let basis = imposed.basis().resolve(dpi_main).resolve(outer_main);
@@ -327,7 +326,7 @@ impl Desc for dyn Prop {
             let stage = child
                 .as_ref()
                 .unwrap()
-                .stage(inner_area, child_limit, dpi, driver);
+                .stage(inner_area, child_limit, window);
 
             let (main, aux) = super::swap_axis(xaxis, stage.get_area().dim().0);
 
@@ -336,7 +335,7 @@ impl Desc for dyn Prop {
                 grow: imposed.grow(),
                 shrink: imposed.shrink(),
                 aux,
-                margin: imposed.margin().resolve(dpi) * outer_safe,
+                margin: imposed.margin().resolve(window.dpi) * outer_safe,
                 limits: child_limit,
             };
             if cache.basis == UNSIZED_AXIS {
@@ -398,12 +397,7 @@ impl Desc for dyn Prop {
             return Box::new(Concrete {
                 area: evaluated_area,
                 render: None,
-                rtree: Rc::new(rtree::Node::new(
-                    evaluated_area,
-                    Some(props.zindex()),
-                    nodes,
-                    id,
-                )),
+                rtree: rtree::Node::new(evaluated_area, Some(props.zindex()), nodes, id, window),
                 children: staging,
             });
         }
@@ -425,7 +419,7 @@ impl Desc for dyn Prop {
                 props.align(),
                 props.direction() == RowDirection::BottomToTop
                     || props.direction() == RowDirection::RightToLeft,
-                dpi,
+                window.dpi,
             );
 
             if !props.obstacles().is_empty() && props.align() != FlexJustify::Start {
@@ -449,7 +443,7 @@ impl Desc for dyn Prop {
                         props.align(),
                         props.direction() == RowDirection::BottomToTop
                             || props.direction() == RowDirection::RightToLeft,
-                        dpi,
+                        window.dpi,
                     );
                 }
 
@@ -570,11 +564,10 @@ impl Desc for dyn Prop {
                     std::mem::swap(&mut area.bottomright().x, &mut area.bottomright().y);
                 }
 
-                let stage =
-                    children[i]
-                        .as_ref()
-                        .unwrap()
-                        .stage(area, c.limits + limits, dpi, driver);
+                let stage = children[i]
+                    .as_ref()
+                    .unwrap()
+                    .stage(area, c.limits + limits, window);
                 if let Some(node) = stage.get_rtree().upgrade() {
                     nodes.push_back(Some(node));
                 }
@@ -600,12 +593,7 @@ impl Desc for dyn Prop {
         Box::new(Concrete {
             area: evaluated_area,
             render: renderable,
-            rtree: Rc::new(rtree::Node::new(
-                evaluated_area,
-                Some(props.zindex()),
-                nodes,
-                id,
-            )),
+            rtree: rtree::Node::new(evaluated_area, Some(props.zindex()), nodes, id, window),
             children: staging,
         })
     }

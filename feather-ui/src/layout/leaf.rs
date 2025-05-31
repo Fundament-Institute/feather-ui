@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::base::Empty;
-use super::{Concrete, Desc, LayoutWrap, Renderable, Staged, base, map_unsized_area};
+use super::{Concrete, Desc, Layout, Renderable, Staged, base, map_unsized_area};
 use crate::{AbsRect, DRect, SourceID, ZERO_POINT, rtree};
 use std::marker::PhantomData;
 use std::rc::Rc;
@@ -25,7 +25,7 @@ impl Padded for DRect {}
 impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn Empty;
-    type Children = PhantomData<dyn LayoutWrap<Self::Child>>;
+    type Children = PhantomData<dyn Layout<Self::Child>>;
 
     fn stage<'a>(
         props: &Self::Props,
@@ -34,28 +34,22 @@ impl Desc for dyn Prop {
         _: &Self::Children,
         id: std::rc::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
-        dpi: crate::Vec2,
-        _: &crate::DriverState,
+        window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
-        let limits = outer_limits + props.limits().resolve(dpi);
+        let limits = outer_limits + props.limits().resolve(window.dpi);
         let evaluated_area = super::limit_area(
-            map_unsized_area(props.area().resolve(dpi), ZERO_POINT)
+            map_unsized_area(props.area().resolve(window.dpi), ZERO_POINT)
                 * super::nuetralize_unsized(outer_area),
             limits,
         );
 
-        let anchor = props.anchor().resolve(dpi) * evaluated_area.dim();
+        let anchor = props.anchor().resolve(window.dpi) * evaluated_area.dim();
         let evaluated_area = evaluated_area - anchor;
 
         Box::new(Concrete {
             area: evaluated_area,
             render: renderable,
-            rtree: Rc::new(rtree::Node::new(
-                evaluated_area,
-                None,
-                Default::default(),
-                id,
-            )),
+            rtree: rtree::Node::new(evaluated_area, None, Default::default(), id, window),
             children: Default::default(),
         })
     }

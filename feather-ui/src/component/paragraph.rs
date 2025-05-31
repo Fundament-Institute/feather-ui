@@ -3,13 +3,14 @@
 
 use crate::component::ComponentFrom;
 use crate::component::text::Text;
-use crate::layout::{Desc, Layout, LayoutWrap, base, flex, leaf};
+use crate::layout::{Desc, Layout, base, flex, leaf};
 use crate::persist::{FnPersist, VectorMap};
 use crate::{SourceID, UNSIZED_AXIS, gen_id, layout};
 use core::f32;
 use derive_where::derive_where;
 use std::rc::Rc;
 
+#[derive(feather_macro::StateMachineChild)]
 #[derive_where(Clone)]
 pub struct Paragraph<T: flex::Prop + 'static> {
     pub id: Rc<SourceID>,
@@ -94,17 +95,6 @@ impl<T: flex::Prop + 'static> Paragraph<T> {
 }
 
 impl<T: flex::Prop + 'static> super::Component<T> for Paragraph<T> {
-    fn id(&self) -> Rc<SourceID> {
-        self.id.clone()
-    }
-
-    fn init_all(&self, manager: &mut crate::StateManager) -> eyre::Result<()> {
-        for child in self.children.iter() {
-            manager.init_component(child.as_ref().unwrap().as_ref())?;
-        }
-        Ok(())
-    }
-
     fn layout(
         &self,
         state: &crate::StateManager,
@@ -113,7 +103,7 @@ impl<T: flex::Prop + 'static> super::Component<T> for Paragraph<T> {
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let map = VectorMap::new(
-            |child: &Option<Box<ComponentFrom<dyn flex::Prop>>>| -> Option<Box<dyn LayoutWrap<<dyn flex::Prop as Desc>::Child>>> {
+            |child: &Option<Box<ComponentFrom<dyn flex::Prop>>>| -> Option<Box<dyn Layout<<dyn flex::Prop as Desc>::Child>>> {
                 Some(child.as_ref().unwrap().layout(state, driver, window, config))
             },
         );

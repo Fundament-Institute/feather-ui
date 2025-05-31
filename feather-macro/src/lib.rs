@@ -323,3 +323,69 @@ pub fn dispatchable(input: TokenStream) -> TokenStream {
     }
     .into()
 }
+
+#[proc_macro_derive(StateMachineChild)]
+pub fn state_machine_child(input: TokenStream) -> TokenStream {
+    let crate_name = std::env::var("CARGO_PKG_NAME").unwrap();
+
+    let crate_name = format_ident!(
+        "{}",
+        if crate_name == "feather-ui" {
+            "crate"
+        } else {
+            "feather_ui"
+        }
+    );
+
+    let ast = parse_macro_input!(input as DeriveInput);
+    let data = if let Data::Struct(data_enum) = &ast.data {
+        data_enum
+    } else {
+        panic!("`StateMachineChild` derive can only be used on a struct.");
+    };
+
+    if ast.generics.type_params().count() != 1 {
+        // TODO: support multiple generics
+        panic!(
+            "`StateMachineChild` derive doesn't know how to deal with multiple generic parameters!"
+        )
+    }
+
+    let generics = ast.generics.type_params().next().unwrap();
+    let genparams = &generics.ident;
+
+    let has_children = data.fields.members().any(|x| {
+        if let syn::Member::Named(f) = x {
+            f == "children"
+        } else {
+            false
+        }
+    });
+
+    let apply_children = if has_children {
+        quote! {
+            fn apply_children(
+                    &self,
+                    f: &mut dyn FnMut(&dyn #crate_name::StateMachineChild) -> eyre::Result<()>,
+                ) -> eyre::Result<()> {
+                    self.children
+                        .iter()
+                        .try_for_each(|x| f(x.as_ref().unwrap().as_ref()))
+                }
+        }
+    } else {
+        quote! {}
+    };
+
+    let sname = ast.ident;
+    quote! {
+        impl<#generics> #crate_name::StateMachineChild for #sname<#genparams> {
+            fn id(&self) -> Rc<SourceID> {
+                self.id.clone()
+            }
+
+            #apply_children
+        }
+    }
+    .into()
+}
