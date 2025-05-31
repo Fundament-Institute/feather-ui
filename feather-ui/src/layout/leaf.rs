@@ -34,28 +34,22 @@ impl Desc for dyn Prop {
         _: &Self::Children,
         id: std::rc::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
-        dpi: crate::Vec2,
-        _: &crate::DriverState,
+        window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
-        let limits = outer_limits + props.limits().resolve(dpi);
+        let limits = outer_limits + props.limits().resolve(window.dpi);
         let evaluated_area = super::limit_area(
-            map_unsized_area(props.area().resolve(dpi), ZERO_POINT)
+            map_unsized_area(props.area().resolve(window.dpi), ZERO_POINT)
                 * super::nuetralize_unsized(outer_area),
             limits,
         );
 
-        let anchor = props.anchor().resolve(dpi) * evaluated_area.dim();
+        let anchor = props.anchor().resolve(window.dpi) * evaluated_area.dim();
         let evaluated_area = evaluated_area - anchor;
 
         Box::new(Concrete {
             area: evaluated_area,
             render: renderable,
-            rtree: Rc::new(rtree::Node::new(
-                evaluated_area,
-                None,
-                Default::default(),
-                id,
-            )),
+            rtree: rtree::Node::new(evaluated_area, None, Default::default(), id, window),
             children: Default::default(),
         })
     }

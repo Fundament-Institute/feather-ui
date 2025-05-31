@@ -809,7 +809,6 @@ dependencies = [
  "glyphon",
  "im",
  "mlua",
- "once_cell",
  "parking_lot",
  "smallvec",
  "static_assertions",

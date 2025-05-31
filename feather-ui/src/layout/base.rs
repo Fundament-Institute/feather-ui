@@ -42,8 +42,7 @@ impl crate::layout::Desc for dyn Empty {
         _: &Self::Children,
         id: std::rc::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn crate::render::Renderable>>,
-        _: crate::Vec2,
-        _: &crate::DriverState,
+        window: &mut crate::component::window::WindowState,
     ) -> Box<dyn super::Staged + 'a> {
         outer_area = super::nuetralize_unsized(outer_area);
         outer_area = super::limit_area(outer_area, outer_limits);
@@ -51,12 +50,7 @@ impl crate::layout::Desc for dyn Empty {
         Box::new(crate::layout::Concrete::new(
             renderable,
             outer_area,
-            Rc::new(crate::rtree::Node::new(
-                outer_area,
-                None,
-                Default::default(),
-                id,
-            )),
+            crate::rtree::Node::new(outer_area, None, Default::default(), id, window),
             Default::default(),
         ))
     }

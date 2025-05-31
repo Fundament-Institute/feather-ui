@@ -30,8 +30,7 @@ pub trait Layout<Props: ?Sized>: DynClone {
         &self,
         area: AbsRect,
         limits: AbsLimits,
-        dpi: Vec2,
-        driver: &DriverState,
+        window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a>;
 }
 
@@ -50,11 +49,10 @@ where
         &self,
         area: AbsRect,
         limits: AbsLimits,
-        dpi: Vec2,
-        driver: &DriverState,
+        window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
         use std::ops::Deref;
-        Box::deref(self).stage(area, limits, dpi, driver)
+        Box::deref(self).stage(area, limits, window)
     }
 }
 
@@ -70,10 +68,9 @@ where
         &self,
         area: AbsRect,
         limits: AbsLimits,
-        dpi: Vec2,
-        driver: &DriverState,
+        window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
-        (*self).stage(area, limits, dpi, driver)
+        (*self).stage(area, limits, window)
     }
 }
 
@@ -90,8 +87,7 @@ pub trait Desc {
         children: &Self::Children,
         id: std::rc::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
-        dpi: Vec2,
-        driver: &DriverState,
+        window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a>;
 }
 
@@ -114,8 +110,7 @@ where
         &self,
         area: AbsRect,
         limits: AbsLimits,
-        dpi: Vec2,
-        driver: &DriverState,
+        window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
         D::stage(
             self.props.as_ref().into(),
@@ -124,8 +119,7 @@ where
             &self.children,
             self.id.clone(),
             self.renderable.as_ref().map(|x| x.clone()),
-            dpi,
-            driver,
+            window,
         )
     }
 }

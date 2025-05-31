@@ -31,13 +31,12 @@ impl Desc for dyn Prop {
         children: &Self::Children,
         id: std::rc::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
-        dpi: Vec2,
-        driver: &crate::DriverState,
+        window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
         // TODO: make insertion efficient by creating a RRB tree of list layout subnodes, in a similar manner to the r-tree nodes.
 
-        let limits = outer_limits + props.limits().resolve(dpi);
-        let myarea = props.area().resolve(dpi);
+        let limits = outer_limits + props.limits().resolve(window.dpi);
+        let myarea = props.area().resolve(window.dpi);
         //let (unsized_x, unsized_y) = super::check_unsized(*myarea);
         let dir = props.direction();
         // For the purpose of calculating size, we only care about which axis we're distributing along
@@ -67,12 +66,12 @@ impl Desc for dyn Prop {
         for child in children.iter() {
             let child_props = child.as_ref().unwrap().get_props();
             let child_limit = super::apply_limit(inner_dim, limits, *child_props.rlimits());
-            let child_margin = child_props.margin().resolve(dpi) * outer_safe;
+            let child_margin = child_props.margin().resolve(window.dpi) * outer_safe;
 
             let stage = child
                 .as_ref()
                 .unwrap()
-                .stage(inner_area, child_limit, dpi, driver);
+                .stage(inner_area, child_limit, window);
             let area = stage.get_area();
 
             let (margin_main, child_margin_aux) = super::swap_axis(xaxis, child_margin.topleft());
@@ -123,7 +122,7 @@ impl Desc for dyn Prop {
             return Box::new(Concrete {
                 area: evaluated_area,
                 render: None,
-                rtree: Rc::new(rtree::Node::new(evaluated_area, None, nodes, id)),
+                rtree: rtree::Node::new(evaluated_area, None, nodes, id, window),
                 children: staging,
             });
         }
@@ -198,7 +197,7 @@ impl Desc for dyn Prop {
 
             let child_limit = *child.get_props().rlimits() * evaluated_dim;
 
-            let stage = child.stage(child_area, child_limit, dpi, driver);
+            let stage = child.stage(child_area, child_limit, window);
             if let Some(node) = stage.get_rtree().upgrade() {
                 nodes.push_back(Some(node));
             }
@@ -208,7 +207,7 @@ impl Desc for dyn Prop {
         Box::new(Concrete {
             area: evaluated_area,
             render: renderable,
-            rtree: Rc::new(rtree::Node::new(evaluated_area, None, nodes, id)),
+            rtree: rtree::Node::new(evaluated_area, None, nodes, id, window),
             children: staging,
         })
     }

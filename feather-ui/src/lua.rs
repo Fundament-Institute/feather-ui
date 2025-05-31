@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::StateMachineChild;
 use crate::component::button::Button;
 use crate::component::region::Region;
 use crate::component::shape::Shape;
@@ -10,7 +9,7 @@ use crate::component::window::Window;
 use crate::component::{ComponentFrom, ComponentWrap};
 use crate::layout::fixed;
 use crate::propbag::PropBag;
-use crate::{Component, DataID, FnPersist, Slot, SourceID, URect};
+use crate::{DataID, FnPersist, Slot, SourceID, StateMachineChild, URect};
 use mlua::UserData;
 use mlua::prelude::*;
 use std::rc::Rc;

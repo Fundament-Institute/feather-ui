@@ -1074,7 +1074,7 @@ pub trait StateMachineChild {
         _: &mut dyn FnMut(&dyn StateMachineChild) -> eyre::Result<()>,
     ) -> eyre::Result<()> {
         // Default implementation assumes no children
-        return Ok(());
+        Ok(())
     }
     fn id(&self) -> Rc<SourceID>;
 }

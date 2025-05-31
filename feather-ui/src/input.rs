@@ -95,6 +95,7 @@ pub enum RawEvent {
         modifiers: u8,
     },
     Mouse {
+        // 24 bytes
         device_id: winit::event::DeviceId,
         state: MouseState,
         pos: PhysicalPosition<f32>,

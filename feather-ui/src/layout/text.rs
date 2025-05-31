@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use derive_where::derive_where;
 
-use crate::{AbsRect, DriverState, SourceID, render, rtree};
+use crate::{AbsRect, SourceID, render, rtree};
 
 use super::{Layout, check_unsized, leaf, limit_area};
 
@@ -25,13 +25,12 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
         &self,
         outer_area: AbsRect,
         outer_limits: crate::AbsLimits,
-        dpi: crate::Vec2,
-        driver: &DriverState,
+        window: &mut crate::component::window::WindowState,
     ) -> Box<dyn super::Staged + 'a> {
-        let mut limits = self.props.limits().resolve(dpi) + outer_limits;
-        let myarea = self.props.area().resolve(dpi);
+        let mut limits = self.props.limits().resolve(window.dpi) + outer_limits;
+        let myarea = self.props.area().resolve(window.dpi);
         let (unsized_x, unsized_y) = check_unsized(myarea);
-        let padding = self.props.padding().resolve(dpi);
+        let padding = self.props.padding().resolve(window.dpi);
         let allpadding = myarea.bottomright().abs() + padding.topleft() + padding.bottomright();
         let minmax = limits.0.as_array_mut();
         if unsized_x {
@@ -58,6 +57,7 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
 
         let mut text_binding = self.text_render.text_buffer.borrow_mut();
         let text_buffer = text_binding.as_mut().unwrap();
+        let driver = window.driver.clone();
         let mut font_system = driver.font_system.write();
 
         let dim = evaluated_area.dim();
@@ -98,18 +98,19 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
         evaluated_area = crate::layout::apply_anchor(
             evaluated_area,
             outer_area,
-            self.props.anchor().resolve(dpi) * evaluated_area.dim(),
+            self.props.anchor().resolve(window.dpi) * evaluated_area.dim(),
         );
 
         Box::new(crate::layout::Concrete::new(
             Some(self.renderable.clone()),
             evaluated_area,
-            Rc::new(rtree::Node::new(
+            rtree::Node::new(
                 evaluated_area,
                 None,
                 Default::default(),
                 self.id.clone(),
-            )),
+                window,
+            ),
             Default::default(),
         ))
     }

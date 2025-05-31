@@ -4,7 +4,7 @@
 use crate::component::ComponentFrom;
 use crate::layout::{Desc, Layout, fixed};
 use crate::persist::{FnPersist, VectorMap};
-use crate::{SourceID, StateMachineChild, layout};
+use crate::{SourceID, layout};
 use derive_where::derive_where;
 use std::rc::Rc;
 
