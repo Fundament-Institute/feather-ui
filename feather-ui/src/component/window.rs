@@ -23,8 +23,16 @@ use winit::event::{DeviceId, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
 use winit::window::{CursorIcon, WindowAttributes};
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[repr(u8)]
+pub(crate) enum WindowNodeTrack {
+    Focus = 0,
+    Hover = 1,
+    Capture = 2,
+}
+
 /// Holds our internal mutable state for this window
-pub(crate) struct WindowState {
+pub struct WindowState {
     pub surface: wgpu::Surface<'static>, // Ensure surface get dropped before window
     pub window: Arc<winit::window::Window>,
     pub config: wgpu::SurfaceConfiguration,
@@ -36,16 +44,81 @@ pub(crate) struct WindowState {
     pub draw: im::Vector<RenderInstruction>,
     pub viewport: Rc<glyphon::Viewport>,
     pub atlas: Rc<RefCell<glyphon::TextAtlas>>,
-    pub focus: HashMap<DeviceId, RcNode>,
-    pub hover: HashMap<DeviceId, RcNode>,
-    pub capture: HashMap<DeviceId, Vec<RcNode>>,
+    trackers: [HashMap<DeviceId, RcNode>; 3],
+    lookup: HashMap<(Rc<SourceID>, u8), DeviceId>,
 }
 
-pub(crate) struct RcNode(pub(crate) Rc<Node>);
+impl WindowState {
+    pub(crate) fn nodes(&self, tracker: WindowNodeTrack) -> SmallVec<[Weak<Node>; 4]> {
+        self.trackers[tracker as usize]
+            .values()
+            .map(|RcNode(_, node)| node.clone())
+            .collect()
+    }
+
+    pub(crate) fn drain(&mut self, tracker: WindowNodeTrack) -> SmallVec<[Weak<Node>; 4]> {
+        self.trackers[tracker as usize]
+            .drain()
+            .map(|(_, RcNode(id, v))| {
+                self.lookup.remove(&(id, tracker as u8));
+                v
+            })
+            .collect()
+    }
+
+    pub(crate) fn set(
+        &mut self,
+        tracker: WindowNodeTrack,
+        device_id: DeviceId,
+        id: Rc<SourceID>,
+        node: Weak<Node>,
+    ) -> Option<Weak<Node>> {
+        let n = self.trackers[tracker as usize]
+            .insert(device_id, RcNode(id.clone(), node))
+            .map(|RcNode(id, v)| {
+                self.lookup.remove(&(id, tracker as u8));
+                v
+            });
+
+        self.lookup.insert((id, tracker as u8), device_id);
+        n
+    }
+
+    pub(crate) fn remove(
+        &mut self,
+        tracker: WindowNodeTrack,
+        device_id: &DeviceId,
+    ) -> Option<Weak<Node>> {
+        self.trackers[tracker as usize]
+            .remove(device_id)
+            .map(|RcNode(id, v)| {
+                self.lookup.remove(&(id, tracker as u8));
+                v
+            })
+    }
+
+    pub(crate) fn get(&self, tracker: WindowNodeTrack, device_id: &DeviceId) -> Option<Weak<Node>> {
+        self.trackers[tracker as usize]
+            .get(device_id)
+            .map(|RcNode(_, v)| v.clone())
+    }
+
+    pub(crate) fn update_node(&mut self, id: Rc<SourceID>, node: Weak<Node>) {
+        for i in 0..self.trackers.len() {
+            if let Some(device) = self.lookup.get(&(id.clone(), i as u8)) {
+                if let Some(RcNode(_, n)) = self.trackers[i].get_mut(device) {
+                    *n = node.clone();
+                }
+            }
+        }
+    }
+}
+
+pub(crate) struct RcNode(Rc<SourceID>, pub(crate) Weak<Node>);
 
 impl PartialEq for RcNode {
     fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.0, &other.0)
+        self.0 == other.0
     }
 }
 
@@ -57,9 +130,11 @@ impl PartialEq for WindowState {
             && self.all_buttons == other.all_buttons
             && self.modifiers == other.modifiers
             && self.last_mouse == other.last_mouse
-            && self.focus == other.focus
             && self.dpi == other.dpi
             && Arc::ptr_eq(&self.driver, &other.driver)
+            && Rc::ptr_eq(&self.viewport, &other.viewport)
+            && Rc::ptr_eq(&self.atlas, &other.atlas)
+            && self.trackers == other.trackers
     }
 }
 
@@ -164,15 +239,14 @@ impl Window {
                 last_mouse: PhysicalPosition::new(f32::NAN, f32::NAN),
                 config,
                 dpi: Vec2::broadcast(window.scale_factor() as f32),
-                focus: HashMap::new(),
                 surface,
                 window,
                 driver: driver.clone(),
                 draw: im::Vector::new(),
                 atlas: Rc::new(RefCell::new(atlas)),
                 viewport: Rc::new(viewport),
-                hover: Default::default(),
-                capture: Default::default(),
+                trackers: Default::default(),
+                lookup: Default::default(),
             };
 
             Window::resize(size, &mut windowstate);
@@ -330,16 +404,11 @@ impl Window {
                 };
 
                 // We have to collect this map so we aren't borrowing manager twice
-                let nodes: SmallVec<[RcNode; 4]> = window
-                    .focus
-                    .values()
-                    .map(|node| RcNode(node.0.clone()))
-                    .collect();
+                let nodes: SmallVec<[Weak<Node>; 4]> = window.nodes(WindowNodeTrack::Focus);
 
-                for node in nodes {
-                    let _ = node
-                        .0
-                        .inject_event(&evt, evt.kind(), dpi, Vec2::zero(), manager);
+                for node in nodes.iter().filter_map(|x| x.upgrade()) {
+                    let _ =
+                        node.inject_event(&evt, evt.kind(), dpi, Vec2::zero(), id.clone(), manager);
                 }
                 Ok(())
             }
@@ -405,7 +474,8 @@ impl Window {
 
                         // If the cursor enters and no buttons are pressed, ensure any captured state is reset
                         if window.all_buttons == 0 {
-                            let _ = window.capture.entry(device_id).and_modify(|x| x.clear());
+                            // No need to inject a mousemove event here, as MouseOn is already being sent.
+                            window.remove(WindowNodeTrack::Capture, &device_id);
                         }
                         RawEvent::MouseOn {
                             device_id,
@@ -417,13 +487,12 @@ impl Window {
                     }
                     WindowEvent::CursorLeft { device_id } => {
                         window.last_mouse = PhysicalPosition::new(f32::NAN, f32::NAN);
-                        let e = RawEvent::MouseOff {
+                        RawEvent::MouseOff {
                             device_id,
                             all_buttons: window.all_buttons,
                             modifiers: window.modifiers,
                             driver: driver.clone(),
-                        };
-                        e
+                        }
                     }
                     WindowEvent::MouseWheel {
                         device_id,
@@ -508,10 +577,13 @@ impl Window {
                     _ => return Err(()),
                 };
 
-                if let RawEvent::MouseMove { .. } = e {
-                    if let Some(d) = driver.upgrade() {
-                        *d.cursor.write() = CursorIcon::Default;
+                match e {
+                    RawEvent::MouseMove { .. } | RawEvent::MouseOn { .. } => {
+                        if let Some(d) = driver.upgrade() {
+                            *d.cursor.write() = CursorIcon::Default;
+                        }
                     }
+                    _ => (),
                 }
                 let r = match e {
                     RawEvent::Drag => Err(()),
@@ -521,19 +593,25 @@ impl Window {
                     | RawEvent::JoyOrientation { device_id: _, .. }
                     | RawEvent::Key { device_id: _, .. } => {
                         // We have to collect this map so we aren't borrowing manager twice
-                        let nodes: SmallVec<[RcNode; 4]> = window
-                            .focus
-                            .values()
-                            .map(|node| RcNode(node.0.clone()))
-                            .collect();
+                        let nodes: SmallVec<[Weak<Node>; 4]> = window.nodes(WindowNodeTrack::Focus);
 
                         // Currently, we always duplicate key/joystick events to all focused elements. Later, we may map specific
                         // keyboards to specific mouse input device IDs. We use a fold instead of any() to avoid short-circuiting.
                         if nodes.iter().fold(false, |ok, node| {
                             ok | node
-                                .0
-                                .inject_event(&e, e.kind(), dpi, Vec2::zero(), manager)
-                                .is_ok()
+                                .upgrade()
+                                .map(|n| {
+                                    n.inject_event(
+                                        &e,
+                                        e.kind(),
+                                        dpi,
+                                        Vec2::zero(),
+                                        id.clone(),
+                                        manager,
+                                    )
+                                    .is_ok()
+                                })
+                                .unwrap_or(false)
                         }) {
                             Ok(())
                         } else {
@@ -542,82 +620,91 @@ impl Window {
                     }
                     RawEvent::MouseOff { .. } => {
                         // We have to collect this map so we aren't borrowing manager twice
-                        let nodes: SmallVec<[RcNode; 4]> =
-                            window.hover.drain().map(|(_, v)| v).collect();
+                        let nodes: SmallVec<[Weak<Node>; 4]> = window.drain(WindowNodeTrack::Hover);
 
                         // Send a mouseoff event to all captures, but don't drain the captures so we have a chance to recover.
-                        let capture_nodes: SmallVec<[RcNode; 4]> = window
-                            .capture
-                            .values()
-                            .flat_map(|nodes| nodes.last().map(|x| RcNode(x.0.clone())))
-                            .collect();
+                        let capture_nodes: SmallVec<[Weak<Node>; 4]> =
+                            window.nodes(WindowNodeTrack::Capture);
 
-                        for node in nodes {
-                            let _ = node
-                                .0
-                                .inject_event(&e, e.kind(), dpi, Vec2::zero(), manager);
+                        for node in nodes.iter().filter_map(|x| x.upgrade()) {
+                            let _ = node.inject_event(
+                                &e,
+                                e.kind(),
+                                dpi,
+                                Vec2::zero(),
+                                id.clone(),
+                                manager,
+                            );
                         }
 
                         // While we could recover the offset here, we don't so we can be consistent about MouseOff not having offset.
-                        for node in capture_nodes {
-                            let _ = node
-                                .0
-                                .inject_event(&e, e.kind(), dpi, Vec2::zero(), manager);
+                        for node in capture_nodes.iter().filter_map(|x| x.upgrade()) {
+                            let _ = node.inject_event(
+                                &e,
+                                e.kind(),
+                                dpi,
+                                Vec2::zero(),
+                                id.clone(),
+                                manager,
+                            );
                         }
 
                         Ok(())
                     }
-                    RawEvent::Mouse { device_id, pos, .. }
-                    | RawEvent::MouseOn { device_id, pos, .. }
-                    | RawEvent::MouseMove { device_id, pos, .. }
-                    | RawEvent::Drop { device_id, pos, .. }
-                    | RawEvent::MouseScroll { device_id, pos, .. } => {
-                        if let Some((node, list)) =
-                            window.capture.get(&device_id).and_then(|x| x.split_first())
-                        {
-                            let offset = Node::offset(list);
-                            return node
-                                .0
-                                .clone()
-                                .inject_event(&e, e.kind(), dpi, offset, manager);
-                        }
-
-                        if let Some(rt) = rtree.upgrade() {
-                            rt.process(
-                                &e,
-                                e.kind(),
-                                Vec2::new(pos.x, pos.y),
-                                Vec2::zero(),
-                                dpi,
-                                manager,
-                                id.clone(),
-                                None,
-                            )
-                        } else {
-                            Err(())
-                        }
+                    RawEvent::Mouse {
+                        device_id,
+                        pos: PhysicalPosition { x, y },
+                        ..
                     }
-                    RawEvent::Touch { device_id, pos, .. } => {
-                        if let Some((node, list)) =
-                            window.capture.get(&device_id).and_then(|x| x.split_first())
+                    | RawEvent::MouseOn {
+                        device_id,
+                        pos: PhysicalPosition { x, y },
+                        ..
+                    }
+                    | RawEvent::MouseMove {
+                        device_id,
+                        pos: PhysicalPosition { x, y },
+                        ..
+                    }
+                    | RawEvent::Drop {
+                        device_id,
+                        pos: PhysicalPosition { x, y },
+                        ..
+                    }
+                    | RawEvent::MouseScroll {
+                        device_id,
+                        pos: PhysicalPosition { x, y },
+                        ..
+                    }
+                    | RawEvent::Touch {
+                        device_id,
+                        pos: ultraviolet::Vec3 { x, y, z: _ },
+                        ..
+                    } => {
+                        if let Some(node) = window
+                            .get(WindowNodeTrack::Capture, &device_id)
+                            .and_then(|x| x.upgrade())
                         {
-                            let offset = Node::offset(list);
-                            return node
-                                .0
-                                .clone()
-                                .inject_event(&e, e.kind(), dpi, offset, manager);
+                            let offset = Node::offset(node.clone());
+                            return node.clone().inject_event(
+                                &e,
+                                e.kind(),
+                                dpi,
+                                offset,
+                                id.clone(),
+                                manager,
+                            );
                         }
 
                         if let Some(rt) = rtree.upgrade() {
                             rt.process(
                                 &e,
                                 e.kind(),
-                                pos.xy(),
+                                Vec2::new(x, y),
                                 Vec2::zero(),
                                 dpi,
                                 manager,
                                 id.clone(),
-                                None,
                             )
                         } else {
                             Err(())
@@ -647,15 +734,16 @@ impl Window {
                             };
 
                             // Drain() holds a reference, so we still have to collect these to avoid borrowing manager twice
-                            let nodes: SmallVec<[RcNode; 4]> =
-                                window.hover.drain().map(|(_, v)| v).collect();
+                            let nodes: SmallVec<[Weak<Node>; 4]> =
+                                window.drain(WindowNodeTrack::Hover);
 
-                            for node in nodes {
-                                let _ = node.0.inject_event(
+                            for node in nodes.iter().filter_map(|x| x.upgrade()) {
+                                let _ = node.inject_event(
                                     &evt,
                                     evt.kind(),
                                     dpi,
                                     Vec2::zero(),
+                                    id.clone(),
                                     manager,
                                 );
                             }
@@ -686,15 +774,16 @@ impl Window {
                             };
 
                             // Drain() holds a reference, so we still have to collect these to avoid borrowing manager twice
-                            let nodes: SmallVec<[RcNode; 4]> =
-                                window.focus.drain().map(|(_, v)| v).collect();
+                            let nodes: SmallVec<[Weak<Node>; 4]> =
+                                window.drain(WindowNodeTrack::Focus);
 
-                            for node in nodes {
-                                let _ = node.0.inject_event(
+                            for node in nodes.iter().filter_map(|x| x.upgrade()) {
+                                let _ = node.inject_event(
                                     &evt,
                                     evt.kind(),
                                     dpi,
                                     Vec2::zero(),
+                                    id.clone(),
                                     manager,
                                 );
                             }

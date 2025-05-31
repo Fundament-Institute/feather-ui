@@ -354,17 +354,13 @@ pub fn state_machine_child(input: TokenStream) -> TokenStream {
     let generics = ast.generics.type_params().next().unwrap();
     let genparams = &generics.ident;
 
-    let has_children = data
-        .fields
-        .members()
-        .find(|x| {
-            if let syn::Member::Named(f) = x {
-                f.to_string() == "children"
-            } else {
-                false
-            }
-        })
-        .is_some();
+    let has_children = data.fields.members().any(|x| {
+        if let syn::Member::Named(f) = x {
+            f == "children"
+        } else {
+            false
+        }
+    });
 
     let apply_children = if has_children {
         quote! {

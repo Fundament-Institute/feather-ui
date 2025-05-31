@@ -292,7 +292,7 @@ impl Root {
     pub fn stage_all(&mut self, states: &mut StateManager) -> eyre::Result<()> {
         for (_, window) in self.children.iter() {
             let window = window.as_ref().unwrap();
-            let state: &WindowStateMachine = states.get(&window.id())?;
+            let state: &mut WindowStateMachine = states.get_mut(&window.id())?;
             let id = state.state.as_ref().unwrap().window.id();
             let root = self
                 .states
@@ -303,8 +303,7 @@ impl Root {
                 let staging = layout.stage(
                     Default::default(),
                     DEFAULT_LIMITS,
-                    state.state.as_ref().unwrap().dpi,
-                    &state.state.as_ref().unwrap().driver,
+                    state.state.as_mut().unwrap(),
                 );
                 root.rtree = staging.get_rtree();
                 root.staging = Some(staging);

@@ -44,12 +44,11 @@ impl Desc for dyn Prop {
         children: &Self::Children,
         id: std::rc::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
-        dpi: crate::Vec2,
-        driver: &crate::DriverState,
+        window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
-        let mut limits = outer_limits + props.limits().resolve(dpi);
-        let padding = props.padding().resolve(dpi);
-        let myarea = props.area().resolve(dpi);
+        let mut limits = outer_limits + props.limits().resolve(window.dpi);
+        let padding = props.padding().resolve(window.dpi);
+        let myarea = props.area().resolve(window.dpi);
         let (unsized_x, unsized_y) = check_unsized(myarea);
         let allpadding = padding.topleft() + padding.bottomright();
         let minmax = limits.0.as_array_mut();
@@ -75,7 +74,7 @@ impl Desc for dyn Prop {
         };
 
         let (outer_column, outer_row) = swap_axis(yaxis, outer_safe.dim().0);
-        let (dpi_column, dpi_row) = swap_axis(yaxis, dpi);
+        let (dpi_column, dpi_row) = swap_axis(yaxis, window.dpi);
 
         let spacing = props.spacing().resolve(Vec2::new(dpi_row, dpi_column))
             * crate::AbsDim(Vec2::new(outer_row, outer_column));
@@ -113,11 +112,10 @@ impl Desc for dyn Prop {
                         let (w, h) = swap_axis(yaxis, Vec2::new(columns[column], rows[row]));
                         let child_area = AbsRect::new(0.0, 0.0, w, h);
 
-                        let stage =
-                            child
-                                .as_ref()
-                                .unwrap()
-                                .stage(child_area, child_limit, dpi, driver);
+                        let stage = child
+                            .as_ref()
+                            .unwrap()
+                            .stage(child_area, child_limit, window);
                         let area = stage.get_area();
                         let (c, r) = swap_axis(yaxis, area.dim().0);
                         maxrows[row] = maxrows[row].max(r);
@@ -171,7 +169,7 @@ impl Desc for dyn Prop {
                 let stage = child
                     .as_ref()
                     .unwrap()
-                    .stage(child_area, child_limit, dpi, driver);
+                    .stage(child_area, child_limit, window);
                 if let Some(node) = stage.get_rtree().upgrade() {
                     nodes.push_back(Some(node));
                 }
@@ -183,14 +181,14 @@ impl Desc for dyn Prop {
                 super::limit_area(area * outer_safe, limits).0 + (padding.0 * MINUS_BOTTOMRIGHT),
             );
 
-            let anchor = props.anchor().resolve(dpi) * evaluated_area.dim();
+            let anchor = props.anchor().resolve(window.dpi) * evaluated_area.dim();
             evaluated_area - anchor
         });
 
         Box::new(Concrete {
             area: evaluated_area,
             render: renderable,
-            rtree: Rc::new(rtree::Node::new(evaluated_area, None, nodes, id)),
+            rtree: rtree::Node::new(evaluated_area, None, nodes, id, window),
             children: staging,
         })
     }

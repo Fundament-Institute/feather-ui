@@ -93,11 +93,7 @@ impl<T: leaf::Prop + 'static> crate::StateMachineChild for MouseArea<T> {
                         }
                         RawEvent::MouseOn { all_buttons, .. }
                         | RawEvent::MouseOff { all_buttons, .. } => {
-                            data.hover = if let RawEvent::MouseOff { .. } = e {
-                                true
-                            } else {
-                                false
-                            };
+                            data.hover = matches!(e, RawEvent::MouseOff { .. });
                             let hover = Self::hover_event(all_buttons, data.hover);
                             return Ok((data, vec![hover]));
                         }
@@ -126,6 +122,7 @@ impl<T: leaf::Prop + 'static> crate::StateMachineChild for MouseArea<T> {
                                         _ => panic!("Impossible number"),
                                     };
                                     if *drag {
+                                        *last_pos = pos;
                                         return Ok((
                                             data,
                                             vec![hover, MouseAreaEvent::OnDrag(b, diff / dpi)],
@@ -154,7 +151,7 @@ impl<T: leaf::Prop + 'static> crate::StateMachineChild for MouseArea<T> {
                                     }
                                 }
                                 MouseState::Up => {
-                                    if let Some((_, drag)) =
+                                    if let Some((last_pos, drag)) =
                                         data.lastdown.remove(&(device_id, button as u64))
                                     {
                                         if area.contains(pos) {
@@ -162,7 +159,8 @@ impl<T: leaf::Prop + 'static> crate::StateMachineChild for MouseArea<T> {
                                                 data,
                                                 vec![
                                                     if drag {
-                                                        MouseAreaEvent::OnDrag(button, pos / dpi)
+                                                        let diff = pos - last_pos;
+                                                        MouseAreaEvent::OnDrag(button, diff / dpi)
                                                     } else {
                                                         MouseAreaEvent::OnClick(button, pos / dpi)
                                                     },
@@ -173,7 +171,7 @@ impl<T: leaf::Prop + 'static> crate::StateMachineChild for MouseArea<T> {
                                     }
                                 }
                                 MouseState::DblClick => {
-                                    if let Some((_, drag)) =
+                                    if let Some((last_pos, drag)) =
                                         data.lastdown.remove(&(device_id, button as u64))
                                     {
                                         if area.contains(pos) {
@@ -190,7 +188,18 @@ impl<T: leaf::Prop + 'static> crate::StateMachineChild for MouseArea<T> {
                                                     ]
                                                 } else {
                                                     vec![
-                                                        MouseAreaEvent::OnDrag(button, pos / dpi),
+                                                        if drag {
+                                                            let diff = pos - last_pos;
+                                                            MouseAreaEvent::OnDrag(
+                                                                button,
+                                                                diff / dpi,
+                                                            )
+                                                        } else {
+                                                            MouseAreaEvent::OnClick(
+                                                                button,
+                                                                pos / dpi,
+                                                            )
+                                                        },
                                                         hover,
                                                     ]
                                                 },
@@ -273,7 +282,10 @@ impl<T: leaf::Prop + 'static> crate::StateMachineChild for MouseArea<T> {
         Ok(Box::new(StateMachine {
             state: Some(Default::default()),
             input: [(
-                RawEventKind::Mouse as u64 | RawEventKind::Touch as u64 | RawEventKind::Key as u64,
+                RawEventKind::Mouse as u64
+                    | RawEventKind::MouseMove as u64
+                    | RawEventKind::Touch as u64
+                    | RawEventKind::Key as u64,
                 oninput,
             )],
             output: self.slots.clone(),
@@ -300,3 +312,5 @@ where
         })
     }
 }
+
+crate::gen_component_wrap!(MouseArea, leaf::Prop);
