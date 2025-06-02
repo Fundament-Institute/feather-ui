@@ -35,6 +35,7 @@ use std::sync::Arc;
 use ultraviolet::f32x4;
 use ultraviolet::vec::Vec2;
 use wide::CmpLe;
+use winit::error::OsError;
 use winit::window::{CursorIcon, WindowId};
 
 /// Allocates `&[T]` on stack space.
@@ -1303,7 +1304,19 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
         #[cfg(not(target_os = "windows"))]
         let event_loop = winit::event_loop::EventLoop::with_user_event()
             .with_any_thread(any_thread)
-            .build()?;
+            .build()
+            .map_err(|e| {
+                if e.to_string()
+                    .eq_ignore_ascii_case("Could not find wayland compositor")
+                {
+                    eyre::eyre!(
+                        "Wayland initialization failed! winit cannot automatically fall back to X11 (). Try running the program with `WAYLAND_DISPLAY=\"\"`"
+                    )
+                } else {
+                    e.into()
+                }
+            })?;
+
         let mut manager: StateManager = Default::default();
         manager.init(
             Rc::new(APP_SOURCE_ID),
