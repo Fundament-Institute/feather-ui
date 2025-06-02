@@ -32,7 +32,11 @@ impl flex::Child for MinimalFlexChild {
     }
 
     fn basis(&self) -> crate::DValue {
-        UNSIZED_AXIS.into()
+        crate::DValue {
+            dp: 0.0,
+            px: 0.0,
+            rel: UNSIZED_AXIS,
+        }
     }
 }
 

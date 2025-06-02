@@ -314,6 +314,12 @@ impl Desc for dyn Prop {
 
             let child_limit = super::apply_limit(inner_dim, limits, *imposed.rlimits());
             let basis = imposed.basis().resolve(dpi_main).resolve(outer_main);
+
+            assert!(
+                basis.is_finite(),
+                "Basis can be unsized, but never infinite!"
+            );
+
             let inner_area = AbsRect::corners(
                 Vec2::zero(),
                 if xaxis {
@@ -557,7 +563,6 @@ impl Desc for dyn Prop {
 
                 area = cap_unsized(area);
                 area.set_topleft(Vec2::min_by_component(area.topleft(), area.bottomright()));
-
                 // If our axis is swapped, swap the rectangle axis
                 if !xaxis {
                     std::mem::swap(&mut area.topleft().x, &mut area.topleft().y);
