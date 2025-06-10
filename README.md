@@ -12,6 +12,10 @@ Feather is a standard rust project, simply run `cargo build` on your platform of
 
 Two working examples are available: `basic-rs` and `paragraph-rs`. To run either, navigate into the folder and run `cargo run`.
 
+If you are on NixOS, use `nix run github:Fundament-Software/feathergui#basic-rs` or `nix run github:Fundament-Software/feathergui#paragraph-rs`  
+If you are not on nixos but have nix, use `nix run --impure github:nix-community/nixGL -- nix run github:fundament-software/feathergui#basic-rs`  
+If you do not have nix, you must navigate into the relevant example folder and run `cargo run`
+
 The examples have currently only been tested on NixOS and Windows 11, but should work on most systems.
 
 ## Funding
