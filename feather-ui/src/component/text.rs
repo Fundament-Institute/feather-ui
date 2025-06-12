@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
+use crate::graphics::point_to_pixel;
 use crate::layout::{self, Layout, leaf};
-use crate::{DriverState, SourceID, WindowStateMachine, point_to_pixel};
+use crate::{SourceID, WindowStateMachine, graphics};
 use derive_where::derive_where;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -46,14 +47,14 @@ where
     fn layout(
         &self,
         state: &crate::StateManager,
-        driver: &DriverState,
+        graphics: &graphics::State,
         window: &Rc<SourceID>,
         _: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let winstate: &WindowStateMachine = state.get(window).unwrap();
         let winstate = winstate.state.as_ref().expect("No window state available");
         let dpi = winstate.dpi;
-        let mut font_system = driver.font_system.write();
+        let mut font_system = graphics.font_system.write();
         let mut text_buffer = glyphon::Buffer::new(
             &mut font_system,
             glyphon::Metrics::new(
@@ -74,21 +75,11 @@ where
             glyphon::Shaping::Advanced,
         );
 
-        let renderer = glyphon::TextRenderer::new(
-            &mut winstate.atlas.borrow_mut(),
-            &driver.device,
-            wgpu::MultisampleState::default(),
-            None,
-        );
-
-        let render = Rc::new_cyclic(|this| crate::render::text::Pipeline {
-            this: this.clone(),
+        let render = Rc::new(crate::render::text::Instance {
             text_buffer: Rc::new(RefCell::new(Some(text_buffer))),
-            renderer: renderer.into(),
             padding: self.props.padding().resolve(dpi).into(),
-            atlas: winstate.atlas.clone(),
-            viewport: winstate.viewport.clone(),
         });
+
         Box::new(layout::text::Node::<T> {
             props: self.props.clone(),
             id: Rc::downgrade(&self.id),

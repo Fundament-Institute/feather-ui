@@ -21,13 +21,13 @@ impl<T: list::Prop + 'static> super::Component<T> for ListBox<T> {
     fn layout(
         &self,
         state: &crate::StateManager,
-        driver: &crate::DriverState,
+        graphics: &crate::graphics::State,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let map = VectorMap::new(
             |child: &Option<Box<ComponentFrom<dyn list::Prop>>>| -> Option<Box<dyn Layout<<dyn list::Prop as Desc>::Child>>> {
-                Some(child.as_ref().unwrap().layout(state, driver,window, config))
+                Some(child.as_ref().unwrap().layout(state, graphics,window, config))
             },
         );
 

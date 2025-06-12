@@ -43,7 +43,7 @@ impl Desc for dyn Prop {
 
         Box::new(Concrete {
             area: outer_area,
-            render: Some(Rc::new(render::domain::Write {
+            renderable: Some(Rc::new(render::domain::Write {
                 id: id.clone(),
                 domain: props.domain().clone(),
                 base: renderable,

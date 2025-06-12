@@ -4,6 +4,7 @@
 extern crate alloc;
 
 pub mod component;
+pub mod graphics;
 pub mod input;
 pub mod layout;
 pub mod lua;
@@ -15,6 +16,7 @@ mod shaders;
 pub mod text;
 
 use crate::component::window::Window;
+use bytemuck::NoUninit;
 use component::window::WindowStateMachine;
 use component::{Component, StateMachineWrapper};
 use core::f32;
@@ -67,6 +69,12 @@ macro_rules! gen_id {
     ($idx:expr) => {
         $idx.child($crate::DataID::Named(concat!(file!(), ":", line!())))
     };
+    ($idx:expr, $i:expr) => {
+        $idx.child(
+            $crate::DataID::Named(concat!(file!(), ":", line!()))
+                .child($crate::DataID::Int($i as i64)),
+        )
+    };
 }
 
 use std::any::TypeId;
@@ -101,6 +109,8 @@ impl From<AbsDim> for Vec2 {
 pub struct AbsRect(f32x4);
 
 pub const ZERO_RECT: AbsRect = AbsRect(f32x4::ZERO);
+
+unsafe impl NoUninit for AbsRect {}
 
 impl AbsRect {
     #[inline]
@@ -875,39 +885,9 @@ impl CrossReferenceDomain {
     }
 }
 
-pub trait RenderLambda: Fn(&mut wgpu::RenderPass) + dyn_clone::DynClone {}
-impl<T: Fn(&mut wgpu::RenderPass) + ?Sized + dyn_clone::DynClone> RenderLambda for T {}
-dyn_clone::clone_trait_object!(RenderLambda);
-
-// TODO: This only an Option so it can be zeroed. After fixing im::Vector, remove Option.
-type RenderInstruction = Option<Box<dyn RenderLambda>>;
-
-// Points are specified as 72 per inch, and a scale factor of 1.0 corresponds to 96 DPI, so we multiply by the
-// ratio times the scaling factor.
-#[inline]
-fn point_to_pixel(pt: f32, scale_factor: f32) -> f32 {
-    pt * (72.0 / 96.0) * scale_factor // * text_scale_factor
+fn vec4_to_u32(v: &ultraviolet::Vec4) -> u32 {
+    u32::from_be_bytes(v.as_array().map(|x| (x * 255.0).round() as u8))
 }
-
-#[inline]
-fn pixel_to_vec(p: winit::dpi::PhysicalPosition<f32>) -> Vec2 {
-    Vec2::new(p.x, p.y)
-}
-
-// We want to share our device/adapter state across windows, but can't create it until we have at least one window,
-// so we store a weak reference to it in App and if all windows are dropped it'll also drop these, which is usually
-// sensible behavior.
-#[derive(Debug)]
-pub struct DriverState {
-    adapter: wgpu::Adapter,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    shader_cache: RwLock<ShaderCache>,
-    swash_cache: RwLock<glyphon::SwashCache>,
-    font_system: RwLock<glyphon::FontSystem>,
-    cursor: RwLock<CursorIcon>, // This is a convenient place to track our global expected cursor
-}
-static_assertions::assert_impl_all!(DriverState: Send, Sync);
 
 /// Object-safe version of Hash + PartialEq
 pub trait DynHashEq: DynClone {
@@ -1225,7 +1205,7 @@ pub struct App<
     O: FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>,
 > {
     pub instance: wgpu::Instance,
-    pub driver: std::sync::Weak<DriverState>,
+    pub graphics: std::sync::Weak<graphics::State>,
     state: StateManager,
     store: Option<O::Store>,
     outline: O,
@@ -1329,7 +1309,7 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
         Ok((
             Self {
                 instance: wgpu::Instance::default(),
-                driver: std::sync::Weak::<DriverState>::new(),
+                graphics: std::sync::Weak::<graphics::State>::new(),
                 store: None,
                 outline,
                 state: manager,
@@ -1340,63 +1320,20 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
         ))
     }
 
-    pub async fn create_driver(
-        weak: &mut alloc::sync::Weak<DriverState>,
-        instance: &wgpu::Instance,
-        surface: &wgpu::Surface<'static>,
-    ) -> eyre::Result<Arc<DriverState>> {
-        if let Some(driver) = weak.upgrade() {
-            return Ok(driver);
-        }
-
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                compatible_surface: Some(surface),
-                ..Default::default()
-            })
-            .await?;
-
-        // Create the logical device and command queue
-        let (device, queue) = adapter
-            .request_device(&wgpu::DeviceDescriptor {
-                label: Some("Feather UI wgpu Device"),
-                required_features: wgpu::Features::empty(),
-                required_limits: wgpu::Limits::default(),
-                memory_hints: wgpu::MemoryHints::MemoryUsage,
-                trace: wgpu::Trace::Off,
-            })
-            .await?;
-
-        let shader_cache = ShaderCache::new(&device);
-
-        let driver = Arc::new(crate::DriverState {
-            adapter,
-            device,
-            queue,
-            swash_cache: RwLock::new(glyphon::SwashCache::new()),
-            font_system: RwLock::new(glyphon::FontSystem::new()),
-            shader_cache: RwLock::new(shader_cache),
-            cursor: RwLock::new(CursorIcon::Default),
-        });
-
-        *weak = Arc::downgrade(&driver);
-        Ok(driver)
-    }
-
     fn update_outline(&mut self, event_loop: &winit::event_loop::ActiveEventLoop, store: O::Store) {
         let app_state: &AppDataMachine<AppData> = self.state.get(&APP_SOURCE_ID).unwrap();
         let (store, windows) = self.outline.call(store, app_state.state.as_ref().unwrap());
         self.store.replace(store);
         self.root.children = windows;
 
-        let (root, manager, driver, instance) = (
+        let (root, manager, graphics, instance) = (
             &mut self.root,
             &mut self.state,
-            &mut self.driver,
+            &mut self.graphics,
             &mut self.instance,
         );
 
-        root.layout_all::<AppData, O>(manager, driver, instance, event_loop)
+        root.layout_all::<AppData, O>(manager, graphics, instance, event_loop)
             .unwrap();
 
         root.stage_all(manager).unwrap();
@@ -1435,17 +1372,20 @@ impl<
                         rtree,
                         event,
                         &mut self.state,
-                        self.driver.clone(),
+                        self.graphics.clone(),
                     )
                     .inspect_err(|_| {
                         delete = Some(window.id());
                     }),
                     winit::event::WindowEvent::RedrawRequested => {
                         if let Ok(state) = self.state.get_mut::<WindowStateMachine>(&window.id()) {
-                            if let Some(driver) = self.driver.upgrade() {
+                            if let Some(graphics) = self.graphics.upgrade() {
                                 if let Some(staging) = root.staging.as_ref() {
-                                    state.state.as_mut().unwrap().draw =
-                                        staging.render(Vec2::zero(), &driver);
+                                    staging.render(
+                                        Vec2::zero(),
+                                        &graphics,
+                                        &mut state.state.as_mut().unwrap().compositor,
+                                    );
                                 }
                             }
                         }
@@ -1454,7 +1394,7 @@ impl<
                             rtree,
                             event,
                             &mut self.state,
-                            self.driver.clone(),
+                            self.graphics.clone(),
                         )
                     }
                     winit::event::WindowEvent::Resized(_) => {
@@ -1464,7 +1404,7 @@ impl<
                             rtree,
                             event,
                             &mut self.state,
-                            self.driver.clone(),
+                            self.graphics.clone(),
                         )
                     }
                     _ => Window::on_window_event(
@@ -1472,7 +1412,7 @@ impl<
                         rtree,
                         event,
                         &mut self.state,
-                        self.driver.clone(),
+                        self.graphics.clone(),
                     ),
                 };
 
@@ -1523,6 +1463,7 @@ impl FnPersist<u8, im::HashMap<Rc<SourceID>, Option<Window>>> for TestApp {
         let rect = Shape::<DRect>::round_rect(
             gen_id!().into(),
             crate::FILL_DRECT.into(),
+            Vec2::one(),
             0.0,
             0.0,
             Vec4::zero(),

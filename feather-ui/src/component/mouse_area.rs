@@ -5,7 +5,7 @@ use super::StateMachine;
 use crate::component::Layout;
 use crate::input::{MouseButton, MouseState, RawEvent, RawEventKind};
 use crate::layout::leaf;
-use crate::{Dispatchable, Slot, SourceID, layout, pixel_to_vec};
+use crate::{Dispatchable, Slot, SourceID, layout};
 use derive_where::derive_where;
 use enum_variant_type::EnumVariantType;
 use feather_macro::Dispatch;
@@ -104,7 +104,7 @@ impl<T: leaf::Prop + 'static> crate::StateMachineChild for MouseArea<T> {
                             ..
                         } => {
                             let hover = Self::hover_event(all_buttons, data.hover);
-                            let pos = crate::pixel_to_vec(pos);
+                            let pos = crate::graphics::pixel_to_vec(pos);
                             for i in 0..5 {
                                 if let Some((last_pos, drag)) =
                                     data.lastdown.get_mut(&(device_id, (1 << i)))
@@ -140,7 +140,7 @@ impl<T: leaf::Prop + 'static> crate::StateMachineChild for MouseArea<T> {
                             button,
                             ..
                         } => {
-                            let pos = pixel_to_vec(pos);
+                            let pos = crate::graphics::pixel_to_vec(pos);
                             let hover = Self::hover_event(button as u16, data.hover);
                             match state {
                                 MouseState::Down => {
@@ -300,7 +300,7 @@ where
     fn layout(
         &self,
         _: &crate::StateManager,
-        _: &crate::DriverState,
+        _: &crate::graphics::State,
         _: &Rc<SourceID>,
         _: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T> + 'static> {

@@ -2,10 +2,11 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::StateMachine;
+use crate::graphics::point_to_pixel;
 use crate::input::{ModifierKeys, MouseButton, MouseState, RawEvent, RawEventKind};
 use crate::layout::{Layout, base, leaf};
 use crate::text::EditObj;
-use crate::{SourceID, WindowStateMachine, layout, point_to_pixel, render};
+use crate::{SourceID, WindowStateMachine, layout, render, vec4_to_u32};
 use derive_where::derive_where;
 use enum_variant_type::EnumVariantType;
 use feather_macro::Dispatch;
@@ -447,8 +448,8 @@ impl<T: Prop + 'static> crate::StateMachineChild for TextBox<T> {
                         }
                         _ => (),
                     },
-                    RawEvent::MouseMove { driver, .. } => {
-                        if let Some(d) = driver.upgrade() {
+                    RawEvent::MouseMove { graphics, .. } => {
+                        if let Some(d) = graphics.upgrade() {
                             *d.cursor.write() = winit::window::CursorIcon::Text;
                         }
                         return Ok((data, vec![]));
@@ -502,14 +503,14 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
     fn layout(
         &self,
         state: &crate::StateManager,
-        driver: &crate::DriverState,
+        graphics: &crate::graphics::State,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let winstate: &WindowStateMachine = state.get(window).unwrap();
         let winstate = winstate.state.as_ref().expect("No window state available");
         let dpi = winstate.dpi;
-        let mut font_system = driver.font_system.write();
+        let mut font_system = graphics.font_system.write();
 
         let textstate: &StateMachine<TextBoxEvent, TextBoxState, 1, 3> =
             state.get(&self.id).unwrap();
@@ -546,38 +547,29 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
             glyphon::Shaping::Advanced,
         );
 
-        let renderer = glyphon::TextRenderer::new(
-            &mut winstate.atlas.borrow_mut(),
-            &driver.device,
-            wgpu::MultisampleState::default(),
-            None,
-        );
-
-        let textrender = Rc::new_cyclic(|this| render::text::Pipeline {
-            this: this.clone(),
+        let textrender = Rc::new(render::text::Instance {
             text_buffer: textstate.buffer.clone(),
-            renderer: renderer.into(),
             padding: self.props.padding().resolve(dpi).into(),
-            atlas: winstate.atlas.clone(),
-            viewport: winstate.viewport.clone(),
         });
 
-        let line = super::line::build_pipeline(
-            driver,
-            config,
-            (Vec2::zero(), Vec2::zero()),
-            if textstate.focused {
-                self.color.as_rgba().map(|x| x as f32).into()
-            } else {
-                ultraviolet::Vec4::zero()
-            },
-        );
+        let color = if textstate.focused {
+            self.color.as_rgba().map(|x| x as f32).into()
+        } else {
+            ultraviolet::Vec4::zero()
+        };
+
+        let line = render::line::Instance {
+            start: Vec2::zero().into(),
+            end: Vec2::zero().into(),
+            color: vec4_to_u32(&color),
+        };
 
         let pipeline = Pipeline {
             text: textrender.clone(),
-            line,
+            line: line.into(),
             cursor: self.props.textedit().obj.get_cursor().1,
         };
+
         Box::new(layout::text::Node::<T> {
             props: self.props.clone(),
             id: Rc::downgrade(&self.id),
@@ -590,8 +582,8 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
 crate::gen_component_wrap!(TextBox, Prop);
 
 pub struct Pipeline {
-    pub text: Rc<render::text::Pipeline>,
-    pub line: Rc<render::line::Pipeline>,
+    pub text: Rc<render::text::Instance>,
+    pub line: Rc<render::line::Instance>,
     pub cursor: usize,
 }
 
@@ -599,8 +591,9 @@ impl crate::render::Renderable for Pipeline {
     fn render(
         &self,
         area: crate::AbsRect,
-        driver: &crate::DriverState,
-    ) -> im::Vector<crate::RenderInstruction> {
+        graphics: &crate::graphics::State,
+        compositor: &mut crate::render::compositor::Compositor,
+    ) {
         let mut offset = self.cursor;
         let buffer = self.text.text_buffer.borrow();
         let mut pos = self.text.padding.get().topleft();
@@ -629,11 +622,9 @@ impl crate::render::Renderable for Pipeline {
         }
 
         // TODO: current line pipeline ignores area
-        *self.line.pos.borrow_mut() = (
-            Vec2::new(pos.x, pos.y) + area.topleft(),
-            Vec2::new(pos.x, pos.y + cursor_height) + area.topleft(),
-        );
-        let chain: [Rc<dyn crate::render::Renderable>; 2] = [self.text.clone(), self.line.clone()];
-        chain.iter().flat_map(|x| x.render(area, driver)).collect()
+        *self.line.start.borrow_mut() = Vec2::new(pos.x, pos.y) + area.topleft();
+        *self.line.end.borrow_mut() = Vec2::new(pos.x, pos.y + cursor_height) + area.topleft();
+        self.text.render(area, graphics, compositor);
+        self.line.render(area, graphics, compositor);
     }
 }
