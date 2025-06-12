@@ -4,64 +4,279 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use glyphon::Viewport;
+use cosmic_text::{CacheKey, FontSystem, SwashCache, SwashContent};
+use guillotiere::Size;
+use ultraviolet::Vec2;
+use wgpu::Extent3d;
+use wgpu::Origin3d;
+use wgpu::TexelCopyBufferLayout;
+use wgpu::TexelCopyTextureInfo;
 
-use crate::{AbsRect, RenderLambda};
+use crate::graphics::GlyphCache;
+use crate::render::Pipeline;
+use crate::render::compositor::Compositor;
+use crate::{AbsRect, render::atlas::Atlas};
 
-pub struct Pipeline {
-    pub this: std::rc::Weak<Pipeline>,
-    pub renderer: RefCell<glyphon::TextRenderer>,
-    pub text_buffer: Rc<RefCell<Option<glyphon::Buffer>>>,
+pub struct Instance {
+    pub text_buffer: Rc<RefCell<Option<cosmic_text::Buffer>>>,
     pub padding: std::cell::Cell<AbsRect>,
-    pub atlas: Rc<RefCell<glyphon::TextAtlas>>,
-    pub viewport: Rc<RefCell<Viewport>>,
 }
 
-impl super::Renderable for Pipeline {
+impl Instance {
+    fn get_glyph(key: CacheKey, glyphs: &GlyphCache) -> Option<&super::atlas::Region> {
+        glyphs.get(&key)
+    }
+
+    pub fn write_glyph<'a>(
+        key: CacheKey,
+        font_system: &mut FontSystem,
+        glyphs: &'a mut GlyphCache,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        atlas: &mut Atlas,
+        cache: &mut SwashCache,
+    ) -> eyre::Result<super::atlas::Region> {
+        if let Some(r) = glyphs.get(&key) {
+            return Ok(r.clone());
+        }
+        let Some(mut image) = cache.get_image_uncached(font_system, key) else {
+            return Err(eyre::eyre!("Failed to get glyph image!"));
+        };
+
+        // Find a position in the packer
+        let region = atlas.reserve(
+            device,
+            Size::new(image.placement.width as i32, image.placement.height as i32),
+        );
+
+        match image.content {
+            SwashContent::Mask => {
+                let mask = image.data;
+                image.data = Vec::with_capacity(mask.len() * 4);
+
+                for (i, chunk) in image.data.chunks_exact_mut(size_of::<i32>()).enumerate() {
+                    chunk.copy_from_slice(&[1, 1, 1, mask[i]]);
+                }
+            }
+            // This is in RGBA format but our texture atlas is in BGRA format, so swap it
+            SwashContent::SubpixelMask | SwashContent::Color => {
+                // TODO: wide doesn't implement SSE shuffle instructions yet, which could potentially be faster here
+                let len = image.data.len() / 4;
+                let slice = image.data.as_mut_slice();
+                for i in 0..len {
+                    let idx = i * 4;
+                    slice.swap(idx + 0, idx + 2);
+                }
+            }
+        }
+
+        queue.write_texture(
+            TexelCopyTextureInfo {
+                texture: &atlas.get_texture(),
+                mip_level: 0,
+                origin: Origin3d {
+                    x: region.uv.min.x as u32,
+                    y: region.uv.min.y as u32,
+                    z: region.index as u32,
+                },
+                aspect: wgpu::TextureAspect::All,
+            },
+            &image.data,
+            TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(
+                    image.placement.width * atlas.get_texture().format().components() as u32,
+                ),
+                rows_per_image: None,
+            },
+            Extent3d {
+                width: image.placement.width as u32,
+                height: image.placement.height as u32,
+                depth_or_array_layers: 1,
+            },
+        );
+
+        if let Some(mut old) = glyphs.insert(key, region) {
+            atlas.destroy(&mut old);
+        }
+
+        Ok(glyphs[&key].clone())
+    }
+
+    pub fn prepare_glyph(
+        x: i32,
+        y: i32,
+        line_y: f32,
+        scale_factor: f32,
+        color: cosmic_text::Color,
+        bounds_min_x: i32,
+        bounds_min_y: i32,
+        bounds_max_x: i32,
+        bounds_max_y: i32,
+        key: CacheKey,
+        font_system: &mut FontSystem,
+        glyphs: &mut GlyphCache,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        atlas: &mut Atlas,
+        cache: &mut SwashCache,
+    ) -> eyre::Result<Option<super::compositor::Data>> {
+        let region = Self::write_glyph(key, font_system, glyphs, device, queue, atlas, cache)?;
+        let atlas_min = region.uv.min;
+
+        let mut x = x + region.uv.min.x;
+        let mut y = (line_y * scale_factor).round() as i32 + y - region.uv.min.y as i32;
+
+        let mut u = region.uv.min.x;
+        let mut v = region.uv.min.y;
+
+        let mut width = region.uv.width();
+        let mut height = region.uv.height();
+
+        // Starts beyond right edge or ends beyond left edge
+        let max_x = x + width;
+        if x > bounds_max_x || max_x < bounds_min_x {
+            return Ok(None);
+        }
+
+        // Starts beyond bottom edge or ends beyond top edge
+        let max_y = y + height;
+        if y > bounds_max_y || max_y < bounds_min_y {
+            return Ok(None);
+        }
+
+        // Clip left ege
+        if x < bounds_min_x {
+            let right_shift = bounds_min_x - x;
+
+            x = bounds_min_x;
+            width = max_x - bounds_min_x;
+            u += right_shift;
+        }
+
+        // Clip right edge
+        if x + width > bounds_max_x {
+            width = bounds_max_x - x;
+        }
+
+        // Clip top edge
+        if y < bounds_min_y {
+            let bottom_shift = bounds_min_y - y;
+
+            y = bounds_min_y;
+            height = max_y - bounds_min_y;
+            v += bottom_shift;
+        }
+
+        // Clip bottom edge
+        if y + height > bounds_max_y {
+            height = bounds_max_y - y;
+        }
+
+        Ok(Some(super::compositor::Data {
+            pos: [x as f32, y as f32],
+            dim: [width as f32, height as f32],
+            uv: [u, v],
+            uvdim: [width, height],
+            color: color.0,
+            rotation: 0.0,
+            tex: region.index,
+            clip: 0,
+        }))
+    }
+
+    fn evaluate(
+        buffer: &cosmic_text::Buffer,
+        pos: Vec2,
+        scale: f32,
+        bounds: AbsRect,
+        color: cosmic_text::Color,
+        compositor: &mut super::compositor::Compositor,
+        font_system: &mut FontSystem,
+        glyphs: &mut GlyphCache,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        atlas: &mut Atlas,
+        cache: &mut SwashCache,
+    ) -> eyre::Result<()> {
+        let bounds_top = bounds.topleft().y as i32;
+        let bounds_bottom = bounds.bottomright().y as i32;
+        let bounds_min_x = (bounds.topleft().x as i32).max(0);
+        let bounds_min_y = bounds_top.max(0);
+        let bounds_max_x = bounds.bottomright().x as i32;
+        let bounds_max_y = bounds_bottom;
+
+        let is_run_visible = |run: &cosmic_text::LayoutRun| {
+            let start_y_physical = (pos.y + (run.line_top * scale)) as i32;
+            let end_y_physical = start_y_physical + (run.line_height * scale) as i32;
+
+            start_y_physical <= bounds_bottom && bounds_top <= end_y_physical
+        };
+
+        let layout_runs = buffer
+            .layout_runs()
+            .skip_while(|run| !is_run_visible(run))
+            .take_while(is_run_visible);
+
+        for run in layout_runs {
+            for glyph in run.glyphs.iter() {
+                let physical_glyph = glyph.physical((pos.x, pos.y), scale);
+
+                let color = match glyph.color_opt {
+                    Some(some) => some,
+                    None => color,
+                };
+
+                if let Some(data) = Self::prepare_glyph(
+                    physical_glyph.x,
+                    physical_glyph.y,
+                    run.line_y,
+                    scale,
+                    color,
+                    bounds_min_x,
+                    bounds_min_y,
+                    bounds_max_x,
+                    bounds_max_y,
+                    physical_glyph.cache_key,
+                    font_system,
+                    glyphs,
+                    device,
+                    queue,
+                    atlas,
+                    cache,
+                )? {
+                    compositor.append(&data);
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl super::Renderable for Instance {
     fn render(
         &self,
         area: AbsRect,
-        driver: &crate::DriverState,
-    ) -> im::Vector<crate::RenderInstruction> {
-        let mut font_system = driver.font_system.write();
+        graphics: &crate::graphics::State,
+        compositor: &mut Compositor,
+    ) {
         let padding = self.padding.get();
 
-        self.renderer
-            .borrow_mut()
-            .prepare(
-                &driver.device,
-                &driver.queue,
-                &mut font_system,
-                &mut self.atlas.borrow_mut(),
-                &self.viewport.borrow(),
-                [glyphon::TextArea {
-                    buffer: self.text_buffer.borrow().as_ref().unwrap(),
-                    left: area.topleft().x + padding.topleft().x,
-                    top: area.topleft().y + padding.topleft().y,
-                    scale: 1.0,
-                    bounds: glyphon::TextBounds {
-                        left: area.topleft().x as i32,
-                        top: area.topleft().y as i32,
-                        right: area.bottomright().x as i32,
-                        bottom: area.bottomright().y as i32,
-                    },
-                    default_color: glyphon::Color::rgb(255, 255, 255),
-                    custom_glyphs: &[],
-                }],
-                &mut driver.swash_cache.write(),
-            )
-            .unwrap();
-
-        let mut result = im::Vector::new();
-        let weak = self.this.clone();
-        result.push_back(Some(Box::new(move |pass: &mut wgpu::RenderPass| {
-            if let Some(this) = weak.upgrade() {
-                this.renderer
-                    .borrow()
-                    .render(&this.atlas.borrow(), &this.viewport.borrow(), pass)
-                    .unwrap();
-            }
-        }) as Box<dyn RenderLambda>));
-        result
+        Self::evaluate(
+            self.text_buffer.borrow().as_ref().unwrap(),
+            area.topleft() + padding.topleft(),
+            1.0,
+            area,
+            glyphon::Color::rgb(255, 255, 255),
+            compositor,
+            &mut graphics.font_system.write(),
+            &mut graphics.glyphs.write(),
+            &graphics.device,
+            &graphics.queue,
+            &mut graphics.atlas.write(),
+            &mut graphics.swash_cache.write(),
+        )
+        .expect("Unexpected error while preparing text!");
     }
 }

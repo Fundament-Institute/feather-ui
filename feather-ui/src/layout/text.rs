@@ -13,7 +13,7 @@ use super::{Layout, check_unsized, leaf, limit_area};
 pub struct Node<T: leaf::Padded> {
     pub id: std::rc::Weak<SourceID>,
     pub props: Rc<T>,
-    pub text_render: Rc<render::text::Pipeline>,
+    pub text_render: Rc<render::text::Instance>,
     pub renderable: Rc<dyn render::Renderable>,
 }
 
@@ -57,7 +57,7 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
 
         let mut text_binding = self.text_render.text_buffer.borrow_mut();
         let text_buffer = text_binding.as_mut().unwrap();
-        let driver = window.driver.clone();
+        let driver = window.graphics.clone();
         let mut font_system = driver.font_system.write();
 
         let dim = evaluated_area.dim();

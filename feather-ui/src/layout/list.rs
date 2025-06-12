@@ -121,7 +121,7 @@ impl Desc for dyn Prop {
         if (unsized_x && xaxis) || (unsized_y && !xaxis) {
             return Box::new(Concrete {
                 area: evaluated_area,
-                render: None,
+                renderable: None,
                 rtree: rtree::Node::new(evaluated_area, None, nodes, id, window),
                 children: staging,
             });
@@ -206,7 +206,7 @@ impl Desc for dyn Prop {
 
         Box::new(Concrete {
             area: evaluated_area,
-            render: renderable,
+            renderable,
             rtree: rtree::Node::new(evaluated_area, None, nodes, id, window),
             children: staging,
         })

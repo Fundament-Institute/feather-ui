@@ -800,6 +800,8 @@ version = "0.1.5"
 dependencies = [
  "alloca",
  "arboard",
+ "bytemuck",
+ "cosmic-text",
  "derive-where",
  "derive_more",
  "dyn-clone",
@@ -807,6 +809,7 @@ dependencies = [
  "eyre",
  "feather-macro",
  "glyphon",
+ "guillotiere",
  "im",
  "mlua",
  "parking_lot",
@@ -1087,6 +1090,16 @@ dependencies = [
  "ultraviolet",
  "wgpu",
  "winit",
+]
+
+[[package]]
+name = "guillotiere"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b62d5865c036cb1393e23c50693df631d3f5d7bcca4c04fe4cc0fd592e74a782"
+dependencies = [
+ "euclid",
+ "svg_fmt",
 ]
 
 [[package]]

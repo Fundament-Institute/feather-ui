@@ -19,8 +19,8 @@ pub mod window;
 use crate::component::window::Window;
 use crate::layout::{Desc, Layout, Staged, root};
 use crate::{
-    AbsRect, DEFAULT_LIMITS, DispatchPair, Dispatchable, DriverState, EventWrapper, Slot, SourceID,
-    StateMachineChild, StateManager, rtree,
+    AbsRect, DEFAULT_LIMITS, DispatchPair, Dispatchable, EventWrapper, Slot, SourceID,
+    StateMachineChild, StateManager, graphics, rtree,
 };
 use dyn_clone::DynClone;
 use eyre::{OptionExt, Result};
@@ -122,7 +122,7 @@ pub trait Component<T: ?Sized>: crate::StateMachineChild + DynClone {
     fn layout(
         &self,
         state: &StateManager,
-        driver: &DriverState,
+        graphics: &graphics::State,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T> + 'static>;
@@ -136,7 +136,7 @@ pub trait ComponentWrap<T: ?Sized>: crate::StateMachineChild + DynClone {
     fn layout(
         &self,
         state: &StateManager,
-        driver: &DriverState,
+        graphics: &graphics::State,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T> + 'static>;
@@ -151,14 +151,14 @@ where
     fn layout(
         &self,
         state: &StateManager,
-        driver: &DriverState,
+        graphics: &graphics::State,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<U> + 'static> {
         Box::new(Component::<T>::layout(
             self.as_ref(),
             state,
-            driver,
+            graphics,
             window,
             config,
         ))
@@ -189,11 +189,13 @@ where
     fn layout(
         &self,
         state: &StateManager,
-        driver: &DriverState,
+        graphics: &graphics::State,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<U> + 'static> {
-        Box::new(Component::<T>::layout(*self, state, driver, window, config))
+        Box::new(Component::<T>::layout(
+            *self, state, graphics, window, config,
+        ))
     }
 }
 
@@ -260,7 +262,7 @@ impl Root {
     >(
         &mut self,
         manager: &mut StateManager,
-        driver: &mut std::sync::Weak<DriverState>,
+        graphics: &mut std::sync::Weak<graphics::State>,
         instance: &wgpu::Instance,
         event_loop: &winit::event_loop::ActiveEventLoop,
     ) -> eyre::Result<()> {
@@ -268,7 +270,7 @@ impl Root {
         // TODO: make this actually efficient by performing the initialization when a new component is initialized
         for (_, window) in self.children.iter() {
             let window = window.as_ref().unwrap();
-            window.init_custom::<AppData, O>(manager, driver, instance, event_loop)?;
+            window.init_custom::<AppData, O>(manager, graphics, instance, event_loop)?;
             let state: &WindowStateMachine = manager.get(&window.id())?;
             let id = state.state.as_ref().unwrap().window.id();
             self.states
@@ -281,7 +283,7 @@ impl Root {
                 .ok_or_eyre("Couldn't find window state")?;
             root.layout_tree = Some(window.layout(
                 manager,
-                &state.state.as_ref().unwrap().driver,
+                &state.state.as_ref().unwrap().graphics,
                 &window.id(),
                 &state.state.as_ref().unwrap().config,
             ));
@@ -332,12 +334,12 @@ macro_rules! gen_component_wrap_inner {
         fn layout(
             &self,
             state: &$crate::StateManager,
-            driver: &$crate::DriverState,
+            graphics: &$crate::graphics::State,
             window: &Rc<SourceID>,
             config: &wgpu::SurfaceConfiguration,
         ) -> Box<dyn $crate::component::Layout<U> + 'static> {
             Box::new($crate::component::Component::<T>::layout(
-                self, state, driver, window, config,
+                self, state, graphics, window, config,
             ))
         }
     };

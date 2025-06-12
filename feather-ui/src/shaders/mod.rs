@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::DriverState;
 use std::collections::HashMap;
 use ultraviolet::{Mat4, Vec4};
 use wgpu::util::DeviceExt;
@@ -37,8 +36,8 @@ pub fn mat4_ortho(x: f32, y: f32, w: f32, h: f32, n: f32, f: f32) -> Mat4 {
     }
 }
 
-pub fn gen_uniform(driver: &DriverState, name: &str, buffer: &[u8]) -> wgpu::Buffer {
-    driver
+pub fn gen_uniform(graphics: &crate::graphics::State, name: &str, buffer: &[u8]) -> wgpu::Buffer {
+    graphics
         .device
         .create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some(name),
@@ -47,8 +46,8 @@ pub fn gen_uniform(driver: &DriverState, name: &str, buffer: &[u8]) -> wgpu::Buf
         })
 }
 
-pub fn default_vertex_buffer(driver: &DriverState) -> wgpu::Buffer {
-    driver
+pub fn default_vertex_buffer(graphics: &crate::graphics::State) -> wgpu::Buffer {
+    graphics
         .device
         .create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("VertBuffer"),
