@@ -70,10 +70,10 @@ impl<T: flex::Prop + 'static> Paragraph<T> {
         text: &str,
         font_size: f32,
         line_height: f32,
-        font: glyphon::FamilyOwned,
-        color: glyphon::Color,
-        weight: glyphon::Weight,
-        style: glyphon::Style,
+        font: cosmic_text::FamilyOwned,
+        color: cosmic_text::Color,
+        weight: cosmic_text::Weight,
+        style: cosmic_text::Style,
         fullwidth: bool,
     ) {
         self.children.clear();
@@ -91,7 +91,7 @@ impl<T: flex::Prop + 'static> Paragraph<T> {
                 color,
                 weight,
                 style,
-                wrap: glyphon::Wrap::None,
+                wrap: cosmic_text::Wrap::None,
             };
             self.children.push_back(Some(Box::new(text)));
         }
@@ -102,7 +102,7 @@ impl<T: flex::Prop + 'static> super::Component<T> for Paragraph<T> {
     fn layout(
         &self,
         state: &crate::StateManager,
-        graphics: &crate::graphics::State,
+        graphics: &crate::graphics::Driver,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {

@@ -21,7 +21,7 @@ impl<T: flex::Prop + 'static> super::Component<T> for FlexBox<T> {
     fn layout(
         &self,
         state: &crate::StateManager,
-        graphics: &crate::graphics::State,
+        graphics: &crate::graphics::Driver,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {

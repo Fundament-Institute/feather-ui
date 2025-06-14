@@ -17,8 +17,8 @@ pub struct Instance {
 impl super::Renderable for Instance {
     fn render(
         &self,
-        area: crate::AbsRect,
-        graphics: &crate::graphics::State,
+        _: crate::AbsRect,
+        _: &crate::graphics::Driver,
         compositor: &mut compositor::Compositor,
     ) {
         let domain = self.domain.clone();

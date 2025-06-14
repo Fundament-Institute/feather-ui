@@ -6,11 +6,20 @@ use crate::render::atlas;
 use crate::{BASE_DPI, SourceID, WindowStateMachine, layout};
 use derive_where::derive_where;
 use std::borrow::Cow;
+use std::marker::PhantomData;
 use std::rc::Rc;
 use ultraviolet::Vec4;
 
+#[repr(u8)]
+pub enum ShapeKind {
+    RoundRect,
+    Triangle,
+    Circle,
+    Arc,
+}
+
 #[derive_where(Clone)]
-pub struct Shape<T: leaf::Padded + 'static> {
+pub struct Shape<T: leaf::Padded + 'static, const KIND: u8> {
     pub id: std::rc::Rc<SourceID>,
     pub props: Rc<T>,
     border: f32,
@@ -20,9 +29,8 @@ pub struct Shape<T: leaf::Padded + 'static> {
     pub fill: Vec4,
     pub outline: Vec4,
 }
-
-impl<T: leaf::Padded + 'static> Shape<T> {
-    pub fn round_rect(
+impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::RoundRect as u8 }> {
+    pub fn new(
         id: std::rc::Rc<SourceID>,
         props: Rc<T>,
         dim: ultraviolet::Vec2,
@@ -35,15 +43,70 @@ impl<T: leaf::Padded + 'static> Shape<T> {
         Self {
             id,
             props,
-            uniforms: [Vec4::new(0.0, 0.0, border, blur), corners, fill, outline],
-            fragment: Cow::Borrowed(include_str!("../shaders/RoundRect.wgsl")),
-            label: "RoundRect FS",
+            border,
+            blur,
+            dim,
+            corners,
+            fill,
+            outline,
         }
     }
+}
 
-    pub fn arc(
+impl<T: leaf::Padded + 'static> Shape<T, 1> {
+    pub fn new(
         id: std::rc::Rc<SourceID>,
         props: Rc<T>,
+        dim: ultraviolet::Vec2,
+        border: f32,
+        blur: f32,
+        corners: ultraviolet::Vec3,
+        offset: f32,
+        fill: Vec4,
+        outline: Vec4,
+    ) -> Self {
+        Self {
+            id,
+            props,
+            border,
+            blur,
+            dim,
+            corners: Vec4::new(corners.x, corners.y, corners.z, offset),
+            fill,
+            outline,
+        }
+    }
+}
+
+impl<T: leaf::Padded + 'static> Shape<T, 2> {
+    pub fn new(
+        id: std::rc::Rc<SourceID>,
+        props: Rc<T>,
+        dim: ultraviolet::Vec2,
+        border: f32,
+        blur: f32,
+        radii: ultraviolet::Vec2,
+        fill: Vec4,
+        outline: Vec4,
+    ) -> Self {
+        Self {
+            id,
+            props,
+            border,
+            blur,
+            dim,
+            corners: Vec4::new(radii.x, radii.y, 0.0, 0.0),
+            fill,
+            outline,
+        }
+    }
+}
+
+impl<T: leaf::Padded + 'static> Shape<T, 3> {
+    pub fn new(
+        id: std::rc::Rc<SourceID>,
+        props: Rc<T>,
+        dim: ultraviolet::Vec2,
         border: f32,
         blur: f32,
         arcs: Vec4,
@@ -53,52 +116,32 @@ impl<T: leaf::Padded + 'static> Shape<T> {
         Self {
             id,
             props,
-            uniforms: [Vec4::new(0.0, 0.0, border, blur), arcs, fill, outline],
-            fragment: Cow::Borrowed(include_str!("../shaders/Arc.wgsl")),
-            label: "Arc FS",
-        }
-    }
-
-    pub fn circle(
-        id: std::rc::Rc<SourceID>,
-        props: Rc<T>,
-        border: f32,
-        blur: f32,
-        radii: crate::Vec2,
-        fill: Vec4,
-        outline: Vec4,
-    ) -> Self {
-        Self {
-            id,
-            props,
-            uniforms: [
-                Vec4::new(0.0, 0.0, border, blur),
-                Vec4::new(radii.x, radii.y, 0.0, 0.0),
-                fill,
-                outline,
-            ],
-            fragment: Cow::Borrowed(include_str!("../shaders/Circle.wgsl")),
-            label: "Circle FS",
+            border,
+            blur,
+            dim,
+            corners: arcs,
+            fill,
+            outline,
         }
     }
 }
 
-impl<T: leaf::Padded + 'static> crate::StateMachineChild for Shape<T> {
+impl<T: leaf::Padded + 'static, const KIND: u8> crate::StateMachineChild for Shape<T, KIND> {
     fn id(&self) -> std::rc::Rc<SourceID> {
         self.id.clone()
     }
 }
 
-impl<T: leaf::Padded + 'static> super::Component<T> for Shape<T>
+impl<T: leaf::Padded + 'static, const KIND: u8> super::Component<T> for Shape<T, KIND>
 where
     for<'a> &'a T: Into<&'a (dyn leaf::Padded + 'static)>,
 {
     fn layout(
         &self,
         state: &crate::StateManager,
-        graphics: &crate::graphics::State,
+        _: &crate::graphics::Driver,
         window: &Rc<SourceID>,
-        config: &wgpu::SurfaceConfiguration,
+        _: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let winstate: &WindowStateMachine = state.get(window).unwrap();
         let dpi = winstate.state.as_ref().map(|x| x.dpi).unwrap_or(BASE_DPI);
@@ -107,7 +150,9 @@ where
             props: self.props.clone(),
             children: Default::default(),
             id: Rc::downgrade(&self.id),
-            renderable: Some(Rc::new(crate::render::shape::Instance {
+            renderable: Some(Rc::new(crate::render::shape::Instance::<
+                crate::render::shape::Shape<KIND>,
+            > {
                 padding: self.props.padding().resolve(dpi),
                 border: self.border,
                 blur: self.blur,
@@ -115,9 +160,17 @@ where
                 outline: self.outline,
                 corners: self.corners,
                 id: self.id.clone(),
+                phantom: PhantomData,
             })),
         })
     }
 }
 
-crate::gen_component_wrap!(Shape, leaf::Padded);
+impl<U: ?Sized, T: leaf::Padded + 'static, const KIND: u8> crate::component::ComponentWrap<U>
+    for Shape<T, KIND>
+where
+    Shape<T, KIND>: crate::component::Component<T>,
+    for<'a> &'a T: Into<&'a U>,
+{
+    crate::gen_component_wrap_inner!();
+}

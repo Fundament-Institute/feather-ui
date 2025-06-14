@@ -13,7 +13,7 @@ pub struct Instance {
 }
 
 impl super::Renderable for Instance {
-    fn render(&self, _: crate::AbsRect, _: &crate::graphics::State, compositor: &mut Compositor) {
+    fn render(&self, _: crate::AbsRect, _: &crate::graphics::Driver, compositor: &mut Compositor) {
         let p = *self.end.borrow() - *self.start.borrow();
         compositor.append(&Data {
             pos: *self.start.borrow().as_array(),

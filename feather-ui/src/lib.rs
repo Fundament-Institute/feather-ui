@@ -12,7 +12,6 @@ pub mod persist;
 mod propbag;
 pub mod render;
 mod rtree;
-mod shaders;
 pub mod text;
 
 use crate::component::window::Window;
@@ -20,12 +19,10 @@ use bytemuck::NoUninit;
 use component::window::WindowStateMachine;
 use component::{Component, StateMachineWrapper};
 use core::f32;
+pub use cosmic_text::Wrap;
 use dyn_clone::DynClone;
 use eyre::OptionExt;
-pub use glyphon::Wrap;
-use parking_lot::RwLock;
 use persist::FnPersist;
-use shaders::ShaderCache;
 use smallvec::SmallVec;
 use std::any::Any;
 use std::cell::RefCell;
@@ -33,12 +30,10 @@ use std::collections::{BTreeMap, HashMap};
 use std::hash::Hasher;
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 use std::rc::Rc;
-use std::sync::Arc;
 use ultraviolet::f32x4;
 use ultraviolet::vec::Vec2;
 use wide::CmpLe;
-use winit::error::OsError;
-use winit::window::{CursorIcon, WindowId};
+use winit::window::WindowId;
 
 /// Allocates `&[T]` on stack space.
 pub(crate) fn alloca_array<T, R>(n: usize, f: impl FnOnce(&mut [T]) -> R) -> R {
@@ -1205,7 +1200,7 @@ pub struct App<
     O: FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>,
 > {
     pub instance: wgpu::Instance,
-    pub graphics: std::sync::Weak<graphics::State>,
+    pub graphics: std::sync::Weak<graphics::Driver>,
     state: StateManager,
     store: Option<O::Store>,
     outline: O,
@@ -1309,7 +1304,7 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
         Ok((
             Self {
                 instance: wgpu::Instance::default(),
-                graphics: std::sync::Weak::<graphics::State>::new(),
+                graphics: std::sync::Weak::<graphics::Driver>::new(),
                 store: None,
                 outline,
                 state: manager,

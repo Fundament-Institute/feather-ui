@@ -30,7 +30,7 @@ where
     fn layout(
         &self,
         _: &crate::StateManager,
-        _: &crate::graphics::State,
+        _: &crate::graphics::Driver,
         _: &Rc<SourceID>,
         _: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn crate::layout::Layout<T>> {

@@ -3,7 +3,7 @@
 
 use crate::component::button::Button;
 use crate::component::region::Region;
-use crate::component::shape::Shape;
+use crate::component::shape::{Shape, ShapeKind};
 use crate::component::text::Text;
 use crate::component::window::Window;
 use crate::component::{ComponentFrom, ComponentWrap};
@@ -260,7 +260,7 @@ fn create_button(
 ) -> mlua::Result<ComponentBag> {
     let id = Rc::new(args.0);
 
-    let rect = Shape::round_rect(
+    let rect = Shape::<crate::DRect, { ShapeKind::RoundRect as u8 }>::new(
         SourceID {
             parent: Some(id.clone()),
             id: DataID::Named("__internal_rect__"),
@@ -326,16 +326,7 @@ fn create_shader_standard(
         [f32; 4],
     ),
 ) -> mlua::Result<ComponentBag> {
-    let mut bag = PropBag::new();
-    bag.set_area(args.1.into());
-
-    Ok(Box::new(Shape::<PropBag> {
-        id: args.0.into(),
-        fragment: std::borrow::Cow::Owned(args.2),
-        props: bag.into(),
-        label: "Custom Shader FS",
-        uniforms: [args.3.into(), args.4.into(), args.5.into(), args.6.into()],
-    }))
+    todo!();
 }
 
 fn create_round_rect(
@@ -346,16 +337,18 @@ fn create_round_rect(
     let outline = args.5.to_be_bytes().map(|x| x as f32);
     let mut bag = PropBag::new();
     bag.set_area(args.1.into());
-    Ok(Box::new(Shape::round_rect(
-        args.0.into(),
-        bag.into(),
-        ultraviolet::Vec2::new(0.0, 0.0),
-        args.4,
-        0.0,
-        Vec4::broadcast(args.3),
-        fill.into(),
-        outline.into(),
-    )))
+    Ok(Box::new(
+        Shape::<PropBag, { ShapeKind::RoundRect as u8 }>::new(
+            args.0.into(),
+            bag.into(),
+            ultraviolet::Vec2::new(0.0, 0.0),
+            args.4,
+            0.0,
+            Vec4::broadcast(args.3),
+            fill.into(),
+            outline.into(),
+        ),
+    ))
 }
 
 /// This defines the "lua" app that knows how to handle a lua value that contains the

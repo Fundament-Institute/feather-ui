@@ -79,11 +79,11 @@ impl FnPersist<TextState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicAp
                 },
                 40.0,
                 56.0,
-                glyphon::FamilyOwned::SansSerif,
-                glyphon::Color::rgba(255, 255, 255, 255),
+                cosmic_text::FamilyOwned::SansSerif,
+                cosmic_text::Color::rgba(255, 255, 255, 255),
                 Default::default(),
                 Default::default(),
-                glyphon::Wrap::Word,
+                cosmic_text::Wrap::Word,
             );
 
             let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =

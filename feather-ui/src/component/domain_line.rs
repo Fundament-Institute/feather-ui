@@ -2,12 +2,10 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use crate::layout::{Layout, base};
-use crate::shaders::gen_uniform;
 use crate::{CrossReferenceDomain, SourceID, layout, render, vec4_to_u32};
 use derive_where::derive_where;
 use std::rc::Rc;
 use ultraviolet::Vec4;
-use wgpu::util::DeviceExt;
 
 // This draws a line between two points that were previously stored in a Cross-reference Domain
 #[derive(feather_macro::StateMachineChild)]
@@ -28,7 +26,7 @@ where
     fn layout(
         &self,
         _: &crate::StateManager,
-        _: &crate::graphics::State,
+        _: &crate::graphics::Driver,
         _window: &Rc<SourceID>,
         _: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {

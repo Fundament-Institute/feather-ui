@@ -3,11 +3,11 @@ var<uniform> MVP: mat4x4f;
 @group(0) @binding(1)
 var<storage, read> buffer: array<Data>;
 @group(0) @binding(2)
-var<uniform> atlas: texture_2d_array<f32>;
+var atlas: texture_2d_array<f32>;
 @group(0) @binding(3)
-var<uniform> sampling: sampler;
+var sampling: sampler;
 @group(0) @binding(4)
-var<uniform> cliprects: array<vec4f>;
+var<storage, read> cliprects: array<vec4f>;
 @group(0) @binding(5)
 var<uniform> extent: u32;
 
@@ -25,7 +25,7 @@ struct VertexOutput {
   @invariant @builtin(position) position: vec4<f32>,
   @location(0) uv: vec2f,
   @location(1) @interpolate(flat) index: u32,
-  @location(2) @interpolate(linear) color: vec4f,
+  @location(2) color: vec4f,
 }
 
 fn scale_matrix(m: mat4x4f, x: f32, y: f32) -> mat4x4f {
@@ -103,18 +103,23 @@ fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
 
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4f {
-  let d = buffer[input.index];
-  let clip = d.texclip & 0x0000FFFF;
-  let tex = (d.texclip & 0xFFFF0000) >> 16;
+  //let d = buffer[input.index];
+  //let clip = d.texclip & 0x0000FFFF;
+  //let tex = (d.texclip & 0xFFFF0000) >> 16;
 
-  if clip > 0 {
+  let clip = 0;
+  let tex = 0;
+  /*if clip > 0 {
     let r = cliprects[clip];
     if !(input.uv.x >= r.x && input.uv.y >= r.y && input.uv.x < r.z && input.uv.y < r.z) {
       discard;
     }
   }
+
   if tex == 0xFFFF {
     return d.color;
-  }
-  return textureSample(atlas[tex], sampling, input.uv) * d.color;
+  }*/
+
+  return vec4(0, 0, 0, 0);
+  // return textureSample(atlas[tex], sampling, input.uv) * d.color;
 }
