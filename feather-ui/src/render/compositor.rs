@@ -1,9 +1,6 @@
-use std::{collections::HashMap, hash::Hash, num::NonZero};
-use ultraviolet::{Vec2, Vec4};
-use wgpu::{
-    Extent3d, TextureDescriptor, TextureUsages, TextureView, TextureViewDescriptor,
-    util::DeviceExt, wgt::SamplerDescriptor,
-};
+use crate::AbsRect;
+use std::{collections::HashMap, num::NonZero};
+use wgpu::{TextureUsages, TextureViewDescriptor, wgt::SamplerDescriptor};
 
 use crate::ZERO_RECT;
 use parking_lot::RwLock;
@@ -17,8 +14,14 @@ pub struct Shared {
     pipelines: RwLock<HashMap<wgpu::TextureFormat, wgpu::RenderPipeline>>,
 }
 
+pub const TARGET_STATE: wgpu::ColorTargetState = wgpu::ColorTargetState {
+    format: crate::render::atlas::ATLAS_FORMAT,
+    blend: Some(wgpu::BlendState::REPLACE),
+    write_mask: wgpu::ColorWrites::ALL,
+};
+
 impl Shared {
-    pub fn new(device: &wgpu::Device, extent: u32) -> Self {
+    pub fn new(device: &wgpu::Device, _: u32) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Compositor"),
             source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/compositor.wgsl").into()),
@@ -75,7 +78,7 @@ impl Shared {
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 5,
-                    visibility: wgpu::ShaderStages::VERTEX,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -91,27 +94,6 @@ impl Shared {
             bind_group_layouts: &[&bind_group_layout],
             push_constant_ranges: &[],
         });
-        /*
-        let verts = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Vertices"),
-            size: (std::mem::size_of::<Vec2>() * VERT_BATCH) as u64,
-            usage: wgpu::BufferUsages::UNIFORM,
-            mapped_at_creation: true,
-        });
-
-        let mut idx = 0;
-        for chunk in verts
-            .slice(..)
-            .get_mapped_range_mut()
-            .chunks_mut(std::mem::size_of::<Vec2>() * 6)
-        {
-            // Provided as clockwise triangles.
-            let v: [u16; 12] = [idx, 0, idx, 1, idx, 2, idx, 3, idx, 4, idx, 5];
-            chunk.copy_from_slice(bytemuck::cast_slice(&v));
-            idx += 1;
-        }
-
-        verts.unmap();*/
 
         let sampler = device.create_sampler(&SamplerDescriptor {
             label: Some("Compositor Sampler"),
@@ -200,24 +182,21 @@ impl Shared {
 /// instancing, nor did OpenGL ES 2.0, which means many older devices also don't. (3) or (4) may be implemented as a
 /// seperate option later, espiecally if we continue to use wgpu, since wgpu assumes vulkan support.
 pub struct Compositor {
-    shared: std::rc::Rc<Shared>,
+    shared: std::sync::Arc<Shared>,
     pipeline: wgpu::RenderPipeline,
     group: wgpu::BindGroup,
     mvp: wgpu::Buffer,
     buffer: wgpu::Buffer,
     clip: wgpu::Buffer,
-    clipdata: Vec<crate::AbsRect>,      // Clipping Rectangles
+    clipdata: Vec<AbsRect>,             // Clipping Rectangles
     data: Vec<Data>,                    // CPU-side buffer of all the data
     regions: Vec<std::ops::Range<u32>>, // Target copy ranges for where to map data to the GPU buffer. Assumes contiguous data vector.
-    defer: HashMap<u32, Box<dyn FnOnce(&crate::graphics::State, &mut Data)>>,
+    defer: HashMap<u32, Box<dyn FnOnce(&crate::graphics::Driver, &mut Data)>>,
 }
-
-const BATCH_SIZE: usize = 1024;
-const VERT_BATCH: usize = BATCH_SIZE * 6;
 
 impl Compositor {
     pub fn new(
-        shared: std::rc::Rc<Shared>,
+        shared: std::sync::Arc<Shared>,
         device: &wgpu::Device,
         config: &wgpu::SurfaceConfiguration,
         atlas: &super::atlas::Atlas,
@@ -227,27 +206,27 @@ impl Compositor {
         let mvp = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("MVP"),
             size: std::mem::size_of::<ultraviolet::Mat4>() as u64,
-            usage: wgpu::BufferUsages::UNIFORM,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
 
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Data"),
-            size: 0,
-            usage: wgpu::BufferUsages::STORAGE,
+            size: 32 * size_of::<Data>() as u64,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
 
         let clip = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("ClipRects"),
-            size: 0,
-            usage: wgpu::BufferUsages::UNIFORM,
+            size: 4 * size_of::<AbsRect>() as u64,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
 
         let atlasview = atlas.get_texture().create_view(&TextureViewDescriptor {
             label: Some("Compositor Atlas View"),
-            format: Some(config.format),
+            format: Some(crate::render::atlas::ATLAS_FORMAT),
             dimension: Some(wgpu::TextureViewDimension::D2Array),
             usage: Some(TextureUsages::TEXTURE_BINDING),
             aspect: wgpu::TextureAspect::All,
@@ -310,26 +289,26 @@ impl Compositor {
             self.buffer = device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some("Composite Data"),
                 size: size.next_power_of_two() as u64,
-                usage: wgpu::BufferUsages::STORAGE,
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
         }
     }
 
     fn check_clip(&mut self, device: &wgpu::Device) {
-        let size = self.clipdata.len() * size_of::<Data>();
+        let size = self.clipdata.len() * size_of::<AbsRect>();
         if (self.clip.size() as usize) < size {
             self.clip.destroy();
             self.clip = device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some("Clip Data"),
                 size: size.next_power_of_two() as u64,
-                usage: wgpu::BufferUsages::STORAGE,
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
         }
     }
 
-    pub(crate) fn append_clip(&mut self, clip: crate::AbsRect) -> u16 {
+    pub(crate) fn append_clip(&mut self, clip: AbsRect) -> u16 {
         let n = self.clipdata.len();
         self.clipdata.push(clip);
         n as u16
@@ -359,7 +338,7 @@ impl Compositor {
 
     pub fn prepare(
         &mut self,
-        graphics: &crate::graphics::State,
+        graphics: &crate::graphics::Driver,
         encoder: &mut wgpu::CommandEncoder,
         _: &wgpu::SurfaceConfiguration,
     ) {
@@ -389,7 +368,7 @@ impl Compositor {
         idx
     }
 
-    pub fn defer(&mut self, f: impl FnOnce(&crate::graphics::State, &mut Data) + 'static) {
+    pub fn defer(&mut self, f: impl FnOnce(&crate::graphics::Driver, &mut Data) + 'static) {
         let region = self.regions.last_mut().unwrap();
         if region.end == u32::MAX {
             panic!(
@@ -405,14 +384,14 @@ impl Compositor {
 
     pub fn draw(
         &mut self,
-        graphics: &crate::graphics::State,
+        graphics: &crate::graphics::Driver,
         pass: &mut wgpu::RenderPass<'_>,
         config: &wgpu::SurfaceConfiguration,
     ) {
         graphics.queue.write_buffer(
             &self.mvp,
             0,
-            crate::shaders::mat4_proj(
+            crate::graphics::mat4_proj(
                 0.0,
                 config.height as f32,
                 config.width as f32,
@@ -472,10 +451,6 @@ pub struct Data {
     pub tex: u16,
     pub clip: u16,
 }
-
-const DATA_SIZE: usize = std::mem::size_of::<Data>();
-
-static_assertions::const_assert!((DATA_SIZE * BATCH_SIZE) < 65536);
 
 // Our shader will assemble a rotation based on this matrix, but transposed:
 // [ cos(r) -sin(r) 0 (x - x*cos(r) + y*sin(r)) ]

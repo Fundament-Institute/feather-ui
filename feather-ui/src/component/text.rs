@@ -16,11 +16,11 @@ pub struct Text<T: leaf::Padded + 'static> {
     pub font_size: f32,
     pub line_height: f32,
     pub text: String,
-    pub font: glyphon::FamilyOwned,
-    pub color: glyphon::Color,
-    pub weight: glyphon::Weight,
-    pub style: glyphon::Style,
-    pub wrap: glyphon::Wrap,
+    pub font: cosmic_text::FamilyOwned,
+    pub color: cosmic_text::Color,
+    pub weight: cosmic_text::Weight,
+    pub style: cosmic_text::Style,
+    pub wrap: cosmic_text::Wrap,
 }
 
 impl<T: Default + leaf::Padded + 'static> Default for Text<T> {
@@ -31,11 +31,11 @@ impl<T: Default + leaf::Padded + 'static> Default for Text<T> {
             font_size: Default::default(),
             line_height: Default::default(),
             text: Default::default(),
-            font: glyphon::FamilyOwned::SansSerif,
-            color: glyphon::Color::rgba(255, 255, 255, 255),
+            font: cosmic_text::FamilyOwned::SansSerif,
+            color: cosmic_text::Color::rgba(255, 255, 255, 255),
             weight: Default::default(),
             style: Default::default(),
-            wrap: glyphon::Wrap::None,
+            wrap: cosmic_text::Wrap::None,
         }
     }
 }
@@ -47,7 +47,7 @@ where
     fn layout(
         &self,
         state: &crate::StateManager,
-        graphics: &graphics::State,
+        graphics: &graphics::Driver,
         window: &Rc<SourceID>,
         _: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
@@ -55,9 +55,9 @@ where
         let winstate = winstate.state.as_ref().expect("No window state available");
         let dpi = winstate.dpi;
         let mut font_system = graphics.font_system.write();
-        let mut text_buffer = glyphon::Buffer::new(
+        let mut text_buffer = cosmic_text::Buffer::new(
             &mut font_system,
-            glyphon::Metrics::new(
+            cosmic_text::Metrics::new(
                 point_to_pixel(self.font_size, dpi.x),
                 point_to_pixel(self.line_height, dpi.x),
             ),
@@ -67,12 +67,12 @@ where
         text_buffer.set_text(
             &mut font_system,
             &self.text,
-            &glyphon::Attrs::new()
+            &cosmic_text::Attrs::new()
                 .family(self.font.as_family())
                 .color(self.color)
                 .weight(self.weight)
                 .style(self.style),
-            glyphon::Shaping::Advanced,
+            cosmic_text::Shaping::Advanced,
         );
 
         let render = Rc::new(crate::render::text::Instance {

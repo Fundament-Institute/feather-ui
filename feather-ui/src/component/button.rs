@@ -67,7 +67,7 @@ where
     fn layout(
         &self,
         state: &crate::StateManager,
-        graphics: &crate::graphics::State,
+        graphics: &crate::graphics::Driver,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {

@@ -125,7 +125,7 @@ pub trait Staged: DynClone {
     fn render(
         &self,
         parent_pos: Vec2,
-        graphics: &crate::graphics::State,
+        graphics: &crate::graphics::Driver,
         compositor: &mut Compositor,
     );
     fn get_rtree(&self) -> Weak<rtree::Node>;
@@ -168,7 +168,7 @@ impl Staged for Concrete {
     fn render(
         &self,
         parent_pos: Vec2,
-        graphics: &crate::graphics::State,
+        graphics: &crate::graphics::Driver,
         compositor: &mut Compositor,
     ) {
         self.renderable

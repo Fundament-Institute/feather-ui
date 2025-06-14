@@ -3,10 +3,8 @@
 
 use super::{Component, StateMachine};
 use crate::component::ComponentWrap;
-use crate::graphics::PipelineID;
 use crate::input::{ModifierKeys, MouseState, RawEvent};
 use crate::layout::root;
-use crate::render::AnyPipeline;
 use crate::render::compositor::Compositor;
 use crate::rtree::Node;
 use crate::{
@@ -16,8 +14,6 @@ use alloc::sync::Arc;
 use core::f32;
 use eyre::{OptionExt, Result};
 use smallvec::SmallVec;
-use std::any::TypeId;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 use ultraviolet::Vec2;
@@ -43,7 +39,7 @@ pub struct WindowState {
     modifiers: u8,
     last_mouse: PhysicalPosition<f32>,
     pub dpi: Vec2,
-    pub graphics: Arc<graphics::State>,
+    pub graphics: Arc<graphics::Driver>,
     trackers: [HashMap<DeviceId, RcNode>; 3],
     lookup: HashMap<(Rc<SourceID>, u8), DeviceId>,
     pub compositor: Compositor,
@@ -150,7 +146,7 @@ impl Component<AbsDim> for Window {
     fn layout(
         &self,
         manager: &crate::StateManager,
-        _: &graphics::State,
+        _: &graphics::Driver,
         _: &Rc<SourceID>,
         _: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn crate::layout::Layout<AbsDim>> {
@@ -202,7 +198,7 @@ impl Window {
     >(
         &self,
         manager: &mut StateManager,
-        graphics: &mut alloc::sync::Weak<graphics::State>,
+        graphics: &mut alloc::sync::Weak<graphics::Driver>,
         instance: &wgpu::Instance,
         event_loop: &ActiveEventLoop,
     ) -> Result<()> {
@@ -216,7 +212,7 @@ impl Window {
             let graphics = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()?
-                .block_on(crate::graphics::State::new(graphics, instance, &surface))?;
+                .block_on(crate::graphics::Driver::new(graphics, instance, &surface))?;
 
             let size = window.inner_size();
             let mut config = surface
@@ -229,7 +225,7 @@ impl Window {
             surface.configure(&graphics.device, &config);
 
             let compositor = Compositor::new(
-                graphics.compositor.clone(),
+                graphics.shared.clone(),
                 &graphics.device,
                 &config,
                 &graphics.atlas.read(),
@@ -290,7 +286,7 @@ impl Window {
         rtree: Weak<rtree::Node>,
         event: WindowEvent,
         manager: &mut StateManager,
-        graphics: std::sync::Weak<graphics::State>,
+        graphics: std::sync::Weak<graphics::Driver>,
     ) -> Result<(), ()> {
         let state: &mut WindowStateMachine = manager.get_mut(&id).map_err(|_| ())?;
         let window = state.state.as_mut().unwrap();

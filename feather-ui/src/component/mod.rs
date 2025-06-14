@@ -122,7 +122,7 @@ pub trait Component<T: ?Sized>: crate::StateMachineChild + DynClone {
     fn layout(
         &self,
         state: &StateManager,
-        graphics: &graphics::State,
+        graphics: &graphics::Driver,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T> + 'static>;
@@ -136,7 +136,7 @@ pub trait ComponentWrap<T: ?Sized>: crate::StateMachineChild + DynClone {
     fn layout(
         &self,
         state: &StateManager,
-        graphics: &graphics::State,
+        graphics: &graphics::Driver,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T> + 'static>;
@@ -151,7 +151,7 @@ where
     fn layout(
         &self,
         state: &StateManager,
-        graphics: &graphics::State,
+        graphics: &graphics::Driver,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<U> + 'static> {
@@ -189,7 +189,7 @@ where
     fn layout(
         &self,
         state: &StateManager,
-        graphics: &graphics::State,
+        graphics: &graphics::Driver,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<U> + 'static> {
@@ -262,7 +262,7 @@ impl Root {
     >(
         &mut self,
         manager: &mut StateManager,
-        graphics: &mut std::sync::Weak<graphics::State>,
+        graphics: &mut std::sync::Weak<graphics::Driver>,
         instance: &wgpu::Instance,
         event_loop: &winit::event_loop::ActiveEventLoop,
     ) -> eyre::Result<()> {
@@ -334,7 +334,7 @@ macro_rules! gen_component_wrap_inner {
         fn layout(
             &self,
             state: &$crate::StateManager,
-            graphics: &$crate::graphics::State,
+            graphics: &$crate::graphics::Driver,
             window: &Rc<SourceID>,
             config: &wgpu::SurfaceConfiguration,
         ) -> Box<dyn $crate::component::Layout<U> + 'static> {

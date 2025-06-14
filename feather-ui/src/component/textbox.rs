@@ -10,7 +10,7 @@ use crate::{SourceID, WindowStateMachine, layout, render, vec4_to_u32};
 use derive_where::derive_where;
 use enum_variant_type::EnumVariantType;
 use feather_macro::Dispatch;
-use glyphon::Cursor;
+use cosmic_text::Cursor;
 use smallvec::SmallVec;
 use std::ops::Range;
 use std::rc::Rc;
@@ -32,7 +32,7 @@ struct TextBoxState {
     insert_mode: bool,
     count: usize,
     focused: bool,
-    buffer: Rc<crate::RefCell<Option<glyphon::Buffer>>>,
+    buffer: Rc<crate::RefCell<Option<cosmic_text::Buffer>>>,
 }
 
 impl PartialEq for TextBoxState {
@@ -191,11 +191,11 @@ pub struct TextBox<T: Prop + 'static> {
     props: Rc<T>,
     pub font_size: f32,
     pub line_height: f32,
-    pub font: glyphon::FamilyOwned,
-    pub color: glyphon::Color,
-    pub weight: glyphon::Weight,
-    pub style: glyphon::Style,
-    pub wrap: glyphon::Wrap,
+    pub font: cosmic_text::FamilyOwned,
+    pub color: cosmic_text::Color,
+    pub weight: cosmic_text::Weight,
+    pub style: cosmic_text::Style,
+    pub wrap: cosmic_text::Wrap,
     pub slots: [Option<crate::Slot>; 3], // TODO: TextBoxEvent::SIZE
 }
 
@@ -205,11 +205,11 @@ impl<T: Prop + 'static> TextBox<T> {
         props: T,
         font_size: f32,
         line_height: f32,
-        font: glyphon::FamilyOwned,
-        color: glyphon::Color,
-        weight: glyphon::Weight,
-        style: glyphon::Style,
-        wrap: glyphon::Wrap,
+        font: cosmic_text::FamilyOwned,
+        color: cosmic_text::Color,
+        weight: cosmic_text::Weight,
+        style: cosmic_text::Style,
+        wrap: cosmic_text::Wrap,
     ) -> Self {
         Self {
             id: id.clone(),
@@ -503,7 +503,7 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
     fn layout(
         &self,
         state: &crate::StateManager,
-        graphics: &crate::graphics::State,
+        graphics: &crate::graphics::Driver,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
@@ -517,9 +517,9 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
         let textstate = textstate.state.as_ref().unwrap();
 
         if textstate.buffer.borrow().is_none() {
-            *textstate.buffer.borrow_mut() = Some(glyphon::Buffer::new(
+            *textstate.buffer.borrow_mut() = Some(cosmic_text::Buffer::new(
                 &mut font_system,
-                glyphon::Metrics::new(
+                cosmic_text::Metrics::new(
                     point_to_pixel(self.font_size, dpi.x),
                     point_to_pixel(self.line_height, dpi.x),
                 ),
@@ -530,7 +530,7 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
 
         text_buffer.set_metrics(
             &mut font_system,
-            glyphon::Metrics::new(
+            cosmic_text::Metrics::new(
                 point_to_pixel(self.font_size, dpi.x),
                 point_to_pixel(self.line_height, dpi.x),
             ),
@@ -539,12 +539,12 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
         text_buffer.set_text(
             &mut font_system,
             &self.props.textedit().obj.text.borrow(),
-            &glyphon::Attrs::new()
+            &cosmic_text::Attrs::new()
                 .family(self.font.as_family())
                 .color(self.color)
                 .weight(self.weight)
                 .style(self.style),
-            glyphon::Shaping::Advanced,
+            cosmic_text::Shaping::Advanced,
         );
 
         let textrender = Rc::new(render::text::Instance {
@@ -591,7 +591,7 @@ impl crate::render::Renderable for Pipeline {
     fn render(
         &self,
         area: crate::AbsRect,
-        graphics: &crate::graphics::State,
+        graphics: &crate::graphics::Driver,
         compositor: &mut crate::render::compositor::Compositor,
     ) {
         let mut offset = self.cursor;

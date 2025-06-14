@@ -17,7 +17,7 @@ impl Renderable for Write {
     fn render(
         &self,
         area: AbsRect,
-        graphics: &crate::graphics::State,
+        graphics: &crate::graphics::Driver,
         compositor: &mut crate::render::Compositor,
     ) {
         if let Some(idref) = self.id.upgrade() {

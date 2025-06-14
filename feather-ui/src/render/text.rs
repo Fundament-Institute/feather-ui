@@ -5,6 +5,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use cosmic_text::{CacheKey, FontSystem, SwashCache, SwashContent};
+use guillotiere::AllocId;
 use guillotiere::Size;
 use ultraviolet::Vec2;
 use wgpu::Extent3d;
@@ -13,7 +14,6 @@ use wgpu::TexelCopyBufferLayout;
 use wgpu::TexelCopyTextureInfo;
 
 use crate::graphics::GlyphCache;
-use crate::render::Pipeline;
 use crate::render::compositor::Compositor;
 use crate::{AbsRect, render::atlas::Atlas};
 
@@ -35,72 +35,93 @@ impl Instance {
         queue: &wgpu::Queue,
         atlas: &mut Atlas,
         cache: &mut SwashCache,
-    ) -> eyre::Result<super::atlas::Region> {
-        if let Some(r) = glyphs.get(&key) {
-            return Ok(r.clone());
+    ) -> eyre::Result<()> {
+        if let Some(_) = glyphs.get(&key) {
+            // We can't actually return this borrow because of https://github.com/rust-lang/rust/issues/58910
+            return Ok(());
         }
         let Some(mut image) = cache.get_image_uncached(font_system, key) else {
             return Err(eyre::eyre!("Failed to get glyph image!"));
         };
 
-        // Find a position in the packer
-        let region = atlas.reserve(
-            device,
-            Size::new(image.placement.width as i32, image.placement.height as i32),
-        );
+        let region = if image.data.is_empty() {
+            super::atlas::Region {
+                id: AllocId::deserialize(u32::MAX),
+                uv: guillotiere::euclid::Box2D::zero(),
+                index: 0,
+            }
+        } else {
+            // Find a position in the packer
+            atlas.reserve(
+                device,
+                Size::new(image.placement.width as i32, image.placement.height as i32),
+            )
+        };
 
-        match image.content {
-            SwashContent::Mask => {
-                let mask = image.data;
-                image.data = Vec::with_capacity(mask.len() * 4);
-
-                for (i, chunk) in image.data.chunks_exact_mut(size_of::<i32>()).enumerate() {
-                    chunk.copy_from_slice(&[1, 1, 1, mask[i]]);
+        if !image.data.is_empty() {
+            match image.content {
+                SwashContent::Mask => {
+                    let mask = image.data;
+                    image.data = mask.iter().flat_map(|x| [*x, *x, *x, *x]).collect();
+                }
+                // This is in RGBA format but our texture atlas is in BGRA format, so swap it
+                SwashContent::Color => {
+                    // TODO: wide doesn't implement SSE shuffle instructions yet, which could potentially be faster here
+                    let len = image.data.len() / 4;
+                    let slice = image.data.as_mut_slice();
+                    for i in 0..len {
+                        let idx = i * 4;
+                        slice.swap(idx + 0, idx + 2);
+                        // pre-multiply color
+                        slice[idx + 0] *= slice[idx + 3];
+                        slice[idx + 1] *= slice[idx + 3];
+                        slice[idx + 2] *= slice[idx + 3];
+                    }
+                }
+                SwashContent::SubpixelMask => {
+                    // TODO: wide doesn't implement SSE shuffle instructions yet, which could potentially be faster here
+                    let len = image.data.len() / 4;
+                    let slice = image.data.as_mut_slice();
+                    for i in 0..len {
+                        let idx = i * 4;
+                        slice.swap(idx + 0, idx + 2);
+                        // Don't pre-multiply this because it's already a mask
+                    }
                 }
             }
-            // This is in RGBA format but our texture atlas is in BGRA format, so swap it
-            SwashContent::SubpixelMask | SwashContent::Color => {
-                // TODO: wide doesn't implement SSE shuffle instructions yet, which could potentially be faster here
-                let len = image.data.len() / 4;
-                let slice = image.data.as_mut_slice();
-                for i in 0..len {
-                    let idx = i * 4;
-                    slice.swap(idx + 0, idx + 2);
-                }
-            }
-        }
 
-        queue.write_texture(
-            TexelCopyTextureInfo {
-                texture: &atlas.get_texture(),
-                mip_level: 0,
-                origin: Origin3d {
-                    x: region.uv.min.x as u32,
-                    y: region.uv.min.y as u32,
-                    z: region.index as u32,
+            queue.write_texture(
+                TexelCopyTextureInfo {
+                    texture: &atlas.get_texture(),
+                    mip_level: 0,
+                    origin: Origin3d {
+                        x: region.uv.min.x as u32,
+                        y: region.uv.min.y as u32,
+                        z: region.index as u32,
+                    },
+                    aspect: wgpu::TextureAspect::All,
                 },
-                aspect: wgpu::TextureAspect::All,
-            },
-            &image.data,
-            TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(
-                    image.placement.width * atlas.get_texture().format().components() as u32,
-                ),
-                rows_per_image: None,
-            },
-            Extent3d {
-                width: image.placement.width as u32,
-                height: image.placement.height as u32,
-                depth_or_array_layers: 1,
-            },
-        );
+                &image.data,
+                TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(
+                        image.placement.width * atlas.get_texture().format().components() as u32,
+                    ),
+                    rows_per_image: None,
+                },
+                Extent3d {
+                    width: image.placement.width as u32,
+                    height: image.placement.height as u32,
+                    depth_or_array_layers: 1,
+                },
+            );
+        }
 
         if let Some(mut old) = glyphs.insert(key, region) {
             atlas.destroy(&mut old);
         }
 
-        Ok(glyphs[&key].clone())
+        Ok(())
     }
 
     pub fn prepare_glyph(
@@ -121,7 +142,11 @@ impl Instance {
         atlas: &mut Atlas,
         cache: &mut SwashCache,
     ) -> eyre::Result<Option<super::compositor::Data>> {
-        let region = Self::write_glyph(key, font_system, glyphs, device, queue, atlas, cache)?;
+        Self::write_glyph(key, font_system, glyphs, device, queue, atlas, cache)?;
+        let region = Self::get_glyph(key, glyphs).unwrap();
+        if region.uv.area() == 0 {
+            return Ok(None);
+        }
         let atlas_min = region.uv.min;
 
         let mut x = x + region.uv.min.x;
@@ -258,7 +283,7 @@ impl super::Renderable for Instance {
     fn render(
         &self,
         area: AbsRect,
-        graphics: &crate::graphics::State,
+        graphics: &crate::graphics::Driver,
         compositor: &mut Compositor,
     ) {
         let padding = self.padding.get();
@@ -268,7 +293,7 @@ impl super::Renderable for Instance {
             area.topleft() + padding.topleft(),
             1.0,
             area,
-            glyphon::Color::rgb(255, 255, 255),
+            cosmic_text::Color::rgb(255, 255, 255),
             compositor,
             &mut graphics.font_system.write(),
             &mut graphics.glyphs.write(),

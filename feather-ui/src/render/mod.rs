@@ -17,10 +17,15 @@ pub mod shape;
 pub mod text;
 
 pub trait Renderable {
-    fn render(&self, area: AbsRect, graphics: &crate::graphics::State, compositor: &mut Compositor);
+    fn render(
+        &self,
+        area: AbsRect,
+        graphics: &crate::graphics::Driver,
+        compositor: &mut Compositor,
+    );
 }
 
-pub trait Pipeline {
+pub trait Pipeline: Any + std::fmt::Debug + Send + Sync {
     type Data: 'static;
 
     fn append(&mut self, data: &Self::Data, layer: u16);
@@ -28,12 +33,12 @@ pub trait Pipeline {
     #[allow(unused_variables)]
     fn prepare(
         &mut self,
-        graphics: &graphics::State,
+        graphics: &graphics::Driver,
         encoder: &mut wgpu::CommandEncoder,
         config: &wgpu::SurfaceConfiguration,
     ) {
     }
-    fn draw(&mut self, graphics: &graphics::State, pass: &mut wgpu::RenderPass<'_>, layer: u16);
+    fn draw(&mut self, graphics: &graphics::Driver, pass: &mut wgpu::RenderPass<'_>, layer: u16);
 }
 
 pub trait AnyPipeline: Any + std::fmt::Debug + Send + Sync {
@@ -78,7 +83,7 @@ impl<const N: usize> Renderable for Chain<N> {
     fn render(
         &self,
         area: crate::AbsRect,
-        graphics: &crate::graphics::State,
+        graphics: &crate::graphics::Driver,
         compositor: &mut Compositor,
     ) {
         for x in &self.0 {

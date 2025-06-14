@@ -4,7 +4,7 @@
 use feather_macro::*;
 use feather_ui::component::button::Button;
 use feather_ui::component::region::Region;
-use feather_ui::component::shape::Shape;
+use feather_ui::component::shape::{Shape, ShapeKind};
 use feather_ui::component::text::Text;
 use feather_ui::component::window::Window;
 use feather_ui::component::{ComponentFrom, mouse_area};
@@ -72,9 +72,10 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     im::Vector::new();
                 children.push_back(Some(Box::new(text)));
 
-                let rect = Shape::<DRect>::round_rect(
+                let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
                     gen_id!().into(),
                     feather_ui::FILL_DRECT.into(),
+                    Vec2::zero(),
                     0.0,
                     0.0,
                     Vec4::broadcast(10.0),
@@ -127,9 +128,10 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     im::Vector::new();
                 children.push_back(Some(Box::new(text)));
 
-                let rect = Shape::<DRect>::round_rect(
+                let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
                     gen_id!().into(),
                     feather_ui::FILL_DRECT.into(),
+                    Vec2::zero(),
                     0.0,
                     0.0,
                     Vec4::broadcast(10.0),

@@ -1,14 +1,12 @@
 use std::collections::HashMap;
-use std::hash::Hash;
 use std::rc::Rc;
 
 use guillotiere::{AllocId, AllocatorOptions, AtlasAllocator, Size};
 use wgpu::util::DeviceExt;
-use wgpu::{Extent3d, Origin3d, TextureDescriptor};
+use wgpu::{Extent3d, Origin3d, TextureDescriptor, TextureFormat};
 
 /// Array of 2D textures, along with an array of guillotine allocators to go along with them. We use an array of mid-size
 /// textures so we don't have to resize the atlas allocator or adjust any UV coordinates that way.
-#[derive(Clone)]
 pub struct Atlas {
     pending: Option<u32>, // stores a pending copy operation for the compositor to do in it's Prepare() call
     extent: u32,
@@ -19,7 +17,16 @@ pub struct Atlas {
     cache: HashMap<Rc<crate::SourceID>, Region>,
 }
 
+pub const ATLAS_FORMAT: TextureFormat = TextureFormat::Bgra8UnormSrgb;
+
 unsafe impl Send for Atlas {}
+impl Drop for Atlas {
+    fn drop(&mut self) {
+        for (_, mut r) in self.cache.drain() {
+            r.id = AllocId::deserialize(u32::MAX);
+        }
+    }
+}
 
 impl std::fmt::Debug for Atlas {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -36,7 +43,7 @@ impl Atlas {
         queue.write_buffer(
             &self.mvp,
             0,
-            crate::shaders::mat4_ortho(
+            crate::graphics::mat4_ortho(
                 0.0,
                 self.texture.height() as f32,
                 self.texture.width() as f32,
@@ -90,8 +97,8 @@ impl Atlas {
 
         let mvp = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Atlas MVP"),
-            usage: wgpu::BufferUsages::UNIFORM,
-            contents: crate::shaders::mat4_ortho(
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            contents: crate::graphics::mat4_ortho(
                 0.0,
                 texture.height() as f32,
                 texture.width() as f32,
@@ -104,7 +111,7 @@ impl Atlas {
 
         let extent_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Extent"),
-            usage: wgpu::BufferUsages::UNIFORM,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             contents: bytemuck::cast_slice(&[extent]),
         });
 
@@ -149,12 +156,12 @@ impl Atlas {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Bgra8UnormSrgb,
+            format: ATLAS_FORMAT,
             usage: wgpu::TextureUsages::TEXTURE_BINDING
                 | wgpu::TextureUsages::RENDER_ATTACHMENT
                 | wgpu::TextureUsages::COPY_SRC
                 | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[],
+            view_formats: &[TextureFormat::Bgra8UnormSrgb, TextureFormat::Bgra8Unorm],
         })
     }
 
@@ -197,6 +204,11 @@ impl Atlas {
     }
 
     pub fn reserve(&mut self, device: &wgpu::Device, dim: Size) -> Region {
+        if dim.height == 0 {
+            assert_ne!(dim.height, 0);
+        }
+        assert_ne!(dim.width, 0);
+        assert_ne!(dim.height, 0);
         if dim.width > self.extent as i32 || dim.height > self.extent as i32 {
             panic!("Requested reservation size exceeds size of texture atlas!")
         }
@@ -214,7 +226,7 @@ impl Atlas {
             return self.create_region(self.allocators.len() - 1, r, dim);
         }
 
-        panic!("Somehow reservation failed???");
+        panic!("Somehow reservation failed???: {:?}", dim);
     }
 
     pub fn destroy(&mut self, region: &mut Region) {
@@ -238,7 +250,7 @@ impl Atlas {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 /// A single allocated region on a particular texture atlas. Because we never resize our texture atlases, we can simply
 /// store the UV rect directly
 pub struct Region {

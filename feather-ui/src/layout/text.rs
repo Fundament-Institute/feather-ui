@@ -58,16 +58,18 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
         let mut text_binding = self.text_render.text_buffer.borrow_mut();
         let text_buffer = text_binding.as_mut().unwrap();
         let driver = window.graphics.clone();
-        let mut font_system = driver.font_system.write();
-
         let dim = evaluated_area.dim();
-        text_buffer.set_size(
-            &mut font_system,
-            if unsized_x { limitx } else { Some(dim.0.x) },
-            if unsized_y { limity } else { Some(dim.0.y) },
-        );
+        {
+            let mut font_system = driver.font_system.write();
 
-        text_buffer.shape_until_scroll(&mut font_system, false);
+            text_buffer.set_size(
+                &mut font_system,
+                if unsized_x { limitx } else { Some(dim.0.x) },
+                if unsized_y { limity } else { Some(dim.0.y) },
+            );
+
+            text_buffer.shape_until_scroll(&mut font_system, false);
+        }
 
         // If we have indeterminate area, calculate the size
         if unsized_x || unsized_y {
