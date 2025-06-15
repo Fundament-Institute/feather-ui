@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use guillotiere::{AllocId, AllocatorOptions, AtlasAllocator, Size};
 use wgpu::util::DeviceExt;
-use wgpu::{Extent3d, Origin3d, TextureDescriptor, TextureFormat};
+use wgpu::{Extent3d, Origin3d, TextureDescriptor, TextureFormat, TextureUsages};
 
 /// Array of 2D textures, along with an array of guillotine allocators to go along with them. We use an array of mid-size
 /// textures so we don't have to resize the atlas allocator or adjust any UV coordinates that way.
@@ -247,6 +247,51 @@ impl Atlas {
         }
 
         self.pending = Some(self.allocators.len() as u32);
+    }
+
+    pub fn draw(&self, driver: &crate::graphics::Driver, encoder: &mut wgpu::CommandEncoder) {
+        // We create one render pass for each layer of the atlas
+        for i in 0..self.texture.depth_or_array_layers() {
+            let view = self.texture.create_view(&wgpu::wgt::TextureViewDescriptor {
+                label: Some("Atlas Layer View"),
+                format: Some(ATLAS_FORMAT),
+                dimension: Some(wgpu::TextureViewDimension::D2),
+                usage: Some(TextureUsages::RENDER_ATTACHMENT),
+                aspect: wgpu::TextureAspect::All,
+                base_mip_level: 0,
+                mip_level_count: Some(1),
+                base_array_layer: i,
+                array_layer_count: Some(1),
+            });
+
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Atlas Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+
+            pass.set_viewport(
+                0.0,
+                0.0,
+                self.texture.width() as f32,
+                self.texture.height() as f32,
+                0.0,
+                1.0,
+            );
+
+            for (_, pipeline) in driver.pipelines.borrow_mut().iter_mut() {
+                pipeline.draw(driver, &mut pass, i as u16);
+            }
+        }
     }
 }
 

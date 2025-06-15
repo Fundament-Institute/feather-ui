@@ -39,7 +39,7 @@ pub struct WindowState {
     modifiers: u8,
     last_mouse: PhysicalPosition<f32>,
     pub dpi: Vec2,
-    pub graphics: Arc<graphics::Driver>,
+    pub graphics: Rc<graphics::Driver>,
     trackers: [HashMap<DeviceId, RcNode>; 3],
     lookup: HashMap<(Rc<SourceID>, u8), DeviceId>,
     pub compositor: Compositor,
@@ -109,6 +109,53 @@ impl WindowState {
             }
         }
     }
+
+    pub(crate) fn draw(&mut self, mut encoder: wgpu::CommandEncoder) {
+        let frame = self.surface.get_current_texture().unwrap();
+        let view = frame
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+
+        self.compositor
+            .prepare(&self.graphics, &mut encoder, &self.config);
+
+        {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Window Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.1,
+                            g: 0.2,
+                            b: 0.3,
+                            a: 1.0,
+                        }),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+
+            pass.set_viewport(
+                0.0,
+                0.0,
+                self.config.width as f32,
+                self.config.height as f32,
+                0.0,
+                1.0,
+            );
+
+            self.compositor
+                .draw(&self.graphics, &mut pass, &self.config);
+        }
+
+        self.graphics.queue.submit(Some(encoder.finish()));
+        frame.present();
+    }
 }
 
 pub(crate) struct RcNode(Rc<SourceID>, pub(crate) Weak<Node>);
@@ -128,7 +175,7 @@ impl PartialEq for WindowState {
             && self.modifiers == other.modifiers
             && self.last_mouse == other.last_mouse
             && self.dpi == other.dpi
-            && Arc::ptr_eq(&self.graphics, &other.graphics)
+            && Rc::ptr_eq(&self.graphics, &other.graphics)
             && self.trackers == other.trackers
     }
 }
@@ -198,7 +245,7 @@ impl Window {
     >(
         &self,
         manager: &mut StateManager,
-        graphics: &mut alloc::sync::Weak<graphics::Driver>,
+        graphics: &mut alloc::rc::Weak<graphics::Driver>,
         instance: &wgpu::Instance,
         event_loop: &ActiveEventLoop,
     ) -> Result<()> {
@@ -228,7 +275,7 @@ impl Window {
                 graphics.shared.clone(),
                 &graphics.device,
                 &config,
-                &graphics.atlas.read(),
+                &graphics.atlas.borrow(),
             );
 
             let mut windowstate = WindowState {
@@ -286,7 +333,7 @@ impl Window {
         rtree: Weak<rtree::Node>,
         event: WindowEvent,
         manager: &mut StateManager,
-        graphics: std::sync::Weak<graphics::Driver>,
+        graphics: std::rc::Weak<graphics::Driver>,
     ) -> Result<(), ()> {
         let state: &mut WindowStateMachine = manager.get_mut(&id).map_err(|_| ())?;
         let window = state.state.as_mut().unwrap();
@@ -332,58 +379,7 @@ impl Window {
                 Err(())
             }
             WindowEvent::RedrawRequested => {
-                let frame = window.surface.get_current_texture().unwrap();
-                let view = frame
-                    .texture
-                    .create_view(&wgpu::TextureViewDescriptor::default());
-                let mut encoder = window.graphics.device.create_command_encoder(
-                    &wgpu::CommandEncoderDescriptor {
-                        label: Some("Window Component"),
-                    },
-                );
-
-                window
-                    .compositor
-                    .prepare(&window.graphics, &mut encoder, &window.config);
-
-                {
-                    let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                        label: Some("Window Pass"),
-                        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                            view: &view,
-                            resolve_target: None,
-                            ops: wgpu::Operations {
-                                load: wgpu::LoadOp::Clear(wgpu::Color {
-                                    r: 0.1,
-                                    g: 0.2,
-                                    b: 0.3,
-                                    a: 1.0,
-                                }),
-                                store: wgpu::StoreOp::Store,
-                            },
-                        })],
-                        depth_stencil_attachment: None,
-                        timestamp_writes: None,
-                        occlusion_query_set: None,
-                    });
-
-                    pass.set_viewport(
-                        0.0,
-                        0.0,
-                        window.config.width as f32,
-                        window.config.height as f32,
-                        0.0,
-                        1.0,
-                    );
-
-                    window
-                        .compositor
-                        .draw(&window.graphics, &mut pass, &window.config);
-                }
-
-                window.graphics.queue.submit(Some(encoder.finish()));
-                frame.present();
-                Ok(())
+                panic!("Don't process this with on_window_event");
             }
             WindowEvent::Focused(acquired) => {
                 // When the window loses or gains focus, we send a focus event to our children that had
@@ -570,7 +566,7 @@ impl Window {
                 match e {
                     RawEvent::MouseMove { .. } | RawEvent::MouseOn { .. } => {
                         if let Some(d) = graphics.upgrade() {
-                            *d.cursor.write() = CursorIcon::Default;
+                            *d.cursor.borrow_mut() = CursorIcon::Default;
                         }
                     }
                     _ => (),
@@ -786,7 +782,7 @@ impl Window {
                 match e {
                     RawEvent::MouseMove { .. } | RawEvent::MouseOn { .. } => {
                         if let Some(d) = graphics.upgrade() {
-                            inner.set_cursor(*d.cursor.read());
+                            inner.set_cursor(*d.cursor.borrow());
                         }
                     }
                     _ => (),

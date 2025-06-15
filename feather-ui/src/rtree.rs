@@ -161,7 +161,7 @@ impl Node {
                 let state: &mut WindowStateMachine = manager.get_mut(&window_id).map_err(|_| ())?;
                 let window = state.state.as_mut().unwrap();
                 window.remove(WindowNodeTrack::Capture, device_id);
-                let graphics = std::sync::Arc::downgrade(&window.graphics);
+                let graphics = Rc::downgrade(&window.graphics);
 
                 // We don't care if this is accepted or not
                 let _ = crate::component::window::Window::on_window_event(
@@ -289,7 +289,7 @@ impl Node {
                             (window.remove(WindowNodeTrack::Focus, device_id), false)
                         };
 
-                        let graphics = std::sync::Arc::downgrade(&window.graphics);
+                        let graphics = Rc::downgrade(&window.graphics);
 
                         // Tell the old node that it lost focus (if it cares).
                         if let Some(old) = old.and_then(|old| old.upgrade()) {

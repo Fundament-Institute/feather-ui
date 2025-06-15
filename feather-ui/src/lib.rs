@@ -1200,7 +1200,7 @@ pub struct App<
     O: FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>,
 > {
     pub instance: wgpu::Instance,
-    pub graphics: std::sync::Weak<graphics::Driver>,
+    pub graphics: std::rc::Weak<graphics::Driver>,
     state: StateManager,
     store: Option<O::Store>,
     outline: O,
@@ -1304,7 +1304,7 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
         Ok((
             Self {
                 instance: wgpu::Instance::default(),
-                graphics: std::sync::Weak::<graphics::Driver>::new(),
+                graphics: std::rc::Weak::<graphics::Driver>::new(),
                 store: None,
                 outline,
                 state: manager,
@@ -1382,15 +1382,19 @@ impl<
                                         &mut state.state.as_mut().unwrap().compositor,
                                     );
                                 }
+
+                                let mut encoder = graphics.device.create_command_encoder(
+                                    &wgpu::CommandEncoderDescriptor {
+                                        label: Some("Root Encoder"),
+                                    },
+                                );
+
+                                graphics.atlas.borrow().draw(&graphics, &mut encoder);
+
+                                state.state.as_mut().unwrap().draw(encoder);
                             }
                         }
-                        Window::on_window_event(
-                            window.id(),
-                            rtree,
-                            event,
-                            &mut self.state,
-                            self.graphics.clone(),
-                        )
+                        Ok(())
                     }
                     winit::event::WindowEvent::Resized(_) => {
                         resized = true;

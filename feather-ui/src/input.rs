@@ -108,20 +108,20 @@ pub enum RawEvent {
         pos: PhysicalPosition<f32>,
         modifiers: u8,
         all_buttons: u16,
-        graphics: std::sync::Weak<graphics::Driver>, // Allows setting our global cursor tracker
+        graphics: std::rc::Weak<graphics::Driver>, // Allows setting our global cursor tracker
     },
     MouseMove {
         device_id: winit::event::DeviceId,
         pos: PhysicalPosition<f32>,
         modifiers: u8,
         all_buttons: u16,
-        graphics: std::sync::Weak<graphics::Driver>, // Allows setting our global cursor tracker
+        graphics: std::rc::Weak<graphics::Driver>, // Allows setting our global cursor tracker
     },
     MouseOff {
         device_id: winit::event::DeviceId,
         modifiers: u8,
         all_buttons: u16,
-        graphics: std::sync::Weak<graphics::Driver>, // Allows setting our global cursor tracker
+        graphics: std::rc::Weak<graphics::Driver>, // Allows setting our global cursor tracker
     },
     MouseScroll {
         device_id: winit::event::DeviceId,

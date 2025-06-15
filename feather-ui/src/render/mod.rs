@@ -43,11 +43,29 @@ pub trait Pipeline: Any + std::fmt::Debug + Send + Sync {
 
 pub trait AnyPipeline: Any + std::fmt::Debug + Send + Sync {
     fn append(&mut self, data: &dyn Any, layer: u16);
+    fn prepare(
+        &mut self,
+        graphics: &graphics::Driver,
+        encoder: &mut wgpu::CommandEncoder,
+        config: &wgpu::SurfaceConfiguration,
+    );
+    fn draw(&mut self, graphics: &graphics::Driver, pass: &mut wgpu::RenderPass<'_>, layer: u16);
 }
 
 impl<T: Pipeline + std::fmt::Debug + Send + Sync + 'static> AnyPipeline for T {
     fn append(&mut self, data: &dyn Any, layer: u16) {
         Pipeline::append(self, data.downcast_ref().unwrap(), layer)
+    }
+    fn prepare(
+        &mut self,
+        graphics: &graphics::Driver,
+        encoder: &mut wgpu::CommandEncoder,
+        config: &wgpu::SurfaceConfiguration,
+    ) {
+        Pipeline::prepare(self, graphics, encoder, config);
+    }
+    fn draw(&mut self, graphics: &graphics::Driver, pass: &mut wgpu::RenderPass<'_>, layer: u16) {
+        Pipeline::draw(self, graphics, pass, layer);
     }
 }
 

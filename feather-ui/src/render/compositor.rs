@@ -1,5 +1,5 @@
 use crate::AbsRect;
-use std::{collections::HashMap, num::NonZero};
+use std::{collections::HashMap, num::NonZero, rc::Rc};
 use wgpu::{TextureUsages, TextureViewDescriptor, wgt::SamplerDescriptor};
 
 use crate::ZERO_RECT;
@@ -70,7 +70,7 @@ impl Shared {
                     binding: 4,
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
                         has_dynamic_offset: false,
                         min_binding_size: None,
                     },
@@ -182,7 +182,7 @@ impl Shared {
 /// instancing, nor did OpenGL ES 2.0, which means many older devices also don't. (3) or (4) may be implemented as a
 /// seperate option later, espiecally if we continue to use wgpu, since wgpu assumes vulkan support.
 pub struct Compositor {
-    shared: std::sync::Arc<Shared>,
+    shared: Rc<Shared>,
     pipeline: wgpu::RenderPipeline,
     group: wgpu::BindGroup,
     mvp: wgpu::Buffer,
@@ -196,7 +196,7 @@ pub struct Compositor {
 
 impl Compositor {
     pub fn new(
-        shared: std::sync::Arc<Shared>,
+        shared: Rc<Shared>,
         device: &wgpu::Device,
         config: &wgpu::SurfaceConfiguration,
         atlas: &super::atlas::Atlas,
@@ -220,7 +220,7 @@ impl Compositor {
         let clip = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("ClipRects"),
             size: 4 * size_of::<AbsRect>() as u64,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
 
@@ -345,7 +345,7 @@ impl Compositor {
         // If we have a pending copy, queue it up.
         graphics
             .atlas
-            .write()
+            .borrow_mut()
             .perform_copy(&graphics.device, &graphics.queue, encoder);
 
         // Resolve all defers

@@ -295,12 +295,12 @@ impl super::Renderable for Instance {
             area,
             cosmic_text::Color::rgb(255, 255, 255),
             compositor,
-            &mut graphics.font_system.write(),
-            &mut graphics.glyphs.write(),
+            &mut graphics.font_system.borrow_mut(),
+            &mut graphics.glyphs.borrow_mut(),
             &graphics.device,
             &graphics.queue,
-            &mut graphics.atlas.write(),
-            &mut graphics.swash_cache.write(),
+            &mut graphics.atlas.borrow_mut(),
+            &mut graphics.swash_cache.borrow_mut(),
         )
         .expect("Unexpected error while preparing text!");
     }

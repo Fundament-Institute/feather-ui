@@ -262,7 +262,7 @@ impl Root {
     >(
         &mut self,
         manager: &mut StateManager,
-        graphics: &mut std::sync::Weak<graphics::Driver>,
+        graphics: &mut std::rc::Weak<graphics::Driver>,
         instance: &wgpu::Instance,
         event_loop: &winit::event_loop::ActiveEventLoop,
     ) -> eyre::Result<()> {
