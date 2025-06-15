@@ -32,7 +32,7 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
     ) {
         let dim = *(area.bottomright() - area.topleft() - self.padding.bottomright()).as_array();
         let (region_uv, region_index) = {
-            let mut atlas = graphics.atlas.write();
+            let mut atlas = graphics.atlas.borrow_mut();
             let region = atlas.cache_region(
                 &graphics.device,
                 self.id.clone(),
@@ -44,8 +44,8 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
         graphics.with_pipeline::<PIPELINE>(|pipeline| {
             pipeline.append(
                 &Data {
-                    pos: *(area.topleft() + self.padding.topleft()).as_array(),
-                    dim: dim,
+                    pos: region_uv.min.to_f32().to_array(),
+                    dim: region_uv.size().to_f32().to_array(),
                     border: self.border,
                     blur: self.blur,
                     corners: *self.corners.as_array(),
@@ -68,6 +68,18 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
         });
     }
 }
+
+// Renderdoc Format:
+// struct Data {
+// 	float pos[2];
+// 	float dim[2];
+// 	float border;
+// 	float blur;
+// 	float corners[4];
+// 	uint32_t fill;
+// 	uint32_t outline;
+// };
+// Data d[];
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, bytemuck::NoUninit)]
 #[repr(C)]
@@ -113,7 +125,7 @@ impl<const KIND: u8> super::Pipeline for Shape<KIND> {
 impl<const KIND: u8> Shape<KIND> {
     pub fn layout(device: &wgpu::Device) -> wgpu::PipelineLayout {
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Compositor Bind Group"),
+            label: Some("Shape Bind Group"),
             entries: &[
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
@@ -185,7 +197,7 @@ impl<const KIND: u8> Shape<KIND> {
             }),
             primitive: wgpu::PrimitiveState {
                 front_face: wgpu::FrontFace::Cw,
-                topology: wgpu::PrimitiveTopology::TriangleStrip,
+                topology: wgpu::PrimitiveTopology::TriangleList,
                 ..Default::default()
             },
             depth_stencil: None,
@@ -208,7 +220,7 @@ impl<const KIND: u8> Shape<KIND> {
             mapped_at_creation: false,
         });
 
-        let atlas = graphics.atlas.read();
+        let atlas = graphics.atlas.borrow();
 
         let bindings = [
             wgpu::BindGroupEntry {

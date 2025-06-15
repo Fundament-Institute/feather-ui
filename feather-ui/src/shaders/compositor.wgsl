@@ -1,7 +1,7 @@
 @group(0) @binding(0)
 var<uniform> MVP: mat4x4f;
 @group(0) @binding(1)
-var<storage, read> buffer: array<Data>;
+var<storage, read> buf: array<Data>;
 @group(0) @binding(2)
 var atlas: texture_2d_array<f32>;
 @group(0) @binding(3)
@@ -72,7 +72,7 @@ fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
   let vert = idx % 6;
   let index = idx / 6;
   var vpos = vec2(VERTX[vert], VERTY[vert]);
-  let d = buffer[index];
+  let d = buf[index];
   var transform = identity_mat4;
 
   if d.rotation != 0.0f {
@@ -103,13 +103,11 @@ fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
 
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4f {
-  //let d = buffer[input.index];
-  //let clip = d.texclip & 0x0000FFFF;
-  //let tex = (d.texclip & 0xFFFF0000) >> 16;
+  let d = buf[input.index];
+  let clip = d.texclip & 0x0000FFFF;
+  let tex = (d.texclip & 0xFFFF0000) >> 16;
 
-  let clip = 0;
-  let tex = 0;
-  /*if clip > 0 {
+  if clip > 0 {
     let r = cliprects[clip];
     if !(input.uv.x >= r.x && input.uv.y >= r.y && input.uv.x < r.z && input.uv.y < r.z) {
       discard;
@@ -117,9 +115,8 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
   }
 
   if tex == 0xFFFF {
-    return d.color;
-  }*/
+    return input.color;
+  }
 
-  return vec4(0, 0, 0, 0);
-  // return textureSample(atlas[tex], sampling, input.uv) * d.color;
+  return textureSample(atlas, sampling, input.uv, tex) * input.color;
 }

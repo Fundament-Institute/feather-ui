@@ -1,7 +1,7 @@
 @group(0) @binding(0)
 var<uniform> MVP: mat4x4f;
 @group(0) @binding(1)
-var<storage, read> buffer: array<Data>;
+var<storage, read> buf: array<Data>;
 @group(0) @binding(2)
 var<uniform> extent: u32;
 
@@ -29,7 +29,7 @@ fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
   let vert = idx % 6;
   let index = idx / 6;
   var vpos = vec2(VERTX[vert], VERTY[vert]);
-  let d = buffer[index];
+  let d = buf[index];
 
   var mv: mat4x4f;
   mv[0] = vec4f(d.dim.x, 0f, 0f, 0f);
@@ -66,7 +66,7 @@ fn rectangle_sdf(samplePosition: vec2f, halfSize: vec2f, edges: vec4f) -> f32 {
 
 @fragment
 fn rectangle(input: VertexOutput) -> @location(0) vec4f {
-  let d = buffer[input.index];
+  let d = buf[input.index];
   // Ideally we would get DPI for both height and width, but for now we just assume DPI isn't weird
   let w = fwidth(d.dim.x * input.uv.x) * 0.5f * (1.0f + d.blur);
   let uv = (input.uv * d.dim) - (d.dim * 0.5f);
@@ -77,5 +77,6 @@ fn rectangle(input: VertexOutput) -> @location(0) vec4f {
   let fill = u32_to_vec4(d.fill);
   let outline = u32_to_vec4(d.outline);
 
-  return (vec4f(fill.rgb, 1f) * fill.a * s) + (vec4f(outline.rgb, 1f) * outline.a * clamp(alpha - s, 0.0f, 1.0f));
+  return vec4f(1.0, 0.0, 0.0, 1.0);
+  //return (vec4f(fill.rgb, 1f) * fill.a * s) + (vec4f(outline.rgb, 1f) * outline.a * clamp(alpha - s, 0.0f, 1.0f));
 }

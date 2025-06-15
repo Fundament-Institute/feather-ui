@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use crate::render;
 use crate::render::AnyPipeline;
@@ -48,17 +50,17 @@ pub(crate) type GlyphCache = HashMap<cosmic_text::CacheKey, atlas::Region>;
 // sensible behavior.
 #[derive(Debug)]
 pub struct Driver {
-    pub(crate) glyphs: RwLock<GlyphCache>,
-    pub(crate) atlas: RwLock<atlas::Atlas>,
-    pub(crate) shared: Arc<compositor::Shared>,
-    pub(crate) pipelines: RwLock<HashMap<PipelineID, Box<dyn crate::render::AnyPipeline>>>,
+    pub(crate) glyphs: RefCell<GlyphCache>,
+    pub(crate) atlas: RefCell<atlas::Atlas>,
+    pub(crate) shared: Rc<compositor::Shared>,
+    pub(crate) pipelines: RefCell<HashMap<PipelineID, Box<dyn crate::render::AnyPipeline>>>,
     registry: HashMap<PipelineID, PipelineState>,
     pub(crate) queue: wgpu::Queue,
     pub(crate) device: wgpu::Device,
     pub(crate) adapter: wgpu::Adapter,
-    pub(crate) cursor: RwLock<CursorIcon>, // This is a convenient place to track our global expected cursor
-    pub(crate) swash_cache: RwLock<cosmic_text::SwashCache>,
-    pub(crate) font_system: RwLock<cosmic_text::FontSystem>,
+    pub(crate) cursor: RefCell<CursorIcon>, // This is a convenient place to track our global expected cursor
+    pub(crate) swash_cache: RefCell<cosmic_text::SwashCache>,
+    pub(crate) font_system: RefCell<cosmic_text::FontSystem>,
 }
 
 impl Drop for Driver {
@@ -80,10 +82,10 @@ impl std::fmt::Debug for PipelineState {
 
 impl Driver {
     pub async fn new(
-        weak: &mut alloc::sync::Weak<Self>,
+        weak: &mut alloc::rc::Weak<Self>,
         instance: &wgpu::Instance,
         surface: &wgpu::Surface<'static>,
-    ) -> eyre::Result<Arc<Self>> {
+    ) -> eyre::Result<Rc<Self>> {
         if let Some(driver) = weak.upgrade() {
             return Ok(driver);
         }
@@ -117,7 +119,7 @@ impl Driver {
             queue,
             swash_cache: cosmic_text::SwashCache::new().into(),
             font_system: cosmic_text::FontSystem::new().into(),
-            cursor: RwLock::new(CursorIcon::Default),
+            cursor: CursorIcon::Default.into(),
             pipelines: HashMap::new().into(),
             glyphs: HashMap::new().into(),
             registry: HashMap::new(),
@@ -134,8 +136,8 @@ impl Driver {
         //driver.register_pipeline(shape_pipeline.clone(), shape_shader.clone(), crate::render::shape::Shape::<2>::new);
         //driver.register_pipeline(shape_pipeline.clone(), shape_shader.clone(), crate::render::shape::Shape::<3>::new);
 
-        let driver = Arc::new(driver);
-        *weak = Arc::downgrade(&driver);
+        let driver = Rc::new(driver);
+        *weak = Rc::downgrade(&driver);
         Ok(driver)
     }
 
@@ -165,7 +167,7 @@ impl Driver {
         let id = TypeId::of::<T>();
 
         // We can't use the result of this because it makes the lifetimes weird
-        if self.pipelines.read().get(&id).is_none() {
+        if self.pipelines.borrow().get(&id).is_none() {
             let PipelineState {
                 generator,
                 layout,
@@ -173,12 +175,12 @@ impl Driver {
             } = &self.registry[&id];
 
             self.pipelines
-                .write()
+                .borrow_mut()
                 .insert(id, generator(&layout, &shader, self));
         }
 
         f(
-            (self.pipelines.write().get_mut(&id).unwrap().as_mut() as &mut dyn std::any::Any)
+            (self.pipelines.borrow_mut().get_mut(&id).unwrap().as_mut() as &mut dyn std::any::Any)
                 .downcast_mut()
                 .unwrap(),
         );
@@ -186,7 +188,7 @@ impl Driver {
 }
 
 // TODO: Rc<SourceID> is not thread-safe
-//static_assertions::assert_impl_all!(State: Send, Sync);
+//static_assertions::assert_impl_all!(Driver: Send, Sync);
 
 // This maps x and y to the viewpoint size, maps input_z from [n,f] to [0,1], and sets
 // output_w = input_z for perspective. Requires input_w = 1

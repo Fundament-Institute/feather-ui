@@ -7,10 +7,10 @@ use crate::input::{ModifierKeys, MouseButton, MouseState, RawEvent, RawEventKind
 use crate::layout::{Layout, base, leaf};
 use crate::text::EditObj;
 use crate::{SourceID, WindowStateMachine, layout, render, vec4_to_u32};
+use cosmic_text::Cursor;
 use derive_where::derive_where;
 use enum_variant_type::EnumVariantType;
 use feather_macro::Dispatch;
-use cosmic_text::Cursor;
 use smallvec::SmallVec;
 use std::ops::Range;
 use std::rc::Rc;
@@ -450,7 +450,7 @@ impl<T: Prop + 'static> crate::StateMachineChild for TextBox<T> {
                     },
                     RawEvent::MouseMove { graphics, .. } => {
                         if let Some(d) = graphics.upgrade() {
-                            *d.cursor.write() = winit::window::CursorIcon::Text;
+                            *d.cursor.borrow_mut() = winit::window::CursorIcon::Text;
                         }
                         return Ok((data, vec![]));
                     }
@@ -510,7 +510,7 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
         let winstate: &WindowStateMachine = state.get(window).unwrap();
         let winstate = winstate.state.as_ref().expect("No window state available");
         let dpi = winstate.dpi;
-        let mut font_system = graphics.font_system.write();
+        let mut font_system = graphics.font_system.borrow_mut();
 
         let textstate: &StateMachine<TextBoxEvent, TextBoxState, 1, 3> =
             state.get(&self.id).unwrap();
