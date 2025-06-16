@@ -6,11 +6,11 @@ var<storage, read> buf: array<Data>;
 var<uniform> extent: u32;
 
 struct Data {
+  corners: vec4f,
   pos: vec2f,
   dim: vec2f,
   border: f32,
   blur: f32,
-  corners: vec4f,
   fill: u32,
   outline: u32,
 }
@@ -36,6 +36,7 @@ fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
   mv[1] = vec4f(0f, d.dim.y, 0f, 0f);
   mv[2] = vec4f(0f, 0f, 1f, 0f);
   mv[3] = vec4f(d.pos.x + d.dim.x * 0.5f, d.pos.y + d.dim.y * 0.5f, 0f, 1f);
+  //let outpos = vec4f(d.pos.x, d.pos.y, d.dim.x, d.dim.y);
   let outpos = MVP * mv * vec4(vpos.x - 0.5f, vpos.y - 0.5f, 1f, 1f);
 
   return VertexOutput(outpos, vpos.xy, index);

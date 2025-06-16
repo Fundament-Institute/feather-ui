@@ -54,7 +54,7 @@ where
         let winstate: &WindowStateMachine = state.get(window).unwrap();
         let winstate = winstate.state.as_ref().expect("No window state available");
         let dpi = winstate.dpi;
-        let mut font_system = graphics.font_system.borrow_mut();
+        let mut font_system = graphics.font_system.write();
         let mut text_buffer = cosmic_text::Buffer::new(
             &mut font_system,
             cosmic_text::Metrics::new(

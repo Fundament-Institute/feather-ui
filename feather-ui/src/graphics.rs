@@ -16,6 +16,8 @@ use std::sync::Arc;
 use ultraviolet::Mat4;
 use ultraviolet::Vec2;
 use ultraviolet::Vec4;
+use wgpu::CompilationMessageType;
+use wgpu::ShaderModuleDescriptor;
 use wgpu::{PipelineLayout, ShaderModule};
 use winit::window::CursorIcon;
 
@@ -50,17 +52,17 @@ pub(crate) type GlyphCache = HashMap<cosmic_text::CacheKey, atlas::Region>;
 // sensible behavior.
 #[derive(Debug)]
 pub struct Driver {
-    pub(crate) glyphs: RefCell<GlyphCache>,
-    pub(crate) atlas: RefCell<atlas::Atlas>,
-    pub(crate) shared: Rc<compositor::Shared>,
-    pub(crate) pipelines: RefCell<HashMap<PipelineID, Box<dyn crate::render::AnyPipeline>>>,
-    registry: HashMap<PipelineID, PipelineState>,
+    pub(crate) glyphs: RwLock<GlyphCache>,
+    pub(crate) atlas: RwLock<atlas::Atlas>,
+    pub(crate) shared: compositor::Shared,
+    pub(crate) pipelines: RwLock<HashMap<PipelineID, Box<dyn crate::render::AnyPipeline>>>,
+    pub(crate) registry: RwLock<HashMap<PipelineID, PipelineState>>,
     pub(crate) queue: wgpu::Queue,
     pub(crate) device: wgpu::Device,
     pub(crate) adapter: wgpu::Adapter,
-    pub(crate) cursor: RefCell<CursorIcon>, // This is a convenient place to track our global expected cursor
-    pub(crate) swash_cache: RefCell<cosmic_text::SwashCache>,
-    pub(crate) font_system: RefCell<cosmic_text::FontSystem>,
+    pub(crate) cursor: RwLock<CursorIcon>, // This is a convenient place to track our global expected cursor
+    pub(crate) swash_cache: RwLock<cosmic_text::SwashCache>,
+    pub(crate) font_system: RwLock<cosmic_text::FontSystem>,
 }
 
 impl Drop for Driver {
@@ -82,20 +84,21 @@ impl std::fmt::Debug for PipelineState {
 
 impl Driver {
     pub async fn new(
-        weak: &mut alloc::rc::Weak<Self>,
+        weak: &mut std::sync::Weak<Self>,
         instance: &wgpu::Instance,
         surface: &wgpu::Surface<'static>,
-    ) -> eyre::Result<Rc<Self>> {
+        on_driver: &mut Option<Box<dyn FnOnce(std::sync::Weak<Driver>) -> () + 'static>>,
+    ) -> eyre::Result<Arc<Self>> {
         if let Some(driver) = weak.upgrade() {
             return Ok(driver);
         }
 
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
+        let adapter = futures_lite::future::block_on(instance.request_adapter(
+            &wgpu::RequestAdapterOptions {
                 compatible_surface: Some(surface),
                 ..Default::default()
-            })
-            .await?;
+            },
+        ))?;
 
         // Create the logical device and command queue
         let (device, queue) = adapter
@@ -108,7 +111,7 @@ impl Driver {
             })
             .await?;
 
-        let shared = compositor::Shared::new(&device, 512).into();
+        let shared = compositor::Shared::new(&device, 512);
         let atlas = atlas::Atlas::new(&device, 512).into();
         let shape_shader = crate::render::shape::Shape::<0>::shader(&device);
         let shape_pipeline = crate::render::shape::Shape::<0>::layout(&device);
@@ -122,7 +125,7 @@ impl Driver {
             cursor: CursorIcon::Default.into(),
             pipelines: HashMap::new().into(),
             glyphs: HashMap::new().into(),
-            registry: HashMap::new(),
+            registry: HashMap::new().into(),
             shared,
             atlas,
         };
@@ -136,8 +139,12 @@ impl Driver {
         //driver.register_pipeline(shape_pipeline.clone(), shape_shader.clone(), crate::render::shape::Shape::<2>::new);
         //driver.register_pipeline(shape_pipeline.clone(), shape_shader.clone(), crate::render::shape::Shape::<3>::new);
 
-        let driver = Rc::new(driver);
-        *weak = Rc::downgrade(&driver);
+        let driver = Arc::new(driver);
+        *weak = Arc::downgrade(&driver);
+
+        if let Some(f) = on_driver.take() {
+            f(weak.clone());
+        }
         Ok(driver)
     }
 
@@ -150,7 +157,7 @@ impl Driver {
         + Sync
         + 'static,
     ) {
-        self.registry.insert(
+        self.registry.write().insert(
             TypeId::of::<T>(),
             PipelineState {
                 layout,
@@ -160,6 +167,16 @@ impl Driver {
         );
     }
 
+    /// Allows replacing the shader in a pipeline, for hot-reloading.
+    pub fn reload_pipeline<T: 'static>(&self, shader: ShaderModule) {
+        let id = TypeId::of::<T>();
+        let mut registry = self.registry.write();
+        let pipeline = registry
+            .get_mut(&id)
+            .expect("Tried to reload unregistered pipeline!");
+        pipeline.shader = shader;
+        self.pipelines.write().remove(&id);
+    }
     pub fn with_pipeline<T: crate::render::Pipeline + 'static>(
         &self,
         f: impl FnOnce(&mut T) -> (),
@@ -167,20 +184,20 @@ impl Driver {
         let id = TypeId::of::<T>();
 
         // We can't use the result of this because it makes the lifetimes weird
-        if self.pipelines.borrow().get(&id).is_none() {
+        if self.pipelines.read().get(&id).is_none() {
             let PipelineState {
                 generator,
                 layout,
                 shader,
-            } = &self.registry[&id];
+            } = &self.registry.read()[&id];
 
             self.pipelines
-                .borrow_mut()
+                .write()
                 .insert(id, generator(&layout, &shader, self));
         }
 
         f(
-            (self.pipelines.borrow_mut().get_mut(&id).unwrap().as_mut() as &mut dyn std::any::Any)
+            (self.pipelines.write().get_mut(&id).unwrap().as_mut() as &mut dyn std::any::Any)
                 .downcast_mut()
                 .unwrap(),
         );
@@ -217,5 +234,55 @@ pub fn mat4_ortho(x: f32, y: f32, w: f32, h: f32, n: f32, f: f32) -> Mat4 {
                 1.0,
             ),
         ],
+    }
+}
+
+pub struct HotLoader {
+    watcher: notify::RecommendedWatcher,
+}
+
+impl HotLoader {
+    pub fn new<T: 'static>(
+        path: &std::path::Path,
+        label: &'static str,
+        driver: std::sync::Weak<Driver>,
+    ) -> eyre::Result<Self> {
+        use notify::Watcher;
+        let mut prev = std::fs::read_to_string(path)?;
+        let pathbuf = path.to_owned();
+        let mut watcher = notify::recommended_watcher(move |e| {
+            if let Some(driver) = driver.upgrade() {
+                let contents = std::fs::read_to_string(&pathbuf).unwrap();
+                if contents != prev {
+                    prev = contents;
+                    driver
+                        .device
+                        .push_error_scope(wgpu::ErrorFilter::Validation);
+                    let module = driver.device.create_shader_module(ShaderModuleDescriptor {
+                        label: Some(label),
+                        source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(&prev)),
+                    });
+                    let err = futures_lite::future::block_on(driver.device.pop_error_scope());
+                    if let Some(e) = err {
+                        println!("{}", e.to_string());
+                    } else {
+                        let info = futures_lite::future::block_on(module.get_compilation_info());
+
+                        let mut errored = false;
+                        for m in info.messages {
+                            println!("{:?}", m);
+                            errored = errored || m.message_type == CompilationMessageType::Error;
+                        }
+                        if !errored {
+                            driver.reload_pipeline::<T>(module);
+                        }
+                    }
+                }
+            }
+        })?;
+
+        watcher.watch(path, notify::RecursiveMode::NonRecursive)?;
+
+        Ok(Self { watcher })
     }
 }

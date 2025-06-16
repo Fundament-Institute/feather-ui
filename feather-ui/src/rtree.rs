@@ -8,6 +8,7 @@ use crate::input::{MouseState, RawEvent, RawEventKind, TouchState};
 use crate::persist::{FnPersist2, VectorFold};
 use crate::{AbsRect, Dispatchable, SourceID, StateManager, WindowStateMachine};
 use eyre::Result;
+use std::sync::Arc;
 use ultraviolet::Vec2;
 use winit::dpi::PhysicalPosition;
 
@@ -161,7 +162,7 @@ impl Node {
                 let state: &mut WindowStateMachine = manager.get_mut(&window_id).map_err(|_| ())?;
                 let window = state.state.as_mut().unwrap();
                 window.remove(WindowNodeTrack::Capture, device_id);
-                let graphics = Rc::downgrade(&window.graphics);
+                let graphics = Arc::downgrade(&window.graphics);
 
                 // We don't care if this is accepted or not
                 let _ = crate::component::window::Window::on_window_event(
@@ -289,7 +290,7 @@ impl Node {
                             (window.remove(WindowNodeTrack::Focus, device_id), false)
                         };
 
-                        let graphics = Rc::downgrade(&window.graphics);
+                        let graphics = Arc::downgrade(&window.graphics);
 
                         // Tell the old node that it lost focus (if it cares).
                         if let Some(old) = old.and_then(|old| old.upgrade()) {

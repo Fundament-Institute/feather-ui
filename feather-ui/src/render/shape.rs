@@ -32,7 +32,7 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
     ) {
         let dim = *(area.bottomright() - area.topleft() - self.padding.bottomright()).as_array();
         let (region_uv, region_index) = {
-            let mut atlas = graphics.atlas.borrow_mut();
+            let mut atlas = graphics.atlas.write();
             let region = atlas.cache_region(
                 &graphics.device,
                 self.id.clone(),
@@ -84,11 +84,11 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
 #[derive(Debug, Clone, Copy, Default, PartialEq, bytemuck::NoUninit)]
 #[repr(C)]
 pub struct Data {
+    pub corners: [f32; 4],
     pub pos: [f32; 2],
     pub dim: [f32; 2],
     pub border: f32,
     pub blur: f32,
-    pub corners: [f32; 4],
     pub fill: u32,
     pub outline: u32,
 }
@@ -220,7 +220,7 @@ impl<const KIND: u8> Shape<KIND> {
             mapped_at_creation: false,
         });
 
-        let atlas = graphics.atlas.borrow();
+        let atlas = graphics.atlas.read();
 
         let bindings = [
             wgpu::BindGroupEntry {

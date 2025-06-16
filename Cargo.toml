@@ -41,10 +41,8 @@ wgpu = "25"
 winit = "0.30"
 eyre = "0.6"
 ultraviolet = "0.10"
-rand = { version = "0.8.5", features = ["std_rng"] }
 tracing-subscriber = { version = "0.3.18", features = ["time"] }
 tracing = "0.1.40"
-tokio = { version = "1.40", features = ["rt", "macros", "tracing", "signal"] }
 feather-ui = { path = "feather-ui" }
 alicorn = "0.1.2"
 mlua = { version = "0.10", features = ["luajit52", "vendored"] }

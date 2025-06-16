@@ -26,7 +26,6 @@ path = "src/bin.rs"
 [dependencies]
 wgpu.workspace = true
 winit.workspace = true
-tokio.workspace = true
 feather-ui.workspace = true
 feather-macro.workspace = true
 ultraviolet.workspace = true

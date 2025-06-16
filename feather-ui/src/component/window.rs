@@ -39,7 +39,7 @@ pub struct WindowState {
     modifiers: u8,
     last_mouse: PhysicalPosition<f32>,
     pub dpi: Vec2,
-    pub graphics: Rc<graphics::Driver>,
+    pub graphics: Arc<graphics::Driver>,
     trackers: [HashMap<DeviceId, RcNode>; 3],
     lookup: HashMap<(Rc<SourceID>, u8), DeviceId>,
     pub compositor: Compositor,
@@ -175,7 +175,7 @@ impl PartialEq for WindowState {
             && self.modifiers == other.modifiers
             && self.last_mouse == other.last_mouse
             && self.dpi == other.dpi
-            && Rc::ptr_eq(&self.graphics, &other.graphics)
+            && Arc::ptr_eq(&self.graphics, &other.graphics)
             && self.trackers == other.trackers
     }
 }
@@ -245,9 +245,10 @@ impl Window {
     >(
         &self,
         manager: &mut StateManager,
-        graphics: &mut alloc::rc::Weak<graphics::Driver>,
+        graphics: &mut std::sync::Weak<graphics::Driver>,
         instance: &wgpu::Instance,
         event_loop: &ActiveEventLoop,
+        on_driver: &mut Option<Box<dyn FnOnce(std::sync::Weak<graphics::Driver>) -> () + 'static>>,
     ) -> Result<()> {
         if manager.get::<WindowStateMachine>(&self.id).is_err() {
             let attributes = self.attributes.clone();
@@ -256,10 +257,9 @@ impl Window {
 
             let surface: wgpu::Surface<'static> = instance.create_surface(window.clone())?;
 
-            let graphics = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()?
-                .block_on(crate::graphics::Driver::new(graphics, instance, &surface))?;
+            let graphics = futures_lite::future::block_on(crate::graphics::Driver::new(
+                graphics, instance, &surface, on_driver,
+            ))?;
 
             let size = window.inner_size();
             let mut config = surface
@@ -272,10 +272,10 @@ impl Window {
             surface.configure(&graphics.device, &config);
 
             let compositor = Compositor::new(
-                graphics.shared.clone(),
+                &graphics.shared,
                 &graphics.device,
                 &config,
-                &graphics.atlas.borrow(),
+                &graphics.atlas.read(),
             );
 
             let mut windowstate = WindowState {
@@ -333,7 +333,7 @@ impl Window {
         rtree: Weak<rtree::Node>,
         event: WindowEvent,
         manager: &mut StateManager,
-        graphics: std::rc::Weak<graphics::Driver>,
+        graphics: std::sync::Weak<graphics::Driver>,
     ) -> Result<(), ()> {
         let state: &mut WindowStateMachine = manager.get_mut(&id).map_err(|_| ())?;
         let window = state.state.as_mut().unwrap();
@@ -566,7 +566,7 @@ impl Window {
                 match e {
                     RawEvent::MouseMove { .. } | RawEvent::MouseOn { .. } => {
                         if let Some(d) = graphics.upgrade() {
-                            *d.cursor.borrow_mut() = CursorIcon::Default;
+                            *d.cursor.write() = CursorIcon::Default;
                         }
                     }
                     _ => (),
@@ -782,7 +782,7 @@ impl Window {
                 match e {
                     RawEvent::MouseMove { .. } | RawEvent::MouseOn { .. } => {
                         if let Some(d) = graphics.upgrade() {
-                            inner.set_cursor(*d.cursor.borrow());
+                            inner.set_cursor(*d.cursor.read());
                         }
                     }
                     _ => (),
