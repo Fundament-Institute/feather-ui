@@ -262,7 +262,8 @@ impl Root {
     >(
         &mut self,
         manager: &mut StateManager,
-        graphics: &mut std::rc::Weak<graphics::Driver>,
+        graphics: &mut std::sync::Weak<graphics::Driver>,
+        on_driver: &mut Option<Box<dyn FnOnce(std::sync::Weak<graphics::Driver>) -> () + 'static>>,
         instance: &wgpu::Instance,
         event_loop: &winit::event_loop::ActiveEventLoop,
     ) -> eyre::Result<()> {
@@ -270,7 +271,7 @@ impl Root {
         // TODO: make this actually efficient by performing the initialization when a new component is initialized
         for (_, window) in self.children.iter() {
             let window = window.as_ref().unwrap();
-            window.init_custom::<AppData, O>(manager, graphics, instance, event_loop)?;
+            window.init_custom::<AppData, O>(manager, graphics, instance, event_loop, on_driver)?;
             let state: &WindowStateMachine = manager.get(&window.id())?;
             let id = state.state.as_ref().unwrap().window.id();
             self.states

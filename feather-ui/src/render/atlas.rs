@@ -20,6 +20,8 @@ pub struct Atlas {
 pub const ATLAS_FORMAT: TextureFormat = TextureFormat::Bgra8UnormSrgb;
 
 unsafe impl Send for Atlas {}
+unsafe impl Sync for Atlas {}
+
 impl Drop for Atlas {
     fn drop(&mut self) {
         for (_, mut r) in self.cache.drain() {
@@ -288,7 +290,7 @@ impl Atlas {
                 1.0,
             );
 
-            for (_, pipeline) in driver.pipelines.borrow_mut().iter_mut() {
+            for (_, pipeline) in driver.pipelines.write().iter_mut() {
                 pipeline.draw(driver, &mut pass, i as u16);
             }
         }

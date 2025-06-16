@@ -60,7 +60,7 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
         let driver = window.graphics.clone();
         let dim = evaluated_area.dim();
         {
-            let mut font_system = driver.font_system.borrow_mut();
+            let mut font_system = driver.font_system.write();
 
             text_buffer.set_size(
                 &mut font_system,

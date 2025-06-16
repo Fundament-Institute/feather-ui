@@ -182,7 +182,6 @@ impl Shared {
 /// instancing, nor did OpenGL ES 2.0, which means many older devices also don't. (3) or (4) may be implemented as a
 /// seperate option later, espiecally if we continue to use wgpu, since wgpu assumes vulkan support.
 pub struct Compositor {
-    shared: Rc<Shared>,
     pipeline: wgpu::RenderPipeline,
     group: wgpu::BindGroup,
     mvp: wgpu::Buffer,
@@ -196,7 +195,7 @@ pub struct Compositor {
 
 impl Compositor {
     pub fn new(
-        shared: Rc<Shared>,
+        shared: &Shared,
         device: &wgpu::Device,
         config: &wgpu::SurfaceConfiguration,
         atlas: &super::atlas::Atlas,
@@ -269,7 +268,6 @@ impl Compositor {
         });
 
         Self {
-            shared,
             pipeline,
             group,
             mvp,
@@ -345,7 +343,7 @@ impl Compositor {
         // If we have a pending copy, queue it up.
         graphics
             .atlas
-            .borrow_mut()
+            .write()
             .perform_copy(&graphics.device, &graphics.queue, encoder);
 
         // Resolve all defers

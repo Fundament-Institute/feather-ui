@@ -15,6 +15,7 @@ mod rtree;
 pub mod text;
 
 use crate::component::window::Window;
+use crate::graphics::Driver;
 use bytemuck::NoUninit;
 use component::window::WindowStateMachine;
 use component::{Component, StateMachineWrapper};
@@ -1200,12 +1201,13 @@ pub struct App<
     O: FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>,
 > {
     pub instance: wgpu::Instance,
-    pub graphics: std::rc::Weak<graphics::Driver>,
+    pub graphics: std::sync::Weak<graphics::Driver>,
     state: StateManager,
     store: Option<O::Store>,
     outline: O,
     _parents: BTreeMap<DataID, DataID>,
     root: component::Root, // Root component node containing all windows
+    driver_init: Option<Box<dyn FnOnce(std::sync::Weak<Driver>) -> () + 'static>>,
 }
 
 struct AppDataMachine<AppData: 'static + std::cmp::PartialEq> {
@@ -1256,13 +1258,14 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
         app_state: AppData,
         inputs: Vec<AppEvent<AppData>>,
         outline: O,
+        driver_init: impl FnOnce(std::sync::Weak<Driver>) -> () + 'static,
     ) -> eyre::Result<(Self, winit::event_loop::EventLoop<T>)> {
         #[cfg(test)]
         let any_thread = true;
         #[cfg(not(test))]
         let any_thread = false;
 
-        Self::new_any_thread(app_state, inputs, outline, any_thread)
+        Self::new_any_thread(app_state, inputs, outline, any_thread, driver_init)
     }
 
     pub fn new_any_thread<T: 'static>(
@@ -1270,6 +1273,7 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
         inputs: Vec<AppEvent<AppData>>,
         outline: O,
         any_thread: bool,
+        driver_init: impl FnOnce(std::sync::Weak<Driver>) -> () + 'static,
     ) -> eyre::Result<(Self, winit::event_loop::EventLoop<T>)> {
         #[cfg(target_os = "windows")]
         let event_loop = winit::event_loop::EventLoop::with_user_event()
@@ -1304,12 +1308,13 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
         Ok((
             Self {
                 instance: wgpu::Instance::default(),
-                graphics: std::rc::Weak::<graphics::Driver>::new(),
+                graphics: std::sync::Weak::<graphics::Driver>::new(),
                 store: None,
                 outline,
                 state: manager,
                 _parents: Default::default(),
                 root: component::Root::new(),
+                driver_init: Some(Box::new(driver_init)),
             },
             event_loop,
         ))
@@ -1321,14 +1326,15 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
         self.store.replace(store);
         self.root.children = windows;
 
-        let (root, manager, graphics, instance) = (
+        let (root, manager, graphics, instance, driver_init) = (
             &mut self.root,
             &mut self.state,
             &mut self.graphics,
             &mut self.instance,
+            &mut self.driver_init,
         );
 
-        root.layout_all::<AppData, O>(manager, graphics, instance, event_loop)
+        root.layout_all::<AppData, O>(manager, graphics, driver_init, instance, event_loop)
             .unwrap();
 
         root.stage_all(manager).unwrap();
@@ -1389,7 +1395,7 @@ impl<
                                     },
                                 );
 
-                                graphics.atlas.borrow().draw(&graphics, &mut encoder);
+                                graphics.atlas.read().draw(&graphics, &mut encoder);
 
                                 state.state.as_mut().unwrap().draw(encoder);
                             }
@@ -1496,7 +1502,7 @@ impl FnPersist<u8, im::HashMap<Rc<SourceID>, Option<Window>>> for TestApp {
 #[test]
 fn test_basic() {
     let (mut app, event_loop): (App<u8, TestApp>, winit::event_loop::EventLoop<()>) =
-        App::new(0u8, vec![], TestApp {}).unwrap();
+        App::new(0u8, vec![], TestApp {}, |_| ()).unwrap();
 
     let proxy = event_loop.create_proxy();
     proxy.send_event(()).unwrap();

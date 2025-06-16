@@ -27,7 +27,6 @@ winit.workspace = true
 eyre.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
-tokio.workspace = true
 ultraviolet.workspace = true
 dyn-clone = "1.0"
 derive-where = "1.2.7"
@@ -52,6 +51,8 @@ windows-sys = { version = "0.59.0", features = [
 bytemuck = "1.23.0"
 cosmic-text.workspace = true
 guillotiere = "0.6.2"
+notify = "8.0.0"
+futures-lite = "2.6.0"
 
 [lints.clippy]
 too_many_arguments = { level = "allow" }

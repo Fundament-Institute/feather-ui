@@ -8,12 +8,14 @@ use feather_ui::component::shape::{Shape, ShapeKind};
 use feather_ui::component::text::Text;
 use feather_ui::component::window::Window;
 use feather_ui::component::{ComponentFrom, mouse_area};
+use feather_ui::graphics::HotLoader;
 use feather_ui::layout::{fixed, leaf};
 use feather_ui::persist::FnPersist;
 use feather_ui::{
     AbsRect, App, DAbsRect, DPoint, DRect, RelRect, Slot, SourceID, UNSIZED_AXIS, URect, gen_id,
 };
 use std::rc::Rc;
+use std::sync::RwLock;
 use ultraviolet::{Vec2, Vec4};
 
 #[derive(PartialEq, Clone, Debug)]
@@ -197,6 +199,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
 }
 
 use feather_ui::WrapEventEx;
+static LOADERS: RwLock<Vec<HotLoader>> = RwLock::new(Vec::new());
 
 fn main() {
     let onclick = Box::new(
@@ -214,7 +217,23 @@ fn main() {
     let (mut app, event_loop): (
         App<CounterState, BasicApp>,
         winit::event_loop::EventLoop<()>,
-    ) = App::new(CounterState { count: 0 }, vec![onclick], BasicApp {}).unwrap();
+    ) = App::new(
+        CounterState { count: 0 },
+        vec![onclick],
+        BasicApp {},
+        |driver| {
+            let exe = std::env::current_exe().unwrap();
+            let loader =
+                HotLoader::new::<feather_ui::render::shape::Shape<{ ShapeKind::RoundRect as u8 }>>(
+                    &exe.join("../../../feather-ui/src/shaders/shape.wgsl"),
+                    "Shape",
+                    driver,
+                )
+                .unwrap();
+            LOADERS.write().unwrap().push(loader);
+        },
+    )
+    .unwrap();
 
     event_loop.run_app(&mut app).unwrap();
 }

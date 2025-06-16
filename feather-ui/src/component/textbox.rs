@@ -450,7 +450,7 @@ impl<T: Prop + 'static> crate::StateMachineChild for TextBox<T> {
                     },
                     RawEvent::MouseMove { graphics, .. } => {
                         if let Some(d) = graphics.upgrade() {
-                            *d.cursor.borrow_mut() = winit::window::CursorIcon::Text;
+                            *d.cursor.write() = winit::window::CursorIcon::Text;
                         }
                         return Ok((data, vec![]));
                     }
@@ -510,7 +510,7 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
         let winstate: &WindowStateMachine = state.get(window).unwrap();
         let winstate = winstate.state.as_ref().expect("No window state available");
         let dpi = winstate.dpi;
-        let mut font_system = graphics.font_system.borrow_mut();
+        let mut font_system = graphics.font_system.write();
 
         let textstate: &StateMachine<TextBoxEvent, TextBoxState, 1, 3> =
             state.get(&self.id).unwrap();
