@@ -82,7 +82,8 @@ fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
   transform = scale_matrix(transform, d.dim.x, d.dim.y);
   transform = translate_matrix(transform, d.pos.x + d.dim.x * 0.5, d.pos.y + d.dim.y * 0.5);
 
-  let out_pos = MVP * transform * vec4(vpos.x - 0.5f, vpos.y - 0.5f, 1f, 1f);
+  //let out_pos = MVP * transform * vec4(vpos.x - 0.5f, vpos.y - 0.5f, 1f, 1f);
+  let out_pos = vec4(d.pos.x, d.pos.y, d.dim.x, d.dim.y);
 
   var source = identity_mat4;
   let uv = vec2f(d.uv) / f32(extent);

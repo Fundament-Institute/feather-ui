@@ -22,8 +22,7 @@ impl super::Renderable for Instance {
             uvdim: [0, 0],
             color: self.color,
             rotation: p.y.atan2(p.x),
-            tex: u16::MAX,
-            clip: 0,
+            texclip: ((u16::MAX as u32) << 16) | 0,
         });
     }
 }
