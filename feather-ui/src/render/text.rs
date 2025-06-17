@@ -205,8 +205,7 @@ impl Instance {
             uvdim: [width, height],
             color: color.0,
             rotation: 0.0,
-            tex: region.index,
-            clip: 0,
+            texclip: ((region.index as u32) << 16) | 0,
         }))
     }
 

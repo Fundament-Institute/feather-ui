@@ -30,7 +30,7 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
         graphics: &crate::graphics::Driver,
         compositor: &mut Compositor,
     ) {
-        let dim = *(area.bottomright() - area.topleft() - self.padding.bottomright()).as_array();
+        let dim = area.bottomright() - area.topleft() - self.padding.bottomright();
         let (region_uv, region_index) = {
             let mut atlas = graphics.atlas.write();
             let region = atlas.cache_region(
@@ -56,16 +56,15 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
             )
         });
 
-        compositor.append(&compositor::Data {
-            pos: *(area.topleft() + self.padding.topleft()).as_array(),
-            dim: dim,
-            uv: region_uv.min.to_array(),
-            uvdim: region_uv.size().to_array(),
-            color: 0xFFFFFFFF,
-            rotation: 0.0,
-            tex: region_index,
-            clip: 0,
-        });
+        compositor.append(&compositor::Data::new(
+            area.topleft() + self.padding.topleft(),
+            dim,
+            region_uv,
+            0xFFFFFFFF,
+            0.0,
+            region_index,
+            0,
+        ));
     }
 }
 

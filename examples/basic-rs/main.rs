@@ -223,14 +223,14 @@ fn main() {
         BasicApp {},
         |driver| {
             let exe = std::env::current_exe().unwrap();
-            let loader =
+            LOADERS.write().unwrap().push(
                 HotLoader::new::<feather_ui::render::shape::Shape<{ ShapeKind::RoundRect as u8 }>>(
                     &exe.join("../../../feather-ui/src/shaders/shape.wgsl"),
                     "Shape",
                     driver,
                 )
-                .unwrap();
-            LOADERS.write().unwrap().push(loader);
+                .unwrap(),
+            );
         },
     )
     .unwrap();

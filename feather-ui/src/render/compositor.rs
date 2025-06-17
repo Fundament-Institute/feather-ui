@@ -24,7 +24,16 @@ impl Shared {
     pub fn new(device: &wgpu::Device, _: u32) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Compositor"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/compositor.wgsl").into()),
+            //    source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/compositor.wgsl").into()),
+            source: wgpu::ShaderSource::Wgsl(
+                std::fs::read_to_string(
+                    std::env::current_exe()
+                        .unwrap()
+                        .join("../../../feather-ui/src/shaders/compositor.wgsl"),
+                )
+                .unwrap()
+                .into(),
+            ),
         });
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -437,6 +446,18 @@ impl Compositor {
     }
 }
 
+// Renderdoc Format:
+// struct Data {
+// 	float pos[2];
+// 	float dim[2];
+//  uint32_t uv[2];
+//  uint32_t uvdim[2];
+// 	uint32_t color;
+// 	float rotation;
+// 	uint32_t texclip;
+// };
+// Data d[];
+
 #[repr(C)]
 #[derive(Clone, Copy, Default, PartialEq, bytemuck::NoUninit)]
 pub struct Data {
@@ -446,8 +467,29 @@ pub struct Data {
     pub uvdim: [i32; 2],
     pub color: u32,
     pub rotation: f32,
-    pub tex: u16,
-    pub clip: u16,
+    pub texclip: u32,
+}
+
+impl Data {
+    pub fn new(
+        pos: ultraviolet::Vec2,
+        dim: ultraviolet::Vec2,
+        uv: guillotiere::euclid::Box2D<i32, guillotiere::euclid::UnknownUnit>,
+        color: u32,
+        rotation: f32,
+        tex: u16,
+        clip: u16,
+    ) -> Self {
+        Self {
+            pos: *pos.as_array(),
+            dim: *dim.as_array(),
+            uv: uv.min.to_array(),
+            uvdim: uv.size().to_array(),
+            color,
+            rotation,
+            texclip: ((tex as u32) << 16) | clip as u32,
+        }
+    }
 }
 
 // Our shader will assemble a rotation based on this matrix, but transposed:

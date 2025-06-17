@@ -78,6 +78,5 @@ fn rectangle(input: VertexOutput) -> @location(0) vec4f {
   let fill = u32_to_vec4(d.fill);
   let outline = u32_to_vec4(d.outline);
 
-  return vec4f(1.0, 0.0, 0.0, 1.0);
-  //return (vec4f(fill.rgb, 1f) * fill.a * s) + (vec4f(outline.rgb, 1f) * outline.a * clamp(alpha - s, 0.0f, 1.0f));
+  return (vec4f(fill.rgb, 1f) * fill.a * s) + (vec4f(outline.rgb, 1f) * outline.a * clamp(alpha - s, 0.0f, 1.0f));
 }
