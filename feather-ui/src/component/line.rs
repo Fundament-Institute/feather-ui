@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
+use crate::color::sRGB;
 use crate::layout::{Layout, base};
-use crate::{SourceID, layout, vec4_to_u32};
+use crate::{SourceID, layout};
 use derive_where::derive_where;
 use std::rc::Rc;
-use ultraviolet::{Vec2, Vec4};
+use ultraviolet::Vec2;
 
 // This draws a line between two points relative to the parent
 #[derive(feather_macro::StateMachineChild)]
@@ -15,7 +16,7 @@ pub struct Line<T: base::Empty + 'static> {
     pub start: Vec2,
     pub end: Vec2,
     pub props: Rc<T>,
-    pub fill: Vec4,
+    pub fill: sRGB,
 }
 
 impl<T: base::Empty + 'static> super::Component<T> for Line<T>
@@ -36,7 +37,7 @@ where
             renderable: Some(Rc::new(crate::render::line::Instance {
                 start: self.start.into(),
                 end: self.end.into(),
-                color: vec4_to_u32(&self.fill),
+                color: self.fill,
             })),
         })
     }

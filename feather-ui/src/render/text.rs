@@ -13,7 +13,11 @@ use wgpu::Origin3d;
 use wgpu::TexelCopyBufferLayout;
 use wgpu::TexelCopyTextureInfo;
 
+use crate::color::Premultiplied;
+use crate::color::sRGB;
+use crate::color::sRGB32;
 use crate::graphics::GlyphCache;
+use crate::graphics::GlyphRegion;
 use crate::render::compositor::Compositor;
 use crate::{AbsRect, render::atlas::Atlas};
 
@@ -23,7 +27,7 @@ pub struct Instance {
 }
 
 impl Instance {
-    fn get_glyph(key: CacheKey, glyphs: &GlyphCache) -> Option<&super::atlas::Region> {
+    fn get_glyph(key: CacheKey, glyphs: &GlyphCache) -> Option<&GlyphRegion> {
         glyphs.get(&key)
     }
 
@@ -40,6 +44,7 @@ impl Instance {
             // We can't actually return this borrow because of https://github.com/rust-lang/rust/issues/58910
             return Ok(());
         }
+
         let Some(mut image) = cache.get_image_uncached(font_system, key) else {
             return Err(eyre::eyre!("Failed to get glyph image!"));
         };
@@ -62,20 +67,21 @@ impl Instance {
             match image.content {
                 SwashContent::Mask => {
                     let mask = image.data;
-                    image.data = mask.iter().flat_map(|x| [*x, *x, *x, *x]).collect();
+                    image.data = mask
+                        .iter()
+                        .flat_map(|x| sRGB32::new(255, 255, 255, *x).as_f32().srgb_pre().as_bgra())
+                        .collect();
                 }
-                // This is in RGBA format but our texture atlas is in BGRA format, so swap it
+                // This is in sRGB RGBA format but our texture atlas is in pre-multiplied sRGB BGRA format, so swap it
                 SwashContent::Color => {
-                    // TODO: wide doesn't implement SSE shuffle instructions yet, which could potentially be faster here
-                    let len = image.data.len() / 4;
-                    let slice = image.data.as_mut_slice();
-                    for i in 0..len {
-                        let idx = i * 4;
-                        slice.swap(idx + 0, idx + 2);
-                        // pre-multiply color
-                        slice[idx + 0] *= slice[idx + 3];
-                        slice[idx + 1] *= slice[idx + 3];
-                        slice[idx + 2] *= slice[idx + 3];
+                    for c in image.data.as_mut_slice().chunks_exact_mut(4) {
+                        // Pre-multiply color, then extract in BGRA form.
+                        c.copy_from_slice(
+                            &sRGB32::new(c[0], c[1], c[2], c[3])
+                                .as_f32()
+                                .srgb_pre()
+                                .as_bgra(),
+                        );
                     }
                 }
                 SwashContent::SubpixelMask => {
@@ -117,8 +123,14 @@ impl Instance {
             );
         }
 
-        if let Some(mut old) = glyphs.insert(key, region) {
-            atlas.destroy(&mut old);
+        if let Some(mut old) = glyphs.insert(
+            key,
+            GlyphRegion {
+                offset: [image.placement.left, image.placement.top],
+                region,
+            },
+        ) {
+            atlas.destroy(&mut old.region);
         }
 
         Ok(())
@@ -143,20 +155,20 @@ impl Instance {
         cache: &mut SwashCache,
     ) -> eyre::Result<Option<super::compositor::Data>> {
         Self::write_glyph(key, font_system, glyphs, device, queue, atlas, cache)?;
-        let region = Self::get_glyph(key, glyphs).unwrap();
-        if region.uv.area() == 0 {
+        let glyph = Self::get_glyph(key, glyphs).unwrap();
+        if glyph.region.uv.area() == 0 {
             return Ok(None);
         }
-        let atlas_min = region.uv.min;
+        //let atlas_min = region.uv.min;
 
-        let mut x = x + region.uv.min.x;
-        let mut y = (line_y * scale_factor).round() as i32 + y - region.uv.min.y as i32;
+        let mut x = x + glyph.offset[0];
+        let mut y = (line_y * scale_factor).round() as i32 + y - glyph.offset[1];
 
-        let mut u = region.uv.min.x;
-        let mut v = region.uv.min.y;
+        let mut u = glyph.region.uv.min.x;
+        let mut v = glyph.region.uv.min.y;
 
-        let mut width = region.uv.width();
-        let mut height = region.uv.height();
+        let mut width = glyph.region.uv.width();
+        let mut height = glyph.region.uv.height();
 
         // Starts beyond right edge or ends beyond left edge
         let max_x = x + width;
@@ -199,13 +211,14 @@ impl Instance {
         }
 
         Ok(Some(super::compositor::Data {
-            pos: [x as f32, y as f32],
-            dim: [width as f32, height as f32],
-            uv: [u, v],
-            uvdim: [width, height],
+            pos: [x as f32, y as f32].into(),
+            dim: [width as f32, height as f32].into(),
+            uv: [u, v].into(),
+            uvdim: [width, height].into(),
             color: color.0,
             rotation: 0.0,
-            texclip: ((region.index as u32) << 16) | 0,
+            texclip: ((glyph.region.index as u32) << 16) | 0,
+            ..Default::default()
         }))
     }
 

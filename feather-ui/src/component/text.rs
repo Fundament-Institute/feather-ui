@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
+use crate::color::{ColorSpace, Premultiplied, sRGB};
 use crate::graphics::point_to_pixel;
 use crate::layout::{self, Layout, leaf};
 use crate::{SourceID, WindowStateMachine, graphics};
@@ -17,7 +18,7 @@ pub struct Text<T: leaf::Padded + 'static> {
     pub line_height: f32,
     pub text: String,
     pub font: cosmic_text::FamilyOwned,
-    pub color: cosmic_text::Color,
+    pub color: sRGB,
     pub weight: cosmic_text::Weight,
     pub style: cosmic_text::Style,
     pub wrap: cosmic_text::Wrap,
@@ -32,7 +33,7 @@ impl<T: Default + leaf::Padded + 'static> Default for Text<T> {
             line_height: Default::default(),
             text: Default::default(),
             font: cosmic_text::FamilyOwned::SansSerif,
-            color: cosmic_text::Color::rgba(255, 255, 255, 255),
+            color: sRGB::new(1.0, 1.0, 1.0, 1.0),
             weight: Default::default(),
             style: Default::default(),
             wrap: cosmic_text::Wrap::None,
@@ -69,7 +70,7 @@ where
             &self.text,
             &cosmic_text::Attrs::new()
                 .family(self.font.as_family())
-                .color(self.color)
+                .color(self.color.into())
                 .weight(self.weight)
                 .style(self.style),
             cosmic_text::Shaping::Advanced,

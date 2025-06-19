@@ -1,5 +1,8 @@
-use crate::AbsRect;
-use std::{collections::HashMap, num::NonZero, rc::Rc};
+use crate::{
+    AbsRect,
+    graphics::{Vec2f, Vec2i},
+};
+use std::{collections::HashMap, num::NonZero};
 use wgpu::{TextureUsages, TextureViewDescriptor, wgt::SamplerDescriptor};
 
 use crate::ZERO_RECT;
@@ -148,7 +151,7 @@ impl Shared {
                         compilation_options: Default::default(),
                         targets: &[Some(wgpu::ColorTargetState {
                             format,
-                            blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                            blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
                             write_mask: wgpu::ColorWrites::ALL,
                         })],
                     }),
@@ -455,20 +458,24 @@ impl Compositor {
 // 	uint32_t color;
 // 	float rotation;
 // 	uint32_t texclip;
+//  char padding[4];
 // };
 // Data d[];
 
 #[repr(C)]
 #[derive(Clone, Copy, Default, PartialEq, bytemuck::NoUninit)]
 pub struct Data {
-    pub pos: [f32; 2],
-    pub dim: [f32; 2],
-    pub uv: [i32; 2],
-    pub uvdim: [i32; 2],
-    pub color: u32,
+    pub pos: Vec2f,
+    pub dim: Vec2f,
+    pub uv: Vec2i,
+    pub uvdim: Vec2i,
+    pub color: u32, // Encoded as a non-linear, non-premultiplied sRGB32 color
     pub rotation: f32,
     pub texclip: u32,
+    pub _padding: [u8; 4], // We have to manually specify this to satisfy bytemuck
 }
+
+static_assertions::const_assert_eq!(std::mem::size_of::<Data>(), 48);
 
 impl Data {
     pub fn new(
@@ -481,13 +488,14 @@ impl Data {
         clip: u16,
     ) -> Self {
         Self {
-            pos: *pos.as_array(),
-            dim: *dim.as_array(),
-            uv: uv.min.to_array(),
-            uvdim: uv.size().to_array(),
+            pos: pos.as_array().into(),
+            dim: dim.as_array().into(),
+            uv: uv.min.to_array().into(),
+            uvdim: uv.size().to_array().into(),
             color,
             rotation,
             texclip: ((tex as u32) << 16) | clip as u32,
+            ..Default::default()
         }
     }
 }

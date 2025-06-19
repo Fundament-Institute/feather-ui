@@ -2,15 +2,16 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use feather_macro::*;
+use feather_ui::color::sRGB;
 use feather_ui::component::button::Button;
 use feather_ui::component::region::Region;
 use feather_ui::component::shape::{Shape, ShapeKind};
 use feather_ui::component::text::Text;
 use feather_ui::component::window::Window;
 use feather_ui::component::{ComponentFrom, mouse_area};
-use feather_ui::graphics::HotLoader;
 use feather_ui::layout::{fixed, leaf};
 use feather_ui::persist::FnPersist;
+use feather_ui::util::HotLoader;
 use feather_ui::{
     AbsRect, App, DAbsRect, DPoint, DRect, RelRect, Slot, SourceID, UNSIZED_AXIS, URect, gen_id,
 };
@@ -72,7 +73,6 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
 
                 let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
                     im::Vector::new();
-                children.push_back(Some(Box::new(text)));
 
                 let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
                     gen_id!().into(),
@@ -81,10 +81,11 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     0.0,
                     0.0,
                     Vec4::broadcast(10.0),
-                    Vec4::new(0.2, 0.7, 0.4, 1.0),
-                    Vec4::zero(),
+                    sRGB::new(0.2, 0.7, 0.4, 1.0),
+                    sRGB::transparent(),
                 );
                 children.push_back(Some(Box::new(rect)));
+                children.push_back(Some(Box::new(text)));
 
                 Button::<FixedData>::new(
                     gen_id!().into(),
@@ -128,7 +129,6 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
 
                 let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
                     im::Vector::new();
-                children.push_back(Some(Box::new(text)));
 
                 let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
                     gen_id!().into(),
@@ -137,10 +137,11 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     0.0,
                     0.0,
                     Vec4::broadcast(10.0),
-                    Vec4::new(0.7, 0.2, 0.4, 1.0),
-                    Vec4::zero(),
+                    sRGB::new(0.7, 0.2, 0.4, 1.0),
+                    sRGB::transparent(),
                 );
                 children.push_back(Some(Box::new(rect)));
+                children.push_back(Some(Box::new(text)));
 
                 Button::<FixedData>::new(
                     gen_id!().into(),

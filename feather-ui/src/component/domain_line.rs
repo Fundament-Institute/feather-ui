@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
+use crate::color::sRGB;
 use crate::layout::{Layout, base};
-use crate::{CrossReferenceDomain, SourceID, layout, render, vec4_to_u32};
+use crate::{CrossReferenceDomain, SourceID, layout, render};
 use derive_where::derive_where;
 use std::rc::Rc;
-use ultraviolet::Vec4;
 
 // This draws a line between two points that were previously stored in a Cross-reference Domain
 #[derive(feather_macro::StateMachineChild)]
@@ -16,7 +16,7 @@ pub struct DomainLine<T: base::Empty + 'static> {
     pub start: Rc<SourceID>,
     pub end: Rc<SourceID>,
     pub props: Rc<T>,
-    pub fill: Vec4,
+    pub fill: sRGB,
 }
 
 impl<T: base::Empty + 'static> super::Component<T> for DomainLine<T>
@@ -38,7 +38,7 @@ where
                 domain: self.domain.clone(),
                 start: self.start.clone(),
                 end: self.end.clone(),
-                color: vec4_to_u32(&self.fill),
+                color: self.fill,
             })),
         })
     }

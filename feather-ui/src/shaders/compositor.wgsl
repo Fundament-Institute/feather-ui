@@ -1,3 +1,62 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+
+//#import "feather.wgsl"
+const UNITX = array(0.0, 1.0, 0.0, 1.0, 1.0, 0.0);
+const UNITY = array(0.0, 0.0, 1.0, 0.0, 1.0, 1.0);
+const IDENTITY_MAT4 = mat4x4f(1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+
+fn srgb_to_linear(c: f32) -> f32 {
+  if c <= 0.04045 {
+    return c / 12.92;
+  }
+  else {
+    return pow((c + 0.055) / 1.055, 2.4);
+  }
+}
+
+fn srgb_to_linear_vec4(c: vec4<f32>) -> vec4<f32> {
+  return vec4f(srgb_to_linear(c.x), srgb_to_linear(c.y), srgb_to_linear(c.z), c.w);
+}
+
+fn linear_to_srgb(c: f32) -> f32 {
+  if c < 0.0031308 {
+    return c * 12.92;
+  }
+  else {
+    return 1.055 * pow(c, (1.0 / 2.4)) - (0.055);
+  }
+}
+
+fn linear_to_srgb_vec4(c: vec4f) -> vec4f {
+  return vec4f(linear_to_srgb(c.x), linear_to_srgb(c.y), linear_to_srgb(c.z), c.w);
+}
+
+fn scale_matrix(m: mat4x4f, x: f32, y: f32) -> mat4x4f {
+  var r = m;
+  r[0][0] *= x;
+  r[1][1] *= y;
+  return r;
+}
+
+fn translate_matrix(m: mat4x4f, x: f32, y: f32) -> mat4x4f {
+  var r = m;
+  r[3][0] += x;
+  r[3][1] += y;
+  return r;
+}
+
+fn rotation_matrix(x: f32, y: f32, r: f32) -> mat4x4f {
+  let cr = cos(r);
+  let sr = sin(r);
+
+  return mat4x4f(cr, sr, 0, 0, - sr, cr, 0, 0, 0, 0, 1, 0, x - x * cr + y * sr, y - x * sr - y * cr, 0, 1);
+}
+
+fn u32_to_vec4(c: u32) -> vec4<f32> {
+  return vec4<f32>(f32((c & 0xff000000u) >> 24u) / 255.0, f32((c & 0x00ff0000u) >> 16u) / 255.0, f32((c & 0x0000ff00u) >> 8u) / 255.0, f32(c & 0x000000ffu) / 255.0);
+}
+
 @group(0) @binding(0)
 var<uniform> MVP: mat4x4f;
 @group(0) @binding(1)
@@ -28,52 +87,13 @@ struct VertexOutput {
   @location(2) color: vec4f,
 }
 
-fn scale_matrix(m: mat4x4f, x: f32, y: f32) -> mat4x4f {
-  var r = m;
-  r[0][0] *= x;
-  r[1][1] *= y;
-  return r;
-}
-
-fn translate_matrix(m: mat4x4f, x: f32, y: f32) -> mat4x4f {
-  var r = m;
-  r[3][0] += x;
-  r[3][1] += y;
-  return r;
-}
-
-fn rotation_matrix(x: f32, y: f32, r: f32) -> mat4x4f {
-  let cr = cos(r);
-  let sr = sin(r);
-
-  return mat4x4f(cr, sr, 0, 0, - sr, cr, 0, 0, 0, 0, 1, 0, x - x * cr + y * sr, y - x * sr - y * cr, 0, 1);
-}
-
-const identity_mat4 = mat4x4f(1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
-
-fn srgb_to_linear(c: f32) -> f32 {
-  if c <= 0.04045 {
-    return c / 12.92;
-  }
-  else {
-    return pow((c + 0.055) / 1.055, 2.4);
-  }
-}
-
-const VERTX = array(0.0, 1.0, 0.0, 1.0, 1.0, 0.0);
-const VERTY = array(0.0, 0.0, 1.0, 0.0, 1.0, 1.0);
-
-fn u32_to_vec4(c: u32) -> vec4<f32> {
-  return vec4<f32>(f32((c & 0xff000000u) >> 24u) / 255.0, f32((c & 0x00ff0000u) >> 16u) / 255.0, f32((c & 0x0000ff00u) >> 8u) / 255.0, f32(c & 0x000000ffu) / 255.0);
-}
-
 @vertex
 fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
   let vert = idx % 6;
   let index = idx / 6;
-  var vpos = vec2(VERTX[vert], VERTY[vert]);
+  var vpos = vec2(UNITX[vert], UNITY[vert]);
   let d = buf[index];
-  var transform = identity_mat4;
+  var transform = IDENTITY_MAT4;
 
   if d.rotation != 0.0f {
     transform = rotation_matrix(d.pos.x, d.pos.y, d.rotation);
@@ -82,10 +102,9 @@ fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
   transform = scale_matrix(transform, d.dim.x, d.dim.y);
   transform = translate_matrix(transform, d.pos.x + d.dim.x * 0.5, d.pos.y + d.dim.y * 0.5);
 
-  //let out_pos = MVP * transform * vec4(vpos.x - 0.5f, vpos.y - 0.5f, 1f, 1f);
-  let out_pos = vec4(d.pos.x, d.pos.y, d.dim.x, d.dim.y);
+  let out_pos = MVP * transform * vec4(vpos.x - 0.5f, vpos.y - 0.5f, 1f, 1f);
 
-  var source = identity_mat4;
+  var source = IDENTITY_MAT4;
   let uv = vec2f(d.uv) / f32(extent);
   let uvdim = vec2f(d.uvdim) / f32(extent);
 
@@ -97,8 +116,8 @@ fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
   source = scale_matrix(source, uvdim.x, uvdim.y);
   source = translate_matrix(source, uv.x, uv.y);
 
-  var out_uv = MVP * source * vec4(vpos.x, vpos.y, 0f, 0f);
-  let color = u32_to_vec4(d.color);
+  var out_uv = source * vec4(vpos.x, vpos.y, 1f, 1f);
+  let color = srgb_to_linear_vec4(u32_to_vec4(d.color));
   return VertexOutput(out_pos, out_uv.xy, index, color);
 }
 
