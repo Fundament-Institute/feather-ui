@@ -3,6 +3,7 @@
 
 extern crate alloc;
 
+pub mod color;
 pub mod component;
 pub mod graphics;
 pub mod input;
@@ -12,7 +13,9 @@ pub mod persist;
 mod propbag;
 pub mod render;
 mod rtree;
+mod shaders;
 pub mod text;
+pub mod util;
 
 use crate::component::window::Window;
 use crate::graphics::Driver;
@@ -35,27 +38,6 @@ use ultraviolet::f32x4;
 use ultraviolet::vec::Vec2;
 use wide::CmpLe;
 use winit::window::WindowId;
-
-/// Allocates `&[T]` on stack space.
-pub(crate) fn alloca_array<T, R>(n: usize, f: impl FnOnce(&mut [T]) -> R) -> R {
-    use std::mem::{align_of, size_of};
-
-    alloca::with_alloca_zeroed(
-        (n * size_of::<T>()) + (align_of::<T>() - 1),
-        |memory| unsafe {
-            let mut raw_memory = memory.as_mut_ptr();
-            if raw_memory as usize % align_of::<T>() != 0 {
-                raw_memory =
-                    raw_memory.add(align_of::<T>() - raw_memory as usize % align_of::<T>());
-            }
-
-            f(std::slice::from_raw_parts_mut::<T>(
-                raw_memory.cast::<T>(),
-                n,
-            ))
-        },
-    )
-}
 
 #[macro_export]
 macro_rules! gen_id {
@@ -115,7 +97,7 @@ impl AbsRect {
     }
 
     pub const fn broadcast(x: f32) -> Self {
-        Self(f32x4::new([x, x, x, x]))
+        Self(f32x4::new([x, x, x, x])) // f32x4::splat isn't a constant function (for some reason)
     }
 
     #[inline]
@@ -313,7 +295,7 @@ impl RelRect {
     }
 
     pub const fn broadcast(x: f32) -> Self {
-        Self(f32x4::new([x, x, x, x]))
+        Self(f32x4::new([x, x, x, x])) // f32x4::splat isn't a constant function (for some reason)
     }
 
     #[inline]
@@ -879,10 +861,6 @@ impl CrossReferenceDomain {
         // TODO: Is this necessary? Does it even make sense? Do you simply need to wipe the mapping for every new layout instead?
         self.mappings.borrow_mut().remove(target);
     }
-}
-
-fn vec4_to_u32(v: &ultraviolet::Vec4) -> u32 {
-    u32::from_be_bytes(v.as_array().map(|x| (x * 255.0).round() as u8))
 }
 
 /// Object-safe version of Hash + PartialEq

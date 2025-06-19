@@ -2,11 +2,12 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::StateMachine;
+use crate::color::{Premultiplied, sRGB};
 use crate::graphics::point_to_pixel;
 use crate::input::{ModifierKeys, MouseButton, MouseState, RawEvent, RawEventKind};
 use crate::layout::{Layout, base, leaf};
 use crate::text::EditObj;
-use crate::{SourceID, WindowStateMachine, layout, render, vec4_to_u32};
+use crate::{SourceID, WindowStateMachine, layout, render};
 use cosmic_text::Cursor;
 use derive_where::derive_where;
 use enum_variant_type::EnumVariantType;
@@ -192,7 +193,7 @@ pub struct TextBox<T: Prop + 'static> {
     pub font_size: f32,
     pub line_height: f32,
     pub font: cosmic_text::FamilyOwned,
-    pub color: cosmic_text::Color,
+    pub color: sRGB,
     pub weight: cosmic_text::Weight,
     pub style: cosmic_text::Style,
     pub wrap: cosmic_text::Wrap,
@@ -206,7 +207,7 @@ impl<T: Prop + 'static> TextBox<T> {
         font_size: f32,
         line_height: f32,
         font: cosmic_text::FamilyOwned,
-        color: cosmic_text::Color,
+        color: sRGB,
         weight: cosmic_text::Weight,
         style: cosmic_text::Style,
         wrap: cosmic_text::Wrap,
@@ -541,7 +542,7 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
             &self.props.textedit().obj.text.borrow(),
             &cosmic_text::Attrs::new()
                 .family(self.font.as_family())
-                .color(self.color)
+                .color(self.color.into())
                 .weight(self.weight)
                 .style(self.style),
             cosmic_text::Shaping::Advanced,
@@ -553,15 +554,15 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
         });
 
         let color = if textstate.focused {
-            self.color.as_rgba().map(|x| x as f32).into()
+            self.color
         } else {
-            ultraviolet::Vec4::zero()
+            sRGB::transparent()
         };
 
         let line = render::line::Instance {
             start: Vec2::zero().into(),
             end: Vec2::zero().into(),
-            color: vec4_to_u32(&color),
+            color: color,
         };
 
         let pipeline = Pipeline {

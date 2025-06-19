@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
+use crate::color::sRGB;
 use crate::render::compositor;
 use crate::{CrossReferenceDomain, SourceID};
 
@@ -11,7 +12,7 @@ pub struct Instance {
     pub domain: Rc<CrossReferenceDomain>,
     pub start: Rc<SourceID>,
     pub end: Rc<SourceID>,
-    pub color: u32,
+    pub color: sRGB,
 }
 
 impl super::Renderable for Instance {
@@ -24,7 +25,7 @@ impl super::Renderable for Instance {
         let domain = self.domain.clone();
         let start_id = self.start.clone();
         let end_id = self.end.clone();
-        let color = self.color;
+        let color = self.color.as_32bit();
 
         compositor.defer(move |_, data| {
             let start = domain.get_area(&start_id).unwrap_or_default();
@@ -35,13 +36,14 @@ impl super::Renderable for Instance {
             let p = p2 - p1;
 
             *data = compositor::Data {
-                pos: p1.into(),
-                dim: [p.mag(), 1.0],
-                uv: [0, 0],
-                uvdim: [0, 0],
-                color,
+                pos: p1.as_array().into(),
+                dim: [p.mag(), 1.0].into(),
+                uv: [0, 0].into(),
+                uvdim: [0, 0].into(),
+                color: color.rgba,
                 rotation: p.y.atan2(p.x),
                 texclip: ((u16::MAX as u32) << 16) | 0,
+                ..Default::default()
             };
         })
     }

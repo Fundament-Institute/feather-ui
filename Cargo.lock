@@ -776,6 +776,7 @@ dependencies = [
  "im",
  "mlua",
  "notify",
+ "num-traits",
  "parking_lot",
  "smallvec",
  "static_assertions",

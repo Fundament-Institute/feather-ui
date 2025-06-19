@@ -1,3 +1,31 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+
+//#import "feather.wgsl"
+const UNITX = array(0.0, 1.0, 0.0, 1.0, 1.0, 0.0);
+const UNITY = array(0.0, 0.0, 1.0, 0.0, 1.0, 1.0);
+
+fn linearstep(low: f32, high: f32, x: f32) -> f32 {
+  return clamp((x - low) / (high - low), 0.0f, 1.0f);
+}
+
+fn u32_to_vec4(c: u32) -> vec4<f32> {
+  return vec4<f32>(f32((c & 0xff000000u) >> 24u) / 255.0, f32((c & 0x00ff0000u) >> 16u) / 255.0, f32((c & 0x0000ff00u) >> 8u) / 255.0, f32(c & 0x000000ffu) / 255.0);
+}
+
+fn srgb_to_linear(c: f32) -> f32 {
+  if c <= 0.04045 {
+    return c / 12.92;
+  }
+  else {
+    return pow((c + 0.055) / 1.055, 2.4);
+  }
+}
+
+fn srgb_to_linear_vec4(c: vec4<f32>) -> vec4<f32> {
+  return vec4f(srgb_to_linear(c.x), srgb_to_linear(c.y), srgb_to_linear(c.z), c.w);
+}
+
 @group(0) @binding(0)
 var<uniform> MVP: mat4x4f;
 @group(0) @binding(1)
@@ -21,14 +49,11 @@ struct VertexOutput {
   @location(1) @interpolate(flat) index: u32,
 }
 
-const VERTX = array(0.0, 1.0, 0.0, 1.0, 1.0, 0.0);
-const VERTY = array(0.0, 0.0, 1.0, 0.0, 1.0, 1.0);
-
 @vertex
 fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
   let vert = idx % 6;
   let index = idx / 6;
-  var vpos = vec2(VERTX[vert], VERTY[vert]);
+  var vpos = vec2(UNITX[vert], UNITY[vert]);
   let d = buf[index];
 
   var mv: mat4x4f;
@@ -40,14 +65,6 @@ fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
   let outpos = MVP * mv * vec4(vpos.x - 0.5f, vpos.y - 0.5f, 1f, 1f);
 
   return VertexOutput(outpos, vpos.xy, index);
-}
-
-fn u32_to_vec4(c: u32) -> vec4<f32> {
-  return vec4<f32>(f32((c & 0xff000000u) >> 24u) / 255.0, f32((c & 0x00ff0000u) >> 16u) / 255.0, f32((c & 0x0000ff00u) >> 8u) / 255.0, f32(c & 0x000000ffu) / 255.0);
-}
-
-fn linearstep(low: f32, high: f32, x: f32) -> f32 {
-  return clamp((x - low) / (high - low), 0.0f, 1.0f);
 }
 
 fn rectangle_sdf(samplePosition: vec2f, halfSize: vec2f, edges: vec4f) -> f32 {
@@ -75,8 +92,8 @@ fn rectangle(input: VertexOutput) -> @location(0) vec4f {
   let dist = rectangle_sdf(uv, d.dim * 0.5f, d.corners);
   let alpha = linearstep(w, - w, dist);
   let s = linearstep(w, - w, dist + d.border);
-  let fill = u32_to_vec4(d.fill);
-  let outline = u32_to_vec4(d.outline);
+  let fill = srgb_to_linear_vec4(u32_to_vec4(d.fill));
+  let outline = srgb_to_linear_vec4(u32_to_vec4(d.outline));
 
   return (vec4f(fill.rgb, 1f) * fill.a * s) + (vec4f(outline.rgb, 1f) * outline.a * clamp(alpha - s, 0.0f, 1.0f));
 }

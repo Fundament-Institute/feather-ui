@@ -17,6 +17,7 @@ use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 use ultraviolet::Vec2;
+use wgpu::naga::back;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::{DeviceId, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
@@ -44,6 +45,13 @@ pub struct WindowState {
     lookup: HashMap<(Rc<SourceID>, u8), DeviceId>,
     pub compositor: Compositor,
 }
+
+const BACKCOLOR: wgpu::Color = wgpu::Color {
+    r: 0.1,
+    g: 0.2,
+    b: 0.3,
+    a: 1.0,
+};
 
 impl WindowState {
     pub(crate) fn nodes(&self, tracker: WindowNodeTrack) -> SmallVec<[Weak<Node>; 4]> {
@@ -120,18 +128,20 @@ impl WindowState {
             .prepare(&self.graphics, &mut encoder, &self.config);
 
         {
+            let mut backcolor = BACKCOLOR;
+            if frame.texture.format().is_srgb() {
+                backcolor.r = crate::color::srgb_to_linear(backcolor.r);
+                backcolor.g = crate::color::srgb_to_linear(backcolor.g);
+                backcolor.b = crate::color::srgb_to_linear(backcolor.b);
+            }
+
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Window Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
-                            a: 1.0,
-                        }),
+                        load: wgpu::LoadOp::Clear(backcolor),
                         store: wgpu::StoreOp::Store,
                     },
                 })],
@@ -265,8 +275,8 @@ impl Window {
             let mut config = surface
                 .get_default_config(&graphics.adapter, size.width, size.height)
                 .ok_or_eyre("Failed to find a default configuration")?;
-            // let view_format = config.format.add_srgb_suffix();
-            let view_format = config.format.remove_srgb_suffix();
+            let view_format = config.format.add_srgb_suffix();
+            //let view_format = config.format.remove_srgb_suffix();
             config.format = view_format;
             config.view_formats.push(view_format);
             surface.configure(&graphics.device, &config);

@@ -2,8 +2,11 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::compositor;
+use crate::color::sRGB;
+use crate::graphics::Vec2f;
+use crate::graphics::{self, Vec4f};
 use crate::render::compositor::Compositor;
-use crate::{graphics, vec4_to_u32};
+use crate::shaders;
 use guillotiere::Size;
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -14,8 +17,8 @@ pub struct Instance<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> {
     pub padding: crate::AbsRect,
     pub border: f32,
     pub blur: f32,
-    pub fill: Vec4,
-    pub outline: Vec4,
+    pub fill: sRGB,
+    pub outline: sRGB,
     pub corners: Vec4,
     pub id: std::rc::Rc<crate::SourceID>,
     pub phantom: PhantomData<PIPELINE>,
@@ -44,13 +47,13 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
         graphics.with_pipeline::<PIPELINE>(|pipeline| {
             pipeline.append(
                 &Data {
-                    pos: region_uv.min.to_f32().to_array(),
-                    dim: region_uv.size().to_f32().to_array(),
+                    pos: region_uv.min.to_f32().to_array().into(),
+                    dim: region_uv.size().to_f32().to_array().into(),
                     border: self.border,
                     blur: self.blur,
-                    corners: *self.corners.as_array(),
-                    fill: vec4_to_u32(&self.fill),
-                    outline: vec4_to_u32(&self.outline),
+                    corners: self.corners.as_array().into(),
+                    fill: self.fill.as_32bit().rgba,
+                    outline: self.outline.as_32bit().rgba,
                 },
                 region_index,
             )
@@ -70,11 +73,11 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
 
 // Renderdoc Format:
 // struct Data {
+// 	float corners[4];
 // 	float pos[2];
 // 	float dim[2];
 // 	float border;
 // 	float blur;
-// 	float corners[4];
 // 	uint32_t fill;
 // 	uint32_t outline;
 // };
@@ -83,9 +86,9 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
 #[derive(Debug, Clone, Copy, Default, PartialEq, bytemuck::NoUninit)]
 #[repr(C)]
 pub struct Data {
-    pub corners: [f32; 4],
-    pub pos: [f32; 2],
-    pub dim: [f32; 2],
+    pub corners: Vec4f,
+    pub pos: Vec2f,
+    pub dim: Vec2f,
     pub border: f32,
     pub blur: f32,
     pub fill: u32,
@@ -167,10 +170,7 @@ impl<const KIND: u8> Shape<KIND> {
     }
 
     pub fn shader(device: &wgpu::Device) -> wgpu::ShaderModule {
-        device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Shape"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/shape.wgsl").into()),
-        })
+        shaders::load_wgsl(device, "Shape", shaders::get("shape.wgsl").unwrap())
     }
 
     fn pipeline(

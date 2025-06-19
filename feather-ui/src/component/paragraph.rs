@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
+use crate::color::sRGB;
 use crate::component::ComponentFrom;
 use crate::component::text::Text;
 use crate::layout::{Desc, Layout, base, flex, leaf};
@@ -71,7 +72,7 @@ impl<T: flex::Prop + 'static> Paragraph<T> {
         font_size: f32,
         line_height: f32,
         font: cosmic_text::FamilyOwned,
-        color: cosmic_text::Color,
+        color: sRGB,
         weight: cosmic_text::Weight,
         style: cosmic_text::Style,
         fullwidth: bool,

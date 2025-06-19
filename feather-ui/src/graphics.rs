@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
 
 use crate::render;
-use crate::render::AnyPipeline;
 use crate::render::atlas;
 use crate::render::compositor;
 use guillotiere::AllocId;
@@ -16,8 +13,6 @@ use std::sync::Arc;
 use ultraviolet::Mat4;
 use ultraviolet::Vec2;
 use ultraviolet::Vec4;
-use wgpu::CompilationMessageType;
-use wgpu::ShaderModuleDescriptor;
 use wgpu::{PipelineLayout, ShaderModule};
 use winit::window::CursorIcon;
 
@@ -35,7 +30,7 @@ pub fn pixel_to_vec(p: winit::dpi::PhysicalPosition<f32>) -> Vec2 {
 
 pub type PipelineID = TypeId;
 
-struct PipelineState {
+pub(crate) struct PipelineState {
     layout: PipelineLayout,
     shader: ShaderModule,
     generator: Box<
@@ -45,7 +40,13 @@ struct PipelineState {
     >,
 }
 
-pub(crate) type GlyphCache = HashMap<cosmic_text::CacheKey, atlas::Region>;
+#[derive(Debug)]
+pub struct GlyphRegion {
+    pub offset: [i32; 2],
+    pub region: atlas::Region,
+}
+
+pub(crate) type GlyphCache = HashMap<cosmic_text::CacheKey, GlyphRegion>;
 
 // We want to share our device/adapter state across windows, but can't create it until we have at least one window,
 // so we store a weak reference to it in App and if all windows are dropped it'll also drop these, which is usually
@@ -68,7 +69,7 @@ pub struct Driver {
 impl Drop for Driver {
     fn drop(&mut self) {
         for (_, mut r) in self.glyphs.get_mut().drain() {
-            r.id = AllocId::deserialize(u32::MAX);
+            r.region.id = AllocId::deserialize(u32::MAX);
         }
     }
 }
@@ -237,52 +238,41 @@ pub fn mat4_ortho(x: f32, y: f32, w: f32, h: f32, n: f32, f: f32) -> Mat4 {
     }
 }
 
-pub struct HotLoader {
-    watcher: notify::RecommendedWatcher,
-}
-
-impl HotLoader {
-    pub fn new<T: 'static>(
-        path: &std::path::Path,
-        label: &'static str,
-        driver: std::sync::Weak<Driver>,
-    ) -> eyre::Result<Self> {
-        use notify::Watcher;
-        let mut prev = std::fs::read_to_string(path)?;
-        let pathbuf = path.to_owned();
-        let mut watcher = notify::recommended_watcher(move |e| {
-            if let Some(driver) = driver.upgrade() {
-                let contents = std::fs::read_to_string(&pathbuf).unwrap();
-                if contents != prev {
-                    prev = contents;
-                    driver
-                        .device
-                        .push_error_scope(wgpu::ErrorFilter::Validation);
-                    let module = driver.device.create_shader_module(ShaderModuleDescriptor {
-                        label: Some(label),
-                        source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(&prev)),
-                    });
-                    let err = futures_lite::future::block_on(driver.device.pop_error_scope());
-                    if let Some(e) = err {
-                        println!("{}", e.to_string());
-                    } else {
-                        let info = futures_lite::future::block_on(module.get_compilation_info());
-
-                        let mut errored = false;
-                        for m in info.messages {
-                            println!("{:?}", m);
-                            errored = errored || m.message_type == CompilationMessageType::Error;
-                        }
-                        if !errored {
-                            driver.reload_pipeline::<T>(module);
-                        }
-                    }
-                }
+macro_rules! gen_from_array {
+    ($s:path, $t:path, $i:literal) => {
+        impl From<[$t; $i]> for $s {
+            fn from(value: [$t; $i]) -> Self {
+                Self(value)
             }
-        })?;
-
-        watcher.watch(path, notify::RecursiveMode::NonRecursive)?;
-
-        Ok(Self { watcher })
-    }
+        }
+        impl From<&[$t; $i]> for $s {
+            fn from(value: &[$t; $i]) -> Self {
+                Self(*value)
+            }
+        }
+    };
 }
+
+#[repr(C, align(8))]
+#[derive(Clone, Copy, Debug, Default, PartialEq, bytemuck::NoUninit)]
+pub struct Vec2f([f32; 2]);
+
+gen_from_array!(Vec2f, f32, 2);
+
+#[repr(C, align(16))]
+#[derive(Clone, Copy, Debug, Default, PartialEq, bytemuck::NoUninit)]
+pub struct Vec4f([f32; 4]);
+
+gen_from_array!(Vec4f, f32, 4);
+
+#[repr(C, align(8))]
+#[derive(Clone, Copy, Debug, Default, PartialEq, bytemuck::NoUninit)]
+pub struct Vec2i([i32; 2]);
+
+gen_from_array!(Vec2i, i32, 2);
+
+#[repr(C, align(16))]
+#[derive(Clone, Copy, Debug, Default, PartialEq, bytemuck::NoUninit)]
+pub struct Vec4i([i32; 4]);
+
+gen_from_array!(Vec4i, i32, 4);

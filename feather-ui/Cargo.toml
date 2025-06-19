@@ -53,6 +53,7 @@ cosmic-text.workspace = true
 guillotiere = "0.6.2"
 notify = "8.0.0"
 futures-lite = "2.6.0"
+num-traits = "0.2.19"
 
 [lints.clippy]
 too_many_arguments = { level = "allow" }

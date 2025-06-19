@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
+use crate::color::sRGB;
 use crate::layout::{Layout, leaf};
-use crate::render::atlas;
 use crate::{BASE_DPI, SourceID, WindowStateMachine, layout};
 use derive_where::derive_where;
-use std::borrow::Cow;
 use std::marker::PhantomData;
 use std::rc::Rc;
 use ultraviolet::Vec4;
@@ -26,8 +25,8 @@ pub struct Shape<T: leaf::Padded + 'static, const KIND: u8> {
     blur: f32,
     dim: ultraviolet::Vec2,
     pub corners: Vec4,
-    pub fill: Vec4,
-    pub outline: Vec4,
+    pub fill: sRGB,
+    pub outline: sRGB,
 }
 impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::RoundRect as u8 }> {
     pub fn new(
@@ -37,8 +36,8 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::RoundRect as u8 }> {
         border: f32,
         blur: f32,
         corners: Vec4,
-        fill: Vec4,
-        outline: Vec4,
+        fill: sRGB,
+        outline: sRGB,
     ) -> Self {
         Self {
             id,
@@ -62,8 +61,8 @@ impl<T: leaf::Padded + 'static> Shape<T, 1> {
         blur: f32,
         corners: ultraviolet::Vec3,
         offset: f32,
-        fill: Vec4,
-        outline: Vec4,
+        fill: sRGB,
+        outline: sRGB,
     ) -> Self {
         Self {
             id,
@@ -86,8 +85,8 @@ impl<T: leaf::Padded + 'static> Shape<T, 2> {
         border: f32,
         blur: f32,
         radii: ultraviolet::Vec2,
-        fill: Vec4,
-        outline: Vec4,
+        fill: sRGB,
+        outline: sRGB,
     ) -> Self {
         Self {
             id,
@@ -110,8 +109,8 @@ impl<T: leaf::Padded + 'static> Shape<T, 3> {
         border: f32,
         blur: f32,
         arcs: Vec4,
-        fill: Vec4,
-        outline: Vec4,
+        fill: sRGB,
+        outline: sRGB,
     ) -> Self {
         Self {
             id,
