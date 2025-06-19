@@ -206,35 +206,15 @@ pub struct Compositor {
 }
 
 impl Compositor {
-    pub fn new(
+    fn gen_binding(
+        mvp: &wgpu::Buffer,
+        buffer: &wgpu::Buffer,
+        clip: &wgpu::Buffer,
         shared: &Shared,
         device: &wgpu::Device,
-        config: &wgpu::SurfaceConfiguration,
         atlas: &super::atlas::Atlas,
-    ) -> Self {
-        let pipeline = shared.get_pipeline(device, config.view_formats[0]);
-
-        let mvp = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("MVP"),
-            size: std::mem::size_of::<ultraviolet::Mat4>() as u64,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-
-        let buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Data"),
-            size: 32 * size_of::<Data>() as u64,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-
-        let clip = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("ClipRects"),
-            size: 4 * size_of::<AbsRect>() as u64,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-
+        layout: &wgpu::BindGroupLayout,
+    ) -> wgpu::BindGroup {
         let atlasview = atlas.get_texture().create_view(&TextureViewDescriptor {
             label: Some("Compositor Atlas View"),
             format: Some(crate::render::atlas::ATLAS_FORMAT),
@@ -273,11 +253,51 @@ impl Compositor {
             },
         ];
 
-        let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &pipeline.get_bind_group_layout(0),
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout,
             entries: &bindings,
             label: None,
+        })
+    }
+
+    pub fn new(
+        shared: &Shared,
+        device: &wgpu::Device,
+        config: &wgpu::SurfaceConfiguration,
+        atlas: &super::atlas::Atlas,
+    ) -> Self {
+        let pipeline = shared.get_pipeline(device, config.view_formats[0]);
+
+        let mvp = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("MVP"),
+            size: std::mem::size_of::<ultraviolet::Mat4>() as u64,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
         });
+
+        let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Compositor Data"),
+            size: 32 * size_of::<Data>() as u64,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        let clip = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Compositor Clip Data"),
+            size: 4 * size_of::<AbsRect>() as u64,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        let group = Self::gen_binding(
+            &mvp,
+            &buffer,
+            &clip,
+            shared,
+            device,
+            atlas,
+            &pipeline.get_bind_group_layout(0),
+        );
 
         Self {
             pipeline,
@@ -292,29 +312,43 @@ impl Compositor {
         }
     }
 
-    fn check_data(&mut self, device: &wgpu::Device) {
+    fn rebind(&mut self, shared: &Shared, device: &wgpu::Device, atlas: &super::atlas::Atlas) {
+        self.group = Self::gen_binding(
+            &self.mvp,
+            &self.buffer,
+            &self.clip,
+            shared,
+            device,
+            atlas,
+            &self.pipeline.get_bind_group_layout(0),
+        );
+    }
+
+    fn check_data(&mut self, shared: &Shared, device: &wgpu::Device, atlas: &super::atlas::Atlas) {
         let size = self.data.len() * size_of::<Data>();
         if (self.buffer.size() as usize) < size {
             self.buffer.destroy();
             self.buffer = device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("Composite Data"),
+                label: Some("Compositor Data"),
                 size: size.next_power_of_two() as u64,
                 usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
+            self.rebind(shared, device, atlas);
         }
     }
 
-    fn check_clip(&mut self, device: &wgpu::Device) {
+    fn check_clip(&mut self, shared: &Shared, device: &wgpu::Device, atlas: &super::atlas::Atlas) {
         let size = self.clipdata.len() * size_of::<AbsRect>();
         if (self.clip.size() as usize) < size {
             self.clip.destroy();
             self.clip = device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("Clip Data"),
+                label: Some("Compositor Clip Data"),
                 size: size.next_power_of_two() as u64,
                 usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
+            self.rebind(shared, device, atlas);
         }
     }
 
@@ -352,11 +386,17 @@ impl Compositor {
         encoder: &mut wgpu::CommandEncoder,
         _: &wgpu::SurfaceConfiguration,
     ) {
-        // If we have a pending copy, queue it up.
-        graphics
-            .atlas
-            .write()
-            .perform_copy(&graphics.device, &graphics.queue, encoder);
+        // If we have a pending copy, queue it up. This statement is isolated to ensure we don't deadlock on the write() here
+        let rebind =
+            graphics
+                .atlas
+                .write()
+                .perform_copy(&graphics.device, &graphics.queue, encoder);
+
+        // If the atlas changed it's texture at any point this frame, we need to rebind. This may have occured on a different window's draw call.
+        if rebind {
+            self.rebind(&graphics.shared, &graphics.device, &graphics.atlas.read());
+        }
 
         // Resolve all defers
         for (idx, f) in self.defer.drain() {
@@ -413,7 +453,7 @@ impl Compositor {
         );
 
         if self.clipdata.len() > 0 {
-            self.check_clip(&graphics.device);
+            self.check_clip(&graphics.shared, &graphics.device, &graphics.atlas.read());
             graphics.queue.write_buffer(
                 &self.clip,
                 0,
@@ -421,7 +461,7 @@ impl Compositor {
             );
         }
 
-        self.check_data(&graphics.device);
+        self.check_data(&graphics.shared, &graphics.device, &graphics.atlas.read());
 
         // TODO turn into write_buffer_with (is that actually going to be faster?)
         let mut offset = 0;

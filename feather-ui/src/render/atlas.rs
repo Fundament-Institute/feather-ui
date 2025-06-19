@@ -8,6 +8,7 @@ use wgpu::{Extent3d, Origin3d, TextureDescriptor, TextureFormat, TextureUsages};
 /// Array of 2D textures, along with an array of guillotine allocators to go along with them. We use an array of mid-size
 /// textures so we don't have to resize the atlas allocator or adjust any UV coordinates that way.
 pub struct Atlas {
+    graveyard: Option<wgpu::Texture>, // This is an old texture that needs to be deleted on the next frame (after the copy operation finishes)
     pending: Option<u32>, // stores a pending copy operation for the compositor to do in it's Prepare() call
     extent: u32,
     pub extent_buf: wgpu::Buffer,
@@ -59,15 +60,20 @@ impl Atlas {
         queue.write_buffer(&self.extent_buf, 0, &self.extent.to_ne_bytes());
     }
 
+    #[must_use]
     pub fn perform_copy(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         encoder: &mut wgpu::CommandEncoder,
-    ) {
+    ) -> bool {
+        if let Some(old) = self.graveyard.take() {
+            old.destroy();
+        }
+
         // Since each window has it's own compositor pipeline, we need to make sure this copy happens as soon as possible, but only once.
         if let Some(layers) = self.pending.take() {
-            let texture = Self::create_texture(device, self.extent, layers);
+            let mut texture = Self::create_texture(device, self.extent, layers);
 
             encoder.copy_texture_to_texture(
                 wgpu::TexelCopyTextureInfo {
@@ -85,11 +91,13 @@ impl Atlas {
                 self.texture.size(),
             );
 
-            self.texture = texture;
-            // TODO: Do we need a deferred destroy request here or do we let the old texture naturally despawn?
+            std::mem::swap(&mut texture, &mut self.texture);
+            self.graveyard = Some(texture);
 
             self.queue_buffers(queue);
         }
+
+        self.graveyard.is_some()
     }
 
     pub fn new(device: &wgpu::Device, extent: u32) -> Self {
@@ -118,6 +126,7 @@ impl Atlas {
         });
 
         Self {
+            graveyard: None,
             pending: None,
             extent,
             texture,
