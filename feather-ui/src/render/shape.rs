@@ -5,6 +5,7 @@ use super::compositor;
 use crate::color::sRGB;
 use crate::graphics::Vec2f;
 use crate::graphics::{self, Vec4f};
+use crate::render::atlas::Atlas;
 use crate::render::compositor::Compositor;
 use crate::shaders;
 use guillotiere::Size;
@@ -12,6 +13,7 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::num::NonZero;
 use ultraviolet::Vec4;
+use wgpu::BindGroupLayout;
 
 pub struct Instance<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> {
     pub padding: crate::AbsRect,
@@ -112,6 +114,23 @@ impl<const KIND: u8> super::Pipeline for Shape<KIND> {
 
     fn draw(&mut self, graphics: &graphics::Driver, pass: &mut wgpu::RenderPass<'_>, layer: u16) {
         if let Some(data) = self.data.get_mut(&layer) {
+            let size = data.len() * size_of::<Data>();
+            if (self.buffer.size() as usize) < size {
+                self.buffer.destroy();
+                self.buffer = graphics.device.create_buffer(&wgpu::BufferDescriptor {
+                    label: Some("Shape Data"),
+                    size: size.next_power_of_two() as u64,
+                    usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+                    mapped_at_creation: false,
+                });
+                self.group = Self::rebind(
+                    &self.buffer,
+                    &self.pipeline.get_bind_group_layout(0),
+                    &graphics.device,
+                    &graphics.atlas.read(),
+                );
+            }
+
             graphics
                 .queue
                 .write_buffer(&self.buffer, 0, bytemuck::cast_slice(data.as_slice()));
@@ -206,21 +225,12 @@ impl<const KIND: u8> Shape<KIND> {
         })
     }
 
-    fn create(
-        layout: &wgpu::PipelineLayout,
-        shader: &wgpu::ShaderModule,
-        graphics: &graphics::Driver,
-        entry_point: &str,
-    ) -> Self {
-        let buffer = graphics.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Data"),
-            size: 32 * size_of::<Data>() as u64,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-
-        let atlas = graphics.atlas.read();
-
+    fn rebind(
+        buffer: &wgpu::Buffer,
+        layout: &BindGroupLayout,
+        device: &wgpu::Device,
+        atlas: &Atlas,
+    ) -> wgpu::BindGroup {
         let bindings = [
             wgpu::BindGroupEntry {
                 binding: 0,
@@ -236,14 +246,33 @@ impl<const KIND: u8> Shape<KIND> {
             },
         ];
 
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout,
+            entries: &bindings,
+            label: None,
+        })
+    }
+
+    fn create(
+        layout: &wgpu::PipelineLayout,
+        shader: &wgpu::ShaderModule,
+        graphics: &graphics::Driver,
+        entry_point: &str,
+    ) -> Self {
+        let buffer = graphics.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Shape Data"),
+            size: 32 * size_of::<Data>() as u64,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
         let pipeline = Self::pipeline(layout, shader, &graphics.device, entry_point);
-        let group = graphics
-            .device
-            .create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &pipeline.get_bind_group_layout(0),
-                entries: &bindings,
-                label: None,
-            });
+
+        let group = Self::rebind(
+            &buffer,
+            &pipeline.get_bind_group_layout(0),
+            &graphics.device,
+            &graphics.atlas.read(),
+        );
 
         Self {
             data: HashMap::new(),
