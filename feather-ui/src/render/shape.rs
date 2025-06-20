@@ -32,21 +32,21 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
     fn render(
         &self,
         area: crate::AbsRect,
-        graphics: &crate::graphics::Driver,
+        driver: &crate::graphics::Driver,
         compositor: &mut Compositor,
-    ) {
+    ) -> Result<(), crate::Error> {
         let dim = area.bottomright() - area.topleft() - self.padding.bottomright();
         let (region_uv, region_index) = {
-            let mut atlas = graphics.atlas.write();
+            let mut atlas = driver.atlas.write();
             let region = atlas.cache_region(
-                &graphics.device,
+                &driver.device,
                 self.id.clone(),
                 Size::new(area.dim().0.x.ceil() as i32, area.dim().0.y.ceil() as i32),
-            );
+            )?;
             (region.uv, region.index)
         };
 
-        graphics.with_pipeline::<PIPELINE>(|pipeline| {
+        driver.with_pipeline::<PIPELINE>(|pipeline| {
             pipeline.append(
                 &Data {
                     pos: region_uv.min.to_f32().to_array().into(),
@@ -70,6 +70,8 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
             region_index,
             0,
         ));
+
+        Ok(())
     }
 }
 
@@ -112,12 +114,12 @@ impl<const KIND: u8> super::Pipeline for Shape<KIND> {
         self.data.entry(layer).or_insert_with(Vec::new).push(*data);
     }
 
-    fn draw(&mut self, graphics: &graphics::Driver, pass: &mut wgpu::RenderPass<'_>, layer: u16) {
+    fn draw(&mut self, driver: &graphics::Driver, pass: &mut wgpu::RenderPass<'_>, layer: u16) {
         if let Some(data) = self.data.get_mut(&layer) {
             let size = data.len() * size_of::<Data>();
             if (self.buffer.size() as usize) < size {
                 self.buffer.destroy();
-                self.buffer = graphics.device.create_buffer(&wgpu::BufferDescriptor {
+                self.buffer = driver.device.create_buffer(&wgpu::BufferDescriptor {
                     label: Some("Shape Data"),
                     size: size.next_power_of_two() as u64,
                     usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
@@ -126,12 +128,12 @@ impl<const KIND: u8> super::Pipeline for Shape<KIND> {
                 self.group = Self::rebind(
                     &self.buffer,
                     &self.pipeline.get_bind_group_layout(0),
-                    &graphics.device,
-                    &graphics.atlas.read(),
+                    &driver.device,
+                    &driver.atlas.read(),
                 );
             }
 
-            graphics
+            driver
                 .queue
                 .write_buffer(&self.buffer, 0, bytemuck::cast_slice(data.as_slice()));
 
@@ -256,22 +258,22 @@ impl<const KIND: u8> Shape<KIND> {
     fn create(
         layout: &wgpu::PipelineLayout,
         shader: &wgpu::ShaderModule,
-        graphics: &graphics::Driver,
+        driver: &graphics::Driver,
         entry_point: &str,
     ) -> Self {
-        let buffer = graphics.device.create_buffer(&wgpu::BufferDescriptor {
+        let buffer = driver.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Shape Data"),
             size: 32 * size_of::<Data>() as u64,
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        let pipeline = Self::pipeline(layout, shader, &graphics.device, entry_point);
+        let pipeline = Self::pipeline(layout, shader, &driver.device, entry_point);
 
         let group = Self::rebind(
             &buffer,
             &pipeline.get_bind_group_layout(0),
-            &graphics.device,
-            &graphics.atlas.read(),
+            &driver.device,
+            &driver.atlas.read(),
         );
 
         Self {
@@ -287,9 +289,9 @@ impl Shape<0> {
     pub fn new(
         layout: &wgpu::PipelineLayout,
         shader: &wgpu::ShaderModule,
-        graphics: &graphics::Driver,
+        driver: &graphics::Driver,
     ) -> Box<dyn super::AnyPipeline> {
-        Box::new(Self::create(layout, shader, graphics, "rectangle"))
+        Box::new(Self::create(layout, shader, driver, "rectangle"))
     }
 }
 
@@ -297,9 +299,9 @@ impl Shape<1> {
     pub fn new(
         layout: &wgpu::PipelineLayout,
         shader: &wgpu::ShaderModule,
-        graphics: &graphics::Driver,
+        driver: &graphics::Driver,
     ) -> Box<dyn super::AnyPipeline> {
-        Box::new(Self::create(layout, shader, graphics, "triangle"))
+        Box::new(Self::create(layout, shader, driver, "triangle"))
     }
 }
 
@@ -307,9 +309,9 @@ impl Shape<2> {
     pub fn new(
         layout: &wgpu::PipelineLayout,
         shader: &wgpu::ShaderModule,
-        graphics: &graphics::Driver,
+        driver: &graphics::Driver,
     ) -> Box<dyn super::AnyPipeline> {
-        Box::new(Self::create(layout, shader, graphics, "circle"))
+        Box::new(Self::create(layout, shader, driver, "circle"))
     }
 }
 
@@ -317,8 +319,8 @@ impl Shape<3> {
     pub fn new(
         layout: &wgpu::PipelineLayout,
         shader: &wgpu::ShaderModule,
-        graphics: &graphics::Driver,
+        driver: &graphics::Driver,
     ) -> Box<dyn super::AnyPipeline> {
-        Box::new(Self::create(layout, shader, graphics, "arcs"))
+        Box::new(Self::create(layout, shader, driver, "arcs"))
     }
 }

@@ -19,13 +19,8 @@ name = "calculator-alc"
 path = "src/main.rs"
 
 [dependencies]
-wgpu.workspace = true
-winit.workspace = true
 feather-ui.workspace = true
-ultraviolet.workspace = true
-im.workspace = true
 alicorn.workspace = true
-mlua.workspace = true
 uniffi = { version = "0.29", features = ["scaffolding-ffi-buffer-fns"] }
 uniffi-alicorn = { version = "0.1.2", features = [
   "scaffolding-ffi-buffer-fns",

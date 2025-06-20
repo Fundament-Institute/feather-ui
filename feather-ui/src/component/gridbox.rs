@@ -21,13 +21,13 @@ impl<T: grid::Prop + 'static> super::Component<T> for GridBox<T> {
     fn layout(
         &self,
         state: &crate::StateManager,
-        graphics: &crate::graphics::Driver,
+        driver: &crate::graphics::Driver,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let map = VectorMap::new(
             |child: &Option<Box<ComponentFrom<dyn grid::Prop>>>| -> Option<Box<dyn Layout<<dyn grid::Prop as Desc>::Child>>> {
-                Some(child.as_ref().unwrap().layout(state, graphics,window, config))
+                Some(child.as_ref().unwrap().layout(state, driver,window, config))
             },
         );
 

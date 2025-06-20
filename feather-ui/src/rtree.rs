@@ -98,7 +98,7 @@ impl Node {
                 pos,
                 modifiers,
                 all_buttons,
-                graphics,
+                driver,
             } => {
                 let state: &mut WindowStateMachine = manager.get_mut(&window_id).map_err(|_| ())?;
                 let window = state.state.as_mut().unwrap();
@@ -119,7 +119,7 @@ impl Node {
                         device_id: *device_id,
                         modifiers: *modifiers,
                         all_buttons: *all_buttons,
-                        graphics: graphics.clone(),
+                        driver: driver.clone(),
                     };
 
                     // We don't care about the result of this event
@@ -140,7 +140,7 @@ impl Node {
                         modifiers: *modifiers,
                         pos: *pos,
                         all_buttons: *all_buttons,
-                        graphics: graphics.clone(),
+                        driver: driver.clone(),
                     };
                     let _ = self.inject_event(&evt, evt.kind(), dpi, offset, window_id, manager);
                 }
@@ -162,7 +162,7 @@ impl Node {
                 let state: &mut WindowStateMachine = manager.get_mut(&window_id).map_err(|_| ())?;
                 let window = state.state.as_mut().unwrap();
                 window.remove(WindowNodeTrack::Capture, device_id);
-                let graphics = Arc::downgrade(&window.graphics);
+                let driver = Arc::downgrade(&window.driver);
 
                 // We don't care if this is accepted or not
                 let _ = crate::component::window::Window::on_window_event(
@@ -173,7 +173,7 @@ impl Node {
                         position: PhysicalPosition::<f64>::new(*x as f64, *y as f64),
                     },
                     manager,
-                    graphics,
+                    driver,
                 );
             }
             _ => (),
@@ -290,7 +290,7 @@ impl Node {
                             (window.remove(WindowNodeTrack::Focus, device_id), false)
                         };
 
-                        let graphics = Arc::downgrade(&window.graphics);
+                        let driver = Arc::downgrade(&window.driver);
 
                         // Tell the old node that it lost focus (if it cares).
                         if let Some(old) = old.and_then(|old| old.upgrade()) {
@@ -334,7 +334,7 @@ impl Node {
                                     position: PhysicalPosition::<f64>::new(*x as f64, *y as f64),
                                 },
                                 manager,
-                                graphics,
+                                driver,
                             );
                         }
                     }

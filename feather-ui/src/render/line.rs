@@ -15,7 +15,12 @@ pub struct Instance {
 }
 
 impl super::Renderable for Instance {
-    fn render(&self, _: crate::AbsRect, _: &crate::graphics::Driver, compositor: &mut Compositor) {
+    fn render(
+        &self,
+        _: crate::AbsRect,
+        _: &crate::graphics::Driver,
+        compositor: &mut Compositor,
+    ) -> Result<(), crate::Error> {
         let p = *self.end.borrow() - *self.start.borrow();
         compositor.append(&Data {
             pos: self.start.borrow().as_array().into(),
@@ -27,5 +32,6 @@ impl super::Renderable for Instance {
             texclip: ((u16::MAX as u32) << 16) | 0,
             ..Default::default()
         });
+        Ok(())
     }
 }

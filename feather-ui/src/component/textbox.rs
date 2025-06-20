@@ -2,12 +2,12 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::StateMachine;
-use crate::color::{Premultiplied, sRGB};
+use crate::color::sRGB;
 use crate::graphics::point_to_pixel;
 use crate::input::{ModifierKeys, MouseButton, MouseState, RawEvent, RawEventKind};
 use crate::layout::{Layout, base, leaf};
 use crate::text::EditObj;
-use crate::{SourceID, WindowStateMachine, layout, render};
+use crate::{Error, SourceID, WindowStateMachine, layout, render};
 use cosmic_text::Cursor;
 use derive_where::derive_where;
 use enum_variant_type::EnumVariantType;
@@ -264,7 +264,7 @@ impl<T: Prop + 'static> crate::StateMachineChild for TextBox<T> {
         self.id.clone()
     }
 
-    fn init(&self) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error> {
+    fn init(&self) -> Result<Box<dyn super::StateMachineWrapper>, Error> {
         let props = self.props.clone();
         let oninput = Box::new(crate::wrap_event::<RawEvent, TextBoxEvent, TextBoxState>(
             move |e, area, dpi, mut data| {
@@ -449,8 +449,8 @@ impl<T: Prop + 'static> crate::StateMachineChild for TextBox<T> {
                         }
                         _ => (),
                     },
-                    RawEvent::MouseMove { graphics, .. } => {
-                        if let Some(d) = graphics.upgrade() {
+                    RawEvent::MouseMove { driver, .. } => {
+                        if let Some(d) = driver.upgrade() {
                             *d.cursor.write() = winit::window::CursorIcon::Text;
                         }
                         return Ok((data, vec![]));
@@ -504,14 +504,14 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
     fn layout(
         &self,
         state: &crate::StateManager,
-        graphics: &crate::graphics::Driver,
+        driver: &crate::graphics::Driver,
         window: &Rc<SourceID>,
-        config: &wgpu::SurfaceConfiguration,
+        _: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let winstate: &WindowStateMachine = state.get(window).unwrap();
         let winstate = winstate.state.as_ref().expect("No window state available");
         let dpi = winstate.dpi;
-        let mut font_system = graphics.font_system.write();
+        let mut font_system = driver.font_system.write();
 
         let textstate: &StateMachine<TextBoxEvent, TextBoxState, 1, 3> =
             state.get(&self.id).unwrap();
@@ -592,16 +592,16 @@ impl crate::render::Renderable for Pipeline {
     fn render(
         &self,
         area: crate::AbsRect,
-        graphics: &crate::graphics::Driver,
+        driver: &crate::graphics::Driver,
         compositor: &mut crate::render::compositor::Compositor,
-    ) {
+    ) -> Result<(), Error> {
         let mut offset = self.cursor;
         let buffer = self.text.text_buffer.borrow();
         let mut pos = self.text.padding.get().topleft();
         let mut cursor_height = 0.0;
-        for line in buffer.as_ref().unwrap().layout_runs() {
+        for line in buffer.as_ref().ok_or(Error::InternalFailure)?.layout_runs() {
             let len = line.text.len()
-                + buffer.as_ref().unwrap().lines[line.line_i]
+                + buffer.as_ref().ok_or(Error::InternalFailure)?.lines[line.line_i]
                     .ending()
                     .as_str()
                     .len();
@@ -625,7 +625,7 @@ impl crate::render::Renderable for Pipeline {
         // TODO: current line pipeline ignores area
         *self.line.start.borrow_mut() = Vec2::new(pos.x, pos.y) + area.topleft();
         *self.line.end.borrow_mut() = Vec2::new(pos.x, pos.y + cursor_height) + area.topleft();
-        self.text.render(area, graphics, compositor);
-        self.line.render(area, graphics, compositor);
+        self.text.render(area, driver, compositor)?;
+        self.line.render(area, driver, compositor)
     }
 }

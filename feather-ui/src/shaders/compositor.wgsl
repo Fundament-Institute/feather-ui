@@ -126,6 +126,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
   let d = buf[input.index];
   let clip = d.texclip & 0x0000FFFF;
   let tex = (d.texclip & 0xFFFF0000) >> 16;
+  let color = vec4f(input.color.rgb * input.color.a, input.color.a);
 
   if clip > 0 {
     let r = cliprects[clip];
@@ -135,8 +136,8 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
   }
 
   if tex == 0xFFFF {
-    return input.color;
+    return color;
   }
 
-  return textureSample(atlas, sampling, input.uv, tex) * input.color;
+  return textureSample(atlas, sampling, input.uv, tex) * color;
 }

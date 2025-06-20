@@ -13,8 +13,8 @@ use wgpu::Origin3d;
 use wgpu::TexelCopyBufferLayout;
 use wgpu::TexelCopyTextureInfo;
 
+use crate::Error;
 use crate::color::Premultiplied;
-use crate::color::sRGB;
 use crate::color::sRGB32;
 use crate::graphics::GlyphCache;
 use crate::graphics::GlyphRegion;
@@ -39,14 +39,14 @@ impl Instance {
         queue: &wgpu::Queue,
         atlas: &mut Atlas,
         cache: &mut SwashCache,
-    ) -> eyre::Result<()> {
+    ) -> Result<(), Error> {
         if let Some(_) = glyphs.get(&key) {
             // We can't actually return this borrow because of https://github.com/rust-lang/rust/issues/58910
             return Ok(());
         }
 
         let Some(mut image) = cache.get_image_uncached(font_system, key) else {
-            return Err(eyre::eyre!("Failed to get glyph image!"));
+            return Err(Error::GlyphRenderFailure);
         };
 
         let region = if image.data.is_empty() {
@@ -60,7 +60,7 @@ impl Instance {
             atlas.reserve(
                 device,
                 Size::new(image.placement.width as i32, image.placement.height as i32),
-            )
+            )?
         };
 
         if !image.data.is_empty() {
@@ -153,9 +153,9 @@ impl Instance {
         queue: &wgpu::Queue,
         atlas: &mut Atlas,
         cache: &mut SwashCache,
-    ) -> eyre::Result<Option<super::compositor::Data>> {
+    ) -> Result<Option<super::compositor::Data>, Error> {
         Self::write_glyph(key, font_system, glyphs, device, queue, atlas, cache)?;
-        let glyph = Self::get_glyph(key, glyphs).unwrap();
+        let glyph = Self::get_glyph(key, glyphs).ok_or(Error::GlyphCacheFailure)?;
         if glyph.region.uv.area() == 0 {
             return Ok(None);
         }
@@ -235,7 +235,7 @@ impl Instance {
         queue: &wgpu::Queue,
         atlas: &mut Atlas,
         cache: &mut SwashCache,
-    ) -> eyre::Result<()> {
+    ) -> Result<(), Error> {
         let bounds_top = bounds.topleft().y as i32;
         let bounds_bottom = bounds.bottomright().y as i32;
         let bounds_min_x = (bounds.topleft().x as i32).max(0);
@@ -295,25 +295,27 @@ impl super::Renderable for Instance {
     fn render(
         &self,
         area: AbsRect,
-        graphics: &crate::graphics::Driver,
+        driver: &crate::graphics::Driver,
         compositor: &mut Compositor,
-    ) {
+    ) -> Result<(), Error> {
         let padding = self.padding.get();
 
         Self::evaluate(
-            self.text_buffer.borrow().as_ref().unwrap(),
+            self.text_buffer
+                .borrow()
+                .as_ref()
+                .ok_or(Error::InternalFailure)?,
             area.topleft() + padding.topleft(),
             1.0,
             area,
             cosmic_text::Color::rgb(255, 255, 255),
             compositor,
-            &mut graphics.font_system.write(),
-            &mut graphics.glyphs.write(),
-            &graphics.device,
-            &graphics.queue,
-            &mut graphics.atlas.write(),
-            &mut graphics.swash_cache.write(),
+            &mut driver.font_system.write(),
+            &mut driver.glyphs.write(),
+            &driver.device,
+            &driver.queue,
+            &mut driver.atlas.write(),
+            &mut driver.swash_cache.write(),
         )
-        .expect("Unexpected error while preparing text!");
     }
 }
