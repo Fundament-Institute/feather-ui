@@ -289,8 +289,8 @@ fn create_button(
     };
 
     let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> = im::Vector::new();
-    children.push_back(Some(Box::new(text)));
     children.push_back(Some(Box::new(rect)));
+    children.push_back(Some(Box::new(text)));
     if let Some(x) = args.5 {
         children.push_back(Some(Box::new(x)));
     }

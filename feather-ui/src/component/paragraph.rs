@@ -80,7 +80,7 @@ impl<T: flex::Prop + 'static> Paragraph<T> {
         self.children.clear();
         for word in text.split_ascii_whitespace() {
             let text = Text::<MinimalFlexChild> {
-                id: gen_id!().into(),
+                id: gen_id!(),
                 props: MinimalFlexChild {
                     grow: if fullwidth { 1.0 } else { 0.0 },
                 }

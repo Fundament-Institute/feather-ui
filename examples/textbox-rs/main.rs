@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
+use feather_ui::color::sRGB;
 use feather_ui::layout::{fixed, leaf};
 use feather_ui::text::{EditObj, Snapshot};
 use feather_ui::{DAbsRect, gen_id};
@@ -9,6 +10,7 @@ use feather_ui::component::region::Region;
 use feather_ui::component::textbox::TextBox;
 use feather_ui::component::window::Window;
 use feather_ui::component::{ComponentFrom, textbox};
+use feather_ui::cosmic_text;
 use feather_ui::layout::base;
 use feather_ui::persist::FnPersist;
 use feather_ui::{AbsRect, App, DRect, FILL_DRECT, RelRect, SourceID};
@@ -71,7 +73,7 @@ impl FnPersist<TextState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicAp
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
         if store.0 != *args {
             let textbox = TextBox::new(
-                gen_id!().into(),
+                gen_id!(),
                 MinimalText {
                     area: FILL_DRECT,
                     padding: AbsRect::broadcast(12.0).into(),
@@ -80,7 +82,7 @@ impl FnPersist<TextState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicAp
                 40.0,
                 56.0,
                 cosmic_text::FamilyOwned::SansSerif,
-                cosmic_text::Color::rgba(255, 255, 255, 255),
+                sRGB::white(),
                 Default::default(),
                 Default::default(),
                 cosmic_text::Wrap::Word,
@@ -91,7 +93,7 @@ impl FnPersist<TextState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicAp
             children.push_back(Some(Box::new(textbox)));
 
             let region = Region {
-                id: gen_id!().into(),
+                id: gen_id!(),
                 props: MinimalArea {
                     area: feather_ui::URect {
                         abs: AbsRect::new(90.0, 90.0, -90.0, -90.0),
@@ -103,7 +105,7 @@ impl FnPersist<TextState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicAp
                 children,
             };
             let window = Window::new(
-                gen_id!().into(),
+                gen_id!(),
                 winit::window::Window::default_attributes()
                     .with_title(env!("CARGO_CRATE_NAME"))
                     .with_resizable(true),
@@ -127,6 +129,7 @@ fn main() {
             },
             vec![],
             BasicApp {},
+            |_| (),
         )
         .unwrap();
 

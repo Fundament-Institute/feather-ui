@@ -1,25 +1,27 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
+use feather_ui::color::sRGB;
 use feather_ui::gen_id;
 
 use feather_ui::component::domain_line::DomainLine;
 use feather_ui::component::domain_point::DomainPoint;
 use feather_ui::component::mouse_area::MouseArea;
 use feather_ui::component::region::Region;
-use feather_ui::component::shape::Shape;
+use feather_ui::component::shape::{Shape, ShapeKind};
 use feather_ui::component::window::Window;
 use feather_ui::component::{ComponentFrom, mouse_area};
+use feather_ui::im;
 use feather_ui::input::MouseButton;
 use feather_ui::layout::{base, fixed, leaf};
 use feather_ui::persist::FnPersist;
+use feather_ui::ultraviolet::Vec2;
 use feather_ui::{
     AbsRect, App, CrossReferenceDomain, DRect, DataID, FILL_DRECT, Slot, SourceID, WrapEventEx,
 };
 use std::collections::HashSet;
 use std::f32;
 use std::rc::Rc;
-use ultraviolet::{Vec2, Vec4};
 
 #[derive(PartialEq, Clone, Debug)]
 struct GraphState {
@@ -74,13 +76,13 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
 
             let mut node_ids: Vec<Rc<SourceID>> = Vec::new();
 
-            let node_id = Rc::new(gen_id!());
+            let node_id = gen_id!();
 
             for i in 0..args.nodes.len() {
                 let node = args.nodes[i];
-                let base = Vec4::new(0.2, 0.7, 0.4, 1.0);
+                const BASE: sRGB = sRGB::new(0.2, 0.7, 0.4, 1.0);
 
-                let iter_id = Rc::new(node_id.child(DataID::Int(i as i64)));
+                let iter_id = node_id.child(DataID::Int(i as i64));
                 node_ids.push(iter_id.clone());
 
                 let mut contents: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
@@ -88,25 +90,26 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
 
                 let point = DomainPoint::new(iter_id.clone(), domain.clone());
 
-                let circle = Shape::circle(
-                    gen_id!(iter_id).into(),
+                let circle = Shape::<DRect, { ShapeKind::Circle as u8 }>::new(
+                    gen_id!(iter_id),
                     FILL_DRECT.into(),
+                    Vec2::zero(),
                     0.0,
                     0.0,
                     Vec2::new(0.0, 20.0),
                     if args.selected == Some(i) {
-                        Vec4::new(0.7, 1.0, 0.8, 1.0)
+                        sRGB::new(0.7, 1.0, 0.8, 1.0)
                     } else {
-                        base
+                        BASE
                     },
-                    base,
+                    BASE,
                 );
 
                 contents.push_back(Some(Box::new(point)));
                 contents.push_back(Some(Box::new(circle)));
 
                 let bag = Region::<MinimalArea> {
-                    id: gen_id!(iter_id).into(),
+                    id: gen_id!(iter_id),
                     props: MinimalArea {
                         area: AbsRect::new(
                             node.x - NODE_RADIUS,
@@ -123,14 +126,14 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
                 children.push_back(Some(Box::new(bag)));
             }
 
-            let edge_id = Rc::new(gen_id!());
+            let edge_id = gen_id!();
 
             for (a, b) in &args.edges {
                 let line = DomainLine::<()> {
-                    id: Rc::new(edge_id.child(DataID::Int(*a as i64)))
-                        .child(DataID::Int(*b as i64))
-                        .into(),
-                    fill: Vec4::broadcast(1.0),
+                    id: edge_id
+                        .child(DataID::Int(*a as i64))
+                        .child(DataID::Int(*b as i64)),
+                    fill: sRGB::white(),
                     domain: domain.clone(),
                     start: node_ids[*a].clone(),
                     end: node_ids[*b].clone(),
@@ -141,7 +144,7 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
             }
 
             let subregion = Region {
-                id: gen_id!().into(),
+                id: gen_id!(),
                 props: MinimalArea {
                     area: AbsRect::new(
                         args.offset.x,
@@ -156,7 +159,7 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
             };
 
             let mousearea: MouseArea<MinimalArea> = MouseArea::new(
-                gen_id!().into(),
+                gen_id!(),
                 MinimalArea { area: FILL_DRECT },
                 Some(4.0),
                 [
@@ -175,14 +178,14 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
             children.push_back(Some(Box::new(subregion)));
             children.push_back(Some(Box::new(mousearea)));
             let region = Region {
-                id: gen_id!().into(),
+                id: gen_id!(),
                 props: MinimalArea { area: FILL_DRECT }.into(),
                 children,
             };
 
             let window = Window::new(
-                gen_id!().into(),
-                winit::window::Window::default_attributes()
+                gen_id!(),
+                feather_ui::winit::window::Window::default_attributes()
                     .with_title(env!("CARGO_CRATE_NAME"))
                     .with_resizable(true),
                 Box::new(region),
@@ -251,18 +254,21 @@ fn main() {
         .wrap(),
     );
 
-    let (mut app, event_loop): (App<GraphState, BasicApp>, winit::event_loop::EventLoop<()>) =
-        App::new(
-            GraphState {
-                nodes: vec![],
-                edges: HashSet::new(),
-                offset: Vec2::new(-5000.0, -5000.0),
-                selected: None,
-            },
-            vec![handle_input],
-            BasicApp {},
-        )
-        .unwrap();
+    let (mut app, event_loop): (
+        App<GraphState, BasicApp>,
+        feather_ui::winit::event_loop::EventLoop<()>,
+    ) = App::new(
+        GraphState {
+            nodes: vec![],
+            edges: HashSet::new(),
+            offset: Vec2::new(-5000.0, -5000.0),
+            selected: None,
+        },
+        vec![handle_input],
+        BasicApp {},
+        |_| (),
+    )
+    .unwrap();
 
     event_loop.run_app(&mut app).unwrap();
 }

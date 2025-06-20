@@ -48,7 +48,11 @@ use winit::window::WindowId;
 #[macro_export]
 macro_rules! gen_id {
     () => {
-        $crate::SourceID::new($crate::DataID::Named(concat!(file!(), ":", line!())))
+        std::rc::Rc::new($crate::SourceID::new($crate::DataID::Named(concat!(
+            file!(),
+            ":",
+            line!()
+        ))))
     };
     ($idx:expr) => {
         $idx.child($crate::DataID::Named(concat!(file!(), ":", line!())))
@@ -973,11 +977,12 @@ impl SourceID {
     pub fn new(id: DataID) -> Self {
         Self { parent: None, id }
     }
-    pub fn child(self: &Rc<Self>, id: DataID) -> Self {
+    pub fn child(self: &Rc<Self>, id: DataID) -> Rc<Self> {
         Self {
             parent: Some(self.clone()),
             id,
         }
+        .into()
     }
 }
 impl std::cmp::Eq for SourceID {}
@@ -1000,6 +1005,31 @@ impl std::hash::Hash for SourceID {
             parent.id.hash(state);
         }
         self.id.hash(state);
+    }
+}
+impl std::fmt::Display for SourceID {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(parent) = &self.parent {
+            parent.fmt(f)?;
+        }
+
+        match (&self.id, self.parent.is_some()) {
+            (DataID::Named(_), true) | (DataID::Owned(_), true) => f.write_str(" -> "),
+            (DataID::Other(_), true) => f.write_str(" "),
+            _ => Ok(()),
+        }?;
+
+        match &self.id {
+            DataID::Named(s) => f.write_str(s),
+            DataID::Owned(s) => f.write_str(s),
+            DataID::Int(i) => write!(f, "[{}]", i),
+            DataID::Other(dyn_hash_eq) => {
+                let mut h = std::hash::DefaultHasher::new();
+                dyn_hash_eq.dyn_hash(&mut h);
+                write!(f, "{{{}}}", h.finish())
+            }
+            DataID::None => Ok(()),
+        }
     }
 }
 
@@ -1321,6 +1351,7 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
         let (store, windows) = self.outline.call(store, app_state.state.as_ref().unwrap());
         self.store.replace(store);
         self.root.children = windows;
+        self.root.validate_ids().unwrap();
 
         let (root, manager, graphics, instance, driver_init) = (
             &mut self.root,
@@ -1474,7 +1505,7 @@ impl FnPersist<u8, im::HashMap<Rc<SourceID>, Option<Window>>> for TestApp {
         use crate::component::shape::Shape;
         use ultraviolet::Vec4;
         let rect = Shape::<DRect>::round_rect(
-            gen_id!().into(),
+            gen_id!(),
             crate::FILL_DRECT.into(),
             Vec2::one(),
             0.0,
@@ -1484,7 +1515,7 @@ impl FnPersist<u8, im::HashMap<Rc<SourceID>, Option<Window>>> for TestApp {
             Vec4::zero(),
         );
         let window = Window::new(
-            gen_id!().into(),
+            gen_id!(),
             winit::window::Window::default_attributes()
                 .with_title("test_blank")
                 .with_resizable(true),

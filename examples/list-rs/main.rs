@@ -3,22 +3,24 @@
 
 use core::f32;
 use feather_macro::*;
+use feather_ui::color::sRGB;
 use feather_ui::component::button::Button;
 use feather_ui::component::flexbox::FlexBox;
 use feather_ui::component::listbox::ListBox;
 use feather_ui::component::region::Region;
-use feather_ui::component::shape::Shape;
+use feather_ui::component::shape::{Shape, ShapeKind};
 use feather_ui::component::text::Text;
 use feather_ui::component::window::Window;
 use feather_ui::component::{ComponentFrom, mouse_area};
 use feather_ui::layout::{base, fixed, flex, leaf, list};
 use feather_ui::persist::FnPersist;
+use feather_ui::ultraviolet::{Vec2, Vec4};
 use feather_ui::{
     AbsRect, App, DRect, DValue, FILL_DRECT, RelRect, Slot, SourceID, UNSIZED_AXIS, ZERO_POINT,
     gen_id,
 };
+use feather_ui::{DataID, im};
 use std::rc::Rc;
-use ultraviolet::{Vec2, Vec4};
 
 #[derive(PartialEq, Clone, Debug)]
 struct CounterState {
@@ -129,7 +131,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
         if store.0 != *args {
             let button = {
                 let text = Text::<FixedData> {
-                    id: gen_id!().into(),
+                    id: gen_id!(),
                     props: FixedData {
                         area: feather_ui::URect {
                             abs: AbsRect::new(10.0, 15.0, 10.0, 15.0),
@@ -146,23 +148,24 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     ..Default::default()
                 };
 
-                let rect = Shape::<DRect>::round_rect(
-                    gen_id!().into(),
+                let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
+                    gen_id!(),
                     feather_ui::FILL_DRECT.into(),
+                    Vec2::zero(),
                     0.0,
                     0.0,
                     Vec4::broadcast(10.0),
-                    Vec4::new(0.2, 0.7, 0.4, 1.0),
-                    Vec4::zero(),
+                    sRGB::new(0.2, 0.7, 0.4, 1.0),
+                    sRGB::transparent(),
                 );
 
                 let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
                     im::Vector::new();
-                children.push_back(Some(Box::new(text)));
                 children.push_back(Some(Box::new(rect)));
+                children.push_back(Some(Box::new(text)));
 
                 Button::<FixedData>::new(
-                    gen_id!().into(),
+                    gen_id!(),
                     FixedData {
                         area: feather_ui::URect {
                             abs: AbsRect::new(0.0, 20.0, 0.0, 0.0),
@@ -180,29 +183,36 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
             let rectlist = {
                 let mut children: im::Vector<Option<Box<ComponentFrom<dyn list::Prop>>>> =
                     im::Vector::new();
+
+                let rect_id = gen_id!();
+
                 for i in 0..args.count {
-                    children.push_back(Some(Box::new(Shape::<ListChild>::round_rect(
-                        gen_id!().into(),
+                    children.push_back(Some(Box::new(Shape::<
+                        ListChild,
+                        { ShapeKind::RoundRect as u8 },
+                    >::new(
+                        rect_id.child(DataID::Int(i as i64)),
                         ListChild {
                             area: AbsRect::new(0.0, 0.0, 40.0, 40.0).into(),
                             margin: AbsRect::new(8.0, 8.0, 4.0, 4.0).into(),
                         }
                         .into(),
+                        Vec2::zero(),
                         0.0,
                         0.0,
                         Vec4::broadcast(8.0),
-                        Vec4::new(
+                        sRGB::new(
                             (0.1 * i as f32) % 1.0,
                             (0.65 * i as f32) % 1.0,
                             (0.2 * i as f32) % 1.0,
                             1.0,
                         ),
-                        Vec4::zero(),
+                        sRGB::transparent(),
                     ))));
                 }
 
                 ListBox::<ListData> {
-                    id: gen_id!().into(),
+                    id: gen_id!(),
                     props: ListData {
                         area: feather_ui::URect {
                             abs: AbsRect::new(0.0, 200.0, 0.0, 0.0),
@@ -224,9 +234,13 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 let mut children: im::Vector<Option<Box<ComponentFrom<dyn flex::Prop>>>> =
                     im::Vector::new();
 
+                let box_id = gen_id!();
                 for i in 0..args.count {
-                    children.push_back(Some(Box::new(Shape::<FlexChild>::round_rect(
-                        gen_id!().into(),
+                    children.push_back(Some(Box::new(Shape::<
+                        FlexChild,
+                        { ShapeKind::RoundRect as u8 },
+                    >::new(
+                        box_id.child(DataID::Int(i as i64)),
                         FlexChild {
                             area: feather_ui::URect {
                                 abs: AbsRect::new(0.0, 0.0, 0.0, 40.0),
@@ -239,21 +253,22 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                             shrink: 0.0,
                         }
                         .into(),
+                        Vec2::zero(),
                         0.0,
                         0.0,
                         Vec4::broadcast(8.0),
-                        Vec4::new(
+                        sRGB::new(
                             (0.1 * i as f32) % 1.0,
                             (0.65 * i as f32) % 1.0,
                             (0.2 * i as f32) % 1.0,
                             1.0,
                         ),
-                        Vec4::zero(),
+                        sRGB::transparent(),
                     ))));
                 }
 
                 FlexBox::<MinimalFlex> {
-                    id: gen_id!().into(),
+                    id: gen_id!(),
                     props: MinimalFlex {
                         area: (AbsRect::new(40.0, 40.0, 0.0, 200.0)
                             + RelRect::new(0.0, 0.0, 1.0, 0.0))
@@ -271,7 +286,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
             children.push_back(Some(Box::new(rectlist)));
 
             let region = Region {
-                id: gen_id!().into(),
+                id: gen_id!(),
                 props: FixedData {
                     area: FILL_DRECT,
                     zindex: 0,
@@ -281,8 +296,8 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 children,
             };
             let window = Window::new(
-                gen_id!().into(),
-                winit::window::Window::default_attributes()
+                gen_id!(),
+                feather_ui::winit::window::Window::default_attributes()
                     .with_title(env!("CARGO_CRATE_NAME"))
                     .with_resizable(true),
                 Box::new(region),
@@ -314,8 +329,14 @@ fn main() {
 
     let (mut app, event_loop): (
         App<CounterState, BasicApp>,
-        winit::event_loop::EventLoop<()>,
-    ) = App::new(CounterState { count: 0 }, vec![onclick], BasicApp {}).unwrap();
+        feather_ui::winit::event_loop::EventLoop<()>,
+    ) = App::new(
+        CounterState { count: 0 },
+        vec![onclick],
+        BasicApp {},
+        |_| (),
+    )
+    .unwrap();
 
     event_loop.run_app(&mut app).unwrap();
 }

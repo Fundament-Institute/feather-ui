@@ -38,8 +38,8 @@ impl super::Renderable for Instance {
             *data = compositor::Data {
                 pos: p1.as_array().into(),
                 dim: [p.mag(), 1.0].into(),
-                uv: [0, 0].into(),
-                uvdim: [0, 0].into(),
+                uv: [0.0, 0.0].into(),
+                uvdim: [0.0, 0.0].into(),
                 color: color.rgba,
                 rotation: p.y.atan2(p.x),
                 texclip: ((u16::MAX as u32) << 16) | 0,
