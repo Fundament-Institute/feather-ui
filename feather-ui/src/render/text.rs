@@ -213,8 +213,8 @@ impl Instance {
         Ok(Some(super::compositor::Data {
             pos: [x as f32, y as f32].into(),
             dim: [width as f32, height as f32].into(),
-            uv: [u, v].into(),
-            uvdim: [width, height].into(),
+            uv: [u as f32, v as f32].into(),
+            uvdim: [width as f32, height as f32].into(),
             color: color.0,
             rotation: 0.0,
             texclip: ((glyph.region.index as u32) << 16) | 0,

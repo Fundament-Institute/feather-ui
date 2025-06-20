@@ -6,6 +6,10 @@ const UNITX = array(0.0, 1.0, 0.0, 1.0, 1.0, 0.0);
 const UNITY = array(0.0, 0.0, 1.0, 0.0, 1.0, 1.0);
 const IDENTITY_MAT4 = mat4x4f(1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
 
+fn linearstep(low: f32, high: f32, x: f32) -> f32 {
+  return clamp((x - low) / (high - low), 0.0f, 1.0f);
+}
+
 fn srgb_to_linear(c: f32) -> f32 {
   if c <= 0.04045 {
     return c / 12.92;
@@ -73,8 +77,8 @@ var<uniform> extent: u32;
 struct Data {
   pos: vec2f,
   dim: vec2f,
-  uv: vec2<u32>,
-  uvdim: vec2<u32>,
+  uv: vec2f,
+  uvdim: vec2f,
   color: u32,
   rotation: f32,
   texclip: u32,
@@ -83,8 +87,9 @@ struct Data {
 struct VertexOutput {
   @invariant @builtin(position) position: vec4<f32>,
   @location(0) uv: vec2f,
-  @location(1) @interpolate(flat) index: u32,
-  @location(2) color: vec4f,
+  @location(1) dist: vec2f,
+  @location(2) @interpolate(flat) index: u32,
+  @location(3) color: vec4f,
 }
 
 @vertex
@@ -102,11 +107,12 @@ fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
   transform = scale_matrix(transform, d.dim.x, d.dim.y);
   transform = translate_matrix(transform, d.pos.x + d.dim.x * 0.5, d.pos.y + d.dim.y * 0.5);
 
-  let out_pos = MVP * transform * vec4(vpos.x - 0.5f, vpos.y - 0.5f, 1f, 1f);
+  var px_pos = transform * vec4(vpos.x - 0.5f, vpos.y - 0.5f, 1f, 1f);
+  let out_pos = MVP * px_pos;
 
   var source = IDENTITY_MAT4;
-  let uv = vec2f(d.uv) / f32(extent);
-  let uvdim = vec2f(d.uvdim) / f32(extent);
+  let uv = d.uv / f32(extent);
+  let uvdim = d.uvdim / f32(extent);
 
   // If the rotation is negative it's applied to the UV rectangle as well
   if d.rotation < 0.0f {
@@ -118,7 +124,8 @@ fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
 
   var out_uv = source * vec4(vpos.x, vpos.y, 1f, 1f);
   let color = srgb_to_linear_vec4(u32_to_vec4(d.color));
-  return VertexOutput(out_pos, out_uv.xy, index, color);
+  let dist = px_pos.xy - d.pos - (d.dim * 0.5);
+  return VertexOutput(out_pos, out_uv.xy, dist, index, color);
 }
 
 @fragment
@@ -126,7 +133,6 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
   let d = buf[input.index];
   let clip = d.texclip & 0x0000FFFF;
   let tex = (d.texclip & 0xFFFF0000) >> 16;
-  let color = vec4f(input.color.rgb * input.color.a, input.color.a);
 
   if clip > 0 {
     let r = cliprects[clip];
@@ -135,9 +141,23 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
     }
   }
 
+  var color = vec4f(input.color.rgb * input.color.a, input.color.a);
+  // A pixel-perfect texture lookup at pixel 0,0 actually samples at 0.5,0.5, at the center of the
+  // texel. Hence, if we simply clamp from 0,0 to height,width, this doesn't prevent bleedover when
+  // we get a misaligned pixel that tries to sample the texel at 0,0, which will bleed over into the
+  // texels next to it. As a result, we must clamp from 0.5,0.5 to width - 0.5, height - 0.5
+  let uvmin = (d.uv + vec2f(0.5)) / f32(extent);
+  let uvmax = (d.uv + d.uvdim - vec2f(0.5)) / f32(extent);
+  let uv = clamp(input.uv, uvmin, uvmax);
+  //let uv = input.uv;
+
+  //let dim = d.dim * 0.5;
+  //let fade = max(linearstep(dim.x - 0.5, dim.x + 0.5, abs(input.dist.x)), linearstep(dim.y - 0.5, dim.y + 0.5, abs(input.dist.y)));
+  //color *= fade;
+
   if tex == 0xFFFF {
     return color;
   }
 
-  return textureSample(atlas, sampling, input.uv, tex) * color;
+  return textureSample(atlas, sampling, uv, tex) * color;
 }

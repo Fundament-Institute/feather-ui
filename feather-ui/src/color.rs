@@ -10,7 +10,7 @@ macro_rules! gen_channel_accessors {
             self.$rgba.as_array_ref()
         }
 
-        pub fn new($r: f32, $g: f32, $b: f32, $a: f32) -> Self {
+        pub const fn new($r: f32, $g: f32, $b: f32, $a: f32) -> Self {
             Self {
                 $rgba: f32x4::new([$r, $g, $b, $a]),
             }

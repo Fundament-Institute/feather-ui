@@ -27,6 +27,7 @@ use eyre::{OptionExt, Result};
 use smallvec::SmallVec;
 use std::any::Any;
 use std::collections::HashMap;
+use std::hash::Hash;
 use std::rc::{Rc, Weak};
 use window::WindowStateMachine;
 
@@ -325,6 +326,30 @@ impl Root {
             Ok(())
         })
     }*/
+
+    pub fn validate_ids(&self) -> eyre::Result<()> {
+        struct Validator(std::collections::HashSet<Rc<SourceID>>);
+        impl Validator {
+            fn f(&mut self, x: &dyn StateMachineChild) -> eyre::Result<()> {
+                if !self.0.insert(x.id()) {
+                    return Err(eyre::eyre!(
+                        "Duplicate ID found! Did you forget to add a child index to an ID? {}",
+                        x.id()
+                    ));
+                }
+
+                x.apply_children(&mut |x| self.f(x))
+            }
+        }
+        let mut v = Validator(std::collections::HashSet::new());
+        for (_, child) in &self.children {
+            if let Some(window) = child {
+                v.f(window)?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[macro_export]

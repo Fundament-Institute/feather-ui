@@ -7,7 +7,7 @@ use crate::{BASE_DPI, SourceID, WindowStateMachine, layout};
 use derive_where::derive_where;
 use std::marker::PhantomData;
 use std::rc::Rc;
-use ultraviolet::Vec4;
+use ultraviolet::{Vec2, Vec4};
 
 #[repr(u8)]
 pub enum ShapeKind {
@@ -23,7 +23,7 @@ pub struct Shape<T: leaf::Padded + 'static, const KIND: u8> {
     pub props: Rc<T>,
     border: f32,
     blur: f32,
-    dim: ultraviolet::Vec2,
+    dim: Vec2,
     pub corners: Vec4,
     pub fill: sRGB,
     pub outline: sRGB,
@@ -32,7 +32,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::RoundRect as u8 }> {
     pub fn new(
         id: std::rc::Rc<SourceID>,
         props: Rc<T>,
-        dim: ultraviolet::Vec2,
+        dim: Vec2,
         border: f32,
         blur: f32,
         corners: Vec4,
@@ -56,7 +56,7 @@ impl<T: leaf::Padded + 'static> Shape<T, 1> {
     pub fn new(
         id: std::rc::Rc<SourceID>,
         props: Rc<T>,
-        dim: ultraviolet::Vec2,
+        dim: Vec2,
         border: f32,
         blur: f32,
         corners: ultraviolet::Vec3,
@@ -81,10 +81,10 @@ impl<T: leaf::Padded + 'static> Shape<T, 2> {
     pub fn new(
         id: std::rc::Rc<SourceID>,
         props: Rc<T>,
-        dim: ultraviolet::Vec2,
+        dim: Vec2,
         border: f32,
         blur: f32,
-        radii: ultraviolet::Vec2,
+        radii: Vec2,
         fill: sRGB,
         outline: sRGB,
     ) -> Self {
@@ -105,7 +105,7 @@ impl<T: leaf::Padded + 'static> Shape<T, 3> {
     pub fn new(
         id: std::rc::Rc<SourceID>,
         props: Rc<T>,
-        dim: ultraviolet::Vec2,
+        dim: Vec2,
         border: f32,
         blur: f32,
         arcs: Vec4,

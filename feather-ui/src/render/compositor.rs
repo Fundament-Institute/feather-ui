@@ -487,8 +487,8 @@ impl Compositor {
 // struct Data {
 // 	float pos[2];
 // 	float dim[2];
-//  uint32_t uv[2];
-//  uint32_t uvdim[2];
+//  float uv[2];
+//  float uvdim[2];
 // 	uint32_t color;
 // 	float rotation;
 // 	uint32_t texclip;
@@ -501,8 +501,8 @@ impl Compositor {
 pub struct Data {
     pub pos: Vec2f,
     pub dim: Vec2f,
-    pub uv: Vec2i,
-    pub uvdim: Vec2i,
+    pub uv: Vec2f,
+    pub uvdim: Vec2f,
     pub color: u32, // Encoded as a non-linear, non-premultiplied sRGB32 color
     pub rotation: f32,
     pub texclip: u32,
@@ -524,8 +524,8 @@ impl Data {
         Self {
             pos: pos.as_array().into(),
             dim: dim.as_array().into(),
-            uv: uv.min.to_array().into(),
-            uvdim: uv.size().to_array().into(),
+            uv: uv.min.to_f32().to_array().into(),
+            uvdim: uv.size().to_f32().to_array().into(),
             color,
             rotation,
             texclip: ((tex as u32) << 16) | clip as u32,

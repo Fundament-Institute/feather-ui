@@ -14,7 +14,8 @@ use feather_ui::persist::FnPersist;
 use feather_ui::ultraviolet::{Vec2, Vec4};
 use feather_ui::util::create_hotloader;
 use feather_ui::{
-    AbsRect, App, DAbsRect, DPoint, DRect, RelRect, Slot, SourceID, UNSIZED_AXIS, URect, gen_id,
+    AbsRect, App, DAbsRect, DPoint, DRect, RelRect, Slot, SourceID, UNSIZED_AXIS, URect, ZERO_RECT,
+    ZERO_RELRECT, gen_id,
 };
 use feather_ui::{im, winit};
 use std::rc::Rc;
@@ -56,7 +57,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
         if store.0 != *args {
             let button = {
                 let text = Text::<FixedData> {
-                    id: gen_id!().into(),
+                    id: gen_id!(),
                     props: Rc::new(FixedData {
                         area: URect {
                             abs: AbsRect::new(8.0, 0.0, 8.0, 0.0),
@@ -76,7 +77,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     im::Vector::new();
 
                 let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
-                    gen_id!().into(),
+                    gen_id!(),
                     feather_ui::FILL_DRECT.into(),
                     Vec2::zero(),
                     0.0,
@@ -89,7 +90,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 children.push_back(Some(Box::new(text)));
 
                 Button::<FixedData>::new(
-                    gen_id!().into(),
+                    gen_id!(),
                     FixedData {
                         area: URect {
                             abs: AbsRect::new(45.0, 45.0, 0.0, 0.0),
@@ -105,7 +106,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
 
             let unusedbutton = {
                 let text = Text::<FixedData> {
-                    id: gen_id!().into(),
+                    id: gen_id!(),
                     props: Rc::new(FixedData {
                         area: RelRect::new(0.5, 0.0, UNSIZED_AXIS, UNSIZED_AXIS).into(),
                         limits: feather_ui::AbsLimits::new(
@@ -132,7 +133,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     im::Vector::new();
 
                 let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
-                    gen_id!().into(),
+                    gen_id!(),
                     feather_ui::FILL_DRECT.into(),
                     Vec2::zero(),
                     0.0,
@@ -145,7 +146,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 children.push_back(Some(Box::new(text)));
 
                 Button::<FixedData>::new(
-                    gen_id!().into(),
+                    gen_id!(),
                     FixedData {
                         area: URect {
                             abs: AbsRect::new(45.0, 245.0, 0.0, 0.0),
@@ -169,8 +170,24 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
             children.push_back(Some(Box::new(button)));
             children.push_back(Some(Box::new(unusedbutton)));
 
+            let pixel = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
+                gen_id!(),
+                Rc::new(DRect {
+                    px: AbsRect::new(1.0, 1.0, 2.0, 2.0),
+                    dp: ZERO_RECT,
+                    rel: ZERO_RELRECT,
+                }),
+                Vec2::zero(),
+                0.0,
+                0.0,
+                Vec4::broadcast(0.0),
+                sRGB::new(1.0, 1.0, 1.0, 1.0),
+                sRGB::transparent(),
+            );
+            children.push_back(Some(Box::new(pixel)));
+
             let region = Region {
-                id: gen_id!().into(),
+                id: gen_id!(),
                 props: FixedData {
                     area: URect {
                         abs: AbsRect::new(90.0, 90.0, 0.0, 200.0),
@@ -184,7 +201,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 children,
             };
             let window = Window::new(
-                gen_id!().into(),
+                gen_id!(),
                 winit::window::Window::default_attributes()
                     .with_title(env!("CARGO_CRATE_NAME"))
                     .with_resizable(true),

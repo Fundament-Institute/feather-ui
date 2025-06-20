@@ -232,11 +232,9 @@ impl StateMachineChild for Window {
 
     fn apply_children(
         &self,
-        _: &mut dyn FnMut(&dyn StateMachineChild) -> eyre::Result<()>,
+        f: &mut dyn FnMut(&dyn StateMachineChild) -> eyre::Result<()>,
     ) -> eyre::Result<()> {
-        Err(eyre::eyre!(
-            "Cannot use normal apply_children function for top-level windows"
-        ))
+        f(self.child.as_ref())
     }
 
     fn id(&self) -> Rc<SourceID> {
