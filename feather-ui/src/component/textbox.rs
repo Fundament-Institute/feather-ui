@@ -562,7 +562,7 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
         let line = render::line::Instance {
             start: Vec2::zero().into(),
             end: Vec2::zero().into(),
-            color: color,
+            color,
         };
 
         let pipeline = Pipeline {

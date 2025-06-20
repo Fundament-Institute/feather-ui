@@ -252,7 +252,7 @@ impl Window {
         driver: &mut std::sync::Weak<graphics::Driver>,
         instance: &wgpu::Instance,
         event_loop: &ActiveEventLoop,
-        on_driver: &mut Option<Box<dyn FnOnce(std::sync::Weak<graphics::Driver>) -> () + 'static>>,
+        on_driver: &mut Option<Box<dyn FnOnce(std::sync::Weak<graphics::Driver>) + 'static>>,
     ) -> Result<()> {
         if manager.get::<WindowStateMachine>(&self.id).is_err() {
             let attributes = self.attributes.clone();

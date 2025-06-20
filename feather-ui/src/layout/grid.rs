@@ -192,7 +192,7 @@ impl Desc for dyn Prop {
 
         Box::new(Concrete {
             area: evaluated_area,
-            renderable: renderable,
+            renderable,
             rtree: rtree::Node::new(evaluated_area, None, nodes, id, window),
             children: staging,
         })

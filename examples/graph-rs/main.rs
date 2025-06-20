@@ -93,7 +93,6 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
                 let circle = Shape::<DRect, { ShapeKind::Circle as u8 }>::new(
                     gen_id!(iter_id),
                     FILL_DRECT.into(),
-                    Vec2::zero(),
                     0.0,
                     0.0,
                     Vec2::new(0.0, 20.0),

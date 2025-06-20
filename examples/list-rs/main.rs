@@ -151,7 +151,6 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
                     gen_id!(),
                     feather_ui::FILL_DRECT.into(),
-                    Vec2::zero(),
                     0.0,
                     0.0,
                     Vec4::broadcast(10.0),
@@ -197,7 +196,6 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                             margin: AbsRect::new(8.0, 8.0, 4.0, 4.0).into(),
                         }
                         .into(),
-                        Vec2::zero(),
                         0.0,
                         0.0,
                         Vec4::broadcast(8.0),
@@ -253,7 +251,6 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                             shrink: 0.0,
                         }
                         .into(),
-                        Vec2::zero(),
                         0.0,
                         0.0,
                         Vec4::broadcast(8.0),

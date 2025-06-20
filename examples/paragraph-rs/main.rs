@@ -17,7 +17,6 @@ use feather_ui::ultraviolet::Vec4;
 use feather_ui::{AbsRect, App, DRect, FILL_DRECT, RelRect, SourceID};
 use std::f32;
 use std::rc::Rc;
-use ultraviolet::Vec2;
 
 #[derive(PartialEq, Clone, Debug)]
 struct Blocker {
@@ -119,7 +118,6 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
                         area: AbsRect::new(0.0, 0.0, 40.0, 40.0).into(),
                     }
                     .into(),
-                    Vec2::zero(),
                     0.0,
                     0.0,
                     Vec4::broadcast(10.0),
