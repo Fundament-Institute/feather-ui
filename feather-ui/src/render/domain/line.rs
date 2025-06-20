@@ -21,7 +21,7 @@ impl super::Renderable for Instance {
         _: crate::AbsRect,
         _: &crate::graphics::Driver,
         compositor: &mut compositor::Compositor,
-    ) {
+    ) -> Result<(), crate::Error> {
         let domain = self.domain.clone();
         let start_id = self.start.clone();
         let end_id = self.end.clone();
@@ -45,6 +45,8 @@ impl super::Renderable for Instance {
                 texclip: ((u16::MAX as u32) << 16) | 0,
                 ..Default::default()
             };
-        })
+        });
+
+        Ok(())
     }
 }

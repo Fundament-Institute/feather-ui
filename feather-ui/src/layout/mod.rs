@@ -17,7 +17,7 @@ use wide::f32x4;
 
 use crate::render::Renderable;
 use crate::render::compositor::Compositor;
-use crate::{AbsDim, AbsLimits, AbsRect, RelLimits, SourceID, UNSIZED_AXIS, URect, rtree};
+use crate::{AbsDim, AbsLimits, AbsRect, Error, RelLimits, SourceID, UNSIZED_AXIS, URect, rtree};
 use derive_where::derive_where;
 use std::rc::{Rc, Weak};
 
@@ -122,12 +122,13 @@ where
 }
 
 pub trait Staged: DynClone {
+    #[must_use]
     fn render(
         &self,
         parent_pos: Vec2,
-        graphics: &crate::graphics::Driver,
+        driver: &crate::graphics::Driver,
         compositor: &mut Compositor,
-    );
+    ) -> Result<(), Error>;
     fn get_rtree(&self) -> Weak<rtree::Node>;
     fn get_area(&self) -> AbsRect;
 }
@@ -168,20 +169,22 @@ impl Staged for Concrete {
     fn render(
         &self,
         parent_pos: Vec2,
-        graphics: &crate::graphics::Driver,
+        driver: &crate::graphics::Driver,
         compositor: &mut Compositor,
-    ) {
-        self.renderable
-            .as_ref()
-            .map(|r| r.render(self.area + parent_pos, graphics, compositor));
+    ) -> Result<(), Error> {
+        if let Some(r) = &self.renderable {
+            r.render(self.area + parent_pos, driver, compositor)?;
+        }
 
         // TODO: We may need an intermediate immutable data structure of some kind to manage the contiguous
         // vector of data in each pipeline, which cannot itself be persistent.
         for c in &self.children {
             if let Some(child) = c {
-                child.render(parent_pos + self.area.topleft(), graphics, compositor);
+                child.render(parent_pos + self.area.topleft(), driver, compositor)?;
             }
         }
+
+        Ok(())
     }
 
     fn get_rtree(&self) -> Weak<rtree::Node> {

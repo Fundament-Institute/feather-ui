@@ -23,9 +23,12 @@ use bytemuck::NoUninit;
 use component::window::WindowStateMachine;
 use component::{Component, StateMachineWrapper};
 use core::f32;
-pub use cosmic_text::Wrap;
+pub use cosmic_text;
 use dyn_clone::DynClone;
 use eyre::OptionExt;
+pub use im;
+pub use mlua;
+pub use notify;
 use persist::FnPersist;
 use smallvec::SmallVec;
 use std::any::Any;
@@ -34,9 +37,12 @@ use std::collections::{BTreeMap, HashMap};
 use std::hash::Hasher;
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 use std::rc::Rc;
+pub use ultraviolet;
 use ultraviolet::f32x4;
 use ultraviolet::vec::Vec2;
+pub use wgpu;
 use wide::CmpLe;
+pub use winit;
 use winit::window::WindowId;
 
 #[macro_export]
@@ -66,6 +72,18 @@ pub enum Error {
     InvalidEnumTag(u64),
     #[error("Event handler didn't handle this method.")]
     UnhandledEvent,
+    #[error("Frame aborted due to pending Texture Atlas resize.")]
+    ResizeTextureAtlas(u32),
+    #[error("Internal texture atlas reservation failure.")]
+    AtlasReservationFailure,
+    #[error("Internal texture atlas cache lookup failure.")]
+    AtlasCacheFailure,
+    #[error("Internal glyph render failure.")]
+    GlyphRenderFailure,
+    #[error("Internal glyph cache lookup failure.")]
+    GlyphCacheFailure,
+    #[error("An assumption about internal state was incorrect.")]
+    InternalFailure,
 }
 
 pub const UNSIZED_AXIS: f32 = f32::MAX;
@@ -1179,7 +1197,7 @@ pub struct App<
     O: FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>,
 > {
     pub instance: wgpu::Instance,
-    pub graphics: std::sync::Weak<graphics::Driver>,
+    pub driver: std::sync::Weak<graphics::Driver>,
     state: StateManager,
     store: Option<O::Store>,
     outline: O,
@@ -1286,7 +1304,7 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
         Ok((
             Self {
                 instance: wgpu::Instance::default(),
-                graphics: std::sync::Weak::<graphics::Driver>::new(),
+                driver: std::sync::Weak::<graphics::Driver>::new(),
                 store: None,
                 outline,
                 state: manager,
@@ -1307,7 +1325,7 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
         let (root, manager, graphics, instance, driver_init) = (
             &mut self.root,
             &mut self.state,
-            &mut self.graphics,
+            &mut self.driver,
             &mut self.instance,
             &mut self.driver_init,
         );
@@ -1351,29 +1369,41 @@ impl<
                         rtree,
                         event,
                         &mut self.state,
-                        self.graphics.clone(),
+                        self.driver.clone(),
                     )
                     .inspect_err(|_| {
                         delete = Some(window.id());
                     }),
                     winit::event::WindowEvent::RedrawRequested => {
                         if let Ok(state) = self.state.get_mut::<WindowStateMachine>(&window.id()) {
-                            if let Some(graphics) = self.graphics.upgrade() {
+                            if let Some(driver) = self.driver.upgrade() {
                                 if let Some(staging) = root.staging.as_ref() {
-                                    staging.render(
+                                    while let Err(e) = staging.render(
                                         Vec2::zero(),
-                                        &graphics,
+                                        &driver,
                                         &mut state.state.as_mut().unwrap().compositor,
-                                    );
+                                    ) {
+                                        match e {
+                                            Error::ResizeTextureAtlas(layers) => {
+                                                // Resize the texture atlas with the requested number of layers (the extent has already been changed)
+                                                driver.atlas.write().resize(
+                                                    &driver.device,
+                                                    &driver.queue,
+                                                    layers,
+                                                );
+                                            }
+                                            e => panic!("Fatal draw error: {}", e.to_string()),
+                                        }
+                                    }
                                 }
 
-                                let mut encoder = graphics.device.create_command_encoder(
+                                let mut encoder = driver.device.create_command_encoder(
                                     &wgpu::CommandEncoderDescriptor {
                                         label: Some("Root Encoder"),
                                     },
                                 );
 
-                                graphics.atlas.read().draw(&graphics, &mut encoder);
+                                driver.atlas.read().draw(&driver, &mut encoder);
 
                                 state.state.as_mut().unwrap().draw(encoder);
                             }
@@ -1387,7 +1417,7 @@ impl<
                             rtree,
                             event,
                             &mut self.state,
-                            self.graphics.clone(),
+                            self.driver.clone(),
                         )
                     }
                     _ => Window::on_window_event(
@@ -1395,7 +1425,7 @@ impl<
                         rtree,
                         event,
                         &mut self.state,
-                        self.graphics.clone(),
+                        self.driver.clone(),
                     ),
                 };
 

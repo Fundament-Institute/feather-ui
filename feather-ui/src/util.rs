@@ -1,52 +1,46 @@
-use wgpu::{CompilationMessageType, ShaderModuleDescriptor};
+use wgpu::CompilationMessageType;
 
 use crate::{graphics::Driver, shaders};
 
-pub struct HotLoader {
-    watcher: notify::RecommendedWatcher,
-}
+pub fn create_hotloader<T: 'static>(
+    path: &std::path::Path,
+    label: &'static str,
+    driver: std::sync::Weak<Driver>,
+) -> eyre::Result<notify::RecommendedWatcher> {
+    use notify::Watcher;
+    let mut prev = std::fs::read_to_string(path)?;
+    let pathbuf = path.to_owned();
+    let mut watcher = notify::recommended_watcher(move |_| {
+        if let Some(driver) = driver.upgrade() {
+            let contents = std::fs::read_to_string(&pathbuf).unwrap();
+            if contents != prev {
+                prev = contents;
+                driver
+                    .device
+                    .push_error_scope(wgpu::ErrorFilter::Validation);
+                let module = shaders::load_wgsl(&driver.device, label, &prev);
+                let err = futures_lite::future::block_on(driver.device.pop_error_scope());
+                if let Some(e) = err {
+                    println!("{}", e.to_string());
+                } else {
+                    let info = futures_lite::future::block_on(module.get_compilation_info());
 
-impl HotLoader {
-    pub fn new<T: 'static>(
-        path: &std::path::Path,
-        label: &'static str,
-        driver: std::sync::Weak<Driver>,
-    ) -> eyre::Result<Self> {
-        use notify::Watcher;
-        let mut prev = std::fs::read_to_string(path)?;
-        let pathbuf = path.to_owned();
-        let mut watcher = notify::recommended_watcher(move |_| {
-            if let Some(driver) = driver.upgrade() {
-                let contents = std::fs::read_to_string(&pathbuf).unwrap();
-                if contents != prev {
-                    prev = contents;
-                    driver
-                        .device
-                        .push_error_scope(wgpu::ErrorFilter::Validation);
-                    let module = shaders::load_wgsl(&driver.device, label, &prev);
-                    let err = futures_lite::future::block_on(driver.device.pop_error_scope());
-                    if let Some(e) = err {
-                        println!("{}", e.to_string());
-                    } else {
-                        let info = futures_lite::future::block_on(module.get_compilation_info());
-
-                        let mut errored = false;
-                        for m in info.messages {
-                            println!("{:?}", m);
-                            errored = errored || m.message_type == CompilationMessageType::Error;
-                        }
-                        if !errored {
-                            driver.reload_pipeline::<T>(module);
-                        }
+                    let mut errored = false;
+                    for m in info.messages {
+                        println!("{:?}", m);
+                        errored = errored || m.message_type == CompilationMessageType::Error;
+                    }
+                    if !errored {
+                        driver.reload_pipeline::<T>(module);
                     }
                 }
             }
-        })?;
+        }
+    })?;
 
-        watcher.watch(path, notify::RecursiveMode::NonRecursive)?;
+    watcher.watch(path, notify::RecursiveMode::NonRecursive)?;
 
-        Ok(Self { watcher })
-    }
+    Ok(watcher)
 }
 
 /// Allocates `&[T]` on stack space.

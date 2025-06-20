@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use bytemuck::Zeroable;
 use num_traits::NumCast;
 use wide::f32x4;
 
@@ -155,10 +154,25 @@ const XYZ_OKLAB_M1: [f32x4; 4] = [
     f32x4::new([0.0482003018, 0.2643662691, 0.6338517070, 0.0]),
     f32x4::new([0.0, 0.0, 0.0, 1.0]),
 ];
+
+const OKLAB_XYZ_M1: [f32x4; 4] = [
+    f32x4::new([1.22701, -0.5578, 0.281256, 0.0]),
+    f32x4::new([-0.0405802, 1.11226, -0.0716767, 0.0]),
+    f32x4::new([-0.0763813, -0.421482, 1.58616, 0.0]),
+    f32x4::new([0.0, 0.0, 0.0, 1.0]),
+];
+
 const XYZ_OKLAB_M2: [f32x4; 4] = [
     f32x4::new([0.2104542553, 0.7936177850, -0.0040720468, 0.0]),
     f32x4::new([1.9779984951, -2.4285922050, 0.4505937099, 0.0]),
     f32x4::new([0.025904037, 0.7827717662, -0.808675766, 0.0]),
+    f32x4::new([0.0, 0.0, 0.0, 1.0]),
+];
+
+const OKLAB_XYZ_M2: [f32x4; 4] = [
+    f32x4::new([1.0, 0.396338, 0.215804, 0.0]),
+    f32x4::new([1.0, -0.105561, -0.0638542, 0.0]),
+    f32x4::new([1.0, -0.0894842, -1.29149, 0.0]),
     f32x4::new([0.0, 0.0, 0.0, 1.0]),
 ];
 
@@ -173,7 +187,16 @@ impl OkLab {
 
 impl ColorSpace for OkLab {
     fn xyz(&self) -> XYZ {
-        todo!()
+        let mut lms = mat4_x_vec4(self.laba, OKLAB_XYZ_M2);
+
+        let v = lms.as_array_mut();
+        for i in 0..2 {
+            v[i] = v[i].powf(3.0);
+        }
+
+        XYZ {
+            xyza: mat4_x_vec4(lms, OKLAB_XYZ_M1),
+        }
     }
 
     fn oklab(&self) -> OkLab {
@@ -319,6 +342,26 @@ impl ColorSpace for Raw_sRGB<true, false> {
         }
     }
 
+    fn oklab(&self) -> OkLab {
+        let v = self.as_array();
+        let l = 0.4122214708 * v[0] + 0.5363325363 * v[1] + 0.0514459929 * v[2];
+        let m = 0.2119034982 * v[0] + 0.6806995451 * v[1] + 0.1073969566 * v[2];
+        let s = 0.0883024619 * v[0] + 0.2817188376 * v[1] + 0.6299787005 * v[2];
+
+        let l_ = l.powf(1.0 / 3.0);
+        let m_ = m.powf(1.0 / 3.0);
+        let s_ = s.powf(1.0 / 3.0);
+
+        OkLab {
+            laba: f32x4::new([
+                0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
+                1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
+                0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_,
+                v[3],
+            ]),
+        }
+    }
+
     fn linear_srgb(&self) -> Raw_sRGB<true, false> {
         *self
     }
@@ -337,10 +380,6 @@ impl Raw_sRGB<true, false> {
         Raw_sRGB {
             rgba: map_color(self.rgba, |x| x * a),
         }
-    }
-
-    fn linear_srgb(&self) -> Raw_sRGB<true, false> {
-        *self
     }
 }
 

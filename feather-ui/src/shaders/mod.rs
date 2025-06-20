@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 const FILES: [(&str, &str); 3] = [
     ("feather.wgsl", include_str!("feather.wgsl")),
     ("shape.wgsl", include_str!("shape.wgsl")),
@@ -7,9 +5,9 @@ const FILES: [(&str, &str); 3] = [
 ];
 
 pub fn load_wgsl(device: &wgpu::Device, label: &str, src: &str) -> wgpu::ShaderModule {
-    const PREFIX: &str = "#include \"";
-
     /*
+    const PREFIX: &str = "#include \"";
+    
     let s = src
         .find(PREFIX)
         .and_then(|idx| {

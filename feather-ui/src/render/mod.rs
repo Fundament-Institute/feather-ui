@@ -17,12 +17,13 @@ pub mod shape;
 pub mod text;
 
 pub trait Renderable {
+    #[must_use]
     fn render(
         &self,
         area: AbsRect,
-        graphics: &crate::graphics::Driver,
+        driver: &crate::graphics::Driver,
         compositor: &mut Compositor,
-    );
+    ) -> Result<(), crate::Error>;
 }
 
 pub trait Pipeline: Any + std::fmt::Debug + Send + Sync {
@@ -33,23 +34,23 @@ pub trait Pipeline: Any + std::fmt::Debug + Send + Sync {
     #[allow(unused_variables)]
     fn prepare(
         &mut self,
-        graphics: &graphics::Driver,
+        driver: &graphics::Driver,
         encoder: &mut wgpu::CommandEncoder,
         config: &wgpu::SurfaceConfiguration,
     ) {
     }
-    fn draw(&mut self, graphics: &graphics::Driver, pass: &mut wgpu::RenderPass<'_>, layer: u16);
+    fn draw(&mut self, driver: &graphics::Driver, pass: &mut wgpu::RenderPass<'_>, layer: u16);
 }
 
 pub trait AnyPipeline: Any + std::fmt::Debug + Send + Sync {
     fn append(&mut self, data: &dyn Any, layer: u16);
     fn prepare(
         &mut self,
-        graphics: &graphics::Driver,
+        driver: &graphics::Driver,
         encoder: &mut wgpu::CommandEncoder,
         config: &wgpu::SurfaceConfiguration,
     );
-    fn draw(&mut self, graphics: &graphics::Driver, pass: &mut wgpu::RenderPass<'_>, layer: u16);
+    fn draw(&mut self, driver: &graphics::Driver, pass: &mut wgpu::RenderPass<'_>, layer: u16);
 }
 
 impl<T: Pipeline + std::fmt::Debug + Send + Sync + 'static> AnyPipeline for T {
@@ -58,14 +59,14 @@ impl<T: Pipeline + std::fmt::Debug + Send + Sync + 'static> AnyPipeline for T {
     }
     fn prepare(
         &mut self,
-        graphics: &graphics::Driver,
+        driver: &graphics::Driver,
         encoder: &mut wgpu::CommandEncoder,
         config: &wgpu::SurfaceConfiguration,
     ) {
-        Pipeline::prepare(self, graphics, encoder, config);
+        Pipeline::prepare(self, driver, encoder, config);
     }
-    fn draw(&mut self, graphics: &graphics::Driver, pass: &mut wgpu::RenderPass<'_>, layer: u16) {
-        Pipeline::draw(self, graphics, pass, layer);
+    fn draw(&mut self, driver: &graphics::Driver, pass: &mut wgpu::RenderPass<'_>, layer: u16) {
+        Pipeline::draw(self, driver, pass, layer);
     }
 }
 
@@ -101,11 +102,12 @@ impl<const N: usize> Renderable for Chain<N> {
     fn render(
         &self,
         area: crate::AbsRect,
-        graphics: &crate::graphics::Driver,
+        driver: &crate::graphics::Driver,
         compositor: &mut Compositor,
-    ) {
+    ) -> Result<(), crate::Error> {
         for x in &self.0 {
-            x.render(area, graphics, compositor)
+            x.render(area, driver, compositor)?;
         }
+        Ok(())
     }
 }

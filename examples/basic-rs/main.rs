@@ -11,13 +11,14 @@ use feather_ui::component::window::Window;
 use feather_ui::component::{ComponentFrom, mouse_area};
 use feather_ui::layout::{fixed, leaf};
 use feather_ui::persist::FnPersist;
-use feather_ui::util::HotLoader;
+use feather_ui::ultraviolet::{Vec2, Vec4};
+use feather_ui::util::create_hotloader;
 use feather_ui::{
     AbsRect, App, DAbsRect, DPoint, DRect, RelRect, Slot, SourceID, UNSIZED_AXIS, URect, gen_id,
 };
+use feather_ui::{im, winit};
 use std::rc::Rc;
 use std::sync::RwLock;
-use ultraviolet::{Vec2, Vec4};
 
 #[derive(PartialEq, Clone, Debug)]
 struct CounterState {
@@ -123,7 +124,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     text: (0..args.count).map(|_| "█").collect::<String>(),
                     font_size: 40.0,
                     line_height: 56.0,
-                    wrap: feather_ui::Wrap::WordOrGlyph,
+                    wrap: feather_ui::cosmic_text::Wrap::WordOrGlyph,
                     ..Default::default()
                 };
 
@@ -200,7 +201,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
 }
 
 use feather_ui::WrapEventEx;
-static LOADERS: RwLock<Vec<HotLoader>> = RwLock::new(Vec::new());
+static LOADERS: RwLock<Vec<feather_ui::notify::RecommendedWatcher>> = RwLock::new(Vec::new());
 
 fn main() {
     let onclick = Box::new(
@@ -219,19 +220,21 @@ fn main() {
         App<CounterState, BasicApp>,
         winit::event_loop::EventLoop<()>,
     ) = App::new(
-        CounterState { count: 0 },
+        CounterState { count: 40 },
         vec![onclick],
         BasicApp {},
         |driver| {
             let exe = std::env::current_exe().unwrap();
             LOADERS.write().unwrap().push(
-                HotLoader::new::<feather_ui::render::shape::Shape<{ ShapeKind::RoundRect as u8 }>>(
-                    &exe.join("../../../feather-ui/src/shaders/shape.wgsl"),
-                    "Shape",
-                    driver,
-                )
-                .unwrap(),
-            );
+                    create_hotloader::<
+                        feather_ui::render::shape::Shape<{ ShapeKind::RoundRect as u8 }>,
+                    >(
+                        &exe.join("../../../feather-ui/src/shaders/shape.wgsl"),
+                        "Shape",
+                        driver,
+                    )
+                    .unwrap(),
+                );
         },
     )
     .unwrap();

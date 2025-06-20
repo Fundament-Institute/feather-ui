@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::color::{ColorSpace, Premultiplied, sRGB};
+use crate::color::sRGB;
 use crate::graphics::point_to_pixel;
 use crate::layout::{self, Layout, leaf};
 use crate::{SourceID, WindowStateMachine, graphics};
@@ -48,14 +48,14 @@ where
     fn layout(
         &self,
         state: &crate::StateManager,
-        graphics: &graphics::Driver,
+        driver: &graphics::Driver,
         window: &Rc<SourceID>,
         _: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let winstate: &WindowStateMachine = state.get(window).unwrap();
         let winstate = winstate.state.as_ref().expect("No window state available");
         let dpi = winstate.dpi;
-        let mut font_system = graphics.font_system.write();
+        let mut font_system = driver.font_system.write();
         let mut text_buffer = cosmic_text::Buffer::new(
             &mut font_system,
             cosmic_text::Metrics::new(

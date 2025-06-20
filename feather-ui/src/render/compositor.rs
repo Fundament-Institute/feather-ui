@@ -2,11 +2,16 @@ use crate::{
     AbsRect,
     graphics::{Vec2f, Vec2i},
 };
-use std::{collections::HashMap, num::NonZero};
-use wgpu::{TextureUsages, TextureViewDescriptor, wgt::SamplerDescriptor};
+use std::{collections::HashMap, num::NonZero, rc::Rc};
+use wgpu::{
+    BindGroupEntry, BindGroupLayoutEntry, Buffer, BufferDescriptor, BufferUsages, TextureView,
+    wgt::SamplerDescriptor,
+};
 
 use crate::ZERO_RECT;
 use parking_lot::RwLock;
+
+use super::atlas::Atlas;
 
 #[derive(Debug)]
 /// Shared resources that are the same between all windows
@@ -42,7 +47,7 @@ impl Shared {
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Compositor Bind Group"),
             entries: &[
-                wgpu::BindGroupLayoutEntry {
+                BindGroupLayoutEntry {
                     binding: 0,
                     visibility: wgpu::ShaderStages::VERTEX,
                     ty: wgpu::BindingType::Buffer {
@@ -52,7 +57,7 @@ impl Shared {
                     },
                     count: None,
                 },
-                wgpu::BindGroupLayoutEntry {
+                BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
@@ -62,7 +67,7 @@ impl Shared {
                     },
                     count: None,
                 },
-                wgpu::BindGroupLayoutEntry {
+                BindGroupLayoutEntry {
                     binding: 2,
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Texture {
@@ -72,13 +77,13 @@ impl Shared {
                     },
                     count: None,
                 },
-                wgpu::BindGroupLayoutEntry {
+                BindGroupLayoutEntry {
                     binding: 3,
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                     count: None,
                 },
-                wgpu::BindGroupLayoutEntry {
+                BindGroupLayoutEntry {
                     binding: 4,
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
@@ -88,7 +93,7 @@ impl Shared {
                     },
                     count: None,
                 },
-                wgpu::BindGroupLayoutEntry {
+                BindGroupLayoutEntry {
                     binding: 5,
                     visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
@@ -196,58 +201,49 @@ impl Shared {
 pub struct Compositor {
     pipeline: wgpu::RenderPipeline,
     group: wgpu::BindGroup,
-    mvp: wgpu::Buffer,
-    buffer: wgpu::Buffer,
-    clip: wgpu::Buffer,
+    mvp: Buffer,
+    buffer: Buffer,
+    clip: Buffer,
     clipdata: Vec<AbsRect>,             // Clipping Rectangles
     data: Vec<Data>,                    // CPU-side buffer of all the data
     regions: Vec<std::ops::Range<u32>>, // Target copy ranges for where to map data to the GPU buffer. Assumes contiguous data vector.
     defer: HashMap<u32, Box<dyn FnOnce(&crate::graphics::Driver, &mut Data)>>,
+    view: std::rc::Weak<TextureView>,
 }
 
 impl Compositor {
     fn gen_binding(
-        mvp: &wgpu::Buffer,
-        buffer: &wgpu::Buffer,
-        clip: &wgpu::Buffer,
+        mvp: &Buffer,
+        buffer: &Buffer,
+        clip: &Buffer,
         shared: &Shared,
         device: &wgpu::Device,
-        atlas: &super::atlas::Atlas,
+        atlas: &Atlas,
+        atlasview: &TextureView,
         layout: &wgpu::BindGroupLayout,
     ) -> wgpu::BindGroup {
-        let atlasview = atlas.get_texture().create_view(&TextureViewDescriptor {
-            label: Some("Compositor Atlas View"),
-            format: Some(crate::render::atlas::ATLAS_FORMAT),
-            dimension: Some(wgpu::TextureViewDimension::D2Array),
-            usage: Some(TextureUsages::TEXTURE_BINDING),
-            aspect: wgpu::TextureAspect::All,
-            base_array_layer: 0,
-            array_layer_count: None,
-            ..Default::default()
-        });
-
         let bindings = [
-            wgpu::BindGroupEntry {
+            BindGroupEntry {
                 binding: 0,
                 resource: mvp.as_entire_binding(),
             },
-            wgpu::BindGroupEntry {
+            BindGroupEntry {
                 binding: 1,
                 resource: buffer.as_entire_binding(),
             },
-            wgpu::BindGroupEntry {
+            BindGroupEntry {
                 binding: 2,
                 resource: wgpu::BindingResource::TextureView(&atlasview),
             },
-            wgpu::BindGroupEntry {
+            BindGroupEntry {
                 binding: 3,
                 resource: wgpu::BindingResource::Sampler(&shared.sampler),
             },
-            wgpu::BindGroupEntry {
+            BindGroupEntry {
                 binding: 4,
                 resource: clip.as_entire_binding(),
             },
-            wgpu::BindGroupEntry {
+            BindGroupEntry {
                 binding: 5,
                 resource: atlas.extent_buf.as_entire_binding(),
             },
@@ -264,28 +260,28 @@ impl Compositor {
         shared: &Shared,
         device: &wgpu::Device,
         config: &wgpu::SurfaceConfiguration,
-        atlas: &super::atlas::Atlas,
+        atlas: &Atlas,
     ) -> Self {
         let pipeline = shared.get_pipeline(device, config.view_formats[0]);
 
-        let mvp = device.create_buffer(&wgpu::BufferDescriptor {
+        let mvp = device.create_buffer(&BufferDescriptor {
             label: Some("MVP"),
             size: std::mem::size_of::<ultraviolet::Mat4>() as u64,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
 
-        let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        let buffer = device.create_buffer(&BufferDescriptor {
             label: Some("Compositor Data"),
             size: 32 * size_of::<Data>() as u64,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
 
-        let clip = device.create_buffer(&wgpu::BufferDescriptor {
+        let clip = device.create_buffer(&BufferDescriptor {
             label: Some("Compositor Clip Data"),
             size: 4 * size_of::<AbsRect>() as u64,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
 
@@ -296,6 +292,7 @@ impl Compositor {
             shared,
             device,
             atlas,
+            &atlas.view,
             &pipeline.get_bind_group_layout(0),
         );
 
@@ -309,10 +306,13 @@ impl Compositor {
             regions: vec![0..0],
             data: Vec::new(),
             defer: HashMap::new(),
+            view: Rc::downgrade(&atlas.view),
         }
     }
 
-    fn rebind(&mut self, shared: &Shared, device: &wgpu::Device, atlas: &super::atlas::Atlas) {
+    /// Should be called when self.view.strong_count() is 0, or when the data bindings must be rebound
+    pub fn rebind(&mut self, shared: &Shared, device: &wgpu::Device, atlas: &Atlas) {
+        self.view = Rc::downgrade(&atlas.view);
         self.group = Self::gen_binding(
             &self.mvp,
             &self.buffer,
@@ -320,32 +320,33 @@ impl Compositor {
             shared,
             device,
             atlas,
+            &atlas.view,
             &self.pipeline.get_bind_group_layout(0),
         );
     }
 
-    fn check_data(&mut self, shared: &Shared, device: &wgpu::Device, atlas: &super::atlas::Atlas) {
+    fn check_data(&mut self, shared: &Shared, device: &wgpu::Device, atlas: &Atlas) {
         let size = self.data.len() * size_of::<Data>();
         if (self.buffer.size() as usize) < size {
             self.buffer.destroy();
-            self.buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            self.buffer = device.create_buffer(&BufferDescriptor {
                 label: Some("Compositor Data"),
                 size: size.next_power_of_two() as u64,
-                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+                usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
             self.rebind(shared, device, atlas);
         }
     }
 
-    fn check_clip(&mut self, shared: &Shared, device: &wgpu::Device, atlas: &super::atlas::Atlas) {
+    fn check_clip(&mut self, shared: &Shared, device: &wgpu::Device, atlas: &Atlas) {
         let size = self.clipdata.len() * size_of::<AbsRect>();
         if (self.clip.size() as usize) < size {
             self.clip.destroy();
-            self.clip = device.create_buffer(&wgpu::BufferDescriptor {
+            self.clip = device.create_buffer(&BufferDescriptor {
                 label: Some("Compositor Clip Data"),
                 size: size.next_power_of_two() as u64,
-                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+                usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
             self.rebind(shared, device, atlas);
@@ -361,7 +362,7 @@ impl Compositor {
     /// Returns the GPU buffer and the current offset, which allows a compute shader to accumulate commands
     /// in the GPU buffer directly, provided it calls set_compute_buffer afterwards with the command count.
     /// Attempting to insert a non-GPU command before calling set_compute_buffer will panic.
-    pub(crate) fn get_compute_buffer(&mut self) -> (&wgpu::Buffer, u32) {
+    pub(crate) fn get_compute_buffer(&mut self) -> (&Buffer, u32) {
         let offset = self.regions.last().unwrap().end;
         if offset == u32::MAX {
             panic!(
@@ -382,25 +383,18 @@ impl Compositor {
 
     pub fn prepare(
         &mut self,
-        graphics: &crate::graphics::Driver,
-        encoder: &mut wgpu::CommandEncoder,
+        driver: &crate::graphics::Driver,
+        _: &mut wgpu::CommandEncoder,
         _: &wgpu::SurfaceConfiguration,
     ) {
-        // If we have a pending copy, queue it up. This statement is isolated to ensure we don't deadlock on the write() here
-        let rebind =
-            graphics
-                .atlas
-                .write()
-                .perform_copy(&graphics.device, &graphics.queue, encoder);
-
-        // If the atlas changed it's texture at any point this frame, we need to rebind. This may have occured on a different window's draw call.
-        if rebind {
-            self.rebind(&graphics.shared, &graphics.device, &graphics.atlas.read());
+        // Check to see if we need to rebind our atlas view
+        if self.view.strong_count() == 0 {
+            self.rebind(&driver.shared, &driver.device, &driver.atlas.read());
         }
 
         // Resolve all defers
         for (idx, f) in self.defer.drain() {
-            f(graphics, &mut self.data[idx as usize]);
+            f(driver, &mut self.data[idx as usize]);
         }
     }
 
@@ -434,11 +428,11 @@ impl Compositor {
 
     pub fn draw(
         &mut self,
-        graphics: &crate::graphics::Driver,
+        driver: &crate::graphics::Driver,
         pass: &mut wgpu::RenderPass<'_>,
         config: &wgpu::SurfaceConfiguration,
     ) {
-        graphics.queue.write_buffer(
+        driver.queue.write_buffer(
             &self.mvp,
             0,
             crate::graphics::mat4_proj(
@@ -453,21 +447,21 @@ impl Compositor {
         );
 
         if self.clipdata.len() > 0 {
-            self.check_clip(&graphics.shared, &graphics.device, &graphics.atlas.read());
-            graphics.queue.write_buffer(
+            self.check_clip(&driver.shared, &driver.device, &driver.atlas.read());
+            driver.queue.write_buffer(
                 &self.clip,
                 0,
                 bytemuck::cast_slice(self.clipdata.as_slice()),
             );
         }
 
-        self.check_data(&graphics.shared, &graphics.device, &graphics.atlas.read());
+        self.check_data(&driver.shared, &driver.device, &driver.atlas.read());
 
         // TODO turn into write_buffer_with (is that actually going to be faster?)
         let mut offset = 0;
         for range in &self.regions {
             let len = range.end - range.start;
-            graphics.queue.write_buffer(
+            driver.queue.write_buffer(
                 &self.buffer,
                 range.start as u64,
                 bytemuck::cast_slice(

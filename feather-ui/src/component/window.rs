@@ -17,7 +17,6 @@ use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 use ultraviolet::Vec2;
-use wgpu::naga::back;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::{DeviceId, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
@@ -40,7 +39,7 @@ pub struct WindowState {
     modifiers: u8,
     last_mouse: PhysicalPosition<f32>,
     pub dpi: Vec2,
-    pub graphics: Arc<graphics::Driver>,
+    pub driver: Arc<graphics::Driver>,
     trackers: [HashMap<DeviceId, RcNode>; 3],
     lookup: HashMap<(Rc<SourceID>, u8), DeviceId>,
     pub compositor: Compositor,
@@ -125,7 +124,7 @@ impl WindowState {
             .create_view(&wgpu::TextureViewDescriptor::default());
 
         self.compositor
-            .prepare(&self.graphics, &mut encoder, &self.config);
+            .prepare(&self.driver, &mut encoder, &self.config);
 
         {
             let mut backcolor = BACKCOLOR;
@@ -159,11 +158,10 @@ impl WindowState {
                 1.0,
             );
 
-            self.compositor
-                .draw(&self.graphics, &mut pass, &self.config);
+            self.compositor.draw(&self.driver, &mut pass, &self.config);
         }
 
-        self.graphics.queue.submit(Some(encoder.finish()));
+        self.driver.queue.submit(Some(encoder.finish()));
         frame.present();
     }
 }
@@ -185,7 +183,7 @@ impl PartialEq for WindowState {
             && self.modifiers == other.modifiers
             && self.last_mouse == other.last_mouse
             && self.dpi == other.dpi
-            && Arc::ptr_eq(&self.graphics, &other.graphics)
+            && Arc::ptr_eq(&self.driver, &other.driver)
             && self.trackers == other.trackers
     }
 }
@@ -214,15 +212,13 @@ impl Component<AbsDim> for Window {
             .as_ref()
             .unwrap();
         let size = inner.window.inner_size();
-        let graphics = inner.graphics.clone();
+        let driver = inner.driver.clone();
         Box::new(layout::Node::<AbsDim, dyn root::Prop> {
             props: Rc::new(crate::AbsDim(Vec2 {
                 x: size.width as f32,
                 y: size.height as f32,
             })),
-            children: self
-                .child
-                .layout(manager, &graphics, &self.id, &inner.config),
+            children: self.child.layout(manager, &driver, &self.id, &inner.config),
             id: Rc::downgrade(&self.id),
             renderable: None,
         })
@@ -255,7 +251,7 @@ impl Window {
     >(
         &self,
         manager: &mut StateManager,
-        graphics: &mut std::sync::Weak<graphics::Driver>,
+        driver: &mut std::sync::Weak<graphics::Driver>,
         instance: &wgpu::Instance,
         event_loop: &ActiveEventLoop,
         on_driver: &mut Option<Box<dyn FnOnce(std::sync::Weak<graphics::Driver>) -> () + 'static>>,
@@ -267,25 +263,25 @@ impl Window {
 
             let surface: wgpu::Surface<'static> = instance.create_surface(window.clone())?;
 
-            let graphics = futures_lite::future::block_on(crate::graphics::Driver::new(
-                graphics, instance, &surface, on_driver,
+            let driver = futures_lite::future::block_on(crate::graphics::Driver::new(
+                driver, instance, &surface, on_driver,
             ))?;
 
             let size = window.inner_size();
             let mut config = surface
-                .get_default_config(&graphics.adapter, size.width, size.height)
+                .get_default_config(&driver.adapter, size.width, size.height)
                 .ok_or_eyre("Failed to find a default configuration")?;
             let view_format = config.format.add_srgb_suffix();
             //let view_format = config.format.remove_srgb_suffix();
             config.format = view_format;
             config.view_formats.push(view_format);
-            surface.configure(&graphics.device, &config);
+            surface.configure(&driver.device, &config);
 
             let compositor = Compositor::new(
-                &graphics.shared,
-                &graphics.device,
+                &driver.shared,
+                &driver.device,
                 &config,
-                &graphics.atlas.read(),
+                &driver.atlas.read(),
             );
 
             let mut windowstate = WindowState {
@@ -296,7 +292,7 @@ impl Window {
                 dpi: Vec2::broadcast(window.scale_factor() as f32),
                 surface,
                 window,
-                graphics: graphics.clone(),
+                driver: driver.clone(),
                 trackers: Default::default(),
                 lookup: Default::default(),
                 compositor,
@@ -332,9 +328,7 @@ impl Window {
     fn resize(size: PhysicalSize<u32>, state: &mut WindowState) {
         state.config.width = size.width;
         state.config.height = size.height;
-        state
-            .surface
-            .configure(&state.graphics.device, &state.config);
+        state.surface.configure(&state.driver.device, &state.config);
     }
 
     #[allow(clippy::result_unit_err)]
@@ -343,7 +337,7 @@ impl Window {
         rtree: Weak<rtree::Node>,
         event: WindowEvent,
         manager: &mut StateManager,
-        graphics: std::sync::Weak<graphics::Driver>,
+        driver: std::sync::Weak<graphics::Driver>,
     ) -> Result<(), ()> {
         let state: &mut WindowStateMachine = manager.get_mut(&id).map_err(|_| ())?;
         let window = state.state.as_mut().unwrap();
@@ -448,7 +442,7 @@ impl Window {
                             pos: window.last_mouse,
                             all_buttons: window.all_buttons,
                             modifiers: window.modifiers,
-                            graphics: graphics.clone(),
+                            driver: driver.clone(),
                         }
                     }
                     WindowEvent::CursorEntered { device_id } => {
@@ -478,7 +472,7 @@ impl Window {
                             pos: window.last_mouse,
                             all_buttons: window.all_buttons,
                             modifiers: window.modifiers,
-                            graphics: graphics.clone(),
+                            driver: driver.clone(),
                         }
                     }
                     WindowEvent::CursorLeft { device_id } => {
@@ -487,7 +481,7 @@ impl Window {
                             device_id,
                             all_buttons: window.all_buttons,
                             modifiers: window.modifiers,
-                            graphics: graphics.clone(),
+                            driver: driver.clone(),
                         }
                     }
                     WindowEvent::MouseWheel {
@@ -575,7 +569,7 @@ impl Window {
 
                 match e {
                     RawEvent::MouseMove { .. } | RawEvent::MouseOn { .. } => {
-                        if let Some(d) = graphics.upgrade() {
+                        if let Some(d) = driver.upgrade() {
                             *d.cursor.write() = CursorIcon::Default;
                         }
                     }
@@ -715,7 +709,7 @@ impl Window {
                             device_id,
                             modifiers,
                             all_buttons,
-                            ref graphics,
+                            ref driver,
                             ..
                         } => {
                             // We reborrow everything here or rust gets upset
@@ -726,7 +720,7 @@ impl Window {
                                 device_id,
                                 modifiers,
                                 all_buttons,
-                                graphics: graphics.clone(),
+                                driver: driver.clone(),
                             };
 
                             // Drain() holds a reference, so we still have to collect these to avoid borrowing manager twice
@@ -791,7 +785,7 @@ impl Window {
                 // After finishing all processing, if we were processing a mousemove or mouseon event, update our cursor
                 match e {
                     RawEvent::MouseMove { .. } | RawEvent::MouseOn { .. } => {
-                        if let Some(d) = graphics.upgrade() {
+                        if let Some(d) = driver.upgrade() {
                             inner.set_cursor(*d.cursor.read());
                         }
                     }

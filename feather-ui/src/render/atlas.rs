@@ -3,21 +3,23 @@ use std::rc::Rc;
 
 use guillotiere::{AllocId, AllocatorOptions, AtlasAllocator, Size};
 use wgpu::util::DeviceExt;
-use wgpu::{Extent3d, Origin3d, TextureDescriptor, TextureFormat, TextureUsages};
+use wgpu::{Extent3d, TextureDescriptor, TextureFormat, TextureUsages};
+
+use crate::Error;
 
 /// Array of 2D textures, along with an array of guillotine allocators to go along with them. We use an array of mid-size
 /// textures so we don't have to resize the atlas allocator or adjust any UV coordinates that way.
 pub struct Atlas {
-    graveyard: Option<wgpu::Texture>, // This is an old texture that needs to be deleted on the next frame (after the copy operation finishes)
-    pending: Option<u32>, // stores a pending copy operation for the compositor to do in it's Prepare() call
     extent: u32,
     pub extent_buf: wgpu::Buffer,
     pub mvp: wgpu::Buffer, // Matrix for rendering *onto* the texture atlas (the compositor has it's own for rendering to the screen)
     texture: wgpu::Texture,
     allocators: Vec<AtlasAllocator>,
     cache: HashMap<Rc<crate::SourceID>, Region>,
+    pub view: Rc<wgpu::TextureView>, // Stores a view into the atlas texture. Compositors take a weak reference to this that is invalidated when they need to rebind
 }
 
+// TODO: Should be possible to define an HDR pipeline with 16-bit channels
 pub const ATLAS_FORMAT: TextureFormat = TextureFormat::Bgra8UnormSrgb;
 
 unsafe impl Send for Atlas {}
@@ -34,7 +36,6 @@ impl Drop for Atlas {
 impl std::fmt::Debug for Atlas {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Atlas")
-            .field("pending", &self.pending)
             .field("extent", &self.extent)
             .field("texture", &self.texture)
             .finish()
@@ -42,7 +43,38 @@ impl std::fmt::Debug for Atlas {
 }
 
 impl Atlas {
-    fn queue_buffers(&self, queue: &wgpu::Queue) {
+    fn create_view(t: &wgpu::Texture) -> wgpu::TextureView {
+        t.create_view(&wgpu::TextureViewDescriptor {
+            label: Some("Atlas View"),
+            format: Some(crate::render::atlas::ATLAS_FORMAT),
+            dimension: Some(wgpu::TextureViewDimension::D2Array),
+            usage: Some(TextureUsages::TEXTURE_BINDING),
+            aspect: wgpu::TextureAspect::All,
+            base_array_layer: 0,
+            array_layer_count: None,
+            ..Default::default()
+        })
+    }
+
+    /// Creates an encoder that resizes the texture atlas, submits this to the work queue. Does not wait until
+    /// queue finishes processing as this shouldn't be necessary.
+    pub fn resize(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, layers: u32) {
+        let mut texture = Self::create_texture(device, self.extent, layers);
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Atlas Resize Encoder"),
+        });
+
+        encoder.copy_texture_to_texture(
+            self.texture.as_image_copy(),
+            texture.as_image_copy(),
+            self.texture.size(),
+        );
+
+        std::mem::swap(&mut texture, &mut self.texture);
+        // We swap the actual Rc object here to ensure the weak references get destroyed
+        let mut view = Rc::new(Self::create_view(&self.texture));
+        std::mem::swap(&mut self.view, &mut view);
+
         queue.write_buffer(
             &self.mvp,
             0,
@@ -58,46 +90,10 @@ impl Atlas {
         );
 
         queue.write_buffer(&self.extent_buf, 0, &self.extent.to_ne_bytes());
-    }
-
-    #[must_use]
-    pub fn perform_copy(
-        &mut self,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        encoder: &mut wgpu::CommandEncoder,
-    ) -> bool {
-        if let Some(old) = self.graveyard.take() {
-            old.destroy();
-        }
-
-        // Since each window has it's own compositor pipeline, we need to make sure this copy happens as soon as possible, but only once.
-        if let Some(layers) = self.pending.take() {
-            let mut texture = Self::create_texture(device, self.extent, layers);
-
-            encoder.copy_texture_to_texture(
-                wgpu::TexelCopyTextureInfo {
-                    texture: &self.texture,
-                    mip_level: 0,
-                    origin: Origin3d::ZERO,
-                    aspect: wgpu::TextureAspect::All,
-                },
-                wgpu::TexelCopyTextureInfo {
-                    texture: &texture,
-                    mip_level: 0,
-                    origin: Origin3d::ZERO,
-                    aspect: wgpu::TextureAspect::All,
-                },
-                self.texture.size(),
-            );
-
-            std::mem::swap(&mut texture, &mut self.texture);
-            self.graveyard = Some(texture);
-
-            self.queue_buffers(queue);
-        }
-
-        self.graveyard.is_some()
+        queue.submit(Some(encoder.finish()));
+        // device.poll(PollType::Wait); // shouldn't be needed as long as queues after this refer to the correct texture
+        texture.destroy(); // TODO: This *should* be legal as long as we submit the queue without needing to wait
+        assert_eq!(Rc::strong_count(&view), 1); // This MUST be dropped because we rely on this to signal the compositors to rebind
     }
 
     pub fn new(device: &wgpu::Device, extent: u32) -> Self {
@@ -126,9 +122,8 @@ impl Atlas {
         });
 
         Self {
-            graveyard: None,
-            pending: None,
             extent,
+            view: Rc::new(Self::create_view(&texture)),
             texture,
             allocators: vec![allocator],
             extent_buf,
@@ -149,10 +144,6 @@ impl Atlas {
     }
 
     pub fn get_texture(&self) -> &wgpu::Texture {
-        if self.pending.is_some() {
-            panic!("Tried to render something with a pending atlas copy operation!");
-        }
-
         &self.texture
     }
 
@@ -190,12 +181,13 @@ impl Atlas {
         self.cache.get(&id)
     }
 
+    #[must_use]
     pub fn cache_region(
         &mut self,
         device: &wgpu::Device,
         id: Rc<crate::SourceID>,
         dim: Size,
-    ) -> &Region {
+    ) -> Result<&Region, Error> {
         let uv = self.cache.get(&id).map(|x| x.uv);
 
         if let Some(old) = uv {
@@ -203,18 +195,19 @@ impl Atlas {
                 if let Some(mut region) = self.cache.remove(&id) {
                     self.destroy(&mut region);
                 }
-                let region = self.reserve(device, dim);
+                let region = self.reserve(device, dim)?;
                 self.cache.insert(id.clone(), region);
             }
         } else {
-            let region = self.reserve(device, dim);
+            let region = self.reserve(device, dim)?;
             self.cache.insert(id.clone(), region);
         }
 
-        self.cache.get(&id).unwrap()
+        self.cache.get(&id).ok_or(Error::AtlasCacheFailure)
     }
 
-    pub fn reserve(&mut self, device: &wgpu::Device, dim: Size) -> Region {
+    #[must_use]
+    pub fn reserve(&mut self, device: &wgpu::Device, dim: Size) -> Result<Region, Error> {
         if dim.height == 0 {
             assert_ne!(dim.height, 0);
         }
@@ -226,18 +219,23 @@ impl Atlas {
 
         for (idx, a) in self.allocators.iter_mut().enumerate() {
             if let Some(r) = a.allocate(dim) {
-                return self.create_region(idx, r, dim);
+                return Ok(self.create_region(idx, r, dim));
             }
         }
 
         // If we run out of room, try adding another layer
-        self.grow(device);
+        self.grow(device)?;
 
-        if let Some(r) = self.allocators.last_mut().unwrap().allocate(dim) {
-            return self.create_region(self.allocators.len() - 1, r, dim);
+        if let Some(r) = self
+            .allocators
+            .last_mut()
+            .ok_or(Error::InternalFailure)?
+            .allocate(dim)
+        {
+            return Ok(self.create_region(self.allocators.len() - 1, r, dim));
         }
 
-        panic!("Somehow reservation failed???: {:?}", dim);
+        Err(Error::AtlasReservationFailure)
     }
 
     pub fn destroy(&mut self, region: &mut Region) {
@@ -245,19 +243,20 @@ impl Atlas {
         region.id = AllocId::deserialize(u32::MAX);
     }
 
-    // This only works because we accumulate all of our commands into buffers before we actually assemble any commands
-    fn grow(&mut self, device: &wgpu::Device) {
+    // This always triggers a resize error telling us to abort the current frame render
+    #[must_use]
+    fn grow(&mut self, device: &wgpu::Device) -> Result<u32, Error> {
         if (self.extent * 2) <= device.limits().max_texture_dimension_2d {
             self.extent *= 2;
             self.allocators
                 .first_mut()
-                .unwrap()
+                .ok_or(Error::InternalFailure)?
                 .grow(Size::new(self.extent as i32, self.extent as i32));
         } else {
             self.allocators.push(Self::create_allocator(self.extent));
         }
 
-        self.pending = Some(self.allocators.len() as u32);
+        Err(Error::ResizeTextureAtlas(self.allocators.len() as u32))
     }
 
     pub fn draw(&self, driver: &crate::graphics::Driver, encoder: &mut wgpu::CommandEncoder) {
