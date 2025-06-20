@@ -6,10 +6,6 @@ const UNITX = array(0.0, 1.0, 0.0, 1.0, 1.0, 0.0);
 const UNITY = array(0.0, 0.0, 1.0, 0.0, 1.0, 1.0);
 const IDENTITY_MAT4 = mat4x4f(1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
 
-fn linearstep(low: f32, high: f32, x: f32) -> f32 {
-  return clamp((x - low) / (high - low), 0.0f, 1.0f);
-}
-
 fn srgb_to_linear(c: f32) -> f32 {
   if c <= 0.04045 {
     return c / 12.92;
@@ -104,15 +100,33 @@ fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
     transform = rotation_matrix(d.pos.x, d.pos.y, d.rotation);
   }
 
-  transform = scale_matrix(transform, d.dim.x, d.dim.y);
-  transform = translate_matrix(transform, d.pos.x + d.dim.x * 0.5, d.pos.y + d.dim.y * 0.5);
+  var inflate_dim = d.dim;
+  var inflate_pos = d.pos;
+  var inflate_uv = d.uv;
+  var inflate_uvdim = d.uvdim;
+  if (true) {
+    // To emulate conservative rasterization, we must inflate the quad by 0.5 pixels outwards. This
+    // is done by increasing the total dimension size by 1, then subtracing 0.5 from the position.
+    inflate_dim += vec2f(1);
+    inflate_pos -= vec2f(0.5);
 
-  var px_pos = transform * vec4(vpos.x - 0.5f, vpos.y - 0.5f, 1f, 1f);
-  let out_pos = MVP * px_pos;
+    // We must also compensate the UV coordinates, but this is trickier because they could already be
+    // scaled differently. We acquire the size of a UV pixel by dividing the UV dimensions by the true
+    // dimensions. Thus, if we have a 2x2 UV lookup scaled to a 4x4 square, one scaled UV pixel is 0.5
+    let uv_pixel = d.uvdim / d.dim;
+    inflate_uvdim += vec2f(uv_pixel);
+    inflate_uv -= vec2f(uv_pixel * 0.5);
+  }
+
+  transform = scale_matrix(transform, inflate_dim.x, inflate_dim.y);
+  let offset = inflate_pos + (inflate_dim * 0.5);
+  transform = translate_matrix(transform, offset.x, offset.y);
+
+  let out_pos = MVP * transform * vec4(vpos.x - 0.5f, vpos.y - 0.5f, 1f, 1f);
 
   var source = IDENTITY_MAT4;
-  let uv = d.uv / f32(extent);
-  let uvdim = d.uvdim / f32(extent);
+  let uv = inflate_uv / f32(extent);
+  let uvdim = inflate_uvdim / f32(extent);
 
   // If the rotation is negative it's applied to the UV rectangle as well
   if d.rotation < 0.0f {
@@ -124,7 +138,8 @@ fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
 
   var out_uv = source * vec4(vpos.x, vpos.y, 1f, 1f);
   let color = srgb_to_linear_vec4(u32_to_vec4(d.color));
-  let dist = px_pos.xy - d.pos - (d.dim * 0.5);
+  let dist = (vpos - vec2f(0.5f)) * inflate_dim;
+
   return VertexOutput(out_pos, out_uv.xy, dist, index, color);
 }
 
@@ -142,18 +157,23 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
   }
 
   var color = vec4f(input.color.rgb * input.color.a, input.color.a);
-  // A pixel-perfect texture lookup at pixel 0,0 actually samples at 0.5,0.5, at the center of the
-  // texel. Hence, if we simply clamp from 0,0 to height,width, this doesn't prevent bleedover when
-  // we get a misaligned pixel that tries to sample the texel at 0,0, which will bleed over into the
-  // texels next to it. As a result, we must clamp from 0.5,0.5 to width - 0.5, height - 0.5
-  let uvmin = (d.uv + vec2f(0.5)) / f32(extent);
-  let uvmax = (d.uv + d.uvdim - vec2f(0.5)) / f32(extent);
-  let uv = clamp(input.uv, uvmin, uvmax);
-  //let uv = input.uv;
+  var uv = input.uv;
 
-  //let dim = d.dim * 0.5;
-  //let fade = max(linearstep(dim.x - 0.5, dim.x + 0.5, abs(input.dist.x)), linearstep(dim.y - 0.5, dim.y + 0.5, abs(input.dist.y)));
-  //color *= fade;
+  if (true) {
+    // TODO: Allow turning off the edge corrections
+    // A pixel-perfect texture lookup at pixel 0,0 actually samples at 0.5,0.5, at the center of the
+    // texel. Hence, if we simply clamp from 0,0 to height,width, this doesn't prevent bleedover when
+    // we get a misaligned pixel that tries to sample the texel at 0,0, which will bleed over into the
+    // texels next to it. As a result, we must clamp from 0.5,0.5 to width - 0.5, height - 0.5
+    let uvmin = (d.uv + vec2f(0.5)) / f32(extent);
+    let uvmax = (d.uv + d.uvdim - vec2f(0.5)) / f32(extent);
+    uv = clamp(input.uv, uvmin, uvmax);
+
+    // We get the pixel distance from the center of our quad, which we then use to do a precise alpha
+    // dropoff, which recreates anti-aliasing.
+    let dist = 1.0 - (abs(input.dist) - (d.dim * 0.5) + 0.5);
+    color *= clamp(min(dist.x, dist.y), 0.0, 1.0);
+  }
 
   if tex == 0xFFFF {
     return color;

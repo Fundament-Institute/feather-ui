@@ -1233,7 +1233,7 @@ pub struct App<
     outline: O,
     _parents: BTreeMap<DataID, DataID>,
     root: component::Root, // Root component node containing all windows
-    driver_init: Option<Box<dyn FnOnce(std::sync::Weak<Driver>) -> () + 'static>>,
+    driver_init: Option<Box<dyn FnOnce(std::sync::Weak<Driver>) + 'static>>,
 }
 
 struct AppDataMachine<AppData: 'static + std::cmp::PartialEq> {
@@ -1502,17 +1502,16 @@ impl FnPersist<u8, im::HashMap<Rc<SourceID>, Option<Window>>> for TestApp {
     type Store = (u8, im::HashMap<Rc<SourceID>, Option<Window>>);
 
     fn init(&self) -> Self::Store {
-        use crate::component::shape::Shape;
+        use crate::{color::sRGB, component::shape::Shape};
         use ultraviolet::Vec4;
-        let rect = Shape::<DRect>::round_rect(
+        let rect = Shape::<DRect, { component::shape::ShapeKind::RoundRect as u8 }>::new(
             gen_id!(),
             crate::FILL_DRECT.into(),
-            Vec2::one(),
             0.0,
             0.0,
             Vec4::zero(),
-            Vec4::new(1.0, 0.0, 0.0, 1.0),
-            Vec4::zero(),
+            sRGB::new(1.0, 0.0, 0.0, 1.0),
+            sRGB::transparent(),
         );
         let window = Window::new(
             gen_id!(),

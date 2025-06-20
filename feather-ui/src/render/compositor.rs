@@ -1,7 +1,4 @@
-use crate::{
-    AbsRect,
-    graphics::{Vec2f, Vec2i},
-};
+use crate::{AbsRect, graphics::Vec2f};
 use std::{collections::HashMap, num::NonZero, rc::Rc};
 use wgpu::{
     BindGroupEntry, BindGroupLayoutEntry, Buffer, BufferDescriptor, BufferUsages, TextureView,
@@ -353,7 +350,7 @@ impl Compositor {
         }
     }
 
-    pub(crate) fn append_clip(&mut self, clip: AbsRect) -> u16 {
+    pub fn append_clip(&mut self, clip: AbsRect) -> u16 {
         let n = self.clipdata.len();
         self.clipdata.push(clip);
         n as u16
@@ -362,7 +359,7 @@ impl Compositor {
     /// Returns the GPU buffer and the current offset, which allows a compute shader to accumulate commands
     /// in the GPU buffer directly, provided it calls set_compute_buffer afterwards with the command count.
     /// Attempting to insert a non-GPU command before calling set_compute_buffer will panic.
-    pub(crate) fn get_compute_buffer(&mut self) -> (&Buffer, u32) {
+    pub fn get_compute_buffer(&mut self) -> (&Buffer, u32) {
         let offset = self.regions.last().unwrap().end;
         if offset == u32::MAX {
             panic!(
@@ -375,7 +372,7 @@ impl Compositor {
 
     /// After executing a compute shader that added a series of compositor commands to the command buffer,
     /// this must be called with the number of commands that were contiguously inserted into the buffer.
-    pub(crate) fn set_compute_buffer(&mut self, count: u32) {
+    pub fn set_compute_buffer(&mut self, count: u32) {
         let region = self.regions.last_mut().unwrap();
         region.start += count;
         region.end = region.start;

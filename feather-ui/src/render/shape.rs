@@ -9,6 +9,7 @@ use crate::render::atlas::Atlas;
 use crate::render::compositor::Compositor;
 use crate::shaders;
 use guillotiere::Size;
+use num_traits::Zero;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::num::NonZero;
@@ -36,6 +37,9 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
         compositor: &mut Compositor,
     ) -> Result<(), crate::Error> {
         let dim = area.bottomright() - area.topleft() - self.padding.bottomright();
+        debug_assert!(dim.x.is_zero() || dim.x.is_sign_positive());
+        debug_assert!(dim.y.is_zero() || dim.y.is_sign_positive());
+
         let (region_uv, region_index) = {
             let mut atlas = driver.atlas.write();
             let region = atlas.cache_region(

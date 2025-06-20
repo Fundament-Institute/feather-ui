@@ -54,3 +54,73 @@ impl Desc for dyn Prop {
         })
     }
 }
+
+/// A sized leaf is one with inherent size, like an image. This is used to preserve aspect ratio when
+/// encounting an unsized axis. This must be provided in pixels.
+pub trait Sized: Padded {
+    fn size(&self) -> &ultraviolet::Vec2 {
+        &crate::ZERO_POINT
+    }
+}
+
+crate::gen_from_to_dyn!(Sized);
+
+impl Sized for DRect {}
+
+impl Desc for dyn Sized {
+    type Props = dyn Sized;
+    type Child = dyn Empty;
+    type Children = PhantomData<dyn Layout<Self::Child>>;
+
+    fn stage<'a>(
+        props: &Self::Props,
+        outer_area: AbsRect,
+        outer_limits: crate::AbsLimits,
+        _: &Self::Children,
+        id: std::rc::Weak<SourceID>,
+        renderable: Option<Rc<dyn Renderable>>,
+        window: &mut crate::component::window::WindowState,
+    ) -> Box<dyn Staged + 'a> {
+        let limits = outer_limits + props.limits().resolve(window.dpi);
+
+        let area = props.area().resolve(window.dpi);
+        let size = *props.size();
+        let aspect_ratio = size.x / size.y; // Will be NAN if both are 0, which disables any attempt to preserve aspect ratio
+
+        // The way we handle unsized here is different from how we normally handle it. If both axes are unsized, we
+        // simply set the area to the internal size. If only one axis is unsized, we stretch it to maintain an aspect
+        // ratio relative to the size of the other axis.
+        let (unsized_x, unsized_y) = super::check_unsized(area);
+        let outer_area = super::nuetralize_unsized(outer_area);
+        let mapped_area = match (unsized_x, unsized_y, aspect_ratio.is_nan()) {
+            (true, false, false) => {
+                let mut presize = map_unsized_area(area, ZERO_POINT) * outer_area;
+                let adjust = presize.dim().0.y * aspect_ratio;
+                let v = presize.0.as_array_mut();
+                v[2] += adjust;
+                presize
+            }
+            (false, true, false) => {
+                let mut presize = map_unsized_area(area, ZERO_POINT) * outer_area;
+                // Be careful, the aspect ratio here is being divided instead of multiplied
+                let adjust = presize.dim().0.x / aspect_ratio;
+                let v = presize.0.as_array_mut();
+                v[3] += adjust;
+                presize
+            }
+            _ => map_unsized_area(area, size) * outer_area,
+        };
+
+        let evaluated_area = super::limit_area(mapped_area, limits);
+
+        let anchor = props.anchor().resolve(window.dpi) * evaluated_area.dim();
+        let evaluated_area = evaluated_area - anchor;
+
+        Box::new(Concrete {
+            area: evaluated_area,
+            renderable,
+            rtree: rtree::Node::new(evaluated_area, None, Default::default(), id, window),
+            children: Default::default(),
+        })
+    }
+}

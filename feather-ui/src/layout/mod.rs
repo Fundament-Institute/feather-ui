@@ -205,7 +205,7 @@ pub(crate) fn map_unsized_area(mut area: URect, adjust: Vec2) -> URect {
     // Unsized objects must always have a single anchor point to make sense, so we copy over from topleft.
     if unsized_x {
         rel[2] = rel[0];
-        // Fix the bottomright abs area in unsized scenarios, because it is now relative to the topleft instead of being independent.
+        // Fix the bottomright abs area in unsized scenarios, because it was relative to the topleft instead of being independent.
         abs[2] += abs[0] + adjust.x;
     }
     if unsized_y {

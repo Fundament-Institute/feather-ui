@@ -187,7 +187,6 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
             let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
                 gen_id!(idx_id),
                 FILL_DRECT.into(),
-                Vec2::zero(),
                 0.0,
                 0.0,
                 Vec4::broadcast(10.0),
@@ -252,7 +251,6 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
                 dp: ZERO_RECT,
                 rel: RelRect::new(0.0, 0.0, 1.0, 1.0 / 7.0),
             }),
-            Vec2::zero(),
             0.0,
             0.0,
             Vec4::broadcast(25.0),

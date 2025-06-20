@@ -88,7 +88,7 @@ impl Driver {
         weak: &mut std::sync::Weak<Self>,
         instance: &wgpu::Instance,
         surface: &wgpu::Surface<'static>,
-        on_driver: &mut Option<Box<dyn FnOnce(std::sync::Weak<Driver>) -> () + 'static>>,
+        on_driver: &mut Option<Box<dyn FnOnce(std::sync::Weak<Driver>) + 'static>>,
     ) -> eyre::Result<Arc<Self>> {
         if let Some(driver) = weak.upgrade() {
             return Ok(driver);
@@ -178,10 +178,7 @@ impl Driver {
         pipeline.shader = shader;
         self.pipelines.write().remove(&id);
     }
-    pub fn with_pipeline<T: crate::render::Pipeline + 'static>(
-        &self,
-        f: impl FnOnce(&mut T) -> (),
-    ) {
+    pub fn with_pipeline<T: crate::render::Pipeline + 'static>(&self, f: impl FnOnce(&mut T)) {
         let id = TypeId::of::<T>();
 
         // We can't use the result of this because it makes the lifetimes weird

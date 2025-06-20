@@ -27,7 +27,6 @@ use eyre::{OptionExt, Result};
 use smallvec::SmallVec;
 use std::any::Any;
 use std::collections::HashMap;
-use std::hash::Hash;
 use std::rc::{Rc, Weak};
 use window::WindowStateMachine;
 
@@ -262,7 +261,7 @@ impl Root {
         &mut self,
         manager: &mut StateManager,
         driver: &mut std::sync::Weak<graphics::Driver>,
-        on_driver: &mut Option<Box<dyn FnOnce(std::sync::Weak<graphics::Driver>) -> () + 'static>>,
+        on_driver: &mut Option<Box<dyn FnOnce(std::sync::Weak<graphics::Driver>) + 'static>>,
         instance: &wgpu::Instance,
         event_loop: &winit::event_loop::ActiveEventLoop,
     ) -> eyre::Result<()> {

@@ -5,8 +5,6 @@ use crate::AbsRect;
 use crate::graphics;
 use crate::render::compositor::Compositor;
 use std::any::Any;
-use std::any::TypeId;
-use std::collections::HashMap;
 use std::rc::Rc;
 
 pub mod atlas;
@@ -67,32 +65,6 @@ impl<T: Pipeline + std::fmt::Debug + Send + Sync + 'static> AnyPipeline for T {
     }
     fn draw(&mut self, driver: &graphics::Driver, pass: &mut wgpu::RenderPass<'_>, layer: u16) {
         Pipeline::draw(self, driver, pass, layer);
-    }
-}
-
-#[derive(Default)]
-pub struct PipelineCache {
-    pipelines: HashMap<crate::graphics::PipelineID, Box<dyn AnyPipeline>>,
-}
-
-impl PipelineCache {
-    pub fn get<T: crate::render::Pipeline + 'static>(&self) -> Option<&T> {
-        self.pipelines
-            .get(&TypeId::of::<T>())
-            .and_then(|x| (x.as_ref() as &dyn std::any::Any).downcast_ref())
-    }
-
-    pub fn get_mut<T: crate::render::Pipeline + 'static>(&mut self) -> Option<&mut T> {
-        self.pipelines
-            .get_mut(&TypeId::of::<T>())
-            .and_then(|x| (x.as_mut() as &mut dyn std::any::Any).downcast_mut())
-    }
-
-    pub(crate) fn insert<T: crate::render::Pipeline + 'static>(
-        &mut self,
-        pipeline: Box<dyn AnyPipeline>,
-    ) {
-        self.pipelines.insert(TypeId::of::<T>(), pipeline);
     }
 }
 
