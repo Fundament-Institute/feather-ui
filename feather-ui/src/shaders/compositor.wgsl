@@ -95,6 +95,8 @@ fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
   var vpos = vec2(UNITX[vert], UNITY[vert]);
   let d = buf[index];
   var transform = IDENTITY_MAT4;
+  // Setting this flag *disables* inflation, so we invert it by comparing to 0
+  let inflate = (d.texclip & 0x80000000) == 0;
 
   if d.rotation != 0.0f {
     transform = rotation_matrix(d.pos.x, d.pos.y, d.rotation);
@@ -104,7 +106,7 @@ fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
   var inflate_pos = d.pos;
   var inflate_uv = d.uv;
   var inflate_uvdim = d.uvdim;
-  if (true) {
+  if (inflate) {
     // To emulate conservative rasterization, we must inflate the quad by 0.5 pixels outwards. This
     // is done by increasing the total dimension size by 1, then subtracing 0.5 from the position.
     inflate_dim += vec2f(1);
@@ -147,7 +149,8 @@ fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
 fn fs_main(input: VertexOutput) -> @location(0) vec4f {
   let d = buf[input.index];
   let clip = d.texclip & 0x0000FFFF;
-  let tex = (d.texclip & 0xFFFF0000) >> 16;
+  let tex = (d.texclip & 0x7FFF0000) >> 16;
+  let inflate = (d.texclip & 0x80000000) == 0;
 
   if clip > 0 {
     let r = cliprects[clip];
@@ -159,7 +162,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
   var color = vec4f(input.color.rgb * input.color.a, input.color.a);
   var uv = input.uv;
 
-  if (true) {
+  if (inflate) {
     // TODO: Allow turning off the edge corrections
     // A pixel-perfect texture lookup at pixel 0,0 actually samples at 0.5,0.5, at the center of the
     // texel. Hence, if we simply clamp from 0,0 to height,width, this doesn't prevent bleedover when

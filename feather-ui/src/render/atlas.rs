@@ -181,7 +181,6 @@ impl Atlas {
         self.cache.get(&id)
     }
 
-    #[must_use]
     pub fn cache_region(
         &mut self,
         device: &wgpu::Device,
@@ -206,7 +205,6 @@ impl Atlas {
         self.cache.get(&id).ok_or(Error::AtlasCacheFailure)
     }
 
-    #[must_use]
     pub fn reserve(&mut self, device: &wgpu::Device, dim: Size) -> Result<Region, Error> {
         if dim.height == 0 {
             assert_ne!(dim.height, 0);
@@ -244,7 +242,6 @@ impl Atlas {
     }
 
     // This always triggers a resize error telling us to abort the current frame render
-    #[must_use]
     fn grow(&mut self, device: &wgpu::Device) -> Result<u32, Error> {
         if (self.extent * 2) <= device.limits().max_texture_dimension_2d {
             self.extent *= 2;

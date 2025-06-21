@@ -50,6 +50,12 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
             (region.uv, region.index)
         };
 
+        // The region dimensions here can be wrong, because the region is rounded up to the nearest pixel.
+        // However, properly fixing this requires changing how the SDF shader works so it can properly
+        // emulate conservative rasterization. For now, we keep our original behavior of rounding up and
+        // then letting the compositor squish the result slightly, which is actually pretty accurate.
+        // TODO: Change this to be pixel-perfect by outputting the exact dimensions instead of rounded ones.
+
         driver.with_pipeline::<PIPELINE>(|pipeline| {
             pipeline.append(
                 &Data {
@@ -68,7 +74,8 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
         compositor.append(&compositor::Data::new(
             area.topleft() + self.padding.topleft(),
             dim,
-            region_uv,
+            region_uv.min.to_f32().to_array().into(),
+            region_uv.size().to_f32().to_array().into(),
             0xFFFFFFFF,
             0.0,
             region_index,
@@ -115,7 +122,7 @@ impl<const KIND: u8> super::Pipeline for Shape<KIND> {
     type Data = Data;
 
     fn append(&mut self, data: &Self::Data, layer: u16) {
-        self.data.entry(layer).or_insert_with(Vec::new).push(*data);
+        self.data.entry(layer).or_default().push(*data);
     }
 
     fn draw(&mut self, driver: &graphics::Driver, pass: &mut wgpu::RenderPass<'_>, layer: u16) {
@@ -208,13 +215,13 @@ impl<const KIND: u8> Shape<KIND> {
             label: None,
             layout: Some(layout),
             vertex: wgpu::VertexState {
-                module: &shader,
+                module: shader,
                 entry_point: Some("vs_main"),
                 buffers: &[],
                 compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
-                module: &shader,
+                module: shader,
                 entry_point: Some(entry_point),
                 compilation_options: Default::default(),
                 targets: &[Some(compositor::TARGET_STATE)],
@@ -259,7 +266,7 @@ impl<const KIND: u8> Shape<KIND> {
         })
     }
 
-    fn create(
+    fn new(
         layout: &wgpu::PipelineLayout,
         shader: &wgpu::ShaderModule,
         driver: &graphics::Driver,
@@ -290,41 +297,41 @@ impl<const KIND: u8> Shape<KIND> {
 }
 
 impl Shape<0> {
-    pub fn new(
+    pub fn create(
         layout: &wgpu::PipelineLayout,
         shader: &wgpu::ShaderModule,
         driver: &graphics::Driver,
     ) -> Box<dyn super::AnyPipeline> {
-        Box::new(Self::create(layout, shader, driver, "rectangle"))
+        Box::new(Self::new(layout, shader, driver, "rectangle"))
     }
 }
 
 impl Shape<1> {
-    pub fn new(
+    pub fn create(
         layout: &wgpu::PipelineLayout,
         shader: &wgpu::ShaderModule,
         driver: &graphics::Driver,
     ) -> Box<dyn super::AnyPipeline> {
-        Box::new(Self::create(layout, shader, driver, "triangle"))
+        Box::new(Self::new(layout, shader, driver, "triangle"))
     }
 }
 
 impl Shape<2> {
-    pub fn new(
+    pub fn create(
         layout: &wgpu::PipelineLayout,
         shader: &wgpu::ShaderModule,
         driver: &graphics::Driver,
     ) -> Box<dyn super::AnyPipeline> {
-        Box::new(Self::create(layout, shader, driver, "circle"))
+        Box::new(Self::new(layout, shader, driver, "circle"))
     }
 }
 
 impl Shape<3> {
-    pub fn new(
+    pub fn create(
         layout: &wgpu::PipelineLayout,
         shader: &wgpu::ShaderModule,
         driver: &graphics::Driver,
     ) -> Box<dyn super::AnyPipeline> {
-        Box::new(Self::create(layout, shader, driver, "arcs"))
+        Box::new(Self::new(layout, shader, driver, "arcs"))
     }
 }

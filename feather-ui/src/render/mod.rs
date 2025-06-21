@@ -15,7 +15,6 @@ pub mod shape;
 pub mod text;
 
 pub trait Renderable {
-    #[must_use]
     fn render(
         &self,
         area: AbsRect,

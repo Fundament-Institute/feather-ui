@@ -5,7 +5,6 @@ use crate::color::sRGB;
 
 use super::compositor::{Compositor, Data};
 use std::cell::RefCell;
-use std::u16;
 use ultraviolet::Vec2;
 
 pub struct Instance {
@@ -29,7 +28,7 @@ impl super::Renderable for Instance {
             uvdim: [0.0, 0.0].into(),
             color: self.color.as_32bit().rgba,
             rotation: p.y.atan2(p.x),
-            texclip: ((u16::MAX as u32) << 16) | 0,
+            texclip: ((u16::MAX as u32) << 16),
             ..Default::default()
         });
         Ok(())

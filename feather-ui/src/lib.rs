@@ -1284,7 +1284,7 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
         app_state: AppData,
         inputs: Vec<AppEvent<AppData>>,
         outline: O,
-        driver_init: impl FnOnce(std::sync::Weak<Driver>) -> () + 'static,
+        driver_init: impl FnOnce(std::sync::Weak<Driver>) + 'static,
     ) -> eyre::Result<(Self, winit::event_loop::EventLoop<T>)> {
         #[cfg(test)]
         let any_thread = true;
@@ -1299,7 +1299,7 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
         inputs: Vec<AppEvent<AppData>>,
         outline: O,
         any_thread: bool,
-        driver_init: impl FnOnce(std::sync::Weak<Driver>) -> () + 'static,
+        driver_init: impl FnOnce(std::sync::Weak<Driver>) + 'static,
     ) -> eyre::Result<(Self, winit::event_loop::EventLoop<T>)> {
         #[cfg(target_os = "windows")]
         let event_loop = winit::event_loop::EventLoop::with_user_event()
@@ -1361,7 +1361,7 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
             &mut self.driver_init,
         );
 
-        root.layout_all::<AppData, O>(manager, graphics, driver_init, instance, event_loop)
+        root.layout_all(manager, graphics, driver_init, instance, event_loop)
             .unwrap();
 
         root.stage_all(manager).unwrap();
@@ -1423,7 +1423,7 @@ impl<
                                                     layers,
                                                 );
                                             }
-                                            e => panic!("Fatal draw error: {}", e.to_string()),
+                                            e => panic!("Fatal draw error: {}", e),
                                         }
                                     }
                                 }

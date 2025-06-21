@@ -21,7 +21,7 @@ pub fn create_hotloader<T: 'static>(
                 let module = shaders::load_wgsl(&driver.device, label, &prev);
                 let err = futures_lite::future::block_on(driver.device.pop_error_scope());
                 if let Some(e) = err {
-                    println!("{}", e.to_string());
+                    println!("{}", e);
                 } else {
                     let info = futures_lite::future::block_on(module.get_compilation_info());
 
