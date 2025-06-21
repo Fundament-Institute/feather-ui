@@ -41,7 +41,7 @@ impl super::Renderable for Instance {
                 [0.0, 0.0].into(),
                 [0.0, 0.0].into(),
                 color.rgba,
-                0.2, //p.y.atan2(p.x),
+                p.y.atan2(p.x) % std::f32::consts::TAU,
                 u16::MAX,
                 0,
             );
