@@ -178,7 +178,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
     color *= clamp(min(dist.x, dist.y), 0.0, 1.0);
   }
 
-  if tex == 0xFFFF {
+  if tex == 0x7FFF {
     return color;
   }
 

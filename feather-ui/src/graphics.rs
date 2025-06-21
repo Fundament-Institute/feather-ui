@@ -137,9 +137,21 @@ impl Driver {
             shape_shader.clone(),
             crate::render::shape::Shape::<0>::create,
         );
-        //driver.register_pipeline(shape_pipeline.clone(), shape_shader.clone(), crate::render::shape::Shape::<1>::create);
-        //driver.register_pipeline(shape_pipeline.clone(), shape_shader.clone(), crate::render::shape::Shape::<2>::create);
-        //driver.register_pipeline(shape_pipeline.clone(), shape_shader.clone(), crate::render::shape::Shape::<3>::create);
+        driver.register_pipeline::<crate::render::shape::Shape<1>>(
+            shape_pipeline.clone(),
+            shape_shader.clone(),
+            crate::render::shape::Shape::<1>::create,
+        );
+        driver.register_pipeline::<crate::render::shape::Shape<2>>(
+            shape_pipeline.clone(),
+            shape_shader.clone(),
+            crate::render::shape::Shape::<2>::create,
+        );
+        driver.register_pipeline::<crate::render::shape::Shape<3>>(
+            shape_pipeline.clone(),
+            shape_shader.clone(),
+            crate::render::shape::Shape::<3>::create,
+        );
 
         let driver = Arc::new(driver);
         *weak = Arc::downgrade(&driver);
