@@ -35,16 +35,16 @@ impl super::Renderable for Instance {
             let p2: Vec2 = (end.topleft() + end.bottomright()) * 0.5;
             let p = p2 - p1;
 
-            *data = compositor::Data {
-                pos: p1.as_array().into(),
-                dim: [p.mag(), 1.0].into(),
-                uv: [0.0, 0.0].into(),
-                uvdim: [0.0, 0.0].into(),
-                color: color.rgba,
-                rotation: p.y.atan2(p.x),
-                texclip: ((u16::MAX as u32) << 16),
-                ..Default::default()
-            };
+            *data = compositor::Data::new(
+                p1.as_array().into(),
+                [p.mag(), 1.0].into(),
+                [0.0, 0.0].into(),
+                [0.0, 0.0].into(),
+                color.rgba,
+                0.2, //p.y.atan2(p.x),
+                u16::MAX,
+                0,
+            );
         });
 
         Ok(())

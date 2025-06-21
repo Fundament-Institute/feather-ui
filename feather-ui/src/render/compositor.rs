@@ -518,7 +518,7 @@ impl Data {
             uvdim: uvdim.as_array().into(),
             color,
             rotation,
-            texclip: ((tex as u32) << 16) | clip as u32,
+            texclip: (((tex & 0x7FFF) as u32) << 16) | clip as u32,
             ..Default::default()
         }
     }

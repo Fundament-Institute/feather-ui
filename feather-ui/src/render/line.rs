@@ -21,16 +21,16 @@ impl super::Renderable for Instance {
         compositor: &mut Compositor,
     ) -> Result<(), crate::Error> {
         let p = *self.end.borrow() - *self.start.borrow();
-        compositor.append(&Data {
-            pos: self.start.borrow().as_array().into(),
-            dim: [p.mag(), 1.0].into(),
-            uv: [0.0, 0.0].into(),
-            uvdim: [0.0, 0.0].into(),
-            color: self.color.as_32bit().rgba,
-            rotation: p.y.atan2(p.x),
-            texclip: ((u16::MAX as u32) << 16),
-            ..Default::default()
-        });
+        compositor.append(&Data::new(
+            self.start.borrow().as_array().into(),
+            [p.mag(), 1.0].into(),
+            [0.0, 0.0].into(),
+            [0.0, 0.0].into(),
+            self.color.as_32bit().rgba,
+            0.1, //p.y.atan2(p.x),
+            u16::MAX,
+            0,
+        ));
         Ok(())
     }
 }
