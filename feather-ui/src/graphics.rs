@@ -30,6 +30,7 @@ pub fn pixel_to_vec(p: winit::dpi::PhysicalPosition<f32>) -> Vec2 {
 
 pub type PipelineID = TypeId;
 
+#[allow(clippy::type_complexity)]
 pub(crate) struct PipelineState {
     layout: PipelineLayout,
     shader: ShaderModule,
@@ -134,11 +135,11 @@ impl Driver {
         driver.register_pipeline::<crate::render::shape::Shape<0>>(
             shape_pipeline.clone(),
             shape_shader.clone(),
-            crate::render::shape::Shape::<0>::new,
+            crate::render::shape::Shape::<0>::create,
         );
-        //driver.register_pipeline(shape_pipeline.clone(), shape_shader.clone(), crate::render::shape::Shape::<1>::new);
-        //driver.register_pipeline(shape_pipeline.clone(), shape_shader.clone(), crate::render::shape::Shape::<2>::new);
-        //driver.register_pipeline(shape_pipeline.clone(), shape_shader.clone(), crate::render::shape::Shape::<3>::new);
+        //driver.register_pipeline(shape_pipeline.clone(), shape_shader.clone(), crate::render::shape::Shape::<1>::create);
+        //driver.register_pipeline(shape_pipeline.clone(), shape_shader.clone(), crate::render::shape::Shape::<2>::create);
+        //driver.register_pipeline(shape_pipeline.clone(), shape_shader.clone(), crate::render::shape::Shape::<3>::create);
 
         let driver = Arc::new(driver);
         *weak = Arc::downgrade(&driver);
@@ -191,7 +192,7 @@ impl Driver {
 
             self.pipelines
                 .write()
-                .insert(id, generator(&layout, &shader, self));
+                .insert(id, generator(layout, shader, self));
         }
 
         f(

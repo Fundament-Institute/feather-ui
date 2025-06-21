@@ -31,16 +31,16 @@ impl Instance {
         glyphs.get(&key)
     }
 
-    pub fn write_glyph<'a>(
+    pub fn write_glyph(
         key: CacheKey,
         font_system: &mut FontSystem,
-        glyphs: &'a mut GlyphCache,
+        glyphs: &mut GlyphCache,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         atlas: &mut Atlas,
         cache: &mut SwashCache,
     ) -> Result<(), Error> {
-        if let Some(_) = glyphs.get(&key) {
+        if glyphs.get(&key).is_some() {
             // We can't actually return this borrow because of https://github.com/rust-lang/rust/issues/58910
             return Ok(());
         }
@@ -90,7 +90,7 @@ impl Instance {
                     let slice = image.data.as_mut_slice();
                     for i in 0..len {
                         let idx = i * 4;
-                        slice.swap(idx + 0, idx + 2);
+                        slice.swap(idx, idx + 2);
                         // Don't pre-multiply this because it's already a mask
                     }
                 }
@@ -98,7 +98,7 @@ impl Instance {
 
             queue.write_texture(
                 TexelCopyTextureInfo {
-                    texture: &atlas.get_texture(),
+                    texture: atlas.get_texture(),
                     mip_level: 0,
                     origin: Origin3d {
                         x: region.uv.min.x as u32,
@@ -116,8 +116,8 @@ impl Instance {
                     rows_per_image: None,
                 },
                 Extent3d {
-                    width: image.placement.width as u32,
-                    height: image.placement.height as u32,
+                    width: image.placement.width,
+                    height: image.placement.height,
                     depth_or_array_layers: 1,
                 },
             );
@@ -217,7 +217,7 @@ impl Instance {
             uvdim: [width as f32, height as f32].into(),
             color: color.0,
             rotation: 0.0,
-            texclip: ((glyph.region.index as u32) << 16) | 0,
+            texclip: ((glyph.region.index as u32) << 16),
             ..Default::default()
         }))
     }

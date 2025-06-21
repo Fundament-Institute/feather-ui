@@ -172,29 +172,20 @@ impl Shared {
     }
 }
 
-/// Fundamentally, the compositor works on a massive set of pre-allocated quads. The vertex shader moves these quads into
-/// position and assigns them UV coordinates. The pixel shader first checks if it must do per-pixel clipping and discards
-/// the pixel if it's out of bounds, then samples a texture from the provided texture bank, does color modulation if
-/// applicable, then draws the final pixel to the screen using pre-multiplied alpha blending.
+type DeferFn = dyn FnOnce(&crate::graphics::Driver, &mut Data);
+
+/// Fundamentally, the compositor works on a massive set of pre-allocated vertices that it assembles into quads in the vertex
+/// shader, which then moves them into position and assigns them UV coordinates. Then the pixel shader checks if it must do
+/// per-pixel clipping and discards the pixel if it's out of bounds, then samples a texture from the provided texture bank,
+/// does color modulation if applicable, then draws the final pixel to the screen using pre-multiplied alpha blending. This
+/// allows the compositor to avoid allocating a vertex buffer, instead using a SSBO (or webgpu storage buffer) to store the
+/// per-quad data, which it then accesses from the built-in vertex index.
 ///
-/// This can be achieved in many different ways. Starting from the simplest method:
-/// 1. Pre-allocate each triangle individually (requires 6 vertices per quad) and render them all in one draw call,
-///    encoding the buffer index into the vertex. Then, pass this index to the pixel shader, along with the UV values,
-///    which can then use the index to look up the clip index, texture index, and color modulation to use for that pixel.
-/// 2. Use 4 vertices and a triangle strip for the quad, but utilize GPU instancing. The GPU then provides the index of
-///    which buffer value needs to be used for each instance of the quad to both the vertex shader and pixel shader. This
-///    means the vertex shader only has to move the unit square into position and generate UV coordinates.
-/// 3. Use 4 vertices and a triangle strip for the quad, but use command queues to assemble the draw instructions ahead of
-///    time, in such a way that the command queue can be re-used because nothing about the command queue actually changes,
-///    only the buffers and textures bound to it change. This requires DX12 or vulkan.
-/// 4. Use 4 vertices and a triangle strip for the quad, but use GPU indirect calls. This means assembling two buffers,
-///    one that contains the draw calls to be issued that won't need to change, and another buffer containing the changing
-///    information about what to composite. This still requires DX12 or vulkan, but would allow feather to implement more
-///    complex handling of GPU state to minimize memory transfers.
+/// The compositor can accept GPU generated instructions written directly into it's buffer using a compute shader, if desired.
 ///
-/// We currently use (1), as it works on virtually any hardware. We would prefer (2), but WebGL 1.0 didn't support
-/// instancing, nor did OpenGL ES 2.0, which means many older devices also don't. (3) or (4) may be implemented as a
-/// seperate option later, espiecally if we continue to use wgpu, since wgpu assumes vulkan support.
+/// The compositor can also accept custom draw calls that break up the batched compositor instructions, which is intended for
+/// situations where rendering to the texture atlas is either impractical, or a different blending operation is required (such
+/// as subpixel blended text, which requires the SRC1 dual-source blending mode, instead of standard pre-multiplied alpha).
 pub struct Compositor {
     pipeline: wgpu::RenderPipeline,
     group: wgpu::BindGroup,
@@ -204,7 +195,7 @@ pub struct Compositor {
     clipdata: Vec<AbsRect>,             // Clipping Rectangles
     data: Vec<Data>,                    // CPU-side buffer of all the data
     regions: Vec<std::ops::Range<u32>>, // Target copy ranges for where to map data to the GPU buffer. Assumes contiguous data vector.
-    defer: HashMap<u32, Box<dyn FnOnce(&crate::graphics::Driver, &mut Data)>>,
+    defer: HashMap<u32, Box<DeferFn>>,
     view: std::rc::Weak<TextureView>,
 }
 
@@ -230,7 +221,7 @@ impl Compositor {
             },
             BindGroupEntry {
                 binding: 2,
-                resource: wgpu::BindingResource::TextureView(&atlasview),
+                resource: wgpu::BindingResource::TextureView(atlasview),
             },
             BindGroupEntry {
                 binding: 3,
@@ -293,6 +284,7 @@ impl Compositor {
             &pipeline.get_bind_group_layout(0),
         );
 
+        #[allow(clippy::single_range_in_vec_init)]
         Self {
             pipeline,
             group,
@@ -443,7 +435,7 @@ impl Compositor {
             .as_byte_slice(),
         );
 
-        if self.clipdata.len() > 0 {
+        if !self.clipdata.is_empty() {
             self.check_clip(&driver.shared, &driver.device, &driver.atlas.read());
             driver.queue.write_buffer(
                 &self.clip,
@@ -512,7 +504,8 @@ impl Data {
     pub fn new(
         pos: ultraviolet::Vec2,
         dim: ultraviolet::Vec2,
-        uv: guillotiere::euclid::Box2D<i32, guillotiere::euclid::UnknownUnit>,
+        uv: ultraviolet::Vec2,
+        uvdim: ultraviolet::Vec2,
         color: u32,
         rotation: f32,
         tex: u16,
@@ -521,8 +514,8 @@ impl Data {
         Self {
             pos: pos.as_array().into(),
             dim: dim.as_array().into(),
-            uv: uv.min.to_f32().to_array().into(),
-            uvdim: uv.size().to_f32().to_array().into(),
+            uv: uv.as_array().into(),
+            uvdim: uvdim.as_array().into(),
             color,
             rotation,
             texclip: ((tex as u32) << 16) | clip as u32,

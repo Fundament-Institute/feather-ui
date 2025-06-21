@@ -254,10 +254,7 @@ impl Root {
         }
     }
 
-    pub fn layout_all<
-        AppData: 'static + std::cmp::PartialEq,
-        O: crate::FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>,
-    >(
+    pub fn layout_all(
         &mut self,
         manager: &mut StateManager,
         driver: &mut std::sync::Weak<graphics::Driver>,
@@ -269,7 +266,7 @@ impl Root {
         // TODO: make this actually efficient by performing the initialization when a new component is initialized
         for (_, window) in self.children.iter() {
             let window = window.as_ref().unwrap();
-            window.init_custom::<AppData, O>(manager, driver, instance, event_loop, on_driver)?;
+            window.init_custom(manager, driver, instance, event_loop, on_driver)?;
             let state: &WindowStateMachine = manager.get(&window.id())?;
             let id = state.state.as_ref().unwrap().window.id();
             self.states

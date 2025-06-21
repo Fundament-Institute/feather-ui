@@ -48,18 +48,17 @@ fn fconv<T: num_traits::ToPrimitive, U: NumCast>(v: T) -> U {
 
 pub fn srgb_to_linear<T: num_traits::Float>(c: T) -> T {
     if c <= fconv(0.04045) {
-        return c / fconv(12.92);
+        c / fconv(12.92)
     } else {
-        return ((c + fconv(0.055)) / fconv(1.055)).powf(fconv(2.4));
+        ((c + fconv(0.055)) / fconv(1.055)).powf(fconv(2.4))
     }
 }
 
 pub fn linear_to_srgb<T: num_traits::Float>(c: T) -> T {
     if c < fconv(0.0031308) {
-        return c * fconv(12.92);
+        c * fconv(12.92)
     } else {
-        return (c.powf(<T as NumCast>::from(1.0).unwrap() / fconv(2.4)) * fconv(1.055))
-            - fconv(0.055);
+        (c.powf(<T as NumCast>::from(1.0).unwrap() / fconv(2.4)) * fconv(1.055)) - fconv(0.055)
     }
 }
 
@@ -82,8 +81,8 @@ pub trait ColorSpace: Premultiplied {
         let mut lms = mat4_x_vec4(xyz.xyza, XYZ_OKLAB_M1);
 
         let v = lms.as_array_mut();
-        for i in 0..2 {
-            v[i] = v[i].powf(1.0 / 3.0);
+        for v in v.iter_mut().take(3) {
+            *v = v.powf(1.0 / 3.0);
         }
 
         OkLab {
@@ -149,9 +148,9 @@ impl Premultiplied for XYZ {
 }
 
 const XYZ_OKLAB_M1: [f32x4; 4] = [
-    f32x4::new([0.8189330101, 0.3618667424, -0.1288597137, 0.0]),
-    f32x4::new([0.0329845436, 0.9293118715, 0.0361456387, 0.0]),
-    f32x4::new([0.0482003018, 0.2643662691, 0.6338517070, 0.0]),
+    f32x4::new([0.818_933, 0.361_866_74, -0.128_859_71, 0.0]),
+    f32x4::new([0.032_984_544, 0.929_311_9, 0.036_145_64, 0.0]),
+    f32x4::new([0.048_200_3, 0.264_366_27, 0.633_851_7, 0.0]),
     f32x4::new([0.0, 0.0, 0.0, 1.0]),
 ];
 
@@ -163,9 +162,9 @@ const OKLAB_XYZ_M1: [f32x4; 4] = [
 ];
 
 const XYZ_OKLAB_M2: [f32x4; 4] = [
-    f32x4::new([0.2104542553, 0.7936177850, -0.0040720468, 0.0]),
-    f32x4::new([1.9779984951, -2.4285922050, 0.4505937099, 0.0]),
-    f32x4::new([0.025904037, 0.7827717662, -0.808675766, 0.0]),
+    f32x4::new([0.210_454_26, 0.793_617_8, -0.004_072_047, 0.0]),
+    f32x4::new([1.977_998_5, -2.428_592_2, 0.450_593_7, 0.0]),
+    f32x4::new([0.025904037, 0.782_771_77, -0.808_675_77, 0.0]),
     f32x4::new([0.0, 0.0, 0.0, 1.0]),
 ];
 
@@ -190,8 +189,8 @@ impl ColorSpace for OkLab {
         let mut lms = mat4_x_vec4(self.laba, OKLAB_XYZ_M2);
 
         let v = lms.as_array_mut();
-        for i in 0..2 {
-            v[i] = v[i].powf(3.0);
+        for v in v.iter_mut().take(3) {
+            *v = v.powf(3.0);
         }
 
         XYZ {
@@ -206,9 +205,9 @@ impl ColorSpace for OkLab {
     // Based on the somewhat cursed code provided here: https://bottosson.github.io/posts/oklab/#converting-from-linear-srgb-to-oklab
     fn linear_srgb(&self) -> Raw_sRGB<true, false> {
         let v = self.laba.as_array_ref();
-        let l_ = v[0] + 0.3963377774 * v[1] + 0.2158037573 * v[2];
-        let m_ = v[0] - 0.1055613458 * v[1] - 0.0638541728 * v[2];
-        let s_ = v[0] - 0.0894841775 * v[1] - 1.2914855480 * v[2];
+        let l_ = v[0] + 0.396_337_78 * v[1] + 0.215_803_76 * v[2];
+        let m_ = v[0] - 0.105_561_346 * v[1] - 0.063_854_17 * v[2];
+        let s_ = v[0] - 0.089_484_18 * v[1] - 1.291_485_5 * v[2];
 
         let l = l_ * l_ * l_;
         let m = m_ * m_ * m_;
@@ -216,9 +215,9 @@ impl ColorSpace for OkLab {
 
         Raw_sRGB {
             rgba: f32x4::new([
-                4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
-                -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
-                -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s,
+                4.076_741_7 * l - 3.307_711_6 * m + 0.230_969_94 * s,
+                -1.268_438 * l + 2.609_757_4 * m - 0.341_319_38 * s,
+                -0.0041960863 * l - 0.703_418_6 * m + 1.707_614_7 * s,
                 v[3],
             ]),
         }
@@ -234,14 +233,14 @@ impl Premultiplied for OkLab {
 //  TODO: These use reference white D65, might need to use the one for D50???
 const XYZ_SRGB: [f32x4; 4] = [
     f32x4::new([3.2404542, -1.5371385, -0.4985314, 0.0]),
-    f32x4::new([-0.9692660, 1.8760108, 0.0415560, 0.0]),
+    f32x4::new([-0.969_266, 1.8760108, 0.0415560, 0.0]),
     f32x4::new([0.0556434, -0.2040259, 1.0572252, 0.0]),
     f32x4::new([0.0, 0.0, 0.0, 1.0]),
 ];
 const SRGB_XYZ: [f32x4; 4] = [
     f32x4::new([0.4124564, 0.3575761, 0.1804375, 0.0]),
     f32x4::new([0.2126729, 0.7151522, 0.0721750, 0.0]),
-    f32x4::new([0.0193339, 0.1191920, 0.9503041, 0.0]),
+    f32x4::new([0.0193339, 0.119_192, 0.9503041, 0.0]),
     f32x4::new([0.0, 0.0, 0.0, 1.0]),
 ];
 
@@ -344,9 +343,9 @@ impl ColorSpace for Raw_sRGB<true, false> {
 
     fn oklab(&self) -> OkLab {
         let v = self.as_array();
-        let l = 0.4122214708 * v[0] + 0.5363325363 * v[1] + 0.0514459929 * v[2];
-        let m = 0.2119034982 * v[0] + 0.6806995451 * v[1] + 0.1073969566 * v[2];
-        let s = 0.0883024619 * v[0] + 0.2817188376 * v[1] + 0.6299787005 * v[2];
+        let l = 0.412_221_46 * v[0] + 0.536_332_55 * v[1] + 0.051_445_995 * v[2];
+        let m = 0.211_903_5 * v[0] + 0.680_699_5 * v[1] + 0.107_396_96 * v[2];
+        let s = 0.088_302_46 * v[0] + 0.281_718_85 * v[1] + 0.629_978_7 * v[2];
 
         let l_ = l.powf(1.0 / 3.0);
         let m_ = m.powf(1.0 / 3.0);
@@ -354,9 +353,9 @@ impl ColorSpace for Raw_sRGB<true, false> {
 
         OkLab {
             laba: f32x4::new([
-                0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
-                1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
-                0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_,
+                0.210_454_26 * l_ + 0.793_617_8 * m_ - 0.004_072_047 * s_,
+                1.977_998_5 * l_ - 2.428_592_2 * m_ + 0.450_593_7 * s_,
+                0.025_904_037 * l_ + 0.782_771_77 * m_ - 0.808_675_77 * s_,
                 v[3],
             ]),
         }
@@ -415,9 +414,9 @@ pub type Pre_sRGB = Raw_sRGB<false, true>;
 pub type PreLinear_sRGB = Raw_sRGB<true, true>;
 
 // We only implement this conversion for sRGB because cosmic_text expects sRGB colors.
-impl Into<cosmic_text::Color> for sRGB {
-    fn into(self) -> cosmic_text::Color {
-        let v = self.as_8bit();
+impl From<sRGB> for cosmic_text::Color {
+    fn from(val: sRGB) -> Self {
+        let v = val.as_8bit();
         cosmic_text::Color::rgba(v[0], v[1], v[2], v[3])
     }
 }

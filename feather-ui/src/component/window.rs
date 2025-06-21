@@ -7,12 +7,11 @@ use crate::input::{ModifierKeys, MouseState, RawEvent};
 use crate::layout::root;
 use crate::render::compositor::Compositor;
 use crate::rtree::Node;
-use crate::{
-    AbsDim, FnPersist, SourceID, StateMachineChild, StateManager, graphics, layout, rtree,
-};
+use crate::{AbsDim, SourceID, StateMachineChild, StateManager, graphics, layout, rtree};
 use alloc::sync::Arc;
 use core::f32;
-use eyre::{OptionExt, Result};
+use eyre::OptionExt;
+use eyre::Result;
 use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
@@ -243,10 +242,7 @@ impl StateMachineChild for Window {
 }
 
 impl Window {
-    pub(crate) fn init_custom<
-        AppData: 'static + PartialEq,
-        O: FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>,
-    >(
+    pub(crate) fn init_custom(
         &self,
         manager: &mut StateManager,
         driver: &mut std::sync::Weak<graphics::Driver>,

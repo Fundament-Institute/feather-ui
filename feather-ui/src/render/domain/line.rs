@@ -5,7 +5,7 @@ use crate::color::sRGB;
 use crate::render::compositor;
 use crate::{CrossReferenceDomain, SourceID};
 
-use std::{rc::Rc, u16};
+use std::rc::Rc;
 use ultraviolet::Vec2;
 
 pub struct Instance {
@@ -31,8 +31,8 @@ impl super::Renderable for Instance {
             let start = domain.get_area(&start_id).unwrap_or_default();
             let end = domain.get_area(&end_id).unwrap_or_default();
 
-            let p1: Vec2 = ((start.topleft() + start.bottomright()) * 0.5).into();
-            let p2: Vec2 = ((end.topleft() + end.bottomright()) * 0.5).into();
+            let p1: Vec2 = (start.topleft() + start.bottomright()) * 0.5;
+            let p2: Vec2 = (end.topleft() + end.bottomright()) * 0.5;
             let p = p2 - p1;
 
             *data = compositor::Data {
@@ -42,7 +42,7 @@ impl super::Renderable for Instance {
                 uvdim: [0.0, 0.0].into(),
                 color: color.rgba,
                 rotation: p.y.atan2(p.x),
-                texclip: ((u16::MAX as u32) << 16) | 0,
+                texclip: ((u16::MAX as u32) << 16),
                 ..Default::default()
             };
         });

@@ -163,16 +163,6 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 )
             };
 
-            let long = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
-                gen_id!(),
-                Rc::new(AbsRect::new(45.0, 245.0, 0.0, 0.0).into()),
-                0.0,
-                0.0,
-                Vec4::broadcast(10.0),
-                sRGB::new(0.4, 0.4, 0.4, 1.0),
-                sRGB::transparent(),
-            );
-
             let pixel = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
                 gen_id!(),
                 Rc::new(DRect {
@@ -191,7 +181,6 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 im::Vector::new();
             children.push_back(Some(Box::new(button)));
             children.push_back(Some(Box::new(unusedbutton)));
-            children.push_back(Some(Box::new(long)));
             children.push_back(Some(Box::new(pixel)));
 
             let region = Region {

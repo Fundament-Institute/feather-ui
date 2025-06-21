@@ -122,7 +122,6 @@ where
 }
 
 pub trait Staged: DynClone {
-    #[must_use]
     fn render(
         &self,
         parent_pos: Vec2,
@@ -178,10 +177,8 @@ impl Staged for Concrete {
 
         // TODO: We may need an intermediate immutable data structure of some kind to manage the contiguous
         // vector of data in each pipeline, which cannot itself be persistent.
-        for c in &self.children {
-            if let Some(child) = c {
-                child.render(parent_pos + self.area.topleft(), driver, compositor)?;
-            }
+        for child in (&self.children).into_iter().flatten() {
+            child.render(parent_pos + self.area.topleft(), driver, compositor)?;
         }
 
         Ok(())
