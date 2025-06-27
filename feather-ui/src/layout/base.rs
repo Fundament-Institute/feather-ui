@@ -133,5 +133,5 @@ impl Limits for DRect {}
 impl RLimits for DRect {}
 
 pub trait TextEdit {
-    fn textedit(&self) -> &crate::text::Snapshot;
+    fn textedit(&self) -> &crate::text::EditView;
 }

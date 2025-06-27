@@ -70,7 +70,10 @@ impl<T: leaf::Prop + 'static> crate::StateMachineChild for MouseArea<T> {
     fn id(&self) -> Rc<SourceID> {
         self.id.clone()
     }
-    fn init(&self) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error> {
+    fn init(
+        &self,
+        _: &std::sync::Weak<crate::Driver>,
+    ) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error> {
         let deadzone = self.deadzone;
         let oninput = Box::new(
             crate::wrap_event::<RawEvent, MouseAreaEvent, MouseAreaState>(

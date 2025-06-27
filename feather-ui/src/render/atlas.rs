@@ -9,11 +9,13 @@ use crate::Error;
 
 /// Array of 2D textures, along with an array of guillotine allocators to go along with them. We use an array of mid-size
 /// textures so we don't have to resize the atlas allocator or adjust any UV coordinates that way.
+#[derive_where::derive_where(Debug)]
 pub struct Atlas {
     extent: u32,
     pub extent_buf: wgpu::Buffer,
     pub mvp: wgpu::Buffer, // Matrix for rendering *onto* the texture atlas (the compositor has it's own for rendering to the screen)
     texture: wgpu::Texture,
+    #[derive_where(skip)]
     allocators: Vec<AtlasAllocator>,
     cache: HashMap<Rc<crate::SourceID>, Region>,
     pub view: Rc<wgpu::TextureView>, // Stores a view into the atlas texture. Compositors take a weak reference to this that is invalidated when they need to rebind
@@ -30,15 +32,6 @@ impl Drop for Atlas {
         for (_, mut r) in self.cache.drain() {
             r.id = AllocId::deserialize(u32::MAX);
         }
-    }
-}
-
-impl std::fmt::Debug for Atlas {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Atlas")
-            .field("extent", &self.extent)
-            .field("texture", &self.texture)
-            .finish()
     }
 }
 

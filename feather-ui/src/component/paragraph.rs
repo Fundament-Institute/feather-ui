@@ -15,10 +15,11 @@ use std::rc::Rc;
 #[derive_where(Clone)]
 pub struct Paragraph<T: flex::Prop + 'static> {
     pub id: Rc<SourceID>,
-    pub props: Rc<T>,
-    pub children: im::Vector<Option<Box<ComponentFrom<dyn flex::Prop>>>>,
+    props: Rc<T>,
+    children: im::Vector<Option<Box<ComponentFrom<dyn flex::Prop>>>>,
 }
 
+#[derive(Clone, Copy, Default, PartialEq, PartialOrd)]
 struct MinimalFlexChild {
     grow: f32,
 }
@@ -92,7 +93,7 @@ impl<T: flex::Prop + 'static> Paragraph<T> {
                 color,
                 weight,
                 style,
-                wrap: cosmic_text::Wrap::None,
+                ..Default::default()
             };
             self.children.push_back(Some(Box::new(text)));
         }

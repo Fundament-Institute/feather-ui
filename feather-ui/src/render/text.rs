@@ -4,7 +4,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use cosmic_text::{CacheKey, FontSystem, SwashCache, SwashContent};
+use cosmic_text::{CacheKey, FontSystem};
 use guillotiere::AllocId;
 use guillotiere::Size;
 use ultraviolet::Vec2;
@@ -21,14 +21,63 @@ use crate::graphics::GlyphRegion;
 use crate::render::compositor::Compositor;
 use crate::{AbsRect, render::atlas::Atlas};
 
+use swash::scale::ScaleContext;
+use swash::scale::{Render, Source, StrikeWith};
+use swash::zeno::{Format, Vector};
+
+pub use swash::scale::image::Content;
+pub use swash::scale::image::Image;
+pub use swash::zeno::{Angle, Command, Placement, Transform};
+
 pub struct Instance {
-    pub text_buffer: Rc<RefCell<Option<cosmic_text::Buffer>>>,
+    pub text_buffer: Rc<RefCell<cosmic_text::Buffer>>,
     pub padding: std::cell::Cell<AbsRect>,
 }
 
 impl Instance {
-    fn get_glyph(key: CacheKey, glyphs: &GlyphCache) -> Option<&GlyphRegion> {
+    pub fn get_glyph(key: CacheKey, glyphs: &GlyphCache) -> Option<&GlyphRegion> {
         glyphs.get(&key)
+    }
+
+    pub fn draw_glyph(
+        font_system: &mut FontSystem,
+        context: &mut ScaleContext,
+        cache_key: CacheKey,
+    ) -> Option<Image> {
+        let font = match font_system.get_font(cache_key.font_id) {
+            Some(some) => some,
+            None => {
+                debug_assert!(false, "did not find font {:?}", cache_key.font_id);
+                return None;
+            }
+        };
+
+        // Build the scaler
+        let mut scaler = context
+            .builder(font.as_swash())
+            .size(f32::from_bits(cache_key.font_size_bits))
+            .hint(true)
+            .build();
+
+        // Compute the fractional offset-- you'll likely want to quantize this
+        // in a real renderer
+        let offset = Vector::new(cache_key.x_bin.as_float(), cache_key.y_bin.as_float());
+
+        // Select our source order
+        Render::new(&[
+            // Color outline with the first palette
+            Source::ColorOutline(0),
+            // Color bitmap with best fit selection mode
+            Source::ColorBitmap(StrikeWith::BestFit),
+            // Standard scalable outline
+            Source::Outline,
+        ])
+        // Select a subpixel format
+        .format(Format::Alpha)
+        // Apply the fractional offset
+        .offset(offset)
+        // Render the image
+        .render(&mut scaler, cache_key.glyph_id)
     }
 
     pub fn write_glyph(
@@ -38,14 +87,14 @@ impl Instance {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         atlas: &mut Atlas,
-        cache: &mut SwashCache,
+        cache: &mut ScaleContext,
     ) -> Result<(), Error> {
         if glyphs.get(&key).is_some() {
             // We can't actually return this borrow because of https://github.com/rust-lang/rust/issues/58910
             return Ok(());
         }
 
-        let Some(mut image) = cache.get_image_uncached(font_system, key) else {
+        let Some(mut image) = Self::draw_glyph(font_system, cache, key) else {
             return Err(Error::GlyphRenderFailure);
         };
 
@@ -65,7 +114,7 @@ impl Instance {
 
         if !image.data.is_empty() {
             match image.content {
-                SwashContent::Mask => {
+                Content::Mask => {
                     let mask = image.data;
                     image.data = mask
                         .iter()
@@ -73,7 +122,7 @@ impl Instance {
                         .collect();
                 }
                 // This is in sRGB RGBA format but our texture atlas is in pre-multiplied sRGB BGRA format, so swap it
-                SwashContent::Color => {
+                Content::Color => {
                     for c in image.data.as_mut_slice().chunks_exact_mut(4) {
                         // Pre-multiply color, then extract in BGRA form.
                         c.copy_from_slice(
@@ -84,7 +133,7 @@ impl Instance {
                         );
                     }
                 }
-                SwashContent::SubpixelMask => {
+                Content::SubpixelMask => {
                     // TODO: wide doesn't implement SSE shuffle instructions yet, which could potentially be faster here
                     let len = image.data.len() / 4;
                     let slice = image.data.as_mut_slice();
@@ -146,16 +195,8 @@ impl Instance {
         bounds_min_y: i32,
         bounds_max_x: i32,
         bounds_max_y: i32,
-        key: CacheKey,
-        font_system: &mut FontSystem,
-        glyphs: &mut GlyphCache,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        atlas: &mut Atlas,
-        cache: &mut SwashCache,
+        glyph: &GlyphRegion,
     ) -> Result<Option<super::compositor::Data>, Error> {
-        Self::write_glyph(key, font_system, glyphs, device, queue, atlas, cache)?;
-        let glyph = Self::get_glyph(key, glyphs).ok_or(Error::GlyphCacheFailure)?;
         if glyph.region.uv.area() == 0 {
             return Ok(None);
         }
@@ -234,7 +275,7 @@ impl Instance {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         atlas: &mut Atlas,
-        cache: &mut SwashCache,
+        cache: &mut ScaleContext,
     ) -> Result<(), Error> {
         let bounds_top = bounds.topleft().y as i32;
         let bounds_bottom = bounds.bottomright().y as i32;
@@ -247,7 +288,7 @@ impl Instance {
             let start_y_physical = (pos.y + (run.line_top * scale)) as i32;
             let end_y_physical = start_y_physical + (run.line_height * scale) as i32;
 
-            start_y_physical <= bounds_bottom && bounds_top <= end_y_physical
+            start_y_physical <= bounds_max_y && bounds_top <= end_y_physical
         };
 
         let layout_runs = buffer
@@ -264,6 +305,16 @@ impl Instance {
                     None => color,
                 };
 
+                Self::write_glyph(
+                    physical_glyph.cache_key,
+                    font_system,
+                    glyphs,
+                    device,
+                    queue,
+                    atlas,
+                    cache,
+                )?;
+
                 if let Some(data) = Self::prepare_glyph(
                     physical_glyph.x,
                     physical_glyph.y,
@@ -274,13 +325,8 @@ impl Instance {
                     bounds_min_y,
                     bounds_max_x,
                     bounds_max_y,
-                    physical_glyph.cache_key,
-                    font_system,
-                    glyphs,
-                    device,
-                    queue,
-                    atlas,
-                    cache,
+                    Self::get_glyph(physical_glyph.cache_key, glyphs)
+                        .ok_or(Error::GlyphCacheFailure)?,
                 )? {
                     compositor.append(&data);
                 }
@@ -301,10 +347,7 @@ impl super::Renderable for Instance {
         let padding = self.padding.get();
 
         Self::evaluate(
-            self.text_buffer
-                .borrow()
-                .as_ref()
-                .ok_or(Error::InternalFailure)?,
+            &self.text_buffer.borrow(),
             area.topleft() + padding.topleft(),
             1.0,
             area,

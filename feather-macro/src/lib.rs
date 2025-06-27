@@ -102,7 +102,7 @@ pub fn derive_textedit(input: TokenStream) -> TokenStream {
         input,
         "textedit",
         "feather_ui::layout::base::TextEdit",
-        "feather_ui::text::Snapshot",
+        "feather_ui::text::EditView",
     )
 }
 

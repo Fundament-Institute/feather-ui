@@ -36,7 +36,9 @@ impl super::Renderable for Instance {
             let p = p2 - p1;
 
             *data = compositor::Data::new(
-                p1.as_array().into(),
+                (((p1 + p2) * 0.5) - (Vec2::new(p.mag() * 0.5, 0.0)))
+                    .as_array()
+                    .into(),
                 [p.mag(), 1.0].into(),
                 [0.0, 0.0].into(),
                 [0.0, 0.0].into(),

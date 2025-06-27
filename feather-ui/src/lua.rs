@@ -184,7 +184,7 @@ impl mlua::FromLua for ComponentBag {
 fn create_id(_: &Lua, (id, _): (LuaValue, Option<LuaSourceID>)) -> mlua::Result<LuaSourceID> {
     Ok(crate::SourceID {
         // parent: parent.map(|x| Rc::downgrade(&x)).unwrap_or_default(),
-        parent: None,
+        parent: None.into(),
         id: if let Some(i) = id.as_integer() {
             DataID::Int(i)
         } else if let Some(s) = id.as_string_lossy() {
@@ -240,11 +240,11 @@ fn create_region(
 
     let mut bag = PropBag::new();
     bag.set_area(args.1.into());
-    Ok(Box::new(Region::<PropBag> {
-        id: args.0.into(),
-        props: bag.into(),
+    Ok(Box::new(Region::<PropBag>::new(
+        args.0.into(),
+        bag.into(),
         children,
-    }))
+    )))
 }
 
 fn create_button(
@@ -262,7 +262,7 @@ fn create_button(
 
     let rect = Shape::<crate::DRect, { ShapeKind::RoundRect as u8 }>::new(
         SourceID {
-            parent: Some(id.clone()),
+            parent: Some(id.clone()).into(),
             id: DataID::Named("__internal_rect__"),
         }
         .into(),
@@ -276,7 +276,7 @@ fn create_button(
 
     let text = Text::<crate::DRect> {
         id: SourceID {
-            parent: Some(id.clone()),
+            parent: Some(id.clone()).into(),
             id: DataID::Named("__internal_text__"),
         }
         .into(),

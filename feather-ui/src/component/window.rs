@@ -225,7 +225,10 @@ impl Component<AbsDim> for Window {
 }
 
 impl StateMachineChild for Window {
-    fn init(&self) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error> {
+    fn init(
+        &self,
+        _: &std::sync::Weak<graphics::Driver>,
+    ) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error> {
         Err(crate::Error::UnhandledEvent)
     }
 
@@ -245,7 +248,7 @@ impl Window {
     pub(crate) fn init_custom(
         &self,
         manager: &mut StateManager,
-        driver: &mut std::sync::Weak<graphics::Driver>,
+        driver_ref: &mut std::sync::Weak<graphics::Driver>,
         instance: &wgpu::Instance,
         event_loop: &ActiveEventLoop,
         on_driver: &mut Option<Box<dyn FnOnce(std::sync::Weak<graphics::Driver>) + 'static>>,
@@ -258,7 +261,7 @@ impl Window {
             let surface: wgpu::Surface<'static> = instance.create_surface(window.clone())?;
 
             let driver = futures_lite::future::block_on(crate::graphics::Driver::new(
-                driver, instance, &surface, on_driver,
+                driver_ref, instance, &surface, on_driver,
             ))?;
 
             let size = window.inner_size();
@@ -303,7 +306,7 @@ impl Window {
             );
         }
 
-        manager.init_child(self.child.as_ref())?;
+        manager.init_child(self.child.as_ref(), &driver_ref)?;
         Ok(())
     }
 
@@ -312,11 +315,11 @@ impl Window {
         attributes: WindowAttributes,
         child: Box<dyn ComponentWrap<dyn crate::layout::base::Empty>>,
     ) -> Self {
-        Self {
+        super::set_children(Self {
             id,
             attributes,
             child,
-        }
+        })
     }
 
     fn resize(size: PhysicalSize<u32>, state: &mut WindowState) {
@@ -436,7 +439,6 @@ impl Window {
                             pos: window.last_mouse,
                             all_buttons: window.all_buttons,
                             modifiers: window.modifiers,
-                            driver: driver.clone(),
                         }
                     }
                     WindowEvent::CursorEntered { device_id } => {
@@ -466,7 +468,6 @@ impl Window {
                             pos: window.last_mouse,
                             all_buttons: window.all_buttons,
                             modifiers: window.modifiers,
-                            driver: driver.clone(),
                         }
                     }
                     WindowEvent::CursorLeft { device_id } => {
@@ -475,7 +476,6 @@ impl Window {
                             device_id,
                             all_buttons: window.all_buttons,
                             modifiers: window.modifiers,
-                            driver: driver.clone(),
                         }
                     }
                     WindowEvent::MouseWheel {
@@ -703,7 +703,6 @@ impl Window {
                             device_id,
                             modifiers,
                             all_buttons,
-                            ref driver,
                             ..
                         } => {
                             // We reborrow everything here or rust gets upset
@@ -714,7 +713,6 @@ impl Window {
                                 device_id,
                                 modifiers,
                                 all_buttons,
-                                driver: driver.clone(),
                             };
 
                             // Drain() holds a reference, so we still have to collect these to avoid borrowing manager twice

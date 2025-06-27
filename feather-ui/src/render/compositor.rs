@@ -173,6 +173,7 @@ impl Shared {
 }
 
 type DeferFn = dyn FnOnce(&crate::graphics::Driver, &mut Data);
+type CustomDrawFn = dyn FnMut(&crate::graphics::Driver, &mut wgpu::RenderPass<'_>);
 
 /// Fundamentally, the compositor works on a massive set of pre-allocated vertices that it assembles into quads in the vertex
 /// shader, which then moves them into position and assigns them UV coordinates. Then the pixel shader checks if it must do
@@ -197,6 +198,7 @@ pub struct Compositor {
     regions: Vec<std::ops::Range<u32>>, // Target copy ranges for where to map data to the GPU buffer. Assumes contiguous data vector.
     defer: HashMap<u32, Box<DeferFn>>,
     view: std::rc::Weak<TextureView>,
+    custom: Vec<(u32, Box<CustomDrawFn>)>,
 }
 
 impl Compositor {
@@ -296,6 +298,7 @@ impl Compositor {
             data: Vec::new(),
             defer: HashMap::new(),
             view: Rc::downgrade(&atlas.view),
+            custom: Vec::new(),
         }
     }
 
@@ -346,6 +349,19 @@ impl Compositor {
         let n = self.clipdata.len();
         self.clipdata.push(clip);
         n as u16
+    }
+
+    pub fn append_custom(
+        &mut self,
+        f: impl FnMut(&crate::graphics::Driver, &mut wgpu::RenderPass<'_>) + 'static,
+    ) {
+        let offset = self.regions.last().unwrap().end;
+        if offset == u32::MAX {
+            panic!(
+                "Still processing a compute operation! Finish it by calling set_compute_buffer() first."
+            );
+        }
+        self.custom.push((offset, Box::new(f)));
     }
 
     /// Returns the GPU buffer and the current offset, which allows a compute shader to accumulate commands
@@ -460,9 +476,20 @@ impl Compositor {
             offset += len;
         }
 
+        let mut last_index = 0;
+        for (i, f) in &mut self.custom {
+            if last_index < *i {
+                pass.set_pipeline(&self.pipeline);
+                pass.set_bind_group(0, &self.group, &[0]);
+                pass.draw(last_index..*i, 0..1);
+            }
+            last_index = *i;
+            f(driver, pass);
+        }
+
         pass.set_pipeline(&self.pipeline);
         pass.set_bind_group(0, &self.group, &[0]);
-        pass.draw(0..(self.regions.last().unwrap().end * 6), 0..1);
+        pass.draw(last_index..(self.regions.last().unwrap().end * 6), 0..1);
 
         self.data.clear();
         self.clipdata.clear();
@@ -519,6 +546,28 @@ impl Data {
             color,
             rotation,
             texclip: (((tex & 0x7FFF) as u32) << 16) | clip as u32,
+            ..Default::default()
+        }
+    }
+
+    pub fn new_raw(
+        pos: ultraviolet::Vec2,
+        dim: ultraviolet::Vec2,
+        uv: ultraviolet::Vec2,
+        uvdim: ultraviolet::Vec2,
+        color: u32,
+        rotation: f32,
+        tex: u16,
+        clip: u16,
+    ) -> Self {
+        Self {
+            pos: pos.as_array().into(),
+            dim: dim.as_array().into(),
+            uv: uv.as_array().into(),
+            uvdim: uvdim.as_array().into(),
+            color,
+            rotation,
+            texclip: 0x80000000 | (((tex & 0x7FFF) as u32) << 16) | clip as u32,
             ..Default::default()
         }
     }

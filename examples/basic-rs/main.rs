@@ -183,9 +183,9 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
             children.push_back(Some(Box::new(unusedbutton)));
             children.push_back(Some(Box::new(pixel)));
 
-            let region = Region {
-                id: gen_id!(),
-                props: FixedData {
+            let region = Region::new(
+                gen_id!(),
+                FixedData {
                     area: URect {
                         abs: AbsRect::new(90.0, 90.0, 0.0, 200.0),
                         rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, 0.0),
@@ -196,7 +196,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 }
                 .into(),
                 children,
-            };
+            );
             let window = Window::new(
                 gen_id!(),
                 winit::window::Window::default_attributes()

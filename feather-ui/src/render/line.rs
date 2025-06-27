@@ -20,9 +20,14 @@ impl super::Renderable for Instance {
         _: &crate::graphics::Driver,
         compositor: &mut Compositor,
     ) -> Result<(), crate::Error> {
-        let p = *self.end.borrow() - *self.start.borrow();
+        let p1 = *self.start.borrow();
+        let p2 = *self.end.borrow();
+
+        let p = p2 - p1;
         compositor.append(&Data::new(
-            self.start.borrow().as_array().into(),
+            (((p1 + p2) * 0.5) - (Vec2::new(p.mag() * 0.5, 0.0)))
+                .as_array()
+                .into(),
             [p.mag(), 1.0].into(),
             [0.0, 0.0].into(),
             [0.0, 0.0].into(),

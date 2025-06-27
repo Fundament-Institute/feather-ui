@@ -3,37 +3,53 @@
 
 use super::StateMachine;
 use crate::color::sRGB;
-use crate::graphics::point_to_pixel;
+use crate::editor::Editor;
 use crate::input::{ModifierKeys, MouseButton, MouseState, RawEvent, RawEventKind};
 use crate::layout::{Layout, base, leaf};
-use crate::text::EditObj;
-use crate::{Error, SourceID, WindowStateMachine, layout, render};
-use cosmic_text::Cursor;
+use crate::render::compositor;
+use crate::text::Change;
+use crate::{Error, SourceID, WindowStateMachine, layout};
+use cosmic_text::{Action, Cursor};
 use derive_where::derive_where;
 use enum_variant_type::EnumVariantType;
 use feather_macro::Dispatch;
 use smallvec::SmallVec;
-use std::ops::Range;
+use std::cell::RefCell;
+use std::marker::PhantomData;
 use std::rc::Rc;
-use ultraviolet::Vec2;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use winit::keyboard::{Key, KeyCode, NamedKey, PhysicalKey};
 
 #[derive(Debug, Dispatch, EnumVariantType, Clone, PartialEq, Eq)]
 #[evt(derive(Clone), module = "mouse_area_event")]
 pub enum TextBoxEvent {
-    Edit(SmallVec<[(Range<usize>, String); 1]>), // Returns the range of the new string and what the old string used to be.
-    Cursor(usize, usize),
+    Edit(SmallVec<[Change; 1]>),
 }
 
-#[derive(Clone, Default)]
 struct TextBoxState {
-    last_x_offset: f32, // Last cursor x offset when something other than up or down navigation happened
-    history: Vec<TextBoxEvent>,
+    last_x_offset: Option<f32>, // Last cursor x offset when something other than up or down navigation happened
+    history: Vec<SmallVec<[Change; 1]>>,
     undo_index: usize,
     insert_mode: bool,
-    count: usize,
+    text_count: AtomicUsize,
+    cursor_count: AtomicUsize,
     focused: bool,
-    buffer: Rc<crate::RefCell<Option<cosmic_text::Buffer>>>,
+    editor: Editor,
+}
+
+impl Clone for TextBoxState {
+    fn clone(&self) -> Self {
+        Self {
+            last_x_offset: self.last_x_offset.clone(),
+            history: self.history.clone(),
+            undo_index: self.undo_index.clone(),
+            insert_mode: self.insert_mode.clone(),
+            text_count: self.text_count.load(Ordering::Relaxed).into(),
+            cursor_count: self.cursor_count.load(Ordering::Relaxed).into(),
+            focused: self.focused.clone(),
+            editor: self.editor.clone(),
+        }
+    }
 }
 
 impl PartialEq for TextBoxState {
@@ -42,148 +58,14 @@ impl PartialEq for TextBoxState {
             && self.history == other.history
             && self.undo_index == other.undo_index
             && self.insert_mode == other.insert_mode
-            && self.count == other.count
-            && Rc::ptr_eq(&self.buffer, &other.buffer)
+            && self.text_count.load(Ordering::Relaxed) == other.text_count.load(Ordering::Relaxed)
+            && self.cursor_count.load(Ordering::Relaxed)
+                == other.cursor_count.load(Ordering::Relaxed)
+            && self.editor == other.editor
     }
 }
 
-impl TextBoxState {
-    fn redo(&mut self, textedit: &Rc<EditObj>) -> usize {
-        let mut cur = self.undo_index;
-
-        // Redo the current Edit event (or execute cursor events until we find one) then run all Cursor events after it until the next Edit event
-        for (i, evt) in self.history[cur..].iter_mut().enumerate() {
-            match evt {
-                TextBoxEvent::Edit(multisplice) => {
-                    // Swap the edit event here with the inverse
-                    *multisplice = textedit.edit(multisplice);
-                    cur += i;
-                    break;
-                }
-                TextBoxEvent::Cursor(s, e) => textedit.set_selection((*s, *e)),
-            }
-        }
-
-        for (i, evt) in self.history[cur..].iter().enumerate() {
-            match evt {
-                TextBoxEvent::Edit(_) => {
-                    cur += i;
-                    break;
-                }
-                TextBoxEvent::Cursor(s, e) => textedit.set_selection((*s, *e)),
-            }
-        }
-
-        cur
-    }
-
-    fn undo(&mut self, textedit: &Rc<EditObj>) -> usize {
-        let mut cur = self.undo_index;
-
-        // Undo the current Edit event (or walk backwards until we find one), then run the cursor event immediately preceding it, if any.
-        for (i, evt) in self.history[..cur].iter_mut().enumerate().rev() {
-            cur = i;
-            match evt {
-                TextBoxEvent::Edit(multisplice) => {
-                    // Swap the edit event here with the inverse
-                    *multisplice = textedit.edit(multisplice);
-                    break;
-                }
-                TextBoxEvent::Cursor(s, e) => textedit.set_selection((*s, *e)),
-            }
-        }
-
-        if cur > 0 {
-            if let TextBoxEvent::Cursor(s, e) = &self.history[cur - 1] {
-                textedit.set_selection((*s, *e))
-            }
-        }
-
-        cur
-    }
-
-    fn insert_into(mut self, textedit: &Rc<EditObj>, c: String) -> (Self, Vec<TextBoxEvent>) {
-        let (mut start, mut end) = textedit.get_cursor();
-        if end < start {
-            std::mem::swap(&mut start, &mut end);
-        }
-        let old = textedit.text.borrow()[start..end].to_string();
-        let len = c.len();
-        textedit.edit(&[(start..end, c)]);
-        if start == end {
-            end = start + len;
-        }
-        textedit.set_cursor(end);
-        // TODO: This hack may need to be replaced with an explicit method of saying "assume a change happened"
-        self.count += 1;
-        let evt = self
-            .queue_history(&[
-                TextBoxEvent::Edit([(start..end, old)].into()),
-                TextBoxEvent::Cursor(end, end),
-            ])
-            .to_vec();
-        (self, evt)
-    }
-
-    fn delete_selection(
-        mut self,
-        textedit: &Rc<EditObj>,
-        mut start: usize,
-        mut end: usize,
-    ) -> (Self, Vec<TextBoxEvent>) {
-        if end < start {
-            std::mem::swap(&mut start, &mut end);
-        }
-        let old = textedit.text.borrow()[start..end].to_string();
-        textedit.edit(&[(start..end, String::new())]);
-        textedit.set_cursor(start);
-        self.count += 1;
-        let evt = self
-            .queue_history(&[
-                TextBoxEvent::Edit([(start..start, old)].into()),
-                TextBoxEvent::Cursor(start, start),
-            ])
-            .to_vec();
-
-        (self, evt)
-    }
-
-    fn modify_cursor(
-        mut self,
-        textedit: &Rc<EditObj>,
-        cursor: usize,
-        modifiers: u8,
-    ) -> (Self, Vec<TextBoxEvent>) {
-        let evt = if (modifiers & ModifierKeys::Shift as u8) != 0 {
-            let (start, _) = textedit.get_cursor();
-            textedit.set_selection((start, cursor));
-            TextBoxEvent::Cursor(start, cursor)
-        } else {
-            textedit.set_cursor(cursor);
-            TextBoxEvent::Cursor(cursor, cursor)
-        };
-        self.append_history(evt.clone());
-        (self, vec![evt])
-    }
-
-    fn queue_history<'a>(&mut self, evt: &'a [TextBoxEvent]) -> &'a [TextBoxEvent] {
-        for e in evt {
-            self.append_history(e.clone());
-        }
-        evt
-    }
-
-    fn append_history(&mut self, evt: TextBoxEvent) {
-        self.history.truncate(self.undo_index);
-        self.history.push(evt);
-        self.undo_index += 1;
-        assert_eq!(
-            self.undo_index,
-            self.history.len(),
-            "position out of sync???"
-        );
-    }
-}
+impl TextBoxState {}
 pub trait Prop: leaf::Padded + base::TextEdit {}
 
 #[derive_where(Clone)]
@@ -198,6 +80,37 @@ pub struct TextBox<T: Prop + 'static> {
     pub style: cosmic_text::Style,
     pub wrap: cosmic_text::Wrap,
     pub slots: [Option<crate::Slot>; 3], // TODO: TextBoxEvent::SIZE
+}
+
+impl TextBoxState {
+    fn redo(&mut self, font_system: &mut cosmic_text::FontSystem) -> usize {
+        // Redo the current Edit event (or execute cursor events until we find one) then run all Cursor events after it until the next Edit event
+        if self.undo_index < self.history.len() {
+            self.history[self.undo_index] = self
+                .editor
+                .apply_change(font_system, &self.history[self.undo_index]);
+            self.undo_index + 1
+        } else {
+            self.undo_index
+        }
+    }
+
+    fn undo(&mut self, font_system: &mut cosmic_text::FontSystem) -> usize {
+        if self.undo_index > 0 {
+            self.history[self.undo_index - 1] = self
+                .editor
+                .apply_change(font_system, &self.history[self.undo_index - 1]);
+            self.undo_index - 1
+        } else {
+            self.undo_index
+        }
+    }
+
+    fn append(&mut self, change: SmallVec<[Change; 1]>) {
+        self.history.truncate(self.undo_index);
+        self.undo_index += 1;
+        self.history.push(change);
+    }
 }
 
 impl<T: Prop + 'static> TextBox<T> {
@@ -264,8 +177,12 @@ impl<T: Prop + 'static> crate::StateMachineChild for TextBox<T> {
         self.id.clone()
     }
 
-    fn init(&self) -> Result<Box<dyn super::StateMachineWrapper>, Error> {
+    fn init(
+        &self,
+        driver: &std::sync::Weak<crate::Driver>,
+    ) -> Result<Box<dyn super::StateMachineWrapper>, Error> {
         let props = self.props.clone();
+        let driver = driver.clone();
         let oninput = Box::new(crate::wrap_event::<RawEvent, TextBoxEvent, TextBoxState>(
             move |e, area, dpi, mut data| {
                 let obj = &props.textedit().obj;
@@ -285,197 +202,313 @@ impl<T: Prop + 'static> crate::StateMachineChild for TextBox<T> {
                         ..
                     } => match logical_key {
                         Key::Named(named_key) => {
-                            match named_key {
-                                NamedKey::Enter | NamedKey::Tab | NamedKey::Space => {
-                                    if down {
-                                        let key = match named_key {
-                                            NamedKey::Enter => "\n",
-                                            NamedKey::Tab => "\t",
-                                            NamedKey::Space => " ",
-                                            _ => "",
-                                        };
-                                        return Ok(data.insert_into(obj, key.to_string()));
-                                    }
-                                }
-                                NamedKey::ArrowDown => todo!(),
-                                NamedKey::ArrowUp => todo!(),
-                                NamedKey::ArrowLeft | NamedKey::ArrowRight => {
-                                    if down {
-                                        let (start, end) = obj.get_cursor();
-                                        let cursor = if named_key == NamedKey::ArrowLeft {
-                                            obj.prev_grapheme(end)
-                                        } else {
-                                            obj.next_grapheme(end)
-                                        };
-                                        data.count += 1;
-                                        if (modifiers & ModifierKeys::Shift as u8) != 0 {
-                                            return Ok(data.modify_cursor(obj, cursor, modifiers));
-                                        } else {
-                                            // If there's a selection, this goes to the start or end of the selection
-                                            return Ok(match (named_key, start == end) {
-                                                (NamedKey::ArrowLeft, true)
-                                                | (NamedKey::ArrowRight, true) => {
-                                                    data.modify_cursor(obj, cursor, 0)
-                                                }
-                                                (NamedKey::ArrowLeft, false) => {
-                                                    data.modify_cursor(obj, start.min(end), 0)
-                                                }
-                                                (NamedKey::ArrowRight, false) => {
-                                                    data.modify_cursor(obj, start.max(end), 0)
-                                                }
-                                                _ => (data, vec![]),
-                                            });
-                                        }
-                                    }
-                                }
-                                NamedKey::End | NamedKey::Home => {
-                                    if down {
-                                        // Home and end operations are always relative to the end of the selection, wherever that is.
-                                        let (_, end) = obj.get_cursor();
-                                        let txt: &str = &obj.text.borrow();
-                                        data.count += 1;
-
-                                        return Ok(data.modify_cursor(
-                                            obj,
-                                            match (
-                                                named_key == NamedKey::End,
-                                                (modifiers & ModifierKeys::Control as u8) != 0,
-                                            ) {
-                                                (true, false) => {
-                                                    txt[end..].find('\n').unwrap_or(txt.len())
-                                                }
-                                                (true, true) => txt.len(),
-                                                (false, false) => {
-                                                    txt[..end].rfind('\n').unwrap_or(0)
-                                                }
-                                                (false, true) => 0,
+                            if down {
+                                if let Some(driver) = driver.upgrade() {
+                                    let change = match named_key {
+                                        NamedKey::Enter => data
+                                            .editor
+                                            .action(&mut driver.font_system.write(), Action::Enter),
+                                        NamedKey::Tab => data.editor.action(
+                                            &mut driver.font_system.write(),
+                                            if (modifiers & ModifierKeys::Shift as u8) != 0 {
+                                                Action::Unindent
+                                            } else {
+                                                Action::Indent
                                             },
-                                            modifiers,
-                                        ));
-                                    }
-                                }
-                                NamedKey::Select => {
-                                    // Represents a Select All operation
-                                    if down {
-                                        obj.set_selection((0, obj.text.borrow().len()));
-                                        data.count += 1;
-                                    }
-                                }
-                                NamedKey::PageDown => todo!(),
-                                NamedKey::PageUp => todo!(),
-                                NamedKey::Backspace | NamedKey::Delete | NamedKey::Clear => {
-                                    if down {
-                                        let (start, mut end) = obj.get_cursor();
-                                        match (named_key, start == end) {
-                                            (NamedKey::Backspace, true) => {
-                                                end = obj.prev_grapheme(end)
-                                            }
-                                            (NamedKey::Delete, true) => {
-                                                end = obj.next_grapheme(end)
-                                            }
-                                            _ => (), // Clear does nothing if there is no selection
-                                        }
-                                        if start != end {
-                                            return Ok(data.delete_selection(obj, start, end));
-                                        }
-                                    }
-                                }
-                                NamedKey::EraseEof => {
-                                    if down {
-                                        let (start, end) = obj.get_cursor();
-                                        return Ok(data.delete_selection(
-                                            obj,
-                                            start.min(end),
-                                            obj.text.borrow().len(),
-                                        ));
-                                    }
-                                }
-                                NamedKey::Insert => {
-                                    if down {
-                                        data.insert_mode = !data.insert_mode;
-                                    }
-                                }
-                                NamedKey::Cut | NamedKey::Copy => {
-                                    if down && (modifiers & ModifierKeys::Held as u8 == 0) {
-                                        let (mut start, mut end) = obj.get_cursor();
-                                        if start != end {
-                                            if end < start {
-                                                std::mem::swap(&mut start, &mut end);
-                                            }
-                                            if let Ok(mut clipboard) = arboard::Clipboard::new() {
-                                                if clipboard
-                                                    .set_text(&obj.text.borrow()[start..end])
-                                                    .is_ok()
-                                                    && named_key == NamedKey::Cut
+                                        ),
+                                        NamedKey::Space => data.editor.action(
+                                            &mut driver.font_system.write(),
+                                            Action::Insert(' '),
+                                        ),
+                                        NamedKey::ArrowLeft
+                                        | NamedKey::ArrowRight
+                                        | NamedKey::ArrowDown
+                                        | NamedKey::ArrowUp
+                                        | NamedKey::End
+                                        | NamedKey::Home
+                                        | NamedKey::PageDown
+                                        | NamedKey::PageUp => {
+                                            let ctrl =
+                                                (modifiers & ModifierKeys::Control as u8) != 0;
+                                            let shift =
+                                                (modifiers & ModifierKeys::Shift as u8) != 0;
+                                            let font_system = &mut driver.font_system.write();
+                                            if !shift {
+                                                if let Some((start, end)) =
+                                                    data.editor.selection_bounds()
                                                 {
-                                                    // Only delete the text for a cut command if the operation succeeds
-                                                    return Ok(
-                                                        data.delete_selection(obj, start, end)
-                                                    );
+                                                    if named_key == NamedKey::ArrowLeft {
+                                                        data.editor.set_cursor(start);
+                                                    } else if named_key == NamedKey::ArrowRight {
+                                                        data.editor.set_cursor(end);
+                                                    }
+                                                }
+                                                data.editor.action(font_system, Action::Escape);
+                                            } else if data.editor.selection()
+                                                == cosmic_text::Selection::None
+                                            {
+                                                // if a selection doesn't exist, make one.
+                                                data.editor.set_selection(
+                                                    cosmic_text::Selection::Normal(
+                                                        data.editor.cursor(),
+                                                    ),
+                                                );
+                                            }
+                                            match (named_key, ctrl) {
+                                                (NamedKey::ArrowUp, true) => data.editor.action(
+                                                    font_system,
+                                                    Action::Scroll { lines: -1 },
+                                                ),
+                                                (NamedKey::ArrowDown, true) => data.editor.action(
+                                                    font_system,
+                                                    Action::Scroll { lines: 1 },
+                                                ),
+                                                _ => data.editor.action(
+                                                    font_system,
+                                                    Action::Motion(match (named_key, ctrl) {
+                                                        (NamedKey::ArrowLeft, false) => {
+                                                            cosmic_text::Motion::Previous
+                                                        }
+                                                        (NamedKey::ArrowRight, false) => {
+                                                            cosmic_text::Motion::Next
+                                                        }
+                                                        (NamedKey::ArrowUp, false) => {
+                                                            cosmic_text::Motion::Up
+                                                        }
+                                                        (NamedKey::ArrowDown, false) => {
+                                                            cosmic_text::Motion::Down
+                                                        }
+                                                        (NamedKey::Home, false) => {
+                                                            cosmic_text::Motion::Home
+                                                        }
+                                                        (NamedKey::End, false) => {
+                                                            cosmic_text::Motion::End
+                                                        }
+                                                        (NamedKey::PageUp, false) => {
+                                                            cosmic_text::Motion::PageUp
+                                                        }
+                                                        (NamedKey::PageDown, false) => {
+                                                            cosmic_text::Motion::PageDown
+                                                        }
+                                                        (NamedKey::ArrowLeft, true) => {
+                                                            cosmic_text::Motion::PreviousWord
+                                                        }
+                                                        (NamedKey::ArrowRight, true) => {
+                                                            cosmic_text::Motion::NextWord
+                                                        }
+                                                        (NamedKey::Home, true) => {
+                                                            cosmic_text::Motion::BufferStart
+                                                        }
+                                                        (NamedKey::End, true) => {
+                                                            cosmic_text::Motion::BufferEnd
+                                                        }
+                                                        _ => return Ok((data, vec![])),
+                                                    }),
+                                                ),
+                                            }
+                                        }
+                                        NamedKey::Select => {
+                                            // Represents a Select All operation
+                                            data.editor.set_selection(
+                                                cosmic_text::Selection::Normal(Cursor {
+                                                    line: 0,
+                                                    index: 0,
+                                                    affinity: cosmic_text::Affinity::Before,
+                                                }),
+                                            );
+                                            data.editor.action(
+                                                &mut driver.font_system.write(),
+                                                Action::Motion(cosmic_text::Motion::BufferEnd),
+                                            );
+                                            SmallVec::new()
+                                        }
+                                        NamedKey::Backspace => data.editor.action(
+                                            &mut driver.font_system.write(),
+                                            Action::Backspace,
+                                        ),
+                                        NamedKey::Delete => data.editor.action(
+                                            &mut driver.font_system.write(),
+                                            Action::Delete,
+                                        ),
+                                        NamedKey::Clear => {
+                                            let change = data
+                                                .editor
+                                                .delete_selection(&mut driver.font_system.write())
+                                                .map(|x| SmallVec::from_elem(x, 1))
+                                                .unwrap_or_default();
+                                            data.editor.shape_as_needed(
+                                                &mut driver.font_system.write(),
+                                                false,
+                                            );
+                                            change
+                                        }
+                                        NamedKey::EraseEof => {
+                                            data.editor.set_selection(
+                                                cosmic_text::Selection::Normal(
+                                                    data.editor.cursor(),
+                                                ),
+                                            );
+                                            data.editor.action(
+                                                &mut driver.font_system.write(),
+                                                Action::Motion(cosmic_text::Motion::BufferEnd),
+                                            );
+                                            let change = data
+                                                .editor
+                                                .delete_selection(&mut driver.font_system.write())
+                                                .map(|x| SmallVec::from_elem(x, 1))
+                                                .unwrap_or_default();
+                                            data.editor.shape_as_needed(
+                                                &mut driver.font_system.write(),
+                                                false,
+                                            );
+                                            change
+                                        }
+                                        NamedKey::Insert => {
+                                            data.insert_mode = !data.insert_mode;
+                                            SmallVec::new()
+                                        }
+                                        NamedKey::Cut | NamedKey::Copy => {
+                                            if modifiers & ModifierKeys::Held as u8 == 0 {
+                                                if let Some(s) = data.editor.copy_selection() {
+                                                    if let Ok(mut clipboard) =
+                                                        arboard::Clipboard::new()
+                                                    {
+                                                        if clipboard.set_text(&s).is_ok()
+                                                            && named_key == NamedKey::Cut
+                                                        {
+                                                            // Only delete the text for a cut command if the operation succeeds
+                                                            if let Some(c) =
+                                                                data.editor.delete_selection(
+                                                                    &mut driver.font_system.write(),
+                                                                )
+                                                            {
+                                                                data.editor.shape_as_needed(
+                                                                    &mut driver.font_system.write(),
+                                                                    false,
+                                                                );
+                                                                data.append(SmallVec::from_elem(
+                                                                    c, 1,
+                                                                ))
+                                                            }
+                                                        }
+                                                    }
                                                 }
                                             }
+                                            SmallVec::new()
                                         }
-                                    }
-                                }
-                                NamedKey::Paste => {
-                                    if down {
-                                        if let Ok(mut clipboard) = arboard::Clipboard::new() {
-                                            if let Ok(s) = clipboard.get_text() {
-                                                return Ok(data.insert_into(obj, s));
+                                        NamedKey::Paste => {
+                                            if let Ok(mut clipboard) = arboard::Clipboard::new() {
+                                                if let Ok(s) = clipboard.get_text() {
+                                                    let c = data.editor.insert_string(
+                                                        &mut driver.font_system.write(),
+                                                        &s,
+                                                        None,
+                                                    );
+                                                    data.editor.shape_as_needed(
+                                                        &mut driver.font_system.write(),
+                                                        false,
+                                                    );
+                                                    data.append(SmallVec::from_elem(c, 1))
+                                                }
                                             }
+                                            SmallVec::new()
                                         }
-                                    }
+                                        NamedKey::Redo => {
+                                            if data.undo_index > 0 {
+                                                data.undo_index =
+                                                    data.redo(&mut driver.font_system.write())
+                                            }
+                                            SmallVec::new()
+                                        }
+                                        NamedKey::Undo => {
+                                            if data.undo_index > 0 {
+                                                data.undo_index =
+                                                    data.undo(&mut driver.font_system.write())
+                                            }
+                                            SmallVec::new()
+                                        }
+                                        // Do not capture key events we don't recognize
+                                        _ => return Err((data, vec![])),
+                                    };
+
+                                    data.append(change);
+                                    obj.set_selection(
+                                        obj.from_cursor(data.editor.selection_or_cursor()),
+                                        obj.from_cursor(data.editor.cursor()),
+                                    );
+                                    return Ok((data, vec![]));
                                 }
-                                NamedKey::Redo => {
-                                    if down && data.undo_index > 0 {
-                                        data.undo_index = data.redo(obj)
-                                    }
-                                }
-                                NamedKey::Undo => {
-                                    if down && data.undo_index > 0 {
-                                        data.undo_index = data.undo(obj)
-                                    }
-                                }
-                                // Do not capture key events we don't recognize
-                                _ => return Err((data, vec![])),
                             }
                             // Always capture the key event if we recognize it even if we don't do anything with it
                             return Ok((data, vec![]));
                         }
                         Key::Character(c) => {
                             if down {
-                                return Ok(data.insert_into(obj, c.to_string()));
+                                if let Some(driver) = driver.upgrade() {
+                                    let c = data.editor.insert_string(
+                                        &mut driver.font_system.write(),
+                                        &c,
+                                        None,
+                                    );
+                                    data.append(SmallVec::from_elem(c, 1));
+
+                                    data.editor
+                                        .shape_as_needed(&mut driver.font_system.write(), false);
+                                    obj.set_selection(
+                                        obj.from_cursor(data.editor.selection_or_cursor()),
+                                        obj.from_cursor(data.editor.cursor()),
+                                    );
+                                }
+                                return Ok((data, vec![]));
                             }
                         }
                         _ => (),
                     },
-                    RawEvent::MouseMove { driver, .. } => {
+                    RawEvent::MouseMove {
+                        pos, all_buttons, ..
+                    } => {
                         if let Some(d) = driver.upgrade() {
                             *d.cursor.write() = winit::window::CursorIcon::Text;
+                            let p = area.topleft() + props.padding().resolve(dpi).topleft();
+
+                            if (all_buttons & MouseButton::Left as u16) != 0 {
+                                data.editor.action(
+                                    &mut d.font_system.write(),
+                                    Action::Drag {
+                                        x: (pos.x - p.x).round() as i32,
+                                        y: (pos.y - p.y).round() as i32,
+                                    },
+                                );
+                            }
                         }
+                        obj.set_selection(
+                            obj.from_cursor(data.editor.selection_or_cursor()),
+                            obj.from_cursor(data.editor.cursor()),
+                        );
                         return Ok((data, vec![]));
                     }
                     RawEvent::Mouse {
-                        pos,
-                        state,
-                        button,
-                        modifiers,
-                        ..
+                        pos, state, button, ..
                     } => {
-                        // TODO: Put in selection instead of just clicks
-                        if state == MouseState::Down && button == MouseButton::Left {
-                            let index = if let Some(buffer) = data.buffer.borrow().as_ref() {
-                                let p = area.topleft() + props.padding().resolve(dpi).topleft();
-                                let cursor =
-                                    buffer.hit(pos.x - p.x, pos.y - p.y).unwrap_or_default();
-                                buffer.lines[..cursor.line]
-                                    .iter()
-                                    .fold(cursor.index, |count, line| count + line.text().len())
-                            } else {
-                                return Ok((data, vec![]));
+                        if let Some(d) = driver.upgrade() {
+                            let p = area.topleft() + props.padding().resolve(dpi).topleft();
+                            let action = match (state, button) {
+                                (MouseState::Down, MouseButton::Left) => Action::Click {
+                                    x: (pos.x - p.x).round() as i32,
+                                    y: (pos.y - p.y).round() as i32,
+                                },
+                                (MouseState::DblClick, MouseButton::Left) => Action::DoubleClick {
+                                    x: (pos.x - p.x).round() as i32,
+                                    y: (pos.y - p.y).round() as i32,
+                                },
+                                _ => return Ok((data, vec![])),
                             };
-                            return Ok(data.modify_cursor(obj, index, modifiers));
+                            data.editor.action(&mut d.font_system.write(), action);
                         }
+                        obj.set_selection(
+                            obj.from_cursor(data.editor.selection_or_cursor()),
+                            obj.from_cursor(data.editor.cursor()),
+                        );
                         return Ok((data, vec![]));
                     }
                     _ => (),
@@ -485,7 +518,16 @@ impl<T: Prop + 'static> crate::StateMachineChild for TextBox<T> {
         ));
 
         let statemachine = StateMachine {
-            state: Some(Default::default()),
+            state: Some(TextBoxState {
+                editor: Editor::new(self.props.textedit().obj.buffer.clone()),
+                last_x_offset: Default::default(),
+                history: Default::default(),
+                undo_index: Default::default(),
+                insert_mode: Default::default(),
+                text_count: Default::default(),
+                cursor_count: Default::default(),
+                focused: Default::default(),
+            }),
             input: [(
                 RawEventKind::Focus as u64
                     | RawEventKind::Mouse as u64
@@ -516,116 +558,238 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
         let textstate: &StateMachine<TextBoxEvent, TextBoxState, 1, 3> =
             state.get(&self.id).unwrap();
         let textstate = textstate.state.as_ref().unwrap();
-
-        if textstate.buffer.borrow().is_none() {
-            *textstate.buffer.borrow_mut() = Some(cosmic_text::Buffer::new(
-                &mut font_system,
-                cosmic_text::Metrics::new(
-                    point_to_pixel(self.font_size, dpi.x),
-                    point_to_pixel(self.line_height, dpi.x),
-                ),
-            ));
-        }
-        let mut text_binding = textstate.buffer.borrow_mut();
-        let text_buffer = text_binding.as_mut().unwrap();
-
-        text_buffer.set_metrics(
-            &mut font_system,
-            cosmic_text::Metrics::new(
-                point_to_pixel(self.font_size, dpi.x),
-                point_to_pixel(self.line_height, dpi.x),
-            ),
-        );
-        text_buffer.set_wrap(&mut font_system, self.wrap);
-        text_buffer.set_text(
-            &mut font_system,
-            &self.props.textedit().obj.text.borrow(),
-            &cosmic_text::Attrs::new()
+        if self.props.textedit().obj.reflow.load(Ordering::Acquire) {
+            let attrs = cosmic_text::Attrs::new()
                 .family(self.font.as_family())
                 .color(self.color.into())
                 .weight(self.weight)
-                .style(self.style),
-            cosmic_text::Shaping::Advanced,
-        );
+                .style(self.style);
+            self.props.textedit().obj.flowtext(
+                &mut font_system,
+                self.font_size,
+                self.line_height,
+                self.wrap,
+                dpi,
+                attrs,
+            );
+        }
 
-        let textrender = Rc::new(render::text::Instance {
-            text_buffer: textstate.buffer.clone(),
+        let instance = Instance {
+            text_buffer: textstate.editor.buffer_ref.clone(),
             padding: self.props.padding().resolve(dpi).into(),
-        });
-
-        let color = if textstate.focused {
-            self.color
-        } else {
-            sRGB::transparent()
+            selection: textstate.editor.selection_bounds(),
+            color: self.color,
+            cursor_color: if textstate.focused {
+                self.color
+            } else {
+                sRGB::transparent()
+            },
+            cursor: textstate.editor.cursor(),
+            selection_bg: sRGB::new(0.2, 0.2, 0.5, 1.0),
+            selection_color: self.color,
+            scale: 1.0,
         };
 
-        let line = render::line::Instance {
-            start: Vec2::zero().into(),
-            end: Vec2::zero().into(),
-            color,
-        };
-
-        let pipeline = Pipeline {
-            text: textrender.clone(),
-            line: line.into(),
-            cursor: self.props.textedit().obj.get_cursor().1,
-        };
-
-        Box::new(layout::text::Node::<T> {
+        Box::new(layout::Node::<T, dyn leaf::Prop> {
             props: self.props.clone(),
             id: Rc::downgrade(&self.id),
-            text_render: textrender.clone(),
-            renderable: Rc::new(pipeline),
+            renderable: Some(Rc::new(instance)),
+            children: PhantomData,
         })
     }
 }
 
 crate::gen_component_wrap!(TextBox, Prop);
 
-pub struct Pipeline {
-    pub text: Rc<render::text::Instance>,
-    pub line: Rc<render::line::Instance>,
-    pub cursor: usize,
+pub struct Instance {
+    pub text_buffer: Rc<RefCell<cosmic_text::Buffer>>,
+    pub padding: crate::AbsRect,
+    pub cursor: Cursor,
+    pub selection: Option<(Cursor, Cursor)>,
+    pub selection_bg: sRGB,
+    pub selection_color: sRGB,
+    pub color: sRGB,
+    pub cursor_color: sRGB,
+    pub scale: f32,
 }
 
-impl crate::render::Renderable for Pipeline {
+use unicode_segmentation::UnicodeSegmentation;
+
+impl Instance {
+    fn draw_box(x: f32, y: f32, w: f32, h: f32, color: sRGB) -> compositor::Data {
+        // When we are drawing boxes that need to line up with each other, this is a worst-case scenario for
+        // the compositor's antialiasing. The only way to antialias arbitrary selection boxes correctly is
+        // to use a texture cache or a custom shader. Instead of doing that, we just pixel-snap everything.
+        compositor::Data {
+            pos: [x.round(), y.round()].into(),
+            dim: [w.round(), h.round()].into(),
+            uv: [0.0, 0.0].into(),
+            uvdim: [0.0, 0.0].into(),
+            color: color.as_32bit().rgba,
+            texclip: 0x8000000 | 0x7FFF0000,
+            ..Default::default()
+        }
+    }
+}
+impl crate::render::Renderable for Instance {
     fn render(
         &self,
         area: crate::AbsRect,
         driver: &crate::graphics::Driver,
         compositor: &mut crate::render::compositor::Compositor,
     ) -> Result<(), Error> {
-        let mut offset = self.cursor;
-        let buffer = self.text.text_buffer.borrow();
-        let mut pos = self.text.padding.get().topleft();
-        let mut cursor_height = 0.0;
-        for line in buffer.as_ref().ok_or(Error::InternalFailure)?.layout_runs() {
-            let len = line.text.len()
-                + buffer.as_ref().ok_or(Error::InternalFailure)?.lines[line.line_i]
-                    .ending()
-                    .as_str()
-                    .len();
-            if len < offset {
-                offset -= len;
-                pos.y += line.line_height;
-            } else {
-                pos.x += line
-                    .highlight(
-                        Cursor::new(line.line_i, offset),
-                        Cursor::new(line.line_i, offset),
+        let buffer = self.text_buffer.borrow();
+        let pos = area.topleft() + self.padding.topleft();
+
+        let bounds_top = area.topleft().y as i32;
+        let bounds_bottom = area.bottomright().y as i32;
+        let bounds_min_x = (area.topleft().x as i32).max(0);
+        let bounds_min_y = bounds_top.max(0);
+        let bounds_max_x = area.bottomright().x as i32;
+        let bounds_max_y = bounds_bottom;
+        let color = cosmic_text::Color(self.color.as_32bit().rgba);
+        let selection_color = cosmic_text::Color(self.selection_color.as_32bit().rgba);
+
+        let is_run_visible = |run: &cosmic_text::LayoutRun| {
+            let start_y_physical = (pos.y + (run.line_top * self.scale)) as i32;
+            let end_y_physical = start_y_physical + (run.line_height * self.scale) as i32;
+
+            start_y_physical <= bounds_bottom && bounds_top <= end_y_physical
+        };
+
+        for run in buffer
+            .layout_runs()
+            .skip_while(|run| !is_run_visible(run))
+            .take_while(is_run_visible)
+        {
+            let line_i = run.line_i;
+            let line_top = run.line_top;
+            let line_height = run.line_height;
+
+            // Highlight selection
+            if let Some((start, end)) = &self.selection {
+                if line_i >= start.line && line_i <= end.line {
+                    let mut range_opt = None;
+                    for glyph in run.glyphs.iter() {
+                        // Guess x offset based on characters
+                        let cluster = &run.text[glyph.start..glyph.end];
+                        let total = cluster.grapheme_indices(true).count();
+                        let mut c_x = glyph.x;
+                        let c_w = glyph.w / total as f32;
+                        for (i, c) in cluster.grapheme_indices(true) {
+                            let c_start = glyph.start + i;
+                            let c_end = glyph.start + i + c.len();
+                            if (start.line != line_i || c_end > start.index)
+                                && (end.line != line_i || c_start < end.index)
+                            {
+                                range_opt = match range_opt.take() {
+                                    Some((min, max)) => Some((
+                                        std::cmp::min(min, c_x as i32),
+                                        std::cmp::max(max, (c_x + c_w) as i32),
+                                    )),
+                                    None => Some((c_x as i32, (c_x + c_w) as i32)),
+                                };
+                            } else if let Some((min, max)) = range_opt.take() {
+                                compositor.append(&Self::draw_box(
+                                    min as f32 + pos.x,
+                                    line_top + pos.y,
+                                    std::cmp::max(0, max - min) as f32,
+                                    line_height,
+                                    self.selection_bg,
+                                ));
+                            }
+                            c_x += c_w;
+                        }
+                    }
+
+                    if run.glyphs.is_empty() && end.line > line_i {
+                        // Highlight all of internal empty lines
+                        range_opt = Some((0, buffer.size().0.unwrap_or(0.0) as i32));
+                    }
+
+                    if let Some((mut min, mut max)) = range_opt.take() {
+                        if end.line > line_i {
+                            // Draw to end of line
+                            if run.rtl {
+                                min = 0;
+                            } else if let (Some(w), _) = buffer.size() {
+                                max = w.round() as i32;
+                            } else if max == 0 {
+                                max = (buffer.metrics().font_size * 0.5) as i32;
+                            }
+                        }
+                        compositor.append(&Self::draw_box(
+                            min as f32 + pos.x,
+                            line_top + pos.y,
+                            std::cmp::max(0, max - min) as f32,
+                            line_height,
+                            self.selection_bg,
+                        ));
+                    }
+                }
+            }
+
+            // Draw text
+            for glyph in run.glyphs.iter() {
+                let physical_glyph = glyph.physical((pos.x, pos.y), self.scale);
+
+                let mut color = match glyph.color_opt {
+                    Some(some) => some,
+                    None => color,
+                };
+
+                if let Some((start, end)) = self.selection {
+                    if line_i >= start.line
+                        && line_i <= end.line
+                        && (start.line != line_i || glyph.end > start.index)
+                        && (end.line != line_i || glyph.start < end.index)
+                    {
+                        color = selection_color;
+                    }
+                }
+
+                crate::render::text::Instance::write_glyph(
+                    physical_glyph.cache_key,
+                    &mut driver.font_system.write(),
+                    &mut driver.glyphs.write(),
+                    &driver.device,
+                    &driver.queue,
+                    &mut driver.atlas.write(),
+                    &mut driver.swash_cache.write(),
+                )?;
+
+                if let Some(data) = crate::render::text::Instance::prepare_glyph(
+                    physical_glyph.x,
+                    physical_glyph.y,
+                    run.line_y,
+                    self.scale,
+                    color,
+                    bounds_min_x,
+                    bounds_min_y,
+                    bounds_max_x,
+                    bounds_max_y,
+                    crate::render::text::Instance::get_glyph(
+                        physical_glyph.cache_key,
+                        &driver.glyphs.read(),
                     )
-                    .map(|(x, _)| x)
-                    .unwrap_or(0.0);
-                //line.line_top
-                cursor_height = line.line_height;
-                break;
+                    .ok_or(Error::GlyphCacheFailure)?,
+                )? {
+                    compositor.append(&data);
+                }
+            }
+
+            // Draw cursor
+            if let Some((x, y)) = crate::editor::cursor_position(&self.cursor, &run) {
+                compositor.append(&Self::draw_box(
+                    x as f32 + pos.x,
+                    y as f32 + pos.y,
+                    1.0,
+                    line_height,
+                    self.cursor_color,
+                ));
             }
         }
 
-        // TODO: current line pipeline ignores area
-        *self.line.start.borrow_mut() = Vec2::new(pos.x, pos.y) + area.topleft();
-        *self.line.end.borrow_mut() = Vec2::new(pos.x, pos.y + cursor_height) + area.topleft();
-        self.text.render(area, driver, compositor)?;
-        self.line.render(area, driver, compositor)
+        Ok(())
     }
 }

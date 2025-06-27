@@ -55,8 +55,7 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
             )
         };
 
-        let mut text_binding = self.text_render.text_buffer.borrow_mut();
-        let text_buffer = text_binding.as_mut().unwrap();
+        let mut text_buffer = self.text_render.text_buffer.borrow_mut();
         let driver = window.driver.clone();
         let dim = evaluated_area.dim();
         {

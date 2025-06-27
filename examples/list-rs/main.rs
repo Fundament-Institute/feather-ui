@@ -209,9 +209,9 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     ))));
                 }
 
-                ListBox::<ListData> {
-                    id: gen_id!(),
-                    props: ListData {
+                ListBox::<ListData>::new(
+                    gen_id!(),
+                    ListData {
                         area: feather_ui::URect {
                             abs: AbsRect::new(0.0, 200.0, 0.0, 0.0),
                             rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, 1.0),
@@ -225,7 +225,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     }
                     .into(),
                     children,
-                }
+                )
             };
 
             let flexlist = {
@@ -264,16 +264,16 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     ))));
                 }
 
-                FlexBox::<MinimalFlex> {
-                    id: gen_id!(),
-                    props: MinimalFlex {
+                FlexBox::<MinimalFlex>::new(
+                    gen_id!(),
+                    MinimalFlex {
                         area: (AbsRect::new(40.0, 40.0, 0.0, 200.0)
                             + RelRect::new(0.0, 0.0, 1.0, 0.0))
                         .into(),
                     }
                     .into(),
                     children,
-                }
+                )
             };
 
             let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
@@ -282,16 +282,16 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
             children.push_back(Some(Box::new(flexlist)));
             children.push_back(Some(Box::new(rectlist)));
 
-            let region = Region {
-                id: gen_id!(),
-                props: FixedData {
+            let region = Region::new(
+                gen_id!(),
+                FixedData {
                     area: FILL_DRECT,
                     zindex: 0,
                     ..Default::default()
                 }
                 .into(),
                 children,
-            };
+            );
             let window = Window::new(
                 gen_id!(),
                 feather_ui::winit::window::Window::default_attributes()
