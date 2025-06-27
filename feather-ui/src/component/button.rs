@@ -26,12 +26,12 @@ impl<T: fixed::Prop + 'static> Button<T> {
         onclick: Slot,
         children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>>,
     ) -> Self {
-        Self {
+        super::set_children(Self {
             id: id.clone(),
             props: props.into(),
             marea: MouseArea::new(
                 SourceID {
-                    parent: Some(id.clone()),
+                    parent: Some(id.clone()).into(),
                     id: crate::DataID::Named("__marea_internal__"),
                 }
                 .into(),
@@ -40,7 +40,7 @@ impl<T: fixed::Prop + 'static> Button<T> {
                 [Some(onclick), None, None, None, None, None],
             ),
             children,
-        }
+        })
     }
 }
 

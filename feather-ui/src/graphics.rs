@@ -10,6 +10,7 @@ use guillotiere::AllocId;
 use parking_lot::RwLock;
 use std::any::TypeId;
 use std::sync::Arc;
+use swash::scale::ScaleContext;
 use ultraviolet::Mat4;
 use ultraviolet::Vec2;
 use ultraviolet::Vec4;
@@ -30,10 +31,12 @@ pub fn pixel_to_vec(p: winit::dpi::PhysicalPosition<f32>) -> Vec2 {
 
 pub type PipelineID = TypeId;
 
+#[derive_where::derive_where(Debug)]
 #[allow(clippy::type_complexity)]
 pub(crate) struct PipelineState {
     layout: PipelineLayout,
     shader: ShaderModule,
+    #[derive_where(skip)]
     generator: Box<
         dyn Fn(&PipelineLayout, &ShaderModule, &Driver) -> Box<dyn render::AnyPipeline>
             + Send
@@ -52,7 +55,7 @@ pub(crate) type GlyphCache = HashMap<cosmic_text::CacheKey, GlyphRegion>;
 // We want to share our device/adapter state across windows, but can't create it until we have at least one window,
 // so we store a weak reference to it in App and if all windows are dropped it'll also drop these, which is usually
 // sensible behavior.
-#[derive(Debug)]
+#[derive_where::derive_where(Debug)]
 pub struct Driver {
     pub(crate) glyphs: RwLock<GlyphCache>,
     pub(crate) atlas: RwLock<atlas::Atlas>,
@@ -63,7 +66,8 @@ pub struct Driver {
     pub(crate) device: wgpu::Device,
     pub(crate) adapter: wgpu::Adapter,
     pub(crate) cursor: RwLock<CursorIcon>, // This is a convenient place to track our global expected cursor
-    pub(crate) swash_cache: RwLock<cosmic_text::SwashCache>,
+    #[derive_where(skip)]
+    pub(crate) swash_cache: RwLock<ScaleContext>,
     pub(crate) font_system: RwLock<cosmic_text::FontSystem>,
 }
 
@@ -72,15 +76,6 @@ impl Drop for Driver {
         for (_, mut r) in self.glyphs.get_mut().drain() {
             r.region.id = AllocId::deserialize(u32::MAX);
         }
-    }
-}
-
-impl std::fmt::Debug for PipelineState {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("PipelineState")
-            .field(&self.layout)
-            .field(&self.shader)
-            .finish()
     }
 }
 
@@ -122,7 +117,7 @@ impl Driver {
             adapter,
             device,
             queue,
-            swash_cache: cosmic_text::SwashCache::new().into(),
+            swash_cache: ScaleContext::new().into(),
             font_system: cosmic_text::FontSystem::new().into(),
             cursor: CursorIcon::Default.into(),
             pipelines: HashMap::new().into(),

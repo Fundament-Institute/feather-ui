@@ -3,7 +3,7 @@
 
 use feather_ui::color::sRGB;
 use feather_ui::layout::{fixed, leaf};
-use feather_ui::text::{EditObj, Snapshot};
+use feather_ui::text::{EditBuffer, EditView};
 use feather_ui::{DAbsRect, gen_id};
 
 use feather_ui::component::region::Region;
@@ -18,7 +18,7 @@ use std::rc::Rc;
 
 #[derive(PartialEq, Clone, Debug, Default)]
 struct TextState {
-    text: Snapshot,
+    text: EditView,
 }
 
 struct BasicApp {}
@@ -43,7 +43,7 @@ impl fixed::Prop for MinimalArea {}
 struct MinimalText {
     area: DRect,
     padding: DAbsRect,
-    textedit: Snapshot,
+    textedit: EditView,
 }
 impl base::Direction for MinimalText {}
 impl base::ZIndex for MinimalText {}
@@ -77,7 +77,7 @@ impl FnPersist<TextState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicAp
                 MinimalText {
                     area: FILL_DRECT,
                     padding: AbsRect::broadcast(12.0).into(),
-                    textedit: store.0.text,
+                    textedit: args.text.clone(), // Be careful to take the value from args, not store.0, which is stale.
                 },
                 40.0,
                 56.0,
@@ -92,9 +92,9 @@ impl FnPersist<TextState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicAp
                 im::Vector::new();
             children.push_back(Some(Box::new(textbox)));
 
-            let region = Region {
-                id: gen_id!(),
-                props: MinimalArea {
+            let region = Region::new(
+                gen_id!(),
+                MinimalArea {
                     area: feather_ui::URect {
                         abs: AbsRect::new(90.0, 90.0, -90.0, -90.0),
                         rel: RelRect::new(0.0, 0.0, 1.0, 1.0),
@@ -103,7 +103,7 @@ impl FnPersist<TextState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicAp
                 }
                 .into(),
                 children,
-            };
+            );
             let window = Window::new(
                 gen_id!(),
                 winit::window::Window::default_attributes()
@@ -125,7 +125,7 @@ fn main() {
     let (mut app, event_loop): (App<TextState, BasicApp>, winit::event_loop::EventLoop<()>) =
         App::new(
             TextState {
-                text: EditObj::new("new text".to_string(), (0, 0)).into(),
+                text: EditBuffer::new("new text", (0, 0)).into(),
             },
             vec![],
             BasicApp {},

@@ -107,9 +107,9 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
                 contents.push_back(Some(Box::new(point)));
                 contents.push_back(Some(Box::new(circle)));
 
-                let bag = Region::<MinimalArea> {
-                    id: gen_id!(iter_id),
-                    props: MinimalArea {
+                let bag = Region::<MinimalArea>::new(
+                    gen_id!(iter_id),
+                    MinimalArea {
                         area: AbsRect::new(
                             node.x - NODE_RADIUS,
                             node.y - NODE_RADIUS,
@@ -119,8 +119,8 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
                         .into(),
                     }
                     .into(),
-                    children: contents,
-                };
+                    contents,
+                );
 
                 children.push_back(Some(Box::new(bag)));
             }
@@ -142,9 +142,9 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
                 children.push_back(Some(Box::new(line)));
             }
 
-            let subregion = Region {
-                id: gen_id!(),
-                props: MinimalArea {
+            let subregion = Region::new(
+                gen_id!(),
+                MinimalArea {
                     area: AbsRect::new(
                         args.offset.x,
                         args.offset.y,
@@ -155,7 +155,7 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
                 }
                 .into(),
                 children,
-            };
+            );
 
             let mousearea: MouseArea<MinimalArea> = MouseArea::new(
                 gen_id!(),
@@ -176,11 +176,7 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
 
             children.push_back(Some(Box::new(subregion)));
             children.push_back(Some(Box::new(mousearea)));
-            let region = Region {
-                id: gen_id!(),
-                props: MinimalArea { area: FILL_DRECT }.into(),
-                children,
-            };
+            let region = Region::new(gen_id!(), MinimalArea { area: FILL_DRECT }.into(), children);
 
             let window = Window::new(
                 gen_id!(),

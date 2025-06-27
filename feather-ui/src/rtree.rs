@@ -98,7 +98,6 @@ impl Node {
                 pos,
                 modifiers,
                 all_buttons,
-                driver,
             } => {
                 let state: &mut WindowStateMachine = manager.get_mut(&window_id).map_err(|_| ())?;
                 let window = state.state.as_mut().unwrap();
@@ -119,7 +118,6 @@ impl Node {
                         device_id: *device_id,
                         modifiers: *modifiers,
                         all_buttons: *all_buttons,
-                        driver: driver.clone(),
                     };
 
                     // We don't care about the result of this event
@@ -140,7 +138,6 @@ impl Node {
                         modifiers: *modifiers,
                         pos: *pos,
                         all_buttons: *all_buttons,
-                        driver: driver.clone(),
                     };
                     let _ = self.inject_event(&evt, evt.kind(), dpi, offset, window_id, manager);
                 }

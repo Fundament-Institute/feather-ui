@@ -5,6 +5,7 @@ extern crate alloc;
 
 pub mod color;
 pub mod component;
+mod editor;
 pub mod graphics;
 pub mod input;
 pub mod layout;
@@ -58,10 +59,7 @@ macro_rules! gen_id {
         $idx.child($crate::DataID::Named(concat!(file!(), ":", line!())))
     };
     ($idx:expr, $i:expr) => {
-        $idx.child(
-            $crate::DataID::Named(concat!(file!(), ":", line!()))
-                .child($crate::DataID::Int($i as i64)),
-        )
+        $idx.child($crate::DataID::Int($i as i64)),
     };
 }
 
@@ -886,14 +884,16 @@ impl CrossReferenceDomain {
 }
 
 /// Object-safe version of Hash + PartialEq
-pub trait DynHashEq: DynClone {
+pub trait DynHashEq: DynClone + std::fmt::Debug {
     fn dyn_hash(&self, state: &mut dyn Hasher);
     fn dyn_eq(&self, other: &dyn Any) -> bool;
 }
 
 dyn_clone::clone_trait_object!(DynHashEq);
 
-impl<H: std::hash::Hash + std::cmp::PartialEq + std::cmp::Eq + 'static + Clone> DynHashEq for H {
+impl<H: std::hash::Hash + std::cmp::PartialEq + std::cmp::Eq + 'static + Clone + std::fmt::Debug>
+    DynHashEq for H
+{
     fn dyn_hash(&self, mut state: &mut dyn Hasher) {
         self.hash(&mut state);
     }
@@ -906,7 +906,7 @@ impl<H: std::hash::Hash + std::cmp::PartialEq + std::cmp::Eq + 'static + Clone> 
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub enum DataID {
     Named(&'static str),
     Owned(String),
@@ -967,19 +967,22 @@ impl std::cmp::PartialEq for DataID {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct SourceID {
-    parent: Option<std::rc::Rc<SourceID>>,
+    parent: RefCell<Option<std::rc::Rc<SourceID>>>,
     id: DataID,
 }
 
 impl SourceID {
     pub fn new(id: DataID) -> Self {
-        Self { parent: None, id }
+        Self {
+            parent: None.into(),
+            id,
+        }
     }
     pub fn child(self: &Rc<Self>, id: DataID) -> Rc<Self> {
         Self {
-            parent: Some(self.clone()),
+            parent: Some(self.clone()).into(),
             id,
         }
         .into()
@@ -988,20 +991,20 @@ impl SourceID {
 impl std::cmp::Eq for SourceID {}
 impl std::cmp::PartialEq for SourceID {
     fn eq(&self, other: &Self) -> bool {
-        if let Some(parent) = &self.parent {
-            if let Some(pother) = &other.parent {
+        if let Some(parent) = self.parent.borrow().as_ref() {
+            if let Some(pother) = other.parent.borrow().as_ref() {
                 std::rc::Rc::ptr_eq(parent, pother) && self.id == other.id
             } else {
                 false
             }
         } else {
-            other.parent.is_none() && self.id == other.id
+            other.parent.borrow().is_none() && self.id == other.id
         }
     }
 }
 impl std::hash::Hash for SourceID {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        if let Some(parent) = &self.parent {
+        if let Some(parent) = self.parent.borrow().as_ref() {
             parent.id.hash(state);
         }
         self.id.hash(state);
@@ -1009,11 +1012,11 @@ impl std::hash::Hash for SourceID {
 }
 impl std::fmt::Display for SourceID {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(parent) = &self.parent {
+        if let Some(parent) = self.parent.borrow().as_ref() {
             parent.fmt(f)?;
         }
 
-        match (&self.id, self.parent.is_some()) {
+        match (&self.id, self.parent.borrow().is_some()) {
             (DataID::Named(_), true) | (DataID::Owned(_), true) => f.write_str(" -> "),
             (DataID::Other(_), true) => f.write_str(" "),
             _ => Ok(()),
@@ -1107,7 +1110,11 @@ impl Dispatchable for () {
 }
 
 pub trait StateMachineChild {
-    fn init(&self) -> Result<Box<dyn StateMachineWrapper>, crate::Error> {
+    #[allow(unused_variables)]
+    fn init(
+        &self,
+        driver: &std::sync::Weak<Driver>,
+    ) -> Result<Box<dyn StateMachineWrapper>, crate::Error> {
         Err(crate::Error::Stateless)
     }
     fn apply_children(
@@ -1204,21 +1211,25 @@ impl StateManager {
         Ok(())
     }
 
-    fn init_child(&mut self, target: &dyn StateMachineChild) -> eyre::Result<()> {
+    fn init_child(
+        &mut self,
+        target: &dyn StateMachineChild,
+        driver: &std::sync::Weak<Driver>,
+    ) -> eyre::Result<()> {
         if !self.states.contains_key(&target.id()) {
-            match target.init() {
+            match target.init(driver) {
                 Ok(v) => self.init(target.id().clone(), v),
                 Err(Error::Stateless) => (),
                 Err(e) => return Err(e.into()),
             };
         }
 
-        target.apply_children(&mut |child| self.init_child(child))
+        target.apply_children(&mut |child| self.init_child(child, driver))
     }
 }
 
 pub const APP_SOURCE_ID: SourceID = SourceID {
-    parent: None,
+    parent: RefCell::new(None),
     id: DataID::Named("__fg_AppData_ID__"),
 };
 
@@ -1301,6 +1312,15 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
         any_thread: bool,
         driver_init: impl FnOnce(std::sync::Weak<Driver>) + 'static,
     ) -> eyre::Result<(Self, winit::event_loop::EventLoop<T>)> {
+        let mut manager: StateManager = Default::default();
+        manager.init(
+            Rc::new(APP_SOURCE_ID),
+            Box::new(AppDataMachine {
+                input: inputs,
+                state: Some(app_state),
+            }),
+        );
+
         #[cfg(target_os = "windows")]
         let event_loop = winit::event_loop::EventLoop::with_user_event()
             .with_any_thread(any_thread)
@@ -1322,15 +1342,6 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
                 }
             })?;
 
-        let mut manager: StateManager = Default::default();
-        manager.init(
-            Rc::new(APP_SOURCE_ID),
-            Box::new(AppDataMachine {
-                input: inputs,
-                state: Some(app_state),
-            }),
-        );
-
         Ok((
             Self {
                 instance: wgpu::Instance::default(),
@@ -1351,6 +1362,7 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
         let (store, windows) = self.outline.call(store, app_state.state.as_ref().unwrap());
         self.store.replace(store);
         self.root.children = windows;
+        #[cfg(debug_assertions)]
         self.root.validate_ids().unwrap();
 
         let (root, manager, graphics, instance, driver_init) = (

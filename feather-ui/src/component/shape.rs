@@ -136,6 +136,11 @@ where
         let winstate: &WindowStateMachine = state.get(window).unwrap();
         let dpi = winstate.state.as_ref().map(|x| x.dpi).unwrap_or(BASE_DPI);
 
+        let mut corners = self.corners;
+        if KIND == ShapeKind::RoundRect as u8 {
+            corners *= Vec4::new(dpi.x, dpi.y, dpi.x, dpi.y);
+        }
+
         Box::new(layout::Node::<T, dyn leaf::Prop> {
             props: self.props.clone(),
             children: Default::default(),
@@ -148,7 +153,7 @@ where
                 blur: self.blur,
                 fill: self.fill,
                 outline: self.outline,
-                corners: self.corners,
+                corners,
                 id: self.id.clone(),
                 phantom: PhantomData,
             })),

@@ -230,7 +230,6 @@ impl Premultiplied for OkLab {
     }
 }
 
-//  TODO: These use reference white D65, might need to use the one for D50???
 const XYZ_SRGB: [f32x4; 4] = [
     f32x4::new([3.2404542, -1.5371385, -0.4985314, 0.0]),
     f32x4::new([-0.969_266, 1.8760108, 0.0415560, 0.0]),

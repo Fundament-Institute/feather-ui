@@ -12,8 +12,22 @@ use std::rc::Rc;
 #[derive_where(Clone, Default)]
 pub struct Region<T: fixed::Prop + Default + 'static> {
     pub id: Rc<SourceID>,
-    pub props: Rc<T>,
-    pub children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>>,
+    props: Rc<T>,
+    children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>>,
+}
+
+impl<T: fixed::Prop + Default + 'static> Region<T> {
+    pub fn new(
+        id: Rc<SourceID>,
+        props: Rc<T>,
+        children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>>,
+    ) -> Self {
+        super::set_children(Self {
+            id,
+            props,
+            children,
+        })
+    }
 }
 
 impl<T: fixed::Prop + Default + 'static> super::Component<T> for Region<T>

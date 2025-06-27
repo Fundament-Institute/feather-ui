@@ -30,6 +30,14 @@ use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 use window::WindowStateMachine;
 
+#[inline]
+fn set_children<T: StateMachineChild>(this: T) -> T {
+    let id = this.id();
+    this.apply_children(&mut |x| Ok(*x.id().parent.borrow_mut() = Some(id.clone())))
+        .unwrap();
+    this
+}
+
 pub trait StateMachineWrapper: Any {
     fn process(
         &mut self,
@@ -166,8 +174,11 @@ where
 }
 
 impl<T: 'static> StateMachineChild for Box<dyn Component<T>> {
-    fn init(&self) -> Result<Box<dyn crate::StateMachineWrapper>, crate::Error> {
-        StateMachineChild::init(self.as_ref())
+    fn init(
+        &self,
+        driver: &std::sync::Weak<crate::Driver>,
+    ) -> Result<Box<dyn crate::StateMachineWrapper>, crate::Error> {
+        StateMachineChild::init(self.as_ref(), driver)
     }
 
     fn apply_children(
@@ -198,8 +209,11 @@ where
 }
 
 impl<T: 'static> StateMachineChild for &dyn Component<T> {
-    fn init(&self) -> Result<Box<dyn crate::StateMachineWrapper>, crate::Error> {
-        StateMachineChild::init(*self)
+    fn init(
+        &self,
+        driver: &std::sync::Weak<crate::Driver>,
+    ) -> Result<Box<dyn crate::StateMachineWrapper>, crate::Error> {
+        StateMachineChild::init(*self, driver)
     }
 
     fn apply_children(
@@ -326,21 +340,42 @@ impl Root {
     pub fn validate_ids(&self) -> eyre::Result<()> {
         struct Validator(std::collections::HashSet<Rc<SourceID>>);
         impl Validator {
-            fn f(&mut self, x: &dyn StateMachineChild) -> eyre::Result<()> {
-                if !self.0.insert(x.id()) {
+            fn f(
+                &mut self,
+                x: &dyn StateMachineChild,
+                parent: Option<&Rc<SourceID>>,
+            ) -> eyre::Result<()> {
+                let id = x.id();
+                let mut cur = Some(id.clone());
+                if let Some(parent_id) = parent {
+                    while let Some(cur_id) = cur.as_ref() {
+                        if Rc::ptr_eq(&cur_id, parent_id) {
+                            break;
+                        }
+                        let c = cur_id.parent.borrow().clone();
+                        cur = c;
+                    }
+                    if cur.is_none() {
+                        return Err(eyre::eyre!(
+                            "Invalid Parent ID found! All components must have an ID that is a direct or indirect child of their parent! {}",
+                            x.id()
+                        ));
+                    }
+                }
+                if !self.0.insert(id.clone()) {
                     return Err(eyre::eyre!(
                         "Duplicate ID found! Did you forget to add a child index to an ID? {}",
                         x.id()
                     ));
                 }
 
-                x.apply_children(&mut |x| self.f(x))
+                x.apply_children(&mut |x| self.f(x, Some(&id)))
             }
         }
         let mut v = Validator(std::collections::HashSet::new());
         for (_, child) in &self.children {
             if let Some(window) = child {
-                v.f(window)?;
+                v.f(window, None)?;
             }
         }
 

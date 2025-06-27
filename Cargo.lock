@@ -771,6 +771,7 @@ dependencies = [
  "parking_lot",
  "smallvec",
  "static_assertions",
+ "swash",
  "thiserror 2.0.12",
  "tracing",
  "tracing-subscriber",

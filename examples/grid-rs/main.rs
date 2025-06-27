@@ -207,9 +207,9 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     })));*/
                 }
 
-                GridBox::<GridData> {
-                    id: gen_id!(),
-                    props: GridData {
+                GridBox::<GridData>::new(
+                    gen_id!(),
+                    GridData {
                         area: feather_ui::URect {
                             abs: AbsRect::new(0.0, 200.0, 0.0, 0.0),
                             rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, 1.0),
@@ -229,7 +229,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     }
                     .into(),
                     children,
-                }
+                )
             };
 
             let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
@@ -237,16 +237,16 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
             children.push_back(Some(Box::new(button)));
             children.push_back(Some(Box::new(rectgrid)));
 
-            let region = Region {
-                id: gen_id!(),
-                props: FixedData {
+            let region = Region::new(
+                gen_id!(),
+                FixedData {
                     area: FILL_DRECT,
                     zindex: 0,
                     ..Default::default()
                 }
                 .into(),
                 children,
-            };
+            );
             let window = Window::new(
                 gen_id!(),
                 winit::window::Window::default_attributes()

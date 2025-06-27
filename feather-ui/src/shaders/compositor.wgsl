@@ -83,7 +83,6 @@ fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
   // Setting this flag *disables* inflation, so we invert it by comparing to 0
   let inflate = (d.texclip & 0x80000000) == 0;
 
-  var pos = vpos;
   var inflate_dim = d.dim;
   var inflate_pos = d.pos;
   var inflate_uv = d.uv;
@@ -103,15 +102,13 @@ fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
     inflate_uv -= vec2f(uv_pixel * 0.5);
   }
 
+  var pos = vpos;
   pos *= inflate_dim;
   if d.rotation != 0.0f {
-    if (inflate) {
-      pos = rotate(pos - vec2f(1.0), d.rotation) + vec2f(1.0);
-    }
-    else {
-      // Even when we aren't inflating, we have to rotate around the *center* point of the topleft pixel, which is actually 0.5,0.5
-      pos = rotate(pos - vec2f(0.5), d.rotation) + vec2f(0.5);
-    }
+    // For complicated reasons, we have to rotate around the center of whatever we're rendering. This
+    // allows lines to precisely position themselves, and also conveniently works with inflation enabled.
+    let half = inflate_dim * vec2f(0.5);
+    pos = rotate(pos - half, d.rotation) + half;
   }
   pos += inflate_pos;
 
@@ -124,8 +121,8 @@ fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
   var out_uv = vpos * uvdim;
   // If the rotation is negative it's applied to the UV rectangle as well
   if d.rotation < 0.0f {
-    // TODO: how to handle inflation here? May need to do the extent division afterwards
-    out_uv = rotate(out_uv /* - vec2f(0.5) */, d.rotation) /* + vec2f(0.5) */;
+    let half = uvdim * vec2f(0.5);
+    out_uv = rotate(out_uv - half, d.rotation) + half;
   }
   out_uv += uv;
 

@@ -261,15 +261,15 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
         children.push_back(Some(Box::new(text_bg)));
         children.push_back(Some(Box::new(display)));
 
-        let region = Region::<FixedData> {
-            id: gen_id!(),
-            props: FixedData {
+        let region = Region::<FixedData>::new(
+            gen_id!(),
+            FixedData {
                 area: FILL_DRECT,
                 ..Default::default()
             }
             .into(),
             children,
-        };
+        );
 
         #[cfg(target_os = "windows")]
         let window = Window::new(
