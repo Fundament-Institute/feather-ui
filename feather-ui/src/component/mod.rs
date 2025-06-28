@@ -349,7 +349,7 @@ impl Root {
                 let mut cur = Some(id.clone());
                 if let Some(parent_id) = parent {
                     while let Some(cur_id) = cur.as_ref() {
-                        if Rc::ptr_eq(&cur_id, parent_id) {
+                        if cur_id == parent_id {
                             break;
                         }
                         let c = cur_id.parent.borrow().clone();

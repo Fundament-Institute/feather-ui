@@ -234,7 +234,7 @@ fn main() {
         App<CounterState, BasicApp>,
         winit::event_loop::EventLoop<()>,
     ) = App::new(
-        CounterState { count: 40 },
+        CounterState { count: 0 },
         vec![onclick],
         BasicApp {},
         |driver| {

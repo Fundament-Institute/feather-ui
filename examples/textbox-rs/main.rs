@@ -96,7 +96,7 @@ impl FnPersist<TextState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicAp
                 gen_id!(),
                 MinimalArea {
                     area: feather_ui::URect {
-                        abs: AbsRect::new(90.0, 90.0, -90.0, -90.0),
+                        abs: AbsRect::new(90.0, 0.0, -90.0, -180.0),
                         rel: RelRect::new(0.0, 0.0, 1.0, 1.0),
                     }
                     .into(),
@@ -108,6 +108,7 @@ impl FnPersist<TextState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicAp
                 gen_id!(),
                 winit::window::Window::default_attributes()
                     .with_title(env!("CARGO_CRATE_NAME"))
+                    .with_inner_size(winit::dpi::PhysicalSize::new(600, 400))
                     .with_resizable(true),
                 Box::new(region),
             );

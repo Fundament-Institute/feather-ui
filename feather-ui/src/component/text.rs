@@ -124,7 +124,7 @@ where
         Box::new(layout::text::Node::<T> {
             props: self.props.clone(),
             id: Rc::downgrade(&self.id),
-            text_render: render.clone(),
+            buffer: textstate.0.clone(),
             renderable: render.clone(),
         })
     }
