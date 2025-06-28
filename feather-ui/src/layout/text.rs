@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use derive_where::derive_where;
 
@@ -13,7 +13,7 @@ use super::{Layout, check_unsized, leaf, limit_area};
 pub struct Node<T: leaf::Padded> {
     pub id: std::rc::Weak<SourceID>,
     pub props: Rc<T>,
-    pub text_render: Rc<render::text::Instance>,
+    pub buffer: Rc<RefCell<cosmic_text::Buffer>>,
     pub renderable: Rc<dyn render::Renderable>,
 }
 
@@ -55,26 +55,24 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
             )
         };
 
-        let mut text_buffer = self.text_render.text_buffer.borrow_mut();
+        let mut text_buffer = self.buffer.borrow_mut();
         let driver = window.driver.clone();
-        let dim = evaluated_area.dim();
+        let dim = evaluated_area.dim().0 - allpadding;
         {
             let mut font_system = driver.font_system.write();
 
             text_buffer.set_size(
                 &mut font_system,
-                if unsized_x { limitx } else { Some(dim.0.x) },
-                if unsized_y { limity } else { Some(dim.0.y) },
+                if unsized_x { limitx } else { Some(dim.x) },
+                if unsized_y { limity } else { Some(dim.y) },
             );
-
-            text_buffer.shape_until_scroll(&mut font_system, false);
         }
 
         // If we have indeterminate area, calculate the size
         if unsized_x || unsized_y {
             let mut h = 0.0;
             let mut w: f32 = 0.0;
-            for run in text_buffer.layout_runs() {
+            for run in crate::editor::FixedRunIter::new(&text_buffer) {
                 w = w.max(run.line_w);
                 h += run.line_height;
             }
@@ -90,11 +88,6 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
                 ltrb[3] = ltrb[1] + h + allpadding.y;
             }
         };
-
-        // We always return the full area so we can correctly capture input, but we need
-        // to pass our padding to our renderer so it can pad the text while setting the
-        // clip rect to the full area
-        self.text_render.padding.set(padding);
 
         evaluated_area = crate::layout::apply_anchor(
             evaluated_area,

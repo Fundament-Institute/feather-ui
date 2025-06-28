@@ -13,6 +13,7 @@ pub mod domain;
 pub mod line;
 pub mod shape;
 pub mod text;
+pub mod textbox;
 
 pub trait Renderable {
     fn render(

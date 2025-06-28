@@ -6,7 +6,6 @@ use crate::color::sRGB;
 use crate::editor::Editor;
 use crate::input::{ModifierKeys, MouseButton, MouseState, RawEvent, RawEventKind};
 use crate::layout::{Layout, base, leaf};
-use crate::render::compositor;
 use crate::text::Change;
 use crate::{Error, SourceID, WindowStateMachine, layout};
 use cosmic_text::{Action, Cursor};
@@ -14,8 +13,6 @@ use derive_where::derive_where;
 use enum_variant_type::EnumVariantType;
 use feather_macro::Dispatch;
 use smallvec::SmallVec;
-use std::cell::RefCell;
-use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use winit::keyboard::{Key, KeyCode, NamedKey, PhysicalKey};
@@ -234,6 +231,26 @@ impl<T: Prop + 'static> crate::StateMachineChild for TextBox<T> {
                                                 (modifiers & ModifierKeys::Shift as u8) != 0;
                                             let font_system = &mut driver.font_system.write();
                                             if !shift {
+                                                match (named_key, ctrl) {
+                                                    (NamedKey::ArrowUp, true)
+                                                    | (NamedKey::ArrowDown, true) => {
+                                                        data.editor.action(
+                                                            font_system,
+                                                            Action::Scroll {
+                                                                lines: if named_key
+                                                                    == NamedKey::ArrowUp
+                                                                {
+                                                                    -1
+                                                                } else {
+                                                                    1
+                                                                },
+                                                            },
+                                                        );
+                                                        return Ok((data, vec![]));
+                                                    }
+                                                    _ => (),
+                                                }
+
                                                 if let Some((start, end)) =
                                                     data.editor.selection_bounds()
                                                 {
@@ -254,58 +271,48 @@ impl<T: Prop + 'static> crate::StateMachineChild for TextBox<T> {
                                                     ),
                                                 );
                                             }
-                                            match (named_key, ctrl) {
-                                                (NamedKey::ArrowUp, true) => data.editor.action(
-                                                    font_system,
-                                                    Action::Scroll { lines: -1 },
-                                                ),
-                                                (NamedKey::ArrowDown, true) => data.editor.action(
-                                                    font_system,
-                                                    Action::Scroll { lines: 1 },
-                                                ),
-                                                _ => data.editor.action(
-                                                    font_system,
-                                                    Action::Motion(match (named_key, ctrl) {
-                                                        (NamedKey::ArrowLeft, false) => {
-                                                            cosmic_text::Motion::Previous
-                                                        }
-                                                        (NamedKey::ArrowRight, false) => {
-                                                            cosmic_text::Motion::Next
-                                                        }
-                                                        (NamedKey::ArrowUp, false) => {
-                                                            cosmic_text::Motion::Up
-                                                        }
-                                                        (NamedKey::ArrowDown, false) => {
-                                                            cosmic_text::Motion::Down
-                                                        }
-                                                        (NamedKey::Home, false) => {
-                                                            cosmic_text::Motion::Home
-                                                        }
-                                                        (NamedKey::End, false) => {
-                                                            cosmic_text::Motion::End
-                                                        }
-                                                        (NamedKey::PageUp, false) => {
-                                                            cosmic_text::Motion::PageUp
-                                                        }
-                                                        (NamedKey::PageDown, false) => {
-                                                            cosmic_text::Motion::PageDown
-                                                        }
-                                                        (NamedKey::ArrowLeft, true) => {
-                                                            cosmic_text::Motion::PreviousWord
-                                                        }
-                                                        (NamedKey::ArrowRight, true) => {
-                                                            cosmic_text::Motion::NextWord
-                                                        }
-                                                        (NamedKey::Home, true) => {
-                                                            cosmic_text::Motion::BufferStart
-                                                        }
-                                                        (NamedKey::End, true) => {
-                                                            cosmic_text::Motion::BufferEnd
-                                                        }
-                                                        _ => return Ok((data, vec![])),
-                                                    }),
-                                                ),
-                                            }
+                                            data.editor.action(
+                                                font_system,
+                                                Action::Motion(match (named_key, ctrl) {
+                                                    (NamedKey::ArrowLeft, false) => {
+                                                        cosmic_text::Motion::Previous
+                                                    }
+                                                    (NamedKey::ArrowRight, false) => {
+                                                        cosmic_text::Motion::Next
+                                                    }
+                                                    (NamedKey::ArrowUp, false) => {
+                                                        cosmic_text::Motion::Up
+                                                    }
+                                                    (NamedKey::ArrowDown, false) => {
+                                                        cosmic_text::Motion::Down
+                                                    }
+                                                    (NamedKey::Home, false) => {
+                                                        cosmic_text::Motion::Home
+                                                    }
+                                                    (NamedKey::End, false) => {
+                                                        cosmic_text::Motion::End
+                                                    }
+                                                    (NamedKey::PageUp, false) => {
+                                                        cosmic_text::Motion::PageUp
+                                                    }
+                                                    (NamedKey::PageDown, false) => {
+                                                        cosmic_text::Motion::PageDown
+                                                    }
+                                                    (NamedKey::ArrowLeft, true) => {
+                                                        cosmic_text::Motion::PreviousWord
+                                                    }
+                                                    (NamedKey::ArrowRight, true) => {
+                                                        cosmic_text::Motion::NextWord
+                                                    }
+                                                    (NamedKey::Home, true) => {
+                                                        cosmic_text::Motion::BufferStart
+                                                    }
+                                                    (NamedKey::End, true) => {
+                                                        cosmic_text::Motion::BufferEnd
+                                                    }
+                                                    _ => return Ok((data, vec![])),
+                                                }),
+                                            )
                                         }
                                         NamedKey::Select => {
                                             // Represents a Select All operation
@@ -511,6 +518,24 @@ impl<T: Prop + 'static> crate::StateMachineChild for TextBox<T> {
                         );
                         return Ok((data, vec![]));
                     }
+                    RawEvent::MouseScroll { delta, pixels, .. } => {
+                        if let Some(d) = driver.upgrade() {
+                            if pixels {
+                                let mut buffer = data.editor.buffer_ref.borrow_mut();
+                                let mut scroll = buffer.scroll();
+                                //TODO: align to layout lines
+                                scroll.vertical += delta.y;
+                                buffer.set_scroll(scroll);
+                            } else {
+                                data.editor.action(
+                                    &mut d.font_system.write(),
+                                    Action::Scroll {
+                                        lines: -(delta.y.round() as i32),
+                                    },
+                                );
+                            }
+                        }
+                    }
                     _ => (),
                 }
                 Err((data, vec![]))
@@ -532,6 +557,7 @@ impl<T: Prop + 'static> crate::StateMachineChild for TextBox<T> {
                 RawEventKind::Focus as u64
                     | RawEventKind::Mouse as u64
                     | RawEventKind::MouseMove as u64
+                    | RawEventKind::MouseScroll as u64
                     | RawEventKind::Touch as u64
                     | RawEventKind::Key as u64,
                 oninput,
@@ -574,7 +600,7 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
             );
         }
 
-        let instance = Instance {
+        let instance = crate::render::textbox::Instance {
             text_buffer: textstate.editor.buffer_ref.clone(),
             padding: self.props.padding().resolve(dpi).into(),
             selection: textstate.editor.selection_bounds(),
@@ -590,206 +616,13 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
             scale: 1.0,
         };
 
-        Box::new(layout::Node::<T, dyn leaf::Prop> {
+        Box::new(layout::text::Node::<T> {
             props: self.props.clone(),
             id: Rc::downgrade(&self.id),
-            renderable: Some(Rc::new(instance)),
-            children: PhantomData,
+            renderable: Rc::new(instance),
+            buffer: textstate.editor.buffer_ref.clone(),
         })
     }
 }
 
 crate::gen_component_wrap!(TextBox, Prop);
-
-pub struct Instance {
-    pub text_buffer: Rc<RefCell<cosmic_text::Buffer>>,
-    pub padding: crate::AbsRect,
-    pub cursor: Cursor,
-    pub selection: Option<(Cursor, Cursor)>,
-    pub selection_bg: sRGB,
-    pub selection_color: sRGB,
-    pub color: sRGB,
-    pub cursor_color: sRGB,
-    pub scale: f32,
-}
-
-use unicode_segmentation::UnicodeSegmentation;
-
-impl Instance {
-    fn draw_box(x: f32, y: f32, w: f32, h: f32, color: sRGB) -> compositor::Data {
-        // When we are drawing boxes that need to line up with each other, this is a worst-case scenario for
-        // the compositor's antialiasing. The only way to antialias arbitrary selection boxes correctly is
-        // to use a texture cache or a custom shader. Instead of doing that, we just pixel-snap everything.
-        compositor::Data {
-            pos: [x.round(), y.round()].into(),
-            dim: [w.round(), h.round()].into(),
-            uv: [0.0, 0.0].into(),
-            uvdim: [0.0, 0.0].into(),
-            color: color.as_32bit().rgba,
-            texclip: 0x8000000 | 0x7FFF0000,
-            ..Default::default()
-        }
-    }
-}
-impl crate::render::Renderable for Instance {
-    fn render(
-        &self,
-        area: crate::AbsRect,
-        driver: &crate::graphics::Driver,
-        compositor: &mut crate::render::compositor::Compositor,
-    ) -> Result<(), Error> {
-        let buffer = self.text_buffer.borrow();
-        let pos = area.topleft() + self.padding.topleft();
-
-        let bounds_top = area.topleft().y as i32;
-        let bounds_bottom = area.bottomright().y as i32;
-        let bounds_min_x = (area.topleft().x as i32).max(0);
-        let bounds_min_y = bounds_top.max(0);
-        let bounds_max_x = area.bottomright().x as i32;
-        let bounds_max_y = bounds_bottom;
-        let color = cosmic_text::Color(self.color.as_32bit().rgba);
-        let selection_color = cosmic_text::Color(self.selection_color.as_32bit().rgba);
-
-        let is_run_visible = |run: &cosmic_text::LayoutRun| {
-            let start_y_physical = (pos.y + (run.line_top * self.scale)) as i32;
-            let end_y_physical = start_y_physical + (run.line_height * self.scale) as i32;
-
-            start_y_physical <= bounds_bottom && bounds_top <= end_y_physical
-        };
-
-        for run in buffer
-            .layout_runs()
-            .skip_while(|run| !is_run_visible(run))
-            .take_while(is_run_visible)
-        {
-            let line_i = run.line_i;
-            let line_top = run.line_top;
-            let line_height = run.line_height;
-
-            // Highlight selection
-            if let Some((start, end)) = &self.selection {
-                if line_i >= start.line && line_i <= end.line {
-                    let mut range_opt = None;
-                    for glyph in run.glyphs.iter() {
-                        // Guess x offset based on characters
-                        let cluster = &run.text[glyph.start..glyph.end];
-                        let total = cluster.grapheme_indices(true).count();
-                        let mut c_x = glyph.x;
-                        let c_w = glyph.w / total as f32;
-                        for (i, c) in cluster.grapheme_indices(true) {
-                            let c_start = glyph.start + i;
-                            let c_end = glyph.start + i + c.len();
-                            if (start.line != line_i || c_end > start.index)
-                                && (end.line != line_i || c_start < end.index)
-                            {
-                                range_opt = match range_opt.take() {
-                                    Some((min, max)) => Some((
-                                        std::cmp::min(min, c_x as i32),
-                                        std::cmp::max(max, (c_x + c_w) as i32),
-                                    )),
-                                    None => Some((c_x as i32, (c_x + c_w) as i32)),
-                                };
-                            } else if let Some((min, max)) = range_opt.take() {
-                                compositor.append(&Self::draw_box(
-                                    min as f32 + pos.x,
-                                    line_top + pos.y,
-                                    std::cmp::max(0, max - min) as f32,
-                                    line_height,
-                                    self.selection_bg,
-                                ));
-                            }
-                            c_x += c_w;
-                        }
-                    }
-
-                    if run.glyphs.is_empty() && end.line > line_i {
-                        // Highlight all of internal empty lines
-                        range_opt = Some((0, buffer.size().0.unwrap_or(0.0) as i32));
-                    }
-
-                    if let Some((mut min, mut max)) = range_opt.take() {
-                        if end.line > line_i {
-                            // Draw to end of line
-                            if run.rtl {
-                                min = 0;
-                            } else if let (Some(w), _) = buffer.size() {
-                                max = w.round() as i32;
-                            } else if max == 0 {
-                                max = (buffer.metrics().font_size * 0.5) as i32;
-                            }
-                        }
-                        compositor.append(&Self::draw_box(
-                            min as f32 + pos.x,
-                            line_top + pos.y,
-                            std::cmp::max(0, max - min) as f32,
-                            line_height,
-                            self.selection_bg,
-                        ));
-                    }
-                }
-            }
-
-            // Draw text
-            for glyph in run.glyphs.iter() {
-                let physical_glyph = glyph.physical((pos.x, pos.y), self.scale);
-
-                let mut color = match glyph.color_opt {
-                    Some(some) => some,
-                    None => color,
-                };
-
-                if let Some((start, end)) = self.selection {
-                    if line_i >= start.line
-                        && line_i <= end.line
-                        && (start.line != line_i || glyph.end > start.index)
-                        && (end.line != line_i || glyph.start < end.index)
-                    {
-                        color = selection_color;
-                    }
-                }
-
-                crate::render::text::Instance::write_glyph(
-                    physical_glyph.cache_key,
-                    &mut driver.font_system.write(),
-                    &mut driver.glyphs.write(),
-                    &driver.device,
-                    &driver.queue,
-                    &mut driver.atlas.write(),
-                    &mut driver.swash_cache.write(),
-                )?;
-
-                if let Some(data) = crate::render::text::Instance::prepare_glyph(
-                    physical_glyph.x,
-                    physical_glyph.y,
-                    run.line_y,
-                    self.scale,
-                    color,
-                    bounds_min_x,
-                    bounds_min_y,
-                    bounds_max_x,
-                    bounds_max_y,
-                    crate::render::text::Instance::get_glyph(
-                        physical_glyph.cache_key,
-                        &driver.glyphs.read(),
-                    )
-                    .ok_or(Error::GlyphCacheFailure)?,
-                )? {
-                    compositor.append(&data);
-                }
-            }
-
-            // Draw cursor
-            if let Some((x, y)) = crate::editor::cursor_position(&self.cursor, &run) {
-                compositor.append(&Self::draw_box(
-                    x as f32 + pos.x,
-                    y as f32 + pos.y,
-                    1.0,
-                    line_height,
-                    self.cursor_color,
-                ));
-            }
-        }
-
-        Ok(())
-    }
-}

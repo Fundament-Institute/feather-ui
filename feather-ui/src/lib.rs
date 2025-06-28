@@ -42,6 +42,7 @@ pub use ultraviolet;
 use ultraviolet::f32x4;
 use ultraviolet::vec::Vec2;
 pub use wgpu;
+use wgpu::{InstanceDescriptor, InstanceFlags};
 use wide::CmpLe;
 pub use winit;
 use winit::window::WindowId;
@@ -1342,9 +1343,20 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
                 }
             })?;
 
+        #[cfg(debug_assertions)]
+        let desc = InstanceDescriptor {
+            flags: InstanceFlags::debugging(),
+            ..Default::default()
+        };
+        #[cfg(not(debug_assertions))]
+        let desc = InstanceDescriptor {
+            flags: InstanceFlags::DISCARD_HAL_LABELS,
+            ..Default::default()
+        };
+
         Ok((
             Self {
-                instance: wgpu::Instance::default(),
+                instance: wgpu::Instance::new(&desc),
                 driver: std::sync::Weak::<graphics::Driver>::new(),
                 store: None,
                 outline,
