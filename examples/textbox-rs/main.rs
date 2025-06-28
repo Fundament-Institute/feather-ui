@@ -10,10 +10,9 @@ use feather_ui::component::region::Region;
 use feather_ui::component::textbox::TextBox;
 use feather_ui::component::window::Window;
 use feather_ui::component::{ComponentFrom, textbox};
-use feather_ui::cosmic_text;
 use feather_ui::layout::base;
 use feather_ui::persist::FnPersist;
-use feather_ui::{AbsRect, App, DRect, FILL_DRECT, RelRect, SourceID};
+use feather_ui::{AbsRect, App, DRect, FILL_DRECT, RelRect, SourceID, cosmic_text};
 use std::rc::Rc;
 
 #[derive(PartialEq, Clone, Debug, Default)]

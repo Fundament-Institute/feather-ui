@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::AbsRect;
-use crate::graphics;
 use crate::render::compositor::Compositor;
+use crate::{AbsRect, graphics};
 use std::any::Any;
 use std::rc::Rc;
 

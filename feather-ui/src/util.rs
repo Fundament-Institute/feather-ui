@@ -1,6 +1,10 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+
 use wgpu::CompilationMessageType;
 
-use crate::{graphics::Driver, shaders};
+use crate::graphics::Driver;
+use crate::shaders;
 
 pub fn create_hotloader<T: 'static>(
     path: &std::path::Path,

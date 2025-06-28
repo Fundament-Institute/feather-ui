@@ -24,12 +24,8 @@ use bytemuck::NoUninit;
 use component::window::WindowStateMachine;
 use component::{Component, StateMachineWrapper};
 use core::f32;
-pub use cosmic_text;
 use dyn_clone::DynClone;
 use eyre::OptionExt;
-pub use im;
-pub use mlua;
-pub use notify;
 use persist::FnPersist;
 use smallvec::SmallVec;
 use std::any::Any;
@@ -38,14 +34,12 @@ use std::collections::{BTreeMap, HashMap};
 use std::hash::Hasher;
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 use std::rc::Rc;
-pub use ultraviolet;
 use ultraviolet::f32x4;
 use ultraviolet::vec::Vec2;
-pub use wgpu;
 use wgpu::{InstanceDescriptor, InstanceFlags};
 use wide::CmpLe;
-pub use winit;
 use winit::window::WindowId;
+pub use {cosmic_text, im, mlua, notify, ultraviolet, wgpu, winit};
 
 #[macro_export]
 macro_rules! gen_id {
@@ -1554,7 +1548,8 @@ impl FnPersist<u8, im::HashMap<Rc<SourceID>, Option<Window>>> for TestApp {
     type Store = (u8, im::HashMap<Rc<SourceID>, Option<Window>>);
 
     fn init(&self) -> Self::Store {
-        use crate::{color::sRGB, component::shape::Shape};
+        use crate::color::sRGB;
+        use crate::component::shape::Shape;
         use ultraviolet::Vec4;
         let rect = Shape::<DRect, { component::shape::ShapeKind::RoundRect as u8 }>::new(
             gen_id!(),

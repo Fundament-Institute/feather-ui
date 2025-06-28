@@ -3,8 +3,7 @@
 
 use super::compositor;
 use crate::color::sRGB;
-use crate::graphics::Vec2f;
-use crate::graphics::{self, Vec4f};
+use crate::graphics::{self, Vec2f, Vec4f};
 use crate::render::atlas::Atlas;
 use crate::render::compositor::Compositor;
 use crate::shaders;

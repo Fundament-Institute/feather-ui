@@ -5,28 +5,20 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use cosmic_text::{CacheKey, FontSystem};
-use guillotiere::AllocId;
-use guillotiere::Size;
+use guillotiere::{AllocId, Size};
 use ultraviolet::Vec2;
-use wgpu::Extent3d;
-use wgpu::Origin3d;
-use wgpu::TexelCopyBufferLayout;
-use wgpu::TexelCopyTextureInfo;
+use wgpu::{Extent3d, Origin3d, TexelCopyBufferLayout, TexelCopyTextureInfo};
 
-use crate::Error;
-use crate::color::Premultiplied;
-use crate::color::sRGB32;
-use crate::graphics::GlyphCache;
-use crate::graphics::GlyphRegion;
+use crate::color::{Premultiplied, sRGB32};
+use crate::graphics::{GlyphCache, GlyphRegion};
+use crate::render::atlas::Atlas;
 use crate::render::compositor::Compositor;
-use crate::{AbsRect, render::atlas::Atlas};
+use crate::{AbsRect, Error};
 
-use swash::scale::ScaleContext;
-use swash::scale::{Render, Source, StrikeWith};
+use swash::scale::{Render, ScaleContext, Source, StrikeWith};
 use swash::zeno::{Format, Vector};
 
-pub use swash::scale::image::Content;
-pub use swash::scale::image::Image;
+pub use swash::scale::image::{Content, Image};
 pub use swash::zeno::{Angle, Command, Placement, Transform};
 
 pub struct Instance {

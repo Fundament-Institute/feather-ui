@@ -10,11 +10,10 @@ use feather_ui::component::paragraph::Paragraph;
 use feather_ui::component::region::Region;
 use feather_ui::component::shape::{Shape, ShapeKind};
 use feather_ui::component::window::Window;
-use feather_ui::cosmic_text;
 use feather_ui::layout::base;
 use feather_ui::persist::FnPersist;
 use feather_ui::ultraviolet::Vec4;
-use feather_ui::{AbsRect, App, DRect, FILL_DRECT, RelRect, SourceID};
+use feather_ui::{AbsRect, App, DRect, FILL_DRECT, RelRect, SourceID, cosmic_text};
 use std::f32;
 use std::rc::Rc;
 

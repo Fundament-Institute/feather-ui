@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 // This file is a modified version of editor.rs from cosmic-text and falls under their license terms.
 
-use core::{iter::once, panic};
+use core::iter::once;
+use core::panic;
 use smallvec::SmallVec;
 use std::cell::RefCell;
 use std::rc::Rc;
