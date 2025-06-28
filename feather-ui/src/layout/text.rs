@@ -72,7 +72,7 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
         if unsized_x || unsized_y {
             let mut h = 0.0;
             let mut w: f32 = 0.0;
-            for run in crate::editor::FixedRunIter::new(&text_buffer) {
+            for run in text_buffer.layout_runs() {
                 w = w.max(run.line_w);
                 h += run.line_height;
             }

@@ -291,7 +291,8 @@ impl Instance {
             start_y_physical <= bounds_max_y && bounds_top <= end_y_physical
         };
 
-        let layout_runs = crate::editor::FixedRunIter::new(&buffer)
+        let layout_runs = buffer
+            .layout_runs()
             .skip_while(|run| !is_run_visible(run))
             .take_while(is_run_visible);
 

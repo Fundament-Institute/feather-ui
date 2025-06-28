@@ -116,6 +116,7 @@ impl<T: leaf::Prop + 'static> crate::StateMachineChild for MouseArea<T> {
                                     if !*drag && diff.dot(diff) > deadzone {
                                         *drag = true;
                                     }
+
                                     let b = match i {
                                         0 => MouseButton::Left,
                                         1 => MouseButton::Middle,

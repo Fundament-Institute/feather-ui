@@ -4,12 +4,11 @@
 use crate::color::sRGB;
 
 use super::compositor::{Compositor, Data};
-use std::cell::RefCell;
 use ultraviolet::Vec2;
 
 pub struct Instance {
-    pub start: RefCell<Vec2>,
-    pub end: RefCell<Vec2>,
+    pub start: Vec2,
+    pub end: Vec2,
     pub color: sRGB,
 }
 
@@ -20,8 +19,8 @@ impl super::Renderable for Instance {
         _: &crate::graphics::Driver,
         compositor: &mut Compositor,
     ) -> Result<(), crate::Error> {
-        let p1 = *self.start.borrow();
-        let p2 = *self.end.borrow();
+        let p1 = self.start;
+        let p2 = self.end;
 
         let p = p2 - p1;
         compositor.append(&Data::new(

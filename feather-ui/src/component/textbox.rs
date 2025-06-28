@@ -37,13 +37,13 @@ struct TextBoxState {
 impl Clone for TextBoxState {
     fn clone(&self) -> Self {
         Self {
-            last_x_offset: self.last_x_offset.clone(),
+            last_x_offset: self.last_x_offset,
             history: self.history.clone(),
-            undo_index: self.undo_index.clone(),
-            insert_mode: self.insert_mode.clone(),
+            undo_index: self.undo_index,
+            insert_mode: self.insert_mode,
             text_count: self.text_count.load(Ordering::Relaxed).into(),
             cursor_count: self.cursor_count.load(Ordering::Relaxed).into(),
-            focused: self.focused.clone(),
+            focused: self.focused,
             editor: self.editor.clone(),
         }
     }
@@ -602,7 +602,7 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
 
         let instance = crate::render::textbox::Instance {
             text_buffer: textstate.editor.buffer_ref.clone(),
-            padding: self.props.padding().resolve(dpi).into(),
+            padding: self.props.padding().resolve(dpi),
             selection: textstate.editor.selection_bounds(),
             color: self.color,
             cursor_color: if textstate.focused {

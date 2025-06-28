@@ -31,7 +31,7 @@ impl<T: fixed::Prop + 'static> Button<T> {
             props: props.into(),
             marea: MouseArea::new(
                 SourceID {
-                    parent: Some(id.clone()).into(),
+                    parent: id.clone().into(),
                     id: crate::DataID::Named("__marea_internal__"),
                 }
                 .into(),

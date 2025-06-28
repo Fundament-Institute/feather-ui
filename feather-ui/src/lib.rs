@@ -33,7 +33,7 @@ pub use notify;
 use persist::FnPersist;
 use smallvec::SmallVec;
 use std::any::Any;
-use std::cell::RefCell;
+use std::cell::{OnceCell, RefCell};
 use std::collections::{BTreeMap, HashMap};
 use std::hash::Hasher;
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
@@ -60,7 +60,7 @@ macro_rules! gen_id {
         $idx.child($crate::DataID::Named(concat!(file!(), ":", line!())))
     };
     ($idx:expr, $i:expr) => {
-        $idx.child($crate::DataID::Int($i as i64)),
+        $idx.child($crate::DataID::Int($i as i64))
     };
 }
 
@@ -970,42 +970,63 @@ impl std::cmp::PartialEq for DataID {
 
 #[derive(Clone, Default, Debug)]
 pub struct SourceID {
-    parent: RefCell<Option<std::rc::Rc<SourceID>>>,
+    parent: OnceCell<std::rc::Rc<SourceID>>,
     id: DataID,
 }
 
 impl SourceID {
     pub fn new(id: DataID) -> Self {
         Self {
-            parent: None.into(),
+            parent: OnceCell::new(),
             id,
         }
     }
+
+    /// Creates a new SourceID out of the given DataID, with ourselves as its parent
     pub fn child(self: &Rc<Self>, id: DataID) -> Rc<Self> {
         Self {
-            parent: Some(self.clone()).into(),
+            parent: self.clone().into(),
             id,
         }
         .into()
+    }
+
+    /// Creates a new, unique duplicate ID using this as the parent and the strong count
+    /// of this Rc as the child DataID.
+    pub fn duplicate(self: &Rc<Self>) -> Rc<Self> {
+        self.child(DataID::Int(Rc::strong_count(self) as i64))
+    }
+
+    #[cfg(debug_assertions)]
+    #[allow(clippy::mutable_key_type)]
+    pub(crate) fn parents(self: &Rc<Self>) -> std::collections::HashSet<&Rc<Self>> {
+        let mut set = std::collections::HashSet::new();
+
+        let mut cur = self.parent.get();
+        while let Some(id) = cur {
+            set.insert(id);
+            cur = id.parent.get();
+        }
+        set
     }
 }
 impl std::cmp::Eq for SourceID {}
 impl std::cmp::PartialEq for SourceID {
     fn eq(&self, other: &Self) -> bool {
-        if let Some(parent) = self.parent.borrow().as_ref() {
-            if let Some(pother) = other.parent.borrow().as_ref() {
-                std::rc::Rc::ptr_eq(parent, pother) && self.id == other.id
+        if let Some(parent) = self.parent.get() {
+            if let Some(pother) = other.parent.get() {
+                parent == pother && self.id == other.id
             } else {
                 false
             }
         } else {
-            other.parent.borrow().is_none() && self.id == other.id
+            other.parent.get().is_none() && self.id == other.id
         }
     }
 }
 impl std::hash::Hash for SourceID {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        if let Some(parent) = self.parent.borrow().as_ref() {
+        if let Some(parent) = self.parent.get() {
             parent.id.hash(state);
         }
         self.id.hash(state);
@@ -1013,11 +1034,11 @@ impl std::hash::Hash for SourceID {
 }
 impl std::fmt::Display for SourceID {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(parent) = self.parent.borrow().as_ref() {
+        if let Some(parent) = self.parent.get() {
             parent.fmt(f)?;
         }
 
-        match (&self.id, self.parent.borrow().is_some()) {
+        match (&self.id, self.parent.get().is_some()) {
             (DataID::Named(_), true) | (DataID::Owned(_), true) => f.write_str(" -> "),
             (DataID::Other(_), true) => f.write_str(" "),
             _ => Ok(()),
@@ -1229,8 +1250,9 @@ impl StateManager {
     }
 }
 
+#[allow(clippy::declare_interior_mutable_const)]
 pub const APP_SOURCE_ID: SourceID = SourceID {
-    parent: RefCell::new(None),
+    parent: OnceCell::new(),
     id: DataID::Named("__fg_AppData_ID__"),
 };
 
@@ -1369,9 +1391,15 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
         ))
     }
 
+    #[allow(clippy::borrow_interior_mutable_const)]
     fn update_outline(&mut self, event_loop: &winit::event_loop::ActiveEventLoop, store: O::Store) {
         let app_state: &AppDataMachine<AppData> = self.state.get(&APP_SOURCE_ID).unwrap();
         let (store, windows) = self.outline.call(store, app_state.state.as_ref().unwrap());
+        debug_assert!(
+            APP_SOURCE_ID.parent.get().is_none(),
+            "Something set the APP_SOURCE parent! This should never happen!"
+        );
+
         self.store.replace(store);
         self.root.children = windows;
         #[cfg(debug_assertions)]

@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use core::time;
 use std::collections::HashMap;
-use std::thread::sleep;
 
 use crate::render;
 use crate::render::atlas;

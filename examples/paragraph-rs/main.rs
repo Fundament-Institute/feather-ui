@@ -144,9 +144,9 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
                     Default::default(),
                     true,
                 );
-                p.children.push_front(Some(Box::new(rect.clone())));
-                p.children.push_back(Some(Box::new(rect.clone())));
-                p.children.push_back(Some(Box::new(rect.clone())));
+                p.prepend(Box::new(rect.clone()));
+                p.append(Box::new(rect.clone()));
+                p.append(Box::new(rect.clone()));
 
                 p
             };
@@ -155,9 +155,9 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
                 im::Vector::new();
             children.push_back(Some(Box::new(flex)));
 
-            let region = Region {
-                id: gen_id!(),
-                props: MinimalArea {
+            let region = Region::new(
+                gen_id!(),
+                MinimalArea {
                     area: feather_ui::URect {
                         abs: AbsRect::new(90.0, 90.0, -90.0, -90.0),
                         rel: RelRect::new(0.0, 0.0, 1.0, 1.0),
@@ -166,7 +166,8 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
                 }
                 .into(),
                 children,
-            };
+            );
+
             let window = Window::new(
                 gen_id!(),
                 winit::window::Window::default_attributes()

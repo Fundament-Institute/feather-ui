@@ -143,9 +143,9 @@ impl EditBuffer {
 
     fn compact(mut idx: usize, affinity: Affinity) -> usize {
         const FLAG: usize = 1 << (usize::BITS - 1);
-        idx = idx & (!FLAG);
+        idx &= !FLAG;
         if affinity == Affinity::After {
-            idx = idx | FLAG;
+            idx |= FLAG;
         }
         idx
     }

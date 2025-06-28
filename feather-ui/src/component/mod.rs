@@ -30,11 +30,38 @@ use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 use window::WindowStateMachine;
 
+#[cfg(debug_assertions)]
+#[allow(clippy::mutable_key_type)]
+fn cycle_check(id: &Rc<SourceID>, set: &std::collections::HashSet<&Rc<SourceID>>) {
+    debug_assert!(!set.contains(id), "Cycle detected!");
+}
+
+fn set_child_parent(mut child: &Rc<SourceID>, id: Rc<SourceID>) -> Result<()> {
+    while let Some(parent) = child.parent.get() {
+        // If we're already in this child's inheritance stack, bail out
+        if Rc::ptr_eq(&id, parent) {
+            return Ok(());
+        }
+        child = parent;
+    }
+    child
+        .parent
+        .set(id.clone())
+        .map_err(|e| eyre::Report::msg(e.to_string()))
+}
+
 #[inline]
+#[allow(clippy::mutable_key_type)]
 fn set_children<T: StateMachineChild>(this: T) -> T {
     let id = this.id();
-    this.apply_children(&mut |x| Ok(*x.id().parent.borrow_mut() = Some(id.clone())))
-        .unwrap();
+    #[cfg(debug_assertions)]
+    let parents = id.parents();
+    this.apply_children(&mut |x| {
+        #[cfg(debug_assertions)]
+        cycle_check(&x.id(), &parents);
+        set_child_parent(&x.id(), id.clone())
+    })
+    .expect("Parent set failed when it should never fail!");
     this
 }
 
@@ -346,13 +373,13 @@ impl Root {
                 parent: Option<&Rc<SourceID>>,
             ) -> eyre::Result<()> {
                 let id = x.id();
-                let mut cur = Some(id.clone());
+                let mut cur = Some(&id);
                 if let Some(parent_id) = parent {
-                    while let Some(cur_id) = cur.as_ref() {
+                    while let Some(cur_id) = cur {
                         if cur_id == parent_id {
                             break;
                         }
-                        let c = cur_id.parent.borrow().clone();
+                        let c = cur_id.parent.get();
                         cur = c;
                     }
                     if cur.is_none() {
