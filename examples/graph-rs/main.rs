@@ -76,22 +76,18 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
 
             let mut node_ids: Vec<Rc<SourceID>> = Vec::new();
 
-            let node_id = gen_id!();
-
             for i in 0..args.nodes.len() {
                 let node = args.nodes[i];
                 const BASE: sRGB = sRGB::new(0.2, 0.7, 0.4, 1.0);
 
-                let iter_id = node_id.child(DataID::Int(i as i64));
-                node_ids.push(iter_id.clone());
-
                 let mut contents: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
                     im::Vector::new();
 
-                let point = DomainPoint::new(iter_id.clone(), domain.clone());
+                let point = DomainPoint::new(gen_id!(), domain.clone());
+                node_ids.push(point.id.clone());
 
                 let circle = Shape::<DRect, { ShapeKind::Circle as u8 }>::new(
-                    gen_id!(iter_id),
+                    gen_id!(),
                     FILL_DRECT.into(),
                     0.0,
                     0.0,
@@ -108,7 +104,7 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
                 contents.push_back(Some(Box::new(circle)));
 
                 let bag = Region::<MinimalArea>::new(
-                    gen_id!(iter_id),
+                    gen_id!(gen_id!(), i),
                     MinimalArea {
                         area: AbsRect::new(
                             node.x - NODE_RADIUS,

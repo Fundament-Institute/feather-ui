@@ -35,8 +35,8 @@ where
             children: Default::default(),
             id: Rc::downgrade(&self.id),
             renderable: Some(Rc::new(crate::render::line::Instance {
-                start: self.start.into(),
-                end: self.end.into(),
+                start: self.start,
+                end: self.end,
                 color: self.fill,
             })),
         })

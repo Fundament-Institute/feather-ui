@@ -29,16 +29,7 @@ impl Shared {
     pub fn new(device: &wgpu::Device, _: u32) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Compositor"),
-            //    source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/compositor.wgsl").into()),
-            source: wgpu::ShaderSource::Wgsl(
-                std::fs::read_to_string(
-                    std::env::current_exe()
-                        .unwrap()
-                        .join("../../../feather-ui/src/shaders/compositor.wgsl"),
-                )
-                .unwrap()
-                .into(),
-            ),
+            source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/compositor.wgsl").into()),
         });
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {

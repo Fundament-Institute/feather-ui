@@ -13,179 +13,6 @@ use cosmic_text::{
 
 use crate::text::Change;
 
-// Temporary hack until cosmic-text merges this fix: https://github.com/pop-os/cosmic-text/pull/396
-#[derive(Debug)]
-pub struct FixedRunIter<'b> {
-    buffer: &'b cosmic_text::Buffer,
-    line_i: usize,
-    layout_i: usize,
-    total_height: f32,
-    line_top: f32,
-}
-
-impl<'b> FixedRunIter<'b> {
-    pub fn new(buffer: &'b cosmic_text::Buffer) -> Self {
-        Self {
-            buffer,
-            line_i: buffer.scroll().line,
-            layout_i: 0,
-            total_height: 0.0,
-            line_top: 0.0,
-        }
-    }
-}
-
-impl<'b> Iterator for FixedRunIter<'b> {
-    type Item = cosmic_text::LayoutRun<'b>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        while let Some(line) = self.buffer.lines.get(self.line_i) {
-            let shape = line.shape_opt()?;
-            let layout = line.layout_opt()?;
-            while let Some(layout_line) = layout.get(self.layout_i) {
-                self.layout_i += 1;
-
-                let line_height = layout_line
-                    .line_height_opt
-                    .unwrap_or(self.buffer.metrics().line_height);
-                self.total_height += line_height;
-
-                let line_top = self.line_top - self.buffer.scroll().vertical;
-                let glyph_height = layout_line.max_ascent + layout_line.max_descent;
-                let centering_offset = (line_height - glyph_height) / 2.0;
-                let line_y = line_top + centering_offset + layout_line.max_ascent;
-                if let Some(height) = self.buffer.size().1 {
-                    if line_y - layout_line.max_ascent > height {
-                        return None;
-                    }
-                }
-                self.line_top += line_height;
-                if line_y + layout_line.max_descent < 0.0 {
-                    continue;
-                }
-
-                return Some(cosmic_text::LayoutRun {
-                    line_i: self.line_i,
-                    text: line.text(),
-                    rtl: shape.rtl,
-                    glyphs: &layout_line.glyphs,
-                    line_y,
-                    line_top,
-                    line_height,
-                    line_w: layout_line.w,
-                });
-            }
-            self.line_i += 1;
-            self.layout_i = 0;
-        }
-
-        None
-    }
-}
-
-// Reimplementation of hit() using our FixedRunIter
-fn hit_fixed(buffer: &Buffer, x: f32, y: f32) -> Option<Cursor> {
-    #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
-    let instant = std::time::Instant::now();
-
-    let mut new_cursor_opt = None;
-
-    let mut runs = FixedRunIter::new(buffer).peekable();
-    let mut first_run = true;
-    while let Some(run) = runs.next() {
-        let line_top = run.line_top;
-        let line_height = run.line_height;
-
-        if first_run && y < line_top {
-            first_run = false;
-            let new_cursor = Cursor::new(run.line_i, 0);
-            new_cursor_opt = Some(new_cursor);
-        } else if y >= line_top && y < line_top + line_height {
-            let mut new_cursor_glyph = run.glyphs.len();
-            let mut new_cursor_char = 0;
-            let mut new_cursor_affinity = cosmic_text::Affinity::After;
-
-            let mut first_glyph = true;
-
-            'hit: for (glyph_i, glyph) in run.glyphs.iter().enumerate() {
-                if first_glyph {
-                    first_glyph = false;
-                    if (run.rtl && x > glyph.x) || (!run.rtl && x < 0.0) {
-                        new_cursor_glyph = 0;
-                        new_cursor_char = 0;
-                    }
-                }
-                if x >= glyph.x && x <= glyph.x + glyph.w {
-                    new_cursor_glyph = glyph_i;
-
-                    let cluster = &run.text[glyph.start..glyph.end];
-                    let total = cluster.grapheme_indices(true).count();
-                    let mut egc_x = glyph.x;
-                    let egc_w = glyph.w / (total as f32);
-                    for (egc_i, egc) in cluster.grapheme_indices(true) {
-                        if x >= egc_x && x <= egc_x + egc_w {
-                            new_cursor_char = egc_i;
-
-                            let right_half = x >= egc_x + egc_w / 2.0;
-                            if right_half != glyph.level.is_rtl() {
-                                // If clicking on last half of glyph, move cursor past glyph
-                                new_cursor_char += egc.len();
-                                new_cursor_affinity = cosmic_text::Affinity::Before;
-                            }
-                            break 'hit;
-                        }
-                        egc_x += egc_w;
-                    }
-
-                    let right_half = x >= glyph.x + glyph.w / 2.0;
-                    if right_half != glyph.level.is_rtl() {
-                        // If clicking on last half of glyph, move cursor past glyph
-                        new_cursor_char = cluster.len();
-                        new_cursor_affinity = cosmic_text::Affinity::Before;
-                    }
-                    break 'hit;
-                }
-            }
-
-            let mut new_cursor = Cursor::new(run.line_i, 0);
-
-            match run.glyphs.get(new_cursor_glyph) {
-                Some(glyph) => {
-                    // Position at glyph
-                    new_cursor.index = glyph.start + new_cursor_char;
-                    new_cursor.affinity = new_cursor_affinity;
-                }
-                None => {
-                    if let Some(glyph) = run.glyphs.last() {
-                        // Position at end of line
-                        new_cursor.index = glyph.end;
-                        new_cursor.affinity = cosmic_text::Affinity::Before;
-                    }
-                }
-            }
-
-            new_cursor_opt = Some(new_cursor);
-
-            break;
-        } else if runs.peek().is_none() && y > run.line_y {
-            let mut new_cursor = Cursor::new(run.line_i, 0);
-            if let Some(glyph) = run.glyphs.last() {
-                new_cursor = if run.rtl {
-                    Cursor::new_with_affinity(run.line_i, glyph.start, cosmic_text::Affinity::After)
-                } else {
-                    Cursor::new_with_affinity(run.line_i, glyph.end, cosmic_text::Affinity::Before)
-                }
-            }
-            new_cursor_opt = Some(new_cursor);
-        }
-    }
-
-    #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
-    log::trace!("click({}, {}): {:?}", x, y, instant.elapsed());
-
-    new_cursor_opt
-}
-
 /// A wrapper of [`Buffer`] for easy editing. Modified to take Rc<RefCell<Buffer>>, because BufferRef
 /// does not allow holding anything other than a temporary reference outside of the editor.
 #[derive(Debug, Clone)]
@@ -589,16 +416,14 @@ impl Editor {
 
     #[must_use]
     pub fn delete_selection(&mut self, font_system: &mut FontSystem) -> Option<Change> {
-        let (start, end) = match self.selection_bounds() {
-            Some(some) => some,
-            None => return None,
-        };
+        let (start, end) = self.selection_bounds()?;
 
         // Reset cursor to start of selection
         self.set_cursor(start);
 
         // Reset selection to None
         self.selection = Selection::None;
+        self.cursor_moved = true;
 
         // Delete from start to end of selection
         self.delete_range(font_system, start, end, true)
@@ -615,7 +440,7 @@ impl Editor {
                 font_system,
                 change.start,
                 change.end,
-                unsafe { &str::from_utf8_unchecked(&change.old) },
+                unsafe { str::from_utf8_unchecked(&change.old) },
                 None,
             );
             self.set_cursor(cursor);
@@ -659,6 +484,7 @@ impl Editor {
                     _ => self.with_buffer_mut(|buffer| buffer.set_redraw(true)),
                 }
                 self.selection = Selection::None;
+                self.cursor_moved = true;
                 SmallVec::new()
             }
             Action::Insert(character) => {
@@ -897,8 +723,7 @@ impl Editor {
             Action::Click { x, y } => {
                 self.set_selection(Selection::None);
 
-                if let Some(new_cursor) =
-                    self.with_buffer(|buffer| hit_fixed(buffer, x as f32, y as f32))
+                if let Some(new_cursor) = self.with_buffer(|buffer| buffer.hit(x as f32, y as f32))
                 {
                     if new_cursor != self.cursor {
                         self.set_cursor(new_cursor);
@@ -910,11 +735,10 @@ impl Editor {
             Action::DoubleClick { x, y } => {
                 self.set_selection(Selection::None);
 
-                if let Some(new_cursor) =
-                    self.with_buffer(|buffer| hit_fixed(buffer, x as f32, y as f32))
+                if let Some(new_cursor) = self.with_buffer(|buffer| buffer.hit(x as f32, y as f32))
                 {
                     if new_cursor != self.cursor {
-                        self.cursor = new_cursor;
+                        self.set_cursor(new_cursor);
                         self.with_buffer_mut(|buffer| buffer.set_redraw(true));
                     }
                     self.selection = Selection::Word(self.cursor);
@@ -923,8 +747,7 @@ impl Editor {
                 SmallVec::new()
             }
             Action::Drag { x, y } => {
-                if let Some(new_cursor) =
-                    self.with_buffer(|buffer| hit_fixed(buffer, x as f32, y as f32))
+                if let Some(new_cursor) = self.with_buffer(|buffer| buffer.hit(x as f32, y as f32))
                 {
                     // We do not trigger a selection if only the affinity changes, because it's not visible and ends up being confusing.
                     if new_cursor.index != self.cursor.index || new_cursor.line != self.cursor.line
@@ -933,7 +756,7 @@ impl Editor {
                             self.selection = Selection::Normal(self.cursor);
                             self.with_buffer_mut(|buffer| buffer.set_redraw(true));
                         }
-                        self.cursor = new_cursor;
+                        self.set_cursor(new_cursor);
                         self.with_buffer_mut(|buffer| buffer.set_redraw(true));
                     }
                 }
@@ -955,7 +778,9 @@ impl Editor {
 
     pub fn cursor_position(&self) -> Option<(i32, i32)> {
         self.with_buffer(|buffer| {
-            FixedRunIter::new(buffer).find_map(|run| cursor_position(&self.cursor, &run))
+            buffer
+                .layout_runs()
+                .find_map(|run| cursor_position(&self.cursor, &run))
         })
     }
 

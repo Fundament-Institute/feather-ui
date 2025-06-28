@@ -30,17 +30,21 @@ impl Instance {
         y: f32,
         mut w: f32,
         mut h: f32,
-        maxwidth: f32,
-        maxheight: f32,
+        bounds: crate::AbsRect,
         color: sRGB,
     ) -> compositor::Data {
         // When we are drawing boxes that need to line up with each other, this is a worst-case scenario for
         // the compositor's antialiasing. The only way to antialias arbitrary selection boxes correctly is
         // to use a texture cache or a custom shader. Instead of doing that, we just pixel-snap everything.
-        w = w.min((maxwidth - x).max(0.0));
-        h = h.min((maxheight - y).max(0.0));
+        w = w.min((bounds.bottomright().x - x).max(0.0));
+        h = h.min((bounds.bottomright().y - y).max(0.0));
+        let bx = x.max(bounds.topleft().x);
+        let by = y.max(bounds.topleft().y);
+        w -= bx - x;
+        h -= by - y;
+
         compositor::Data {
-            pos: [x.round(), y.round()].into(),
+            pos: [bx.round(), by.round()].into(),
             dim: [w.round(), h.round()].into(),
             uv: [0.0, 0.0].into(),
             uvdim: [0.0, 0.0].into(),
@@ -81,7 +85,8 @@ impl crate::render::Renderable for Instance {
             start_y_physical <= bounds_bottom && bounds_top <= end_y_physical
         };
 
-        for run in crate::editor::FixedRunIter::new(&buffer)
+        for run in buffer
+            .layout_runs()
             .skip_while(|run| !is_run_visible(run))
             .take_while(is_run_visible)
         {
@@ -118,8 +123,7 @@ impl crate::render::Renderable for Instance {
                                     line_top + pos.y,
                                     std::cmp::max(0, max - min) as f32,
                                     line_height,
-                                    bounds_max_x as f32,
-                                    bounds_max_y as f32,
+                                    area,
                                     self.selection_bg,
                                 ));
                             }
@@ -148,8 +152,7 @@ impl crate::render::Renderable for Instance {
                             line_top + pos.y,
                             std::cmp::max(0, max - min) as f32,
                             line_height,
-                            bounds_max_x as f32,
-                            bounds_max_y as f32,
+                            area,
                             self.selection_bg,
                         ));
                     }
@@ -209,8 +212,7 @@ impl crate::render::Renderable for Instance {
                     y as f32 + pos.y,
                     1.0,
                     line_height,
-                    bounds_max_x as f32,
-                    bounds_max_y as f32,
+                    area,
                     self.cursor_color,
                 ));
             }

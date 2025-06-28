@@ -4,7 +4,6 @@
 use crate::color::sRGB;
 use crate::layout::{Layout, leaf};
 use crate::{BASE_DPI, SourceID, WindowStateMachine, layout};
-use derive_where::derive_where;
 use std::marker::PhantomData;
 use std::rc::Rc;
 use ultraviolet::{Vec2, Vec4};
@@ -17,7 +16,6 @@ pub enum ShapeKind {
     Arc,
 }
 
-#[derive_where(Clone)]
 pub struct Shape<T: leaf::Padded + 'static, const KIND: u8> {
     pub id: std::rc::Rc<SourceID>,
     pub props: Rc<T>,
@@ -27,6 +25,21 @@ pub struct Shape<T: leaf::Padded + 'static, const KIND: u8> {
     pub fill: sRGB,
     pub outline: sRGB,
 }
+
+impl<T: leaf::Padded + 'static, const KIND: u8> Clone for Shape<T, KIND> {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id.duplicate(),
+            props: self.props.clone(),
+            border: self.border,
+            blur: self.blur,
+            corners: self.corners,
+            fill: self.fill,
+            outline: self.outline,
+        }
+    }
+}
+
 impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::RoundRect as u8 }> {
     pub fn new(
         id: std::rc::Rc<SourceID>,

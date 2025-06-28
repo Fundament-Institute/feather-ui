@@ -306,7 +306,7 @@ impl Window {
             );
         }
 
-        manager.init_child(self.child.as_ref(), &driver_ref)?;
+        manager.init_child(self.child.as_ref(), driver_ref)?;
         Ok(())
     }
 

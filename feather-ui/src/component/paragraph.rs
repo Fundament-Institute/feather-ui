@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use crate::color::sRGB;
-use crate::component::ComponentFrom;
 use crate::component::text::Text;
+use crate::component::{ComponentFrom, set_child_parent};
 use crate::layout::{Desc, Layout, base, flex, leaf};
 use crate::persist::{FnPersist, VectorMap};
 use crate::{SourceID, UNSIZED_AXIS, gen_id, layout};
@@ -66,6 +66,16 @@ impl<T: flex::Prop + 'static> Paragraph<T> {
         }
     }
 
+    pub fn append(&mut self, child: Box<ComponentFrom<dyn flex::Prop>>) {
+        set_child_parent(&child.id(), self.id.clone()).unwrap();
+        self.children.push_back(Some(child));
+    }
+
+    pub fn prepend(&mut self, child: Box<ComponentFrom<dyn flex::Prop>>) {
+        set_child_parent(&child.id(), self.id.clone()).unwrap();
+        self.children.push_front(Some(child));
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn set_text(
         &mut self,
@@ -79,9 +89,9 @@ impl<T: flex::Prop + 'static> Paragraph<T> {
         fullwidth: bool,
     ) {
         self.children.clear();
-        for word in text.split_ascii_whitespace() {
+        for (i, word) in text.split_ascii_whitespace().enumerate() {
             let text = Text::<MinimalFlexChild> {
-                id: gen_id!(),
+                id: gen_id!(gen_id!(self.id), i),
                 props: MinimalFlexChild {
                     grow: if fullwidth { 1.0 } else { 0.0 },
                 }
