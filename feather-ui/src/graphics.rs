@@ -4,16 +4,13 @@
 use std::collections::HashMap;
 
 use crate::render;
-use crate::render::atlas;
-use crate::render::compositor;
+use crate::render::{atlas, compositor};
 use guillotiere::AllocId;
 use parking_lot::RwLock;
 use std::any::TypeId;
 use std::sync::Arc;
 use swash::scale::ScaleContext;
-use ultraviolet::Mat4;
-use ultraviolet::Vec2;
-use ultraviolet::Vec4;
+use ultraviolet::{Mat4, Vec2, Vec4};
 use wgpu::{PipelineLayout, ShaderModule};
 use winit::window::CursorIcon;
 

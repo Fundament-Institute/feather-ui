@@ -1,8 +1,14 @@
-use crate::{AbsRect, graphics::Vec2f};
-use std::{collections::HashMap, num::NonZero, rc::Rc};
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+
+use crate::AbsRect;
+use crate::graphics::Vec2f;
+use std::collections::HashMap;
+use std::num::NonZero;
+use std::rc::Rc;
+use wgpu::wgt::SamplerDescriptor;
 use wgpu::{
     BindGroupEntry, BindGroupLayoutEntry, Buffer, BufferDescriptor, BufferUsages, TextureView,
-    wgt::SamplerDescriptor,
 };
 
 use crate::ZERO_RECT;

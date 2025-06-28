@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use std::{cell::RefCell, rc::Rc};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use cosmic_text::Cursor;
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::{
-    Error,
-    color::sRGB,
-    render::{compositor, text},
-};
+use crate::Error;
+use crate::color::sRGB;
+use crate::render::{compositor, text};
 
 pub struct Instance {
     pub text_buffer: Rc<RefCell<cosmic_text::Buffer>>,

@@ -15,9 +15,8 @@ use feather_ui::ultraviolet::{Vec2, Vec4};
 use feather_ui::util::create_hotloader;
 use feather_ui::{
     AbsRect, App, DAbsRect, DPoint, DRect, RelRect, Slot, SourceID, UNSIZED_AXIS, URect, ZERO_RECT,
-    ZERO_RELRECT, gen_id,
+    ZERO_RELRECT, gen_id, im, winit,
 };
-use feather_ui::{im, winit};
 use std::rc::Rc;
 use std::sync::RwLock;
 
