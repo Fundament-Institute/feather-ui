@@ -3,7 +3,10 @@
 
 extern crate alloc;
 
+pub mod color;
 pub mod component;
+mod editor;
+pub mod graphics;
 pub mod input;
 pub mod layout;
 pub mod lua;
@@ -13,59 +16,45 @@ pub mod render;
 mod rtree;
 mod shaders;
 pub mod text;
+pub mod util;
 
 use crate::component::window::Window;
+use crate::graphics::Driver;
+use bytemuck::NoUninit;
 use component::window::WindowStateMachine;
 use component::{Component, StateMachineWrapper};
 use core::f32;
 use dyn_clone::DynClone;
 use eyre::OptionExt;
-pub use glyphon::Wrap;
-use parking_lot::RwLock;
 use persist::FnPersist;
-use shaders::ShaderCache;
 use smallvec::SmallVec;
 use std::any::Any;
-use std::cell::RefCell;
+use std::cell::{OnceCell, RefCell};
 use std::collections::{BTreeMap, HashMap};
 use std::hash::Hasher;
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 use std::rc::Rc;
-use std::sync::Arc;
 use ultraviolet::f32x4;
 use ultraviolet::vec::Vec2;
+use wgpu::{InstanceDescriptor, InstanceFlags};
 use wide::CmpLe;
-use winit::error::OsError;
-use winit::window::{CursorIcon, WindowId};
-
-/// Allocates `&[T]` on stack space.
-pub(crate) fn alloca_array<T, R>(n: usize, f: impl FnOnce(&mut [T]) -> R) -> R {
-    use std::mem::{align_of, size_of};
-
-    alloca::with_alloca_zeroed(
-        (n * size_of::<T>()) + (align_of::<T>() - 1),
-        |memory| unsafe {
-            let mut raw_memory = memory.as_mut_ptr();
-            if raw_memory as usize % align_of::<T>() != 0 {
-                raw_memory =
-                    raw_memory.add(align_of::<T>() - raw_memory as usize % align_of::<T>());
-            }
-
-            f(std::slice::from_raw_parts_mut::<T>(
-                raw_memory.cast::<T>(),
-                n,
-            ))
-        },
-    )
-}
+use winit::window::WindowId;
+pub use {cosmic_text, im, mlua, notify, ultraviolet, wgpu, winit};
 
 #[macro_export]
 macro_rules! gen_id {
     () => {
-        $crate::SourceID::new($crate::DataID::Named(concat!(file!(), ":", line!())))
+        std::rc::Rc::new($crate::SourceID::new($crate::DataID::Named(concat!(
+            file!(),
+            ":",
+            line!()
+        ))))
     };
     ($idx:expr) => {
         $idx.child($crate::DataID::Named(concat!(file!(), ":", line!())))
+    };
+    ($idx:expr, $i:expr) => {
+        $idx.child($crate::DataID::Int($i as i64))
     };
 }
 
@@ -80,6 +69,18 @@ pub enum Error {
     InvalidEnumTag(u64),
     #[error("Event handler didn't handle this method.")]
     UnhandledEvent,
+    #[error("Frame aborted due to pending Texture Atlas resize.")]
+    ResizeTextureAtlas(u32),
+    #[error("Internal texture atlas reservation failure.")]
+    AtlasReservationFailure,
+    #[error("Internal texture atlas cache lookup failure.")]
+    AtlasCacheFailure,
+    #[error("Internal glyph render failure.")]
+    GlyphRenderFailure,
+    #[error("Internal glyph cache lookup failure.")]
+    GlyphCacheFailure,
+    #[error("An assumption about internal state was incorrect.")]
+    InternalFailure,
 }
 
 pub const UNSIZED_AXIS: f32 = f32::MAX;
@@ -102,6 +103,8 @@ pub struct AbsRect(f32x4);
 
 pub const ZERO_RECT: AbsRect = AbsRect(f32x4::ZERO);
 
+unsafe impl NoUninit for AbsRect {}
+
 impl AbsRect {
     #[inline]
     pub const fn new(left: f32, top: f32, right: f32, bottom: f32) -> Self {
@@ -109,7 +112,7 @@ impl AbsRect {
     }
 
     pub const fn broadcast(x: f32) -> Self {
-        Self(f32x4::new([x, x, x, x]))
+        Self(f32x4::new([x, x, x, x])) // f32x4::splat isn't a constant function (for some reason)
     }
 
     #[inline]
@@ -307,7 +310,7 @@ impl RelRect {
     }
 
     pub const fn broadcast(x: f32) -> Self {
-        Self(f32x4::new([x, x, x, x]))
+        Self(f32x4::new([x, x, x, x])) // f32x4::splat isn't a constant function (for some reason)
     }
 
     #[inline]
@@ -875,49 +878,17 @@ impl CrossReferenceDomain {
     }
 }
 
-pub trait RenderLambda: Fn(&mut wgpu::RenderPass) + dyn_clone::DynClone {}
-impl<T: Fn(&mut wgpu::RenderPass) + ?Sized + dyn_clone::DynClone> RenderLambda for T {}
-dyn_clone::clone_trait_object!(RenderLambda);
-
-// TODO: This only an Option so it can be zeroed. After fixing im::Vector, remove Option.
-type RenderInstruction = Option<Box<dyn RenderLambda>>;
-
-// Points are specified as 72 per inch, and a scale factor of 1.0 corresponds to 96 DPI, so we multiply by the
-// ratio times the scaling factor.
-#[inline]
-fn point_to_pixel(pt: f32, scale_factor: f32) -> f32 {
-    pt * (72.0 / 96.0) * scale_factor // * text_scale_factor
-}
-
-#[inline]
-fn pixel_to_vec(p: winit::dpi::PhysicalPosition<f32>) -> Vec2 {
-    Vec2::new(p.x, p.y)
-}
-
-// We want to share our device/adapter state across windows, but can't create it until we have at least one window,
-// so we store a weak reference to it in App and if all windows are dropped it'll also drop these, which is usually
-// sensible behavior.
-#[derive(Debug)]
-pub struct DriverState {
-    adapter: wgpu::Adapter,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    shader_cache: RwLock<ShaderCache>,
-    swash_cache: RwLock<glyphon::SwashCache>,
-    font_system: RwLock<glyphon::FontSystem>,
-    cursor: RwLock<CursorIcon>, // This is a convenient place to track our global expected cursor
-}
-static_assertions::assert_impl_all!(DriverState: Send, Sync);
-
 /// Object-safe version of Hash + PartialEq
-pub trait DynHashEq: DynClone {
+pub trait DynHashEq: DynClone + std::fmt::Debug {
     fn dyn_hash(&self, state: &mut dyn Hasher);
     fn dyn_eq(&self, other: &dyn Any) -> bool;
 }
 
 dyn_clone::clone_trait_object!(DynHashEq);
 
-impl<H: std::hash::Hash + std::cmp::PartialEq + std::cmp::Eq + 'static + Clone> DynHashEq for H {
+impl<H: std::hash::Hash + std::cmp::PartialEq + std::cmp::Eq + 'static + Clone + std::fmt::Debug>
+    DynHashEq for H
+{
     fn dyn_hash(&self, mut state: &mut dyn Hasher) {
         self.hash(&mut state);
     }
@@ -930,7 +901,7 @@ impl<H: std::hash::Hash + std::cmp::PartialEq + std::cmp::Eq + 'static + Clone> 
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub enum DataID {
     Named(&'static str),
     Owned(String),
@@ -991,43 +962,93 @@ impl std::cmp::PartialEq for DataID {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct SourceID {
-    parent: Option<std::rc::Rc<SourceID>>,
+    parent: OnceCell<std::rc::Rc<SourceID>>,
     id: DataID,
 }
 
 impl SourceID {
     pub fn new(id: DataID) -> Self {
-        Self { parent: None, id }
-    }
-    pub fn child(self: &Rc<Self>, id: DataID) -> Self {
         Self {
-            parent: Some(self.clone()),
+            parent: OnceCell::new(),
             id,
         }
+    }
+
+    /// Creates a new SourceID out of the given DataID, with ourselves as its parent
+    pub fn child(self: &Rc<Self>, id: DataID) -> Rc<Self> {
+        Self {
+            parent: self.clone().into(),
+            id,
+        }
+        .into()
+    }
+
+    /// Creates a new, unique duplicate ID using this as the parent and the strong count
+    /// of this Rc as the child DataID.
+    pub fn duplicate(self: &Rc<Self>) -> Rc<Self> {
+        self.child(DataID::Int(Rc::strong_count(self) as i64))
+    }
+
+    #[cfg(debug_assertions)]
+    #[allow(clippy::mutable_key_type)]
+    pub(crate) fn parents(self: &Rc<Self>) -> std::collections::HashSet<&Rc<Self>> {
+        let mut set = std::collections::HashSet::new();
+
+        let mut cur = self.parent.get();
+        while let Some(id) = cur {
+            set.insert(id);
+            cur = id.parent.get();
+        }
+        set
     }
 }
 impl std::cmp::Eq for SourceID {}
 impl std::cmp::PartialEq for SourceID {
     fn eq(&self, other: &Self) -> bool {
-        if let Some(parent) = &self.parent {
-            if let Some(pother) = &other.parent {
-                std::rc::Rc::ptr_eq(parent, pother) && self.id == other.id
+        if let Some(parent) = self.parent.get() {
+            if let Some(pother) = other.parent.get() {
+                parent == pother && self.id == other.id
             } else {
                 false
             }
         } else {
-            other.parent.is_none() && self.id == other.id
+            other.parent.get().is_none() && self.id == other.id
         }
     }
 }
 impl std::hash::Hash for SourceID {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        if let Some(parent) = &self.parent {
+        if let Some(parent) = self.parent.get() {
             parent.id.hash(state);
         }
         self.id.hash(state);
+    }
+}
+impl std::fmt::Display for SourceID {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(parent) = self.parent.get() {
+            parent.fmt(f)?;
+        }
+
+        match (&self.id, self.parent.get().is_some()) {
+            (DataID::Named(_), true) | (DataID::Owned(_), true) => f.write_str(" -> "),
+            (DataID::Other(_), true) => f.write_str(" "),
+            _ => Ok(()),
+        }?;
+
+        match &self.id {
+            DataID::Named(s) => f.write_str(s),
+            DataID::Owned(s) => f.write_str(s),
+            DataID::Int(i) => write!(f, "[{}]", i),
+            DataID::Other(dyn_hash_eq) => {
+                let mut h = std::hash::DefaultHasher::new();
+                dyn_hash_eq.dyn_hash(&mut h);
+                write!(f, "{{{}}}", h.finish())
+            }
+            DataID::None => Ok(()),
+        }
     }
 }
 
@@ -1105,7 +1126,11 @@ impl Dispatchable for () {
 }
 
 pub trait StateMachineChild {
-    fn init(&self) -> Result<Box<dyn StateMachineWrapper>, crate::Error> {
+    #[allow(unused_variables)]
+    fn init(
+        &self,
+        driver: &std::sync::Weak<Driver>,
+    ) -> Result<Box<dyn StateMachineWrapper>, crate::Error> {
         Err(crate::Error::Stateless)
     }
     fn apply_children(
@@ -1202,21 +1227,26 @@ impl StateManager {
         Ok(())
     }
 
-    fn init_child(&mut self, target: &dyn StateMachineChild) -> eyre::Result<()> {
+    fn init_child(
+        &mut self,
+        target: &dyn StateMachineChild,
+        driver: &std::sync::Weak<Driver>,
+    ) -> eyre::Result<()> {
         if !self.states.contains_key(&target.id()) {
-            match target.init() {
+            match target.init(driver) {
                 Ok(v) => self.init(target.id().clone(), v),
                 Err(Error::Stateless) => (),
                 Err(e) => return Err(e.into()),
             };
         }
 
-        target.apply_children(&mut |child| self.init_child(child))
+        target.apply_children(&mut |child| self.init_child(child, driver))
     }
 }
 
+#[allow(clippy::declare_interior_mutable_const)]
 pub const APP_SOURCE_ID: SourceID = SourceID {
-    parent: None,
+    parent: OnceCell::new(),
     id: DataID::Named("__fg_AppData_ID__"),
 };
 
@@ -1225,12 +1255,13 @@ pub struct App<
     O: FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>,
 > {
     pub instance: wgpu::Instance,
-    pub driver: std::sync::Weak<DriverState>,
+    pub driver: std::sync::Weak<graphics::Driver>,
     state: StateManager,
     store: Option<O::Store>,
     outline: O,
     _parents: BTreeMap<DataID, DataID>,
     root: component::Root, // Root component node containing all windows
+    driver_init: Option<Box<dyn FnOnce(std::sync::Weak<Driver>) + 'static>>,
 }
 
 struct AppDataMachine<AppData: 'static + std::cmp::PartialEq> {
@@ -1281,13 +1312,14 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
         app_state: AppData,
         inputs: Vec<AppEvent<AppData>>,
         outline: O,
+        driver_init: impl FnOnce(std::sync::Weak<Driver>) + 'static,
     ) -> eyre::Result<(Self, winit::event_loop::EventLoop<T>)> {
         #[cfg(test)]
         let any_thread = true;
         #[cfg(not(test))]
         let any_thread = false;
 
-        Self::new_any_thread(app_state, inputs, outline, any_thread)
+        Self::new_any_thread(app_state, inputs, outline, any_thread, driver_init)
     }
 
     pub fn new_any_thread<T: 'static>(
@@ -1295,7 +1327,17 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
         inputs: Vec<AppEvent<AppData>>,
         outline: O,
         any_thread: bool,
+        driver_init: impl FnOnce(std::sync::Weak<Driver>) + 'static,
     ) -> eyre::Result<(Self, winit::event_loop::EventLoop<T>)> {
+        let mut manager: StateManager = Default::default();
+        manager.init(
+            Rc::new(APP_SOURCE_ID),
+            Box::new(AppDataMachine {
+                input: inputs,
+                state: Some(app_state),
+            }),
+        );
+
         #[cfg(target_os = "windows")]
         let event_loop = winit::event_loop::EventLoop::with_user_event()
             .with_any_thread(any_thread)
@@ -1317,86 +1359,55 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
                 }
             })?;
 
-        let mut manager: StateManager = Default::default();
-        manager.init(
-            Rc::new(APP_SOURCE_ID),
-            Box::new(AppDataMachine {
-                input: inputs,
-                state: Some(app_state),
-            }),
-        );
+        #[cfg(debug_assertions)]
+        let desc = InstanceDescriptor {
+            flags: InstanceFlags::debugging(),
+            ..Default::default()
+        };
+        #[cfg(not(debug_assertions))]
+        let desc = InstanceDescriptor {
+            flags: InstanceFlags::DISCARD_HAL_LABELS,
+            ..Default::default()
+        };
 
         Ok((
             Self {
-                instance: wgpu::Instance::default(),
-                driver: std::sync::Weak::<DriverState>::new(),
+                instance: wgpu::Instance::new(&desc),
+                driver: std::sync::Weak::<graphics::Driver>::new(),
                 store: None,
                 outline,
                 state: manager,
                 _parents: Default::default(),
                 root: component::Root::new(),
+                driver_init: Some(Box::new(driver_init)),
             },
             event_loop,
         ))
     }
 
-    pub async fn create_driver(
-        weak: &mut alloc::sync::Weak<DriverState>,
-        instance: &wgpu::Instance,
-        surface: &wgpu::Surface<'static>,
-    ) -> eyre::Result<Arc<DriverState>> {
-        if let Some(driver) = weak.upgrade() {
-            return Ok(driver);
-        }
-
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                compatible_surface: Some(surface),
-                ..Default::default()
-            })
-            .await?;
-
-        // Create the logical device and command queue
-        let (device, queue) = adapter
-            .request_device(&wgpu::DeviceDescriptor {
-                label: Some("Feather UI wgpu Device"),
-                required_features: wgpu::Features::empty(),
-                required_limits: wgpu::Limits::default(),
-                memory_hints: wgpu::MemoryHints::MemoryUsage,
-                trace: wgpu::Trace::Off,
-            })
-            .await?;
-
-        let shader_cache = ShaderCache::new(&device);
-
-        let driver = Arc::new(crate::DriverState {
-            adapter,
-            device,
-            queue,
-            swash_cache: RwLock::new(glyphon::SwashCache::new()),
-            font_system: RwLock::new(glyphon::FontSystem::new()),
-            shader_cache: RwLock::new(shader_cache),
-            cursor: RwLock::new(CursorIcon::Default),
-        });
-
-        *weak = Arc::downgrade(&driver);
-        Ok(driver)
-    }
-
+    #[allow(clippy::borrow_interior_mutable_const)]
     fn update_outline(&mut self, event_loop: &winit::event_loop::ActiveEventLoop, store: O::Store) {
         let app_state: &AppDataMachine<AppData> = self.state.get(&APP_SOURCE_ID).unwrap();
         let (store, windows) = self.outline.call(store, app_state.state.as_ref().unwrap());
+        debug_assert!(
+            APP_SOURCE_ID.parent.get().is_none(),
+            "Something set the APP_SOURCE parent! This should never happen!"
+        );
+
         self.store.replace(store);
         self.root.children = windows;
+        #[cfg(debug_assertions)]
+        self.root.validate_ids().unwrap();
 
-        let (root, manager, driver, instance) = (
+        let (root, manager, graphics, instance, driver_init) = (
             &mut self.root,
             &mut self.state,
             &mut self.driver,
             &mut self.instance,
+            &mut self.driver_init,
         );
 
-        root.layout_all::<AppData, O>(manager, driver, instance, event_loop)
+        root.layout_all(manager, graphics, driver_init, instance, event_loop)
             .unwrap();
 
         root.stage_all(manager).unwrap();
@@ -1444,18 +1455,37 @@ impl<
                         if let Ok(state) = self.state.get_mut::<WindowStateMachine>(&window.id()) {
                             if let Some(driver) = self.driver.upgrade() {
                                 if let Some(staging) = root.staging.as_ref() {
-                                    state.state.as_mut().unwrap().draw =
-                                        staging.render(Vec2::zero(), &driver);
+                                    while let Err(e) = staging.render(
+                                        Vec2::zero(),
+                                        &driver,
+                                        &mut state.state.as_mut().unwrap().compositor,
+                                    ) {
+                                        match e {
+                                            Error::ResizeTextureAtlas(layers) => {
+                                                // Resize the texture atlas with the requested number of layers (the extent has already been changed)
+                                                driver.atlas.write().resize(
+                                                    &driver.device,
+                                                    &driver.queue,
+                                                    layers,
+                                                );
+                                            }
+                                            e => panic!("Fatal draw error: {}", e),
+                                        }
+                                    }
                                 }
+
+                                let mut encoder = driver.device.create_command_encoder(
+                                    &wgpu::CommandEncoderDescriptor {
+                                        label: Some("Root Encoder"),
+                                    },
+                                );
+
+                                driver.atlas.read().draw(&driver, &mut encoder);
+
+                                state.state.as_mut().unwrap().draw(encoder);
                             }
                         }
-                        Window::on_window_event(
-                            window.id(),
-                            rtree,
-                            event,
-                            &mut self.state,
-                            self.driver.clone(),
-                        )
+                        Ok(())
                     }
                     winit::event::WindowEvent::Resized(_) => {
                         resized = true;
@@ -1518,19 +1548,20 @@ impl FnPersist<u8, im::HashMap<Rc<SourceID>, Option<Window>>> for TestApp {
     type Store = (u8, im::HashMap<Rc<SourceID>, Option<Window>>);
 
     fn init(&self) -> Self::Store {
+        use crate::color::sRGB;
         use crate::component::shape::Shape;
         use ultraviolet::Vec4;
-        let rect = Shape::<DRect>::round_rect(
-            gen_id!().into(),
+        let rect = Shape::<DRect, { component::shape::ShapeKind::RoundRect as u8 }>::new(
+            gen_id!(),
             crate::FILL_DRECT.into(),
             0.0,
             0.0,
             Vec4::zero(),
-            Vec4::new(1.0, 0.0, 0.0, 1.0),
-            Vec4::zero(),
+            sRGB::new(1.0, 0.0, 0.0, 1.0),
+            sRGB::transparent(),
         );
         let window = Window::new(
-            gen_id!().into(),
+            gen_id!(),
             winit::window::Window::default_attributes()
                 .with_title("test_blank")
                 .with_resizable(true),
@@ -1556,7 +1587,7 @@ impl FnPersist<u8, im::HashMap<Rc<SourceID>, Option<Window>>> for TestApp {
 #[test]
 fn test_basic() {
     let (mut app, event_loop): (App<u8, TestApp>, winit::event_loop::EventLoop<()>) =
-        App::new(0u8, vec![], TestApp {}).unwrap();
+        App::new(0u8, vec![], TestApp {}, |_| ()).unwrap();
 
     let proxy = event_loop.create_proxy();
     proxy.send_event(()).unwrap();

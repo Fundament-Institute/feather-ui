@@ -402,7 +402,7 @@ impl Desc for dyn Prop {
             // If we are evaluating our staged area along the main axis, no further calculations can be done
             return Box::new(Concrete {
                 area: evaluated_area,
-                render: None,
+                renderable: None,
                 rtree: rtree::Node::new(evaluated_area, Some(props.zindex()), nodes, id, window),
                 children: staging,
             });
@@ -597,7 +597,7 @@ impl Desc for dyn Prop {
 
         Box::new(Concrete {
             area: evaluated_area,
-            render: renderable,
+            renderable,
             rtree: rtree::Node::new(evaluated_area, Some(props.zindex()), nodes, id, window),
             children: staging,
         })

@@ -27,12 +27,10 @@ winit.workspace = true
 eyre.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
-tokio.workspace = true
 ultraviolet.workspace = true
 dyn-clone = "1.0"
 derive-where = "1.2.7"
 mlua.workspace = true
-glyphon.workspace = true
 enum_variant_type = "0.3.1"
 smallvec = { version = "1.13", features = ["union", "const_generics"] }
 thiserror = "2.0"
@@ -50,6 +48,13 @@ static_assertions = "1.1.0"
 windows-sys = { version = "0.59.0", features = [
   "Win32_UI_WindowsAndMessaging",
 ] }
+bytemuck = "1.23.0"
+cosmic-text.workspace = true
+guillotiere = "0.6.2"
+notify = "8.0.0"
+futures-lite = "2.6.0"
+num-traits = "0.2.19"
+swash = "0.2.5"
 
 [lints.clippy]
 too_many_arguments = { level = "allow" }

@@ -19,8 +19,8 @@ pub mod window;
 use crate::component::window::Window;
 use crate::layout::{Desc, Layout, Staged, root};
 use crate::{
-    AbsRect, DEFAULT_LIMITS, DispatchPair, Dispatchable, DriverState, EventWrapper, Slot, SourceID,
-    StateMachineChild, StateManager, rtree,
+    AbsRect, DEFAULT_LIMITS, DispatchPair, Dispatchable, EventWrapper, Slot, SourceID,
+    StateMachineChild, StateManager, graphics, rtree,
 };
 use dyn_clone::DynClone;
 use eyre::{OptionExt, Result};
@@ -29,6 +29,41 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 use window::WindowStateMachine;
+
+#[cfg(debug_assertions)]
+#[allow(clippy::mutable_key_type)]
+fn cycle_check(id: &Rc<SourceID>, set: &std::collections::HashSet<&Rc<SourceID>>) {
+    debug_assert!(!set.contains(id), "Cycle detected!");
+}
+
+fn set_child_parent(mut child: &Rc<SourceID>, id: Rc<SourceID>) -> Result<()> {
+    while let Some(parent) = child.parent.get() {
+        // If we're already in this child's inheritance stack, bail out
+        if Rc::ptr_eq(&id, parent) {
+            return Ok(());
+        }
+        child = parent;
+    }
+    child
+        .parent
+        .set(id.clone())
+        .map_err(|e| eyre::Report::msg(e.to_string()))
+}
+
+#[inline]
+#[allow(clippy::mutable_key_type)]
+fn set_children<T: StateMachineChild>(this: T) -> T {
+    let id = this.id();
+    #[cfg(debug_assertions)]
+    let parents = id.parents();
+    this.apply_children(&mut |x| {
+        #[cfg(debug_assertions)]
+        cycle_check(&x.id(), &parents);
+        set_child_parent(&x.id(), id.clone())
+    })
+    .expect("Parent set failed when it should never fail!");
+    this
+}
 
 pub trait StateMachineWrapper: Any {
     fn process(
@@ -122,7 +157,7 @@ pub trait Component<T: ?Sized>: crate::StateMachineChild + DynClone {
     fn layout(
         &self,
         state: &StateManager,
-        driver: &DriverState,
+        driver: &graphics::Driver,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T> + 'static>;
@@ -136,7 +171,7 @@ pub trait ComponentWrap<T: ?Sized>: crate::StateMachineChild + DynClone {
     fn layout(
         &self,
         state: &StateManager,
-        driver: &DriverState,
+        driver: &graphics::Driver,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T> + 'static>;
@@ -151,7 +186,7 @@ where
     fn layout(
         &self,
         state: &StateManager,
-        driver: &DriverState,
+        driver: &graphics::Driver,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<U> + 'static> {
@@ -166,8 +201,11 @@ where
 }
 
 impl<T: 'static> StateMachineChild for Box<dyn Component<T>> {
-    fn init(&self) -> Result<Box<dyn crate::StateMachineWrapper>, crate::Error> {
-        StateMachineChild::init(self.as_ref())
+    fn init(
+        &self,
+        driver: &std::sync::Weak<crate::Driver>,
+    ) -> Result<Box<dyn crate::StateMachineWrapper>, crate::Error> {
+        StateMachineChild::init(self.as_ref(), driver)
     }
 
     fn apply_children(
@@ -189,7 +227,7 @@ where
     fn layout(
         &self,
         state: &StateManager,
-        driver: &DriverState,
+        driver: &graphics::Driver,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<U> + 'static> {
@@ -198,8 +236,11 @@ where
 }
 
 impl<T: 'static> StateMachineChild for &dyn Component<T> {
-    fn init(&self) -> Result<Box<dyn crate::StateMachineWrapper>, crate::Error> {
-        StateMachineChild::init(*self)
+    fn init(
+        &self,
+        driver: &std::sync::Weak<crate::Driver>,
+    ) -> Result<Box<dyn crate::StateMachineWrapper>, crate::Error> {
+        StateMachineChild::init(*self, driver)
     }
 
     fn apply_children(
@@ -254,13 +295,11 @@ impl Root {
         }
     }
 
-    pub fn layout_all<
-        AppData: 'static + std::cmp::PartialEq,
-        O: crate::FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>,
-    >(
+    pub fn layout_all(
         &mut self,
         manager: &mut StateManager,
-        driver: &mut std::sync::Weak<DriverState>,
+        driver: &mut std::sync::Weak<graphics::Driver>,
+        on_driver: &mut Option<Box<dyn FnOnce(std::sync::Weak<graphics::Driver>) + 'static>>,
         instance: &wgpu::Instance,
         event_loop: &winit::event_loop::ActiveEventLoop,
     ) -> eyre::Result<()> {
@@ -268,7 +307,7 @@ impl Root {
         // TODO: make this actually efficient by performing the initialization when a new component is initialized
         for (_, window) in self.children.iter() {
             let window = window.as_ref().unwrap();
-            window.init_custom::<AppData, O>(manager, driver, instance, event_loop)?;
+            window.init_custom(manager, driver, instance, event_loop, on_driver)?;
             let state: &WindowStateMachine = manager.get(&window.id())?;
             let id = state.state.as_ref().unwrap().window.id();
             self.states
@@ -324,6 +363,51 @@ impl Root {
             Ok(())
         })
     }*/
+
+    pub fn validate_ids(&self) -> eyre::Result<()> {
+        struct Validator(std::collections::HashSet<Rc<SourceID>>);
+        impl Validator {
+            fn f(
+                &mut self,
+                x: &dyn StateMachineChild,
+                parent: Option<&Rc<SourceID>>,
+            ) -> eyre::Result<()> {
+                let id = x.id();
+                let mut cur = Some(&id);
+                if let Some(parent_id) = parent {
+                    while let Some(cur_id) = cur {
+                        if cur_id == parent_id {
+                            break;
+                        }
+                        let c = cur_id.parent.get();
+                        cur = c;
+                    }
+                    if cur.is_none() {
+                        return Err(eyre::eyre!(
+                            "Invalid Parent ID found! All components must have an ID that is a direct or indirect child of their parent! {}",
+                            x.id()
+                        ));
+                    }
+                }
+                if !self.0.insert(id.clone()) {
+                    return Err(eyre::eyre!(
+                        "Duplicate ID found! Did you forget to add a child index to an ID? {}",
+                        x.id()
+                    ));
+                }
+
+                x.apply_children(&mut |x| self.f(x, Some(&id)))
+            }
+        }
+        let mut v = Validator(std::collections::HashSet::new());
+        for (_, child) in &self.children {
+            if let Some(window) = child {
+                v.f(window, None)?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[macro_export]
@@ -332,7 +416,7 @@ macro_rules! gen_component_wrap_inner {
         fn layout(
             &self,
             state: &$crate::StateManager,
-            driver: &$crate::DriverState,
+            driver: &$crate::graphics::Driver,
             window: &Rc<SourceID>,
             config: &wgpu::SurfaceConfiguration,
         ) -> Box<dyn $crate::component::Layout<U> + 'static> {

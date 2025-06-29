@@ -13,15 +13,29 @@ use super::ComponentFrom;
 #[derive_where(Clone)]
 pub struct ListBox<T: list::Prop + 'static> {
     pub id: Rc<SourceID>,
-    pub props: Rc<T>,
-    pub children: im::Vector<Option<Box<ComponentFrom<dyn list::Prop>>>>,
+    props: Rc<T>,
+    children: im::Vector<Option<Box<ComponentFrom<dyn list::Prop>>>>,
+}
+
+impl<T: list::Prop + 'static> ListBox<T> {
+    pub fn new(
+        id: Rc<SourceID>,
+        props: Rc<T>,
+        children: im::Vector<Option<Box<ComponentFrom<dyn list::Prop>>>>,
+    ) -> Self {
+        super::set_children(Self {
+            id,
+            props,
+            children,
+        })
+    }
 }
 
 impl<T: list::Prop + 'static> super::Component<T> for ListBox<T> {
     fn layout(
         &self,
         state: &crate::StateManager,
-        driver: &crate::DriverState,
+        driver: &crate::graphics::Driver,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {

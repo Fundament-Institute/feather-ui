@@ -56,9 +56,6 @@ impl crate::layout::Desc for dyn Empty {
     }
 }
 
-//static SENTINEL: std::sync::LazyLock<std::rc::Rc<()>> =
-//  std::sync::LazyLock::new(|| std::rc::Rc::new(()));
-
 pub trait Obstacles {
     fn obstacles(&self) -> &[DAbsRect];
 }
@@ -136,5 +133,5 @@ impl Limits for DRect {}
 impl RLimits for DRect {}
 
 pub trait TextEdit {
-    fn textedit(&self) -> &crate::text::Snapshot;
+    fn textedit(&self) -> &crate::text::EditView;
 }

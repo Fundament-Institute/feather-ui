@@ -1,63 +1,54 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::shaders::{Vertex, to_bytes};
-use crate::{CrossReferenceDomain, DriverState, RenderLambda, SourceID};
-use std::rc::Rc;
-use wgpu::util::DeviceExt;
+use crate::color::sRGB;
+use crate::render::compositor;
+use crate::{CrossReferenceDomain, SourceID};
 
-pub struct Pipeline {
-    pub this: std::rc::Weak<Pipeline>,
-    pub pipeline: wgpu::RenderPipeline,
-    pub group: wgpu::BindGroup,
+use std::rc::Rc;
+use ultraviolet::Vec2;
+
+pub struct Instance {
     pub domain: Rc<CrossReferenceDomain>,
     pub start: Rc<SourceID>,
     pub end: Rc<SourceID>,
-    pub _buffers: [wgpu::Buffer; 3],
+    pub color: sRGB,
 }
 
-impl super::Renderable for Pipeline {
+impl super::Renderable for Instance {
     fn render(
         &self,
         _: crate::AbsRect,
-        driver: &DriverState,
-    ) -> im::Vector<crate::RenderInstruction> {
-        // TODO: This needs to be deferred until the end of the pipeline and then re-inserted back into place to remove dependency cycles
-        let start = self.domain.get_area(&self.start).unwrap_or_default();
-        let end = self.domain.get_area(&self.end).unwrap_or_default();
+        _: &crate::graphics::Driver,
+        compositor: &mut compositor::Compositor,
+    ) -> Result<(), crate::Error> {
+        let domain = self.domain.clone();
+        let start_id = self.start.clone();
+        let end_id = self.end.clone();
+        let color = self.color.as_32bit();
 
-        // We have to put this in an RC because it needs to be cloneable across multiple render passes
-        let verts = Rc::new(
-            driver
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("LineVertices"),
-                    contents: to_bytes(&[
-                        Vertex {
-                            pos: ((start.topleft() + start.bottomright()) * 0.5).into(),
-                        },
-                        Vertex {
-                            pos: ((end.topleft() + end.bottomright()) * 0.5).into(),
-                        },
-                    ]),
-                    usage: wgpu::BufferUsages::VERTEX,
-                }),
-        );
+        compositor.defer(move |_, data| {
+            let start = domain.get_area(&start_id).unwrap_or_default();
+            let end = domain.get_area(&end_id).unwrap_or_default();
 
-        let weak = self.this.clone();
-        let mut result = im::Vector::new();
-        result.push_back(Some(Box::new(move |pass: &mut wgpu::RenderPass| {
-            if let Some(this) = weak.upgrade() {
-                pass.set_vertex_buffer(0, verts.slice(..));
-                pass.set_bind_group(0, &this.group, &[]);
-                pass.set_pipeline(&this.pipeline);
-                pass.draw(
-                    //0..(this.vertices.size() as u32 / size_of::<Vertex>() as u32),
-                    0..2,
-                    0..1,
-                );
-            }
-        }) as Box<dyn RenderLambda>));
-        result
+            let p1: Vec2 = (start.topleft() + start.bottomright()) * 0.5;
+            let p2: Vec2 = (end.topleft() + end.bottomright()) * 0.5;
+            let p = p2 - p1;
+
+            *data = compositor::Data::new(
+                (((p1 + p2) * 0.5) - (Vec2::new(p.mag() * 0.5, 0.0)))
+                    .as_array()
+                    .into(),
+                [p.mag(), 1.0].into(),
+                [0.0, 0.0].into(),
+                [0.0, 0.0].into(),
+                color.rgba,
+                p.y.atan2(p.x) % std::f32::consts::TAU,
+                u16::MAX,
+                0,
+            );
+        });
+
+        Ok(())
     }
 }

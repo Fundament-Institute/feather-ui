@@ -17,15 +17,16 @@ impl Renderable for Write {
     fn render(
         &self,
         area: AbsRect,
-        driver: &crate::DriverState,
-    ) -> im::Vector<crate::RenderInstruction> {
+        driver: &crate::graphics::Driver,
+        compositor: &mut crate::render::Compositor,
+    ) -> Result<(), crate::Error> {
         if let Some(idref) = self.id.upgrade() {
             self.domain.write_area(idref, area);
         }
 
         self.base
             .as_ref()
-            .map(|x| x.render(area, driver))
-            .unwrap_or_default()
+            .map(|x| x.render(area, driver, compositor))
+            .unwrap_or(Ok(()))
     }
 }

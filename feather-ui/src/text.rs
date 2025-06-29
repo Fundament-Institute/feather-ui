@@ -2,175 +2,299 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use std::cell::RefCell;
+use std::ops;
 use std::rc::Rc;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
+use cosmic_text::{Affinity, AttrsList, Cursor, Metrics};
 use smallvec::SmallVec;
-use unicode_segmentation::GraphemeCursor;
 
-#[derive(Default, Debug)]
-pub struct EditObj {
-    pub(crate) text: RefCell<String>,
-    count: AtomicUsize,
+use crate::graphics::point_to_pixel;
+
+/// Represents a single change, recording the (`start`,`end`) range of the new string, and the old string
+/// that used to be contained in that range. `start` and `end` might be equal, which represents a deletion.
+/// Likewise, old might be empty, which represents an insertion.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Change {
+    pub start: Cursor,
+    pub end: Cursor,
+    pub old: SmallVec<[u8; 4]>,
+    pub attrs: Option<AttrsList>,
+}
+
+#[derive(Debug)]
+pub struct EditBuffer {
+    pub(crate) buffer: Rc<RefCell<cosmic_text::Buffer>>,
+    pub(crate) count: AtomicUsize,
+    pub(crate) reflow: AtomicBool,
     cursor: AtomicUsize,
     select: AtomicUsize, // If there's a selection, this is different from cursor and points at the end. Can be less than cursor.
 }
 
-impl Clone for EditObj {
+impl Default for EditBuffer {
+    fn default() -> Self {
+        Self {
+            buffer: Rc::new(RefCell::new(cosmic_text::Buffer::new_empty(Metrics::new(
+                1.0, 1.0,
+            )))),
+            count: Default::default(),
+            reflow: Default::default(),
+            cursor: Default::default(),
+            select: Default::default(),
+        }
+    }
+}
+impl Clone for EditBuffer {
     fn clone(&self) -> Self {
         Self {
-            text: self.text.clone(),
+            buffer: self.buffer.clone(),
             count: self.count.load(Ordering::Relaxed).into(),
+            reflow: self.reflow.load(Ordering::Relaxed).into(),
             cursor: self.cursor.load(Ordering::Relaxed).into(),
             select: self.select.load(Ordering::Relaxed).into(),
         }
     }
 }
 
-impl EditObj {
-    pub fn new(text: String, cursor: (usize, usize)) -> Self {
-        Self {
-            text: text.into(),
+impl EditBuffer {
+    pub fn new(text: &str, cursor: (usize, usize)) -> Self {
+        let this = Self {
+            buffer: Rc::new(RefCell::new(cosmic_text::Buffer::new_empty(Metrics {
+                font_size: 1.0,
+                line_height: 1.0,
+            }))),
             count: 0.into(),
+            reflow: true.into(),
             cursor: cursor.0.into(),
             select: cursor.1.into(),
+        };
+        this.set_content(text);
+        this
+    }
+    pub fn get_content(&self) -> String {
+        let mut s = String::new();
+        s.reserve(
+            self.buffer
+                .borrow()
+                .lines
+                .iter()
+                .fold(0, |c, l| c + l.text().len() + l.ending().as_str().len()),
+        );
+        for line in &self.buffer.borrow().lines {
+            s.push_str(line.text());
+            s.push_str(line.ending().as_str());
         }
+        s
     }
-    pub fn get_content(&self) -> std::cell::Ref<'_, String> {
-        self.text.borrow()
-    }
+
     pub fn set_content(&self, content: &str) {
-        *self.text.borrow_mut() = content.into();
+        let mut buffer = self.buffer.borrow_mut();
+        buffer.lines.clear();
+        for (range, ending) in cosmic_text::LineIter::new(content) {
+            buffer.lines.push(cosmic_text::BufferLine::new(
+                &content[range],
+                ending,
+                AttrsList::new(&cosmic_text::Attrs::new()),
+                cosmic_text::Shaping::Advanced,
+            ));
+        }
+        if buffer.lines.is_empty() {
+            buffer.lines.push(cosmic_text::BufferLine::new(
+                "",
+                cosmic_text::LineEnding::default(),
+                AttrsList::new(&cosmic_text::Attrs::new()),
+                cosmic_text::Shaping::Advanced,
+            ));
+        }
+        self.reflow.store(true, Ordering::Release);
         self.count.fetch_add(1, Ordering::Release);
     }
+
     pub fn edit(
         &self,
-        multisplice: &[(std::ops::Range<usize>, String)],
-    ) -> SmallVec<[(std::ops::Range<usize>, String); 1]> {
-        let old: SmallVec<[(std::ops::Range<usize>, String); 1]> = if multisplice.len() == 1 {
+        multisplice: &[(ops::Range<usize>, String)],
+    ) -> SmallVec<[(ops::Range<usize>, String); 1]> {
+        let mut text = self.get_content();
+        if multisplice.len() == 1 {
             let (range, replace) = &multisplice[0];
-            let old = self.text.borrow()[range.clone()].to_string();
-            self.text.borrow_mut().replace_range(range.clone(), replace);
+            let old = text[range.clone()].to_string();
+            text.replace_range(range.clone(), replace);
+            self.set_content(&text);
             [(range.start..replace.len(), old)].into()
         } else {
             // To preserve the validity of the ranges, we have to assemble the string piecewise
             let mut undo = SmallVec::new();
             let mut last = 0;
-            let s = {
-                let mut pieces: Vec<&str> = Vec::new();
-                let txt = self.text.borrow();
+            let mut s = String::new();
+            {
                 for (range, replace) in multisplice {
-                    pieces.push(&txt[last..range.start]);
-                    pieces.push(replace);
-                    undo.push((range.start..replace.len(), txt[range.clone()].to_string()));
+                    s.push_str(&text[last..range.start]);
+                    s.push_str(replace);
+                    undo.push((range.start..replace.len(), text[range.clone()].to_string()));
                     last = range.end;
                 }
 
-                pieces.push(&txt[last..]);
-                pieces.join("")
+                s.push_str(&text[last..]);
             };
-            self.text.replace(s);
+            self.set_content(&s);
             undo
-        };
-        self.count.fetch_add(1, Ordering::Release);
-        old
+        }
     }
 
-    pub fn get_cursor(&self) -> (usize, usize) {
+    fn compact(mut idx: usize, affinity: Affinity) -> usize {
+        const FLAG: usize = 1 << (usize::BITS - 1);
+        idx &= !FLAG;
+        if affinity == Affinity::After {
+            idx |= FLAG;
+        }
+        idx
+    }
+    fn expand(cursor: usize) -> (usize, Affinity) {
+        const FLAG: usize = 1 << (usize::BITS - 1);
         (
-            self.cursor.load(Ordering::Relaxed),
-            self.select.load(Ordering::Relaxed),
+            cursor & (!FLAG),
+            if (cursor & FLAG) != 0 {
+                Affinity::After
+            } else {
+                Affinity::Before
+            },
         )
     }
 
-    pub fn set_cursor(&self, cursor: usize) {
+    pub fn get_cursor(&self) -> (usize, Affinity) {
+        Self::expand(self.cursor.load(Ordering::Relaxed))
+    }
+
+    pub fn get_selection(&self) -> (usize, Affinity) {
+        Self::expand(self.select.load(Ordering::Relaxed))
+    }
+
+    pub fn set_cursor(&self, cursor: usize, affinity: Affinity) {
+        let start = Self::compact(cursor, affinity);
+        self.cursor.store(start, Ordering::Release);
+        self.select.store(start, Ordering::Release);
+        self.count.fetch_add(1, Ordering::Release);
+    }
+    pub fn set_selection(&self, start: (usize, Affinity), end: (usize, Affinity)) {
+        let cursor = Self::compact(start.0, start.1);
+        let select = Self::compact(end.0, end.1);
         self.cursor.store(cursor, Ordering::Release);
-        self.select.store(cursor, Ordering::Release);
-        self.count.fetch_add(1, Ordering::Release);
-    }
-    pub fn set_selection(&self, cursor: (usize, usize)) {
-        self.cursor.store(cursor.0, Ordering::Release);
-        self.select.store(cursor.1, Ordering::Release);
+        self.select.store(select, Ordering::Release);
         self.count.fetch_add(1, Ordering::Release);
     }
 
-    pub(crate) fn next_grapheme(&self, byte_offset: usize) -> usize {
-        let txt = self.text.borrow();
-        let mut cursor = GraphemeCursor::new(byte_offset, txt.len(), true);
-        assert!(cursor.is_boundary(&txt, 0).is_ok_and(|v| v));
-        match cursor.next_boundary(&txt, 0) {
-            Ok(Some(x)) => x,
-            Ok(None) => txt.len(),
-            Err(_) => byte_offset,
+    pub fn to_cursor(&self, cursor: (usize, Affinity)) -> Cursor {
+        let mut lines = 0;
+        let (mut idx, mut affinity) = cursor;
+        for line in &self.buffer.borrow().lines {
+            let len = line.text().len();
+            if len >= idx {
+                break;
+            }
+            idx -= len;
+            lines += 1;
+            if idx < line.ending().as_str().len() {
+                affinity = Affinity::Before;
+                idx = 0;
+                break;
+            }
+            idx -= line.ending().as_str().len();
+        }
+        Cursor {
+            line: lines,
+            index: idx,
+            affinity,
         }
     }
 
-    pub(crate) fn prev_grapheme(&self, byte_offset: usize) -> usize {
-        let txt = self.text.borrow();
-        let mut cursor = GraphemeCursor::new(byte_offset, txt.len(), true);
-        assert!(cursor.is_boundary(&txt, 0).is_ok_and(|v| v));
-        match cursor.prev_boundary(&txt, 0) {
-            Ok(Some(x)) => x,
-            Ok(None) => 0,
-            Err(_) => byte_offset,
+    pub fn from_cursor(&self, cursor: Cursor) -> (usize, Affinity) {
+        let mut idx = 0;
+        for line in self.buffer.borrow().lines.iter().take(cursor.line) {
+            idx += line.text().len() + line.ending().as_str().len();
         }
+        (idx + cursor.index, cursor.affinity)
+    }
+
+    pub fn flowtext(
+        &self,
+        font_system: &mut crate::cosmic_text::FontSystem,
+        font_size: f32,
+        line_height: f32,
+        wrap: cosmic_text::Wrap,
+        dpi: ultraviolet::Vec2,
+        attrs: cosmic_text::Attrs<'_>,
+    ) {
+        let mut text_buffer = self.buffer.borrow_mut();
+
+        let metrics = cosmic_text::Metrics::new(
+            point_to_pixel(font_size, dpi.x),
+            point_to_pixel(line_height, dpi.y),
+        );
+
+        if text_buffer.metrics() != metrics {
+            text_buffer.set_metrics(font_system, metrics);
+        }
+        if text_buffer.wrap() != wrap {
+            text_buffer.set_wrap(font_system, wrap);
+        }
+        for line in &mut text_buffer.lines {
+            line.set_attrs_list(AttrsList::new(&attrs));
+        }
+        text_buffer.shape_until_scroll(font_system, false);
+        self.reflow.store(false, Ordering::Release);
     }
 }
 
 #[derive(Default, Debug)]
-pub struct Snapshot {
-    pub(crate) obj: Rc<EditObj>,
+pub struct EditView {
+    pub(crate) obj: Rc<EditBuffer>,
     count: usize,
+    reflow: bool,
 }
 
-impl Snapshot {
-    pub fn get(&self) -> &EditObj {
+impl EditView {
+    pub fn get(&self) -> &EditBuffer {
         &self.obj
     }
 }
 
 // Ensures each clone gets a fresh snapshot to capture changes
-impl Clone for Snapshot {
+impl Clone for EditView {
     fn clone(&self) -> Self {
         Self {
             obj: self.obj.clone(),
             count: self.obj.count.load(Ordering::Acquire),
+            reflow: self.obj.reflow.load(Ordering::Acquire),
         }
     }
 }
 
-impl Eq for Snapshot {}
-impl PartialEq for Snapshot {
+impl Eq for EditView {}
+impl PartialEq for EditView {
     fn eq(&self, other: &Self) -> bool {
-        self.count == other.count && Rc::ptr_eq(&self.obj, &other.obj)
+        self.count == other.count
+            && self.reflow == other.reflow
+            && Rc::ptr_eq(&self.obj, &other.obj)
     }
 }
 
-impl PartialOrd for Snapshot {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        if Rc::ptr_eq(&self.obj, &other.obj) {
-            self.count.partial_cmp(&other.count)
-        } else {
-            None
-        }
-    }
-}
-
-impl From<Rc<EditObj>> for Snapshot {
-    fn from(value: Rc<EditObj>) -> Self {
+impl From<Rc<EditBuffer>> for EditView {
+    fn from(value: Rc<EditBuffer>) -> Self {
         Self {
             obj: value.clone(),
-            count: value.count.load(std::sync::atomic::Ordering::Acquire),
+            count: value.count.load(Ordering::Acquire),
+            reflow: value.reflow.load(Ordering::Acquire),
         }
     }
 }
 
-impl From<EditObj> for Snapshot {
-    fn from(value: EditObj) -> Self {
+impl From<EditBuffer> for EditView {
+    fn from(value: EditBuffer) -> Self {
         let value = Rc::new(value);
         Self {
             obj: value.clone(),
-            count: value.count.load(std::sync::atomic::Ordering::Acquire),
+            count: value.count.load(Ordering::Acquire),
+            reflow: value.reflow.load(Ordering::Acquire),
         }
     }
 }
