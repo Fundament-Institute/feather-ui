@@ -2,19 +2,23 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use feather_macro::*;
+use feather_ui::color::sRGB;
 use feather_ui::component::button::Button;
 use feather_ui::component::region::Region;
-use feather_ui::component::shape::Shape;
+use feather_ui::component::shape::{Shape, ShapeKind};
 use feather_ui::component::text::Text;
 use feather_ui::component::window::Window;
 use feather_ui::component::{ComponentFrom, mouse_area};
 use feather_ui::layout::{fixed, leaf};
 use feather_ui::persist::FnPersist;
+use feather_ui::ultraviolet::{Vec2, Vec4};
+use feather_ui::util::create_hotloader;
 use feather_ui::{
-    AbsRect, App, DAbsRect, DPoint, DRect, RelRect, Slot, SourceID, UNSIZED_AXIS, URect, gen_id,
+    AbsRect, App, DAbsRect, DPoint, DRect, RelRect, Slot, SourceID, UNSIZED_AXIS, URect, ZERO_RECT,
+    ZERO_RELRECT, gen_id, im, winit,
 };
 use std::rc::Rc;
-use ultraviolet::{Vec2, Vec4};
+use std::sync::RwLock;
 
 #[derive(PartialEq, Clone, Debug)]
 struct CounterState {
@@ -52,7 +56,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
         if store.0 != *args {
             let button = {
                 let text = Text::<FixedData> {
-                    id: gen_id!().into(),
+                    id: gen_id!(),
                     props: Rc::new(FixedData {
                         area: URect {
                             abs: AbsRect::new(8.0, 0.0, 8.0, 0.0),
@@ -70,21 +74,21 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
 
                 let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
                     im::Vector::new();
-                children.push_back(Some(Box::new(text)));
 
-                let rect = Shape::<DRect>::round_rect(
-                    gen_id!().into(),
+                let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
+                    gen_id!(),
                     feather_ui::FILL_DRECT.into(),
                     0.0,
                     0.0,
                     Vec4::broadcast(10.0),
-                    Vec4::new(0.2, 0.7, 0.4, 1.0),
-                    Vec4::zero(),
+                    sRGB::new(0.2, 0.7, 0.4, 1.0),
+                    sRGB::transparent(),
                 );
                 children.push_back(Some(Box::new(rect)));
+                children.push_back(Some(Box::new(text)));
 
                 Button::<FixedData>::new(
-                    gen_id!().into(),
+                    gen_id!(),
                     FixedData {
                         area: URect {
                             abs: AbsRect::new(45.0, 45.0, 0.0, 0.0),
@@ -100,7 +104,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
 
             let unusedbutton = {
                 let text = Text::<FixedData> {
-                    id: gen_id!().into(),
+                    id: gen_id!(),
                     props: Rc::new(FixedData {
                         area: RelRect::new(0.5, 0.0, UNSIZED_AXIS, UNSIZED_AXIS).into(),
                         limits: feather_ui::AbsLimits::new(
@@ -119,27 +123,27 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     text: (0..args.count).map(|_| "█").collect::<String>(),
                     font_size: 40.0,
                     line_height: 56.0,
-                    wrap: feather_ui::Wrap::WordOrGlyph,
+                    wrap: feather_ui::cosmic_text::Wrap::WordOrGlyph,
                     ..Default::default()
                 };
 
                 let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
                     im::Vector::new();
-                children.push_back(Some(Box::new(text)));
 
-                let rect = Shape::<DRect>::round_rect(
-                    gen_id!().into(),
+                let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
+                    gen_id!(),
                     feather_ui::FILL_DRECT.into(),
                     0.0,
                     0.0,
                     Vec4::broadcast(10.0),
-                    Vec4::new(0.7, 0.2, 0.4, 1.0),
-                    Vec4::zero(),
+                    sRGB::new(0.7, 0.2, 0.4, 1.0),
+                    sRGB::transparent(),
                 );
                 children.push_back(Some(Box::new(rect)));
+                children.push_back(Some(Box::new(text)));
 
                 Button::<FixedData>::new(
-                    gen_id!().into(),
+                    gen_id!(),
                     FixedData {
                         area: URect {
                             abs: AbsRect::new(45.0, 245.0, 0.0, 0.0),
@@ -158,14 +162,29 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 )
             };
 
+            let pixel = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
+                gen_id!(),
+                Rc::new(DRect {
+                    px: AbsRect::new(1.0, 1.0, 2.0, 2.0),
+                    dp: ZERO_RECT,
+                    rel: ZERO_RELRECT,
+                }),
+                0.0,
+                0.0,
+                Vec4::broadcast(0.0),
+                sRGB::new(1.0, 1.0, 1.0, 1.0),
+                sRGB::transparent(),
+            );
+
             let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
                 im::Vector::new();
             children.push_back(Some(Box::new(button)));
             children.push_back(Some(Box::new(unusedbutton)));
+            children.push_back(Some(Box::new(pixel)));
 
-            let region = Region {
-                id: gen_id!().into(),
-                props: FixedData {
+            let region = Region::new(
+                gen_id!(),
+                FixedData {
                     area: URect {
                         abs: AbsRect::new(90.0, 90.0, 0.0, 200.0),
                         rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, 0.0),
@@ -176,9 +195,9 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 }
                 .into(),
                 children,
-            };
+            );
             let window = Window::new(
-                gen_id!().into(),
+                gen_id!(),
                 winit::window::Window::default_attributes()
                     .with_title(env!("CARGO_CRATE_NAME"))
                     .with_resizable(true),
@@ -195,6 +214,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
 }
 
 use feather_ui::WrapEventEx;
+static LOADERS: RwLock<Vec<feather_ui::notify::RecommendedWatcher>> = RwLock::new(Vec::new());
 
 fn main() {
     let onclick = Box::new(
@@ -212,7 +232,25 @@ fn main() {
     let (mut app, event_loop): (
         App<CounterState, BasicApp>,
         winit::event_loop::EventLoop<()>,
-    ) = App::new(CounterState { count: 0 }, vec![onclick], BasicApp {}).unwrap();
+    ) = App::new(
+        CounterState { count: 0 },
+        vec![onclick],
+        BasicApp {},
+        |driver| {
+            let exe = std::env::current_exe().unwrap();
+            LOADERS.write().unwrap().push(
+                    create_hotloader::<
+                        feather_ui::render::shape::Shape<{ ShapeKind::RoundRect as u8 }>,
+                    >(
+                        &exe.join("../../../feather-ui/src/shaders/shape.wgsl"),
+                        "Shape",
+                        driver,
+                    )
+                    .unwrap(),
+                );
+        },
+    )
+    .unwrap();
 
     event_loop.run_app(&mut app).unwrap();
 }

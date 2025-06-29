@@ -3,21 +3,22 @@
 
 use core::f32;
 use feather_macro::*;
+use feather_ui::color::sRGB;
 use feather_ui::component::button::Button;
 use feather_ui::component::gridbox::GridBox;
 use feather_ui::component::region::Region;
-use feather_ui::component::shape::Shape;
+use feather_ui::component::shape::{Shape, ShapeKind};
 use feather_ui::component::text::Text;
 use feather_ui::component::window::Window;
 use feather_ui::component::{ComponentFrom, mouse_area};
 use feather_ui::layout::{base, fixed, grid, leaf};
 use feather_ui::persist::FnPersist;
+use feather_ui::ultraviolet::{Vec2, Vec4};
 use feather_ui::{
-    AbsRect, App, DAbsRect, DPoint, DRect, DValue, FILL_DRECT, RelRect, Slot, SourceID,
+    AbsRect, App, DAbsRect, DPoint, DRect, DValue, DataID, FILL_DRECT, RelRect, Slot, SourceID,
     UNSIZED_AXIS, ZERO_POINT, gen_id,
 };
 use std::rc::Rc;
-use ultraviolet::{Vec2, Vec4};
 
 #[derive(PartialEq, Clone, Debug)]
 struct CounterState {
@@ -114,7 +115,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
         if store.0 != *args {
             let button = {
                 let text = Text::<FixedData> {
-                    id: gen_id!().into(),
+                    id: gen_id!(),
                     props: FixedData {
                         area: feather_ui::URect {
                             abs: AbsRect::new(10.0, 15.0, 10.0, 15.0),
@@ -131,23 +132,23 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     ..Default::default()
                 };
 
-                let rect = Shape::<DRect>::round_rect(
-                    gen_id!().into(),
+                let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
+                    gen_id!(),
                     feather_ui::FILL_DRECT.into(),
                     0.0,
                     0.0,
                     Vec4::broadcast(10.0),
-                    Vec4::new(0.2, 0.7, 0.4, 1.0),
-                    Vec4::zero(),
+                    sRGB::new(0.2, 0.7, 0.4, 1.0),
+                    sRGB::transparent(),
                 );
 
                 let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
                     im::Vector::new();
-                children.push_back(Some(Box::new(text)));
                 children.push_back(Some(Box::new(rect)));
+                children.push_back(Some(Box::new(text)));
 
                 Button::<FixedData>::new(
-                    gen_id!().into(),
+                    gen_id!(),
                     FixedData {
                         area: feather_ui::URect {
                             abs: AbsRect::new(0.0, 20.0, 0.0, 0.0),
@@ -166,9 +167,13 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
             let rectgrid = {
                 let mut children: im::Vector<Option<Box<ComponentFrom<dyn grid::Prop>>>> =
                     im::Vector::new();
+                let grid_id = gen_id!();
                 for i in 0..args.count {
-                    children.push_back(Some(Box::new(Shape::<GridChild>::round_rect(
-                        gen_id!().into(),
+                    children.push_back(Some(Box::new(Shape::<
+                        GridChild,
+                        { ShapeKind::RoundRect as u8 },
+                    >::new(
+                        grid_id.child(DataID::Int(i as i64)),
                         GridChild {
                             area: FILL_DRECT,
                             x: i % NUM_COLUMNS,
@@ -178,17 +183,17 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                         0.0,
                         0.0,
                         Vec4::broadcast(4.0),
-                        Vec4::new(
+                        sRGB::new(
                             (0.1 * i as f32) % 1.0,
                             (0.65 * i as f32) % 1.0,
                             (0.2 * i as f32) % 1.0,
                             1.0,
                         ),
-                        Vec4::zero(),
+                        sRGB::transparent(),
                     ))));
 
                     /*children.push_back(Some(Box::new(Text::<GridChild> {
-                        id: gen_id!().into(),
+                        id: gen_id!(),
                         props: GridChild {
                             area: FILL_DRECT,
                             x: i % NUM_COLUMNS,
@@ -202,9 +207,9 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     })));*/
                 }
 
-                GridBox::<GridData> {
-                    id: gen_id!().into(),
-                    props: GridData {
+                GridBox::<GridData>::new(
+                    gen_id!(),
+                    GridData {
                         area: feather_ui::URect {
                             abs: AbsRect::new(0.0, 200.0, 0.0, 0.0),
                             rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, 1.0),
@@ -224,7 +229,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     }
                     .into(),
                     children,
-                }
+                )
             };
 
             let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
@@ -232,18 +237,18 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
             children.push_back(Some(Box::new(button)));
             children.push_back(Some(Box::new(rectgrid)));
 
-            let region = Region {
-                id: gen_id!().into(),
-                props: FixedData {
+            let region = Region::new(
+                gen_id!(),
+                FixedData {
                     area: FILL_DRECT,
                     zindex: 0,
                     ..Default::default()
                 }
                 .into(),
                 children,
-            };
+            );
             let window = Window::new(
-                gen_id!().into(),
+                gen_id!(),
                 winit::window::Window::default_attributes()
                     .with_title(env!("CARGO_CRATE_NAME"))
                     .with_resizable(true),
@@ -277,7 +282,13 @@ fn main() {
     let (mut app, event_loop): (
         App<CounterState, BasicApp>,
         winit::event_loop::EventLoop<()>,
-    ) = App::new(CounterState { count: 0 }, vec![onclick], BasicApp {}).unwrap();
+    ) = App::new(
+        CounterState { count: 0 },
+        vec![onclick],
+        BasicApp {},
+        |_| (),
+    )
+    .unwrap();
 
     event_loop.run_app(&mut app).unwrap();
 }

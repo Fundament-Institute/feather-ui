@@ -1,13 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
+use crate::color::sRGB;
+use crate::component::StateMachine;
+use crate::graphics::point_to_pixel;
 use crate::layout::{self, Layout, leaf};
-use crate::{DriverState, SourceID, WindowStateMachine, point_to_pixel};
+use crate::{SourceID, WindowStateMachine, graphics};
+use cosmic_text::Metrics;
 use derive_where::derive_where;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-#[derive(feather_macro::StateMachineChild)]
+#[derive(Clone)]
+pub struct TextState(Rc<RefCell<cosmic_text::Buffer>>);
+
+impl PartialEq for TextState {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.0, &other.0)
+    }
+}
+
 #[derive_where(Clone)]
 pub struct Text<T: leaf::Padded + 'static> {
     pub id: Rc<SourceID>,
@@ -15,11 +27,34 @@ pub struct Text<T: leaf::Padded + 'static> {
     pub font_size: f32,
     pub line_height: f32,
     pub text: String,
-    pub font: glyphon::FamilyOwned,
-    pub color: glyphon::Color,
-    pub weight: glyphon::Weight,
-    pub style: glyphon::Style,
-    pub wrap: glyphon::Wrap,
+    pub font: cosmic_text::FamilyOwned,
+    pub color: sRGB,
+    pub weight: cosmic_text::Weight,
+    pub style: cosmic_text::Style,
+    pub wrap: cosmic_text::Wrap,
+}
+
+impl<T: leaf::Padded + 'static> crate::StateMachineChild for Text<T> {
+    fn id(&self) -> Rc<SourceID> {
+        self.id.clone()
+    }
+
+    fn init(
+        &self,
+        _: &std::sync::Weak<graphics::Driver>,
+    ) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error> {
+        let statemachine: StateMachine<(), TextState, 0, 0> = StateMachine {
+            state: Some(TextState(Rc::new(RefCell::new(
+                cosmic_text::Buffer::new_empty(Metrics::new(
+                    point_to_pixel(self.font_size, 1.0),
+                    point_to_pixel(self.line_height, 1.0),
+                )),
+            )))),
+            input: [],
+            output: [],
+        };
+        Ok(Box::new(statemachine))
+    }
 }
 
 impl<T: Default + leaf::Padded + 'static> Default for Text<T> {
@@ -30,11 +65,11 @@ impl<T: Default + leaf::Padded + 'static> Default for Text<T> {
             font_size: Default::default(),
             line_height: Default::default(),
             text: Default::default(),
-            font: glyphon::FamilyOwned::SansSerif,
-            color: glyphon::Color::rgba(255, 255, 255, 255),
+            font: cosmic_text::FamilyOwned::SansSerif,
+            color: sRGB::new(1.0, 1.0, 1.0, 1.0),
             weight: Default::default(),
             style: Default::default(),
-            wrap: glyphon::Wrap::None,
+            wrap: cosmic_text::Wrap::None,
         }
     }
 }
@@ -46,7 +81,7 @@ where
     fn layout(
         &self,
         state: &crate::StateManager,
-        driver: &DriverState,
+        driver: &graphics::Driver,
         window: &Rc<SourceID>,
         _: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
@@ -54,45 +89,42 @@ where
         let winstate = winstate.state.as_ref().expect("No window state available");
         let dpi = winstate.dpi;
         let mut font_system = driver.font_system.write();
-        let mut text_buffer = glyphon::Buffer::new(
-            &mut font_system,
-            glyphon::Metrics::new(
-                point_to_pixel(self.font_size, dpi.x),
-                point_to_pixel(self.line_height, dpi.x),
-            ),
+
+        let metrics = cosmic_text::Metrics::new(
+            point_to_pixel(self.font_size, dpi.x),
+            point_to_pixel(self.line_height, dpi.y),
         );
 
-        text_buffer.set_wrap(&mut font_system, self.wrap);
-        text_buffer.set_text(
+        let textstate: &StateMachine<(), TextState, 0, 0> = state.get(&self.id).unwrap();
+        let textstate = textstate.state.as_ref().expect("No text state available");
+        textstate
+            .0
+            .borrow_mut()
+            .set_metrics(&mut font_system, metrics);
+        textstate
+            .0
+            .borrow_mut()
+            .set_wrap(&mut font_system, self.wrap);
+        textstate.0.borrow_mut().set_text(
             &mut font_system,
             &self.text,
-            &glyphon::Attrs::new()
+            &cosmic_text::Attrs::new()
                 .family(self.font.as_family())
-                .color(self.color)
+                .color(self.color.into())
                 .weight(self.weight)
                 .style(self.style),
-            glyphon::Shaping::Advanced,
+            cosmic_text::Shaping::Advanced,
         );
 
-        let renderer = glyphon::TextRenderer::new(
-            &mut winstate.atlas.borrow_mut(),
-            &driver.device,
-            wgpu::MultisampleState::default(),
-            None,
-        );
-
-        let render = Rc::new_cyclic(|this| crate::render::text::Pipeline {
-            this: this.clone(),
-            text_buffer: Rc::new(RefCell::new(Some(text_buffer))),
-            renderer: renderer.into(),
+        let render = Rc::new(crate::render::text::Instance {
+            text_buffer: textstate.0.clone(),
             padding: self.props.padding().resolve(dpi).into(),
-            atlas: winstate.atlas.clone(),
-            viewport: winstate.viewport.clone(),
         });
+
         Box::new(layout::text::Node::<T> {
             props: self.props.clone(),
             id: Rc::downgrade(&self.id),
-            text_render: render.clone(),
+            buffer: textstate.0.clone(),
             renderable: render.clone(),
         })
     }

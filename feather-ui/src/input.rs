@@ -6,8 +6,6 @@ use feather_macro::Dispatch;
 use ultraviolet::{Vec2, Vec3};
 use winit::dpi::PhysicalPosition;
 
-use crate::DriverState;
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
 pub enum TouchState {
@@ -108,20 +106,17 @@ pub enum RawEvent {
         pos: PhysicalPosition<f32>,
         modifiers: u8,
         all_buttons: u16,
-        driver: std::sync::Weak<DriverState>, // Allows setting our global cursor tracker
     },
     MouseMove {
         device_id: winit::event::DeviceId,
         pos: PhysicalPosition<f32>,
         modifiers: u8,
         all_buttons: u16,
-        driver: std::sync::Weak<DriverState>, // Allows setting our global cursor tracker
     },
     MouseOff {
         device_id: winit::event::DeviceId,
         modifiers: u8,
         all_buttons: u16,
-        driver: std::sync::Weak<DriverState>, // Allows setting our global cursor tracker
     },
     MouseScroll {
         device_id: winit::event::DeviceId,

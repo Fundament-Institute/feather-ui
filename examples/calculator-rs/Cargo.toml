@@ -24,14 +24,8 @@ name = "calculator-rs"
 path = "src/bin.rs"
 
 [dependencies]
-wgpu.workspace = true
-winit.workspace = true
-tokio.workspace = true
 feather-ui.workspace = true
 feather-macro.workspace = true
-ultraviolet.workspace = true
-im.workspace = true
-glyphon.workspace = true
 uniffi = "0.27.0"
 
 [build-dependencies]

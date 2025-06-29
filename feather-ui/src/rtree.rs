@@ -8,6 +8,7 @@ use crate::input::{MouseState, RawEvent, RawEventKind, TouchState};
 use crate::persist::{FnPersist2, VectorFold};
 use crate::{AbsRect, Dispatchable, SourceID, StateManager, WindowStateMachine};
 use eyre::Result;
+use std::sync::Arc;
 use ultraviolet::Vec2;
 use winit::dpi::PhysicalPosition;
 
@@ -97,7 +98,6 @@ impl Node {
                 pos,
                 modifiers,
                 all_buttons,
-                driver,
             } => {
                 let state: &mut WindowStateMachine = manager.get_mut(&window_id).map_err(|_| ())?;
                 let window = state.state.as_mut().unwrap();
@@ -118,7 +118,6 @@ impl Node {
                         device_id: *device_id,
                         modifiers: *modifiers,
                         all_buttons: *all_buttons,
-                        driver: driver.clone(),
                     };
 
                     // We don't care about the result of this event
@@ -139,7 +138,6 @@ impl Node {
                         modifiers: *modifiers,
                         pos: *pos,
                         all_buttons: *all_buttons,
-                        driver: driver.clone(),
                     };
                     let _ = self.inject_event(&evt, evt.kind(), dpi, offset, window_id, manager);
                 }
@@ -161,7 +159,7 @@ impl Node {
                 let state: &mut WindowStateMachine = manager.get_mut(&window_id).map_err(|_| ())?;
                 let window = state.state.as_mut().unwrap();
                 window.remove(WindowNodeTrack::Capture, device_id);
-                let driver = std::sync::Arc::downgrade(&window.driver);
+                let driver = Arc::downgrade(&window.driver);
 
                 // We don't care if this is accepted or not
                 let _ = crate::component::window::Window::on_window_event(
@@ -289,7 +287,7 @@ impl Node {
                             (window.remove(WindowNodeTrack::Focus, device_id), false)
                         };
 
-                        let driver = std::sync::Arc::downgrade(&window.driver);
+                        let driver = Arc::downgrade(&window.driver);
 
                         // Tell the old node that it lost focus (if it cares).
                         if let Some(old) = old.and_then(|old| old.upgrade()) {

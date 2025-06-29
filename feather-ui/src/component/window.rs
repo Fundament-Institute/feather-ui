@@ -5,16 +5,13 @@ use super::{Component, StateMachine};
 use crate::component::ComponentWrap;
 use crate::input::{ModifierKeys, MouseState, RawEvent};
 use crate::layout::root;
+use crate::render::compositor::Compositor;
 use crate::rtree::Node;
-use crate::{
-    AbsDim, DriverState, FnPersist, RenderInstruction, SourceID, StateMachineChild, StateManager,
-    layout, rtree,
-};
+use crate::{AbsDim, SourceID, StateMachineChild, StateManager, graphics, layout, rtree};
 use alloc::sync::Arc;
 use core::f32;
 use eyre::{OptionExt, Result};
 use smallvec::SmallVec;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 use ultraviolet::Vec2;
@@ -40,13 +37,18 @@ pub struct WindowState {
     modifiers: u8,
     last_mouse: PhysicalPosition<f32>,
     pub dpi: Vec2,
-    pub driver: Arc<DriverState>,
-    pub draw: im::Vector<RenderInstruction>,
-    pub viewport: Rc<RefCell<glyphon::Viewport>>,
-    pub atlas: Rc<RefCell<glyphon::TextAtlas>>,
+    pub driver: Arc<graphics::Driver>,
     trackers: [HashMap<DeviceId, RcNode>; 3],
     lookup: HashMap<(Rc<SourceID>, u8), DeviceId>,
+    pub compositor: Compositor,
 }
+
+const BACKCOLOR: wgpu::Color = wgpu::Color {
+    r: 0.1,
+    g: 0.2,
+    b: 0.3,
+    a: 1.0,
+};
 
 impl WindowState {
     pub(crate) fn nodes(&self, tracker: WindowNodeTrack) -> SmallVec<[Weak<Node>; 4]> {
@@ -112,6 +114,54 @@ impl WindowState {
             }
         }
     }
+
+    pub(crate) fn draw(&mut self, mut encoder: wgpu::CommandEncoder) {
+        let frame = self.surface.get_current_texture().unwrap();
+        let view = frame
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+
+        self.compositor
+            .prepare(&self.driver, &mut encoder, &self.config);
+
+        {
+            let mut backcolor = BACKCOLOR;
+            if frame.texture.format().is_srgb() {
+                backcolor.r = crate::color::srgb_to_linear(backcolor.r);
+                backcolor.g = crate::color::srgb_to_linear(backcolor.g);
+                backcolor.b = crate::color::srgb_to_linear(backcolor.b);
+            }
+
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Window Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(backcolor),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+
+            pass.set_viewport(
+                0.0,
+                0.0,
+                self.config.width as f32,
+                self.config.height as f32,
+                0.0,
+                1.0,
+            );
+
+            self.compositor.draw(&self.driver, &mut pass, &self.config);
+        }
+
+        self.driver.queue.submit(Some(encoder.finish()));
+        frame.present();
+    }
 }
 
 pub(crate) struct RcNode(Rc<SourceID>, pub(crate) Weak<Node>);
@@ -132,8 +182,6 @@ impl PartialEq for WindowState {
             && self.last_mouse == other.last_mouse
             && self.dpi == other.dpi
             && Arc::ptr_eq(&self.driver, &other.driver)
-            && Rc::ptr_eq(&self.viewport, &other.viewport)
-            && Rc::ptr_eq(&self.atlas, &other.atlas)
             && self.trackers == other.trackers
     }
 }
@@ -151,7 +199,7 @@ impl Component<AbsDim> for Window {
     fn layout(
         &self,
         manager: &crate::StateManager,
-        _: &DriverState,
+        _: &graphics::Driver,
         _: &Rc<SourceID>,
         _: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn crate::layout::Layout<AbsDim>> {
@@ -176,17 +224,18 @@ impl Component<AbsDim> for Window {
 }
 
 impl StateMachineChild for Window {
-    fn init(&self) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error> {
+    fn init(
+        &self,
+        _: &std::sync::Weak<graphics::Driver>,
+    ) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error> {
         Err(crate::Error::UnhandledEvent)
     }
 
     fn apply_children(
         &self,
-        _: &mut dyn FnMut(&dyn StateMachineChild) -> eyre::Result<()>,
+        f: &mut dyn FnMut(&dyn StateMachineChild) -> eyre::Result<()>,
     ) -> eyre::Result<()> {
-        Err(eyre::eyre!(
-            "Cannot use normal apply_children function for top-level windows"
-        ))
+        f(self.child.as_ref())
     }
 
     fn id(&self) -> Rc<SourceID> {
@@ -195,15 +244,13 @@ impl StateMachineChild for Window {
 }
 
 impl Window {
-    pub(crate) fn init_custom<
-        AppData: 'static + PartialEq,
-        O: FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>,
-    >(
+    pub(crate) fn init_custom(
         &self,
         manager: &mut StateManager,
-        driver: &mut alloc::sync::Weak<DriverState>,
+        driver_ref: &mut std::sync::Weak<graphics::Driver>,
         instance: &wgpu::Instance,
         event_loop: &ActiveEventLoop,
+        on_driver: &mut Option<Box<dyn FnOnce(std::sync::Weak<graphics::Driver>) + 'static>>,
     ) -> Result<()> {
         if manager.get::<WindowStateMachine>(&self.id).is_err() {
             let attributes = self.attributes.clone();
@@ -212,26 +259,26 @@ impl Window {
 
             let surface: wgpu::Surface<'static> = instance.create_surface(window.clone())?;
 
-            let driver = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()?
-                .block_on(crate::App::<AppData, O>::create_driver(
-                    driver, instance, &surface,
-                ))?;
+            let driver = futures_lite::future::block_on(crate::graphics::Driver::new(
+                driver_ref, instance, &surface, on_driver,
+            ))?;
 
             let size = window.inner_size();
             let mut config = surface
                 .get_default_config(&driver.adapter, size.width, size.height)
                 .ok_or_eyre("Failed to find a default configuration")?;
-            // let view_format = config.format.add_srgb_suffix();
-            let view_format = config.format.remove_srgb_suffix();
+            let view_format = config.format.add_srgb_suffix();
+            //let view_format = config.format.remove_srgb_suffix();
             config.format = view_format;
             config.view_formats.push(view_format);
             surface.configure(&driver.device, &config);
 
-            let cache = glyphon::Cache::new(&driver.device);
-            let atlas = glyphon::TextAtlas::new(&driver.device, &driver.queue, &cache, view_format);
-            let viewport = glyphon::Viewport::new(&driver.device, &cache);
+            let compositor = Compositor::new(
+                &driver.shared,
+                &driver.device,
+                &config,
+                &driver.atlas.read(),
+            );
 
             let mut windowstate = WindowState {
                 modifiers: 0,
@@ -242,11 +289,9 @@ impl Window {
                 surface,
                 window,
                 driver: driver.clone(),
-                draw: im::Vector::new(),
-                atlas: Rc::new(RefCell::new(atlas)),
-                viewport: Rc::new(RefCell::new(viewport)),
                 trackers: Default::default(),
                 lookup: Default::default(),
+                compositor,
             };
 
             Window::resize(size, &mut windowstate);
@@ -260,7 +305,7 @@ impl Window {
             );
         }
 
-        manager.init_child(self.child.as_ref())?;
+        manager.init_child(self.child.as_ref(), driver_ref)?;
         Ok(())
     }
 
@@ -269,25 +314,17 @@ impl Window {
         attributes: WindowAttributes,
         child: Box<dyn ComponentWrap<dyn crate::layout::base::Empty>>,
     ) -> Self {
-        Self {
+        super::set_children(Self {
             id,
             attributes,
             child,
-        }
+        })
     }
 
     fn resize(size: PhysicalSize<u32>, state: &mut WindowState) {
         state.config.width = size.width;
         state.config.height = size.height;
         state.surface.configure(&state.driver.device, &state.config);
-
-        state.viewport.borrow_mut().update(
-            &state.driver.queue,
-            glyphon::Resolution {
-                width: state.config.width,
-                height: state.config.height,
-            },
-        );
     }
 
     #[allow(clippy::result_unit_err)]
@@ -296,7 +333,7 @@ impl Window {
         rtree: Weak<rtree::Node>,
         event: WindowEvent,
         manager: &mut StateManager,
-        driver: std::sync::Weak<DriverState>,
+        driver: std::sync::Weak<graphics::Driver>,
     ) -> Result<(), ()> {
         let state: &mut WindowStateMachine = manager.get_mut(&id).map_err(|_| ())?;
         let window = state.state.as_mut().unwrap();
@@ -342,56 +379,7 @@ impl Window {
                 Err(())
             }
             WindowEvent::RedrawRequested => {
-                let frame = window.surface.get_current_texture().unwrap();
-                let view = frame
-                    .texture
-                    .create_view(&wgpu::TextureViewDescriptor::default());
-                let mut encoder =
-                    window
-                        .driver
-                        .device
-                        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                            label: Some("Window Component"),
-                        });
-
-                {
-                    let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                        label: Some("Window Pass"),
-                        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                            view: &view,
-                            resolve_target: None,
-                            ops: wgpu::Operations {
-                                load: wgpu::LoadOp::Clear(wgpu::Color {
-                                    r: 0.1,
-                                    g: 0.2,
-                                    b: 0.3,
-                                    a: 1.0,
-                                }),
-                                store: wgpu::StoreOp::Store,
-                            },
-                        })],
-                        depth_stencil_attachment: None,
-                        timestamp_writes: None,
-                        occlusion_query_set: None,
-                    });
-
-                    pass.set_viewport(
-                        0.0,
-                        0.0,
-                        window.config.width as f32,
-                        window.config.height as f32,
-                        0.0,
-                        1.0,
-                    );
-
-                    for f in window.draw.iter().flatten() {
-                        f(&mut pass);
-                    }
-                }
-
-                window.driver.queue.submit(Some(encoder.finish()));
-                frame.present();
-                Ok(())
+                panic!("Don't process this with on_window_event");
             }
             WindowEvent::Focused(acquired) => {
                 // When the window loses or gains focus, we send a focus event to our children that had
@@ -450,7 +438,6 @@ impl Window {
                             pos: window.last_mouse,
                             all_buttons: window.all_buttons,
                             modifiers: window.modifiers,
-                            driver: driver.clone(),
                         }
                     }
                     WindowEvent::CursorEntered { device_id } => {
@@ -480,7 +467,6 @@ impl Window {
                             pos: window.last_mouse,
                             all_buttons: window.all_buttons,
                             modifiers: window.modifiers,
-                            driver: driver.clone(),
                         }
                     }
                     WindowEvent::CursorLeft { device_id } => {
@@ -489,7 +475,6 @@ impl Window {
                             device_id,
                             all_buttons: window.all_buttons,
                             modifiers: window.modifiers,
-                            driver: driver.clone(),
                         }
                     }
                     WindowEvent::MouseWheel {
@@ -717,7 +702,6 @@ impl Window {
                             device_id,
                             modifiers,
                             all_buttons,
-                            ref driver,
                             ..
                         } => {
                             // We reborrow everything here or rust gets upset
@@ -728,7 +712,6 @@ impl Window {
                                 device_id,
                                 modifiers,
                                 all_buttons,
-                                driver: driver.clone(),
                             };
 
                             // Drain() holds a reference, so we still have to collect these to avoid borrowing manager twice

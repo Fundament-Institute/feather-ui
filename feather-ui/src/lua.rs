@@ -3,7 +3,7 @@
 
 use crate::component::button::Button;
 use crate::component::region::Region;
-use crate::component::shape::Shape;
+use crate::component::shape::{Shape, ShapeKind};
 use crate::component::text::Text;
 use crate::component::window::Window;
 use crate::component::{ComponentFrom, ComponentWrap};
@@ -184,7 +184,7 @@ impl mlua::FromLua for ComponentBag {
 fn create_id(_: &Lua, (id, _): (LuaValue, Option<LuaSourceID>)) -> mlua::Result<LuaSourceID> {
     Ok(crate::SourceID {
         // parent: parent.map(|x| Rc::downgrade(&x)).unwrap_or_default(),
-        parent: None,
+        parent: crate::OnceCell::new(),
         id: if let Some(i) = id.as_integer() {
             DataID::Int(i)
         } else if let Some(s) = id.as_string_lossy() {
@@ -240,11 +240,11 @@ fn create_region(
 
     let mut bag = PropBag::new();
     bag.set_area(args.1.into());
-    Ok(Box::new(Region::<PropBag> {
-        id: args.0.into(),
-        props: bag.into(),
+    Ok(Box::new(Region::<PropBag>::new(
+        args.0.into(),
+        bag.into(),
         children,
-    }))
+    )))
 }
 
 fn create_button(
@@ -260,9 +260,9 @@ fn create_button(
 ) -> mlua::Result<ComponentBag> {
     let id = Rc::new(args.0);
 
-    let rect = Shape::round_rect(
+    let rect = Shape::<crate::DRect, { ShapeKind::RoundRect as u8 }>::new(
         SourceID {
-            parent: Some(id.clone()),
+            parent: id.clone().into(),
             id: DataID::Named("__internal_rect__"),
         }
         .into(),
@@ -276,7 +276,7 @@ fn create_button(
 
     let text = Text::<crate::DRect> {
         id: SourceID {
-            parent: Some(id.clone()),
+            parent: id.clone().into(),
             id: DataID::Named("__internal_text__"),
         }
         .into(),
@@ -288,8 +288,8 @@ fn create_button(
     };
 
     let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> = im::Vector::new();
-    children.push_back(Some(Box::new(text)));
     children.push_back(Some(Box::new(rect)));
+    children.push_back(Some(Box::new(text)));
     if let Some(x) = args.5 {
         children.push_back(Some(Box::new(x)));
     }
@@ -312,6 +312,7 @@ fn create_label(_: &Lua, args: (LuaSourceID, URect, String)) -> mlua::Result<Com
     }))
 }
 
+#[allow(unused_variables)]
 #[allow(clippy::type_complexity)]
 fn create_shader_standard(
     _: &Lua,
@@ -325,16 +326,7 @@ fn create_shader_standard(
         [f32; 4],
     ),
 ) -> mlua::Result<ComponentBag> {
-    let mut bag = PropBag::new();
-    bag.set_area(args.1.into());
-
-    Ok(Box::new(Shape::<PropBag> {
-        id: args.0.into(),
-        fragment: std::borrow::Cow::Owned(args.2),
-        props: bag.into(),
-        label: "Custom Shader FS",
-        uniforms: [args.3.into(), args.4.into(), args.5.into(), args.6.into()],
-    }))
+    todo!();
 }
 
 fn create_round_rect(
@@ -345,15 +337,17 @@ fn create_round_rect(
     let outline = args.5.to_be_bytes().map(|x| x as f32);
     let mut bag = PropBag::new();
     bag.set_area(args.1.into());
-    Ok(Box::new(Shape::round_rect(
-        args.0.into(),
-        bag.into(),
-        args.4,
-        0.0,
-        Vec4::broadcast(args.3),
-        fill.into(),
-        outline.into(),
-    )))
+    Ok(Box::new(
+        Shape::<PropBag, { ShapeKind::RoundRect as u8 }>::new(
+            args.0.into(),
+            bag.into(),
+            args.4,
+            0.0,
+            Vec4::broadcast(args.3),
+            fill.into(),
+            outline.into(),
+        ),
+    ))
 }
 
 /// This defines the "lua" app that knows how to handle a lua value that contains the

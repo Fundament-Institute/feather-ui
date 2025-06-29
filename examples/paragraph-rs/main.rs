@@ -1,20 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
+use feather_ui::color::sRGB;
 use feather_ui::layout::{fixed, flex, leaf};
 use feather_ui::{DAbsRect, DValue, gen_id};
 
 use feather_ui::component::ComponentFrom;
 use feather_ui::component::paragraph::Paragraph;
 use feather_ui::component::region::Region;
-use feather_ui::component::shape::Shape;
+use feather_ui::component::shape::{Shape, ShapeKind};
 use feather_ui::component::window::Window;
 use feather_ui::layout::base;
 use feather_ui::persist::FnPersist;
-use feather_ui::{AbsRect, App, DRect, FILL_DRECT, RelRect, SourceID};
+use feather_ui::ultraviolet::Vec4;
+use feather_ui::{AbsRect, App, DRect, FILL_DRECT, RelRect, SourceID, cosmic_text};
 use std::f32;
 use std::rc::Rc;
-use ultraviolet::Vec4;
 
 #[derive(PartialEq, Clone, Debug)]
 struct Blocker {
@@ -110,8 +111,8 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
         if store.0 != *args {
             let flex = {
-                let rect = Shape::round_rect(
-                    gen_id!().into(),
+                let rect = Shape::<MinimalFlexChild, { ShapeKind::RoundRect as u8 }>::new(
+                    gen_id!(),
                     MinimalFlexChild {
                         area: AbsRect::new(0.0, 0.0, 40.0, 40.0).into(),
                     }
@@ -119,12 +120,12 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
                     0.0,
                     0.0,
                     Vec4::broadcast(10.0),
-                    Vec4::new(0.2, 0.7, 0.4, 1.0),
-                    Vec4::zero(),
+                    sRGB::new(0.2, 0.7, 0.4, 1.0),
+                    sRGB::transparent(),
                 );
 
                 let mut p = Paragraph::new(
-                    gen_id!().into(),
+                    gen_id!(),
                     MinimalFlex {
                         area: FILL_DRECT,
                         obstacles: vec![AbsRect::new(200.0, 30.0, 300.0, 150.0).into()],
@@ -136,15 +137,15 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
                     text,
                     40.0,
                     56.0,
-                    glyphon::FamilyOwned::SansSerif,
-                    glyphon::Color::rgba(255, 255, 255, 255),
+                    cosmic_text::FamilyOwned::SansSerif,
+                    sRGB::white(),
                     Default::default(),
                     Default::default(),
                     true,
                 );
-                p.children.push_front(Some(Box::new(rect.clone())));
-                p.children.push_back(Some(Box::new(rect.clone())));
-                p.children.push_back(Some(Box::new(rect.clone())));
+                p.prepend(Box::new(rect.clone()));
+                p.append(Box::new(rect.clone()));
+                p.append(Box::new(rect.clone()));
 
                 p
             };
@@ -153,9 +154,9 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
                 im::Vector::new();
             children.push_back(Some(Box::new(flex)));
 
-            let region = Region {
-                id: gen_id!().into(),
-                props: MinimalArea {
+            let region = Region::new(
+                gen_id!(),
+                MinimalArea {
                     area: feather_ui::URect {
                         abs: AbsRect::new(90.0, 90.0, -90.0, -90.0),
                         rel: RelRect::new(0.0, 0.0, 1.0, 1.0),
@@ -164,9 +165,10 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
                 }
                 .into(),
                 children,
-            };
+            );
+
             let window = Window::new(
-                gen_id!().into(),
+                gen_id!(),
                 winit::window::Window::default_attributes()
                     .with_title(env!("CARGO_CRATE_NAME"))
                     .with_resizable(true),
@@ -190,6 +192,7 @@ fn main() {
             },
             vec![],
             BasicApp {},
+            |_| (),
         )
         .unwrap();
 

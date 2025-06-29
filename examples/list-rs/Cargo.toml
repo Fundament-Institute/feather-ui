@@ -19,11 +19,5 @@ name = "list-rs"
 path = "main.rs"
 
 [dependencies]
-wgpu.workspace = true
-winit.workspace = true
-tokio.workspace = true
 feather-ui.workspace = true
-ultraviolet.workspace = true
-im.workspace = true
-glyphon.workspace = true
 feather-macro.workspace = true

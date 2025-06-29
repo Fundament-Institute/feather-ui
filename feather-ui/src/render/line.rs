@@ -1,53 +1,40 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::shaders::{Vertex, to_bytes};
-use crate::{DriverState, RenderLambda};
-use std::cell::RefCell;
-use std::rc::Rc;
-use ultraviolet::Vec2;
-use wgpu::util::DeviceExt;
+use crate::color::sRGB;
 
-pub struct Pipeline {
-    pub this: std::rc::Weak<Pipeline>,
-    pub pipeline: wgpu::RenderPipeline,
-    pub group: wgpu::BindGroup,
-    pub pos: RefCell<(Vec2, Vec2)>,
-    pub _buffers: [wgpu::Buffer; 3],
+use super::compositor::{Compositor, Data};
+use ultraviolet::Vec2;
+
+pub struct Instance {
+    pub start: Vec2,
+    pub end: Vec2,
+    pub color: sRGB,
 }
 
-impl super::Renderable for Pipeline {
+impl super::Renderable for Instance {
     fn render(
         &self,
         _: crate::AbsRect,
-        driver: &DriverState,
-    ) -> im::Vector<crate::RenderInstruction> {
-        // We have to put this in an RC because it needs to be cloneable across multiple render passes
-        let (start, end) = *self.pos.borrow();
-        let verts = Rc::new(
-            driver
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("LineVertices"),
-                    contents: to_bytes(&[Vertex { pos: start.into() }, Vertex { pos: end.into() }]),
-                    usage: wgpu::BufferUsages::VERTEX,
-                }),
-        );
+        _: &crate::graphics::Driver,
+        compositor: &mut Compositor,
+    ) -> Result<(), crate::Error> {
+        let p1 = self.start;
+        let p2 = self.end;
 
-        let weak = self.this.clone();
-        let mut result = im::Vector::new();
-        result.push_back(Some(Box::new(move |pass: &mut wgpu::RenderPass| {
-            if let Some(this) = weak.upgrade() {
-                pass.set_vertex_buffer(0, verts.slice(..));
-                pass.set_bind_group(0, &this.group, &[]);
-                pass.set_pipeline(&this.pipeline);
-                pass.draw(
-                    //0..(this.vertices.size() as u32 / size_of::<Vertex>() as u32),
-                    0..2,
-                    0..1,
-                );
-            }
-        }) as Box<dyn RenderLambda>));
-        result
+        let p = p2 - p1;
+        compositor.append(&Data::new(
+            (((p1 + p2) * 0.5) - (Vec2::new(p.mag() * 0.5, 0.0)))
+                .as_array()
+                .into(),
+            [p.mag(), 1.0].into(),
+            [0.0, 0.0].into(),
+            [0.0, 0.0].into(),
+            self.color.as_32bit().rgba,
+            p.y.atan2(p.x) % std::f32::consts::TAU,
+            u16::MAX,
+            0,
+        ));
+        Ok(())
     }
 }

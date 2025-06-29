@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::component::ComponentFrom;
+use crate::color::sRGB;
 use crate::component::text::Text;
+use crate::component::{ComponentFrom, set_child_parent};
 use crate::layout::{Desc, Layout, base, flex, leaf};
 use crate::persist::{FnPersist, VectorMap};
 use crate::{SourceID, UNSIZED_AXIS, gen_id, layout};
@@ -14,10 +15,11 @@ use std::rc::Rc;
 #[derive_where(Clone)]
 pub struct Paragraph<T: flex::Prop + 'static> {
     pub id: Rc<SourceID>,
-    pub props: Rc<T>,
-    pub children: im::Vector<Option<Box<ComponentFrom<dyn flex::Prop>>>>,
+    props: Rc<T>,
+    children: im::Vector<Option<Box<ComponentFrom<dyn flex::Prop>>>>,
 }
 
+#[derive(Clone, Copy, Default, PartialEq, PartialOrd)]
 struct MinimalFlexChild {
     grow: f32,
 }
@@ -64,22 +66,32 @@ impl<T: flex::Prop + 'static> Paragraph<T> {
         }
     }
 
+    pub fn append(&mut self, child: Box<ComponentFrom<dyn flex::Prop>>) {
+        set_child_parent(&child.id(), self.id.clone()).unwrap();
+        self.children.push_back(Some(child));
+    }
+
+    pub fn prepend(&mut self, child: Box<ComponentFrom<dyn flex::Prop>>) {
+        set_child_parent(&child.id(), self.id.clone()).unwrap();
+        self.children.push_front(Some(child));
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn set_text(
         &mut self,
         text: &str,
         font_size: f32,
         line_height: f32,
-        font: glyphon::FamilyOwned,
-        color: glyphon::Color,
-        weight: glyphon::Weight,
-        style: glyphon::Style,
+        font: cosmic_text::FamilyOwned,
+        color: sRGB,
+        weight: cosmic_text::Weight,
+        style: cosmic_text::Style,
         fullwidth: bool,
     ) {
         self.children.clear();
-        for word in text.split_ascii_whitespace() {
+        for (i, word) in text.split_ascii_whitespace().enumerate() {
             let text = Text::<MinimalFlexChild> {
-                id: gen_id!().into(),
+                id: gen_id!(gen_id!(self.id), i),
                 props: MinimalFlexChild {
                     grow: if fullwidth { 1.0 } else { 0.0 },
                 }
@@ -91,7 +103,7 @@ impl<T: flex::Prop + 'static> Paragraph<T> {
                 color,
                 weight,
                 style,
-                wrap: glyphon::Wrap::None,
+                ..Default::default()
             };
             self.children.push_back(Some(Box::new(text)));
         }
@@ -102,7 +114,7 @@ impl<T: flex::Prop + 'static> super::Component<T> for Paragraph<T> {
     fn layout(
         &self,
         state: &crate::StateManager,
-        driver: &crate::DriverState,
+        driver: &crate::graphics::Driver,
         window: &Rc<SourceID>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {

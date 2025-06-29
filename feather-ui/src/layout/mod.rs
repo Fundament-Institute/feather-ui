@@ -15,12 +15,9 @@ use dyn_clone::DynClone;
 use ultraviolet::Vec2;
 use wide::f32x4;
 
-use crate::persist::{FnPersist2, VectorFold};
 use crate::render::Renderable;
-use crate::{
-    AbsDim, AbsLimits, AbsRect, DriverState, RelLimits, RenderInstruction, SourceID, UNSIZED_AXIS,
-    URect, rtree,
-};
+use crate::render::compositor::Compositor;
+use crate::{AbsDim, AbsLimits, AbsRect, Error, RelLimits, SourceID, UNSIZED_AXIS, URect, rtree};
 use derive_where::derive_where;
 use std::rc::{Rc, Weak};
 
@@ -125,7 +122,12 @@ where
 }
 
 pub trait Staged: DynClone {
-    fn render(&self, parent_pos: Vec2, driver: &DriverState) -> im::Vector<RenderInstruction>;
+    fn render(
+        &self,
+        parent_pos: Vec2,
+        driver: &crate::graphics::Driver,
+        compositor: &mut Compositor,
+    ) -> Result<(), Error>;
     fn get_rtree(&self) -> Weak<rtree::Node>;
     fn get_area(&self) -> AbsRect;
 }
@@ -134,7 +136,7 @@ dyn_clone::clone_trait_object!(Staged);
 
 #[derive(Clone)]
 pub(crate) struct Concrete {
-    render: Option<Rc<dyn Renderable>>,
+    renderable: Option<Rc<dyn Renderable>>,
     area: AbsRect,
     rtree: Rc<rtree::Node>,
     children: im::Vector<Option<Box<dyn Staged>>>,
@@ -142,7 +144,7 @@ pub(crate) struct Concrete {
 
 impl Concrete {
     pub fn new(
-        render: Option<Rc<dyn Renderable>>,
+        renderable: Option<Rc<dyn Renderable>>,
         area: AbsRect,
         rtree: Rc<rtree::Node>,
         children: im::Vector<Option<Box<dyn Staged>>>,
@@ -154,7 +156,7 @@ impl Concrete {
             area
         );
         Self {
-            render,
+            renderable,
             area,
             rtree,
             children,
@@ -163,28 +165,23 @@ impl Concrete {
 }
 
 impl Staged for Concrete {
-    fn render(&self, parent_pos: Vec2, driver: &DriverState) -> im::Vector<RenderInstruction> {
-        let instructions = self
-            .render
-            .as_ref()
-            .map(|x| x.render(self.area + parent_pos, driver))
-            .unwrap_or_default();
+    fn render(
+        &self,
+        parent_pos: Vec2,
+        driver: &crate::graphics::Driver,
+        compositor: &mut Compositor,
+    ) -> Result<(), Error> {
+        if let Some(r) = &self.renderable {
+            r.render(self.area + parent_pos, driver, compositor)?;
+        }
 
-        let fold = VectorFold::new(
-            |list: &im::Vector<RenderInstruction>,
-             n: &Option<Box<dyn Staged>>|
-             -> im::Vector<RenderInstruction> {
-                let mut a = n
-                    .as_ref()
-                    .unwrap()
-                    .render(parent_pos + self.area.topleft(), driver);
-                a.append(list.clone());
-                a
-            },
-        );
+        // TODO: We may need an intermediate immutable data structure of some kind to manage the contiguous
+        // vector of data in each pipeline, which cannot itself be persistent.
+        for child in (&self.children).into_iter().flatten() {
+            child.render(parent_pos + self.area.topleft(), driver, compositor)?;
+        }
 
-        let (_, result) = fold.call(fold.init(), &instructions, &self.children);
-        result
+        Ok(())
     }
 
     fn get_rtree(&self) -> Weak<rtree::Node> {
@@ -205,7 +202,7 @@ pub(crate) fn map_unsized_area(mut area: URect, adjust: Vec2) -> URect {
     // Unsized objects must always have a single anchor point to make sense, so we copy over from topleft.
     if unsized_x {
         rel[2] = rel[0];
-        // Fix the bottomright abs area in unsized scenarios, because it is now relative to the topleft instead of being independent.
+        // Fix the bottomright abs area in unsized scenarios, because it was relative to the topleft instead of being independent.
         abs[2] += abs[0] + adjust.x;
     }
     if unsized_y {
