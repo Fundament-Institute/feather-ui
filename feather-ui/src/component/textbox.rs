@@ -584,8 +584,10 @@ impl<T: Prop + 'static> crate::StateMachineChild for TextBox<T> {
     }
 }
 
-impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
-    fn layout(
+impl<T: Prop + 'static> super::Component for TextBox<T> {
+    type Prop = T;
+
+    fn layout_inner(
         &self,
         state: &mut crate::StateManager,
         driver: &crate::graphics::Driver,
@@ -643,5 +645,3 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
         })
     }
 }
-
-crate::gen_component_wrap!(TextBox, Prop);

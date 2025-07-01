@@ -10,7 +10,7 @@ use feather_ui::component::mouse_area::MouseArea;
 use feather_ui::component::region::Region;
 use feather_ui::component::shape::{Shape, ShapeKind};
 use feather_ui::component::window::Window;
-use feather_ui::component::{ComponentFrom, mouse_area};
+use feather_ui::component::{ChildOf, mouse_area};
 use feather_ui::input::MouseButton;
 use feather_ui::layout::{base, fixed, leaf};
 use feather_ui::persist::FnPersist;
@@ -69,7 +69,7 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
         args: &GraphState,
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
         if store.0 != *args {
-            let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
+            let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> =
                 im::Vector::new();
             let domain: Rc<CrossReferenceDomain> = Default::default();
 
@@ -79,7 +79,7 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
                 let node = args.nodes[i];
                 const BASE: sRGB = sRGB::new(0.2, 0.7, 0.4, 1.0);
 
-                let mut contents: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
+                let mut contents: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> =
                     im::Vector::new();
 
                 let point = DomainPoint::new(gen_id!(), domain.clone());
@@ -166,7 +166,7 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
                 ],
             );
 
-            let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
+            let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> =
                 im::Vector::new();
 
             children.push_back(Some(Box::new(subregion)));

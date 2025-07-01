@@ -200,8 +200,10 @@ pub struct Window {
     child: Box<dyn ComponentWrap<<dyn root::Prop as crate::component::Desc>::Child>>,
 }
 
-impl Component<AbsDim> for Window {
-    fn layout(
+impl Component for Window {
+    type Prop = AbsDim;
+
+    fn layout_inner(
         &self,
         manager: &mut crate::StateManager,
         _: &graphics::Driver,

@@ -5,7 +5,7 @@ use feather_ui::color::sRGB;
 use feather_ui::layout::{fixed, flex, leaf};
 use feather_ui::{DAbsRect, DValue, gen_id};
 
-use feather_ui::component::ComponentFrom;
+use feather_ui::component::ChildOf;
 use feather_ui::component::paragraph::Paragraph;
 use feather_ui::component::region::Region;
 use feather_ui::component::shape::{Shape, ShapeKind};
@@ -150,7 +150,7 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
                 p
             };
 
-            let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
+            let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> =
                 im::Vector::new();
             children.push_back(Some(Box::new(flex)));
 

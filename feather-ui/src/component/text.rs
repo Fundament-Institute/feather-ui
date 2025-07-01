@@ -39,6 +39,34 @@ pub struct Text<T: leaf::Padded + 'static> {
     pub wrap: cosmic_text::Wrap,
 }
 
+impl<T: leaf::Padded + 'static> Text<T> {
+    pub fn new(
+        id: Rc<SourceID>,
+        props: Rc<T>,
+        font_size: f32,
+        line_height: f32,
+        text: String,
+        font: cosmic_text::FamilyOwned,
+        color: sRGB,
+        weight: cosmic_text::Weight,
+        style: cosmic_text::Style,
+        wrap: cosmic_text::Wrap,
+    ) -> Self {
+        Self {
+            id,
+            props,
+            font_size,
+            line_height,
+            text,
+            font,
+            color,
+            weight,
+            style,
+            wrap,
+        }
+    }
+}
+
 impl<T: leaf::Padded + 'static> crate::StateMachineChild for Text<T> {
     fn id(&self) -> Rc<SourceID> {
         self.id.clone()
@@ -80,11 +108,13 @@ impl<T: Default + leaf::Padded + 'static> Default for Text<T> {
     }
 }
 
-impl<T: leaf::Padded + 'static> super::Component<T> for Text<T>
+impl<T: leaf::Padded + 'static> super::Component for Text<T>
 where
     for<'a> &'a T: Into<&'a (dyn leaf::Padded + 'static)>,
 {
-    fn layout(
+    type Prop = T;
+
+    fn layout_inner(
         &self,
         state: &mut crate::StateManager,
         driver: &graphics::Driver,
@@ -134,5 +164,3 @@ where
         })
     }
 }
-
-crate::gen_component_wrap!(Text, leaf::Padded);

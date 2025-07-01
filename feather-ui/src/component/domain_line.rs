@@ -19,11 +19,13 @@ pub struct DomainLine<T: base::Empty + 'static> {
     pub fill: sRGB,
 }
 
-impl<T: base::Empty + 'static> super::Component<T> for DomainLine<T>
+impl<T: base::Empty + 'static> super::Component for DomainLine<T>
 where
     for<'a> &'a T: Into<&'a (dyn base::Empty + 'static)>,
 {
-    fn layout(
+    type Prop = T;
+
+    fn layout_inner(
         &self,
         _: &mut crate::StateManager,
         _: &crate::graphics::Driver,
@@ -43,4 +45,3 @@ where
     }
 }
 
-crate::gen_component_wrap!(DomainLine, base::Empty);

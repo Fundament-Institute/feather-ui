@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::component::ComponentFrom;
+use crate::component::ChildOf;
 use crate::layout::{Desc, Layout, fixed};
 use crate::persist::{FnPersist, VectorMap};
 use crate::{SourceID, layout};
@@ -13,14 +13,14 @@ use std::rc::Rc;
 pub struct Region<T: fixed::Prop + Default + 'static> {
     pub id: Rc<SourceID>,
     props: Rc<T>,
-    children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>>,
+    children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>>,
 }
 
 impl<T: fixed::Prop + Default + 'static> Region<T> {
     pub fn new(
         id: Rc<SourceID>,
         props: Rc<T>,
-        children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>>,
+        children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>>,
     ) -> Self {
         super::set_children(Self {
             id,
@@ -30,18 +30,20 @@ impl<T: fixed::Prop + Default + 'static> Region<T> {
     }
 }
 
-impl<T: fixed::Prop + Default + 'static> super::Component<T> for Region<T>
+impl<T: fixed::Prop + Default + 'static> super::Component for Region<T>
 where
     for<'a> &'a T: Into<&'a (dyn fixed::Prop + 'static)>,
 {
-    fn layout(
+    type Prop = T;
+
+    fn layout_inner(
         &self,
         state: &mut crate::StateManager,
         driver: &crate::graphics::Driver,
         window: &Rc<SourceID>,
     ) -> Box<dyn Layout<T>> {
         let mut map = VectorMap::new(
-            |child: &Option<Box<ComponentFrom<dyn fixed::Prop>>>| -> Option<Box<dyn Layout<<dyn fixed::Prop as Desc>::Child>>> {
+            |child: &Option<Box<ChildOf<dyn fixed::Prop>>>| -> Option<Box<dyn Layout<<dyn fixed::Prop as Desc>::Child>>> {
                 Some(child.as_ref().unwrap().layout(state, driver, window))
             },
         );
@@ -56,4 +58,3 @@ where
     }
 }
 
-crate::gen_component_wrap!(Region, fixed::Prop, Default);
