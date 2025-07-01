@@ -207,9 +207,6 @@ impl Atlas {
         }
         assert_ne!(dim.width, 0);
         assert_ne!(dim.height, 0);
-        if dim.width > self.extent as i32 || dim.height > self.extent as i32 {
-            panic!("Requested reservation size exceeds size of texture atlas!")
-        }
 
         for (idx, a) in self.allocators.iter_mut().enumerate() {
             if let Some(r) = a.allocate(dim) {
@@ -219,6 +216,13 @@ impl Atlas {
 
         // If we run out of room, try adding another layer
         self.grow(device)?;
+
+        if dim.width > self.extent as i32 || dim.height > self.extent as i32 {
+            panic!(
+                "Requested reservation size ({},{}) exceeds size of texture atlas ({},{})!",
+                dim.width, dim.height, self.extent, self.extent
+            )
+        }
 
         if let Some(r) = self
             .allocators

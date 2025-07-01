@@ -183,10 +183,10 @@ impl EditBuffer {
         self.count.fetch_add(1, Ordering::Release);
     }
 
-    pub fn to_cursor(&self, cursor: (usize, Affinity)) -> Cursor {
+    pub fn to_cursor(buffer: &crate::cosmic_text::Buffer, cursor: (usize, Affinity)) -> Cursor {
         let mut lines = 0;
         let (mut idx, mut affinity) = cursor;
-        for line in &self.buffer.borrow().lines {
+        for line in &buffer.lines {
             let len = line.text().len();
             if len >= idx {
                 break;
@@ -207,9 +207,9 @@ impl EditBuffer {
         }
     }
 
-    pub fn from_cursor(&self, cursor: Cursor) -> (usize, Affinity) {
+    pub fn from_cursor(buffer: &crate::cosmic_text::Buffer, cursor: Cursor) -> (usize, Affinity) {
         let mut idx = 0;
-        for line in self.buffer.borrow().lines.iter().take(cursor.line) {
+        for line in buffer.lines.iter().take(cursor.line) {
             idx += line.text().len() + line.ending().as_str().len();
         }
         (idx + cursor.index, cursor.affinity)

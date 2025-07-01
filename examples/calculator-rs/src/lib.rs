@@ -11,10 +11,9 @@ use feather_ui::component::window::Window;
 use feather_ui::component::{mouse_area, ComponentFrom};
 use feather_ui::layout::fixed;
 use feather_ui::persist::FnPersist;
-use feather_ui::ultraviolet::{Vec2, Vec4};
+use feather_ui::ultraviolet::Vec4;
 use feather_ui::{
-    gen_id, im, AbsRect, App, DRect, DataID, RelRect, Slot, SourceID, WrapEventEx, FILL_DRECT,
-    ZERO_RECT,
+    gen_id, im, AbsRect, App, DRect, RelRect, Slot, SourceID, WrapEventEx, FILL_DRECT, ZERO_RECT,
 };
 use std::any::{Any, TypeId};
 use std::f32;
@@ -171,7 +170,7 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
         (CalcFFI(self.init_calc.clone()), im::HashMap::new())
     }
     fn call(
-        &self,
+        &mut self,
         mut store: Self::Store,
         args: &CalcFFI,
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
@@ -179,13 +178,9 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
         let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
             im::Vector::new();
 
-        let button_id = gen_id!();
-
         for (i, (txt, _, color)) in BUTTONS.iter().enumerate() {
-            let idx_id = gen_id!(button_id).child(DataID::Int(i as i64));
-
             let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
-                gen_id!(idx_id),
+                gen_id!(),
                 FILL_DRECT.into(),
                 0.0,
                 0.0,
@@ -195,7 +190,7 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
             );
 
             let text = Text::<DRect> {
-                id: gen_id!(idx_id),
+                id: gen_id!(),
                 props: FILL_DRECT.into(),
                 text: txt.to_string(),
                 font_size: 40.0,
@@ -213,7 +208,7 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
             let (w, h) = (1.0 / ROW_COUNT as f32, 1.0 / 7.0);
 
             let btn = Button::<FixedData>::new(
-                gen_id!(idx_id),
+                gen_id!(gen_id!(), i),
                 FixedData {
                     area: feather_ui::URect {
                         abs: AbsRect::new(4.0, 4.0, -4.0, -4.0),
@@ -236,7 +231,7 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
         }
 
         let display = Text::<DRect> {
-            id: gen_id!(button_id),
+            id: gen_id!(),
             props: FILL_DRECT.into(),
             text: args.0.get().to_string(),
             font_size: 60.0,
@@ -245,7 +240,7 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
         };
 
         let text_bg = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
-            gen_id!(button_id),
+            gen_id!(),
             Rc::new(DRect {
                 px: ZERO_RECT,
                 dp: ZERO_RECT,

@@ -66,21 +66,18 @@ where
 {
     fn layout(
         &self,
-        state: &crate::StateManager,
+        state: &mut crate::StateManager,
         driver: &crate::graphics::Driver,
         window: &Rc<SourceID>,
-        config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
-        let map = VectorMap::new(
+        let mut map = VectorMap::new(
             |child: &Option<Box<ComponentFrom<dyn fixed::Prop>>>| -> Option<Box<dyn Layout<<dyn fixed::Prop as Desc>::Child>>> {
-                Some(child.as_ref().unwrap().layout(state, driver, window,config))
+                Some(child.as_ref().unwrap().layout(state, driver, window))
             },
         );
 
         let (_, mut children) = map.call(Default::default(), &self.children);
-        children.push_back(Some(Box::new(
-            self.marea.layout(state, driver, window, config),
-        )));
+        children.push_back(Some(Box::new(self.marea.layout(state, driver, window))));
 
         Box::new(layout::Node::<T, dyn fixed::Prop> {
             props: self.props.clone(),
