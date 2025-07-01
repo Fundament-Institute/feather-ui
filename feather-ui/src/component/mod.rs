@@ -176,17 +176,17 @@ impl<const N: usize> StateMachineWrapper for EventRouter<N> {
 }*/
 
 pub trait Component: crate::StateMachineChild + DynClone {
-    type Prop: 'static;
+    type Props: 'static;
 
-    fn layout_inner(
+    fn layout(
         &self,
         state: &mut StateManager,
         driver: &graphics::Driver,
         window: &Rc<SourceID>,
-    ) -> Box<dyn Layout<Self::Prop> + 'static>;
+    ) -> Box<dyn Layout<Self::Props> + 'static>;
 }
 
-dyn_clone::clone_trait_object!(<Parent> Component<Prop = Parent> where Parent:?Sized);
+dyn_clone::clone_trait_object!(<Parent> Component<Props = Parent> where Parent:?Sized);
 
 pub type ChildOf<D> = dyn ComponentWrap<<D as Desc>::Child>;
 
@@ -203,8 +203,8 @@ dyn_clone::clone_trait_object!(<T> ComponentWrap<T> where T:?Sized);
 
 impl<U: ?Sized, C: Component> ComponentWrap<U> for C
 where
-    for<'a> &'a U: From<&'a <C as Component>::Prop>,
-    <C as Component>::Prop: Sized,
+    for<'a> &'a U: From<&'a <C as Component>::Props>,
+    <C as Component>::Props: Sized,
 {
     fn layout(
         &self,
@@ -212,14 +212,14 @@ where
         driver: &graphics::Driver,
         window: &Rc<SourceID>,
     ) -> Box<dyn Layout<U> + 'static> {
-        Box::new(Component::layout_inner(self, state, driver, window))
+        Box::new(Component::layout(self, state, driver, window))
     }
 }
 
 impl<T: Component + 'static, U> From<Box<T>> for Box<dyn ComponentWrap<U>>
 where
-    for<'a> &'a U: std::convert::From<&'a <T as Component>::Prop>,
-    <T as Component>::Prop: std::marker::Sized,
+    for<'a> &'a U: std::convert::From<&'a <T as Component>::Props>,
+    <T as Component>::Props: std::marker::Sized,
 {
     fn from(value: Box<T>) -> Self {
         value
@@ -290,7 +290,12 @@ impl Root {
                 .get_mut(&id)
                 .ok_or_eyre("Couldn't find window state")?;
             let driver = state.state.as_ref().unwrap().driver.clone();
-            root.layout_tree = Some(window.layout(manager, &driver, &window.id()));
+            root.layout_tree = Some(crate::component::Component::layout(
+                window,
+                manager,
+                &driver,
+                &window.id(),
+            ));
         }
         Ok(())
     }

@@ -107,7 +107,8 @@ impl Desc for dyn Prop {
         let aux_merge = super::merge_margin(prev_aux_margin, aux_margin);
         aux_margins.push_back(aux_merge);
         cur.y += max_aux + aux_margin;
-        let area = map_unsized_area(myarea, Vec2::new(max_main, cur.y));
+        let (bounds_x, bounds_y) = super::swap_axis(xaxis, Vec2::new(max_main, cur.y));
+        let area = map_unsized_area(myarea, Vec2::new(bounds_x, bounds_y));
 
         // No need to cap this because unsized axis have now been resolved
         let evaluated_area = super::limit_area(area * outer_safe, limits);

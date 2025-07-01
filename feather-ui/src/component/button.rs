@@ -64,9 +64,9 @@ impl<T: fixed::Prop + 'static> Component for Button<T>
 where
     for<'a> &'a T: Into<&'a (dyn fixed::Prop + 'static)>,
 {
-    type Prop = T;
+    type Props = T;
 
-    fn layout_inner(
+    fn layout(
         &self,
         state: &mut crate::StateManager,
         driver: &crate::graphics::Driver,
@@ -80,7 +80,7 @@ where
 
         let (_, mut children) = map.call(Default::default(), &self.children);
         children.push_back(Some(Box::new(
-            self.marea.layout_inner(state, driver, window),
+            self.marea.layout(state, driver, window),
         )));
 
         Box::new(layout::Node::<T, dyn fixed::Prop> {

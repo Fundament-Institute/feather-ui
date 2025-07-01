@@ -293,9 +293,9 @@ impl<T: leaf::Prop + 'static> super::Component for MouseArea<T>
 where
     for<'a> &'a T: Into<&'a (dyn leaf::Prop + 'static)>,
 {
-    type Prop = T;
+    type Props = T;
 
-    fn layout_inner(
+    fn layout(
         &self,
         manager: &mut crate::StateManager,
         _: &crate::graphics::Driver,
@@ -322,4 +322,3 @@ where
         })
     }
 }
-

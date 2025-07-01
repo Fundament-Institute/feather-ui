@@ -32,9 +32,9 @@ impl<T: list::Prop + 'static> ListBox<T> {
 }
 
 impl<T: list::Prop + 'static> super::Component for ListBox<T> {
-    type Prop = T;
+    type Props = T;
 
-    fn layout_inner(
+    fn layout(
         &self,
         state: &mut crate::StateManager,
         driver: &crate::graphics::Driver,

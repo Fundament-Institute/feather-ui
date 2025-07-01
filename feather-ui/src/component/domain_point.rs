@@ -27,9 +27,9 @@ impl<T: domain_write::Prop + 'static> super::Component for DomainPoint<T>
 where
     for<'a> &'a T: Into<&'a (dyn domain_write::Prop + 'static)>,
 {
-    type Prop = T;
+    type Props = T;
 
-    fn layout_inner(
+    fn layout(
         &self,
         _: &mut crate::StateManager,
         _: &crate::graphics::Driver,

@@ -150,10 +150,6 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
                 p
             };
 
-            let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> =
-                im::Vector::new();
-            children.push_back(Some(Box::new(flex)));
-
             let region = Region::new(
                 gen_id!(),
                 MinimalArea {
@@ -164,7 +160,7 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
                     .into(),
                 }
                 .into(),
-                children,
+                feather_ui::children![fixed::Prop, flex],
             );
 
             let window = Window::new(

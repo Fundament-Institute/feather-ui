@@ -131,7 +131,7 @@ impl crate::layout::base::Obstacles for mlua::Table {
 }
 */
 
-type ComponentBag = Box<dyn crate::component::Component<Prop = PropBag>>;
+type ComponentBag = Box<dyn crate::component::Component<Props = PropBag>>;
 
 impl<U: ?Sized> crate::component::ComponentWrap<U> for ComponentBag
 where
@@ -143,7 +143,8 @@ where
         driver: &crate::graphics::Driver,
         window: &Rc<SourceID>,
     ) -> Box<dyn crate::layout::Layout<U> + 'static> {
-        Box::new(self.layout_inner(state, driver, window))
+        use std::ops::Deref;
+        Box::new(Box::deref(self).layout(state, driver, window))
     }
 }
 

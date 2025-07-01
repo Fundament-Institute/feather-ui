@@ -175,8 +175,7 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
         args: &CalcFFI,
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
         //if store.0.eq(args) {
-        let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> =
-            im::Vector::new();
+        let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> = im::Vector::new();
 
         for (i, (txt, _, color)) in BUTTONS.iter().enumerate() {
             let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
@@ -197,11 +196,6 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
                 line_height: 56.0,
                 ..Default::default()
             };
-
-            let mut btn_children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> =
-                im::Vector::new();
-            btn_children.push_back(Some(Box::new(rect)));
-            btn_children.push_back(Some(Box::new(text)));
 
             const ROW_COUNT: usize = 4;
             let (x, y) = (i % ROW_COUNT, (i / ROW_COUNT) + 1);
@@ -224,7 +218,7 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
                     zindex: 0,
                 },
                 Slot(feather_ui::APP_SOURCE_ID.into(), i as u64),
-                btn_children,
+                feather_ui::children![fixed::Prop, rect, text],
             );
 
             children.push_back(Some(Box::new(btn)));

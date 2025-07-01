@@ -32,9 +32,9 @@ impl<T: flex::Prop + 'static> FlexBox<T> {
 }
 
 impl<T: flex::Prop + 'static> super::Component for FlexBox<T> {
-    type Prop = T;
+    type Props = T;
 
-    fn layout_inner(
+    fn layout(
         &self,
         state: &mut crate::StateManager,
         driver: &crate::graphics::Driver,
