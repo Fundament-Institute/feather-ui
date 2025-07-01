@@ -111,9 +111,9 @@ impl<T: flex::Prop + 'static> Paragraph<T> {
 }
 
 impl<T: flex::Prop + 'static> super::Component for Paragraph<T> {
-    type Prop = T;
+    type Props = T;
 
-    fn layout_inner(
+    fn layout(
         &self,
         state: &mut crate::StateManager,
         driver: &crate::graphics::Driver,

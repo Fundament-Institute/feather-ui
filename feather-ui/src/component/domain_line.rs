@@ -23,9 +23,9 @@ impl<T: base::Empty + 'static> super::Component for DomainLine<T>
 where
     for<'a> &'a T: Into<&'a (dyn base::Empty + 'static)>,
 {
-    type Prop = T;
+    type Props = T;
 
-    fn layout_inner(
+    fn layout(
         &self,
         _: &mut crate::StateManager,
         _: &crate::graphics::Driver,

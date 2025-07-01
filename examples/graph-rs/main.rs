@@ -69,8 +69,7 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
         args: &GraphState,
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
         if store.0 != *args {
-            let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> =
-                im::Vector::new();
+            let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> = im::Vector::new();
             let domain: Rc<CrossReferenceDomain> = Default::default();
 
             let mut node_ids: Vec<Rc<SourceID>> = Vec::new();
@@ -78,9 +77,6 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
             for i in 0..args.nodes.len() {
                 let node = args.nodes[i];
                 const BASE: sRGB = sRGB::new(0.2, 0.7, 0.4, 1.0);
-
-                let mut contents: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> =
-                    im::Vector::new();
 
                 let point = DomainPoint::new(gen_id!(), domain.clone());
                 node_ids.push(point.id.clone());
@@ -99,9 +95,6 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
                     BASE,
                 );
 
-                contents.push_back(Some(Box::new(point)));
-                contents.push_back(Some(Box::new(circle)));
-
                 let bag = Region::<MinimalArea>::new(
                     gen_id!(gen_id!(), i),
                     MinimalArea {
@@ -114,7 +107,7 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
                         .into(),
                     }
                     .into(),
-                    contents,
+                    feather_ui::children![fixed::Prop, point, circle],
                 );
 
                 children.push_back(Some(Box::new(bag)));
@@ -166,12 +159,11 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
                 ],
             );
 
-            let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> =
-                im::Vector::new();
-
-            children.push_back(Some(Box::new(subregion)));
-            children.push_back(Some(Box::new(mousearea)));
-            let region = Region::new(gen_id!(), MinimalArea { area: FILL_DRECT }.into(), children);
+            let region = Region::new(
+                gen_id!(),
+                MinimalArea { area: FILL_DRECT }.into(),
+                feather_ui::children![fixed::Prop, subregion, mousearea],
+            );
 
             let window = Window::new(
                 gen_id!(),

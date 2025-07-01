@@ -4,11 +4,11 @@
 use feather_macro::*;
 use feather_ui::color::sRGB;
 use feather_ui::component::button::Button;
+use feather_ui::component::mouse_area;
 use feather_ui::component::region::Region;
 use feather_ui::component::shape::{Shape, ShapeKind};
 use feather_ui::component::text::Text;
 use feather_ui::component::window::Window;
-use feather_ui::component::{ChildOf, mouse_area};
 use feather_ui::layout::{fixed, leaf};
 use feather_ui::persist::FnPersist;
 use feather_ui::ultraviolet::{Vec2, Vec4};
@@ -72,9 +72,6 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     ..Default::default()
                 };
 
-                let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> =
-                    im::Vector::new();
-
                 let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
                     gen_id!(),
                     feather_ui::FILL_DRECT.into(),
@@ -84,8 +81,6 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     sRGB::new(0.2, 0.7, 0.4, 1.0),
                     sRGB::transparent(),
                 );
-                children.push_back(Some(Box::new(rect)));
-                children.push_back(Some(Box::new(text)));
 
                 Button::<FixedData>::new(
                     gen_id!(),
@@ -98,11 +93,11 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                         ..Default::default()
                     },
                     Slot(feather_ui::APP_SOURCE_ID.into(), 0),
-                    children,
+                    feather_ui::children![fixed::Prop, rect, text],
                 )
             };
 
-            let unusedbutton = {
+            let fakebutton = {
                 let text = Text::<FixedData> {
                     id: gen_id!(),
                     props: Rc::new(FixedData {
@@ -127,9 +122,6 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     ..Default::default()
                 };
 
-                let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> =
-                    im::Vector::new();
-
                 let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
                     gen_id!(),
                     feather_ui::FILL_DRECT.into(),
@@ -139,8 +131,6 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     sRGB::new(0.7, 0.2, 0.4, 1.0),
                     sRGB::transparent(),
                 );
-                children.push_back(Some(Box::new(rect)));
-                children.push_back(Some(Box::new(text)));
 
                 Button::<FixedData>::new(
                     gen_id!(),
@@ -158,7 +148,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                         ..Default::default()
                     },
                     Slot(feather_ui::APP_SOURCE_ID.into(), 0),
-                    children,
+                    feather_ui::children![fixed::Prop, rect, text],
                 )
             };
 
@@ -176,12 +166,6 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 sRGB::transparent(),
             );
 
-            let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> =
-                im::Vector::new();
-            children.push_back(Some(Box::new(button)));
-            children.push_back(Some(Box::new(unusedbutton)));
-            children.push_back(Some(Box::new(pixel)));
-
             let region = Region::new(
                 gen_id!(),
                 FixedData {
@@ -194,7 +178,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     ..Default::default()
                 }
                 .into(),
-                children,
+                feather_ui::children![fixed::Prop, button, fakebutton, pixel],
             );
             let window = Window::new(
                 gen_id!(),

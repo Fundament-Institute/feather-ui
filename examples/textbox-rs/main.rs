@@ -87,10 +87,6 @@ impl FnPersist<TextState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicAp
                 cosmic_text::Wrap::Word,
             );
 
-            let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> =
-                im::Vector::new();
-            children.push_back(Some(Box::new(textbox)));
-
             let region = Region::new(
                 gen_id!(),
                 MinimalArea {
@@ -101,7 +97,7 @@ impl FnPersist<TextState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicAp
                     .into(),
                 }
                 .into(),
-                children,
+                feather_ui::children![fixed::Prop, textbox],
             );
             let window = Window::new(
                 gen_id!(),

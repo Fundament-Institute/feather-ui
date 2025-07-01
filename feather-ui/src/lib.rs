@@ -92,6 +92,12 @@ pub const ZERO_POINT: Vec2 = Vec2 { x: 0.0, y: 0.0 };
 const MINUS_BOTTOMRIGHT: f32x4 = f32x4::new([1.0, 1.0, -1.0, -1.0]);
 pub const BASE_DPI: Vec2 = Vec2::new(96.0, 96.0);
 
+#[macro_export]
+macro_rules! children {
+    () => { [] };
+    ($prop:path, $($param:expr),+ $(,)?) => { $crate::im::Vector::from_iter([$(Some(Box::new($param) as Box<$crate::component::ChildOf<dyn $prop>>)),+]) };
+}
+
 #[derive(Copy, Clone, Debug, Default)]
 pub struct AbsDim(Vec2);
 

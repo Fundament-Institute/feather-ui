@@ -201,9 +201,9 @@ pub struct Window {
 }
 
 impl Component for Window {
-    type Prop = AbsDim;
+    type Props = AbsDim;
 
-    fn layout_inner(
+    fn layout(
         &self,
         manager: &mut crate::StateManager,
         _: &graphics::Driver,

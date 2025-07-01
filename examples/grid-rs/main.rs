@@ -142,11 +142,6 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     sRGB::transparent(),
                 );
 
-                let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> =
-                    im::Vector::new();
-                children.push_back(Some(Box::new(rect)));
-                children.push_back(Some(Box::new(text)));
-
                 Button::<FixedData>::new(
                     gen_id!(),
                     FixedData {
@@ -159,7 +154,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                         zindex: 0,
                     },
                     Slot(feather_ui::APP_SOURCE_ID.into(), 0),
-                    children,
+                    feather_ui::children![fixed::Prop, rect, text],
                 )
             };
 
@@ -232,11 +227,6 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 )
             };
 
-            let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> =
-                im::Vector::new();
-            children.push_back(Some(Box::new(button)));
-            children.push_back(Some(Box::new(rectgrid)));
-
             let region = Region::new(
                 gen_id!(),
                 FixedData {
@@ -245,7 +235,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     ..Default::default()
                 }
                 .into(),
-                children,
+                feather_ui::children![fixed::Prop, button, rectgrid],
             );
             let window = Window::new(
                 gen_id!(),

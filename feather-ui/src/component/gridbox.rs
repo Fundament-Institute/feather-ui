@@ -32,9 +32,9 @@ impl<T: grid::Prop + 'static> GridBox<T> {
 }
 
 impl<T: grid::Prop + 'static> super::Component for GridBox<T> {
-    type Prop = T;
+    type Props = T;
 
-    fn layout_inner(
+    fn layout(
         &self,
         state: &mut crate::StateManager,
         driver: &crate::graphics::Driver,

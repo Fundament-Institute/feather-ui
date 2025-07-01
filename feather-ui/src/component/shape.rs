@@ -220,9 +220,9 @@ impl<T: leaf::Padded + 'static, const KIND: u8> super::Component for Shape<T, KI
 where
     for<'a> &'a T: Into<&'a (dyn leaf::Padded + 'static)>,
 {
-    type Prop = T;
+    type Props = T;
 
-    fn layout_inner(
+    fn layout(
         &self,
         state: &mut crate::StateManager,
         _: &crate::graphics::Driver,
