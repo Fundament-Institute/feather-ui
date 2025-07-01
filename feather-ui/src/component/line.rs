@@ -25,10 +25,9 @@ where
 {
     fn layout(
         &self,
-        _: &crate::StateManager,
+        _: &mut crate::StateManager,
         _: &crate::graphics::Driver,
         _window: &Rc<SourceID>,
-        _: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         Box::new(layout::Node::<T, dyn base::Empty> {
             props: self.props.clone(),

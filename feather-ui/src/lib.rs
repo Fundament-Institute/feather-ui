@@ -9,6 +9,7 @@ mod editor;
 pub mod graphics;
 pub mod input;
 pub mod layout;
+#[cfg(feature = "lua")]
 pub mod lua;
 pub mod persist;
 mod propbag;
@@ -39,7 +40,10 @@ use ultraviolet::vec::Vec2;
 use wgpu::{InstanceDescriptor, InstanceFlags};
 use wide::CmpLe;
 use winit::window::WindowId;
-pub use {cosmic_text, im, mlua, notify, ultraviolet, wgpu, winit};
+pub use {cosmic_text, im, notify, ultraviolet, wgpu, winit};
+
+#[cfg(feature = "lua")]
+pub use mlua;
 
 #[macro_export]
 macro_rules! gen_id {
@@ -1041,7 +1045,7 @@ impl std::fmt::Display for SourceID {
         match &self.id {
             DataID::Named(s) => f.write_str(s),
             DataID::Owned(s) => f.write_str(s),
-            DataID::Int(i) => write!(f, "[{}]", i),
+            DataID::Int(i) => write!(f, "[{i}]"),
             DataID::Other(dyn_hash_eq) => {
                 let mut h = std::hash::DefaultHasher::new();
                 dyn_hash_eq.dyn_hash(&mut h);
@@ -1055,38 +1059,7 @@ impl std::fmt::Display for SourceID {
 #[derive(Clone)]
 pub struct Slot(pub Rc<SourceID>, pub u64);
 
-#[allow(dead_code)]
-type AnyHandler =
-    dyn FnMut(&dyn Any, AbsRect, &mut dyn Any) -> Result<Vec<DispatchPair>, Vec<DispatchPair>>;
-
-pub type EventHandler<Input, Output, State> = Box<
-    dyn FnMut(Input, AbsRect, Vec2, State) -> Result<(State, Vec<Output>), (State, Vec<Output>)>,
->;
-
-pub type EventWrapper<Output, State> = Box<
-    dyn FnMut(
-        DispatchPair,
-        AbsRect,
-        Vec2,
-        State,
-    ) -> Result<(State, Vec<Output>), (State, Vec<Output>)>,
->;
-
 pub type AppEvent<State> = Box<dyn FnMut(DispatchPair, State) -> Result<State, State>>;
-
-#[inline]
-#[allow(clippy::type_complexity)]
-fn wrap_event<Input: Dispatchable + 'static, Output: Dispatchable, State>(
-    mut typed: impl FnMut(
-        Input,
-        AbsRect,
-        Vec2,
-        State,
-    ) -> Result<(State, Vec<Output>), (State, Vec<Output>)>,
-) -> impl FnMut(DispatchPair, AbsRect, Vec2, State) -> Result<(State, Vec<Output>), (State, Vec<Output>)>
-{
-    move |pair, rect, dpi, state| typed(Input::restore(pair).unwrap(), rect, dpi, state)
-}
 
 pub trait WrapEventEx<State: 'static + std::cmp::PartialEq, Input: Dispatchable + 'static> {
     fn wrap(self) -> impl FnMut(DispatchPair, State) -> Result<State, State>;
@@ -1200,20 +1173,35 @@ impl StateManager {
         self.states.get(id).ok_or_eyre("State does not exist")
     }
 
+    fn propagate_change(&mut self, mut id: &Rc<SourceID>) {
+        while let Some(parent) = id.parent.get() {
+            if let Some(state) = self.states.get_mut(parent) {
+                state.set_changed(true);
+            }
+            id = parent;
+        }
+    }
+
     pub fn process(
         &mut self,
         event: DispatchPair,
         slot: &Slot,
         dpi: Vec2,
         area: AbsRect,
+        driver: &std::sync::Weak<crate::Driver>,
     ) -> eyre::Result<()> {
         type IterTuple = (Box<dyn Any>, u64, Option<Slot>);
 
         // We use smallvec here so we can satisfy the borrow checker without making yet another heap allocation in most cases
         let iter: SmallVec<[IterTuple; 2]> = {
             let state = self.states.get_mut(&slot.0).ok_or_eyre("Invalid slot")?;
-            let (v, changed) = state.process(event, slot.1, dpi, area)?;
-            self.changed = self.changed || changed;
+            let v = state.process(event, slot.1, dpi, area, driver)?;
+            if state.changed() {
+                self.changed = true;
+                self.propagate_change(&slot.0);
+            }
+            let state = self.states.get(&slot.0).unwrap();
+
             v.into_iter()
                 .map(|(i, e)| (e, i, state.output_slot(i.ilog2() as usize).unwrap().clone()))
         }
@@ -1221,7 +1209,7 @@ impl StateManager {
 
         for (e, index, slot) in iter {
             if let Some(s) = slot.as_ref() {
-                self.process((index, e), s, dpi, area)?;
+                self.process((index, e), s, dpi, area, driver)?;
             }
         }
         Ok(())
@@ -1267,16 +1255,34 @@ pub struct App<
 struct AppDataMachine<AppData: 'static + std::cmp::PartialEq> {
     pub state: Option<AppData>,
     input: Vec<AppEvent<AppData>>,
+    changed: bool,
 }
 
 impl<AppData: 'static + std::cmp::PartialEq> StateMachineWrapper for AppDataMachine<AppData> {
+    fn output_slot(&self, _: usize) -> eyre::Result<&Option<Slot>> {
+        Ok(&None)
+    }
+
+    fn input_mask(&self) -> u64 {
+        0
+    }
+
+    fn changed(&self) -> bool {
+        self.changed
+    }
+
+    fn set_changed(&mut self, changed: bool) {
+        self.changed = changed;
+    }
+
     fn process(
         &mut self,
         input: DispatchPair,
         index: u64,
         _: crate::Vec2,
         _: AbsRect,
-    ) -> eyre::Result<(Vec<DispatchPair>, bool)> {
+        _: &std::sync::Weak<crate::Driver>,
+    ) -> eyre::Result<SmallVec<[DispatchPair; 1]>> {
         let f = self
             .input
             .get_mut(index as usize)
@@ -1285,17 +1291,9 @@ impl<AppData: 'static + std::cmp::PartialEq> StateMachineWrapper for AppDataMach
             Ok(s) | Err(s) => Some(s),
         };
         // If it actually changed, set the change marker
-        let changed = processed != self.state;
+        self.changed |= processed != self.state;
         self.state = processed;
-        Ok((Vec::new(), changed))
-    }
-
-    fn output_slot(&self, _: usize) -> eyre::Result<&Option<Slot>> {
-        Ok(&None)
-    }
-
-    fn input_masks(&self) -> SmallVec<[u64; 4]> {
-        self.input.iter().map(|_| 0).collect()
+        Ok(SmallVec::new())
     }
 }
 #[cfg(target_os = "windows")]
@@ -1335,6 +1333,7 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
             Box::new(AppDataMachine {
                 input: inputs,
                 state: Some(app_state),
+                changed: true,
             }),
         );
 
@@ -1469,7 +1468,7 @@ impl<
                                                     layers,
                                                 );
                                             }
-                                            e => panic!("Fatal draw error: {}", e),
+                                            e => panic!("Fatal draw error: {e}"),
                                         }
                                     }
                                 }
@@ -1575,7 +1574,7 @@ impl FnPersist<u8, im::HashMap<Rc<SourceID>, Option<Window>>> for TestApp {
     }
 
     fn call(
-        &self,
+        &mut self,
         store: Self::Store,
         _: &u8,
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {

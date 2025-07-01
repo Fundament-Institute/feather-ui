@@ -35,7 +35,7 @@ impl Node {
         window: &mut crate::component::window::WindowState,
     ) -> Rc<Self> {
         let this = Rc::new_cyclic(|this| {
-            let fold = VectorFold::new(
+            let mut fold = VectorFold::new(
                 |(rect, top, bottom): &(AbsRect, i32, i32),
                  n: &Option<Rc<Node>>|
                  -> (AbsRect, i32, i32) {
@@ -112,6 +112,8 @@ impl Node {
                     (window.remove(WindowNodeTrack::Hover, device_id), false)
                 };
 
+                let driver = Arc::downgrade(&window.driver);
+
                 // Tell the old node that it lost hover (if it cares).
                 if let Some(old) = old.and_then(|x| x.upgrade()) {
                     let evt = RawEvent::MouseOff {
@@ -127,6 +129,7 @@ impl Node {
                         dpi,
                         Vec2::zero(),
                         window_id.clone(),
+                        &driver,
                         manager,
                     );
                 }
@@ -139,7 +142,15 @@ impl Node {
                         pos: *pos,
                         all_buttons: *all_buttons,
                     };
-                    let _ = self.inject_event(&evt, evt.kind(), dpi, offset, window_id, manager);
+                    let _ = self.inject_event(
+                        &evt,
+                        evt.kind(),
+                        dpi,
+                        offset,
+                        window_id,
+                        &driver,
+                        manager,
+                    );
                 }
             }
             RawEvent::Mouse {
@@ -186,24 +197,24 @@ impl Node {
         dpi: Vec2,
         offset: Vec2,
         window_id: Rc<SourceID>,
+        driver: &std::sync::Weak<crate::Driver>,
         manager: &mut StateManager,
     ) -> Result<(), ()> {
         if let Some(id) = self.id.upgrade() {
             if let Ok(state) = manager.get_trait(&id) {
-                let masks = state.input_masks();
-                for (i, k) in masks.iter().enumerate() {
-                    if (kind as u64 & *k) != 0
-                        && manager
-                            .process(
-                                event.clone().extract(),
-                                &crate::Slot(id.clone(), i as u64),
-                                dpi,
-                                self.area + offset,
-                            )
-                            .is_ok()
-                    {
-                        return self.postprocess(event, dpi, offset, window_id, manager);
-                    }
+                let mask = state.input_mask();
+                if (kind as u64 & mask) != 0
+                    && manager
+                        .process(
+                            event.clone().extract(),
+                            &crate::Slot(id.clone(), 0), // TODO: We currently don't use the slot index here, but we might need to later
+                            dpi,
+                            self.area + offset,
+                            driver,
+                        )
+                        .is_ok()
+                {
+                    return self.postprocess(event, dpi, offset, window_id, manager);
                 }
             }
         }
@@ -239,11 +250,13 @@ impl Node {
         position: Vec2,
         mut offset: Vec2,
         dpi: Vec2,
+        driver: &std::sync::Weak<crate::Driver>,
         manager: &mut StateManager,
         window_id: Rc<SourceID>,
     ) -> Result<(), ()> {
         if self.area.contains(position - offset) {
-            if let Ok(()) = self.inject_event(event, kind, dpi, offset, window_id.clone(), manager)
+            if let Ok(()) =
+                self.inject_event(event, kind, dpi, offset, window_id.clone(), driver, manager)
             {
                 match event {
                     // If we successfully process a mouse event, this node gains focus in it's parent window
@@ -287,8 +300,6 @@ impl Node {
                             (window.remove(WindowNodeTrack::Focus, device_id), false)
                         };
 
-                        let driver = Arc::downgrade(&window.driver);
-
                         // Tell the old node that it lost focus (if it cares).
                         if let Some(old) = old.and_then(|old| old.upgrade()) {
                             let evt = RawEvent::Focus {
@@ -303,6 +314,7 @@ impl Node {
                                 dpi,
                                 Vec2::zero(),
                                 window_id.clone(),
+                                driver,
                                 manager,
                             );
                         }
@@ -319,6 +331,7 @@ impl Node {
                                 dpi,
                                 offset,
                                 window_id.clone(),
+                                driver,
                                 manager,
                             );
                         } else {
@@ -331,7 +344,7 @@ impl Node {
                                     position: PhysicalPosition::<f64>::new(*x as f64, *y as f64),
                                 },
                                 manager,
-                                driver,
+                                driver.clone(),
                             );
                         }
                     }
@@ -352,6 +365,7 @@ impl Node {
                         position,
                         offset,
                         dpi,
+                        driver,
                         manager,
                         window_id.clone(),
                     )

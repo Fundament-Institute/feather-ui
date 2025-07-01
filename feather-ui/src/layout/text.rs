@@ -64,8 +64,16 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
 
             text_buffer.set_size(
                 &mut font_system,
-                if unsized_x { limitx } else { Some(dim.x) },
-                if unsized_y { limity } else { Some(dim.y) },
+                if unsized_x {
+                    limitx
+                } else {
+                    Some(dim.x.max(0.0))
+                },
+                if unsized_y {
+                    limity
+                } else {
+                    Some(dim.y.max(0.0))
+                },
             );
         }
 

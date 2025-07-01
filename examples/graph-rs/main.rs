@@ -64,7 +64,7 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
         )
     }
     fn call(
-        &self,
+        &mut self,
         mut store: Self::Store,
         args: &GraphState,
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {

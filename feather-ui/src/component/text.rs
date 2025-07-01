@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use crate::color::sRGB;
-use crate::component::StateMachine;
+use crate::component::{EventStream, StateMachine};
 use crate::graphics::point_to_pixel;
 use crate::layout::{self, Layout, leaf};
 use crate::{SourceID, WindowStateMachine, graphics};
@@ -13,6 +13,11 @@ use std::rc::Rc;
 
 #[derive(Clone)]
 pub struct TextState(Rc<RefCell<cosmic_text::Buffer>>);
+
+impl EventStream for TextState {
+    type Input = ();
+    type Output = ();
+}
 
 impl PartialEq for TextState {
     fn eq(&self, other: &Self) -> bool {
@@ -43,15 +48,16 @@ impl<T: leaf::Padded + 'static> crate::StateMachineChild for Text<T> {
         &self,
         _: &std::sync::Weak<graphics::Driver>,
     ) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error> {
-        let statemachine: StateMachine<(), TextState, 0, 0> = StateMachine {
+        let statemachine: StateMachine<TextState, 0> = StateMachine {
             state: Some(TextState(Rc::new(RefCell::new(
                 cosmic_text::Buffer::new_empty(Metrics::new(
                     point_to_pixel(self.font_size, 1.0),
                     point_to_pixel(self.line_height, 1.0),
                 )),
             )))),
-            input: [],
+            input_mask: 0,
             output: [],
+            changed: true,
         };
         Ok(Box::new(statemachine))
     }
@@ -80,10 +86,9 @@ where
 {
     fn layout(
         &self,
-        state: &crate::StateManager,
+        state: &mut crate::StateManager,
         driver: &graphics::Driver,
         window: &Rc<SourceID>,
-        _: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let winstate: &WindowStateMachine = state.get(window).unwrap();
         let winstate = winstate.state.as_ref().expect("No window state available");
@@ -95,7 +100,7 @@ where
             point_to_pixel(self.line_height, dpi.y),
         );
 
-        let textstate: &StateMachine<(), TextState, 0, 0> = state.get(&self.id).unwrap();
+        let textstate: &StateMachine<TextState, 0> = state.get(&self.id).unwrap();
         let textstate = textstate.state.as_ref().expect("No text state available");
         textstate
             .0

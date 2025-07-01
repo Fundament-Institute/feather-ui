@@ -20,6 +20,10 @@ license.workspace = true
 path = "src/lib.rs"
 doctest = false
 
+[features]
+default = ["lua"]
+lua = ["dep:mlua"]
+
 [dependencies]
 im.workspace = true
 wgpu.workspace = true
@@ -30,7 +34,10 @@ tracing-subscriber.workspace = true
 ultraviolet.workspace = true
 dyn-clone = "1.0"
 derive-where = "1.2.7"
-mlua.workspace = true
+mlua = { version = "0.10", features = [
+  "luajit52",
+  "vendored",
+], optional = true }
 enum_variant_type = "0.3.1"
 smallvec = { version = "1.13", features = ["union", "const_generics"] }
 thiserror = "2.0"

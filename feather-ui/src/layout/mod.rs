@@ -152,8 +152,7 @@ impl Concrete {
         let (unsized_x, unsized_y) = check_unsized_abs(area.bottomright());
         assert!(
             !unsized_x && !unsized_y,
-            "concrete area must always be sized!: {:?}",
-            area
+            "concrete area must always be sized!: {area:?}",
         );
         Self {
             renderable,

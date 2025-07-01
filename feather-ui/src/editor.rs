@@ -5,8 +5,6 @@
 use core::iter::once;
 use core::panic;
 use smallvec::SmallVec;
-use std::cell::RefCell;
-use std::rc::Rc;
 use unicode_segmentation::UnicodeSegmentation;
 
 use cosmic_text::{
@@ -15,11 +13,10 @@ use cosmic_text::{
 
 use crate::text::Change;
 
-/// A wrapper of [`Buffer`] for easy editing. Modified to take Rc<RefCell<Buffer>>, because BufferRef
-/// does not allow holding anything other than a temporary reference outside of the editor.
+/// A wrapper of [`Buffer`] for easy editing. Modified to use an external Rc<RefCell<Buffer>> reference
+/// to work better with our immutable framework
 #[derive(Debug, Clone)]
 pub struct Editor {
-    pub(crate) buffer_ref: Rc<RefCell<Buffer>>,
     cursor: Cursor,
     cursor_x_opt: Option<i32>,
     selection: Selection,
@@ -29,8 +26,7 @@ pub struct Editor {
 
 impl PartialEq for Editor {
     fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.buffer_ref, &other.buffer_ref)
-            && self.cursor == other.cursor
+        self.cursor == other.cursor
             && self.cursor_x_opt == other.cursor_x_opt
             && self.selection == other.selection
             && self.cursor_moved == other.cursor_moved
@@ -106,10 +102,9 @@ pub fn cursor_position(cursor: &Cursor, run: &LayoutRun) -> Option<(i32, i32)> {
 
 #[allow(dead_code)]
 impl Editor {
-    /// Create a new [`Editor`] with the provided [`Buffer`]
-    pub fn new(buffer: Rc<RefCell<Buffer>>) -> Self {
+    /// Create a new [`Editor`]
+    pub fn new() -> Self {
         Self {
-            buffer_ref: buffer.clone(),
             cursor: Cursor::default(),
             cursor_x_opt: None,
             selection: Selection::None,
@@ -122,11 +117,11 @@ impl Editor {
         self.cursor
     }
 
-    pub fn set_cursor(&mut self, cursor: Cursor) {
+    pub fn set_cursor(&mut self, buffer: &mut Buffer, cursor: Cursor) {
         if self.cursor != cursor {
             self.cursor = cursor;
             self.cursor_moved = true;
-            self.with_buffer_mut(|buffer| buffer.set_redraw(true));
+            buffer.set_redraw(true);
         }
     }
 
@@ -143,10 +138,10 @@ impl Editor {
         }
     }
 
-    pub fn set_selection(&mut self, selection: Selection) {
+    pub fn set_selection(&mut self, buffer: &mut Buffer, selection: Selection) {
         if self.selection != selection {
             self.selection = selection;
-            self.with_buffer_mut(|buffer| buffer.set_redraw(true));
+            buffer.set_redraw(true);
         }
     }
 
@@ -158,27 +153,25 @@ impl Editor {
         self.auto_indent = auto_indent;
     }
 
-    pub fn tab_width(&self) -> u16 {
-        self.with_buffer(|buffer| buffer.tab_width())
-    }
-
-    pub fn set_tab_width(&mut self, font_system: &mut FontSystem, tab_width: u16) {
-        self.with_buffer_mut(|buffer| buffer.set_tab_width(font_system, tab_width));
-    }
-
-    pub fn shape_as_needed(&mut self, font_system: &mut FontSystem, prune: bool) {
+    pub fn shape_as_needed(
+        &mut self,
+        font_system: &mut FontSystem,
+        buffer: &mut Buffer,
+        prune: bool,
+    ) {
         if self.cursor_moved {
             let cursor = self.cursor;
-            self.with_buffer_mut(|buffer| buffer.shape_until_cursor(font_system, cursor, prune));
+            buffer.shape_until_cursor(font_system, cursor, prune);
             self.cursor_moved = false;
         } else {
-            self.with_buffer_mut(|buffer| buffer.shape_until_scroll(font_system, prune));
+            buffer.shape_until_scroll(font_system, prune);
         }
     }
 
     fn replace_range(
         &mut self,
         font_system: &mut FontSystem,
+        buffer: &mut Buffer,
         start: Cursor,
         end: Cursor,
         data: &str,
@@ -187,7 +180,7 @@ impl Editor {
         let mut first = std::cmp::min(start, end);
         let mut last = std::cmp::max(start, end);
         let change = if start != end {
-            self.delete_range(font_system, start, end, false)
+            self.delete_range(font_system, buffer, start, end, false)
         } else {
             None
         };
@@ -202,111 +195,109 @@ impl Editor {
 
         let mut remaining_split_len = data.len();
         if remaining_split_len == 0 {
-            self.layout_range(font_system, first, last);
+            self.layout_range(font_system, buffer, first, last);
             return (start, change);
         }
 
-        self.with_buffer_mut(|buffer| {
-            let mut cursor = start;
+        let mut cursor = start;
 
-            // Ensure there are enough lines in the buffer to handle this cursor
-            while cursor.line >= buffer.lines.len() {
-                let ending = buffer
-                    .lines
-                    .last()
-                    .map(|line| line.ending())
-                    .unwrap_or_default();
-                let line = BufferLine::new(
-                    String::new(),
-                    ending,
-                    AttrsList::new(&attrs.as_ref().map_or_else(
-                        || {
-                            buffer
-                                .lines
-                                .last()
-                                .map_or(Attrs::new(), |line| line.attrs_list().defaults())
-                        },
-                        |x| x.defaults(),
-                    )),
-                    Shaping::Advanced,
-                );
-                buffer.lines.push(line);
-            }
+        // Ensure there are enough lines in the buffer to handle this cursor
+        while cursor.line >= buffer.lines.len() {
+            let ending = buffer
+                .lines
+                .last()
+                .map(|line| line.ending())
+                .unwrap_or_default();
+            let line = BufferLine::new(
+                String::new(),
+                ending,
+                AttrsList::new(&attrs.as_ref().map_or_else(
+                    || {
+                        buffer
+                            .lines
+                            .last()
+                            .map_or(Attrs::new(), |line| line.attrs_list().defaults())
+                    },
+                    |x| x.defaults(),
+                )),
+                Shaping::Advanced,
+            );
+            buffer.lines.push(line);
+        }
 
-            let line: &mut BufferLine = &mut buffer.lines[cursor.line];
-            let insert_line = cursor.line + 1;
-            let ending = line.ending();
+        let line: &mut BufferLine = &mut buffer.lines[cursor.line];
+        let insert_line = cursor.line + 1;
+        let ending = line.ending();
 
-            // Collect text after insertion as a line
-            let after: BufferLine = line.split_off(cursor.index);
-            let after_len = after.text().len();
+        // Collect text after insertion as a line
+        let after: BufferLine = line.split_off(cursor.index);
+        let after_len = after.text().len();
 
-            // Collect attributes
-            let mut final_attrs = attrs.unwrap_or_else(|| {
-                AttrsList::new(&line.attrs_list().get_span(cursor.index.saturating_sub(1)))
-            });
-
-            // Append the inserted text, line by line
-            // we want to see a blank entry if the string ends with a newline
-            //TODO: adjust this to get line ending from data?
-            let addendum = once("").filter(|_| data.ends_with('\n'));
-            let mut lines_iter = data.split_inclusive('\n').chain(addendum);
-            if let Some(data_line) = lines_iter.next() {
-                let mut these_attrs = final_attrs.split_off(data_line.len());
-                remaining_split_len -= data_line.len();
-                core::mem::swap(&mut these_attrs, &mut final_attrs);
-                line.append(BufferLine::new(
-                    data_line
-                        .strip_suffix(char::is_control)
-                        .unwrap_or(data_line),
-                    ending,
-                    these_attrs,
-                    Shaping::Advanced,
-                ));
-            } else {
-                panic!("str::lines() did not yield any elements");
-            }
-            if let Some(data_line) = lines_iter.next_back() {
-                remaining_split_len -= data_line.len();
-                let mut tmp = BufferLine::new(
-                    data_line
-                        .strip_suffix(char::is_control)
-                        .unwrap_or(data_line),
-                    ending,
-                    final_attrs.split_off(remaining_split_len),
-                    Shaping::Advanced,
-                );
-                tmp.append(after);
-                buffer.lines.insert(insert_line, tmp);
-                cursor.line += 1;
-            } else {
-                line.append(after);
-            }
-            for data_line in lines_iter.rev() {
-                remaining_split_len -= data_line.len();
-                let tmp = BufferLine::new(
-                    data_line
-                        .strip_suffix(char::is_control)
-                        .unwrap_or(data_line),
-                    ending,
-                    final_attrs.split_off(remaining_split_len),
-                    Shaping::Advanced,
-                );
-                buffer.lines.insert(insert_line, tmp);
-                cursor.line += 1;
-            }
-
-            assert_eq!(remaining_split_len, 0);
-
-            // Append the text after insertion
-            cursor.index = buffer.lines[cursor.line].text().len() - after_len;
-
-            change.end = cursor;
+        // Collect attributes
+        let mut final_attrs = attrs.unwrap_or_else(|| {
+            AttrsList::new(&line.attrs_list().get_span(cursor.index.saturating_sub(1)))
         });
+
+        // Append the inserted text, line by line
+        // we want to see a blank entry if the string ends with a newline
+        //TODO: adjust this to get line ending from data?
+        let addendum = once("").filter(|_| data.ends_with('\n'));
+        let mut lines_iter = data.split_inclusive('\n').chain(addendum);
+        if let Some(data_line) = lines_iter.next() {
+            let mut these_attrs = final_attrs.split_off(data_line.len());
+            remaining_split_len -= data_line.len();
+            core::mem::swap(&mut these_attrs, &mut final_attrs);
+            line.append(BufferLine::new(
+                data_line
+                    .strip_suffix(char::is_control)
+                    .unwrap_or(data_line),
+                ending,
+                these_attrs,
+                Shaping::Advanced,
+            ));
+        } else {
+            panic!("str::lines() did not yield any elements");
+        }
+        if let Some(data_line) = lines_iter.next_back() {
+            remaining_split_len -= data_line.len();
+            let mut tmp = BufferLine::new(
+                data_line
+                    .strip_suffix(char::is_control)
+                    .unwrap_or(data_line),
+                ending,
+                final_attrs.split_off(remaining_split_len),
+                Shaping::Advanced,
+            );
+            tmp.append(after);
+            buffer.lines.insert(insert_line, tmp);
+            cursor.line += 1;
+        } else {
+            line.append(after);
+        }
+        for data_line in lines_iter.rev() {
+            remaining_split_len -= data_line.len();
+            let tmp = BufferLine::new(
+                data_line
+                    .strip_suffix(char::is_control)
+                    .unwrap_or(data_line),
+                ending,
+                final_attrs.split_off(remaining_split_len),
+                Shaping::Advanced,
+            );
+            buffer.lines.insert(insert_line, tmp);
+            cursor.line += 1;
+        }
+
+        assert_eq!(remaining_split_len, 0);
+
+        // Append the text after insertion
+        cursor.index = buffer.lines[cursor.line].text().len() - after_len;
+
+        change.end = cursor;
 
         first = std::cmp::min(first, change.end);
         last = std::cmp::max(last, change.end);
-        self.layout_range(font_system, first, last);
+        self.layout_range(font_system, buffer, first, last);
 
         (change.end, change)
     }
@@ -315,6 +306,7 @@ impl Editor {
     fn delete_range(
         &mut self,
         font_system: &mut FontSystem,
+        buffer: &mut Buffer,
         start: Cursor,
         end: Cursor,
         relayout: bool,
@@ -323,7 +315,7 @@ impl Editor {
             return None;
         }
 
-        let change_item = self.with_buffer_mut(|buffer| {
+        let change_item = {
             // Collect removed data for change tracking
             let mut change_lines = Vec::new();
 
@@ -377,94 +369,103 @@ impl Editor {
                 old: change_lines.join("\n").as_bytes().into(),
                 attrs: None,
             }
-        });
+        };
 
         if relayout {
-            self.layout_range(font_system, start, end);
+            self.layout_range(font_system, buffer, start, end);
         }
         Some(change_item)
     }
 
-    pub fn copy_selection(&self) -> Option<String> {
-        let (start, end) = self.selection_bounds()?;
-        self.with_buffer(|buffer| {
-            let mut selection = String::new();
-            // Take the selection from the first line
-            {
-                // Add selected part of line to string
-                if start.line == end.line {
-                    selection.push_str(&buffer.lines[start.line].text()[start.index..end.index]);
-                } else {
-                    selection.push_str(&buffer.lines[start.line].text()[start.index..]);
-                    selection.push('\n');
-                }
-            }
-
-            // Take the selection from all interior lines (if they exist)
-            for line_i in start.line + 1..end.line {
-                selection.push_str(buffer.lines[line_i].text());
+    pub fn copy_selection(&self, buffer: &Buffer) -> Option<String> {
+        let (start, end) = self.selection_bounds(buffer)?;
+        let mut selection = String::new();
+        // Take the selection from the first line
+        {
+            // Add selected part of line to string
+            if start.line == end.line {
+                selection.push_str(&buffer.lines[start.line].text()[start.index..end.index]);
+            } else {
+                selection.push_str(&buffer.lines[start.line].text()[start.index..]);
                 selection.push('\n');
             }
+        }
 
-            // Take the selection from the last line
-            if end.line > start.line {
-                // Add selected part of line to string
-                selection.push_str(&buffer.lines[end.line].text()[..end.index]);
-            }
+        // Take the selection from all interior lines (if they exist)
+        for line_i in start.line + 1..end.line {
+            selection.push_str(buffer.lines[line_i].text());
+            selection.push('\n');
+        }
 
-            Some(selection)
-        })
+        // Take the selection from the last line
+        if end.line > start.line {
+            // Add selected part of line to string
+            selection.push_str(&buffer.lines[end.line].text()[..end.index]);
+        }
+
+        Some(selection)
     }
 
     #[must_use]
-    pub fn delete_selection(&mut self, font_system: &mut FontSystem) -> Option<Change> {
-        let (start, end) = self.selection_bounds()?;
+    pub fn delete_selection(
+        &mut self,
+        font_system: &mut FontSystem,
+        buffer: &mut Buffer,
+    ) -> Option<Change> {
+        let (start, end) = self.selection_bounds(buffer)?;
 
         // Reset cursor to start of selection
-        self.set_cursor(start);
+        self.set_cursor(buffer, start);
 
         // Reset selection to None
         self.selection = Selection::None;
         self.cursor_moved = true;
 
         // Delete from start to end of selection
-        self.delete_range(font_system, start, end, true)
+        self.delete_range(font_system, buffer, start, end, true)
     }
 
     pub fn apply_change(
         &mut self,
         font_system: &mut FontSystem,
+        buffer: &mut Buffer,
         changes: &[Change],
     ) -> SmallVec<[Change; 1]> {
         let mut reverse = SmallVec::new();
         for change in changes {
             let (cursor, undo) = self.replace_range(
                 font_system,
+                buffer,
                 change.start,
                 change.end,
                 unsafe { str::from_utf8_unchecked(&change.old) },
                 None,
             );
-            self.set_cursor(cursor);
+            self.set_cursor(buffer, cursor);
             reverse.push(undo);
         }
 
-        self.shape_as_needed(font_system, false);
+        self.shape_as_needed(font_system, buffer, false);
         reverse.reverse();
         reverse
     }
 
-    pub fn layout_range(&mut self, font_system: &mut FontSystem, start: Cursor, end: Cursor) {
+    pub fn layout_range(
+        &mut self,
+        font_system: &mut FontSystem,
+        buffer: &mut Buffer,
+        start: Cursor,
+        end: Cursor,
+    ) {
         for i in start.line..(end.line + 1) {
-            self.with_buffer_mut(|b| {
-                b.line_layout(font_system, i);
-            });
+            buffer.line_layout(font_system, i);
         }
     }
 
     pub fn action(
         &mut self,
         font_system: &mut FontSystem,
+        buffer: &mut Buffer,
         action: Action,
     ) -> SmallVec<[Change; 1]> {
         let change = match action {
@@ -472,10 +473,10 @@ impl Editor {
             Action::Motion(motion) => {
                 let cursor = self.cursor;
                 let cursor_x_opt = self.cursor_x_opt;
-                if let Some((new_cursor, new_cursor_x_opt)) = self.with_buffer_mut(|buffer| {
+                if let Some((new_cursor, new_cursor_x_opt)) =
                     buffer.cursor_motion(font_system, cursor, cursor_x_opt, motion)
-                }) {
-                    self.set_cursor(new_cursor);
+                {
+                    self.set_cursor(buffer, new_cursor);
                     self.cursor_x_opt = new_cursor_x_opt;
                 }
                 SmallVec::new()
@@ -483,7 +484,7 @@ impl Editor {
             Action::Escape => {
                 match self.selection {
                     Selection::None => {}
-                    _ => self.with_buffer_mut(|buffer| buffer.set_redraw(true)),
+                    _ => buffer.set_redraw(true),
                 }
                 self.selection = Selection::None;
                 self.cursor_moved = true;
@@ -494,37 +495,35 @@ impl Editor {
                     // Filter out special chars (except for tab), use Action instead
                     panic!("use Action instead for special characters")
                 } else if character == '\n' {
-                    self.action(font_system, Action::Enter)
+                    self.action(font_system, buffer, Action::Enter)
                 } else {
                     let mut str_buf = [0u8; 8];
                     let str_ref = character.encode_utf8(&mut str_buf);
-                    SmallVec::from_elem(self.insert_string(font_system, str_ref, None), 1)
+                    SmallVec::from_elem(self.insert_string(font_system, buffer, str_ref, None), 1)
                 }
             }
             Action::Enter => {
                 //TODO: what about indenting more after opening brackets or parentheses?
                 let change = if self.auto_indent {
                     let mut string = String::from("\n");
-                    self.with_buffer(|buffer| {
-                        let line = &buffer.lines[self.cursor.line];
-                        let text = line.text();
-                        for c in text.chars() {
-                            if c.is_whitespace() {
-                                string.push(c);
-                            } else {
-                                break;
-                            }
+                    let line = &buffer.lines[self.cursor.line];
+                    let text = line.text();
+                    for c in text.chars() {
+                        if c.is_whitespace() {
+                            string.push(c);
+                        } else {
+                            break;
                         }
-                    });
-                    self.insert_string(font_system, &string, None)
+                    }
+                    self.insert_string(font_system, buffer, &string, None)
                 } else {
-                    self.insert_string(font_system, "\n", None)
+                    self.insert_string(font_system, buffer, "\n", None)
                 };
 
                 SmallVec::from_elem(change, 1)
             }
             Action::Backspace => {
-                if let Some(c) = self.delete_selection(font_system) {
+                if let Some(c) = self.delete_selection(font_system, buffer) {
                     SmallVec::from_elem(c, 1) // Deleted selection
                 } else {
                     // Save current cursor as end
@@ -532,86 +531,80 @@ impl Editor {
 
                     if self.cursor.index > 0 {
                         // Move cursor to previous character index
-                        self.cursor.index = self.with_buffer(|buffer| {
-                            buffer.lines[self.cursor.line].text()[..self.cursor.index]
-                                .char_indices()
-                                .next_back()
-                                .map_or(0, |(i, _)| i)
-                        });
+                        self.cursor.index = buffer.lines[self.cursor.line].text()
+                            [..self.cursor.index]
+                            .char_indices()
+                            .next_back()
+                            .map_or(0, |(i, _)| i);
                     } else if self.cursor.line > 0 {
                         // Move cursor to previous line
                         self.cursor.line -= 1;
-                        self.cursor.index =
-                            self.with_buffer(|buffer| buffer.lines[self.cursor.line].text().len());
+                        self.cursor.index = buffer.lines[self.cursor.line].text().len();
                     }
 
-                    self.delete_range(font_system, self.cursor, end, true)
+                    self.delete_range(font_system, buffer, self.cursor, end, true)
                         .map(|c| SmallVec::from_elem(c, 1))
                         .unwrap_or_default()
                 }
             }
             Action::Delete => {
-                if let Some(c) = self.delete_selection(font_system) {
+                if let Some(c) = self.delete_selection(font_system, buffer) {
                     SmallVec::from_elem(c, 1) // Deleted selection
                 } else {
                     // Save current cursor as start and end
                     let mut start = self.cursor;
                     let mut end = self.cursor;
 
-                    self.with_buffer(|buffer| {
-                        if start.index < buffer.lines[start.line].text().len() {
-                            let line = &buffer.lines[start.line];
+                    if start.index < buffer.lines[start.line].text().len() {
+                        let line = &buffer.lines[start.line];
 
-                            let range_opt = line
-                                .text()
-                                .grapheme_indices(true)
-                                .take_while(|(i, _)| *i <= start.index)
-                                .last()
-                                .map(|(i, c)| i..(i + c.len()));
+                        let range_opt = line
+                            .text()
+                            .grapheme_indices(true)
+                            .take_while(|(i, _)| *i <= start.index)
+                            .last()
+                            .map(|(i, c)| i..(i + c.len()));
 
-                            if let Some(range) = range_opt {
-                                start.index = range.start;
-                                end.index = range.end;
-                            }
-                        } else if start.line + 1 < buffer.lines.len() {
-                            end.line += 1;
-                            end.index = 0;
+                        if let Some(range) = range_opt {
+                            start.index = range.start;
+                            end.index = range.end;
                         }
-                    });
+                    } else if start.line + 1 < buffer.lines.len() {
+                        end.line += 1;
+                        end.index = 0;
+                    }
 
-                    self.set_cursor(start);
-                    self.delete_range(font_system, start, end, true)
+                    self.set_cursor(buffer, start);
+                    self.delete_range(font_system, buffer, start, end, true)
                         .map(|c| SmallVec::from_elem(c, 1))
                         .unwrap_or_default()
                 }
             }
             Action::Indent => {
                 // Get start and end of selection
-                let (start, end) = match self.selection_bounds() {
+                let (start, end) = match self.selection_bounds(buffer) {
                     Some(some) => some,
                     None => (self.cursor, self.cursor),
                 };
 
                 // For every line in selection
-                let tab_width: usize = self.tab_width().into();
+                let tab_width: usize = buffer.tab_width().into();
                 let mut changes = SmallVec::new();
                 for line_i in start.line..=end.line {
                     // Determine indexes of last indent and first character after whitespace
-                    let mut after_whitespace = 0;
+                    let mut after_whitespace;
                     let mut required_indent = 0;
-                    self.with_buffer(|buffer| {
-                        let line = &buffer.lines[line_i];
-                        let text = line.text();
-                        // Default to end of line if no non-whitespace found
-                        after_whitespace = text.len();
-                        for (count, (index, c)) in text.char_indices().enumerate() {
-                            if !c.is_whitespace() {
-                                after_whitespace = index;
-                                required_indent = tab_width - (count % tab_width);
-                                break;
-                            }
+                    let line = &buffer.lines[line_i];
+                    let text = line.text();
+                    // Default to end of line if no non-whitespace found
+                    after_whitespace = text.len();
+                    for (count, (index, c)) in text.char_indices().enumerate() {
+                        if !c.is_whitespace() {
+                            after_whitespace = index;
+                            required_indent = tab_width - (count % tab_width);
+                            break;
                         }
-                    });
+                    }
 
                     // No indent required (not possible?)
                     if required_indent == 0 {
@@ -621,13 +614,14 @@ impl Editor {
                     let location = Cursor::new(line_i, after_whitespace);
                     let (cursor, change) = self.replace_range(
                         font_system,
+                        buffer,
                         location,
                         location,
                         &" ".repeat(required_indent),
                         None,
                     );
                     changes.push(change);
-                    self.set_cursor(cursor);
+                    self.set_cursor(buffer, cursor);
 
                     // Adjust cursor
                     if self.cursor.line == line_i {
@@ -651,39 +645,37 @@ impl Editor {
                     }
 
                     // Request redraw
-                    self.with_buffer_mut(|buffer| buffer.set_redraw(true));
+                    buffer.set_redraw(true);
                 }
                 changes
             }
             Action::Unindent => {
                 // Get start and end of selection
-                let (start, end) = match self.selection_bounds() {
+                let (start, end) = match self.selection_bounds(buffer) {
                     Some(some) => some,
                     None => (self.cursor, self.cursor),
                 };
 
                 // For every line in selection
-                let tab_width: usize = self.tab_width().into();
+                let tab_width: usize = buffer.tab_width().into();
                 let mut changes = SmallVec::new();
                 for line_i in start.line..=end.line {
                     // Determine indexes of last indent and first character after whitespace
                     let mut last_indent = 0;
-                    let mut after_whitespace = 0;
-                    self.with_buffer(|buffer| {
-                        let line = &buffer.lines[line_i];
-                        let text = line.text();
-                        // Default to end of line if no non-whitespace found
-                        after_whitespace = text.len();
-                        for (count, (index, c)) in text.char_indices().enumerate() {
-                            if !c.is_whitespace() {
-                                after_whitespace = index;
-                                break;
-                            }
-                            if count % tab_width == 0 {
-                                last_indent = index;
-                            }
+                    let mut after_whitespace;
+                    let line = &buffer.lines[line_i];
+                    let text = line.text();
+                    // Default to end of line if no non-whitespace found
+                    after_whitespace = text.len();
+                    for (count, (index, c)) in text.char_indices().enumerate() {
+                        if !c.is_whitespace() {
+                            after_whitespace = index;
+                            break;
                         }
-                    });
+                        if count % tab_width == 0 {
+                            last_indent = index;
+                        }
+                    }
 
                     // No de-indent required
                     if last_indent == after_whitespace {
@@ -693,6 +685,7 @@ impl Editor {
                     // Delete one indent
                     if let Some(c) = self.delete_range(
                         font_system,
+                        buffer,
                         Cursor::new(line_i, last_indent),
                         Cursor::new(line_i, after_whitespace),
                         true,
@@ -718,150 +711,131 @@ impl Editor {
                     }
 
                     // Request redraw
-                    self.with_buffer_mut(|buffer| buffer.set_redraw(true));
+                    buffer.set_redraw(true);
                 }
                 changes
             }
             Action::Click { x, y } => {
-                self.set_selection(Selection::None);
+                self.set_selection(buffer, Selection::None);
 
-                if let Some(new_cursor) = self.with_buffer(|buffer| buffer.hit(x as f32, y as f32))
-                {
+                if let Some(new_cursor) = buffer.hit(x as f32, y as f32) {
                     if new_cursor != self.cursor {
-                        self.set_cursor(new_cursor);
-                        self.with_buffer_mut(|buffer| buffer.set_redraw(true));
+                        self.set_cursor(buffer, new_cursor);
+                        buffer.set_redraw(true);
                     }
                 }
                 SmallVec::new()
             }
             Action::DoubleClick { x, y } => {
-                self.set_selection(Selection::None);
+                self.set_selection(buffer, Selection::None);
 
-                if let Some(new_cursor) = self.with_buffer(|buffer| buffer.hit(x as f32, y as f32))
-                {
+                if let Some(new_cursor) = buffer.hit(x as f32, y as f32) {
                     if new_cursor != self.cursor {
-                        self.set_cursor(new_cursor);
-                        self.with_buffer_mut(|buffer| buffer.set_redraw(true));
+                        self.set_cursor(buffer, new_cursor);
+                        buffer.set_redraw(true);
                     }
                     self.selection = Selection::Word(self.cursor);
-                    self.with_buffer_mut(|buffer| buffer.set_redraw(true));
+                    buffer.set_redraw(true);
                 }
                 SmallVec::new()
             }
             Action::Drag { x, y } => {
-                if let Some(new_cursor) = self.with_buffer(|buffer| buffer.hit(x as f32, y as f32))
-                {
+                if let Some(new_cursor) = buffer.hit(x as f32, y as f32) {
                     // We do not trigger a selection if only the affinity changes, because it's not visible and ends up being confusing.
                     if new_cursor.index != self.cursor.index || new_cursor.line != self.cursor.line
                     {
                         if self.selection == Selection::None {
                             self.selection = Selection::Normal(self.cursor);
-                            self.with_buffer_mut(|buffer| buffer.set_redraw(true));
+                            buffer.set_redraw(true);
                         }
-                        self.set_cursor(new_cursor);
-                        self.with_buffer_mut(|buffer| buffer.set_redraw(true));
+                        self.set_cursor(buffer, new_cursor);
+                        buffer.set_redraw(true);
                     }
                 }
                 SmallVec::new()
             }
             Action::Scroll { lines } => {
-                self.with_buffer_mut(|buffer| {
-                    let mut scroll = buffer.scroll();
-                    //TODO: align to layout lines
-                    scroll.vertical += lines as f32 * buffer.metrics().line_height;
-                    buffer.set_scroll(scroll);
-                });
+                let mut scroll = buffer.scroll();
+                //TODO: align to layout lines
+                scroll.vertical += lines as f32 * buffer.metrics().line_height;
+                buffer.set_scroll(scroll);
                 SmallVec::new()
             }
         };
-        self.shape_as_needed(font_system, false);
+        self.shape_as_needed(font_system, buffer, false);
         change
     }
 
-    pub fn cursor_position(&self) -> Option<(i32, i32)> {
-        self.with_buffer(|buffer| {
-            buffer
-                .layout_runs()
-                .find_map(|run| cursor_position(&self.cursor, &run))
-        })
+    pub fn cursor_position(&self, buffer: &Buffer) -> Option<(i32, i32)> {
+        buffer
+            .layout_runs()
+            .find_map(|run| cursor_position(&self.cursor, &run))
     }
 
-    /// Get the internal [`Buffer`]
-    fn with_buffer<F: FnOnce(&Buffer) -> T, T>(&self, f: F) -> T {
-        f(&self.buffer_ref.borrow())
-    }
-
-    /// Get the internal [`Buffer`], mutably
-    fn with_buffer_mut<F: FnOnce(&mut Buffer) -> T, T>(&mut self, f: F) -> T {
-        f(&mut self.buffer_ref.borrow_mut())
-    }
-
-    pub fn selection_bounds(&self) -> Option<(Cursor, Cursor)> {
-        self.with_buffer(|buffer| {
-            let cursor = self.cursor();
-            match self.selection() {
-                Selection::None => None,
-                Selection::Normal(select) => match select.line.cmp(&cursor.line) {
-                    std::cmp::Ordering::Greater => Some((cursor, select)),
-                    std::cmp::Ordering::Less => Some((select, cursor)),
+    pub fn selection_bounds(&self, buffer: &Buffer) -> Option<(Cursor, Cursor)> {
+        let cursor = self.cursor();
+        match self.selection() {
+            Selection::None => None,
+            Selection::Normal(select) => match select.line.cmp(&cursor.line) {
+                std::cmp::Ordering::Greater => Some((cursor, select)),
+                std::cmp::Ordering::Less => Some((select, cursor)),
+                std::cmp::Ordering::Equal => {
+                    /* select.line == cursor.line */
+                    if select.index < cursor.index {
+                        Some((select, cursor))
+                    } else {
+                        /* select.index >= cursor.index */
+                        Some((cursor, select))
+                    }
+                }
+            },
+            Selection::Line(select) => {
+                let start_line = std::cmp::min(select.line, cursor.line);
+                let end_line = std::cmp::max(select.line, cursor.line);
+                let end_index = buffer.lines[end_line].text().len();
+                Some((Cursor::new(start_line, 0), Cursor::new(end_line, end_index)))
+            }
+            Selection::Word(select) => {
+                let (mut start, mut end) = match select.line.cmp(&cursor.line) {
+                    std::cmp::Ordering::Greater => (cursor, select),
+                    std::cmp::Ordering::Less => (select, cursor),
                     std::cmp::Ordering::Equal => {
                         /* select.line == cursor.line */
                         if select.index < cursor.index {
-                            Some((select, cursor))
+                            (select, cursor)
                         } else {
                             /* select.index >= cursor.index */
-                            Some((cursor, select))
+                            (cursor, select)
                         }
                     }
-                },
-                Selection::Line(select) => {
-                    let start_line = std::cmp::min(select.line, cursor.line);
-                    let end_line = std::cmp::max(select.line, cursor.line);
-                    let end_index = buffer.lines[end_line].text().len();
-                    Some((Cursor::new(start_line, 0), Cursor::new(end_line, end_index)))
+                };
+
+                // Move start to beginning of word
+                {
+                    let line = &buffer.lines[start.line];
+                    start.index = line
+                        .text()
+                        .unicode_word_indices()
+                        .rev()
+                        .map(|(i, _)| i)
+                        .find(|&i| i < start.index)
+                        .unwrap_or(0);
                 }
-                Selection::Word(select) => {
-                    let (mut start, mut end) = match select.line.cmp(&cursor.line) {
-                        std::cmp::Ordering::Greater => (cursor, select),
-                        std::cmp::Ordering::Less => (select, cursor),
-                        std::cmp::Ordering::Equal => {
-                            /* select.line == cursor.line */
-                            if select.index < cursor.index {
-                                (select, cursor)
-                            } else {
-                                /* select.index >= cursor.index */
-                                (cursor, select)
-                            }
-                        }
-                    };
 
-                    // Move start to beginning of word
-                    {
-                        let line = &buffer.lines[start.line];
-                        start.index = line
-                            .text()
-                            .unicode_word_indices()
-                            .rev()
-                            .map(|(i, _)| i)
-                            .find(|&i| i < start.index)
-                            .unwrap_or(0);
-                    }
-
-                    // Move end to end of word
-                    {
-                        let line = &buffer.lines[end.line];
-                        end.index = line
-                            .text()
-                            .unicode_word_indices()
-                            .map(|(i, word)| i + word.len())
-                            .find(|&i| i > end.index)
-                            .unwrap_or(line.text().len());
-                    }
-
-                    Some((start, end))
+                // Move end to end of word
+                {
+                    let line = &buffer.lines[end.line];
+                    end.index = line
+                        .text()
+                        .unicode_word_indices()
+                        .map(|(i, word)| i + word.len())
+                        .find(|&i| i > end.index)
+                        .unwrap_or(line.text().len());
                 }
+
+                Some((start, end))
             }
-        })
+        }
     }
 
     /// Insert a string at the current cursor or replacing the current selection with the given
@@ -870,14 +844,24 @@ impl Editor {
     pub fn insert_string(
         &mut self,
         font_system: &mut FontSystem,
+        buffer: &mut Buffer,
         data: &str,
         attrs_list: Option<AttrsList>,
     ) -> Change {
-        let (cursor, change) = match self.selection_bounds() {
-            Some((start, end)) => self.replace_range(font_system, start, end, data, attrs_list),
-            None => self.replace_range(font_system, self.cursor(), self.cursor(), data, attrs_list),
+        let (cursor, change) = match self.selection_bounds(buffer) {
+            Some((start, end)) => {
+                self.replace_range(font_system, buffer, start, end, data, attrs_list)
+            }
+            None => self.replace_range(
+                font_system,
+                buffer,
+                self.cursor(),
+                self.cursor(),
+                data,
+                attrs_list,
+            ),
         };
-        self.set_cursor(cursor);
+        self.set_cursor(buffer, cursor);
         change
     }
 }

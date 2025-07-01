@@ -365,12 +365,12 @@ impl FnPersist<AppState, im::HashMap<Rc<SourceID>, Option<Window>>> for LuaApp {
         let r = self.init.call::<LuaValue>(());
         match r {
             Err(LuaError::RuntimeError(s)) => panic!("{}", s),
-            Err(e) => panic!("{:?}", e),
+            Err(e) => panic!("{e:?}"),
             Ok(v) => v,
         }
     }
     fn call(
-        &self,
+        &mut self,
         store: Self::Store,
         args: &AppState,
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {

@@ -43,6 +43,11 @@ pub struct WindowState {
     pub compositor: Compositor,
 }
 
+impl super::EventStream for WindowState {
+    type Input = ();
+    type Output = ();
+}
+
 const BACKCOLOR: wgpu::Color = wgpu::Color {
     r: 0.1,
     g: 0.2,
@@ -186,7 +191,7 @@ impl PartialEq for WindowState {
     }
 }
 
-pub(crate) type WindowStateMachine = StateMachine<(), WindowState, 0, 0>;
+pub(crate) type WindowStateMachine = StateMachine<WindowState, 0>;
 
 #[derive(Clone)]
 pub struct Window {
@@ -198,10 +203,9 @@ pub struct Window {
 impl Component<AbsDim> for Window {
     fn layout(
         &self,
-        manager: &crate::StateManager,
+        manager: &mut crate::StateManager,
         _: &graphics::Driver,
         _: &Rc<SourceID>,
-        _: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn crate::layout::Layout<AbsDim>> {
         let inner = manager
             .get::<WindowStateMachine>(&self.id)
@@ -216,7 +220,7 @@ impl Component<AbsDim> for Window {
                 x: size.width as f32,
                 y: size.height as f32,
             })),
-            children: self.child.layout(manager, &driver, &self.id, &inner.config),
+            children: self.child.layout(manager, &driver, &self.id),
             id: Rc::downgrade(&self.id),
             renderable: None,
         })
@@ -297,10 +301,11 @@ impl Window {
             Window::resize(size, &mut windowstate);
             manager.init(
                 self.id.clone(),
-                Box::new(StateMachine::<(), WindowState, 0, 0> {
+                Box::new(StateMachine::<WindowState, 0> {
                     state: Some(windowstate),
-                    input: [],
                     output: [],
+                    input_mask: 0,
+                    changed: false,
                 }),
             );
         }
@@ -393,8 +398,15 @@ impl Window {
                 let nodes: SmallVec<[Weak<Node>; 4]> = window.nodes(WindowNodeTrack::Focus);
 
                 for node in nodes.iter().filter_map(|x| x.upgrade()) {
-                    let _ =
-                        node.inject_event(&evt, evt.kind(), dpi, Vec2::zero(), id.clone(), manager);
+                    let _ = node.inject_event(
+                        &evt,
+                        evt.kind(),
+                        dpi,
+                        Vec2::zero(),
+                        id.clone(),
+                        &driver,
+                        manager,
+                    );
                 }
                 Ok(())
             }
@@ -590,6 +602,7 @@ impl Window {
                                         dpi,
                                         Vec2::zero(),
                                         id.clone(),
+                                        &driver,
                                         manager,
                                     )
                                     .is_ok()
@@ -616,6 +629,7 @@ impl Window {
                                 dpi,
                                 Vec2::zero(),
                                 id.clone(),
+                                &driver,
                                 manager,
                             );
                         }
@@ -628,6 +642,7 @@ impl Window {
                                 dpi,
                                 Vec2::zero(),
                                 id.clone(),
+                                &driver,
                                 manager,
                             );
                         }
@@ -675,6 +690,7 @@ impl Window {
                                 dpi,
                                 offset,
                                 id.clone(),
+                                &driver,
                                 manager,
                             );
                         }
@@ -686,6 +702,7 @@ impl Window {
                                 Vec2::new(x, y),
                                 Vec2::zero(),
                                 dpi,
+                                &driver,
                                 manager,
                                 id.clone(),
                             )
@@ -725,6 +742,7 @@ impl Window {
                                     dpi,
                                     Vec2::zero(),
                                     id.clone(),
+                                    &driver,
                                     manager,
                                 );
                             }
@@ -765,6 +783,7 @@ impl Window {
                                     dpi,
                                     Vec2::zero(),
                                     id.clone(),
+                                    &driver,
                                     manager,
                                 );
                             }
