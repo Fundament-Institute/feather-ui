@@ -123,7 +123,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
         (CounterState { count: -1 }, im::HashMap::new())
     }
     fn call(
-        &self,
+        &mut self,
         mut store: Self::Store,
         args: &CounterState,
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {

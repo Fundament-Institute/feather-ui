@@ -3,8 +3,9 @@
 
 use feather_ui::App;
 use feather_ui::lua::{AppState, LuaApp};
-use mlua::Function;
-use mlua::prelude::*;
+use feather_ui::mlua::Function;
+use feather_ui::mlua::prelude::*;
+use feather_ui::winit::event_loop;
 
 fn wrap_luafunc(
     f: Function,
@@ -31,8 +32,8 @@ fn main() {
 
         let onclick = Box::new(wrap_luafunc(onclick));
         let outline = LuaApp { window, init };
-        let (mut app, event_loop): (App<AppState, LuaApp>, winit::event_loop::EventLoop<()>) =
-            App::new(LuaValue::Integer(0), vec![onclick], outline).unwrap();
+        let (mut app, event_loop): (App<AppState, LuaApp>, event_loop::EventLoop<()>) =
+            App::new(LuaValue::Integer(0), vec![onclick], outline, |_| ()).unwrap();
 
         event_loop.run_app(&mut app).unwrap();
     }

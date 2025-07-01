@@ -66,7 +66,7 @@ impl FnPersist<TextState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicAp
         )
     }
     fn call(
-        &self,
+        &mut self,
         mut store: Self::Store,
         args: &TextState,
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {

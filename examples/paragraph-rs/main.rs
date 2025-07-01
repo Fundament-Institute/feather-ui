@@ -105,7 +105,7 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
         )
     }
     fn call(
-        &self,
+        &mut self,
         mut store: Self::Store,
         args: &Blocker,
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
