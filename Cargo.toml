@@ -45,7 +45,6 @@ tracing-subscriber = { version = "0.3.18", features = ["time"] }
 tracing = "0.1.40"
 feather-ui = { path = "feather-ui" }
 alicorn = "0.1.2"
-mlua = { version = "0.10", features = ["luajit52", "vendored"] }
 feather-macro = { version = "0.1", path = "feather-macro" }
 cosmic-text = { git = "https://github.com/pop-os/cosmic-text" }  # TODO: change back to a proper release once fixes we need make it into stable
 

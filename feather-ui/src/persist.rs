@@ -10,14 +10,14 @@ pub trait FnPersist<Args, Output> {
     type Store: Clone;
 
     fn init(&self) -> Self::Store;
-    fn call(&self, store: Self::Store, args: &Args) -> (Self::Store, Output);
+    fn call(&mut self, store: Self::Store, args: &Args) -> (Self::Store, Output);
 }
 
-impl<Args, Output, T: Fn(&Args) -> Output> FnPersist<Args, Output> for T {
+impl<Args, Output, T: FnMut(&Args) -> Output> FnPersist<Args, Output> for T {
     type Store = ();
 
     fn init(&self) -> Self::Store {}
-    fn call(&self, _: Self::Store, args: &Args) -> (Self::Store, Output) {
+    fn call(&mut self, _: Self::Store, args: &Args) -> (Self::Store, Output) {
         ((), (self)(args))
     }
 }
@@ -26,14 +26,14 @@ pub trait FnPersist2<Arg1, Arg2, Output> {
     type Store: Clone;
 
     fn init(&self) -> Self::Store;
-    fn call(&self, store: Self::Store, arg1: &Arg1, arg2: &Arg2) -> (Self::Store, Output);
+    fn call(&mut self, store: Self::Store, arg1: &Arg1, arg2: &Arg2) -> (Self::Store, Output);
 }
 
-impl<Arg1, Arg2, Output, T: Fn(&Arg1, &Arg2) -> Output> FnPersist2<Arg1, Arg2, Output> for T {
+impl<Arg1, Arg2, Output, T: FnMut(&Arg1, &Arg2) -> Output> FnPersist2<Arg1, Arg2, Output> for T {
     type Store = ();
 
     fn init(&self) -> Self::Store {}
-    fn call(&self, _: Self::Store, arg1: &Arg1, arg2: &Arg2) -> (Self::Store, Output) {
+    fn call(&mut self, _: Self::Store, arg1: &Arg1, arg2: &Arg2) -> (Self::Store, Output) {
         ((), (self)(arg1, arg2))
     }
 }
@@ -136,7 +136,7 @@ impl<T: Clone> FnPersist<(im::Vector<T>, im::Vector<T>), im::Vector<T>> for Conc
         Default::default()
     }
     fn call(
-        &self,
+        &mut self,
         mut store: Self::Store,
         args: &(im::Vector<T>, im::Vector<T>),
     ) -> (Self::Store, im::Vector<T>) {
@@ -189,7 +189,7 @@ impl<T: Ord + Clone, U: Ord + Clone, F: FnPersist<T, U>> FnPersist<im::OrdSet<T>
     fn init(&self) -> Self::Store {
         Default::default()
     }
-    fn call(&self, cache: Self::Store, input: &im::OrdSet<T>) -> (Self::Store, im::OrdSet<U>) {
+    fn call(&mut self, cache: Self::Store, input: &im::OrdSet<T>) -> (Self::Store, im::OrdSet<U>) {
         let mut internal = cache.store.clone();
         let mut output = cache.result.clone();
         // Get the difference between the items passed in and the cache of what we passed in last
@@ -282,7 +282,7 @@ where
         Default::default()
     }
     fn call(
-        &self,
+        &mut self,
         cache: Self::Store,
         input: &im::OrdMap<K, V>,
     ) -> (Self::Store, im::OrdMap<K, U>) {
@@ -367,7 +367,11 @@ impl<V: Clone, U: Clone, F: FnPersist<V, U>> FnPersist<im::Vector<V>, im::Vector
     fn init(&self) -> Self::Store {
         Default::default()
     }
-    fn call(&self, mut store: Self::Store, args: &im::Vector<V>) -> (Self::Store, im::Vector<U>) {
+    fn call(
+        &mut self,
+        mut store: Self::Store,
+        args: &im::Vector<V>,
+    ) -> (Self::Store, im::Vector<U>) {
         // TODO: We can't implement this properly because tracking the storage requires access to im::Vector internals, and we can't even compare the two vectors either
         //if store.arg != *args {
         store.result.clear();
@@ -427,7 +431,7 @@ impl<T: Clone, U: Clone, F: FnPersist2<U, T, U>> FnPersist2<U, im::Vector<T>, U>
         }
     }
 
-    fn call(&self, store: Self::Store, arg1: &U, arg2: &im::Vector<T>) -> (Self::Store, U) {
+    fn call(&mut self, store: Self::Store, arg1: &U, arg2: &im::Vector<T>) -> (Self::Store, U) {
         let mut seed = arg1.clone();
 
         for item in arg2.iter() {

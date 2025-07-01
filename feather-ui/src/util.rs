@@ -25,13 +25,13 @@ pub fn create_hotloader<T: 'static>(
                 let module = shaders::load_wgsl(&driver.device, label, &prev);
                 let err = futures_lite::future::block_on(driver.device.pop_error_scope());
                 if let Some(e) = err {
-                    println!("{}", e);
+                    println!("{e}");
                 } else {
                     let info = futures_lite::future::block_on(module.get_compilation_info());
 
                     let mut errored = false;
                     for m in info.messages {
-                        println!("{:?}", m);
+                        println!("{m:?}");
                         errored = errored || m.message_type == CompilationMessageType::Error;
                     }
                     if !errored {

@@ -62,9 +62,6 @@ fn main() {
         }
         // We do not panic on error here so systems without dotnet can still build the rust example
         Ok(false) => print!("dotnet build failed, calculator-cs will not be available."),
-        Err(e) => print!(
-            "Error running dotnet build, calculator-cs will not be available: {}",
-            e
-        ),
+        Err(e) => print!("Error running dotnet build, calculator-cs will not be available: {e}"),
     }
 }

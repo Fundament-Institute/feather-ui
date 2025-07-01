@@ -19,8 +19,8 @@ pub mod window;
 use crate::component::window::Window;
 use crate::layout::{Desc, Layout, Staged, root};
 use crate::{
-    AbsRect, DEFAULT_LIMITS, DispatchPair, Dispatchable, EventWrapper, Slot, SourceID,
-    StateMachineChild, StateManager, graphics, rtree,
+    AbsRect, DEFAULT_LIMITS, DispatchPair, Dispatchable, Slot, SourceID, StateMachineChild,
+    StateManager, graphics, rtree,
 };
 use dyn_clone::DynClone;
 use eyre::{OptionExt, Result};
@@ -72,59 +72,81 @@ pub trait StateMachineWrapper: Any {
         index: u64,
         dpi: crate::Vec2,
         area: AbsRect,
-    ) -> Result<(Vec<DispatchPair>, bool)>;
+        driver: &std::sync::Weak<crate::Driver>,
+    ) -> Result<SmallVec<[DispatchPair; 1]>>;
     fn output_slot(&self, i: usize) -> Result<&Option<Slot>>;
-    fn input_masks(&self) -> SmallVec<[u64; 4]>;
+    fn input_mask(&self) -> u64;
+    fn changed(&self) -> bool;
+    fn set_changed(&mut self, changed: bool);
 }
 
-pub struct StateMachine<
-    Output: Dispatchable + 'static,
-    State: 'static,
-    const INPUT_SIZE: usize,
-    const OUTPUT_SIZE: usize,
-> {
+pub trait EventStream
+where
+    Self: std::marker::Sized,
+{
+    type Input: Dispatchable + 'static;
+    type Output: Dispatchable + 'static;
+
+    #[allow(unused_variables)]
+    #[allow(clippy::type_complexity)]
+    fn process(
+        self,
+        input: Self::Input,
+        area: AbsRect,
+        dpi: crate::Vec2,
+        driver: &std::sync::Weak<crate::Driver>,
+    ) -> Result<(Self, SmallVec<[Self::Output; 1]>), (Self, SmallVec<[Self::Output; 1]>)> {
+        Err((self, SmallVec::new()))
+    }
+}
+
+pub struct StateMachine<State: EventStream + 'static, const OUTPUT_SIZE: usize> {
     pub state: Option<State>,
-    pub input: [(u64, EventWrapper<Output, State>); INPUT_SIZE],
     pub output: [Option<Slot>; OUTPUT_SIZE],
+    pub input_mask: u64,
+    pub(crate) changed: bool,
 }
 
-impl<
-    Output: Dispatchable + 'static,
-    State: PartialEq + 'static,
-    const INPUT_SIZE: usize,
-    const OUTPUT_SIZE: usize,
-> StateMachineWrapper for StateMachine<Output, State, INPUT_SIZE, OUTPUT_SIZE>
+impl<State: EventStream + PartialEq + 'static, const OUTPUT_SIZE: usize> StateMachineWrapper
+    for StateMachine<State, OUTPUT_SIZE>
 {
     fn process(
         &mut self,
         input: DispatchPair,
-        index: u64,
+        _index: u64,
         dpi: crate::Vec2,
         area: AbsRect,
-    ) -> Result<(Vec<DispatchPair>, bool)> {
-        let (mask, f) = self
-            .input
-            .get_mut(index as usize)
-            .ok_or_eyre("index out of bounds")?;
-        if input.0 & *mask == 0 {
+        driver: &std::sync::Weak<crate::Driver>,
+    ) -> Result<SmallVec<[DispatchPair; 1]>> {
+        if input.0 & self.input_mask == 0 {
             return Err(eyre::eyre!("Event handler doesn't handle this method"));
         }
-        let changed;
-        let result = match f(input, area, dpi, self.state.take().unwrap()) {
+        let result = match self.state.take().unwrap().process(
+            State::Input::restore(input).unwrap(),
+            area,
+            dpi,
+            driver,
+        ) {
             Ok((s, r)) | Err((s, r)) => {
                 let s = Some(s);
-                changed = self.state != s;
+                self.changed |= self.state != s;
                 self.state = s;
                 r
             }
         };
-        Ok((result.into_iter().map(|x| x.extract()).collect(), changed))
+        Ok(result.into_iter().map(|x| x.extract()).collect())
     }
     fn output_slot(&self, i: usize) -> Result<&Option<Slot>> {
         self.output.get(i).ok_or_eyre("index out of bounds")
     }
-    fn input_masks(&self) -> SmallVec<[u64; 4]> {
-        self.input.iter().map(|x| x.0).collect()
+    fn input_mask(&self) -> u64 {
+        self.input_mask
+    }
+    fn changed(&self) -> bool {
+        self.changed
+    }
+    fn set_changed(&mut self, changed: bool) {
+        self.changed = changed
     }
 }
 
@@ -156,10 +178,9 @@ impl<const N: usize> StateMachineWrapper for EventRouter<N> {
 pub trait Component<T: ?Sized>: crate::StateMachineChild + DynClone {
     fn layout(
         &self,
-        state: &StateManager,
+        state: &mut StateManager,
         driver: &graphics::Driver,
         window: &Rc<SourceID>,
-        config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T> + 'static>;
 }
 
@@ -170,10 +191,9 @@ pub type ComponentFrom<D> = dyn ComponentWrap<<D as Desc>::Child>;
 pub trait ComponentWrap<T: ?Sized>: crate::StateMachineChild + DynClone {
     fn layout(
         &self,
-        state: &StateManager,
+        state: &mut StateManager,
         driver: &graphics::Driver,
         window: &Rc<SourceID>,
-        config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T> + 'static>;
 }
 
@@ -185,18 +205,11 @@ where
 {
     fn layout(
         &self,
-        state: &StateManager,
+        state: &mut StateManager,
         driver: &graphics::Driver,
         window: &Rc<SourceID>,
-        config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<U> + 'static> {
-        Box::new(Component::<T>::layout(
-            self.as_ref(),
-            state,
-            driver,
-            window,
-            config,
-        ))
+        Box::new(Component::<T>::layout(self.as_ref(), state, driver, window))
     }
 }
 
@@ -226,12 +239,11 @@ where
 {
     fn layout(
         &self,
-        state: &StateManager,
+        state: &mut StateManager,
         driver: &graphics::Driver,
         window: &Rc<SourceID>,
-        config: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<U> + 'static> {
-        Box::new(Component::<T>::layout(*self, state, driver, window, config))
+        Box::new(Component::<T>::layout(*self, state, driver, window))
     }
 }
 
@@ -318,12 +330,8 @@ impl Root {
                 .states
                 .get_mut(&id)
                 .ok_or_eyre("Couldn't find window state")?;
-            root.layout_tree = Some(window.layout(
-                manager,
-                &state.state.as_ref().unwrap().driver,
-                &window.id(),
-                &state.state.as_ref().unwrap().config,
-            ));
+            let driver = state.state.as_ref().unwrap().driver.clone();
+            root.layout_tree = Some(window.layout(manager, &driver, &window.id()));
         }
         Ok(())
     }
@@ -415,13 +423,12 @@ macro_rules! gen_component_wrap_inner {
     () => {
         fn layout(
             &self,
-            state: &$crate::StateManager,
+            state: &mut $crate::StateManager,
             driver: &$crate::graphics::Driver,
             window: &Rc<SourceID>,
-            config: &wgpu::SurfaceConfiguration,
         ) -> Box<dyn $crate::component::Layout<U> + 'static> {
             Box::new($crate::component::Component::<T>::layout(
-                self, state, driver, window, config,
+                self, state, driver, window,
             ))
         }
     };

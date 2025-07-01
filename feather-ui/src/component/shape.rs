@@ -26,6 +26,87 @@ pub struct Shape<T: leaf::Padded + 'static, const KIND: u8> {
     pub outline: sRGB,
 }
 
+pub fn round_rect<T: leaf::Padded + 'static>(
+    id: std::rc::Rc<SourceID>,
+    props: Rc<T>,
+    border: f32,
+    blur: f32,
+    corners: Vec4,
+    fill: sRGB,
+    outline: sRGB,
+) -> Shape<T, { ShapeKind::RoundRect as u8 }> {
+    Shape {
+        id,
+        props,
+        border,
+        blur,
+        corners,
+        fill,
+        outline,
+    }
+}
+
+pub fn triangle<T: leaf::Padded + 'static>(
+    id: std::rc::Rc<SourceID>,
+    props: Rc<T>,
+    border: f32,
+    blur: f32,
+    corners: ultraviolet::Vec3,
+    offset: f32,
+    fill: sRGB,
+    outline: sRGB,
+) -> Shape<T, { ShapeKind::Triangle as u8 }> {
+    Shape {
+        id,
+        props,
+        border,
+        blur,
+        corners: Vec4::new(corners.x, corners.y, corners.z, offset),
+        fill,
+        outline,
+    }
+}
+
+pub fn circle<T: leaf::Padded + 'static>(
+    id: std::rc::Rc<SourceID>,
+    props: Rc<T>,
+    border: f32,
+    blur: f32,
+    radii: Vec2,
+    fill: sRGB,
+    outline: sRGB,
+) -> Shape<T, { ShapeKind::Circle as u8 }> {
+    Shape {
+        id,
+        props,
+        border,
+        blur,
+        corners: Vec4::new(radii.x, radii.y, 0.0, 0.0),
+        fill,
+        outline,
+    }
+}
+
+pub fn arcs<T: leaf::Padded + 'static>(
+    id: std::rc::Rc<SourceID>,
+    props: Rc<T>,
+    border: f32,
+    blur: f32,
+    arcs: Vec4,
+    fill: sRGB,
+    outline: sRGB,
+) -> Shape<T, { ShapeKind::Arc as u8 }> {
+    Shape {
+        id,
+        props,
+        border,
+        blur,
+        corners: arcs,
+        fill,
+        outline,
+    }
+}
+
 impl<T: leaf::Padded + 'static, const KIND: u8> Clone for Shape<T, KIND> {
     fn clone(&self) -> Self {
         Self {
@@ -62,7 +143,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::RoundRect as u8 }> {
     }
 }
 
-impl<T: leaf::Padded + 'static> Shape<T, 1> {
+impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Triangle as u8 }> {
     pub fn new(
         id: std::rc::Rc<SourceID>,
         props: Rc<T>,
@@ -85,7 +166,7 @@ impl<T: leaf::Padded + 'static> Shape<T, 1> {
     }
 }
 
-impl<T: leaf::Padded + 'static> Shape<T, 2> {
+impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Circle as u8 }> {
     pub fn new(
         id: std::rc::Rc<SourceID>,
         props: Rc<T>,
@@ -107,7 +188,7 @@ impl<T: leaf::Padded + 'static> Shape<T, 2> {
     }
 }
 
-impl<T: leaf::Padded + 'static> Shape<T, 3> {
+impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Arc as u8 }> {
     pub fn new(
         id: std::rc::Rc<SourceID>,
         props: Rc<T>,
@@ -141,10 +222,9 @@ where
 {
     fn layout(
         &self,
-        state: &crate::StateManager,
+        state: &mut crate::StateManager,
         _: &crate::graphics::Driver,
         window: &Rc<SourceID>,
-        _: &wgpu::SurfaceConfiguration,
     ) -> Box<dyn Layout<T>> {
         let winstate: &WindowStateMachine = state.get(window).unwrap();
         let dpi = winstate.state.as_ref().map(|x| x.dpi).unwrap_or(BASE_DPI);

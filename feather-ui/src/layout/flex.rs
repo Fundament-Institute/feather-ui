@@ -365,16 +365,16 @@ impl Desc for dyn Prop {
         // Note that margins only ever apply between elements, not edges, so we completely ignore the
         // off-axis margin, as this calculation assumes there is only 1 line of items, and the off-axis
         // margin doesn't apply until there are linebreaks.
-        let fold = VectorFold::new(
-            |prev: &(f32, f32, f32), n: &Option<ChildCache>| -> (f32, f32, f32) {
-                let cache = n.as_ref().unwrap();
-                (
-                    cache.basis + prev.0 + merge_margin(prev.2, cache.margin.topleft().x),
-                    cache.aux.max(prev.1),
-                    cache.margin.bottomright().x,
-                )
-            },
-        );
+        let mut fold = VectorFold::new(&|prev: &(f32, f32, f32),
+                                         n: &Option<ChildCache>|
+         -> (f32, f32, f32) {
+            let cache = n.as_ref().unwrap();
+            (
+                cache.basis + prev.0 + merge_margin(prev.2, cache.margin.topleft().x),
+                cache.aux.max(prev.1),
+                cache.margin.bottomright().x,
+            )
+        });
 
         let (_, (used_main, used_aux, _)) =
             fold.call(fold.init(), &(0.0, 0.0, f32::NAN), &childareas);
