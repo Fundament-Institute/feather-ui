@@ -19,11 +19,13 @@ pub struct Line<T: base::Empty + 'static> {
     pub fill: sRGB,
 }
 
-impl<T: base::Empty + 'static> super::Component<T> for Line<T>
+impl<T: base::Empty + 'static> super::Component for Line<T>
 where
     for<'a> &'a T: Into<&'a (dyn base::Empty + 'static)>,
 {
-    fn layout(
+    type Prop = T;
+
+    fn layout_inner(
         &self,
         _: &mut crate::StateManager,
         _: &crate::graphics::Driver,
@@ -42,4 +44,3 @@ where
     }
 }
 
-crate::gen_component_wrap!(Line, base::Empty);

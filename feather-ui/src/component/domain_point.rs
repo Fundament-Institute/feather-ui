@@ -23,11 +23,13 @@ impl<T: domain_write::Prop + 'static> DomainPoint<T> {
     }
 }
 
-impl<T: domain_write::Prop + 'static> super::Component<T> for DomainPoint<T>
+impl<T: domain_write::Prop + 'static> super::Component for DomainPoint<T>
 where
     for<'a> &'a T: Into<&'a (dyn domain_write::Prop + 'static)>,
 {
-    fn layout(
+    type Prop = T;
+
+    fn layout_inner(
         &self,
         _: &mut crate::StateManager,
         _: &crate::graphics::Driver,
@@ -42,4 +44,3 @@ where
     }
 }
 
-crate::gen_component_wrap!(DomainPoint, domain_write::Prop);

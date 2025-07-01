@@ -8,7 +8,7 @@ use feather_ui::component::region::Region;
 use feather_ui::component::shape::{Shape, ShapeKind};
 use feather_ui::component::text::Text;
 use feather_ui::component::window::Window;
-use feather_ui::component::{mouse_area, ComponentFrom};
+use feather_ui::component::{mouse_area, ChildOf};
 use feather_ui::layout::fixed;
 use feather_ui::persist::FnPersist;
 use feather_ui::ultraviolet::Vec4;
@@ -175,7 +175,7 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
         args: &CalcFFI,
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
         //if store.0.eq(args) {
-        let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
+        let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> =
             im::Vector::new();
 
         for (i, (txt, _, color)) in BUTTONS.iter().enumerate() {
@@ -198,7 +198,7 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
                 ..Default::default()
             };
 
-            let mut btn_children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
+            let mut btn_children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> =
                 im::Vector::new();
             btn_children.push_back(Some(Box::new(rect)));
             btn_children.push_back(Some(Box::new(text)));

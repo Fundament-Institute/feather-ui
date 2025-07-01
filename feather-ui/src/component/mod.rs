@@ -175,18 +175,20 @@ impl<const N: usize> StateMachineWrapper for EventRouter<N> {
     }
 }*/
 
-pub trait Component<T: ?Sized>: crate::StateMachineChild + DynClone {
-    fn layout(
+pub trait Component: crate::StateMachineChild + DynClone {
+    type Prop: 'static;
+
+    fn layout_inner(
         &self,
         state: &mut StateManager,
         driver: &graphics::Driver,
         window: &Rc<SourceID>,
-    ) -> Box<dyn Layout<T> + 'static>;
+    ) -> Box<dyn Layout<Self::Prop> + 'static>;
 }
 
-dyn_clone::clone_trait_object!(<Parent> Component<Parent> where Parent:?Sized);
+dyn_clone::clone_trait_object!(<Parent> Component<Prop = Parent> where Parent:?Sized);
 
-pub type ComponentFrom<D> = dyn ComponentWrap<<D as Desc>::Child>;
+pub type ChildOf<D> = dyn ComponentWrap<<D as Desc>::Child>;
 
 pub trait ComponentWrap<T: ?Sized>: crate::StateMachineChild + DynClone {
     fn layout(
@@ -199,9 +201,10 @@ pub trait ComponentWrap<T: ?Sized>: crate::StateMachineChild + DynClone {
 
 dyn_clone::clone_trait_object!(<T> ComponentWrap<T> where T:?Sized);
 
-impl<U: ?Sized, T: 'static> ComponentWrap<U> for Box<dyn Component<T>>
+impl<U: ?Sized, C: Component> ComponentWrap<U> for C
 where
-    for<'a> &'a T: Into<&'a U>,
+    for<'a> &'a U: From<&'a <C as Component>::Prop>,
+    <C as Component>::Prop: Sized,
 {
     fn layout(
         &self,
@@ -209,61 +212,17 @@ where
         driver: &graphics::Driver,
         window: &Rc<SourceID>,
     ) -> Box<dyn Layout<U> + 'static> {
-        Box::new(Component::<T>::layout(self.as_ref(), state, driver, window))
+        Box::new(Component::layout_inner(self, state, driver, window))
     }
 }
 
-impl<T: 'static> StateMachineChild for Box<dyn Component<T>> {
-    fn init(
-        &self,
-        driver: &std::sync::Weak<crate::Driver>,
-    ) -> Result<Box<dyn crate::StateMachineWrapper>, crate::Error> {
-        StateMachineChild::init(self.as_ref(), driver)
-    }
-
-    fn apply_children(
-        &self,
-        f: &mut dyn FnMut(&dyn StateMachineChild) -> eyre::Result<()>,
-    ) -> eyre::Result<()> {
-        StateMachineChild::apply_children(self.as_ref(), f)
-    }
-
-    fn id(&self) -> Rc<SourceID> {
-        StateMachineChild::id(self.as_ref())
-    }
-}
-
-impl<U: ?Sized, T: 'static> ComponentWrap<U> for &dyn Component<T>
+impl<T: Component + 'static, U> From<Box<T>> for Box<dyn ComponentWrap<U>>
 where
-    for<'a> &'a T: Into<&'a U>,
+    for<'a> &'a U: std::convert::From<&'a <T as Component>::Prop>,
+    <T as Component>::Prop: std::marker::Sized,
 {
-    fn layout(
-        &self,
-        state: &mut StateManager,
-        driver: &graphics::Driver,
-        window: &Rc<SourceID>,
-    ) -> Box<dyn Layout<U> + 'static> {
-        Box::new(Component::<T>::layout(*self, state, driver, window))
-    }
-}
-
-impl<T: 'static> StateMachineChild for &dyn Component<T> {
-    fn init(
-        &self,
-        driver: &std::sync::Weak<crate::Driver>,
-    ) -> Result<Box<dyn crate::StateMachineWrapper>, crate::Error> {
-        StateMachineChild::init(*self, driver)
-    }
-
-    fn apply_children(
-        &self,
-        f: &mut dyn FnMut(&dyn StateMachineChild) -> eyre::Result<()>,
-    ) -> eyre::Result<()> {
-        StateMachineChild::apply_children(*self, f)
-    }
-
-    fn id(&self) -> Rc<SourceID> {
-        StateMachineChild::id(*self)
+    fn from(value: Box<T>) -> Self {
+        value
     }
 }
 
@@ -416,51 +375,4 @@ impl Root {
 
         Ok(())
     }
-}
-
-#[macro_export]
-macro_rules! gen_component_wrap_inner {
-    () => {
-        fn layout(
-            &self,
-            state: &mut $crate::StateManager,
-            driver: &$crate::graphics::Driver,
-            window: &Rc<SourceID>,
-        ) -> Box<dyn $crate::component::Layout<U> + 'static> {
-            Box::new($crate::component::Component::<T>::layout(
-                self, state, driver, window,
-            ))
-        }
-    };
-}
-
-#[macro_export]
-macro_rules! gen_component_wrap {
-    ($name:ident, $prop:path) => {
-        impl<U: ?Sized, T: $prop + 'static> $crate::component::ComponentWrap<U> for $name<T>
-        where
-            $name<T>: $crate::component::Component<T>,
-            for<'a> &'a T: Into<&'a U>,
-        {
-            $crate::gen_component_wrap_inner!();
-        }
-    };
-    ($name:ident, $prop:path, $aux:path) => {
-        impl<U: ?Sized, T: $prop + $aux + 'static> $crate::component::ComponentWrap<U> for $name<T>
-        where
-            $name<T>: $crate::component::Component<T>,
-            for<'a> &'a T: Into<&'a U>,
-        {
-            $crate::gen_component_wrap_inner!();
-        }
-    };
-    ($a:lifetime, $name:ident, $prop:path) => {
-        impl<$a, U: ?Sized, T: $prop + 'static> $crate::component::ComponentWrap<U> for $name<$a, T>
-        where
-            $name<$a, T>: $crate::component::Component<T>,
-            for<'abc> &'abc T: Into<&'abc U>,
-        {
-            $crate::gen_component_wrap_inner!();
-        }
-    };
 }

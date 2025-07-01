@@ -289,11 +289,13 @@ impl<T: leaf::Prop + 'static> crate::StateMachineChild for MouseArea<T> {
     }
 }
 
-impl<T: leaf::Prop + 'static> super::Component<T> for MouseArea<T>
+impl<T: leaf::Prop + 'static> super::Component for MouseArea<T>
 where
     for<'a> &'a T: Into<&'a (dyn leaf::Prop + 'static)>,
 {
-    fn layout(
+    type Prop = T;
+
+    fn layout_inner(
         &self,
         manager: &mut crate::StateManager,
         _: &crate::graphics::Driver,
@@ -321,4 +323,3 @@ where
     }
 }
 
-crate::gen_component_wrap!(MouseArea, leaf::Prop);

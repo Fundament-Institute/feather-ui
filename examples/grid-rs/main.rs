@@ -10,7 +10,7 @@ use feather_ui::component::region::Region;
 use feather_ui::component::shape::{Shape, ShapeKind};
 use feather_ui::component::text::Text;
 use feather_ui::component::window::Window;
-use feather_ui::component::{ComponentFrom, mouse_area};
+use feather_ui::component::{ChildOf, mouse_area};
 use feather_ui::layout::{base, fixed, grid, leaf};
 use feather_ui::persist::FnPersist;
 use feather_ui::ultraviolet::{Vec2, Vec4};
@@ -142,7 +142,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     sRGB::transparent(),
                 );
 
-                let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
+                let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> =
                     im::Vector::new();
                 children.push_back(Some(Box::new(rect)));
                 children.push_back(Some(Box::new(text)));
@@ -165,7 +165,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
 
             const NUM_COLUMNS: usize = 5;
             let rectgrid = {
-                let mut children: im::Vector<Option<Box<ComponentFrom<dyn grid::Prop>>>> =
+                let mut children: im::Vector<Option<Box<ChildOf<dyn grid::Prop>>>> =
                     im::Vector::new();
                 let grid_id = gen_id!();
                 for i in 0..args.count {
@@ -232,7 +232,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 )
             };
 
-            let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
+            let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> =
                 im::Vector::new();
             children.push_back(Some(Box::new(button)));
             children.push_back(Some(Box::new(rectgrid)));

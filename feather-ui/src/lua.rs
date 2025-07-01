@@ -6,7 +6,6 @@ use crate::component::region::Region;
 use crate::component::shape::{Shape, ShapeKind};
 use crate::component::text::Text;
 use crate::component::window::Window;
-use crate::component::{ComponentFrom, ComponentWrap};
 use crate::layout::fixed;
 use crate::propbag::PropBag;
 use crate::{DataID, FnPersist, Slot, SourceID, StateMachineChild, URect};
@@ -132,7 +131,44 @@ impl crate::layout::base::Obstacles for mlua::Table {
 }
 */
 
-type ComponentBag = Box<dyn crate::component::Component<PropBag>>;
+type ComponentBag = Box<dyn crate::component::Component<Prop = PropBag>>;
+
+impl<U: ?Sized> crate::component::ComponentWrap<U> for ComponentBag
+where
+    for<'a> &'a U: std::convert::From<&'a PropBag>,
+{
+    fn layout(
+        &self,
+        state: &mut crate::StateManager,
+        driver: &crate::graphics::Driver,
+        window: &Rc<SourceID>,
+    ) -> Box<dyn crate::layout::Layout<U> + 'static> {
+        Box::new(self.layout_inner(state, driver, window))
+    }
+}
+
+impl StateMachineChild for ComponentBag {
+    fn id(&self) -> Rc<SourceID> {
+        use std::ops::Deref;
+        Box::deref(self).id()
+    }
+
+    fn init(
+        &self,
+        driver: &std::sync::Weak<crate::graphics::Driver>,
+    ) -> Result<Box<dyn crate::component::StateMachineWrapper>, crate::Error> {
+        use std::ops::Deref;
+        Box::deref(self).init(driver)
+    }
+
+    fn apply_children(
+        &self,
+        f: &mut dyn FnMut(&dyn StateMachineChild) -> eyre::Result<()>,
+    ) -> eyre::Result<()> {
+        use std::ops::Deref;
+        Box::deref(self).apply_children(f)
+    }
+}
 
 macro_rules! gen_from_lua {
     ($type_name:ident) => {
@@ -231,12 +267,11 @@ fn create_region(
     args: (LuaSourceID, URect, Option<Vec<ComponentBag>>),
 ) -> mlua::Result<ComponentBag> {
     let mut children = im::Vector::new();
-    children.extend(
-        args.2
-            .unwrap()
-            .into_iter()
-            .map(|x| -> Option<Box<dyn ComponentWrap<dyn fixed::Child>>> { Some(Box::new(x)) }),
-    );
+    children.extend(args.2.unwrap().into_iter().map(
+        |x| -> Option<Box<dyn crate::component::ComponentWrap<dyn fixed::Child>>> {
+            Some(Box::new(x))
+        },
+    ));
 
     let mut bag = PropBag::new();
     bag.set_area(args.1.into());
@@ -287,7 +322,8 @@ fn create_button(
         ..Default::default()
     };
 
-    let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> = im::Vector::new();
+    let mut children: im::Vector<Option<Box<crate::component::ChildOf<dyn fixed::Prop>>>> =
+        im::Vector::new();
     children.push_back(Some(Box::new(rect)));
     children.push_back(Some(Box::new(text)));
     if let Some(x) = args.5 {

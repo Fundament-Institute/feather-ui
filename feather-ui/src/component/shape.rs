@@ -216,11 +216,13 @@ impl<T: leaf::Padded + 'static, const KIND: u8> crate::StateMachineChild for Sha
     }
 }
 
-impl<T: leaf::Padded + 'static, const KIND: u8> super::Component<T> for Shape<T, KIND>
+impl<T: leaf::Padded + 'static, const KIND: u8> super::Component for Shape<T, KIND>
 where
     for<'a> &'a T: Into<&'a (dyn leaf::Padded + 'static)>,
 {
-    fn layout(
+    type Prop = T;
+
+    fn layout_inner(
         &self,
         state: &mut crate::StateManager,
         _: &crate::graphics::Driver,
@@ -252,13 +254,4 @@ where
             })),
         })
     }
-}
-
-impl<U: ?Sized, T: leaf::Padded + 'static, const KIND: u8> crate::component::ComponentWrap<U>
-    for Shape<T, KIND>
-where
-    Shape<T, KIND>: crate::component::Component<T>,
-    for<'a> &'a T: Into<&'a U>,
-{
-    crate::gen_component_wrap_inner!();
 }

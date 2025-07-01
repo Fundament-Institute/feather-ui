@@ -7,21 +7,21 @@ use crate::{SourceID, layout};
 use derive_where::derive_where;
 use std::rc::Rc;
 
-use super::ComponentFrom;
+use super::ChildOf;
 
 #[derive(feather_macro::StateMachineChild)]
 #[derive_where(Clone)]
 pub struct GridBox<T: grid::Prop + 'static> {
     pub id: Rc<SourceID>,
     props: Rc<T>,
-    children: im::Vector<Option<Box<ComponentFrom<dyn grid::Prop>>>>,
+    children: im::Vector<Option<Box<ChildOf<dyn grid::Prop>>>>,
 }
 
 impl<T: grid::Prop + 'static> GridBox<T> {
     pub fn new(
         id: Rc<SourceID>,
         props: Rc<T>,
-        children: im::Vector<Option<Box<ComponentFrom<dyn grid::Prop>>>>,
+        children: im::Vector<Option<Box<ChildOf<dyn grid::Prop>>>>,
     ) -> Self {
         super::set_children(Self {
             id,
@@ -31,15 +31,17 @@ impl<T: grid::Prop + 'static> GridBox<T> {
     }
 }
 
-impl<T: grid::Prop + 'static> super::Component<T> for GridBox<T> {
-    fn layout(
+impl<T: grid::Prop + 'static> super::Component for GridBox<T> {
+    type Prop = T;
+
+    fn layout_inner(
         &self,
         state: &mut crate::StateManager,
         driver: &crate::graphics::Driver,
         window: &Rc<SourceID>,
     ) -> Box<dyn Layout<T>> {
         let mut map = VectorMap::new(
-            |child: &Option<Box<ComponentFrom<dyn grid::Prop>>>| -> Option<Box<dyn Layout<<dyn grid::Prop as Desc>::Child>>> {
+            |child: &Option<Box<ChildOf<dyn grid::Prop>>>| -> Option<Box<dyn Layout<<dyn grid::Prop as Desc>::Child>>> {
                 Some(child.as_ref().unwrap().layout(state, driver,window))
             },
         );
@@ -54,4 +56,3 @@ impl<T: grid::Prop + 'static> super::Component<T> for GridBox<T> {
     }
 }
 
-crate::gen_component_wrap!(GridBox, grid::Prop);

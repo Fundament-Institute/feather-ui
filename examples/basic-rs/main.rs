@@ -8,7 +8,7 @@ use feather_ui::component::region::Region;
 use feather_ui::component::shape::{Shape, ShapeKind};
 use feather_ui::component::text::Text;
 use feather_ui::component::window::Window;
-use feather_ui::component::{ComponentFrom, mouse_area};
+use feather_ui::component::{ChildOf, mouse_area};
 use feather_ui::layout::{fixed, leaf};
 use feather_ui::persist::FnPersist;
 use feather_ui::ultraviolet::{Vec2, Vec4};
@@ -72,7 +72,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     ..Default::default()
                 };
 
-                let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
+                let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> =
                     im::Vector::new();
 
                 let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
@@ -127,7 +127,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     ..Default::default()
                 };
 
-                let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
+                let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> =
                     im::Vector::new();
 
                 let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
@@ -176,7 +176,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 sRGB::transparent(),
             );
 
-            let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
+            let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> =
                 im::Vector::new();
             children.push_back(Some(Box::new(button)));
             children.push_back(Some(Box::new(unusedbutton)));

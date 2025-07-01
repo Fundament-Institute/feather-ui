@@ -11,7 +11,7 @@ use feather_ui::component::region::Region;
 use feather_ui::component::shape::{Shape, ShapeKind};
 use feather_ui::component::text::Text;
 use feather_ui::component::window::Window;
-use feather_ui::component::{ComponentFrom, mouse_area};
+use feather_ui::component::{ChildOf, mouse_area};
 use feather_ui::layout::{base, fixed, flex, leaf, list};
 use feather_ui::persist::FnPersist;
 use feather_ui::ultraviolet::{Vec2, Vec4};
@@ -157,7 +157,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     sRGB::transparent(),
                 );
 
-                let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
+                let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> =
                     im::Vector::new();
                 children.push_back(Some(Box::new(rect)));
                 children.push_back(Some(Box::new(text)));
@@ -179,7 +179,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
             };
 
             let rectlist = {
-                let mut children: im::Vector<Option<Box<ComponentFrom<dyn list::Prop>>>> =
+                let mut children: im::Vector<Option<Box<ChildOf<dyn list::Prop>>>> =
                     im::Vector::new();
 
                 let rect_id = gen_id!();
@@ -228,7 +228,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
             };
 
             let flexlist = {
-                let mut children: im::Vector<Option<Box<ComponentFrom<dyn flex::Prop>>>> =
+                let mut children: im::Vector<Option<Box<ChildOf<dyn flex::Prop>>>> =
                     im::Vector::new();
 
                 let box_id = gen_id!();
@@ -275,7 +275,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 )
             };
 
-            let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
+            let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> =
                 im::Vector::new();
             children.push_back(Some(Box::new(button)));
             children.push_back(Some(Box::new(flexlist)));

@@ -3,7 +3,7 @@
 
 use super::mouse_area::MouseArea;
 
-use crate::component::{ComponentFrom, Desc};
+use crate::component::{ChildOf, Desc};
 use crate::layout::{Layout, fixed};
 use crate::persist::{FnPersist, VectorMap};
 use crate::{Component, DRect, Slot, SourceID, layout};
@@ -16,7 +16,7 @@ pub struct Button<T: fixed::Prop + 'static> {
     pub id: Rc<SourceID>,
     props: Rc<T>,
     marea: MouseArea<DRect>,
-    children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>>,
+    children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>>,
 }
 
 impl<T: fixed::Prop + 'static> Button<T> {
@@ -24,7 +24,7 @@ impl<T: fixed::Prop + 'static> Button<T> {
         id: Rc<SourceID>,
         props: T,
         onclick: Slot,
-        children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>>,
+        children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>>,
     ) -> Self {
         super::set_children(Self {
             id: id.clone(),
@@ -60,24 +60,28 @@ impl<T: fixed::Prop + 'static> crate::StateMachineChild for Button<T> {
     }
 }
 
-impl<T: fixed::Prop + 'static> Component<T> for Button<T>
+impl<T: fixed::Prop + 'static> Component for Button<T>
 where
     for<'a> &'a T: Into<&'a (dyn fixed::Prop + 'static)>,
 {
-    fn layout(
+    type Prop = T;
+
+    fn layout_inner(
         &self,
         state: &mut crate::StateManager,
         driver: &crate::graphics::Driver,
         window: &Rc<SourceID>,
     ) -> Box<dyn Layout<T>> {
         let mut map = VectorMap::new(
-            |child: &Option<Box<ComponentFrom<dyn fixed::Prop>>>| -> Option<Box<dyn Layout<<dyn fixed::Prop as Desc>::Child>>> {
+            |child: &Option<Box<ChildOf<dyn fixed::Prop>>>| -> Option<Box<dyn Layout<<dyn fixed::Prop as Desc>::Child>>> {
                 Some(child.as_ref().unwrap().layout(state, driver, window))
             },
         );
 
         let (_, mut children) = map.call(Default::default(), &self.children);
-        children.push_back(Some(Box::new(self.marea.layout(state, driver, window))));
+        children.push_back(Some(Box::new(
+            self.marea.layout_inner(state, driver, window),
+        )));
 
         Box::new(layout::Node::<T, dyn fixed::Prop> {
             props: self.props.clone(),
@@ -87,5 +91,3 @@ where
         })
     }
 }
-
-crate::gen_component_wrap!(Button, fixed::Prop);
