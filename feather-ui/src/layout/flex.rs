@@ -234,6 +234,7 @@ fn wrap_line(
                 b.aux_margin = b.aux_margin.max(max_aux_upper_margin);
             }
             breaks.push(Linebreak::new(i, max_aux, f32::INFINITY, max_aux_margin));
+            prev_margin = f32::NAN;
             used_aux += max_aux;
             aux += max_aux + inner;
             max_aux = 0.0;

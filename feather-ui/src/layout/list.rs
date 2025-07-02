@@ -47,68 +47,73 @@ impl Desc for dyn Prop {
 
         // Even if both axis are sized, we have to precalculate the areas and margins anyway.
         let inner_dim = super::limit_dim(super::eval_dim(myarea, outer_area.dim()), limits);
-        let inner_area = AbsRect::from(inner_dim);
         let outer_safe = nuetralize_unsized(outer_area);
         // The inner_dim must preserve whether an axis is unsized, but the actual limits must be respected regardless.
         let (main_limit, _) = super::swap_axis(xaxis, inner_dim.0.min_by_component(limits.max()));
 
         // This should eventually be a persistent fold
-        let mut areas: im::Vector<Option<(AbsRect, f32)>> = im::Vector::new();
         let mut aux_margins: im::Vector<f32> = im::Vector::new();
-        let mut cur = ZERO_POINT;
-        let mut max_main = 0.0;
-        let mut max_aux: f32 = 0.0;
-        let mut prev_margin = f32::NAN;
-        let mut aux_margin: f32 = 0.0;
-        let mut aux_margin_bottom = f32::NAN;
-        let mut prev_aux_margin = f32::NAN;
+        let mut areas: im::Vector<Option<(AbsRect, f32)>> = im::Vector::new();
 
-        for child in children.iter() {
-            let child_props = child.as_ref().unwrap().get_props();
-            let child_limit = super::apply_limit(inner_dim, limits, *child_props.rlimits());
-            let child_margin = child_props.margin().resolve(window.dpi) * outer_safe;
+        let area = {
+            let mut cur = ZERO_POINT;
+            let mut max_main = 0.0;
+            let mut max_aux: f32 = 0.0;
+            let mut prev_margin = f32::NAN;
+            let mut aux_margin: f32 = 0.0;
+            let mut aux_margin_bottom = f32::NAN;
+            let mut prev_aux_margin = f32::NAN;
+            let inner_area = AbsRect::from(inner_dim);
 
-            let stage = child
-                .as_ref()
-                .unwrap()
-                .stage(inner_area, child_limit, window);
-            let area = stage.get_area();
+            for child in children.iter() {
+                let child_props = child.as_ref().unwrap().get_props();
+                let child_limit = super::apply_limit(inner_dim, limits, *child_props.rlimits());
+                let child_margin = child_props.margin().resolve(window.dpi) * outer_safe;
 
-            let (margin_main, child_margin_aux) = super::swap_axis(xaxis, child_margin.topleft());
-            let (main, aux) = super::swap_axis(xaxis, area.dim().0);
-            let mut margin = super::merge_margin(prev_margin, margin_main);
-            // Have to add the margin here before we zero it
-            areas.push_back(Some((area, margin)));
+                let stage = child
+                    .as_ref()
+                    .unwrap()
+                    .stage(inner_area, child_limit, window);
+                let area = stage.get_area();
 
-            if !prev_margin.is_nan() && cur.x + main + margin > main_limit {
-                max_main = cur.x.max(max_main);
-                cur.x = 0.0;
-                let aux_merge = super::merge_margin(prev_aux_margin, aux_margin);
-                aux_margins.push_back(aux_merge);
-                cur.y += max_aux + aux_merge;
-                max_aux = 0.0;
-                margin = 0.0;
-                aux_margin = 0.0;
-                prev_aux_margin = aux_margin_bottom;
-                aux_margin_bottom = f32::NAN;
+                let (margin_main, child_margin_aux) =
+                    super::swap_axis(xaxis, child_margin.topleft());
+                let (main, aux) = super::swap_axis(xaxis, area.dim().0);
+                let mut margin = super::merge_margin(prev_margin, margin_main);
+                // Have to add the margin here before we zero it
+                areas.push_back(Some((area, margin)));
+
+                if !prev_margin.is_nan() && cur.x + main + margin > main_limit {
+                    max_main = cur.x.max(max_main);
+                    cur.x = 0.0;
+                    let aux_merge = super::merge_margin(prev_aux_margin, aux_margin);
+                    aux_margins.push_back(aux_merge);
+                    cur.y += max_aux + aux_merge;
+                    max_aux = 0.0;
+                    margin = 0.0;
+                    aux_margin = 0.0;
+                    prev_aux_margin = aux_margin_bottom;
+                    aux_margin_bottom = f32::NAN;
+                }
+
+                cur.x += main + margin;
+                aux_margin = aux_margin.max(child_margin_aux);
+                max_aux = max_aux.max(aux);
+
+                let (margin, child_margin_aux) =
+                    super::swap_axis(xaxis, child_margin.bottomright());
+                prev_margin = margin;
+                aux_margin_bottom = aux_margin_bottom.max(child_margin_aux);
             }
 
-            cur.x += main + margin;
-            aux_margin = aux_margin.max(child_margin_aux);
-            max_aux = max_aux.max(aux);
-
-            let (margin, child_margin_aux) = super::swap_axis(xaxis, child_margin.bottomright());
-            prev_margin = margin;
-            aux_margin_bottom = aux_margin_bottom.max(child_margin_aux);
-        }
-
-        // Final bounds calculations
-        max_main = cur.x.max(max_main);
-        let aux_merge = super::merge_margin(prev_aux_margin, aux_margin);
-        aux_margins.push_back(aux_merge);
-        cur.y += max_aux + aux_margin;
-        let (bounds_x, bounds_y) = super::swap_axis(xaxis, Vec2::new(max_main, cur.y));
-        let area = map_unsized_area(myarea, Vec2::new(bounds_x, bounds_y));
+            // Final bounds calculations
+            max_main = cur.x.max(max_main);
+            let aux_merge = super::merge_margin(prev_aux_margin, aux_margin);
+            aux_margins.push_back(aux_merge);
+            cur.y += max_aux + aux_margin;
+            let (bounds_x, bounds_y) = super::swap_axis(xaxis, Vec2::new(max_main, cur.y));
+            map_unsized_area(myarea, Vec2::new(bounds_x, bounds_y))
+        };
 
         // No need to cap this because unsized axis have now been resolved
         let evaluated_area = super::limit_area(area * outer_safe, limits);
