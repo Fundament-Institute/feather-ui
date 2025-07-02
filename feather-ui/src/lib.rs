@@ -1122,13 +1122,111 @@ pub trait StateMachineChild {
     fn id(&self) -> Rc<SourceID>;
 }
 
+pub struct StateCell<T> {
+    value: T,
+}
+
+impl<T> StateCell<T> {
+    pub fn new(v: T) -> Self {
+        Self { value: v }
+    }
+
+    pub fn borrow(&self) -> &Self {
+        &self
+    }
+
+    pub fn borrow_mut<'a>(
+        &'a mut self,
+        id: &'a Rc<SourceID>,
+        manager: &'a mut StateManager,
+    ) -> StateCellRefMut<'a, T> {
+        StateCellRefMut {
+            value: std::ptr::NonNull::new(&mut self.value).unwrap(),
+            id: id,
+            manager: manager,
+        }
+    }
+}
+
+impl<T> std::ops::Deref for StateCell<T> {
+    type Target = T;
+
+    #[inline]
+    fn deref(&self) -> &T {
+        &self.value
+    }
+}
+
+/// Holds a mutable reference to an internal StateCell value, which sets the resulting id as "changed" once it's dropped.
+/// If this reference object fails to be dropped, the changed flag will never be set!
+pub struct StateCellRefMut<'b, T: 'b> {
+    // NB: we use a pointer instead of `&'b mut T` to avoid `noalias` violations, because a
+    // `RefMut` argument doesn't hold exclusivity for its whole scope, only until it drops.
+    value: std::ptr::NonNull<T>,
+    id: &'b Rc<SourceID>, // We hold on to this with a reference to force the reference to be dropped before you do anything else.
+    manager: &'b mut StateManager,
+}
+
+impl<T> std::ops::Deref for StateCellRefMut<'_, T> {
+    type Target = T;
+
+    #[inline]
+    fn deref(&self) -> &T {
+        // SAFETY: the value is accessible as long as we hold our borrow.
+        unsafe { self.value.as_ref() }
+    }
+}
+
+impl<T> std::ops::DerefMut for StateCellRefMut<'_, T> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut T {
+        // SAFETY: the value is accessible as long as we hold our borrow.
+        unsafe { self.value.as_mut() }
+    }
+}
+
+impl<T> Drop for StateCellRefMut<'_, T> {
+    fn drop(&mut self) {
+        self.manager.mutate_id(&self.id);
+    }
+}
+
 #[derive(Default)]
 pub struct StateManager {
     states: HashMap<Rc<SourceID>, Box<dyn StateMachineWrapper>>,
+    pointers: HashMap<*const std::ffi::c_void, Rc<SourceID>>,
     changed: bool,
 }
 
 impl StateManager {
+    pub fn register_pointer<T>(&mut self, p: *const T, id: Rc<SourceID>) -> Option<Rc<SourceID>> {
+        let ptr = p as *const std::ffi::c_void;
+        self.pointers.insert(ptr, id)
+    }
+
+    pub fn invalidate_pointer<T>(&mut self, p: *const T) -> Option<Rc<SourceID>> {
+        let ptr = p as *const std::ffi::c_void;
+        self.pointers.remove(&ptr)
+    }
+
+    pub fn mutate_pointer<T>(&mut self, p: *const T) {
+        let ptr = p as *const std::ffi::c_void;
+        let id = self
+            .pointers
+            .get(&ptr)
+            .expect("Tried to mutate pointer that wasn't registered!")
+            .clone();
+
+        self.mutate_id(&id);
+    }
+
+    fn mutate_id(&mut self, id: &Rc<SourceID>) {
+        if let Some(state) = self.states.get_mut(id) {
+            state.set_changed(true);
+            self.propagate_change(&id);
+        }
+    }
+
     #[allow(dead_code)]
     fn init_default<State: 'static + component::StateMachineWrapper + Default>(
         &mut self,
@@ -1182,6 +1280,10 @@ impl StateManager {
     fn propagate_change(&mut self, mut id: &Rc<SourceID>) {
         while let Some(parent) = id.parent.get() {
             if let Some(state) = self.states.get_mut(parent) {
+                if state.changed() {
+                    // If this state is marked change, then this change must have already propagated upwards and we have no more work to do.
+                    return;
+                }
                 state.set_changed(true);
             }
             id = parent;
@@ -1545,6 +1647,7 @@ impl<
         let _ = event_loop;
     }
 }
+
 #[cfg(test)]
 struct TestApp {}
 
