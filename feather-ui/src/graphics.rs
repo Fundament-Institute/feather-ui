@@ -257,24 +257,24 @@ macro_rules! gen_from_array {
 
 #[repr(C, align(8))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, bytemuck::NoUninit)]
-pub struct Vec2f([f32; 2]);
+pub struct Vec2f(pub(crate) [f32; 2]);
 
 gen_from_array!(Vec2f, f32, 2);
 
 #[repr(C, align(16))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, bytemuck::NoUninit)]
-pub struct Vec4f([f32; 4]);
+pub struct Vec4f(pub(crate) [f32; 4]);
 
 gen_from_array!(Vec4f, f32, 4);
 
 #[repr(C, align(8))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, bytemuck::NoUninit)]
-pub struct Vec2i([i32; 2]);
+pub struct Vec2i(pub(crate) [i32; 2]);
 
 gen_from_array!(Vec2i, i32, 2);
 
 #[repr(C, align(16))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, bytemuck::NoUninit)]
-pub struct Vec4i([i32; 4]);
+pub struct Vec4i(pub(crate) [i32; 4]);
 
 gen_from_array!(Vec4i, i32, 4);

@@ -422,6 +422,7 @@ impl From<sRGB> for cosmic_text::Color {
 
 /// Represents an sRGB color (not premultiplied) as a 32-bit signed integer
 #[allow(non_camel_case_types)]
+#[derive(Default, Clone, Copy, PartialEq, Eq)]
 pub struct sRGB32 {
     pub rgba: u32,
 }
@@ -435,6 +436,21 @@ impl sRGB32 {
         Self {
             rgba: u32::from_be_bytes([r, g, b, a]),
         }
+    }
+
+    /// Returns transparent black (zero)
+    pub fn transparent() -> Self {
+        Self { rgba: 0 }
+    }
+
+    /// Returns opaque black
+    pub fn black() -> Self {
+        Self { rgba: 0xFFFFFF00 }
+    }
+
+    /// Returns pure white
+    pub fn white() -> Self {
+        Self { rgba: u32::MAX }
     }
 
     pub fn r(&self) -> u8 {

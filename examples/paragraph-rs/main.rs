@@ -5,7 +5,6 @@ use feather_ui::color::sRGB;
 use feather_ui::layout::{fixed, flex, leaf};
 use feather_ui::{DAbsRect, DValue, gen_id};
 
-use feather_ui::component::ChildOf;
 use feather_ui::component::paragraph::Paragraph;
 use feather_ui::component::region::Region;
 use feather_ui::component::shape::{Shape, ShapeKind};

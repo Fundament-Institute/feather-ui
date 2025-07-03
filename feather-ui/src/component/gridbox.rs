@@ -55,4 +55,3 @@ impl<T: grid::Prop + 'static> super::Component for GridBox<T> {
         })
     }
 }
-

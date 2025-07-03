@@ -92,13 +92,14 @@ impl Atlas {
         assert_eq!(Rc::strong_count(&view), 1); // This MUST be dropped because we rely on this to signal the compositors to rebind
     }
 
-    pub fn new(device: &wgpu::Device, extent: u32) -> Self {
-        let extent = device.limits().max_texture_dimension_2d.min(extent);
-        let texture = Self::create_texture(device, extent, 1);
-        let allocator = Self::create_allocator(extent);
-
-        let mvp = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Atlas MVP"),
+    /// Create a standard projection matrix suitable for compositing for a texture.
+    pub fn create_mvp_from_texture(
+        device: &wgpu::Device,
+        texture: &wgpu::Texture,
+        name: &'_ str,
+    ) -> wgpu::Buffer {
+        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some(name),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             contents: crate::graphics::mat4_ortho(
                 0.0,
@@ -109,7 +110,15 @@ impl Atlas {
                 10000.0,
             )
             .as_byte_slice(),
-        });
+        })
+    }
+
+    pub fn new(device: &wgpu::Device, extent: u32) -> Self {
+        let extent = device.limits().max_texture_dimension_2d.min(extent);
+        let texture = Self::create_texture(device, extent, 1);
+        let allocator = Self::create_allocator(extent);
+
+        let mvp = Self::create_mvp_from_texture(device, &texture, "Atlas MVP");
 
         let extent_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Extent"),

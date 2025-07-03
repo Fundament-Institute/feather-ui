@@ -79,9 +79,7 @@ where
         );
 
         let (_, mut children) = map.call(Default::default(), &self.children);
-        children.push_back(Some(Box::new(
-            self.marea.layout(state, driver, window),
-        )));
+        children.push_back(Some(Box::new(self.marea.layout(state, driver, window))));
 
         Box::new(layout::Node::<T, dyn fixed::Prop> {
             props: self.props.clone(),

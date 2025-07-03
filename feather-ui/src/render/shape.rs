@@ -70,7 +70,7 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
             )
         });
 
-        compositor.append(&compositor::Data::new(
+        compositor.append_data(
             area.topleft() + self.padding.topleft(),
             dim,
             region_uv.min.to_f32().to_array().into(),
@@ -78,8 +78,8 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
             0xFFFFFFFF,
             0.0,
             region_index,
-            0,
-        ));
+            false,
+        );
 
         Ok(())
     }
