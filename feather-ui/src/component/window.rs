@@ -161,7 +161,7 @@ impl WindowState {
                 1.0,
             );
 
-            self.compositor.draw(&self.driver, &mut pass, &self.config);
+            self.compositor.draw(&self.driver, &mut pass);
         }
 
         self.driver.queue.submit(Some(encoder.finish()));
@@ -332,6 +332,7 @@ impl Window {
         state.config.width = size.width;
         state.config.height = size.height;
         state.surface.configure(&state.driver.device, &state.config);
+        state.compositor.resize(&state.config);
     }
 
     #[allow(clippy::result_unit_err)]

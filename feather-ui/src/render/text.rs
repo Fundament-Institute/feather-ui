@@ -215,7 +215,7 @@ impl Instance {
             return Ok(None);
         }
 
-        // Clip left ege
+        // Clip left edge
         if x < bounds_min_x {
             let right_shift = bounds_min_x - x;
 
@@ -259,7 +259,7 @@ impl Instance {
         buffer: &cosmic_text::Buffer,
         pos: Vec2,
         scale: f32,
-        bounds: AbsRect,
+        mut bounds: AbsRect,
         color: cosmic_text::Color,
         compositor: &mut super::compositor::Compositor,
         font_system: &mut FontSystem,
@@ -269,6 +269,7 @@ impl Instance {
         atlas: &mut Atlas,
         cache: &mut ScaleContext,
     ) -> Result<(), Error> {
+        bounds = bounds.intersect(compositor.current_clip());
         let bounds_top = bounds.topleft().y as i32;
         let bounds_bottom = bounds.bottomright().y as i32;
         let bounds_min_x = (bounds.topleft().x as i32).max(0);
@@ -320,7 +321,7 @@ impl Instance {
                     Self::get_glyph(physical_glyph.cache_key, glyphs)
                         .ok_or(Error::GlyphCacheFailure)?,
                 )? {
-                    compositor.append(&data);
+                    compositor.preprocessed(data);
                 }
             }
         }

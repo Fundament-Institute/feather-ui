@@ -55,4 +55,3 @@ impl<T: flex::Prop + 'static> super::Component for FlexBox<T> {
         })
     }
 }
-

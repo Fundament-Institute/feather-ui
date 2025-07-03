@@ -7,9 +7,9 @@ use feather_ui::text::{EditBuffer, EditView};
 use feather_ui::{DAbsRect, gen_id};
 
 use feather_ui::component::region::Region;
+use feather_ui::component::textbox;
 use feather_ui::component::textbox::TextBox;
 use feather_ui::component::window::Window;
-use feather_ui::component::{ChildOf, textbox};
 use feather_ui::layout::base;
 use feather_ui::persist::FnPersist;
 use feather_ui::{AbsRect, App, DRect, FILL_DRECT, RelRect, SourceID, cosmic_text};

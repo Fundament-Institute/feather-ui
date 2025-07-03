@@ -68,11 +68,13 @@ impl crate::render::Renderable for Instance {
         let area = crate::AbsRect(area.0 + (self.padding.0 * crate::MINUS_BOTTOMRIGHT));
         let pos = area.topleft();
 
-        let bounds_top = area.topleft().y as i32;
-        let bounds_bottom = area.bottomright().y as i32;
-        let bounds_min_x = (area.topleft().x as i32).max(0);
+        let bounds = area.intersect(compositor.current_clip());
+
+        let bounds_top = bounds.topleft().y as i32;
+        let bounds_bottom = bounds.bottomright().y as i32;
+        let bounds_min_x = (bounds.topleft().x as i32).max(0);
         let bounds_min_y = bounds_top.max(0);
-        let bounds_max_x = area.bottomright().x as i32;
+        let bounds_max_x = bounds.bottomright().x as i32;
         let bounds_max_y = bounds_bottom;
         let color = cosmic_text::Color(self.color.as_32bit().rgba);
         let selection_color = cosmic_text::Color(self.selection_color.as_32bit().rgba);
@@ -117,12 +119,12 @@ impl crate::render::Renderable for Instance {
                                     None => Some((c_x as i32, (c_x + c_w) as i32)),
                                 };
                             } else if let Some((min, max)) = range_opt.take() {
-                                compositor.append(&Self::draw_box(
+                                compositor.preprocessed(Self::draw_box(
                                     min as f32 + pos.x,
                                     line_top + pos.y,
                                     std::cmp::max(0, max - min) as f32,
                                     line_height,
-                                    area,
+                                    bounds,
                                     self.selection_bg,
                                 ));
                             }
@@ -146,12 +148,12 @@ impl crate::render::Renderable for Instance {
                                 max = (buffer.metrics().font_size * 0.5) as i32;
                             }
                         }
-                        compositor.append(&Self::draw_box(
+                        compositor.preprocessed(Self::draw_box(
                             min as f32 + pos.x,
                             line_top + pos.y,
                             std::cmp::max(0, max - min) as f32,
                             line_height,
-                            area,
+                            bounds,
                             self.selection_bg,
                         ));
                     }
@@ -200,18 +202,18 @@ impl crate::render::Renderable for Instance {
                     text::Instance::get_glyph(physical_glyph.cache_key, &driver.glyphs.read())
                         .ok_or(Error::GlyphCacheFailure)?,
                 )? {
-                    compositor.append(&data);
+                    compositor.preprocessed(data);
                 }
             }
 
             // Draw cursor
             if let Some((x, y)) = crate::editor::cursor_position(&self.cursor, &run) {
-                compositor.append(&Self::draw_box(
+                compositor.preprocessed(Self::draw_box(
                     x as f32 + pos.x,
                     y as f32 + pos.y,
                     1.0,
                     line_height,
-                    area,
+                    bounds,
                     self.cursor_color,
                 ));
             }

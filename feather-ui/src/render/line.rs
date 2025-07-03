@@ -3,7 +3,7 @@
 
 use crate::color::sRGB;
 
-use super::compositor::{Compositor, Data};
+use super::compositor::Compositor;
 use ultraviolet::Vec2;
 
 pub struct Instance {
@@ -23,7 +23,7 @@ impl super::Renderable for Instance {
         let p2 = self.end;
 
         let p = p2 - p1;
-        compositor.append(&Data::new(
+        compositor.append_data(
             (((p1 + p2) * 0.5) - (Vec2::new(p.mag() * 0.5, 0.0)))
                 .as_array()
                 .into(),
@@ -33,8 +33,8 @@ impl super::Renderable for Instance {
             self.color.as_32bit().rgba,
             p.y.atan2(p.x) % std::f32::consts::TAU,
             u16::MAX,
-            0,
-        ));
+            false,
+        );
         Ok(())
     }
 }

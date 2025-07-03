@@ -38,7 +38,7 @@ use std::rc::Rc;
 use ultraviolet::f32x4;
 use ultraviolet::vec::Vec2;
 use wgpu::{InstanceDescriptor, InstanceFlags};
-use wide::CmpLe;
+use wide::{CmpGe, CmpGt};
 use winit::window::WindowId;
 pub use {cosmic_text, im, notify, ultraviolet, wgpu, winit};
 
@@ -137,14 +137,43 @@ impl AbsRect {
 
     #[inline]
     pub fn contains(&self, p: Vec2) -> bool {
-        (self.0 * MINUS_BOTTOMRIGHT)
-            .cmp_le(f32x4::new([p.x, p.y, -p.x, -p.y]))
-            .all()
+        //let test: u32x4 = bytemuck::cast(f32x4::new([p.x, p.y, p.x, p.y]).cmp_ge(self.0));
+
+        f32x4::new([p.x, p.y, p.x, p.y]).cmp_ge(self.0).move_mask() == 0b0011
 
         /*p.x >= self.0[0]
         && p.y >= self.0[1]
-        && p.x <= self.0[2]
-        && p.y <= self.0[3]*/
+        && p.x < self.0[2]
+        && p.y < self.0[3]*/
+    }
+
+    #[inline]
+    pub fn collides(&self, rhs: &AbsRect) -> bool {
+        let r = rhs.0.as_array_ref();
+        f32x4::new([r[2], r[3], -r[0], -r[1]])
+            .cmp_gt(self.0 * MINUS_BOTTOMRIGHT)
+            .all()
+
+        /*rhs.0[2] > self.0[0]
+        && rhs.0[3] > self.0[1]
+        && rhs.0[0] < self.0[2]
+        && rhs.0[1] < self.0[3]*/
+    }
+
+    #[inline]
+    pub fn intersect(&self, rhs: AbsRect) -> AbsRect {
+        AbsRect(
+            (self.0 * MINUS_BOTTOMRIGHT).fast_max(rhs.0 * MINUS_BOTTOMRIGHT) * MINUS_BOTTOMRIGHT,
+        )
+
+        /*let r = rhs.0.as_array_ref();
+        let l = self.0.as_array_ref();
+        AbsRect::new(
+            l[0].max(r[0]),
+            l[1].max(r[1]),
+            l[2].min(r[2]),
+            l[3].min(r[3]),
+        )*/
     }
 
     #[inline]
@@ -200,6 +229,16 @@ impl AbsRect {
     }
 }
 
+impl std::fmt::Display for AbsRect {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let ltrb = self.0.as_array_ref();
+        write!(
+            f,
+            "AbsRect[({},{});({},{})]",
+            ltrb[0], ltrb[1], ltrb[2], ltrb[3]
+        )
+    }
+}
 impl From<[f32; 4]> for AbsRect {
     #[inline]
     fn from(value: [f32; 4]) -> Self {
@@ -1132,7 +1171,7 @@ impl<T> StateCell<T> {
     }
 
     pub fn borrow(&self) -> &Self {
-        &self
+        self
     }
 
     pub fn borrow_mut<'a>(
@@ -1142,8 +1181,8 @@ impl<T> StateCell<T> {
     ) -> StateCellRefMut<'a, T> {
         StateCellRefMut {
             value: std::ptr::NonNull::new(&mut self.value).unwrap(),
-            id: id,
-            manager: manager,
+            id,
+            manager,
         }
     }
 }
@@ -1187,7 +1226,7 @@ impl<T> std::ops::DerefMut for StateCellRefMut<'_, T> {
 
 impl<T> Drop for StateCellRefMut<'_, T> {
     fn drop(&mut self) {
-        self.manager.mutate_id(&self.id);
+        self.manager.mutate_id(self.id);
     }
 }
 
@@ -1223,7 +1262,7 @@ impl StateManager {
     fn mutate_id(&mut self, id: &Rc<SourceID>) {
         if let Some(state) = self.states.get_mut(id) {
             state.set_changed(true);
-            self.propagate_change(&id);
+            self.propagate_change(id);
         }
     }
 
@@ -1700,4 +1739,114 @@ fn test_basic() {
     let proxy = event_loop.create_proxy();
     proxy.send_event(()).unwrap();
     event_loop.run_app(&mut app).unwrap();
+}
+
+#[test]
+fn test_absrect_contain() {
+    let target = AbsRect::new(0.0, 0.0, 2.0, 2.0);
+
+    for x in 0..=2 {
+        for y in 0..=2 {
+            if x == 2 || y == 2 {
+                assert!(!target.contains(Vec2::new(x as f32, y as f32)));
+            } else {
+                assert!(
+                    target.contains(Vec2::new(x as f32, y as f32)),
+                    "{x} {y} not inside {target}"
+                );
+            }
+        }
+    }
+
+    assert!(target.contains(Vec2::new(1.999, 1.999)));
+
+    for y in -1..=3 {
+        assert!(!target.contains(Vec2::new(-1.0, y as f32)));
+        assert!(!target.contains(Vec2::new(3.0, y as f32)));
+        assert!(!target.contains(Vec2::new(3000000.0, y as f32)));
+    }
+
+    for x in -1..=3 {
+        assert!(!target.contains(Vec2::new(x as f32, -1.0)));
+        assert!(!target.contains(Vec2::new(x as f32, 3.0)));
+        assert!(!target.contains(Vec2::new(x as f32, -3000000.0)));
+    }
+}
+
+#[test]
+fn test_absrect_collide() {
+    let target = AbsRect::new(0.0, 0.0, 4.0, 4.0);
+
+    for l in 0..=3 {
+        for t in 0..=3 {
+            for r in 1..=4 {
+                for b in 1..=4 {
+                    let rhs = AbsRect::new(l as f32, t as f32, r as f32, b as f32);
+                    assert!(
+                        target.collides(&rhs),
+                        "{target} not detected as touching {rhs}"
+                    );
+                }
+            }
+        }
+    }
+
+    for l in -2..=3 {
+        for t in -2..=3 {
+            for r in 1..=4 {
+                for b in 1..=4 {
+                    assert!(target.collides(&AbsRect::new(l as f32, t as f32, r as f32, b as f32)));
+                }
+            }
+        }
+    }
+
+    for l in 1..=3 {
+        for t in 1..=3 {
+            for r in 3..=6 {
+                if r > t {
+                    for b in 3..=6 {
+                        if b > t {
+                            let rhs = AbsRect::new(l as f32, t as f32, r as f32, b as f32);
+                            assert!(
+                                target.collides(&rhs),
+                                "{target} not detected as touching {rhs}"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    assert!(!target.collides(&AbsRect::new(1.0, 4.0, 5.0, 5.0)));
+
+    // Because our rectangles are technically supposed to be inclusive-exclusive, they should not collide if the bottomright is coincident with the topleft.
+    assert!(!target.collides(&AbsRect::new(4.0, 4.0, 5.0, 5.0)));
+    assert!(!target.collides(&AbsRect::new(4.0, 0.0, 5.0, 4.0)));
+    assert!(!target.collides(&AbsRect::new(0.0, 4.0, 4.0, 5.0)));
+
+    assert!(!target.collides(&AbsRect::new(-1.0, -1.0, 0.0, 0.0)));
+    assert!(!target.collides(&AbsRect::new(-1.0, 0.0, 0.0, 4.0)));
+    assert!(!target.collides(&AbsRect::new(0.0, -1.0, 4.0, 0.0)));
+}
+
+#[test]
+fn test_absrect_intersect() {
+    let target = AbsRect::new(0.0, 0.0, 4.0, 4.0);
+
+    assert!(target.intersect(AbsRect::new(2.0, 2.0, 6.0, 6.0)) == AbsRect::new(2.0, 2.0, 4.0, 4.0));
+    assert!(
+        target.intersect(AbsRect::new(-2.0, -2.0, 2.0, 2.0)) == AbsRect::new(0.0, 0.0, 2.0, 2.0)
+    );
+}
+
+#[test]
+fn test_absrect_extend() {
+    let target = AbsRect::new(0.0, 0.0, 4.0, 4.0);
+
+    assert!(target.extend(AbsRect::new(2.0, 2.0, 6.0, 6.0)) == AbsRect::new(0.0, 0.0, 6.0, 6.0));
+    assert!(
+        target.extend(AbsRect::new(-2.0, -2.0, 2.0, 2.0)) == AbsRect::new(-2.0, -2.0, 4.0, 4.0)
+    );
 }

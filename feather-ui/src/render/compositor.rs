@@ -1,14 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::AbsRect;
-use crate::graphics::Vec2f;
+use crate::color::sRGB32;
+use crate::graphics::{Driver, Vec2f};
+use crate::{AbsDim, AbsRect};
+use num_traits::Zero;
 use std::collections::HashMap;
 use std::num::NonZero;
+use std::ops::Range;
 use std::rc::Rc;
+use ultraviolet::Vec2;
 use wgpu::wgt::SamplerDescriptor;
 use wgpu::{
-    BindGroupEntry, BindGroupLayoutEntry, Buffer, BufferDescriptor, BufferUsages, TextureView,
+    BindGroupEntry, BindGroupLayoutEntry, Buffer, BufferDescriptor, BufferUsages, TextureUsages,
+    TextureView,
 };
 
 use crate::ZERO_RECT;
@@ -169,8 +174,23 @@ impl Shared {
     }
 }
 
-type DeferFn = dyn FnOnce(&crate::graphics::Driver, &mut Data);
-type CustomDrawFn = dyn FnMut(&crate::graphics::Driver, &mut wgpu::RenderPass<'_>);
+#[derive(Clone)]
+pub struct Layer {
+    // Renderable area representing what children draw onto.
+    area: AbsRect,
+    // Target area that the layer is composited onto. Usually this is the same as area, but can be different for PIPs
+    target: AbsRect,
+    color: sRGB32,
+    rotation: f32,
+    // Layers don't always have textures associated with them, so these might not exist
+    texture: Option<wgpu::Texture>,
+    view: Option<wgpu::TextureView>,
+    mvp: Option<Buffer>,
+    range: Range<u32>, // Stores the range of draw commands to execute
+}
+
+type DeferFn = dyn FnOnce(&Driver, &mut Data);
+type CustomDrawFn = dyn FnMut(&Driver, &mut wgpu::RenderPass<'_>);
 
 /// Fundamentally, the compositor works on a massive set of pre-allocated vertices that it assembles into quads in the vertex
 /// shader, which then moves them into position and assigns them UV coordinates. Then the pixel shader checks if it must do
@@ -193,9 +213,12 @@ pub struct Compositor {
     clipdata: Vec<AbsRect>,             // Clipping Rectangles
     data: Vec<Data>,                    // CPU-side buffer of all the data
     regions: Vec<std::ops::Range<u32>>, // Target copy ranges for where to map data to the GPU buffer. Assumes contiguous data vector.
-    defer: HashMap<u32, Box<DeferFn>>,
+    defer: HashMap<u32, (Box<DeferFn>, AbsRect)>,
     view: std::rc::Weak<TextureView>,
     custom: Vec<(u32, Box<CustomDrawFn>)>,
+    clipstack: Vec<AbsRect>, // Current clipping rectangle stack. These only get added to the GPU clip list if something is rotated
+    layerstack: Vec<Layer>,
+    dim: Vec2,
 }
 
 impl Compositor {
@@ -296,7 +319,15 @@ impl Compositor {
             defer: HashMap::new(),
             view: Rc::downgrade(&atlas.view),
             custom: Vec::new(),
+            clipstack: Vec::new(),
+            layerstack: Vec::new(),
+            dim: Vec2::new(config.width as f32, config.height as f32),
         }
+    }
+
+    pub(crate) fn resize(&mut self, config: &wgpu::SurfaceConfiguration) {
+        self.dim.x = config.width as f32;
+        self.dim.y = config.height as f32;
     }
 
     /// Should be called when self.view.strong_count() is 0, or when the data bindings must be rebound
@@ -328,6 +359,93 @@ impl Compositor {
         }
     }
 
+    pub fn create_layer(
+        device: &wgpu::Device,
+        area: AbsRect,
+        target: Option<AbsRect>,
+        color: sRGB32,
+        rotation: f32,
+        force: bool,
+    ) -> Layer {
+        let target = target.unwrap_or(area);
+
+        // If true, this is a clipping layer, not a texture-backed one
+        if color == sRGB32::white() && rotation.is_zero() && !force && target == area {
+            Layer {
+                area,
+                target,
+                color,
+                rotation,
+                texture: None,
+                view: None,
+                mvp: None,
+                range: 0..0,
+            }
+        } else {
+            // todo!("Not implemented yet");
+
+            // TODO: Should layers go into their own layer atlas? Does this require a topological sort?
+            let texture = device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("Feather Atlas"),
+                size: wgpu::Extent3d {
+                    width: area.dim().0.x.ceil() as u32,
+                    height: area.dim().0.y.ceil() as u32,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1, // TODO: create mip levels if area != target
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: crate::render::atlas::ATLAS_FORMAT,
+                usage: TextureUsages::TEXTURE_BINDING
+                    | TextureUsages::RENDER_ATTACHMENT
+                    | TextureUsages::COPY_SRC
+                    | TextureUsages::COPY_DST,
+                view_formats: &[
+                    wgpu::TextureFormat::Bgra8UnormSrgb,
+                    wgpu::TextureFormat::Bgra8Unorm,
+                ],
+            });
+
+            let view = texture.create_view(&wgpu::TextureViewDescriptor {
+                label: Some("Atlas View"),
+                format: Some(crate::render::atlas::ATLAS_FORMAT),
+                dimension: Some(wgpu::TextureViewDimension::D2Array),
+                usage: Some(TextureUsages::TEXTURE_BINDING),
+                aspect: wgpu::TextureAspect::All,
+                base_array_layer: 0,
+                array_layer_count: None,
+                ..Default::default()
+            });
+
+            let mvp = Atlas::create_mvp_from_texture(device, &texture, "Layer MVP");
+
+            Layer {
+                area,
+                target,
+                color,
+                rotation,
+                texture: Some(texture),
+                view: Some(view),
+                mvp: Some(mvp),
+                range: 0..0,
+            }
+        }
+    }
+    pub fn push_layer(&mut self, layer: Layer) {
+        self.push_clip(layer.area);
+        self.layerstack.push(layer);
+    }
+    pub fn pop_layer(&mut self) -> Layer {
+        let layer = self
+            .layerstack
+            .pop()
+            .expect("Tried to pop layer, but layer stack was empty!");
+        self.pop_clip();
+        layer
+        // TODO: figure out how to handle layers that are compositor targets
+        //if let Some(prev) =
+    }
+
     fn check_clip(&mut self, shared: &Shared, device: &wgpu::Device, atlas: &Atlas) {
         let size = self.clipdata.len() * size_of::<AbsRect>();
         if (self.clip.size() as usize) < size {
@@ -342,16 +460,35 @@ impl Compositor {
         }
     }
 
-    pub fn append_clip(&mut self, clip: AbsRect) -> u16 {
+    pub fn append_clipdata(&mut self, clip: AbsRect) -> u16 {
         let n = self.clipdata.len();
         self.clipdata.push(clip);
         n as u16
     }
 
-    pub fn append_custom(
-        &mut self,
-        f: impl FnMut(&crate::graphics::Driver, &mut wgpu::RenderPass<'_>) + 'static,
-    ) {
+    pub fn push_clip(&mut self, clip: AbsRect) {
+        if let Some(prev) = self.clipstack.last() {
+            self.clipstack.push(clip.intersect(*prev));
+        } else {
+            self.clipstack.push(clip);
+        }
+    }
+
+    fn get_clip(dim: &Vec2, clipstack: &[AbsRect]) -> AbsRect {
+        *clipstack.last().unwrap_or(&AbsDim(*dim).into())
+    }
+
+    pub fn current_clip(&self) -> AbsRect {
+        Self::get_clip(&self.dim, &self.clipstack)
+    }
+
+    pub fn pop_clip(&mut self) -> AbsRect {
+        self.clipstack
+            .pop()
+            .expect("Tried to pop a clipping rect but the stack was empty!")
+    }
+
+    pub fn append_custom(&mut self, f: impl FnMut(&Driver, &mut wgpu::RenderPass<'_>) + 'static) {
         let offset = self.regions.last().unwrap().end;
         if offset == u32::MAX {
             panic!(
@@ -383,9 +520,18 @@ impl Compositor {
         region.end = region.start;
     }
 
+    #[inline]
+    fn scissor_check(dim: &Vec2, clip: AbsRect) -> Result<AbsRect, AbsRect> {
+        if AbsRect::new(0.0, 0.0, dim.x, dim.y) == clip {
+            Err(clip)
+        } else {
+            Ok(clip)
+        }
+    }
+
     pub fn prepare(
         &mut self,
-        driver: &crate::graphics::Driver,
+        driver: &Driver,
         _: &mut wgpu::CommandEncoder,
         _: &wgpu::SurfaceConfiguration,
     ) {
@@ -395,12 +541,161 @@ impl Compositor {
         }
 
         // Resolve all defers
-        for (idx, f) in self.defer.drain() {
+        for (idx, (f, clip)) in self.defer.drain() {
             f(driver, &mut self.data[idx as usize]);
+            self.data[idx as usize] = Self::clip_data(
+                &mut self.clipdata,
+                Self::scissor_check(&self.dim, clip),
+                self.data[idx as usize],
+            )
+            .unwrap_or_default();
         }
     }
 
-    pub fn append(&mut self, data: &Data) -> u32 {
+    #[inline]
+    fn clip_data(
+        clipdata: &mut Vec<AbsRect>,
+        cliprect: Result<AbsRect, AbsRect>,
+        mut data: Data,
+    ) -> Option<Data> {
+        match cliprect {
+            Ok(clip) => {
+                if data.rotation.is_zero() {
+                    let (mut x, mut y, mut w, mut h) =
+                        (data.pos.0[0], data.pos.0[1], data.dim.0[0], data.dim.0[1]);
+
+                    // If the whole rect is outside the cliprect, don't render it at all.
+                    if !clip.collides(&AbsRect::new(x, y, x + w, y + h)) {
+                        // TODO: When we start reserving slots, this will need to instead insert a special zero size rect.
+                        return None;
+                    }
+
+                    let (mut u, mut v, mut uw, mut vh) =
+                        (data.uv.0[0], data.uv.0[1], data.uvdim.0[0], data.uvdim.0[1]);
+
+                    // If rotation is zero, we don't need to do per-pixel clipping, we can just modify the rect itself.
+                    let bounds = clip.0.as_array_ref();
+                    let (min_x, min_y, max_x, max_y) = (bounds[0], bounds[1], bounds[2], bounds[3]);
+
+                    // Get the ratio from our target rect to the source UV sampler rect
+                    let uv_ratio = Vec2::new(uw / w, vh / h);
+
+                    // Clip left edge
+                    if x < min_x {
+                        let right_shift = min_x - x;
+
+                        x += right_shift;
+                        u += right_shift * uv_ratio.x;
+                        w -= right_shift;
+                        uw -= right_shift * uv_ratio.x;
+                    }
+
+                    // Clip right edge
+                    if x + w > max_x {
+                        let right_shift = max_x - (x + w);
+                        w -= right_shift;
+                        uw -= right_shift * uv_ratio.x;
+                    }
+
+                    // Clip top edge
+                    if y < min_y {
+                        let bottom_shift = min_y - y;
+
+                        y += bottom_shift;
+                        v += bottom_shift * uv_ratio.y;
+                        h -= bottom_shift;
+                        vh -= bottom_shift * uv_ratio.y;
+                    }
+
+                    // Clip bottom edge
+                    if y + h > max_y {
+                        let bottom_shift = max_y - (y + h);
+                        h -= bottom_shift;
+                        vh -= bottom_shift * uv_ratio.y;
+                    }
+
+                    Some(Data {
+                        pos: [x, y].into(),
+                        dim: [w, h].into(),
+                        uv: [u, v].into(),
+                        uvdim: [uw, vh].into(),
+                        color: data.color,
+                        rotation: data.rotation,
+                        texclip: data.texclip,
+                        _padding: data._padding,
+                    })
+                } else {
+                    // TODO: Beyond some size, like 32, skip all elements except the last N clipping rects and only check those
+                    let idx = if let Some((idx, _)) =
+                        clipdata.iter().enumerate().find(|(_, r)| **r == clip)
+                    {
+                        idx
+                    } else {
+                        clipdata.push(clip);
+                        clipdata.len() - 1
+                    };
+
+                    debug_assert!(idx < 0xFFFF);
+                    data.texclip = (data.texclip & 0xFFFF0000) | idx as u32;
+                    Some(data)
+                }
+            }
+            Err(clip) => {
+                // If the current cliprect is just the scissor rect, we do NOT add a custom clipping rect or do further clipping, but we do
+                // check to see if we need to bother rendering this at all.
+                if data.rotation.is_zero() {
+                    let (x, y, w, h) = (data.pos.0[0], data.pos.0[1], data.dim.0[0], data.dim.0[1]);
+                    if !clip.collides(&AbsRect::new(x, y, x + w, y + h)) {
+                        // TODO: When we start reserving slots, this will need to instead insert a special zero size rect.
+                        return None;
+                    }
+                }
+                Some(data)
+            }
+        }
+    }
+
+    #[inline]
+    pub fn append_data(
+        &mut self,
+        pos: ultraviolet::Vec2,
+        dim: ultraviolet::Vec2,
+        uv: ultraviolet::Vec2,
+        uvdim: ultraviolet::Vec2,
+        color: u32,
+        rotation: f32,
+        tex: u16,
+        raw: bool,
+    ) -> u32 {
+        let raw = if raw { 0x80000000_u32 } else { 0 };
+
+        let data = Data {
+            pos: pos.as_array().into(),
+            dim: dim.as_array().into(),
+            uv: uv.as_array().into(),
+            uvdim: uvdim.as_array().into(),
+            color,
+            rotation,
+            texclip: raw | (((tex & 0x7FFF) as u32) << 16),
+            ..Default::default()
+        };
+
+        if let Some(d) = Self::clip_data(
+            &mut self.clipdata,
+            self.clipstack
+                .last()
+                .ok_or(AbsDim(self.dim).into())
+                .copied(),
+            data,
+        ) {
+            self.preprocessed(d)
+        } else {
+            u32::MAX // TODO: Once we start reserving slots, we will always need to return a valid one by inserting an empty rect in clip_data
+        }
+    }
+
+    #[inline]
+    pub fn preprocessed(&mut self, data: Data) -> u32 {
         let region = self.regions.last_mut().unwrap();
         if region.end == u32::MAX {
             panic!(
@@ -409,12 +704,12 @@ impl Compositor {
         }
 
         let idx = region.end;
-        self.data.push(*data);
+        self.data.push(data);
         region.end += 1;
         idx
     }
 
-    pub fn defer(&mut self, f: impl FnOnce(&crate::graphics::Driver, &mut Data) + 'static) {
+    pub fn defer(&mut self, f: impl FnOnce(&Driver, &mut Data) + 'static) {
         let region = self.regions.last_mut().unwrap();
         if region.end == u32::MAX {
             panic!(
@@ -424,28 +719,19 @@ impl Compositor {
 
         let idx = region.end;
         self.data.push(Default::default());
-        self.defer.insert(idx, Box::new(f));
+        self.defer.insert(
+            idx,
+            (Box::new(f), Self::get_clip(&self.dim, &self.clipstack)),
+        );
         region.end += 1;
     }
 
-    pub fn draw(
-        &mut self,
-        driver: &crate::graphics::Driver,
-        pass: &mut wgpu::RenderPass<'_>,
-        config: &wgpu::SurfaceConfiguration,
-    ) {
+    pub fn draw(&mut self, driver: &Driver, pass: &mut wgpu::RenderPass<'_>) {
         driver.queue.write_buffer(
             &self.mvp,
             0,
-            crate::graphics::mat4_proj(
-                0.0,
-                config.height as f32,
-                config.width as f32,
-                -(config.height as f32),
-                0.2,
-                10000.0,
-            )
-            .as_byte_slice(),
+            crate::graphics::mat4_proj(0.0, self.dim.y, self.dim.x, -(self.dim.y), 0.2, 10000.0)
+                .as_byte_slice(),
         );
 
         if !self.clipdata.is_empty() {
@@ -523,52 +809,6 @@ pub struct Data {
 }
 
 static_assertions::const_assert_eq!(std::mem::size_of::<Data>(), 48);
-
-impl Data {
-    pub fn new(
-        pos: ultraviolet::Vec2,
-        dim: ultraviolet::Vec2,
-        uv: ultraviolet::Vec2,
-        uvdim: ultraviolet::Vec2,
-        color: u32,
-        rotation: f32,
-        tex: u16,
-        clip: u16,
-    ) -> Self {
-        Self {
-            pos: pos.as_array().into(),
-            dim: dim.as_array().into(),
-            uv: uv.as_array().into(),
-            uvdim: uvdim.as_array().into(),
-            color,
-            rotation,
-            texclip: (((tex & 0x7FFF) as u32) << 16) | clip as u32,
-            ..Default::default()
-        }
-    }
-
-    pub fn new_raw(
-        pos: ultraviolet::Vec2,
-        dim: ultraviolet::Vec2,
-        uv: ultraviolet::Vec2,
-        uvdim: ultraviolet::Vec2,
-        color: u32,
-        rotation: f32,
-        tex: u16,
-        clip: u16,
-    ) -> Self {
-        Self {
-            pos: pos.as_array().into(),
-            dim: dim.as_array().into(),
-            uv: uv.as_array().into(),
-            uvdim: uvdim.as_array().into(),
-            color,
-            rotation,
-            texclip: 0x80000000 | (((tex & 0x7FFF) as u32) << 16) | clip as u32,
-            ..Default::default()
-        }
-    }
-}
 
 // Our shader will assemble a rotation based on this matrix, but transposed:
 // [ cos(r) -sin(r) 0 (x - x*cos(r) + y*sin(r)) ]
