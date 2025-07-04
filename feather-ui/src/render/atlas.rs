@@ -183,17 +183,26 @@ impl Atlas {
         self.cache.get(&id)
     }
 
+    pub fn remove_cache(&mut self, id: &Arc<crate::SourceID>) -> bool {
+        if let Some(mut region) = self.cache.remove(id) {
+            self.destroy(&mut region);
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn cache_region(
         &mut self,
         device: &wgpu::Device,
-        id: Arc<crate::SourceID>,
+        id: &Arc<crate::SourceID>,
         dim: Size,
     ) -> Result<&Region, Error> {
-        let uv = self.cache.get(&id).map(|x| x.uv);
+        let uv = self.cache.get(id).map(|x| x.uv);
 
         if let Some(old) = uv {
             if old.size() != dim {
-                if let Some(mut region) = self.cache.remove(&id) {
+                if let Some(mut region) = self.cache.remove(id) {
                     self.destroy(&mut region);
                 }
                 let region = self.reserve(device, dim)?;
@@ -204,7 +213,7 @@ impl Atlas {
             self.cache.insert(id.clone(), region);
         }
 
-        self.cache.get(&id).ok_or(Error::AtlasCacheFailure)
+        self.cache.get(id).ok_or(Error::AtlasCacheFailure)
     }
 
     pub fn reserve(&mut self, device: &wgpu::Device, dim: Size) -> Result<Region, Error> {

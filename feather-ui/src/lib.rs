@@ -109,6 +109,12 @@ impl From<AbsDim> for Vec2 {
     }
 }
 
+impl From<AbsDim> for guillotiere::Size {
+    fn from(value: AbsDim) -> Self {
+        guillotiere::Size::new(value.0.x.ceil() as i32, value.0.y.ceil() as i32)
+    }
+}
+
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 /// Absolutely positioned rectangle
 pub struct AbsRect(f32x4);

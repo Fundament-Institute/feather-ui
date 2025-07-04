@@ -52,7 +52,6 @@ impl crate::layout::Desc for dyn Empty {
             outer_area,
             crate::rtree::Node::new(outer_area, None, Default::default(), id, window),
             Default::default(),
-            None,
         ))
     }
 }

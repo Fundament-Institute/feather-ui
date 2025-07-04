@@ -53,6 +53,7 @@ impl<T: grid::Prop + 'static> super::Component for GridBox<T> {
             children,
             id: Arc::downgrade(&self.id),
             renderable: None,
+            layer: None,
         })
     }
 }

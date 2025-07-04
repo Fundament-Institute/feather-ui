@@ -197,17 +197,27 @@ impl Shared {
         let dest = dest.unwrap_or(area);
 
         // If true, this is a clipping layer, not a texture-backed one
-        let layer = if color == sRGB32::white() && rotation.is_zero() && !force && dest == area {
-            Layer {
-                area,
-                dest,
-                color,
-                rotation,
-                target: None,
-            }
+        let target = if color == sRGB32::white() && rotation.is_zero() && !force && dest == area {
+            None
         } else {
-            todo!("Not implemented yet");
+            Some(RwLock::new(LayerTarget {
+                dependents: Default::default(),
+            }))
         };
+
+        let layer = Layer {
+            area,
+            dest,
+            color,
+            rotation,
+            target,
+        };
+
+        if let Some(prev) = self.layers.read().get(&id) {
+            if *prev == layer {
+                return None;
+            }
+        }
 
         self.layers.write().insert(id, layer)
     }
@@ -216,8 +226,7 @@ impl Shared {
 // This holds the information for rendering to a layer, which can only be done if the layer is texture-backed.
 #[derive(Debug)]
 pub struct LayerTarget {
-    pub dependents: RwLock<Vec<std::sync::Weak<SourceID>>>, // Layers that draw on to this one (does not include fake layers)
-    region: super::atlas::Region,
+    pub dependents: Vec<std::sync::Weak<SourceID>>, // Layers that draw on to this one (does not include fake layers)
 }
 
 #[derive(Debug)]
@@ -229,7 +238,16 @@ pub struct Layer {
     color: sRGB32,
     rotation: f32,
     // Layers aren't always texture-backed so this may not exist
-    pub target: Option<LayerTarget>,
+    pub target: Option<RwLock<LayerTarget>>,
+}
+
+impl PartialEq for Layer {
+    fn eq(&self, other: &Self) -> bool {
+        self.area == other.area
+            && self.dest == other.dest
+            && self.color == other.color
+            && self.rotation == other.rotation
+    }
 }
 
 type DeferFn = dyn FnOnce(&Driver, &mut Data) + Send + Sync;
@@ -829,7 +847,7 @@ impl<'a> CompositorView<'a> {
     }
 
     #[inline]
-    pub(crate) fn append_layer(&mut self, layer: &Layer, target: &LayerTarget) -> u32 {
+    pub(crate) fn append_layer(&mut self, layer: &Layer, uv: guillotiere::Rectangle) -> u32 {
         // I really wish rust had partial borrows
         let compositor = match self.index {
             0 => &mut self.window,
@@ -843,8 +861,8 @@ impl<'a> CompositorView<'a> {
             self.offset,
             layer.dest.topleft(),
             layer.dest.dim().0,
-            target.region.uv.min.to_f32().to_array().into(),
-            target.region.uv.size().to_f32().to_array().into(),
+            uv.min.to_f32().to_array().into(),
+            uv.size().to_f32().to_array().into(),
             layer.color.rgba,
             layer.rotation,
             0,

@@ -115,7 +115,6 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
                 window,
             ),
             Default::default(),
-            None,
         ))
     }
 }

@@ -93,7 +93,6 @@ impl Desc for dyn Prop {
                 evaluated_area,
                 rtree::Node::new(evaluated_area, Some(props.zindex()), nodes, id, window),
                 staging,
-                None,
             ));
         }
 
@@ -140,7 +139,6 @@ impl Desc for dyn Prop {
             evaluated_area,
             rtree::Node::new(evaluated_area, Some(props.zindex()), nodes, id, window),
             staging,
-            None,
         ))
     }
 }

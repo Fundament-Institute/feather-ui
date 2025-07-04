@@ -41,6 +41,7 @@ where
             children: Default::default(),
             id: Arc::downgrade(&self.id),
             renderable: None,
+            layer: None,
         })
     }
 }
