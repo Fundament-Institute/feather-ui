@@ -225,6 +225,7 @@ impl Component for Window {
             children: self.child.layout(manager, &driver, &self.id),
             id: Arc::downgrade(&self.id),
             renderable: None,
+            layer: None,
         })
     }
 }

@@ -15,6 +15,7 @@ use dyn_clone::DynClone;
 use ultraviolet::Vec2;
 use wide::f32x4;
 
+use crate::color::sRGB32;
 use crate::render::Renderable;
 use crate::render::compositor::CompositorView;
 use crate::{AbsDim, AbsLimits, AbsRect, Error, RelLimits, SourceID, UNSIZED_AXIS, URect, rtree};
@@ -95,6 +96,7 @@ pub struct Node<T, D: Desc + ?Sized> {
     pub id: std::sync::Weak<SourceID>,
     pub children: D::Children,
     pub renderable: Option<Rc<dyn Renderable>>,
+    pub layer: Option<(sRGB32, f32)>,
 }
 
 impl<T, D: Desc + ?Sized> Layout<T> for Node<T, D>
@@ -110,7 +112,7 @@ where
         limits: AbsLimits,
         window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
-        D::stage(
+        let mut staged = D::stage(
             self.props.as_ref().into(),
             area,
             limits,
@@ -118,7 +120,20 @@ where
             self.id.clone(),
             self.renderable.as_ref().map(|x| x.clone()),
             window,
-        )
+        );
+        if let Some((color, rotation)) = self.layer {
+            window.driver.shared.create_layer(
+                &window.driver.device,
+                self.id.upgrade().unwrap(),
+                staged.get_area(),
+                None,
+                color,
+                rotation,
+                false,
+            );
+            staged.set_layer(self.id.clone());
+        }
+        staged
     }
 }
 
@@ -132,6 +147,9 @@ pub trait Staged: DynClone {
     ) -> Result<(), Error>;
     fn get_rtree(&self) -> Weak<rtree::Node>;
     fn get_area(&self) -> AbsRect;
+    fn set_layer(&mut self, _id: std::sync::Weak<SourceID>) {
+        panic!("This staged object doesn't support layers!");
+    }
 }
 
 dyn_clone::clone_trait_object!(Staged);
@@ -142,7 +160,7 @@ pub(crate) struct Concrete {
     area: AbsRect,
     rtree: Rc<rtree::Node>,
     children: im::Vector<Option<Box<dyn Staged>>>,
-    layer: Option<Arc<SourceID>>,
+    layer: Option<std::sync::Weak<SourceID>>,
 }
 
 impl Concrete {
@@ -151,7 +169,6 @@ impl Concrete {
         area: AbsRect,
         rtree: Rc<rtree::Node>,
         children: im::Vector<Option<Box<dyn Staged>>>,
-        layer: Option<Arc<SourceID>>,
     ) -> Self {
         let (unsized_x, unsized_y) = check_unsized_abs(area.bottomright());
         assert!(
@@ -163,7 +180,7 @@ impl Concrete {
             area,
             rtree,
             children,
-            layer,
+            layer: None,
         }
     }
 
@@ -207,28 +224,41 @@ impl Staged for Concrete {
         compositor: &mut CompositorView<'_>,
         dependents: &mut Vec<std::sync::Weak<SourceID>>,
     ) -> Result<(), Error> {
-        if let Some(id) = &self.layer {
+        if let Some(id) = self.layer.as_ref().and_then(|x| x.upgrade()) {
             let layers = driver.shared.access_layers();
-            let layer = layers.get(id).expect("Missing layer in render call!");
+            let layer = layers.get(&id).expect("Missing layer in render call!");
             let mut deps = Vec::new();
+            let mut region_uv = None;
 
             let (mut view, depview) = if layer.target.is_some() {
                 // If this is a "real" layer with a texture target, mark it as a dependency of our parent
-                dependents.push(Arc::downgrade(id));
+                dependents.push(Arc::downgrade(&id));
+
+                // Acquire a region if we don't have one already. This is done carefully so that the layer can be moved to a different
+                // dependency layer and therefore switched to a different atlas without the user render functions needing to care.
+                let index = match compositor.index {
+                    0 => 1,
+                    1 => 2,
+                    2 => 1,
+                    _ => panic!("Invalid index!"),
+                };
+
+                let mut atlas = driver.layer_atlas[index - 1].write();
+                let region = atlas.cache_region(&driver.device, &id, layer.area.dim().into())?;
+                region_uv = Some(region.uv);
+
+                // Make sure we aren't cached in the opposite atlas
+                driver.layer_atlas[index % 2].write().remove_cache(&id);
 
                 (
                     CompositorView {
-                        index: match compositor.index {
-                            0 => 1,
-                            1 => 2,
-                            2 => 1,
-                            _ => panic!("Invalid index!"),
-                        },
+                        index: index as u8,
                         window: compositor.window,
                         layer0: compositor.layer0,
                         layer1: compositor.layer1,
                         clipstack: compositor.clipstack,
-                        offset: layer.area.topleft(),
+                        offset: Vec2::from(region.uv.min.to_f32().to_array())
+                            - layer.area.topleft(),
                         surface_dim: compositor.surface_dim,
                     },
                     &mut deps, // And return a reference to a new dependency vector
@@ -260,8 +290,8 @@ impl Staged for Concrete {
             if let Some(target) = layer.target.as_ref() {
                 // If this was a real layer, now we need to actually assign the result of our dependencies, and
                 // append ourselves to the parent layer. We must be very careful not to use the wrong view here.
-                *target.dependents.write() = deps;
-                compositor.append_layer(layer, target);
+                target.write().dependents = deps;
+                compositor.append_layer(layer, region_uv.unwrap());
             }
         } else {
             self.render_self(parent_pos, driver, compositor)?;
@@ -277,6 +307,10 @@ impl Staged for Concrete {
 
     fn get_area(&self) -> AbsRect {
         self.area
+    }
+
+    fn set_layer(&mut self, id: std::sync::Weak<SourceID>) {
+        self.layer = Some(id)
     }
 }
 

@@ -41,6 +41,7 @@ where
                 end: self.end,
                 color: self.fill,
             })),
+            layer: None,
         })
     }
 }

@@ -42,6 +42,7 @@ where
                 end: self.end.clone(),
                 color: self.fill,
             })),
+            layer: None,
         })
     }
 }

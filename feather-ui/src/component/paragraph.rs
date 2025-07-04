@@ -132,6 +132,7 @@ impl<T: flex::Prop + 'static> super::Component for Paragraph<T> {
             children,
             id: Arc::downgrade(&self.id),
             renderable: None,
+            layer: None,
         })
     }
 }

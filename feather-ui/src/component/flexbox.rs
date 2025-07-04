@@ -53,6 +53,7 @@ impl<T: flex::Prop + 'static> super::Component for FlexBox<T> {
             children,
             id: Arc::downgrade(&self.id),
             renderable: None,
+            layer: None,
         })
     }
 }

@@ -7,7 +7,6 @@ use crate::graphics::{self, Vec2f, Vec4f};
 use crate::render::atlas::Atlas;
 use crate::render::compositor::CompositorView;
 use crate::shaders;
-use guillotiere::Size;
 use num_traits::Zero;
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -41,11 +40,7 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
 
         let (region_uv, region_index) = {
             let mut atlas = driver.atlas.write();
-            let region = atlas.cache_region(
-                &driver.device,
-                self.id.clone(),
-                Size::new(area.dim().0.x.ceil() as i32, area.dim().0.y.ceil() as i32),
-            )?;
+            let region = atlas.cache_region(&driver.device, &self.id, area.dim().into())?;
             (region.uv, region.index)
         };
 
