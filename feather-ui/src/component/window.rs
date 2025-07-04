@@ -157,7 +157,9 @@ impl WindowState {
             let viewport_dim = self.surface_dim();
             pass.set_viewport(0.0, 0.0, viewport_dim.x, viewport_dim.y, 0.0, 1.0);
 
-            self.compositor.draw(viewport_dim, &self.driver, &mut pass);
+            self.compositor.predraw(viewport_dim, &self.driver);
+            self.compositor.draw(&self.driver, &mut pass, 0);
+            self.compositor.postdraw();
         }
 
         self.driver.queue.submit(Some(encoder.finish()));

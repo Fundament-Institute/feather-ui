@@ -1630,6 +1630,7 @@ impl<
                                         clipstack: &mut inner.clipstack,
                                         offset: Vec2::zero(),
                                         surface_dim,
+                                        pass: 0,
                                     };
 
                                     // Reset our layer tracker before beginning a render
@@ -1661,6 +1662,18 @@ impl<
                                 );
 
                                 driver.atlas.read().draw(&driver, &mut encoder);
+
+                                let max_depth = driver.layer_composite[0].read().max_depth().max(driver.layer_composite[1].read().max_depth());
+
+                                // A depth of "zero" means the window compositor, so we only go down to 1.
+                                for i in (1..=max_depth).rev() {
+                                    // Odd is layer0, even is layer1, so we add one before modulo to reverse the result
+                                    let compositor = driver.layer_composite[((i + 1) % 2) as usize].write();
+                                    let atlas = driver.layer_atlas[];
+
+
+                                    compositor.draw(target_dim, driver, i, i);
+                                }
 
                                 state.state.as_mut().unwrap().draw(encoder);
                             }

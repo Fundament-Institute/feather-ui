@@ -32,7 +32,7 @@ impl super::Renderable for Instance {
             [0.0, 0.0].into(),
             self.color.as_32bit().rgba,
             p.y.atan2(p.x) % std::f32::consts::TAU,
-            u16::MAX,
+            u8::MAX,
             false,
         );
         Ok(())

@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use crate::color::sRGB;
-use crate::render::compositor;
+use crate::render::compositor::{self, DataFlags};
 use crate::{CrossReferenceDomain, SourceID};
 
 use std::sync::Arc;
@@ -44,7 +44,7 @@ impl super::Renderable for Instance {
                 uvdim: [0.0, 0.0].into(),
                 color: color.rgba,
                 rotation: p.y.atan2(p.x) % std::f32::consts::TAU,
-                texclip: 0x3FFF0000,
+                flags: DataFlags::new().with_tex(u8::MAX).into(),
                 ..Default::default()
             };
         });

@@ -50,6 +50,7 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
         // then letting the compositor squish the result slightly, which is actually pretty accurate.
         // TODO: Change this to be pixel-perfect by outputting the exact dimensions instead of rounded ones.
 
+        // TODO: cache this if the inputs are identical
         driver.with_pipeline::<PIPELINE>(|pipeline| {
             pipeline.append(
                 &Data {
@@ -106,7 +107,7 @@ pub struct Data {
 
 #[derive(Debug)]
 pub struct Shape<const KIND: u8> {
-    data: HashMap<u16, Vec<Data>>,
+    data: HashMap<u8, Vec<Data>>,
     buffer: wgpu::Buffer,
     pipeline: wgpu::RenderPipeline,
     group: wgpu::BindGroup,
@@ -115,11 +116,11 @@ pub struct Shape<const KIND: u8> {
 impl<const KIND: u8> super::Pipeline for Shape<KIND> {
     type Data = Data;
 
-    fn append(&mut self, data: &Self::Data, layer: u16) {
+    fn append(&mut self, data: &Self::Data, layer: u8) {
         self.data.entry(layer).or_default().push(*data);
     }
 
-    fn draw(&mut self, driver: &graphics::Driver, pass: &mut wgpu::RenderPass<'_>, layer: u16) {
+    fn draw(&mut self, driver: &graphics::Driver, pass: &mut wgpu::RenderPass<'_>, layer: u8) {
         if let Some(data) = self.data.get_mut(&layer) {
             let size = data.len() * size_of::<Data>();
             if (self.buffer.size() as usize) < size {

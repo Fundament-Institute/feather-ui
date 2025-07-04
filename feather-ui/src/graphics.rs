@@ -231,7 +231,6 @@ impl Driver {
     }
 }
 
-// TODO: Arc<SourceID> is not thread-safe
 static_assertions::assert_impl_all!(Driver: Send, Sync);
 
 // This maps x and y to the viewpoint size, maps input_z from [n,f] to [0,1], and sets
