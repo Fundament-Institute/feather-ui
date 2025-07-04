@@ -6,23 +6,24 @@ use super::{Concrete, Desc, Layout, Renderable, Staged};
 use crate::{AbsRect, CrossReferenceDomain, SourceID, render, rtree};
 use std::marker::PhantomData;
 use std::rc::Rc;
+use std::sync::Arc;
 
 // A DomainWrite layout spawns a renderable that writes it's area to the target cross-reference domain
 pub trait Prop {
-    fn domain(&self) -> Rc<CrossReferenceDomain>;
+    fn domain(&self) -> Arc<CrossReferenceDomain>;
 }
 
 crate::gen_from_to_dyn!(Prop);
 
-impl Prop for Rc<CrossReferenceDomain> {
-    fn domain(&self) -> Rc<CrossReferenceDomain> {
+impl Prop for Arc<CrossReferenceDomain> {
+    fn domain(&self) -> Arc<CrossReferenceDomain> {
         self.clone()
     }
 }
 
-impl Empty for Rc<CrossReferenceDomain> {}
-impl RLimits for Rc<CrossReferenceDomain> {}
-impl super::fixed::Child for Rc<CrossReferenceDomain> {}
+impl Empty for Arc<CrossReferenceDomain> {}
+impl RLimits for Arc<CrossReferenceDomain> {}
+impl super::fixed::Child for Arc<CrossReferenceDomain> {}
 
 impl Desc for dyn Prop {
     type Props = dyn Prop;
@@ -34,7 +35,7 @@ impl Desc for dyn Prop {
         mut outer_area: AbsRect,
         outer_limits: crate::AbsLimits,
         _: &Self::Children,
-        id: std::rc::Weak<SourceID>,
+        id: std::sync::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
         window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
@@ -50,6 +51,7 @@ impl Desc for dyn Prop {
             })),
             rtree: rtree::Node::new(outer_area, None, Default::default(), id, window),
             children: Default::default(),
+            layer: None,
         })
     }
 }

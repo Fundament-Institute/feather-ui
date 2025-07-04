@@ -28,7 +28,7 @@ impl Desc for dyn Prop {
         outer_area: AbsRect,
         outer_limits: crate::AbsLimits,
         children: &Self::Children,
-        id: std::rc::Weak<crate::SourceID>,
+        id: std::sync::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
         window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
@@ -93,6 +93,7 @@ impl Desc for dyn Prop {
                 evaluated_area,
                 rtree::Node::new(evaluated_area, Some(props.zindex()), nodes, id, window),
                 staging,
+                None,
             ));
         }
 
@@ -139,6 +140,7 @@ impl Desc for dyn Prop {
             evaluated_area,
             rtree::Node::new(evaluated_area, Some(props.zindex()), nodes, id, window),
             staging,
+            None,
         ))
     }
 }

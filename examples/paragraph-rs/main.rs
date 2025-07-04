@@ -14,7 +14,7 @@ use feather_ui::persist::FnPersist;
 use feather_ui::ultraviolet::Vec4;
 use feather_ui::{AbsRect, App, DRect, FILL_DRECT, RelRect, SourceID, cosmic_text};
 use std::f32;
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(PartialEq, Clone, Debug)]
 struct Blocker {
@@ -92,8 +92,8 @@ impl flex::Prop for MinimalFlex {
     }
 }
 
-impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp {
-    type Store = (Blocker, im::HashMap<Rc<SourceID>, Option<Window>>);
+impl FnPersist<Blocker, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
+    type Store = (Blocker, im::HashMap<Arc<SourceID>, Option<Window>>);
 
     fn init(&self) -> Self::Store {
         (
@@ -107,7 +107,7 @@ impl FnPersist<Blocker, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp 
         &mut self,
         mut store: Self::Store,
         args: &Blocker,
-    ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
+    ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
         if store.0 != *args {
             let flex = {
                 let rect = Shape::<MinimalFlexChild, { ShapeKind::RoundRect as u8 }>::new(

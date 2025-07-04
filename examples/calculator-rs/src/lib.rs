@@ -163,8 +163,8 @@ static BUTTONS: LazyLock<[(&str, BoxedAction, sRGB); 24]> = LazyLock::new(|| {
     ]
 });
 
-impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
-    type Store = (CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>);
+impl FnPersist<CalcFFI, im::HashMap<Arc<SourceID>, Option<Window>>> for CalcApp {
+    type Store = (CalcFFI, im::HashMap<Arc<SourceID>, Option<Window>>);
 
     fn init(&self) -> Self::Store {
         (CalcFFI(self.init_calc.clone()), im::HashMap::new())
@@ -173,7 +173,7 @@ impl FnPersist<CalcFFI, im::HashMap<Rc<SourceID>, Option<Window>>> for CalcApp {
         &mut self,
         mut store: Self::Store,
         args: &CalcFFI,
-    ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
+    ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
         //if store.0.eq(args) {
         let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> = im::Vector::new();
 

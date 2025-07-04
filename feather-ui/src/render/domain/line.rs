@@ -5,13 +5,13 @@ use crate::color::sRGB;
 use crate::render::compositor;
 use crate::{CrossReferenceDomain, SourceID};
 
-use std::rc::Rc;
+use std::sync::Arc;
 use ultraviolet::Vec2;
 
 pub struct Instance {
-    pub domain: Rc<CrossReferenceDomain>,
-    pub start: Rc<SourceID>,
-    pub end: Rc<SourceID>,
+    pub domain: Arc<CrossReferenceDomain>,
+    pub start: Arc<SourceID>,
+    pub end: Arc<SourceID>,
     pub color: sRGB,
 }
 
@@ -20,7 +20,7 @@ impl super::Renderable for Instance {
         &self,
         _: crate::AbsRect,
         _: &crate::graphics::Driver,
-        compositor: &mut compositor::Compositor,
+        compositor: &mut compositor::CompositorView<'_>,
     ) -> Result<(), crate::Error> {
         let domain = self.domain.clone();
         let start_id = self.start.clone();
@@ -44,7 +44,7 @@ impl super::Renderable for Instance {
                 uvdim: [0.0, 0.0].into(),
                 color: color.rgba,
                 rotation: p.y.atan2(p.x) % std::f32::consts::TAU,
-                texclip: 0x7FFF0000,
+                texclip: 0x3FFF0000,
                 ..Default::default()
             };
         });

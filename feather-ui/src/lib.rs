@@ -21,20 +21,22 @@ pub mod util;
 
 use crate::component::window::Window;
 use crate::graphics::Driver;
+use crate::render::compositor::CompositorView;
 use bytemuck::NoUninit;
 use component::window::WindowStateMachine;
 use component::{Component, StateMachineWrapper};
 use core::f32;
 use dyn_clone::DynClone;
 use eyre::OptionExt;
+use parking_lot::RwLock;
 use persist::FnPersist;
 use smallvec::SmallVec;
 use std::any::Any;
-use std::cell::{OnceCell, RefCell};
+use std::cell::OnceCell;
 use std::collections::{BTreeMap, HashMap};
 use std::hash::Hasher;
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
-use std::rc::Rc;
+use std::sync::Arc;
 use ultraviolet::f32x4;
 use ultraviolet::vec::Vec2;
 use wgpu::{InstanceDescriptor, InstanceFlags};
@@ -48,7 +50,7 @@ pub use mlua;
 #[macro_export]
 macro_rules! gen_id {
     () => {
-        std::rc::Rc::new($crate::SourceID::new($crate::DataID::Named(concat!(
+        std::sync::Arc::new($crate::SourceID::new($crate::DataID::Named(concat!(
             file!(),
             ":",
             line!()
@@ -909,21 +911,21 @@ pub enum RowDirection {
 // retrieved during the render step via a source ID.
 #[derive(Default)]
 pub struct CrossReferenceDomain {
-    mappings: crate::RefCell<im::HashMap<Rc<SourceID>, AbsRect>>,
+    mappings: RwLock<im::HashMap<Arc<SourceID>, AbsRect>>,
 }
 
 impl CrossReferenceDomain {
-    pub fn write_area(&self, target: Rc<SourceID>, area: AbsRect) {
-        self.mappings.borrow_mut().insert(target, area);
+    pub fn write_area(&self, target: Arc<SourceID>, area: AbsRect) {
+        self.mappings.write().insert(target, area);
     }
 
-    pub fn get_area(&self, target: &Rc<SourceID>) -> Option<AbsRect> {
-        self.mappings.borrow().get(target).copied()
+    pub fn get_area(&self, target: &Arc<SourceID>) -> Option<AbsRect> {
+        self.mappings.read().get(target).copied()
     }
 
-    pub fn remove_self(&self, target: &Rc<SourceID>) {
+    pub fn remove_self(&self, target: &Arc<SourceID>) {
         // TODO: Is this necessary? Does it even make sense? Do you simply need to wipe the mapping for every new layout instead?
-        self.mappings.borrow_mut().remove(target);
+        self.mappings.write().remove(target);
     }
 }
 
@@ -1013,9 +1015,14 @@ impl std::cmp::PartialEq for DataID {
 
 #[derive(Clone, Default, Debug)]
 pub struct SourceID {
-    parent: OnceCell<std::rc::Rc<SourceID>>,
+    parent: OnceCell<std::sync::Arc<SourceID>>,
     id: DataID,
 }
+
+// SAFETY: We cannot explain to the compiler that we only ever set "parent" while SourceID
+// only exists in one thread, so we manually implement these unsafe traits.
+unsafe impl Send for SourceID {}
+unsafe impl Sync for SourceID {}
 
 impl SourceID {
     pub fn new(id: DataID) -> Self {
@@ -1026,7 +1033,7 @@ impl SourceID {
     }
 
     /// Creates a new SourceID out of the given DataID, with ourselves as its parent
-    pub fn child(self: &Rc<Self>, id: DataID) -> Rc<Self> {
+    pub fn child(self: &Arc<Self>, id: DataID) -> Arc<Self> {
         Self {
             parent: self.clone().into(),
             id,
@@ -1036,13 +1043,13 @@ impl SourceID {
 
     /// Creates a new, unique duplicate ID using this as the parent and the strong count
     /// of this Rc as the child DataID.
-    pub fn duplicate(self: &Rc<Self>) -> Rc<Self> {
-        self.child(DataID::Int(Rc::strong_count(self) as i64))
+    pub fn duplicate(self: &Arc<Self>) -> Arc<Self> {
+        self.child(DataID::Int(Arc::strong_count(self) as i64))
     }
 
     #[cfg(debug_assertions)]
     #[allow(clippy::mutable_key_type)]
-    pub(crate) fn parents(self: &Rc<Self>) -> std::collections::HashSet<&Rc<Self>> {
+    pub(crate) fn parents(self: &Arc<Self>) -> std::collections::HashSet<&Arc<Self>> {
         let mut set = std::collections::HashSet::new();
 
         let mut cur = self.parent.get();
@@ -1102,7 +1109,7 @@ impl std::fmt::Display for SourceID {
 }
 
 #[derive(Clone)]
-pub struct Slot(pub Rc<SourceID>, pub u64);
+pub struct Slot(pub Arc<SourceID>, pub u64);
 
 pub type AppEvent<State> = Box<dyn FnMut(DispatchPair, State) -> Result<State, State>>;
 
@@ -1158,9 +1165,9 @@ pub trait StateMachineChild {
         // Default implementation assumes no children
         Ok(())
     }
-    fn id(&self) -> Rc<SourceID>;
+    fn id(&self) -> Arc<SourceID>;
 }
-
+/*
 pub struct StateCell<T> {
     value: T,
 }
@@ -1176,7 +1183,7 @@ impl<T> StateCell<T> {
 
     pub fn borrow_mut<'a>(
         &'a mut self,
-        id: &'a Rc<SourceID>,
+        id: &'a Arc<SourceID>,
         manager: &'a mut StateManager,
     ) -> StateCellRefMut<'a, T> {
         StateCellRefMut {
@@ -1194,7 +1201,7 @@ impl<T> std::ops::Deref for StateCell<T> {
     fn deref(&self) -> &T {
         &self.value
     }
-}
+}*/
 
 /// Holds a mutable reference to an internal StateCell value, which sets the resulting id as "changed" once it's dropped.
 /// If this reference object fails to be dropped, the changed flag will never be set!
@@ -1202,7 +1209,7 @@ pub struct StateCellRefMut<'b, T: 'b> {
     // NB: we use a pointer instead of `&'b mut T` to avoid `noalias` violations, because a
     // `RefMut` argument doesn't hold exclusivity for its whole scope, only until it drops.
     value: std::ptr::NonNull<T>,
-    id: &'b Rc<SourceID>, // We hold on to this with a reference to force the reference to be dropped before you do anything else.
+    id: &'b Arc<SourceID>, // We hold on to this with a reference to force the reference to be dropped before you do anything else.
     manager: &'b mut StateManager,
 }
 
@@ -1232,18 +1239,18 @@ impl<T> Drop for StateCellRefMut<'_, T> {
 
 #[derive(Default)]
 pub struct StateManager {
-    states: HashMap<Rc<SourceID>, Box<dyn StateMachineWrapper>>,
-    pointers: HashMap<*const std::ffi::c_void, Rc<SourceID>>,
+    states: HashMap<Arc<SourceID>, Box<dyn StateMachineWrapper>>,
+    pointers: HashMap<*const std::ffi::c_void, Arc<SourceID>>,
     changed: bool,
 }
 
 impl StateManager {
-    pub fn register_pointer<T>(&mut self, p: *const T, id: Rc<SourceID>) -> Option<Rc<SourceID>> {
+    pub fn register_pointer<T>(&mut self, p: *const T, id: Arc<SourceID>) -> Option<Arc<SourceID>> {
         let ptr = p as *const std::ffi::c_void;
         self.pointers.insert(ptr, id)
     }
 
-    pub fn invalidate_pointer<T>(&mut self, p: *const T) -> Option<Rc<SourceID>> {
+    pub fn invalidate_pointer<T>(&mut self, p: *const T) -> Option<Arc<SourceID>> {
         let ptr = p as *const std::ffi::c_void;
         self.pointers.remove(&ptr)
     }
@@ -1259,7 +1266,7 @@ impl StateManager {
         self.mutate_id(&id);
     }
 
-    fn mutate_id(&mut self, id: &Rc<SourceID>) {
+    fn mutate_id(&mut self, id: &Arc<SourceID>) {
         if let Some(state) = self.states.get_mut(id) {
             state.set_changed(true);
             self.propagate_change(id);
@@ -1269,7 +1276,7 @@ impl StateManager {
     #[allow(dead_code)]
     fn init_default<State: 'static + component::StateMachineWrapper + Default>(
         &mut self,
-        id: Rc<SourceID>,
+        id: Arc<SourceID>,
     ) -> eyre::Result<&mut State> {
         if !self.states.contains_key(&id) {
             self.states.insert(id.clone(), Box::new(State::default()));
@@ -1281,7 +1288,7 @@ impl StateManager {
             .as_mut() as &mut dyn Any;
         v.downcast_mut().ok_or_eyre("Runtime type mismatch!")
     }
-    pub fn init(&mut self, id: Rc<SourceID>, state: Box<dyn StateMachineWrapper>) {
+    pub fn init(&mut self, id: Arc<SourceID>, state: Box<dyn StateMachineWrapper>) {
         if !self.states.contains_key(&id) {
             self.states.insert(id.clone(), state);
         }
@@ -1316,7 +1323,7 @@ impl StateManager {
         self.states.get(id).ok_or_eyre("State does not exist")
     }
 
-    fn propagate_change(&mut self, mut id: &Rc<SourceID>) {
+    fn propagate_change(&mut self, mut id: &Arc<SourceID>) {
         while let Some(parent) = id.parent.get() {
             if let Some(state) = self.states.get_mut(parent) {
                 if state.changed() {
@@ -1335,6 +1342,7 @@ impl StateManager {
         slot: &Slot,
         dpi: Vec2,
         area: AbsRect,
+        extent: AbsRect,
         driver: &std::sync::Weak<crate::Driver>,
     ) -> eyre::Result<()> {
         type IterTuple = (Box<dyn Any>, u64, Option<Slot>);
@@ -1342,7 +1350,7 @@ impl StateManager {
         // We use smallvec here so we can satisfy the borrow checker without making yet another heap allocation in most cases
         let iter: SmallVec<[IterTuple; 2]> = {
             let state = self.states.get_mut(&slot.0).ok_or_eyre("Invalid slot")?;
-            let v = state.process(event, slot.1, dpi, area, driver)?;
+            let v = state.process(event, slot.1, dpi, area, extent, driver)?;
             if state.changed() {
                 self.changed = true;
                 self.propagate_change(&slot.0);
@@ -1356,7 +1364,7 @@ impl StateManager {
 
         for (e, index, slot) in iter {
             if let Some(s) = slot.as_ref() {
-                self.process((index, e), s, dpi, area, driver)?;
+                self.process((index, e), s, dpi, area, extent, driver)?;
             }
         }
         Ok(())
@@ -1387,7 +1395,7 @@ pub const APP_SOURCE_ID: SourceID = SourceID {
 
 pub struct App<
     AppData: 'static + std::cmp::PartialEq,
-    O: FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>,
+    O: FnPersist<AppData, im::HashMap<Arc<SourceID>, Option<Window>>>,
 > {
     pub instance: wgpu::Instance,
     pub driver: std::sync::Weak<graphics::Driver>,
@@ -1428,6 +1436,7 @@ impl<AppData: 'static + std::cmp::PartialEq> StateMachineWrapper for AppDataMach
         index: u64,
         _: crate::Vec2,
         _: AbsRect,
+        _: AbsRect,
         _: &std::sync::Weak<crate::Driver>,
     ) -> eyre::Result<SmallVec<[DispatchPair; 1]>> {
         let f = self
@@ -1450,8 +1459,10 @@ use winit::platform::windows::EventLoopBuilderExtWindows;
 #[cfg(target_os = "linux")]
 use winit::platform::x11::EventLoopBuilderExtX11;
 
-impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>>
-    App<AppData, O>
+impl<
+    AppData: std::cmp::PartialEq,
+    O: FnPersist<AppData, im::HashMap<Arc<SourceID>, Option<Window>>>,
+> App<AppData, O>
 {
     pub fn new<T: 'static>(
         app_state: AppData,
@@ -1476,7 +1487,7 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
     ) -> eyre::Result<(Self, winit::event_loop::EventLoop<T>)> {
         let mut manager: StateManager = Default::default();
         manager.init(
-            Rc::new(APP_SOURCE_ID),
+            Arc::new(APP_SOURCE_ID),
             Box::new(AppDataMachine {
                 input: inputs,
                 state: Some(app_state),
@@ -1563,7 +1574,7 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
 impl<
     AppData: std::cmp::PartialEq,
     T: 'static,
-    O: FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>,
+    O: FnPersist<AppData, im::HashMap<Arc<SourceID>, Option<Window>>>,
 > winit::application::ApplicationHandler<T> for App<AppData, O>
 {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
@@ -1601,10 +1612,27 @@ impl<
                         if let Ok(state) = self.state.get_mut::<WindowStateMachine>(&window.id()) {
                             if let Some(driver) = self.driver.upgrade() {
                                 if let Some(staging) = root.staging.as_ref() {
+                                    let inner = state.state.as_mut().unwrap();
+                                    let surface_dim = inner.surface_dim();
+
+                                    // Construct a default compositor view with no offset.
+                                    let mut viewer = CompositorView {
+                                        index: 0,
+                                        window: &mut inner.compositor,
+                                        layer0: &mut driver.layer_composite[0].write(),
+                                        layer1: &mut driver.layer_composite[1].write(),
+                                        clipstack: &mut inner.clipstack,
+                                        offset: Vec2::zero(),
+                                        surface_dim,
+                                    };
+
+                                    // Reset our layer tracker before beginning a render
+                                    inner.layers.clear();
                                     while let Err(e) = staging.render(
                                         Vec2::zero(),
                                         &driver,
-                                        &mut state.state.as_mut().unwrap().compositor,
+                                        &mut viewer,
+                                        &mut inner.layers,
                                     ) {
                                         match e {
                                             Error::ResizeTextureAtlas(layers) => {
@@ -1691,8 +1719,8 @@ impl<
 struct TestApp {}
 
 #[cfg(test)]
-impl FnPersist<u8, im::HashMap<Rc<SourceID>, Option<Window>>> for TestApp {
-    type Store = (u8, im::HashMap<Rc<SourceID>, Option<Window>>);
+impl FnPersist<u8, im::HashMap<Arc<SourceID>, Option<Window>>> for TestApp {
+    type Store = (u8, im::HashMap<Arc<SourceID>, Option<Window>>);
 
     fn init(&self) -> Self::Store {
         use crate::color::sRGB;
@@ -1725,7 +1753,7 @@ impl FnPersist<u8, im::HashMap<Rc<SourceID>, Option<Window>>> for TestApp {
         &mut self,
         store: Self::Store,
         _: &u8,
-    ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
+    ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
         let windows = store.1.clone();
         (store, windows)
     }

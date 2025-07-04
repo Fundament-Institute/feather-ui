@@ -5,7 +5,7 @@ use super::compositor;
 use crate::color::sRGB;
 use crate::graphics::{self, Vec2f, Vec4f};
 use crate::render::atlas::Atlas;
-use crate::render::compositor::Compositor;
+use crate::render::compositor::CompositorView;
 use crate::shaders;
 use guillotiere::Size;
 use num_traits::Zero;
@@ -22,7 +22,7 @@ pub struct Instance<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> {
     pub fill: sRGB,
     pub outline: sRGB,
     pub corners: Vec4,
-    pub id: std::rc::Rc<crate::SourceID>,
+    pub id: std::sync::Arc<crate::SourceID>,
     pub phantom: PhantomData<PIPELINE>,
 }
 
@@ -33,7 +33,7 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
         &self,
         area: crate::AbsRect,
         driver: &crate::graphics::Driver,
-        compositor: &mut Compositor,
+        compositor: &mut CompositorView<'_>,
     ) -> Result<(), crate::Error> {
         let dim = area.bottomright() - area.topleft() - self.padding.bottomright();
         debug_assert!(dim.x.is_zero() || dim.x.is_sign_positive());

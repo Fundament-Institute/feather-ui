@@ -20,7 +20,7 @@ use feather_ui::{
 };
 use std::collections::HashSet;
 use std::f32;
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(PartialEq, Clone, Debug)]
 struct GraphState {
@@ -49,8 +49,8 @@ impl leaf::Prop for MinimalArea {}
 
 const NODE_RADIUS: f32 = 25.0;
 
-impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp {
-    type Store = (GraphState, im::HashMap<Rc<SourceID>, Option<Window>>);
+impl FnPersist<GraphState, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
+    type Store = (GraphState, im::HashMap<Arc<SourceID>, Option<Window>>);
 
     fn init(&self) -> Self::Store {
         (
@@ -67,12 +67,12 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
         &mut self,
         mut store: Self::Store,
         args: &GraphState,
-    ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
+    ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
         if store.0 != *args {
             let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> = im::Vector::new();
-            let domain: Rc<CrossReferenceDomain> = Default::default();
+            let domain: Arc<CrossReferenceDomain> = Default::default();
 
-            let mut node_ids: Vec<Rc<SourceID>> = Vec::new();
+            let mut node_ids: Vec<Arc<SourceID>> = Vec::new();
 
             for i in 0..args.nodes.len() {
                 let node = args.nodes[i];

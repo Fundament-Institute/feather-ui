@@ -3,17 +3,16 @@
 
 use crate::color::sRGB32;
 use crate::graphics::{Driver, Vec2f};
-use crate::{AbsDim, AbsRect};
+use crate::{AbsDim, AbsRect, SourceID};
+use derive_where::derive_where;
 use num_traits::Zero;
 use std::collections::HashMap;
 use std::num::NonZero;
-use std::ops::Range;
-use std::rc::Rc;
+use std::sync::Arc;
 use ultraviolet::Vec2;
 use wgpu::wgt::SamplerDescriptor;
 use wgpu::{
-    BindGroupEntry, BindGroupLayoutEntry, Buffer, BufferDescriptor, BufferUsages, TextureUsages,
-    TextureView,
+    BindGroupEntry, BindGroupLayoutEntry, Buffer, BufferDescriptor, BufferUsages, TextureView,
 };
 
 use crate::ZERO_RECT;
@@ -28,6 +27,7 @@ pub struct Shared {
     shader: wgpu::ShaderModule,
     sampler: wgpu::Sampler,
     pipelines: RwLock<HashMap<wgpu::TextureFormat, wgpu::RenderPipeline>>,
+    layers: RwLock<HashMap<Arc<SourceID>, Layer>>,
 }
 
 pub const TARGET_STATE: wgpu::ColorTargetState = wgpu::ColorTargetState {
@@ -37,7 +37,7 @@ pub const TARGET_STATE: wgpu::ColorTargetState = wgpu::ColorTargetState {
 };
 
 impl Shared {
-    pub fn new(device: &wgpu::Device, _: u32) -> Self {
+    pub fn new(device: &wgpu::Device) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Compositor"),
             source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/compositor.wgsl").into()),
@@ -69,10 +69,10 @@ impl Shared {
                 BindGroupLayoutEntry {
                     binding: 2,
                     visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: wgpu::TextureViewDimension::D2Array,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
                     },
                     count: None,
                 },
@@ -84,21 +84,21 @@ impl Shared {
                 },
                 BindGroupLayoutEntry {
                     binding: 4,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        multisampled: false,
+                        view_dimension: wgpu::TextureViewDimension::D2Array,
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
                     },
                     count: None,
                 },
                 BindGroupLayoutEntry {
                     binding: 5,
                     visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: NonZero::new(size_of::<u32>() as u64),
+                    ty: wgpu::BindingType::Texture {
+                        multisampled: false,
+                        view_dimension: wgpu::TextureViewDimension::D2Array,
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
                     },
                     count: None,
                 },
@@ -128,7 +128,18 @@ impl Shared {
             shader,
             sampler,
             pipelines: HashMap::new().into(),
+            layers: HashMap::new().into(),
         }
+    }
+
+    pub fn access_layers(
+        &self,
+    ) -> parking_lot::lock_api::RwLockReadGuard<
+        '_,
+        parking_lot::RawRwLock,
+        HashMap<Arc<SourceID>, Layer>,
+    > {
+        self.layers.read()
     }
 
     fn get_pipeline(
@@ -172,25 +183,57 @@ impl Shared {
             })
             .clone()
     }
+
+    pub fn create_layer(
+        &self,
+        _device: &wgpu::Device,
+        id: Arc<SourceID>,
+        area: AbsRect,
+        dest: Option<AbsRect>,
+        color: sRGB32,
+        rotation: f32,
+        force: bool,
+    ) -> Option<Layer> {
+        let dest = dest.unwrap_or(area);
+
+        // If true, this is a clipping layer, not a texture-backed one
+        let layer = if color == sRGB32::white() && rotation.is_zero() && !force && dest == area {
+            Layer {
+                area,
+                dest,
+                color,
+                rotation,
+                target: None,
+            }
+        } else {
+            todo!("Not implemented yet");
+        };
+
+        self.layers.write().insert(id, layer)
+    }
 }
 
-#[derive(Clone)]
+// This holds the information for rendering to a layer, which can only be done if the layer is texture-backed.
+#[derive(Debug)]
+pub struct LayerTarget {
+    pub dependents: RwLock<Vec<std::sync::Weak<SourceID>>>, // Layers that draw on to this one (does not include fake layers)
+    region: super::atlas::Region,
+}
+
+#[derive(Debug)]
 pub struct Layer {
-    // Renderable area representing what children draw onto.
-    area: AbsRect,
-    // Target area that the layer is composited onto. Usually this is the same as area, but can be different for PIPs
-    target: AbsRect,
+    // Renderable area representing what children draw onto. This corresponds to this layer's compositor viewport, if it has one.
+    pub area: AbsRect,
+    // destination area that the layer is composited onto. Usually this is the same as area, but can be different when scaling down
+    dest: AbsRect,
     color: sRGB32,
     rotation: f32,
-    // Layers don't always have textures associated with them, so these might not exist
-    texture: Option<wgpu::Texture>,
-    view: Option<wgpu::TextureView>,
-    mvp: Option<Buffer>,
-    range: Range<u32>, // Stores the range of draw commands to execute
+    // Layers aren't always texture-backed so this may not exist
+    pub target: Option<LayerTarget>,
 }
 
-type DeferFn = dyn FnOnce(&Driver, &mut Data);
-type CustomDrawFn = dyn FnMut(&Driver, &mut wgpu::RenderPass<'_>);
+type DeferFn = dyn FnOnce(&Driver, &mut Data) + Send + Sync;
+type CustomDrawFn = dyn FnMut(&Driver, &mut wgpu::RenderPass<'_>, Vec2) + Send + Sync;
 
 /// Fundamentally, the compositor works on a massive set of pre-allocated vertices that it assembles into quads in the vertex
 /// shader, which then moves them into position and assigns them UV coordinates. Then the pixel shader checks if it must do
@@ -204,6 +247,7 @@ type CustomDrawFn = dyn FnMut(&Driver, &mut wgpu::RenderPass<'_>);
 /// The compositor can also accept custom draw calls that break up the batched compositor instructions, which is intended for
 /// situations where rendering to the texture atlas is either impractical, or a different blending operation is required (such
 /// as subpixel blended text, which requires the SRC1 dual-source blending mode, instead of standard pre-multiplied alpha).
+#[derive_where(Debug)]
 pub struct Compositor {
     pipeline: wgpu::RenderPipeline,
     group: wgpu::BindGroup,
@@ -213,12 +257,13 @@ pub struct Compositor {
     clipdata: Vec<AbsRect>,             // Clipping Rectangles
     data: Vec<Data>,                    // CPU-side buffer of all the data
     regions: Vec<std::ops::Range<u32>>, // Target copy ranges for where to map data to the GPU buffer. Assumes contiguous data vector.
-    defer: HashMap<u32, (Box<DeferFn>, AbsRect)>,
-    view: std::rc::Weak<TextureView>,
-    custom: Vec<(u32, Box<CustomDrawFn>)>,
-    clipstack: Vec<AbsRect>, // Current clipping rectangle stack. These only get added to the GPU clip list if something is rotated
-    layerstack: Vec<Layer>,
-    dim: Vec2,
+    #[derive_where(skip)]
+    defer: HashMap<u32, (Box<DeferFn>, AbsRect, Vec2)>,
+    view: std::sync::Weak<TextureView>,
+    layer_view: std::sync::Weak<TextureView>,
+    #[derive_where(skip)]
+    custom: Vec<(u32, Box<CustomDrawFn>, Vec2)>,
+    layer: bool, // Tells us which layer atlas to use (the first or second)
 }
 
 impl Compositor {
@@ -228,8 +273,8 @@ impl Compositor {
         clip: &Buffer,
         shared: &Shared,
         device: &wgpu::Device,
-        atlas: &Atlas,
         atlasview: &TextureView,
+        layerview: &TextureView,
         layout: &wgpu::BindGroupLayout,
     ) -> wgpu::BindGroup {
         let bindings = [
@@ -243,7 +288,7 @@ impl Compositor {
             },
             BindGroupEntry {
                 binding: 2,
-                resource: wgpu::BindingResource::TextureView(atlasview),
+                resource: clip.as_entire_binding(),
             },
             BindGroupEntry {
                 binding: 3,
@@ -251,11 +296,11 @@ impl Compositor {
             },
             BindGroupEntry {
                 binding: 4,
-                resource: clip.as_entire_binding(),
+                resource: wgpu::BindingResource::TextureView(atlasview),
             },
             BindGroupEntry {
                 binding: 5,
-                resource: atlas.extent_buf.as_entire_binding(),
+                resource: wgpu::BindingResource::TextureView(layerview),
             },
         ];
 
@@ -266,13 +311,16 @@ impl Compositor {
         })
     }
 
+    // This cannot take a Driver because we have to create two Compositors before the Driver object is made
     pub fn new(
-        shared: &Shared,
         device: &wgpu::Device,
-        config: &wgpu::SurfaceConfiguration,
-        atlas: &Atlas,
+        shared: &Shared,
+        atlasview: &Arc<TextureView>,
+        layerview: &Arc<TextureView>,
+        format: wgpu::TextureFormat,
+        layer: bool,
     ) -> Self {
-        let pipeline = shared.get_pipeline(device, config.view_formats[0]);
+        let pipeline = shared.get_pipeline(device, format);
 
         let mvp = device.create_buffer(&BufferDescriptor {
             label: Some("MVP"),
@@ -301,8 +349,8 @@ impl Compositor {
             &clip,
             shared,
             device,
-            atlas,
-            &atlas.view,
+            atlasview,
+            layerview,
             &pipeline.get_bind_group_layout(0),
         );
 
@@ -317,35 +365,42 @@ impl Compositor {
             regions: vec![0..0],
             data: Vec::new(),
             defer: HashMap::new(),
-            view: Rc::downgrade(&atlas.view),
+            view: Arc::downgrade(atlasview),
+            layer_view: Arc::downgrade(layerview),
             custom: Vec::new(),
-            clipstack: Vec::new(),
-            layerstack: Vec::new(),
-            dim: Vec2::new(config.width as f32, config.height as f32),
+            layer,
         }
     }
 
-    pub(crate) fn resize(&mut self, config: &wgpu::SurfaceConfiguration) {
-        self.dim.x = config.width as f32;
-        self.dim.y = config.height as f32;
-    }
-
-    /// Should be called when self.view.strong_count() is 0, or when the data bindings must be rebound
-    pub fn rebind(&mut self, shared: &Shared, device: &wgpu::Device, atlas: &Atlas) {
-        self.view = Rc::downgrade(&atlas.view);
+    /// Should be called when any external or internal buffer gets invalidated (such as atlas views)
+    pub fn rebind(
+        &mut self,
+        shared: &Shared,
+        device: &wgpu::Device,
+        atlas: &Atlas,
+        layers: &Atlas,
+    ) {
+        self.view = Arc::downgrade(&atlas.view);
+        self.layer_view = Arc::downgrade(&layers.view);
         self.group = Self::gen_binding(
             &self.mvp,
             &self.buffer,
             &self.clip,
             shared,
             device,
-            atlas,
             &atlas.view,
+            &layers.view,
             &self.pipeline.get_bind_group_layout(0),
         );
     }
 
-    fn check_data(&mut self, shared: &Shared, device: &wgpu::Device, atlas: &Atlas) {
+    fn check_data(
+        &mut self,
+        shared: &Shared,
+        device: &wgpu::Device,
+        atlas: &Atlas,
+        layers: &Atlas,
+    ) {
         let size = self.data.len() * size_of::<Data>();
         if (self.buffer.size() as usize) < size {
             self.buffer.destroy();
@@ -355,98 +410,17 @@ impl Compositor {
                 usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
-            self.rebind(shared, device, atlas);
+            self.rebind(shared, device, atlas, layers);
         }
     }
 
-    pub fn create_layer(
+    fn check_clip(
+        &mut self,
+        shared: &Shared,
         device: &wgpu::Device,
-        area: AbsRect,
-        target: Option<AbsRect>,
-        color: sRGB32,
-        rotation: f32,
-        force: bool,
-    ) -> Layer {
-        let target = target.unwrap_or(area);
-
-        // If true, this is a clipping layer, not a texture-backed one
-        if color == sRGB32::white() && rotation.is_zero() && !force && target == area {
-            Layer {
-                area,
-                target,
-                color,
-                rotation,
-                texture: None,
-                view: None,
-                mvp: None,
-                range: 0..0,
-            }
-        } else {
-            // todo!("Not implemented yet");
-
-            // TODO: Should layers go into their own layer atlas? Does this require a topological sort?
-            let texture = device.create_texture(&wgpu::TextureDescriptor {
-                label: Some("Feather Atlas"),
-                size: wgpu::Extent3d {
-                    width: area.dim().0.x.ceil() as u32,
-                    height: area.dim().0.y.ceil() as u32,
-                    depth_or_array_layers: 1,
-                },
-                mip_level_count: 1, // TODO: create mip levels if area != target
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: crate::render::atlas::ATLAS_FORMAT,
-                usage: TextureUsages::TEXTURE_BINDING
-                    | TextureUsages::RENDER_ATTACHMENT
-                    | TextureUsages::COPY_SRC
-                    | TextureUsages::COPY_DST,
-                view_formats: &[
-                    wgpu::TextureFormat::Bgra8UnormSrgb,
-                    wgpu::TextureFormat::Bgra8Unorm,
-                ],
-            });
-
-            let view = texture.create_view(&wgpu::TextureViewDescriptor {
-                label: Some("Atlas View"),
-                format: Some(crate::render::atlas::ATLAS_FORMAT),
-                dimension: Some(wgpu::TextureViewDimension::D2Array),
-                usage: Some(TextureUsages::TEXTURE_BINDING),
-                aspect: wgpu::TextureAspect::All,
-                base_array_layer: 0,
-                array_layer_count: None,
-                ..Default::default()
-            });
-
-            let mvp = Atlas::create_mvp_from_texture(device, &texture, "Layer MVP");
-
-            Layer {
-                area,
-                target,
-                color,
-                rotation,
-                texture: Some(texture),
-                view: Some(view),
-                mvp: Some(mvp),
-                range: 0..0,
-            }
-        }
-    }
-    pub fn push_layer(&mut self, layer: Layer) {
-        self.push_clip(layer.area);
-        self.layerstack.push(layer);
-    }
-    pub fn pop_layer(&mut self) -> Layer {
-        let layer = self
-            .layerstack
-            .pop()
-            .expect("Tried to pop layer, but layer stack was empty!");
-        self.pop_clip();
-        layer
-        // TODO: figure out how to handle layers that are compositor targets
-        //if let Some(prev) =
-    }
-
-    fn check_clip(&mut self, shared: &Shared, device: &wgpu::Device, atlas: &Atlas) {
+        atlas: &Atlas,
+        layers: &Atlas,
+    ) {
         let size = self.clipdata.len() * size_of::<AbsRect>();
         if (self.clip.size() as usize) < size {
             self.clip.destroy();
@@ -456,7 +430,7 @@ impl Compositor {
                 usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
-            self.rebind(shared, device, atlas);
+            self.rebind(shared, device, atlas, layers);
         }
     }
 
@@ -464,38 +438,6 @@ impl Compositor {
         let n = self.clipdata.len();
         self.clipdata.push(clip);
         n as u16
-    }
-
-    pub fn push_clip(&mut self, clip: AbsRect) {
-        if let Some(prev) = self.clipstack.last() {
-            self.clipstack.push(clip.intersect(*prev));
-        } else {
-            self.clipstack.push(clip);
-        }
-    }
-
-    fn get_clip(dim: &Vec2, clipstack: &[AbsRect]) -> AbsRect {
-        *clipstack.last().unwrap_or(&AbsDim(*dim).into())
-    }
-
-    pub fn current_clip(&self) -> AbsRect {
-        Self::get_clip(&self.dim, &self.clipstack)
-    }
-
-    pub fn pop_clip(&mut self) -> AbsRect {
-        self.clipstack
-            .pop()
-            .expect("Tried to pop a clipping rect but the stack was empty!")
-    }
-
-    pub fn append_custom(&mut self, f: impl FnMut(&Driver, &mut wgpu::RenderPass<'_>) + 'static) {
-        let offset = self.regions.last().unwrap().end;
-        if offset == u32::MAX {
-            panic!(
-                "Still processing a compute operation! Finish it by calling set_compute_buffer() first."
-            );
-        }
-        self.custom.push((offset, Box::new(f)));
     }
 
     /// Returns the GPU buffer and the current offset, which allows a compute shader to accumulate commands
@@ -529,40 +471,22 @@ impl Compositor {
         }
     }
 
-    pub fn prepare(
-        &mut self,
-        driver: &Driver,
-        _: &mut wgpu::CommandEncoder,
-        _: &wgpu::SurfaceConfiguration,
-    ) {
-        // Check to see if we need to rebind our atlas view
-        if self.view.strong_count() == 0 {
-            self.rebind(&driver.shared, &driver.device, &driver.atlas.read());
-        }
-
-        // Resolve all defers
-        for (idx, (f, clip)) in self.defer.drain() {
-            f(driver, &mut self.data[idx as usize]);
-            self.data[idx as usize] = Self::clip_data(
-                &mut self.clipdata,
-                Self::scissor_check(&self.dim, clip),
-                self.data[idx as usize],
-            )
-            .unwrap_or_default();
-        }
-    }
-
     #[inline]
     fn clip_data(
         clipdata: &mut Vec<AbsRect>,
         cliprect: Result<AbsRect, AbsRect>,
+        offset: Vec2,
         mut data: Data,
     ) -> Option<Data> {
         match cliprect {
             Ok(clip) => {
                 if data.rotation.is_zero() {
-                    let (mut x, mut y, mut w, mut h) =
-                        (data.pos.0[0], data.pos.0[1], data.dim.0[0], data.dim.0[1]);
+                    let (mut x, mut y, mut w, mut h) = (
+                        data.pos.0[0] + offset.x,
+                        data.pos.0[1] + offset.y,
+                        data.dim.0[0],
+                        data.dim.0[1],
+                    );
 
                     // If the whole rect is outside the cliprect, don't render it at all.
                     if !clip.collides(&AbsRect::new(x, y, x + w, y + h)) {
@@ -637,6 +561,8 @@ impl Compositor {
 
                     debug_assert!(idx < 0xFFFF);
                     data.texclip = (data.texclip & 0xFFFF0000) | idx as u32;
+                    data.pos.0[0] += offset.x;
+                    data.pos.0[1] += offset.y;
                     Some(data)
                 }
             }
@@ -650,14 +576,50 @@ impl Compositor {
                         return None;
                     }
                 }
+                data.pos.0[0] += offset.x;
+                data.pos.0[1] += offset.y;
                 Some(data)
             }
         }
     }
 
-    #[inline]
-    pub fn append_data(
+    pub fn prepare(
         &mut self,
+        driver: &Driver,
+        _: &mut wgpu::CommandEncoder,
+        config: &wgpu::SurfaceConfiguration,
+    ) {
+        // Check to see if we need to rebind either atlas view
+        if self.view.strong_count() == 0 || self.layer_view.strong_count() == 0 {
+            self.rebind(
+                &driver.shared,
+                &driver.device,
+                &driver.atlas.read(),
+                &driver.layer_atlas[self.layer as usize].read(),
+            );
+        }
+
+        let dim = Vec2::new(config.width as f32, config.height as f32);
+
+        // Resolve all defers
+        for (idx, (f, clip, offset)) in self.defer.drain() {
+            f(driver, &mut self.data[idx as usize]);
+            self.data[idx as usize] = Self::clip_data(
+                &mut self.clipdata,
+                Self::scissor_check(&dim, clip),
+                offset,
+                self.data[idx as usize],
+            )
+            .unwrap_or_default();
+        }
+    }
+
+    #[inline]
+    fn append_internal(
+        &mut self,
+        clipstack: &[AbsRect],
+        surface_dim: Vec2,
+        layer_offset: Vec2,
         pos: ultraviolet::Vec2,
         dim: ultraviolet::Vec2,
         uv: ultraviolet::Vec2,
@@ -666,8 +628,10 @@ impl Compositor {
         rotation: f32,
         tex: u16,
         raw: bool,
+        layer: bool,
     ) -> u32 {
         let raw = if raw { 0x80000000_u32 } else { 0 };
+        let layer = if layer { 0x40000000_u32 } else { 0 };
 
         let data = Data {
             pos: pos.as_array().into(),
@@ -676,16 +640,14 @@ impl Compositor {
             uvdim: uvdim.as_array().into(),
             color,
             rotation,
-            texclip: raw | (((tex & 0x7FFF) as u32) << 16),
+            texclip: raw | layer | (((tex & 0x3FFF) as u32) << 16),
             ..Default::default()
         };
 
         if let Some(d) = Self::clip_data(
             &mut self.clipdata,
-            self.clipstack
-                .last()
-                .ok_or(AbsDim(self.dim).into())
-                .copied(),
+            clipstack.last().ok_or(AbsDim(surface_dim).into()).copied(),
+            layer_offset,
             data,
         ) {
             self.preprocessed(d)
@@ -695,7 +657,7 @@ impl Compositor {
     }
 
     #[inline]
-    pub fn preprocessed(&mut self, data: Data) -> u32 {
+    fn preprocessed(&mut self, data: Data) -> u32 {
         let region = self.regions.last_mut().unwrap();
         if region.end == u32::MAX {
             panic!(
@@ -709,33 +671,28 @@ impl Compositor {
         idx
     }
 
-    pub fn defer(&mut self, f: impl FnOnce(&Driver, &mut Data) + 'static) {
-        let region = self.regions.last_mut().unwrap();
-        if region.end == u32::MAX {
-            panic!(
-                "Still processing a compute operation! Finish it by calling set_compute_buffer() first."
-            );
-        }
-
-        let idx = region.end;
-        self.data.push(Default::default());
-        self.defer.insert(
-            idx,
-            (Box::new(f), Self::get_clip(&self.dim, &self.clipstack)),
-        );
-        region.end += 1;
-    }
-
-    pub fn draw(&mut self, driver: &Driver, pass: &mut wgpu::RenderPass<'_>) {
+    pub fn draw(&mut self, target_dim: Vec2, driver: &Driver, pass: &mut wgpu::RenderPass<'_>) {
         driver.queue.write_buffer(
             &self.mvp,
             0,
-            crate::graphics::mat4_proj(0.0, self.dim.y, self.dim.x, -(self.dim.y), 0.2, 10000.0)
-                .as_byte_slice(),
+            crate::graphics::mat4_proj(
+                0.0,
+                target_dim.y,
+                target_dim.x,
+                -(target_dim.y),
+                0.2,
+                10000.0,
+            )
+            .as_byte_slice(),
         );
 
         if !self.clipdata.is_empty() {
-            self.check_clip(&driver.shared, &driver.device, &driver.atlas.read());
+            self.check_clip(
+                &driver.shared,
+                &driver.device,
+                &driver.atlas.read(),
+                &driver.layer_atlas[self.layer as usize].read(),
+            );
             driver.queue.write_buffer(
                 &self.clip,
                 0,
@@ -743,7 +700,12 @@ impl Compositor {
             );
         }
 
-        self.check_data(&driver.shared, &driver.device, &driver.atlas.read());
+        self.check_data(
+            &driver.shared,
+            &driver.device,
+            &driver.atlas.read(),
+            &driver.layer_atlas[self.layer as usize].read(),
+        );
 
         // TODO turn into write_buffer_with (is that actually going to be faster?)
         let mut offset = 0;
@@ -760,14 +722,14 @@ impl Compositor {
         }
 
         let mut last_index = 0;
-        for (i, f) in &mut self.custom {
+        for (i, f, draw_offset) in &mut self.custom {
             if last_index < *i {
                 pass.set_pipeline(&self.pipeline);
                 pass.set_bind_group(0, &self.group, &[0]);
                 pass.draw(last_index..*i, 0..1);
             }
             last_index = *i;
-            f(driver, pass);
+            f(driver, pass, *draw_offset);
         }
 
         pass.set_pipeline(&self.pipeline);
@@ -779,6 +741,155 @@ impl Compositor {
         self.clipdata.push(ZERO_RECT);
         self.regions.clear();
         self.regions.push(0..0);
+    }
+}
+
+/// A Compositor is associated with a render target, which is usually a window, but can also be an intermediate buffer, used
+/// for Layers. As a result, a compositor does not control the clipping rect stack, the window itself does. This associates
+/// a compositor with a clipstack and any other information it might need to properly append data during a render, such as
+/// the offset. Because of this auxillairy information, you cannot append directly to a compositor, only to a CompositorView.
+pub struct CompositorView<'a> {
+    pub index: u8, // While we carry mutable references of all 3 possible compositors, this tells us which we're currently using
+    pub window: &'a mut Compositor, // index 0
+    pub layer0: &'a mut Compositor, // index 1
+    pub layer1: &'a mut Compositor, // index 2
+    pub clipstack: &'a mut Vec<AbsRect>,
+    pub offset: Vec2,
+    pub surface_dim: Vec2, // Dimension of the top-level window surface.
+}
+
+impl<'a> CompositorView<'a> {
+    #[inline]
+    pub fn push_clip(&mut self, clip: AbsRect) {
+        if let Some(prev) = self.clipstack.last() {
+            self.clipstack.push(clip.intersect(*prev));
+        } else {
+            self.clipstack.push(clip);
+        }
+    }
+
+    #[inline]
+    pub fn current_clip(&self) -> AbsRect {
+        *self
+            .clipstack
+            .last()
+            .unwrap_or(&AbsDim(self.surface_dim).into())
+    }
+
+    #[inline]
+    pub fn pop_clip(&mut self) -> AbsRect {
+        self.clipstack
+            .pop()
+            .expect("Tried to pop a clipping rect but the stack was empty!")
+    }
+
+    #[inline]
+    pub fn compositor(&mut self) -> &mut Compositor {
+        match self.index {
+            0 => self.window,
+            1 => self.layer0,
+            2 => self.layer1,
+            _ => panic!("Illegal compositor index!"),
+        }
+    }
+
+    #[inline]
+    pub fn append_data(
+        &mut self,
+        pos: ultraviolet::Vec2,
+        dim: ultraviolet::Vec2,
+        uv: ultraviolet::Vec2,
+        uvdim: ultraviolet::Vec2,
+        color: u32,
+        rotation: f32,
+        tex: u16,
+        raw: bool,
+    ) -> u32 {
+        // I really wish rust had partial borrows
+        let compositor = match self.index {
+            0 => &mut self.window,
+            1 => &mut self.layer0,
+            2 => &mut self.layer1,
+            _ => panic!("Illegal compositor index!"),
+        };
+        compositor.append_internal(
+            self.clipstack,
+            self.surface_dim,
+            self.offset,
+            pos,
+            dim,
+            uv,
+            uvdim,
+            color,
+            rotation,
+            tex,
+            raw,
+            false,
+        )
+    }
+
+    #[inline]
+    pub(crate) fn append_layer(&mut self, layer: &Layer, target: &LayerTarget) -> u32 {
+        // I really wish rust had partial borrows
+        let compositor = match self.index {
+            0 => &mut self.window,
+            1 => &mut self.layer0,
+            2 => &mut self.layer1,
+            _ => panic!("Illegal compositor index!"),
+        };
+        compositor.append_internal(
+            self.clipstack,
+            self.surface_dim,
+            self.offset,
+            layer.dest.topleft(),
+            layer.dest.dim().0,
+            target.region.uv.min.to_f32().to_array().into(),
+            target.region.uv.size().to_f32().to_array().into(),
+            layer.color.rgba,
+            layer.rotation,
+            0,
+            false,
+            true,
+        )
+    }
+
+    #[inline]
+    pub fn preprocessed(&mut self, mut data: Data) -> u32 {
+        data.pos.0[0] += self.offset.x;
+        data.pos.0[1] += self.offset.y;
+        self.compositor().preprocessed(data)
+    }
+
+    #[inline]
+    pub fn defer(&mut self, f: impl FnOnce(&Driver, &mut Data) + Send + Sync + 'static) {
+        let clip = self.current_clip();
+        let offset = self.offset;
+        let compositor = self.compositor();
+        let region = compositor.regions.last_mut().unwrap();
+        if region.end == u32::MAX {
+            panic!(
+                "Still processing a compute operation! Finish it by calling set_compute_buffer() first."
+            );
+        }
+
+        let idx = region.end;
+        compositor.data.push(Default::default());
+        compositor.defer.insert(idx, (Box::new(f), clip, offset));
+        region.end += 1;
+    }
+
+    pub fn append_custom(
+        &mut self,
+        f: impl FnMut(&Driver, &mut wgpu::RenderPass<'_>, Vec2) + Send + Sync + 'static,
+    ) {
+        let index = self.compositor().regions.last().unwrap().end;
+        if index == u32::MAX {
+            panic!(
+                "Still processing a compute operation! Finish it by calling set_compute_buffer() first."
+            );
+        }
+        let offset = self.offset;
+        self.compositor().custom.push((index, Box::new(f), offset));
     }
 }
 
@@ -796,7 +907,7 @@ impl Compositor {
 // Data d[];
 
 #[repr(C)]
-#[derive(Clone, Copy, Default, PartialEq, bytemuck::NoUninit)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, bytemuck::NoUninit)]
 pub struct Data {
     pub pos: Vec2f,
     pub dim: Vec2f,

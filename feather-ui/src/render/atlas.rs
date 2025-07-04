@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use guillotiere::{AllocId, AllocatorOptions, AtlasAllocator, Size};
 use wgpu::util::DeviceExt;
@@ -20,15 +20,12 @@ pub struct Atlas {
     texture: wgpu::Texture,
     #[derive_where(skip)]
     allocators: Vec<AtlasAllocator>,
-    cache: HashMap<Rc<crate::SourceID>, Region>,
-    pub view: Rc<wgpu::TextureView>, // Stores a view into the atlas texture. Compositors take a weak reference to this that is invalidated when they need to rebind
+    cache: HashMap<Arc<crate::SourceID>, Region>,
+    pub view: Arc<wgpu::TextureView>, // Stores a view into the atlas texture. Compositors take a weak reference to this that is invalidated when they need to rebind
 }
 
 // TODO: Should be possible to define an HDR pipeline with 16-bit channels
 pub const ATLAS_FORMAT: TextureFormat = TextureFormat::Bgra8UnormSrgb;
-
-unsafe impl Send for Atlas {}
-unsafe impl Sync for Atlas {}
 
 impl Drop for Atlas {
     fn drop(&mut self) {
@@ -68,7 +65,7 @@ impl Atlas {
 
         std::mem::swap(&mut texture, &mut self.texture);
         // We swap the actual Rc object here to ensure the weak references get destroyed
-        let mut view = Rc::new(Self::create_view(&self.texture));
+        let mut view = Arc::new(Self::create_view(&self.texture));
         std::mem::swap(&mut self.view, &mut view);
 
         queue.write_buffer(
@@ -89,7 +86,7 @@ impl Atlas {
         queue.submit(Some(encoder.finish()));
         // device.poll(PollType::Wait); // shouldn't be needed as long as queues after this refer to the correct texture
         texture.destroy(); // TODO: This *should* be legal as long as we submit the queue without needing to wait
-        assert_eq!(Rc::strong_count(&view), 1); // This MUST be dropped because we rely on this to signal the compositors to rebind
+        assert_eq!(Arc::strong_count(&view), 1); // This MUST be dropped because we rely on this to signal the compositors to rebind
     }
 
     /// Create a standard projection matrix suitable for compositing for a texture.
@@ -128,7 +125,7 @@ impl Atlas {
 
         Self {
             extent,
-            view: Rc::new(Self::create_view(&texture)),
+            view: Arc::new(Self::create_view(&texture)),
             texture,
             allocators: vec![allocator],
             extent_buf,
@@ -182,14 +179,14 @@ impl Atlas {
         }
     }
 
-    pub fn get_region(&self, id: Rc<crate::SourceID>) -> Option<&Region> {
+    pub fn get_region(&self, id: Arc<crate::SourceID>) -> Option<&Region> {
         self.cache.get(&id)
     }
 
     pub fn cache_region(
         &mut self,
         device: &wgpu::Device,
-        id: Rc<crate::SourceID>,
+        id: Arc<crate::SourceID>,
         dim: Size,
     ) -> Result<&Region, Error> {
         let uv = self.cache.get(&id).map(|x| x.uv);

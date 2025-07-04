@@ -126,7 +126,7 @@ pub trait Premultiplied {
     fn linear_srgb_pre(&self) -> Raw_sRGB<true, true>;
 }
 
-#[derive(Default, Clone, Copy, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub struct XYZ {
     xyza: f32x4,
 }
@@ -175,7 +175,7 @@ const OKLAB_XYZ_M2: [f32x4; 4] = [
     f32x4::new([0.0, 0.0, 0.0, 1.0]),
 ];
 
-#[derive(Default, Clone, Copy, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub struct OkLab {
     laba: f32x4,
 }
@@ -243,7 +243,7 @@ const SRGB_XYZ: [f32x4; 4] = [
     f32x4::new([0.0, 0.0, 0.0, 1.0]),
 ];
 
-#[derive(Default, Clone, Copy, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
 #[allow(non_camel_case_types)]
 pub struct Raw_sRGB<const LINEAR: bool, const PREMULTIPLY: bool> {
     pub rgba: f32x4,
@@ -422,7 +422,7 @@ impl From<sRGB> for cosmic_text::Color {
 
 /// Represents an sRGB color (not premultiplied) as a 32-bit signed integer
 #[allow(non_camel_case_types)]
-#[derive(Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct sRGB32 {
     pub rgba: u32,
 }

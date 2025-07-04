@@ -28,19 +28,19 @@ use eyre::{OptionExt, Result};
 use smallvec::SmallVec;
 use std::any::Any;
 use std::collections::HashMap;
-use std::rc::{Rc, Weak};
+use std::sync::Arc;
 use window::WindowStateMachine;
 
 #[cfg(debug_assertions)]
 #[allow(clippy::mutable_key_type)]
-fn cycle_check(id: &Rc<SourceID>, set: &std::collections::HashSet<&Rc<SourceID>>) {
+fn cycle_check(id: &Arc<SourceID>, set: &std::collections::HashSet<&Arc<SourceID>>) {
     debug_assert!(!set.contains(id), "Cycle detected!");
 }
 
-fn set_child_parent(mut child: &Rc<SourceID>, id: Rc<SourceID>) -> Result<()> {
+fn set_child_parent(mut child: &Arc<SourceID>, id: Arc<SourceID>) -> Result<()> {
     while let Some(parent) = child.parent.get() {
         // If we're already in this child's inheritance stack, bail out
-        if Rc::ptr_eq(&id, parent) {
+        if Arc::ptr_eq(&id, parent) {
             return Ok(());
         }
         child = parent;
@@ -73,6 +73,7 @@ pub trait StateMachineWrapper: Any {
         index: u64,
         dpi: crate::Vec2,
         area: AbsRect,
+        extent: AbsRect,
         driver: &std::sync::Weak<crate::Driver>,
     ) -> Result<SmallVec<[DispatchPair; 1]>>;
     fn output_slot(&self, i: usize) -> Result<&Option<Slot>>;
@@ -81,6 +82,7 @@ pub trait StateMachineWrapper: Any {
     fn set_changed(&mut self, changed: bool);
 }
 
+// : zerocopy::Immutable
 pub trait EventStream
 where
     Self: std::marker::Sized,
@@ -94,6 +96,7 @@ where
         self,
         input: Self::Input,
         area: AbsRect,
+        extent: AbsRect,
         dpi: crate::Vec2,
         driver: &std::sync::Weak<crate::Driver>,
     ) -> Result<(Self, SmallVec<[Self::Output; 1]>), (Self, SmallVec<[Self::Output; 1]>)> {
@@ -117,6 +120,7 @@ impl<State: EventStream + PartialEq + 'static, const OUTPUT_SIZE: usize> StateMa
         _index: u64,
         dpi: crate::Vec2,
         area: AbsRect,
+        extent: AbsRect,
         driver: &std::sync::Weak<crate::Driver>,
     ) -> Result<SmallVec<[DispatchPair; 1]>> {
         if input.0 & self.input_mask == 0 {
@@ -125,6 +129,7 @@ impl<State: EventStream + PartialEq + 'static, const OUTPUT_SIZE: usize> StateMa
         let result = match self.state.take().unwrap().process(
             State::Input::restore(input).unwrap(),
             area,
+            extent,
             dpi,
             driver,
         ) {
@@ -183,7 +188,7 @@ pub trait Component: crate::StateMachineChild + DynClone {
         &self,
         state: &mut StateManager,
         driver: &graphics::Driver,
-        window: &Rc<SourceID>,
+        window: &Arc<SourceID>,
     ) -> Box<dyn Layout<Self::Props> + 'static>;
 }
 
@@ -196,7 +201,7 @@ pub trait ComponentWrap<T: ?Sized>: crate::StateMachineChild + DynClone {
         &self,
         state: &mut StateManager,
         driver: &graphics::Driver,
-        window: &Rc<SourceID>,
+        window: &Arc<SourceID>,
     ) -> Box<dyn Layout<T> + 'static>;
 }
 
@@ -211,7 +216,7 @@ where
         &self,
         state: &mut StateManager,
         driver: &graphics::Driver,
-        window: &Rc<SourceID>,
+        window: &Arc<SourceID>,
     ) -> Box<dyn Layout<U> + 'static> {
         Box::new(Component::layout(self, state, driver, window))
     }
@@ -230,14 +235,14 @@ where
 // Stores the root node for the various trees.
 
 pub struct RootState {
-    pub(crate) id: Rc<SourceID>,
+    pub(crate) id: Arc<SourceID>,
     layout_tree: Option<Box<dyn crate::layout::Layout<crate::AbsDim>>>,
     pub(crate) staging: Option<Box<dyn Staged>>,
-    rtree: Weak<rtree::Node>,
+    rtree: std::rc::Weak<rtree::Node>,
 }
 
 impl RootState {
-    fn new(id: Rc<SourceID>) -> Self {
+    fn new(id: Arc<SourceID>) -> Self {
         Self {
             id,
             layout_tree: None,
@@ -250,7 +255,7 @@ impl RootState {
 pub struct Root {
     pub(crate) states: HashMap<winit::window::WindowId, RootState>,
     // We currently rely on window-specific functions, so there's no point trying to make this more general right now.
-    pub(crate) children: im::HashMap<Rc<SourceID>, Option<Window>>,
+    pub(crate) children: im::HashMap<Arc<SourceID>, Option<Window>>,
 }
 
 impl Default for Root {
@@ -325,25 +330,13 @@ impl Root {
         Ok(())
     }
 
-    /*
-    pub fn render_all(&mut self, states: &mut StateManager) -> eyre::Result<()> {
-        self.with_window(|window, root| {
-            if let Some(staging) = root.staging.as_ref() {
-                let state: &mut WindowStateMachine = states.get(&window.id())?;
-                state.state.draw = staging.render();
-            }
-
-            Ok(())
-        })
-    }*/
-
     pub fn validate_ids(&self) -> eyre::Result<()> {
-        struct Validator(std::collections::HashSet<Rc<SourceID>>);
+        struct Validator(std::collections::HashSet<Arc<SourceID>>);
         impl Validator {
             fn f(
                 &mut self,
                 x: &dyn StateMachineChild,
-                parent: Option<&Rc<SourceID>>,
+                parent: Option<&Arc<SourceID>>,
             ) -> eyre::Result<()> {
                 let id = x.id();
                 let mut cur = Some(&id);

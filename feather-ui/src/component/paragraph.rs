@@ -10,11 +10,12 @@ use crate::{SourceID, UNSIZED_AXIS, gen_id, layout};
 use core::f32;
 use derive_where::derive_where;
 use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(feather_macro::StateMachineChild)]
 #[derive_where(Clone)]
 pub struct Paragraph<T: flex::Prop + 'static> {
-    pub id: Rc<SourceID>,
+    pub id: Arc<SourceID>,
     props: Rc<T>,
     children: im::Vector<Option<Box<ChildOf<dyn flex::Prop>>>>,
 }
@@ -58,7 +59,7 @@ impl leaf::Prop for MinimalFlexChild {}
 impl leaf::Padded for MinimalFlexChild {}
 
 impl<T: flex::Prop + 'static> Paragraph<T> {
-    pub fn new(id: Rc<SourceID>, props: T) -> Self {
+    pub fn new(id: Arc<SourceID>, props: T) -> Self {
         Self {
             id,
             props: props.into(),
@@ -115,13 +116,13 @@ impl<T: flex::Prop + 'static> super::Component for Paragraph<T> {
 
     fn layout(
         &self,
-        state: &mut crate::StateManager,
+        manager: &mut crate::StateManager,
         driver: &crate::graphics::Driver,
-        window: &Rc<SourceID>,
+        window: &Arc<SourceID>,
     ) -> Box<dyn Layout<T>> {
         let mut map = VectorMap::new(
             |child: &Option<Box<ChildOf<dyn flex::Prop>>>| -> Option<Box<dyn Layout<<dyn flex::Prop as Desc>::Child>>> {
-                Some(child.as_ref().unwrap().layout(state, driver, window))
+                Some(child.as_ref().unwrap().layout(manager, driver, window))
             },
         );
 
@@ -129,7 +130,7 @@ impl<T: flex::Prop + 'static> super::Component for Paragraph<T> {
         Box::new(layout::Node::<T, dyn flex::Prop> {
             props: self.props.clone(),
             children,
-            id: Rc::downgrade(&self.id),
+            id: Arc::downgrade(&self.id),
             renderable: None,
         })
     }

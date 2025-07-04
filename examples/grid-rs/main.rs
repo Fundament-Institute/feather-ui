@@ -18,7 +18,7 @@ use feather_ui::{
     AbsRect, App, DAbsRect, DPoint, DRect, DValue, DataID, FILL_DRECT, RelRect, Slot, SourceID,
     UNSIZED_AXIS, ZERO_POINT, gen_id,
 };
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(PartialEq, Clone, Debug)]
 struct CounterState {
@@ -101,8 +101,8 @@ impl grid::Child for GridChild {
 
 struct BasicApp {}
 
-impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp {
-    type Store = (CounterState, im::HashMap<Rc<SourceID>, Option<Window>>);
+impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
+    type Store = (CounterState, im::HashMap<Arc<SourceID>, Option<Window>>);
 
     fn init(&self) -> Self::Store {
         (CounterState { count: 99999999 }, im::HashMap::new())
@@ -111,7 +111,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
         &mut self,
         mut store: Self::Store,
         args: &CounterState,
-    ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
+    ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
         if store.0 != *args {
             let button = {
                 let text = Text::<FixedData> {

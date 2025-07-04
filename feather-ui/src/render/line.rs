@@ -3,7 +3,7 @@
 
 use crate::color::sRGB;
 
-use super::compositor::Compositor;
+use super::compositor::CompositorView;
 use ultraviolet::Vec2;
 
 pub struct Instance {
@@ -17,7 +17,7 @@ impl super::Renderable for Instance {
         &self,
         _: crate::AbsRect,
         _: &crate::graphics::Driver,
-        compositor: &mut Compositor,
+        compositor: &mut CompositorView<'_>,
     ) -> Result<(), crate::Error> {
         let p1 = self.start;
         let p2 = self.end;
