@@ -19,7 +19,7 @@ use feather_ui::{
     AbsRect, App, DRect, DValue, DataID, FILL_DRECT, RelRect, Slot, SourceID, UNSIZED_AXIS,
     ZERO_POINT, gen_id, im,
 };
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(PartialEq, Clone, Debug)]
 struct CounterState {
@@ -116,8 +116,8 @@ impl flex::Prop for MinimalFlex {
 
 struct BasicApp {}
 
-impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp {
-    type Store = (CounterState, im::HashMap<Rc<SourceID>, Option<Window>>);
+impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
+    type Store = (CounterState, im::HashMap<Arc<SourceID>, Option<Window>>);
 
     fn init(&self) -> Self::Store {
         (CounterState { count: -1 }, im::HashMap::new())
@@ -126,7 +126,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
         &mut self,
         mut store: Self::Store,
         args: &CounterState,
-    ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
+    ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
         if store.0 != *args {
             let button = {
                 let text = Text::<FixedData> {

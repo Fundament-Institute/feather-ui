@@ -11,7 +11,7 @@ use crate::propbag::PropBag;
 use crate::{DataID, FnPersist, Slot, SourceID, StateMachineChild, URect};
 use mlua::UserData;
 use mlua::prelude::*;
-use std::rc::Rc;
+use std::sync::Arc;
 use ultraviolet::Vec4;
 use wide::f32x4;
 
@@ -139,17 +139,17 @@ where
 {
     fn layout(
         &self,
-        state: &mut crate::StateManager,
+        manager: &mut crate::StateManager,
         driver: &crate::graphics::Driver,
-        window: &Rc<SourceID>,
+        window: &Arc<SourceID>,
     ) -> Box<dyn crate::layout::Layout<U> + 'static> {
         use std::ops::Deref;
-        Box::new(Box::deref(self).layout(state, driver, window))
+        Box::new(Box::deref(self).layout(manager, driver, window))
     }
 }
 
 impl StateMachineChild for ComponentBag {
-    fn id(&self) -> Rc<SourceID> {
+    fn id(&self) -> Arc<SourceID> {
         use std::ops::Deref;
         Box::deref(self).id()
     }
@@ -294,7 +294,7 @@ fn create_button(
         Option<ComponentBag>,
     ),
 ) -> mlua::Result<ComponentBag> {
-    let id = Rc::new(args.0);
+    let id = Arc::new(args.0);
 
     let rect = Shape::<crate::DRect, { ShapeKind::RoundRect as u8 }>::new(
         SourceID {
@@ -395,7 +395,7 @@ pub struct LuaApp {
     pub init: LuaFunction,
 }
 
-impl FnPersist<AppState, im::HashMap<Rc<SourceID>, Option<Window>>> for LuaApp {
+impl FnPersist<AppState, im::HashMap<Arc<SourceID>, Option<Window>>> for LuaApp {
     type Store = LuaValue;
 
     fn init(&self) -> Self::Store {
@@ -410,7 +410,7 @@ impl FnPersist<AppState, im::HashMap<Rc<SourceID>, Option<Window>>> for LuaApp {
         &mut self,
         store: Self::Store,
         args: &AppState,
-    ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
+    ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
         let mut h = im::HashMap::new();
         let (store, w) = self
             .window

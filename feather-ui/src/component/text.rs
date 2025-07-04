@@ -10,6 +10,7 @@ use cosmic_text::Metrics;
 use derive_where::derive_where;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct TextState(Rc<RefCell<cosmic_text::Buffer>>);
@@ -27,7 +28,7 @@ impl PartialEq for TextState {
 
 #[derive_where(Clone)]
 pub struct Text<T: leaf::Padded + 'static> {
-    pub id: Rc<SourceID>,
+    pub id: Arc<SourceID>,
     pub props: Rc<T>,
     pub font_size: f32,
     pub line_height: f32,
@@ -41,7 +42,7 @@ pub struct Text<T: leaf::Padded + 'static> {
 
 impl<T: leaf::Padded + 'static> Text<T> {
     pub fn new(
-        id: Rc<SourceID>,
+        id: Arc<SourceID>,
         props: Rc<T>,
         font_size: f32,
         line_height: f32,
@@ -68,7 +69,7 @@ impl<T: leaf::Padded + 'static> Text<T> {
 }
 
 impl<T: leaf::Padded + 'static> crate::StateMachineChild for Text<T> {
-    fn id(&self) -> Rc<SourceID> {
+    fn id(&self) -> Arc<SourceID> {
         self.id.clone()
     }
 
@@ -116,11 +117,11 @@ where
 
     fn layout(
         &self,
-        state: &mut crate::StateManager,
+        manager: &mut crate::StateManager,
         driver: &graphics::Driver,
-        window: &Rc<SourceID>,
+        window: &Arc<SourceID>,
     ) -> Box<dyn Layout<T>> {
-        let winstate: &WindowStateMachine = state.get(window).unwrap();
+        let winstate: &WindowStateMachine = manager.get(window).unwrap();
         let winstate = winstate.state.as_ref().expect("No window state available");
         let dpi = winstate.dpi;
         let mut font_system = driver.font_system.write();
@@ -130,7 +131,7 @@ where
             point_to_pixel(self.line_height, dpi.y),
         );
 
-        let textstate: &StateMachine<TextState, 0> = state.get(&self.id).unwrap();
+        let textstate: &StateMachine<TextState, 0> = manager.get(&self.id).unwrap();
         let textstate = textstate.state.as_ref().expect("No text state available");
         textstate
             .0
@@ -158,7 +159,7 @@ where
 
         Box::new(layout::text::Node::<T> {
             props: self.props.clone(),
-            id: Rc::downgrade(&self.id),
+            id: Arc::downgrade(&self.id),
             buffer: textstate.0.clone(),
             renderable: render.clone(),
         })

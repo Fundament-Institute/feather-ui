@@ -48,7 +48,7 @@ impl Instance {
             uv: [0.0, 0.0].into(),
             uvdim: [0.0, 0.0].into(),
             color: color.as_32bit().rgba,
-            texclip: 0x8000000 | 0x7FFF0000,
+            texclip: 0x8000000 | 0x3FFF0000,
             ..Default::default()
         }
     }
@@ -59,7 +59,7 @@ impl crate::render::Renderable for Instance {
         &self,
         area: crate::AbsRect,
         driver: &crate::graphics::Driver,
-        compositor: &mut compositor::Compositor,
+        compositor: &mut compositor::CompositorView<'_>,
     ) -> Result<(), Error> {
         let buffer = self.text_buffer.borrow();
         // Padding works differently in a textbox than in a static text field, because a textbox

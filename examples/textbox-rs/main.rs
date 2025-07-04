@@ -13,7 +13,7 @@ use feather_ui::component::window::Window;
 use feather_ui::layout::base;
 use feather_ui::persist::FnPersist;
 use feather_ui::{AbsRect, App, DRect, FILL_DRECT, RelRect, SourceID, cosmic_text};
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(PartialEq, Clone, Debug, Default)]
 struct TextState {
@@ -54,8 +54,8 @@ impl leaf::Prop for MinimalText {}
 impl fixed::Child for MinimalText {}
 impl textbox::Prop for MinimalText {}
 
-impl FnPersist<TextState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp {
-    type Store = (TextState, im::HashMap<Rc<SourceID>, Option<Window>>);
+impl FnPersist<TextState, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
+    type Store = (TextState, im::HashMap<Arc<SourceID>, Option<Window>>);
 
     fn init(&self) -> Self::Store {
         (
@@ -69,7 +69,7 @@ impl FnPersist<TextState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicAp
         &mut self,
         mut store: Self::Store,
         args: &TextState,
-    ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
+    ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
         if store.0 != *args {
             let textbox = TextBox::new(
                 gen_id!(),

@@ -6,20 +6,21 @@ use crate::persist::{FnPersist, VectorMap};
 use crate::{SourceID, layout};
 use derive_where::derive_where;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use super::ChildOf;
 
 #[derive(feather_macro::StateMachineChild)]
 #[derive_where(Clone)]
 pub struct ListBox<T: list::Prop + 'static> {
-    pub id: Rc<SourceID>,
+    pub id: Arc<SourceID>,
     props: Rc<T>,
     children: im::Vector<Option<Box<ChildOf<dyn list::Prop>>>>,
 }
 
 impl<T: list::Prop + 'static> ListBox<T> {
     pub fn new(
-        id: Rc<SourceID>,
+        id: Arc<SourceID>,
         props: Rc<T>,
         children: im::Vector<Option<Box<ChildOf<dyn list::Prop>>>>,
     ) -> Self {
@@ -36,13 +37,13 @@ impl<T: list::Prop + 'static> super::Component for ListBox<T> {
 
     fn layout(
         &self,
-        state: &mut crate::StateManager,
+        manager: &mut crate::StateManager,
         driver: &crate::graphics::Driver,
-        window: &Rc<SourceID>,
+        window: &Arc<SourceID>,
     ) -> Box<dyn Layout<T>> {
         let mut map = VectorMap::new(
             |child: &Option<Box<ChildOf<dyn list::Prop>>>| -> Option<Box<dyn Layout<<dyn list::Prop as Desc>::Child>>> {
-                Some(child.as_ref().unwrap().layout(state, driver,window))
+                Some(child.as_ref().unwrap().layout(manager, driver,window))
             },
         );
 
@@ -50,7 +51,7 @@ impl<T: list::Prop + 'static> super::Component for ListBox<T> {
         Box::new(layout::Node::<T, dyn list::Prop> {
             props: self.props.clone(),
             children,
-            id: Rc::downgrade(&self.id),
+            id: Arc::downgrade(&self.id),
             renderable: None,
         })
     }

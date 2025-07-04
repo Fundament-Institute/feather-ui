@@ -380,7 +380,7 @@ pub fn state_machine_child(input: TokenStream) -> TokenStream {
     let sname = ast.ident;
     quote! {
         impl<#generics> #crate_name::StateMachineChild for #sname<#genparams> {
-            fn id(&self) -> Rc<SourceID> {
+            fn id(&self) -> std::sync::Arc<SourceID> {
                 self.id.clone()
             }
 

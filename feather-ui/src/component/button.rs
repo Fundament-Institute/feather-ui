@@ -9,11 +9,12 @@ use crate::persist::{FnPersist, VectorMap};
 use crate::{Component, DRect, Slot, SourceID, layout};
 use derive_where::derive_where;
 use std::rc::Rc;
+use std::sync::Arc;
 
 // A button component that contains a mousearea alongside it's children
 #[derive_where(Clone)]
 pub struct Button<T: fixed::Prop + 'static> {
-    pub id: Rc<SourceID>,
+    pub id: Arc<SourceID>,
     props: Rc<T>,
     marea: MouseArea<DRect>,
     children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>>,
@@ -21,7 +22,7 @@ pub struct Button<T: fixed::Prop + 'static> {
 
 impl<T: fixed::Prop + 'static> Button<T> {
     pub fn new(
-        id: Rc<SourceID>,
+        id: Arc<SourceID>,
         props: T,
         onclick: Slot,
         children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>>,
@@ -45,7 +46,7 @@ impl<T: fixed::Prop + 'static> Button<T> {
 }
 
 impl<T: fixed::Prop + 'static> crate::StateMachineChild for Button<T> {
-    fn id(&self) -> Rc<SourceID> {
+    fn id(&self) -> Arc<SourceID> {
         self.id.clone()
     }
 
@@ -68,23 +69,23 @@ where
 
     fn layout(
         &self,
-        state: &mut crate::StateManager,
+        manager: &mut crate::StateManager,
         driver: &crate::graphics::Driver,
-        window: &Rc<SourceID>,
+        window: &Arc<SourceID>,
     ) -> Box<dyn Layout<T>> {
         let mut map = VectorMap::new(
             |child: &Option<Box<ChildOf<dyn fixed::Prop>>>| -> Option<Box<dyn Layout<<dyn fixed::Prop as Desc>::Child>>> {
-                Some(child.as_ref().unwrap().layout(state, driver, window))
+                Some(child.as_ref().unwrap().layout(manager, driver, window))
             },
         );
 
         let (_, mut children) = map.call(Default::default(), &self.children);
-        children.push_back(Some(Box::new(self.marea.layout(state, driver, window))));
+        children.push_back(Some(Box::new(self.marea.layout(manager, driver, window))));
 
         Box::new(layout::Node::<T, dyn fixed::Prop> {
             props: self.props.clone(),
             children,
-            id: Rc::downgrade(&self.id),
+            id: Arc::downgrade(&self.id),
             renderable: None,
         })
     }

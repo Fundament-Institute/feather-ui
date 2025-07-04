@@ -16,10 +16,11 @@ use ultraviolet::Vec2;
 use wide::f32x4;
 
 use crate::render::Renderable;
-use crate::render::compositor::Compositor;
+use crate::render::compositor::CompositorView;
 use crate::{AbsDim, AbsLimits, AbsRect, Error, RelLimits, SourceID, UNSIZED_AXIS, URect, rtree};
 use derive_where::derive_where;
 use std::rc::{Rc, Weak};
+use std::sync::Arc;
 
 pub trait Layout<Props: ?Sized>: DynClone {
     fn get_props(&self) -> &Props;
@@ -82,7 +83,7 @@ pub trait Desc {
         outer_area: AbsRect,
         limits: AbsLimits,
         children: &Self::Children,
-        id: std::rc::Weak<SourceID>,
+        id: std::sync::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
         window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a>;
@@ -91,7 +92,7 @@ pub trait Desc {
 #[derive_where(Clone)]
 pub struct Node<T, D: Desc + ?Sized> {
     pub props: Rc<T>,
-    pub id: std::rc::Weak<SourceID>,
+    pub id: std::sync::Weak<SourceID>,
     pub children: D::Children,
     pub renderable: Option<Rc<dyn Renderable>>,
 }
@@ -126,7 +127,8 @@ pub trait Staged: DynClone {
         &self,
         parent_pos: Vec2,
         driver: &crate::graphics::Driver,
-        compositor: &mut Compositor,
+        compositor: &mut CompositorView<'_>,
+        dependents: &mut Vec<std::sync::Weak<SourceID>>,
     ) -> Result<(), Error>;
     fn get_rtree(&self) -> Weak<rtree::Node>;
     fn get_area(&self) -> AbsRect;
@@ -140,6 +142,7 @@ pub(crate) struct Concrete {
     area: AbsRect,
     rtree: Rc<rtree::Node>,
     children: im::Vector<Option<Box<dyn Staged>>>,
+    layer: Option<Arc<SourceID>>,
 }
 
 impl Concrete {
@@ -148,6 +151,7 @@ impl Concrete {
         area: AbsRect,
         rtree: Rc<rtree::Node>,
         children: im::Vector<Option<Box<dyn Staged>>>,
+        layer: Option<Arc<SourceID>>,
     ) -> Self {
         let (unsized_x, unsized_y) = check_unsized_abs(area.bottomright());
         assert!(
@@ -159,7 +163,39 @@ impl Concrete {
             area,
             rtree,
             children,
+            layer,
         }
+    }
+
+    fn render_self(
+        &self,
+        parent_pos: Vec2,
+        driver: &crate::graphics::Driver,
+        compositor: &mut CompositorView<'_>,
+    ) -> Result<(), Error> {
+        if let Some(r) = &self.renderable {
+            r.render(self.area + parent_pos, driver, compositor)?;
+        }
+        Ok(())
+    }
+
+    fn render_children(
+        &self,
+        parent_pos: Vec2,
+        driver: &crate::graphics::Driver,
+        compositor: &mut CompositorView<'_>,
+        dependents: &mut Vec<std::sync::Weak<SourceID>>,
+    ) -> Result<(), Error> {
+        for child in (&self.children).into_iter().flatten() {
+            // TODO: If we assign z-indexes to children, ones with negative z-indexes should be rendered before the parent
+            child.render(
+                parent_pos + self.area.topleft(),
+                driver,
+                compositor,
+                dependents,
+            )?;
+        }
+        Ok(())
     }
 }
 
@@ -168,17 +204,69 @@ impl Staged for Concrete {
         &self,
         parent_pos: Vec2,
         driver: &crate::graphics::Driver,
-        compositor: &mut Compositor,
+        compositor: &mut CompositorView<'_>,
+        dependents: &mut Vec<std::sync::Weak<SourceID>>,
     ) -> Result<(), Error> {
-        if let Some(r) = &self.renderable {
-            r.render(self.area + parent_pos, driver, compositor)?;
-        }
+        if let Some(id) = &self.layer {
+            let layers = driver.shared.access_layers();
+            let layer = layers.get(id).expect("Missing layer in render call!");
+            let mut deps = Vec::new();
 
-        // TODO: We may need an intermediate immutable data structure of some kind to manage the contiguous
-        // vector of data in each pipeline, which cannot itself be persistent.
-        for child in (&self.children).into_iter().flatten() {
-            child.render(parent_pos + self.area.topleft(), driver, compositor)?;
-        }
+            let (mut view, depview) = if layer.target.is_some() {
+                // If this is a "real" layer with a texture target, mark it as a dependency of our parent
+                dependents.push(Arc::downgrade(id));
+
+                (
+                    CompositorView {
+                        index: match compositor.index {
+                            0 => 1,
+                            1 => 2,
+                            2 => 1,
+                            _ => panic!("Invalid index!"),
+                        },
+                        window: compositor.window,
+                        layer0: compositor.layer0,
+                        layer1: compositor.layer1,
+                        clipstack: compositor.clipstack,
+                        offset: layer.area.topleft(),
+                        surface_dim: compositor.surface_dim,
+                    },
+                    &mut deps, // And return a reference to a new dependency vector
+                )
+            } else {
+                // Otherwise, we don't create a new compositor, instead copying our previous one, and passing in
+                // the parent's dependency tracker.
+                (
+                    CompositorView {
+                        index: compositor.index,
+                        window: compositor.window,
+                        layer0: compositor.layer0,
+                        layer1: compositor.layer1,
+                        clipstack: compositor.clipstack,
+                        offset: compositor.offset,
+                        surface_dim: compositor.surface_dim,
+                    },
+                    dependents,
+                )
+            };
+
+            // Always push a new clipping area
+            view.push_clip(layer.area);
+
+            self.render_self(parent_pos, driver, &mut view)?;
+            self.render_children(parent_pos, driver, &mut view, depview)?;
+
+            view.pop_clip();
+            if let Some(target) = layer.target.as_ref() {
+                // If this was a real layer, now we need to actually assign the result of our dependencies, and
+                // append ourselves to the parent layer. We must be very careful not to use the wrong view here.
+                *target.dependents.write() = deps;
+                compositor.append_layer(layer, target);
+            }
+        } else {
+            self.render_self(parent_pos, driver, compositor)?;
+            self.render_children(parent_pos, driver, compositor, dependents)?;
+        };
 
         Ok(())
     }

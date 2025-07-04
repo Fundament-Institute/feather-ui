@@ -18,6 +18,7 @@ use feather_ui::{
     ZERO_RELRECT, gen_id, im, winit,
 };
 use std::rc::Rc;
+use std::sync::Arc;
 use std::sync::RwLock;
 
 #[derive(PartialEq, Clone, Debug)]
@@ -42,8 +43,8 @@ impl leaf::Padded for FixedData {}
 
 struct BasicApp {}
 
-impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp {
-    type Store = (CounterState, im::HashMap<Rc<SourceID>, Option<Window>>);
+impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
+    type Store = (CounterState, im::HashMap<Arc<SourceID>, Option<Window>>);
 
     fn init(&self) -> Self::Store {
         (CounterState { count: -1 }, im::HashMap::new())
@@ -52,7 +53,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
         &mut self,
         mut store: Self::Store,
         args: &CounterState,
-    ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
+    ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
         if store.0 != *args {
             let button = {
                 let text = Text::<FixedData> {

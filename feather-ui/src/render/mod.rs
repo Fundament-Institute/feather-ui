@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use crate::render::compositor::Compositor;
+use crate::render::compositor::CompositorView;
 use crate::{AbsRect, graphics};
 use std::any::Any;
 use std::rc::Rc;
@@ -19,7 +19,7 @@ pub trait Renderable {
         &self,
         area: AbsRect,
         driver: &crate::graphics::Driver,
-        compositor: &mut Compositor,
+        compositor: &mut CompositorView<'_>,
     ) -> Result<(), crate::Error>;
 }
 
@@ -74,7 +74,7 @@ impl<const N: usize> Renderable for Chain<N> {
         &self,
         area: crate::AbsRect,
         driver: &crate::graphics::Driver,
-        compositor: &mut Compositor,
+        compositor: &mut CompositorView<'_>,
     ) -> Result<(), crate::Error> {
         for x in &self.0 {
             x.render(area, driver, compositor)?;

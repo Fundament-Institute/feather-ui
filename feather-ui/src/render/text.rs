@@ -12,7 +12,7 @@ use wgpu::{Extent3d, Origin3d, TexelCopyBufferLayout, TexelCopyTextureInfo};
 use crate::color::{Premultiplied, sRGB32};
 use crate::graphics::{GlyphCache, GlyphRegion};
 use crate::render::atlas::Atlas;
-use crate::render::compositor::Compositor;
+use crate::render::compositor::CompositorView;
 use crate::{AbsRect, Error};
 
 use swash::scale::{Render, ScaleContext, Source, StrikeWith};
@@ -261,7 +261,7 @@ impl Instance {
         scale: f32,
         mut bounds: AbsRect,
         color: cosmic_text::Color,
-        compositor: &mut super::compositor::Compositor,
+        compositor: &mut super::compositor::CompositorView<'_>,
         font_system: &mut FontSystem,
         glyphs: &mut GlyphCache,
         device: &wgpu::Device,
@@ -335,7 +335,7 @@ impl super::Renderable for Instance {
         &self,
         area: AbsRect,
         driver: &crate::graphics::Driver,
-        compositor: &mut Compositor,
+        compositor: &mut CompositorView<'_>,
     ) -> Result<(), Error> {
         let padding = self.padding.get();
 
