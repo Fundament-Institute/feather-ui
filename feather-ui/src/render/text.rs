@@ -12,7 +12,7 @@ use wgpu::{Extent3d, Origin3d, TexelCopyBufferLayout, TexelCopyTextureInfo};
 use crate::color::{Premultiplied, sRGB32};
 use crate::graphics::{GlyphCache, GlyphRegion};
 use crate::render::atlas::Atlas;
-use crate::render::compositor::CompositorView;
+use crate::render::compositor::{CompositorView, DataFlags};
 use crate::{AbsRect, Error};
 
 use swash::scale::{Render, ScaleContext, Source, StrikeWith};
@@ -250,7 +250,7 @@ impl Instance {
             uvdim: [width as f32, height as f32].into(),
             color: color.0,
             rotation: 0.0,
-            texclip: ((glyph.region.index as u32) << 16),
+            flags: DataFlags::new().with_tex(glyph.region.index).into(),
             ..Default::default()
         }))
     }

@@ -249,6 +249,7 @@ impl Staged for Concrete {
 
                 // Make sure we aren't cached in the opposite atlas
                 driver.layer_atlas[index % 2].write().remove_cache(&id);
+                assert!(compositor.pass < 0b111111);
 
                 (
                     CompositorView {
@@ -260,6 +261,7 @@ impl Staged for Concrete {
                         offset: Vec2::from(region.uv.min.to_f32().to_array())
                             - layer.area.topleft(),
                         surface_dim: compositor.surface_dim,
+                        pass: compositor.pass + 1,
                     },
                     &mut deps, // And return a reference to a new dependency vector
                 )
@@ -275,6 +277,7 @@ impl Staged for Concrete {
                         clipstack: compositor.clipstack,
                         offset: compositor.offset,
                         surface_dim: compositor.surface_dim,
+                        pass: compositor.pass,
                     },
                     dependents,
                 )

@@ -9,6 +9,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::Error;
 use crate::color::sRGB;
+use crate::render::compositor::DataFlags;
 use crate::render::{compositor, text};
 
 pub struct Instance {
@@ -48,7 +49,7 @@ impl Instance {
             uv: [0.0, 0.0].into(),
             uvdim: [0.0, 0.0].into(),
             color: color.as_32bit().rgba,
-            texclip: 0x8000000 | 0x3FFF0000,
+            flags: DataFlags::new().with_tex(u8::MAX).with_raw(true).into(),
             ..Default::default()
         }
     }

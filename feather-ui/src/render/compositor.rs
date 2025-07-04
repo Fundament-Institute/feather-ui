@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use std::num::NonZero;
 use std::sync::Arc;
 use ultraviolet::Vec2;
+use wgpu::util::DeviceExt;
 use wgpu::wgt::SamplerDescriptor;
 use wgpu::{
     BindGroupEntry, BindGroupLayoutEntry, Buffer, BufferDescriptor, BufferUsages, TextureView,
@@ -99,6 +100,16 @@ impl Shared {
                         multisampled: false,
                         view_dimension: wgpu::TextureViewDimension::D2Array,
                         sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 6,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: NonZero::new(size_of::<u32>() as u64),
                     },
                     count: None,
                 },
@@ -272,23 +283,41 @@ pub struct Compositor {
     mvp: Buffer,
     buffer: Buffer,
     clip: Buffer,
+    passindex: Buffer,
     clipdata: Vec<AbsRect>,             // Clipping Rectangles
     data: Vec<Data>,                    // CPU-side buffer of all the data
     regions: Vec<std::ops::Range<u32>>, // Target copy ranges for where to map data to the GPU buffer. Assumes contiguous data vector.
     #[derive_where(skip)]
-    defer: HashMap<u32, (Box<DeferFn>, AbsRect, Vec2)>,
+    defer: HashMap<u32, (Box<DeferFn>, AbsRect, Vec2, u8)>,
     view: std::sync::Weak<TextureView>,
     layer_view: std::sync::Weak<TextureView>,
     #[derive_where(skip)]
-    custom: Vec<(u32, Box<CustomDrawFn>, Vec2)>,
+    custom: Vec<(u32, Box<CustomDrawFn>, Vec2, u8)>,
     layer: bool, // Tells us which layer atlas to use (the first or second)
+    max_depth: u8,
+}
+
+#[derive_where(Debug)]
+pub struct Segment {
+    buffer: Buffer,
+    data: Vec<Data>,
+    regions: Vec<std::ops::Range<u32>>,
+    #[derive_where(skip)]
+    defer: HashMap<u32, (Box<DeferFn>, AbsRect, Vec2)>,
+    #[derive_where(skip)]
+    custom: Vec<(u32, Box<CustomDrawFn>, Vec2, u8)>,
 }
 
 impl Compositor {
+    pub fn max_depth(&self) -> u8 {
+        self.max_depth
+    }
+
     fn gen_binding(
         mvp: &Buffer,
         buffer: &Buffer,
         clip: &Buffer,
+        passindex: &Buffer,
         shared: &Shared,
         device: &wgpu::Device,
         atlasview: &TextureView,
@@ -319,6 +348,10 @@ impl Compositor {
             BindGroupEntry {
                 binding: 5,
                 resource: wgpu::BindingResource::TextureView(layerview),
+            },
+            BindGroupEntry {
+                binding: 6,
+                resource: passindex.as_entire_binding(),
             },
         ];
 
@@ -361,10 +394,18 @@ impl Compositor {
             mapped_at_creation: false,
         });
 
+        let pass = 0_u32;
+        let passindex = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Pass Index"),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            contents: bytemuck::cast_slice(&[pass]),
+        });
+
         let group = Self::gen_binding(
             &mvp,
             &buffer,
             &clip,
+            &passindex,
             shared,
             device,
             atlasview,
@@ -387,6 +428,8 @@ impl Compositor {
             layer_view: Arc::downgrade(layerview),
             custom: Vec::new(),
             layer,
+            passindex,
+            max_depth: 0,
         }
     }
 
@@ -404,6 +447,7 @@ impl Compositor {
             &self.mvp,
             &self.buffer,
             &self.clip,
+            &self.passindex,
             shared,
             device,
             &atlas.view,
@@ -452,7 +496,7 @@ impl Compositor {
         }
     }
 
-    pub fn append_clipdata(&mut self, clip: AbsRect) -> u16 {
+    fn append_clipdata(&mut self, clip: AbsRect) -> u16 {
         let n = self.clipdata.len();
         self.clipdata.push(clip);
         n as u16
@@ -563,7 +607,7 @@ impl Compositor {
                         uvdim: [uw, vh].into(),
                         color: data.color,
                         rotation: data.rotation,
-                        texclip: data.texclip,
+                        flags: data.flags,
                         _padding: data._padding,
                     })
                 } else {
@@ -578,7 +622,9 @@ impl Compositor {
                     };
 
                     debug_assert!(idx < 0xFFFF);
-                    data.texclip = (data.texclip & 0xFFFF0000) | idx as u32;
+                    data.flags = DataFlags::from_bits(data.flags)
+                        .with_clip(idx as u16)
+                        .into();
                     data.pos.0[0] += offset.x;
                     data.pos.0[1] += offset.y;
                     Some(data)
@@ -620,8 +666,11 @@ impl Compositor {
         let dim = Vec2::new(config.width as f32, config.height as f32);
 
         // Resolve all defers
-        for (idx, (f, clip, offset)) in self.defer.drain() {
+        for (idx, (f, clip, offset, pass)) in self.defer.drain() {
             f(driver, &mut self.data[idx as usize]);
+            self.data[idx as usize].flags = DataFlags::from_bits(self.data[idx as usize].flags)
+                .with_pass(pass)
+                .into();
             self.data[idx as usize] = Self::clip_data(
                 &mut self.clipdata,
                 Self::scissor_check(&dim, clip),
@@ -644,13 +693,11 @@ impl Compositor {
         uvdim: ultraviolet::Vec2,
         color: u32,
         rotation: f32,
-        tex: u16,
+        tex: u8,
+        pass: u8,
         raw: bool,
         layer: bool,
     ) -> u32 {
-        let raw = if raw { 0x80000000_u32 } else { 0 };
-        let layer = if layer { 0x40000000_u32 } else { 0 };
-
         let data = Data {
             pos: pos.as_array().into(),
             dim: dim.as_array().into(),
@@ -658,7 +705,12 @@ impl Compositor {
             uvdim: uvdim.as_array().into(),
             color,
             rotation,
-            texclip: raw | layer | (((tex & 0x3FFF) as u32) << 16),
+            flags: DataFlags::new()
+                .with_tex(tex)
+                .with_raw(raw)
+                .with_layer(layer)
+                .with_pass(pass)
+                .into(),
             ..Default::default()
         };
 
@@ -689,7 +741,7 @@ impl Compositor {
         idx
     }
 
-    pub fn draw(&mut self, target_dim: Vec2, driver: &Driver, pass: &mut wgpu::RenderPass<'_>) {
+    pub fn predraw(&mut self, target_dim: Vec2, driver: &Driver) {
         driver.queue.write_buffer(
             &self.mvp,
             0,
@@ -738,22 +790,32 @@ impl Compositor {
             );
             offset += len;
         }
+    }
+
+    pub fn draw(&mut self, driver: &Driver, pass: &mut wgpu::RenderPass<'_>, index: u32) {
+        driver
+            .queue
+            .write_buffer(&self.passindex, 0, bytemuck::cast_slice(&[index]));
 
         let mut last_index = 0;
-        for (i, f, draw_offset) in &mut self.custom {
-            if last_index < *i {
-                pass.set_pipeline(&self.pipeline);
-                pass.set_bind_group(0, &self.group, &[0]);
-                pass.draw(last_index..*i, 0..1);
+        for (i, f, draw_offset, pass_index) in &mut self.custom {
+            if *pass_index as u32 == index {
+                if last_index < *i {
+                    pass.set_pipeline(&self.pipeline);
+                    pass.set_bind_group(0, &self.group, &[0]);
+                    pass.draw(last_index..*i, 0..1);
+                }
+                last_index = *i;
+                f(driver, pass, *draw_offset);
             }
-            last_index = *i;
-            f(driver, pass, *draw_offset);
         }
 
         pass.set_pipeline(&self.pipeline);
         pass.set_bind_group(0, &self.group, &[0]);
         pass.draw(last_index..(self.regions.last().unwrap().end * 6), 0..1);
+    }
 
+    pub fn postdraw(&mut self) {
         self.data.clear();
         self.clipdata.clear();
         self.clipdata.push(ZERO_RECT);
@@ -774,6 +836,7 @@ pub struct CompositorView<'a> {
     pub clipstack: &'a mut Vec<AbsRect>,
     pub offset: Vec2,
     pub surface_dim: Vec2, // Dimension of the top-level window surface.
+    pub pass: u8,
 }
 
 impl<'a> CompositorView<'a> {
@@ -820,7 +883,7 @@ impl<'a> CompositorView<'a> {
         uvdim: ultraviolet::Vec2,
         color: u32,
         rotation: f32,
-        tex: u16,
+        tex: u8,
         raw: bool,
     ) -> u32 {
         // I really wish rust had partial borrows
@@ -841,6 +904,7 @@ impl<'a> CompositorView<'a> {
             color,
             rotation,
             tex,
+            self.pass,
             raw,
             false,
         )
@@ -866,6 +930,7 @@ impl<'a> CompositorView<'a> {
             layer.color.rgba,
             layer.rotation,
             0,
+            self.pass,
             false,
             true,
         )
@@ -875,6 +940,7 @@ impl<'a> CompositorView<'a> {
     pub fn preprocessed(&mut self, mut data: Data) -> u32 {
         data.pos.0[0] += self.offset.x;
         data.pos.0[1] += self.offset.y;
+        data.flags = DataFlags::from_bits(data.flags).with_pass(self.pass).into();
         self.compositor().preprocessed(data)
     }
 
@@ -882,6 +948,7 @@ impl<'a> CompositorView<'a> {
     pub fn defer(&mut self, f: impl FnOnce(&Driver, &mut Data) + Send + Sync + 'static) {
         let clip = self.current_clip();
         let offset = self.offset;
+        let pass = self.pass;
         let compositor = self.compositor();
         let region = compositor.regions.last_mut().unwrap();
         if region.end == u32::MAX {
@@ -892,7 +959,9 @@ impl<'a> CompositorView<'a> {
 
         let idx = region.end;
         compositor.data.push(Default::default());
-        compositor.defer.insert(idx, (Box::new(f), clip, offset));
+        compositor
+            .defer
+            .insert(idx, (Box::new(f), clip, offset, pass));
         region.end += 1;
     }
 
@@ -907,8 +976,23 @@ impl<'a> CompositorView<'a> {
             );
         }
         let offset = self.offset;
-        self.compositor().custom.push((index, Box::new(f), offset));
+        let pass = self.pass;
+        self.compositor()
+            .custom
+            .push((index, Box::new(f), offset, pass));
     }
+}
+
+#[bitfield_struct::bitfield(u32)]
+pub struct DataFlags {
+    #[bits(16)]
+    pub clip: u16,
+    #[bits(8)]
+    pub tex: u8,
+    #[bits(6)]
+    pub pass: u8,
+    pub layer: bool,
+    pub raw: bool,
 }
 
 // Renderdoc Format:
@@ -933,7 +1017,7 @@ pub struct Data {
     pub uvdim: Vec2f,
     pub color: u32, // Encoded as a non-linear, non-premultiplied sRGB32 color
     pub rotation: f32,
-    pub texclip: u32,
+    pub flags: u32,
     pub _padding: [u8; 4], // We have to manually specify this to satisfy bytemuck
 }
 

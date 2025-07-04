@@ -85,7 +85,7 @@ impl Atlas {
         queue.write_buffer(&self.extent_buf, 0, &self.extent.to_ne_bytes());
         queue.submit(Some(encoder.finish()));
         // device.poll(PollType::Wait); // shouldn't be needed as long as queues after this refer to the correct texture
-        texture.destroy(); // TODO: This *should* be legal as long as we submit the queue without needing to wait
+        texture.destroy();
         assert_eq!(Arc::strong_count(&view), 1); // This MUST be dropped because we rely on this to signal the compositors to rebind
     }
 
@@ -150,6 +150,7 @@ impl Atlas {
     }
 
     fn create_texture(device: &wgpu::Device, extent: u32, count: u32) -> wgpu::Texture {
+        assert!(count < u8::MAX.into());
         device.create_texture(&TextureDescriptor {
             label: Some("Feather Atlas"),
             size: Extent3d {
@@ -170,12 +171,13 @@ impl Atlas {
     }
 
     fn create_region(&self, idx: usize, r: guillotiere::Allocation, dim: Size) -> Region {
+        assert!(idx < u8::MAX.into());
         let mut uv = r.rectangle;
         uv.set_size(dim);
         Region {
             id: r.id,
             uv,
-            index: idx as u16,
+            index: idx as u8,
         }
     }
 
@@ -311,7 +313,7 @@ impl Atlas {
             );
 
             for (_, pipeline) in driver.pipelines.write().iter_mut() {
-                pipeline.draw(driver, &mut pass, i as u16);
+                pipeline.draw(driver, &mut pass, i as u8);
             }
         }
     }
@@ -323,7 +325,7 @@ impl Atlas {
 pub struct Region {
     pub id: AllocId,
     pub uv: guillotiere::Rectangle,
-    pub index: u16,
+    pub index: u8,
 }
 
 impl Drop for Region {
