@@ -255,19 +255,19 @@ impl<const LINEAR: bool, const PREMULTIPLY: bool> Raw_sRGB<LINEAR, PREMULTIPLY> 
     // Conveniently, white and black are the same in EVERY sRGB variant.
 
     /// Returns transparent black (all zeroes)
-    pub fn transparent() -> Self {
+    pub const fn transparent() -> Self {
         Self { rgba: f32x4::ZERO }
     }
 
     /// Returns opaque black
-    pub fn black() -> Self {
+    pub const fn black() -> Self {
         Self {
             rgba: f32x4::new([0.0, 0.0, 0.0, 1.0]),
         }
     }
 
     /// Returns pure white (all ones)
-    pub fn white() -> Self {
+    pub const fn white() -> Self {
         Self { rgba: f32x4::ONE }
     }
 }
@@ -428,44 +428,50 @@ pub struct sRGB32 {
 }
 
 impl sRGB32 {
-    pub fn as_array(&self) -> [u8; 4] {
+    pub const fn as_array(&self) -> [u8; 4] {
         self.rgba.to_be_bytes()
     }
 
-    pub fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
+    pub const fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
         Self {
             rgba: u32::from_be_bytes([r, g, b, a]),
         }
     }
 
     /// Returns transparent black (zero)
-    pub fn transparent() -> Self {
+    pub const fn transparent() -> Self {
         Self { rgba: 0 }
     }
 
     /// Returns opaque black
-    pub fn black() -> Self {
-        Self { rgba: 0xFFFFFF00 }
+    pub const fn black() -> Self {
+        Self { rgba: 0x000000FF }
     }
 
     /// Returns pure white
-    pub fn white() -> Self {
+    pub const fn white() -> Self {
         Self { rgba: u32::MAX }
     }
 
-    pub fn r(&self) -> u8 {
+    pub const fn from_alpha(alpha: u8) -> Self {
+        Self {
+            rgba: 0xFFFFFF00 | alpha as u32,
+        }
+    }
+
+    pub const fn r(&self) -> u8 {
         self.as_array()[0]
     }
 
-    pub fn g(&self) -> u8 {
+    pub const fn g(&self) -> u8 {
         self.as_array()[1]
     }
 
-    pub fn b(&self) -> u8 {
+    pub const fn b(&self) -> u8 {
         self.as_array()[2]
     }
 
-    pub fn a(&self) -> u8 {
+    pub const fn a(&self) -> u8 {
         self.as_array()[3]
     }
 

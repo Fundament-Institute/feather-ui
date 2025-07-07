@@ -3,7 +3,6 @@
 
 use super::mouse_area::MouseArea;
 
-use crate::color::sRGB32;
 use crate::component::{ChildOf, Desc};
 use crate::layout::{Layout, fixed};
 use crate::persist::{FnPersist, VectorMap};

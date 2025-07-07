@@ -129,7 +129,7 @@ impl WindowState {
             .create_view(&wgpu::TextureViewDescriptor::default());
 
         self.compositor
-            .prepare(&self.driver, &mut encoder, &self.config);
+            .prepare(&self.driver, &mut encoder, self.surface_dim());
 
         {
             let mut backcolor = BACKCOLOR;
@@ -157,9 +157,8 @@ impl WindowState {
             let viewport_dim = self.surface_dim();
             pass.set_viewport(0.0, 0.0, viewport_dim.x, viewport_dim.y, 0.0, 1.0);
 
-            self.compositor.predraw(viewport_dim, &self.driver);
-            self.compositor.draw(&self.driver, &mut pass, 0);
-            self.compositor.postdraw();
+            self.compositor.draw(&self.driver, &mut pass, 0, 0);
+            self.compositor.cleanup();
         }
 
         self.driver.queue.submit(Some(encoder.finish()));
@@ -308,6 +307,12 @@ impl Window {
             };
 
             Window::resize(size, &mut windowstate);
+
+            // This causes an unwanted flash, but makes it easier to capture the initial frame for debugging, so it's left here
+            // to be uncommented for debugging purposes
+            //let frame = windowstate.surface.get_current_texture().unwrap();
+            //frame.present();
+
             manager.init(
                 self.id.clone(),
                 Box::new(StateMachine::<WindowState, 0> {

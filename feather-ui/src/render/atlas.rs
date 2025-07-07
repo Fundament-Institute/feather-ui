@@ -10,6 +10,14 @@ use wgpu::{Extent3d, TextureDescriptor, TextureFormat, TextureUsages};
 
 use crate::Error;
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[repr(u8)]
+pub enum AtlasKind {
+    Primary,
+    Layer0,
+    Layer1,
+}
+
 /// Array of 2D textures, along with an array of guillotine allocators to go along with them. We use an array of mid-size
 /// textures so we don't have to resize the atlas allocator or adjust any UV coordinates that way.
 #[derive_where::derive_where(Debug)]
@@ -17,11 +25,13 @@ pub struct Atlas {
     extent: u32,
     pub extent_buf: wgpu::Buffer,
     pub mvp: wgpu::Buffer, // Matrix for rendering *onto* the texture atlas (the compositor has it's own for rendering to the screen)
-    texture: wgpu::Texture,
+    pub(crate) texture: wgpu::Texture,
     #[derive_where(skip)]
     allocators: Vec<AtlasAllocator>,
     cache: HashMap<Arc<crate::SourceID>, Region>,
     pub view: Arc<wgpu::TextureView>, // Stores a view into the atlas texture. Compositors take a weak reference to this that is invalidated when they need to rebind
+    pub targets: Vec<wgpu::TextureView>,
+    kind: AtlasKind,
 }
 
 // TODO: Should be possible to define an HDR pipeline with 16-bit channels
@@ -46,6 +56,21 @@ impl Atlas {
             base_array_layer: 0,
             array_layer_count: None,
             ..Default::default()
+        })
+    }
+
+    fn create_target(t: &wgpu::Texture, i: u32) -> wgpu::TextureView {
+        let name = format!("Atlas Layer {i} Target");
+        t.create_view(&wgpu::wgt::TextureViewDescriptor {
+            label: Some(&name),
+            format: Some(ATLAS_FORMAT),
+            dimension: Some(wgpu::TextureViewDimension::D2),
+            usage: Some(TextureUsages::RENDER_ATTACHMENT),
+            aspect: wgpu::TextureAspect::All,
+            base_mip_level: 0,
+            mip_level_count: Some(1),
+            base_array_layer: i,
+            array_layer_count: Some(1),
         })
     }
 
@@ -87,6 +112,12 @@ impl Atlas {
         // device.poll(PollType::Wait); // shouldn't be needed as long as queues after this refer to the correct texture
         texture.destroy();
         assert_eq!(Arc::strong_count(&view), 1); // This MUST be dropped because we rely on this to signal the compositors to rebind
+
+        self.targets.clear();
+
+        for i in 0..self.texture.depth_or_array_layers() {
+            self.targets.push(Self::create_target(&self.texture, i));
+        }
     }
 
     /// Create a standard projection matrix suitable for compositing for a texture.
@@ -110,7 +141,7 @@ impl Atlas {
         })
     }
 
-    pub fn new(device: &wgpu::Device, extent: u32) -> Self {
+    pub fn new(device: &wgpu::Device, extent: u32, kind: AtlasKind) -> Self {
         let extent = device.limits().max_texture_dimension_2d.min(extent);
         let texture = Self::create_texture(device, extent, 1);
         let allocator = Self::create_allocator(extent);
@@ -123,6 +154,10 @@ impl Atlas {
             contents: bytemuck::cast_slice(&[extent]),
         });
 
+        let targets = (0..texture.depth_or_array_layers())
+            .map(|i| Self::create_target(&texture, i))
+            .collect();
+
         Self {
             extent,
             view: Arc::new(Self::create_view(&texture)),
@@ -131,6 +166,8 @@ impl Atlas {
             extent_buf,
             mvp,
             cache: HashMap::new(),
+            targets,
+            kind,
         }
     }
 
@@ -270,28 +307,19 @@ impl Atlas {
             self.allocators.push(Self::create_allocator(self.extent));
         }
 
-        Err(Error::ResizeTextureAtlas(self.allocators.len() as u32))
+        Err(Error::ResizeTextureAtlas(
+            self.allocators.len() as u32,
+            self.kind,
+        ))
     }
 
     pub fn draw(&self, driver: &crate::graphics::Driver, encoder: &mut wgpu::CommandEncoder) {
         // We create one render pass for each layer of the atlas
         for i in 0..self.texture.depth_or_array_layers() {
-            let view = self.texture.create_view(&wgpu::wgt::TextureViewDescriptor {
-                label: Some("Atlas Layer View"),
-                format: Some(ATLAS_FORMAT),
-                dimension: Some(wgpu::TextureViewDimension::D2),
-                usage: Some(TextureUsages::RENDER_ATTACHMENT),
-                aspect: wgpu::TextureAspect::All,
-                base_mip_level: 0,
-                mip_level_count: Some(1),
-                base_array_layer: i,
-                array_layer_count: Some(1),
-            });
-
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Atlas Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
+                    view: &self.targets[i as usize],
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Load,

@@ -109,9 +109,9 @@ impl Driver {
             .await?;
 
         let shared = compositor::Shared::new(&device);
-        let atlas = atlas::Atlas::new(&device, 512);
-        let layer1 = atlas::Atlas::new(&device, 128);
-        let layer2 = atlas::Atlas::new(&device, 128);
+        let atlas = atlas::Atlas::new(&device, 512, atlas::AtlasKind::Primary);
+        let layer0 = atlas::Atlas::new(&device, 128, atlas::AtlasKind::Layer0);
+        let layer1 = atlas::Atlas::new(&device, 128, atlas::AtlasKind::Layer1);
         let shape_shader = crate::render::shape::Shape::<0>::shader(&device);
         let shape_pipeline = crate::render::shape::Shape::<0>::layout(&device);
 
@@ -119,7 +119,7 @@ impl Driver {
             &device,
             &shared,
             &atlas.view,
-            &layer2.view,
+            &layer1.view,
             ATLAS_FORMAT,
             true,
         );
@@ -127,7 +127,7 @@ impl Driver {
             &device,
             &shared,
             &atlas.view,
-            &layer1.view,
+            &layer0.view,
             ATLAS_FORMAT,
             false,
         );
@@ -144,7 +144,7 @@ impl Driver {
             registry: HashMap::new().into(),
             shared,
             atlas: atlas.into(),
-            layer_atlas: [layer1.into(), layer2.into()],
+            layer_atlas: [layer0.into(), layer1.into()],
             layer_composite: [comp1.into(), comp2.into()],
         };
 
