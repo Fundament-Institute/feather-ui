@@ -177,7 +177,7 @@ impl<const N: usize> StateMachineWrapper for EventRouter<N> {
     }
 
     fn input_masks(&self) -> SmallVec<[u64; 4]> {
-        SmallVec::from_elem(self.input.0, 1)
+        SmallVec::from_buf([self.input.0])
     }
 }*/
 

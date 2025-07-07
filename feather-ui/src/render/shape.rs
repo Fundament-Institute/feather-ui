@@ -219,7 +219,7 @@ impl<const KIND: u8> Shape<KIND> {
                 module: shader,
                 entry_point: Some(entry_point),
                 compilation_options: Default::default(),
-                targets: &[Some(compositor::TARGET_STATE)],
+                targets: &[Some(compositor::TARGET_BLEND)],
             }),
             primitive: wgpu::PrimitiveState {
                 front_face: wgpu::FrontFace::Cw,

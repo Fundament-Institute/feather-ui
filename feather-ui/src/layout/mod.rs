@@ -251,22 +251,25 @@ impl Staged for Concrete {
                 driver.layer_atlas[index % 2].write().remove_cache(&id);
                 assert!(compositor.pass < 0b111111);
 
-                (
-                    CompositorView {
-                        index: index as u8,
-                        window: compositor.window,
-                        layer0: compositor.layer0,
-                        layer1: compositor.layer1,
-                        clipstack: compositor.clipstack,
-                        offset: Vec2::from(region.uv.min.to_f32().to_array())
-                            - layer.area.topleft(),
-                        surface_dim: compositor.surface_dim,
-                        pass: compositor.pass + 1,
-                    },
-                    &mut deps, // And return a reference to a new dependency vector
-                )
+                let mut v = CompositorView {
+                    index: index as u8,
+                    window: compositor.window,
+                    layer0: compositor.layer0,
+                    layer1: compositor.layer1,
+                    clipstack: compositor.clipstack,
+                    offset: Vec2::from(region.uv.min.to_f32().to_array())
+                        - layer.area.topleft()
+                        - parent_pos,
+                    surface_dim: compositor.surface_dim,
+                    pass: compositor.pass + 1,
+                    slice: region.index,
+                };
+
+                v.reserve(driver);
+                // And return a reference to a new dependency vector
+                (v, &mut deps)
             } else {
-                // Otherwise, we don't create a new compositor, instead copying our previous one, and passing in
+                // Otherwise, we don't create a new compositor view, instead copying our previous one, and passing in
                 // the parent's dependency tracker.
                 (
                     CompositorView {
@@ -278,23 +281,23 @@ impl Staged for Concrete {
                         offset: compositor.offset,
                         surface_dim: compositor.surface_dim,
                         pass: compositor.pass,
+                        slice: compositor.slice,
                     },
                     dependents,
                 )
             };
 
-            // Always push a new clipping area
-            view.push_clip(layer.area);
+            // Always push a new clipping area, but remember that a layer can only store it's relative area.
+            view.with_clip(layer.area + parent_pos, |refview| {
+                self.render_self(parent_pos, driver, refview)?;
+                self.render_children(parent_pos, driver, refview, depview)
+            })?;
 
-            self.render_self(parent_pos, driver, &mut view)?;
-            self.render_children(parent_pos, driver, &mut view, depview)?;
-
-            view.pop_clip();
             if let Some(target) = layer.target.as_ref() {
                 // If this was a real layer, now we need to actually assign the result of our dependencies, and
                 // append ourselves to the parent layer. We must be very careful not to use the wrong view here.
                 target.write().dependents = deps;
-                compositor.append_layer(layer, region_uv.unwrap());
+                compositor.append_layer(layer, parent_pos, region_uv.unwrap());
             }
         } else {
             self.render_self(parent_pos, driver, compositor)?;

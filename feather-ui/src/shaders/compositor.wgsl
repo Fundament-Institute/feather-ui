@@ -55,8 +55,6 @@ var sampling: sampler;
 var atlas: texture_2d_array<f32>;
 @group(0) @binding(5)
 var layeratlas: texture_2d_array<f32>;
-@group(0) @binding(6)
-var<uniform> passindex: u32;
 
 struct Data {
   pos: vec2f,
@@ -82,11 +80,6 @@ fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
   let index = idx / 6;
   var vpos = vec2(UNITX[vert], UNITY[vert]);
   let d = buf[index];
-
-  if ((d.texclip & 0x3F000000) >> 24) != passindex {
-    // We can't really "cull" anything from the vertex shader, so instead we set all vertices to 0,0
-    return VertexOutput(vec4f(0.0), vec2f(0.0), vec2f(0.0), 0, vec4f(0.0));
-  }
 
   // Setting this flag *disables* inflation, so we invert it by comparing to 0
   let inflate = (d.texclip & 0x80000000) == 0;

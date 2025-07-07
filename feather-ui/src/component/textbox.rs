@@ -240,7 +240,7 @@ impl super::EventStream for TextBoxState {
                                     let change = self
                                         .editor
                                         .delete_selection(&mut driver.font_system.write(), buffer)
-                                        .map(|x| SmallVec::from_elem(x, 1))
+                                        .map(|x| SmallVec::from_buf([x]))
                                         .unwrap_or_default();
                                     self.editor.shape_as_needed(
                                         &mut driver.font_system.write(),
@@ -262,7 +262,7 @@ impl super::EventStream for TextBoxState {
                                     let change = self
                                         .editor
                                         .delete_selection(&mut driver.font_system.write(), buffer)
-                                        .map(|x| SmallVec::from_elem(x, 1))
+                                        .map(|x| SmallVec::from_buf([x]))
                                         .unwrap_or_default();
                                     self.editor.shape_as_needed(
                                         &mut driver.font_system.write(),
@@ -292,7 +292,7 @@ impl super::EventStream for TextBoxState {
                                                             buffer,
                                                             false,
                                                         );
-                                                        self.append(SmallVec::from_elem(c, 1))
+                                                        self.append(SmallVec::from_buf([c]))
                                                     }
                                                 }
                                             }
@@ -314,7 +314,7 @@ impl super::EventStream for TextBoxState {
                                                 buffer,
                                                 false,
                                             );
-                                            self.append(SmallVec::from_elem(c, 1))
+                                            self.append(SmallVec::from_buf([c]))
                                         }
                                     }
                                     SmallVec::new()
@@ -357,7 +357,7 @@ impl super::EventStream for TextBoxState {
                                 &c,
                                 None,
                             );
-                            self.append(SmallVec::from_elem(c, 1));
+                            self.append(SmallVec::from_buf([c]));
 
                             self.editor.shape_as_needed(
                                 &mut driver.font_system.write(),
