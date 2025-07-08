@@ -45,7 +45,7 @@ pub struct WindowState {
     pub layers: Vec<std::sync::Weak<SourceID>>, // All layers that render directly to the final compositor
 }
 
-impl super::EventStream for WindowState {
+impl super::EventRouter for WindowState {
     type Input = ();
     type Output = ();
 }

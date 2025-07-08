@@ -48,7 +48,7 @@ impl MouseAreaState {
     }
 }
 
-impl super::EventStream for MouseAreaState {
+impl super::EventRouter for MouseAreaState {
     type Input = RawEvent;
     type Output = MouseAreaEvent;
 

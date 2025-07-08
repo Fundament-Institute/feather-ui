@@ -572,8 +572,8 @@ impl Compositor {
                     // Clip right edge
                     if x + w > max_x {
                         let right_shift = max_x - (x + w);
-                        w -= right_shift;
-                        uw -= right_shift * uv_ratio.x;
+                        w += right_shift;
+                        uw += right_shift * uv_ratio.x;
                     }
 
                     // Clip top edge
@@ -589,8 +589,8 @@ impl Compositor {
                     // Clip bottom edge
                     if y + h > max_y {
                         let bottom_shift = max_y - (y + h);
-                        h -= bottom_shift;
-                        vh -= bottom_shift * uv_ratio.y;
+                        h += bottom_shift;
+                        vh += bottom_shift * uv_ratio.y;
                     }
 
                     Some(Data {
