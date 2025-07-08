@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use crate::color::sRGB;
-use crate::component::{EventStream, StateMachine};
+use crate::component::{EventRouter, StateMachine};
 use crate::graphics::point_to_pixel;
 use crate::layout::{self, Layout, leaf};
 use crate::{SourceID, WindowStateMachine, graphics};
@@ -15,7 +15,7 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct TextState(Rc<RefCell<cosmic_text::Buffer>>);
 
-impl EventStream for TextState {
+impl EventRouter for TextState {
     type Input = ();
     type Output = ();
 }

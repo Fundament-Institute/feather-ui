@@ -11,7 +11,7 @@ pub mod listbox;
 pub mod mouse_area;
 pub mod paragraph;
 pub mod region;
-//pub mod scroll_area;
+pub mod scroll_area;
 pub mod shape;
 pub mod text;
 pub mod textbox;
@@ -83,7 +83,7 @@ pub trait StateMachineWrapper: Any {
 }
 
 // : zerocopy::Immutable
-pub trait EventStream
+pub trait EventRouter
 where
     Self: std::marker::Sized,
 {
@@ -104,14 +104,14 @@ where
     }
 }
 
-pub struct StateMachine<State: EventStream + 'static, const OUTPUT_SIZE: usize> {
+pub struct StateMachine<State: EventRouter + 'static, const OUTPUT_SIZE: usize> {
     pub state: Option<State>,
     pub output: [Option<Slot>; OUTPUT_SIZE],
     pub input_mask: u64,
     pub(crate) changed: bool,
 }
 
-impl<State: EventStream + PartialEq + 'static, const OUTPUT_SIZE: usize> StateMachineWrapper
+impl<State: EventRouter + PartialEq + 'static, const OUTPUT_SIZE: usize> StateMachineWrapper
     for StateMachine<State, OUTPUT_SIZE>
 {
     fn process(

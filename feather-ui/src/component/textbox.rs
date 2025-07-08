@@ -70,7 +70,7 @@ impl TextBoxState {
     }
 }
 
-impl super::EventStream for TextBoxState {
+impl super::EventRouter for TextBoxState {
     type Input = RawEvent;
     type Output = TextBoxEvent;
 

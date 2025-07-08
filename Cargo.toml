@@ -27,7 +27,7 @@ default-members = [
 ]
 
 [workspace.package]
-version = "0.1.5"
+version = "0.2.0"
 edition = "2024"
 rust-version = "1.87.0"
 license = "Apache-2.0"
@@ -45,7 +45,7 @@ tracing-subscriber = { version = "0.3.18", features = ["time"] }
 tracing = "0.1.40"
 feather-ui = { path = "feather-ui" }
 alicorn = "0.1.2"
-feather-macro = { version = "0.1", path = "feather-macro" }
+feather-macro = { version = "0.2", path = "feather-macro" }
 cosmic-text = { git = "https://github.com/pop-os/cosmic-text" }  # TODO: change back to a proper release once fixes we need make it into stable
 
 [workspace.lints]

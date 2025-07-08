@@ -54,9 +54,9 @@ impl<T: fixed::Prop + 'static> crate::StateMachineChild for Button<T> {
         &self,
         f: &mut dyn FnMut(&dyn crate::StateMachineChild) -> eyre::Result<()>,
     ) -> eyre::Result<()> {
-        for child in self.children.iter() {
-            f(child.as_ref().unwrap().as_ref())?;
-        }
+        self.children
+            .iter()
+            .try_for_each(|x| f(x.as_ref().unwrap().as_ref()))?;
         f(&self.marea)
     }
 }
