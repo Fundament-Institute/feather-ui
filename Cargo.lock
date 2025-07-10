@@ -201,7 +201,7 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
 name = "basic-alc"
-version = "0.1.5"
+version = "0.2.0"
 dependencies = [
  "alicorn",
  "feather-ui",
@@ -209,7 +209,7 @@ dependencies = [
 
 [[package]]
 name = "basic-rs"
-version = "0.1.5"
+version = "0.2.0"
 dependencies = [
  "feather-macro",
  "feather-ui",
@@ -247,6 +247,17 @@ name = "bit-vec"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e764a1d40d510daf35e07be9eb06e75770908c27d411ee6c92109c9840eaaf7"
+
+[[package]]
+name = "bitfield-struct"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3ca019570363e800b05ad4fd890734f28ac7b72f563ad8a35079efb793616f8"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.104",
+]
 
 [[package]]
 name = "bitflags"
@@ -337,7 +348,7 @@ checksum = "d71b6127be86fdcfddb610f7182ac57211d4b18a3e9c82eb2d17662f2227ad6a"
 
 [[package]]
 name = "calculator-rs"
-version = "0.1.5"
+version = "0.2.0"
 dependencies = [
  "feather-macro",
  "feather-ui",
@@ -522,7 +533,7 @@ dependencies = [
 [[package]]
 name = "cosmic-text"
 version = "0.14.2"
-source = "git+https://github.com/pop-os/cosmic-text#3b1aa511d19aaa40be447a9b7ebe212b1bbb6a9a"
+source = "git+https://github.com/pop-os/cosmic-text#d15011fba547ae6bd2cbc7591991ff74424c6db7"
 dependencies = [
  "bitflags 2.9.1",
  "fontdb",
@@ -742,7 +753,7 @@ dependencies = [
 
 [[package]]
 name = "feather-macro"
-version = "0.1.5"
+version = "0.2.0"
 dependencies = [
  "itertools",
  "proc-macro2",
@@ -753,10 +764,11 @@ dependencies = [
 
 [[package]]
 name = "feather-ui"
-version = "0.1.5"
+version = "0.2.0"
 dependencies = [
  "alloca",
  "arboard",
+ "bitfield-struct",
  "bytemuck",
  "cosmic-text",
  "derive-where",
@@ -784,18 +796,6 @@ dependencies = [
  "wide",
  "windows-sys 0.59.0",
  "winit",
-]
-
-[[package]]
-name = "filetime"
-version = "0.2.25"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35c0522e981e68cbfa8c3f978441a5f34b30b96e146b33cd3359176b50fe8586"
-dependencies = [
- "cfg-if",
- "libc",
- "libredox",
- "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1052,7 +1052,7 @@ dependencies = [
 
 [[package]]
 name = "graph-rs"
-version = "0.1.5"
+version = "0.2.0"
 dependencies = [
  "feather-macro",
  "feather-ui",
@@ -1060,7 +1060,7 @@ dependencies = [
 
 [[package]]
 name = "grid-rs"
-version = "0.1.5"
+version = "0.2.0"
 dependencies = [
  "cosmic-text",
  "feather-macro",
@@ -1341,7 +1341,7 @@ checksum = "cd945864f07fe9f5371a27ad7b52a172b4b499999f1d97574c9fa68373937e12"
 
 [[package]]
 name = "list-rs"
-version = "0.1.5"
+version = "0.2.0"
 dependencies = [
  "feather-macro",
  "feather-ui",
@@ -1575,12 +1575,11 @@ dependencies = [
 
 [[package]]
 name = "notify"
-version = "8.0.0"
+version = "8.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2fee8403b3d66ac7b26aee6e40a897d85dc5ce26f44da36b8b73e987cc52e943"
+checksum = "3163f59cd3fa0e9ef8c32f242966a7b9994fd7378366099593e0e73077cd8c97"
 dependencies = [
  "bitflags 2.9.1",
- "filetime",
  "fsevent-sys",
  "inotify",
  "kqueue",
@@ -1589,7 +1588,7 @@ dependencies = [
  "mio",
  "notify-types",
  "walkdir",
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -1976,7 +1975,7 @@ dependencies = [
 
 [[package]]
 name = "paragraph-rs"
-version = "0.1.5"
+version = "0.2.0"
 dependencies = [
  "cosmic-text",
  "feather-macro",
@@ -2665,7 +2664,7 @@ dependencies = [
 
 [[package]]
 name = "textbox-rs"
-version = "0.1.5"
+version = "0.2.0"
 dependencies = [
  "cosmic-text",
  "feather-macro",

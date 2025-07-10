@@ -5,10 +5,8 @@ use super::compositor;
 use crate::color::sRGB;
 use crate::graphics::{self, Vec2f, Vec4f};
 use crate::render::atlas::Atlas;
-use crate::render::compositor::Compositor;
+use crate::render::compositor::CompositorView;
 use crate::shaders;
-use guillotiere::Size;
-use num_traits::Zero;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::num::NonZero;
@@ -22,7 +20,7 @@ pub struct Instance<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> {
     pub fill: sRGB,
     pub outline: sRGB,
     pub corners: Vec4,
-    pub id: std::rc::Rc<crate::SourceID>,
+    pub id: std::sync::Arc<crate::SourceID>,
     pub phantom: PhantomData<PIPELINE>,
 }
 
@@ -33,19 +31,16 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
         &self,
         area: crate::AbsRect,
         driver: &crate::graphics::Driver,
-        compositor: &mut Compositor,
+        compositor: &mut CompositorView<'_>,
     ) -> Result<(), crate::Error> {
         let dim = area.bottomright() - area.topleft() - self.padding.bottomright();
-        debug_assert!(dim.x.is_zero() || dim.x.is_sign_positive());
-        debug_assert!(dim.y.is_zero() || dim.y.is_sign_positive());
+        if dim.x <= 0.0 || dim.y <= 0.0 {
+            return Ok(());
+        }
 
         let (region_uv, region_index) = {
             let mut atlas = driver.atlas.write();
-            let region = atlas.cache_region(
-                &driver.device,
-                self.id.clone(),
-                Size::new(area.dim().0.x.ceil() as i32, area.dim().0.y.ceil() as i32),
-            )?;
+            let region = atlas.cache_region(&driver.device, &self.id, area.dim().into())?;
             (region.uv, region.index)
         };
 
@@ -55,6 +50,7 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
         // then letting the compositor squish the result slightly, which is actually pretty accurate.
         // TODO: Change this to be pixel-perfect by outputting the exact dimensions instead of rounded ones.
 
+        // TODO: cache this if the inputs are identical
         driver.with_pipeline::<PIPELINE>(|pipeline| {
             pipeline.append(
                 &Data {
@@ -70,7 +66,7 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
             )
         });
 
-        compositor.append(&compositor::Data::new(
+        compositor.append_data(
             area.topleft() + self.padding.topleft(),
             dim,
             region_uv.min.to_f32().to_array().into(),
@@ -78,8 +74,8 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
             0xFFFFFFFF,
             0.0,
             region_index,
-            0,
-        ));
+            false,
+        );
 
         Ok(())
     }
@@ -111,7 +107,7 @@ pub struct Data {
 
 #[derive(Debug)]
 pub struct Shape<const KIND: u8> {
-    data: HashMap<u16, Vec<Data>>,
+    data: HashMap<u8, Vec<Data>>,
     buffer: wgpu::Buffer,
     pipeline: wgpu::RenderPipeline,
     group: wgpu::BindGroup,
@@ -120,11 +116,11 @@ pub struct Shape<const KIND: u8> {
 impl<const KIND: u8> super::Pipeline for Shape<KIND> {
     type Data = Data;
 
-    fn append(&mut self, data: &Self::Data, layer: u16) {
+    fn append(&mut self, data: &Self::Data, layer: u8) {
         self.data.entry(layer).or_default().push(*data);
     }
 
-    fn draw(&mut self, driver: &graphics::Driver, pass: &mut wgpu::RenderPass<'_>, layer: u16) {
+    fn draw(&mut self, driver: &graphics::Driver, pass: &mut wgpu::RenderPass<'_>, layer: u8) {
         if let Some(data) = self.data.get_mut(&layer) {
             let size = data.len() * size_of::<Data>();
             if (self.buffer.size() as usize) < size {
@@ -223,7 +219,7 @@ impl<const KIND: u8> Shape<KIND> {
                 module: shader,
                 entry_point: Some(entry_point),
                 compilation_options: Default::default(),
-                targets: &[Some(compositor::TARGET_STATE)],
+                targets: &[Some(compositor::TARGET_BLEND)],
             }),
             primitive: wgpu::PrimitiveState {
                 front_face: wgpu::FrontFace::Cw,

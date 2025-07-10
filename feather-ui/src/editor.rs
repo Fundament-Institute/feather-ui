@@ -499,7 +499,7 @@ impl Editor {
                 } else {
                     let mut str_buf = [0u8; 8];
                     let str_ref = character.encode_utf8(&mut str_buf);
-                    SmallVec::from_elem(self.insert_string(font_system, buffer, str_ref, None), 1)
+                    SmallVec::from_buf([self.insert_string(font_system, buffer, str_ref, None)])
                 }
             }
             Action::Enter => {
@@ -520,11 +520,11 @@ impl Editor {
                     self.insert_string(font_system, buffer, "\n", None)
                 };
 
-                SmallVec::from_elem(change, 1)
+                SmallVec::from_buf([change])
             }
             Action::Backspace => {
                 if let Some(c) = self.delete_selection(font_system, buffer) {
-                    SmallVec::from_elem(c, 1) // Deleted selection
+                    SmallVec::from_buf([c]) // Deleted selection
                 } else {
                     // Save current cursor as end
                     let end = self.cursor;
@@ -543,13 +543,13 @@ impl Editor {
                     }
 
                     self.delete_range(font_system, buffer, self.cursor, end, true)
-                        .map(|c| SmallVec::from_elem(c, 1))
+                        .map(|c| SmallVec::from_buf([c]))
                         .unwrap_or_default()
                 }
             }
             Action::Delete => {
                 if let Some(c) = self.delete_selection(font_system, buffer) {
-                    SmallVec::from_elem(c, 1) // Deleted selection
+                    SmallVec::from_buf([c]) // Deleted selection
                 } else {
                     // Save current cursor as start and end
                     let mut start = self.cursor;
@@ -576,7 +576,7 @@ impl Editor {
 
                     self.set_cursor(buffer, start);
                     self.delete_range(font_system, buffer, start, end, true)
-                        .map(|c| SmallVec::from_elem(c, 1))
+                        .map(|c| SmallVec::from_buf([c]))
                         .unwrap_or_default()
                 }
             }

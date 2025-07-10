@@ -13,6 +13,7 @@ use feather_macro::Dispatch;
 use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::Arc;
 use ultraviolet::Vec2;
 use winit::event::DeviceId;
 use winit::keyboard::NamedKey;
@@ -34,6 +35,7 @@ struct MouseAreaState {
     hover: bool,
     deadzone: f32,
 }
+
 impl MouseAreaState {
     fn hover_event(buttons: u16, hover: bool) -> MouseAreaEvent {
         let active = (buttons & MouseButton::Left as u16) != 0;
@@ -46,7 +48,7 @@ impl MouseAreaState {
     }
 }
 
-impl super::EventStream for MouseAreaState {
+impl super::EventRouter for MouseAreaState {
     type Input = RawEvent;
     type Output = MouseAreaEvent;
 
@@ -54,6 +56,7 @@ impl super::EventStream for MouseAreaState {
         mut self,
         input: Self::Input,
         area: crate::AbsRect,
+        _: crate::AbsRect,
         dpi: crate::Vec2,
         _: &std::sync::Weak<crate::Driver>,
     ) -> eyre::Result<
@@ -214,17 +217,19 @@ impl super::EventStream for MouseAreaState {
                                 ]),
                             ));
                         }
+                        return Ok((self, SmallVec::new()));
                     }
                 }
                 crate::input::TouchState::End => {
                     let hover = Self::hover_event(0, self.hover);
-                    if let Some((_, drag)) = self.lastdown.remove(&(device_id, index)) {
+                    if let Some((last_pos, drag)) = self.lastdown.remove(&(device_id, index)) {
                         if area.contains(pos.xy()) {
+                            let diff = pos.xy() - last_pos;
                             return Ok((
                                 self,
                                 SmallVec::from_iter([
                                     if drag {
-                                        MouseAreaEvent::OnDrag(MouseButton::Left, pos.xy() / dpi)
+                                        MouseAreaEvent::OnDrag(MouseButton::Left, diff / dpi)
                                     } else {
                                         MouseAreaEvent::OnClick(MouseButton::Left, pos.xy() / dpi)
                                     },
@@ -243,7 +248,7 @@ impl super::EventStream for MouseAreaState {
 
 #[derive_where(Clone)]
 pub struct MouseArea<T: leaf::Prop + 'static> {
-    pub id: Rc<SourceID>,
+    pub id: Arc<SourceID>,
     props: Rc<T>,
     deadzone: f32, // A deadzone of infinity disables drag events
     slots: [Option<Slot>; MouseAreaEvent::SIZE],
@@ -251,7 +256,7 @@ pub struct MouseArea<T: leaf::Prop + 'static> {
 
 impl<T: leaf::Prop + 'static> MouseArea<T> {
     pub fn new(
-        id: Rc<SourceID>,
+        id: Arc<SourceID>,
         props: T,
         deadzone: Option<f32>,
         slots: [Option<Slot>; MouseAreaEvent::SIZE],
@@ -266,7 +271,7 @@ impl<T: leaf::Prop + 'static> MouseArea<T> {
 }
 
 impl<T: leaf::Prop + 'static> crate::StateMachineChild for MouseArea<T> {
-    fn id(&self) -> Rc<SourceID> {
+    fn id(&self) -> Arc<SourceID> {
         self.id.clone()
     }
     fn init(
@@ -289,15 +294,17 @@ impl<T: leaf::Prop + 'static> crate::StateMachineChild for MouseArea<T> {
     }
 }
 
-impl<T: leaf::Prop + 'static> super::Component<T> for MouseArea<T>
+impl<T: leaf::Prop + 'static> super::Component for MouseArea<T>
 where
     for<'a> &'a T: Into<&'a (dyn leaf::Prop + 'static)>,
 {
+    type Props = T;
+
     fn layout(
         &self,
         manager: &mut crate::StateManager,
         _: &crate::graphics::Driver,
-        _: &Rc<SourceID>,
+        _: &Arc<SourceID>,
     ) -> Box<dyn Layout<T> + 'static> {
         manager
             .get_mut::<StateMachine<MouseAreaState, { MouseAreaEvent::SIZE }>>(&self.id)
@@ -315,10 +322,9 @@ where
         Box::new(layout::Node::<T, dyn leaf::Prop> {
             props: self.props.clone(),
             children: Default::default(),
-            id: Rc::downgrade(&self.id),
+            id: Arc::downgrade(&self.id),
             renderable: None,
+            layer: None,
         })
     }
 }
-
-crate::gen_component_wrap!(MouseArea, leaf::Prop);

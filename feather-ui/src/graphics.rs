@@ -4,6 +4,7 @@
 use std::collections::HashMap;
 
 use crate::render;
+use crate::render::atlas::ATLAS_FORMAT;
 use crate::render::{atlas, compositor};
 use guillotiere::AllocId;
 use parking_lot::RwLock;
@@ -56,6 +57,8 @@ pub(crate) type GlyphCache = HashMap<cosmic_text::CacheKey, GlyphRegion>;
 pub struct Driver {
     pub(crate) glyphs: RwLock<GlyphCache>,
     pub(crate) atlas: RwLock<atlas::Atlas>,
+    pub(crate) layer_atlas: [RwLock<atlas::Atlas>; 2],
+    pub(crate) layer_composite: [RwLock<compositor::Compositor>; 2],
     pub(crate) shared: compositor::Shared,
     pub(crate) pipelines: RwLock<HashMap<PipelineID, Box<dyn crate::render::AnyPipeline>>>,
     pub(crate) registry: RwLock<HashMap<PipelineID, PipelineState>>,
@@ -105,10 +108,29 @@ impl Driver {
             })
             .await?;
 
-        let shared = compositor::Shared::new(&device, 512);
-        let atlas = atlas::Atlas::new(&device, 512).into();
+        let shared = compositor::Shared::new(&device);
+        let atlas = atlas::Atlas::new(&device, 512, atlas::AtlasKind::Primary);
+        let layer0 = atlas::Atlas::new(&device, 128, atlas::AtlasKind::Layer0);
+        let layer1 = atlas::Atlas::new(&device, 128, atlas::AtlasKind::Layer1);
         let shape_shader = crate::render::shape::Shape::<0>::shader(&device);
         let shape_pipeline = crate::render::shape::Shape::<0>::layout(&device);
+
+        let comp1 = crate::render::compositor::Compositor::new(
+            &device,
+            &shared,
+            &atlas.view,
+            &layer1.view,
+            ATLAS_FORMAT,
+            true,
+        );
+        let comp2 = crate::render::compositor::Compositor::new(
+            &device,
+            &shared,
+            &atlas.view,
+            &layer0.view,
+            ATLAS_FORMAT,
+            false,
+        );
 
         let mut driver = Self {
             adapter,
@@ -121,7 +143,9 @@ impl Driver {
             glyphs: HashMap::new().into(),
             registry: HashMap::new().into(),
             shared,
-            atlas,
+            atlas: atlas.into(),
+            layer_atlas: [layer0.into(), layer1.into()],
+            layer_composite: [comp1.into(), comp2.into()],
         };
 
         driver.register_pipeline::<crate::render::shape::Shape<0>>(
@@ -207,8 +231,7 @@ impl Driver {
     }
 }
 
-// TODO: Rc<SourceID> is not thread-safe
-//static_assertions::assert_impl_all!(Driver: Send, Sync);
+static_assertions::assert_impl_all!(Driver: Send, Sync);
 
 // This maps x and y to the viewpoint size, maps input_z from [n,f] to [0,1], and sets
 // output_w = input_z for perspective. Requires input_w = 1
@@ -257,24 +280,24 @@ macro_rules! gen_from_array {
 
 #[repr(C, align(8))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, bytemuck::NoUninit)]
-pub struct Vec2f([f32; 2]);
+pub struct Vec2f(pub(crate) [f32; 2]);
 
 gen_from_array!(Vec2f, f32, 2);
 
 #[repr(C, align(16))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, bytemuck::NoUninit)]
-pub struct Vec4f([f32; 4]);
+pub struct Vec4f(pub(crate) [f32; 4]);
 
 gen_from_array!(Vec4f, f32, 4);
 
 #[repr(C, align(8))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, bytemuck::NoUninit)]
-pub struct Vec2i([i32; 2]);
+pub struct Vec2i(pub(crate) [i32; 2]);
 
 gen_from_array!(Vec2i, i32, 2);
 
 #[repr(C, align(16))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, bytemuck::NoUninit)]
-pub struct Vec4i([i32; 4]);
+pub struct Vec4i(pub(crate) [i32; 4]);
 
 gen_from_array!(Vec4i, i32, 4);

@@ -3,20 +3,21 @@
 
 use crate::color::sRGB;
 use crate::component::text::Text;
-use crate::component::{ComponentFrom, set_child_parent};
+use crate::component::{ChildOf, set_child_parent};
 use crate::layout::{Desc, Layout, base, flex, leaf};
 use crate::persist::{FnPersist, VectorMap};
 use crate::{SourceID, UNSIZED_AXIS, gen_id, layout};
 use core::f32;
 use derive_where::derive_where;
 use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(feather_macro::StateMachineChild)]
 #[derive_where(Clone)]
 pub struct Paragraph<T: flex::Prop + 'static> {
-    pub id: Rc<SourceID>,
+    pub id: Arc<SourceID>,
     props: Rc<T>,
-    children: im::Vector<Option<Box<ComponentFrom<dyn flex::Prop>>>>,
+    children: im::Vector<Option<Box<ChildOf<dyn flex::Prop>>>>,
 }
 
 #[derive(Clone, Copy, Default, PartialEq, PartialOrd)]
@@ -58,7 +59,7 @@ impl leaf::Prop for MinimalFlexChild {}
 impl leaf::Padded for MinimalFlexChild {}
 
 impl<T: flex::Prop + 'static> Paragraph<T> {
-    pub fn new(id: Rc<SourceID>, props: T) -> Self {
+    pub fn new(id: Arc<SourceID>, props: T) -> Self {
         Self {
             id,
             props: props.into(),
@@ -66,12 +67,12 @@ impl<T: flex::Prop + 'static> Paragraph<T> {
         }
     }
 
-    pub fn append(&mut self, child: Box<ComponentFrom<dyn flex::Prop>>) {
+    pub fn append(&mut self, child: Box<ChildOf<dyn flex::Prop>>) {
         set_child_parent(&child.id(), self.id.clone()).unwrap();
         self.children.push_back(Some(child));
     }
 
-    pub fn prepend(&mut self, child: Box<ComponentFrom<dyn flex::Prop>>) {
+    pub fn prepend(&mut self, child: Box<ChildOf<dyn flex::Prop>>) {
         set_child_parent(&child.id(), self.id.clone()).unwrap();
         self.children.push_front(Some(child));
     }
@@ -90,36 +91,38 @@ impl<T: flex::Prop + 'static> Paragraph<T> {
     ) {
         self.children.clear();
         for (i, word) in text.split_ascii_whitespace().enumerate() {
-            let text = Text::<MinimalFlexChild> {
-                id: gen_id!(gen_id!(self.id), i),
-                props: MinimalFlexChild {
+            let text = Text::<MinimalFlexChild>::new(
+                gen_id!(gen_id!(self.id), i),
+                MinimalFlexChild {
                     grow: if fullwidth { 1.0 } else { 0.0 },
                 }
                 .into(),
-                text: word.to_owned() + " ",
                 font_size,
                 line_height,
-                font: font.clone(),
+                word.to_owned() + " ",
+                font.clone(),
                 color,
                 weight,
                 style,
-                ..Default::default()
-            };
+                cosmic_text::Wrap::None,
+            );
             self.children.push_back(Some(Box::new(text)));
         }
     }
 }
 
-impl<T: flex::Prop + 'static> super::Component<T> for Paragraph<T> {
+impl<T: flex::Prop + 'static> super::Component for Paragraph<T> {
+    type Props = T;
+
     fn layout(
         &self,
-        state: &mut crate::StateManager,
+        manager: &mut crate::StateManager,
         driver: &crate::graphics::Driver,
-        window: &Rc<SourceID>,
+        window: &Arc<SourceID>,
     ) -> Box<dyn Layout<T>> {
         let mut map = VectorMap::new(
-            |child: &Option<Box<ComponentFrom<dyn flex::Prop>>>| -> Option<Box<dyn Layout<<dyn flex::Prop as Desc>::Child>>> {
-                Some(child.as_ref().unwrap().layout(state, driver, window))
+            |child: &Option<Box<ChildOf<dyn flex::Prop>>>| -> Option<Box<dyn Layout<<dyn flex::Prop as Desc>::Child>>> {
+                Some(child.as_ref().unwrap().layout(manager, driver, window))
             },
         );
 
@@ -127,10 +130,9 @@ impl<T: flex::Prop + 'static> super::Component<T> for Paragraph<T> {
         Box::new(layout::Node::<T, dyn flex::Prop> {
             props: self.props.clone(),
             children,
-            id: Rc::downgrade(&self.id),
+            id: Arc::downgrade(&self.id),
             renderable: None,
+            layer: None,
         })
     }
 }
-
-crate::gen_component_wrap!(Paragraph, flex::Prop);

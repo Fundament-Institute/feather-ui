@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
-use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::component::window::WindowNodeTrack;
 use crate::input::{MouseState, RawEvent, RawEventKind, TouchState};
 use crate::persist::{FnPersist2, VectorFold};
 use crate::{AbsRect, Dispatchable, SourceID, StateManager, WindowStateMachine};
 use eyre::Result;
-use std::sync::Arc;
+use std::rc::Rc;
 use ultraviolet::Vec2;
 use winit::dpi::PhysicalPosition;
 
@@ -17,7 +18,8 @@ pub struct Node {
     pub extent: AbsRect, // This is the minimal bounding rectangle of the children's extent relative to OUR topleft corner.
     pub top: i32, // 2D R-tree nodes are actually 3 dimensional, but the z-axis can never overlap (because layout rects have no depth).
     pub bottom: i32,
-    pub id: std::rc::Weak<SourceID>,
+    pub mask: AtomicU64,
+    pub id: std::sync::Weak<SourceID>,
     pub children: im::Vector<Option<Rc<Node>>>,
     pub parent: std::cell::OnceCell<std::rc::Weak<Node>>,
 }
@@ -31,7 +33,7 @@ impl Node {
         area: AbsRect,
         z: Option<i32>,
         children: im::Vector<Option<Rc<Node>>>,
-        id: std::rc::Weak<SourceID>,
+        id: std::sync::Weak<SourceID>,
         window: &mut crate::component::window::WindowState,
     ) -> Rc<Self> {
         let this = Rc::new_cyclic(|this| {
@@ -72,6 +74,7 @@ impl Node {
                 id: id.clone(),
                 children,
                 parent: Default::default(),
+                mask: u64::MAX.into(),
             }
         });
 
@@ -88,7 +91,7 @@ impl Node {
         event: &RawEvent,
         dpi: Vec2,
         offset: Vec2,
-        window_id: Rc<SourceID>,
+        window_id: Arc<SourceID>,
         manager: &mut StateManager,
     ) -> Result<(), ()> {
         match event {
@@ -196,10 +199,10 @@ impl Node {
         kind: RawEventKind,
         dpi: Vec2,
         offset: Vec2,
-        window_id: Rc<SourceID>,
+        window_id: Arc<SourceID>,
         driver: &std::sync::Weak<crate::Driver>,
         manager: &mut StateManager,
-    ) -> Result<(), ()> {
+    ) -> Result<u64, u64> {
         if let Some(id) = self.id.upgrade() {
             if let Ok(state) = manager.get_trait(&id) {
                 let mask = state.input_mask();
@@ -210,15 +213,20 @@ impl Node {
                             &crate::Slot(id.clone(), 0), // TODO: We currently don't use the slot index here, but we might need to later
                             dpi,
                             self.area + offset,
+                            self.extent,
                             driver,
                         )
                         .is_ok()
                 {
-                    return self.postprocess(event, dpi, offset, window_id, manager);
+                    return match self.postprocess(event, dpi, offset, window_id, manager) {
+                        Ok(()) => Ok(mask),
+                        Err(()) => Err(mask),
+                    };
                 }
+                return Err(mask);
             }
         }
-        Err(())
+        Err(u64::MAX)
     }
 
     // We allow this to return an invalid weak pointer because returning an *invalid* root is a more obvious problem than returning
@@ -248,16 +256,52 @@ impl Node {
         event: &RawEvent,
         kind: RawEventKind,
         position: Vec2,
-        mut offset: Vec2,
+        offset: Vec2,
         dpi: Vec2,
         driver: &std::sync::Weak<crate::Driver>,
         manager: &mut StateManager,
-        window_id: Rc<SourceID>,
+        window_id: Arc<SourceID>,
     ) -> Result<(), ()> {
-        if self.area.contains(position - offset) {
-            if let Ok(()) =
-                self.inject_event(event, kind, dpi, offset, window_id.clone(), driver, manager)
-            {
+        if (self.mask.load(Ordering::Acquire) & kind as u64) != 0
+            && self.area.contains(position - offset)
+        {
+            let child_offset = offset + self.area.topleft();
+
+            let mut mask = 0;
+            // Children should be sorted from top to bottom
+            for child in self.children.iter() {
+                // TODO: Split these iterations into positive and negative z indexes, then call this node after processing index 0 but before negative indices.
+                let child = child.as_ref().unwrap();
+                if child
+                    .process(
+                        event,
+                        kind,
+                        position,
+                        child_offset,
+                        dpi,
+                        driver,
+                        manager,
+                        window_id.clone(),
+                    )
+                    .is_ok()
+                {
+                    // At this point, we should've already set focus, and are simply walking back up the stack
+                    return Ok(());
+                }
+
+                mask |= child.mask.load(Ordering::Relaxed);
+            }
+
+            let e = self.inject_event(event, kind, dpi, offset, window_id.clone(), driver, manager);
+            mask |= match e {
+                Ok(m) | Err(m) => m,
+            };
+
+            // This is only ever stored when a message has been rejected by all children and this node. It's mostly used
+            // as an optimization for large sets of non-interactive nodes, but it could be made more aggressive.
+            self.mask.store(mask, Ordering::Release);
+
+            if e.is_ok() {
                 match event {
                     // If we successfully process a mouse event, this node gains focus in it's parent window
                     RawEvent::Mouse {
@@ -352,29 +396,6 @@ impl Node {
                 }
                 return Ok(());
             }
-
-            offset += self.area.topleft();
-            // Children should be sorted from top to bottom
-            for child in self.children.iter() {
-                if child
-                    .as_ref()
-                    .unwrap()
-                    .process(
-                        event,
-                        kind,
-                        position,
-                        offset,
-                        dpi,
-                        driver,
-                        manager,
-                        window_id.clone(),
-                    )
-                    .is_ok()
-                {
-                    // At this point, we should've already set focus, and are simply walking back up the stack
-                    return Ok(());
-                }
-            }
         }
         Err(())
     }
@@ -387,7 +408,7 @@ struct Node25 {
     pub extent: AbsRect,
     pub z: f32, // there is only one z coordinate because the contained area must be flat.
     pub transform: Rotor3,
-    pub id: std::rc::Weak<SourceID>,
+    pub id: std::sync::Weak<SourceID>,
     pub children: im::Vector<Option<Rc<Node>>>,
 }
 
@@ -396,7 +417,7 @@ struct Node3D {
     pub area: AbsVolume,
     pub extent: AbsVolume,
     pub transform: Rotor3,
-    pub id: std::rc::Weak<SourceID>,
+    pub id: std::sync::Weak<SourceID>,
     pub children: im::Vector<Either<Rc<Node3D>, Rc<Node25>>>,
 }
 */

@@ -39,11 +39,13 @@ pub struct WindowState {
     pub dpi: Vec2,
     pub driver: Arc<graphics::Driver>,
     trackers: [HashMap<DeviceId, RcNode>; 3],
-    lookup: HashMap<(Rc<SourceID>, u8), DeviceId>,
+    lookup: HashMap<(Arc<SourceID>, u8), DeviceId>,
     pub compositor: Compositor,
+    pub clipstack: Vec<crate::AbsRect>, // Current clipping rectangle stack. These only get added to the GPU clip list if something is rotated
+    pub layers: Vec<std::sync::Weak<SourceID>>, // All layers that render directly to the final compositor
 }
 
-impl super::EventStream for WindowState {
+impl super::EventRouter for WindowState {
     type Input = ();
     type Output = ();
 }
@@ -77,7 +79,7 @@ impl WindowState {
         &mut self,
         tracker: WindowNodeTrack,
         device_id: DeviceId,
-        id: Rc<SourceID>,
+        id: Arc<SourceID>,
         node: Weak<Node>,
     ) -> Option<Weak<Node>> {
         let n = self.trackers[tracker as usize]
@@ -110,7 +112,7 @@ impl WindowState {
             .map(|RcNode(_, v)| v.clone())
     }
 
-    pub(crate) fn update_node(&mut self, id: Rc<SourceID>, node: Weak<Node>) {
+    pub(crate) fn update_node(&mut self, id: Arc<SourceID>, node: Weak<Node>) {
         for i in 0..self.trackers.len() {
             if let Some(device) = self.lookup.get(&(id.clone(), i as u8)) {
                 if let Some(RcNode(_, n)) = self.trackers[i].get_mut(device) {
@@ -127,7 +129,7 @@ impl WindowState {
             .create_view(&wgpu::TextureViewDescriptor::default());
 
         self.compositor
-            .prepare(&self.driver, &mut encoder, &self.config);
+            .prepare(&self.driver, &mut encoder, self.surface_dim());
 
         {
             let mut backcolor = BACKCOLOR;
@@ -152,24 +154,23 @@ impl WindowState {
                 occlusion_query_set: None,
             });
 
-            pass.set_viewport(
-                0.0,
-                0.0,
-                self.config.width as f32,
-                self.config.height as f32,
-                0.0,
-                1.0,
-            );
+            let viewport_dim = self.surface_dim();
+            pass.set_viewport(0.0, 0.0, viewport_dim.x, viewport_dim.y, 0.0, 1.0);
 
-            self.compositor.draw(&self.driver, &mut pass, &self.config);
+            self.compositor.draw(&self.driver, &mut pass, 0, 0);
+            self.compositor.cleanup();
         }
 
         self.driver.queue.submit(Some(encoder.finish()));
         frame.present();
     }
+
+    pub fn surface_dim(&self) -> Vec2 {
+        Vec2::new(self.config.width as f32, self.config.height as f32)
+    }
 }
 
-pub(crate) struct RcNode(Rc<SourceID>, pub(crate) Weak<Node>);
+pub(crate) struct RcNode(Arc<SourceID>, pub(crate) Weak<Node>);
 
 impl PartialEq for RcNode {
     fn eq(&self, other: &Self) -> bool {
@@ -195,17 +196,19 @@ pub(crate) type WindowStateMachine = StateMachine<WindowState, 0>;
 
 #[derive(Clone)]
 pub struct Window {
-    pub id: Rc<SourceID>,
+    pub id: Arc<SourceID>,
     attributes: WindowAttributes,
     child: Box<dyn ComponentWrap<<dyn root::Prop as crate::component::Desc>::Child>>,
 }
 
-impl Component<AbsDim> for Window {
+impl Component for Window {
+    type Props = AbsDim;
+
     fn layout(
         &self,
         manager: &mut crate::StateManager,
         _: &graphics::Driver,
-        _: &Rc<SourceID>,
+        _: &Arc<SourceID>,
     ) -> Box<dyn crate::layout::Layout<AbsDim>> {
         let inner = manager
             .get::<WindowStateMachine>(&self.id)
@@ -221,8 +224,9 @@ impl Component<AbsDim> for Window {
                 y: size.height as f32,
             })),
             children: self.child.layout(manager, &driver, &self.id),
-            id: Rc::downgrade(&self.id),
+            id: Arc::downgrade(&self.id),
             renderable: None,
+            layer: None,
         })
     }
 }
@@ -242,7 +246,7 @@ impl StateMachineChild for Window {
         f(self.child.as_ref())
     }
 
-    fn id(&self) -> Rc<SourceID> {
+    fn id(&self) -> Arc<SourceID> {
         self.id.clone()
     }
 }
@@ -278,10 +282,12 @@ impl Window {
             surface.configure(&driver.device, &config);
 
             let compositor = Compositor::new(
-                &driver.shared,
                 &driver.device,
-                &config,
-                &driver.atlas.read(),
+                &driver.shared,
+                &driver.atlas.read().view,
+                &driver.layer_atlas[0].read().view,
+                config.view_formats[0],
+                false,
             );
 
             let mut windowstate = WindowState {
@@ -296,9 +302,17 @@ impl Window {
                 trackers: Default::default(),
                 lookup: Default::default(),
                 compositor,
+                clipstack: Vec::new(),
+                layers: Vec::new(),
             };
 
             Window::resize(size, &mut windowstate);
+
+            // This causes an unwanted flash, but makes it easier to capture the initial frame for debugging, so it's left here
+            // to be uncommented for debugging purposes
+            //let frame = windowstate.surface.get_current_texture().unwrap();
+            //frame.present();
+
             manager.init(
                 self.id.clone(),
                 Box::new(StateMachine::<WindowState, 0> {
@@ -315,7 +329,7 @@ impl Window {
     }
 
     pub fn new(
-        id: Rc<SourceID>,
+        id: Arc<SourceID>,
         attributes: WindowAttributes,
         child: Box<dyn ComponentWrap<dyn crate::layout::base::Empty>>,
     ) -> Self {
@@ -334,7 +348,7 @@ impl Window {
 
     #[allow(clippy::result_unit_err)]
     pub fn on_window_event(
-        id: Rc<SourceID>,
+        id: Arc<SourceID>,
         rtree: Weak<rtree::Node>,
         event: WindowEvent,
         manager: &mut StateManager,
@@ -684,15 +698,19 @@ impl Window {
                             .and_then(|x| x.upgrade())
                         {
                             let offset = Node::offset(node.clone());
-                            return node.clone().inject_event(
-                                &e,
-                                e.kind(),
-                                dpi,
-                                offset,
-                                id.clone(),
-                                &driver,
-                                manager,
-                            );
+                            return node
+                                .clone()
+                                .inject_event(
+                                    &e,
+                                    e.kind(),
+                                    dpi,
+                                    offset,
+                                    id.clone(),
+                                    &driver,
+                                    manager,
+                                )
+                                .map(|_| ())
+                                .map_err(|_| ());
                         }
 
                         if let Some(rt) = rtree.upgrade() {

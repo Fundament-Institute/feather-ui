@@ -40,7 +40,7 @@ impl crate::layout::Desc for dyn Empty {
         mut outer_area: AbsRect,
         outer_limits: crate::AbsLimits,
         _: &Self::Children,
-        id: std::rc::Weak<crate::SourceID>,
+        id: std::sync::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn crate::render::Renderable>>,
         window: &mut crate::component::window::WindowState,
     ) -> Box<dyn super::Staged + 'a> {

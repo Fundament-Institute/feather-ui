@@ -10,7 +10,7 @@ use feather_ui::component::mouse_area::MouseArea;
 use feather_ui::component::region::Region;
 use feather_ui::component::shape::{Shape, ShapeKind};
 use feather_ui::component::window::Window;
-use feather_ui::component::{ComponentFrom, mouse_area};
+use feather_ui::component::{ChildOf, mouse_area};
 use feather_ui::input::MouseButton;
 use feather_ui::layout::{base, fixed, leaf};
 use feather_ui::persist::FnPersist;
@@ -20,7 +20,7 @@ use feather_ui::{
 };
 use std::collections::HashSet;
 use std::f32;
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(PartialEq, Clone, Debug)]
 struct GraphState {
@@ -49,8 +49,8 @@ impl leaf::Prop for MinimalArea {}
 
 const NODE_RADIUS: f32 = 25.0;
 
-impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp {
-    type Store = (GraphState, im::HashMap<Rc<SourceID>, Option<Window>>);
+impl FnPersist<GraphState, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
+    type Store = (GraphState, im::HashMap<Arc<SourceID>, Option<Window>>);
 
     fn init(&self) -> Self::Store {
         (
@@ -67,20 +67,16 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
         &mut self,
         mut store: Self::Store,
         args: &GraphState,
-    ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
+    ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
         if store.0 != *args {
-            let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
-                im::Vector::new();
-            let domain: Rc<CrossReferenceDomain> = Default::default();
+            let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> = im::Vector::new();
+            let domain: Arc<CrossReferenceDomain> = Default::default();
 
-            let mut node_ids: Vec<Rc<SourceID>> = Vec::new();
+            let mut node_ids: Vec<Arc<SourceID>> = Vec::new();
 
             for i in 0..args.nodes.len() {
                 let node = args.nodes[i];
                 const BASE: sRGB = sRGB::new(0.2, 0.7, 0.4, 1.0);
-
-                let mut contents: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
-                    im::Vector::new();
 
                 let point = DomainPoint::new(gen_id!(), domain.clone());
                 node_ids.push(point.id.clone());
@@ -99,9 +95,6 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
                     BASE,
                 );
 
-                contents.push_back(Some(Box::new(point)));
-                contents.push_back(Some(Box::new(circle)));
-
                 let bag = Region::<MinimalArea>::new(
                     gen_id!(gen_id!(), i),
                     MinimalArea {
@@ -114,7 +107,7 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
                         .into(),
                     }
                     .into(),
-                    contents,
+                    feather_ui::children![fixed::Prop, point, circle],
                 );
 
                 children.push_back(Some(Box::new(bag)));
@@ -166,12 +159,11 @@ impl FnPersist<GraphState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicA
                 ],
             );
 
-            let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
-                im::Vector::new();
-
-            children.push_back(Some(Box::new(subregion)));
-            children.push_back(Some(Box::new(mousearea)));
-            let region = Region::new(gen_id!(), MinimalArea { area: FILL_DRECT }.into(), children);
+            let region = Region::new(
+                gen_id!(),
+                MinimalArea { area: FILL_DRECT }.into(),
+                feather_ui::children![fixed::Prop, subregion, mousearea],
+            );
 
             let window = Window::new(
                 gen_id!(),

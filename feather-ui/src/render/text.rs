@@ -12,7 +12,7 @@ use wgpu::{Extent3d, Origin3d, TexelCopyBufferLayout, TexelCopyTextureInfo};
 use crate::color::{Premultiplied, sRGB32};
 use crate::graphics::{GlyphCache, GlyphRegion};
 use crate::render::atlas::Atlas;
-use crate::render::compositor::Compositor;
+use crate::render::compositor::{CompositorView, DataFlags};
 use crate::{AbsRect, Error};
 
 use swash::scale::{Render, ScaleContext, Source, StrikeWith};
@@ -215,7 +215,7 @@ impl Instance {
             return Ok(None);
         }
 
-        // Clip left ege
+        // Clip left edge
         if x < bounds_min_x {
             let right_shift = bounds_min_x - x;
 
@@ -250,7 +250,7 @@ impl Instance {
             uvdim: [width as f32, height as f32].into(),
             color: color.0,
             rotation: 0.0,
-            texclip: ((glyph.region.index as u32) << 16),
+            flags: DataFlags::new().with_tex(glyph.region.index).into(),
             ..Default::default()
         }))
     }
@@ -259,9 +259,9 @@ impl Instance {
         buffer: &cosmic_text::Buffer,
         pos: Vec2,
         scale: f32,
-        bounds: AbsRect,
+        mut bounds: AbsRect,
         color: cosmic_text::Color,
-        compositor: &mut super::compositor::Compositor,
+        compositor: &mut super::compositor::CompositorView<'_>,
         font_system: &mut FontSystem,
         glyphs: &mut GlyphCache,
         device: &wgpu::Device,
@@ -269,6 +269,7 @@ impl Instance {
         atlas: &mut Atlas,
         cache: &mut ScaleContext,
     ) -> Result<(), Error> {
+        bounds = bounds.intersect(compositor.current_clip());
         let bounds_top = bounds.topleft().y as i32;
         let bounds_bottom = bounds.bottomright().y as i32;
         let bounds_min_x = (bounds.topleft().x as i32).max(0);
@@ -320,7 +321,7 @@ impl Instance {
                     Self::get_glyph(physical_glyph.cache_key, glyphs)
                         .ok_or(Error::GlyphCacheFailure)?,
                 )? {
-                    compositor.append(&data);
+                    compositor.preprocessed(data);
                 }
             }
         }
@@ -334,7 +335,7 @@ impl super::Renderable for Instance {
         &self,
         area: AbsRect,
         driver: &crate::graphics::Driver,
-        compositor: &mut Compositor,
+        compositor: &mut CompositorView<'_>,
     ) -> Result<(), Error> {
         let padding = self.padding.get();
 

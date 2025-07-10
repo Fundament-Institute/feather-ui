@@ -21,24 +21,26 @@ pub mod util;
 
 use crate::component::window::Window;
 use crate::graphics::Driver;
+use crate::render::compositor::CompositorView;
 use bytemuck::NoUninit;
 use component::window::WindowStateMachine;
 use component::{Component, StateMachineWrapper};
 use core::f32;
 use dyn_clone::DynClone;
 use eyre::OptionExt;
+use parking_lot::RwLock;
 use persist::FnPersist;
 use smallvec::SmallVec;
 use std::any::Any;
-use std::cell::{OnceCell, RefCell};
+use std::cell::OnceCell;
 use std::collections::{BTreeMap, HashMap};
 use std::hash::Hasher;
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
-use std::rc::Rc;
+use std::sync::Arc;
 use ultraviolet::f32x4;
 use ultraviolet::vec::Vec2;
 use wgpu::{InstanceDescriptor, InstanceFlags};
-use wide::CmpLe;
+use wide::{CmpGe, CmpGt};
 use winit::window::WindowId;
 pub use {cosmic_text, im, notify, ultraviolet, wgpu, winit};
 
@@ -48,7 +50,7 @@ pub use mlua;
 #[macro_export]
 macro_rules! gen_id {
     () => {
-        std::rc::Rc::new($crate::SourceID::new($crate::DataID::Named(concat!(
+        std::sync::Arc::new($crate::SourceID::new($crate::DataID::Named(concat!(
             file!(),
             ":",
             line!()
@@ -74,7 +76,7 @@ pub enum Error {
     #[error("Event handler didn't handle this method.")]
     UnhandledEvent,
     #[error("Frame aborted due to pending Texture Atlas resize.")]
-    ResizeTextureAtlas(u32),
+    ResizeTextureAtlas(u32, crate::render::atlas::AtlasKind),
     #[error("Internal texture atlas reservation failure.")]
     AtlasReservationFailure,
     #[error("Internal texture atlas cache lookup failure.")]
@@ -92,12 +94,24 @@ pub const ZERO_POINT: Vec2 = Vec2 { x: 0.0, y: 0.0 };
 const MINUS_BOTTOMRIGHT: f32x4 = f32x4::new([1.0, 1.0, -1.0, -1.0]);
 pub const BASE_DPI: Vec2 = Vec2::new(96.0, 96.0);
 
+#[macro_export]
+macro_rules! children {
+    () => { [] };
+    ($prop:path, $($param:expr),+ $(,)?) => { $crate::im::Vector::from_iter([$(Some(Box::new($param) as Box<$crate::component::ChildOf<dyn $prop>>)),+]) };
+}
+
 #[derive(Copy, Clone, Debug, Default)]
 pub struct AbsDim(Vec2);
 
 impl From<AbsDim> for Vec2 {
     fn from(val: AbsDim) -> Self {
         val.0
+    }
+}
+
+impl From<AbsDim> for guillotiere::Size {
+    fn from(value: AbsDim) -> Self {
+        guillotiere::Size::new(value.0.x.ceil() as i32, value.0.y.ceil() as i32)
     }
 }
 
@@ -131,14 +145,46 @@ impl AbsRect {
 
     #[inline]
     pub fn contains(&self, p: Vec2) -> bool {
-        (self.0 * MINUS_BOTTOMRIGHT)
-            .cmp_le(f32x4::new([p.x, p.y, -p.x, -p.y]))
-            .all()
+        //let test: u32x4 = bytemuck::cast(f32x4::new([p.x, p.y, p.x, p.y]).cmp_ge(self.0));
+
+        f32x4::new([p.x, p.y, p.x, p.y]).cmp_ge(self.0).move_mask() == 0b0011
 
         /*p.x >= self.0[0]
         && p.y >= self.0[1]
-        && p.x <= self.0[2]
-        && p.y <= self.0[3]*/
+        && p.x < self.0[2]
+        && p.y < self.0[3]*/
+    }
+
+    #[inline]
+    pub fn collides(&self, rhs: &AbsRect) -> bool {
+        let r = rhs.0.as_array_ref();
+        f32x4::new([r[2], r[3], -r[0], -r[1]])
+            .cmp_gt(self.0 * MINUS_BOTTOMRIGHT)
+            .all()
+
+        /*rhs.0[2] > self.0[0]
+        && rhs.0[3] > self.0[1]
+        && rhs.0[0] < self.0[2]
+        && rhs.0[1] < self.0[3]*/
+    }
+
+    #[inline]
+    pub fn intersect(&self, rhs: AbsRect) -> AbsRect {
+        let rect =
+            (self.0 * MINUS_BOTTOMRIGHT).fast_max(rhs.0 * MINUS_BOTTOMRIGHT) * MINUS_BOTTOMRIGHT;
+
+        // This rect is potentially degenerate, where topleft > bottomright, so we have to guard against this.
+        let a = rect.to_array();
+        AbsRect(rect.fast_max(f32x4::new([a[0], a[1], a[0], a[1]])))
+
+        /*let r = rhs.0.as_array_ref();
+        let l = self.0.as_array_ref();
+        AbsRect::new(
+            l[0].max(r[0]),
+            l[1].max(r[1]),
+            l[2].min(r[2]),
+            l[3].min(r[3]),
+        )*/
     }
 
     #[inline]
@@ -194,6 +240,16 @@ impl AbsRect {
     }
 }
 
+impl std::fmt::Display for AbsRect {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let ltrb = self.0.as_array_ref();
+        write!(
+            f,
+            "AbsRect[({},{});({},{})]",
+            ltrb[0], ltrb[1], ltrb[2], ltrb[3]
+        )
+    }
+}
 impl From<[f32; 4]> for AbsRect {
     #[inline]
     fn from(value: [f32; 4]) -> Self {
@@ -202,7 +258,7 @@ impl From<[f32; 4]> for AbsRect {
 }
 
 #[inline]
-fn splat_vec2(v: Vec2) -> f32x4 {
+const fn splat_vec2(v: Vec2) -> f32x4 {
     f32x4::new([v.x, v.y, v.x, v.y])
 }
 
@@ -289,7 +345,7 @@ pub struct RelPoint(pub Vec2);
 
 impl RelPoint {
     #[inline]
-    pub fn new(x: f32, y: f32) -> Self {
+    pub const fn new(x: f32, y: f32) -> Self {
         Self(Vec2::new(x, y))
     }
 }
@@ -440,7 +496,7 @@ pub const ZERO_DPOINT: DPoint = DPoint {
 };
 
 impl DPoint {
-    fn resolve(&self, dpi: Vec2) -> UPoint {
+    const fn resolve(&self, dpi: Vec2) -> UPoint {
         UPoint(f32x4::new([
             self.px.x + (self.dp.x * dpi.x),
             self.px.y + (self.dp.y * dpi.y),
@@ -739,7 +795,7 @@ impl Default for RelLimits {
 
 impl RelLimits {
     #[inline]
-    pub fn new(min: Vec2, max: Vec2) -> Self {
+    pub const fn new(min: Vec2, max: Vec2) -> Self {
         Self(f32x4::new([min.x, min.y, max.x, max.y]))
     }
     #[inline]
@@ -799,14 +855,14 @@ pub struct UValue {
 }
 
 impl UValue {
-    pub fn resolve(&self, outer_dim: f32) -> f32 {
+    pub const fn resolve(&self, outer_dim: f32) -> f32 {
         if self.rel == UNSIZED_AXIS {
             UNSIZED_AXIS
         } else {
             self.abs + (self.rel * outer_dim)
         }
     }
-    pub fn is_unsized(&self) -> bool {
+    pub const fn is_unsized(&self) -> bool {
         self.rel == UNSIZED_AXIS
     }
 }
@@ -828,13 +884,13 @@ pub struct DValue {
 }
 
 impl DValue {
-    pub fn resolve(&self, dpi: f32) -> UValue {
+    pub const fn resolve(&self, dpi: f32) -> UValue {
         UValue {
             abs: self.px + (self.dp * dpi),
             rel: self.rel,
         }
     }
-    pub fn is_unsized(&self) -> bool {
+    pub const fn is_unsized(&self) -> bool {
         self.rel == UNSIZED_AXIS
     }
 }
@@ -864,21 +920,21 @@ pub enum RowDirection {
 // retrieved during the render step via a source ID.
 #[derive(Default)]
 pub struct CrossReferenceDomain {
-    mappings: crate::RefCell<im::HashMap<Rc<SourceID>, AbsRect>>,
+    mappings: RwLock<im::HashMap<Arc<SourceID>, AbsRect>>,
 }
 
 impl CrossReferenceDomain {
-    pub fn write_area(&self, target: Rc<SourceID>, area: AbsRect) {
-        self.mappings.borrow_mut().insert(target, area);
+    pub fn write_area(&self, target: Arc<SourceID>, area: AbsRect) {
+        self.mappings.write().insert(target, area);
     }
 
-    pub fn get_area(&self, target: &Rc<SourceID>) -> Option<AbsRect> {
-        self.mappings.borrow().get(target).copied()
+    pub fn get_area(&self, target: &Arc<SourceID>) -> Option<AbsRect> {
+        self.mappings.read().get(target).copied()
     }
 
-    pub fn remove_self(&self, target: &Rc<SourceID>) {
+    pub fn remove_self(&self, target: &Arc<SourceID>) {
         // TODO: Is this necessary? Does it even make sense? Do you simply need to wipe the mapping for every new layout instead?
-        self.mappings.borrow_mut().remove(target);
+        self.mappings.write().remove(target);
     }
 }
 
@@ -968,12 +1024,17 @@ impl std::cmp::PartialEq for DataID {
 
 #[derive(Clone, Default, Debug)]
 pub struct SourceID {
-    parent: OnceCell<std::rc::Rc<SourceID>>,
+    parent: OnceCell<std::sync::Arc<SourceID>>,
     id: DataID,
 }
 
+// SAFETY: We cannot explain to the compiler that we only ever set "parent" while SourceID
+// only exists in one thread, so we manually implement these unsafe traits.
+unsafe impl Send for SourceID {}
+unsafe impl Sync for SourceID {}
+
 impl SourceID {
-    pub fn new(id: DataID) -> Self {
+    pub const fn new(id: DataID) -> Self {
         Self {
             parent: OnceCell::new(),
             id,
@@ -981,7 +1042,7 @@ impl SourceID {
     }
 
     /// Creates a new SourceID out of the given DataID, with ourselves as its parent
-    pub fn child(self: &Rc<Self>, id: DataID) -> Rc<Self> {
+    pub fn child(self: &Arc<Self>, id: DataID) -> Arc<Self> {
         Self {
             parent: self.clone().into(),
             id,
@@ -991,13 +1052,13 @@ impl SourceID {
 
     /// Creates a new, unique duplicate ID using this as the parent and the strong count
     /// of this Rc as the child DataID.
-    pub fn duplicate(self: &Rc<Self>) -> Rc<Self> {
-        self.child(DataID::Int(Rc::strong_count(self) as i64))
+    pub fn duplicate(self: &Arc<Self>) -> Arc<Self> {
+        self.child(DataID::Int(Arc::strong_count(self) as i64))
     }
 
     #[cfg(debug_assertions)]
     #[allow(clippy::mutable_key_type)]
-    pub(crate) fn parents(self: &Rc<Self>) -> std::collections::HashSet<&Rc<Self>> {
+    pub(crate) fn parents(self: &Arc<Self>) -> std::collections::HashSet<&Arc<Self>> {
         let mut set = std::collections::HashSet::new();
 
         let mut cur = self.parent.get();
@@ -1057,7 +1118,7 @@ impl std::fmt::Display for SourceID {
 }
 
 #[derive(Clone)]
-pub struct Slot(pub Rc<SourceID>, pub u64);
+pub struct Slot(pub Arc<SourceID>, pub u64);
 
 pub type AppEvent<State> = Box<dyn FnMut(DispatchPair, State) -> Result<State, State>>;
 
@@ -1113,20 +1174,118 @@ pub trait StateMachineChild {
         // Default implementation assumes no children
         Ok(())
     }
-    fn id(&self) -> Rc<SourceID>;
+    fn id(&self) -> Arc<SourceID>;
+}
+/*
+pub struct StateCell<T> {
+    value: T,
+}
+
+impl<T> StateCell<T> {
+    pub fn new(v: T) -> Self {
+        Self { value: v }
+    }
+
+    pub fn borrow(&self) -> &Self {
+        self
+    }
+
+    pub fn borrow_mut<'a>(
+        &'a mut self,
+        id: &'a Arc<SourceID>,
+        manager: &'a mut StateManager,
+    ) -> StateCellRefMut<'a, T> {
+        StateCellRefMut {
+            value: std::ptr::NonNull::new(&mut self.value).unwrap(),
+            id,
+            manager,
+        }
+    }
+}
+
+impl<T> std::ops::Deref for StateCell<T> {
+    type Target = T;
+
+    #[inline]
+    fn deref(&self) -> &T {
+        &self.value
+    }
+}*/
+
+/// Holds a mutable reference to an internal StateCell value, which sets the resulting id as "changed" once it's dropped.
+/// If this reference object fails to be dropped, the changed flag will never be set!
+pub struct StateCellRefMut<'b, T: 'b> {
+    // NB: we use a pointer instead of `&'b mut T` to avoid `noalias` violations, because a
+    // `RefMut` argument doesn't hold exclusivity for its whole scope, only until it drops.
+    value: std::ptr::NonNull<T>,
+    id: &'b Arc<SourceID>, // We hold on to this with a reference to force the reference to be dropped before you do anything else.
+    manager: &'b mut StateManager,
+}
+
+impl<T> std::ops::Deref for StateCellRefMut<'_, T> {
+    type Target = T;
+
+    #[inline]
+    fn deref(&self) -> &T {
+        // SAFETY: the value is accessible as long as we hold our borrow.
+        unsafe { self.value.as_ref() }
+    }
+}
+
+impl<T> std::ops::DerefMut for StateCellRefMut<'_, T> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut T {
+        // SAFETY: the value is accessible as long as we hold our borrow.
+        unsafe { self.value.as_mut() }
+    }
+}
+
+impl<T> Drop for StateCellRefMut<'_, T> {
+    fn drop(&mut self) {
+        self.manager.mutate_id(self.id);
+    }
 }
 
 #[derive(Default)]
 pub struct StateManager {
-    states: HashMap<Rc<SourceID>, Box<dyn StateMachineWrapper>>,
+    states: HashMap<Arc<SourceID>, Box<dyn StateMachineWrapper>>,
+    pointers: HashMap<*const std::ffi::c_void, Arc<SourceID>>,
     changed: bool,
 }
 
 impl StateManager {
+    pub fn register_pointer<T>(&mut self, p: *const T, id: Arc<SourceID>) -> Option<Arc<SourceID>> {
+        let ptr = p as *const std::ffi::c_void;
+        self.pointers.insert(ptr, id)
+    }
+
+    pub fn invalidate_pointer<T>(&mut self, p: *const T) -> Option<Arc<SourceID>> {
+        let ptr = p as *const std::ffi::c_void;
+        self.pointers.remove(&ptr)
+    }
+
+    pub fn mutate_pointer<T>(&mut self, p: *const T) {
+        let ptr = p as *const std::ffi::c_void;
+        let id = self
+            .pointers
+            .get(&ptr)
+            .expect("Tried to mutate pointer that wasn't registered!")
+            .clone();
+
+        self.mutate_id(&id);
+    }
+
+    fn mutate_id(&mut self, id: &Arc<SourceID>) {
+        if let Some(state) = self.states.get_mut(id) {
+            state.set_changed(true);
+            self.propagate_change(id);
+        }
+    }
+
     #[allow(dead_code)]
     fn init_default<State: 'static + component::StateMachineWrapper + Default>(
         &mut self,
-        id: Rc<SourceID>,
+        id: Arc<SourceID>,
     ) -> eyre::Result<&mut State> {
         if !self.states.contains_key(&id) {
             self.states.insert(id.clone(), Box::new(State::default()));
@@ -1138,7 +1297,7 @@ impl StateManager {
             .as_mut() as &mut dyn Any;
         v.downcast_mut().ok_or_eyre("Runtime type mismatch!")
     }
-    pub fn init(&mut self, id: Rc<SourceID>, state: Box<dyn StateMachineWrapper>) {
+    pub fn init(&mut self, id: Arc<SourceID>, state: Box<dyn StateMachineWrapper>) {
         if !self.states.contains_key(&id) {
             self.states.insert(id.clone(), state);
         }
@@ -1173,9 +1332,13 @@ impl StateManager {
         self.states.get(id).ok_or_eyre("State does not exist")
     }
 
-    fn propagate_change(&mut self, mut id: &Rc<SourceID>) {
+    fn propagate_change(&mut self, mut id: &Arc<SourceID>) {
         while let Some(parent) = id.parent.get() {
             if let Some(state) = self.states.get_mut(parent) {
+                if state.changed() {
+                    // If this state is marked change, then this change must have already propagated upwards and we have no more work to do.
+                    return;
+                }
                 state.set_changed(true);
             }
             id = parent;
@@ -1188,6 +1351,7 @@ impl StateManager {
         slot: &Slot,
         dpi: Vec2,
         area: AbsRect,
+        extent: AbsRect,
         driver: &std::sync::Weak<crate::Driver>,
     ) -> eyre::Result<()> {
         type IterTuple = (Box<dyn Any>, u64, Option<Slot>);
@@ -1195,7 +1359,7 @@ impl StateManager {
         // We use smallvec here so we can satisfy the borrow checker without making yet another heap allocation in most cases
         let iter: SmallVec<[IterTuple; 2]> = {
             let state = self.states.get_mut(&slot.0).ok_or_eyre("Invalid slot")?;
-            let v = state.process(event, slot.1, dpi, area, driver)?;
+            let v = state.process(event, slot.1, dpi, area, extent, driver)?;
             if state.changed() {
                 self.changed = true;
                 self.propagate_change(&slot.0);
@@ -1209,7 +1373,7 @@ impl StateManager {
 
         for (e, index, slot) in iter {
             if let Some(s) = slot.as_ref() {
-                self.process((index, e), s, dpi, area, driver)?;
+                self.process((index, e), s, dpi, area, extent, driver)?;
             }
         }
         Ok(())
@@ -1240,7 +1404,7 @@ pub const APP_SOURCE_ID: SourceID = SourceID {
 
 pub struct App<
     AppData: 'static + std::cmp::PartialEq,
-    O: FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>,
+    O: FnPersist<AppData, im::HashMap<Arc<SourceID>, Option<Window>>>,
 > {
     pub instance: wgpu::Instance,
     pub driver: std::sync::Weak<graphics::Driver>,
@@ -1281,6 +1445,7 @@ impl<AppData: 'static + std::cmp::PartialEq> StateMachineWrapper for AppDataMach
         index: u64,
         _: crate::Vec2,
         _: AbsRect,
+        _: AbsRect,
         _: &std::sync::Weak<crate::Driver>,
     ) -> eyre::Result<SmallVec<[DispatchPair; 1]>> {
         let f = self
@@ -1303,8 +1468,10 @@ use winit::platform::windows::EventLoopBuilderExtWindows;
 #[cfg(target_os = "linux")]
 use winit::platform::x11::EventLoopBuilderExtX11;
 
-impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>>
-    App<AppData, O>
+impl<
+    AppData: std::cmp::PartialEq,
+    O: FnPersist<AppData, im::HashMap<Arc<SourceID>, Option<Window>>>,
+> App<AppData, O>
 {
     pub fn new<T: 'static>(
         app_state: AppData,
@@ -1329,7 +1496,7 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
     ) -> eyre::Result<(Self, winit::event_loop::EventLoop<T>)> {
         let mut manager: StateManager = Default::default();
         manager.init(
-            Rc::new(APP_SOURCE_ID),
+            Arc::new(APP_SOURCE_ID),
             Box::new(AppDataMachine {
                 input: inputs,
                 state: Some(app_state),
@@ -1416,7 +1583,7 @@ impl<AppData: std::cmp::PartialEq, O: FnPersist<AppData, im::HashMap<Rc<SourceID
 impl<
     AppData: std::cmp::PartialEq,
     T: 'static,
-    O: FnPersist<AppData, im::HashMap<Rc<SourceID>, Option<Window>>>,
+    O: FnPersist<AppData, im::HashMap<Arc<SourceID>, Option<Window>>>,
 > winit::application::ApplicationHandler<T> for App<AppData, O>
 {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
@@ -1454,22 +1621,56 @@ impl<
                         if let Ok(state) = self.state.get_mut::<WindowStateMachine>(&window.id()) {
                             if let Some(driver) = self.driver.upgrade() {
                                 if let Some(staging) = root.staging.as_ref() {
-                                    while let Err(e) = staging.render(
-                                        Vec2::zero(),
-                                        &driver,
-                                        &mut state.state.as_mut().unwrap().compositor,
-                                    ) {
-                                        match e {
-                                            Error::ResizeTextureAtlas(layers) => {
-                                                // Resize the texture atlas with the requested number of layers (the extent has already been changed)
-                                                driver.atlas.write().resize(
-                                                    &driver.device,
-                                                    &driver.queue,
-                                                    layers,
-                                                );
+                                    let inner = state.state.as_mut().unwrap();
+                                    let surface_dim = inner.surface_dim();
+
+                                    loop {
+                                        // Construct a default compositor view with no offset.
+                                        let mut viewer = CompositorView {
+                                            index: 0,
+                                            window: &mut inner.compositor,
+                                            layer0: &mut driver.layer_composite[0].write(),
+                                            layer1: &mut driver.layer_composite[1].write(),
+                                            clipstack: &mut inner.clipstack,
+                                            offset: Vec2::zero(),
+                                            surface_dim,
+                                            pass: 0,
+                                            slice: 0,
+                                        };
+
+                                        // Reset our layer tracker before beginning a render
+                                        inner.layers.clear();
+                                        viewer.clipstack.clear();
+                                        if let Err(e) = staging.render(
+                                            Vec2::zero(),
+                                            &driver,
+                                            &mut viewer,
+                                            &mut inner.layers,
+                                        ) {
+                                            match e {
+                                                Error::ResizeTextureAtlas(layers, kind) => {
+                                                    // Resize the texture atlas with the requested number of layers (the extent has already been changed)
+                                                    match kind {
+                                                        render::atlas::AtlasKind::Primary => {
+                                                            driver.atlas.write()
+                                                        }
+                                                        render::atlas::AtlasKind::Layer0 => {
+                                                            driver.layer_atlas[0].write()
+                                                        }
+                                                        render::atlas::AtlasKind::Layer1 => {
+                                                            driver.layer_atlas[1].write()
+                                                        }
+                                                    }
+                                                    .resize(&driver.device, &driver.queue, layers);
+                                                    viewer.window.cleanup();
+                                                    viewer.layer0.cleanup();
+                                                    viewer.layer1.cleanup();
+                                                    continue; // Retry frame
+                                                }
+                                                e => panic!("Fatal draw error: {e}"),
                                             }
-                                            e => panic!("Fatal draw error: {e}"),
                                         }
+                                        break;
                                     }
                                 }
 
@@ -1481,7 +1682,77 @@ impl<
 
                                 driver.atlas.read().draw(&driver, &mut encoder);
 
+                                let max_depth = driver.layer_composite[0]
+                                    .read()
+                                    .segments
+                                    .len()
+                                    .max(driver.layer_composite[1].read().segments.len());
+
+                                for i in 0..2 {
+                                    let surface_dim = driver.layer_atlas[i].read().texture.size();
+                                    driver.layer_composite[i].write().prepare(
+                                        &driver,
+                                        &mut encoder,
+                                        Vec2 {
+                                            x: surface_dim.width as f32,
+                                            y: surface_dim.height as f32,
+                                        },
+                                    );
+                                }
+
+                                // A depth of "zero" means the window compositor, so we only go down to 1.
+                                for i in (1..max_depth).rev() {
+                                    // Odd is layer0, even is layer1, so we add one before modulo to reverse the result
+                                    let idx: usize = (i + 1) % 2;
+                                    let mut compositor = driver.layer_composite[idx].write();
+                                    let atlas = driver.layer_atlas[idx].read();
+
+                                    // We create one render pass for each slice of the layer atlas
+                                    for slice in 0..atlas.texture.depth_or_array_layers() {
+                                        let name = format!(
+                                            "Layer {idx} (depth {i}) Atlas (slice {slice}) Pass"
+                                        );
+                                        let mut pass = encoder.begin_render_pass(
+                                            &wgpu::RenderPassDescriptor {
+                                                label: Some(&name),
+                                                color_attachments: &[Some(
+                                                    wgpu::RenderPassColorAttachment {
+                                                        view: &atlas.targets[slice as usize],
+                                                        resolve_target: None,
+                                                        ops: wgpu::Operations {
+                                                            load: if true {
+                                                                wgpu::LoadOp::Clear(
+                                                                    wgpu::Color::TRANSPARENT,
+                                                                )
+                                                            } else {
+                                                                wgpu::LoadOp::Load
+                                                            },
+                                                            store: wgpu::StoreOp::Store,
+                                                        },
+                                                    },
+                                                )],
+                                                depth_stencil_attachment: None,
+                                                timestamp_writes: None,
+                                                occlusion_query_set: None,
+                                            },
+                                        );
+
+                                        pass.set_viewport(
+                                            0.0,
+                                            0.0,
+                                            atlas.texture.width() as f32,
+                                            atlas.texture.height() as f32,
+                                            0.0,
+                                            1.0,
+                                        );
+
+                                        compositor.draw(&driver, &mut pass, i as u8, slice as u8);
+                                    }
+                                }
+
                                 state.state.as_mut().unwrap().draw(encoder);
+                                driver.layer_composite[0].write().cleanup();
+                                driver.layer_composite[1].write().cleanup();
                             }
                         }
                         Ok(())
@@ -1539,12 +1810,13 @@ impl<
         let _ = event_loop;
     }
 }
+
 #[cfg(test)]
 struct TestApp {}
 
 #[cfg(test)]
-impl FnPersist<u8, im::HashMap<Rc<SourceID>, Option<Window>>> for TestApp {
-    type Store = (u8, im::HashMap<Rc<SourceID>, Option<Window>>);
+impl FnPersist<u8, im::HashMap<Arc<SourceID>, Option<Window>>> for TestApp {
+    type Store = (u8, im::HashMap<Arc<SourceID>, Option<Window>>);
 
     fn init(&self) -> Self::Store {
         use crate::color::sRGB;
@@ -1577,7 +1849,7 @@ impl FnPersist<u8, im::HashMap<Rc<SourceID>, Option<Window>>> for TestApp {
         &mut self,
         store: Self::Store,
         _: &u8,
-    ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
+    ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
         let windows = store.1.clone();
         (store, windows)
     }
@@ -1591,4 +1863,120 @@ fn test_basic() {
     let proxy = event_loop.create_proxy();
     proxy.send_event(()).unwrap();
     event_loop.run_app(&mut app).unwrap();
+}
+
+#[test]
+fn test_absrect_contain() {
+    let target = AbsRect::new(0.0, 0.0, 2.0, 2.0);
+
+    for x in 0..=2 {
+        for y in 0..=2 {
+            if x == 2 || y == 2 {
+                assert!(!target.contains(Vec2::new(x as f32, y as f32)));
+            } else {
+                assert!(
+                    target.contains(Vec2::new(x as f32, y as f32)),
+                    "{x} {y} not inside {target}"
+                );
+            }
+        }
+    }
+
+    assert!(target.contains(Vec2::new(1.999, 1.999)));
+
+    for y in -1..=3 {
+        assert!(!target.contains(Vec2::new(-1.0, y as f32)));
+        assert!(!target.contains(Vec2::new(3.0, y as f32)));
+        assert!(!target.contains(Vec2::new(3000000.0, y as f32)));
+    }
+
+    for x in -1..=3 {
+        assert!(!target.contains(Vec2::new(x as f32, -1.0)));
+        assert!(!target.contains(Vec2::new(x as f32, 3.0)));
+        assert!(!target.contains(Vec2::new(x as f32, -3000000.0)));
+    }
+}
+
+#[test]
+fn test_absrect_collide() {
+    let target = AbsRect::new(0.0, 0.0, 4.0, 4.0);
+
+    for l in 0..=3 {
+        for t in 0..=3 {
+            for r in 1..=4 {
+                for b in 1..=4 {
+                    let rhs = AbsRect::new(l as f32, t as f32, r as f32, b as f32);
+                    assert!(
+                        target.collides(&rhs),
+                        "{target} not detected as touching {rhs}"
+                    );
+                }
+            }
+        }
+    }
+
+    for l in -2..=3 {
+        for t in -2..=3 {
+            for r in 1..=4 {
+                for b in 1..=4 {
+                    assert!(target.collides(&AbsRect::new(l as f32, t as f32, r as f32, b as f32)));
+                }
+            }
+        }
+    }
+
+    for l in 1..=3 {
+        for t in 1..=3 {
+            for r in 3..=6 {
+                if r > t {
+                    for b in 3..=6 {
+                        if b > t {
+                            let rhs = AbsRect::new(l as f32, t as f32, r as f32, b as f32);
+                            assert!(
+                                target.collides(&rhs),
+                                "{target} not detected as touching {rhs}"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    assert!(!target.collides(&AbsRect::new(1.0, 4.0, 5.0, 5.0)));
+
+    // Because our rectangles are technically supposed to be inclusive-exclusive, they should not collide if the bottomright is coincident with the topleft.
+    assert!(!target.collides(&AbsRect::new(4.0, 4.0, 5.0, 5.0)));
+    assert!(!target.collides(&AbsRect::new(4.0, 0.0, 5.0, 4.0)));
+    assert!(!target.collides(&AbsRect::new(0.0, 4.0, 4.0, 5.0)));
+
+    assert!(!target.collides(&AbsRect::new(-1.0, -1.0, 0.0, 0.0)));
+    assert!(!target.collides(&AbsRect::new(-1.0, 0.0, 0.0, 4.0)));
+    assert!(!target.collides(&AbsRect::new(0.0, -1.0, 4.0, 0.0)));
+}
+
+#[test]
+fn test_absrect_intersect() {
+    let target = AbsRect::new(0.0, 0.0, 4.0, 4.0);
+
+    assert!(target.intersect(AbsRect::new(2.0, 2.0, 6.0, 6.0)) == AbsRect::new(2.0, 2.0, 4.0, 4.0));
+    assert!(
+        target.intersect(AbsRect::new(-2.0, -2.0, 2.0, 2.0)) == AbsRect::new(0.0, 0.0, 2.0, 2.0)
+    );
+
+    assert!(
+        target.intersect(AbsRect::new(-2.0, -2.0, -1.0, -1.0)) == AbsRect::new(0.0, 0.0, 0.0, 0.0)
+    );
+
+    assert!(target.intersect(AbsRect::new(6.0, 6.0, 8.0, 8.0)) == AbsRect::new(6.0, 6.0, 6.0, 6.0));
+}
+
+#[test]
+fn test_absrect_extend() {
+    let target = AbsRect::new(0.0, 0.0, 4.0, 4.0);
+
+    assert!(target.extend(AbsRect::new(2.0, 2.0, 6.0, 6.0)) == AbsRect::new(0.0, 0.0, 6.0, 6.0));
+    assert!(
+        target.extend(AbsRect::new(-2.0, -2.0, 2.0, 2.0)) == AbsRect::new(-2.0, -2.0, 4.0, 4.0)
+    );
 }

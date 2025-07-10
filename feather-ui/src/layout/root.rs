@@ -29,7 +29,7 @@ impl Desc for dyn Prop {
         _: AbsRect,
         _: crate::AbsLimits,
         child: &Self::Children,
-        _: std::rc::Weak<crate::SourceID>,
+        _: std::sync::Weak<crate::SourceID>,
         _: Option<Rc<dyn Renderable>>,
         window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
