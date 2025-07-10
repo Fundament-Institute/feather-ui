@@ -97,7 +97,7 @@
 
               nativeBuildInputs = [ pkgs.makeWrapper ];
 
-              cargoExtraArgs = "--bin ${examplename}";
+              cargoExtraArgs = "--example ${examplename}";
 
               postInstall = ''
                 wrapProgram $out/bin/${examplename} --prefix LD_LIBRARY_PATH : ${
@@ -108,10 +108,11 @@
             } // commonArgs));
         in {
           basic-rs = (example "basic-rs");
-          grid-rs = (example "grid-rs");
           graph-rs = (example "graph-rs");
+          grid-rs = (example "grid-rs");
           list-rs = (example "list-rs");
           paragraph-rs = (example "paragraph-rs");
+          textbox-rs = (example "textbox-rs");
         };
 
         checks = let

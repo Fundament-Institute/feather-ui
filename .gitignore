@@ -7,6 +7,6 @@
 /target/
 *.user
 /.direnv/
-/examples/calculator-rs/calculator-cs/obj
-/examples/calculator-rs/calculator-cs/bin
+/feather-ui/examples/calculator-rs/calculator-cs/obj
+/feather-ui/examples/calculator-rs/calculator-cs/bin
 .rustfmt.toml

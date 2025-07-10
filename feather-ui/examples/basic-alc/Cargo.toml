@@ -16,7 +16,7 @@ license.workspace = true
 
 [[bin]]
 name = "basic-alc"
-path = "main.rs"
+path = "basic.rs"
 
 [dependencies]
 feather-ui.workspace = true

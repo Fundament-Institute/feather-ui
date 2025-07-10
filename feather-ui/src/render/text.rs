@@ -36,7 +36,7 @@ impl Instance {
         context: &mut ScaleContext,
         cache_key: CacheKey,
     ) -> Option<Image> {
-        let font = match font_system.get_font(cache_key.font_id) {
+        let font = match font_system.get_font(cache_key.font_id, cache_key.font_weight) {
             Some(some) => some,
             None => {
                 debug_assert!(false, "did not find font {:?}", cache_key.font_id);

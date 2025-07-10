@@ -11,7 +11,7 @@ SPDX-License-Identifier = "Apache-2.0"
 
 
 [[annotations]]
-path = "examples/calculator-rs/calculator-cs/**"
+path = "feather-ui/examples/calculator-rs/calculator-cs/**"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2025 Fundament Software SPC <https://fundament.software>"
 SPDX-License-Identifier = "Apache-2.0"

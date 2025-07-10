@@ -1,8 +1,6 @@
 # Feather UI
 
-Feather is a universal UI library that applies user inputs to application state, and maps application state to an interactive visualization using a custom graphics rendering language capable of compiling to arbitrary GPU code or vectorized CPU code.
-
-This project is currently in a prototyping stage, it is not yet suitable for production, and not all planned features are implemented.
+Feather is a universal UI library that only mutates application state in response to user inputs or events, using functional reactive event streams, and maps application state to a layout using persistent functions, which then efficiently render only the parts of the UI that changed using either a standard GPU compositor or custom shaders.
 
 ## Building
 
@@ -10,11 +8,10 @@ Feather is a standard rust project, simply run `cargo build` on your platform of
 
 ## Running
 
-Two working examples are available: `basic-rs` and `paragraph-rs`. To run either, navigate into the folder and run `cargo run`.
+Examples can be found in `feather-ui/examples`, and can be run via `cargo run --example [example_name]`. 
 
-If you are on NixOS, use `nix run github:Fundament-Software/feathergui#basic-rs` or `nix run github:Fundament-Software/feathergui#paragraph-rs`  
-If you are not on nixos but have nix, use `nix run --impure github:nix-community/nixGL -- nix run github:fundament-software/feathergui#basic-rs`  
-If you do not have nix, you must navigate into the relevant example folder and run `cargo run`
+If you are on NixOS, use `nix run github:Fundament-Software/feathergui#[example_name]`
+If you are not on nixos but have nix, use `nix run --impure github:nix-community/nixGL -- nix run github:fundament-software/feathergui#[example_name]`  
 
 The examples have currently only been tested on NixOS and Windows 11, but should work on most systems.
 
