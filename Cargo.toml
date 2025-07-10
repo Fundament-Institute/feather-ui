@@ -4,27 +4,13 @@
 [workspace]
 members = [
   "feather-ui",
-  "examples/basic-rs",
-  "examples/basic-alc",
-  "examples/paragraph-rs",
-  "examples/calculator-rs",
-  # "examples/calculator-alc", # This breaks cargo for some reason
-  "examples/graph-rs",
-  "examples/grid-rs",
-  "examples/list-rs",
-  "examples/textbox-rs",
+  "feather-ui/examples/basic-alc",
+  "feather-ui/examples/calculator-rs",
+  # "feather-ui/examples/calculator-alc", # This breaks cargo for some reason
   "feather-macro",
 ]
 resolver = "2"
-default-members = [
-  "feather-ui",
-  "examples/basic-rs",
-  "examples/paragraph-rs",
-  "examples/graph-rs",
-  "examples/list-rs",
-  "examples/grid-rs",
-  "feather-macro",
-]
+default-members = ["feather-ui", "feather-macro"]
 
 [workspace.package]
 version = "0.2.0"

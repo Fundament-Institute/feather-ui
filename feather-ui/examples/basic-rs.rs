@@ -12,14 +12,12 @@ use feather_ui::component::window::Window;
 use feather_ui::layout::{fixed, leaf};
 use feather_ui::persist::FnPersist;
 use feather_ui::ultraviolet::{Vec2, Vec4};
-use feather_ui::util::create_hotloader;
 use feather_ui::{
     AbsRect, App, DAbsRect, DPoint, DRect, RelRect, Slot, SourceID, UNSIZED_AXIS, URect, ZERO_RECT,
     ZERO_RELRECT, gen_id, im, winit,
 };
 use std::rc::Rc;
 use std::sync::Arc;
-use std::sync::RwLock;
 
 #[derive(PartialEq, Clone, Debug)]
 struct CounterState {
@@ -199,7 +197,6 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
 }
 
 use feather_ui::WrapEventEx;
-static LOADERS: RwLock<Vec<feather_ui::notify::RecommendedWatcher>> = RwLock::new(Vec::new());
 
 fn main() {
     let onclick = Box::new(
@@ -221,19 +218,7 @@ fn main() {
         CounterState { count: 0 },
         vec![onclick],
         BasicApp {},
-        |driver| {
-            let exe = std::env::current_exe().unwrap();
-            LOADERS.write().unwrap().push(
-                    create_hotloader::<
-                        feather_ui::render::shape::Shape<{ ShapeKind::RoundRect as u8 }>,
-                    >(
-                        &exe.join("../../../feather-ui/src/shaders/shape.wgsl"),
-                        "Shape",
-                        driver,
-                    )
-                    .unwrap(),
-                );
-        },
+        |_| (),
     )
     .unwrap();
 

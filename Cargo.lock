@@ -208,14 +208,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "basic-rs"
-version = "0.2.0"
-dependencies = [
- "feather-macro",
- "feather-ui",
-]
-
-[[package]]
 name = "basic-toml"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -415,9 +407,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.27"
+version = "1.2.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d487aa071b5f64da6f19a3e848e3578944b726ee5a4854b82172f02aa876bfdc"
+checksum = "5c1599538de2394445747c8cf7935946e3cc27e9625f889d979bfb2aaf569362"
 dependencies = [
  "jobserver",
  "libc",
@@ -533,7 +525,7 @@ dependencies = [
 [[package]]
 name = "cosmic-text"
 version = "0.14.2"
-source = "git+https://github.com/pop-os/cosmic-text#d15011fba547ae6bd2cbc7591991ff74424c6db7"
+source = "git+https://github.com/pop-os/cosmic-text#85b07b4c8c6b825aca984648fed7ee49b6591d97"
 dependencies = [
  "bitflags 2.9.1",
  "fontdb",
@@ -1051,27 +1043,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "graph-rs"
-version = "0.2.0"
-dependencies = [
- "feather-macro",
- "feather-ui",
-]
-
-[[package]]
-name = "grid-rs"
-version = "0.2.0"
-dependencies = [
- "cosmic-text",
- "feather-macro",
- "feather-ui",
- "im",
- "ultraviolet",
- "wgpu",
- "winit",
-]
-
-[[package]]
 name = "guillotiere"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1338,14 +1309,6 @@ name = "linux-raw-sys"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd945864f07fe9f5371a27ad7b52a172b4b499999f1d97574c9fa68373937e12"
-
-[[package]]
-name = "list-rs"
-version = "0.2.0"
-dependencies = [
- "feather-macro",
- "feather-ui",
-]
 
 [[package]]
 name = "litrs"
@@ -1971,19 +1934,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22ec719bbf3b2a81c109a4e20b1f129b5566b7dce654bc3872f6a05abf82b2c4"
 dependencies = [
  "ttf-parser 0.25.1",
-]
-
-[[package]]
-name = "paragraph-rs"
-version = "0.2.0"
-dependencies = [
- "cosmic-text",
- "feather-macro",
- "feather-ui",
- "im",
- "ultraviolet",
- "wgpu",
- "winit",
 ]
 
 [[package]]
@@ -2660,19 +2610,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06794f8f6c5c898b3275aebefa6b8a1cb24cd2c6c79397ab15774837a0bc5755"
 dependencies = [
  "winapi-util",
-]
-
-[[package]]
-name = "textbox-rs"
-version = "0.2.0"
-dependencies = [
- "cosmic-text",
- "feather-macro",
- "feather-ui",
- "im",
- "ultraviolet",
- "wgpu",
- "winit",
 ]
 
 [[package]]
@@ -4078,9 +4015,9 @@ checksum = "b9cc00251562a284751c9973bace760d86c0276c471b4be569fe6b068ee97a56"
 
 [[package]]
 name = "xml-rs"
-version = "0.8.26"
+version = "0.8.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a62ce76d9b56901b19a74f19431b0d8b3bc7ca4ad685a746dfd78ca8f4fc6bda"
+checksum = "6fd8403733700263c6eb89f192880191f1b83e332f7a20371ddcf421c4a337c7"
 
 [[package]]
 name = "yazi"
