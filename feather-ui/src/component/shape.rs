@@ -6,6 +6,7 @@ use crate::layout::{Layout, leaf};
 use crate::{BASE_DPI, SourceID, WindowStateMachine, layout};
 use std::marker::PhantomData;
 use std::rc::Rc;
+use std::sync::Arc;
 use ultraviolet::{Vec2, Vec4};
 
 #[repr(u8)]
@@ -17,7 +18,7 @@ pub enum ShapeKind {
 }
 
 pub struct Shape<T: leaf::Padded + 'static, const KIND: u8> {
-    pub id: std::rc::Rc<SourceID>,
+    pub id: std::sync::Arc<SourceID>,
     pub props: Rc<T>,
     border: f32,
     blur: f32,
@@ -27,7 +28,7 @@ pub struct Shape<T: leaf::Padded + 'static, const KIND: u8> {
 }
 
 pub fn round_rect<T: leaf::Padded + 'static>(
-    id: std::rc::Rc<SourceID>,
+    id: std::sync::Arc<SourceID>,
     props: Rc<T>,
     border: f32,
     blur: f32,
@@ -47,7 +48,7 @@ pub fn round_rect<T: leaf::Padded + 'static>(
 }
 
 pub fn triangle<T: leaf::Padded + 'static>(
-    id: std::rc::Rc<SourceID>,
+    id: std::sync::Arc<SourceID>,
     props: Rc<T>,
     border: f32,
     blur: f32,
@@ -68,7 +69,7 @@ pub fn triangle<T: leaf::Padded + 'static>(
 }
 
 pub fn circle<T: leaf::Padded + 'static>(
-    id: std::rc::Rc<SourceID>,
+    id: std::sync::Arc<SourceID>,
     props: Rc<T>,
     border: f32,
     blur: f32,
@@ -88,7 +89,7 @@ pub fn circle<T: leaf::Padded + 'static>(
 }
 
 pub fn arcs<T: leaf::Padded + 'static>(
-    id: std::rc::Rc<SourceID>,
+    id: std::sync::Arc<SourceID>,
     props: Rc<T>,
     border: f32,
     blur: f32,
@@ -123,7 +124,7 @@ impl<T: leaf::Padded + 'static, const KIND: u8> Clone for Shape<T, KIND> {
 
 impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::RoundRect as u8 }> {
     pub fn new(
-        id: std::rc::Rc<SourceID>,
+        id: std::sync::Arc<SourceID>,
         props: Rc<T>,
         border: f32,
         blur: f32,
@@ -145,7 +146,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::RoundRect as u8 }> {
 
 impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Triangle as u8 }> {
     pub fn new(
-        id: std::rc::Rc<SourceID>,
+        id: std::sync::Arc<SourceID>,
         props: Rc<T>,
         border: f32,
         blur: f32,
@@ -168,7 +169,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Triangle as u8 }> {
 
 impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Circle as u8 }> {
     pub fn new(
-        id: std::rc::Rc<SourceID>,
+        id: std::sync::Arc<SourceID>,
         props: Rc<T>,
         border: f32,
         blur: f32,
@@ -190,7 +191,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Circle as u8 }> {
 
 impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Arc as u8 }> {
     pub fn new(
-        id: std::rc::Rc<SourceID>,
+        id: std::sync::Arc<SourceID>,
         props: Rc<T>,
         border: f32,
         blur: f32,
@@ -211,22 +212,24 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Arc as u8 }> {
 }
 
 impl<T: leaf::Padded + 'static, const KIND: u8> crate::StateMachineChild for Shape<T, KIND> {
-    fn id(&self) -> std::rc::Rc<SourceID> {
+    fn id(&self) -> std::sync::Arc<SourceID> {
         self.id.clone()
     }
 }
 
-impl<T: leaf::Padded + 'static, const KIND: u8> super::Component<T> for Shape<T, KIND>
+impl<T: leaf::Padded + 'static, const KIND: u8> super::Component for Shape<T, KIND>
 where
     for<'a> &'a T: Into<&'a (dyn leaf::Padded + 'static)>,
 {
+    type Props = T;
+
     fn layout(
         &self,
-        state: &mut crate::StateManager,
+        manager: &mut crate::StateManager,
         _: &crate::graphics::Driver,
-        window: &Rc<SourceID>,
+        window: &Arc<SourceID>,
     ) -> Box<dyn Layout<T>> {
-        let winstate: &WindowStateMachine = state.get(window).unwrap();
+        let winstate: &WindowStateMachine = manager.get(window).unwrap();
         let dpi = winstate.state.as_ref().map(|x| x.dpi).unwrap_or(BASE_DPI);
 
         let mut corners = self.corners;
@@ -237,7 +240,7 @@ where
         Box::new(layout::Node::<T, dyn leaf::Prop> {
             props: self.props.clone(),
             children: Default::default(),
-            id: Rc::downgrade(&self.id),
+            id: Arc::downgrade(&self.id),
             renderable: Some(Rc::new(crate::render::shape::Instance::<
                 crate::render::shape::Shape<KIND>,
             > {
@@ -250,15 +253,7 @@ where
                 id: self.id.clone(),
                 phantom: PhantomData,
             })),
+            layer: None,
         })
     }
-}
-
-impl<U: ?Sized, T: leaf::Padded + 'static, const KIND: u8> crate::component::ComponentWrap<U>
-    for Shape<T, KIND>
-where
-    Shape<T, KIND>: crate::component::Component<T>,
-    for<'a> &'a T: Into<&'a U>,
-{
-    crate::gen_component_wrap_inner!();
 }

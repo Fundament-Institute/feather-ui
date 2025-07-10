@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use crate::color::sRGB;
-use crate::component::{EventStream, StateMachine};
+use crate::component::{EventRouter, StateMachine};
 use crate::graphics::point_to_pixel;
 use crate::layout::{self, Layout, leaf};
 use crate::{SourceID, WindowStateMachine, graphics};
@@ -10,11 +10,12 @@ use cosmic_text::Metrics;
 use derive_where::derive_where;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct TextState(Rc<RefCell<cosmic_text::Buffer>>);
 
-impl EventStream for TextState {
+impl EventRouter for TextState {
     type Input = ();
     type Output = ();
 }
@@ -27,7 +28,7 @@ impl PartialEq for TextState {
 
 #[derive_where(Clone)]
 pub struct Text<T: leaf::Padded + 'static> {
-    pub id: Rc<SourceID>,
+    pub id: Arc<SourceID>,
     pub props: Rc<T>,
     pub font_size: f32,
     pub line_height: f32,
@@ -39,8 +40,36 @@ pub struct Text<T: leaf::Padded + 'static> {
     pub wrap: cosmic_text::Wrap,
 }
 
+impl<T: leaf::Padded + 'static> Text<T> {
+    pub fn new(
+        id: Arc<SourceID>,
+        props: Rc<T>,
+        font_size: f32,
+        line_height: f32,
+        text: String,
+        font: cosmic_text::FamilyOwned,
+        color: sRGB,
+        weight: cosmic_text::Weight,
+        style: cosmic_text::Style,
+        wrap: cosmic_text::Wrap,
+    ) -> Self {
+        Self {
+            id,
+            props,
+            font_size,
+            line_height,
+            text,
+            font,
+            color,
+            weight,
+            style,
+            wrap,
+        }
+    }
+}
+
 impl<T: leaf::Padded + 'static> crate::StateMachineChild for Text<T> {
-    fn id(&self) -> Rc<SourceID> {
+    fn id(&self) -> Arc<SourceID> {
         self.id.clone()
     }
 
@@ -80,17 +109,19 @@ impl<T: Default + leaf::Padded + 'static> Default for Text<T> {
     }
 }
 
-impl<T: leaf::Padded + 'static> super::Component<T> for Text<T>
+impl<T: leaf::Padded + 'static> super::Component for Text<T>
 where
     for<'a> &'a T: Into<&'a (dyn leaf::Padded + 'static)>,
 {
+    type Props = T;
+
     fn layout(
         &self,
-        state: &mut crate::StateManager,
+        manager: &mut crate::StateManager,
         driver: &graphics::Driver,
-        window: &Rc<SourceID>,
+        window: &Arc<SourceID>,
     ) -> Box<dyn Layout<T>> {
-        let winstate: &WindowStateMachine = state.get(window).unwrap();
+        let winstate: &WindowStateMachine = manager.get(window).unwrap();
         let winstate = winstate.state.as_ref().expect("No window state available");
         let dpi = winstate.dpi;
         let mut font_system = driver.font_system.write();
@@ -100,7 +131,7 @@ where
             point_to_pixel(self.line_height, dpi.y),
         );
 
-        let textstate: &StateMachine<TextState, 0> = state.get(&self.id).unwrap();
+        let textstate: &StateMachine<TextState, 0> = manager.get(&self.id).unwrap();
         let textstate = textstate.state.as_ref().expect("No text state available");
         textstate
             .0
@@ -128,11 +159,9 @@ where
 
         Box::new(layout::text::Node::<T> {
             props: self.props.clone(),
-            id: Rc::downgrade(&self.id),
+            id: Arc::downgrade(&self.id),
             buffer: textstate.0.clone(),
             renderable: render.clone(),
         })
     }
 }
-
-crate::gen_component_wrap!(Text, leaf::Padded);

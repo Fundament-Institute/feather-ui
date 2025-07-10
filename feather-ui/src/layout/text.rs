@@ -12,7 +12,7 @@ use super::{Layout, check_unsized, leaf, limit_area};
 
 #[derive_where(Clone)]
 pub struct Node<T: leaf::Padded> {
-    pub id: std::rc::Weak<SourceID>,
+    pub id: std::sync::Weak<SourceID>,
     pub props: Rc<T>,
     pub buffer: Rc<RefCell<cosmic_text::Buffer>>,
     pub renderable: Rc<dyn render::Renderable>,

@@ -11,7 +11,7 @@ use feather_ui::component::region::Region;
 use feather_ui::component::shape::{Shape, ShapeKind};
 use feather_ui::component::text::Text;
 use feather_ui::component::window::Window;
-use feather_ui::component::{ComponentFrom, mouse_area};
+use feather_ui::component::{ChildOf, mouse_area};
 use feather_ui::layout::{base, fixed, flex, leaf, list};
 use feather_ui::persist::FnPersist;
 use feather_ui::ultraviolet::{Vec2, Vec4};
@@ -19,7 +19,7 @@ use feather_ui::{
     AbsRect, App, DRect, DValue, DataID, FILL_DRECT, RelRect, Slot, SourceID, UNSIZED_AXIS,
     ZERO_POINT, gen_id, im,
 };
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(PartialEq, Clone, Debug)]
 struct CounterState {
@@ -116,8 +116,8 @@ impl flex::Prop for MinimalFlex {
 
 struct BasicApp {}
 
-impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp {
-    type Store = (CounterState, im::HashMap<Rc<SourceID>, Option<Window>>);
+impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
+    type Store = (CounterState, im::HashMap<Arc<SourceID>, Option<Window>>);
 
     fn init(&self) -> Self::Store {
         (CounterState { count: -1 }, im::HashMap::new())
@@ -126,7 +126,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
         &mut self,
         mut store: Self::Store,
         args: &CounterState,
-    ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
+    ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
         if store.0 != *args {
             let button = {
                 let text = Text::<FixedData> {
@@ -157,11 +157,6 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     sRGB::transparent(),
                 );
 
-                let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
-                    im::Vector::new();
-                children.push_back(Some(Box::new(rect)));
-                children.push_back(Some(Box::new(text)));
-
                 Button::<FixedData>::new(
                     gen_id!(),
                     FixedData {
@@ -174,12 +169,12 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                         zindex: 0,
                     },
                     Slot(feather_ui::APP_SOURCE_ID.into(), 0),
-                    children,
+                    feather_ui::children![fixed::Prop, rect, text],
                 )
             };
 
             let rectlist = {
-                let mut children: im::Vector<Option<Box<ComponentFrom<dyn list::Prop>>>> =
+                let mut children: im::Vector<Option<Box<ChildOf<dyn list::Prop>>>> =
                     im::Vector::new();
 
                 let rect_id = gen_id!();
@@ -228,7 +223,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
             };
 
             let flexlist = {
-                let mut children: im::Vector<Option<Box<ComponentFrom<dyn flex::Prop>>>> =
+                let mut children: im::Vector<Option<Box<ChildOf<dyn flex::Prop>>>> =
                     im::Vector::new();
 
                 let box_id = gen_id!();
@@ -275,12 +270,6 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                 )
             };
 
-            let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
-                im::Vector::new();
-            children.push_back(Some(Box::new(button)));
-            children.push_back(Some(Box::new(flexlist)));
-            children.push_back(Some(Box::new(rectlist)));
-
             let region = Region::new(
                 gen_id!(),
                 FixedData {
@@ -289,7 +278,7 @@ impl FnPersist<CounterState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basi
                     ..Default::default()
                 }
                 .into(),
-                children,
+                feather_ui::children![fixed::Prop, button, flexlist, rectlist],
             );
             let window = Window::new(
                 gen_id!(),

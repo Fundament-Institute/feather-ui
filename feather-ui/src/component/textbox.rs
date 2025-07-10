@@ -14,6 +14,7 @@ use enum_variant_type::EnumVariantType;
 use feather_macro::Dispatch;
 use smallvec::SmallVec;
 use std::rc::Rc;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use winit::keyboard::{Key, KeyCode, NamedKey, PhysicalKey};
 
@@ -69,7 +70,7 @@ impl TextBoxState {
     }
 }
 
-impl super::EventStream for TextBoxState {
+impl super::EventRouter for TextBoxState {
     type Input = RawEvent;
     type Output = TextBoxEvent;
 
@@ -77,6 +78,7 @@ impl super::EventStream for TextBoxState {
         mut self,
         input: Self::Input,
         area: crate::AbsRect,
+        _: crate::AbsRect,
         dpi: crate::Vec2,
         driver: &std::sync::Weak<crate::Driver>,
     ) -> eyre::Result<(Self, SmallVec<[Self::Output; 1]>), (Self, SmallVec<[Self::Output; 1]>)>
@@ -238,7 +240,7 @@ impl super::EventStream for TextBoxState {
                                     let change = self
                                         .editor
                                         .delete_selection(&mut driver.font_system.write(), buffer)
-                                        .map(|x| SmallVec::from_elem(x, 1))
+                                        .map(|x| SmallVec::from_buf([x]))
                                         .unwrap_or_default();
                                     self.editor.shape_as_needed(
                                         &mut driver.font_system.write(),
@@ -260,7 +262,7 @@ impl super::EventStream for TextBoxState {
                                     let change = self
                                         .editor
                                         .delete_selection(&mut driver.font_system.write(), buffer)
-                                        .map(|x| SmallVec::from_elem(x, 1))
+                                        .map(|x| SmallVec::from_buf([x]))
                                         .unwrap_or_default();
                                     self.editor.shape_as_needed(
                                         &mut driver.font_system.write(),
@@ -290,7 +292,7 @@ impl super::EventStream for TextBoxState {
                                                             buffer,
                                                             false,
                                                         );
-                                                        self.append(SmallVec::from_elem(c, 1))
+                                                        self.append(SmallVec::from_buf([c]))
                                                     }
                                                 }
                                             }
@@ -312,7 +314,7 @@ impl super::EventStream for TextBoxState {
                                                 buffer,
                                                 false,
                                             );
-                                            self.append(SmallVec::from_elem(c, 1))
+                                            self.append(SmallVec::from_buf([c]))
                                         }
                                     }
                                     SmallVec::new()
@@ -355,7 +357,7 @@ impl super::EventStream for TextBoxState {
                                 &c,
                                 None,
                             );
-                            self.append(SmallVec::from_elem(c, 1));
+                            self.append(SmallVec::from_buf([c]));
 
                             self.editor.shape_as_needed(
                                 &mut driver.font_system.write(),
@@ -480,7 +482,7 @@ pub trait Prop: leaf::Padded + base::TextEdit {}
 
 #[derive_where(Clone)]
 pub struct TextBox<T: Prop + 'static> {
-    id: Rc<SourceID>,
+    id: Arc<SourceID>,
     props: Rc<T>,
     pub font_size: f32,
     pub line_height: f32,
@@ -525,7 +527,7 @@ impl TextBoxState {
 
 impl<T: Prop + 'static> TextBox<T> {
     pub fn new(
-        id: Rc<SourceID>,
+        id: Arc<SourceID>,
         props: T,
         font_size: f32,
         line_height: f32,
@@ -551,7 +553,7 @@ impl<T: Prop + 'static> TextBox<T> {
 }
 
 impl<T: Prop + 'static> crate::StateMachineChild for TextBox<T> {
-    fn id(&self) -> Rc<SourceID> {
+    fn id(&self) -> Arc<SourceID> {
         self.id.clone()
     }
 
@@ -584,20 +586,22 @@ impl<T: Prop + 'static> crate::StateMachineChild for TextBox<T> {
     }
 }
 
-impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
+impl<T: Prop + 'static> super::Component for TextBox<T> {
+    type Props = T;
+
     fn layout(
         &self,
-        state: &mut crate::StateManager,
+        manager: &mut crate::StateManager,
         driver: &crate::graphics::Driver,
-        window: &Rc<SourceID>,
+        window: &Arc<SourceID>,
     ) -> Box<dyn Layout<T>> {
-        let winstate: &WindowStateMachine = state.get(window).unwrap();
+        let winstate: &WindowStateMachine = manager.get(window).unwrap();
         let winstate = winstate.state.as_ref().expect("No window state available");
         let dpi = winstate.dpi;
         let mut font_system = driver.font_system.write();
 
         let textstate: &mut StateMachine<TextBoxState, { TextBoxEvent::SIZE }> =
-            state.get_mut(&self.id).unwrap();
+            manager.get_mut(&self.id).unwrap();
         let textstate = textstate.state.as_mut().unwrap();
         textstate.props = self.props.clone();
 
@@ -637,11 +641,9 @@ impl<T: Prop + 'static> super::Component<T> for TextBox<T> {
 
         Box::new(layout::text::Node::<T> {
             props: self.props.clone(),
-            id: Rc::downgrade(&self.id),
+            id: Arc::downgrade(&self.id),
             renderable: Rc::new(instance),
             buffer: self.props.textedit().obj.buffer.clone(),
         })
     }
 }
-
-crate::gen_component_wrap!(TextBox, Prop);

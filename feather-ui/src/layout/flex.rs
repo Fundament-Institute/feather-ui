@@ -234,6 +234,7 @@ fn wrap_line(
                 b.aux_margin = b.aux_margin.max(max_aux_upper_margin);
             }
             breaks.push(Linebreak::new(i, max_aux, f32::INFINITY, max_aux_margin));
+            prev_margin = f32::NAN;
             used_aux += max_aux;
             aux += max_aux + inner;
             max_aux = 0.0;
@@ -288,7 +289,7 @@ impl Desc for dyn Prop {
         outer_area: AbsRect,
         outer_limits: AbsLimits,
         children: &Self::Children,
-        id: std::rc::Weak<crate::SourceID>,
+        id: std::sync::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
         window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
@@ -405,6 +406,7 @@ impl Desc for dyn Prop {
                 renderable: None,
                 rtree: rtree::Node::new(evaluated_area, Some(props.zindex()), nodes, id, window),
                 children: staging,
+                layer: None,
             });
         }
 
@@ -600,6 +602,7 @@ impl Desc for dyn Prop {
             renderable,
             rtree: rtree::Node::new(evaluated_area, Some(props.zindex()), nodes, id, window),
             children: staging,
+            layer: None,
         })
     }
 }

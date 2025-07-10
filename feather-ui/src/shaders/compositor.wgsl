@@ -48,13 +48,13 @@ var<uniform> MVP: mat4x4f;
 @group(0) @binding(1)
 var<storage, read> buf: array<Data>;
 @group(0) @binding(2)
-var atlas: texture_2d_array<f32>;
+var<storage, read> cliprects: array<vec4f>;
 @group(0) @binding(3)
 var sampling: sampler;
 @group(0) @binding(4)
-var<storage, read> cliprects: array<vec4f>;
+var atlas: texture_2d_array<f32>;
 @group(0) @binding(5)
-var<uniform> extent: u32;
+var layeratlas: texture_2d_array<f32>;
 
 struct Data {
   pos: vec2f,
@@ -80,8 +80,10 @@ fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
   let index = idx / 6;
   var vpos = vec2(UNITX[vert], UNITY[vert]);
   let d = buf[index];
+
   // Setting this flag *disables* inflation, so we invert it by comparing to 0
   let inflate = (d.texclip & 0x80000000) == 0;
+  let layer = (d.texclip & 0x40000000) != 0;
 
   var inflate_dim = d.dim;
   var inflate_pos = d.pos;
@@ -114,9 +116,19 @@ fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
 
   let out_pos = MVP * vec4(pos.x, pos.y, 1f, 1f);
 
+  // When porting this to older shader versions, you can pass in the texture extent via a uniform instead,
+  // but since we can access the texture from the vertex shader here, we just get the dimensions explicitly.
+  var extent: vec2<u32>;
+  if layer {
+    extent = textureDimensions(layeratlas);
+  }
+  else {
+    extent = textureDimensions(atlas);
+  }
+
   var source = IDENTITY_MAT4;
-  let uv = inflate_uv / f32(extent);
-  let uvdim = inflate_uvdim / f32(extent);
+  let uv = inflate_uv / vec2f(extent);
+  let uvdim = inflate_uvdim / vec2f(extent);
 
   var out_uv = vpos * uvdim;
   // If the rotation is negative it's applied to the UV rectangle as well
@@ -136,8 +148,9 @@ fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
 fn fs_main(input: VertexOutput) -> @location(0) vec4f {
   let d = buf[input.index];
   let clip = d.texclip & 0x0000FFFF;
-  let tex = (d.texclip & 0x7FFF0000) >> 16;
+  let tex = (d.texclip & 0x00FF0000) >> 16;
   let inflate = (d.texclip & 0x80000000) == 0;
+  let layer = (d.texclip & 0x40000000) != 0;
 
   if clip > 0 {
     let r = cliprects[clip];
@@ -150,13 +163,20 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
   var uv = input.uv;
 
   if (inflate) {
-    // TODO: Allow turning off the edge corrections
+    var extent: vec2<u32>;
+    if layer {
+      extent = textureDimensions(layeratlas);
+    }
+    else {
+      extent = textureDimensions(atlas);
+    }
+
     // A pixel-perfect texture lookup at pixel 0,0 actually samples at 0.5,0.5, at the center of the
     // texel. Hence, if we simply clamp from 0,0 to height,width, this doesn't prevent bleedover when
     // we get a misaligned pixel that tries to sample the texel at 0,0, which will bleed over into the
     // texels next to it. As a result, we must clamp from 0.5,0.5 to width - 0.5, height - 0.5
-    let uvmin = (d.uv + vec2f(0.5)) / f32(extent);
-    let uvmax = (d.uv + d.uvdim - vec2f(0.5)) / f32(extent);
+    let uvmin = (d.uv + vec2f(0.5)) / vec2f(extent);
+    let uvmax = (d.uv + d.uvdim - vec2f(0.5)) / vec2f(extent);
     uv = clamp(input.uv, uvmin, uvmax);
 
     // We get the pixel distance from the center of our quad, which we then use to do a precise alpha
@@ -165,8 +185,12 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
     color *= clamp(min(dist.x, dist.y), 0.0, 1.0);
   }
 
-  if tex == 0x7FFF {
+  if tex == 0xFF {
     return color;
+  }
+
+  if layer {
+    return textureSample(layeratlas, sampling, uv, tex) * color;
   }
 
   return textureSample(atlas, sampling, uv, tex) * color;
