@@ -21,8 +21,44 @@ path = "src/lib.rs"
 doctest = false
 
 [features]
-default = ["lua"]
+default = ["lua", "default-formats", "svg"]
 lua = ["dep:mlua"]
+svg = ["dep:resvg"]
+default-formats = [
+  "avif",
+  "bmp",
+  "dds",
+  "exr",
+  "ff",
+  "gif",
+  "hdr",
+  "ico",
+  "jpeg",
+  "png",
+  "pnm",
+  "qoi",
+  "tga",
+  "tiff",
+  "webp",
+]
+rayon = ["dep:image", "image/rayon"]
+avif = ["dep:image", "image/avif"]
+bmp = ["dep:image", "image/bmp"]
+dds = ["dep:image", "image/dds"]
+exr = ["dep:image", "image/exr"]
+ff = ["dep:image", "image/ff"]
+gif = ["dep:image", "image/gif"]
+hdr = ["dep:image", "image/hdr"]
+ico = ["dep:image", "image/ico"]
+jpeg = ["dep:image", "image/jpeg"]
+png = ["dep:image", "image/png"]
+pnm = ["dep:image", "image/pnm"]
+qoi = ["dep:image", "image/qoi"]
+tga = ["dep:image", "image/tga"]
+tiff = ["dep:image", "image/tiff"]
+webp = ["dep:image", "image/webp"]
+vello = ["dep:vello"]
+vello-svg = ["dep:vello_svg"]
 
 [dependencies]
 im.workspace = true
@@ -32,12 +68,9 @@ eyre.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 ultraviolet.workspace = true
+fast_image_resize = { version = "5.2.1", features = ["image"] }
 dyn-clone = "1.0"
 derive-where = "1.2.7"
-mlua = { version = "0.10", features = [
-  "luajit52",
-  "vendored",
-], optional = true }
 enum_variant_type = "0.3.1"
 smallvec = { version = "1.13", features = ["union", "const_generics"] }
 thiserror = "2.0"
@@ -63,6 +96,14 @@ futures-lite = "2.6.0"
 num-traits = "0.2.19"
 swash = "0.2.5"
 bitfield-struct = "0.11.0"
+mlua = { version = "0.10", features = [
+  "luajit52",
+  "vendored",
+], optional = true }
+image = { version = "0.25.6", optional = true }
+resvg = { version = "0.45.1", optional = true }
+vello = { version = "0.5.0", optional = true }
+vello_svg = { version = "0.7.1", optional = true }
 
 [lints.clippy]
 too_many_arguments = { level = "allow" }
